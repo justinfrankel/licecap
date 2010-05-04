@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D "PNG_WRITE_SUPPORTED" /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -64,7 +64,7 @@ LINK32=xilink6.exe
 # PROP Intermediate_Dir "Debug"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
+# ADD CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "PNG_WRITE_SUPPORTED" /YX /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -159,9 +159,89 @@ SOURCE=..\WDL\zlib\uncompr.c
 SOURCE=..\WDL\zlib\zutil.c
 # End Source File
 # End Group
+# Begin Group "png"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\WDL\libpng\png.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngerror.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pnggccrd.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngget.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngmem.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngpread.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngread.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngrio.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngrtran.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngrutil.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngset.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngtrans.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngvcrd.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwio.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwrite.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwtran.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwutil.c
+# End Source File
+# End Group
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_png.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_png_write.cpp
 # End Source File
 # Begin Source File
 
