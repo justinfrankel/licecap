@@ -11,59 +11,23 @@
 class LICECaptureCompressor
 {
 public:
-  LICECaptureCompressor(const char *outfn, int w, int h, int interval=20, int bsize_w=256, int bsize_h=16)
-  {
-    m_file = new WDL_FileWrite(outfn,1,512*1024);
-    if (!m_file->IsOpen()) { delete m_file; m_file=0; }
+  LICECaptureCompressor(const char *outfn, int w, int h, int interval=20, int bsize_w=256, int bsize_h=16);
 
-    memset(&m_compstream,0,sizeof(m_compstream));
-    if (m_file)
-    {
-      if (deflateInit(&m_compstream,7)!=Z_OK)
-      {
-        delete m_file; 
-        m_file=0;
-      }
-    }
-
-    m_inbytes=0;
-    m_outsize=0;
-    m_w=w;
-    m_h=h;
-    m_interval=interval;
-    m_bsize_w=bsize_w;
-    m_bsize_h=bsize_h;
-    m_state=0;
-    m_which=0;
-    m_outchunkpos=0;
-    m_numcols = (m_w+bsize_w-1) / (bsize_w>0?bsize_w:1);
-    if (m_numcols<1) m_numcols=1;
-    m_numrows = (m_h+bsize_h-1)/ (bsize_h>0?bsize_h:1);
-
-  }
-  ~LICECaptureCompressor()
-  {
-    // process any pending frames
-    if (m_file)
-    {
-      OnFrame(NULL,0);
-      deflateEnd(&m_compstream);
-    }
-
-    delete m_file;
-    m_framelists[0].Empty(true);
-    m_framelists[1].Empty(true);
-  }
+  ~LICECaptureCompressor();
 
   bool IsOpen() { return !!m_file; }
-
   void OnFrame(LICE_IBitmap *fr, int delta_t_ms);
 
-  int GetOutSize() { return m_outsize; }
-  int GetInSize() { return m_inbytes; }
+  WDL_INT64 GetOutSize() { return m_outsize; }
+  WDL_INT64 GetInSize() { return m_inbytes; }
+
+
 private:
   WDL_FileWrite *m_file;
-  int m_w,m_h,m_interval,m_bsize_w,m_bsize_h,m_outsize,m_inbytes;
+  WDL_INT64 m_outsize,m_inbytes;
+
+  int m_w,m_h,m_interval,m_bsize_w,m_bsize_h;
+
 
   struct frameRec
   {
@@ -88,6 +52,36 @@ private:
 
 };
 
+
+LICECaptureCompressor::LICECaptureCompressor(const char *outfn, int w, int h, int interval, int bsize_w, int bsize_h)
+{
+  m_file = new WDL_FileWrite(outfn,1,512*1024);
+  if (!m_file->IsOpen()) { delete m_file; m_file=0; }
+
+  memset(&m_compstream,0,sizeof(m_compstream));
+  if (m_file)
+  {
+    if (deflateInit(&m_compstream,7)!=Z_OK)
+    {
+      delete m_file; 
+      m_file=0;
+    }
+  }
+
+  m_inbytes=0;
+  m_outsize=0;
+  m_w=w;
+  m_h=h;
+  m_interval=interval;
+  m_bsize_w=bsize_w;
+  m_bsize_h=bsize_h;
+  m_state=0;
+  m_which=0;
+  m_outchunkpos=0;
+  m_numcols = (m_w+bsize_w-1) / (bsize_w>0?bsize_w:1);
+  if (m_numcols<1) m_numcols=1;
+  m_numrows = (m_h+bsize_h-1)/ (bsize_h>0?bsize_h:1);
+}
 
 void LICECaptureCompressor::OnFrame(LICE_IBitmap *fr, int delta_t_ms)
 {
@@ -231,6 +225,23 @@ void LICECaptureCompressor::DeflateBlock(void *data, int data_size, bool flush)
   }
 }
 
+
+
+LICECaptureCompressor::~LICECaptureCompressor()
+{
+  // process any pending frames
+  if (m_file)
+  {
+    OnFrame(NULL,0);
+    deflateEnd(&m_compstream);
+  }
+
+  delete m_file;
+  m_framelists[0].Empty(true);
+  m_framelists[1].Empty(true);
+}
+
+
 int main()
 {
   DWORD st = GetTickCount();
@@ -255,8 +266,8 @@ int main()
     while (GetTickCount() < st + 200*x) Sleep(1);
   }
   tc->OnFrame(NULL,0);
-  int outsz=tc->GetOutSize();
-  int intsz = tc->GetInSize();
+  WDL_INT64 outsz=tc->GetOutSize();
+  WDL_INT64 intsz = tc->GetInSize();
   delete tc;
   st = GetTickCount()-st;
   printf("%d %dx%d frames in %.1fs, %.1f fps %.1fMB/s (%.1fMB/s -> %.1fMB/s)\n",x,r.right,r.bottom,st/1000.0,x*1000.0/st,
