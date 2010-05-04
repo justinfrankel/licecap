@@ -4,6 +4,7 @@
 #include "../WDL/zlib/zlib.h"
 #include "../WDL/lice/lice.h"
 #include "../WDL/filewrite.h"
+#include "../WDL/fileread.h"
 #include "../WDL/ptrlist.h"
 #include "../WDL/queue.h"
 
@@ -25,6 +26,7 @@ public:
 private:
   WDL_FileWrite *m_file;
   WDL_INT64 m_outsize,m_inbytes;
+  int m_inframes, m_outframes;
 
   int m_w,m_h,m_interval,m_bsize_w,m_bsize_h;
 
@@ -55,6 +57,7 @@ private:
 
 LICECaptureCompressor::LICECaptureCompressor(const char *outfn, int w, int h, int interval, int bsize_w, int bsize_h)
 {
+  m_inframes = m_outframes=0;
   m_file = new WDL_FileWrite(outfn,1,512*1024);
   if (!m_file->IsOpen()) { delete m_file; m_file=0; }
 
@@ -85,8 +88,6 @@ LICECaptureCompressor::LICECaptureCompressor(const char *outfn, int w, int h, in
 
 void LICECaptureCompressor::OnFrame(LICE_IBitmap *fr, int delta_t_ms)
 {
-  if (!fr && !m_state) return; // nothing to do!
-
   if (fr) 
   {
     if (fr->getWidth()!=m_w || fr->getHeight()!=m_h) return;
@@ -99,6 +100,7 @@ void LICECaptureCompressor::OnFrame(LICE_IBitmap *fr, int delta_t_ms)
     }
     BitmapToFrameRec(fr,rec);
     m_state++;
+    m_inframes++;
   }
 
 
@@ -146,37 +148,57 @@ void LICECaptureCompressor::OnFrame(LICE_IBitmap *fr, int delta_t_ms)
 
   if (isLastBlock)
   {
-    // todo: write header
-    DeflateBlock(NULL,0,true);
-
-    m_hdrqueue.Clear();
-    AddHdrInt(2);
-    AddHdrInt(m_w);
-    AddHdrInt(m_h);
-    AddHdrInt(m_bsize_w);
-    AddHdrInt(m_bsize_h);
-    int nf = m_framelists[!m_which].GetSize();
-    AddHdrInt(nf);
+    if (m_framelists[!m_which].GetSize())
     {
-      int x;
-      for(x=0;x<nf;x++)
-        AddHdrInt(m_framelists[!m_which].Get(x)->delta_t_ms);
+      m_outframes += m_framelists[!m_which].GetSize();
+      // todo: write header
+      DeflateBlock(NULL,0,true);
+
+      m_hdrqueue.Clear();
+      AddHdrInt(16);
+      AddHdrInt(m_w);
+      AddHdrInt(m_h);
+      AddHdrInt(m_bsize_w);
+      AddHdrInt(m_bsize_h);
+      int nf = m_framelists[!m_which].GetSize();
+      AddHdrInt(nf);
+      int sz = m_current_block.Available();
+      AddHdrInt(sz);
+      {
+        int x;
+        for(x=0;x<nf;x++)
+          AddHdrInt(m_framelists[!m_which].Get(x)->delta_t_ms);
+      }
+
+
+      m_file->Write(m_hdrqueue.Get(),m_hdrqueue.Available());
+      m_outsize += m_hdrqueue.Available();
+      m_file->Write(m_current_block.Get(),sz);
+      m_outsize += sz;
+
+      m_current_block.Clear();
     }
 
-    int sz = m_current_block.Available();
-    AddHdrInt(sz);
 
-    m_file->Write(m_hdrqueue.Get(),m_hdrqueue.Available());
-    m_outsize += m_hdrqueue.Available();
-    m_file->Write(m_current_block.Get(),sz);
-    m_outsize += sz;
-
-    m_current_block.Clear();
-
-
-    m_which=!m_which;
+    int old_state=m_state;
     m_state=0;
     m_outchunkpos=0;
+    m_which=!m_which;
+
+
+    if (old_state>0 && !fr)
+    {
+      while (m_framelists[!m_which].GetSize() > old_state)
+        m_framelists[!m_which].Delete(m_framelists[!m_which].GetSize()-1,true);
+
+      OnFrame(NULL,0);
+    }
+
+    if (!fr)
+    {
+      m_framelists[0].Empty(true);
+      m_framelists[1].Empty(true);
+    }
   }
 }
 
@@ -241,6 +263,90 @@ LICECaptureCompressor::~LICECaptureCompressor()
   m_framelists[1].Empty(true);
 }
 
+
+class LICECaptureDecompressor
+{
+public:
+  LICECaptureDecompressor(const char *fn);
+  ~LICECaptureDecompressor()
+  {
+    delete m_file;
+  }
+
+  bool IsOpen() { return !!m_file; }
+
+  int GetOffset(); // current frame offset (ms)
+  int Seek(int offset_ms); // return -1 on fail (out of range)
+
+  LICE_IBitmap *GetCurrentFrame(); // can return NULL if error
+
+
+private:
+  LICE_MemBitmap m_workbm;
+
+  struct 
+  {
+    int bpp;
+    int w, h;
+    int bsize_w, bsize_h;
+  } m_curhdr;
+
+  bool ReadHdr()
+  {
+    m_tmp.Clear();
+    int hdr_sz = (4*6);
+    if (m_file->Read(m_tmp.Add(NULL,hdr_sz),hdr_sz)!=hdr_sz) return false;
+    m_tmp.GetTFromLE(&m_curhdr.bpp);
+    m_tmp.GetTFromLE(&m_curhdr.w);
+    m_tmp.GetTFromLE(&m_curhdr.h);
+    m_tmp.GetTFromLE(&m_curhdr.bsize_w);
+    m_tmp.GetTFromLE(&m_curhdr.bsize_h);
+    int nf;
+    m_tmp.GetTFromLE(&nf);
+    int csize;
+    m_tmp.GetTFromLE(&csize);
+    
+    if (nf<1 || nf > 1024) return false;
+
+    if (m_file->Read(m_frame_deltas.Resize(nf),nf*4)!=nf*4) return false;
+    int x;
+    for(x=0;x<nf;x++)
+    {
+      WDL_Queue::WDL_Queue__bswap_buffer(m_frame_deltas.Get()+x,4);
+    }
+    
+
+    return true;
+  }
+
+  
+  WDL_FileRead *m_file;
+
+  WDL_Queue m_tmp;
+
+  WDL_TypedBuf<int> m_frame_deltas;
+
+  WDL_HeapBuf m_srcdata;
+  WDL_TypedBuf<unsigned short> m_decompdata;
+};
+
+LICECaptureDecompressor::LICECaptureDecompressor(const char *fn)
+{
+  memset(&m_curhdr,0,sizeof(m_curhdr));
+  m_file = new WDL_FileRead(fn,2,1024*1024);
+  if (m_file->IsOpen())
+  {
+    if (!ReadHdr())
+      memset(&m_curhdr,0,sizeof(m_curhdr));
+  }
+
+
+  if (m_curhdr.bpp==16) 
+  {
+    delete m_file;
+    m_file=0;
+  }
+}
 
 int main()
 {
