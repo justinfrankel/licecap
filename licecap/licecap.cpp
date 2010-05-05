@@ -14,6 +14,43 @@ void sigfuncint(int a)
 }
 
 
+typedef struct {
+  DWORD   cbSize;
+  DWORD   flags;
+  HCURSOR hCursor;
+  POINT   ptScreenPos;
+} pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
+
+static void DoMouseCursor(HDC hdc, HWND h)
+{
+  // XP+ only
+
+  static BOOL (WINAPI *pGetCursorInfo)(pLPCURSORINFO);
+  static bool tr;
+  if (!tr)
+  {
+    tr=true;
+    HINSTANCE hUser=LoadLibrary("USER32.dll");
+    if (hUser)
+      *(void **)&pGetCursorInfo = (void*)GetProcAddress(hUser,"GetCursorInfo");
+  }
+
+  if (pGetCursorInfo)
+  {
+    pCURSORINFO ci={sizeof(ci)};
+    pGetCursorInfo(&ci);
+    if (ci.flags && ci.hCursor)
+    {
+      ICONINFO inf={0,};
+      GetIconInfo(ci.hCursor,&inf);
+      DrawIconEx(hdc,ci.ptScreenPos.x-inf.xHotspot,ci.ptScreenPos.y-inf.yHotspot,ci.hCursor,0,0,0,NULL,DI_NORMAL);
+      if (inf.hbmColor) DeleteObject(inf.hbmColor);
+      if (inf.hbmMask) DeleteObject(inf.hbmMask);
+    }
+  }
+  else printf("fail cursor\n");
+}
+
 int main(int argc, char **argv)
 {
   signal(SIGINT,sigfuncint);
@@ -62,6 +99,9 @@ int main(int argc, char **argv)
           BitBlt(bm.getDC(),0,0,r.right,r.bottom,hdc,0,0,SRCCOPY);
           ReleaseDC(h,hdc);
         }
+
+        DoMouseCursor(bm.getDC(),h);
+
         DWORD thist = GetTickCount();
 
         x++;
