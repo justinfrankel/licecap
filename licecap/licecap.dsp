@@ -237,6 +237,14 @@ SOURCE=..\WDL\lice\lice.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\WDL\lice\lice_lcf.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_lcf.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\WDL\lice\lice_png.cpp
 # End Source File
 # Begin Source File
