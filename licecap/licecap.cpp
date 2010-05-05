@@ -53,6 +53,7 @@ int main(int argc, char **argv)
     {
       printf("Encoding %dx%d target %.1f fps:\n",r.right,r.bottom,1000.0/fr);
 
+      DWORD lastt=GetTickCount();
       while (!g_done)
       {
         HDC hdc = GetDC(h);
@@ -61,10 +62,12 @@ int main(int argc, char **argv)
           BitBlt(bm.getDC(),0,0,r.right,r.bottom,hdc,0,0,SRCCOPY);
           ReleaseDC(h,hdc);
         }
+        DWORD thist = GetTickCount();
 
         x++;
-        printf("Frame: %d (%.1ffps)\r",x,x*1000.0/(GetTickCount()-st));
-        tc->OnFrame(&bm,1);
+        printf("Frame: %d (%.1ffps, offs=%d)\r",x,x*1000.0/(thist-st),thist-lastt);
+        tc->OnFrame(&bm,thist - lastt);
+        lastt = thist;
     
         while (GetTickCount() < (DWORD) (st + x*fr) && !g_done) Sleep(1);
       }
