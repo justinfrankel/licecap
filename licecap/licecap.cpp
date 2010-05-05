@@ -42,6 +42,8 @@ private:
   WDL_Queue m_current_block;
   WDL_Queue m_hdrqueue;
 
+  WDL_Queue m_compqueue;
+
   int m_state, m_which,m_outchunkpos,m_numrows,m_numcols;
 
 
@@ -222,7 +224,7 @@ void LICECaptureCompressor::BitmapToFrameRec(LICE_IBitmap *fr, frameRec *dest)
     while (x--)
     {
       LICE_pixel pix = *sp++;
-      *outptr++ = (LICE_GETR(pix)>>3) | ((LICE_GETG(pix)&0xFC)<<3) | ((LICE_GETB(pix)&0xF8)<<11);
+      *outptr++ = (((int)LICE_GETR(pix)&0xF8)>>3) | (((int)LICE_GETG(pix)&0xFC)<<3) | (((int)LICE_GETB(pix)&0xF8)<<8);
     }
     p += span;
   }
@@ -231,37 +233,36 @@ void LICECaptureCompressor::BitmapToFrameRec(LICE_IBitmap *fr, frameRec *dest)
 void LICECaptureCompressor::DeflateBlock(void *data, int data_size, bool flush)
 {
   m_inbytes += data_size;
-  while (flush||data_size>0)
+  m_compqueue.Add(data,data_size);
+
+  if (flush || m_compqueue.Available()>128*1024)
   {
-    m_compstream.next_in = (unsigned char *)data;
-    m_compstream.avail_in = data_size;
-    m_compstream.total_in = 0;
-
-    int av = m_current_block.Available();
-    int alloc_out = (data_size*9)/8+16384;
-    m_compstream.next_out = (unsigned char *)m_current_block.Add(NULL,alloc_out);
-    m_compstream.avail_out = alloc_out;
-    m_compstream.total_out=0;
-
-    int e = deflate(&m_compstream,flush?Z_FULL_FLUSH:Z_NO_FLUSH);
-
-//    if (e != Z_OK) printf("error calling deflate (%d)\n",e);
-
-    m_current_block.Add(NULL, m_compstream.total_out - alloc_out ); // un-add unused data
-    if (av<4 && m_current_block.Available()>=4)
+    m_compstream.next_in = (unsigned char *)m_compqueue.Get();
+    m_compstream.avail_in = m_compqueue.Available();
+  
+    unsigned char buf[32768];
+    for (;;)
     {
-      printf("first int = %08x\n",*(int*)m_current_block.Get());
-    }
+      m_compstream.next_out = buf;
+      m_compstream.avail_out = sizeof(buf);
 
-    data = (char *)data + m_compstream.total_in;
-    data_size -= m_compstream.total_in;
+      if (!flush && !m_compstream.avail_in) break;
 
-    if (flush && !m_compstream.total_out) break;
+      int e = deflate(&m_compstream,flush?Z_FULL_FLUSH:Z_NO_FLUSH);
     
+      if (e != Z_OK)
+        printf("deflate() err %d\n",e);
 
+      m_current_block.Add(buf, sizeof(buf)-m_compstream.avail_out);
+      m_outsize += sizeof(buf)-m_compstream.avail_out;
+
+      if (flush && !m_compstream.avail_in && m_compstream.avail_out==sizeof(buf)) break;
+    }
+    
+    m_compqueue.Advance(m_compqueue.Available()-m_compstream.avail_in);
+    m_compqueue.Compact();
+    
   }
-  if (data_size>0)
-    printf("error, unused data!\n");
 }
 
 
@@ -298,9 +299,15 @@ public:
 
   bool NextFrame() // TRUE if out of frames
   {
-    if (m_frameidx++ >= m_frame_deltas.GetSize())
+    if (++m_frameidx >= m_frame_deltas.GetSize())
     {
-      if (!ReadHdr()) return true;
+      if (!ReadHdr())
+      {
+        printf("failblock\n");
+        return true;
+      }
+      m_frameidx=0;
+      printf("yay next block\n");
     }
     return false;
   }
@@ -345,7 +352,7 @@ LICECaptureDecompressor::LICECaptureDecompressor(const char *fn)
       memset(&m_curhdr,0,sizeof(m_curhdr));
   }
 
-  if (m_curhdr.bpp==16) 
+  if (m_curhdr.bpp!=16) 
   {
     delete m_file;
     m_file=0;
@@ -397,16 +404,12 @@ bool LICECaptureDecompressor::ReadHdr() // todo: eventually make this read/decom
     return false;
   }
 
-  int dsize = m_curhdr.w*m_curhdr.h*(m_curhdr.bpp+7)/8*nf;
+  int dsize = m_curhdr.w*m_curhdr.h*((m_curhdr.bpp+7)/8)*nf;
   m_decompdata.Resize(dsize,false);
   if (m_decompdata.GetSize()!=dsize) return false;
 
-
-
   int srcpos = 0;
   int destpos=0;
-
-  printf("first int = %08x\n",*(int *)m_srcdata.Get());
 
   while (destpos < m_decompdata.GetSize())
   {
@@ -414,7 +417,7 @@ bool LICECaptureDecompressor::ReadHdr() // todo: eventually make this read/decom
     m_compstream.avail_in = m_srcdata.GetSize() - srcpos;
     if (m_compstream.avail_in>16384) m_compstream.avail_in=16384;
     m_compstream.total_in = 0;
-  
+
     m_compstream.next_out = (unsigned char *)m_decompdata.Get() + destpos;
     m_compstream.avail_out = m_decompdata.GetSize() - destpos;
     if (m_compstream.avail_out > 65536) m_compstream.avail_out=65536;
@@ -431,13 +434,13 @@ bool LICECaptureDecompressor::ReadHdr() // todo: eventually make this read/decom
 
     if (!m_compstream.total_in && !m_compstream.total_out)
     {
-      printf("Errrrr\n");
       return false;
     }
   }
 
   inflateReset(&m_compstream);
 
+  printf("yay\n");
   m_frameidx=0;
 
   return true;
@@ -466,12 +469,12 @@ LICE_IBitmap *LICECaptureDecompressor::GetCurrentFrame()
           totw=m_curhdr.w;
       unsigned short *sliceptr = (unsigned short *)m_decompdata.Get();
 
-      for (ypos = 0; ypos < toth; ypos++)
+      for (ypos = 0; ypos < toth; ypos+=m_curhdr.bsize_h)
       {
         int hei = toth-ypos;
         if (hei>m_curhdr.bsize_h) hei=m_curhdr.bsize_h;
         int xpos;
-        for (xpos=0; xpos<totw; xpos++)
+        for (xpos=0; xpos<totw; xpos+=m_curhdr.bsize_w)
         {
           int wid  = totw-xpos;
           if (wid>m_curhdr.bsize_w) wid=m_curhdr.bsize_w;
@@ -509,6 +512,7 @@ int main(int argc, char **argv)
   if (argc==2)
   {
     LICECaptureDecompressor tc(argv[1]);
+    printf("Blah\n");
     if (tc.IsOpen())
     {
       printf("getting frame\n");
