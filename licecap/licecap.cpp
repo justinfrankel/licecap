@@ -60,7 +60,34 @@ int main(int argc, char **argv)
     if (tc.IsOpen())
     {
       int x;
-      for (x=0;!g_done;x++)
+
+      if (strstr(argv[3],".gif"))
+      {
+        void *wr=NULL;
+        for (x=0;!g_done;x++)
+        {
+          LICE_IBitmap *bm = tc.GetCurrentFrame();
+          if (!bm) break;
+          tc.NextFrame();
+
+          if (!wr)
+          {
+            wr=LICE_WriteGIFBegin(argv[3],bm,0,0,false);
+            if (!wr)
+            {
+              printf("error writing gif '%s'\n",argv[3]);
+              break;
+            }
+          }
+          else
+            LICE_WriteGIFFrame(wr,bm,0,0,true);
+        }
+        if (wr)
+        {
+          LICE_WriteGIFEnd(wr);
+        }
+      }
+      else for (x=0;!g_done;x++)
       {
         LICE_IBitmap *bm = tc.GetCurrentFrame();
         if (!bm) break;
