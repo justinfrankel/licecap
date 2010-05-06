@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 
           if (!wr)
           {
-            wr=LICE_WriteGIFBegin(argv[3],bm,0,0,false);
+            wr=LICE_WriteGIFBegin(argv[3],bm,0,tc.GetTimeToNextFrame(),false);
             if (!wr)
             {
               printf("error writing gif '%s'\n",argv[3]);
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
             }
           }
           else
-            LICE_WriteGIFFrame(wr,bm,0,0,true);
+            LICE_WriteGIFFrame(wr,bm,0,0,true,tc.GetTimeToNextFrame());
         }
         if (wr)
         {
