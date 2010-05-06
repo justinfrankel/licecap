@@ -121,8 +121,19 @@ int main(int argc, char **argv)
     RECT r;
     GetClientRect(h,&r);
     bm.resize(r.right,r.bottom);
-    LICECaptureCompressor *tc = new LICECaptureCompressor(argv[2],r.right,r.bottom);
-    if (tc->IsOpen())
+
+    LICE_MemBitmap *lastbm=NULL;
+
+    bool gifMode=false,pngMode=false;
+    if (strstr(argv[2],".gif")) gifMode=true;
+    if (strstr(argv[2],".png")) pngMode=true;
+
+    LICECaptureCompressor *tc = NULL;
+    void *gif_wr=NULL;
+    bool newCmap = true; //for gif mode
+    
+    if (!gifMode&&!pngMode) tc = new LICECaptureCompressor(argv[2],r.right,r.bottom);
+    if (gifMode||pngMode||tc->IsOpen())
     {
       printf("Encoding %dx%d target %.1f fps:\n",r.right,r.bottom,1000.0/fr);
 
@@ -142,18 +153,68 @@ int main(int argc, char **argv)
 
         x++;
         printf("Frame: %d (%.1ffps, offs=%d)\r",x,x*1000.0/(thist-st),thist-lastt);
-        tc->OnFrame(&bm,thist - lastt);
+
+        if (tc) 
+          tc->OnFrame(&bm,thist - lastt);
+        else if (pngMode)
+        {
+          char buf[512];
+          strcpy(buf,argv[2]);
+          char *p=buf;
+          while(*p)p++;
+          while(p>buf&&*p!='.')p--;
+          if (p>buf)
+          {
+            sprintf(p,"-%03d.png",x-1);
+          }
+          LICE_WritePNG(buf,&bm,false);
+        }
+        else if (gifMode)
+        {
+          if (!gif_wr)
+          {
+            if (!lastbm) 
+            {
+              lastbm = new LICE_MemBitmap;
+            }
+            else
+            {
+              gif_wr=LICE_WriteGIFBegin(argv[2],lastbm,0,thist-lastt,false);
+              if (!gif_wr)
+              {
+                printf("error writing to gif\n");
+                break;
+              }
+            }
+          }
+          else if (gif_wr)
+            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,newCmap,thist-lastt);
+
+          if (lastbm) LICE_Copy(lastbm,&bm);
+        }
         lastt = thist;
     
         while (GetTickCount() < (DWORD) (st + x*fr) && !g_done) Sleep(1);
       }
       printf("\nFlushing frames\n");
       st = GetTickCount()-st;
-      tc->OnFrame(NULL,0);
+      WDL_INT64 intsz=0,outsz=0;
+      if (tc)
+      {
+        tc->OnFrame(NULL,0);
+        outsz=tc->GetOutSize();
+        intsz = tc->GetInSize();
+        delete tc;
+      }
+      if (gif_wr)
+      {
+        if (lastbm)
+          LICE_WriteGIFFrame(gif_wr,lastbm,0,0,newCmap,GetTickCount()-lastt);
+        LICE_WriteGIFEnd(gif_wr);
+      }
+      delete lastbm;
+      lastbm=0;
 
-      WDL_INT64 outsz=tc->GetOutSize();
-      WDL_INT64 intsz = tc->GetInSize();
-      delete tc;
       printf("%d %dx%d frames in %.1fs, %.1f fps %.1fMB/s (%.1fMB/s -> %.3fMB/s)\n",x,r.right,r.bottom,st/1000.0,x*1000.0/st,
         r.right*r.bottom*4 * (x*1000.0/st) / 1024.0/1024.0,
         intsz /1024.0/1024.0 / (st/1000.0),
