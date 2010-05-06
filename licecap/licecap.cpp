@@ -93,8 +93,17 @@ int main(int argc, char **argv)
         if (!bm) break;
         tc.NextFrame();
         char buf[512];
-        sprintf(buf,"%s%03d.png",argv[3],x);
-        LICE_WritePNG(buf,bm);
+        if (1)
+        {
+          sprintf(buf,"%s%03d.png",argv[3],x);
+          LICE_WritePNG(buf,bm);
+        }
+        else
+        {
+          sprintf(buf,"%s%03d.gif",argv[3],x);
+          LICE_WriteGIF(buf,bm,0,false);
+        }
+
       }
     }
     else printf("Error opening '%s'\n",argv[2]);
