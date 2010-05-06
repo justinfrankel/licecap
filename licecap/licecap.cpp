@@ -56,7 +56,7 @@ int main(int argc, char **argv)
   signal(SIGINT,sigfuncint);
   if (argc==4 && !strcmp(argv[1],"-d"))
   {
-    LICECaptureDecompressor tc(argv[2]);
+    LICECaptureDecompressor tc(argv[2],true);
     if (tc.IsOpen())
     {
       int x;
