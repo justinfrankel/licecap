@@ -25,7 +25,7 @@ CFG=licecap - Win32 Debug
 # PROP AllowPerConfigDependencies 0
 # PROP Scc_ProjName ""
 # PROP Scc_LocalPath ""
-CPP=xicl6.exe
+CPP=cl.exe
 RSC=rc.exe
 
 !IF  "$(CFG)" == "licecap - Win32 Release"
@@ -47,7 +47,7 @@ RSC=rc.exe
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LINK32=xilink6.exe
+LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
 
@@ -70,7 +70,7 @@ LINK32=xilink6.exe
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LINK32=xilink6.exe
+LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
 
@@ -231,9 +231,41 @@ SOURCE=..\WDL\libpng\pngwtran.c
 SOURCE=..\WDL\libpng\pngwutil.c
 # End Source File
 # End Group
+# Begin Group "giflib"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\WDL\giflib\dgif_lib.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\giflib\egif_lib.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\giflib\gif_hash.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\giflib\gifalloc.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_gif.cpp
+# End Source File
+# End Group
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_gif_write.cpp
 # End Source File
 # Begin Source File
 
@@ -242,6 +274,10 @@ SOURCE=..\WDL\lice\lice_lcf.cpp
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice_lcf.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_palette.cpp
 # End Source File
 # Begin Source File
 
