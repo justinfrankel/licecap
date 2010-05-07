@@ -135,7 +135,7 @@ int main(int argc, char **argv)
     if (!gifMode&&!pngMode) tc = new LICECaptureCompressor(argv[2],r.right,r.bottom);
     if (gifMode||pngMode||tc->IsOpen())
     {
-      printf("Encoding %dx%d target %.1f fps:\n",r.right,r.bottom,1000.0/fr);
+      printf("Encoding %dx%d target %.1f fps (press Ctrl+C to stop):\n",r.right,r.bottom,1000.0/fr);
 
       DWORD lastt=GetTickCount();
       while (!g_done)
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
 
   }
   else 
-    printf("usage: licecap [-d file.lcf fnoutbase] | [-e file.lcf [fps]]\n");
+    printf("usage: licecap [-d file.lcf fnout[.gif]] | [-e file.[lcf|gif] [fps]]\n");
   
   return 0;
 }
