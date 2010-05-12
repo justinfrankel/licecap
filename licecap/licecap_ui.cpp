@@ -11,23 +11,27 @@ LICECaptureCompressor *g_cap_lcf;
 void *g_cap_gif;
 
 LICE_MemBitmap *g_cap_lastbm; // used for gif, so we can know time until next frame, etc
-LICE_SysBitmap g_cap_bm;
+LICE_SysBitmap *g_cap_bm;
+DWORD g_cap_lastt;
 
+void Capture_Finish()
+{
+  delete g_cap_lcf;
+  g_cap_lcf=0;
 
-      void Capture_Finish()
-      {
-        delete g_cap_lcf;
-        g_cap_lcf=0;
+  if (g_cap_gif)
+  {
+    if (g_cap_lastbm)
+      LICE_WriteGIFFrame(g_cap_gif,g_cap_lastbm,0,0,true,GetTickCount()-g_cap_lastt);
 
-        if (g_cap_gif)
-        {
-          if (lastbm)
-            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,newCmap,GetTickCount()-lastt);
-          if (
-          LICE_WriteGIFEnd(g_cap_gif);
-          g_cap_gif=0;
-        }
-      }
+    LICE_WriteGIFEnd(g_cap_gif);
+    g_cap_gif=0;
+  }
+  delete g_cap_lastbm;
+  g_cap_lastbm=0;
+  delete g_cap_bm;
+  g_cap_bm=0;
+}
 
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
