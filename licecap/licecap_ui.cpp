@@ -7,6 +7,28 @@
 
 #include "resource.h"
 
+LICECaptureCompressor *g_cap_lcf;
+void *g_cap_gif;
+
+LICE_MemBitmap *g_cap_lastbm; // used for gif, so we can know time until next frame, etc
+LICE_SysBitmap g_cap_bm;
+
+
+      void Capture_Finish()
+      {
+        delete g_cap_lcf;
+        g_cap_lcf=0;
+
+        if (g_cap_gif)
+        {
+          if (lastbm)
+            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,newCmap,GetTickCount()-lastt);
+          if (
+          LICE_WriteGIFEnd(g_cap_gif);
+          g_cap_gif=0;
+        }
+      }
+
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static WDL_WndSizer wndsize;
@@ -24,6 +46,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       SendMessage(hwndDlg,WM_SIZE,0,0);
     return 1;
+    case WM_DESTROY:
+
+      Capture_Finish();
+
+    break;
     case WM_CLOSE:
       EndDialog(hwndDlg,0);
     break;
