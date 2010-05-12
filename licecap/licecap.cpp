@@ -21,7 +21,7 @@ typedef struct {
   POINT   ptScreenPos;
 } pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
 
-static void DoMouseCursor(HDC hdc, HWND h)
+void DoMouseCursor(HDC hdc, HWND h)
 {
   // XP+ only
 
@@ -53,6 +53,12 @@ static void DoMouseCursor(HDC hdc, HWND h)
 
 int main(int argc, char **argv)
 {
+  if (argc==1)
+  {
+    void RunLiceCapUI();
+    RunLiceCapUI();
+    return 0;
+  }
   signal(SIGINT,sigfuncint);
   if (argc==4 && !strcmp(argv[1],"-d"))
   {

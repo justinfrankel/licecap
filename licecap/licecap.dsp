@@ -95,7 +95,7 @@ LINK32=link.exe
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LINK32=xilink6.exe
+LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /fixed:no
 # SUBTRACT LINK32 /pdb:none
@@ -110,6 +110,112 @@ LINK32=xilink6.exe
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
+# Begin Group "WDL"
+
+# PROP Default_Filter ""
+# Begin Group "lice"
+
+# PROP Default_Filter ""
+# Begin Group "giflib"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\WDL\giflib\dgif_lib.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\giflib\egif_lib.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\giflib\gif_hash.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\giflib\gifalloc.c
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_gif.cpp
+# End Source File
+# End Group
+# Begin Group "png"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\WDL\libpng\png.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngerror.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pnggccrd.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngget.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngmem.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngpread.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngread.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngrio.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngrtran.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngrutil.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngset.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngtrans.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngvcrd.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwio.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwrite.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwtran.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\libpng\pngwutil.c
+# End Source File
+# End Group
 # Begin Group "zlib"
 
 # PROP Default_Filter ""
@@ -186,106 +292,6 @@ SOURCE=..\WDL\zlib\uncompr.c
 SOURCE=..\WDL\zlib\zutil.c
 # End Source File
 # End Group
-# Begin Group "png"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=..\WDL\libpng\png.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngerror.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pnggccrd.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngget.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngmem.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngpread.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngread.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngrio.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngrtran.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngrutil.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngset.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngtrans.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngvcrd.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngwio.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngwrite.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngwtran.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngwutil.c
-# End Source File
-# End Group
-# Begin Group "giflib"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=..\WDL\giflib\dgif_lib.c
-# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\giflib\egif_lib.c
-# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\giflib\gif_hash.c
-# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\giflib\gifalloc.c
-# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\lice\lice_gif.cpp
-# End Source File
-# End Group
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice.cpp
@@ -314,9 +320,19 @@ SOURCE=..\WDL\lice\lice_png.cpp
 
 SOURCE=..\WDL\lice\lice_png_write.cpp
 # End Source File
+# End Group
+# Begin Source File
+
+SOURCE=..\WDL\wingui\wndsize.cpp
+# End Source File
+# End Group
 # Begin Source File
 
 SOURCE=.\licecap.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\licecap_ui.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"

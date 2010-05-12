@@ -33,13 +33,13 @@ CAPTION "LICEcap"
 FONT 8, "MS Sans Serif"
 BEGIN
     CONTROL         "",IDC_VIEWRECT,"Static",SS_BLACKFRAME,4,4,543,311
-    PUSHBUTTON      "Output...",IDC_BROWSE,4,320,31,10
-    LTEXT           "Max FPS:",IDC_MAXFPS_LBL,39,320,32,8
-    EDITTEXT        IDC_MAXFPS,72,319,17,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Status (i.e. 640x480 x fps 3:21 etc)",IDC_STATUS,95,320,
-                    382,8
-    PUSHBUTTON      "Record",IDC_REC,485,320,30,10
-    PUSHBUTTON      "Stop",IDC_STOP,517,320,30,10
+    PUSHBUTTON      "Output...",IDC_BROWSE,4,318,37,12
+    LTEXT           "Max FPS:",IDC_MAXFPS_LBL,43,320,32,8
+    EDITTEXT        IDC_MAXFPS,76,319,17,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Status (i.e. 640x480 x fps 3:21 etc)",IDC_STATUS,98,320,
+                    379,8
+    PUSHBUTTON      "Record",IDC_REC,485,320,30,12
+    PUSHBUTTON      "Stop",IDC_STOP,517,320,30,12
 END
 
 
