@@ -190,6 +190,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
   switch (uMsg)
   {
     case WM_INITDIALOG:
+
+      SetClassLong(hwndDlg,GCL_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
       wndsize.init(hwndDlg);
       wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
       wndsize.init_item(IDC_MAXFPS_LBL,0,1,0,1);
