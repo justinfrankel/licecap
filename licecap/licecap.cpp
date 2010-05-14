@@ -63,49 +63,44 @@ int main(int argc, char **argv)
 
       if (strstr(argv[3],".gif"))
       {
-        void *wr=NULL;
+        void *wr=LICE_WriteGIFBeginNoFrame(argv[3],tc.GetWidth(),tc.GetHeight(),0,true);
 
-        void *octree = LICE_CreateOctree(256);
-        if (octree)
+        if (wr)
         {
-          printf("building palette...");
-          fflush(stdout);
+          void *octree = LICE_CreateOctree(256);
+          if (octree)
+          {
+            printf("building palette...");
+            fflush(stdout);
+            for (x=0;!g_done;x++)
+            {
+              LICE_IBitmap *bm = tc.GetCurrentFrame();
+              if (!bm) break;
+              LICE_BuildOctree(octree, bm);
+              printf(".");
+              fflush(stdout);
+              tc.NextFrame();
+            }
+            LICE_SetGIFColorMapFromOctree(wr, octree, 256);
+            printf("done\n");
+            LICE_DestroyOctree(octree);
+          }
+
+          tc.Seek(0);
           for (x=0;!g_done;x++)
           {
             LICE_IBitmap *bm = tc.GetCurrentFrame();
             if (!bm) break;
-            LICE_BuildOctree(octree, bm);
-          }
-          printf("done\n");
-        }
+            tc.NextFrame();
 
-        tc.Seek(0);
-        for (x=0;!g_done;x++)
-        {
-          LICE_IBitmap *bm = tc.GetCurrentFrame();
-          if (!bm) break;
-          tc.NextFrame();
-
-          if (!wr)
-          {
-            wr=LICE_WriteGIFBegin(argv[3],bm,0,tc.GetTimeToNextFrame(),false);
-            if (!wr)
-            {
-              printf("error writing gif '%s'\n",argv[3]);
-              break;
-            }
-            if (octree)
-              LICE_SetGIFColorMapFromOctree(wr, octree, 256);
-          }
-          else
             LICE_WriteGIFFrame(wr,bm,0,0,true,tc.GetTimeToNextFrame());
-        }
-        if (wr)
-        {
+          }
           LICE_WriteGIFEnd(wr);
         }
-        if (octree)
-          LICE_DestroyOctree(octree);
+        else
+        {
+           printf("error writing gif '%s'\n",argv[3]);
+        }
       }
       else for (x=0;!g_done;x++)
       {
