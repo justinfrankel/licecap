@@ -13,7 +13,14 @@ int g_max_fps=5;
 char g_last_fn[2048];
 
 
+bool g_frate_valid;
+double g_frate_avg;
 int g_cap_state; // 1=rec, 2=pause
+
+#define PREROLL_AMT 3000
+DWORD g_cap_prerolluntil;
+DWORD g_skip_capture_until;
+DWORD g_last_frame_capture_time;
 
 LICECaptureCompressor *g_cap_lcf;
 void *g_cap_gif;
@@ -23,6 +30,43 @@ LICE_SysBitmap *g_cap_bm;
 DWORD g_cap_lastt;
 
 DWORD g_last_wndstyle;
+
+void UpdateStatusText(HWND hwndDlg)
+{
+  char dims[128];
+  if (g_cap_bm)
+    sprintf(dims,"%dx%d", g_cap_bm->getWidth(),g_cap_bm->getHeight());
+  else
+  {
+    RECT r;
+    GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+    sprintf(dims,"%dx%d",r.right-r.left-2,r.bottom-r.top-2);
+  }
+
+  char buf[2048],oldtext[2048];
+  char pbuf[64];
+  pbuf[0]=0;
+  if (g_cap_state==1 && g_cap_prerolluntil)
+  {
+    DWORD now=GetTickCount();
+    if (now < g_cap_prerolluntil) sprintf(pbuf,"PREROLL: %d",(g_cap_prerolluntil-now+999)/1000);
+  }
+  else if (g_cap_state == 1) strcpy(pbuf,"Recording");
+  else if (g_cap_state == 2) strcpy(pbuf,"Paused");
+  else strcpy(pbuf,"Stopped");
+  sprintf(buf,"%s - %s",pbuf,dims);
+
+  if (g_cap_state && g_frate_valid)
+    sprintf(buf+strlen(buf)," @ %.1fps",g_frate_avg);
+
+  if (g_cap_lcf) strcat(buf, " (LCF)");
+  if (g_cap_gif) strcat(buf, " (GIF)");
+
+
+  GetDlgItemText(hwndDlg,IDC_STATUS,oldtext,sizeof(oldtext));
+  if (strcmp(buf,oldtext))
+    SetDlgItemText(hwndDlg,IDC_STATUS,buf);
+}
 
 
 void UpdateCaption(HWND hwndDlg)
@@ -35,7 +79,18 @@ void UpdateCaption(HWND hwndDlg)
     while (p >= g_last_fn && *p != '\\' && *p != '/') p--;
     p++;
     char buf[256];
-    sprintf(buf,"%.100s - LICEcap [%s]",p,g_cap_state==1?"recording":"paused");
+    char pbuf[64];
+    pbuf[0]=0;
+    if (g_cap_state==1 && g_cap_prerolluntil)
+    {
+      DWORD now=GetTickCount();
+      if (now < g_cap_prerolluntil)
+      {
+        sprintf(pbuf,"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
+      }
+      else g_cap_prerolluntil=0;
+    }
+    sprintf(buf,"%s%.100s - LICEcap%s",pbuf,p,pbuf[0]?"":g_cap_state==1?" [recording]":" [paused]");
     SetWindowText(hwndDlg,buf);
   }
 }
@@ -114,12 +169,72 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       Capture_Finish(hwndDlg);
 
       UpdateCaption(hwndDlg);
+      UpdateStatusText(hwndDlg);
 
+      SetTimer(hwndDlg,1,30,NULL);
     return 1;
     case WM_DESTROY:
 
       Capture_Finish(hwndDlg);
 
+    break;
+    case WM_TIMER:
+      if (wParam==1)
+      {     
+        DWORD now=GetTickCount();
+
+        if (g_cap_state==1 && g_cap_bm && now >= g_cap_prerolluntil && now >= g_skip_capture_until)
+        {
+          if (now >= g_last_frame_capture_time + (1000/(max(g_max_fps,1))))
+          {
+            HWND h = GetDesktopWindow();
+            RECT r;
+            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+
+            HDC hdc = GetDC(h);
+            if (hdc)
+            {
+              LICE_Clear(g_cap_bm,0);
+              BitBlt(g_cap_bm->getDC(),0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight(),hdc,r.left+1,r.top+1,SRCCOPY);
+              ReleaseDC(h,hdc);
+            
+              double fr = 1000.0 / (double) (now - g_last_frame_capture_time);
+              if (fr>100.0) fr=100.0;
+
+              if (g_frate_valid) g_frate_avg = g_frate_avg*0.9 + fr*0.1;
+              else 
+              {
+                g_frate_avg=fr;
+                g_frate_valid=true;
+              }
+              g_last_frame_capture_time = now;
+            }
+          }
+        }
+
+
+        bool force_status=false;
+        if (g_cap_prerolluntil && g_cap_state==1)
+        {
+          static DWORD lproll;
+          static int lcnt;
+          if (lproll != g_cap_prerolluntil || (g_cap_prerolluntil-now+999)/1000 != lcnt)
+          {
+            lcnt=(g_cap_prerolluntil-now+999)/1000;
+            lproll=g_cap_prerolluntil;
+            UpdateCaption(hwndDlg);
+            force_status=true;
+          }
+        }
+        static DWORD last_status_t;
+        if (force_status || now > last_status_t+500)
+        {
+          last_status_t=now;
+          UpdateStatusText(hwndDlg);
+        }
+
+
+      }
     break;
     case WM_COMMAND:
       switch (LOWORD(wParam))
@@ -137,6 +252,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           Capture_Finish(hwndDlg);
 
           UpdateCaption(hwndDlg);
+          UpdateStatusText(hwndDlg);
 
         break;
         case IDC_REC:
@@ -151,7 +267,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (1)
               {
-
                 SaveRestoreRecRect(hwndDlg,false);
 
                 g_last_wndstyle = SetWindowLong(hwndDlg,GWL_STYLE,GetWindowLong(hwndDlg,GWL_STYLE)&~WS_THICKFRAME);
@@ -162,8 +277,13 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
                 EnableWindow(GetDlgItem(hwndDlg,IDC_STOP),1);
 
+                g_frate_valid=false;
+                g_frate_avg=0.0;
+
+                g_last_frame_capture_time = g_cap_prerolluntil=GetTickCount()+PREROLL_AMT;
                 g_cap_state=1;
                 UpdateCaption(hwndDlg);
+                UpdateStatusText(hwndDlg);
 
               }
             }
@@ -173,12 +293,15 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             SetDlgItemText(hwndDlg,IDC_REC,"[unpause]");
             g_cap_state=2;
             UpdateCaption(hwndDlg);
+            UpdateStatusText(hwndDlg);
           }
           else // unpause!
           {
             SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
+            g_last_frame_capture_time = g_cap_prerolluntil=GetTickCount()+PREROLL_AMT;
             g_cap_state=1;
             UpdateCaption(hwndDlg);
+            UpdateStatusText(hwndDlg);
           }
 
 
@@ -222,7 +345,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       ReleaseCapture();
     break;
 
+    case WM_MOVE:
+      g_skip_capture_until = GetTickCount()+200;
+    break;
     case WM_SIZE:
+      g_skip_capture_until = GetTickCount()+200;
 
       if (wParam != SIZE_MINIMIZED)
       {

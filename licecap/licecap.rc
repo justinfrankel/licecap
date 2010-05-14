@@ -31,13 +31,13 @@ STYLE WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "LICEcap"
 FONT 8, "MS Sans Serif"
 BEGIN
+    PUSHBUTTON      "Record...",IDC_REC,474,320,41,12
+    PUSHBUTTON      "Stop",IDC_STOP,517,320,30,12
     CONTROL         "",IDC_VIEWRECT,"Static",SS_BLACKFRAME,4,4,543,314
     LTEXT           "Max FPS:",IDC_MAXFPS_LBL,4,322,32,8
     EDITTEXT        IDC_MAXFPS,37,320,17,12,ES_AUTOHSCROLL | ES_NUMBER
-    LTEXT           "Status (i.e. 640x480 x fps 3:21 etc)",IDC_STATUS,59,322,
-                    410,8
-    PUSHBUTTON      "Record...",IDC_REC,474,320,41,12
-    PUSHBUTTON      "Stop",IDC_STOP,517,320,30,12
+    CONTROL         "Status (i.e. 640x480 x fps 3:21 etc)",IDC_STATUS,"Static",
+                    SS_LEFTNOWORDWRAP | WS_GROUP,59,322,410,8
 END
 
 
