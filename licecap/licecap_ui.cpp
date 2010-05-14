@@ -95,6 +95,7 @@ void Capture_Finish(HWND hwndDlg)
 
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  static POINT s_last_mouse;
   static WDL_WndSizer wndsize;
   switch (uMsg)
   {
@@ -142,8 +143,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
           if (!g_cap_state)
           {
-            const char *extlist="LiceCap files (*.lcf)\0*.lcf\0GIF files (*.gif)\0\0";
-            if (WDL_ChooseFileForSave(hwndDlg,"Choose file for recording",NULL,g_last_fn,extlist,"lcf",false,g_last_fn,sizeof(g_last_fn)))
+            const char *extlist="LiceCap files (*.lcf)\0*.lcf\0GIF files (*.gif)\0*.gif\0";
+            const char *extlist_giflast = "GIF files (*.gif)\0*.gif\0LiceCap files (*.lcf)\0*.lcf\0\0";
+            bool last_gif = strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
+            if (WDL_ChooseFileForSave(hwndDlg,"Choose file for recording",NULL,g_last_fn,last_gif?extlist_giflast:extlist,last_gif ? "gif" : "lcf",false,g_last_fn,sizeof(g_last_fn)))
             {
 
               if (1)
@@ -195,6 +198,30 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       }
     break;
+    case WM_LBUTTONDOWN:
+      SetCapture(hwndDlg);
+      GetCursorPos(&s_last_mouse);
+    break;
+    case WM_MOUSEMOVE:
+      if (GetCapture()==hwndDlg)
+      {
+        POINT p;
+        GetCursorPos(&p);
+        int dx= p.x - s_last_mouse.x;
+        int dy= p.y - s_last_mouse.y;
+        if (dx||dy)
+        {
+          s_last_mouse=p;
+          RECT r;
+          GetWindowRect(hwndDlg,&r);
+          SetWindowPos(hwndDlg,NULL,r.left+dx,r.top+dy,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
+        }
+      }
+    break;
+    case WM_LBUTTONUP:
+      ReleaseCapture();
+    break;
+
     case WM_SIZE:
 
       if (wParam != SIZE_MINIMIZED)
