@@ -64,6 +64,22 @@ int main(int argc, char **argv)
       if (strstr(argv[3],".gif"))
       {
         void *wr=NULL;
+
+        void *octree = LICE_CreateOctree(256);
+        if (octree)
+        {
+          printf("building palette...");
+          fflush(stdout);
+          for (x=0;!g_done;x++)
+          {
+            LICE_IBitmap *bm = tc.GetCurrentFrame();
+            if (!bm) break;
+            LICE_BuildOctree(octree, bm);
+          }
+          printf("done\n");
+        }
+
+        tc.Seek(0);
         for (x=0;!g_done;x++)
         {
           LICE_IBitmap *bm = tc.GetCurrentFrame();
@@ -78,6 +94,8 @@ int main(int argc, char **argv)
               printf("error writing gif '%s'\n",argv[3]);
               break;
             }
+            if (octree)
+              LICE_SetGIFColorMapFromOctree(wr, octree, 256);
           }
           else
             LICE_WriteGIFFrame(wr,bm,0,0,true,tc.GetTimeToNextFrame());
@@ -86,6 +104,8 @@ int main(int argc, char **argv)
         {
           LICE_WriteGIFEnd(wr);
         }
+        if (octree)
+          LICE_DestroyOctree(octree);
       }
       else for (x=0;!g_done;x++)
       {
