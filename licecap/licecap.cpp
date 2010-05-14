@@ -21,7 +21,7 @@ typedef struct {
   POINT   ptScreenPos;
 } pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
 
-void DoMouseCursor(HDC hdc, HWND h)
+void DoMouseCursor(HDC hdc, HWND h, int xoffs, int yoffs)
 {
   // XP+ only
 
@@ -43,7 +43,7 @@ void DoMouseCursor(HDC hdc, HWND h)
     {
       ICONINFO inf={0,};
       GetIconInfo(ci.hCursor,&inf);
-      DrawIconEx(hdc,ci.ptScreenPos.x-inf.xHotspot,ci.ptScreenPos.y-inf.yHotspot,ci.hCursor,0,0,0,NULL,DI_NORMAL);
+      DrawIconEx(hdc,ci.ptScreenPos.x-inf.xHotspot + xoffs,ci.ptScreenPos.y-inf.yHotspot + yoffs,ci.hCursor,0,0,0,NULL,DI_NORMAL);
       if (inf.hbmColor) DeleteObject(inf.hbmColor);
       if (inf.hbmMask) DeleteObject(inf.hbmMask);
     }
@@ -53,12 +53,6 @@ void DoMouseCursor(HDC hdc, HWND h)
 
 int main(int argc, char **argv)
 {
-  if (argc==1)
-  {
-    void RunLiceCapUI();
-    RunLiceCapUI();
-    return 0;
-  }
   signal(SIGINT,sigfuncint);
   if (argc==4 && !strcmp(argv[1],"-d"))
   {
@@ -153,7 +147,7 @@ int main(int argc, char **argv)
           ReleaseDC(h,hdc);
         }
 
-        DoMouseCursor(bm.getDC(),h);
+        DoMouseCursor(bm.getDC(),h,0,0);
 
         DWORD thist = GetTickCount();
 

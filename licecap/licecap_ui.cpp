@@ -13,6 +13,42 @@ int g_max_fps=5;
 char g_last_fn[2048];
 
 
+typedef struct {
+  DWORD   cbSize;
+  DWORD   flags;
+  HCURSOR hCursor;
+  POINT   ptScreenPos;
+} pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
+
+void DoMouseCursor(HDC hdc, HWND h, int xoffs, int yoffs)
+{
+  // XP+ only
+
+  static BOOL (WINAPI *pGetCursorInfo)(pLPCURSORINFO);
+  static bool tr;
+  if (!tr)
+  {
+    tr=true;
+    HINSTANCE hUser=LoadLibrary("USER32.dll");
+    if (hUser)
+      *(void **)&pGetCursorInfo = (void*)GetProcAddress(hUser,"GetCursorInfo");
+  }
+
+  if (pGetCursorInfo)
+  {
+    pCURSORINFO ci={sizeof(ci)};
+    pGetCursorInfo(&ci);
+    if (ci.flags && ci.hCursor)
+    {
+      ICONINFO inf={0,};
+      GetIconInfo(ci.hCursor,&inf);
+      DrawIconEx(hdc,ci.ptScreenPos.x-inf.xHotspot + xoffs,ci.ptScreenPos.y-inf.yHotspot + yoffs,ci.hCursor,0,0,0,NULL,DI_NORMAL);
+      if (inf.hbmColor) DeleteObject(inf.hbmColor);
+      if (inf.hbmMask) DeleteObject(inf.hbmMask);
+    }
+  }
+}
+
 bool g_frate_valid;
 double g_frate_avg;
 int g_cap_state; // 1=rec, 2=pause
@@ -24,8 +60,9 @@ DWORD g_last_frame_capture_time;
 
 LICECaptureCompressor *g_cap_lcf;
 void *g_cap_gif;
+LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until next frame, etc
 
-LICE_MemBitmap *g_cap_lastbm; // used for gif, so we can know time until next frame, etc
+
 LICE_SysBitmap *g_cap_bm;
 DWORD g_cap_lastt;
 
@@ -49,15 +86,13 @@ void UpdateStatusText(HWND hwndDlg)
   if (g_cap_state==1 && g_cap_prerolluntil)
   {
     DWORD now=GetTickCount();
-    if (now < g_cap_prerolluntil) sprintf(pbuf,"PREROLL: %d",(g_cap_prerolluntil-now+999)/1000);
+    if (now < g_cap_prerolluntil) sprintf(pbuf,"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
   }
-  else if (g_cap_state == 1) strcpy(pbuf,"Recording");
-  else if (g_cap_state == 2) strcpy(pbuf,"Paused");
-  else strcpy(pbuf,"Stopped");
-  sprintf(buf,"%s - %s",pbuf,dims);
+  else if (g_cap_state == 2) strcpy(pbuf,"Paused - ");
+  sprintf(buf,"%s%s",pbuf,dims);
 
   if (g_cap_state && g_frate_valid)
-    sprintf(buf+strlen(buf)," @ %.1fps",g_frate_avg);
+    sprintf(buf+strlen(buf)," @ %.1ffps",g_frate_avg);
 
   if (g_cap_lcf) strcat(buf, " (LCF)");
   if (g_cap_gif) strcat(buf, " (GIF)");
@@ -136,14 +171,14 @@ void Capture_Finish(HWND hwndDlg)
 
   if (g_cap_gif)
   {
-    if (g_cap_lastbm)
-      LICE_WriteGIFFrame(g_cap_gif,g_cap_lastbm,0,0,true,GetTickCount()-g_cap_lastt);
+    if (g_cap_gif_lastbm)
+      LICE_WriteGIFFrame(g_cap_gif,g_cap_gif_lastbm,0,0,true,GetTickCount()-g_cap_lastt);
 
     LICE_WriteGIFEnd(g_cap_gif);
     g_cap_gif=0;
   }
-  delete g_cap_lastbm;
-  g_cap_lastbm=0;
+  delete g_cap_gif_lastbm;
+  g_cap_gif_lastbm=0;
   delete g_cap_bm;
   g_cap_bm=0;
 }
@@ -197,7 +232,20 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               LICE_Clear(g_cap_bm,0);
               BitBlt(g_cap_bm->getDC(),0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight(),hdc,r.left+1,r.top+1,SRCCOPY);
               ReleaseDC(h,hdc);
+
+              DoMouseCursor(g_cap_bm->getDC(),h,-(r.left+1),-(r.top+1));
             
+              if (g_cap_lcf)
+                g_cap_lcf->OnFrame(g_cap_bm,now-g_last_frame_capture_time);
+
+              if (g_cap_gif)
+              {
+                if (!g_cap_gif_lastbm) g_cap_gif_lastbm = new LICE_MemBitmap;
+                else LICE_WriteGIFFrame(g_cap_gif,g_cap_gif_lastbm,0,0,true,now-g_last_frame_capture_time);
+
+                LICE_Copy(g_cap_gif_lastbm,g_cap_bm);
+              }
+
               double fr = 1000.0 / (double) (now - g_last_frame_capture_time);
               if (fr>100.0) fr=100.0;
 
@@ -261,11 +309,21 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           {
             const char *extlist="LiceCap files (*.lcf)\0*.lcf\0GIF files (*.gif)\0*.gif\0";
             const char *extlist_giflast = "GIF files (*.gif)\0*.gif\0LiceCap files (*.lcf)\0*.lcf\0\0";
-            bool last_gif = strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
+            bool last_gif = strlen(g_last_fn)<4 || !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
             if (WDL_ChooseFileForSave(hwndDlg,"Choose file for recording",NULL,g_last_fn,last_gif?extlist_giflast:extlist,last_gif ? "gif" : "lcf",false,g_last_fn,sizeof(g_last_fn)))
             {
+              RECT r;
+              GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+              int w = r.right-r.left-2, h=r.bottom-r.top-2;
+              delete g_cap_bm;
+              g_cap_bm = new LICE_SysBitmap(w,h);
 
-              if (1)
+              if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
+                g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,0,true);
+              if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".lcf"))
+                g_cap_lcf = new LICECaptureCompressor(g_last_fn,w,h);
+
+              if (g_cap_gif || g_cap_lcf)
               {
                 SaveRestoreRecRect(hwndDlg,false);
 
@@ -346,10 +404,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     break;
 
     case WM_MOVE:
-      g_skip_capture_until = GetTickCount()+200;
+      //g_skip_capture_until = GetTickCount()+30;
     break;
     case WM_SIZE:
-      g_skip_capture_until = GetTickCount()+200;
+     // g_skip_capture_until = GetTickCount()+30;
 
       if (wParam != SIZE_MINIMIZED)
       {
@@ -388,7 +446,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 }
 
 
-void RunLiceCapUI()
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
-  DialogBox(GetModuleHandle(NULL),MAKEINTRESOURCE(IDD_DIALOG1),GetDesktopWindow(),liceCapMainProc);
+  DialogBox(hInstance,MAKEINTRESOURCE(IDD_DIALOG1),GetDesktopWindow(),liceCapMainProc);
+  return 0;
 }
