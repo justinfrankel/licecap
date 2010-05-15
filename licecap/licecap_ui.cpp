@@ -156,6 +156,8 @@ DWORD g_last_frame_capture_time;
 LICECaptureCompressor *g_cap_lcf;
 void *g_cap_gif;
 LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until next frame, etc
+int g_cap_gif_lastbm_coords[4];
+int g_cap_gif_lastbm_accumdelay;
 
 
 LICE_SysBitmap *g_cap_bm;
@@ -267,13 +269,19 @@ void Capture_Finish(HWND hwndDlg)
   if (g_cap_gif)
   {
     if (g_cap_gif_lastbm)
-      LICE_WriteGIFFrame(g_cap_gif,g_cap_gif_lastbm,0,0,true,GetTickCount()-g_cap_lastt);
+    {
+      LICE_SubBitmap bm(g_cap_gif_lastbm, g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],
+        g_cap_gif_lastbm_coords[2],g_cap_gif_lastbm_coords[3]);
+
+      LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,GetTickCount()-g_cap_lastt+g_cap_gif_lastbm_accumdelay);
+    }
 
     LICE_WriteGIFEnd(g_cap_gif);
     g_cap_gif=0;
   }
   delete g_cap_gif_lastbm;
   g_cap_gif_lastbm=0;
+  g_cap_gif_lastbm_accumdelay=0;
   delete g_cap_bm;
   g_cap_bm=0;
 }
@@ -366,10 +374,31 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (g_cap_gif)
               {
-                if (!g_cap_gif_lastbm) g_cap_gif_lastbm = new LICE_MemBitmap;
-                else LICE_WriteGIFFrame(g_cap_gif,g_cap_gif_lastbm,0,0,true,now-g_last_frame_capture_time);
+                int diffs[4]={0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight()};
 
-                LICE_Copy(g_cap_gif_lastbm,g_cap_bm);
+                if (g_cap_gif_lastbm &&
+                    !LICE_BitmapCmp(g_cap_gif_lastbm,g_cap_bm,diffs))
+                {
+                  g_cap_gif_lastbm_accumdelay+=g_cap_gif_lastbm_accumdelay;
+                }
+                else 
+                {
+                  if (!g_cap_gif_lastbm) 
+                  {
+                    g_cap_gif_lastbm = new LICE_MemBitmap;
+                  }
+                  else 
+                  {
+                    LICE_SubBitmap bm(g_cap_gif_lastbm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],
+                      g_cap_gif_lastbm_coords[2],g_cap_gif_lastbm_coords[3]);
+
+                    LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,now-g_last_frame_capture_time+ g_cap_gif_lastbm_accumdelay);
+
+                    g_cap_gif_lastbm_accumdelay=0;
+                  }
+                  memcpy(g_cap_gif_lastbm_coords,diffs,sizeof(diffs));
+                  LICE_Copy(g_cap_gif_lastbm,g_cap_bm);
+                }
               }
 
               double fr = 1000.0 / (double) (now - g_last_frame_capture_time);
@@ -447,7 +476,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               g_cap_bm = new LICE_SysBitmap(w,h);
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
+              {
+                g_cap_gif_lastbm_accumdelay=0;
                 g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,0,true);
+              }
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".lcf"))
                 g_cap_lcf = new LICECaptureCompressor(g_last_fn,w,h);
 
