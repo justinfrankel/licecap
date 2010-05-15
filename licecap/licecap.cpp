@@ -90,15 +90,44 @@ int main(int argc, char **argv)
             }
           }
 
+          LICE_MemBitmap lastfr(tc.GetWidth(),tc.GetHeight());
+          int lastfr_coords[4];
+          int accum_lat=0;
+          bool first=true;
+
           tc.Seek(0);
           for (x=0;!g_done;x++)
           {
             LICE_IBitmap *bm = tc.GetCurrentFrame();
             if (!bm) break;
-            tc.NextFrame();
+            int diffcoords[4]={0,0,tc.GetWidth(),tc.GetHeight()};
 
-            LICE_WriteGIFFrame(wr,bm,0,0,!useSinglePalette,tc.GetTimeToNextFrame());
+            if (!first)
+            {
+              if (!LICE_BitmapCmp(bm,&lastfr,diffcoords))
+              {
+                accum_lat += tc.GetTimeToNextFrame();
+                tc.NextFrame();
+                continue;
+              }
+              LICE_SubBitmap bm(&lastfr,lastfr_coords[0],lastfr_coords[1],
+                lastfr_coords[2],lastfr_coords[3]);
+
+              LICE_WriteGIFFrame(wr,&bm,lastfr_coords[0],lastfr_coords[1],
+                                    !useSinglePalette,accum_lat);
+              accum_lat=0;
+            }
+
+            first=false;
+            accum_lat += tc.GetTimeToNextFrame();
+
+            LICE_Copy(&lastfr,bm);
+            memcpy(lastfr_coords,diffcoords,sizeof(diffcoords));
+
+            tc.NextFrame();
           }
+          if (!first) LICE_WriteGIFFrame(wr,&lastfr,0,0,!useSinglePalette,accum_lat);
+
           LICE_WriteGIFEnd(wr);
         }
         else
