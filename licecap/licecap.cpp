@@ -113,6 +113,7 @@ int main(int argc, char **argv)
               LICE_SubBitmap bm(&lastfr,lastfr_coords[0],lastfr_coords[1],
                 lastfr_coords[2],lastfr_coords[3]);
 
+              if (accum_lat<1) accum_lat=1;
               LICE_WriteGIFFrame(wr,&bm,lastfr_coords[0],lastfr_coords[1],
                                     !useSinglePalette,accum_lat);
               accum_lat=0;
@@ -130,6 +131,7 @@ int main(int argc, char **argv)
           {
             LICE_SubBitmap bm(&lastfr,lastfr_coords[0],lastfr_coords[1],
               lastfr_coords[2],lastfr_coords[3]);
+            if (accum_lat<1) accum_lat=1;
             LICE_WriteGIFFrame(wr,&bm,lastfr_coords[0],lastfr_coords[1],!useSinglePalette,accum_lat);
           }
 
@@ -240,7 +242,11 @@ int main(int argc, char **argv)
             }
           }
           else if (gif_wr)
-            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,true,thist-lastt);
+          {
+            int del = thist-lastt;
+            if (del<1) del=1;
+            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,true,del);
+          }
 
           if (lastbm) LICE_Copy(lastbm,&bm);
         }
@@ -261,7 +267,11 @@ int main(int argc, char **argv)
       if (gif_wr)
       {
         if (lastbm)
-          LICE_WriteGIFFrame(gif_wr,lastbm,0,0,true,GetTickCount()-lastt);
+        {
+          int del = GetTickCount()-lastt;
+          if (del<1) del=1;
+          LICE_WriteGIFFrame(gif_wr,lastbm,0,0,true,del);
+        }
         LICE_WriteGIFEnd(gif_wr);
       }
       delete lastbm;
