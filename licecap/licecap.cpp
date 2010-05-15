@@ -126,7 +126,12 @@ int main(int argc, char **argv)
 
             tc.NextFrame();
           }
-          if (!first) LICE_WriteGIFFrame(wr,&lastfr,0,0,!useSinglePalette,accum_lat);
+          if (!first) 
+          {
+            LICE_SubBitmap bm(&lastfr,lastfr_coords[0],lastfr_coords[1],
+              lastfr_coords[2],lastfr_coords[3]);
+            LICE_WriteGIFFrame(wr,&lastfr,lastfr_coords[0],lastfr_coords[1],!useSinglePalette,accum_lat);
+          }
 
           LICE_WriteGIFEnd(wr);
         }
