@@ -130,7 +130,7 @@ int main(int argc, char **argv)
           {
             LICE_SubBitmap bm(&lastfr,lastfr_coords[0],lastfr_coords[1],
               lastfr_coords[2],lastfr_coords[3]);
-            LICE_WriteGIFFrame(wr,&lastfr,lastfr_coords[0],lastfr_coords[1],!useSinglePalette,accum_lat);
+            LICE_WriteGIFFrame(wr,&bm,lastfr_coords[0],lastfr_coords[1],!useSinglePalette,accum_lat);
           }
 
           LICE_WriteGIFEnd(wr);
