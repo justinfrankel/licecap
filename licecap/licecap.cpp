@@ -67,23 +67,27 @@ int main(int argc, char **argv)
 
         if (wr)
         {
-          void *octree = LICE_CreateOctree(256);
-          if (octree)
+          bool useSinglePalette = false;
+          if (useSinglePalette) // create
           {
-            printf("building palette...");
-            fflush(stdout);
-            for (x=0;!g_done;x++)
+            void *octree = LICE_CreateOctree(256);
+            if (octree)
             {
-              LICE_IBitmap *bm = tc.GetCurrentFrame();
-              if (!bm) break;
-              LICE_BuildOctree(octree, bm);
-              printf(".");
+              printf("building palette...");
               fflush(stdout);
-              tc.NextFrame();
+              for (x=0;!g_done;x++)
+              {
+                LICE_IBitmap *bm = tc.GetCurrentFrame();
+                if (!bm) break;
+                LICE_BuildOctree(octree, bm);
+                printf(".");
+                fflush(stdout);
+                tc.NextFrame();
+              }
+              LICE_SetGIFColorMapFromOctree(wr, octree, 256);
+              printf("done\n");
+              LICE_DestroyOctree(octree);
             }
-            LICE_SetGIFColorMapFromOctree(wr, octree, 256);
-            printf("done\n");
-            LICE_DestroyOctree(octree);
           }
 
           tc.Seek(0);
@@ -93,7 +97,7 @@ int main(int argc, char **argv)
             if (!bm) break;
             tc.NextFrame();
 
-            LICE_WriteGIFFrame(wr,bm,0,0,true,tc.GetTimeToNextFrame());
+            LICE_WriteGIFFrame(wr,bm,0,0,!useSinglePalette,tc.GetTimeToNextFrame());
           }
           LICE_WriteGIFEnd(wr);
         }
@@ -145,7 +149,6 @@ int main(int argc, char **argv)
 
     LICECaptureCompressor *tc = NULL;
     void *gif_wr=NULL;
-    bool newCmap = true; //for gif mode
     
     if (!gifMode&&!pngMode) tc = new LICECaptureCompressor(argv[2],r.right,r.bottom);
     if (gifMode||pngMode||tc->IsOpen())
@@ -203,7 +206,7 @@ int main(int argc, char **argv)
             }
           }
           else if (gif_wr)
-            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,newCmap,thist-lastt);
+            LICE_WriteGIFFrame(gif_wr,lastbm,0,0,true,thist-lastt);
 
           if (lastbm) LICE_Copy(lastbm,&bm);
         }
@@ -224,7 +227,7 @@ int main(int argc, char **argv)
       if (gif_wr)
       {
         if (lastbm)
-          LICE_WriteGIFFrame(gif_wr,lastbm,0,0,newCmap,GetTickCount()-lastt);
+          LICE_WriteGIFFrame(gif_wr,lastbm,0,0,true,GetTickCount()-lastt);
         LICE_WriteGIFEnd(gif_wr);
       }
       delete lastbm;
