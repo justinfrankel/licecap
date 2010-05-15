@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <multimon.h>
 #include "../WDL/lice/lice_lcf.h"
 #include "../WDL/wdltypes.h"
 #include "../WDL/wingui/wndsize.h"
@@ -11,7 +12,7 @@
 int g_max_fps=5;
 
 char g_last_fn[2048];
-
+char g_ini_file[1024];
 
 typedef struct {
   DWORD   cbSize;
@@ -48,6 +49,100 @@ void DoMouseCursor(HDC hdc, HWND h, int xoffs, int yoffs)
     }
   }
 }
+
+#undef GetSystemMetrics
+
+void my_getViewport(RECT *r, RECT *sr, bool wantWork) {
+  if (sr) 
+  {
+	  static HINSTANCE hlib;
+    static bool haschk;
+    
+    if (!haschk && !hlib) { hlib=LoadLibrary("user32.dll");haschk=true; }
+
+	  if (hlib) 
+    {
+
+      static HMONITOR (WINAPI *Mfr)(LPCRECT lpcr, DWORD dwFlags);
+      static BOOL (WINAPI *Gmi)(HMONITOR mon, MONITORINFOEX* lpmi);
+
+      if (!Mfr) Mfr = (HMONITOR (WINAPI *)(LPCRECT, DWORD)) GetProcAddress(hlib, "MonitorFromRect");
+      if (!Gmi) Gmi = (BOOL (WINAPI *)(HMONITOR,MONITORINFOEX*)) GetProcAddress(hlib,"GetMonitorInfoA");    
+
+			if (Mfr && Gmi) {
+			  HMONITOR hm;
+			  hm=Mfr(sr,MONITOR_DEFAULTTONULL);
+        if (hm) {
+          MONITORINFOEX mi;
+          memset(&mi,0,sizeof(mi));
+          mi.cbSize=sizeof(mi);
+
+          if (Gmi(hm,&mi)) {
+            if (wantWork)
+              *r=mi.rcWork;
+            else *r=mi.rcMonitor;
+            return;
+          }          
+        }
+			}
+		}
+	}
+  if (wantWork)
+    SystemParametersInfo(SPI_GETWORKAREA,0,r,0);
+  else
+    GetWindowRect(GetDesktopWindow(), r);
+}
+
+void EnsureNotCompletelyOffscreen(RECT *r)
+{
+  RECT scr;
+  my_getViewport(&scr, r,true);
+  if (r->right < scr.left+20 || r->left >= scr.right-20 ||
+      r->bottom < scr.top+20 || r->top >= scr.bottom-20)
+  {
+    r->right -= r->left;
+    r->bottom -= r->top;
+    r->left = 0;
+    r->top = 0;
+  }
+}
+
+void FixRectForScreen(RECT *r, int minw, int minh)
+{
+ 
+  RECT scr;
+  my_getViewport(&scr, r,true);
+  
+ 
+  if (r->right > scr.right) 
+  {
+    r->left += scr.right-r->right;
+    r->right=scr.right;
+  }
+  if (r->bottom > scr.bottom) 
+  {
+    r->top += scr.bottom-r->bottom;
+    r->bottom=scr.bottom;
+  }
+  if (r->left < scr.left)
+  {
+    r->right += scr.left-r->left;
+    r->left=scr.left;
+    if (r->right > scr.right)  r->right=scr.right;
+  }
+  if (r->top < scr.top)
+  {
+    r->bottom += scr.top-r->top;
+    r->top=scr.top;
+    if (r->bottom > scr.bottom)  r->bottom=scr.bottom;
+  }
+  
+  if (r->right-r->left<minw) r->right=r->left+minw;
+  if (r->bottom-r->top<minh) r->bottom=r->top+minh;
+  
+  EnsureNotCompletelyOffscreen(r);
+}
+
 
 bool g_frate_valid;
 double g_frate_avg;
@@ -209,10 +304,39 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       UpdateStatusText(hwndDlg);
 
       SetTimer(hwndDlg,1,30,NULL);
+
+      {
+        char buf[1024];
+        GetPrivateProfileString("licecap","wnd_r","",buf,sizeof(buf),g_ini_file);
+        if (buf[0])
+        {
+          int a[4]={0,};
+          const char *p=buf;
+          int x;
+          for (x=0;x<4;x++)
+          {
+            a[x] = atoi(p);
+            if (x==3) break;
+            while (*p && *p != ' ') p++;
+            while (*p == ' ') p++;
+          }
+          if (*p && a[2]>a[0] && a[3]>a[1])
+          {
+            SetWindowPos(hwndDlg,NULL,a[0],a[1],a[2]-a[0],a[3]-a[1],SWP_NOZORDER|SWP_NOACTIVATE);
+          }
+        }
+      }
     return 1;
     case WM_DESTROY:
 
       Capture_Finish(hwndDlg);
+      {
+        RECT r;
+        GetWindowRect(hwndDlg,&r);
+        char buf[1024];
+        sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
+        WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file);
+      }
 
     break;
     case WM_TIMER:
@@ -314,6 +438,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             bool last_gif = strlen(g_last_fn)>=4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
             if (WDL_ChooseFileForSave(hwndDlg,"Choose file for recording",NULL,g_last_fn,last_gif?extlist_giflast:extlist,last_gif ? "gif" : "lcf",false,g_last_fn,sizeof(g_last_fn)))
             {
+              WritePrivateProfileString("licecap","lastfn",g_last_fn,g_ini_file);
+
               RECT r;
               GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
               int w = r.right-r.left-2, h=r.bottom-r.top-2;
@@ -450,6 +576,25 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+  strcpy(g_ini_file,"licecap.ini");
+
+  HKEY k;
+  if (RegOpenKeyEx(HKEY_CURRENT_USER,"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",0,KEY_READ,&k) == ERROR_SUCCESS)
+  {
+    char buf[1024];
+    DWORD b=sizeof(buf);
+    DWORD t=REG_SZ;
+    if (RegQueryValueEx(k,"AppData",0,&t,(unsigned char *)buf,&b) == ERROR_SUCCESS && t == REG_SZ)
+    {
+ 
+      lstrcpyn(g_ini_file,buf,sizeof(g_ini_file)-32);
+      strcat(g_ini_file,"\\licecap.ini");
+    }
+    RegCloseKey(k);
+  }
+
+  GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file);
+
   DialogBox(hInstance,MAKEINTRESOURCE(IDD_DIALOG1),GetDesktopWindow(),liceCapMainProc);
   return 0;
 }
