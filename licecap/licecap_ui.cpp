@@ -161,7 +161,6 @@ int g_cap_gif_lastbm_accumdelay;
 
 
 LICE_SysBitmap *g_cap_bm;
-DWORD g_cap_lastt;
 
 DWORD g_last_wndstyle;
 
@@ -273,7 +272,7 @@ void Capture_Finish(HWND hwndDlg)
       LICE_SubBitmap bm(g_cap_gif_lastbm, g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],
         g_cap_gif_lastbm_coords[2],g_cap_gif_lastbm_coords[3]);
 
-      int del = GetTickCount()-g_cap_lastt+g_cap_gif_lastbm_accumdelay;
+      int del = (GetTickCount()-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay);
       if (del<1) del=1;
       LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);
     }
