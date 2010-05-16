@@ -380,7 +380,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 if (g_cap_gif_lastbm &&
                     !LICE_BitmapCmp(g_cap_gif_lastbm,g_cap_bm,diffs))
                 {
-                  g_cap_gif_lastbm_accumdelay+=g_cap_gif_lastbm_accumdelay;
+                  g_cap_gif_lastbm_accumdelay+=now-g_last_frame_capture_time;
                 }
                 else 
                 {
