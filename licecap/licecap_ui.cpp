@@ -599,7 +599,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               delete g_cap_bm;
               g_cap_bm = new LICE_SysBitmap(w,h);
 
-              g_dotitle = (g_titleuse && g_title[0] && g_titlems);
+              g_dotitle = (g_titleuse && g_titlems);
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
@@ -617,38 +617,42 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 if (g_dotitle)
                 {           
                   LICE_Clear(g_cap_bm, 0);
-                  int txtw, txth;
-                  LICE_MeasureText(g_title, &txtw, &txth);
 
-                  char buf[4096];
-                  strcpy(buf, g_title);
-                  int numlines=1;
-
-                  if (txtw > w*3/4)
+                  if (g_title[0])
                   {
-                    if (SplitLine(buf))
-                    {
-                      ++numlines;
+                    int txtw, txth;
+                    LICE_MeasureText(g_title, &txtw, &txth);
 
-                      char* p = buf+strlen(buf)+1;
-                      int w1, w2;
-                      LICE_MeasureText(buf, &w1, 0);
-                      LICE_MeasureText(p, &w2, 0);
-                      if (w1 > w*3/4 || w2 > w*3/4)
+                    char buf[4096];
+                    strcpy(buf, g_title);
+                    int numlines=1;
+
+                    if (txtw > w*3/4)
+                    {
+                      if (SplitLine(buf))
                       {
-                        if (SplitLine(buf)) ++numlines;
-                        if (SplitLine(p)) ++numlines;
+                        ++numlines;
+
+                        char* p = buf+strlen(buf)+1;
+                        int w1, w2;
+                        LICE_MeasureText(buf, &w1, 0);
+                        LICE_MeasureText(p, &w2, 0);
+                        if (w1 > w*3/4 || w2 > w*3/4)
+                        {
+                          if (SplitLine(buf)) ++numlines;
+                          if (SplitLine(p)) ++numlines;
+                        }
                       }
                     }
-                  }
 
-                  char* p=buf;
-                  int i;
-                  for (i = 0; i < numlines; ++i)
-                  {                   
-                    LICE_MeasureText(p, &txtw, 0);
-                    LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-                    p += strlen(p)+1;
+                    char* p=buf;
+                    int i;
+                    for (i = 0; i < numlines; ++i)
+                    {                   
+                      LICE_MeasureText(p, &txtw, 0);
+                      LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+                      p += strlen(p)+1;
+                    }
                   }
 
                   if (g_cap_gif) 
