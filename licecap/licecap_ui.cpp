@@ -146,6 +146,7 @@ void FixRectForScreen(RECT *r, int minw, int minh)
 
 bool g_frate_valid;
 double g_frate_avg;
+DWORD g_ms_written;
 int g_cap_state; // 1=rec, 2=pause
 
 #define PREROLL_AMT 3000
@@ -168,7 +169,9 @@ void UpdateStatusText(HWND hwndDlg)
 {
   char dims[128];
   if (g_cap_bm)
+  {
     sprintf(dims,"%dx%d", g_cap_bm->getWidth(),g_cap_bm->getHeight());
+  }
   else
   {
     RECT r;
@@ -176,27 +179,45 @@ void UpdateStatusText(HWND hwndDlg)
     sprintf(dims,"%dx%d",r.right-r.left-2,r.bottom-r.top-2);
   }
 
-  char buf[2048],oldtext[2048];
+  char buf[2048];
+  char oldtext[2048];
+
   char pbuf[64];
   pbuf[0]=0;
+  DWORD now=GetTickCount();
   if (g_cap_state==1 && g_cap_prerolluntil)
   {
-    DWORD now=GetTickCount();
     if (now < g_cap_prerolluntil) sprintf(pbuf,"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
   }
-  else if (g_cap_state == 2) strcpy(pbuf,"Paused - ");
+  else if (g_cap_state == 2) 
+  {
+    strcpy(pbuf,"Paused - ");
+  }
   sprintf(buf,"%s%s",pbuf,dims);
 
+  if (g_cap_lcf) strcat(buf, " LCF");
+  if (g_cap_gif) strcat(buf, " GIF");
+  
+  if (g_cap_state)
+  {
+    DWORD t = g_ms_written;
+    if (!g_cap_lcf) t += g_cap_gif_lastbm_accumdelay;
+    if (g_cap_state == 1 && now >= g_cap_prerolluntil)
+    {
+      t += now-g_last_frame_capture_time;
+    }
+    sprintf(buf+strlen(buf), " %d:%02d", t/60000, (t/1000)%60);
+  }
   if (g_cap_state && g_frate_valid)
-    sprintf(buf+strlen(buf)," @ %.1ffps",g_frate_avg);
-
-  if (g_cap_lcf) strcat(buf, " (LCF)");
-  if (g_cap_gif) strcat(buf, " (GIF)");
-
+  {   
+    sprintf(buf+strlen(buf)," @ %.1ffps" ,g_frate_avg);
+  }
 
   GetDlgItemText(hwndDlg,IDC_STATUS,oldtext,sizeof(oldtext));
   if (strcmp(buf,oldtext))
+  {
     SetDlgItemText(hwndDlg,IDC_STATUS,buf);
+  }
 }
 
 
@@ -371,7 +392,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               DoMouseCursor(g_cap_bm->getDC(),h,-(r.left+1),-(r.top+1));
             
               if (g_cap_lcf)
+              {
+                g_ms_written += now-g_last_frame_capture_time;
                 g_cap_lcf->OnFrame(g_cap_bm,now-g_last_frame_capture_time);
+              }
 
               if (g_cap_gif)
               {
@@ -393,8 +417,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     LICE_SubBitmap bm(g_cap_gif_lastbm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],
                       g_cap_gif_lastbm_coords[2],g_cap_gif_lastbm_coords[3]);
 
-                    int del = now-g_last_frame_capture_time+ g_cap_gif_lastbm_accumdelay;
+                    int del = now-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay;
                     if (del<1) del=1;
+                    if (!g_cap_lcf) g_ms_written += del;
                     LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);
 
                     g_cap_gif_lastbm_accumdelay=0;
@@ -407,7 +432,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               double fr = 1000.0 / (double) (now - g_last_frame_capture_time);
               if (fr>100.0) fr=100.0;
 
-              if (g_frate_valid) g_frate_avg = g_frate_avg*0.9 + fr*0.1;
+              if (g_frate_valid) 
+              {
+                g_frate_avg = g_frate_avg*0.9 + fr*0.1;
+              }
               else 
               {
                 g_frate_avg=fr;
@@ -438,7 +466,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           last_status_t=now;
           UpdateStatusText(hwndDlg);
         }
-
 
       }
     break;
@@ -500,6 +527,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                 g_frate_valid=false;
                 g_frate_avg=0.0;
+                g_ms_written=0;
 
                 g_last_frame_capture_time = g_cap_prerolluntil=GetTickCount()+PREROLL_AMT;
                 g_cap_state=1;
