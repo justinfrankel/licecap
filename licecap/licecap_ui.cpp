@@ -160,6 +160,9 @@ LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until nex
 int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
+int g_titleuse;
+int g_titlems; 
+bool g_dotitle;
 
 LICE_SysBitmap *g_cap_bm;
 
@@ -393,8 +396,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             
               if (g_cap_lcf)
               {
-                g_ms_written += now-g_last_frame_capture_time;
-                g_cap_lcf->OnFrame(g_cap_bm,now-g_last_frame_capture_time);
+                int del = now-g_last_frame_capture_time;
+                if (g_dotitle)
+                {
+                  del += g_titlems;
+                  g_dotitle=false;
+                }
+                g_ms_written += del;
+                g_cap_lcf->OnFrame(g_cap_bm,del);
               }
 
               if (g_cap_gif)
@@ -492,6 +501,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
           if (!g_cap_state)
           {
+            char title[4096];
+            title[0]=0;
+
             const char *extlist="LiceCap files (*.lcf)\0*.lcf\0GIF files (*.gif)\0*.gif\0";
             const char *extlist_giflast = "GIF files (*.gif)\0*.gif\0LiceCap files (*.lcf)\0*.lcf\0\0";
             bool last_gif = strlen(g_last_fn)<4 || !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
@@ -505,16 +517,48 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               delete g_cap_bm;
               g_cap_bm = new LICE_SysBitmap(w,h);
 
+              // todo UI
+              {
+                g_titleuse=false;
+                g_titlems=2000;
+                strcpy(title, "Eat More Pork");
+              }
+              g_dotitle = (g_titleuse && title[0] && g_titlems);
+
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
                 g_cap_gif_lastbm_accumdelay=0;
                 g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,0,true);
               }
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".lcf"))
+              {
                 g_cap_lcf = new LICECaptureCompressor(g_last_fn,w,h);
+              }
 
               if (g_cap_gif || g_cap_lcf)
               {
+
+                if (g_dotitle)
+                {           
+                  LICE_Clear(g_cap_bm, 0);
+                  int txtw, txth;
+                  LICE_MeasureText(title, &txtw, &txth);
+                  if (txtw > w*4/5) 
+                  {
+                    // todo break on words
+                  }
+                  LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth)/2, title, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);                
+
+                  if (g_cap_gif) 
+                  {
+                    LICE_WriteGIFFrame(g_cap_gif, g_cap_bm, 0, 0, true, g_titlems);                 
+                  }
+                  if (g_cap_lcf)
+                  {
+                    g_cap_lcf->OnFrame(g_cap_bm, 0); 
+                  }
+                }
+
                 SaveRestoreRecRect(hwndDlg,false);
 
                 g_last_wndstyle = SetWindowLong(hwndDlg,GWL_STYLE,GetWindowLong(hwndDlg,GWL_STYLE)&~WS_THICKFRAME);
@@ -528,6 +572,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 g_frate_valid=false;
                 g_frate_avg=0.0;
                 g_ms_written=0;
+                if (g_dotitle && !g_cap_lcf) g_ms_written = g_titlems;
 
                 g_last_frame_capture_time = g_cap_prerolluntil=GetTickCount()+PREROLL_AMT;
                 g_cap_state=1;

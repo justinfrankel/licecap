@@ -19,6 +19,7 @@ CFG=licecap_gui - Win32 Debug
 !MESSAGE 
 !MESSAGE "licecap_gui - Win32 Release" (based on "Win32 (x86) Application")
 !MESSAGE "licecap_gui - Win32 Debug" (based on "Win32 (x86) Application")
+!MESSAGE "licecap_gui - Win32 Release Profile" (based on "Win32 (x86) Application")
 !MESSAGE 
 
 # Begin Project
@@ -79,12 +80,40 @@ LINK32=xilink6.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
 
+!ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "licecap_gui___Win32_Release_Profile"
+# PROP BASE Intermediate_Dir "licecap_gui___Win32_Release_Profile"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "Release_Profile"
+# PROP Intermediate_Dir "Release_Profile"
+# PROP Ignore_Export_Lib 0
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /YX /FD /c
+# ADD CPP /nologo /W3 /GX /Zi /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /FR /YX /FD /c
+# ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
+# ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
+# ADD BASE RSC /l 0x409 /d "NDEBUG"
+# ADD RSC /l 0x409 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LINK32=xilink6.exe
+# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /fixed:no
+# SUBTRACT LINK32 /pdb:none
+
 !ENDIF 
 
 # Begin Target
 
 # Name "licecap_gui - Win32 Release"
 # Name "licecap_gui - Win32 Debug"
+# Name "licecap_gui - Win32 Release Profile"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
@@ -107,6 +136,11 @@ SOURCE=..\WDL\giflib\dgif_lib.c
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
+
+# ADD BASE CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+
 !ENDIF 
 
 # End Source File
@@ -119,6 +153,11 @@ SOURCE=..\WDL\giflib\egif_lib.c
 # ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
+
+# ADD BASE CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -133,6 +172,11 @@ SOURCE=..\WDL\giflib\gif_hash.c
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
+
+# ADD BASE CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+
 !ENDIF 
 
 # End Source File
@@ -146,6 +190,11 @@ SOURCE=..\WDL\giflib\gifalloc.c
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
+
+# ADD BASE CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+
 !ENDIF 
 
 # End Source File
@@ -158,6 +207,11 @@ SOURCE=..\WDL\lice\lice_gif.cpp
 # ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
+
+# ADD BASE CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -338,6 +392,10 @@ SOURCE=..\WDL\lice\lice_png.cpp
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice_png_write.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_text.cpp
 # End Source File
 # End Group
 # Begin Source File
