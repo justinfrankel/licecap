@@ -40,6 +40,19 @@ BEGIN
                     SS_LEFTNOWORDWRAP | WS_GROUP,59,322,410,8
 END
 
+IDD_SAVEOPTS DIALOGEX 0, 0, 317, 36
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS
+EXSTYLE WS_EX_CONTROLPARENT
+FONT 8, "MS Sans Serif"
+BEGIN
+    CONTROL         "Add title frame: ",IDC_TITLEUSE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,0,6,60,10
+    LTEXT           "sec",IDC_STATIC,91,7,14,8
+    EDITTEXT        IDC_MS,63,4,26,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TITLE,63,20,250,14,ES_AUTOHSCROLL
+    LTEXT           "Title:",IDC_STATIC,43,23,16,8
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -55,6 +68,11 @@ BEGIN
         RIGHTMARGIN, 547
         TOPMARGIN, 4
         BOTTOMMARGIN, 332
+    END
+
+    IDD_SAVEOPTS, DIALOG
+    BEGIN
+        RIGHTMARGIN, 313
     END
 END
 #endif    // APSTUDIO_INVOKED

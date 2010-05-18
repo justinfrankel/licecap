@@ -9,7 +9,9 @@
 
 #include "resource.h"
 
-int g_max_fps=5;
+HINSTANCE g_hInst;
+
+int g_max_fps=5;  
 
 char g_last_fn[2048];
 char g_ini_file[1024];
@@ -161,7 +163,8 @@ int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
 int g_titleuse;
-int g_titlems; 
+int g_titlems=1500;
+char g_title[4096];
 bool g_dotitle;
 
 LICE_SysBitmap *g_cap_bm;
@@ -311,6 +314,50 @@ void Capture_Finish(HWND hwndDlg)
   g_cap_bm=0;
 }
 
+static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  switch (msg)
+  {
+    case WM_INITDIALOG:
+    {
+      CheckDlgButton(hwndDlg, IDC_TITLEUSE, (g_titleuse ? BST_CHECKED : BST_UNCHECKED));
+      char buf[256];
+      sprintf(buf, "%.1f", (double)g_titlems/1000.0);
+      SetDlgItemText(hwndDlg, IDC_MS, buf);
+      SetDlgItemText(hwndDlg, IDC_TITLE, g_title);
+      EnableWindow(GetDlgItem(hwndDlg, IDC_MS), g_titleuse);
+      EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), g_titleuse);
+    }
+    return 0;
+    case WM_DESTROY:
+    {
+      g_titleuse = !!IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE);
+      char buf[256];
+      buf[0]=0;
+      GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf)-1);
+      double titlesec = atof(buf);
+      g_titlems = (int)(titlesec*1000.0);
+      g_title[0]=0;
+      GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title)-1);
+    }
+    return 0;
+    case WM_COMMAND:
+      switch (LOWORD(wParam))
+      {
+        case IDC_TITLEUSE:
+        {
+          bool use = !!IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_MS), use);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), use);
+        }
+        return 0;
+      }
+    return 0;
+  }
+  return 0;
+}
+
+
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static POINT s_last_mouse;
@@ -359,6 +406,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           }
         }
       }
+
+      g_titleuse = GetPrivateProfileInt("licecap", "title", g_titleuse, g_ini_file);
+      g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file);
+      g_title[0]=0;
+
     return 1;
     case WM_DESTROY:
 
@@ -369,6 +421,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         char buf[1024];
         sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
         WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file);
+        sprintf(buf, "%d", g_titleuse);
+        WritePrivateProfileString("licecap","title",buf,g_ini_file);
+        sprintf(buf, "%d", g_titlems);
+        WritePrivateProfileString("licecap","titlems",buf,g_ini_file);
       }
 
     break;
@@ -501,13 +557,17 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
           if (!g_cap_state)
           {
-            char title[4096];
-            title[0]=0;
+            //g_title[0]=0;
 
             const char *extlist="LiceCap files (*.lcf)\0*.lcf\0GIF files (*.gif)\0*.gif\0";
             const char *extlist_giflast = "GIF files (*.gif)\0*.gif\0LiceCap files (*.lcf)\0*.lcf\0\0";
             bool last_gif = strlen(g_last_fn)<4 || !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
-            if (WDL_ChooseFileForSave(hwndDlg,"Choose file for recording",NULL,g_last_fn,last_gif?extlist_giflast:extlist,last_gif ? "gif" : "lcf",false,g_last_fn,sizeof(g_last_fn)))
+            const char* useextlist = (last_gif ? extlist_giflast : extlist);
+            const char* useext = (last_gif ? "gif" : "lcf");          
+
+            if (WDL_ChooseFileForSave(hwndDlg, "Choose file for recording", NULL, g_last_fn,
+              useextlist, useext, false, g_last_fn, sizeof(g_last_fn),
+              MAKEINTRESOURCE(IDD_SAVEOPTS),(void*)SaveOptsProc, g_hInst))
             {
               WritePrivateProfileString("licecap","lastfn",g_last_fn,g_ini_file);
 
@@ -517,13 +577,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               delete g_cap_bm;
               g_cap_bm = new LICE_SysBitmap(w,h);
 
-              // todo UI
-              {
-                g_titleuse=false;
-                g_titlems=2000;
-                strcpy(title, "Eat More Pork");
-              }
-              g_dotitle = (g_titleuse && title[0] && g_titlems);
+              g_dotitle = (g_titleuse && g_title[0] && g_titlems);
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
@@ -542,12 +596,12 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 {           
                   LICE_Clear(g_cap_bm, 0);
                   int txtw, txth;
-                  LICE_MeasureText(title, &txtw, &txth);
+                  LICE_MeasureText(g_title, &txtw, &txth);
                   if (txtw > w*4/5) 
                   {
                     // todo break on words
                   }
-                  LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth)/2, title, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);                
+                  LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth)/2, g_title, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);                
 
                   if (g_cap_gif) 
                   {
@@ -703,6 +757,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
   GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file);
 
+  g_hInst = hInstance;
   DialogBox(hInstance,MAKEINTRESOURCE(IDD_DIALOG1),GetDesktopWindow(),liceCapMainProc);
   return 0;
 }
