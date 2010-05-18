@@ -11,7 +11,7 @@
 
 HINSTANCE g_hInst;
 
-int g_max_fps=5;  
+int g_max_fps=8;  
 
 char g_last_fn[2048];
 char g_ini_file[1024];
@@ -185,7 +185,7 @@ int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
 int g_titleuse;
-int g_titlems=1500;
+int g_titlems=2000;
 char g_title[4096];
 bool g_dotitle;
 
