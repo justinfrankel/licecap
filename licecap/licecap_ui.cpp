@@ -398,6 +398,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       wndsize.init_item(IDC_STOP,1,1,1,1);
 
       SendMessage(hwndDlg,WM_SIZE,0,0);
+
+      g_max_fps = GetPrivateProfileInt("licecap", "maxfps", g_max_fps, g_ini_file);
       SetDlgItemInt(hwndDlg,IDC_MAXFPS,g_max_fps,FALSE);
 
       Capture_Finish(hwndDlg);
@@ -443,6 +445,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         char buf[1024];
         sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
         WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file);
+        sprintf(buf, "%d", g_max_fps);
+        WritePrivateProfileString("licecap","maxfps",buf,g_ini_file);
         sprintf(buf, "%d", g_titleuse);
         WritePrivateProfileString("licecap","title",buf,g_ini_file);
         sprintf(buf, "%d", g_titlems);
