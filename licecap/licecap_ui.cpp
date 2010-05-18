@@ -16,6 +16,28 @@ int g_max_fps=5;
 char g_last_fn[2048];
 char g_ini_file[1024];
 
+
+bool SplitLine(char* buf)
+{
+  int i = strlen(buf)/2;
+  int j;
+  for (j=0; j < i-1; ++j)
+  {
+    if (buf[i+j] == ' ')
+    {
+      buf[i+j]=0;
+      return true;    
+    }
+    if (buf[i-j] == ' ')
+    {
+      buf[i-j]=0;
+      return true;
+    }
+  }
+  return false;
+}
+  
+
 typedef struct {
   DWORD   cbSize;
   DWORD   flags;
@@ -597,11 +619,37 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                   LICE_Clear(g_cap_bm, 0);
                   int txtw, txth;
                   LICE_MeasureText(g_title, &txtw, &txth);
-                  if (txtw > w*4/5) 
+
+                  char buf[4096];
+                  strcpy(buf, g_title);
+                  int numlines=1;
+
+                  if (txtw > w*3/4)
                   {
-                    // todo break on words
+                    if (SplitLine(buf))
+                    {
+                      ++numlines;
+
+                      char* p = buf+strlen(buf)+1;
+                      int w1, w2;
+                      LICE_MeasureText(buf, &w1, 0);
+                      LICE_MeasureText(p, &w2, 0);
+                      if (w1 > w*3/4 || w2 > w*3/4)
+                      {
+                        if (SplitLine(buf)) ++numlines;
+                        if (SplitLine(p)) ++numlines;
+                      }
+                    }
                   }
-                  LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth)/2, g_title, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);                
+
+                  char* p=buf;
+                  int i;
+                  for (i = 0; i < numlines; ++i)
+                  {                   
+                    LICE_MeasureText(p, &txtw, 0);
+                    LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+                    p += strlen(p)+1;
+                  }
 
                   if (g_cap_gif) 
                   {
