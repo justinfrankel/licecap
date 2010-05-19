@@ -185,7 +185,7 @@ int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
 int g_titleuse;
-int g_titlems=2000;
+int g_titlems=1500;
 char g_title[4096];
 bool g_dotitle;
 
