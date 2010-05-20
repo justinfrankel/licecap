@@ -47,10 +47,12 @@ FONT 8, "MS Sans Serif"
 BEGIN
     CONTROL         "Add title frame: ",IDC_TITLEUSE,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,0,6,60,10
-    LTEXT           "sec",IDC_STATIC,91,7,14,8
     EDITTEXT        IDC_MS,63,4,26,14,ES_AUTOHSCROLL
-    EDITTEXT        IDC_TITLE,19,20,294,14,ES_AUTOHSCROLL
+    LTEXT           "sec",IDC_STATIC,91,7,14,8
+    CONTROL         "Big font",IDC_BIGFONT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,274,6,37,10
     LTEXT           "Title:",IDC_STATIC,0,23,16,8
+    EDITTEXT        IDC_TITLE,19,20,294,14,ES_AUTOHSCROLL
 END
 
 

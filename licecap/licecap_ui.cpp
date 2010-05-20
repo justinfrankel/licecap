@@ -194,7 +194,7 @@ LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until nex
 int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
-int g_titleuse;
+int g_titleuse; // &1=yes, &2=giant font
 int g_titlems=1500;
 char g_title[4096];
 bool g_dotitle;
@@ -352,18 +352,22 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
   {
     case WM_INITDIALOG:
     {
-      CheckDlgButton(hwndDlg, IDC_TITLEUSE, (g_titleuse ? BST_CHECKED : BST_UNCHECKED));
+      CheckDlgButton(hwndDlg, IDC_TITLEUSE, ((g_titleuse&1) ? BST_CHECKED : BST_UNCHECKED));
+      CheckDlgButton(hwndDlg, IDC_BIGFONT, ((g_titleuse&2) ? BST_CHECKED : BST_UNCHECKED));
       char buf[256];
       sprintf(buf, "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
       SetDlgItemText(hwndDlg, IDC_TITLE, g_title);
-      EnableWindow(GetDlgItem(hwndDlg, IDC_MS), g_titleuse);
-      EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), g_titleuse);
+      EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_titleuse&1));
+      EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_titleuse&1));
+      EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), (g_titleuse&1));
     }
     return 0;
     case WM_DESTROY:
     {
-      g_titleuse = !!IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE);
+      g_titleuse=0;
+      if (IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE)) g_titleuse |= 1;
+      if (IsDlgButtonChecked(hwndDlg, IDC_BIGFONT)) g_titleuse |= 2;
       char buf[256];
       buf[0]=0;
       GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf)-1);
@@ -380,6 +384,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
         {
           bool use = !!IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE);
           EnableWindow(GetDlgItem(hwndDlg, IDC_MS), use);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), use);
           EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), use);
         }
         return 0;
@@ -613,7 +618,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               delete g_cap_bm;
               g_cap_bm = new LICE_SysBitmap(w,h);
 
-              g_dotitle = (g_titleuse && g_titlems);
+              g_dotitle = ((g_titleuse&1) && g_titlems);
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
@@ -634,6 +639,17 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                   if (g_title[0])
                   {
+                    int tw=w;
+                    int th=h;                    
+                    LICE_IBitmap* tbm = g_cap_bm;
+                    if (g_titleuse&2) 
+                    {
+                      tw /= 2;
+                      th /= 2;
+                      tbm = new LICE_MemBitmap(tw, th); 
+                      LICE_Clear(tbm, 0);                      
+                    }
+
                     int txtw, txth;
                     LICE_MeasureText(g_title, &txtw, &txth);
 
@@ -641,7 +657,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     strcpy(buf, g_title);
                     int numlines=1;
 
-                    if (txtw > w*3/4)
+                    if (txtw > tw*3/4)
                     {
                       if (SplitLine(buf))
                       {
@@ -651,7 +667,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                         int w1, w2;
                         LICE_MeasureText(buf, &w1, 0);
                         LICE_MeasureText(p, &w2, 0);
-                        if (w1 > w*3/4 || w2 > w*3/4)
+                        if (w1 > tw*3/4 || w2 > tw*3/4)
                         {
                           if (SplitLine(buf)) ++numlines;
                           if (SplitLine(p)) ++numlines;
@@ -664,8 +680,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     for (i = 0; i < numlines; ++i)
                     {                   
                       LICE_MeasureText(p, &txtw, 0);
-                      LICE_DrawText(g_cap_bm, (w-txtw)/2, (h-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+                      LICE_DrawText(tbm, (tw-txtw)/2, (th-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
                       p += strlen(p)+1;
+                    }
+
+                    if (tbm != g_cap_bm)
+                    {
+                      LICE_ScaledBlit(g_cap_bm, tbm, 0, 0, w, h, 0, 0, tw, th, 1.0f, LICE_BLIT_MODE_COPY);
+                      delete tbm;
                     }
                   }
 

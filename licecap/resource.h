@@ -13,6 +13,7 @@
 #define IDC_MAXFPS                      1005
 #define IDC_VIEWRECT                    1006
 #define IDC_TITLEUSE                    1007
+#define IDC_BIGFONT                     1008
 #define IDC_MS                          1009
 #define IDC_TITLE                       1010
 
