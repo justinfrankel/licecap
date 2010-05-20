@@ -50,7 +50,9 @@ BEGIN
     EDITTEXT        IDC_MS,63,4,26,14,ES_AUTOHSCROLL
     LTEXT           "sec",IDC_STATIC,91,7,14,8
     CONTROL         "Big font",IDC_BIGFONT,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,274,6,37,10
+                    WS_TABSTOP,138,6,37,10
+    CONTROL         "Record mouse button press",IDC_MOUSECAP,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,213,6,99,10
     LTEXT           "Title:",IDC_STATIC,0,23,16,8
     EDITTEXT        IDC_TITLE,19,20,294,14,ES_AUTOHSCROLL
 END

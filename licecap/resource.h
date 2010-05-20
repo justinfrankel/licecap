@@ -16,6 +16,7 @@
 #define IDC_BIGFONT                     1008
 #define IDC_MS                          1009
 #define IDC_TITLE                       1010
+#define IDC_MOUSECAP                    1011
 
 // Next default values for new objects
 // 

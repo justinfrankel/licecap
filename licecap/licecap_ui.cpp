@@ -11,6 +11,10 @@
 
 HINSTANCE g_hInst;
 
+
+int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown
+
+
 int g_max_fps=8;  
 
 char g_last_fn[2048];
@@ -71,7 +75,7 @@ void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
       int mousex = ci.ptScreenPos.x-inf.xHotspot+xoffs;
       int mousey = ci.ptScreenPos.y-inf.yHotspot+yoffs;
 
-      if (GetAsyncKeyState(VK_LBUTTON) || GetAsyncKeyState(VK_RBUTTON))
+      if ((g_prefs&4) && (GetAsyncKeyState(VK_LBUTTON) || GetAsyncKeyState(VK_RBUTTON)))
       {
         LICE_Circle(sbm, mousex+1, mousey+1, 10.0f, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
         LICE_Circle(sbm, mousex+1, mousey+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
@@ -194,7 +198,6 @@ LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until nex
 int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
-int g_titleuse; // &1=yes, &2=giant font
 int g_titlems=1500;
 char g_title[4096];
 bool g_dotitle;
@@ -352,22 +355,24 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
   {
     case WM_INITDIALOG:
     {
-      CheckDlgButton(hwndDlg, IDC_TITLEUSE, ((g_titleuse&1) ? BST_CHECKED : BST_UNCHECKED));
-      CheckDlgButton(hwndDlg, IDC_BIGFONT, ((g_titleuse&2) ? BST_CHECKED : BST_UNCHECKED));
+      CheckDlgButton(hwndDlg, IDC_TITLEUSE, ((g_prefs&1) ? BST_CHECKED : BST_UNCHECKED));
+      CheckDlgButton(hwndDlg, IDC_BIGFONT, ((g_prefs&2) ? BST_CHECKED : BST_UNCHECKED));
+      CheckDlgButton(hwndDlg, IDC_MOUSECAP, ((g_prefs&4) ? BST_CHECKED : BST_UNCHECKED));
       char buf[256];
       sprintf(buf, "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
       SetDlgItemText(hwndDlg, IDC_TITLE, g_title);
-      EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_titleuse&1));
-      EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_titleuse&1));
-      EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), (g_titleuse&1));
+      EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
+      EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_prefs&1));
+      EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), (g_prefs&1));
     }
     return 0;
     case WM_DESTROY:
     {
-      g_titleuse=0;
-      if (IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE)) g_titleuse |= 1;
-      if (IsDlgButtonChecked(hwndDlg, IDC_BIGFONT)) g_titleuse |= 2;
+      g_prefs=0;
+      if (IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE)) g_prefs |= 1;
+      if (IsDlgButtonChecked(hwndDlg, IDC_BIGFONT)) g_prefs |= 2;
+      if (IsDlgButtonChecked(hwndDlg, IDC_MOUSECAP)) g_prefs |= 4;
       char buf[256];
       buf[0]=0;
       GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf)-1);
@@ -446,7 +451,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         }
       }
 
-      g_titleuse = GetPrivateProfileInt("licecap", "title", g_titleuse, g_ini_file);
+      g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file);
       g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file);
       g_title[0]=0;
 
@@ -462,8 +467,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file);
         sprintf(buf, "%d", g_max_fps);
         WritePrivateProfileString("licecap","maxfps",buf,g_ini_file);
-        sprintf(buf, "%d", g_titleuse);
-        WritePrivateProfileString("licecap","title",buf,g_ini_file);
+        sprintf(buf, "%d", g_prefs);
+        WritePrivateProfileString("licecap","prefs",buf,g_ini_file);
         sprintf(buf, "%d", g_titlems);
         WritePrivateProfileString("licecap","titlems",buf,g_ini_file);
       }
@@ -618,7 +623,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               delete g_cap_bm;
               g_cap_bm = new LICE_SysBitmap(w,h);
 
-              g_dotitle = ((g_titleuse&1) && g_titlems);
+              g_dotitle = ((g_prefs&1) && g_titlems);
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
@@ -642,7 +647,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     int tw=w;
                     int th=h;                    
                     LICE_IBitmap* tbm = g_cap_bm;
-                    if (g_titleuse&2) 
+                    if (g_prefs&2) 
                     {
                       tw /= 2;
                       th /= 2;
