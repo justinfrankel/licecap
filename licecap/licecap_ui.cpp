@@ -36,7 +36,7 @@ bool SplitLine(char* buf)
   }
   return false;
 }
-  
+ 
 
 typedef struct {
   DWORD   cbSize;
@@ -45,7 +45,7 @@ typedef struct {
   POINT   ptScreenPos;
 } pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
 
-void DoMouseCursor(HDC hdc, HWND h, int xoffs, int yoffs)
+void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
 {
   // XP+ only
 
@@ -67,7 +67,17 @@ void DoMouseCursor(HDC hdc, HWND h, int xoffs, int yoffs)
     {
       ICONINFO inf={0,};
       GetIconInfo(ci.hCursor,&inf);
-      DrawIconEx(hdc,ci.ptScreenPos.x-inf.xHotspot + xoffs,ci.ptScreenPos.y-inf.yHotspot + yoffs,ci.hCursor,0,0,0,NULL,DI_NORMAL);
+
+      int mousex = ci.ptScreenPos.x-inf.xHotspot+xoffs;
+      int mousey = ci.ptScreenPos.y-inf.yHotspot+yoffs;
+
+      if (GetAsyncKeyState(VK_LBUTTON) || GetAsyncKeyState(VK_RBUTTON))
+      {
+        LICE_Circle(sbm, mousex+1, mousey+1, 10.0f, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+        LICE_Circle(sbm, mousex+1, mousey+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+      }
+
+      DrawIconEx(sbm->getDC(),mousex-inf.xHotspot,mousey-inf.yHotspot,ci.hCursor,0,0,0,NULL,DI_NORMAL);
       if (inf.hbmColor) DeleteObject(inf.hbmColor);
       if (inf.hbmMask) DeleteObject(inf.hbmMask);
     }
@@ -474,7 +484,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               BitBlt(g_cap_bm->getDC(),0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight(),hdc,r.left+1,r.top+1,SRCCOPY);
               ReleaseDC(h,hdc);
 
-              DoMouseCursor(g_cap_bm->getDC(),h,-(r.left+1),-(r.top+1));
+              DoMouseCursor(g_cap_bm,h,-(r.left+1),-(r.top+1));
             
               if (g_cap_lcf)
               {
@@ -725,6 +735,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       }
     break;
+
     case WM_LBUTTONDOWN:
       SetCapture(hwndDlg);
       GetCursorPos(&s_last_mouse);

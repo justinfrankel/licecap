@@ -53,7 +53,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=xilink6.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib winmm.lib /nologo /subsystem:windows /machine:I386
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -371,6 +371,10 @@ SOURCE=..\WDL\lice\lice.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\WDL\lice\lice_arc.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\WDL\lice\lice_gif_write.cpp
 # End Source File
 # Begin Source File
@@ -380,6 +384,10 @@ SOURCE=..\WDL\lice\lice_lcf.cpp
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice_lcf.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\WDL\lice\lice_line.cpp
 # End Source File
 # Begin Source File
 
