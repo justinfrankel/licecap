@@ -40,21 +40,24 @@ BEGIN
                     SS_LEFTNOWORDWRAP | WS_GROUP,59,322,410,8
 END
 
-IDD_SAVEOPTS DIALOGEX 0, 0, 317, 36
+IDD_SAVEOPTS DIALOGEX 0, 0, 317, 56
 STYLE DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS
 EXSTYLE WS_EX_CONTROLPARENT
 FONT 8, "MS Sans Serif"
 BEGIN
-    CONTROL         "Add title frame: ",IDC_TITLEUSE,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,0,6,60,10
-    EDITTEXT        IDC_MS,63,4,26,14,ES_AUTOHSCROLL
-    LTEXT           "sec",IDC_STATIC,91,7,14,8
+    GROUPBOX        "Display in animation",IDC_STATIC,0,4,99,51
+    CONTROL         "title frame:",IDC_TITLEUSE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,6,18,45,10
+    EDITTEXT        IDC_MS,54,16,26,14,ES_AUTOHSCROLL
+    LTEXT           "sec",IDC_STATIC,82,18,14,8
+    CONTROL         "timeline",IDC_MOUSECAP2,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,6,31,36,10
+    CONTROL         "mouse button press",IDC_MOUSECAP,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,6,43,75,10
+    LTEXT           "Title:",IDC_STATIC,105,5,16,8
+    EDITTEXT        IDC_TITLE,105,15,208,40,ES_MULTILINE | ES_WANTRETURN
     CONTROL         "Big font",IDC_BIGFONT,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,138,6,37,10
-    CONTROL         "Record mouse button press",IDC_MOUSECAP,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,213,6,99,10
-    LTEXT           "Title:",IDC_STATIC,0,23,16,8
-    EDITTEXT        IDC_TITLE,19,20,294,14,ES_AUTOHSCROLL
+                    WS_TABSTOP,276,4,37,10
 END
 
 
@@ -77,6 +80,8 @@ BEGIN
     IDD_SAVEOPTS, DIALOG
     BEGIN
         RIGHTMARGIN, 313
+        TOPMARGIN, 4
+        BOTTOMMARGIN, 55
     END
 END
 #endif    // APSTUDIO_INVOKED

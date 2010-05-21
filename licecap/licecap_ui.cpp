@@ -12,7 +12,7 @@
 HINSTANCE g_hInst;
 
 
-int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown
+int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline
 
 
 int g_max_fps=8;  
@@ -20,27 +20,6 @@ int g_max_fps=8;
 char g_last_fn[2048];
 char g_ini_file[1024];
 
-
-bool SplitLine(char* buf)
-{
-  int i = strlen(buf)/2;
-  int j;
-  for (j=0; j < i-1; ++j)
-  {
-    if (buf[i+j] == ' ')
-    {
-      buf[i+j]=0;
-      return true;    
-    }
-    if (buf[i-j] == ' ')
-    {
-      buf[i-j]=0;
-      return true;
-    }
-  }
-  return false;
-}
- 
 
 typedef struct {
   DWORD   cbSize;
@@ -655,36 +634,24 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                       LICE_Clear(tbm, 0);                      
                     }
 
-                    int txtw, txth;
-                    LICE_MeasureText(g_title, &txtw, &txth);
-
                     char buf[4096];
-                    strcpy(buf, g_title);
+                    strcpy(buf, g_title);                    
+
                     int numlines=1;
-
-                    if (txtw > tw*3/4)
+                    char* p = strstr(buf, "\n");
+                    while (p)
                     {
-                      if (SplitLine(buf))
-                      {
-                        ++numlines;
-
-                        char* p = buf+strlen(buf)+1;
-                        int w1, w2;
-                        LICE_MeasureText(buf, &w1, 0);
-                        LICE_MeasureText(p, &w2, 0);
-                        if (w1 > tw*3/4 || w2 > tw*3/4)
-                        {
-                          if (SplitLine(buf)) ++numlines;
-                          if (SplitLine(p)) ++numlines;
-                        }
-                      }
+                      *p=0;
+                      p = strstr(p+1, "\n");
+                      ++numlines;
                     }
-
-                    char* p=buf;
+            
+                    p=buf;
                     int i;
                     for (i = 0; i < numlines; ++i)
                     {                   
-                      LICE_MeasureText(p, &txtw, 0);
+                      int txtw, txth;
+                      LICE_MeasureText(p, &txtw, &txth);
                       LICE_DrawText(tbm, (tw-txtw)/2, (th-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
                       p += strlen(p)+1;
                     }
