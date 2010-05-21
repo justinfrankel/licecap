@@ -17,7 +17,7 @@
 #define IDC_MS                          1009
 #define IDC_TITLE                       1010
 #define IDC_MOUSECAP                    1011
-#define IDC_MOUSECAP2                   1012
+#define IDC_TIMELINE                    1012
 
 // Next default values for new objects
 // 

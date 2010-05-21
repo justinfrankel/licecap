@@ -53,7 +53,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=xilink6.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib winmm.lib /nologo /subsystem:windows /machine:I386
+# ADD LINK32 winmm.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -78,7 +78,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=xilink6.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib winmm.lib /nologo /subsystem:windows /debug /machine:I386 /pdbtype:sept
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Release Profile"
 
@@ -104,7 +104,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=xilink6.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /fixed:no
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib winmm.lib /nologo /subsystem:windows /debug /machine:I386 /fixed:no
 # SUBTRACT LINK32 /pdb:none
 
 !ENDIF 
@@ -132,7 +132,7 @@ SOURCE=..\WDL\giflib\dgif_lib.c
 
 !IF  "$(CFG)" == "licecap_gui - Win32 Release"
 
-# ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -150,7 +150,7 @@ SOURCE=..\WDL\giflib\egif_lib.c
 
 !IF  "$(CFG)" == "licecap_gui - Win32 Release"
 
-# ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -168,7 +168,7 @@ SOURCE=..\WDL\giflib\gif_hash.c
 
 !IF  "$(CFG)" == "licecap_gui - Win32 Release"
 
-# ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -186,7 +186,7 @@ SOURCE=..\WDL\giflib\gifalloc.c
 
 !IF  "$(CFG)" == "licecap_gui - Win32 Release"
 
-# ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -204,7 +204,7 @@ SOURCE=..\WDL\lice\lice_gif.cpp
 
 !IF  "$(CFG)" == "licecap_gui - Win32 Release"
 
-# ADD CPP /I "../WDL/giflib" /D "PNG_WRITE_SUPPORTED" /D "USE_ICC" /D "HAVE_CONFIG_H"
+# ADD CPP /I "../WDL/giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "licecap_gui - Win32 Debug"
 
@@ -396,10 +396,6 @@ SOURCE=..\WDL\lice\lice_palette.cpp
 # Begin Source File
 
 SOURCE=..\WDL\lice\lice_png.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\lice\lice_png_write.cpp
 # End Source File
 # Begin Source File
 

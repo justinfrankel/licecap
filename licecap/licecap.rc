@@ -50,7 +50,7 @@ BEGIN
                     WS_TABSTOP,6,18,45,10
     EDITTEXT        IDC_MS,54,16,26,14,ES_AUTOHSCROLL
     LTEXT           "sec",IDC_STATIC,82,18,14,8
-    CONTROL         "timeline",IDC_MOUSECAP2,"Button",BS_AUTOCHECKBOX | 
+    CONTROL         "timeline",IDC_TIMELINE,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,6,31,36,10
     CONTROL         "mouse button press",IDC_MOUSECAP,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,6,43,75,10
