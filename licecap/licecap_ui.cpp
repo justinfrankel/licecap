@@ -67,25 +67,6 @@ void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
   }
 }
 
-void DrawTimelineUnits(LICE_IBitmap* bm, int sx, int ex, int units)
-{
-  if (!units) return;
-  const int BH=3;
-  int h = bm->getHeight();
-  double dx = (double)(ex-sx)/(double)units;
-  int i;
-  for (i = 0; i < units; ++i)
-  {
-    int h1 = (i%2 ? BH*2 : BH);
-    int h2 = (i%2 ? BH : BH*2);
-    int x1 = sx+(int)(dx*(double)i);
-    int x2 = (i == units-1 ? ex : sx+(int)(dx*(double)(i+1)));    
-    LICE_FillRect(bm, x1, h-h1, x2-x1, BH, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-    LICE_FillRect(bm, x1, h-h2, x2-x1, BH, LICE_RGBA(0,0,0,0), 1.0f, LICE_BLIT_MODE_COPY);
-  }
-}
-
-
 #undef GetSystemMetrics
 
 void my_getViewport(RECT *r, RECT *sr, bool wantWork) {
@@ -353,6 +334,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
   {
     case WM_INITDIALOG:
     {
+      ShowWindow(GetDlgItem(hwndDlg, IDC_TIMELINE), SW_HIDE);
       CheckDlgButton(hwndDlg, IDC_TITLEUSE, ((g_prefs&1) ? BST_CHECKED : BST_UNCHECKED));
       CheckDlgButton(hwndDlg, IDC_BIGFONT, ((g_prefs&2) ? BST_CHECKED : BST_UNCHECKED));
       CheckDlgButton(hwndDlg, IDC_MOUSECAP, ((g_prefs&4) ? BST_CHECKED : BST_UNCHECKED));
@@ -498,12 +480,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               ReleaseDC(h,hdc);
 
               DoMouseCursor(g_cap_bm,h,-(r.left+1),-(r.top+1));
-
-              if (g_prefs&8)
-              {
-                int sec = (g_ms_written+now-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay+1000)/1000;
-                DrawTimelineUnits(g_cap_bm, 0, bw, sec);
-              }
             
               if (g_cap_lcf)
               {
