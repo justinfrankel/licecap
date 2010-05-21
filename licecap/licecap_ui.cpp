@@ -501,7 +501,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (g_prefs&8)
               {
-                int sec = (g_ms_written+1000)/1000;
+                int sec = (g_ms_written+now-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay+1000)/1000;
                 DrawTimelineUnits(g_cap_bm, 0, bw, sec);
               }
             
