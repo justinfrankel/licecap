@@ -72,17 +72,16 @@ void DrawTimelineUnits(LICE_IBitmap* bm, int sx, int ex, int units)
   if (!units) return;
   const int BH=3;
   int h = bm->getHeight();
-  int dx = (ex-sx)/units;
+  double dx = (double)(ex-sx)/(double)units;
   int i;
   for (i = 0; i < units; ++i)
   {
     int h1 = (i%2 ? BH*2 : BH);
     int h2 = (i%2 ? BH : BH*2);
-    int x = sx+dx*i;
-    int w = dx;
-    if (i == units-1) w=ex-x;
-    LICE_FillRect(bm, x, h-h1, w, BH, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-    LICE_FillRect(bm, x, h-h2, w, BH, LICE_RGBA(0,0,0,0), 1.0f, LICE_BLIT_MODE_COPY);
+    int x1 = sx+(int)(dx*(double)i);
+    int x2 = (i == units-1 ? ex : sx+(int)(dx*(double)(i+1)));    
+    LICE_FillRect(bm, x1, h-h1, x2-x1, BH, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+    LICE_FillRect(bm, x1, h-h2, x2-x1, BH, LICE_RGBA(0,0,0,0), 1.0f, LICE_BLIT_MODE_COPY);
   }
 }
 
