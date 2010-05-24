@@ -67,6 +67,18 @@ void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
   }
 }
 
+void WriteTime(LICE_IBitmap* bm, int sec)
+{
+  char str[512];
+  sprintf(str, "%d:%02d", sec/60, sec%60);
+  int txtw, txth;
+  LICE_MeasureText(str, &txtw, &txth);
+  int x = bm->getWidth()-txtw-10;
+  int y = bm->getHeight()-txth-10;
+  LICE_DrawText(bm, x, y, str, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+  LICE_DrawText(bm, x+2, y+2, str, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+}
+
 #undef GetSystemMetrics
 
 void my_getViewport(RECT *r, RECT *sr, bool wantWork) {
@@ -180,6 +192,7 @@ int g_cap_gif_lastbm_accumdelay;
 int g_titlems=1500;
 char g_title[4096];
 bool g_dotitle;
+int g_last_sec_written;
 
 LICE_SysBitmap *g_cap_bm;
 
@@ -220,13 +233,7 @@ void UpdateStatusText(HWND hwndDlg)
   
   if (g_cap_state)
   {
-    DWORD t = g_ms_written;
-    if (!g_cap_lcf) t += g_cap_gif_lastbm_accumdelay;
-    if (g_cap_state == 1 && now >= g_cap_prerolluntil)
-    {
-      t += now-g_last_frame_capture_time;
-    }
-    sprintf(buf+strlen(buf), " %d:%02d", t/60000, (t/1000)%60);
+    sprintf(buf+strlen(buf), " %d:%02d", g_ms_written/60000, (g_ms_written/1000)%60);
   }
   if (g_cap_state && g_frate_valid)
   {   
@@ -465,6 +472,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         {
           if (now >= g_last_frame_capture_time + (1000/(max(g_max_fps,1))))
           {
+            g_ms_written += now-g_last_frame_capture_time;
+
             HWND h = GetDesktopWindow();
             RECT r;
             GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
@@ -481,15 +490,27 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               DoMouseCursor(g_cap_bm,h,-(r.left+1),-(r.top+1));
             
+              int curtime=-1;
+              if (g_prefs&8)
+              {                
+                curtime = g_ms_written/1000;
+                if (curtime == g_last_sec_written) curtime=-1;                
+                else g_last_sec_written=curtime;                
+              }
+
               if (g_cap_lcf)
               {
+                if (curtime >= 0)
+                {
+                  //WriteTime(g_cap_bm, curtime);
+                }
+
                 int del = now-g_last_frame_capture_time;
                 if (g_dotitle)
                 {
                   del += g_titlems;
                   g_dotitle=false;
                 }
-                g_ms_written += del;
                 g_cap_lcf->OnFrame(g_cap_bm,del);
               }
 
@@ -515,7 +536,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                     int del = now-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay;
                     if (del<1) del=1;
-                    if (!g_cap_lcf) g_ms_written += del;
                     LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);
 
                     g_cap_gif_lastbm_accumdelay=0;
@@ -541,7 +561,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             }
           }
         }
-
 
         bool force_status=false;
         if (g_cap_prerolluntil && g_cap_state==1)
@@ -612,7 +631,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
-                g_cap_gif_lastbm_accumdelay=0;
                 g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,0,true);
               }
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".lcf"))
@@ -691,8 +709,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                 g_frate_valid=false;
                 g_frate_avg=0.0;
-                g_ms_written=0;
-                if (g_dotitle && !g_cap_lcf) g_ms_written = g_titlems;
+                g_cap_gif_lastbm_accumdelay=0;
+                g_ms_written = (g_dotitle ? g_titlems : 0);
+                g_last_sec_written=-1;
 
                 g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
                 g_cap_state=1;
