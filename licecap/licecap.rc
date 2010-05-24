@@ -48,10 +48,10 @@ BEGIN
     GROUPBOX        "Display in animation",IDC_STATIC,0,4,99,51
     CONTROL         "title frame:",IDC_TITLEUSE,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,6,18,45,10
-    EDITTEXT        IDC_MS,54,16,26,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_MS,54,16,26,13,ES_AUTOHSCROLL
     LTEXT           "sec",IDC_STATIC,82,18,14,8
-    CONTROL         "timeline",IDC_TIMELINE,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,6,31,36,10
+    CONTROL         "elapsed time",IDC_TIMELINE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,6,31,76,10
     CONTROL         "mouse button press",IDC_MOUSECAP,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,6,43,75,10
     LTEXT           "Title:",IDC_STATIC,105,5,16,8
