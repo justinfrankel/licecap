@@ -177,7 +177,7 @@ LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until nex
 int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
-int g_titlems=1500;
+int g_titlems=1750;
 char g_title[4096];
 bool g_dotitle;
 int g_last_sec_written;
@@ -309,7 +309,7 @@ void Capture_Finish(HWND hwndDlg)
         g_cap_gif_lastbm_coords[2],g_cap_gif_lastbm_coords[3]);
 
       int del = (timeGetTime()-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay);
-      if (del<1) del=1;
+      if (del<10) del=10;
       LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);      
     }
 
@@ -542,7 +542,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     }
 
                     int del = now-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay;
-                    if (del<1) del=1;
+                    if (del<10) del=10;
                
                     if (dotime)
                     {
@@ -552,7 +552,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     {
                       LICE_SubBitmap bm(g_cap_gif_lastbm, g_cap_gif_lastbm_coords[0], g_cap_gif_lastbm_coords[1], g_cap_gif_lastbm_coords[2], g_cap_gif_lastbm_coords[3]);
                       LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);
-                      del=1;  // slippage
+                      del=10;  // slippage
                     }
                     if (newtime)
                     {
