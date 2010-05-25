@@ -51,8 +51,8 @@ void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
       ICONINFO inf={0,};
       GetIconInfo(ci.hCursor,&inf);
 
-      int mousex = ci.ptScreenPos.x-inf.xHotspot+xoffs;
-      int mousey = ci.ptScreenPos.y-inf.yHotspot+yoffs;
+      int mousex = ci.ptScreenPos.x+xoffs;
+      int mousey = ci.ptScreenPos.y+yoffs;
 
       if ((g_prefs&4) && ((GetAsyncKeyState(VK_LBUTTON)&0x8000) || (GetAsyncKeyState(VK_RBUTTON)&0x8000)))
       {
@@ -60,7 +60,7 @@ void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
         LICE_Circle(sbm, mousex+1, mousey+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
       }
 
-      DrawIconEx(sbm->getDC(),mousex,mousey,ci.hCursor,0,0,0,NULL,DI_NORMAL);
+      DrawIconEx(sbm->getDC(),mousex-inf.xHotspot,mousey-inf.yHotspot,ci.hCursor,0,0,0,NULL,DI_NORMAL);
       if (inf.hbmColor) DeleteObject(inf.hbmColor);
       if (inf.hbmMask) DeleteObject(inf.hbmMask);
     }
