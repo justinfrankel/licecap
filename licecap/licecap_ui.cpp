@@ -536,7 +536,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 {
                   if (!g_cap_gif_lastbm) 
                   {
-                    g_cap_gif_lastbm = new LICE_MemBitmap;
+                    g_cap_gif_lastbm = new LICE_MemBitmap(bw, bh);
                   }
                   else 
                   {
@@ -577,8 +577,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                     g_cap_gif_lastbm_accumdelay=0;
                   }
+
                   memcpy(g_cap_gif_lastbm_coords,diffs,sizeof(diffs));
-                  LICE_Copy(g_cap_gif_lastbm, g_cap_bm); // could just blit diffs no?
+                  LICE_Blit(g_cap_gif_lastbm, g_cap_bm, diffs[0], diffs[1], diffs[0], diffs[1], diffs[2], diffs[3], 1.0f, LICE_BLIT_MODE_COPY);
                 }
               }
 
