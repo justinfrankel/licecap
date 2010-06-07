@@ -1,0 +1,11 @@
+Get WDL from http://www.cockos.com/wdl
+
+extract it so you have:
+
+   licecap_source/licecap.cpp
+
+and
+
+   WDL/wdlstring.h
+
+from the same relative path

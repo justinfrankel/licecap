@@ -295,6 +295,10 @@ SOURCE=.\licecap_ui.cpp
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\licecap_version.h
+# End Source File
 # End Group
 # Begin Group "Resource Files"
 
