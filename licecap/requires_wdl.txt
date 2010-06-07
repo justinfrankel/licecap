@@ -2,7 +2,7 @@ Get WDL from http://www.cockos.com/wdl
 
 extract it so you have:
 
-   licecap_source/licecap.cpp
+   licecap/licecap.cpp
 
 and
 
