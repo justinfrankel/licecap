@@ -54,10 +54,11 @@ BEGIN
                     WS_TABSTOP,6,31,76,10
     CONTROL         "mouse button press",IDC_MOUSECAP,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,6,43,75,10
-    LTEXT           "Title:",IDC_STATIC,105,5,16,8
-    EDITTEXT        IDC_TITLE,105,15,208,40,ES_MULTILINE | ES_WANTRETURN
+    EDITTEXT        IDC_TITLE,105,8,208,36,ES_MULTILINE | ES_WANTRETURN
     CONTROL         "Big font",IDC_BIGFONT,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,276,4,37,10
+                    WS_TABSTOP,275,46,37,10
+    CONTROL         "Shift+space pauses recording",IDC_SSPAUSE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,105,46,109,10
 END
 
 

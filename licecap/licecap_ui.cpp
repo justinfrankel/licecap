@@ -34,7 +34,7 @@
 HINSTANCE g_hInst;
 
 
-int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline
+int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause
 
 
 int g_max_fps=8;  
@@ -368,14 +368,15 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
     case WM_INITDIALOG:
     {
       //ShowWindow(GetDlgItem(hwndDlg, IDC_TIMELINE), SW_HIDE);
-      CheckDlgButton(hwndDlg, IDC_TITLEUSE, ((g_prefs&1) ? BST_CHECKED : BST_UNCHECKED));
-      CheckDlgButton(hwndDlg, IDC_BIGFONT, ((g_prefs&2) ? BST_CHECKED : BST_UNCHECKED));
-      CheckDlgButton(hwndDlg, IDC_MOUSECAP, ((g_prefs&4) ? BST_CHECKED : BST_UNCHECKED));
-      CheckDlgButton(hwndDlg, IDC_TIMELINE, ((g_prefs&8) ? BST_CHECKED : BST_UNCHECKED));
+      if (g_prefs&1) CheckDlgButton(hwndDlg, IDC_TITLEUSE, BST_CHECKED);
+      if (g_prefs&2) CheckDlgButton(hwndDlg, IDC_BIGFONT, BST_CHECKED);
+      if (g_prefs&4) CheckDlgButton(hwndDlg, IDC_MOUSECAP, BST_CHECKED);
+      if (g_prefs&8) CheckDlgButton(hwndDlg, IDC_TIMELINE, BST_CHECKED);
+      if (g_prefs&16) CheckDlgButton(hwndDlg, IDC_SSPAUSE, BST_CHECKED);
       char buf[256];
       sprintf(buf, "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
-      SetDlgItemText(hwndDlg, IDC_TITLE, g_title);
+      SetDlgItemText(hwndDlg, IDC_TITLE, (g_title[0] ? g_title : "Title"));
       EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), (g_prefs&1));
@@ -388,6 +389,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (IsDlgButtonChecked(hwndDlg, IDC_BIGFONT)) g_prefs |= 2;
       if (IsDlgButtonChecked(hwndDlg, IDC_MOUSECAP)) g_prefs |= 4;
       if (IsDlgButtonChecked(hwndDlg, IDC_TIMELINE)) g_prefs |= 8;
+      if (IsDlgButtonChecked(hwndDlg, IDC_SSPAUSE)) g_prefs |= 16;
       char buf[256];
       buf[0]=0;
       GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf)-1);
@@ -395,6 +397,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       g_titlems = (int)(titlesec*1000.0);
       g_title[0]=0;
       GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title)-1);
+      if (!strcmp(g_title, "Title")) g_title[0]=0;
     }
     return 0;
     case WM_COMMAND:
@@ -406,7 +409,14 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
           EnableWindow(GetDlgItem(hwndDlg, IDC_MS), use);
           EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), use);
           EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), use);
+          if (use) SetFocus(GetDlgItem(hwndDlg, IDC_TITLE));
         }
+        return 0;
+        case IDC_TITLE:
+          if (HIWORD(wParam) == EN_SETFOCUS)
+          {
+            SendDlgItemMessage(hwndDlg, IDC_TITLE, EM_SETSEL, 0, -1);
+          }          
         return 0;
       }
     return 0;
@@ -645,6 +655,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       }
     break;
+
+    case WM_HOTKEY:
+      if (lParam == MAKELPARAM(MOD_SHIFT, VK_SPACE) && (g_prefs&16)) // prefs check not necessary
+      {
+        SendMessage(hwndDlg, WM_COMMAND, IDC_REC, 0);
+      }
+    break;    
+
     case WM_COMMAND:
       switch (LOWORD(wParam))
       {
@@ -656,14 +674,13 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               g_max_fps = a;
           }
         break;
+
         case IDC_STOP:
-
           Capture_Finish(hwndDlg);
-
           UpdateCaption(hwndDlg);
           UpdateStatusText(hwndDlg);
-
         break;
+
         case IDC_REC:
 
           if (!g_cap_state)
@@ -681,6 +698,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               MAKEINTRESOURCE(IDD_SAVEOPTS),(void*)SaveOptsProc, g_hInst))
             {
               WritePrivateProfileString("licecap","lastfn",g_last_fn,g_ini_file);
+
+              static bool s_hk=false;
+              if ((g_prefs&16) != s_hk)
+              {          
+                s_hk = !s_hk;
+                if (s_hk) RegisterHotKey(hwndDlg, IDC_REC, MOD_SHIFT, VK_SPACE);               
+                else UnregisterHotKey(hwndDlg, IDC_REC);
+              }
 
               RECT r;
               GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
