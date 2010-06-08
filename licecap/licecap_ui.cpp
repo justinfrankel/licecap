@@ -221,6 +221,7 @@ LICE_SysBitmap *g_cap_bm;
 
 DWORD g_last_wndstyle;
 
+
 void UpdateStatusText(HWND hwndDlg)
 {
   char dims[128];
@@ -679,6 +680,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           Capture_Finish(hwndDlg);
           UpdateCaption(hwndDlg);
           UpdateStatusText(hwndDlg);
+              
+          if (g_prefs&16)
+          {          
+            UnregisterHotKey(hwndDlg, IDC_REC);
+          }
         break;
 
         case IDC_REC:
@@ -699,12 +705,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             {
               WritePrivateProfileString("licecap","lastfn",g_last_fn,g_ini_file);
 
-              static bool s_hk=false;
-              if ((g_prefs&16) != s_hk)
+              if (g_prefs&16)
               {          
-                s_hk = !s_hk;
-                if (s_hk) RegisterHotKey(hwndDlg, IDC_REC, MOD_SHIFT, VK_SPACE);               
-                else UnregisterHotKey(hwndDlg, IDC_REC);
+                RegisterHotKey(hwndDlg, IDC_REC, MOD_SHIFT, VK_SPACE);               
               }
 
               RECT r;
