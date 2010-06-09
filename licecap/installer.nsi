@@ -68,6 +68,7 @@ Section "Required files"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   File license.txt
+  File whatsnew.txt
 
 SectionEnd
 
@@ -80,6 +81,7 @@ Section "Start Menu Shortcuts"
   SetOutPath $SMPROGRAMS\LICEcap
   CreateShortcut "$OUTDIR\LICEcap.lnk" "$INSTDIR\LICEcap.exe"
   CreateShortcut "$OUTDIR\LICEcap License.lnk" "$INSTDIR\license.txt"
+  CreateShortcut "$OUTDIR\Whatsnew.txt.lnk" "$INSTDIR\whatsnew.txt"
   CreateShortcut "$OUTDIR\Uninstall LICEcap.lnk" "$INSTDIR\uninstall.exe"
 
   SetOutPath $INSTDIR
@@ -103,6 +105,7 @@ Section "LICEcap Source Code"
   File licecap_cli.cpp
   File licecap_ui.cpp
   File requires_wdl.txt
+  File whatsnew.txt
 
 SectionEnd
 
@@ -119,6 +122,7 @@ Section "Uninstall"
   Delete "$INSTDIR\LICEcap.exe"
 
   Delete "$INSTDIR\license.txt"
+  Delete "$INSTDIR\whatsnew.txt"
   Delete "$INSTDIR\Uninstall.exe"
   Delete "$SMPROGRAMS\LICEcap\*.lnk"
   RMDir $SMPROGRAMS\LICEcap
@@ -126,6 +130,7 @@ Section "Uninstall"
 
   Delete $INSTDIR\Source\LICEcap\installer.nsi
   Delete $INSTDIR\Source\LICEcap\license.txt
+  Delete $INSTDIR\Source\LICEcap\whatsnew.txt
   Delete $INSTDIR\Source\LICEcap\licecap.dsw
   Delete $INSTDIR\Source\LICEcap\licecap_cli.dsp
   Delete $INSTDIR\Source\LICEcap\licecap_gui.dsp
