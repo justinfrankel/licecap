@@ -1,5 +1,5 @@
 v1.1 - June 9 2010
-  + Fixed broken LCF export
+  + Fixed LCF export for widths not multiples of 4
   + Added hotkey for pause (shift+space)
 
 v1.0 - June 7 2010
