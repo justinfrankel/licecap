@@ -57,8 +57,8 @@ BEGIN
     EDITTEXT        IDC_TITLE,105,8,208,36,ES_MULTILINE | ES_WANTRETURN
     CONTROL         "Big font",IDC_BIGFONT,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,275,46,37,10
-    CONTROL         "Shift+space pauses recording",IDC_SSPAUSE,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,105,46,109,10
+    CONTROL         "Control+Alt+P pauses recording",IDC_SSPAUSE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,105,46,115,10
 END
 
 

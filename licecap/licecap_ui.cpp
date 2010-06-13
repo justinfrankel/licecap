@@ -658,7 +658,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     break;
 
     case WM_HOTKEY:
-      if (lParam == MAKELPARAM(MOD_SHIFT, VK_SPACE) && (g_prefs&16)) // prefs check not necessary
+      if (lParam == MAKELPARAM(MOD_CONTROL|MOD_ALT, 'P') && (g_prefs&16)) // prefs check not necessary
       {
         SendMessage(hwndDlg, WM_COMMAND, IDC_REC, 0);
       }
@@ -707,7 +707,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (g_prefs&16)
               {          
-                RegisterHotKey(hwndDlg, IDC_REC, MOD_SHIFT, VK_SPACE);               
+                RegisterHotKey(hwndDlg, IDC_REC, MOD_CONTROL|MOD_ALT, 'P');               
               }
 
               RECT r;
