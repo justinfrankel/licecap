@@ -26,25 +26,7 @@
 #define _WDL_VIRTWND_CONTROLS_H_
 
 #include "virtwnd.h"
-
-
-
-
-
-
 #include "virtwnd-skin.h"
-
-#ifndef _WIN32
-#define WM_COMMAND 100
-#define WM_HSCROLL 101
-#define WM_VSCROLL 102
-#define WM_USER 14000
-#define STN_CLICKED 1000
-#define STN_DBLCLK 1001
-#define SB_ENDSCROLL 1000
-#define SB_THUMBTRACK 1001
-#define CBN_SELCHANGE 3000
-#endif
 
 
 // an app should implement these

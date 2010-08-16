@@ -49,10 +49,6 @@
 
 class LICE_SysBitmap;
 
-
-// for mac, HWND should be a subclassed NSView:
-// -(int)virtWndCommand:(int)msg, p1:(int)parm1, p2:(int)parm2 sender:(WDL_VWnd*)src
-
 // deprecated
 #define WDL_VirtualWnd_ChildList WDL_VWnd
 #define WDL_VirtualWnd WDL_VWnd
@@ -112,10 +108,6 @@ protected:
   int m_captureidx;
   int m_lastmouseidx;
   WDL_PtrList<WDL_VWnd> *m_children;
-#ifndef _WIN32
-  int Mac_SendCommand(HWND hwnd, int msg, int parm1, int parm2, WDL_VWnd *src);
-  void Mac_Invalidate(HWND hwnd, RECT *r);
-#endif
 
 };
 

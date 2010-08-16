@@ -176,6 +176,11 @@ LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 LICE_IBitmap *LICE_LoadIcon(const char *filename, int iconnb=0, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int iconnb=0, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
+
+LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp=NULL);
+LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nframes=NULL); // if nframes set, will be set to number of images (stacked vertically), otherwise first frame used
+
+
 // flags that most blit functions can take
 
 #define LICE_BLIT_MODE_MASK 0xff
@@ -299,6 +304,14 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa);
+
+
+// Returns Bezier x, y for a given t in [0,1].
+void LICE_Bezier(float ctrl_x1, float ctrl_x2, float ctrl_x3, 
+    float ctrl_y1, float ctrl_y2, float ctrl_y3, float t, float* pX, float* pY);
+
+// Returns Bezier y for a given x in [x1, x3] (for rasterizing).
+float LICE_Bezier_GetY(float ctrl_x1, float ctrl_x2, float ctrl_x3, float ctrl_y1, float ctrl_y2, float ctrl_y3, float x);
 
 
 /*

@@ -25,7 +25,7 @@ CFG=lice - Win32 Debug
 # PROP AllowPerConfigDependencies 0
 # PROP Scc_ProjName ""
 # PROP Scc_LocalPath ""
-CPP=cl.exe
+CPP=xicl6.exe
 RSC=rc.exe
 
 !IF  "$(CFG)" == "lice - Win32 Release"
@@ -47,7 +47,7 @@ RSC=rc.exe
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LIB32=link.exe -lib
+LIB32=xilink6.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
@@ -70,7 +70,7 @@ LIB32=link.exe -lib
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LIB32=link.exe -lib
+LIB32=xilink6.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
@@ -251,6 +251,270 @@ SOURCE=..\zlib\zutil.c
 SOURCE=..\zlib\zutil.h
 # End Source File
 # End Group
+# Begin Group "jpeglib"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\jpeglib\jcapimin.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcapistd.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jccoefct.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jccolor.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcdctmgr.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jchuff.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcinit.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcmainct.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcmarker.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcmaster.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcomapi.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcparam.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcphuff.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcprepct.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jcsample.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jctrans.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdapimin.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdapistd.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdatadst.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdatasrc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdcoefct.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdcolor.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jddctmgr.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdhuff.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdinput.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdmainct.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdmarker.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdmaster.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdmerge.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdphuff.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdpostct.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdsample.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jdtrans.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jerror.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jfdctflt.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jfdctfst.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jfdctint.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jidctflt.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jidctfst.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jidctint.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jidctred.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jmemmgr.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jmemnobs.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jquant1.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jquant2.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\jpeglib\jutils.c
+# End Source File
+# End Group
+# Begin Group "giflib"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\giflib\dgif_lib.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+# ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=..\giflib\egif_lib.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+# ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=..\giflib\gif_hash.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+# ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=..\giflib\gif_hash.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\giflib\gif_lib.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\giflib\gif_lib_private.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\giflib\gifalloc.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+# ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ENDIF 
+
+# End Source File
+# End Group
 # Begin Source File
 
 SOURCE=.\lice.cpp
@@ -265,7 +529,15 @@ SOURCE=.\lice_bmp.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_gif.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_ico.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\lice_jpg.cpp
 # End Source File
 # Begin Source File
 

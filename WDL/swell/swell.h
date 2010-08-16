@@ -177,6 +177,11 @@ int IsDlgButtonChecked(HWND hwnd, int idx);
 void EnableWindow(HWND hwnd, int enable);
 void SetFocus(HWND hwnd); // these take NSWindow/NSView, and return NSView *
 HWND GetFocus();
+void SetForegroundWindow(HWND hwnd); // these take NSWindow/NSView, and return NSView *
+HWND GetForegroundWindow();
+
+HWND SetCapture(HWND hwnd);
+void ReleaseCapture();
 int IsChild(HWND hwndParent, HWND hwndChild);
 HWND GetParent(HWND hwnd);
 HWND SetParent(HWND hwnd, HWND newPar);
@@ -189,7 +194,9 @@ int GetWindowLong(HWND hwnd, int idx);
 int SetWindowLong(HWND hwnd, int idx, int val);
 #define GWL_USERDATA        (-21)
 #define GWL_ID              (-12)
+#define GWL_STYLE           (-16) // only supported for BS_ for now I think
 
+bool IsWindowVisible(HWND hwnd);
 #define IsWindow(x) (!!(x)) // todo use isKindOf
 
 void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed);
@@ -204,12 +211,33 @@ int SWELL_CB_GetItemData(HWND hwnd, int idx, int item);
 void SWELL_CB_Empty(HWND hwnd, int idx);
 int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str);
 int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz);
+void SWELL_CB_DeleteString(HWND hwnd, int idx, int wh);
 
 void SWELL_TB_SetPos(HWND hwnd, int idx, int pos);
 void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi);
 int SWELL_TB_GetPos(HWND hwnd, int idx);
 void SWELL_TB_SetTic(HWND hwnd, int idx, int pos);
 
+
+// even more compatibility, yall
+#define CB_ADDSTRING                0x0143
+#define CB_DELETESTRING             0x0144
+#define CB_GETCOUNT                 0x0146
+#define CB_GETCURSEL                0x0147
+#define CB_GETLBTEXT                0x0148
+#define CB_INSERTSTRING             0x014A
+#define CB_RESETCONTENT             0x014B
+#define CB_SETCURSEL                0x014E
+#define CB_GETITEMDATA              0x0150
+#define CB_SETITEMDATA              0x0151
+#define CB_INITSTORAGE              0x0161
+#define TBM_GETPOS              (WM_USER)
+#define TBM_SETTIC              (WM_USER+4)
+#define TBM_SETPOS              (WM_USER+5)
+#define TBM_SETRANGE            (WM_USER+6)
+
+#define BM_SETIMAGE 0x00F7
+#define IMAGE_BITMAP 0
 
 typedef struct 
 { 
@@ -250,10 +278,13 @@ void ListView_SetColumnWidth(HWND h, int colpos, int wid);
 // ignored for now
 #define LVS_EX_FULLROWSELECT 0
 
-
+#define BS_AUTOCHECKBOX 1
+#define BS_AUTORADIOBUTTON 2
+#define BS_AUTO3STATE 4
 
 #define BST_CHECKED 1
 #define BST_UNCHECKED 0
+#define BST_INDETERMINATE 2
 #define SW_HIDE 0
 #define SW_SHOWNA 1
 #define SW_SHOW 2
@@ -325,6 +356,59 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi);
 #define MF_BYPOSITION 0x100
 
 
+
+
+/*
+  ** misc dlg
+  */
+#define EN_CHANGE           0x0300
+#define STN_CLICKED         0
+#define STN_DBLCLK          1
+#define WM_DESTROY                      0x0002
+#define WM_PAINT                        0x000F
+#define WM_ERASEBKGND                   0x0014
+#define WM_INITDIALOG                   0x0110
+#define WM_COMMAND                      0x0111
+#define WM_TIMER                        0x0113
+#define WM_CLOSE                        0x0010
+#define WM_HSCROLL                      0x0114
+#define WM_VSCROLL                      0x0115
+#define WM_USER                         0x0400      
+#define CBN_SELCHANGE       0
+#define CBN_EDITCHANGE 1
+#define CB_ERR (-1)
+#define SB_THUMBTRACK       5
+#define SB_ENDSCROLL        8
+
+
+#ifndef WINAPI
+#define WINAPI
+#endif
+                                       
+#ifndef CALLBACK
+#define CALLBACK
+#endif
+
+#ifndef MAKEINTRESOURCE
+#define MAKEINTRESOURCE(x) (x)         
+#endif                
+
+
+                                                                              
+#ifndef LOWORD
+#define LOWORD(x) ((x)&0xffff)
+#endif
+                                       
+#ifndef HIWORD
+#define HIWORD(x) (((x)>>16)&0xffff)
+#endif
+                                       
+typedef unsigned int UINT;
+typedef unsigned int WPARAM;
+typedef long LPARAM;
+
+#define SendDlgItemMessage(hwnd,idx,msg,wparam,lparam) SendMessage(GetDlgItem(hwnd,idx),msg,wparam,lparam)
+int SendMessage(HWND, UINT, WPARAM, LPARAM);                                      
 
 
 /*
@@ -406,6 +490,9 @@ void GetCursorPos(POINT *pt);
  ** swell-gdi.mm
  */
 
+
+void InvalidateRect(HWND hwnd, RECT *r, int eraseBk);
+
 typedef void *HDC;
 typedef void *HBRUSH;
 typedef void *HPEN;
@@ -459,9 +546,23 @@ void SWELL_SetClipRegion(HDC ctx, RECT *r);
 void SWELL_PopClipRegion(HDC ctx);
 void *SWELL_GetCtxFrameBuffer(HDC ctx);
 void SWELL_SyncCtxFrameBuffer(HDC ctx);
+void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork);
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode);
 #define DestroyIcon(x) DeleteObject(x)
 int GetSysColor(int idx);
+
+
+typedef struct {
+  HDC         hdc;
+  BOOL        fErase;
+  RECT        rcPaint;
+} PAINTSTRUCT;
+
+HDC BeginPaint(HWND, PAINTSTRUCT *);
+BOOL EndPaint(HWND, PAINTSTRUCT *);
+
+
+
 #define COLOR_3DSHADOW 0
 #define COLOR_3DHILIGHT 1
 #define COLOR_3DFACE 2
@@ -509,6 +610,7 @@ int GetSysColor(int idx);
 #define SWELL_CB_GetItemData(hwnd,idx,item) SendDlgItemMessage(hwnd,idx,CB_GETITEMDATA,(item),0)
 #define SWELL_CB_GetItemText(hwnd,idx,item,buf,bufsz) SendDlgItemMessage(hwnd,idx,CB_GETLBTEXT,(item),(LPARAM)(buf))
 #define SWELL_CB_Empty(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_RESETCONTENT,0,0)
+#define SWELL_CB_DeleteString(hwnd,idx,str) SendDlgItemMessage(hwnd,idx,CB_DELETESTRING,str,0)
 
 #define SWELL_TB_SetPos(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx, TBM_SETPOS,TRUE,(pos))
 #define SWELL_TB_SetRange(hwnd, idx, low, hi) SendDlgItemMessage(hwnd,idx,TBM_SETRANGE,TRUE,(LPARAM)MAKELONG((low),(hi)))

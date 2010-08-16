@@ -487,6 +487,7 @@ int SWELL_TrackPopupMenu(HMENU hMenu, int xpos, int ypos, HWND hwnd)
   {
     NSMenu *m=(NSMenu *)hMenu;
     NSView *v=(NSView *)hwnd;
+    if (v && [v isKindOfClass:[NSWindow class]]) v=[(NSWindow *)v contentView];
     if (!v) v=[[NSApp mainWindow] contentView];
     if (!v) return 0;
     

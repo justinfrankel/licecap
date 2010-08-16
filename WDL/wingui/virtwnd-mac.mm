@@ -19,22 +19,7 @@
     3. This notice may not be removed or altered from any source distribution.
       
 
-    Implementation of a couple functions to interface with Cocoa (since these use objective C they need to be here)
+    // deprecated (moved relevant stuff to SWELL)
 
 */
 
-#include "virtwnd-controls.h"
-
-int WDL_VirtualWnd_ChildList::Mac_SendCommand(HWND hwnd, int msg, int parm1, int parm2, WDL_VirtualWnd *src)
-{
-  id v=(id)hwnd;
-  if (!v) return 0;
-  return (int) [v virtWndCommand:msg p1:parm1 p2:parm2 sender:src];
-}
-
-void WDL_VirtualWnd_ChildList::Mac_Invalidate(HWND hwnd, RECT *r)
-{
-  NSView *v=(NSView *)hwnd;
-  if (!v) return;
-  [v setNeedsDisplayInRect:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)]; 
-}

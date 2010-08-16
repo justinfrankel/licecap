@@ -29,7 +29,7 @@
 #include "../mutex.h"
 #include "../ptrlist.h"
 
-
+#include "swell-gdi-int.h"
 
 
 void *SWELL_CStringToCFString(const char *str)
@@ -84,21 +84,61 @@ int SetWindowLong(HWND hwnd, int idx, int val)
 {
   if (!hwnd) return 0;
   id pid=(id)hwnd;
-  if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(getUserData)])
-  {
-    int ret=(int)[pid getUserData];
-    [pid setUserData:(int)val];
-    return ret;
-  }
-  NSControl *v=0;
-  if ([pid isKindOfClass:[NSControl class]]) v=(NSControl *)pid;
   
-  if (idx==GWL_ID && v)
+  if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(setSwellUserData:)])
   {
-    int ret=[v tag];
-    [v setTag:val];
+    int ret=(int)[pid getSwellUserData];
+    [pid setSwellUserData:(int)val];
     return ret;
   }
+  if (idx==GWL_USERDATA && [pid isKindOfClass:[NSView class]])
+  {
+    id wnd=[pid window];
+    if (wnd && [wnd contentView]==pid && [wnd respondsToSelector:@selector(setSwellUserData:)])
+    {
+      int ret=(int)[wnd getSwellUserData];
+      [wnd setSwellUserData:(int)val];
+      return ret;
+    }
+  }
+
+  
+  if (idx==GWL_ID && [pid respondsToSelector:@selector(tag)] && [pid respondsToSelector:@selector(setTag:)])
+  {
+    int ret=[pid tag];
+    [pid setTag:val];
+    return ret;
+  }
+  
+  
+  if (idx==GWL_STYLE)
+  {
+    if ([pid isKindOfClass:[NSButton class]]) 
+    {
+      int ret=GetWindowLong(hwnd,idx);
+      
+      if (val & BS_AUTO3STATE)
+      {
+        [pid setButtonType:NSSwitchButton];
+        [pid setAllowsMixedState:YES];
+      }    
+      else if (val & BS_AUTOCHECKBOX)
+      {
+        [pid setButtonType:NSSwitchButton];
+        [pid setAllowsMixedState:NO];
+      }
+      else if (val & BS_AUTORADIOBUTTON)
+      {
+        [pid setButtonType:NSRadioButton];
+      }               
+      
+      return ret;
+    }
+    return 0;
+  }
+
+  
+  
    
   return 0;
 }
@@ -107,22 +147,146 @@ int GetWindowLong(HWND hwnd, int idx)
 {
   if (!hwnd) return 0;
   id pid=(id)hwnd;
-
-  if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(getUserData)])
+  
+  
+  if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(getSwellUserData)])
   {
-    return (int)[pid getUserData];
+    return (int)[pid getSwellUserData];
   }
-  
-  
-  NSControl *v=0;
-  if ([pid isKindOfClass:[NSControl class]]) v=(NSControl *)pid;
+  if (idx==GWL_USERDATA && [pid isKindOfClass:[NSView class]])
+  {
+    id wnd=[pid window];
+    if (wnd && [wnd contentView]==pid && [wnd respondsToSelector:@selector(getSwellUserData)])
+    {
+      return (int)[wnd getSwellUserData];
+    }
+  }
 
-  if (idx==GWL_ID && v)
-    return [v tag];
+  if (idx==GWL_ID && [pid respondsToSelector:@selector(tag)])
+    return [pid tag];
   
+  
+  if (idx==GWL_STYLE)
+  {
+    if ([pid isKindOfClass:[NSButton class]]) 
+    {
+      int ret=0;
+      if ([pid allowsMixedState]) ret |= BS_AUTO3STATE|BS_AUTOCHECKBOX;
+      else ret |= BS_AUTOCHECKBOX; // todo: support querying radio buttons
+      return ret;
+    }
+    return 0;
+  }
+
   return 0;
 }
 
+bool IsWindowVisible(HWND hwnd)
+{
+  if (!hwnd) return false;
+
+  id turd=(id)hwnd;
+  if ([turd isKindOfClass:[NSView class]])
+  {
+    return ![turd isHiddenOrHasHiddenAncestor];
+  }
+  if ([turd isKindOfClass:[NSWindow class]])
+  {
+    return !![turd isVisible];
+  }
+  return true;
+}
+
+static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link dependent on swell-gdi.mm
+{
+  GDP_OBJECT *i = (GDP_OBJECT *)ico;
+  if (!i || i->type != TYPE_BITMAP) return 0;
+  return i->bitmapptr;
+}
+
+// todo: move to swell.h
+#define BM_GETIMAGE        0x00F6
+
+@interface Swell_Button : NSButton
+{
+  LPARAM m_swellGDIimage;
+}
+@end
+@implementation Swell_Button : NSButton
+
+-(id) init {
+  self = [super init];
+  if (self != nil) {
+    m_swellGDIimage=0;
+  }
+  return self;
+}
+
+-(void)setSwellGDIImage:(LPARAM)par
+{
+  m_swellGDIimage=par;
+}
+-(LPARAM)getSwellGDIImage
+{
+  return m_swellGDIimage;
+}
+
+@end
+
+int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  if (!hwnd) return 0;
+  id turd=(id)hwnd;
+  if ([turd respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  {
+    return (int) [turd onSwellMessage:msg p1:wParam p2:lParam];
+  }
+  else 
+  {
+    if ((msg==BM_GETIMAGE || msg == BM_SETIMAGE) && [turd isKindOfClass:[Swell_Button class]])
+    {
+      int ret=(int)[turd getSwellGDIImage];
+      if (msg==BM_SETIMAGE)
+      {
+        NSImage *img=NULL;
+        if (lParam) img=(NSImage *)__GetNSImageFromHICON((HICON)lParam);
+        [turd setImage:img];
+        [turd setSwellGDIImage:img?lParam:0];
+      }
+      return ret;
+    }
+    else if (msg >= CB_ADDSTRING && msg <= CB_INITSTORAGE && ([turd isKindOfClass:[NSPopUpButton class]] || [turd isKindOfClass:[NSComboBox class]]))
+    {
+        switch (msg)
+        {
+          case CB_ADDSTRING: return SWELL_CB_AddString(hwnd,0,(char*)lParam); 
+          case CB_DELETESTRING: SWELL_CB_DeleteString(hwnd,0,wParam); return 1;
+          case CB_GETCOUNT: return SWELL_CB_GetNumItems(hwnd,0);
+          case CB_GETCURSEL: return SWELL_CB_GetCurSel(hwnd,0);
+          case CB_GETLBTEXT: return SWELL_CB_GetItemText(hwnd,0,wParam,(char *)lParam, 1024);  
+          case CB_INSERTSTRING: return SWELL_CB_InsertString(hwnd,0,wParam,(char *)lParam);
+          case CB_RESETCONTENT: SWELL_CB_Empty(hwnd,0); return 0;
+          case CB_SETCURSEL: SWELL_CB_SetCurSel(hwnd,0,wParam); return 0;
+          case CB_GETITEMDATA: return SWELL_CB_GetItemData(hwnd,0,wParam);
+          case CB_SETITEMDATA: SWELL_CB_SetItemData(hwnd,0,wParam,lParam);
+          case CB_INITSTORAGE: return 0;                                                      
+        }
+        return 0;
+    }
+    else if (msg >= TBM_GETPOS && msg <= TBM_SETRANGE && ([turd isKindOfClass:[NSSlider class]]))
+    {
+        switch (msg)
+        {
+          case TBM_GETPOS: return SWELL_TB_GetPos(hwnd,0);
+          case TBM_SETTIC: SWELL_TB_SetTic(hwnd,0,lParam); return 1;
+          case TBM_SETPOS: SWELL_TB_SetPos(hwnd,0,lParam); return 1;
+          case TBM_SETRANGE: SWELL_TB_SetRange(hwnd,0,LOWORD(lParam),HIWORD(lParam)); return 1;
+        }
+        return 0;
+    }
+  }
+  return 0;
+}
 
 void DestroyWindow(HWND hwnd)
 {
@@ -130,10 +294,12 @@ void DestroyWindow(HWND hwnd)
   id pid=(id)hwnd;
   if ([pid isKindOfClass:[NSWindow class]])
   {
-    [(NSWindow *)pid close];
+    KillTimer(hwnd,-1);
+    [(NSWindow *)pid close]; // this is probably bad, but close takes too long to close!
   }
   else if ([pid isKindOfClass:[NSView class]])
   {
+    KillTimer(hwnd,-1);
     [(NSView *)pid removeFromSuperview];
   }
 }
@@ -144,6 +310,11 @@ void EnableWindow(HWND hwnd, int enable)
   id bla=(id)hwnd;
   if ([bla isKindOfClass:[NSControl class]])
     [bla setEnabled:(enable?YES:NO)];
+}
+
+void SetForegroundWindow(HWND hwnd)
+{
+  SetFocus(hwnd);
 }
 
 void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
@@ -163,6 +334,43 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
       [wnd makeKeyAndOrderFront:nil];
       [wnd makeFirstResponder:r];
     }
+  }
+}
+
+void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork)
+{
+  NSArray *ar=[NSScreen screens];
+  
+  int cnt=[ar count];
+  int x;
+  int cx=0;
+  int cy=0;
+  if (sourcerect)
+  {
+    cx=(sourcerect->left+sourcerect->right)/2;
+    cy=(sourcerect->top+sourcerect->bottom)/2;
+  }
+  for (x = 0; x < cnt; x ++)
+  {
+    NSScreen *sc=[ar objectAtIndex:x];
+    if (sc)
+    {
+      NSRect tr=wantWork ? [sc visibleFrame] : [sc frame];
+      if (!x || (cx >= tr.origin.x && cx < tr.origin.x+tr.size.width  &&
+                cy >= tr.origin.y && cy < tr.origin.y+tr.size.height))
+      {
+        r->left=(int)tr.origin.x;
+        r->right=(int)(tr.origin.x+tr.size.width+0.5);
+        r->top=(int)tr.origin.y;
+        r->bottom=(int)(tr.origin.y+tr.size.height+0.5);
+      }
+    }
+  }
+  if (!cnt)
+  {
+    r->left=r->top=0;
+    r->right=1600;
+    r->bottom=1200;
   }
 }
 
@@ -272,7 +480,11 @@ void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flag
       if ([ch isKindOfClass:[NSWindow class]])
         [ch setFrame:f display:YES];
       else
+      {
+        if ([[ch window] contentView] != ch && ![[ch superview] isFlipped])
+          f.origin.y -= f.size.height;
         [ch setFrame:f];
+      }
     }    
     return;
   }  
@@ -322,6 +534,15 @@ int IsChild(HWND hwndParent, HWND hwndChild)
     return !![ch isDescendantOf:par];
   }
   return 0;
+}
+
+HWND GetForegroundWindow()
+{
+  NSWindow *window=[NSApp keyWindow];
+  if (!window) return 0;
+  id ret=[window firstResponder];
+  if (ret && [ret isKindOfClass:[NSView class]]) return (HWND) ret;
+  return (HWND)window;
 }
 
 HWND GetFocus()
@@ -408,7 +629,7 @@ void CheckDlgButton(HWND hwnd, int idx, int check)
 {
   NSView *poo=(NSView *)GetDlgItem(hwnd,idx);
   if (!poo) return;
-  if ([poo isKindOfClass:[NSButton class]]) [(NSButton*)poo setState:(check&BST_CHECKED)?NSOnState:NSOffState];
+  if ([poo isKindOfClass:[NSButton class]]) [(NSButton*)poo setState:(check&BST_INDETERMINATE)?NSMixedState:((check&BST_CHECKED)?NSOnState:NSOffState)];
 }
 
 
@@ -416,7 +637,11 @@ int IsDlgButtonChecked(HWND hwnd, int idx)
 {
   NSView *poo=(NSView *)GetDlgItem(hwnd,idx);
   if (poo && [poo isKindOfClass:[NSButton class]])
-    return [(NSButton*)poo state]!=NSOffState;
+  {
+    int a=[(NSButton*)poo state];
+    if (a==NSMixedState) return BST_INDETERMINATE;
+    return a!=NSOffState;
+  }
   return 0;
 }
 
@@ -449,12 +674,25 @@ void SWELL_TB_SetTic(HWND hwnd, int idx, int pos)
   if (!p || ![p isKindOfClass:[NSSlider class]]) return;
 }
 
+void SWELL_CB_DeleteString(HWND hwnd, int idx, int wh)
+{
+  NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
+  if (!p) return;
+  if (idx>=0 && idx<SWELL_CB_GetNumItems(hwnd,idx))
+  {
+    if ([p isKindOfClass:[NSComboBox class]] || [p isKindOfClass:[NSPopUpButton class]])
+        [p removeItemAtIndex:idx];
+  }
+}
+
+
 int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
 {
   NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
-  int ni=[p numberOfItems];
 
   *buf=0;
+  if (!p) return 0;
+  int ni=[p numberOfItems];
   if (item < 0 || item >= ni) return 0;
   
   if ([p isKindOfClass:[NSComboBox class]])
@@ -486,6 +724,7 @@ int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str)
 {
   NSString *label=(NSString *)SWELL_CStringToCFString(str);
   NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
+  if (!p) return 0;
   
   int ni=[p numberOfItems];
   if (pos == -1000) pos=ni;
@@ -520,6 +759,7 @@ int SWELL_CB_AddString(HWND hwnd, int idx, const char *str)
 int SWELL_CB_GetCurSel(HWND hwnd, int idx)
 {
   NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
+  if (!p) return -1;
   return [p indexOfSelectedItem];
 }
 
@@ -531,7 +771,9 @@ void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
 
 int SWELL_CB_GetNumItems(HWND hwnd, int idx)
 {
-  return [(NSComboBox *)GetDlgItem(hwnd,idx) numberOfItems];
+  NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
+  if (!p) return 0;
+  return [p numberOfItems];
 }
 
 
@@ -593,6 +835,15 @@ int GetDlgItemInt(HWND hwnd, int idx, BOOL *translated, int issigned)
 void ShowWindow(HWND hwnd, int cmd)
 {
   id pid=(id)hwnd;
+  
+  if (pid && [pid isKindOfClass:[NSWindow class]])
+  {
+    if (cmd==SW_SHOW || cmd==SW_SHOWNA)
+    {
+      [pid makeKeyAndOrderFront:pid];
+    }
+    return;
+  }
   if (!pid || ![pid isKindOfClass:[NSView class]]) return;
   
   switch (cmd)
@@ -707,14 +958,16 @@ static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
   return ret;
 }
 
+static const double minwidfontadjust=1.81;
+static const double minwidfontscale=6.0;
 /// these are for swell-dlggen.h
-void SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h)
+HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags)
 {  
-  NSButton *button=[[NSButton alloc] init];
+  Swell_Button *button=[[Swell_Button alloc] init];
   
-  if (m_transform.size.width < 1.75)
+  if (m_transform.size.width < minwidfontadjust)
   {
-    [button setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+    [button setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
   }
   
   [button setTag:idx];
@@ -729,16 +982,17 @@ void SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   if (def) [[m_parent window] setDefaultButtonCell:(NSButtonCell*)button];
   [labelstr release];
   [button release];
+  return (HWND) button;
 }
 
-void SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
+HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 {  
   NSTextField *obj=[[NSTextField alloc] init];
   [obj setEditable:(flags & ES_READONLY)?NO:YES];
   //if (flags & ES_WANTRETURN)
 //    [obj 
-  if (m_transform.size.width < 1.75)
-    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+  if (m_transform.size.width < minwidfontadjust)
+    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
   if (h < 20)
   {
     [[obj cell] setWraps:NO];
@@ -753,9 +1007,10 @@ void SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   if (m_doautoright) UpdateAutoCoords([obj frame]);
   
   [obj release];
+  return (HWND)obj;
 }
 
-void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w, int h, int flags)
+HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w, int h, int flags)
 {
   NSTextField *obj=[[NSTextField alloc] init];
   [obj setEditable:NO];
@@ -763,8 +1018,8 @@ void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   [obj setBordered:NO];
   [obj setBezeled:NO];
   [obj setDrawsBackground:NO];
-  if (m_transform.size.width < 1.75)
-    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+  if (m_transform.size.width < minwidfontadjust)
+    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
 
   if (flags & SS_NOTFIY)
   {
@@ -782,6 +1037,7 @@ void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   if (m_doautoright) UpdateAutoCoords([obj frame]);
   [obj release];
   [labelstr release];
+  return (HWND)obj;
 }
 
 
@@ -870,7 +1126,7 @@ public:
 @end
 
 
-void SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h)
+HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h)
 {
   if (!stricmp(classname, "SysListView32"))
   {
@@ -896,6 +1152,7 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj release];
     [m_parent addSubview:obj2];
     [obj2 release];
+    return (HWND)obj2;
   }
   else if (!stricmp(classname, "msctls_progress32"))
   {
@@ -906,21 +1163,47 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setFrame:MakeCoords(x,y,w,h,false)];
     [m_parent addSubview:obj];
     [obj release];
+    return (HWND)obj;
+  }
+  else if (!stricmp(classname, "static"))
+  {
+    NSTextField *obj=[[NSTextField alloc] init];
+    [obj setEditable:NO];
+    [obj setSelectable:NO];
+    [obj setBordered:NO];
+    [obj setBezeled:NO];
+    [obj setDrawsBackground:NO];
+    
+    [obj setTag:idx];
+    [obj setFrame:MakeCoords(x,y,w,h,true)];
+    [m_parent addSubview:obj];
+    if (style & SS_BLACKRECT)
+    {
+      [obj setHidden:YES];
+    }
+    [obj release];
+    return (HWND)obj;
   }
   else if (!stricmp(classname,"Button"))
   {
     NSButton *button=[[NSButton alloc] init];
     [button setTag:idx];
-    if (style & BS_AUTOCHECKBOX)
+    if (style & BS_AUTO3STATE)
     {
       [button setButtonType:NSSwitchButton];
+      [button setAllowsMixedState:YES];
+    }    
+    else if (style & BS_AUTOCHECKBOX)
+    {
+      [button setButtonType:NSSwitchButton];
+      [button setAllowsMixedState:NO];
     }
     else if (style & BS_AUTORADIOBUTTON)
     {
       [button setButtonType:NSRadioButton];
     }
-    if (m_transform.size.width < 1.75)
-      [button setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+    if (m_transform.size.width < minwidfontadjust)
+      [button setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
     [button setFrame:MakeCoords(x,y,w,h,true)];
     NSString *labelstr=(NSString *)SWELL_CStringToCFString(cname);
     [button setTitle:labelstr];
@@ -931,6 +1214,7 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     if (m_doautoright) UpdateAutoCoords([button frame]);
     [labelstr release];
     [button release];
+    return (HWND)button;
   }
   else if (!stricmp(classname,"REAPERhfader")||!stricmp(classname,"msctls_trackbar32"))
   {
@@ -943,17 +1227,19 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setAction:@selector(onCommand:)];
     [m_parent addSubview:obj];
     [obj release];
+    return (HWND)obj;
   }
+  return 0;
 }
 
-void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
+HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 {
   if (flags & CBS_DROPDOWNLIST)
   {
     NSPopUpButton *obj=[[NSPopUpButton alloc] init];
     [obj setTag:idx];
-    if (m_transform.size.width < 1.75)
-      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+    if (m_transform.size.width < minwidfontadjust)
+      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
     [obj setFrame:MakeCoords(x,y-1,w,14,true)];
     [obj setAutoenablesItems:NO];
     [obj setTarget:ACTIONTARGET];
@@ -961,12 +1247,13 @@ void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [m_parent addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
     [obj release];
+    return (HWND)obj;
   }
   else
   {
     NSComboBox *obj=[[NSComboBox alloc] init];
-    if (m_transform.size.width < 1.75)
-      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+    if (m_transform.size.width < minwidfontadjust)
+      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
     [obj setEditable:(flags & CBS_DROPDOWNLIST)?NO:YES];
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y-1,w,14,true)];
@@ -976,6 +1263,7 @@ void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [m_parent addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
     [obj release];
+    return (HWND)obj;
   }
 }
 
@@ -995,7 +1283,7 @@ void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 }
 @end
 
-void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h)
+HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h)
 {
   TaggedBox *obj=[[TaggedBox alloc] init];
 //  [obj setTag:idx];
@@ -1006,6 +1294,7 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h)
   [obj setFrame:MakeCoords(x,y,w,h,false)];
   [m_parent addSubview:obj];
   [obj release];
+  return (HWND)obj;
 }
 
 
@@ -1187,4 +1476,48 @@ int ListView_GetSelectionMark(HWND h)
 
 void ListView_SetColumnWidth(HWND h, int colpos, int wid)
 {
+}
+
+void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
+{ 
+  if (!hwnd) return;
+  id view=(id)hwnd;
+  if ([view isKindOfClass:[NSWindow class]]) view=[view contentView];
+  if ([view isKindOfClass:[NSView class]]) 
+  {
+    if (r) [view setNeedsDisplayInRect:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)]; 
+    else [view setNeedsDisplay:YES];
+  }
+}
+
+static HWND m_fakeCapture;
+
+HWND SetCapture(HWND hwnd)
+{
+  HWND oc=m_fakeCapture;
+  m_fakeCapture=hwnd;
+  return oc;
+}
+
+void ReleaseCapture()
+{
+  m_fakeCapture=NULL;
+}
+
+
+HDC BeginPaint(HWND hwnd, PAINTSTRUCT *ps)
+{
+  if (!ps) return 0;
+  memset(ps,0,sizeof(PAINTSTRUCT));
+  if (!hwnd) return 0;
+  id turd = (id)hwnd;
+  if (![turd respondsToSelector:@selector(getSwellPaintInfo:)]) return 0;
+
+  [turd getSwellPaintInfo:(PAINTSTRUCT *)ps];
+  return ps->hdc;
+}
+
+BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
+{
+  return TRUE;
 }

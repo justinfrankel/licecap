@@ -47,6 +47,17 @@
   #endif
 #endif
 
+
+
+
+#ifdef _MSC_VER
+#define WDL_FILEREAD_POSTYPE __int64
+#else
+#define WDL_FILEREAD_POSTYPE long long
+#endif
+class WDL_FileRead
+{
+
 #ifdef WDL_WIN32_NATIVE_READ
 
 
@@ -72,27 +83,21 @@ public:
 
 #endif
 
-
-
-#ifdef _MSC_VER
-#define WDL_FILEREAD_POSTYPE __int64
-#else
-#define WDL_FILEREAD_POSTYPE long long
-#endif
-class WDL_FileRead
-{
 public:
   // allow_async=1 for unbuffered async, 2 for buffered async
   WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0)
   {
 #ifdef WDL_WIN32_NATIVE_READ
+
+#define WIN32_UNBUF_ALIGN 8192
+
+    m_sync_bufmode_used=m_sync_bufmode_pos=0;
     m_mmap_fmap=0;
     m_mmap_view=0;
     m_mmap_totalbufmode=0;
-    m_lastbuf=0;
     m_fsize=0;
     m_async = (allow_async && GetVersion()<0x80000000) ? allow_async : 0;
-    if (bufsize&4095) bufsize=(bufsize&~4095)+4096; // ensure bufsize is multiple of 4kb
+    if (bufsize&(WIN32_UNBUF_ALIGN-1)) bufsize=(bufsize&~(WIN32_UNBUF_ALIGN-1))+WIN32_UNBUF_ALIGN; // ensure bufsize is multiple of 4kb
 
     int flags=FILE_ATTRIBUTE_NORMAL;
     if (m_async)
@@ -100,6 +105,8 @@ public:
       flags|=FILE_FLAG_OVERLAPPED;
       if (m_async==1) flags|=FILE_FLAG_NO_BUFFERING;
     }
+    else if (nbufs*bufsize>=WIN32_UNBUF_ALIGN && !mmap_maxsize) flags|=FILE_FLAG_NO_BUFFERING; // non-async mode unbuffered if we do our own buffering
+
     m_fh = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
 
     if (m_fh != INVALID_HANDLE_VALUE)
@@ -135,15 +142,19 @@ public:
       {
         m_async_bufsize=bufsize;
         int x;
-        char *bptr=(char *)m_bufspace.Resize(nbufs*bufsize + 4095);
-        int a=((int)bptr)&4095;
-        if (a) bptr += 4096-a;
+        char *bptr=(char *)m_bufspace.Resize(nbufs*bufsize + (WIN32_UNBUF_ALIGN-1));
+        int a=((int)bptr)&(WIN32_UNBUF_ALIGN-1);
+        if (a) bptr += WIN32_UNBUF_ALIGN-a;
         for (x = 0; x < nbufs; x ++)
         {
           WDL_FileRead__ReadEnt *t=new WDL_FileRead__ReadEnt(m_async_bufsize,bptr);
           m_empties.Add(t);
           bptr+=m_async_bufsize;
         }
+      }
+      else if (!m_mmap_view && !m_mmap_totalbufmode && nbufs*bufsize>=WIN32_UNBUF_ALIGN)
+      {
+        m_bufspace.Resize(nbufs*bufsize+(WIN32_UNBUF_ALIGN-1));
       }
     }
 
@@ -171,8 +182,6 @@ public:
     m_empties.Empty();
     for (x = 0; x < m_full.GetSize();x ++) delete m_full.Get(x);
     m_full.Empty();
-    delete m_lastbuf;
-    m_lastbuf=0;
     for (x = 0; x < m_pending.GetSize();x ++) 
     {
       WaitForSingleObject(m_pending.Get(x)->m_ol.hEvent,INFINITE);
@@ -230,7 +239,7 @@ public:
       int cnt=0;
       if (m_async_readpos < m_file_position)  m_async_readpos = m_file_position;
 
-      if (m_async==1) m_async_readpos &= ~4095i64;
+      if (m_async==1) m_async_readpos &= ~((WDL_FILEREAD_POSTYPE) WIN32_UNBUF_ALIGN-1);
 
       while (x>0)
       {
@@ -263,8 +272,8 @@ public:
           m_empties.Delete(x);
           m_pending.Add(t);
         }
-        if (cnt++>1)
-           break;
+        //if (cnt++>1)
+        break;
       }
     }
   }
@@ -279,16 +288,6 @@ public:
     }
     if (maxlen<1) return 0;
 
-    if (m_lastbuf)
-    {
-      WDL_FILEREAD_POSTYPE tiofs=*(WDL_FILEREAD_POSTYPE *)&m_lastbuf->m_ol.Offset;
-      if (m_file_position >= tiofs && m_file_position < tiofs + m_lastbuf->m_size) // small seek back!
-      {
-        m_full.Insert(0,m_lastbuf);
-        m_lastbuf=0;
-
-      }
-    }
     do
     {
       while (m_full.GetSize() > 0)
@@ -310,8 +309,7 @@ public:
         }
         else
         {
-          if (m_lastbuf) m_empties.Add(m_lastbuf);
-          m_lastbuf=ti;
+          m_empties.Add(ti);
           m_full.Delete(0);
         }  
       }
@@ -409,10 +407,53 @@ public:
     }
     else
     {
-      DWORD dw=0;
-      ReadFile(m_fh,buf,len,&dw,NULL);
-      m_file_position+=dw;
-      return dw;
+      if (m_bufspace.GetSize()>=WIN32_UNBUF_ALIGN*2-1)
+      {
+        int rdout=0;
+        int sz=m_bufspace.GetSize()-(WIN32_UNBUF_ALIGN-1);
+        char *srcbuf=(char *)m_bufspace.Get(); // read size
+        if (((int)srcbuf)&(WIN32_UNBUF_ALIGN-1)) srcbuf += WIN32_UNBUF_ALIGN-(((int)srcbuf)&(WIN32_UNBUF_ALIGN-1));
+        while (len > rdout)
+        {
+          int a=m_sync_bufmode_used-m_sync_bufmode_pos;
+          if (a>(len-rdout)) a=(len-rdout);
+          if (a>0)
+          {
+            memcpy((char*)buf+rdout,srcbuf+m_sync_bufmode_pos,a);
+            rdout+=a;
+            m_sync_bufmode_pos+=a;
+            m_file_position+=a;
+          }
+
+          if (len > rdout)
+          {
+            DWORD o;
+            m_sync_bufmode_used=0;
+            m_sync_bufmode_pos=0;
+            if (m_file_position&(WIN32_UNBUF_ALIGN-1))
+            {
+              int offs = (int)(m_file_position&(WIN32_UNBUF_ALIGN-1));
+              LONG high=(LONG) ((m_file_position-offs)>>32);
+              SetFilePointer(m_fh,(LONG)((m_file_position-offs)&0xFFFFFFFFi64),&high,FILE_BEGIN);
+              m_sync_bufmode_pos=offs;
+            }
+            if (!ReadFile(m_fh,srcbuf,sz,&o,NULL) || o<1 || m_sync_bufmode_pos>=(int)o) 
+            {
+              break;
+            }
+            m_sync_bufmode_used=o;
+          }
+
+        }
+        return rdout;
+      }
+      else
+      {
+        DWORD dw=0;
+        ReadFile(m_fh,buf,len,&dw,NULL);
+        m_file_position+=dw;
+        return dw;
+      }
     }
 #else
     if (!m_fp || len<1) return 0;
@@ -455,6 +496,7 @@ public:
     if (pos < 0) pos=0;
     if (pos > m_fsize) pos=m_fsize;
 
+    WDL_FILEREAD_POSTYPE oldpos=m_file_position;
     int seeked=0;
     if (m_file_position!=pos)
     {
@@ -466,13 +508,25 @@ public:
     {
       WDL_FileRead__ReadEnt *ent;
 
-      if (pos > m_async_readpos || !(ent=m_lastbuf ? m_lastbuf : m_full.Get(0)) || 
+      if (pos > m_async_readpos || !(ent=m_full.Get(0)) || 
           pos < *(WDL_FILEREAD_POSTYPE *)&ent->m_ol.Offset)
       {
         m_async_readpos=pos;
       }
 
       return FALSE;
+    }
+
+    if (m_bufspace.GetSize()>=WIN32_UNBUF_ALIGN*2-1)
+    {
+      if (pos >= oldpos-m_sync_bufmode_pos && pos < oldpos-m_sync_bufmode_pos + m_sync_bufmode_used)
+      {
+        int diff=(int) (pos-oldpos);
+        m_sync_bufmode_pos+=diff;
+
+        return 0;
+      }
+      m_sync_bufmode_pos=m_sync_bufmode_used=0;
     }
 
     LONG high=(LONG) (m_file_position>>32);
@@ -497,11 +551,11 @@ public:
   WDL_FILEREAD_POSTYPE m_fsize;
 
   int m_async_bufsize;
-  WDL_FileRead__ReadEnt *m_lastbuf;
   WDL_PtrList<WDL_FileRead__ReadEnt> m_empties;
   WDL_PtrList<WDL_FileRead__ReadEnt> m_pending;
   WDL_PtrList<WDL_FileRead__ReadEnt> m_full;
   WDL_HeapBuf m_bufspace;
+  int m_sync_bufmode_used, m_sync_bufmode_pos;
 
   WDL_FILEREAD_POSTYPE m_file_position,m_async_readpos;
   

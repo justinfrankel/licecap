@@ -76,12 +76,12 @@
 void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto);
 void SWELL_Make_SetMessageMode(int wantParentView);
 
-void SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h);
-void SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags=0);                      
-void SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0);
-void SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);
-void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags=0);                   
-void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
+HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0);
+HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags=0);                      
+HWND SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0);
+HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);
+HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags=0);                   
+HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 
 #define SWELL_DLGGEN_DLGFOLLOWS(par, scale) SWELL_DLGGEN_DLGFOLLOWS_EX(par,scale,scale,0,0,false)
 #define SWELL_DLGGEN_DLGFOLLOWS_EX(par, xscale, yscale, xtrans, ytrans, doauto) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto);
@@ -97,18 +97,18 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 #define COMBOBOX ); SWELL_MakeCombo(
 #define GROUPBOX ); SWELL_MakeGroupBox(
 
-#define NOT ~ // this may not work due to precedence, but worth a try                                    
+#define NOT 
                                     
 // flags we may use
-#define BS_AUTOCHECKBOX 1
-#define BS_AUTORADIOBUTTON 2
+
 #define CBS_DROPDOWNLIST 1
 #define CBS_DROPDOWN 2
 #define ES_READONLY 1
 #define ES_NUMBER 2
 #define ES_WANTRETURN 4
+#define WS_DISABLED 1024
 #define SS_NOTFIY 1
-
+#define SS_BLACKRECT 2
 #define LVS_LIST 0
 #define LVS_NOCOLUMNHEADER 1
 #define LVS_REPORT 2
@@ -120,6 +120,7 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 #define CBS_SORT 0
                                     
 // flags we ignore
+#define WS_VISIBLE 0
 #define WS_GROUP 0
 #define LVS_SHOWSELALWAYS 0
 #define LVS_NOSORTHEADER 0         
@@ -139,68 +140,38 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 #define TBS_NOTICKS 0
 #define TBS_TOP 0
 #define SS_NOTIFY 0
+#define BS_BITMAP 0
                      
                                        
 #ifndef IDC_STATIC
 #define IDC_STATIC 0
 #endif
 
-#ifndef WINAPI
-#define WINAPI
-#endif
-                                       
-#ifndef CALLBACK
-#define CALLBACK
-#endif
-
-#ifndef MAKEINTRESOURCE
-#define MAKEINTRESOURCE(x) (x)         
-#endif                
                                        
 #define DialogBox(hinst, resid, par, dlgproc) SWELL_DialogBox(resid,par,dlgproc,0)
 #define DialogBoxParam(hinst, resid, par, dlgproc, param) SWELL_DialogBox(resid,par,dlgproc,param)
-                                       
-                                                                              
-#ifndef LOWORD
-#define LOWORD(x) ((x)&0xffff)
-#endif
-                                       
-#ifndef HIWORD
-#define HIWORD(x) (((x)>>16)&0xffff)
-#endif
-                                       
-typedef unsigned int UINT;
-typedef unsigned int WPARAM;
-typedef long LPARAM;
+#define CreateDialog(hinst,resid,par,dlgproc) SWELL_CreateDialog(resid,par,dlgproc,0)
+#define CreateDialogParam(hinst,resid,par,dlgproc,param) SWELL_CreateDialog(resid,par,dlgproc,param)
                                        
 typedef BOOL (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
                                        
 int SWELL_DialogBox(int resid, HWND parent,  DLGPROC dlgproc, LPARAM param);  
-
+HWND SWELL_CreateDialog(int resid, HWND parent, DLGPROC dlgproc, LPARAM param);
                                        
-void SWELL_RegisterDialogResource(int resid, void (*createFunc)(HWND createTo), bool isChildWindow, const char *title, int width, int height);                                    
+void SWELL_RegisterDialogResource(int resid, void (*createFunc)(HWND createTo, int ischild), bool isChildWindow, const char *title, int width, int height);                                    
 #define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(resid, isch, title, width, height, scale) \
                                        class NewCustomResource_##resid { \
                                           public: \
                                             NewCustomResource_##resid () { SWELL_RegisterDialogResource(resid,cf,isch,title,(int)((width)*(scale)),(int)((height)*(scale))); } \
-                                           static void cf(HWND view) { \
-                                             SWELL_DLGGEN_DLGFOLLOWS(view,scale);
+                                           static void cf(HWND view, int ischild) { \
+                                             SWELL_DLGGEN_DLGFOLLOWS(view,scale);   SWELL_Make_SetMessageMode(ischild);
+
                            
 #define SWELL_DEFINE_DIALOG_RESOURCE_END(resid ) } }; static NewCustomResource_##resid NewCustomResourceInst_##resid;                                       
      
-#define EN_CHANGE           0x0300
-#define STN_CLICKED         0
-#define STN_DBLCLK          1
                                        
+// functions that only work on dialogs for now
 void EndDialog(HWND, int);            
                                        
-#define WM_DESTROY                      0x0002
-#define WM_INITDIALOG                   0x0110
-#define WM_COMMAND                      0x0111
-#define WM_TIMER                        0x0113
-#define WM_CLOSE                        0x0010
-#define WM_HSCROLL                      0x0114
-#define WM_VSCROLL                      0x0115
-       
                                 
 #endif

@@ -462,11 +462,7 @@ int WDL_VWnd::SendCommand(int command, int parm1, int parm2, WDL_VWnd *src)
 {
   if (m_realparent)
   {
-#ifdef _WIN32
     return SendMessage(m_realparent,command,parm1,parm2);
-#else
-    return Mac_SendCommand(m_realparent,command,parm1,parm2,src);
-#endif
   }
   else if (m_parent) return m_parent->SendCommand(command,parm1,parm2,src);
   return 0;
@@ -523,10 +519,8 @@ void WDL_VWnd::RequestRedraw(RECT *r)
 
     }
     else
-      InvalidateRect(m_realparent,&r2,FALSE);
-#else
-    Mac_Invalidate(m_realparent,&r2);
 #endif
+      InvalidateRect(m_realparent,&r2,FALSE);
   }
   else if (m_parent) m_parent->RequestRedraw(&r2); 
 }

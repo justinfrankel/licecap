@@ -79,6 +79,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
     bmp->resize(width,height);
     if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
     {
+      png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
       fclose(fp);
       return 0;
     }

@@ -12,6 +12,7 @@
 
 #define NUM_EFFECTS 17
 
+LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_SysBitmap *framebuffer;
@@ -296,6 +297,11 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
       break;
 
       }
+      
+      if(jpg)
+      {
+        LICE_ScaledBlit(framebuffer,jpg,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,jpg->getWidth(),jpg->getHeight(),0.5,LICE_BLIT_MODE_COPY);
+      }
 
       m_doeff = 0;
   
@@ -325,6 +331,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
 {
   framebuffer = new LICE_SysBitmap(0,0);
 
+  jpg=LICE_LoadJPG("C:\\turds.jpg");
   //char buf[512];
   //GetModuleFileName(hInstance,buf,sizeof(buf)-32);
   //strcat(buf,".png");
