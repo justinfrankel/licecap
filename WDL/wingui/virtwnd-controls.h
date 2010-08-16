@@ -62,7 +62,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { m_iconCfg=cfg; RequestRedraw(NULL); }
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
-    bool OnMouseDown(int xpos, int ypos);
+    int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
     void OnMouseMove(int xpos, int ypos);
     void OnMouseUp(int xpos, int ypos);
     bool OnMouseDblClick(int xpos, int ypos);
@@ -96,7 +96,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
 
     bool OnMouseDblClick(int xpos, int ypos);
-    bool OnMouseDown(int xpos, int ypos);
+    int OnMouseDown(int xpos, int ypos);
 
   private:
     WDL_VirtualWnd_BGCfg *m_bkbm;
@@ -120,7 +120,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
 
     int GetCurSel() { if (m_items.Get(m_curitem)) return m_curitem; return -1; }
-    void SetCurSel(int sel) { if (!m_items.Get(sel)) sel=-1; if (m_curitem != sel) { m_curitem=sel; if (m_font) RequestRedraw(NULL); } }
+    void SetCurSel(int sel) { if (!m_items.Get(sel)) sel=-1; if (m_curitem != sel) { m_curitem=sel; RequestRedraw(NULL); } }
 
     int GetCount() { return m_items.GetSize(); }
     void Empty() { m_items.Empty(true,free); m_itemdatas.Empty(); }
@@ -129,7 +129,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
     const char *GetItem(int item) { return m_items.Get(item); }
     void *GetItemData(int item) { return m_itemdatas.Get(item); }
 
-    bool OnMouseDown(int xpos, int ypos);
+    int OnMouseDown(int xpos, int ypos);
 
   private:
     int m_align;
@@ -158,7 +158,7 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
-    bool OnMouseDown(int xpos, int ypos);
+    int OnMouseDown(int xpos, int ypos);
     void OnMouseMove(int xpos, int ypos);
     void OnMouseUp(int xpos, int ypos);
     bool OnMouseDblClick(int xpos, int ypos);
@@ -205,7 +205,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_SysBitmap *drawbm);
     void *m_GetItemInfo_ctx;
 
-    bool OnMouseDown(int xpos, int ypos);
+    int OnMouseDown(int xpos, int ypos);
     bool OnMouseDblClick(int xpos, int ypos);
     bool OnMouseWheel(int xpos, int ypos, int amt);
     void OnMouseMove(int xpos, int ypos);

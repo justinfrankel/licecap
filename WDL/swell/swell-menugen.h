@@ -68,16 +68,23 @@
 #include "../ptrlist.h"
 
 
-// new LoadMenu API support
-void SWELL_RegisterMenuResource(int resid, void (*createFunc)(HMENU hMenu));                                    
+typedef struct SWELL_MenuResourceIndex
+{
+  int resid;
+  void (*createFunc)(HMENU hMenu);
+  struct SWELL_MenuResourceIndex *_next;
+} SWELL_MenuResourceIndex;
+extern SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 
-#define SWELL_DEFINE_MENU_RESOURCE_BEGIN(resid) \
-class NewCustomMenuResource_##resid { \
+
+#define SWELL_DEFINE_MENU_RESOURCE_BEGIN(recid) \
+class NewCustomMenuResource_##recid { \
 public: \
-  NewCustomMenuResource_##resid() { SWELL_RegisterMenuResource(resid,cf); } \
+  SWELL_MenuResourceIndex m_rec; \
+  NewCustomMenuResource_##recid() {  m_rec.resid=recid; m_rec.createFunc=cf; m_rec._next=SWELL_curmodule_menuresource_head; SWELL_curmodule_menuresource_head=&m_rec; } \
   static void cf(HMENU hMenu) { WDL_PtrList<void> mstack; mstack.Add((hMenu)
         
-#define SWELL_DEFINE_MENU_RESOURCE_END(resid) ); } }; static NewCustomMenuResource_##resid NewCustomMenuResourceInst_##resid;     
+#define SWELL_DEFINE_MENU_RESOURCE_END(recid) ); } }; static NewCustomMenuResource_##recid NewCustomMenuResourceInst_##recid;     
 
 
 
@@ -89,13 +96,21 @@ public: \
 #define SWELL_MENUGEN_BEGIN(menu) { WDL_PtrList<void> mstack;   mstack.Add((menu)=CreatePopupMenu()
 #define SWELL_MENUGEN_END() ); }
 
-void SWELL_Menu_AddPopup(WDL_PtrList<void> *stack, const char *name);
 void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags=0);
 
 
+
+// we inline this here so that if WDL_PtrList is differenet across modules we dont have any issues
+static void SWELL_MenuGen_AddPopup(WDL_PtrList<void> *stack, const char *name)
+{  
+  MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,0,0,CreatePopupMenu(name),NULL,NULL,0,(char *)name};
+  HMENU hMenu=stack->Get(stack->GetSize()-1); stack->Add(mi.hSubMenu);
+  InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
+}
+
 #define GRAYED 1
 #define INACTIVE 2
-#define POPUP ); SWELL_Menu_AddPopup(&mstack, 
+#define POPUP ); SWELL_MenuGen_AddPopup(&mstack, 
 #define MENUITEM ); SWELL_Menu_AddMenuItem(mstack.Get(mstack.GetSize()-1), 
 #define SEPARATOR NULL, -1
 #define BEGIN

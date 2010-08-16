@@ -252,21 +252,21 @@ int SWELL_MessageBox(const char *text, const char *caption, int type)
   if (type == MB_OKCANCEL)
   {
     int ret=NSRunAlertPanel(tit,tex,@"OK",@"Cancel",@"");
-    printf("ret=%d\n",ret);
+//    printf("ret=%d\n",ret);
     if (ret) return IDOK;
     return IDCANCEL;
   }
   if (type == MB_YESNO)
   {
     int ret=NSRunAlertPanel(tit,tex,@"Yes",@"No",@"");
-    printf("ret=%d\n",ret);
+  //  printf("ret=%d\n",ret);
     if (ret) return IDYES;
     return IDNO;
   }
   if (type == MB_RETRYCANCEL)
   {
     int ret=NSRunAlertPanel(tit,tex,@"Retry",@"Cancel",@"");
-    printf("ret=%d\n",ret);
+//    printf("ret=%d\n",ret);
     if (ret) return IDRETRY;
     return IDCANCEL;
   }

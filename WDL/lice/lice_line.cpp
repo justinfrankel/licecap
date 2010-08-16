@@ -247,7 +247,13 @@ template <class COMBFUNC> class __LICE_LineClass
 
 void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha, int mode, bool aa)
 {
+  if (!dest) return;
 	int w = dest->getWidth(), h = dest->getHeight();
+  if (dest->isFlipped())
+  {
+    y1=h-1-y1;
+    y2=h-1-y2;
+  }
 	if (ClipLine(x1, y1, x2, y2, w, h)) {
 		if (aa) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_Line_AA(dest, x1, y1, x2, y2, color, alpha)

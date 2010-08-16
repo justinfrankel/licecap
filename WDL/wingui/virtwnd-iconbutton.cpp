@@ -174,15 +174,15 @@ void WDL_VirtualIconButton::OnMouseMove(int xpos, int ypos)
   }
 }
 
-bool WDL_VirtualIconButton::OnMouseDown(int xpos, int ypos)
+int WDL_VirtualIconButton::OnMouseDown(int xpos, int ypos)
 {
   if (m_en&&m_is_button)
   {
     m_pressed=3;
     RequestRedraw(NULL);
-    return true;
+    return 1;
   }
-  return false;
+  return 0;
 }
 
 bool WDL_VirtualIconButton::OnMouseDblClick(int xpos, int ypos)
@@ -222,7 +222,7 @@ WDL_VirtualComboBox::~WDL_VirtualComboBox()
 }
 
 
-bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
+int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 {
   if (m_items.GetSize())
   {
@@ -264,7 +264,7 @@ bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
     }
   }
-  return true;
+  return -1;
 }
 
 void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
@@ -395,14 +395,14 @@ void WDL_VirtualStaticText::SetText(const char *text)
   }
 }
 
-bool WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
+int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 {
   if (m_wantsingle)
   {
     SendCommand(WM_COMMAND,GetID() | (STN_CLICKED<<16),0,this);
-    return true;
+    return -1;
   }
-  return false;
+  return 0;
 }
 
 void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)

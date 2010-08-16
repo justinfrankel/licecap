@@ -73,7 +73,7 @@
 #define _SWELL_DLGGEN_H_
 
 // these will need implementing
-void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto);
+void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit);
 void SWELL_Make_SetMessageMode(int wantParentView);
 
 HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0);
@@ -83,11 +83,12 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
 HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags=0);                   
 HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h);
-
+HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=0);
 #define SWELL_DLGGEN_DLGFOLLOWS(par, scale) SWELL_DLGGEN_DLGFOLLOWS_EX(par,scale,scale,0,0,false)
-#define SWELL_DLGGEN_DLGFOLLOWS_EX(par, xscale, yscale, xtrans, ytrans, doauto) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto);
+#define SWELL_DLGGEN_DLGFOLLOWS_EX(par, xscale, yscale, xtrans, ytrans, doauto) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,true);
+#define SWELL_DLGGEN_DLGFOLLOWS_EX2(par, xscale, yscale, xtrans, ytrans, doauto, dosizetofit) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,dosizetofit);
 #define BEGIN (0
-#define END ); SWELL_MakeSetCurParms(1.0,1.0,0,0,NULL,false); }
+#define END ); SWELL_MakeSetCurParms(1.0,1.0,0,0,NULL,false,true); }
 #define PUSHBUTTON ); SWELL_MakeButton(0,
 #define DEFPUSHBUTTON ); SWELL_MakeButton(1,
 #define EDITTEXT ); SWELL_MakeEditField(
@@ -98,6 +99,7 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h);
 #define COMBOBOX ); SWELL_MakeCombo(
 #define GROUPBOX ); SWELL_MakeGroupBox(
 #define CHECKBOX ); SWELL_MakeCheckBox(
+#define LISTBOX ); SWELL_MakeListBox(
 
 #define NOT 
                                     
@@ -109,15 +111,16 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h);
 #define ES_NUMBER 2
 #define ES_WANTRETURN 4
 #define WS_DISABLED 1024
+#define WS_VSCROLL 2048
 #define SS_NOTFIY 1
 #define SS_BLACKRECT 2
 #define LVS_LIST 0
 #define LVS_NOCOLUMNHEADER 1
 #define LVS_REPORT 2
 #define LVS_SINGLESEL 4
-#define LVS_OWNERDATA 8
-                                       
-                                       
+#define LVS_OWNERDATA 8                                     
+#define LBS_EXTENDEDSEL 1
+                                     
 // things that should be implemented sooner
 #define CBS_SORT 0
                                     
@@ -135,7 +138,6 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h);
 #define ES_CENTER 0
 #define WS_TABSTOP 0
 #define GROUP 0
-#define WS_VSCROLL 0
 #define WS_BORDER 0
 #define WS_HSCROLL 0
 #define PBS_SMOOTH 0
@@ -144,42 +146,45 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h);
 #define TBS_TOP 0
 #define SS_NOTIFY 0
 #define BS_BITMAP 0
+#define LBS_NOINTEGRALHEIGHT 0
+                                     
                      
                                        
 #ifndef IDC_STATIC
 #define IDC_STATIC 0
 #endif
 
-                                       
-#define DialogBox(hinst, resid, par, dlgproc) SWELL_DialogBox(resid,par,dlgproc,0)
-#define DialogBoxParam(hinst, resid, par, dlgproc, param) SWELL_DialogBox(resid,par,dlgproc,param)
-#define CreateDialog(hinst,resid,par,dlgproc) SWELL_CreateDialog(resid,par,dlgproc,0)
-#define CreateDialogParam(hinst,resid,par,dlgproc,param) SWELL_CreateDialog(resid,par,dlgproc,param)
-                                       
-typedef BOOL (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
-                                       
-int SWELL_DialogBox(int resid, HWND parent,  DLGPROC dlgproc, LPARAM param);  
-HWND SWELL_CreateDialog(int resid, HWND parent, DLGPROC dlgproc, LPARAM param);
+                                     
+
                                        
 #define SWELL_DLG_WS_CHILD 1
 #define SWELL_DLG_WS_RESIZABLE 2
 #define SWELL_DLG_WS_FLIPPED 4
-                                    
-void SWELL_RegisterDialogResource(int resid, void (*createFunc)(HWND createTo, int ischild), int windowTypeFlags, const char *title, int width, int height);                                    
-#define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(resid, flags, title, width, height, scale) \
-                                       class NewCustomResource_##resid { \
+#define SWELL_DLG_WS_NOAUTOSIZE 8
+     
+typedef struct SWELL_DialogResourceIndex
+{
+  int resid;
+  const char *title;
+  int windowTypeFlags;
+  void (*createFunc)(HWND, int);
+  int width,height;
+  struct SWELL_DialogResourceIndex *_next;
+} SWELL_DialogResourceIndex; 
+                                     
+#define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(recid, flags, titlestr, wid, hei, scale) \
+                                       class NewCustomResource_##recid { \
                                           public: \
-                                            NewCustomResource_##resid () { SWELL_RegisterDialogResource(resid,cf,flags,title,(int)((width)*(scale)),(int)((height)*(scale))); } \
+                                            SWELL_DialogResourceIndex m_rec; \
+                                            NewCustomResource_##recid () { \
+                                              m_rec.resid=recid; m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
+                                              m_rec._next=SWELL_curmodule_dialogresource_head; SWELL_curmodule_dialogresource_head=&m_rec; } \
                                            static void cf(HWND view, int wflags) { \
-                                             SWELL_DLGGEN_DLGFOLLOWS(view,scale);   SWELL_Make_SetMessageMode(!!(wflags&SWELL_DLG_WS_CHILD));
+                                             { SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!!(wflags&SWELL_DLG_WS_NOAUTOSIZE)); SWELL_Make_SetMessageMode(!!(wflags&SWELL_DLG_WS_CHILD));
 
                                             
-#define SWELL_DEFINE_DIALOG_RESOURCE_END(resid ) } }; static NewCustomResource_##resid NewCustomResourceInst_##resid;                                       
+#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) } }; static NewCustomResource_##recid NewCustomResourceInst_##recid;                                       
 
-extern HWND (*SWELL_CustomControlCreator)(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);
-                            
-// functions that only work on dialogs for now
-void EndDialog(HWND, int);            
                                        
                                 
 #endif

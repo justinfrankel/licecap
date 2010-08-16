@@ -94,7 +94,7 @@ HPEN CreatePen(int attr, int wid, int col, float alpha)
 {
   GDP_OBJECT *pen=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   pen->type=TYPE_PEN;
-  pen->wid=wid;
+  pen->wid=wid<0?0:wid;
   pen->color=CreateColor(col,alpha);
   return pen;
 }
@@ -103,8 +103,22 @@ HBRUSH  CreateSolidBrush(int col, float alpha)
   GDP_OBJECT *brush=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   brush->type=TYPE_BRUSH;
   brush->color=CreateColor(col,alpha);
+  brush->wid=0; 
   return brush;
 }
+HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientation, long lfWeight, char lfItalic, 
+  char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
+         char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
+{
+  GDP_OBJECT *font=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
+  font->type=TYPE_FONT;
+  font->wid=lfHeight;
+  if (!font->wid) font->wid=lfWidth;
+  if (font->wid<0)font->wid=-font->wid;
+  font->fontface = strdup(lfFaceName?lfFaceName:"");
+  return font;
+}
+
 
 HFONT CreateFontIndirect(LOGFONT *lf)
 {
@@ -124,6 +138,8 @@ void DeleteObject(HGDIOBJ pen)
     GDP_OBJECT *p=(GDP_OBJECT *)pen;
     if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
     {
+      if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
+        if (p->wid<0) return;
       if (p->color) CGColorRelease(p->color);
       free(p->fontface);
       if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
@@ -179,6 +195,7 @@ void FillRect(HDC ctx, RECT *r, HBRUSH br)
   GDP_OBJECT *b=(GDP_OBJECT*) br;
   if (!c || !b || b == (GDP_OBJECT*)TYPE_BRUSH || b->type != TYPE_BRUSH) return;
 
+  if (b->wid<0) return;
   INVALIDATE_BITMAPCACHE(c);
   
   CGRect rect=CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top);
@@ -207,6 +224,25 @@ void RoundRect(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd)
 	WDL_GDP_Polygon(ctx,pts,sizeof(pts)/sizeof(pts[0]));
 }
 
+void Ellipse(HDC ctx, int l, int t, int r, int b)
+{
+  GDP_CTX *c=(GDP_CTX *)ctx;
+  if (!c) return;
+  
+  CGRect rect=CGRectMake(l,t,r-l,b-t);
+  INVALIDATE_BITMAPCACHE(c);
+  
+  if (c->curbrush && c->curbrush->wid >=0)
+  {
+    CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
+    CGContextFillEllipseInRect(c->ctx,rect);	
+  }
+  if (c->curpen && c->curpen->wid >= 0)
+  {
+    CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
+    CGContextStrokeEllipseInRect(c->ctx, rect); //, (float)max(1,c->curpen->wid));
+  }
+}
 
 void Rectangle(HDC ctx, int l, int t, int r, int b)
 {
@@ -216,7 +252,7 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   CGRect rect=CGRectMake(l,t,r-l,b-t);
   INVALIDATE_BITMAPCACHE(c);
   
-  if (c->curbrush)
+  if (c->curbrush && c->curbrush->wid >= 0)
   {
     CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
     CGContextFillRect(c->ctx,rect);	
@@ -232,6 +268,13 @@ HGDIOBJ GetStockObject(int wh)
 {
   switch (wh)
   {
+    case NULL_BRUSH:
+    {
+      static GDP_OBJECT br={0,};
+      br.type=TYPE_BRUSH;
+      br.wid=-1;
+      return &br;
+    }
     case NULL_PEN:
     {
       static GDP_OBJECT pen={0,};
@@ -247,7 +290,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
   if (!c) return;
-  if (!c->curbrush && !c->curpen || npts<2) return;
+  if (((!c->curbrush||c->curbrush->wid<0) && (!c->curpen||c->curpen->wid<0)) || npts<2) return;
   INVALIDATE_BITMAPCACHE(c);
 
   CGContextBeginPath(c->ctx);
@@ -257,7 +300,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   {
     CGContextAddLineToPoint(c->ctx,(float)pts[x].x,(float)pts[x].y);
   }
-  if (c->curbrush)
+  if (c->curbrush && c->curbrush->wid >= 0)
   {
     CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
   }
@@ -266,7 +309,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
     CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
     CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
   }
-  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
+  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush && c->curbrush->wid>=0 ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
 }
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
@@ -353,6 +396,12 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   }
   CGContextStrokePath(c->ctx);
 }
+void *SWELL_GetCtxGC(HDC ctx)
+{
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (!ct) return 0;
+  return ct->ctx;
+}
 
 void SWELL_SyncCtxFrameBuffer(HDC ctx)
 {
@@ -374,10 +423,10 @@ void SetPixel(HDC ctx, int x, int y, int c)
   CGContextStrokePath(ct->ctx);	
 }
 
-void DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
+int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
-  if (!ct) return;
+  if (!ct) return 0;
   INVALIDATE_BITMAPCACHE(ct);
   
 #if 1
@@ -407,7 +456,14 @@ void DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   {
     if (ct->curtextcol) CGContextSetFillColorWithColor(ct->ctx,ct->curtextcol);
 
+    if (!(align&DT_SINGLELINE))
+    {
+      textInfo.truncationMaxLines=30;
+    }
     HIThemeDrawTextBox(label, &hiBounds, &textInfo, ct->ctx, kHIThemeOrientationNormal);
+    float w=r->right-r->left,h=r->bottom-r->top;
+    HIThemeGetTextDimensions(label,0,&textInfo,&w,&h,NULL);
+    return (int)ceil(h);
   }
   CFRelease(label);
    
@@ -483,6 +539,7 @@ void DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   CGContextShowTextAtPoint(ct->ctx,xpos,ypos,buf,strlen(buf));
   CGContextRestoreGState(ct->ctx);
 #endif
+  return 0;
 }
 
 void SetBkColor(HDC ctx, int col)
@@ -642,7 +699,7 @@ int GetSysColor(int idx)
 
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode)
 {
-  if (!hdcOut || !hdcIn) return;
+  if (!hdcOut || !hdcIn||w<1||h<1) return;
   GDP_CTX *src=(GDP_CTX*)hdcIn;
   GDP_CTX *dest=(GDP_CTX*)hdcOut;
   if (!src->ownedData || !src->ctx || !dest->ctx) return;
@@ -657,6 +714,30 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   CGContextClipToRect(dest->ctx,CGRectMake(x,y,w,h));
   
   CGContextDrawImage(dest->ctx,CGRectMake(x-xin,y-yin,CGImageGetWidth(img),CGImageGetHeight(img)),img);
+  CGContextRestoreGState(dest->ctx);
+  
+}
+
+void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode)
+{
+  if (!hdcOut || !hdcIn||srcw<1||srch<1||w<1||h<1) return;
+  GDP_CTX *src=(GDP_CTX*)hdcIn;
+  GDP_CTX *dest=(GDP_CTX*)hdcOut;
+  if (!src->ownedData || !src->ctx || !dest->ctx) return;
+  
+  if (!src->bitmapimagecache) 
+    src->bitmapimagecache=CGBitmapContextCreateImage(src->ctx);
+  
+  CGImageRef img=src->bitmapimagecache;
+  if (!img) return;
+  
+  CGContextSaveGState(dest->ctx);
+  CGContextClipToRect(dest->ctx,CGRectMake(x,y,w,h));
+
+  double xsc=(double)w/(double)srcw;
+  double ysc=(double)h/(double)srch;
+  
+  CGContextDrawImage(dest->ctx,CGRectMake(x-xin*xsc,y-yin*ysc,CGImageGetWidth(img)*xsc,CGImageGetHeight(img)*ysc),img);
   CGContextRestoreGState(dest->ctx);
   
 }

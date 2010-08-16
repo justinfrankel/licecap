@@ -178,9 +178,35 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, void *ModNSS, unsigned 
   return true;
 }
 
-HMENU CreatePopupMenu()
+static void __filtnametobuf(char *out, const char *in, int outsz)
 {
-  NSMenu *m=[[NSMenu alloc] init];
+  while (*in && outsz>1)
+  {
+    if (*in == '\t') break;
+    if (*in == '&')
+    {
+      in++;
+    }
+    *out++=*in++;
+    outsz--;
+  }
+  *out=0;
+}
+
+
+
+HMENU CreatePopupMenu(const char *title)
+{
+  NSMenu *m;
+  if (title)
+  {
+	char buf[1024];
+	__filtnametobuf(buf,title,sizeof(buf));
+	NSString *lbl=(NSString *)SWELL_CStringToCFString(buf);
+	m=[[NSMenu alloc] initWithTitle:lbl];
+	[lbl release];
+  }
+  else m=[[NSMenu alloc] init];
   [m setAutoenablesItems:NO];
 
   return (HMENU)m;
@@ -280,7 +306,9 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   {
     if (mi->fType == MFT_STRING && mi->dwTypeData)
     {
-      NSString *label=(NSString *)SWELL_CStringToCFString(mi->dwTypeData); 
+	  char buf[1024];
+	  __filtnametobuf(buf,mi->dwTypeData?mi->dwTypeData:"(null)",sizeof(buf));
+      NSString *label=(NSString *)SWELL_CStringToCFString(buf); 
       
       [item setTitle:label];
       
@@ -371,7 +399,9 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   NSString *label=0;
   if (mi->fType == MFT_STRING)
   {
-    label=(NSString *)SWELL_CStringToCFString(mi->dwTypeData?mi->dwTypeData:"(null)"); 
+	char buf[1024];
+	__filtnametobuf(buf,mi->dwTypeData?mi->dwTypeData:"(null)",sizeof(buf));
+    label=(NSString *)SWELL_CStringToCFString(buf); 
     item=[m insertItemWithTitle:label action:NULL keyEquivalent:@"" atIndex:pos];
   }
   else if (mi->fType == MFT_BITMAP)
@@ -473,7 +503,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 
 void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
 {
-  if (!menu || !hwnd || ![(id)hwnd respondsToSelector:@selector(onCommand:)]) return;
+  if (!menu || (hwnd && ![(id)hwnd respondsToSelector:@selector(onCommand:)])) return;
   
   NSMenu *m=(NSMenu *)menu;
   [m setDelegate:(id)hwnd];
@@ -491,7 +521,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
       else
       {
         [item setTarget:(id)hwnd];
-        [item setAction:@selector(onCommand:)];
+        if (hwnd) [item setAction:@selector(onCommand:)];
       }
     }
   }
@@ -507,7 +537,7 @@ int SWELL_TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, HWND hwnd)
     if (!v) v=[[NSApp mainWindow] contentView];
     if (!v) return 0;
     
-    PopupRecv *recv = [[PopupRecv alloc] initWithWnd:((flags&TPM_NONOTIFY)?hwnd:0)];
+    PopupRecv *recv = [[PopupRecv alloc] initWithWnd:((flags&TPM_NONOTIFY)?0:hwnd)];
     
     SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     
@@ -520,7 +550,8 @@ int SWELL_TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, HWND hwnd)
 
     int ret=[recv isCommand];
     
-    [PopupRecv release];
+    SWELL_SetMenuDestination((HMENU)m,(HWND)NULL);
+    [recv release];
     
     if (!(flags & TPM_NONOTIFY) && ret>0 && hwnd)
     {
@@ -535,47 +566,10 @@ int SWELL_TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, HWND hwnd)
 
 
 
-static void __filtnametobuf(char *out, const char *in, int outsz)
-{
-  while (*in && outsz>1)
-  {
-    if (*in == '&')
-    {
-      in++;
-    }
-    *out++=*in++;
-    outsz--;
-  }
-  *out=0;
-}
-
-void SWELL_Menu_AddPopup(WDL_PtrList<void> *stack, const char *name)
-{
-//  HMENU subMenu=CreatePopupMenu();
-  NSString *lbl=(NSString *)SWELL_CStringToCFString(name);
-  NSMenu *m=[[NSMenu alloc] initWithTitle:lbl];
-  [lbl release];
-  [m setAutoenablesItems:NO];
-  
-  HMENU subMenu =(HMENU)m;
-  
-  char buf[1024];
-  __filtnametobuf(buf,name,sizeof(buf));
-  
-  MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    0,0,NULL,NULL,NULL,0,(char *)buf};
-  mi.hSubMenu=subMenu;
-  HMENU hMenu=stack->Get(stack->GetSize()-1);
-  InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
-  stack->Add(subMenu);
-}
-
 void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags)
 {
-  char buf[1024];
-  if (name) __filtnametobuf(buf,name,sizeof(buf));
   MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    (flags)?MFS_GRAYED:0,idx,NULL,NULL,NULL,0,(char *)buf};
+    (flags)?MFS_GRAYED:0,idx,NULL,NULL,NULL,0,(char *)name};
   if (!name)
   {
     mi.fType = MFT_SEPARATOR;
@@ -585,23 +579,11 @@ void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags)
 }
 
 
+SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head; // todo: move to per-module thingy
 
-class MenuResourceIndex
+static SWELL_MenuResourceIndex *resById(SWELL_MenuResourceIndex *head, int resid)
 {
-public:
-  MenuResourceIndex() { resid=0; createFunc=NULL; _next=0; }
-  ~MenuResourceIndex() { }
-  int resid;
-  void (*createFunc)(HMENU);
-  
-  MenuResourceIndex *_next;
-}; 
-
-static MenuResourceIndex *m_resources;
-
-static MenuResourceIndex *resById(int resid)
-{
-  MenuResourceIndex *p=m_resources;
+  SWELL_MenuResourceIndex *p=head;
   while (p)
   {
     if (p->resid == resid) return p;
@@ -610,31 +592,11 @@ static MenuResourceIndex *resById(int resid)
   return 0;
 }
 
-
-void SWELL_RegisterMenuResource(int resid, void (*createFunc)(HMENU hMenu))
+HMENU SWELL_LoadMenu(SWELL_MenuResourceIndex *head, int resid)
 {
-  bool doadd=false;
-  MenuResourceIndex *p;
+  SWELL_MenuResourceIndex *p;
   
-  if (!(p=resById(resid)))
-  {
-    doadd=true;
-    p=new MenuResourceIndex;
-  }
-  p->resid=resid;
-  p->createFunc=createFunc;
-  if (doadd)
-  {
-    p->_next=m_resources;
-    m_resources=p;
-  }
-}
-
-HMENU SWELL_LoadMenu(int resid)
-{
-  MenuResourceIndex *p;
-  
-  if (!(p=resById(resid))) return 0;
+  if (!(p=resById(head,resid))) return 0;
   HMENU hMenu=CreatePopupMenu();
   if (hMenu) p->createFunc(hMenu);
   return hMenu;

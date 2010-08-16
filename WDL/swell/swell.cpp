@@ -27,7 +27,7 @@
 #include "swell.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#import <Carbon/Carbon.h>
 
 
 char *lstrcpyn(char *dest, const char *src, int l)
@@ -93,4 +93,28 @@ BOOL PtInRect(RECT *r, POINT p)
     tp=r->bottom;
   }
   return p.x>=r->left && p.x<r->right && p.y >= tp && p.y < bt;
+}
+
+
+BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah)
+{
+  if (content1 && !strnicmp(content1,"http://",7))
+  {
+    OSStatus err;
+    ICInstance inst;
+    long startSel;
+    long endSel;
+    err = ICStart(&inst, '????');           // Use your creator code if you have one!
+    if (err == noErr) {
+    {
+      startSel = 0;
+      endSel = strlen(content1);
+      err = ICLaunchURL(inst, "\p", (char *) content1,
+                        strlen(content1), &startSel, &endSel);
+    }
+      (void) ICStop(inst);
+    }
+    return err==noErr;    
+  }
+  return FALSE;
 }

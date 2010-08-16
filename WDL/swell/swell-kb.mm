@@ -106,7 +106,7 @@ int MacKeyToWindowsKey(void *nsevent, int *flags)
         default: flag=0; break;
       }
     }
-    printf("rawcode=%d (%c), output code=%d (%c), flag=%d\n",rawcode,rawcode,code,code,flag);
+ //   printf("rawcode=%d (%c), output code=%d (%c), flag=%d\n",rawcode,rawcode,code,code,flag);
     
     if (flags) *flags=flag;
     return code;
@@ -128,12 +128,52 @@ WORD GetAsyncKeyState(int key)
 
 void GetCursorPos(POINT *pt)
 {
-  NSEvent *evt=[NSApp currentEvent];
-  if (!evt) pt->x=pt->y=0;
-	NSPoint localpt=[evt locationInWindow];
-  NSWindow *w=[evt window];
-  if (w) localpt=[w convertBaseToScreen:localpt];
-  
+	NSPoint localpt=[NSEvent mouseLocation];
   pt->x=(int)localpt.x;
   pt->y=(int)localpt.y;
+}
+
+HCURSOR SWELL_LoadCursor(int idx)
+{
+  switch (idx)
+  {
+    case IDC_SIZEALL: // todo
+    case IDC_SIZEWE:
+      return (HCURSOR)[NSCursor resizeLeftRightCursor];
+    case IDC_SIZENS:
+      return (HCURSOR)[NSCursor resizeUpDownCursor];
+    case IDC_NO: // todo
+    case IDC_ARROW:
+      return (HCURSOR)[NSCursor arrowCursor];
+    case IDC_HAND:
+      return (HCURSOR)[NSCursor openHandCursor];
+    case IDC_UPARROW:
+      return (HCURSOR)[NSCursor resizeUpCursor];
+  }
+  return 0;
+}
+
+static HCURSOR m_last_setcursor;
+
+void SetCursor(HCURSOR curs)
+{
+  if (curs && [(id) curs isKindOfClass:[NSCursor class]])
+  {
+    m_last_setcursor=curs;
+    [(NSCursor *)curs set];
+  }
+  else
+  {
+    m_last_setcursor=NULL;
+    [[NSCursor arrowCursor] set];
+  }
+}
+
+HCURSOR GetCursor()
+{
+  return (HCURSOR)[NSCursor currentCursor];
+}
+HCURSOR SWELL_GetLastSetCursor()
+{
+  return m_last_setcursor;
 }

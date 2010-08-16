@@ -484,7 +484,7 @@ static int m_move_offset;
 static int m_click_pos,m_last_y,m_last_x, m_last_precmode;
 
 
-bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
+int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 {
   m_needflush=0;
 
@@ -580,7 +580,7 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   m_captured=true;
 
-  return true;
+  return 1;
 }
 
 

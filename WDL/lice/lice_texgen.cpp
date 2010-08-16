@@ -89,7 +89,7 @@ void LICE_TexGen_Marble(LICE_IBitmap *dest, RECT *rect, float rv, float gv, floa
       for(int j=0;j<w;j++)
       {
         float col = (float)fabs(p[j]*sc);
-        p[j] = LICE_RGBA((int)(col*rv),(int)(col*bv),(int)(col*gv),255);
+        p[j] = LICE_RGBA((int)(col*rv),(int)(col*gv),(int)(col*bv),255);
       }
       p+=span;
     }

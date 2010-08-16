@@ -141,7 +141,7 @@ public:
 
   bool isFlipped() 
   {
-#ifdef MAC
+#ifndef _WIN32
     return true;
 #else
     return false; 

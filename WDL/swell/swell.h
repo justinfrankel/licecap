@@ -35,14 +35,10 @@
 #include <sys/stat.h>
 
 
-#ifdef MAC
 #include <dlfcn.h>
 #define FreeLibrary(x) dlclose(x)
 #define GetProcAddress(h,v) dlsym(h,v)
 #define LoadLibrary(x) dlopen(x,RTLD_LAZY)
-
-
-#endif
 
 
 #ifndef FALSE
@@ -129,6 +125,14 @@ typedef struct {
   DWORD time;
   POINT pt;
 } MSG, *LPMSG;
+typedef void *HDC;
+typedef void *HBRUSH;
+typedef void *HPEN;
+typedef void *HFONT;
+typedef void *HICON;
+typedef void *HBITMAP;
+typedef void *HGDIOBJ;
+typedef void *HCURSOR;
 
 
 char *lstrcpyn(char *dest, const char *src, int l);
@@ -146,6 +150,7 @@ BOOL WritePrivateProfileStruct(const char *appname, const char *keyname, const v
 void *SWELL_CStringToCFString(const char *str);
 
 BOOL PtInRect(RECT *r, POINT p);
+BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah);
 
 /*
  ** swell-miscdlg.mm
@@ -201,6 +206,15 @@ void ReleaseCapture();
 int IsChild(HWND hwndParent, HWND hwndChild);
 HWND GetParent(HWND hwnd);
 HWND SetParent(HWND hwnd, HWND newPar);
+
+#define GW_HWNDFIRST        0
+#define GW_HWNDLAST         1
+#define GW_HWNDNEXT         2
+#define GW_HWNDPREV         3
+#define GW_OWNER            4
+#define GW_CHILD            5
+HWND GetWindow(HWND hwnd, int what);
+
 void ClientToScreen(HWND hwnd, POINT *p);
 void ScreenToClient(HWND hwnd, POINT *p);
 void GetWindowRect(HWND hwnd, RECT *r);
@@ -211,6 +225,8 @@ int SetWindowLong(HWND hwnd, int idx, int val);
 #define GWL_USERDATA        (-21)
 #define GWL_ID              (-12)
 #define GWL_STYLE           (-16) // only supported for BS_ for now I think
+#define GWL_WNDPROC         (-4)
+#define DWL_DLGPROC         (-4) // map to GWL_WNDPROC for now
 
 bool IsWindowVisible(HWND hwnd);
 #define IsWindow(x) (!!(x)) // todo use isKindOf
@@ -247,15 +263,57 @@ void SWELL_TB_SetTic(HWND hwnd, int idx, int pos);
 #define CB_GETITEMDATA              0x0150
 #define CB_SETITEMDATA              0x0151
 #define CB_INITSTORAGE              0x0161
+
+#define LB_ADDSTRING            0x0180
+#define LB_INSERTSTRING         0x0181
+#define LB_DELETESTRING         0x0182
+#define LB_RESETCONTENT         0x0184
+#define LB_SETSEL               0x0185
+#define LB_SETCURSEL            0x0186
+#define LB_GETSEL               0x0187
+#define LB_GETCURSEL            0x0188
+#define LB_GETCOUNT             0x018B
+#define LB_GETSELCOUNT          0x0190
+#define LB_GETITEMDATA          0x0199
+#define LB_SETITEMDATA          0x019A
+
+
 #define TBM_GETPOS              (WM_USER)
 #define TBM_SETTIC              (WM_USER+4)
 #define TBM_SETPOS              (WM_USER+5)
 #define TBM_SETRANGE            (WM_USER+6)
 #define TBM_SETSEL              (WM_USER+10)
 
-#define BM_SETIMAGE 0x00F7
+#define PBM_SETRANGE            (WM_USER+1)
+#define PBM_SETPOS              (WM_USER+2)
+#define PBM_DELTAPOS            (WM_USER+3)
+
+#define BM_GETIMAGE        0x00F6
+#define BM_SETIMAGE        0x00F7
 #define IMAGE_BITMAP 0
-#define IMAGE_ICON 0
+#define IMAGE_ICON 1
+
+typedef struct
+{
+  HWND  hwndFrom;
+  UINT  idFrom;
+  UINT  code;
+}  NMHDR, *LPNMHDR;
+#define NM_FIRST                (0U-  0U)       // generic to all controls
+#define NM_LAST                 (0U- 99U)
+#define NM_CLICK                (NM_FIRST-2)    // uses NMCLICK struct
+#define NM_DBLCLK               (NM_FIRST-3)
+#define NM_RCLICK               (NM_FIRST-5)    // uses NMCLICK struct
+
+typedef struct {
+  NMHDR   hdr;
+  DWORD   dwItemSpec;
+  DWORD   dwItemData;
+  POINT   pt;
+  DWORD   dwHitInfo;
+} NMMOUSE, *LPNMMOUSE;
+typedef NMMOUSE NMCLICK;
+typedef LPNMMOUSE LPNMCLICK;
 
 typedef struct 
 { 
@@ -270,10 +328,12 @@ typedef struct
   int cchTextMax, iImage, lParam;
 } LVITEM;
 
+
 void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask);
 void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc);
 int ListView_InsertItem(HWND h, const LVITEM *item);
 void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt);
+bool ListView_SetItem(HWND h, LVITEM *item);
 int ListView_GetNextItem(HWND h, int istart, int flags);
 bool ListView_GetItem(HWND h, LVITEM *item);
 int ListView_GetItemState(HWND h, int ipos, int mask);
@@ -283,6 +343,43 @@ int ListView_GetSelectedCount(HWND h);
 int ListView_GetItemCount(HWND h);
 int ListView_GetSelectionMark(HWND h);
 void ListView_SetColumnWidth(HWND h, int colpos, int wid);
+bool ListView_SetItemState(HWND h, int item, int state, int statemask);
+void ListView_RedrawItems(HWND h, int startitem, int enditem);
+void ListView_SetItemCount(HWND h, int cnt);
+void ListView_EnsureVisible(HWND h, int i, BOOL pok);
+bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r);
+
+typedef void *HIMAGELIST;
+#define ImageList_Create(x,y,a,b,c) ImageList_CreateEx();
+HIMAGELIST ImageList_CreateEx();
+void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image);
+
+#define LVSIL_STATE 1
+void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which); 
+
+#define LVIR_BOUNDS             0
+#define LVIR_ICON               1
+#define LVIR_LABEL              2
+#define LVIR_SELECTBOUNDS       3
+
+typedef struct
+{
+  POINT pt;
+  UINT flags;
+  int iItem;
+  int iSubItem;    // this is was NOT in win95.  valid only for LVM_SUBITEMHITTEST
+} LVHITTESTINFO, *LPLVHITTESTINFO;
+int ListView_HitTest(HWND h, LVHITTESTINFO *pinf);
+#define LVHT_NOWHERE            0x0001
+#define LVHT_ONITEMICON         0x0002
+#define LVHT_ONITEMLABEL        0x0004
+#define LVHT_ONITEMSTATEICON    0x0008
+#define LVHT_ONITEM             (LVHT_ONITEMICON | LVHT_ONITEMLABEL | LVHT_ONITEMSTATEICON)
+
+#define LVHT_ABOVE              0x0010
+#define LVHT_BELOW              0x0020
+#define LVHT_TORIGHT            0x0040
+#define LVHT_TOLEFT             0x0080
 
 #define LVCF_TEXT 1
 #define LVCF_WIDTH 2
@@ -292,9 +389,69 @@ void ListView_SetColumnWidth(HWND h, int colpos, int wid);
 #define LVIS_SELECTED 1
 #define LVIS_FOCUSED 2
 #define LVNI_FOCUSED 1
+#define INDEXTOSTATEIMAGEMASK(x) ((x)<<16)
+
+
+
+typedef struct
+{
+  NMHDR   hdr;
+  int     iItem;
+  int     iSubItem;
+  UINT    uNewState;
+  UINT    uOldState;
+  UINT    uChanged;
+  POINT   ptAction;
+  LPARAM  lParam;
+} NMLISTVIEW, *LPNMLISTVIEW;
+
+typedef struct {
+  NMHDR hdr;
+  LVITEM item;
+} NMLVDISPINFO, *LPNMLVDISPINFO;
+
+#define LVN_FIRST               (0U-100U)       // listview
+#define LVN_LAST                (0U-199U)
+#define LVN_BEGINDRAG           (LVN_FIRST-9)
+#define LVN_ITEMCHANGED         (LVN_FIRST-1)
+#define LVN_ODFINDITEM          (LVN_FIRST-52)
+#define LVN_GETDISPINFO         (LVN_FIRST-50)
 
 // ignored for now
 #define LVS_EX_FULLROWSELECT 0
+
+
+//tab control
+
+typedef struct TCITEM
+{
+    UINT mask;
+    DWORD dwState;
+    DWORD dwStateMask;
+    char *pszText;
+    int cchTextMax;
+    int iImage;
+
+    LPARAM lParam;
+} TCITEM, *LPTCITEM;
+
+
+#define TCIF_TEXT               0x0001
+#define TCIF_IMAGE              0x0002
+#define TCIF_PARAM              0x0008
+//#define TCIF_STATE              0x0010
+
+int TabCtrl_GetItemCount(HWND hwnd);
+BOOL TabCtrl_DeleteItem(HWND hwnd, int idx);
+int TabCtrl_InsertItem(HWND hwnd, int idx, TCITEM *item);
+int TabCtrl_SetCurSel(HWND hwnd, int idx);
+int TabCtrl_GetCurSel(HWND hwnd);
+
+#define TCN_FIRST               (0U-550U)       // tab control
+#define TCN_LAST                (0U-580U)
+#define TCN_SELCHANGE           (TCN_FIRST - 1)
+
+
 
 #define BS_AUTOCHECKBOX 1
 #define BS_AUTORADIOBUTTON 2
@@ -327,10 +484,11 @@ void SWELL_CloseWindow(HWND hwnd);
 /*
  ** swell-menu.mm
  */
-HMENU CreatePopupMenu();
+HMENU CreatePopupMenu(const char *title=NULL);
 void DestroyMenu(HMENU hMenu);
 int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid);
-
+HMENU SWELL_GetDefaultWindowMenu();
+void SWELL_SetDefaultWindowMenu(HMENU);
 
 // most of these are ignored, actually, but TPM_NONOTIFY and TPM_RETURNCMD are now used
 #define TPM_LEFTBUTTON  0x0000L
@@ -355,8 +513,10 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, void *ModNSS, unsigned 
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text);
 bool EnableMenuItem(HMENU hMenu, int idx, int en);
 bool DeleteMenu(HMENU hMenu, int idx, int flag);
-HMENU SWELL_LoadMenu(int resid);
-#define LoadMenu(hinst,resid) SWELL_LoadMenu((resid))
+struct SWELL_MenuResourceIndex;
+extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
+HMENU SWELL_LoadMenu(struct SWELL_MenuResourceIndex *head, int resid);
+#define LoadMenu(hinst,resid) SWELL_LoadMenu(SWELL_curmodule_menuresource_head,(resid))
 void SWELL_SetMenuDestination(HMENU menu, HWND hwnd);
 HMENU SWELL_DuplicateMenu(HMENU menu);  
 
@@ -388,6 +548,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi);
 #define MF_UNCHECKED 0
 #define MF_ENABLED 0
 #define MF_GRAYED 1
+#define MF_DISABLED 1
 #define MF_CHECKED 4
 
 #define MFS_UNCHECKED 0
@@ -414,11 +575,15 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi);
 #define WM_PAINT                        0x000F
 #define WM_CLOSE                        0x0010
 #define WM_ERASEBKGND                   0x0014
+#define WM_SETCURSOR                    0x0020
 #define WM_GETMINMAXINFO                0x0024
 
 typedef struct {
   POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
 } MINMAXINFO, *LPMINMAXINFO;
+
+
+#define WM_NOTIFY                       0x004E
 
 #define WM_CONTEXTMENU                  0x007B
 #define WM_KEYFIRST                     0x0100
@@ -458,6 +623,7 @@ typedef struct {
 #define SB_ENDSCROLL        8
 
 #define SIZE_MINIMIZED (-1)
+#define SIZE_MAXIMIZED (-2)
 
 #ifndef WINAPI
 #define WINAPI
@@ -474,20 +640,66 @@ typedef struct {
 
                                                                               
 #ifndef LOWORD
-#define LOWORD(x) ((x)&0xffff)
-#endif
-                                       
-#ifndef HIWORD
-#define HIWORD(x) (((x)>>16)&0xffff)
+#define MAKEWORD(a, b)      ((unsigned short)(((BYTE)(a)) | ((WORD)((BYTE)(b))) << 8))
+#define MAKELONG(a, b)      ((long)(((unsigned short)(a)) | ((DWORD)((unsigned short)(b))) << 16))
+#define MAKEWPARAM(l, h)      (WPARAM)MAKELONG(l, h)
+#define MAKELPARAM(l, h)      (LPARAM)MAKELONG(l, h)
+#define MAKELRESULT(l, h)     (LRESULT)MAKELONG(l, h)
+#define LOWORD(l)           ((unsigned short)(l))
+#define HIWORD(l)           ((unsigned short)(((unsigned long)(l) >> 16) & 0xFFFF))
+#define LOBYTE(w)           ((BYTE)(w))
+#define HIBYTE(w)           ((BYTE)(((unsigned short)(w) >> 8) & 0xFF))
 #endif
 
 #define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
 
+
+#define DialogBox(hinst, resid, par, dlgproc) SWELL_DialogBox(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,0)
+#define DialogBoxParam(hinst, resid, par, dlgproc, param) SWELL_DialogBox(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,param)
+#define CreateDialog(hinst,resid,par,dlgproc) SWELL_CreateDialog(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,0)
+#define CreateDialogParam(hinst,resid,par,dlgproc,param) SWELL_CreateDialog(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,param)
+
+typedef BOOL (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
+int SWELL_DialogBox(struct SWELL_DialogResourceIndex *reshead, int resid, HWND parent,  DLGPROC dlgproc, LPARAM param);  
+HWND SWELL_CreateDialog(struct SWELL_DialogResourceIndex *reshead, int resid, HWND parent, DLGPROC dlgproc, LPARAM param);
+extern struct SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head;
+
+
+typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);                                           
+void SWELL_RegisterCustomControlCreator(SWELL_ControlCreatorProc roc);
+void SWELL_UnregisterCustomControlCreator(SWELL_ControlCreatorProc proc);
+
+void EndDialog(HWND, int);            
+
                                        
 #define SendDlgItemMessage(hwnd,idx,msg,wparam,lparam) SendMessage(GetDlgItem(hwnd,idx),msg,wparam,lparam)
 int SendMessage(HWND, UINT, WPARAM, LPARAM);                                      
 
+
+BOOL PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void SWELL_PostMessage_ClearQ(HWND h);
+
+
+
+// these should never be called directly!!! put SWELL_POSTMESSAGE_DELEGATE_IMPL in your nsapp delegate, and call SWELL_POSTMESSAGE_INIT at some point from there too
+void SWELL_Internal_PostMessage_Init();
+BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
+void SWELL_Internal_PMQ_Run();
+
+#define SWELL_POSTMESSAGE_DELEGATE_IMPL \
+    -(bool)swellPostMessage:(HWND)dest msg:(int)message wp:(WPARAM)wParam lp:(LPARAM)lParam { \
+        return SWELL_Internal_PostMessage(dest,message,wParam,lParam); \
+      } \
+    -(void)swellPostMessageClearQ:(HWND)dest { \
+        SWELL_Internal_PMQ_ClearAllMessages(dest); \
+     } \
+    -(void)swellPostMessageTick:(id)sender { \
+        SWELL_Internal_PMQ_Run(); \
+     } 
+
+#define SWELL_POSTMESSAGE_INIT SWELL_Internal_PostMessage_Init();
 
 /*
  ** swell-kb.mm
@@ -565,6 +777,19 @@ void GetCursorPos(POINT *pt);
 #define MK_RBUTTON        0x10002
 
 
+#define IDC_UPARROW -1004
+#define IDC_NO -1003
+#define IDC_SIZEALL -1002
+#define IDC_SIZENS -1001
+#define IDC_SIZEWE -1000
+#define IDC_ARROW -999
+#define IDC_HAND 32649
+HCURSOR SWELL_LoadCursor(int idx);
+#define LoadCursor(a,x) SWELL_LoadCursor(x)
+void SetCursor(HCURSOR curs);
+HCURSOR GetCursor();
+HCURSOR SWELL_GetLastSetCursor();
+
 /*
  ** clipboard
  */
@@ -595,14 +820,6 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk);
 void UpdateWindow(HWND hwnd);
 HWND WindowFromPoint(POINT p);
 
-typedef void *HDC;
-typedef void *HBRUSH;
-typedef void *HPEN;
-typedef void *HFONT;
-typedef void *HICON;
-typedef void *HBITMAP;
-typedef void *HGDIOBJ;
-typedef void *HCURSOR;
 typedef struct
 {
     long lfHeight, lfWidth, lfEscapement,lfOrientation, lfWeight;
@@ -620,6 +837,10 @@ HDC WDL_GDP_CreateContext(void *);
 HDC WDL_GDP_CreateMemContext(HDC hdc, int w, int h);
 void WDL_GDP_DeleteContext(HDC);
 HFONT CreateFontIndirect(LOGFONT *);
+HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientation, long lfWeight, char lfItalic, 
+  char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
+         char lfQuality, char lfPitchAndFamily, const char *lfFaceName);
+
 HPEN CreatePen(int attr, int wid, int col, float alpha=1.0f);
 HBRUSH CreateSolidBrush(int col, float alpha=1.0f);
 HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen);
@@ -627,12 +848,13 @@ HGDIOBJ GetStockObject(int wh);
 void DeleteObject(HGDIOBJ);
 void FillRect(HDC ctx, RECT *r, HBRUSH br);
 void Rectangle(HDC ctx, int l, int t, int r, int b);
+void Ellipse(HDC ctx, int l, int t, int r, int b);
 void SWELL_Polygon(HDC ctx, POINT *pts, int npts);
 void MoveToEx(HDC ctx, int x, int y, POINT *op);
 void LineTo(HDC ctx, int x, int y);
 void SetPixel(HDC ctx, int x, int y, int c);
 void PolyBezierTo(HDC ctx, POINT *pts, int np);
-void DrawText(HDC ctx, const char *buf, int len, RECT *r, int align);
+int DrawText(HDC ctx, const char *buf, int len, RECT *r, int align);
 void SetTextColor(HDC ctx, int col);
 void SetBkColor(HDC ctx, int col);
 void SetBkMode(HDC ctx, int col);
@@ -647,9 +869,11 @@ void SWELL_PushClipRegion(HDC ctx);
 void SWELL_SetClipRegion(HDC ctx, RECT *r);
 void SWELL_PopClipRegion(HDC ctx);
 void *SWELL_GetCtxFrameBuffer(HDC ctx);
+void *SWELL_GetCtxGC(HDC ctx);
 void SWELL_SyncCtxFrameBuffer(HDC ctx);
 void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork);
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode);
+void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode);
 #define DestroyIcon(x) DeleteObject(x)
 int GetSysColor(int idx);
 
@@ -685,7 +909,8 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #define DT_END_ELLIPSIS 8
 #define DT_BOTTOM 16
 #define DT_RIGHT 32
-#define DT_SINGLELINE 0
+#define DT_SINGLELINE 64
+
 #define DT_NOPREFIX 0
 #define DT_TOP 0
 #define DT_LEFT 0
@@ -703,7 +928,7 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #define OPAQUE 1
 
 #define NULL_PEN 1
-
+#define NULL_BRUSH 2
 #else
 
 #define SWELL_CB_InsertString(hwnd, idx, pos, str) SendDlgItemMessage(hwnd,idx,CB_INSERTSTRING,(pos),(LPARAM)(str))

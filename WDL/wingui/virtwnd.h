@@ -74,7 +74,7 @@ public:
   virtual void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
   virtual void OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
-  virtual bool OnMouseDown(int xpos, int ypos);
+  virtual int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
   virtual bool OnMouseDblClick(int xpos, int ypos);
   virtual bool OnMouseWheel(int xpos, int ypos, int amt);
 

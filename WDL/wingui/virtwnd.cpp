@@ -248,8 +248,10 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
     if (m_cur_hwnd)
     {
       RECT r;
-      GetWindowRect(m_cur_hwnd,&r);
+      GetClientRect(m_cur_hwnd,&r);
       int wnd_w=r.right-r.left,wnd_h=r.bottom-r.top;
+      
+      if (wnd_h<0)wnd_h=-wnd_h;
 
       if (!m_bm)
         m_bm=new LICE_SysBitmap;
@@ -684,7 +686,7 @@ WDL_VWnd *WDL_VWnd::VirtWndFromPoint(int xpos, int ypos, int maxdepth)
 }
 
 
-bool WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
+int WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
 {
   if (!m_children) return false;
 
@@ -692,14 +694,16 @@ bool WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
   if (!wnd) 
   {
     m_captureidx=-1;
-    return false;
+    return 0;
   }  
   RECT r;
   wnd->GetPosition(&r);
-  if (wnd->OnMouseDown(xpos-r.left,ypos-r.top))
+  int a;
+  if ((a=wnd->OnMouseDown(xpos-r.left,ypos-r.top)))
   {
+    if (a<0) return -1;
     m_captureidx=m_children->Find(wnd);
-    return true;
+    return 1;
   }
   return false;
 }

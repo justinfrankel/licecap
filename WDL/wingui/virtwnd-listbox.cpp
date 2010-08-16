@@ -264,7 +264,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
   DeleteObject(pen2);
 }
 
-bool WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
+int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
 {
   int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
   int updownbuttonsize=0; // &1= has top button, &2= has bottom button
@@ -304,7 +304,7 @@ bool WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
       }
       m_cap_state=0;
       m_cap_startitem=-1;
-      return true;
+      return 1;
     }
   }
 
@@ -312,7 +312,7 @@ bool WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
   m_cap_startitem=startpos + (ypos)/m_rh;
   RequestRedraw(NULL);
 
-  return true;
+  return 1;
 }
 
 bool WDL_VirtualListBox::OnMouseDblClick(int xpos, int ypos)

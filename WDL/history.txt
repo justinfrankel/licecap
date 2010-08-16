@@ -1,3 +1,7 @@
+2007-11-23: SWELL: tons of menu fixes, dialog fixes, API extensions, more. too much to list.
+2007-11-23: LICE: LICE_line supports flipped surfaces
+2007-11-13: SWELL: Owned window support, tons of updates
+2007-11-13: Virtwnd: support for controls eating mousedowns without capturing
 2007-11-09: Fixed distribution making to include more docs/etc
 2007-11-09: LICE: Test app now uses SWELL to run on OS X, included OS X example test project
 2007-11-09: SWELL: Extensive updates for child dialogs, modal/modeless dialogs (mouse messages, painting, etc etc)
