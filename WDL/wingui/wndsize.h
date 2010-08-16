@@ -97,7 +97,7 @@ public:
   
   RECT get_orig_rect() { return m_orig_rect; }
 
-  void onResize(HWND only=0, int notouch=0);
+  void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
 
 private:
 #ifdef _WIN32

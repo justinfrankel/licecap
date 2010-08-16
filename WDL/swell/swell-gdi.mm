@@ -550,7 +550,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     }
     else if (align&DT_VCENTER)
     {
-      float dy=(drawr.size.height-sz.height )/2;
+      float dy=((int)(drawr.size.height-sz.height ))/2;
       drawr.origin.y += dy;
       drawr.size.height -= dy*2.0;
     }
@@ -956,10 +956,6 @@ void *SWELL_GetCtxFrameBuffer(HDC ctx)
 }
 
 
-HDC GetWindowDC(HWND h)
-{
-  return GetDC(h);
-}
 HDC GetDC(HWND h)
 {
   if (h && [(id)h isKindOfClass:[NSWindow class]])
@@ -968,7 +964,11 @@ HDC GetDC(HWND h)
     {
       PAINTSTRUCT ps={0,}; 
       [(id)h getSwellPaintInfo:(PAINTSTRUCT *)&ps];
-      if (ps.hdc) return ps.hdc;
+      if (ps.hdc) 
+      {
+        if (((GDP_CTX*)ps.hdc)->ctx) CGContextSaveGState(((GDP_CTX*)ps.hdc)->ctx);
+        return ps.hdc;
+      }
     }
     h=(HWND)[(id)h contentView];
   }
@@ -978,18 +978,49 @@ HDC GetDC(HWND h)
     {
       PAINTSTRUCT ps={0,}; 
       [(id)h getSwellPaintInfo:(PAINTSTRUCT *)&ps];
-      if (ps.hdc) return ps.hdc;
+      if (ps.hdc) 
+      {
+        if (((GDP_CTX*)ps.hdc)->ctx) CGContextSaveGState(((GDP_CTX*)ps.hdc)->ctx);
+        return ps.hdc;
+      }
     }
     
-    [(NSView*)h lockFocus];
-    CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
-    return WDL_GDP_CreateContext(myContext);
+    if ([(NSView*)h lockFocusIfCanDraw])
+    {
+      CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
+      CGContextSaveGState(myContext);
+      return WDL_GDP_CreateContext(myContext);
+    }
   }
   return 0;
 }
 
+HDC GetWindowDC(HWND h)
+{
+  HDC ret=GetDC(h);
+  if (ret)
+  {
+    NSView *v=NULL;
+    if ([(id)h isKindOfClass:[NSWindow class]]) v=[(id)h contentView];
+    else if ([(id)h isKindOfClass:[NSView class]]) v=(NSView *)h;
+    
+    if (v)
+    {
+      NSRect b=[v bounds];
+      float xsc=b.origin.x;
+      float ysc=b.origin.y;
+      if ((xsc || ysc) && ((GDP_CTX*)ret)->ctx) CGContextTranslateCTM(((GDP_CTX*)ret)->ctx,xsc,ysc);
+    }
+  }
+  return ret;
+}
+
 void ReleaseDC(HWND h, HDC hdc)
 {
+  if (hdc)
+  {
+    if (((GDP_CTX*)hdc)->ctx) CGContextRestoreGState(((GDP_CTX*)hdc)->ctx);
+  }
   if (h && [(id)h isKindOfClass:[NSWindow class]])
   {
     if ([(id)h respondsToSelector:@selector(getSwellPaintInfo:)]) 
@@ -1017,4 +1048,17 @@ void ReleaseDC(HWND h, HDC hdc)
     [(NSView *)h unlockFocus];
   }
 }
+
+void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
+{
+  CGContextRef ctx=(CGContextRef)SWELL_GetCtxGC(hdc);
+  if (ctx)
+  {
+  // level 0 for now = this
+    HIThemeSetFill(kThemeBrushDialogBackgroundActive,NULL,ctx,kHIThemeOrientationNormal);
+    CGRect rect=CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top);
+    CGContextFillRect(ctx,rect);	         
+  }
+}
+
 #endif

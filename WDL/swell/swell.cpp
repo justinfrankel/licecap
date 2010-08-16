@@ -148,4 +148,21 @@ DWORD GetModuleFileName(HINSTANCE ignored, char *fn, DWORD nSize)
 }
 
 
+unsigned int  _controlfp(unsigned int flag, unsigned int mask)
+{
+#ifndef __ppc__
+  unsigned short ret;
+  mask &= _MCW_RC; // don't let the caller set anything other than round control for now
+  __asm__ __volatile__("fnstcw %0\n\t":"=m"(ret));
+  ret=(ret&~(mask<<2))|(flag<<2);
+  
+  if (mask) __asm__ __volatile__(
+	  "fldcw %0\n\t"::"m"(ret));
+  return (unsigned int) (ret>>2);
+#else
+  return 0;
+#endif
+}
+
+
 #endif

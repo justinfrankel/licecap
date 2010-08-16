@@ -11,7 +11,11 @@ static HMENU g_swell_defaultmenu;
 static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   DLGPROC d=(DLGPROC)GetWindowLong(hwnd,DWL_DLGPROC);
-  if (d) return (LRESULT) d(hwnd,uMsg,wParam,lParam);
+  if (d) 
+  {
+    LRESULT r=(LRESULT) d(hwnd,uMsg,wParam,lParam);
+    if (r) return r; 
+  }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
@@ -24,6 +28,34 @@ static SWELL_DialogResourceIndex *resById(SWELL_DialogResourceIndex *reshead, in
     p=p->_next;
   }
   return 0;
+}
+
+static void DoPaintStuff(WNDPROC wndproc, HWND hwnd, HDC hdc, NSRect *modrect)
+{
+  RECT r,r2;
+  GetWindowRect(hwnd,&r);
+  if (r.top>r.bottom) { int tmp=r.top; r.top=r.bottom; r.bottom=tmp; }
+  r2=r;
+  wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&r);
+  wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
+  modrect->origin.x += r.left-r2.left;
+  modrect->origin.y += r.top-r2.top;
+  modrect->size.width += (r.right-r.left)-(r2.right-r2.left);
+  modrect->size.height += (r.bottom-r.top)-(r2.bottom-r2.top);
+  if (modrect->size.width >= 1 && modrect->size.height >= 1)
+  {
+    int a=0;
+    if (memcmp(&r,&r2,sizeof(r)))
+    {
+      RECT tr;
+      SWELL_PushClipRegion(hdc);
+      GetClientRect(hwnd,&tr);
+      SWELL_SetClipRegion(hdc,&tr);
+      a++;
+    }
+    wndproc(hwnd,WM_PAINT,(WPARAM)hdc,0);
+    if (a) SWELL_PopClipRegion(hdc);
+  }
 }
 
 typedef struct OwnedWindowListRec
@@ -238,6 +270,21 @@ static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
   if (m_hashaddestroy) return -1; \
 	NSPoint p=[theEvent locationInWindow]; \
 	unsigned short xpos=(int)(p.x); unsigned short ypos=(int)(p.y); \
+  int htc=HTCLIENT; \
+  if (msg != WM_MOUSEWHEEL && !GetCapture()) { \
+     DWORD p=GetMessagePos(); \
+     htc=m_wndproc((HWND)self,WM_NCHITTEST,0,p); \
+     if (htc!=HTCLIENT) \
+     { \
+       if (msg==WM_MOUSEMOVE) return m_wndproc((HWND)self,WM_NCMOUSEMOVE,htc,p); \
+       if (msg==WM_LBUTTONUP) return m_wndproc((HWND)self,WM_NCLBUTTONUP,htc,p); \
+       if (msg==WM_LBUTTONDOWN) return m_wndproc((HWND)self,WM_NCLBUTTONDOWN,htc,p); \
+       if (msg==WM_LBUTTONDBLCLK) return m_wndproc((HWND)self,WM_NCLBUTTONDBLCLK,htc,p); \
+       if (msg==WM_RBUTTONUP) return m_wndproc((HWND)self,WM_NCRBUTTONUP,htc,p); \
+       if (msg==WM_RBUTTONDOWN) return m_wndproc((HWND)self,WM_NCRBUTTONDOWN,htc,p); \
+       if (msg==WM_RBUTTONDBLCLK) return m_wndproc((HWND)self,WM_NCRBUTTONDBLCLK,htc,p); \
+     } \
+  } \
   int l=0; \
   if (msg==WM_MOUSEWHEEL) \
   { \
@@ -245,13 +292,11 @@ static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
     l<<=16; \
   } \
   int ret=(int)m_wndproc((HWND)self,msg,l,xpos + (ypos<<16)); \
-  if (msg==WM_SETCURSOR && !ret) { \
+  if (msg==WM_LBUTTONUP || msg==WM_RBUTTONUP || msg==WM_MOUSEMOVE) { \
+    if (!GetCapture() && !m_wndproc((HWND)self,WM_SETCURSOR,(WPARAM)self,htc | (msg<<16))) { \
       NSCursor *arr= [NSCursor arrowCursor]; \
         if (GetCursor() != (HCURSOR)arr) SetCursor((HCURSOR)arr); \
     } \
-  if (msg==WM_RBUTTONUP && !ret) { \
-    p=[self convertBaseToScreen:p]; \
-    m_wndproc((HWND)self,WM_CONTEXTMENU,(WPARAM)self,(int)p.x + (((int)p.y)<<16)); \
   } \
   return ret; \
 } \
@@ -261,8 +306,7 @@ static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
   m_paintctx_hdc=WDL_GDP_CreateContext([[NSGraphicsContext currentContext] graphicsPort]); \
     m_paintctx_rect=rect; \
       m_paintctx_used=false; \
-        m_wndproc((HWND)self,WM_NCPAINT,(WPARAM)1,0); \
-          m_wndproc((HWND)self,WM_PAINT,(WPARAM)m_paintctx_hdc,0); \
+        DoPaintStuff(m_wndproc,(HWND)self,m_paintctx_hdc,&m_paintctx_rect); \
           WDL_GDP_DeleteContext(m_paintctx_hdc); \
             m_paintctx_hdc=0; \
               if (!m_paintctx_used) { \
@@ -284,7 +328,6 @@ static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
   if (!m_enabled) return; \
   if (!GetCapture() || GetCapture()==(HWND)self) { \
     [self sendMouseMessage:WM_MOUSEMOVE event:theEvent]; \
-    [self sendMouseMessage:WM_SETCURSOR event:theEvent]; \
   } \
 } \
 - (void)SwellWnd_mouseUp:(NSEvent *)theEvent \
@@ -294,7 +337,6 @@ static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
   else  \
   { \
     [self sendMouseMessage:WM_LBUTTONUP event:theEvent]; \
-    [self sendMouseMessage:WM_SETCURSOR event:theEvent]; \
   } \
 } \
 - (void)SwellWnd_scrollWheel:(NSEvent *)theEvent \
@@ -314,13 +356,11 @@ static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
     } \
     [self sendMouseMessage:([theEvent clickCount]>1 ? WM_LBUTTONDBLCLK : WM_LBUTTONDOWN) event:theEvent]; \
 }	\
-- (int)SwellWnd_rightMouseUp:(NSEvent *)theEvent \
+- (void)SwellWnd_rightMouseUp:(NSEvent *)theEvent \
 { \
-  if (!m_enabled) return 0; \
+  if (!m_enabled) return; \
   m_isfakerightmouse=0; \
-  int ret=[self sendMouseMessage:WM_RBUTTONUP event:theEvent]; \
-  [self sendMouseMessage:WM_SETCURSOR event:theEvent]; \
-  return ret; \
+  [self sendMouseMessage:WM_RBUTTONUP event:theEvent]; \
 }  \
 - (void)SwellWnd_rightMouseDown:(NSEvent *)theEvent \
 { \
@@ -455,14 +495,14 @@ SWELLDIALOGCOMMONIMPLEMENTS
 }
 
 
+
 -(void) drawRect:(NSRect)rect
 {
   if (m_hashaddestroy) return;
   m_paintctx_hdc=WDL_GDP_CreateContext([[NSGraphicsContext currentContext] graphicsPort]);
   m_paintctx_rect=rect;
   m_paintctx_used=false;
-  m_wndproc((HWND)self,WM_NCPAINT,(WPARAM)1,0);
-  m_wndproc((HWND)self,WM_PAINT,(WPARAM)m_paintctx_hdc,0);
+  DoPaintStuff(m_wndproc,(HWND)self,m_paintctx_hdc,&m_paintctx_rect);
   WDL_GDP_DeleteContext(m_paintctx_hdc);
   m_paintctx_hdc=0;
   if (!m_paintctx_used) {
@@ -485,15 +525,13 @@ SWELLDIALOGCOMMONIMPLEMENTS
   if (!m_enabled) return;
   if (!GetCapture() || GetCapture()==(HWND)self) { 
     [self sendMouseMessage:WM_MOUSEMOVE event:theEvent];
-    [self sendMouseMessage:WM_SETCURSOR event:theEvent];
   }
 }
 - (void)mouseUp:(NSEvent *)theEvent
 {
   if (!m_enabled) return;
-	if (m_isfakerightmouse) return [self rightMouseUp:theEvent];
-    [self sendMouseMessage:WM_LBUTTONUP event:theEvent];
-    [self sendMouseMessage:WM_SETCURSOR event:theEvent];
+	if (m_isfakerightmouse) [self rightMouseUp:theEvent];
+  else [self sendMouseMessage:WM_LBUTTONUP event:theEvent];
 }
 - (void)scrollWheel:(NSEvent *)theEvent
 {
@@ -512,14 +550,11 @@ SWELLDIALOGCOMMONIMPLEMENTS
   }
   [self sendMouseMessage:([theEvent clickCount]>1 ? WM_LBUTTONDBLCLK : WM_LBUTTONDOWN) event:theEvent];
 }
-- (int)rightMouseUp:(NSEvent *)theEvent
+- (void)rightMouseUp:(NSEvent *)theEvent
 {
-  if (!m_enabled) return 0;
+  if (!m_enabled) return;
   m_isfakerightmouse=0;
-  int ret=[self sendMouseMessage:WM_RBUTTONUP event:theEvent];
-  
-  [self sendMouseMessage:WM_SETCURSOR event:theEvent];
-  return ret;
+  [self sendMouseMessage:WM_RBUTTONUP event:theEvent];  
 }
 - (void)rightMouseDown:(NSEvent *)theEvent
 {
@@ -534,6 +569,21 @@ SWELLDIALOGCOMMONIMPLEMENTS
 	NSPoint localpt=[theEvent locationInWindow];
 	NSPoint p = [self convertPoint:localpt fromView:nil];
 	unsigned short xpos=(int)(p.x); unsigned short ypos=(int)(p.y);
+  int htc=HTCLIENT;
+  if (msg != WM_MOUSEWHEEL && !GetCapture()) { 
+     DWORD p=GetMessagePos(); 
+     htc=m_wndproc((HWND)self,WM_NCHITTEST,0,p); 
+     if (htc!=HTCLIENT) 
+     { 
+       if (msg==WM_MOUSEMOVE) return m_wndproc((HWND)self,WM_NCMOUSEMOVE,htc,p); 
+       if (msg==WM_LBUTTONUP) return m_wndproc((HWND)self,WM_NCLBUTTONUP,htc,p); 
+       if (msg==WM_LBUTTONDOWN) return m_wndproc((HWND)self,WM_NCLBUTTONDOWN,htc,p); 
+       if (msg==WM_LBUTTONDBLCLK) return m_wndproc((HWND)self,WM_NCLBUTTONDBLCLK,htc,p); 
+       if (msg==WM_RBUTTONUP) return m_wndproc((HWND)self,WM_NCRBUTTONUP,htc,p); 
+       if (msg==WM_RBUTTONDOWN) return m_wndproc((HWND)self,WM_NCRBUTTONDOWN,htc,p); 
+       if (msg==WM_RBUTTONDBLCLK) return m_wndproc((HWND)self,WM_NCRBUTTONDBLCLK,htc,p); 
+     } 
+  } 
   
   int l=0;
   if (msg==WM_MOUSEWHEEL)
@@ -544,18 +594,21 @@ SWELLDIALOGCOMMONIMPLEMENTS
   
   // put todo: modifiers into low work of l
   
-  int ret=m_wndproc((HWND)self,msg,l,xpos + (ypos<<16));
-  if (msg==WM_RBUTTONUP && !ret && m_dlgproc) 
+  if (msg==WM_MOUSEWHEEL)
   {
-    localpt=[[self window] convertBaseToScreen:localpt];
-    m_wndproc((HWND)self,WM_CONTEXTMENU,(WPARAM)self,(int)localpt.x + (((int)localpt.y)<<16));
+    POINT p;
+    GetCursorPos(&p);
+    return m_wndproc((HWND)self,msg,l,(short)p.x + (((int)p.y)<<16));
   }
   
-  if (msg==WM_SETCURSOR && !ret) 
-  {
-    NSCursor *arr= [NSCursor arrowCursor];
-    if (GetCursor() != (HCURSOR)arr) SetCursor((HCURSOR)arr);
-   } 
+  int ret=m_wndproc((HWND)self,msg,l,xpos + (ypos<<16));
+
+  if (msg==WM_LBUTTONUP || msg==WM_RBUTTONUP || msg==WM_MOUSEMOVE) {
+    if (!GetCapture() && !m_wndproc((HWND)self,WM_SETCURSOR,(WPARAM)self,htc | (msg<<16))) {
+      NSCursor *arr= [NSCursor arrowCursor];
+        if (GetCursor() != (HCURSOR)arr) SetCursor((HCURSOR)arr);
+    }
+  }
    return ret;
 } 
 
@@ -627,9 +680,9 @@ SWELLDIALOGCOMMONIMPLEMENTS
   [[self window] SwellWnd_rightMouseDown:theEvent];
 }  
 
-- (int)rightMouseUp:(NSEvent *)theEvent
+- (void)rightMouseUp:(NSEvent *)theEvent
 {
-  return (int)[[self window] SwellWnd_rightMouseUp:theEvent];
+  [[self window] SwellWnd_rightMouseUp:theEvent];
 }  
 
 - (BOOL)isOpaque

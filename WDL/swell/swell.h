@@ -110,7 +110,6 @@
 #define _T(T) T
 
 #define CallWindowProc(A,B,C,D,E) ((WNDPROC)A)(B,C,D,E)
-#define GetSystemMetrics(x) (1)
 #define OffsetRect WinOffsetRect  //to avoid OSX's OffsetRect function
 #define SetRect WinSetRect        //to avoid OSX's SetRect function
 
@@ -399,6 +398,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define PBM_SETPOS              (WM_USER+2)
 #define PBM_DELTAPOS            (WM_USER+3)
 
+#define BM_SETCHECK        0x00F1
 #define BM_GETIMAGE        0x00F6
 #define BM_SETIMAGE        0x00F7
 #define IMAGE_BITMAP 0
@@ -476,7 +476,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define SW_SHOW 2
 #define SW_NORMAL 2
 #define SW_SHOWNORMAL 2
-
+#define SW_SHOWMAXIMIZED 2 // todo: make this
 #define SWP_NOMOVE 1
 #define SWP_NOSIZE 2
 #define SWP_NOZORDER 4
@@ -552,8 +552,10 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_NCLBUTTONDBLCLK              0x00A3
 #define WM_NCRBUTTONDOWN                0x00A4
 #define WM_NCRBUTTONUP                  0x00A5
+#define WM_NCRBUTTONDBLCLK              0x00A6
 #define WM_NCMBUTTONDOWN                0x00A7
 #define WM_NCMBUTTONUP                  0x00A8
+#define WM_NCMBUTTONDBLCLK              0x00A9
 #define WM_KEYFIRST                     0x0100
 #define WM_KEYDOWN                      0x0100
 #define WM_KEYUP                        0x0101
@@ -695,6 +697,10 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define FALT      0x10
 
 
+#define VK_LBUTTON        0x01
+#define VK_RBUTTON        0x02
+#define VK_MBUTTON        0x04
+
 #define VK_BACK           0x08
 #define VK_TAB            0x09
 
@@ -753,11 +759,12 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define VK_F11            0x7A
 #define VK_F12            0x7B
 
-#define MK_LBUTTON        0x10000
-#define MK_MBUTTON        0x10001
-#define MK_RBUTTON        0x10002
+#define MK_LBUTTON        0x01
+#define MK_RBUTTON        0x20
+#define MK_MBUTTON        0x10
 
 
+#define IDC_IBEAM -1005
 #define IDC_UPARROW -1004
 #define IDC_NO -1003
 #define IDC_SIZEALL -1002
@@ -839,12 +846,63 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define GPTR (GMEM_FIXED|GMEM_ZEROINIT)
 
 
+#define _MCW_RC         0x00000300              /* Rounding Control */
+#define _RC_NEAR        0x00000000              /*   near */
+#define _RC_DOWN        0x00000100              /*   down */
+#define _RC_UP          0x00000200              /*   up */
+#define _RC_CHOP        0x00000300              /*   chop */
+
 
 extern struct SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head;
 extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 
+#define HTNOWHERE           0
+#define HTCLIENT            1
+#define HTHSCROLL           6
+#define HTVSCROLL           7
+
+#define SM_CXSCREEN             0
+#define SM_CYSCREEN             1
+#define SM_CXVSCROLL            2
+#define SM_CYHSCROLL            3
+#define SM_CYVSCROLL            20
+#define SM_CXHSCROLL            21
 
 
+#if 0 // these are disabled until implemented
+
+#define SM_CYCAPTION            4
+#define SM_CXBORDER             5
+#define SM_CYBORDER             6
+#define SM_CXDLGFRAME           7
+#define SM_CYDLGFRAME           8
+#define SM_CYVTHUMB             9
+#define SM_CXHTHUMB             10
+#define SM_CXICON               11
+#define SM_CYICON               12
+#define SM_CXCURSOR             13
+#define SM_CYCURSOR             14
+#define SM_CYMENU               15
+#define SM_CXFULLSCREEN         16
+#define SM_CYFULLSCREEN         17
+#define SM_CYKANJIWINDOW        18
+#define SM_MOUSEPRESENT         19
+#define SM_DEBUG                22
+#define SM_SWAPBUTTON           23
+#define SM_CXMIN                28
+#define SM_CYMIN                29
+#define SM_CXSIZE               30
+#define SM_CYSIZE               31
+#define SM_CXFRAME              32
+#define SM_CYFRAME              33
+#define SM_CXMINTRACK           34
+#define SM_CYMINTRACK           35
+#define SM_CXDOUBLECLK          36
+#define SM_CYDOUBLECLK          37
+#define SM_CXICONSPACING        38
+#define SM_CYICONSPACING        39
+
+#endif // unimplemented system metrics
 
 #endif //_WDL_SWELL_H_TYPES_DEFINED_
 
@@ -1088,6 +1146,9 @@ SWELL_API_DEFINE(HWND, SetParent,(HWND hwnd, HWND newPar))
 */
 SWELL_API_DEFINE(HWND, GetWindow,(HWND hwnd, int what))
 
+SWELL_API_DEFINE(HWND,FindWindowEx,(HWND par, HWND lastw, const char *classname, const char *title))
+
+
 /*
 ** Notes: common win32 code like this:
 **   RECT r;
@@ -1097,10 +1158,13 @@ SWELL_API_DEFINE(HWND, GetWindow,(HWND hwnd, int what))
 ** does work, however be aware that in certain instances r.bottom may be less 
 ** than r.top, due to flipped coordinates. SetWindowPos and other functions 
 ** handle negative heights gracefully, and you should too.
+**
+** Note: GetWindowContentViewRect gets the rectangle of the content view
 */
 SWELL_API_DEFINE(void, ClientToScreen,(HWND hwnd, POINT *p))
 SWELL_API_DEFINE(void, ScreenToClient,(HWND hwnd, POINT *p))
 SWELL_API_DEFINE(void, GetWindowRect,(HWND hwnd, RECT *r))
+SWELL_API_DEFINE(void, GetWindowContentViewRect, (HWND hwnd, RECT *r)) 
 SWELL_API_DEFINE(void, GetClientRect,(HWND hwnd, RECT *r))
 SWELL_API_DEFINE(HWND, WindowFromPoint,(POINT p))
 SWELL_API_DEFINE(BOOL, WinOffsetRect, (LPRECT lprc, int dx, int dy))
@@ -1150,6 +1214,8 @@ SWELL_API_DEFINE(void,UpdateWindow,(HWND hwnd))
 SWELL_API_DEFINE(int, GetWindowLong,(HWND hwnd, int idx))
 SWELL_API_DEFINE(int, SetWindowLong,(HWND hwnd, int idx, int val))
 
+
+SWELL_API_DEFINE(BOOL, ScrollWindow, (HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT *lpClipRect))
 
 /* 
 ** GetProp() SetProp() RemoveProp() EnumPropsEx()
@@ -1673,7 +1739,9 @@ SWELL_API_DEFINE(HDC, GetDC,(HWND)) // use these sparingly! they kinda work but 
 SWELL_API_DEFINE(HDC, GetWindowDC,(HWND)) 
 SWELL_API_DEFINE(void, ReleaseDC,(HWND, HDC))
             
+SWELL_API_DEFINE(void, SWELL_FillDialogBackground,(HDC hdc, RECT *r, int level))
 
+SWELL_API_DEFINE(int, GetSystemMetrics, (int))
 
 
 
@@ -1699,6 +1767,7 @@ SWELL_API_DEFINE(void, SWELL_Menu_AddMenuItem,(HMENU hMenu, const char *name, in
 
 
 
+SWELL_API_DEFINE(unsigned int, _controlfp,(unsigned int flag, unsigned int mask))
 
 #endif // _WDL_SWELL_H_API_DEFINED_
 

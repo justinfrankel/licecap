@@ -117,15 +117,14 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
 
 WORD GetAsyncKeyState(int key)
 {
+  if (key == VK_LBUTTON) return (GetCurrentEventButtonState()&1)?0x8000:0;
+  if (key == VK_RBUTTON) return (GetCurrentEventButtonState()&2)?0x8000:0;
+  if (key == VK_MBUTTON) return (GetCurrentEventButtonState()&4)?0x8000:0;
   NSEvent *evt=[NSApp currentEvent];
   if (!evt) return 0;
-  if (key == MK_LBUTTON) return (GetCurrentEventButtonState()&1)?0x8000:0;
-  if (key == MK_RBUTTON) return (GetCurrentEventButtonState()&2)?0x8000:0;
-  if (key == MK_MBUTTON) return (GetCurrentEventButtonState()&4)?0x8000:0;
-  int flags=[evt modifierFlags];
-  if (key == VK_CONTROL) return (flags&NSCommandKeyMask)?0x8000:0;
-  if (key == VK_MENU) return (flags&NSAlternateKeyMask)?0x8000:0;
-  if (key == VK_SHIFT) return (flags&NSShiftKeyMask)?0x8000:0;
+  if (key == VK_CONTROL) return ([evt modifierFlags]&NSCommandKeyMask)?0x8000:0;
+  if (key == VK_MENU) return ([evt modifierFlags]&NSAlternateKeyMask)?0x8000:0;
+  if (key == VK_SHIFT) return ([evt modifierFlags]&NSShiftKeyMask)?0x8000:0;
   return 0;
 }
 
@@ -159,6 +158,7 @@ HCURSOR SWELL_LoadCursor(int idx)
       return (HCURSOR)[NSCursor openHandCursor];
     case IDC_UPARROW:
       return (HCURSOR)[NSCursor resizeUpCursor];
+    case IDC_IBEAM: return (HCURSOR)[NSCursor IBeamCursor];
   }
   return 0;
 }

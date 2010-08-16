@@ -350,10 +350,10 @@ void WDL_VWnd_Painter::PaintEnd()
 #else
   if (m_bm)
   {
+    SWELL_SyncCtxFrameBuffer(m_bm->getDC());
     if (m_cur_hwnd_mode)
     {
       HDC hdc=WDL_GDP_CreateContext(m_cur_hwnd);
-      SWELL_SyncCtxFrameBuffer(m_bm->getDC());
       BitBlt(hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,
@@ -399,6 +399,7 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
       PaintBorderForRect(&r,borderflags);
     }
     if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,0,0,&tr);
+
   }
 }
 

@@ -158,7 +158,7 @@ void WDL_WndSizer::remove_itemvirt(WDL_VirtualWnd *vwnd)
 }
 
 
-void WDL_WndSizer::onResize(HWND only, int notouch)
+void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytranslate)
 {
   RECT new_rect;
   
@@ -216,12 +216,12 @@ void WDL_WndSizer::onResize(HWND only, int notouch)
 
           if (!hdwndpos) 
 #endif
-            SetWindowPos(rec->hwnd, NULL, r.left,r.top,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+            SetWindowPos(rec->hwnd, NULL, r.left+xtranslate,r.top+ytranslate,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
           
 #ifdef _WIN32
           else 
           {
-            hdwndpos=DeferWindowPos(hdwndpos, rec->hwnd, NULL, r.left,r.top,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+            hdwndpos=DeferWindowPos(hdwndpos, rec->hwnd, NULL, r.left+xtranslate,r.top+ytranslate,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
           }
 #endif
         }

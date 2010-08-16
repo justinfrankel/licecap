@@ -612,6 +612,7 @@ static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link depen
 @interface Swell_Button : NSButton
 {
   LPARAM m_swellGDIimage;
+  int m_userdata;
 }
 @end
 @implementation Swell_Button : NSButton
@@ -619,10 +620,13 @@ static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link depen
 -(id) init {
   self = [super init];
   if (self != nil) {
+    m_userdata=0;
     m_swellGDIimage=0;
   }
   return self;
 }
+-(int)getSwellUserData { return m_userdata; }
+-(void)setSwellUserData:(int)val {   m_userdata=val; }
 
 -(void)setSwellGDIImage:(LPARAM)par
 {
@@ -645,6 +649,11 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
   else 
   {
+    if (msg == BM_SETCHECK && [turd isKindOfClass:[NSButton class]])
+    {
+      [(NSButton*)turd setState:(wParam&BST_INDETERMINATE)?NSMixedState:((wParam&BST_CHECKED)?NSOnState:NSOffState)];
+      return 0;
+    }
     if ((msg==BM_GETIMAGE || msg == BM_SETIMAGE) && [turd isKindOfClass:[Swell_Button class]])
     {
       if (wParam != IMAGE_BITMAP && wParam != IMAGE_ICON) return 0; // ignore unknown types
@@ -811,6 +820,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   
   NSPoint wndpt = [window convertScreenToBase:NSMakePoint(p->x,p->y)];
   
+  // todo : WM_NCCALCSIZE 
   NSPoint po = [ch convertPoint:wndpt fromView:nil];
   p->x=(int)(po.x+0.5);
   p->y=(int)(po.y+0.5);
@@ -829,6 +839,7 @@ void ClientToScreen(HWND hwnd, POINT *p)
   NSPoint wndpt = [ch convertPoint:NSMakePoint(p->x,p->y) toView:nil];
   
   NSPoint po = [window convertBaseToScreen:wndpt];
+  // todo : WM_NCCALCSIZE 
   
   p->x=(int)(po.x+0.5);
   p->y=(int)(po.y+0.5);
@@ -876,6 +887,16 @@ void GetWindowRect(HWND hwnd, RECT *r)
 
 }
 
+void GetWindowContentViewRect(HWND hwnd, RECT *r)
+{
+  if (hwnd && [(id)hwnd isKindOfClass:[NSWindow class]])
+  {
+    hwnd=(HWND)[(id)hwnd contentView];
+  }
+  GetWindowRect(hwnd,r);
+}
+
+
 void GetClientRect(HWND hwnd, RECT *r)
 {
   r->left=r->top=r->right=r->bottom=0;
@@ -891,6 +912,12 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->top=(int)(b.origin.y);
   r->right = (int)(b.origin.x+b.size.width+0.5);
   r->bottom= (int)(b.origin.y+b.size.height+0.5);
+
+  // todo this may need more attention
+  RECT tr=*r;
+  SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&tr);
+  r->right = r->left + (tr.right-tr.left);
+  r->bottom=r->top + (tr.bottom-tr.top);
 }
 
 BOOL WinOffsetRect(LPRECT lprc, int dx, int dy)
@@ -910,6 +937,7 @@ BOOL WinSetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
   lprc->top = yTop;
   lprc->right = xRight;
   lprc->bottom = yBottom;
+  return TRUE;
 }
 
 void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags)
@@ -1075,6 +1103,7 @@ HWND SetParent(HWND hwnd, HWND newPar)
     [np addSubview:v];
     [v release];
   }
+  return ret;
 }
 
 
@@ -1505,7 +1534,7 @@ void SWELL_CloseWindow(HWND hwnd)
 
 #include "swell-dlggen.h"
 
-static NSView *m_parent;
+static id m_make_owner;
 static NSRect m_transform;
 static float m_parent_h;
 static bool m_doautoright;
@@ -1517,7 +1546,7 @@ void SWELL_Make_SetMessageMode(int wantParentView)
 {
   m_parentMode=wantParentView;
 }
-#define ACTIONTARGET (m_parentMode ? (id)m_parent : (id)[m_parent window])
+#define ACTIONTARGET (m_parentMode ? m_make_owner : (id)[m_make_owner window])
 
 void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit)
 {
@@ -1531,11 +1560,12 @@ void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytran
   m_transform.origin.y=ytrans;
   m_transform.size.width=xscale;
   m_transform.size.height=yscale;
-  m_parent=(NSView *)parent;
+  m_make_owner=(id)parent;
+  if ([m_make_owner isKindOfClass:[NSWindow class]]) m_make_owner=[(NSWindow *)m_make_owner contentView];
   m_parent_h=100.0;
-  if ([(id)parent isKindOfClass:[NSView class]])
+  if ([(id)m_make_owner isKindOfClass:[NSView class]])
   {
-    m_parent_h=[(NSView *)parent bounds].size.height;
+    m_parent_h=[(NSView *)m_make_owner bounds].size.height;
     if (m_transform.size.height > 0 && [(id)parent isFlipped])
       m_transform.size.height*=-1;
   }
@@ -1577,7 +1607,7 @@ static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
 }
 
 static const double minwidfontadjust=1.81;
-static const double minwidfontscale=6.0;
+#define TRANSFORMFONTSIZE ((m_transform.size.width+1.0)*4.0)
 /// these are for swell-dlggen.h
 HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags)
 {  
@@ -1585,7 +1615,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   
   if (m_transform.size.width < minwidfontadjust)
   {
-    [button setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
+    [button setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
   }
   
   [button setTag:idx];
@@ -1595,9 +1625,9 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   [button setTitle:labelstr];
   [button setTarget:ACTIONTARGET];
   [button setAction:@selector(onCommand:)];
-  [m_parent addSubview:button];
+  [m_make_owner addSubview:button];
   if (m_doautoright) UpdateAutoCoords([button frame]);
-  if (def) [[m_parent window] setDefaultButtonCell:(NSButtonCell*)button];
+  if (def) [[m_make_owner window] setDefaultButtonCell:(NSButtonCell*)button];
   [labelstr release];
   [button release];
   return (HWND) button;
@@ -1610,7 +1640,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   //if (flags & ES_WANTRETURN)
 //    [obj 
   if (m_transform.size.width < minwidfontadjust)
-    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
+    [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
   if (h < 20)
   {
     [[obj cell] setWraps:NO];
@@ -1629,14 +1659,14 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
     [obj2 setDocumentView:obj];
     [obj2 setHasVerticalScroller:YES];
     [obj release];
-    [m_parent addSubview:obj2];
+    [m_make_owner addSubview:obj2];
     if (m_doautoright) UpdateAutoCoords([obj2 frame]);
     [obj2 release];
     obj=obj2;
   }  
   else */
   {
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
     [obj release];
   }
@@ -1652,7 +1682,7 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   [obj setBezeled:NO];
   [obj setDrawsBackground:NO];
   if (m_transform.size.width < minwidfontadjust)
-    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
+    [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
 
   if (flags & SS_NOTFIY)
   {
@@ -1665,7 +1695,7 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   [obj setAlignment:(align<0?NSLeftTextAlignment:align>0?NSRightTextAlignment:NSCenterTextAlignment)];
   [obj setTag:idx];
   [obj setFrame:MakeCoords(x,y,w,h,true)];
-  [m_parent addSubview:obj];
+  [m_make_owner addSubview:obj];
   if (m_sizetofits)[obj sizeToFit];
   if (m_doautoright) UpdateAutoCoords([obj frame]);
   [obj release];
@@ -1760,7 +1790,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     ccprocrec *p=m_ccprocs;
     while (p)
     {
-      HWND h=p->proc((HWND)m_parent,cname,idx,classname,style,(int)(poo.origin.x+0.5),(int)(poo.origin.y+0.5),(int)(poo.size.width+0.5),(int)(poo.size.height+0.5));
+      HWND h=p->proc((HWND)m_make_owner,cname,idx,classname,style,(int)(poo.origin.x+0.5),(int)(poo.origin.y+0.5),(int)(poo.size.width+0.5),(int)(poo.size.height+0.5));
       if (h) return h;
       p=p->next;
     }
@@ -1774,7 +1804,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setNotificationWindow:ACTIONTARGET];
     [obj setHidden:NO];
     [obj setFrame:MakeCoords(x,y,w,h,false)];
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     [obj release];
     return (HWND)obj;
   }
@@ -1804,7 +1834,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj2 setDocumentView:obj];
     [obj2 setHasVerticalScroller:YES];
     [obj release];
-    [m_parent addSubview:obj2];
+    [m_make_owner addSubview:obj2];
     [obj2 release];
     
     if ( !(style & LVS_REPORT))
@@ -1824,7 +1854,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setIndeterminate:NO];
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y,w,h,false)];
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     [obj release];
     return (HWND)obj;
   }
@@ -1840,10 +1870,18 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setBordered:NO];
     [obj setBezeled:NO];
     [obj setDrawsBackground:NO];
+    if (m_transform.size.width < minwidfontadjust)
+      [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
+    if (cname && *cname)
+    {
+      NSString *labelstr=(NSString *)SWELL_CStringToCFString(cname);
+      [obj setStringValue:labelstr];
+      [labelstr release];
+    }
     
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y,w,h,true)];
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     if (style & SS_BLACKRECT)
     {
       [obj setHidden:YES];
@@ -1853,7 +1891,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   }
   else if (!stricmp(classname,"Button"))
   {
-    NSButton *button=[[NSButton alloc] init];
+    Swell_Button *button=[[Swell_Button alloc] init];
     [button setTag:idx];
     if (style & BS_AUTO3STATE)
     {
@@ -1870,13 +1908,13 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
       [button setButtonType:NSRadioButton];
     }
     if (m_transform.size.width < minwidfontadjust)
-      [button setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
+      [button setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
     [button setFrame:MakeCoords(x,y,w,h,true)];
     NSString *labelstr=(NSString *)SWELL_CStringToCFString(cname);
     [button setTitle:labelstr];
     [button setTarget:ACTIONTARGET];
     [button setAction:@selector(onCommand:)];
-    [m_parent addSubview:button];
+    [m_make_owner addSubview:button];
     if (m_sizetofits) [button sizeToFit];
     if (m_doautoright) UpdateAutoCoords([button frame]);
     [labelstr release];
@@ -1892,7 +1930,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setFrame:MakeCoords(x,y,w,h,false)];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onCommand:)];
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     [obj release];
     return (HWND)obj;
   }
@@ -1906,12 +1944,14 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     NSPopUpButton *obj=[[NSPopUpButton alloc] init];
     [obj setTag:idx];
     if (m_transform.size.width < minwidfontadjust)
-      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
-    [obj setFrame:MakeCoords(x,y-1,w,14,true)];
+      [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
+    NSRect rc=MakeCoords(x,y-1,w,14,true);
+    if (rc.size.height<14*1.7) rc.size.height=14*1.7;
+    [obj setFrame:rc];
     [obj setAutoenablesItems:NO];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onCommand:)];
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
     [obj release];
     return (HWND)obj;
@@ -1920,14 +1960,14 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   {
     NSComboBox *obj=[[NSComboBox alloc] init];
     if (m_transform.size.width < minwidfontadjust)
-      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*minwidfontscale]];
+      [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
     [obj setEditable:(flags & CBS_DROPDOWNLIST)?NO:YES];
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y-1,w,14,true)];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onCommand:)];
     [obj setDelegate:ACTIONTARGET];
-    [m_parent addSubview:obj];
+    [m_make_owner addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
     [obj release];
     return (HWND)obj;
@@ -1959,7 +1999,7 @@ HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h)
   [obj setTag:idx];
   [labelstr release];
   [obj setFrame:MakeCoords(x,y,w,h,false)];
-  [m_parent addSubview:obj];
+  [m_make_owner addSubview:obj];
   [obj release];
   return (HWND)obj;
 }
@@ -2593,10 +2633,15 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwnd,((short)p.x)|(p.y<<16));
     return 1;
   }
-  else if (msg==WM_CONTEXTMENU)
+  else if (msg==WM_CONTEXTMENU || msg == WM_MOUSEWHEEL)
   {
-    HWND par=GetParent(hwnd);
-    if (par) SendMessage(par,WM_CONTEXTMENU,wParam,lParam);
+    HWND h=GetParent(hwnd);
+    while (h && ![(id)h respondsToSelector:@selector(onSwellMessage:p1:p2:)]) h = GetParent(h);
+    if (h) return SendMessage(h,msg,wParam,lParam);    
+  }
+  else if (msg==WM_NCHITTEST) 
+  {
+    return HTCLIENT;
   }
   return 0;
 }
@@ -2991,6 +3036,62 @@ HANDLE RemoveProp(HWND hwnd, const char *name)
 }
 
 
+int GetSystemMetrics(int p)
+{
+switch (p)
+{
+case SM_CXSCREEN:
+case SM_CYSCREEN:
+{
+  NSScreen *s=[NSScreen mainScreen];
+  if (!s) return 1024;
+  return p==SM_CXSCREEN ? [s frame].size.width : [s frame].size.height;
+}
+case SM_CXHSCROLL: return 16;
+case SM_CYHSCROLL: return 16;
+case SM_CXVSCROLL: return 16;
+case SM_CYVSCROLL: return 16;
+}
+return 0;
+}
 
+BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT *lpClipRect)
+{
+  if (hwnd && [(id)hwnd isKindOfClass:[NSWindow class]]) hwnd=(HWND)[(id)hwnd contentView];
+  if (!hwnd || ![(id)hwnd isKindOfClass:[NSView class]]) return FALSE;
+
+  NSRect r=[(id)hwnd bounds];
+  r.origin.x -= xamt;
+  r.origin.y -= yamt;
+  [(id)hwnd setBoundsOrigin:r.origin];
+  [(id)hwnd setNeedsDisplay:YES];
+  return TRUE;
+}
+
+HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title)
+{
+  if (!par&&!lastw) return NULL; // need to implement this modes
+  HWND h=lastw?GetWindow(lastw,GW_HWNDNEXT):GetWindow(par,GW_CHILD);
+  while (h)
+  {
+    bool isOk=true;
+    if (title)
+    {
+      char buf[512];
+      buf[0]=0;
+      GetWindowText(h,buf,sizeof(buf));
+      if (strcmp(title,buf)) isOk=false;
+    }
+    if (classname)
+    {
+      if (!stricmp(classname,"Static") && ![(id)h isKindOfClass:[NSTextField class]]) isOk=false;
+      // todo: other classname translations
+    }
+    
+    if (isOk) return h;
+    h=GetWindow(h,GW_HWNDNEXT);
+  }
+  return h;
+}
 
 #endif

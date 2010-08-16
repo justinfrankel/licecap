@@ -98,6 +98,8 @@ public:
   virtual int getRowSpan()=0; // includes any off-bitmap data
   virtual bool isFlipped()=0;
   virtual bool resize(int w, int h)=0;
+
+  virtual HDC getDC() { return 0; } // only sysbitmaps have to implement this
 };
 
 class LICE_MemBitmap : public LICE_IBitmap

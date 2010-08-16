@@ -1,3 +1,12 @@
+2007-12-17: SWELL: BM_SETCHECK support for buttons, basic FindWindowEx() emulation, better control font size selection
+2007-12-13: SWELL: Basic ScrollWindow() emulation
+2007-12-13: LICE: Updated LICE_IBitmap to include getDC()
+2007-12-12: SWELL: GetDC(), GetWindowDC() improvements, GetSystemMetrics()
+2007-12-12: SWELL: better WM_MOUSEWHEEL, WM_CONTEXTMENU message propagation
+2007-12-11: SWELL: WM_NCCALCSIZE, WM_NCHITTEST etc support
+2007-12-10: SWELL: basic _controlfp() support for rounding control (on x86)
+2007-12-06: LICE: better bitmapped font
+2007-12-05: LICE: schwa's faster/smaller lice_line
 2007-12-04: SWELL: updated documentation in swell.h, GlobalAlloc supports GMEM_FIXED
 2007-12-03: SWELL: added time.h inclusion for 10.5, fixed DrawText() when no font selected
 2007-12-02: SWELL: GetProp API support, GetDC/GetWindowDC now usable during WM_PAINT/NCPAINT (they get the same HDC as BeginPaint)
