@@ -36,6 +36,16 @@
 #define SWELL_ATSUI_TEXT_SUPPORT // faster, but unsupported on 64-bit. will fall back to the NSString drawing method
 #endif
 
+static NSString *CStringToNSString(const char *str)
+{
+  if (!str) str="";
+  NSString *ret;
+  
+  ret=(NSString *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
+  if (ret) return ret;
+  ret=(NSString *)CFStringCreateWithCString(NULL,str,kCFStringEncodingASCII);
+  return ret;
+}
 
 
 static CGColorRef CreateColor(int col, float alpha=1.0f)
@@ -490,7 +500,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   { 
     fontwid *= 0.95;
         
-    NSString *str=(NSString *)SWELL_CStringToCFString(lfFaceName);
+    NSString *str=CStringToNSString(lfFaceName);
     NSFont *nsf=[NSFont fontWithName:str size:fontwid];
     if (!nsf) nsf=[NSFont labelFontOfSize:fontwid];
     if (!nsf) nsf=[NSFont systemFontOfSize:fontwid];
@@ -750,7 +760,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   
   if (!tmp[0]) return 0; // dont draw empty strings
   
-  NSString *str=(NSString*)SWELL_CStringToCFString(tmp);
+  NSString *str=CStringToNSString(tmp);
   
   if (!str) return 0;
   
@@ -924,7 +934,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
 {
   int needfree=0;
   NSImage *img=0;
-  NSString *str=(NSString *)SWELL_CStringToCFString(name); 
+  NSString *str=CStringToNSString(name); 
   if (strstr(name,"/"))
   {
     img=[[NSImage alloc] initWithContentsOfFile:str];
@@ -936,8 +946,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
   {
     return 0;
   }
-  
-  
+    
   if (alphaFromMask)
   {
     NSSize sz=[img size];

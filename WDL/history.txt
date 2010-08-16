@@ -1,3 +1,8 @@
+2010-04-19:
+SWELL: support for control key (as FLWIN, windows key)
+iPlug: less dependent on SWELL for OSX (just swell-gdi)
+iPlug: fixed projects to compile
+
 2010-04-15:
 Added: Denormal.h denormal fixing functions and other FP utilities
 Added: pooled string class

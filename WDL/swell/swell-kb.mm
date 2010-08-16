@@ -88,63 +88,63 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
 	int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
                                    //	if ([theEvent isARepeat]) return;
     
-    int flag=0;
-    if (mod & NSShiftKeyMask) flag|=FSHIFT;
-    if (mod & NSCommandKeyMask) flag|=FCONTROL; // todo: this should be command once we figure it out
-    if (mod & NSAlternateKeyMask) flag|=FALT;
+  int flag=0;
+  if (mod & NSShiftKeyMask) flag|=FSHIFT;
+  if (mod & NSCommandKeyMask) flag|=FCONTROL; // todo: this should be command once we figure it out
+  if (mod & NSAlternateKeyMask) flag|=FALT;
+  if (mod & NSControlKeyMask) flag|=FLWIN;
     
-    int rawcode=[theEvent keyCode];
-//    printf("rawcode %d\n",rawcode);
-    
-    int code=MacKeyCodeToVK(rawcode);
-    if (!code)
+  int rawcode=[theEvent keyCode];
+
+  int code=MacKeyCodeToVK(rawcode);
+  if (!code)
+  {
+    NSString *str=[theEvent charactersIgnoringModifiers];
+    const char *p=[str cStringUsingEncoding: NSASCIIStringEncoding];
+    if (!p) 
     {
-      NSString *str=[theEvent charactersIgnoringModifiers];
-      const char *p=[str cStringUsingEncoding: NSASCIIStringEncoding];
-      if (!p) 
-      {
-        return 0;
-      }
-      code=toupper(*p);
-      if (code == 25 && (flag&FSHIFT)) code=VK_TAB;
-      if (isalnum(code)||code==' ' || code == '\r' || code == '\n' || code ==27 || code == VK_TAB) flag|=FVIRTKEY;
+      return 0;
     }
-    else
-    {
-      flag|=FVIRTKEY;
-      if (code==8) code='\b';
-    }
-    if (flag & FSHIFT)
-    {
-      if (code=='[') { code='{'; flag&=~(FSHIFT|FVIRTKEY); }
-      else if (code==']') { code='}'; flag&=~(FSHIFT|FVIRTKEY); }
-    }
+    code=toupper(*p);
+    if (code == 25 && (flag&FSHIFT)) code=VK_TAB;
+    if (isalnum(code)||code==' ' || code == '\r' || code == '\n' || code ==27 || code == VK_TAB) flag|=FVIRTKEY;
+  }
+  else
+  {
+    flag|=FVIRTKEY;
+    if (code==8) code='\b';
+  }
+  if (flag & FSHIFT)
+  {
+    if (code=='[') { code='{'; flag&=~(FSHIFT|FVIRTKEY); }
+    else if (code==']') { code='}'; flag&=~(FSHIFT|FVIRTKEY); }
+  }
     
-    //if (code == ' ' && flag==(FVIRTKEY) && (mod&NSControlKeyMask)) flag|=FCONTROL;
+  //if (code == ' ' && flag==(FVIRTKEY) && (mod&NSControlKeyMask)) flag|=FCONTROL;
     
-    if (!(flag&FVIRTKEY)) flag&=~FSHIFT;
-    if (!flag)
-    {
+  if (!(flag&FVIRTKEY)) flag&=~FSHIFT;
+  if (!flag)
+  {
     // todo: some OS X API for this?
-      flag=FVIRTKEY|FSHIFT;
-      switch (code)
-      {
-        case '!': code='1'; break;
-        case '@': code='2'; break;
-        case '#': code='3'; break;
-        case '$': code='4'; break;
-        case '%': code='5'; break;
-        case '^': code='6'; break;
-        case '&': code='7'; break;
-        case '*': code='8'; break;
-        case '(': code='9'; break;
-        case ')': code='0'; break;
-        default: flag=0; break;
-      }
+    flag=FVIRTKEY|FSHIFT;
+    switch (code)
+    {
+      case '!': code='1'; break;
+      case '@': code='2'; break;
+      case '#': code='3'; break;
+      case '$': code='4'; break;
+      case '%': code='5'; break;
+      case '^': code='6'; break;
+      case '&': code='7'; break;
+      case '*': code='8'; break;
+      case '(': code='9'; break;
+      case ')': code='0'; break;
+      default: flag=0; break;
     }
-    
-    if (flags) *flags=flag;
-    return code;
+  }
+  
+  if (flags) *flags=flag;
+  return code;
 }
 
 int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
@@ -181,6 +181,7 @@ WORD GetAsyncKeyState(int key)
   if (key == VK_CONTROL) return ([evt modifierFlags]&NSCommandKeyMask)?0x8000:0;
   if (key == VK_MENU) return ([evt modifierFlags]&NSAlternateKeyMask)?0x8000:0;
   if (key == VK_SHIFT) return ([evt modifierFlags]&NSShiftKeyMask)?0x8000:0;
+  if (key == VK_LWIN) return ([evt modifierFlags]&NSControlKeyMask)?0x8000:0;
   return 0;
 }
 

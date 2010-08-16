@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include "../libpng/png.h"
 
+#ifdef __APPLE__
+#include <Carbon/Carbon.h> // for loading images from embedded resource 
+#endif
 
 
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
@@ -157,17 +160,36 @@ static void staticPngReadFunc(png_structp png_ptr, png_bytep data, png_size_t le
 LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
   char buf[2048];
-  buf[0] = 0;
-  GetModuleFileName(0, buf, sizeof(buf)-512); // from SWELL
-#ifdef __APPLE__
+  buf[0]=0;
+  if (strlen(name)>400) return NULL; // max name for this is 400 chars
+  
+#ifdef __APPLE__  
+  CFBundleRef bund = CFBundleGetMainBundle();
+  if (bund) 
+  {
+    CFURLRef url=CFBundleCopyBundleURL(bund);
+    if (url)
+    {
+      CFURLGetFileSystemRepresentation(url,true,(UInt8*)buf,sizeof(buf)-512);
+      CFRelease(url);
+    }
+  }
+  if (!buf[0]) return 0;
   strcat(buf,"/Contents/Resources/");
-#else
+#else  
+  char tmp[64];
+  sprintf(tmp,"/proc/%d/exe",getpid());
+  int sz = readlink(tmp, buf, sizeof(buf)-512);  
+  if (sz<0) sz=0;
+  else if (sz >= sizeof(buf)-512) sz = sizeof(buf)-512-1;
+  buf[sz]=0;
   char *p = buf;
   while (*p) p++;
   while (p > buf && *p != '/') p--;
   *p=0;
   strcat(buf,"/Resources/");
-#endif
+#endif // !__APPLE__
+  
   strcat(buf,name);
   return LICE_LoadPNG(buf,bmp);
 }

@@ -88,15 +88,8 @@ typedef struct WindowPropRec
 class SWELL_ListView_Row
 {
 public:
-  SWELL_ListView_Row()
-  {
-    m_imageidx=0;
-    m_param=0;
-  }
-  ~SWELL_ListView_Row()
-  {
-    m_vals.Empty(true,free);
-  }
+  SWELL_ListView_Row();
+  ~SWELL_ListView_Row();
   WDL_PtrList<char> m_vals;
   LPARAM m_param;
   int m_imageidx;
@@ -106,36 +99,9 @@ public:
 class SWELL_TreeView_Item
 {
 public:
-  SWELL_TreeView_Item()
-  {
-    m_param=0;
-    m_value=0;
-    m_haschildren=false;
-    m_dh = [[SWELL_DataHold alloc] initWithVal:this];
-  }
-  ~SWELL_TreeView_Item()
-  {
-    free(m_value);
-    m_children.Empty(true);
-    [m_dh release];
-  }
-  
-  bool FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, int *idxOut)
-  {
-    int a=m_children.Find((SWELL_TreeView_Item*)it);
-    if (a>=0)
-    {
-      *parOut=this;
-      *idxOut=a;
-      return true;
-    }
-    int x;
-    for (x = 0; x < m_children.GetSize(); x ++)
-    {
-      if (m_children.Get(x)->FindItem(it,parOut,idxOut)) return true;
-    }
-    return false;
-  }
+  SWELL_TreeView_Item();
+  ~SWELL_TreeView_Item();
+  bool FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, int *idxOut);
   
   SWELL_DataHold *m_dh;
   

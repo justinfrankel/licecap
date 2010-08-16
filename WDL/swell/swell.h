@@ -1053,6 +1053,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define FSHIFT    0x04
 #define FCONTROL  0x08
 #define FALT      0x10
+#define FLWIN     0x20
 
 
 #define VK_LBUTTON        0x01
@@ -1088,6 +1089,8 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define VK_INSERT         0x2D
 #define VK_DELETE         0x2E
 #define VK_HELP           0x2F
+
+#define VK_LWIN           0x5B
 
 #define VK_NUMPAD0        0x60
 #define VK_NUMPAD1        0x61
