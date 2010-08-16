@@ -45,6 +45,7 @@ class LineParser {
       m_bCommentBlock=bCommentBlock;
       m_nt=m_eat=0;
       m_tokens=0;
+      m_tmpbuf_used=0;
     }
     
     ~LineParser()
@@ -82,7 +83,8 @@ class LineParser {
       if (m_nt) 
       {
         m_bCommentBlock=bPrevCB;
-        m_tokens=(char**)calloc(sizeof(char*),m_nt);
+        m_tokens=(char**)tmpbufalloc(sizeof(char*)*m_nt);
+        if (m_tokens) memset(m_tokens,0,m_nt * sizeof(char*));
         n=doline(line, ignore_escaping);
         if (n) 
         {
@@ -102,8 +104,9 @@ class LineParser {
       freetokens();
       m_eat=0;
       m_nt=1;
-      m_tokens=(char**)malloc(sizeof(char*)*m_nt);
-      m_tokens[0]=strdup(ptr);
+      m_tokens=(char **)tmpbufalloc(sizeof(char *));
+      m_tokens[0]=tmpbufalloc(strlen(ptr)+1);
+      if (m_tokens[0]) strcpy(m_tokens[0],ptr);
     }
 #endif
 
@@ -207,10 +210,10 @@ class LineParser {
       if (m_tokens)
       {
         int x;
-        for (x = 0; x < m_nt; x ++)
-          free(m_tokens[x]);
-        free(m_tokens);
+        for (x = 0; x < m_nt; x ++) tmpbuffree(m_tokens[x]);
+        tmpbuffree((char*)m_tokens);
       }
+      m_tmpbuf_used=0;
       m_tokens=0;
       m_nt=0;
     }
@@ -274,7 +277,7 @@ class LineParser {
         if (m_tokens)
         {
           int i;
-          m_tokens[m_nt]=(char*)malloc(nc+1);
+          m_tokens[m_nt]=tmpbufalloc(nc+1);
           for (i = 0; p < line; i++, p++) {
             if (!ignore_escaping && p[0] == '$' && p[1] == '\\') {
               switch (p[2]) {
@@ -299,12 +302,37 @@ class LineParser {
       return 0;
     }
 #endif
+
+    char * WDL_LINEPARSE_PREFIX tmpbufalloc(int sz)
+#ifdef WDL_LINEPARSE_INTF_ONLY
+      ;
+#else
+    {
+      if (sz<1)sz=1;
+      if (sz+m_tmpbuf_used <= sizeof(m_tmpbuf))
+      {
+         m_tmpbuf_used+=sz;
+         return m_tmpbuf + m_tmpbuf_used - sz;
+      }
+      return (char *)malloc(sz);
+    }
+#endif
+    void WDL_LINEPARSE_PREFIX tmpbuffree(char *p)
+#ifdef WDL_LINEPARSE_INTF_ONLY
+      ;
+#else
+   {
+     if (p < m_tmpbuf || p >= m_tmpbuf + sizeof(m_tmpbuf)) free(p);
+   }
+#endif
     
 #ifndef WDL_LINEPARSE_IMPL_ONLY
     int m_eat;
     int m_nt;
+    int m_tmpbuf_used;
     bool m_bCommentBlock;
     char **m_tokens;
+    char m_tmpbuf[2048];
 };
 #endif//!WDL_LINEPARSE_IMPL_ONLY
 #endif//WDL_LINEPARSE_H_

@@ -25,7 +25,7 @@
 
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
-
+#include "../assocarray.h"
 
 #ifdef _WIN32
 //#define WIN32_NATIVE_GRADIENT // manually enable this if you want it
@@ -79,19 +79,23 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
 
       if (m_bgcache && !m_paint_xorig && !m_paint_yorig)
       {
-        LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w,wnd_h,this);
+        LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w,wnd_h,this,m_bgbm->bgimage);
         if (tmp)
         {
+//          OutputDebugString("got cached render\n");
           LICE_Blit(m_bm,tmp,clipr->left,clipr->top,clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,1.0f,LICE_BLIT_MODE_COPY);
         }
         else
         {
+//          char bf[4096];
+//          sprintf(bf,"fail %d,%d %08x\n",wnd_w,wnd_h,m_bgbm->bgimage);
+//          OutputDebugString(bf);
           WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,0,0,wnd_w,wnd_h,
                                       0,0,
                                       wnd_w,
                                       wnd_h,
                                       1.0,LICE_BLIT_MODE_COPY|fflags);
-          m_bgcache->SetCachedBG(wnd_w,wnd_h,m_bm,this);
+          m_bgcache->SetCachedBG(wnd_w,wnd_h,m_bm,this,m_bgbm->bgimage);
         }
       }
       else
@@ -893,29 +897,54 @@ public:
 };
 
 
+class WDL_VirtualWnd_BGCfgCache_ar
+{
+public:
+  WDL_VirtualWnd_BGCfgCache_ar() : m_cachelist(compar, NULL, NULL, destrval) { }
+  ~WDL_VirtualWnd_BGCfgCache_ar() {  }
+
+  WDL_AssocArray<const LICE_IBitmap *,  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> * > m_cachelist;
+
+  static void destrval(WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> *list)
+  {
+    if (list) list->Empty(true);
+    delete list;
+  }
+  static int compar(const LICE_IBitmap **a, const LICE_IBitmap ** b)
+  {
+    if ((*a) < (*b)) return -1;
+    if ((*a) > (*b)) return 1;
+    return 0;
+  }
+
+};
+
 
 WDL_VirtualWnd_BGCfgCache::WDL_VirtualWnd_BGCfgCache(int want_size, int max_size)
 {
+  m_ar = new WDL_VirtualWnd_BGCfgCache_ar;
   m_want_size=want_size;
   m_max_size = max_size;
 }
 WDL_VirtualWnd_BGCfgCache::~WDL_VirtualWnd_BGCfgCache()
 {
-  m_cache.Empty(true);
+  delete m_ar;
 }
 
 void WDL_VirtualWnd_BGCfgCache::Invalidate()
 {
-  m_cache.Empty(true);
+  m_ar->m_cachelist.DeleteAll();
 }
 
-LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, void *owner_hint)
+LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, void *owner_hint, const LICE_IBitmap *bgbmp)
 {
   if (w<1 || h<1 || w>65535 || h>65535) return NULL;
 
+  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> *cache = m_ar->m_cachelist.Get(bgbmp);
+  if (!cache) return NULL;
 
   WDL_VirtualWnd_BGCfgCache_img tmp((h<<16)+w,NULL,0);
-  WDL_VirtualWnd_BGCfgCache_img *r  = m_cache.Get(m_cache.FindSorted(&tmp,WDL_VirtualWnd_BGCfgCache_img::compar));
+  WDL_VirtualWnd_BGCfgCache_img *r  = cache->Get(cache->FindSorted(&tmp,WDL_VirtualWnd_BGCfgCache_img::compar));
   if (r)
   {
     r->lastused = GetTickCount();
@@ -925,23 +954,30 @@ LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, void *owner_h
   return NULL;
 }
 
-void WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap *bm, void *owner_hint)
+void WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap *bm, void *owner_hint, const LICE_IBitmap *bgbmp)
 {
   if (!bm || w<1 || h<1 || w>65535 || h>65535) return;
+
+  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> *cache = m_ar->m_cachelist.Get(bgbmp);
+  if (!cache) 
+  {
+    cache = new WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img>;
+    m_ar->m_cachelist.Insert(bgbmp,cache);
+  }
 
   // caller should ALWAYS call GetCachedBG() and use that if present
 
   WDL_VirtualWnd_BGCfgCache_img *img = NULL;
   unsigned int now = GetTickCount();
-  bool cacheAtWantSize = m_cache.GetSize()>=m_want_size;
+  bool cacheAtWantSize = cache->GetSize()>=m_want_size;
   if (cacheAtWantSize || owner_hint)
   {
     int x;
     int bestpos=-1;
     unsigned int bestt=0xffffff00;
-    for(x=0;x<m_cache.GetSize();x++)
+    for(x=0;x<cache->GetSize();x++)
     {
-      WDL_VirtualWnd_BGCfgCache_img *a = m_cache.Get(x);
+      WDL_VirtualWnd_BGCfgCache_img *a = cache->Get(x);
       if (owner_hint && a->lastowner == owner_hint)
       {
         cacheAtWantSize=true;
@@ -956,10 +992,10 @@ void WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap *bm, void
       }
     }
 
-    if (cacheAtWantSize && (bestt < now-500 || m_cache.GetSize() >= m_max_size)) // use this slot if over 1000ms old, or if we're up against the max size
+    if (cacheAtWantSize && (bestt < now-500 || cache->GetSize() >= m_max_size)) // use this slot if over 1000ms old, or if we're up against the max size
     {
-      img = m_cache.Get(bestpos);
-      m_cache.Delete(bestpos,false);
+      img = cache->Get(bestpos);
+      cache->Delete(bestpos,false);
       if (img)
       {
         img->sizeinfo = (h<<16)+w;
@@ -981,7 +1017,7 @@ void WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap *bm, void
   {
     img->lastowner = owner_hint;
     LICE_Copy(img->bgimage,bm);
-    m_cache.InsertSorted(img,WDL_VirtualWnd_BGCfgCache_img::compar);    
+    cache->InsertSorted(img,WDL_VirtualWnd_BGCfgCache_img::compar);    
   }
 
 }
@@ -1153,13 +1189,13 @@ static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
     }
     if (dstx+dstw > clipright)
     {
-      int diff=clipright-dstx-dstw;
+      int diff = dstx+dstw-clipright; //clipright-dstx-dstw;
       dstw -= diff;
       srcw -= diff*xsc;
     }
     if (dsty+dsth > clipbottom)
     {
-      int diff=clipbottom-dsty-dsth;
+      int diff = dsty+dsth-clipbottom; //clipbottom-dsty-dsth;
       dsth -= diff;
       srch -= diff*ysc;
     }
@@ -1253,8 +1289,8 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
 
   for (pass=(top_margin_out> 0 ? -1 : 0); pass<nbpass; pass++)
   {
-    int outy,outh,iny;
-    int inh;    
+    int outy, outh;
+    int iny, inh;    
     int this_clipy = clipy;
     switch (pass)
     {
@@ -1331,7 +1367,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
 
         // right outside area
         if (right_margin_out>0)
-          __VirtClipBlit(clipright,this_clipy,clipright+right_margin_out,clipbottom,dest,src->bgimage,destx+destw,outy,right_margin_out,outh,
+          __VirtClipBlit(clipx,this_clipy,clipright+right_margin_out,clipbottom,dest,src->bgimage,destx+destw,outy,right_margin_out,outh,
             sw-src->bgimage_rb_out[0],iny,
             right_margin_out,inh,alpha,(no_alpha_flags&8) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode); 
 

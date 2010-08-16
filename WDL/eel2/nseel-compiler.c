@@ -51,6 +51,13 @@
 #include <unistd.h>
 #endif
 
+#ifdef NSEEL_EEL1_COMPAT_MODE
+
+#ifndef EEL_NO_CHANGE_FPFLAGS
+#define EEL_NO_CHANGE_FPFLAGS
+#endif
+
+#endif
 
 #ifndef _WIN64
 #if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
@@ -470,6 +477,25 @@ static const EEL_F eel_zero=0.0, eel_one=1.0;
 static double __floor(double a) { return floor(a); }
 #endif
 
+
+#ifdef NSEEL_EEL1_COMPAT_MODE
+static double eel1band(double a, double b)
+{
+  return (fabs(a)>g_closefact && fabs(b) > g_closefact) ? 1.0 : 0.0;
+}
+static double eel1bor(double a, double b)
+{
+  return (fabs(a)>g_closefact || fabs(b) > g_closefact) ? 1.0 : 0.0;
+}
+
+static double eel1sigmoid(double x, double constraint)
+{
+  double t = (1+exp(-x * (constraint)));
+  return fabs(t)>g_closefact ? 1.0/t : 0;
+}
+
+#endif
+
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
 
 static functionType fnTable1[] = {
@@ -559,11 +585,29 @@ static functionType fnTable1[] = {
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1, {&negativezeropointfive, &onepointfive} },
 #endif
 
+
+#ifdef NSEEL_EEL1_COMPAT_MODE
+  { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1sigmoid}, },
+
+  // these differ from _and/_or, they always evaluate both...
+  { "band",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1band}, },
+  { "bor",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1bor}, },
+
+  {"exec2",nseel_asm_exec2,nseel_asm_exec2_end,2},
+  {"exec3",nseel_asm_exec2,nseel_asm_exec2_end,3},
+
+
+#endif // end EEL1 compat
+
+
+
   {"_mem",_asm_megabuf,_asm_megabuf_end,1,{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
   {"_gmem",_asm_megabuf,_asm_megabuf_end,1,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
+
+
 
 };
 
@@ -1493,10 +1537,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 
   while (*expression)
   {
-    startPtr *tmp;
+    void *startptr;
     char *expr;
-    ctx->colCount=0;
 
+    ctx->colCount=0;
+    ctx->computTableTop=0;
+
+    
     // single out segment
     while (*expression == ';' || isspace(*expression)) expression++;
     if (!*expression) break;
@@ -1507,18 +1554,19 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 
     // parse
     
-    tmp=(startPtr*) __newBlock((llBlock **)&ctx->tmpblocks_head,sizeof(startPtr));
-    if (!tmp) break;
-    ctx->computTableTop=0;
-    tmp->startptr=nseel_compileExpression(ctx,expr);
+    startptr=nseel_compileExpression(ctx,expr);
 
     if (ctx->computTableTop > NSEEL_MAX_TEMPSPACE_ENTRIES- /* safety */ 16 - /* alignment */4 ||
-        !tmp->startptr) 
+        !startptr) 
     { 
       int byteoffs = expr - expression_start;
       int destoffs,linenumber;
       char buf[21], *p;
       int x,le;
+
+#ifdef NSEEL_EEL1_COMPAT_MODE
+      if (!startptr) continue;
+#endif
 
       if (ctx->errVar > 0) byteoffs += ctx->errVar;
       linenumber=findByteOffsetInSource(ctx,byteoffs,&destoffs);
@@ -1545,12 +1593,18 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       computable_size=ctx->computTableTop;
     }
 
-    tmp->next=NULL;
-    if (!scode) scode=startpts=tmp;
-    else
     {
-      scode->next=tmp;
-      scode=tmp;
+      startPtr *tmp=(startPtr*) __newBlock((llBlock **)&ctx->tmpblocks_head,sizeof(startPtr));
+      if (!tmp) break;
+
+      tmp->startptr = startptr;
+      tmp->next=NULL;
+      if (!scode) scode=startpts=tmp;
+      else
+      {
+        scode->next=tmp;
+        scode=tmp;
+      }
     }
   }
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;

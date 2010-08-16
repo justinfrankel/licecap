@@ -14,7 +14,8 @@ typedef struct // if set these override the default virtualwnd styles for this o
 } WDL_VirtualWnd_BGCfg;
 
 
-class WDL_VirtualWnd_BGCfgCache_img;
+
+class WDL_VirtualWnd_BGCfgCache_ar;
 
 class WDL_VirtualWnd_BGCfgCache
 {
@@ -24,11 +25,13 @@ public:
 
   void Invalidate();
 
-  LICE_IBitmap *GetCachedBG(int w, int h, void *owner_hint);
-  void SetCachedBG(int w, int h, LICE_IBitmap *bm, void *owner_hint);
+  LICE_IBitmap *GetCachedBG(int w, int h, void *owner_hint, const LICE_IBitmap *bgbmp);
+  void SetCachedBG(int w, int h, LICE_IBitmap *bm, void *owner_hint, const LICE_IBitmap *bgbmp);
 
 private:
-  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> m_cache;
+  WDL_VirtualWnd_BGCfgCache_ar *m_ar;
+
+  
   int m_want_size, m_max_size;
 };
 

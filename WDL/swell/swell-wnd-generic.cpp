@@ -2996,4 +2996,9 @@ BOOL SWELL_GetGestureInfo(LPARAM lParam, GESTUREINFO* gi)
 {
   return FALSE;
 }
+
+void SWELL_SetWindowWantRaiseAmt(HWND h, int  amt)
+{
+}
+
 #endif

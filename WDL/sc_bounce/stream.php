@@ -60,6 +60,7 @@ $is_bc = (trim($_POST['broadcast']) != "");
 
 
 // generate fn list, find oldest item
+clearstatcache();
 $fns = array();
 $oldest_index = -1;
 $oldest_time = 4200000000;
@@ -90,8 +91,8 @@ if ($is_bc)
 
   $sessinfo = read_session_file($sessfn);
 
-  $last_sess = (int)$sessinfo[0];
-  $this_sess = (int) $_REQUEST['session'];
+  $last_sess = $sessinfo[0];
+  $this_sess = filter_var($_REQUEST['session'],FILTER_SANITIZE_NUMBER_INT);
 
   if ($last_sess != $this_sess || 
        rtrim($_REQUEST['name']) != $sessinfo[1] ||

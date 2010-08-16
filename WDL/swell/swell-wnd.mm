@@ -2439,7 +2439,7 @@ static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
 }
 
 static const double minwidfontadjust=1.81;
-#define TRANSFORMFONTSIZE ((m_transform.size.width+1.0)*3.7)
+#define TRANSFORMFONTSIZE (m_transform.size.width<1?8:m_transform.size.width<2?10:12)
 /// these are for swell-dlggen.h
 HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags)
 {  
@@ -2965,6 +2965,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setDrawsBackground:NO];
     if (m_transform.size.width < minwidfontadjust)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
+
     if (cname && *cname)
     {
       NSString *labelstr=(NSString *)SWELL_CStringToCFString_FilterPrefix(cname);
@@ -3058,7 +3059,8 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setTag:idx];
     if (m_transform.size.width < minwidfontadjust)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
-    h = 13; //if (h > 13) h = 13;
+    if (h > 24) h /= 14; // units from res
+    if (h < 12) h=12;
     NSRect rc=MakeCoords(x,y,w,h,true);
     [obj setSwellStyle:flags];
     [obj setFrame:rc];
@@ -5047,6 +5049,24 @@ bool SWELL_HandleMouseEvent(NSEvent *evt)
   }
   return false;
 }
+
+void SWELL_SetWindowWantRaiseAmt(HWND h, int  amt)
+{
+  SWELL_ModelessWindow *mw=NULL;
+  if ([(id)h isKindOfClass:[SWELL_ModelessWindow class]]) mw=(SWELL_ModelessWindow *)h;
+  else if ([(id)h isKindOfClass:[NSView class]])
+  {
+    NSWindow *w = [(NSView *)h window];
+    if (w && [w isKindOfClass:[SWELL_ModelessWindow class]]) mw = (SWELL_ModelessWindow*)w;
+  }
+  if (mw) 
+  {
+    int diff = amt - mw->m_wantraiseamt;
+    mw->m_wantraiseamt = amt;
+    if (diff) [mw setLevel:[mw level]+diff];
+  }
+}
+
 
 int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
 {

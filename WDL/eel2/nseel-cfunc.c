@@ -102,7 +102,12 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f)
 {
   EEL_F x=floor(*f);
   if (x < 1.0) x=1.0;
+ 
+#ifdef NSEEL_EEL1_COMPAT_MODE 
+  return (EEL_F)(genrand_int32()%(int)x);
+#else
   return (EEL_F) (genrand_int32()*(1.0/(double)0xFFFFFFFF)*x);
+#endif
 //  return (EEL_F)(rand()%EEL_F2int(x));
 }
 

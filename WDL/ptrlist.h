@@ -122,8 +122,12 @@ template<class PTRTYPE> class WDL_PtrList
         int x;
         for (x = GetSize()-1; x >= 0; x --)
         {
-          if (delfunc) delfunc(Get(x));
-          else delete Get(x);
+          PTRTYPE* p = Get(x);
+          if (p)
+          {
+            if (delfunc) delfunc(p);
+            else delete p;
+          }
           m_hb.Resize(x*sizeof(PTRTYPE *),false);
         }
       }

@@ -283,10 +283,12 @@ struct HTREEITEM__
 
 @interface SWELL_ModelessWindow : NSWindow
 {
+@public
   NSSize lastFrameSize;
   id m_owner;
   OwnedWindowListRec *m_ownedwnds;
   BOOL m_enabled;
+  int m_wantraiseamt;
 }
 - (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut;
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask;

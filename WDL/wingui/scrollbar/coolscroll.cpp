@@ -1514,7 +1514,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           LICE_IBitmap *bmp = *m_scrollbar_bmp;
           static LICE_SysBitmap tmpbmp;
 
-          int w = zbs + 1;
+          int w = zbs;
           int h = ctrl.bottom-ctrl.top;
           int startx = 116;
           int starty = 201;
@@ -1524,7 +1524,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
             tmpbmp.resize(max(w,tmpbmp.getWidth()), max(h,tmpbmp.getHeight()));
           LICE_ScaledBlit(&tmpbmp, bmp, 0, 0, w, h, startx, starty, 17, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
           
-          BitBlt(hdc, ctrl.right-1, ctrl.top, w, h, tmpbmp.getDC(), 0, 0, SRCCOPY);
+          BitBlt(hdc, ctrl.right, ctrl.top, w, h, tmpbmp.getDC(), 0, 0, SRCCOPY);
 
           LICE_ScaledBlit(&tmpbmp, bmp, 0, 0, ZOOMBUTTON_RESIZER_SIZE(zbs), h, 163, 101, 4, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
           BitBlt(hdc, ctrl.right+zbs, ctrl.top, ZOOMBUTTON_RESIZER_SIZE(zbs), h, tmpbmp.getDC(), 0, 0, SRCCOPY);
@@ -1592,7 +1592,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           LICE_IBitmap *bmp = *m_scrollbar_bmp;
           static LICE_SysBitmap tmpbmp;
           int w = ctrl.right - ctrl.left;
-          int h = zbs+1;
+          int h = zbs;
           int startx = 116;
           int starty = 201;
           if(fMouseOverPlus) startx += 17;
@@ -1600,7 +1600,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           if (w>tmpbmp.getWidth() || h>tmpbmp.getHeight())
             tmpbmp.resize(max(w,tmpbmp.getWidth()), max(h,tmpbmp.getHeight()));
           LICE_ScaledBlit(&tmpbmp, bmp, 0, 0, w, h, startx, starty, 17, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          BitBlt(hdc, ctrl.left, ctrl.bottom-1, w, h, tmpbmp.getDC(), 0, 0, SRCCOPY);
+          BitBlt(hdc, ctrl.left, ctrl.bottom, w, h, tmpbmp.getDC(), 0, 0, SRCCOPY);
 
           LICE_ScaledBlit(&tmpbmp, bmp, 0, 0, w, ZOOMBUTTON_RESIZER_SIZE(zbs), 143, 114, 17, 4, 1.0f, LICE_BLIT_FILTER_BILINEAR);
           BitBlt(hdc, ctrl.left, ctrl.bottom+zbs, w, ZOOMBUTTON_RESIZER_SIZE(zbs), tmpbmp.getDC(), 0, 0, SRCCOPY);

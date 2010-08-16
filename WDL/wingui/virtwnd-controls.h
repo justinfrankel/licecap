@@ -148,7 +148,6 @@ class WDL_VirtualStaticText : public WDL_VWnd
     virtual bool OnMouseDblClick(int xpos, int ypos);
     virtual int OnMouseDown(int xpos, int ypos);
 
-
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_font=font; m_vfont=vfont; }
     LICE_IFont *GetFont(bool vfont=false) { return vfont?m_vfont:m_font; }
@@ -161,6 +160,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
     void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
     WDL_VirtualWnd_BGCfg* GetBkImage() { return m_bkbm; }
+    int GetCharFromCoord(LICE_IBitmap* bmp, int xpos, int ypos);  // for "AB", -1=out of bounds left, 0="A", 1="B", 2=out of bounds right
 
   protected:
     WDL_VirtualWnd_BGCfg *m_bkbm;
@@ -173,6 +173,8 @@ class WDL_VirtualStaticText : public WDL_VWnd
     bool m_wantsingle;
     LICE_IFont *m_font,*m_vfont;
     WDL_String m_text;
+    bool m_didvert; // true if text was drawn vertically on the last paint
+    int m_didalign; // the actual alignment used on the last paint
 };
 
 class WDL_VirtualComboBox : public WDL_VWnd

@@ -1,1 +1,0 @@
-/QxT /O2 /D "USE_ICC" test.cpp user32.lib winmm.lib 

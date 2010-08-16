@@ -275,19 +275,33 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   }
 
 
-  for (i=0;nseel_getFunctionFromTable(i);i++)
   {
-    functionType *f=nseel_getFunctionFromTable(i);
-    if (!strcasecmp(f->name, ctx->yytext))
+    const char *nptr = ctx->yytext;
+#ifdef NSEEL_EEL1_COMPAT_MODE
+    if (!strcasecmp(nptr,"if")) nptr="_if";
+    else if (!strcasecmp(nptr,"bnot")) nptr="_not";
+    else if (!strcasecmp(nptr,"assign")) nptr="_set";
+    else if (!strcasecmp(nptr,"equal")) nptr="_equal";
+    else if (!strcasecmp(nptr,"below")) nptr="_below";
+    else if (!strcasecmp(nptr,"above")) nptr="_above";
+    else if (!strcasecmp(nptr,"megabuf")) nptr="_mem";
+    else if (!strcasecmp(nptr,"gmegabuf")) nptr="_gmem";
+#endif
+
+    for (i=0;nseel_getFunctionFromTable(i);i++)
     {
-      switch (f->nParams)
+      functionType *f=nseel_getFunctionFromTable(i);
+      if (!strcasecmp(f->name, nptr))
       {
-        case 1: *typeOfObject = FUNCTION1; break;
-        case 2: *typeOfObject = FUNCTION2; break;
-        case 3: *typeOfObject = FUNCTION3; break;
-        default: *typeOfObject = IDENTIFIER; break;
+        switch (f->nParams)
+        {
+          case 1: *typeOfObject = FUNCTION1; break;
+          case 2: *typeOfObject = FUNCTION2; break;
+          case 3: *typeOfObject = FUNCTION3; break;
+          default: *typeOfObject = IDENTIFIER; break;
+        }
+        return i;
       }
-      return i;
     }
   }
   *typeOfObject = IDENTIFIER;

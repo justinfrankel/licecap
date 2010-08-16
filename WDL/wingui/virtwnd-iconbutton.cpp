@@ -201,9 +201,9 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         if (isdown && ishover) { x++; y++; }
       }
 
-      LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz2,0,0,
-        m_iconCfg->image->getWidth(),
-        m_iconCfg->image->getHeight(),alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+      LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz2,0.0f,0.0f,
+        (float)m_iconCfg->image->getWidth(),
+        (float)m_iconCfg->image->getHeight(),alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
 
     }
   }
@@ -551,6 +551,8 @@ WDL_VirtualStaticText::WDL_VirtualStaticText()
   m_vfont=m_font=0;
   m_align=-1;
   m_wantsingle=false;
+  m_didvert=0;
+  m_didalign=-1;
 }
 
 WDL_VirtualStaticText::~WDL_VirtualStaticText()
@@ -596,9 +598,9 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
     if (m_dotint && m_bg>=0) 
     {
-        float rv=GetRValue(m_bg)/255.0;
-        float gv=GetGValue(m_bg)/255.0;
-        float bv=GetBValue(m_bg)/255.0;
+        float rv=GetRValue(m_bg)/255.0f;
+        float gv=GetGValue(m_bg)/255.0f;
+        float bv=GetBValue(m_bg)/255.0f;
 
         float avg=(rv+gv+bv)*0.33333f;
         if (avg<0.05f)avg=0.05f;
@@ -607,7 +609,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         float sc2 = (1.0f-sc)/avg;
 
         float sc3=32.0f;
-        float sc4=64.0f*(avg-0.5);
+        float sc4=64.0f*(avg-0.5f);
         // tint
         LICE_MultiplyAddRect(drawbm,
           r.left,r.top,
@@ -659,30 +661,115 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     r.top += m_margin_t;
     r.bottom -= m_margin_b;
 
-    bool vert=m_vfont && (r.right-r.left)<(r.bottom-r.top);
-    LICE_IFont *font = vert ? m_vfont : m_font;
+    m_didvert=m_vfont && (r.right-r.left)<(r.bottom-r.top);
+    LICE_IFont *font = m_didvert ? m_vfont : m_font;
+
 
     if (font)
     {
       font->SetBkMode(TRANSPARENT);
 
     
-      int align=m_align;
-      if (align==0)
+      m_didalign=m_align;
+      if (m_didalign==0)
       {
         RECT r2={0,0,0,0};
         font->DrawText(drawbm,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|DT_LEFT|DT_NOPREFIX|DT_CALCRECT);
-        if (r2.right > r.right-r.left) align=-1;
+        if (r2.right > r.right-r.left) m_didalign=-1;
       }
 
       int tcol=m_fg!=-1 ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
       font->SetTextColor(tcol);
-      font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(m_didalign<0?DT_LEFT:m_didalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
     }
 
 
   }
   WDL_VWnd::OnPaint(drawbm,origin_x,origin_y,cliprect);
+}
+
+
+int WDL_VirtualStaticText::GetCharFromCoord(LICE_IBitmap* bmp, int xpos, int ypos)
+{
+  LICE_IFont *font = (m_didvert ? m_vfont : m_font);
+  if (!font) return -1;
+  
+  const char* str = m_text.Get();
+  int len = strlen(str);
+  if (!len) return -1;
+
+  // for align left/right, we could DT_CALCRECT with 1 char, then 2, etc, but that won't work for align center
+  // so we'll just estimate
+  RECT tr;
+  font->DrawText(bmp, str, len, &tr, DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX|DT_CALCRECT);
+  int tw = tr.right;
+  int th = tr.bottom;
+
+  RECT r = m_position;
+  if (m_wantborder)
+  {
+    r.left++;
+    r.top++;
+    r.right--;
+    r.bottom--;
+  }
+  r.left += m_margin_l;
+  r.top += m_margin_t;
+  r.right -= m_margin_r;
+  r.bottom -= m_margin_b;
+  int w = r.right-r.left;
+  int h = r.bottom-r.top;
+
+  if (m_didvert)
+  {
+    r.left += (w-tw)/2;
+    r.right -= (w-tw)/2;
+  }
+  else
+  {
+    r.top += (h-th)/2;
+    r.bottom -= (h-th)/2;
+  }
+
+  if (m_didalign < 0)
+  {
+    if (m_didvert) r.bottom = r.top+th;    
+    else r.right = r.left+tw;    
+  }
+  else if (m_didalign > 0)
+  {
+    if (m_didvert) r.top = r.bottom-th;
+    else r.left = r.right-tw;
+  }
+  else
+  {
+    if (m_didvert) 
+    {
+      r.top += (h-th)/2;
+      r.bottom -= (h-th)/2;
+    }
+    else
+    {
+      r.left += (w-tw)/2;
+      r.right -= (w-tw)/2;
+    }
+  }
+
+  int c=-1;
+  if (m_didvert)
+  {
+    if (ypos < r.top) c=-1;
+    else if (ypos > r.bottom) c=len;
+    else c = (int)((double)len*(double)(ypos-r.top)/(double)(r.bottom-r.top));
+  }
+  else
+  {
+    if (xpos < r.left) c=len;
+    else if (xpos > r.right) c=-1;
+    else c = (int)((double)len*(double)(xpos-r.left)/(double)(r.right-r.left));
+  }
+
+  return c;
 }
 
 

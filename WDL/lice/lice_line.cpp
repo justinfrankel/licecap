@@ -1088,19 +1088,19 @@ void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   for (i = 1; i < nsteps-1; ++i)
   {
     EVAL_CBEZXY(x, y, ax, bx, cx, dx, ay, by, cy, dy, t);
-    if ((int)x > lastfillx)
+    if ((int)x >= lastfillx)
     {
       int xi = (int)x;
       int yi = (int)(y+0.5f);
       DoBezierFillSegment(dest, lastfillx, lastfilly, xi, yi, yfill, color, alpha, mode);
-      lastfillx = xi;
+      lastfillx = xi+1;
       lastfilly = yi;
     }
     t += dt;
   } 
-  if (yfill && (int)(xhi-1.0f) > lastfillx)
+  if (yfill && (int)(xhi-1.0f) >= lastfillx)
   {
-    DoBezierFillSegment(dest, lastfillx, lastfilly, (int)(xhi-1.0f), (int)(yhi+0.5f), yfill, color, alpha, mode);
+    DoBezierFillSegment(dest, lastfillx, lastfilly, (int)(xhi-1.0f),(int)(yhi+0.5f), yfill, color, alpha, mode);
   }
 }
 
@@ -1141,7 +1141,6 @@ public:
 #endif
     )
   {
-    if (xa) ++xa;
     int span = dest->getRowSpan();
     LICE_pixel* px = dest->getBits()+y1*span+(int)xa;
     int cr = LICE_GETR(color), cg = LICE_GETG(color), cb = LICE_GETB(color), ca = LICE_GETA(color);
@@ -1215,7 +1214,6 @@ public:
   // da, db are [0..65536]
   static void FillClippedTrapezoidFAST(LICE_IBitmap* dest, int xa, int xb, int da, int db, int y1, int y2, LICE_pixel color)
   {
-    if (xa) ++xa;
     int span = dest->getRowSpan();
     LICE_pixel* px = dest->getBits()+y1*span+(int)xa;
     int ny = y2-y1;
@@ -1471,7 +1469,7 @@ static int FindNextEdgeVertex(int* xy, int a, int n, int dir)
   return ilo;
 }
 
-void LICE_FillConvexPolygon(LICE_IBitmap* dest, int* x, int* y, int npoints, LICE_pixel color, float alpha, int mode)
+void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int npoints, LICE_pixel color, float alpha, int mode)
 {
   if (!dest) return;
   if (npoints < 3) return;
@@ -1493,7 +1491,7 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, int* x, int* y, int npoints, LIC
 
   int a1, b1;   // index of previous vertex L and R
   int a2, b2;   // index of next vertex L and R
-  int y1, y2;   // top and bottom of current trapezoid
+  int y1;   // top and bottom of current trapezoid
 
   a1 = b1 = 0;
   y1 = _Y(0);
@@ -1509,21 +1507,24 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, int* x, int* y, int npoints, LIC
 
   while (a1 != a1 || b1 != b2)
   {
-    y2 = min(_Y(a2), _Y(b2));   
-    int x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), _Y(a2), y1);
-    int x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), _Y(b2), y1);
-    int x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), _Y(a2), y2);
-    int x2b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), _Y(b2), y2);
+    int y_a2 = _Y(a2);
+    int y_b2 = _Y(b2);
+
+    int y2 = min(y_a2, y_b2);   
+    int x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y1);
+    int x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y1);
+    int x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y2);
+    int x2b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y2);
   
     LICE_FillTrapezoid(dest, x1a, x1b, y1, x2a, x2b, y2, color, alpha, mode);
 
     y1 = y2;
-    if (_Y(a2) == y1) 
+    if (y_a2 == y1) 
     {
       a1 = a2;
       a2 = FindNextEdgeVertex(xy, a2, npoints, -1);
     }
-    if (_Y(b2) == y1) 
+    if (y_b2 == y1) 
     {
       b1 = b2;
       b2 = FindNextEdgeVertex(xy, b2, npoints, 1);

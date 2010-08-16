@@ -140,7 +140,7 @@ void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int drawx, in
 
     WDL_VirtualWnd_ScaledBlitBG(drawbm,&tmp,
                                   drawx,drawy,draww,drawh,
-                                  cliprect->left,cliprect->top,cliprect->right,cliprect->bottom,
+                                  cliprect->left,cliprect->top,cliprect->right-cliprect->left,cliprect->bottom-cliprect->top,
                                   alpha,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
   }
   else
@@ -176,7 +176,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
     {
       WDL_VirtualWnd_ScaledBlitBG(drawbm,mainbk,
                                     r.left,r.top,r.right-r.left,r.bottom-r.top,
-                                    cliprect->left,cliprect->top,cliprect->right,cliprect->bottom,
+                                    cliprect->left,cliprect->top,cliprect->right-cliprect->left,cliprect->bottom-cliprect->top,
                                     1.0,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
     }
   }

@@ -121,6 +121,9 @@ extern int NSEEL_RAM_memused_errors;
 
 // configuration:
 
+
+// #define NSEEL_EEL1_COMPAT_MODE
+
 #define NSEEL_MAX_VARIABLE_NAMELEN 16
 // define this to override the max variable length (default is 16 bytes)
 

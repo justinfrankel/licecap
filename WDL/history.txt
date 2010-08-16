@@ -1,3 +1,21 @@
+2010-08-16:
+Now available via Git! The zipped distributions may go away someday?
+EEL2: optional eel1 compat (allows you to build AVS using EEL2 and support old presets)
+LICE: FillTriangle/Polygon/Bezier coordinates are now cleanly inclusive
+LineParse: when parsing small lines, no heap use (requires an extra 2k of stack space per parser)
+PtrList: do not pass NULLs to deletion functions
+Scrollbar: improved zoom button sizing
+sc_bounce: fixed a session ID handling bug
+SWELL: no WM_CTLCOLOR* on text fields
+SWELL: rendering glitch fix when destroying small subviews
+SWELL: font and combo box sizes are more consistent
+SWELL: emulate WM_NC/HTCAPTION on OSX for double-click in titlebar
+SWELL: API for setting relative raise amounts for owned windows
+Virtwnd: VirtualStaticText: added GetCharFromCoord()
+Virtwnd: fixed scaled blit clipping on right/bottom, various other clip problems
+Virtwnd: bgcache handles differing images automatically
+
+
 2010-07-14:
 SWELL: better TrackPopupMenu() behavior when using TPM_RETURNCMD
 SWELL: resource script generation improved, faster, simpler use: mac_resgen.php file.rc [file2.rc ...]

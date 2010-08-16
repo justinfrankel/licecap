@@ -151,6 +151,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
         bool isbox = ([ch isKindOfClass:[NSBox class]]);        
         if (!isbox && [(NSTextField *)ch isEditable])
         {
+#if 0 // no color overrides for editable text fields
           if (!(had_flags&2))
           {
             had_flags|=2;
@@ -173,6 +174,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
           }
           if (editFg) [(NSTextField*)ch setTextColor:editFg]; 
           if (editBg) [(NSTextField*)ch setBackgroundColor:editBg];
+#endif
         }
         else // isbox or noneditable
         {
@@ -893,6 +895,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       if ((((SWELL_hwndChild *)view)->m_isdirty&3)==3) break;
       ((SWELL_hwndChild *)view)->m_isdirty|=3;
     }
+    [view setNeedsDisplay:YES];
     view = [view superview];
   }
 }
@@ -1467,7 +1470,7 @@ static HWND last_key_window;
 - (void **)swellGetOwnerWindowHead { return (void **)&m_ownedwnds; } \
 - (void)swellAddOwnedWindow:(NSWindow*)wnd \
 { \
-  OwnedWindowListRec *p=m_ownedwnds; \
+    OwnedWindowListRec *p=m_ownedwnds; \
     while (p) { \
       if (p->hwnd == wnd) return; \
         p=p->_next; \
@@ -1475,7 +1478,11 @@ static HWND last_key_window;
     p=(OwnedWindowListRec*)malloc(sizeof(OwnedWindowListRec)); \
     p->hwnd=wnd; p->_next=m_ownedwnds; m_ownedwnds=p; \
     if ([wnd respondsToSelector:@selector(swellSetOwner:)]) [(SWELL_ModelessWindow*)wnd swellSetOwner:self];  \
-    if (SWELL_owned_windows_levelincrease) if ([wnd isKindOfClass:[NSWindow class]]) [wnd setLevel:[self level]+1]; \
+    if (SWELL_owned_windows_levelincrease) if ([wnd isKindOfClass:[NSWindow class]]) \
+    { \
+      int extra = [wnd isKindOfClass:[SWELL_ModelessWindow class]] ? ((SWELL_ModelessWindow *)wnd)->m_wantraiseamt : 0; \
+      [wnd setLevel:[self level]+1+extra];  \
+    } \
 }  \
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd \
 { \
@@ -1496,7 +1503,8 @@ static HWND last_key_window;
   int l=[self level]+1; \
     while (p) { \
       if (p->hwnd) { \
-        [(NSWindow *)p->hwnd setLevel:l]; \
+        int extra = [(id)p->hwnd isKindOfClass:[SWELL_ModelessWindow class]] ? ((SWELL_ModelessWindow *)p->hwnd)->m_wantraiseamt : 0; \
+        [(NSWindow *)p->hwnd setLevel:l+extra]; \
         if ([(id)p->hwnd respondsToSelector:@selector(swellResetOwnedWindowLevels)]) \
           [(id)p->hwnd swellResetOwnedWindowLevels]; \
       } \
@@ -1533,7 +1541,7 @@ static HWND last_key_window;
 #define INIT_COMMON_VARS \
   m_enabled=TRUE; \
   m_owner=0; \
-  m_ownedwnds=0;
+  m_ownedwnds=0; 
 
 
 #if 0
@@ -1567,6 +1575,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask
 {
   INIT_COMMON_VARS
+  m_wantraiseamt=0;
   lastFrameSize.width=lastFrameSize.height=0.0f;
     
   NSRect cr=[(NSView *)child bounds];
@@ -1601,6 +1610,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 - (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut
 {
   INIT_COMMON_VARS
+  m_wantraiseamt=0;
 
   lastFrameSize.width=lastFrameSize.height=0.0f;
   
