@@ -239,10 +239,10 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
     {
       LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
           0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
-      if (m_parent && m_bgcol1_msg)
+      if (m_bgcol1_msg)
       {
         int brcol=-100;
-        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
         if (brcol != -100)
         {
           LICE_MemBitmap tmpbm;
@@ -279,8 +279,8 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       oldPen=SelectObject(hdc,pen);
 
       int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-      if (m_parent && m_bgcol1_msg)
-        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+      if (m_bgcol1_msg)
+        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
 
       HBRUSH br=CreateSolidBrush(brcol);
       HGDIOBJ oldBr=SelectObject(hdc,br);
@@ -341,10 +341,10 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
           0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
       // blit, tint color too?
 
-      if (m_parent && m_bgcol1_msg)
+      if (m_bgcol1_msg)
       {
         int brcol=-100;
-        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
         if (brcol != -100)
         {
           LICE_MemBitmap tmpbm;
@@ -380,8 +380,8 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
       oldPen=SelectObject(hdc,pen);
       int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-      if (m_parent && m_bgcol1_msg)
-        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+      if (m_bgcol1_msg)
+        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
 
       HBRUSH br=CreateSolidBrush(brcol);
       HGDIOBJ oldBr=SelectObject(hdc,br);
@@ -502,7 +502,7 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         else if (pos > m_maxr)pos=m_maxr;
         m_pos=pos;
 
-        if (m_parent) m_parent->SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
+        SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
       }
       else
@@ -536,7 +536,7 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         else if (pos > m_maxr)pos=m_maxr;
         m_pos=pos;
 
-        if (m_parent) m_parent->SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
+        SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
       }
       else
@@ -596,7 +596,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       m_pos=pos;
 
-      if (m_parent) m_parent->SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
+      SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
 
       RequestRedraw(NULL);
     }
@@ -625,7 +625,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       m_pos=pos;
 
-      if (m_parent) m_parent->SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
+      SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
 
       RequestRedraw(NULL);
     }
@@ -668,7 +668,7 @@ void WDL_VirtualSlider::OnMouseMove(int xpos, int ypos)
   {
     bool isVert = GetIsVert();
     m_needflush=0;
-    m_parent->SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
+    SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
   }
 }
 
@@ -694,7 +694,7 @@ bool WDL_VirtualSlider::OnMouseDblClick(int xpos, int ypos)
   int pos=m_center;
   if (pos < 0) pos=WDL_STYLE_GetSliderDynamicCenterPos();
   m_pos=pos;
-  if (m_parent) m_parent->SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
+  SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
 
   RequestRedraw(NULL);
   
@@ -718,11 +718,8 @@ bool WDL_VirtualSlider::OnMouseWheel(int xpos, int ypos, int amt)
 
   m_pos=pos;
 
-  if (m_parent) 
-  {
-    m_needflush=1;
-    m_parent->SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_THUMBTRACK,GetID(),this);
-  }
+  m_needflush=1;
+  SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_THUMBTRACK,GetID(),this);
 
   RequestRedraw(NULL);
 

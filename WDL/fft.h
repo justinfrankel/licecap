@@ -64,8 +64,7 @@ extern void WDL_fft_realmul(WDL_FFT_REAL *dest, WDL_FFT_REAL *src, int len);
 extern void WDL_real_fft(WDL_FFT_REAL *, int len, int isInverse);
 #endif
 
-extern int WDL_fft_bitrev(int sizebits, int val);
-
+int WDL_fft_permute(int fftsize, int idx);
 
 #ifdef __cplusplus
 };

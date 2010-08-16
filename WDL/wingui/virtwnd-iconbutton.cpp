@@ -183,11 +183,8 @@ bool WDL_VirtualIconButton::OnMouseDown(int xpos, int ypos)
 bool WDL_VirtualIconButton::OnMouseDblClick(int xpos, int ypos)
 {
   if (!m_is_button) return false;
-  if (m_parent)
-  {
-    if (m_en)
-      m_parent->SendCommand(WM_COMMAND,GetID(),0,this);
-  }
+  if (m_en)
+    SendCommand(WM_COMMAND,GetID(),0,this);
   return true;
 }
 
@@ -197,14 +194,11 @@ void WDL_VirtualIconButton::OnMouseUp(int xpos, int ypos)
 
   int waspress=!!m_pressed;
   m_pressed&=~1;
-  if (m_parent) 
+  RequestRedraw(NULL);
+  if (waspress&&xpos >= 0&& xpos < m_position.right-m_position.left && ypos >= 0 && ypos < m_position.bottom-m_position.top)
   {
-    RequestRedraw(NULL);
-    if (waspress&&xpos >= 0&& xpos < m_position.right-m_position.left && ypos >= 0 && ypos < m_position.bottom-m_position.top)
-    {
-      if (m_en)
-        m_parent->SendCommand(WM_COMMAND,GetID(),0,this);
-    }
+    if (m_en)
+      SendCommand(WM_COMMAND,GetID(),0,this);
   }
 }
 
@@ -225,7 +219,7 @@ WDL_VirtualComboBox::~WDL_VirtualComboBox()
 
 bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 {
-  if (m_items.GetSize() && m_parent)
+  if (m_items.GetSize())
   {
     HMENU menu=CreatePopupMenu();
     int x;
@@ -260,7 +254,7 @@ bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       m_curitem=ret-1000;
       RequestRedraw(NULL);
     // track menu
-      m_parent->SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
+      SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
     }
   }
   return true;
@@ -388,7 +382,7 @@ bool WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 {
   if (m_wantsingle)
   {
-    if (m_parent) m_parent->SendCommand(WM_COMMAND,GetID() | (STN_CLICKED<<16),0,this);
+    SendCommand(WM_COMMAND,GetID() | (STN_CLICKED<<16),0,this);
     return true;
   }
   return false;
@@ -489,7 +483,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
 
 bool WDL_VirtualStaticText::OnMouseDblClick(int xpos, int ypos)
 {
-  if (m_parent) m_parent->SendCommand(WM_COMMAND,GetID() | (STN_DBLCLK<<16),0,this);
+  SendCommand(WM_COMMAND,GetID() | (STN_DBLCLK<<16),0,this);
   return true;
 
 }

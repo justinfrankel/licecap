@@ -160,6 +160,8 @@ public:
   void PaintBorderForHWND(HWND hwnd, int borderflags);
   void PaintBorderForRect(const RECT *r, int borderflags);
 
+  LICE_SysBitmap *GetBuffer() { return m_bm; }
+
   void PaintEnd();
 
 private:

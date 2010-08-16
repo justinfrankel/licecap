@@ -1084,16 +1084,48 @@ static void __fft_gen(WDL_FFT_COMPLEX *buf, int sz, int isfull)
   }
 }
 
+static unsigned int fftfreq_c(unsigned int i,unsigned int n)
+{
+  unsigned int m;
 
-static int _bitrevtab[1<<FFT_MAXBITLEN];
+  if (n <= 2) return i;
+
+  m = n >> 1;
+  if (i < m) return fftfreq_c(i,m) << 1;
+
+  i -= m;
+  m >>= 1;
+  if (i < m) return (fftfreq_c(i,m) << 2) + 1;
+  i -= m;
+  return ((fftfreq_c(i,m) << 2) - 1) & (n - 1);
+}
+
+static int _idxperm[2<<FFT_MAXBITLEN];
+
+static void idx_perm_calc(int offs, int n)
+{
+	int i, j;
+	_idxperm[offs] = 0;
+	for (i = 1; i < n; ++i) {
+		j = fftfreq_c(i, n);
+		_idxperm[offs+n-j] = i;
+	}
+}
+
+int WDL_fft_permute(int fftsize, int idx)
+{
+  return _idxperm[fftsize+idx-16];
+}
+
 
 void WDL_fft_init()
 {
   static int ffttabinit;
   if (!ffttabinit)
   {
-		int x;
-    ffttabinit=1;
+    int i, offs;
+  	ffttabinit=1;
+
 #define fft_gen(x,y) __fft_gen(x,sizeof(x)/sizeof(x[0]),y)
     fft_gen(d16,1);
     fft_gen(d32,1);
@@ -1109,27 +1141,14 @@ void WDL_fft_init()
     fft_gen(d32768,0);
 #undef fft_gen
 
-		for (x = 0; x < (1<<FFT_MAXBITLEN); x ++)
-		{
-			int val=x;
-			int bits=FFT_MAXBITLEN;
-			int retn = 0;
-			while (bits--)
-			{
-				retn <<= 1;
-				retn |= (val & 1);
-				val >>= 1;
-			}
-			_bitrevtab[x] = retn;
-		}
+	  offs = 0;
+	  for (i = 16; i <= 32768; i *= 2) 
+    {
+		  idx_perm_calc(offs, i);
+		  offs += i;
+	  }
 
   }
-}
-
-
-int WDL_fft_bitrev(int sizebits, int val)
-{
-  return _bitrevtab[val]>>(FFT_MAXBITLEN-sizebits);
 }
 
 void WDL_fft(WDL_FFT_COMPLEX *buf, int len, int isInverse)
