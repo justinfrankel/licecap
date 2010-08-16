@@ -45,7 +45,7 @@ void Win7FileDialog::setFilterList(const char *list)
     {
 #if defined(WDL_NO_SUPPORT_UTF8)
       int l = strlen(p);
-      WCHAR *n = new WCHAR[l+1];
+      WCHAR *n = (WCHAR*)malloc(sizeof(WCHAR)*(l+1));
       mbstowcs(n, p, l+1);
       wlist.Add(n);
 #else
@@ -55,11 +55,7 @@ void Win7FileDialog::setFilterList(const char *list)
     }
   }
   m_fod->SetFileTypes(wlist.GetSize()/2, (_COMDLG_FILTERSPEC *)wlist.GetList());
-#if defined(WDL_NO_SUPPORT_UTF8)
-  wlist.Empty(true);
-#else
   wlist.Empty(true,free);
-#endif
 }
 
 void Win7FileDialog::addOptions(DWORD o)

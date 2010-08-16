@@ -548,7 +548,7 @@ WDL_VirtualStaticText::WDL_VirtualStaticText()
   m_margin_t=m_margin_b=0;
   m_fg=m_bg=-1;
   m_wantborder=false;
-  m_font=0;
+  m_vfont=m_font=0;
   m_align=-1;
   m_wantsingle=false;
 }
@@ -650,26 +650,36 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     }
   }
 
-  if (m_font && m_text.Get()[0])
+
+  if (m_text.Get()[0])
   {
 
     r.left += m_margin_l;
     r.right -= m_margin_r;
     r.top += m_margin_t;
     r.bottom -= m_margin_b;
-    m_font->SetBkMode(TRANSPARENT);
-    
-    int align=m_align;
-    if (align==0)
+
+    bool vert=m_vfont && (r.right-r.left)<(r.bottom-r.top);
+    LICE_IFont *font = vert ? m_vfont : m_font;
+
+    if (font)
     {
-      RECT r2={0,0,0,0};
-      m_font->DrawText(drawbm,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|DT_LEFT|DT_NOPREFIX|DT_CALCRECT);
-      if (r2.right > r.right-r.left) align=-1;
+      font->SetBkMode(TRANSPARENT);
+
+    
+      int align=m_align;
+      if (align==0)
+      {
+        RECT r2={0,0,0,0};
+        font->DrawText(drawbm,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|DT_LEFT|DT_NOPREFIX|DT_CALCRECT);
+        if (r2.right > r.right-r.left) align=-1;
+      }
+
+      int tcol=m_fg!=-1 ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+      font->SetTextColor(tcol);
+      font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
     }
 
-    int tcol=m_fg!=-1 ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
-    m_font->SetTextColor(tcol);
-    m_font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
 
   }
   WDL_VWnd::OnPaint(drawbm,origin_x,origin_y,cliprect);

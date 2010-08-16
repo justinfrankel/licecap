@@ -33,9 +33,11 @@ public:
     m_hadinput=0;
     m_pspos=0.0;
     m_pswritepos=0;
+    m_latpos=0;
     m_tempo_fracpos=0.0;
     m_queue.Clear();
-    m_rsbuf.Resize(0);
+    m_rsbuf.Resize(0,false);
+    m_psbuf.Resize(0,false);
   }
 
   bool IsReset()
@@ -72,8 +74,6 @@ public:
  }
 
 
-  void PitchShift(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *inputs, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *outputs, int nch, int length, double pitch, double srate, int ws_ms, int os_ms);
-
 private:
   void PitchShiftBlock(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *inputs, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *outputs, int nch, int length, double pitch, int bsize, int olsize, double srate);
 
@@ -93,6 +93,8 @@ private:
   int m_qual;
   int m_hadinput;
 
+  int m_latpos;
+
 };
 
 
@@ -105,24 +107,50 @@ void WDL_SimplePitchShifter::BufferDone(int input_filled)
     m_hadinput=1;
     int ws,os;
     GetSizes(m_qual,&ws,&os);
+
+    int bsize=(int) (ws * 0.001 * m_srate);
+    if (bsize<16) bsize=16;
+    else if (bsize>128*1024)bsize=128*1024;
+
+    int olsize=(int) (os * 0.001 * m_srate);
+    if (olsize > bsize/2) olsize=bsize/2;
+    if (olsize<1)olsize=1;
+    if (m_psbuf.GetSize() != bsize*m_last_nch)
+    {
+      memset(m_psbuf.Resize(bsize*m_last_nch,false),0,sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)*bsize*m_last_nch);
+      m_pspos=(double) (bsize/2);
+      m_pswritepos=0;
+    }
+
     if (fabs(m_last_tempo-1.0)<0.0000000001)
     {
-      PitchShift(m_inbuf.Get(),(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *)m_queue.Add(NULL,input_filled*m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)),m_last_nch,input_filled,m_last_shift,m_srate,ws,os);
+      PitchShiftBlock(m_inbuf.Get(),(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *)m_queue.Add(NULL,input_filled*m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)),m_last_nch,input_filled,m_last_shift,bsize,olsize,m_srate);
     }
     else
     {
-      int needclear=0;
-      if (m_rsbuf.GetSize()<m_last_nch) needclear=1;
+      int needclear=m_rsbuf.GetSize()<m_last_nch;
+
       WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *bufi=m_rsbuf.Resize((input_filled+1)*m_last_nch,false);
       if (needclear)
         memset(bufi,0,m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE));
+
       double tempo=m_last_tempo;
       double itempo=1.0/tempo;
-      PitchShift(m_inbuf.Get(),bufi+m_last_nch,m_last_nch,input_filled,m_last_shift*itempo,m_srate,ws,os);
-//        memcpy(bufi+m_last_nch,m_inbuf.Get(),input_filled*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)*m_last_nch);
+      PitchShiftBlock(m_inbuf.Get(),bufi+m_last_nch,m_last_nch,input_filled,m_last_shift*itempo,bsize,olsize,m_srate);
 
       double fp=m_tempo_fracpos;
-      int outlen = (int) (input_filled*itempo-fp);
+
+
+      if (m_latpos < bsize/2)
+      {
+        int a = bsize/2-m_latpos;
+        if (a > input_filled) a=input_filled;
+        m_latpos+=a;
+        fp += a;
+      }
+
+      int outlen = (int) (input_filled*itempo-fp) + 128; // upper bound on possible sample count
+
       WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *bufo = (WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *)m_queue.Add(NULL,outlen*m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE));
       // resample bufi to bufo
       int i,nch=m_last_nch;
@@ -130,7 +158,12 @@ void WDL_SimplePitchShifter::BufferDone(int input_filled)
       {
         double rdpos=floor(fp);
         int idx=((int)rdpos);
-        if (idx>=input_filled) idx=input_filled-1;
+        if (idx>=input_filled) 
+        {
+          // un-add any missing samples
+          m_queue.Add(NULL,(i-outlen)*m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE));
+          break;
+        }
         rdpos = (fp-rdpos);
         int a;
         idx*=nch;
@@ -140,7 +173,7 @@ void WDL_SimplePitchShifter::BufferDone(int input_filled)
         }
         fp += tempo;
       }
-        
+      
       memcpy(bufi,bufi+m_last_nch*input_filled,m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)); // save last sample for interpolation later
       //
       m_tempo_fracpos=fp-floor(fp);
@@ -177,31 +210,13 @@ int WDL_SimplePitchShifter::GetSamples(int requested_output, WDL_SIMPLEPITCHSHIF
   if (!m_last_nch||requested_output<1) return 0;
 
   int l=m_queue.Available()/sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)/m_last_nch;
+
   if (requested_output>l) requested_output=l;
   int sz=requested_output*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)*m_last_nch;
   memcpy(buffer,m_queue.Get(),sz);
   m_queue.Advance(sz);
   m_queue.Compact();
   return requested_output;
-}
-
-void WDL_SimplePitchShifter::PitchShift(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *inputs, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *outputs, int nch, int length, double pitch, double srate, int ws_ms, int os_ms)
-{
-  int bsize=(int) (ws_ms * 0.001 * srate);
-  if (bsize<16) bsize=16;
-  else if (bsize>128*1024)bsize=128*1024;
-
-  int olsize=(int) (os_ms * 0.001 * srate);
-  if (olsize > bsize/2) olsize=bsize/2;
-  if (olsize<1)olsize=1;
-  if (m_psbuf.GetSize() != bsize*nch)
-  {
-    memset(m_psbuf.Resize(bsize*nch,false),0,sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE)*bsize*nch);
-    m_pspos=(double) (bsize/2);
-    m_pswritepos=0;
-  }
-
-  PitchShiftBlock(inputs,outputs,nch,length,pitch,bsize,olsize,srate);
 }
 
 void WDL_SimplePitchShifter::PitchShiftBlock(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *inputs, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *outputs, int nch, int length, double pitch, int bsize, int olsize, double srate)
@@ -248,7 +263,7 @@ void WDL_SimplePitchShifter::PitchShiftBlock(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *in
 
         for(a=0;a<nch;a++) outputs[a]= outputs[a]*tfrac + (1-tfrac)*(psbuf[tmp+a]*(1-frac0)+psbuf[tmp2+a]*frac0);
 
-        if (tv+pitch > writepos) pspos+=olsize;
+        if (tv+pitch >= writepos) pspos+=olsize;
       }
 
     }
@@ -264,7 +279,10 @@ void WDL_SimplePitchShifter::PitchShiftBlock(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *in
         int tmp2= tmp+nch;
         if (tmp2 >= bsizench) tmp2=0;
         for(a=0;a<nch;a++) outputs[a] = outputs[a]*tfrac + (1-tfrac)*(psbuf[tmp+a]*(1-frac0)+psbuf[tmp2+a]*frac0);
+        
+        // this is wrong, but blehhh?
         if (tv+pitch < writepos+1) pspos += olsize;
+//        if (tv+pitch >= writepos+olsize) pspos += olsize;
       }
     }
 

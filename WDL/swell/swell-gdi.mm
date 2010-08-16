@@ -382,14 +382,15 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   HDC__ *c=(HDC__ *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0) return;
 
-  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+  float w = (float)max(c->curpen->wid,1);
+  CGContextSetLineWidth(c->ctx,w);
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
   CGContextBeginPath(c->ctx);
-  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
+  CGContextMoveToPoint(c->ctx,c->lastpos_x + w * 0.5,c->lastpos_y + w*0.5);
   float fx=(float)x,fy=(float)y;
   
-  CGContextAddLineToPoint(c->ctx,fx,fy);
+  CGContextAddLineToPoint(c->ctx,fx+w*0.5,fy+w*0.5);
   c->lastpos_x=fx;
   c->lastpos_y=fy;
   CGContextStrokePath(c->ctx);
@@ -400,7 +401,8 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   HDC__ *c=(HDC__ *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0||nseg<1) return;
 
-  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+  float w = (float)max(c->curpen->wid,1);
+  CGContextSetLineWidth(c->ctx,w);
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
   CGContextBeginPath(c->ctx);
@@ -411,12 +413,12 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
     if (!cnt) continue;
     if (!--cnt) { pts++; continue; }
     
-    CGContextMoveToPoint(c->ctx,(float)pts->x,(float)pts->y);
+    CGContextMoveToPoint(c->ctx,(float)pts->x+w*0.5,(float)pts->y+w*0.5);
     pts++;
     
     while (cnt--)
     {
-      CGContextAddLineToPoint(c->ctx,(float)pts->x,(float)pts->y);
+      CGContextAddLineToPoint(c->ctx,(float)pts->x+w*0.5,(float)pts->y+w*0.5);
       pts++;
     }
   }
@@ -435,9 +437,9 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
   HDC__ *ct=(HDC__ *)ctx;
   if (!ct) return;
   CGContextBeginPath(ct->ctx);
-  CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
+  CGContextMoveToPoint(ct->ctx,(float)x-0.5,(float)y-0.5);
   CGContextAddLineToPoint(ct->ctx,(float)x+0.5,(float)y+0.5);
-  CGContextSetLineWidth(ct->ctx,(float)1.5);
+  CGContextSetLineWidth(ct->ctx,(float)1.0);
   CGContextSetRGBStrokeColor(ct->ctx,GetRValue(c)/255.0,GetGValue(c)/255.0,GetBValue(c)/255.0,1.0);
   CGContextStrokePath(ct->ctx);	
 }

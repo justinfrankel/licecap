@@ -165,7 +165,7 @@ class LineParser {
       return l;
     }
 #endif
-    char * WDL_LINEPARSE_PREFIX gettoken_str(int token) 
+    const char * WDL_LINEPARSE_PREFIX gettoken_str(int token) 
 #ifdef WDL_LINEPARSE_INTF_ONLY
       ;
 #else
@@ -181,7 +181,7 @@ class LineParser {
 #else
     {
       int x=0;
-      char *tt=gettoken_str(token);
+      const char *tt=gettoken_str(token);
       if (tt && *tt) while (*strlist)
       {
 #ifdef _WIN32

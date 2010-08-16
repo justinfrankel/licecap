@@ -276,9 +276,9 @@ void nseel_asm_tan(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fsincos\n"
-    "fdiv\n" // used to be fxch ; fdivp but this is unnecessary
+    "fptan\n"
     "movl %esi, %eax\n"
+    "fstp %st(0)\n"
     "fstp" EEL_F_SUFFIX " (%esi)\n"
     "addl $" EEL_F_SSTR ", %esi\n"
   );
@@ -1556,6 +1556,7 @@ void win64_callcode()
 		"pop %r12\n"
 		"pop %rsi\n"
 		"pop %rdi\n"
+		"fclex\n"
 #endif
 		"pop %rbp\n"
 		"pop %rbx\n"

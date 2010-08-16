@@ -29,31 +29,33 @@ static int utf8makechar(char *ptrout, unsigned short charIn)
 static int utf8char(const char *ptr, unsigned short *charOut) // returns char length
 {
   const unsigned char *p = (const unsigned char *)ptr;
-  if (*p < 128) 
+  unsigned char tc = *p;
+
+  if (tc < 128) 
   {
-    if (charOut) *charOut = (unsigned short) *p;
+    if (charOut) *charOut = (unsigned short) tc;
     return 1;
   }
-  else if (*p < 0xC2) // invalid chars (subsequent in sequence, or overlong which we disable for)
+  else if (tc < 0xC2) // invalid chars (subsequent in sequence, or overlong which we disable for)
   {
   }
-  else if (*p < 0xE0) // 2 char seq
+  else if (tc < 0xE0) // 2 char seq
   {
     if (p[1] >= 0x80 && p[1] <= 0xC0)
     {
-      if (charOut) *charOut = ((*p&0x1f)<<6) | (p[1]&0x3f);
+      if (charOut) *charOut = ((tc&0x1f)<<6) | (p[1]&0x3f);
       return 2;
     }
   }
-  else if (*p < 0xF0) // 3 char seq
+  else if (tc < 0xF0) // 3 char seq
   {
     if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0)
     {
-      if (charOut) *charOut = ((*p&0xf)<<12) | ((p[1]&0x3f)<<6) | ((p[2]&0x3f));
+      if (charOut) *charOut = ((tc&0xf)<<12) | ((p[1]&0x3f)<<6) | ((p[2]&0x3f));
       return 3;
     }
   }
-  else if (*p < 0xF5) // 4 char seq
+  else if (tc < 0xF5) // 4 char seq
   {
     if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0 && p[3] >= 0x80 && p[3] <= 0xC0)
     {
@@ -61,7 +63,7 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
       return 4;
     }
   }  
-  if (charOut) *charOut = (unsigned short) ' ';
+  if (charOut) *charOut = (unsigned short) tc;
   return 1;  
 }
 

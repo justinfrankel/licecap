@@ -1,3 +1,24 @@
+2010-07-14:
+SWELL: better TrackPopupMenu() behavior when using TPM_RETURNCMD
+SWELL: resource script generation improved, faster, simpler use: mac_resgen.php file.rc [file2.rc ...]
+SWELL: more accurate MoveToEx()/LineTo()
+SWELL: fixes to no-maninmiddle-cocoa mode
+SWELL: WM_ERASEBKGND fixes
+SWELL: added GetPrivateProfileSection()/WritePrivateProfileSection() (untested)
+EEL: tan() optimized and fixed on osx/i386
+EEL: fix for broken fmod() on VC2005/2008 x64
+Pitch shifter: bugfixes, latency compensation
+LCF: fixed broken encoding on widths non multiples of 4
+LICE: better drawing of non-UTF8 8-bit text
+LineParser: gettoken_str() now returns const char ptr
+FileWrite: append support, option for no exclusive locking
+Scrollbar: fixes for scaling, nonstandard scrollbar sizes, better image caching
+String: allow SetLen() to shrink buffers
+WIN32-UTF8: ShellExecute() UTF8 support
+WndSizer: added set_orig_rect()
+Virtwnd: more controls support disabling state
+Virtwnd: static text controls support drawing text vertically
+
 2010-06-07:
 File Browsing: fixed single file select on multifile open on Win2k/98 (windows bug)
 File Browsing: UTF8 fixes

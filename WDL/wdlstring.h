@@ -152,12 +152,17 @@ public:
   }
 #endif
 
-  void WDL_STRING_PREFIX SetLen(int length) // sets number of chars allocated for string, not including null terminator
+  void WDL_STRING_PREFIX SetLen(int length, bool resizeDown
 #ifdef WDL_STRING_INTF_ONLY
-    ; 
+      =false); 
 #else
+#ifdef WDL_STRING_IMPL_ONLY
+    )
+#else
+    =false)
+#endif
   {                       // can use to resize down, too, or resize up for a sprintf() etc
-    char *b=(char*)m_hb.Resize(length+1,false);
+    char *b=(char*)m_hb.Resize(length+1,resizeDown);
     if (b) b[length]=0;
   }
 #endif

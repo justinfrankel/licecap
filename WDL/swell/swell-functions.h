@@ -101,7 +101,8 @@ SWELL_API_DEFINE(DWORD, GetPrivateProfileString, (const char *appname, const cha
 SWELL_API_DEFINE(int, GetPrivateProfileInt,(const char *appname, const char *keyname, int def, const char *fn))
 SWELL_API_DEFINE(BOOL, GetPrivateProfileStruct,(const char *appname, const char *keyname, void *buf, int bufsz, const char *fn))
 SWELL_API_DEFINE(BOOL, WritePrivateProfileStruct,(const char *appname, const char *keyname, const void *buf, int bufsz, const char *fn))
-
+SWELL_API_DEFINE(BOOL, WritePrivateProfileSection, (const char *appname, const char *strings, const char *fn))
+SWELL_API_DEFINE(DWORD, GetPrivateProfileSection, (const char *appname, char *strout, DWORD strout_len, const char *fn))
 
 /*
 ** GetModuleFileName()

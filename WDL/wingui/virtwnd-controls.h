@@ -150,8 +150,8 @@ class WDL_VirtualStaticText : public WDL_VWnd
 
 
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
-    void SetFont(LICE_IFont *font) { m_font=font; }
-    LICE_IFont *GetFont() { return m_font; }
+    void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_font=font; m_vfont=vfont; }
+    LICE_IFont *GetFont(bool vfont=false) { return vfont?m_vfont:m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetText(const char *text);
     void SetBorder(bool bor) { m_wantborder=bor; }
@@ -171,7 +171,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     int m_margin_t, m_margin_b;
     bool m_wantborder;
     bool m_wantsingle;
-    LICE_IFont *m_font;
+    LICE_IFont *m_font,*m_vfont;
     WDL_String m_text;
 };
 
@@ -292,6 +292,8 @@ class WDL_VirtualListBox : public WDL_VWnd
     int IndexFromPt(int x, int y);
     bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
 
+    void SetGrayed(bool grayed) { m_grayed=grayed; }    
+
     void SetViewOffset(int offs);
     int GetViewOffset();
 
@@ -316,6 +318,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_rh,m_maxcolwidth,m_mincolwidth ;
     int m_scrollbuttonsize;
     LICE_IFont *m_font;
+    bool m_grayed;
 
     RECT m_lastscrollbuttons[2];
 };

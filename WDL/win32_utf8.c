@@ -571,6 +571,25 @@ LPSTR GetCommandParametersUTF8()
 }
 
 
+HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd)
+{
+  if (GetVersion()<0x80000000 && (WDL_HasUTF8(lpOp)||WDL_HasUTF8(lpFile)||WDL_HasUTF8(lpParm)||WDL_HasUTF8(lpDir)))
+  {
+    DWORD sz;
+    WCHAR *p1=lpOp ? WDL_UTF8ToWC(lpOp,0,0,&sz) : NULL;
+    WCHAR *p2=lpFile ? WDL_UTF8ToWC(lpFile,0,0,&sz) : NULL;
+    WCHAR *p3=lpParm ? WDL_UTF8ToWC(lpParm,0,0,&sz) : NULL;
+    WCHAR *p4=lpDir ? WDL_UTF8ToWC(lpDir,0,0,&sz) : NULL;
+    HINSTANCE rv= ShellExecuteW(hwnd,p1,p2,p3,p4,nShowCmd);
+    free(p1);
+    free(p2);
+    free(p3);
+    free(p4);
+    return rv;
+  }
+  return ShellExecuteA(hwnd,lpOp,lpFile,lpParm,lpDir,nShowCmd);
+}
+
 #if defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)
 
 

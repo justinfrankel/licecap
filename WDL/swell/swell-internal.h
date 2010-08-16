@@ -16,6 +16,7 @@
 #define SWELL_ModelessWindow __SWELL_PREFIX_CLASSNAME(_modelesswindow)
 #define SWELL_ModalDialog __SWELL_PREFIX_CLASSNAME(_dialogbox)
 
+#define SWELL_TextField __SWELL_PREFIX_CLASSNAME(_textfield)
 #define SWELL_ListView __SWELL_PREFIX_CLASSNAME(_listview)
 #define SWELL_TreeView __SWELL_PREFIX_CLASSNAME(_treeview)
 #define SWELL_TabView __SWELL_PREFIX_CLASSNAME(_tabview)
@@ -114,7 +115,10 @@ struct HTREEITEM__
 
 
 
-
+@interface SWELL_TextField : NSTextField
+- (void)setNeedsDisplay:(BOOL)flag;
+- (void)setNeedsDisplayInRect:(NSRect)rect;
+@end
 
 @interface SWELL_TabView : NSTabView
 {

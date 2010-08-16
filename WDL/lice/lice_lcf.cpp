@@ -205,7 +205,7 @@ void LICECaptureCompressor::BitmapToFrameRec(LICE_IBitmap *fr, frameRec *dest)
 {
   unsigned short *outptr = dest->data;
   const LICE_pixel *p = fr->getBits();
-  int span = fr->getWidth();
+  int span = fr->getRowSpan();
   if (fr->isFlipped())
   {
     p+=(fr->getHeight()-1)*span;

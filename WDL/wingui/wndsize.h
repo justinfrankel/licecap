@@ -63,7 +63,7 @@
 
 class WDL_VWnd;
 
-typedef struct
+struct WDL_WndSizer__rec
 {
   HWND hwnd;
   RECT orig;
@@ -72,7 +72,7 @@ typedef struct
   float scales[4];
   WDL_VWnd *vwnd;
 
-} WDL_WndSizer__rec;
+};
 
 class WDL_WndSizer
 {
@@ -98,6 +98,7 @@ public:
   WDL_WndSizer__rec *get_itembyvirt(WDL_VWnd *vwnd);
   
   RECT get_orig_rect() { return m_orig_rect; }
+  void set_orig_rect(RECT *r) { if (r) m_orig_rect = *r; }
 
   void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
 

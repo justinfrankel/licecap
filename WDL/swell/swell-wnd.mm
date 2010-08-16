@@ -34,10 +34,23 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
+static void InvalidateSuperViews(NSView *view);
+#define STANDARD_CONTROL_NEEDSDISPLAY_IMPL \
+  - (void)setNeedsDisplay:(BOOL)flag \
+  { \
+  [super setNeedsDisplay:flag]; \
+  if (flag) InvalidateSuperViews(self); \
+  } \
+  - (void)setNeedsDisplayInRect:(NSRect)rect \
+  { \
+  [super setNeedsDisplayInRect:rect]; \
+  InvalidateSuperViews(self); \
+  }
+
+
 char* lstrcpyn(char* dest, const char* src, int l);
 
 int g_swell_want_nice_style = 1;
-
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
 {
   int c=0;
@@ -174,6 +187,8 @@ bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
 }
 
 @implementation SWELL_TabView
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(void)setNotificationWindow:(id)dest
 {
   m_dest=dest;
@@ -202,6 +217,8 @@ bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
 
 
 @implementation SWELL_ProgressView
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(NSInteger) tag
 {
   return m_tag;
@@ -258,6 +275,8 @@ bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
 
 
 @implementation SWELL_TreeView
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(id) init
 {
   id ret=[super init];
@@ -384,6 +403,8 @@ bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
 
 
 @implementation SWELL_ListView
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(LONG)getSwellStyle { return style; }
 -(void)setSwellStyle:(LONG)st { style=st; }
 
@@ -1056,6 +1077,8 @@ static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link depen
 
 
 @implementation SWELL_Button : NSButton
+
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(id) init {
   self = [super init];
@@ -2278,7 +2301,20 @@ void ShowWindow(HWND hwnd, int cmd)
             if (h) SetFocus(h);
           }
         }
-        [((NSView *)pid) setHidden:YES];
+        if (![((NSView *)pid) isHidden])
+        {
+          HWND par = GetParent((HWND)pid);
+          if (par)
+          {
+            RECT r;
+            GetWindowRect((HWND)pid,&r);
+            ScreenToClient(par,(LPPOINT)&r);
+            ScreenToClient(par,((LPPOINT)&r)+1);
+            InvalidateRect(par,&r,FALSE);
+          }
+
+          [((NSView *)pid) setHidden:YES];
+        }
     }
     break;
   }
@@ -2446,6 +2482,8 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 @implementation SWELL_TextView
 
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(NSInteger) tag
 {
   return m_tag;
@@ -2550,6 +2588,13 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 @end
 
+
+@implementation SWELL_TextField
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+@end
+
+
+
 HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 {  
   if ((flags&WS_VSCROLL) || (flags&WS_HSCROLL)) // || (flags & ES_READONLY))
@@ -2602,7 +2647,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   NSTextField *obj;
   
   if (flags & ES_PASSWORD) obj=[[NSSecureTextField alloc] init];
-  else obj=[[NSTextField alloc] init];
+  else obj=[[SWELL_TextField alloc] init];
   [obj setEditable:(flags & ES_READONLY)?NO:YES];
   if (flags & ES_READONLY) [obj setSelectable:YES];
   if (m_transform.size.width < minwidfontadjust)
@@ -2632,7 +2677,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 
 HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w, int h, int flags)
 {
-  NSTextField *obj=[[NSTextField alloc] init];
+  NSTextField *obj=[[SWELL_TextField alloc] init];
   [obj setEditable:NO];
   [obj setSelectable:NO];
   [obj setBordered:NO];
@@ -2912,7 +2957,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   }
   else if (!stricmp(classname, "static"))
   {
-    NSTextField *obj=[[NSTextField alloc] init];
+    NSTextField *obj=[[SWELL_TextField alloc] init];
     [obj setEditable:NO];
     [obj setSelectable:NO];
     [obj setBordered:NO];
@@ -3053,6 +3098,9 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 }
 
 @implementation SWELL_BoxView
+
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(NSInteger) tag
 {
   return m_tag;
@@ -3960,7 +4008,21 @@ void SWELL_FlushWindow(HWND h)
   }
 }
 
-
+static void InvalidateSuperViews(NSView *view)
+{
+  if (!view) return;
+  view = [view superview];
+  while (view)
+  {
+    if ([view isKindOfClass:[SWELL_hwndChild class]]) 
+    {
+      if (((SWELL_hwndChild *)view)->m_isdirty&2) break;
+      ((SWELL_hwndChild *)view)->m_isdirty|=2;
+    }
+    view = [view superview];
+  }
+}
+           
 void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
 { 
   if (!hwnd) return;
@@ -3970,6 +4032,7 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
   {
 
     NSView *sv = view;
+    
     bool skip_parent_invalidate=false;
     if ([view isKindOfClass:[SWELL_hwndChild class]])
     {
@@ -3981,16 +4044,7 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
     }
     if (!skip_parent_invalidate)
     {
-      view = [view superview];
-      while (view)
-      {
-        if ([view isKindOfClass:[SWELL_hwndChild class]]) 
-        {
-          if (((SWELL_hwndChild *)view)->m_isdirty&2) break;
-          ((SWELL_hwndChild *)view)->m_isdirty|=2;
-        }
-        view = [view superview];
-      }
+      InvalidateSuperViews(view);
     }
     if (r)
     {
@@ -4925,11 +4979,15 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
 
 
 @implementation SWELL_PopUpButton
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(void)setSwellStyle:(LONG)style { m_style=style; }
 -(LONG)getSwellStyle { return m_style; }
 @end
 
 @implementation SWELL_ComboBox
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
 -(void)setSwellStyle:(LONG)style { m_style=style; }
 -(LONG)getSwellStyle { return m_style; }
 -(id)init { self = [super init]; if (self) { m_ids=new WDL_PtrList<char>; }  return self; }

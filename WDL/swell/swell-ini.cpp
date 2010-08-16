@@ -213,6 +213,45 @@ static void WriteBackFile(iniFileContext *ctx)
   
 }
 
+BOOL WritePrivateProfileSection(const char *appname, const char *strings, const char *fn)
+{
+  if (!appname || !fn) return FALSE;
+  WDL_MutexLock lock(&m_mutex);
+  iniFileContext *ctx = GetFileContext(fn);
+  if (!ctx) return FALSE;
+
+  WDL_StringKeyedArray<char *> * cursec = ctx->m_sections.Get(appname);
+  if (!cursec)
+  {
+    if (!*strings) return TRUE;
+    
+    cursec = new WDL_StringKeyedArray<char *>(false,WDL_StringKeyedArray<char *>::freecharptr);   
+    ctx->m_sections.Insert(appname,cursec);
+  }
+  else cursec->DeleteAll();
+  
+  if (*strings)
+  {
+    while (*strings)
+    {
+      char buf[8192];
+      lstrcpyn(buf,strings,sizeof(buf));
+      char *p = buf;
+      while (*p && *p != '=') p++;
+      if (*p)
+      {
+        *p++=0;
+        cursec->Insert(buf,strdup(strings + (p-buf)));
+      }
+      
+      strings += strlen(strings)+1;
+    }
+  }
+  WriteBackFile(ctx);
+  
+  return TRUE;
+}
+
 
 BOOL WritePrivateProfileString(const char *appname, const char *keyname, const char *val, const char *fn)
 {
@@ -260,6 +299,57 @@ BOOL WritePrivateProfileString(const char *appname, const char *keyname, const c
   }
 
   return TRUE;
+}
+
+DWORD GetPrivateProfileSection(const char *appname, char *strout, DWORD strout_len, const char *fn)
+{
+  WDL_MutexLock lock(&m_mutex);
+  
+  if (!strout || strout_len<2) 
+  {
+    if (strout && strout_len==1) *strout=0;
+    return 0;
+  }
+  iniFileContext *ctx= GetFileContext(fn);
+  int szOut=0;
+  WDL_StringKeyedArray<char *> *cursec = ctx ? ctx->m_sections.Get(appname) : NULL;
+
+  if (ctx) 
+  {
+    int x;
+    for(x=0;x<cursec->GetSize();x++)
+    {
+      const char *kv = NULL;
+      const char *val = cursec->Enumerate(x,&kv);
+      if (val && kv)
+      {        
+        int l;
+       
+#define WRSTR(v) \
+        l= strlen(v); \
+        if (l > strout_len - szOut - 2) l = strout_len - 2 - szOut; \
+        if (l>0) { memcpy(strout+szOut,v,l); szOut+=l; }
+        
+        WRSTR(kv)
+        WRSTR("=")
+        WRSTR(val)
+        
+#undef WRSTR
+
+        l=1;
+        if (l > strout_len - szOut - 1) l = strout_len - 1 - szOut;
+        if (l>0) { memset(strout+szOut,0,l); szOut+=l; }
+        if (szOut >= strout_len-1)
+        {
+          strout[strout_len-1]=0;
+          return strout_len-2;
+        }
+      }
+    }
+  }
+  strout[szOut]=0;
+  if (!szOut) strout[1]=0;
+  return szOut;
 }
 
 DWORD GetPrivateProfileString(const char *appname, const char *keyname, const char *def, char *ret, int retsize, const char *fn)

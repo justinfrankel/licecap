@@ -190,6 +190,7 @@ SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 
 static NSCursor* MakeCursorFromData(unsigned char* data, int hotspot_x, int hotspot_y)
 {
+  NSCursor *c=NULL;
   NSBitmapImageRep* bmp = [[NSBitmapImageRep alloc] 
     initWithBitmapDataPlanes:0
     pixelsWide:16
@@ -201,28 +202,31 @@ static NSCursor* MakeCursorFromData(unsigned char* data, int hotspot_x, int hots
     colorSpaceName:NSCalibratedWhiteColorSpace
     bytesPerRow:(16*2)
     bitsPerPixel:16]; 
-  if (!bmp) return 0;
   
-  unsigned char* p = [bmp bitmapData];
-  if (!p) return 0;
-  
-  int i;
-  for (i = 0; i < 16*16; ++i)
+  if (bmp)
   {
-    // tried 4 bits per sample and memcpy, didn't work
-    p[2*i] = (data[i]&0xF0) | data[i]>>4;
-    p[2*i+1] = (data[i]<<4) | (data[i]&0xf);
+    unsigned char* p = [bmp bitmapData];
+    if (p)
+    {  
+      int i;
+      for (i = 0; i < 16*16; ++i)
+      {
+        // tried 4 bits per sample and memcpy, didn't work
+        p[2*i] = (data[i]&0xF0) | data[i]>>4;
+        p[2*i+1] = (data[i]<<4) | (data[i]&0xf);
+      }
+  
+      NSImage *img = [[NSImage alloc] init];
+      if (img)
+      {
+        [img addRepresentation:bmp];  
+        NSPoint hs = { hotspot_x, hotspot_y };
+        c = [[NSCursor alloc] initWithImage:img hotSpot:hs];
+        [img release];
+      }   
+    }
+    [bmp release];
   }
-  
-  NSImage* img = [[NSImage alloc] init];
-  if (!img) return 0;
-  [img addRepresentation:bmp];  
-  
-  NSPoint hs = { hotspot_x, hotspot_y };
-  NSCursor* c = [[NSCursor alloc] initWithImage:img hotSpot:hs];
-  
-  [bmp release];
-  [img release];
   return c;
 }
 

@@ -120,7 +120,7 @@ public:
 
 
 public:
-  WDL_FileWrite(const char *filename, int allow_async=1, int bufsize=8192, int minbufs=16, int maxbufs=16) // async==2 is unbuffered
+  WDL_FileWrite(const char *filename, int allow_async=1, int bufsize=8192, int minbufs=16, int maxbufs=16, bool wantAppendTo=false, bool noFileLocking=false) // async==2 is unbuffered
   {
     m_file_position=0;
     m_file_max_position=0;
@@ -148,6 +148,8 @@ public:
 #endif
 
     int rwflag = GENERIC_WRITE;
+    int createFlag= wantAppendTo?OPEN_ALWAYS:CREATE_ALWAYS;
+    int shareFlag = noFileLocking ? (FILE_SHARE_READ|FILE_SHARE_WRITE) : FILE_SHARE_READ;
     int flag = FILE_ATTRIBUTE_NORMAL;
 
     if (m_async)
@@ -171,19 +173,19 @@ public:
           WDL_TypedBuf<WCHAR> wfilename;
           wfilename.Resize(szreq+10);
           if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
-            m_fh = CreateFileW(wfilename.Get(),rwflag,FILE_SHARE_READ,NULL,CREATE_ALWAYS,flag,NULL);
+            m_fh = CreateFileW(wfilename.Get(),rwflag,shareFlag,NULL,createFlag,flag,NULL);
         }
         else
         {
           WCHAR wfilename[1024];
           if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
-            m_fh = CreateFileW(wfilename,rwflag,FILE_SHARE_READ,NULL,CREATE_ALWAYS,flag,NULL);
+            m_fh = CreateFileW(wfilename,rwflag,shareFlag,NULL,createFlag,flag,NULL);
         }
       }
       
       if (m_fh == INVALID_HANDLE_VALUE)
 #endif
-        m_fh = CreateFileA(filename,rwflag,FILE_SHARE_READ,NULL,CREATE_ALWAYS,flag,NULL);
+        m_fh = CreateFileA(filename,rwflag,shareFlag,NULL,createFlag,flag,NULL);
     }
 
     if (m_async && m_fh != INVALID_HANDLE_VALUE)
@@ -199,25 +201,41 @@ public:
       }
     }
 
+    if (m_fh != INVALID_HANDLE_VALUE && wantAppendTo)
+      SetPosition(GetSize());
+ 
 #elif defined(WDL_POSIX_NATIVE_WRITE)
     m_bufspace_used=0;
     m_filedes_locked=false;
     m_filedes=open(filename,O_WRONLY|O_CREAT,0644);
     if (m_filedes>=0)
     {
-      int preverr;
-      if ((preverr=flock(m_filedes,LOCK_EX|LOCK_NB))<0 && errno == EWOULDBLOCK) // try to get exclusive, at least for a moment
+
+      if (!noFileLocking)
       {
-        // FAILED exclusive locking
-        close(m_filedes); 
-        m_filedes=-1;
+        int preverr;
+        if ((preverr=flock(m_filedes,LOCK_EX|LOCK_NB))<0 && errno == EWOULDBLOCK) // try to get exclusive, at least for a moment
+        {
+          // FAILED exclusive locking
+          close(m_filedes); 
+          m_filedes=-1;
+        }
+        else 
+        {
+          if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0 || // return to shared lock
+              preverr>=0) m_filedes_locked=true;
+        }
       }
-      else 
+
+      if (m_filedes>=0)
       {
-        if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0 || // return to shared lock
-            preverr>=0) m_filedes_locked=true;
+        if (!wantAppendTo) ftruncate(m_filedes,0);
+        else
+        {
+          struct stat st;
+          if (!fstat(m_filedes,&st))  SetPosition(st.st_size);
+        }
       }
-      if (m_filedes>=0) ftruncate(m_filedes,0);
 
       
 #ifdef __APPLE__
@@ -226,7 +244,9 @@ public:
     }
     if (minbufs * bufsize >= 16384) m_bufspace.Resize((minbufs*bufsize+4095)&~4095);
 #else
-    m_fp=fopen(filename,"wb");
+    m_fp=fopen(filename,wantAppendTo ? "a+b" : "wb");
+    if (wantAppendTo && m_fp) 
+      fseek(m_fp,0,SEEK_END);
 #endif
   }
 

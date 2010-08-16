@@ -730,7 +730,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     if (!v) v=[[NSApp mainWindow] contentView];
     if (!v) return 0;
     
-    SWELL_PopupMenuRecv *recv = [[SWELL_PopupMenuRecv alloc] initWithWnd:((flags&TPM_NONOTIFY)?0:hwnd)];
+    SWELL_PopupMenuRecv *recv = [[SWELL_PopupMenuRecv alloc] initWithWnd:((flags & TPM_NONOTIFY) ? 0 : hwnd)];
     
     SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     
@@ -765,12 +765,13 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     SWELL_SetMenuDestination((HMENU)m,(HWND)NULL);
     [recv release];
     
-    if (!(flags & TPM_NONOTIFY) && ret>0 && hwnd)
-    {
-      SendMessage(hwnd,WM_COMMAND,ret,0);
-    }
+    if (ret<=0) return 0;
     
-    return ret;
+    if (flags & TPM_RETURNCMD) return ret;
+    
+    if (hwnd) SendMessage(hwnd,WM_COMMAND,ret,0);
+    
+    return 1;
   }
   return 0;
 }

@@ -23,8 +23,22 @@ bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
 
+
+static BOOL useNoMiddleManCocoa()
+{
+  static char is105;
+  if (!is105)
+  {
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    is105 = v>=0x1050 ? 1 : -1;    
+  }
+  return is105>0;
+}
+
+
 static void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc);
-static void swellRenderOptimizely(SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws);
+static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv);
 
 static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event);
 static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent *theEvent)
@@ -204,14 +218,16 @@ static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     {
       if (!d(hwnd,WM_ERASEBKGND,0,0))
       {
-        bool isop = [(NSView *)hwnd isOpaque];
-        if (isop || [[(NSView *)hwnd window] contentView] == (NSView *)hwnd)
+        bool nommc=useNoMiddleManCocoa();
+        NSView *cv = [[(NSView *)hwnd window] contentView];
+        bool isop = [(NSView *)hwnd isOpaque] || (nommc && [cv isOpaque]);
+        if (isop || cv == (NSView *)hwnd)
         {
           PAINTSTRUCT ps;
           if (BeginPaint(hwnd,&ps))
           {
             RECT r=ps.rcPaint;          
-            if (!(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
+            if (!nommc && !(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
             {
               NSArray *ar = [(NSView *)hwnd subviews];
               int x,n=[ar count];
@@ -755,6 +771,16 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     [(NSSavePanel *)parent setAccessoryView:self];
     [self setHidden:NO];
   }
+  else if ([parent isKindOfClass:[NSColorPanel class]])
+  {
+    [(NSColorPanel *)parent setAccessoryView:self];
+    [self setHidden:NO];
+  }  
+  else if ([parent isKindOfClass:[NSFontPanel class]])
+  {
+    [(NSFontPanel *)parent setAccessoryView:self];
+    [self setHidden:NO];
+  }    
   else if ([parent isKindOfClass:[NSWindow class]])
   {
     [(NSWindow *)parent setContentView:self];
@@ -858,6 +884,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (void)willRemoveSubview:(NSView *)subview
 {
   m_isdirty|=3;
+  [self setNeedsDisplay:YES];
   NSView *view = [self superview];
   while (view)
   {
@@ -870,46 +897,73 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
 }
 
-
 -(void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)vr rectIsVisibleRectForView:(NSView*)v topView:(NSView *)v2
 {
-  static char is105;
-  if (!is105)
-  {
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    is105 = v>=0x1050 ? 1 : -1;    
-  }
+
   
   
   // once we figure out how to get other controls to notify their parents that the view is dirty, we can enable this for 10.4
   // 10.5+ has some nice property where it goes up the hierarchy
   
 //  NSLog(@"r:%@ vr:%d v=%p tv=%p self=%p %p\n",NSStringFromRect(rect),vr,v,v2,self, [[self window] contentView]);
-  if (is105<=0 || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor])
+  if (!useNoMiddleManCocoa() || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor])
   {
     [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
     return;
   }
-  if (!m_isdirty) return;
+  
+  if (!m_isdirty && ![self needsDisplay]) return;
+  
+  const NSRect *rlist=NULL;
+  NSInteger rlistcnt=0;
+  [self getRectsBeingDrawn:&rlist count:&rlistcnt];
+
+  
   [self lockFocus];
   HDC hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
   
+
+  const bool twoPassMode = false; // true makes it draw non-opaque items over all window backgrounds, but opaque children going last (so native controls over groups, etc)
+                                  // this is probably slower
+  
   static WDL_PtrList<void> ndlist;
   int ndlist_oldsz=ndlist.GetSize();
-  swellRenderOptimizely(self,hdc,false,&ndlist);
-  SWELL_DeleteGfxContext(hdc);
-  [self unlockFocus];
-  [self setNeedsDisplay:NO];
-  
+  swellRenderOptimizely(twoPassMode?1:3,self,hdc,false,&ndlist,rlist,rlistcnt,0,0,true);
+    
   while (ndlist.GetSize()>ndlist_oldsz)
   {
     NSView *v = (NSView *)ndlist.Get(ndlist.GetSize()-1);
     ndlist.Delete(ndlist.GetSize()-1);
-    [v displayRectIgnoringOpacity:[v bounds]];
+    
+    NSRect b = [v bounds];
+    
+    if (rlistcnt)
+    {
+      int x;
+      for(x=0;x<rlistcnt;x++)
+      {
+        NSRect r = rlist[x];
+        r.origin.x--;
+        r.origin.y--;
+        r.size.width+=2;
+        r.size.height+=2;
+        r=[self convertRect:r toView:v];
+        r=NSIntersectionRect(r,b);
+        if (r.size.width>0 && r.size.height>0)
+          [v displayRectIgnoringOpacity:r];
+      }
+    }
+    else
+      [v displayRectIgnoringOpacity:b];
     [v setNeedsDisplay:NO];
     [v release];
   }
+  
+  
+  if (twoPassMode) swellRenderOptimizely(2,self,hdc,false,&ndlist,rlist,rlistcnt,0,0,true);
+  SWELL_DeleteGfxContext(hdc);
+  [self unlockFocus];
+  [self setNeedsDisplay:NO];
   
 }
 #endif
@@ -1347,7 +1401,9 @@ static HWND last_key_window;
 { \
   [super setFrame:frameRect display:displayFlag]; \
   if((int)frameRect.size.width != (int)lastFrameSize.width || (int)frameRect.size.height != (int)lastFrameSize.height) { \
-    [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_SIZE p1:0 p2:0]; \
+    SWELL_hwndChild *hc = (SWELL_hwndChild*)[self contentView]; \
+    [hc onSwellMessage:WM_SIZE p1:0 p2:0]; \
+    if ([hc isOpaque]) InvalidateRect((HWND)hc,NULL,FALSE); \
     lastFrameSize=frameRect.size; \
    } \
 } \
@@ -1779,7 +1835,12 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   if (!p&&resid) return 0;
   
   NSView *parview=NULL;
-  if (parent && ([(id)parent isKindOfClass:[NSView class]] || [(id)parent isKindOfClass:[NSSavePanel class]] || [(id)parent isKindOfClass:[NSOpenPanel class]])) parview=(NSView *)parent;
+  if (parent && ([(id)parent isKindOfClass:[NSView class]] || 
+                 [(id)parent isKindOfClass:[NSSavePanel class]] || 
+                 [(id)parent isKindOfClass:[NSOpenPanel class]] ||
+                 [(id)parent isKindOfClass:[NSColorPanel class]] || 
+                 [(id)parent isKindOfClass:[NSFontPanel class]]
+                 )) parview=(NSView *)parent;
   else if (parent && [(id)parent isKindOfClass:[NSWindow class]])  parview=(NSView *)[(id)parent contentView];
   
   if ((!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)) && parview)
@@ -2617,55 +2678,86 @@ void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc)
   
 }
 
-void swellRenderOptimizely(SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws)
+void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv)
 {
-  bool cleardirty=false;
-  if ((view->m_isdirty&1)||doforce)
-  {
-    view->m_isdirty=3;
-    cleardirty=true;
-    doforce=true;
+  if (view->m_isdirty&1) doforce=true;
+  NSArray *sv = [view subviews];
+  if (doforce&&(passflags & ([sv count]?1:2)))
     DrawSwellViewRectImpl(view,[view bounds], hdc);
-  }
-  if (view->m_isdirty||[view needsDisplay])
+  
+  if (sv)
   {
-    NSArray *sv = [view subviews];
-    if (sv)
+    [sv retain];
+    int x,n=[sv count];
+    HBRUSH bgbr=0;
+    bool bgbr_checked=false;
+    for(x=0;x<n;x++)
     {
-      [sv retain];
-      int x,n=[sv count];
-      for(x=0;x<n;x++)
-      {
-        NSView *v = (NSView *)[sv objectAtIndex:x];
-        if (v && ![v isHidden])
-        {          
-          bool isSwellChild = !![v isKindOfClass:[SWELL_hwndChild class]];
-          
-          if (doforce||(isSwellChild && ((SWELL_hwndChild*)v)->m_isdirty)||[v needsDisplay])
+      NSView *v = (NSView *)[sv objectAtIndex:x];
+      if (v && ![v isHidden])
+      {          
+        bool isSwellChild = !![v isKindOfClass:[SWELL_hwndChild class]];
+        
+        if (doforce||(isSwellChild && ((SWELL_hwndChild*)v)->m_isdirty)|| [v needsDisplay])
+        {
+          if (isSwellChild)
           {
-            if (isSwellChild)
+            NSRect fr = [v frame];
+            CGContextSaveGState(hdc->ctx);
+            CGContextClipToRect(hdc->ctx,CGRectMake(fr.origin.x,fr.origin.y,fr.size.width,fr.size.height));
+            CGContextTranslateCTM(hdc->ctx, fr.origin.x,fr.origin.y);            
+            swellRenderOptimizely(passflags,(SWELL_hwndChild*)v,hdc,doforce,needdraws,rlist,rlistcnt,draw_xlate_x-(int)fr.origin.x,draw_xlate_y-(int)fr.origin.y,false);
+            CGContextRestoreGState(hdc->ctx);
+            if (passflags&2) [v setNeedsDisplay:NO];
+          }
+          else if (passflags&1)
+          {
+            [v retain];
+            if (!doforce && ![v isOpaque]) 
             {
-              NSRect fr = [v frame];
-              CGContextSaveGState(hdc->ctx);
-              CGContextClipToRect(hdc->ctx,CGRectMake(fr.origin.x,fr.origin.y,fr.size.width,fr.size.height));
-              CGContextTranslateCTM(hdc->ctx, fr.origin.x,fr.origin.y);            
-              swellRenderOptimizely((SWELL_hwndChild*)v,hdc,doforce,needdraws);
-              CGContextRestoreGState(hdc->ctx);
-              [v setNeedsDisplay:NO];
+              
+              NSRect fr=  [v frame];
+              
+              // we could recursively go up looking for WM_CTLCOLORDLG, but actually we just need to use the current window            
+              if (!bgbr_checked)
+              {
+                bgbr=(HGDIOBJ)SendMessage((HWND)view,WM_CTLCOLORDLG,(WPARAM)hdc,(LPARAM)view);
+                bgbr_checked=true;
+              }
+                   
+              if (!iscv) fr = [view convertRect:fr toView:[[view window] contentView]];
+                    
+              int ri;
+              for(ri=0;ri<rlistcnt;ri++)
+              {
+                NSRect r=rlist[ri];
+                r.origin.x--;
+                r.origin.y--;
+                r.size.width+=2;
+                r.size.height+=2;
+                
+                NSRect ff = NSIntersectionRect(fr,r);
+                if (ff.size.width>0 && ff.size.height>0)
+                {
+                  RECT r={(int)ff.origin.x,(int)ff.origin.y,(int)(ff.origin.x+ff.size.width),(int)(ff.origin.y+ff.size.height)};                    
+                  r.left+=draw_xlate_x;
+                  r.right+=draw_xlate_x;
+                  r.top+=draw_xlate_y;
+                  r.bottom+=draw_xlate_y;
+                  if (bgbr &&  bgbr != (HBRUSH)1) FillRect(hdc,&r,bgbr);
+                  else SWELL_FillDialogBackground(hdc,&r,3);
+                }
+              }
             }
-            else
-            {
-              [v retain];
-              if (!cleardirty && [view isOpaque] && ![v isOpaque]) DrawSwellViewRectImpl(view,[v frame],hdc);
-              needdraws->Add(v);     
-            }
-          }          
+            needdraws->Add(v);     
+          }
         }
       }
-      [sv release];
     }
+    [sv release];
   }
-  if (cleardirty) view->m_isdirty=0;
+  if (passflags&2)
+     view->m_isdirty=0;
 }
 
 #endif
