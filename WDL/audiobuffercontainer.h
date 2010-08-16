@@ -130,7 +130,12 @@ public:
     void* pSrc = GetValidChannelData(chIdx, &srcDeleaved, &srcTypeSize);
     if (srcDeleaved && srcTypeSize == sizeof(T)) return (T*) pSrc;
     void* pDest = GetInternalBackingStore(chIdx, true, sizeof(T));
-    if (!forWriteOnly) BufConvert(pDest, pSrc, sizeof(T), srcTypeSize,  m_nFrames, 1, (srcDeleaved ? 1 : m_nCh));
+    if (!forWriteOnly && pDest) 
+    {
+      if (pSrc)
+        BufConvert(pDest, pSrc, sizeof(T), srcTypeSize,  m_nFrames, 1, (srcDeleaved ? 1 : m_nCh));
+      else memset(pDest,0,sizeof(T)*m_nFrames);
+    }
     SetChannelDesc(chIdx, true, sizeof(T), pDest);
     return (T*) pDest;
   }

@@ -41,97 +41,130 @@
 #include "ptrlist.h"
 #include "mutex.h"
 
+class WDL_ResourcePool_ResInfo // include in class RTYPE as WDL_ResourcePool_ResInfo m_rpoolinfo;
+{
+public:
+  WDL_ResourcePool_ResInfo(){ m_owneduntil=0; m_ownerptr=0; next=0; }
+  ~WDL_ResourcePool_ResInfo() {}
 
-template<class RTYPE, class PTYPE1, class PTYPE2> class WDL_ResourcePool
+  unsigned int m_owneduntil;
+  void *m_ownerptr;
+
+  void *next;
+};
+
+
+template<class RTYPE, class EXTRAINFOTYPE> class WDL_ResourcePool
 {
   public:
-    WDL_ResourcePool()
+    WDL_ResourcePool(char *identstr)
     {
-      user1=0;
-      user2=0;
+      WDL_POOLLIST_refcnt=0;
+      WDL_POOLLIST_identstr=identstr;
       m_rlist=NULL;
+      extraInfo=0;
+      m_hadres=false;
     }
     ~WDL_ResourcePool()
     {
       while (m_rlist)
       {
-        RP_ENT *tp=m_rlist;
-        m_rlist=m_rlist->next;
-        delete tp->m_res;
+        RTYPE *tp=m_rlist;
+        m_rlist=(RTYPE *)m_rlist->m_rpoolinfo.next;
         delete tp;
       }
+      delete extraInfo;
+    }
+    void Clear()
+    {
+      m_mutex.Enter();
+      while (m_rlist)
+      {
+        RTYPE *tp=m_rlist;
+        m_rlist=(RTYPE *)m_rlist->m_rpoolinfo.next;
+        delete tp;
+      }
+      m_hadres=false;
+      m_mutex.Leave();
+    }
+    bool HasResources()
+    {
+      return m_hadres;
     }
 
     void AddResource(RTYPE *item, void *own, unsigned int until)
     {
-      WDL_MutexLock lock(&m_mutex);
-      RP_ENT *t=new RP_ENT(item,own,until);
-      t->next=m_rlist;
-      m_rlist=t;
+      item->m_rpoolinfo.m_ownerptr = own;
+      item->m_rpoolinfo.m_owneduntil = until;
+
+      m_mutex.Enter();
+      item->m_rpoolinfo.next = m_rlist;
+      m_rlist = item;
+      m_hadres=true;
+      m_mutex.Leave();
+    }
+
+    void ReleaseResources(void *own)
+    {
+      m_mutex.Enter();
+      RTYPE *ent=m_rlist;
+      while (ent)
+      {
+        if (ent->m_rpoolinfo.m_ownerptr == own)
+        {
+          ent->m_rpoolinfo.m_ownerptr = 0;
+          ent->m_rpoolinfo.m_owneduntil=0;
+        }
+        ent=(RTYPE *)ent->m_rpoolinfo.next;
+      }
+      m_mutex.Leave();
     }
 
     RTYPE *GetResource(void *own, unsigned int now)
     {
-      WDL_MutexLock lock(&m_mutex);
-      RP_ENT *ent=m_rlist;
-      RP_ENT *lastent=NULL;
-      RP_ENT *bestent=NULL;
-      RP_ENT *bestlastent=NULL;
-      int cnt=0;
+      m_mutex.Enter();
+      RTYPE *ent=m_rlist, *lastent=NULL, *bestent=NULL, *bestlastent=NULL;
+      bool bestnoown=false;
       while (ent)
       {
-        cnt++;
-        if (ent->m_ownerptr == own)
+        if (ent->m_rpoolinfo.m_ownerptr == own)
         {
-          RTYPE *t=ent->m_res;
-          if (lastent) lastent->next = ent->next;
-          else m_rlist = ent->next;
-
-          delete ent;
-
-          return t;
+          if (lastent) lastent->m_rpoolinfo.next = ent->m_rpoolinfo.next;
+          else m_rlist = (RTYPE *)ent->m_rpoolinfo.next;
+          m_mutex.Leave();
+          return ent;
         }
-        if (ent->m_owneduntil < now)
+
+        if (!bestnoown && (!ent->m_rpoolinfo.m_ownerptr || ent->m_rpoolinfo.m_owneduntil < now))
         {
           bestent=ent;
           bestlastent=lastent;
+          if (!ent->m_rpoolinfo.m_ownerptr || !ent->m_rpoolinfo.m_owneduntil) bestnoown=true;
         }
         lastent=ent;
-        ent=ent->next;
+        ent=(RTYPE *)ent->m_rpoolinfo.next;
       }
 
-      if (!bestent) 
+      if (bestent)
       {
-        return 0;
+        if (bestlastent) bestlastent->m_rpoolinfo.next = bestent->m_rpoolinfo.next;
+        else m_rlist = (RTYPE *)bestent->m_rpoolinfo.next;
       }
 
-      RTYPE *t=bestent->m_res;
-      if (bestlastent) bestlastent->next = bestent->next;
-      else m_rlist = bestent->next;
-      delete bestent;
-      return t;
+      m_mutex.Leave();
+      return bestent;
     }
 
-    PTYPE1 user1;
-    PTYPE2 user2;
+    int WDL_POOLLIST_refcnt;
+    char *WDL_POOLLIST_identstr;
+    bool m_hadres;
+
+    EXTRAINFOTYPE *extraInfo;
 
 private:
-  class RP_ENT 
-  {
-    public:
-      RP_ENT(RTYPE *res, void *own, unsigned int til) :
-          m_res(res), m_ownerptr(own), m_owneduntil(til), next(NULL) { }
-      ~RP_ENT() { }
-
-      RTYPE *m_res;
-      unsigned int m_owneduntil;
-      void *m_ownerptr;
-
-      RP_ENT *next;
-  };
 
   WDL_Mutex m_mutex;
-  RP_ENT *m_rlist;
+  RTYPE *m_rlist;
 
 
 

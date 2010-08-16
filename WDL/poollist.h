@@ -20,27 +20,37 @@
   
 
 
-  This file defines a template class for managing WDL's time based resource pools. 
+  This file defines a template class for hosting lists of referenced count, string-identified objects.
 
-  It stores a sorted list of WDL_ResourcePool objects (keyed by filename), and allows the caller
-  to retreive (and retain) a pool by filename, then later release the pool..
+  We mostly use it with WDL_ResourcePool, but any class like this can use it:
 
-  The pool itself can contain a list of resources (objects) -- see rpool.h for more info.
 
-  This is pretty esoteric. But we use it for some things.
+  class SomeClass
+  {
+  public:
+    SomeClass(char *identstr) { WDL_POOLLIST_identstr=identstr; WDL_POOLLIST_refcnt=0; }
+    ~SomeClass() {}  // do NOT free or delete WDL_POOLLIST_identstr
+
+
+    void Clear() {}  // will be called if ReleasePool(x,false) is called and refcnt gets to 0
+    int WDL_POOLLIST_refcnt;
+    char *WDL_POOLLIST_identstr;
+  };
+
+
 
 */
 
-
-#include <stdlib.h>
 
 
 #ifndef _WDL_POOLLIST_H_
 #define _WDL_POOLLIST_H_
 
-#include "rpool.h"
+#include <stdlib.h>
 
-template<class RPTYPE> class WDL_PoolList
+#include "mutex.h"
+
+template<class DATATYPE> class WDL_PoolList
 {
 public:
 
@@ -50,65 +60,94 @@ public:
   ~WDL_PoolList()
   {
     int x;
-    for (x = 0; x < pool.GetSize(); x ++) delete pool.Get(x);
+    for (x = 0; x < pool.GetSize(); x ++) 
+    {
+      DATATYPE *p = pool.Get(x);
+      free(p->WDL_POOLLIST_identstr);
+      delete p;
+    }
   }
 
-  WDL_ResourcePool<RPTYPE,char *, int> *GetPool(const char *filename)
+  DATATYPE *Get(const char *filename)
   {
-    WDL_MutexLock lock(&m_mutex);
+    WDL_MutexLock lock(&mutex);
 
-    WDL_ResourcePool<RPTYPE,char *, int> tmp; 
-    tmp.user1=(char *)filename;
-    WDL_ResourcePool<RPTYPE,char *, int> *t=&tmp;
-    WDL_ResourcePool<RPTYPE,char *, int> **_tmp=&t;
-
-    if (pool.GetSize() && (_tmp = (WDL_ResourcePool<RPTYPE,char *, int>**)bsearch(_tmp,pool.GetList(),pool.GetSize(),sizeof(void *),_sortfunc)) && *_tmp)
+    DATATYPE *t = Find(filename,false);
+    if (t)
     {
-      t = *_tmp;
-      t->user2++;
+      t->WDL_POOLLIST_refcnt++;
       return t;
     }
 
-    t = new WDL_ResourcePool<RPTYPE,char *, int>;
-    t->user1=strdup(filename);
-    t->user2=1;
+    t = new DATATYPE(strdup(filename));
+    t->WDL_POOLLIST_refcnt=1;
 
-    pool.Add(t);
+    int x;
+    for(x=0;x<pool.GetSize();x++) if (stricmp(pool.Get(x)->WDL_POOLLIST_identstr,filename)>0) break;
 
-    qsort(pool.GetList(),pool.GetSize(),sizeof(void*),_sortfunc);
+    pool.Insert(x,t);
 
     return t;
   }
 
-  void ReleasePool(WDL_ResourcePool<RPTYPE,char *, int> *tp)
+  DATATYPE *Find(const char *filename, bool lockMutex=true) // not threadsafe
   {
-    if (!tp) return;
-    WDL_MutexLock lock(&m_mutex);
-
-    if (!--tp->user2)
+    if (lockMutex) mutex.Enter();
+    DATATYPE  **_tmp=NULL;
+    if (pool.GetSize())
     {
-      int x;
-      for (x = 0; x < pool.GetSize() && pool.Get(x) != tp; x ++);
-      if (x<pool.GetSize()) 
-      {
-        pool.Delete(x);
-      }
-      free(tp->user1);
-      delete tp;
-      // remove from list
+      DATATYPE tmp((char *)filename),*t=&tmp;
+      _tmp = (DATATYPE**)bsearch(&t,pool.GetList(),pool.GetSize(),sizeof(void *),_sortfunc);
     }
+    if (lockMutex) mutex.Leave();
+    return _tmp ? *_tmp : NULL;
   }
 
-private:
-  WDL_PtrList< WDL_ResourcePool<RPTYPE,char *, int> > pool;
+  int ReleaseByName(const char *filename, bool isFull=true)
+  {
+    WDL_MutexLock lock(&mutex);
+    return Release(Find(filename,false),isFull);
+  }
 
-  WDL_Mutex m_mutex;
+  int Release(DATATYPE *tp, bool isFull=true)
+  {
+    if (!tp) return -1;
+    WDL_MutexLock lock(&mutex);
+
+    int refcnt;
+    if (!(refcnt=--tp->WDL_POOLLIST_refcnt))
+    {
+      if (!isFull)
+      {
+        tp->Clear();        
+      }
+      else
+      {
+        int x;
+        for (x = 0; x < pool.GetSize() && pool.Get(x) != tp; x ++);
+        if (x<pool.GetSize()) 
+        {
+          pool.Delete(x);
+        }
+        free(tp->WDL_POOLLIST_identstr);
+        delete tp;
+      }
+      // remove from list
+    }
+    return refcnt;
+  }
+
+  WDL_Mutex mutex;
+  WDL_PtrList< DATATYPE > pool;
+
+private:
+
   static int _sortfunc(const void *a, const void *b)
   {
-    WDL_ResourcePool<RPTYPE,char *, int> *ta = *(WDL_ResourcePool<RPTYPE,char *, int> **)a;
-    WDL_ResourcePool<RPTYPE,char *, int> *tb = *(WDL_ResourcePool<RPTYPE,char *, int> **)b;
+    DATATYPE *ta = *(DATATYPE **)a;
+    DATATYPE *tb = *(DATATYPE **)b;
 
-    return stricmp(ta->user1,tb->user1);
+    return stricmp(ta->WDL_POOLLIST_identstr,tb->WDL_POOLLIST_identstr);
   }
 };
 

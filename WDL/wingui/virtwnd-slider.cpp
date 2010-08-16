@@ -26,109 +26,6 @@
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
-#ifdef _WIN32
-static void DrawTransparentBitmap(HDC hdc, HBITMAP hBitmap, short xStart,
-                           short yStart, COLORREF cTransparentColor)
-   {
-   BITMAP     bm;
-   COLORREF   cColor;
-   HBITMAP    bmAndBack, bmAndObject, bmAndMem, bmSave;
-   HGDIOBJ    bmBackOld, bmObjectOld, bmMemOld, bmSaveOld;
-   HDC        hdcMem, hdcBack, hdcObject, hdcTemp, hdcSave;
-   POINT      ptSize;
-
-   hdcTemp = CreateCompatibleDC(hdc);
-   SelectObject(hdcTemp, hBitmap);   // Select the bitmap
-
-   GetObject(hBitmap, sizeof(BITMAP), (LPSTR)&bm);
-   ptSize.x = bm.bmWidth;            // Get width of bitmap
-   ptSize.y = bm.bmHeight;           // Get height of bitmap
-   DPtoLP(hdcTemp, &ptSize, 1);      // Convert from device
-
-                                     // to logical points
-
-   // Create some DCs to hold temporary data.
-   hdcBack   = CreateCompatibleDC(hdc);
-   hdcObject = CreateCompatibleDC(hdc);
-   hdcMem    = CreateCompatibleDC(hdc);
-   hdcSave   = CreateCompatibleDC(hdc);
-
-   // Create a bitmap for each DC. DCs are required for a number of
-   // GDI functions.
-
-   // Monochrome DC
-   bmAndBack   = CreateBitmap(ptSize.x, ptSize.y, 1, 1, NULL);
-
-   // Monochrome DC
-   bmAndObject = CreateBitmap(ptSize.x, ptSize.y, 1, 1, NULL);
-
-   bmAndMem    = CreateCompatibleBitmap(hdc, ptSize.x, ptSize.y);
-   bmSave      = CreateCompatibleBitmap(hdc, ptSize.x, ptSize.y);
-
-   // Each DC must select a bitmap object to store pixel data.
-   bmBackOld   = SelectObject(hdcBack, bmAndBack);
-   bmObjectOld = SelectObject(hdcObject, bmAndObject);
-   bmMemOld    = SelectObject(hdcMem, bmAndMem);
-   bmSaveOld   = SelectObject(hdcSave, bmSave);
-
-   // Set proper mapping mode.
-   SetMapMode(hdcTemp, GetMapMode(hdc));
-
-   // Save the bitmap sent here, because it will be overwritten.
-   BitBlt(hdcSave, 0, 0, ptSize.x, ptSize.y, hdcTemp, 0, 0, SRCCOPY);
-
-   // Set the background color of the source DC to the color.
-   // contained in the parts of the bitmap that should be transparent
-   cColor = SetBkColor(hdcTemp, cTransparentColor);
-
-   // Create the object mask for the bitmap by performing a BitBlt
-   // from the source bitmap to a monochrome bitmap.
-   BitBlt(hdcObject, 0, 0, ptSize.x, ptSize.y, hdcTemp, 0, 0,
-          SRCCOPY);
-
-   // Set the background color of the source DC back to the original
-   // color.
-   SetBkColor(hdcTemp, cColor);
-
-   // Create the inverse of the object mask.
-   BitBlt(hdcBack, 0, 0, ptSize.x, ptSize.y, hdcObject, 0, 0,
-          NOTSRCCOPY);
-
-   // Copy the background of the main DC to the destination.
-   BitBlt(hdcMem, 0, 0, ptSize.x, ptSize.y, hdc, xStart, yStart,
-          SRCCOPY);
-
-   // Mask out the places where the bitmap will be placed.
-   BitBlt(hdcMem, 0, 0, ptSize.x, ptSize.y, hdcObject, 0, 0, SRCAND);
-
-   // Mask out the transparent colored pixels on the bitmap.
-   BitBlt(hdcTemp, 0, 0, ptSize.x, ptSize.y, hdcBack, 0, 0, SRCAND);
-
-   // XOR the bitmap with the background on the destination DC.
-   BitBlt(hdcMem, 0, 0, ptSize.x, ptSize.y, hdcTemp, 0, 0, SRCPAINT);
-
-   // Copy the destination to the screen.
-   BitBlt(hdc, xStart, yStart, ptSize.x, ptSize.y, hdcMem, 0, 0,
-          SRCCOPY);
-
-   // Place the original bitmap back into the bitmap sent here.
-   BitBlt(hdcTemp, 0, 0, ptSize.x, ptSize.y, hdcSave, 0, 0, SRCCOPY);
-
-   // Delete the memory bitmaps.
-   DeleteObject(SelectObject(hdcBack, bmBackOld));
-   DeleteObject(SelectObject(hdcObject, bmObjectOld));
-   DeleteObject(SelectObject(hdcMem, bmMemOld));
-   DeleteObject(SelectObject(hdcSave, bmSaveOld));
-
-   // Delete the memory DCs.
-   DeleteDC(hdcMem);
-   DeleteDC(hdcBack);
-   DeleteDC(hdcObject);
-   DeleteDC(hdcSave);
-   DeleteDC(hdcTemp);
-   }
-
-#endif
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
@@ -198,12 +95,33 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
   WDL_VirtualWnd_PreprocessBGConfig(&a->bgimagecfg[1]);
 }
 
+void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
+{
+  bool isVert = GetIsVert();
+  LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
+  if (bm_image)
+  {
+    *w = bm_image->getWidth();
+    *h = bm_image->getHeight();
+    AdjustThumbImageSize(m_skininfo,isVert,w,h);
+  }
+  else
+  {
+    bm_image=WDL_STYLE_GetSliderBitmap2(isVert);
+    if (bm_image)
+    {
+      *w=bm_image->getWidth();
+      *h=bm_image->getHeight();
+    }
+    else *w=*h=16;
+  }
+}
+
 void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   origin_x += m_position.left; // convert drawing origin to local coords
   origin_y += m_position.top;
 
-  HDC hdc=drawbm->getDC();
   bool isVert = GetIsVert();
 
   int rsize=m_maxr-m_minr;
@@ -214,16 +132,10 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
   WDL_VirtualWnd_BGCfg *back_image=m_skininfo && m_skininfo->bgimagecfg[isVert].bgimage ? &m_skininfo->bgimagecfg[isVert] : 0;
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
-  int bm_w=16,bm_h=16,bm_w2,bm_h2;
+  int bm_w=16,bm_h=16,bm_w2=16,bm_h2=16;
   int imgoffset=0;
   HBITMAP bm=0;
-  if (!bm_image) 
-  {
-    bm=WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
-    bm_w2=bm_w;
-    bm_h2=bm_h;
-  }
-  else
+  if (bm_image)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
@@ -231,6 +143,15 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
     bm_w2=bm_w;
     bm_h2=bm_h;
     AdjustThumbImageSize(m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset);
+  }
+  else
+  {
+    bm_image=WDL_STYLE_GetSliderBitmap2(isVert);
+    if (bm_image)
+    {
+      bm_w2=bm_w=bm_image->getWidth();
+      bm_h2=bm_h=bm_image->getHeight();
+    }
   }
 
   if (isVert)
@@ -280,14 +201,9 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       }
       else
       {
-        HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
-        HGDIOBJ oldPen=SelectObject(hdc,pen);
-
-        MoveToEx(hdc,origin_x+2,origin_y+y,NULL);
-        LineTo(hdc,origin_x+vieww-2,origin_y+y);
-
-        SelectObject(hdc,oldPen);
-        DeleteObject(pen);
+        LICE_pixel col = WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+        LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y,
+            LICE_RGBA_FROMNATIVE(col,255),1.0f,LICE_BLIT_MODE_COPY,false);
       }
     }
 
@@ -295,24 +211,28 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
     if (!back_image)
     {
 
-      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-      HGDIOBJ oldPen=SelectObject(hdc,pen);
-
-      int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+      LICE_pixel fgcol  = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+      fgcol = LICE_RGBA_FROMNATIVE(fgcol,255);
+      LICE_pixel bgcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
-        SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(INT_PTR)&bgcol,GetID(),this);
+      bgcol = LICE_RGBA_FROMNATIVE(bgcol,255);
 
-      HBRUSH br=CreateSolidBrush(brcol);
-      HGDIOBJ oldBr=SelectObject(hdc,br);
 
       int offs= (vieww - 4)/2;
       // white with black border, mmm
-      RoundRect(hdc,origin_x + offs,origin_y + bm_h2/3, origin_x + offs + 5,origin_y + viewh - bm_h2/3,2,2);
 
-      SelectObject(hdc,oldPen);
-      SelectObject(hdc,oldBr);
-      DeleteObject(pen);
-      DeleteObject(br);
+      RECT r={origin_x + offs,origin_y + bm_h2/3, origin_x + offs + 5,origin_y + viewh - bm_h2/3};
+
+      LICE_FillRect(drawbm,r.left+1,r.top+1,
+                           r.right-r.left-2,r.bottom-r.top-2,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+
+      LICE_Line(drawbm,r.left+1,r.top,r.right-2,r.top,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.left+1,r.bottom-1,r.right-2,r.bottom-1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+
+      LICE_Line(drawbm,r.left,r.top+1,r.left,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.right-1,r.top+1,r.right-1,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);    
+
     }
 
     if (bm_image)
@@ -338,17 +258,6 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
 
       LICE_Blit(drawbm,bm_image,xpos,ypos,&r,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
-    }
-    else if (bm)
-    {
-#ifdef _WIN32
-      DrawTransparentBitmap(hdc,bm,origin_x+(vieww-bm_w)/2,origin_y+pos,RGB(255,0,255));
-#else
-      RECT r={origin_x+(vieww-bm_w)/2,origin_y+pos,};
-      r.right=r.left+bm_w;
-      r.bottom=r.top+bm_h;
-      DrawImageInRect(hdc,bm,&r);
-#endif
     }
   }
   else
@@ -399,37 +308,34 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       }
       else
       {
-        HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
-        HGDIOBJ oldPen=SelectObject(hdc,pen);
-
-        MoveToEx(hdc,origin_x+x,origin_y+2,NULL);
-        LineTo(hdc,origin_x+x,origin_y+viewh-2);
-
-        SelectObject(hdc,oldPen);
-        DeleteObject(pen);
+        LICE_pixel col = WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+        LICE_Line(drawbm,origin_x+x,origin_y+2,origin_x+x,origin_y+viewh-2,
+            LICE_RGBA_FROMNATIVE(col,255),1.0f,LICE_BLIT_MODE_COPY,false);
       }
     }
 
     if (!back_image)
     {
-
-      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-      HGDIOBJ oldPen=SelectObject(hdc,pen);
-      int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+      LICE_pixel fgcol  = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+      fgcol = LICE_RGBA_FROMNATIVE(fgcol,255);
+      LICE_pixel bgcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
-        SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
-
-      HBRUSH br=CreateSolidBrush(brcol);
-      HGDIOBJ oldBr=SelectObject(hdc,br);
+        SendCommand(m_bgcol1_msg,(INT_PTR)&bgcol,GetID(),this);
+      bgcol = LICE_RGBA_FROMNATIVE(bgcol,255);
 
       int offs= (viewh - 4)/2;
       // white with black border, mmm
-      RoundRect(hdc,origin_x + bm_w2/3,origin_y + offs, origin_x + vieww - bm_w2/3,origin_y + offs + 5,2,2);
+      RECT r={origin_x + bm_w2/3,origin_y + offs, origin_x + vieww - bm_w2/3,origin_y + offs + 5};
 
-      SelectObject(hdc,oldPen);
-      SelectObject(hdc,oldBr);
-      DeleteObject(pen);
-      DeleteObject(br);
+      LICE_FillRect(drawbm,r.left+1,r.top+1,
+                           r.right-r.left-2,r.bottom-r.top-2,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+
+      LICE_Line(drawbm,r.left+1,r.top,r.right-2,r.top,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.left+1,r.bottom-1,r.right-2,r.bottom-1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+
+      LICE_Line(drawbm,r.left,r.top+1,r.left,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.right-1,r.top+1,r.right-1,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);    
+
     }
 
     if (bm_image)
@@ -465,17 +371,6 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
       LICE_Blit(drawbm,bm_image,xpos,ypos,&r,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
     }
-    else if (bm)
-    {
-#ifdef _WIN32
-      DrawTransparentBitmap(hdc,bm,origin_x+pos,origin_y+(viewh-bm_h)/2+1,RGB(255,0,255));
-#else
-      RECT r={origin_x+pos,origin_y+(viewh-bm_h)/2+1};
-      r.right=r.left+bm_w;
-      r.bottom=r.top+bm_h;
-      DrawImageInRect(hdc,bm,&r);
-#endif
-    }
   }
 
 }
@@ -499,18 +394,27 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16;
-  if (!bm_image) WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
-  else
+  if (bm_image)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
     AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h);
+  }
+  else
+  {
+    bm_image=WDL_STYLE_GetSliderBitmap2(isVert);
+    if (bm_image)
+    {
+      bm_w=bm_image->getWidth();
+      bm_h=bm_image->getHeight();
+    }
   }
 
   m_last_y=ypos;    
   m_last_x=xpos;
   m_last_precmode=0;
 
+  bool needsendcmd = m_sendmsgonclick;
   if (isVert)
   {
     m_move_offset=ypos-( viewh - bm_h - (((m_pos-m_minr) * (viewh-bm_h))/rsize));
@@ -537,11 +441,11 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         else if (pos > m_maxr)pos=m_maxr;
         m_pos=pos;
 
+        needsendcmd=false;
         SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
       }
-      else
-        return false;
+      else return false;
     }
   }
   else
@@ -570,16 +474,17 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         else if (pos > m_maxr)pos=m_maxr;
         m_pos=pos;
 
+        needsendcmd=false;
         SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
       }
-      else
-        return false;
+      else return false;
     }
   }
 
   m_captured=true;
-
+  if (needsendcmd)
+    SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
   return 1;
 }
 
@@ -596,12 +501,20 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16;
-  if (!bm_image) WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
-  else
+  if (bm_image)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
     AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h);
+  }
+  else
+  {
+    bm_image=WDL_STYLE_GetSliderBitmap2(isVert);
+    if (bm_image)
+    {
+      bm_w=bm_image->getWidth();
+      bm_h=bm_image->getHeight();
+    }
   }
 
   int precmode=0;

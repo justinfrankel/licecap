@@ -167,6 +167,53 @@ private:
 };
 
 
+class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these around as long as they are needed, and don't resize the parent while this is allocated
+{
+  public:
+    LICE_SubBitmap(LICE_IBitmap *parent, int x, int y, int w, int h)
+    {
+      m_parent=parent;
+      if(x<0)x=0; 
+      if(y<0)y=0;
+      m_x=x;m_y=y;
+      resize(w,h);
+    }
+    ~LICE_SubBitmap() { }
+
+    bool resize(int w, int h)
+    {
+      m_w=0;m_h=0;
+      if (m_parent)
+      {
+        if(m_x+w>m_parent->getWidth()) w=m_parent->getWidth()-m_x;
+        if (w<0)w=0;
+
+        if (m_y+m_h>m_parent->getHeight()) h=m_parent->getHeight()-m_y;
+        if (h<0)h=0;
+
+        m_w=w; 
+        m_h=h;
+        m_parentptr=m_parent->getBits();
+        if (m_parent->isFlipped()) m_parentptr += (m_parent->getHeight() - (m_y+m_h))*m_parent->getRowSpan()+m_x;
+        else m_parentptr += m_y*m_parent->getRowSpan()+m_x;
+      }
+
+      return true;
+    }
+
+
+    LICE_pixel *getBits() { return m_parentptr; }
+    int getWidth() { return m_w; }
+    int getHeight() { return m_h; }
+    int getRowSpan() { return m_parent ? m_parent->getRowSpan() : 0; }
+
+    bool isFlipped() { return m_parent &&  m_parent->isFlipped(); }
+    HDC getDC() { return NULL; }
+
+    int m_w,m_h,m_x,m_y;
+    LICE_IBitmap *m_parent;
+    LICE_pixel *m_parentptr;
+};
 // bitmap loaders
 
 // pass a bmp if you wish to load it into that bitmap. note that if it fails bmp will not be deleted.
@@ -192,6 +239,7 @@ bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true)
 #define LICE_BLIT_MODE_COPY 0
 #define LICE_BLIT_MODE_ADD 1
 #define LICE_BLIT_MODE_DODGE 2
+#define LICE_BLIT_MODE_MUL 3
 
 #define LICE_BLIT_MODE_CHANCOPY 0xf0 // in this mode, only available for LICE_Blit(), the low nibble is 2 bits of source channel (low 2), 2 bits of dest channel (high 2)
 
@@ -222,6 +270,8 @@ void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
 void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int dstw, int dsth, 
                      float srcx, float srcy, float srcw, float srch, float alpha, int mode);
 
+
+void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src); // AA's src down to dest. uses the minimum size of both (use with LICE_SubBitmap to do sections)
 
 // if cliptosourcerect is false, then areas outside the source rect can get in (otherwise they are not drawn)
 void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
@@ -256,6 +306,7 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
                       int mode);
 
 void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha = 1.0f, int mode = 0);
+
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color);
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask=0, LICE_pixel orbits=0);
 void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 
@@ -300,6 +351,7 @@ void LICE_MeasureText(const char *string, int *w, int *h);
 // line drawing functions
 
 void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha=1.0f, int mode=0);
 
 // Returns false if the line is entirely offscreen.
 bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int yLo, int xHi, int yHi);
@@ -310,20 +362,20 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa);
 
+// useful for drawing shapes from a cache
+void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha=1.0f, int mode = 0);
 
-/*
-  Stuff planned:
+// quadratic bezier
+void LICE_DrawBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
+  LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 
-  
-  void LICE_PutPixelAA(LICE_IBitmap *dest, float x, float y, LICE_pixel color, float alpha=1.0); // antialiased putpixel (can affect up to 4 pixels)
-  void LICE_Rectangle(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0, bool aa=true);
-  void LICE_Triangle(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, float x3, float y3, LICE_pixel color, float alpha=1.0, bool aa=true);
+// cubic bezier
+void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
+  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 
-  ScaleTransform() 
-    optional filtering, you specify grid size and a transformation function (i.e. AVS Dynamic Movement). optional transformation specifying alpha at each point as well.
 
-  TextureTriangle() 
-    specify a dest triangle, and source coordinates.. affine texture mapped. optional filtering, optional alpha, etc.
+// convenience functions
+void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha=1.0f, int mode=0);
+void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel bgcolor, LICE_pixel fgcolor, float alpha=1.0f, int mode=0);
 
-  */
 #endif

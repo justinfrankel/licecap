@@ -555,7 +555,15 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
 #define TOFIX(a) ((int)((a)*65536.0))
 
 #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::gradBlit(pdest,dstw,dsth,TOFIX(ir),TOFIX(ig),TOFIX(ib),TOFIX(ia),TOFIX(drdx),TOFIX(dgdx),TOFIX(dbdx),TOFIX(dadx),TOFIX(drdy),TOFIX(dgdy),TOFIX(dbdy),TOFIX(dady),dest_span)
-    __LICE_ACTIONBYMODE_NOALPHA(mode);
+
+  if ((mode & LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY && ia==1.0 && dady==0.0 && dadx == 0.0)
+  {
+    __LICE__ACTION(_LICE_CombinePixelsClobber);
+  }
+  else 
+  {
+    __LICE_ACTIONBYMODE_NOSRCALPHA(mode,1.0);
+  }
 #undef __LICE__ACTION
 
 #undef TOFIX
@@ -650,7 +658,7 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
   {
 
 #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha)
-    __LICE_ACTIONBYMODE(mode,alpha);
+    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
 #undef __LICE__ACTION
 
   }
@@ -860,10 +868,13 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   if (clip_r>src->getWidth()) clip_r=src->getWidth();
   if (clip_b>src->getHeight()) clip_b=src->getHeight();
 
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
-    __LICE_ACTIONBYMODE(mode,alpha);
-#undef __LICE__ACTION
 
+  if (clip_r>clip_x && clip_b > clip_y) // if our parms are out of range then dont run it
+  {
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
+    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
+#undef __LICE__ACTION
+  }
 }
 
 void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
@@ -947,7 +958,7 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
 #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,dsdxdy,dtdxdy,sl,st,sr,sb,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
-    __LICE_ACTIONBYMODE(mode,alpha);
+    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
 #undef __LICE__ACTION
 }
                       
@@ -1046,7 +1057,7 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
 #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,0,0,sl,st,sr,sb,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
-    __LICE_ACTIONBYMODE(mode,alpha);
+    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
 #undef __LICE__ACTION
 }
 
@@ -1142,7 +1153,7 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
 
   p += x;
 #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),(int)(alpha*256.0),sp*sizeof(LICE_pixel))
-    __LICE_ACTIONBYMODE_NOALPHA(mode);
+    __LICE_ACTIONBYMODE_CONSTANTALPHA(mode,alpha);
 #undef __LICE__ACTION
 }
 
@@ -1196,7 +1207,7 @@ void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha
   else px+=x+y*bm->getRowSpan();
 
 #define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), (int)(alpha * 256.0f))
-  __LICE_ACTIONBYMODE(mode,alpha);
+  __LICE_ACTIONBYMODE_CONSTANTALPHA(mode,alpha);
 #undef __LICE__ACTION
 }
 
@@ -1265,6 +1276,8 @@ void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   }
 
 }
+
+
 
 #endif
 
@@ -1348,11 +1361,101 @@ void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,
     {
       if ((ptr[ax]&comparemask)!=compval) break;
       ptr[ax]=(ptr[ax]&keepmask)|newcolor;
-    }
-    
+    }   
   }
+}
 
+// stupid ass VS6 instantiates this wrong as a template function, needs to be a template class
+template <class COMBFUNC> class GlyphDrawImpl
+{
+public:
+  static void DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, 
+    LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha)
+  {
+    int src_x = 0, src_y = 0, src_w = glyph_w, src_h = glyph_h;
+    if (x < 0) {
+      src_x -= x;
+      src_w += x;
+      x = 0;
+    }
+    if (x+src_w >= dest->getWidth()) {
+      src_w = dest->getWidth()-x;
+    }
+    if (y < 0) {
+      src_y -= y;
+      src_h += y;
+      y = 0;
+    }
+    if (y+src_h >= dest->getHeight()) {
+      src_h = dest->getHeight()-y;
+    }
+
+    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+    int aa = (int)(alpha*255.0f);
+
+    LICE_pixel* destpx = dest->getBits();
+    int span = dest->getRowSpan();
+    if (dest->isFlipped()) {
+      destpx += (dest->getHeight()-y-1)*span+x;
+      span = -span;
+    }
+    else {
+      destpx += y*dest->getRowSpan()+x;
+    }
+
+    LICE_pixel_chan* srcalpha = alphas+src_y*glyph_w+src_x;
+
+    int xi, yi;
+    for (yi = 0; yi < src_h; ++yi, srcalpha += glyph_w, destpx += span) {
+      LICE_pixel_chan* tsrc = srcalpha;
+      LICE_pixel* tdest = destpx;
+      for (xi = 0; xi < src_w; ++xi, ++tsrc, ++tdest) {
+        COMBFUNC::doPix((LICE_pixel_chan*) tdest, r, g, b, a, *tsrc*aa/256);
+      }
+    }
+  }
+};
+
+void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
+{
+#define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(dest, x, y, color, alphas, glyph_w, glyph_h, alpha)
+	__LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
+#undef __LICE__ACTION
 }
 
 
-#endif
+
+
+void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
+{
+  if (!dest||!src) return; 
+  int w = dest->getWidth();
+  if (w > src->getWidth()/2) w=src->getWidth()/2;
+  int h = dest->getHeight();
+  if (h > src->getHeight()/2) h=src->getHeight()/2;
+  int src_span = src->getRowSpan();
+  int dest_span = dest->getRowSpan();
+  LICE_pixel *srcptr = src->getBits();
+  LICE_pixel *destptr = dest->getBits();
+
+  while (h--)
+  {
+    LICE_pixel *sp = srcptr;
+    LICE_pixel *dp = destptr;
+    int x=w;
+    while (x--)
+    {
+      *dp++ =  // perhaps we should use more precision rather than chopping each src pixel to 6 bits, but oh well
+        ((sp[0]>>2)&0x3f3f3f3f) +
+        ((sp[1]>>2)&0x3f3f3f3f) +
+        ((sp[src_span]>>2)&0x3f3f3f3f) +
+        ((sp[src_span+1]>>2)&0x3f3f3f3f);
+      sp+=2;
+    }
+    srcptr+=src_span*2;
+    destptr+=dest_span;
+  }
+}
+
+#endif // LICE_NO_MISC_SUPPORT
+

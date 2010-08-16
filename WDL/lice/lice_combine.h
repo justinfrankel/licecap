@@ -204,45 +204,98 @@ public:
 #define _LICE_CombinePixelsColorDodge _LICE_CombinePixelsCopy
 #endif
 
+
+#ifndef LICE_DISABLE_BLEND_MUL
+
+class _LICE_CombinePixelsMul
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+    // we could check alpha=0 here, but the caller should (since alpha is usually used for static alphas)
+
+    int da=(255-alpha)*256;
+    _LICE_MakePixel(dest,
+      (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
+      (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
+      (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
+      (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+
+  }
+};
+class _LICE_CombinePixelsMulSourceAlpha
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+    if (a)
+    {
+      alpha=(alpha*a)/256;
+      int da=(255-alpha)*256;
+      _LICE_MakePixel(dest,
+        (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
+        (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
+        (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
+        (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+
+    }
+  }
+};
+
+#else // !LICE_DISABLE_BLEND_MUL
+#define _LICE_CombinePixelsMulSourceAlpha _LICE_CombinePixelsCopySourceAlpha
+#define _LICE_CombinePixelsMul _LICE_CombinePixelsCopy
+#endif
+
+
 //#define __LICE__ACTION(comb) templateclass<comb>::function(parameters)
-//__LICE_ACTIONBYMODE(mode,alpha);
+//__LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
 //#undef __LICE__ACTION
 
 
-#define __LICE_ACTIONBYMODE(mode,alpha) \
-     switch ((mode)&LICE_BLIT_MODE_MASK) { \
-      case LICE_BLIT_MODE_COPY: \
-        if ((alpha)>0.0) {  \
-          if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsCopySourceAlpha); \
-          else __LICE__ACTION(_LICE_CombinePixelsCopy); \
-        } \
-      break;  \
-      case LICE_BLIT_MODE_ADD:  \
-        if ((alpha)!=0.0) { \
-          if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsAddSourceAlpha);  \
-          else __LICE__ACTION(_LICE_CombinePixelsAdd);  \
-        } \
-      break;  \
-      case LICE_BLIT_MODE_DODGE: \
-        if ((alpha)!=0.0) { \
-          if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsColorDodgeSourceAlpha); \
-          else __LICE__ACTION(_LICE_CombinePixelsColorDodge); \
-        } \
-      break;  \
-    }
-
-// used by GradRect, etc
-#define __LICE_ACTIONBYMODE_NOALPHA(mode) \
-     switch ((mode)&LICE_BLIT_MODE_MASK) { \
-      case LICE_BLIT_MODE_COPY: __LICE__ACTION(_LICE_CombinePixelsCopy); break;  \
+// use this for paths that support LICE_BLIT_USE_ALPHA (source-alpha combining), but
+// otherwise have constant alpha
+#define __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha) \
+     if ((alpha)!=0.0) switch ((mode)&(LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA)) { \
+      case LICE_BLIT_MODE_COPY: if (alpha>0.0) __LICE__ACTION(_LICE_CombinePixelsCopy); break;  \
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
-      case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge); break;  \
+      case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
+      case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
+      case LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA: \
+          __LICE__ACTION(_LICE_CombinePixelsCopySourceAlpha); \
+      break;  \
+      case LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA:  \
+          __LICE__ACTION(_LICE_CombinePixelsAddSourceAlpha);  \
+      break;  \
+      case LICE_BLIT_MODE_DODGE|LICE_BLIT_USE_ALPHA: \
+          __LICE__ACTION(_LICE_CombinePixelsColorDodgeSourceAlpha); \
+      break;  \
+      case LICE_BLIT_MODE_MUL|LICE_BLIT_USE_ALPHA: \
+          __LICE__ACTION(_LICE_CombinePixelsMulSourceAlpha); \
+      break;  \
+     }
+
+
+// use this for paths that can have per pixel alpha, but calculate it themselves
+#define __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha) \
+     if ((alpha)!=0.0) switch ((mode)&LICE_BLIT_MODE_MASK) { \
+      case LICE_BLIT_MODE_COPY: if (alpha>0.0) __LICE__ACTION(_LICE_CombinePixelsCopy); break;  \
+      case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
+      case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
+      case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
     }
 
-// Vector drawing with a single color can be optimized for copy mode if the color has alpha = 255.
-#define __LICE_ACTIONBYMODE_NOALPHACHANGE(mode,color,alpha) \
-    if (LICE_GETA(color)==255 && (alpha)==1.0f) __LICE__ACTION(_LICE_CombinePixelsClobber); \
-    else __LICE_ACTIONBYMODE(mode,alpha);
+// For drawing where there is constant alpha and no per-pixel alpha.
+#define __LICE_ACTIONBYMODE_CONSTANTALPHA(mode,alpha) \
+    if ((alpha)!=0.0) switch ((mode)&LICE_BLIT_MODE_MASK) { \
+      case LICE_BLIT_MODE_COPY: \
+        if ((alpha)==1.0f) { __LICE__ACTION(_LICE_CombinePixelsClobber);  } \
+        else if ((alpha)>0.0) __LICE__ACTION(_LICE_CombinePixelsCopy); \
+      break;  \
+      case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
+      case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
+      case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
+    }
         
 
 #endif

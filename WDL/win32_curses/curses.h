@@ -67,7 +67,7 @@ typedef struct win32CursesCtx
   int m_cursor_y;
   char m_cur_attr, m_cur_erase_attr;
   unsigned char *m_framebuffer;
-  HFONT mOurFont,mOurFont_ul;
+  HFONT mOurFont;
   int m_font_w, m_font_h;
   int m_need_redraw;
 
@@ -77,15 +77,20 @@ typedef struct win32CursesCtx
   int colortab[COLOR_PAIRS << NUM_ATTRBITS][2];
 
   // callbacks/config available for user
-  const char *window_title;
   int want_getch_runmsgpump; // set to 1 to cause getch() to run the message pump, 2 to cause it to be blocking (waiting for keychar)
-  int noCreateWindow;
 
   void (*ui_run)(struct win32CursesCtx *ctx);
   void *user_data;
 } win32CursesCtx;
 
 extern win32CursesCtx g_curses_context; // declare this if you need it
+
+void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx);
+void curses_unregisterChildClass(HINSTANCE hInstance);
+void curses_registerChildClass(HINSTANCE hInstance);
+HWND curses_CreateWindow(HINSTANCE hInstance, win32CursesCtx *ctx, const char *title);
+
+
 
 void __addnstr(win32CursesCtx *inst, const char *str,int n);
 void __move(win32CursesCtx *inst, int x, int y, int noupdest);

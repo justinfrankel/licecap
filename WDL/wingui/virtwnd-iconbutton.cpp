@@ -43,7 +43,7 @@ WDL_VirtualIconButton::~WDL_VirtualIconButton()
 {
 }
 
-void WDL_VirtualIconButton::SetTextLabel(const char *text, char align, HFONT font) 
+void WDL_VirtualIconButton::SetTextLabel(const char *text, char align, LICE_IFont *font) 
 { 
   if (font) m_textfont=font;
   m_textalign=align;
@@ -132,32 +132,23 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
     {
       if (WDL_STYLE_WantGlobalButtonBackground(&col))
       {
-        HBRUSH br=CreateSolidBrush(col);
-        FillRect(hdc,&r,br);
-        DeleteObject(br);
+        LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(col,255),1.0f,LICE_BLIT_MODE_COPY);
       }
 
       if ((m_pressed&2) || m_forceborder || WDL_STYLE_WantGlobalButtonBorders())
       {
         int cidx=(m_pressed&1)?COLOR_3DSHADOW:COLOR_3DHILIGHT;
 
-        HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
-        HGDIOBJ open=SelectObject(hdc,pen);
+        int pencol = WDL_STYLE_GetSysColor(cidx);
+        pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
-        MoveToEx(hdc,r.left,r.bottom-1,NULL);
-        LineTo(hdc,r.left,r.top);
-        LineTo(hdc,r.right-1,r.top);
-        SelectObject(hdc,open);
-        DeleteObject(pen);
+        LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
         cidx=(m_pressed&1)?COLOR_3DHILIGHT:COLOR_3DSHADOW;
-        pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
-        open=SelectObject(hdc,pen);
-
-        LineTo(hdc,r.right-1,r.bottom-1);
-        LineTo(hdc,r.left,r.bottom-1);
-        SelectObject(hdc,open);
-        DeleteObject(pen);
-
+        pencol = WDL_STYLE_GetSysColor(cidx);
+        pencol = LICE_RGBA_FROMNATIVE(pencol,255);
+        LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
       }
     }
     if (m_iconCfg && m_iconCfg->hIcon)
@@ -173,6 +164,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       {
         if ((m_pressed&3)==3) { x++; y++; }
       }
+      // todo: force everything to lice? or allow this to go gdi
   #ifdef _WIN32
       DrawIconEx(hdc,x,y,m_iconCfg->hIcon,sz,sz2,0,NULL,DI_NORMAL);
   #else
@@ -209,19 +201,21 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
 
       }
       // draw text
-      SetBkMode(hdc,TRANSPARENT);
-      SetTextColor(hdc,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
-      HGDIOBJ of=NULL;
-      if (m_textfont) of=SelectObject(hdc,m_textfont);
-      if (m_pressed&1)
+      if (m_textfont)
       {
-        if (m_textalign<0) r2.left+=1;
-        else if (m_textalign>0) r2.right+=1;
-        else r2.left+=2;
-        r2.top+=2;
+        int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+        fgc=LICE_RGBA_FROMNATIVE(fgc,255);
+        m_textfont->SetBkMode(TRANSPARENT);
+        m_textfont->SetTextColor(fgc);
+        if (m_pressed&1)
+        {
+          if (m_textalign<0) r2.left+=1;
+          else if (m_textalign>0) r2.right+=1;
+          else r2.left+=2;
+          r2.top+=2;
+        }
+        m_textfont->DrawText(drawbm,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
       }
-      DrawText(hdc,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
-      if (m_textfont) SelectObject(hdc,of);
       
     }
   }
@@ -391,11 +385,8 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 
 void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
-  HDC hdc=drawbm->getDC();
   {
-    SetBkMode(hdc,TRANSPARENT);
-    HGDIOBJ of=0;
-    if (m_font&&*m_font) of=SelectObject(hdc,*m_font);
+    if (m_font) m_font->SetBkMode(TRANSPARENT);
 
     RECT r=m_position;
     r.left+=origin_x;
@@ -404,48 +395,36 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
     r.bottom+=origin_y;
 
     int col=WDL_STYLE_GetSysColor(COLOR_WINDOW);
-    HBRUSH br=CreateSolidBrush(col);
-    FillRect(hdc,&r,br);
-    DeleteObject(br);
+    col = LICE_RGBA_FROMNATIVE(col,255);
+    LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,col,1.0f,LICE_BLIT_MODE_COPY);
 
     {
       RECT tr=r;
       tr.left=tr.right-(tr.bottom-tr.top);
-      br=CreateSolidBrush(WDL_STYLE_GetSysColor(COLOR_BTNFACE));
-      FillRect(hdc,&tr,br);
-      DeleteObject(br);
+      int col2=WDL_STYLE_GetSysColor(COLOR_BTNFACE);
+      col2 = LICE_RGBA_FROMNATIVE(col2,255);
+
+      LICE_FillRect(drawbm,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,col,1.0f,LICE_BLIT_MODE_COPY);
     }
     
 
     int tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-    int shad=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-    if (!WDL_Style_WantTextShadows(&shad)) shad=-1;
-    if (m_items.Get(m_curitem)&&m_items.Get(m_curitem)[0])
+    tcol=LICE_RGBA_FROMNATIVE(tcol,255);
+    if (m_font && m_items.Get(m_curitem)&&m_items.Get(m_curitem)[0])
     {
       RECT tr=r;
       tr.left+=2;
       tr.right-=16;
-      if (shad!=-1)
-      {
-        SetTextColor(hdc,shad);
-        RECT tr2=tr;
-        tr2.top+=2;
-        if (m_align==0) tr2.left+=2;
-        else if (m_align>0) tr2.left+=2;
-        else tr2.right--;
-        DrawText(hdc,m_items.Get(m_curitem),-1,&tr2,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
-      }
-      SetTextColor(hdc,tcol);
-      DrawText(hdc,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      m_font->SetTextColor(tcol);
+      m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
     }
 
 
-    if (of) SelectObject(hdc,of);
-
-    HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DSHADOW));
-    HPEN pen3=CreatePen(PS_SOLID,2,tcol);
-    HPEN pen2=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-    of=SelectObject(hdc,pen);
+    // pen3=tcol
+    int pencol = WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+    pencol = LICE_RGBA_FROMNATIVE(pencol,255);
+    int pencol2 = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+    pencol2 = LICE_RGBA_FROMNATIVE(pencol2,255);
 
     // draw the down arrow button
     {
@@ -454,38 +433,22 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
 
       int a=(bs/4)&~1;
 
-      MoveToEx(hdc,l,r.top,NULL);
-      LineTo(hdc,l,r.bottom);
+      LICE_Line(drawbm,l,r.top,l,r.bottom,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,l-1,r.top,l-1,r.bottom,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
 
-      SelectObject(hdc,pen2);
-      MoveToEx(hdc,l-1,r.top,NULL);
-      LineTo(hdc,l-1,r.bottom);
-
-      SelectObject(hdc,pen3);
-      MoveToEx(hdc,l+bs/2 - a,r.top+bs/2 - a/2,NULL);
-        LineTo(hdc,l+bs/2, r.top+bs/2+a/2);
-        LineTo(hdc,l+bs/2 + a,r.top+bs/2 - a/2);
-
-      SelectObject(hdc,pen);
-
-
+      LICE_Line(drawbm,l+bs/2-a,r.top+bs/2-a/2,
+                       l+bs/2,r.top+bs/2+a/2,tcol,1.0f,LICE_BLIT_MODE_COPY,true);
+      LICE_Line(drawbm,l+bs/2,r.top+bs/2+a/2,
+                       l+bs/2+a,r.top+bs/2-a/2, tcol,1.0f,LICE_BLIT_MODE_COPY,true);
     }
 
    
 
     // draw the border
-    MoveToEx(hdc,r.left,r.bottom-1,NULL);
-    LineTo(hdc,r.left,r.top);
-    LineTo(hdc,r.right-1,r.top);
-    SelectObject(hdc,pen2);
-    LineTo(hdc,r.right-1,r.bottom-1);
-    LineTo(hdc,r.left,r.bottom-1);
-
-    SelectObject(hdc,of);
-    DeleteObject(pen);
-    DeleteObject(pen2);
-    DeleteObject(pen3);
-
+    LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,0,false);
+    LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,0,false);
+    LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol2,1.0f,0,false);
+    LICE_Line(drawbm,r.left,r.bottom-1,r.right-1,r.bottom-1,pencol2,1.0f,0,false);
 
   }
 }
@@ -529,7 +492,6 @@ int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 
 void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
-  HDC hdc=drawbm->getDC();
   RECT r=m_position;
   r.left+=origin_x;
   r.right+=origin_x;
@@ -571,31 +533,24 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
   }
   else if (m_bg!=-1)
   {
-    HBRUSH h=CreateSolidBrush(m_bg);
-    FillRect(hdc,&r,h);
-    DeleteObject(h);
+    LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(m_bg,255),1.0f,LICE_BLIT_MODE_COPY);
   }
 
   if (m_wantborder)
   {    
     int cidx=COLOR_3DSHADOW;
 
-    HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
-    HGDIOBJ open=SelectObject(hdc,pen);
+    int pencol = WDL_STYLE_GetSysColor(cidx);
+    pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
-    MoveToEx(hdc,r.left,r.bottom-1,NULL);
-    LineTo(hdc,r.left,r.top);
-    LineTo(hdc,r.right-1,r.top);
-    SelectObject(hdc,open);
-    DeleteObject(pen);
+    LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+    LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
     cidx=COLOR_3DHILIGHT;
-    pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
-    open=SelectObject(hdc,pen);
+    pencol = WDL_STYLE_GetSysColor(cidx);
+    pencol = LICE_RGBA_FROMNATIVE(pencol,255);
+    LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+    LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
 
-    LineTo(hdc,r.right-1,r.bottom-1);
-    LineTo(hdc,r.left,r.bottom-1);
-    SelectObject(hdc,open);
-    DeleteObject(pen);
     r.left++;
     r.bottom--;
     r.top++;
@@ -603,42 +558,24 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
 
   }
 
-  if (m_text.Get()[0])
+  if (m_font && m_text.Get()[0])
   {
 
     r.left+=m_margin_l;
     r.right-=m_margin_r;
-    SetBkMode(hdc,TRANSPARENT);
-    HGDIOBJ of=0;
-    if (m_font&&*m_font) of=SelectObject(hdc,*m_font);
+    m_font->SetBkMode(TRANSPARENT);
     
     int align=m_align;
-#ifdef _WIN32
     if (align==0)
     {
       RECT r2={0,0,0,0};
-      DrawText(hdc,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|DT_LEFT|DT_NOPREFIX|DT_CALCRECT);
+      m_font->DrawText(drawbm,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|DT_LEFT|DT_NOPREFIX|DT_CALCRECT);
       if (r2.right > r.right-r.left) align=-1;
     }
-#endif
 
     int tcol=m_fg!=-1 ? m_fg : WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-    int shad=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-    if (WDL_Style_WantTextShadows(&shad))
-    {
-      SetTextColor(hdc,shad);
-      RECT r2=r;
-      r2.top++;
-      if (align==0) r2.left+=2;
-      else if (align<0) r2.left++;
-      else if (align>0) r.right--;
-      DrawText(hdc,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
-    }
-    SetTextColor(hdc,tcol);
-    DrawText(hdc,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
-
-    if (of) SelectObject(hdc,of);
-
+    m_font->SetTextColor(tcol);
+    m_font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
 
   }
 }

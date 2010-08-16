@@ -1,5 +1,3 @@
-#if defined(_WIN32) || defined(MAC_NATIVE)
-
 #ifdef _WIN32
 #include <windows.h>
 #include <conio.h>
@@ -14,11 +12,10 @@
 #include <stdio.h>
 
 
-#define WIN32CURSES_CLASS_NAME "WDLCursesWin32"
+#define WIN32CURSES_CLASS_NAME "WDLCursesWindow"
 
 #define WIN32_CONSOLE_KBQUEUE
 
-HINSTANCE g_hInst;
 
 static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey)
 {
@@ -27,35 +24,46 @@ static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey
   r.top=sy*ctx->m_font_h;
   r.right=ex*ctx->m_font_w;
   r.bottom=ey*ctx->m_font_h;
-#ifdef _WIN32
   if (ctx->m_hwnd) InvalidateRect(ctx->m_hwnd,&r,FALSE);
-#else
-#endif
 }
 
 void __addnstr(win32CursesCtx *ctx, const char *str,int n)
 {
+  if (ctx->m_cursor_x<0)
+  {
+    int skip = -ctx->m_cursor_x;
+    ctx->m_cursor_x=0;
+    if (n>=0) 
+    {
+      n -= skip;
+      if (n<0)n=0;
+    }
+    int slen = strlen(str);
+    str += min(slen,skip);    
+  }
+
   int sx=ctx->m_cursor_x;
   int sy=ctx->m_cursor_y;
-  if (!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines) return;
+  if (n==0||!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines) return;
   char *p=(char *)ctx->m_framebuffer + 2*(ctx->m_cursor_x + ctx->m_cursor_y*ctx->cols);
   while (n-- && *str)
   {
     p[0]=*str++;
     p[1]=ctx->m_cur_attr;
     p+=2;
-	if (++ctx->m_cursor_x >= ctx->cols) 
-	{ 
-		ctx->m_cursor_y++; 
-		ctx->m_cursor_x=0; 
-		if (ctx->m_cursor_y >= ctx->lines) { ctx->m_cursor_y=ctx->lines-1; ctx->m_cursor_x=ctx->cols-1; break; }
-	}
+	  if (++ctx->m_cursor_x >= ctx->cols) 
+	  { 
+		  ctx->m_cursor_y++; 
+		  ctx->m_cursor_x=0; 
+		  if (ctx->m_cursor_y >= ctx->lines) { ctx->m_cursor_y=ctx->lines-1; ctx->m_cursor_x=ctx->cols-1; break; }
+	  }
   }
   m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? ctx->cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 
 void __clrtoeol(win32CursesCtx *ctx)
 {
+  if (ctx->m_cursor_x<0)ctx->m_cursor_x=0;
   int n = ctx->cols - ctx->m_cursor_x;
   if (!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines || n < 1) return;
   char *p=(char *)ctx->m_framebuffer + 2*(ctx->m_cursor_x + ctx->m_cursor_y*ctx->cols);
@@ -105,9 +113,8 @@ void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
 
 }
 
-static int xlateKey(int msg, int wParam)
+static int xlateKey(int msg, int wParam, int lParam)
 {
-#ifdef _WIN32
    if (msg == WM_KEYDOWN)
 	  {
 		  switch (wParam)
@@ -156,14 +163,45 @@ static int xlateKey(int msg, int wParam)
         }
 		  }
 	  }
+#ifdef _WIN32 // todo : fix for nonwin32
     else if (msg == WM_CHAR)
     {
       if(wParam>=32) return wParam;
     }
-    return ERR;
+  
 #else
-  return ERR;
+  if (wParam >= 32)
+  {
+    if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
+    {
+      if (wParam>='A' && wParam<='Z') 
+      {
+        if ((GetAsyncKeyState(VK_MENU)&0x8000)) wParam -= 'A'-1;
+        else
+          wParam += 'a'-'A';
+      }
+    }
+    else
+    {
+      if (wParam>='0' && wParam<='9')
+      {
+        if (wParam=='0') wParam = ')';
+        else if (wParam=='1') wParam = '!';
+        else if (wParam=='2') wParam = '@';
+        else if (wParam=='3') wParam = '#';
+        else if (wParam=='4') wParam = '$';
+        else if (wParam=='5') wParam = '%';
+        else if (wParam=='6') wParam = '^';
+        else if (wParam=='7') wParam = '&';
+        else if (wParam=='8') wParam = '*';
+        else if (wParam=='9') wParam = '(';
+      }
+    }
+    return wParam;
+  }
+      
 #endif
+    return ERR;
 }
 
 
@@ -171,57 +209,40 @@ static void m_reinit_framebuffer(win32CursesCtx *ctx)
 {
     RECT r;
 
-#ifdef _WIN32
     GetClientRect(ctx->m_hwnd,&r);
-#else
-    r.left=r.top=0;
-    r.right=r.left+30;
-    r.bottom=r.top+30;
-#endif
     
     ctx->lines=r.bottom / ctx->m_font_h;
     ctx->cols=r.right / ctx->m_font_w;
+    if (ctx->lines<1) ctx->lines=1;
+    if (ctx->cols<1) ctx->cols=1;
     ctx->m_cursor_x=0;
     ctx->m_cursor_y=0;
     ctx->m_framebuffer=(unsigned char *)realloc(ctx->m_framebuffer,2*ctx->lines*ctx->cols);
     if (ctx->m_framebuffer) memset(ctx->m_framebuffer,0,2*ctx->lines*ctx->cols);
 }
 
-#ifdef _WIN32
-static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 {
-  win32CursesCtx *ctx=0;
-  if (uMsg == WM_CREATE)
-  {
-    CREATESTRUCT *cs=(CREATESTRUCT*)lParam;
-    ctx = (win32CursesCtx *)cs->lpCreateParams;
-    SetWindowLong(hwnd,GWL_USERDATA, (long)ctx);
-  }
-  else ctx = (win32CursesCtx*)GetWindowLong(hwnd,GWL_USERDATA);
+  win32CursesCtx *ctx = (win32CursesCtx*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
 
   if (ctx)switch (uMsg)
   {
 	case WM_DESTROY:
-		if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
-		if (ctx->mOurFont_ul) DeleteObject(ctx->mOurFont_ul);
-		free(ctx->m_framebuffer);
-		ctx->m_framebuffer=0;
-		ctx->mOurFont=0;
-		ctx->mOurFont_ul=0;
 		ctx->m_hwnd=0;
 	return 0;
 #ifdef WIN32_CONSOLE_KBQUEUE
   case WM_CHAR: case WM_KEYDOWN: 
 
     {
-      int a=xlateKey(uMsg,wParam);
+      int a=xlateKey(uMsg,wParam,lParam);
       if (a != ERR && ctx->m_kbq)
       {
         ctx->m_kbq->Add(&a,sizeof(int));
       }
     }
-  break;
+  case WM_KEYUP:
+  return 0;
 #endif
 	case WM_GETMINMAXINFO:
 	      {
@@ -240,12 +261,14 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   case WM_LBUTTONDOWN:
     SetFocus(hwnd);
   return 0;
+#ifdef _WIN32
   case WM_GETDLGCODE:
     if (GetParent(hwnd))
     {
       return DLGC_WANTALLKEYS;
     }
   return 0;
+#endif
   case WM_TIMER:
 #ifdef WIN32_CONSOLE_KBQUEUE
     if (wParam == 1)
@@ -270,7 +293,11 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
     case WM_PAINT:
       {
         RECT r;
+#ifdef _WIN32
         if (GetUpdateRect(hwnd,&r,FALSE))
+#else
+          GetClientRect(hwnd,&r);
+#endif
         {
           PAINTSTRUCT ps;
           HDC hdc=BeginPaint(hwnd,&ps);
@@ -279,7 +306,9 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
             int y,ypos;
 			      int lattr=-1;
+#ifdef _WIN32
             SetTextAlign(hdc,TA_TOP|TA_LEFT);
+#endif
             char *ptr=(char*)ctx->m_framebuffer;
             RECT updr=r;
 
@@ -298,7 +327,10 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      if (r.left < 0) r.left=0;
 			      if (r.right > ctx->cols) r.right=ctx->cols;
 
-
+#ifndef _WIN32
+            HBRUSH curbgbr=NULL;
+#endif
+                    
             if (ctx->m_framebuffer) for (y = r.top; y < r.bottom; y ++, ypos+=ctx->m_font_h)
             {
               int x,xpos;
@@ -315,39 +347,65 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 				        if (attr != lattr)
 				        {
 						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
-						      SetBkColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
+                  int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1];
+#ifndef _WIN32
+                  if (curbgbr) DeleteObject(curbgbr);
+                  curbgbr=CreateSolidBrush(bgc);
+#endif
+						      SetBkColor(hdc,bgc);
 					        lattr=attr;
 				        }
 						    int rf=0;
 						    if (y == ctx->m_cursor_y && x == ctx->m_cursor_x)
 						    {
 							    rf=1;
-							    SelectObject(hdc,ctx->mOurFont_ul);
+						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
+                  int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0];
+#ifndef _WIN32
+                  if (curbgbr) DeleteObject(curbgbr);
+                  curbgbr=CreateSolidBrush(bgc);
+#endif
+						      SetBkColor(hdc,bgc);
 						    }
+#ifdef _WIN32
 				        TextOut(hdc,xpos,ypos,isprint(c) && !isspace(c) ? p : " ",1);
+#else
+                RECT tr={xpos,ypos,xpos+32,ypos+32};
+                if (curbgbr) FillRect(hdc,&tr,curbgbr);
+                char tmp[2]={c,0};
+                DrawText(hdc,isprint(c) && !isspace(c) ?tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
+#endif
 						    if (rf)
 						    {
- 							    SelectObject(hdc,ctx->mOurFont);
+						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
+                  int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1];
+						      SetBkColor(hdc,bgc);
+#ifndef _WIN32
+                  if (curbgbr) DeleteObject(curbgbr);
+                  curbgbr=CreateSolidBrush(bgc);
+#endif
 						    }
                 p+=2;
               }
             }
+#ifndef _WIN32
+            if (curbgbr) DeleteObject(curbgbr);
+#endif
             int rm=ctx->cols * ctx->m_font_w;
             int bm=ctx->lines * ctx->m_font_h;
             if (updr.right >= rm)
             {
-                SelectObject(hdc,GetStockObject(BLACK_BRUSH));
-                SelectObject(hdc,GetStockObject(BLACK_PEN));
-                Rectangle(hdc,max(rm,updr.left),max(updr.top,0),updr.right,updr.bottom);
+              RECT tr={max(rm,updr.left),max(updr.top,0),updr.right,updr.bottom};
+              HBRUSH blackbr=CreateSolidBrush(RGB(0,0,0));
+              FillRect(hdc,&tr,blackbr);
+              DeleteObject(blackbr);
             }
             if (updr.bottom >= bm)
             {
-                if (updr.right < rm)
-                {
-                  SelectObject(hdc,GetStockObject(BLACK_BRUSH));
-                  SelectObject(hdc,GetStockObject(BLACK_PEN));
-                }
-                Rectangle(hdc,max(0,updr.left),max(updr.top,bm),updr.right,updr.bottom);
+              RECT tr={max(0,updr.left),max(updr.top,bm),updr.right,updr.bottom};
+              HBRUSH blackbr=CreateSolidBrush(RGB(0,0,0));
+              FillRect(hdc,&tr,blackbr);
+              DeleteObject(blackbr);
             }
             SelectObject(hdc,oldf);
             EndPaint(hwnd,&ps);
@@ -358,105 +416,48 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
-#endif
-
-static int m_wndregcnt;
 
 
-void deinit_win32_window(win32CursesCtx *ctx)
+static void reInitializeContext(win32CursesCtx *ctx)
 {
-  __endwin(ctx);
-}
-
-HWND init_win32_window(win32CursesCtx *ctx)
-{
-  if (ctx->m_hwnd)
-  {
-    deinit_win32_window(ctx);
-  }
-  delete ctx->m_kbq;
-  ctx->m_kbq=new WDL_Queue;
-
-  free(ctx->m_framebuffer);
-  ctx->m_framebuffer=0;
-
+  if (!ctx->mOurFont) ctx->mOurFont = CreateFont(
 #ifdef _WIN32
-	static WNDCLASS wc={0,};	
-
-	wc.style = 0;
-	wc.lpfnWndProc = m_WndProc;
-  wc.hInstance = g_hInst?g_hInst:GetModuleHandle(NULL);
-	
-  if (!wc.hIcon)
-  {
-    wc.hIcon = LoadIcon(wc.hInstance,MAKEINTRESOURCE(101));//if we have a linked in icon, use it
-  }
-  if (!wc.hIcon) wc.hIcon = (HICON) LoadImage(NULL,"jesusonic.ico",IMAGE_ICON,0,0,LR_LOADFROMFILE);
-	wc.hCursor = LoadCursor(NULL,IDC_ARROW);
-	wc.lpszClassName = WIN32CURSES_CLASS_NAME;
-
-  if (!m_wndregcnt++)
-  {
-	  if (!RegisterClass(&wc))
-    {
-//      MessageBox(NULL,"Error registering window class!","Jesusonic Error",MB_OK);
-    }
-  }
-
-  HWND h=CreateWindowEx(0,wc.lpszClassName, ctx->window_title ? ctx->window_title : "",WS_CAPTION|WS_MAXIMIZEBOX|WS_MINIMIZEBOX|WS_SIZEBOX|WS_SYSMENU,
-					CW_USEDEFAULT,CW_USEDEFAULT,640,480,
-					NULL, NULL,wc.hInstance,(void *)ctx);
-
-  if (!h)
-  {
-    MessageBox(NULL,"Error creating window","Jesusonic Error",MB_OK);
-  }
-  else
-  {
-      ctx->mOurFont = CreateFont(16,
-                            0, // width
-                            0, // escapement
-                            0, // orientation
-                            FW_NORMAL, // normal
-                            FALSE, //italic
-                            FALSE, //undelrine
-                            FALSE, //strikeout
-                            ANSI_CHARSET,
-                            OUT_DEFAULT_PRECIS,
-                            CLIP_DEFAULT_PRECIS,
-                            DEFAULT_QUALITY,
-                            FF_MODERN,
-                            "Courier New");
-      ctx->mOurFont_ul = CreateFont(16,
-                            0, // width
-                            0, // escapement
-                            0, // orientation
-                            FW_NORMAL, // normal
-                            FALSE, //italic
-                            TRUE, //undelrine
-                            FALSE, //strikeout
-                            ANSI_CHARSET,
-                            OUT_DEFAULT_PRECIS,
-                            CLIP_DEFAULT_PRECIS,
-                            DEFAULT_QUALITY,
-                            FF_MODERN,
-                            "Courier New");
-
-      {
-        HDC hdc=GetDC(h);
-        HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
-        TEXTMETRIC tm;
-        GetTextMetrics(hdc,&tm);
-        ctx->m_font_h=tm.tmHeight;
-        ctx->m_font_w=tm.tmAveCharWidth;
-        SelectObject(hdc,oldf);
-        ReleaseDC(h,hdc);
-      }      
-  }
+                                                 16,
 #else
-  HWND h=0;
+                                                11,
 #endif
-  return h;
+                        0, // width
+                        0, // escapement
+                        0, // orientation
+                        FW_NORMAL, // normal
+                        FALSE, //italic
+                        FALSE, //undelrine
+                        FALSE, //strikeout
+                        ANSI_CHARSET,
+                        OUT_DEFAULT_PRECIS,
+                        CLIP_DEFAULT_PRECIS,
+                        DEFAULT_QUALITY,
+#ifdef _WIN32
+                        FF_MODERN,
+#else
+                                                 0,
+#endif
+                        "Courier New");
+
+  {
+    HDC hdc=GetDC(ctx->m_hwnd);
+    HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
+    TEXTMETRIC tm;
+    GetTextMetrics(hdc,&tm);
+    ctx->m_font_h=tm.tmHeight;
+    ctx->m_font_w=tm.tmAveCharWidth;
+#ifndef _WIN32
+    ctx->m_font_h -= 4;
+    ctx->m_font_w -= 5;
+#endif
+    SelectObject(hdc,oldf);
+    ReleaseDC(ctx->m_hwnd,hdc);
+  }      
 }
 
 
@@ -465,44 +466,20 @@ HWND init_win32_window(win32CursesCtx *ctx)
 void __initscr(win32CursesCtx *ctx)
 {
   __init_pair(ctx,0,RGB(192,192,192),RGB(0,0,0));
-
-
-  ctx->m_kbq=0; 
-	ctx->m_framebuffer=0;
-
-  ctx->cols=80;
-  ctx->lines=25;
-
-  if (ctx->noCreateWindow) return;
-
-#ifdef _WIN32
-  HWND h=init_win32_window(ctx);
-  SetWindowPos(h,NULL,0,0,ctx->m_font_w * 80+32, ctx->m_font_h * 30+32,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
-  m_reinit_framebuffer(ctx);
-  ShowWindow(h,SW_SHOW);
-#endif
 }
 
 void __endwin(win32CursesCtx *ctx)
 {
-#ifdef _WIN32
-  if (ctx->m_hwnd) DestroyWindow(ctx->m_hwnd);
-#else
-#endif
+  if (ctx->m_hwnd)
+    curses_setWindowContext(ctx->m_hwnd,0);
   ctx->m_hwnd=0;
   free(ctx->m_framebuffer);
   ctx->m_framebuffer=0;
   delete ctx->m_kbq;
   ctx->m_kbq=0;
-#ifdef _WIN32
-  if (m_wndregcnt > 0)
-  {
-    if (!--m_wndregcnt)
-    {
-      UnregisterClass(WIN32CURSES_CLASS_NAME,g_hInst?g_hInst:GetModuleHandle(NULL));
-    }
-  }
-#endif
+  if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
+  ctx->mOurFont=0;
+
 }
 
 
@@ -510,15 +487,14 @@ int curses_getch(win32CursesCtx *ctx)
 {
   if (!ctx->m_hwnd) return ERR;
 
-#ifdef _WIN32
-  
+ 
 #ifndef WIN32_CONSOLE_KBQUEUE
   // if we're suppose to run the message pump ourselves (optional!)
   MSG msg;
   while(PeekMessage(&msg,NULL,0,0,PM_REMOVE))
   {
     TranslateMessage(&msg);
-    int a=xlateKey(msg.message,msg.wParam);
+    int a=xlateKey(msg.message,msg.wParam,msg.lParam);
     if (a != ERR) return a;
 
     DispatchMessage(&msg);
@@ -526,6 +502,7 @@ int curses_getch(win32CursesCtx *ctx)
   }
 #else
 
+#ifdef _WIN32
   if (ctx->want_getch_runmsgpump>0)
   {
     MSG msg;
@@ -543,7 +520,7 @@ int curses_getch(win32CursesCtx *ctx)
       DispatchMessage(&msg);
     }
   }
-
+#endif
 
   if (ctx->m_kbq && ctx->m_kbq->Available()>=(int)sizeof(int))
   {
@@ -560,11 +537,89 @@ int curses_getch(win32CursesCtx *ctx)
     InvalidateRect(ctx->m_hwnd,NULL,FALSE);
     return 'L'-'A'+1;
   }
-#endif
 
   return ERR;
 }
 
+void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx)
+{
+  SetWindowLongPtr(hwnd,GWLP_USERDATA,(INT_PTR)ctx);
+  if (ctx)
+  {
+    ctx->m_hwnd=hwnd;
+    delete ctx->m_kbq;
+    ctx->m_kbq=new WDL_Queue;
+
+    free(ctx->m_framebuffer);
+    ctx->m_framebuffer=0;
+
+    reInitializeContext(ctx);
+    m_reinit_framebuffer(ctx);
+    InvalidateRect(hwnd,NULL,FALSE);
+  }
+}
+
+static int m_regcnt;
+void curses_unregisterChildClass(HINSTANCE hInstance)
+{
+#ifdef _WIN32
+  if (!--m_regcnt)
+    UnregisterClass(WIN32CURSES_CLASS_NAME,hInstance);
+#endif
+}
+
+void curses_registerChildClass(HINSTANCE hInstance)
+{
+#ifdef _WIN32
+  if (!m_regcnt++)
+  {
+	  WNDCLASS wc={0,};	
+	  wc.lpfnWndProc = cursesWindowProc;
+    wc.hInstance = hInstance;	
+	  wc.hCursor = LoadCursor(NULL,IDC_ARROW);
+	  wc.lpszClassName = WIN32CURSES_CLASS_NAME;
+
+    RegisterClass(&wc);
+  }
+#endif
+}
+
+#ifndef _WIN32
+HWND curses_ControlCreator(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h)
+{
+  HWND hw=0;
+  if (!strcmp(classname,WIN32CURSES_CLASS_NAME))
+  {
+    hw=CreateDialog(NULL,0,parent,(DLGPROC)cursesWindowProc);
+  }
+  
+  if (hw)
+  {
+    SetWindowLong(hw,GWL_ID,idx);
+    SetWindowPos(hw,HWND_TOP,x,y,w,h,SWP_NOZORDER|SWP_NOACTIVATE);
+    ShowWindow(hw,SW_SHOWNA);
+    return hw;
+  }
+  
+  return 0;
+}
 
 #endif
 
+HWND curses_CreateWindow(HINSTANCE hInstance, win32CursesCtx *ctx, const char *title)
+{
+#ifdef _WIN32
+ ctx->m_hwnd = CreateWindowEx(0,WIN32CURSES_CLASS_NAME, title,WS_CAPTION|WS_MAXIMIZEBOX|WS_MINIMIZEBOX|WS_SIZEBOX|WS_SYSMENU,
+					CW_USEDEFAULT,CW_USEDEFAULT,640,480,
+					NULL, NULL,hInstance,NULL);
+#else
+  ctx->m_hwnd = CreateDialog(NULL,0,NULL,(DLGPROC)cursesWindowProc);
+  
+#endif
+ if (ctx->m_hwnd) 
+ {
+   curses_setWindowContext(ctx->m_hwnd,ctx);
+   ShowWindow(ctx->m_hwnd,SW_SHOW);
+ }
+ return ctx->m_hwnd;
+}

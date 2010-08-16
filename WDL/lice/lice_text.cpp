@@ -1331,7 +1331,7 @@ void LICE_DrawChar(LICE_IBitmap *bm, int x, int y, char c,
       if (ch & a) 
       {
         #define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)outmem, red,green,blue,alp,ialpha)
-          __LICE_ACTIONBYMODE(mode,alpha);
+          __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
         #undef __LICE__ACTION
       }
       outmem++;

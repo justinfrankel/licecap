@@ -77,7 +77,7 @@ typedef struct
 class WDL_WndSizer
 {
 public:
-  WDL_WndSizer() { }
+  WDL_WndSizer() {  }
   ~WDL_WndSizer() { }
 
   void init(HWND hwndDlg, RECT *initr=NULL);
@@ -99,6 +99,9 @@ public:
 
   void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
 
+
+  void set_margins(int left, int top, int right, int bottom) { m_margins.left=left; m_margins.top=top; m_margins.right=right; m_margins.bottom=bottom; }
+
 private:
 #ifdef _WIN32
   static BOOL CALLBACK enum_RegionRemove(HWND hwnd,LPARAM lParam);
@@ -106,6 +109,7 @@ private:
 #endif
   HWND m_hwnd;
   RECT m_orig_rect;
+  RECT m_margins;
 
   // treat as WDL_WndSizer__rec[]
   WDL_HeapBuf m_list;

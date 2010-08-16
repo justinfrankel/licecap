@@ -59,7 +59,8 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
 
   WDL_VirtualWnd_BGCfg *mainbk=0;
   int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,(void**)&mainbk) : 0;
-  int bgc;
+  LICE_pixel bgc=WDL_STYLE_GetSysColor(COLOR_BTNFACE);
+  bgc=LICE_RGBA_FROMNATIVE(bgc,255);
   if (mainbk && mainbk->bgimage)
   {
     if (mainbk->bgimage->getWidth()>1 && mainbk->bgimage->getHeight()>1)
@@ -72,9 +73,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
   }
   else
   {
-    HBRUSH br=CreateSolidBrush(bgc=WDL_STYLE_GetSysColor(COLOR_BTNFACE));
-    FillRect(hdc,&r,br);
-    DeleteObject(br);
+    LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,bgc,1.0f,LICE_BLIT_MODE_COPY);
   }
 
   int updownbuttonsize=0; // &1= has top button, &2= has bottom button
@@ -89,20 +88,18 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
     if (startpos+nivis > num_items) startpos=num_items-nivis;
     if (startpos<0)startpos=0;
   }
-  HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DSHADOW));
-  HPEN pen2=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-  HGDIOBJ open=SelectObject(hdc,pen2);
-  HGDIOBJ of=0;
-  if (m_font&&*m_font) of=SelectObject(hdc,*m_font);
+  LICE_pixel pencol = WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+  LICE_pixel pencol2 = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+  pencol=LICE_RGBA_FROMNATIVE(pencol,255);
+  pencol2=LICE_RGBA_FROMNATIVE(pencol2,255);
 
   int y;
-  int tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-  int shad=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-  if (!WDL_Style_WantTextShadows(&shad)) shad=-1;
+  LICE_pixel tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+  tcol=LICE_RGBA_FROMNATIVE(tcol,0);
 
   int endpos=r.bottom;
   int itempos=startpos;
-  SetBkMode(hdc,TRANSPARENT);
+  if (m_font) m_font->SetBkMode(TRANSPARENT);
   if (updownbuttonsize) endpos-=updownbuttonsize;
   for (y = r.top + m_rh; y <= endpos; y += m_rh)
   {
@@ -124,7 +121,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
         if (m_cap_state==1 && m_cap_startitem==itempos-1)
         {
           if (bkbm) bkbmstate=1;
-          else color = ((color>>1)&0x7f7f7f)+0x7f7f7f;
+          else color = ((color>>1)&0x7f7f7f7f)+LICE_RGBA(0x7f,0x7f,0x7f,0);
         }
         if (m_cap_state>=0x1000 && m_cap_startitem==itempos-1)
         {
@@ -132,9 +129,8 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
           else
           {
             rev=1;
-            HBRUSH br=CreateSolidBrush(color);
-            FillRect(hdc,&thisr,br);
-            DeleteObject(br);
+            LICE_FillRect(drawbm,thisr.left,thisr.top,thisr.right-thisr.left,thisr.bottom-thisr.top,
+              color,1.0f,LICE_BLIT_MODE_COPY);
           }
         }
         if (bkbm) //draw image!
@@ -147,30 +143,24 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
         }
         if (m_CustomDraw)
           m_CustomDraw(this,itempos-1,&thisr,drawbm);
+
+
         if (buf[0])
         {
           thisr.left+=m_margin_l;
           thisr.right-=m_margin_r;
-          if (shad!=-1)
+          if (m_font)
           {
-            SetTextColor(hdc,shad);
-            RECT tr2=thisr;
-            tr2.top+=2;
-            if (m_align==0) tr2.left+=2;
-            else if (m_align>0) tr2.left+=2;
-            else tr2.right--;
-            DrawText(hdc,buf,-1,&tr2,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+            m_font->SetTextColor(rev?bgc:color);
+            m_font->DrawText(drawbm,buf,-1,&thisr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
           }
-          SetTextColor(hdc,rev?bgc:color);
-          DrawText(hdc,buf,-1,&thisr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
         }
       }
     }
 
     if (!bkbm)
     {
-      MoveToEx(hdc,r.left,y,NULL);
-      LineTo(hdc,r.right,y);
+      LICE_Line(drawbm,r.left,y,r.right,y,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
     }
   }
   if (updownbuttonsize)
@@ -202,66 +192,50 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
       int cx=(r.left+r.right)/2;
       int bs=5;
       int bsh=8;
-      MoveToEx(hdc,cx,y-m_rh+2,NULL);
-      LineTo(hdc,cx,y-1);
-      MoveToEx(hdc,r.left,y,NULL);
-      LineTo(hdc,r.right,y);
+      LICE_Line(drawbm,cx,y-m_rh+2,cx,y-1,pencol2,1.0f,0,false);
+      LICE_Line(drawbm,r.left,y,r.right,y,pencol2,1.0f,0,false);
 
       y-=m_rh/2+bsh/2;
 
+      bool butaa = true;
       if (itempos<num_items)
       {
         cx=(r.left+r.right)*3/4;
-        SelectObject(hdc,pen2);
-        MoveToEx(hdc,cx-bs+1,y+2,NULL);
-        LineTo(hdc,cx, y+bsh-2);
-        LineTo(hdc,cx+bs-1,y+2);
-        LineTo(hdc,cx-bs+1,y+2);
 
-        SelectObject(hdc,pen);
-        MoveToEx(hdc,cx-bs-1,y+1,NULL);
-        LineTo(hdc,cx, y+bsh-1);
-        LineTo(hdc,cx+bs+1,y+1);
-        LineTo(hdc,cx-bs-1,y+1);
+        LICE_Line(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
+        LICE_Line(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
+        LICE_Line(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
+
+        LICE_Line(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
+        LICE_Line(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
+        LICE_Line(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
       }
       if (startpos>0)
       {
         y-=2;
         cx=(r.left+r.right)/4;
-        SelectObject(hdc,pen2);
-        MoveToEx(hdc,cx-bs+1,y+bsh,NULL);
-        LineTo(hdc,cx, y+3+1);
-        LineTo(hdc,cx+bs-1,y+bsh);
-        LineTo(hdc,cx-bs+1,y+bsh);
+        LICE_Line(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
+        LICE_Line(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
+        LICE_Line(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
 
-        SelectObject(hdc,pen);
-        MoveToEx(hdc,cx-bs-1,y+bsh+1,NULL);
-        LineTo(hdc,cx, y+3);
-        LineTo(hdc,cx+bs+1,y+bsh+1);
-        LineTo(hdc,cx-bs-1,y+bsh+1);
+        LICE_Line(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
+        LICE_Line(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
+        LICE_Line(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
       }
     }
   }
 
 
-  SelectObject(hdc,pen);
 
   if (!mainbk)
   {
-    MoveToEx(hdc,r.left,r.bottom-1,NULL);
-    LineTo(hdc,r.left,r.top);
-    LineTo(hdc,r.right-1,r.top);
-    SelectObject(hdc,pen2);
-    LineTo(hdc,r.right-1,r.bottom-1);
-    LineTo(hdc,r.left,r.bottom-1);
-
+    LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,0,false);
+    LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,0,false);
+    LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol2,1.0f,0,false);
+    LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol2,1.0f,0,false);
   }
 
 
-  SelectObject(hdc,open);
-  if (of) SelectObject(hdc,of);
-  DeleteObject(pen);
-  DeleteObject(pen2);
 }
 
 int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)

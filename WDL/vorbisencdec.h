@@ -240,6 +240,7 @@ public:
   VorbisEncoder(int srate, int nch, int bitrate, int serno, const char *encname=NULL)
 #endif
   {
+    m_flushmode=false;
     m_ds=0;
 
     memset(&vi,0,sizeof(vi));
@@ -379,7 +380,7 @@ public:
 	      while (!eos)
         {
           ogg_page og;
-		      int result=ogg_stream_pageout(&os,&og);
+          int result=m_flushmode ? ogg_stream_flush(&os,&og) : ogg_stream_pageout(&os,&og);
 		      if(result==0)break;
           outqueue.Add(og.header,og.header_len);
 		      outqueue.Add(og.body,og.body_len);
@@ -419,6 +420,8 @@ public:
   }
 
   WDL_Queue outqueue;
+
+  bool m_flushmode;
 
 private:
   int m_err,m_nch;

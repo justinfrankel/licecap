@@ -149,7 +149,8 @@
 #define BS_RIGHT 0
 #define WS_EX_STATICEDGE 0
 #define WS_EX_RIGHT 0
-                                       
+#define ES_RIGHT 0
+#define SS_CENTERIMAGE 0                                       
                      
                                        
 #ifndef IDC_STATIC

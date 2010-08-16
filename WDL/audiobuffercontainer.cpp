@@ -149,11 +149,11 @@ void AudioBufferContainer::Resize(int nCh, int nFrames)
 {
   if (nCh != m_nCh || nFrames != m_nFrames) {
     int len = 2 * nCh * nFrames * (sizeof(float) + sizeof(double));
-    m_buf.Resize(len);
+    m_buf.Resize(len, false);
     memset(m_buf.Get(), 0, len);
     
-    m_backingStorePtrs.Resize(nCh);
-    m_chanDescs.Resize(nCh);
+    m_backingStorePtrs.Resize(nCh, false);
+    m_chanDescs.Resize(nCh, false);
     int i;
     for (i = 0; i < nCh; ++i) {
       SetChannelDesc(i, false, sizeof(double), 0);

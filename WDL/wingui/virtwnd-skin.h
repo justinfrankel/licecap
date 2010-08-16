@@ -7,6 +7,7 @@ typedef struct // if set these override the default virtualwnd styles for this o
 {
   LICE_IBitmap *bgimage;
   int bgimage_lt[2],bgimage_rb[2]; // size of 
+  int bgimage_lt_out[2],bgimage_rb_out[2]; // size of outside area (like shadows)
 } WDL_VirtualWnd_BGCfg;
 
 void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a);

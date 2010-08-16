@@ -41,6 +41,8 @@ void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
   else
     GetClientRect(m_hwnd,&m_orig_rect);
   m_list.Resize(0);
+
+  memset(&m_margins,0,sizeof(m_margins));
 }
 
 
@@ -179,6 +181,9 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
   WDL_WndSizer__rec *rec=(WDL_WndSizer__rec *) ((char *)m_list.Get());
   int cnt=m_list.GetSize() / sizeof(WDL_WndSizer__rec);
 
+  new_rect.right -= m_margins.left+m_margins.right;
+  new_rect.bottom -= m_margins.top+m_margins.bottom;
+
   int x;
   for (x = 0; x < cnt; x ++)
   {
@@ -201,6 +206,12 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
       if (rec->scales[3] <= 0.0) r.bottom = rec->orig.bottom;
       else if (rec->scales[3] >= 1.0) r.bottom = rec->orig.bottom + new_rect.bottom - m_orig_rect.bottom;
       else r.bottom = rec->orig.bottom + (int) ((new_rect.bottom - m_orig_rect.bottom)*rec->scales[3]);
+
+
+      r.left += m_margins.left;
+      r.right += m_margins.left;
+      r.top += m_margins.top;
+      r.bottom += m_margins.top;
 
       if (r.bottom < r.top) r.bottom=r.top;
       if (r.right < r.left) r.right=r.left;

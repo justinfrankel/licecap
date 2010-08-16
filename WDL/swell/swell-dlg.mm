@@ -5,7 +5,7 @@
 #include "swell-dlggen.h"
 
 #import <Cocoa/Cocoa.h>
-static HMENU g_swell_defaultmenu;
+static HMENU g_swell_defaultmenu,g_swell_defaultmenumodal;
 
 void (*SWELL_DDrop_onDragLeave)();
 void (*SWELL_DDrop_onDragOver)(POINT pt);
@@ -546,7 +546,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   else
   {
     int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
-    if (!m_wndproc((HWND)self,WM_KEYDOWN,code,0)) [super keyDown:theEvent];
+    if (m_wndproc((HWND)self,WM_KEYDOWN,code,flag)==69) [super keyDown:theEvent];
   }
 }
 - (void)keyUp:(NSEvent *)theEvent
@@ -557,11 +557,19 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   else
   {
     int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
-    if (!m_wndproc((HWND)self,WM_KEYUP,code,0)) [super keyUp:theEvent];
+    if (m_wndproc((HWND)self,WM_KEYUP,code,flag)==69) [super keyUp:theEvent];
   }
 }
 
+/*
+-(id)_recursiveDisplayAllDirtyWithLockFocus:(BOOL)lf visRect:(NSRect) rc
+{
+// hook drawing of children!
+//  printf("turds\n");
+  return [super _recursiveDisplayAllDirtyWithLockFocus:lf visRect:rc];
+}
 
+*/
 
 -(void) drawRect:(NSRect)rect
 {
@@ -686,7 +694,9 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   int l=0;
   if (msg==WM_MOUSEWHEEL)
   {
-    l=(int) ([theEvent deltaY]*60.0);
+    float dy=[theEvent deltaY];
+    if (!dy) dy=[theEvent deltaX]; // shift+mousewheel sends deltaX instead of deltaY
+    l=(int) (dy*60.0);
     l<<=16;
   }
   
@@ -877,7 +887,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 static HWND last_key_window;
 
 
-#define SWELLDIALOGCOMMONIMPLEMENTS_WND \
+#define SWELLDIALOGCOMMONIMPLEMENTS_WND(ISMODAL) \
 -(BOOL)acceptsFirstResponder { return m_enabled?YES:NO; } \
 - (BOOL)acceptsFirstMouse:(NSEvent *)theEvent {	return m_enabled?YES:NO; } \
 - (void)setFrame:(NSRect)frameRect display:(BOOL)displayFlag \
@@ -929,7 +939,7 @@ static HWND last_key_window;
     HMENU menu=0; \
       if ([[self contentView] respondsToSelector:@selector(swellGetMenu)]) \
         menu = (HMENU) [[self contentView] swellGetMenu]; \
-          if (!menu) menu=g_swell_defaultmenu; \
+          if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
             if (menu && menu != [NSApp mainMenu])  [NSApp setMainMenu:(NSMenu *)menu]; \
   [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc]; \
 } \
@@ -1031,7 +1041,7 @@ static HWND last_key_window;
 
 @implementation SWELL_ModelessWindow : NSWindow
 
-SWELLDIALOGCOMMONIMPLEMENTS_WND
+SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 
 
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask
@@ -1122,7 +1132,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND
 
 @implementation SWELL_ModalDialog : NSPanel
 
-SWELLDIALOGCOMMONIMPLEMENTS_WND
+SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 
 
 
@@ -1177,25 +1187,40 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND
 @end
 
 void EndDialog(HWND wnd, int ret)
-{ 
-  NSWindow *nswnd=(NSWindow *)wnd;
-  if (wnd && ([NSApp modalWindow] == nswnd ||
-              ([nswnd isKindOfClass:[NSView class]] && [NSApp modalWindow] == (nswnd=[(NSView *)nswnd window]))))
+{   
+  if (!wnd) return;
+  
+  NSWindow *nswnd=NULL;
+  NSView *nsview = NULL;
+  if ([(id)wnd isKindOfClass:[NSView class]])
+  {
+    nsview = (NSView *)wnd;
+    nswnd = [nsview window];
+  }
+  else if ([(id)wnd isKindOfClass:[NSWindow class]])
+  {
+    nswnd = (NSWindow *)wnd;
+    nsview = [nswnd contentView];
+  }
+  if (!nswnd) return;
+   
+  if ([NSApp modalWindow] == nswnd)
   {
     if ([nswnd respondsToSelector:@selector(swellSetModalRetVal:)])
        [(SWELL_ModalDialog*)nswnd swellSetModalRetVal:ret];
     
-    if ([(id)wnd respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-      [(SWELL_hwndChild*)wnd onSwellMessage:WM_DESTROY p1:0 p2:0];
+    if ([nsview respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      [(SWELL_hwndChild*)nsview onSwellMessage:WM_DESTROY p1:0 p2:0];
     
     NSEvent *evt=[NSApp currentEvent];
     if (evt && [evt window] == nswnd)
+    {
       [NSApp stopModal];
-    else
-      [NSApp abortModal];
+    }
     
-    if ([nswnd isKindOfClass:[NSWindow class]])
-      [nswnd close];
+    [NSApp abortModal]; // always call this, otherwise if running in runModalForWindow: it can often require another even tto come through before things continue
+    
+    [nswnd close];
   }
 }
 
@@ -1207,7 +1232,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, int resid, HWND parent, 
   SWELL_ModalDialog *box = [[SWELL_ModalDialog alloc] initDialogBox:p Parent:parent dlgProc:dlgproc Param:param];      
      
   if (!box) return -1;
-
+  
   if (![NSApp isActive]) // using this enables better background processing (i.e. if the app isnt active it still runs)
   {
     NSModalSession session = [NSApp beginModalSessionForWindow:box];
@@ -1265,6 +1290,11 @@ HMENU SWELL_GetDefaultWindowMenu() { return g_swell_defaultmenu; }
 void SWELL_SetDefaultWindowMenu(HMENU menu)
 {
   g_swell_defaultmenu=menu;
+}
+HMENU SWELL_GetDefaultModalWindowMenu() { return g_swell_defaultmenumodal; }
+void SWELL_SetDefaultModalWindowMenu(HMENU menu)
+{
+  g_swell_defaultmenumodal=menu;
 }
 
 

@@ -139,7 +139,14 @@ public:
   void PaintBorderForHWND(HWND hwnd, int borderflags);
   void PaintBorderForRect(const RECT *r, int borderflags);
 
-  LICE_SysBitmap *GetBuffer() { return m_bm; }
+  void GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw);
+
+  LICE_SysBitmap *GetBuffer(int *xo, int *yo) 
+  { 
+    *xo = -m_paint_xorig;
+    *yo = -m_paint_yorig;
+    return m_bm; 
+  }
 
   void PaintEnd();
 

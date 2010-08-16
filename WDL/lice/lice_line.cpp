@@ -202,25 +202,40 @@ void LICE_Line(LICE_IBitmap *pDest, float x1, float y1, float x2, float y2, LICE
 
     if (xi1 == xi2) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_VertLine(pDest, xi1, yi1, yi2, color, alpha)
-      __LICE_ACTIONBYMODE(mode, alpha);
+      __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
 #undef __LICE__ACTION
     }
     else
     if (yi1 == yi2) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_HorizLine(pDest, yi1, xi1, xi2, color, alpha)
-      __LICE_ACTIONBYMODE(mode, alpha);
+      __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
 #undef __LICE__ACTION
     }
     else
     if (abs(xi2-xi1) == abs(yi2-yi1)) {
+      if (aa) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_DiagLine(pDest, xi1, yi1, xi2, yi2, color, alpha, aa)
-      __LICE_ACTIONBYMODE(mode, alpha);
+      __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
 #undef __LICE__ACTION
+      }
+      else {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_DiagLine(pDest, xi1, yi1, xi2, yi2, color, alpha, aa)
+      __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
+#undef __LICE__ACTION
+      }
     }
     else {
+      if (aa) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_LineImpl(pDest, xi1, yi1, xi2, yi2, color, alpha, aa)
-			__LICE_ACTIONBYMODE(mode, alpha);
+			__LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
 #undef __LICE__ACTION
+      }
+      else {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_LineImpl(pDest, xi1, yi1, xi2, yi2, color, alpha, aa)
+			__LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
+#undef __LICE__ACTION
+
+      }
 		}
 	}
 }
@@ -237,4 +252,143 @@ bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int 
     *pX2 = (float) (x2 + xLo);
     *pY2 = (float) (y2 + yLo);
     return onscreen;
+}
+
+#include "lice_bezier.h"
+
+#define BEZ_RES 4.0f
+
+// quadratic bezier
+void LICE_DrawBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
+  LICE_pixel color, float alpha, int mode, bool aa)
+{
+  float dx = xctl-xstart, dy = yctl-ystart;
+  int i, n = (int) sqrt(dx*dx+dy*dy);
+  dx = xend-xctl, dy = yend-yctl;
+  n += (int) sqrt(dx*dx+dy*dy);
+  n /= 2;
+  float xprev = xstart, yprev = ystart, x, y;
+  for (i = 1; i < n; ++i) {
+    LICE_Bezier(xstart, xctl, xend, ystart, yctl, yend, (double)i/(double)n, &x, &y);
+    if (fabs(xprev-x) > 1.0f || fabs(yprev-y) > 1.0f) {
+      LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, aa);
+      xprev = x;
+      yprev = y;
+    }
+  }
+  LICE_Line(dest, xprev, yprev, xend, yend, color, alpha, mode, aa);
+}
+
+// cubic bezier
+void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
+  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha, int mode, bool aa)
+{
+
+#if 0
+  // rasterizing costs a binary search per x-pixel, a significant CPU hit over the quick & dirty bez drawing below
+  if (xend < xstart) {
+    SWAP(xstart, xend);
+    SWAP(ystart, yend);
+    SWAP(xctl1, xctl2);
+    SWAP(yctl1, yctl2);
+  }
+  float x, xprev = xstart, yprev = ystart;
+  for (x = xstart; x < xend; x += 2.0f) {
+    float y = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, x);
+    LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, aa);
+    xprev = x;
+    yprev = y;
+  }
+  LICE_Line(dest, xprev, yprev, xend, yend, color, alpha, mode, aa);
+#endif
+
+  float dx = xctl1-xstart, dy = yctl1-ystart;
+  int i, n = (int) sqrt(dx*dx+dy*dy);
+  dx = xctl2-xctl1, dy = yctl2-yctl1;
+  n += (int) sqrt(dx*dx+dy*dy);
+  dx = xend-xctl2, dy = yend-yctl2;
+  n += (int) sqrt(dx*dx+dy*dy);
+  n /= 2;
+  float xprev = xstart, yprev = ystart, x, y;
+  for (i = 1; i < n; ++i) {
+    LICE_CBezier(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, (double)i/(double)n, &x, &y);
+    if (fabs(xprev-x) > 1.0f || fabs(yprev-y) > 1.0f) {
+      LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, aa);
+      xprev = x;
+      yprev = y;
+    }
+  }
+  LICE_Line(dest, xprev, yprev, xend, yend, color, alpha, mode, aa);
+}
+
+void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha, int mode)
+{
+  if (!dest) return;
+  char i0 = 0, i1 = 1, i2 = 2; 
+  int coords[3][2]={{x1,y1},{x2,y2},{x3,y3}};
+  if (coords[0][1] > coords[1][1]) {  i0 = 1; i1 = 0;  } 
+  if (coords[i0][1] > coords[2][1]) { char c=i0; i0=i2; i2=c; }
+  if (coords[i1][1] > coords[i2][1]) { char c=i1; i1=i2; i2=c; }
+
+  int ypos=coords[i0][1];
+  if (ypos > coords[i2][1]) return; // ack no pixels
+  double edge1=coords[i0][0], edge2=edge1, de1,de2;
+
+  int tmp=coords[i2][1]-ypos;
+  if (tmp) de2 = (coords[i2][0]-edge2)/tmp;
+  tmp=coords[i1][1]-ypos;
+  if (tmp) de1=(coords[i1][0]-edge1)/tmp;
+
+  bool swap=coords[i1][0] > coords[i2][0]; // if edge1 (ends sooner) is right of edge2, swap
+
+  int clipheight=dest->getHeight();
+  int clipwidth = dest->getWidth();
+
+  while (ypos < coords[i2][1])
+  {
+    if (ypos == coords[i1][1])
+    {
+      tmp = coords[i2][1]-ypos;
+      if (tmp) de1 = (coords[i2][0]-coords[i1][0])/tmp;
+      edge1=coords[i1][0];
+    }
+
+    if (ypos>=0)
+    {
+      if (ypos >= clipheight) break;
+      double a,b;
+      if (swap) { a=edge2; b=edge1; } else { a=edge1; b=edge2; }
+      int aa=(int) floor(a+0.5);
+      int bb=(int) floor(b+0.5);
+      if (aa<0)aa=0;
+      if (bb>clipwidth) bb=clipwidth;
+      if (aa<clipwidth && bb>=0)
+      {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_HorizLine(dest, ypos, aa, bb, color, alpha)
+      __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
+#undef __LICE__ACTION
+//        LICE_Line(dest,aa,ypos,bb,ypos,color,alpha,mode,false); // lice_line optimizes horz runs anyway
+      }
+    }
+
+    edge1+=de1;
+    edge2+=de2;
+    ypos++;
+  }
+}
+
+
+void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode)
+{
+  LICE_Line(dest, x, y, x+w, y, color, alpha, mode, false);
+  LICE_Line(dest, x+w, y, x+w, y+h, color, alpha, mode, false);
+  LICE_Line(dest, x+w, y+h, x, y+h, color, alpha, mode, false);
+  LICE_Line(dest, x, y+h, x, y, color, alpha, mode, false);
+}
+
+void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel bgcolor, LICE_pixel fgcolor, float alpha, int mode)
+{
+  // could be optimized
+  LICE_FillRect(dest, x+1, y+1, w-1, h-1, bgcolor, alpha, mode);
+  LICE_DrawRect(dest, x, y, w, h, fgcolor, alpha, mode);
 }

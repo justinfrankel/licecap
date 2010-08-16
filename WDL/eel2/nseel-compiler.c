@@ -45,7 +45,7 @@
 #ifdef __ppc__
 
 #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 8
-static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, int v) 
+static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) 
 {   
     	unsigned int uv=(unsigned int)v;
 	unsigned short *p=(unsigned short *)b;
@@ -113,11 +113,12 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
 
 INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
 {
-  INT_PTR *p=(INT_PTR*)_p;
+// todo 64 bit ppc will take some work
+  unsigned int *p=(unsigned int *)_p;
   while ((p[0]&0x0000FFFF) != 0x0000dead && 
          (p[1]&0x0000FFFF) != 0x0000beef) p++;
-  p[0] = (p[0]&0xFFFF0000) | (((INT_PTR)newv)>>16);
-  p[1] = (p[1]&0xFFFF0000) | (((INT_PTR)newv)&0xFFFF);
+  p[0] = (p[0]&0xFFFF0000) | (((unsigned int)newv)>>16);
+  p[1] = (p[1]&0xFFFF0000) | (((unsigned int)newv)&0xFFFF);
 
   return (INT_PTR*)++p;
 }
@@ -155,14 +156,10 @@ static int GLUE_RESET_ESI(unsigned char *out, void *ptr)
 #ifdef _WIN64
   if (out)
   {
-	*out++ = 0x48;
+	  *out++ = 0x48;
     *out++ = 0xBE; // mov rsi, constant64
-	*(void **)out = ptr;
+  	*(void **)out = ptr;
     out+=sizeof(void *);
-
-//	*out++ = 0x48;
-  //  *out++ = 0x8B; // mov rsi, [rsi]
-    //*out++ = 0x36; 
   }
   return 2+sizeof(void *);
 #else
@@ -171,12 +168,8 @@ static int GLUE_RESET_ESI(unsigned char *out, void *ptr)
     *out++ = 0xBE; // mov esi, constant
     memcpy(out,&ptr,sizeof(void *));
     out+=sizeof(void *);
-
-	// this seems extraneous! but necessary?!
-    *out++ = 0x34; 
-    *out++ = 0x8B; // mov si, [si]
   }
-  return 3+sizeof(void *);
+  return 1+sizeof(void *);
 #endif
 }
 
@@ -232,8 +225,18 @@ INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 {
 #ifdef _MSC_VER
+
+  unsigned char *p;
+
+#ifdef _DEBUG
+  if (*(unsigned char *)fn == 0xE9) // this means jump to the following address
+  {
+    fn = ((unsigned char *)fn) + *(int *)((char *)fn+1) + 5;
+  }
+#endif
+
   // this may not work in debug mode
-  unsigned char *p=(unsigned char *)fn;
+  p=(unsigned char *)fn;
   for (;;)
   {
     int a;

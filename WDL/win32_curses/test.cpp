@@ -7,7 +7,9 @@ win32CursesCtx g_curses_context; // we only need the one instance
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
   g_curses_context.want_getch_runmsgpump = 1;  // non-block
-  g_curses_context.window_title = "win32cursestestapp";
+
+  curses_registerChildClass(hInstance);
+  curses_CreateWindow(hInstance,&g_curses_context,"Sample Test App");
 #else
 int main() {
 #endif
@@ -63,6 +65,11 @@ int main() {
   erase();
   refresh();
   endwin();
+
+#ifdef _WIN32
+  if (g_curses_context.m_hwnd) DestroyWindow(g_curses_context.m_hwnd);
+  curses_unregisterChildClass(hInstance);
+#endif
 
   return 0;
 

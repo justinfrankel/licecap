@@ -1,3 +1,34 @@
+2008-10-30: Wndsizer: margin support
+2008-10-30: Virtwnd: now uses LICE almost exclusively to draw controls
+2008-10-30: Added Plush2: a port of the old 8bpp 3D rendering engine to a C++, 24 bit, LICE-combining multitexture capable colored lighting rendering engine 
+2008-10-27: Added LICE_FillTriangle(), LICE_HalveBlitAA(), fixed bug in LICE_StretchedBlit()
+2008-10-26: Added iplug, a VST/AU plug-in framework
+2008-10-26: LICE: LICE_SubBitmap for easy clipped rendering
+2008-10-21: LICE: Added LICE_DrawRect(), LICE_DrawGlyph(), fast tiny circle drawing (glyph based), optimizations to internals
+2008-10-20: LICE: Added LICE_IFont and LICE_CachedFont() for quick drawing and drawing to non-sysbitmaps. Also has certain useful other effects.
+2008-10-20: LICE: Added LICE_DrawBezier
+2008-10-20: Virtwnd: item backgrounds can now specify (with 255,255,0,255) outside-areas for some controls
+2008-10-13: Added mergesort.h
+2008-10-10: Added fast sinewave genereator (sinewavegen.h)
+2008-10-10: SWELL: Keyboard fixes
+2008-10-09: SWELL: Changed the way ScrollWindow() is implemented (scrolls children)
+2008-10-09: Virtwnd: fixes for large canvas drawing
+2008-10-05: Tweaks all around to reduce memory use (WDL_String gets WDL_HeapBuf granularity options etc in constructor)
+2008-09-29: SWELL: Fixed MK_* VK_* bugs
+2008-09-22: Win32_Curses updates, better OS X compatability, block cursor
+2008-09-20: SWELL: ShowWindow(SW_HIDE) DestroyWindow() deal with focus better now
+2008-09-17: Virtwnd: support for querying painter info, etc
+2008-09-08: audiobuffercontainer fixes, optimizations
+2008-09-06: Virtwnd sliders can optionally always send notifications on first click
+2008-08-31: Overhauled pooling classes to be more general and reusable
+2008-08-30: SWELL: Improved EndDialog() processing
+2008-08-29: SWELL: Default menu for windows, modal windows
+2008-08-28: SWELL: made GDI pooling threadsafe (Rosetta on 10.5 requires it)
+2008-08-28: SWELL: fixed shift+mousewheel being sent correctly
+2008-08-15: Fixed issues with Vorbis encoding-EOF-ness for NINJAM, added Vorbis comment support
+2008-07-30: Cleaned up WDL_Queue's endian-converting functions
+2008-07-28: Fixed WDL_String::Ellipsize()
+2008-07-28: Added EEL2, a fast expression evaluator/code compiler that supports x86, x64 and PPC, MSVC and GCC.
 2008-07-27: SWELL: fixed an issue with OS X hanging on fractional window positions
 2008-07-22: Added WDL_String::Ellipsize()
 2008-07-20: Win64 compatability, wdl_types.h has GetClassLongPtr() etc defines for MSVC6/OSX

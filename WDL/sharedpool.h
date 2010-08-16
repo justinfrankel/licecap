@@ -46,8 +46,9 @@ template<class OBJ> class WDL_SharedPool
     {
       if (obj && n)
       {
-        m_list.Add(new Ent(obj,n));
-        qsort(m_list.GetList(),m_list.GetSize(),sizeof(void*),_sortfunc);
+        int x;
+        for(x=0;x<m_list.GetSize();x++) if (stricmp(m_list.Get(x)->name,n)>0) break;
+        m_list.Insert(x,new Ent(obj,n));
       }
     }
 

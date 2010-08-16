@@ -28,6 +28,7 @@
 #include "virtwnd.h"
 #include "virtwnd-skin.h"
 
+#include "../lice/lice_text.h"
 
 // an app should implement these
 extern int WDL_STYLE_WantGlobalButtonBorders();
@@ -40,7 +41,7 @@ extern bool WDL_Style_WantTextShadows(int *col);
 extern bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope); // return values 0.0-1.0 for each, return false if no gradient desired
 
 // for slider
-extern HBITMAP WDL_STYLE_GetSliderBitmap(bool vert, int *w, int *h);
+extern LICE_IBitmap *WDL_STYLE_GetSliderBitmap2(bool vert);
 extern bool WDL_STYLE_AllowSliderMouseWheel();
 extern int WDL_STYLE_GetSliderDynamicCenterPos();
 
@@ -75,7 +76,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void SetForceBorder(bool fb) { m_forceborder=fb; }
 
     // only used if no icon config set
-    void SetTextLabel(const char *text, char align=0, HFONT font=NULL);
+    void SetTextLabel(const char *text, char align=0, LICE_IFont *font=NULL);
     void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked
     char GetCheckState() { return m_checkstate; }
     
@@ -90,7 +91,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     char m_checkstate;
 
     WDL_String m_textlbl;
-    HFONT m_textfont;
+    LICE_IFont *m_textfont;
 };
 
 
@@ -102,7 +103,8 @@ class WDL_VirtualStaticText : public WDL_VWnd
     ~WDL_VirtualStaticText();
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetFont(HFONT *font) { m_font=font; }
+    void SetFont(LICE_IFont *font) { m_font=font; }
+    LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetText(const char *text);
     void SetBorder(bool bor) { m_wantborder=bor; }
@@ -122,7 +124,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     int m_margin_r, m_margin_l;
     bool m_wantborder;
     bool m_wantsingle;
-    HFONT *m_font;
+    LICE_IFont *m_font;
     WDL_String m_text;
 };
 
@@ -132,7 +134,8 @@ class WDL_VirtualComboBox : public WDL_VWnd
     WDL_VirtualComboBox();
     ~WDL_VirtualComboBox();
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetFont(HFONT *font) { m_font=font; }
+    void SetFont(LICE_IFont *font) { m_font=font; }
+    LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
 
     int GetCurSel() { if (m_items.Get(m_curitem)) return m_curitem; return -1; }
@@ -150,7 +153,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
   private:
     int m_align;
     int m_curitem;
-    HFONT *m_font;
+    LICE_IFont *m_font;
 
     WDL_PtrList<char> m_items;
     WDL_PtrList<void> m_itemdatas;
@@ -171,6 +174,9 @@ class WDL_VirtualSlider : public WDL_VWnd
     int GetSliderPosition();
     void SetSliderPosition(int pos);
     bool GetIsVert();
+    void SetNotifyOnClick(bool en) { m_sendmsgonclick=en; }
+
+    void GetButtonSize(int *w, int *h);
 
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
@@ -196,6 +202,7 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     bool m_captured;
     bool m_needflush;
+    bool m_sendmsgonclick;
     
 };
 
@@ -206,7 +213,8 @@ class WDL_VirtualListBox : public WDL_VWnd
     WDL_VirtualListBox();
     ~WDL_VirtualListBox();
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetFont(HFONT *font) { m_font=font; }
+    void SetFont(LICE_IFont *font) { m_font=font; }
+    LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetRowHeight(int rh) { m_rh=rh; }
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
@@ -235,7 +243,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_align;
     int m_margin_r, m_margin_l;
     int m_rh;
-    HFONT *m_font;
+    LICE_IFont *m_font;
 };
 
 

@@ -440,6 +440,7 @@ typedef struct
   LONG tmAscent; 
   LONG tmDescent; 
   LONG tmInternalLeading; 
+  LONG tmAveCharWidth;
   // todo: implement rest
 } TEXTMETRIC;
 
@@ -988,7 +989,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define VK_NUMLOCK        0x90
 
 #define MK_LBUTTON        0x01
-#define MK_RBUTTON        0x20
+#define MK_RBUTTON        0x02
 #define MK_MBUTTON        0x10
 
 
@@ -1699,6 +1700,8 @@ SWELL_API_DEFINE(HMENU, GetMenu,(HWND hwnd))
 */
 SWELL_API_DEFINE(HMENU, SWELL_GetDefaultWindowMenu,())
 SWELL_API_DEFINE(void, SWELL_SetDefaultWindowMenu,(HMENU))
+SWELL_API_DEFINE(HMENU, SWELL_GetDefaultModalWindowMenu,())
+SWELL_API_DEFINE(void, SWELL_SetDefaultModalWindowMenu,(HMENU))
 
 
 

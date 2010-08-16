@@ -230,7 +230,7 @@ public:
 @interface SWELL_ThreadTmp : NSObject
 {
 }
--(void)bla;
+-(void)bla:(id)obj;
 @end
 
 

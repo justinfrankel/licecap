@@ -26,7 +26,6 @@
 #include <ctype.h>
 #include "ns-eel-int.h"
 
-#define NSEEL_VARS_PER_BLOCK 64
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 #define NSEEL_GLOBALVAR_BASE (1<<24)
 

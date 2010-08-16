@@ -6,19 +6,20 @@
 */
 
 #include "../lice.h"
+#include "../../plush2/plush.h"
 #include <math.h>
 #include <stdio.h>
 
 #include "resource.h"
 
-#define NUM_EFFECTS 17
+#define NUM_EFFECTS 18
 
 HINSTANCE g_hInstance;
 LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_SysBitmap *framebuffer;
-static int m_effect = 0;
+static int m_effect = 17;
 static int m_doeff = 0;
 
 static DWORD m_start_time, m_frame_cnt;
@@ -47,6 +48,127 @@ static void DoPaint(HWND hwndDlg)
   
   switch(m_effect)
   {
+    case 17:
+      {
+        static pl_Obj *obj=NULL,*obj2=NULL;
+        if (!obj)
+        {
+          pl_Mat *mat = new pl_Mat;
+          pl_Mat *mat2 = new pl_Mat;
+
+          mat2->Smoothing=false;
+          mat2->Ambient[0]=mat2->Ambient[1]=mat2->Ambient[2]=0.0;
+          mat2->Diffuse[0]=mat2->Diffuse[1]=0.6;
+          mat2->Diffuse[2]=1.0;
+
+          mat->Ambient[0]=mat->Ambient[1]=mat->Ambient[2]=0.0;
+          mat->Diffuse[0]=mat->Diffuse[1]=1.9;
+          mat->Diffuse[2]=0.4;
+
+          mat->PerspectiveCorrect=16;
+          mat->SolidCombineMode=LICE_BLIT_MODE_COPY;
+          mat->SolidOpacity=1.0;
+          mat->Smoothing=true;
+          mat->Lightable=true;
+          //mat->FadeDist = 300.0;
+
+          mat2->Texture=bmp;
+          mat2->TexOpacity=0.5;
+          mat2->TexCombineMode=LICE_BLIT_MODE_MUL|LICE_BLIT_FILTER_BILINEAR;
+          mat2->SolidOpacity=0.4;
+          mat2->BackfaceCull=false;
+          mat2->BackfaceIllumination=1.0;
+
+          mat->Texture=bmp;
+          LICE_TexGen_Marble(mat->Texture = new LICE_MemBitmap(r.right,r.bottom),NULL,0.3,0.4,0.0,1.0f);
+
+          mat->TexOpacity=0.5;
+          mat->TexScaling[0]=mat->TexScaling[1]=3.0;
+          mat->TexCombineMode=LICE_BLIT_MODE_MUL|LICE_BLIT_FILTER_BILINEAR;
+
+          LICE_TexGen_Noise(mat->Texture2 = new LICE_MemBitmap(r.right,r.bottom),NULL,0.3,0.4,0.0,1.0f);
+        //  mat->Texture2=icon;
+          mat->Tex2MapIdx=-1;
+          mat->Tex2CombineMode=LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR;
+          mat->Tex2Opacity=0.8;
+          mat->Tex2Scaling[0]=2.0;
+          mat->Tex2Scaling[1]=-2.0;
+
+          mat->BackfaceCull=true;
+          mat->BackfaceIllumination=0.0;
+
+          obj=plMakeTorus(100.0,80.0,40,40,mat);          
+
+          int x;
+          if (0)for(x=1;x<3;x++)
+          {
+            pl_Obj *no = obj->Clone();
+            no->Translate(0,40.0,-x*35.0);
+            obj->Children.Add(no);
+            no->Xa += 50.35*x;
+            no->Ya -= 30.13*x;
+          }
+          obj2=plMakeBox(130,130,130,mat2);
+
+          /*pl_Obj *o = plRead3DSObj("c:\\temp\\suzanne.3ds",mat);
+          if (o)
+          {
+            o->Scale(30.0);
+            o->Translate(150.0,0,0);
+            obj->Children.Add(o);
+          }
+          */
+        }
+        obj2->Xa+=0.3;
+        obj2->Ya+=-0.1;
+        obj->Ya+=0.1;
+        obj->Xa+=0.1;
+        obj->Za+=0.1;
+        obj->GenMatrix=true;
+
+        if (1) LICE_Clear(framebuffer,0);
+        else {
+          double a=GetTickCount()/1000.0;
+        
+          double scale=(1.1+sin(a)*0.3);
+      
+          LICE_RotatedBlit(framebuffer,framebuffer,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,254/255.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+        }
+        static pl_Cam cam;
+        LICE_SubBitmap tmpbm(framebuffer,10,10,framebuffer->getWidth()-20,framebuffer->getHeight()-20);
+        //cam.CenterX = (tmpbm.getWidth()/2+80);
+        //cam.CenterY = (tmpbm.getHeight()/2+80);
+        cam.AspectRatio = 1.0;//cam.frameBuffer->getWidth()* 3.0/4.0 / (double)cam.frameBuffer->getHeight();
+        cam.X = cam.Y = 0.0;
+        cam.Z = -200.0;
+        cam.WantZBuffer=true;
+        cam.SetTarget(0,0,0);
+
+        
+
+        static pl_Light light;
+        light.Set(PL_LIGHT_POINT,500.0,0,-900.0,1.3f,0.5f,0.5f,1000.0);
+        static pl_Light light2;
+        light2.Set(PL_LIGHT_POINT,-500.0,0,-700.0,0.0f,1.0f,0.5f,1000.0);
+        cam.ClipBack=220.0;
+
+        cam.Begin(&tmpbm);
+        cam.RenderLight(&light);
+        cam.RenderLight(&light2);
+        cam.RenderObject(obj);
+        cam.SortToCurrent();
+        cam.RenderObject(obj2);
+        cam.End();
+
+        char buf[512];
+        sprintf(buf,"tri: %d->%d->%d, pix=%.0f",
+          cam.RenderTrisIn,
+          cam.RenderTrisCulled,
+          cam.RenderTrisOut,cam.RenderPixelsOut);
+        LICE_DrawText(framebuffer,0,10,buf,LICE_RGBA(255,255,255,255),1.0f,0);
+
+      }
+    break;
     case 15:
     case 0:
     {
@@ -351,7 +473,7 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         wsprintf(buf,"Effect %d",x+1);
         SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_ADDSTRING,0,(LPARAM)buf);
       }
-      SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_SETCURSEL,0,0);
+      SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_SETCURSEL,m_effect,0);
 
       m_start_time=GetTickCount();
       m_frame_cnt=0;

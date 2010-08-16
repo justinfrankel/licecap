@@ -39,7 +39,7 @@
 template<class PTRTYPE> class WDL_PtrList 
 {
   public:
-    WDL_PtrList() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_PtrList"))
+    WDL_PtrList(int defgran=4096) : m_hb(defgran WDL_HEAPBUF_TRACEPARM("WDL_PtrList"))
     {
     }
     ~WDL_PtrList()

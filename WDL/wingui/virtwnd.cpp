@@ -28,7 +28,7 @@
 
 
 #ifdef _WIN32
-#define WIN32_NATIVE_GRADIENT
+//#define WIN32_NATIVE_GRADIENT // manually enable this if you want it
 #endif
 
 WDL_VWnd_Painter::WDL_VWnd_Painter()
@@ -71,16 +71,10 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
     int srch=m_bgbm->bgimage->getHeight();
     if (srcw && srch)
     {
-      int bpos=clipr->bottom;
-//      if (++bpos>wnd_h)bpos=wnd_h; // for some reason drawing the extra line is necessary for some paints on windows
-      int rpos=clipr->right;
-  //    if (rpos+=4>wnd_w)rpos=wnd_w; // for some reason drawing the extra line is necessary for some paints on windows
-      int lpos=clipr->left;
-    //  if (lpos-=4<0) lpos=0;
       WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,-m_paint_xorig,-m_paint_yorig,wnd_w,wnd_h,
-                                  lpos,clipr->top,
-                                  rpos-lpos,
-                                  bpos-clipr->top,
+                                  clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,
+                                  clipr->right-clipr->left,
+                                  clipr->bottom-clipr->top,
                                   1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
 
       if (m_bgbmtintcolor>=0)
@@ -98,7 +92,7 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         float sc3=32.0f;
         float sc4=64.0f*(avg-0.5);
         // tint
-        LICE_MultiplyAddRect(m_bm,lpos,clipr->top,rpos-lpos,bpos-clipr->top,
+        LICE_MultiplyAddRect(m_bm,clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,clipr->right-clipr->left,clipr->bottom-clipr->top,
             sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
             (rv-avg)*sc3+sc4,
             (gv-avg)*sc3+sc4,
@@ -144,11 +138,9 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         if (spos > wnd_h) spos=wnd_h;
         if (clipr->top < spos)
         {
-          RECT tr=m_ps.rcPaint;
-          tr.bottom=spos;
-          HBRUSH b=CreateSolidBrush(bgcolor);
-          FillRect(m_bm->getDC(),&tr,b);
-          DeleteObject(b);
+          LICE_FillRect(m_bm,clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,
+                             clipr->right-clipr->left,spos-clipr->top,
+                             LICE_RGBA_FROMNATIVE(bgcolor,255),1.0f,LICE_BLIT_MODE_COPY);
         }
       }
       else spos=0;
@@ -189,6 +181,8 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
           vert[x].Red = (int) (sr * sc1);
           vert[x].Green = (int) (sg * sc1);
           vert[x].Blue = (int) (sb * sc1);
+          vert[x].x -= m_paint_xorig;
+          vert[x].y -= m_paint_yorig;
 
         }
 
@@ -205,11 +199,9 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         {
 
           int bmh=vert[1].y-vert[0].y;
-          int bmw=clipr->right-clipr->left;
-
           float s=(float) (1.0/(65535.0*bmh));
 
-          LICE_GradRect(m_bm,clipr->left,vert[0].y,bmw,bmh,
+          LICE_GradRect(m_bm,vert[0].x,vert[0].y,clipr->right-clipr->left,bmh,
             vert[0].Red/65535.0f,vert[0].Green/65535.0f,vert[0].Blue/65535.0f,1.0,0,0,0,0,
             (vert[1].Red-vert[0].Red)*s,
             (vert[1].Green-vert[0].Green)*s,
@@ -224,9 +216,10 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
 
   if (needfill)
   {
-    HBRUSH b=CreateSolidBrush(bgcolor);
-    FillRect(m_bm->getDC(),clipr,b);
-    DeleteObject(b);
+    LICE_FillRect(m_bm,clipr->left-m_paint_xorig,
+                       clipr->top-m_paint_yorig,
+                       clipr->right-clipr->left,
+                       clipr->bottom-clipr->top,LICE_RGBA_FROMNATIVE(bgcolor,255),1.0f,LICE_BLIT_MODE_COPY);
   }        
 
 }
@@ -257,6 +250,7 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
       }
       else // alternate large canvas mode 
       {
+        // note: there can be some slight background artifacts in this mode that need to be resolved (REAPER TCP bg bottom line on partial redraw etc)
         m_paint_xorig=m_ps.rcPaint.left;
         m_paint_yorig=m_ps.rcPaint.top;
         wnd_w = m_ps.rcPaint.right-m_ps.rcPaint.left;
@@ -272,12 +266,7 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
         m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
       }
 
-      r=m_ps.rcPaint;
-      r.left-=m_paint_xorig;
-      r.right-=m_paint_xorig;
-      r.top-=m_paint_yorig;
-      r.bottom-=m_paint_yorig;
-      DoPaintBackground(bgcolor,&r, fwnd_w, fwnd_h);
+      DoPaintBackground(bgcolor,&m_ps.rcPaint, fwnd_w, fwnd_h);
     }
   }
 }
@@ -352,6 +341,13 @@ void WDL_VWnd_Painter::PaintEnd()
   m_cur_hwnd=0;
 }
 
+void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
+{
+  if (rclip) *rclip = m_ps.rcPaint;
+  if (xoffsdraw) *xoffsdraw = -m_paint_xorig;
+  if (yoffsdraw) *yoffsdraw = -m_paint_yorig;
+}
+
 void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 {
   RECT tr=m_ps.rcPaint;
@@ -404,53 +400,35 @@ void WDL_VWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
   rrr.right-=m_paint_xorig;
   rrr.top-=m_paint_yorig;
   rrr.bottom-=m_paint_yorig;
-  r=&rrr;
 
+  LICE_pixel pencol = m_GSC?m_GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT);
+  LICE_pixel pencol2 = m_GSC?m_GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW);
+  pencol = LICE_RGBA_FROMNATIVE(pencol,255);
+  pencol2 = LICE_RGBA_FROMNATIVE(pencol2,255);
 
-  HPEN pen=CreatePen(PS_SOLID,0,m_GSC?m_GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT));
-  HPEN pen2=CreatePen(PS_SOLID,0,m_GSC?m_GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW));
-
-  HDC hdc=m_bm->getDC();
   if (borderflags== WDL_VWP_SUNKENBORDER || borderflags == WDL_VWP_SUNKENBORDER_NOTOP)
   {
-    MoveToEx(hdc,r->left-1,r->bottom,NULL);
-    HGDIOBJ o=SelectObject(hdc,pen);
-    LineTo(hdc,r->right,r->bottom);
-    LineTo(hdc,r->right,r->top-1);
-    SelectObject(hdc,pen2);
-    if (borderflags == WDL_VWP_SUNKENBORDER_NOTOP) MoveToEx(hdc,r->left-1,r->top-1,NULL);
-    else LineTo(hdc,r->left-1,r->top-1);
+    LICE_Line(m_bm,rrr.left-1,rrr.bottom,rrr.right,rrr.bottom,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+    LICE_Line(m_bm,rrr.right,rrr.bottom,rrr.right,rrr.top-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
 
-    LineTo(hdc,r->left-1,r->bottom);
-    SelectObject(hdc,o);
+    if (borderflags != WDL_VWP_SUNKENBORDER_NOTOP)
+      LICE_Line(m_bm,rrr.right,rrr.top-1,rrr.left-1,rrr.top-1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
+
+    LICE_Line(m_bm,rrr.left-1,rrr.top-1,rrr.left-1,rrr.bottom,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
   }
   else if (borderflags == WDL_VWP_DIVIDER_VERT) // vertical
   {
-    int left=r->left;
-    HGDIOBJ o=SelectObject(hdc,pen2);
-    MoveToEx(hdc,left,r->top,NULL);
-    LineTo(hdc,left,r->bottom+1);
-    SelectObject(hdc,pen);
-    MoveToEx(hdc,left+1,r->top,NULL);
-    LineTo(hdc,left+1,r->bottom+1);
-    SelectObject(hdc,o);
+    int left=rrr.left;
+
+    LICE_Line(m_bm,left,rrr.top,left,rrr.bottom+1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
+    LICE_Line(m_bm,left+1,rrr.top,left+1,rrr.bottom+1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
   }
   else if (borderflags == WDL_VWP_DIVIDER_HORZ) 
   {
-    int top=r->top+1;
-    HGDIOBJ o=SelectObject(hdc,pen2);
-    MoveToEx(hdc,r->left,top,NULL);
-    LineTo(hdc,r->right+1,top);
-    SelectObject(hdc,pen);
-    MoveToEx(hdc,r->left,top+1,NULL);
-    LineTo(hdc,r->right+1,top+1);
-    SelectObject(hdc,o);
+    int top=rrr.top+1;
+    LICE_Line(m_bm,rrr.left,top,rrr.right+1,top,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
+    LICE_Line(m_bm,rrr.left,top+1,rrr.right+1,top+1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
   }
-
-  DeleteObject(pen);
-  DeleteObject(pen2);
-
-
 }
 
 WDL_VWnd::WDL_VWnd() 
@@ -789,6 +767,7 @@ void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
 {
   if (!a || !a->bgimage) return;
   a->bgimage_lt[0]=a->bgimage_lt[1]=a->bgimage_rb[0]=a->bgimage_rb[1]=0;
+  a->bgimage_lt_out[0]=a->bgimage_lt_out[1]=a->bgimage_rb_out[0]=a->bgimage_rb_out[1]=1;
 
   int w=a->bgimage->getWidth();
   int h=a->bgimage->getHeight();
@@ -805,6 +784,49 @@ void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
     a->bgimage_lt[1] = x;
     for (x = h-2; x > a->bgimage_lt[1]+1 && LICE_GetPixel(a->bgimage,w-1,x)==LICE_RGBA(255,0,255,255); x --);
     a->bgimage_rb[1] = h-1-x;
+  }
+  else if (w>1&&h>1 && LICE_GetPixel(a->bgimage,0,0)==LICE_RGBA(255,255,0,255) &&
+          LICE_GetPixel(a->bgimage,w-1,h-1)==LICE_RGBA(255,255,0,255))
+  {
+    //graphic image contains an outside area
+    int x, x2, x3;
+    for (x = 1, x2 = 0, x3 = 0; x < w; x++)
+    {
+      LICE_pixel p = LICE_GetPixel(a->bgimage,x,0);
+      if(p==LICE_RGBA(255,0,255,255)) x2++;
+      else if(p==LICE_RGBA(255,255,0,255)) x3++;
+      else break;
+    }
+    a->bgimage_lt[0] = x2+1;
+    a->bgimage_lt_out[0] = x3+1;
+    for (x = w-2, x2 = 0, x3 = 0; x > a->bgimage_lt[0]+1; x--)
+    {
+      LICE_pixel p = LICE_GetPixel(a->bgimage,x,h-1);
+      if(p==LICE_RGBA(255,0,255,255)) x2++;
+      else if(p==LICE_RGBA(255,255,0,255)) x3++;
+      else break;
+    }
+    a->bgimage_rb[0] = x2+1;
+    a->bgimage_rb_out[0] = x3+1;
+    
+    for (x = 1, x2 = 0, x3 = 0; x < h;x++)
+    {
+      LICE_pixel p = LICE_GetPixel(a->bgimage,0,x);
+      if(p==LICE_RGBA(255,0,255,255)) x2++;
+      else if(p==LICE_RGBA(255,255,0,255)) x3++;
+      else break;
+    }
+    a->bgimage_lt[1] = x2+1;
+    a->bgimage_lt_out[1] = x3+1;
+    for (x = h-2, x2 = 0, x3 = 0; x > a->bgimage_lt[1]+1; x --)
+    {
+      LICE_pixel p = LICE_GetPixel(a->bgimage,w-1,x);
+      if(p==LICE_RGBA(255,0,255,255)) x2++;
+      else if(p==LICE_RGBA(255,255,0,255)) x3++;
+      else break;
+    }
+    a->bgimage_rb[1] = x2+1;
+    a->bgimage_rb_out[1] = x3+1;
   }
 
 }
@@ -874,6 +896,11 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
   int right_margin=src->bgimage_rb[0];
   int bottom_margin=src->bgimage_rb[1];
 
+  int left_margin_out=src->bgimage_lt_out[0];
+  int top_margin_out=src->bgimage_lt_out[1];
+  int right_margin_out=src->bgimage_rb_out[0];
+  int bottom_margin_out=src->bgimage_rb_out[1];
+
   int sw=src->bgimage->getWidth();
   int sh=src->bgimage->getHeight();
 
@@ -904,6 +931,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
 
   // remove 1px additional margins from calculations
   left_margin--; top_margin--; right_margin--; bottom_margin--;
+  left_margin_out--; top_margin_out--; right_margin_out--; bottom_margin_out--;
 
   if (left_margin+right_margin>destw) 
   { 
@@ -918,9 +946,11 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
     bottom_margin=desth-top_margin; 
   }
 
-  
   int pass;
-  for (pass=0;pass<3; pass++)
+  int nbpass = 3;
+  if (bottom_margin_out) 
+    nbpass = 4;
+  for (pass=0; pass<nbpass; pass++)
   {
     int outy,outh,iny;
     int inh;    
@@ -929,20 +959,26 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
       case 0:
         outy=desty;
         outh=top_margin;
-        iny=1;
+        iny=1+top_margin_out;
         inh=src->bgimage_lt[1]-1;
       break;
       case 1:
         outy=desty+top_margin;
         outh=desth-top_margin-bottom_margin;
-        iny=src->bgimage_lt[1];
-        inh=sh-src->bgimage_lt[1]-src->bgimage_rb[1];
+        iny=src->bgimage_lt[1]+top_margin_out;
+        inh=sh-src->bgimage_lt[1]-src->bgimage_rb[1]-bottom_margin_out;
       break;
       case 2:
         outy=desty+desth-bottom_margin;
         outh=bottom_margin;
-        iny=sh - src->bgimage_rb[1];
+        iny=sh - src->bgimage_rb[1] - bottom_margin_out;
         inh=src->bgimage_rb[1]-1;
+      break;
+      case 3:
+        outy=desty+desth;
+        outh=bottom_margin_out;
+        iny=sh-src->bgimage_rb_out[1];
+        inh=bottom_margin_out;
       break;
     }
     
@@ -952,18 +988,25 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
       // left 
       if (left_margin > 0)
         __VirtClipBlit(clipx,clipy,clipright,clipbottom,dest,src->bgimage,destx,outy,left_margin,outh,
-                             1,iny,src->bgimage_lt[0]-1,inh,alpha,mode);
+                             1+left_margin_out,iny,src->bgimage_lt[0]-1,inh,alpha,mode);
       // center
       __VirtClipBlit(clipx,clipy,clipright,clipbottom,dest,src->bgimage,destx+left_margin,outy,
                               destw-right_margin-left_margin,outh,
-                           src->bgimage_lt[0],iny,
-                           sw-src->bgimage_lt[0]-src->bgimage_rb[0],
+                           src->bgimage_lt[0]+left_margin_out,iny,
+                           sw-src->bgimage_lt[0]-src->bgimage_rb[0]-src->bgimage_rb_out[0],
                            inh,alpha,mode);
       // right
       if (right_margin > 0)
         __VirtClipBlit(clipx,clipy,clipright,clipbottom,dest,src->bgimage,destx+destw-right_margin,outy, right_margin,outh,
-                             sw-src->bgimage_rb[0],iny,
+                             sw-src->bgimage_rb[0]-right_margin_out,iny,
                              src->bgimage_rb[0]-1,inh,alpha,mode); 
+
+      // right outside area
+      if (right_margin_out)
+        __VirtClipBlit(clipright,clipy,clipright+right_margin_out,clipbottom,dest,src->bgimage,destx+destw,outy,right_margin_out,outh,
+          sw-src->bgimage_rb_out[0],iny,
+          right_margin_out,inh,alpha,mode); 
+
     }
   }
 }

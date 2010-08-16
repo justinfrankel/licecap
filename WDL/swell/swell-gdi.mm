@@ -30,6 +30,8 @@
 #include "swell.h"
 #include "swell-internal.h"
 
+#include "../mutex.h"
+
 #define SWELL_NSSTRING_DRAWING 0  // face control works?
 #define SWELL_ATSUI_DRAWING 1 // faster
 
@@ -50,22 +52,35 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
   return color;
 }
 
+static WDL_Mutex m_ctxpool_mutex;
 static WDL_PtrList<GDP_CTX> m_ctxpool; // not threadsafe but fuck it I dont think anything is yet
+
 static GDP_CTX *GDP_CTX_NEW()
 {
   int ni=m_ctxpool.GetSize();
-  GDP_CTX *p=m_ctxpool.Get(ni-1);
-  if (!p) p=(GDP_CTX *)calloc(sizeof(GDP_CTX),1);
-  else
+  GDP_CTX *p=NULL;
+  if (ni>0)
   {
-    m_ctxpool.Delete(ni-1);
-    memset(p,0,sizeof(GDP_CTX));
+    m_ctxpool_mutex.Enter();
+    p=m_ctxpool.Get(ni-1);
+    if (p)
+    { 
+      m_ctxpool.Delete(ni-1);
+      memset(p,0,sizeof(GDP_CTX));
+    }
+    m_ctxpool_mutex.Leave();
   }
+  if (!p) p=(GDP_CTX *)calloc(sizeof(GDP_CTX),1);
   return p;
 }
 static void GDP_CTX_DELETE(GDP_CTX *p)
 {
-  if (p && m_ctxpool.GetSize()<1024) m_ctxpool.Add(p);
+  if (p && m_ctxpool.GetSize()<1024) 
+  {
+    m_ctxpool_mutex.Enter();
+    m_ctxpool.Add(p);
+    m_ctxpool_mutex.Leave();
+  }
   else free(p);
 }
 
@@ -135,22 +150,33 @@ HBRUSH CreateSolidBrush(int col)
   return CreateSolidBrushAlpha(col,1.0f);
 }
 
-static WDL_PtrList<GDP_OBJECT> m_objpool; // not threadsafe but fuck it I dont think anything is yet
+static WDL_PtrList<GDP_OBJECT> m_objpool;
 static GDP_OBJECT *GDP_OBJECT_NEW()
 {
   int ni=m_objpool.GetSize();
-  GDP_OBJECT *p=m_objpool.Get(ni-1);
-  if (!p) p=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
-  else
+  GDP_OBJECT *p=NULL;
+  if (ni>0)
   {
-    m_objpool.Delete(ni-1);
-    memset(p,0,sizeof(GDP_OBJECT));
+    m_ctxpool_mutex.Enter();
+    p=m_objpool.Get(ni-1);
+    if (p)
+    {
+      m_objpool.Delete(ni-1);
+      memset(p,0,sizeof(GDP_OBJECT));
+    }
+    m_ctxpool_mutex.Leave();
   }
+  if (!p) p=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);    
   return p;
 }
 static void GDP_OBJECT_DELETE(GDP_OBJECT *p)
 {
-  if (p && m_objpool.GetSize()<1024) m_objpool.Add(p);
+  if (p && m_objpool.GetSize()<1024) 
+  {
+    m_ctxpool_mutex.Enter();
+    m_objpool.Add(p);
+    m_ctxpool_mutex.Leave();
+  }
   else free(p);
 }
 
@@ -576,6 +602,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmAscent=12;
     tm->tmDescent=4;
     tm->tmHeight=16;
+    tm->tmAveCharWidth = 10;
   }
   if (!ct||!tm) return 0;
   
@@ -597,6 +624,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   tm->tmDescent = (int)ceil(desc);
   tm->tmInternalLeading=(int)(asc - ch);
   tm->tmHeight=(int) ceil(asc+desc+leading);
+  tm->tmAveCharWidth = (int) ceil([curfont boundingRectForFont].size.width);
   
   
   //  tm->tmAscent += tm->tmDescent;
@@ -818,6 +846,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmAscent=12;
     tm->tmDescent=4;
     tm->tmHeight=16;
+    tm->tmAveCharWidth=12;
   }
   if (!ct||!tm||!ct->curfont||!ct->curfont->font_style) return 0;
   
@@ -825,9 +854,11 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   ATSUTextMeasurement ascent=Long2Fix(10);
   ATSUTextMeasurement descent=Long2Fix(3);
   ATSUTextMeasurement leading=Long2Fix(3);
+  ATSUTextMeasurement width =Long2Fix(12);
   ATSUGetAttribute(ct->curfont->font_style,  kATSUAscentTag, sizeof(ATSUTextMeasurement), &ascent,NULL);
   ATSUGetAttribute(ct->curfont->font_style,  kATSUDescentTag, sizeof(ATSUTextMeasurement), &descent,NULL);
   ATSUGetAttribute(ct->curfont->font_style,  kATSULeadingTag, sizeof(ATSUTextMeasurement), &leading,NULL);
+  ATSUGetAttribute(ct->curfont->font_style, kATSULineWidthTag, sizeof(ATSUTextMeasurement),&width,NULL);
   
   float asc=Fix2X(ascent);
   float desc=Fix2X(descent);
@@ -837,6 +868,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   tm->tmDescent = (int)ceil(desc);
   tm->tmInternalLeading=(int)(lead);
   tm->tmHeight=(int) ceil(asc+desc+lead);
+  tm->tmAveCharWidth = (int) (ceil(asc+desc+lead)*0.75); // (int)ceil(Fix2X(width));
   
   return 1;
 }

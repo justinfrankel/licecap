@@ -165,7 +165,7 @@ public:
 	}
 };
 
-template <class COMBFUNC> class LICE_QuadrantChooseer
+template <class COMBFUNC> class LICE_QuadrantChooser
 {
 public:
   static void dq(int quadrant, LICE_IBitmap* dest, float cx, float cy, float r,
@@ -185,8 +185,15 @@ public:
 void LICE_Quadrant(int quadrant, LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa,
 	float minAngle = 0.0f, float maxAngle = _QUADRANGLE)
 {
-#define __LICE__ACTION(COMBFUNC) LICE_QuadrantChooseer<COMBFUNC>::dq(quadrant, dest, cx, cy, r, color, alpha, aa, minAngle, maxAngle)
-	__LICE_ACTIONBYMODE(mode, alpha);
+#define __LICE__ACTION(COMBFUNC) LICE_QuadrantChooser<COMBFUNC>::dq(quadrant, dest, cx, cy, r, color, alpha, aa, minAngle, maxAngle)
+  if (aa)
+  {
+  	__LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
+  }
+  else
+  {
+    __LICE_ACTIONBYMODE_CONSTANTALPHA(mode,alpha);
+  }
 #undef __LICE__ACTION
 }
 
@@ -226,11 +233,136 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
 	}
 	LICE_Quadrant(endQ, dest, cx, cy, r, color, alpha, mode, aa, 0.0f, aHi);
 }
-	
+
+#define A(x) ((LICE_pixel_chan)((x)*255.0+0.5))
+
+static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
+{
+  // fast draw for some small circles 
+  if (r == 2.5f) {
+    if (aa) {
+      LICE_pixel_chan alphas[36] = {
+        A(0.06), A(0.75), A(1.00), A(1.00), A(0.75), A(0.06),
+        A(0.75), A(0.82), A(0.31), A(0.31), A(0.82), A(0.75),
+        A(1.00), A(0.31), A(0.00), A(0.00), A(0.31), A(1.00),
+        A(1.00), A(0.31), A(0.00), A(0.00), A(0.31), A(1.00),
+        A(0.75), A(0.82), A(0.31), A(0.31), A(0.82), A(0.75),
+        A(0.06), A(0.75), A(1.00), A(1.00), A(0.75), A(0.06)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 6, 6, alpha, mode);
+    }
+    else {
+      LICE_pixel_chan alphas[36] = {
+        A(0.00), A(0.00), A(1.00), A(1.00), A(0.00), A(0.00),
+        A(0.00), A(1.00), A(0.00), A(0.00), A(1.00), A(0.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(0.00), A(1.00), A(0.00), A(0.00), A(1.00), A(0.00),
+        A(0.00), A(0.00), A(1.00), A(1.00), A(0.00), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 6, 6, alpha, mode);    
+    }
+    return true;
+  }
+  else if (r == 3.0f) {
+    if (aa) {
+      LICE_pixel_chan alphas[49] = {
+        A(0.00), A(0.56), A(1.00), A(1.00), A(1.00), A(0.56), A(0.00),
+        A(0.56), A(1.00), A(0.38), A(0.25), A(0.38), A(1.00), A(0.56),
+        A(1.00), A(0.44), A(0.00), A(0.00), A(0.00), A(0.44), A(1.00),
+        A(1.00), A(0.19), A(0.00), A(0.00), A(0.00), A(0.19), A(1.00),
+        A(1.00), A(0.44), A(0.00), A(0.00), A(0.00), A(0.44), A(1.00),
+        A(0.56), A(1.00), A(0.38), A(0.25), A(0.38), A(1.00), A(0.56),
+        A(0.00), A(0.56), A(1.00), A(1.00), A(1.00), A(0.56), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 7, 7, alpha, mode);
+    }
+    else {
+      LICE_pixel_chan alphas[49] = {
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00),
+        A(0.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(0.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(0.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(0.00),
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 7, 7, alpha, mode);    
+    }
+    return true;
+  }
+  else if (r == 3.5f) {
+    if (aa) {
+      LICE_pixel_chan alphas[64] = {
+        A(0.00), A(0.31), A(0.87), A(1.00), A(1.00), A(0.87), A(0.31), A(0.00),
+        A(0.31), A(1.00), A(0.69), A(0.25), A(0.25), A(0.69), A(1.00), A(0.31),
+        A(0.87), A(0.69), A(0.00), A(0.00), A(0.00), A(0.00), A(0.69), A(0.87),
+        A(1.00), A(0.25), A(0.00), A(0.00), A(0.00), A(0.00), A(0.25), A(1.00),
+        A(1.00), A(0.25), A(0.00), A(0.00), A(0.00), A(0.00), A(0.25), A(1.00),
+        A(0.87), A(0.69), A(0.00), A(0.00), A(0.00), A(0.00), A(0.69), A(0.87),
+        A(0.31), A(1.00), A(0.69), A(0.25), A(0.25), A(0.69), A(1.00), A(0.31),
+        A(0.00), A(0.31), A(0.87), A(1.00), A(1.00), A(0.87), A(0.31), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 8, 8, alpha, mode);
+    }
+    else {
+      LICE_pixel_chan alphas[64] = {
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00),
+        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
+        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
+        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 8, 8, alpha, mode);
+    }
+    return true;
+  }
+  else if (r == 4.0f) {
+    if (aa) {
+      LICE_pixel_chan alphas[81] = {
+        A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00),
+        A(0.12), A(0.94), A(0.82), A(0.31), A(0.25), A(0.31), A(0.82), A(0.94), A(0.12),
+        A(0.69), A(0.82), A(0.06), A(0.00), A(0.00), A(0.00), A(0.06), A(0.82), A(0.69),
+        A(1.00), A(0.31), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.31), A(1.00),
+        A(1.00), A(0.19), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.19), A(1.00),
+        A(1.00), A(0.31), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.31), A(1.00),
+        A(0.69), A(0.82), A(0.06), A(0.00), A(0.00), A(0.00), A(0.06), A(0.82), A(0.69),
+        A(0.12), A(0.94), A(0.82), A(0.31), A(0.25), A(0.31), A(0.82), A(0.94), A(0.12),
+        A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 9, 9, alpha, mode);
+    }
+    else {
+      LICE_pixel_chan alphas[81] = {
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00),
+        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
+        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
+        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00)
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 9, 9, alpha, mode);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
+  if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa)) {
+    return;
+  }
 	LICE_Arc(dest, cx, cy, r, 0.0f, _CIRCLE, color, alpha, mode, aa);
 }
+
 
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa)

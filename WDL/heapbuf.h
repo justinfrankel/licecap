@@ -125,12 +125,18 @@ class WDL_HeapBuf
                             newsize < m_alloc - (m_granul<<2)))) 
         {
           int granul=newsize/2;
+          int newalloc;
           if (granul < m_granul) granul=m_granul;
-          granul &= ~4095;
-          if (granul< 4096) granul=4096;
-          else if (granul>4*1024*1024) granul=4*1024*1024;
 
-          int newalloc = ((newsize + granul + 96)&~4095)-96;
+          if (m_granul<4096) newalloc=newsize+granul;
+          else
+          {
+            granul &= ~4095;
+            if (granul< 4096) granul=4096;
+            else if (granul>4*1024*1024) granul=4*1024*1024;
+            newalloc = ((newsize + granul + 96)&~4095)-96;
+          }
+         
           if (newalloc < m_mas) newalloc=m_mas;
 
           if (newalloc != m_alloc)

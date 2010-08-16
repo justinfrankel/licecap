@@ -1132,7 +1132,19 @@ void DestroyWindow(HWND hwnd)
     {
       DestroyWindow((HWND)pw);
     }
-    else [(NSView *)pid removeFromSuperview];
+    else 
+    {
+      if (pw && [NSApp keyWindow] == pw)
+      {
+        id foc=[pw firstResponder];
+        if (foc && (foc == pid || IsChild((HWND)pid,(HWND)foc)))
+        {
+          HWND h=GetParent((HWND)pid);
+          if (h) SetFocus(h);
+        }
+      }
+      [(NSView *)pid removeFromSuperview];
+    }
   }
   else if ([pid isKindOfClass:[NSWindow class]])
   {
@@ -2104,7 +2116,19 @@ void ShowWindow(HWND hwnd, int cmd)
       [((NSView *)pid) setHidden:NO];
     break;
     case SW_HIDE:
-      [((NSView *)pid) setHidden:YES];
+      {
+        NSWindow *pw=[pid window];
+        if (pw && [NSApp keyWindow] == pw)
+        {
+          id foc=[pw firstResponder];
+          if (foc && (foc == pid || IsChild((HWND)pid,(HWND)foc)))
+          {
+            HWND h=GetParent((HWND)pid);
+            if (h) SetFocus(h);
+          }
+        }
+        [((NSView *)pid) setHidden:YES];
+      }
     break;
   }
   
@@ -3595,6 +3619,7 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   {
     return HTCLIENT;
   }
+  else if (msg==WM_KEYDOWN || msg==WM_KEYUP) return 69;
   return 0;
 }
 
@@ -4073,11 +4098,31 @@ BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT 
 
   if (!xamt && !yamt) return FALSE;
   
-  NSRect r=[(id)hwnd bounds];
-  r.origin.x -= xamt;
-  r.origin.y -= yamt;
-  [(id)hwnd setBoundsOrigin:r.origin];
-  [(id)hwnd setNeedsDisplay:YES];
+  // move child windows only
+  if (1)
+  {
+    if (xamt || yamt)
+    {
+      NSArray *ar=[(NSView*)hwnd subviews];
+      int i,c=[ar count];
+      for(i=0;i<c;i++)
+      {
+        NSView *v=(NSView *)[ar objectAtIndex:i];
+        NSRect r=[v frame];
+        r.origin.x+=xamt;
+        r.origin.y+=yamt;
+        [v setFrame:r];
+      }
+    }
+  }
+  else
+  {
+    NSRect r=[(NSView*)hwnd bounds];
+    r.origin.x -= xamt;
+    r.origin.y -= yamt;
+    [(id)hwnd setBoundsOrigin:r.origin];
+    [(id)hwnd setNeedsDisplay:YES];
+  }
   return TRUE;
 }
 
@@ -4461,7 +4506,7 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
 }
 
 @implementation SWELL_ThreadTmp
--(void)bla
+-(void)bla:(id)obj
 {
   [NSThread exit];
 }
@@ -4476,8 +4521,8 @@ void SWELL_EnsureMultithreadedCocoa()
     if (![NSThread isMultiThreaded]) // force cocoa into multithreaded mode
     {
       SWELL_ThreadTmp *t=[[SWELL_ThreadTmp alloc] init]; 
-      [NSThread detachNewThreadSelector:@selector(bla) toTarget:t withObject:t];
-      [t release];
+      [NSThread detachNewThreadSelector:@selector(bla:) toTarget:t withObject:t];
+///      [t release];
     }
   }
 }
@@ -4508,6 +4553,59 @@ void SWELL_QuitAutoRelease(void *p)
 -(void)dealloc { delete m_ids; [super dealloc];  }
 @end
 
+
+
+
+bool SWELL_HandleMouseEvent(NSEvent *evt)
+{
+  int etype = [evt type];
+  if (GetCapture()) return false;
+  if (etype >= NSLeftMouseDown && etype <= NSRightMouseDragged)
+  {
+  }
+  else return false;
+  
+  NSWindow *w = [evt window];
+  if (w)
+  {
+    NSView *cview = [w contentView];
+    NSView *besthit=NULL;
+    if (cview)
+    {
+      NSPoint lpt = [evt locationInWindow];    
+      NSView *hitv=[cview hitTest:lpt];
+      lpt = [w convertBaseToScreen:lpt];
+      
+      int xpos=(int)(lpt.x+0.5);
+      int ypos=(int)(lpt.y+0.5);
+      
+      while (hitv)
+      {
+        if ([hitv respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+        {
+          int ht=(int) [(SWELL_hwndChild*)hitv onSwellMessage:WM_NCHITTEST p1:0 p2:MAKELPARAM(xpos,ypos)];
+          if (ht && ht != HTCLIENT) besthit=hitv;
+        }
+        if (hitv==cview) break;
+        hitv = [hitv superview];
+      }
+    }
+    if (besthit)
+    {
+      if (etype == NSLeftMouseDown) [besthit mouseDown:evt];
+      else if (etype == NSLeftMouseUp) [besthit mouseUp:evt];
+      else if (etype == NSLeftMouseDragged) [besthit mouseDragged:evt];
+      else if (etype == NSRightMouseDown) [besthit rightMouseDown:evt];
+      else if (etype == NSRightMouseUp) [besthit rightMouseUp:evt];
+      else if (etype == NSRightMouseDragged) [besthit rightMouseDragged:evt];
+      else if (etype == NSMouseMoved) [besthit mouseMoved:evt];
+      else return false;
+      
+      return true;
+    }
+  }
+  return false;
+}
 
 
 #endif
