@@ -139,6 +139,22 @@ template<class COMBFUNC> class _LICE_Template_Blit
         dest+=dest_span;
       }
     }
+    static void solidBlit(LICE_pixel_chan *dest, int w, int h, 
+                         int ir, int ig, int ib, int ia,
+                         int dest_span)
+    {
+      while (h--)
+      {
+        LICE_pixel_chan *pout=dest;
+        int n=w;
+        while (n--)
+        {
+          COMBFUNC::doPix(pout,ir,ig,ib,ia,ia);          
+          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+        }
+        dest+=dest_span;
+      }
+    }
 
     static void deltaBlit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
                           double srcx, double srcy, double dsdx, double dtdx, double dsdy, double dtdy,
@@ -413,6 +429,12 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
 }
 
 
+void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch, float alpha, int mode)
+{
+  RECT r={srcx,srcy,srcx+srcw,srcy+srch};
+  LICE_Blit(dest,src,dstx,dsty,&r,alpha,mode);
+}
+
 void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *srcrect, float alpha, int mode)
 {
   if (!dest || !src) return;
@@ -498,7 +520,121 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
   }
 }
 
+void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch) // src and dest can overlap, however it may look fudgy if they do
+{
+  if (!dest || !src) return;
 
+  RECT sr={srcx,srcy,srcx+srcw,srcy+srch};
+  if (sr.left < 0) sr.left=0;
+  if (sr.top < 0) sr.top=0;
+  if (sr.right > src->getWidth()) sr.right=src->getWidth();
+  if (sr.bottom > src->getHeight()) sr.bottom = src->getHeight();
+
+  // clip to output
+  if (dstx < 0) { sr.left -= dstx; dstx=0; }
+  if (dsty < 0) { sr.top -= dsty; dsty=0; }  
+  if (dstx+sr.right-sr.left > dest->getWidth()) sr.right = sr.left + (dest->getWidth()-dstx);
+  if (dsty+sr.bottom-sr.top > dest->getHeight()) sr.bottom = sr.top + (dest->getHeight()-dsty);
+
+  // ignore blits that are smaller than 2x2
+  if (sr.right <= sr.left+1 || sr.bottom <= sr.top+1) return;
+
+  int dest_span=dest->getRowSpan();
+  int src_span=src->getRowSpan();
+  LICE_pixel *psrc = (LICE_pixel *)src->getBits();
+  LICE_pixel *pdest = (LICE_pixel *)dest->getBits();
+  if (!psrc || !pdest) return;
+
+  if (src->isFlipped())
+  {
+    psrc += (src->getHeight()-sr.top - 1)*src_span;
+    src_span=-src_span;
+  }
+  else psrc += sr.top*src_span;
+  psrc += sr.left;
+
+  if (dest->isFlipped())
+  {
+    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    dest_span=-dest_span;
+  }
+  else pdest += dsty*dest_span;
+  pdest+=dstx;
+
+  LICE_pixel *tmpbuf=NULL;
+  int w=sr.right-sr.left;  
+
+  // buffer to save the last unprocessed lines for the cases where blurring from a bitmap to itself
+  LICE_pixel turdbuf[2048];
+  if (src==dest)
+  {
+    if (w <= sizeof(turdbuf)/sizeof(turdbuf[0])/2) tmpbuf=turdbuf;
+    else tmpbuf=(LICE_pixel*)malloc(w*2*sizeof(LICE_pixel));
+  }
+
+  int i;
+  for (i = sr.top; i < sr.bottom; i ++)
+  {
+    if (tmpbuf)
+      memcpy(tmpbuf+((i&1)?w:0),psrc,w*sizeof(LICE_pixel));
+
+    if (i==sr.top || i==sr.bottom-1)
+    {
+      LICE_pixel *psrc2=psrc+(i==sr.top ? src_span : -src_span);
+
+      LICE_pixel lp;
+
+      pdest[0] = LICE_PIXEL_HALF(lp=psrc[0]) + 
+                 LICE_PIXEL_QUARTER(psrc[1]) + 
+                 LICE_PIXEL_QUARTER(psrc2[0]);
+      int x;
+      for (x = 1; x < w-1; x ++)
+      {
+        LICE_pixel tp;
+        pdest[x] = LICE_PIXEL_HALF(tp=psrc[x]) + 
+                   LICE_PIXEL_QUARTER(psrc2[x]) + 
+                   LICE_PIXEL_EIGHTH(psrc[x+1]) +
+                   LICE_PIXEL_EIGHTH(lp);
+        lp=tp;
+      }
+      pdest[x] = LICE_PIXEL_HALF(psrc[x]) + 
+                   LICE_PIXEL_QUARTER(lp) + 
+                   LICE_PIXEL_QUARTER(psrc2[x]);
+    }
+    else
+    {
+      LICE_pixel *psrc2=psrc-src_span;
+      LICE_pixel *psrc3=psrc+src_span;
+      if (tmpbuf)
+        psrc2=tmpbuf + ((i&1) ? 0 : w);
+
+      LICE_pixel lp;
+      pdest[0] = LICE_PIXEL_HALF(lp=psrc[0]) + 
+                 LICE_PIXEL_QUARTER(psrc[1]) +
+                 LICE_PIXEL_EIGHTH(psrc2[0]) +
+                 LICE_PIXEL_EIGHTH(psrc3[0]);
+      int x;
+      for (x = 1; x < w-1; x ++)
+      {
+        LICE_pixel tp;
+        pdest[x] = LICE_PIXEL_HALF(tp=psrc[x]) +
+                   LICE_PIXEL_EIGHTH(psrc[x+1]) +
+                   LICE_PIXEL_EIGHTH(lp) +
+                   LICE_PIXEL_EIGHTH(psrc2[x]) + 
+                   LICE_PIXEL_EIGHTH(psrc3[x]);
+        lp=tp;
+      }
+      pdest[x] = LICE_PIXEL_HALF(psrc[x]) + 
+                 LICE_PIXEL_QUARTER(lp) + 
+                 LICE_PIXEL_EIGHTH(psrc2[x]) +
+                 LICE_PIXEL_EIGHTH(psrc3[x]);
+    }
+    pdest+=dest_span;
+    psrc += src_span;
+  }
+  if (tmpbuf && tmpbuf != turdbuf)
+    free(tmpbuf);
+}
 
 void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
                      int dstx, int dsty, int dstw, int dsth, 
@@ -822,6 +958,31 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
     }
     p+=sp-w;
   }
+}
+
+void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode)
+{
+  if (!dest) return;
+  LICE_pixel *p=dest->getBits();
+
+  if (x<0) { w+=x; x=0; }
+  if (y<0) { h+=y; y=0; }
+  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
+  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
+
+  int sp=dest->getRowSpan();
+  if (!p || w<1 || h<1 || sp<1) return;
+
+  if (dest->isFlipped())
+  {
+    p+=(dest->getHeight() - y - h)*sp;
+  }
+  else p+=sp*y;
+
+  p += x;
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),(int)(alpha*255.0),sp*sizeof(LICE_pixel))
+    __LICE_ACTIONBYMODE_NOALPHA(mode);
+#undef __LICE__ACTION
 }
 
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask, LICE_pixel orbits)

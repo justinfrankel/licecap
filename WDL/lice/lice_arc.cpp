@@ -130,13 +130,13 @@ public:
 			else drawFunc = &LICE_QuadrantHandler<COMBFUNC>::Pix_noAA_Safe;
 		}
 
-		float oct = r/_SQRT_2;
+		float oct = r/(float)_SQRT_2;
 		int xi1, yi1, xi2, yi2;
 		float x, y, z, w, wPrev = 0.0f;
 		float xMid = __min(xHi-1.0f, oct);
 		for (x = xLo, y = yHi; x <= xMid; x += 1.0f) {
-			z = sqrt(r2-x*x);
-			w = ceil(z)-z;
+			z = (float)sqrt(r2-x*x);
+			w = (float)ceil(z)-z;
 			if (w < wPrev) {
 				y -= 1.0f;
 			}
@@ -148,8 +148,8 @@ public:
 		wPrev = 0.0f;
 		float yMid = __min(yHi-1.0f, oct);
 		for (y = yLo, x = xHi; y <= yMid; y += 1.0f) {
-			z = sqrt(r2-y*y);
-			w = ceil(z)-z;
+			z = (float)sqrt(r2-y*y);
+			w = (float)ceil(z)-z;
 			if (w < wPrev) {
 				x -= 1.0f;
 			}

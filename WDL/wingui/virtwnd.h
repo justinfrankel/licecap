@@ -245,7 +245,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(HFONT font) { m_font=font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
-    void SetText(const char *text) { m_text.Set(text); if (m_font) RequestRedraw(NULL); }
+    void SetText(const char *text);
     void SetBorder(bool bor) { m_wantborder=bor; }
     const char *GetText() { return m_text.Get(); }
     void SetColor(int fg=-1, int bg=-1) { m_fg=fg; m_bg=bg; }

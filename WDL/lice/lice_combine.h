@@ -3,6 +3,13 @@
 
 #define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
 
+
+#define LICE_PIXEL_HALF(x) (((x)>>1)&0x7F7F7F7F)
+#define LICE_PIXEL_QUARTER(x) (((x)>>2)&0x3F3F3F3F)
+#define LICE_PIXEL_EIGHTH(x) (((x)>>3)&0x1F1F1F1F)
+
+
+
 #ifdef _MSC_VER
 static inline int __LICE_TOINT(double x) // don't use this _everywhere_ since it doesnt round the same as (int)
 {
@@ -125,6 +132,45 @@ public:
   }
 };
 
+
+class _LICE_CombinePixelsColorDodge
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+      int src_r = 255-r*alpha/256;
+      int src_g = 255-g*alpha/256;
+      int src_b = 255-b*alpha/256;
+      int src_a = 255-a*alpha/256;
+
+      _LICE_MakePixel(dest,
+        src_r > 1 ? 256*dest[LICE_PIXEL_R] / src_r : 256*dest[LICE_PIXEL_R],
+        src_g > 1 ? 256*dest[LICE_PIXEL_G] / src_g : 256*dest[LICE_PIXEL_G],
+        src_b > 1 ? 256*dest[LICE_PIXEL_B] / src_b : 256*dest[LICE_PIXEL_B],
+        src_a > 1 ? 256*dest[LICE_PIXEL_A] / src_a : 256*dest[LICE_PIXEL_A]);
+  }
+};
+
+class _LICE_CombinePixelsColorDodgeSourceAlpha
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+      alpha=(alpha*a)/256;
+      int src_r = 255-r*alpha/256;
+      int src_g = 255-g*alpha/256;
+      int src_b = 255-b*alpha/256;
+      int src_a = 255-a*alpha/256;
+
+      _LICE_MakePixel(dest,
+        src_r > 1 ? 256*dest[LICE_PIXEL_R] / src_r : 256*dest[LICE_PIXEL_R],
+        src_g > 1 ? 256*dest[LICE_PIXEL_G] / src_g : 256*dest[LICE_PIXEL_G],
+        src_b > 1 ? 256*dest[LICE_PIXEL_B] / src_b : 256*dest[LICE_PIXEL_B],
+        src_a > 1 ? 256*dest[LICE_PIXEL_A] / src_a : 256*dest[LICE_PIXEL_A]);
+  }
+};
+
+
 //#define __LICE__ACTION(comb) templateclass<comb>::function(parameters)
 //__LICE_ACTIONBYMODE(mode,alpha);
 //#undef __LICE__ACTION
@@ -142,6 +188,12 @@ public:
         if ((alpha)!=0.0) { \
           if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsAddSourceAlpha);  \
           else __LICE__ACTION(_LICE_CombinePixelsAdd);  \
+        } \
+      break;  \
+      case LICE_BLIT_MODE_DODGE: \
+        if ((alpha)!=0.0) { \
+          if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsColorDodgeSourceAlpha); \
+          else __LICE__ACTION(_LICE_CombinePixelsColorDodge); \
         } \
       break;  \
     }

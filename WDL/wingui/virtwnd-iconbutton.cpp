@@ -383,6 +383,15 @@ WDL_VirtualStaticText::~WDL_VirtualStaticText()
 {
 }
 
+void WDL_VirtualStaticText::SetText(const char *text) 
+{ 
+  if (strcmp(m_text.Get(),text))
+  {
+    m_text.Set(text); 
+    if (m_font) RequestRedraw(NULL); 
+  }
+}
+
 bool WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 {
   if (m_wantsingle)
@@ -410,6 +419,33 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       r.bottom-r.top,
       0.0f,0.0f,(float)bm->getWidth(),(float)bm->getHeight(),1.0f,
       LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
+
+#if 0
+    if (m_bg!=-1 && m_bg!=RGB(255,255,255) && bm->getWidth() && bm->getHeight()) 
+    {
+        float rv=GetRValue(m_bg)/255.0;
+        float gv=GetGValue(m_bg)/255.0;
+        float bv=GetBValue(m_bg)/255.0;
+
+        float avg=(rv+gv+bv)*0.33333f;
+
+        float sc=0.5f;
+        float sc2 = (1.0f-sc)/avg;
+
+        float sc3=32.0f;
+        float sc4=64.0f*(avg-0.5);
+        // tint
+        LICE_MultiplyAddRect(drawbm,
+          r.left,r.top,
+            r.right-r.left,
+            r.bottom-r.top,
+            sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
+            (rv-avg)*sc3+sc4,
+            (gv-avg)*sc3+sc4,
+            (bv-avg)*sc3+sc4,
+            0);
+    }
+#endif
   }
   else if (m_bg!=-1)
   {

@@ -180,6 +180,7 @@ LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int iconnb=0
 #define LICE_BLIT_MODE_MASK 0xff
 #define LICE_BLIT_MODE_COPY 0
 #define LICE_BLIT_MODE_ADD 1
+#define LICE_BLIT_MODE_DODGE 2
 
 #define LICE_BLIT_MODE_CHANCOPY 0xf0 // in this mode, only available for LICE_Blit(), the low nibble is 2 bits of source channel (low 2), 2 bits of dest channel (high 2)
 
@@ -202,6 +203,9 @@ void LICE_Copy(LICE_IBitmap *dest, LICE_IBitmap *src); // resizes dest to fit
 
 //alpha parameter = const alpha (combined with source alpha if spcified)
 void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *srcrect, float alpha, int mode);
+void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch, float alpha, int mode);
+
+void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch);
 
 // dstw/dsty can be negative, srcw/srch can be as well (for flipping)
 void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int dstw, int dsth, 
@@ -234,6 +238,7 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
                       float drdy, float dgdy, float dbdy, float dady,
                       int mode);
 
+void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode);
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color);
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask=0, LICE_pixel orbits=0);
 void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 

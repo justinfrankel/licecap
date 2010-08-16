@@ -97,6 +97,7 @@ public:
 #ifdef WDL_WIN32_NATIVE_WRITE
       m_fh = INVALID_HANDLE_VALUE;
       m_file_position = 0;
+      m_file_max_position=0;
       m_async = 0;
 #else
       m_fp = NULL;
@@ -134,6 +135,7 @@ public:
     }
 
     m_file_position=0;
+    m_file_max_position=0;
 #else
     m_fp=fopen(filename,"wb");
 #endif
@@ -227,6 +229,7 @@ public:
       DWORD dw=0;
       WriteFile(m_fh,buf,len,&dw,NULL);
       m_file_position+=dw;
+      if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
       return dw;
     }
 #else
@@ -242,7 +245,9 @@ public:
     if (m_fh == INVALID_HANDLE_VALUE) return 0;
     DWORD h=0;
     DWORD l=GetFileSize(m_fh,&h);
-    return (((WDL_FILEWRITE_POSTYPE)h)<<32)|l;
+    WDL_FILEWRITE_POSTYPE tmp=(((WDL_FILEWRITE_POSTYPE)h)<<32)|l;
+    if (tmp<m_file_max_position) return m_file_max_position;
+    return tmp;
 #else
     if (!m_fp) return -1;
     int opos=ftell(m_fp);
@@ -309,6 +314,7 @@ public:
       int ret=WriteFile(m_fh,ent->m_bufptr,ent->m_bufused,&d,&ent->m_ol);
 
       m_file_position += ent->m_bufused;
+      if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
 
       if (ret) // success instantly
       {
@@ -357,6 +363,8 @@ public:
       RunAsyncWrite();
       SyncOutput();
       m_file_position=pos;
+      if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
+
 #ifdef WIN32_ASYNC_NOBUF_WRITE
       if (m_file_position&4095)
       {
@@ -383,6 +391,7 @@ public:
     }
 
     m_file_position=pos;
+    if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
 
     LONG high=(LONG) (m_file_position>>32);
     return SetFilePointer(m_fh,(LONG)(m_file_position&0xFFFFFFFFi64),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
@@ -401,7 +410,7 @@ public:
   WDL_PtrList<WDL_FileWrite__WriteEnt> m_empties;
   WDL_PtrList<WDL_FileWrite__WriteEnt> m_pending;
 
-  WDL_FILEWRITE_POSTYPE m_file_position;
+  WDL_FILEWRITE_POSTYPE m_file_position, m_file_max_position;
   
 #else
   FILE *m_fp;
