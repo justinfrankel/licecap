@@ -35,6 +35,7 @@ WDL_VirtualWnd_Painter::WDL_VirtualWnd_Painter()
 {
   m_GSC=0;
   m_bm=0;
+  m_bgbm=0;
 
   m_cur_hwnd=0;
   m_wantg=-1;
@@ -62,6 +63,27 @@ void WDL_VirtualWnd_Painter::SetBGGradient(int wantGradient, double start, doubl
 void WDL_VirtualWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
 {
   if (!m_bm) return;
+
+  if (m_bgbm)
+  {
+    int srcw=m_bgbm->getWidth();
+    int srch=m_bgbm->getHeight();
+    if (srcw && srch)
+    {
+      float xsc=(float)srcw/wnd_w;
+      float ysc=(float)srch/wnd_h;
+      LICE_ScaledBlit(m_bm,m_bgbm,
+                        clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,
+                        clipr->left*xsc,
+                        clipr->top*ysc,
+                        (clipr->right-clipr->left)*xsc,
+                        (clipr->bottom-clipr->top)*ysc,
+                        1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+
+      m_bgbm=0;
+      return;
+    }
+  }
 
   if (bgcolor<0) bgcolor=m_GSC?m_GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE);
 
@@ -380,21 +402,25 @@ void WDL_VirtualWnd_ChildList::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int
     WDL_VirtualWnd *ch=m_children.Get(x);
     if (ch->IsVisible())
     {
-      RECT r;
-      ch->GetPosition(&r);
+      RECT re;
+      ch->GetPositionPaintExtent(&re);
       RECT cr=*cliprect;
-      r.left += origin_x;
-      r.right += origin_x;
-      r.top += origin_y;
-      r.bottom += origin_y;
+      re.left += origin_x;
+      re.right += origin_x;
+      re.top += origin_y;
+      re.bottom += origin_y;
 
-      if (cr.left < r.left) cr.left=r.left;
-      if (cr.right > r.right) cr.right=r.right;
-      if (cr.top < r.top) cr.top=r.top;
-      if (cr.bottom > r.bottom) cr.bottom=r.bottom;
+      if (cr.left < re.left) cr.left=re.left;
+      if (cr.right > re.right) cr.right=re.right;
+      if (cr.top < re.top) cr.top=re.top;
+      if (cr.bottom > re.bottom) cr.bottom=re.bottom;
 
       if (cr.left < cr.right && cr.top < cr.bottom)
-        ch->OnPaint(drawbm,r.left,r.top,&cr);
+      {
+        RECT r;
+        ch->GetPosition(&r);
+        ch->OnPaint(drawbm,r.left+origin_x,r.top+origin_y,&cr);
+      }
     }
   }
 }
@@ -538,7 +564,31 @@ void WDL_VirtualWnd_ChildList::RequestRedraw(RECT *r)
     cr.left += m_position.left;
     cr.right += m_position.left;
 #ifdef _WIN32
-    InvalidateRect(m_realparent,&cr,FALSE);
+    HWND hCh;
+    if ((hCh=GetWindow(m_realparent,GW_CHILD)))
+    {
+      HRGN rgn=CreateRectRgnIndirect(&cr);
+      int n=30; // limit to 30 children
+      while (n-- && hCh)
+      {
+        if (IsWindowVisible(hCh))
+        {
+          RECT r;
+          GetWindowRect(hCh,&r);
+          ScreenToClient(m_realparent,(LPPOINT)&r);
+          ScreenToClient(m_realparent,((LPPOINT)&r)+1);
+          HRGN tmprgn=CreateRectRgn(r.left,r.top,r.right,r.bottom);
+          CombineRgn(rgn,rgn,tmprgn,RGN_DIFF);
+          DeleteObject(tmprgn);
+        }
+        hCh=GetWindow(hCh,GW_HWNDNEXT);
+      }
+      InvalidateRgn(m_realparent,rgn,FALSE);
+      DeleteObject(rgn);
+
+    }
+    else
+      InvalidateRect(m_realparent,&cr,FALSE);
 #else
     Mac_Invalidate(m_realparent,&cr);
 #endif

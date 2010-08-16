@@ -261,11 +261,23 @@ SOURCE=.\lice_bmp.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_ico.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\lice_line.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_png.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_texgen.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\lice_text.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"

@@ -29,7 +29,7 @@
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
   m_pressed=0;
-  m_iconPtr=0;
+  m_iconCfg=0;
   m_en=true;
 }
 
@@ -43,50 +43,66 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
   HDC hdc=drawbm->getDC();
   int col;
   RECT r={origin_x,origin_y,origin_x+m_position.right-m_position.left,origin_y+m_position.bottom-m_position.top};
-  if (WDL_STYLE_WantGlobalButtonBackground(&col))
+
+  if (m_iconCfg && m_iconCfg->image)
   {
-    HBRUSH br=CreateSolidBrush(col);
-    FillRect(hdc,&r,br);
-    DeleteObject(br);
+    int sx=0;
+    int w=m_iconCfg->image->getWidth()/3;
+    if ((m_pressed&2))  sx=(m_pressed&1) ? w*2 : w;
+    LICE_ScaledBlit(drawbm,m_iconCfg->image,origin_x,origin_y,
+      m_position.right-m_position.left,
+      m_position.bottom-m_position.top,
+      (float)sx,0.0f,(float)w-0.01f,(float)m_iconCfg->image->getHeight()-0.01f,1.0f,
+      LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
   }
-  if ((m_pressed&2) || WDL_STYLE_WantGlobalButtonBorders())
+  else
   {
-    int cidx=(m_pressed&1)?COLOR_3DSHADOW:COLOR_3DHILIGHT;
+    if (WDL_STYLE_WantGlobalButtonBackground(&col))
+    {
+      HBRUSH br=CreateSolidBrush(col);
+      FillRect(hdc,&r,br);
+      DeleteObject(br);
+    }
 
-    HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
-    HGDIOBJ open=SelectObject(hdc,pen);
+    if ((m_pressed&2) || WDL_STYLE_WantGlobalButtonBorders())
+    {
+      int cidx=(m_pressed&1)?COLOR_3DSHADOW:COLOR_3DHILIGHT;
 
-    MoveToEx(hdc,r.left,r.bottom-1,NULL);
-    LineTo(hdc,r.left,r.top);
-    LineTo(hdc,r.right-1,r.top);
-    SelectObject(hdc,open);
-    DeleteObject(pen);
-    cidx=(m_pressed&1)?COLOR_3DHILIGHT:COLOR_3DSHADOW;
-    pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
-    open=SelectObject(hdc,pen);
+      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
+      HGDIOBJ open=SelectObject(hdc,pen);
 
-    LineTo(hdc,r.right-1,r.bottom-1);
-    LineTo(hdc,r.left,r.bottom-1);
-    SelectObject(hdc,open);
-    DeleteObject(pen);
+      MoveToEx(hdc,r.left,r.bottom-1,NULL);
+      LineTo(hdc,r.left,r.top);
+      LineTo(hdc,r.right-1,r.top);
+      SelectObject(hdc,open);
+      DeleteObject(pen);
+      cidx=(m_pressed&1)?COLOR_3DHILIGHT:COLOR_3DSHADOW;
+      pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
+      open=SelectObject(hdc,pen);
 
-  }
-  if (m_iconPtr && *m_iconPtr)
-  {
-    int sz=16,sz2=16;
-    WDL_STYLE_ScaleImageCoords(&sz,&sz2);
+      LineTo(hdc,r.right-1,r.bottom-1);
+      LineTo(hdc,r.left,r.bottom-1);
+      SelectObject(hdc,open);
+      DeleteObject(pen);
 
-    //if (m_position.right-m_position.left > 24) sz=m_position.right-m_position.left-8;
+    }
+    if (m_iconCfg && m_iconCfg->hIcon)
+    {
+      int sz=16,sz2=16;
+      WDL_STYLE_ScaleImageCoords(&sz,&sz2);
+
+      //if (m_position.right-m_position.left > 24) sz=m_position.right-m_position.left-8;
     
-    int x=origin_x+((m_position.right-m_position.left)-sz)/2;
-    int y=origin_y+((m_position.bottom-m_position.top)-sz2)/2;
-    if ((m_pressed&3)==3) { x++; y++; }
-#ifdef _WIN32
-    DrawIconEx(hdc,x,y,*m_iconPtr,sz,sz2,0,NULL,DI_NORMAL);
-#else
-    RECT r={x,y,x+sz,y+sz2};
-    DrawImageInRect(hdc,*m_iconPtr,&r);
-#endif
+      int x=origin_x+((m_position.right-m_position.left)-sz)/2;
+      int y=origin_y+((m_position.bottom-m_position.top)-sz2)/2;
+      if ((m_pressed&3)==3) { x++; y++; }
+  #ifdef _WIN32
+      DrawIconEx(hdc,x,y,m_iconCfg->hIcon,sz,sz2,0,NULL,DI_NORMAL);
+  #else
+      RECT r={x,y,x+sz,y+sz2};
+      DrawImageInRect(hdc,m_iconCfg->hIcon,&r);
+  #endif
+    }
   }
 } 
 
@@ -144,7 +160,7 @@ void WDL_VirtualIconButton::OnMouseUp(int xpos, int ypos)
 
 WDL_VirtualIcon::WDL_VirtualIcon()
 {
-  m_iconPtr=0;
+  m_iconCfg=0;
 }
 
 WDL_VirtualIcon::~WDL_VirtualIcon()
@@ -155,19 +171,29 @@ WDL_VirtualIcon::~WDL_VirtualIcon()
 void WDL_VirtualIcon::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
   HDC hdc=drawbm->getDC();
-  if (m_iconPtr && *m_iconPtr)
+  if (m_iconCfg && m_iconCfg->image)
   {
-    int sz=16,sz2=16;
-    WDL_STYLE_ScaleImageCoords(&sz,&sz2);
+    int sx=0;
+    int w=m_iconCfg->image->getWidth()/3;
+    LICE_ScaledBlit(drawbm,m_iconCfg->image,origin_x,origin_y,m_position.right-m_position.left,m_position.bottom-m_position.top,(float)sx,0.0f,(float)w-0.01f,(float)m_iconCfg->image->getHeight()-0.01f,1.0f,
+      LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
+  }
+  else
+  {
+    if (m_iconCfg && m_iconCfg->hIcon)
+    {
+      int sz=16,sz2=16;
+      WDL_STYLE_ScaleImageCoords(&sz,&sz2);
 
-    int x=origin_x+((m_position.right-m_position.left)-sz)/2;
-    int y=origin_y+((m_position.bottom-m_position.top)-sz2)/2;
-#ifdef _WIN32
-    DrawIconEx(hdc,x,y,*m_iconPtr,sz,sz2,0,NULL,DI_NORMAL);
-#else
-    RECT r={x,y,x+sz,y+sz2};
-    DrawImageInRect(hdc,*m_iconPtr,&r);
-#endif
+      int x=origin_x+((m_position.right-m_position.left)-sz)/2;
+      int y=origin_y+((m_position.bottom-m_position.top)-sz2)/2;
+  #ifdef _WIN32
+      DrawIconEx(hdc,x,y,m_iconCfg->hIcon,sz,sz2,0,NULL,DI_NORMAL);
+  #else
+      RECT r={x,y,x+sz,y+sz2};
+      DrawImageInRect(hdc,m_iconCfg->hIcon,&r);
+  #endif
+    }
   }
 } 
 
@@ -310,6 +336,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
 
 WDL_VirtualStaticText::WDL_VirtualStaticText()
 {
+  m_wantborder=false;
   m_font=0;
   m_align=-1;
   m_wantsingle=false;
@@ -332,14 +359,37 @@ bool WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   HDC hdc=drawbm->getDC();
+  RECT r={origin_x,origin_y,origin_x+m_position.right-m_position.left,origin_y+m_position.bottom-m_position.top};
+  if (m_wantborder)
+  {    
+    int cidx=COLOR_3DSHADOW;
+
+    HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
+    HGDIOBJ open=SelectObject(hdc,pen);
+
+    MoveToEx(hdc,r.left,r.bottom-1,NULL);
+    LineTo(hdc,r.left,r.top);
+    LineTo(hdc,r.right-1,r.top);
+    SelectObject(hdc,open);
+    DeleteObject(pen);
+    cidx=COLOR_3DHILIGHT;
+    pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(cidx));
+    open=SelectObject(hdc,pen);
+
+    LineTo(hdc,r.right-1,r.bottom-1);
+    LineTo(hdc,r.left,r.bottom-1);
+    SelectObject(hdc,open);
+    DeleteObject(pen);
+
+  }
+
   if (m_text.Get()[0])
   {
+
     SetTextColor(hdc,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
     SetBkMode(hdc,TRANSPARENT);
     HGDIOBJ of=0;
     if (m_font) of=SelectObject(hdc,m_font);
-
-    RECT r={origin_x,origin_y,origin_x+m_position.right-m_position.left,origin_y+m_position.bottom-m_position.top};
     
 
     DrawText(hdc,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER|DT_NOPREFIX));

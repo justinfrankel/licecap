@@ -103,18 +103,19 @@ void WDL_WndSizer::init_item(int dlg_id, float left_scale, float top_scale, floa
 BOOL CALLBACK WDL_WndSizer::enum_RegionRemove(HWND hwnd,LPARAM lParam)
 {
   WDL_WndSizer *_this=(WDL_WndSizer *)lParam;
-  if(GetParent(hwnd)!=_this->m_hwnd) return TRUE;
+//  if(GetParent(hwnd)!=_this->m_hwnd) return TRUE;
     
-  if (!IsWindowVisible(hwnd)) return TRUE;
+  if (IsWindowVisible(hwnd)) 
+  {
+    RECT r;
+    GetWindowRect(hwnd,&r);
+    ScreenToClient(_this->m_hwnd,(LPPOINT)&r);
+    ScreenToClient(_this->m_hwnd,((LPPOINT)&r)+1);
 
-  RECT r;
-  GetWindowRect(hwnd,&r);
-  ScreenToClient(_this->m_hwnd,(LPPOINT)&r);
-  ScreenToClient(_this->m_hwnd,((LPPOINT)&r)+1);
-
-  HRGN rgn2=CreateRectRgn(r.left,r.top,r.right,r.bottom);
-  CombineRgn(_this->m_enum_rgn,_this->m_enum_rgn,rgn2,RGN_DIFF);
-  DeleteObject(rgn2);
+    HRGN rgn2=CreateRectRgn(r.left,r.top,r.right,r.bottom);
+    CombineRgn(_this->m_enum_rgn,_this->m_enum_rgn,rgn2,RGN_DIFF);
+    DeleteObject(rgn2);
+  }
   
   return TRUE;
 }
@@ -168,7 +169,7 @@ void WDL_WndSizer::onResize(HWND only, int notouch)
   GetClientRect(m_hwnd,&new_rect);
 
   m_enum_rgn=CreateRectRgn(new_rect.left,new_rect.top,new_rect.right,new_rect.bottom);
-  EnumChildWindows(m_hwnd,enum_RegionRemove,(LPARAM)this);
+ // EnumChildWindows(m_hwnd,enum_RegionRemove,(LPARAM)this);
   
   HDWP hdwndpos=NULL;
   int has_dfwp=0;

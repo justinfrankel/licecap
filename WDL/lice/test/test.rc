@@ -70,6 +70,7 @@ END
 //
 
 IDC_PNG1                PNG     DISCARDABLE     "image.png"
+IDI_MAIN                ICON    DISCARDABLE     "main.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //

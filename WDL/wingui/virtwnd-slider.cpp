@@ -132,6 +132,8 @@ static void DrawTransparentBitmap(HDC hdc, HBITMAP hBitmap, short xStart,
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
+  m_tl_extra=m_br_extra=0;
+  m_skininfo=0;
   m_bgcol1_msg=0;
   m_minr=0;
   m_maxr=1000;
@@ -149,6 +151,51 @@ bool WDL_VirtualSlider::GetIsVert()
   return m_position.right-m_position.left < m_position.bottom-m_position.top;
 }
 
+static void AdjustThumbImageSize(WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL)
+{
+  if (!a) return;
+  int ret=a->thumbimage_rb[vert] - a->thumbimage_lt[vert];
+  if (ret<1) return;
+  if (startoffs) *startoffs = a->thumbimage_lt[vert];
+  if (ret>0)
+  {
+    if (vert)
+    {
+      if (*bmh > ret) (*bmw)--;
+      *bmh=ret;
+    }
+    else 
+    {
+      if (*bmw > ret) (*bmh)--;
+      *bmw=ret;
+    }
+  }
+}
+
+void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
+{
+  if (a&&a->thumbimage[0])
+  {
+    int w=a->thumbimage[0]->getWidth();
+    int h=a->thumbimage[0]->getHeight();
+    int x;
+    for (x = 0; x < w && LICE_GetPixel(a->thumbimage[0],x,h-1)==LICE_RGBA(255,0,255,255); x ++);
+    a->thumbimage_lt[0] = x;
+    for (x = w-1; x > a->thumbimage_lt[0]+1 && LICE_GetPixel(a->thumbimage[0],x,h-1)==LICE_RGBA(255,0,255,255); x --);
+    a->thumbimage_rb[0] = x;
+  }
+  if (a&&a->thumbimage[1])
+  {
+    int w=a->thumbimage[1]->getWidth();
+    int h=a->thumbimage[1]->getHeight();
+    int y;
+    for (y = 0; y < h-4 && LICE_GetPixel(a->thumbimage[1],w-1,y)==LICE_RGBA(255,0,255,255); y++);
+    a->thumbimage_lt[1] = y;
+    for (y = h-1; y > a->thumbimage_lt[1]+1 && LICE_GetPixel(a->thumbimage[1],w-1,y)==LICE_RGBA(255,0,255,255); y --);
+    a->thumbimage_rb[1] = y;
+  }
+}
+
 void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   HDC hdc=drawbm->getDC();
@@ -160,100 +207,197 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
   int viewh=m_position.bottom-m_position.top;
   int vieww=m_position.right-m_position.left;
 
-  int bm_w=16,bm_h=16;
-  HBITMAP bm=WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
-
-  if (isVert)
+  LICE_IBitmap *back_image=m_skininfo ? m_skininfo->bgimage[isVert] : 0;
+  LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
+  int bm_w=16,bm_h=16,bm_w2,bm_h2;
+  int imgoffset=0;
+  HBITMAP bm=0;
+  if (!bm_image) 
   {
-    int pos = viewh - bm_h - ((m_pos-m_minr) * (viewh - bm_h))/rsize;
-
-    int center=m_center;
-    if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
-
-    int y=((m_maxr-center)*(viewh-bm_h))/rsize + bm_h/2;
-
-    HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
-    HGDIOBJ oldPen=SelectObject(hdc,pen);
-
-    MoveToEx(hdc,origin_x+2,origin_y+y,NULL);
-    LineTo(hdc,origin_x+vieww-2,origin_y+y);
-
-    SelectObject(hdc,oldPen);
-    DeleteObject(pen);
-
-    pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-    oldPen=SelectObject(hdc,pen);
-
-    int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-    if (m_parent && m_bgcol1_msg)
-      m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
-
-    HBRUSH br=CreateSolidBrush(brcol);
-    HGDIOBJ oldBr=SelectObject(hdc,br);
-
-    int offs= (vieww - 4)/2;
-    // white with black border, mmm
-    RoundRect(hdc,origin_x + offs,origin_y + bm_h/3, origin_x + offs + 5,origin_y + viewh - bm_h/3,2,2);
-
-    SelectObject(hdc,oldPen);
-    SelectObject(hdc,oldBr);
-    DeleteObject(pen);
-    DeleteObject(br);
-
-#ifdef _WIN32
-    if (bm) DrawTransparentBitmap(hdc,bm,origin_x+(vieww-bm_w)/2,origin_y+pos,RGB(255,0,255));
-#else
-    RECT r={origin_x+(vieww-bm_w)/2,origin_y+pos,};
-    r.right=r.left+bm_w;
-    r.bottom=r.top+bm_h;
-    if (bm) DrawImageInRect(hdc,bm,&r);
-    
-#endif
+    bm=WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
+    bm_w2=bm_w;
+    bm_h2=bm_h;
   }
   else
   {
-    int pos = ((m_pos-m_minr) * (vieww - bm_w))/rsize;
+    bm_w=bm_image->getWidth();
+    bm_h=bm_image->getHeight();
 
-    int center=m_center;
-    if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
+    bm_w2=bm_w;
+    bm_h2=bm_h;
+    AdjustThumbImageSize(m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset);
+  }
 
-    int x=((center-m_minr)*(vieww-bm_w))/rsize + bm_w/2;
+  if (isVert)
+  {
+    int pos = viewh - bm_h2 - ((m_pos-m_minr) * (viewh - bm_h2))/rsize;
 
-    HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
-    HGDIOBJ oldPen=SelectObject(hdc,pen);
+    if (back_image)
+    {
+      LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
+          0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
+    }
+    else
+    {
+      int center=m_center;
+      if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
 
-    MoveToEx(hdc,origin_x+x,origin_y+2,NULL);
-    LineTo(hdc,origin_x+x,origin_y+viewh-2);
+      int y=((m_maxr-center)*(viewh-bm_h2))/rsize + (bm_h/2-imgoffset);
 
-    SelectObject(hdc,oldPen);
-    DeleteObject(pen);
+      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+      HGDIOBJ oldPen=SelectObject(hdc,pen);
 
-    pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-    oldPen=SelectObject(hdc,pen);
-    int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-    if (m_parent && m_bgcol1_msg)
-      m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+      MoveToEx(hdc,origin_x+2,origin_y+y,NULL);
+      LineTo(hdc,origin_x+vieww-2,origin_y+y);
 
-    HBRUSH br=CreateSolidBrush(brcol);
-    HGDIOBJ oldBr=SelectObject(hdc,br);
+      SelectObject(hdc,oldPen);
+      DeleteObject(pen);
 
-    int offs= (viewh - 4)/2;
-    // white with black border, mmm
-    RoundRect(hdc,origin_x + bm_w/3,origin_y + offs, origin_x + vieww - bm_w/3,origin_y + offs + 5,2,2);
+      pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
+      oldPen=SelectObject(hdc,pen);
 
-    SelectObject(hdc,oldPen);
-    SelectObject(hdc,oldBr);
-    DeleteObject(pen);
-    DeleteObject(br);
+      int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+      if (m_parent && m_bgcol1_msg)
+        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
 
+      HBRUSH br=CreateSolidBrush(brcol);
+      HGDIOBJ oldBr=SelectObject(hdc,br);
+
+      int offs= (vieww - 4)/2;
+      // white with black border, mmm
+      RoundRect(hdc,origin_x + offs,origin_y + bm_h2/3, origin_x + offs + 5,origin_y + viewh - bm_h2/3,2,2);
+
+      SelectObject(hdc,oldPen);
+      SelectObject(hdc,oldBr);
+      DeleteObject(pen);
+      DeleteObject(br);
+    }
+
+    if (bm_image)
+    {
+      int ypos=origin_y+pos-imgoffset;
+      int xpos=origin_x;
+
+      RECT r={0,0,bm_w2,bm_h};
+/*      if (vieww<bm_w)
+      {
+        r.left=(bm_w-vieww)/2;
+        r.right=r.left+vieww;
+      }
+      else 
+      */
+      xpos+=(vieww-bm_w2)/2;
+
+      m_tl_extra=origin_y-ypos;
+      if (m_tl_extra<0)m_tl_extra=0;
+
+      m_br_extra=ypos+(r.bottom-r.top) - (origin_y+m_position.bottom-m_position.top);
+      if (m_br_extra<0)m_br_extra=0;
+
+
+      LICE_Blit(drawbm,bm_image,xpos,ypos,&r,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
+    }
+    else if (bm)
+    {
 #ifdef _WIN32
-    if (bm) DrawTransparentBitmap(hdc,bm,origin_x+pos,origin_y+(viewh-bm_h)/2+1,RGB(255,0,255));
+      DrawTransparentBitmap(hdc,bm,origin_x+(vieww-bm_w)/2,origin_y+pos,RGB(255,0,255));
 #else
-    RECT r={origin_x+pos,origin_y+(viewh-bm_h)/2+1};
-    r.right=r.left+bm_w;
-    r.bottom=r.top+bm_h;
-    if (bm) DrawImageInRect(hdc,bm,&r);
+      RECT r={origin_x+(vieww-bm_w)/2,origin_y+pos,};
+      r.right=r.left+bm_w;
+      r.bottom=r.top+bm_h;
+      DrawImageInRect(hdc,bm,&r);
 #endif
+    }
+  }
+  else
+  {
+    int pos = ((m_pos-m_minr) * (vieww - bm_w2))/rsize;
+
+    if (back_image)
+    {
+      LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
+          0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
+      // blit, tint color too?
+    }
+    else
+    {
+      int center=m_center;
+      if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
+
+      int x=((center-m_minr)*(vieww-bm_w2))/rsize + bm_w/2 - imgoffset;
+
+      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+      HGDIOBJ oldPen=SelectObject(hdc,pen);
+
+      MoveToEx(hdc,origin_x+x,origin_y+2,NULL);
+      LineTo(hdc,origin_x+x,origin_y+viewh-2);
+
+      SelectObject(hdc,oldPen);
+      DeleteObject(pen);
+
+      pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
+      oldPen=SelectObject(hdc,pen);
+      int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+      if (m_parent && m_bgcol1_msg)
+        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+
+      HBRUSH br=CreateSolidBrush(brcol);
+      HGDIOBJ oldBr=SelectObject(hdc,br);
+
+      int offs= (viewh - 4)/2;
+      // white with black border, mmm
+      RoundRect(hdc,origin_x + bm_w2/3,origin_y + offs, origin_x + vieww - bm_w2/3,origin_y + offs + 5,2,2);
+
+      SelectObject(hdc,oldPen);
+      SelectObject(hdc,oldBr);
+      DeleteObject(pen);
+      DeleteObject(br);
+    }
+
+    if (bm_image)
+    {
+      int xpos=origin_x+pos-imgoffset;
+      int ypos=origin_y;
+
+      RECT r={0,0,bm_w,bm_h2};
+      /*if (viewh<bm_h)
+      {
+        r.top=(bm_h-viewh)/2;
+        r.bottom=r.top+viewh;
+      }
+      else 
+      */
+      ypos+=(viewh-bm_h2)/2;
+
+
+      m_tl_extra=origin_x-xpos;
+      if (m_tl_extra<0)m_tl_extra=0;
+
+      m_br_extra=xpos+(r.right-r.left) - (origin_x+m_position.right-m_position.left);
+      if (m_br_extra<0)m_br_extra=0;
+
+      /*      if (xpos < origin_x)
+      {
+        r.left += (origin_x-xpos);
+        xpos=origin_x;
+      }
+      if (xpos+(r.right-r.left) > origin_x+m_position.right-m_position.left)
+        r.right = origin_x+m_position.right-m_position.left - (xpos-r.left);
+*/
+
+      LICE_Blit(drawbm,bm_image,xpos,ypos,&r,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
+    }
+    else if (bm)
+    {
+#ifdef _WIN32
+      DrawTransparentBitmap(hdc,bm,origin_x+pos,origin_y+(viewh-bm_h)/2+1,RGB(255,0,255));
+#else
+      RECT r={origin_x+pos,origin_y+(viewh-bm_h)/2+1};
+      r.right=r.left+bm_w;
+      r.bottom=r.top+bm_h;
+      DrawImageInRect(hdc,bm,&r);
+#endif
+    }
   }
 
 }
@@ -273,8 +417,16 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   int viewh=m_position.bottom-m_position.top;
   int vieww=m_position.right-m_position.left;
 
+  LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16;
-  HBITMAP bm=WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
+  if (!bm_image) WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
+  else
+  {
+    bm_w=bm_image->getWidth();
+    bm_h=bm_image->getHeight();
+    AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h);
+  }
+
   m_last_y=ypos;    
   m_last_x=xpos;
   m_last_precmode=0;
@@ -340,8 +492,15 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
   int viewh=m_position.bottom-m_position.top;
   int vieww=m_position.right-m_position.left;
 
+  LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16;
-  HBITMAP bm=WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
+  if (!bm_image) WDL_STYLE_GetSliderBitmap(isVert,&bm_w,&bm_h);
+  else
+  {
+    bm_w=bm_image->getWidth();
+    bm_h=bm_image->getHeight();
+    AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h);
+  }
 
   int precmode=0;
 
@@ -524,5 +683,65 @@ void WDL_VirtualSlider::SetSliderPosition(int pos)
       m_pos=pos;
       RequestRedraw(NULL); 
     }
+  }
+}
+
+void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
+{
+  *r=m_position;
+  bool isVert=GetIsVert();
+  LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
+  if (bm_image)
+  {
+    int bm_w=bm_image->getWidth();
+    int bm_h=bm_image->getHeight();
+    int s=0;
+    int bm_w2=bm_w;
+    int bm_h2=bm_h;
+    AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h,&s);
+    int rsize=m_maxr-m_minr;
+    int viewh=m_position.bottom-m_position.top;
+    int vieww=m_position.right-m_position.left;
+
+    if (isVert)
+    {
+      if (bm_w > vieww)
+      {
+        r->left-=(bm_w-vieww)/2+1;
+        r->right+=(bm_w-vieww)/2+1;
+      }
+
+      int tadj=m_tl_extra;
+      int badj=m_br_extra;
+
+      int pos = viewh - bm_h - ((m_pos-m_minr) * (viewh - bm_h))/rsize-s;
+
+      if (-pos > tadj) tadj=-pos;
+      if (pos+bm_h2 > viewh+badj) badj=pos+bm_h2-viewh;
+
+      //m_tl_extra=m_br_extra=
+      r->top-=tadj; //s;
+      r->bottom += badj; //(bm_h2-bm_h)-s;
+    }
+    else
+    {
+      if (bm_h > viewh)
+      {
+        r->top-=(bm_h-viewh)/2+1;
+        r->bottom+=(bm_h-viewh)/2+1;
+      }
+
+      int ladj=m_tl_extra;
+      int radj=m_br_extra;
+
+      int pos = ((m_pos-m_minr) * (vieww - bm_w))/rsize - s;
+
+      if (-pos > ladj) ladj=-pos;
+      if (pos+bm_w2 > vieww+radj) radj=pos+bm_w2-vieww;
+
+      r->left-=ladj; //s;
+      r->right += radj; // (bm_w2-bm_w)-s;
+    }
+
   }
 }

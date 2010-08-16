@@ -7,7 +7,7 @@
 
 #include "lice.h"
 
-static LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
+LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 {
   BITMAP bm;
   GetObject(hbm, sizeof(BITMAP), (LPSTR)&bm);
@@ -51,4 +51,3 @@ LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   DeleteObject(bm);
   return ret;
 }
-

@@ -10,9 +10,10 @@
 
 #include "resource.h"
 
-#define NUM_EFFECTS 11
+#define NUM_EFFECTS 14
 
 LICE_IBitmap *bmp;
+LICE_IBitmap *icon;
 LICE_SysBitmap *framebuffer;
 static int m_effect = 0;
 static int m_doeff = 0;
@@ -186,6 +187,28 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           for (x = 0; x < 10000; x ++)
             LICE_PutPixel(framebuffer,rand()%framebuffer->getWidth(),rand()%framebuffer->getHeight(),LICE_RGBA(255,255,255,255),sc,LICE_BLIT_MODE_ADD);
         }
+        break;
+      case 11:
+        //line test
+        {
+          LICE_Line(framebuffer, rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+        }
+        break;
+      case 12:
+        //lice draw text test
+        {
+          static double a;
+          a+=0.001;
+          LICE_DrawText(framebuffer,0.5*(1+sin(a))*(framebuffer->getWidth()-30),0.5*(1+sin(a*7.0+1.3))*(framebuffer->getHeight()-16),"LICE RULEZ",LICE_RGBA(255,0,0,0),sin(a*0.7),LICE_BLIT_MODE_ADD);
+        }
+        break;
+      case 13:
+        //icon loading test
+        {
+          LICE_Clear(framebuffer, LICE_RGBA(255,255,255,255));
+          LICE_Blit(framebuffer,icon,0,0,NULL,1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+        }
+        break;
       }
 
       m_doeff = 0;
@@ -223,8 +246,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
   bmp = LICE_LoadPNGFromResource(hInstance, IDC_PNG1);
   if(!bmp) return 0;
 
+  icon = LICE_LoadIconFromResource(hInstance, IDI_MAIN, 0);
+  //icon = LICE_LoadIcon("main.ico", 0);
+  if(!icon) return 0;
+
   DialogBox(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, dlgProc);
 
+  delete icon;
   delete bmp;
   delete framebuffer;
   return 0;

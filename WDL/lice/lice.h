@@ -168,7 +168,8 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
-
+LICE_IBitmap *LICE_LoadIcon(const char *filename, int iconnb=0, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int iconnb=0, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
 // flags that most blit functions can take
 
@@ -254,6 +255,16 @@ void LICE_TexGen_Noise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float
 //size needs to be a multiple of 2
 void LICE_TexGen_CircNoise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float nrings, float power, int size);
 
+
+// bitmapped text drawing:
+void LICE_DrawChar(LICE_IBitmap *bm, int x, int y, char c, 
+                   LICE_pixel color, float alpha, int mode);
+void LICE_DrawText(LICE_IBitmap *bm, int x, int y, const char *string, 
+                   LICE_pixel color, float alpha, int mode);
+void LICE_MeasureText(const char *string, int *w, int *h);
+
+// line drawing functions
+void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 
 /*
   Stuff planned:

@@ -138,7 +138,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
 
     static void deltaBlit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
                           double srcx, double srcy, double dsdx, double dtdx, double dsdy, double dtdy,
-                          double src_left, double src_top, double src_right, double src_bottom,
+                          int src_left, int src_top, int src_right, int src_bottom,
                           int src_span, int dest_span, float alpha, int filtermode)
     {
       int ia=(int)(alpha*256.0);
@@ -152,10 +152,10 @@ template<class COMBFUNC> class _LICE_Template_Blit
           int n=w;
           while (n--)
           {
-            if (thisy >= src_top && thisy < src_bottom-1 && thisx >= src_left && thisx < src_right-1)
+            int cury = (int)(thisy);
+            int curx = (int)(thisx);
+            if (cury >= src_top && cury < src_bottom-1 && curx >= src_left && curx < src_right-1)
             {
-              int cury = (int) thisy;
-              int curx = (int) thisx;
               double yfrac=thisy-cury;
 
               LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
@@ -185,10 +185,10 @@ template<class COMBFUNC> class _LICE_Template_Blit
           int n=w;
           while (n--)
           {
-            if (thisy >= src_top && thisy < src_bottom && thisx >= src_left && thisx < src_right)
+            int cury = (int)(thisy);
+            int curx = (int)(thisx);
+            if (cury >= src_top && cury < src_bottom && curx >= src_left && curx < src_right)
             {
-              int cury = (int) thisy;
-              int curx = (int) thisx;
 
               LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
@@ -217,7 +217,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
       {
         while (h--)
         {
-          int cury = (int) srcy;
+          int cury = (int)(srcy);
           if (cury >= 0 && cury < srch-1)
           {
             double yfrac=srcy-cury;
@@ -227,7 +227,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
             int n=w;
             while (n--)
             {
-              int offs=(int) curx;
+              int offs=(int)(curx);
               if (offs>=0 && offs<srcw-1)
               {
                 LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
@@ -250,7 +250,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
       {
         while (h--)
         {
-          int cury = (int) srcy;
+          int cury = (int)(srcy);
           if (cury >= 0 && cury < srch)
           {
             double curx=srcx;
@@ -259,7 +259,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
             int n=w;
             while (n--)
             {
-              int offs=(int) curx;
+              int offs=(int)(curx);
               if (offs>=0 && offs<srcw)
               {
                 LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
@@ -577,7 +577,11 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   else pdest += dsty*dest_span;
   pdest+=dstx*sizeof(LICE_pixel);
 
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
+  int sl=(int)(src_left);
+  int sr=(int)(src_right);
+  int st=(int)(src_top);
+  int sb=(int)(src_bottom);
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,sl,st,sr,sb,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
     __LICE_ACTIONBYMODE(mode,alpha);
 #undef __LICE__ACTION
 }
@@ -672,7 +676,11 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   else pdest += dsty*dest_span;
   pdest+=dstx*sizeof(LICE_pixel);
 
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
+  int sl=(int)(src_left);
+  int sr=(int)(src_right);
+  int st=(int)(src_top);
+  int sb=(int)(src_bottom);
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,sl,st,sr,sb,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
     __LICE_ACTIONBYMODE(mode,alpha);
 #undef __LICE__ACTION
 }
@@ -741,8 +749,8 @@ void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color)
     int n=w;
     while (n--) 
     {
-      if ((*p&0xffffff) == color) *p&=~0xffffff;
-      else *p|=0xff000000;
+      if ((*p&LICE_RGBA(255,255,255,0)) == color) *p&=LICE_RGBA(255,255,255,0);
+      else *p|=LICE_RGBA(0,0,0,255);
       p++;
     }
     p+=sp-w;
@@ -753,6 +761,7 @@ LICE_pixel LICE_GetPixel(LICE_IBitmap *bm, int x, int y)
 {
   LICE_pixel *px;
   if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return 0;
+  if (bm->isFlipped()) return px[(bm->getHeight()-1-y) * bm->getRowSpan() + x];
 	return px[y * bm->getRowSpan() + x];
 }
 
@@ -761,9 +770,10 @@ void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha
   LICE_pixel *px;
   if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return;
 
-  px+=x+y*bm->getRowSpan();
+  if (bm->isFlipped()) px+=x+(bm->getHeight()-1-y)*bm->getRowSpan();
+  else px+=x+y*bm->getRowSpan();
 
-#define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), (int) (alpha * 256.0f))
+#define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), (int)(alpha * 256.0f))
   __LICE_ACTIONBYMODE(mode,alpha);
 #undef __LICE__ACTION
 }

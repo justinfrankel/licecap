@@ -3,25 +3,40 @@
 
 #define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
 
+#ifdef _MSC_VER
+static inline int __LICE_TOINT(double x) // don't use this _everywhere_ since it doesnt round the same as (int)
+{
+  int tmp;
+  __asm
+  {
+    fld x
+    fistp tmp
+  };
+  return tmp;
+}
+#else
+#define __LICE_TOINT(x) ((int)(x))
+#endif
+
 static inline void __LICE_BilinearFilter(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, double xfrac, double yfrac)
 {
-  double f1=(1.0-xfrac)*(1.0-yfrac);
-  double f2=xfrac*(1.0-yfrac);
-  double f3=(1.0-xfrac)*yfrac;
   double f4=xfrac*yfrac;
-  *r=(int) (pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4);
-  *g=(int) (pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4);
-  *b=(int) (pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4);
-  *a=(int) (pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4);
+  double f1=1.0-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  double f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  double f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  *r=__LICE_TOINT(pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4);
+  *g=__LICE_TOINT(pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4);
+  *b=__LICE_TOINT(pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4);
+  *a=__LICE_TOINT(pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4);
 }
 
 
 static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, int a)
 {
-  if (r<1) out[LICE_PIXEL_R]=0; else if (r>=255) out[LICE_PIXEL_R]=255; else out[LICE_PIXEL_R] = (LICE_pixel_chan) (r);
-  if (g<1) out[LICE_PIXEL_G]=0; else if (g>=255) out[LICE_PIXEL_G]=255; else out[LICE_PIXEL_G] = (LICE_pixel_chan) (g);
-  if (b<1) out[LICE_PIXEL_B]=0; else if (b>=255) out[LICE_PIXEL_B]=255; else out[LICE_PIXEL_B] = (LICE_pixel_chan) (b);
-  if (a<1) out[LICE_PIXEL_A]=0; else if (a>=255) out[LICE_PIXEL_A]=255; else out[LICE_PIXEL_A] = (LICE_pixel_chan) (a);
+  if (r&~0xff) out[LICE_PIXEL_R]=r<0?0:255; else out[LICE_PIXEL_R] = (LICE_pixel_chan) (r);
+  if (g&~0xff) out[LICE_PIXEL_G]=g<0?0:255; else out[LICE_PIXEL_G] = (LICE_pixel_chan) (g);
+  if (b&~0xff) out[LICE_PIXEL_B]=b<0?0:255; else out[LICE_PIXEL_B] = (LICE_pixel_chan) (b);
+  if (a&~0xff) out[LICE_PIXEL_A]=a<0?0:255; else out[LICE_PIXEL_A] = (LICE_pixel_chan) (a);
 }
 
 

@@ -47,6 +47,7 @@
 #include "../ptrlist.h"
 #include "../wdlstring.h"
 
+#include "virtwnd-skin.h"
 
 #ifndef _WIN32
 #define WM_COMMAND 100
@@ -77,6 +78,7 @@ public:
   virtual int GetID() { return m_id; }
   virtual void SetPosition(const RECT *r) { m_position=*r; }
   virtual void GetPosition(RECT *r) { *r=m_position; }
+  virtual void GetPositionPaintExtent(RECT *r) { *r=m_position; }
   virtual bool IsVisible() { return m_visible; }
   virtual void SetVisible(bool vis) { m_visible=vis; }
   virtual WDL_VirtualWnd *GetParent() { return m_parent; }
@@ -95,7 +97,7 @@ public:
         r2.left+=m_position.left; r2.right += m_position.left; 
         r2.top += m_position.top; r2.bottom += m_position.top;
       }
-      else r2=m_position;
+      else GetPositionPaintExtent(&r2);
 
       m_parent->RequestRedraw(&r2); 
     }
@@ -144,6 +146,7 @@ public:
 #else
   void PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
 #endif
+  void SetBGImage(LICE_IBitmap *bitmap) { m_bgbm=bitmap; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
   void PaintVirtWnd(WDL_VirtualWnd *vwnd, int borderflags=0);
@@ -159,6 +162,7 @@ private:
   int (*m_GSC)(int);
   void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
   LICE_SysBitmap *m_bm;
+  LICE_IBitmap *m_bgbm;
 
 #ifdef _WIN32
   HWND m_cur_hwnd;
@@ -250,7 +254,7 @@ class WDL_VirtualIconButton : public WDL_VirtualWnd
     void SetEnabled(bool en) {m_en=en; }
     bool GetEnabled() { return m_en; }
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetIcon(HICON *iconPtr) { m_iconPtr=iconPtr; RequestRedraw(NULL); }
+    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { m_iconCfg=cfg; RequestRedraw(NULL); }
 
     bool OnMouseDown(int xpos, int ypos);
     void OnMouseMove(int xpos, int ypos);
@@ -259,7 +263,7 @@ class WDL_VirtualIconButton : public WDL_VirtualWnd
 
 
   private:
-    HICON *m_iconPtr;
+    WDL_VirtualIconButton_SkinConfig *m_iconCfg;
     int m_pressed;
     bool m_en;
 };
@@ -271,10 +275,10 @@ class WDL_VirtualIcon : public WDL_VirtualWnd // like iconbutton but not a butto
     WDL_VirtualIcon();
     ~WDL_VirtualIcon();
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetIcon(HICON *iconPtr) { m_iconPtr=iconPtr; RequestRedraw(NULL); }
+    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { m_iconCfg=cfg; RequestRedraw(NULL); }
 
   private:
-    HICON *m_iconPtr;
+    WDL_VirtualIconButton_SkinConfig *m_iconCfg;
 };
 
 class WDL_VirtualStaticText : public WDL_VirtualWnd
@@ -287,6 +291,7 @@ class WDL_VirtualStaticText : public WDL_VirtualWnd
     void SetFont(HFONT font) { m_font=font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetText(const char *text) { m_text.Set(text); if (m_font) RequestRedraw(NULL); }
+    void SetBorder(bool bor) { m_wantborder=bor; }
     const char *GetText() { return m_text.Get(); }
 
     bool OnMouseDblClick(int xpos, int ypos);
@@ -294,6 +299,7 @@ class WDL_VirtualStaticText : public WDL_VirtualWnd
 
   private:
     int m_align;
+    bool m_wantborder;
     bool m_wantsingle;
     HFONT m_font;
     WDL_String m_text;
@@ -353,12 +359,20 @@ class WDL_VirtualSlider : public WDL_VirtualWnd
     bool OnMouseDblClick(int xpos, int ypos);
     bool OnMouseWheel(int xpos, int ypos, int amt);
 
+    void SetSkinImageInfo(WDL_VirtualSlider_SkinConfig *cfg) { m_skininfo=cfg; }
+
+    // override
+    virtual void GetPositionPaintExtent(RECT *r);
 
   private:
+    WDL_VirtualSlider_SkinConfig *m_skininfo;
 
     int m_bgcol1_msg,m_scrollmsg;
     void OnMoveOrUp(int xpos, int ypos, int isup);
     int m_minr, m_maxr, m_center, m_pos;
+
+    int m_tl_extra, m_br_extra;
+
     bool m_captured;
     bool m_needflush;
     
