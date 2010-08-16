@@ -153,7 +153,7 @@ public:
 #else
   void PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
 #endif
-  void SetBGImage(LICE_IBitmap *bitmap) { m_bgbm=bitmap; } // call before every paintbegin (resets if you dont)
+  void SetBGImage(LICE_IBitmap *bitmap, int tint=-1) { m_bgbm=bitmap; m_bgbmtintcolor=tint; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
   void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
@@ -172,6 +172,7 @@ private:
   void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
   LICE_SysBitmap *m_bm;
   LICE_IBitmap *m_bgbm;
+  int m_bgbmtintcolor;
 
 #ifdef _WIN32
   HWND m_cur_hwnd;

@@ -3,7 +3,6 @@
 
 /*
   Cockos WDL - LICE - Lightweight Image Compositing Engine
-  Version 0.03, June 27 2007
 
   Copyright (C) 2007 and later, Cockos Incorporated
   Portions Copyright (C) 2007 "schwa"
@@ -232,6 +231,9 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
 
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color);
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask=0, LICE_pixel orbits=0);
+void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 
+                          float rsc, float gsc, float bsc, float asc,
+                          float radd, float gadd, float badd, float aadd);
 
 void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color);
 
@@ -265,13 +267,15 @@ void LICE_MeasureText(const char *string, int *w, int *h);
 
 // line drawing functions
 void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
+              LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 
 /*
   Stuff planned:
 
   
   void LICE_PutPixelAA(LICE_IBitmap *dest, float x, float y, LICE_pixel color, float alpha=1.0); // antialiased putpixel (can affect up to 4 pixels)
-  void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0, bool aa=true);
   void LICE_Rectangle(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0, bool aa=true);
   void LICE_Triangle(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, float x3, float y3, LICE_pixel color, float alpha=1.0, bool aa=true);
 

@@ -10,7 +10,7 @@
 
 #include "resource.h"
 
-#define NUM_EFFECTS 14
+#define NUM_EFFECTS 16
 
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
@@ -61,6 +61,7 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
       switch(m_effect)
       {
+      case 15:
       case 0:
         {
           double a=GetTickCount()/1000.0;
@@ -80,6 +81,13 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           }
           //LICE_Clear(framebuffer,0);
           LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,rand()%16==0 ? -0.5: 0.1,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+
+          if (m_effect==15)
+          {
+            LICE_MultiplyAddRect(framebuffer,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0.9,0.9,-0.3,1,
+                                                                                                  3,2,200,0);
+          }
+
         }
         break;
       case 1:
@@ -209,6 +217,27 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           LICE_Blit(framebuffer,icon,0,0,NULL,1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
         }
         break;
+      case 14:
+        // circles/arcs
+        {
+          int w = framebuffer->getWidth(), h = framebuffer->getHeight();
+          const double _PI = acos(-1.0);
+          static int m_init, m_x, m_y;
+          if (!m_init) {
+            m_init = true;
+            m_x = w/2; m_y = h/2;
+          }
+          int r = rand()%w;
+          float alpha = 1.0f; //(float) r / (float) w;
+          float aLo = 2*_PI*rand()/RAND_MAX;
+          float aHi = 2*_PI*rand()/RAND_MAX;
+          
+          //LICE_Clear(framebuffer, LICE_RGBA(0,0,0,0));
+          LICE_Arc(framebuffer, m_x, m_y, r, aLo, aHi, LICE_RGBA(rand()%255,rand()%255,rand()%255,255),alpha);
+          //LICE_Circle(framebuffer, m_x, m_y, r, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+        }
+        break;
+
       }
 
       m_doeff = 0;

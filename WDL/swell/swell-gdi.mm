@@ -360,6 +360,13 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   CGContextStrokePath(c->ctx);
 }
 
+void SWELL_SyncCtxFrameBuffer(HDC ctx)
+{
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (!ct) return;
+  INVALIDATE_BITMAPCACHE(ct);
+}
+
 void SetPixel(HDC ctx, int x, int y, int c)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;

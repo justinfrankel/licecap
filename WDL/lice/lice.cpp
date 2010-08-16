@@ -10,6 +10,10 @@
 #include <math.h>
 
 
+#include "lice_combine.h"
+
+
+
 bool LICE_MemBitmap::resize(int w, int h)
 {
   if (w!=m_width||h!=m_height)
@@ -358,8 +362,6 @@ template<class COMBFUNC> class _LICE_Template_Blit
 };
 
 
-#include "lice_combine.h"
-
 
 void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth, 
                       float ir, float ig, float ib, float ia,
@@ -504,6 +506,22 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
                      float alpha, int mode)
 {
   if (!dest || !src || !dstw || !dsth) return;
+
+  // non-scaling optimized omde
+  if (fabs(srcw-dstw)<0.001 && fabs(srch-dsth)<0.001)
+  {
+    // and if not bilinear filtering, or 
+    // the source coordinates are near their integer counterparts
+    if ((mode&LICE_BLIT_FILTER_MASK)!=LICE_BLIT_FILTER_BILINEAR ||
+        (fabs(srcx-floor(srcx))<0.03 && fabs(srcy-floor(srcy))<0.03))
+    {
+      RECT sr={(int)srcx,(int)srcy,};
+      sr.right=sr.left+dstw;
+      sr.bottom=sr.top+dsth;
+      LICE_Blit(dest,src,dstx,dsty,&sr,alpha,mode);
+      return;
+    }
+  }
 
   if (dstw<0)
   {
@@ -755,6 +773,53 @@ void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color)
   {
     int n=w;
     while (n--) *p++ = color;
+    p+=sp-w;
+  }
+}
+
+void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 
+                          float rsc, float gsc, float bsc, float asc,
+                          float radd, float gadd, float badd, float aadd)
+{
+  if (!dest) return;
+  LICE_pixel *p=dest->getBits();
+
+  if (x<0) { w+=x; x=0; }
+  if (y<0) { h+=y; y=0; }
+  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
+  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
+
+  int sp=dest->getRowSpan();
+  if (!p || w<1 || h<1 || sp<1) return;
+
+  if (dest->isFlipped())
+  {
+    p+=(dest->getHeight() - y - h)*sp;
+  }
+  else p+=sp*y;
+
+  p += x;
+
+  int ir=(int)(rsc*65536.0);
+  int ig=(int)(gsc*65536.0);
+  int ib=(int)(bsc*65536.0);
+  int ia=(int)(asc*65536.0);
+  int ir2=(int)(radd*65536.0);
+  int ig2=(int)(gadd*65536.0);
+  int ib2=(int)(badd*65536.0);
+  int ia2=(int)(aadd*65536.0);
+
+  while (h-->0)
+  {
+    int n=w;
+    while (n--) 
+    {
+      LICE_pixel_chan *ptr=(LICE_pixel_chan *)p++;
+      _LICE_MakePixel(ptr,(ptr[LICE_PIXEL_R]*ir+ir2)>>16,
+                          (ptr[LICE_PIXEL_G]*ig+ig2)>>16,
+                          (ptr[LICE_PIXEL_B]*ib+ib2)>>16,
+                          (ptr[LICE_PIXEL_A]*ia+ia2)>>16);
+    }
     p+=sp-w;
   }
 }

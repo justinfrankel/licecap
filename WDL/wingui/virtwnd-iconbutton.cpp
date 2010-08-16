@@ -53,15 +53,18 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, in
 
     w/=3;
 
-    if (m_is_button)
+    if (w>0 && h>0)
     {
-      if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
+      if (m_is_button)
+      {
+        if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
+      }
+      LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
+        r.right-r.left,
+        r.bottom-r.top,
+        (float)sx,(float)sy,(float)w,(float)h,1.0f,
+        LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
     }
-    LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
-      r.right-r.left,
-      r.bottom-r.top,
-      (float)sx,(float)sy,(float)w,(float)h,1.0f,
-      LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
   }
 }
 
@@ -81,16 +84,18 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
     int h=m_iconCfg->image->getHeight();
 
     w/=3;
-
-    if (m_is_button)
+    if (w>0 && h > 0)
     {
-      if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
+      if (m_is_button)
+      {
+        if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
+      }
+      LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
+        r.right-r.left,
+        r.bottom-r.top,
+        (float)sx,(float)sy,(float)w,(float)h,1.0f,
+        LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
     }
-    LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
-      r.right-r.left,
-      r.bottom-r.top,
-      (float)sx,(float)sy,(float)w,(float)h,1.0f,
-      LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
   }
   else
   {

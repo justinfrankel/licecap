@@ -103,11 +103,6 @@ private:
 #ifdef _WIN32
   static BOOL CALLBACK enum_RegionRemove(HWND hwnd,LPARAM lParam);
   HRGN m_enum_rgn;
-#else
-  static HWND NSView_GetSubViewByTag(HWND hwnd, int tag);
-  static void NSView_GetBounds(HWND hwnd, RECT *r);
-  static void NSView_GetFrame(HWND hwnd, RECT *r);
-  static void NSView_SetFrame(HWND hwnd, RECT *r);
 #endif
   HWND m_hwnd;
   RECT m_orig_rect;

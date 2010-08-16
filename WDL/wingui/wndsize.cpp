@@ -25,6 +25,9 @@ For information on how to use this class, see wndsize.h :)
 */
 
 #include "wndsize.h"
+#ifndef _WIN32
+#include "../swell/swell.h"
+#endif
 
 void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
 {
@@ -32,11 +35,7 @@ void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
   if (initr)
     m_orig_rect=*initr;
   else
-#ifdef _WIN32
     GetClientRect(m_hwnd,&m_orig_rect);
-#else
-    NSView_GetBounds(m_hwnd,&m_orig_rect);
-#endif
   m_list.Resize(0);
 }
 
@@ -67,13 +66,9 @@ void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, floa
   if (srcr) this_r=*srcr;
   else
   {
-#ifdef _WIN32
     GetWindowRect(h,&this_r);
     ScreenToClient(m_hwnd,(LPPOINT) &this_r);
     ScreenToClient(m_hwnd,((LPPOINT) &this_r)+1);
-#else
-    NSView_GetFrame(h,&this_r);
-#endif
   }
   int osize=m_list.GetSize();
   m_list.Resize(osize+sizeof(WDL_WndSizer__rec));
@@ -92,11 +87,7 @@ void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, floa
 
 void WDL_WndSizer::init_item(int dlg_id, float left_scale, float top_scale, float right_scale, float bottom_scale, RECT *initr)
 {
-#ifdef _WIN32
   init_itemhwnd(GetDlgItem(m_hwnd,dlg_id),left_scale,top_scale,right_scale,bottom_scale,initr);
-#else
-  init_itemhwnd(NSView_GetSubViewByTag(m_hwnd,dlg_id),left_scale,top_scale,right_scale,bottom_scale,initr);
-#endif
 }
 
 #ifdef _WIN32
@@ -123,11 +114,7 @@ BOOL CALLBACK WDL_WndSizer::enum_RegionRemove(HWND hwnd,LPARAM lParam)
 
 void WDL_WndSizer::remove_item(int dlg_id)
 {
-#ifdef _WIN32
   remove_itemhwnd(GetDlgItem(m_hwnd,dlg_id));
-#else
-  remove_itemhwnd(NSView_GetSubViewByTag(m_hwnd,dlg_id));
-#endif
 }
 
 void WDL_WndSizer::remove_itemhwnd(HWND h)
@@ -165,16 +152,14 @@ void WDL_WndSizer::onResize(HWND only, int notouch)
 {
   RECT new_rect;
   
-#ifdef _WIN32
   GetClientRect(m_hwnd,&new_rect);
+#ifdef _WIN32
 
   m_enum_rgn=CreateRectRgn(new_rect.left,new_rect.top,new_rect.right,new_rect.bottom);
  // EnumChildWindows(m_hwnd,enum_RegionRemove,(LPARAM)this);
   
   HDWP hdwndpos=NULL;
   int has_dfwp=0;
-#else
-  NSView_GetBounds(m_hwnd,&new_rect);
 #endif
   WDL_WndSizer__rec *rec=(WDL_WndSizer__rec *) ((char *)m_list.Get());
   int cnt=m_list.GetSize() / sizeof(WDL_WndSizer__rec);
@@ -219,13 +204,15 @@ void WDL_WndSizer::onResize(HWND only, int notouch)
           }
 
 
-          if (!hdwndpos) SetWindowPos(rec->hwnd, NULL, r.left,r.top,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+          if (!hdwndpos) 
+#endif
+            SetWindowPos(rec->hwnd, NULL, r.left,r.top,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+          
+#ifdef _WIN32
           else 
           {
             hdwndpos=DeferWindowPos(hdwndpos, rec->hwnd, NULL, r.left,r.top,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
           }
-#else
-          NSView_SetFrame(rec->hwnd,&r);
 #endif
         }
         if (rec->vwnd)
@@ -293,9 +280,5 @@ WDL_WndSizer__rec *WDL_WndSizer::get_item(int dlg_id)
     rec++;
   }
 
-#ifdef _WIN32
   return get_itembywnd(GetDlgItem(m_hwnd,dlg_id));
-#else
-  return get_itembywnd(NSView_GetSubViewByTag(m_hwnd,dlg_id));
-#endif
 }

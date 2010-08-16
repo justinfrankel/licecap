@@ -115,7 +115,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
       unsigned char r = (p>>8)&0xff;
       unsigned char g = (p>>16)&0xff;
       unsigned char b = (p>>24)&0xff;
-      bmpptr[j] = b + (g<<8) + (r<<16) + (a<<24);
+      bmpptr[j] = LICE_RGBA(r,g,b,a);
     }
   }
   free(row_pointers);
@@ -142,6 +142,7 @@ static void staticPngReadFunc(png_structp png_ptr, png_bytep data, png_size_t le
 
 LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
 {
+#ifdef _WIN32
   HRSRC hResource = FindResource(hInst, MAKEINTRESOURCE(resid), "PNG");
   if(!hResource) return NULL;
 
@@ -253,10 +254,13 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
       unsigned char r = (p>>8)&0xff;
       unsigned char g = (p>>16)&0xff;
       unsigned char b = (p>>24)&0xff;
-      bmpptr[j] = b + (g<<8) + (r<<16) + (a<<24);
+      bmpptr[j] = LICE_RGBA(r,g,b,a);
     }
   }
   free(row_pointers);
-  
   return bmp;
+  
+#else
+  return 0;
+#endif
 }

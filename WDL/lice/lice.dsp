@@ -257,6 +257,10 @@ SOURCE=.\lice.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_arc.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_bmp.cpp
 # End Source File
 # Begin Source File

@@ -65,6 +65,20 @@ HWND GetDlgItem(HWND hwnd, int idx)
   return (HWND) [v viewWithTag:idx];
 }
 
+int GetWindowLong(HWND hwnd, int idx)
+{
+  if (!hwnd) return 0;
+  NSControl *v=0;
+  id pid=(id)hwnd;
+  if ([pid isKindOfClass:[NSControl class]]) v=(NSControl *)pid;
+
+  if (idx==GWL_ID && v)
+    return [v tag];
+  
+  return 0;
+}
+
+
 void DestroyWindow(HWND hwnd)
 {
   if (!hwnd) return;

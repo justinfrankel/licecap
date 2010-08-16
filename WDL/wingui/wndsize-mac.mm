@@ -26,6 +26,7 @@
 #include "wndsize.h"
 #import <Cocoa/Cocoa.h>
 
+#if 0
 HWND WDL_WndSizer::NSView_GetSubViewByTag(HWND hwnd, int tag)
 {
   NSView *v=(NSView *)hwnd;
@@ -69,3 +70,5 @@ void WDL_WndSizer::NSView_SetFrame(HWND hwnd, RECT *r)
   
   [v setFrame:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)];
 }
+
+#endif

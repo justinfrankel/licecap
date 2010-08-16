@@ -80,6 +80,28 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
                         (clipr->bottom-clipr->top)*ysc,
                         1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
 
+      if (m_bgbmtintcolor>=0)
+      {
+        float rv=GetRValue(m_bgbmtintcolor)/255.0;
+        float gv=GetGValue(m_bgbmtintcolor)/255.0;
+        float bv=GetBValue(m_bgbmtintcolor)/255.0;
+
+        float avg=(rv+gv+bv)*0.33333f;
+
+        float sc=0.5f;
+        float sc2 = (1.0f-sc)/avg;
+
+        float sc3=32.0f;
+        float sc4=64.0f*(avg-0.5);
+        // tint
+        LICE_MultiplyAddRect(m_bm,clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,
+            sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
+            (rv-avg)*sc3+sc4,
+            (gv-avg)*sc3+sc4,
+            (bv-avg)*sc3+sc4,
+            0);
+      }
+
       m_bgbm=0;
       return;
     }
@@ -245,6 +267,7 @@ void WDL_VWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w
 #endif
 }
 
+#ifdef _WIN32
 typedef struct
 {
   HRGN rgn;
@@ -269,6 +292,8 @@ static BOOL CALLBACK enumProc(HWND hwnd,LPARAM lParam)
   }
   return TRUE;
 }
+#endif
+
 void WDL_VWnd_Painter::PaintEnd()
 {
   if (!m_cur_hwnd) return;
@@ -305,6 +330,7 @@ void WDL_VWnd_Painter::PaintEnd()
   if (m_bm)
   {
     HDC hdc=WDL_GDP_CreateContext(m_cur_hwnd);
+    SWELL_SyncCtxFrameBuffer(m_bm->getDC());
     BitBlt(hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,

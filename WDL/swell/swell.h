@@ -165,6 +165,7 @@ void SetDlgItemText(HWND, int idx, const char *text);
 void SetDlgItemInt(HWND, int idx, int val, int issigned);
 int GetDlgItemInt(HWND, int idx, BOOL *translated, int issigned);
 void GetDlgItemText(HWND, int idx, char *text, int textlen);
+#define GetWindowText(hwnd,text,textlen) GetDlgItemText(hwnd,0,text,textlen)
 void CheckDlgButton(HWND hwnd, int idx, int check);
 int IsDlgButtonChecked(HWND hwnd, int idx);
 void EnableWindow(HWND hwnd, int enable);
@@ -178,6 +179,8 @@ void ScreenToClient(HWND hwnd, POINT *p);
 void GetWindowRect(HWND hwnd, RECT *r);
 void GetClientRect(HWND hwnd, RECT *r);
 void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags);
+int GetWindowLong(HWND hwnd, int idx);
+#define GWL_ID -1000
 
 void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed);
 void KillTimer(HWND hwnd, int timerid);
@@ -441,6 +444,7 @@ void SWELL_PushClipRegion(HDC ctx);
 void SWELL_SetClipRegion(HDC ctx, RECT *r);
 void SWELL_PopClipRegion(HDC ctx);
 void *SWELL_GetCtxFrameBuffer(HDC ctx);
+void SWELL_SyncCtxFrameBuffer(HDC ctx);
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode);
 #define DestroyIcon(x) DeleteObject(x)
 int GetSysColor(int idx);
