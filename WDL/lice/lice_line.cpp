@@ -4,26 +4,23 @@
 
 template <class T> inline void SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
-
-
-
 enum { eOK = 0, eXLo = 1, eXHi = 2, eYLo = 4, eYHi = 8 };
 
-static int OffscreenTest(float x, float y, int nX, int nY)
+static int OffscreenTest(int x, int y, int nX, int nY)
 {
   int e = eOK;
-  if (x < 0.0f) e |= eXLo; 
-  else if (x + 0.5f >= (float) nX) e |= eXHi; 
-  if (y < 0.0f) e |= eYLo; 
-  else if (y + 0.5f >= (float) nY) e |= eYHi; 
+  if (x < 0) e |= eXLo; 
+  else if (x >= nX) e |= eXHi; 
+  if (y < 0) e |= eYLo; 
+  else if (y >= nY) e |= eYHi; 
   return e;
 }
 
 // Cohen-Sutherland.  Returns false if the line is entirely offscreen.
 static bool ClipLine(float& x1, float& y1, float& x2, float& y2, int nX, int nY)
 {
-  int e1 = OffscreenTest(x1, y1, nX, nY); 
-  int e2 = OffscreenTest(x2, y2, nX, nY);
+  int e1 = OffscreenTest(int(x1), int(y1), nX, nY); 
+  int e2 = OffscreenTest(int(x2), int(y2), nX, nY);
   
   bool accept = false, done = false;
   do		// Always hit a trivial case eventually.
@@ -60,12 +57,12 @@ static bool ClipLine(float& x1, float& y1, float& x2, float& y2, int nX, int nY)
           if (eOut == e1) { 
             x1 = x; 
             y1 = y;
-            e1 = OffscreenTest(x1, y1, nX, nY);
+            e1 = OffscreenTest(int(x1), int(y1), nX, nY);
           }
           else {
             x2 = x;
             y2 = y;
-            e2 = OffscreenTest(x2, y2, nX, nY);
+            e2 = OffscreenTest(int(x2), int(y2), nX, nY);
           }
       }
   }
@@ -149,7 +146,7 @@ template <class COMBFUNC> class __LICE_LineClass
 		    yi = int(y1);
 		    float wXLo = x1 - (float)floor(x1), wXHi = 1.0f - wXLo;
 		    float wYLo = y1 - (float)floor(y1), wYHi = 1.0f - wYLo;
-        float weight = (wXLo + wYLo) / 4.0f;
+            float weight = (wXLo + wYLo) / 4.0f;
 		    PixPlot(pix, rowSpan, xi, yi, color, 1.0f, weight);
 		    if (xi < nX - 1) {
 			    PixPlot(pix, rowSpan, xi + 1, yi, color, 1.0f, weight);
@@ -175,17 +172,17 @@ template <class COMBFUNC> class __LICE_LineClass
 		    SWAP(y1, y2);
 	    }
 
-      float dx = x2 - x1;
-      float dy = y2 - y1;
-      float m = dy / dx;
+        float dx = x2 - x1;
+        float dy = y2 - y1;
+        float m = dy / dx;
 
 	    float xend = (float)floor(x1 + 0.5f);
-      float yend = y1 + m * (xend - x1);
-      float xgap = 1.0f - (x1 + 0.5f - xend);
+        float yend = y1 + m * (xend - x1);
+        float xgap = 1.0f - (x1 + 0.5f - xend);
 	    int xpxl1 = int(xend);
-      int ypxl1 = int(yend);
+        int ypxl1 = int(yend);
 
-      float vweight = yend - (float)floor(yend);
+        float vweight = yend - (float)floor(yend);
 	    if (steep) {
 		    PixPlot(pix, rowSpan, ypxl1, xpxl1, color, alpha, xgap * (1.0f - vweight));
 		    if (xpxl1 < nY - 1) {
@@ -202,11 +199,11 @@ template <class COMBFUNC> class __LICE_LineClass
 
 	    xend = (float)floor(x2 + 0.5f);
 	    yend = y2 + m * (xend - x2);
-      xgap = x2 + 0.5f - xend;
-      int xpxl2 = int(xend);
-      int ypxl2 = int(yend);
+        xgap = x2 + 0.5f - xend;
+        int xpxl2 = int(xend);
+        int ypxl2 = int(yend);
 
-      float vweight2 = yend - (float)floor(yend);
+        float vweight2 = yend - (float)floor(yend);
 	    if (steep) {
 		    PixPlot(pix, rowSpan, ypxl2, xpxl2, color, alpha, xgap * (1.0f - vweight2));
 		    if (ypxl2 < nX - 1) {
@@ -263,4 +260,18 @@ void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_
 #undef __LICE__ACTION
 		}
 	}
+}
+
+bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int yLo, int xHi, int yHi)
+{
+    float x1 = *pX1 - xLo;
+    float y1 = *pY1 - yLo;
+    float x2 = *pX2 - xLo;
+    float y2 = *pY2 - yLo;
+    bool onscreen = ClipLine(x1, y1, x2, y2, xHi - xLo, yHi - yLo);
+    *pX1 = x1 + xLo;
+    *pY1 = y1 + yLo;
+    *pX2 = x2 + xLo;
+    *pY2 = y2 + yLo;
+    return onscreen;
 }

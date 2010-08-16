@@ -34,6 +34,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+
+#ifdef MAC
+#include <dlfcn.h>
+#define FreeLibrary(x) dlclose(x)
+#define GetProcAddress(h,v) dlsym(h,v)
+#define LoadLibrary(x) dlopen(x,RTLD_LAZY)
+
+
+#endif
+
+
 #ifndef FALSE
 #define FALSE 0
 #endif
@@ -108,13 +119,6 @@ typedef struct _GUID {
   unsigned char  Data4[8];
 } GUID;
 
-#ifdef MAC
-#include <dlfcn.h>
-#define FreeLibrary(x) dlclose(x)
-#define GetProcAddress(h,v) dlsym(h,v)
-#define LoadLibrary(x) dlopen(x,RTLD_LAZY)
-#endif
-
 char *lstrcpyn(char *dest, const char *src, int l);
 void Sleep(int ms);
 DWORD GetTickCount();
@@ -127,6 +131,7 @@ int GetPrivateProfileInt(const char *appname, const char *keyname, int def, cons
 BOOL GetPrivateProfileStruct(const char *appname, const char *keyname, void *buf, int bufsz, const char *fn);
 BOOL WritePrivateProfileStruct(const char *appname, const char *keyname, const void *buf, int bufsz, const char *fn);
 
+void *SWELL_CStringToCFString(const char *str);
 
 /*
  ** swell-miscdlg.mm
@@ -166,6 +171,7 @@ void SetDlgItemInt(HWND, int idx, int val, int issigned);
 int GetDlgItemInt(HWND, int idx, BOOL *translated, int issigned);
 void GetDlgItemText(HWND, int idx, char *text, int textlen);
 #define GetWindowText(hwnd,text,textlen) GetDlgItemText(hwnd,0,text,textlen)
+#define SetWindowText(hwnd,text) SetDlgItemText(hwnd,0,text)
 void CheckDlgButton(HWND hwnd, int idx, int check);
 int IsDlgButtonChecked(HWND hwnd, int idx);
 void EnableWindow(HWND hwnd, int enable);
@@ -180,7 +186,11 @@ void GetWindowRect(HWND hwnd, RECT *r);
 void GetClientRect(HWND hwnd, RECT *r);
 void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags);
 int GetWindowLong(HWND hwnd, int idx);
-#define GWL_ID -1000
+int SetWindowLong(HWND hwnd, int idx, int val);
+#define GWL_USERDATA        (-21)
+#define GWL_ID              (-12)
+
+#define IsWindow(x) (!!(x)) // todo use isKindOf
 
 void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed);
 void KillTimer(HWND hwnd, int timerid);
@@ -424,6 +434,7 @@ HFONT CreateFontIndirect(LOGFONT *);
 HPEN CreatePen(int attr, int wid, int col);
 HBRUSH CreateSolidBrush(int col);
 HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen);
+HGDIOBJ GetStockObject(int wh);
 void DeleteObject(HGDIOBJ);
 void FillRect(HDC ctx, RECT *r, HBRUSH br);
 void Rectangle(HDC ctx, int l, int t, int r, int b);
@@ -485,22 +496,24 @@ int GetSysColor(int idx);
 #define TRANSPARENT 0
 #define OPAQUE 1
 
+#define NULL_PEN 1
+
 #else
 
-#define SWELL_CB_InsertString(hwnd, idx, pos, str) SendDlgItemMessage(hwnd,idx,CB_INSERTSTRING,pos,(LPARAM)str)
-#define SWELL_CB_AddString(hwnd, idx, str) SendDlgItemMessage(hwnd,idx,CB_ADDSTRING,0,(LPARAM)str)
-#define SWELL_CB_SetCurSel(hwnd,idx,val) SendDlgItemMessage(hwnd,idx,CB_SETCURSEL,(WPARAM)val,0)
+#define SWELL_CB_InsertString(hwnd, idx, pos, str) SendDlgItemMessage(hwnd,idx,CB_INSERTSTRING,(pos),(LPARAM)(str))
+#define SWELL_CB_AddString(hwnd, idx, str) SendDlgItemMessage(hwnd,idx,CB_ADDSTRING,0,(LPARAM)(str))
+#define SWELL_CB_SetCurSel(hwnd,idx,val) SendDlgItemMessage(hwnd,idx,CB_SETCURSEL,(WPARAM)(val),0)
 #define SWELL_CB_GetNumItems(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_GETCOUNT,0,0)
 #define SWELL_CB_GetCurSel(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_GETCURSEL,0,0)
-#define SWELL_CB_SetItemData(hwnd,idx,item,val) SendDlgItemMessage(hwnd,idx,CB_SETITEMDATA,item,val)
-#define SWELL_CB_GetItemData(hwnd,idx,item) SendDlgItemMessage(hwnd,idx,CB_GETITEMDATA,item,0)
-#define SWELL_CB_GetItemText(hwnd,idx,item,buf,bufsz) SendDlgItemMessage(hwnd,idx,CB_GETLBTEXT,item,(LPARAM)buf)
+#define SWELL_CB_SetItemData(hwnd,idx,item,val) SendDlgItemMessage(hwnd,idx,CB_SETITEMDATA,(item),(val))
+#define SWELL_CB_GetItemData(hwnd,idx,item) SendDlgItemMessage(hwnd,idx,CB_GETITEMDATA,(item),0)
+#define SWELL_CB_GetItemText(hwnd,idx,item,buf,bufsz) SendDlgItemMessage(hwnd,idx,CB_GETLBTEXT,(item),(LPARAM)(buf))
 #define SWELL_CB_Empty(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_RESETCONTENT,0,0)
 
-#define SWELL_TB_SetPos(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx, TBM_SETPOS,TRUE,pos)
-#define SWELL_TB_SetRange(hwnd, idx, low, hi) SendDlgItemMessage(hwnd,idx,TBM_SETRANGE,TRUE,(LPARAM)MAKELONG(low,hi))
+#define SWELL_TB_SetPos(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx, TBM_SETPOS,TRUE,(pos))
+#define SWELL_TB_SetRange(hwnd, idx, low, hi) SendDlgItemMessage(hwnd,idx,TBM_SETRANGE,TRUE,(LPARAM)MAKELONG((low),(hi)))
 #define SWELL_TB_GetPos(hwnd, idx) SendDlgItemMessage(hwnd,idx,TBM_GETPOS,0,0)
-#define SWELL_TB_SetTic(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx,TBM_SETTIC,0,pos)
+#define SWELL_TB_SetTic(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx,TBM_SETTIC,0,(pos))
 
 #endif//_WIN32
 
@@ -509,7 +522,7 @@ int GetSysColor(int idx);
 #define WDL_GDP_CTX HDC
 #define WDL_GDP_PEN HPEN
 #define WDL_GDP_BRUSH HBRUSH
-#define WDL_GDP_CreatePen(col, wid) (WDL_GDP_PEN)CreatePen(PS_SOLID,wid,col)
+#define WDL_GDP_CreatePen(col, wid) (WDL_GDP_PEN)CreatePen(PS_SOLID,(wid),(col))
 #define WDL_GDP_DeletePen(pen) DeleteObject((HGDIOBJ)(pen))
 #define WDL_GDP_SetPen(ctx, pen) ((WDL_GDP_PEN)SelectObject(ctx,(HGDIOBJ)(pen)))
 #define WDL_GDP_SetBrush(ctx, brush) ((WDL_GDP_BRUSH)SelectObject(ctx,(HGDIOBJ)(brush)))

@@ -89,6 +89,7 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         float bv=GetBValue(m_bgbmtintcolor)/255.0;
 
         float avg=(rv+gv+bv)*0.33333f;
+        if (avg<0.05)avg=0.05;
 
         float sc=0.5f;
         float sc2 = (1.0f-sc)/avg;
@@ -359,6 +360,10 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 
   if (tr.bottom > tr.top && tr.right > tr.left)
   {
+    tr.left -= r.left;
+    tr.right -= r.left;
+    tr.top -= r.top;
+    tr.bottom -= r.top;
     vwnd->OnPaint(m_bm,0,0,&tr);
     if (borderflags)
     {

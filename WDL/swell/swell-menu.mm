@@ -52,7 +52,7 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
     }
     return false;
   }
-  NSString *label=(NSString *)CFStringCreateWithCString(NULL,text,kCFStringEncodingUTF8); 
+  NSString *label=(NSString *)SWELL_CStringToCFString(text); 
   
   [item setTitle:label];
   
@@ -220,7 +220,7 @@ int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
 {
   if (!hMenu) return -1;
   NSMenu *m=(NSMenu *)hMenu;
-  NSString *label=(NSString *)CFStringCreateWithCString(NULL,name,kCFStringEncodingUTF8); 
+  NSString *label=(NSString *)SWELL_CStringToCFString(name); 
   NSMenuItem *item=[m insertItemWithTitle:label action:NULL keyEquivalent:@"" atIndex:pos];
   [label release];
   [item setTag:tagid];
@@ -279,7 +279,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   {
     if (mi->fType == MFT_STRING && mi->dwTypeData)
     {
-      NSString *label=(NSString *)CFStringCreateWithCString(NULL, mi->dwTypeData,kCFStringEncodingUTF8); 
+      NSString *label=(NSString *)SWELL_CStringToCFString(mi->dwTypeData); 
       
       [item setTitle:label];
       
@@ -369,7 +369,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
   if (mi->fType == MFT_STRING)
   {
-    NSString *label=(NSString *)CFStringCreateWithCString(NULL,mi->dwTypeData?mi->dwTypeData:"(null)",kCFStringEncodingUTF8); 
+    NSString *label=(NSString *)SWELL_CStringToCFString(mi->dwTypeData?mi->dwTypeData:"(null)"); 
     item=[m insertItemWithTitle:label action:NULL keyEquivalent:@"" atIndex:pos];
     [label release];
   }

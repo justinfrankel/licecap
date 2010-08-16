@@ -45,7 +45,7 @@ static NSMutableArray *extensionsFromList(const char *extlist)
 			if (strstr(tmp,";")) strstr(tmp,";")[0]=0;
 			if (tmp[0] && tmp[0]!='*')
 			{
-				NSString *s=(NSString *)CFStringCreateWithCString(NULL,tmp,kCFStringEncodingUTF8);
+				NSString *s=(NSString *)SWELL_CStringToCFString(tmp);
 				[fileTypes addObject:s];
 				[s release];
 			}
@@ -63,7 +63,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
                        char *fn, int fnsize)
 {
 	NSSavePanel *panel = [NSSavePanel savePanel];
-  NSString *title=(NSString *)CFStringCreateWithCString(NULL,text,kCFStringEncodingUTF8); 
+  NSString *title=(NSString *)SWELL_CStringToCFString(text); 
 	[panel setTitle:title];
 	
 	NSMutableArray *fileTypes = extensionsFromList(extlist);	
@@ -80,14 +80,14 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 		while (*p) p++;
 		while (p > s && *p != '/') p--;
 		*p=0;
-		ifn=(NSString *)CFStringCreateWithCString(NULL,p+1,kCFStringEncodingUTF8);
+		ifn=(NSString *)SWELL_CStringToCFString(p+1);
 		if (s[0]) 
-			idir=(NSString *)CFStringCreateWithCString(NULL,s,kCFStringEncodingUTF8);
+			idir=(NSString *)SWELL_CStringToCFString(s);
     
 	}
 	else if (initialdir && *initialdir)
 	{
-		idir=(NSString *)CFStringCreateWithCString(NULL,initialdir,kCFStringEncodingUTF8);
+		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
 	int result = [panel runModalForDirectory:idir file:ifn];
@@ -115,7 +115,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
 {
 	NSOpenPanel *panel = [NSOpenPanel openPanel];
-  NSString *title=(NSString *)CFStringCreateWithCString(NULL,text,kCFStringEncodingUTF8); 
+  NSString *title=(NSString *)SWELL_CStringToCFString(text); 
 	[panel setTitle:title];
 	[panel setAllowsMultipleSelection:NO];
 	[panel setCanChooseFiles:NO];
@@ -126,7 +126,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 	
 	if (initialdir && *initialdir)
 	{
-		idir=(NSString *)CFStringCreateWithCString(NULL,initialdir,kCFStringEncodingUTF8);
+		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
 	int result = [panel runModalForDirectory:idir file:nil types:nil];
@@ -154,7 +154,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
                      const char *initialfile, bool allowmul, const char *extlist)
 {
 	NSOpenPanel *panel = [NSOpenPanel openPanel];
-  NSString *title=(NSString *)CFStringCreateWithCString(NULL,text,kCFStringEncodingUTF8); 
+  NSString *title=(NSString *)SWELL_CStringToCFString(text); 
 	[panel setTitle:title];
 	[panel setAllowsMultipleSelection:(allowmul?YES:NO)];
 	[panel setCanChooseFiles:YES];
@@ -174,14 +174,14 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 		while (*p) p++;
 		while (p > s && *p != '/') p--;
 		*p=0;
-		ifn=(NSString *)CFStringCreateWithCString(NULL,p+1,kCFStringEncodingUTF8);
+		ifn=(NSString *)SWELL_CStringToCFString(p+1);
 		if (s[0]) 
-			idir=(NSString *)CFStringCreateWithCString(NULL,s,kCFStringEncodingUTF8);
+			idir=(NSString *)SWELL_CStringToCFString(s);
     
 	}
 	else if (initialdir && *initialdir)
 	{
-		idir=(NSString *)CFStringCreateWithCString(NULL,initialdir,kCFStringEncodingUTF8);
+		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
 	int result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
@@ -241,8 +241,8 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 int SWELL_MessageBox(const char *text, const char *caption, int type)
 {
   
-  NSString *tit=(NSString *)CFStringCreateWithCString(NULL,caption,kCFStringEncodingUTF8); 
-  NSString *tex=(NSString *)CFStringCreateWithCString(NULL,text,kCFStringEncodingUTF8); 
+  NSString *tit=(NSString *)SWELL_CStringToCFString(caption); 
+  NSString *tex=(NSString *)SWELL_CStringToCFString(text); 
   
   if (type == MB_OK)
   {

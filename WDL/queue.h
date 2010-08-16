@@ -36,15 +36,12 @@
 
 #include "heapbuf.h"
 
+
 class WDL_Queue 
 {
 public:
-  WDL_Queue() : m_pos(0)
-  {
-  }
-  ~WDL_Queue()
-  {
-  }
+  WDL_Queue() : m_pos(0) { }
+  ~WDL_Queue() { }
 
   void *Add(const void *buf, int len)
   {
@@ -67,10 +64,7 @@ public:
     return NULL;
   }
 
-  int Available()
-  {
-    return m_hb.GetSize() - m_pos;
-  }
+  int Available() { return m_hb.GetSize() - m_pos; }
 
   void Clear()
   {
@@ -78,10 +72,7 @@ public:
     m_hb.Resize(0,false);
   }
 
-  void Advance(int bytecnt)
-  {
-    m_pos+=bytecnt;
-  }
+  void Advance(int bytecnt) { m_pos+=bytecnt; }
 
   void Compact(bool allocdown=false)
   {
@@ -99,11 +90,7 @@ public:
     }
   }
 
-  void SetGranul(int granul) 
-  {
-    m_hb.SetGranul(granul);
-  }
-
+  void SetGranul(int granul) { m_hb.SetGranul(granul); }
 
 private:
   WDL_HeapBuf m_hb;
@@ -111,5 +98,72 @@ private:
 };
 
 
+
+
+
+template <class T> class WDL_TypedQueue
+{
+public:
+  WDL_TypedQueue() : m_pos(0) { }
+  ~WDL_TypedQueue() { }
+
+  T *Add(const T *buf, int len)
+  {
+    len *= sizeof(T);
+    int olen=m_hb.GetSize();
+    void *obuf=m_hb.Resize(olen+len,false);
+    if (!obuf) return 0;
+    if (buf) memcpy((char*)obuf+olen,buf,len);
+    return (T*) ((char*)obuf+olen);
+  }
+
+  int GetSize()
+  {
+    return (m_hb.GetSize()-m_pos)/sizeof(T);
+  }
+
+  T *Get()
+  {
+    void *buf=m_hb.Get();
+    if (buf && m_pos >= 0 && m_pos < m_hb.GetSize()) return (T*)((char *)buf+m_pos);
+    return NULL;
+  }
+
+  int Available() { return (m_hb.GetSize() - m_pos)/sizeof(T); }
+
+  void Clear()
+  {
+    m_pos=0;
+    m_hb.Resize(0,false);
+  }
+
+  void Advance(int cnt) { m_pos+=cnt*sizeof(T); }
+
+  void Compact(bool allocdown=false)
+  {
+    if (m_pos > 0)
+    {
+      int olen=m_hb.GetSize();
+      if (m_pos < olen)
+      {
+        void *a=m_hb.Get();
+        if (a) memmove(a,(char*)a+m_pos,olen-m_pos);
+        m_hb.Resize(olen-m_pos,allocdown);
+      }
+      else m_hb.Resize(0,allocdown);
+      m_pos=0;
+    }
+  }
+
+  void SetGranul(int granul) { m_hb.SetGranul(granul); }
+
+private:
+  WDL_HeapBuf m_hb;
+  int m_pos;
+};
+
+
+
 #endif
+
 

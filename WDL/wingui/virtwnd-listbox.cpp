@@ -83,9 +83,9 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
   if (m_rh<7) m_rh=7;
   if (num_items*m_rh > m_position.bottom-m_position.top)
   {
-    updownbuttonsize = m_rh*2/3;
+    updownbuttonsize = m_rh;
     startpos=m_viewoffs;
-    int nivis=(m_position.bottom-m_position.top-2*updownbuttonsize)/m_rh;
+    int nivis=(m_position.bottom-m_position.top-updownbuttonsize)/m_rh;
     if (startpos+nivis > num_items) startpos=num_items-nivis;
     if (startpos<0)startpos=0;
   }
@@ -104,7 +104,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
   int itempos=startpos;
   SetBkMode(hdc,TRANSPARENT);
   if (updownbuttonsize) endpos-=updownbuttonsize;
-  for (y = r.top + (updownbuttonsize ? updownbuttonsize : m_rh); y < endpos; y += m_rh)
+  for (y = r.top + m_rh; y <= endpos; y += m_rh)
   {
     int ly=y-m_rh;
     LICE_IBitmap *bkbm=0;
@@ -175,39 +175,71 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
   }
   if (updownbuttonsize)
   {
+    LICE_IBitmap *bkbm=0;
+    int a=m_GetItemInfo ? m_GetItemInfo(this,0x10000000,NULL,0,NULL,(void**)&bkbm) : 0;
 
-    int cx=(r.left+r.right)/2;
-    int bs=updownbuttonsize*2/3;
-
-    if (itempos<num_items)
+    if (bkbm)
     {
-      y=r.bottom-updownbuttonsize;
-      SelectObject(hdc,pen2);
-      MoveToEx(hdc,cx-bs/2,y+2,NULL);
-      LineTo(hdc,cx, y+bs-2);
-      LineTo(hdc,cx+bs/2,y+2);
-      LineTo(hdc,cx-bs/2,y+2);
+      int hh=bkbm->getHeight()/3;
 
-      SelectObject(hdc,pen);
-      MoveToEx(hdc,cx-bs/2-1,y+1,NULL);
-      LineTo(hdc,cx, y+bs-1);
-      LineTo(hdc,cx+bs/2+1,y+1);
-      LineTo(hdc,cx-bs/2-1,y+1);
+
+      int bkbmstate=startpos>0 ? 2 : 1;
+      LICE_ScaledBlit(drawbm,bkbm,
+        r.left,y-m_rh,(r.right-r.left)/2,m_rh,
+        0,bkbmstate*hh,
+        bkbm->getWidth()/2,hh,1.0,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+
+      bkbmstate=itempos<num_items ? 2 : 1;
+      LICE_ScaledBlit(drawbm,bkbm,
+        (r.left+r.right)/2,y-m_rh,(r.right-r.left) - (r.right-r.left)/2,m_rh,
+        bkbm->getWidth()/2,bkbmstate*hh,
+        bkbm->getWidth() - bkbm->getWidth()/2,hh,1.0,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+      
     }
-    if (startpos>0)
-    {
-      y=r.top;
-      SelectObject(hdc,pen2);
-      MoveToEx(hdc,cx-bs/2,y+bs,NULL);
-      LineTo(hdc,cx, y+3+1);
-      LineTo(hdc,cx+bs/2,y+bs);
-      LineTo(hdc,cx-bs/2,y+bs);
 
-      SelectObject(hdc,pen);
-      MoveToEx(hdc,cx-bs/2-1,y+bs+1,NULL);
-      LineTo(hdc,cx, y+3);
-      LineTo(hdc,cx+bs/2+1,y+bs+1);
-      LineTo(hdc,cx-bs/2-1,y+bs+1);
+    if (!a||!bkbm)
+    {
+      int cx=(r.left+r.right)/2;
+      int bs=5;
+      int bsh=8;
+      MoveToEx(hdc,cx,y-m_rh+2,NULL);
+      LineTo(hdc,cx,y-1);
+      MoveToEx(hdc,r.left,y,NULL);
+      LineTo(hdc,r.right,y);
+
+      y-=m_rh/2+bsh/2;
+
+      if (itempos<num_items)
+      {
+        cx=(r.left+r.right)*3/4;
+        SelectObject(hdc,pen2);
+        MoveToEx(hdc,cx-bs+1,y+2,NULL);
+        LineTo(hdc,cx, y+bsh-2);
+        LineTo(hdc,cx+bs-1,y+2);
+        LineTo(hdc,cx-bs+1,y+2);
+
+        SelectObject(hdc,pen);
+        MoveToEx(hdc,cx-bs-1,y+1,NULL);
+        LineTo(hdc,cx, y+bsh-1);
+        LineTo(hdc,cx+bs+1,y+1);
+        LineTo(hdc,cx-bs-1,y+1);
+      }
+      if (startpos>0)
+      {
+        y-=2;
+        cx=(r.left+r.right)/4;
+        SelectObject(hdc,pen2);
+        MoveToEx(hdc,cx-bs+1,y+bsh,NULL);
+        LineTo(hdc,cx, y+3+1);
+        LineTo(hdc,cx+bs-1,y+bsh);
+        LineTo(hdc,cx-bs+1,y+bsh);
+
+        SelectObject(hdc,pen);
+        MoveToEx(hdc,cx-bs-1,y+bsh+1,NULL);
+        LineTo(hdc,cx, y+3);
+        LineTo(hdc,cx+bs+1,y+bsh+1);
+        LineTo(hdc,cx-bs-1,y+bsh+1);
+      }
     }
   }
 
@@ -243,29 +275,32 @@ bool WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
   if (m_rh<7) m_rh=7;
   if (num_items*m_rh > wndheight)
   {
-    updownbuttonsize = m_rh*2/3;
+    updownbuttonsize = m_rh;
     startpos=m_viewoffs;
-    int nivis=(wndheight-2*updownbuttonsize)/m_rh;
+    int nivis=(wndheight-updownbuttonsize)/m_rh;
     if (startpos+nivis > num_items) startpos=num_items-nivis;
     if (startpos<0)startpos=0;
 
-    if (ypos < updownbuttonsize)
+    if (ypos >= nivis*m_rh)
     {
-      if (m_viewoffs>0)
+      if (ypos < (nivis+1)*m_rh)
       {
-        m_viewoffs--;
-        RequestRedraw(NULL);
-      }
-      m_cap_state=0;
-      m_cap_startitem=-1;
-      return true;
-    }
-    if (ypos >= updownbuttonsize + nivis*m_rh)
-    {
-      if (m_viewoffs+nivis < num_items)
-      {
-        m_viewoffs++;
-        RequestRedraw(NULL);
+        if (xpos < (m_position.right-m_position.left)/2)
+        {
+          if (m_viewoffs>0)
+          {
+            m_viewoffs--;
+            RequestRedraw(NULL);
+          }
+        }
+        else
+        {
+          if (m_viewoffs+nivis < num_items)
+          {
+            m_viewoffs++;
+            RequestRedraw(NULL);
+          }
+        }
       }
       m_cap_state=0;
       m_cap_startitem=-1;
@@ -274,7 +309,7 @@ bool WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
   }
 
   m_cap_state=0x1000;
-  m_cap_startitem=startpos + (ypos-(updownbuttonsize))/m_rh;
+  m_cap_startitem=startpos + (ypos)/m_rh;
   RequestRedraw(NULL);
 
   return true;
@@ -282,6 +317,48 @@ bool WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
 
 bool WDL_VirtualListBox::OnMouseDblClick(int xpos, int ypos)
 {
+  int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  int updownbuttonsize=0; // &1= has top button, &2= has bottom button
+  int startpos=0;
+
+  int wndheight=m_position.bottom-m_position.top;
+
+  if (m_rh<7) m_rh=7;
+  if (num_items*m_rh > wndheight)
+  {
+    updownbuttonsize = m_rh;
+    startpos=m_viewoffs;
+    int nivis=(wndheight-updownbuttonsize)/m_rh;
+    if (startpos+nivis > num_items) startpos=num_items-nivis;
+    if (startpos<0)startpos=0;
+
+    if (ypos >= nivis*m_rh)
+    {
+      if (ypos < (nivis+1)*m_rh)
+      {
+        if (xpos < (m_position.right-m_position.left)/2)
+        {
+          if (m_viewoffs>0)
+          {
+            m_viewoffs--;
+            RequestRedraw(NULL);
+          }
+        }
+        else
+        {
+          if (m_viewoffs+nivis < num_items)
+          {
+            m_viewoffs++;
+            RequestRedraw(NULL);
+          }
+        }
+      }
+      m_cap_state=0;
+      m_cap_startitem=-1;
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -301,8 +378,8 @@ bool WDL_VirtualListBox::OnMouseWheel(int xpos, int ypos, int amt)
     }
     else if (amt<0)
     {
-      int updownbuttonsize = m_rh*2/3;
-      int nivis=(wndheight-2*updownbuttonsize)/m_rh;
+      int updownbuttonsize = m_rh;
+      int nivis=(wndheight-updownbuttonsize)/m_rh;
       if (m_viewoffs+nivis < num_items)
       {
         m_viewoffs++;
@@ -386,17 +463,17 @@ int WDL_VirtualListBox::IndexFromPt(int x, int y)
   int nivis=(m_position.bottom-m_position.top)/m_rh;
   if (num_items*m_rh > m_position.bottom-m_position.top)
   {
-    updownbuttonsize = m_rh*2/3;
+    updownbuttonsize = m_rh;
     startpos=m_viewoffs;
-    nivis=(m_position.bottom-m_position.top-2*updownbuttonsize)/m_rh;
+    nivis=(m_position.bottom-m_position.top-updownbuttonsize)/m_rh;
     if (startpos+nivis > num_items) startpos=num_items-nivis;
     if (startpos<0)startpos=0;
   }
 
-  if (y < updownbuttonsize) return -1;  // not a valid y
-  if (y >= updownbuttonsize+ nivis*m_rh) return -1;
+  if (y < 0) return -1;  // not a valid y
+  if (y >= nivis*m_rh) return -1;
 
-  return startpos + (y-(updownbuttonsize))/m_rh;
+  return startpos + (y)/m_rh;
 
 
 

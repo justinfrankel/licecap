@@ -24,6 +24,8 @@
 
 
 
+#ifdef _WIN32
+
 #include <windows.h>
 #include <stdio.h>
 
@@ -281,6 +283,12 @@ __declspec(dllexport) BE_ERR	beWriteVBRHeader(LPCSTR lpszFileName);
 #ifdef	__cplusplus
 }
 #endif
+#else
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#endif // end _WIN32
 
 
 
@@ -290,6 +298,8 @@ __declspec(dllexport) BE_ERR	beWriteVBRHeader(LPCSTR lpszFileName);
 //#define LATENCY_GAP_HACK
 
 
+
+#ifdef _WIN32
 
 static HINSTANCE hlamedll;
 static BEINITSTREAM     beInitStream;
@@ -305,9 +315,12 @@ static void (*get_decode_info)(void *,int *nch, int *srate);//JF> added for quer
 static void (*remove_buf)(void *);
 
 
+#endif
+
 
 static void initdll()
 {
+#ifdef _WIN32
   if (!hlamedll) 
   {
     char me[1024];
@@ -337,27 +350,24 @@ static void initdll()
     }
 
   }
+#endif
 }
 
 bool LameEncoder::CheckDLL() // returns true if dll is present
 {
+#ifdef _WIN32
   initdll();
   if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion)
     return false;
+#endif
   return true;
 }
 
-/*
-  if (!InitMP3_Create||!ExitMP3_Delete||!decodeMP3_unclipped||!get_decode_info||!remove_buf)
-  {
-    errorstat=1;
-    return;
-  }
-*/
 LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int quality, int vbrmethod, int vbrquality, int vbrmax, int abr)
 {
-  hbeStream=0;
   errorstat=0;
+#ifdef _WIN32
+  hbeStream=0;
   initdll();
 
   if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion)
@@ -365,7 +375,21 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
     errorstat=1;
     return;
   }
+#else
+
+  m_lamestate=lame_init();
+  if (!m_lamestate)
+  {
+    errorstat=1; 
+    return;
+  }
+
+#endif
   m_nch=nch;
+
+
+
+#ifdef _WIN32
 
   BE_CONFIG beConfig;
   memset(&beConfig,0,sizeof(beConfig));
@@ -405,7 +429,25 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
     return;
   }
   in_size_samples/=m_nch;
+#else
+  lame_set_in_samplerate(m_lamestate, srate);
+  lame_set_num_channels(m_lamestate,nch);
+  int outrate=srate;
+  if (outrate>=32000 && bitrate <= 32*nch) outrate/=2;
+  lame_set_out_samplerate(m_lamestate,outrate);
+  lame_set_quality(m_lamestate,(quality>9 ||quality<0) ? 0 : quality);
+  lame_set_mode(m_lamestate,(MPEG_mode) (nch==1?3 :stereomode ));
+  lame_set_brate(m_lamestate,bitrate);
+  // todo: vbr modes etc
+  // lame_set_VBR etc
+  lame_init_params(m_lamestate);
+  in_size_samples=lame_get_framesize(m_lamestate);
+  int out_size_bytes=65536;
+#endif
+
   outtmp.Resize(out_size_bytes);
+
+#ifdef _WIN32
 
 #ifdef LATENCY_GAP_HACK
     {
@@ -419,6 +461,7 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
         outqueue.Add(outtmp.Get(),dwo);
       }
     }
+#endif
 #endif
 
 }
@@ -463,6 +506,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
     }
     while (spltmp[0].Available() >= (int) (in_size_samples*sizeof(float)))
     {
+#ifdef _WIN32
       DWORD dwo=0;
       if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_nch > 1].Get(), 
                           (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
@@ -472,6 +516,11 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
         return;
       }
 //      printf("encoded to %d bytes (%d) %d\n",dwo, outtmp.GetSize(),in_size_samples);
+#else
+      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_nch>1].Get(),
+           in_size_samples,(unsigned char *)outtmp.Get(),outtmp.GetSize());
+      //printf("encoded %d to %d\n",in_size_samples,dwo);
+#endif
       outqueue.Add(outtmp.Get(),dwo);
       spltmp[0].Advance(in_size_samples*sizeof(float));
       if (m_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
@@ -487,6 +536,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       spltmp[0].Add(buf,l);
       if (m_nch>1) spltmp[1].Add(buf,l);
 
+#ifdef _WIN32
       DWORD dwo=0;
       if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_nch > 1].Get(), 
                           (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
@@ -497,6 +547,15 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       }
 
       outqueue.Add(outtmp.Get(),dwo);
+#else
+      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_nch>1].Get(),
+           in_size_samples,(unsigned char *)outtmp.Get(),outtmp.GetSize());
+      if (dwo>0) outqueue.Add(outtmp.Get(),dwo);
+
+      unsigned char tmp[8192];
+      int a=lame_encode_flush(m_lamestate,tmp,sizeof(tmp));
+      if (a>0) outqueue.Add(tmp,a);
+#endif
 
       spltmp[0].Advance(in_size_samples*sizeof(float));
       if (m_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
@@ -530,12 +589,22 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 
 LameEncoder::~LameEncoder()
 {
+#ifdef _WIN32
   if (hbeStream) beCloseStream(hbeStream);
   if (m_vbrfile.Get()[0] && beWriteVBRHeader)
   {
     beWriteVBRHeader(m_vbrfile.Get());
   }
+#else
+  if (m_lamestate)
+  {
+    lame_close(m_lamestate);
+    m_lamestate=0;
+  }
+#endif
 }
+
+#ifdef _WIN32 // todo: lame decoding on nonwin32
 
 LameDecoder::LameDecoder()
 {
@@ -635,3 +704,4 @@ LameDecoder::~LameDecoder()
     ExitMP3_Delete(decinst);
   }
 }
+#endif

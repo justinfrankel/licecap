@@ -428,6 +428,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
         float bv=GetBValue(m_bg)/255.0;
 
         float avg=(rv+gv+bv)*0.33333f;
+        if (avg<0.05)avg=0.05;
 
         float sc=0.5f;
         float sc2 = (1.0f-sc)/avg;

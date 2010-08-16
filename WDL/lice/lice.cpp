@@ -1255,3 +1255,65 @@ void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   }
 
 }
+
+void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,  
+                     LICE_pixel comparemask, 
+                     LICE_pixel keepmask)
+{
+  if (!dest) return;
+  int dw=dest->getWidth();
+  int dh=dest->getHeight();
+  int rowsize=dest->getRowSpan();
+  if (x<0||x>=dw||y<0||y>=dh) return;
+  LICE_pixel *ptr=dest->getBits();
+  if (!ptr) return;
+  ptr += rowsize*y;
+
+  LICE_pixel compval=ptr[x]&comparemask;
+  int ay;
+  for (ay=y;ay<dh; ay++)
+  {
+    if ((ptr[x]&comparemask)!=compval) break;
+    ptr[x]=(ptr[x]&keepmask)|newcolor;
+
+    int ax;
+    for(ax=x+1;ax<dw;ax++)
+    {
+      if ((ptr[ax]&comparemask)!=compval) break;
+      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
+    }
+    ax=x;
+    while (--ax>=0)
+    {
+      if ((ptr[ax]&comparemask)!=compval) break;
+      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
+    }
+    
+    ptr+=rowsize;
+  }
+  ptr =dest->getBits()+rowsize*y;
+
+  ay=y;
+  while (--ay>=0)
+  {
+    ptr-=rowsize;
+    if ((ptr[x]&comparemask)!=compval) break;
+    ptr[x]=(ptr[x]&keepmask)|newcolor;
+
+    int ax;
+    for(ax=x+1;ax<dw;ax++)
+    {
+      if ((ptr[ax]&comparemask)!=compval) break;
+      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
+    }
+    ax=x;
+    while (--ax>=0)
+    {
+      if ((ptr[ax]&comparemask)!=compval) break;
+      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
+    }
+    
+  }
+
+}
+

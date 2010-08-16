@@ -30,6 +30,10 @@
 #include "queue.h"
 #include "wdlstring.h"
 
+#ifndef _WIN32
+#include <lame/lame.h>
+#endif
+
 
 class LameEncoder
 {
@@ -65,7 +69,11 @@ class LameEncoder
     WDL_String m_vbrfile;
     int errorstat;
     int in_size_samples;
+#ifdef _WIN32
     unsigned long hbeStream;
+#else
+    lame_t m_lamestate;
+#endif
 };
 
 class LameDecoder
@@ -99,7 +107,11 @@ class LameDecoder
     int m_srate,m_nch;
     int m_samples_remove;
 
+#ifdef _WIN32
     void *decinst;
+#else
+    lame_t *decinst;
+#endif
 };
 
 

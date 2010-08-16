@@ -18,8 +18,31 @@
        misrepresented as being the original software.
     3. This notice may not be removed or altered from any source distribution.
   
+  DialogBox emulation is here. To declare the resource at a global level, use (in any source file that includes this file and resource.h):
 
-  This file provides functions to dynamically create controls in a view from a win32 resource script.
+  
+  #ifdef MAC
+
+
+  SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(IDD_SOMEDIALOG,0,"Dialog Box Title",222,55,1.8) // width, height, scale (1.8 is usually good)
+
+  BEGIN
+  DEFPUSHBUTTON   "OK",IDOK,117,33,47,14
+  CONTROL         "Expand MIDI tracks to new REAPER tracks                    ",IDC_CHECK1,
+  "Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,7,214,10
+  CONTROL         "Merge MIDI tempo map to project tempo map at                ",
+  IDC_CHECK2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,19,
+  214,10
+  PUSHBUTTON      "Cancel",IDCANCEL,168,33,50,14
+  END
+
+  SWELL_DEFINE_DIALOG_RESOURCE_END(IDD_SOMEDIALOG)
+
+
+  #endif
+
+
+  This file also provides functions to dynamically create controls in a view from a win32 resource script.
 
   To create these controls, do something like the following:
 
@@ -115,10 +138,69 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 #define CBS_AUTOHSCROLL 0
 #define TBS_NOTICKS 0
 #define TBS_TOP 0
+#define SS_NOTIFY 0
                      
                                        
 #ifndef IDC_STATIC
 #define IDC_STATIC 0
 #endif
+
+#ifndef WINAPI
+#define WINAPI
+#endif
+                                       
+#ifndef CALLBACK
+#define CALLBACK
+#endif
+
+#ifndef MAKEINTRESOURCE
+#define MAKEINTRESOURCE(x) (x)         
+#endif                
+                                       
+#define DialogBox(hinst, resid, par, dlgproc) SWELL_DialogBox(resid,par,dlgproc,0)
+#define DialogBoxParam(hinst, resid, par, dlgproc, param) SWELL_DialogBox(resid,par,dlgproc,param)
+                                       
+                                                                              
+#ifndef LOWORD
+#define LOWORD(x) ((x)&0xffff)
+#endif
+                                       
+#ifndef HIWORD
+#define HIWORD(x) (((x)>>16)&0xffff)
+#endif
+                                       
+typedef unsigned int UINT;
+typedef unsigned int WPARAM;
+typedef long LPARAM;
+                                       
+typedef BOOL (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
+                                       
+int SWELL_DialogBox(int resid, HWND parent,  DLGPROC dlgproc, LPARAM param);  
+
+                                       
+void SWELL_RegisterDialogResource(int resid, void (*createFunc)(HWND createTo), bool isChildWindow, const char *title, int width, int height);                                    
+#define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(resid, isch, title, width, height, scale) \
+                                       class NewCustomResource_##resid { \
+                                          public: \
+                                            NewCustomResource_##resid () { SWELL_RegisterDialogResource(resid,cf,isch,title,(int)((width)*(scale)),(int)((height)*(scale))); } \
+                                           static void cf(HWND view) { \
+                                             SWELL_DLGGEN_DLGFOLLOWS(view,scale);
+                           
+#define SWELL_DEFINE_DIALOG_RESOURCE_END(resid ) } }; static NewCustomResource_##resid NewCustomResourceInst_##resid;                                       
+     
+#define EN_CHANGE           0x0300
+#define STN_CLICKED         0
+#define STN_DBLCLK          1
+                                       
+void EndDialog(HWND, int);            
+                                       
+#define WM_DESTROY                      0x0002
+#define WM_INITDIALOG                   0x0110
+#define WM_COMMAND                      0x0111
+#define WM_TIMER                        0x0113
+#define WM_CLOSE                        0x0010
+#define WM_HSCROLL                      0x0114
+#define WM_VSCROLL                      0x0115
+       
                                 
 #endif

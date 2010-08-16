@@ -83,6 +83,7 @@ typedef unsigned char LICE_pixel_chan;
 #endif
 
 
+#define LICE_RGBA_FROMNATIVE(col, alpha) LICE_RGBA(GetRValue(col),GetGValue(col),GetBValue(col),(alpha))
 
 // bitmap interface, and some built-in types (memory bitmap and system bitmap)
 
@@ -254,6 +255,11 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
 void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color);
 
 
+// non-flood fill. simply scans up/down and left/right
+void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,  
+                     LICE_pixel comparemask=LICE_RGBA(255,255,255,0), 
+                     LICE_pixel keepmask=LICE_RGBA(0,0,0,0));
+
 
 // texture generators
 void LICE_TexGen_Marble(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float intensity); //fills whole bitmap if rect == NULL
@@ -282,10 +288,18 @@ void LICE_DrawText(LICE_IBitmap *bm, int x, int y, const char *string,
 void LICE_MeasureText(const char *string, int *w, int *h);
 
 // line drawing functions
+
 void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+
+// Returns false if the line is entirely offscreen.
+bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int yLo, int xHi, int yHi);
+
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
               LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
+                    LICE_pixel col, float alpha, int mode, bool aa);
+
 
 /*
   Stuff planned:

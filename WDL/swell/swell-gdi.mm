@@ -242,11 +242,26 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
     CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
     CGContextFillRect(c->ctx,rect);	
   }
-  if (c->curpen)
+  if (c->curpen && c->curpen->wid >= 0)
   {
     CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
     CGContextStrokeRectWithWidth(c->ctx, rect, (float)max(1,c->curpen->wid));
   }
+}
+
+HGDIOBJ GetStockObject(int wh)
+{
+  switch (wh)
+  {
+    case NULL_PEN:
+    {
+      static GDP_OBJECT pen={0,};
+      pen.type=TYPE_PEN;
+      pen.wid=-1;
+      return &pen;
+    }
+  }
+  return 0;
 }
 
 void Polygon(HDC ctx, POINT *pts, int npts)
@@ -267,12 +282,12 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   {
     CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
   }
-  if (c->curpen)
+  if (c->curpen && c->curpen->wid>=0)
   {
     CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
     CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
   }
-  CGContextDrawPath(c->ctx,c->curpen && c->curbrush ?  kCGPathFillStroke : c->curpen ? kCGPathStroke : kCGPathFill);
+  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
 }
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
@@ -291,7 +306,7 @@ void MoveToEx(HDC ctx, int x, int y, POINT *op)
 void PolyBezierTo(HDC ctx, POINT *pts, int np)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
-  if (!c||!c->curpen||np<3) return;
+  if (!c||!c->curpen||c->curpen->wid<0||np<3) return;
   INVALIDATE_BITMAPCACHE(c);
   
   CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
@@ -317,7 +332,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
 void LineTo(HDC ctx, int x, int y)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
-  if (!c||!c->curpen) return;
+  if (!c||!c->curpen||c->curpen->wid<0) return;
   INVALIDATE_BITMAPCACHE(c);
 
   CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
@@ -334,7 +349,7 @@ void LineTo(HDC ctx, int x, int y)
 void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
-  if (!c||!c->curpen||nseg<1) return;
+  if (!c||!c->curpen||c->curpen->wid<0||nseg<1) return;
   INVALIDATE_BITMAPCACHE(c);
 
   CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
@@ -387,7 +402,7 @@ void DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   INVALIDATE_BITMAPCACHE(ct);
   
 #if 1
-  CFStringRef label=CFStringCreateWithCString(NULL,buf,kCFStringEncodingUTF8); 
+  CFStringRef label=(CFStringRef)SWELL_CStringToCFString(buf); 
   HIRect hiBounds = { {r->left, r->top}, {r->right-r->left, r->bottom-r->top} };
   HIThemeTextInfo textInfo = {0, kThemeStateActive, kThemeCurrentPortFont, kHIThemeTextHorizontalFlushLeft, 
 	  kHIThemeTextVerticalFlushTop, kHIThemeTextBoxOptionStronglyVertical, kHIThemeTextTruncationEnd, 1, false};
@@ -419,7 +434,7 @@ void DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
    
 #else
   
-  //NSString *label=(NSString *)CFStringCreateWithCString(NULL,buf,kCFStringEncodingUTF8); 
+  //NSString *label=(NSString *)SWELL_CStringToCFString(buf); 
   //NSRect r2 = NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
   //[label drawWithRect:r2 options:NSStringDrawingUsesLineFragmentOrigin attributes:nil];
   //[label release];
@@ -525,7 +540,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
 {
   int needfree=0;
   NSImage *img=0;
-  NSString *str=(NSString *)CFStringCreateWithCString(NULL,name,kCFStringEncodingUTF8); 
+  NSString *str=(NSString *)SWELL_CStringToCFString(name); 
   if (strstr(name,"/"))
   {
     img=[[NSImage alloc] initWithContentsOfFile:str];

@@ -136,7 +136,7 @@ class WDL_HeapBuf
 template<class PTRTYPE> class WDL_TypedBuf 
 {
   public:
-    WDL_TypedBuf(int granul=64) : m_hb(granul)
+    WDL_TypedBuf(int granul=4096) : m_hb(granul)
     {
     }
     ~WDL_TypedBuf()
@@ -147,7 +147,7 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
 
-  private:
+    // leave public so people can set its parameters directly
     WDL_HeapBuf m_hb;
 };
 

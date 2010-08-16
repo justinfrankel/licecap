@@ -220,3 +220,35 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 {
 	LICE_Arc(dest, cx, cy, r, 0.0f, _CIRCLE, color, alpha, mode, aa);
 }
+
+void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
+                    LICE_pixel col, float alpha, int mode, bool aa)
+{
+  if (cornerradius>0)
+  {
+    float cr=cornerradius;
+    if (cr > w*0.5) cr=w*0.5;
+    if (cr > h*0.5) cr=h*0.5;
+    cr=floor(cr);
+    if (cr>=2)
+    {
+      LICE_Line(drawbm,xpos+cr,ypos,xpos+w-cr,ypos,col,alpha,mode,aa);
+      LICE_Line(drawbm,xpos+cr,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
+      LICE_Line(drawbm,xpos+w,ypos+cr,xpos+w,ypos+h-cr,col,alpha,mode,aa);
+      LICE_Line(drawbm,xpos,ypos+cr,xpos,ypos+h-cr,col,alpha,mode,aa);
+
+
+      LICE_Arc(drawbm,xpos+cr,ypos+cr,cr,-_PI*0.5,0,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr,ypos+cr,cr,0,_PI*0.5,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr,ypos+h-cr,cr,_PI*0.5,_PI,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr,ypos+h-cr,cr,_PI,_PI*1.5,col,alpha,mode,aa);
+
+      return;
+    }
+  }
+
+  LICE_Line(drawbm,xpos,ypos,xpos+w,ypos,col,alpha,mode,aa);
+  LICE_Line(drawbm,xpos,ypos+h,xpos+w,ypos+h,col,alpha,mode,aa);
+  LICE_Line(drawbm,xpos+w,ypos,xpos+w,ypos+h,col,alpha,mode,aa);
+  LICE_Line(drawbm,xpos,ypos,xpos,ypos+h,col,alpha,mode,aa);
+}

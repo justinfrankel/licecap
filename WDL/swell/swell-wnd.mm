@@ -30,6 +30,20 @@
 #include "../ptrlist.h"
 
 
+
+
+void *SWELL_CStringToCFString(const char *str)
+{
+  if (!str) str="";
+  void *ret;
+  
+ // ret=(void *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
+//  if (ret) return ret;
+  ret=(void*)CFStringCreateWithCString(NULL,str,kCFStringEncodingASCII);
+  return ret;
+}
+
+
 @interface simpleDataHold : NSObject
 {
   int m_data;
@@ -65,11 +79,42 @@ HWND GetDlgItem(HWND hwnd, int idx)
   return (HWND) [v viewWithTag:idx];
 }
 
+
+int SetWindowLong(HWND hwnd, int idx, int val)
+{
+  if (!hwnd) return 0;
+  id pid=(id)hwnd;
+  if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(getUserData)])
+  {
+    int ret=(int)[pid getUserData];
+    [pid setUserData:(int)val];
+    return ret;
+  }
+  NSControl *v=0;
+  if ([pid isKindOfClass:[NSControl class]]) v=(NSControl *)pid;
+  
+  if (idx==GWL_ID && v)
+  {
+    int ret=[v tag];
+    [v setTag:val];
+    return ret;
+  }
+   
+  return 0;
+}
+
 int GetWindowLong(HWND hwnd, int idx)
 {
   if (!hwnd) return 0;
-  NSControl *v=0;
   id pid=(id)hwnd;
+
+  if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(getUserData)])
+  {
+    return (int)[pid getUserData];
+  }
+  
+  
+  NSControl *v=0;
   if ([pid isKindOfClass:[NSControl class]]) v=(NSControl *)pid;
 
   if (idx==GWL_ID && v)
@@ -310,6 +355,8 @@ void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
   simpleDataHold *t=[[simpleDataHold alloc] initWithVal:timerid];
   rec->timer = [NSTimer scheduledTimerWithTimeInterval:1.0/max(rate,1) target:(id)hwnd selector:@selector(SWELL_Timer:) 
                                               userInfo:t repeats:YES];
+  
+  [[NSRunLoop currentRunLoop] addTimer:rec->timer forMode:(NSString*)kCFRunLoopCommonModes];
   [t release];
   m_timerlist.Add(rec);
   
@@ -320,11 +367,11 @@ void KillTimer(HWND hwnd, int timerid)
   int x;
   for (x = 0; x < m_timerlist.GetSize(); x ++)
   {
-    if (m_timerlist.Get(x)->timerid == timerid && m_timerlist.Get(x)->hwnd == hwnd)
+    if ((timerid==-1 || m_timerlist.Get(x)->timerid == timerid) && m_timerlist.Get(x)->hwnd == hwnd)
     {
       [m_timerlist.Get(x)->timer invalidate];
-      m_timerlist.Delete(x,true,free);
-      break;
+      m_timerlist.Delete(x--,true,free);
+      if (timerid!=-1) break;
     }
   }
 }
@@ -333,18 +380,19 @@ void KillTimer(HWND hwnd, int timerid)
 
 void SetDlgItemText(HWND hwnd, int idx, const char *text)
 {
-  NSView *poo=(NSView *)GetDlgItem(hwnd,idx);
+  NSView *poo=(NSView *)(idx ? GetDlgItem(hwnd,idx) : hwnd);
   if (!poo) return;
-  NSString *lbl=(NSString *)CFStringCreateWithCString(NULL,text,kCFStringEncodingUTF8);
-  if ([poo isKindOfClass:[NSButton class]]) [(NSButton*)poo setTitle:lbl];
+  NSString *lbl=(NSString *)SWELL_CStringToCFString(text);
+  if ([poo isKindOfClass:[NSWindow class]] || [poo isKindOfClass:[NSButton class]]) [(NSButton*)poo setTitle:lbl];
   else if ([poo isKindOfClass:[NSControl class]]) [(NSControl*)poo setStringValue:lbl];
+  
   [lbl release];
 }
 
 void GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
 {
   *text=0;
-  NSView *poo=(NSView *)GetDlgItem(hwnd,idx);
+  NSView *poo=(NSView *)(idx?GetDlgItem(hwnd,idx) : hwnd);
   if (!poo) return;
   NSString *s;
   
@@ -436,7 +484,7 @@ int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
 
 int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str)
 {
-  NSString *label=(NSString *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
+  NSString *label=(NSString *)SWELL_CStringToCFString(str);
   NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
   
   int ni=[p numberOfItems];
@@ -477,7 +525,8 @@ int SWELL_CB_GetCurSel(HWND hwnd, int idx)
 
 void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
 {
-  return [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
+  if (item>=0 && item<SWELL_CB_GetNumItems(hwnd,idx))
+    [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
 }
 
 int SWELL_CB_GetNumItems(HWND hwnd, int idx)
@@ -671,7 +720,7 @@ void SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   [button setTag:idx];
   [button setBezelStyle:NSRoundedBezelStyle ];
   [button setFrame:MakeCoords(x,y,w,h,true)];
-  NSString *labelstr=(NSString *)CFStringCreateWithCString(NULL,label,kCFStringEncodingUTF8);
+  NSString *labelstr=(NSString *)SWELL_CStringToCFString(label);
   [button setTitle:labelstr];
   [button setTarget:ACTIONTARGET];
   [button setAction:@selector(onCommand:)];
@@ -723,7 +772,7 @@ void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
     [obj setAction:@selector(onCommand:)];
   }
   
-  NSString *labelstr=(NSString *)CFStringCreateWithCString(NULL,label,kCFStringEncodingUTF8);
+  NSString *labelstr=(NSString *)SWELL_CStringToCFString(label);
   [obj setStringValue:labelstr];
   [obj setAlignment:(align<0?NSLeftTextAlignment:align>0?NSRightTextAlignment:NSCenterTextAlignment)];
   [obj setTag:idx];
@@ -812,7 +861,7 @@ public:
   {
     p=r->m_vals.Get(m_cols->Find(aTableColumn));
   }
-  NSString *str=(NSString *)CFStringCreateWithCString(NULL,p?p:"",kCFStringEncodingUTF8); 
+  NSString *str=(NSString *)SWELL_CStringToCFString(p); 
   NSCell *cell = [[[NSCell alloc] initTextCell:[str autorelease]] autorelease];
   return cell;
   
@@ -873,7 +922,7 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     if (m_transform.size.width < 1.75)
       [button setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
     [button setFrame:MakeCoords(x,y,w,h,true)];
-    NSString *labelstr=(NSString *)CFStringCreateWithCString(NULL,cname,kCFStringEncodingUTF8);
+    NSString *labelstr=(NSString *)SWELL_CStringToCFString(cname);
     [button setTitle:labelstr];
     [button setTarget:ACTIONTARGET];
     [button setAction:@selector(onCommand:)];
@@ -950,7 +999,7 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h)
 {
   TaggedBox *obj=[[TaggedBox alloc] init];
 //  [obj setTag:idx];
-  NSString *labelstr=(NSString *)CFStringCreateWithCString(NULL,name,kCFStringEncodingUTF8);
+  NSString *labelstr=(NSString *)SWELL_CStringToCFString(name);
   [obj setTitle:labelstr];
   [obj setTag:idx];
   [labelstr release];
@@ -974,7 +1023,7 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [col setEditable:NO];
   if (!(v->style & LVS_NOCOLUMNHEADER))
   {
-    NSString *lbl=(NSString *)CFStringCreateWithCString(NULL,lvc->pszText,kCFStringEncodingUTF8);  
+    NSString *lbl=(NSString *)SWELL_CStringToCFString(lvc->pszText);  
     [[col headerCell] setStringValue:lbl];
     [lbl release];
   }
