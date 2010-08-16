@@ -890,11 +890,20 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   
   UniChar strbuf[4096];
   strbuf[0]=0;
-  int l=strlen(tmp);
-  if (l > sizeof(strbuf)/sizeof(UniChar)-1) l=sizeof(strbuf)/sizeof(UniChar)-1;
-  CFStringRef str=CFStringCreateWithCString(NULL,tmp,kCFStringEncodingASCII);
-  CFStringGetCString(str,(char*)strbuf,sizeof(strbuf),kCFStringEncodingUTF16);
-  CFRelease(str);
+  int l=0;
+  CFStringRef str=CFStringCreateWithCString(NULL,tmp,kCFStringEncodingUTF8);
+  if (!str) str=CFStringCreateWithCString(NULL,tmp,kCFStringEncodingASCII);
+  
+  if (str)
+  {
+    CFRange r = {0,CFStringGetLength(str)};
+    if (r.length > 4095) r.length=4095;
+    l=CFStringGetBytes(str,r,kCFStringEncodingUTF16,' ',false,(UInt8*)strbuf,sizeof(strbuf)-2,NULL);
+    if (l<0)l=0;
+    else if (l>4095) l=4095;
+    strbuf[l]=0;
+    CFRelease(str);
+  }
   
   {
     RGBColor tcolor={GetRValue(ct->cur_text_color_int)*256,GetGValue(ct->cur_text_color_int)*256,GetBValue(ct->cur_text_color_int)*256};
@@ -1240,10 +1249,10 @@ int GetSysColor(int idx)
     case COLOR_3DFACE: 
     case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
     case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
-    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(32,32,32));
+    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96));
     case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(224,224,224));
     case COLOR_BTNTEXT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(0,0,0));
-    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(32,32,32))>>1)&0x7f7f7f;
+    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96))>>1)&0x7f7f7f;
     case COLOR_INFOBK: return RGB(255,240,200);
     case COLOR_INFOTEXT: return RGB(0,0,0);
       

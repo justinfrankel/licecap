@@ -101,6 +101,13 @@ public:
 
 
   void set_margins(int left, int top, int right, int bottom) { m_margins.left=left; m_margins.top=top; m_margins.right=right; m_margins.bottom=bottom; }
+  void get_margins(int *left, int *top, int *right, int *bottom) 
+  {
+    if (left) *left=m_margins.left;
+    if (top) *top=m_margins.top;
+    if (right) *right=m_margins.right;
+    if (bottom) *bottom=m_margins.bottom;
+  }
 
 private:
 #ifdef _WIN32

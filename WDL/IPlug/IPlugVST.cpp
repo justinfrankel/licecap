@@ -202,6 +202,11 @@ bool IPlugVST::SendMidiMsgs(WDL_TypedBuf<IMidiMsg>* pMsgs)
   return rc;
 }
 
+audioMasterCallback IPlugVST::GetHostCallback()
+{
+  return mHostCallback;
+}
+
 void IPlugVST::HostSpecificInit()
 {
   if (!mHostSpecificInitDone) {
@@ -278,15 +283,24 @@ VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, 
 	    return 0;
     }
     case effGetParamLabel: {
-	    strcpy((char*) ptr, _this->GetParam(idx)->GetLabelForHost());
+      if (idx >= 0 && idx < _this->NParams())
+      {
+	      strcpy((char*) ptr, _this->GetParam(idx)->GetLabelForHost());
+      }
       return 0;
     }
     case effGetParamDisplay: {
-	    _this->GetParam(idx)->GetDisplayForHost((char*) ptr);
+      if (idx >= 0 && idx < _this->NParams())
+      {
+	      _this->GetParam(idx)->GetDisplayForHost((char*) ptr);
+      }
 	    return 0;
     }
     case effGetParamName: {
-	    strcpy((char*) ptr, _this->GetParam(idx)->GetNameForHost());      
+      if (idx >= 0 && idx < _this->NParams())
+      {
+	      strcpy((char*) ptr, _this->GetParam(idx)->GetNameForHost());      
+      }
 	    return 0;
     }
     case effSetSampleRate: {
@@ -524,7 +538,6 @@ VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, 
       return _this->GetCurrentPresetIdx();
     }
     case effSetProgram: {
-#pragma REMINDER("modify current preset when setting new preset")
       if (!(_this->DoesStateChunks())) {
         _this->ModifyCurrentPreset();
       }
@@ -577,7 +590,6 @@ VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, 
 template <class SAMPLETYPE> 
 void IPlugVST::VSTPrepProcess(SAMPLETYPE** inputs, SAMPLETYPE** outputs, VstInt32 nFrames)
 {
-#pragma REMINDER("audioMasterWantMidi enabled")
   if (mDoesMidi) {
     mHostCallback(&mAEffect, __audioMasterWantMidiDeprecated, 0, 0, 0, 0.0f);
   }

@@ -2,7 +2,7 @@
 #define __PLUGEXAMPLE__
 
 // In the project settings, define either VST_API or AU_API.
-#include "IPlug_include_in_plug_hdr.h"
+#include "../IPlug_include_in_plug_hdr.h"
 
 class PlugExample : public IPlug
 {

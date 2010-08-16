@@ -25,7 +25,17 @@ bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha /*=tr
   png_infop info_ptr=NULL;
   unsigned char *rowbuf=NULL;
 
-  FILE *fp = fopen(filename, "wb");
+  FILE *fp=NULL;
+#ifdef _WIN32
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      fp = _wfopen(wf,L"wb");
+  }
+#endif
+  if (!fp) fp = fopen(filename,"wb");
+
   if (fp == NULL) return false;
 
   png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,NULL, NULL, NULL);

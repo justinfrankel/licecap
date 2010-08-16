@@ -5,9 +5,73 @@
 #include "lice_combine.h"
 #include "lice_extended.h"
 
+#ifdef _WIN32
+static char __1ifNT2if98=0; // 2 for iswin98
+#endif
+
+
+static int utf8makechar(char *ptrout, unsigned short charIn)
+{
+  unsigned char *pout = (unsigned char *)ptrout;
+  if (charIn < 128) { *pout = (unsigned char)charIn; return 1; }
+  if (charIn < 2048) { pout[0] = 0xC0 + (charIn>>6); pout[1] = 0x80 + (charIn&0x3f); return 2; }
+  pout[0] = 0xE0 + (charIn>>12);
+  pout[1] = 0x80 + ((charIn>>6)&0x3f);
+  pout[2] = 0x80 + (charIn&0x3f);
+  return 3;
+}
+
+static int utf8char(const char *ptr, unsigned short *charOut) // returns char length
+{
+  const unsigned char *p = (const unsigned char *)ptr;
+  if (*p < 128) 
+  {
+    if (charOut) *charOut = (unsigned short) *p;
+    return 1;
+  }
+  else if (*p < 0xC2) // invalid chars (subsequent in sequence, or overlong which we disable for)
+  {
+  }
+  else if (*p < 0xE0) // 2 char seq
+  {
+    if (p[1] >= 0x80 && p[1] <= 0xC0)
+    {
+      if (charOut) *charOut = ((*p&0x1f)<<6) | (p[1]&0x3f);
+      return 2;
+    }
+  }
+  else if (*p < 0xF0) // 3 char seq
+  {
+    if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0)
+    {
+      if (charOut) *charOut = ((*p&0xf)<<12) | ((p[1]&0x3f)<<6) | ((p[2]&0x3f));
+      return 3;
+    }
+  }
+  else if (*p < 0xF5) // 4 char seq
+  {
+    if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0 && p[3] >= 0x80 && p[3] <= 0xC0)
+    {
+      if (charOut) *charOut = (unsigned short)' '; // dont support 4 byte sequences yet(ever?)
+      return 4;
+    }
+  }  
+  if (charOut) *charOut = (unsigned short) ' ';
+  return 1;  
+}
+
+
+
 //not threadsafe ----
 static LICE_SysBitmap s_tempbitmap; // keep a sysbitmap around for rendering fonts
 
+
+int LICE_CachedFont::_charSortFunc(const void *a, const void *b)
+{
+  charEnt *aa = (charEnt *)a;
+  charEnt *bb = (charEnt *)b;
+  return aa->charid - bb->charid;
+}
 
 LICE_CachedFont::LICE_CachedFont() : m_cachestore(65536)
 {
@@ -18,8 +82,9 @@ LICE_CachedFont::LICE_CachedFont() : m_cachestore(65536)
   m_bgmode = TRANSPARENT;
   m_flags=0;
   m_line_height=0;
+  m_lsadj=0;
   m_font=0;
-  memset(m_chars,0,sizeof(m_chars));
+  memset(m_lowchars,0,sizeof(m_lowchars));
 }
 
 LICE_CachedFont::~LICE_CachedFont()
@@ -31,7 +96,8 @@ LICE_CachedFont::~LICE_CachedFont()
 
 void LICE_CachedFont::SetFromHFont(HFONT font, int flags)
 {
-  if ((flags&LICE_FONT_FLAG_OWNS_HFONT) && m_font) {
+  if ((m_flags&LICE_FONT_FLAG_OWNS_HFONT) && m_font && m_font != font)
+  {
     DeleteObject(m_font);
   }
 
@@ -56,18 +122,43 @@ void LICE_CachedFont::SetFromHFont(HFONT font, int flags)
     m_line_height = tm.tmHeight;
   }
 
-  memset(m_chars,0,sizeof(m_chars));
+  memset(m_lowchars,0,sizeof(m_lowchars));
+  m_extracharlist.Resize(0,false);
   m_cachestore.Resize(0);
   if (flags&LICE_FONT_FLAG_PRECALCALL)
   {
     int x;
-    for(x=0;x<256;x++)
+    for(x=0;x<128;x++)
       RenderGlyph(x);
   }
 }
 
-bool LICE_CachedFont::RenderGlyph(unsigned char idx) // return TRUE if ok
+bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
 {
+  bool needSort=false;
+  charEnt *ent;
+  if (idx>=128)
+  {
+#ifdef _WIN32
+    if (!__1ifNT2if98) __1ifNT2if98 = GetVersion()<0x80000000 ? 1 : 2;
+
+    if (__1ifNT2if98==2) return false;
+#endif
+    ent=findChar(idx);
+    if (!ent)
+    {
+      if (m_flags & LICE_FONT_FLAG_PRECALCALL) return false;
+
+      int oldsz=m_extracharlist.GetSize();
+      ent = m_extracharlist.Resize(oldsz+1) + oldsz;
+      memset(ent,0,sizeof(ent));
+      ent->charid = idx;
+
+      needSort=true;
+    }
+  }
+  else ent = m_lowchars+idx;
+
   int bmsz=m_line_height;
   if (s_tempbitmap.getWidth() < bmsz || s_tempbitmap.getHeight() < bmsz)
   {
@@ -81,16 +172,33 @@ bool LICE_CachedFont::RenderGlyph(unsigned char idx) // return TRUE if ok
 
   HGDIOBJ oldFont=0;
   if (m_font) oldFont = SelectObject(s_tempbitmap.getDC(),m_font);
-  char tmpstr[2]={(char)idx,0};
   RECT r={0,0,0,0,};
-  ::DrawText(s_tempbitmap.getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
-  int advance=r.right;
-  if (idx>='A' && idx<='Z') r.right+=2; // extra space for A-Z
-  ::DrawText(s_tempbitmap.getDC(),tmpstr,1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+  int advance;
+
+#ifdef _WIN32
+  if (__1ifNT2if98==1) 
+  {
+    WCHAR tmpstr[2]={(WCHAR)idx,0};
+    ::DrawTextW(s_tempbitmap.getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    advance=r.right;
+    if (idx>='A' && idx<='Z') r.right+=2; // extra space for A-Z
+    ::DrawTextW(s_tempbitmap.getDC(),tmpstr,1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+  }
+  else
+#endif
+  {
+    
+    char tmpstr[6]={(char)idx,0};
+#ifndef _WIN32
+    if (idx>=128) utf8makechar(tmpstr,idx);
+#endif
+    ::DrawText(s_tempbitmap.getDC(),tmpstr,-1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    advance=r.right;
+    if (idx>='A' && idx<='Z') r.right+=2; // extra space for A-Z
+    ::DrawText(s_tempbitmap.getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+  }
 
   if (oldFont) SelectObject(s_tempbitmap.getDC(),oldFont);
-
-  charEnt *ent = m_chars+idx;
 
   if (r.right < 1 || r.bottom < 1) 
   {
@@ -221,6 +329,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned char idx) // return TRUE if ok
     ent->width = r.right;
     ent->height = r.bottom;
   }
+  if (needSort&&m_extracharlist.GetSize()>1) qsort(m_extracharlist.Get(),m_extracharlist.GetSize(),sizeof(charEnt),_charSortFunc);
 
   return true;
 }
@@ -304,11 +413,22 @@ public:
     }
   }
 };
-bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned char c, 
+
+LICE_CachedFont::charEnt *LICE_CachedFont::findChar(unsigned short c)
+{
+  if (c<128) return m_lowchars+c;
+  if (!m_extracharlist.GetSize()) return 0;
+  charEnt a={0,};
+  a.charid=c;
+  return (charEnt *)bsearch(&a,m_extracharlist.Get(),m_extracharlist.GetSize(),sizeof(charEnt),_charSortFunc);
+}
+
+bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c, 
                                 int xpos, int ypos, RECT *clipR)
 {
-  charEnt *ch = m_chars+c;
-  if (xpos+ch->width <= clipR->left || xpos >= clipR->right || 
+  charEnt *ch = findChar(c);
+
+  if (!ch || xpos+ch->width <= clipR->left || xpos >= clipR->right || 
       ypos+ch->height <= clipR->top || ypos >= clipR->bottom) return false;
 
   unsigned char *gsrc = m_cachestore.Get() + ch->base_offset-1;
@@ -427,11 +547,51 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned char c,
   return true; // drew glyph at all (for updating max extents)
 }
 
+
+static int LICE_Text_IsWine()
+{
+  static int isWine=-1;
+#ifdef _WIN32
+  if (isWine<0)
+  {
+    HKEY hk;
+    if (RegOpenKey(HKEY_LOCAL_MACHINE,"Software\\Wine",&hk)==ERROR_SUCCESS)
+    {
+      isWine=1;
+      RegCloseKey(hk);
+    }
+    else isWine=0;
+  }
+#endif
+  return isWine>0;
+}
+
+#ifdef _WIN32
+static BOOL LICE_Text_HasUTF8(const char *_str)
+{
+  const unsigned char *str = (const unsigned char *)_str;
+  if (!str) return FALSE;
+  while (*str) 
+  {
+    unsigned char c = *str;
+    if (c >= 0xC2) // fuck overlongs
+    {
+      if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
+      else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+      else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+    }
+    str++;
+  }
+  return FALSE;
+}
+#endif
+
 int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt, 
                                RECT *rect, UINT dtFlags)
 {
   if (!bm) return 0;
 
+#if 0
   if ((m_flags&LICE_FONT_FLAG_ALLOW_NATIVE) && 
       !(m_flags&LICE_FONT_FLAG_PRECALCALL))
   {
@@ -446,6 +606,146 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
       return ::DrawText(hdc,str,strcnt,rect,dtFlags|DT_NOPREFIX);
     }
   }
+#endif
+
+  if ((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !LICE_Text_IsWine() && 
+    !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags)) 
+  {
+
+    // on Win2000+, use wide versions if needed for UTF
+#ifdef _WIN32
+    WCHAR wtmpbuf[1024];
+    WCHAR *wtmp=NULL;
+    static int win9x;
+    if (!win9x) win9x = GetVersion() < 0x80000000 ? -1 : 1; //>0 if win9x
+    if (win9x<0 && LICE_Text_HasUTF8(str))
+    {
+      int req = MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,str,strcnt,NULL,0);
+      if (req < 1000) 
+      {
+        int cnt=0;
+        if ((cnt=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,str,strcnt,wtmpbuf,1024)))
+        {
+          wtmp=wtmpbuf;
+          wtmp[cnt]=0;
+        }
+      }
+      else
+      {
+        wtmp = (WCHAR *)malloc((req + 32)*sizeof(WCHAR));
+        int cnt=-1;
+        if (wtmp && !(cnt=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,str,strcnt,wtmp,req+1)))
+          free(wtmp);
+        else if (cnt>0) wtmp[cnt]=0;
+      }
+    }
+#endif
+
+    HDC hdc = bm->getDC();
+    int w = rect->right-rect->left;
+    int h = rect->bottom-rect->top;
+    HGDIOBJ oldfont = 0;
+    RECT srcr={0,};
+    bool isTmp=false;
+    POINT blitPos={0,};
+    if (!hdc)  // use temp buffer
+    {
+      isTmp=true;
+      if (w<1)w=1;
+      if (h<1)h=1;
+      s_tempbitmap.resize(w, h);
+      hdc = s_tempbitmap.getDC();
+
+      oldfont = SelectObject(hdc, m_font);
+  
+      RECT blit_r = {0,0};
+      int rv=
+#ifdef _WIN32
+        wtmp ? 
+          ::DrawTextW(hdc,wtmp,-1,&blit_r,(dtFlags&~(DT_CENTER|DT_VCENTER|DT_TOP|DT_BOTTOM|DT_LEFT|DT_RIGHT))|DT_CALCRECT|DT_NOPREFIX)
+          : 
+#endif
+          ::DrawText(hdc,str,strcnt,&blit_r,(dtFlags&~(DT_CENTER|DT_VCENTER|DT_TOP|DT_BOTTOM|DT_LEFT|DT_RIGHT))|DT_CALCRECT|DT_NOPREFIX);
+      if (dtFlags & DT_CALCRECT)
+      {
+        SelectObject(hdc,oldfont);
+        rect->right = rect->left + blit_r.right - blit_r.left;
+        rect->bottom = rect->top + blit_r.bottom - blit_r.top;
+
+#ifdef _WIN32
+        if (wtmp!=wtmpbuf)free(wtmp);
+#endif
+        return rv;
+      }
+
+      // if noclip, resize up
+      if (dtFlags&DT_NOCLIP)
+      {
+        w=blit_r.right-blit_r.left;
+        h=blit_r.bottom-blit_r.top;
+      }
+
+      // set new width/height (if shrinking down)
+      if (blit_r.right-blit_r.left < w) 
+      {
+        if (dtFlags & DT_RIGHT) blitPos.x =  w-(blit_r.right-blit_r.left);
+        else if (dtFlags & DT_CENTER) blitPos.x=(w-(blit_r.right-blit_r.left))/2;
+
+        w=blit_r.right-blit_r.left;
+      }
+      if (blit_r.bottom-blit_r.top < h) 
+      {
+        if (dtFlags & DT_BOTTOM) blitPos.y =  h-(blit_r.bottom-blit_r.top);
+        else if (dtFlags & DT_VCENTER) blitPos.y=(h-(blit_r.bottom-blit_r.top))/2;
+
+        h=blit_r.bottom-blit_r.top;
+      }
+
+      if (w > s_tempbitmap.getWidth() || h > s_tempbitmap.getHeight())
+      {
+        SelectObject(hdc,oldfont);
+        s_tempbitmap.resize(w, h);
+        hdc = s_tempbitmap.getDC();
+        oldfont = SelectObject(hdc, m_font);
+      }
+
+      blit_r.left=rect->left + blitPos.x;
+      blit_r.top = rect->top + blitPos.y;
+      blit_r.right = blit_r.left+w;
+      blit_r.bottom = blit_r.top+h;
+      LICE_Blit(&s_tempbitmap, bm, 0, 0, &blit_r, 1.0f, LICE_BLIT_MODE_COPY);
+      srcr.right=w;
+      srcr.bottom=h;
+    }
+    else
+    {
+      oldfont = SelectObject(hdc, m_font);
+      srcr = *rect;
+    }
+
+    ::SetTextColor(hdc,RGB(LICE_GETR(m_fg),LICE_GETG(m_fg),LICE_GETB(m_fg)));
+    ::SetBkMode(hdc,m_bgmode);
+    if (m_bgmode==OPAQUE) ::SetBkColor(hdc,RGB(LICE_GETR(m_bg),LICE_GETG(m_bg),LICE_GETB(m_bg)));
+
+    int ret = 
+#ifdef _WIN32
+      wtmp ? 
+      ::DrawTextW(hdc,wtmp,-1,&srcr,dtFlags|DT_NOPREFIX)
+      : 
+#endif
+      ::DrawText(hdc,str,strcnt,&srcr,dtFlags|DT_NOPREFIX);
+
+    if (isTmp) LICE_Blit(bm, &s_tempbitmap,  rect->left+blitPos.x, rect->top+blitPos.y, &srcr, m_alpha, LICE_BLIT_MODE_COPY);
+    else if (dtFlags & DT_CALCRECT) *rect = srcr;
+
+
+    SelectObject(hdc, oldfont);
+#ifdef _WIN32
+    if (wtmp!=wtmpbuf) free(wtmp);
+#endif
+    return ret;
+  }
+
 
   if (dtFlags & DT_CALCRECT)
   {
@@ -453,9 +753,17 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
     int ypos=0;
     int max_xpos=0;
     int max_ypos=0;
-    for (; *str && strcnt--; str++)
+    while (*str && strcnt)
     {
-      unsigned char c = *(unsigned char *)str;
+      unsigned short c=' ';
+      int charlen = utf8char(str,&c);
+      str += charlen;
+      if (strcnt>0)
+      {
+        strcnt -= charlen;
+        if (strcnt<0) strcnt=0;
+      }
+
       if (c == '\r') continue;
       if (c == '\n')
       {
@@ -464,35 +772,43 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
         {
           if (m_flags&LICE_FONT_FLAG_VERTICAL) 
           {
-            xpos+=m_line_height;
+            xpos+=m_line_height+m_lsadj;
             ypos=0;
           }
           else
           {
-            ypos+=m_line_height;
+            ypos+=m_line_height+m_lsadj;
             xpos=0;
           }
           continue;
         }
       }
 
-
-      if (m_chars[c].base_offset>=0)
+      charEnt *ent = findChar(c);
+      if (!ent) 
       {
-        if (m_chars[c].base_offset == 0) RenderGlyph(c);      
+        int os=m_extracharlist.GetSize();
+        RenderGlyph(c);
+        if (m_extracharlist.GetSize()!=os)
+          ent = findChar(c);
+      }
 
-        if (m_chars[c].base_offset > 0)
+      if (ent && ent->base_offset>=0)
+      {
+        if (ent->base_offset == 0) RenderGlyph(c);      
+
+        if (ent->base_offset > 0)
         {
           if (m_flags&LICE_FONT_FLAG_VERTICAL) 
           {
-            ypos += m_chars[c].advance;
-            if (xpos+m_chars[c].width>max_xpos) max_xpos=xpos+m_chars[c].width;
+            ypos += ent->advance;
+            if (xpos+ent->width>max_xpos) max_xpos=xpos+ent->width;
             if (ypos>max_ypos) max_ypos=ypos;
           }
           else
           {
-            xpos += m_chars[c].advance;
-            if (ypos+m_chars[c].height>max_ypos) max_ypos=ypos+m_chars[c].height;         
+            xpos += ent->advance;
+            if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
             if (xpos>max_xpos) max_xpos=xpos;
           }
         }
@@ -502,10 +818,15 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
     rect->right = rect->left+max_xpos;
     rect->bottom = rect->top+max_ypos;
 
+
     return (m_flags&LICE_FONT_FLAG_VERTICAL) ? max_xpos : max_ypos;
   }
 
-  if (m_alpha==0.0) return 0;
+  if (m_alpha==0.0) 
+  {
+    return 0;
+  }
+
 
   RECT use_rect=*rect;
   int xpos=use_rect.left;
@@ -559,7 +880,9 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
     if (use_rect.right > bm->getWidth()) use_rect.right = bm->getWidth();
     if (use_rect.bottom > bm->getHeight()) use_rect.bottom = bm->getHeight();
     if (use_rect.right <= use_rect.left || use_rect.bottom <= use_rect.top)
+    {
       return 0;
+    }
   }
   else
   {
@@ -573,9 +896,16 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
   // thought: calculate length of "...", then when pos+length+widthofnextchar >= right, switch
   // might need to precalc size to make sure it's needed, though
 
-  for (; *str && strcnt--; str++)
+  while (*str && strcnt)
   {
-    unsigned char c = *(unsigned char *)str;
+    unsigned short c=' ';
+    int charlen = utf8char(str,&c);
+    str += charlen;
+    if (strcnt>0)
+    {
+      strcnt -= charlen;
+      if (strcnt<0) strcnt=0;
+    }
     if (c == '\r') continue;
     if (c == '\n')
     {
@@ -584,25 +914,34 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
       {
         if (m_flags&LICE_FONT_FLAG_VERTICAL) 
         {
-          xpos+=m_line_height;
+          xpos+=m_line_height+m_lsadj;
           ypos=start_y;
         }
         else
         {
-          ypos+=m_line_height;
+          ypos+=m_line_height+m_lsadj;
           xpos=start_x;
         }
         continue;
       }
     }
 
-    if (m_chars[c].base_offset>=0)
+    charEnt *ent = findChar(c);
+    if (!ent) 
     {
-      if (m_chars[c].base_offset==0) RenderGlyph(c);
+      int os=m_extracharlist.GetSize();
+      RenderGlyph(c);
+      if (m_extracharlist.GetSize()!=os)
+        ent = findChar(c);
+    }
 
-      if (m_chars[c].base_offset > 0 && m_chars[c].base_offset < m_cachestore.GetSize())
+    if (ent && ent->base_offset>=0)
+    {
+      if (ent->base_offset==0) RenderGlyph(c);
+
+      if (ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
       {
-        if (isVertRev) ypos -= m_chars[c].height;
+        if (isVertRev) ypos -= ent->height;
        
         bool drawn = DrawGlyph(bm,c,xpos,ypos,&use_rect);
 
@@ -610,15 +949,15 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
         {
           if (!isVertRev)
           {
-            ypos += m_chars[c].advance;
+            ypos += ent->advance;
           }
-          else ypos += m_chars[c].height - m_chars[c].advance;
-          if (drawn && xpos+m_chars[c].width > max_xpos) max_xpos=xpos;
+          else ypos += ent->height - ent->advance;
+          if (drawn && xpos+ent->width > max_xpos) max_xpos=xpos;
         }
         else
         {
-          xpos += m_chars[c].advance;
-          if (drawn && ypos+m_chars[c].height>max_ypos) max_ypos=ypos+m_chars[c].height;         
+          xpos += ent->advance;
+          if (drawn && ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
         }
       }
     }

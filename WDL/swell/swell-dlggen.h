@@ -99,7 +99,8 @@
 #define ES_READONLY 0x0800L
 #define ES_WANTRETURN 0x1000L
 #define ES_NUMBER 0x2000L
-                                       
+         
+#define SS_CENTER 0x1L                                                                     
 #define SS_BLACKRECT 0x4L
 #define SS_BLACKFRAME (SS_BLACKRECT)
 #define SS_LEFTNOWORDWRAP 0xCL

@@ -216,6 +216,9 @@ class WDL_VirtualSlider : public WDL_VWnd
 };
 
 
+#define WDL_VWND_LISTBOX_ARROWINDEX 0x10000000
+#define WDL_VWND_LISTBOX_ARROWINDEX_LR 0x10000001
+
 class WDL_VirtualListBox : public WDL_VWnd
 {
   public:
@@ -226,15 +229,22 @@ class WDL_VirtualListBox : public WDL_VWnd
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetRowHeight(int rh) { m_rh=rh; }
+    void SetMaxColWidth(int cw) { m_maxcolwidth=cw; } // 0 = default = allow any sized columns
+    void SetMinColWidth(int cw) { m_mincolwidth = cw; } // 0 = default = full width columns
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
+    void SetScrollButtonSize(int sz) { m_scrollbuttonsize=sz; } // def 14
+    int GetRowHeight() { return m_rh; }
+    int GetMaxColWidth() { return m_maxcolwidth; }
+    int GetMinColWidth() { return m_mincolwidth; }
 
     void SetDroppedMessage(int msg) { m_dropmsg=msg; }
     void SetClickedMessage(int msg) { m_clickmsg=msg; }
     void SetDragBeginMessage(int msg) { m_dragbeginmsg=msg; }
     int IndexFromPt(int x, int y);
+    bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
 
     // idx<0 means return count of items
-    int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, void **bkbg); // bkbg=LICE_IBitmap* if idx>=0, otherwise WDL_VirtualWnd_BGCfg
+    int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm);
     void *m_GetItemInfo_ctx;
 
@@ -244,14 +254,20 @@ class WDL_VirtualListBox : public WDL_VWnd
     void OnMouseMove(int xpos, int ypos);
     void OnMouseUp(int xpos, int ypos);
 
+  
   private:
+  
+    void CalcLayout(int num_items, int *nrows, int *ncols, int *leftrightbuttonsize, int *updownbuttonsize, int *startpos, int *usedw);
+    bool HandleScrollClicks(int xpos, int ypos, int leftrightbuttonsize, int updownbuttonsize, int nrows, int num_cols, int num_items, int usedw);
+  
     int m_cap_state;
     int m_cap_startitem;
     int m_clickmsg,m_dropmsg,m_dragbeginmsg;
     int m_viewoffs;
     int m_align;
     int m_margin_r, m_margin_l;
-    int m_rh;
+    int m_rh,m_maxcolwidth,m_mincolwidth ;
+    int m_scrollbuttonsize;
     LICE_IFont *m_font;
 };
 

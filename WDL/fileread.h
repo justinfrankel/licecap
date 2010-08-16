@@ -87,6 +87,26 @@ public:
 
 #endif
 
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  BOOL HasUTF8(const char *_str)
+  {
+    const unsigned char *str = (const unsigned char *)_str;
+    if (!str) return FALSE;
+    while (*str) 
+    {
+      unsigned char c = *str;
+      if (c >= 0xC2)
+      {
+        if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
+        else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+        else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+      }
+      str++;
+    }
+    return FALSE;
+  }
+#endif
+
 public:
   // allow_async=1 for unbuffered async, 2 for buffered async
   WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0) : m_bufspace(4096 WDL_HEAPBUF_TRACEPARM("WDL_FileRead"))
@@ -103,7 +123,8 @@ public:
     m_mmap_fmap=0;
     m_mmap_view=0;
     m_mmap_totalbufmode=0;
-    m_async = (allow_async && GetVersion()<0x80000000) ? allow_async : 0;
+    bool isNT = GetVersion()<0x80000000;
+    m_async = (allow_async && isNT) ? allow_async : 0;
 
     int flags=FILE_ATTRIBUTE_NORMAL;
     if (m_async)
@@ -113,7 +134,30 @@ public:
     }
     else if (nbufs*bufsize>=WDL_UNBUF_ALIGN && !mmap_maxsize) flags|=FILE_FLAG_NO_BUFFERING; // non-async mode unbuffered if we do our own buffering
 
-    m_fh = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+#ifndef WDL_NO_SUPPORT_UTF8
+    m_fh = INVALID_HANDLE_VALUE;
+    if (isNT && HasUTF8(filename)) // only convert to wide if there are UTF-8 chars
+    {
+      int szreq=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,NULL,0);
+      if (szreq > 1000)
+      {
+        WDL_TypedBuf<WCHAR> wfilename;
+        wfilename.Resize(szreq+10);
+
+        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
+          m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+      }
+      else
+      {
+        WCHAR wfilename[1024];
+
+        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
+          m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+      }
+    }
+    if (m_fh == INVALID_HANDLE_VALUE)
+#endif
+      m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
 
     if (m_fh != INVALID_HANDLE_VALUE)
     {

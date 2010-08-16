@@ -65,9 +65,11 @@ class LameEncoder
     {
       m_vbrfile.Set(fn);
     }
+
+    int GetNumChannels() { return m_encoder_nch; }
     
   private:
-    int m_nch;
+    int m_nch,m_encoder_nch;
     WDL_Queue spltmp[2];
     WDL_HeapBuf outtmp;
     WDL_String m_vbrfile;

@@ -89,6 +89,19 @@ template<class PTRTYPE> class WDL_PtrList
       }
       return (GetList()[x] = item);
     }
+    int FindSorted(PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
+    {
+      if (!GetSize()) return -1;
+      PTRTYPE **pp=(PTRTYPE **)bsearch(&p,GetList(),GetSize(),sizeof(PTRTYPE*),(int (*)(const void *, const void*))compar);
+      if (pp) return pp-GetList();
+      return -1;
+    }
+    PTRTYPE *InsertSorted(PTRTYPE *item, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
+    {
+      int pos,s=GetSize(); // could bsearch here but meh for now this is fine since we'll have to do a O(N) move of items for the insertion too
+      for(pos=0;pos<s&&compar((const PTRTYPE**)&item,(const PTRTYPE**)(GetList()+pos))<0;pos++);
+      return Insert(pos,item);
+    }
 
     void Delete(int index, bool wantDelete=false, void (*delfunc)(void *)=NULL)
     {

@@ -52,6 +52,11 @@ class WDL_DirScan
        m_h(NULL), m_ent(NULL)
 #endif
     {
+#ifdef _WIN32
+  #ifndef WDL_NO_SUPPORT_UTF8
+      m_wcmode = GetVersion()< 0x80000000;
+  #endif
+#endif
     }
 
     ~WDL_DirScan()
@@ -90,7 +95,32 @@ class WDL_DirScan
 
       Close();
 #ifdef _WIN32
-      m_h=FindFirstFile(scanstr.Get(),&m_fd);
+    #ifndef WDL_NO_SUPPORT_UTF8
+      m_h=INVALID_HANDLE_VALUE;
+
+      if (m_wcmode)
+      {
+        int reqbuf = MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,NULL,0);
+        if (reqbuf > 1000)
+        {
+          WDL_TypedBuf<WCHAR> tmp;
+          tmp.Resize(reqbuf+10);
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,tmp.Get(),tmp.GetSize()))
+            m_h=FindFirstFileW(tmp.Get(),&m_fd);
+        }
+        else
+        {
+          WCHAR wfilename[1024];
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,wfilename,1024))
+            m_h=FindFirstFileW(wfilename,&m_fd);
+        }
+      }
+      
+      if (m_h==INVALID_HANDLE_VALUE) m_wcmode=false;
+      
+      if (m_h==INVALID_HANDLE_VALUE)
+    #endif
+        m_h=FindFirstFile(scanstr.Get(),(WIN32_FIND_DATA*)&m_fd);
       return (m_h == INVALID_HANDLE_VALUE);
 #else
       m_ent=0;
@@ -102,7 +132,10 @@ class WDL_DirScan
     {
 #ifdef _WIN32
       if (m_h == INVALID_HANDLE_VALUE) return -1;
-      return !FindNextFile(m_h,&m_fd);
+  #ifndef WDL_NO_SUPPORT_UTF8
+      if (m_wcmode) return !FindNextFileW(m_h,&m_fd);
+  #endif
+      return !FindNextFile(m_h,(WIN32_FIND_DATA*)&m_fd);
 #else
       if (!m_h) return -1;
       return !(m_ent=readdir(m_h));
@@ -120,7 +153,18 @@ class WDL_DirScan
     }
 
 #ifdef _WIN32
-    char *GetCurrentFN() { return m_fd.cFileName; }
+    char *GetCurrentFN() 
+    { 
+#ifndef WDL_NO_SUPPORT_UTF8
+      if (m_wcmode)
+      {
+        if (!WideCharToMultiByte(CP_UTF8,0,m_fd.cFileName,-1,m_tmpbuf,sizeof(m_tmpbuf),NULL,NULL))
+          m_tmpbuf[0]=0;
+        return m_tmpbuf;
+      }
+#endif
+      return ((WIN32_FIND_DATA *)&m_fd)->cFileName; 
+    }
 #else
     char *GetCurrentFN() { return m_ent?m_ent->d_name : (char *)""; }
 #endif
@@ -169,7 +213,14 @@ class WDL_DirScan
 
   private:
 #ifdef _WIN32
+
+#ifndef WDL_NO_SUPPORT_UTF8
+    bool m_wcmode;
+    WIN32_FIND_DATAW m_fd;
+    char m_tmpbuf[MAX_PATH*5]; // even if each byte gets encoded as 4 utf-8 bytes this should be plenty ;)
+#else
     WIN32_FIND_DATA m_fd;
+#endif
     HANDLE m_h;
 #else
     DIR *m_h;

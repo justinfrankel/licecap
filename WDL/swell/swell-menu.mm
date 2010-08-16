@@ -397,8 +397,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
       if (mi->dwTypeData && mi->cch)
       {
         mi->dwTypeData[0]=0;
-        [[item title] getCString:(char *)mi->dwTypeData maxLength:( mi->cch-1)];
-        mi->dwTypeData[ mi->cch-1]=0;
+        SWELL_CFStringToCString([item title], (char *)mi->dwTypeData, mi->cch);
       }
     }
   }

@@ -218,7 +218,7 @@ bool IGraphicsMac::OpenURL(const char* url,
   }    
   if (pURL) {
     bool ok = ([[NSWorkspace sharedWorkspace] openURL:pURL]);
-    [pURL release];
+  // [pURL release];
     return ok;
   }
   return true;

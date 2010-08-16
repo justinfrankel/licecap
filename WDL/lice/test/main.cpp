@@ -13,14 +13,13 @@
 #include "../lice_text.h"
 
 #include "../lice_glbitmap.h"
-
-#define GLEW_STATIC
-#include "../glew/include/gl/glew.h"
-#include "../glew/include/gl/wglew.h"
+//#define GLEW_STATIC
+//#include "../glew/include/gl/glew.h"
+//#include "../glew/include/gl/wglew.h"
 
 #include "resource.h"
 
-#define NUM_EFFECTS 21
+#define NUM_EFFECTS 22
 
 char *effect_names[NUM_EFFECTS] =
 {
@@ -43,8 +42,9 @@ char *effect_names[NUM_EFFECTS] =
   "Transform blit",
   "Plush 3D",
   "3D Fly (use mouse)",
-  "SVG loading",
-  "GL acceleration"
+  "SVG loading (requires C:\\test.svg)",
+  "GL acceleration (disabled)",
+  "Bezier curves"
 };
 
 HINSTANCE g_hInstance;
@@ -82,9 +82,47 @@ static void DoPaint(HWND hwndDlg)
   
   int x=rand()%(r.right+300)-150;
   int y=rand()%(r.bottom+300)-150;
+
+  static int s_preveff = -1;
+  if (m_effect != s_preveff)
+  {
+    s_preveff = m_effect;
+    LICE_Clear(framebuffer, 0);
+  }
   
   switch(m_effect)
   {
+    case 21:
+    {
+      int w = framebuffer->getWidth();
+      int h = framebuffer->getHeight();
+
+      int x0, y0, x1, y1, x2, y2, x3, y3;
+
+      bool aa = true;
+      float maxsegmentpx = 0.0f;
+
+      x0 = w*rand()/RAND_MAX;
+      y0 = h*rand()/RAND_MAX;
+      x1 = w*rand()/RAND_MAX;
+      y1 = h*rand()/RAND_MAX;
+      x2 = w*rand()/RAND_MAX;
+      y2 = h*rand()/RAND_MAX;
+      LICE_DrawQBezier(framebuffer, x0, y0, x1, y1, x2, y2, LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, aa, maxsegmentpx);
+
+      x0 = w*rand()/RAND_MAX;
+      y0 = h*rand()/RAND_MAX;
+      x1 = w*rand()/RAND_MAX;
+      y1 = h*rand()/RAND_MAX;
+      x2 = w*rand()/RAND_MAX;
+      y2 = h*rand()/RAND_MAX;
+      x3 = w*rand()/RAND_MAX;
+      y3 = h*rand()/RAND_MAX;
+      LICE_DrawCBezier(framebuffer, x0, y0, x1, y1, x2, y2, x3, y3, LICE_RGBA(0,255,0,255), 1.0f, LICE_BLIT_MODE_COPY, aa, maxsegmentpx);
+    }
+    break;
+
+#ifndef DISABLE_LICE_EXTENSIONS
     case 20:  // GL acceleration
     {
       int w = framebuffer->getWidth();
@@ -190,6 +228,7 @@ static void DoPaint(HWND hwndDlg)
       ++_n;
     }
     break;
+#endif
 
     case 18:
       {
@@ -413,13 +452,19 @@ static void DoPaint(HWND hwndDlg)
         SetBkMode(bm.getDC(),TRANSPARENT);
         //            HGDIOBJ of=SelectObject(bm.getDC(),font);
         RECT r={0,0,bm.getWidth(),bm.getHeight()};
-        DrawText(bm.getDC(),"LICE",-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+        DrawText(bm.getDC(),"LICE",-1,&r,DT_LEFT|DT_TOP|DT_SINGLELINE);
         //        SelectObject(bm.getDC(),of);
         //          DeleteObject(font);
         
         LICE_Blit(&bm,&bm,0,0,NULL,1.0,LICE_BLIT_MODE_CHANCOPY|LICE_PIXEL_R|(LICE_PIXEL_A<<2));
         
-        LICE_RotatedBlit(framebuffer,&bm,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,bm.getWidth(),bm.getHeight(),a*10.0,false,.4,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,cos(a*30.1)*10.0,sin(a*21.13)*10.0);
+        int bmw=bm.getWidth();
+        int bmh=bm.getHeight();
+        LICE_FillRect(framebuffer,framebuffer->getWidth()/2,framebuffer->getHeight()/2,bmh,bmw,0,0.5,LICE_BLIT_MODE_COPY);
+        LICE_RotatedBlit(framebuffer,&bm,
+          framebuffer->getWidth()/2,framebuffer->getHeight()/2,
+              bmh,bmw,0,0,bmw,bmh,
+          3.14159*0.5,false,.4,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,-bm.getWidth()/4,-bm.getHeight()/4);
       }
       
       break;
@@ -560,14 +605,10 @@ static void DoPaint(HWND hwndDlg)
     case 19:
       //SVG loading
       {
-        static int init = 0;
-        static LICE_IBitmap *m_svg;
-        if(!init)
-        {
-          m_svg = LICE_LoadSVG("c:\\test.svg");
-          init = 1;
-        }
-        if(m_svg) LICE_Blit(framebuffer, m_svg, 0, 0, 0, 0, m_svg->getWidth(), m_svg->getHeight(), 1.0f, 0);
+        static LICE_IBitmap* svgbmp = 0;
+
+        if (!svgbmp) svgbmp = LICE_LoadSVG("c:\\test.svg", 0);
+        if (svgbmp) LICE_Blit(framebuffer, svgbmp, 0, 0, 0, 0, svgbmp->getWidth(), svgbmp->getHeight(), 1.0f, LICE_BLIT_MODE_COPY);
       }
       break;
   }

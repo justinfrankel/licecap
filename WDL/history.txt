@@ -1,3 +1,25 @@
+2009-04-08:
+
+UTF-8 support, win32_utf8.cpp for Win32 support (SWELL gets it automatically)
+LICE: line and circle updates for fractional coordinates
+LICE: preliminary SVG stuff
+LICE: CachedFont updates (can render natively if possible and desired, better owned font support)
+LICE: scaled blitting downsizing uses special filtering
+LICE: disabled experimental GL extensions by default
+LICE: better bezier stuff
+IPlug: OSX URL update, VST parameter index validation, other updates
+virtwnd: listbox improvements (horizontal mode etc)
+SWELL: preliminary WM_CTLCOLORDLG support, dialog background updates
+SWELL: better default button sizing
+PtrList: InsertSorted() and FindSorted() methods
+wndsize: margin querying api
+LAME support handles mono signals better, better search paths
+added basic blowfish implementation
+added basic IRC line parsing/formatting functions
+added incomplete non-working SHM datapipe class
+convolution engine updates
+
+
 2009-01-16: restored LICE bitmap ABI for compatability with older WDL versions
 2009-01-15: Convolution engine optimizations and bugfixes, slightly updated impulse API
 2009-01-13: simple reusable pitch shifter/time stretcher added

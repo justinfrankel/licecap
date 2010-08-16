@@ -20,6 +20,25 @@ static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
   DLGPROC d=(DLGPROC)GetWindowLong(hwnd,DWL_DLGPROC);
   if (d) 
   {
+    if (uMsg == WM_PAINT)
+    {
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          HBRUSH hbrush = (HBRUSH) d(hwnd,WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
+          if (hbrush && hbrush != (HBRUSH)1)
+          {
+            FillRect(ps.hdc,&ps.rcPaint,hbrush);
+          }
+          else if ([[(NSView *)hwnd window] contentView] == (NSView *)hwnd && ![(NSView *)hwnd isOpaque]) // always draw content view, unless opaque (which implies it doesnt need it)
+          {
+            SWELL_FillDialogBackground(ps.hdc,&ps.rcPaint,3);
+          }
+          
+          EndPaint(hwnd,&ps);
+        }
+    }
+    
     LRESULT r=(LRESULT) d(hwnd,uMsg,wParam,lParam);
     if (r) return r; 
   }
@@ -818,7 +837,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     {
       char text[4096];
       text[0]=0;
-      [sv getCString:text maxLength:sizeof(text)];
+      SWELL_CFStringToCString(sv,text,sizeof(text));
       sz+=strlen(text)+1;
     }
   }
@@ -840,7 +859,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     {
       char text[4096];
       text[0]=0;
-      [sv getCString:text maxLength:sizeof(text)];
+      SWELL_CFStringToCString(sv,text,sizeof(text));
       strcpy(pout,text);
       pout+=strlen(pout)+1;
     }

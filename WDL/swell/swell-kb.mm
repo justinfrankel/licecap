@@ -252,16 +252,18 @@ int SWELL_ShowCursor(BOOL bShow)
 
 BOOL SWELL_SetCursorPos(int X, int Y)
 {  
-  POINT p;
-  GetCursorPos(&p);
-  if (X != p.x || Y != p.y)
+//return false; // todo
+  NSPoint localpt=[NSEvent mouseLocation];
+  
+  if (fabs(X- localpt.x)>2 || fabs(Y-localpt.y)>2)
   {
     int h=CGDisplayPixelsHigh(CGMainDisplayID());
-    Y = h-Y;
-    CGPoint pos=CGPointMake(X,Y);
+    CGPoint pos=CGPointMake(X,h-Y);
+    pos.x += fmod(localpt.x,1.0);
+    pos.y += fmod(localpt.y,1.0);
     return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
   }
-  return true;  
+  return false;  
 }
 
 

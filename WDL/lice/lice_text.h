@@ -9,7 +9,8 @@
 #define LICE_FONT_FLAG_VERTICAL_BOTTOMUP 2
 
 #define LICE_FONT_FLAG_PRECALCALL 4
-#define LICE_FONT_FLAG_ALLOW_NATIVE 8
+//#define LICE_FONT_FLAG_ALLOW_NATIVE 8
+#define LICE_FONT_FLAG_FORCE_NATIVE 1024
 
 #define LICE_FONT_FLAG_FX_BLUR 16
 #define LICE_FONT_FLAG_FX_INVERT 32
@@ -19,6 +20,12 @@
 #define LICE_FONT_FLAG_FX_OUTLINE 256
 
 #define LICE_FONT_FLAG_OWNS_HFONT 512
+
+// could do a mask for these flags
+#define LICE_FONT_FLAGS_HAS_FX(flag) \
+  (flag&(LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP| \
+         LICE_FONT_FLAG_FX_BLUR|LICE_FONT_FLAG_FX_INVERT|LICE_FONT_FLAG_FX_MONO| \
+         LICE_FONT_FLAG_FX_SHADOW|LICE_FONT_FLAG_FX_OUTLINE))
 
 class LICE_IFont
 {
@@ -34,6 +41,9 @@ class LICE_IFont
     virtual void SetCombineMode(int combine, float alpha=1.0f)=0;
 
     virtual int DrawText(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags)=0;
+
+    virtual LICE_pixel GetTextColor()=0;
+    virtual HFONT GetHFont()=0;
 };
 
 
@@ -53,10 +63,15 @@ class LICE_CachedFont : public LICE_IFont
 
     int DrawText(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags);
 
+    LICE_pixel GetTextColor() { return m_fg; }
+    HFONT GetHFont() { return m_font; }
+
+    void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
+
   private:
 
-    bool DrawGlyph(LICE_IBitmap *bm, unsigned char c, int xpos, int ypos, RECT *clipR);
-    bool RenderGlyph(unsigned char idx);
+    bool DrawGlyph(LICE_IBitmap *bm, unsigned short c, int xpos, int ypos, RECT *clipR);
+    bool RenderGlyph(unsigned short idx);
 
     LICE_pixel m_fg,m_bg,m_effectcol;
     int m_bgmode;
@@ -64,16 +79,21 @@ class LICE_CachedFont : public LICE_IFont
     float m_alpha;
     int m_flags;
 
-    int m_line_height;
+    int m_line_height,m_lsadj;
     struct charEnt
     {
       int base_offset; // offset in m_cachestore+1, so 1=offset0, 0=unset, -1=failed to render
       int width, height;
       int advance;
+      int charid; // used by m_extracharlist
     };
+    charEnt *findChar(unsigned short c);
 
-    charEnt m_chars[256]; // todo: MBCS support?
+    charEnt m_lowchars[128]; // first 128 chars cached here
+    WDL_TypedBuf<charEnt> m_extracharlist;
     WDL_TypedBuf<unsigned char> m_cachestore;
+    
+    static int _charSortFunc(const void *a, const void *b);
 
     HFONT m_font;
 

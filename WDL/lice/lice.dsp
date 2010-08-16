@@ -519,140 +519,32 @@ SOURCE=..\giflib\gifalloc.c
 
 # End Source File
 # End Group
-# Begin Group "libsvg"
-
-# PROP Default_Filter ""
 # Begin Group "tinyxml"
 
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\libsvg\tinyxml\tinystr.cpp
+SOURCE=..\tinyxml\svgtiny_colors.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\libsvg\tinyxml\tinystr.h
+SOURCE=..\tinyxml\tinystr.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\libsvg\tinyxml\tinyxml.cpp
+SOURCE=..\tinyxml\tinyxml.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\libsvg\tinyxml\tinyxml.h
+SOURCE=..\tinyxml\tinyxml.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\libsvg\tinyxml\tinyxmlerror.cpp
+SOURCE=..\tinyxml\tinyxmlerror.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=..\libsvg\tinyxml\tinyxmlparser.cpp
-# End Source File
-# End Group
-# Begin Source File
-
-SOURCE=..\libsvg\svg.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_ascii.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_ascii.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_attribute.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_color.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_element.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_gradient.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_group.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_hash.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_hash.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_image.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_length.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_paint.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_parser.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_parser_tinyxml.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_path.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_pattern.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_str.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_style.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_text.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_transform.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svg_version.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\libsvg\svgint.h
-# End Source File
-# End Group
-# Begin Group "glew"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=.\glew\src\glew.c
+SOURCE=..\tinyxml\tinyxmlparser.cpp
 # End Source File
 # End Group
 # Begin Source File
@@ -750,6 +642,10 @@ SOURCE=.\lice_gl_ctx.h
 # Begin Source File
 
 SOURCE=.\lice_glbitmap.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lice_text.h
 # End Source File
 # End Group
 # End Target

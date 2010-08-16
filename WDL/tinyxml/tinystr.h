@@ -46,6 +46,7 @@ distribution.
 	required - it is used to check that the TiXmlString class isn't incorrectly
 	used. Be nice to old compilers and macro it here:
 */
+
 #if defined(_MSC_VER) && (_MSC_VER >= 1200 )
 	// Microsoft visual studio, version 6 and higher.
 	#define TIXML_EXPLICIT explicit
@@ -56,7 +57,6 @@ distribution.
 	#define TIXML_EXPLICIT
 #endif
 
-
 /*
    TiXmlString is an emulation of a subset of the std::string template.
    Its purpose is to allow compiling TinyXML on compilers with no or poor STL support.
@@ -64,6 +64,7 @@ distribution.
    The buffer allocation is made by a simplistic power of 2 like mechanism : if we increase
    a string and there's no more room, we allocate a buffer twice as big as we need.
 */
+
 class TiXmlString
 {
   public :

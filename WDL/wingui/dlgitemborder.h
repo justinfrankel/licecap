@@ -53,12 +53,16 @@ static int RectInRect(RECT *rect1, RECT *rect2)
       ;
 }
 
+#ifdef _WIN32
 static void Dlg_removeFromRgn(HRGN hrgn, int left, int top, int right, int bottom)
 {
   HRGN rgn2=CreateRectRgn(left,top,right,bottom);
   CombineRgn(hrgn,hrgn,rgn2,RGN_DIFF);
   DeleteObject(rgn2);
 }
+#else 
+#define Dlg_removeFromRgn(a,b,c,d,e)
+#endif
 
 static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0
 #ifdef WDL_DLGITEMBORDER_CUSTOMPARMS                                       
@@ -68,14 +72,18 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
                                        )
 {
   PAINTSTRUCT ps;
-  HRGN hrgn=NULL;
   BeginPaint(hwndDlg,&ps);
 
+#ifdef _WIN32
+  HRGN hrgn=NULL;
   if(ps.fErase)
   {
     RECT r=ps.rcPaint;
     hrgn=CreateRectRgn(r.left,r.top,r.right,r.bottom);
   }
+#else
+  int hrgn=0;
+#endif
 
   HPEN pen=CreatePen(PS_SOLID,0,GSC?GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT));
   HPEN pen2=CreatePen(PS_SOLID,0,GSC?GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW));
@@ -170,6 +178,7 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
   DeleteObject(pen);
   DeleteObject(pen2);
 
+#ifdef _WIN32
   if(hrgn) {
     //erase bkgnd while clipping out our own drawn stuff (for flickerless display)
 #ifdef WDL_DLGITEMBORDER_CUSTOMBGCODE
@@ -182,6 +191,7 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
 
     DeleteObject(hrgn);
   }
+#endif
   EndPaint(hwndDlg,&ps);
 }
 

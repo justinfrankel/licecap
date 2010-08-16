@@ -213,7 +213,7 @@ const char* AppendTimestamp(const char* Mmm_dd_yyyy, const char* hh_mm_ss, const
     }
   }
 
-  #include "../VST_SDK/aeffectx.h"
+  #include "../../VST_SDK/aeffectx.h"
   const char* VSTOpcodeStr(int opCode)
   {
     switch (opCode) {

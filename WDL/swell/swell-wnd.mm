@@ -34,13 +34,30 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
+void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
+{
+  NSString *s = (NSString *)str;
+  if (!s) { if (buflen>0) *buf=0; return; }
+  NSData *data = [s dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
+  if (!data)
+  {
+    [s getCString:buf maxLength:buflen];
+    return;
+  }
+  int len = [data length];
+  if (len > buflen-1) len=buflen-1;
+  [data getBytes:buf length:len];
+  buf[len]=0;
+//  [data release];
+}
+
 void *SWELL_CStringToCFString(const char *str)
 {
   if (!str) str="";
   void *ret;
   
- // ret=(void *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
-//  if (ret) return ret;
+  ret=(void *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
+  if (ret) return ret;
   ret=(void*)CFStringCreateWithCString(NULL,str,kCFStringEncodingASCII);
   return ret;
 }
@@ -1793,8 +1810,8 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   else if ([poo isKindOfClass:[NSText class]])  s=[(NSText*)poo string];
   else return FALSE;
   
-  if (s)
-    [s getCString:text maxLength:textlen];
+  if (s) SWELL_CFStringToCString(s,text,textlen);
+//    [s getCString:text maxLength:textlen];
     
   return !!s;
 }
@@ -1908,7 +1925,8 @@ int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
     NSString *s=[p itemObjectValueAtIndex:item];
     if (s)
     {
-      [s getCString:buf maxLength:bufsz];
+      SWELL_CFStringToCString(s,buf,bufsz);
+//      [s getCString:buf maxLength:bufsz];
       return 1;
     }
   }
@@ -1920,7 +1938,8 @@ int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
       NSString *s=[i title];
       if (s)
       {
-        [s getCString:buf maxLength:bufsz];
+        SWELL_CFStringToCString(s,buf,bufsz);
+//        [s getCString:buf maxLength:bufsz];
         return 1;
       }
     }
@@ -2272,9 +2291,15 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   // todo: some way to better calculate these!
   if (tr.size.width < 30)
   {
-    tr.size.width += 12;
+    tr.size.width += 14;
     tr.origin.x -= 6;
   }
+  else// if (!def) //strcmp(label,"OK") && strcmp(label,"Cancel"))
+  {
+    tr.size.width+=def?8:12;
+    tr.origin.x -= 4;
+  }
+  
   if (tr.size.height >= 18 && tr.size.height<24)
   {
     tr.size.height=24;
@@ -2670,6 +2695,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     }
     
     if ((style&SS_TYPEMASK) == SS_LEFTNOWORDWRAP) [[obj cell] setWraps:NO];
+    if ((style&SS_TYPEMASK) == SS_CENTER) [[obj cell] setAlignment:NSCenterTextAlignment];
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y,w,h,true)];
     if (style&SWELL_NOT_WS_VISIBLE) [obj setHidden:YES];
@@ -2685,6 +2711,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     SWELL_Button *button=[[SWELL_Button alloc] init];
     [button setTag:idx];
+    NSRect fr=MakeCoords(x,y,w,h,true);
     if ((style & 0xf) == BS_AUTO3STATE)
     {
       [button setButtonType:NSSwitchButton];
@@ -2707,9 +2734,13 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
       [cell release];
       //NSButtonCell
     }
+    else // normal button
+    {
+//      fr.size.width+=8;
+    }
     if (m_transform.size.width < minwidfontadjust)
       [button setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
-    [button setFrame:MakeCoords(x,y,w,h,true)];
+    [button setFrame:fr];
     NSString *labelstr=(NSString *)SWELL_CStringToCFString_FilterPrefix(cname);
     [button setTitle:labelstr];
     [button setTarget:ACTIONTARGET];

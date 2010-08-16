@@ -121,7 +121,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 		char buf[2048];
 		buf[0]=0;
 		buf[sizeof(buf)-1]=0;
-		[[panel filename]  getCString:(char *)buf maxLength:(unsigned)(sizeof(buf)-1)];
+		SWELL_CFStringToCString([panel filename],buf,(sizeof(buf)-1));
 		if (buf[0])
 		{
 			lstrcpyn(fn,buf,fnsize);
@@ -176,7 +176,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 		
   NSString *aFile = [filesToOpen objectAtIndex:0];
   if (!aFile) return 0;
-  [aFile getCString:(char *)fn maxLength:(unsigned)(fnsize-1)];
+  SWELL_CFStringToCString(aFile,fn,(fnsize-1));
   fn[fnsize-1]=0;
   return 1;
 }
@@ -247,7 +247,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 		NSString *aFile = [filesToOpen objectAtIndex:0];
 		if (!aFile) return 0;
 		char fn[2048];
-		[aFile getCString:(char *)fn maxLength:(unsigned)(sizeof(fn)-1)];
+		SWELL_CFStringToCString(aFile,fn,(sizeof(fn)-1));
 		fn[sizeof(fn)-1]=0;
 		char *ret=(char *)malloc(strlen(fn)+2);
 		memcpy(ret,fn,strlen(fn));
@@ -263,7 +263,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 		NSString *aFile = [filesToOpen objectAtIndex:i];
 		if (!aFile) continue;
 		char fn[2048];
-		[aFile getCString:(char *)fn maxLength:(unsigned)(sizeof(fn)-1)];
+		SWELL_CFStringToCString(aFile,fn,(sizeof(fn)-1));
 		fn[sizeof(fn)-1]=0;
 		
 		int tlen=strlen(fn)+1;

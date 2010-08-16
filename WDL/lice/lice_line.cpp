@@ -2,6 +2,7 @@
 #include "lice_combine.h"
 #include "lice_extended.h"
 #include <math.h>
+#include <stdio.h>
 
 template <class T> inline void SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
@@ -74,6 +75,84 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
   *pY1 = y1;
   *pX2 = x2;
   *pY2 = y2;
+  return accept;
+}
+
+static int OffscreenFTest(float x, float y, float w, float h)
+{
+  int e = eOK;
+  if (x < 0.0f) e |= eXLo; 
+  else if (x >= w) e |= eXHi; 
+  if (y < 0.0f) e |= eYLo; 
+  else if (y >= h) e |= eYHi; 
+  return e;
+}
+
+static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
+{
+  float tx1 = *x1, ty1 = *y1, tx2 = *x2, ty2 = *y2;
+  float tw = (float) w, th = (float) h;
+  
+  int e1 = OffscreenTest(tx1, ty1, tw, th); 
+  int e2 = OffscreenTest(tx2, ty2, tw, th);
+  
+  bool accept = false, done = false;
+  do
+  {
+    if (!(e1|e2)) 
+    {
+      accept = done = true;
+    }
+    else
+    if (e1&e2) 
+    {
+      done = true;	// Line is entirely offscreen.
+    }
+    else 
+    { 
+      float x, y;
+      int eOut = (e1 ? e1 : e2);
+      if (eOut&eYHi) 
+      {
+        x = tx1+(tx2-tx1)*(th-ty1)/(ty2-ty1);
+        y = th-1.0f;
+      }
+      else if (eOut&eYLo) 
+      {
+        x = tx1+(tx2-tx1)*ty1/(ty1-ty2);
+        y = 0.0f;
+      }
+      else if (eOut&eXHi) 
+      {
+        y = ty1+(ty2-ty1)*(tw-tx1)/(tx2-tx1);
+        x = tw-1.0f;
+      }
+      else
+      {
+        y = ty1+(ty2-ty1)*tx1/(tx1-tx2);
+        x = 0.0f;
+      }
+
+      if (eOut == e1) 
+      { 
+        tx1 = x; 
+        ty1 = y;
+        e1 = OffscreenTest(tx1, ty1, tw, th);
+      }
+      else 
+      {
+        tx2 = x;
+        ty2 = y;
+        e2 = OffscreenTest(tx2, ty2, tw, th);
+      }
+    }
+  }
+  while (!done);
+
+  *x1 = tx1;
+  *y1 = ty1;
+  *x2 = tx2;
+  *y2 = ty2;
   return accept;
 }
 
@@ -250,7 +329,7 @@ public:
 
   static void LICE_LineImpl(LICE_IBitmap* pDest, int xi1, int yi1, int xi2, int yi2, LICE_pixel color, float alpha, bool aa)
   {
-    int w = pDest->getRowSpan();
+    int span = pDest->getRowSpan();
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
 
     int nx = abs(xi2-xi1);
@@ -260,7 +339,7 @@ public:
     if (ny > nx) 
     {  
       n = ny;
-      pxStep = (yi1 < yi2 ? w : -w);
+      pxStep = (yi1 < yi2 ? span : -span);
       pxStep2 = (xi1 < xi2 ? 1 : -1);
       dErr = (double)nx/(double)ny;
     }
@@ -268,10 +347,10 @@ public:
     {
       n = nx;
       pxStep = (xi1 < xi2 ? 1 : -1);
-      pxStep2 = (yi1 < yi2 ? w : -w);
+      pxStep2 = (yi1 < yi2 ? span : -span);
       dErr = (double)ny/(double)nx;
     }
-    LICE_pixel* pPx = pDest->getBits()+yi1*w+xi1;   
+    LICE_pixel* pPx = pDest->getBits()+yi1*span+xi1;   
     int aw = (int)(256.0f*alpha);
 
     if (aa) 
@@ -283,7 +362,7 @@ public:
       {
         int iErr = __LICE_TOINT(256.0*err);
         COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw*(256-iErr)/256);
-        COMBFUNC::doPix((LICE_pixel_chan*) (pPx+pxStep2), r, g, b, a, aw*iErr/256);
+        if (iErr) COMBFUNC::doPix((LICE_pixel_chan*) (pPx+pxStep2), r, g, b, a, aw*iErr/256);
         err += dErr;
         if (err > 1.0)
         {
@@ -298,6 +377,73 @@ public:
     {
       err = 0.0;
       for (i = 0; i <= n; ++i, pPx += pxStep) 
+      {
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
+        err += dErr;
+        if (err > 0.5) 
+        {
+          pPx += pxStep2;
+          err -= 1.0;
+        }
+      }
+    }
+  }
+
+  static void LICE_FLineImpl(LICE_IBitmap* pDest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha, bool aa)
+  {    
+    int span = pDest->getRowSpan();
+    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+
+    float nx = fabs(x2-x1);
+    float ny = fabs(y2-y1);
+    int xstep = (x1 < x2 ? 1 : -1);
+    int ystep = (y1 < y2 ? span : -span);
+    bool steep = (ny > nx);
+
+    int i, n, pxStep, pxStep2;
+    double err, dErr;
+
+    if (steep) 
+    {  
+      n = (int)ny;
+      pxStep = ystep;
+      pxStep2 = xstep;
+      err = x1-floor(x1);    
+      if (xstep < 0 && err > 0.0f) err = 1.0f-err;
+      dErr = nx/ny;
+    }
+    else 
+    {
+      n = (int)nx;
+      pxStep = xstep;
+      pxStep2 = ystep;
+      err = y1-floor(y1);
+      if (ystep < 0 && err > 0.0f) err = 1.0f-err;
+      dErr = ny/nx;
+    }
+
+    LICE_pixel* pPx = pDest->getBits()+(int)y1*span+(int)x1;   
+    int aw = (int)(256.0f*alpha);
+
+    if (aa) 
+    {
+      for (i = 0; i <= n; ++i, pPx += pxStep)   // <= scary
+      {
+        int iErr = __LICE_TOINT(256.0*err);
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw*(256-iErr)/256);
+        if (iErr) COMBFUNC::doPix((LICE_pixel_chan*) (pPx+pxStep2), r, g, b, a, aw*iErr/256);
+        err += dErr;
+        if (err > 1.0)
+        {
+          pPx += pxStep2;
+          err -= 1.0;
+        }
+      }
+    }
+    else 
+    {
+      err = 0.0;
+      for (i = 0; i <= n; ++i, pPx += pxStep)  // <= scary
       {
         COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
         err += dErr;
@@ -368,37 +514,59 @@ void LICE_Line(LICE_IBitmap *pDest, int x1, int y1, int x2, int y2, LICE_pixel c
       }
       else
       {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_DiagLine(pDest, x1, y1, x2, y2, color, alpha, aa)
         if (aa) 
         {
-#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_DiagLine(pDest, x1, y1, x2, y2, color, alpha, true)
-        __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
-#undef __LICE__ACTION
+          __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
         }
         else 
         {
-#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_DiagLine(pDest, x1, y1, x2, y2, color, alpha, false)
-        __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
-#undef __LICE__ACTION
+          __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
         }
+#undef __LICE__ACTION
       }
     }
     else 
     {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_LineImpl(pDest, x1, y1, x2, y2, color, alpha, aa)	
       if (aa) 
       {
-#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_LineImpl(pDest, x1, y1, x2, y2, color, alpha, true)
-			__LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
-#undef __LICE__ACTION
+        __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
       }
       else 
       {
-#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_LineImpl(pDest, x1, y1, x2, y2, color, alpha, false)
-			__LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
-#undef __LICE__ACTION
-
+        __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
       }
+#undef __LICE__ACTION
 		}
 	}
+}
+
+void LICE_FLine(LICE_IBitmap* dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha, int mode, bool aa)
+{
+  if (!dest) return;
+
+  int w = dest->getWidth();
+  int h = dest->getHeight();
+  if (dest->isFlipped()) 
+  {
+    y1 = (float)(h-1)-y1;
+    y2 = (float)(h-1)-y2;
+  }
+
+  if (ClipFLine(&x1, &y1, &x2, &y2, w, h))
+  {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_FLineImpl(dest, x1, y1, x2, y2, color, alpha, aa)
+    if (aa) 
+    {
+      __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);    
+    }
+    else 
+    {
+      __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
+    }
+#undef __LICE__ACTION
+  }
 }
 
 void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxon, int pxoff, LICE_pixel color, float alpha, int mode, bool aa) 
@@ -450,30 +618,81 @@ template <class COMBFUNC> class _LICE_CurveDrawer
 {
 public:
 
-  static void DrawClippedPt(LICE_IBitmap* dest, int x, int y, int clip[], 
-    int r, int g, int b, int a, int alpha, bool doclip)
-  {
-    if (doclip && (x < clip[0] || y < clip[1] || x >= clip[2] || y >= clip[3])) return;
-    LICE_pixel* px = dest->getBits()+y*dest->getRowSpan()+x;
-    COMBFUNC::doPix((LICE_pixel_chan*)px, r, g, b, a, alpha);
-  }
-
 // MAX_BEZ_RECURSE of N probably means less than 2^N points, 
 // because sharp curves will resolve much faster than flat areas
 #define MAX_BEZ_RECURSE 12
-// lower BEZ_TOL = more px = more calculations = thicker line
-#define BEZ_TOL 1.5f
+// BEZ_PT_TOL2 = square of minimum distance between pixels (lower = smoother line = more calculations)
+#define BEZ_PT_TOL2 (1.0f*1.0f)
 
-  static void DrawCBezRecurseAA(int recurseidx, LICE_IBitmap* dest, 
-    double ax, double bx, double cx, double dx, double ay, double by, double cy, double dy, 
-    int r, int g, int b, int a, int ai, float alpha, 
-    double tlo, float xlo, float ylo, double thi, float xhi, float yhi, int clip[], bool doclip)
+  static void DrawClippedPt(LICE_IBitmap* dest, int x, int y, int w, int h, 
+    LICE_pixel color, float alpha)
   {
-    if (recurseidx >= MAX_BEZ_RECURSE) {  // the line is ugly, this case is worth avoiding
-      int xilo = xlo, xihi = xhi, yilo = ylo, yihi = yhi;
-      if (!doclip || ClipLine(&xilo, &yilo, &xihi, &yihi, dest->getWidth(), dest->getHeight())) {        
-        __LICE_LineClass<COMBFUNC>::LICE_LineImpl(dest, xilo, yilo, xihi, yihi, LICE_RGBA(r, g, b, a), alpha, true);
+    if (x >= 0 && y >= 0 && x < w && y < h)
+    {
+      LICE_pixel* px = dest->getBits()+y*dest->getRowSpan()+x;
+      COMBFUNC::doPix((LICE_pixel_chan*)px, LICE_GETR(color), LICE_GETG(color), LICE_GETB(color), LICE_GETA(color), (int)(alpha*255.0f));
+    }
+  }
+  
+  static void DrawClippedFPt(LICE_IBitmap* dest, float x, float y, int w, int h, 
+    LICE_pixel color, float alpha)
+  {
+    int xi = (int)x;
+    int yi = (int)y;
+    float wx = x-floor(x);
+    float wy = y-floor(y);
+    float iwx = 1.0f-wx;
+    float iwy = 1.0f-wy;
+    DrawClippedPt(dest, xi, yi, w, h, color, alpha*iwx*iwy);
+    DrawClippedPt(dest, xi+1, yi, w, h, color, alpha*wx*iwy);
+    DrawClippedPt(dest, xi, yi+1, w, h, color, alpha*iwx*wy);
+    DrawClippedPt(dest, xi+1, yi+1, w, h, color, alpha*wx*wy);
+  }
+
+  static void DrawClippedLine(LICE_IBitmap* dest, float x1, float y1, float x2, float y2, int w, int h,
+    LICE_pixel color, float alpha, bool aa)
+  {
+    if (ClipFLine(&x1, &y1, &x2, &y2, w, h))
+    {
+      __LICE_LineClass<COMBFUNC>::LICE_FLineImpl(dest, x1, y1, x2, y2, color, alpha, aa);
+    }
+  }
+
+  static void DrawCBezRecurse(int recurseidx, LICE_IBitmap* dest, 
+    double ax, double bx, double cx, double dx, double ay, double by, double cy, double dy, 
+    LICE_pixel color, float alpha, bool aa, 
+    double tlo, float xlo, float ylo, double thi, float xhi, float yhi, int w, int h, float maxsegmentpx2)
+  {
+    /*
+    static int _maxrecurse = 0;
+    if (recurseidx > _maxrecurse)
+    {
+      _maxrecurse = recurseidx;
+      char buf[64];
+      sprintf(buf, "%d", _maxrecurse);
+      OutputDebugString(buf);
+    }
+    */
+
+    if (!recurseidx)
+    {
+      if (maxsegmentpx2 <= 0.0f)
+      {
+        if (aa)
+        {
+          DrawClippedFPt(dest, xlo, ylo, w, h, color, alpha);
+          DrawClippedFPt(dest, xhi, yhi, w, h, color, alpha);
+        }
+        else
+        {
+          DrawClippedPt(dest, (int)xlo, (int)ylo, w, h, color, alpha);
+          DrawClippedPt(dest, (int)xhi, (int)yhi, w, h, color, alpha);
+        }
       }
+    }
+    else if (recurseidx >= MAX_BEZ_RECURSE)  
+    { 
+      DrawClippedLine(dest, xlo, ylo, xhi, yhi, w, h, color, alpha, aa);
       return;
     }
 
@@ -481,41 +700,158 @@ public:
     float xmid, ymid;
     EVAL_CBEZXY(xmid, ymid, ax, bx, cx, dx, ay, by, cy, dy, tmid);
 
-    int xi = xmid, yi = ymid;
-    float dxlo = fabs(xmid-xlo), dylo = fabs(ymid-ylo);
-    float dxhi = fabs(xhi-xmid), dyhi = fabs(yhi-ymid);
+    float dxlo = xmid-xlo;
+    float dylo = ymid-ylo;
+    float dxhi = xhi-xmid;
+    float dyhi = yhi-ymid;
+    float d2lo = dxlo*dxlo+dylo*dylo;
+    float d2hi = dxhi*dxhi+dyhi*dyhi;
 
-    float wx = xmid-floor(xmid), wy = ymid-floor(ymid);
-    float iwx = 1.0f-wx, iwy = 1.0f-wy;
-    DrawClippedPt(dest, xi, yi, clip, r, g, b, a, (int)(alpha*(iwx*iwy)*255.0f), doclip);
-    DrawClippedPt(dest, xi+1, yi, clip, r, g, b, a, (int)(alpha*(wx*iwy)*255.0f), doclip);
-    DrawClippedPt(dest, xi, yi+1, clip, r, g, b, a, (int)(alpha*(iwx*wy)*255.0f), doclip);
-    DrawClippedPt(dest, xi+1, yi+1, clip, r, g, b, a, (int)(alpha*(wx*wy)*255.0f), doclip);
+    bool recurselo, recursehi;
 
-    if (dxlo > BEZ_TOL || dylo > BEZ_TOL) {
-      DrawCBezRecurseAA(recurseidx+1, dest, ax, bx, cx, dx, ay, by, cy, dy,
-        r, g, b, a, ai, alpha, tlo, xlo, ylo, tmid, xmid, ymid, clip, doclip);
+    if (maxsegmentpx2 <= 0.0f)
+    {
+      if (aa) DrawClippedFPt(dest, xmid, ymid, w, h, color, alpha);
+      else DrawClippedPt(dest, (int)xmid, (int)ymid, w, h, color, alpha);       
+      recurselo = (d2lo >= BEZ_PT_TOL2);
+      recursehi = (d2hi >= BEZ_PT_TOL2);
     }
-  
-    if (dxhi > BEZ_TOL || dyhi > BEZ_TOL) {
-      DrawCBezRecurseAA(recurseidx+1, dest, ax, bx, cx, dx, ay, by, cy, dy,
-        r, g, b, a, ai, alpha, tmid, xmid, ymid, thi, xhi, yhi, clip, doclip);
+    else
+    {
+      recurselo = (d2lo >= maxsegmentpx2);
+      if (!recurselo) DrawClippedLine(dest, xlo, ylo, xmid, ymid, w, h, color, alpha, aa);
+      recursehi = (d2hi >= maxsegmentpx2);
+      if (!recursehi) DrawClippedLine(dest, xmid, ymid, xhi, yhi, w, h, color, alpha, aa);
+    }
+
+    if (recurselo)
+    {
+      DrawCBezRecurse(recurseidx+1, dest, ax, bx, cx, dx, ay, by, cy, dy,
+        color, alpha, aa, tlo, xlo, ylo, tmid, xmid, ymid, w, h, maxsegmentpx2);
+    }
+    if (recursehi) 
+    {
+      DrawCBezRecurse(recurseidx+1, dest, ax, bx, cx, dx, ay, by, cy, dy,
+        color, alpha, aa, tmid, xmid, ymid, thi, xhi, yhi, w, h, maxsegmentpx2);
+    }
+  }
+
+  static void DrawQBezRecurse(int recurseidx, LICE_IBitmap* dest,
+    float xstart, float xctl, float xend, float ystart, float yctl, float yend, 
+    LICE_pixel color, float alpha, bool aa,
+    double tlo, float xlo, float ylo, double thi, float xhi, float yhi, int w, int h, float maxsegmentpx2)
+  {
+    if (!recurseidx)
+    {
+      if (aa)
+      {
+        DrawClippedFPt(dest, xlo, ylo, w, h, color, alpha);
+        DrawClippedFPt(dest, xhi, yhi, w, h, color, alpha);
+      }
+      else
+      {
+        DrawClippedPt(dest, (int)xlo, (int)ylo, w, h, color, alpha);
+        DrawClippedPt(dest, (int)xhi, (int)yhi, w, h, color, alpha);
+      }
+    }
+    else if (recurseidx >= MAX_BEZ_RECURSE)  
+    { 
+      DrawClippedLine(dest, xlo, ylo, xhi, yhi, w, h, color, alpha, aa);
+      return;
+    }
+
+    double tmid = 0.5*(tlo+thi);
+    float xmid, ymid;
+    LICE_Bezier(xstart, xctl, xend, ystart, yctl, yend, tmid, &xmid, &ymid);
+
+    float dxlo = xmid-xlo;
+    float dylo = ymid-ylo;
+    float dxhi = xhi-xmid;
+    float dyhi = yhi-ymid;
+    float d2lo = dxlo*dxlo+dylo*dylo;
+    float d2hi = dxhi*dxhi+dyhi*dyhi;
+
+    bool recurselo, recursehi;
+
+    if (maxsegmentpx2 <= 0.0f)
+    {
+      if (aa) DrawClippedFPt(dest, xmid, ymid, w, h, color, alpha);
+      else DrawClippedFPt(dest, (int)xmid, (int)ymid, w, h, color, alpha);
+      recurselo = (d2lo >= BEZ_PT_TOL2);
+      recursehi = (d2hi >= BEZ_PT_TOL2);
+    }
+    else
+    {
+      recurselo = (d2lo >= maxsegmentpx2);
+      if (!recurselo) DrawClippedLine(dest, xlo, ylo, xmid, ymid, w, h, color, alpha, aa);
+      recursehi = (d2hi >= maxsegmentpx2);
+      if (!recursehi) DrawClippedLine(dest, xmid, ymid, xhi, yhi, w, h, color, alpha, aa);
+    }
+
+    if (recurselo) 
+    {
+      DrawQBezRecurse(recurseidx+1, dest, xstart, xctl, xend, ystart, yctl, yend, color, alpha, aa, 
+        tlo, xlo, ylo, tmid, xmid, ymid, w, h, maxsegmentpx2);
+    }
+    if (recursehi)
+    {
+      DrawQBezRecurse(recurseidx+1, dest, xstart, xctl, xend, ystart, yctl, yend, color, alpha, aa, 
+        tmid, xmid, ymid, thi, xhi, yhi, w, h, maxsegmentpx2);
     }
   }
 
 };
 
 // quadratic bezier
-void LICE_DrawBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
-  LICE_pixel color, float alpha, int mode, bool aa)
+// maxsegmentpx<=0 means recurse (best), maxsegmentpx>0 means draw the curve piecewise in segments with length < maxsegmentpx pixels
+void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
+  LICE_pixel color, float alpha, int mode, bool aa, float maxsegmentpx)
 {
-  // todo like cbez
+  if (!dest) return;
 
+  int w = dest->getWidth();
+  int h = dest->getHeight();
+    
+  if (xstart > xend) 
+  {
+    SWAP(xstart, xend);
+    SWAP(ystart, yend);
+  }
+      
+  float xlo = xstart, xhi = xend;
+  float ylo = ystart, yhi = yend;
+  double tlo = 0.0, thi = 1.0;
+
+  if (xlo < 0) 
+  {
+    xlo = 0;
+    ylo = LICE_Bezier_GetY(xstart, xctl, xend, ystart, yctl, yend, xlo, &tlo);
+  }
+  if (xhi >= w)
+  {
+    xhi = w-1;
+    yhi = LICE_Bezier_GetY(xstart, xctl, xend, ystart, yctl, yend, xhi, &thi);
+  }
+  if (xlo > xhi) return;
+
+  float maxsegmentpx2 = (maxsegmentpx <= 1.0f ? 0.0f : maxsegmentpx*maxsegmentpx);
+
+#define __LICE__ACTION(COMBFUNC) _LICE_CurveDrawer<COMBFUNC>::DrawQBezRecurse(0, dest, xstart, xctl, xend, ystart, yctl, yend, color, alpha, aa, tlo, xlo, ylo, thi, xhi, yhi, w, h, maxsegmentpx2);
+  if (aa)
+  {
+    __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
+  }
+  else
+  {
+    __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
+  }
+#undef __LICE__ACTION
 }
 
 // cubic bezier
+// maxsegmentpx<=0 means recurse (best), maxsegmentpx>0 means draw the curve piecewise in segments with length < maxsegmentpx pixels
 void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha, int mode, bool aa)
+  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha, int mode, bool aa, float maxsegmentpx)
 { 
   if (!dest) return;
 
@@ -527,9 +863,11 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   }
 #endif
 
-  int w = dest->getWidth(), h = dest->getHeight();
+  int w = dest->getWidth();
+  int h = dest->getHeight();
     
-  if (xstart > xend) {
+  if (xstart > xend) 
+  {
     SWAP(xstart, xend);
     SWAP(xctl1, xctl2);
     SWAP(ystart, yend);
@@ -542,56 +880,31 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   float xlo = xstart, xhi = xend;
   float ylo = ystart, yhi = yend;
   double tlo = 0.0, thi = 1.0;
-  if (xlo < 0) {
+
+  if (xlo < 0) 
+  {
     xlo = 0;
     ylo = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, xlo, (float*)0, (float*)0, (double*)0, &tlo);
   }
-  if (xhi >= w) {
+  if (xhi >= w)
+  {
     xhi = w-1;
     yhi = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, xhi, (float*)0, (float*)0, &thi, (double*)0);
   }
-  if (xlo >= xhi) return;
+  if (xlo > xhi) return;
 
-  if (aa) {
+  float maxsegmentpx2 = (maxsegmentpx <= 0.0f ? 0.0f : maxsegmentpx*maxsegmentpx);
 
-    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
-    int ai = (int)(alpha*255.0f);
-
-    int clip[4] = { 0, 0, w, h };
-
-    // safety
-    int xmin = 1;
-    int xmax = w-1;
-    int ymin = 32;
-    int ymax = h-32;
-
-    bool doclip = (xlo < xmin || xctl1 < xmin || xctl2 < xmin || xhi < xmin ||
-        ylo < ymin || yctl1 < ymin || yctl2 < ymin || yhi < ymin ||
-        xlo >= xmax || xctl1 >= xmax || xctl2 >= xmax || xhi >= xmax ||
-        ylo >= ymax || yctl1 >= ymax || yctl2 >= ymax || yhi >= ymax);
-
-#define __LICE__ACTION(COMBFUNC) _LICE_CurveDrawer<COMBFUNC>::DrawCBezRecurseAA(0, dest, ax, bx, cx, xstart, ay, by, cy, ystart, r, g, b, a, ai, alpha, tlo, xlo, ylo, thi, xhi, yhi, clip, doclip);
+#define __LICE__ACTION(COMBFUNC) _LICE_CurveDrawer<COMBFUNC>::DrawCBezRecurse(0, dest, ax, bx, cx, xstart, ay, by, cy, ystart, color, alpha, aa, tlo, xlo, ylo, thi, xhi, yhi, w, h, maxsegmentpx2);
+  if (aa)
+  {
     __LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
+  }
+  else
+  {
+    __LICE_ACTIONBYMODE_CONSTANTALPHA(mode, alpha);
+  }
 #undef __LICE__ACTION
-
-  }
-  else {
-
-    // quick, dirty, and ugly
-    int i, n = abs((int)(xhi-xlo))+abs((int)(yhi-ylo));
-    float xprev = xlo, yprev = ylo, x, y;
-    for (i = 0; i < n; ++i) {
-      double t = tlo+(double)i/(double)n*(thi-tlo);
-      EVAL_CBEZXY(x, y, ax, bx, cx, xstart, ay, by, cy, ystart, t);
-      float dx = x-xprev, dy = y-yprev, dz = dx*dx+dy*dy;
-      if (dz >= 16.0f) {
-        LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, false);
-        xprev = x;
-        yprev = y;
-      }
-    }
-    LICE_Line(dest, xprev, yprev, xend, yend, color, alpha, mode, false);
-  }
 }
 
 void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha, int mode)

@@ -7,7 +7,7 @@
 
 #include "lice.h"
 
-LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
+static LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 {
   BITMAP bm;
   GetObject(hbm, sizeof(BITMAP), (LPSTR)&bm);
@@ -40,10 +40,18 @@ LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
+  HBITMAP bm=NULL;
 #ifdef _WIN32
-  HBITMAP bm=(HBITMAP) LoadImage(NULL,filename,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
-  #else
-  HBITMAP bm=(HBITMAP) LoadNamedImage(filename,false);
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      bm = (HBITMAP) LoadImageW(NULL,wf,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
+  }
+
+  if (!bm) bm=(HBITMAP) LoadImage(NULL,filename,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
+#else
+  bm=(HBITMAP) LoadNamedImage(filename,false);
 #endif
   if (!bm) return 0;
 

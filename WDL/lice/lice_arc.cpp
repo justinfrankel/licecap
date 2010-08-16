@@ -190,22 +190,15 @@ public:
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
 
     int ai = (int)(alpha*255.0f);
-    DrawClippedPt(dest, cx, cy+rad, clip, r, g, b, a, ai, doclip);
-    DrawClippedPt(dest, cx, cy-rad, clip, r, g, b, a, ai, doclip);
-    DrawClippedPt(dest, cx+rad, cy, clip, r, g, b, a, ai, doclip);
-    DrawClippedPt(dest, cx-rad, cy, clip, r, g, b, a, ai, doclip);
-
-    if (filled) {
-      DrawClippedHorzLine(dest, cy, cx-rad+1, cx+rad-1, clip, r, g, b, a, ai, doclip);
-    }
-    
     float r2 = rad*rad;
-    float x = 1;
+    float x = 0.0f;
     float y = rad;
-    while (x < y+1.0f) {
+    while (x < y+1.0f) 
+    {
       float w = y-floor(y);
 
-      if (w == 0.0f) { 
+      if (w == 0.0f) 
+      { 
         DrawClippedPt(dest, cx+x, cy+y, clip, r, g, b, a, ai, doclip);
         DrawClippedPt(dest, cx+x, cy-y, clip, r, g, b, a, ai, doclip);
         DrawClippedPt(dest, cx-x, cy+y, clip, r, g, b, a, ai, doclip);
@@ -215,7 +208,8 @@ public:
         DrawClippedPt(dest, cx-y, cy+x, clip, r, g, b, a, ai, doclip);
         DrawClippedPt(dest, cx-y, cy-x, clip, r, g, b, a, ai, doclip);
       }
-      else { 
+      else 
+      { 
         int wa = (int)(alpha*w*255.0f);
         int iwa = (int)(alpha*(1.0f-w)*255.0f);
 
@@ -244,7 +238,8 @@ public:
         DrawClippedPt(dest, cx-y, cy-x, clip, r, g, b, a, wa, doclip);
       }
 
-      if (filled) {
+      if (filled) 
+      {
         DrawClippedHorzLine(dest, cy-y+1, cx-x, cx+x, clip, r, g, b, a, ai, doclip);
         DrawClippedHorzLine(dest, cy+y, cx-x, cx+x, clip, r, g, b, a, ai, doclip);
         DrawClippedHorzLine(dest, cy-x, cx-y+1, cx+y, clip, r, g, b, a, ai, doclip);
@@ -403,9 +398,9 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
     if (cr>=2)
     {
       LICE_Line(drawbm,xpos+cr,ypos,xpos+w-cr,ypos,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos+cr,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
+      LICE_Line(drawbm,xpos+cr-1,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
       LICE_Line(drawbm,xpos+w,ypos+cr,xpos+w,ypos+h-cr,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos,ypos+cr,xpos,ypos+h-cr,col,alpha,mode,aa);
+      LICE_Line(drawbm,xpos,ypos+cr-1,xpos,ypos+h-cr,col,alpha,mode,aa);
 
 
       LICE_Arc(drawbm,xpos+cr,ypos+cr,cr,-_PI*0.5f,0,col,alpha,mode,aa);
@@ -417,9 +412,6 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
     }
   }
 
-  LICE_Line(drawbm,xpos,ypos,xpos+w,ypos,col,alpha,mode,aa);
-  LICE_Line(drawbm,xpos,ypos+h,xpos+w,ypos+h,col,alpha,mode,aa);
-  LICE_Line(drawbm,xpos+w,ypos,xpos+w,ypos+h,col,alpha,mode,aa);
-  LICE_Line(drawbm,xpos,ypos,xpos,ypos+h,col,alpha,mode,aa);
+  LICE_DrawRect(drawbm, xpos, ypos, w, h, col, alpha, mode);
 }
 

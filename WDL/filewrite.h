@@ -92,6 +92,25 @@ public:
 
 #endif
 
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  BOOL HasUTF8(const char *_str)
+  {
+    const unsigned char *str = (const unsigned char *)_str;
+    if (!str) return FALSE;
+    while (*str) 
+    {
+      unsigned char c = *str;
+      if (c >= 0xC2)
+      {
+        if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
+        else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+        else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+      }
+      str++;
+    }
+    return FALSE;
+  }
+#endif
 
 
 public:
@@ -111,20 +130,51 @@ public:
     }
 
 #ifdef WDL_WIN32_NATIVE_WRITE
-    m_async = allow_async && (GetVersion()<0x80000000);
+    bool isNT = (GetVersion()<0x80000000);
+    m_async = allow_async && isNT;
 #ifdef WIN32_ASYNC_NOBUF_WRITE
     bufsize = (bufsize+4095)&~4095;
     if (bufsize<4096) bufsize=4096;
 #endif
 
+    int rwflag = GENERIC_WRITE;
+    int flag = FILE_ATTRIBUTE_NORMAL;
+
     if (m_async)
+    {
+      rwflag |= GENERIC_READ;
 #ifdef WIN32_ASYNC_NOBUF_WRITE
-      m_fh = CreateFile(filename,GENERIC_WRITE|GENERIC_READ,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OVERLAPPED|FILE_FLAG_NO_BUFFERING|FILE_FLAG_WRITE_THROUGH,NULL);
+      flag |= FILE_FLAG_OVERLAPPED|FILE_FLAG_NO_BUFFERING|FILE_FLAG_WRITE_THROUGH;
 #else
-      m_fh = CreateFile(filename,GENERIC_WRITE|GENERIC_READ,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OVERLAPPED|(allow_async>1 ? FILE_FLAG_WRITE_THROUGH: 0),NULL);
+      flag |= FILE_FLAG_OVERLAPPED|(allow_async>1 ? FILE_FLAG_WRITE_THROUGH: 0);
 #endif
-    else
-      m_fh = CreateFile(filename,GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+    }
+
+    {
+#ifndef WDL_NO_SUPPORT_UTF8
+      m_fh=INVALID_HANDLE_VALUE;
+      if (isNT && HasUTF8(filename))
+      {
+        int szreq=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,NULL,0);
+        if (szreq > 1000)
+        {
+          WDL_TypedBuf<WCHAR> wfilename;
+          wfilename.Resize(szreq+10);
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
+            m_fh = CreateFileW(wfilename.Get(),rwflag,FILE_SHARE_READ,NULL,CREATE_ALWAYS,flag,NULL);
+        }
+        else
+        {
+          WCHAR wfilename[1024];
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
+            m_fh = CreateFileW(wfilename,rwflag,FILE_SHARE_READ,NULL,CREATE_ALWAYS,flag,NULL);
+        }
+      }
+      
+      if (m_fh == INVALID_HANDLE_VALUE)
+#endif
+        m_fh = CreateFileA(filename,rwflag,FILE_SHARE_READ,NULL,CREATE_ALWAYS,flag,NULL);
+    }
 
     if (m_async && m_fh != INVALID_HANDLE_VALUE)
     {

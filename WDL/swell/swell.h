@@ -554,6 +554,15 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WS_BORDER 0 // ignored for now
 #define WS_VISIBLE 0
 
+
+#define WM_CTLCOLORMSGBOX 0x0132
+#define WM_CTLCOLOREDIT 0x0133
+#define WM_CTLCOLORLISTBOX 0x0134
+#define WM_CTLCOLORBTN 0x0135
+#define WM_CTLCOLORDLG 0x0136
+#define WM_CTLCOLORSCROLLBAR 0x0137
+#define WM_CTLCOLORSTATIC 0x0138
+
 #define CB_ADDSTRING                0x0143
 #define CB_DELETESTRING             0x0144
 #define CB_GETCOUNT                 0x0146
@@ -1255,6 +1264,7 @@ SWELL_API_DEFINE(DWORD, GetModuleFileName,(HINSTANCE ignored, char *fn, DWORD nS
 ** CFString/NSString.
 */
 SWELL_API_DEFINE(void *,SWELL_CStringToCFString,(const char *str))
+SWELL_API_DEFINE(void, SWELL_CFStringToCString, (const void *str, char *buf, int buflen))
 
 
 /*
@@ -2094,6 +2104,8 @@ SWELL_API_DEFINE(void, SWELL_Menu_AddMenuItem,(HMENU hMenu, const char *name, in
 
 
 SWELL_API_DEFINE(unsigned int, _controlfp,(unsigned int flag, unsigned int mask))
+
+
 
 #endif // _WDL_SWELL_H_API_DEFINED_
 

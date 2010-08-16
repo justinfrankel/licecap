@@ -1,8 +1,8 @@
 #include "IPlugExample.h"
-#include "IPlug_include_in_plug_src.h"
-#include "IControl.h"
+#include "../IPlug_include_in_plug_src.h"
+#include "../IControl.h"
 #include "resource.h"
-#include "math.h"
+#include <math.h>
 
 const int kNumPrograms = 1;
 

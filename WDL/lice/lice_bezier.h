@@ -50,21 +50,30 @@ void LICE_CBezier(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
 // Returns quadratic bezier y for a given x in [x1, x3] (for rasterizing).
 // ctrl_x1 < ctrl_x3 required.
 template <class T>
-T LICE_Bezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_y1, T ctrl_y2, T ctrl_y3, T x)
+T LICE_Bezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_y1, T ctrl_y2, T ctrl_y3, T x, double* pt=0)
 {
-  if (x <= ctrl_x1) {
+  if (x <= ctrl_x1) 
+  {
+    if (pt) *pt = 0.0;
     return ctrl_y1;
   }
-  if (x >= ctrl_x3) {
+  if (x >= ctrl_x3)
+  {
+    if (pt) *pt = 1.0;
     return ctrl_y3;
   }
 
   double a = (double) ctrl_x1 - (double) (2 * ctrl_x2) + (double) ctrl_x3;
-  if (a == 0.0) { // linear
+  if (a == 0.0)   // linear
+  { 
     T y = ctrl_y1;
-    if (ctrl_x1 != ctrl_x3) {
-      y += (x - ctrl_x1) / (ctrl_x3 - ctrl_x1) * (ctrl_y3 - ctrl_y1);
+    double t = 0.0;
+    if (ctrl_x1 != ctrl_x3) 
+    {
+      t = (x-ctrl_x1)/(ctrl_x3-ctrl_x1);
+      y += t*(ctrl_y3-ctrl_y1);      
     }
+    if (pt) *pt = t;
     return y;
   }
 
@@ -76,6 +85,8 @@ T LICE_Bezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_y1, T ctrl_y2, T ctrl
   a = it * it;
   b = 2.0 * it * t;
   c = t * t;
+
+  if (pt) *pt = t;
   return (T) (a * (double) ctrl_y1 + b * (double) ctrl_y2 + c * (double) ctrl_y3);
 }
 

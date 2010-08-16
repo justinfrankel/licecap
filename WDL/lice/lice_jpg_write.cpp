@@ -34,7 +34,17 @@ bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality, bool fo
 {
   if (!bmp || !filename) return false;
 
-  FILE *fp=fopen(filename,"wb");
+  FILE *fp=NULL;
+#ifdef _WIN32
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      fp = _wfopen(wf,L"wb");
+  }
+#endif
+  if (!fp) fp = fopen(filename,"wb");
+
   if (!fp) return false;
 
   struct jpeg_compress_struct cinfo;

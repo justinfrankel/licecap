@@ -36,7 +36,7 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a);
 
 typedef struct
 {
-  LICE_IBitmap *image; // 2x width, second half is "mouseover" image. or straight image if image_issingle set
+  LICE_IBitmap *image; // 3x width, second third is "mouseover" image. then mousedown, or straight image if image_issingle set
   LICE_IBitmap *olimage; // drawn in second pass
 
   bool image_ltrb_used,image_issingle;

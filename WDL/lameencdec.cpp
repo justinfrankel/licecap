@@ -414,11 +414,19 @@ static void initdll()
             while (p>=buf && *p != '/') p--;
             if (p>=buf)
             {
-              *p=0;
-              strcpy(p,"/libmp3lame.dylib");
+              strcat(buf,"/Contents/Plugins/libmp3lame.dylib");
               if (!dll) dll=dlopen(buf,RTLD_LAZY);
-              strcpy(p,"/Plugins/libmp3lame.dylib");
-              if (!dll) dll=dlopen(buf,RTLD_LAZY);
+
+              if (!dll)
+              {
+                strcpy(p,"/libmp3lame.dylib");
+                dll=dlopen(buf,RTLD_LAZY);
+              }
+              if (!dll)
+              {
+                strcpy(p,"/Plugins/libmp3lame.dylib");
+                if (!dll) dll=dlopen(buf,RTLD_LAZY);
+              }
             }          
           }
           CFRelease(url);
@@ -487,8 +495,9 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   m_nch=nch;
 
 
-
 #ifdef _WIN32
+
+  m_encoder_nch = stereomode == BE_MP3_MODE_MONO ? 1 : nch;
 
   BE_CONFIG beConfig;
   memset(&beConfig,0,sizeof(beConfig));
@@ -497,7 +506,7 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
 	beConfig.format.LHV1.dwStructVersion	= 1;
 	beConfig.format.LHV1.dwStructSize		= sizeof(beConfig);		
 	beConfig.format.LHV1.dwSampleRate		= srate;
-  if (nch == 1) beConfig.format.LHV1.nMode = BE_MP3_MODE_MONO;
+  if (m_encoder_nch == 1) beConfig.format.LHV1.nMode = BE_MP3_MODE_MONO;
   else beConfig.format.LHV1.nMode = stereomode; //bitrate >= 192 ? BE_MP3_MODE_STEREO : BE_MP3_MODE_JSTEREO;
 
   beConfig.format.LHV1.dwBitrate=bitrate;
@@ -505,7 +514,7 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   beConfig.format.LHV1.dwReSampleRate	= srate;
 
   // if mpeg 1, and bitrate is less than 32kbps per channel, switch to mpeg 2
-  if (beConfig.format.LHV1.dwReSampleRate >= 32000 && beConfig.format.LHV1.dwMaxBitrate/nch <= 32)
+  if (beConfig.format.LHV1.dwReSampleRate >= 32000 && beConfig.format.LHV1.dwMaxBitrate/m_encoder_nch <= 32)
     beConfig.format.LHV1.dwReSampleRate/=2;
 
   beConfig.format.LHV1.dwMpegVersion		= beConfig.format.LHV1.dwReSampleRate < 32000 ? MPEG2 : MPEG1;
@@ -526,15 +535,17 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
     errorstat=2;
     return;
   }
-  in_size_samples/=m_nch;
+  in_size_samples/=m_encoder_nch;
 #else
+  m_encoder_nch = stereomode == 3 ? 1 : m_nch;
+
   lame_set_in_samplerate(m_lamestate, srate);
-  lame_set_num_channels(m_lamestate,nch);
+  lame_set_num_channels(m_lamestate,m_encoder_nch);
   int outrate=srate;
-  if (outrate>=32000 && bitrate <= 32*nch) outrate/=2;
+  if (outrate>=32000 && bitrate <= 32*m_encoder_nch) outrate/=2;
   lame_set_out_samplerate(m_lamestate,outrate);
   lame_set_quality(m_lamestate,(quality>9 ||quality<0) ? 0 : quality);
-  lame_set_mode(m_lamestate,(MPEG_mode) (nch==1?3 :stereomode ));
+  lame_set_mode(m_lamestate,(MPEG_mode) (m_encoder_nch==1?3 :stereomode ));
   lame_set_brate(m_lamestate,bitrate);
   // todo: vbr modes etc
   // lame_set_VBR etc
@@ -571,7 +582,21 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 
   if (in_spls > 0)
   {
-    if (m_nch > 1) // deinterleave
+    if (m_nch > 1 && m_encoder_nch==1)
+    {
+      // downmix
+      int x;
+      int pos=0;
+      int adv=2*spacing;
+      for (x = 0; x < in_spls; x ++)
+      {
+        float f=in[pos]+in[pos+1];
+        f*=16383.5f;
+        spltmp[0].Add(&f,sizeof(float));
+        pos+=adv;
+      }
+    }
+    else if (m_encoder_nch > 1) // deinterleave
     {
       int x;
       int pos=0;
@@ -606,7 +631,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
     {
 #ifdef _WIN32
       DWORD dwo=0;
-      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_nch > 1].Get(), 
+      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
                           (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
       {
         errorstat=3;
@@ -614,13 +639,13 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       }
 //      printf("encoded to %d bytes (%d) %d\n",dwo, outtmp.GetSize(),in_size_samples);
 #else
-      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_nch>1].Get(),
+      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_encoder_nch>1].Get(),
            in_size_samples,(unsigned char *)outtmp.Get(),outtmp.GetSize());
       //printf("encoded %d to %d\n",in_size_samples,dwo);
 #endif
       outqueue.Add(outtmp.Get(),dwo);
       spltmp[0].Advance(in_size_samples*sizeof(float));
-      if (m_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
+      if (m_encoder_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
     }
 
   }
@@ -631,11 +656,11 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       float buf[1152]={0,};
       int l=in_size_samples*sizeof(float)-spltmp[0].Available();
       spltmp[0].Add(buf,l);
-      if (m_nch>1) spltmp[1].Add(buf,l);
+      if (m_encoder_nch>1) spltmp[1].Add(buf,l);
 
 #ifdef _WIN32
       DWORD dwo=0;
-      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_nch > 1].Get(), 
+      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
                           (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
       {
         //printf("error calling encode\n");
@@ -645,7 +670,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 
       outqueue.Add(outtmp.Get(),dwo);
 #else
-      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_nch>1].Get(),
+      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_encoder_nch>1].Get(),
            in_size_samples,(unsigned char *)outtmp.Get(),outtmp.GetSize());
       if (dwo>0) outqueue.Add(outtmp.Get(),dwo);
 
@@ -655,7 +680,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 #endif
 
       spltmp[0].Advance(in_size_samples*sizeof(float));
-      if (m_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
+      if (m_encoder_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
     }
     // encode a spare blank frame to divide
 #ifdef LATENCY_GAP_HACK

@@ -303,8 +303,6 @@ void IPlugBase::AttachOutputBuffers(int idx, int n, float** ppData)
   }
 }
 
-#pragma REMINDER("lock mutex before calling into any IPlugBase processing functions")
-
 void IPlugBase::ProcessBuffers(double sampleType, int nFrames) 
 {
   ProcessDoubleReplacing(mInData.Get(), mOutData.Get(), nFrames);
@@ -350,8 +348,8 @@ void IPlugBase::SetParameterFromGUI(int idx, double normalizedValue)
 {
   Trace(TRACELOC, "%d:%f", idx, normalizedValue);
   WDL_MutexLock lock(&mMutex);
-  InformHostOfParamChange(idx, normalizedValue);
   GetParam(idx)->SetNormalized(normalizedValue);
+  InformHostOfParamChange(idx, normalizedValue);
 	OnParamChange(idx);
 }
 

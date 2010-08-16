@@ -110,10 +110,20 @@ static LICE_IBitmap *icoToBitmap(HICON icon, LICE_IBitmap *bmpOut)
 LICE_IBitmap *LICE_LoadIcon(const char *filename, int reqiconsz, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
   if (reqiconsz<1) reqiconsz=16;
+  HICON icon = NULL;
 #ifdef _WIN32
-  HICON icon = (HICON)LoadImage(NULL,filename,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
+  
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      icon = (HICON)LoadImageW(NULL,wf,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
+  }
+
+  if (!icon) icon = (HICON)LoadImage(NULL,filename,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
+
 #else
-  HICON icon = (HICON)LoadNamedImage(filename,false);
+  icon = (HICON)LoadNamedImage(filename,false);
 #endif
   if (!icon) return 0;
 
