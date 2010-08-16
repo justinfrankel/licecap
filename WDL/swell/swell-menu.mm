@@ -228,22 +228,24 @@ int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
   return 0;
 }
 
-void DeleteMenu(HMENU hMenu, int idx, int flag)
+bool DeleteMenu(HMENU hMenu, int idx, int flag)
 {
-  if (!hMenu) return;
+  if (!hMenu) return false;
   NSMenu *m=(NSMenu *)hMenu;
-  NSMenuItem *item;
+  NSMenuItem *item=NULL;
   
   if (flag&MF_BYPOSITION)
   {
-    item=[m itemAtIndex:idx];
+    if (idx >=0 && idx < [m numberOfItems])
+      item=[m itemAtIndex:idx];
   }
   else
   {
     item=[m itemWithTag:idx];
   }
-  if (!item) return;
+  if (!item) return false;
   [m removeItem:item];
+  return true;
 }
 
 

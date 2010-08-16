@@ -34,7 +34,7 @@
 
 #include <stdio.h>
 #include "pcmfmtcvt.h"
-#include "string.h"
+#include "wdlstring.h"
 
 class WaveWriter
 {

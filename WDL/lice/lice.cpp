@@ -37,9 +37,13 @@ bool LICE_MemBitmap::resize(int w, int h)
 
 LICE_SysBitmap::LICE_SysBitmap(int w, int h)
 {
+#ifdef _WIN32
   m_dc = CreateCompatibleDC(NULL);
   m_bitmap = 0;
   m_oldbitmap = 0;
+#else
+  m_dc=0;
+#endif
   m_bits=0;
   m_width=m_height=0;
 
@@ -49,8 +53,13 @@ LICE_SysBitmap::LICE_SysBitmap(int w, int h)
 
 LICE_SysBitmap::~LICE_SysBitmap()
 {
+#ifdef _WIN32
   if(m_bitmap) DeleteObject(m_bitmap);
   DeleteDC(m_dc);
+#else
+  if (m_dc)
+    WDL_GDP_DeleteContext(m_dc);
+#endif
 }
 
 bool LICE_SysBitmap::resize(int w, int h)
@@ -62,6 +71,7 @@ bool LICE_SysBitmap::resize(int w, int h)
 
   if (!w || !h) return false;
 
+#ifdef _WIN32
   if (m_oldbitmap) 
   {
     SelectObject(m_dc,m_oldbitmap);
@@ -73,13 +83,18 @@ bool LICE_SysBitmap::resize(int w, int h)
   BITMAPINFO pbmInfo = {0,};
   pbmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
   pbmInfo.bmiHeader.biWidth = m_width;
-  pbmInfo.bmiHeader.biHeight = -m_height;
+  pbmInfo.bmiHeader.biHeight = isFlipped()?m_height:-m_height;
   pbmInfo.bmiHeader.biPlanes = 1;
   pbmInfo.bmiHeader.biBitCount = sizeof(LICE_pixel)*8;
   pbmInfo.bmiHeader.biCompression = BI_RGB;
   m_bitmap = CreateDIBSection( NULL, &pbmInfo, DIB_RGB_COLORS, (void **)&m_bits, NULL, 0);
 
   m_oldbitmap=SelectObject(m_dc, m_bitmap);
+#else
+  if (m_dc) WDL_GDP_DeleteContext(m_dc);
+  m_dc=WDL_GDP_CreateMemContext(0,w,h);
+  m_bits=(LICE_pixel*)SWELL_GetCtxFrameBuffer(m_dc);
+#endif
 
   return true;
 }
@@ -93,18 +108,6 @@ void LICE_Copy(LICE_IBitmap *dest, LICE_IBitmap *src) // resizes dest
     dest->resize(src->getWidth(),src->getHeight());
     LICE_Blit(dest,src,NULL,0,0,1.0,LICE_BLIT_MODE_COPY);
   }
-}
-
-static inline void BilinearFilter(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, double xfrac, double yfrac)
-{
-  double f1=(1.0-xfrac)*(1.0-yfrac);
-  double f2=xfrac*(1.0-yfrac);
-  double f3=(1.0-xfrac)*yfrac;
-  double f4=xfrac*yfrac;
-  *r=(int) (pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4);
-  *g=(int) (pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4);
-  *b=(int) (pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4);
-  *a=(int) (pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4);
 }
 
 template<class COMBFUNC> class _LICE_Template_Blit
@@ -158,7 +161,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
               LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
               int r,g,b,a;
-              BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,thisx-curx,yfrac);
+              __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,thisx-curx,yfrac);
 
               COMBFUNC::doPix(pout,r,g,b,a,ia);
             }
@@ -186,7 +189,6 @@ template<class COMBFUNC> class _LICE_Template_Blit
             {
               int cury = (int) thisy;
               int curx = (int) thisx;
-              double yfrac=thisy-cury;
 
               LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
@@ -231,7 +233,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
                 LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
 
                 int r,g,b,a;
-                BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,curx-offs,yfrac);
+                __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,curx-offs,yfrac);
 
                 COMBFUNC::doPix(pout,r,g,b,a,ia);
               }
@@ -331,20 +333,24 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!pdest) return;
-
-  pdest += dstx*sizeof(LICE_pixel) + dsty*dest_span;
-
-  switch (mode&LICE_BLIT_MODE_MASK)
+ 
+  if (dest->isFlipped())
   {
-#define TOFIX(a) ((int)((a)*65536.0))
-    case LICE_BLIT_MODE_COPY:
-      _LICE_Template_Blit<_LICE_CombinePixelsCopy>::gradBlit(pdest,dstw,dsth,TOFIX(ir),TOFIX(ig),TOFIX(ib),TOFIX(ia),TOFIX(drdx),TOFIX(dgdx),TOFIX(dbdx),TOFIX(dadx),TOFIX(drdy),TOFIX(dgdy),TOFIX(dbdy),TOFIX(dady),dest_span);
-    break;
-    case LICE_BLIT_MODE_ADD:
-      _LICE_Template_Blit<_LICE_CombinePixelsAdd>::gradBlit(pdest,dstw,dsth,TOFIX(ir),TOFIX(ig),TOFIX(ib),TOFIX(ia),TOFIX(drdx),TOFIX(dgdx),TOFIX(dbdx),TOFIX(dadx),TOFIX(drdy),TOFIX(dgdy),TOFIX(dbdy),TOFIX(dady),dest_span);
-    break;
-#undef TOFIX
+    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    dest_span=-dest_span;
   }
+  else
+  {
+    pdest += dsty*dest_span;
+  }
+  pdest+=dstx*sizeof(LICE_pixel);
+#define TOFIX(a) ((int)((a)*65536.0))
+
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::gradBlit(pdest,dstw,dsth,TOFIX(ir),TOFIX(ig),TOFIX(ib),TOFIX(ia),TOFIX(drdx),TOFIX(dgdx),TOFIX(dbdx),TOFIX(dadx),TOFIX(drdy),TOFIX(dgdy),TOFIX(dbdy),TOFIX(dady),dest_span)
+    __LICE_ACTIONBYMODE_NOALPHA(mode);
+#undef __LICE__ACTION
+
+#undef TOFIX
 }
 
 
@@ -377,8 +383,21 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!psrc || !pdest) return;
 
-  psrc += sr.left*sizeof(LICE_pixel) + sr.top*src_span;
-  pdest += dstx*sizeof(LICE_pixel) + dsty*dest_span;
+  if (src->isFlipped())
+  {
+    psrc += (src->getHeight()-sr.top - 1)*src_span;
+    src_span=-src_span;
+  }
+  else psrc += sr.top*src_span;
+  psrc += sr.left*sizeof(LICE_pixel);
+
+  if (dest->isFlipped())
+  {
+    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    dest_span=-dest_span;
+  }
+  else pdest += dsty*dest_span;
+  pdest+=dstx*sizeof(LICE_pixel);
 
   int i=sr.bottom-sr.top;
   int cpsize=sr.right-sr.left;
@@ -400,37 +419,23 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
       psrc += src_span;
     }
   }
-  else switch (mode&LICE_BLIT_MODE_MASK)
+  // special fast case for copy with no source alpha and alpha=1.0
+  else if ((mode&LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY && !(mode&LICE_BLIT_USE_ALPHA) && alpha==1.0)
   {
-    case LICE_BLIT_MODE_COPY:
-      if (alpha>0.0)
-      {
-        if (alpha<1.0||(mode&LICE_BLIT_USE_ALPHA))
-        {
-          if (mode&LICE_BLIT_USE_ALPHA)
-            _LICE_Template_Blit<_LICE_CombinePixelsCopySourceAlpha>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha);
-          else
-            _LICE_Template_Blit<_LICE_CombinePixelsCopy>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha);
-        }
-        else
-        {
-          while (i-->0)
-          {
-            memcpy(pdest,psrc,cpsize*sizeof(LICE_pixel));
-            pdest+=dest_span;
-            psrc += src_span;
-          }
+    while (i-->0)
+    {
+      memcpy(pdest,psrc,cpsize*sizeof(LICE_pixel));
+      pdest+=dest_span;
+      psrc += src_span;
+    }
+  }
+  else 
+  {
 
-        }
-      }
-    break;
-    case LICE_BLIT_MODE_ADD:
-      if (mode&LICE_BLIT_USE_ALPHA)
-        _LICE_Template_Blit<_LICE_CombinePixelsAddSourceAlpha>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha);
-      else
-        _LICE_Template_Blit<_LICE_CombinePixelsAdd>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha);
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha)
+    __LICE_ACTIONBYMODE(mode,alpha);
+#undef __LICE__ACTION
 
-    break;
   }
 }
 
@@ -476,28 +481,25 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!psrc || !pdest) return;
 
-  pdest += dstx*sizeof(LICE_pixel) + dsty*dest_span;
 
-
-  switch (mode&LICE_BLIT_MODE_MASK)
+  if (src->isFlipped())
   {
-    case LICE_BLIT_MODE_COPY:
-      if (alpha>0.0)
-      {
-        if (mode&LICE_BLIT_USE_ALPHA)
-          _LICE_Template_Blit<_LICE_CombinePixelsCopySourceAlpha>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,src->getWidth(),src->getHeight(),src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-        else
-          _LICE_Template_Blit<_LICE_CombinePixelsCopy>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,src->getWidth(),src->getHeight(),src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-      }
-    break;
-    case LICE_BLIT_MODE_ADD:
-      if (mode&LICE_BLIT_USE_ALPHA)
-        _LICE_Template_Blit<_LICE_CombinePixelsAddSourceAlpha>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,src->getWidth(),src->getHeight(),src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-      else
-        _LICE_Template_Blit<_LICE_CombinePixelsAdd>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,src->getWidth(),src->getHeight(),src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-
-    break;
+    psrc += (src->getHeight()-1)*src_span;
+    src_span=-src_span;
   }
+
+  if (dest->isFlipped())
+  {
+    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    dest_span=-dest_span;
+  }
+  else pdest += dsty*dest_span;
+  pdest+=dstx*sizeof(LICE_pixel);
+
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,src->getWidth(),src->getHeight(),src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
+    __LICE_ACTIONBYMODE(mode,alpha);
+#undef __LICE__ACTION
+
 }
 
 void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
@@ -561,27 +563,23 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!psrc || !pdest) return;
 
-  pdest += dstx*sizeof(LICE_pixel) + dsty*dest_span;
-
-  switch (mode&LICE_BLIT_MODE_MASK)
+  if (src->isFlipped())
   {
-    case LICE_BLIT_MODE_COPY:
-      if (alpha>0.0)
-      {
-        if (mode&LICE_BLIT_USE_ALPHA)
-          _LICE_Template_Blit<_LICE_CombinePixelsCopySourceAlpha>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-        else
-          _LICE_Template_Blit<_LICE_CombinePixelsCopy>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-      }
-    break;
-    case LICE_BLIT_MODE_ADD:
-      if (mode&LICE_BLIT_USE_ALPHA)
-        _LICE_Template_Blit<_LICE_CombinePixelsAddSourceAlpha>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-      else
-        _LICE_Template_Blit<_LICE_CombinePixelsAdd>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-
-    break;
+    psrc += (src->getHeight()-1)*src_span;
+    src_span=-src_span;
   }
+
+  if (dest->isFlipped())
+  {
+    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    dest_span=-dest_span;
+  }
+  else pdest += dsty*dest_span;
+  pdest+=dstx*sizeof(LICE_pixel);
+
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
+    __LICE_ACTIONBYMODE(mode,alpha);
+#undef __LICE__ACTION
 }
                       
 
@@ -660,27 +658,23 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!psrc || !pdest) return;
 
-  pdest += dstx*sizeof(LICE_pixel) + dsty*dest_span;
-
-  switch (mode&LICE_BLIT_MODE_MASK)
+  if (src->isFlipped())
   {
-    case LICE_BLIT_MODE_COPY:
-      if (alpha>0.0)
-      {
-        if (mode&LICE_BLIT_USE_ALPHA)
-          _LICE_Template_Blit<_LICE_CombinePixelsCopySourceAlpha>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-        else
-          _LICE_Template_Blit<_LICE_CombinePixelsCopy>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-      }
-    break;
-    case LICE_BLIT_MODE_ADD:
-      if (mode&LICE_BLIT_USE_ALPHA)
-        _LICE_Template_Blit<_LICE_CombinePixelsAddSourceAlpha>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-      else
-        _LICE_Template_Blit<_LICE_CombinePixelsAdd>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK);
-    break;
+    psrc += (src->getHeight()-1)*src_span;
+    src_span=-src_span;
   }
 
+  if (dest->isFlipped())
+  {
+    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    dest_span=-dest_span;
+  }
+  else pdest += dsty*dest_span;
+  pdest+=dstx*sizeof(LICE_pixel);
+
+#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,src_left,src_top,src_right,src_bottom,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
+    __LICE_ACTIONBYMODE(mode,alpha);
+#undef __LICE__ACTION
 }
 
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color)
@@ -713,7 +707,13 @@ void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel m
   int sp=dest->getRowSpan();
   if (!p || w<1 || h<1 || sp<1) return;
 
-  p += sp*y + x;
+  if (dest->isFlipped())
+  {
+    p+=(dest->getHeight() - y - h)*sp;
+  }
+  else p+=sp*y;
+
+  p += x;
   while (h-->0)
   {
     int n=w;
@@ -747,4 +747,23 @@ void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color)
     }
     p+=sp-w;
   }
+}
+
+LICE_pixel LICE_GetPixel(LICE_IBitmap *bm, int x, int y)
+{
+  LICE_pixel *px;
+  if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return 0;
+	return px[y * bm->getRowSpan() + x];
+}
+
+void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode)
+{
+  LICE_pixel *px;
+  if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return;
+
+  px+=x+y*bm->getRowSpan();
+
+#define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), (int) (alpha * 256.0f))
+  __LICE_ACTIONBYMODE(mode,alpha);
+#undef __LICE__ACTION
 }

@@ -34,7 +34,7 @@
 #ifndef _WDL_DIRSCAN_H_
 #define _WDL_DIRSCAN_H_
 
-#include "string.h"
+#include "wdlstring.h"
 
 #ifndef _WIN32
 #include <sys/types.h>

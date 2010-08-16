@@ -85,11 +85,22 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 #define ES_NUMBER 2
 #define ES_WANTRETURN 4
 #define SS_NOTFIY 1
+
+#define LVS_LIST 0
+#define LVS_NOCOLUMNHEADER 1
+#define LVS_REPORT 2
+#define LVS_SINGLESEL 4
+#define LVS_OWNERDATA 8
+                                       
+                                       
+// things that should be implemented sooner
+#define CBS_SORT 0
                                     
 // flags we ignore
 #define WS_GROUP 0
-#define LVS_LIST 0
 #define LVS_SHOWSELALWAYS 0
+#define LVS_NOSORTHEADER 0         
+#define LVS_SORTASCENDING 0
 #define LVS_SHAREIMAGELISTS 0
 #define SS_LEFTNOWORDWRAP 0
 #define ES_AUTOHSCROLL 0
@@ -102,7 +113,10 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
 #define WS_HSCROLL 0
 #define PBS_SMOOTH 0
 #define CBS_AUTOHSCROLL 0
-                                        
+#define TBS_NOTICKS 0
+#define TBS_TOP 0
+                     
+                                       
 #ifndef IDC_STATIC
 #define IDC_STATIC 0
 #endif

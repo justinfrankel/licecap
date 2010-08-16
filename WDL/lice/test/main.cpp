@@ -10,7 +10,7 @@
 
 #include "resource.h"
 
-#define NUM_EFFECTS 10
+#define NUM_EFFECTS 11
 
 LICE_IBitmap *bmp;
 LICE_SysBitmap *framebuffer;
@@ -177,6 +177,15 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           LICE_TexGen_CircNoise(framebuffer, NULL, 0.5f,0.5f,0.5f, 12.0f, 0.1f, 32);
         }
         break;
+      case 10:
+        {
+          int x;
+          static double a;
+          double sc=sin(a)*0.024;
+          a+=0.03;
+          for (x = 0; x < 10000; x ++)
+            LICE_PutPixel(framebuffer,rand()%framebuffer->getWidth(),rand()%framebuffer->getHeight(),LICE_RGBA(255,255,255,255),sc,LICE_BLIT_MODE_ADD);
+        }
       }
 
       m_doeff = 0;

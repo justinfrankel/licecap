@@ -32,7 +32,12 @@ void LICE_TexGen_Marble(LICE_IBitmap *dest, RECT *rect, float rv, float gv, floa
   if (w<1 || h<1) return;
 
   LICE_pixel *startp = dest->getBits();
-  startp  += x + y*span;
+  if (dest->isFlipped())
+  {
+    startp += x + (dest->getHeight()-1-y)*span;
+    span=-span;
+  }
+  else startp  += x + y*span;
 
   //simple 16bit marble noise generator
 
@@ -231,7 +236,12 @@ void LICE_TexGen_Noise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float
   if (w<1 || h<1) return;
 
   LICE_pixel *startp = dest->getBits();
-  startp  += x + y*span;
+  if (dest->isFlipped())
+  {
+    startp += x + (dest->getHeight()-1-y)*span;
+    span=-span;
+  }
+  else startp  += x + y*span;
 
   {
     LICE_pixel *p = startp;
@@ -299,7 +309,12 @@ void LICE_TexGen_CircNoise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, f
   if (w<1 || h<1) return;
 
   LICE_pixel *startp = dest->getBits();
-  startp  += x + y*span;
+  if (dest->isFlipped())
+  {
+    startp += x + (dest->getHeight()-1-y)*span;
+    span=-span;
+  }
+  else startp  += x + y*span;
 
   float xyPeriod = nrings;
   float turbPower = power;

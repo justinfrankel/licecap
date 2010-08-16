@@ -24,20 +24,19 @@
 */
 
 #include "virtwnd.h"
+#include "../lice/lice.h"
+
 
 #ifdef _WIN32
-#include "membitmap.h"
+#define WIN32_NATIVE_GRADIENT
 #endif
 
 WDL_VirtualWnd_Painter::WDL_VirtualWnd_Painter()
 {
   m_GSC=0;
-#ifdef _WIN32
-  m_cur_hwnd=0;
   m_bm=0;
-#else
-  m_machdc=0;
-#endif
+
+  m_cur_hwnd=0;
   m_wantg=-1;
   m_gradstart=0.5;
   m_gradslope=0.2;
@@ -45,15 +44,7 @@ WDL_VirtualWnd_Painter::WDL_VirtualWnd_Painter()
 
 WDL_VirtualWnd_Painter::~WDL_VirtualWnd_Painter()
 {
-#ifdef _WIN32
   delete m_bm;
-#else
-  if (m_machdc)
-  {
-    WDL_GDP_DeleteContext(m_machdc);
-    m_machdc=0;
-  }  
-#endif
 }
 
 void WDL_VirtualWnd_Painter::SetGSC(int (*GSC)(int))
@@ -68,10 +59,134 @@ void WDL_VirtualWnd_Painter::SetBGGradient(int wantGradient, double start, doubl
   m_gradslope=slope;
 }
 
+void WDL_VirtualWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
+{
+  if (!m_bm) return;
+
+  if (bgcolor<0) bgcolor=m_GSC?m_GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE);
+
+  double gradslope=m_gradslope;
+  double gradstart=m_gradstart;
+  bool wantGrad=m_wantg>0;
+  if (m_wantg<0) wantGrad=WDL_STYLE_GetBackgroundGradient(&gradstart,&gradslope);
+
+  int needfill=1;
+
+  if (wantGrad && gradslope >= 0.01)
+  {
+
+#ifdef WIN32_NATIVE_GRADIENT
+    static BOOL (WINAPI *__GradientFill)(HDC hdc,CONST PTRIVERTEX pVertex,DWORD dwNumVertex,CONST PVOID pMesh,DWORD dwNumMesh,DWORD dwMode); 
+    static bool hasld;
+
+    if (!hasld)
+    {
+      hasld=true;
+      HINSTANCE  lib=LoadLibrary("msimg32.dll");
+      if (lib) *((void **)&__GradientFill) = (void *)GetProcAddress(lib,"GradientFill");
+    }
+#endif
+
+    {
+      needfill=0;
+
+      int spos = (int) (gradstart * wnd_h);
+      if (spos > 0)
+      {
+        if (spos > wnd_h) spos=wnd_h;
+        if (clipr->top < spos)
+        {
+          RECT tr=m_ps.rcPaint;
+          tr.bottom=spos;
+          HBRUSH b=CreateSolidBrush(bgcolor);
+          FillRect(m_bm->getDC(),&tr,b);
+          DeleteObject(b);
+        }
+      }
+      else spos=0;
+
+      if (spos < wnd_h)
+      {
+#ifdef WIN32_NATIVE_GRADIENT
+        TRIVERTEX        vert[2] = {0,} ;
+#else
+        struct
+        {
+          int x,y,Red,Green,Blue;
+        }
+        vert[2]={0,};
+
+#endif
+        double sr=GetRValue(bgcolor);
+        double sg=GetGValue(bgcolor);
+        double sb=GetBValue(bgcolor);
+
+        vert [0] .x = clipr->left;
+        vert [1] .x = clipr->right;
+
+
+        vert[0].y=clipr->top;
+        vert[1].y=clipr->bottom;
+
+        if (vert[0].y < spos) vert[0].y=spos;
+        if (vert[1].y>wnd_h) vert[1].y=wnd_h;
+
+        wnd_h-=spos;
+
+        int x;
+        for (x =0 ; x < 2; x ++)
+        {
+          double sc1=(wnd_h-(vert[x].y-spos)*gradslope)/(double)wnd_h * 256.0;
+
+          vert[x].Red = (int) (sr * sc1);
+          vert[x].Green = (int) (sg * sc1);
+          vert[x].Blue = (int) (sb * sc1);
+
+        }
+
+#ifdef WIN32_NATIVE_GRADIENT
+        if (__GradientFill)
+        {
+          GRADIENT_RECT    gRect;
+          gRect.UpperLeft  = 0;
+          gRect.LowerRight = 1;
+          __GradientFill(m_bm->getDC(),vert,2,&gRect,1,GRADIENT_FILL_RECT_V);
+        }
+        else
+#endif
+        {
+
+          int bmh=vert[1].y-vert[0].y;
+          int bmw=clipr->right-clipr->left;
+
+          float s=(float) (1.0/(65535.0*bmh));
+
+          LICE_GradRect(m_bm,clipr->left,vert[0].y,bmw,bmh,
+            vert[0].Red/65535.0f,vert[0].Green/65535.0f,vert[0].Blue/65535.0f,1.0,0,0,0,0,
+            (vert[1].Red-vert[0].Red)*s,
+            (vert[1].Green-vert[0].Green)*s,
+            (vert[1].Blue-vert[0].Blue)*s,
+             0.0,LICE_BLIT_MODE_COPY);
+        }
+      }
+    }
+  }
+
+
+
+  if (needfill)
+  {
+    HBRUSH b=CreateSolidBrush(bgcolor);
+    FillRect(m_bm->getDC(),clipr,b);
+    DeleteObject(b);
+  }        
+
+}
+
 #ifdef _WIN32
 void WDL_VirtualWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
 #else
-void WDL_VirtualWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *r)
+void WDL_VirtualWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
 #endif
 {
 #ifdef _WIN32
@@ -81,156 +196,64 @@ void WDL_VirtualWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *r)
     if (BeginPaint(hwnd,&m_ps)) m_cur_hwnd=hwnd;
     if (m_cur_hwnd)
     {
-      if (!m_bm)
-        m_bm=new WDL_WinMemBitmap;
-      
       RECT r;
       GetWindowRect(m_cur_hwnd,&r);
-      int w=r.right-r.left,h=r.bottom-r.top;
-      if (m_bm->GetW()<w || m_bm->GetH() < h)
-        m_bm->DoSize(m_ps.hdc,max(m_bm->GetW(),w),max(m_bm->GetH(),h));
-
-      if (bgcolor<0) bgcolor=m_GSC?m_GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE);
-
-      double gradslope=m_gradslope;
-      double gradstart=m_gradstart;
-      bool wantGrad=m_wantg>0;
-      if (m_wantg<0) wantGrad=WDL_STYLE_GetBackgroundGradient(&gradstart,&gradslope);
-
-      int needfill=1;
-
-      if (wantGrad && gradslope >= 0.01)
-      {
-
-        static BOOL (WINAPI *__GradientFill)(HDC hdc,CONST PTRIVERTEX pVertex,DWORD dwNumVertex,CONST PVOID pMesh,DWORD dwNumMesh,DWORD dwMode); 
-        static bool hasld;
-
-        if (!hasld)
-        {
-          hasld=true;
-          HINSTANCE  lib=LoadLibrary("msimg32.dll");
-          if (lib) *((void **)&__GradientFill) = (void *)GetProcAddress(lib,"GradientFill");
-        }
-
-        if (__GradientFill)
-        {
-          needfill=0;
-
-          int spos = (int) (gradstart * h);
-          if (spos > 0)
-          {
-            if (spos > h) spos=h;
-            if (m_ps.rcPaint.top < spos)
-            {
-              RECT tr=m_ps.rcPaint;
-              tr.bottom=spos;
-              HBRUSH b=CreateSolidBrush(bgcolor);
-              FillRect(m_bm->GetDC(),&tr,b);
-              DeleteObject(b);
-            }
-          }
-          else spos=0;
-
-          if (spos < h)
-          {
-            TRIVERTEX        vert[2] = {0,} ;
-            GRADIENT_RECT    gRect;
-            double sr=GetRValue(bgcolor);
-            double sg=GetGValue(bgcolor);
-            double sb=GetBValue(bgcolor);
-
-            vert [0] .x      = m_ps.rcPaint.left;
-            vert [1] .x      = m_ps.rcPaint.right;
-
-
-            vert[0].y=m_ps.rcPaint.top;
-            vert[1].y=m_ps.rcPaint.bottom;
-
-            if (vert[0].y < spos) vert[0].y=spos;
-            if (vert[1].y>h) vert[1].y=h;
-
-            h-=spos;
-
-            int x;
-            for (x =0 ; x < 2; x ++)
-            {
-              double sc1=(h-(vert[x].y-spos)*gradslope)/(double)h * 256.0;
-
-              vert[x].Red = (int) (sr * sc1);
-              vert[x].Green = (int) (sg * sc1);
-              vert[x].Blue = (int) (sb * sc1);
-
-            }
-
-    ///        char buf[512];
-       //     wsprintf(buf,"%d,%d,%d,%d\n",m_ps.rcPaint.left,m_ps.rcPaint.top,m_ps.rcPaint.right,m_ps.rcPaint.bottom);
-         //   OutputDebugString(buf);
-
-            gRect.UpperLeft  = 0;
-            gRect.LowerRight = 1;
-            __GradientFill(m_bm->GetDC(),vert,2,&gRect,1,GRADIENT_FILL_RECT_V);
-          }
-        }
-      }
-
-
-
-      if (needfill)
-      {
-        HBRUSH b=CreateSolidBrush(bgcolor);
-        FillRect(m_bm->GetDC(),&m_ps.rcPaint,b);
-        DeleteObject(b);
-      }        
-    }
-  }
+      int wnd_w=r.right-r.left,wnd_h=r.bottom-r.top;
 #else
-  if (ctx && !m_machdc)
-  {
-    m_machdc=WDL_GDP_CreateContext(ctx);
-    if (m_machdc)
-    {
-      HBRUSH b=CreateSolidBrush(bgcolor);
-      m_macclip=*r;
-      FillRect(m_machdc,&m_macclip,b);
-      DeleteObject(b);
-    }
+      if (!ctx) return;
+      if (!m_cur_hwnd)
+      {
+        m_cur_hwnd=ctx;
+        m_ps.rcPaint=*clipr;
+        
+#endif
+
+      if (!m_bm)
+        m_bm=new LICE_SysBitmap;
+      
+      if (m_bm->getWidth()<wnd_w || m_bm->getHeight() < wnd_h)
+        m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
+
+      DoPaintBackground(bgcolor,&m_ps.rcPaint, wnd_w, wnd_h);
+
+
+      }
+#ifdef _WIN32
   }
 #endif
 }
 
 void WDL_VirtualWnd_Painter::PaintEnd()
 {
-#ifdef _WIN32
   if (!m_cur_hwnd) return;
-
+#ifdef _WIN32
   if (m_bm)
   {
     BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,
-                    m_bm->GetDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
+                    m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
   }
   EndPaint(m_cur_hwnd,&m_ps);
-  m_cur_hwnd=0;
 #else
-  if (m_machdc)
+  if (m_bm)
   {
-    WDL_GDP_DeleteContext(m_machdc);
-    m_machdc=0;
+    HDC hdc=WDL_GDP_CreateContext(m_cur_hwnd);
+    BitBlt(hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+                    m_ps.rcPaint.right-m_ps.rcPaint.left,
+                    m_ps.rcPaint.bottom-m_ps.rcPaint.top,
+                    m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
+
+    WDL_GDP_DeleteContext(hdc);
   }
 #endif
+  m_cur_hwnd=0;
 }
 
 void WDL_VirtualWnd_Painter::PaintVirtWnd(WDL_VirtualWnd *vwnd, int borderflags)
 {
-#ifdef _WIN32
   RECT tr=m_ps.rcPaint;
-  if (!m_bm||!m_cur_hwnd||
-#else
-  RECT tr=m_macclip;
-  if (!m_machdc||
-#endif 
-      !vwnd->IsVisible()) return;
+  if (!m_bm||!m_cur_hwnd|| !vwnd->IsVisible()) return;
 
   RECT r;
   vwnd->GetPosition(&r);
@@ -242,11 +265,7 @@ void WDL_VirtualWnd_Painter::PaintVirtWnd(WDL_VirtualWnd *vwnd, int borderflags)
 
   if (tr.bottom > tr.top && tr.right > tr.left)
   {
-#ifdef _WIN32
-    vwnd->OnPaint(m_bm->GetDC(),r.left,r.top,&tr);
-#else
-    vwnd->OnPaint(m_machdc,r.left,r.top,&tr);
-#endif
+    vwnd->OnPaint(m_bm,r.left,r.top,&tr);
 
     if (borderflags)
     {
@@ -271,21 +290,12 @@ void WDL_VirtualWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
 
 void WDL_VirtualWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
 {
-#ifdef _WIN32
-  if (!m_bm|| !m_cur_hwnd||
-#else
-  if (!m_machdc||
-#endif
-     !borderflags) return;
+  if (!m_bm|| !m_cur_hwnd||!borderflags) return;
 
   HPEN pen=CreatePen(PS_SOLID,0,m_GSC?m_GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT));
   HPEN pen2=CreatePen(PS_SOLID,0,m_GSC?m_GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW));
 
-#ifdef _WIN32
-  HDC hdc=m_bm->GetDC();
-#else
-      HDC hdc=m_machdc;
-#endif
+  HDC hdc=m_bm->getDC();
   if (borderflags== WDL_VWP_SUNKENBORDER || borderflags == WDL_VWP_SUNKENBORDER_NOTOP)
   {
     MoveToEx(hdc,r->left-1,r->bottom,NULL);
@@ -362,7 +372,7 @@ void WDL_VirtualWnd_ChildList::RemoveChild(WDL_VirtualWnd *wnd, bool dodel)
 }
 
 
-void WDL_VirtualWnd_ChildList::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualWnd_ChildList::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   int x;
   for (x = 0; x < m_children.GetSize(); x ++)
@@ -384,7 +394,7 @@ void WDL_VirtualWnd_ChildList::OnPaint(HDC hdc, int origin_x, int origin_y, RECT
       if (cr.bottom > r.bottom) cr.bottom=r.bottom;
 
       if (cr.left < cr.right && cr.top < cr.bottom)
-        ch->OnPaint(hdc,r.left,r.top,&cr);
+        ch->OnPaint(drawbm,r.left,r.top,&cr);
     }
   }
 }

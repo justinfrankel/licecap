@@ -1,6 +1,20 @@
 #ifndef _LICE_COMBINE_H_
 #define _LICE_COMBINE_H_
 
+#define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
+
+static inline void __LICE_BilinearFilter(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, double xfrac, double yfrac)
+{
+  double f1=(1.0-xfrac)*(1.0-yfrac);
+  double f2=xfrac*(1.0-yfrac);
+  double f3=(1.0-xfrac)*yfrac;
+  double f4=xfrac*yfrac;
+  *r=(int) (pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4);
+  *g=(int) (pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4);
+  *b=(int) (pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4);
+  *a=(int) (pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4);
+}
+
 
 static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, int a)
 {
@@ -77,6 +91,39 @@ public:
     }
   }
 };
+
+//#define __LICE__ACTION(comb) templateclass<comb>::function(parameters)
+//__LICE_ACTIONBYMODE(mode,alpha);
+//#undef __LICE__ACTION
+
+
+
+
+
+#define __LICE_ACTIONBYMODE(mode,alpha) \
+     switch ((mode)&LICE_BLIT_MODE_MASK) { \
+      case LICE_BLIT_MODE_COPY: \
+        if ((alpha)>0.0) {  \
+          if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsCopySourceAlpha); \
+          else __LICE__ACTION(_LICE_CombinePixelsCopy); \
+        } \
+      break;  \
+      case LICE_BLIT_MODE_ADD:  \
+        if ((alpha)!=0.0) { \
+          if ((mode)&LICE_BLIT_USE_ALPHA) __LICE__ACTION(_LICE_CombinePixelsAddSourceAlpha);  \
+          else __LICE__ACTION(_LICE_CombinePixelsAdd);  \
+        } \
+      break;  \
+    }
+
+// used by GradRect, etc
+#define __LICE_ACTIONBYMODE_NOALPHA(mode) \
+     switch ((mode)&LICE_BLIT_MODE_MASK) { \
+      case LICE_BLIT_MODE_COPY: __LICE__ACTION(_LICE_CombinePixelsCopy); break;  \
+      case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
+    }
+
+
 
 
 #endif

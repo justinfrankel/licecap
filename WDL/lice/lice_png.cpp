@@ -88,7 +88,13 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
   unsigned char **row_pointers=(unsigned char **)malloc(height*sizeof(unsigned char *));;
   LICE_pixel *bmpptr = bmp->getBits();
   int dbmpptr=bmp->getRowSpan();
-  for(unsigned int i=0;i<height;i++)
+  if (bmp->isFlipped())
+  {
+    bmpptr += dbmpptr*(bmp->getHeight()-1);
+    dbmpptr=-dbmpptr;
+  }
+  unsigned int i;
+  for(i=0;i<height;i++)
   {
     row_pointers[i]=(unsigned char *)bmpptr;
     bmpptr+=dbmpptr;
@@ -101,7 +107,8 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
   for(i=0;i<height;i++)
   {
     LICE_pixel *bmpptr = (LICE_pixel *)row_pointers[i];
-    for(unsigned int j=0;j<width;j++)
+    unsigned int j;
+    for(j=0;j<width;j++)
     {
       LICE_pixel p = bmpptr[j];
       unsigned char a = p&0xff;
@@ -223,7 +230,8 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   unsigned char **row_pointers=(unsigned char **)malloc(height*sizeof(unsigned char *));;
   LICE_pixel *bmpptr = bmp->getBits();
   int dbmpptr=bmp->getRowSpan();
-  for(unsigned int i=0;i<height;i++)
+  unsigned int i;
+  for(i=0;i<height;i++)
   {
     row_pointers[i]=(unsigned char *)bmpptr;
     bmpptr+=dbmpptr;
@@ -237,7 +245,8 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   for(i=0;i<height;i++)
   {
     LICE_pixel *bmpptr = (LICE_pixel *)row_pointers[i];
-    for(unsigned int j=0;j<width;j++)
+    unsigned int j;
+    for(j=0;j<width;j++)
     {
       LICE_pixel p = bmpptr[j];
       unsigned char a = p&0xff;

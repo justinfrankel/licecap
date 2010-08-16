@@ -1,5 +1,5 @@
 /*
-    WDL - string.h
+    WDL - wdlstring.h
     Copyright (C) 2005 and later, Cockos Incorporated
   
     This software is provided 'as-is', without any express or implied

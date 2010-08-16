@@ -27,8 +27,8 @@
 #ifndef _LAMEENCDEC_H_
 #define _LAMEENCDEC_H_
 
-#include "../WDL/queue.h"
-#include "../WDL/string.h"
+#include "queue.h"
+#include "wdlstring.h"
 
 
 class LameEncoder

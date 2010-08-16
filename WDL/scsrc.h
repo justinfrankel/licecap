@@ -37,7 +37,7 @@
 #include "jnetlib/connection.h"
 #include "jnetlib/httpget.h"
 #include "lameencdec.h"
-#include "string.h"
+#include "wdlstring.h"
 #include "fastqueue.h"
 #include "queue.h"
 #include "mutex.h"

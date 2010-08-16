@@ -24,6 +24,7 @@
 */
 
 #include "virtwnd.h"
+#include "../lice/lice.h"
 
 #ifdef _WIN32
 static void DrawTransparentBitmap(HDC hdc, HBITMAP hBitmap, short xStart,
@@ -148,8 +149,9 @@ bool WDL_VirtualSlider::GetIsVert()
   return m_position.right-m_position.left < m_position.bottom-m_position.top;
 }
 
-void WDL_VirtualSlider::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
+  HDC hdc=drawbm->getDC();
   bool isVert = GetIsVert();
 
   int rsize=m_maxr-m_minr;

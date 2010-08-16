@@ -387,24 +387,72 @@ void SWELL_TB_SetTic(HWND hwnd, int idx, int pos)
   if (!p || ![p isKindOfClass:[NSSlider class]]) return;
 }
 
+int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
+{
+  NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
+  int ni=[p numberOfItems];
 
-int SWELL_CB_AddString(HWND hwnd, int idx, const char *str)
+  *buf=0;
+  if (item < 0 || item >= ni) return 0;
+  
+  if ([p isKindOfClass:[NSComboBox class]])
+  {
+    NSString *s=[p itemObjectValueAtIndex:item];
+    if (s)
+    {
+      [s getCString:buf maxLength:bufsz];
+      return 1;
+    }
+  }
+  else 
+  {
+    NSMenuItem *i=[p itemAtIndex:item];
+    if (i)
+    {
+      NSString *s=[i title];
+      if (s)
+      {
+        [s getCString:buf maxLength:bufsz];
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str)
 {
   NSString *label=(NSString *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
   NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
   
-  int ret=[p numberOfItems];
+  int ni=[p numberOfItems];
+  if (pos == -1000) pos=ni;
+  else if (pos < 0) pos=0;
+  else if (pos > ni) pos=ni;
+   
   if ([p isKindOfClass:[NSComboBox class]])
   {
-    [p addItemWithObjectValue:label];
-    [p setNumberOfVisibleItems:(ret+1)];
+    if (pos==ni)
+      [p addItemWithObjectValue:label];
+    else
+      [p insertItemWithObjectValue:label atIndex:pos];
+    [p setNumberOfVisibleItems:(ni+1)];
   }
   else
   {
-    [(NSPopUpButton *)p addItemWithTitle:label];
+    if (pos==ni)
+      [(NSPopUpButton *)p addItemWithTitle:label];
+    else
+      [(NSPopUpButton *)p insertItemWithTitle:label atIndex:pos];
   }
   [label release];
-  return ret;
+  return pos;
+  
+}
+
+int SWELL_CB_AddString(HWND hwnd, int idx, const char *str)
+{
+  return SWELL_CB_InsertString(hwnd,idx,-1000,str);
 }
 
 int SWELL_CB_GetCurSel(HWND hwnd, int idx)
@@ -664,12 +712,12 @@ void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
 }
 
 
-@interface TaggedProgressIndicator : NSProgressIndicator
+@interface SWELL_TaggedProgressIndicator : NSProgressIndicator
 {
   int m_tag;
 }
 @end
-@implementation TaggedProgressIndicator
+@implementation SWELL_TaggedProgressIndicator
 -(int) tag
 {
   return m_tag;
@@ -686,17 +734,89 @@ void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
 }
 @end
 
+class SWELL_TableView_Row
+{
+public:
+  SWELL_TableView_Row()
+  {
+    m_param=0;
+  }
+  ~SWELL_TableView_Row()
+  {
+    m_vals.Empty(true,free);
+  }
+  WDL_PtrList<char> m_vals;
+  int m_param;
+};
+
+@interface SWELL_TableViewWithData : NSTableView
+{
+  @public
+  int style;
+  WDL_PtrList<SWELL_TableView_Row> *m_items;
+  WDL_PtrList<NSTableColumn> *m_cols;
+}
+@end
+@implementation SWELL_TableViewWithData
+-(id) init
+{
+  id ret=[super init];
+  m_cols = new WDL_PtrList<NSTableColumn>;
+  m_items=new WDL_PtrList<SWELL_TableView_Row>;
+  return ret;
+}
+-(void) dealloc
+{
+  if (m_items) m_items->Empty(true);
+  delete m_items;
+  delete m_cols;
+  m_cols=0;
+  m_items=0;
+  [super dealloc];
+}
+
+- (int)numberOfRowsInTableView:(NSTableView *)aTableView
+{
+  return m_items ? m_items->GetSize():0;
+}
+
+- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(int)rowIndex
+{
+  char *p=NULL;
+  SWELL_TableView_Row *r;
+  if (m_items && m_cols && (r=m_items->Get(rowIndex))) 
+  {
+    p=r->m_vals.Get(m_cols->Find(aTableColumn));
+  }
+  NSString *str=(NSString *)CFStringCreateWithCString(NULL,p?p:"",kCFStringEncodingUTF8); 
+  NSCell *cell = [[[NSCell alloc] initTextCell:[str autorelease]] autorelease];
+  return cell;
+  
+}
+
+@end
+
+
 void SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h)
 {
   if (!stricmp(classname, "SysListView32"))
   {
-    NSTableView *obj=[[NSTableView alloc] init];
-    [obj setAllowsMultipleSelection:YES];
+    SWELL_TableViewWithData *obj = [[SWELL_TableViewWithData alloc] init];
+    if (!(style & LVS_OWNERDATA))
+    {
+      [obj setDataSource:obj];
+    }
+    obj->style=style;
+    if (style & LVS_NOCOLUMNHEADER)
+      [obj setHeaderView:nil];
+    
+    [obj setAllowsMultipleSelection:!(style & LVS_SINGLESEL)];
     [obj setAllowsEmptySelection:YES];
     [obj setTag:idx];
     [obj setHidden:NO];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onCommand:)];
+    [obj setDoubleAction:@selector(onCommand:)];
     NSScrollView *obj2=[[NSScrollView alloc] init];
     [obj2 setFrame:MakeCoords(x,y,w,h,false)];
     [obj2 setDocumentView:obj];
@@ -706,7 +826,7 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   }
   else if (!stricmp(classname, "msctls_progress32"))
   {
-    TaggedProgressIndicator *obj=[[TaggedProgressIndicator alloc] init];
+    SWELL_TaggedProgressIndicator *obj=[[SWELL_TaggedProgressIndicator alloc] init];
     [obj setStyle:NSProgressIndicatorBarStyle];
     [obj setIndeterminate:NO];
     [obj setTag:idx];
@@ -737,7 +857,7 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [labelstr release];
     [button release];
   }
-  else if (!stricmp(classname,"REAPERhfader"))
+  else if (!stricmp(classname,"REAPERhfader")||!stricmp(classname,"msctls_trackbar32"))
   {
     NSSlider *obj=[[NSSlider alloc] init];
     [obj setTag:idx];
@@ -807,4 +927,185 @@ void SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h)
   [obj setFrame:MakeCoords(x,y,w,h,false)];
   [m_parent addSubview:obj];
   [obj release];
+}
+
+
+void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask)
+{
+}
+
+void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
+{
+  if (!h || !lvc) return;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return;
+  SWELL_TableViewWithData *v=(SWELL_TableViewWithData *)h;
+  NSTableColumn *col=[[NSTableColumn alloc] init];
+  [col setWidth:lvc->cx];
+  [col setEditable:NO];
+  if (!(v->style & LVS_NOCOLUMNHEADER))
+  {
+    NSString *lbl=(NSString *)CFStringCreateWithCString(NULL,lvc->pszText,kCFStringEncodingUTF8);  
+    [[col headerCell] setStringValue:lbl];
+    [lbl release];
+  }
+  [v addTableColumn:col];
+  v->m_cols->Add(col);
+  [col release];
+}
+
+int ListView_InsertItem(HWND h, const LVITEM *item)
+{
+  if (!h || !item || item->iSubItem) return 0;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return 0;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return -1;
+  int a=item->iItem;
+  if (a<0)a=0;
+  else if (a > tv->m_items->GetSize()) a=tv->m_items->GetSize();
+  
+  SWELL_TableView_Row *nr=new SWELL_TableView_Row;
+  nr->m_vals.Add(strdup((item->mask & LVIF_TEXT) ? item->pszText : ""));
+  if (item->mask & LVIF_PARAM) nr->m_param = item->lParam;
+  tv->m_items->Insert(a,nr);
+  
+  [tv reloadData];
+  return a;
+}
+
+void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt)
+{
+  if (!h || cpos < 0 || cpos >= 32) return;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return;
+  
+  SWELL_TableView_Row *p=tv->m_items->Get(ipos);
+  if (!p) return;
+  int x;
+  for (x = p->m_vals.GetSize(); x < cpos; x ++)
+  {
+    p->m_vals.Add(strdup(""));
+  }
+  if (cpos < p->m_vals.GetSize())
+  {
+    free(p->m_vals.Get(cpos));
+    p->m_vals.Set(cpos,strdup(txt));
+  }
+  else p->m_vals.Add(strdup(txt));
+    
+  [tv reloadData];
+}
+
+int ListView_GetNextItem(HWND h, int istart, int flags)
+{
+  if (flags==LVNI_FOCUSED)
+  {
+    if (!h) return 0;
+    if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return 0;
+    
+    SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+    return [tv selectedRow];
+  }
+  return -1;
+}
+
+bool ListView_GetItem(HWND h, LVITEM *item)
+{
+  if (!item) return false;
+  if ((item->mask&LVIF_TEXT)&&item->pszText && item->cchTextMax > 0) item->pszText[0]=0;
+  item->state=0;
+  if (!h) return false;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return false;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return false;
+  
+  SWELL_TableView_Row *row=tv->m_items->Get(item->iItem);
+  if (!row) return false;  
+  
+  if (item->mask & LVIF_PARAM) item->lParam=row->m_param;
+  if (item->mask & LVIF_TEXT) if (item->pszText && item->cchTextMax>0)
+  {
+    char *p=row->m_vals.Get(item->iSubItem);
+    lstrcpyn(item->pszText,p?p:"",item->cchTextMax);
+  }
+  if (item->mask & LVIF_STATE)
+  {
+     if ((item->stateMask&LVIS_SELECTED) && [tv isRowSelected:item->iItem]) item->state|=LVIS_SELECTED;
+     if ((item->stateMask&LVIS_FOCUSED) && [tv selectedRow] == item->iItem) item->state|=LVIS_FOCUSED;
+  }
+
+  return true;
+}
+int ListView_GetItemState(HWND h, int ipos, int mask)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return 0;
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return 0;
+  SWELL_TableView_Row *row=tv->m_items->Get(ipos);
+  if (!row) return 0;  
+  
+  int flag=0;
+  if ((mask&LVIS_SELECTED) && [tv isRowSelected:ipos]) flag|=LVIS_SELECTED;
+  if ((mask&LVIS_FOCUSED) && [tv selectedRow]==ipos) flag|=LVIS_FOCUSED;
+  return flag;  
+}
+
+void ListView_DeleteItem(HWND h, int ipos)
+{
+  if (!h) return;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return;
+  tv->m_items->Delete(ipos,true);
+  
+  [tv reloadData];
+}
+
+void ListView_DeleteAllItems(HWND h)
+{
+  if (!h) return;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return;
+  tv->m_items->Empty(true);
+  
+  [tv reloadData];
+}
+
+int ListView_GetSelectedCount(HWND h)
+{
+  if (!h) return 0;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return 0;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  return [tv numberOfSelectedRows];
+}
+
+int ListView_GetItemCount(HWND h)
+{
+  if (!h) return 0;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return 0;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  if (!tv->m_items) return 0;
+  
+  return tv->m_items->GetSize();
+}
+
+int ListView_GetSelectionMark(HWND h)
+{
+  if (!h) return 0;
+  if (![(id)h isKindOfClass:[SWELL_TableViewWithData class]]) return 0;
+  
+  SWELL_TableViewWithData *tv=(SWELL_TableViewWithData*)h;
+  return [tv selectedRow];
+}
+
+void ListView_SetColumnWidth(HWND h, int colpos, int wid)
+{
 }

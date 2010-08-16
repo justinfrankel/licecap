@@ -80,7 +80,7 @@ HDC WDL_GDP_CreateMemContext(HDC hdc, int w, int h)
   void *buf=calloc(w*4,h);
   if (!buf) return 0;
   CGColorSpaceRef cs=CGColorSpaceCreateDeviceRGB();
-  CGContextRef c=CGBitmapContextCreate(buf,w,h,8,w*4,cs,kCGImageAlphaPremultipliedFirst);
+  CGContextRef c=CGBitmapContextCreate(buf,w,h,8,w*4,cs, kCGImageAlphaNoneSkipFirst);
   CGColorSpaceRelease(cs);
   if (!c)
   {
@@ -581,11 +581,16 @@ void DrawImageInRect(HDC ctx, HICON img, RECT *r)
   INVALIDATE_BITMAPCACHE(ct);
   //CGContextDrawImage(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top),(CGImage*)i->bitmapptr);
   // probably a better way since this ignores the ctx
+  [NSGraphicsContext saveGraphicsState];
+  NSGraphicsContext *gc=[NSGraphicsContext graphicsContextWithGraphicsPort:ct->ctx flipped:NO];
+  [NSGraphicsContext setCurrentContext:gc];
   NSImage *nsi=i->bitmapptr;
   NSRect rr=NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
   [nsi setFlipped:YES];
   [nsi drawInRect:rr fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
   [nsi setFlipped:NO];
+  [NSGraphicsContext restoreGraphicsState];
+//  [gc release];
 }
 
 void *GetNSImageFromHICON(HICON ico)
@@ -615,7 +620,7 @@ int GetSysColor(int idx)
     case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor scrollbarColor],RGB(32,32,32));
     case COLOR_3DSHADOW: return ColorFromNSColor([NSColor shadowColor],RGB(32,32,32));
     case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor highlightColor],RGB(224,224,224));
-    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor controlTextColor],RGB(140,140,140));
+    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor controlTextColor],RGB(0,0,0));
     case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor shadowColor],RGB(32,32,32))>>1)&0x7f7f7f;
     case COLOR_INFOBK: return RGB(255,240,200);
     case COLOR_INFOTEXT: return RGB(0,0,0);
@@ -662,4 +667,11 @@ void SWELL_PopClipRegion(HDC ctx)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (ct && ct->ctx) CGContextRestoreGState(ct->ctx);
+}
+
+void *SWELL_GetCtxFrameBuffer(HDC ctx)
+{
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (ct) return ct->ownedData;
+  return 0;
 }

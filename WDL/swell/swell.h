@@ -189,11 +189,55 @@ int SWELL_CB_GetNumItems(HWND hwnd, int idx);
 void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, int data); // these two only work for the combo list version for now
 int SWELL_CB_GetItemData(HWND hwnd, int idx, int item);
 void SWELL_CB_Empty(HWND hwnd, int idx);
+int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str);
+int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz);
 
 void SWELL_TB_SetPos(HWND hwnd, int idx, int pos);
 void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi);
 int SWELL_TB_GetPos(HWND hwnd, int idx);
 void SWELL_TB_SetTic(HWND hwnd, int idx, int pos);
+
+
+typedef struct 
+{ 
+  int mask, fmt,cx; 
+  char *pszText; 
+  int cchTextMax, iSubItem;
+} LVCOLUMN;
+typedef struct 
+{ 
+  int mask, iItem, iSubItem, state, stateMask; 
+  char *pszText; 
+  int cchTextMax, iImage, lParam;
+} LVITEM;
+
+void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask);
+void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc);
+int ListView_InsertItem(HWND h, const LVITEM *item);
+void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt);
+int ListView_GetNextItem(HWND h, int istart, int flags);
+bool ListView_GetItem(HWND h, LVITEM *item);
+int ListView_GetItemState(HWND h, int ipos, int mask);
+void ListView_DeleteItem(HWND h, int ipos);
+void ListView_DeleteAllItems(HWND h);
+int ListView_GetSelectedCount(HWND h);
+int ListView_GetItemCount(HWND h);
+int ListView_GetSelectionMark(HWND h);
+void ListView_SetColumnWidth(HWND h, int colpos, int wid);
+
+#define LVCF_TEXT 1
+#define LVCF_WIDTH 2
+#define LVIF_TEXT 1
+#define LVIF_PARAM 2
+#define LVIF_STATE 4
+#define LVIS_SELECTED 1
+#define LVIS_FOCUSED 2
+#define LVNI_FOCUSED 1
+
+// ignored for now
+#define LVS_EX_FULLROWSELECT 0
+
+
 
 #define BST_CHECKED 1
 #define BST_UNCHECKED 0
@@ -230,7 +274,7 @@ int GetMenuItemID(HMENU hMenu, int pos);
 bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, void *ModNSS, unsigned int mask);
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text);
 bool EnableMenuItem(HMENU hMenu, int idx, int en);
-void DeleteMenu(HMENU hMenu, int idx, int flag);
+bool DeleteMenu(HMENU hMenu, int idx, int flag);
 
 bool CheckMenuItem(HMENU hMenu, int idx, int chk);
 typedef struct
@@ -396,6 +440,7 @@ void DrawImageInRect(HDC ctx, HICON img, RECT *r);
 void SWELL_PushClipRegion(HDC ctx);
 void SWELL_SetClipRegion(HDC ctx, RECT *r);
 void SWELL_PopClipRegion(HDC ctx);
+void *SWELL_GetCtxFrameBuffer(HDC ctx);
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode);
 #define DestroyIcon(x) DeleteObject(x)
 int GetSysColor(int idx);
@@ -435,12 +480,14 @@ int GetSysColor(int idx);
 
 #else
 
+#define SWELL_CB_InsertString(hwnd, idx, pos, str) SendDlgItemMessage(hwnd,idx,CB_INSERTSTRING,pos,(LPARAM)str)
 #define SWELL_CB_AddString(hwnd, idx, str) SendDlgItemMessage(hwnd,idx,CB_ADDSTRING,0,(LPARAM)str)
 #define SWELL_CB_SetCurSel(hwnd,idx,val) SendDlgItemMessage(hwnd,idx,CB_SETCURSEL,(WPARAM)val,0)
 #define SWELL_CB_GetNumItems(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_GETCOUNT,0,0)
 #define SWELL_CB_GetCurSel(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_GETCURSEL,0,0)
 #define SWELL_CB_SetItemData(hwnd,idx,item,val) SendDlgItemMessage(hwnd,idx,CB_SETITEMDATA,item,val)
 #define SWELL_CB_GetItemData(hwnd,idx,item) SendDlgItemMessage(hwnd,idx,CB_GETITEMDATA,item,0)
+#define SWELL_CB_GetItemText(hwnd,idx,item,buf,bufsz) SendDlgItemMessage(hwnd,idx,CB_GETLBTEXT,item,(LPARAM)buf)
 #define SWELL_CB_Empty(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_RESETCONTENT,0,0)
 
 #define SWELL_TB_SetPos(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx, TBM_SETPOS,TRUE,pos)

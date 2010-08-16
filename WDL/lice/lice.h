@@ -3,9 +3,10 @@
 
 /*
   Cockos WDL - LICE - Lightweight Image Compositing Engine
-  Version 0.02, June 17 2007
+  Version 0.03, June 27 2007
 
   Copyright (C) 2007 and later, Cockos Incorporated
+  Portions Copyright (C) 2007 "schwa"
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -41,6 +42,8 @@
 typedef unsigned int LICE_pixel;
 typedef unsigned char LICE_pixel_chan;
 
+#ifdef _WIN32
+
 #define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
 #define LICE_GETB(v) ((v)&0xff)
 #define LICE_GETG(v) (((v)>>8)&0xff)
@@ -48,18 +51,32 @@ typedef unsigned char LICE_pixel_chan;
 #define LICE_GETA(v) (((v)>>24)&0xff)
 
 
-#ifdef LICE_BIG_ENDIAN
-#define LICE_PIXEL_B 3
-#define LICE_PIXEL_G 2
-#define LICE_PIXEL_R 1
-#define LICE_PIXEL_A 0
-#else
 #define LICE_PIXEL_B 0
 #define LICE_PIXEL_G 1
 #define LICE_PIXEL_R 2
 #define LICE_PIXEL_A 3
+
+#else
+
+#define LICE_RGBA(r,g,b,a) (((a)&0xff)|(((r)&0xff)<<8)|(((g)&0xff)<<16)|(((b)&0xff)<<24))
+#define LICE_GETA(v) ((v)&0xff)
+#define LICE_GETR(v) (((v)>>8)&0xff)
+#define LICE_GETG(v) (((v)>>16)&0xff)
+#define LICE_GETB(v) (((v)>>24)&0xff)
+
+#ifdef __powerpc__
+#define LICE_PIXEL_A 3
+#define LICE_PIXEL_R 2
+#define LICE_PIXEL_G 1
+#define LICE_PIXEL_B 0
+#else
+#define LICE_PIXEL_A 0
+#define LICE_PIXEL_R 1
+#define LICE_PIXEL_G 2
+#define LICE_PIXEL_B 3
 #endif
 
+#endif
 
 
 
@@ -74,6 +91,7 @@ public:
   virtual int getWidth()=0;
   virtual int getHeight()=0;
   virtual int getRowSpan()=0; // includes any off-bitmap data
+  virtual bool isFlipped()=0;
   virtual bool resize(int w, int h)=0;
 };
 
@@ -96,6 +114,7 @@ public:
   int getRowSpan() { return m_width; }; 
   bool resize(int w, int h); // returns TRUE if a resize occurred
 
+  bool isFlipped() { return false; }
 
 private:
   LICE_pixel *m_fb;
@@ -115,6 +134,15 @@ public:
   int getRowSpan() { return m_width; }; 
   bool resize(int w, int h); // returns TRUE if a resize occurred
 
+  bool isFlipped() 
+  {
+#ifdef MAC
+    return true;
+#else
+    return false; 
+#endif
+  }
+
   // sysbitmap specific calls
   HDC getDC() { return m_dc; }
 
@@ -123,9 +151,11 @@ private:
   int m_width, m_height;
 
   HDC m_dc;
+  LICE_pixel *m_bits;
+#ifdef _WIN32
   HBITMAP m_bitmap;
   HGDIOBJ m_oldbitmap;
-  LICE_pixel *m_bits;
+#endif
 };
 
 
@@ -134,7 +164,6 @@ private:
 // pass a bmp if you wish to load it into that bitmap. note that if it fails bmp will not be deleted.
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
-
 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
@@ -157,6 +186,9 @@ LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 #define LICE_BLIT_USE_ALPHA 0x10000 // use source's alpha channel
 
 
+// basic primitives
+void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode);
+LICE_pixel LICE_GetPixel(LICE_IBitmap *bm, int x, int y);
 
 // blit functions
 
@@ -227,9 +259,7 @@ void LICE_TexGen_CircNoise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, f
   Stuff planned:
 
   
-  LICE_pixel LICE_GetPixel(LICE_IBitmap *dest, int x, int y);
   void LICE_PutPixelAA(LICE_IBitmap *dest, float x, float y, LICE_pixel color, float alpha=1.0); // antialiased putpixel (can affect up to 4 pixels)
-  void LICE_PutPixel(LICE_IBitmap *dest, int x, int y, LICE_pixel color, float alpha=1.0); // normal putpixel
   void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0, bool aa=true);
   void LICE_Rectangle(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0, bool aa=true);
   void LICE_Triangle(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, float x3, float y3, LICE_pixel color, float alpha=1.0, bool aa=true);

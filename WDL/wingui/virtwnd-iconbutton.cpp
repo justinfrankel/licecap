@@ -24,6 +24,7 @@
 */
 
 #include "virtwnd.h"
+#include "../lice/lice.h"
 
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
@@ -37,8 +38,9 @@ WDL_VirtualIconButton::~WDL_VirtualIconButton()
 }
 
 
-void WDL_VirtualIconButton::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect) 
+void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
+  HDC hdc=drawbm->getDC();
   int col;
   RECT r={origin_x,origin_y,origin_x+m_position.right-m_position.left,origin_y+m_position.bottom-m_position.top};
   if (WDL_STYLE_WantGlobalButtonBackground(&col))
@@ -150,8 +152,9 @@ WDL_VirtualIcon::~WDL_VirtualIcon()
 }
 
 
-void WDL_VirtualIcon::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect) 
+void WDL_VirtualIcon::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
+  HDC hdc=drawbm->getDC();
   if (m_iconPtr && *m_iconPtr)
   {
     int sz=16,sz2=16;
@@ -224,8 +227,9 @@ bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
   return true;
 }
 
-void WDL_VirtualComboBox::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
+  HDC hdc=drawbm->getDC();
   {
     int tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
     SetTextColor(hdc,tcol);
@@ -325,8 +329,9 @@ bool WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
   return false;
 }
 
-void WDL_VirtualStaticText::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
+  HDC hdc=drawbm->getDC();
   if (m_text.Get()[0])
   {
     SetTextColor(hdc,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));

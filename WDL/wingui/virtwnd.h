@@ -45,7 +45,7 @@
 #include "../swell/swell.h"
 #endif
 #include "../ptrlist.h"
-#include "../string.h"
+#include "../wdlstring.h"
 
 
 #ifndef _WIN32
@@ -59,6 +59,9 @@
 #define SB_THUMBTRACK 1001
 #define CBN_SELCHANGE 3000
 #endif
+
+
+class LICE_SysBitmap;
 
 class WDL_VirtualWnd
 {
@@ -104,7 +107,7 @@ public:
     return 0;
   }
 
-  virtual void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect) { } 
+  virtual void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) { } 
 
   virtual bool OnMouseDown(int xpos, int ypos){ return false; }
   virtual bool OnMouseDblClick(int xpos, int ypos) { return false; }
@@ -127,7 +130,6 @@ protected:
 #define WDL_VWP_DIVIDER_VERT 0x00030000
 #define WDL_VWP_DIVIDER_HORZ 0x00040000
 
-class WDL_WinMemBitmap;
 
 class WDL_VirtualWnd_Painter
 {
@@ -140,7 +142,7 @@ public:
 #ifdef _WIN32
   void PaintBegin(HWND hwnd, int bgcolor=-1);
 #else
-  void PaintBegin(void *ctx, int bgcolor, RECT *r);
+  void PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
 #endif
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
@@ -155,13 +157,18 @@ private:
   int m_wantg;
   double m_gradstart,m_gradslope;
   int (*m_GSC)(int);
+  void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
+  LICE_SysBitmap *m_bm;
+
 #ifdef _WIN32
   HWND m_cur_hwnd;
   PAINTSTRUCT m_ps;
-  WDL_WinMemBitmap *m_bm;
 #else
-  HDC m_machdc;
-  RECT m_macclip;
+  void *m_cur_hwnd;
+  struct
+  {
+    RECT rcPaint;
+  } m_ps;
 #endif
 
 };
@@ -197,7 +204,7 @@ public:
   void RequestRedraw(RECT *r);
   int SendCommand(int command, int parm1, int parm2, WDL_VirtualWnd *src);
 
-  void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect);
+  void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 //  void PaintList(WDL_VirtualWnd_Painter *painter);
 
   bool OnMouseDown(int xpos, int ypos); // returns TRUE if handled
@@ -242,7 +249,7 @@ class WDL_VirtualIconButton : public WDL_VirtualWnd
     ~WDL_VirtualIconButton();
     void SetEnabled(bool en) {m_en=en; }
     bool GetEnabled() { return m_en; }
-    void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetIcon(HICON *iconPtr) { m_iconPtr=iconPtr; RequestRedraw(NULL); }
 
     bool OnMouseDown(int xpos, int ypos);
@@ -263,7 +270,7 @@ class WDL_VirtualIcon : public WDL_VirtualWnd // like iconbutton but not a butto
   public:
     WDL_VirtualIcon();
     ~WDL_VirtualIcon();
-    void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetIcon(HICON *iconPtr) { m_iconPtr=iconPtr; RequestRedraw(NULL); }
 
   private:
@@ -276,7 +283,7 @@ class WDL_VirtualStaticText : public WDL_VirtualWnd
     WDL_VirtualStaticText();
     ~WDL_VirtualStaticText();
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
-    void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(HFONT font) { m_font=font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetText(const char *text) { m_text.Set(text); if (m_font) RequestRedraw(NULL); }
@@ -297,7 +304,7 @@ class WDL_VirtualComboBox : public WDL_VirtualWnd
   public:
     WDL_VirtualComboBox();
     ~WDL_VirtualComboBox();
-    void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(HFONT font) { m_font=font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
 
@@ -338,7 +345,7 @@ class WDL_VirtualSlider : public WDL_VirtualWnd
     void SetSliderPosition(int pos);
     bool GetIsVert();
 
-    void OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
     bool OnMouseDown(int xpos, int ypos);
     void OnMouseMove(int xpos, int ypos);
