@@ -267,11 +267,11 @@
 				Name="VST SDK"
 				>
 				<File
-					RelativePath="..\VST_SDK\aeffect.h"
+					RelativePath="..\..\VST_SDK\aeffect.h"
 					>
 				</File>
 				<File
-					RelativePath="..\VST_SDK\aeffectx.h"
+					RelativePath="..\..\VST_SDK\aeffectx.h"
 					>
 				</File>
 			</Filter>

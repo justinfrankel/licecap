@@ -104,7 +104,7 @@ bool IGraphicsMac::DrawScreen(IRECT* pR)
     return false;
   }
   
-  GDP_CTX* srcCtx = (GDP_CTX*) mDrawBitmap->getDC();
+  HDC__ * srcCtx = (HDC__*) mDrawBitmap->getDC();
   CGImageRef img = CGBitmapContextCreateImage(srcCtx->ctx); 
   CGContextDrawImage(pCGC, r, img);
   CGImageRelease(img);
@@ -298,7 +298,7 @@ bool IGraphicsMac::DrawIText(IText* pTxt, char* cStr, IRECT* pR)
   }
   
   [NSGraphicsContext saveGraphicsState];
-  GDP_CTX* destCtx = (GDP_CTX*) mDrawBitmap->getDC();
+  HDC__* destCtx = (HDC__*) mDrawBitmap->getDC();
   NSGraphicsContext* destGC = [NSGraphicsContext graphicsContextWithGraphicsPort:destCtx->ctx flipped:YES];
   [destGC setShouldAntialias: antialias];
   [NSGraphicsContext setCurrentContext:destGC];

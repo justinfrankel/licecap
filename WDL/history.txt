@@ -1,3 +1,20 @@
+2010-06-07:
+File Browsing: fixed single file select on multifile open on Win2k/98 (windows bug)
+File Browsing: UTF8 fixes
+LICE: bitmaps are now forced to 64 byte alignment, backing stores are (by default) row aligned
+IPlug: fixed OSX compiling (SWELL changes had made it not compile)
+IPlug: VST_SDK path is now normalized, put VST_SDK/ at the same level as WDL/
+IPlug: image files for sample are now in the correct place (and not zipped)
+Mutex: WDL_SharedMutex (for shared/exclusive locks)
+Scrollbar: obey LICE rowspan on image loading
+SWELL: CreateBitmap() optimizations
+SWELL: Much faster INI file read/write
+SWELL: Experimental mode to bypass OS X's default compositing code for SWELL views. This can be disabled by defining SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN to 0.
+SWELL: hugely optimized BitBlt() (no longer floods kernel messages)
+SWELL: removed BitBltAlpha*(), added flag for BitBlt(), SRCCOPY_USEALPHA
+SWELL: added SWELL_FlushWindow(), ReleaseDC() no longer implies window flush
+SWELL: dialog background drawing improvements/optimizations
+
 2010-06-01:
 DirScan: GetCurrentFileSize() support for OSx/Linux
 FileRead: detect when no shared lock acquired, update file size on demand since it can change

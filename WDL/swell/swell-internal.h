@@ -244,6 +244,7 @@ struct HTREEITEM__
   char m_titlestr[1024];
   unsigned int m_create_windowflags;
   NSOpenGLContext *m_glctx;
+  char m_isdirty; // &1=self needs redraw, &2=children may need redraw
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam;
@@ -390,7 +391,7 @@ struct HGDIOBJ__
 
 struct HDC__ {
   CGContextRef ctx; 
-  void *ownedData;
+  void *ownedData; // always use via SWELL_GetContextFrameBuffer() (which performs necessary alignment)
   HGDIOBJ__ *curpen;
   HGDIOBJ__ *curbrush;
   HGDIOBJ__ *curfont;

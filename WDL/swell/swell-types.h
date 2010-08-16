@@ -681,6 +681,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define PBM_SETPOS              (WM_USER+2)
 #define PBM_DELTAPOS            (WM_USER+3)
 
+#define BM_GETCHECK        0x00F0
 #define BM_SETCHECK        0x00F1
 #define BM_GETIMAGE        0x00F6
 #define BM_SETIMAGE        0x00F7
@@ -848,6 +849,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_MOVE                         0x0003
 #define WM_SIZE                         0x0005
 #define WM_ACTIVATE                     0x0006
+#define WM_SETTEXT			0x000C // not implemented on OSX, used internally on Linux
 #define WM_PAINT                        0x000F
 #define WM_CLOSE                        0x0010
 #define WM_ERASEBKGND                   0x0014
@@ -1132,6 +1134,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define COLOR_INFOTEXT 9
 
 #define SRCCOPY 0
+#define SRCCOPY_USEALPHACHAN 0xdeadbeef
 #define PS_SOLID 0
 #define DT_CALCRECT 1
 #define DT_VCENTER 2

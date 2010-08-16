@@ -49,30 +49,43 @@ void LICE_CombinePixels2Clamp(LICE_pixel *destptr, int r, int g, int b, int a, i
 }
 
 
+LICE_MemBitmap::LICE_MemBitmap(int w, int h, unsigned int linealign)
+{
+  m_allocsize=0;
+  m_fb=0;
+  m_width=0;
+  m_height=0;
+  m_linealign = linealign > 1 ? ((linealign & ~(linealign-1))-1) : 0; // force to be contiguous bits
+  if (m_linealign>16) m_linealign=16;
+  if (w||h) resize(w,h);
+}
+
+LICE_MemBitmap::~LICE_MemBitmap() { free(m_fb); }
+
 bool LICE_MemBitmap::resize(int w, int h)
 {
   if (w!=m_width||h!=m_height)
   {
 #ifdef DEBUG_TIGHT_ALLOC // dont enable for anything you want to be even remotely fast
     free(m_fb);
-    m_fb = (LICE_pixel *)malloc(m_allocsize = w*h*sizeof(LICE_pixel));
+    m_fb = (LICE_pixel *)malloc((m_allocsize = ((w+m_linealign)&~m_linealign)*h*sizeof(LICE_pixel)) + LICE_MEMBITMAP_ALIGNAMT);
     m_width=m_fb?w:0;
     m_height=m_fb?h:0;
     return true;
 #endif
-    int sz=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
+    int sz=(((m_width=w)+m_linealign)&~m_linealign)*(m_height=h)*sizeof(LICE_pixel);
 
     if (sz<=0) { free(m_fb); m_fb=0; m_allocsize=0; }
-    else if (!m_fb) m_fb=(LICE_pixel*)malloc(m_allocsize=sz);
+    else if (!m_fb) m_fb=(LICE_pixel*)malloc((m_allocsize=sz) + LICE_MEMBITMAP_ALIGNAMT);
     else 
     {
       if (sz>m_allocsize)
       {
         void *op=m_fb;
-        if (!(m_fb=(LICE_pixel*)realloc(m_fb,m_allocsize=sz+sz/4)))
+        if (!(m_fb=(LICE_pixel*)realloc(m_fb,(m_allocsize=sz+sz/4)+LICE_MEMBITMAP_ALIGNAMT)))
         {
           free(op);
-          m_fb=(LICE_pixel*)malloc(m_allocsize=sz);
+          m_fb=(LICE_pixel*)malloc((m_allocsize=sz)+LICE_MEMBITMAP_ALIGNAMT);
         }
       }
     }
@@ -140,6 +153,9 @@ bool LICE_SysBitmap::resize(int w, int h)
   }
 #endif//!DEBUG_TIGHT_ALLOC
 
+  w = (w+3)&~3; // always keep backing store a multiple of 4px wide
+
+
   m_allocw=w;
   m_alloch=h;
 
@@ -158,8 +174,8 @@ bool LICE_SysBitmap::resize(int w, int h)
 
   BITMAPINFO pbmInfo = {0,};
   pbmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-  pbmInfo.bmiHeader.biWidth = m_width;
-  pbmInfo.bmiHeader.biHeight = isFlipped()?m_height:-m_height;
+  pbmInfo.bmiHeader.biWidth = w;
+  pbmInfo.bmiHeader.biHeight = isFlipped()?h:-h;
   pbmInfo.bmiHeader.biPlanes = 1;
   pbmInfo.bmiHeader.biBitCount = sizeof(LICE_pixel)*8;
   pbmInfo.bmiHeader.biCompression = BI_RGB;

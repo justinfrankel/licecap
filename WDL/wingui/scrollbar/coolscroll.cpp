@@ -1718,9 +1718,10 @@ static int getPink(int x, int y, int vert, int np=0, int add=1)
 
   int w = bmp->getWidth();
   int h = bmp->getHeight();
+  int rs=bmp->getRowSpan();
   LICE_pixel *p = bmp->getBits();
   if(x>=w || y>=h) return 0;
-  p += w * y + x;
+  p += rs * y + x;
   if(!vert)
   {
     int l;
@@ -1740,7 +1741,7 @@ static int getPink(int x, int y, int vert, int np=0, int add=1)
   {
     if(np && *p==LICE_RGBA(255,0,255,255)) break;
     if(!np && *p!=LICE_RGBA(255,0,255,255)) break;
-    p += w*add;
+    p += rs*add;
     y += add;
     if(y>=h || y<0) break;
   }
@@ -1761,7 +1762,6 @@ static void initLiceBmp()
     int w = bmp->getWidth();
     int h = bmp->getHeight();
     {
-      LICE_pixel *p = bmp->getBits()+89*w;
       int l = getPink(0,89,0);
       m_sb_thumbHV[0] = l;
       int x = l;

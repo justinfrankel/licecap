@@ -79,14 +79,19 @@ HDC SWELL_CreateGfxContext(void *c)
   return ctx;
 }
 
+#define ALIGN_EXTRA 63
+static void *ALIGN_FBUF(void *inbuf)
+{
+  const UINT_PTR extra = ALIGN_EXTRA;
+  return (void *) (((UINT_PTR)inbuf+extra)&~extra); 
+}
+
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
-  // we could use CGLayer here, but it's 10.4+ and seems to be slower than this
-//  if (w&1) w++;
-  void *buf=calloc(w*4,h);
+  void *buf=calloc(w*4*h+ALIGN_EXTRA,1);
   if (!buf) return 0;
   CGColorSpaceRef cs=CGColorSpaceCreateDeviceRGB();
-  CGContextRef c=CGBitmapContextCreate(buf,w,h,8,w*4,cs, kCGImageAlphaNoneSkipFirst);
+  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4,cs, kCGImageAlphaNoneSkipFirst);
   CGColorSpaceRelease(cs);
   if (!c)
   {
@@ -1069,181 +1074,122 @@ int GetSysColor(int idx)
   return 0;
 }
 
-void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
-{
-  if (opacity<0.0001) return;
-  
-  if (!hdcOut ||w<1||h<1) return;
-  HDC__ *dest=(HDC__*)hdcOut;
-  if (!inbufptr || !inbuf_span || !inbuf_h || !dest->ctx) return;
-  
-  if (inbuf_span < 0)
-  {
-    inbufptr = ((char *)inbufptr) - 4*inbuf_span*(inbuf_h-1);
-  }
-  int srcWidth = inbuf_span < 0 ? -inbuf_span : inbuf_span;
-  int srcHeight = inbuf_h;
-  if (xin<0){ x-=xin; w+=xin; xin=0; }
-  if (yin<0){ y-=yin; h+=yin; yin=0; }
-  if (xin+w>srcWidth) w=srcWidth-xin;
-  if (yin+h>srcHeight) h=srcHeight-yin;
-  if (w<1||h<1) return;
-
-  void *buf=calloc(w*4,h);
-  if (!buf) return;
-  CGColorSpaceRef cs=CGColorSpaceCreateDeviceRGB();
-  CGContextRef newtmpctx=CGBitmapContextCreate(buf,w,h,8,w*4,cs, kCGImageAlphaPremultipliedFirst);
-  CGColorSpaceRelease(cs);
-  if (!newtmpctx)
-  {
-    free(buf);
-    return;
-  }
-
-  unsigned char *outbuf = (unsigned char *)buf;
-  unsigned char *inbuf = ((unsigned char *)inbufptr) + xin*4 + yin*4*inbuf_span;
-  int a;
-  int maxop=255;
-  if (useAlphaChannel) maxop=256;
-  int opac=(int)(opacity*maxop + 0.5);
-  if (opac<0)opac=0;
-  else if (opac>maxop) opac=maxop;
-  
-  for (a=0;a<h;a++)
-  {
-    int b;
-    if (useAlphaChannel && opac!=256)
-    {
-      for (b=0;b<w;b++)
-      {
-        int v=*outbuf++ = (*inbuf++ * (int)opac)>>8;
-        *outbuf++ = (*inbuf++*v)>>8;
-        *outbuf++ = (*inbuf++*v)>>8;
-        *outbuf++ = (*inbuf++*v)>>8;
-      }
-    }
-    else if (useAlphaChannel)
-    {
-      for (b=0;b<w;b++)
-      {
-        int v=*outbuf++ = *inbuf++;
-        *outbuf++ = (*inbuf++*v)>>8;
-        *outbuf++ = (*inbuf++*v)>>8;
-        *outbuf++ = (*inbuf++*v)>>8;
-      }
-    }
-    else if (opac<255)
-    {
-      for (b=0;b<w;b++)
-      {
-        *outbuf++ = opac; inbuf++;
-        *outbuf++ = (*inbuf++*opac)>>8;
-        *outbuf++ = (*inbuf++*opac)>>8;
-        *outbuf++ = (*inbuf++*opac)>>8;
-      }
-    }
-    else
-    {
-      for (b=0;b<w;b++)
-      {
-        *outbuf++ = 255; inbuf++;
-        *outbuf++ = *inbuf++;
-        *outbuf++ = *inbuf++;
-        *outbuf++ = *inbuf++;
-      }
-    }
-    inbuf += inbuf_span*4 - w*4;
-  }
-
-  CGImage *img=CGBitmapContextCreateImage(newtmpctx);
-  if (img)
-  {
-    CGContextSaveGState(dest->ctx);
-    CGContextScaleCTM(dest->ctx,1.0,-1.0);  
-    CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
-    CGContextRestoreGState(dest->ctx);
-    CGImageRelease(img);
-  }
-  CGContextRelease(newtmpctx);
-  free(buf);
-
-}
-
-void BitBltAlpha(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
-{
-  if (!useAlphaChannel&&opacity>=0.9999)
-  {
-    BitBlt(hdcOut,x,y,w,h,hdcIn,xin,yin,mode);
-    return;
-  }
-
-  if (!hdcOut || !hdcIn||w<1||h<1) return;
-  HDC__ *src=(HDC__*)hdcIn;
-  HDC__ *dest=(HDC__*)hdcOut;
-  if (!src->ownedData || !src->ctx || !dest->ctx) return;
-  
-  BitBltAlphaFromMem(hdcOut,x,y,w,h,src->ownedData,CGBitmapContextGetWidth(src->ctx), CGBitmapContextGetHeight(src->ctx),xin,yin,mode,useAlphaChannel,opacity);
-  
-}
 
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode)
 {
+  StretchBlt(hdcOut,x,y,w,h,hdcIn,xin,yin,w,h,mode);
+}
+
+void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int xin, int yin, int w, int h, int mode)
+{
   if (!hdcOut || !hdcIn||w<1||h<1) return;
   HDC__ *src=(HDC__*)hdcIn;
   HDC__ *dest=(HDC__*)hdcOut;
   if (!src->ownedData || !src->ctx || !dest->ctx) return;
-  
-  
-  CGImageRef img=CGBitmapContextCreateImage(src->ctx);
 
+  if (w<1||h<1) return;
+  
+  int sw=  CGBitmapContextGetWidth(src->ctx);
+  int sh= CGBitmapContextGetHeight(src->ctx);
+  
+  int preclip_w=w;
+  int preclip_h=h;
+  
+  if (xin<0) 
+  { 
+    x-=(xin*destw)/w;
+    w+=xin; 
+    xin=0; 
+  }
+  if (yin<0) 
+  { 
+    y-=(yin*desth)/h;
+    h+=yin; 
+    yin=0; 
+  }
+  if (xin+w > sw) w=sw-xin;
+  if (yin+h > sh) h=sh-yin;
+  
+  if (w<1||h<1) return;
+
+  if (destw==preclip_w) destw=w; // no scaling, keep width the same
+  else if (w != preclip_w) destw = (w*destw)/preclip_w;
+  
+  if (desth == preclip_h) desth=h;
+  else if (h != preclip_h) desth = (h*desth)/preclip_h;
+  
+  CGImageRef img = NULL, subimg = NULL;
+  NSBitmapImageRep *rep = NULL;
+  
+  static char is105;
+  if (!is105)
+  {
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    is105 = v>=0x1050 ? 1 : -1;    
+  }
+  
+  bool want_subimage=false;
+  
+  bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
+  
+  if (is105>0)
+  {
+    // [NSBitmapImageRep CGImage] is not available pre-10.5
+    unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
+    p += (xin + sw*yin)*4;
+    rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&p pixelsWide:w pixelsHigh:h
+                                               bitsPerSample:8 samplesPerPixel:(3+use_alphachannel) hasAlpha:use_alphachannel isPlanar:FALSE
+                                              colorSpaceName:NSDeviceRGBColorSpace bitmapFormat:(NSBitmapFormat)((use_alphachannel ? NSAlphaNonpremultipliedBitmapFormat : 0) |NSAlphaFirstBitmapFormat) bytesPerRow:sw*4 bitsPerPixel:32];
+    img=(CGImageRef)[rep CGImage];
+    if (img) CGImageRetain(img);
+  }
+  else
+  {
+    if (1) // this seems to be WAY better on 10.4 than the alternative (below)
+    {
+      static CGColorSpaceRef cs;
+      if (!cs) cs = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+      unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
+      p += (xin + sw*yin)*4;
+      
+      CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
+      img = CGImageCreate(w,h,8,32,4*sw,cs,use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,provider,NULL,NO,kCGRenderingIntentDefault);
+      //    CGColorSpaceRelease(cs);
+      CGDataProviderRelease(provider);
+    }
+    else 
+    {
+      // causes lots of kernel messages, so avoid if possible, also doesnt support alpha bleh
+      img = CGBitmapContextCreateImage(src->ctx);
+      want_subimage = true;
+    }
+  }
+  
   if (!img) return;
+  
+  if (want_subimage && (w != sw || h != sh))
+  {
+    subimg = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,w,h));
+    if (!subimg) 
+    {
+      CGImageRelease(img);
+      return;
+    }
+  }
   
   CGContextRef output = (CGContextRef)dest->ctx; 
   
-  if (xin || yin || w != CGImageGetWidth(img) || h != CGImageGetHeight(img))
-  {
-    CGImageRef img2 = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,w,h));
-    CGImageRelease(img);
-    if (!img2) return;
-    img=img2;
-    w=CGImageGetWidth(img);
-    h=CGImageGetHeight(img);
-  }
   
   CGContextSaveGState(output);
   CGContextScaleCTM(output,1.0,-1.0);  
-  CGContextDrawImage(output,CGRectMake(x,-h-y,w,h),img);    
+  CGContextDrawImage(output,CGRectMake(x,-desth-y,destw,desth),subimg ? subimg : img);    
   CGContextRestoreGState(output);
   
+  if (subimg) CGImageRelease(subimg);
   CGImageRelease(img);   
-}
-
-void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode)
-{
-  if (!hdcOut || !hdcIn||srcw<1||srch<1||w<1||h<1) return;
-  HDC__ *src=(HDC__*)hdcIn;
-  HDC__ *dest=(HDC__*)hdcOut;
-  if (!src->ownedData || !src->ctx || !dest->ctx) return;
-
-  CGImageRef img = CGBitmapContextCreateImage(src->ctx);
-  if (!img) return;
+  if (rep) [rep release];
   
-  if (xin || yin || srcw != CGImageGetWidth(img) || srch != CGImageGetHeight(img))
-  {
-    CGImageRef img2 = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,srcw,srch));
-    CGImageRelease(img);
-    if (!img2) return;
-    img=img2;
-    w=CGImageGetWidth(img);
-    h=CGImageGetHeight(img);
-  }
-    
-  CGContextSaveGState(dest->ctx);
-  CGContextScaleCTM(dest->ctx,1.0,-1.0);  
-  CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
-  CGContextRestoreGState(dest->ctx);
-  
-  CGImageRelease(img);
 }
 
 void SWELL_PushClipRegion(HDC ctx)
@@ -1268,7 +1214,7 @@ void SWELL_PopClipRegion(HDC ctx)
 void *SWELL_GetCtxFrameBuffer(HDC ctx)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (ct) return ct->ownedData;
+  if (ct) return ALIGN_FBUF(ct->ownedData);
   return 0;
 }
 
@@ -1367,7 +1313,7 @@ void ReleaseDC(HWND h, HDC hdc)
   if (isView && hdc)
   {
     [(NSView *)h unlockFocus];
-    if ([(NSView *)h window]) [[(NSView *)h window] flushWindow];
+//    if ([(NSView *)h window]) [[(NSView *)h window] flushWindow];
   }
 }
 
@@ -1393,18 +1339,18 @@ HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, uns
                                                                bitsPerSample:8 samplesPerPixel:spp
                                                                hasAlpha:hasa isPlanar:hasp
                                                                colorSpaceName:NSDeviceRGBColorSpace
-                                                               bytesPerRow:0 bitsPerPixel:0];    
+                                                                bitmapFormat:NSAlphaFirstBitmapFormat 
+                                                                 bytesPerRow:0 bitsPerPixel:0];    
   if (!rep) return 0;
   unsigned char* p = [rep bitmapData];
-  //memcpy(p, bits, width*height*spp); // sigh
+  int pspan = [rep bytesPerRow]; // might not be the same as width
   
-  int i;
-  for (i = 0; i < width*height*4; i += 4)
+  int y;
+  for (y=0;y<height;y ++)
   {
-    p[i] = bits[i+3];
-    p[i+1] = bits[i+2];
-    p[i+2] = bits[i+1];
-    p[i+3] = bits[i];
+    memcpy(p,bits,width*4);
+    p+=pspan;
+    bits += width*4;
   }
 
   NSImage* img = [[NSImage alloc] init];

@@ -8,6 +8,10 @@
 #include <AudioUnit/AudioUnit.h>
 #include <AudioUnit/AUCocoaUIView.h>
 
+#ifndef SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN
+#define SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN 1 // 2 gives more performance, not correctly drawn window frames (try NSThemeFrame stuff? bleh)
+#endif
+
 static HMENU g_swell_defaultmenu,g_swell_defaultmenumodal;
 
 void (*SWELL_DDrop_onDragLeave)();
@@ -18,6 +22,9 @@ const char* (*SWELL_DDrop_getDroppedFileTargetPath)(const char* extension);
 bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
+
+static void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc);
+static void swellRenderOptimizely(SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws);
 
 static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event);
 static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent *theEvent)
@@ -195,25 +202,58 @@ static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
   {
     if (uMsg == WM_PAINT)
     {
-        PAINTSTRUCT ps;
-        if (BeginPaint(hwnd,&ps))
+      if (!d(hwnd,WM_ERASEBKGND,0,0))
+      {
+        bool isop = [(NSView *)hwnd isOpaque];
+        if (isop || [[(NSView *)hwnd window] contentView] == (NSView *)hwnd)
         {
-          HBRUSH hbrush = (HBRUSH) d(hwnd,WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
-          if (hbrush && hbrush != (HBRUSH)1)
+          PAINTSTRUCT ps;
+          if (BeginPaint(hwnd,&ps))
           {
-            FillRect(ps.hdc,&ps.rcPaint,hbrush);
-          }
-          else if ([[(NSView *)hwnd window] contentView] == (NSView *)hwnd && ![(NSView *)hwnd isOpaque]) // always draw content view, unless opaque (which implies it doesnt need it)
-          {
-            SWELL_FillDialogBackground(ps.hdc,&ps.rcPaint,3);
-          }
-          
-          EndPaint(hwnd,&ps);
+            RECT r=ps.rcPaint;          
+            if (!(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
+            {
+              NSArray *ar = [(NSView *)hwnd subviews];
+              int x,n=[ar count];
+              for (x=0;x<n;x++)
+              {
+                NSView *v = [ar objectAtIndex:x];
+                if (![v isOpaque])
+                {
+                  NSRect f = [v frame];
+                  if (NSIntersectsRect(f,NSMakeRect(r.left,r.top,r.right-r.left,r.bottom-r.top))) break;
+                }
+              }     
+              if (x>=n) r.right=r.left; // disable drawing
+            }
+            
+            if (r.right > r.left && r.bottom > r.top)
+            {
+              HBRUSH hbrush = (HBRUSH) d(hwnd,WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
+              if (hbrush && hbrush != (HBRUSH)1)
+              {
+    //            char bf[512];
+  //              GetWindowText(hwnd,bf,sizeof(bf));
+//                static int a;
+                //  printf("%d filled custom bg, (%p %s) %d %d %d %d\n",a++,hwnd,bf,r.left,r.top,r.right-r.left,r.bottom-r.top);
+                FillRect(ps.hdc,&r,hbrush);
+              }
+              else if (isop) // no need to do this fill if it is a content view and is not opaque
+              {
+                //            char bf[512];
+                //              GetWindowText(hwnd,bf,sizeof(bf));
+                //                static int a;
+                // printf("%d: filled stock bg, (%p %s) %d %d %d %d\n",a++,hwnd,bf,r.left,r.top,r.right-r.left,r.bottom-r.top);
+                SWELL_FillDialogBackground(ps.hdc,&r,3);
+              }
+            }
+            EndPaint(hwnd,&ps);
+          }        
         }
+      }
     }
     
-    LRESULT r=(LRESULT) d(hwnd,uMsg,wParam,lParam);
-    
+    LRESULT r=(LRESULT) d(hwnd,uMsg,wParam,lParam);   
    
     if (r) return r; 
   }
@@ -678,6 +718,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
   if (!(self = [super initWithFrame:contentRect])) return self;
 
+  m_isdirty=3;
   m_glctx=NULL;
   m_enabled=TRUE;
   m_dlgproc=NULL;
@@ -777,6 +818,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 {
   [super setFrame:frameRect];
   if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_SIZE,0,0); 
+  InvalidateRect(GetParent((HWND)self),NULL,FALSE);
 } 
 
 - (void)keyDown:(NSEvent *)theEvent
@@ -797,106 +839,90 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
 }
 
-/*
--(id)_recursiveDisplayAllDirtyWithLockFocus:(BOOL)lf visRect:(NSRect) rc
+#if SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN > 0 // not done yet
+
+- (void)didAddSubview:(NSView *)subview
 {
-// hook drawing of children!
-//  printf("turds\n");
-  return [super _recursiveDisplayAllDirtyWithLockFocus:lf visRect:rc];
+  m_isdirty|=2;
+  NSView *view = [self superview];
+  while (view)
+  {
+    if ([view isKindOfClass:[SWELL_hwndChild class]]) 
+    {
+      if (((SWELL_hwndChild *)view)->m_isdirty&2) break;
+      ((SWELL_hwndChild *)view)->m_isdirty|=2;
+    }
+    view = [view superview];
+  }
+}
+- (void)willRemoveSubview:(NSView *)subview
+{
+  m_isdirty|=3;
+  NSView *view = [self superview];
+  while (view)
+  {
+    if ([view isKindOfClass:[SWELL_hwndChild class]]) 
+    {
+      if ((((SWELL_hwndChild *)view)->m_isdirty&3)==3) break;
+      ((SWELL_hwndChild *)view)->m_isdirty|=3;
+    }
+    view = [view superview];
+  }
 }
 
-*/
+
+-(void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)vr rectIsVisibleRectForView:(NSView*)v topView:(NSView *)v2
+{
+  static char is105;
+  if (!is105)
+  {
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    is105 = v>=0x1050 ? 1 : -1;    
+  }
+  
+  
+  // once we figure out how to get other controls to notify their parents that the view is dirty, we can enable this for 10.4
+  // 10.5+ has some nice property where it goes up the hierarchy
+  
+//  NSLog(@"r:%@ vr:%d v=%p tv=%p self=%p %p\n",NSStringFromRect(rect),vr,v,v2,self, [[self window] contentView]);
+  if (is105<=0 || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor])
+  {
+    [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
+    return;
+  }
+  if (!m_isdirty) return;
+  [self lockFocus];
+  HDC hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
+  
+  static WDL_PtrList<void> ndlist;
+  int ndlist_oldsz=ndlist.GetSize();
+  swellRenderOptimizely(self,hdc,false,&ndlist);
+  SWELL_DeleteGfxContext(hdc);
+  [self unlockFocus];
+  [self setNeedsDisplay:NO];
+  
+  while (ndlist.GetSize()>ndlist_oldsz)
+  {
+    NSView *v = (NSView *)ndlist.Get(ndlist.GetSize()-1);
+    ndlist.Delete(ndlist.GetSize()-1);
+    [v displayRectIgnoringOpacity:[v bounds]];
+    [v setNeedsDisplay:NO];
+    [v release];
+  }
+  
+}
+#endif
 
 -(void) drawRect:(NSRect)rect
 {
-  if (m_hashaddestroy) return;
-  
-  m_paintctx_hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
-  if (m_paintctx_hdc && m_glctx)
-  {
-    m_paintctx_hdc->GLgfxctx = m_glctx;
+  HDC hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
+  DrawSwellViewRectImpl(self,rect,hdc);
+  SWELL_DeleteGfxContext(hdc);
+  m_isdirty=0;
 
-    [m_glctx setView:self];
-    [m_glctx makeCurrentContext];
-    [m_glctx update];
-  }
-  m_paintctx_rect=rect;
-  m_paintctx_used=false;
-  DoPaintStuff(m_wndproc,(HWND)self,m_paintctx_hdc,&m_paintctx_rect);
-  
-  
-  SWELL_DeleteGfxContext(m_paintctx_hdc);
-  if (m_paintctx_hdc && m_glctx && [NSOpenGLContext currentContext] == m_glctx)
-  {
-    [NSOpenGLContext clearCurrentContext]; 
-  }
-  m_paintctx_hdc=0;
-  if (!m_paintctx_used) {
-     /*[super drawRect:rect];*/
-  }
-  
-#if 0
-  // debug: show everything
-  static CGColorSpaceRef cspace;
-  if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
-  float cols[4]={0.0f,1.0f,0.0f,0.8f};
-  CGColorRef color=CGColorCreate(cspace,cols);
-  
-  CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-  CGContextSetStrokeColorWithColor(ctx,color);
-  CGContextStrokeRectWithWidth(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height), 1);
-
-  CGColorRelease(color);
-  
-  cols[0]=1.0f;
-  cols[1]=0.0f;
-  cols[2]=0.0f;
-  cols[3]=1.0f;
-  color=CGColorCreate(cspace,cols);
-
-  NSRect rect2=[self bounds];
-  CGContextSetStrokeColorWithColor(ctx,color);
-  CGContextStrokeRectWithWidth(ctx, CGRectMake(rect2.origin.x,rect2.origin.y,rect2.size.width,rect2.size.height), 1);
-  
-  
-  CGColorRelease(color);
-  
-  cols[0]=0.0f;
-  cols[1]=0.0f;
-  cols[2]=1.0f;
-  cols[3]=0.7f;
-  color=CGColorCreate(cspace,cols);
-  cols[3]=0.25;
-  cols[2]=0.5;
-  CGColorRef color2=CGColorCreate(cspace,cols);
-
-  NSArray *ar = [self subviews];
-  if (ar)
-  {
-    int x;
-    for(x=0;x<[ar count];x++)  
-    {
-      NSView *v = [ar objectAtIndex:x];
-      if (v && ![v isHidden])
-      {
-        NSRect rect = [v frame];
-        CGContextSetStrokeColorWithColor(ctx,color);
-        CGContextStrokeRectWithWidth(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height), 1);
-        CGContextSetFillColorWithColor(ctx,color2);
-        CGContextFillRect(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height));
-      }
-    }
-    
-  // draw children
-  }
-  CGColorRelease(color);
-  CGColorRelease(color2);
-  
-#endif
-  
-  
-  
 }
+
 - (void)rightMouseDragged:(NSEvent *)theEvent
 {
   if (!m_enabled) return;
@@ -1577,6 +1603,28 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   //if (SWELL_owned_windows_levelincrease) return NSNormalWindowLevel;
   return [super level];
 }
+
+#if SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN > 1
+-(void) displayIfNeeded
+{
+  if (![[self contentView] isOpaque])
+  {
+    [super displayIfNeeded];
+  }
+  else
+  {
+  //  NSThemeFrame
+    if ([self viewsNeedDisplay])
+    {
+      [[self contentView] _recursiveDisplayRectIfNeededIgnoringOpacity:NSMakeRect(0,0,0,0) isVisibleRect:YES rectIsVisibleRectForView:[self contentView] topView:[self contentView]];
+      [self setViewsNeedDisplay:NO];
+      [self flushWindow];
+    }
+
+  }
+}
+#endif
+
 @end
 
 
@@ -2477,6 +2525,147 @@ void SWELL_SetViewGL(HWND h, bool wantGL)
 bool SWELL_GetViewGL(HWND h)
 {
   return h && [(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild*)h)->m_glctx;
+}
+void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc)
+{
+  if (view->m_hashaddestroy) 
+  {
+    return;
+  }    
+  view->m_paintctx_hdc=hdc;
+  if (view->m_paintctx_hdc && view->m_glctx)
+  {
+    view->m_paintctx_hdc->GLgfxctx = view->m_glctx;
+    
+    [view->m_glctx setView:view];
+    [view->m_glctx makeCurrentContext];
+    [view->m_glctx update];
+  }
+  view->m_paintctx_rect=rect;
+  view->m_paintctx_used=false;
+  DoPaintStuff(view->m_wndproc,(HWND)view,view->m_paintctx_hdc,&view->m_paintctx_rect);
+  
+  if (view->m_paintctx_hdc && view->m_glctx && [NSOpenGLContext currentContext] == view->m_glctx)
+  {
+    [NSOpenGLContext clearCurrentContext]; 
+  }
+  view->m_paintctx_hdc=0;
+  if (!view->m_paintctx_used) {
+    /*[super drawRect:rect];*/
+  }
+  
+#if 0
+  // debug: show everything
+  static CGColorSpaceRef cspace;
+  if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
+  float cols[4]={0.0f,1.0f,0.0f,0.8f};
+  CGColorRef color=CGColorCreate(cspace,cols);
+  
+  CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+  CGContextSetStrokeColorWithColor(ctx,color);
+  CGContextStrokeRectWithWidth(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height), 1);
+  
+  CGColorRelease(color);
+  
+  cols[0]=1.0f;
+  cols[1]=0.0f;
+  cols[2]=0.0f;
+  cols[3]=1.0f;
+  color=CGColorCreate(cspace,cols);
+  
+  NSRect rect2=[view bounds];
+  CGContextSetStrokeColorWithColor(ctx,color);
+  CGContextStrokeRectWithWidth(ctx, CGRectMake(rect2.origin.x,rect2.origin.y,rect2.size.width,rect2.size.height), 1);
+  
+  
+  CGColorRelease(color);
+  
+  cols[0]=0.0f;
+  cols[1]=0.0f;
+  cols[2]=1.0f;
+  cols[3]=0.7f;
+  color=CGColorCreate(cspace,cols);
+  cols[3]=0.25;
+  cols[2]=0.5;
+  CGColorRef color2=CGColorCreate(cspace,cols);
+  
+  NSArray *ar = [view subviews];
+  if (ar)
+  {
+    int x;
+    for(x=0;x<[ar count];x++)  
+    {
+      NSView *v = [ar objectAtIndex:x];
+      if (v && ![v isHidden])
+      {
+        NSRect rect = [v frame];
+        CGContextSetStrokeColorWithColor(ctx,color);
+        CGContextStrokeRectWithWidth(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height), 1);
+        CGContextSetFillColorWithColor(ctx,color2);
+        CGContextFillRect(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height));
+      }
+    }
+    
+    // draw children
+  }
+  CGColorRelease(color);
+  CGColorRelease(color2);
+  
+#endif
+  
+  
+  
+}
+
+void swellRenderOptimizely(SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws)
+{
+  bool cleardirty=false;
+  if ((view->m_isdirty&1)||doforce)
+  {
+    view->m_isdirty=3;
+    cleardirty=true;
+    doforce=true;
+    DrawSwellViewRectImpl(view,[view bounds], hdc);
+  }
+  if (view->m_isdirty||[view needsDisplay])
+  {
+    NSArray *sv = [view subviews];
+    if (sv)
+    {
+      [sv retain];
+      int x,n=[sv count];
+      for(x=0;x<n;x++)
+      {
+        NSView *v = (NSView *)[sv objectAtIndex:x];
+        if (v && ![v isHidden])
+        {          
+          bool isSwellChild = !![v isKindOfClass:[SWELL_hwndChild class]];
+          
+          if (doforce||(isSwellChild && ((SWELL_hwndChild*)v)->m_isdirty)||[v needsDisplay])
+          {
+            if (isSwellChild)
+            {
+              NSRect fr = [v frame];
+              CGContextSaveGState(hdc->ctx);
+              CGContextClipToRect(hdc->ctx,CGRectMake(fr.origin.x,fr.origin.y,fr.size.width,fr.size.height));
+              CGContextTranslateCTM(hdc->ctx, fr.origin.x,fr.origin.y);            
+              swellRenderOptimizely((SWELL_hwndChild*)v,hdc,doforce,needdraws);
+              CGContextRestoreGState(hdc->ctx);
+              [v setNeedsDisplay:NO];
+            }
+            else
+            {
+              [v retain];
+              if (!cleardirty && [view isOpaque] && ![v isOpaque]) DrawSwellViewRectImpl(view,[v frame],hdc);
+              needdraws->Add(v);     
+            }
+          }          
+        }
+      }
+      [sv release];
+    }
+  }
+  if (cleardirty) view->m_isdirty=0;
 }
 
 #endif

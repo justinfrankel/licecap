@@ -1092,6 +1092,12 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
   else 
   {
+    if (msg == BM_GETCHECK && [turd isKindOfClass:[NSButton class]])
+    {
+      int a=[(NSButton*)turd state];
+      if (a==NSMixedState) return BST_INDETERMINATE;
+      return a!=NSOffState;
+    }
     if (msg == BM_SETCHECK && [turd isKindOfClass:[NSButton class]])
     {
       [(NSButton*)turd setState:(wParam&BST_INDETERMINATE)?NSMixedState:((wParam&BST_CHECKED)?NSOnState:NSOffState)];
@@ -3927,12 +3933,33 @@ HWND WindowFromPoint(POINT p)
 
 void UpdateWindow(HWND hwnd)
 {
-  if (hwnd && [(id)hwnd isKindOfClass:[NSView class]])
+  if (hwnd && [(id)hwnd isKindOfClass:[NSView class]] && [(NSView *)hwnd needsDisplay])
   {
-    NSWindow *wnd = [(id)hwnd window];
+    NSWindow *wnd = [(NSView *)hwnd window];
     [wnd displayIfNeeded];
   }
 }
+
+void SWELL_FlushWindow(HWND h)
+{
+  if (h)
+  {
+    NSWindow *w=NULL;
+    if ([(id)h isKindOfClass:[NSView class]]) 
+    {
+      if ([(NSView *)h needsDisplay]) return;
+      
+      w = [(NSView *)h window];
+    }
+    else if ([(id)h isKindOfClass:[NSWindow class]]) w = (NSWindow *)h;
+    
+    if (w && ![w viewsNeedDisplay])
+    {
+      [w flushWindow];
+    }
+  }
+}
+
 
 void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
 { 
@@ -3941,11 +3968,36 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
   if ([view isKindOfClass:[NSWindow class]]) view=[view contentView];
   if ([view isKindOfClass:[NSView class]]) 
   {
+
+    NSView *sv = view;
+    bool skip_parent_invalidate=false;
+    if ([view isKindOfClass:[SWELL_hwndChild class]])
+    {
+      if (!(((SWELL_hwndChild *)view)->m_isdirty&1))
+      {
+        ((SWELL_hwndChild *)view)->m_isdirty|=1;
+      }
+      else skip_parent_invalidate=true; // if already dirty, then assume parents are already dirty too
+    }
+    if (!skip_parent_invalidate)
+    {
+      view = [view superview];
+      while (view)
+      {
+        if ([view isKindOfClass:[SWELL_hwndChild class]]) 
+        {
+          if (((SWELL_hwndChild *)view)->m_isdirty&2) break;
+          ((SWELL_hwndChild *)view)->m_isdirty|=2;
+        }
+        view = [view superview];
+      }
+    }
     if (r)
     {
-      [view setNeedsDisplayInRect:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)]; 
+      [sv setNeedsDisplayInRect:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)]; 
     }
-    else [view setNeedsDisplay:YES];
+    else [sv setNeedsDisplay:YES];
+    
   }
 }
 
@@ -3967,6 +4019,7 @@ HWND SetCapture(HWND hwnd)
   if (ocn && oc) SendMessage(oc,WM_CAPTURECHANGED,0,(LPARAM)hwnd);
   return oc;
 }
+
 
 void ReleaseCapture()
 {

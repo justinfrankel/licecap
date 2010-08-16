@@ -3,7 +3,7 @@
 // Only load one API class!
 
 #include "IPlugBase.h"
-#include "../../../plugins/VST_SDK/aeffectx.h"
+#include "../../VST_SDK/aeffectx.h"
 
 struct IPlugInstanceInfo
 {

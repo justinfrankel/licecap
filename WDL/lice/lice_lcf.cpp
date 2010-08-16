@@ -292,7 +292,7 @@ LICECaptureCompressor::~LICECaptureCompressor()
 //////////////////////////////////////////
 
 
-LICECaptureDecompressor::LICECaptureDecompressor(const char *fn, bool want_seekable)
+LICECaptureDecompressor::LICECaptureDecompressor(const char *fn, bool want_seekable) : m_workbm(0,0,1)
 {
   m_file_length_ms=0;
   m_rd_which=0;

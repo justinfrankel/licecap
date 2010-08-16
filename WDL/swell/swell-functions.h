@@ -953,8 +953,6 @@ SWELL_API_DEFINE(BOOL, GetObject, (HICON icon, int bmsz, void *_bm))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
 SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
 SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode))
-SWELL_API_DEFINE(void, BitBltAlpha,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode, bool useAlphaChannel, float opacity))
-SWELL_API_DEFINE(void, BitBltAlphaFromMem,(HDC hdcOut, int x, int y, int w, int h, void *inbuf, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity))
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
 SWELL_API_DEFINE(HBITMAP, CreateBitmap,(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits))
@@ -972,6 +970,10 @@ SWELL_API_DEFINE(BOOL, EndPaint,(HWND, PAINTSTRUCT *))
 SWELL_API_DEFINE(HDC, GetDC,(HWND)) // use these sparingly! they kinda work but shouldnt be overused!!
 SWELL_API_DEFINE(HDC, GetWindowDC,(HWND)) 
 SWELL_API_DEFINE(void, ReleaseDC,(HWND, HDC))
+
+#ifdef __APPLE__
+SWELL_API_DEFINE(void, SWELL_FlushWindow,(HWND))
+#endif
             
 SWELL_API_DEFINE(void, SWELL_FillDialogBackground,(HDC hdc, RECT *r, int level))
 

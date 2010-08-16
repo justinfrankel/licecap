@@ -37,6 +37,7 @@
 #include <windows.h>
 #else
 
+#include <unistd.h>
 // define this if you wish to use carbon critical sections on OS X
 // #define WDL_MAC_USE_CARBON_CRITSEC
 
@@ -45,6 +46,11 @@
 #else
 #include <pthread.h>
 #endif
+
+#ifdef __APPLE__
+#include <libkern/OSAtomic.h>
+#endif
+
 #endif
 
 #include "wdltypes.h"
@@ -136,6 +142,63 @@ public:
   ~WDL_MutexLock() { if (m_m) m_m->Leave(); }
 private:
   WDL_Mutex *m_m;
+} WDL_FIXALIGN;
+
+class WDL_SharedMutex 
+{
+  public:
+    WDL_SharedMutex() { m_sharedcnt=0; }
+    ~WDL_SharedMutex() { }
+
+    void LockExclusive()  // note: the calling thread must NOT have any shared locks, or deadlock WILL occur
+    { 
+      m_mutex.Enter(); 
+#ifdef _WIN32
+      while (m_sharedcnt>0) Sleep(1);
+#else
+      while (m_sharedcnt>0) usleep(100);		
+#endif
+    }
+    void UnlockExclusive() { m_mutex.Leave(); }
+
+    void LockShared() 
+    { 
+      m_mutex.Enter();
+#ifdef _WIN32
+      InterlockedIncrement(&m_sharedcnt);
+#elif defined (__APPLE__)
+      OSAtomicIncrement32(&m_sharedcnt);
+#else
+      m_cntmutex.Enter();
+      m_sharedcnt++;
+      m_cntmutex.Leave();
+#endif
+
+      m_mutex.Leave();
+    }
+    void UnlockShared()
+    {
+#ifdef _WIN32
+      InterlockedDecrement(&m_sharedcnt);
+#elif defined(__APPLE__)
+      OSAtomicDecrement32(&m_sharedcnt);
+#else
+      m_cntmutex.Enter();
+      m_sharedcnt--;
+      m_cntmutex.Leave();
+#endif
+    }
+
+  private:
+    WDL_Mutex m_mutex;
+#ifdef _WIN32
+    LONG m_sharedcnt;
+#elif defined(__APPLE__)
+    int32_t m_sharedcnt;
+#else
+    WDL_Mutex m_cntmutex;
+    int m_sharedcnt;
+#endif
 } WDL_FIXALIGN;
 
 

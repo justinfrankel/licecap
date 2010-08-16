@@ -114,7 +114,7 @@ static iniFileContext *GetFileContext(const char *name)
     if (!ctx->m_curfp) 
     {
 //      printf("error opening %s\n",m_curfn);
-      return NULL;
+      return ctx; // allow to proceed (empty file)
     }
     flockfile(fp);
     
@@ -250,7 +250,7 @@ BOOL WritePrivateProfileString(const char *appname, const char *keyname, const c
         if (!cursec) 
         {
           cursec = new WDL_StringKeyedArray<char *>(false,WDL_StringKeyedArray<char *>::freecharptr);   
-          ctx->m_sections.Insert(keyname,cursec);
+          ctx->m_sections.Insert(appname,cursec);
         }
         cursec->Insert(keyname,strdup(val));
         WriteBackFile(ctx);

@@ -475,7 +475,7 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
 	    return 0;
     }
     case effGetPlugCategory: {
-      if (_this->IsSynth()) return kPlugCategSynth;
+      if (_this->IsInst()) return kPlugCategSynth;
 	    return kPlugCategEffect;
     }
     case effProcessVarIo: {

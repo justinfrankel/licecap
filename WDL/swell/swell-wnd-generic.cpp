@@ -1262,6 +1262,7 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
       free(hwnd->m_title);
       hwnd->m_title = text[0] ? strdup(text) : NULL;
     }
+    SendMessage(hwnd,WM_SETTEXT,0,(LPARAM)text);
     swell_setOSwindowtext(hwnd);
     if (hwnd->m_parent) InvalidateRect(hwnd,NULL,FALSE); // todo: better way to handle this, probably
   } 
@@ -1291,8 +1292,7 @@ int IsDlgButtonChecked(HWND hwnd, int idx)
 {
   hwnd = GetDlgItem(hwnd,idx);
   if (!hwnd) return 0;
-  // todo: BM_GETCHECK (need to impl on osx too)
-  return (hwnd->m_private_data&3)==2 ? 1 : (hwnd->m_private_data&3); 
+  return SendMessage(hwnd,BM_GETCHECK,0,0);
 }
 
 
@@ -1425,6 +1425,118 @@ static RECT MakeCoords(int x, int y, int w, int h, bool wantauto)
 static const double minwidfontadjust=1.81;
 #define TRANSFORMFONTSIZE ((m_transform.right/65536.0+1.0)*3.7)
 
+
+#ifdef SWELL_LICE_GDI
+//#define SWELL_ENABLE_VIRTWND_CONTROLS
+#include "../wingui/virtwnd-controls.h"
+#endif
+
+static LRESULT WINAPI virtwndWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+#ifdef SWELL_ENABLE_VIRTWND_CONTROLS
+  WDL_VWnd *vwnd = (WDL_VWnd *) ( msg == WM_CREATE ? (void*)lParam : GetProp(hwnd,"WDL_control_vwnd") );
+  if (vwnd) switch (msg)
+  {
+    case WM_CREATE:
+      {
+        SetProp(hwnd,"WDL_control_vwnd",vwnd);
+        RECT r;
+        GetClientRect(hwnd,&r);
+        vwnd->SetRealParent(hwnd);
+        vwnd->SetPosition(&r);
+        vwnd->SetID(0xf);
+      }
+    return 0;
+    case WM_SIZE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        vwnd->SetPosition(&r);
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    break;
+    case WM_COMMAND:
+      if (LOWORD(wParam)==0xf) SendMessage(GetParent(hwnd),WM_COMMAND,(wParam&0xffff0000) | GetWindowLong(hwnd,GWL_ID),NULL);
+    break;
+    case WM_DESTROY:
+      RemoveProp(hwnd,"WDL_control_vwnd");
+      delete vwnd;
+      vwnd=0;
+    return 0;
+    case WM_LBUTTONDOWN:
+      SetCapture(hwnd);
+      vwnd->OnMouseDown(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+    return 0;
+    case WM_MOUSEMOVE:
+      vwnd->OnMouseMove(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+    return 0;
+    case WM_LBUTTONUP:
+      ReleaseCapture(); 
+      vwnd->OnMouseUp(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+    return 0;
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+
+          HDC hdc = ps.hdc;
+          if (hdc)
+          {
+            RECT tr = ps.rcPaint; // todo: offset by surface_offs.x/y
+            vwnd->OnPaint(hdc->surface,hdc->surface_offs.x,hdc->surface_offs.y,&tr);
+            vwnd->OnPaintOver(hdc->surface,hdc->surface_offs.x,hdc->surface_offs.y,&tr);
+          }
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+    case WM_SETTEXT:
+      if (lParam)
+      {
+        if (!strcmp(vwnd->GetType(),"vwnd_iconbutton")) 
+        {
+          WDL_VirtualIconButton *b = (WDL_VirtualIconButton *) vwnd;
+          b->SetTextLabel((const char *)lParam);
+        }
+      }
+    break;
+    case BM_SETCHECK:
+    case BM_GETCHECK:
+      if (!strcmp(vwnd->GetType(),"vwnd_iconbutton")) 
+      {
+        WDL_VirtualIconButton *b = (WDL_VirtualIconButton *) vwnd;
+        if (msg == BM_GETCHECK) return b->GetCheckState();
+
+        b->SetCheckState(wParam);
+      }
+    return 0;
+  }
+#endif
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+#ifdef SWELL_ENABLE_VIRTWND_CONTROLS
+static HWND swell_makeButton(HWND owner, int idx, RECT *tr, const char *label, bool vis, int style)
+{
+  WDL_VirtualIconButton *vwnd = new WDL_VirtualIconButton;
+  if (label) vwnd->SetTextLabel(label);
+  vwnd->SetForceBorder(true);
+  if (style & BS_AUTOCHECKBOX) vwnd->SetCheckState(0);
+  HWND hwnd = new HWND__(owner,idx,tr,label,vis,virtwndWindowProc);
+  hwnd->m_classname = "Button";
+  hwnd->m_style = style|WS_CHILD;
+  hwnd->m_wndproc(hwnd,WM_CREATE,0,(LPARAM)vwnd);
+  return hwnd;
+}
+
+#endif
+
+
+#ifndef SWELL_ENABLE_VIRTWND_CONTROLS
 static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
@@ -1520,6 +1632,12 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         }
       }
     return 0;
+    case BM_GETCHECK:
+      if (hwnd)
+      {
+        return (hwnd->m_private_data&3)==2 ? 1 : (hwnd->m_private_data&3); 
+      }
+    return 0;
     case BM_SETCHECK:
       if (hwnd)
       {
@@ -1532,6 +1650,17 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
+
+static HWND swell_makeButton(HWND owner, int idx, RECT *tr, const char *label, bool vis, int style)
+{
+  HWND hwnd = new HWND__(owner,idx,tr,label,vis,buttonWindowProc);
+  hwnd->m_classname = "Button";
+  hwnd->m_style = style|WS_CHILD;
+  hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
+  return hwnd;
+}
+#endif
+
 
 static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -1573,10 +1702,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   if (a < 65536) label = "ICONTEMP";
   
   RECT tr=MakeCoords(x,y,w,h,true);
-  HWND hwnd = new HWND__(m_make_owner,idx,&tr,label,!(flags&SWELL_NOT_WS_VISIBLE),buttonWindowProc);
-  hwnd->m_classname = "Button";
-  hwnd->m_style |= WS_CHILD;
-  hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
+  HWND hwnd = swell_makeButton(m_make_owner,idx,&tr,label,!(flags&SWELL_NOT_WS_VISIBLE),0);
 
   if (m_doautoright) UpdateAutoCoords(tr);
   if (def) { }
@@ -1749,10 +1875,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname,"Button"))
   {
     RECT tr=MakeCoords(x,y,w,h,true);
-    HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE),buttonWindowProc);
-    hwnd->m_classname = "Button";
-    hwnd->m_style = style|WS_CHILD;
-    hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
+    HWND hwnd = swell_makeButton(m_make_owner,idx,&tr,cname,!(style&SWELL_NOT_WS_VISIBLE),(style&~SWELL_NOT_WS_VISIBLE)|WS_CHILD);
     if (m_doautoright) UpdateAutoCoords(tr);
     return hwnd;
   }

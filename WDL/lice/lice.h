@@ -138,30 +138,31 @@ public:
 };
 
 
+#define LICE_MEMBITMAP_ALIGNAMT 63
+
 class LICE_MemBitmap : public LICE_IBitmap
 {
 public:
-  LICE_MemBitmap(int w=0, int h=0)
-  {
-    m_allocsize=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
-    m_fb=m_allocsize>0?(LICE_pixel*)malloc(m_allocsize):0;
-    if (!m_fb) {m_width=m_height=0; }
-  }
-
-  virtual ~LICE_MemBitmap() { free(m_fb); }
+  LICE_MemBitmap(int w=0, int h=0, unsigned int linealign=4);
+  virtual ~LICE_MemBitmap();
 
 
   // LICE_IBitmap interface
-  virtual LICE_pixel *getBits() { return m_fb; }
+  virtual LICE_pixel *getBits() 
+  { 
+    const UINT_PTR extra=LICE_MEMBITMAP_ALIGNAMT;
+    return (LICE_pixel *) (((UINT_PTR)m_fb + extra)&~extra);
+  }
   virtual int getWidth() { return m_width; }
   virtual int getHeight() { return m_height; }
-  virtual int getRowSpan() { return m_width; }
+  virtual int getRowSpan() { return (m_width+m_linealign)&~m_linealign; }
   virtual bool resize(int w, int h); // returns TRUE if a resize occurred
 
 private:
   LICE_pixel *m_fb;
   int m_width, m_height;
   int m_allocsize;
+  unsigned int m_linealign;
 };
 
 class LICE_SysBitmap : public LICE_IBitmap

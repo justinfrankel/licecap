@@ -3,6 +3,7 @@
 
 #include "filebrowse.h"
 
+#include "win32_utf8.h"
 
 
 #ifdef _WIN32
@@ -289,7 +290,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
   }
 #endif
 
-  int temp_size = allowmul ? 256*1024 : 4096;
+  int temp_size = allowmul ? 256*1024-1 : 4096-1;
   char *temp = (char *)calloc(temp_size+1,1);
 
   OPENFILENAME l={sizeof(l), parent, hInstance, extlist, NULL, 0, 0, temp, temp_size, NULL, 0, initialdir, text,
