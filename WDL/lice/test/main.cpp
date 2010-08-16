@@ -10,7 +10,7 @@
 
 #include "resource.h"
 
-#define NUM_EFFECTS 16
+#define NUM_EFFECTS 17
 
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
@@ -237,6 +237,63 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           //LICE_Circle(framebuffer, m_x, m_y, r, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
         }
         break;
+      case 16:
+        {
+          int sw=framebuffer->getWidth();
+          int sh=framebuffer->getHeight();
+
+          LICE_MemBitmap framebuffer_back;
+          {
+          static double a;
+          a+=0.003;
+
+          static int turd;
+          if ((turd++&511) < 12)
+            LICE_GradRect(framebuffer,sw/4,sh/4,sw/2,sh/2,
+            0.5*sin(a*14.0),0.5*cos(a*2.0+1.3),0.5*sin(a*4.0),0.1,
+            (cos(a*37.0))/framebuffer->getWidth()*0.5,(sin(a*17.0))/framebuffer->getWidth()*0.5,(cos(a*7.0))/framebuffer->getWidth()*0.5,0,
+            (sin(a*12.0))/framebuffer->getHeight()*0.5,(cos(a*4.0))/framebuffer->getHeight()*0.5,(cos(a*3.0))/framebuffer->getHeight()*0.5,0,
+            LICE_BLIT_MODE_ADD);
+          }
+             //LICE_TexGen_Marble(framebuffer, NULL, 1, 1, 1, 1);
+          LICE_Copy(&framebuffer_back,framebuffer);
+
+
+          const int divw=10;
+          const int divh=5;
+          float pts[2*divw*divh];
+          static float angs[2*divw*divh];
+          static float dangs[2*divw*divh];
+          static int turd;
+          if (!turd)
+          {
+            turd++;
+            int a;
+            for (a = 0; a  < 2*divw*divh; a ++)
+            {
+              dangs[a]=((rand()%1000)-500)*0.0001;
+              angs[a]=((rand()%1000)-500)*0.1;
+            }
+          }
+          int x,y;
+          for (y=0;y<divh; y++)
+          {
+            for (x=0;x<divw; x ++)
+            {
+              int idx=(y*divw+x)*2;
+              float ang=angs[idx]+=dangs[idx];
+              float ang2=angs[idx+1]+=dangs[idx+1];
+              pts[idx]=sw*(float)x/(float)(divw-1) + (cos(ang))*sw*0.01;
+              pts[idx+1]=sh*(float)y/(float)(divh-1) + (sin(ang2))*sh*0.01;
+            }
+          }
+
+
+          LICE_TransformBlit(framebuffer,&framebuffer_back,0,0,framebuffer->getWidth(),
+            framebuffer->getHeight(),pts,divw,divh,0.8,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+        }
+            
+      break;
 
       }
 

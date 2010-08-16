@@ -662,6 +662,12 @@ static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
 void SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h)
 {  
   NSButton *button=[[NSButton alloc] init];
+  
+  if (m_transform.size.width < 1.75)
+  {
+    [button setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
+  }
+  
   [button setTag:idx];
   [button setBezelStyle:NSRoundedBezelStyle ];
   [button setFrame:MakeCoords(x,y,w,h,true)];
@@ -682,6 +688,8 @@ void SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   [obj setEditable:(flags & ES_READONLY)?NO:YES];
   //if (flags & ES_WANTRETURN)
 //    [obj 
+  if (m_transform.size.width < 1.75)
+    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
   if (h < 20)
   {
     [[obj cell] setWraps:NO];
@@ -706,6 +714,8 @@ void SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   [obj setBordered:NO];
   [obj setBezeled:NO];
   [obj setDrawsBackground:NO];
+  if (m_transform.size.width < 1.75)
+    [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
 
   if (flags & SS_NOTFIY)
   {
@@ -860,6 +870,8 @@ void SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     {
       [button setButtonType:NSRadioButton];
     }
+    if (m_transform.size.width < 1.75)
+      [button setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
     [button setFrame:MakeCoords(x,y,w,h,true)];
     NSString *labelstr=(NSString *)CFStringCreateWithCString(NULL,cname,kCFStringEncodingUTF8);
     [button setTitle:labelstr];
@@ -891,6 +903,8 @@ void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   {
     NSPopUpButton *obj=[[NSPopUpButton alloc] init];
     [obj setTag:idx];
+    if (m_transform.size.width < 1.75)
+      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
     [obj setFrame:MakeCoords(x,y-1,w,14,true)];
     [obj setAutoenablesItems:NO];
     [obj setTarget:ACTIONTARGET];
@@ -902,6 +916,8 @@ void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   else
   {
     NSComboBox *obj=[[NSComboBox alloc] init];
+    if (m_transform.size.width < 1.75)
+      [obj setFont:[NSFont systemFontOfSize:m_transform.size.width*7.0]];
     [obj setEditable:(flags & CBS_DROPDOWNLIST)?NO:YES];
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y-1,w,14,true)];

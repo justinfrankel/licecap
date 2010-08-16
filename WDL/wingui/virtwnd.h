@@ -153,7 +153,7 @@ public:
 #else
   void PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
 #endif
-  void SetBGImage(LICE_IBitmap *bitmap, int tint=-1) { m_bgbm=bitmap; m_bgbmtintcolor=tint; } // call before every paintbegin (resets if you dont)
+  void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1) { m_bgbm=bitmap; m_bgbmtintcolor=tint; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
   void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
@@ -171,7 +171,7 @@ private:
   int (*m_GSC)(int);
   void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
   LICE_SysBitmap *m_bm;
-  LICE_IBitmap *m_bgbm;
+  WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
 
 #ifdef _WIN32
@@ -250,13 +250,13 @@ class WDL_VirtualStaticText : public WDL_VWnd
     const char *GetText() { return m_text.Get(); }
     void SetColor(int fg=-1, int bg=-1) { m_fg=fg; m_bg=bg; }
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
-    void SetBkImage(LICE_IBitmap **bm) { m_bkbm=bm; }
+    void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
 
     bool OnMouseDblClick(int xpos, int ypos);
     bool OnMouseDown(int xpos, int ypos);
 
   private:
-    LICE_IBitmap **m_bkbm;
+    WDL_VirtualWnd_BGCfg *m_bkbm;
     int m_align;
     int m_fg,m_bg;
     int m_margin_r, m_margin_l;
@@ -337,6 +337,44 @@ class WDL_VirtualSlider : public WDL_VWnd
     bool m_captured;
     bool m_needflush;
     
+};
+
+
+class WDL_VirtualListBox : public WDL_VWnd
+{
+  public:
+    WDL_VirtualListBox();
+    ~WDL_VirtualListBox();
+    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void SetFont(HFONT font) { m_font=font; }
+    void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
+    void SetRowHeight(int rh) { m_rh=rh; }
+    void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
+
+    void SetDroppedMessage(int msg) { m_dropmsg=msg; }
+    void SetClickedMessage(int msg) { m_clickmsg=msg; }
+    void SetDragBeginMessage(int msg) { m_dragbeginmsg=msg; }
+    int IndexFromPt(int x, int y);
+
+    // idx<0 means return count of items
+    int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, void **bkbg); // bkbg=LICE_IBitmap* if idx>=0, otherwise WDL_VirtualWnd_BGCfg
+    void *m_GetItemInfo_ctx;
+
+    bool OnMouseDown(int xpos, int ypos);
+    bool OnMouseDblClick(int xpos, int ypos);
+    bool OnMouseWheel(int xpos, int ypos, int amt);
+    void OnMouseMove(int xpos, int ypos);
+    void OnMouseUp(int xpos, int ypos);
+
+  private:
+    int m_cap_state;
+    int m_cap_startitem;
+    int m_clickmsg,m_dropmsg,m_dragbeginmsg;
+    int m_viewoffs;
+    int m_align;
+    int m_margin_r, m_margin_l;
+    int m_rh;
+    HFONT m_font;
 };
 
 

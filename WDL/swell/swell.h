@@ -388,6 +388,9 @@ void GetCursorPos(POINT *pt);
 #define VK_F11            0x7A
 #define VK_F12            0x7B
 
+#define MK_LBUTTON        0x10000
+#define MK_MBUTTON        0x10001
+#define MK_RBUTTON        0x10002
 
 /*
  ** swell-gdi.mm

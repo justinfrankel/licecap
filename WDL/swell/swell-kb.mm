@@ -25,6 +25,7 @@
 
 #include "swell.h"
 #import <Cocoa/Cocoa.h>
+#import <Carbon/Carbon.h>
 
 static int MacKeyCodeToVK(int code)
 {
@@ -115,6 +116,9 @@ WORD GetAsyncKeyState(int key)
 {
   NSEvent *evt=[NSApp currentEvent];
   if (!evt) return 0;
+  if (key == MK_LBUTTON) return (GetCurrentEventButtonState()&1)?0x8000:0;
+  if (key == MK_RBUTTON) return (GetCurrentEventButtonState()&2)?0x8000:0;
+  if (key == MK_MBUTTON) return (GetCurrentEventButtonState()&4)?0x8000:0;
   int flags=[evt modifierFlags];
   if (key == VK_CONTROL) return (flags&NSCommandKeyMask)?0x8000:0;
   if (key == VK_MENU) return (flags&NSAlternateKeyMask)?0x8000:0;

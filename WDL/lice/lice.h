@@ -221,11 +221,17 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
                       float rotxcent=0.0, float rotycent=0.0); // these coordinates are offset from the center of the image, in source pixel coordinates
 
 
+void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,  
+                    int dstx, int dsty, int dstw, int dsth,
+                    float *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
+                    float alpha, int mode);
+
 // if cliptosourcerect is false, then areas outside the source rect can get in (otherwise they are not drawn)
 void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
                     int dstx, int dsty, int dstw, int dsth,                     
                     float srcx, float srcy, float srcw, float srch, 
-                    double dsdx, double dtdx, double dsdy, double dtdy,                   
+                    double dsdx, double dtdx, double dsdy, double dtdy,         
+                    double dsdxdy, double dtdxdy,
                     bool cliptosourcerect, float alpha, int mode);
 
 

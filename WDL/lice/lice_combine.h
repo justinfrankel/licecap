@@ -45,6 +45,26 @@ static inline void __LICE_LinearFilter(int *r, int *g, int *b, int *a, LICE_pixe
   *a=__LICE_TOINT(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac);
 }
 
+static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int xfrac, int yfrac)
+{
+  int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
+  int f1=65535-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  *r=(pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4)/65536;
+  *g=(pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4)/65536;
+  *b=(pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4)/65536;
+  *a=(pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4)/65536;
+}
+static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int frac)
+{
+  int f=65535-frac;
+  *r=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)/65536;
+  *g=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)/65536;
+  *b=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)/65536;
+  *a=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)/65536;
+}
+
 
 static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, int a)
 {
@@ -100,6 +120,9 @@ public:
     }
   }
 };
+
+#ifndef LICE_DISABLE_BLEND_ADD
+
 class _LICE_CombinePixelsAdd
 {
 public:
@@ -132,6 +155,12 @@ public:
   }
 };
 
+#else // !LICE_DISABLE_BLEND_ADD
+#define _LICE_CombinePixelsAddSourceAlpha _LICE_CombinePixelsCopySourceAlpha
+#define _LICE_CombinePixelsAdd _LICE_CombinePixelsCopy
+#endif
+
+#ifndef LICE_DISABLE_BLEND_DODGE
 
 class _LICE_CombinePixelsColorDodge
 {
@@ -170,6 +199,10 @@ public:
   }
 };
 
+#else // !LICE_DISABLE_BLEND_DODGE
+#define _LICE_CombinePixelsColorDodgeSourceAlpha _LICE_CombinePixelsCopySourceAlpha
+#define _LICE_CombinePixelsColorDodge _LICE_CombinePixelsCopy
+#endif
 
 //#define __LICE__ACTION(comb) templateclass<comb>::function(parameters)
 //__LICE_ACTIONBYMODE(mode,alpha);
@@ -203,6 +236,7 @@ public:
      switch ((mode)&LICE_BLIT_MODE_MASK) { \
       case LICE_BLIT_MODE_COPY: __LICE__ACTION(_LICE_CombinePixelsCopy); break;  \
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
+      case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge); break;  \
     }
 
 // Vector drawing with a single color can be optimized for copy mode if the color has alpha = 255.

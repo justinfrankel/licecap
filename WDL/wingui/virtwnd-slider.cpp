@@ -194,6 +194,8 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
     for (y = h-1; y > a->thumbimage_lt[1]+1 && LICE_GetPixel(a->thumbimage[1],w-1,y)==LICE_RGBA(255,0,255,255); y --);
     a->thumbimage_rb[1] = y;
   }
+  WDL_VirtualWnd_PreprocessBGConfig(&a->bgimagecfg[0]);
+  WDL_VirtualWnd_PreprocessBGConfig(&a->bgimagecfg[1]);
 }
 
 void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
@@ -210,7 +212,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
   int viewh=m_position.bottom-m_position.top;
   int vieww=m_position.right-m_position.left;
 
-  LICE_IBitmap *back_image=m_skininfo ? m_skininfo->bgimage[isVert] : 0;
+  WDL_VirtualWnd_BGCfg *back_image=m_skininfo && m_skininfo->bgimagecfg[isVert].bgimage ? &m_skininfo->bgimagecfg[isVert] : 0;
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16,bm_w2,bm_h2;
   int imgoffset=0;
@@ -237,8 +239,11 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
     if (back_image)
     {
-      LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
-          0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
+      WDL_VirtualWnd_ScaledBlitBG(drawbm,back_image,
+        origin_x,origin_y,vieww,viewh,
+        origin_x,origin_y,vieww,viewh,
+        1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+                                            
       if (m_bgcol1_msg)
       {
         int brcol=-100;
@@ -248,8 +253,8 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
           LICE_MemBitmap tmpbm;
           tmpbm.resize(vieww,viewh);
 
-          LICE_ScaledBlit(&tmpbm,back_image,0,0,vieww,viewh,
-            0,0,back_image->getWidth()-1,back_image->getHeight()-1,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);    
+          WDL_VirtualWnd_ScaledBlitBG(&tmpbm,back_image,0,0,vieww,viewh,
+              0,0,vieww,viewh,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
 
           LICE_ClearRect(&tmpbm,0,0,vieww,viewh,LICE_RGBA(0,0,0,255),LICE_RGBA(GetRValue(brcol),GetGValue(brcol),GetBValue(brcol),0));
 
@@ -258,25 +263,40 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
         }
       }
     }
-    else
+
+    if (!back_image || (m_skininfo&&m_skininfo->zeroline_color))
     {
       int center=m_center;
       if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
 
       int y=((m_maxr-center)*(viewh-bm_h2))/rsize + ((bm_h-1)/2-imgoffset);
 
+      if (m_skininfo && m_skininfo->zeroline_color)
+      {
+        LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y,
+          m_skininfo->zeroline_color,
+          LICE_GETA(m_skininfo->zeroline_color)/255.0,
+          LICE_BLIT_MODE_COPY,false);
+      }
+      else
+      {
+        HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+        HGDIOBJ oldPen=SelectObject(hdc,pen);
 
-      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+        MoveToEx(hdc,origin_x+2,origin_y+y,NULL);
+        LineTo(hdc,origin_x+vieww-2,origin_y+y);
+
+        SelectObject(hdc,oldPen);
+        DeleteObject(pen);
+      }
+    }
+
+
+    if (!back_image)
+    {
+
+      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
       HGDIOBJ oldPen=SelectObject(hdc,pen);
-
-      MoveToEx(hdc,origin_x+2,origin_y+y,NULL);
-      LineTo(hdc,origin_x+vieww-2,origin_y+y);
-
-      SelectObject(hdc,oldPen);
-      DeleteObject(pen);
-
-      pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-      oldPen=SelectObject(hdc,pen);
 
       int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
@@ -337,8 +357,10 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
     if (back_image)
     {
-      LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
-          0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
+      WDL_VirtualWnd_ScaledBlitBG(drawbm,back_image,
+        origin_x,origin_y,vieww,viewh,
+        origin_x,origin_y,vieww,viewh,
+        1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
       // blit, tint color too?
 
       if (m_bgcol1_msg)
@@ -350,8 +372,8 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
           LICE_MemBitmap tmpbm;
           tmpbm.resize(vieww,viewh);
 
-          LICE_ScaledBlit(&tmpbm,back_image,0,0,vieww,viewh,
-            0,0,back_image->getWidth()-1,back_image->getHeight()-1,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);    
+          WDL_VirtualWnd_ScaledBlitBG(&tmpbm,back_image,0,0,vieww,viewh,
+              0,0,vieww,viewh,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
 
           LICE_ClearRect(&tmpbm,0,0,vieww,viewh,LICE_RGBA(0,0,0,255),LICE_RGBA(GetRValue(brcol),GetGValue(brcol),GetBValue(brcol),0));
 
@@ -361,24 +383,38 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       }
 
     }
-    else
+
+    if (!back_image || (m_skininfo && m_skininfo->zeroline_color))
     {
       int center=m_center;
       if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
 
       int x=((center-m_minr)*(vieww-bm_w2))/rsize + bm_w/2 - imgoffset;
+      if (m_skininfo && m_skininfo->zeroline_color)
+      {
+        LICE_Line(drawbm,origin_x+x,origin_y+2,origin_x+x,origin_y+viewh-2,
+          m_skininfo->zeroline_color,
+          LICE_GETA(m_skininfo->zeroline_color)/255.0,
+          LICE_BLIT_MODE_COPY,false);
+      }
+      else
+      {
+        HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+        HGDIOBJ oldPen=SelectObject(hdc,pen);
 
-      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+        MoveToEx(hdc,origin_x+x,origin_y+2,NULL);
+        LineTo(hdc,origin_x+x,origin_y+viewh-2);
+
+        SelectObject(hdc,oldPen);
+        DeleteObject(pen);
+      }
+    }
+
+    if (!back_image)
+    {
+
+      HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
       HGDIOBJ oldPen=SelectObject(hdc,pen);
-
-      MoveToEx(hdc,origin_x+x,origin_y+2,NULL);
-      LineTo(hdc,origin_x+x,origin_y+viewh-2);
-
-      SelectObject(hdc,oldPen);
-      DeleteObject(pen);
-
-      pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
-      oldPen=SelectObject(hdc,pen);
       int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
         SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
@@ -484,13 +520,12 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
       int xcent=xpos - vieww/2;
       bool hit;
 
-      if (m_skininfo && m_skininfo->bgimage[1])
+      if (m_skininfo && m_skininfo->bgimagecfg[1].bgimage)
       {
-        LICE_pixel pix=LICE_GetPixel(m_skininfo->bgimage[1],
-          (xpos*m_skininfo->bgimage[1]->getWidth())/vieww,
-          (ypos*m_skininfo->bgimage[1]->getHeight())/viewh);
+        LICE_pixel pix=WDL_VirtualWnd_ScaledBG_GetPix(&m_skininfo->bgimagecfg[1],
+          vieww,viewh,xpos,ypos);
 
-        hit = LICE_GETA(pix)>=128;
+        hit = LICE_GETA(pix)>=64;
       }
       else hit= (xcent >= -2 && xcent < 3 && ypos >= bm_h/3 && ypos <= viewh-bm_h/3);
 
@@ -518,13 +553,12 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
       int ycent=ypos - viewh/2;
 
       bool hit;
-      if (m_skininfo && m_skininfo->bgimage[0])
+      if (m_skininfo && m_skininfo->bgimagecfg[0].bgimage)
       {
-        LICE_pixel pix=LICE_GetPixel(m_skininfo->bgimage[0],
-          (xpos*m_skininfo->bgimage[0]->getWidth())/vieww,
-          (ypos*m_skininfo->bgimage[0]->getHeight())/viewh);
+        LICE_pixel pix=WDL_VirtualWnd_ScaledBG_GetPix(&m_skininfo->bgimagecfg[0],
+          vieww,viewh,xpos,ypos);
 
-        hit = LICE_GETA(pix)>=128;
+        hit = LICE_GETA(pix)>=64;
       }
       else hit = (ycent >= -2 && ycent < 3 && xpos >= bm_w/3 && xpos <= vieww-bm_w/3);
 

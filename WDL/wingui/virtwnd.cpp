@@ -64,21 +64,23 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
 {
   if (!m_bm) return;
 
-  if (m_bgbm)
+  if (m_bgbm&&m_bgbm->bgimage)
   {
-    int srcw=m_bgbm->getWidth();
-    int srch=m_bgbm->getHeight();
+    int srcw=m_bgbm->bgimage->getWidth();
+    int srch=m_bgbm->bgimage->getHeight();
     if (srcw && srch)
     {
-      float xsc=(float)srcw/wnd_w;
-      float ysc=(float)srch/wnd_h;
-      LICE_ScaledBlit(m_bm,m_bgbm,
-                        clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,
-                        clipr->left*xsc,
-                        clipr->top*ysc,
-                        (clipr->right-clipr->left)*xsc,
-                        (clipr->bottom-clipr->top)*ysc,
-                        1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+      int bpos=clipr->bottom;
+//      if (++bpos>wnd_h)bpos=wnd_h; // for some reason drawing the extra line is necessary for some paints on windows
+      int rpos=clipr->right;
+  //    if (rpos+=4>wnd_w)rpos=wnd_w; // for some reason drawing the extra line is necessary for some paints on windows
+      int lpos=clipr->left;
+    //  if (lpos-=4<0) lpos=0;
+      WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,0,0,wnd_w,wnd_h,
+                                  lpos,clipr->top,
+                                  rpos-lpos,
+                                  bpos-clipr->top,
+                                  1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
 
       if (m_bgbmtintcolor>=0)
       {
@@ -94,7 +96,7 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         float sc3=32.0f;
         float sc4=64.0f*(avg-0.5);
         // tint
-        LICE_MultiplyAddRect(m_bm,clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,
+        LICE_MultiplyAddRect(m_bm,lpos,clipr->top,rpos-lpos,bpos-clipr->top,
             sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
             (rv-avg)*sc3+sc4,
             (gv-avg)*sc3+sc4,
@@ -762,4 +764,226 @@ void WDL_VWnd::OnMouseUp(int xpos, int ypos)
   m_captureidx=-1;
 }
 
+void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
+{
+  if (!a || !a->bgimage) return;
+  a->bgimage_lt[0]=a->bgimage_lt[1]=a->bgimage_rb[0]=a->bgimage_rb[1]=0;
+
+  int w=a->bgimage->getWidth();
+  int h=a->bgimage->getHeight();
+  if (w>1&&h>1 && LICE_GetPixel(a->bgimage,0,0)==LICE_RGBA(255,0,255,255) &&
+      LICE_GetPixel(a->bgimage,w-1,h-1)==LICE_RGBA(255,0,255,255))
+  {
+    int x;
+    for (x = 1; x < w && LICE_GetPixel(a->bgimage,x,0)==LICE_RGBA(255,0,255,255); x ++);
+    a->bgimage_lt[0] = x;
+    for (x = w-2; x > a->bgimage_lt[0]+1 && LICE_GetPixel(a->bgimage,x,h-1)==LICE_RGBA(255,0,255,255); x --);
+    a->bgimage_rb[0] = w-1-x;
+
+    for (x = 1; x < h && LICE_GetPixel(a->bgimage,0,x)==LICE_RGBA(255,0,255,255); x ++);
+    a->bgimage_lt[1] = x;
+    for (x = h-2; x > a->bgimage_lt[1]+1 && LICE_GetPixel(a->bgimage,w-1,x)==LICE_RGBA(255,0,255,255); x --);
+    a->bgimage_rb[1] = h-1-x;
+  }
+
+}
+
+static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
+                           LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int dstw, int dsth, 
+                           float srcx, float srcy, float srcw, float srch, float alpha, int mode)
+{
+  if (dstw<1||dsth<1 || dstx+dstw < clipx || dstx > clipright ||
+      dsty+dsth < clipy || dsty > clipbottom) 
+  {
+    return; // dont draw if fully outside
+  }
+
+  if (dstx < clipx || dsty < clipy || 
+      dstx+dstw > clipright || dsty+dsth > clipbottom) 
+  {
+    float xsc=(float)srcw/dstw;
+    float ysc=(float)srch/dsth;
+
+    if (dstx<clipx)
+    {
+      int diff=clipx-dstx;
+      srcx += xsc*diff;
+      srcw -= xsc*diff;
+      dstw -= diff;
+      dstx += diff;
+    }
+    if (dsty<clipy)
+    {
+      int diff=clipy-dsty;
+      srcy += ysc*diff;
+      srch -= ysc*diff;
+      dsth -= diff;
+      dsty += diff;
+    }
+    if (dstx+dstw > clipright)
+    {
+      int diff=clipright-dstx-dstw;
+      dstw -= diff;
+      srcw -= diff*xsc;
+    }
+    if (dsty+dsth > clipbottom)
+    {
+      int diff=clipbottom-dsty-dsth;
+      dsth -= diff;
+      srch -= diff*ysc;
+    }
+
+  }
+
+  if (dstw>0&&dsth>0)
+    LICE_ScaledBlit(dest,src,dstx,dsty,dstw,dsth,srcx,srcy,srcw,srch,alpha,mode);
+}
+
+void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest, 
+                                 WDL_VirtualWnd_BGCfg *src,
+                                 int destx, int desty, int destw, int desth,
+                                 int clipx, int clipy, int clipw, int cliph,
+                                 float alpha, int mode)
+{
+  // todo: blit clipping optimizations
+  if (!src || !src->bgimage) return;
+
+  int left_margin=src->bgimage_lt[0];
+  int top_margin=src->bgimage_lt[1];
+  int right_margin=src->bgimage_rb[0];
+  int bottom_margin=src->bgimage_rb[1];
+
+  int sw=src->bgimage->getWidth();
+  int sh=src->bgimage->getHeight();
+
+  int clipright=clipx+clipw;
+  int clipbottom=clipy+cliph;
+
+  if (clipx<destx) clipx=destx;
+  if (clipy<desty) clipy=desty;
+  if (clipright>destx+destw) clipright=clipx+destw;
+  if (clipbottom>desty+desth) clipbottom=clipy+desth;
+  
+  if (left_margin<1||top_margin<1||right_margin<1||bottom_margin<1) 
+  {
+    float xsc=(float)sw/destw;
+    float ysc=(float)sh/desth;
+
+
+    LICE_ScaledBlit(dest,src->bgimage,
+      clipx,clipy,clipright-clipx,clipbottom-clipy,
+      (clipx-destx)*xsc,
+      (clipy-desty)*ysc,
+      (clipright-clipx)*xsc,
+      (clipbottom-clipy)*ysc,
+      alpha,mode);
+
+    return;
+  }
+
+  // remove 1px additional margins from calculations
+  left_margin--; top_margin--; right_margin--; bottom_margin--;
+
+  if (left_margin>destw/2) left_margin=destw/2;
+  if (top_margin>desth/2) top_margin=desth/2;
+  if (right_margin>destw/2) right_margin=destw/2;
+  if (bottom_margin>desth/2) bottom_margin=desth/2;
+  
+  int pass;
+  for (pass=0;pass<3; pass++)
+  {
+    int outy,outh,iny;
+    int inh;    
+    switch (pass)
+    {
+      case 0:
+        outy=desty;
+        outh=top_margin;
+        iny=1;
+        inh=src->bgimage_lt[1]-1;
+      break;
+      case 1:
+        outy=desty+top_margin;
+        outh=desth-top_margin-bottom_margin;
+        iny=src->bgimage_lt[1];
+        inh=sh-src->bgimage_lt[1]-src->bgimage_rb[1];
+      break;
+      case 2:
+        outy=desty+desth-bottom_margin;
+        outh=bottom_margin;
+        iny=sh - src->bgimage_rb[1];
+        inh=src->bgimage_rb[1]-1;
+      break;
+    }
+    
+    if (outh > 0 && inh > 0)
+    {
+
+      // left 
+      if (left_margin > 0)
+        __VirtClipBlit(clipx,clipy,clipright,clipbottom,dest,src->bgimage,destx,outy,left_margin,outh,
+                             1,iny,src->bgimage_lt[0]-1,inh,alpha,mode);
+      // center
+      __VirtClipBlit(clipx,clipy,clipright,clipbottom,dest,src->bgimage,destx+left_margin,outy,
+                              destw-right_margin-left_margin,outh,
+                           src->bgimage_lt[0],iny,
+                           sw-src->bgimage_lt[0]-src->bgimage_rb[0],
+                           inh,alpha,mode);
+      // right
+      if (right_margin > 0)
+        __VirtClipBlit(clipx,clipy,clipright,clipbottom,dest,src->bgimage,destx+destw-right_margin,outy, right_margin,outh,
+                             sw-src->bgimage_rb[0],iny,
+                             src->bgimage_rb[0]-1,inh,alpha,mode); 
+    }
+  }
+}
+
+int WDL_VirtualWnd_ScaledBG_GetPix(WDL_VirtualWnd_BGCfg *src,
+                                   int ww, int wh,
+                                   int x, int y)
+{
+  if (!src->bgimage) return 0;
+  int imgw=src->bgimage->getWidth();
+  int imgh=src->bgimage->getHeight();
+
+  int left_margin=src->bgimage_lt[0];
+  int top_margin=src->bgimage_lt[1];
+  int right_margin=src->bgimage_rb[0];
+  int bottom_margin=src->bgimage_rb[1];
+
+  if (left_margin<1||top_margin<1||right_margin<1||bottom_margin<1) 
+  {
+    if (ww<1)ww=1;
+    x=(x * imgw)/ww;
+    if (wh<1)wh=1;
+    y=(y * imgh)/wh;
+  }
+  else
+  {
+    // remove 1px additional margins from calculations
+    left_margin--; top_margin--; right_margin--; bottom_margin--;
+
+    if (x >= ww-right_margin) x=imgw-1- (ww-x);
+    else if (x >= left_margin)
+    {
+      int xd=ww-left_margin-right_margin;
+      if (xd<1)xd=1;
+      x=src->bgimage_lt[0] + 
+        (x-left_margin) * (imgw-src->bgimage_lt[0]-src->bgimage_rb[0])/xd;
+    }
+    else x++; 
+
+    if (y >= wh-bottom_margin) y=imgh -1- (wh-y);
+    else if (y >= top_margin)
+    {
+      int yd=wh-top_margin-bottom_margin;
+      if (yd<1)yd=1;
+      y=src->bgimage_lt[1] + 
+        (y-top_margin) * (imgh-src->bgimage_lt[1]-src->bgimage_rb[1])/yd;
+    }
+    else y++; 
+  }
+
+  return LICE_GetPixel(src->bgimage,x,y);
+}
 

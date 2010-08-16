@@ -411,14 +411,12 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
   r.top += origin_y;
   r.bottom += origin_y;
 
-  if (m_bkbm && *m_bkbm)
+  if (m_bkbm && m_bkbm->bgimage)
   {
-    LICE_IBitmap *bm=*m_bkbm;    
-    LICE_ScaledBlit(drawbm,bm,r.left,r.top,
-      r.right-r.left,
-      r.bottom-r.top,
-      0.0f,0.0f,(float)bm->getWidth(),(float)bm->getHeight(),1.0f,
-      LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
+    WDL_VirtualWnd_ScaledBlitBG(drawbm,m_bkbm,
+      r.left,r.top,r.right-r.left,r.bottom-r.top,
+      r.left,r.top,r.right-r.left,r.bottom-r.top,
+      1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
 
 #if 0
     if (m_bg!=-1 && m_bg!=RGB(255,255,255) && bm->getWidth() && bm->getHeight()) 
