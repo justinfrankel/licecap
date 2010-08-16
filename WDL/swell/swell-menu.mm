@@ -24,6 +24,7 @@
 
 
 #include "swell.h"
+#import <Cocoa/Cocoa.h>
 
 
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)

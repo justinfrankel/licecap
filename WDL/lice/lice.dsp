@@ -263,6 +263,10 @@ SOURCE=.\lice_bmp.cpp
 
 SOURCE=.\lice_png.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=.\lice_texgen.cpp
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -270,6 +274,10 @@ SOURCE=.\lice_png.cpp
 # Begin Source File
 
 SOURCE=.\lice.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lice_combine.h
 # End Source File
 # End Group
 # End Target

@@ -3,7 +3,7 @@
 
 /*
   Cockos WDL - LICE - Lightweight Image Compositing Engine
-  Version 0.01, May 7 2007
+  Version 0.02, June 17 2007
 
   Copyright (C) 2007 and later, Cockos Incorporated
 
@@ -147,6 +147,8 @@ LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 #define LICE_BLIT_MODE_COPY 0
 #define LICE_BLIT_MODE_ADD 1
 
+#define LICE_BLIT_MODE_CHANCOPY 0xf0 // in this mode, only available for LICE_Blit(), the low nibble is 2 bits of source channel (low 2), 2 bits of dest channel (high 2)
+
 #define LICE_BLIT_FILTER_MASK 0xff00
 #define LICE_BLIT_FILTER_NONE 0
 #define LICE_BLIT_FILTER_BILINEAR 0x100 // currently pretty slow! ack
@@ -185,11 +187,40 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
                     double dsdx, double dtdx, double dsdy, double dtdy,                   
                     bool cliptosourcerect, float alpha, int mode);
 
+
+// only LICE_BLIT_MODE_ADD or LICE_BLIT_MODE_COPY are used by this, for flags
+// ir-ia should be 0.0..1.0 (or outside that and they'll be clamped)
+// drdx should be X/dstw, drdy X/dsth etc
+void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth, 
+                      float ir, float ig, float ib, float ia,
+                      float drdx, float dgdx, float dbdx, float dadx,
+                      float drdy, float dgdy, float dbdy, float dady,
+                      int mode);
+
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color);
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask=0, LICE_pixel orbits=0);
 
 void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color);
 
+
+
+// texture generators
+void LICE_TexGen_Marble(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float intensity); //fills whole bitmap if rect == NULL
+
+//this function generates a Perlin noise
+//fills whole bitmap if rect == NULL
+//smooth needs to be a multiple of 2
+enum
+{
+  NOISE_MODE_NORMAL = 0,
+  NOISE_MODE_WOOD,
+};
+void LICE_TexGen_Noise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float intensity, int mode=NOISE_MODE_NORMAL, int smooth=1); 
+
+//this function generates a Perlin noise in a circular fashion
+//fills whole bitmap if rect == NULL
+//size needs to be a multiple of 2
+void LICE_TexGen_CircNoise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float nrings, float power, int size);
 
 
 /*

@@ -71,13 +71,18 @@ void WDL_VirtualIconButton::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *c
   }
   if (m_iconPtr && *m_iconPtr)
   {
-    int x=origin_x+((m_position.right-m_position.left)-16)/2;
-    int y=origin_y+((m_position.bottom-m_position.top)-16)/2;
+    int sz=16,sz2=16;
+    WDL_STYLE_ScaleImageCoords(&sz,&sz2);
+
+    //if (m_position.right-m_position.left > 24) sz=m_position.right-m_position.left-8;
+    
+    int x=origin_x+((m_position.right-m_position.left)-sz)/2;
+    int y=origin_y+((m_position.bottom-m_position.top)-sz2)/2;
     if ((m_pressed&3)==3) { x++; y++; }
 #ifdef _WIN32
-    DrawIconEx(hdc,x,y,*m_iconPtr,16,16,0,NULL,DI_NORMAL);
+    DrawIconEx(hdc,x,y,*m_iconPtr,sz,sz2,0,NULL,DI_NORMAL);
 #else
-    RECT r={x,y,x+16,y+16};
+    RECT r={x,y,x+sz,y+sz2};
     DrawImageInRect(hdc,*m_iconPtr,&r);
 #endif
   }
@@ -149,12 +154,15 @@ void WDL_VirtualIcon::OnPaint(HDC hdc, int origin_x, int origin_y, RECT *cliprec
 { 
   if (m_iconPtr && *m_iconPtr)
   {
-    int x=origin_x+((m_position.right-m_position.left)-16)/2;
-    int y=origin_y+((m_position.bottom-m_position.top)-16)/2;
+    int sz=16,sz2=16;
+    WDL_STYLE_ScaleImageCoords(&sz,&sz2);
+
+    int x=origin_x+((m_position.right-m_position.left)-sz)/2;
+    int y=origin_y+((m_position.bottom-m_position.top)-sz2)/2;
 #ifdef _WIN32
-    DrawIconEx(hdc,x,y,*m_iconPtr,16,16,0,NULL,DI_NORMAL);
+    DrawIconEx(hdc,x,y,*m_iconPtr,sz,sz2,0,NULL,DI_NORMAL);
 #else
-    RECT r={x,y,x+16,y+16};
+    RECT r={x,y,x+sz,y+sz2};
     DrawImageInRect(hdc,*m_iconPtr,&r);
 #endif
   }
@@ -201,7 +209,7 @@ bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
     if (h) 
     {
       ClientToScreen(h,&p);
-      SetFocus(h);
+      //SetFocus(h);
     }
     int ret=TrackPopupMenu(menu,TPM_LEFTALIGN|TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,NULL);
 

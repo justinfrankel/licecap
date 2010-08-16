@@ -224,6 +224,7 @@ private:
 extern int WDL_STYLE_WantGlobalButtonBorders();
 extern bool WDL_STYLE_WantGlobalButtonBackground(int *col);
 extern int WDL_STYLE_GetSysColor(int);
+extern void WDL_STYLE_ScaleImageCoords(int *x, int *y);
 
 // this is the default, you can override per painter if you want
 extern bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope); // return values 0.0-1.0 for each, return false if no gradient desired

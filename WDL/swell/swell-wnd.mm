@@ -26,6 +26,31 @@
 
 #import <Cocoa/Cocoa.h>
 #include "swell.h"
+#include "../mutex.h"
+#include "../ptrlist.h"
+
+
+@interface simpleDataHold : NSObject
+{
+  int m_data;
+}
+-(id) initWithVal:(int)val;
+-(int) getValue;
+@end
+@implementation simpleDataHold
+-(id) initWithVal:(int)val
+{
+  if ((self = [super init]))
+  {
+    m_data=val;
+  }
+  return self;
+}
+-(int) getValue
+{
+  return m_data;
+}
+@end
 
 HWND GetDlgItem(HWND hwnd, int idx)
 {
@@ -196,6 +221,33 @@ void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flag
 }
 
 
+HWND GetParent(HWND hwnd)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[NSView class]]) return 0;
+  return (HWND)[(NSView *)hwnd superview];
+}
+
+HWND SetParent(HWND hwnd, HWND newPar)
+{
+  NSView *v=(NSView *)hwnd;
+  if (!v || ![(id)v isKindOfClass:[NSView class]]) return 0;
+  HWND ret=(HWND) [v superview];
+  if (ret) 
+  {
+    [v retain];
+    [v removeFromSuperview];
+  }
+  NSView *np=(NSView *)newPar;
+  if (np && [np isKindOfClass:[NSWindow class]]) np=[(NSWindow *)np contentView];
+  
+  if (np && [np isKindOfClass:[NSView class]])
+  {
+    [np addSubview:v];
+    [v release];
+  }
+}
+
+
 int IsChild(HWND hwndParent, HWND hwndChild)
 {
   if (!hwndParent || !hwndChild || hwndParent == hwndChild) return 0;
@@ -221,6 +273,48 @@ HWND GetFocus()
   if (ret && [ret isKindOfClass:[NSView class]]) return (HWND) ret;
   return 0;
 }
+
+
+// timer stuff
+typedef struct
+{
+  int timerid;
+  HWND hwnd;
+  NSTimer *timer;
+} TimerInfoRec;
+static WDL_PtrList<TimerInfoRec> m_timerlist;
+static WDL_Mutex m_timermutex;
+void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
+{
+  if (!hwnd) return;
+  WDL_MutexLock lock(&m_timermutex);
+  KillTimer(hwnd,timerid);
+  TimerInfoRec *rec=(TimerInfoRec*)malloc(sizeof(TimerInfoRec));
+  rec->timerid=timerid;
+  rec->hwnd=hwnd;
+  
+  simpleDataHold *t=[[simpleDataHold alloc] initWithVal:timerid];
+  rec->timer = [NSTimer scheduledTimerWithTimeInterval:1.0/max(rate,1) target:(id)hwnd selector:@selector(SWELL_Timer:) 
+                                              userInfo:t repeats:YES];
+  [t release];
+  m_timerlist.Add(rec);
+  
+}
+void KillTimer(HWND hwnd, int timerid)
+{
+  WDL_MutexLock lock(&m_timermutex);
+  int x;
+  for (x = 0; x < m_timerlist.GetSize(); x ++)
+  {
+    if (m_timerlist.Get(x)->timerid == timerid && m_timerlist.Get(x)->hwnd == hwnd)
+    {
+      [m_timerlist.Get(x)->timer invalidate];
+      m_timerlist.Delete(x,true,free);
+      break;
+    }
+  }
+}
+
 
 
 void SetDlgItemText(HWND hwnd, int idx, const char *text)
@@ -264,6 +358,36 @@ int IsDlgButtonChecked(HWND hwnd, int idx)
   return 0;
 }
 
+void SWELL_TB_SetPos(HWND hwnd, int idx, int pos)
+{
+  NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
+  if (!p || ![p isKindOfClass:[NSSlider class]]) return;
+  
+  [p setDoubleValue:(double)pos];
+}
+
+void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi)
+{
+  NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
+  if (!p || ![p isKindOfClass:[NSSlider class]]) return;
+  [p setMinValue:low];
+  [p setMaxValue:hi];
+}
+
+int SWELL_TB_GetPos(HWND hwnd, int idx)
+{
+  NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
+  if (!p || ![p isKindOfClass:[NSSlider class]]) return 0;
+  return (int) ([p doubleValue]+0.5);
+}
+
+void SWELL_TB_SetTic(HWND hwnd, int idx, int pos)
+{
+  NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
+  if (!p || ![p isKindOfClass:[NSSlider class]]) return;
+}
+
+
 int SWELL_CB_AddString(HWND hwnd, int idx, const char *str)
 {
   NSString *label=(NSString *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
@@ -299,27 +423,7 @@ int SWELL_CB_GetNumItems(HWND hwnd, int idx)
   return [(NSComboBox *)GetDlgItem(hwnd,idx) numberOfItems];
 }
 
-@interface comboBoxDataHold : NSObject
-{
-  int m_data;
-}
--(id) initWithVal:(int)val;
--(int) getval;
-@end
-@implementation comboBoxDataHold
--(id) initWithVal:(int)val
-{
-  if ((self = [super init]))
-  {
-    m_data=val;
-  }
-  return self;
-}
--(int) getval
-{
-  return m_data;
-}
-@end
+
 
 void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, int data)
 {
@@ -329,7 +433,7 @@ void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, int data)
   if (!it) return;
   
   // todo: does this need to free the old one? thinking not
-  comboBoxDataHold *p=[[comboBoxDataHold alloc] initWithVal:data];
+  simpleDataHold *p=[[simpleDataHold alloc] initWithVal:data];
   
   [it setRepresentedObject:p];
   
@@ -343,8 +447,8 @@ int SWELL_CB_GetItemData(HWND hwnd, int idx, int item)
   NSMenuItem *it=[cb itemAtIndex:item];
   if (!it) return 0;
   id p= [it representedObject];
-  if (!p || ![p isKindOfClass:[comboBoxDataHold class]]) return 0;
-  return [p getval];
+  if (!p || ![p isKindOfClass:[simpleDataHold class]]) return 0;
+  return [p getValue];
 }
 
 void SWELL_CB_Empty(HWND hwnd, int idx)
@@ -470,9 +574,12 @@ static void UpdateAutoCoords(NSRect r)
 
 static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
 {
+  float ysc=m_transform.size.height;
   NSRect ret= NSMakeRect((x+m_transform.origin.x)*m_transform.size.width,  
-                    m_parent_h - ((y+m_transform.origin.y) + h)*m_transform.size.height,
-                    w*m_transform.size.width,h*m_transform.size.height);
+                         ysc >= 0.0 ? m_parent_h - ((y+m_transform.origin.y) + h)*ysc : 
+                         ((y+m_transform.origin.y) )*-ysc
+                         ,
+                    w*m_transform.size.width,h*fabs(ysc));
   NSRect oret=ret;
   if (wantauto && m_doautoright)
   {
@@ -522,6 +629,7 @@ void SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   [obj setFrame:MakeCoords(x,y,w,h,true)];
   [obj setTarget:ACTIONTARGET];
   [obj setAction:@selector(onCommand:)];
+  [obj setDelegate:ACTIONTARGET];
   [m_parent addSubview:obj];
   if (m_doautoright) UpdateAutoCoords([obj frame]);
   
@@ -665,6 +773,7 @@ void SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setFrame:MakeCoords(x,y-1,w,14,true)];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onCommand:)];
+    [obj setDelegate:ACTIONTARGET];
     [m_parent addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
     [obj release];

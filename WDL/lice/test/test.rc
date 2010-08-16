@@ -52,14 +52,24 @@ END
 // Dialog
 //
 
-IDD_DIALOG1 DIALOG DISCARDABLE  0, 0, 366, 274
+IDD_DIALOG1 DIALOG DISCARDABLE  0, 0, 398, 270
 STYLE WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
-CAPTION "Test blah"
+CAPTION "LICE Test App"
 FONT 8, "MS Sans Serif"
 BEGIN
+    CONTROL         "",IDC_RECT,"Static",SS_BLACKRECT | NOT WS_VISIBLE | 
+                    WS_DISABLED,7,23,384,239
+    COMBOBOX        IDC_COMBO1,7,7,181,170,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
 END
 
-IDC_PNG1            PNG  DISCARDABLE     "image.png"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// PNG
+//
+
+IDC_PNG1                PNG     DISCARDABLE     "image.png"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -72,9 +82,9 @@ BEGIN
     IDD_DIALOG1, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 359
+        RIGHTMARGIN, 391
         TOPMARGIN, 7
-        BOTTOMMARGIN, 267
+        BOTTOMMARGIN, 263
     END
 END
 #endif    // APSTUDIO_INVOKED

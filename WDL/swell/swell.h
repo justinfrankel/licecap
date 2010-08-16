@@ -171,12 +171,16 @@ void EnableWindow(HWND hwnd, int enable);
 void SetFocus(HWND hwnd); // these take NSWindow/NSView, and return NSView *
 HWND GetFocus();
 int IsChild(HWND hwndParent, HWND hwndChild);
+HWND GetParent(HWND hwnd);
+HWND SetParent(HWND hwnd, HWND newPar);
 void ClientToScreen(HWND hwnd, POINT *p);
 void ScreenToClient(HWND hwnd, POINT *p);
 void GetWindowRect(HWND hwnd, RECT *r);
 void GetClientRect(HWND hwnd, RECT *r);
 void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags);
 
+void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed);
+void KillTimer(HWND hwnd, int timerid);
 
 int SWELL_CB_AddString(HWND hwnd, int idx, const char *str);
 void SWELL_CB_SetCurSel(HWND hwnd, int idx, int sel);
@@ -185,6 +189,11 @@ int SWELL_CB_GetNumItems(HWND hwnd, int idx);
 void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, int data); // these two only work for the combo list version for now
 int SWELL_CB_GetItemData(HWND hwnd, int idx, int item);
 void SWELL_CB_Empty(HWND hwnd, int idx);
+
+void SWELL_TB_SetPos(HWND hwnd, int idx, int pos);
+void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi);
+int SWELL_TB_GetPos(HWND hwnd, int idx);
+void SWELL_TB_SetTic(HWND hwnd, int idx, int pos);
 
 #define BST_CHECKED 1
 #define BST_UNCHECKED 0
@@ -433,6 +442,11 @@ int GetSysColor(int idx);
 #define SWELL_CB_SetItemData(hwnd,idx,item,val) SendDlgItemMessage(hwnd,idx,CB_SETITEMDATA,item,val)
 #define SWELL_CB_GetItemData(hwnd,idx,item) SendDlgItemMessage(hwnd,idx,CB_GETITEMDATA,item,0)
 #define SWELL_CB_Empty(hwnd,idx) SendDlgItemMessage(hwnd,idx,CB_RESETCONTENT,0,0)
+
+#define SWELL_TB_SetPos(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx, TBM_SETPOS,TRUE,pos)
+#define SWELL_TB_SetRange(hwnd, idx, low, hi) SendDlgItemMessage(hwnd,idx,TBM_SETRANGE,TRUE,(LPARAM)MAKELONG(low,hi))
+#define SWELL_TB_GetPos(hwnd, idx) SendDlgItemMessage(hwnd,idx,TBM_GETPOS,0,0)
+#define SWELL_TB_SetTic(hwnd, idx, pos) SendDlgItemMessage(hwnd,idx,TBM_SETTIC,0,pos)
 
 #endif//_WIN32
 
