@@ -37,10 +37,8 @@ WDL_VWnd_Painter::WDL_VWnd_Painter()
   m_bm=0;
   m_bgbm=0;
 
+  m_paint_xorig=m_paint_yorig=0;
   m_cur_hwnd=0;
-#ifndef _WIN32
-  m_cur_hwnd_mode=0;
-#endif
   m_wantg=-1;
   m_gradstart=0.5;
   m_gradslope=0.2;
@@ -79,7 +77,7 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
   //    if (rpos+=4>wnd_w)rpos=wnd_w; // for some reason drawing the extra line is necessary for some paints on windows
       int lpos=clipr->left;
     //  if (lpos-=4<0) lpos=0;
-      WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,0,0,wnd_w,wnd_h,
+      WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,-m_paint_xorig,-m_paint_yorig,wnd_w,wnd_h,
                                   lpos,clipr->top,
                                   rpos-lpos,
                                   bpos-clipr->top,
@@ -240,53 +238,50 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
   {
     if (BeginPaint(hwnd,&m_ps)) 
     {
-#ifndef _WIN32
-      m_cur_hwnd_mode=0;
-#endif
       m_cur_hwnd=hwnd;
     }
     if (m_cur_hwnd)
     {
       RECT r;
       GetClientRect(m_cur_hwnd,&r);
-      int wnd_w=r.right-r.left,wnd_h=r.bottom-r.top;
+      int fwnd_w=r.right-r.left,fwnd_h=r.bottom-r.top;
+      if (fwnd_h<0)fwnd_h=-fwnd_h;
+
+      int wnd_w,wnd_h;
+      
+      if (fwnd_w < 2048 && fwnd_h < 2048)
+      {
+        m_paint_xorig=m_paint_yorig=0;
+        wnd_w=fwnd_w;
+        wnd_h=fwnd_h;
+      }
+      else // alternate large canvas mode 
+      {
+        m_paint_xorig=m_ps.rcPaint.left;
+        m_paint_yorig=m_ps.rcPaint.top;
+        wnd_w = m_ps.rcPaint.right-m_ps.rcPaint.left;
+        wnd_h = m_ps.rcPaint.bottom - m_ps.rcPaint.top;
+      }
       
       if (wnd_h<0)wnd_h=-wnd_h;
 
-      if (!m_bm)
-        m_bm=new LICE_SysBitmap;
+      if (!m_bm) m_bm=new LICE_SysBitmap;
       
       if (m_bm->getWidth()<wnd_w || m_bm->getHeight() < wnd_h)
+      {
         m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
+      }
 
-      DoPaintBackground(bgcolor,&m_ps.rcPaint, wnd_w, wnd_h);
+      r=m_ps.rcPaint;
+      r.left-=m_paint_xorig;
+      r.right-=m_paint_xorig;
+      r.top-=m_paint_yorig;
+      r.bottom-=m_paint_yorig;
+      DoPaintBackground(bgcolor,&r, fwnd_w, fwnd_h);
     }
   }
 }
 
-#ifndef _WIN32
-
-void WDL_VWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
-{
-  if (!ctx) return;
-  if (!m_cur_hwnd)
-  {
-    m_cur_hwnd=(HWND)ctx;
-    m_cur_hwnd_mode=1;
-    m_ps.hdc=0;
-    m_ps.rcPaint=*clipr;      
-      
-    if (!m_bm)
-       m_bm=new LICE_SysBitmap;
-        
-    if (m_bm->getWidth()<wnd_w || m_bm->getHeight() < wnd_h)
-      m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
-        
-     DoPaintBackground(bgcolor,&m_ps.rcPaint, wnd_w, wnd_h);
-        
-  }
-}  
-#endif
 
 #ifdef _WIN32
 typedef struct
@@ -318,9 +313,9 @@ static BOOL CALLBACK enumProc(HWND hwnd,LPARAM lParam)
 void WDL_VWnd_Painter::PaintEnd()
 {
   if (!m_cur_hwnd) return;
-#ifdef _WIN32
   if (m_bm)
   {
+#ifdef _WIN32
     HRGN rgnsave=0;
     if (1)
     {
@@ -338,39 +333,22 @@ void WDL_VWnd_Painter::PaintEnd()
     BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,
-                    m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
+                    m_bm->getDC(),m_ps.rcPaint.left-m_paint_xorig,m_ps.rcPaint.top-m_paint_yorig,SRCCOPY);
 
     if (rgnsave)
     {
       SelectClipRgn(m_ps.hdc,rgnsave);
       DeleteObject(rgnsave);
     }
+#else
+    SWELL_SyncCtxFrameBuffer(m_bm->getDC());
+    BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+           m_ps.rcPaint.right-m_ps.rcPaint.left,
+           m_ps.rcPaint.bottom-m_ps.rcPaint.top,
+           m_bm->getDC(),m_ps.rcPaint.left-m_paint_xorig,m_ps.rcPaint.top-m_paint_yorig,SRCCOPY);
+#endif
   }
   EndPaint(m_cur_hwnd,&m_ps);
-#else
-  if (m_bm)
-  {
-    SWELL_SyncCtxFrameBuffer(m_bm->getDC());
-    if (m_cur_hwnd_mode)
-    {
-      HDC hdc=WDL_GDP_CreateContext(m_cur_hwnd);
-      BitBlt(hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
-                    m_ps.rcPaint.right-m_ps.rcPaint.left,
-                    m_ps.rcPaint.bottom-m_ps.rcPaint.top,
-                    m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
-
-      WDL_GDP_DeleteContext(hdc);
-    }
-    else
-    {
-      BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
-             m_ps.rcPaint.right-m_ps.rcPaint.left,
-             m_ps.rcPaint.bottom-m_ps.rcPaint.top,
-             m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
-      EndPaint(m_cur_hwnd,&m_ps);
-    }
-  }
-#endif
   m_cur_hwnd=0;
 }
 
@@ -381,6 +359,7 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 
   RECT r;
   vwnd->GetPosition(&r);
+  
 
   if (tr.left<r.left) tr.left=r.left;
   if (tr.right>r.right) tr.right=r.right;
@@ -389,16 +368,16 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 
   if (tr.bottom > tr.top && tr.right > tr.left)
   {
-    tr.left -= r.left;
-    tr.right -= r.left;
-    tr.top -= r.top;
-    tr.bottom -= r.top;
-    vwnd->OnPaint(m_bm,0,0,&tr);
+    tr.left -= r.left+m_paint_xorig;
+    tr.right -= r.left+m_paint_xorig;
+    tr.top -= r.top+m_paint_yorig;
+    tr.bottom -= r.top+m_paint_yorig;
+    vwnd->OnPaint(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
     if (borderflags)
     {
       PaintBorderForRect(&r,borderflags);
     }
-    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,0,0,&tr);
+    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
 
   }
 }
@@ -420,6 +399,13 @@ void WDL_VWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
 void WDL_VWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
 {
   if (!m_bm|| !m_cur_hwnd||!borderflags) return;
+  RECT rrr = *r;
+  rrr.left-=m_paint_xorig;
+  rrr.right-=m_paint_xorig;
+  rrr.top-=m_paint_yorig;
+  rrr.bottom-=m_paint_yorig;
+  r=&rrr;
+
 
   HPEN pen=CreatePen(PS_SOLID,0,m_GSC?m_GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT));
   HPEN pen2=CreatePen(PS_SOLID,0,m_GSC?m_GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW));

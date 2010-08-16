@@ -1,3 +1,4 @@
+2008-06-02: SWELL: many more bugfixes, initial work on 64 bit support, more
 2008-05-05: SWELL: huge updates (too much to list)
 2008-04-28: LICE: schwa's updated lice_bezier with support for quadratic nurbs
 2008-04-27: SWELL: updates to EndDialog, added rc2cpp_dlg.php

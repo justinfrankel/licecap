@@ -279,10 +279,15 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
 
 static void *__threadproc(void *parm)
 {
+  void *arp=SWELL_InitAutoRelease();
+  
   SWELL_InternalObjectHeader_Thread *t=(SWELL_InternalObjectHeader_Thread*)parm;
   t->retv=t->threadProc(t->threadParm);  
   t->done=1;
   CloseHandle(parm);  
+
+  SWELL_QuitAutoRelease(arp);
+  
   pthread_exit(0);
   return 0;
 }
@@ -309,6 +314,7 @@ HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *igno
 
 HANDLE CreateThread(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut)
 {
+  SWELL_EnsureMultithreadedCocoa();
   SWELL_InternalObjectHeader_Thread *buf = (SWELL_InternalObjectHeader_Thread *)malloc(sizeof(SWELL_InternalObjectHeader_Thread));
   buf->hdr.type=INTERNAL_OBJECT_THREAD;
   buf->hdr.count=2;
@@ -376,6 +382,53 @@ BOOL ResetEvent(HANDLE hand)
   evt->isSignal=false;
   
   return TRUE;
+}
+
+
+
+BOOL WinOffsetRect(LPRECT lprc, int dx, int dy)
+{
+  if(!lprc) return 0;
+  lprc->left+=dx;
+  lprc->top+=dy;
+  lprc->right+=dx;
+  lprc->bottom+=dy;
+  return TRUE;
+}
+
+BOOL WinSetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
+{
+  if(!lprc) return 0;
+  lprc->left = xLeft;
+  lprc->top = yTop;
+  lprc->right = xRight;
+  lprc->bottom = yBottom;
+  return TRUE;
+}
+
+
+int WinIntersectRect(RECT *out, RECT *in1, RECT *in2)
+{
+  memset(out,0,sizeof(RECT));
+  if (in1->right <= in1->left) return false;
+  if (in2->right <= in2->left) return false;
+  if (in1->bottom <= in1->top) return false;
+  if (in2->bottom <= in2->top) return false;
+  
+  // left is maximum of minimum of right edges and max of left edges
+  out->left = max(in1->left,in2->left);
+  out->right = min(in1->right,in2->right);
+  out->top=max(in1->top,in2->top);
+  out->bottom = min(in1->bottom,in2->bottom);
+  
+  return out->right>out->left && out->bottom>out->top;
+}
+void WinUnionRect(RECT *out, RECT *in1, RECT *in2)
+{
+  out->left = min(in1->left,in2->left);
+  out->top = min(in1->top,in2->top);
+  out->right=max(in1->right,in2->right);
+  out->bottom=max(in1->bottom,in2->bottom);
 }
 
 

@@ -317,6 +317,44 @@ static void (*remove_buf)(void *);
 
 #endif
 
+#ifdef __APPLE__
+#include <Carbon/Carbon.h>
+#include <dlfcn.h>
+#define DYNAMIC_LAME
+#endif
+
+#ifdef DYNAMIC_LAME
+
+typedef enum MPEG_mode_e {
+  STEREO = 0,
+  JOINT_STEREO,
+  DUAL_CHANNEL,   /* LAME doesn't supports this! */
+  MONO,
+  NOT_SET,
+  MAX_INDICATOR   /* Don't use this! It's used for sanity checks. */
+} MPEG_mode;
+
+
+static int (*lame_close)(lame_t);
+static lame_t (*lame_init)();
+static int (*lame_set_in_samplerate)(lame_t, int);
+static int (*lame_set_num_channels)(lame_t,int);
+static int (*lame_set_out_samplerate)(lame_t,int);
+static int (*lame_set_quality)(lame_t,int);
+static int (*lame_set_mode)(lame_t,MPEG_mode);
+static int (*lame_set_brate)(lame_t, int);
+static int (*lame_init_params)(lame_t);
+static int (*lame_get_framesize)(lame_t);
+static int (*lame_encode_buffer_float)(lame_t,
+        const float     buffer_l [],       /* PCM data for left channel     */
+        const float     buffer_r [],       /* PCM data for right channel    */
+        const int           nsamples,      /* number of samples per channel */
+        unsigned char*      mp3buf,        /* pointer to encoded MP3 stream */
+        const int           mp3buf_size ); 
+static int (*lame_encode_flush)(lame_t,unsigned char*       mp3buf,  int                  size);
+
+#endif
+
 
 static void initdll()
 {
@@ -350,15 +388,73 @@ static void initdll()
     }
 
   }
+#elif defined(DYNAMIC_LAME)
+  static int a;
+  static void *dll;
+  if (!dll&&!a)
+  {
+    a=1;
+    if (!dll) dll=dlopen("libmp3lame.dylib",RTLD_LAZY);
+    if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.dylib",RTLD_LAZY);
+    if (!dll) dll=dlopen("/usr/lib/libmp3lame.dylib",RTLD_LAZY);
+#ifdef __APPLE__
+    if (!dll)
+    {
+      CFBundleRef bund=CFBundleGetMainBundle();
+      if (bund) 
+      {
+        CFURLRef url=CFBundleCopyBundleURL(bund);
+        if (url)
+        {
+          char buf[8192];
+          if (CFURLGetFileSystemRepresentation(url,true,(UInt8*)buf,sizeof(buf)-128))
+          {
+            char *p=buf;
+            while (*p) p++;
+            while (p>=buf && *p != '/') p--;
+            if (p>=buf)
+            {
+              *p=0;
+              strcpy(p,"/libmp3lame.dylib");
+              if (!dll) dll=dlopen(buf,RTLD_LAZY);
+              strcpy(p,"/Plugins/libmp3lame.dylib");
+              if (!dll) dll=dlopen(buf,RTLD_LAZY);
+            }          
+          }
+          CFRelease(url);
+        }
+      }
+#endif
+    }
+     
+    if (dll)
+    {
+    #define TURD(x) *(void **)&x = dlsym(dll,#x);
+    TURD(lame_close) 
+    TURD(lame_init) 
+    TURD(lame_set_in_samplerate) 
+    TURD(lame_set_num_channels) 
+    TURD(lame_set_out_samplerate) 
+    TURD(lame_set_quality) 
+    TURD(lame_set_mode)
+    TURD(lame_set_brate) 
+    TURD(lame_init_params)
+    TURD(lame_get_framesize) 
+    TURD(lame_encode_buffer_float) 
+    TURD(lame_encode_flush)
+    }
+  }
 #endif
 }
 
 bool LameEncoder::CheckDLL() // returns true if dll is present
 {
-#ifdef _WIN32
   initdll();
-  if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion)
-    return false;
+#ifdef _WIN32
+  if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion) return false;
+#elif defined(DYNAMIC_LAME)
+  if (!lame_close||!lame_init||!lame_set_in_samplerate||!lame_set_num_channels||!lame_set_out_samplerate||!lame_set_quality||!lame_set_mode
+      ||!lame_set_brate||!lame_init_params||!lame_get_framesize||!lame_encode_buffer_float||!lame_encode_flush) return false;
 #endif
   return true;
 }
@@ -366,24 +462,27 @@ bool LameEncoder::CheckDLL() // returns true if dll is present
 LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int quality, int vbrmethod, int vbrquality, int vbrmax, int abr)
 {
   errorstat=0;
+  initdll();
 #ifdef _WIN32
   hbeStream=0;
-  initdll();
-
-  if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion)
+  if (!CheckDLL())
   {
     errorstat=1;
     return;
   }
 #else
-
+  m_lamestate=0;
+  if (!CheckDLL())
+  {
+    errorstat=1;
+    return;
+  }
   m_lamestate=lame_init();
   if (!m_lamestate)
   {
     errorstat=1; 
     return;
   }
-
 #endif
   m_nch=nch;
 
@@ -425,7 +524,6 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   if (beInitStream(&beConfig, (DWORD*)&in_size_samples, (DWORD*)&out_size_bytes, (PHBE_STREAM) &hbeStream) != BE_ERR_SUCCESSFUL)
   {
     errorstat=2;
-    printf("error init stream\n");
     return;
   }
   in_size_samples/=m_nch;
@@ -511,7 +609,6 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_nch > 1].Get(), 
                           (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
       {
-        printf("error calling encode\n");
         errorstat=3;
         return;
       }
@@ -617,7 +714,6 @@ LameDecoder::LameDecoder()
   initdll();
   if (!InitMP3_Create||!ExitMP3_Delete||!decodeMP3_unclipped||!get_decode_info||!remove_buf)
   {
-    printf("Error loading lame_enc.dll\n");
     errorstat=1;
     return;
   }
@@ -636,7 +732,7 @@ void LameDecoder::DecodeWrote(int srclen)
     int bout;
     //decodeMP3_unclipped(void *,unsigned char *inmemory,int inmemsize,char *outmemory,int outmemsize,int *done);
     int ret=decodeMP3_unclipped(decinst,(unsigned char *)srctmp.Get(),srclen,(char *)buf,sizeof(buf),&bout);
-    if (ret == MP3_ERR) { printf("Got err\n"); errorstat=1; break; }
+    if (ret == MP3_ERR) { errorstat=1; break; }
     if (ret == MP3_NEED_MORE) { break; }
 
     if (ret == MP3_OK)

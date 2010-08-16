@@ -44,10 +44,10 @@ public:
 
 private:
 
-  unsigned long H[5];
-  unsigned long W[80];
+  unsigned int H[5];
+  unsigned int W[80];
   int lenW;
-  unsigned long size[2];
+  unsigned int size[2];
 };
 
 #endif

@@ -34,6 +34,8 @@
 #define _WDL_STRING_H_
 
 #include "heapbuf.h"
+#include <stdio.h>
+#include <stdarg.h>
 
 #ifndef WDL_STRING_IMPL_ONLY
 class WDL_String
@@ -155,12 +157,52 @@ public:
   }
 #endif
 
+  void WDL_STRING_PREFIX SetFormatted(int maxlen, const char* fmt, ...) 
+#ifdef WDL_STRING_INTF_ONLY
+    ; 
+#else
+  {
+    char* b= (char*) m_hb.Resize(maxlen+1);
+  	va_list arglist;
+		va_start(arglist, fmt);
+    #ifdef _WIN32
+		int written = _vsnprintf(b, maxlen, fmt, arglist);
+    #else
+		int written = vsnprintf(b, maxlen, fmt, arglist);
+    #endif
+    if (written < 0) written = 0;
+		va_end(arglist);
+    b[written] = '\0';
+	}
+#endif
+
+  void WDL_STRING_PREFIX AppendFormatted(int maxlen, const char* fmt, ...) 
+#ifdef WDL_STRING_INTF_ONLY
+    ; 
+#else
+  {
+    int offs=strlen(Get());
+    char* b= (char*) m_hb.Resize(offs+maxlen+1)+offs;
+  	va_list arglist;
+		va_start(arglist, fmt);
+    #ifdef _WIN32
+		int written = _vsnprintf(b, maxlen, fmt, arglist);
+    #else
+		int written = vsnprintf(b, maxlen, fmt, arglist);
+    #endif
+    if (written < 0) written = 0;
+		va_end(arglist);
+    b[written] = '\0';
+	}
+#endif
+
 #ifndef WDL_STRING_IMPL_ONLY
   char *Get()
   {
     if (m_hb.Get()) return (char *)m_hb.Get();
     return "";
   }
+  int GetLength() { return strlen(Get()); }
 
   private:
     WDL_HeapBuf m_hb;

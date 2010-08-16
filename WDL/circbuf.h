@@ -48,10 +48,11 @@ public:
   void SetSize(int size, bool keepcontents=false)
   {
     WDL_HeapBuf tmp;
-    if (keepcontents && size && NbInBuf()) 
+    if (keepcontents) 
     {
-      tmp.Resize(min(NbInBuf(),size));
-      if (tmp.GetSize()) Get(tmp.Get(),tmp.GetSize());
+      int ms=NbInBuf(); 
+      if (ms>size) ms=size;
+      if (ms>0) Get(tmp.Resize(ms),ms);
     }
     m_size = size;
     m_hb.Resize(size);

@@ -85,69 +85,66 @@
 #define RTEXT ); __SWELL_MakeLabel(1,
 #define CONTROL ); __SWELL_MakeControl(                               
 #define COMBOBOX ); __SWELL_MakeCombo(
-#define GROUPBOX ); SWELL_MakeGroupBox(
+#define GROUPBOX ); __SWELL_MakeGroupBox(
 #define CHECKBOX ); SWELL_MakeCheckBox(
 #define LISTBOX ); __SWELL_MakeListBox(
 
 #define NOT 
                                     
 // flags we may use
+#define CBS_DROPDOWNLIST 0x0003L
+#define CBS_DROPDOWN 0x0002L
+#define CBS_SORT     0x0100L
+#define ES_PASSWORD 0x0020L
+#define ES_READONLY 0x0800L
+#define ES_WANTRETURN 0x1000L
+#define ES_NUMBER 0x2000L
+                                       
+#define SS_BLACKRECT 0x4L
+#define SS_BLACKFRAME (SS_BLACKRECT)
+#define SS_LEFTNOWORDWRAP 0xCL
+#define SS_TYPEMASK 0x1FL
+#define SS_NOTIFY 0x0100L
 
-#define CBS_DROPDOWNLIST 1
-#define CBS_DROPDOWN 2
-#define ES_READONLY 1
-#define ES_NUMBER 2
-#define ES_WANTRETURN 4
-#define WS_DISABLED 1024
-#define WS_VSCROLL 2048
-#define SS_NOTFIY 1
-#define SS_BLACKRECT 2
-#define SS_BLACKFRAME SS_BLACKRECT
-#define SS_LEFTNOWORDWRAP 8
-#define LVS_LIST 0
-#define LVS_NOCOLUMNHEADER 1
-#define LVS_REPORT 2
-#define LVS_SINGLESEL 4
-#define LVS_OWNERDATA 8                                     
-#define LBS_EXTENDEDSEL 1
-#define SWELL_NOT_WS_VISIBLE 0x100000
-                                     
-// things that should be implemented sooner
-#define CBS_SORT 0
+#define BS_CENTER 0x0300L
+                                       
+#define LVS_LIST 0 /* 0x0003 */
+#define LVS_NOCOLUMNHEADER 0x4000
+#define LVS_NOSORTHEADER   0x8000
+#define LVS_REPORT 0x0001
+#define LVS_TYPEMASK 0x0003
+#define LVS_SINGLESEL 0x0004
+#define LVS_OWNERDATA 0x1000       
+#define LVS_SORTASCENDING       0x0010
+#define LVS_SORTDESCENDING      0x0020
+                              
+#define LBS_SORT           0x0002L
+#define LBS_OWNERDRAWFIXED 0x0010L
+#define LBS_EXTENDEDSEL 0x0800L
+                                                                            
                                     
 // flags we ignore
-#define WS_VISIBLE 0
-#define WS_GROUP 0
 #define LVS_SHOWSELALWAYS 0
-#define LVS_NOSORTHEADER 0         
-#define LVS_SORTASCENDING 0
 #define LVS_SHAREIMAGELISTS 0
 #define ES_AUTOHSCROLL 0
 #define ES_MULTILINE 0
 #define ES_AUTOVSCROLL 0
 #define ES_CENTER 0
-#define WS_TABSTOP 0
 #define GROUP 0
-#define WS_BORDER 0
-#define WS_HSCROLL 0
 #define PBS_SMOOTH 0
 #define CBS_AUTOHSCROLL 0
 #define TBS_NOTICKS 0
 #define TBS_TOP 0
-#define SS_NOTIFY 0
 #define BS_BITMAP 0
 #define LBS_NOINTEGRALHEIGHT 0
 #define TVS_HASLINES 0
 #define TVS_SHOWSELALWAYS 0
-#define BS_OWNERDRAW 0
 #define BS_FLAT 0
 #define TVS_DISABLEDRAGDROP 0
 #define TVS_TRACKSELECT 0
 #define TVS_NONEVENHEIGHT 0
 #define BS_LEFT 0
-#define LBS_SORT 0
 #define SS_SUNKEN 0
-#define LBS_OWNERDRAWFIXED 0
 #define BS_RIGHT 0
 #define WS_EX_STATICEDGE 0
                                        
@@ -210,6 +207,11 @@ static HWND __SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=
 static HWND __SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle=0)
 {
   return SWELL_MakeControl(cname,idx,classname,style,x,y,w,h,exstyle);
+}
+
+static HWND __SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, int style=0)
+{
+  return SWELL_MakeGroupBox(name,idx,x,y,w,h,style);
 }
 
 static void SWELL_Register_Cursor_Resource(int idx, const char *name, int hotspot_x, int hotspot_y)

@@ -24,13 +24,14 @@
 
 #ifndef SWELL_PROVIDED_BY_APP
 
+#import <Cocoa/Cocoa.h>
 
 #include "swell.h"
 #include "swell-menugen.h"
-#import <Cocoa/Cocoa.h>
 
-#define PopupRecv __SWELL_PREFIX_CLASSNAME(_PopupRecv)
-#define menuItemDataHold __SWELL_PREFIX_CLASSNAME(_menuItemDH)
+#include "swell-internal.h"
+
+
 
 
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
@@ -153,7 +154,7 @@ int GetMenuItemID(HMENU hMenu, int pos)
   return 0;
 }
 
-bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, void *ModNSS, unsigned int mask)
+bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int mask)
 {
   NSMenu *menu=(NSMenu *)hMenu;
   
@@ -172,14 +173,55 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, void *ModNSS, unsigned 
         if (item && [item hasSubmenu])
         {
           NSMenu *m=[item submenu];
-          if (m && SetMenuItemModifier(m,idx,flag,ModNSS,mask)) return true;
+          if (m && SetMenuItemModifier(m,idx,flag,code,mask)) return true;
         }
       }
     }
     return false;
   }
-  if (ModNSS) [item setKeyEquivalent:(NSString *)ModNSS];
-  [item setKeyEquivalentModifierMask:mask];
+  
+	NSString *label=NULL;
+  int codelow = code&127;
+  if ((code>='A' && code <='Z') ||
+      (code>='0' && code <= '9') ||   
+      ( !(flag&FVIRTKEY) && ( 
+         codelow == '\'' ||
+         codelow == '"' || 
+         codelow == ',' ||
+         codelow == '.' || 
+         codelow == '[' || codelow == ']'
+         )))      
+  {
+    char buf[2]={codelow,0};
+    if (!(mask & FSHIFT)) buf[0]=tolower(buf[0]);
+    label=[NSString stringWithUTF8String:buf];
+  }
+  else if (code >= VK_F1 && code <= VK_F12)
+  {
+    unichar arrowKey = NSF1FunctionKey + code - VK_F1;
+    label = [NSString stringWithCharacters:&arrowKey length:1];
+  }
+  else switch (code&0xff)
+  {
+    #define DEFKP(wink,mack) case wink: {  unichar arrowKey = mack; label = [NSString stringWithCharacters:&arrowKey length:1]; } break;
+    DEFKP(VK_UP,NSUpArrowFunctionKey)
+    DEFKP(VK_DOWN,NSDownArrowFunctionKey)
+    DEFKP(VK_LEFT,NSLeftArrowFunctionKey)
+    DEFKP(VK_RIGHT,NSRightArrowFunctionKey)
+    DEFKP(VK_INSERT,NSInsertFunctionKey)
+    DEFKP(VK_DELETE,NSDeleteFunctionKey)
+    DEFKP(VK_HOME,NSHomeFunctionKey)
+    DEFKP(VK_END,NSEndFunctionKey)
+    DEFKP(VK_NEXT,NSPageDownFunctionKey)
+    DEFKP(VK_PRIOR,NSPageUpFunctionKey)
+  }
+  unsigned int mask2=0;
+  if (mask&FALT) mask2|=NSAlternateKeyMask;
+  if (mask&FSHIFT) mask2|=NSShiftKeyMask;
+  if (mask&FCONTROL) mask2|=NSCommandKeyMask;
+    
+  [item setKeyEquivalentModifierMask:mask2];
+  [item setKeyEquivalent:label?label:@""];
   return true;
 }
 
@@ -230,27 +272,6 @@ void DestroyMenu(HMENU hMenu)
 }
 
 
-@interface menuItemDataHold : NSObject
-{
-  DWORD m_data;
-}
--(id) initWithVal:(DWORD)val;
--(DWORD) getval;
-@end
-@implementation menuItemDataHold
--(id) initWithVal:(DWORD)val
-{
-  if ((self = [super init]))
-  {
-    m_data=val;
-  }
-  return self;
-}
--(DWORD) getval
-{
-  return m_data;
-}
-@end
 
 int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
 {
@@ -384,8 +405,8 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
   if (mi->fMask & MIIM_DATA)
   {
-    menuItemDataHold *h=[item representedObject];
-    mi->dwItemData = (DWORD) (h && [h isKindOfClass:[menuItemDataHold class]]? [h getval] : 0);
+    SWELL_DataHold *h=[item representedObject];
+    mi->dwItemData = (DWORD) (h && [h isKindOfClass:[SWELL_DataHold class]]? [h getValue] : 0);
   }
   if (mi->fMask & MIIM_STATE)
   {
@@ -461,7 +482,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   }
   if (mi->fMask & MIIM_DATA)
   {
-    menuItemDataHold *h=[[menuItemDataHold alloc] initWithVal:mi->dwItemData];
+    SWELL_DataHold *h=[[SWELL_DataHold alloc] initWithVal:(void*)mi->dwItemData];
     [item setRepresentedObject:h];
     [h release];
   }
@@ -480,14 +501,8 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 }
 
 
-@interface PopupRecv : NSObject
-{
-  int m_act;
-  HWND cbwnd;
-}
-@end
 
-@implementation PopupRecv
+@implementation SWELL_PopupMenuRecv
 -(id) initWithWnd:(HWND)wnd
 {
   if ((self = [super init]))
@@ -498,7 +513,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   return self;
 }
 
--(void) onCommand:(id)sender
+-(void) onSwellCommand:(id)sender
 {
   int tag=[sender tag];
   if (tag)
@@ -523,7 +538,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 
 void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
 {
-  if (!menu || (hwnd && ![(id)hwnd respondsToSelector:@selector(onCommand:)])) return;
+  if (!menu || (hwnd && ![(id)hwnd respondsToSelector:@selector(onSwellCommand:)])) return;
   
   NSMenu *m=(NSMenu *)menu;
   [m setDelegate:(id)hwnd];
@@ -543,7 +558,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
         if ([item tag])
         {
           [item setTarget:(id)hwnd];
-          if (hwnd) [item setAction:@selector(onCommand:)];
+          if (hwnd) [item setAction:@selector(onSwellCommand:)];
         }
       }
     }
@@ -560,7 +575,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     if (!v) v=[[NSApp mainWindow] contentView];
     if (!v) return 0;
     
-    PopupRecv *recv = [[PopupRecv alloc] initWithWnd:((flags&TPM_NONOTIFY)?0:hwnd)];
+    SWELL_PopupMenuRecv *recv = [[SWELL_PopupMenuRecv alloc] initWithWnd:((flags&TPM_NONOTIFY)?0:hwnd)];
     
     SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     
@@ -642,7 +657,7 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
   [(id)hwnd swellSetMenu:(HMENU)menu];
   NSWindow *nswnd = (NSWindow *)hwnd;
   if ([nswnd isKindOfClass:[NSWindow class]] || 
-     ([nswnd isKindOfClass:[NSView class]] && (nswnd=[nswnd window]) && hwnd == (HWND)[nswnd contentView]))
+     ([nswnd isKindOfClass:[NSView class]] && (nswnd=[(NSView *)nswnd window]) && hwnd == (HWND)[nswnd contentView]))
   {
     if ([NSApp keyWindow]==nswnd &&
         [NSApp mainMenu] != (NSMenu *)menu)

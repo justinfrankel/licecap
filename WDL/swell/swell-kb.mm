@@ -114,6 +114,11 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
       flag|=FVIRTKEY;
       if (code==8) code='\b';
     }
+    if (flag & FSHIFT)
+    {
+      if (code=='[') { code='{'; flag&=~(FSHIFT|FVIRTKEY); }
+      else if (code==']') { code='}'; flag&=~(FSHIFT|FVIRTKEY); }
+    }
     
     //if (code == ' ' && flag==(FVIRTKEY) && (mod&NSControlKeyMask)) flag|=FCONTROL;
     
@@ -241,6 +246,8 @@ int SWELL_ShowCursor(BOOL bShow)
   m_curvis_cnt += (bShow?1:-1);
   if (m_curvis_cnt==-1 && !bShow) CGDisplayHideCursor(kCGDirectMainDisplay);
   if (m_curvis_cnt==0 && bShow) CGDisplayShowCursor(kCGDirectMainDisplay);
+  
+  return m_curvis_cnt;
 }
 
 BOOL SWELL_SetCursorPos(int X, int Y)

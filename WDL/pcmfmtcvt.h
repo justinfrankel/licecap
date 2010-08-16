@@ -33,7 +33,11 @@
 #define _PCMFMTCVT_H_
 
 
-static inline int float2int(double d)
+#ifndef PCMFMTCVT_DBL_TYPE
+#define PCMFMTCVT_DBL_TYPE double
+#endif
+
+static inline int float2int(PCMFMTCVT_DBL_TYPE d)
 {
   return (int) d;
 //	  int tmp;
@@ -52,7 +56,7 @@ static inline int float2int(double d)
 		if ((in)<0.0) { if ((in) <= -1.0) (out) = -32768; else (out) = (short) (float2int(((in) * 32768.0)-0.5)); } \
 		else { if ((in) >= (32766.5/32768.0)) (out) = 32767; else (out) = (short) float2int((in) * 32768.0 + 0.5); }
 
-#define INT16_TO_double(out,in) { (out) = (((double)in)/32768.0); }
+#define INT16_TO_double(out,in) { (out) = (((PCMFMTCVT_DBL_TYPE)in)/32768.0); }
 
 
 static inline void i32_to_float(int i32, float *p)
@@ -76,14 +80,14 @@ static inline void float_to_i32(float *vv, int *i32)
 }
 
 
-static inline void i32_to_double(int i32, double *p)
+static inline void i32_to_double(int i32, PCMFMTCVT_DBL_TYPE *p)
 {
-  *p = ((((double) i32)) * (1.0 / (2147483648.0)));
+  *p = ((((PCMFMTCVT_DBL_TYPE) i32)) * (1.0 / (2147483648.0)));
 }
 
-static inline void double_to_i32(double *vv, int *i32)
+static inline void double_to_i32(PCMFMTCVT_DBL_TYPE *vv, int *i32)
 {
-  double v = *vv;
+  PCMFMTCVT_DBL_TYPE v = *vv;
   if (v < 0.0) 
   {
 	  if (v < -1.0) *i32 = 0x80000000;
@@ -151,25 +155,25 @@ static inline void float_to_i24(float *vv, unsigned char *i24)
 }
 
 
-static inline void i24_to_double(unsigned char *i24, double *p)
+static inline void i24_to_double(unsigned char *i24, PCMFMTCVT_DBL_TYPE *p)
 {
   int val=(i24[0]) | (i24[1]<<8) | (i24[2]<<16);
   if (val&0x800000) 
   {
 	  val|=0xFF000000;
-  	  *p = ((((double) val)) * (1.0 / (8388608.0)));
+  	  *p = ((((PCMFMTCVT_DBL_TYPE) val)) * (1.0 / (8388608.0)));
   }
   else 
   {
 	  val&=0xFFFFFF;
-  	  *p = ((((double) val)) * (1.0 / (8388608.0)));
+  	  *p = ((((PCMFMTCVT_DBL_TYPE) val)) * (1.0 / (8388608.0)));
   }
 
 }
 
-static inline void double_to_i24(double *vv, unsigned char *i24)
+static inline void double_to_i24(PCMFMTCVT_DBL_TYPE *vv, unsigned char *i24)
 {
-  double v = *vv;
+  PCMFMTCVT_DBL_TYPE v = *vv;
   if (v < 0.0) 
   {
 	  if (v < -1.0)
@@ -274,7 +278,7 @@ static void floatsToPcm(float *src, int src_spacing, int items, void *dest, int 
 }
 
 
-static void pcmToDoubles(void *src, int items, int bps, int src_spacing, double *dest, int dest_spacing, int byteadvancefor24=0)
+static void pcmToDoubles(void *src, int items, int bps, int src_spacing, PCMFMTCVT_DBL_TYPE *dest, int dest_spacing, int byteadvancefor24=0)
 {
   if (bps == 32)
   {
@@ -309,7 +313,7 @@ static void pcmToDoubles(void *src, int items, int bps, int src_spacing, double 
   }
 }
 
-static void doublesToPcm(double *src, int src_spacing, int items, void *dest, int bps, int dest_spacing, int byteadvancefor24=0)
+static void doublesToPcm(PCMFMTCVT_DBL_TYPE *src, int src_spacing, int items, void *dest, int bps, int dest_spacing, int byteadvancefor24=0)
 {
   if (bps==32)
   {

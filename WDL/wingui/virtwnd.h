@@ -129,11 +129,7 @@ public:
 
 
   void SetGSC(int (*GSC)(int));
-  void PaintBegin(HWND hwnd, int bgcolor=-1);
-  
-#ifndef _WIN32 // alternative calling method
-  void PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
-#endif
+  void PaintBegin(HWND hwnd, int bgcolor=-1);  
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1) { m_bgbm=bitmap; m_bgbmtintcolor=tint; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
@@ -157,9 +153,7 @@ private:
 
   HWND m_cur_hwnd;
   PAINTSTRUCT m_ps;
-#ifndef _WIN32
-  int m_cur_hwnd_mode;
-#endif
+  int m_paint_xorig, m_paint_yorig;
 
 };
 

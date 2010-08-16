@@ -43,13 +43,19 @@ public:
   WDL_Queue() : m_pos(0) { }
   ~WDL_Queue() { }
 
+  template <class T> void* AddT(T* buf)
+  {
+    return Add(buf, sizeof(T));
+  }
+
   void *Add(const void *buf, int len)
   {
     int olen=m_hb.GetSize();
     void *obuf=m_hb.Resize(olen+len,false);
     if (!obuf) return 0;
-    if (buf) memcpy((char*)obuf+olen,buf,len);
-    return (char*)obuf+olen;
+    char* newbuf = (char*) obuf + olen;
+    if (buf) memcpy(newbuf,buf,len);
+    return newbuf; 
   }
 
   int GetSize()
@@ -57,11 +63,29 @@ public:
     return m_hb.GetSize()-m_pos;
   }
 
+  template <class T> T* GetT()
+  {
+    return (T*) Get(sizeof(T));
+  }
+  
+  void* Get(int size)
+  {
+    void* p = Get();
+    if (p) Advance(size);
+    return p;
+  }
+    
   void *Get()
   {
     void *buf=m_hb.Get();
     if (buf && m_pos >= 0 && m_pos < m_hb.GetSize()) return (char *)buf+m_pos;
     return NULL;
+  }
+  
+  void* Rewind()
+  {
+    m_pos = 0;
+    return m_hb.Get();
   }
 
   int Available() { return m_hb.GetSize() - m_pos; }

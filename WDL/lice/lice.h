@@ -115,10 +115,10 @@ public:
 
 
   // LICE_IBitmap interface
-  LICE_pixel *getBits() { return m_fb; };
+  LICE_pixel *getBits() { return m_fb; }
   int getWidth() { return m_width; }
   int getHeight() { return m_height; }
-  int getRowSpan() { return m_width; }; 
+  int getRowSpan() { return m_width; }
   bool resize(int w, int h); // returns TRUE if a resize occurred
 
   bool isFlipped() { return false; }
@@ -254,7 +254,7 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
                       float drdy, float dgdy, float dbdy, float dady,
                       int mode);
 
-void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode);
+void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha = 1.0f, int mode = 0);
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color);
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask=0, LICE_pixel orbits=0);
 void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 
@@ -308,14 +308,6 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa);
-
-
-// Returns Bezier x, y for a given t in [0,1].
-void LICE_Bezier(float ctrl_x1, float ctrl_x2, float ctrl_x3, 
-    float ctrl_y1, float ctrl_y2, float ctrl_y3, float t, float* pX, float* pY);
-
-// Returns Bezier y for a given x in [x1, x3] (for rasterizing).
-float LICE_Bezier_GetY(float ctrl_x1, float ctrl_x2, float ctrl_x3, float ctrl_y1, float ctrl_y2, float ctrl_y3, float x);
 
 
 /*

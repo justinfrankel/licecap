@@ -28,9 +28,7 @@
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #include "swell.h"
-
-#include "swell-gdi-int.h"
-
+#include "swell-internal.h"
 
 #define SWELL_NSSTRING_DRAWING 0  // face control works?
 #define SWELL_ATSUI_DRAWING 1 // faster
@@ -152,7 +150,15 @@ HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientat
   
   font->font_rotation = lfOrientation/10.0;
 #if SWELL_ATSUI_DRAWING
+  // need to use lfFaceName FMGetATSFontRefFromFont(
   ATSUCreateStyle(&font->font_style);
+
+  ATSUFontID fontid=kATSUInvalidFontID;
+  if (lfFaceName && lfFaceName[0])
+  {
+    ATSUFindFontFromName(lfFaceName,strlen(lfFaceName),kFontFullName /* kFontFamilyName? */ ,(FontPlatformCode)kFontNoPlatform,kFontNoScriptCode,kFontNoLanguageCode,&fontid);
+//    if (fontid==kATSUInvalidFontID) printf("looked up %s and got %d\n",lfFaceName,fontid); // todo remove me
+  }
   
   {
     Fixed fsize=Long2Fix(fontwid);
@@ -161,13 +167,16 @@ HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientat
     Boolean isItal=!!lfItalic;
     Boolean isUnder=!!lfUnderline;
     
-    ATSUAttributeTag        theTags[] = { kATSUQDBoldfaceTag, kATSUQDItalicTag, kATSUQDUnderlineTag,kATSUSizeTag, };
-    ByteCount               theSizes[] = { sizeof(Boolean),sizeof(Boolean),sizeof(Boolean), sizeof(Fixed),  };
-    ATSUAttributeValuePtr   theValues[] =  {&isBold, &isItal, &isUnder,  &fsize,  } ;
+    ATSUAttributeTag        theTags[] = { kATSUQDBoldfaceTag, kATSUQDItalicTag, kATSUQDUnderlineTag,kATSUSizeTag,kATSUFontTag };
+    ByteCount               theSizes[] = { sizeof(Boolean),sizeof(Boolean),sizeof(Boolean), sizeof(Fixed),sizeof(ATSUFontID)  };
+    ATSUAttributeValuePtr   theValues[] =  {&isBold, &isItal, &isUnder,  &fsize, &fontid  } ;
+
+    int attrcnt=sizeof(theTags)/sizeof(theTags[0]);
+    if (fontid == kATSUInvalidFontID) attrcnt--;
     
     
     ATSUSetAttributes (font->font_style,                       
-                       sizeof(theTags)/sizeof(theTags[0]),                       
+                       attrcnt,                       
                        theTags,                      
                        theSizes,                      
                        theValues);
@@ -449,9 +458,11 @@ void SWELL_LineTo(HDC ctx, int x, int y)
 	
   CGContextBeginPath(c->ctx);
   CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
-  CGContextAddLineToPoint(c->ctx,(float)x,(float)y);
-  c->lastpos_x=(float)x;
-  c->lastpos_y=(float)y;
+  float fx=(float)x,fy=(float)y;
+  
+  CGContextAddLineToPoint(c->ctx,fx,fy);
+  c->lastpos_x=fx;
+  c->lastpos_y=fy;
   CGContextStrokePath(c->ctx);
 }
 
@@ -872,6 +883,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   int h=descent + Fix2Long(ascentFixed);
   if (align&DT_CALCRECT)
   {
+    ATSUDisposeTextLayout(layout);   
     r->right=r->left+w;
     r->bottom=r->top+h;
     return h;  

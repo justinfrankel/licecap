@@ -59,6 +59,16 @@ static NSMutableArray *extensionsFromList(const char *extlist)
 	return fileTypes;
 }
 
+static int BFSF_Templ_dlgid;
+static DLGPROC BFSF_Templ_dlgproc;
+static struct SWELL_DialogResourceIndex *BFSF_Templ_reshead;
+void BrowseFile_SetTemplate(int dlgid, DLGPROC dlgProc, struct SWELL_DialogResourceIndex *reshead)
+{
+  BFSF_Templ_reshead=reshead;
+  BFSF_Templ_dlgid=dlgid;
+  BFSF_Templ_dlgproc=dlgProc;
+}
+
 // return true
 bool BrowseForSaveFile(const char *text, const char *initialdir, const char *initialfile, const char *extlist,
                        char *fn, int fnsize)
@@ -66,6 +76,14 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 	NSSavePanel *panel = [NSSavePanel savePanel];
   NSString *title=(NSString *)SWELL_CStringToCFString(text); 
 	[panel setTitle:title];
+  [panel setAccessoryView:nil];
+  HWND oh=NULL;
+  if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
+  {
+    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, (HWND)panel, BFSF_Templ_dlgproc, 0);
+    BFSF_Templ_dlgproc=0;
+    BFSF_Templ_dlgid=0;
+  }
 	
 	NSMutableArray *fileTypes = extensionsFromList(extlist);	
 	
@@ -93,6 +111,8 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 	
 	int result = [panel runModalForDirectory:idir file:ifn];
   
+  if (oh) SendMessage(oh,WM_DESTROY,0,0);
+  [panel setAccessoryView:nil];
 	[title release];
 	[fileTypes release];
 	
@@ -122,6 +142,14 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 	[panel setCanChooseFiles:NO];
 	[panel setCanChooseDirectories:YES];
 	[panel setResolvesAliases:YES];
+
+  HWND oh=NULL;
+  if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
+  {
+    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, (HWND)panel, BFSF_Templ_dlgproc, 0);
+    BFSF_Templ_dlgproc=0;
+    BFSF_Templ_dlgid=0;
+  }
 	
 	NSString *idir=0;
 	
@@ -132,6 +160,9 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 	
 	int result = [panel runModalForDirectory:idir file:nil types:nil];
 	
+  if (oh) SendMessage(oh,WM_DESTROY,0,0);
+  [panel setAccessoryView:nil];
+  
 	if (idir) [idir release];
 	
 	[title release];
@@ -139,7 +170,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 	if (result != NSOKButton) return 0;
 	
 	NSArray *filesToOpen = [panel filenames];
-	int i, count = [filesToOpen count];
+	int count = [filesToOpen count];
 		
 	if (!count) return 0;
 		
@@ -156,6 +187,14 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 {
 	NSOpenPanel *panel = [NSOpenPanel openPanel];
   NSString *title=(NSString *)SWELL_CStringToCFString(text); 
+  HWND oh=NULL;
+  if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
+  {
+    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, (HWND)panel, BFSF_Templ_dlgproc, 0);
+    BFSF_Templ_dlgproc=0;
+    BFSF_Templ_dlgid=0;
+  }
+
 	[panel setTitle:title];
 	[panel setAllowsMultipleSelection:(allowmul?YES:NO)];
 	[panel setCanChooseFiles:YES];
@@ -187,6 +226,9 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 	
 	int result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
 	
+  if (oh) SendMessage(oh,WM_DESTROY,0,0);
+  [panel setAccessoryView:nil];
+  
 	if (ifn) [ifn release];
 	if (idir) [idir release];
 	

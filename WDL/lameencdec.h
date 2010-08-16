@@ -31,7 +31,11 @@
 #include "wdlstring.h"
 
 #ifndef _WIN32
-#include <lame/lame.h>
+  #ifdef __APPLE__
+    typedef void *lame_t;
+  #else
+    #include <lame/lame.h>
+  #endif
 #endif
 
 

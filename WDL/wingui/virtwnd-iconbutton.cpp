@@ -370,7 +370,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
       int bs=(r.bottom-r.top);
       int l=r.right-bs;
 
-      int a=bs/4;
+      int a=(bs/4)&~1;
 
       MoveToEx(hdc,l,r.top,NULL);
       LineTo(hdc,l,r.bottom);

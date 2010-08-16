@@ -23,7 +23,31 @@
 
 */
 
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+
+
+static char *lstrcpyn(char *dest, const char *src, int l)
+{
+  if (l<1) return dest;
+
+  char *dsrc=dest;
+  while (--l > 0)
+  {
+    char p=*src++;
+    if (!p) break;
+    *dest++=p;
+  }
+  *dest++=0;
+
+  return dsrc;
+}
+
+#endif
 #include <math.h>
 
 #include "scsrc.h"
@@ -115,7 +139,12 @@ void WDL_ShoutcastSource::GetStatusText(char *buf, int bufsz) // gets status tex
   else if (m_state == ERR_CONNECT) lstrcpyn(buf,"Error connecting to server",bufsz);
   else if (m_state == ERR_TIMEOUT) lstrcpyn(buf,"Timed out connecting to server",bufsz);
   else if (m_state == ERR_CREATINGENCODER) lstrcpyn(buf,"Error creating encoder",bufsz);
-  else if (m_state == ERR_NOLAME) lstrcpyn(buf,"Error loading lame_enc.dll",bufsz);
+  else if (m_state == ERR_NOLAME) 
+  #ifdef _WIN32
+    lstrcpyn(buf,"Error loading lame_enc.dll",bufsz);
+  #else
+    lstrcpyn(buf,"Error loading libmp3lame.dylib",bufsz);
+  #endif
   else lstrcpyn(buf,"Error creating encoder",bufsz);
 
 }
