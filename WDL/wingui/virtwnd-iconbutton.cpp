@@ -61,7 +61,7 @@ void WDL_VirtualIconButton::SetCheckState(char state)
 }
 
 
-void WDL_VirtualIconButton::OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   if (m_iconCfg && m_iconCfg->olimage)
   {
@@ -92,12 +92,12 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, in
 }
 
 
-void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
+void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
   HDC hdc=drawbm->getDC();
   int col;
 
-  if (m_iconCfg && m_iconCfg->image)
+  if (m_iconCfg && m_iconCfg->image && !m_iconCfg->image_issingle)
   {
     RECT r=m_position;
 
@@ -151,7 +151,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
         LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
       }
     }
-    if (m_iconCfg && m_iconCfg->hIcon)
+    if (m_iconCfg && m_iconCfg->image)
     {
       int sz=16,sz2=16;
       WDL_STYLE_ScaleImageCoords(&sz,&sz2);
@@ -164,13 +164,11 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       {
         if ((m_pressed&3)==3) { x++; y++; }
       }
-      // todo: force everything to lice? or allow this to go gdi
-  #ifdef _WIN32
-      DrawIconEx(hdc,x,y,m_iconCfg->hIcon,sz,sz2,0,NULL,DI_NORMAL);
-  #else
-      RECT r={x,y,x+sz,y+sz2};
-      DrawImageInRect(hdc,m_iconCfg->hIcon,&r);
-  #endif
+
+      LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz2,0,0,
+        m_iconCfg->image->getWidth(),
+        m_iconCfg->image->getHeight(),1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+
     }
     if (!m_iconCfg && m_textlbl.Get()[0])
     {
@@ -383,7 +381,7 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
   return -1;
 }
 
-void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   {
     if (m_font) m_font->SetBkMode(TRANSPARENT);
@@ -490,7 +488,7 @@ int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
   return 0;
 }
 
-void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   RECT r=m_position;
   r.left+=origin_x;
@@ -512,7 +510,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
         float bv=GetBValue(m_bg)/255.0;
 
         float avg=(rv+gv+bv)*0.33333f;
-        if (avg<0.05)avg=0.05;
+        if (avg<0.05f)avg=0.05f;
 
         float sc=0.5f;
         float sc2 = (1.0f-sc)/avg;

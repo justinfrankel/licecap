@@ -57,8 +57,8 @@ static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int
     break;
     case LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA:
       {
-        int ta=(texalpha*alpha)/256;
-        int ta2=(255-ta);
+        int ta=(texalpha*(alpha+1))/256;
+        int ta2=(256-ta);
         red = (r*ta + red*ta2)/256;
         green = (g*ta + green*ta2)/256;
         blue = (b*ta + blue*ta2)/256;
@@ -67,7 +67,7 @@ static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int
     break;
     case LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA:
       {
-        int ta=(texalpha*alpha);
+        int ta=(texalpha*(alpha+1));
         red += (r*ta)/65536;
         green += (g*ta)/65536;
         blue += (b*ta)/65536;
@@ -78,8 +78,8 @@ static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int
     break;
     case LICE_BLIT_MODE_MUL|LICE_BLIT_USE_ALPHA:
       {
-        int ta=(texalpha*alpha)/256;
-        int ta2=(255-ta)*256;
+        int ta=(texalpha*(alpha+1))/256;
+        int ta2=(256-ta)*256;
         red = (r*ta*red + red*ta2)/65536;
         green = (g*ta*green + green*ta2)/65536;
         blue = (b*ta*blue + blue*ta2)/65536;
@@ -99,12 +99,14 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
                    pl_sInt32 *CL,
                    bool bilinear,
                    pl_sInt32 iUL, pl_sInt32 iVL, 
+                   pl_sInt32 texwidth, pl_sInt32 texheight, 
                    LICE_pixel *texture, int tex_rowspan,
                    int texcomb, 
                    int texalpha,
                    int texalpha2,
                    bool bilinear2,
                    pl_sInt32 iUL_2, pl_sInt32 iVL_2, 
+                   pl_sInt32 texwidth_2, pl_sInt32 texheight_2, 
                    LICE_pixel *texture2, int tex_rowspan_2,
                    int tex2comb, 
                    int tex2alpha,
@@ -164,7 +166,12 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
 #endif
   {
     if (bilinear)
-      __LICE_BilinearFilterI(&r,&g,&b,&a,rd,(rd+tex_rowspan*sizeof(LICE_pixel)),iUL&65535,iVL&65535);
+    {
+      __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
+        ypos < texheight - 1 ? (rd+tex_rowspan*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture+xpos),
+        xpos  < texwidth - 1 ? 1 : 1-texwidth,
+        iUL&65535,iVL&65535);
+    }
     else
     {
       r=rd[LICE_PIXEL_R]; g=rd[LICE_PIXEL_G]; b=rd[LICE_PIXEL_B]; a=rd[LICE_PIXEL_A];
@@ -182,7 +189,12 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
     rd = (LICE_pixel_chan*)(texture2 + xpos+ypos*tex_rowspan_2);
 
     if (bilinear2)
-      __LICE_BilinearFilterI(&r,&g,&b,&a,rd,(rd+tex_rowspan_2*sizeof(LICE_pixel)),iUL_2&65535,iVL_2&65535);
+    {
+      __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
+        ypos < texheight_2 - 1 ? (rd+tex_rowspan_2*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture2+xpos),
+        xpos  < texwidth_2 - 1 ? 1 : 1-texwidth_2,
+        iUL_2&65535,iVL_2&65535);
+    }
     else
     {
       r=rd[LICE_PIXEL_R]; g=rd[LICE_PIXEL_G]; b=rd[LICE_PIXEL_B]; a=rd[LICE_PIXEL_A];
@@ -199,6 +211,7 @@ static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
                    pl_sInt32 *CL,
                    bool bilinear,
                    pl_sInt32 iUL, pl_sInt32 iVL, 
+                   pl_sInt32 texwidth, pl_sInt32 texheight, 
                    LICE_pixel *texture, int tex_rowspan,
                    int texcomb, 
                    int texalpha,
@@ -257,7 +270,13 @@ static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
     int ypos=iVL>>16;
     LICE_pixel_chan *rd = (LICE_pixel_chan*)(texture + xpos+ypos*tex_rowspan);
     if (bilinear)
-      __LICE_BilinearFilterI(&r,&g,&b,&a,rd,(rd+tex_rowspan*sizeof(LICE_pixel)),iUL&65535,iVL&65535);
+    {
+
+      __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
+        ypos < texheight - 1 ? (rd+tex_rowspan*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture+xpos),
+        xpos  < texwidth - 1 ? 1 : 1-texwidth,
+        iUL&65535,iVL&65535);
+    }
     else
     {
       r=rd[LICE_PIXEL_R]; g=rd[LICE_PIXEL_G]; b=rd[LICE_PIXEL_B]; a=rd[LICE_PIXEL_A];
@@ -579,9 +598,9 @@ void pl_Cam::PutFace(pl_Face *TriFace)
     int tidx2 = mat->Tex2MapIdx;
     if (tidx2<0 || tidx2>=PLUSH_MAX_MAPCOORDS)tidx2=PLUSH_MAX_MAPCOORDS-1;
 
-    PLMTexTri(gmem,swidth,TriFace,zb,zfb_width,(int) (mat->SolidOpacity*255.0),mat->SolidCombineMode,
-      mat->Texture?mat->Texture:mat->Texture2,texsc,(int) (mat->TexOpacity*255.0),mat->TexCombineMode,tidx,
-      mat->Texture2,(int) (mat->Tex2Opacity*255.0),mat->Tex2CombineMode,tidx2
+    PLMTexTri(gmem,swidth,TriFace,zb,zfb_width,(int) (mat->SolidOpacity*256.0),mat->SolidCombineMode,
+      mat->Texture,texsc,(int) (mat->TexOpacity*256.0),mat->TexCombineMode,tidx,
+      mat->Texture2,(int) (mat->Tex2Opacity*256.0),mat->Tex2CombineMode,tidx2
       );
     return;
   }
@@ -594,18 +613,18 @@ void pl_Cam::PutFace(pl_Face *TriFace)
   #endif
   {
     LICE_IBitmap *tex=mat->Texture ? mat->Texture : mat->Texture2;
-    int talpha = (int) (mat->Texture ? mat->TexOpacity*255.0 : mat->Tex2Opacity*255.0);
+    int talpha = (int) (mat->Texture ? mat->TexOpacity*256.0 : mat->Tex2Opacity*256.0);
     int tcomb = (int) (mat->Texture ? mat->TexCombineMode : mat->Tex2CombineMode);
     int tidx = (mat->Texture ? mat->TexMapIdx: mat->Tex2MapIdx);
     if (tidx<0 || tidx>=PLUSH_MAX_MAPCOORDS)tidx=PLUSH_MAX_MAPCOORDS-1;
     pl_Float texsc[2];
     memcpy(texsc,mat->Texture ? mat->TexScaling : mat->Tex2Scaling,sizeof(texsc));
-    PLTexTri(gmem,swidth,TriFace,zb,zfb_width,(int) (mat->SolidOpacity*255.0),mat->SolidCombineMode,tex,texsc,talpha,tcomb,tidx);
+    PLTexTri(gmem,swidth,TriFace,zb,zfb_width,(int) (mat->SolidOpacity*256.0),mat->SolidCombineMode,tex,texsc,talpha,tcomb,tidx);
     return;
   }
 #endif
 
-  int alpha=(int) (mat->SolidOpacity*255.0);
+  int alpha=(int) (mat->SolidOpacity*256.0);
   if (!alpha) return;
 #ifndef PLUSH_NO_SOLIDGOURAUD
 #ifndef PLUSH_NO_SOLIDFLAT

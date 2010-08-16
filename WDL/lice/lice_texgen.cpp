@@ -266,7 +266,7 @@ void LICE_TexGen_Noise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float
         float col = (float)fabs(val/smooth)*255;
         if(col>255) col=255;
 
-        p[j] = LICE_RGBA((int)(col*rv),(int)(col*bv),(int)(col*gv),255);
+        p[j] = LICE_RGBA((int)(col*rv),(int)(col*gv),(int)(col*bv),255);
       }
       p+=span;
     }

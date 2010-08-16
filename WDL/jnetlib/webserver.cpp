@@ -29,7 +29,7 @@ class WS_ItemList
 class WS_conInst
 {
 public:
-  WS_conInst(JNL_Connection *c, int which_port);
+  WS_conInst(JNL_IConnection *c, int which_port);
   ~WS_conInst();
 
   // these will be used by WebServerBaseClass::onConnection yay
@@ -68,7 +68,7 @@ void WS_ItemList::Del(int idx)
 }
 
 
-WS_conInst::WS_conInst(JNL_Connection *c, int which_port) : m_serv(c), m_port(which_port)
+WS_conInst::WS_conInst(JNL_IConnection *c, int which_port) : m_serv(c), m_port(which_port)
 {
   m_pagegen=0;
   time(&m_connect_time);
@@ -161,7 +161,7 @@ int WebServerBaseClass::getListenPort(int idx, int *err)
   return 0;
 }
 
-void WebServerBaseClass::attachConnection(JNL_Connection *con, int port)
+void WebServerBaseClass::attachConnection(JNL_IConnection *con, int port)
 {
   m_connections->Add((void*)new WS_conInst(con,port));
 }
@@ -172,7 +172,7 @@ void WebServerBaseClass::run(void)
   if (m_connections->GetSize() < m_max_con && (nl=m_listeners->GetSize()))
   {
     JNL_Listen *l=(JNL_Listen *)m_listeners->Get(m_listener_rot++ % nl);
-    JNL_Connection *c=l->get_connect();
+    JNL_IConnection *c=l->get_connect();
     if (c)
     {
       attachConnection(c,l->port());

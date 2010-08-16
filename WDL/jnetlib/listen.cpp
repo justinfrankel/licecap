@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2000-2001 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: listen.cpp - JNL TCP listen implementation
@@ -53,7 +54,7 @@ JNL_Listen::~JNL_Listen()
   }
 }
 
-JNL_Connection *JNL_Listen::get_connect(int sendbufsize, int recvbufsize)
+JNL_IConnection *JNL_Listen::get_connect(int sendbufsize, int recvbufsize)
 {
   if (m_socket < 0)
   {
@@ -64,7 +65,7 @@ JNL_Connection *JNL_Listen::get_connect(int sendbufsize, int recvbufsize)
 	int s = accept(m_socket, (struct sockaddr *) &saddr, &length);
   if (s != -1)
   {
-    JNL_Connection *c=new JNL_Connection(NULL,sendbufsize, recvbufsize);
+    JNL_IConnection *c=new JNL_Connection(NULL,sendbufsize, recvbufsize);
     c->connect(s,&saddr);
     return c;
   }

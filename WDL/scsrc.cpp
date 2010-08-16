@@ -201,7 +201,7 @@ void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int 
         a+=chspread;
       }
     }
-    if (m_samplequeue.Available() < sizeof(float)*m_nch*96000*4 &&
+    if (m_samplequeue.Available() < (int)sizeof(float)*m_nch*96000*4 &&
         m_encoder && m_encoder->outqueue.Available() < 256*1024)
       m_samplequeue.Add(m_rsbuf.Get(),frames*m_nch*sizeof(float));
   }
@@ -256,7 +256,7 @@ void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int 
     m_last_samples[0]=samples[0][frames-1];
     m_last_samples[1]=samples[nch-1][frames-1];
 
-    if (m_samplequeue.Available() < sizeof(float)*m_nch*96000*4 &&
+    if (m_samplequeue.Available() < (int)sizeof(float)*m_nch*96000*4 &&
         m_encoder && m_encoder->outqueue.Available() < 256*1024)
       m_samplequeue.Add(m_rsbuf.Get(),outlen*m_nch*sizeof(float));
 

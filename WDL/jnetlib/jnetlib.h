@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2000-2003 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: jnetlib.h - JNL main include file (not really necessary).

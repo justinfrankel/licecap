@@ -1292,10 +1292,10 @@ static NSView *NavigateUpScrollClipViews(NSView *ch)
 }
 
 
-void GetWindowRect(HWND hwnd, RECT *r)
+bool GetWindowRect(HWND hwnd, RECT *r)
 {
   r->left=r->top=r->right=r->bottom=0;
-  if (!hwnd) return;
+  if (!hwnd) return false;
   
   id ch=(id)hwnd;
   NSWindow *nswnd;
@@ -1309,9 +1309,9 @@ void GetWindowRect(HWND hwnd, RECT *r)
     r->top=(int)(b.origin.y);
     r->right = (int)(b.origin.x+b.size.width+0.5);
     r->bottom= (int)(b.origin.y+b.size.height+0.5);
-    return;
+    return true;
   }
-  if (![ch isKindOfClass:[NSView class]]) return;
+  if (![ch isKindOfClass:[NSView class]]) return false;
   ch=NavigateUpScrollClipViews(ch);
   NSRect b=[ch bounds];
   r->left=(int)(b.origin.x);
@@ -1321,6 +1321,7 @@ void GetWindowRect(HWND hwnd, RECT *r)
   ClientToScreen((HWND)ch,(POINT *)r);
   ClientToScreen((HWND)ch,((POINT *)r)+1);
 
+  return true;
 }
 
 void GetWindowContentViewRect(HWND hwnd, RECT *r)
@@ -1377,6 +1378,7 @@ void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flag
   if (hwnd && [(id)hwnd isKindOfClass:[NSView class]] && (nswnd=[(NSView *)hwnd window]) && [nswnd contentView]==(id)hwnd)
     hwnd=(HWND)nswnd;
  
+ // todo: handle SWP_SHOWWINDOW
   id ch=(id)hwnd;
   bool isview=false;
   if ([ch isKindOfClass:[NSWindow class]] || (isview=[ch isKindOfClass:[NSView class]])) 

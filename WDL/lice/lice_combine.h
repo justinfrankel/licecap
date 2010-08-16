@@ -48,7 +48,7 @@ static inline void __LICE_LinearFilter(int *r, int *g, int *b, int *a, LICE_pixe
 static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int xfrac, int yfrac)
 {
   int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  int f1=65535-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
   int f2=xfrac-f4; // xfrac*(1.0-yfrac);
   *r=(pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4)/65536;
@@ -56,9 +56,25 @@ static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_p
   *b=(pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4)/65536;
   *a=(pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4)/65536;
 }
+
+
+static inline void __LICE_BilinearFilterI_2(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int npoffs, int xfrac, int yfrac)
+{
+  int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
+  int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  npoffs*=4;
+  *r=(pin[LICE_PIXEL_R]*f1 + pin[npoffs+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[npoffs+LICE_PIXEL_R]*f4)/65536;
+  *g=(pin[LICE_PIXEL_G]*f1 + pin[npoffs+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[npoffs+LICE_PIXEL_G]*f4)/65536;
+  *b=(pin[LICE_PIXEL_B]*f1 + pin[npoffs+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[npoffs+LICE_PIXEL_B]*f4)/65536;
+  *a=(pin[LICE_PIXEL_A]*f1 + pin[npoffs+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[npoffs+LICE_PIXEL_A]*f4)/65536;
+}
+
+
 static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int frac)
 {
-  int f=65535-frac;
+  int f=65536-frac;
   *r=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)/65536;
   *g=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)/65536;
   *b=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)/65536;
@@ -74,6 +90,9 @@ static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, in
   if (a&~0xff) out[LICE_PIXEL_A]=a<0?0:255; else out[LICE_PIXEL_A] = (LICE_pixel_chan) (a);
 }
 
+//void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)    // alpha is ignored.
+// generally speaking, the "a"  is 0-255, and alpha is 0-256/1-256.
+
 // Optimization when a=255 and alpha=1.0f, useful for doing a big vector drawn fill or something.
 // This could be called _LICE_PutPixel but that would probably be confusing.
 class _LICE_CombinePixelsClobber
@@ -82,6 +101,68 @@ public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)    // alpha is ignored.
   {
     _LICE_MakePixel(dest, r, g, b, a);
+  }
+  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // alpha is ignored.
+  {
+    *(LICE_pixel*)dest = src;
+  }
+};
+
+
+class _LICE_CombinePixelsHalfMix
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  {
+    _LICE_MakePixel(dest,
+      (dest[LICE_PIXEL_R]+r)/2,
+      (dest[LICE_PIXEL_G]+g)/2,
+      (dest[LICE_PIXEL_B]+b)/2,
+      (dest[LICE_PIXEL_A]+a)/2);
+  }
+  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is full range
+  {
+    *(LICE_pixel*)dest = ((*(LICE_pixel*)dest >> 1) &0x7f7f7f7f) + ((src>>1)&0x7f7f7f7f);
+  }
+
+};
+
+
+class _LICE_CombinePixelsHalfMix2 
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  {
+    _LICE_MakePixel(dest,
+      (dest[LICE_PIXEL_R])/2 + r, 
+      (dest[LICE_PIXEL_G])/2 + g,
+      (dest[LICE_PIXEL_B])/2 + b,
+      (dest[LICE_PIXEL_A])/2 + a);
+  }
+  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is pre-halfed and masked
+  {
+    *(LICE_pixel*)dest = ((*(LICE_pixel*)dest >> 1) &0x7f7f7f7f) + src;
+  }
+};
+
+class _LICE_CombinePixelsQuarterMix2
+{
+public:
+  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is pre-quartered and masked
+  {
+    LICE_pixel tmp=*(LICE_pixel*)dest;
+    *(LICE_pixel*)dest = ((tmp >> 1) &0x7f7f7f7f) + ((tmp >> 2) &0x3f3f3f3f) +  src;
+  }
+};
+
+
+class _LICE_CombinePixelsThreeQuarterMix2
+{
+public:
+  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is pre-quartered and masked
+  {
+    LICE_pixel tmp=*(LICE_pixel*)dest;
+    *(LICE_pixel*)dest = ((tmp >> 2) &0x3f3f3f3f) +  src;
   }
 };
 
@@ -108,9 +189,9 @@ public:
   {
     if (a)
     {
-      alpha = (alpha*a)/256;
+      alpha = (alpha*(a+1))/256;
 
-      int a2=(255-alpha);
+      int a2=(256-alpha);
 
       _LICE_MakePixel(dest,
         (dest[LICE_PIXEL_R]*a2+r*alpha)/256,
@@ -145,7 +226,7 @@ public:
   { 
     if (a)
     {
-      alpha=(alpha*a)/256;
+      alpha=(alpha*(a+1))/256;
       _LICE_MakePixel(dest,
         dest[LICE_PIXEL_R]+(r*alpha)/256,
         dest[LICE_PIXEL_G]+(g*alpha)/256,
@@ -167,10 +248,10 @@ class _LICE_CombinePixelsColorDodge
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   { 
-      int src_r = 255-r*alpha/256;
-      int src_g = 255-g*alpha/256;
-      int src_b = 255-b*alpha/256;
-      int src_a = 255-a*alpha/256;
+      int src_r = 256-r*alpha/256;
+      int src_g = 256-g*alpha/256;
+      int src_b = 256-b*alpha/256;
+      int src_a = 256-a*alpha/256;
 
       _LICE_MakePixel(dest,
         src_r > 1 ? 256*dest[LICE_PIXEL_R] / src_r : 256*dest[LICE_PIXEL_R],
@@ -185,11 +266,11 @@ class _LICE_CombinePixelsColorDodgeSourceAlpha
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   { 
-      alpha=(alpha*a)/256;
-      int src_r = 255-r*alpha/256;
-      int src_g = 255-g*alpha/256;
-      int src_b = 255-b*alpha/256;
-      int src_a = 255-a*alpha/256;
+      alpha=(alpha*(a+1))/256;
+      int src_r = 256-r*alpha/256;
+      int src_g = 256-g*alpha/256;
+      int src_b = 256-b*alpha/256;
+      int src_a = 256-a*alpha/256;
 
       _LICE_MakePixel(dest,
         src_r > 1 ? 256*dest[LICE_PIXEL_R] / src_r : 256*dest[LICE_PIXEL_R],
@@ -214,7 +295,7 @@ public:
   { 
     // we could check alpha=0 here, but the caller should (since alpha is usually used for static alphas)
 
-    int da=(255-alpha)*256;
+    int da=(256-alpha)*256;
     _LICE_MakePixel(dest,
       (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
       (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
@@ -230,8 +311,8 @@ public:
   { 
     if (a)
     {
-      alpha=(alpha*a)/256;
-      int da=(255-alpha)*256;
+      alpha=(alpha*(a+1))/256;
+      int da=(256-alpha)*256;
       _LICE_MakePixel(dest,
         (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
         (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
@@ -290,6 +371,7 @@ public:
     if ((alpha)!=0.0) switch ((mode)&LICE_BLIT_MODE_MASK) { \
       case LICE_BLIT_MODE_COPY: \
         if ((alpha)==1.0f) { __LICE__ACTION(_LICE_CombinePixelsClobber);  } \
+        else if ((alpha)==0.5f) { __LICE__ACTION(_LICE_CombinePixelsHalfMix);  } \
         else if ((alpha)>0.0) __LICE__ACTION(_LICE_CombinePixelsCopy); \
       break;  \
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
@@ -297,5 +379,4 @@ public:
       case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
     }
         
-
-#endif
+#endif // _LICE_COMBINE_H_

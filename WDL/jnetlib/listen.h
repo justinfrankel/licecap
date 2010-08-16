@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2000-2001 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: listen.h - JNL interface for opening a TCP listen
@@ -19,13 +20,35 @@
 #define _LISTEN_H_
 #include "connection.h"
 
-class JNL_Listen
+#ifndef JNL_NO_DEFINE_INTERFACES
+
+  class JNL_IListen
+  {
+    public:
+
+      virtual ~JNL_IListen() { }
+
+      virtual JNL_IConnection *get_connect(int sendbufsize=8192, int recvbufsize=8192)=0;
+      virtual short port(void)=0;
+      virtual int is_error(void)=0;
+  };
+
+  #define JNL_Listen_PARENTDEF : public JNL_IListen
+#else
+  #define JNL_IListen JNL_Listen
+  #define JNL_Listen_PARENTDEF
+#endif
+
+#ifndef JNL_NO_IMPLEMENTATION
+
+
+class JNL_Listen JNL_Listen_PARENTDEF
 {
   public:
     JNL_Listen(short port, unsigned long which_interface=0);
     ~JNL_Listen();
 
-    JNL_Connection *get_connect(int sendbufsize=8192, int recvbufsize=8192);
+    JNL_IConnection *get_connect(int sendbufsize=8192, int recvbufsize=8192);
     short port(void) { return m_port; }
     int is_error(void) { return (m_socket<0); }
 
@@ -33,5 +56,7 @@ class JNL_Listen
     int m_socket;
     short m_port;
 };
+
+#endif
 
 #endif //_LISTEN_H_

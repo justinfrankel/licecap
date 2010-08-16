@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2000-2001 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: asyncdns.h - JNL portable asynchronous DNS interface
@@ -18,7 +19,24 @@
 #ifndef _ASYNCDNS_H_
 #define _ASYNCDNS_H_
 
-class JNL_AsyncDNS
+#ifndef JNL_NO_DEFINE_INTERFACES
+class JNL_IAsyncDNS
+{
+public:
+  virtual ~JNL_IAsyncDNS() { }
+  virtual int resolve(char *hostname, unsigned long *addr)=0; // return 0 on success, 1 on wait, -1 on unresolvable
+  virtual int reverse(unsigned long addr, char *hostname)=0; // return 0 on success, 1 on wait, -1 on unresolvable. hostname must be at least 256 bytes.
+};
+#define JNL_AsyncDNS_PARENTDEF : public JNL_IAsyncDNS
+#else 
+#define JNL_IAsyncDNS JNL_AsyncDNS
+#define JNL_AsyncDNS_PARENTDEF
+#endif
+
+
+#ifndef JNL_NO_IMPLEMENTATION
+
+class JNL_AsyncDNS JNL_AsyncDNS_PARENTDEF
 {
 public:
   JNL_AsyncDNS(int max_cache_entries=64);
@@ -51,5 +69,6 @@ private:
   void makesurethreadisrunning(void);
 
 };
+#endif // !JNL_NO_IMPLEMENTATION
 
 #endif //_ASYNCDNS_H_

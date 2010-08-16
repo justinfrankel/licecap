@@ -47,7 +47,7 @@ WDL_VirtualListBox::~WDL_VirtualListBox()
 {
 }
 
-void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   HDC hdc=drawbm->getDC();
 
@@ -95,7 +95,6 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
 
   int y;
   LICE_pixel tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-  tcol=LICE_RGBA_FROMNATIVE(tcol,0);
 
   int endpos=r.bottom;
   int itempos=startpos;
@@ -113,6 +112,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
 
       if (m_GetItemInfo(this,itempos++,buf,sizeof(buf),&color,(void**)&bkbm))
       {
+        color=LICE_RGBA_FROMNATIVE(color,0);
         RECT thisr=r;
         thisr.top = ly+1;
         thisr.bottom = y-1;

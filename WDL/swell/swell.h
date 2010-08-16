@@ -303,6 +303,10 @@ typedef struct tagDRAWITEMSTRUCT {
     DWORD       itemData;
 } DRAWITEMSTRUCT, *PDRAWITEMSTRUCT, *LPDRAWITEMSTRUCT;
 
+typedef struct tagBITMAP {
+  LONG bmWidth;
+  LONG bmHeight;
+} BITMAP, *PBITMAP, *LPBITMAP;
 #define ODT_MENU        1
 #define ODT_LISTBOX     2
 #define ODT_COMBOBOX    3
@@ -685,6 +689,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define SWP_NOSIZE 2
 #define SWP_NOZORDER 4
 #define SWP_NOACTIVATE 8
+#define SWP_SHOWWINDOW 16
 #define SWP_NOCOPYBITS 0
 #define HWND_TOP ((HWND)0)
 #define HWND_TOPMOST ((HWND)0)
@@ -1420,7 +1425,7 @@ SWELL_API_DEFINE(HWND,FindWindowEx,(HWND par, HWND lastw, const char *classname,
 */
 SWELL_API_DEFINE(void, ClientToScreen,(HWND hwnd, POINT *p))
 SWELL_API_DEFINE(void, ScreenToClient,(HWND hwnd, POINT *p))
-SWELL_API_DEFINE(void, GetWindowRect,(HWND hwnd, RECT *r))
+SWELL_API_DEFINE(bool, GetWindowRect,(HWND hwnd, RECT *r))
 SWELL_API_DEFINE(void, GetWindowContentViewRect, (HWND hwnd, RECT *r)) 
 SWELL_API_DEFINE(void, GetClientRect,(HWND hwnd, RECT *r))
 SWELL_API_DEFINE(HWND, WindowFromPoint,(POINT p))
@@ -1940,12 +1945,6 @@ SWELL_API_DEFINE(void, SWELL_QuitAutoRelease,(void *p))
 ** Or, there are these helper functions:
 */
 
-/*
-** SWELL_CreateContext()
-** pass a CGContextRef, and it will create a "HDC" for it.
-*/
-
-SWELL_API_DEFINE(HDC, SWELL_CreateContext,(void *))
 
 /*
 ** SWELL_CreateMemContext()
@@ -1955,10 +1954,10 @@ SWELL_API_DEFINE(HDC, SWELL_CreateContext,(void *))
 SWELL_API_DEFINE(HDC, SWELL_CreateMemContext,(HDC hdc, int w, int h))
 
 /*
-** SWELL_DeleteContext()
-** Deletes a context created with SWELL_CreateContext() or SWELL_CreateMemContext()
+** SWELL_DeleteGfxContext()
+** Deletes a context created with SWELL_CreateMemContext() (or the internal SWELL_CreateGfxContext)
 */
-SWELL_API_DEFINE(void, SWELL_DeleteContext,(HDC))
+SWELL_API_DEFINE(void, SWELL_DeleteGfxContext,(HDC))
 
 /*
 ** SWELL_GetCtxGC()
@@ -1973,13 +1972,7 @@ SWELL_API_DEFINE(void *, SWELL_GetCtxGC,(HDC ctx))
 */
 SWELL_API_DEFINE(void *, SWELL_GetCtxFrameBuffer,(HDC ctx))
 
-/*
-** SWELL_SyncCtxFrameBuffer()
-** If you modify the framebuffer, and will BitBlt() from this memory DC,
-** you will probably want to call this before blitting. Note that you may
-** not always HAVE to (it may work if you don't), but you SHOULD.
-*/
-SWELL_API_DEFINE(void, SWELL_SyncCtxFrameBuffer,(HDC ctx))
+
 
 /* 
 ** Some utility functions for pushing, setting, and popping the clip region. 
@@ -2049,6 +2042,7 @@ SWELL_API_DEFINE(void, RoundRect,(HDC ctx, int x, int y, int x2, int y2, int xrn
 SWELL_API_DEFINE(void, PolyPolyline,(HDC ctx, POINT *pts, DWORD *cnts, int nseg))
 SWELL_API_DEFINE(BOOL, GetTextMetrics,(HDC ctx, TEXTMETRIC *tm))
 SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
+SWELL_API_DEFINE(BOOL, GetObject, (HICON icon, int bmsz, void *_bm))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
 SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
 SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode))
@@ -2168,9 +2162,6 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 #ifndef WDL_GDP_CTX                // stupid GDP compatibility layer, deprecated
 
-#define WDL_GDP_CreateContext(x) SWELL_CreateContext(x)
-#define WDL_GDP_CreateMemContext(hdc,w,h) SWELL_CreateMemContext(hdc,w,h)
-#define WDL_GDP_DeleteContext(x) SWELL_DeleteContext(x)
 
 #define WDL_GDP_CTX HDC
 #define WDL_GDP_PEN HPEN
@@ -2188,6 +2179,8 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 #define WDL_GDP_LineTo(hdc,x,y) LineTo(hdc,x,y)
 #define WDL_GDP_PutPixel(hdc,x,y,c) SetPixel(hdc,x,y,c)
 #define WDL_GDP_PolyBezierTo(hdc,p,np) PolyBezierTo(hdc,p,np)
+
+#define SWELL_SyncCtxFrameBuffer(x) // no longer used
 
 #endif
 

@@ -33,6 +33,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#pragma warning(disable:4244) // float-to-int
 #else
 #include "../SWELL/swell.h" // use SWELL on other systems
 #endif
@@ -83,7 +84,10 @@ typedef unsigned char LICE_pixel_chan;
 #endif
 
 
-#define LICE_RGBA_FROMNATIVE(col, alpha) LICE_RGBA(GetRValue(col),GetGValue(col),GetBValue(col),(alpha))
+static inline LICE_pixel LICE_RGBA_FROMNATIVE(LICE_pixel col, int alpha=0)
+{
+  return LICE_RGBA(GetRValue(col),GetGValue(col),GetBValue(col),alpha);
+}
 
 // bitmap interface, and some built-in types (memory bitmap and system bitmap)
 
@@ -96,10 +100,14 @@ public:
   virtual int getWidth()=0;
   virtual int getHeight()=0;
   virtual int getRowSpan()=0; // includes any off-bitmap data
-  virtual bool isFlipped()=0;
   virtual bool resize(int w, int h)=0;
 
   virtual HDC getDC() { return 0; } // only sysbitmaps have to implement this
+
+  bool isFlipped() const // non-virtual, we set this per-platform (if a platform needs Flipped(), all bitmaps must be flipped!)
+  {
+    return false; 
+  }
 };
 
 class LICE_MemBitmap : public LICE_IBitmap
@@ -107,8 +115,8 @@ class LICE_MemBitmap : public LICE_IBitmap
 public:
   LICE_MemBitmap(int w=0, int h=0)
   {
-    int sz=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
-    m_fb=sz>0?(LICE_pixel*)malloc(sz):0;
+    m_allocsize=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
+    m_fb=m_allocsize>0?(LICE_pixel*)malloc(m_allocsize):0;
     if (!m_fb) {m_width=m_height=0; }
   }
 
@@ -122,11 +130,10 @@ public:
   int getRowSpan() { return m_width; }
   bool resize(int w, int h); // returns TRUE if a resize occurred
 
-  bool isFlipped() { return false; }
-
 private:
   LICE_pixel *m_fb;
   int m_width, m_height;
+  int m_allocsize;
 };
 
 class LICE_SysBitmap : public LICE_IBitmap
@@ -139,17 +146,8 @@ public:
   LICE_pixel *getBits() { return m_bits; }
   int getWidth() { return m_width; }
   int getHeight() { return m_height; }
-  int getRowSpan() { return m_width; }; 
+  int getRowSpan() { return m_allocw; }; 
   bool resize(int w, int h); // returns TRUE if a resize occurred
-
-  bool isFlipped() 
-  {
-#ifndef _WIN32
-    return true;
-#else
-    return false; 
-#endif
-  }
 
   // sysbitmap specific calls
   HDC getDC() { return m_dc; }
@@ -160,6 +158,7 @@ private:
 
   HDC m_dc;
   LICE_pixel *m_bits;
+  int m_allocw, m_alloch;
 #ifdef _WIN32
   HBITMAP m_bitmap;
   HGDIOBJ m_oldbitmap;
@@ -188,7 +187,7 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
         if(m_x+w>m_parent->getWidth()) w=m_parent->getWidth()-m_x;
         if (w<0)w=0;
 
-        if (m_y+m_h>m_parent->getHeight()) h=m_parent->getHeight()-m_y;
+        if (m_y+h>m_parent->getHeight()) h=m_parent->getHeight()-m_y;
         if (h<0)h=0;
 
         m_w=w; 
@@ -207,7 +206,6 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
     int getHeight() { return m_h; }
     int getRowSpan() { return m_parent ? m_parent->getRowSpan() : 0; }
 
-    bool isFlipped() { return m_parent &&  m_parent->isFlipped(); }
     HDC getDC() { return NULL; }
 
     int m_w,m_h,m_x,m_y;
@@ -216,6 +214,13 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 };
 // bitmap loaders
 
+
+// dispatch to a linked loader implementation based on file extension 
+LICE_IBitmap* LICE_LoadImage(const char* filename, LICE_IBitmap* bmp=NULL, bool tryIgnoreExtension=false);
+char *LICE_GetImageExtensionList(bool wantAllSup=true, bool wantAllFiles=true); // returns doublenull terminated GetOpenFileName() style list -- free() when done.
+
+
+
 // pass a bmp if you wish to load it into that bitmap. note that if it fails bmp will not be deleted.
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
@@ -223,15 +228,18 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
-LICE_IBitmap *LICE_LoadIcon(const char *filename, int iconnb=0, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
-LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int iconnb=0, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
-
+LICE_IBitmap *LICE_LoadIcon(const char *filename, int reqiconsz=16, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int reqiconsz=16, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
 LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp=NULL);
 LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nframes=NULL); // if nframes set, will be set to number of images (stacked vertically), otherwise first frame used
 
+LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+
+
 // bitmap saving
 bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
+bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool force_baseline=true);
 
 // flags that most blit functions can take
 
@@ -310,8 +318,8 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color);
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask=0, LICE_pixel orbits=0);
 void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 
-                          float rsc, float gsc, float bsc, float asc,
-                          float radd, float gadd, float badd, float aadd);
+                          float rsc, float gsc, float bsc, float asc, // 0-1, or -100 .. +100 if you really are insane
+                          float radd, float gadd, float badd, float aadd); // 0-255 is the normal range on these.. of course its clamped
 
 void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color);
 
@@ -359,6 +367,7 @@ bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int 
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
               LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0);
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa);
 
@@ -377,5 +386,26 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 // convenience functions
 void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha=1.0f, int mode=0);
 void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel bgcolor, LICE_pixel fgcolor, float alpha=1.0f, int mode=0);
+
+// bitmap compare-by-value function
+int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b);
+
+
+
+
+
+
+
+
+struct _LICE_ImageLoader_rec
+{
+  LICE_IBitmap *(*loadfunc)(const char *filename, bool checkFileName, LICE_IBitmap *bmpbase); 
+  const char *(*get_extlist)(); // returns GetOpenFileName sort of list "JPEG files (*.jpg)\0*.jpg\0"
+
+  struct _LICE_ImageLoader_rec *_next;
+};
+extern _LICE_ImageLoader_rec *LICE_ImageLoader_list;
+
+
 
 #endif

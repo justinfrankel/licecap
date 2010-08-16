@@ -574,11 +574,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(void) drawRect:(NSRect)rect
 {
   if (m_hashaddestroy) return;
-  m_paintctx_hdc=WDL_GDP_CreateContext([[NSGraphicsContext currentContext] graphicsPort]);
+  m_paintctx_hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
   m_paintctx_rect=rect;
   m_paintctx_used=false;
   DoPaintStuff(m_wndproc,(HWND)self,m_paintctx_hdc,&m_paintctx_rect);
-  WDL_GDP_DeleteContext(m_paintctx_hdc);
+  SWELL_DeleteGfxContext(m_paintctx_hdc);
   m_paintctx_hdc=0;
   if (!m_paintctx_used) {
      /*[super drawRect:rect];*/
@@ -1553,17 +1553,7 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
   [self swellDoRepos];
 }
 
-/*
--(void) drawRect:(NSRect)rect
-{
-  HDC hdc=WDL_GDP_CreateContext([[NSGraphicsContext currentContext] graphicsPort]);
-  HBRUSH br=CreateSolidBrush(RGB(255,0,0));
-  RECT tr={rect.origin.x,rect.origin.y,rect.origin.x+rect.size.width,rect.origin.y+rect.size.height};
-  FillRect(hdc,&tr,br);
-  DeleteObject(br);
-  WDL_GDP_DeleteContext(hdc);
-}
-*/
+
 -(BOOL)isOpaque
 {
   return NO;

@@ -665,6 +665,7 @@ static void c32768(register WDL_FFT_COMPLEX *a)
   c16384(a);
 }
 
+#if 0
 static void mulr4(WDL_FFT_REAL *a,WDL_FFT_REAL *b)
 {
   register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
@@ -683,6 +684,7 @@ static void mulr4(WDL_FFT_REAL *a,WDL_FFT_REAL *b)
   a[3] = t3;
 }
 
+#endif
 /* n even, n > 0 */
 void WDL_fft_complexmul(WDL_FFT_COMPLEX *a,WDL_FFT_COMPLEX *b,int n)
 {

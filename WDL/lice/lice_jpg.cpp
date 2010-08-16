@@ -15,21 +15,40 @@ extern "C" {
 
 struct my_error_mgr {
   struct jpeg_error_mgr pub;	/* "public" fields */
-
   jmp_buf setjmp_buffer;	/* for return to caller */
 };
+static void LICEJPEG_Error(j_common_ptr cinfo)
+{
+  longjmp(((my_error_mgr*)cinfo->err)->setjmp_buffer,1);
+}
+static void LICEJPEG_EmitMsg(j_common_ptr cinfo, int msg_level) { }
+static void LICEJPEG_FmtMsg(j_common_ptr cinfo, char *) { }
+static void LICEJPEG_OutMsg(j_common_ptr cinfo) { }
+static void LICEJPEG_reset_error_mgr(j_common_ptr cinfo)
+{
+  cinfo->err->num_warnings = 0;
+  cinfo->err->msg_code = 0;
+}
+
+
 
 LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp)
 {
   struct jpeg_decompress_struct cinfo;
-  struct my_error_mgr jerr;
+  struct my_error_mgr jerr={0,};
   JSAMPARRAY buffer;
   int row_stride;
 
   FILE *fp=fopen(filename,"rb");
   if (!fp) return 0;
 
-  cinfo.err = jpeg_std_error(&jerr.pub);
+  jerr.pub.error_exit = LICEJPEG_Error;
+  jerr.pub.emit_message = LICEJPEG_EmitMsg;
+  jerr.pub.output_message = LICEJPEG_OutMsg;
+  jerr.pub.format_message = LICEJPEG_FmtMsg;
+  jerr.pub.reset_error_mgr = LICEJPEG_reset_error_mgr;
+
+  cinfo.err = &jerr.pub;
 
   if (setjmp(jerr.setjmp_buffer)) 
   {
@@ -106,3 +125,36 @@ LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp)
 
   return bmp;
 }
+
+
+class LICE_JPGLoader
+{
+public:
+  _LICE_ImageLoader_rec rec;
+  LICE_JPGLoader() 
+  {
+    rec.loadfunc = loadfunc;
+    rec.get_extlist = get_extlist;
+    rec._next = LICE_ImageLoader_list;
+    LICE_ImageLoader_list = &rec;
+  }
+
+  static LICE_IBitmap *loadfunc(const char *filename, bool checkFileName, LICE_IBitmap *bmpbase)
+  {
+    if (checkFileName)
+    {
+      const char *p=filename;
+      while (*p)p++;
+      while (p>filename && *p != '\\' && *p != '/' && *p != '.') p--;
+      if (stricmp(p,".jpg")&&stricmp(p,".jpeg")&&stricmp(p,".jfif")) return 0;
+    }
+    return LICE_LoadJPG(filename,bmpbase);
+  }
+  static const char *get_extlist()
+  {
+    return "JPEG files (*.JPG;*.JPEG;*.JFIF)\0*.JPG;*.JPEG;*.JFIF\0";
+  }
+
+};
+
+static LICE_JPGLoader LICE_jgpldr;

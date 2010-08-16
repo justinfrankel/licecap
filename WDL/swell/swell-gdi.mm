@@ -85,13 +85,17 @@ static void GDP_CTX_DELETE(GDP_CTX *p)
 }
 
 
-HDC SWELL_CreateContext(void *c)
+HDC SWELL_CreateGfxContext(void *c)
 {
   GDP_CTX *ctx=GDP_CTX_NEW();
-  ctx->ctx=(CGContextRef)c;
+  NSGraphicsContext *nsc = (NSGraphicsContext *)c;
+//  if (![nsc isFlipped])
+//    nsc = [NSGraphicsContext graphicsContextWithGraphicsPort:[nsc graphicsPort] flipped:YES];
+
+  ctx->ctx=(CGContextRef)[nsc graphicsPort];
 //  CGAffineTransform f={1,0,0,-1,0,0};
   //CGContextSetTextMatrix(ctx->ctx,f);
-  SetTextColor(ctx,0);
+  //SetTextColor(ctx,0);
   
  // CGContextSelectFont(ctx->ctx,"Arial",12.0,kCGEncodingMacRoman);
   return ctx;
@@ -111,7 +115,12 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
     free(buf);
     return 0;
   }
-  
+
+
+  CGContextTranslateCTM(c,0.0,h);
+  CGContextScaleCTM(c,1.0,-1.0);
+
+
   GDP_CTX *ctx=GDP_CTX_NEW();
   ctx->ctx=(CGContextRef)c;
   ctx->ownedData=buf;
@@ -121,15 +130,12 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
   return ctx;
 }
 
-#define INVALIDATE_BITMAPCACHE(x) (x)->bitmapimagecache_dirty=true; 
 
-void SWELL_DeleteContext(HDC ctx)
+void SWELL_DeleteGfxContext(HDC ctx)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (ct)
-  {
-    if (ct->bitmapimagecache) CGImageRelease(ct->bitmapimagecache); 
-    
+  {   
     if (ct->ownedData)
     {
       CGContextRelease(ct->ctx);
@@ -358,7 +364,6 @@ void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
   if (!c || !b || b == (GDP_OBJECT*)TYPE_BRUSH || b->type != TYPE_BRUSH) return;
 
   if (b->wid<0) return;
-  INVALIDATE_BITMAPCACHE(c);
   
   CGRect rect=CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top);
   CGContextSetFillColorWithColor(c->ctx,b->color);
@@ -392,7 +397,6 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
   if (!c) return;
   
   CGRect rect=CGRectMake(l,t,r-l,b-t);
-  INVALIDATE_BITMAPCACHE(c);
   
   if (c->curbrush && c->curbrush->wid >=0)
   {
@@ -412,7 +416,6 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   if (!c) return;
   
   CGRect rect=CGRectMake(l,t,r-l,b-t);
-  INVALIDATE_BITMAPCACHE(c);
   
   if (c->curbrush && c->curbrush->wid >= 0)
   {
@@ -453,7 +456,6 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   GDP_CTX *c=(GDP_CTX *)ctx;
   if (!c) return;
   if (((!c->curbrush||c->curbrush->wid<0) && (!c->curpen||c->curpen->wid<0)) || npts<2) return;
-  INVALIDATE_BITMAPCACHE(c);
 
   CGContextBeginPath(c->ctx);
   CGContextMoveToPoint(c->ctx,(float)pts[0].x,(float)pts[0].y);
@@ -491,7 +493,6 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0||np<3) return;
-  INVALIDATE_BITMAPCACHE(c);
   
   CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
@@ -517,7 +518,6 @@ void SWELL_LineTo(HDC ctx, int x, int y)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0) return;
-  INVALIDATE_BITMAPCACHE(c);
 
   CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
@@ -536,7 +536,6 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0||nseg<1) return;
-  INVALIDATE_BITMAPCACHE(c);
 
   CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
@@ -567,18 +566,11 @@ void *SWELL_GetCtxGC(HDC ctx)
   return ct->ctx;
 }
 
-void SWELL_SyncCtxFrameBuffer(HDC ctx)
-{
-  GDP_CTX *ct=(GDP_CTX *)ctx;
-  if (!ct) return;
-  INVALIDATE_BITMAPCACHE(ct);
-}
 
 void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return;
-  INVALIDATE_BITMAPCACHE(ct);
   CGContextBeginPath(ct->ctx);
   CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
   CGContextAddLineToPoint(ct->ctx,(float)x+0.5,(float)y+0.5);
@@ -636,8 +628,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return 0;
-  if (!(align & DT_CALCRECT))
-    INVALIDATE_BITMAPCACHE(ct);
   
   char tmp[4096];
   const char *p=buf;
@@ -781,8 +771,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return 0;
-  if (!(align & DT_CALCRECT))
-    INVALIDATE_BITMAPCACHE(ct);
 
   CFStringRef label=(CFStringRef)SWELL_CStringToCFString(buf); 
   HIRect hiBounds = { {r->left, r->top}, {r->right-r->left, r->bottom-r->top} };
@@ -879,8 +867,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return 0;
-  if (!(align & DT_CALCRECT))
-    INVALIDATE_BITMAPCACHE(ct);
   
   char tmp[4096];
   const char *p=buf;
@@ -1017,8 +1003,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return 0;
-  if (!(align & DT_CALCRECT))
-    INVALIDATE_BITMAPCACHE(ct);
    
   //NSString *label=(NSString *)SWELL_CStringToCFString(buf); 
   //NSRect r2 = NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
@@ -1191,7 +1175,6 @@ void DrawImageInRect(HDC ctx, HICON img, RECT *r)
   GDP_OBJECT *i = (GDP_OBJECT *)img;
   if (!ctx || !i || i->type != TYPE_BITMAP||!i->bitmapptr) return;
   GDP_CTX *ct=(GDP_CTX*)ctx;
-  INVALIDATE_BITMAPCACHE(ct);
   //CGContextDrawImage(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top),(CGImage*)i->bitmapptr);
   // probably a better way since this ignores the ctx
   [NSGraphicsContext saveGraphicsState];
@@ -1205,6 +1188,22 @@ void DrawImageInRect(HDC ctx, HICON img, RECT *r)
   [NSGraphicsContext restoreGraphicsState];
 //  [gc release];
 }
+
+
+BOOL GetObject(HICON icon, int bmsz, void *_bm)
+{
+  memset(_bm,0,bmsz);
+  if (bmsz != sizeof(BITMAP)) return false;
+  BITMAP *bm=(BITMAP *)_bm;
+  GDP_OBJECT *i = (GDP_OBJECT *)icon;
+  if (!i || i->type != TYPE_BITMAP) return false;
+  NSImage *img = i->bitmapptr;
+  if (!img) return false;
+  bm->bmWidth = (int) ([img size].width+0.5);
+  bm->bmHeight = (int) ([img size].height+0.5);
+  return true;
+}
+
 
 void *GetNSImageFromHICON(HICON ico)
 {
@@ -1341,7 +1340,11 @@ void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, 
   CGImage *img=CGBitmapContextCreateImage(newtmpctx);
   if (img)
   {
-    CGContextDrawImage(dest->ctx,CGRectMake(x,y,w,h),img);  
+    CGContextSaveGState(dest->ctx);
+    CGContextScaleCTM(dest->ctx,1.0,-1.0);  
+    CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
+    CGContextRestoreGState(dest->ctx);
+  
     CGImageRelease(img);
   }
   CGContextRelease(newtmpctx);
@@ -1373,29 +1376,29 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   GDP_CTX *dest=(GDP_CTX*)hdcOut;
   if (!src->ownedData || !src->ctx || !dest->ctx) return;
   
-  INVALIDATE_BITMAPCACHE(dest)
   
-  if (src->bitmapimagecache && src->bitmapimagecache_dirty)
-  {
-    CGImageRelease(src->bitmapimagecache); 
-    src->bitmapimagecache=0; 
-  }
-  
-  if (!src->bitmapimagecache) 
-  {
-    src->bitmapimagecache=CGBitmapContextCreateImage(src->ctx);
-    src->bitmapimagecache_dirty=0;
-  }
-  
-  CGImageRef img=src->bitmapimagecache;
+  CGImageRef img=CGBitmapContextCreateImage(src->ctx);
+
   if (!img) return;
   
-  CGContextSaveGState(dest->ctx);
-  CGContextClipToRect(dest->ctx,CGRectMake(x,y,w,h));
+  CGContextRef output = (CGContextRef)dest->ctx; 
   
-  CGContextDrawImage(dest->ctx,CGRectMake(x-xin,y-yin,CGImageGetWidth(img),CGImageGetHeight(img)),img);
-  CGContextRestoreGState(dest->ctx);
+  if (xin || yin || w != CGImageGetWidth(img) || h != CGImageGetHeight(img))
+  {
+    CGImageRef img2 = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,w,h));
+    if (img2)
+    {
+      CGImageRelease(img);
+      img=img2;
+    }
+  }
   
+  CGContextSaveGState(output);
+  CGContextScaleCTM(output,1.0,-1.0);  
+  CGContextDrawImage(output,CGRectMake(x,-h-y,w,h),img);    
+  CGContextRestoreGState(output);
+  
+  CGImageRelease(img);   
 }
 
 void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode)
@@ -1405,29 +1408,25 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
   GDP_CTX *dest=(GDP_CTX*)hdcOut;
   if (!src->ownedData || !src->ctx || !dest->ctx) return;
 
-  if (src->bitmapimagecache && src->bitmapimagecache_dirty)
-  {
-    CGImageRelease(src->bitmapimagecache); 
-    src->bitmapimagecache=0; 
-  }
-  
-  if (!src->bitmapimagecache) 
-  {
-    src->bitmapimagecache=CGBitmapContextCreateImage(src->ctx);
-    src->bitmapimagecache_dirty=0;
-  }  
-  CGImageRef img=src->bitmapimagecache;
+  CGImageRef img = CGBitmapContextCreateImage(src->ctx);
   if (!img) return;
   
+  if (xin || yin || srcw != CGImageGetWidth(img) || srch != CGImageGetHeight(img))
+  {
+    CGImageRef img2 = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,srcw,srch));
+    if (img2)
+    {
+      CGImageRelease(img);
+      img=img2;
+    }
+  }
+    
   CGContextSaveGState(dest->ctx);
-  CGContextClipToRect(dest->ctx,CGRectMake(x,y,w,h));
-
-  double xsc=(double)w/(double)srcw;
-  double ysc=(double)h/(double)srch;
-  
-  CGContextDrawImage(dest->ctx,CGRectMake(x-xin*xsc,y-yin*ysc,CGImageGetWidth(img)*xsc,CGImageGetHeight(img)*ysc),img);
+  CGContextScaleCTM(dest->ctx,1.0,-1.0);  
+  CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
   CGContextRestoreGState(dest->ctx);
   
+  CGImageRelease(img);
 }
 
 void SWELL_PushClipRegion(HDC ctx)
@@ -1490,9 +1489,12 @@ HDC GetDC(HWND h)
     
     if ([(NSView*)h lockFocusIfCanDraw])
     {
-      CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
-      CGContextSaveGState(myContext);
-      return WDL_GDP_CreateContext(myContext);
+      HDC ret= SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
+      if (ret)
+      {
+         if (((GDP_CTX*)ret)->ctx) CGContextSaveGState(((GDP_CTX*)ret)->ctx);
+      }
+      return ret;
     }
   }
   return 0;
@@ -1546,7 +1548,7 @@ void ReleaseDC(HWND h, HDC hdc)
     }
   }    
     
-  if (hdc) WDL_GDP_DeleteContext(hdc);
+  if (hdc) SWELL_DeleteGfxContext(hdc);
   if (isView && hdc)
   {
     [(NSView *)h unlockFocus];

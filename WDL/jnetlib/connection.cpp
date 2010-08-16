@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2000-2001 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: connection.cpp - JNL TCP connection implementation
@@ -11,7 +12,7 @@
 #include "connection.h"
 
 
-JNL_Connection::JNL_Connection(JNL_AsyncDNS *dns, int sendbufsize, int recvbufsize)
+JNL_Connection::JNL_Connection(JNL_IAsyncDNS *dns, int sendbufsize, int recvbufsize)
 {
   m_errorstr="";
   if (dns == JNL_CONNECTION_AUTODNS)

@@ -8,6 +8,7 @@ typedef struct // if set these override the default virtualwnd styles for this o
   LICE_IBitmap *bgimage;
   int bgimage_lt[2],bgimage_rb[2]; // size of 
   int bgimage_lt_out[2],bgimage_rb_out[2]; // size of outside area (like shadows)
+  int bgimage_noalphaflags; // 4x4 flags of "no alpha", so 65535 is image has no alpha whatsoever
 } WDL_VirtualWnd_BGCfg;
 
 void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a);
@@ -35,11 +36,10 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a);
 
 typedef struct
 {
-  HICON hIcon;
-  LICE_IBitmap *image; // 2x width, second half is "mouseover" image
-
+  LICE_IBitmap *image; // 2x width, second half is "mouseover" image. or straight image if image_issingle set
   LICE_IBitmap *olimage; // drawn in second pass
-  bool image_ltrb_used;
+
+  bool image_ltrb_used,image_issingle;
   int image_ltrb[4]; // extents outside the rect
 } WDL_VirtualIconButton_SkinConfig;
 

@@ -4,9 +4,6 @@
 #include "resource.h"
 #include "math.h"
 
-#pragma REMINDER("looking for oligarc key")
-#include "../Oligarc/Oligarc_publickey.h"
-
 const int kNumPrograms = 1;
 
 enum EParams {
@@ -18,7 +15,7 @@ enum EParams {
 };
 
 enum EChannelSwitch {
-	kDefault = 0, 
+	kDefault = 0,
 	kReversed,
 	kAllLeft,
 	kAllRight,
@@ -52,11 +49,11 @@ enum ELayout
 	kMeterR_Y = 20
 };
 
-PlugExample::PlugExample(IPlugInstanceInfo instanceInfo) 
+PlugExample::PlugExample(IPlugInstanceInfo instanceInfo)
 :	IPLUG_CTOR(kNumParams, 6, instanceInfo), prevL(0.0), prevR(0.0)
 {
   TRACE;
-  
+
 	// Define parameter ranges, display units, labels.
 
 	GetParam(kGainL)->InitDouble("Gain L", 0.0, -44.0, 12.0, 0.1, "dB");
@@ -85,7 +82,7 @@ PlugExample::PlugExample(IPlugInstanceInfo instanceInfo)
   // Attach controls to the graphics engine.  Controls are automatically associated
 	// with a parameter if you construct the control with a parameter index.
 
-	// Attach a couple of meters, not associated with any parameter, 
+	// Attach a couple of meters, not associated with any parameter,
 	// which we keep indexes for, so we can push updates from the plugin class.
 
 	IBitmap bitmap = pGraphics->LoadIBitmap(METER_ID, METER_FN, kMeter_N);
@@ -115,22 +112,6 @@ PlugExample::PlugExample(IPlugInstanceInfo instanceInfo)
 
 	AttachGraphics(pGraphics);
 
-#pragma REMINDER("looking for Oligarc key")
-  WDL_String path, regName, regEmail;
-  pGraphics->PluginPath(&path);
-  bool registered = GETREG("47225-OLIG", path.Get(), &regName, &regEmail);
-  
-  Trace(TRACELOC, "Path:\"%s\"", path.Get());
-  Trace(TRACELOC, "Registered:%s", (registered ? "Y" : "N"));
-
-  WDL_String keyfile;
-  keyfile.Set(path.Get());
-  keyfile.Append("/");
-  keyfile.Append("47225-OLIG.key");
-  FILE* kf = fopen(keyfile.Get(), "r");
-  Trace(TRACELOC, "fopen:%s", (kf ? "succeed" : "fail"));
- 
-  
 	// No cleanup necessary, the graphics engine manages all of its resources and cleans up when closed.
 }
 
@@ -184,7 +165,7 @@ void PlugExample::ProcessDoubleReplacing(double** inputs, double** outputs, int 
 		peakL = MAX(peakL, fabs(*out1));
 		peakR = MAX(peakR, fabs(*out2));
 	}
-  
+
 	const double METER_ATTACK = 0.6, METER_DECAY = 0.1;
 	double xL = (peakL < prevL ? METER_DECAY : METER_ATTACK);
 	double xR = (peakR < prevR ? METER_DECAY : METER_ATTACK);

@@ -244,7 +244,7 @@ void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
     pl_Face newface;
     memcpy(&newface,face,sizeof(pl_Face));
     int k;
-    for (k = 2; k < numVerts; k ++) {
+    for (k = 2; k < (int)numVerts; k ++) {
       int a;
       for (a = 0; a < 3; a ++) {
         int w;

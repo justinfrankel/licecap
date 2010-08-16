@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -185,6 +185,10 @@ SOURCE=..\zlib\crc32.c
 # Begin Source File
 
 SOURCE=..\zlib\crc32.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\zlib\deflate.c
 # End Source File
 # Begin Source File
 
@@ -541,11 +545,23 @@ SOURCE=.\lice_jpg.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_jpg_write.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_line.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_pcx.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_png.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\lice_png_write.cpp
 # End Source File
 # Begin Source File
 

@@ -117,7 +117,7 @@ void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
   }
 }
 
-void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   origin_x += m_position.left; // convert drawing origin to local coords
   origin_y += m_position.top;
@@ -171,9 +171,8 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
         SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
         if (brcol != -100)
         {
-          LICE_MemBitmap tmpbm;
+          static LICE_MemBitmap tmpbm;//not threadsafe
           tmpbm.resize(vieww,viewh);
-
           WDL_VirtualWnd_ScaledBlitBG(&tmpbm,back_image,0,0,vieww,viewh,
               0,0,vieww,viewh,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
 
@@ -278,7 +277,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
         SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
         if (brcol != -100)
         {
-          LICE_MemBitmap tmpbm;
+          static LICE_MemBitmap tmpbm; //not threadsafe
           tmpbm.resize(vieww,viewh);
 
           WDL_VirtualWnd_ScaledBlitBG(&tmpbm,back_image,0,0,vieww,viewh,

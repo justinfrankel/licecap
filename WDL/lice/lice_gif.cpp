@@ -123,3 +123,37 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
   return 0;
 
 }
+
+
+
+class LICE_GIFLoader
+{
+public:
+  _LICE_ImageLoader_rec rec;
+  LICE_GIFLoader() 
+  {
+    rec.loadfunc = loadfunc;
+    rec.get_extlist = get_extlist;
+    rec._next = LICE_ImageLoader_list;
+    LICE_ImageLoader_list = &rec;
+  }
+
+  static LICE_IBitmap *loadfunc(const char *filename, bool checkFileName, LICE_IBitmap *bmpbase)
+  {
+    if (checkFileName)
+    {
+      const char *p=filename;
+      while (*p)p++;
+      while (p>filename && *p != '\\' && *p != '/' && *p != '.') p--;
+      if (stricmp(p,".gif")) return 0;
+    }
+    return LICE_LoadGIF(filename,bmpbase,NULL);
+  }
+  static const char *get_extlist()
+  {
+    return "GIF files (*.GIF)\0*.GIF\0";
+  }
+
+};
+
+static LICE_GIFLoader LICE_gifldr;

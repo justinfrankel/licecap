@@ -14,6 +14,7 @@ LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 
   LICE_SysBitmap sysbitmap(bm.bmWidth,bm.bmHeight);
   
+#ifdef _WIN32
   HDC hdc=CreateCompatibleDC(NULL);
   HGDIOBJ oldBM=SelectObject(hdc,hbm);
 
@@ -25,6 +26,13 @@ LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 
   SelectObject(hdc,oldBM);
   DeleteDC(hdc);
+  #else
+  LICE_Clear(&sysbitmap,0);
+  RECT r={0,0,bm.bmWidth,bm.bmHeight};
+  DrawImageInRect(sysbitmap.getDC(),hbm,&r);
+  if (!bmp) bmp=new LICE_MemBitmap(bm.bmWidth,bm.bmHeight);
+  LICE_Copy(bmp,&sysbitmap);
+  #endif
 
   return bmp;
 }
@@ -32,7 +40,11 @@ LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
+#ifdef _WIN32
   HBITMAP bm=(HBITMAP) LoadImage(NULL,filename,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION|LR_LOADFROMFILE);
+  #else
+  HBITMAP bm=(HBITMAP) LoadNamedImage(filename,false);
+#endif
   if (!bm) return 0;
 
   LICE_IBitmap *ret=hbmToBit(bm,bmp);
@@ -41,6 +53,7 @@ LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp) // returns a
   return ret;
 }
 
+#ifdef _WIN32
 LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
   HBITMAP bm=(HBITMAP) LoadImage(hInst,MAKEINTRESOURCE(resid),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
@@ -51,3 +64,38 @@ LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   DeleteObject(bm);
   return ret;
 }
+#endif
+
+
+
+class LICE_BMPLoader
+{
+public:
+  _LICE_ImageLoader_rec rec;
+  LICE_BMPLoader() 
+  {
+    rec.loadfunc = loadfunc;
+    rec.get_extlist = get_extlist;
+    rec._next = LICE_ImageLoader_list;
+    LICE_ImageLoader_list = &rec;
+  }
+
+  static LICE_IBitmap *loadfunc(const char *filename, bool checkFileName, LICE_IBitmap *bmpbase)
+  {
+    if (checkFileName)
+    {
+      const char *p=filename;
+      while (*p)p++;
+      while (p>filename && *p != '\\' && *p != '/' && *p != '.') p--;
+      if (stricmp(p,".bmp")) return 0;
+    }
+    return LICE_LoadBMP(filename,bmpbase);
+  }
+  static const char *get_extlist()
+  {
+    return "BMP files (*.BMP)\0*.BMP\0";
+  }
+
+};
+
+static LICE_BMPLoader LICE_bmpldr;

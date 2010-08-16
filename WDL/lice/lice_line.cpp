@@ -88,7 +88,7 @@ public:
 
     LICE_pixel* pPx = pDest->getBits() + yi1*w + xi;
     int pxStep = (yi1 < yi2 ? w : -w);
-    int aw = (int) (255.0f * alpha);
+    int aw = (int) (256.0f * alpha);
     for (int i = 0; i <= n; ++i, pPx += pxStep) {
       COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
     }
@@ -102,7 +102,7 @@ public:
 
     LICE_pixel* pPx = pDest->getBits() + yi*w + xi1;
     int pxStep = (xi1 < xi2 ? 1 : -1);
-    int aw = (int) (255.0f * alpha);
+    int aw = (int) (256.0f * alpha);
     for (int i = 0; i <= n; ++i, pPx += pxStep) {
       COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
     }
@@ -117,7 +117,7 @@ public:
     int xStep = (xi2 > xi1 ? 1 : -1);
     int yStep = (yi2 > yi1 ? w : -w);
     int step = xStep + yStep;
-    int aw = (int) (255.0f * alpha);
+    int aw = (int) (256.0f * alpha);
 
     if (aa) {
       int iw = aw * 3 / 4;
@@ -158,12 +158,12 @@ public:
       dErr = (double) ny / (double) nx;
     }
     LICE_pixel* pPx = pDest->getBits() + yi1*w + xi1;   
-    int aw = (int) (255.0f * alpha);
+    int aw = (int) (256.0f * alpha);
 
     if (aa) {
       for (int i = 0; i < n; ++i, pPx += pxStep) {
-        int iErr = __LICE_TOINT(255.0 * err);
-        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw * (255 - iErr) / 256);
+        int iErr = __LICE_TOINT(256.0 * err);
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw * (256 - iErr) / 256);
         COMBFUNC::doPix((LICE_pixel_chan*) (pPx + pxStep2), r, g, b, a, aw * iErr / 256);
         err += dErr;
         if (err > 1.0) {
@@ -171,8 +171,8 @@ public:
           err -= 1.0;
         }
       }
-      int iErr = __LICE_TOINT(255.0 * err);
-      COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw * (255 - iErr) / 256);
+      int iErr = __LICE_TOINT(256.0 * err);
+      COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw * (256 - iErr) / 256);
     }
     else {
       for (int i = 0; i <= n; ++i, pPx += pxStep) {
@@ -256,27 +256,52 @@ bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int 
 
 #include "lice_bezier.h"
 
-#define BEZ_RES 4.0f
-
 // quadratic bezier
 void LICE_DrawBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
   LICE_pixel color, float alpha, int mode, bool aa)
 {
-  float dx = xctl-xstart, dy = yctl-ystart;
-  int i, n = (int) sqrt(dx*dx+dy*dy);
-  dx = xend-xctl, dy = yend-yctl;
-  n += (int) sqrt(dx*dx+dy*dy);
-  n /= 2;
-  float xprev = xstart, yprev = ystart, x, y;
-  for (i = 1; i < n; ++i) {
-    LICE_Bezier(xstart, xctl, xend, ystart, yctl, yend, (double)i/(double)n, &x, &y);
-    if (fabs(xprev-x) > 1.0f || fabs(yprev-y) > 1.0f) {
-      LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, aa);
-      xprev = x;
-      yprev = y;
-    }
+  // rasterizing quadratic beziers is pretty cheap 
+  if (xend < xstart) {
+    SWAP(xstart, xend);
+    SWAP(ystart, yend);
+  }
+  float x, xprev = xstart, yprev = ystart;
+  for (x = xstart; x < xend; x += 2.0f) {
+    float y = LICE_Bezier_GetY(xstart, xctl, xend, ystart, yctl, yend, x);
+    LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, aa);
+    xprev = x;
+    yprev = y;
   }
   LICE_Line(dest, xprev, yprev, xend, yend, color, alpha, mode, aa);
+  return;
+}
+
+// this works OK but needs upstream logic to figure out how curvy the full line segment is
+static void SmoothCBezSegmentRecurse(int recurseidx, float tlo, float thi, float xlo, float ylo, float xhi, float yhi,
+  LICE_IBitmap* dest, float xctl0, float xctl1, float xctl2, float xctl3, 
+  float yctl0, float yctl1, float yctl2, float yctl3,
+  LICE_pixel color, float alpha, int mode, bool aa)
+{
+  float dx = xhi-xlo, dy = yhi-ylo;
+  const int MAX_BEZ_RECURSE = 8;
+  if (recurseidx++ >= MAX_BEZ_RECURSE || fabs(dx) <= 1.0f || fabs(dy) <= 1.0f) {
+    LICE_Line(dest, xlo, ylo, xhi, yhi, color, alpha, mode, aa);
+    return;
+  }
+
+  float tx, ty, tmid = 0.5f*(tlo+thi);
+  LICE_CBezier(xctl0, xctl1, xctl2, xctl3, yctl0, yctl1, yctl2, yctl3, tmid, &tx, &ty);
+  float z = sqrt(dx*dx+dy*dy);
+  float a = xlo*yhi+xhi*ty+tx*ylo-xhi*ylo-tx*yhi-xlo*ty;
+  float d = a/z;  // distance from the midpoint to the original line segment
+  if (fabs(d) <= 1.0f) {  // linear enough
+    LICE_Line(dest, xlo, ylo, tx, ty, color, alpha, mode, aa);
+    LICE_Line(dest, tx, ty, xhi, yhi, color, alpha, mode, aa);
+    return;
+  }
+
+  SmoothCBezSegmentRecurse(recurseidx, tlo, tmid, xlo, ylo, tx, ty, dest, xctl0, xctl1, xctl2, xctl3, yctl0, yctl1, yctl2, yctl3, color, alpha, mode, aa);
+  SmoothCBezSegmentRecurse(recurseidx, tmid, thi, tx, ty, xhi, yhi, dest, xctl0, xctl1, xctl2, xctl3, yctl0, yctl1, yctl2, yctl3, color, alpha, mode, aa);
 }
 
 // cubic bezier
@@ -285,7 +310,24 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 {
 
 #if 0
-  // rasterizing costs a binary search per x-pixel, a significant CPU hit over the quick & dirty bez drawing below
+  // recursive impl, works OK but not so great as to be worth the cost
+  // (I think this is similar to the GDI impl)
+  const int N = 8;
+  float prevt = 0.0, prevx = xstart, prevy = ystart;
+  int i;
+  for (i = 1; i <= N; ++i) {
+    float x, y, t = (float)i/(float)N;    
+    LICE_CBezier(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, t, &x, &y);
+    SmoothCBezSegmentRecurse(0, prevt, t, prevx, prevy, x, y,
+      dest, xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, color, alpha, mode, aa);
+    prevt = t;
+    prevx = x;
+    prevy = y;
+  }
+#endif
+
+#if 0
+  // rasterizing impl, looks nice but costs a binary search per x-pixel which is huge
   if (xend < xstart) {
     SWAP(xstart, xend);
     SWAP(ystart, yend);
@@ -300,8 +342,10 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
     yprev = y;
   }
   LICE_Line(dest, xprev, yprev, xend, yend, color, alpha, mode, aa);
+  return;
 #endif
 
+  // quick & dirty impl, not so pretty but pretty fast
   float dx = xctl1-xstart, dy = yctl1-ystart;
   int i, n = (int) sqrt(dx*dx+dy*dy);
   dx = xctl2-xctl1, dy = yctl2-yctl1;
@@ -312,7 +356,8 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   float xprev = xstart, yprev = ystart, x, y;
   for (i = 1; i < n; ++i) {
     LICE_CBezier(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, (double)i/(double)n, &x, &y);
-    if (fabs(xprev-x) > 1.0f || fabs(yprev-y) > 1.0f) {
+    float dx = x-xprev, dy = y-yprev, dz = dx*dx+dy*dy;
+    if (dz >= 16.0f) {
       LICE_Line(dest, xprev, yprev, x, y, color, alpha, mode, aa);
       xprev = x;
       yprev = y;
@@ -325,6 +370,14 @@ void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x
 {
   if (!dest) return;
   char i0 = 0, i1 = 1, i2 = 2; 
+  if (dest->isFlipped())
+  {
+    int h=dest->getHeight()-1;
+    y1 = h-y1;
+    y2 = h-y2;
+    y3 = h-y3;
+  }
+  
   int coords[3][2]={{x1,y1},{x2,y2},{x3,y3}};
   if (coords[0][1] > coords[1][1]) {  i0 = 1; i1 = 0;  } 
   if (coords[i0][1] > coords[2][1]) { char c=i0; i0=i2; i2=c; }

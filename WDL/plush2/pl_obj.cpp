@@ -55,7 +55,6 @@ void pl_Obj::FlipNormals() {
 
 
 pl_Obj *pl_Obj::Clone() {
-  pl_Face *iff, *of;
   int i;
   pl_Obj *out;
   if (!(out = new pl_Obj(Vertices.GetSize(),Faces.GetSize()))) return 0;

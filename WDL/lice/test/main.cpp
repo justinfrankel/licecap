@@ -12,17 +12,19 @@
 
 #include "resource.h"
 
-#define NUM_EFFECTS 18
+#define NUM_EFFECTS 19
 
 HINSTANCE g_hInstance;
 LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_SysBitmap *framebuffer;
-static int m_effect = 17;
+static int m_effect = NUM_EFFECTS-1;
 static int m_doeff = 0;
 
 static DWORD m_start_time, m_frame_cnt;
+bool m_cap;
+
 
 static void DoPaint(HWND hwndDlg)
 {
@@ -48,6 +50,13 @@ static void DoPaint(HWND hwndDlg)
   
   switch(m_effect)
   {
+    case 18:
+      {
+        void doFlyEffect(LICE_IBitmap *fb,HWND);
+        doFlyEffect(framebuffer,m_cap ? hwndDlg : NULL);
+      }
+    break;
+
     case 17:
       {
         static pl_Obj *obj=NULL,*obj2=NULL;
@@ -433,8 +442,19 @@ static void DoPaint(HWND hwndDlg)
   BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
   //      bmp->blitToDC(dc, NULL, 0, 0);
   
+#if 0
+  if (GetAsyncKeyState(VK_SHIFT)&0x8000)
+  if (GetAsyncKeyState(VK_MENU)&0x8000)
+  if (GetAsyncKeyState(VK_CONTROL)&0x8000)
+  {
+    LICE_WritePNG("/tmp/blah.png",framebuffer,false);
+    LICE_WriteJPG("/tmp/blah.jpg",framebuffer);
+  }
+#endif
+
   EndPaint(hwndDlg, &ps);
 }
+
 
 // this is only used on OS X since it's way faster there
 LRESULT WINAPI testRenderDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -444,12 +464,37 @@ LRESULT WINAPI testRenderDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPAR
     DoPaint(hwndDlg);
     return 0;
   }
+  if (uMsg == WM_LBUTTONDOWN)
+  {
+    m_cap=true;
+    SetCapture(hwndDlg);
+    ShowCursor(FALSE);
+  }
+  else if (uMsg == WM_LBUTTONUP||uMsg==WM_CAPTURECHANGED)
+  {
+    m_cap=false;
+    ShowCursor(TRUE);
+    if (uMsg==WM_LBUTTONUP)ReleaseCapture();
+  }
     
    return DefWindowProc(hwndDlg,uMsg,wParam,lParam);
 }
 
-BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  if (uMsg == WM_LBUTTONDOWN)
+  {
+    m_cap=true;
+    SetCapture(hwndDlg);
+    ShowCursor(FALSE);
+  }
+  else if (uMsg == WM_LBUTTONUP||uMsg==WM_CAPTURECHANGED)
+  {
+    m_cap=false;
+    ShowCursor(TRUE);
+    if (uMsg==WM_LBUTTONUP)ReleaseCapture();
+  }
+
   switch(uMsg)
   {
   case WM_INITDIALOG:

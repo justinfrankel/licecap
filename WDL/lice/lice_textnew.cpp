@@ -4,6 +4,8 @@
 
 #include "lice_combine.h"
 
+
+//not threadsafe ----
 static LICE_SysBitmap s_tempbitmap; // keep a sysbitmap around for rendering fonts
 
 
@@ -16,15 +18,23 @@ LICE_CachedFont::LICE_CachedFont() : m_cachestore(65536)
   m_bgmode = TRANSPARENT;
   m_flags=0;
   m_line_height=0;
+  m_font=0;
   memset(m_chars,0,sizeof(m_chars));
 }
 
 LICE_CachedFont::~LICE_CachedFont()
 {
+  if ((m_flags&LICE_FONT_FLAG_OWNS_HFONT) && m_font) {
+    DeleteObject(m_font);
+  }
 }
 
 void LICE_CachedFont::SetFromHFont(HFONT font, int flags)
 {
+  if ((flags&LICE_FONT_FLAG_OWNS_HFONT) && m_font) {
+    DeleteObject(m_font);
+  }
+
   m_flags=flags;
   m_font=font;
   if (font)
@@ -44,7 +54,6 @@ void LICE_CachedFont::SetFromHFont(HFONT font, int flags)
     if (oldFont) SelectObject(s_tempbitmap.getDC(),oldFont);
 
     m_line_height = tm.tmHeight;
-
   }
 
   memset(m_chars,0,sizeof(m_chars));
@@ -152,11 +161,17 @@ bool LICE_CachedFont::RenderGlyph(unsigned char idx) // return TRUE if ok
       }
       destbuf -= r.right*r.bottom;
     }
+    if (flags&LICE_FONT_FLAG_FX_MONO)
+    {
+      for(y=0;y<r.bottom;y++) for (x=0;x<r.right;x++) *destbuf++ = *destbuf>130 ? 255:0;
+
+      destbuf -= r.right*r.bottom;
+    }
     if (flags&(LICE_FONT_FLAG_FX_SHADOW|LICE_FONT_FLAG_FX_OUTLINE))
     {
       for(y=0;y<r.bottom;y++)
         for (x=0;x<r.right;x++)
-          *destbuf++ = *destbuf ? 255:0;
+          *destbuf++ = *destbuf>130 ? 255:0;
 
       destbuf -= r.right*r.bottom;
       if (flags&LICE_FONT_FLAG_FX_SHADOW)
@@ -226,7 +241,7 @@ public:
         for(x=0;x<width;x++)
         {
           unsigned char v=gsrc[x];
-          if (v) T::doPix((unsigned char *)(pout+x),red,green,blue,255,v);
+          if (v) T::doPix((unsigned char *)(pout+x),red,green,blue,255,(int)v+1);
         }
         gsrc += src_span;
         pout += dest_span;
@@ -244,7 +259,7 @@ public:
           if (v) 
           {
             int a=(v*a256)/256;
-            if (a>255)a=255;
+            if (a>256)a=256;
             T::doPix((unsigned char *)(pout+x),red,green,blue,255,a);
           }
         }
@@ -354,8 +369,8 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned char c,
     }
     else 
     {
-      int avalint = (int) (alpha*255.0);
-      if (avalint>255)avalint=255;
+      int avalint = (int) (alpha*256.0);
+      if (avalint>256)avalint=256;
 
       #define __LICE__ACTION(comb) GlyphRenderer<comb>::Mono(gsrc,pout,src_span,dest_span,width,height,red,green,blue,avalint)
       __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
@@ -384,8 +399,8 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned char c,
     }
     else 
     {
-      int avalint = (int) (alpha*255.0);
-      if (avalint>255)avalint=255;
+      int avalint = (int) (alpha*256.0);
+      if (avalint>256)avalint=256;
       int r2=LICE_GETR(bkcol);
       int g2=LICE_GETG(bkcol);
       int b2=LICE_GETB(bkcol);

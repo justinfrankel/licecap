@@ -58,8 +58,8 @@ class WDL_VirtualIconButton : public WDL_VWnd
     ~WDL_VirtualIconButton();
     void SetEnabled(bool en) {m_en=en; }
     bool GetEnabled() { return m_en; }
-    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { if (m_iconCfg!=cfg) { m_iconCfg=cfg; RequestRedraw(NULL); } }
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
@@ -102,7 +102,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     WDL_VirtualStaticText();
     ~WDL_VirtualStaticText();
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
-    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(LICE_IFont *font) { m_font=font; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
@@ -133,7 +133,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
   public:
     WDL_VirtualComboBox();
     ~WDL_VirtualComboBox();
-    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(LICE_IFont *font) { m_font=font; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
@@ -178,7 +178,7 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     void GetButtonSize(int *w, int *h);
 
-    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
     int OnMouseDown(int xpos, int ypos);
     void OnMouseMove(int xpos, int ypos);
@@ -212,7 +212,7 @@ class WDL_VirtualListBox : public WDL_VWnd
   public:
     WDL_VirtualListBox();
     ~WDL_VirtualListBox();
-    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(LICE_IFont *font) { m_font=font; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
@@ -226,7 +226,7 @@ class WDL_VirtualListBox : public WDL_VWnd
 
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, void **bkbg); // bkbg=LICE_IBitmap* if idx>=0, otherwise WDL_VirtualWnd_BGCfg
-    void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_SysBitmap *drawbm);
+    void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm);
     void *m_GetItemInfo_ctx;
 
     int OnMouseDown(int xpos, int ypos);

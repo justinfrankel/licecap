@@ -20,24 +20,24 @@ PLTexTri
 
 
   solidcomb&=LICE_BLIT_MODE_MASK;
-  if (solidcomb == 0 && solidalpha == 255) solidcomb=-1;
+  if (solidcomb == 0 && solidalpha == 256) solidcomb=-1;
   else if (solidalpha==0) solidcomb=-2; // ignore
-  int solidalpha2=(255-solidalpha)*256;
+  int solidalpha2=(256-solidalpha)*256;
 
 
   pl_Float dU2=0,dV2=0,dUL=0,dVL=0;
   pl_Float dU1=0, dV1=0;
   bool bilinear = (texcomb&LICE_BLIT_FILTER_MASK)==LICE_BLIT_FILTER_BILINEAR;
   texcomb&=LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA;
-  if (texcomb==LICE_BLIT_MODE_COPY && texalpha==255) texcomb=-1;
+  if (texcomb==LICE_BLIT_MODE_COPY && texalpha==256) texcomb=-1;
   else if (texalpha==0) texcomb=-2;
-  int texalpha2=(255-texalpha);
+  int texalpha2=(256-texalpha);
 
   int tex_rowspan=0;
   LICE_pixel *texture=NULL;
   int tex_w=16,tex_h=16;  
 
-#if defined(PLUSH_NO_SOLIDGOURAUD)
+#if defined(PLUSH_NO_SOLIDGOURAUD) || defined(PLUSH_NO_TEXTURE)
   if (tex)
 #endif
   {
@@ -51,7 +51,6 @@ PLTexTri
     tex_w=tex->getWidth();
     tex_h=tex->getHeight();  
   }
-  if (bilinear) { tex_w--;tex_h--; } 
   pl_sInt32 MappingU_Max=tex_w<<16,  MappingV_Max=tex_h<<16;
   texscales[0]*=MappingU_Max;
   texscales[1]*=MappingV_Max;
@@ -63,9 +62,9 @@ PLTexTri
   int tex_w_2=16,tex_h_2=16; 
   bool bilinear2 = (tex2comb&LICE_BLIT_FILTER_MASK)==LICE_BLIT_FILTER_BILINEAR;
   tex2comb&=LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA;
-  if (tex2comb==LICE_BLIT_MODE_COPY && tex2alpha==255) tex2comb=-1;
+  if (tex2comb==LICE_BLIT_MODE_COPY && tex2alpha==256) tex2comb=-1;
   else if (tex2alpha==0) tex2comb=-2;
-  int tex2alpha2=(255-tex2alpha);
+  int tex2alpha2=(256-tex2alpha);
   LICE_pixel *texture_2=NULL;
   int tex_rowspan_2 = 0;
   pl_sInt32 MappingU_Max_2,  MappingV_Max_2;
@@ -84,7 +83,6 @@ PLTexTri
       tex_rowspan_2=-tex_rowspan_2;
     }
   }
-  if (bilinear2) { tex_w_2--; tex_h_2--; } 
   MappingU_Max_2=tex_w_2<<16;
   MappingV_Max_2=tex_h_2<<16;
   texscales[2]*=MappingU_Max_2;
@@ -345,11 +343,16 @@ PLTexTri
               *zbuf = (pl_ZBuffer) ZL;
 
  #ifdef PL_PF_MULTITEX
-             TextureMakePixel2((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, iUL,iVL,texture,tex_rowspan,texcomb,texalpha,texalpha2,
-                bilinear2, iUL_2,iVL_2,texture_2,tex_rowspan_2,tex2comb,tex2alpha,tex2alpha2);
+             TextureMakePixel2((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, 
+               iUL,iVL,tex_w,tex_h,texture,tex_rowspan,texcomb,texalpha,texalpha2,
+                bilinear2, iUL_2,iVL_2,
+                tex_w_2,tex_h_2,
+                texture_2,tex_rowspan_2,tex2comb,tex2alpha,tex2alpha2);
  #else
-             TextureMakePixel((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, iUL,iVL,texture,tex_rowspan,texcomb,texalpha,texalpha2);
-  #endif
+            TextureMakePixel((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, iUL,iVL,
+              tex_w,tex_h,
+              texture,tex_rowspan,texcomb,texalpha,texalpha2);
+ #endif
  
             }
             zbuf++;
@@ -378,11 +381,17 @@ PLTexTri
         else do {
 
  #ifdef PL_PF_MULTITEX
-             TextureMakePixel2((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, iUL,iVL,texture,tex_rowspan,texcomb,texalpha,texalpha2,
-                bilinear2, iUL_2,iVL_2,texture_2,tex_rowspan_2,tex2comb,tex2alpha,tex2alpha2);
+             TextureMakePixel2((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, 
+               iUL,iVL,tex_w,tex_h,texture,tex_rowspan,texcomb,texalpha,texalpha2,
+                bilinear2, iUL_2,iVL_2,
+                tex_w_2,tex_h_2,
+                texture_2,tex_rowspan_2,tex2comb,tex2alpha,tex2alpha2);
  #else
-            TextureMakePixel((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, iUL,iVL,texture,tex_rowspan,texcomb,texalpha,texalpha2);
+            TextureMakePixel((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, iUL,iVL,
+              tex_w,tex_h,
+              texture,tex_rowspan,texcomb,texalpha,texalpha2);
  #endif
+
 
             gmem++;
             CL[0] += dCL[0];

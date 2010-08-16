@@ -2,7 +2,7 @@
 #define _IGRAPHICSLICE_
 
 #include "IControl.h"
-#include "../WDL/lice/lice.h"
+#include "../lice/lice.h"
 
 // Specialty stuff for calling in to Reaper for Lice functionality.
 #ifdef REAPER_SPECIAL

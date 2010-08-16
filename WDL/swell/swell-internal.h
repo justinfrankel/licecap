@@ -405,14 +405,14 @@ typedef struct {
   
   int curbkcol;
   int curbkmode;
-  CGImageRef bitmapimagecache;
-  bool bitmapimagecache_dirty;
   float lastpos_x,lastpos_y;
-  
 } GDP_CTX;
+
 
 #endif // __OBJC__
 
 #endif // SWELL_TARGET_OSX
+
+HDC SWELL_CreateGfxContext(void *);
 
 #endif

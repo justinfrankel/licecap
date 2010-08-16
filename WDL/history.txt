@@ -1,3 +1,26 @@
+2008-11-15: LICE JPEG loading fixes, JPEG writing, PNG writing byteorder fixes
+2008-11-14: LICE_FillCircle() (needs optimizing)
+2008-11-11: LICE_LoadImage, LICE_GetImageExtensoinList(),and LICE_CmpBitmap()
+2008-11-08: LICE test app has new "fly" demo
+2008-11-06: LICE: fixed bug in LICE_SubBitmap
+2008-11-06: JNetLib: optional interface modes so you can easily reuse jnetlib across modules
+2008-11-06: LICE: bitmaps no longer flipped on OS X, made isFlipped() non-virtual to enable better compile-time optimization
+2008-11-05: LICE: reduced image resize heap thrashing
+2008-11-05: virtwnd detects at load whether backgrounds have alphachannel info in each section
+2008-11-04: virtwnd backgrounds disable filtering when not stretching
+2008-11-03: LICE: optimizations for 50/50 fills, fast unfiltered stretchblt, etc
+2008-11-03: virtwnd overhauls (removing HICON use)
+2008-11-03: LICE: .ico loading overhaul, support for OS X
+2008-11-01: SWELL: faster BitBlt() support
+2008-11-01: LICE_CachedText OS X fixes
+2008-10-31: LICE: LICE_LoadBMP() OS X support
+2008-10-31: SWELL: GetObject() API subset
+2008-10-31: LICE_MultiplyAddRect updated documentation and internals
+2008-10-31: LICE_IFonts can own/destroy HFONTs
+2008-10-30: LICE: Fixed a lot of small accuracy bugs
+2008-10-30: LICE: PCX reading support
+2008-10-30: Plush2: fixed singletexture mode when only multitexture compiled in
+2008-10-30: Plush2: fixed repeating textures in bilinear mode
 2008-10-30: Wndsizer: margin support
 2008-10-30: Virtwnd: now uses LICE almost exclusively to draw controls
 2008-10-30: Added Plush2: a port of the old 8bpp 3D rendering engine to a C++, 24 bit, LICE-combining multitexture capable colored lighting rendering engine 

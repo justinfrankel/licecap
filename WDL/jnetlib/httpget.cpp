@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2000-2001 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: httpget.cpp - JNL HTTP GET implementation
@@ -11,7 +12,7 @@
 #include "httpget.h"
 
 
-JNL_HTTPGet::JNL_HTTPGet(JNL_AsyncDNS *dns, int recvbufsize, char *proxy)
+JNL_HTTPGet::JNL_HTTPGet(JNL_IAsyncDNS *dns, int recvbufsize, char *proxy)
 {
   m_recvbufsize=recvbufsize;
   m_dns=dns;

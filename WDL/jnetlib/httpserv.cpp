@@ -1,5 +1,6 @@
 /*
 ** JNetLib
+** Copyright (C) 2008 Cockos Inc
 ** Copyright (C) 2001 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: httpserv.cpp - JNL HTTP GET/POST serving implementation
@@ -24,7 +25,7 @@
     4 closed
 */
 
-JNL_HTTPServ::JNL_HTTPServ(JNL_Connection *con)
+JNL_HTTPServ::JNL_HTTPServ(JNL_IConnection *con)
 {
   m_con=con;
   m_state=0;

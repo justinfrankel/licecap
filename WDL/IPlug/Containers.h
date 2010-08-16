@@ -15,9 +15,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "../wdl/mutex.h"
-#include "../wdl/wdlstring.h"
-#include "../wdl/ptrlist.h"
+#include "../mutex.h"
+#include "../wdlstring.h"
+#include "../ptrlist.h"
 
 #define FREE_NULL(p) {free(p);p=0;}
 #define DELETE_NULL(p) {delete(p); p=0;}

@@ -23,6 +23,7 @@ bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha /*=tr
   */
   png_structp png_ptr=NULL;
   png_infop info_ptr=NULL;
+  unsigned char *rowbuf=NULL;
 
   FILE *fp = fopen(filename, "wb");
   if (fp == NULL) return false;
@@ -43,15 +44,21 @@ bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha /*=tr
 
   if (setjmp(png_jmpbuf(png_ptr))) {
     /* If we get here, we had a problem reading the file */
-    fclose(fp);
+    if (fp) fclose(fp);
+    fp=0;
+    free(rowbuf);
+    rowbuf=0;
     png_destroy_write_struct(&png_ptr, &info_ptr);
     return false;
   }
 
+
   png_init_io(png_ptr, fp);
+  int width=bmp->getWidth();
+  int height = bmp->getHeight();
 
 #define BITDEPTH 8
-  png_set_IHDR(png_ptr, info_ptr, bmp->getWidth(), bmp->getHeight(), BITDEPTH, wantalpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB,
+  png_set_IHDR(png_ptr, info_ptr, width, height, BITDEPTH, wantalpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB,
     PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
   png_write_info(png_ptr, info_ptr);
@@ -61,7 +68,6 @@ bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha /*=tr
   // kill alpha channel bytes if not wanted
   if (!wantalpha) png_set_filler(png_ptr, 0, PNG_FILLER_AFTER);
 
-  unsigned char **row_pointers = (unsigned char **)png_malloc(png_ptr,bmp->getHeight()*sizeof(int*));
   LICE_pixel *ptr=(LICE_pixel *)bmp->getBits();
   int rowspan=bmp->getRowSpan();
   if (bmp->isFlipped()) 
@@ -70,19 +76,46 @@ bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha /*=tr
     rowspan=-rowspan;
   }
 
-  int k;
-  for (k = 0; k < bmp->getHeight(); k++)
+
+  if (LICE_PIXEL_B != 0 || LICE_PIXEL_G != 1 || LICE_PIXEL_R != 2 || LICE_PIXEL_A != 3)
   {
-    row_pointers[k] = (unsigned char*) ptr;
-    ptr += rowspan;
+    rowbuf=(unsigned char *)malloc(width*4);
+    int k;
+    for (k = 0; k < height; k++)
+    {
+      int x;
+      unsigned char *bout = rowbuf;
+      LICE_pixel_chan *bin = (LICE_pixel_chan *) ptr;
+      for(x=0;x<width;x++)
+      {
+        bout[0] = bin[LICE_PIXEL_B];
+        bout[1] = bin[LICE_PIXEL_G];
+        bout[2] = bin[LICE_PIXEL_R];
+        bout[3] = bin[LICE_PIXEL_A];        
+        bout+=4;
+        bin+=4;
+      }
+      png_write_row(png_ptr, (unsigned char *)rowbuf);
+      ptr += rowspan;
+    }
+    free(rowbuf);
+    rowbuf=0;
+  }
+  else
+  {
+    int k;
+    for (k = 0; k < height; k++)
+    {
+      png_write_row(png_ptr, (unsigned char *)ptr);
+      ptr += rowspan;
+    }
   }
 
-  png_write_image(png_ptr, row_pointers);
   png_write_end(png_ptr, info_ptr);
-  png_free(png_ptr,row_pointers);
   png_destroy_write_struct(&png_ptr, &info_ptr);
 
-  fclose(fp);
+  if (fp) fclose(fp);
+  fp=0;
 
   return true;
 }

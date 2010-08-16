@@ -364,6 +364,7 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 }
 
 
+
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa)
 {
@@ -381,10 +382,10 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
       LICE_Line(drawbm,xpos,ypos+cr,xpos,ypos+h-cr,col,alpha,mode,aa);
 
 
-      LICE_Arc(drawbm,xpos+cr,ypos+cr,cr,-_PI*0.5,0,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+w-cr,ypos+cr,cr,0,_PI*0.5,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+w-cr,ypos+h-cr,cr,_PI*0.5,_PI,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+cr,ypos+h-cr,cr,_PI,_PI*1.5,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr,ypos+cr,cr,-_PI*0.5f,0,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr,ypos+cr,cr,0,_PI*0.5f,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr,ypos+h-cr,cr,_PI*0.5f,_PI,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr,ypos+h-cr,cr,_PI,_PI*1.5f,col,alpha,mode,aa);
 
       return;
     }
@@ -394,4 +395,39 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
   LICE_Line(drawbm,xpos,ypos+h,xpos+w,ypos+h,col,alpha,mode,aa);
   LICE_Line(drawbm,xpos+w,ypos,xpos+w,ypos+h,col,alpha,mode,aa);
   LICE_Line(drawbm,xpos,ypos,xpos,ypos+h,col,alpha,mode,aa);
+}
+
+
+
+void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode)
+{
+  // JF> totally unoptimized, low quality ugh. I won't complain if someone fixes. 
+  int ir = ceil(r);
+  if (ir<1) return;
+  if (ir==1)
+  {
+    LICE_PutPixel(dest,(int)(cx+0.5),(int)(cy+0.5),color,alpha,mode);
+    return;
+  }
+
+
+  int y;
+  int ypos = (int) (cy+0.5 - r);
+  int ypos2= (int) (cy+0.5 + r);
+
+  int da=ir;
+  r=(float)ir * (float)ir;
+
+  for(y=0;y<=ir; y++)
+  {
+    float xsz = (float) sqrt(r - da*da);
+    da--;
+
+    LICE_Line(dest,cx-xsz, ypos,cx+xsz, ypos,color,alpha,mode,false);
+    if (ypos2 > ypos)
+      LICE_Line(dest,cx-xsz, ypos2,cx+xsz, ypos2,color,alpha,mode,false);
+
+    ypos++;
+    ypos2--;
+  }
 }

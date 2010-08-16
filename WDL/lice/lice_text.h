@@ -18,13 +18,14 @@
 #define LICE_FONT_FLAG_FX_SHADOW 128 // these imply MONO
 #define LICE_FONT_FLAG_FX_OUTLINE 256
 
+#define LICE_FONT_FLAG_OWNS_HFONT 512
 
 class LICE_IFont
 {
   public:
     virtual ~LICE_IFont() {}
 
-    virtual void SetFromHFont(HFONT font, int flags=0)=0; // font must REMAIN valid, unless LICE_FONT_FLAG_PRECALCALL is set
+    virtual void SetFromHFont(HFONT font, int flags=0)=0; // hfont must REMAIN valid, unless LICE_FONT_FLAG_PRECALCALL or LICE_FONT_FLAG_OWNS_HFONT set (OWNS means LICE_IFont will clean up hfont on font change or exit)
 
     virtual LICE_pixel SetTextColor(LICE_pixel color)=0;
     virtual LICE_pixel SetBkColor(LICE_pixel color)=0;

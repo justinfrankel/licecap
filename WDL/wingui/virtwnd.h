@@ -47,7 +47,7 @@
 
 
 
-class LICE_SysBitmap;
+class LICE_IBitmap;
 
 // deprecated
 #define WDL_VirtualWnd_ChildList WDL_VWnd
@@ -73,8 +73,8 @@ public:
   virtual void SetParent(WDL_VWnd *par) { m_parent=par; }
 
   virtual void RequestRedraw(RECT *r); 
-  virtual void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-  virtual void OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+  virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+  virtual void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
   virtual int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
   virtual bool OnMouseDblClick(int xpos, int ypos);
@@ -141,7 +141,7 @@ public:
 
   void GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw);
 
-  LICE_SysBitmap *GetBuffer(int *xo, int *yo) 
+  LICE_IBitmap *GetBuffer(int *xo, int *yo) 
   { 
     *xo = -m_paint_xorig;
     *yo = -m_paint_yorig;
@@ -156,7 +156,7 @@ private:
   double m_gradstart,m_gradslope;
   int (*m_GSC)(int);
   void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
-  LICE_SysBitmap *m_bm;
+  LICE_IBitmap *m_bm;
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
 

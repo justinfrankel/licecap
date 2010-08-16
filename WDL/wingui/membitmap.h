@@ -52,7 +52,7 @@ public:
       
     if (m_hdc) DeleteDC(m_hdc);
 #else
-    if (m_hdc) WDL_GDP_DeleteContext(m_hdc);
+    if (m_hdc) SWELL_DeleteGfxContext(m_hdc);
 #endif
   }
 
@@ -71,8 +71,8 @@ public:
     m_bm=CreateCompatibleBitmap(compatDC,m_w=w,m_h=h);
     m_oldbm=SelectObject(m_hdc,m_bm);
 #else
-    if (m_hdc) WDL_GDP_DeleteContext(m_hdc);
-    m_hdc=WDL_GDP_CreateMemContext(compatDC,m_w=w,m_h=h);
+    if (m_hdc) SWELL_DeleteGfxContext(m_hdc);
+    m_hdc=SWELL_CreateMemContext(compatDC,m_w=w,m_h=h);
 #endif
     return 1;
   }

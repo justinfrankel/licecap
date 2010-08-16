@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include "../libpng/png.h"
 
+
+
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
 {
   FILE *fp = fopen(filename,"rb");
@@ -265,3 +267,36 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   return 0;
 #endif
 }
+
+
+class LICE_PNGLoader
+{
+public:
+  _LICE_ImageLoader_rec rec;
+  LICE_PNGLoader() 
+  {
+    rec.loadfunc = loadfunc;
+    rec.get_extlist = get_extlist;
+    rec._next = LICE_ImageLoader_list;
+    LICE_ImageLoader_list = &rec;
+  }
+
+  static LICE_IBitmap *loadfunc(const char *filename, bool checkFileName, LICE_IBitmap *bmpbase)
+  {
+    if (checkFileName)
+    {
+      const char *p=filename;
+      while (*p)p++;
+      while (p>filename && *p != '\\' && *p != '/' && *p != '.') p--;
+      if (stricmp(p,".png")) return 0;
+    }
+    return LICE_LoadPNG(filename,bmpbase);
+  }
+  static const char *get_extlist()
+  {
+    return "PNG files (*.PNG)\0*.PNG\0";
+  }
+
+};
+
+static LICE_PNGLoader LICE_pngldr;
