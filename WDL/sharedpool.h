@@ -40,31 +40,27 @@ template<class OBJ> class WDL_SharedPool
 {
   public:
     WDL_SharedPool() { }
-    ~WDL_SharedPool() { m_list.Empty(true); }
+    ~WDL_SharedPool() { m_listobjk.Empty(true); /* do not release m_list since it's redundant */ }
 
     void Add(OBJ *obj, const char *n) // no need to AddRef() after add, it defaults to a reference count of 1.
     {
       if (obj && n)
       {
-        int x;
-        for(x=0;x<m_list.GetSize();x++) if (stricmp(m_list.Get(x)->name,n)>0) break;
-        m_list.Insert(x,new Ent(obj,n));
+        Ent *p = new Ent(obj,n);
+        m_list.InsertSorted(p,_sortfunc_name);
+        m_listobjk.InsertSorted(p,_sortfunc_obj);
       }
     }
 
     OBJ *Get(const char *s)
     {
-      Ent tmp(NULL,s);
-      Ent *t=&tmp;
-      Ent **_tmp=&t;
-
-      if (m_list.GetSize() && (_tmp = (Ent **)bsearch(_tmp,m_list.GetList(),m_list.GetSize(),sizeof(void *),_sortfunc)) && (t=*_tmp))
+      struct { void *obj; const char *name; } tmp = { NULL, s };
+      Ent *t = m_list.Get(m_list.FindSorted((Ent *)&tmp,_sortfunc_name));
+      
+      if (t && t->obj)
       {
-        if (t->obj)
-        {
-          t->refcnt++;
-          return t->obj;
-        }
+        t->refcnt++;
+        return t->obj;
       }
 
       return 0;
@@ -73,27 +69,18 @@ template<class OBJ> class WDL_SharedPool
 
     void AddRef(OBJ *obj)
     {
-      int x;
-      if (obj) for (x = 0; x < m_list.GetSize(); x ++)
-      {
-        if (m_list.Get(x)->obj == obj)
-        {          
-          m_list.Get(x)->refcnt++;
-          return;
-        }
-      }
+      Ent *ent = m_listobjk.Get(m_listobjk.FindSorted((Ent *)&obj,_sortfunc_obj));
+      if (ent) ent->refcnt++;
     }
 
     void Release(OBJ *obj)
     {
-      int x;
-      if (obj) for (x = 0; x < m_list.GetSize(); x ++)
+      int x = m_listobjk.FindSorted((Ent *)&obj,_sortfunc_obj);
+      Ent *ent = m_listobjk.Get(x);
+      if (ent && !--ent->refcnt) 
       {
-        if (m_list.Get(x)->obj == obj)
-        {          
-          if (!--m_list.Get(x)->refcnt) m_list.Delete(x,true);
-          return;
-        }
+        m_list.Delete(m_list.FindSorted(ent,_sortfunc_name));
+        m_listobjk.Delete(x,true);
       }
     }
 
@@ -108,25 +95,31 @@ template<class OBJ> class WDL_SharedPool
     class Ent
     {
       public:
+        OBJ *obj; // this order is used elsewhere for its own advantage
+        char *name; 
+
+        int refcnt;
+
         Ent(OBJ *o, const char *n) { obj=o; name=strdup(n); refcnt=1; }
         ~Ent() { delete obj; free(name); }
 
-        OBJ *obj;
-        int refcnt;
-        char *name;
     };
 
 
 
-    static int _sortfunc(const void *a, const void *b)
+    static int _sortfunc_name(const Ent **a, const Ent **b)
     {
-      Ent *ta = *(Ent **)a;
-      Ent *tb = *(Ent **)b;
-
-      return stricmp(ta->name,tb->name);
+      return stricmp((*a)->name,(*b)->name);
+    }
+    static int _sortfunc_obj(const Ent **a, const Ent **b)
+    {
+      if ((INT_PTR)(*a)->obj < (INT_PTR)(*b)->obj) return -1;
+      if ((INT_PTR)(*a)->obj > (INT_PTR)(*b)->obj) return 1;
+      return 0;
     }
     
-    WDL_PtrList<Ent> m_list;
+    WDL_PtrList<Ent> m_list, // keyed by name
+                     m_listobjk; // keyed by OBJ
 
 
 };

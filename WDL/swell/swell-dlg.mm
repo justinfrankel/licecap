@@ -1632,12 +1632,10 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
     [m_cwnd setDelegate:self];    
     
     ShowWindow(wndref);
-    m_needattach=true;
     
     //[[parent window] addChildWindow:m_cwnd ordered:NSWindowAbove];
     //[self swellDoRepos]; 
     SetTimer((HWND)self,1,10,NULL);
-    SetTimer((HWND)self,2,10,NULL);
   }  
   return self;
 }
@@ -1647,7 +1645,6 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 -(void)close
 {
   KillTimer((HWND)self,1);
-  KillTimer((HWND)self,2);
   
   if (m_wndhandler)
   {
@@ -1683,46 +1680,56 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
   if ([uinfo respondsToSelector:@selector(getValue)]) 
   {
     int idx=(int)[(SWELL_DataHold*)uinfo getValue];
-    if (idx==2)
+    if (idx==1)
     {
-      if (GetCurrentEventButtonState()&7)
+      if (![self superview] || [[self superview] isHiddenOrHasHiddenAncestor])
       {
-        if ([NSApp keyWindow] == [self window])
+        NSWindow *oldw=[m_cwnd parentWindow];
+        if (oldw)
         {
-          POINT p;
-          GetCursorPos(&p);
-          RECT r;
-          GetWindowRect((HWND)self,&r);
-          if (r.top>r.bottom)
+          [oldw removeChildWindow:(NSWindow *)m_cwnd];
+          [m_cwnd orderOut:self];
+        }
+      }
+      else
+      {
+        if (![m_cwnd parentWindow])
+        {                
+          NSWindow *par = [self window];
+          if (par) 
+          { 
+            [par addChildWindow:m_cwnd ordered:NSWindowAbove];
+            [self swellDoRepos];    
+          }          
+        }
+        else 
+        { 
+          if (GetCurrentEventButtonState()&7)
           {
-            int a=r.top;
-            r.top=r.bottom;
-            r.bottom=a;
-          }
-          if (m_cwnd && p.x >=r.left &&p.x < r.right && p.y >= r.top && p.y < r.bottom)
-          {
-            [(NSWindow *)m_cwnd makeKeyWindow];
+            if ([NSApp keyWindow] == [self window])
+            {
+              POINT p;
+              GetCursorPos(&p);
+              RECT r;
+              GetWindowRect((HWND)self,&r);
+              if (r.top>r.bottom)
+              {
+                int a=r.top;
+                r.top=r.bottom;
+                r.bottom=a;
+              }
+              if (m_cwnd && p.x >=r.left &&p.x < r.right && p.y >= r.top && p.y < r.bottom)
+              {
+                [(NSWindow *)m_cwnd makeKeyWindow];
+              }
+            }
           }
         }
       }
       return;
     }
-    if (idx!=1)
-    {
-      KillTimer((HWND)self,idx);
-      return;
-    }
-    if (m_needattach && [self window] && [[self window] isVisible])
-    {
-      KillTimer((HWND)self,1);
-      m_needattach=false;
-      NSWindow *par = [self window];
-      if (par) 
-      { 
-        [par addChildWindow:m_cwnd ordered:NSWindowAbove];
-        [self swellDoRepos];    
-      }
-    }
+    KillTimer((HWND)self,idx);
+    return;
   }
 }
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam
@@ -1766,11 +1773,6 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
     if (neww != oldw)
     {
       if (oldw) [oldw removeChildWindow:m_cwnd];
-      if (neww) 
-      {
-        m_needattach=true;
-        SetTimer((HWND)self,1,10,NULL);
-      }
     }
   }
 }

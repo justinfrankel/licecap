@@ -1,7 +1,7 @@
 del wdl.zip
 cd..
 zip -X9r wdl\wdl.zip wdl -i *.c *.cpp *.cc *.h *.m *.mm *.png *.ico *.txt *.bat
-zip -X9r wdl\wdl.zip wdl -i *.rc *.plist *.dsp *.dsw *.pbxproj *.strings *.nib *.php *.exp *.vcproj
+zip -X9r wdl\wdl.zip wdl -i *.rc *.plist *.dsp *.dsw *.pbxproj *.strings *.nib *.php *.exp *.vcproj *.vcxproj
 
 zip -X9r wdl\wdl.zip wdl\iplug\readme.txt wdl\iplug\example\readme.txt
 zip -X9r wdl\wdl.zip wdl\jnetlib\makefile 

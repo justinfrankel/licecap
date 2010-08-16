@@ -94,7 +94,7 @@ template<class PTRTYPE> class WDL_PtrList
       int cursz = GetSize(); PTRTYPE **pp = GetList();
       while (cursz > 0)
       {
-        int pvt=cursz/2,v=compar(&p,pp+pvt);
+        int pvt=cursz/2,v=compar((const PTRTYPE**)&p,(const PTRTYPE**)(pp+pvt));
         if (v<0) cursz=pvt; else if (v>0) { cursz -= ++pvt; pp += pvt; }
         else return pp+pvt - GetList();
       }

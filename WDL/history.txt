@@ -1,3 +1,11 @@
+2009-07-04:
+
+WDL_SharedPool optimizations
+SWELL: Fixes to carbon window hosting
+SWELL: drop list tweaks
+WDL_PtrList: fixed FindSorted() compilation on VC2008
+Added VC2010 projects for LICE etc
+
 2009-07-02:
 
 SWELL: mouse positioning updates (with synergy2 detection)

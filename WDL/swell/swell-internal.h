@@ -327,7 +327,6 @@ public:
 {
 @public
   NSWindow *m_cwnd;
-  bool m_needattach;
 
   bool m_whileresizing;
   void* m_wndhandler;   // won't compile if declared EventHandlerRef, wtf

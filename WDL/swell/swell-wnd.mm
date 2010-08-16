@@ -587,9 +587,9 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
         return [self selectedRow];
       case LB_SETCURSEL:
       {
-        if (lParam>=0&&lParam<ListView_GetItemCount(hwnd))
+        if (wParam>=0 && wParam<ListView_GetItemCount(hwnd))
         {
-          [self selectRow:lParam byExtendingSelection:NO];        
+          [self selectRow:wParam byExtendingSelection:NO];        
         }
         else
         {
@@ -2125,13 +2125,15 @@ void ShowWindow(HWND hwnd, int cmd)
           }
         }
         [((NSView *)pid) setHidden:YES];
-      }
+    }
     break;
   }
   
   NSWindow *nswnd;
   if ((nswnd=[(NSView *)pid window]) && [nswnd contentView]==(id)pid)
+  {
     ShowWindow((HWND)nswnd,cmd);
+  }
 }
 
 void *SWELL_ModalWindowStart(HWND hwnd)
@@ -2748,7 +2750,8 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setTag:idx];
     if (m_transform.size.width < minwidfontadjust)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
-    NSRect rc=MakeCoords(x,y,w,13,true);
+    h = 13; //if (h > 13) h = 13;
+    NSRect rc=MakeCoords(x,y,w,h,true);
     [obj setSwellStyle:flags];
     [obj setFrame:rc];
     [obj setAutoenablesItems:NO];
