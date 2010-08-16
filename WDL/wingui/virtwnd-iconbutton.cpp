@@ -23,7 +23,7 @@
 
 */
 
-#include "virtwnd.h"
+#include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
 WDL_VirtualIconButton::WDL_VirtualIconButton()
@@ -233,6 +233,8 @@ bool WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
         0,1000+x,NULL,NULL,NULL,0};
       mi.dwTypeData = (char *)m_items.Get(x);
+      if (!strcmp(mi.dwTypeData,"<SEP>"))
+        mi.fType=MFT_SEPARATOR;
       mi.fState = m_curitem == x ?MFS_CHECKED:0;
       InsertMenuItem(menu,x,TRUE,&mi);
     }
@@ -271,7 +273,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
   {
     SetBkMode(hdc,TRANSPARENT);
     HGDIOBJ of=0;
-    if (m_font) of=SelectObject(hdc,m_font);
+    if (m_font&&*m_font) of=SelectObject(hdc,*m_font);
 
     RECT r=m_position;
     r.left+=origin_x;
@@ -316,7 +318,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
     }
 
 
-    if (m_font) SelectObject(hdc,of);
+    if (of) SelectObject(hdc,of);
 
     HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DSHADOW));
     HPEN pen3=CreatePen(PS_SOLID,2,tcol);
@@ -370,6 +372,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
 
 WDL_VirtualStaticText::WDL_VirtualStaticText()
 {
+  m_dotint=false;
   m_bkbm=0;
   m_margin_r=m_margin_l=0;
   m_fg=m_bg=-1;
@@ -418,8 +421,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       r.left,r.top,r.right-r.left,r.bottom-r.top,
       1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
 
-#if 0
-    if (m_bg!=-1 && m_bg!=RGB(255,255,255) && bm->getWidth() && bm->getHeight()) 
+    if (m_dotint && m_bg>=0) 
     {
         float rv=GetRValue(m_bg)/255.0;
         float gv=GetGValue(m_bg)/255.0;
@@ -443,7 +445,6 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
             (bv-avg)*sc3+sc4,
             0);
     }
-#endif
   }
   else if (m_bg!=-1)
   {
@@ -486,7 +487,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
     r.right-=m_margin_r;
     SetBkMode(hdc,TRANSPARENT);
     HGDIOBJ of=0;
-    if (m_font) of=SelectObject(hdc,m_font);
+    if (m_font&&*m_font) of=SelectObject(hdc,*m_font);
     
     int align=m_align;
 #ifdef _WIN32
@@ -513,7 +514,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
     SetTextColor(hdc,tcol);
     DrawText(hdc,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
 
-    if (m_font) SelectObject(hdc,of);
+    if (of) SelectObject(hdc,of);
 
 
   }

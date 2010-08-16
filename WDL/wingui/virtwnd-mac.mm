@@ -23,7 +23,7 @@
 
 */
 
-#include "virtwnd.h"
+#include "virtwnd-controls.h"
 
 int WDL_VirtualWnd_ChildList::Mac_SendCommand(HWND hwnd, int msg, int parm1, int parm2, WDL_VirtualWnd *src)
 {

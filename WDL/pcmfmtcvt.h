@@ -44,15 +44,15 @@ static inline int float2int(double d)
 
 #define float_TO_INT16(out,in) \
 		if ((in)<0.0) { if ((in) <= -1.0) (out) = -32768; else (out) = (short) (float2int(((in) * 32768.0)-0.5)); } \
-		else { if ((in) >= 1.0) (out) = 32767; else (out) = (short) float2int((in) * 32767.0 + 0.5); }
+		else { if ((in) >= (32766.5f/32768.0f)) (out) = 32767; else (out) = (short) float2int((in) * 32768.0 + 0.5); }
 
-#define INT16_TO_float(out,in) { if ((in) < 0) (out) = (float)(((double)in)/32768.0); else (out) = (float)(((double)in)/32767.0); }
+#define INT16_TO_float(out,in) { (out) = (float)(((double)in)/32768.0);  }
 
 #define double_TO_INT16(out,in) \
 		if ((in)<0.0) { if ((in) <= -1.0) (out) = -32768; else (out) = (short) (float2int(((in) * 32768.0)-0.5)); } \
-		else { if ((in) >= 1.0) (out) = 32767; else (out) = (short) float2int((in) * 32767.0 + 0.5); }
+		else { if ((in) >= (32766.5/32768.0)) (out) = 32767; else (out) = (short) float2int((in) * 32768.0 + 0.5); }
 
-#define INT16_TO_double(out,in) { if ((in) < 0) (out) = (((double)in)/32768.0); else (out) = (((double)in)/32767.0); }
+#define INT16_TO_double(out,in) { (out) = (((double)in)/32768.0); }
 
 
 static inline void i32_to_float(int i32, float *p)
@@ -70,7 +70,7 @@ static inline void float_to_i32(float *vv, int *i32)
   }
   else
   {
-	  if (v >= 1.0) *i32 = 0x7FFFFFFF;
+	  if (v >= (2147483646.5f/2147483648.0f)) *i32 = 0x7FFFFFFF;
 	  else *i32=float2int(v*2147483648.0+0.5);
   }
 }
@@ -91,7 +91,7 @@ static inline void double_to_i32(double *vv, int *i32)
   }
   else
   {
-	  if (v >= 1.0) *i32 = 0x7FFFFFFF;
+	  if (v >= (2147483646.5/2147483648.0)) *i32 = 0x7FFFFFFF;
 	  else *i32=float2int(v*2147483648.0+0.5);
   }
 }
@@ -109,7 +109,7 @@ static inline void i24_to_float(unsigned char *i24, float *p)
   else 
   {
 	  val&=0xFFFFFF;
-  	  *p = (float) ((((double) val)) * (1.0 / (8388607.0)));
+  	  *p = (float) ((((double) val)) * (1.0 / (8388608.0)));
   }
 
 }
@@ -134,7 +134,7 @@ static inline void float_to_i24(float *vv, unsigned char *i24)
   }
   else
   {
-	  if (v >= 1.0)
+	  if (v >= (8388606.5f/8388608.0f))
 	  {
     		i24[0]=i24[1]=0xff;
     		i24[2]=0x7f;
@@ -142,7 +142,7 @@ static inline void float_to_i24(float *vv, unsigned char *i24)
 	  else
 	  {
   		
-    		int i=float2int(v*8388607+0.5);
+    		int i=float2int(v*8388608.0+0.5);
     		i24[0]=(i)&0xff;
     		i24[1]=(i>>8)&0xff;
     		i24[2]=(i>>16)&0xff;
@@ -162,7 +162,7 @@ static inline void i24_to_double(unsigned char *i24, double *p)
   else 
   {
 	  val&=0xFFFFFF;
-  	  *p = ((((double) val)) * (1.0 / (8388607.0)));
+  	  *p = ((((double) val)) * (1.0 / (8388608.0)));
   }
 
 }
@@ -187,7 +187,7 @@ static inline void double_to_i24(double *vv, unsigned char *i24)
   }
   else
   {
-	  if (v >= 1.0)
+	  if (v >= (8388606.5/8388608.0))
 	  {
     		i24[0]=i24[1]=0xff;
     		i24[2]=0x7f;
@@ -195,7 +195,7 @@ static inline void double_to_i24(double *vv, unsigned char *i24)
 	  else
 	  {
   		
-    		int i=float2int(v*8388607+0.5);
+    		int i=float2int(v*8388608.0+0.5);
     		i24[0]=(i)&0xff;
     		i24[1]=(i>>8)&0xff;
     		i24[2]=(i>>16)&0xff;

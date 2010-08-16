@@ -23,7 +23,7 @@
 
 */
 
-#include "virtwnd.h"
+#include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
 WDL_VirtualListBox::WDL_VirtualListBox()
@@ -32,6 +32,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_cap_state=0;
   m_margin_l=m_margin_r=0;
   m_GetItemInfo=0;
+  m_CustomDraw=0;
   m_GetItemInfo_ctx=0;
   m_viewoffs=0;
   m_align=-1;
@@ -92,7 +93,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
   HPEN pen2=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_3DHILIGHT));
   HGDIOBJ open=SelectObject(hdc,pen2);
   HGDIOBJ of=0;
-  if (m_font) of=SelectObject(hdc,m_font);
+  if (m_font&&*m_font) of=SelectObject(hdc,*m_font);
 
   int y;
   int tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
@@ -144,6 +145,8 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
             0,bkbmstate*hh,
             bkbm->getWidth(),hh,1.0,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
         }
+        if (m_CustomDraw)
+          m_CustomDraw(this,itempos-1,&thisr,drawbm);
         if (buf[0])
         {
           thisr.left+=m_margin_l;
@@ -224,7 +227,7 @@ void WDL_VirtualListBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origi
 
 
   SelectObject(hdc,open);
-  if (m_font) SelectObject(hdc,of);
+  if (of) SelectObject(hdc,of);
   DeleteObject(pen);
   DeleteObject(pen2);
 }

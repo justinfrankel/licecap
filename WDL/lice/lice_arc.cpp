@@ -161,22 +161,27 @@ public:
 	}
 };
 
-template <class COMBFUNC> void LICE_DrawQuadrant(int quadrant, LICE_IBitmap* dest, float cx, float cy, float r,
-		LICE_pixel color, float alpha, bool aa, float aMin = 0.0f, float aMax = _QUADRANGLE)
+template <class COMBFUNC> class LICE_QuadrantChooseer
 {
-	static LICE_QuadrantHandler<COMBFUNC> _q0(1, 0, 0, -1);
-	static LICE_QuadrantHandler<COMBFUNC> _q1(0, 1, 1, 0);
-	static LICE_QuadrantHandler<COMBFUNC> _q2(-1, 0, 0, 1);
-	static LICE_QuadrantHandler<COMBFUNC> _q3(0, -1, -1, 0);
-	static LICE_QuadrantHandler<COMBFUNC>* _q[4] = { &_q0, &_q1, &_q2, &_q3 };
+public:
+  static void dq(int quadrant, LICE_IBitmap* dest, float cx, float cy, float r,
+		LICE_pixel color, float alpha, bool aa, float aMin = 0.0f, float aMax = _QUADRANGLE)
+  {
 
-	_q[quadrant%4]->Draw(dest, cx, cy, r, color, alpha, aa, aMin, aMax);
-}
+    static LICE_QuadrantHandler<COMBFUNC> _q0(1, 0, 0, -1);
+    static LICE_QuadrantHandler<COMBFUNC> _q1(0, 1, 1, 0);
+    static LICE_QuadrantHandler<COMBFUNC> _q2(-1, 0, 0, 1);
+    static LICE_QuadrantHandler<COMBFUNC> _q3(0, -1, -1, 0);
+    static LICE_QuadrantHandler<COMBFUNC> *_q[4] = { &_q0, &_q1, &_q2, &_q3 };
+
+	  _q[quadrant%4]->Draw(dest, cx, cy, r, color, alpha, aa, aMin, aMax);
+  }
+};
 
 void LICE_Quadrant(int quadrant, LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa,
 	float minAngle = 0.0f, float maxAngle = _QUADRANGLE)
 {
-#define __LICE__ACTION(COMBFUNC) LICE_DrawQuadrant<COMBFUNC>(quadrant, dest, cx, cy, r, color, alpha, aa, minAngle, maxAngle)
+#define __LICE__ACTION(COMBFUNC) LICE_QuadrantChooseer<COMBFUNC>::dq(quadrant, dest, cx, cy, r, color, alpha, aa, minAngle, maxAngle)
 	__LICE_ACTIONBYMODE(mode, alpha);
 #undef __LICE__ACTION
 }

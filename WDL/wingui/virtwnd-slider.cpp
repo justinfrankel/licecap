@@ -23,7 +23,7 @@
 
 */
 
-#include "virtwnd.h"
+#include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
 #ifdef _WIN32
@@ -665,17 +665,43 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     }
   }
 #ifdef _WIN32
-  if (precmode&&0)
+  if (precmode&&GetRealParent())
   {
     POINT p;
     GetCursorPos(&p);
     p.x-=(xpos-m_last_x);
     p.y-=(ypos-m_last_y);
     if (xpos != m_last_x || ypos != m_last_y)
+    {
+      POINT pt={0,0};
+      ClientToScreen(GetRealParent(),&pt);
+      WDL_VWnd *wnd=this;
+      while (wnd)
+      {
+        RECT r;
+        wnd->GetPosition(&r);
+        pt.x+=r.left;
+        pt.y+=r.top;
+        wnd=wnd->GetParent();
+      }
+
+      if (isVert) 
+      {
+        m_last_y=( viewh - bm_h - (((m_pos-m_minr) * (viewh-bm_h))/rsize))+m_move_offset;
+        p.y=m_last_y+pt.y;
+      }
+      else 
+      {
+        m_last_x=( (((m_pos-m_minr) * (vieww-bm_w))/rsize))+m_move_offset;
+        p.x=m_last_x+pt.x;
+      }
+      
       SetCursorPos(p.x,p.y);
+    }
     if (!m_last_precmode)
     {
       m_last_precmode=1;
+      //ShowCursor(FALSE);
       ShowCursor(FALSE);
     }
   }
@@ -688,6 +714,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     {
       m_last_precmode=0;
 #ifdef _WIN32
+      //ShowCursor(TRUE);
       ShowCursor(TRUE);
 #endif
     }

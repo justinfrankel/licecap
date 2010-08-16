@@ -24,10 +24,14 @@
 For information on how to use this class, see wndsize.h :)
 */
 
-#include "wndsize.h"
 #ifndef _WIN32
 #include "../swell/swell.h"
+#else
+#include <windows.h>
 #endif
+
+#include "wndsize.h"
+#include "virtwnd.h"
 
 void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
 {

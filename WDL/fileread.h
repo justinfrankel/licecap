@@ -384,7 +384,7 @@ public:
   int Read(void *buf, int len)
   {
 #ifdef WDL_WIN32_NATIVE_READ
-    if (m_fh == INVALID_HANDLE_VALUE) return 0;
+    if (m_fh == INVALID_HANDLE_VALUE||len<1) return 0;
 
     if (m_mmap_view||m_mmap_totalbufmode)
     {
@@ -415,6 +415,8 @@ public:
       return dw;
     }
 #else
+    if (!m_fp || len<1) return 0;
+
     int ret=fread(buf,1,len,m_fp);
     m_lastpos+=ret;
     return ret;

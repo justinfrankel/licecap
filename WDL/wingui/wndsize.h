@@ -59,9 +59,9 @@
 #define _WNDSIZE_H_
 
 
-#include "virtwnd.h"
 #include "../heapbuf.h"
 
+class WDL_VWnd;
 
 typedef struct
 {
@@ -70,7 +70,7 @@ typedef struct
   RECT real_orig;
   RECT last;
   float scales[4];
-  WDL_VirtualWnd *vwnd;
+  WDL_VWnd *vwnd;
 
 } WDL_WndSizer__rec;
 
@@ -84,16 +84,16 @@ public:
 
   // 1.0 means it moves completely with the point, 0.0 = not at all
   void init_item(int dlg_id, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0, RECT *initr=NULL);
-  void init_itemvirt(WDL_VirtualWnd *vwnd, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0);
+  void init_itemvirt(WDL_VWnd *vwnd, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0);
   void init_itemhwnd(HWND h, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0, RECT *srcr=NULL);
   void remove_item(int dlg_id);
-  void remove_itemvirt(WDL_VirtualWnd *vwnd);
+  void remove_itemvirt(WDL_VWnd *vwnd);
   void remove_itemhwnd(HWND h);
 
   WDL_WndSizer__rec *get_item(int dlg_id);
   WDL_WndSizer__rec *get_itembyindex(int id);
   WDL_WndSizer__rec *get_itembywnd(HWND h);
-  WDL_WndSizer__rec *get_itembyvirt(WDL_VirtualWnd *vwnd);
+  WDL_WndSizer__rec *get_itembyvirt(WDL_VWnd *vwnd);
   
   RECT get_orig_rect() { return m_orig_rect; }
 

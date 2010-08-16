@@ -48,6 +48,18 @@
   #endif
 #endif
 
+
+
+#ifdef _MSC_VER
+#define WDL_FILEWRITE_POSTYPE __int64
+#else
+#define WDL_FILEWRITE_POSTYPE long long
+#endif
+
+//#define WIN32_ASYNC_NOBUF_WRITE // this doesnt seem to do much for us, yet.
+
+class WDL_FileWrite
+{
 #ifdef WDL_WIN32_NATIVE_WRITE
 
 class WDL_FileWrite__WriteEnt
@@ -55,6 +67,7 @@ class WDL_FileWrite__WriteEnt
 public:
   WDL_FileWrite__WriteEnt(int sz)
   {
+    m_last_writepos=0;
     m_bufused=0;
     m_bufsz=sz;
     m_bufptr = (char *)__buf.Resize(sz+4095);
@@ -69,6 +82,8 @@ public:
     CloseHandle(m_ol.hEvent);
   }
 
+  WDL_FILEWRITE_POSTYPE m_last_writepos;
+
   int m_bufused,m_bufsz;
   OVERLAPPED m_ol;
   char *m_bufptr;
@@ -79,16 +94,6 @@ public:
 
 
 
-#ifdef _MSC_VER
-#define WDL_FILEWRITE_POSTYPE __int64
-#else
-#define WDL_FILEWRITE_POSTYPE long long
-#endif
-
-//#define WIN32_ASYNC_NOBUF_WRITE // this doesnt seem to do much for us, yet.
-
-class WDL_FileWrite
-{
 public:
   WDL_FileWrite(const char *filename, int allow_async=1, int bufsize=8192, int minbufs=16, int maxbufs=16) // async==2 is unbuffered
   {
@@ -147,8 +152,7 @@ public:
     // todo, async close stuff?
     if (m_fh != INVALID_HANDLE_VALUE && m_async)
     {
-      RunAsyncWrite();
-      SyncOutput();
+      SyncOutput(true);
     }
 
     m_empties.Empty(true);
@@ -188,11 +192,24 @@ public:
         {
           WDL_FileWrite__WriteEnt *ent=m_pending.Get(0);
           DWORD s=0;
-          if (ent&&GetOverlappedResult(m_fh,&ent->m_ol,&s,FALSE)) 
+          if (ent)
           {
-            ent->m_bufused=0;
-            m_pending.Delete(0);
-            m_empties.Add(ent);
+            bool wasabort=false;
+            if (GetOverlappedResult(m_fh,&ent->m_ol,&s,FALSE)||
+                (wasabort=(GetLastError()==ERROR_OPERATION_ABORTED))) 
+            {
+              m_pending.Delete(0);
+
+              if (wasabort) 
+              {
+                if (!RunAsyncWrite(ent,false)) m_empties.Add(ent);
+              }
+              else
+              {
+                m_empties.Add(ent);
+                ent->m_bufused=0;
+              }
+            }
           }
         }
 
@@ -220,7 +237,9 @@ public:
         pbuf+=ml;
 
         if (ent->m_bufused >= ent->m_bufsz)
-          RunAsyncWrite();
+        {
+          if (RunAsyncWrite(ent,true)) m_empties.Delete(0); // if queued remove from list
+        }
       }
       return pbuf - (char *)buf; 
     }
@@ -280,11 +299,17 @@ public:
 
 #ifdef WDL_WIN32_NATIVE_WRITE
 
-  void RunAsyncWrite()
+  bool RunAsyncWrite(WDL_FileWrite__WriteEnt *ent, bool updatePosition) // returns true if ent is added to pending
   {
-    WDL_FileWrite__WriteEnt *ent=m_empties.Get(0);
     if (ent && ent->m_bufused>0) 
     {
+      if (updatePosition) 
+      {
+        ent->m_last_writepos = m_file_position;
+        m_file_position += ent->m_bufused;
+        if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
+      }
+
 #ifdef WIN32_ASYNC_NOBUF_WRITE
       if (ent->m_bufused&4095)
       {
@@ -292,7 +317,7 @@ public:
         char tmp[4096];
         memset(tmp,0,4096);
 
-        *(WDL_FILEWRITE_POSTYPE *)&ent->m_ol.Offset = m_file_position + ent->m_bufused - offs;
+        *(WDL_FILEWRITE_POSTYPE *)&ent->m_ol.Offset = ent->m_last_writepos + ent->m_bufused - offs;
         ResetEvent(ent->m_ol.hEvent);
 
         DWORD dw=0;
@@ -308,46 +333,46 @@ public:
 #endif
       DWORD d=0;
 
-      *(WDL_FILEWRITE_POSTYPE *)&ent->m_ol.Offset = m_file_position;
+      *(WDL_FILEWRITE_POSTYPE *)&ent->m_ol.Offset = ent->m_last_writepos;
+
       ResetEvent(ent->m_ol.hEvent);
 
-      int ret=WriteFile(m_fh,ent->m_bufptr,ent->m_bufused,&d,&ent->m_ol);
-
-      m_file_position += ent->m_bufused;
-      if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
-
-      if (ret) // success instantly
-      {
-        ent->m_bufused=0;
-      }
-      else
+      if (!WriteFile(m_fh,ent->m_bufptr,ent->m_bufused,&d,&ent->m_ol))
       {
         if (GetLastError()==ERROR_IO_PENDING)
         {
-          m_empties.Delete(0);
           m_pending.Add(ent);
-        }
-        else
-        {
-//          OutputDebugString("Overlapped file write failed! ouch!\n");
-          ent->m_bufused=0;
+          return true;
         }
       }
+      ent->m_bufused=0;
     }
+    return false;
   }
 
-  void SyncOutput(bool syncall=true)
+  void SyncOutput(bool syncall)
   {
+    if (syncall)
+    {
+      if (RunAsyncWrite(m_empties.Get(0),true)) m_empties.Delete(0);
+    }
     for (;;)
     {
       WDL_FileWrite__WriteEnt *ent=m_pending.Get(0);
       if (!ent) break;
       DWORD s=0;
-      GetOverlappedResult(m_fh,&ent->m_ol,&s,TRUE);
-      ent->m_bufused=0;
       m_pending.Delete(0);
-      m_empties.Add(ent);
-      if (!syncall) break;
+      if (!GetOverlappedResult(m_fh,&ent->m_ol,&s,TRUE) && GetLastError()==ERROR_OPERATION_ABORTED)
+      {
+        // rewrite this one
+        if (!RunAsyncWrite(ent,false)) m_empties.Add(ent);
+      }
+      else
+      {
+        m_empties.Add(ent);
+        ent->m_bufused=0;
+        if (!syncall) break;
+      }
     }
   }
 
@@ -360,8 +385,7 @@ public:
     if (m_fh == INVALID_HANDLE_VALUE) return true;
     if (m_async)
     {
-      RunAsyncWrite();
-      SyncOutput();
+      SyncOutput(true);
       m_file_position=pos;
       if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
 

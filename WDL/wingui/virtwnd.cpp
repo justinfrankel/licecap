@@ -23,7 +23,7 @@
 
 */
 
-#include "virtwnd.h"
+#include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
 
@@ -884,10 +884,19 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
   // remove 1px additional margins from calculations
   left_margin--; top_margin--; right_margin--; bottom_margin--;
 
-  if (left_margin>destw/2) left_margin=destw/2;
-  if (top_margin>desth/2) top_margin=desth/2;
-  if (right_margin>destw/2) right_margin=destw/2;
-  if (bottom_margin>desth/2) bottom_margin=desth/2;
+  if (left_margin+right_margin>destw) 
+  { 
+    int w=left_margin+right_margin;
+    left_margin = destw*left_margin/max(w,1);
+    right_margin=destw-left_margin; 
+  }
+  if (top_margin+bottom_margin>desth) 
+  { 
+    int h=(top_margin+bottom_margin);
+    top_margin=desth*top_margin/max(h,1);
+    bottom_margin=desth-top_margin; 
+  }
+
   
   int pass;
   for (pass=0;pass<3; pass++)
@@ -962,6 +971,19 @@ int WDL_VirtualWnd_ScaledBG_GetPix(WDL_VirtualWnd_BGCfg *src,
   {
     // remove 1px additional margins from calculations
     left_margin--; top_margin--; right_margin--; bottom_margin--;
+    int destw=ww,desth=wh;
+    if (left_margin+right_margin>destw) 
+    { 
+      int w=left_margin+right_margin;
+      left_margin = destw*left_margin/max(w,1);
+      right_margin=destw-left_margin; 
+    }
+    if (top_margin+bottom_margin>desth) 
+    { 
+      int h=(top_margin+bottom_margin);
+      top_margin=desth*top_margin/max(h,1);
+      bottom_margin=desth-top_margin; 
+    }
 
     if (x >= ww-right_margin) x=imgw-1- (ww-x);
     else if (x >= left_margin)
