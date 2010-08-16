@@ -236,6 +236,24 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
     {
       LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
           0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
+      if (m_parent && m_bgcol1_msg)
+      {
+        int brcol=-100;
+        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        if (brcol != -100)
+        {
+          LICE_MemBitmap tmpbm;
+          tmpbm.resize(vieww,viewh);
+
+          LICE_ScaledBlit(&tmpbm,back_image,0,0,vieww,viewh,
+            0,0,back_image->getWidth()-1,back_image->getHeight()-1,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);    
+
+          LICE_ClearRect(&tmpbm,0,0,vieww,viewh,LICE_RGBA(0,0,0,255),LICE_RGBA(GetRValue(brcol),GetGValue(brcol),GetBValue(brcol),0));
+
+          RECT r={0,0,vieww,viewh};
+          LICE_Blit(drawbm,&tmpbm,origin_x,origin_y,&r,0.5,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+        }
+      }
     }
     else
     {
@@ -318,6 +336,26 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       LICE_ScaledBlit(drawbm,back_image,origin_x,origin_y,vieww,viewh,
           0,0,back_image->getWidth(),back_image->getHeight(),1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);    
       // blit, tint color too?
+
+      if (m_parent && m_bgcol1_msg)
+      {
+        int brcol=-100;
+        m_parent->SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        if (brcol != -100)
+        {
+          LICE_MemBitmap tmpbm;
+          tmpbm.resize(vieww,viewh);
+
+          LICE_ScaledBlit(&tmpbm,back_image,0,0,vieww,viewh,
+            0,0,back_image->getWidth()-1,back_image->getHeight()-1,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);    
+
+          LICE_ClearRect(&tmpbm,0,0,vieww,viewh,LICE_RGBA(0,0,0,255),LICE_RGBA(GetRValue(brcol),GetGValue(brcol),GetBValue(brcol),0));
+
+          RECT r={0,0,vieww,viewh};
+          LICE_Blit(drawbm,&tmpbm,origin_x,origin_y,&r,0.5,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+        }
+      }
+
     }
     else
     {
@@ -416,6 +454,8 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   int viewh=m_position.bottom-m_position.top;
   int vieww=m_position.right-m_position.left;
+  if (vieww<1) vieww=1;
+  if (viewh<1) viewh=1;
 
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16;
@@ -438,7 +478,19 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
     if (m_move_offset < 0 || m_move_offset >= bm_h)
     {
       int xcent=xpos - vieww/2;
-      if (xcent >= -2 && xcent < 3 && ypos >= bm_h/3 && ypos <= viewh-bm_h/3)
+      bool hit;
+
+      if (m_skininfo && m_skininfo->bgimage[1])
+      {
+        LICE_pixel pix=LICE_GetPixel(m_skininfo->bgimage[1],
+          (xpos*m_skininfo->bgimage[1]->getWidth())/vieww,
+          (ypos*m_skininfo->bgimage[1]->getHeight())/viewh);
+
+        hit = LICE_GETA(pix)>=128;
+      }
+      else hit= (xcent >= -2 && xcent < 3 && ypos >= bm_h/3 && ypos <= viewh-bm_h/3);
+
+      if (hit)
       {
         m_move_offset=bm_h/2;
         int pos=m_minr+((viewh-bm_h - (ypos-m_move_offset))*rsize)/(viewh-bm_h);
@@ -460,7 +512,19 @@ bool WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
     if (m_move_offset < 0 || m_move_offset >= bm_w)
     {
       int ycent=ypos - viewh/2;
-      if (ycent >= -2 && ycent < 3 && xpos >= bm_w/3 && xpos <= vieww-bm_w/3)
+
+      bool hit;
+      if (m_skininfo && m_skininfo->bgimage[0])
+      {
+        LICE_pixel pix=LICE_GetPixel(m_skininfo->bgimage[0],
+          (xpos*m_skininfo->bgimage[0]->getWidth())/vieww,
+          (ypos*m_skininfo->bgimage[0]->getHeight())/viewh);
+
+        hit = LICE_GETA(pix)>=128;
+      }
+      else hit = (ycent >= -2 && ycent < 3 && xpos >= bm_w/3 && xpos <= vieww-bm_w/3);
+
+      if (hit)
       {
         m_move_offset=bm_w/2;
         int pos=m_minr+((xpos-m_move_offset)*rsize)/(vieww-bm_w);

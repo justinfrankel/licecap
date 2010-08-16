@@ -112,17 +112,20 @@ class LineParser {
         if (success) *success=0;
         return 0.0;
       }
+      char *t=m_tokens[token];
       if (success)
-      {
-        char *t=m_tokens[token];
         *success=*t?1:0;
-        while (*t) 
-        {
-          if ((*t < '0' || *t > '9')&&*t != '.') *success=0;
-          t++;
-        }
+
+      char buf[512];
+      char *ot=buf;
+      while (*t&&(ot-buf)<500) 
+      {
+        char c=*t++;
+        if (success && (c < '0' || c > '9')&&c != '.'&&c!=',') *success=0;
+        *ot++=c==','?'.':c;
       }
-      return atof(m_tokens[token]);
+      *ot=0;
+      return atof(buf);
     }
 #endif
 

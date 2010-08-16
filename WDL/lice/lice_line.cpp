@@ -189,7 +189,7 @@ template <class COMBFUNC> class __LICE_LineClass
 	    if (steep) {
 		    PixPlot(pix, rowSpan, ypxl1, xpxl1, color, alpha, xgap * (1.0f - vweight));
 		    if (xpxl1 < nY - 1) {
-			    PixPlot(pix, rowSpan, ypxl1, xpxl1 + 1, color, alpha, xgap * vweight);
+			    PixPlot(pix, rowSpan, ypxl1 + 1, xpxl1, color, alpha, xgap * vweight);
 		    }
 	    }
 	    else {
@@ -209,44 +209,49 @@ template <class COMBFUNC> class __LICE_LineClass
       float vweight2 = yend - (float)floor(yend);
 	    if (steep) {
 		    PixPlot(pix, rowSpan, ypxl2, xpxl2, color, alpha, xgap * (1.0f - vweight2));
-		    if (xpxl2 < nY - 1) {
-			    PixPlot(pix, rowSpan, ypxl2, xpxl2 + 1, color, alpha, xgap * vweight2);
+		    if (ypxl2 < nX - 1) {
+			    PixPlot(pix, rowSpan, ypxl2 + 1, xpxl2, color, alpha, xgap * vweight2);
 		    }
-		    for (xi = xpxl1 + 1; xi < xpxl2 - 1; ++xi) {
-          float weight = intery - (float)floor(intery);
-			    PixPlot(pix, rowSpan, int(intery), xi, color, alpha, 1.0f - weight);
-			    PixPlot(pix, rowSpan, int(intery) + 1, xi, color, alpha, weight);
-			    intery += m;
-		    }
-        float weight = intery - (float)floor(intery);
-		    PixPlot(pix, rowSpan, int(intery), xi, color, alpha, 1.0f - weight);
-		    if (int(intery) < nX - 1) {
-			    PixPlot(pix, rowSpan, int(intery) + 1, xi, color, alpha, weight);
-		    }
+			if (xpxl1 < nY - 1) {
+				for (xi = xpxl1 + 1; xi < xpxl2 - 1; ++xi) {
+					float weight = intery - (float)floor(intery);
+					PixPlot(pix, rowSpan, int(intery), xi, color, alpha, 1.0f - weight);
+					PixPlot(pix, rowSpan, int(intery) + 1, xi, color, alpha, weight);
+					intery += m;
+				}
+				float weight = intery - (float)floor(intery);
+				PixPlot(pix, rowSpan, int(intery), xi, color, alpha, 1.0f - weight);
+				if (int(intery) < nX - 1) {
+				    PixPlot(pix, rowSpan, int(intery) + 1, xi, color, alpha, weight);
+				}
+			}
 	    }
 	    else {
 		    PixPlot(pix, rowSpan, xpxl2, ypxl2, color, alpha, xgap * (1.0f - vweight2));
 		    if (ypxl2 < nY - 1) {
 			    PixPlot(pix, rowSpan, xpxl2, ypxl2 + 1, color, alpha, xgap * vweight2);
 		    }
-		    for (xi = xpxl1 + 1; xi < xpxl2 - 1; ++xi) {
-          float weight = intery - (float)floor(intery);
-			    PixPlot(pix, rowSpan, xi, int(intery), color, alpha, 1.0f - weight);
-			    PixPlot(pix, rowSpan, xi, int(intery) + 1, color, alpha, weight);
-			    intery += m;
-		    }
-        float weight = intery - (float)floor(intery);
-		    PixPlot(pix, rowSpan, xi, int(intery), color, alpha, 1.0f - weight);
-		    if (int(intery) < nY - 1) {
-			    PixPlot(pix, rowSpan, xi, int(intery) + 1, color, alpha, weight);
-		    }
+			if (xpxl1 < nX - 1) {
+				for (xi = xpxl1 + 1; xi < xpxl2 - 1; ++xi) {
+					float weight = intery - (float)floor(intery);
+					PixPlot(pix, rowSpan, xi, int(intery), color, alpha, 1.0f - weight);
+					PixPlot(pix, rowSpan, xi, int(intery) + 1, color, alpha, weight);
+					intery += m;
+				}
+				float weight = intery - (float)floor(intery);
+				PixPlot(pix, rowSpan, xi, int(intery), color, alpha, 1.0f - weight);
+				if (int(intery) < nY - 1) {
+				    PixPlot(pix, rowSpan, xi, int(intery) + 1, color, alpha, weight);
+				}
+			}
 	    }
     }
 };
 
 void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha, int mode, bool aa)
 {
-	if (ClipLine(x1, y1, x2, y2, dest->getWidth(), dest->getHeight())) {
+	int w = dest->getWidth(), h = dest->getHeight();
+	if (ClipLine(x1, y1, x2, y2, w, h)) {
 		if (aa) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_Line_AA(dest, x1, y1, x2, y2, color, alpha)
 			__LICE_ACTIONBYMODE(mode, alpha);
