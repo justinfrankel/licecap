@@ -16,6 +16,12 @@ typedef struct
 {
   HICON hIcon;
   LICE_IBitmap *image; // 2x width, second half is "mouseover" image
+
+  LICE_IBitmap *olimage; // drawn in second pass
+  bool image_ltrb_used;
+  int image_ltrb[4]; // extents outside the rect
 } WDL_VirtualIconButton_SkinConfig;
+
+void WDL_VirtualIconButton_PreprocessSkinConfig(WDL_VirtualIconButton_SkinConfig *a);
 
 #endif

@@ -22,13 +22,11 @@
     This file provides interfaces for the WDL Virtual Windows layer, a system that allows
     creating many controls within one system device context.
 
-    The base class is a WDL_VirtualWnd.
+    The base class is a WDL_VWnd.
 
-    WDL_VirtualWnd_ChildList is a WDL_VirtualWnd that can contain children.
+    If you create a WDL_VWnd, you should send it (or its parent) mouse messages etc.
 
-    If you create WDL_VirtualWnds, you should them (or its parent) mouse messages etc.
-
-    To paint a WDL_VirtualWnd, use a WDL_VirtualWnd_Painter in WM_PAINT etc.
+    To paint a WDL_VWnd, use a WDL_VWnd_Painter in WM_PAINT etc.
 
 
     More documentation should follow...
@@ -63,66 +61,75 @@
 
 
 class LICE_SysBitmap;
+class LICE_IBitmap;
 
-class WDL_VirtualWnd
+
+// for mac, HWND should be a subclassed NSView:
+// -(int)virtWndCommand:(int)msg, p1:(int)parm1, p2:(int)parm2 sender:(WDL_VWnd*)src
+
+// deprecated
+#define WDL_VirtualWnd_ChildList WDL_VWnd
+#define WDL_VirtualWnd WDL_VWnd
+#define WDL_VirtualWnd_Painter WDL_VWnd_Painter
+class WDL_VWnd
 {
 public:
-  WDL_VirtualWnd() 
-  { 
-    m_visible=true; m_id=0; 
-    m_position.left=0; m_position.top=0; m_position.right=0; m_position.bottom=0; 
-    m_parent=0;
-  }
-  virtual ~WDL_VirtualWnd() { }
+  WDL_VWnd();
+  virtual ~WDL_VWnd();
   virtual void SetID(int id) { m_id=id; }
   virtual int GetID() { return m_id; }
   virtual void SetPosition(const RECT *r) { m_position=*r; }
   virtual void GetPosition(RECT *r) { *r=m_position; }
   virtual void GetPositionPaintExtent(RECT *r) { *r=m_position; }
-  virtual bool IsVisible() { return m_visible; }
+  virtual void GetPositionPaintOverExtent(RECT *r) { *r=m_position; }
   virtual void SetVisible(bool vis) { m_visible=vis; }
-  virtual WDL_VirtualWnd *GetParent() { return m_parent; }
-  virtual void SetParent(WDL_VirtualWnd *par) { m_parent=par; }
-  virtual HWND GetRealParent() { if (m_parent) return m_parent->GetRealParent(); return 0; }
+  virtual bool IsVisible() { return m_visible; }
+  virtual bool WantsPaintOver() { return m_children && m_children->GetSize(); }
+  virtual WDL_VWnd *GetParent() { return m_parent; }
+  virtual void SetParent(WDL_VWnd *par) { m_parent=par; }
 
-  virtual void RequestRedraw(RECT *r) 
-  { 
-    if (m_parent) 
-    { 
-      RECT r2;
-      
-      if (r)
-      {
-        r2=*r; 
-        r2.left+=m_position.left; r2.right += m_position.left; 
-        r2.top += m_position.top; r2.bottom += m_position.top;
-      }
-      else GetPositionPaintExtent(&r2);
+  virtual void RequestRedraw(RECT *r); 
+  virtual void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+  virtual void OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
-      m_parent->RequestRedraw(&r2); 
-    }
-  }
+  virtual bool OnMouseDown(int xpos, int ypos);
+  virtual bool OnMouseDblClick(int xpos, int ypos);
+  virtual bool OnMouseWheel(int xpos, int ypos, int amt);
 
-  virtual int SendCommand(int command, int parm1, int parm2, WDL_VirtualWnd *src)
-  {
-    if (m_parent) return m_parent->SendCommand(command,parm1,parm2,src);
-    return 0;
-  }
+  virtual void OnMouseMove(int xpos, int ypos);
+  virtual void OnMouseUp(int xpos, int ypos);
 
-  virtual void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) { } 
+  // child windows
+  virtual WDL_VWnd *EnumChildren(int x);
+  virtual int GetNumChildren();
+  virtual WDL_VWnd *GetChildByID(int id);
+  virtual void AddChild(WDL_VWnd *wnd, int pos=-1);
+  virtual void RemoveChild(WDL_VWnd *wnd, bool dodel=false);
+  virtual void RemoveAllChildren(bool dodel=true);
+  virtual WDL_VWnd *GetCaptureWnd() { return m_children ? m_children->Get(m_captureidx) : 0; }
+  virtual WDL_VWnd *VirtWndFromPoint(int xpos, int ypos, int maxdepth=-1); // maxdepth=0 only direct children, etc, -1 is unlimited
 
-  virtual bool OnMouseDown(int xpos, int ypos){ return false; }
-  virtual bool OnMouseDblClick(int xpos, int ypos) { return false; }
-  virtual bool OnMouseWheel(int xpos, int ypos, int amt) { return false; }
+  // OS access
+  virtual HWND GetRealParent() { if (m_realparent) return m_realparent; if (GetParent()) return GetParent()->GetRealParent(); return 0; }
+  virtual void SetRealParent(HWND par) { m_realparent=par; }
 
-  virtual void OnMouseMove(int xpos, int ypos){}
-  virtual void OnMouseUp(int xpos, int ypos){}
+  virtual int SendCommand(int command, int parm1, int parm2, WDL_VWnd *src);
 
 protected:
-  WDL_VirtualWnd *m_parent;
+  WDL_VWnd *m_parent;
   bool m_visible;
   int m_id;
   RECT m_position;
+
+
+  HWND m_realparent;
+  int m_captureidx;
+  int m_lastmouseidx;
+  WDL_PtrList<WDL_VWnd> *m_children;
+#ifndef _WIN32
+  int Mac_SendCommand(HWND hwnd, int msg, int parm1, int parm2, WDL_VWnd *src);
+  void Mac_Invalidate(HWND hwnd, RECT *r);
+#endif
 
 };
 
@@ -133,11 +140,11 @@ protected:
 #define WDL_VWP_DIVIDER_HORZ 0x00040000
 
 
-class WDL_VirtualWnd_Painter
+class WDL_VWnd_Painter
 {
 public:
-  WDL_VirtualWnd_Painter();
-  ~WDL_VirtualWnd_Painter();
+  WDL_VWnd_Painter();
+  ~WDL_VWnd_Painter();
 
 
   void SetGSC(int (*GSC)(int));
@@ -149,7 +156,7 @@ public:
   void SetBGImage(LICE_IBitmap *bitmap) { m_bgbm=bitmap; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
-  void PaintVirtWnd(WDL_VirtualWnd *vwnd, int borderflags=0);
+  void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
   void PaintBorderForHWND(HWND hwnd, int borderflags);
   void PaintBorderForRect(const RECT *r, int borderflags);
 
@@ -180,62 +187,13 @@ private:
 
 // child list management + UI
 
-// for mac, HWND should be a subclassed NSView:
-// -(int)virtWndCommand:(int)msg, p1:(int)parm1, p2:(int)parm2 sender:(WDL_VirtualWnd*)src
-
-class WDL_VirtualWnd_ChildList : public WDL_VirtualWnd
-{
-public:
-  WDL_VirtualWnd_ChildList();
-  ~WDL_VirtualWnd_ChildList();
-
-  HWND GetRealParent() { if (m_realparent) return m_realparent; if (GetParent()) return GetParent()->GetRealParent(); return 0; }
-  void SetRealParent(HWND par) { m_realparent=par; }
-
-  WDL_VirtualWnd *EnumChildren(int x);
-  WDL_VirtualWnd *GetChildByID(int id);
-  void AddChild(WDL_VirtualWnd *wnd);
-  void RemoveChild(WDL_VirtualWnd *wnd, bool dodel=false);
-  void RemoveAllChildren(bool dodel=true);
-
-  WDL_VirtualWnd *GetCaptureWnd() { return m_children.Get(m_captureidx); }
-
-  WDL_VirtualWnd *VirtWndFromPoint(int xpos, int ypos);
-
-
-
-  // override
-  void RequestRedraw(RECT *r);
-  int SendCommand(int command, int parm1, int parm2, WDL_VirtualWnd *src);
-
-  void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-//  void PaintList(WDL_VirtualWnd_Painter *painter);
-
-  bool OnMouseDown(int xpos, int ypos); // returns TRUE if handled
-  bool OnMouseDblClick(int xpos, int ypos); // returns TRUE if handled
-
-  bool OnMouseWheel(int xpos, int ypos, int amt); // true if handled
-  void OnMouseMove(int xpos, int ypos);
-  void OnMouseUp(int xpos, int ypos);
-
-private:
-
-  HWND m_realparent;
-  int m_captureidx;
-  int m_lastmouseidx;
-  WDL_PtrList<WDL_VirtualWnd> m_children;
-#ifndef _WIN32
-  int Mac_SendCommand(HWND hwnd, int msg, int parm1, int parm2, WDL_VirtualWnd *src);
-  void Mac_Invalidate(HWND hwnd, RECT *r);
-#endif
-};
-
 
 // an app should implement these
 extern int WDL_STYLE_WantGlobalButtonBorders();
 extern bool WDL_STYLE_WantGlobalButtonBackground(int *col);
 extern int WDL_STYLE_GetSysColor(int);
 extern void WDL_STYLE_ScaleImageCoords(int *x, int *y);
+extern bool WDL_Style_WantTextShadows(int *col);
 
 // this is the default, you can override per painter if you want
 extern bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope); // return values 0.0-1.0 for each, return false if no gradient desired
@@ -246,7 +204,7 @@ extern bool WDL_STYLE_AllowSliderMouseWheel();
 extern int WDL_STYLE_GetSliderDynamicCenterPos();
 
 // virtwnd-iconbutton.cpp
-class WDL_VirtualIconButton : public WDL_VirtualWnd
+class WDL_VirtualIconButton : public WDL_VWnd
 {
   public:
     WDL_VirtualIconButton();
@@ -254,34 +212,28 @@ class WDL_VirtualIconButton : public WDL_VirtualWnd
     void SetEnabled(bool en) {m_en=en; }
     bool GetEnabled() { return m_en; }
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    void OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { m_iconCfg=cfg; RequestRedraw(NULL); }
+    void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
     bool OnMouseDown(int xpos, int ypos);
     void OnMouseMove(int xpos, int ypos);
     void OnMouseUp(int xpos, int ypos);
     bool OnMouseDblClick(int xpos, int ypos);
 
+    bool WantsPaintOver();
+    void GetPositionPaintOverExtent(RECT *r);
 
   private:
+    bool m_is_button;
     WDL_VirtualIconButton_SkinConfig *m_iconCfg;
     int m_pressed;
     bool m_en;
 };
 
 
-class WDL_VirtualIcon : public WDL_VirtualWnd // like iconbutton but not a button
-{
-  public:
-    WDL_VirtualIcon();
-    ~WDL_VirtualIcon();
-    void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { m_iconCfg=cfg; RequestRedraw(NULL); }
 
-  private:
-    WDL_VirtualIconButton_SkinConfig *m_iconCfg;
-};
-
-class WDL_VirtualStaticText : public WDL_VirtualWnd
+class WDL_VirtualStaticText : public WDL_VWnd
 {
   public:
     WDL_VirtualStaticText();
@@ -293,19 +245,25 @@ class WDL_VirtualStaticText : public WDL_VirtualWnd
     void SetText(const char *text) { m_text.Set(text); if (m_font) RequestRedraw(NULL); }
     void SetBorder(bool bor) { m_wantborder=bor; }
     const char *GetText() { return m_text.Get(); }
+    void SetColor(int fg=-1, int bg=-1) { m_fg=fg; m_bg=bg; }
+    void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
+    void SetBkImage(LICE_IBitmap **bm) { m_bkbm=bm; }
 
     bool OnMouseDblClick(int xpos, int ypos);
     bool OnMouseDown(int xpos, int ypos);
 
   private:
+    LICE_IBitmap **m_bkbm;
     int m_align;
+    int m_fg,m_bg;
+    int m_margin_r, m_margin_l;
     bool m_wantborder;
     bool m_wantsingle;
     HFONT m_font;
     WDL_String m_text;
 };
 
-class WDL_VirtualComboBox : public WDL_VirtualWnd
+class WDL_VirtualComboBox : public WDL_VWnd
 {
   public:
     WDL_VirtualComboBox();
@@ -337,7 +295,7 @@ class WDL_VirtualComboBox : public WDL_VirtualWnd
 
 
 
-class WDL_VirtualSlider : public WDL_VirtualWnd
+class WDL_VirtualSlider : public WDL_VWnd
 {
   public:
     WDL_VirtualSlider();

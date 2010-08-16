@@ -198,6 +198,9 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
 
 void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
+  origin_x += m_position.left; // convert drawing origin to local coords
+  origin_y += m_position.top;
+
   HDC hdc=drawbm->getDC();
   bool isVert = GetIsVert();
 
@@ -230,7 +233,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
   if (isVert)
   {
-    int pos = viewh - bm_h2 - ((m_pos-m_minr) * (viewh - bm_h2))/rsize;
+    int pos = ((m_maxr-m_pos)*(viewh-bm_h2))/rsize; //viewh - bm_h2 - ((m_pos-m_minr) * (viewh - bm_h2))/rsize;
 
     if (back_image)
     {
@@ -260,7 +263,8 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       int center=m_center;
       if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
 
-      int y=((m_maxr-center)*(viewh-bm_h2))/rsize + (bm_h/2-imgoffset);
+      int y=((m_maxr-center)*(viewh-bm_h2))/rsize + ((bm_h-1)/2-imgoffset);
+
 
       HPEN pen=CreatePen(PS_SOLID,0,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
       HGDIOBJ oldPen=SelectObject(hdc,pen);

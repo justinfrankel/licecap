@@ -29,6 +29,14 @@ static inline void __LICE_BilinearFilter(int *r, int *g, int *b, int *a, LICE_pi
   *b=__LICE_TOINT(pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4);
   *a=__LICE_TOINT(pin[LICE_PIXEL_A]*f1 + pin[4+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[4+LICE_PIXEL_A]*f4);
 }
+static inline void __LICE_LinearFilter(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, double frac)
+{
+  double f=1.0-frac;
+  *r=__LICE_TOINT(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac);
+  *g=__LICE_TOINT(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac);
+  *b=__LICE_TOINT(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac);
+  *a=__LICE_TOINT(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac);
+}
 
 
 static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, int a)

@@ -154,16 +154,47 @@ template<class COMBFUNC> class _LICE_Template_Blit
           {
             int cury = (int)(thisy);
             int curx = (int)(thisx);
-            if (cury >= src_top && cury < src_bottom-1 && curx >= src_left && curx < src_right-1)
+            if (cury >= src_top && cury < src_bottom-1)
             {
-              double yfrac=thisy-cury;
+              if (curx >= src_left && curx < src_right-1)
+              {
+                double yfrac=thisy-cury;
 
-              LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
-              int r,g,b,a;
-              __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,thisx-curx,yfrac);
+                int r,g,b,a;
+                __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,thisx-curx,yfrac);
 
-              COMBFUNC::doPix(pout,r,g,b,a,ia);
+                COMBFUNC::doPix(pout,r,g,b,a,ia);
+              }
+              else if (curx==src_right-1)
+              {
+                double yfrac=thisy-cury;
+
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+
+                int r,g,b,a;
+                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+src_span,yfrac);
+
+                COMBFUNC::doPix(pout,r,g,b,a,ia);
+              }
+            }
+            else if (cury==src_bottom-1)
+            {
+              if (curx>=src_left && curx<src_right-1)
+              {
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+
+                int r,g,b,a;
+                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),thisx-curx);
+
+                COMBFUNC::doPix(pout,r,g,b,a,ia);
+              }
+              else if (curx==src_right-1)
+              {
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+                COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+              }
             }
 
             pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
@@ -218,24 +249,50 @@ template<class COMBFUNC> class _LICE_Template_Blit
         while (h--)
         {
           int cury = (int)(srcy);
+          double yfrac=srcy-cury;
+          double curx=srcx;
+          LICE_pixel_chan *inptr=src + cury * src_span;
+          LICE_pixel_chan *pout=dest;
+          int n=w;
           if (cury >= 0 && cury < srch-1)
           {
-            double yfrac=srcy-cury;
-            double curx=srcx;
-            LICE_pixel_chan *inptr=src + cury * src_span;
-            LICE_pixel_chan *pout=dest;
-            int n=w;
             while (n--)
             {
               int offs=(int)(curx);
+              LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
               if (offs>=0 && offs<srcw-1)
               {
-                LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
-
                 int r,g,b,a;
                 __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,curx-offs,yfrac);
 
                 COMBFUNC::doPix(pout,r,g,b,a,ia);
+              }
+              else if (offs==srcw-1)
+              {
+                int r,g,b,a;
+                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+src_span,yfrac);
+                COMBFUNC::doPix(pout,r,g,b,a,ia);
+              }
+
+              pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+              curx+=dx;
+            }
+          }
+          else if (cury == srch-1)
+          {
+            while (n--)
+            {
+              int offs=(int)(curx);
+              LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
+              if (offs>=0 && offs<srcw-1)
+              {
+                int r,g,b,a;
+                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),curx-offs);
+                COMBFUNC::doPix(pout,r,g,b,a,ia);
+              }
+              else if (offs==srcw-1)
+              {
+                COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
               }
 
               pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);

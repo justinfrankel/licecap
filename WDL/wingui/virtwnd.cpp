@@ -31,7 +31,7 @@
 #define WIN32_NATIVE_GRADIENT
 #endif
 
-WDL_VirtualWnd_Painter::WDL_VirtualWnd_Painter()
+WDL_VWnd_Painter::WDL_VWnd_Painter()
 {
   m_GSC=0;
   m_bm=0;
@@ -43,24 +43,24 @@ WDL_VirtualWnd_Painter::WDL_VirtualWnd_Painter()
   m_gradslope=0.2;
 }
 
-WDL_VirtualWnd_Painter::~WDL_VirtualWnd_Painter()
+WDL_VWnd_Painter::~WDL_VWnd_Painter()
 {
   delete m_bm;
 }
 
-void WDL_VirtualWnd_Painter::SetGSC(int (*GSC)(int))
+void WDL_VWnd_Painter::SetGSC(int (*GSC)(int))
 {
   m_GSC=GSC;
 }
 
-void WDL_VirtualWnd_Painter::SetBGGradient(int wantGradient, double start, double slope)
+void WDL_VWnd_Painter::SetBGGradient(int wantGradient, double start, double slope)
 {
   m_wantg=wantGradient;
   m_gradstart=start;
   m_gradslope=slope;
 }
 
-void WDL_VirtualWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
+void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
 {
   if (!m_bm) return;
 
@@ -206,9 +206,9 @@ void WDL_VirtualWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd
 }
 
 #ifdef _WIN32
-void WDL_VirtualWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
+void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
 #else
-void WDL_VirtualWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
+void WDL_VWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
 #endif
 {
 #ifdef _WIN32
@@ -245,16 +245,60 @@ void WDL_VirtualWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int
 #endif
 }
 
-void WDL_VirtualWnd_Painter::PaintEnd()
+typedef struct
+{
+  HRGN rgn;
+  HWND par;
+  RECT *sr;
+} enumInfo;
+
+static BOOL CALLBACK enumProc(HWND hwnd,LPARAM lParam)
+{
+  enumInfo *p=(enumInfo*)lParam;
+  if (IsWindowVisible(hwnd)) 
+  {
+    RECT r;
+    GetWindowRect(hwnd,&r);
+    ScreenToClient(p->par,(LPPOINT)&r);
+    ScreenToClient(p->par,((LPPOINT)&r)+1);
+    if (!p->rgn) p->rgn=CreateRectRgnIndirect(p->sr);
+
+    HRGN rgn2=CreateRectRgnIndirect(&r);
+    CombineRgn(p->rgn,p->rgn,rgn2,RGN_DIFF);
+    DeleteObject(rgn2);
+  }
+  return TRUE;
+}
+void WDL_VWnd_Painter::PaintEnd()
 {
   if (!m_cur_hwnd) return;
 #ifdef _WIN32
   if (m_bm)
   {
+    HRGN rgnsave=0;
+    if (1)
+    {
+      enumInfo a={0,m_cur_hwnd,&m_ps.rcPaint};
+      EnumChildWindows(m_cur_hwnd,enumProc,(LPARAM)&a);
+      if (a.rgn)
+      {
+        rgnsave=CreateRectRgn(0,0,0,0);
+        GetClipRgn(m_ps.hdc,rgnsave);
+
+        ExtSelectClipRgn(m_ps.hdc,a.rgn,RGN_AND);
+        DeleteObject(a.rgn);
+      }
+    }
     BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,
                     m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
+
+    if (rgnsave)
+    {
+      SelectClipRgn(m_ps.hdc,rgnsave);
+      DeleteObject(rgnsave);
+    }
   }
   EndPaint(m_cur_hwnd,&m_ps);
 #else
@@ -272,7 +316,7 @@ void WDL_VirtualWnd_Painter::PaintEnd()
   m_cur_hwnd=0;
 }
 
-void WDL_VirtualWnd_Painter::PaintVirtWnd(WDL_VirtualWnd *vwnd, int borderflags)
+void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 {
   RECT tr=m_ps.rcPaint;
   if (!m_bm||!m_cur_hwnd|| !vwnd->IsVisible()) return;
@@ -287,16 +331,16 @@ void WDL_VirtualWnd_Painter::PaintVirtWnd(WDL_VirtualWnd *vwnd, int borderflags)
 
   if (tr.bottom > tr.top && tr.right > tr.left)
   {
-    vwnd->OnPaint(m_bm,r.left,r.top,&tr);
-
+    vwnd->OnPaint(m_bm,0,0,&tr);
     if (borderflags)
     {
       PaintBorderForRect(&r,borderflags);
     }
+    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,0,0,&tr);
   }
 }
 
-void WDL_VirtualWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
+void WDL_VWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
 {
 #ifdef _WIN32
   if (m_cur_hwnd)
@@ -310,7 +354,7 @@ void WDL_VirtualWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
 #endif
 }
 
-void WDL_VirtualWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
+void WDL_VWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
 {
   if (!m_bm|| !m_cur_hwnd||!borderflags) return;
 
@@ -360,214 +404,72 @@ void WDL_VirtualWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
 
 }
 
-
-
-WDL_VirtualWnd_ChildList::WDL_VirtualWnd_ChildList()
-{
+WDL_VWnd::WDL_VWnd() 
+{ 
+  m_visible=true; m_id=0; 
+  m_position.left=0; m_position.top=0; m_position.right=0; m_position.bottom=0; 
+  m_parent=0;
+  m_children=0;
+  m_realparent=0;
   m_captureidx=-1;
   m_lastmouseidx=-1;
 }
 
-WDL_VirtualWnd_ChildList::~WDL_VirtualWnd_ChildList()
-{
-  m_children.Empty(true);
-}
-
-void WDL_VirtualWnd_ChildList::AddChild(WDL_VirtualWnd *wnd)
-{
-  wnd->SetParent(this);
-  m_children.Add(wnd);
-}
-
-WDL_VirtualWnd *WDL_VirtualWnd_ChildList::GetChildByID(int id)
-{
-  int x;
-  for (x = 0; x < m_children.GetSize(); x ++)
-    if (m_children.Get(x)->GetID()==id) return m_children.Get(x);
-  return 0;
-}
-
-void WDL_VirtualWnd_ChildList::RemoveChild(WDL_VirtualWnd *wnd, bool dodel)
-{
-  int idx=m_children.Find(wnd);
-  if (idx>=0) m_children.Delete(idx,dodel);
-}
-
-
-void WDL_VirtualWnd_ChildList::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
-{
-  int x;
-  for (x = 0; x < m_children.GetSize(); x ++)
+WDL_VWnd::~WDL_VWnd() 
+{ 
+  if (m_children) 
   {
-    WDL_VirtualWnd *ch=m_children.Get(x);
-    if (ch->IsVisible())
-    {
-      RECT re;
-      ch->GetPositionPaintExtent(&re);
-      RECT cr=*cliprect;
-      re.left += origin_x;
-      re.right += origin_x;
-      re.top += origin_y;
-      re.bottom += origin_y;
-
-      if (cr.left < re.left) cr.left=re.left;
-      if (cr.right > re.right) cr.right=re.right;
-      if (cr.top < re.top) cr.top=re.top;
-      if (cr.bottom > re.bottom) cr.bottom=re.bottom;
-
-      if (cr.left < cr.right && cr.top < cr.bottom)
-      {
-        RECT r;
-        ch->GetPosition(&r);
-        ch->OnPaint(drawbm,r.left+origin_x,r.top+origin_y,&cr);
-      }
-    }
+    m_children->Empty(true); 
+    delete m_children;
   }
 }
 
-WDL_VirtualWnd *WDL_VirtualWnd_ChildList::EnumChildren(int x)
-{
-  return m_children.Get(x);
-}
 
-void WDL_VirtualWnd_ChildList::RemoveAllChildren(bool dodel)
-{
-  m_children.Empty(dodel);
-}
-
-WDL_VirtualWnd *WDL_VirtualWnd_ChildList::VirtWndFromPoint(int xpos, int ypos)
-{
-  int x;
-  for (x = 0; x < m_children.GetSize(); x++)
-  {
-    WDL_VirtualWnd *wnd=m_children.Get(x);
-    if (wnd->IsVisible())
-    {
-      RECT r;
-      wnd->GetPosition(&r);
-      if (xpos >= r.left && xpos < r.right && ypos >= r.top && ypos < r.bottom) return wnd;
-    }
-  }
-  return 0;
-
-}
-
-
-bool WDL_VirtualWnd_ChildList::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
-{
-  WDL_VirtualWnd *wnd=VirtWndFromPoint(xpos,ypos);
-  if (!wnd) 
-  {
-    m_captureidx=-1;
-    return false;
-  }  
-  RECT r;
-  wnd->GetPosition(&r);
-  if (wnd->OnMouseDown(xpos-r.left,ypos-r.top))
-  {
-    m_captureidx=m_children.Find(wnd);
-    return true;
-  }
-  return false;
-}
-
-bool WDL_VirtualWnd_ChildList::OnMouseDblClick(int xpos, int ypos) // returns TRUE if handled
-{
-  WDL_VirtualWnd *wnd=VirtWndFromPoint(xpos,ypos);
-  if (!wnd) return false;
-  RECT r;
-  wnd->GetPosition(&r);
-  return wnd->OnMouseDblClick(xpos-r.left,ypos-r.top);
-}
-
-
-bool WDL_VirtualWnd_ChildList::OnMouseWheel(int xpos, int ypos, int amt)
-{
-  WDL_VirtualWnd *wnd=VirtWndFromPoint(xpos,ypos);
-  if (!wnd) return false;
-  RECT r;
-  wnd->GetPosition(&r);
-  return wnd->OnMouseWheel(xpos-r.left,ypos-r.top,amt);
-}
-
-void WDL_VirtualWnd_ChildList::OnMouseMove(int xpos, int ypos)
-{
-  WDL_VirtualWnd *wnd=m_children.Get(m_captureidx);
-  
-  if (!wnd) 
-  {
-    wnd=VirtWndFromPoint(xpos,ypos);
-    if (wnd) // todo: stuff so if the mouse goes out of the window completely, the virtualwnd gets notified
-    {
-      int idx=m_children.Find(wnd);
-      if (idx != m_lastmouseidx)
-      {
-        WDL_VirtualWnd *t=m_children.Get(m_lastmouseidx);
-        if (t)
-        {
-          RECT r;
-          t->GetPosition(&r);
-          t->OnMouseMove(xpos-r.left,ypos-r.top);
-        }
-        m_lastmouseidx=idx;
-      }
-    }
-    else
-    {
-      WDL_VirtualWnd *t=m_children.Get(m_lastmouseidx);
-      if (t)
-      {
-        RECT r;
-        t->GetPosition(&r);
-        t->OnMouseMove(xpos-r.left,ypos-r.top);
-      }
-      m_lastmouseidx=-1;
-    }
-  }
-
-  if (wnd) 
-  {
-    RECT r;
-    wnd->GetPosition(&r);
-    wnd->OnMouseMove(xpos-r.left,ypos-r.top);
-  }
-}
-
-void WDL_VirtualWnd_ChildList::OnMouseUp(int xpos, int ypos)
-{
-  WDL_VirtualWnd *wnd=m_children.Get(m_captureidx);
-  
-  if (!wnd) 
-  {
-    wnd=VirtWndFromPoint(xpos,ypos);
-  }
-
-  if (wnd) 
-  {
-    RECT r;
-    wnd->GetPosition(&r);
-    wnd->OnMouseUp(xpos-r.left,ypos-r.top);
-  }
-
-  m_captureidx=-1;
-}
-
-
-
-void WDL_VirtualWnd_ChildList::RequestRedraw(RECT *r)
+int WDL_VWnd::SendCommand(int command, int parm1, int parm2, WDL_VWnd *src)
 {
   if (m_realparent)
   {
-    RECT cr=*r;
-    cr.top += m_position.top;
-    cr.bottom += m_position.top;
-    cr.left += m_position.left;
-    cr.right += m_position.left;
+#ifdef _WIN32
+    return SendMessage(m_realparent,command,parm1,parm2);
+#else
+    return Mac_SendCommand(m_realparent,command,parm1,parm2,src);
+#endif
+  }
+  else if (m_parent) return m_parent->SendCommand(command,parm1,parm2,src);
+  return 0;
+}
+
+void WDL_VWnd::RequestRedraw(RECT *r)
+{ 
+  RECT r2;
+  
+  if (r)
+  {
+    r2=*r; 
+    r2.left+=m_position.left; r2.right += m_position.left; 
+    r2.top += m_position.top; r2.bottom += m_position.top;
+  }
+  else 
+  {
+    GetPositionPaintExtent(&r2);
+    RECT r3;
+    if (WantsPaintOver())
+    {
+      GetPositionPaintOverExtent(&r3);
+      if (r3.left<r2.left)r2.left=r3.left;
+      if (r3.top<r2.top)r2.top=r3.top;
+      if (r3.right>r2.right)r2.right=r3.right;
+      if (r3.bottom>r2.bottom)r2.bottom=r3.bottom;
+    }
+  }
+
+  if (m_realparent)
+  {
 #ifdef _WIN32
     HWND hCh;
     if ((hCh=GetWindow(m_realparent,GW_CHILD)))
     {
-      HRGN rgn=CreateRectRgnIndirect(&cr);
+      HRGN rgn=CreateRectRgnIndirect(&r2);
       int n=30; // limit to 30 children
       while (n-- && hCh)
       {
@@ -588,23 +490,250 @@ void WDL_VirtualWnd_ChildList::RequestRedraw(RECT *r)
 
     }
     else
-      InvalidateRect(m_realparent,&cr,FALSE);
+      InvalidateRect(m_realparent,&r2,FALSE);
 #else
-    Mac_Invalidate(m_realparent,&cr);
+    Mac_Invalidate(m_realparent,&r2);
 #endif
   }
-  else WDL_VirtualWnd::RequestRedraw(r);
+  else if (m_parent) m_parent->RequestRedraw(&r2); 
 }
 
-int WDL_VirtualWnd_ChildList::SendCommand(int command, int parm1, int parm2, WDL_VirtualWnd *src)
+
+
+void WDL_VWnd::AddChild(WDL_VWnd *wnd, int pos)
 {
-  if (m_realparent)
-  {
-#ifdef _WIN32
-    return SendMessage(m_realparent,command,parm1,parm2);
-#else
-    return Mac_SendCommand(m_realparent,command,parm1,parm2,src);
-#endif
-  }
-  return WDL_VirtualWnd::SendCommand(command,parm1,parm2,this);
+  if (!wnd) return;
+
+  wnd->SetParent(this);
+  if (!m_children) m_children=new WDL_PtrList<WDL_VWnd>;
+  if (pos<0||pos>=m_children->GetSize()) m_children->Add(wnd);
+  else m_children->Insert(pos,wnd);
 }
+
+WDL_VWnd *WDL_VWnd::GetChildByID(int id)
+{
+  if (m_children) 
+  {
+    int x;
+    for (x = 0; x < m_children->GetSize(); x ++)
+      if (m_children->Get(x)->GetID()==id) return m_children->Get(x);
+    WDL_VWnd *r;
+    for (x = 0; x < m_children->GetSize(); x ++) if ((r=m_children->Get(x)->GetChildByID(id))) return r;
+  }
+
+  return 0;
+}
+
+void WDL_VWnd::RemoveChild(WDL_VWnd *wnd, bool dodel)
+{
+  int idx=m_children ? m_children->Find(wnd) : -1;
+  if (idx>=0) m_children->Delete(idx,dodel);
+}
+
+
+void WDL_VWnd::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+{
+  int x;
+  if (m_children) for (x = m_children->GetSize()-1; x >=0; x --)
+  {
+    WDL_VWnd *ch=m_children->Get(x);
+    if (ch->IsVisible())
+    {
+      RECT re;
+      ch->GetPositionPaintExtent(&re);
+      re.left += origin_x;
+      re.right += origin_x;
+      re.top += origin_y;
+      re.bottom += origin_y;
+
+      RECT cr=*cliprect;
+      if (cr.left < re.left) cr.left=re.left;
+      if (cr.right > re.right) cr.right=re.right;
+      if (cr.top < re.top) cr.top=re.top;
+      if (cr.bottom > re.bottom) cr.bottom=re.bottom;
+
+      if (cr.left < cr.right && cr.top < cr.bottom)
+      {
+        ch->OnPaint(drawbm,m_position.left+origin_x,m_position.top+origin_y,&cr);
+      }
+    }
+  }
+}
+
+void WDL_VWnd::OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+{
+  int x;
+  if (m_children) for (x = m_children->GetSize()-1; x >=0; x --)
+  {
+    WDL_VWnd *ch=m_children->Get(x);
+    if (ch->IsVisible() && ch->WantsPaintOver())
+    {
+      RECT re;
+      ch->GetPositionPaintOverExtent(&re);
+      re.left += origin_x;
+      re.right += origin_x;
+      re.top += origin_y;
+      re.bottom += origin_y;
+
+      RECT cr=*cliprect;
+
+      if (cr.left < re.left) cr.left=re.left;
+      if (cr.right > re.right) cr.right=re.right;
+      if (cr.top < re.top) cr.top=re.top;
+      if (cr.bottom > re.bottom) cr.bottom=re.bottom;
+
+      if (cr.left < cr.right && cr.top < cr.bottom)
+      {
+        ch->OnPaintOver(drawbm,m_position.left+origin_x,m_position.top+origin_y,&cr);
+      }
+    }
+  }
+}
+
+int WDL_VWnd::GetNumChildren()
+{
+  return m_children ? m_children->GetSize() : 0;
+}
+WDL_VWnd *WDL_VWnd::EnumChildren(int x)
+{
+  return m_children ? m_children->Get(x) : 0;
+}
+
+void WDL_VWnd::RemoveAllChildren(bool dodel)
+{
+  if (m_children) m_children->Empty(dodel);
+}
+
+WDL_VWnd *WDL_VWnd::VirtWndFromPoint(int xpos, int ypos, int maxdepth)
+{
+  int x;
+  if (m_children) for (x = 0; x < m_children->GetSize(); x++)
+  {
+    WDL_VWnd *wnd=m_children->Get(x);
+    if (wnd->IsVisible())
+    {
+      RECT r;
+      wnd->GetPosition(&r);
+      if (xpos >= r.left && xpos < r.right && ypos >= r.top && ypos < r.bottom) 
+      {
+        if (maxdepth!=0)
+        {
+          WDL_VWnd *cwnd=wnd->VirtWndFromPoint(xpos-r.left,ypos-r.top,maxdepth > 0 ? (maxdepth-1) : -1);
+          if (cwnd) return cwnd;
+        }
+        return wnd;
+      }
+    }
+  }
+  return 0;
+
+}
+
+
+bool WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
+{
+  if (!m_children) return false;
+
+  WDL_VWnd *wnd=VirtWndFromPoint(xpos,ypos,0);
+  if (!wnd) 
+  {
+    m_captureidx=-1;
+    return false;
+  }  
+  RECT r;
+  wnd->GetPosition(&r);
+  if (wnd->OnMouseDown(xpos-r.left,ypos-r.top))
+  {
+    m_captureidx=m_children->Find(wnd);
+    return true;
+  }
+  return false;
+}
+
+bool WDL_VWnd::OnMouseDblClick(int xpos, int ypos) // returns TRUE if handled
+{
+  WDL_VWnd *wnd=VirtWndFromPoint(xpos,ypos,0);
+  if (!wnd) return false;
+  RECT r;
+  wnd->GetPosition(&r);
+  return wnd->OnMouseDblClick(xpos-r.left,ypos-r.top);
+}
+
+
+bool WDL_VWnd::OnMouseWheel(int xpos, int ypos, int amt)
+{
+  WDL_VWnd *wnd=VirtWndFromPoint(xpos,ypos,0);
+  if (!wnd) return false;
+  RECT r;
+  wnd->GetPosition(&r);
+  return wnd->OnMouseWheel(xpos-r.left,ypos-r.top,amt);
+}
+
+void WDL_VWnd::OnMouseMove(int xpos, int ypos)
+{
+  if (!m_children) return;
+
+  WDL_VWnd *wnd=m_children->Get(m_captureidx);
+  
+  if (!wnd) 
+  {
+    wnd=VirtWndFromPoint(xpos,ypos,0);
+    if (wnd) // todo: stuff so if the mouse goes out of the window completely, the virtualwnd gets notified
+    {
+      int idx=m_children->Find(wnd);
+      if (idx != m_lastmouseidx)
+      {
+        WDL_VWnd *t=m_children->Get(m_lastmouseidx);
+        if (t)
+        {
+          RECT r;
+          t->GetPosition(&r);
+          t->OnMouseMove(xpos-r.left,ypos-r.top);
+        }
+        m_lastmouseidx=idx;
+      }
+    }
+    else
+    {
+      WDL_VWnd *t=m_children->Get(m_lastmouseidx);
+      if (t)
+      {
+        RECT r;
+        t->GetPosition(&r);
+        t->OnMouseMove(xpos-r.left,ypos-r.top);
+      }
+      m_lastmouseidx=-1;
+    }
+  }
+
+  if (wnd) 
+  {
+    RECT r;
+    wnd->GetPosition(&r);
+    wnd->OnMouseMove(xpos-r.left,ypos-r.top);
+  }
+}
+
+void WDL_VWnd::OnMouseUp(int xpos, int ypos)
+{
+  if (m_children)
+  {
+    WDL_VWnd *wnd=m_children->Get(m_captureidx);
+  
+    if (!wnd) 
+    {
+      wnd=VirtWndFromPoint(xpos,ypos,0);
+    }
+
+    if (wnd) 
+    {
+      RECT r;
+      wnd->GetPosition(&r);
+      wnd->OnMouseUp(xpos-r.left,ypos-r.top);
+    }
+  }
+
+  m_captureidx=-1;
+}
+
+
