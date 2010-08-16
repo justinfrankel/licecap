@@ -119,8 +119,8 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f)
     #else
       #include "asm-nseel-x86-msvc.c"
     #endif
-  #else
-  #include "asm-nseel-x86-gcc.c"
+  #elif !defined(__LP64__)
+    #include "asm-nseel-x86-gcc.c"
   #endif
 #endif
 

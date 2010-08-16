@@ -112,13 +112,8 @@ bool IGraphicsMac::DrawScreen(IRECT* pR)
 }
 
 void* IGraphicsMac::OpenWindow(void* pParent)
-{
-  if (!pParent || [(id) pParent isKindOfClass: [NSView class]]) {
-    return OpenCocoaWindow(pParent);
-  }
-  else {
-    return OpenCarbonWindow(pParent, 0);
-  }  
+{ 
+  return OpenCocoaWindow(pParent);
 }
 
 void* IGraphicsMac::OpenWindow(void* pWindow, void* pControl)

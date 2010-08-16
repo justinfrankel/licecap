@@ -108,9 +108,6 @@ class VorbisDecoder : public VorbisDecoderInterface
     int GetSampleRate() { return vi.rate; }
     int GetNumChannels() { return vi.channels?vi.channels:1; }
 
-    WDL_HeapBuf m_samples; // we let the size get as big as it needs to, so we don't worry about tons of mallocs/etc
-    int m_samples_used;
-
     void *DecodeGetSrcBuffer(int srclen)
     {
 		  return ogg_sync_buffer(&oy,srclen);
@@ -213,9 +210,11 @@ class VorbisDecoder : public VorbisDecoderInterface
 
   private:
 
+    WDL_HeapBuf m_samples; // we let the size get as big as it needs to, so we don't worry about tons of mallocs/etc
 
     int m_err;
     int packets;
+    int m_samples_used;
 
     ogg_sync_state   oy; /* sync and verify incoming physical bitstream */
     ogg_stream_state os; /* take physical pages, weld into a logical
@@ -229,7 +228,8 @@ class VorbisDecoder : public VorbisDecoderInterface
     vorbis_dsp_state vd; /* central working state for the packet->PCM decoder */
     vorbis_block     vb; /* local working space for packet->PCM decode */
 
-};
+
+} WDL_FIXALIGN;
 
 
 class VorbisEncoder : public VorbisEncoderInterface
@@ -448,8 +448,6 @@ public:
 
   WDL_Queue outqueue;
 
-  bool m_flushmode;
-
 private:
   int m_err,m_nch;
 
@@ -461,7 +459,9 @@ private:
   int m_ser;
   int m_ds;
 
-};
+public:
+  bool m_flushmode;
+} WDL_FIXALIGN;
 
 #endif//WDL_VORBIS_INTERFACE_ONLY
 

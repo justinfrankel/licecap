@@ -34,14 +34,7 @@
 #include "heapbuf.h"
 
 
-static void __inline WDL_VERB_FIXDENORM(unsigned int *b)
-{
-#ifdef __powerpc__ // big endian
-  if (!(b[0]&0x7ff00000)) b[0]=b[1]=0;
-#else
-  if (!(b[1]&0x7ff00000)) b[0]=b[1]=0;
-#endif
-}
+#include "denormal.h"
 
 class WDL_ReverbAllpass
 {
@@ -67,8 +60,7 @@ public:
 	  double bufout = *bptr;
 	  
 	  double output = bufout - inp;
-	  *bptr = inp + (bufout*feedback);
-	  WDL_VERB_FIXDENORM((unsigned int *)bptr);
+	  *bptr = denormal_filter_double(inp + (bufout*feedback));
 
 	  if(++bufidx>=buffer.GetSize()) bufidx = 0;
 
@@ -81,7 +73,9 @@ private:
 	double	feedback;
 	WDL_TypedBuf<double> buffer;
 	int		bufidx;
-};
+  int __pad;
+
+} WDL_FIXALIGN;
 
   
 class WDL_ReverbComb
@@ -105,8 +99,7 @@ public:
   {
     double *bptr=buffer.Get()+bufidx;
 	  double output = *bptr;
-	  filterstore = (output*(1-damp)) + (filterstore*damp);
-	  WDL_VERB_FIXDENORM((unsigned int *)&filterstore);
+	  filterstore = denormal_filter_double((output*(1-damp)) + (filterstore*damp));
 
 	  *bptr = inp + (filterstore*feedback);
 
@@ -125,7 +118,8 @@ private:
 	double	damp;
 	WDL_TypedBuf<double> buffer;
 	int		bufidx;
-};
+  int __pad;
+} WDL_FIXALIGN;
 
   // these represent lengths in samples at 44.1khz but are scaled accordingly
 const int wdl_verb__stereospread=23;

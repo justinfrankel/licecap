@@ -51,7 +51,7 @@ public:
   void *m_ownerptr;
 
   void *next;
-};
+} WDL_FIXALIGN;
 
 
 template<class RTYPE, class EXTRAINFOTYPE> class WDL_ResourcePool
@@ -166,9 +166,7 @@ private:
   WDL_Mutex m_mutex;
   RTYPE *m_rlist;
 
-
-
-};
+} WDL_FIXALIGN;
 
 
 

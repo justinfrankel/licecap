@@ -25,9 +25,19 @@
 
 
 #ifdef _WIN32
-
 #include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "lameencdec.h"
+
+
+#ifdef USE_LAME_BLADE_API
 
 #pragma pack(push)
 #pragma pack(1)
@@ -43,7 +53,7 @@ extern "C" {
 
 /* type definitions */
 
-typedef		unsigned long			HBE_STREAM;
+typedef		UINT_PTR			HBE_STREAM;
 typedef		HBE_STREAM				*PHBE_STREAM;
 typedef		unsigned long			BE_ERR;
 
@@ -259,20 +269,6 @@ typedef VOID	(*BEVERSION)			(PBE_VERSION);
 #ifdef	__cplusplus
 }
 #endif
-#else
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#endif // end _WIN32
-
-
-
-#include "lameencdec.h"
-
-
-
-#ifdef _WIN32
 
 static HINSTANCE hlamedll;
 static BEINITSTREAM     beInitStream;
@@ -288,15 +284,18 @@ static void (*get_decode_info)(void *,int *nch, int *srate);//JF> added for quer
 static void (*remove_buf)(void *);
 
 
-#endif
 
-#ifdef __APPLE__
-#include <Carbon/Carbon.h>
-#include <dlfcn.h>
-#define DYNAMIC_LAME
-#endif
+#endif // USE_LAME_BLADE_API
+
 
 #ifdef DYNAMIC_LAME
+  #ifdef __APPLE__
+    #include <Carbon/Carbon.h>
+  #endif
+  #ifndef _WIN32
+    #include <dlfcn.h>
+  #endif
+
 
 typedef enum MPEG_mode_e {
   STEREO = 0,
@@ -338,7 +337,7 @@ static int (*lame_encode_flush)(lame_t,unsigned char*       mp3buf,  int        
 
 static void initdll()
 {
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
   if (!hlamedll) 
   {
     char me[1024];
@@ -348,10 +347,18 @@ static void initdll()
     while (*p) p++;
     while(p>=me && *p!='\\') p--;
 
+#ifdef _WIN64
+    strcpy(++p,"lame_enc64.dll");
+#else
     strcpy(++p,"lame_enc.dll");
+#endif
 
     hlamedll=LoadLibrary(me);
+#ifdef _WIN64
+    if (!hlamedll) hlamedll=LoadLibrary("lame_enc64.dll");//try cur dir
+#else
     if (!hlamedll) hlamedll=LoadLibrary("lame_enc.dll");//try cur dir
+#endif
     if (hlamedll)
     {
 		  *((void**)&beInitStream) = (void *) GetProcAddress(hlamedll, "beInitStream");
@@ -371,13 +378,46 @@ static void initdll()
 #elif defined(DYNAMIC_LAME)
   static int a;
   static void *dll;
-  if (!dll&&!a)
+  if (!dll&&a<100) // try a bunch of times before giving up
   {
-    a=1;
-    if (!dll) dll=dlopen("libmp3lame.dylib",RTLD_LAZY);
-    if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.dylib",RTLD_LAZY);
-    if (!dll) dll=dlopen("/usr/lib/libmp3lame.dylib",RTLD_LAZY);
-#ifdef __APPLE__
+    a++;
+#ifdef _WIN32
+    if (!dll)
+    {
+      char me[1024];
+      GetModuleFileName(NULL,me,sizeof(me)-1);
+
+      char *p=me;
+      while (*p) p++;
+      while(p>=me && *p!='\\') p--;
+
+      strcpy(++p,"libmp3lame.dll");
+
+      dll=(void*)LoadLibrary(me);
+      if (!dll)
+      {
+  #ifdef _WIN64
+        strcpy(p,"lame_enc64.dll");
+  #else
+        strcpy(p,"lame_enc.dll");
+  #endif
+        dll=(void*)LoadLibrary(me);
+      }
+    }
+    if (!dll) dll=LoadLibrary("libmp3lame.dll");
+
+#ifdef _WIN64
+    if (!dll) dll=LoadLibrary("lame_enc64.dll");
+#else
+    if (!dll) dll=LoadLibrary("lame_enc.dll");
+#endif
+
+#elif defined(__APPLE__)
+    if (!dll) dll=dlopen("libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("/usr/lib/libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll = dlopen("/Library/Application Support/libmp3lame.dylib", RTLD_NOW|RTLD_LOCAL);    
+
     if (!dll)
     {
       CFBundleRef bund=CFBundleGetMainBundle();
@@ -395,29 +435,60 @@ static void initdll()
             if (p>=buf)
             {
               strcat(buf,"/Contents/Plugins/libmp3lame.dylib");
-              if (!dll) dll=dlopen(buf,RTLD_LAZY);
+              if (!dll) dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
 
               if (!dll)
               {
                 strcpy(p,"/libmp3lame.dylib");
-                dll=dlopen(buf,RTLD_LAZY);
+                dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
               }
               if (!dll)
               {
                 strcpy(p,"/Plugins/libmp3lame.dylib");
-                if (!dll) dll=dlopen(buf,RTLD_LAZY);
+                if (!dll) dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
               }
             }          
           }
           CFRelease(url);
         }
       }
-#endif
     }
+#else // linux default to .so
+    if (!dll) dll=dlopen("libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("/usr/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) 
+    {
+       char tmp[64];
+       sprintf(tmp,"/proc/%d/exe",getpid());
+       char buf[1024];
+       buf[0]=0;
+       if (readlink(tmp,buf,sizeof(buf)-128)>0 && buf[0])
+       {
+         char *p = buf;
+         while (*p) p++;
+         while (p>buf && *p != '/') p--;
+         if (p>buf)
+         {
+           strcpy(p,"/Plugins/libmp3lame.so");
+           dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
+           if (!dll)  
+           {
+             strcpy(p,"/libmp3lame.so");
+             dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
+           }
+         }
+       }
+    }
+#endif
      
     if (dll)
     {
+  #ifdef _WIN32
+    #define TURD(x) *(void **)&x = GetProcAddress((HINSTANCE)dll,#x);
+  #else
     #define TURD(x) *(void **)&x = dlsym(dll,#x);
+  #endif
     TURD(lame_get_lametag_frame)
     TURD(lame_close) 
     TURD(lame_init) 
@@ -436,7 +507,7 @@ static void initdll()
     TURD(lame_set_VBR_mean_bitrate_kbps)
     TURD(lame_set_VBR_min_bitrate_kbps)
     TURD(lame_set_VBR_max_bitrate_kbps)
-      
+  #undef TURD   
     }
   }
 #endif
@@ -445,7 +516,7 @@ static void initdll()
 bool LameEncoder::CheckDLL() // returns true if dll is present
 {
   initdll();
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
   if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion) return false;
 #elif defined(DYNAMIC_LAME)
   if (!lame_close||!lame_init||!lame_set_in_samplerate||!lame_set_num_channels||!lame_set_out_samplerate||!lame_set_quality||!lame_set_mode
@@ -458,7 +529,7 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
 {
   errorstat=0;
   initdll();
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
   hbeStream=0;
   if (!CheckDLL())
   {
@@ -482,7 +553,7 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   m_nch=nch;
 
 
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
 
   m_encoder_nch = stereomode == BE_MP3_MODE_MONO ? 1 : nch;
 
@@ -502,13 +573,14 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
 
   // if mpeg 1, and bitrate is less than 32kbps per channel, switch to mpeg 2
   if (beConfig.format.LHV1.dwReSampleRate >= 32000 && beConfig.format.LHV1.dwMaxBitrate/m_encoder_nch <= 32)
+  {
     beConfig.format.LHV1.dwReSampleRate/=2;
-
-  beConfig.format.LHV1.dwMpegVersion		= beConfig.format.LHV1.dwReSampleRate < 32000 ? MPEG2 : MPEG1;
+  }
+  beConfig.format.LHV1.dwMpegVersion = (beConfig.format.LHV1.dwReSampleRate < 32000 ? MPEG2 : MPEG1);
 
   beConfig.format.LHV1.nPreset=quality;
 
-  beConfig.format.LHV1.bNoRes	= 1;
+  beConfig.format.LHV1.bNoRes	= 0;//1;
 
   beConfig.format.LHV1.bWriteVBRHeader= 1;
   beConfig.format.LHV1.bEnableVBR= vbrmethod!=-1;
@@ -516,7 +588,18 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   beConfig.format.LHV1.dwVbrAbr_bps = (vbrmethod!=-1?1000*abr:0);
   beConfig.format.LHV1.nVbrMethod=(VBRMETHOD)vbrmethod;
 
+
+/* LAME sets unwise bit if:
+    if (gfp->short_blocks == short_block_forced || gfp->short_blocks == short_block_dispensed || ((gfp->lowpassfreq == -1) && (gfp->highpassfreq == -1)) || // "-k"
+        (gfp->scale_left < gfp->scale_right) ||
+        (gfp->scale_left > gfp->scale_right) ||
+        (gfp->disable_reservoir && gfp->brate < 320) ||
+        gfp->noATH || gfp->ATHonly || (nAthType == 0) || gfp->in_samplerate <= 32000)
+*/
+
   int out_size_bytes=0;
+  hbeStream=0;
+
   if (beInitStream(&beConfig, (DWORD*)&in_size_samples, (DWORD*)&out_size_bytes, (PHBE_STREAM) &hbeStream) != BE_ERR_SUCCESSFUL)
   {
     errorstat=2;
@@ -529,7 +612,10 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   lame_set_in_samplerate(m_lamestate, srate);
   lame_set_num_channels(m_lamestate,m_encoder_nch);
   int outrate=srate;
-  if (outrate>=32000 && bitrate <= 32*m_encoder_nch) outrate/=2;
+
+  int maxbr = (vbrmethod != -1 ? vbrmax : bitrate);
+  if (outrate>=32000 && maxbr <= 32*m_encoder_nch) outrate/=2;
+
   lame_set_out_samplerate(m_lamestate,outrate);
   lame_set_quality(m_lamestate,(quality>9 ||quality<0) ? 0 : quality);
   lame_set_mode(m_lamestate,(MPEG_mode) (m_encoder_nch==1?3 :stereomode ));
@@ -545,12 +631,17 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
     if (lame_set_VBR_q) lame_set_VBR_q(m_lamestate,vbrquality);
     
     if (vbrmethod == 4&&lame_set_VBR_mean_bitrate_kbps)
+    {
       lame_set_VBR_mean_bitrate_kbps(m_lamestate,abr);
+    }
     if (lame_set_VBR_max_bitrate_kbps)
+    {
       lame_set_VBR_max_bitrate_kbps(m_lamestate,vbrmax);
+    }
     if (lame_set_VBR_min_bitrate_kbps)
+    {
       lame_set_VBR_min_bitrate_kbps(m_lamestate,bitrate);
-    
+    }
   }
   lame_init_params(m_lamestate);
   in_size_samples=lame_get_framesize(m_lamestate);
@@ -620,7 +711,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
     if (a >= in_size_samples) a = in_size_samples;
     else if (a<1 || in_spls>0) break; // not enough samples available, and not flushing
 
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
     DWORD dwo=0;
     if (beEncodeChunkFloatS16NI(hbeStream, a, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
                         (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
@@ -641,7 +732,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 
   if (in_spls<1)
   {
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
     DWORD dwo=0;
     if (beDeinitStream(hbeStream, (unsigned char *)outtmp.Get(), &dwo) == BE_ERR_SUCCESSFUL && dwo>0)
       outqueue.Add(outtmp.Get(),dwo);
@@ -668,7 +759,7 @@ static BOOL HasUTF8(const char *_str)
   while (*str) 
   {
     unsigned char c = *str;
-    if (c >= 0xC2) // fuck overlongs
+    if (c >= 0xC2) // discard overlongs
     {
       if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
       else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
@@ -682,7 +773,7 @@ static BOOL HasUTF8(const char *_str)
 
 LameEncoder::~LameEncoder()
 {
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
   if (hbeStream) 
   {
     if (m_vbrfile.Get()[0] && beWriteInfoTag)
@@ -756,7 +847,18 @@ LameEncoder::~LameEncoder()
       int a=lame_get_lametag_frame(m_lamestate,buf,sizeof(buf));
       if (a>0 && a<=sizeof(buf))
       {
-        FILE *fp = fopen(m_vbrfile.Get(),"r+b");
+        FILE *fp=NULL;
+#ifdef _WIN32
+        if (HasUTF8(m_vbrfile.Get()) && GetVersion()<0x80000000)
+        {
+          WCHAR wf[2048];
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,m_vbrfile.Get(),-1,wf,2048))
+          {
+            fp = _wfopen(wf,L"r+b");
+          }
+        }
+#endif
+        if (!fp) fp = fopen(m_vbrfile.Get(),"r+b");
         if (fp)
         {
           fseek(fp,0,SEEK_SET);
@@ -771,7 +873,7 @@ LameEncoder::~LameEncoder()
 #endif
 }
 
-#ifdef _WIN32 // todo: lame decoding on nonwin32
+#ifdef USE_LAME_BLADE_API // todo: lame decoding on nonwin32
 
 LameDecoder::LameDecoder()
 {

@@ -305,8 +305,10 @@ public:
     int w = dest->getWidth(), h = dest->getHeight();
     int clip[4] = { 0, 0, w, h };
 
-    if (anghi-anglo > _PI) {
-      if (anghi-anglo >= 2.0f*_PI) {
+    if (anghi-anglo > _PI) 
+    {
+      if (anghi-anglo >= 2.0f*_PI) 
+      {
         DrawCircle(dest, cx, cy, rad, color, ialpha, aa, false);
         return;
       }
@@ -319,19 +321,50 @@ public:
     while (anglo < 0.0f) anglo += 2.0f*_PI;
     while (anglo >= 2.0f*_PI) anglo -= 2.0f*_PI;
     int xlo = cx+rad*sin(anglo), ylo = cy-rad*cos(anglo);
-    if (anglo < EPS) clip[0] = max(clip[0], xlo);
-    if (anglo < 0.5*_PI+EPS) clip[1] = max(clip[1], ylo);
-    else if (anglo < _PI+EPS) clip[2] = min(clip[2], xlo);
-    else if (anglo < 1.5*_PI+EPS) clip[3] = min(clip[3], ylo);
-    else clip[0] = max(clip[0], xlo);
+
+    if (anglo < EPS) 
+    {
+      clip[0] = max(clip[0], cx);
+    }
+    else if (anglo < 0.5*_PI+EPS) 
+    {
+      clip[1] = max(clip[1], ylo);
+    }
+    else if (anglo < _PI+EPS) 
+    {
+      clip[2] = min(clip[2], xlo);
+    }
+    else if (anglo < 1.5*_PI+EPS)
+    {
+      clip[2] = min(clip[2], cx);
+      clip[3] = min(clip[3], ylo);
+    }
+    else 
+    {
+      clip[3] = min(clip[3], cy);
+    }
 
     while (anghi < 0.0f) anghi += 2.0f*_PI;
     while (anghi > 2.0f*_PI) anghi -= 2.0f*_PI;
     int xhi = cx+rad*sin(anghi), yhi = cy-rad*cos(anghi);
-    if (anghi < 0.5*_PI-EPS) clip[2] = min(clip[2], xhi);
-    else if (anghi < _PI-EPS) clip[3] = min(clip[3], yhi);
-    else if (anghi < 1.5*_PI-EPS) clip[0] = max(clip[0], xhi);
-    else clip[1] = max(clip[1], yhi);
+  
+    if (anghi < 0.5*_PI-EPS) 
+    {
+      clip[2] = min(clip[2], xhi);
+      clip[3] = min(clip[3], cy);
+    }
+    else if (anghi < _PI-EPS) 
+    {
+      clip[3] = min(clip[3], yhi);
+    }
+    else if (anghi < 1.5*_PI-EPS)
+    {
+      clip[0] = max(clip[0], xhi);
+    }
+    else 
+    {
+      clip[1] = max(clip[1], yhi);
+    }
 
     if (aa) DrawClippedCircleAA(dest, cx, cy, rad, clip, color, ialpha, false, true);
     else DrawClippedCircle(dest, cx, cy, rad, clip, color, ialpha, false, true);

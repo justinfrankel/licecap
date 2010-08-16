@@ -38,10 +38,12 @@
 #define EEL_F_SIZE 8
 #endif
 
+#include "../wdltypes.h"
+
 #if EEL_F_SIZE == 4
 typedef float EEL_F;
 #else
-typedef double EEL_F;
+typedef double EEL_F WDL_FIXALIGN;
 #endif
 
 

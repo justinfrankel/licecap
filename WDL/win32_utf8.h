@@ -14,6 +14,7 @@ extern "C" {
 
 #include <windows.h>
 #include <sys/stat.h>
+#include <stdio.h>
 
 WDL_WIN32_UTF8_IMPL BOOL SetWindowTextUTF8(HWND hwnd, LPCTSTR str);
 WDL_WIN32_UTF8_IMPL BOOL SetDlgItemTextUTF8(HWND hDlg, int nIDDlgItem, LPCTSTR lpString);
@@ -42,6 +43,8 @@ WDL_WIN32_UTF8_IMPL BOOL SetMenuItemInfoUTF8(HMENU hMenu, UINT uItem, BOOL fByPo
 WDL_WIN32_UTF8_IMPL BOOL GetMenuItemInfoUTF8(HMENU hMenu, UINT uItem,BOOL fByPosition,LPMENUITEMINFO lpmii);
    
 WDL_WIN32_UTF8_IMPL int statUTF8(const char *filename, struct stat *buffer);
+WDL_WIN32_UTF8_IMPL FILE *fopenUTF8(const char *filename, const char *mode);
+
 
 WDL_WIN32_UTF8_IMPL WCHAR *WDL_UTF8ToWC(const char *buf, BOOL doublenull, int minsize, DWORD *sizeout); 
 
@@ -148,6 +151,7 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 // compat defines for when UTF disabled
 #define DrawTextUTF8 DrawText
 #define statUTF8 stat
+#define fopenUTF8 fopen
 #define WDL_UTF8_HookComboBox(x)
 #define WDL_UTF8_HookListView(x)
 #define WDL_UTF8_ListViewConvertDispInfoToW(x)

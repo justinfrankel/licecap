@@ -30,13 +30,22 @@
 #include "queue.h"
 #include "wdlstring.h"
 
-#ifndef _WIN32
-  #ifdef __APPLE__
+#ifdef _WIN32
+  #ifndef _WIN64
+    #define USE_LAME_BLADE_API
+  #endif
+#endif
+
+#ifndef USE_LAME_BLADE_API
+  #define DYNAMIC_LAME
+
+  #ifdef DYNAMIC_LAME
     typedef void *lame_t;
   #else
     #include <lame/lame.h>
   #endif
 #endif
+
 
 
 class LameEncoder
@@ -75,8 +84,8 @@ class LameEncoder
     WDL_String m_vbrfile;
     int errorstat;
     int in_size_samples;
-#ifdef _WIN32
-    unsigned long hbeStream; // it seems insane that we have to leave this as this (x64, etc), but WTF?! the lame source seems to only use that bleh
+#ifdef USE_LAME_BLADE_API
+    UINT_PTR hbeStream;
 #else
     lame_t m_lamestate;
 #endif
@@ -113,7 +122,7 @@ class LameDecoder
     int m_srate,m_nch;
     int m_samples_remove;
 
-#ifdef _WIN32
+#ifdef USE_LAME_BLADE_API
     void *decinst;
 #else
     lame_t *decinst;

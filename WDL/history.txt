@@ -1,3 +1,54 @@
+2010-04-15:
+Added: Denormal.h denormal fixing functions and other FP utilities
+Added: pooled string class
+Added: basic unzip functions to zlib
+Added: filebrowse.h for file browsing abstraction
+Added: resample.h, low-decent-high quality samplerate conversion
+assocarray: fixed leak on Clear(), added reverse lookup, changekey, deletebyindex
+ConvoEngine: fixed quality when switching between silent/mono/stereo
+convoEngine: optimizations
+dirscan: better UTF8 fixes
+EEL2: support for OS X x86_64, linux x86_64, fixes for Windows x64
+FileRead: open for read even when files are also opened for writes
+HeapBuf: fixed leak on operator=()
+iPlug: better cocoa view detection
+iPlug: control+drag for slow control
+LAME support: force newer APIs for x64, dynamic loading on linux, other fixes
+Linux: better support for linux and linux/64 throughout much of WDL
+LICE: arc drawing clipping fix
+LICE: trapezoid drawing clipping fix (used by polygon drawing)
+LICE: bezier clipping fix
+LICE: added LICE_LoadPNGFromMemory()
+Projectcontext: zlib mem support (ifdef'd out)
+PtrList: WDL_PtrList_DeleteOnDestroy class for autodeletion of items
+Scrollbar: prevent invalid draws with overlapping windows
+SHM_msgreply/connection: support for OSX/linux
+SWELL: generic target, with optional GDK support (in progress)
+SWELL: clipboard improvements (CF_TEXT support, etc)
+SWELL: more cursor images
+SWELL: assorted OSX fixes/improvements/corrections
+SWELL: text alignment support for listview columns/headers
+SWELL: internal organization improvements
+SWELL: stronger typing for HMENU
+SWELL: GDI pooling optimizations, fixes for shutdown cleanup with pooled objects
+SWELL: x86_64 support
+SWELL: multitouch, hoirz mousewheel support
+SWELL: OSX text drawing improvements
+SWELL: LoadLibrary()/GetProcAddress() improvements, support for bundle loading, DllMain()
+SWELL: CreateSocketEvent(), WaitForMultipleSocketObjects (or something)
+SWELL: SWELL_CreateProcess()
+SWELL: WM_SETFONT support for text boxes
+SWELL: SetTimer() with callback support
+SWELL: Carbon text field processing improvements
+SWELL: better .cur loading (10.4 compat), hotspot detection
+SWELL: AU Cocoa UI code fixed for certain bundle filanames
+Timing: improvements
+VerbEngine: fixed PPC denorm support
+WDLTypes: WDL_FIXALIGN for forcing 8 byte alignment on struct members
+WDLTypes: added WDL_bool (for 1 byte bools)
+win32_utf8: fixes, added fopenUTF8()
+wndsize: safer NULL pointer checking
+
 2009-11-30:
 DirScan: handle scanning / on posix correctly
 EEL: fixed x64 bugs on certain functions

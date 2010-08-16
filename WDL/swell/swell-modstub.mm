@@ -49,7 +49,7 @@ public:
       *api_tab[x].func=SWELLAPI_GetFunc?SWELLAPI_GetFunc(api_tab[x].name):0;
       if (!*api_tab[x].func)
       {
-        printf("SWELL API not found: %s\n",api_tab[x].func);
+        printf("SWELL API not found: %s\n",api_tab[x].name);
         *api_tab[x].func = (void*)&dummyFunc;
       }
     }
@@ -60,5 +60,11 @@ public:
 };
 
 SwellAPPInitializer m_swell_appAPIinit;
+
+extern "C" __attribute__ ((visibility ("default"))) int SWELL_dllMain(HINSTANCE hInst, DWORD callMode, LPVOID _GetFunc)
+{
+  // this returning 1 allows DllMain to be called, if available
+  return 1;
+}
 
 #endif

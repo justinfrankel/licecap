@@ -1,16 +1,9 @@
 #ifndef _SWELL_INTERNAL_H_
 #define _SWELL_INTERNAL_H_
 
-
-
-#ifdef SWELL_TARGET_GTK
-#include <gtk/gtk.h>
-#endif
-
+#include "../ptrlist.h"
 
 #ifdef SWELL_TARGET_OSX
-
-#include "../ptrlist.h"
 
 #define __SWELL_PREFIX_CLASSNAME(cname) SWELL_APP_PREFIX##cname
 
@@ -41,10 +34,17 @@
 #define SWELL_ThreadTmp __SWELL_PREFIX_CLASSNAME(_thread)
 #define SWELL_PopupMenuRecv __SWELL_PREFIX_CLASSNAME(_trackpopupmenurecv)
 
+#define SWELL_TimerFuncTarget __SWELL_PREFIX_CLASSNAME(_tft)
+
 
 #define SWELL_Menu __SWELL_PREFIX_CLASSNAME(_menu)
 
 #ifdef __OBJC__
+
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
+typedef int NSInteger;
+#endif
 
 @interface SWELL_Menu : NSMenu
 {
@@ -59,6 +59,16 @@
 }
 -(id) initWithVal:(void *)val;
 -(void *) getValue;
+@end
+
+@interface SWELL_TimerFuncTarget : NSObject
+{
+  TIMERPROC m_cb;
+  HWND m_hwnd;
+  UINT_PTR m_timerid;
+}
+-(id) initWithId:(UINT_PTR)tid hwnd:(HWND)h callback:(TIMERPROC)cb;
+-(void)SWELL_Timer:(id)sender;
 @end
 
 typedef struct OwnedWindowListRec
@@ -141,14 +151,14 @@ public:
 
 @interface SWELL_TabView : NSTabView
 {
-  int m_tag;
+  NSInteger m_tag;
   id m_dest;
 }
 @end
 
 @interface SWELL_ProgressView : NSProgressIndicator
 {
-  int m_tag;
+  NSInteger m_tag;
 }
 @end
 
@@ -206,31 +216,31 @@ public:
 @interface SWELL_Button : NSButton
 {
   void *m_swellGDIimage;
-  LONG m_userdata;
+  LONG_PTR m_userdata;
   int m_radioflags;
 }
 -(int)swellGetRadioFlags;
 -(void)swellSetRadioFlags:(int)f;
--(LONG)getSwellUserData;
--(void)setSwellUserData:(LONG)val;
+-(LONG_PTR)getSwellUserData;
+-(void)setSwellUserData:(LONG_PTR)val;
 -(void)setSwellGDIImage:(void *)par;
 -(void *)getSwellGDIImage;
 @end
 
 @interface SWELL_TextView : NSTextView
 {
-  int m_tag;
+  NSInteger m_tag;
 }
--(int) tag;
--(void) setTag:(int)tag;
+-(NSInteger) tag;
+-(void) setTag:(NSInteger)tag;
 @end
 
 @interface SWELL_BoxView : NSBox
 {
-  int m_tag;
+  NSInteger m_tag;
 }
--(int) tag;
--(void) setTag:(int)tag;
+-(NSInteger) tag;
+-(void) setTag:(NSInteger)tag;
 @end
 
 @interface SWELL_FocusRectWnd : NSView
@@ -247,14 +257,15 @@ public:
 
 @interface SWELL_hwndChild : NSView // <NSDraggingSource>
 {
+@public
   BOOL m_enabled;
   DLGPROC m_dlgproc;
   WNDPROC m_wndproc;
-  LONG m_userdata;
-  LONG m_extradata[32];
-  int m_tag;
+  LONG_PTR m_userdata;
+  LONG_PTR m_extradata[32];
+  NSInteger m_tag;
   int m_isfakerightmouse;
-  bool m_hashaddestroy;
+  char m_hashaddestroy; // 2 = WM_DESTROY has finished completely
   HMENU m_menu;
   BOOL m_flip;
   bool m_supports_ddrop;
@@ -264,12 +275,10 @@ public:
   NSRect m_paintctx_rect;
   BOOL m_isopaque;
   char m_titlestr[1024];
-  @public
   unsigned int m_create_windowflags;
   NSOpenGLContext *m_glctx;
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
--(LONG)sendMouseMessage:(int)msg event:(NSEvent*)theEvent;
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam;
 -(HANDLE)swellExtendedDragOp:(id <NSDraggingInfo>)sender retGlob:(BOOL)retG;
 - (const char *)onSwellGetText;
@@ -278,8 +287,8 @@ public:
 -(void)swellSetExtendedStyle:(LONG)st;
 -(HMENU)swellGetMenu;
 -(void)swellSetMenu:(HMENU)menu;
--(LONG)getSwellUserData;
--(void)setSwellUserData:(LONG)val;
+-(LONG_PTR)getSwellUserData;
+-(void)setSwellUserData:(LONG_PTR)val;
 -(void)setOpaque:(bool)isOpaque;
 -(LPARAM)getSwellExtraData:(int)idx;
 -(void)setSwellExtraData:(int)idx value:(LPARAM)val;
@@ -347,6 +356,7 @@ public:
   bool m_whileresizing;
   void* m_wndhandler;   // won't compile if declared EventHandlerRef, wtf
   void* m_ctlhandler;   // not sure if these need to be separate but cant hurt  
+  bool m_wantallkeys;
 }
 -(BOOL)swellIsCarbonHostingView;
 -(void)swellDoRepos;
@@ -389,36 +399,34 @@ public:
 
 // GDI internals
 
-#define TYPE_PEN 1
-#define TYPE_BRUSH 2
-#define TYPE_FONT 3
-#define TYPE_BITMAP 4
-
-typedef struct 
+struct GDP_OBJECT
 {
   int type;
+  
+  // used by pen/brush
   CGColorRef color;
   int wid;
   NSImage *bitmapptr;  
   
-  // only used if HFONT and using NSString to draw text
+  // used by font
+  // if using NSString to draw text
   NSMutableDictionary *fontdict;
-  NSMutableParagraphStyle *fontparagraphinfo; // dont release this, it's owned by fontdict
-  
-  // only used if HFONT and using ATSU to draw text (faster)
+  // if using ATSU to draw text (faster)
   ATSUStyle font_style;
+  
   float font_rotation;
-} GDP_OBJECT;
 
-typedef struct {
+  struct GDP_OBJECT *_next;
+};
+
+struct GDP_CTX {
   CGContextRef ctx; 
   void *ownedData;
   GDP_OBJECT *curpen;
   GDP_OBJECT *curbrush;
   GDP_OBJECT *curfont;
   
-  NSColor *curtextcol;
-  CGColorRef curcgtextcol;
+  NSColor *curtextcol; // text color as NSColor
   int cur_text_color_int; // text color as int
   
   int curbkcol;
@@ -426,46 +434,60 @@ typedef struct {
   float lastpos_x,lastpos_y;
   
   void *GLgfxctx; // optionally set
-} GDP_CTX;
+  struct GDP_CTX *_next;
+};
 
 
 #endif // __OBJC__
 
 // 10.4 sdk just uses "float"
-#if MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_5 
+#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 typedef float CGFloat;
 #endif
 
 
-#else // !SWELL_TARGET_OSX, GTK version
+#elif defined(SWELL_TARGET_GDK)
 
-#include <gtk/gtk.h>
+#include <gdk/gdk.h>
+#include <gdk/gdkkeysyms.h>
+
+#else
+// generic 
+
+#endif // end generic
+
+#ifndef SWELL_TARGET_OSX 
+
+#ifdef SWELL_LICE_GDI
+#include "../lice/lice.h"
+#endif
+#include "../assocarray.h"
+
+LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 struct HWND__
 {
-  HWND__()
-  {
-     m_wndproc=0;
-     m_dlgproc=0;
-     m_userdata=0;
-     m_style=m_exstyle=0;
-     m_id=0;
-     m_widget=0;
-     m_owned=m_owner=m_children=m_parent=m_next=m_prev=0; 
-     memset(&m_position,0,sizeof(m_position));
-     memset(&m_extra,0,sizeof(m_extra));
-     m_visible=false;
-     m_hashaddestroy=false;
-     m_enabled=true;
-  }
-  ~HWND__()
-  {
-    if (m_widget) gtk_widget_destroy(m_widget);
-  }
+  HWND__(HWND par, int wID=0, RECT *wndr=NULL, const char *label=NULL, bool visible=false, WNDPROC wndproc=NULL, DLGPROC dlgproc=NULL);
+  ~HWND__(); // DO NOT USE!!! We would make this private but it breaks PtrList using it on gcc. 
+
+  // using this API prevents the HWND from being valid -- it'll still get its resources destroyed via DestroyWindow() though.
+  // DestroyWindow() does cleanup, then the final Release().
+  void Retain() { m_refcnt++; }
+  void Release() { if (!--m_refcnt) delete this; }
+ 
+
+
+ 
+  const char *m_classname;
   
 
-  GtkWidget *m_widget;
-  HWND__ *m_children, *m_parent, *m_next, *m_prev, *m_owner, *m_owned;
+#ifdef SWELL_TARGET_GDK
+  GdkWindow *m_oswindow;
+#endif
+  char *m_title;
+
+  HWND__ *m_children, *m_parent, *m_next, *m_prev;
+  HWND__ *m_owner, *m_owned;
   RECT m_position;
   int m_id;
   int m_style, m_exstyle;
@@ -473,16 +495,159 @@ struct HWND__
   WNDPROC m_wndproc;
   DLGPROC m_dlgproc;
   INT_PTR m_extra[64];
+  INT_PTR m_private_data; // used by internal controls
+
   bool m_visible;
   bool m_hashaddestroy;
   bool m_enabled;
+  bool m_wantfocus;
+
+  int m_refcnt; 
+
+  HMENU m_menu;
+
+  WDL_StringKeyedArray<void *> m_props;
+
+#ifdef SWELL_LICE_GDI
+  void *m_paintctx; // temporarily set for calls to WM_PAINT
+
+// todo:
+  bool m_child_invalidated; // if a child is invalidated
+  bool m_invalidated; // set to true on direct invalidate. todo RECT instead?
+
+  LICE_IBitmap *m_backingstore; // if NULL, unused (probably only should use on top level windows, but support caching?)
+#endif
+};
+
+struct HMENU__
+{
+  HMENU__() { }
+  ~HMENU__() { items.Empty(true,freeMenuItem); }
+
+  WDL_PtrList<MENUITEMINFO> items;
+
+  HMENU__ *Duplicate();
+  static void freeMenuItem(void *p);
 
 };
 
 
+struct GDP_OBJECT
+{
+  int type;
+  int color;
+  int wid;
+  struct GDP_OBJECT *_next;
+};
 
-#endif // !SWELL_TARGET_OSX
+
+struct GDP_CTX {
+#ifdef SWELL_LICE_GDI
+  LICE_IBitmap *surface; // owned by context. can be (and usually is, if clipping is desired) LICE_SubBitmap
+  POINT surface_offs; // offset drawing into surface by this amount
+
+  RECT dirty_rect; // in surface coordinates, used for GetWindowDC()/GetDC()/etc
+  bool dirty_rect_valid;
+#else
+  void *ownedData; // for mem contexts, support a null rendering 
+#endif
+
+  GDP_OBJECT *curpen;
+  GDP_OBJECT *curbrush;
+  GDP_OBJECT *curfont;
+  
+  int cur_text_color_int; // text color as int
+  
+  int curbkcol;
+  int curbkmode;
+  float lastpos_x,lastpos_y;
+  
+  struct GDP_CTX *_next;
+};
+
+#endif // !OSX
 
 HDC SWELL_CreateGfxContext(void *);
+
+// GDP internals
+#define TYPE_PEN 1
+#define TYPE_BRUSH 2
+#define TYPE_FONT 3
+#define TYPE_BITMAP 4
+
+typedef struct
+{
+  void *instptr; 
+  void *bundleinstptr;
+  int refcnt;
+
+  int (*SWELL_dllMain)(HINSTANCE, DWORD,LPVOID); //last parm=SWELLAPI_GetFunc
+  BOOL (*dllMain)(HINSTANCE, DWORD, LPVOID);
+} SWELL_HINSTANCE;
+
+
+enum
+{
+  INTERNAL_OBJECT_START= 0x1000001,
+  INTERNAL_OBJECT_THREAD,
+  INTERNAL_OBJECT_EVENT,
+  INTERNAL_OBJECT_FILE,
+  INTERNAL_OBJECT_EXTERNALSOCKET, // socket not owned by us
+  INTERNAL_OBJECT_SOCKETEVENT,
+  INTERNAL_OBJECT_NSTASK, 
+  INTERNAL_OBJECT_END
+};
+
+typedef struct
+{
+   int type; // INTERNAL_OBJECT_*
+   int count; // reference count
+} SWELL_InternalObjectHeader;
+
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  DWORD (*threadProc)(LPVOID);
+  void *threadParm;
+  pthread_t pt;
+  DWORD retv;
+  bool done;
+} SWELL_InternalObjectHeader_Thread;
+
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+
+  bool isSignal;
+  bool isManualReset;
+  
+} SWELL_InternalObjectHeader_Event;
+
+
+// used for both INTERNAL_OBJECT_EXTERNALSOCKET and INTERNAL_OBJECT_SOCKETEVENT. 
+// if EXTERNALSOCKET, socket[1] ignored and autoReset ignored.
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  int socket[2]; 
+  bool autoReset;
+} SWELL_InternalObjectHeader_SocketEvent;
+ 
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  
+  FILE *fp;
+} SWELL_InternalObjectHeader_File;
+
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  void *task; 
+} SWELL_InternalObjectHeader_NSTask;
+
 
 #endif

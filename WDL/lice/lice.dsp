@@ -550,74 +550,236 @@ SOURCE=..\tinyxml\tinyxmlparser.cpp
 # Begin Source File
 
 SOURCE=.\lice.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_arc.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_bmp.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_colorspace.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_gif.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_gl_ctx.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_glbitmap.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_ico.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_jpg.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_jpg_write.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_line.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_pcx.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_png.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_png_write.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_svg.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_texgen.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_text.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\lice_textnew.cpp
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+# ADD CPP /D "USE_ICC"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "Header Files"

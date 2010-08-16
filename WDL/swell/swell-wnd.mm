@@ -38,23 +38,6 @@ char* lstrcpyn(char* dest, const char* src, int l);
 
 int g_swell_want_nice_style = 1;
 
-void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
-{
-  NSString *s = (NSString *)str;
-  if (!s) { if (buflen>0) *buf=0; return; }
-  NSData *data = [s dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
-  if (!data)
-  {
-    [s getCString:buf maxLength:buflen];
-    return;
-  }
-  int len = [data length];
-  if (len > buflen-1) len=buflen-1;
-  [data getBytes:buf length:len];
-  buf[len]=0;
-//  [data release];
-}
-
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
 {
   int c=0;
@@ -156,11 +139,11 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 {
   return m_dest;
 }
--(int) tag
+-(NSInteger) tag
 {
   return m_tag;
 }
--(void) setTag:(int)tag
+-(void) setTag:(NSInteger)tag
 {
   m_tag=tag;
 }
@@ -176,11 +159,11 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 
 
 @implementation SWELL_ProgressView
--(int) tag
+-(NSInteger) tag
 {
   return m_tag;
 }
--(void) setTag:(int)tag
+-(void) setTag:(NSInteger)tag
 {
   m_tag=tag;
 }
@@ -264,7 +247,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
   return false;
 }
 
--(int) outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item
+-(NSInteger) outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item
 {
   if (item == nil) return m_items ? m_items->GetSize() : 0;
   return ((SWELL_TreeView_Item*)[item getValue])->m_children.GetSize();
@@ -279,7 +262,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 }
 
 - (id)outlineView:(NSOutlineView *)outlineView
-            child:(int)index
+            child:(NSInteger)index
            ofItem:(id)item
 {
   SWELL_TreeView_Item *row=item ? ((SWELL_TreeView_Item*)[item getValue])->m_children.Get(index) : m_items ? m_items->Get(index) : 0;
@@ -340,7 +323,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
   {
     POINT p;
     GetCursorPos(&p);
-    SendMessage((HWND)[self target],WM_CONTEXTMENU,(WPARAM)self,((short)p.x)|(p.y<<16));
+    SendMessage((HWND)[self target],WM_CONTEXTMENU,(WPARAM)self,(p.x&0xffff)|(p.y<<16));
   }
   
   m_fakerightmouse=0;
@@ -385,13 +368,13 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
   [super dealloc];
 }
 
-- (int)numberOfRowsInTableView:(NSTableView *)aTableView
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView
 {
   return (!m_lbMode && (style & LVS_OWNERDATA)) ? ownermode_cnt : (m_items ? m_items->GetSize():0);
 }
 
 
-- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(int)rowIndex
+- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
 {
   NSString *str=NULL;
   int image_idx=0;
@@ -507,7 +490,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
     GetCursorPos(&p);
     ScreenToClient(tgt,&p);
     
-    SendMessage(tgt,WM_MOUSEMOVE,0,(int)p.x + (((int)p.y)<<16));
+    SendMessage(tgt,WM_MOUSEMOVE,0,(p.x&0xffff) + (((int)p.y)<<16));
   }
 }
 
@@ -533,7 +516,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
       GetCursorPos(&p);
       ScreenToClient(tgt,&p);
       
-      SendMessage(tgt,WM_LBUTTONUP,0,(int)p.x + (((int)p.y)<<16));
+      SendMessage(tgt,WM_LBUTTONUP,0,(p.x&0xffff) + (((int)p.y)<<16));
       
     }
   }
@@ -551,7 +534,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
   {
     POINT p;
     GetCursorPos(&p);
-    SendMessage((HWND)[self target],WM_CONTEXTMENU,(WPARAM)self,((short)p.x)|(p.y<<16));
+    SendMessage((HWND)[self target],WM_CONTEXTMENU,(WPARAM)self,(p.x&0xffff)|(p.y<<16));
   }
   m_fakerightmouse=0;
 }
@@ -736,7 +719,7 @@ HWND GetDlgItem(HWND hwnd, int idx)
 }
 
 
-LONG SetWindowLong(HWND hwnd, int idx, LONG val)
+LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
 {
   if (!hwnd) return 0;
   id pid=(id)hwnd;
@@ -748,8 +731,8 @@ LONG SetWindowLong(HWND hwnd, int idx, LONG val)
   }
   if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(setSwellUserData:)])
   {
-    LONG ret=(LONG)[(SWELL_hwndChild*)pid getSwellUserData];
-    [(SWELL_hwndChild*)pid setSwellUserData:(LONG)val];
+    LONG_PTR ret=(LONG_PTR)[(SWELL_hwndChild*)pid getSwellUserData];
+    [(SWELL_hwndChild*)pid setSwellUserData:(LONG_PTR)val];
     return ret;
   }
     
@@ -757,20 +740,20 @@ LONG SetWindowLong(HWND hwnd, int idx, LONG val)
   {
     int ret=[pid tag];
     [pid setTag:(int)val];
-    return (LONG)ret;
+    return (LONG_PTR)ret;
   }
   
   if (idx==GWL_WNDPROC && [pid respondsToSelector:@selector(setSwellWindowProc:)])
   {
     WNDPROC ov=(WNDPROC)[pid getSwellWindowProc];
     [pid setSwellWindowProc:(WNDPROC)val];
-    return (LONG)ov;
+    return (LONG_PTR)ov;
   }
   if (idx==DWL_DLGPROC && [pid respondsToSelector:@selector(setSwellDialogProc:)])
   {
     DLGPROC ov=(DLGPROC)[pid getSwellDialogProc];
     [pid setSwellDialogProc:(DLGPROC)val];
-    return (LONG)ov;
+    return (LONG_PTR)ov;
   }
   
   if (idx==GWL_STYLE)
@@ -915,8 +898,8 @@ LONG SetWindowLong(HWND hwnd, int idx, LONG val)
   
   if ([pid respondsToSelector:@selector(setSwellExtraData:value:)])
   {
-    int ov=0;
-    if ([pid respondsToSelector:@selector(getSwellExtraData:)]) ov=(int)[pid getSwellExtraData:idx];
+    LONG_PTR ov=0;
+    if ([pid respondsToSelector:@selector(getSwellExtraData:)]) ov=(LONG_PTR)[pid getSwellExtraData:idx];
 
     [pid setSwellExtraData:idx value:val];
     
@@ -926,19 +909,19 @@ LONG SetWindowLong(HWND hwnd, int idx, LONG val)
   return 0;
 }
 
-LONG GetWindowLong(HWND hwnd, int idx)
+LONG_PTR GetWindowLong(HWND hwnd, int idx)
 {
   if (!hwnd) return 0;
   id pid=(id)hwnd;
   
   if (idx==GWL_EXSTYLE && [pid respondsToSelector:@selector(swellGetExtendedStyle)])
   {
-    return (LONG)[pid swellGetExtendedStyle];
+    return (LONG_PTR)[pid swellGetExtendedStyle];
   }
   
   if (idx==GWL_USERDATA && [pid respondsToSelector:@selector(getSwellUserData)])
   {
-    return (LONG)[pid getSwellUserData];
+    return (LONG_PTR)[pid getSwellUserData];
   }
   if (idx==GWL_USERDATA && [pid isKindOfClass:[NSText class]])
   {
@@ -951,18 +934,18 @@ LONG GetWindowLong(HWND hwnd, int idx)
   
   if (idx==GWL_WNDPROC && [pid respondsToSelector:@selector(getSwellWindowProc)])
   {
-    return (LONG)[pid getSwellWindowProc];
+    return (LONG_PTR)[pid getSwellWindowProc];
   }
   if (idx==DWL_DLGPROC && [pid respondsToSelector:@selector(getSwellDialogProc)])
   {
-    return (LONG)[pid getSwellDialogProc];
+    return (LONG_PTR)[pid getSwellDialogProc];
   }  
   if (idx==GWL_STYLE)
   {
     int ret=0;
     if ([pid respondsToSelector:@selector(getSwellStyle)])
     {
-      return (LONG)[pid getSwellStyle];
+      return (LONG_PTR)[pid getSwellStyle];
     }    
     
     if ([pid isKindOfClass:[NSButton class]]) 
@@ -995,7 +978,7 @@ LONG GetWindowLong(HWND hwnd, int idx)
   }
   if ([pid respondsToSelector:@selector(getSwellExtraData:)])
   {
-    return (int)[pid getSwellExtraData:idx];
+    return (LONG_PTR)[pid getSwellExtraData:idx];
   }
   
   return 0;
@@ -1041,8 +1024,8 @@ static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link depen
 }
 -(int)swellGetRadioFlags { return m_radioflags; }
 -(void)swellSetRadioFlags:(int)f { m_radioflags=f; }
--(LONG)getSwellUserData { return m_userdata; }
--(void)setSwellUserData:(LONG)val {   m_userdata=val; }
+-(LONG_PTR)getSwellUserData { return m_userdata; }
+-(void)setSwellUserData:(LONG_PTR)val {   m_userdata=val; }
 
 -(void)setSwellGDIImage:(void *)par
 {
@@ -1055,13 +1038,13 @@ static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link depen
 
 @end
 
-int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd) return 0;
   id turd=(id)hwnd;
   if ([turd respondsToSelector:@selector(onSwellMessage:p1:p2:)])
   {
-    return (int) [turd onSwellMessage:msg p1:wParam p2:lParam];
+    return (LRESULT) [turd onSwellMessage:msg p1:wParam p2:lParam];
   }
   else 
   {
@@ -1073,7 +1056,7 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     if ((msg==BM_GETIMAGE || msg == BM_SETIMAGE) && [turd isKindOfClass:[SWELL_Button class]])
     {
       if (wParam != IMAGE_BITMAP && wParam != IMAGE_ICON) return 0; // ignore unknown types
-      LONG ret=(LONG) (void *)[turd getSwellGDIImage];
+      LONG_PTR ret=(LONG_PTR) (void *)[turd getSwellGDIImage];
       if (msg==BM_SETIMAGE)
       {
         NSImage *img=NULL;
@@ -1117,14 +1100,20 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
     else if (msg == EM_SETSEL && ([turd isKindOfClass:[NSTextField class]]))
-	{
-		[(NSTextField*)turd selectText:turd]; // Force the window's text field editor onto this control
-		NSText* text = [[turd window] fieldEditor:YES forObject:(NSTextField*)turd]; // then get it from the window
-		if (wParam == -1) lParam = wParam = 0;
-		else if (lParam == -1) lParam = [[text string] length];
-		[text setSelectedRange:NSMakeRange(wParam, lParam-wParam)]; // and set the range
-		return 0;
-	}
+    {
+      [(NSTextField*)turd selectText:turd]; // Force the window's text field editor onto this control
+      NSText* text = [[turd window] fieldEditor:YES forObject:(NSTextField*)turd]; // then get it from the window
+      
+      int sl = [[text string] length];
+      if (wParam == -1) lParam = wParam = 0;
+      else if (lParam == -1) lParam = sl;
+      
+      if (wParam>sl) wParam=sl;
+      if (lParam>sl) lParam=sl;
+      
+      [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+      return 0;
+    }
     else
     {
       NSWindow *w;
@@ -1132,12 +1121,12 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       // if content view gets unhandled message send to window
       if ([turd isKindOfClass:[NSView class]] && (w=[turd window]) && [w contentView] == turd && [w respondsToSelector:@selector(onSwellMessage:p1:p2:)])
       {
-        return (int) [(SWELL_hwndChild *)w onSwellMessage:msg p1:wParam p2:lParam];
+        return (LRESULT) [(SWELL_hwndChild *)w onSwellMessage:msg p1:wParam p2:lParam];
       }
       // if window gets unhandled message send to content view
       else if ([turd isKindOfClass:[NSWindow class]] && (v=[turd contentView]) && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
       {
-        return (int) [(SWELL_hwndChild *)v onSwellMessage:msg p1:wParam p2:lParam];
+        return (LRESULT) [(SWELL_hwndChild *)v onSwellMessage:msg p1:wParam p2:lParam];
       }
     }
   }
@@ -1412,14 +1401,38 @@ void SetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int cx, int cy, int f
     if (isview)
     {
       ch=NavigateUpScrollClipViews(ch);
-      if (isview && !(flags&SWP_NOZORDER) && hwndAfter && 
-          [(id)hwndAfter isKindOfClass:[NSView class]])
+      if (isview && !(flags&SWP_NOZORDER))
       {
         NSView *v = (NSView *)ch;
         NSView *par = [v superview];
         NSArray *subs = [par subviews];
-        int idx = [subs indexOfObject:v];
-        if (idx < 1 || [subs objectAtIndex:(idx-1)] != (NSView *)hwndAfter)
+        int idx = [subs indexOfObjectIdenticalTo:v], cnt=[subs count];
+        
+        NSView *viewafter = NULL;            
+        NSWindowOrderingMode omode = NSWindowAbove;
+        
+        if (cnt>1 && hwndAfter != (HWND)ch)
+        {
+          if (hwndAfter==HWND_TOPMOST||hwndAfter==HWND_NOTOPMOST)
+          {
+          }
+          else if (hwndAfter == HWND_TOP)
+          {
+            if (idx<cnt-1) viewafter = [subs objectAtIndex:cnt-1];
+          }
+          else if (hwndAfter == HWND_BOTTOM)
+          {
+            if (idx>0) viewafter = [subs objectAtIndex:0];
+            omode = NSWindowBelow;
+          }
+          else 
+          {
+            NSInteger a=[subs indexOfObjectIdenticalTo:(NSView *)hwndAfter];
+            if (a != NSNotFound && a != (idx-1)) viewafter = (NSView *)hwndAfter;
+          }
+        }
+        
+        if (viewafter)
         { 
           HWND h = GetCapture();
           if (!h || (h!=(HWND)v && !IsChild((HWND)v,h))) // if this window is captured don't reorder!
@@ -1431,7 +1444,7 @@ void SetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int cx, int cy, int f
             // better way to do this? maybe :/
             [v retain];
             [v removeFromSuperviewWithoutNeedingDisplay];
-            [par addSubview:v positioned:NSWindowAbove relativeTo:(NSView*)hwndAfter];
+            [par addSubview:v positioned:omode relativeTo:viewafter];
             [v release];
           
             if (oldfoc) [[v window] makeFirstResponder:oldfoc];
@@ -1545,7 +1558,7 @@ HWND GetWindow(HWND hwnd, int what)
         if (what == GW_HWNDLAST)
           return (HWND)[ar objectAtIndex:(cnt-1)];
         
-        int idx=[ar indexOfObjectIdenticalTo:v];
+        NSInteger idx=[ar indexOfObjectIdenticalTo:v];
         if (idx == NSNotFound) return 0;
 
         if (what==GW_HWNDNEXT) idx++;
@@ -1744,72 +1757,6 @@ bool IsEquivalentTextView(HWND h1, HWND h2)
   return false;
 }
   
-// timer stuff
-typedef struct
-{
-  int timerid;
-  HWND hwnd;
-  NSTimer *timer;
-} TimerInfoRec;
-static WDL_PtrList<TimerInfoRec> m_timerlist;
-static WDL_Mutex m_timermutex;
-static pthread_t m_pmq_mainthread;
-static void SWELL_pmq_settimer(HWND h, int timerid, int rate);
-
-int SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
-{
-  if (!hwnd) return 0;
-  
-  if (timerid != -1 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
-  {
-    SWELL_pmq_settimer(hwnd,timerid,rate);
-    return timerid;
-  }
-  
-  if (![(id)hwnd respondsToSelector:@selector(SWELL_Timer:)])
-  {
-    if (![(id)hwnd isKindOfClass:[NSWindow class]]) return 0;
-    hwnd=(HWND)[(id)hwnd contentView];
-    if (![(id)hwnd respondsToSelector:@selector(SWELL_Timer:)]) return 0;
-  }
-  
-  WDL_MutexLock lock(&m_timermutex);
-  KillTimer(hwnd,timerid);
-  TimerInfoRec *rec=(TimerInfoRec*)malloc(sizeof(TimerInfoRec));
-  rec->timerid=timerid;
-  rec->hwnd=hwnd;
-  
-  SWELL_DataHold *t=[[SWELL_DataHold alloc] initWithVal:(void *)timerid];
-  rec->timer = [NSTimer scheduledTimerWithTimeInterval:(max(rate,1)*0.001) target:(id)hwnd selector:@selector(SWELL_Timer:) 
-                                              userInfo:t repeats:YES];
-  
-  [[NSRunLoop currentRunLoop] addTimer:rec->timer forMode:(NSString*)kCFRunLoopCommonModes];
-  [t release];
-  m_timerlist.Add(rec);
-  
-  return timerid;
-}
-
-void KillTimer(HWND hwnd, int timerid)
-{
-  WDL_MutexLock lock(&m_timermutex);
-  if (timerid != -1 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
-  {
-    SWELL_pmq_settimer(hwnd,timerid,-1);
-    return;
-  }
-  int x;
-  for (x = 0; x < m_timerlist.GetSize(); x ++)
-  {
-    if ((timerid==-1 || m_timerlist.Get(x)->timerid == timerid) && m_timerlist.Get(x)->hwnd == hwnd)
-    {
-      [m_timerlist.Get(x)->timer invalidate];
-      m_timerlist.Delete(x--,true,free);
-      if (timerid!=-1) break;
-    }
-  }
-}
-
 
 
 BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
@@ -1919,7 +1866,7 @@ void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi)
   }
   else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
   {
-    [(SWELL_hwndChild *)p onSwellMessage:TBM_SETRANGE p1:1 p2:(low|(hi<<16))];
+    [(SWELL_hwndChild *)p onSwellMessage:TBM_SETRANGE p1:1 p2:((low&0xffff)|(hi<<16))];
   }
   
 }
@@ -2132,7 +2079,7 @@ int SWELL_CB_GetNumItems(HWND hwnd, int idx)
 
 
 
-void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, LONG data)
+void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, LONG_PTR data)
 {
   id cb=(id)GetDlgItem(hwnd,idx);
   if (!cb) return;
@@ -2154,7 +2101,7 @@ void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, LONG data)
   }
 }
 
-LONG SWELL_CB_GetItemData(HWND hwnd, int idx, int item)
+LONG_PTR SWELL_CB_GetItemData(HWND hwnd, int idx, int item)
 {
   id cb=(id)GetDlgItem(hwnd,idx);
   if (!cb) return 0;
@@ -2165,12 +2112,12 @@ LONG SWELL_CB_GetItemData(HWND hwnd, int idx, int item)
     if (!it) return 0;
     id p= [it representedObject];
     if (!p || ![p isKindOfClass:[SWELL_DataHold class]]) return 0;
-    return (LONG) (void *)[p getValue];
+    return (LONG_PTR) (void *)[p getValue];
   }
   else if ([cb isKindOfClass:[SWELL_ComboBox class]])
   {
     if (item < 0 || item >= [cb numberOfItems]) return 0;
-    if (((SWELL_ComboBox*)cb)->m_ids) return (LONG) ((SWELL_ComboBox*)cb)->m_ids->Get(item);    
+    if (((SWELL_ComboBox*)cb)->m_ids) return (LONG_PTR) ((SWELL_ComboBox*)cb)->m_ids->Get(item);    
   }
   return 0;
 }
@@ -2212,6 +2159,19 @@ int GetDlgItemInt(HWND hwnd, int idx, BOOL *translated, int issigned)
   return a;
 }
 
+void SWELL_HideApp()
+{
+  [NSApp hide:NSApp];
+}
+
+
+BOOL SWELL_GetGestureInfo(LPARAM lParam, GESTUREINFO* gi)
+{
+  if (!lParam || !gi) return FALSE;
+  memcpy(gi, (GESTUREINFO*)lParam, sizeof(GESTUREINFO));
+  return TRUE;
+}
+  
 
 void ShowWindow(HWND hwnd, int cmd)
 {
@@ -2230,6 +2190,18 @@ void ShowWindow(HWND hwnd, int cmd)
     else if (cmd==SW_HIDE)
     {
       [pid orderOut:pid];
+    }
+    else if (cmd == SW_SHOWMINIMIZED)
+    {   
+      // this ought to work
+      //if ([NSApp mainWindow] == pid)
+      //{
+      //  [NSApp hide:pid];
+      //}
+      //else
+      //{
+        [pid miniaturize:pid];
+      //}
     }
     return;
   }
@@ -2423,12 +2395,12 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 @implementation SWELL_TextView
 
--(int) tag
+-(NSInteger) tag
 {
   return m_tag;
 }
 
--(void) setTag:(int)tag
+-(void) setTag:(NSInteger)tag
 {
   m_tag=tag;
 }
@@ -2449,10 +2421,16 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
       }
     return 0;
     
-    case EM_SETSEL:  
+    case EM_SETSEL:    
+    {
+      int sl =  [[self string] length];
       if (wParam == -1) lParam = wParam = 0;
-      else if (lParam == -1) lParam = [[self string] length];
-      [self setSelectedRange:NSMakeRange(wParam, lParam-wParam)];
+      else if (lParam == -1) lParam = sl;
+      
+      if (wParam>sl)wParam=sl;
+      if (lParam>sl)lParam=sl;
+      [self setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))];
+    }
     return 0;
     
     case EM_GETSEL:
@@ -2460,6 +2438,59 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
       NSRange r = [self selectedRange];
       if (wParam) *(int*)wParam = r.location;
       if (lParam) *(int*)lParam = r.location+r.length;
+    }
+    return 0;
+      
+    case WM_SETFONT:
+    {
+      GDP_OBJECT* obj = (GDP_OBJECT*)wParam;
+      if (obj && obj->type == TYPE_FONT)
+      {        
+#ifndef __LP64__
+        if (obj->font_style)
+        {
+          ATSUFontID fontid = kATSUInvalidFontID;      
+          Fixed fsize = 0;          
+          Boolean isbold = NO;
+          Boolean isital = NO;
+          Boolean isunder = NO;          
+          if (ATSUGetAttribute(obj->font_style, kATSUFontTag, sizeof(ATSUFontID), &fontid, 0) == noErr &&
+              ATSUGetAttribute(obj->font_style, kATSUSizeTag, sizeof(Fixed), &fsize, 0) == noErr && fsize &&
+              ATSUGetAttribute(obj->font_style, kATSUQDBoldfaceTag, sizeof(Boolean), &isbold, 0) == noErr && 
+              ATSUGetAttribute(obj->font_style, kATSUQDItalicTag, sizeof(Boolean), &isital, 0) == noErr &&
+              ATSUGetAttribute(obj->font_style, kATSUQDUnderlineTag, sizeof(Boolean), &isunder, 0) == noErr)
+          {
+            char name[255];
+            name[0]=0;
+            ByteCount namelen=0;
+            if (ATSUFindFontName(fontid, kFontFullName, (FontPlatformCode)kFontNoPlatform, kFontNoScriptCode, kFontNoLanguageCode, sizeof(name), name, &namelen, 0) == noErr && name[0] && namelen)
+            {
+              namelen /= 2;
+              int i;
+              for (i = 0; i < namelen; ++i) name[i] = name[2*i];
+              name[namelen]=0;
+
+              // todo bold/ital/underline
+              NSString* str = (NSString*)SWELL_CStringToCFString(name);
+              CGFloat sz = Fix2Long(fsize);
+              NSFont* font = [NSFont fontWithName:str size:sz];
+              [str release];
+              if (font) 
+              {
+                [self setFont:font];
+                [font release];
+              }              
+            }
+          }            
+        }
+        else 
+#endif
+        if (obj->fontdict)
+        {        
+          NSFont* font = (NSFont*)[obj->fontdict objectForKey:NSFontAttributeName];
+          if (font) [self setFont:font];
+        }
+      }
     }
     return 0;
   }
@@ -2470,7 +2501,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 {  
-  if ((flags & WS_VSCROLL)) // || (flags & ES_READONLY))
+  if ((flags&WS_VSCROLL) || (flags&WS_HSCROLL)) // || (flags & ES_READONLY))
   {
     SWELL_TextView *obj=[[SWELL_TextView alloc] init];
     [obj setEditable:(flags & ES_READONLY)?NO:YES];
@@ -2488,7 +2519,8 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       [obj setVerticallyResizable:YES];
       NSScrollView *obj2=[[NSScrollView alloc] init];
       [obj2 setFrame:fr];
-      [obj2 setHasVerticalScroller:YES];
+      if (flags&WS_VSCROLL) [obj2 setHasVerticalScroller:YES];
+      if (flags&WS_HSCROLL) [obj2 setHasHorizontalScroller:YES];
       [obj2 setAutohidesScrollers:YES];
       [obj2 setDrawsBackground:NO];
       [obj2 setDocumentView:obj];
@@ -2720,14 +2752,19 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setTarget:target];
     [obj setAction:@selector(onSwellCommand:)];
     if ([target respondsToSelector:@selector(swellOnControlDoubleClick:)])
+    {
       [obj setDoubleAction:@selector(swellOnControlDoubleClick:)];
+    }
     else
+    {
       [obj setDoubleAction:@selector(onSwellCommand:)];
+    }
     NSScrollView *obj2=[[NSScrollView alloc] init];
     NSRect tr=MakeCoords(x,y,w,h,false);
     [obj2 setFrame:tr];
     [obj2 setDocumentView:obj];
     [obj2 setHasVerticalScroller:YES];
+    if (!isLB) [obj2 setHasHorizontalScroller:YES];
     [obj2 setAutohidesScrollers:YES];
     [obj2 setDrawsBackground:NO];
     [obj release];
@@ -2961,11 +2998,11 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 }
 
 @implementation SWELL_BoxView
--(int) tag
+-(NSInteger) tag
 {
   return m_tag;
 }
--(void) setTag:(int)tag
+-(void) setTag:(NSInteger)tag
 {
   m_tag=tag;
 }
@@ -3113,8 +3150,16 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   if (![(id)h isKindOfClass:[SWELL_ListView class]]) return;
   SWELL_ListView *v=(SWELL_ListView *)h;
   NSTableColumn *col=[[NSTableColumn alloc] init];
-  [col setWidth:lvc->cx];
+  // note, not looking at lvc->mask at all
+
   [col setEditable:NO];
+  // [col setResizingMask:2];  // user resizable, this seems to be the default
+  
+  [col setWidth:lvc->cx];
+  
+  if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
+  else if (lvc->fmt == LVCFMT_RIGHT) [[col headerCell] setAlignment:NSRightTextAlignment];
+  
   if (!v->m_lbMode && !(v->style & LVS_NOCOLUMNHEADER))
   {
     NSString *lbl=(NSString *)SWELL_CStringToCFString(lvc->pszText);  
@@ -3132,11 +3177,42 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   else
   {  
     [[col dataCell] setWraps:NO];
+    if (lvc->fmt == LVCFMT_CENTER) [[col dataCell] setAlignment:NSCenterTextAlignment];
+    else if (lvc->fmt == LVCFMT_RIGHT) [[col dataCell] setAlignment:NSRightTextAlignment];
   }
 
   [v addTableColumn:col];
   v->m_cols->Add(col);
   [col release];
+}
+
+void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
+{
+  if (!h || !lvc || ![(id)h isKindOfClass:[SWELL_ListView class]]) return;
+  SWELL_ListView *v=(SWELL_ListView *)h;
+  if (!v->m_cols || pos < 0 || pos >= v->m_cols->GetSize()) return;
+  
+  NSTableColumn *col=v->m_cols->Get(pos);
+  if (!col) return;
+  
+  if (lvc->mask&LVCF_FMT)
+  {
+    if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
+    else if (lvc->fmt == LVCFMT_RIGHT) [[col headerCell] setAlignment:NSRightTextAlignment];
+  }
+  if (lvc->mask&LVCF_WIDTH)
+  {
+    [col setWidth:lvc->cx];
+  }
+  if (lvc->mask&LVCF_TEXT)
+  {
+    if (!v->m_lbMode && !(v->style&LVS_NOCOLUMNHEADER))
+    {
+      NSString *lbl=(NSString *)SWELL_CStringToCFString(lvc->pszText);  
+      [[col headerCell] setStringValue:lbl];
+      [lbl release]; 
+    }
+  }
 }
 
 bool ListView_DeleteColumn(HWND h, int pos)
@@ -3843,7 +3919,7 @@ BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
   return TRUE;
 }
 
-long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (msg==WM_RBUTTONUP||msg==WM_NCRBUTTONUP)
   {  
@@ -3855,10 +3931,10 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       HWND h=WindowFromPoint(p);
       if (h && IsChild(hwnd,h)) hwndDest=h;
     }
-    SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwndDest,((short)p.x)|(p.y<<16));
+    SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwndDest,(p.x&0xffff)|(p.y<<16));
     return 1;
   }
-  else if (msg==WM_CONTEXTMENU || msg == WM_MOUSEWHEEL)
+  else if (msg==WM_CONTEXTMENU || msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL || msg == WM_GESTURE)
   {
     if ([(id)hwnd isKindOfClass:[NSView class]])
     {
@@ -4004,8 +4080,29 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
 static WDL_PtrList<void> m_clip_recs;
 static WDL_PtrList<NSString> m_clip_fmts;
 static WDL_PtrList<char> m_clip_curfmts;
+struct swell_pendingClipboardStates
+{
+  UINT type;
+  HANDLE h;
+  swell_pendingClipboardStates(UINT _type, HANDLE _h)
+  {
+    type = _type;
+    h = _h;
+  }
+  ~swell_pendingClipboardStates()
+  {
+    GlobalFree(h);
+  }
+};
+
+static WDL_PtrList<swell_pendingClipboardStates> m_clipsPending;
+
 bool OpenClipboard(HWND hwndDlg)
 {
+  m_clipsPending.Empty(true);
+
+  CF_TEXT; // ensure this type is registered
+  
   NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
   m_clip_curfmts.Empty();
   NSArray *ar=[pasteboard types];
@@ -4038,9 +4135,62 @@ bool OpenClipboard(HWND hwndDlg)
 void CloseClipboard() // frees any remaining items in clipboard
 {
   m_clip_recs.Empty(true,GlobalFree);
+  
+  if (m_clipsPending.GetSize())
+  {
+    int x;
+    for (x=0;x<m_clipsPending.GetSize() && m_clipsPending.Get(x)->type != CF_TEXT;x++);
+    NSPasteboard *pasteboard = x<m_clipsPending.GetSize() ? [NSPasteboard generalPasteboard] : [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+    
+    NSMutableArray *ar = [[NSMutableArray alloc] initWithCapacity:m_clipsPending.GetSize()];
+    
+    for (x=0;x<m_clipsPending.GetSize();x++)
+    {
+      swell_pendingClipboardStates *cs=m_clipsPending.Get(x);
+      NSString *fmt=m_clip_fmts.Get(cs->type-1);
+      if (fmt) [ar addObject:fmt];
+    }
+    if ([ar count])
+    {
+      [pasteboard declareTypes:ar owner:nil];
+      for (x=0;x<m_clipsPending.GetSize();x++)
+      {
+        swell_pendingClipboardStates *cs=m_clipsPending.Get(x);
+        NSString *fmt=m_clip_fmts.Get(cs->type-1);
+        if (!fmt) continue;
+        
+        void *buf=GlobalLock(cs->h);
+        if (buf)
+        {
+          int bufsz=GlobalSize(cs->h);
+          if (cs->type == CF_TEXT)
+          {
+            char *t = (char *)malloc(bufsz+1);
+            if (t)
+            {
+              memcpy(t,buf,bufsz);
+              t[bufsz]=0;
+              NSString *s = (NSString*)SWELL_CStringToCFString(t);
+              [pasteboard setString:s forType:fmt];
+              [s release];
+              free(t);
+            }
+          }
+          else
+          {
+            NSData *data=[NSData dataWithBytes:buf length:bufsz];
+            [pasteboard setData:data forType:fmt];
+          }
+          GlobalUnlock(cs->h);
+        }
+      }
+    }
+    [ar release];
+    m_clipsPending.Empty(true);
+  }  
 }
 
-UINT EnumClipboardFormats(UINT lastfmt)
+UINT EnumClipboardFormats(UINT lastfmt) // won't enumerate CF_TEXT (since thats a separate pasteboard)
 {
   if (!m_clip_curfmts.GetSize()) return 0;
   if (lastfmt == 0) return (UINT)(INT_PTR)m_clip_curfmts.Get(0);
@@ -4057,44 +4207,62 @@ HANDLE GetClipboardData(UINT type)
 {
   NSString *fmt=m_clip_fmts.Get(type-1);
   if (!fmt) return 0;
-  NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
-
-	NSData *data=[pasteboard dataForType:fmt];
-	if (!data) return 0; 
-  int l=[data length];
-  HANDLE h=GlobalAlloc(0,l);  
-	memcpy(GlobalLock(h),[data bytes],l);
-  GlobalUnlock(h);
-  m_clip_recs.Add(h);
+  NSPasteboard *pasteboard = type == CF_TEXT ? [NSPasteboard generalPasteboard] : [NSPasteboard pasteboardWithName:@"SWELL_APP"];
   
+  HANDLE h=0;
+  if (type == CF_TEXT)
+  {
+    [pasteboard types];
+    NSString *str = [pasteboard stringForType:fmt];
+    if (str)
+    {
+      int l = [str length]*4 + 32;
+      char *buf = (char *)malloc(l);
+      if (!buf) return 0;
+      SWELL_CFStringToCString(str,buf,l);
+      buf[l-1]=0;
+      l = strlen(buf)+1;
+      h=GlobalAlloc(0,l);  
+      memcpy(GlobalLock(h),buf,l);
+      GlobalUnlock(h);
+      free(buf);
+    }
+  }
+  else
+  {
+    
+    NSData *data=[pasteboard dataForType:fmt];
+    if (!data) return 0; 
+    int l=[data length];
+    h=GlobalAlloc(0,l);  
+    memcpy(GlobalLock(h),[data bytes],l);
+    GlobalUnlock(h);
+  }
+  
+  if (h) m_clip_recs.Add(h);
 	return h;
 }
 
-
 void EmptyClipboard()
 {
+  m_clipsPending.Empty(true);
 }
+
 
 void SetClipboardData(UINT type, HANDLE h)
 {
-  NSString *fmt=m_clip_fmts.Get(type-1);
-  if (fmt)
-  {
-    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
-    [pasteboard declareTypes:[NSArray arrayWithObject:fmt] owner:nil];
-    void *buf=GlobalLock(h);
-    int bufsz=GlobalSize(h);
-    NSData *data=[NSData dataWithBytes:buf length:bufsz];
-    [pasteboard setData:data forType:fmt];
-    GlobalUnlock(h);
-  }
-  GlobalFree(h);
-  
+  m_clipsPending.Add(new swell_pendingClipboardStates(type,h));    
 }
 
 UINT RegisterClipboardFormat(const char *desc)
 {
-  NSString *s=(NSString*)SWELL_CStringToCFString(desc);
+  NSString *s=NULL;
+  if (!strcmp(desc,"SWELL__CF_TEXT")) 
+  {
+    s=NSStringPboardType;
+    [s retain];
+  }
+  if (!s) s=(NSString*)SWELL_CStringToCFString(desc);
   int x;
   for (x = 0; x < m_clip_fmts.GetSize(); x ++)
   {
@@ -4135,208 +4303,6 @@ void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
     l->Set(offset,(char*)image);
     // if (old) DestroyIcon(old); // don't delete, caller responsible
   }
-}
-
-
-
-
-
-///////// PostMessage emulation
-
-BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
-    return (BOOL)!![del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
-  return FALSE;
-}
-
-void SWELL_MessageQueue_Clear(HWND h)
-{
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
-    [del swellPostMessageClearQ:h];
-}
-
-
-
-// implementation of postmessage stuff
-
-
-
-typedef struct PMQ_rec
-{
-  HWND hwnd;
-  UINT msg;
-  WPARAM wParam;
-  LPARAM lParam;
-
-  struct PMQ_rec *next;
-  bool istimerpoo;
-} PMQ_rec;
-
-static WDL_Mutex *m_pmq_mutex;
-static PMQ_rec *m_pmq, *m_pmq_empty, *m_pmq_tail;
-static int m_pmq_size;
-static id m_pmq_timer;
-#define MAX_POSTMESSAGE_SIZE 1024
-
-void SWELL_Internal_PostMessage_Init()
-{
-  if (m_pmq_mutex) return;
-  id del = [NSApp delegate];
-  if (!del || ![del respondsToSelector:@selector(swellPostMessageTick:)]) return;
-  
-  m_pmq_mainthread=pthread_self();
-  m_pmq_mutex = new WDL_Mutex;
-  
-  m_pmq_timer = [NSTimer scheduledTimerWithTimeInterval:0.05 target:(id)del selector:@selector(swellPostMessageTick:) userInfo:nil repeats:YES];
-  [[NSRunLoop currentRunLoop] addTimer:m_pmq_timer forMode:(NSString*)kCFRunLoopCommonModes];
-//  [ release];
-  // set a timer to the delegate
-}
-
-
-void SWELL_MessageQueue_Flush()
-{
-  if (!m_pmq_mutex) return;
-  
-  m_pmq_mutex->Enter();
-  PMQ_rec *p=m_pmq, *startofchain=m_pmq;
-  m_pmq=m_pmq_tail=0;
-  m_pmq_mutex->Leave();
-  
-  int cnt=0;
-  // process out queue
-  while (p)
-  {
-    // process this message
-//    [(id)p->hwnd onSwellMessage:(int)p->msg p1:(WPARAM)p->wParam p2:(LPARAM)p->lParam];
-    if (p->istimerpoo)
-    {
-      if (p->wParam == -1)  KillTimer(p->hwnd,p->msg);
-      else SetTimer(p->hwnd,p->msg,p->wParam,0);
-    }
-    else
-      SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
-
-    cnt ++;
-    if (!p->next) // add the chain back to empties
-    {
-      m_pmq_mutex->Enter();
-      m_pmq_size-=cnt;
-      p->next=m_pmq_empty;
-      m_pmq_empty=startofchain;
-      m_pmq_mutex->Leave();
-      break;
-    }
-    p=p->next;
-  }
-}
-
-void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd)
-{
-  if (!m_pmq_mutex) return;
-  
-  m_pmq_mutex->Enter();
-  PMQ_rec *p=m_pmq;
-  PMQ_rec *lastrec=NULL;
-  while (p)
-  {
-    if (hwnd && p->hwnd != hwnd) { lastrec=p; p=p->next; }
-    else
-    {
-      PMQ_rec *next=p->next; 
-      
-      p->next=m_pmq_empty; // add p to empty list
-      m_pmq_empty=p;
-      m_pmq_size--;
-      
-      
-      if (p==m_pmq_tail) m_pmq_tail=lastrec; // update tail
-      
-      if (lastrec)  p = lastrec->next = next;
-      else p = m_pmq = next;
-    }
-  }
-  m_pmq_mutex->Leave();
-}
-
-static void SWELL_pmq_settimer(HWND h, int timerid, int rate)
-{
-  if (!h||!m_pmq_mutex) return;
-  WDL_MutexLock lock(m_pmq_mutex);
-  
-  PMQ_rec *rec=m_pmq;
-  while (rec)
-  {
-    if (rec->istimerpoo && rec->hwnd == h && rec->msg == timerid)
-    {
-      rec->wParam = rate; // adjust to new rate
-      return;
-    }
-    rec=rec->next;
-  }  
-  
-  rec=m_pmq_empty;
-  if (rec) m_pmq_empty=rec->next;
-  else rec=(PMQ_rec*)malloc(sizeof(PMQ_rec));
-  rec->next=0;
-  rec->hwnd=h;
-  rec->msg=timerid;
-  rec->wParam=rate;
-  rec->lParam=0;
-  rec->istimerpoo=true;
-
-  if (m_pmq_tail) m_pmq_tail->next=rec;
-  else 
-  {
-    PMQ_rec *p=m_pmq;
-    while (p && p->next) p=p->next; // shouldnt happen unless m_pmq is NULL As well but why not for safety
-    if (p) p->next=rec;
-    else m_pmq=rec;
-  }
-  m_pmq_tail=rec;
-  m_pmq_size++;
-}
-
-BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-  if (!hwnd||!m_pmq_mutex) return FALSE;
-  if (![(id)hwnd respondsToSelector:@selector(swellCanPostMessage)]) return FALSE;
-
-  BOOL ret=FALSE;
-  m_pmq_mutex->Enter();
-
-  if ((m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE) && [(id)hwnd swellCanPostMessage])
-  {
-    PMQ_rec *rec=m_pmq_empty;
-    if (rec) m_pmq_empty=rec->next;
-    else rec=(PMQ_rec*)malloc(sizeof(PMQ_rec));
-    rec->next=0;
-    rec->hwnd=hwnd;
-    rec->msg=msg;
-    rec->wParam=wParam;
-    rec->lParam=lParam;
-    rec->istimerpoo=false;
-
-    if (m_pmq_tail) m_pmq_tail->next=rec;
-    else 
-    {
-      PMQ_rec *p=m_pmq;
-      while (p && p->next) p=p->next; // shouldnt happen unless m_pmq is NULL As well but why not for safety
-      if (p) p->next=rec;
-      else m_pmq=rec;
-    }
-    m_pmq_tail=rec;
-    m_pmq_size++;
-
-    ret=TRUE;
-  }
-
-  m_pmq_mutex->Leave();
-
-  return ret;
 }
 
 
@@ -4448,6 +4414,14 @@ HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title
     h=GetWindow(h,GW_HWNDNEXT);
   }
   return h;
+}
+
+BOOL TreeView_SetIndent(HWND hwnd, int indent)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return 0;
+  SWELL_TreeView* tv = (SWELL_TreeView*)hwnd;  
+  [tv setIndentationPerLevel:(float)indent];  
+  return TRUE;
 }
 
 HTREEITEM TreeView_InsertItem(HWND hwnd, TV_INSERTSTRUCT *ins)
@@ -4819,41 +4793,6 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
   }
 }
 
-@implementation SWELL_ThreadTmp
--(void)bla:(id)obj
-{
-  [NSThread exit];
-}
-@end
-
-void SWELL_EnsureMultithreadedCocoa()
-{
-  static int a;
-  if (!a)
-  {
-    a++;
-    if (![NSThread isMultiThreaded]) // force cocoa into multithreaded mode
-    {
-      SWELL_ThreadTmp *t=[[SWELL_ThreadTmp alloc] init]; 
-      [NSThread detachNewThreadSelector:@selector(bla:) toTarget:t withObject:t];
-///      [t release];
-    }
-  }
-}
-
-// used by swell.cpp (lazy these should go elsewhere)
-void *SWELL_InitAutoRelease()
-{
-  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-  return (void *)pool;
-}
-void SWELL_QuitAutoRelease(void *p)
-{
-  if (p)
-    [(NSAutoreleasePool*)p release];
-}
-
-
 
 @implementation SWELL_PopUpButton
 -(void)setSwellStyle:(LONG)style { m_style=style; }
@@ -4967,6 +4906,8 @@ void SWELL_SetWindowRepre(HWND hwnd, const char *fn, bool isDirty)
   
   if (w)
   {
+    if (GetProp((HWND)[w contentView],"SWELL_DisableWindowRepre")) return;
+    
     [w setDocumentEdited:isDirty];
     
     if (!fn || !*fn) [w setRepresentedFilename:@""];

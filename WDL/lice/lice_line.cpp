@@ -3,6 +3,7 @@
 #include "lice_extended.h"
 #include <math.h>
 #include <stdio.h>
+//#include <assert.h>
 
 template <class T> inline void SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
@@ -863,6 +864,21 @@ bool LICE_ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int xLo, int yLo, int
     return onscreen;
 }
 
+bool LICE_ClipFLine(float* px1, float* py1, float* px2, float* py2, float xlo, float ylo, float xhi, float yhi)
+{
+  float x1 = *px1-xlo;
+  float y1 = *py1-ylo;
+  float x2 = *px2-xlo;
+  float y2 = *py2-ylo;
+  bool onscreen = ClipFLine(&x1, &y1, &x2, &y2, xhi-xlo, yhi-ylo);
+  *px1 = x1+xlo;
+  *py1 = y1+ylo;
+  *px2 = x2+xlo;
+  *py2 = y2+ylo;
+  return onscreen;
+}
+
+
 #include "lice_bezier.h"
 
 static void DoBezierFillSegment(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int yfill, LICE_pixel color, float alpha, int mode)
@@ -1235,12 +1251,13 @@ public:
       db = -db;
       bstep = -1;
     }
-
+ 
     for (y = 0; y < ny; ++y)
     {
       LICE_pixel* xpx = px;
       for (x = 0; x <= nx; ++x)
       {
+        //assert(xpx >= dest->getBits() && xpx < dest->getBits()+dest->getHeight()*span);
         COMBFUNC::doPixFAST(xpx, color);
         ++xpx;
       }
@@ -1310,7 +1327,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   if (x1a >= w && x2a >= w) return;
 
   if (x1a <= 0 && x2a <= 0) x1a = x2a = 0;
-  if (x1b >= w && x2b >= w) x1b = x2b = w;
+  if (x1b >= w-1 && x2b >= w-1) x1b = x2b = w-1;
 
   if (y1 < 0)
   {
@@ -1363,12 +1380,12 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     LICE_FillTrapezoid(dest, 0, xb, y, x2a, x2b, y2, color, alpha, mode);
     return;
   }
-  if (x1b > w || x2b > w) // clip right
+  if (x1b >= w || x2b >= w) // clip right
   {
-    int y = FindYOnSegment(x1b, y1, x2b, y2, w);
+    int y = FindYOnSegment(x1b, y1, x2b, y2, w-1);
     int xa = FindXOnSegment(x1a, y1, x2a, y2, y);
-    LICE_FillTrapezoid(dest, x1a, x1b, y1, xa, w, y, color, alpha, mode);
-    LICE_FillTrapezoid(dest, xa, w, y, x2a, x2b, y2, color, alpha, mode);
+    LICE_FillTrapezoid(dest, x1a, x1b, y1, xa, w-1, y, color, alpha, mode);
+    LICE_FillTrapezoid(dest, xa, w-1, y, x2a, x2b, y2, color, alpha, mode);
     return;
   }
 
@@ -1401,19 +1418,15 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   }
   else
   {
-
 #ifdef LICE_FAVOR_SIZE_EXTREME
 
-      LICE_COMBINEFUNC blitfunc=NULL;      
-      #define __LICE__ACTION(comb) blitfunc=comb::doPix;
-
+    LICE_COMBINEFUNC blitfunc=NULL;      
+#define __LICE__ACTION(comb) blitfunc=comb::doPix;
 #else
-
-    #define __LICE__ACTION(COMBFUNC) _LICE_Fill<COMBFUNC>::FillClippedTrapezoid(dest, x1a, x1b, dxady, dxbdy, y1, y2, color, aw);
+#define __LICE__ACTION(COMBFUNC) _LICE_Fill<COMBFUNC>::FillClippedTrapezoid(dest, x1a, x1b, dxady, dxbdy, y1, y2, color, aw);
 #endif
 
     __LICE_ACTION_CONSTANTALPHA(mode, aw, false);
-
 
 #ifdef LICE_FAVOR_SIZE_EXTREME
       if (blitfunc) _LICE_Fill::FillClippedTrapezoid(dest, x1a, x1b, dxady, dxbdy, y1, y2, color, aw, blitfunc);

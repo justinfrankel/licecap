@@ -503,6 +503,26 @@ BOOL GetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMIN
   return GetMenuItemInfoA(hMenu,uItem,fByPosition,lpmii);
 }
 
+
+FILE *fopenUTF8(const char *filename, const char *mode)
+{
+  if (WDL_HasUTF8(filename) && GetVersion()<0x80000000)
+  {
+    MBTOWIDE(wbuf,filename);
+    if (wbuf_ok)
+    {
+      FILE *rv;
+      WCHAR tb[32];      
+      tb[0]=0;
+      MultiByteToWideChar(CP_UTF8,0,mode,-1,tb,32);
+      rv=tb[0] ? _wfopen(wbuf,tb) : NULL;
+      MBTOWIDE_FREE(wbuf);
+      if (rv) return rv;
+    }
+  }
+  return fopen(filename,mode);
+}
+
 int statUTF8(const char *filename, struct stat *buffer)
 {
   if (WDL_HasUTF8(filename) && GetVersion()<0x80000000)

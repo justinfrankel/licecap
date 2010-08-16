@@ -1,20 +1,20 @@
 #ifndef _CURSES_WIN32SIM_H_
 #define _CURSES_WIN32SIM_H_
 
-#if !defined(_WIN32) && !defined(MAC_NATIVE)
-#ifdef MAC
-#include <ncurses.h>
-#else
-#include <curses.h>
-#endif
+#if !defined(_WIN32) && !defined(MAC_NATIVE) && !defined(FORCE_WIN32_CURSES)
+  #ifdef MAC
+  #include <ncurses.h>
+  #else
+  #include <curses.h>
+  #endif
 #else
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include "../swell/swell.h"
-#endif
-#include "../queue.h"
+  #ifdef _WIN32
+  #include <windows.h>
+  #else
+  #include "../swell/swell.h"
+  #endif
+  #include "../queue.h"
 
 /*
 ** this implements a tiny subset of curses on win32.
@@ -68,6 +68,8 @@ typedef struct win32CursesCtx
   char m_cur_attr, m_cur_erase_attr;
   unsigned char *m_framebuffer;
   HFONT mOurFont;
+  
+  bool m_need_fontcalc;
   int m_font_w, m_font_h;
   int m_need_redraw;
 
@@ -105,7 +107,7 @@ void __curses_erase(win32CursesCtx *inst);
 
 int curses_getch(win32CursesCtx *inst);
 
-#if defined(_WIN32) || defined(MAC_NATIVE)
+#if defined(_WIN32) || defined(MAC_NATIVE) || defined(FORCE_WIN32_CURSES)
 #define getch() curses_getch(CURSES_INSTANCE)
 #define erase() curses_erase(CURSES_INSTANCE)
 #endif

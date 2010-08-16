@@ -47,6 +47,7 @@
 #endif
 #endif
 
+#include "wdltypes.h"
 
 class WDL_Mutex {
   public:
@@ -122,12 +123,12 @@ class WDL_Mutex {
   MPCriticalRegionID m_cr;
 #else
   pthread_mutex_t m_mutex;
-  int m_lockcnt;
   pthread_t m_ownerthread;
+  int m_lockcnt;
 #endif
 #endif
 
-};
+} WDL_FIXALIGN;
 
 class WDL_MutexLock {
 public:
@@ -135,7 +136,7 @@ public:
   ~WDL_MutexLock() { if (m_m) m_m->Leave(); }
 private:
   WDL_Mutex *m_m;
-};
+} WDL_FIXALIGN;
 
 
 #endif

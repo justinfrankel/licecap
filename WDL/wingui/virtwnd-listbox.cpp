@@ -602,5 +602,24 @@ int WDL_VirtualListBox::IndexFromPt(int x, int y)
   int col = num_cols > 0 && usewid>0 ? ((x-leftrightbuttonsize)*num_cols)/usewid : 0;
   
   return startpos + (y)/m_rh + col * nrows;
+}
 
+void WDL_VirtualListBox::SetViewOffset(int offs)
+{
+  int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  if (num_items) 
+  {
+    if (offs < 0) offs=0;
+    else if (offs >= num_items) offs = num_items-1;
+    if (offs != m_viewoffs)
+    {
+      m_viewoffs = offs;
+      RequestRedraw(0);
+    }
+  }
+}
+
+int WDL_VirtualListBox::GetViewOffset()
+{
+  return m_viewoffs;
 }

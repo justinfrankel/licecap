@@ -50,6 +50,13 @@ bool LICE_MemBitmap::resize(int w, int h)
 {
   if (w!=m_width||h!=m_height)
   {
+#ifdef DEBUG_TIGHT_ALLOC // dont enable for anything you want to be even remotely fast
+    free(m_fb);
+    m_fb = (LICE_pixel *)malloc(m_allocsize = w*h*sizeof(LICE_pixel));
+    m_width=m_fb?w:0;
+    m_height=m_fb?h:0;
+    return true;
+#endif
     int sz=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
 
     if (sz<=0) { free(m_fb); m_fb=0; m_allocsize=0; }
@@ -115,6 +122,7 @@ bool LICE_SysBitmap::resize(int w, int h)
   m_width=w;
   m_height=h;
 
+#ifndef DEBUG_TIGHT_ALLOC
   // dont resize down bitmaps
   if (w && h && w <= m_allocw && h <= m_alloch && m_bits) 
   {
@@ -127,6 +135,7 @@ bool LICE_SysBitmap::resize(int w, int h)
 #endif
     return true;
   }
+#endif//!DEBUG_TIGHT_ALLOC
 
   m_allocw=w;
   m_alloch=h;

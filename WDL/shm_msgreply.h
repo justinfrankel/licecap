@@ -56,11 +56,11 @@ public:
 
   // returns <0 if no reply, otherwise lenght of replybuf used
   // no retbuf = no wait for reply
-  int Send(int type, void *msg, int msglen,  
-           void *replybuf, int maxretbuflen, int *forceMsgID=NULL,
-           void *secondchunk=NULL, int secondchunklen=0, // allow sending two blocks as one message (for speed in certain instances)
+  int Send(int type, const void *msg, int msglen,  
+           void *replybuf, int maxretbuflen, const int *forceMsgID=NULL,
+           const void *secondchunk=NULL, int secondchunklen=0, // allow sending two blocks as one message (for speed in certain instances)
            WDL_HeapBuf *hbreplyout=NULL);  // if hbreplyout is set it will get the full message (replybuf can be NULL then)
-  void Reply(int msgID, void *msg, int msglen);
+  void Reply(int msgID, const void *msg, int msglen);
   void Wait(HANDLE extraEvt=NULL);
 
   const char *GetUniqueString() { return m_uniq; }

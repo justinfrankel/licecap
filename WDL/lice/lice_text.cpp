@@ -1326,7 +1326,8 @@ void LICE_DrawChar(LICE_IBitmap *bm, int x, int y, char c,
     fb+=rs;
     unsigned char ch = *font++;
     int a=smask;
-    while (a)
+    int xleft = xlen;
+    while (a && xleft--)
     {
       if (ch & a) 
       {

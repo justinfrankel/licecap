@@ -93,7 +93,7 @@ private:
   int m_fmt;
   bool m_interleaved;
   bool m_hasData;
-};
+} WDL_FIXALIGN;
 
 
 void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper);

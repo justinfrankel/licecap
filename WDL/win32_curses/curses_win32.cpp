@@ -16,9 +16,12 @@
 
 #define WIN32_CONSOLE_KBQUEUE
 
+static void doFontCalc(win32CursesCtx*, HDC);
 
 static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey)
 {
+  doFontCalc(ctx,NULL);
+
   RECT r;
   r.left=sx*ctx->m_font_w;
   r.top=sy*ctx->m_font_h;
@@ -115,40 +118,47 @@ void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
 
 static int xlateKey(int msg, int wParam, int lParam)
 {
-   if (msg == WM_KEYDOWN)
+  if (msg == WM_KEYDOWN)
+  {
+#ifndef _WIN32
+    if (lParam & FVIRTKEY)
+#endif
+    switch (wParam)
 	  {
-		  switch (wParam)
-		  {
-			    case VK_HOME: return KEY_HOME;
-			    case VK_UP: return KEY_UP;
-			    case VK_PRIOR: return KEY_PPAGE;
-			    case VK_LEFT: return KEY_LEFT;
-			    case VK_RIGHT: return KEY_RIGHT;
-			    case VK_END: return KEY_END;
-			    case VK_DOWN: return KEY_DOWN;
-			    case VK_NEXT: return KEY_NPAGE;
-			    case VK_INSERT: return KEY_IC;
-			    case VK_DELETE: return KEY_DC;
-			    case VK_F1: return KEY_F1;
-			    case VK_F2: return KEY_F2;
-			    case VK_F3: return KEY_F3;
-			    case VK_F4: return KEY_F4;
-			    case VK_F5: return KEY_F5;
-			    case VK_F6: return KEY_F6;
-			    case VK_F7: return KEY_F7;
-			    case VK_F8: return KEY_F8;
-			    case VK_F9: return KEY_F9;
-			    case VK_F10: return KEY_F10;
-			    case VK_F11: return KEY_F11;
-			    case VK_F12: return KEY_F12;
-          case VK_CONTROL: break;
-          case VK_RETURN:
-          case VK_BACK: 
-          case VK_TAB:
-          case VK_ESCAPE:
-            return wParam;
-          default:
-            if(GetAsyncKeyState(VK_CONTROL)&0x8000)
+	    case VK_HOME: return KEY_HOME;
+	    case VK_UP: return KEY_UP;
+	    case VK_PRIOR: return KEY_PPAGE;
+	    case VK_LEFT: return KEY_LEFT;
+	    case VK_RIGHT: return KEY_RIGHT;
+	    case VK_END: return KEY_END;
+	    case VK_DOWN: return KEY_DOWN;
+	    case VK_NEXT: return KEY_NPAGE;
+	    case VK_INSERT: return KEY_IC;
+	    case VK_DELETE: return KEY_DC;
+	    case VK_F1: return KEY_F1;
+	    case VK_F2: return KEY_F2;
+	    case VK_F3: return KEY_F3;
+	    case VK_F4: return KEY_F4;
+	    case VK_F5: return KEY_F5;
+	    case VK_F6: return KEY_F6;
+	    case VK_F7: return KEY_F7;
+	    case VK_F8: return KEY_F8;
+	    case VK_F9: return KEY_F9;
+	    case VK_F10: return KEY_F10;
+	    case VK_F11: return KEY_F11;
+	    case VK_F12: return KEY_F12;
+#ifndef _WIN32
+      case VK_SUBTRACT: return (GetAsyncKeyState(VK_SHIFT)&0x8000)?'_':'-'; // numpad -
+#endif
+    }
+    
+    switch (wParam)
+    {
+      case VK_RETURN: case VK_BACK: case VK_TAB: case VK_ESCAPE: return wParam;
+      case VK_CONTROL: break;
+    
+      default:
+        if(GetAsyncKeyState(VK_CONTROL)&0x8000)
         {
           if (wParam>='a' && wParam<='z') 
           {
@@ -161,15 +171,17 @@ static int xlateKey(int msg, int wParam, int lParam)
             return wParam;
           }
         }
-		  }
-	  }
-#ifdef _WIN32 // todo : fix for nonwin32
-    else if (msg == WM_CHAR)
-    {
-      if(wParam>=32) return wParam;
     }
-  
+	}
+    
+#ifdef _WIN32 // todo : fix for nonwin32
+  if (msg == WM_CHAR)
+  {
+    if(wParam>=32) return wParam;
+  }  
 #else
+  
+  //osx/linux
   if (wParam >= 32)
   {
     if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
@@ -183,7 +195,8 @@ static int xlateKey(int msg, int wParam, int lParam)
     }
     else
     {
-      if (wParam>='0' && wParam<='9')
+      if (wParam=='-') wParam='_';
+      else if (wParam>='0' && wParam<='9')
       {
         if (wParam=='0') wParam = ')';
         else if (wParam=='1') wParam = '!';
@@ -201,12 +214,13 @@ static int xlateKey(int msg, int wParam, int lParam)
   }
       
 #endif
-    return ERR;
+  return ERR;
 }
 
 
 static void m_reinit_framebuffer(win32CursesCtx *ctx)
 {
+  doFontCalc(ctx,NULL);
     RECT r;
 
     GetClientRect(ctx->m_hwnd,&r);
@@ -303,6 +317,8 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           HDC hdc=BeginPaint(hwnd,&ps);
           if (hdc)
           {
+            doFontCalc(ctx,ps.hdc);
+            
             HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
             int y,ypos;
 			      int lattr=-1;
@@ -368,7 +384,9 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 						      SetBkColor(hdc,bgc);
 						    }
 #ifdef _WIN32
-				        TextOut(hdc,xpos+1,ypos,isprint(c) && !isspace(c) ? p : " ",1);
+                int txpos = xpos;
+                if ((GetVersion()&0xFF) >= 6) ++txpos; // absolutely no idea why this is needed
+                TextOut(hdc,txpos,ypos,isprint(c) && !isspace(c) ? p : " ",1);
 #else
                 RECT tr={xpos,ypos,xpos+32,ypos+32};
                 if (curbgbr) FillRect(hdc,&tr,curbgbr);
@@ -417,6 +435,26 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
+static void doFontCalc(win32CursesCtx *ctx, HDC hdcIn)
+{
+  if (!ctx || !ctx->m_hwnd || !ctx->m_need_fontcalc) return;
+
+  HDC hdc = hdcIn;
+  if (!hdc) hdc = GetDC(ctx->m_hwnd);
+
+  if (!hdc) return;
+   
+  ctx->m_need_fontcalc=false;
+  HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
+  TEXTMETRIC tm;
+  GetTextMetrics(hdc,&tm);
+  ctx->m_font_h=tm.tmHeight;
+  ctx->m_font_w=tm.tmAveCharWidth;
+  SelectObject(hdc,oldf);
+  
+  if (hdc != hdcIn) ReleaseDC(ctx->m_hwnd,hdc);
+
+}
 
 static void reInitializeContext(win32CursesCtx *ctx)
 {
@@ -424,12 +462,20 @@ static void reInitializeContext(win32CursesCtx *ctx)
 #ifdef _WIN32
                                                  16,
 #else
-                                                11,
+#ifdef __LP64__
+                                                14,
+#else
+                                                 13,
+#endif
 #endif
                         0, // width
                         0, // escapement
                         0, // orientation
+#ifdef _WIN32
                         FW_NORMAL, // normal
+#else
+                        FW_BOLD,
+#endif
                         FALSE, //italic
                         FALSE, //undelrine
                         FALSE, //strikeout
@@ -444,20 +490,10 @@ static void reInitializeContext(win32CursesCtx *ctx)
 #endif
                         "Courier New");
 
-  {
-    HDC hdc=GetDC(ctx->m_hwnd);
-    HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
-    TEXTMETRIC tm;
-    GetTextMetrics(hdc,&tm);
-    ctx->m_font_h=tm.tmHeight;
-    ctx->m_font_w=tm.tmAveCharWidth;
-#ifndef _WIN32
-    ctx->m_font_h -= 4;
-    ctx->m_font_w -= 5;
-#endif
-    SelectObject(hdc,oldf);
-    ReleaseDC(ctx->m_hwnd,hdc);
-  }      
+  ctx->m_need_fontcalc=true;
+  ctx->m_font_w=8;
+  ctx->m_font_h=8;
+  doFontCalc(ctx,NULL);
 }
 
 

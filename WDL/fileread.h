@@ -157,19 +157,31 @@ public:
         wfilename.Resize(szreq+10);
 
         if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
+        {
           m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
+          if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
+            m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+        }
       }
       else
       {
         WCHAR wfilename[1024];
 
         if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
+        {
           m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
+          if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
+            m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+        }
       }
     }
     if (m_fh == INVALID_HANDLE_VALUE)
 #endif
+    {
       m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
+      if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
+        m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+    }
 
     if (m_fh != INVALID_HANDLE_VALUE)
     {
@@ -707,8 +719,6 @@ public:
   WDL_FILEREAD_POSTYPE m_file_position,m_async_readpos;
   WDL_FILEREAD_POSTYPE m_fsize;
   
-  bool m_syncrd_firstbuf;
-  bool m_async_hashaderr;
   void *m_mmap_view;
   void *m_mmap_totalbufmode;
 
@@ -725,15 +735,21 @@ public:
   WDL_PtrList<WDL_FileRead__ReadEnt> m_full;
   
 #elif defined(WDL_POSIX_NATIVE_READ)
+  WDL_FILEREAD_POSTYPE m_filedes_rdpos;
   int m_filedes;
   bool m_filedes_locked;
+
   int GetHandle() { return m_filedes; }
-  WDL_FILEREAD_POSTYPE m_filedes_rdpos;
 #else
   FILE *m_fp;
+  
   int GetHandle() { return fileno(m_fp); }
 #endif
-};
+
+  bool m_syncrd_firstbuf;
+  bool m_async_hashaderr;
+
+} WDL_FIXALIGN;
 
 
 

@@ -199,6 +199,7 @@ public:
 private:
   WDL_HeapBuf m_hb;
   int m_pos;
+  int __pad; // keep 8 byte aligned
 };
 
 template <class T> class WDL_TypedQueue
@@ -266,6 +267,7 @@ public:
 private:
   WDL_HeapBuf m_hb;
   int m_pos;
+  int __pad; // keep 8 byte aligned
 };
 
 #endif

@@ -165,11 +165,13 @@ inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
 
   double m = (y2 - y1) / (x2 - x1);
   double xi = x1, yi = y1;
-  for (/* */; xi < xm2; xi += 1.0, yi += m, ++pDest) {
+  for (/* */; xi < xm2; xi += 1.0, yi += m, ++pDest) 
+  {
     *pDest = (T) yi;
   }
 
-  for (int i = 2; i < n; ++i, ++pX, ++pY) {
+  for (int i = 2; i < n; ++i, ++pX, ++pY) 
+  {
     x1 = x2;
     x2 = (double) *pX;
     y1 = y2;
@@ -180,13 +182,17 @@ inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
     ym1 = ym2;
     ym2 = 0.5 * (y1 + y2);
 
-    if (ym1 == ym2) {
-      for (/* */; xi < xm2; xi += 1.0, ++pDest) {
+    if (ym1 == ym2) 
+    {
+      for (/* */; xi < xm2; xi += 1.0, ++pDest) 
+      {
         *pDest = (T) y1;
       }
     }
-    else {    
-      for (/* */; xi < xm2; xi += 1.0, ++pDest) {
+    else 
+    {    
+      for (/* */; xi < xm2; xi += 1.0, ++pDest) 
+      {
         *pDest = (T) LICE_Bezier_GetY(xm1, x1, xm2, ym1, y1, ym2, xi);
       }
     }
@@ -194,7 +200,8 @@ inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
 
   m = (y2 - y1) / (x2 - x1);
   yi = ym2;
-  for (/* */; xi <= x2; xi += 1.0, yi += m, ++pDest) {
+  for (/* */; xi < x2; xi += 1.0, yi += m, ++pDest) 
+  {
     *pDest = (T) yi;
   }
 }

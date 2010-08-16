@@ -79,14 +79,16 @@ private:
 
 
 private:
+  double m_pspos WDL_FIXALIGN;
+  double m_tempo_fracpos;
+  double m_srate,m_last_tempo,m_last_shift;
+
   WDL_TypedBuf<WDL_SIMPLEPITCHSHIFT_SAMPLETYPE> m_psbuf;
-  double m_pspos;
-  int m_pswritepos;
   WDL_Queue m_queue;
   WDL_TypedBuf<WDL_SIMPLEPITCHSHIFT_SAMPLETYPE> m_inbuf;
   WDL_TypedBuf<WDL_SIMPLEPITCHSHIFT_SAMPLETYPE> m_rsbuf;
-  double m_tempo_fracpos;
-  double m_srate,m_last_tempo,m_last_shift;
+
+  int m_pswritepos;
   int m_last_nch;
   int m_qual;
   int m_hadinput;

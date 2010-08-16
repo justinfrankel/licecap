@@ -1,6 +1,6 @@
 del wdl.zip
 cd..
-zip -X9r wdl\wdl.zip wdl -i *.c *.cpp *.cc *.h *.m *.mm *.png *.ico *.txt *.bat *.rc *.plist *.dsp *.dsw *.pbxproj *.strings *.nib *.php *.exp *.vcproj *.vcxproj *_prefix.pch *.r
+zip -X9r wdl\wdl.zip wdl -i *.c *.cpp *.cc *.h *.m *.mm *.png *.ico *.txt *.bat *.rc *.plist *.dsp *.dsw *.pbxproj *.strings *.nib *.php *.exp *.vcproj *.vcxproj *_prefix.pch *.r *.xib
 
 zip -X9r wdl\wdl.zip wdl\iplug\example\img.zip
 

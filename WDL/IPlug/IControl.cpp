@@ -263,7 +263,7 @@ bool IFaderControl::Draw(IGraphics* pGraphics)
 void IKnobControl::OnMouseDrag(int x, int y, int dX, int dY, IMouseMod* pMod)
 {
   double gearing = mGearing;
-	if (pMod->C || pMod->S) gearing *= 0.1;  
+	if (pMod->C || pMod->S) gearing *= 10.0;  
 
 	if (mDirection == kVertical) 
   {

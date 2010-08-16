@@ -77,6 +77,10 @@
 		5276FBE30D158937006A299A /* IPlug_include_in_plug_hdr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPlug_include_in_plug_hdr.h; path = ../IPlug_include_in_plug_hdr.h; sourceTree = SOURCE_ROOT; };
 		5276FBE40D15893B006A299A /* IPlug_include_in_plug_src.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPlug_include_in_plug_src.h; path = ../IPlug_include_in_plug_src.h; sourceTree = SOURCE_ROOT; };
 		52780D5D0D20A3FC00C2BCA7 /* IPlugAU_ViewFactory.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = IPlugAU_ViewFactory.mm; path = ../IPlugAU_ViewFactory.mm; sourceTree = SOURCE_ROOT; };
+		528A62261159258E00BD5F20 /* AudioUnit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioUnit.framework; path = System/Library/Frameworks/AudioUnit.framework; sourceTree = SDKROOT; };
+		528A62281159258E00BD5F20 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		528A622A1159258E00BD5F20 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		528A622C1159258E00BD5F20 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		52C4DB180D0E51270007A920 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
 		52DC4B560D29B54E00DD0B91 /* IPlug.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = IPlug.xcodeproj; path = ../IPlug.xcodeproj; sourceTree = SOURCE_ROOT; };
 		52E41BB20D14C0F500A0943B /* IPlugExample.component */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPlugExample.component; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -182,6 +186,10 @@
 				52E41CB90D14C2A900A0943B /* CoreAudio.framework */,
 				52C4DB180D0E51270007A920 /* Carbon.framework */,
 				1058C7ADFEA557BF11CA2CBB /* Cocoa.framework */,
+				528A62261159258E00BD5F20 /* AudioUnit.framework */,
+				528A62281159258E00BD5F20 /* Carbon.framework */,
+				528A622A1159258E00BD5F20 /* Cocoa.framework */,
+				528A622C1159258E00BD5F20 /* CoreAudio.framework */,
 			);
 			name = "Linked Frameworks";
 			sourceTree = "<group>";
@@ -561,7 +569,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				GCC_PREPROCESSOR_DEFINITIONS = AU_API;
 				GENERATE_PKGINFO_FILE = YES;

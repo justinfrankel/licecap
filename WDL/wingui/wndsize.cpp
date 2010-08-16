@@ -49,8 +49,8 @@ void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
 void WDL_WndSizer::init_itemvirt(WDL_VirtualWnd *vwnd, 
                                  float left_scale, float top_scale, float right_scale, float bottom_scale)
 {
-  RECT this_r;
-  vwnd->GetPosition(&this_r);
+  RECT this_r={0,};
+  if (vwnd) vwnd->GetPosition(&this_r);
   int osize=m_list.GetSize();
   m_list.Resize(osize+sizeof(WDL_WndSizer__rec));
 
@@ -68,9 +68,9 @@ void WDL_WndSizer::init_itemvirt(WDL_VirtualWnd *vwnd,
 
 void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, float right_scale, float bottom_scale, RECT *srcr)
 {
-  RECT this_r;
+  RECT this_r={0,};
   if (srcr) this_r=*srcr;
-  else
+  else if (h)
   {
     GetWindowRect(h,&this_r);
     ScreenToClient(m_hwnd,(LPPOINT) &this_r);

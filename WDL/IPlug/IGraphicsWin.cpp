@@ -35,7 +35,7 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
 {
   if (msg == WM_CREATE) {
     LPCREATESTRUCT lpcs = (LPCREATESTRUCT) lParam;
-    SetWindowLongPtr(hWnd, GWLP_USERDATA, (long) (lpcs->lpCreateParams));
+    SetWindowLongPtr(hWnd, GWLP_USERDATA, (LPARAM) (lpcs->lpCreateParams));
 		int mSec = int(1000.0 / sFPS);
 		SetTimer(hWnd, IPLUG_TIMER_ID, mSec, NULL);
 		return 0;
@@ -86,7 +86,7 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
             }
             case kCancel:
 			      {
-							SetWindowLongPtr(pGraphics->mParamEditWnd, GWLP_WNDPROC, (LONG) pGraphics->mDefEditProc);
+							SetWindowLongPtr(pGraphics->mParamEditWnd, GWLP_WNDPROC, (LPARAM) pGraphics->mDefEditProc);
 							DestroyWindow(pGraphics->mParamEditWnd);
 							pGraphics->mParamEditWnd = 0;
 							pGraphics->mEdParam = 0;
@@ -367,7 +367,7 @@ void* IGraphicsWin::OpenWindow(void* pParentWnd)
   sFPS = FPS();
   mPlugWnd = CreateWindow(wndClassName, "IPlug", WS_CHILD | WS_VISIBLE, // | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
 		x, y, w, h, (HWND) pParentWnd, 0, mHInstance, this);
-	//SetWindowLong(mPlugWnd, GWL_USERDATA, (LONG) this);
+	//SetWindowLong(mPlugWnd, GWL_USERDATA, (LPARAM) this);
 
 	if (!mPlugWnd && --nWndClassReg == 0) {
 		UnregisterClass(wndClassName, mHInstance);
@@ -501,7 +501,7 @@ void IGraphicsWin::PromptUserInput(IControl* pControl, IParam* pParam)
 	}
 
 	mDefEditProc = (WNDPROC) SetWindowLongPtr(mParamEditWnd, GWLP_WNDPROC, (LONG_PTR) ParamEditProc);
-  SetWindowLong(mParamEditWnd, GWLP_USERDATA, (LONG) this);
+  SetWindowLong(mParamEditWnd, GWLP_USERDATA, (LPARAM) this);
 
   IText txt;
 	HFONT font = CreateFont(txt.mSize, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, txt.mFont);

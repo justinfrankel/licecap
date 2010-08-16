@@ -598,18 +598,18 @@ public:
 #elif defined(WDL_POSIX_NATIVE_WRITE)
   int GetHandle() { return m_filedes; }
 
-  int m_filedes;
-  bool m_filedes_locked;
-
   WDL_HeapBuf m_bufspace;
   int m_bufspace_used;
+  int m_filedes;
+
+  bool m_filedes_locked;
 
 #else
   int GetHandle() { return fileno(m_fp); }
  
   FILE *m_fp;
 #endif
-};
+} WDL_FIXALIGN;
 
 
 

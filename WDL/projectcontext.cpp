@@ -17,14 +17,43 @@
 #include "lineparse.h"
 
 
+//#define WDL_MEMPROJECTCONTEXT_USE_ZLIB 1
+
+#ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+
+#define WDL_MEMPROJECTCONTEXT_ZLIB_CHUNKSIZE 65536
+#include "zlib/zlib.h"
+
+#endif
+
 
 class ProjectStateContext_Mem : public ProjectStateContext
 {
 public:
-  ProjectStateContext_Mem(WDL_HeapBuf *hb) { m_heapbuf=hb; m_pos=0; }
+  ProjectStateContext_Mem(WDL_HeapBuf *hb) 
+  { 
+    m_heapbuf=hb; 
+    m_pos=0; 
+    #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+      memset(&m_compstream,0,sizeof(m_compstream));
+      m_usecomp=0;
+    #endif
+  }
   virtual ~ProjectStateContext_Mem() 
   { 
+    #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+      if (m_usecomp==1)
+      {
+        FlushComp(true);
+        deflateEnd(&m_compstream);
+      }
+      else if (m_usecomp==2)
+      {
+        inflateEnd(&m_compstream);
+      }
+    #endif
   };
+
 
 
   virtual void AddLine(const char *fmt, ...);
@@ -34,6 +63,62 @@ public:
 
   int m_pos;
   WDL_HeapBuf *m_heapbuf;
+
+#ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+  int DecompressData()
+  {
+    if (m_pos >= m_heapbuf->GetSize()) return 1;
+
+    m_compstream.next_in = (unsigned char *)m_heapbuf->Get() + m_pos;
+    m_compstream.avail_in = m_heapbuf->GetSize()-m_pos;
+    m_compstream.total_in = 0;
+    
+    int outchunk = 65536;
+    m_compstream.next_out = (unsigned char *)m_compdatabuf.Add(NULL,outchunk);
+    m_compstream.avail_out = outchunk;
+    m_compstream.total_out = 0;
+
+    int e = inflate(&m_compstream,Z_NO_FLUSH);
+
+    m_pos += m_compstream.total_in;
+    m_compdatabuf.Add(NULL,m_compstream.total_out - outchunk); // rewind
+
+    return e != Z_OK;
+  }
+
+  void FlushComp(bool eof)
+  {
+    while (m_compdatabuf.Available()>=WDL_MEMPROJECTCONTEXT_ZLIB_CHUNKSIZE || eof)
+    {
+      if (!m_heapbuf->GetSize()) m_heapbuf->SetGranul(256*1024);
+      m_compstream.next_in = (unsigned char *)m_compdatabuf.Get();
+      m_compstream.avail_in = m_compdatabuf.Available();
+      m_compstream.total_in = 0;
+     
+      int osz = m_heapbuf->GetSize();
+
+      int newsz=osz + max(m_compstream.avail_in,8192) + 256;
+      m_compstream.next_out = (unsigned char *)m_heapbuf->Resize(newsz, false) + osz;
+      if (m_heapbuf->GetSize()!=newsz) return; // ERROR
+      m_compstream.avail_out = newsz-osz;
+      m_compstream.total_out=0;
+
+      deflate(&m_compstream,eof?Z_SYNC_FLUSH:Z_NO_FLUSH);
+
+      m_heapbuf->Resize(osz+m_compstream.total_out,false);
+      m_compdatabuf.Advance(m_compstream.total_in);
+      if (m_compstream.avail_out) break; // no need to process anymore
+
+    }
+    m_compdatabuf.Compact();
+  }
+
+  // these will be used for either decompression or compression, fear
+  int m_usecomp; // 0=?, -1 = fail, 1=yes
+  WDL_Queue m_compdatabuf;
+  z_stream m_compstream;
+#endif
+
 };
 
 void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
@@ -50,6 +135,22 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   if (l<=0) return;
 
   l++;
+
+#ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+  if (!m_usecomp)
+  {
+    if (deflateInit(&m_compstream,WDL_MEMPROJECTCONTEXT_USE_ZLIB)==Z_OK) m_usecomp=1;
+    else m_usecomp=-1;
+  }
+
+  if (m_usecomp==1)
+  {
+    m_compdatabuf.Add(buf,l);
+    FlushComp(false);
+    return;
+  }
+#endif
+
 
   int sz=m_heapbuf->GetSize();
   if (!sz)
@@ -74,6 +175,39 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
   if (!m_heapbuf) return -1;
 
   buf[0]=0;
+
+
+#ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+  if (!m_usecomp)
+  {
+    unsigned char hdr[]={0x78,0x01};
+    if (m_heapbuf->GetSize()>2 && !memcmp(hdr,m_heapbuf->Get(),4) && inflateInit(&m_compstream)==Z_OK) m_usecomp=2;
+    else m_usecomp=-1;
+  }
+  if (m_usecomp==2)
+  {
+    char *p = (char*) m_compdatabuf.Get();
+    int x;
+    for (x = 0; x < m_compdatabuf.Available() && p[x]; x ++);
+    while (x >= m_compdatabuf.Available())
+    {
+      int err = DecompressData();
+      p = (char *)m_compdatabuf.Get();
+      for (; x < m_compdatabuf.Available() && p[x]; x ++);
+
+      if (err) break;
+    }
+
+    if (x>=m_compdatabuf.Available()) return -1; 
+
+    lstrcpyn(buf,(char*)m_compdatabuf.Get(),buflen);
+    m_compdatabuf.Advance(x+1);
+    m_compdatabuf.Compact();
+    return 0;
+  }
+#endif
+  
+
   if (m_pos >= m_heapbuf->GetSize()) return -1;
   char *curptr=(char *)m_heapbuf->Get() + m_pos;
   
@@ -108,12 +242,14 @@ public:
   virtual WDL_INT64 GetOutputSize() { return m_bytesOut; }
 
   bool HasError() { return m_errcnt; }
+
+  WDL_INT64 m_bytesOut WDL_FIXALIGN;
+
   WDL_FileRead *m_rd;
   WDL_FileWrite *m_wr;
-  bool m_errcnt;
   int m_indent;
 
-  WDL_INT64 m_bytesOut;
+  bool m_errcnt;
 };
 
 int ProjectStateContext_File::GetLine(char *buf, int buflen)

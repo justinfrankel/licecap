@@ -30,17 +30,25 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/fcntl.h>
+
 
 #include "swell-internal.h"
 
-#ifdef SWELL_TARGET_OSX
-#import <Carbon/Carbon.h>
+
+#ifdef __APPLE__
+#include <Carbon/Carbon.h>
 #include <libkern/OSAtomic.h>
 #include <sched.h>
 #endif
 
+
 #include <pthread.h>
 
+
+#include "../mutex.h"
+#include "../assocarray.h"
 
 void Sleep(int ms)
 {
@@ -58,7 +66,7 @@ DWORD GetTickCount()
 static void intToFileTime(time_t t, FILETIME *out)
 {
   unsigned long long a=(unsigned long long)t; // seconds since january 1st, 1970
-  a+=(60*60*24*(365*4+1)/4)*(1970-1601); // this is approximate
+  a+=(60*60*24*(365*4+1)/4)*(long long)(1970-1601); // this is approximate
   a*=1000*10000; // seconds to 1/10th microseconds (100 nanoseconds)
   out->dwLowDateTime=a & 0xffffffff;
   out->dwHighDateTime=a>>32;
@@ -114,50 +122,6 @@ unsigned int  _controlfp(unsigned int flag, unsigned int mask)
 }
 
 
-enum
-{
-  INTERNAL_OBJECT_START= 0x1000001,
-  INTERNAL_OBJECT_THREAD,
-  INTERNAL_OBJECT_EVENT,
-  INTERNAL_OBJECT_FILE,
-  INTERNAL_OBJECT_END
-};
-
-typedef struct
-{
-   int type; // INTERNAL_OBJECT_*
-   int count; // reference count
-} SWELL_InternalObjectHeader;
-
-typedef struct
-{
-  SWELL_InternalObjectHeader hdr;
-  DWORD (*threadProc)(LPVOID);
-  void *threadParm;
-  pthread_t pt;
-  DWORD retv;
-  bool done;
-} SWELL_InternalObjectHeader_Thread;
-
-typedef struct
-{
-  SWELL_InternalObjectHeader hdr;
-  
-  pthread_mutex_t mutex;
-  pthread_cond_t cond;
-
-  bool isSignal;
-  bool isManualReset;
-  
-} SWELL_InternalObjectHeader_Event;
-
-typedef struct
-{
-  SWELL_InternalObjectHeader hdr;
-  
-  FILE *fp;
-} SWELL_InternalObjectHeader_File;
-
 BOOL CloseHandle(HANDLE hand)
 {
   SWELL_InternalObjectHeader *hdr=(SWELL_InternalObjectHeader*)hand;
@@ -178,6 +142,14 @@ BOOL CloseHandle(HANDLE hand)
           if (file->fp) fclose(file->fp);
         }
       break;
+      case INTERNAL_OBJECT_EXTERNALSOCKET: return FALSE; // pure sockets are not to be closed this way;
+      case INTERNAL_OBJECT_SOCKETEVENT:
+        {
+          SWELL_InternalObjectHeader_SocketEvent *se= (SWELL_InternalObjectHeader_SocketEvent *)hdr;
+          if (se->socket[0]) close(se->socket[0]);
+          if (se->socket[1]) close(se->socket[1]);
+        }
+      break;
       case INTERNAL_OBJECT_EVENT:
         {
           SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hdr;
@@ -193,12 +165,81 @@ BOOL CloseHandle(HANDLE hand)
           pthread_detach(thr->pt);
         }
       break;
+#ifdef __APPLE__
+      case INTERNAL_OBJECT_NSTASK:
+        {
+          SWELL_InternalObjectHeader_NSTask *nst = (SWELL_InternalObjectHeader_NSTask*)hdr;
+          extern void SWELL_ReleaseNSTask(void *);
+          if (nst->task) SWELL_ReleaseNSTask(nst->task);
+        }
+      break;
+#endif
     }
     free(hdr);
   }
   return TRUE;
 }
 
+HANDLE CreateEventAsSocket(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored)
+{
+  SWELL_InternalObjectHeader_SocketEvent *buf = (SWELL_InternalObjectHeader_SocketEvent*)malloc(sizeof(SWELL_InternalObjectHeader_SocketEvent));
+  buf->hdr.type=INTERNAL_OBJECT_SOCKETEVENT;
+  buf->hdr.count=1;
+  buf->autoReset = !manualReset;
+  buf->socket[0]=buf->socket[1]=0;
+  if (socketpair(AF_UNIX,SOCK_STREAM,0,buf->socket)<0) 
+  { 
+    free(buf);
+    return 0;
+  }
+  fcntl(buf->socket[0], F_SETFL, fcntl(buf->socket[0],F_GETFL) | O_NONBLOCK); // nonblocking
+
+  char c=0;
+  if (initialSig&&buf->socket[1]) write(buf->socket[1],&c,1);
+
+  return buf;
+}
+
+DWORD WaitForAnySocketObject(int numObjs, HANDLE *objs, DWORD msTO) // only supports special (socket) handles at the moment 
+{
+  int max_s=0;
+  fd_set s;
+  FD_ZERO(&s);
+  int x;
+  for (x = 0; x < numObjs; x ++)
+  {
+    SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
+    if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0])
+    {
+      FD_SET(se->socket[0],&s);
+      if (se->socket[0] > max_s) max_s = se->socket[0];
+    }
+  }
+
+  if (max_s>0)
+  {
+again:
+    struct timeval tv={msTO/1000,(msTO%1000)*1000};
+    if (select(max_s+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0) for (x = 0; x < numObjs; x ++)
+    {
+      SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
+      if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]) 
+      {
+        if (FD_ISSET(se->socket[0],&s)) 
+        {
+          if (se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT && se->autoReset)
+          {
+            char buf[128];
+            if (read(se->socket[0],buf,sizeof(buf))<1) goto again;
+          }
+          return WAIT_OBJECT_0 + x;
+        }
+      }
+    }
+  }
+  
+  return WAIT_TIMEOUT;
+}
 
 DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
 {
@@ -207,6 +248,15 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
   
   switch (hdr->type)
   {
+#ifdef __APPLE__
+    case INTERNAL_OBJECT_NSTASK:
+      {
+        SWELL_InternalObjectHeader_NSTask *nst = (SWELL_InternalObjectHeader_NSTask*)hdr;
+        extern DWORD SWELL_WaitForNSTask(void *,DWORD);
+        if (nst->task) return SWELL_WaitForNSTask(nst->task,msTO);
+      }
+    break;
+#endif
     case INTERNAL_OBJECT_THREAD:
       {
         SWELL_InternalObjectHeader_Thread *thr = (SWELL_InternalObjectHeader_Thread*)hdr;
@@ -223,6 +273,31 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
         }
     
         if (!pthread_join(thr->pt,&tmp)) return WAIT_OBJECT_0;      
+      }
+    break;
+    case INTERNAL_OBJECT_EXTERNALSOCKET:
+    case INTERNAL_OBJECT_SOCKETEVENT:
+      {
+        SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)hdr;
+        if (!se->socket[0]) Sleep(msTO!=INFINITE?msTO:1);
+        else
+        {
+          fd_set s;
+          FD_ZERO(&s);
+again:
+          FD_SET(se->socket[0],&s);
+          struct timeval tv={msTO/1000,(msTO%1000)*1000};
+          if (select(se->socket[0]+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0 && FD_ISSET(se->socket[0],&s)) 
+          {
+            if (se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT && se->autoReset)
+            {
+              char buf[128];
+              if (read(se->socket[0],buf,sizeof(buf))<1) goto again;
+            }
+            return WAIT_OBJECT_0;
+          } 
+          return WAIT_TIMEOUT;
+        }
       }
     break;
     case INTERNAL_OBJECT_EVENT:
@@ -251,7 +326,28 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
               break;
             }
 #else
-	#warning fixme on non-apple (implement using pthread_cond_timedwait())
+#if 1
+            struct timeval tm={0,};
+            gettimeofday(&tm,NULL);
+            ts.tv_sec += tm.tv_sec;
+            ts.tv_nsec += tm.tv_usec * 1000;
+#else
+            struct timespec ts2={0,0,};
+            clock_gettime(CLOCK_REALTIME,&ts2);
+            ts.tv_sec += ts2.tv_sec;
+            ts.tv_nsec += ts2.tv_nsec;
+#endif
+            if (ts.tv_nsec>=1000000000) 
+            {
+              int n = ts.tv_nsec/1000000000;
+              ts.tv_sec+=n;
+              ts.tv_nsec -= ((long long)n * (long long)1000000000);
+            }
+            if (pthread_cond_timedwait(&evt->cond,&evt->mutex,&ts))
+            {
+              rv = WAIT_TIMEOUT;
+              break;
+            }
 #endif
             // we should track/correct the timeout amount here since in theory we could end up waiting a bit longer!
           }
@@ -291,7 +387,7 @@ DWORD GetCurrentThreadId()
   return (DWORD)(INT_PTR)pthread_self(); // this is incorrect on x64
 }
 
-HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored)
+HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored) 
 {
   SWELL_InternalObjectHeader_Event *buf = (SWELL_InternalObjectHeader_Event*)malloc(sizeof(SWELL_InternalObjectHeader_Event));
   buf->hdr.type=INTERNAL_OBJECT_EVENT;
@@ -358,26 +454,59 @@ BOOL SetThreadPriority(HANDLE hand, int prio)
 BOOL SetEvent(HANDLE hand)
 {
   SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hand;
-  if (!evt || evt->hdr.type != INTERNAL_OBJECT_EVENT) return FALSE;
-  
-  pthread_mutex_lock(&evt->mutex);
-  if (!evt->isSignal)
+  if (!evt) return FALSE;
+  if (evt->hdr.type == INTERNAL_OBJECT_EVENT) 
   {
-    evt->isSignal = true;
-    if (evt->isManualReset) pthread_cond_broadcast(&evt->cond);
-    else pthread_cond_signal(&evt->cond);
+    pthread_mutex_lock(&evt->mutex);
+    if (!evt->isSignal)
+    {
+      evt->isSignal = true;
+      if (evt->isManualReset) pthread_cond_broadcast(&evt->cond);
+      else pthread_cond_signal(&evt->cond);
+    }
+    pthread_mutex_unlock(&evt->mutex);
+    return TRUE;
   }
-  pthread_mutex_unlock(&evt->mutex);
-  return TRUE;
+  if (evt->hdr.type == INTERNAL_OBJECT_SOCKETEVENT)
+  {
+    SWELL_InternalObjectHeader_SocketEvent *se=(SWELL_InternalObjectHeader_SocketEvent*)hand;
+    if (se->socket[1])
+    {
+      if (se->socket[0]) 
+      {
+        fd_set s;
+        FD_ZERO(&s);
+        FD_SET(se->socket[0],&s);
+        struct timeval tv={0,};
+        if (select(se->socket[0]+1,&s,NULL,NULL,&tv)>0 && FD_ISSET(se->socket[0],&s)) return TRUE; // already set
+      }
+      char c=0; 
+      write(se->socket[1],&c,1); 
+    }
+    return TRUE;
+  }
+  return FALSE;
 }
 BOOL ResetEvent(HANDLE hand)
 {
   SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hand;
-  if (!evt || evt->hdr.type != INTERNAL_OBJECT_EVENT) return FALSE;
-  
-  evt->isSignal=false;
-  
-  return TRUE;
+  if (!evt) return FALSE;
+  if (evt->hdr.type == INTERNAL_OBJECT_EVENT) 
+  {
+    evt->isSignal=false;
+    return TRUE;
+  }
+  if (evt->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) 
+  {
+    SWELL_InternalObjectHeader_SocketEvent *se=(SWELL_InternalObjectHeader_SocketEvent*)hand;
+    if (se->socket[0])
+    {
+      char buf[128];
+      read(se->socket[0],buf,sizeof(buf));
+    }
+    return TRUE;
+  }
+  return FALSE;
 }
 
 HANDLE CreateFile( const char * lpFileName,
@@ -393,7 +522,6 @@ HANDLE CreateFile( const char * lpFileName,
 
 DWORD SetFilePointer(HANDLE hFile, DWORD low, DWORD *high)
 { 
-  int pos;
   SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
   if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || (high && *high) || fseek(file->fp,low,SEEK_SET)==-1) { if (high) *high=0xffffffff; return 0xffffffff; }
   return ftell(file->fp);
@@ -410,7 +538,6 @@ DWORD GetFilePointer(HANDLE hFile, DWORD *high)
 
 DWORD GetFileSize(HANDLE hFile, DWORD *high)
 {
-  int pos;
   SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
   if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp) { if (high) *high=0xffffffff; return 0xffffffff; }
   
@@ -536,6 +663,235 @@ HANDLE GlobalAlloc(int flags, int sz)
   rec->refcnt=0;
   if (flags&GMEM_FIXED) memset(rec+1,0,sz);
   return rec+1;
+}
+
+char *lstrcpyn(char *dest, const char *src, int l)
+{
+  if (l<1) return dest;
+
+  char *dsrc=dest;
+  while (--l > 0)
+  {
+    char p=*src++;
+    if (!p) break;
+    *dest++=p;
+  }
+  *dest++=0;
+
+  return dsrc;
+}
+
+static WDL_Mutex s_libraryMutex;
+static int libkeycomp(void **p1, void **p2)
+{
+  INT_PTR a=(INT_PTR)(*p1) - (INT_PTR)(*p2);
+  if (a<0)return -1;
+  if (a>0) return 1;
+  return 0;
+}
+static WDL_AssocArray<void *, SWELL_HINSTANCE *> s_loadedLibs(libkeycomp); // index by OS-provided handle (rather than filename since filenames could be relative etc)
+
+HINSTANCE LoadLibrary(const char *fn)
+{
+  return LoadLibraryGlobals(fn,false);
+}
+HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
+{
+  if (!fn || !*fn) return NULL;
+  
+  void *inst = NULL, *bundleinst=NULL;
+
+#ifdef __APPLE__
+  struct stat ss;
+  if (stat(fn,&ss) || (ss.st_mode&S_IFDIR))
+  {
+    CFStringRef str=(CFStringRef)SWELL_CStringToCFString(fn); 
+    CFURLRef r=CFURLCreateWithFileSystemPath(NULL,str,kCFURLPOSIXPathStyle,true);
+    CFRelease(str);
+  
+    bundleinst=(void *)CFBundleCreate(NULL,r);
+    CFRelease(r);
+    
+    if (bundleinst)
+    {
+      CFURLRef executableURL = CFBundleCopyExecutableURL((CFBundleRef)bundleinst);
+      char path[PATH_MAX];
+      path[0]=0;
+      if (executableURL) 
+      {
+        if (!CFURLGetFileSystemRepresentation(executableURL, true, (UInt8*)path, sizeof(path))) path[0]=0;
+        CFRelease(executableURL);
+      }        
+      
+      if (path[0]) 
+      {
+
+        inst=dlopen(path,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
+        if (!inst)
+        {
+          CFRelease(bundleinst);
+          return 0;
+        }
+      }
+    }      
+  }
+#endif
+
+  if (!inst && !bundleinst)
+  {
+    inst=dlopen(fn,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
+    if (!inst) return 0;
+  }
+
+  WDL_MutexLock lock(&s_libraryMutex);
+  
+  SWELL_HINSTANCE *rec = s_loadedLibs.Get(bundleinst ? bundleinst : inst);
+  if (!rec) 
+  { 
+    rec = (SWELL_HINSTANCE *)malloc(sizeof(SWELL_HINSTANCE));
+    rec->instptr = inst;
+    rec->bundleinstptr =  bundleinst;
+    rec->refcnt = 1;
+    rec->SWELL_dllMain = NULL;
+    rec->dllMain = NULL;
+    s_loadedLibs.Insert(bundleinst ? bundleinst : inst,rec);
+  
+    int (*SWELL_dllMain)(HINSTANCE, DWORD, LPVOID) = 0;
+    BOOL (*dllMain)(HINSTANCE, DWORD, LPVOID) = 0;
+    *(void **)&SWELL_dllMain = GetProcAddress(rec,"SWELL_dllMain");
+    if (SWELL_dllMain)
+    {
+      void *SWELLAPI_GetFunc(const char *name);
+      
+      if (!SWELL_dllMain(rec,DLL_PROCESS_ATTACH,(void*)NULL)) // todo: eventually pass SWELLAPI_GetFunc, maybe?
+      {
+        FreeLibrary(rec);
+        return 0;
+      }
+      *(void **)&dllMain = GetProcAddress(rec,"DllMain");
+      if (dllMain)
+      {
+        if (!dllMain(rec,DLL_PROCESS_ATTACH,NULL))
+        { 
+          SWELL_dllMain(rec,DLL_PROCESS_DETACH,(void*)NULL);
+          FreeLibrary(rec);
+          return 0;
+        }
+      }
+    }
+    rec->SWELL_dllMain = SWELL_dllMain;
+    rec->dllMain = dllMain;
+  }
+  else rec->refcnt++;
+
+  return rec;
+}
+
+void *GetProcAddress(HINSTANCE hInst, const char *procName)
+{
+  if (!hInst) return 0;
+
+  SWELL_HINSTANCE *rec=(SWELL_HINSTANCE*)hInst;
+
+#ifdef __APPLE__
+  if (rec->bundleinstptr)
+  {
+    CFStringRef str=(CFStringRef)SWELL_CStringToCFString(procName); 
+    void *ret = (void *)CFBundleGetFunctionPointerForName((CFBundleRef)rec->bundleinstptr, str);
+    CFRelease(str);
+    return ret;
+  }
+#endif
+  if (rec->instptr)  return (void *)dlsym(rec->instptr, procName);
+  
+  return 0;
+}
+
+BOOL FreeLibrary(HINSTANCE hInst)
+{
+  if (!hInst) return FALSE;
+
+  WDL_MutexLock lock(&s_libraryMutex);
+
+  bool dofree=false;
+  SWELL_HINSTANCE *rec=(SWELL_HINSTANCE*)hInst;
+  if (--rec->refcnt<=0) 
+  {
+    dofree=true;
+    s_loadedLibs.Delete(rec->bundleinstptr ? rec->bundleinstptr : rec->instptr); 
+    
+    if (rec->SWELL_dllMain) 
+    {
+      rec->SWELL_dllMain(rec,DLL_PROCESS_DETACH,NULL);
+      if (rec->dllMain) rec->dllMain(rec,DLL_PROCESS_DETACH,NULL);
+    }
+
+  }
+
+#ifdef __APPLE__
+  if (rec->bundleinstptr) CFRelease((CFBundleRef)rec->bundleinstptr); 
+#endif
+  if (rec->instptr) dlclose(rec->instptr); 
+  
+  if (dofree) free(rec);
+  return TRUE;
+}
+
+DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
+{
+  *fn=0;
+
+  void *instptr = NULL, *bundleinstptr=NULL;
+  if (hInst)
+  {
+    SWELL_HINSTANCE *p = (SWELL_HINSTANCE*)hInst;
+    instptr = p->instptr;
+    bundleinstptr = p->bundleinstptr;
+  }
+#ifdef __APPLE__
+  if (!instptr || bundleinstptr)
+  {
+    CFBundleRef bund=bundleinstptr ? (CFBundleRef)bundleinstptr : CFBundleGetMainBundle();
+    if (bund) 
+    {
+      CFURLRef url=CFBundleCopyBundleURL(bund);
+      if (url)
+      {
+        char buf[8192];
+        if (CFURLGetFileSystemRepresentation(url,true,(UInt8*)buf,sizeof(buf))) lstrcpyn(fn,buf,nSize);
+        CFRelease(url);
+      }
+    }
+    return strlen(fn);
+  }
+#else
+  if (!instptr) // get exe file name
+  {
+    char tmp[64];
+    sprintf(tmp,"/proc/%d/exe",getpid());
+    int sz=readlink(tmp,fn,nSize);
+    if (sz<0)sz=0;
+    else if (sz>=nSize)sz=nSize-1;
+    fn[sz]=0;
+    return sz;
+  }
+#endif
+
+  if (instptr)
+  {
+    void *p = GetProcAddress(hInst,"SWELL_dllMain");
+    if (p)
+    {
+      Dl_info inf={0,};
+      dladdr(p,&inf);
+      if (inf.dli_fname)
+      {
+        lstrcpyn(fn,inf.dli_fname,nSize);
+        return strlen(fn);
+      }
+    }
+  }
+  return 0;
 }
 
 

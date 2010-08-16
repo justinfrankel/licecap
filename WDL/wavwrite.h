@@ -309,9 +309,9 @@ class WaveWriter
     int get_bps() { return m_bps; }
 
   private:
+    WDL_String m_fn;
     FILE *m_fp;
     int m_bps,m_nch,m_srate;
-    WDL_String m_fn;
 };
 
 

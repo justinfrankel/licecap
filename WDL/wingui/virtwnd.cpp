@@ -1245,7 +1245,7 @@ static LRESULT CALLBACK vwndDlgHost_newProc(HWND hwnd, UINT msg, WPARAM wParam, 
 
 #endif
 
-void WDL_VWnd_regHelperClass(const char *classname)
+void WDL_VWnd_regHelperClass(const char *classname, void *icon1, void *icon2)
 {
 #ifdef _WIN32
   static bool reg;
@@ -1256,6 +1256,8 @@ void WDL_VWnd_regHelperClass(const char *classname)
   WNDCLASSEX wc={sizeof(wc),};
   GetClassInfoEx(NULL,"#32770",&wc);
   wc.lpszClassName = (char*)classname;
+  if (icon1) wc.hIcon = (HICON)icon1;
+  if (icon2) wc.hIconSm = (HICON)icon2;
   vwndDlgHost_oldProc=wc.lpfnWndProc;
   wc.lpfnWndProc=vwndDlgHost_newProc;
   RegisterClassEx(&wc);

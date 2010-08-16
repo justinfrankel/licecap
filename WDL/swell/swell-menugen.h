@@ -79,7 +79,7 @@
 
 typedef struct SWELL_MenuResourceIndex
 {
-  int resid;
+  const char *resid;
   void (*createFunc)(HMENU hMenu);
   struct SWELL_MenuResourceIndex *_next;
 } SWELL_MenuResourceIndex;
@@ -90,8 +90,8 @@ extern SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 class NewCustomMenuResource_##recid { \
 public: \
   SWELL_MenuResourceIndex m_rec; \
-  NewCustomMenuResource_##recid() {  m_rec.resid=recid; m_rec.createFunc=cf; m_rec._next=SWELL_curmodule_menuresource_head; SWELL_curmodule_menuresource_head=&m_rec; } \
-  static void cf(HMENU hMenu) { WDL_PtrList<char> mstack; mstack.Add((char *)(hMenu)
+  NewCustomMenuResource_##recid() {  m_rec.resid=MAKEINTRESOURCE(recid); m_rec.createFunc=cf; m_rec._next=SWELL_curmodule_menuresource_head; SWELL_curmodule_menuresource_head=&m_rec; } \
+  static void cf(HMENU hMenu) { WDL_PtrList<struct HMENU__> mstack; mstack.Add((hMenu)
         
 #define SWELL_DEFINE_MENU_RESOURCE_END(recid) ); } }; static NewCustomMenuResource_##recid NewCustomMenuResourceInst_##recid;     
 
@@ -102,16 +102,16 @@ public: \
 
 
 // use these, without semicolons after. menu should be uninitialized before, and will be the menu after
-#define SWELL_MENUGEN_BEGIN(menu) { WDL_PtrList<char> mstack;   mstack.Add((char*)(menu)=CreatePopupMenu()
+#define SWELL_MENUGEN_BEGIN(menu) { WDL_PtrList<struct HMENU__> mstack;   mstack.Add((menu)=CreatePopupMenu()
 #define SWELL_MENUGEN_END() ); }
 
 static void __SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags=0) { return SWELL_Menu_AddMenuItem(hMenu,name,idx,flags); }
 
 // we inline this here so that if WDL_PtrList is differenet across modules we dont have any issues
-static void __SWELL_MenuGen_AddPopup(WDL_PtrList<char> *stack, const char *name)
+static void __SWELL_MenuGen_AddPopup(WDL_PtrList<struct HMENU__> *stack, const char *name)
 {  
   MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,0,0,CreatePopupMenuEx(name),NULL,NULL,0,(char *)name};
-  HMENU hMenu=stack->Get(stack->GetSize()-1); stack->Add((char *)mi.hSubMenu);
+  HMENU hMenu=stack->Get(stack->GetSize()-1); stack->Add(mi.hSubMenu);
   InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
 }
 

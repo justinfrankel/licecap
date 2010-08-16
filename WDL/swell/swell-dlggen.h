@@ -150,6 +150,7 @@
 #define LBS_NOINTEGRALHEIGHT 0
 #define TVS_HASLINES 0
 #define TVS_SHOWSELALWAYS 0
+#define TVS_HASBUTTONS 0
 #define BS_FLAT 0
 #define TVS_DISABLEDRAGDROP 0
 #define TVS_TRACKSELECT 0
@@ -180,7 +181,7 @@
      
 typedef struct SWELL_DialogResourceIndex
 {
-  int resid;
+  const char *resid;
   const char *title;
   int windowTypeFlags;
   void (*createFunc)(HWND, int);
@@ -190,7 +191,7 @@ typedef struct SWELL_DialogResourceIndex
 
 typedef struct SWELL_CursorResourceIndex
 {
-  int resid;
+  const char *resid;
   const char *resname;
   POINT hotspot;
   HCURSOR cachedCursor;
@@ -228,7 +229,7 @@ static inline HWND __SWELL_MakeGroupBox(const char *name, int idx, int x, int y,
   return SWELL_MakeGroupBox(name,idx,x,y,w,h,style);
 }
 
-static void SWELL_Register_Cursor_Resource(int idx, const char *name, int hotspot_x, int hotspot_y)
+static void SWELL_Register_Cursor_Resource(const char *idx, const char *name, int hotspot_x, int hotspot_y)
 {
   extern SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
   
@@ -249,7 +250,7 @@ static void SWELL_Register_Cursor_Resource(int idx, const char *name, int hotspo
                                           public: \
                                             SWELL_DialogResourceIndex m_rec; \
                                             NewCustomResource_##recid () { \
-                                              if (recid) { m_rec.resid=recid; m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
+                                              if (recid) { m_rec.resid=MAKEINTRESOURCE(recid); m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
                                               m_rec._next=SWELL_curmodule_dialogresource_head; SWELL_curmodule_dialogresource_head=&m_rec; } } \
                                            static void cf(HWND view, int wflags) { \
                                              { SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE)); 

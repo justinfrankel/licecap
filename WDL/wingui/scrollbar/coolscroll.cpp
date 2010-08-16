@@ -141,6 +141,25 @@ typedef struct
 
   BOOL resizingHthumb;
 
+
+  // internal state stuff
+
+  UINT uScrollTimerMsg;
+  
+  UINT uMouseOverId;
+  UINT uScrollTimerId;
+  UINT uZoomTimerId, uZoomTimerMode;
+
+  RECT MouseOverRect;
+
+  UINT uCurrentScrollbar;
+  UINT uCurrentScrollPortion;
+  UINT uMouseOverScrollbar;
+  UINT uHitTestPortion;
+  UINT uLastHitTestPortion;
+  UINT uScrollTimerPortion;
+
+
 } SCROLLWND;
 
 
@@ -232,9 +251,6 @@ static int m_sb_bkgvt, m_sb_bkgvb;
 //	Special thumb-tracking variables
 //
 //
-static UINT uCurrentScrollbar = COOLSB_NONE;	//SB_HORZ / SB_VERT
-static UINT uCurrentScrollPortion = HTSCROLL_NONE;
-static UINT uCurrentButton = 0;
 
 static RECT rcThumbBounds;		//area that the scroll thumb can travel in
 static int  nThumbSize;			//(pixels)
@@ -246,16 +262,7 @@ static int  nThumbPos0;			//(pixels) initial thumb position
 //
 //	Temporary state used to auto-generate timer messages
 //
-static UINT uMouseOverId = 0;
-static UINT uMouseOverScrollbar = COOLSB_NONE;
-static UINT uHitTestPortion = HTSCROLL_NONE;
-static UINT uLastHitTestPortion = HTSCROLL_NONE;
-static RECT MouseOverRect;
 
-static UINT uScrollTimerMsg = 0;
-static UINT uScrollTimerPortion = HTSCROLL_NONE;
-static UINT uScrollTimerId = 0;
-static UINT uZoomTimerId = 0, uZoomTimerMode=0;
 static HWND hwndCurCoolSB = 0;
 static float m_scale = 1.0;
 static int m_thumbsize = 6;
@@ -318,7 +325,7 @@ static BOOL IsScrollbarActive(SCROLLBAR *sb)
 		return TRUE;
 }
 
-#ifndef _WIN32
+#ifdef __APPLE__
 static void GET_WINDOW_RECT(HWND hwnd, RECT *r)
 {
   GetWindowContentViewRect(hwnd,r);
@@ -334,7 +341,7 @@ static void GET_WINDOW_RECT(HWND hwnd, RECT *r)
 #define GET_WINDOW_RECT(hwnd, r) GetWindowRect(hwnd,r)
 #endif
 
-#ifndef _WIN32
+#ifdef __APPLE__
 static void OSX_REMAP_SCREENY(HWND hwnd, LONG *y)
 {
 //  POINT p={0,0};
@@ -350,11 +357,9 @@ static void OSX_REMAP_SCREENY(HWND hwnd, LONG *y)
   *y=min(r.bottom,r.top)+p.y;
 // map Y from "screen" coordinate
 }
-static void OSX_REMAP_SCREENY(HWND hwnd, int *y)
-{
-LONG l=*y; OSX_REMAP_SCREENY(hwnd,&l); *y=l;
-}
+
 #else
+
 #define OSX_REMAP_SCREENY(hwnd, y)
 #endif
 
@@ -1293,12 +1298,12 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
     BOOL ldis = !(uLeftButFlags & DFCS_INACTIVE);
     BOOL rdis = !(uRightButFlags & DFCS_INACTIVE);
     
-    fBarHot = sb->nBarType == (int)uMouseOverScrollbar;
+    fBarHot = sb->nBarType == (int)sw->uMouseOverScrollbar;
     
-    fMouseOverL = uHitTestPortion == HTSCROLL_LEFT && fBarHot && ldis;		
-    fMouseOverR = uHitTestPortion == HTSCROLL_RIGHT && fBarHot && rdis;
-    fMouseOverPlus = uHitTestPortion == HTSCROLL_ZOOMIN && fBarHot && ldis;
-    fMouseOverMinus = uHitTestPortion == HTSCROLL_ZOOMOUT && fBarHot && ldis;
+    fMouseOverL = sw->uHitTestPortion == HTSCROLL_LEFT && fBarHot && ldis;		
+    fMouseOverR = sw->uHitTestPortion == HTSCROLL_RIGHT && fBarHot && rdis;
+    fMouseOverPlus = sw->uHitTestPortion == HTSCROLL_ZOOMIN && fBarHot && ldis;
+    fMouseOverMinus = sw->uHitTestPortion == HTSCROLL_ZOOMOUT && fBarHot && ldis;
   }
 
 	//
@@ -1350,7 +1355,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
       if(m_scrollbar_bmp && *m_scrollbar_bmp)
       {
-        drawSkinThumb(hdc, thumb, uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb);
+        drawSkinThumb(hdc, thumb, sw->uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb);
       }
       else
       {
@@ -1804,7 +1809,7 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 	HRGN hrgn;
 	RECT winrect, rect;
 	HRGN clip;
-	BOOL fUpdateAll = ((LONG)wParam == 1);
+	BOOL fUpdateAll = (wParam == 1);
 	UINT ret;
 
   if(!m_scrollbar_bmp)
@@ -1843,8 +1848,8 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 		OffsetRect(&rect, -winrect.left, -winrect.top);
 
 
-		if(uCurrentScrollbar == SB_HORZ)
-			NCDrawHScrollbar(sb, hwnd, hdc, &rect, uScrollTimerPortion);
+		if(sw->uCurrentScrollbar == SB_HORZ)
+			NCDrawHScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion);
 		else
 			NCDrawHScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NONE);
 	}
@@ -1864,9 +1869,9 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 		OffsetRect(&rect, -winrect.left, -winrect.top);
 
 
-		if(uCurrentScrollbar == SB_VERT)
+		if(sw->uCurrentScrollbar == SB_VERT)
     {
-			NCDrawVScrollbar(sb, hwnd, hdc, &rect, uScrollTimerPortion);
+			NCDrawVScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion);
 		}
     else
 			NCDrawVScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NONE);
@@ -2070,33 +2075,33 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 	//
 	if(wParam == HTHSCROLL)
 	{
-		uScrollTimerMsg = WM_HSCROLL;
-		uCurrentScrollbar = SB_HORZ;
+		sw->uScrollTimerMsg = WM_HSCROLL;
+		sw->uCurrentScrollbar = SB_HORZ;
 		sb = &sw->sbarHorz;
 
 		//get the total area of the normal Horz scrollbar area
 		GetHScrollRect(sw, hwnd, &rect);
-		uCurrentScrollPortion = GetHorzPortion(sb, hwnd, &rect, pt.x,pt.y);
+		sw->uCurrentScrollPortion = GetHorzPortion(sb, hwnd, &rect, pt.x,pt.y);
 	}
 	//
 	//	VERTICAL SCROLLBAR PROCESSING
 	//
 	else if(wParam == HTVSCROLL)
 	{
-		uScrollTimerMsg = WM_VSCROLL;
-		uCurrentScrollbar = SB_VERT;
+		sw->uScrollTimerMsg = WM_VSCROLL;
+		sw->uCurrentScrollbar = SB_VERT;
 		sb = &sw->sbarVert;
 
 		//get the total area of the normal Horz scrollbar area
 		GetVScrollRect(sw, hwnd, &rect);
-		uCurrentScrollPortion = GetVertPortion(sb, hwnd, &rect, pt.x,pt.y);
+		sw->uCurrentScrollPortion = GetVertPortion(sb, hwnd, &rect, pt.x,pt.y);
 	}
 	//
 	//	NORMAL PROCESSING
 	//
 	else
 	{
-		uCurrentScrollPortion = HTSCROLL_NONE;
+		sw->uCurrentScrollPortion = HTSCROLL_NONE;
 		return CallWindowProc(sw->oldproc, hwnd, WM_NCLBUTTONDOWN, wParam, lParam);
 	}
 
@@ -2104,7 +2109,7 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 	// we can now share the same code for vertical
 	// and horizontal scrollbars
 	//
-	switch(uCurrentScrollPortion)
+	switch(sw->uCurrentScrollPortion)
 	{
 	//inserted buttons to the left/right
 
@@ -2178,30 +2183,30 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 		//ajust the horizontal rectangle to NOT include
 		//any inserted buttons
 
-		SendScrollMessage(hwnd, uScrollTimerMsg, uCurrentScrollPortion, 0);
+		SendScrollMessage(hwnd, sw->uScrollTimerMsg, sw->uCurrentScrollPortion, 0);
 
 		// Check what area the mouse is now over :
 		// If the scroll thumb has moved under the mouse in response to 
 		// a call to SetScrollPos etc, then we don't hilight the scrollbar margin
-		if(uCurrentScrollbar == SB_HORZ)
-			uScrollTimerPortion = GetHorzScrollPortion(sb, hwnd, &rect, pt.x, pt.y);
+		if(sw->uCurrentScrollbar == SB_HORZ)
+			sw->uScrollTimerPortion = GetHorzScrollPortion(sb, hwnd, &rect, pt.x, pt.y);
 		else
-			uScrollTimerPortion = GetVertScrollPortion(sb, hwnd, &rect, pt.x, pt.y);
+			sw->uScrollTimerPortion = GetVertScrollPortion(sb, hwnd, &rect, pt.x, pt.y);
 
 		GET_WINDOW_RECT(hwnd, &winrect);
 		OffsetRect(&rect, -winrect.left, -winrect.top);
 		hdc = GetWindowDC(hwnd);
 			
-		NCDrawScrollbar(sb, hwnd, hdc, &rect, uScrollTimerPortion);
+		NCDrawScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion);
 		ReleaseDC(hwnd, hdc);
 
 		//Post the scroll message!!!!
-		uScrollTimerPortion = uCurrentScrollPortion;
+		sw->uScrollTimerPortion = sw->uCurrentScrollPortion;
 
 		//set a timer going on the first click.
 		//if this one expires, then we can start off a more regular timer
 		//to generate the auto-scroll behaviour
-		uScrollTimerId = SetTimer(hwnd, COOLSB_TIMERID1, COOLSB_TIMERINTERVAL1, 0);
+		sw->uScrollTimerId = SetTimer(hwnd, COOLSB_TIMERID1, COOLSB_TIMERINTERVAL1, 0);
 		break;
   case HTSCROLL_LRESIZER:
   case HTSCROLL_RRESIZER:
@@ -2235,10 +2240,10 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
     break;
   case HTSCROLL_ZOOMIN:
     SendMessage(hwnd, WM_SB_ZOOM, 0, (wParam == HTVSCROLL));
-    if (uZoomTimerId) KillTimer(hwnd,uZoomTimerId);
-    uZoomTimerId=SetTimer(hwnd,COOLSB_TIMERID4,COOLSB_TIMERINTERVAL4,NULL);
-    uZoomTimerMode=wParam == HTVSCROLL;
-    uScrollTimerPortion = HTSCROLL_ZOOMIN;
+    if (sw->uZoomTimerId) KillTimer(hwnd,sw->uZoomTimerId);
+    sw->uZoomTimerId=SetTimer(hwnd,COOLSB_TIMERID4,COOLSB_TIMERINTERVAL4,NULL);
+    sw->uZoomTimerMode=wParam == HTVSCROLL;
+    sw->uScrollTimerPortion = HTSCROLL_ZOOMIN;
     {
       GET_WINDOW_RECT(hwnd, &winrect);
       OffsetRect(&rect, -winrect.left, -winrect.top);
@@ -2249,10 +2254,10 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
     break;
   case HTSCROLL_ZOOMOUT:
     SendMessage(hwnd, WM_SB_ZOOM, 1, (wParam == HTVSCROLL));
-    if (uZoomTimerId) KillTimer(hwnd,uZoomTimerId);
-    uZoomTimerId=SetTimer(hwnd,COOLSB_TIMERID4,COOLSB_TIMERINTERVAL4,NULL);
-    uZoomTimerMode=2 + (wParam == HTVSCROLL);
-    uScrollTimerPortion = HTSCROLL_ZOOMOUT;
+    if (sw->uZoomTimerId) KillTimer(hwnd,sw->uZoomTimerId);
+    sw->uZoomTimerId=SetTimer(hwnd,COOLSB_TIMERID4,COOLSB_TIMERINTERVAL4,NULL);
+    sw->uZoomTimerMode=2 + (wParam == HTVSCROLL);
+    sw->uScrollTimerPortion = HTSCROLL_ZOOMOUT;
     {
       GET_WINDOW_RECT(hwnd, &winrect);
       OffsetRect(&rect, -winrect.left, -winrect.top);
@@ -2282,11 +2287,11 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 	RECT winrect;
 	UINT buttonIdx = 0;
 
-  if (uZoomTimerId) KillTimer(hwnd,uZoomTimerId);
-  uZoomTimerId=0;
+  if (sw->uZoomTimerId) KillTimer(hwnd,sw->uZoomTimerId);
+  sw->uZoomTimerId=0;
 
 	//current scrollportion is the button that we clicked down on
-	if(uCurrentScrollPortion != HTSCROLL_NONE)
+	if(sw->uCurrentScrollPortion != HTSCROLL_NONE)
 	{
 		SCROLLBAR *sb = &sw->sbarHorz;
 		lParam = GetMessagePos();
@@ -2300,13 +2305,13 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
     OSX_REMAP_SCREENY(hwnd,&pt.y);
 
 		//emulate the mouse input on a scrollbar here...
-		if(uCurrentScrollbar == SB_HORZ)
+		if(sw->uCurrentScrollbar == SB_HORZ)
 		{
 			//get the total area of the normal Horz scrollbar area
 			sb = &sw->sbarHorz;
 			GetHScrollRect(sw, hwnd, &rect);
 		}
-		else if(uCurrentScrollbar == SB_VERT)
+		else if(sw->uCurrentScrollbar == SB_VERT)
 		{
 			//get the total area of the normal Horz scrollbar area
 			sb = &sw->sbarVert;
@@ -2316,7 +2321,7 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 		//we need to do different things depending on if the
 		//user is activating the scrollbar itself, or one of
 		//the inserted buttons
-		switch(uCurrentScrollPortion)
+		switch(sw->uCurrentScrollPortion)
 		{
 
 		//The scrollbar is active
@@ -2326,19 +2331,19 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 	  case HTSCROLL_ZOOMIN:
 	  case HTSCROLL_ZOOMOUT:
 			
-			KillTimer(hwnd, uScrollTimerId);
+			KillTimer(hwnd, sw->uScrollTimerId);
 
 		case HTSCROLL_THUMB: 
 
 			//In case we were thumb tracking, make sure we stop NOW
 			if(sw->fThumbTracking == TRUE)
 			{
-				SendScrollMessage(hwnd, uScrollTimerMsg, SB_THUMBPOSITION, nLastPos);
+				SendScrollMessage(hwnd, sw->uScrollTimerMsg, SB_THUMBPOSITION, nLastPos);
 				sw->fThumbTracking = FALSE;
 			}
 
 			//send the SB_ENDSCROLL message now that scrolling has finished
-			SendScrollMessage(hwnd, uScrollTimerMsg, SB_ENDSCROLL, 0);
+			SendScrollMessage(hwnd, sw->uScrollTimerMsg, SB_ENDSCROLL, 0);
 
 			//adjust the total scroll area to become where the scrollbar
 			//really is (take into account the inserted buttons)
@@ -2353,12 +2358,12 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 		}
 
 		//reset our state to default
-		uCurrentScrollPortion = HTSCROLL_NONE;
-		uScrollTimerPortion	  = HTSCROLL_NONE;
-		uScrollTimerId		  = 0;
+		sw->uCurrentScrollPortion = HTSCROLL_NONE;
+		sw->uScrollTimerPortion	  = HTSCROLL_NONE;
+		sw->uScrollTimerId		  = 0;
 
-		uScrollTimerMsg       = 0;
-		uCurrentScrollbar     = COOLSB_NONE;
+		sw->uScrollTimerMsg       = 0;
+		sw->uCurrentScrollbar     = COOLSB_NONE;
 
 		return 0;
 	}
@@ -2540,7 +2545,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 	if(pos != nLastPos)
 	{
 		si->nTrackPos = pos;	
-		SendScrollMessage(hwnd, uScrollTimerMsg, SB_THUMBTRACK, pos);
+		SendScrollMessage(hwnd, sw->uScrollTimerMsg, SB_THUMBTRACK, pos);
 	}
 
 	nLastPos = pos;
@@ -2585,15 +2590,15 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 		y = GET_Y_LPARAM(lParam);
     OSX_REMAP_SCREENY(hwnd,&y);
 
-		if(uCurrentScrollbar == SB_HORZ)
+		if(sw->uCurrentScrollbar == SB_HORZ)
 			return ThumbTrackHorz(&sw->sbarHorz, hwnd, x,y);
 
 
-		else if(uCurrentScrollbar == SB_VERT)
+		else if(sw->uCurrentScrollbar == SB_VERT)
 			return ThumbTrackVert(&sw->sbarVert, hwnd, x,y);
 	}
 
-	if(uCurrentScrollPortion == HTSCROLL_NONE)
+	if(sw->uCurrentScrollPortion == HTSCROLL_NONE)
 	{
 		return CallWindowProc(sw->oldproc, hwnd, WM_MOUSEMOVE, wParam, lParam);
 	}
@@ -2611,11 +2616,11 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
     OSX_REMAP_SCREENY(hwnd,&pt.y);
 
 		//emulate the mouse input on a scrollbar here...
-		if(uCurrentScrollbar == SB_HORZ)
+		if(sw->uCurrentScrollbar == SB_HORZ)
 		{
 			sb = &sw->sbarHorz;
 		}
-		else if(uCurrentScrollbar == SB_VERT)
+		else if(sw->uCurrentScrollbar == SB_VERT)
 		{
 			sb = &sw->sbarVert;
 		}
@@ -2630,7 +2635,7 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 		//we need to do different things depending on if the
 		//user is activating the scrollbar itself, or one of
 		//the inserted buttons
-		switch(uCurrentScrollPortion)
+		switch(sw->uCurrentScrollPortion)
 		{
 
 
@@ -2645,9 +2650,9 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 			OffsetRect(&rect, -winrect.left, -winrect.top);
 			hdc = GetWindowDC(hwnd);
 		
-			if(thisportion != uCurrentScrollPortion)
+			if(thisportion != sw->uCurrentScrollPortion)
 			{
-				uScrollTimerPortion = HTSCROLL_NONE;
+				sw->uScrollTimerPortion = HTSCROLL_NONE;
 
 				if(lastportion != thisportion)
 					NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NORMAL);
@@ -2655,7 +2660,7 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 			//otherwise, draw the button in its depressed / clicked state
 			else
 			{
-				uScrollTimerPortion = uCurrentScrollPortion;
+				sw->uScrollTimerPortion = sw->uCurrentScrollPortion;
 
 				if(lastportion != thisportion)
 					NCDrawScrollbar(sb, hwnd, hdc, &rect, thisportion);
@@ -2670,24 +2675,24 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
         RECT rect;
         int nThumbSize, nThumbPos;
         int offs = pt.x - nThumbMouseOffset;
-        if(uCurrentScrollbar == SB_VERT) offs = pt.y - nThumbMouseOffset;
-        if(uCurrentScrollPortion == HTSCROLL_RRESIZER) offs = -offs;
+        if(sw->uCurrentScrollbar == SB_VERT) offs = pt.y - nThumbMouseOffset;
+        if(sw->uCurrentScrollPortion == HTSCROLL_RRESIZER) offs = -offs;
 
-        if((uCurrentScrollbar == SB_VERT))
+        if((sw->uCurrentScrollbar == SB_VERT))
         {
           GetVScrollRect(sw, hwnd, &rect);
 		      RotateRect0(sb, &rect);
           CalcThumbSize(sb, &rect, &nThumbSize, &nThumbPos);
-          SendMessage(hwnd, (uCurrentScrollPortion == HTSCROLL_RRESIZER?WM_SB_TRESIZE_VB:WM_SB_TRESIZE_VT), offs, ((nThumbSize&0xffff)<<16) + ((rect.right-rect.left)&0xffff));
+          SendMessage(hwnd, (sw->uCurrentScrollPortion == HTSCROLL_RRESIZER?WM_SB_TRESIZE_VB:WM_SB_TRESIZE_VT), offs, ((nThumbSize&0xffff)<<16) + ((rect.right-rect.left)&0xffff));
         }
         else
         {
 		      GetHScrollRect(sw, hwnd, &rect);
 		      CalcThumbSize(sb, &rect, &nThumbSize, &nThumbPos);
-          SendMessage(hwnd, (uCurrentScrollPortion == HTSCROLL_RRESIZER?WM_SB_TRESIZE_HR:WM_SB_TRESIZE_HL), offs, ((nThumbSize&0xffff)<<16) + ((rect.right-rect.left)&0xffff));
+          SendMessage(hwnd, (sw->uCurrentScrollPortion == HTSCROLL_RRESIZER?WM_SB_TRESIZE_HR:WM_SB_TRESIZE_HL), offs, ((nThumbSize&0xffff)<<16) + ((rect.right-rect.left)&0xffff));
         }
 
-        if(uCurrentScrollbar == SB_VERT) 
+        if(sw->uCurrentScrollbar == SB_VERT) 
         {
           //nThumbMouseOffset = pt.y;
           SetCursor(LoadCursor(NULL,IDC_SIZENS));
@@ -2702,9 +2707,9 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
     case HTSCROLL_RESIZER:
       {
         int offs = pt.x - nThumbMouseOffset;
-        if(uCurrentScrollbar == SB_VERT) offs = pt.y - nThumbMouseOffset;
-        SendMessage(hwnd, WM_SB_RESIZE, offs, uCurrentScrollbar == SB_VERT);
-        if(uCurrentScrollbar == SB_VERT) 
+        if(sw->uCurrentScrollbar == SB_VERT) offs = pt.y - nThumbMouseOffset;
+        SendMessage(hwnd, WM_SB_RESIZE, offs, sw->uCurrentScrollbar == SB_VERT);
+        if(sw->uCurrentScrollbar == SB_VERT) 
         {
           nThumbMouseOffset = pt.y;
           SetCursor(LoadCursor(NULL,IDC_SIZENS));
@@ -2843,27 +2848,27 @@ static LRESULT NCMouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wHitTest, LPARAM lPa
 	hwndCurCoolSB = hwnd;
 	if(wHitTest == HTHSCROLL)
 	{
-		if(uMouseOverScrollbar == SB_HORZ)
+		if(sw->uMouseOverScrollbar == SB_HORZ)
 			return CallWindowProc(sw->oldproc, hwnd, WM_NCMOUSEMOVE, wHitTest, lParam);
 
-		uLastHitTestPortion = HTSCROLL_NONE;
-		uHitTestPortion     = HTSCROLL_NONE;
-		GetScrollRect(sw, SB_HORZ, hwnd, &MouseOverRect);
-		uMouseOverScrollbar = SB_HORZ;
-		uMouseOverId = SetTimer(hwnd, COOLSB_TIMERID3, COOLSB_TIMERINTERVAL3, 0);
+		sw->uLastHitTestPortion = HTSCROLL_NONE;
+		sw->uHitTestPortion     = HTSCROLL_NONE;
+		GetScrollRect(sw, SB_HORZ, hwnd, &sw->MouseOverRect);
+		sw->uMouseOverScrollbar = SB_HORZ;
+		sw->uMouseOverId = SetTimer(hwnd, COOLSB_TIMERID3, COOLSB_TIMERINTERVAL3, 0);
 
 		NCPaint(sw, hwnd, 1, 0);
 	}
 	else if(wHitTest == HTVSCROLL)
 	{
-		if(uMouseOverScrollbar == SB_VERT)
+		if(sw->uMouseOverScrollbar == SB_VERT)
 			return CallWindowProc(sw->oldproc, hwnd, WM_NCMOUSEMOVE, wHitTest, lParam);
 
-		uLastHitTestPortion = HTSCROLL_NONE;
-		uHitTestPortion     = HTSCROLL_NONE;
-		GetScrollRect(sw, SB_VERT, hwnd, &MouseOverRect);
-		uMouseOverScrollbar = SB_VERT;
-		uMouseOverId = SetTimer(hwnd, COOLSB_TIMERID3, COOLSB_TIMERINTERVAL3, 0);
+		sw->uLastHitTestPortion = HTSCROLL_NONE;
+		sw->uHitTestPortion     = HTSCROLL_NONE;
+		GetScrollRect(sw, SB_VERT, hwnd, &sw->MouseOverRect);
+		sw->uMouseOverScrollbar = SB_VERT;
+		sw->uMouseOverId = SetTimer(hwnd, COOLSB_TIMERID3, COOLSB_TIMERINTERVAL3, 0);
 
 		NCPaint(sw, hwnd, 1, 0);
 	}
@@ -2878,14 +2883,14 @@ static LRESULT NCMouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wHitTest, LPARAM lPa
 static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM lParam)
 {
 	//let all timer messages go past if we don't have a timer installed ourselves
-	if(uScrollTimerId == 0 && uMouseOverId == 0 && uZoomTimerId == 0)
+	if(swnd->uScrollTimerId == 0 && swnd->uMouseOverId == 0 && swnd->uZoomTimerId == 0)
 	{
 		return CallWindowProc(swnd->oldproc, hwnd, WM_TIMER, wTimerId, lParam);
 	}
 
   if (wTimerId == COOLSB_TIMERID4)
   {
-    SendMessage(hwnd, WM_SB_ZOOM, uZoomTimerMode/2, uZoomTimerMode&1);
+    SendMessage(hwnd, WM_SB_ZOOM, swnd->uZoomTimerMode/2, swnd->uZoomTimerMode&1);
     return 0;
   }
 
@@ -2904,38 +2909,38 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 		//then kill the timer..
 		GetCursorPos(&pt);
 
-    RECT mor = MouseOverRect;
-    if(uMouseOverScrollbar == SB_VERT)
+    RECT mor = swnd->MouseOverRect;
+    if(swnd->uMouseOverScrollbar == SB_VERT)
       mor.bottom += 40;
     else
       mor.right += 40;
 
-		if(!PtInRect(&mor, pt))
+		if(!PtInRect(&mor, pt)||WindowFromPoint(pt)!=hwnd)
 		{
-			KillTimer(hwnd, uMouseOverId);
-			uMouseOverId = 0;
-			uMouseOverScrollbar = COOLSB_NONE;
-			uLastHitTestPortion = HTSCROLL_NONE;
+			KillTimer(hwnd, swnd->uMouseOverId);
+			swnd->uMouseOverId = 0;
+			swnd->uMouseOverScrollbar = COOLSB_NONE;
+			swnd->uLastHitTestPortion = HTSCROLL_NONE;
 
-			uHitTestPortion = HTSCROLL_NONE;
+			swnd->uHitTestPortion = HTSCROLL_NONE;
 			NCPaint(swnd, hwnd, 1, 0);
 		}
 		else
 		{
-			if(uMouseOverScrollbar == SB_HORZ)
+			if(swnd->uMouseOverScrollbar == SB_HORZ)
 			{
 				sbar = &swnd->sbarHorz;
-				uHitTestPortion = GetHorzPortion(sbar, hwnd, &MouseOverRect, pt.x, pt.y);
+				swnd->uHitTestPortion = GetHorzPortion(sbar, hwnd, &swnd->MouseOverRect, pt.x, pt.y);
 			}
 			else
 			{
 				sbar = &swnd->sbarVert;
-				uHitTestPortion = GetVertPortion(sbar, hwnd, &MouseOverRect, pt.x, pt.y);
+				swnd->uHitTestPortion = GetVertPortion(sbar, hwnd, &swnd->MouseOverRect, pt.x, pt.y);
 			}
       
-			if(uLastHitTestPortion != uHitTestPortion)
+			if(swnd->uLastHitTestPortion != swnd->uHitTestPortion)
 			{
-				rect = MouseOverRect;
+				rect = swnd->MouseOverRect;
 
 				GET_WINDOW_RECT(hwnd, &winrect);
 				OffsetRect(&rect, -winrect.left, -winrect.top);
@@ -2945,7 +2950,7 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 				ReleaseDC(hwnd, hdc);
 			}
 			
-			uLastHitTestPortion = uHitTestPortion;
+			swnd->uLastHitTestPortion = swnd->uHitTestPortion;
 		}
 
 		return 0;
@@ -2957,8 +2962,8 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 	//actual scroll starting
 	if(wTimerId == COOLSB_TIMERID1)
 	{
-		KillTimer(hwnd, uScrollTimerId);
-		uScrollTimerId = SetTimer(hwnd, COOLSB_TIMERID2, COOLSB_TIMERINTERVAL2, 0);
+		KillTimer(hwnd, swnd->uScrollTimerId);
+		swnd->uScrollTimerId = SetTimer(hwnd, COOLSB_TIMERID2, COOLSB_TIMERINTERVAL2, 0);
 		return 0;
 	}
 	//send the scrollbar message repeatedly
@@ -2974,8 +2979,8 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 		
 		MouseMove(swnd, hwnd, MK_LBUTTON, MAKELPARAM(pt.x, pt.y));
 
-		if(uScrollTimerPortion != HTSCROLL_NONE)
-			SendScrollMessage(hwnd, uScrollTimerMsg, uScrollTimerPortion, 0);
+		if(swnd->uScrollTimerPortion != HTSCROLL_NONE)
+			SendScrollMessage(hwnd, swnd->uScrollTimerMsg, swnd->uScrollTimerPortion, 0);
 		
 		return 0;
 	}
@@ -3314,6 +3319,13 @@ BOOL WINAPI InitializeCoolSB(HWND hwnd)
 #else
   sw = (SCROLLWND *)calloc(1,sizeof(SCROLLWND));
 #endif
+
+  sw->uCurrentScrollbar = COOLSB_NONE;	//SB_HORZ / SB_VERT
+  sw->uCurrentScrollPortion = HTSCROLL_NONE;
+  sw->uMouseOverScrollbar = COOLSB_NONE;
+  sw->uHitTestPortion = HTSCROLL_NONE;
+  sw->uLastHitTestPortion = HTSCROLL_NONE;
+  sw->uScrollTimerPortion = HTSCROLL_NONE;
 
 	si = &sw->sbarHorz.scrollInfo;
 	si->cbSize = sizeof(SCROLLINFO);

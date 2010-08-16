@@ -22,25 +22,17 @@ public:
  
   ~WDL_AssocArray() 
   {
-    if (m_keydispose || m_valdispose)
-    {
-      int i;
-      for (i = 0; i < m_data.GetSize(); ++i)
-      {
-        KeyVal* kv = m_data.Get()+i;
-        if (m_keydispose) m_keydispose(kv->key);
-        if (m_valdispose) m_valdispose(kv->val);
-      }
-    }
+    DeleteAll();
   }
 
-  VAL* GetPtr(KEY key)
+  VAL* GetPtr(KEY key, KEY *keyPtrOut=NULL)
   {
     bool ismatch = false;
     int i = LowerBound(key, &ismatch);
     if (ismatch)
     {
       KeyVal* kv = m_data.Get()+i;
+      if (keyPtrOut) *keyPtrOut = kv->key;
       return &(kv->val);
     }
     return 0;
@@ -53,7 +45,7 @@ public:
     return notfound;
   }
 
-  void Insert(KEY key, VAL val) 
+  void Insert(KEY key, VAL val, KEY *keyPtrOut=NULL) 
   {
     bool ismatch = false;
     int i = LowerBound(key, &ismatch);
@@ -62,6 +54,7 @@ public:
       KeyVal* kv = m_data.Get()+i;
       if (m_valdispose) m_valdispose(kv->val);
       kv->val = val;
+      if (keyPtrOut) *keyPtrOut = kv->key;
     }
     else
     {
@@ -70,6 +63,7 @@ public:
       if (m_keydup) key = m_keydup(key);
       kv->key = key;
       kv->val = val;
+      if (keyPtrOut) *keyPtrOut = key;
     }
   }
 
@@ -87,8 +81,30 @@ public:
     }
   }
 
-  void Clear()
+  void DeleteByIndex(int idx)
   {
+    if (idx>=0&&idx<GetSize())
+    {
+      KeyVal* kv = m_data.Get()+idx;
+      if (m_keydispose) m_keydispose(kv->key);
+      if (m_valdispose) m_valdispose(kv->val);
+      memmove(kv, kv+1, (m_data.GetSize()-idx-1)*sizeof(KeyVal));
+      m_data.Resize(m_data.GetSize()-1);
+    }
+  }
+
+  void DeleteAll()
+  {
+    if (m_keydispose || m_valdispose)
+    {
+      int i;
+      for (i = 0; i < m_data.GetSize(); ++i)
+      {
+        KeyVal* kv = m_data.Get()+i;
+        if (m_keydispose) m_keydispose(kv->key);
+        if (m_valdispose) m_valdispose(kv->val);
+      }
+    }
     m_data.Resize(0);
   }
 
@@ -113,6 +129,31 @@ public:
     VAL* p = EnumeratePtr(i, key);
     if (p) return *p;
     return notfound; 
+  }
+
+  KEY ReverseLookup(VAL val, KEY notfound=0)
+  {
+    int i;
+    for (i = 0; i < m_data.GetSize(); ++i)
+    {
+      KeyVal* kv = m_data.Get()+i;
+      if (kv->val == val) return kv->key;
+    }
+    return notfound;
+  }
+
+  void ChangeKey(KEY oldkey, KEY newkey)
+  {
+    bool ismatch=false;
+    int i = LowerBound(oldkey, &ismatch);
+    if (ismatch)
+    {
+      KeyVal* kv = m_data.Get()+i;
+      if (m_keydispose) m_keydispose(kv->key);
+      if (m_keydup) newkey = m_keydup(newkey);
+      kv->key = newkey;
+      Resort();
+    }
   }
 
   // fast add-block mode

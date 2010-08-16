@@ -34,7 +34,7 @@
 
 #include "../lice/lice.h" // using LICE for images
 #include "../ptrlist.h"
-
+#include "../wdltypes.h"
 
 typedef float pl_ZBuffer;              /* z-buffer type (must be float) */
 typedef double pl_Float;               /* General floating point */
@@ -121,10 +121,10 @@ public:
   pl_Bool zBufferable;         /* Can this material be zbuffered? */
   pl_uChar PerspectiveCorrect; /* Correct texture perspective every n pixels */
 
-  pl_Float FadeDist;            /* For distance fading, distance at which intensity is 0. set to 0.0 for no distance shading */
+  pl_Float FadeDist WDL_FIXALIGN;            /* For distance fading, distance at which intensity is 0. set to 0.0 for no distance shading */
 
   pl_Bool BackfaceCull;               /* Are backfacing polys drawn? */
-  pl_Float BackfaceIllumination;       /* Illuminated by lights behind them, and by how much of a factor? */ 
+  pl_Float BackfaceIllumination WDL_FIXALIGN;       /* Illuminated by lights behind them, and by how much of a factor? */ 
 
   // colors
   pl_Float Ambient[3];          /* RGB of surface (0-1 is a good range) */
@@ -134,13 +134,13 @@ public:
 
   // textures
   LICE_IBitmap *Texture;         /* Texture map (not owned by Material but a reference)*/
-  pl_Float TexScaling[2];         /* Texture map scaling */
+  pl_Float TexScaling[2] WDL_FIXALIGN;         /* Texture map scaling */
   pl_Float TexOpacity;
   int TexCombineMode;           /* Texture combine mode (generally should be additive) */
   int TexMapIdx; // -1 for env
 
   LICE_IBitmap *Texture2;     
-  pl_Float Tex2Scaling[2];         
+  pl_Float Tex2Scaling[2] WDL_FIXALIGN;         
   pl_Float Tex2Opacity;
   int Tex2CombineMode;             
   int Tex2MapIdx; // -1 for env
@@ -152,7 +152,7 @@ private:
   bool cachesInvalid;
   LICE_IBitmap *cachedTexture,*cachedTexture2; // these may need to be LICE_GL_MemBitmaps etc
 
-};
+} WDL_FIXALIGN;
 
 
 class pl_Vertex {
@@ -179,7 +179,9 @@ public:
   pl_Mat *Material;            /* Material of triangle */
   int VertexIndices[3];      /* Vertices of triangle */
 
-  pl_Float nx, ny, nz;         /* Normal of triangle (object space) */
+  pl_Float nx WDL_FIXALIGN;
+  pl_Float ny;
+  pl_Float nz;         /* Normal of triangle (object space) */
 
   pl_Float MappingU[PLUSH_MAX_MAPCOORDS][3], MappingV[PLUSH_MAX_MAPCOORDS][3];  /* Texture mapping coordinates */ 
 
@@ -223,7 +225,8 @@ public:
                                       /* Children */
   pl_Bool GenMatrix;                  /* Generate Matrix from the following
                                          if set */
-  pl_Float Xp, Yp, Zp, Xa, Ya, Za;    /* Position and rotation of object:
+  pl_Float Xp WDL_FIXALIGN;
+  pl_Float Yp, Zp, Xa, Ya, Za;    /* Position and rotation of object:
                                          Note: rotations are around 
                                          X then Y then Z. Measured in degrees */
   pl_Float Matrix[16];                /* Transformation matrix */
@@ -238,7 +241,8 @@ public:
   void GetPoint(pl_Float frame, pl_Float *out);
   WDL_TypedBuf<pl_Float> keys;              /* Key data, keyWidth*numKeys */
   pl_sInt keyWidth;            /* Number of floats per key */
-  pl_Float cont;               /* Continuity. Should be -1.0 -> 1.0 */
+
+  pl_Float cont WDL_FIXALIGN;               /* Continuity. Should be -1.0 -> 1.0 */
   pl_Float bias;               /* Bias. -1.0 -> 1.0 */
   pl_Float tens;               /* Tension. -1.0 -> 1.0 */
 };
@@ -262,7 +266,8 @@ public:
 
   // privatestuff
   pl_uChar Type;               /* Type of light: PL_LIGHT_* */
-  pl_Float Xp, Yp, Zp;         /* If Type=PL_LIGHT_POINT*,
+  pl_Float Xp WDL_FIXALIGN;
+  pl_Float Yp, Zp;         /* If Type=PL_LIGHT_POINT*,
                                   this is Position (PL_LIGHT_POINT_*),
                                   otherwise if PL_LIGHT_VECTOR,
                                   Unit vector */
@@ -297,9 +302,11 @@ public:
   pl_Float Fov;                  /* FOV in degrees valid range is 1-179 */
   pl_Float AspectRatio;          /* Aspect ratio (usually 1.0) */
   pl_sChar Sort;                 /* Sort polygons, -1 f-t-b, 1 b-t-f, 0 no */
-  pl_Float ClipBack;             /* Far clipping ( < 0.0 is none) */
+  pl_Float ClipBack WDL_FIXALIGN;             /* Far clipping ( < 0.0 is none) */
   pl_sInt CenterX, CenterY;      /* Offset center of screen from actual center by this much... */
-  pl_Float X, Y, Z;              /* Camera position in worldspace */
+  pl_Float X WDL_FIXALIGN;
+  pl_Float Y, Z;              /* Camera position in worldspace */
+
   pl_Float Pitch, Pan, Roll;     /* Camera angle in degrees in worldspace */
   
   bool WantZBuffer;
@@ -318,7 +325,7 @@ public:
   int RenderTrisCulled;
   int RenderTrisOut;
 
-  double RenderPixelsOut;
+  double RenderPixelsOut WDL_FIXALIGN;
 
   void PutFace(pl_Face *TriFace);
 
@@ -341,7 +348,7 @@ private:
     pl_Float MappingV[PLUSH_MAX_MAPCOORDS][8];
   };
 
-  _clipInfo m_cl[2];
+  _clipInfo m_cl[2] WDL_FIXALIGN;
   pl_Float  m_clipPlanes[PL_NUM_CLIP_PLANES][4];
   pl_Float  m_fovfactor, m_adj_asp; // recalculated
 
@@ -349,16 +356,16 @@ private:
   pl_uInt _ClipToPlane(pl_uInt numVerts, pl_Float  *plane);
 
 
-  typedef struct {
+  struct _faceInfo {
     pl_Float zd;
     pl_Face *face;
     pl_Obj *obj;
-  } _faceInfo;
+  } WDL_FIXALIGN;
 
-  typedef struct {
-    pl_Light *light;
+  struct _lightInfo {
     pl_Float l[3];
-  } _lightInfo;
+    pl_Light *light;
+  } WDL_FIXALIGN;
 
   static int sortRevFunc(const void *a, const void *b);
   static int sortFwdFunc(const void *a, const void *b);
@@ -366,7 +373,7 @@ private:
   int _numfaces,_numfaces_sorted;
   WDL_TypedBuf<_faceInfo> _faces;
 
-  pl_Float _cMatrix[16];
+  pl_Float _cMatrix[16] WDL_FIXALIGN;
 
   int _numlights;
   WDL_TypedBuf<_lightInfo> _lights;

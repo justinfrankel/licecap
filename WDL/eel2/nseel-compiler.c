@@ -39,6 +39,18 @@
   #endif
 #endif
 
+#ifdef __APPLE__
+  #ifdef __LP64__
+    #define EEL_USE_MPROTECT
+  #endif
+#endif
+
+#ifdef EEL_USE_MPROTECT
+#include <sys/mman.h>
+#include <stdint.h>
+#include <unistd.h>
+#endif
+
 
 #ifndef _WIN64
 #if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
@@ -154,9 +166,13 @@ INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
 const static unsigned int GLUE_FUNC_ENTER[1];
 const static unsigned int GLUE_FUNC_LEAVE[1];
 
-#ifdef _WIN64
+#if defined(_WIN64) || defined(__LP64__)
 #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 10
-static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) {   *((unsigned short *)b)++ =0xB848; *(INT_PTR *)b = v; }
+static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) {   
+  unsigned short *bb = (unsigned short *)b;
+  *bb++ =0xB848; 
+  *(INT_PTR *)bb = v; 
+}
 const static unsigned char  GLUE_PUSH_EAX[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
 const static unsigned char  GLUE_POP_EBX[2]={0x5F, 0x5f}; //pop rdi ; twice
 const static unsigned char  GLUE_POP_ECX[2]={0x59, 0x59 }; // pop rcx ; twice
@@ -179,7 +195,7 @@ const static unsigned char  GLUE_RET=0xC3;
 
 static int GLUE_RESET_ESI(unsigned char *out, void *ptr)
 {
-#ifdef _WIN64
+#if defined(_WIN64) || defined(__LP64__)
   if (out)
   {
 	  *out++ = 0x48;
@@ -202,45 +218,44 @@ static int GLUE_RESET_ESI(unsigned char *out, void *ptr)
 
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
 {
-#ifdef _MSC_VER
-  #ifdef _WIN64
-	  extern void win64_callcode(INT_PTR code);
-	  win64_callcode(cp);
-  #else
+  #if defined(_WIN64) || defined(__LP64__)
+    extern void win64_callcode(INT_PTR code);
+    win64_callcode(cp);
+  #else // non-64 bit
+    #ifdef _MSC_VER
+      #ifndef EEL_NO_CHANGE_FPFLAGS
+        unsigned int old_v=_controlfp(0,0); 
+        _controlfp(_RC_CHOP,_MCW_RC);
+      #endif
 
-    #ifndef EEL_NO_CHANGE_FPFLAGS
-      unsigned int old_v=_controlfp(0,0); 
-      _controlfp(_RC_CHOP,_MCW_RC);
-    #endif
+      __asm
+      {
+        mov eax, cp
+        pushad 
+        call eax
+        popad
+      };
 
-    __asm
-    {
-      mov eax, cp
-      pushad 
-      call eax
-      popad
-    };
-
-    #ifndef EEL_NO_CHANGE_FPFLAGS
-      _controlfp(old_v,_MCW_RC);
-    #endif
-  #endif
-#else // gcc x86
-  #ifndef EEL_NO_CHANGE_FPFLAGS
-    unsigned int old_v=_controlfp(0,0); 
-    _controlfp(_RC_CHOP,_MCW_RC);
-  #endif
-  __asm__("call *%%eax"::"a" (cp): "%ecx","%edx","%esi","%edi");
-  #ifndef EEL_NO_CHANGE_FPFLAGS
-    _controlfp(old_v,_MCW_RC);
-  #endif
-#endif
+      #ifndef EEL_NO_CHANGE_FPFLAGS
+        _controlfp(old_v,_MCW_RC);
+      #endif
+    #else // gcc x86
+      #ifndef EEL_NO_CHANGE_FPFLAGS
+        unsigned int old_v=_controlfp(0,0); 
+        _controlfp(_RC_CHOP,_MCW_RC);
+      #endif
+      __asm__("call *%%eax"::"a" (cp): "%ecx","%edx","%esi","%edi");
+      #ifndef EEL_NO_CHANGE_FPFLAGS
+        _controlfp(old_v,_MCW_RC);
+      #endif
+    #endif //gcc x86
+  #endif // 32bit
 }
 
 INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
 {
   char *p=(char*)_p;
-  while (*(INT_PTR *)p != ~0) p++;
+  while (*(INT_PTR *)p != ~(INT_PTR)0) p++;
   *(INT_PTR *)p = (INT_PTR)newv;
   return ((INT_PTR*)p)+1;
 }
@@ -250,18 +265,18 @@ INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__LP64__)
 
   unsigned char *p;
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(__LP64__)
   if (*(unsigned char *)fn == 0xE9) // this means jump to the following address
   {
     fn = ((unsigned char *)fn) + *(int *)((char *)fn+1) + 5;
   }
 #endif
 
-  // this may not work in debug mode
+  // this may not work in debug mode?
   p=(unsigned char *)fn;
   for (;;)
   {
@@ -279,6 +294,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
     p++;
   }
 #else
+
   char *p=(char *)fn_e - sizeof(GLUE_RET);
   if (p <= (char *)fn) *size=0;
   else
@@ -287,6 +303,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
     *size = p - (char *)fn;
   }
   return fn;
+
 #endif
 }
 
@@ -635,6 +652,19 @@ static void *__newBlock(llBlock **start, int size)
   eoffs=((UINT_PTR)llb + alloc_size + 4095)&~4095;
   VirtualProtect((LPVOID)offs,eoffs-offs,PAGE_EXECUTE_READWRITE,&ov);
 //  MessageBox(NULL,"vprotecting, yay\n","a",0);
+#elif defined(EEL_USE_MPROTECT)
+  {
+    static int pagesize = 0;
+    if (!pagesize)
+    {
+      pagesize=sysconf(_SC_PAGESIZE);
+      if (!pagesize) pagesize=4096;
+    }
+    uintptr_t offs,eoffs;
+    offs=((uintptr_t)llb)&~(pagesize-1);
+    eoffs=((uintptr_t)llb + alloc_size + pagesize-1)&~(pagesize-1);
+    mprotect((void*)offs,eoffs-offs,PROT_WRITE|PROT_READ|PROT_EXEC);
+  }
 #endif
   llb->sizeused=(size+7)&~7;
   llb->next = *start;  

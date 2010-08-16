@@ -48,15 +48,13 @@ class WDL_DirScan
     WDL_DirScan() : 
 #ifdef _WIN32
        m_h(INVALID_HANDLE_VALUE)
+  #ifndef WDL_NO_SUPPORT_UTF8
+      , m_wcmode(false)
+  #endif
 #else
        m_h(NULL), m_ent(NULL)
 #endif
     {
-#ifdef _WIN32
-  #ifndef WDL_NO_SUPPORT_UTF8
-      m_wcmode = GetVersion()< 0x80000000;
-  #endif
-#endif
     }
 
     ~WDL_DirScan()
@@ -100,6 +98,7 @@ class WDL_DirScan
 #ifdef _WIN32
     #ifndef WDL_NO_SUPPORT_UTF8
       m_h=INVALID_HANDLE_VALUE;
+      m_wcmode = GetVersion()< 0x80000000;
 
       if (m_wcmode)
       {
@@ -230,6 +229,6 @@ class WDL_DirScan
     struct dirent *m_ent;
 #endif
     WDL_String m_leading_path;
-};
+} WDL_FIXALIGN;
 
 #endif

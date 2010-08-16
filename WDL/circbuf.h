@@ -124,7 +124,7 @@ private:
   WDL_HeapBuf m_hb;
   char *m_head, *m_tail, *m_endbuf;
   int m_size, m_inbuf;
-};
+} WDL_FIXALIGN;
 
 
 template <class T>
@@ -166,6 +166,6 @@ public:
 
 private:
     WDL_CircBuf mBuf;
-};
+} WDL_FIXALIGN;
 
 #endif

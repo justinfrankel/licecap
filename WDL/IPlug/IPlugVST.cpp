@@ -15,6 +15,8 @@ IPlugVST::IPlugVST(IPlugInstanceInfo instanceInfo, int nParams, const char* chan
 {
   Trace(TRACELOC, "%s", effectName);
 
+  mHasVSTExtensions = VSTEXT_NONE;
+
   int nInputs = NInChannels(), nOutputs = NOutChannels();
 
 	memset(&mAEffect, 0, sizeof(AEffect));
@@ -331,11 +333,23 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
 	    ptr = 0;
 	    return 0;
     }
-    case effEditOpen: {
+    case effEditOpen:
+    {
       IGraphics* pGraphics = _this->GetGUI();
-	    if (pGraphics && pGraphics->OpenWindow(ptr)) {
-		    _this->OnGUIOpen();
-		    return 1;
+	    if (pGraphics)
+      {
+#ifdef _WIN32
+        if (!pGraphics->OpenWindow(ptr)) pGraphics=0;
+#else   // OSX, check if we are in a Cocoa VST host
+        bool iscocoa = (_this->mHasVSTExtensions&VSTEXT_COCOA);
+        if (iscocoa && !pGraphics->OpenWindow(ptr)) pGraphics=0;
+        if (!iscocoa && !pGraphics->OpenWindow(ptr, 0)) pGraphics=0;
+#endif
+        if (pGraphics)
+        {
+          _this->OnGUIOpen();
+          return 1;
+        }
 	    }
 	    return 0;
     }
@@ -516,8 +530,14 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
           }
         }
         // Support Reaper VST extensions: http://www.reaper.fm/sdk/vst/
-        if (!strcmp((char*) ptr, "hasCockosExtensions") ||
-          !strcmp((char*) ptr, "hasCockosViewAsConfig")) {
+        if (!strcmp((char*) ptr, "hasCockosExtensions"))
+        {
+          _this->mHasVSTExtensions |= VSTEXT_COCKOS;
+          return 0xbeef0000;
+        }
+        else if (!strcmp((char*) ptr, "hasCockosViewAsConfig")) 
+        {
+          _this->mHasVSTExtensions |= VSTEXT_COCOA;
           return 0xbeef0000; 
         }
       }

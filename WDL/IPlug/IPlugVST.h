@@ -3,7 +3,7 @@
 // Only load one API class!
 
 #include "IPlugBase.h"
-#include "../../VST_SDK/aeffectx.h"
+#include "../../../plugins/VST_SDK/aeffectx.h"
 
 struct IPlugInstanceInfo
 {
@@ -59,7 +59,12 @@ private:
 
   VstSpeakerArrangement mInputSpkrArr, mOutputSpkrArr;
 
-  bool mHostSpecificInitDone, mDoesMidi;
+  bool mHostSpecificInitDone;
+  bool mDoesMidi;
+  
+  enum { VSTEXT_NONE=0, VSTEXT_COCKOS, VSTEXT_COCOA }; // list of VST extensions supported by host
+  int mHasVSTExtensions;
+  
   ByteChunk mState;     // Persistent storage if the host asks for plugin state.
   ByteChunk mBankState; // Persistent storage if the host asks for bank state.
 

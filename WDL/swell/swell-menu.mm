@@ -53,7 +53,7 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
         if (item && [item hasSubmenu])
         {
           NSMenu *m=[item submenu];
-          if (m && SetMenuItemText(m,idx,flag,text)) return true;
+          if (m && SetMenuItemText((HMENU)m,idx,flag,text)) return true;
         }
       }
     }
@@ -87,7 +87,7 @@ bool EnableMenuItem(HMENU hMenu, int idx, int en)
         if (item && [item hasSubmenu])
         {
           NSMenu *m=[item submenu];
-          if (m && EnableMenuItem(m,idx,en)) return true;
+          if (m && EnableMenuItem((HMENU)m,idx,en)) return true;
         }
       }
     }
@@ -117,7 +117,7 @@ bool CheckMenuItem(HMENU hMenu, int idx, int chk)
         if (item && [item hasSubmenu])
         {
           NSMenu *m=[item submenu];
-          if (m && CheckMenuItem(m,idx,chk)) return true;
+          if (m && CheckMenuItem((HMENU)m,idx,chk)) return true;
         }
       }
     }
@@ -129,7 +129,7 @@ bool CheckMenuItem(HMENU hMenu, int idx, int chk)
 }
 HMENU SWELL_GetCurrentMenu()
 {
-  return [NSApp mainMenu];
+  return (HMENU)[NSApp mainMenu];
 }
 void SWELL_SetCurrentMenu(HMENU hmenu)
 {
@@ -144,7 +144,7 @@ HMENU GetSubMenu(HMENU hMenu, int pos)
   NSMenu *menu=(NSMenu *)hMenu;
   
   NSMenuItem *item=menu && pos >=0 && pos < [menu numberOfItems] ? [menu itemAtIndex:pos] : 0; 
-  if (item && [item hasSubmenu]) return [item submenu];
+  if (item && [item hasSubmenu]) return (HMENU)[item submenu];
   return 0;
 }
 
@@ -198,7 +198,7 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
         if (item && [item hasSubmenu])
         {
           NSMenu *m=[item submenu];
-          if (m && SetMenuItemModifier(m,idx,flag,code,mask)) return true;
+          if (m && SetMenuItemModifier((HMENU)m,idx,flag,code,mask)) return true;
         }
       }
     }
@@ -433,7 +433,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
         if (item && [item hasSubmenu])
         {
           NSMenu *m1=[item submenu];
-          if (m1 && SetMenuItemInfo(m1,pos,byPos,mi)) return true;
+          if (m1 && SetMenuItemInfo((HMENU)m1,pos,byPos,mi)) return true;
         }
       }      
     }
@@ -468,6 +468,12 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   {
     [item setTag:mi->wID];
   }
+  if (mi->fMask & MIIM_DATA)
+  {
+    SWELL_DataHold* newh = [[SWELL_DataHold alloc] initWithVal:(void*)mi->dwItemData];
+    [item setRepresentedObject:newh]; 
+    [newh release];    
+  }
   
   return true;
 }
@@ -495,7 +501,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
         if (item && [item hasSubmenu])
         {
           NSMenu *m1=[item submenu];
-          if (m1 && GetMenuItemInfo(m1,pos,byPos,mi)) return true;
+          if (m1 && GetMenuItemInfo((HMENU)m1,pos,byPos,mi)) return true;
         }
       }      
     }
@@ -779,7 +785,7 @@ void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags)
 
 SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head; // todo: move to per-module thingy
 
-static SWELL_MenuResourceIndex *resById(SWELL_MenuResourceIndex *head, int resid)
+static SWELL_MenuResourceIndex *resById(SWELL_MenuResourceIndex *head, const char *resid)
 {
   SWELL_MenuResourceIndex *p=head;
   while (p)
@@ -790,7 +796,7 @@ static SWELL_MenuResourceIndex *resById(SWELL_MenuResourceIndex *head, int resid
   return 0;
 }
 
-HMENU SWELL_LoadMenu(SWELL_MenuResourceIndex *head, int resid)
+HMENU SWELL_LoadMenu(SWELL_MenuResourceIndex *head, const char *resid)
 {
   SWELL_MenuResourceIndex *p;
   
@@ -846,6 +852,9 @@ HMENU GetMenu(HWND hwnd)
   
 }
 
+void DrawMenuBar(HWND hwnd)
+{
+}
 
 
 #endif

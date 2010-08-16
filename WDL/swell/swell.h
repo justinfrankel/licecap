@@ -33,9 +33,11 @@
 #ifdef __APPLE__
 #define SWELL_TARGET_OSX
 #define SWELL_TARGET_OSX_COCOA
-#else
-#define SWELL_TARGET_GTK
 #endif
+
+// for swell*generic
+// #define SWELL_TARGET_GDK
+// #define SWELL_LICE_GDI
 
 #endif
 
@@ -63,7 +65,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
+#include <ctype.h>
 
+
+#include <stdint.h>
+typedef intptr_t INT_PTR, *PINT_PTR, LONG_PTR, *PLONG_PTR;
+typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWORD_PTR;
 
 #ifndef FALSE
 #define FALSE 0
@@ -83,6 +90,7 @@
 #ifndef E_FAIL
 #define E_FAIL (-1)
 #endif
+
 
 // the byte ordering of RGB() etc is different than on win32 
 #define RGB(r,g,b) (((r)<<16)|((g)<<8)|(b))
@@ -108,7 +116,7 @@
 #define MAKELPARAM(l, h)      (LPARAM)MAKELONG(l, h)
 #define MAKELRESULT(l, h)     (LRESULT)MAKELONG(l, h)
 #define LOWORD(l)           ((unsigned short)(l))
-#define HIWORD(l)           ((unsigned short)(((unsigned long)(l) >> 16) & 0xFFFF))
+#define HIWORD(l)           ((unsigned short)(((unsigned int)(l) >> 16) & 0xFFFF))
 #define LOBYTE(w)           ((BYTE)(w))
 #define HIBYTE(w)           ((BYTE)(((unsigned short)(w) >> 8) & 0xFF))
 #endif
@@ -125,20 +133,10 @@
 #define UnionRect WinUnionRect  
 #define IntersectRect WinIntersectRect
 
-// DLL loading mappings
-#define FreeLibrary(x) dlclose(x)
-#define GetProcAddress(h,v) dlsym(h,v)
-#define LoadLibrary(x) dlopen(x,RTLD_LAZY)
-
-
-
 
 #define MAX_PATH 1024
 
 
-#include <stdint.h>
-typedef intptr_t INT_PTR, *PINT_PTR, LONG_PTR, *PLONG_PTR;
-typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWORD_PTR;
 
 // SWELLAPP stuff (swellappmain.mm)
 INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2); // to be implemented by app (if using swellappmain.mm)
@@ -161,27 +159,33 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2); // to be implemente
 
 
 // basic types
-typedef unsigned int DWORD;
-typedef unsigned short WORD;
-typedef unsigned char BYTE;
 typedef signed char BOOL;
+typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned int DWORD;
 typedef DWORD COLORREF;
 typedef unsigned int UINT;
-typedef unsigned long WPARAM;
-typedef long LPARAM;
-typedef long LRESULT;
+typedef int INT;
 
+typedef ULONG_PTR WPARAM;
+typedef LONG_PTR LPARAM;
+typedef LONG_PTR LRESULT;
 
 
 typedef void *LPVOID, *PVOID;
-typedef long HRESULT;
-typedef unsigned long ULONG;
-typedef long LONG;
+typedef int HRESULT;
+typedef short SHORT;
+typedef unsigned int ULONG;
+typedef int LONG;
 typedef int *LPINT;
 typedef char CHAR;
 typedef char *LPSTR;
 typedef const char *LPCSTR;
-#define __int64 long long
+
+#define __int64 long long // define rather than typedef, for unsigned __int64 support
+
+typedef unsigned __int64 ULONGLONG;
+
 typedef union { 
   unsigned long long QuadPart; 
   struct {
@@ -197,12 +201,23 @@ typedef union {
 
 
 typedef struct HWND__ *HWND;
-typedef void *HANDLE, *HMENU, *HINSTANCE, *HDROP, *HGLOBAL;
+typedef struct HMENU__ *HMENU;
+typedef void *HANDLE, *HINSTANCE, *HDROP, *HGLOBAL;
+
+typedef void (*TIMERPROC)(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
 
 typedef struct 
 {
   LONG x,y;
 } POINT, *LPPOINT;
+
+
+typedef struct
+{
+  SHORT x;
+  SHORT y;
+} POINTS;
+
 
 typedef struct 
 {
@@ -222,7 +237,7 @@ typedef struct {
 } FILETIME;
 
 typedef struct _GUID {
-  unsigned long  Data1;
+  unsigned int Data1;
   unsigned short Data2;
   unsigned short Data3;
   unsigned char  Data4[8];
@@ -242,15 +257,15 @@ typedef void *HDC, *HBRUSH, *HPEN, *HFONT, *HICON, *HBITMAP, *HGDIOBJ, *HCURSOR,
 typedef struct
 {
   HWND  hwndFrom;
-  UINT  idFrom;
+  UINT_PTR  idFrom;
   UINT  code;
 } NMHDR, *LPNMHDR;
 
 
 typedef struct {
   NMHDR   hdr;
-  DWORD   dwItemSpec;
-  DWORD   dwItemData;
+  DWORD_PTR   dwItemSpec;
+  DWORD_PTR   dwItemData;
   POINT   pt;
   DWORD   dwHitInfo;
 } NMMOUSE, *LPNMMOUSE;
@@ -267,7 +282,8 @@ typedef struct
 { 
   int mask, iItem, iSubItem, state, stateMask; 
   char *pszText; 
-  int cchTextMax, iImage, lParam;
+  int cchTextMax, iImage;
+  LPARAM lParam;
 } LVITEM;
 
 typedef int (*PFNLVCOMPARE)(LPARAM, LPARAM, LPARAM);
@@ -321,7 +337,7 @@ typedef struct tagDRAWITEMSTRUCT {
     HWND        hwndItem;
     HDC         hDC;
     RECT        rcItem;
-    DWORD       itemData;
+    DWORD_PTR   itemData;
 } DRAWITEMSTRUCT, *PDRAWITEMSTRUCT, *LPDRAWITEMSTRUCT;
 
 typedef struct tagBITMAP {
@@ -440,7 +456,7 @@ typedef struct
   unsigned int cbSize, fMask, fType, fState, wID;
   HMENU hSubMenu;
   void *hbmpChecked,*hbmpUnchecked;
-  DWORD dwItemData;
+  DWORD_PTR dwItemData;
   char *dwTypeData;
   int cch;
 } MENUITEMINFO;
@@ -454,7 +470,7 @@ typedef struct {
 
 typedef struct
 {
-  long lfHeight, lfWidth, lfEscapement,lfOrientation, lfWeight;
+  int lfHeight, lfWidth, lfEscapement,lfOrientation, lfWeight;
   char lfItalic, lfUnderline, lfStrikeOut, lfCharSet, lfOutPrecision, lfClipPrecision, 
     lfQuality, lfPitchAndFamily;
   char lfFaceName[32];
@@ -518,15 +534,78 @@ typedef struct
   PWINDOWPOS lppos;
 } NCCALCSIZE_PARAMS, *LPNCCALCSIZE_PARAMS;
 
+
+
 typedef INT_PTR (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
 typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);
+
+
+#define WM_GESTURE 0x119
+
+#define GF_BEGIN 1
+#define GF_INERTIA 2
+#define GF_END 4
+
+#define GID_BEGIN 1
+#define GID_END   2
+#define GID_ZOOM  3
+#define GID_PAN   4
+#define GID_ROTATE  5
+#define GID_TWOFINGERTAP  6
+#define GID_ROLLOVER      7
+
+typedef struct tagGESTUREINFO
+{
+  UINT cbSize;
+  DWORD dwFlags;
+  DWORD dwID;
+  HWND hwndTarget;
+  POINTS ptsLocation;
+  DWORD dwInstanceID;
+  DWORD dwSequenceID;
+  ULONGLONG ullArguments;
+  UINT cbExtraArgs;
+} GESTUREINFO;
+
+// not using this stuff yet
+#define GC_PAN 1
+#define GC_PAN_WITH_SINGLE_FINGER_VERTICALLY 2
+#define GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY 4
+
+typedef struct tagGESTURECONFIG
+{
+  DWORD dwID;
+  DWORD dwWant;
+  DWORD dwBlock;
+} GESTURECONFIG;
+
+
+
+#ifndef WINAPI
+#define WINAPI
+#endif
+
+#ifndef CALLBACK
+#define CALLBACK
+#endif
+
 
 typedef BOOL (*PROPENUMPROCEX)(HWND hwnd, const char *lpszString, HANDLE hData, LPARAM lParam);
 
 // swell specific type
 typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);                                           
 
+#define DLL_PROCESS_DETACH   0    
+#define DLL_PROCESS_ATTACH   1    
 
+// if the user implements this (and links with swell-modstub[-generic], this will get called for DLL_PROCESS_[AT|DE]TACH
+#ifdef __cplusplus
+extern "C"  {
+#endif
+__attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpvReserved);
+#ifdef __cplusplus
+};
+#endif
 
 /*
  ** win32 specific constants
@@ -657,8 +736,13 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define LVHT_TORIGHT            0x0040
 #define LVHT_TOLEFT             0x0080
 
-#define LVCF_TEXT 1
+#define LVCF_FMT  1
 #define LVCF_WIDTH 2
+#define LVCF_TEXT 4
+
+#define LVCFMT_LEFT 0
+#define LVCFMT_RIGHT 1
+#define LVCFMT_CENTER 2
 
 #define LVIF_TEXT 1
 #define LVIF_IMAGE 2
@@ -707,18 +791,23 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define BST_CHECKED 1
 #define BST_UNCHECKED 0
 #define BST_INDETERMINATE 2
+
+// note: these differ in values from their win32 counterparts, because we got them
+// wrong to begin with, and we'd like to keep backwards compatability for things compiled
+// against an old swell.h (and using the SWELL API via an exported mechanism, i.e. third party
+// plug-ins). 
 #define SW_HIDE 0
-#define SW_SHOWNA 1
-#define SW_SHOWNOACTIVATE 1
-#define SW_SHOW 2
-#define SW_NORMAL 2
-#define SW_SHOWNORMAL 2
-#define SW_SHOWMAXIMIZED 2 // todo: make this
+#define SW_SHOWNA 1        // 8 on win32
+#define SW_SHOW 2          // 1 on win32
+#define SW_SHOWMINIMIZED 3 // 2 on win32
+
+// aliases (todo implement these as needed)
+#define SW_SHOWNOACTIVATE SW_SHOWNA 
+#define SW_NORMAL SW_SHOW 
+#define SW_SHOWNORMAL SW_SHOW
+#define SW_SHOWMAXIMIZED SW_SHOW
 #define SW_SHOWDEFAULT SW_SHOWNORMAL
-
 #define SW_RESTORE SW_SHOWNA
-
-
 
 #define SWP_NOMOVE 1
 #define SWP_NOSIZE 2
@@ -726,10 +815,10 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define SWP_NOACTIVATE 8
 #define SWP_SHOWWINDOW 16
 #define SWP_NOCOPYBITS 0
-#define HWND_TOP ((HWND)0)
-#define HWND_TOPMOST ((HWND)0)
-#define HWND_BOTTOM ((HWND)0)
-#define HWND_NOTOPMOST ((HWND)0)
+#define HWND_TOP        ((HWND)0)
+#define HWND_BOTTOM     ((HWND)1)
+#define HWND_TOPMOST    ((HWND)-1)
+#define HWND_NOTOPMOST  ((HWND)-2)
 
 // most of these are ignored, actually, but TPM_NONOTIFY and TPM_RETURNCMD are now used
 #define TPM_LEFTBUTTON  0x0000L
@@ -786,8 +875,10 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_ERASEBKGND                   0x0014
 #define WM_ACTIVATEAPP                  0x001C
 #define WM_SETCURSOR                    0x0020
+#define WM_MOUSEACTIVATE                0x0021
 #define WM_GETMINMAXINFO                0x0024
 #define WM_DRAWITEM                     0x002B
+#define WM_SETFONT                      0x0030
 #define WM_GETFONT                      0x0031
 #define WM_NOTIFY                       0x004E
 
@@ -838,6 +929,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_MBUTTONUP                    0x0208
 #define WM_MBUTTONDBLCLK                0x0209
 #define WM_MOUSEWHEEL                   0x020A
+#define WM_MOUSEHWHEEL                  0x020E
 #define WM_MOUSELAST                    0x020A
 #define WM_CAPTURECHANGED               0x0215
 #define WM_DROPFILES                    0x0233
@@ -953,16 +1045,8 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define SIZE_MAXHIDE        4
 
 
-#ifndef WINAPI
-#define WINAPI
-#endif
-
-#ifndef CALLBACK
-#define CALLBACK
-#endif
-
 #ifndef MAKEINTRESOURCE
-#define MAKEINTRESOURCE(x) (x)         
+#define MAKEINTRESOURCE(x) ((const char *)(UINT_PTR)(x))         
 #endif                
 
 #define FVIRTKEY  1
@@ -1034,22 +1118,23 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define VK_F11            0x7A
 #define VK_F12            0x7B
 #define VK_NUMLOCK        0x90
+#define VK_SCROLL         0x91
 
 #define MK_LBUTTON        0x01
 #define MK_RBUTTON        0x02
 #define MK_MBUTTON        0x10
 
 
-#define IDC_SIZENESW -1007
-#define IDC_SIZENWSE -1006
-#define IDC_IBEAM -1005
-#define IDC_UPARROW -1004
-#define IDC_NO -1003
-#define IDC_SIZEALL -1002
-#define IDC_SIZENS -1001
-#define IDC_SIZEWE -1000
-#define IDC_ARROW -999
-#define IDC_HAND 32649
+#define IDC_SIZENESW MAKEINTRESOURCE(-1007)
+#define IDC_SIZENWSE MAKEINTRESOURCE(-1006)
+#define IDC_IBEAM MAKEINTRESOURCE(-1005)
+#define IDC_UPARROW MAKEINTRESOURCE(-1004)
+#define IDC_NO MAKEINTRESOURCE(-1003)
+#define IDC_SIZEALL MAKEINTRESOURCE(-1002)
+#define IDC_SIZENS MAKEINTRESOURCE(-1001)
+#define IDC_SIZEWE MAKEINTRESOURCE(-1000)
+#define IDC_ARROW MAKEINTRESOURCE(-999)
+#define IDC_HAND MAKEINTRESOURCE(32649)
 
 
 
@@ -1137,6 +1222,7 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 
 #define HTNOWHERE           0
 #define HTCLIENT            1
+#define HTMENU              5
 #define HTHSCROLL           6
 #define HTVSCROLL           7
 
@@ -1286,12 +1372,11 @@ SWELL_API_DEFINE(BOOL, WritePrivateProfileStruct,(const char *appname, const cha
 
 /*
 ** GetModuleFileName()
-**
-** This currently ignores the HINSTANCE parameter and returns the main bundle name of the
-** application (i.e. /Applications/MyApp.app).
+** Can pass NULL (exe filename) or a hInstance from DllMain or LoadLibrary
 */
-SWELL_API_DEFINE(DWORD, GetModuleFileName,(HINSTANCE ignored, char *fn, DWORD nSize))
+SWELL_API_DEFINE(DWORD, GetModuleFileName,(HINSTANCE hInst, char *fn, DWORD nSize))
 
+#ifdef SWELL_TARGET_OSX
 /*
 ** SWELL_CStringToCFString(): Creates a CFString/NSString * from a C string. This is mostly 
 ** used internally but you may wish to use it as well (though none of the SWELL APIs take 
@@ -1299,6 +1384,7 @@ SWELL_API_DEFINE(DWORD, GetModuleFileName,(HINSTANCE ignored, char *fn, DWORD nS
 */
 SWELL_API_DEFINE(void *,SWELL_CStringToCFString,(const char *str))
 SWELL_API_DEFINE(void, SWELL_CFStringToCString, (const void *str, char *buf, int buflen))
+#endif
 
 
 /*
@@ -1344,7 +1430,7 @@ SWELL_API_DEFINE(bool, BrowseForSaveFile,(const char *text, const char *initiald
 SWELL_API_DEFINE(bool, BrowseForDirectory,(const char *text, const char *initialdir, char *fn, int fnsize))
 
 // can use this before calling BrowseForFiles or BrowseForSaveFile to use a template dialog
-SWELL_API_DEFINE(void,BrowseFile_SetTemplate,(int dlgid, DLGPROC dlgProc, struct SWELL_DialogResourceIndex *reshead))
+SWELL_API_DEFINE(void,BrowseFile_SetTemplate,(const char *dlgid, DLGPROC dlgProc, struct SWELL_DialogResourceIndex *reshead))
 
 
 // Note that window functions are generally NOT threadsafe.
@@ -1375,6 +1461,9 @@ SWELL_API_DEFINE(void, ShowWindow,(HWND, int))
 */
 SWELL_API_DEFINE(void, DestroyWindow,(HWND hwnd)) 
 
+SWELL_API_DEFINE(BOOL, SWELL_GetGestureInfo, (LPARAM lParam, GESTUREINFO* gi))
+
+SWELL_API_DEFINE(void, SWELL_HideApp,())
 
 /*
 ** These should all work like their Win32 versions, though if idx=0 it gets/sets the
@@ -1466,7 +1555,7 @@ SWELL_API_DEFINE(HWND,FindWindowEx,(HWND par, HWND lastw, const char *classname,
 ** than r.top, due to flipped coordinates. SetWindowPos and other functions 
 ** handle negative heights gracefully, and you should too.
 **
-** Note: GetWindowContentViewRect gets the rectangle of the content view
+** Note: GetWindowContentViewRect gets the rectangle of the content view (pre-NCCALCSIZE etc)
 */
 SWELL_API_DEFINE(void, ClientToScreen,(HWND hwnd, POINT *p))
 SWELL_API_DEFINE(void, ScreenToClient,(HWND hwnd, POINT *p))
@@ -1523,8 +1612,8 @@ SWELL_API_DEFINE(void,UpdateWindow,(HWND hwnd))
 ** windows/dialogs/controls, via (int)getSwellExtraData:(int)idx and 
 ** setSwellExtraData:(int)idx value:(int)val . 
 */
-SWELL_API_DEFINE(LONG, GetWindowLong,(HWND hwnd, int idx))
-SWELL_API_DEFINE(LONG, SetWindowLong,(HWND hwnd, int idx, LONG val))
+SWELL_API_DEFINE(LONG_PTR, GetWindowLong,(HWND hwnd, int idx))
+SWELL_API_DEFINE(LONG_PTR, SetWindowLong,(HWND hwnd, int idx, LONG_PTR val))
 
 
 SWELL_API_DEFINE(BOOL, ScrollWindow, (HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT *lpClipRect))
@@ -1567,9 +1656,10 @@ SWELL_API_DEFINE(bool, IsWindowVisible,(HWND hwnd))
 ** windows/dialogs/controls automatically do this, but if you use SetTimer() on a NSView *
 ** or NSWindow * directly, then you should kill all timers in -dealloc.
 */
-SWELL_API_DEFINE(int, SetTimer,(HWND hwnd, int timerid, int rate, unsigned long *notUsed))
-SWELL_API_DEFINE(void, KillTimer,(HWND hwnd, int timerid))
+SWELL_API_DEFINE(UINT_PTR, SetTimer,(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc))
+SWELL_API_DEFINE(BOOL, KillTimer,(HWND hwnd, UINT_PTR timerid))
 
+#ifdef SWELL_TARGET_OSX
 /*
 ** These provide the interfaces for directly updating a combo box control. This is no longer
 ** required as SendMessage can now be used with CB_* etc.
@@ -1581,8 +1671,8 @@ SWELL_API_DEFINE(int, SWELL_CB_AddString,(HWND hwnd, int idx, const char *str))
 SWELL_API_DEFINE(void, SWELL_CB_SetCurSel,(HWND hwnd, int idx, int sel))
 SWELL_API_DEFINE(int, SWELL_CB_GetCurSel,(HWND hwnd, int idx))
 SWELL_API_DEFINE(int, SWELL_CB_GetNumItems,(HWND hwnd, int idx))
-SWELL_API_DEFINE(void, SWELL_CB_SetItemData,(HWND hwnd, int idx, int item, LONG data)) // these two only work for the combo list version for now
-SWELL_API_DEFINE(LONG, SWELL_CB_GetItemData,(HWND hwnd, int idx, int item))
+SWELL_API_DEFINE(void, SWELL_CB_SetItemData,(HWND hwnd, int idx, int item, LONG_PTR data)) // these two only work for the combo list version for now
+SWELL_API_DEFINE(LONG_PTR, SWELL_CB_GetItemData,(HWND hwnd, int idx, int item))
 SWELL_API_DEFINE(void, SWELL_CB_Empty,(HWND hwnd, int idx))
 SWELL_API_DEFINE(int, SWELL_CB_InsertString,(HWND hwnd, int idx, int pos, const char *str))
 SWELL_API_DEFINE(int, SWELL_CB_GetItemText,(HWND hwnd, int idx, int item, char *buf, int bufsz))
@@ -1601,6 +1691,8 @@ SWELL_API_DEFINE(int, SWELL_TB_GetPos,(HWND hwnd, int idx))
 SWELL_API_DEFINE(void, SWELL_TB_SetTic,(HWND hwnd, int idx, int pos))
 
 
+#endif
+
 /*
 ** ListView API. In owner data mode only LVN_GETDISPINFO is used (not ODFINDITEM etc).
 ** LVN_BEGINDRAG also should work as on windows. Imagelists state icons work as well.
@@ -1608,6 +1700,7 @@ SWELL_API_DEFINE(void, SWELL_TB_SetTic,(HWND hwnd, int idx, int pos))
 SWELL_API_DEFINE(void, ListView_SetExtendedListViewStyleEx,(HWND h, int flag, int mask))
 SWELL_API_DEFINE(void, ListView_InsertColumn,(HWND h, int pos, const LVCOLUMN *lvc))
 SWELL_API_DEFINE(bool, ListView_DeleteColumn,(HWND h, int pos))
+SWELL_API_DEFINE(void, ListView_SetColumn,(HWND h, int pos, const LVCOLUMN *lvc))
 SWELL_API_DEFINE(int, ListView_GetColumnWidth,(HWND h, int pos))
 SWELL_API_DEFINE(int, ListView_InsertItem,(HWND h, const LVITEM *item))
 SWELL_API_DEFINE(void, ListView_SetItemText,(HWND h, int ipos, int cpos, const char *txt))
@@ -1662,6 +1755,7 @@ SWELL_API_DEFINE(void, TreeView_SelectItem,(HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(BOOL, TreeView_GetItem,(HWND hwnd, LPTVITEM pitem))
 SWELL_API_DEFINE(BOOL, TreeView_SetItem,(HWND hwnd, LPTVITEM pitem))
 SWELL_API_DEFINE(HTREEITEM, TreeView_HitTest, (HWND hwnd, TVHITTESTINFO *hti))
+SWELL_API_DEFINE(BOOL, TreeView_SetIndent,(HWND hwnd, int indent))
 
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetChild, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetNextSibling, (HWND hwnd, HTREEITEM item))
@@ -1703,6 +1797,7 @@ SWELL_API_DEFINE(void,SWELL_InsertMenu,(HMENU menu, int pos, int flag, int idx, 
 
 SWELL_API_DEFINE(BOOL, GetMenuItemInfo,(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi))
 SWELL_API_DEFINE(BOOL, SetMenuItemInfo,(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi))
+SWELL_API_DEFINE(void, DrawMenuBar,(HWND))
 
 
 
@@ -1717,7 +1812,7 @@ SWELL_API_DEFINE(BOOL, SetMenuItemInfo,(HMENU hMenu, int pos, BOOL byPos, MENUIT
 #ifndef LoadMenu
 #define LoadMenu(hinst,resid) SWELL_LoadMenu(SWELL_curmodule_menuresource_head,(resid))
 #endif
-SWELL_API_DEFINE(HMENU, SWELL_LoadMenu,(struct SWELL_MenuResourceIndex *head, int resid))
+SWELL_API_DEFINE(HMENU, SWELL_LoadMenu,(struct SWELL_MenuResourceIndex *head, const char *resid))
 
 /*
 ** TrackPopupMenu
@@ -1781,13 +1876,13 @@ SWELL_API_DEFINE(void, SWELL_SetCurrentMenu,(HMENU))
 */
 
 #ifndef DialogBox
-#define DialogBox(hinst, resid, par, dlgproc) SWELL_DialogBox(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,0)
-#define DialogBoxParam(hinst, resid, par, dlgproc, param) SWELL_DialogBox(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,param)
-#define CreateDialog(hinst,resid,par,dlgproc) SWELL_CreateDialog(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,0)
-#define CreateDialogParam(hinst,resid,par,dlgproc,param) SWELL_CreateDialog(SWELL_curmodule_dialogresource_head,resid,par,dlgproc,param)
+#define DialogBox(hinst, resid, par, dlgproc) SWELL_DialogBox(SWELL_curmodule_dialogresource_head,(resid),par,dlgproc,0)
+#define DialogBoxParam(hinst, resid, par, dlgproc, param) SWELL_DialogBox(SWELL_curmodule_dialogresource_head,(resid),par,dlgproc,param)
+#define CreateDialog(hinst,resid,par,dlgproc) SWELL_CreateDialog(SWELL_curmodule_dialogresource_head,(resid),par,dlgproc,0)
+#define CreateDialogParam(hinst,resid,par,dlgproc,param) SWELL_CreateDialog(SWELL_curmodule_dialogresource_head,(resid),par,dlgproc,param)
 #endif
-SWELL_API_DEFINE(int, SWELL_DialogBox,(struct SWELL_DialogResourceIndex *reshead, int resid, HWND parent,  DLGPROC dlgproc, LPARAM param))  
-SWELL_API_DEFINE(HWND, SWELL_CreateDialog,(struct SWELL_DialogResourceIndex *reshead, int resid, HWND parent, DLGPROC dlgproc, LPARAM param))
+SWELL_API_DEFINE(int, SWELL_DialogBox,(struct SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent,  DLGPROC dlgproc, LPARAM param))  
+SWELL_API_DEFINE(HWND, SWELL_CreateDialog,(struct SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent, DLGPROC dlgproc, LPARAM param))
 
 
 /*
@@ -1805,7 +1900,7 @@ SWELL_API_DEFINE(void, SWELL_UnregisterCustomControlCreator,(SWELL_ControlCreato
 ** Notes: Doesnt do much but call it anyway from any child windows created with CreateDialog 
 ** and a 0 resource-id window proc.
 */
-SWELL_API_DEFINE(long, DefWindowProc,(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam))
+SWELL_API_DEFINE(LRESULT, DefWindowProc,(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam))
                  
 /*
 ** EndDialog():
@@ -1832,7 +1927,7 @@ SWELL_API_DEFINE(int,SWELL_GetDefaultButtonID,(HWND hwndDlg, bool onlyIfEnabled)
 ** If the receiver is a window and none of these work, the message goes to the window's contentview's onSwellMessage, if any
 **
 */
-SWELL_API_DEFINE(int, SendMessage,(HWND, UINT, WPARAM, LPARAM))  
+SWELL_API_DEFINE(LRESULT, SendMessage,(HWND, UINT, WPARAM, LPARAM))  
 #ifndef SendDlgItemMessage                                       
 #define SendDlgItemMessage(hwnd,idx,msg,wparam,lparam) SendMessage(GetDlgItem(hwnd,idx),msg,wparam,lparam)
 #endif
@@ -1876,7 +1971,9 @@ SWELL_API_DEFINE(void, SWELL_MessageQueue_Clear,(HWND h))
 ** including (possibly) FSHIFT, FCONTROL (apple key), FALT, and FVIRTKEY. The ctrl key is not checked,
 ** as SWELL generally encourages this to be used soley for a right mouse button (as modifier).
 */
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_MacKeyToWindowsKey,(void *nsevent, int *flags))
+#endif
 SWELL_API_DEFINE(int,SWELL_KeyToASCII,(int wParam, int lParam, int *newflags))
 
 
@@ -1899,7 +1996,7 @@ SWELL_API_DEFINE(DWORD, GetMessagePos,())
 ** Notes: hinstance parameter ignored, currently only supports loading some of the predefined values.
 ** (IDC_SIZEALL etc). If it succeeds value is a NSCursor *
 */
-SWELL_API_DEFINE(HCURSOR, SWELL_LoadCursor,(int idx))
+SWELL_API_DEFINE(HCURSOR, SWELL_LoadCursor,(const char *idx))
 #ifndef LoadCursor
 #define LoadCursor(a,x) SWELL_LoadCursor(x)
 #endif
@@ -1969,6 +2066,10 @@ SWELL_API_DEFINE(void, SetClipboardData,(UINT type, HANDLE h))
 SWELL_API_DEFINE(UINT, RegisterClipboardFormat,(const char *desc))
 SWELL_API_DEFINE(UINT, EnumClipboardFormats,(UINT lastfmt))
 
+#ifndef CF_TEXT
+#define CF_TEXT (RegisterClipboardFormat("SWELL__CF_TEXT"))
+#endif
+
 /*
 ** GlobalAlloc*() 
 ** These are only currently used by the clipboard system,
@@ -1985,17 +2086,28 @@ SWELL_API_DEFINE(void, GlobalFree,(HANDLE h))
 
 SWELL_API_DEFINE(HANDLE,CreateThread,(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut))
 SWELL_API_DEFINE(HANDLE,CreateEvent,(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored))
+SWELL_API_DEFINE(HANDLE,CreateEventAsSocket,(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored))
+
 SWELL_API_DEFINE(DWORD,GetCurrentThreadId,())
 SWELL_API_DEFINE(DWORD,WaitForSingleObject,(HANDLE hand, DWORD msTO))
+SWELL_API_DEFINE(DWORD,WaitForAnySocketObject,(int numObjs, HANDLE *objs, DWORD msTO)) // waits for any number of socket objects
 SWELL_API_DEFINE(BOOL,CloseHandle,(HANDLE hand))
 SWELL_API_DEFINE(BOOL,SetThreadPriority,(HANDLE evt, int prio))
 SWELL_API_DEFINE(BOOL,SetEvent,(HANDLE evt))
 SWELL_API_DEFINE(BOOL,ResetEvent,(HANDLE evt))
 
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_EnsureMultithreadedCocoa,())
 SWELL_API_DEFINE(void *, SWELL_InitAutoRelease,())
 SWELL_API_DEFINE(void, SWELL_QuitAutoRelease,(void *p))
+SWELL_API_DEFINE(HANDLE,SWELL_CreateProcess,(const char *exe, int nparams, const char **params))
+#endif
 
+
+SWELL_API_DEFINE(HINSTANCE,LoadLibraryGlobals,(const char *fileName, bool symbolsAsGlobals))
+SWELL_API_DEFINE(HINSTANCE,LoadLibrary,(const char *fileName))
+SWELL_API_DEFINE(void *,GetProcAddress,(HINSTANCE hInst, const char *procName))
+SWELL_API_DEFINE(BOOL,FreeLibrary,(HINSTANCE hInst))
 
 /*
 ** GDI functions.
@@ -2048,7 +2160,7 @@ SWELL_API_DEFINE(void, SWELL_PopClipRegion,(HDC ctx))
 */
 
 SWELL_API_DEFINE(HFONT, CreateFontIndirect,(LOGFONT *))
-SWELL_API_DEFINE(HFONT, CreateFont,(long lfHeight, long lfWidth, long lfEscapement, long lfOrientation, long lfWeight, char lfItalic, 
+SWELL_API_DEFINE(HFONT, CreateFont,(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation, int lfWeight, char lfItalic, 
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName))
 
@@ -2101,7 +2213,9 @@ SWELL_API_DEFINE(void, SetBkMode,(HDC ctx, int col))
 SWELL_API_DEFINE(void, RoundRect,(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd))
 SWELL_API_DEFINE(void, PolyPolyline,(HDC ctx, POINT *pts, DWORD *cnts, int nseg))
 SWELL_API_DEFINE(BOOL, GetTextMetrics,(HDC ctx, TEXTMETRIC *tm))
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
+#endif
 SWELL_API_DEFINE(BOOL, GetObject, (HICON icon, int bmsz, void *_bm))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
 SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
@@ -2110,11 +2224,14 @@ SWELL_API_DEFINE(void, BitBltAlpha,(HDC hdcOut, int x, int y, int w, int h, HDC 
 SWELL_API_DEFINE(void, BitBltAlphaFromMem,(HDC hdcOut, int x, int y, int w, int h, void *inbuf, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity))
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
+SWELL_API_DEFINE(HBITMAP, CreateBitmap,(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits))
 
 SWELL_API_DEFINE(void, SetOpaque, (HWND h, bool isopaque))
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, bool wantGL))
 SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
 SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
+#endif
 
 SWELL_API_DEFINE(HDC, BeginPaint,(HWND, PAINTSTRUCT *))
 SWELL_API_DEFINE(BOOL, EndPaint,(HWND, PAINTSTRUCT *))
@@ -2143,8 +2260,10 @@ SWELL_API_DEFINE(void, SWELL_FinishDragDrop, ())  // cancels any outstanding Ini
 SWELL_API_DEFINE(void,SWELL_DrawFocusRect,(HWND hwndPar, RECT *rct, void **handle))
 
 
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_SetWindowRepre,(HWND hwnd, const char *fn, bool isDirty)) // sets the represented file and edited state
 SWELL_API_DEFINE(void,SWELL_PostQuitMessage,(void *sender))
+#endif
 
 /*
 ** Functions used by swell-dlggen.h and swell-menugen.h
@@ -2209,7 +2328,7 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 #endif // !_WIN32
 
 
-#ifdef _WIN32 // deprecated SWELL_CB_ / SWELL_TB_ defines for windows
+#ifndef SWELL_TARGET_OSX
 
 #ifndef SWELL_CB_InsertString
 
@@ -2231,7 +2350,7 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 #endif
 
-#endif//_WIN32
+#endif// !SWELL_TARGET_OSX
 
 
 
@@ -2258,6 +2377,10 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 #define SWELL_SyncCtxFrameBuffer(x) // no longer used
 
+#endif
+
+#if defined(_WIN32) && !defined(LoadLibraryGlobals)
+#define LoadLibraryGlobals(a,b) LoadLibrary(a)
 #endif
 
 

@@ -187,46 +187,301 @@ WORD GetAsyncKeyState(int key)
 
 SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 
-HCURSOR SWELL_LoadCursor(int idx)
+static NSCursor* MakeCursorFromData(unsigned char* data, int hotspot_x, int hotspot_y)
 {
-  switch (idx)
+  NSBitmapImageRep* bmp = [[NSBitmapImageRep alloc] 
+    initWithBitmapDataPlanes:0
+    pixelsWide:16
+    pixelsHigh:16
+    bitsPerSample:8
+    samplesPerPixel:2  
+    hasAlpha:YES
+    isPlanar:NO 
+    colorSpaceName:NSCalibratedWhiteColorSpace
+    bytesPerRow:(16*2)
+    bitsPerPixel:16]; 
+  if (!bmp) return 0;
+  
+  unsigned char* p = [bmp bitmapData];
+  if (!p) return 0;
+  
+  int i;
+  for (i = 0; i < 16*16; ++i)
   {
-    case IDC_SIZENWSE:
-    case IDC_SIZENESW:
-      return (HCURSOR)[NSCursor pointingHandCursor]; // bleh
-    case IDC_SIZEALL: // todo
-      return (HCURSOR)[NSCursor closedHandCursor];
-    case IDC_SIZEWE:
-      return (HCURSOR)[NSCursor resizeLeftRightCursor];
-    case IDC_SIZENS:
-      return (HCURSOR)[NSCursor resizeUpDownCursor];
-    case IDC_NO: // todo
-    case IDC_ARROW:
-      return (HCURSOR)[NSCursor arrowCursor];
-    case IDC_HAND:
-      return (HCURSOR)[NSCursor openHandCursor];
-    case IDC_UPARROW:
-      return (HCURSOR)[NSCursor resizeUpCursor];
-    case IDC_IBEAM: return (HCURSOR)[NSCursor IBeamCursor];
+    // tried 4 bits per sample and memcpy, didn't work
+    p[2*i] = (data[i]&0xF0) | data[i]>>4;
+    p[2*i+1] = (data[i]<<4) | (data[i]&0xf);
   }
+  
+  NSImage* img = [[NSImage alloc] init];
+  if (!img) return 0;
+  [img addRepresentation:bmp];  
+  
+  NSPoint hs = { hotspot_x, hotspot_y };
+  NSCursor* c = [[NSCursor alloc] initWithImage:img hotSpot:hs];
+  
+  [bmp release];
+  [img release];
+  return c;
+}
+
+static NSCursor* MakeSWELLSystemCursor(const char *id)
+{
+  // bytemaps are (white<<4)|(alpha)
+  const unsigned char B = 0xF;
+  const unsigned char W = 0xFF;
+  const unsigned char G = 0xF8;
+  
+  static NSCursor* carr[3] = { 0, 0, 0 };
+  
+  NSCursor** pc=0;
+  if (id == IDC_SIZEALL) pc = &carr[0];
+  else if (id == IDC_SIZENWSE) pc = &carr[1];
+  else if (id == IDC_SIZENESW) pc = &carr[2];
+  else return 0;
+  
+  if (!(*pc))
+  {
+    if (id == IDC_SIZEALL)
+    {
+      static unsigned char p[16*16] = 
+      {
+        0, 0, 0, 0, 0, 0, G, W, W, G, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, G, W, B, B, W, G, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, W, B, B, B, B, W, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, G, B, B, B, B, B, B, G, 0, 0, 0, 0,
+        0, 0, 0, G, 0, 0, W, B, B, W, 0, 0, G, 0, 0, 0,
+        0, G, W, B, 0, 0, W, B, B, W, 0, 0, B, W, G, 0,
+        G, W, B, B, W, W, W, B, B, W, W, W, B, B, W, G,
+        W, B, B, B, B, B, B, B, B, B, B, B, B, B, B, W,
+        W, B, B, B, B, B, B, B, B, B, B, B, B, B, B, W,
+        G, W, B, B, W, W, W, B, B, W, W, W, B, B, W, G,
+        0, G, W, B, 0, 0, W, B, B, W, 0, 0, B, W, G, 0,
+        0, 0, 0, G, 0, 0, W, B, B, W, 0, 0, G, 0, 0, 0,
+        0, 0, 0, 0, G, B, B, B, B, B, B, G, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, W, B, B, B, B, W, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, G, W, B, B, W, G, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, G, W, W, G, 0, 0, 0, 0, 0, 0,
+      };
+      *pc = MakeCursorFromData(p, 8, 8);
+    }
+    else if (id == IDC_SIZENWSE || id == IDC_SIZENESW)
+    {
+      static unsigned char p[16*16] = 
+      {
+        W, W, W, W, W, W, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+        W, G, G, G, W, G, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+        W, G, B, W, G, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+        W, G, W, B, W, G, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,      
+        W, W, G, W, B, W, G, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+        W, G, 0, G, W, B, W, G, 0, 0, 0, 0, 0, 0, 0, 0, 
+        0, 0, 0, 0, G, W, B, W, G, 0, 0, 0, 0, 0, 0, 0, 
+        0, 0, 0, 0, 0, G, W, B, W, G, 0, 0, 0, 0, 0, 0,         
+        0, 0, 0, 0, 0, 0, G, W, B, W, G, 0, 0, 0, 0, 0, 
+        0, 0, 0, 0, 0, 0, 0, G, W, B, W, G, 0, 0, 0, 0, 
+        0, 0, 0, 0, 0, 0, 0, 0, G, W, B, W, G, 0, G, W, 
+        0, 0, 0, 0, 0, 0, 0, 0, 0, G, W, B, W, G, W, W, 
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, G, W, B, W, G, W, 
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, G, W, B, G, W, 
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, G, W, G, G, G, W, 
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, W, W, W, W, W, W,         
+      };
+      if (id == IDC_SIZENESW)
+      {
+        int x, y;
+        for (y = 0; y < 16; ++y) 
+        {
+          for (x = 0; x < 8; ++x)
+          {
+            unsigned char tmp = p[16*y+x];
+            p[16*y+x] = p[16*y+16-x-1];
+            p[16*y+16-x-1] = tmp;
+          }
+        }
+      }
+     *pc = MakeCursorFromData(p, 8, 8);   
+      if (id == IDC_SIZENESW) // swap back!
+      {
+        int x, y;
+        for (y = 0; y < 16; ++y) 
+        {
+          for (x = 0; x < 8; ++x)
+          {
+            unsigned char tmp = p[16*y+x];
+            p[16*y+x] = p[16*y+16-x-1];
+            p[16*y+16-x-1] = tmp;
+          }
+        }
+      }      
+    }
+    else if (id == IDC_NO)
+    {
+      static unsigned char p[16*16] = 
+      {
+        0, 0, 0, 0, G, W, W, W, W, W, W, G, 0, 0, 0, 0,
+        0, 0, G, W, W, B, B, B, B, B, B, W, W, G, 0, 0,
+        0, G, W, B, B, B, W, W, W, W, B, B, B, W, G, 0,
+        0, W, B, B, W, W, G, 0, 0, G, W, G, B, B, W, 0,        
+        G, W, B, W, G, 0, 0, 0, 0, G, W, B, G, B, W, G,
+        W, B, B, W, 0, 0, 0, 0, G, W, B, W, W, B, B, W,
+        W, B, W, G, 0, 0, 0, G, W, B, W, G, G, W, B, W,
+        W, B, W, 0, 0, 0, G, W, B, W, G, 0, 0, W, B, W,      
+        W, B, W, 0, 0, G, W, B, W, G, 0, 0, 0, W, B, W,
+        W, B, W, G, G, W, B, W, G, 0, 0, 0, G, W, B, W,
+        W, B, B, W, W, B, W, G, 0, 0, 0, 0, W, B, B, W,
+        G, W, B, G, B, W, G, 0, 0, 0, 0, G, W, B, W, G,        
+        0, W, B, B, G, W, G, 0, 0, G, W, W, B, B, W, 0,
+        0, G, W, B, B, B, W, W, W, W, B, B, B, W, G, 0,
+        0, 0, G, W, W, B, B, B, B, B, B, W, W, G, 0, 0,
+        0, 0, 0, 0, G, W, W, W, W, W, W, G, 0, 0, 0, 0,                                                                                                                                                                                                                                                                                                                                                                                                                                
+      };
+      *pc = MakeCursorFromData(p, 8, 8);        
+    }
+  }  
+  
+  return *pc;
+}
+
+static NSImage *swell_imageFromCursorString(const char *name, POINT *hotSpot)
+{
+  NSImage *img=NULL;
+  FILE *fp = NULL;  
+  bool isFullFn=false;
+  
+  if (!strstr(name,"/") && strlen(name)<1024)
+  {
+    char tmpn[4096];
+    GetModuleFileName(NULL,tmpn,sizeof(tmpn)-128-strlen(name));
+    strcat(tmpn,"/Contents/Resources/");
+    strcat(tmpn,name);
+    strcat(tmpn,".cur");
+    fp = fopen(tmpn,"rb");
+  }
+  else 
+  {
+    isFullFn=true;
+    if (strlen(name)>4 && !stricmp(name+strlen(name)-4,".cur")) fp = fopen(name,"rb");    
+  }  
+  
+  if (fp)
+  {
+    unsigned char buf[4096];
+    if (fread(buf,1,6,fp)==6 && !buf[0] && !buf[1] && buf[2] == 2 && buf[3] == 0 && buf[4] == 1 && buf[5] == 0)
+    {
+      static char tempfn[512];
+      if (!tempfn[0])
+      {
+        const char *p = getenv("TEMP");
+        if  (!p || !*p) p="/tmp";
+        sprintf(tempfn,"%.200s/swellcur%x%x.ico",p,timeGetTime(),(int)getpid());
+      }
+      
+      FILE *outfp = fopen(tempfn,"wb");
+      if (outfp)
+      {
+        bool wantLoad=false;
+        buf[2]=1; // change to .ico
+        fwrite(buf,1,6,outfp);
+        
+        fread(buf,1,16,fp);
+        int xHot = buf[4]|(buf[5]<<8);
+        int yHot = buf[6]|(buf[7]<<8);
+        
+        buf[4]=1; buf[5]=0; // 1 color plane
+        buf[6]=0; buf[7]=0; // 0 for pixel depth means "auto"
+        
+        if (!buf[3])
+        {
+          fwrite(buf,1,16,outfp);
+          for (;;)
+          {
+            int a = fread(buf,1,sizeof(buf),fp);
+            if (a<1) break;
+            fwrite(buf,1,a,outfp);
+          }           
+          wantLoad=true;
+        }              
+        
+        fclose(outfp);
+        if (wantLoad)
+        {
+          NSString *str = (NSString *)SWELL_CStringToCFString(tempfn);     
+          img = [[NSImage alloc] initWithContentsOfFile:str];
+          [str release];
+          if (img && hotSpot) 
+          {
+            hotSpot->x = xHot;
+            hotSpot->y = yHot;
+          }
+          //          printf("loaded converted ico for %s %s %d\n",tempfn,name,!!img);
+        }
+        unlink(tempfn);
+      }      
+      
+    }
+    
+    fclose(fp);
+  }
+  
+  if (!img) // fall back
+  {
+    NSString *str = (NSString *)SWELL_CStringToCFString(name);     
+    
+    if (isFullFn) img = [[NSImage alloc] initWithContentsOfFile:str];
+    else
+    {
+      img = [NSImage imageNamed:str];
+      if (img) [img retain];
+    }
+    [str release];
+  }
+  
+  return img;
+}
+
+  
+HCURSOR SWELL_LoadCursorFromFile(const char *fn)
+{
+  POINT hotspot={0,};
+  NSImage *img = swell_imageFromCursorString(fn,&hotspot);    
+  if (img)
+  {      
+    HCURSOR ret=(HCURSOR)[[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(hotspot.x,hotspot.y)];      
+    [img release];
+    return ret;
+  }
+  return NULL;
+}
+  
+// todo: support for loading from file
+HCURSOR SWELL_LoadCursor(const char *_idx)
+{
+  if (_idx == IDC_NO||_idx==IDC_SIZENWSE || _idx == IDC_SIZENESW || _idx == IDC_SIZEALL) return (HCURSOR) MakeSWELLSystemCursor(_idx);
+  if (_idx == IDC_SIZEWE) return (HCURSOR)[NSCursor resizeLeftRightCursor];
+  if (_idx == IDC_SIZENS) return (HCURSOR)[NSCursor resizeUpDownCursor];
+  if (_idx == IDC_ARROW) return (HCURSOR)[NSCursor arrowCursor];
+  if (_idx == IDC_HAND) return (HCURSOR)[NSCursor openHandCursor];
+  if (_idx == IDC_UPARROW) return (HCURSOR)[NSCursor resizeUpCursor];
+  if (_idx == IDC_IBEAM) return (HCURSOR)[NSCursor IBeamCursor];
+  
+  // search registered cursor list
   SWELL_CursorResourceIndex *p = SWELL_curmodule_cursorresource_head;
   while (p)
   {
-    if (p->resid == idx)
+    if (p->resid == _idx)
     {
       if (p->cachedCursor) return p->cachedCursor;
       
-      NSString *str = (NSString *)SWELL_CStringToCFString(p->resname);     
-      NSImage *img = [NSImage imageNamed:str];
-      [str release];
+      NSImage *img = swell_imageFromCursorString(p->resname,&p->hotspot);    
       if (img)
       {      
-        return p->cachedCursor=(HCURSOR)[[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(p->hotspot.x,p->hotspot.y)];
+        p->cachedCursor=(HCURSOR)[[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(p->hotspot.x,p->hotspot.y)];      
+        [img release];
+        return p->cachedCursor;
       }
     }
     p=p->_next;
   }
-  // search registered cursor list here
   return 0;
 }
 

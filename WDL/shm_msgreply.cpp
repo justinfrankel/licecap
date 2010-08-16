@@ -1,6 +1,6 @@
 #include "shm_msgreply.h"
 
-//#define VERIFY_MESSAGES
+//#define VERIFY_MESSAGES // this is not endian-aware (so it'll fail if enabled and doing ppc<->x86 etc)
 #ifdef VERIFY_MESSAGES
 #define WDL_SHA1 WDL_SHA1_msgreplydef
 #include "sha.cpp"
@@ -21,8 +21,12 @@ SHM_MsgReplyConnection::SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bo
   if (uniquestr) lstrcpyn(m_uniq,uniquestr,sizeof(m_uniq));
   else
   {
-    INT64 pid = (INT64) GetCurrentProcessId();
-    INT64 thisptr = (INT64) (INT_PTR) this;
+#ifdef _WIN32
+    WDL_INT64 pid = (WDL_INT64) GetCurrentProcessId();
+#else
+    WDL_INT64 pid = (WDL_INT64) getpid();
+#endif
+    WDL_INT64 thisptr = (WDL_INT64) (INT_PTR) this;
     sprintf(m_uniq,"%08x%08x%08x%08x",
       (int)(pid&0xffffffff),
       (int)(pid>>32),
@@ -53,15 +57,15 @@ SHM_MsgReplyConnection::~SHM_MsgReplyConnection()
   }
 }
 
-void SHM_MsgReplyConnection::Reply(int msgID, void *msg, int msglen)
+void SHM_MsgReplyConnection::Reply(int msgID, const void *msg, int msglen)
 {
   if (msgID) Send(0,msg,msglen,NULL,0,&msgID);
 }
 
 
-int SHM_MsgReplyConnection::Send(int type, void *msg, int msglen,  
-                           void *replybuf, int maxretbuflen, int *forceMsgID,
-                           void *secondchunk, int secondchunklen,
+int SHM_MsgReplyConnection::Send(int type, const void *msg, int msglen,  
+                           void *replybuf, int maxretbuflen, const int *forceMsgID,
+                           const void *secondchunk, int secondchunklen,
                            WDL_HeapBuf *hbreplyout)
 {
   if (!m_shm||m_has_had_error) return -1;
@@ -72,7 +76,7 @@ int SHM_MsgReplyConnection::Send(int type, void *msg, int msglen,
   int msgid;
   {
     WDL_MutexLock lock(&m_shmmutex);
-    m_shm->send_queue.Add(&type,4);
+    m_shm->send_queue.AddDataToLE(&type,4,4);
 
     if (forceMsgID) msgid = *forceMsgID;
     else
@@ -81,8 +85,8 @@ int SHM_MsgReplyConnection::Send(int type, void *msg, int msglen,
       else if (!(msgid = ++m_lastmsgid)) msgid = ++m_lastmsgid;
     }
 
-    m_shm->send_queue.Add(&msgid,4);
-    m_shm->send_queue.Add(&msglen,4);
+    m_shm->send_queue.AddDataToLE(&msgid,4,4);
+    m_shm->send_queue.AddDataToLE(&msglen,4,4);
     if (msglen>secondchunklen) m_shm->send_queue.Add(msg,msglen-secondchunklen);
     if (secondchunklen>0) m_shm->send_queue.Add(secondchunk,secondchunklen);
 
@@ -105,9 +109,11 @@ int SHM_MsgReplyConnection::Send(int type, void *msg, int msglen,
 
   if ((hbreplyout||replybuf) && msgid)
   {
+    int wait_cnt=30; // dont run idleproc for first Xms or so
+
     while (!m_has_had_error)
     {
-      if (IdleProc && IdleProc(this))
+      if (wait_cnt<=0 && IdleProc && IdleProc(this))
       {
         m_has_had_error=true;
         break;
@@ -140,6 +146,8 @@ int SHM_MsgReplyConnection::Send(int type, void *msg, int msglen,
       else if (r) break;
 
 
+      if (wait_cnt>0) wait_cnt--;
+
       HANDLE evt=m_shm->GetWaitEvent();
       if (evt) WaitForSingleObject(evt,1);
       else Sleep(1);
@@ -158,7 +166,11 @@ void SHM_MsgReplyConnection::Wait(HANDLE extraEvt)
   if (evt && extraEvt && evt != extraEvt)
   {
     HANDLE hds[2] = {evt,extraEvt};
+#ifdef _WIN32
     WaitForMultipleObjects(2,hds,FALSE,1);
+#else
+    WaitForAnySocketObject(2,hds,1);
+#endif
   }
   else if (evt) WaitForSingleObject(evt,1);
   else Sleep(1);
@@ -190,6 +202,11 @@ bool SHM_MsgReplyConnection::Run(bool runFull)
   m_shmmutex.Leave();
   
   if (s<0) m_has_had_error=true;
+  else if (m_shm && m_shm->WantSendKeepAlive()) 
+  {
+    int zer=0;
+    Send(0,NULL,0,NULL,0,&zer);
+  }
 
   return s<0;
 } 
@@ -215,6 +232,8 @@ bool SHM_MsgReplyConnection::RunInternal(int checkForReplyID, WaitingMessage **r
     while (m_shm->recv_queue.GetSize()>=12)
     {
       int datasz = *(int *)((char *)m_shm->recv_queue.Get()+8);
+      WDL_Queue::WDL_Queue__bswap_buffer(&datasz,4); // convert to LE if needed
+
       if (m_shm->recv_queue.GetSize() < 12 + datasz) break;
 
 #ifdef VERIFY_MESSAGES
@@ -222,12 +241,15 @@ bool SHM_MsgReplyConnection::RunInternal(int checkForReplyID, WaitingMessage **r
 #endif
 
       int type = *(int *)((char *)m_shm->recv_queue.Get());
+      WDL_Queue::WDL_Queue__bswap_buffer(&type,4); // convert to LE if needed
       
       WaitingMessage *msg = m_spares;
       if (msg) m_spares = m_spares->_next;
       else msg = new WaitingMessage;
 
       msg->m_msgid = *(int *)((char *)m_shm->recv_queue.Get() + 4);
+      WDL_Queue::WDL_Queue__bswap_buffer(&msg->m_msgid,4); // convert to LE if needed
+
       msg->m_msgtype = type;
       memcpy(msg->m_msgdata.Resize(datasz,false),(char *)m_shm->recv_queue.Get()+12, datasz);
 
@@ -312,7 +334,11 @@ bool SHM_MsgReplyConnection::RunInternal(int checkForReplyID, WaitingMessage **r
   } while (s>0);
 
   if (s<0) m_has_had_error=true;
-
+  else if (m_shm && m_shm->WantSendKeepAlive())
+  {
+    int zer=0;
+    Send(0,NULL,0,NULL,0,&zer);
+  }
   return s<0; 
 }
 

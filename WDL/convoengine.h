@@ -93,27 +93,41 @@ public:
   void Advance(int len);
 
 private:
-  int m_impulse_nch;
   WDL_TypedBuf<WDL_CONVO_IMPULSEBUFf> m_impulse[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
   WDL_TypedBuf<char> m_impulse_zflag[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
 
+  int m_impulse_nch;
   int m_fft_size;
   int m_impulse_len;
-
   int m_proc_nch;
+
   WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
   WDL_Queue m_samplesin2[WDL_CONVO_MAX_PROC_NCH];
   WDL_FastQueue m_samplesin[WDL_CONVO_MAX_PROC_NCH];
-  int m_samplesout_delay[WDL_CONVO_MAX_PROC_NCH];
 
+  int m_samplesout_delay[WDL_CONVO_MAX_PROC_NCH];
   int m_hist_pos[WDL_CONVO_MAX_PROC_NCH];
+
   WDL_TypedBuf<WDL_FFT_REAL> m_samplehist[WDL_CONVO_MAX_PROC_NCH]; // FFT'd sample blocks per channel
   WDL_TypedBuf<char> m_samplehist_zflag[WDL_CONVO_MAX_IMPULSE_NCH];
   WDL_TypedBuf<WDL_FFT_REAL> m_overlaphist[WDL_CONVO_MAX_PROC_NCH]; 
   WDL_TypedBuf<WDL_FFT_REAL> m_combinebuf;
 
   WDL_FFT_REAL *m_get_tmpptrs[WDL_CONVO_MAX_PROC_NCH];
-};
+
+public:
+
+  // _div stuff
+  int m_zl_delaypos;
+  int m_zl_dumpage;
+
+//#define WDLCONVO_ZL_ACCOUNTING
+#ifdef WDLCONVO_ZL_ACCOUNTING
+  int m_zl_fftcnt;//removeme (testing of benchmarks)
+#endif
+  void AddSilenceToOutput(int len, int nch);
+
+} WDL_FIXALIGN;
 
 // low latency version
 class WDL_ConvolutionEngine_Div
@@ -122,7 +136,7 @@ public:
   WDL_ConvolutionEngine_Div();
   ~WDL_ConvolutionEngine_Div();
 
-  int SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size=-1);
+  int SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size=-1, int known_blocksize=0);
 
   int GetLatency();
   void Reset();
@@ -135,13 +149,14 @@ public:
 
 private:
   WDL_PtrList<WDL_ConvolutionEngine> m_engines;
-  bool m_need_feedsilence;
 
-  int m_proc_nch;
   WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
   WDL_FFT_REAL *m_get_tmpptrs[WDL_CONVO_MAX_PROC_NCH];
 
-};
+  int m_proc_nch;
+  bool m_need_feedsilence;
+
+} WDL_FIXALIGN;
 
 
 #endif

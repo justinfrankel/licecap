@@ -59,10 +59,10 @@ static NSMutableArray *extensionsFromList(const char *extlist)
 	return fileTypes;
 }
 
-static int BFSF_Templ_dlgid;
+static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
 static struct SWELL_DialogResourceIndex *BFSF_Templ_reshead;
-void BrowseFile_SetTemplate(int dlgid, DLGPROC dlgProc, struct SWELL_DialogResourceIndex *reshead)
+void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_DialogResourceIndex *reshead)
 {
   BFSF_Templ_reshead=reshead;
   BFSF_Templ_dlgid=dlgid;

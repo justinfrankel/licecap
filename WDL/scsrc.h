@@ -87,7 +87,7 @@ private:
   int m_state;
   int m_nch,m_srate;
 
-  double m_last_samples[2];
+  double m_last_samples[2] WDL_FIXALIGN;
   double m_rspos; // last resample fractional position
 
   WDL_FastQueue m_samplequeue; // interleaved samples (float)

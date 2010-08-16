@@ -36,7 +36,6 @@
 #ifndef WDL_HEAPBUF_IMPL_ONLY
 
 
-// #define WDL_HEAPBUF_SMALLONSTACKSIZE 216 // if you'd like to allocate some data for small buffers as a member variable uncomment this
 //#define WDL_HEAPBUF_TRACE
 
 #ifdef WDL_HEAPBUF_TRACE
@@ -58,11 +57,7 @@ class WDL_HeapBuf
       ) : m_alloc(0), m_size(0), m_mas(0)
     {
       SetGranul(granul);
-#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
-      m_buf=m_smallbuf;
-#else
       m_buf=0;
-#endif
 
 #ifdef WDL_HEAPBUF_TRACE
       m_tracetype = tracetype;
@@ -78,10 +73,7 @@ class WDL_HeapBuf
       wsprintf(tmp,"WDL_HeapBuf: destroying type: %s (alloc=%d, size=%d)\n",m_tracetype,m_alloc,m_size);
       OutputDebugString(tmp);
 #endif
-#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
-      if (m_buf!=m_smallbuf) 
-#endif
-        free(m_buf);
+      free(m_buf);
     }
 
 
@@ -92,7 +84,6 @@ class WDL_HeapBuf
     }
     WDL_HeapBuf &operator=(const WDL_HeapBuf &cp)
     {
-      m_buf=0;
       CopyFrom(&cp,true);
       return *this;
     }
@@ -102,13 +93,16 @@ class WDL_HeapBuf
       if (exactCopyOfConfig) // copy all settings
       {
         free(m_buf);
-        memcpy(this,hb,sizeof(WDL_HeapBuf));
-        if (hb->m_buf) 
-        {
-          m_buf=malloc(m_alloc);
-          if (m_buf) memcpy(m_buf,hb->m_buf,m_size);
-          else m_size=m_alloc=0;
-        }
+
+#ifdef WDL_HEAPBUF_TRACE
+        m_tracetype = hb->m_tracetype;
+#endif
+        m_granul = hb->m_granul;
+        m_mas = hb->m_mas;
+
+        m_size=m_alloc=0;
+        m_buf=hb->m_buf && hb->m_alloc>0 ? malloc(m_alloc = hb->m_alloc) : NULL;
+        if (m_buf) memcpy(m_buf,hb->m_buf,m_size = hb->m_size);
       }
       else // copy just the data + size
       {
@@ -147,6 +141,16 @@ class WDL_HeapBuf
     =true)
 #endif
     {      
+#ifdef DEBUG_TIGHT_ALLOC // horribly slow, do not use for release builds
+      int a = newsize; 
+      if (a > m_size) a=m_size;
+      void *newbuf = newsize ? malloc(newsize) : 0;
+      if (!newbuf && newsize) return m_buf;
+      if (newbuf&&m_buf) memcpy(newbuf,m_buf,a);
+      m_size=m_alloc=newsize;
+      free(m_buf);
+      return m_buf=newbuf;
+#endif
 
 //#define WDL_HEAPBUF_DYNAMIC
 #ifdef WDL_HEAPBUF_DYNAMIC
@@ -203,9 +207,6 @@ class WDL_HeapBuf
         // if we are not using m_smallbuf or we need to not use it
         // and if if growing or resizing down
         if (
-#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
-          (m_buf != m_smallbuf || newsize > sizeof(m_smallbuf)) &&
-#endif
             (newsize > m_alloc || 
              (resizedown && newsize < m_size && 
                             newsize < m_alloc/2 && 
@@ -233,11 +234,7 @@ class WDL_HeapBuf
             wsprintf(tmp,"WDL_HeapBuf: type %s realloc(%d) from %d\n",m_tracetype,newalloc,m_alloc);
             OutputDebugString(tmp);
   #endif
-            void *nbuf=
-  #ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
-              (m_buf == m_smallbuf) ? NULL : 
-  #endif
-            realloc(m_buf,newalloc);
+            void *nbuf= realloc(m_buf,newalloc);
             if (!nbuf && newalloc) 
             {
               if (!(nbuf=malloc(newalloc))) return m_size?m_buf:0; // failed, do not resize
@@ -246,10 +243,7 @@ class WDL_HeapBuf
               {
                 int sz=newsize<m_size?newsize:m_size;
                 if (sz>0) memcpy(nbuf,m_buf,sz);
-#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
-                if (m_buf != m_smallbuf) 
-#endif
-                  free(m_buf);
+                free(m_buf);
               }
             }
 
@@ -268,14 +262,14 @@ class WDL_HeapBuf
 #ifndef WDL_HEAPBUF_IMPL_ONLY
   private:
     void *m_buf;
+#if !defined(_WIN64) && !defined(__LP64__)
+    int ___pad; // keep this 8 byte aligned on osx32
+#endif
     int m_granul;
     int m_alloc;
     int m_size;
     int m_mas;
 
-#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
-    double m_smallbuf[WDL_HEAPBUF_SMALLONSTACKSIZE/sizeof(double)]; // for small uses
-#endif
 #ifdef WDL_HEAPBUF_TRACE
     const char *m_tracetype;
 #endif

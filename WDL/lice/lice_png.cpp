@@ -159,34 +159,31 @@ LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp)
   char buf[2048];
   buf[0] = 0;
   GetModuleFileName(0, buf, sizeof(buf)-512); // from SWELL
+#ifdef __APPLE__
   strcat(buf,"/Contents/Resources/");
+#else
+  char *p = buf;
+  while (*p) p++;
+  while (p > buf && *p != '/') p--;
+  *p=0;
+  strcat(buf,"/Resources/");
+#endif
   strcat(buf,name);
   return LICE_LoadPNG(buf,bmp);
 }
 #endif
 
-LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
+LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitmap *bmp)
 {
-#ifdef _WIN32
-  HRSRC hResource = FindResource(hInst, MAKEINTRESOURCE(resid), "PNG");
-  if(!hResource) return NULL;
-
-  DWORD imageSize = SizeofResource(hInst, hResource);
-  if(imageSize < 8) return NULL;
-
-  HGLOBAL res = LoadResource(hInst, hResource);
-  const void* pResourceData = LockResource(res);
-  if(!pResourceData) return NULL;
-
-  unsigned char *data = (unsigned char *)pResourceData;
+  if (buflen<8) return NULL;
+  unsigned char *data = (unsigned char *)(void*)data_in;
   if(png_sig_cmp(data, 0, 8)) return NULL;
 
-  pngReadStruct readStruct = {data, imageSize};
+  pngReadStruct readStruct = {data, buflen};
 
   png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL); 
   if(!png_ptr) 
   {
-    DeleteObject(res);
     return 0;
   }
 
@@ -194,14 +191,12 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   if(!info_ptr)
   {
     png_destroy_read_struct(&png_ptr, NULL, NULL); 
-    DeleteObject(res);
     return 0;
   }
   
   if (setjmp(png_jmpbuf(png_ptr)))
   { 
     png_destroy_read_struct(&png_ptr, &info_ptr, NULL); 
-    DeleteObject(res);
     return 0;
   }
 
@@ -247,7 +242,6 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
     if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
     {
       png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
-      DeleteObject(res);
       return 0;
     }
   }
@@ -264,8 +258,6 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   }
   png_read_image(png_ptr, row_pointers);
   png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
-
-  DeleteObject(res);
 
   //put shit in correct order
   if (color_type != PNG_COLOR_TYPE_PALETTE)
@@ -286,8 +278,26 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
     }
   }
   free(row_pointers);
-  return bmp;
-  
+  return bmp;  
+}
+LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
+{
+#ifdef _WIN32
+  HRSRC hResource = FindResource(hInst, MAKEINTRESOURCE(resid), "PNG");
+  if(!hResource) return NULL;
+
+  DWORD imageSize = SizeofResource(hInst, hResource);
+  if(imageSize < 8) return NULL;
+
+  HGLOBAL res = LoadResource(hInst, hResource);
+  const void* pResourceData = LockResource(res);
+  if(!pResourceData) return NULL;
+
+  LICE_IBitmap * ret = LICE_LoadPNGFromMemory(pResourceData,imageSize,bmp);
+
+  // todo : cleanup res??
+
+  return ret;
 #else
   return 0;
 #endif

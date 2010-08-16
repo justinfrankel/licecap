@@ -28,6 +28,34 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
 - (void)sendEvent:(NSEvent *)anEvent
 {
   int etype = [anEvent type];
+  if (etype == NSKeyUp)
+  {
+    // toss keyup if next keydown is the same key
+    NSEvent *nextDown = [self nextEventMatchingMask:NSKeyDownMask untilDate:[NSDate dateWithTimeIntervalSinceNow:0.003] inMode:NSDefaultRunLoopMode dequeue:FALSE];
+    if (nextDown && [nextDown keyCode] == [anEvent keyCode]) return;
+  }
+  else if (etype == NSKeyDown)
+  {
+    NSEvent *nextDown = [self nextEventMatchingMask:NSKeyDownMask untilDate:[NSDate dateWithTimeIntervalSinceNow:0.003] inMode:NSDefaultRunLoopMode dequeue:FALSE];
+    if (nextDown && [nextDown keyCode] == [anEvent keyCode]) 
+    {
+#if 0
+      // no need to check timestamps -- if a queued key is there, just ignore this one(prevent a backlog)
+      static double sc=0.0;
+      if (sc == 0.0) 
+      { 
+        struct mach_timebase_info inf={0,};
+        mach_timebase_info(&inf); 
+        if (inf.numer && inf.denom)  sc = inf.numer / (inf.denom * 1000.0 * 1000.0 * 1000.0);
+      }
+      
+      if (sc != 0.0 && [anEvent timestamp] < (double) mach_absolute_time() * sc - 0.05)
+#endif
+        return;
+    }
+  }
+  
+  
   NSWindow *modalWindow = [NSApp modalWindow];
   
   NSWindow *focwnd=[anEvent window];  

@@ -27,6 +27,11 @@ typedef unsigned long long WDL_UINT64;
 typedef intptr_t INT_PTR;
 #endif
 
+#if defined(__ppc__) || !defined(__cplusplus)
+typedef char WDL_bool;
+#else
+typedef bool WDL_bool;
+#endif
 
 #ifndef GWLP_USERDATA
 #define GWLP_USERDATA GWL_USERDATA
@@ -44,6 +49,14 @@ typedef intptr_t INT_PTR;
 #define GCLP_HICONSM GCL_HICONSM
 #define SetClassLongPtr(a,b,c) SetClassLong(a,b,c)
 #define GetClassLongPtr(a,b) GetClassLong(a,b)
+#endif
+
+
+// for structures that contain doubles, or doubles in structures that are after stuff of questionable alignment (for OSX/linux)
+#ifdef _WIN32
+#define WDL_FIXALIGN 
+#else
+#define WDL_FIXALIGN  __attribute__ ((aligned (8)))
 #endif
 
 

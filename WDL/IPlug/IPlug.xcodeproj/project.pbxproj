@@ -125,7 +125,6 @@
 		452A89BC0FCC0A6500360071 /* pngwutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 452A89A80FCC0A6500360071 /* pngwutil.c */; };
 		452A89BD0FCC0A6500360071 /* pngrio.c in Sources */ = {isa = PBXBuildFile; fileRef = 452A89A90FCC0A6500360071 /* pngrio.c */; };
 		452A8A030FCC0F4E00360071 /* swell-internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 452A8A020FCC0F4E00360071 /* swell-internal.h */; };
-		452A8A380FCC122100360071 /* swell-misc.mm in Sources */ = {isa = PBXBuildFile; fileRef = 452A8A370FCC122100360071 /* swell-misc.mm */; };
 		45B61BC610B15E25009E1E8C /* swell-gdi.mm in Sources */ = {isa = PBXBuildFile; fileRef = 45B61BC510B15E25009E1E8C /* swell-gdi.mm */; };
 		521F387F0D1704080060FE32 /* IPlug_include_in_plug_src.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F387D0D1704080060FE32 /* IPlug_include_in_plug_src.h */; };
 		521F38800D1704080060FE32 /* IPlug_include_in_plug_hdr.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F387E0D1704080060FE32 /* IPlug_include_in_plug_hdr.h */; };
@@ -157,6 +156,7 @@
 		52FBBEBC0D0CF0D3001C8B8A /* IPlugStructs.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FBBEA00D0CF0D3001C8B8A /* IPlugStructs.h */; };
 		52FBBEBD0D0CF0D3001C8B8A /* Log.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52FBBEA10D0CF0D3001C8B8A /* Log.cpp */; };
 		52FBBEBE0D0CF0D3001C8B8A /* Log.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FBBEA20D0CF0D3001C8B8A /* Log.h */; };
+		52FDEE39117356BD00C0B7D7 /* swell-minimal.mm in Sources */ = {isa = PBXBuildFile; fileRef = 52FDEE38117356BD00C0B7D7 /* swell-minimal.mm */; };
 		D2AAC088055469A000DB518D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7B1FEA5585E11CA2CBB /* Cocoa.framework */; };
 /* End PBXBuildFile section */
 
@@ -165,8 +165,8 @@
 		0867D6A5FE840307C02AAC07 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		1058C7B1FEA5585E11CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		32DBCF5E0370ADEE00C91783 /* IPlug_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPlug_Prefix.pch; sourceTree = "<group>"; };
-		452A874E0FCBFE1900360071 /* aeffect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aeffect.h; sourceTree = "<group>"; };
-		452A874F0FCBFE1900360071 /* aeffectx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aeffectx.h; sourceTree = "<group>"; };
+		452A874E0FCBFE1900360071 /* aeffect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = aeffect.h; path = ../../plugins/VST_SDK/aeffect.h; sourceTree = "<group>"; };
+		452A874F0FCBFE1900360071 /* aeffectx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = aeffectx.h; path = ../../plugins/VST_SDK/aeffectx.h; sourceTree = "<group>"; };
 		452A87670FCBFFDD00360071 /* lice_arc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_arc.cpp; path = ../lice/lice_arc.cpp; sourceTree = SOURCE_ROOT; };
 		452A87680FCBFFDD00360071 /* lice_bezier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lice_bezier.h; path = ../lice/lice_bezier.h; sourceTree = SOURCE_ROOT; };
 		452A87690FCBFFDD00360071 /* lice_bmp.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_bmp.cpp; path = ../lice/lice_bmp.cpp; sourceTree = SOURCE_ROOT; };
@@ -283,7 +283,6 @@
 		452A89A80FCC0A6500360071 /* pngwutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pngwutil.c; path = ../libpng/pngwutil.c; sourceTree = SOURCE_ROOT; };
 		452A89A90FCC0A6500360071 /* pngrio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pngrio.c; path = ../libpng/pngrio.c; sourceTree = SOURCE_ROOT; };
 		452A8A020FCC0F4E00360071 /* swell-internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "swell-internal.h"; path = "../swell/swell-internal.h"; sourceTree = SOURCE_ROOT; };
-		452A8A370FCC122100360071 /* swell-misc.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-misc.mm"; path = "../swell/swell-misc.mm"; sourceTree = SOURCE_ROOT; };
 		45B61BC510B15E25009E1E8C /* swell-gdi.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-gdi.mm"; path = "../swell/swell-gdi.mm"; sourceTree = SOURCE_ROOT; };
 		521F387D0D1704080060FE32 /* IPlug_include_in_plug_src.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPlug_include_in_plug_src.h; sourceTree = "<group>"; };
 		521F387E0D1704080060FE32 /* IPlug_include_in_plug_hdr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPlug_include_in_plug_hdr.h; sourceTree = "<group>"; };
@@ -315,6 +314,8 @@
 		52FBBEA00D0CF0D3001C8B8A /* IPlugStructs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPlugStructs.h; sourceTree = "<group>"; };
 		52FBBEA10D0CF0D3001C8B8A /* Log.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Log.cpp; sourceTree = "<group>"; };
 		52FBBEA20D0CF0D3001C8B8A /* Log.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Log.h; sourceTree = "<group>"; };
+		52FDEE361173569B00C0B7D7 /* swell-misc-internal.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-misc-internal.mm"; path = "../swell/swell-misc-internal.mm"; sourceTree = SOURCE_ROOT; };
+		52FDEE38117356BD00C0B7D7 /* swell-minimal.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-minimal.mm"; path = "../swell/swell-minimal.mm"; sourceTree = SOURCE_ROOT; };
 		D2AAC07E0554694100DB518D /* libIPlug.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIPlug.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2F7E8BE07B2D77200F64583 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
@@ -436,10 +437,11 @@
 		452A87600FCBFFA500360071 /* SWELL */ = {
 			isa = PBXGroup;
 			children = (
+				52FDEE38117356BD00C0B7D7 /* swell-minimal.mm */,
 				45B61BC510B15E25009E1E8C /* swell-gdi.mm */,
-				452A8A370FCC122100360071 /* swell-misc.mm */,
 				452A8A020FCC0F4E00360071 /* swell-internal.h */,
 				452A87A40FCC004600360071 /* swell.h */,
+				52FDEE361173569B00C0B7D7 /* swell-misc-internal.mm */,
 			);
 			name = SWELL;
 			sourceTree = "<group>";
@@ -800,8 +802,8 @@
 				452A89BB0FCC0A6500360071 /* pngwtran.c in Sources */,
 				452A89BC0FCC0A6500360071 /* pngwutil.c in Sources */,
 				452A89BD0FCC0A6500360071 /* pngrio.c in Sources */,
-				452A8A380FCC122100360071 /* swell-misc.mm in Sources */,
 				45B61BC610B15E25009E1E8C /* swell-gdi.mm in Sources */,
+				52FDEE39117356BD00C0B7D7 /* swell-minimal.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -854,6 +856,7 @@
 					i386,
 				);
 				GCC_PREPROCESSOR_DEFINITIONS = _DEBUG;
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_PKGINFO_FILE = YES;
@@ -870,6 +873,7 @@
 					ppc,
 					i386,
 				);
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_PKGINFO_FILE = YES;

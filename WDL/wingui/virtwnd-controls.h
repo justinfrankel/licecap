@@ -261,6 +261,9 @@ class WDL_VirtualListBox : public WDL_VWnd
     int IndexFromPt(int x, int y);
     bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
 
+    void SetViewOffset(int offs);
+    int GetViewOffset();
+
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm);

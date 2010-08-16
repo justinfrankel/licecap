@@ -156,8 +156,9 @@ public:
 
 private:
 
-  int m_wantg;
   double m_gradstart,m_gradslope;
+
+  int m_wantg;
   int (*m_GSC)(int);
   void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
   LICE_IBitmap *m_bm;
@@ -170,6 +171,6 @@ private:
 
 };
 
-void WDL_VWnd_regHelperClass(const char *classname); // register this class if you wish to make your dialogs use it (better paint behavior)
+void WDL_VWnd_regHelperClass(const char *classname, void *icon=NULL, void *iconsm=NULL); // register this class if you wish to make your dialogs use it (better paint behavior)
 
 #endif

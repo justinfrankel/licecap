@@ -176,11 +176,12 @@ public:
 
 private:
 
+  WDL_PtrList<WDL_HeapBuf> m_queue, m_empties;
   int m_offs;
   int m_avail;
   int m_bsize;
-  WDL_PtrList<WDL_HeapBuf> m_queue, m_empties;
-};
+  int __pad;
+} WDL_FIXALIGN;
 
 
 #endif //_WDL_FASTQUEUE_H_

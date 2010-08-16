@@ -69,14 +69,14 @@ typedef unsigned char LICE_pixel_chan;
 #define LICE_PIXEL_R 2
 #define LICE_PIXEL_A 3
 
-#else
-
+#elif defined(__APPLE__)
+// start apple
 #define LICE_PIXEL_A 0
 #define LICE_PIXEL_R 1
 #define LICE_PIXEL_G 2
 #define LICE_PIXEL_B 3
 
-#ifdef __ppc__
+#ifdef __ppc__ // same memory format, different endian
 
 #define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
 #define LICE_GETB(v) ((v)&0xff)
@@ -93,6 +93,22 @@ typedef unsigned char LICE_pixel_chan;
 #define LICE_GETB(v) (((v)>>24)&0xff)
 
 #endif
+
+// end apple
+#else
+
+//GDK etc (tested on linux 386/x86_64)
+#define LICE_RGBA(r,g,b,a) (((r)&0xff)|(((g)&0xff)<<8)|(((b)&0xff)<<16)|(((a)&0xff)<<24))
+#define LICE_GETR(v) ((v)&0xff)
+#define LICE_GETG(v) (((v)>>8)&0xff)
+#define LICE_GETB(v) (((v)>>16)&0xff)
+#define LICE_GETA(v) (((v)>>24)&0xff)
+
+
+#define LICE_PIXEL_R 0
+#define LICE_PIXEL_G 1
+#define LICE_PIXEL_B 2
+#define LICE_PIXEL_A 3
 
 #endif
 
@@ -265,8 +281,34 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
     LICE_IBitmap *m_parent;
     //LICE_pixel *m_parentptr;
 };
-// bitmap loaders
 
+
+// flags that most blit functions can take
+
+#define LICE_BLIT_MODE_MASK 0xff
+#define LICE_BLIT_MODE_COPY 0
+#define LICE_BLIT_MODE_ADD 1
+#define LICE_BLIT_MODE_DODGE 2
+#define LICE_BLIT_MODE_MUL 3
+#define LICE_BLIT_MODE_OVERLAY 4
+#define LICE_BLIT_MODE_HSVADJ 5
+
+#define LICE_BLIT_MODE_CHANCOPY 0xf0 // in this mode, only available for LICE_Blit(), the low nibble is 2 bits of source channel (low 2), 2 bits of dest channel (high 2)
+
+#define LICE_BLIT_FILTER_MASK 0xff00
+#define LICE_BLIT_FILTER_NONE 0
+#define LICE_BLIT_FILTER_BILINEAR 0x100 // currently pretty slow! ack
+
+
+#define LICE_BLIT_USE_ALPHA 0x10000 // use source's alpha channel
+
+
+// Reaper exports most LICE functions, so the function declarations below
+// will collide with reaper_plugin.h
+#ifndef LICE_PROVIDED_BY_APP
+
+
+// bitmap loaders
 
 // dispatch to a linked loader implementation based on file extension 
 LICE_IBitmap* LICE_LoadImage(const char* filename, LICE_IBitmap* bmp=NULL, bool tryIgnoreExtension=false);
@@ -276,6 +318,7 @@ bool LICE_ImageIsSupported(const char *filename);  // must be a filename that en
 
 // pass a bmp if you wish to load it into that bitmap. note that if it fails bmp will not be deleted.
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitmap *bmp=NULL);
 LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 #ifndef _WIN32
 LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
@@ -305,26 +348,6 @@ bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alph
 void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true);
 bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool wantNewColorMap);
 bool LICE_WriteGIFEnd(void *handle);
-
-
-// flags that most blit functions can take
-
-#define LICE_BLIT_MODE_MASK 0xff
-#define LICE_BLIT_MODE_COPY 0
-#define LICE_BLIT_MODE_ADD 1
-#define LICE_BLIT_MODE_DODGE 2
-#define LICE_BLIT_MODE_MUL 3
-#define LICE_BLIT_MODE_OVERLAY 4
-#define LICE_BLIT_MODE_HSVADJ 5
-
-#define LICE_BLIT_MODE_CHANCOPY 0xf0 // in this mode, only available for LICE_Blit(), the low nibble is 2 bits of source channel (low 2), 2 bits of dest channel (high 2)
-
-#define LICE_BLIT_FILTER_MASK 0xff00
-#define LICE_BLIT_FILTER_NONE 0
-#define LICE_BLIT_FILTER_BILINEAR 0x100 // currently pretty slow! ack
-
-
-#define LICE_BLIT_USE_ALPHA 0x10000 // use source's alpha channel
 
 
 // basic primitives
@@ -440,6 +463,7 @@ void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x
 
 // Returns false if the line is entirely offscreen.
 bool LICE_ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int xLo, int yLo, int xHi, int yHi);
+bool LICE_ClipFLine(float* px1, float* py1, float* px2, float* py2, float xlo, float ylo, float xhi, float yhi);
 
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
               LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
@@ -495,5 +519,7 @@ struct _LICE_ImageLoader_rec
 };
 extern _LICE_ImageLoader_rec *LICE_ImageLoader_list;
 
+
+#endif // LICE_PROVIDED_BY_APP
 
 #endif
