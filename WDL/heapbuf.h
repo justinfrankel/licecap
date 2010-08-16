@@ -147,7 +147,7 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
 
-    // leave public so people can set its parameters directly
+  private:
     WDL_HeapBuf m_hb;
 };
 

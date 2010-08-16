@@ -129,9 +129,9 @@ public:
 
 
   void SetGSC(int (*GSC)(int));
-#ifdef _WIN32
   void PaintBegin(HWND hwnd, int bgcolor=-1);
-#else
+  
+#ifndef _WIN32 // alternative calling method
   void PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
 #endif
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1) { m_bgbm=bitmap; m_bgbmtintcolor=tint; } // call before every paintbegin (resets if you dont)
@@ -155,15 +155,10 @@ private:
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
 
-#ifdef _WIN32
   HWND m_cur_hwnd;
   PAINTSTRUCT m_ps;
-#else
-  void *m_cur_hwnd;
-  struct
-  {
-    RECT rcPaint;
-  } m_ps;
+#ifndef _WIN32
+  int m_cur_hwnd_mode;
 #endif
 
 };

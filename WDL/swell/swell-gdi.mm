@@ -30,12 +30,14 @@
 
 #include "swell-gdi-int.h"
 
-static CGColorRef CreateColor(int col)
+static CGColorRef CreateColor(int col, float alpha=1.0f)
 {
-  CGColorSpaceRef cspace=CGColorSpaceCreateDeviceRGB();
-  float cols[4]={GetRValue(col)/255.0,GetGValue(col)/255.0,GetBValue(col)/255.0,1.0};
+  static CGColorSpaceRef cspace;
+  
+  if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
+  
+  float cols[4]={GetRValue(col)/255.0,GetGValue(col)/255.0,GetBValue(col)/255.0,alpha};
   CGColorRef color=CGColorCreate(cspace,cols);
-  CGColorSpaceRelease(cspace);
   return color;
 }
 
@@ -88,19 +90,19 @@ void WDL_GDP_DeleteContext(HDC ctx)
   }
 }
 
-HPEN CreatePen(int attr, int wid, int col)
+HPEN CreatePen(int attr, int wid, int col, float alpha)
 {
   GDP_OBJECT *pen=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   pen->type=TYPE_PEN;
   pen->wid=wid;
-  pen->color=CreateColor(col);
+  pen->color=CreateColor(col,alpha);
   return pen;
 }
-HBRUSH  CreateSolidBrush(int col)
+HBRUSH  CreateSolidBrush(int col, float alpha)
 {
   GDP_OBJECT *brush=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   brush->type=TYPE_BRUSH;
-  brush->color=CreateColor(col);
+  brush->color=CreateColor(col,alpha);
   return brush;
 }
 
@@ -204,6 +206,7 @@ void RoundRect(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd)
 	
 	WDL_GDP_Polygon(ctx,pts,sizeof(pts)/sizeof(pts[0]));
 }
+
 
 void Rectangle(HDC ctx, int l, int t, int r, int b)
 {
@@ -598,28 +601,38 @@ void *GetNSImageFromHICON(HICON ico)
   return i->bitmapptr;
 }
 
+#if 0
 static int ColorFromNSColor(NSColor *color, int valifnul)
 {
   if (!color) return valifnul;
   float r,g,b;
-  [color getRed:&r green:&g blue:&b alpha:NULL];
+  NSColor *color2=[color colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+  if (!color2) 
+  {
+    NSLog(@"error converting colorspace from: %@\n",[color colorSpaceName]);
+    return valifnul;
+  }
+  
+  [color2 getRed:&r green:&g blue:&b alpha:NULL];
   return RGB((int)(r*255.0),(int)(g*255.0),(int)(b*255.0));
 }
+#else
 #define ColorFromNSColor(a,b) (b)
-
+#endif
 int GetSysColor(int idx)
 {
-
+ // NSColors that seem to be valid: textBackgroundColor, selectedTextBackgroundColor, textColor, selectedTextColor
+  
   switch (idx)
   {
-    case COLOR_WINDOW: return ColorFromNSColor([NSColor windowBackgroundColor],RGB(192,192,192));
+    case COLOR_WINDOW: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
     case COLOR_3DFACE: 
     case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor scrollbarColor],RGB(32,32,32));
-    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor shadowColor],RGB(32,32,32));
-    case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor highlightColor],RGB(224,224,224));
-    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor controlTextColor],RGB(0,0,0));
-    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor shadowColor],RGB(32,32,32))>>1)&0x7f7f7f;
+    case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
+    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(32,32,32));
+    case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(224,224,224));
+    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(0,0,0));
+    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(32,32,32))>>1)&0x7f7f7f;
     case COLOR_INFOBK: return RGB(255,240,200);
     case COLOR_INFOTEXT: return RGB(0,0,0);
       

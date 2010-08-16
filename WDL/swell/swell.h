@@ -72,6 +72,11 @@
 #endif
 
 
+typedef unsigned int UINT;
+typedef unsigned int WPARAM;
+typedef long LPARAM;
+typedef long LRESULT;
+
 
 typedef struct 
 {
@@ -90,14 +95,11 @@ typedef struct {
   unsigned short key,cmd;
 } ACCEL, *LPACCEL;
 
-typedef struct {
-  int bla;
-} MSG, *LPMSG;
 
-typedef struct {
+struct HWND__ {
   int bla;
-} __HWND;
-typedef __HWND *HWND;
+};
+typedef struct HWND__ *HWND;
 
 typedef unsigned int DWORD;
 typedef unsigned short WORD;
@@ -119,6 +121,16 @@ typedef struct _GUID {
   unsigned char  Data4[8];
 } GUID;
 
+typedef struct {
+  HWND hwnd;
+  UINT message;
+  WPARAM wParam;
+  LPARAM lParam;
+  DWORD time;
+  POINT pt;
+} MSG, *LPMSG;
+
+
 char *lstrcpyn(char *dest, const char *src, int l);
 void Sleep(int ms);
 DWORD GetTickCount();
@@ -133,6 +145,8 @@ BOOL WritePrivateProfileStruct(const char *appname, const char *keyname, const v
 
 void *SWELL_CStringToCFString(const char *str);
 
+BOOL PtInRect(RECT *r, POINT p);
+
 /*
  ** swell-miscdlg.mm
  */
@@ -141,11 +155,11 @@ void *SWELL_CStringToCFString(const char *str);
 #define MB_YESNOCANCEL 3
 #define MB_YESNO 4
 #define MB_RETRYCANCEL 5
-#define IDCANCEL 0
-#define IDOK 1
-#define IDNO 2
-#define IDYES 3
-#define IDRETRY 4
+#define IDCANCEL 1
+#define IDOK 2
+#define IDNO 3
+#define IDYES 4
+#define IDRETRY 5
 #define MessageBox(a,b,c,d) SWELL_MessageBox(b,c,d)
 int SWELL_MessageBox(const char *text, const char *caption, int type);
 
@@ -179,8 +193,10 @@ void SetFocus(HWND hwnd); // these take NSWindow/NSView, and return NSView *
 HWND GetFocus();
 void SetForegroundWindow(HWND hwnd); // these take NSWindow/NSView, and return NSView *
 HWND GetForegroundWindow();
+#define GetActiveWindow() GetForegroundWindow()
 
 HWND SetCapture(HWND hwnd);
+HWND GetCapture();
 void ReleaseCapture();
 int IsChild(HWND hwndParent, HWND hwndChild);
 HWND GetParent(HWND hwnd);
@@ -235,9 +251,11 @@ void SWELL_TB_SetTic(HWND hwnd, int idx, int pos);
 #define TBM_SETTIC              (WM_USER+4)
 #define TBM_SETPOS              (WM_USER+5)
 #define TBM_SETRANGE            (WM_USER+6)
+#define TBM_SETSEL              (WM_USER+10)
 
 #define BM_SETIMAGE 0x00F7
 #define IMAGE_BITMAP 0
+#define IMAGE_ICON 0
 
 typedef struct 
 { 
@@ -288,6 +306,8 @@ void ListView_SetColumnWidth(HWND h, int colpos, int wid);
 #define SW_HIDE 0
 #define SW_SHOWNA 1
 #define SW_SHOW 2
+#define SW_NORMAL 2
+#define SW_SHOWNORMAL 2
 
 #define SWP_NOMOVE 1
 #define SWP_NOSIZE 2
@@ -310,8 +330,24 @@ void SWELL_CloseWindow(HWND hwnd);
 HMENU CreatePopupMenu();
 void DestroyMenu(HMENU hMenu);
 int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid);
-int SWELL_TrackPopupMenu(HMENU hMenu, int xpos, int ypos, HWND hwnd);
-#define TrackPopupMenu(menu, flags, xpos, ypos, resvd, parent, rect) SWELL_TrackPopupMenu(menu,xpos,ypos,parent)
+
+
+// most of these are ignored, actually, but TPM_NONOTIFY and TPM_RETURNCMD are now used
+#define TPM_LEFTBUTTON  0x0000L
+#define TPM_RIGHTBUTTON 0x0002L
+#define TPM_LEFTALIGN   0x0000L
+#define TPM_CENTERALIGN 0x0004L
+#define TPM_RIGHTALIGN  0x0008L
+#define TPM_TOPALIGN        0x0000L
+#define TPM_VCENTERALIGN    0x0010L
+#define TPM_BOTTOMALIGN     0x0020L
+#define TPM_HORIZONTAL      0x0000L     /* Horz alignment matters more */
+#define TPM_VERTICAL        0x0040L     /* Vert alignment matters more */
+#define TPM_NONOTIFY        0x0080L     /* Don't send any notification msgs */
+#define TPM_RETURNCMD       0x0100L
+
+int SWELL_TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, HWND hwnd);
+#define TrackPopupMenu(menu, flags, xpos, ypos, resvd, parent, rect) SWELL_TrackPopupMenu(menu,flags,xpos,ypos,parent)
 HMENU GetSubMenu(HMENU hMenu, int pos);
 int GetMenuItemCount(HMENU hMenu);
 int GetMenuItemID(HMENU hMenu, int pos);
@@ -319,6 +355,13 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, void *ModNSS, unsigned 
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text);
 bool EnableMenuItem(HMENU hMenu, int idx, int en);
 bool DeleteMenu(HMENU hMenu, int idx, int flag);
+HMENU SWELL_LoadMenu(int resid);
+#define LoadMenu(hinst,resid) SWELL_LoadMenu((resid))
+void SWELL_SetMenuDestination(HMENU menu, HWND hwnd);
+HMENU SWELL_DuplicateMenu(HMENU menu);  
+
+BOOL SetMenu(HWND hwnd, HMENU menu);
+HMENU GetMenu(HWND hwnd);
 
 bool CheckMenuItem(HMENU hMenu, int idx, int chk);
 typedef struct
@@ -364,15 +407,49 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi);
 #define EN_CHANGE           0x0300
 #define STN_CLICKED         0
 #define STN_DBLCLK          1
+#define WM_CREATE                       0x0001
 #define WM_DESTROY                      0x0002
+#define WM_MOVE                         0x0003
+#define WM_SIZE                         0x0005
 #define WM_PAINT                        0x000F
+#define WM_CLOSE                        0x0010
 #define WM_ERASEBKGND                   0x0014
+#define WM_GETMINMAXINFO                0x0024
+
+typedef struct {
+  POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
+} MINMAXINFO, *LPMINMAXINFO;
+
+#define WM_CONTEXTMENU                  0x007B
+#define WM_KEYFIRST                     0x0100
+#define WM_KEYDOWN                      0x0100
+#define WM_KEYUP                        0x0101
+#define WM_CHAR                         0x0102
+#define WM_DEADCHAR                     0x0103
+#define WM_SYSKEYDOWN                   0x0104
+#define WM_SYSKEYUP                     0x0105
+#define WM_SYSCHAR                      0x0106
+#define WM_SYSDEADCHAR                  0x0107
+#define WM_KEYLAST                      0x0108
 #define WM_INITDIALOG                   0x0110
 #define WM_COMMAND                      0x0111
 #define WM_TIMER                        0x0113
-#define WM_CLOSE                        0x0010
+#define WM_INITMENUPOPUP                0x0117
 #define WM_HSCROLL                      0x0114
 #define WM_VSCROLL                      0x0115
+#define WM_MOUSEFIRST                   0x0200
+#define WM_MOUSEMOVE                    0x0200
+#define WM_LBUTTONDOWN                  0x0201
+#define WM_LBUTTONUP                    0x0202
+#define WM_LBUTTONDBLCLK                0x0203
+#define WM_RBUTTONDOWN                  0x0204
+#define WM_RBUTTONUP                    0x0205
+#define WM_RBUTTONDBLCLK                0x0206
+#define WM_MBUTTONDOWN                  0x0207
+#define WM_MBUTTONUP                    0x0208
+#define WM_MBUTTONDBLCLK                0x0209
+#define WM_MOUSEWHEEL                   0x020A
+#define WM_MOUSELAST                    0x020A
 #define WM_USER                         0x0400      
 #define CBN_SELCHANGE       0
 #define CBN_EDITCHANGE 1
@@ -380,6 +457,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi);
 #define SB_THUMBTRACK       5
 #define SB_ENDSCROLL        8
 
+#define SIZE_MINIMIZED (-1)
 
 #ifndef WINAPI
 #define WINAPI
@@ -402,11 +480,11 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi);
 #ifndef HIWORD
 #define HIWORD(x) (((x)>>16)&0xffff)
 #endif
-                                       
-typedef unsigned int UINT;
-typedef unsigned int WPARAM;
-typedef long LPARAM;
 
+#define GET_X_LPARAM(lp)                        ((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp)                        ((int)(short)HIWORD(lp))
+
+                                       
 #define SendDlgItemMessage(hwnd,idx,msg,wparam,lparam) SendMessage(GetDlgItem(hwnd,idx),msg,wparam,lparam)
 int SendMessage(HWND, UINT, WPARAM, LPARAM);                                      
 
@@ -486,12 +564,36 @@ void GetCursorPos(POINT *pt);
 #define MK_MBUTTON        0x10001
 #define MK_RBUTTON        0x10002
 
+
+/*
+ ** clipboard
+ */
+bool OpenClipboard(HWND hwndDlg);
+void CloseClipboard();
+HANDLE GetClipboardData(UINT type);
+
+void EmptyClipboard();
+void SetClipboardData(UINT type, HANDLE h);
+UINT RegisterClipboardFormat(const char *desc);
+UINT EnumClipboardFormats(UINT lastfmt);
+
+// these are only currently used by the clipboard system
+#define GlobalAlloc(flags, size) SWELL_GlobalAlloc(size)
+HANDLE SWELL_GlobalAlloc(int sz);
+void *GlobalLock(HANDLE h);
+int GlobalSize(HANDLE h);
+void GlobalUnlock(HANDLE h);
+void GlobalFree(HANDLE h);
+
+
 /*
  ** swell-gdi.mm
  */
 
 
 void InvalidateRect(HWND hwnd, RECT *r, int eraseBk);
+void UpdateWindow(HWND hwnd);
+HWND WindowFromPoint(POINT p);
 
 typedef void *HDC;
 typedef void *HBRUSH;
@@ -518,8 +620,8 @@ HDC WDL_GDP_CreateContext(void *);
 HDC WDL_GDP_CreateMemContext(HDC hdc, int w, int h);
 void WDL_GDP_DeleteContext(HDC);
 HFONT CreateFontIndirect(LOGFONT *);
-HPEN CreatePen(int attr, int wid, int col);
-HBRUSH CreateSolidBrush(int col);
+HPEN CreatePen(int attr, int wid, int col, float alpha=1.0f);
+HBRUSH CreateSolidBrush(int col, float alpha=1.0f);
 HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen);
 HGDIOBJ GetStockObject(int wh);
 void DeleteObject(HGDIOBJ);
@@ -561,6 +663,7 @@ typedef struct {
 HDC BeginPaint(HWND, PAINTSTRUCT *);
 BOOL EndPaint(HWND, PAINTSTRUCT *);
 
+long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
 #define COLOR_3DSHADOW 0
@@ -586,6 +689,7 @@ BOOL EndPaint(HWND, PAINTSTRUCT *);
 #define DT_NOPREFIX 0
 #define DT_TOP 0
 #define DT_LEFT 0
+#define FW_LIGHT 50
 #define FW_NORMAL 100
 #define FW_BOLD 400
 #define OUT_DEFAULT_PRECIS 0
@@ -593,6 +697,7 @@ BOOL EndPaint(HWND, PAINTSTRUCT *);
 #define DEFAULT_QUALITY 0
 #define DEFAULT_PITCH 0
 #define DEFAULT_CHARSET 0
+#define ANSI_CHARSET 0
 #define Polygon(a,b,c) SWELL_Polygon(a,b,c)
 #define TRANSPARENT 0
 #define OPAQUE 1

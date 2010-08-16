@@ -81,3 +81,16 @@ BOOL GetFileTime(void *fh, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime,
 
   return 1;
 }
+
+BOOL PtInRect(RECT *r, POINT p)
+{
+  if (!r) return FALSE;
+  int tp=r->top;
+  int bt=r->bottom;
+  if (tp>bt)
+  {
+    bt=tp;
+    tp=r->bottom;
+  }
+  return p.x>=r->left && p.x<r->right && p.y >= tp && p.y < bt;
+}

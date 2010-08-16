@@ -24,6 +24,7 @@
 
 
 #include "swell.h"
+#include "swell-menugen.h"
 #import <Cocoa/Cocoa.h>
 
 
@@ -123,7 +124,7 @@ HMENU GetSubMenu(HMENU hMenu, int pos)
 {
   NSMenu *menu=(NSMenu *)hMenu;
   
-  NSMenuItem *item=[menu itemAtIndex:pos]; 
+  NSMenuItem *item=menu && pos >=0 && pos < [menu numberOfItems] ? [menu itemAtIndex:pos] : 0; 
   if (item && [item hasSubmenu]) return [item submenu];
   return 0;
 }
@@ -367,11 +368,11 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   int ni=[m numberOfItems];
   if (pos < 0 || pos > ni) pos=ni;
   
+  NSString *label=0;
   if (mi->fType == MFT_STRING)
   {
-    NSString *label=(NSString *)SWELL_CStringToCFString(mi->dwTypeData?mi->dwTypeData:"(null)"); 
+    label=(NSString *)SWELL_CStringToCFString(mi->dwTypeData?mi->dwTypeData:"(null)"); 
     item=[m insertItemWithTitle:label action:NULL keyEquivalent:@"" atIndex:pos];
-    [label release];
   }
   else if (mi->fType == MFT_BITMAP)
   {
@@ -393,9 +394,12 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   }
   if ((mi->fMask & MIIM_SUBMENU) && mi->hSubMenu)
   {
+    if (label)
+      [(NSMenu *)mi->hSubMenu setTitle:label];
     [m setSubmenu:(NSMenu *)mi->hSubMenu forItem:item];
     [((NSMenu *)mi->hSubMenu) release]; // let the parent menu free it
   }
+  if (label) [label release];
   [item setEnabled:YES];
   if (mi->fMask & MIIM_STATE)
   {
@@ -432,14 +436,16 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 @interface PopupRecv : NSObject
 {
   int m_act;
+  HWND cbwnd;
 }
 @end
 
 @implementation PopupRecv
--(id) init
+-(id) initWithWnd:(HWND)wnd
 {
   if ((self = [super init]))
   {
+    cbwnd=wnd;
     m_act=0;
   }
   return self;
@@ -457,10 +463,20 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   return m_act;
 }
 
+- (void)menuNeedsUpdate:(NSMenu *)menu
+{
+  if (cbwnd)
+    SendMessage(cbwnd,WM_INITMENUPOPUP,(WPARAM)menu,0);
+}
+
 @end
 
-static void PreprocessMenu(id recv, NSMenu *m)
+void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
 {
+  if (!menu || !hwnd || ![(id)hwnd respondsToSelector:@selector(onCommand:)]) return;
+  
+  NSMenu *m=(NSMenu *)menu;
+  [m setDelegate:(id)hwnd];
   int x,n=[m numberOfItems];
   for (x = 0; x < n; x++)
   {
@@ -470,18 +486,18 @@ static void PreprocessMenu(id recv, NSMenu *m)
       if ([item hasSubmenu])
       {
         NSMenu *mm=[item submenu];
-        if (mm) PreprocessMenu(recv,mm);
+        if (mm) SWELL_SetMenuDestination((HMENU)mm,hwnd);
       }
       else
       {
-        [item setTarget:recv];
+        [item setTarget:(id)hwnd];
         [item setAction:@selector(onCommand:)];
       }
     }
   }
 }
 
-int SWELL_TrackPopupMenu(HMENU hMenu, int xpos, int ypos, HWND hwnd)
+int SWELL_TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, HWND hwnd)
 {
   if (hMenu)
   {
@@ -491,17 +507,169 @@ int SWELL_TrackPopupMenu(HMENU hMenu, int xpos, int ypos, HWND hwnd)
     if (!v) v=[[NSApp mainWindow] contentView];
     if (!v) return 0;
     
-    PopupRecv *recv = [[PopupRecv alloc] init];
+    PopupRecv *recv = [[PopupRecv alloc] initWithWnd:((flags&TPM_NONOTIFY)?hwnd:0)];
     
-    PreprocessMenu(recv,m);
+    SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     
+    if (!(flags&TPM_NONOTIFY)&&hwnd)
+    {
+      SendMessage(hwnd,WM_INITMENUPOPUP,(WPARAM)m,0);
+    }
     
     [NSMenu popUpContextMenu:m withEvent:[NSApp currentEvent] forView:v];
 
     int ret=[recv isCommand];
     
     [PopupRecv release];
+    
+    if (!(flags & TPM_NONOTIFY) && ret>0 && hwnd)
+    {
+      SendMessage(hwnd,WM_COMMAND,ret,0);
+    }
+    
     return ret;
   }
   return 0;
+}
+
+
+
+
+static void __filtnametobuf(char *out, const char *in, int outsz)
+{
+  while (*in && outsz>1)
+  {
+    if (*in == '&')
+    {
+      in++;
+    }
+    *out++=*in++;
+    outsz--;
+  }
+  *out=0;
+}
+
+void SWELL_Menu_AddPopup(WDL_PtrList<void> *stack, const char *name)
+{
+//  HMENU subMenu=CreatePopupMenu();
+  NSString *lbl=(NSString *)SWELL_CStringToCFString(name);
+  NSMenu *m=[[NSMenu alloc] initWithTitle:lbl];
+  [lbl release];
+  [m setAutoenablesItems:NO];
+  
+  HMENU subMenu =(HMENU)m;
+  
+  char buf[1024];
+  __filtnametobuf(buf,name,sizeof(buf));
+  
+  MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,
+    0,0,NULL,NULL,NULL,0,(char *)buf};
+  mi.hSubMenu=subMenu;
+  HMENU hMenu=stack->Get(stack->GetSize()-1);
+  InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
+  stack->Add(subMenu);
+}
+
+void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags)
+{
+  char buf[1024];
+  if (name) __filtnametobuf(buf,name,sizeof(buf));
+  MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
+    (flags)?MFS_GRAYED:0,idx,NULL,NULL,NULL,0,(char *)buf};
+  if (!name)
+  {
+    mi.fType = MFT_SEPARATOR;
+    mi.fMask&=~(MIIM_STATE|MIIM_ID);
+  }
+  InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
+}
+
+
+
+class MenuResourceIndex
+{
+public:
+  MenuResourceIndex() { resid=0; createFunc=NULL; _next=0; }
+  ~MenuResourceIndex() { }
+  int resid;
+  void (*createFunc)(HMENU);
+  
+  MenuResourceIndex *_next;
+}; 
+
+static MenuResourceIndex *m_resources;
+
+static MenuResourceIndex *resById(int resid)
+{
+  MenuResourceIndex *p=m_resources;
+  while (p)
+  {
+    if (p->resid == resid) return p;
+    p=p->_next;
+  }
+  return 0;
+}
+
+
+void SWELL_RegisterMenuResource(int resid, void (*createFunc)(HMENU hMenu))
+{
+  bool doadd=false;
+  MenuResourceIndex *p;
+  
+  if (!(p=resById(resid)))
+  {
+    doadd=true;
+    p=new MenuResourceIndex;
+  }
+  p->resid=resid;
+  p->createFunc=createFunc;
+  if (doadd)
+  {
+    p->_next=m_resources;
+    m_resources=p;
+  }
+}
+
+HMENU SWELL_LoadMenu(int resid)
+{
+  MenuResourceIndex *p;
+  
+  if (!(p=resById(resid))) return 0;
+  HMENU hMenu=CreatePopupMenu();
+  if (hMenu) p->createFunc(hMenu);
+  return hMenu;
+}
+
+HMENU SWELL_DuplicateMenu(HMENU menu)
+{
+  if (!menu) return 0;
+  NSMenu *ret = (NSMenu *)[(NSMenu *)menu copy];
+  return (HMENU)ret;
+}
+
+BOOL  SetMenu(HWND hwnd, HMENU menu)
+{
+  if (!hwnd||![(id)hwnd respondsToSelector:@selector(swellSetMenu:)]) return FALSE;
+  
+  SWELL_SetMenuDestination(menu,hwnd);
+
+  [(id)hwnd swellSetMenu:(HMENU)menu];
+  if ([(id)hwnd isKindOfClass:[NSWindow class]])
+  {
+    if ([NSApp keyWindow]==(NSWindow *)hwnd &&
+        [NSApp mainMenu] != (NSMenu *)menu)
+    {
+      [NSApp setMainMenu:(NSMenu *)menu];
+      SendMessage(hwnd,WM_INITMENUPOPUP,(WPARAM)menu,0); // find a better place for this! TODO !!!
+    }
+  }
+  
+  return TRUE;
+}
+
+HMENU GetMenu(HWND hwnd)
+{
+  if (!hwnd|| ![(id)hwnd respondsToSelector:@selector(swellGetMenu)]) return 0;
+  
+  return (HMENU) [(id)hwnd swellGetMenu];
 }

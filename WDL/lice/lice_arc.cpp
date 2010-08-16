@@ -7,6 +7,10 @@
 #define _CIRCLE (2.0f*_PI)
 #define _SQRT_2 (sqrt(2.0f))
 
+#ifndef __min
+#define __min(x,y) ((x)<(y)?(x):(y))
+#endif
+
 template <class T> inline void _SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
 typedef void (*DRAWFUNC)(LICE_IBitmap*, int, int, int, int, LICE_pixel, float, float);
@@ -18,7 +22,7 @@ private:
 	// Weights to map local coord space to screen coord space, eg: yx = weight of local y in screen x.
 	// Only two of these are nonzero for a given instance.
 	int m_xx, m_yx, m_xy, m_yy;
-	
+    
 	inline void LocalToScreen(float cx, float cy, float xLoc, float yLoc, int& rxScr, int& ryScr)
 	{
 		rxScr = int(cx + m_xx*xLoc + m_yx*yLoc);

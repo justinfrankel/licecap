@@ -1,0 +1,45 @@
+2007-11-09: Fixed distribution making to include more docs/etc
+2007-11-09: LICE: Test app now uses SWELL to run on OS X, included OS X example test project
+2007-11-09: SWELL: Extensive updates for child dialogs, modal/modeless dialogs (mouse messages, painting, etc etc)
+2007-11-09: SWELL: Modal/Modeless windows now support having their own menus (via GetMenu/SetMenu)
+2007-11-09: SWELL: Added user-defined control classes for dialog template loading
+2007-11-09: Updated GIFlib config.h for OS X support
+2007-10-30: LICE: GIF, JPEG loading (included JPEG library and GifLib)
+2007-10-30: LICE: Added bezier functions (Schwa)
+2000-10-28: FileRead: better use of asynchronous buffer space, application level buffered synchronous reading support
+2007-10-26: SWELL: WM_PAINT/BeginPaint/EndPaint emulation for child dialogs
+2007-10-26: SWELL: SendMessage for windows that support it, made virtwnd use sendmessage
+2007-10-26: SWELL: 3-state checkboxes, SetWindowLong improvements, fake *Capture, more
+2007-10-24: SWELL: DialogBox/CreateDialog emulation, timer fixes, tons more
+2007-10-23: LICE: scwha added LICE_ClipLine()
+2007-10-19: LAMEEnc preliminary linux/OSX support (needs a lot of work though)
+2007-09-17: virtual window system cleanups, sliders have mouse-hiding ctrl+ modifier mode
+2007-09-17: virtual window system listbox custom drawing
+2007-09-17: virtual window system, other improvements
+2007-09-17: filewrite recovers from asynchronous failures from threads quitting
+2007-09-12: pcmfmtcvt: corrected non-standard pcm format conversion
+2007-09-14: LICE: fixed circle drawing with vc6 (template bug)
+2007-09-01: LICE: faster rotating blit (fixed point)
+2007-08-31: virtwnd: sliders can have centerline color defined in their skininfo
+2007-08-27: LICE: faster more-fixed-point mode for LICE_ScaledBlit
+2007-08-26: LICE: LICE_ScaledBlit properly obeys using a subimage source (and wont filter from outside)
+2007-08-26: added db2val.h for easy dB<-->linear scale conversion
+2007-08-25: virtwnd: stuff to let control bgs and window bg images have pink lines to define unstretched edges
+2007-08-23: virtwnd: added listbox control
+2007-08-22: LICE: defines for disabling Dodge, Add blend modes
+2007-08-22: LICE: updated deltablit, added transformblit
+2007-08-22: LICE: made LICE_FillRect support LICE_MODE_USE_ALPHA
+2007-08-21: LICE: added LICE_BLIT_MODE_DODGE (thx schwa)
+2007-08-21: LICE: added LICE_Blur, overloaded LICE_Blit() with better parameters
+2007-08-16: LICE: added LICE_FillRect()
+2007-08-15: filewrite: fixed GetSize() after flushed and unflushed writes in async mode
+2007-08-04: virtwnd: made static text labels not refresh if text did not change
+2007-08-04: started more detailed changelog
+2007-07-23: added basic freeverb based reverb engine (verbengine.h)
+2007-07-09: schwa fixes the FFT library's reordering API
+2007-07-07: virtwnd fully uses LICE, support for advanced UI features
+2007-07-01: lineparse.h now supports reading floats that use a , instead of .
+2007-06-20: fileread.h has been asynchronous reading behavior
+2007-06-20: virtwnd uses LICE for rendering gradients and general composition
+2007-06-17: renamed string.h to wdlstring.h for if WDL is added to include paths
+2007-05-09: first WDL release

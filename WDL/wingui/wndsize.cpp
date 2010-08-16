@@ -73,6 +73,12 @@ void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, floa
     GetWindowRect(h,&this_r);
     ScreenToClient(m_hwnd,(LPPOINT) &this_r);
     ScreenToClient(m_hwnd,((LPPOINT) &this_r)+1);
+    
+    if (this_r.bottom < this_r.top)
+    {
+      int oh=this_r.top-this_r.bottom;
+      this_r.bottom=this_r.top + oh;
+    }
   }
   int osize=m_list.GetSize();
   m_list.Resize(osize+sizeof(WDL_WndSizer__rec));

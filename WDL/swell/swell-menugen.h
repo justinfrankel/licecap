@@ -67,58 +67,36 @@
 #include "swell.h"
 #include "../ptrlist.h"
 
+
+// new LoadMenu API support
+void SWELL_RegisterMenuResource(int resid, void (*createFunc)(HMENU hMenu));                                    
+
+#define SWELL_DEFINE_MENU_RESOURCE_BEGIN(resid) \
+class NewCustomMenuResource_##resid { \
+public: \
+  NewCustomMenuResource_##resid() { SWELL_RegisterMenuResource(resid,cf); } \
+  static void cf(HMENU hMenu) { WDL_PtrList<void> mstack; mstack.Add((hMenu)
+        
+#define SWELL_DEFINE_MENU_RESOURCE_END(resid) ); } }; static NewCustomMenuResource_##resid NewCustomMenuResourceInst_##resid;     
+
+
+
+
+// internal menu gen stuff
+
+
 // use these, without semicolons after. menu should be uninitialized before, and will be the menu after
 #define SWELL_MENUGEN_BEGIN(menu) { WDL_PtrList<void> mstack;   mstack.Add((menu)=CreatePopupMenu()
 #define SWELL_MENUGEN_END() ); }
 
+void SWELL_Menu_AddPopup(WDL_PtrList<void> *stack, const char *name);
+void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags=0);
 
-static void __filtnametobuf(char *out, const char *in, int outsz)
-{
-  while (*in && outsz>1)
-  {
-    if (*in == '&')
-    {
-      in++;
-    }
-    *out++=*in++;
-    outsz--;
-  }
-  *out=0;
-}
-
-static void __AddPopup(WDL_PtrList<void> *stack, const char *name)
-{
-  HMENU subMenu=CreatePopupMenu();
-  
-  char buf[1024];
-  __filtnametobuf(buf,name,sizeof(buf));
-  
-  MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    0,0,NULL,NULL,NULL,0,(char *)buf};
-  mi.hSubMenu=subMenu;
-  HMENU hMenu=stack->Get(stack->GetSize()-1);
-  InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
-  stack->Add(subMenu);
-}
-
-static void __AddMenuItem(HMENU hMenu, const char *name, int idx, int flags=0)
-{
-  char buf[1024];
-  if (name) __filtnametobuf(buf,name,sizeof(buf));
-  MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    (flags)?MFS_GRAYED:0,idx,NULL,NULL,NULL,0,(char *)buf};
-  if (!name)
-  {
-    mi.fType = MFT_SEPARATOR;
-    mi.fMask&=~(MIIM_STATE|MIIM_ID);
-  }
-  InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
-}
 
 #define GRAYED 1
 #define INACTIVE 2
-#define POPUP ); __AddPopup(&mstack, 
-#define MENUITEM ); __AddMenuItem(mstack.Get(mstack.GetSize()-1), 
+#define POPUP ); SWELL_Menu_AddPopup(&mstack, 
+#define MENUITEM ); SWELL_Menu_AddMenuItem(mstack.Get(mstack.GetSize()-1), 
 #define SEPARATOR NULL, -1
 #define BEGIN
 #define END ); mstack.Delete(mstack.GetSize()-1

@@ -12,6 +12,7 @@
 
 #define NUM_EFFECTS 17
 
+HINSTANCE g_hInstance;
 LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
@@ -24,6 +25,17 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
   switch(uMsg)
   {
   case WM_INITDIALOG:
+    
+    framebuffer = new LICE_SysBitmap(0,0);
+    
+    jpg=LICE_LoadJPG("C:/turds.jpg");
+
+#ifdef _WIN32
+    bmp = LICE_LoadPNGFromResource(g_hInstance, IDC_PNG1);
+    icon = LICE_LoadIconFromResource(g_hInstance, IDI_MAIN, 0);
+#endif
+      
+    
     SetTimer(hwndDlg,1,10,NULL);
     {
       int x;
@@ -37,7 +49,13 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     }
   return 0;
-
+  case WM_DESTROY:
+      
+      
+    delete icon;
+    delete bmp;
+    delete framebuffer;    
+  return 0;
   case WM_TIMER:
     InvalidateRect(hwndDlg,NULL,FALSE);
   return 0;
@@ -81,7 +99,7 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             LICE_RotatedBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
           }
           //LICE_Clear(framebuffer,0);
-          LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,rand()%16==0 ? -0.5: 0.1,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+          if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,rand()%16==0 ? -0.5: 0.1,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
 
           if (m_effect==15)
           {
@@ -103,7 +121,7 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           double a=GetTickCount()/1000.0;
           
           double scale=(1.1+sin(a)*0.3);
-          LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,1.0,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,0.0,-bmp->getHeight()/2);
+          if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,1.0,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,0.0,-bmp->getHeight()/2);
         }
         break;
       case 3:
@@ -114,10 +132,13 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
           int xsize=sin(a*3.0)*r.right*1.5;
           int ysize=sin(a*1.7)*r.bottom*1.5;
           
-          if (rand()%3==0)
-            LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),-0.7,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR);
-          else
-            LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),0.25,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+          if (bmp)
+          {
+            if (rand()%3==0)
+              LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),-0.7,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR);
+            else
+              LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),0.25,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+          }
         }
         break;
       case 4:
@@ -304,7 +325,10 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
       }
 
       m_doeff = 0;
-  
+
+#ifndef _WIN32
+      SWELL_SyncCtxFrameBuffer(framebuffer->getDC()); // flush required on OS X
+#endif
       BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
 //      bmp->blitToDC(dc, NULL, 0, 0);
 
@@ -319,7 +343,11 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         m_doeff=1;
       break;
       case IDCANCEL:
+#ifdef _WIN32
         EndDialog(hwndDlg, 0);
+#else
+        DestroyWindow(hwndDlg); // on mac we run modeless
+#endif
       break;
     }
     break;
@@ -327,26 +355,14 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
   return 0;
 }
 
+#ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdParam, int nShowCmd)
 {
-  framebuffer = new LICE_SysBitmap(0,0);
 
-  jpg=LICE_LoadJPG("C:\\turds.jpg");
-  //char buf[512];
-  //GetModuleFileName(hInstance,buf,sizeof(buf)-32);
-  //strcat(buf,".png");
-  //bmp = LICE_LoadPNG(buf);
-  bmp = LICE_LoadPNGFromResource(hInstance, IDC_PNG1);
-  if(!bmp) return 0;
-
-  icon = LICE_LoadIconFromResource(hInstance, IDI_MAIN, 0);
-  //icon = LICE_LoadIcon("main.ico", 0);
-  if(!icon) return 0;
-
+  g_hInstance=hInstance;
   DialogBox(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, dlgProc);
 
-  delete icon;
-  delete bmp;
-  delete framebuffer;
+
   return 0;
 }
+#endif

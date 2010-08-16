@@ -28,6 +28,7 @@
 #include "swell.h"
 #include "../mutex.h"
 #include "../ptrlist.h"
+#include "../queue.h"
 
 #include "swell-gdi-int.h"
 
@@ -138,7 +139,15 @@ int SetWindowLong(HWND hwnd, int idx, int val)
   }
 
   
-  
+  if ([pid respondsToSelector:@selector(setSwellExtraData:value:)])
+  {
+    int ov=0;
+    if ([pid respondsToSelector:@selector(getSwellExtraData:)]) ov=(int)[pid getSwellExtraData:idx];
+
+    [pid setSwellExtraData:idx value:val];
+    
+    return ov;
+  }
    
   return 0;
 }
@@ -177,7 +186,11 @@ int GetWindowLong(HWND hwnd, int idx)
     }
     return 0;
   }
-
+  if ([pid respondsToSelector:@selector(getSwellExtraData:)])
+  {
+    return (int)[pid getSwellExtraData:idx];
+  }
+  
   return 0;
 }
 
@@ -245,6 +258,7 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   {
     if ((msg==BM_GETIMAGE || msg == BM_SETIMAGE) && [turd isKindOfClass:[Swell_Button class]])
     {
+      if (wParam & 0xfffff000) return 0; // todo: support referenced images
       int ret=(int)[turd getSwellGDIImage];
       if (msg==BM_SETIMAGE)
       {
@@ -284,6 +298,19 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         return 0;
     }
+    else
+    {
+      NSWindow *w;
+      NSView *v;
+      if ([turd isKindOfClass:[NSView class]] && (w=[turd window]) && [w respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      {
+        return (int) [w onSwellMessage:msg p1:wParam p2:lParam];
+      }
+      else if ([turd isKindOfClass:[NSWindow class]] && (v=[turd contentView]) && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      {
+        return (int) [v onSwellMessage:msg p1:wParam p2:lParam];
+      }
+    }
   }
   return 0;
 }
@@ -295,11 +322,15 @@ void DestroyWindow(HWND hwnd)
   if ([pid isKindOfClass:[NSWindow class]])
   {
     KillTimer(hwnd,-1);
+    if ([(id)pid respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      [(id)pid onSwellMessage:WM_DESTROY p1:0 p2:0];
     [(NSWindow *)pid close]; // this is probably bad, but close takes too long to close!
   }
   else if ([pid isKindOfClass:[NSView class]])
   {
     KillTimer(hwnd,-1);
+    if ([(id)pid respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      [(id)pid onSwellMessage:WM_DESTROY p1:0 p2:0];
     [(NSView *)pid removeFromSuperview];
   }
 }
@@ -473,6 +504,7 @@ void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flag
     {
       f.size.width=(float)cx;
       f.size.height=(float)cy;
+      if (f.size.height<0)f.size.height=-f.size.height;
       repos=true;
     }
     if (repos)
@@ -481,8 +513,9 @@ void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flag
         [ch setFrame:f display:YES];
       else
       {
-        if ([[ch window] contentView] != ch && ![[ch superview] isFlipped])
-          f.origin.y -= f.size.height;
+        // this doesnt seem to actually be a good idea anymore
+  //      if ([[ch window] contentView] != ch && ![[ch superview] isFlipped])
+//          f.origin.y -= f.size.height;
         [ch setFrame:f];
       }
     }    
@@ -648,30 +681,52 @@ int IsDlgButtonChecked(HWND hwnd, int idx)
 void SWELL_TB_SetPos(HWND hwnd, int idx, int pos)
 {
   NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
-  if (!p || ![p isKindOfClass:[NSSlider class]]) return;
-  
-  [p setDoubleValue:(double)pos];
+  if (p  && [p isKindOfClass:[NSSlider class]]) 
+  {
+    [p setDoubleValue:(double)pos];
+  }
+  else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  {
+    [p onSwellMessage:TBM_SETPOS p1:1 p2:pos];
+  }
 }
 
 void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi)
 {
   NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
-  if (!p || ![p isKindOfClass:[NSSlider class]]) return;
-  [p setMinValue:low];
-  [p setMaxValue:hi];
+  if (p && [p isKindOfClass:[NSSlider class]])
+  {
+    [p setMinValue:low];
+    [p setMaxValue:hi];
+  }
+  else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  {
+    [p onSwellMessage:TBM_SETRANGE p1:1 p2:(low|(hi<<16))];
+  }
+  
 }
 
 int SWELL_TB_GetPos(HWND hwnd, int idx)
 {
   NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
-  if (!p || ![p isKindOfClass:[NSSlider class]]) return 0;
-  return (int) ([p doubleValue]+0.5);
+  if (p && [p isKindOfClass:[NSSlider class]]) 
+  {
+    return (int) ([p doubleValue]+0.5);
+  }
+  else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  {
+    return (int) [p onSwellMessage:TBM_GETPOS p1:0 p2:0];
+  }
+  return 0;
 }
 
 void SWELL_TB_SetTic(HWND hwnd, int idx, int pos)
 {
   NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
-  if (!p || ![p isKindOfClass:[NSSlider class]]) return;
+  if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  {
+    [p onSwellMessage:TBM_SETTIC p1:0 p2:pos];
+  }
 }
 
 void SWELL_CB_DeleteString(HWND hwnd, int idx, int wh)
@@ -908,7 +963,7 @@ void SWELL_Make_SetMessageMode(int wantParentView)
 {
   m_parentMode=wantParentView;
 }
-#define ACTIONTARGET (m_parentMode ? m_parent : [m_parent window])
+#define ACTIONTARGET (m_parentMode ? (id)m_parent : (id)[m_parent window])
 
 void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto)
 {
@@ -924,9 +979,17 @@ void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytran
   m_parent=(NSView *)parent;
   m_parent_h=100.0;
   if ([(id)parent isKindOfClass:[NSView class]])
+  {
     m_parent_h=[(NSView *)parent bounds].size.height;
+    if (m_transform.size.height > 0 && [(id)parent isFlipped])
+      m_transform.size.height*=-1;
+  }
   else if ([(id)parent isKindOfClass:[NSWindow class]])
+  {
     m_parent_h=[((NSWindow *)parent) frame].size.height;
+    if (m_transform.size.height > 0 && [(id)parent respondsToSelector:@selector(isFlipped)] && [(id)parent isFlipped])
+      m_transform.size.height*=-1;
+  }
 }
 
 static void UpdateAutoCoords(NSRect r)
@@ -1125,9 +1188,22 @@ public:
 
 @end
 
+HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h)
+{
+  return SWELL_MakeControl(name,idx,"Button",BS_AUTOCHECKBOX,x,y,w,h);
+}
+
+HWND (*SWELL_CustomControlCreator)(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);
+
 
 HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h)
 {
+  if (SWELL_CustomControlCreator)
+  {
+    NSRect poo=MakeCoords(x,y,w,h,false);
+    HWND h=SWELL_CustomControlCreator((HWND)m_parent,cname,idx,classname,style,(int)(poo.origin.x+0.5),(int)(poo.origin.y+0.5),(int)(poo.size.width+0.5),(int)(poo.size.height+0.5));
+    if (h) return h;
+  }
   if (!stricmp(classname, "SysListView32"))
   {
     SWELL_TableViewWithData *obj = [[SWELL_TableViewWithData alloc] init];
@@ -1478,6 +1554,16 @@ void ListView_SetColumnWidth(HWND h, int colpos, int wid)
 {
 }
 
+HWND WindowFromPoint(POINT p)
+{
+  return 0; // todo: implement
+}
+
+void UpdateWindow(HWND hwnd)
+{
+  // todo: implement
+}
+
 void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
 { 
   if (!hwnd) return;
@@ -1491,6 +1577,10 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
 }
 
 static HWND m_fakeCapture;
+HWND GetCapture()
+{
+  return m_fakeCapture;
+}
 
 HWND SetCapture(HWND hwnd)
 {
@@ -1521,3 +1611,205 @@ BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
 {
   return TRUE;
 }
+
+long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  if (msg==WM_RBUTTONUP)
+  {
+    POINT p={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+    ClientToScreen(hwnd,&p);
+    SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwnd,((short)p.x)|(p.y<<16));
+    return 1;
+  }
+  else if (msg==WM_CONTEXTMENU)
+  {
+    HWND par=GetParent(hwnd);
+    if (par) SendMessage(par,WM_CONTEXTMENU,wParam,lParam);
+  }
+  return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////////////// clipboard compatability (NOT THREAD SAFE CURRENTLY)
+
+typedef struct
+{
+  int sz;
+  int refcnt;
+  void *buf;
+} GLOBAL_REC;
+
+
+void *GlobalLock(HANDLE h)
+{
+  if (!h) return 0;
+  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  rec->refcnt++;
+  return rec->buf;
+}
+int GlobalSize(HANDLE h)
+{
+  if (!h) return 0;
+  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  return rec->sz;
+}
+
+void GlobalUnlock(HANDLE h)
+{
+  if (!h) return;
+  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  rec->refcnt--;
+}
+void GlobalFree(HANDLE h)
+{
+  if (!h) return;
+  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  if (rec->refcnt)
+  {
+    // note error freeing locked ram
+  }
+  free(rec->buf);
+  free(rec);
+  
+}
+HANDLE SWELL_GlobalAlloc(int sz)
+{
+  GLOBAL_REC *rec=(GLOBAL_REC*)malloc(sizeof(GLOBAL_REC));
+  rec->sz=sz;
+  rec->buf=malloc(sz);
+  rec->refcnt=0;
+  return rec;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+static WDL_PtrList<GLOBAL_REC> m_clip_recs;
+static WDL_PtrList<NSString> m_clip_fmts;
+static WDL_TypedQueue<UINT> m_clip_curfmts;
+bool OpenClipboard(HWND hwndDlg)
+{
+  NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+  m_clip_curfmts.Clear();
+  NSArray *ar=[pasteboard types];
+  if (ar && [ar count])
+  {
+    int x;
+    for (x = 0; x < [ar count]; x ++)
+    {
+      NSString *s=[ar objectAtIndex:x];
+      if (!s) continue;
+      int y;
+      for (y = 0; y < m_clip_fmts.GetSize(); y ++)
+      {
+        if ([s compare:(NSString *)m_clip_fmts.Get(y)]==NSOrderedSame)
+        {
+          UINT v=y+1;
+          m_clip_curfmts.Add(&v,sizeof(v));
+          break;
+        }
+      }
+      
+    }
+  }
+  return true;
+}
+
+void CloseClipboard() // frees any remaining items in clipboard
+{
+  m_clip_recs.Empty(true,GlobalFree);
+}
+
+UINT EnumClipboardFormats(UINT lastfmt)
+{
+  if (!m_clip_curfmts.GetSize()) return 0;
+  if (lastfmt == 0) return m_clip_curfmts.Get()[0];
+  int x;
+  for (x = 0; x < m_clip_curfmts.GetSize()-1; x ++)
+  {
+    if (m_clip_curfmts.Get()[x] == lastfmt)
+      return m_clip_curfmts.Get()[x+1];
+  }
+  return 0;
+}
+
+HANDLE GetClipboardData(UINT type)
+{
+  NSString *fmt=m_clip_fmts.Get(type-1);
+  if (!fmt) return 0;
+  NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+
+	NSData *data=[pasteboard dataForType:fmt];
+	if (!data) return 0; 
+  int l=[data length];
+  HANDLE h=GlobalAlloc(0,l);  
+	memcpy(GlobalLock(h),[data bytes],l);
+  GlobalUnlock(h);
+  m_clip_recs.Add((GLOBAL_REC*)h);
+  
+	return h;
+}
+
+
+void EmptyClipboard()
+{
+}
+
+void SetClipboardData(UINT type, HANDLE h)
+{
+  NSString *fmt=m_clip_fmts.Get(type-1);
+  if (fmt)
+  {
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+    [pasteboard declareTypes:[NSArray arrayWithObject:fmt] owner:nil];
+    void *buf=GlobalLock(h);
+    int bufsz=GlobalSize(h);
+    NSData *data=[NSData dataWithBytes:buf length:bufsz];
+    [pasteboard setData:data forType:fmt];
+    GlobalUnlock(h);
+  }
+  GlobalFree(h);
+  
+}
+
+UINT RegisterClipboardFormat(const char *desc)
+{
+  NSString *s=(NSString*)SWELL_CStringToCFString(desc);
+  int x;
+  for (x = 0; x < m_clip_fmts.GetSize(); x ++)
+  {
+    NSString *ts=m_clip_fmts.Get(x);
+    if ([ts compare:s]==NSOrderedSame)
+    {
+      [s release];
+      return x+1;
+    }
+  }
+  m_clip_fmts.Add(s);
+  return m_clip_fmts.GetSize();
+}
+

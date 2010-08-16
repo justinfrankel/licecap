@@ -38,6 +38,9 @@ WDL_VWnd_Painter::WDL_VWnd_Painter()
   m_bgbm=0;
 
   m_cur_hwnd=0;
+#ifndef _WIN32
+  m_cur_hwnd_mode=0;
+#endif
   m_wantg=-1;
   m_gradstart=0.5;
   m_gradslope=0.2;
@@ -230,30 +233,23 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
 
 }
 
-#ifdef _WIN32
 void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
-#else
-void WDL_VWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
-#endif
 {
-#ifdef _WIN32
   if (!hwnd) return;
   if (!m_cur_hwnd)
   {
-    if (BeginPaint(hwnd,&m_ps)) m_cur_hwnd=hwnd;
+    if (BeginPaint(hwnd,&m_ps)) 
+    {
+#ifndef _WIN32
+      m_cur_hwnd_mode=0;
+#endif
+      m_cur_hwnd=hwnd;
+    }
     if (m_cur_hwnd)
     {
       RECT r;
       GetWindowRect(m_cur_hwnd,&r);
       int wnd_w=r.right-r.left,wnd_h=r.bottom-r.top;
-#else
-      if (!ctx) return;
-      if (!m_cur_hwnd)
-      {
-        m_cur_hwnd=ctx;
-        m_ps.rcPaint=*clipr;
-        
-#endif
 
       if (!m_bm)
         m_bm=new LICE_SysBitmap;
@@ -262,13 +258,33 @@ void WDL_VWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w
         m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
 
       DoPaintBackground(bgcolor,&m_ps.rcPaint, wnd_w, wnd_h);
-
-
-      }
-#ifdef _WIN32
+    }
   }
-#endif
 }
+
+#ifndef _WIN32
+
+void WDL_VWnd_Painter::PaintBegin(void *ctx, int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
+{
+  if (!ctx) return;
+  if (!m_cur_hwnd)
+  {
+    m_cur_hwnd=(HWND)ctx;
+    m_cur_hwnd_mode=1;
+    m_ps.hdc=0;
+    m_ps.rcPaint=*clipr;      
+      
+    if (!m_bm)
+       m_bm=new LICE_SysBitmap;
+        
+    if (m_bm->getWidth()<wnd_w || m_bm->getHeight() < wnd_h)
+      m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
+        
+     DoPaintBackground(bgcolor,&m_ps.rcPaint, wnd_w, wnd_h);
+        
+  }
+}  
+#endif
 
 #ifdef _WIN32
 typedef struct
@@ -332,14 +348,25 @@ void WDL_VWnd_Painter::PaintEnd()
 #else
   if (m_bm)
   {
-    HDC hdc=WDL_GDP_CreateContext(m_cur_hwnd);
-    SWELL_SyncCtxFrameBuffer(m_bm->getDC());
-    BitBlt(hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+    if (m_cur_hwnd_mode)
+    {
+      HDC hdc=WDL_GDP_CreateContext(m_cur_hwnd);
+      SWELL_SyncCtxFrameBuffer(m_bm->getDC());
+      BitBlt(hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,
                     m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
 
-    WDL_GDP_DeleteContext(hdc);
+      WDL_GDP_DeleteContext(hdc);
+    }
+    else
+    {
+      BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+             m_ps.rcPaint.right-m_ps.rcPaint.left,
+             m_ps.rcPaint.bottom-m_ps.rcPaint.top,
+             m_bm->getDC(),m_ps.rcPaint.left,m_ps.rcPaint.top,SRCCOPY);
+      EndPaint(m_cur_hwnd,&m_ps);
+    }
   }
 #endif
   m_cur_hwnd=0;
