@@ -1,3 +1,14 @@
+2007-12-02: SWELL: GetProp API support, GetDC/GetWindowDC now usable during WM_PAINT/NCPAINT (they get the same HDC as BeginPaint)
+2007-12-02: SWELL: dialogs can now have their window procedures subclassed, WM_NCPAINT support
+2007-11-29: SWELL: fixed EnumClipboardFormats sometimes getting in an infinite loop
+2007-11-29: SWELL: big DrawText overhaul (now uses NSAttributedString to draw)
+2007-11-29: SWELL: added a bunch more compatibility defines to swell.h
+2007-11-24: SWELL: support for having the application automatically provide the SWELL API to children
+2007-11-24: SWELL: fixed some issues with name collisions to old deprecated Mac APIs
+2007-11-24: SWELL: added opaque flag for dialogs (implicit on resourceless child windows)
+2007-11-24: SWELL: basic GetDC()/ReleaseDC() support
+2007-11-24: LICE: made OS X test app use opaque view (huge speedup)
+2007-11-24: LICE: test app shows framerate
 2007-11-23: SWELL: tons of menu fixes, dialog fixes, API extensions, more. too much to list.
 2007-11-23: LICE: LICE_line supports flipped surfaces
 2007-11-13: SWELL: Owned window support, tons of updates

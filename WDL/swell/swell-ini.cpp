@@ -28,6 +28,7 @@
 
 */
 
+#ifndef SWELL_PROVIDED_BY_APP
 
 
 #include "swell.h"
@@ -397,3 +398,5 @@ BOOL WritePrivateProfileStruct(const char *appname, const char *keyname, const v
   free(tmp);
   return ret;
 }
+
+#endif

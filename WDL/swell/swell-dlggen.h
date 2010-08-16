@@ -72,34 +72,22 @@
 #ifndef _SWELL_DLGGEN_H_
 #define _SWELL_DLGGEN_H_
 
-// these will need implementing
-void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit);
-void SWELL_Make_SetMessageMode(int wantParentView);
-
-HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0);
-HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags=0);                      
-HWND SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0);
-HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);
-HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags=0);                   
-HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h);
-HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h);
-HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=0);
 #define SWELL_DLGGEN_DLGFOLLOWS(par, scale) SWELL_DLGGEN_DLGFOLLOWS_EX(par,scale,scale,0,0,false)
 #define SWELL_DLGGEN_DLGFOLLOWS_EX(par, xscale, yscale, xtrans, ytrans, doauto) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,true);
 #define SWELL_DLGGEN_DLGFOLLOWS_EX2(par, xscale, yscale, xtrans, ytrans, doauto, dosizetofit) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,dosizetofit);
 #define BEGIN (0
 #define END ); SWELL_MakeSetCurParms(1.0,1.0,0,0,NULL,false,true); }
-#define PUSHBUTTON ); SWELL_MakeButton(0,
-#define DEFPUSHBUTTON ); SWELL_MakeButton(1,
-#define EDITTEXT ); SWELL_MakeEditField(
-#define CTEXT ); SWELL_MakeLabel(0,                                
-#define LTEXT ); SWELL_MakeLabel(-1,
-#define RTEXT ); SWELL_MakeLabel(1,
+#define PUSHBUTTON ); __SWELL_MakeButton(0,
+#define DEFPUSHBUTTON ); __SWELL_MakeButton(1,
+#define EDITTEXT ); __SWELL_MakeEditField(
+#define CTEXT ); __SWELL_MakeLabel(0,                                
+#define LTEXT ); __SWELL_MakeLabel(-1,
+#define RTEXT ); __SWELL_MakeLabel(1,
 #define CONTROL ); SWELL_MakeControl(                               
-#define COMBOBOX ); SWELL_MakeCombo(
+#define COMBOBOX ); __SWELL_MakeCombo(
 #define GROUPBOX ); SWELL_MakeGroupBox(
 #define CHECKBOX ); SWELL_MakeCheckBox(
-#define LISTBOX ); SWELL_MakeListBox(
+#define LISTBOX ); __SWELL_MakeListBox(
 
 #define NOT 
                                     
@@ -161,6 +149,7 @@ HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=0);
 #define SWELL_DLG_WS_RESIZABLE 2
 #define SWELL_DLG_WS_FLIPPED 4
 #define SWELL_DLG_WS_NOAUTOSIZE 8
+#define SWELL_DLG_WS_OPAQUE 16
      
 typedef struct SWELL_DialogResourceIndex
 {
@@ -171,7 +160,30 @@ typedef struct SWELL_DialogResourceIndex
   int width,height;
   struct SWELL_DialogResourceIndex *_next;
 } SWELL_DialogResourceIndex; 
-                                     
+
+static HWND __SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0)
+{
+  return SWELL_MakeButton(def,label,idx,x,y,w,h,flags);
+}
+static HWND __SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags=0)
+{
+  return SWELL_MakeEditField(idx,x,y,w,h,flags);
+}
+static HWND __SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0)
+{
+  return SWELL_MakeLabel(align,label,idx,x,y,w,h,flags);
+}
+static HWND __SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags=0)
+{
+  return SWELL_MakeCombo(idx,x,y,w,h,flags);
+}
+static HWND __SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=0)
+{
+  return SWELL_MakeListBox(idx,x,y,w,h,styles);
+}
+
+
+
 #define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(recid, flags, titlestr, wid, hei, scale) \
                                        class NewCustomResource_##recid { \
                                           public: \

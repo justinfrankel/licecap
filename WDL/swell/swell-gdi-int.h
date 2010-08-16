@@ -11,7 +11,7 @@ typedef struct
   int type;
   CGColorRef color;
   int wid;
-  char *fontface;
+  NSFont *fontptr;
   NSImage *bitmapptr;
 } GDP_OBJECT;
 
@@ -21,7 +21,9 @@ typedef struct {
   GDP_OBJECT *curpen;
   GDP_OBJECT *curbrush;
   GDP_OBJECT *curfont;
-  CGColorRef curtextcol;
+  int curtextcol;
+  int curbkcol;
+  int curbkmode;
   CGImageRef bitmapimagecache;
   float lastpos_x,lastpos_y;
 } GDP_CTX;

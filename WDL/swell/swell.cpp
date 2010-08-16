@@ -1,3 +1,4 @@
+
 /* Cockos SWELL (Simple/Small Win32 Emulation Layer for Losers (who use OS X))
    Copyright (C) 2006-2007, Cockos, Inc.
 
@@ -22,6 +23,7 @@
 
   */
 
+#ifndef SWELL_PROVIDED_BY_APP
 
 
 #include "swell.h"
@@ -82,7 +84,7 @@ BOOL GetFileTime(void *fh, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime,
   return 1;
 }
 
-BOOL PtInRect(RECT *r, POINT p)
+BOOL SWELL_PtInRect(RECT *r, POINT p)
 {
   if (!r) return FALSE;
   int tp=r->top;
@@ -118,3 +120,31 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
   }
   return FALSE;
 }
+
+int MulDiv(int a, int b, int c)
+{
+  if(c == 0) return 0;
+  return (int)((double)a*(double)b/c);
+}
+
+DWORD GetModuleFileName(HINSTANCE ignored, char *fn, DWORD nSize)
+{
+  *fn=0;
+  CFBundleRef bund=CFBundleGetMainBundle();
+  if (bund) 
+  {
+    CFURLRef url=CFBundleCopyBundleURL(bund);
+    if (url)
+    {
+      char buf[8192];
+      if (CFURLGetFileSystemRepresentation(url,true,(UInt8*)buf,sizeof(buf)))
+        lstrcpyn(fn,buf,nSize);
+
+      CFRelease(url);
+    }
+  }
+  return strlen(fn);
+}
+
+
+#endif

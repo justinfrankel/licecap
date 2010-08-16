@@ -22,10 +22,13 @@
 
   */
 
+#ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
+
+
 
 static int MacKeyCodeToVK(int code)
 {
@@ -60,7 +63,7 @@ static int MacKeyCodeToVK(int code)
 	return 0;
 }
 
-int MacKeyToWindowsKey(void *nsevent, int *flags)
+int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
 {
   NSEvent *theEvent = (NSEvent *)nsevent;
 	int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
@@ -133,6 +136,12 @@ void GetCursorPos(POINT *pt)
   pt->y=(int)localpt.y;
 }
 
+DWORD GetMessagePos()
+{
+  NSPoint localpt=[NSEvent mouseLocation];
+  return MAKELONG((int)localpt.x, (int)localpt.y);
+}
+
 HCURSOR SWELL_LoadCursor(int idx)
 {
   switch (idx)
@@ -155,7 +164,7 @@ HCURSOR SWELL_LoadCursor(int idx)
 
 static HCURSOR m_last_setcursor;
 
-void SetCursor(HCURSOR curs)
+void SWELL_SetCursor(HCURSOR curs)
 {
   if (curs && [(id) curs isKindOfClass:[NSCursor class]])
   {
@@ -169,7 +178,7 @@ void SetCursor(HCURSOR curs)
   }
 }
 
-HCURSOR GetCursor()
+HCURSOR SWELL_GetCursor()
 {
   return (HCURSOR)[NSCursor currentCursor];
 }
@@ -177,3 +186,5 @@ HCURSOR SWELL_GetLastSetCursor()
 {
   return m_last_setcursor;
 }
+
+#endif

@@ -25,6 +25,7 @@
   */
 
 
+#ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
 #import <Cocoa/Cocoa.h>
@@ -238,49 +239,51 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 
 
 
-int SWELL_MessageBox(const char *text, const char *caption, int type)
+int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 {
   
+  int ret=0;
+
   NSString *tit=(NSString *)SWELL_CStringToCFString(caption); 
   NSString *tex=(NSString *)SWELL_CStringToCFString(text); 
   
   if (type == MB_OK)
   {
     NSRunAlertPanel(tit,tex,@"OK",@"",@"");
-    return IDOK;
+    ret=IDOK;
   }	
-  if (type == MB_OKCANCEL)
+  else if (type == MB_OKCANCEL)
   {
-    int ret=NSRunAlertPanel(tit,tex,@"OK",@"Cancel",@"");
-//    printf("ret=%d\n",ret);
-    if (ret) return IDOK;
-    return IDCANCEL;
+    ret=NSRunAlertPanel(tit,tex,@"OK",@"Cancel",@"");
+    if (ret) ret=IDOK;
+    else ret=IDCANCEL;
   }
-  if (type == MB_YESNO)
+  else if (type == MB_YESNO)
   {
-    int ret=NSRunAlertPanel(tit,tex,@"Yes",@"No",@"");
+    ret=NSRunAlertPanel(tit,tex,@"Yes",@"No",@"");
   //  printf("ret=%d\n",ret);
-    if (ret) return IDYES;
-    return IDNO;
+    if (ret) ret=IDYES;
+    else ret=IDNO;
   }
-  if (type == MB_RETRYCANCEL)
+  else if (type == MB_RETRYCANCEL)
   {
-    int ret=NSRunAlertPanel(tit,tex,@"Retry",@"Cancel",@"");
+    ret=NSRunAlertPanel(tit,tex,@"Retry",@"Cancel",@"");
 //    printf("ret=%d\n",ret);
-    if (ret) return IDRETRY;
-    return IDCANCEL;
+    if (ret) ret=IDRETRY;
+    else ret=IDCANCEL;
   }
-  if (type == MB_YESNOCANCEL)
+  else if (type == MB_YESNOCANCEL)
   {
-    int ret=NSRunAlertPanel(tit,tex,@"Yes",@"Cancel",@"No");
-    
-    if (ret == 1) return IDYES;
-    if (ret==-1) return IDNO;
-    return IDCANCEL;
+    ret=NSRunAlertPanel(tit,tex,@"Yes",@"Cancel",@"No");   
+    if (ret == 1) ret=IDYES;
+    else if (ret==-1) ret=IDNO;
+    else ret=IDCANCEL;
   }
   
   [tit release];
   [tex release];
   
-  return 0; 
+  return ret; 
 }
+
+#endif

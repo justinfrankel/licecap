@@ -23,6 +23,7 @@
   */
 
 
+#ifndef SWELL_PROVIDED_BY_APP
 
 #import <Cocoa/Cocoa.h>
 #include "swell.h"
@@ -81,6 +82,10 @@ void *SWELL_CStringToCFString(const char *str)
 -(void)setNotificationWindow:(id)dest
 {
   m_dest=dest;
+}
+-(id)getNotificationWindow
+{
+  return m_dest;
 }
 -(int) tag
 {
@@ -478,12 +483,18 @@ int SetWindowLong(HWND hwnd, int idx, int val)
   }
   
   if (idx==GWL_WNDPROC && [pid respondsToSelector:@selector(setSwellWindowProc:)])
-{
-  int ov=(int)[pid getSwellWindowProc];
-  [pid setSwellWindowProc:(int)val];
-  return ov;
-}
-
+  {
+    int ov=(int)[pid getSwellWindowProc];
+    [pid setSwellWindowProc:(int)val];
+    return ov;
+  }
+  if (idx==DWL_DLGPROC && [pid respondsToSelector:@selector(setSwellDialogProc:)])
+  {
+    int ov=(int)[pid getSwellDialogProc];
+    [pid setSwellDialogProc:(int)val];
+    return ov;
+  }
+  
   if (idx==GWL_STYLE)
   {
     if ([pid isKindOfClass:[NSButton class]]) 
@@ -551,6 +562,10 @@ int GetWindowLong(HWND hwnd, int idx)
   {
     return (int)[pid getSwellWindowProc];
   }
+  if (idx==DWL_DLGPROC && [pid respondsToSelector:@selector(getSwellDialogProc)])
+  {
+    return (int)[pid getSwellDialogProc];
+  }  
   if (idx==GWL_STYLE)
   {
     if ([pid isKindOfClass:[NSButton class]]) 
@@ -878,6 +893,25 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->bottom= (int)(b.origin.y+b.size.height+0.5);
 }
 
+BOOL WinOffsetRect(LPRECT lprc, int dx, int dy)
+{
+  if(!lprc) return 0;
+  lprc->left+=dx;
+  lprc->top+=dy;
+  lprc->right+=dx;
+  lprc->bottom+=dy;
+  return TRUE;
+}
+
+BOOL WinSetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
+{
+  if(!lprc) return 0;
+  lprc->left = xLeft;
+  lprc->top = yTop;
+  lprc->right = xRight;
+  lprc->bottom = yBottom;
+}
+
 void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags)
 {
   if (!hwnd) return;
@@ -1097,9 +1131,9 @@ typedef struct
 } TimerInfoRec;
 static WDL_PtrList<TimerInfoRec> m_timerlist;
 static WDL_Mutex m_timermutex;
-void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
+int SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
 {
-  if (!hwnd) return;
+  if (!hwnd) return 0;
   WDL_MutexLock lock(&m_timermutex);
   KillTimer(hwnd,timerid);
   TimerInfoRec *rec=(TimerInfoRec*)malloc(sizeof(TimerInfoRec));
@@ -1114,6 +1148,7 @@ void SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
   [t release];
   m_timerlist.Add(rec);
   
+  return timerid;
 }
 void KillTimer(HWND hwnd, int timerid)
 {
@@ -1647,7 +1682,7 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h)
 HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
 {
   HWND hw=SWELL_MakeControl("",idx,"SysListView32",((styles&LBS_EXTENDEDSEL) ? 0 : LVS_SINGLESEL)|LVS_NOCOLUMNHEADER,x,y,w,h);
-  if (hw)
+/*  if (hw)
   {
     LVCOLUMN lvc={0,};
     RECT r;
@@ -1656,6 +1691,7 @@ HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
     lvc.pszText="";
     ListView_InsertColumn(hw,0,&lvc);
   }
+  */
   return hw;
 }
 
@@ -1747,7 +1783,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     SWELL_TableViewWithData *obj = [[SWELL_TableViewWithData alloc] init];
     [obj setDataSource:obj];
     obj->style=style;
-    if (style & LVS_NOCOLUMNHEADER)
+    if ((style & LVS_NOCOLUMNHEADER) || !(style & LVS_REPORT))
       [obj setHeaderView:nil];
     
     [obj setAllowsColumnReordering:NO];
@@ -1763,12 +1799,22 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     else
       [obj setDoubleAction:@selector(onCommand:)];
     NSScrollView *obj2=[[NSScrollView alloc] init];
-    [obj2 setFrame:MakeCoords(x,y,w,h,false)];
+    NSRect tr=MakeCoords(x,y,w,h,false);
+    [obj2 setFrame:tr];
     [obj2 setDocumentView:obj];
     [obj2 setHasVerticalScroller:YES];
     [obj release];
     [m_parent addSubview:obj2];
     [obj2 release];
+    
+    if ( !(style & LVS_REPORT))
+    {
+      LVCOLUMN lvc={0,};
+      lvc.cx=(int)ceil(max(tr.size.width,300.0));
+      lvc.pszText="";
+      ListView_InsertColumn((HWND)obj,0,&lvc);
+    }
+    
     return (HWND)obj;
   }
   else if (!stricmp(classname, "msctls_progress32"))
@@ -1926,6 +1972,19 @@ int TabCtrl_GetItemCount(HWND hwnd)
   return [tv numberOfTabViewItems];
 }
 
+BOOL TabCtrl_AdjustRect(HWND hwnd, BOOL fLarger, RECT *r)
+{
+  if (!r || !hwnd || ![(id)hwnd isKindOfClass:[SWELL_TabView class]]) return FALSE;
+  
+  int sign=fLarger?-1:1;
+  r->left+=sign*7; // todo: correct this?
+  r->right-=sign*7;
+  r->top+=sign*36;
+  r->bottom-=sign*3;
+  return TRUE;
+}
+
+
 BOOL TabCtrl_DeleteItem(HWND hwnd, int idx)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TabView class]]) return 0;
@@ -1947,7 +2006,10 @@ int TabCtrl_InsertItem(HWND hwnd, int idx, TCITEM *item)
   NSString *str=(NSString *)SWELL_CStringToCFString(item->pszText);  
   [tabitem setLabel:str];
   [str release];
+  id turd=[tv getNotificationWindow];
+  [tv setNotificationWindow:nil];
   [tv insertTabViewItem:tabitem atIndex:idx];
+  [tv setNotificationWindow:turd];
   [tabitem release];
   return idx;
 }
@@ -2476,21 +2538,32 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
 }
 
 static HWND m_fakeCapture;
+static BOOL m_capChangeNotify;
 HWND GetCapture()
 {
+
   return m_fakeCapture;
 }
 
 HWND SetCapture(HWND hwnd)
 {
   HWND oc=m_fakeCapture;
+  int ocn=m_capChangeNotify;
   m_fakeCapture=hwnd;
+  m_capChangeNotify = hwnd && [(id)hwnd respondsToSelector:@selector(swellCapChangeNotify)] && [(id)hwnd swellCapChangeNotify];
+
+  if (ocn && oc) SendMessage(oc,WM_CAPTURECHANGED,0,(LPARAM)hwnd);
   return oc;
 }
 
 void ReleaseCapture()
 {
+  HWND h=m_fakeCapture;
   m_fakeCapture=NULL;
+  if (m_capChangeNotify && h)
+  {
+    SendMessage(h,WM_CAPTURECHANGED,0,0);
+  }
 }
 
 
@@ -2609,15 +2682,18 @@ HANDLE SWELL_GlobalAlloc(int sz)
 
 static WDL_PtrList<GLOBAL_REC> m_clip_recs;
 static WDL_PtrList<NSString> m_clip_fmts;
-static WDL_TypedQueue<UINT> m_clip_curfmts;
+static WDL_PtrList<void> m_clip_curfmts;
 bool OpenClipboard(HWND hwndDlg)
 {
   NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
-  m_clip_curfmts.Clear();
+  m_clip_curfmts.Empty();
   NSArray *ar=[pasteboard types];
+
+  
   if (ar && [ar count])
   {
     int x;
+    
     for (x = 0; x < [ar count]; x ++)
     {
       NSString *s=[ar objectAtIndex:x];
@@ -2627,8 +2703,8 @@ bool OpenClipboard(HWND hwndDlg)
       {
         if ([s compare:(NSString *)m_clip_fmts.Get(y)]==NSOrderedSame)
         {
-          UINT v=y+1;
-          m_clip_curfmts.Add(&v,sizeof(v));
+          if (m_clip_curfmts.Find((void*)(y+1))<0)
+            m_clip_curfmts.Add((void*)(y+1));
           break;
         }
       }
@@ -2646,12 +2722,12 @@ void CloseClipboard() // frees any remaining items in clipboard
 UINT EnumClipboardFormats(UINT lastfmt)
 {
   if (!m_clip_curfmts.GetSize()) return 0;
-  if (lastfmt == 0) return m_clip_curfmts.Get()[0];
+  if (lastfmt == 0) return (UINT)m_clip_curfmts.Get(0);
   int x;
-  for (x = 0; x < m_clip_curfmts.GetSize()-1; x ++)
+  for (x = m_clip_curfmts.GetSize()-2; x >= 0; x--) // scan backwards to avoid dupes causing infinite loops
   {
-    if (m_clip_curfmts.Get()[x] == lastfmt)
-      return m_clip_curfmts.Get()[x+1];
+    if (m_clip_curfmts.Get(x) == (void*)lastfmt)
+      return (UINT)m_clip_curfmts.Get(x+1);
   }
   return 0;
 }
@@ -2745,7 +2821,7 @@ BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
   return FALSE;
 }
 
-void SWELL_PostMessage_ClearQ(HWND h)
+void SWELL_MessageQueue_Clear(HWND h)
 {
   id del=[NSApp delegate];
   if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
@@ -2788,29 +2864,35 @@ void SWELL_Internal_PostMessage_Init()
   // set a timer to the delegate
 }
 
-void SWELL_Internal_PMQ_Run()
+void SWELL_MessageQueue_Flush()
 {
   if (!m_pmq_mutex) return;
   
   m_pmq_mutex->Enter();
-  PMQ_rec *p=m_pmq;
+  PMQ_rec *p=m_pmq, *startofchain=m_pmq;
+  m_pmq=m_pmq_tail=0;
+  m_pmq_mutex->Leave();
+  
+  int cnt=0;
+  // process out queue
   while (p)
   {
     // process this message
 //    [(id)p->hwnd onSwellMessage:(int)p->msg p1:(WPARAM)p->wParam p2:(LPARAM)p->lParam];
     SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
 
-    m_pmq_size--;
-    if (!p->next)
+    cnt ++;
+    if (!p->next) // add the chain back to empties
     {
+      m_pmq_mutex->Enter();
+      m_pmq_size-=cnt;
       p->next=m_pmq_empty;
-      m_pmq_empty=m_pmq;
-      m_pmq=m_pmq_tail=0;
+      m_pmq_empty=startofchain;
+      m_pmq_mutex->Leave();
       break;
     }
     p=p->next;
   }
-  m_pmq_mutex->Leave();
 }
 
 void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd)
@@ -2878,3 +2960,37 @@ BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
   return ret;
 }
+
+
+
+
+
+
+int EnumPropsEx(HWND hwnd, PROPENUMPROCEX proc, LPARAM lParam)
+{
+  if (!hwnd || ![(id)hwnd respondsToSelector:@selector(swellEnumProps:lp:)]) return -1;
+  return (int)[(id)hwnd swellEnumProps:proc lp:lParam];
+}
+
+HANDLE GetProp(HWND hwnd, const char *name)
+{
+  if (!hwnd || ![(id)hwnd respondsToSelector:@selector(swellGetProp:wantRemove:)]) return NULL;
+  return (HANDLE)[(id)hwnd swellGetProp:name wantRemove:NO];
+}
+
+BOOL SetProp(HWND hwnd, const char *name, HANDLE val)
+{
+  if (!hwnd || ![(id)hwnd respondsToSelector:@selector(swellSetProp:value:)]) return FALSE;
+  return (BOOL)!![(id)hwnd swellSetProp:name value:val];
+}
+
+HANDLE RemoveProp(HWND hwnd, const char *name)
+{
+  if (!hwnd || ![(id)hwnd respondsToSelector:@selector(swellGetProp:wantRemove:)]) return NULL;
+  return (HANDLE)[(id)hwnd swellGetProp:name wantRemove:YES];
+}
+
+
+
+
+#endif

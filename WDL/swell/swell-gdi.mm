@@ -23,6 +23,7 @@
 
 */
 
+#ifndef SWELL_PROVIDED_BY_APP
 
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
@@ -85,12 +86,21 @@ void WDL_GDP_DeleteContext(HDC ctx)
       CGContextRelease(ct->ctx);
       free(ct->ownedData);
     }
-    if (ct->curtextcol) CGColorRelease(ct->curtextcol);
+//    if (ct->curtextcol) CGColorRelease(ct->curtextcol);
     free(ctx);
   }
 }
+HPEN CreatePen(int attr, int wid, int col)
+{
+  return CreatePenAlpha(attr,wid,col,1.0f);
+}
 
-HPEN CreatePen(int attr, int wid, int col, float alpha)
+HBRUSH CreateSolidBrush(int col)
+{
+  return CreateSolidBrushAlpha(col,1.0f);
+}
+
+HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
 {
   GDP_OBJECT *pen=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   pen->type=TYPE_PEN;
@@ -98,7 +108,7 @@ HPEN CreatePen(int attr, int wid, int col, float alpha)
   pen->color=CreateColor(col,alpha);
   return pen;
 }
-HBRUSH  CreateSolidBrush(int col, float alpha)
+HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
 {
   GDP_OBJECT *brush=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   brush->type=TYPE_BRUSH;
@@ -106,29 +116,43 @@ HBRUSH  CreateSolidBrush(int col, float alpha)
   brush->wid=0; 
   return brush;
 }
+
+#define FONTSCALE 0.9
 HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientation, long lfWeight, char lfItalic, 
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
 {
   GDP_OBJECT *font=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
   font->type=TYPE_FONT;
-  font->wid=lfHeight;
-  if (!font->wid) font->wid=lfWidth;
-  if (font->wid<0)font->wid=-font->wid;
-  font->fontface = strdup(lfFaceName?lfFaceName:"");
+  float fontwid=lfHeight;
+  
+  
+  if (!fontwid) fontwid=lfWidth;
+  if (fontwid<0)fontwid=-fontwid;
+  
+  font->wid=0;
+  if (lfItalic) font->wid|=1;
+  if (lfUnderline) font->wid|=2;
+  if (lfStrikeOut) font->wid|=4;
+  font->wid |= (lfWeight&1023)<<16;
+  
+  fontwid *= FONTSCALE;
+  NSString *str=(NSString *)SWELL_CStringToCFString(lfFaceName);
+  NSFont *nsf=[NSFont fontWithName:str size:fontwid];
+  [str release];
+  if (!nsf) nsf=[NSFont labelFontOfSize:fontwid];
+  if (!nsf) nsf=[NSFont systemFontOfSize:fontwid];
+  if (nsf) [nsf retain];
+  font->fontptr=nsf;
   return font;
 }
 
 
 HFONT CreateFontIndirect(LOGFONT *lf)
 {
-  GDP_OBJECT *font=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
-  font->type=TYPE_FONT;
-  font->wid=lf->lfHeight;
-  if (!font->wid) font->wid=lf->lfWidth;
-  if (font->wid<0)font->wid=-font->wid;
-  font->fontface = strdup(lf->lfFaceName);
-  return font;
+  return CreateFont(lf->lfHeight, lf->lfWidth,lf->lfEscapement, lf->lfOrientation, lf->lfWeight, lf->lfItalic, 
+                    lf->lfUnderline, lf->lfStrikeOut, lf->lfCharSet, lf->lfOutPrecision,lf->lfClipPrecision, 
+                    lf->lfQuality, lf->lfPitchAndFamily, lf->lfFaceName);
 }
 
 void DeleteObject(HGDIOBJ pen)
@@ -141,7 +165,8 @@ void DeleteObject(HGDIOBJ pen)
       if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
         if (p->wid<0) return;
       if (p->color) CGColorRelease(p->color);
-      free(p->fontface);
+      if (p->fontptr)
+        [(NSFont *)p->fontptr release];
       if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
     }
     free(p);
@@ -189,7 +214,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
 
 
 
-void FillRect(HDC ctx, RECT *r, HBRUSH br)
+void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
   GDP_OBJECT *b=(GDP_OBJECT*) br;
@@ -351,7 +376,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
 }
 
 
-void LineTo(HDC ctx, int x, int y)
+void SWELL_LineTo(HDC ctx, int x, int y)
 {
   GDP_CTX *c=(GDP_CTX *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0) return;
@@ -410,7 +435,7 @@ void SWELL_SyncCtxFrameBuffer(HDC ctx)
   INVALIDATE_BITMAPCACHE(ct);
 }
 
-void SetPixel(HDC ctx, int x, int y, int c)
+void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return;
@@ -427,9 +452,122 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return 0;
-  INVALIDATE_BITMAPCACHE(ct);
+  if (!(align & DT_CALCRECT))
+    INVALIDATE_BITMAPCACHE(ct);
   
-#if 1
+#if 1 // new NSAttributedString based drawing
+  char tmp[4096];
+  const char *p=buf;
+  char *op=tmp;
+  while (*p && (op-tmp)<sizeof(tmp)-1 && (buflen<0 || (p-buf)<buflen))
+  {
+    if (*p == '&' && !(align&DT_NOPREFIX)) p++; 
+    else if (*p == '\r')  p++; 
+    else if (*p == '\n' && (align&DT_SINGLELINE)) { *op++ = ' '; p++; }
+    else *op++=*p++;
+  }
+  *op=0;
+   
+  NSString *str=(NSString*)SWELL_CStringToCFString(tmp);
+  NSFont *curfont=NULL;
+  if (ct->curfont && ct->curfont->fontptr) curfont=(NSFont *)ct->curfont->fontptr;
+  if (!curfont) return 0;
+  
+  
+  // todo: parse ct->curfont->wid to get attributes
+  
+  
+  
+  NSColor *color=[NSColor colorWithCalibratedRed:GetRValue(ct->curtextcol)/255.0f green:GetGValue(ct->curtextcol)/255.0f blue:GetBValue(ct->curtextcol)/255.0f alpha:1.0f];
+  
+  NSMutableParagraphStyle *parinfo = [[NSMutableParagraphStyle alloc] init];
+  [parinfo setAlignment:((align&DT_RIGHT)?NSRightTextAlignment : (align&DT_CENTER) ? NSCenterTextAlignment : NSLeftTextAlignment)];
+  [parinfo setLineBreakMode:((align&DT_END_ELLIPSIS)? NSLineBreakByTruncatingTail:NSLineBreakByClipping)];
+  
+  NSMutableDictionary *dict=[NSMutableDictionary dictionaryWithObjectsAndKeys:color,NSForegroundColorAttributeName,parinfo,NSParagraphStyleAttributeName,curfont,NSFontAttributeName, NULL];
+  if (ct->curbkmode==OPAQUE)
+  {
+    NSColor *bkcol=[NSColor colorWithCalibratedRed:GetRValue(ct->curbkcol)/255.0f green:GetGValue(ct->curbkcol)/255.0f blue:GetBValue(ct->curbkcol)/255.0f alpha:1.0f];
+    [dict setObject:bkcol forKey:NSBackgroundColorAttributeName];
+  }   
+  if (ct->curfont->wid&1) // italic
+  {
+    [dict setObject:[NSNumber numberWithFloat:0.33] forKey:NSObliquenessAttributeName];
+  }
+  if (ct->curfont->wid&2)
+  {
+    [dict setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
+  }
+  
+  int weight=(ct->curfont->wid>>16)&1023;
+  if (weight>FW_SEMIBOLD)
+  {
+    double sc=40.0*(weight-FW_SEMIBOLD)/(1000-FW_SEMIBOLD);
+    if(sc>0.0)[dict setObject:[NSNumber numberWithFloat:-sc] forKey:NSStrokeWidthAttributeName];
+  }
+  NSAttributedString *as=[[NSAttributedString alloc] initWithString:str attributes:dict];
+  
+  // set attributes
+  
+  [parinfo release];
+  [str release];
+
+  int ret=10;
+  if (align & DT_CALCRECT)
+  {
+    NSSize sz=[as size];
+    r->right=r->left+ceil(sz.width);
+    r->bottom=r->top+ceil(sz.height);
+    ret=ceil(sz.height);
+  }
+  else
+  {
+    NSSize sz=[as size];
+    ret=ceil(sz.height);
+    NSRect drawr=NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
+    if (align&DT_BOTTOM)
+    {
+      float dy=(drawr.size.height-sz.height);
+      drawr.origin.y += dy;
+      drawr.size.height -= dy;      
+    }
+    else if (align&DT_VCENTER)
+    {
+      float dy=(drawr.size.height-sz.height )/2;
+      drawr.origin.y += dy;
+      drawr.size.height -= dy*2.0;
+    }
+    else
+    {
+      drawr.size.height=sz.height;
+    }
+    
+    NSGraphicsContext *gc=NULL,*oldgc=NULL;
+    if (ct->ctx != [[NSGraphicsContext currentContext] graphicsPort])
+    {
+      gc=[NSGraphicsContext graphicsContextWithGraphicsPort:ct->ctx flipped:YES];
+      oldgc=[NSGraphicsContext currentContext];
+      [NSGraphicsContext setCurrentContext:gc];
+    }
+    
+    [as drawInRect:drawr];
+    
+    if (gc)
+    {
+      [NSGraphicsContext setCurrentContext:oldgc];
+//      [gc release];
+    }
+  }
+  
+    
+  [as release];
+  
+  return ret;
+  
+  
+#else // turds
+  
+#if 1 // HIT text drawing
   CFStringRef label=(CFStringRef)SWELL_CStringToCFString(buf); 
   HIRect hiBounds = { {r->left, r->top}, {r->right-r->left, r->bottom-r->top} };
   HIThemeTextInfo textInfo = {0, kThemeStateActive, kThemeCurrentPortFont, kHIThemeTextHorizontalFlushLeft, 
@@ -454,7 +592,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   }
   else
   {
-    if (ct->curtextcol) CGContextSetFillColorWithColor(ct->ctx,ct->curtextcol);
+// fucko this will need to be switched cause curtextcol is now just int    if (ct->curtextcol) CGContextSetFillColorWithColor(ct->ctx,ct->curtextcol);
 
     if (!(align&DT_SINGLELINE))
     {
@@ -539,25 +677,33 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   CGContextShowTextAtPoint(ct->ctx,xpos,ypos,buf,strlen(buf));
   CGContextRestoreGState(ct->ctx);
 #endif
+#endif
   return 0;
 }
 
 void SetBkColor(HDC ctx, int col)
 {
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (!ct) return;
+  ct->curbkcol=col;
 }
 
 void SetBkMode(HDC ctx, int col)
 {
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (!ct) return;
+  ct->curbkmode=col;
 }
 
 void SetTextColor(HDC ctx, int col)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return;
-  if (ct->curtextcol) CGColorRelease(ct->curtextcol);
-  ct->curtextcol=CreateColor(col);
+//  if (ct->curtextcol) CGColorRelease(ct->curtextcol);
+  ct->curtextcol=col; //CreateColor(col);
 }
 
+#define FONTSCALE 0.9 // todo font point->pix conversion etc
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
@@ -565,10 +711,16 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   {
     tm->tmInternalLeading=3;
     tm->tmAscent=12;
+    tm->tmDescent=4;
+    tm->tmHeight=16;
   }
-  if (!ct||!tm||!ct->curfont) return 0;
-  tm->tmInternalLeading=ct->curfont->wid/5;
-  tm->tmAscent=ct->curfont->wid;
+  if (!ct||!tm||!ct->curfont||!ct->curfont->fontptr) return 0;
+  
+  NSFont *curfont=(NSFont *)ct->curfont->fontptr;
+  tm->tmAscent = (int)ceil([curfont ascender]/FONTSCALE);
+  tm->tmDescent = (int)ceil(-[curfont descender]/FONTSCALE);
+  tm->tmInternalLeading=(int)ceil([curfont leading]/FONTSCALE);
+  tm->tmHeight=tm->tmAscent+tm->tmDescent+tm->tmInternalLeading;
   return 1;
 }
 
@@ -767,3 +919,67 @@ void *SWELL_GetCtxFrameBuffer(HDC ctx)
   if (ct) return ct->ownedData;
   return 0;
 }
+
+
+HDC GetWindowDC(HWND h)
+{
+  return GetDC(h);
+}
+HDC GetDC(HWND h)
+{
+  if (h && [(id)h isKindOfClass:[NSWindow class]])
+  {
+    if ([(id)h respondsToSelector:@selector(getSwellPaintInfo:)]) 
+    {
+      PAINTSTRUCT ps={0,}; 
+      [(id)h getSwellPaintInfo:(PAINTSTRUCT *)&ps];
+      if (ps.hdc) return ps.hdc;
+    }
+    h=(HWND)[(id)h contentView];
+  }
+  if (h && [(id)h isKindOfClass:[NSView class]])
+  {
+    if ([(id)h respondsToSelector:@selector(getSwellPaintInfo:)]) 
+    {
+      PAINTSTRUCT ps={0,}; 
+      [(id)h getSwellPaintInfo:(PAINTSTRUCT *)&ps];
+      if (ps.hdc) return ps.hdc;
+    }
+    
+    [(NSView*)h lockFocus];
+    CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
+    return WDL_GDP_CreateContext(myContext);
+  }
+  return 0;
+}
+
+void ReleaseDC(HWND h, HDC hdc)
+{
+  if (h && [(id)h isKindOfClass:[NSWindow class]])
+  {
+    if ([(id)h respondsToSelector:@selector(getSwellPaintInfo:)]) 
+    {
+      PAINTSTRUCT ps={0,}; 
+      [(id)h getSwellPaintInfo:(PAINTSTRUCT *)&ps];
+      if (ps.hdc && ps.hdc==hdc) return;
+    }
+    h=(HWND)[(id)h contentView];
+  }
+  bool isView=h && [(id)h isKindOfClass:[NSView class]];
+  if (isView)
+  {
+    if ([(id)h respondsToSelector:@selector(getSwellPaintInfo:)]) 
+    {
+      PAINTSTRUCT ps={0,}; 
+      [(id)h getSwellPaintInfo:(PAINTSTRUCT *)&ps];
+      if (ps.hdc && ps.hdc==hdc) return;
+    }
+  }    
+    
+  if (hdc) WDL_GDP_DeleteContext(hdc);
+  if (isView)
+  {
+    [(NSView *)h unlockFocus];
+  }
+}
+#endif

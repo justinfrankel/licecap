@@ -1,11 +1,19 @@
+#ifndef SWELL_PROVIDED_BY_APP
+
+
 #include "swell.h"
 #include "swell-dlggen.h"
-#include "../ptrlist.h"
 
 #import <Cocoa/Cocoa.h>
 static HMENU g_swell_defaultmenu;
 
 
+static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  DLGPROC d=(DLGPROC)GetWindowLong(hwnd,DWL_DLGPROC);
+  if (d) return (LRESULT) d(hwnd,uMsg,wParam,lParam);
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
 
 static SWELL_DialogResourceIndex *resById(SWELL_DialogResourceIndex *reshead, int resid)
 {
@@ -18,19 +26,32 @@ static SWELL_DialogResourceIndex *resById(SWELL_DialogResourceIndex *reshead, in
   return 0;
 }
 
+typedef struct OwnedWindowListRec
+{
+  NSWindow *hwnd;
+  struct OwnedWindowListRec *_next;
+} OwnedWindowListRec;
+
+typedef struct WindowPropRec
+{
+  char *name; // either <64k or a strdup'd name
+  void *data;
+  struct WindowPropRec *_next;
+} WindowPropRec;
 
 
-static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
+
+static void HandleCommand(id wnd, WNDPROC wndproc, id sender)
 {
   if ([sender isKindOfClass:[NSSlider class]])
   {
-    dlgproc((HWND)wnd,WM_HSCROLL,0,(LPARAM)sender);
+    wndproc((HWND)wnd,WM_HSCROLL,0,(LPARAM)sender);
     //  WM_HSCROLL, WM_VSCROLL
   }
   else if ([sender isKindOfClass:[NSTableView class]])
   {
     NMLISTVIEW nmhdr={{(HWND)sender,(int)[sender tag],LVN_ITEMCHANGED},(int)[sender clickedRow],0}; 
-    dlgproc((HWND)wnd,WM_NOTIFY,(int)[sender tag],(LPARAM)&nmhdr);
+    wndproc((HWND)wnd,WM_NOTIFY,(int)[sender tag],(LPARAM)&nmhdr);
   }
   else
   {
@@ -41,42 +62,35 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
       int ty=evt?[evt type]:0;
       if (evt && (ty==NSLeftMouseDown || ty==NSLeftMouseUp) && [evt clickCount] > 1) cw=STN_DBLCLK;
     }
-    dlgproc((HWND)wnd,WM_COMMAND,[sender tag]|(cw<<16),0);
+    wndproc((HWND)wnd,WM_COMMAND,[sender tag]|(cw<<16),0);
   }
 }
 
-#define CALLDLGPROC(msg,wp,lp) [self CallDlgProc:(msg) wParam:(wp) lParam:(lp)]
-
 @class simpleDataHold;
 #define SWELLDIALOGCOMMONIMPLEMENTS \
-- (int)CallDlgProc:(UINT)msg wParam:(WPARAM)wp lParam:(LPARAM)lp \
-{ \
-  if (m_dlgproc_isfullret) { \
-    int (*func)(HWND,UINT,WPARAM,LPARAM); *(void**)&func = (void *)m_dlgproc; \
-      return func((HWND)self,msg,wp,lp); \
-  }  \
-  return m_dlgproc((HWND)self,msg,wp,lp); \
-} \
 - (void)SWELL_Timer:(id)sender \
 { \
   id uinfo=[sender userInfo]; \
   if ([uinfo respondsToSelector:@selector(getValue)]) { \
     int idx=(int)[(simpleDataHold*)uinfo getValue]; \
-    CALLDLGPROC(WM_TIMER,idx,0); \
+    m_wndproc((HWND)self,WM_TIMER,idx,0); \
   } \
 } \
+- (int)swellCapChangeNotify { return YES; } \
 - (int)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam \
 { \
-  if (msg==WM_DESTROY) { if (m_hashaddestroy) return 0; m_hashaddestroy=true; SWELL_PostMessage_ClearQ((HWND)self); }   \
-  int ret=CALLDLGPROC(msg,wParam,lParam);  \
+  if (msg==WM_DESTROY) { if (m_hashaddestroy) return 0; m_hashaddestroy=true; if (GetCapture()==(HWND)self) ReleaseCapture(); SWELL_MessageQueue_Clear((HWND)self); }   \
+  if (msg==WM_CAPTURECHANGED && m_hashaddestroy) return 0; \
+  int ret=m_wndproc((HWND)self,msg,wParam,lParam);  \
   if (msg == WM_DESTROY) { \
     if (m_owner) [m_owner swellRemoveOwnedWindow:self]; \
       m_owner=0; \
-      if (m_ownedwnds) \
+      OwnedWindowListRec *p=m_ownedwnds; m_ownedwnds=0; \
+      while (p) \
       {\
-        int x=m_ownedwnds->GetSize(); \
-          while (x-->0) DestroyWindow((HWND)m_ownedwnds->Get(x)); \
-            delete m_ownedwnds; m_ownedwnds=0;  \
+        OwnedWindowListRec *next=p->_next; \
+        DestroyWindow((HWND)p->hwnd); \
+        free(p); p=next; \
       } \
         if (m_menu) {\
           if ([NSApp mainMenu] == m_menu) [NSApp setMainMenu:nil]; \
@@ -98,20 +112,20 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
 { m_enabled=en; } \
 - (void)controlTextDidChange:(NSNotification *)aNotification \
 { \
-  CALLDLGPROC(WM_COMMAND,([[aNotification object] tag])|(EN_CHANGE<<16),0); \
+  m_wndproc((HWND)self,WM_COMMAND,([[aNotification object] tag])|(EN_CHANGE<<16),0); \
 } \
 - (void)menuNeedsUpdate:(NSMenu *)menu \
 { \
-  CALLDLGPROC(WM_INITMENUPOPUP,(WPARAM)menu,0); \
+  m_wndproc((HWND)self,WM_INITMENUPOPUP,(WPARAM)menu,0); \
 } \
 -(void) onControlDoubleClick:(id)sender \
 { \
   NMCLICK nm={{(HWND)sender,[sender tag],NM_DBLCLK}, }; \
-  CALLDLGPROC(WM_NOTIFY,[sender tag],(LPARAM)&nm); \
+  m_wndproc((HWND)self,WM_NOTIFY,[sender tag],(LPARAM)&nm); \
 } \
 -(void) onCommand:(id)sender \
 { \
-  HandleCommand(self,m_dlgproc,sender);   \
+  HandleCommand(self,m_wndproc,sender);   \
 } \
 -(void) dealloc \
 { \
@@ -125,8 +139,10 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
 -(void)setSwellUserData:(int)val {   m_userdata=val; } \
 -(int)getSwellExtraData:(int)idx { if (idx>=0&&idx<sizeof(m_extradata)-3) return  *(int*)(m_extradata+idx); return 0; } \
 -(void)setSwellExtraData:(int)idx value:(int)val {  if (idx>=0&&idx<sizeof(m_extradata)-3) *(int*)(m_extradata+idx) = val; }  \
--(void)setSwellWindowProc:(int)val { m_dlgproc=(DLGPROC)val; } \
--(int)getSwellWindowProc { return (int)m_dlgproc; } \
+-(void)setSwellWindowProc:(int)val { m_wndproc=(WNDPROC)val; } \
+-(int)getSwellWindowProc { return (int)m_wndproc; } \
+-(void)setSwellDialogProc:(int)val { m_dlgproc=(DLGPROC)val; } \
+-(int)getSwellDialogProc { return (int)m_dlgproc; } \
 -(BOOL)isFlipped {   return m_flip; } \
 -(void) getSwellPaintInfo:(PAINTSTRUCT *)ps \
 { \
@@ -141,14 +157,59 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
     ps->rcPaint.bottom  = (int)ceil(m_paintctx_rect.origin.y+m_paintctx_rect.size.height);    \
   } \
 } \
--(bool)swellCanPostMessage { return !m_hashaddestroy; }
+-(bool)swellCanPostMessage { return !m_hashaddestroy; } \
+-(int)swellEnumProps:(PROPENUMPROCEX)proc lp:(LPARAM)lParam { \
+  WindowPropRec *p=m_props; \
+  if (!p) return -1; \
+    while (p) { \
+      WindowPropRec *ps=p;  \
+      p=p->_next; \
+      if (!proc((HWND)self, ps->name, ps->data, lParam)) return 0; \
+    } \
+  return 1; \
+} \
+-(void *)swellGetProp:(const char *)name wantRemove:(BOOL)rem { \
+  WindowPropRec *p=m_props, *lp=NULL; \
+  while (p) { \
+      if (p->name < (void *)65536) { \
+        if (name==p->name) break; \
+      } \
+      else if (name >= (void *)65536) { \
+        if (!strcmp(name,p->name)) break; \
+      } \
+      lp=p; p=p->_next; \
+  } \
+  if (!p) return NULL; \
+  void *ret=p->data; \
+  if (rem) { \
+    if (lp) lp->_next=p->_next; else m_props=p->_next;  \
+    free(p); \
+  } \
+  return ret; \
+} \
+-(int)swellSetProp:(const char *)name value:(void *)val { \
+  WindowPropRec *p=m_props; \
+  while (p) { \
+    if (p->name < (void *)65536) { \
+      if (name==p->name) { p->data=val; return TRUE; }; \
+    } \
+    else if (name >= (void *)65536) { \
+      if (!strcmp(name,p->name)) { p->data=val; return TRUE; }; \
+    } \
+    p=p->_next; \
+  } \
+  p=(WindowPropRec*)malloc(sizeof(WindowPropRec)); \
+  p->name = (name<(void*)65536) ? (char *)name : strdup(name); \
+  p->data = val; p->_next=m_props; m_props=p; \
+  return TRUE; \
+}
 
 
 #define SWELLDIALOGCOMMONIMPLEMENTS_WND \
 - (void)setFrame:(NSRect)frameRect display:(BOOL)displayFlag \
 { \
   [super setFrame:frameRect display:displayFlag]; \
-  CALLDLGPROC(WM_SIZE,0,0); \
+  m_wndproc((HWND)self,WM_SIZE,0,0); \
   [self display]; \
 } \
 -(HMENU)swellGetMenu {   return m_menu; } \
@@ -161,14 +222,14 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
 } \
 -(BOOL)windowShouldClose:(id)sender \
 { \
-  if (!CALLDLGPROC(WM_CLOSE,0,0)) CALLDLGPROC(WM_COMMAND,IDCANCEL,0); \
+  if (!m_wndproc((HWND)self,WM_CLOSE,0,0)) m_wndproc((HWND)self,WM_COMMAND,IDCANCEL,0); \
   return NO; \
 } \
 - (void)keyDown:(NSEvent *)theEvent \
 { \
   if ([theEvent keyCode]==53) { \
-    if (!CALLDLGPROC(WM_CLOSE,0,0)) \
-      CALLDLGPROC(WM_COMMAND,IDCANCEL,0); \
+    if (!m_wndproc((HWND)self,WM_CLOSE,0,0)) \
+      m_wndproc((HWND)self,WM_COMMAND,IDCANCEL,0); \
   } \
   else [super keyDown:theEvent]; \
 } \
@@ -183,14 +244,14 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
     l=(int) ([theEvent deltaY]*60.0); \
     l<<=16; \
   } \
-  int ret=(int)CALLDLGPROC(msg,l,xpos + (ypos<<16)); \
+  int ret=(int)m_wndproc((HWND)self,msg,l,xpos + (ypos<<16)); \
   if (msg==WM_SETCURSOR && !ret) { \
       NSCursor *arr= [NSCursor arrowCursor]; \
         if (GetCursor() != (HCURSOR)arr) SetCursor((HCURSOR)arr); \
     } \
   if (msg==WM_RBUTTONUP && !ret) { \
     p=[self convertBaseToScreen:p]; \
-    CALLDLGPROC(WM_CONTEXTMENU,(WPARAM)self,(int)p.x + (((int)p.y)<<16)); \
+    m_wndproc((HWND)self,WM_CONTEXTMENU,(WPARAM)self,(int)p.x + (((int)p.y)<<16)); \
   } \
   return ret; \
 } \
@@ -200,7 +261,8 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
   m_paintctx_hdc=WDL_GDP_CreateContext([[NSGraphicsContext currentContext] graphicsPort]); \
     m_paintctx_rect=rect; \
       m_paintctx_used=false; \
-        CALLDLGPROC(WM_PAINT,(WPARAM)m_paintctx_hdc,0); \
+        m_wndproc((HWND)self,WM_NCPAINT,(WPARAM)1,0); \
+          m_wndproc((HWND)self,WM_PAINT,(WPARAM)m_paintctx_hdc,0); \
           WDL_GDP_DeleteContext(m_paintctx_hdc); \
             m_paintctx_hdc=0; \
               if (!m_paintctx_used) { \
@@ -268,21 +330,38 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
 }   \
 - (void)swellAddOwnedWindow:(NSWindow*)wnd \
 { \
-  if (m_ownedwnds && m_ownedwnds->Find(wnd) < 0) { m_ownedwnds->Add(wnd); if ([wnd respondsToSelector:@selector(swellSetOwner:)]) [wnd swellSetOwner:self]; } \
+  OwnedWindowListRec *p=m_ownedwnds; \
+  while (p) { \
+    if (p->hwnd == wnd) return; \
+    p=p->_next; \
+  } \
+  p=(OwnedWindowListRec*)malloc(sizeof(OwnedWindowListRec)); \
+  p->hwnd=wnd; p->_next=m_ownedwnds; m_ownedwnds=p; \
+  if ([wnd respondsToSelector:@selector(swellSetOwner:)]) [wnd swellSetOwner:self];  \
 }  \
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd \
 { \
-  int idx; \
-  if (m_ownedwnds && (idx=m_ownedwnds->Find(wnd))>=0) m_ownedwnds->Delete(idx); \
+  OwnedWindowListRec *p=m_ownedwnds, *lp=NULL; \
+  while (p) { \
+    if (p->hwnd == wnd) { \
+      if (lp) lp->_next=p->_next; \
+      else m_ownedwnds=p->_next; \
+      free(p); \
+      return; \
+    } \
+    lp=p; \
+    p=p->_next; \
+  } \
 } \
 - (void)swellSetOwner:(id)owner { m_owner=owner; } \
-- (id)swellGetOwner { return m_owner; }
+- (id)swellGetOwner { return m_owner; } \
+- (BOOL)SwellWnd_isOpaque { return m_isopaque; }
 
 
 #define DECLARE_COMMON_VARS \
   BOOL m_enabled; \
   DLGPROC m_dlgproc; \
-  bool m_dlgproc_isfullret; \
+  WNDPROC m_wndproc; \
   int m_userdata;  \
   char m_extradata[128]; \
   int m_tag; \
@@ -293,13 +372,15 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
   bool m_paintctx_used; \
   HDC m_paintctx_hdc; \
   id m_owner; \
-  WDL_PtrList<NSWindow> *m_ownedwnds; \
-  NSRect m_paintctx_rect; 
+  OwnedWindowListRec *m_ownedwnds; \
+  WindowPropRec *m_props; \
+  NSRect m_paintctx_rect; \
+  BOOL m_isopaque;
 
 #define INIT_COMMON_VARS \
   m_enabled=TRUE; \
   m_dlgproc=NULL;  \
-  m_dlgproc_isfullret=0; \
+  m_wndproc=NULL; \
   m_userdata=0; \
   memset(&m_extradata,0,sizeof(m_extradata));  \
   m_tag=0; \
@@ -310,7 +391,8 @@ static void HandleCommand(id wnd, DLGPROC dlgproc, id sender)
   m_paintctx_used=0; \
   m_paintctx_hdc=0; \
   m_owner=0; \
-  m_ownedwnds=new WDL_PtrList<NSWindow>;
+  m_ownedwnds=0; \
+  m_props=0;
 
 @interface SWELLDialogChild : NSView
 {
@@ -328,8 +410,15 @@ SWELLDIALOGCOMMONIMPLEMENTS
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par
 {
   INIT_COMMON_VARS
-  m_dlgproc=dlgproc;  
-  m_dlgproc_isfullret=!resstate;
+  if (resstate)
+  {
+    m_wndproc=SwellDialogDefaultWindowProc;
+    m_dlgproc=dlgproc;  
+  }
+  else
+    m_wndproc=(WNDPROC)dlgproc;
+  
+  m_isopaque = !resstate || (resstate->windowTypeFlags&SWELL_DLG_WS_OPAQUE);
   m_flip = !resstate || (resstate->windowTypeFlags&SWELL_DLG_WS_FLIPPED);
   NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
   if (!(self = [super initWithFrame:contentRect])) return self;
@@ -338,34 +427,31 @@ SWELLDIALOGCOMMONIMPLEMENTS
   
   [parent addSubview:self];
   if (!resstate)
-    CALLDLGPROC(WM_CREATE,0,par);
-  CALLDLGPROC(WM_INITDIALOG,0,par);
+    m_wndproc((HWND)self,WM_CREATE,0,par);
+  m_wndproc((HWND)self,WM_INITDIALOG,0,par);
     
   return self;
+}
+
+-(BOOL)isOpaque
+{
+  return m_isopaque;
 }
 
 - (void)setFrame:(NSRect)frameRect 
 {
   [super setFrame:frameRect];
-    CALLDLGPROC(WM_SIZE,0,0); 
+    m_wndproc((HWND)self,WM_SIZE,0,0); 
 } 
 - (void)keyDown:(NSEvent *)theEvent
 {
-  if (!m_dlgproc_isfullret) [super keyDown:theEvent];
-  else
-  {
-    int flag,code=MacKeyToWindowsKey(theEvent,&flag);
-    if (!CALLDLGPROC(WM_KEYDOWN,code,0)) [super keyDown:theEvent];
-  }
+  int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
+  if (!m_wndproc((HWND)self,WM_KEYDOWN,code,0)) [super keyDown:theEvent];
 }
 - (void)keyUp:(NSEvent *)theEvent
 {
-  if (!m_dlgproc_isfullret) [super keyUp:theEvent];
-  else
-  {
-    int flag,code=MacKeyToWindowsKey(theEvent,&flag);
-    if (!CALLDLGPROC(WM_KEYUP,code,0)) [super keyUp:theEvent];
-  }
+  int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
+  if (!m_wndproc((HWND)self,WM_KEYUP,code,0)) [super keyUp:theEvent];
 }
 
 
@@ -375,7 +461,8 @@ SWELLDIALOGCOMMONIMPLEMENTS
   m_paintctx_hdc=WDL_GDP_CreateContext([[NSGraphicsContext currentContext] graphicsPort]);
   m_paintctx_rect=rect;
   m_paintctx_used=false;
-  CALLDLGPROC(WM_PAINT,(WPARAM)m_paintctx_hdc,0);
+  m_wndproc((HWND)self,WM_NCPAINT,(WPARAM)1,0);
+  m_wndproc((HWND)self,WM_PAINT,(WPARAM)m_paintctx_hdc,0);
   WDL_GDP_DeleteContext(m_paintctx_hdc);
   m_paintctx_hdc=0;
   if (!m_paintctx_used) {
@@ -457,11 +544,11 @@ SWELLDIALOGCOMMONIMPLEMENTS
   
   // put todo: modifiers into low work of l
   
-  int ret=CALLDLGPROC(msg,l,xpos + (ypos<<16));
-  if (msg==WM_RBUTTONUP && !ret && !m_dlgproc_isfullret) 
+  int ret=m_wndproc((HWND)self,msg,l,xpos + (ypos<<16));
+  if (msg==WM_RBUTTONUP && !ret && m_dlgproc) 
   {
     localpt=[[self window] convertBaseToScreen:localpt];
-    CALLDLGPROC(WM_CONTEXTMENU,(WPARAM)self,(int)localpt.x + (((int)localpt.y)<<16));
+    m_wndproc((HWND)self,WM_CONTEXTMENU,(WPARAM)self,(int)localpt.x + (((int)localpt.y)<<16));
   }
   
   if (msg==WM_SETCURSOR && !ret) 
@@ -545,6 +632,10 @@ SWELLDIALOGCOMMONIMPLEMENTS
   return (int)[[self window] SwellWnd_rightMouseUp:theEvent];
 }  
 
+- (BOOL)isOpaque
+{
+  return (BOOL) (int)[[self window] SwellWnd_isOpaque];
+}  
 
 @end
 
@@ -564,7 +655,7 @@ SWELLDIALOGCOMMONIMPLEMENTS
   MINMAXINFO mmi={0}; \
   NSSize minsz=(NSSize)[super contentMinSize]; \
   mmi.ptMinTrackSize.x=(int)minsz.width; mmi.ptMinTrackSize.y=(int)minsz.height; \
-  CALLDLGPROC(WM_GETMINMAXINFO,0,(LPARAM)&mmi); \
+  m_wndproc((HWND)self,WM_GETMINMAXINFO,0,(LPARAM)&mmi); \
   minsz.width=mmi.ptMinTrackSize.x; minsz.height=mmi.ptMinTrackSize.y; \
   [super setContentMinSize:minsz];  \
 } 
@@ -580,8 +671,10 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND
 {
   INIT_COMMON_VARS
   
+  m_wndproc=SwellDialogDefaultWindowProc;
   m_dlgproc=dlgproc;
   m_flip = !resstate || (resstate->windowTypeFlags&SWELL_DLG_WS_FLIPPED);
+  m_isopaque = resstate && (resstate->windowTypeFlags&SWELL_DLG_WS_OPAQUE);
 
   NSRect contentRect=NSMakeRect(50,50,resstate->width,resstate->height);
   if (!(self = [super initWithContentRect:contentRect styleMask:(NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask|((resstate->windowTypeFlags&SWELL_DLG_WS_RESIZABLE) ? NSResizableWindowMask : 0)) backing:NSBackingStoreBuffered defer:NO])) return self;
@@ -611,7 +704,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND
     }
   }
   
-  CALLDLGPROC(WM_INITDIALOG,0,par);
+  m_wndproc((HWND)self,WM_INITDIALOG,0,par);
     
   DOWINDOWMINMAXSIZES
   
@@ -645,9 +738,11 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND
   m_rv=0;
   INIT_COMMON_VARS
   
+  m_wndproc=SwellDialogDefaultWindowProc;
   m_dlgproc=dlgproc;
   m_flip = !resstate || (resstate->windowTypeFlags&SWELL_DLG_WS_FLIPPED);
-  
+  m_isopaque = resstate && (resstate->windowTypeFlags&SWELL_DLG_WS_OPAQUE);
+
   NSRect contentRect=NSMakeRect(0,0,resstate->width,resstate->height);
   if (!(self = [super initWithContentRect:contentRect styleMask:(NSTitledWindowMask|NSClosableWindowMask|((resstate->windowTypeFlags&SWELL_DLG_WS_RESIZABLE)? NSResizableWindowMask : 0)) backing:NSBackingStoreBuffered defer:NO])) return self;
 
@@ -677,7 +772,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND
   }
   
   if (resstate&&resstate->title) SetWindowText((HWND)self, resstate->title);
-  CALLDLGPROC(WM_INITDIALOG,0,par);
+  m_wndproc((HWND)self,WM_INITDIALOG,0,par);
   
   DOWINDOWMINMAXSIZES
   
@@ -762,3 +857,6 @@ void SWELL_SetDefaultWindowMenu(HMENU menu)
 
 
 SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head; // this eventually will go into a per-module stub file
+
+
+#endif

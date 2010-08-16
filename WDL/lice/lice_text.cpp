@@ -165,14 +165,21 @@ void LICE_DrawChar(LICE_IBitmap *bm, int x, int y, char c,
 
   if (ml<1) return;
 
-  fb += x+(y*bm->getRowSpan());
+  int rs=bm->getRowSpan();
+  if (bm->isFlipped())
+  {
+    fb += x+((bm->getHeight()-1-y)*rs);
+    rs=-rs;
+  }
+  else
+    fb += x+(y*rs);
 
   int red=LICE_GETR(color), green=LICE_GETG(color), blue=LICE_GETB(color), alp=LICE_GETA(color), ialpha=(int) (alpha * 256.0f);
 
   while (len-->0)
   {
     LICE_pixel *outmem = fb;
-    fb+=bm->getRowSpan();
+    fb+=rs;
     unsigned char ch = *font++;
     int a=smask;
     while (a)

@@ -22,6 +22,8 @@
 
   */
 
+#ifndef SWELL_PROVIDED_BY_APP
+
 
 #include "swell.h"
 #include "swell-menugen.h"
@@ -194,8 +196,11 @@ static void __filtnametobuf(char *out, const char *in, int outsz)
 }
 
 
-
-HMENU CreatePopupMenu(const char *title)
+HMENU CreatePopupMenu()
+{
+  return CreatePopupMenuEx(NULL);
+}
+HMENU CreatePopupMenuEx(const char *title)
 {
   NSMenu *m;
   if (title)
@@ -527,7 +532,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
   }
 }
 
-int SWELL_TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, HWND hwnd)
+int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND hwnd, const RECT *r)
 {
   if (hMenu)
   {
@@ -635,3 +640,5 @@ HMENU GetMenu(HWND hwnd)
   
   return (HMENU) [(id)hwnd swellGetMenu];
 }
+
+#endif

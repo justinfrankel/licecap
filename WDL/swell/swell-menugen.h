@@ -96,22 +96,20 @@ public: \
 #define SWELL_MENUGEN_BEGIN(menu) { WDL_PtrList<void> mstack;   mstack.Add((menu)=CreatePopupMenu()
 #define SWELL_MENUGEN_END() ); }
 
-void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags=0);
-
-
+static void __SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags=0) { return SWELL_Menu_AddMenuItem(hMenu,name,idx,flags); }
 
 // we inline this here so that if WDL_PtrList is differenet across modules we dont have any issues
-static void SWELL_MenuGen_AddPopup(WDL_PtrList<void> *stack, const char *name)
+static void __SWELL_MenuGen_AddPopup(WDL_PtrList<void> *stack, const char *name)
 {  
-  MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,0,0,CreatePopupMenu(name),NULL,NULL,0,(char *)name};
+  MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,0,0,CreatePopupMenuEx(name),NULL,NULL,0,(char *)name};
   HMENU hMenu=stack->Get(stack->GetSize()-1); stack->Add(mi.hSubMenu);
   InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
 }
 
 #define GRAYED 1
 #define INACTIVE 2
-#define POPUP ); SWELL_MenuGen_AddPopup(&mstack, 
-#define MENUITEM ); SWELL_Menu_AddMenuItem(mstack.Get(mstack.GetSize()-1), 
+#define POPUP ); __SWELL_MenuGen_AddPopup(&mstack, 
+#define MENUITEM ); __SWELL_Menu_AddMenuItem(mstack.Get(mstack.GetSize()-1), 
 #define SEPARATOR NULL, -1
 #define BEGIN
 #define END ); mstack.Delete(mstack.GetSize()-1

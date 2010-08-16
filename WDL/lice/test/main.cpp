@@ -7,6 +7,7 @@
 
 #include "../lice.h"
 #include <math.h>
+#include <stdio.h>
 
 #include "resource.h"
 
@@ -19,6 +20,310 @@ LICE_IBitmap *icon;
 LICE_SysBitmap *framebuffer;
 static int m_effect = 0;
 static int m_doeff = 0;
+
+static DWORD m_start_time, m_frame_cnt;
+
+static void DoPaint(HWND hwndDlg)
+{
+  PAINTSTRUCT ps;
+  
+  HDC dc = BeginPaint(hwndDlg, &ps);
+  RECT r;
+  GetClientRect(hwndDlg, &r);
+  
+#ifdef _WIN32
+  r.top+=40;
+  if (r.top >= r.bottom) r.top=r.bottom-1;
+#endif
+  
+  if (framebuffer->resize(r.right-r.left,r.bottom-r.top))
+  {
+    m_doeff=1;
+    memset(framebuffer->getBits(),0,framebuffer->getWidth()*framebuffer->getHeight()*4);
+  }
+  
+  int x=rand()%(r.right+300)-150;
+  int y=rand()%(r.bottom+300)-150;
+  
+  switch(m_effect)
+  {
+    case 15:
+    case 0:
+    {
+      double a=GetTickCount()/1000.0;
+      
+      double scale=(1.1+sin(a)*0.3);
+      
+      if (1)  // weirdness
+      {
+        LICE_RotatedBlit(framebuffer,framebuffer,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,254/255.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+      }
+      else // artifact-free mode
+      {
+        LICE_MemBitmap framebuffer_back;
+        
+        LICE_Copy(&framebuffer_back,framebuffer);
+        LICE_RotatedBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+      }
+      //LICE_Clear(framebuffer,0);
+      if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,rand()%16==0 ? -0.5: 0.1,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+      
+      if (m_effect==15)
+      {
+        LICE_MultiplyAddRect(framebuffer,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0.9,0.9,-0.3,1,
+                             3,2,200,0);
+      }
+      
+    }
+      break;
+    case 1:
+      if (rand()%6==0)
+        LICE_Blit(framebuffer,bmp,x,y,NULL,-1.4,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA);
+      else
+        LICE_Blit(framebuffer,bmp,x,y,NULL,0.6,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+      break;
+    case 2:
+    {
+      LICE_Clear(framebuffer,0);
+      double a=GetTickCount()/1000.0;
+      
+      double scale=(1.1+sin(a)*0.3);
+      if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,1.0,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,0.0,-bmp->getHeight()/2);
+    }
+      break;
+    case 3:
+    {
+      //LICE_Clear(framebuffer,0);
+      static double a;
+      a+=0.04;
+      int xsize=sin(a*3.0)*r.right*1.5;
+      int ysize=sin(a*1.7)*r.bottom*1.5;
+      
+      if (bmp)
+      {
+        if (rand()%3==0)
+          LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),-0.7,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR);
+        else
+          LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),0.25,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+      }
+    }
+      break;
+    case 4:
+    case 9:
+      
+    {
+      static double a;
+      a+=0.003;
+      
+      LICE_GradRect(framebuffer,0,0,framebuffer->getWidth(),framebuffer->getHeight(),
+                    0.5*sin(a*14.0),0.5*cos(a*2.0+1.3),0.5*sin(a*4.0),1.0,
+                    (cos(a*37.0))/framebuffer->getWidth()*0.5,(sin(a*17.0))/framebuffer->getWidth()*0.5,(cos(a*7.0))/framebuffer->getWidth()*0.5,0,
+                    (sin(a*12.0))/framebuffer->getHeight()*0.5,(cos(a*4.0))/framebuffer->getHeight()*0.5,(cos(a*3.0))/framebuffer->getHeight()*0.5,0,
+                    LICE_BLIT_MODE_COPY);
+      
+      
+      if (m_effect==9)
+      {
+        /*            LOGFONT lf={
+        140,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+        "Times New Roman"
+        };
+        HFONT font=CreateFontIndirect(&lf);
+        
+        */
+        
+        
+        LICE_SysBitmap bm(60,60);
+        LICE_Clear(&bm,LICE_RGBA(0,0,0,0));
+        SetTextColor(bm.getDC(),RGB(255,255,255));
+        SetBkMode(bm.getDC(),TRANSPARENT);
+        //            HGDIOBJ of=SelectObject(bm.getDC(),font);
+        RECT r={0,0,bm.getWidth(),bm.getHeight()};
+        DrawText(bm.getDC(),"LICE",-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
+        //        SelectObject(bm.getDC(),of);
+        //          DeleteObject(font);
+        
+        LICE_Blit(&bm,&bm,0,0,NULL,1.0,LICE_BLIT_MODE_CHANCOPY|LICE_PIXEL_R|(LICE_PIXEL_A<<2));
+        
+        LICE_RotatedBlit(framebuffer,&bm,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,bm.getWidth(),bm.getHeight(),a*10.0,false,.4,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,cos(a*30.1)*10.0,sin(a*21.13)*10.0);
+      }
+      
+      break;
+    }
+    case 5:
+      if(m_doeff)
+      {
+        LICE_TexGen_Marble(framebuffer, NULL, 1, 1, 1, 1);
+      }
+      break;
+    case 6:
+      if(m_doeff)
+      {
+        LICE_TexGen_Noise(framebuffer, NULL, 0.9, 0.3, 0.6, 6.0f, NOISE_MODE_WOOD, 2);
+      }
+      break;
+    case 7:
+      if(m_doeff)
+      {
+        LICE_TexGen_Noise(framebuffer, NULL, 1,1,1, 8.0f, NOISE_MODE_NORMAL, 8);
+      }
+      break;
+    case 8:
+      if(m_doeff)
+      {
+        LICE_TexGen_CircNoise(framebuffer, NULL, 0.5f,0.5f,0.5f, 12.0f, 0.1f, 32);
+      }
+      break;
+    case 10:
+    {
+      int x;
+      static double a;
+      double sc=sin(a)*0.024;
+      a+=0.03;
+      for (x = 0; x < 10000; x ++)
+        LICE_PutPixel(framebuffer,rand()%framebuffer->getWidth(),rand()%framebuffer->getHeight(),LICE_RGBA(255,255,255,255),sc,LICE_BLIT_MODE_ADD);
+    }
+      break;
+    case 11:
+      //line test
+    {
+      LICE_Line(framebuffer, rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+    }
+      break;
+    case 12:
+      //lice draw text test
+    {
+      static double a;
+      a+=0.001;
+      LICE_DrawText(framebuffer,0.5*(1+sin(a))*(framebuffer->getWidth()-30),0.5*(1+sin(a*7.0+1.3))*(framebuffer->getHeight()-16),"LICE RULEZ",LICE_RGBA(255,0,0,0),sin(a*0.7),LICE_BLIT_MODE_ADD);
+    }
+      break;
+    case 13:
+      //icon loading test
+    {
+      LICE_Clear(framebuffer, LICE_RGBA(255,255,255,255));
+      LICE_Blit(framebuffer,icon,0,0,NULL,1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+    }
+      break;
+    case 14:
+      // circles/arcs
+    {
+      int w = framebuffer->getWidth(), h = framebuffer->getHeight();
+      const double _PI = acos(-1.0);
+      static int m_init, m_x, m_y;
+      if (!m_init) {
+        m_init = true;
+        m_x = w/2; m_y = h/2;
+      }
+      int r = rand()%w;
+      float alpha = 1.0f; //(float) r / (float) w;
+      float aLo = 2*_PI*rand()/RAND_MAX;
+      float aHi = 2*_PI*rand()/RAND_MAX;
+      
+      //LICE_Clear(framebuffer, LICE_RGBA(0,0,0,0));
+      LICE_Arc(framebuffer, m_x, m_y, r, aLo, aHi, LICE_RGBA(rand()%255,rand()%255,rand()%255,255),alpha);
+      //LICE_Circle(framebuffer, m_x, m_y, r, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+    }
+      break;
+    case 16:
+    {
+      int sw=framebuffer->getWidth();
+      int sh=framebuffer->getHeight();
+      
+      LICE_MemBitmap framebuffer_back;
+      {
+        static double a;
+        a+=0.003;
+        
+        static int turd;
+        if ((turd++&511) < 12)
+          LICE_GradRect(framebuffer,sw/4,sh/4,sw/2,sh/2,
+                        0.5*sin(a*14.0),0.5*cos(a*2.0+1.3),0.5*sin(a*4.0),0.1,
+                        (cos(a*37.0))/framebuffer->getWidth()*0.5,(sin(a*17.0))/framebuffer->getWidth()*0.5,(cos(a*7.0))/framebuffer->getWidth()*0.5,0,
+                        (sin(a*12.0))/framebuffer->getHeight()*0.5,(cos(a*4.0))/framebuffer->getHeight()*0.5,(cos(a*3.0))/framebuffer->getHeight()*0.5,0,
+                        LICE_BLIT_MODE_ADD);
+      }
+      //LICE_TexGen_Marble(framebuffer, NULL, 1, 1, 1, 1);
+      LICE_Copy(&framebuffer_back,framebuffer);
+      
+      
+      const int divw=10;
+      const int divh=5;
+      float pts[2*divw*divh];
+      static float angs[2*divw*divh];
+      static float dangs[2*divw*divh];
+      static int turd;
+      if (!turd)
+      {
+        turd++;
+        int a;
+        for (a = 0; a  < 2*divw*divh; a ++)
+        {
+          dangs[a]=((rand()%1000)-500)*0.0001;
+          angs[a]=((rand()%1000)-500)*0.1;
+        }
+      }
+      int x,y;
+      for (y=0;y<divh; y++)
+      {
+        for (x=0;x<divw; x ++)
+        {
+          int idx=(y*divw+x)*2;
+          float ang=angs[idx]+=dangs[idx];
+          float ang2=angs[idx+1]+=dangs[idx+1];
+          pts[idx]=sw*(float)x/(float)(divw-1) + (cos(ang))*sw*0.01;
+          pts[idx+1]=sh*(float)y/(float)(divh-1) + (sin(ang2))*sh*0.01;
+        }
+      }
+      
+      
+      LICE_TransformBlit(framebuffer,&framebuffer_back,0,0,framebuffer->getWidth(),
+                         framebuffer->getHeight(),pts,divw,divh,0.8,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+    }
+      
+      break;
+      
+  }
+  
+  if(jpg)
+  {
+    LICE_ScaledBlit(framebuffer,jpg,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,jpg->getWidth(),jpg->getHeight(),0.5,LICE_BLIT_MODE_COPY);
+  }
+  
+  m_frame_cnt++;
+  
+  double sec=(GetTickCount()-m_start_time)*0.001;
+  if (sec>0.0001)
+  {
+    char buf[512];
+    sprintf(buf,"%dx%d @ %.2ffps",framebuffer->getWidth(),framebuffer->getHeight(),m_frame_cnt / (double)sec);
+    LICE_DrawText(framebuffer,1,1,buf,LICE_RGBA(0,0,0,0),1,LICE_BLIT_MODE_COPY);
+    LICE_DrawText(framebuffer,0,0,buf,LICE_RGBA(255,255,255,0),1,LICE_BLIT_MODE_COPY);
+  }
+  
+  m_doeff = 0;
+  
+#ifndef _WIN32
+  SWELL_SyncCtxFrameBuffer(framebuffer->getDC()); // flush required on OS X
+#endif
+  BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
+  //      bmp->blitToDC(dc, NULL, 0, 0);
+  
+  EndPaint(hwndDlg, &ps);
+}
+
+// this is only used on OS X since it's way faster there
+LRESULT WINAPI testRenderDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  if (uMsg==WM_PAINT)
+  {
+    DoPaint(hwndDlg);
+    return 0;
+  }
+    
+   return DefWindowProc(hwndDlg,uMsg,wParam,lParam);
+}
 
 BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -36,7 +341,7 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 #endif
       
     
-    SetTimer(hwndDlg,1,10,NULL);
+    SetTimer(hwndDlg,1,3,NULL);
     {
       int x;
       for (x = 0; x < NUM_EFFECTS; x ++)
@@ -47,6 +352,8 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
       }
       SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_SETCURSEL,0,0);
 
+      m_start_time=GetTickCount();
+      m_frame_cnt=0;
     }
   return 0;
   case WM_DESTROY:
@@ -56,291 +363,35 @@ BOOL WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     delete bmp;
     delete framebuffer;    
   return 0;
+    
+#ifdef _WIN32
   case WM_TIMER:
     InvalidateRect(hwndDlg,NULL,FALSE);
-  return 0;
+    return 0;
   case WM_PAINT:
-    {
-      PAINTSTRUCT ps;
-
-      HDC dc = BeginPaint(hwndDlg, &ps);
-      RECT r;
-      GetClientRect(hwndDlg, &r);
-      r.top+=40;
-      if (r.top >= r.bottom) r.top=r.bottom-1;
- 
-      if (framebuffer->resize(r.right-r.left,r.bottom-r.top))
-      {
-        m_doeff=1;
-        memset(framebuffer->getBits(),0,framebuffer->getWidth()*framebuffer->getHeight()*4);
-      }
-
-      int x=rand()%(r.right+300)-150;
-      int y=rand()%(r.bottom+300)-150;
-
-      switch(m_effect)
-      {
-      case 15:
-      case 0:
-        {
-          double a=GetTickCount()/1000.0;
-          
-          double scale=(1.1+sin(a)*0.3);
-          
-          if (1)  // weirdness
-          {
-            LICE_RotatedBlit(framebuffer,framebuffer,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,254/255.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
-          }
-          else // artifact-free mode
-          {
-            LICE_MemBitmap framebuffer_back;
-            
-            LICE_Copy(&framebuffer_back,framebuffer);
-            LICE_RotatedBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
-          }
-          //LICE_Clear(framebuffer,0);
-          if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,rand()%16==0 ? -0.5: 0.1,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
-
-          if (m_effect==15)
-          {
-            LICE_MultiplyAddRect(framebuffer,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0.9,0.9,-0.3,1,
-                                                                                                  3,2,200,0);
-          }
-
-        }
-        break;
-      case 1:
-        if (rand()%6==0)
-          LICE_Blit(framebuffer,bmp,x,y,NULL,-1.4,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA);
-        else
-          LICE_Blit(framebuffer,bmp,x,y,NULL,0.6,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
-        break;
-      case 2:
-        {
-          LICE_Clear(framebuffer,0);
-          double a=GetTickCount()/1000.0;
-          
-          double scale=(1.1+sin(a)*0.3);
-          if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,1.0,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,0.0,-bmp->getHeight()/2);
-        }
-        break;
-      case 3:
-        {
-          //LICE_Clear(framebuffer,0);
-          static double a;
-          a+=0.04;
-          int xsize=sin(a*3.0)*r.right*1.5;
-          int ysize=sin(a*1.7)*r.bottom*1.5;
-          
-          if (bmp)
-          {
-            if (rand()%3==0)
-              LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),-0.7,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR);
-            else
-              LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),0.25,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
-          }
-        }
-        break;
-      case 4:
-      case 9:
-
-        {
-          static double a;
-          a+=0.003;
-
-          LICE_GradRect(framebuffer,0,0,framebuffer->getWidth(),framebuffer->getHeight(),
-            0.5*sin(a*14.0),0.5*cos(a*2.0+1.3),0.5*sin(a*4.0),1.0,
-            (cos(a*37.0))/framebuffer->getWidth()*0.5,(sin(a*17.0))/framebuffer->getWidth()*0.5,(cos(a*7.0))/framebuffer->getWidth()*0.5,0,
-            (sin(a*12.0))/framebuffer->getHeight()*0.5,(cos(a*4.0))/framebuffer->getHeight()*0.5,(cos(a*3.0))/framebuffer->getHeight()*0.5,0,
-            LICE_BLIT_MODE_COPY);
-
-
-          if (m_effect==9)
-          {
-/*            LOGFONT lf={
-      140,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
-      OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-      "Times New Roman"
-            };
-            HFONT font=CreateFontIndirect(&lf);
-
-  */
-
-
-            LICE_SysBitmap bm(60,60);
-            LICE_Clear(&bm,LICE_RGBA(0,0,0,0));
-            SetTextColor(bm.getDC(),RGB(255,255,255));
-            SetBkMode(bm.getDC(),TRANSPARENT);
-//            HGDIOBJ of=SelectObject(bm.getDC(),font);
-            RECT r={0,0,bm.getWidth(),bm.getHeight()};
-            DrawText(bm.getDC(),"LICE",-1,&r,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-    //        SelectObject(bm.getDC(),of);
-  //          DeleteObject(font);
-
-            LICE_Blit(&bm,&bm,0,0,NULL,1.0,LICE_BLIT_MODE_CHANCOPY|LICE_PIXEL_R|(LICE_PIXEL_A<<2));
-
-            LICE_RotatedBlit(framebuffer,&bm,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,bm.getWidth(),bm.getHeight(),a*10.0,false,.4,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR,cos(a*30.1)*10.0,sin(a*21.13)*10.0);
-          }
-
-          break;
-        }
-      case 5:
-        if(m_doeff)
-        {
-          LICE_TexGen_Marble(framebuffer, NULL, 1, 1, 1, 1);
-        }
-        break;
-      case 6:
-        if(m_doeff)
-        {
-          LICE_TexGen_Noise(framebuffer, NULL, 0.9, 0.3, 0.6, 6.0f, NOISE_MODE_WOOD, 2);
-        }
-        break;
-      case 7:
-        if(m_doeff)
-        {
-          LICE_TexGen_Noise(framebuffer, NULL, 1,1,1, 8.0f, NOISE_MODE_NORMAL, 8);
-        }
-        break;
-      case 8:
-        if(m_doeff)
-        {
-          LICE_TexGen_CircNoise(framebuffer, NULL, 0.5f,0.5f,0.5f, 12.0f, 0.1f, 32);
-        }
-        break;
-      case 10:
-        {
-          int x;
-          static double a;
-          double sc=sin(a)*0.024;
-          a+=0.03;
-          for (x = 0; x < 10000; x ++)
-            LICE_PutPixel(framebuffer,rand()%framebuffer->getWidth(),rand()%framebuffer->getHeight(),LICE_RGBA(255,255,255,255),sc,LICE_BLIT_MODE_ADD);
-        }
-        break;
-      case 11:
-        //line test
-        {
-          LICE_Line(framebuffer, rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
-        }
-        break;
-      case 12:
-        //lice draw text test
-        {
-          static double a;
-          a+=0.001;
-          LICE_DrawText(framebuffer,0.5*(1+sin(a))*(framebuffer->getWidth()-30),0.5*(1+sin(a*7.0+1.3))*(framebuffer->getHeight()-16),"LICE RULEZ",LICE_RGBA(255,0,0,0),sin(a*0.7),LICE_BLIT_MODE_ADD);
-        }
-        break;
-      case 13:
-        //icon loading test
-        {
-          LICE_Clear(framebuffer, LICE_RGBA(255,255,255,255));
-          LICE_Blit(framebuffer,icon,0,0,NULL,1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
-        }
-        break;
-      case 14:
-        // circles/arcs
-        {
-          int w = framebuffer->getWidth(), h = framebuffer->getHeight();
-          const double _PI = acos(-1.0);
-          static int m_init, m_x, m_y;
-          if (!m_init) {
-            m_init = true;
-            m_x = w/2; m_y = h/2;
-          }
-          int r = rand()%w;
-          float alpha = 1.0f; //(float) r / (float) w;
-          float aLo = 2*_PI*rand()/RAND_MAX;
-          float aHi = 2*_PI*rand()/RAND_MAX;
-          
-          //LICE_Clear(framebuffer, LICE_RGBA(0,0,0,0));
-          LICE_Arc(framebuffer, m_x, m_y, r, aLo, aHi, LICE_RGBA(rand()%255,rand()%255,rand()%255,255),alpha);
-          //LICE_Circle(framebuffer, m_x, m_y, r, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
-        }
-        break;
-      case 16:
-        {
-          int sw=framebuffer->getWidth();
-          int sh=framebuffer->getHeight();
-
-          LICE_MemBitmap framebuffer_back;
-          {
-          static double a;
-          a+=0.003;
-
-          static int turd;
-          if ((turd++&511) < 12)
-            LICE_GradRect(framebuffer,sw/4,sh/4,sw/2,sh/2,
-            0.5*sin(a*14.0),0.5*cos(a*2.0+1.3),0.5*sin(a*4.0),0.1,
-            (cos(a*37.0))/framebuffer->getWidth()*0.5,(sin(a*17.0))/framebuffer->getWidth()*0.5,(cos(a*7.0))/framebuffer->getWidth()*0.5,0,
-            (sin(a*12.0))/framebuffer->getHeight()*0.5,(cos(a*4.0))/framebuffer->getHeight()*0.5,(cos(a*3.0))/framebuffer->getHeight()*0.5,0,
-            LICE_BLIT_MODE_ADD);
-          }
-             //LICE_TexGen_Marble(framebuffer, NULL, 1, 1, 1, 1);
-          LICE_Copy(&framebuffer_back,framebuffer);
-
-
-          const int divw=10;
-          const int divh=5;
-          float pts[2*divw*divh];
-          static float angs[2*divw*divh];
-          static float dangs[2*divw*divh];
-          static int turd;
-          if (!turd)
-          {
-            turd++;
-            int a;
-            for (a = 0; a  < 2*divw*divh; a ++)
-            {
-              dangs[a]=((rand()%1000)-500)*0.0001;
-              angs[a]=((rand()%1000)-500)*0.1;
-            }
-          }
-          int x,y;
-          for (y=0;y<divh; y++)
-          {
-            for (x=0;x<divw; x ++)
-            {
-              int idx=(y*divw+x)*2;
-              float ang=angs[idx]+=dangs[idx];
-              float ang2=angs[idx+1]+=dangs[idx+1];
-              pts[idx]=sw*(float)x/(float)(divw-1) + (cos(ang))*sw*0.01;
-              pts[idx+1]=sh*(float)y/(float)(divh-1) + (sin(ang2))*sh*0.01;
-            }
-          }
-
-
-          LICE_TransformBlit(framebuffer,&framebuffer_back,0,0,framebuffer->getWidth(),
-            framebuffer->getHeight(),pts,divw,divh,0.8,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
-        }
-            
-      break;
-
-      }
-      
-      if(jpg)
-      {
-        LICE_ScaledBlit(framebuffer,jpg,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,jpg->getWidth(),jpg->getHeight(),0.5,LICE_BLIT_MODE_COPY);
-      }
-
-      m_doeff = 0;
-
-#ifndef _WIN32
-      SWELL_SyncCtxFrameBuffer(framebuffer->getDC()); // flush required on OS X
-#endif
-      BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
-//      bmp->blitToDC(dc, NULL, 0, 0);
-
-      EndPaint(hwndDlg, &ps);
-    }
+    DoPaint(hwndDlg);
     break;
+#else
+  case WM_SIZE:
+  {
+    RECT r;
+    GetClientRect(hwndDlg,&r);
+    r.top+=40;
+    SetWindowPos(GetDlgItem(hwndDlg,IDC_RECT),NULL,r.left,r.top,r.right-r.left,r.bottom-r.top,SWP_NOZORDER|SWP_NOACTIVATE);
+  }
+  return 0;
+  case WM_TIMER:
+    InvalidateRect(GetDlgItem(hwndDlg,IDC_RECT),NULL,FALSE);
+  return 0;
+#endif
   case WM_COMMAND:
     switch(LOWORD(wParam))
     {
       case IDC_COMBO1:
         m_effect = SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_GETCURSEL,0,0);
         m_doeff=1;
+        m_start_time=GetTickCount();
+        m_frame_cnt=0;
       break;
       case IDCANCEL:
 #ifdef _WIN32
