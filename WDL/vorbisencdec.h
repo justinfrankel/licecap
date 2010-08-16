@@ -233,11 +233,11 @@ class VorbisEncoder : public VorbisEncoderInterface
 {
 public:
 #ifdef VORBISENC_WANT_FULLCONFIG
-  VorbisEncoder(int srate, int nch, int serno, float qv, int cbr=-1, int minbr=-1, int maxbr=-1)
+  VorbisEncoder(int srate, int nch, int serno, float qv, int cbr=-1, int minbr=-1, int maxbr=-1, const char *encname=NULL)
 #elif defined(VORBISENC_WANT_QVAL)
-  VorbisEncoder(int srate, int nch, float qv, int serno)
+  VorbisEncoder(int srate, int nch, float qv, int serno, const char *encname=NULL)
 #else
-  VorbisEncoder(int srate, int nch, int bitrate, int serno)
+  VorbisEncoder(int srate, int nch, int bitrate, int serno, const char *encname=NULL)
 #endif
   {
     m_ds=0;
@@ -294,6 +294,7 @@ public:
 #endif
 
     vorbis_comment_init(&vc);
+    if (encname) vorbis_comment_add_tag(&vc,"ENCODER",(char *)encname);
     vorbis_analysis_init(&vd,&vi);
     vorbis_block_init(&vd,&vb);
     ogg_stream_init(&os,m_ser=serno);
@@ -378,7 +379,7 @@ public:
 	      while (!eos)
         {
           ogg_page og;
-		      int result=ogg_stream_flush(&os,&og);
+		      int result=ogg_stream_pageout(&os,&og);
 		      if(result==0)break;
           outqueue.Add(og.header,og.header_len);
 		      outqueue.Add(og.body,og.body_len);

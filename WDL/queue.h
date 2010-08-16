@@ -40,7 +40,7 @@
 class WDL_Queue 
 {
 public:
-  WDL_Queue() : m_pos(0), m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_Queue")) { }
+  WDL_Queue() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_Queue")), m_pos(0) { }
   ~WDL_Queue() { }
 
   template <class T> void* AddT(T* buf)
@@ -118,6 +118,77 @@ public:
 
   void SetGranul(int granul) { m_hb.SetGranul(granul); }
 
+
+
+
+  // endian-management stuff 
+
+  static void WDL_Queue__bswap_buffer(void *buf, int len)
+  {
+  #ifdef __ppc__
+    char *p=(char *)buf;
+    char *ep=p+len;
+    while ((len-=2) >= 0)
+    {
+      char tmp=*p; *p++=*--ep; *ep=tmp;
+    }
+  #endif
+  }
+
+  // older API of static functions (that endedu p warning a bit anyway)
+#define WDL_Queue__AddToLE(q, v) (q)->AddToLE(v)
+#define WDL_Queue__AddDataToLE(q,d,ds,us) (q)->AddDataToLE(d,ds,us)
+#define WDL_Queue__GetTFromLE(q,v) (q)->GetTFromLE(v)
+#define WDL_Queue__GetDataFromLE(q,ds,us) (q)->GetDataFromLE(ds,us)
+
+  template<class T> void AddToLE(T *val)
+  {
+    WDL_Queue__bswap_buffer(AddT(val),sizeof(T));
+  }
+  void AddDataToLE(void *data, int datasize, int unitsize)
+  {
+    #ifdef __ppc__
+    char *dout = (char *)Add(data,datasize);
+    while (datasize >= unitsize)
+    {
+      WDL_Queue__bswap_buffer(dout,unitsize);
+      dout+=unitsize;
+      datasize-=unitsize;
+    }
+    #else
+    Add(data,datasize);
+    #endif
+  }
+
+
+  // NOTE: these thrash the contents of the queue if on LE systems. So for example if you are going to rewind it later or use it elsewhere, 
+  // then get ready to get unhappy.
+  template<class T> T *GetTFromLE(T* val=0)
+  {
+    T *p = GetT(val);
+    if (p) {
+      WDL_Queue__bswap_buffer(p,sizeof(T));
+      if (val) *val = *p;
+    }
+    return p;
+  }
+
+  void *GetDataFromLE(int datasize, int unitsize)
+  {
+    void *data=Get(datasize);
+    #ifdef __ppc__
+    char *dout=(char *)data;
+    if (dout) while (datasize >= unitsize)
+    {
+      WDL_Queue__bswap_buffer(dout,unitsize);
+      dout+=unitsize;
+      datasize-=unitsize;
+    }
+    #endif
+    return data;
+  }
+
+
 private:
   WDL_HeapBuf m_hb;
   int m_pos;
@@ -183,66 +254,6 @@ private:
   WDL_HeapBuf m_hb;
   int m_pos;
 };
-
-// endian-management stuff 
-
-static void WDL_Queue__bswap_buffer(void *buf, int len)
-{
-#ifdef __ppc__
-  char *p=(char *)buf;
-  char *ep=p+len;
-  while ((len-=2) >= 0)
-  {
-    char tmp=*p; *p++=*--ep; *ep=tmp;
-  }
-#endif
-}
-
-template<class T> static void WDL_Queue__AddToLE(WDL_Queue *q, T *val)
-{
-  WDL_Queue__bswap_buffer(q->AddT(val),sizeof(T));
-}
-static void WDL_Queue__AddDataToLE(WDL_Queue *q, void *data, int datasize, int unitsize)
-{
-  char *dout = (char *)q->Add(data,datasize);
-  #ifdef __ppc__
-  while (datasize >= unitsize)
-  {
-    WDL_Queue__bswap_buffer(dout,unitsize);
-    dout+=unitsize;
-    datasize-=unitsize;
-  }
-  #endif
-}
-
-
-
-
-// NOTE: these thrash the contents of the queue if on LE systems. So for example if you are going to rewind it later or use it elsewhere, 
-// then get ready to get unhappy.
-template<class T> static T *WDL_Queue__GetTFromLE(WDL_Queue *q, T* val=0)
-{
-  T *p = q->GetT(val);
-  if (p) {
-    WDL_Queue__bswap_buffer(p,sizeof(T));
-    if (val) *val = *p;
-  }
-  return p;
-}
-static void *WDL_Queue__GetDataFromLE(WDL_Queue *q, int datasize, int unitsize)
-{
-  void *data=q->Get(datasize);
-  #ifdef __ppc__
-  char *dout=(char *)data;
-  if (dout) while (datasize >= unitsize)
-  {
-    WDL_Queue__bswap_buffer(dout,unitsize);
-    dout+=unitsize;
-    datasize-=unitsize;
-  }
-  #endif
-  return data;
-}
 
 #endif
 

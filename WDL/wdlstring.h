@@ -204,7 +204,7 @@ public:
     char* b = Get();
     if ((int) strlen(b) > maxlen) {
       int i;
-      for (i = maxlen-4; i >= minlen; ++i) {
+      for (i = maxlen-4; i >= minlen; --i) {
         if (b[i] == ' ') {
           strcpy(b+i, "...");
           break;

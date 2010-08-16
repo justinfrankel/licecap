@@ -100,7 +100,7 @@ bool ChannelPinMapper::LoadState(char* buf, int len)
 {
   WDL_Queue chunk;
   chunk.Add(buf, len);
-  int* pMagic = WDL_Queue__GetTFromLE<int>(&chunk);
+  int* pMagic = WDL_Queue__GetTFromLE(&chunk, (int*)0);
   if (!pMagic || *pMagic != PINMAPPER_MAGIC) return false;
   int* pNCh = WDL_Queue__GetTFromLE(&chunk, (int*) 0);
   int* pNPins = WDL_Queue__GetTFromLE(&chunk, (int*) 0);
