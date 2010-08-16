@@ -78,14 +78,6 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
 
 template <class COMBFUNC> class __LICE_LineClass
 {
-private:
-
-  static inline void DoPx(LICE_pixel* pPx, int r, int g, int b, int a, float alpha, double weight)
-  {
-    int aw = (int) (alpha*(float) weight*256.0f);  // Optimize with __LICE_TOINT() ?
-    COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
-  }
-
 public:
 
   static void LICE_VertLine(LICE_IBitmap* pDest, int xi, int yi1, int yi2, LICE_pixel color, float alpha)
@@ -93,9 +85,10 @@ public:
     int w = pDest->getRowSpan();
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
     int n = abs(yi2 - yi1);
+
     LICE_pixel* pPx = pDest->getBits() + yi1*w + xi;
     int pxStep = (yi1 < yi2 ? w : -w);
-    int aw = (int) (alpha*256.0f);
+    int aw = (int) (255.0f * alpha);
     for (int i = 0; i <= n; ++i, pPx += pxStep) {
       COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
     }
@@ -106,17 +99,45 @@ public:
     int w = pDest->getRowSpan();
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
     int n = abs(xi2 - xi1);
+
     LICE_pixel* pPx = pDest->getBits() + yi*w + xi1;
     int pxStep = (xi1 < xi2 ? 1 : -1);
-    int aw = (int) (alpha*256.0f);
+    int aw = (int) (255.0f * alpha);
     for (int i = 0; i <= n; ++i, pPx += pxStep) {
       COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
     }
   }
      
+  static void LICE_DiagLine(LICE_IBitmap* pDest, int xi1, int yi1, int xi2, int yi2, LICE_pixel color, float alpha, bool aa)
+  {
+    int w = pDest->getRowSpan();
+    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+    int n = abs(xi2 - xi1);
+    LICE_pixel* pPx = pDest->getBits() + yi1*w + xi1;
+    int xStep = (xi2 > xi1 ? 1 : -1);
+    int yStep = (yi2 > yi1 ? w : -w);
+    int step = xStep + yStep;
+    int aw = (int) (255.0f * alpha);
+
+    if (aa) {
+      int iw = aw * 3 / 4;
+      int dw = aw / 4;
+      for (int i = 0; i < n; ++i, pPx += step) {
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, iw);       
+        COMBFUNC::doPix((LICE_pixel_chan*) (pPx+xStep), r, g, b, a, dw); 
+        COMBFUNC::doPix((LICE_pixel_chan*) (pPx+yStep), r, g, b, a, dw);
+      }
+      COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, iw);
+    }
+    else {
+      for (int i = 0; i <= n; ++i, pPx += step) {
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
+      }
+    }
+  }
+
   static void LICE_LineImpl(LICE_IBitmap* pDest, int xi1, int yi1, int xi2, int yi2, LICE_pixel color, float alpha, bool aa)
   {
-    // If (xi1 == xi2) or (yi1 == yi2) LICE_Line calls VertLine or HorizLine instead of getting here.
     int w = pDest->getRowSpan();
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
 
@@ -137,21 +158,25 @@ public:
       dErr = (double) ny / (double) nx;
     }
     LICE_pixel* pPx = pDest->getBits() + yi1*w + xi1;   
+    int aw = (int) (255.0f * alpha);
 
     if (aa) {
       for (int i = 0; i < n; ++i, pPx += pxStep) {
-        DoPx(pPx, r, g, b, a, alpha, 1.0 - err);
-        DoPx(pPx + pxStep2, r, g, b, a, alpha, err);
+        int iErr = __LICE_TOINT(255.0 * err);
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw * (255 - iErr) / 256);
+        COMBFUNC::doPix((LICE_pixel_chan*) (pPx + pxStep2), r, g, b, a, aw * iErr / 256);
         err += dErr;
         if (err > 1.0) {
           pPx += pxStep2;
           err -= 1.0;
         }
       }
+      int iErr = __LICE_TOINT(255.0 * err);
+      COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw * (255 - iErr) / 256);
     }
     else {
       for (int i = 0; i <= n; ++i, pPx += pxStep) {
-        DoPx(pPx, r, g, b, a, alpha, 1.0);
+        COMBFUNC::doPix((LICE_pixel_chan*) pPx, r, g, b, a, aw);
         err += dErr;
         if (err > 0.5) {
           pPx += pxStep2;
@@ -183,6 +208,12 @@ void LICE_Line(LICE_IBitmap *pDest, float x1, float y1, float x2, float y2, LICE
     else
     if (yi1 == yi2) {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_HorizLine(pDest, yi1, xi1, xi2, color, alpha)
+      __LICE_ACTIONBYMODE(mode, alpha);
+#undef __LICE__ACTION
+    }
+    else
+    if (abs(xi2-xi1) == abs(yi2-yi1)) {
+#define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_DiagLine(pDest, xi1, yi1, xi2, yi2, color, alpha, aa)
       __LICE_ACTIONBYMODE(mode, alpha);
 #undef __LICE__ACTION
     }

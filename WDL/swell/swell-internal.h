@@ -1,6 +1,15 @@
 #ifndef _SWELL_INTERNAL_H_
 #define _SWELL_INTERNAL_H_
 
+
+
+#ifdef SWELL_TARGET_GTK
+#include <gtk/gtk.h>
+#endif
+
+
+#ifdef SWELL_TARGET_OSX
+
 #include "../ptrlist.h"
 
 #define __SWELL_PREFIX_CLASSNAME(cname) SWELL_APP_PREFIX##cname
@@ -32,6 +41,8 @@
 #define SWELL_ThreadTmp __SWELL_PREFIX_CLASSNAME(_thread)
 #define SWELL_PopupMenuRecv __SWELL_PREFIX_CLASSNAME(_trackpopupmenurecv)
 
+
+#ifdef __OBJC__
 
 @interface SWELL_DataHold : NSObject
 {
@@ -399,5 +410,9 @@ typedef struct {
   float lastpos_x,lastpos_y;
   
 } GDP_CTX;
+
+#endif // __OBJC__
+
+#endif // SWELL_TARGET_OSX
 
 #endif

@@ -41,15 +41,15 @@
 class WDL_String
 {
 public:
-  WDL_String(const char *initial=NULL, int initial_len=0)
+  WDL_String(const char *initial=NULL, int initial_len=0) : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_String"))
   {
     if (initial) Set(initial,initial_len);
   }
-  WDL_String(WDL_String &s)
+  WDL_String(WDL_String &s) : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_String(2)"))
   {
     Set(s.Get());
   }
-  WDL_String(WDL_String *s)
+  WDL_String(WDL_String *s) : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_String(3)"))
   {
     if (s && s != this) Set(s->Get());
   }
@@ -74,7 +74,7 @@ public:
     int s=strlen(str);
     if (maxlen && s > maxlen) s=maxlen;   
 
-    char *newbuf=(char*)m_hb.Resize(s+1);
+    char *newbuf=(char*)m_hb.Resize(s+1,false);
     if (newbuf) 
     {
       memcpy(newbuf,str,s);
@@ -98,7 +98,7 @@ public:
 
     int olds=strlen(Get());
 
-    char *newbuf=(char*)m_hb.Resize(olds + s + 1);
+    char *newbuf=(char*)m_hb.Resize(olds + s + 1,false);
     if (newbuf)
     {
       memcpy(newbuf + olds, str, s);
@@ -152,7 +152,7 @@ public:
     ; 
 #else
   {                       // can use to resize down, too, or resize up for a sprintf() etc
-    char *b=(char*)m_hb.Resize(length+1);
+    char *b=(char*)m_hb.Resize(length+1,false);
     if (b) b[length]=0;
   }
 #endif
@@ -162,7 +162,7 @@ public:
     ; 
 #else
   {
-    char* b= (char*) m_hb.Resize(maxlen+1);
+    char* b= (char*) m_hb.Resize(maxlen+1,false);
   	va_list arglist;
 		va_start(arglist, fmt);
     #ifdef _WIN32
@@ -182,7 +182,7 @@ public:
 #else
   {
     int offs=strlen(Get());
-    char* b= (char*) m_hb.Resize(offs+maxlen+1)+offs;
+    char* b= (char*) m_hb.Resize(offs+maxlen+1,false)+offs;
   	va_list arglist;
 		va_start(arglist, fmt);
     #ifdef _WIN32
@@ -196,10 +196,31 @@ public:
 	}
 #endif
 
+  void WDL_STRING_PREFIX Ellipsize(int minlen, int maxlen)
+#ifdef WDL_STRING_INTF_ONLY
+    ;
+#else
+  {
+    char* b = Get();
+    if ((int) strlen(b) > maxlen) {
+      int i;
+      for (i = maxlen-4; i >= minlen; ++i) {
+        if (b[i] == ' ') {
+          strcpy(b+i, "...");
+          break;
+        }
+      }
+      if (i < minlen) strcpy(b+maxlen-4, "...");    
+    }
+  }
+#endif
+
 #ifndef WDL_STRING_IMPL_ONLY
   char *Get()
   {
-    if (m_hb.Get()) return (char *)m_hb.Get();
+    char *p=NULL;
+    if (m_hb.GetSize()) p=(char *)m_hb.Get();
+    if (p) return p;
     return "";
   }
   int GetLength() { return strlen(Get()); }

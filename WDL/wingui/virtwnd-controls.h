@@ -72,13 +72,25 @@ class WDL_VirtualIconButton : public WDL_VWnd
     bool WantsPaintOver();
     void GetPositionPaintOverExtent(RECT *r);
 
+    void SetForceBorder(bool fb) { m_forceborder=fb; }
+
+    // only used if no icon config set
+    void SetTextLabel(const char *text, char align=0, HFONT font=NULL);
+    void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked
+    char GetCheckState() { return m_checkstate; }
+    
   private:
 
-    int m_bgcol1_msg;
-    bool m_is_button;
     WDL_VirtualIconButton_SkinConfig *m_iconCfg;
-    int m_pressed;
+    int m_bgcol1_msg;
+    bool m_is_button,m_forceborder;
+    char m_pressed;
     bool m_en;
+    char m_textalign;
+    char m_checkstate;
+
+    WDL_String m_textlbl;
+    HFONT m_textfont;
 };
 
 

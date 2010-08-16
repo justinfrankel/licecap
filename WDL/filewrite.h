@@ -71,7 +71,7 @@ public:
     m_bufused=0;
     m_bufsz=sz;
     m_bufptr = (char *)__buf.Resize(sz+4095);
-    int a=((int)m_bufptr)&4095;
+    int a=((int)(INT_PTR)m_bufptr)&4095;
     if (a) m_bufptr += 4096-a;
 
     memset(&m_ol,0,sizeof(m_ol));
@@ -265,7 +265,10 @@ public:
     DWORD h=0;
     DWORD l=GetFileSize(m_fh,&h);
     WDL_FILEWRITE_POSTYPE tmp=(((WDL_FILEWRITE_POSTYPE)h)<<32)|l;
+    WDL_FILEWRITE_POSTYPE tmp2=GetPosition();
     if (tmp<m_file_max_position) return m_file_max_position;
+    if (tmp<tmp2) return tmp2;
+    
     return tmp;
 #else
     if (!m_fp) return -1;

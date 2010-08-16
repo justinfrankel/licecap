@@ -63,7 +63,7 @@ public:
 
         qb=m_empties.Get(esz);
         if (qb) m_empties.Delete(esz);
-        else qb=new WDL_HeapBuf;
+        else qb=new WDL_HeapBuf(4096 WDL_HEAPBUF_TRACEPARM("WDL_FastQueue"));
 
         if (qb) m_queue.Add(qb);
         os=0;

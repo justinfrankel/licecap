@@ -17,6 +17,36 @@ void LICE_Bezier(T ctrl_x1, T ctrl_x2, T ctrl_x3,
   *pY = (T) (a * (double) ctrl_y1 + b * (double) ctrl_y2 + c * (double) ctrl_y3);
 }
 
+template <class T>
+void LICE_CBezier_GetCoeffs(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
+  T ctrl_y1, T ctrl_y2, T ctrl_y3, T ctrl_y4, 
+  double* pAX, double* pBX, double* pCX, 
+  double* pAY, double* pBY, double* pCY)
+{
+  double cx = *pCX = 3.0 * (double) (ctrl_x2 - ctrl_x1);
+  double bx = *pBX = 3.0 * (double) (ctrl_x3 - ctrl_x2) - cx;
+  *pAX = (double) (ctrl_x4 - ctrl_x1) - cx - bx;
+  double cy = *pCY = 3.0 * (double) (ctrl_y2 - ctrl_y1);
+  double by = *pBY = 3.0 * (double) (ctrl_y3 - ctrl_y2) - cy;
+  *pAY = (double) (ctrl_y4 - ctrl_y1) - cy - by;
+}
+
+// Returns cubic bezier x, y for a given t in [0,1].
+template <class T>
+void LICE_CBezier(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
+  T ctrl_y1, T ctrl_y2, T ctrl_y3, T ctrl_y4, double t, T* pX, T* pY)
+{
+  double ax, bx, cx, ay, by, cy;
+  LICE_CBezier_GetCoeffs(ctrl_x1, ctrl_x2, ctrl_x3, ctrl_x4,
+    ctrl_y1, ctrl_y2, ctrl_y3, ctrl_y4, 
+    &ax, &bx, &cx, &ay, &by, &cy);
+
+  double t2 = t * t;
+  double t3 = t * t2;
+  *pX = (T) (ax * t3 + bx * t2 + cx * t) + ctrl_x1;
+  *pY = (T) (ay * t3 + by * t2 + cy * t) + ctrl_y1;
+}
+
 // Returns quadratic bezier y for a given x in [x1, x3] (for rasterizing).
 // ctrl_x1 < ctrl_x3 required.
 template <class T>
@@ -31,7 +61,11 @@ T LICE_Bezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_y1, T ctrl_y2, T ctrl
 
   double a = (double) ctrl_x1 - (double) (2 * ctrl_x2) + (double) ctrl_x3;
   if (a == 0.0) { // linear
-    return ctrl_y1 + (x - ctrl_x1) * (ctrl_y3 - ctrl_y1);
+    T y = ctrl_y1;
+    if (ctrl_x1 != ctrl_x3) {
+      y += (x - ctrl_x1) / (ctrl_x3 - ctrl_x1) * (ctrl_y3 - ctrl_y1);
+    }
+    return y;
   }
 
   double b = (double) (2 * (ctrl_x2 - ctrl_x1));
@@ -105,7 +139,7 @@ void LICE_Bezier_FindCardinalCtlPts(double alpha, T x1, T x2, T x3, T y1, T y2, 
 
 // Basic quadratic nurbs.  Given a set of n (x,y) pairs, 
 // populate pDest with the unit-spaced nurbs curve.
-// pDest must be passed in with size (int) (*(pX + n) - *pX).
+// pDest must be passed in with size (int) (*(pX+n-1) - *pX).
 // pX must be monotonically increasing and no duplicates.
 template <class T>
 inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
@@ -132,8 +166,15 @@ inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
     ym1 = ym2;
     ym2 = 0.5 * (y1 + y2);
 
-    for (/* */; xi < xm2; xi += 1.0, ++pDest) {
-      *pDest = (T) LICE_Bezier_GetY(xm1, x1, xm2, ym1, y1, ym2, xi);
+    if (ym1 == ym2) {
+      for (/* */; xi < xm2; xi += 1.0, ++pDest) {
+        *pDest = (T) y1;
+      }
+    }
+    else {    
+      for (/* */; xi < xm2; xi += 1.0, ++pDest) {
+        *pDest = (T) LICE_Bezier_GetY(xm1, x1, xm2, ym1, y1, ym2, xi);
+      }
     }
   }
 
@@ -144,4 +185,69 @@ inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
   }
 }
 
+#define CBEZ_ITERS 8
+
+#define EVAL_CBEZ(tx,a,b,c,d,t) { double _t2=t*t; tx=(a*t*_t2+b*_t2+c*t+d); }
+
+template <class T>
+T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
+  T ctrl_y1, T ctrl_y2, T ctrl_y3, T ctrl_y4, T x, 
+  T* pNextX = 0, T* pdYdX = 0)
+{
+  if (x <= ctrl_x1) {
+    if (pNextX) *pNextX = ctrl_x1;
+    if (pdYdX) *pdYdX = (T) 0.0;
+    return ctrl_y1;
+  }
+  if (x >= ctrl_x4) {
+    if (pNextX) *pNextX = ctrl_x4;
+    if (pdYdX) *pdYdX = (T) 0.0;
+    return ctrl_y4;
+  }
+
+  double ax, bx, cx, ay, by, cy;
+  LICE_CBezier_GetCoeffs(ctrl_x1, ctrl_x2, ctrl_x3, ctrl_x4,
+    ctrl_y1, ctrl_y2, ctrl_y3, ctrl_y4, 
+    &ax, &bx, &cx, &ay, &by, &cy);
+
+  double tx, t, tLo = 0.0, tHi = 1.0;
+  double xLo, xHi, yLo, yHi;
+  int i;
+  for (i = 0; i < CBEZ_ITERS; ++i) {
+    t = 0.5 * (tLo + tHi);
+    EVAL_CBEZ(tx, ax, bx, cx, (double) ctrl_x1, t);
+    if (tx < (double) x) {
+      tLo = t;
+      xLo = tx;
+    }
+    else if (tx > (double) x) {
+      tHi = t;
+      xHi = tx;
+    }
+    else {
+      tLo = t;
+      xLo = tx;
+      tHi = t + 1.0/pow(2.0,CBEZ_ITERS);
+      if (tHi > 1.0) tHi = 1.0; // floating point error 
+      EVAL_CBEZ(xHi, ax, bx, cx, (double) ctrl_x1, tHi);
+      break;
+    }
+  }
+
+  if (tLo == 0.0) EVAL_CBEZ(xLo, ax, bx, cx, (double) ctrl_x1, 0.0);
+  if (tHi == 1.0) EVAL_CBEZ(xHi, ax, bx, cx, (double) ctrl_x1, 1.0);
+
+  EVAL_CBEZ(yLo, ay, by, cy, (double) ctrl_y1, tLo);
+  EVAL_CBEZ(yHi, ay, by, cy, (double) ctrl_y1, tHi);
+
+  double dYdX = (xLo == xHi ? 0.0 : (yHi - yLo) / (xHi - xLo));
+  double y = yLo + ((double) x - xLo) * dYdX;
+
+  if (pNextX) *pNextX = (T) xHi;
+  if (pdYdX) *pdYdX = (T) dYdX;
+
+  return (T) y;
+}
+
 #endif
+

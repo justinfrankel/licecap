@@ -28,16 +28,38 @@
 
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
+  m_checkstate=-1;
+  m_textfont=0;
+  m_textalign=0;
   m_bgcol1_msg=0;
   m_is_button=true;
   m_pressed=0;
   m_iconCfg=0;
   m_en=true;
+  m_forceborder=false;
 }
 
 WDL_VirtualIconButton::~WDL_VirtualIconButton()
 {
 }
+
+void WDL_VirtualIconButton::SetTextLabel(const char *text, char align, HFONT font) 
+{ 
+  if (font) m_textfont=font;
+  m_textalign=align;
+  m_textlbl.Set(text); 
+  if (!m_iconCfg) RequestRedraw(NULL); 
+} 
+
+void WDL_VirtualIconButton::SetCheckState(char state)
+{
+  if (state != m_checkstate)
+  {
+    m_checkstate=state;
+    if (!m_iconCfg) RequestRedraw(NULL);
+  }
+}
+
 
 void WDL_VirtualIconButton::OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
@@ -115,7 +137,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
         DeleteObject(br);
       }
 
-      if ((m_pressed&2) || WDL_STYLE_WantGlobalButtonBorders())
+      if ((m_pressed&2) || m_forceborder || WDL_STYLE_WantGlobalButtonBorders())
       {
         int cidx=(m_pressed&1)?COLOR_3DSHADOW:COLOR_3DHILIGHT;
 
@@ -158,12 +180,56 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       DrawImageInRect(hdc,m_iconCfg->hIcon,&r);
   #endif
     }
+    if (!m_iconCfg && m_textlbl.Get()[0])
+    {
+      RECT r2=r;
+      if (m_checkstate>=0)
+      {
+        RECT tr=r2;
+        int sz=tr.bottom-tr.top;
+        r2.left+=sz+2;
+
+        tr.top+=2;
+        tr.bottom-=2;
+        sz-=4;
+        sz&=~1;
+        LICE_FillRect(drawbm ,tr.left,tr.top,sz,sz,LICE_RGBA(255,255,255,255),1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(drawbm,tr.left,tr.top,tr.left+sz,tr.top,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,tr.left+sz,tr.top,tr.left+sz,tr.bottom,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,tr.left+sz,tr.bottom,tr.left,tr.bottom,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,tr.left,tr.bottom,tr.left,tr.top,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        int nl = (m_checkstate>0) ? 3:0;        
+        if (m_pressed&1) nl ^= 2;
+
+        if (nl&1)
+          LICE_Line(drawbm,tr.left+2,tr.bottom-2,tr.left+sz-2,tr.top+2,LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        if (nl&2)
+          LICE_Line(drawbm,tr.left+2,tr.top+2,tr.left+sz-2,tr.bottom-2,LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_COPY,false);
+
+
+      }
+      // draw text
+      SetBkMode(hdc,TRANSPARENT);
+      SetTextColor(hdc,WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+      HGDIOBJ of=NULL;
+      if (m_textfont) of=SelectObject(hdc,m_textfont);
+      if (m_pressed&1)
+      {
+        if (m_textalign<0) r2.left+=1;
+        else if (m_textalign>0) r2.right+=1;
+        else r2.left+=2;
+        r2.top+=2;
+      }
+      DrawText(hdc,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      if (m_textfont) SelectObject(hdc,of);
+      
+    }
   }
 
   if (m_bgcol1_msg)
   {
     int brcol=-100;
-    SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+    SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
     if (brcol != -100)
     {
       RECT r=m_position;
@@ -229,7 +295,15 @@ bool WDL_VirtualIconButton::OnMouseDblClick(int xpos, int ypos)
 {
   if (!m_is_button) return false;
   if (m_en)
-    SendCommand(WM_COMMAND,GetID(),0,this);
+  {
+    int code=GetID();
+    if (!m_iconCfg && m_textlbl.Get()[0] && m_checkstate >= 0)
+    {
+      if (xpos<(m_position.bottom-m_position.top))
+        code|=600<<16;
+    }
+    SendCommand(WM_COMMAND,code,0,this);
+  }
   return true;
 }
 
@@ -243,7 +317,15 @@ void WDL_VirtualIconButton::OnMouseUp(int xpos, int ypos)
   if (waspress&&xpos >= 0&& xpos < m_position.right-m_position.left && ypos >= 0 && ypos < m_position.bottom-m_position.top)
   {
     if (m_en)
-      SendCommand(WM_COMMAND,GetID(),0,this);
+    {
+      int code=GetID();
+      if (!m_iconCfg && m_textlbl.Get()[0] && m_checkstate >= 0)
+      {
+        if (xpos<(m_position.bottom-m_position.top))
+          code|=600<<16;
+      }
+      SendCommand(WM_COMMAND,code,0,this);
+    }
   }
 }
 

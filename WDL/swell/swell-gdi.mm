@@ -50,9 +50,29 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
   return color;
 }
 
+static WDL_PtrList<GDP_CTX> m_ctxpool; // not threadsafe but fuck it I dont think anything is yet
+static GDP_CTX *GDP_CTX_NEW()
+{
+  int ni=m_ctxpool.GetSize();
+  GDP_CTX *p=m_ctxpool.Get(ni-1);
+  if (!p) p=(GDP_CTX *)calloc(sizeof(GDP_CTX),1);
+  else
+  {
+    m_ctxpool.Delete(ni-1);
+    memset(p,0,sizeof(GDP_CTX));
+  }
+  return p;
+}
+static void GDP_CTX_DELETE(GDP_CTX *p)
+{
+  if (p && m_ctxpool.GetSize()<1024) m_ctxpool.Add(p);
+  else free(p);
+}
+
+
 HDC SWELL_CreateContext(void *c)
 {
-  GDP_CTX *ctx=(GDP_CTX *) calloc(1,sizeof(GDP_CTX));
+  GDP_CTX *ctx=GDP_CTX_NEW();
   ctx->ctx=(CGContextRef)c;
 //  CGAffineTransform f={1,0,0,-1,0,0};
   //CGContextSetTextMatrix(ctx->ctx,f);
@@ -77,7 +97,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
     return 0;
   }
   
-  GDP_CTX *ctx=(GDP_CTX *) calloc(1,sizeof(GDP_CTX));
+  GDP_CTX *ctx=GDP_CTX_NEW();
   ctx->ctx=(CGContextRef)c;
   ctx->ownedData=buf;
   // CGContextSelectFont(ctx->ctx,"Arial",12.0,kCGEncodingMacRoman);
@@ -102,7 +122,7 @@ void SWELL_DeleteContext(HDC ctx)
     }
     if (ct->curtextcol) [ct->curtextcol release];
     if (ct->curcgtextcol) CGColorRelease(ct->curcgtextcol);
-    free(ctx);
+    GDP_CTX_DELETE(ct);
   }
 }
 HPEN CreatePen(int attr, int wid, int col)
@@ -115,9 +135,28 @@ HBRUSH CreateSolidBrush(int col)
   return CreateSolidBrushAlpha(col,1.0f);
 }
 
+static WDL_PtrList<GDP_OBJECT> m_objpool; // not threadsafe but fuck it I dont think anything is yet
+static GDP_OBJECT *GDP_OBJECT_NEW()
+{
+  int ni=m_objpool.GetSize();
+  GDP_OBJECT *p=m_objpool.Get(ni-1);
+  if (!p) p=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
+  else
+  {
+    m_objpool.Delete(ni-1);
+    memset(p,0,sizeof(GDP_OBJECT));
+  }
+  return p;
+}
+static void GDP_OBJECT_DELETE(GDP_OBJECT *p)
+{
+  if (p && m_objpool.GetSize()<1024) m_objpool.Add(p);
+  else free(p);
+}
+
 HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
 {
-  GDP_OBJECT *pen=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
+  GDP_OBJECT *pen=GDP_OBJECT_NEW();
   pen->type=TYPE_PEN;
   pen->wid=wid<0?0:wid;
   pen->color=CreateColor(col,alpha);
@@ -125,7 +164,7 @@ HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
 }
 HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
 {
-  GDP_OBJECT *brush=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
+  GDP_OBJECT *brush=GDP_OBJECT_NEW();
   brush->type=TYPE_BRUSH;
   brush->color=CreateColor(col,alpha);
   brush->wid=0; 
@@ -137,7 +176,7 @@ HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientat
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
 {
-  GDP_OBJECT *font=(GDP_OBJECT *)calloc(sizeof(GDP_OBJECT),1);
+  GDP_OBJECT *font=GDP_OBJECT_NEW();
   font->type=TYPE_FONT;
   float fontwid=lfHeight;
   
@@ -239,8 +278,9 @@ void DeleteObject(HGDIOBJ pen)
         [(NSMutableDictionary*)p->fontdict release];
       if (p->font_style) ATSUDisposeStyle(p->font_style);
       if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
+      GDP_OBJECT_DELETE(p);
     }
-    free(p);
+    else free(p);
   }
 }
 
@@ -1107,7 +1147,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
     needfree=1;
     img=newImage;    
   }
-  GDP_OBJECT *i=(GDP_OBJECT *)calloc(1,sizeof(GDP_OBJECT));
+  GDP_OBJECT *i=GDP_OBJECT_NEW();
   i->type=TYPE_BITMAP;
   i->wid=needfree;
   i->bitmapptr = img;
@@ -1178,6 +1218,120 @@ int GetSysColor(int idx)
       
   }
   return 0;
+}
+
+void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
+{
+  if (opacity<0.0001) return;
+  
+  if (!hdcOut ||w<1||h<1) return;
+  GDP_CTX *dest=(GDP_CTX*)hdcOut;
+  if (!inbufptr || !inbuf_span || !inbuf_h || !dest->ctx) return;
+  
+  if (inbuf_span < 0)
+  {
+    inbufptr = ((char *)inbufptr) - 4*inbuf_span*(inbuf_h-1);
+  }
+  int srcWidth = inbuf_span < 0 ? -inbuf_span : inbuf_span;
+  int srcHeight = inbuf_h;
+  if (xin<0){ x-=xin; w+=xin; xin=0; }
+  if (yin<0){ y-=yin; h+=yin; yin=0; }
+  if (xin+w>srcWidth) w=srcWidth-xin;
+  if (yin+h>srcHeight) h=srcHeight-yin;
+  if (w<1||h<1) return;
+
+  void *buf=calloc(w*4,h);
+  if (!buf) return;
+  CGColorSpaceRef cs=CGColorSpaceCreateDeviceRGB();
+  CGContextRef newtmpctx=CGBitmapContextCreate(buf,w,h,8,w*4,cs, kCGImageAlphaPremultipliedFirst);
+  CGColorSpaceRelease(cs);
+  if (!newtmpctx)
+  {
+    free(buf);
+    return;
+  }
+
+  unsigned char *outbuf = (unsigned char *)buf;
+  unsigned char *inbuf = ((unsigned char *)inbufptr) + xin*4 + yin*4*inbuf_span;
+  int a;
+  int maxop=255;
+  if (useAlphaChannel) maxop=256;
+  int opac=(int)(opacity*maxop + 0.5);
+  if (opac<0)opac=0;
+  else if (opac>maxop) opac=maxop;
+  
+  for (a=0;a<h;a++)
+  {
+    int b;
+    if (useAlphaChannel && opac!=256)
+    {
+      for (b=0;b<w;b++)
+      {
+        int v=*outbuf++ = (*inbuf++ * (int)opac)>>8;
+        *outbuf++ = (*inbuf++*v)>>8;
+        *outbuf++ = (*inbuf++*v)>>8;
+        *outbuf++ = (*inbuf++*v)>>8;
+      }
+    }
+    else if (useAlphaChannel)
+    {
+      for (b=0;b<w;b++)
+      {
+        int v=*outbuf++ = *inbuf++;
+        *outbuf++ = (*inbuf++*v)>>8;
+        *outbuf++ = (*inbuf++*v)>>8;
+        *outbuf++ = (*inbuf++*v)>>8;
+      }
+    }
+    else if (opac<255)
+    {
+      for (b=0;b<w;b++)
+      {
+        *outbuf++ = opac; inbuf++;
+        *outbuf++ = (*inbuf++*opac)>>8;
+        *outbuf++ = (*inbuf++*opac)>>8;
+        *outbuf++ = (*inbuf++*opac)>>8;
+      }
+    }
+    else
+    {
+      for (b=0;b<w;b++)
+      {
+        *outbuf++ = 255; inbuf++;
+        *outbuf++ = *inbuf++;
+        *outbuf++ = *inbuf++;
+        *outbuf++ = *inbuf++;
+      }
+    }
+    inbuf += inbuf_span*4 - w*4;
+  }
+
+  CGImage *img=CGBitmapContextCreateImage(newtmpctx);
+  if (img)
+  {
+    CGContextDrawImage(dest->ctx,CGRectMake(x,y,w,h),img);  
+    CGImageRelease(img);
+  }
+  CGContextRelease(newtmpctx);
+  free(buf);
+
+}
+
+void BitBltAlpha(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
+{
+  if (!useAlphaChannel&&opacity>=0.9999)
+  {
+    BitBlt(hdcOut,x,y,w,h,hdcIn,xin,yin,mode);
+    return;
+  }
+
+  if (!hdcOut || !hdcIn||w<1||h<1) return;
+  GDP_CTX *src=(GDP_CTX*)hdcIn;
+  GDP_CTX *dest=(GDP_CTX*)hdcOut;
+  if (!src->ownedData || !src->ctx || !dest->ctx) return;
+  
+  BitBltAlphaFromMem(hdcOut,x,y,w,h,src->ownedData,CGBitmapContextGetWidth(src->ctx), CGBitmapContextGetHeight(src->ctx),xin,yin,mode,useAlphaChannel,opacity);
+  
 }
 
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode)

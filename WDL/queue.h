@@ -40,7 +40,7 @@
 class WDL_Queue 
 {
 public:
-  WDL_Queue() : m_pos(0) { }
+  WDL_Queue() : m_pos(0), m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_Queue")) { }
   ~WDL_Queue() { }
 
   template <class T> void* AddT(T* buf)
@@ -63,9 +63,11 @@ public:
     return m_hb.GetSize()-m_pos;
   }
 
-  template <class T> T* GetT()
+  template <class T> T* GetT(T* val=0)
   {
-    return (T*) Get(sizeof(T));
+    T* p = (T*) Get(sizeof(T));
+    if (val && p) *val = *p;
+    return p;
   }
   
   void* Get(int size)
@@ -121,14 +123,10 @@ private:
   int m_pos;
 };
 
-
-
-
-
 template <class T> class WDL_TypedQueue
 {
 public:
-  WDL_TypedQueue() : m_pos(0) { }
+  WDL_TypedQueue() : m_pos(0), m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_TypedQueue")) { }
   ~WDL_TypedQueue() { }
 
   T *Add(const T *buf, int len)
@@ -186,7 +184,65 @@ private:
   int m_pos;
 };
 
+// endian-management stuff 
 
+static void WDL_Queue__bswap_buffer(void *buf, int len)
+{
+#ifdef __ppc__
+  char *p=(char *)buf;
+  char *ep=p+len;
+  while ((len-=2) >= 0)
+  {
+    char tmp=*p; *p++=*--ep; *ep=tmp;
+  }
+#endif
+}
+
+template<class T> static void WDL_Queue__AddToLE(WDL_Queue *q, T *val)
+{
+  WDL_Queue__bswap_buffer(q->AddT(val),sizeof(T));
+}
+static void WDL_Queue__AddDataToLE(WDL_Queue *q, void *data, int datasize, int unitsize)
+{
+  char *dout = (char *)q->Add(data,datasize);
+  #ifdef __ppc__
+  while (datasize >= unitsize)
+  {
+    WDL_Queue__bswap_buffer(dout,unitsize);
+    dout+=unitsize;
+    datasize-=unitsize;
+  }
+  #endif
+}
+
+
+
+
+// NOTE: these thrash the contents of the queue if on LE systems. So for example if you are going to rewind it later or use it elsewhere, 
+// then get ready to get unhappy.
+template<class T> static T *WDL_Queue__GetTFromLE(WDL_Queue *q, T* val=0)
+{
+  T *p = q->GetT(val);
+  if (p) {
+    WDL_Queue__bswap_buffer(p,sizeof(T));
+    if (val) *val = *p;
+  }
+  return p;
+}
+static void *WDL_Queue__GetDataFromLE(WDL_Queue *q, int datasize, int unitsize)
+{
+  void *data=q->Get(datasize);
+  #ifdef __ppc__
+  char *dout=(char *)data;
+  if (dout) while (datasize >= unitsize)
+  {
+    WDL_Queue__bswap_buffer(dout,unitsize);
+    dout+=unitsize;
+    datasize-=unitsize;
+  }
+  #endif
+  return data;
+}
 
 #endif
 

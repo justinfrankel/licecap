@@ -89,7 +89,7 @@ public:
 
 public:
   // allow_async=1 for unbuffered async, 2 for buffered async
-  WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0)
+  WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0) : m_bufspace(4096 WDL_HEAPBUF_TRACEPARM("WDL_FileRead"))
   {
     m_sync_bufmode_used=m_sync_bufmode_pos=0;
     m_async_readpos=m_file_position=0;
@@ -149,7 +149,7 @@ public:
         m_async_bufsize=bufsize;
         int x;
         char *bptr=(char *)m_bufspace.Resize(nbufs*bufsize + (WDL_UNBUF_ALIGN-1));
-        int a=((int)bptr)&(WDL_UNBUF_ALIGN-1);
+        int a=((int)(INT_PTR)bptr)&(WDL_UNBUF_ALIGN-1);
         if (a) bptr += WDL_UNBUF_ALIGN-a;
         for (x = 0; x < nbufs; x ++)
         {
@@ -441,7 +441,7 @@ public:
       int rdout=0;
       int sz=m_bufspace.GetSize()-(WDL_UNBUF_ALIGN-1);
       char *srcbuf=(char *)m_bufspace.Get(); // read size
-      if (((int)srcbuf)&(WDL_UNBUF_ALIGN-1)) srcbuf += WDL_UNBUF_ALIGN-(((int)srcbuf)&(WDL_UNBUF_ALIGN-1));
+      if (((int)(INT_PTR)srcbuf)&(WDL_UNBUF_ALIGN-1)) srcbuf += WDL_UNBUF_ALIGN-(((int)(INT_PTR)srcbuf)&(WDL_UNBUF_ALIGN-1));
       while (len > rdout)
       {
         int a=m_sync_bufmode_used-m_sync_bufmode_pos;

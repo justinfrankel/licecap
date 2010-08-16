@@ -60,7 +60,7 @@ static void Dlg_removeFromRgn(HRGN hrgn, int left, int top, int right, int botto
   DeleteObject(rgn2);
 }
 
-static void Dlg_DrawChildWindowBorders(HWND hwndDlg, int *tab, int tabsize, int (*GSC)(int)=0
+static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0
 #ifdef WDL_DLGITEMBORDER_CUSTOMPARMS                                       
   , WDL_DLGITEMBORDER_CUSTOMPARMS
 #endif

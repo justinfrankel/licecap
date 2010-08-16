@@ -581,6 +581,12 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if (!m_enabled) return;
   [self mouseDragged:theEvent];
 }
+- (void)otherMouseDragged:(NSEvent *)theEvent
+{
+  if (!m_enabled) return;
+  [self mouseDragged:theEvent];
+}
+
 - (void)mouseDragged:(NSEvent *)theEvent
 { 
   if (!m_enabled) return;  
@@ -634,7 +640,19 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
   [self sendMouseMessage:([theEvent clickCount]>1 ? WM_RBUTTONDBLCLK : WM_RBUTTONDOWN) event:theEvent]; 
 }  
-
+- (void)otherMouseUp:(NSEvent *)theEvent
+{
+  if (!m_enabled) return;
+  [self sendMouseMessage:WM_MBUTTONUP event:theEvent];  
+}
+- (void)otherMouseDown:(NSEvent *)theEvent
+{
+  if ([NSApp keyWindow] != [self window])
+  {
+    SetFocus((HWND)[self window]);
+  }
+  [self sendMouseMessage:([theEvent clickCount]>1 ? WM_MBUTTONDBLCLK : WM_MBUTTONDOWN) event:theEvent]; 
+}  
 
 -(LRESULT)sendMouseMessage:(int)msg event:(NSEvent*)theEvent
 {
@@ -659,6 +677,9 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
        if (msg==WM_RBUTTONUP) return m_wndproc((HWND)self,WM_NCRBUTTONUP,htc,p); 
        if (msg==WM_RBUTTONDOWN) return m_wndproc((HWND)self,WM_NCRBUTTONDOWN,htc,p); 
        if (msg==WM_RBUTTONDBLCLK) return m_wndproc((HWND)self,WM_NCRBUTTONDBLCLK,htc,p); 
+       if (msg==WM_MBUTTONUP) return m_wndproc((HWND)self,WM_NCMBUTTONUP,htc,p); 
+       if (msg==WM_MBUTTONDOWN) return m_wndproc((HWND)self,WM_NCMBUTTONDOWN,htc,p); 
+       if (msg==WM_MBUTTONDBLCLK) return m_wndproc((HWND)self,WM_NCMBUTTONDBLCLK,htc,p); 
      } 
   } 
   
@@ -680,7 +701,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   
   LRESULT ret=m_wndproc((HWND)self,msg,l,xpos + (ypos<<16));
 
-  if (msg==WM_LBUTTONUP || msg==WM_RBUTTONUP || msg==WM_MOUSEMOVE) {
+  if (msg==WM_LBUTTONUP || msg==WM_RBUTTONUP || msg==WM_MOUSEMOVE || msg==WM_MBUTTONUP) {
     if (!GetCapture() && !m_wndproc((HWND)self,WM_SETCURSOR,(WPARAM)self,htc | (msg<<16))) {
       NSCursor *arr= [NSCursor arrowCursor];
         if (GetCursor() != (HCURSOR)arr) SetCursor((HCURSOR)arr);

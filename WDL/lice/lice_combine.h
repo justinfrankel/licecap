@@ -10,7 +10,7 @@
 
 
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_WIN64)
 static inline int __LICE_TOINT(double x) // don't use this _everywhere_ since it doesnt round the same as (int)
 {
   int tmp;

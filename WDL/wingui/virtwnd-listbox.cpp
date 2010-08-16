@@ -399,7 +399,7 @@ void WDL_VirtualListBox::OnMouseMove(int xpos, int ypos)
     {
       if (m_dragbeginmsg)
       {
-        SendCommand(m_dragbeginmsg,(int)this,m_cap_startitem,this);
+        SendCommand(m_dragbeginmsg,(INT_PTR)this,m_cap_startitem,this);
       }
     }
   }
@@ -438,14 +438,14 @@ void WDL_VirtualListBox::OnMouseUp(int xpos, int ypos)
   {
     if (m_clickmsg)
     {
-      SendCommand(m_clickmsg,(int)this,hit,this);
+      SendCommand(m_clickmsg,(INT_PTR)this,hit,this);
     }
   }
   else if (m_cap_state>=0x1008)
   {
     // send a message saying drag & drop occurred
     if (m_dropmsg)
-      SendCommand(m_dropmsg,(int)this,m_cap_startitem,this);
+      SendCommand(m_dropmsg,(INT_PTR)this,m_cap_startitem,this);
   }
 
   m_cap_state=0;

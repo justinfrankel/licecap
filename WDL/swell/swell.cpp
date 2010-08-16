@@ -30,10 +30,16 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+
+#include "swell-internal.h"
+
+#ifdef SWELL_TARGET_OSX
 #import <Carbon/Carbon.h>
 #include <libkern/OSAtomic.h>
-#include <pthread.h>
 #include <sched.h>
+#endif
+
+#include <pthread.h>
 
 
 char *lstrcpyn(char *dest, const char *src, int l)
@@ -111,6 +117,7 @@ int MulDiv(int a, int b, int c)
 DWORD GetModuleFileName(HINSTANCE ignored, char *fn, DWORD nSize)
 {
   *fn=0;
+#ifdef SWELL_TARGET_OSX
   CFBundleRef bund=CFBundleGetMainBundle();
   if (bund) 
   {
@@ -124,6 +131,7 @@ DWORD GetModuleFileName(HINSTANCE ignored, char *fn, DWORD nSize)
       CFRelease(url);
     }
   }
+#endif
   return strlen(fn);
 }
 
@@ -150,6 +158,7 @@ enum
   INTERNAL_OBJECT_START= 0x1000001,
   INTERNAL_OBJECT_THREAD,
   INTERNAL_OBJECT_EVENT,
+  INTERNAL_OBJECT_FILE,
   INTERNAL_OBJECT_END
 };
 
@@ -181,6 +190,12 @@ typedef struct
   
 } SWELL_InternalObjectHeader_Event;
 
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  
+  FILE *fp;
+} SWELL_InternalObjectHeader_File;
 
 BOOL CloseHandle(HANDLE hand)
 {
@@ -188,10 +203,20 @@ BOOL CloseHandle(HANDLE hand)
   if (!hdr) return FALSE;
   if (hdr->type <= INTERNAL_OBJECT_START || hdr->type >= INTERNAL_OBJECT_END) return FALSE;
   
+#ifdef SWELL_TARGET_OSX
   if (!OSAtomicDecrement32(&hdr->count))
+#else
+  if (!--hdr->count) // todo: atomic decrement on posix/ glib?
+#endif
   {
     switch (hdr->type)
     {
+      case INTERNAL_OBJECT_FILE:
+        {
+          SWELL_InternalObjectHeader_File *file = (SWELL_InternalObjectHeader_File*)hdr;
+          if (file->fp) fclose(file->fp);
+        }
+      break;
       case INTERNAL_OBJECT_EVENT:
         {
           SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hdr;
@@ -258,11 +283,15 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
           struct timespec ts={msTO/1000, (msTO%1000)*1000000};      
           while (!evt->isSignal) 
           {
+#ifdef SWELL_TARGET_OSX
             if (pthread_cond_timedwait_relative_np(&evt->cond,&evt->mutex,&ts)==ETIMEDOUT)
             {
               rv = WAIT_TIMEOUT;
               break;
             }
+#else
+	#warning fixme on non-apple (implement using pthread_cond_timedwait())
+#endif
             // we should track/correct the timeout amount here since in theory we could end up waiting a bit longer!
           }
         }    
@@ -279,14 +308,18 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
 
 static void *__threadproc(void *parm)
 {
+#ifdef SWELL_TARGET_OSX
   void *arp=SWELL_InitAutoRelease();
+#endif
   
   SWELL_InternalObjectHeader_Thread *t=(SWELL_InternalObjectHeader_Thread*)parm;
   t->retv=t->threadProc(t->threadParm);  
   t->done=1;
   CloseHandle(parm);  
 
+#ifdef SWELL_TARGET_OSX
   SWELL_QuitAutoRelease(arp);
+#endif
   
   pthread_exit(0);
   return 0;
@@ -314,7 +347,9 @@ HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *igno
 
 HANDLE CreateThread(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut)
 {
+#ifdef SWELL_TARGET_OSX
   SWELL_EnsureMultithreadedCocoa();
+#endif
   SWELL_InternalObjectHeader_Thread *buf = (SWELL_InternalObjectHeader_Thread *)malloc(sizeof(SWELL_InternalObjectHeader_Thread));
   buf->hdr.type=INTERNAL_OBJECT_THREAD;
   buf->hdr.count=2;
@@ -384,7 +419,68 @@ BOOL ResetEvent(HANDLE hand)
   return TRUE;
 }
 
+HANDLE CreateFile( const char * lpFileName,
+                  DWORD dwDesiredAccess,
+                  DWORD dwShareMode,
+                  void *lpSecurityAttributes,
+                  DWORD dwCreationDisposition,
+                  DWORD dwFlagsAndAttributes,
+                  HANDLE hTemplateFile)
+{
+  return 0;// INVALID_HANDLE_VALUE;
+}
 
+DWORD SetFilePointer(HANDLE hFile, DWORD low, DWORD *high)
+{ 
+  int pos;
+  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
+  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || (high && *high) || fseek(file->fp,low,SEEK_SET)==-1) { if (high) *high=0xffffffff; return 0xffffffff; }
+  return ftell(file->fp);
+}
+
+DWORD GetFilePointer(HANDLE hFile, DWORD *high)
+{
+  int pos;
+  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
+  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || (pos=ftell(file->fp))==-1) { if (high) *high=0xffffffff; return 0xffffffff; }
+  if (high) *high=0;
+  return (DWORD)pos;
+}
+
+DWORD GetFileSize(HANDLE hFile, DWORD *high)
+{
+  int pos;
+  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
+  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp) { if (high) *high=0xffffffff; return 0xffffffff; }
+  
+  int a=ftell(file->fp);
+  fseek(file->fp,0,SEEK_END);
+  int ret=ftell(file->fp);
+  fseek(file->fp,a,SEEK_SET);
+  
+  if (high) *high=ret==-1 ? 0xffffffff: 0;
+  return (DWORD)ret;
+}
+
+
+
+BOOL WriteFile(HANDLE hFile,void *buf, DWORD len, DWORD *lenOut, void *ovl)
+{
+  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
+  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || !buf || !len) return FALSE;
+  int lo=fwrite(buf,1,len,file->fp);
+  if (lenOut) *lenOut = lo;
+  return !!lo;
+}
+
+BOOL ReadFile(HANDLE hFile,void *buf, DWORD len, DWORD *lenOut, void *ovl)
+{
+  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
+  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || !buf || !len) return FALSE;
+  int lo=fread(buf,1,len,file->fp);
+  if (lenOut) *lenOut = lo;
+  return !!lo;
+}
 
 BOOL WinOffsetRect(LPRECT lprc, int dx, int dy)
 {
@@ -431,6 +527,55 @@ void WinUnionRect(RECT *out, RECT *in1, RECT *in2)
   out->bottom=max(in1->bottom,in2->bottom);
 }
 
+
+typedef struct
+{
+  int sz;
+  int refcnt;
+} GLOBAL_REC;
+
+
+void *GlobalLock(HANDLE h)
+{
+  if (!h) return 0;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
+  rec->refcnt++;
+  return h;
+}
+int GlobalSize(HANDLE h)
+{
+  if (!h) return 0;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
+  return rec->sz;
+}
+
+void GlobalUnlock(HANDLE h)
+{
+  if (!h) return;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
+  rec->refcnt--;
+}
+void GlobalFree(HANDLE h)
+{
+  if (!h) return;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
+  if (rec->refcnt)
+  {
+    // note error freeing locked ram
+  }
+  free(rec);
+  
+}
+HANDLE GlobalAlloc(int flags, int sz)
+{
+  if (sz<0)sz=0;
+  GLOBAL_REC *rec=(GLOBAL_REC*)malloc(sizeof(GLOBAL_REC)+sz);
+  if (!rec) return 0;
+  rec->sz=sz;
+  rec->refcnt=0;
+  if (flags&GMEM_FIXED) memset(rec+1,0,sz);
+  return rec+1;
+}
 
 
 #endif

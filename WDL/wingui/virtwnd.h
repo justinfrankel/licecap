@@ -60,6 +60,8 @@ public:
   virtual ~WDL_VWnd();
   virtual void SetID(int id) { m_id=id; }
   virtual int GetID() { return m_id; }
+  virtual INT_PTR GetUserData() { return m_userdata; }
+  virtual INT_PTR SetUserData(INT_PTR ud) { INT_PTR od=m_userdata; m_userdata=ud; return od; }
   virtual void SetPosition(const RECT *r) { m_position=*r; }
   virtual void GetPosition(RECT *r) { *r=m_position; }
   virtual void GetPositionPaintExtent(RECT *r) { *r=m_position; }
@@ -95,14 +97,14 @@ public:
   virtual HWND GetRealParent() { if (m_realparent) return m_realparent; if (GetParent()) return GetParent()->GetRealParent(); return 0; }
   virtual void SetRealParent(HWND par) { m_realparent=par; }
 
-  virtual int SendCommand(int command, int parm1, int parm2, WDL_VWnd *src);
+  virtual INT_PTR SendCommand(int command, INT_PTR parm1, INT_PTR parm2, WDL_VWnd *src);
 
 protected:
   WDL_VWnd *m_parent;
   bool m_visible;
   int m_id;
   RECT m_position;
-
+  INT_PTR m_userdata;
 
   HWND m_realparent;
   int m_captureidx;

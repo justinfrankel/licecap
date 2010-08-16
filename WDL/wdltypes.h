@@ -13,4 +13,38 @@ typedef unsigned long long WDL_UINT64;
 
 #endif
 
+#if !defined(_MSC_VER) ||  _MSC_VER > 1200
+#define WDL_DLGRET INT_PTR CALLBACK
+#else
+#define WDL_DLGRET BOOL CALLBACK
+#endif
+
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <stdint.h>
+typedef intptr_t INT_PTR;
+#endif
+
+
+#ifndef GWLP_USERDATA
+#define GWLP_USERDATA GWL_USERDATA
+#define GWLP_WNDPROC GWL_WNDPROC
+#define GWLP_HINSTANCE GWL_HINSTANCE
+#define GWLP_HWNDPARENT GWL_HWNDPARENT
+#define DWLP_USER DWL_USER
+#define DWLP_DLGPROC DWL_DLGPROC
+#define DWLP_MSGRESULT DWL_MSGRESULT
+#define SetWindowLongPtr(a,b,c) SetWindowLong(a,b,c)
+#define GetWindowLongPtr(a,b) GetWindowLong(a,b)
+
+#define GCLP_WNDPROC GCL_WNDPROC
+#define GCLP_HICON GCL_HICON
+#define SetClassLongPtr(a,b,c) SetClassLong(a,b,c)
+#define GetClassLongPtr(a,b) GetClassLong(a,b)
+#endif
+
+
+
 #endif

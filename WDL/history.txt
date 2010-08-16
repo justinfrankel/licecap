@@ -1,4 +1,23 @@
+2008-07-27: SWELL: fixed an issue with OS X hanging on fractional window positions
+2008-07-22: Added WDL_String::Ellipsize()
+2008-07-20: Win64 compatability, wdl_types.h has GetClassLongPtr() etc defines for MSVC6/OSX
+2008-07-19: SWELL: GDI object pooling to reduce heap thrashing
+2008-07-19: wndsize: fixed window positioning bug when used in SWELL.
+2008-07-19: SWELL: LVNI_SELECTED support
+2008-07-19: SWELL: better support for 64 bit OS X 10.5.
+2008-07-17: VirtWnd slider mousewheel fixes
+2008-07-15: SWELL: Treeview API improvements
+2008-07-14: Added WDL_DLGRET for DLGPROC return type to ease compiler differences (use instead of BOOL CALLBACK or UINT_PTR CALLBACK)
+2008-07-11: added win32_curses super-basic curses emulation for windows GUI
+2008-07-10: LICE bitmap allocation changes (safer failures)
+2008-07-10: SWELL: fixed GetCursorPos()/SetCursorPos() relationships
+2008-07-10: SWELL: WM_MBUTTON* support
+2008-07-08: Heapbuf can have optional small pre-allocations, heapbuf trace mode (to monitor heap use)
+2008-06-30: LICE: Better bezierness
+2008-06-30: SWELL: BitBltAlpha() and BitBltAlphaFromMem()
+2008-06-24: WDL_FileWrite: fixed GetSize() at eof before flushing
 2008-06-02: SWELL: many more bugfixes, initial work on 64 bit support, more
+2008-05-21: Virtwnd: userdata for all virtwnd support
 2008-05-05: SWELL: huge updates (too much to list)
 2008-04-28: LICE: schwa's updated lice_bezier with support for quadratic nurbs
 2008-04-27: SWELL: updates to EndDialog, added rc2cpp_dlg.php

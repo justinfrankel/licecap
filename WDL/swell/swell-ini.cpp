@@ -316,7 +316,7 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
     }
   }
 //  printf("def %s %s %s %s\n",appname,keyname,def,fn);
-  lstrcpyn(ret,def,retsize);
+  lstrcpyn(ret,def?def:"",retsize);
   return strlen(ret);
 }
 

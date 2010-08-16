@@ -251,11 +251,17 @@ int SWELL_ShowCursor(BOOL bShow)
 }
 
 BOOL SWELL_SetCursorPos(int X, int Y)
-{
-  // hmm this is still wonkish
-//  CGPoint pos=CGPointMake(X,Y);
-//  return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
-  return false;
+{  
+  POINT p;
+  GetCursorPos(&p);
+  if (X != p.x || Y != p.y)
+  {
+    int h=CGDisplayPixelsHigh(CGMainDisplayID());
+    Y = h-Y;
+    CGPoint pos=CGPointMake(X,Y);
+    return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
+  }
+  return true;  
 }
 
 

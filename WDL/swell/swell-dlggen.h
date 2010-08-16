@@ -107,6 +107,7 @@
 #define SS_NOTIFY 0x0100L
 
 #define BS_CENTER 0x0300L
+#define BS_LEFTTEXT 0x0000L
                                        
 #define LVS_LIST 0 /* 0x0003 */
 #define LVS_NOCOLUMNHEADER 0x4000
@@ -147,6 +148,7 @@
 #define SS_SUNKEN 0
 #define BS_RIGHT 0
 #define WS_EX_STATICEDGE 0
+#define WS_EX_RIGHT 0
                                        
                      
                                        
@@ -191,7 +193,7 @@ static HWND __SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags
 {
   return SWELL_MakeEditField(idx,x,y,w,h,flags);
 }
-static HWND __SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0)
+static HWND __SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0, int exflags=0)
 {
   return SWELL_MakeLabel(align,label,idx,x,y,w,h,flags);
 }

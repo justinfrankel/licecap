@@ -247,7 +247,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       if (m_bgcol1_msg)
       {
         int brcol=-100;
-        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
         if (brcol != -100)
         {
           LICE_MemBitmap tmpbm;
@@ -300,7 +300,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
 
       int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
-        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
 
       HBRUSH br=CreateSolidBrush(brcol);
       HGDIOBJ oldBr=SelectObject(hdc,br);
@@ -366,7 +366,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       if (m_bgcol1_msg)
       {
         int brcol=-100;
-        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
         if (brcol != -100)
         {
           LICE_MemBitmap tmpbm;
@@ -417,7 +417,7 @@ void WDL_VirtualSlider::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin
       HGDIOBJ oldPen=SelectObject(hdc,pen);
       int brcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
-        SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+        SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
 
       HBRUSH br=CreateSolidBrush(brcol);
       HGDIOBJ oldBr=SelectObject(hdc,br);
@@ -675,12 +675,14 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
   }
   if (precmode&&GetRealParent())
   {
-    POINT p;
-    GetCursorPos(&p);
-    p.x-=(xpos-m_last_x);
-    p.y-=(ypos-m_last_y);
     if (xpos != m_last_x || ypos != m_last_y)
     {
+      POINT p;
+      GetCursorPos(&p);
+      p.x-=(xpos-m_last_x);
+      
+    #ifdef _WIN32
+      p.y-=(ypos-m_last_y);
       POINT pt={0,0};
       ClientToScreen(GetRealParent(),&pt);
       WDL_VWnd *wnd=this;
@@ -703,7 +705,9 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
         m_last_x=( (((m_pos-m_minr) * (vieww-bm_w))/rsize))+m_move_offset;
         p.x=m_last_x+pt.x;
       }
-      
+    #else
+      p.y+=(ypos-m_last_y);
+    #endif
       SetCursorPos(p.x,p.y);
     }
     if (!m_last_precmode)
@@ -775,6 +779,7 @@ bool WDL_VirtualSlider::OnMouseWheel(int xpos, int ypos, int amt)
   if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) l *= 16;
   l *= (m_maxr-m_minr);
   l/=120000;
+  if (!l) { if (amt<0)l=-1; else if (amt>0) l=1; }
 
   int pos=m_pos+l;
   if (pos < m_minr)pos=m_minr;

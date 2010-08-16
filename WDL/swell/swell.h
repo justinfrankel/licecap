@@ -28,6 +28,15 @@
 
 #ifndef _WDL_SWELL_H_ // here purely for apps/other libraries (dirscan.h uses it), each section actually has its own define
 #define _WDL_SWELL_H_
+
+
+#ifdef __APPLE__
+#define SWELL_TARGET_OSX
+#define SWELL_TARGET_OSX_COCOA
+#else
+#define SWELL_TARGET_GTK
+#endif
+
 #endif
 
 
@@ -121,6 +130,11 @@
 #define LoadLibrary(x) dlopen(x,RTLD_LAZY)
 
 
+
+
+#define MAX_PATH 1024
+
+
 // basic types
 typedef unsigned int DWORD;
 typedef unsigned short WORD;
@@ -131,17 +145,38 @@ typedef unsigned int UINT;
 typedef unsigned long WPARAM;
 typedef long LPARAM;
 typedef long LRESULT;
+
+
+#include <stdint.h>
+typedef intptr_t INT_PTR, *PINT_PTR, LONG_PTR, *PLONG_PTR;
+typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWORD_PTR;
+
+
 typedef void *LPVOID, *PVOID;
 typedef long HRESULT;
 typedef unsigned long ULONG;
 typedef long LONG;
 typedef int *LPINT;
+typedef char CHAR;
+typedef char *LPSTR;
+typedef const char *LPCSTR;
+#define __int64 long long
+typedef union { 
+  unsigned long long QuadPart; 
+  struct {
+  #ifdef __ppc__
+    DWORD HighPart;
+    DWORD LowPart;
+  #else
+    DWORD LowPart;
+    DWORD HighPart;
+  #endif
+  };
+} ULARGE_INTEGER;
 
 
-typedef struct HWND__ { 
-  int bla;
-} *HWND;
-typedef void *HANDLE, *HMENU, *HINSTANCE, *HDROP;
+typedef struct HWND__ *HWND;
+typedef void *HANDLE, *HMENU, *HINSTANCE, *HDROP, *HGLOBAL;
 
 typedef struct 
 {
@@ -277,6 +312,29 @@ typedef struct tagDRAWITEMSTRUCT {
 
 
 
+
+typedef struct 
+{  
+        DWORD cbSize;
+        HWND hWnd;
+        UINT uID;
+        UINT uFlags;
+        UINT uCallbackMessage;
+        HICON hIcon;      
+        CHAR   szTip[64];
+} NOTIFYICONDATA,*PNOTIFYICONDATA, *LPNOTIFYICONDATA;
+
+
+#define NIM_ADD         0x00000000
+#define NIM_MODIFY      0x00000001
+#define NIM_DELETE      0x00000002
+
+#define NIF_MESSAGE     0x00000001
+#define NIF_ICON        0x00000002
+#define NIF_TIP         0x00000004
+
+
+
 typedef void *HTREEITEM;
 
 #define TVIF_TEXT               0x0001
@@ -362,6 +420,7 @@ typedef struct
   int cch;
 } MENUITEMINFO;
 
+#define SetMenuDefaultItem(a,b,c) (0)
 
 typedef struct {
   POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
@@ -433,7 +492,7 @@ typedef struct
   PWINDOWPOS lppos;
 } NCCALCSIZE_PARAMS, *LPNCCALCSIZE_PARAMS;
 
-typedef BOOL (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
+typedef INT_PTR (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
 typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
 typedef BOOL (*PROPENUMPROCEX)(HWND hwnd, const char *lpszString, HANDLE hData, LPARAM lParam);
@@ -454,11 +513,13 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define MB_ICONSTOP 0
 #define MB_ICONINFORMATION 0
 
-#define IDCANCEL 1
-#define IDOK 2
-#define IDNO 3
-#define IDYES 4
-#define IDRETRY 5
+#define IDOK                1
+#define IDCANCEL            2
+#define IDABORT             3
+#define IDRETRY             4
+#define IDIGNORE            5
+#define IDYES               6
+#define IDNO                7
 
 #define GW_HWNDFIRST        0
 #define GW_HWNDLAST         1
@@ -566,7 +627,8 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define LVIF_STATE 4
 #define LVIS_SELECTED 1
 #define LVIS_FOCUSED 2
-#define LVNI_FOCUSED 1
+#define LVNI_SELECTED 1
+#define LVNI_FOCUSED 2
 #define INDEXTOSTATEIMAGEMASK(x) ((x)<<16)
 #define LVIS_STATEIMAGEMASK (255<<16)
 
@@ -614,6 +676,8 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define SW_SHOWMAXIMIZED 2 // todo: make this
 #define SW_SHOWDEFAULT SW_SHOWNORMAL
 
+#define SW_RESTORE SW_SHOWNA
+
 
 
 #define SWP_NOMOVE 1
@@ -649,6 +713,8 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define MF_STRING 0
 #define MFT_SEPARATOR 1
 #define MFT_BITMAP 2
+
+#define MF_SEPARATOR        0x00000800L
 
 #define MF_UNCHECKED 0
 #define MF_ENABLED 0
@@ -710,6 +776,8 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_KEYLAST                      0x0108
 #define WM_INITDIALOG                   0x0110
 #define WM_COMMAND                      0x0111
+#define WM_SYSCOMMAND                   0x0112
+#define SC_CLOSE        0xF060
 #define WM_TIMER                        0x0113
 #define WM_INITMENUPOPUP                0x0117
 #define WM_HSCROLL                      0x0114
@@ -830,8 +898,12 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define SIF_TRACKPOS        0x0010
 #define SIF_ALL             (SIF_RANGE | SIF_PAGE | SIF_POS | SIF_TRACKPOS)
 
-#define SIZE_MINIMIZED (-1)
-#define SIZE_MAXIMIZED (-2)
+#define SIZE_RESTORED       0
+#define SIZE_MINIMIZED      1
+#define SIZE_MAXIMIZED      2
+#define SIZE_MAXSHOW        3
+#define SIZE_MAXHIDE        4
+
 
 #ifndef WINAPI
 #define WINAPI
@@ -1534,6 +1606,7 @@ SWELL_API_DEFINE(HTREEITEM, TreeView_HitTest, (HWND hwnd, TVHITTESTINFO *hti))
 
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetChild, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetNextSibling, (HWND hwnd, HTREEITEM item))
+SWELL_API_DEFINE(HTREEITEM, TreeView_GetRoot, (HWND hwnd))
 
 
 /*
@@ -1976,6 +2049,8 @@ SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
 SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
 SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode))
+SWELL_API_DEFINE(void, BitBltAlpha,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode, bool useAlphaChannel, float opacity))
+SWELL_API_DEFINE(void, BitBltAlphaFromMem,(HDC hdcOut, int x, int y, int w, int h, void *inbuf, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity))
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
 

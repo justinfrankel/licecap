@@ -462,6 +462,7 @@ WDL_VWnd::WDL_VWnd()
   m_realparent=0;
   m_captureidx=-1;
   m_lastmouseidx=-1;
+  m_userdata=0;
 }
 
 WDL_VWnd::~WDL_VWnd() 
@@ -474,7 +475,7 @@ WDL_VWnd::~WDL_VWnd()
 }
 
 
-int WDL_VWnd::SendCommand(int command, int parm1, int parm2, WDL_VWnd *src)
+INT_PTR WDL_VWnd::SendCommand(int command, INT_PTR parm1, INT_PTR parm2, WDL_VWnd *src)
 {
   if (m_realparent)
   {
@@ -535,6 +536,9 @@ void WDL_VWnd::RequestRedraw(RECT *r)
 
     }
     else
+#else
+  // OS X, expand region up slightly
+  r2.top--;
 #endif
       InvalidateRect(m_realparent,&r2,FALSE);
   }

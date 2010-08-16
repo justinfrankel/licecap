@@ -35,23 +35,61 @@
 
 #ifndef WDL_HEAPBUF_IMPL_ONLY
 
+
+// #define WDL_HEAPBUF_SMALLONSTACKSIZE 216 // if you'd like to allocate some data for small buffers as a member variable uncomment this
+//#define WDL_HEAPBUF_TRACE
+
+#ifdef WDL_HEAPBUF_TRACE
+#include <windows.h>
+#define WDL_HEAPBUF_TRACEPARM(x) ,(x)
+#else
+#define WDL_HEAPBUF_TRACEPARM(x)
+#endif
+
+#include "wdltypes.h"
+
 class WDL_HeapBuf
 {
   public:
-    WDL_HeapBuf(int granul=4096) : m_granul(granul), m_buf(NULL), m_alloc(0), m_size(0), m_mas(0)
+    WDL_HeapBuf(int granul=4096
+#ifdef WDL_HEAPBUF_TRACE
+      , const char *tracetype="WDL_HeapBuf"
+#endif
+      ) : m_alloc(0), m_size(0), m_mas(0)
     {
+      SetGranul(granul);
+#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
+      m_buf=m_smallbuf;
+#else
+      m_buf=0;
+#endif
+
+#ifdef WDL_HEAPBUF_TRACE
+      m_tracetype = tracetype;
+      char tmp[512];
+      wsprintf(tmp,"WDL_HeapBuf: created type: %s granul=%d\n",tracetype,granul);
+      OutputDebugString(tmp);
+#endif
     }
     ~WDL_HeapBuf()
     {
-      Resize(0);
+#ifdef WDL_HEAPBUF_TRACE
+      char tmp[512];
+      wsprintf(tmp,"WDL_HeapBuf: destroying type: %s (alloc=%d, size=%d)\n",m_tracetype,m_alloc,m_size);
+      OutputDebugString(tmp);
+#endif
+#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
+      if (m_buf!=m_smallbuf) 
+#endif
+        free(m_buf);
     }
 
-    void *Get() { return m_buf; }
+    void *Get() { return m_size?m_buf:NULL; }
     int GetSize() { return m_size; }
 
     void SetGranul(int granul) 
     {
-      m_granul=granul;
+      m_granul = granul;      
     }
 
     void SetMinAllocSize(int mas)
@@ -72,71 +110,91 @@ class WDL_HeapBuf
 #else
     =true)
 #endif
-    {
-      if (newsize < m_mas && newsize < m_alloc)
+    {      
+      if (newsize!=m_size)
       {
-        m_size=newsize;
-        return Get();
-      }
-      if (!newsize && !m_mas) // special case, free all when resized to 0
-      {
-        if (resizedown)
+        // if we are not using m_smallbuf or we need to not use it
+        // and if if growing or resizing down
+        if (
+#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
+          (m_buf != m_smallbuf || newsize > sizeof(m_smallbuf)) &&
+#endif
+            (newsize > m_alloc || 
+             (resizedown && newsize < m_size && 
+                            newsize < m_alloc/2 && 
+                            newsize < m_alloc - (m_granul<<2)))) 
         {
-          free(m_buf);
-          m_buf=NULL;
-          m_alloc=0;
-        }
-      }
-      else if (newsize > m_alloc || (resizedown && newsize < m_alloc - (m_granul<<2))) // if we grew over our allocation, or shrunk too far down we should resize down
-      {
-        int newalloc = (newsize > m_alloc) ? (newsize + m_granul) : newsize;
-        if (newalloc < m_mas) newalloc=m_mas;
+          int granul=newsize/2;
+          if (granul < m_granul) granul=m_granul;
+          granul &= ~4095;
+          if (granul< 4096) granul=4096;
+          else if (granul>4*1024*1024) granul=4*1024*1024;
 
-        if (newalloc != m_alloc || !m_buf)
-        {
-          void *nbuf=realloc(m_buf,newalloc);
-          if (!nbuf) 
+          int newalloc = ((newsize + granul + 96)&~4095)-96;
+          if (newalloc < m_mas) newalloc=m_mas;
+
+          if (newalloc != m_alloc)
           {
-            if (!newalloc) return m_buf;
-            nbuf=malloc(newalloc);
-            if (!nbuf) 
+  #ifdef WDL_HEAPBUF_TRACE
+            char tmp[512];
+            wsprintf(tmp,"WDL_HeapBuf: type %s realloc(%d) from %d\n",m_tracetype,newalloc,m_alloc);
+            OutputDebugString(tmp);
+  #endif
+            void *nbuf=
+  #ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
+              (m_buf == m_smallbuf) ? NULL : 
+  #endif
+            realloc(m_buf,newalloc);
+            if (!nbuf && newalloc) 
             {
-              // todo: throw some error here, because we couldnt allocate our block!!
-              nbuf=m_buf;
+              if (!(nbuf=malloc(newalloc))) return m_size?m_buf:0; // failed, do not resize
+
+              if (m_buf) 
+              {
+                int sz=newsize<m_size?newsize:m_size;
+                if (sz>0) memcpy(nbuf,m_buf,sz);
+#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
+                if (m_buf != m_smallbuf) 
+#endif
+                  free(m_buf);
+              }
             }
-            else
-            {
-              if (m_buf) memcpy(nbuf,m_buf,newsize<m_size?newsize:m_size);
-              free(m_buf);
-              m_buf=0;
-            }
-          }
 
-          m_buf=nbuf;
-          m_alloc=newalloc;
-        }
-      }
-
-      m_size=newsize;
-
-      return m_buf;
+            m_buf=nbuf;
+            m_alloc=newalloc;
+          } // alloc size change
+        } // need size up or down
+        m_size=newsize;
+      } // size change
+      return m_size?m_buf:0;
     }
 #endif
 
 
 #ifndef WDL_HEAPBUF_IMPL_ONLY
   private:
-    int m_granul;
     void *m_buf;
+    int m_granul;
     int m_alloc;
     int m_size;
     int m_mas;
+
+#ifdef WDL_HEAPBUF_SMALLONSTACKSIZE
+    double m_smallbuf[WDL_HEAPBUF_SMALLONSTACKSIZE/sizeof(double)]; // for small uses
+#endif
+#ifdef WDL_HEAPBUF_TRACE
+    const char *m_tracetype;
+#endif
 };
 
 template<class PTRTYPE> class WDL_TypedBuf 
 {
   public:
-    WDL_TypedBuf(int granul=4096) : m_hb(granul)
+    WDL_TypedBuf(int granul=4096
+#ifdef WDL_HEAPBUF_TRACE
+      , const char *tracetype="WDL_TypedBuf"
+#endif      
+      ) : m_hb(granul WDL_HEAPBUF_TRACEPARM(tracetype))
     {
     }
     ~WDL_TypedBuf()

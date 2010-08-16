@@ -109,6 +109,7 @@ public:
   {
     int sz=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
     m_fb=sz>0?(LICE_pixel*)malloc(sz):0;
+    if (!m_fb) {m_width=m_height=0; }
   }
 
   ~LICE_MemBitmap() { free(m_fb); }

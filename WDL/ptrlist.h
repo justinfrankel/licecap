@@ -39,7 +39,7 @@
 template<class PTRTYPE> class WDL_PtrList 
 {
   public:
-    WDL_PtrList()
+    WDL_PtrList() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_PtrList"))
     {
     }
     ~WDL_PtrList()
@@ -47,20 +47,24 @@ template<class PTRTYPE> class WDL_PtrList
     }
 
     PTRTYPE **GetList() { return (PTRTYPE**)m_hb.Get(); }
-    PTRTYPE *Get(int index) { if (GetList() && index >= 0 && index < GetSize()) return GetList()[index]; return NULL; }
+    PTRTYPE *Get(INT_PTR index) { if (GetList() && index >= 0 && index < (INT_PTR)GetSize()) return GetList()[index]; return NULL; }
     int GetSize(void) { return m_hb.GetSize()/sizeof(PTRTYPE *); }  
 
     int Find(PTRTYPE *p)
     {
-      int x;
-      if (p) for (x = 0; x < GetSize(); x ++) if (Get(x) == p) return x;
+      if (p)
+      {
+        int x;     
+        PTRTYPE **list=(PTRTYPE **)m_hb.Get();
+        for (x = 0; x < GetSize(); x ++) if (list[x] == p) return x;
+      }
       return -1;
     }
 
     PTRTYPE *Add(PTRTYPE *item)
     {
       int s=GetSize();
-      m_hb.Resize((s+1)*sizeof(PTRTYPE*));
+      m_hb.Resize((s+1)*sizeof(PTRTYPE*),false);
       return Set(s,item);
     }
 
@@ -73,7 +77,7 @@ template<class PTRTYPE> class WDL_PtrList
     PTRTYPE *Insert(int index, PTRTYPE *item)
     {
       int s=GetSize();
-      m_hb.Resize((s+1)*sizeof(PTRTYPE*));
+      m_hb.Resize((s+1)*sizeof(PTRTYPE*),false);
 
       if (index<0) index=0;
       else if (index > s) index=s;
@@ -98,7 +102,7 @@ template<class PTRTYPE> class WDL_PtrList
           else delete Get(index);
         }
         if (index < --size) memcpy(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
-        m_hb.Resize(size * sizeof(PTRTYPE*));
+        m_hb.Resize(size * sizeof(PTRTYPE*),false);
       }
     }
     void Empty(bool wantDelete=false, void (*delfunc)(void *)=NULL)
@@ -113,7 +117,7 @@ template<class PTRTYPE> class WDL_PtrList
           m_hb.Resize(x*sizeof(PTRTYPE *),false);
         }
       }
-      m_hb.Resize(0);
+      m_hb.Resize(0,false);
     }
 
   private:

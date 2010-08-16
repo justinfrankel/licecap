@@ -36,7 +36,7 @@
 class WDL_CircBuf
 {
 public:
-  WDL_CircBuf()
+  WDL_CircBuf() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_CircBuf"))
   {
     m_size = 0;
     m_inbuf = 0;
@@ -47,7 +47,7 @@ public:
   }
   void SetSize(int size, bool keepcontents=false)
   {
-    WDL_HeapBuf tmp;
+    WDL_HeapBuf tmp(4096 WDL_HEAPBUF_TRACEPARM("WDL_CircBuf/TEMP"));
     if (keepcontents) 
     {
       int ms=NbInBuf(); 

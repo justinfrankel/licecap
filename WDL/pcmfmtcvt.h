@@ -33,6 +33,8 @@
 #define _PCMFMTCVT_H_
 
 
+#include "wdltypes.h"
+
 #ifndef PCMFMTCVT_DBL_TYPE
 #define PCMFMTCVT_DBL_TYPE double
 #endif

@@ -33,6 +33,7 @@ bool LICE_MemBitmap::resize(int w, int h)
         m_fb=(LICE_pixel*)malloc(sz);
       }
     }
+    if (!m_fb) {m_width=m_height=0; }
 
     return true;
   }
@@ -60,8 +61,13 @@ LICE_SysBitmap::LICE_SysBitmap(int w, int h)
 LICE_SysBitmap::~LICE_SysBitmap()
 {
 #ifdef _WIN32
+  if (m_oldbitmap && m_dc) 
+  {
+    SelectObject(m_dc,m_oldbitmap);
+    m_oldbitmap=0;
+  }
   if(m_bitmap) DeleteObject(m_bitmap);
-  DeleteDC(m_dc);
+  if (m_dc) DeleteDC(m_dc);
 #else
   if (m_dc)
     WDL_GDP_DeleteContext(m_dc);
@@ -70,6 +76,10 @@ LICE_SysBitmap::~LICE_SysBitmap()
 
 bool LICE_SysBitmap::resize(int w, int h)
 {
+#ifdef _WIN32
+  if (!m_dc) { m_width=m_height=0; m_bits=0; return false; }
+#endif
+
   if (m_width==w && m_height == h) return false;
 
   m_width=w;
@@ -95,11 +105,13 @@ bool LICE_SysBitmap::resize(int w, int h)
   pbmInfo.bmiHeader.biCompression = BI_RGB;
   m_bitmap = CreateDIBSection( NULL, &pbmInfo, DIB_RGB_COLORS, (void **)&m_bits, NULL, 0);
 
-  m_oldbitmap=SelectObject(m_dc, m_bitmap);
+  if (m_bitmap) m_oldbitmap=SelectObject(m_dc, m_bitmap);
+  else { m_width=m_height=0; m_bits=0; }
 #else
   if (m_dc) WDL_GDP_DeleteContext(m_dc);
   m_dc=WDL_GDP_CreateMemContext(0,w,h);
-  m_bits=(LICE_pixel*)SWELL_GetCtxFrameBuffer(m_dc);
+  if (!m_dc) { m_width=m_height=0; m_bits=0; }
+  else m_bits=(LICE_pixel*)SWELL_GetCtxFrameBuffer(m_dc);
 #endif
 
   return true;
@@ -1215,7 +1227,7 @@ void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
       double iy=1.0/(double)(nypos-cypos);
       for (x = 0; x < div_w-1; x ++)
       {
-        int nxpos=(xpos+=dxpos);
+        int nxpos=(int) (xpos+=dxpos);
         if (nxpos != cxpos)
         {
           int offs=x*2;
@@ -1241,7 +1253,7 @@ void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
           double dtdxdy = (dtdx2-dtdx)*iy;
 
           LICE_DeltaBlit(dest,src,cxpos,cypos,nxpos-cxpos,nypos-cypos,
-              sx,sy,sw,sh,
+              (float)sx,(float)sy,(float)sw,(float)sh,
               dsdx,dtdx,dsdy,dtdy,dsdxdy,dtdxdy,false,alpha,mode);
         }
 

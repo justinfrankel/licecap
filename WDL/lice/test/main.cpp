@@ -188,7 +188,8 @@ static void DoPaint(HWND hwndDlg)
     case 11:
       //line test
     {
-      LICE_Line(framebuffer, rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), rand()%framebuffer->getWidth(), rand()%framebuffer->getHeight(), LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+      int w = framebuffer->getWidth(), h = framebuffer->getHeight();      
+      LICE_Line(framebuffer, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
     }
       break;
     case 12:
