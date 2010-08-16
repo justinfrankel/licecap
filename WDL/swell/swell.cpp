@@ -31,6 +31,9 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #import <Carbon/Carbon.h>
+#include <libkern/OSAtomic.h>
+#include <pthread.h>
+#include <sched.h>
 
 
 char *lstrcpyn(char *dest, const char *src, int l)
@@ -99,29 +102,6 @@ BOOL SWELL_PtInRect(RECT *r, POINT p)
 }
 
 
-BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah)
-{
-  if (content1 && !strnicmp(content1,"http://",7))
-  {
-    OSStatus err;
-    ICInstance inst;
-    long startSel;
-    long endSel;
-    err = ICStart(&inst, '????');           // Use your creator code if you have one!
-    if (err == noErr) {
-    {
-      startSel = 0;
-      endSel = strlen(content1);
-      err = ICLaunchURL(inst, "\p", (char *) content1,
-                        strlen(content1), &startSel, &endSel);
-    }
-      (void) ICStop(inst);
-    }
-    return err==noErr;    
-  }
-  return FALSE;
-}
-
 int MulDiv(int a, int b, int c)
 {
   if(c == 0) return 0;
@@ -163,6 +143,241 @@ unsigned int  _controlfp(unsigned int flag, unsigned int mask)
   return 0;
 #endif
 }
+
+
+enum
+{
+  INTERNAL_OBJECT_START= 0x1000001,
+  INTERNAL_OBJECT_THREAD,
+  INTERNAL_OBJECT_EVENT,
+  INTERNAL_OBJECT_END
+};
+
+typedef struct
+{
+   int type; // INTERNAL_OBJECT_*
+   int count; // reference count
+} SWELL_InternalObjectHeader;
+
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  DWORD (*threadProc)(LPVOID);
+  void *threadParm;
+  pthread_t pt;
+  DWORD retv;
+  bool done;
+} SWELL_InternalObjectHeader_Thread;
+
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+
+  bool isSignal;
+  bool isManualReset;
+  
+} SWELL_InternalObjectHeader_Event;
+
+
+BOOL CloseHandle(HANDLE hand)
+{
+  SWELL_InternalObjectHeader *hdr=(SWELL_InternalObjectHeader*)hand;
+  if (!hdr) return FALSE;
+  if (hdr->type <= INTERNAL_OBJECT_START || hdr->type >= INTERNAL_OBJECT_END) return FALSE;
+  
+  if (!OSAtomicDecrement32(&hdr->count))
+  {
+    switch (hdr->type)
+    {
+      case INTERNAL_OBJECT_EVENT:
+        {
+          SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hdr;
+          pthread_cond_destroy(&evt->cond);
+          pthread_mutex_destroy(&evt->mutex);
+        }
+      break;
+      case INTERNAL_OBJECT_THREAD:
+        {
+          SWELL_InternalObjectHeader_Thread *thr = (SWELL_InternalObjectHeader_Thread*)hdr;
+          void *tmp;
+          pthread_join(thr->pt,&tmp);
+          pthread_detach(thr->pt);
+        }
+      break;
+    }
+    free(hdr);
+  }
+  return TRUE;
+}
+
+
+DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
+{
+  SWELL_InternalObjectHeader *hdr=(SWELL_InternalObjectHeader*)hand;
+  if (!hdr) return WAIT_FAILED;
+  
+  switch (hdr->type)
+  {
+    case INTERNAL_OBJECT_THREAD:
+      {
+        SWELL_InternalObjectHeader_Thread *thr = (SWELL_InternalObjectHeader_Thread*)hdr;
+        void *tmp;
+        if (!thr->done) 
+        {
+          if (!msTO) return WAIT_TIMEOUT;
+          if (msTO != INFINITE)
+          {
+            DWORD d=GetTickCount()+msTO;
+            while (GetTickCount()<d && !thr->done) Sleep(1);
+            if (!thr->done) return WAIT_TIMEOUT;
+          }
+        }
+    
+        if (!pthread_join(thr->pt,&tmp)) return WAIT_OBJECT_0;      
+      }
+    break;
+    case INTERNAL_OBJECT_EVENT:
+      {
+        SWELL_InternalObjectHeader_Event *evt = (SWELL_InternalObjectHeader_Event*)hdr;    
+        int rv=WAIT_OBJECT_0;
+        pthread_mutex_lock(&evt->mutex);
+        if (msTO == 0)  
+        {
+          if (!evt->isSignal) rv=WAIT_TIMEOUT;
+        }
+        else if (msTO == INFINITE)
+        {
+          while (!evt->isSignal) pthread_cond_wait(&evt->cond,&evt->mutex);
+        }
+        else
+        {
+          // timed wait
+          struct timespec ts={msTO/1000, (msTO%1000)*1000000};      
+          while (!evt->isSignal) 
+          {
+            if (pthread_cond_timedwait_relative_np(&evt->cond,&evt->mutex,&ts)==ETIMEDOUT)
+            {
+              rv = WAIT_TIMEOUT;
+              break;
+            }
+            // we should track/correct the timeout amount here since in theory we could end up waiting a bit longer!
+          }
+        }    
+        if (!evt->isManualReset && rv==WAIT_OBJECT_0) evt->isSignal=false;
+        pthread_mutex_unlock(&evt->mutex);
+  
+        return rv;
+      }
+    break;
+  }
+  
+  return WAIT_FAILED;
+}
+
+static void *__threadproc(void *parm)
+{
+  SWELL_InternalObjectHeader_Thread *t=(SWELL_InternalObjectHeader_Thread*)parm;
+  t->retv=t->threadProc(t->threadParm);  
+  t->done=1;
+  CloseHandle(parm);  
+  pthread_exit(0);
+  return 0;
+}
+
+DWORD GetCurrentThreadId()
+{
+  return (DWORD)pthread_self();
+}
+
+HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored)
+{
+  SWELL_InternalObjectHeader_Event *buf = (SWELL_InternalObjectHeader_Event*)malloc(sizeof(SWELL_InternalObjectHeader_Event));
+  buf->hdr.type=INTERNAL_OBJECT_EVENT;
+  buf->hdr.count=1;
+  buf->isSignal = !!initialSig;
+  buf->isManualReset = !!manualReset;
+  
+  pthread_mutex_init(&buf->mutex,NULL);
+  pthread_cond_init(&buf->cond,NULL);
+  
+  return (HANDLE)buf;
+}
+
+
+HANDLE CreateThread(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut)
+{
+  SWELL_InternalObjectHeader_Thread *buf = (SWELL_InternalObjectHeader_Thread *)malloc(sizeof(SWELL_InternalObjectHeader_Thread));
+  buf->hdr.type=INTERNAL_OBJECT_THREAD;
+  buf->hdr.count=2;
+  buf->threadProc=ThreadProc;
+  buf->threadParm = parm;
+  buf->retv=0;
+  buf->pt=0;
+  buf->done=0;
+  pthread_create(&buf->pt,NULL,__threadproc,buf);
+  
+  if (tidOut) *tidOut=(DWORD)buf->pt;
+
+  return (HANDLE)buf;
+}
+
+
+BOOL SetThreadPriority(HANDLE hand, int prio)
+{
+  SWELL_InternalObjectHeader_Thread *evt=(SWELL_InternalObjectHeader_Thread*)hand;
+  if (!evt || evt->hdr.type != INTERNAL_OBJECT_THREAD) return FALSE;
+  
+  if (evt->done) return FALSE;
+    
+  int pol;
+  struct sched_param param;
+  if (!pthread_getschedparam(evt->pt,&pol,&param))
+  {
+
+//    printf("thread prio %d(%d,%d), %d(FIFO=%d, RR=%d)\n",param.sched_priority, sched_get_priority_min(pol),sched_get_priority_max(pol), pol,SCHED_FIFO,SCHED_RR);
+    param.sched_priority = 31 + prio;
+    int mt=sched_get_priority_min(pol);
+    if (param.sched_priority<mt||param.sched_priority > (mt=sched_get_priority_max(pol)))param.sched_priority=mt;
+    
+    if (!pthread_setschedparam(evt->pt,pol,&param))
+    {
+      return TRUE;
+    }
+  }
+  
+  
+  
+  return FALSE;
+}
+
+BOOL SetEvent(HANDLE hand)
+{
+  SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hand;
+  if (!evt || evt->hdr.type != INTERNAL_OBJECT_EVENT) return FALSE;
+  
+  pthread_mutex_lock(&evt->mutex);
+  if (!evt->isSignal)
+  {
+    evt->isSignal = true;
+    if (evt->isManualReset) pthread_cond_broadcast(&evt->cond);
+    else pthread_cond_signal(&evt->cond);
+  }
+  pthread_mutex_unlock(&evt->mutex);
+  return TRUE;
+}
+BOOL ResetEvent(HANDLE hand)
+{
+  SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hand;
+  if (!evt || evt->hdr.type != INTERNAL_OBJECT_EVENT) return FALSE;
+  
+  evt->isSignal=false;
+  
+  return TRUE;
+}
+
 
 
 #endif

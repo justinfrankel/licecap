@@ -3,9 +3,6 @@
 $fp = fopen("php://stdin","r");
 if (!$fp) die("cant open stdin\n");
 
-echo '#include "../../WDL/swell/swell-menugen.h"' . "\n";
-echo '#include "../resource.h"' . "\n";
-echo "\n";
 
 
 $menu_symbol="";

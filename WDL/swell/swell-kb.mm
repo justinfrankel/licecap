@@ -25,6 +25,7 @@
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
+#include "swell-dlggen.h"
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 
@@ -38,7 +39,10 @@ static int MacKeyCodeToVK(int code)
     case 65: return VK_DECIMAL;
     case 67: return VK_MULTIPLY;
     case 69: return VK_ADD;
+    case 71: return VK_NUMLOCK;
     case 75: return VK_DIVIDE;
+    case 76: return VK_RETURN|0x8000;
+    case 27:
     case 78: return VK_SUBTRACT;
     case 81: return VK_SEPARATOR;
     case 82: return VK_NUMPAD0;
@@ -51,10 +55,25 @@ static int MacKeyCodeToVK(int code)
     case 89: return VK_NUMPAD7;
     case 91: return VK_NUMPAD8;
     case 92: return VK_NUMPAD9;
+    case 96: return VK_F5;
+    case 97: return VK_F6;
+    case 98: return VK_F7;
+    case 99: return VK_F3;
+    case 100: return VK_F8;
+    case 101: return VK_F9;
+    case 109: return VK_F10;
+    case 103: return VK_F11;
+    case 105: return VK_SNAPSHOT;
+    case 111: return VK_F12;
+    case 114: return VK_INSERT;
 		case 115: return VK_HOME;
+    case 117: return VK_DELETE;
 		case 116: return VK_PRIOR;
+    case 118: return VK_F4;
 		case 119: return VK_END;
+    case 120: return VK_F2;
 		case 121: return VK_NEXT;
+    case 122: return VK_F1;
 		case 123: return VK_LEFT;
 		case 124: return VK_RIGHT;
 		case 125: return VK_DOWN;
@@ -75,17 +94,26 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
     if (mod & NSAlternateKeyMask) flag|=FALT;
     
     int rawcode=[theEvent keyCode];
+//    printf("rawcode %d\n",rawcode);
+    
     int code=MacKeyCodeToVK(rawcode);
     if (!code)
     {
       NSString *str=[theEvent charactersIgnoringModifiers];
       const char *p=[str cStringUsingEncoding: NSASCIIStringEncoding];
-      if (!p) return 0;
+      if (!p) 
+      {
+        return 0;
+      }
       code=toupper(*p);
       if (code == 25 && (flag&FSHIFT)) code=VK_TAB;
       if (isalnum(code)||code==' ' || code == '\r' || code == '\n' || code ==27 || code == VK_TAB) flag|=FVIRTKEY;
     }
-    else flag|=FVIRTKEY;
+    else
+    {
+      flag|=FVIRTKEY;
+      if (code==8) code='\b';
+    }
     
     //if (code == ' ' && flag==(FVIRTKEY) && (mod&NSControlKeyMask)) flag|=FCONTROL;
     
@@ -109,7 +137,6 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
         default: flag=0; break;
       }
     }
- //   printf("rawcode=%d (%c), output code=%d (%c), flag=%d\n",rawcode,rawcode,code,code,flag);
     
     if (flags) *flags=flag;
     return code;
@@ -142,6 +169,8 @@ DWORD GetMessagePos()
   return MAKELONG((int)localpt.x, (int)localpt.y);
 }
 
+SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
+
 HCURSOR SWELL_LoadCursor(int idx)
 {
   switch (idx)
@@ -160,6 +189,24 @@ HCURSOR SWELL_LoadCursor(int idx)
       return (HCURSOR)[NSCursor resizeUpCursor];
     case IDC_IBEAM: return (HCURSOR)[NSCursor IBeamCursor];
   }
+  SWELL_CursorResourceIndex *p = SWELL_curmodule_cursorresource_head;
+  while (p)
+  {
+    if (p->resid == idx)
+    {
+      if (p->cachedCursor) return p->cachedCursor;
+      
+      NSString *str = (NSString *)SWELL_CStringToCFString(p->resname);     
+      NSImage *img = [NSImage imageNamed:str];
+      [str release];
+      if (img)
+      {      
+        return p->cachedCursor=(HCURSOR)[[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(p->hotspot.x,p->hotspot.y)];
+      }
+    }
+    p=p->_next;
+  }
+  // search registered cursor list here
   return 0;
 }
 

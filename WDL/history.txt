@@ -1,3 +1,8 @@
+2008-05-05: SWELL: huge updates (too much to list)
+2008-04-28: LICE: schwa's updated lice_bezier with support for quadratic nurbs
+2008-04-27: SWELL: updates to EndDialog, added rc2cpp_dlg.php
+2008-04-0x: fileread improvements for errors in async mode
+2008-03-01: SWELL: ImageList_Destroy support
 2008-02-09: lineparser improvements
 2008-02-09: slightly faster drawtext, text cleanups
 2008-02-09: virtwnd buttons only refresh on changes of button images

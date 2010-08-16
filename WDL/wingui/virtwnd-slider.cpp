@@ -608,7 +608,11 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
   if (isVert)
   {
-    if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || viewh <= bm_h)
+#ifndef _WIN32
+    if (isup) pos=m_pos;
+    else 
+#endif
+      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || viewh <= bm_h)
     {
       pos = m_pos- (ypos-m_last_y);
       precmode=1;
@@ -619,6 +623,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     }
     if (pos < m_minr)pos=m_minr;
     else if (pos > m_maxr)pos=m_maxr;
+    
 
     if (pos != m_pos || isup)
     {
@@ -637,7 +642,11 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
   }
   else
   {
-    if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || vieww <= bm_w)
+#ifndef _WIN32
+    if (isup) pos=m_pos;
+    else 
+#endif
+      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || vieww <= bm_w)
     {
       pos = m_pos+ (xpos-m_last_x);
       precmode=1;

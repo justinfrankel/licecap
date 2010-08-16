@@ -29,6 +29,9 @@
 #include "swell-menugen.h"
 #import <Cocoa/Cocoa.h>
 
+#define PopupRecv __SWELL_PREFIX_CLASSNAME(_PopupRecv)
+#define menuItemDataHold __SWELL_PREFIX_CLASSNAME(_menuItemDH)
+
 
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
 {
@@ -226,6 +229,7 @@ void DestroyMenu(HMENU hMenu)
   }
 }
 
+
 @interface menuItemDataHold : NSObject
 {
   DWORD m_data;
@@ -393,6 +397,14 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
 }
 
+void SWELL_InsertMenu(HMENU menu, int pos, int flag, int idx, const char *str)
+{
+  MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
+    (flag & ~MF_BYPOSITION),idx,NULL,NULL,NULL,0,(char *)str};
+  InsertMenuItem(menu,pos,(flag&MF_BYPOSITION) ?  TRUE : FALSE, &mi);
+}
+
+
 void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 {
   if (!hMenu) return;
@@ -501,7 +513,10 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 - (void)menuNeedsUpdate:(NSMenu *)menu
 {
   if (cbwnd)
+  {
     SendMessage(cbwnd,WM_INITMENUPOPUP,(WPARAM)menu,0);
+    SWELL_SetMenuDestination((HMENU)menu,(HWND)self);
+  }
 }
 
 @end
@@ -525,8 +540,11 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
       }
       else
       {
-        [item setTarget:(id)hwnd];
-        if (hwnd) [item setAction:@selector(onCommand:)];
+        if ([item tag])
+        {
+          [item setTarget:(id)hwnd];
+          if (hwnd) [item setAction:@selector(onCommand:)];
+        }
       }
     }
   }
@@ -549,6 +567,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     if (!(flags&TPM_NONOTIFY)&&hwnd)
     {
       SendMessage(hwnd,WM_INITMENUPOPUP,(WPARAM)m,0);
+      SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     }
     
     [NSMenu popUpContextMenu:m withEvent:[NSApp currentEvent] forView:v];
@@ -621,9 +640,11 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
   SWELL_SetMenuDestination(menu,hwnd);
 
   [(id)hwnd swellSetMenu:(HMENU)menu];
-  if ([(id)hwnd isKindOfClass:[NSWindow class]])
+  NSWindow *nswnd = (NSWindow *)hwnd;
+  if ([nswnd isKindOfClass:[NSWindow class]] || 
+     ([nswnd isKindOfClass:[NSView class]] && (nswnd=[nswnd window]) && hwnd == (HWND)[nswnd contentView]))
   {
-    if ([NSApp keyWindow]==(NSWindow *)hwnd &&
+    if ([NSApp keyWindow]==nswnd &&
         [NSApp mainMenu] != (NSMenu *)menu)
     {
       [NSApp setMainMenu:(NSMenu *)menu];

@@ -107,7 +107,7 @@ public:
     }
     else if (nbufs*bufsize>=WIN32_UNBUF_ALIGN && !mmap_maxsize) flags|=FILE_FLAG_NO_BUFFERING; // non-async mode unbuffered if we do our own buffering
 
-    m_fh = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
+    m_fh = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
 
     if (m_fh != INVALID_HANDLE_VALUE)
     {
@@ -218,8 +218,10 @@ public:
 
 #ifdef WDL_WIN32_NATIVE_READ
 
-  void RunReads()
+  int RunReads()
   {
+    int retval=0;
+
     while (m_pending.GetSize())
     {
       WDL_FileRead__ReadEnt *ent=m_pending.Get(0);
@@ -256,7 +258,11 @@ public:
         DWORD dw;
         if (ReadFile(m_fh,t->m_buf,m_async_bufsize,&dw,&t->m_ol))
         {
-          if (!dw) break;
+          if (!dw) 
+          {
+            retval++;
+            break;
+          }
 
           m_empties.Delete(x);
           t->m_size=dw;
@@ -266,6 +272,7 @@ public:
         {
           if (GetLastError() != ERROR_IO_PENDING) 
           {
+            retval++;
             break;
           }
           t->m_size=0;
@@ -276,6 +283,7 @@ public:
         break;
       }
     }
+    return retval;
   }
 
   int AsyncRead(char *buf, int maxlen)
@@ -288,6 +296,7 @@ public:
     }
     if (maxlen<1) return 0;
 
+    int errcnt=0;
     do
     {
       while (m_full.GetSize() > 0)
@@ -329,7 +338,7 @@ public:
         }
       }
 
-      RunReads();
+      errcnt+=RunReads();
       
       if (maxlen > 0 && m_pending.GetSize() && !m_full.GetSize())
       {
@@ -355,8 +364,8 @@ public:
         }
       }
     }
-    while (maxlen > 0 && (m_pending.GetSize()||m_full.GetSize()));
-    RunReads();
+    while (maxlen > 0 && (m_pending.GetSize()||m_full.GetSize()) && !errcnt);
+    if (!errcnt) RunReads();
 
     return lenout;
   }

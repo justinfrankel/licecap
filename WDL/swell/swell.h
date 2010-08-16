@@ -139,7 +139,7 @@ typedef int *LPINT;
 typedef struct HWND__ { 
   int bla;
 } *HWND;
-typedef void *HANDLE, *HMENU, *HINSTANCE;
+typedef void *HANDLE, *HMENU, *HINSTANCE, *HDROP;
 
 typedef struct 
 {
@@ -254,6 +254,80 @@ typedef struct TCITEM
 } TCITEM, *LPTCITEM;
 
 
+typedef void *HTREEITEM;
+
+#define TVIF_TEXT               0x0001
+#define TVIF_IMAGE              0x0002
+#define TVIF_PARAM              0x0004
+#define TVIF_STATE              0x0008
+#define TVIF_HANDLE             0x0010
+#define TVIF_SELECTEDIMAGE      0x0020
+#define TVIF_CHILDREN           0x0040
+
+#define TVIS_SELECTED           0x0002
+#define TVIS_DROPHILITED        0x0008
+#define TVIS_EXPANDED           0x0020
+
+#define TVE_COLLAPSE            0x0001
+#define TVE_EXPAND              0x0002
+#define TVE_TOGGLE              0x0003
+
+#define TVN_FIRST               (0U-400U)       // treeview
+#define TVN_SELCHANGED          (TVN_FIRST-2)
+
+#define TVI_ROOT                ((HTREEITEM)0xFFFF0000)
+#define TVI_FIRST               ((HTREEITEM)0xFFFF0001)
+#define TVI_LAST                ((HTREEITEM)0xFFFF0002)
+#define TVI_SORT                ((HTREEITEM)0xFFFF0003)
+
+#define TVHT_NOWHERE            0x0001
+#define TVHT_ONITEMICON         0x0002
+#define TVHT_ONITEMLABEL        0x0004
+#define TVHT_ONITEM             (TVHT_ONITEMICON | TVHT_ONITEMLABEL | TVHT_ONITEMSTATEICON)
+#define TVHT_ONITEMINDENT       0x0008
+#define TVHT_ONITEMBUTTON       0x0010
+#define TVHT_ONITEMRIGHT        0x0020
+#define TVHT_ONITEMSTATEICON    0x0040
+
+#define TVHT_ABOVE              0x0100
+#define TVHT_BELOW              0x0200
+#define TVHT_TORIGHT            0x0400
+#define TVHT_TOLEFT             0x0800
+
+typedef struct {
+  UINT      mask;
+  HTREEITEM hItem;
+  UINT      state;
+  UINT      stateMask;
+  char *pszText;
+  int       cchTextMax;
+  int       iImage;
+  int       iSelectedImage;
+  int       cChildren;
+  LPARAM    lParam;
+} TVITEM, TV_ITEM, *LPTVITEM, *LPTV_ITEM;
+
+typedef struct {
+  HTREEITEM hParent;
+  HTREEITEM hInsertAfter;
+  TVITEM item;
+} TVINSERTSTRUCT, *LPTVINSERTSTRUCT, TV_INSERTSTRUCT, *LPTV_INSERTSTRUCT;
+
+typedef struct {
+  POINT       pt;
+  UINT        flags;
+  HTREEITEM   hItem;
+} TVHITTESTINFO, *LPTVHITTESTINFO;
+
+typedef struct {
+  NMHDR       hdr;
+  UINT        action;
+  TVITEM    itemOld;
+  TVITEM    itemNew;
+  POINT       ptDrag;
+} NMTREEVIEW, *LPNMTREEVIEW;
+
+
 typedef struct
 {
   unsigned int cbSize, fMask, fType, fState, wID;
@@ -309,6 +383,15 @@ typedef struct
   DWORD   styleNew;
 } STYLESTRUCT, *LPSTYLESTRUCT;
 
+typedef struct _DROPFILES {
+   DWORD pFiles;                       // offset of file list
+   POINT pt;                           // drop point (client coords)
+   BOOL fNC;                           // is it on NonClient area
+                                       // and pt is in screen coords
+   BOOL fWide;                         // WIDE character switch
+} DROPFILES, *LPDROPFILES;
+
+
 typedef struct
 {
   HWND    hwnd;
@@ -363,6 +446,10 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define GWL_WNDPROC         (-4)
 #define DWL_DLGPROC         (-8)
 
+#define WS_CHILDWINDOW 4096
+#define WS_CHILD 4096
+
+
 #define CB_ADDSTRING                0x0143
 #define CB_DELETESTRING             0x0144
 #define CB_GETCOUNT                 0x0146
@@ -378,6 +465,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define LB_ADDSTRING            0x0180
 #define LB_INSERTSTRING         0x0181
 #define LB_DELETESTRING         0x0182
+#define LB_GETTEXT              0x0183
 #define LB_RESETCONTENT         0x0184
 #define LB_SETSEL               0x0185
 #define LB_SETCURSEL            0x0186
@@ -438,6 +526,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define LVIS_FOCUSED 2
 #define LVNI_FOCUSED 1
 #define INDEXTOSTATEIMAGEMASK(x) ((x)<<16)
+#define LVIS_STATEIMAGEMASK (255<<16)
 
 #define LVN_FIRST               (0U-100U)       // listview
 #define LVN_LAST                (0U-199U)
@@ -473,10 +562,15 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define BST_INDETERMINATE 2
 #define SW_HIDE 0
 #define SW_SHOWNA 1
+#define SW_SHOWNOACTIVATE 1
 #define SW_SHOW 2
 #define SW_NORMAL 2
 #define SW_SHOWNORMAL 2
 #define SW_SHOWMAXIMIZED 2 // todo: make this
+#define SW_SHOWDEFAULT SW_SHOWNORMAL
+
+
+
 #define SWP_NOMOVE 1
 #define SWP_NOSIZE 2
 #define SWP_NOZORDER 4
@@ -506,6 +600,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define MIIM_SUBMENU 8
 #define MIIM_DATA 16
 #define MFT_STRING 0
+#define MF_STRING 0
 #define MFT_SEPARATOR 1
 #define MFT_BITMAP 2
 
@@ -531,6 +626,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_DESTROY                      0x0002
 #define WM_MOVE                         0x0003
 #define WM_SIZE                         0x0005
+#define WM_ACTIVATE                     0x0006
 #define WM_PAINT                        0x000F
 #define WM_CLOSE                        0x0010
 #define WM_ERASEBKGND                   0x0014
@@ -586,7 +682,17 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_MOUSEWHEEL                   0x020A
 #define WM_MOUSELAST                    0x020A
 #define WM_CAPTURECHANGED               0x0215
+#define WM_DROPFILES                    0x0233
 #define WM_USER                         0x0400      
+
+#define     WA_INACTIVE     0
+#define     WA_ACTIVE       1
+#define     WA_CLICKACTIVE  2
+
+
+#define LBN_SELCHANGE       1
+#define LBN_DBLCLK          2
+#define LB_ERR (-1)
 
 #define CBN_SELCHANGE       0
 #define CBN_EDITCHANGE 1
@@ -668,6 +774,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define HTVSCROLL           7
 
 #define WS_EX_LEFTSCROLLBAR     0x00004000L
+#define WS_EX_ACCEPTFILES       0x00000010L
 
 #define SIF_RANGE           0x0001
 #define SIF_PAGE            0x0002
@@ -726,6 +833,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define VK_DOWN           0x28
 #define VK_SELECT         0x29
 #define VK_PRINT          0x2A
+#define VK_SNAPSHOT       0x2C
 #define VK_INSERT         0x2D
 #define VK_DELETE         0x2E
 #define VK_HELP           0x2F
@@ -758,6 +866,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define VK_F10            0x79
 #define VK_F11            0x7A
 #define VK_F12            0x7B
+#define VK_NUMLOCK        0x90
 
 #define MK_LBUTTON        0x01
 #define MK_RBUTTON        0x20
@@ -853,6 +962,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define _RC_CHOP        0x00000300              /*   chop */
 
 
+extern struct SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 extern struct SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head;
 extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 
@@ -903,6 +1013,27 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 #define SM_CYICONSPACING        39
 
 #endif // unimplemented system metrics
+
+
+#define THREAD_BASE_PRIORITY_LOWRT  15
+#define THREAD_BASE_PRIORITY_MAX    2
+#define THREAD_BASE_PRIORITY_MIN    -2
+#define THREAD_BASE_PRIORITY_IDLE   -15
+#define THREAD_PRIORITY_LOWEST          THREAD_BASE_PRIORITY_MIN
+#define THREAD_PRIORITY_BELOW_NORMAL    (THREAD_PRIORITY_LOWEST+1)
+#define THREAD_PRIORITY_NORMAL          0
+#define THREAD_PRIORITY_HIGHEST         THREAD_BASE_PRIORITY_MAX
+#define THREAD_PRIORITY_ABOVE_NORMAL    (THREAD_PRIORITY_HIGHEST-1)
+#define THREAD_PRIORITY_TIME_CRITICAL   THREAD_BASE_PRIORITY_LOWRT
+#define THREAD_PRIORITY_IDLE            THREAD_BASE_PRIORITY_IDLE
+
+
+
+#define WAIT_OBJECT_0       (0 )
+#define WAIT_TIMEOUT                        (0x00000102L)
+#define WAIT_FAILED (DWORD)0xFFFFFFFF
+#define INFINITE            0xFFFFFFFF
+
 
 #endif //_WDL_SWELL_H_TYPES_DEFINED_
 
@@ -1293,6 +1424,7 @@ SWELL_API_DEFINE(void, SWELL_TB_SetTic,(HWND hwnd, int idx, int pos))
 */
 SWELL_API_DEFINE(void, ListView_SetExtendedListViewStyleEx,(HWND h, int flag, int mask))
 SWELL_API_DEFINE(void, ListView_InsertColumn,(HWND h, int pos, const LVCOLUMN *lvc))
+SWELL_API_DEFINE(int, ListView_GetColumnWidth,(HWND h, int pos))
 SWELL_API_DEFINE(int, ListView_InsertItem,(HWND h, const LVITEM *item))
 SWELL_API_DEFINE(void, ListView_SetItemText,(HWND h, int ipos, int cpos, const char *txt))
 SWELL_API_DEFINE(bool, ListView_SetItem,(HWND h, LVITEM *item))
@@ -1312,13 +1444,14 @@ SWELL_API_DEFINE(void, ListView_EnsureVisible,(HWND h, int i, BOOL pok))
 SWELL_API_DEFINE(bool, ListView_GetSubItemRect,(HWND h, int item, int subitem, int code, RECT *r))
 SWELL_API_DEFINE(void, ListView_SetImageList,(HWND h, HIMAGELIST imagelist, int which)) 
 SWELL_API_DEFINE(int, ListView_HitTest,(HWND h, LVHITTESTINFO *pinf))
+SWELL_API_DEFINE(void, ListView_GetItemText,(HWND hwnd, int item, int subitem, char *text, int textmax))
 
 #ifndef ImageList_Create
 #define ImageList_Create(x,y,a,b,c) ImageList_CreateEx();
 #endif
 SWELL_API_DEFINE(HIMAGELIST, ImageList_CreateEx,())
 SWELL_API_DEFINE(void, ImageList_ReplaceIcon,(HIMAGELIST list, int offset, HICON image))
-
+SWELL_API_DEFINE(void, ImageList_Destroy, (HIMAGELIST))
 /*
 ** TabCtrl api. 
 */
@@ -1329,6 +1462,18 @@ SWELL_API_DEFINE(int, TabCtrl_SetCurSel,(HWND hwnd, int idx))
 SWELL_API_DEFINE(int, TabCtrl_GetCurSel,(HWND hwnd))
 SWELL_API_DEFINE(BOOL, TabCtrl_AdjustRect, (HWND hwnd, BOOL fLarger, RECT *r))
 
+/*
+** TreeView
+*/
+
+SWELL_API_DEFINE(HTREEITEM, TreeView_InsertItem, (HWND hwnd, TV_INSERTSTRUCT *ins)) 
+SWELL_API_DEFINE(BOOL, TreeView_Expand,(HWND hwnd, HTREEITEM item, UINT flag))
+SWELL_API_DEFINE(HTREEITEM, TreeView_GetSelection,(HWND hwnd))
+SWELL_API_DEFINE(void, TreeView_DeleteItem,(HWND hwnd, HTREEITEM item))
+SWELL_API_DEFINE(void, TreeView_SelectItem,(HWND hwnd, HTREEITEM item))
+SWELL_API_DEFINE(BOOL, TreeView_GetItem,(HWND hwnd, LPTVITEM pitem))
+SWELL_API_DEFINE(BOOL, TreeView_SetItem,(HWND hwnd, LPTVITEM pitem))
+SWELL_API_DEFINE(HTREEITEM, TreeView_HitTest, (HWND hwnd, TVHITTESTINFO *hti))
 /*
 ** These are deprecated functions for launching a modal window but still running
 ** your own code. In general use DialogBox with a timer if needed instead.
@@ -1356,6 +1501,12 @@ SWELL_API_DEFINE(bool, EnableMenuItem,(HMENU hMenu, int idx, int en))
 SWELL_API_DEFINE(bool, DeleteMenu,(HMENU hMenu, int idx, int flag))
 SWELL_API_DEFINE(bool, CheckMenuItem,(HMENU hMenu, int idx, int chk))
 SWELL_API_DEFINE(void, InsertMenuItem,(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi))
+SWELL_API_DEFINE(void,SWELL_InsertMenu,(HMENU menu, int pos, int flag, int idx, const char *str))
+#ifdef InsertMenu
+#undef InsertMenu
+#endif
+#define InsertMenu SWELL_InsertMenu
+
 SWELL_API_DEFINE(BOOL, GetMenuItemInfo,(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi))
 SWELL_API_DEFINE(BOOL, SetMenuItemInfo,(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi))
 
@@ -1622,6 +1773,17 @@ SWELL_API_DEFINE(void, GlobalFree,(HANDLE h))
 
 
 
+SWELL_API_DEFINE(HANDLE,CreateThread,(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut))
+SWELL_API_DEFINE(HANDLE,CreateEvent,(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored))
+SWELL_API_DEFINE(DWORD,GetCurrentThreadId,())
+SWELL_API_DEFINE(DWORD,WaitForSingleObject,(HANDLE hand, DWORD msTO))
+SWELL_API_DEFINE(BOOL,CloseHandle,(HANDLE hand))
+SWELL_API_DEFINE(BOOL,SetThreadPriority,(HANDLE evt, int prio))
+SWELL_API_DEFINE(BOOL,SetEvent,(HANDLE evt))
+SWELL_API_DEFINE(BOOL,ResetEvent,(HANDLE evt))
+
+
+
 /*
 ** GDI functions.
 ** Everything should be all hunky dory, your windows may get WM_PAINT, call 
@@ -1756,6 +1918,13 @@ SWELL_API_DEFINE(void, SWELL_FillDialogBackground,(HDC hdc, RECT *r, int level))
 
 SWELL_API_DEFINE(int, GetSystemMetrics, (int))
 
+SWELL_API_DEFINE(BOOL, DragQueryPoint,(HDROP,LPPOINT))
+SWELL_API_DEFINE(void, DragFinish,(HDROP))
+SWELL_API_DEFINE(UINT, DragQueryFile,(HDROP,UINT,char *,UINT))
+
+// r=NULL to "free" handle
+// otherwise r is in hwndPar coordinates
+SWELL_API_DEFINE(void,SWELL_DrawFocusRect,(HWND hwndPar, RECT *rct, void **handle))
 
 
 
@@ -1765,12 +1934,11 @@ SWELL_API_DEFINE(int, GetSystemMetrics, (int))
 */
 
 SWELL_API_DEFINE(void, SWELL_MakeSetCurParms,(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit))
-SWELL_API_DEFINE(void, SWELL_Make_SetMessageMode,(int wantParentView))
 
 SWELL_API_DEFINE(HWND, SWELL_MakeButton,(int def, const char *label, int idx, int x, int y, int w, int h, int flags))
 SWELL_API_DEFINE(HWND, SWELL_MakeEditField,(int idx, int x, int y, int w, int h, int flags))
 SWELL_API_DEFINE(HWND, SWELL_MakeLabel,(int align, const char *label, int idx, int x, int y, int w, int h, int flags))
-SWELL_API_DEFINE(HWND, SWELL_MakeControl,(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h))
+SWELL_API_DEFINE(HWND, SWELL_MakeControl,(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle))
 SWELL_API_DEFINE(HWND, SWELL_MakeCombo,(int idx, int x, int y, int w, int h, int flags))
 SWELL_API_DEFINE(HWND, SWELL_MakeGroupBox,(const char *name, int idx, int x, int y, int w, int h))
 SWELL_API_DEFINE(HWND, SWELL_MakeCheckBox,(const char *name, int idx, int x, int y, int w, int h))
@@ -1874,4 +2042,10 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 #endif
 
 
+#ifndef SWELL_APP_PREFIX
+#define SWELL_APP_PREFIX __swell_
+#endif
 
+#ifndef __SWELL_PREFIX_CLASSNAME
+#define __SWELL_PREFIX_CLASSNAME(cname) SWELL_APP_PREFIX##cname
+#endif

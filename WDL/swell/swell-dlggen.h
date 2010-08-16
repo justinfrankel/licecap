@@ -76,14 +76,14 @@
 #define SWELL_DLGGEN_DLGFOLLOWS_EX(par, xscale, yscale, xtrans, ytrans, doauto) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,true);
 #define SWELL_DLGGEN_DLGFOLLOWS_EX2(par, xscale, yscale, xtrans, ytrans, doauto, dosizetofit) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,dosizetofit);
 #define BEGIN (0
-#define END ); SWELL_MakeSetCurParms(1.0,1.0,0,0,NULL,false,true); }
+#define END );  }
 #define PUSHBUTTON ); __SWELL_MakeButton(0,
 #define DEFPUSHBUTTON ); __SWELL_MakeButton(1,
 #define EDITTEXT ); __SWELL_MakeEditField(
 #define CTEXT ); __SWELL_MakeLabel(0,                                
 #define LTEXT ); __SWELL_MakeLabel(-1,
 #define RTEXT ); __SWELL_MakeLabel(1,
-#define CONTROL ); SWELL_MakeControl(                               
+#define CONTROL ); __SWELL_MakeControl(                               
 #define COMBOBOX ); __SWELL_MakeCombo(
 #define GROUPBOX ); SWELL_MakeGroupBox(
 #define CHECKBOX ); SWELL_MakeCheckBox(
@@ -102,12 +102,15 @@
 #define WS_VSCROLL 2048
 #define SS_NOTFIY 1
 #define SS_BLACKRECT 2
+#define SS_BLACKFRAME SS_BLACKRECT
+#define SS_LEFTNOWORDWRAP 8
 #define LVS_LIST 0
 #define LVS_NOCOLUMNHEADER 1
 #define LVS_REPORT 2
 #define LVS_SINGLESEL 4
 #define LVS_OWNERDATA 8                                     
 #define LBS_EXTENDEDSEL 1
+#define SWELL_NOT_WS_VISIBLE 0x100000
                                      
 // things that should be implemented sooner
 #define CBS_SORT 0
@@ -119,7 +122,6 @@
 #define LVS_NOSORTHEADER 0         
 #define LVS_SORTASCENDING 0
 #define LVS_SHAREIMAGELISTS 0
-#define SS_LEFTNOWORDWRAP 0
 #define ES_AUTOHSCROLL 0
 #define ES_MULTILINE 0
 #define ES_AUTOVSCROLL 0
@@ -135,7 +137,20 @@
 #define SS_NOTIFY 0
 #define BS_BITMAP 0
 #define LBS_NOINTEGRALHEIGHT 0
-                                     
+#define TVS_HASLINES 0
+#define TVS_SHOWSELALWAYS 0
+#define BS_OWNERDRAW 0
+#define BS_FLAT 0
+#define TVS_DISABLEDRAGDROP 0
+#define TVS_TRACKSELECT 0
+#define TVS_NONEVENHEIGHT 0
+#define BS_LEFT 0
+#define LBS_SORT 0
+#define SS_SUNKEN 0
+#define LBS_OWNERDRAWFIXED 0
+#define BS_RIGHT 0
+#define WS_EX_STATICEDGE 0
+                                       
                      
                                        
 #ifndef IDC_STATIC
@@ -150,6 +165,7 @@
 #define SWELL_DLG_WS_FLIPPED 4
 #define SWELL_DLG_WS_NOAUTOSIZE 8
 #define SWELL_DLG_WS_OPAQUE 16
+#define SWELL_DLG_WS_DROPTARGET 32
      
 typedef struct SWELL_DialogResourceIndex
 {
@@ -161,7 +177,16 @@ typedef struct SWELL_DialogResourceIndex
   struct SWELL_DialogResourceIndex *_next;
 } SWELL_DialogResourceIndex; 
 
-static HWND __SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0)
+typedef struct SWELL_CursorResourceIndex
+{
+  int resid;
+  const char *resname;
+  POINT hotspot;
+  HCURSOR cachedCursor;
+  struct SWELL_CursorResourceIndex *_next;
+} SWELL_CursorResourceIndex;
+
+static HWND __SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0, int exstyle=0)
 {
   return SWELL_MakeButton(def,label,idx,x,y,w,h,flags);
 }
@@ -182,6 +207,25 @@ static HWND __SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=
   return SWELL_MakeListBox(idx,x,y,w,h,styles);
 }
 
+static HWND __SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle=0)
+{
+  return SWELL_MakeControl(cname,idx,classname,style,x,y,w,h,exstyle);
+}
+
+static void SWELL_Register_Cursor_Resource(int idx, const char *name, int hotspot_x, int hotspot_y)
+{
+  extern SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
+  
+  SWELL_CursorResourceIndex *ri = (SWELL_CursorResourceIndex*)malloc(sizeof(SWELL_CursorResourceIndex));
+  ri->hotspot.x = hotspot_x;
+  ri->hotspot.y = hotspot_y;
+  ri->resname=name;
+  ri->cachedCursor=0;
+  ri->resid = idx;
+  ri->_next = SWELL_curmodule_cursorresource_head;
+  SWELL_curmodule_cursorresource_head = ri;
+}
+
 
 
 #define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(recid, flags, titlestr, wid, hei, scale) \
@@ -189,10 +233,10 @@ static HWND __SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=
                                           public: \
                                             SWELL_DialogResourceIndex m_rec; \
                                             NewCustomResource_##recid () { \
-                                              m_rec.resid=recid; m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
-                                              m_rec._next=SWELL_curmodule_dialogresource_head; SWELL_curmodule_dialogresource_head=&m_rec; } \
+                                              if (recid) { m_rec.resid=recid; m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
+                                              m_rec._next=SWELL_curmodule_dialogresource_head; SWELL_curmodule_dialogresource_head=&m_rec; } } \
                                            static void cf(HWND view, int wflags) { \
-                                             { SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!!(wflags&SWELL_DLG_WS_NOAUTOSIZE)); SWELL_Make_SetMessageMode(!!(wflags&SWELL_DLG_WS_CHILD));
+                                             { SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE)); 
 
                                             
 #define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) } }; static NewCustomResource_##recid NewCustomResourceInst_##recid;                                       
