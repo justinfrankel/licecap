@@ -285,11 +285,11 @@ PLTexTri
       zbuf += XL1;
 
       XL1 += Xlen; // update to new line end pos so we can adjust gmem/zbuf later
-      iUL = iULnext = ((pl_sInt32) (UL*t));
-      iVL = iVLnext = ((pl_sInt32) (VL*t));
+      iULnext = ((pl_sInt32) (UL*t));
+      iVLnext = ((pl_sInt32) (VL*t));
 #ifdef PL_PF_MULTITEX
-      iUL_2 = iULnext_2 = ((pl_sInt32) (UL_2*t));
-      iVL_2 = iVLnext_2 = ((pl_sInt32) (VL_2*t));
+      iULnext_2 = ((pl_sInt32) (UL_2*t));
+      iVLnext_2 = ((pl_sInt32) (VL_2*t));
 #endif
       do {
         UL += dUL;
@@ -323,7 +323,7 @@ PLTexTri
         idUL_2 = (iULnext_2 - iUL_2)>>nmb;
         idVL_2 = (iVLnext_2 - iVL_2)>>nmb;
         if (idUL_2>MappingU_Max_2) idUL_2=MappingU_Max_2;
-        else if (idUL_2<-MappingU_Max_2) idUL=-MappingU_Max_2;
+        else if (idUL_2<-MappingU_Max_2) idUL_2=-MappingU_Max_2;
         if (idVL_2>MappingV_Max_2) idVL_2=MappingV_Max_2;
         else if (idVL_2<-MappingV_Max_2) idVL_2=-MappingV_Max_2;
 

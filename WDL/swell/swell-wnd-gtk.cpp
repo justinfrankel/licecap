@@ -18,7 +18,8 @@
     3. This notice may not be removed or altered from any source distribution.
   
 
-    This file provides basic windows APIs for handling windows, as well as the stubs to enable swell-dlggen to work. GTK+ version.
+    This file provides basic windows APIs for handling windows, as well as the stubs to enable swell-dlggen to work.
+    GTK version.
 
   */
 
@@ -26,6 +27,7 @@
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
+#include <gtk/gtk.h>
 #include "../mutex.h"
 #include "../ptrlist.h"
 #include "../queue.h"
@@ -33,44 +35,167 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
+HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
+
+HWND GetParent(HWND hwnd)
+{  
+  return hwnd ? hwnd->m_parent : NULL;
+}
 
 HWND GetDlgItem(HWND hwnd, int idx)
 {
-  if (!hwnd) return 0;
-  //if (!idx || !v) return (HWND)v;
-  //return (HWND) [v viewWithTag:idx];
+  if (!idx) return hwnd;
+
+  if (hwnd) hwnd=hwnd->m_children;
+  while (hwnd) 
+  {
+    if (hwnd->m_id == idx) return hwnd;
+    hwnd=hwnd->m_next;
+  }
   return 0;
 }
+
 
 LONG SetWindowLong(HWND hwnd, int idx, LONG val)
 {
   if (!hwnd) return 0;
-  // GWL_EXSTYLE, GWL_USERDATA, GWL_ID, GWL_WNDPROC, GWL_DLGPROC, GWL_STYLE, >=0 extra data etc
-
+  if (idx==GWL_STYLE)
+  {
+     // todo: special case for buttons
+    LONG ret = hwnd->m_style;
+    hwnd->m_style=val;
+    return ret;
+  }
+  if (idx==GWL_EXSTYLE)
+  {
+    LONG ret = hwnd->m_exstyle;
+    hwnd->m_exstyle=val;
+    return ret;
+  }
+  if (idx==GWL_USERDATA)
+  {
+    LONG ret = hwnd->m_userdata;
+    hwnd->m_userdata=val;
+    return ret;
+  }
+  if (idx==GWL_ID)
+  {
+    LONG ret = hwnd->m_id;
+    hwnd->m_id=val;
+    return ret;
+  }
+  
+  if (idx==GWL_WNDPROC)
+  {
+    LONG ret = (LONG)hwnd->m_wndproc;
+    hwnd->m_wndproc=(WNDPROC)val;
+    return ret;
+  }
+  if (idx==DWL_DLGPROC)
+  {
+    LONG ret = (LONG)hwnd->m_dlgproc;
+    hwnd->m_dlgproc=(DLGPROC)val;
+    return ret;
+  }
+  
+  if (idx>=0 && idx < 64*(int)sizeof(INT_PTR))
+  {
+    INT_PTR ret = hwnd->m_extra[idx/sizeof(INT_PTR)];
+    hwnd->m_extra[idx/sizeof(INT_PTR)]=val;
+    return (LONG)ret;
+  }
   return 0;
 }
 
 LONG GetWindowLong(HWND hwnd, int idx)
 {
   if (!hwnd) return 0;
+  if (idx==GWL_STYLE)
+  {
+     // todo: special case for buttons
+    return hwnd->m_style;
+  }
+  if (idx==GWL_EXSTYLE)
+  {
+    return hwnd->m_exstyle;
+  }
+  if (idx==GWL_USERDATA)
+  {
+    return hwnd->m_userdata;
+  }
+  if (idx==GWL_ID)
+  {
+    return hwnd->m_id;
+  }
   
+  if (idx==GWL_WNDPROC)
+  {
+    return (LONG)hwnd->m_wndproc;
+  }
+  if (idx==DWL_DLGPROC)
+  {
+    return (LONG)hwnd->m_dlgproc;
+  }
+  
+  if (idx>=0 && idx < 64*(int)sizeof(INT_PTR))
+  {
+    return (LONG)hwnd->m_extra[idx/sizeof(INT_PTR)];
+  }
   return 0;
 }
+
 
 bool IsWindowVisible(HWND hwnd)
 {
   if (!hwnd) return false;
-
-  return true;
+  while (hwnd->m_visible)
+  {
+    hwnd = hwnd->m_parent;
+    if (!hwnd) return true;
+  }
+  return false;
 }
 
 int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd) return 0;
-  return 0;
+  WNDPROC wp = hwnd->m_wndproc;
 
-/*
+  if (msg == WM_DESTROY)
   {
+    if (hwnd->m_hashaddestroy) return 0;// todo: allow certain messages to pass?
+    hwnd->m_hashaddestroy=true;
+    if (GetCapture()==hwnd) ReleaseCapture(); 
+    SWELL_MessageQueue_Clear(hwnd);
+  }
+  else if (msg==WM_CAPTURECHANGED && hwnd->m_hashaddestroy) return 0;
+    
+  int ret = wp ? wp(hwnd,msg,wParam,lParam) : 0;
+ 
+  if (msg == WM_DESTROY)
+  {
+    if (GetCapture()==hwnd) ReleaseCapture(); 
+
+    SWELL_MessageQueue_Clear(hwnd);
+    // send WM_DESTROY to all children
+    HWND tmp=hwnd->m_children;
+    while (tmp)
+    {
+      SendMessage(tmp,WM_DESTROY,0,0);
+      tmp=tmp->m_next;
+    }
+    tmp=hwnd->m_owned;
+    while (tmp)
+    {
+      SendMessage(tmp,WM_DESTROY,0,0);
+      tmp=tmp->m_next;
+    }
+    KillTimer(hwnd,-1);
+    if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=0;
+  }
+  if (wp) return ret;
+  
+#if 0 // special cases for some controls
     if (msg == BM_SETCHECK && [turd isKindOfClass:[NSButton class]])
     {
       [(NSButton*)turd setState:(wParam&BST_INDETERMINATE)?NSMixedState:((wParam&BST_CHECKED)?NSOnState:NSOffState)];
@@ -137,49 +262,183 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return (int) [(SWELL_hwndChild *)v onSwellMessage:msg p1:wParam p2:lParam];
       }
     }
-  }
-*/
+#endif
   return 0;
+}
+
+static void RecurseDestroyWindow(HWND hwnd)
+{
+  HWND tmp=hwnd->m_children;
+  while (tmp)
+  {
+    HWND old = tmp;
+    tmp=tmp->m_next;
+    RecurseDestroyWindow(old);
+  }
+  tmp=hwnd->m_owned;
+  while (tmp)
+  {
+    HWND old = tmp;
+    tmp=tmp->m_next;
+    RecurseDestroyWindow(old);
+  }
+
+  delete hwnd;
 }
 
 void DestroyWindow(HWND hwnd)
 {
   if (!hwnd) return;
+  if (hwnd->m_hashaddestroy) return; 
+ 
+  SendMessage(hwnd,WM_DESTROY,0,0);
+
+  if (hwnd->m_next) { hwnd->m_next->m_prev = hwnd->m_prev; } // update next item to point to previous
+
+  // update previous item to point to next
+  if (hwnd->m_prev) { hwnd->m_prev->m_next = hwnd->m_next; } 
+
+  // update parent's children pointer if it points here
+  if (hwnd->m_parent && hwnd->m_parent->m_children == hwnd) hwnd->m_parent->m_children = hwnd->m_next;
+
+  if (hwnd->m_owner && hwnd->m_owner->m_owned == hwnd) hwnd->m_owner->m_owned = hwnd->m_next;
+
+  // ok window is now out of the list, delete any children etc. they've all had their WM_DESTROYs etc so all we need to do is delete em.
+  RecurseDestroyWindow(hwnd);
+
 }
+
 
 void EnableWindow(HWND hwnd, int enable)
 {
   if (!hwnd) return;
+  hwnd->m_enabled=!!enable;
+  if (hwnd->m_widget) gtk_widget_set_sensitive(hwnd->m_widget, !!enable);
 }
+
 
 void SetForegroundWindow(HWND hwnd)
 {
-  SetFocus(hwnd);
+  if (!hwnd) return;
+  if (hwnd->m_widget) gtk_widget_grab_focus(hwnd->m_widget);
 }
 
-void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
+void SetFocus(HWND hwnd)
 {
+  if (!hwnd) return;
+  if (hwnd->m_widget) gtk_widget_grab_focus(hwnd->m_widget);
+}
+
+int IsChild(HWND hwndParent, HWND hwndChild)
+{
+  if (!hwndParent || !hwndChild || hwndParent == hwndChild) return 0;
+  while (hwndChild)
+  { 
+    hwndChild = hwndChild->m_parent;
+    if (hwndChild == hwndParent) return 1;
+  }
+  return false;
+}
+
+
+HWND GetForegroundWindow()
+{
+  return SWELL_g_focuswnd;
+}
+
+HWND GetFocus()
+{
+  return SWELL_g_focuswnd;
 }
 
 void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork)
 {
+  GdkScreen *defscr = gdk_screen_get_default();
+  if (!defscr) { r->left=r->top=0; r->right=r->bottom=1024; return; }
+  gint idx = sourcerect ? gdk_screen_get_monitor_at_point(defscr,
+         (sourcerect->left+sourcerect->right)/2,
+         (sourcerect->top+sourcerect->bottom)/2) : 0;
+  GdkRectangle rc={0,0,1024,1024};
+  gdk_screen_get_monitor_geometry(defscr,idx,&rc);
+  r->left=rc.x; r->top = rc.y;
+  r->right=rc.x+rc.width;
+  r->bottom=rc.y+rc.height;
 }
+
 
 void ScreenToClient(HWND hwnd, POINT *p)
 {
   if (!hwnd) return;
+  
+  gint x=p->x,y=p->y;
+
+  HWND tmp=hwnd, ltmp=0;
+  while (tmp) // top level window's m_position left/top should always be 0 anyway
+  {
+    x -= tmp->m_position.left;
+    y -= tmp->m_position.top;
+    ltmp=tmp;
+    tmp = tmp->m_parent;
+  }
+#if 1
+  // make optional if old gtk2.13- is used?
+  if (ltmp && ltmp->m_widget)
+  {
+    GdkWindow *wnd = gtk_widget_get_window(ltmp->m_widget);
+    if (wnd) 
+    {
+      gint px=0,py=0;
+      gdk_window_get_position(wnd,&px,&py); // this is probably unreliable but ugh
+      x-=px;
+      y-=py;
+    }
+  }
+#endif
+
+  p->x=x;
+  p->y=y;
 }
 
 void ClientToScreen(HWND hwnd, POINT *p)
 {
   if (!hwnd) return;
+  
+  gint x=p->x,y=p->y;
+
+  HWND tmp=hwnd,ltmp=0;
+  while (tmp) // top level window's m_position left/top should always be 0 anyway
+  {
+    x += tmp->m_position.left;
+    y += tmp->m_position.top;
+    ltmp=tmp;
+    tmp = tmp->m_parent;
+  }
+#if 1
+  // make optional if old gtk2.13- is used?
+  if (ltmp && ltmp->m_widget)
+  {
+    GdkWindow *wnd = gtk_widget_get_window(ltmp->m_widget);
+    if (wnd) 
+    {
+      gint px=0,py=0;
+      gdk_window_get_position(wnd,&px,&py); // this is probably unreliable but ugh
+      x+=px;
+      y+=py;
+    }
+  }
+#endif
+
+  p->x=x;
+  p->y=y;
 }
 
-void GetWindowRect(HWND hwnd, RECT *r)
+bool GetWindowRect(HWND hwnd, RECT *r)
 {
-  r->left=r->top=r->right=r->bottom=0;
-  if (!hwnd) return;
-  
+  if (!hwnd) return false;
+  GetClientRect(hwnd,r);
+  ClientToScreen(hwnd,(LPPOINT)r);
+  ClientToScreen(hwnd,((LPPOINT)r)+1);
+  return true;
 }
 
 void GetWindowContentViewRect(HWND hwnd, RECT *r)
@@ -193,6 +452,8 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->left=r->top=r->right=r->bottom=0;
   if (!hwnd) return;
   
+  r->right = hwnd->m_position.right - hwnd->m_position.left;
+  r->bottom = hwnd->m_position.bottom - hwnd->m_position.top;
 }
 
 
@@ -200,69 +461,181 @@ void GetClientRect(HWND hwnd, RECT *r)
 void SetWindowPos(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags)
 {
   if (!hwnd) return;
+ 
+ // todo: handle SWP_SHOWWINDOW
+  RECT f = hwnd->m_position;
+  bool repos=false;
+  if (!(flags&SWP_NOMOVE))
+  {
+    int oldw = f.right-f.left;
+    int oldh = f.bottom-f.top; 
+    f.left=x; 
+    f.right=x+oldw;
+    f.top=y; 
+    f.bottom=y+oldh;
+    repos=true;
+  }
+  if (!(flags&SWP_NOSIZE))
+  {
+    f.right = f.left + cx;
+    f.bottom = f.top + cy;
+    repos=true;
+  }
+  if (repos)
+  {
+    if (!hwnd->m_parent)
+    { 
+      hwnd->m_position.left = hwnd->m_position.top = 0;
+      hwnd->m_position.right = f.right-f.left;
+      hwnd->m_position.bottom = f.bottom-f.top;
+      if (hwnd->m_widget)
+      {
+        // todo: gdkwindow move etc?
+      }
+    }
+    else 
+    {
+      hwnd->m_position = f;
+      if (hwnd->m_widget) 
+      {
+        // todo: notify parent container to move?
+      }
+      SendMessage(hwnd,WM_SIZE,0,0);
+      InvalidateRect(hwnd,NULL,FALSE);
+    }
+  }  
   
 }
+
 
 
 HWND GetWindow(HWND hwnd, int what)
 {
   if (!hwnd) return 0;
-  if (what == GW_CHILD)
-  {
-    return 0;
-  }
-  if (what == GW_OWNER)
-  {
-  }
   
-  if (what >= GW_HWNDFIRST && what <= GW_HWNDPREV)
-  {
+  if (what == GW_CHILD) return hwnd->m_children;
+  if (what == GW_OWNER) return hwnd->m_owner;
+  if (what == GW_HWNDNEXT) return hwnd->m_next;
+  if (what == GW_HWNDPREV) return hwnd->m_prev;
+  if (what == GW_HWNDFIRST) 
+  { 
+    while (hwnd->m_prev) hwnd = hwnd->m_prev;
+    return hwnd;
+  }
+  if (what == GW_HWNDLAST) 
+  { 
+    while (hwnd->m_next) hwnd = hwnd->m_next;
+    return hwnd;
   }
   return 0;
 }
 
+#if 0
 
-HWND GetParent(HWND hwnd)
-{  
-  
-  return 0;
-}
+
 
 HWND SetParent(HWND hwnd, HWND newPar)
 {
-  return 0;
+  NSView *v=(NSView *)hwnd;
+  if (!v || ![(id)v isKindOfClass:[NSView class]]) return 0;
+  v=NavigateUpScrollClipViews(v);
+  
+  if ([(id)hwnd isKindOfClass:[NSView class]])
+  {
+    NSView *tv=(NSView *)hwnd;
+    if ([[tv window] contentView] == tv) // if we're reparenting a contentview (aka top level window)
+    {
+      if (!newPar) return NULL;
+    
+      NSView *npv = (NSView *)newPar;
+      if ([npv isKindOfClass:[NSWindow class]]) npv=[(NSWindow *)npv contentView];
+      if (!npv || ![npv isKindOfClass:[NSView class]])
+        return NULL;
+    
+      char oldtitle[2048];
+      oldtitle[0]=0;
+      GetWindowText(hwnd,oldtitle,sizeof(oldtitle));
+    
+      NSWindow *oldwnd = [tv window];
+    
+      [tv retain];
+      SWELL_hwndChild *tmpview = [[SWELL_hwndChild alloc] initChild:nil Parent:(NSView *)oldwnd dlgProc:nil Param:0];          
+      [tmpview release];
+    
+      [npv addSubview:tv];  
+      [tv release];
+    
+      DestroyWindow((HWND)oldwnd); // close old window since its no longer used
+      if (oldtitle[0]) SetWindowText(hwnd,oldtitle);
+      return (HWND)npv;
+    }
+    else if (!newPar) // not content view, not parent (so making it a top level modeless dialog)
+    {
+      NSWindow *oldw = [tv window];
+      char oldtitle[2048];
+      oldtitle[0]=0;
+      GetWindowText(hwnd,oldtitle,sizeof(oldtitle));
+      
+      [tv retain];
+      [tv removeFromSuperview];
+
+    
+      unsigned int wf=(NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask|NSResizableWindowMask);
+      if ([tv respondsToSelector:@selector(swellCreateWindowFlags)])
+        wf=(unsigned int)[(SWELL_hwndChild *)tv swellCreateWindowFlags];
+      HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int);
+      HWND bla=SWELL_CreateModelessFrameForWindow((HWND)tv,(HWND)oldw,wf);
+      // create a new modeless frame 
+      
+      [(NSWindow *)bla display];
+      
+      [tv release];
+      
+      if (oldtitle[0]) SetWindowText(hwnd,oldtitle);
+      
+      return NULL;
+      
+    }
+  }
+  HWND ret=(HWND) [v superview];
+  if (ret) 
+  {
+    [v retain];
+    [v removeFromSuperview];
+  }
+  NSView *np=(NSView *)newPar;
+  if (np && [np isKindOfClass:[NSWindow class]]) np=[(NSWindow *)np contentView];
+  
+  if (np && [np isKindOfClass:[NSView class]])
+  {
+    [np addSubview:v];
+    [v release];
+  }
+  return ret;
 }
 
 
-int IsChild(HWND hwndParent, HWND hwndChild)
-{
-  return 0;
-}
 
-HWND GetForegroundWindow()
-{
-  return 0;
-}
 
-HWND GetFocus()
-{
-  return 0;
-}
+#endif
 
 // timer stuff
 typedef struct
 {
   int timerid;
   HWND hwnd;
-  guint timer;
+  guint glib_timerid;
 } TimerInfoRec;
 static WDL_PtrList<TimerInfoRec> m_timerlist;
 static WDL_Mutex m_timermutex;
-static gboolean timerFunc(gpointer data)
+static pthread_t m_pmq_mainthread;
+static void SWELL_pmq_settimer(HWND h, int timerid, int rate);
+
+static gboolean settimer_callback(gpointer data)
 {
-  if (data)
+  TimerInfoRec *rec=(TimerInfoRec*)data;
+  if (rec)
   {
-    TimerInfoRec *rec=(TimerInfoRec *)data;
     SendMessage(rec->hwnd,WM_TIMER,rec->timerid,0);
   }
   return TRUE;
@@ -272,32 +645,43 @@ int SetTimer(HWND hwnd, int timerid, int rate, unsigned long *notUsed)
 {
   if (!hwnd) return 0;
   
-  // todo: enable better multithreaded timerness like OSX
+  if (timerid != -1 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
+  {
+    SWELL_pmq_settimer(hwnd,timerid,rate);
+    return timerid;
+  }
+
   WDL_MutexLock lock(&m_timermutex);
   KillTimer(hwnd,timerid);
   TimerInfoRec *rec=(TimerInfoRec*)malloc(sizeof(TimerInfoRec));
   rec->timerid=timerid;
   rec->hwnd=hwnd;
-  rec->timer = g_timeout_add(rate,timerFunc,rec);
+  rec->glib_timerid = g_timeout_add(max(rate,1),settimer_callback,rec);
+  
   m_timerlist.Add(rec);
   
   return timerid;
 }
+
 void KillTimer(HWND hwnd, int timerid)
 {
   WDL_MutexLock lock(&m_timermutex);
+  if (timerid != -1 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
+  {
+    SWELL_pmq_settimer(hwnd,timerid,-1);
+    return;
+  }
   int x;
   for (x = 0; x < m_timerlist.GetSize(); x ++)
   {
     if ((timerid==-1 || m_timerlist.Get(x)->timerid == timerid) && m_timerlist.Get(x)->hwnd == hwnd)
     {
-      gtk_timeout_remove(m_timerlist.Get(x)->timer);
+      g_source_remove(m_timerlist.Get(x)->glib_timerid);
       m_timerlist.Delete(x--,true,free);
       if (timerid!=-1) break;
     }
   }
 }
-
 
 
 #if 0
@@ -685,7 +1069,19 @@ void ShowWindow(HWND hwnd, int cmd)
       [((NSView *)pid) setHidden:NO];
     break;
     case SW_HIDE:
-      [((NSView *)pid) setHidden:YES];
+      {
+        NSWindow *pw=[pid window];
+        if (pw && [NSApp keyWindow] == pw)
+        {
+          id foc=[pw firstResponder];
+          if (foc && (foc == pid || IsChild((HWND)pid,(HWND)foc)))
+          {
+            HWND h=GetParent((HWND)pid);
+            if (h) SetFocus(h);
+          }
+        }
+        [((NSView *)pid) setHidden:YES];
+      }
     break;
   }
   
@@ -781,18 +1177,22 @@ static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
     return NSMakeRect(-x,-y,-w,-h);
   }
   float ysc=m_transform.size.height;
-  NSRect ret= NSMakeRect((x+m_transform.origin.x)*m_transform.size.width,  
-                         ysc >= 0.0 ? m_parent_h - ((y+m_transform.origin.y) + h)*ysc : 
-                         ((y+m_transform.origin.y) )*-ysc
-                         ,
-                    w*m_transform.size.width,h*fabs(ysc));
+  int newx=(int)((x+m_transform.origin.x)*m_transform.size.width + 0.5);
+  int newy=(int)((ysc >= 0.0 ? m_parent_h - ((y+m_transform.origin.y) + h)*ysc : 
+                         ((y+m_transform.origin.y) )*-ysc) + 0.5);
+                         
+  NSRect ret= NSMakeRect(newx,  
+                         newy,                  
+                        (int) (w*m_transform.size.width+0.5),
+                        (int) (h*fabs(ysc)+0.5));
+                        
   NSRect oret=ret;
   if (wantauto && m_doautoright)
   {
     float dx = ret.origin.x - m_lastdoauto.origin.x;
-    if (fabs(dx<32) && m_lastdoauto.origin.y >= ret.origin.y && m_lastdoauto.origin.y < ret.origin.y + ret.size.height)
+    if (fabs(dx)<32 && m_lastdoauto.origin.y >= ret.origin.y && m_lastdoauto.origin.y < ret.origin.y + ret.size.height)
     {
-      ret.origin.x += m_lastdoauto.size.width;
+      ret.origin.x += (int) m_lastdoauto.size.width;
     }
     
     m_lastdoauto.origin.x = oret.origin.x + oret.size.width;
@@ -929,7 +1329,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   [m_make_owner addSubview:obj];
   if (m_doautoright) UpdateAutoCoords([obj frame]);
   [obj release];
-  
+
   return (HWND)obj;
 }
 
@@ -1599,12 +1999,32 @@ void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt)
 
 int ListView_GetNextItem(HWND h, int istart, int flags)
 {
-  if (flags==LVNI_FOCUSED)
+  if (flags==LVNI_FOCUSED||flags==LVNI_SELECTED)
   {
     if (!h) return 0;
     if (![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
     
     SWELL_ListView *tv=(SWELL_ListView*)h;
+    
+    if (flags==LVNI_SELECTED)
+    {
+      int orig_start=istart;
+      if (istart++<0)istart=0;
+      int n = [tv numberOfRows];
+      while (istart < n)
+      {
+        if ([tv isRowSelected:istart]) return istart;
+        istart++;
+      }
+      istart=0;
+      while (istart <= orig_start && istart < n)
+      {
+        if ([tv isRowSelected:istart]) return istart;
+        istart++;        
+      }
+      return -1;
+    }
+    
     return [tv selectedRow];
   }
   return -1;
@@ -2055,51 +2475,44 @@ void UpdateWindow(HWND hwnd)
     [wnd displayIfNeeded];
   }
 }
+#endif
 
 void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
 { 
   if (!hwnd) return;
-  id view=(id)hwnd;
-  if ([view isKindOfClass:[NSWindow class]]) view=[view contentView];
-  if ([view isKindOfClass:[NSView class]]) 
-  {
-    if (r)
-    {
-      [view setNeedsDisplayInRect:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)]; 
-    }
-    else [view setNeedsDisplay:YES];
-  }
+  // todo: implement
 }
 
-static HWND m_fakeCapture;
-static BOOL m_capChangeNotify;
+
 HWND GetCapture()
 {
-
-  return m_fakeCapture;
+  return (HWND) gtk_grab_get_current();
 }
 
 HWND SetCapture(HWND hwnd)
 {
-  HWND oc=m_fakeCapture;
-  int ocn=m_capChangeNotify;
-  m_fakeCapture=hwnd;
-  m_capChangeNotify = hwnd && [(id)hwnd respondsToSelector:@selector(swellCapChangeNotify)] && [(SWELL_hwndChild*)hwnd swellCapChangeNotify];
+  GtkWidget *oc = gtk_grab_get_current();
+  if (oc) gtk_grab_remove(oc);
 
-  if (ocn && oc) SendMessage(oc,WM_CAPTURECHANGED,0,(LPARAM)hwnd);
-  return oc;
+  if (hwnd) gtk_grab_add(GTK_WIDGET(hwnd));
+
+  if (oc) SendMessage((HWND)oc,WM_CAPTURECHANGED,0,(LPARAM)hwnd);
+
+  return (HWND)oc;
 }
 
 void ReleaseCapture()
 {
-  HWND h=m_fakeCapture;
-  m_fakeCapture=NULL;
-  if (m_capChangeNotify && h)
+  GtkWidget *oc = gtk_grab_get_current();
+  if (oc) gtk_grab_remove(oc);
+  if (oc)
   {
-    SendMessage(h,WM_CAPTURECHANGED,0,0);
+    SendMessage((HWND)oc,WM_CAPTURECHANGED,0,0);
   }
 }
 
+
+#if 0
 
 HDC BeginPaint(HWND hwnd, PAINTSTRUCT *ps)
 {
@@ -2152,6 +2565,7 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   {
     return HTCLIENT;
   }
+  else if (msg==WM_KEYDOWN || msg==WM_KEYUP) return 69;
   return 0;
 }
 
@@ -2374,28 +2788,25 @@ void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 
 
 
+#endif
 
 
 ///////// PostMessage emulation
 
 BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
-    return (BOOL)!![del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
-  return FALSE;
+  return SWELL_Internal_PostMessage(hwnd,message,wParam,lParam);
 }
 
 void SWELL_MessageQueue_Clear(HWND h)
 {
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
-    [del swellPostMessageClearQ:h];
+  SWELL_Internal_PMQ_ClearAllMessages(h);
 }
 
 
 
 // implementation of postmessage stuff
+
 
 
 
@@ -2407,26 +2818,30 @@ typedef struct PMQ_rec
   LPARAM lParam;
 
   struct PMQ_rec *next;
+  bool istimerpoo;
 } PMQ_rec;
 
 static WDL_Mutex *m_pmq_mutex;
 static PMQ_rec *m_pmq, *m_pmq_empty, *m_pmq_tail;
 static int m_pmq_size;
-static id m_pmq_timer;
+static guint m_pmq_timer;
 #define MAX_POSTMESSAGE_SIZE 1024
+
+static gboolean postmessagetimer_callback(gpointer data)
+{
+  SWELL_MessageQueue_Flush();
+  return TRUE;
+}
 
 void SWELL_Internal_PostMessage_Init()
 {
   if (m_pmq_mutex) return;
-  id del = [NSApp delegate];
-  if (!del || ![del respondsToSelector:@selector(swellPostMessageTick:)]) return;
   
+  m_pmq_mainthread=pthread_self();
   m_pmq_mutex = new WDL_Mutex;
   
-  m_pmq_timer = [NSTimer scheduledTimerWithTimeInterval:0.05 target:(id)del selector:@selector(swellPostMessageTick:) userInfo:nil repeats:YES];
-  [[NSRunLoop currentRunLoop] addTimer:m_pmq_timer forMode:(NSString*)kCFRunLoopCommonModes];
-//  [ release];
-  // set a timer to the delegate
+  m_pmq_timer = g_timeout_add(50,postmessagetimer_callback,NULL);
+
 }
 
 void SWELL_MessageQueue_Flush()
@@ -2443,8 +2858,13 @@ void SWELL_MessageQueue_Flush()
   while (p)
   {
     // process this message
-//    [(id)p->hwnd onSwellMessage:(int)p->msg p1:(WPARAM)p->wParam p2:(LPARAM)p->lParam];
-    SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
+    if (p->istimerpoo)
+    {
+      if (p->wParam == (unsigned int)-1)  KillTimer(p->hwnd,p->msg);
+      else SetTimer(p->hwnd,p->msg,p->wParam,0);
+    }
+    else
+      SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
 
     cnt ++;
     if (!p->next) // add the chain back to empties
@@ -2488,15 +2908,52 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd)
   m_pmq_mutex->Leave();
 }
 
+static void SWELL_pmq_settimer(HWND h, int timerid, int rate)
+{
+  if (!h||!m_pmq_mutex) return;
+  WDL_MutexLock lock(m_pmq_mutex);
+  
+  PMQ_rec *rec=m_pmq;
+  while (rec)
+  {
+    if (rec->istimerpoo && rec->hwnd == h && rec->msg == (unsigned int)timerid)
+    {
+      rec->wParam = rate; // adjust to new rate
+      return;
+    }
+    rec=rec->next;
+  }  
+  
+  rec=m_pmq_empty;
+  if (rec) m_pmq_empty=rec->next;
+  else rec=(PMQ_rec*)malloc(sizeof(PMQ_rec));
+  rec->next=0;
+  rec->hwnd=h;
+  rec->msg=timerid;
+  rec->wParam=rate;
+  rec->lParam=0;
+  rec->istimerpoo=true;
+
+  if (m_pmq_tail) m_pmq_tail->next=rec;
+  else 
+  {
+    PMQ_rec *p=m_pmq;
+    while (p && p->next) p=p->next; // shouldnt happen unless m_pmq is NULL As well but why not for safety
+    if (p) p->next=rec;
+    else m_pmq=rec;
+  }
+  m_pmq_tail=rec;
+  m_pmq_size++;
+}
+
 BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd||!m_pmq_mutex) return FALSE;
-  if (![(id)hwnd respondsToSelector:@selector(swellCanPostMessage)]) return FALSE;
 
   BOOL ret=FALSE;
   m_pmq_mutex->Enter();
 
-  if (m_pmq_size<MAX_POSTMESSAGE_SIZE && [(id)hwnd swellCanPostMessage])
+  if (m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE)
   {
     PMQ_rec *rec=m_pmq_empty;
     if (rec) m_pmq_empty=rec->next;
@@ -2506,6 +2963,7 @@ BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     rec->msg=msg;
     rec->wParam=wParam;
     rec->lParam=lParam;
+    rec->istimerpoo=false;
 
     if (m_pmq_tail) m_pmq_tail->next=rec;
     else 
@@ -2528,7 +2986,7 @@ BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 
 
-
+#if 0
 
 
 int EnumPropsEx(HWND hwnd, PROPENUMPROCEX proc, LPARAM lParam)
@@ -2582,11 +3040,31 @@ BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT 
 
   if (!xamt && !yamt) return FALSE;
   
-  NSRect r=[(id)hwnd bounds];
-  r.origin.x -= xamt;
-  r.origin.y -= yamt;
-  [(id)hwnd setBoundsOrigin:r.origin];
-  [(id)hwnd setNeedsDisplay:YES];
+  // move child windows only
+  if (1)
+  {
+    if (xamt || yamt)
+    {
+      NSArray *ar=[(NSView*)hwnd subviews];
+      int i,c=[ar count];
+      for(i=0;i<c;i++)
+      {
+        NSView *v=(NSView *)[ar objectAtIndex:i];
+        NSRect r=[v frame];
+        r.origin.x+=xamt;
+        r.origin.y+=yamt;
+        [v setFrame:r];
+      }
+    }
+  }
+  else
+  {
+    NSRect r=[(NSView*)hwnd bounds];
+    r.origin.x -= xamt;
+    r.origin.y -= yamt;
+    [(id)hwnd setBoundsOrigin:r.origin];
+    [(id)hwnd setNeedsDisplay:YES];
+  }
   return TRUE;
 }
 
@@ -2815,15 +3293,43 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
   
   return NULL; // todo implement
 }
+
+HTREEITEM TreeView_GetRoot(HWND hwnd)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return NULL;
+  SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
+  
+  if (!tv->m_items) return 0;
+  return (HTREEITEM) tv->m_items->Get(0);
+}
+
 HTREEITEM TreeView_GetChild(HWND hwnd, HTREEITEM item)
 {
-  // todo impl
-  return 0;
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return NULL;
+  SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
+
+  SWELL_TreeView_Item *titem=(SWELL_TreeView_Item *)item;
+  if (!titem) return TreeView_GetRoot(hwnd);
+  
+  return (HTREEITEM) titem->m_children.Get(0);
 }
 HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
 {
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return NULL;
+  SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
+
+  if (!item) return TreeView_GetRoot(hwnd);
+  
+  SWELL_TreeView_Item *par=NULL;
+  int idx=0;  
+  if ([tv findItem:item parOut:&par idxOut:&idx])
+  {
+    if (par)
+    {
+      return par->m_children.Get(idx+1);
+    }    
+  }
   return 0;
-  // todo impl
 }
 
 
@@ -2942,7 +3448,7 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
 }
 
 @implementation SWELL_ThreadTmp
--(void)bla
+-(void)bla:(id)obj
 {
   [NSThread exit];
 }
@@ -2957,8 +3463,8 @@ void SWELL_EnsureMultithreadedCocoa()
     if (![NSThread isMultiThreaded]) // force cocoa into multithreaded mode
     {
       SWELL_ThreadTmp *t=[[SWELL_ThreadTmp alloc] init]; 
-      [NSThread detachNewThreadSelector:@selector(bla) toTarget:t withObject:t];
-      [t release];
+      [NSThread detachNewThreadSelector:@selector(bla:) toTarget:t withObject:t];
+///      [t release];
     }
   }
 }
@@ -2990,6 +3496,59 @@ void SWELL_QuitAutoRelease(void *p)
 @end
 
 
-#endif
+
+
+bool SWELL_HandleMouseEvent(NSEvent *evt)
+{
+  int etype = [evt type];
+  if (GetCapture()) return false;
+  if (etype >= NSLeftMouseDown && etype <= NSRightMouseDragged)
+  {
+  }
+  else return false;
+  
+  NSWindow *w = [evt window];
+  if (w)
+  {
+    NSView *cview = [w contentView];
+    NSView *besthit=NULL;
+    if (cview)
+    {
+      NSPoint lpt = [evt locationInWindow];    
+      NSView *hitv=[cview hitTest:lpt];
+      lpt = [w convertBaseToScreen:lpt];
+      
+      int xpos=(int)(lpt.x+0.5);
+      int ypos=(int)(lpt.y+0.5);
+      
+      while (hitv)
+      {
+        if ([hitv respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+        {
+          int ht=(int) [(SWELL_hwndChild*)hitv onSwellMessage:WM_NCHITTEST p1:0 p2:MAKELPARAM(xpos,ypos)];
+          if (ht && ht != HTCLIENT) besthit=hitv;
+        }
+        if (hitv==cview) break;
+        hitv = [hitv superview];
+      }
+    }
+    if (besthit)
+    {
+      if (etype == NSLeftMouseDown) [besthit mouseDown:evt];
+      else if (etype == NSLeftMouseUp) [besthit mouseUp:evt];
+      else if (etype == NSLeftMouseDragged) [besthit mouseDragged:evt];
+      else if (etype == NSRightMouseDown) [besthit rightMouseDown:evt];
+      else if (etype == NSRightMouseUp) [besthit rightMouseUp:evt];
+      else if (etype == NSRightMouseDragged) [besthit rightMouseDragged:evt];
+      else if (etype == NSMouseMoved) [besthit mouseMoved:evt];
+      else return false;
+      
+      return true;
+    }
+  }
+  return false;
+}
+
+#endif//if 0
 
 #endif

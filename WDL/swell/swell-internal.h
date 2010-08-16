@@ -411,7 +411,52 @@ typedef struct {
 
 #endif // __OBJC__
 
-#endif // SWELL_TARGET_OSX
+
+#else // !SWELL_TARGET_OSX, GTK version
+
+#include <gtk/gtk.h>
+
+struct HWND__
+{
+  HWND__()
+  {
+     m_wndproc=0;
+     m_dlgproc=0;
+     m_userdata=0;
+     m_style=m_exstyle=0;
+     m_id=0;
+     m_widget=0;
+     m_owned=m_owner=m_children=m_parent=m_next=m_prev=0; 
+     memset(&m_position,0,sizeof(m_position));
+     memset(&m_extra,0,sizeof(m_extra));
+     m_visible=false;
+     m_hashaddestroy=false;
+     m_enabled=true;
+  }
+  ~HWND__()
+  {
+    if (m_widget) gtk_widget_destroy(m_widget);
+  }
+  
+
+  GtkWidget *m_widget;
+  HWND__ *m_children, *m_parent, *m_next, *m_prev, *m_owner, *m_owned;
+  RECT m_position;
+  int m_id;
+  int m_style, m_exstyle;
+  INT_PTR m_userdata;
+  WNDPROC m_wndproc;
+  DLGPROC m_dlgproc;
+  INT_PTR m_extra[64];
+  bool m_visible;
+  bool m_hashaddestroy;
+  bool m_enabled;
+
+};
+
+
+
+#endif // !SWELL_TARGET_OSX
 
 HDC SWELL_CreateGfxContext(void *);
 

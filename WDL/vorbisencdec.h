@@ -356,11 +356,35 @@ public:
       inlen >>= m_ds;
       float **buffer=vorbis_analysis_buffer(&vd,inlen);
       int i,i2=0;
-      for (i = 0; i < inlen; i ++)
+      
+      if (m_nch==1)
       {
-        buffer[0][i]=in[i2];
-        if (m_nch==2) buffer[1][i]=in[i2+spacing];
-        i2+=advance<<m_ds;
+        for (i = 0; i < inlen; i ++)
+        {
+          buffer[0][i]=in[i2];
+          i2+=advance<<m_ds;
+        }
+      }
+      else if (m_nch==2)
+      {
+        for (i = 0; i < inlen; i ++)
+        {
+          buffer[0][i]=in[i2];
+          buffer[1][i]=in[i2+spacing];
+          i2+=advance<<m_ds;
+        }
+      }
+      else if (m_nch>2)
+      {
+        int n=m_nch;
+        for (i = 0; i < inlen; i ++)
+        {
+          int a;
+          int i3=i2;
+          for(a=0;a<n;a++,i3+=spacing)
+            buffer[a][i]=in[i3];
+          i2+=advance<<m_ds;
+        }
       }
       vorbis_analysis_wrote(&vd,i);
     }

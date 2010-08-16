@@ -56,10 +56,15 @@ class WDL_VirtualIconButton : public WDL_VWnd
   public:
     WDL_VirtualIconButton();
     ~WDL_VirtualIconButton();
+
     void SetEnabled(bool en) {m_en=en; }
     bool GetEnabled() { return m_en; }
+
+    void SetGrayed(bool grayed) { m_grayed = grayed; SetEnabled(!grayed); }
+
     void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+
     void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { if (m_iconCfg!=cfg) { m_iconCfg=cfg; RequestRedraw(NULL); } }
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
@@ -77,6 +82,8 @@ class WDL_VirtualIconButton : public WDL_VWnd
 
     // only used if no icon config set
     void SetTextLabel(const char *text, char align=0, LICE_IFont *font=NULL);
+    const char* GetTextLabel() { return m_textlbl.Get(); }
+
     void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked
     char GetCheckState() { return m_checkstate; }
     
@@ -86,7 +93,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     int m_bgcol1_msg;
     bool m_is_button,m_forceborder;
     char m_pressed;
-    bool m_en;
+    bool m_en, m_grayed;
     char m_textalign;
     char m_checkstate;
 
@@ -176,6 +183,8 @@ class WDL_VirtualSlider : public WDL_VWnd
     bool GetIsVert();
     void SetNotifyOnClick(bool en) { m_sendmsgonclick=en; }
 
+    void SetGrayed(bool grayed) { m_grayed = grayed; }
+
     void GetButtonSize(int *w, int *h);
 
     void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
@@ -203,7 +212,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     bool m_captured;
     bool m_needflush;
     bool m_sendmsgonclick;
-    
+    bool m_grayed;
 };
 
 

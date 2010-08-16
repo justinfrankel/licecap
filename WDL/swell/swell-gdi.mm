@@ -1340,10 +1340,18 @@ void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, 
   CGImage *img=CGBitmapContextCreateImage(newtmpctx);
   if (img)
   {
-    CGContextSaveGState(dest->ctx);
-    CGContextScaleCTM(dest->ctx,1.0,-1.0);  
-    CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
-    CGContextRestoreGState(dest->ctx);
+  
+    if (dest->ownedData)
+    {
+      CGContextSaveGState(dest->ctx);
+      CGContextScaleCTM(dest->ctx,1.0,-1.0);  
+      CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
+      CGContextRestoreGState(dest->ctx);
+    }
+    else
+    {
+      CGContextDrawImage(dest->ctx,CGRectMake(x,y,w,h),img);    
+    }
   
     CGImageRelease(img);
   }
@@ -1386,11 +1394,11 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   if (xin || yin || w != CGImageGetWidth(img) || h != CGImageGetHeight(img))
   {
     CGImageRef img2 = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,w,h));
-    if (img2)
-    {
-      CGImageRelease(img);
-      img=img2;
-    }
+    CGImageRelease(img);
+    if (!img2) return;
+    img=img2;
+    w=CGImageGetWidth(img);
+    h=CGImageGetHeight(img);
   }
   
   CGContextSaveGState(output);
@@ -1414,11 +1422,11 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
   if (xin || yin || srcw != CGImageGetWidth(img) || srch != CGImageGetHeight(img))
   {
     CGImageRef img2 = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,srcw,srch));
-    if (img2)
-    {
-      CGImageRelease(img);
-      img=img2;
-    }
+    CGImageRelease(img);
+    if (!img2) return;
+    img=img2;
+    w=CGImageGetWidth(img);
+    h=CGImageGetHeight(img);
   }
     
   CGContextSaveGState(dest->ctx);

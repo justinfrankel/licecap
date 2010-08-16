@@ -143,6 +143,17 @@ static void staticPngReadFunc(png_structp png_ptr, png_bytep data, png_size_t le
   readStruct->len -= l;
 }
 
+#ifndef _WIN32
+LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
+{
+  char buf[2048];
+  GetModuleFileName(NULL,buf,sizeof(buf)-512);
+  strcat(buf,"/Contents/Resources/");
+  strcat(buf,name);
+  return LICE_LoadPNG(buf,bmp);
+}
+#endif
+
 LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
 {
 #ifdef _WIN32

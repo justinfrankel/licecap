@@ -51,6 +51,8 @@ public:
   void *Add(const void *buf, int len)
   {
     int olen=m_hb.GetSize();
+    if (m_pos >= olen) m_pos=olen=0; // if queue is empty then autoreset it
+
     void *obuf=m_hb.Resize(olen+len,false);
     if (!obuf) return 0;
     char* newbuf = (char*) obuf + olen;
@@ -98,7 +100,12 @@ public:
     m_hb.Resize(0,false);
   }
 
-  void Advance(int bytecnt) { m_pos+=bytecnt; }
+  void Advance(int bytecnt) 
+  { 
+    m_pos+=bytecnt; 
+    if (m_pos<0)m_pos=0;
+    else if (m_pos > m_hb.GetSize()) m_pos=m_hb.GetSize();
+  }
 
   void Compact(bool allocdown=false)
   {
@@ -202,8 +209,9 @@ public:
 
   T *Add(const T *buf, int len)
   {
-    len *= sizeof(T);
     int olen=m_hb.GetSize();
+    if (m_pos >= olen) olen=m_pos=0;
+    len *= sizeof(T);
     void *obuf=m_hb.Resize(olen+len,false);
     if (!obuf) return 0;
     if (buf) memcpy((char*)obuf+olen,buf,len);
@@ -230,7 +238,12 @@ public:
     m_hb.Resize(0,false);
   }
 
-  void Advance(int cnt) { m_pos+=cnt*sizeof(T); }
+  void Advance(int cnt) 
+  { 
+    m_pos+=cnt*sizeof(T); 
+    if (m_pos<0)m_pos=0;
+    else if (m_pos > m_hb.GetSize()) m_pos=m_hb.GetSize();
+  }
 
   void Compact(bool allocdown=false)
   {
@@ -256,5 +269,3 @@ private:
 };
 
 #endif
-
-

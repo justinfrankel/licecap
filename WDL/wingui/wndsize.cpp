@@ -230,14 +230,17 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
           }
 
 
-          if (!hdwndpos) 
+          if (IsWindow(rec->hwnd))
+          {
+            if (!hdwndpos) 
 #endif
-            SetWindowPos(rec->hwnd, NULL, r.left+xtranslate,r.top+ytranslate,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+              SetWindowPos(rec->hwnd, NULL, r.left+xtranslate,r.top+ytranslate,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
           
 #ifdef _WIN32
-          else 
-          {
-            hdwndpos=DeferWindowPos(hdwndpos, rec->hwnd, NULL, r.left+xtranslate,r.top+ytranslate,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+            else 
+            {
+              hdwndpos=DeferWindowPos(hdwndpos, rec->hwnd, NULL, r.left+xtranslate,r.top+ytranslate,r.right-r.left,r.bottom-r.top, SWP_NOZORDER|SWP_NOACTIVATE);
+            }
           }
 #endif
         }

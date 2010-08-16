@@ -4,6 +4,7 @@
 #define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
 
 
+
 #define LICE_PIXEL_HALF(x) (((x)>>1)&0x7F7F7F7F)
 #define LICE_PIXEL_QUARTER(x) (((x)>>2)&0x3F3F3F3F)
 #define LICE_PIXEL_EIGHTH(x) (((x)>>3)&0x1F1F1F1F)
@@ -28,9 +29,9 @@ static inline int __LICE_TOINT(double x) // don't use this _everywhere_ since it
 static inline void __LICE_BilinearFilter(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, double xfrac, double yfrac)
 {
   double f4=xfrac*yfrac;
-  double f1=1.0-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   double f3=yfrac-f4; // (1.0-xfrac)*yfrac;
   double f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  double f1=1.0-yfrac-f2; // (1.0-xfrac)*(1.0-yfrac);
   *r=__LICE_TOINT(pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4);
   *g=__LICE_TOINT(pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4);
   *b=__LICE_TOINT(pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4);
@@ -48,9 +49,9 @@ static inline void __LICE_LinearFilter(int *r, int *g, int *b, int *a, LICE_pixe
 static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int xfrac, int yfrac)
 {
   int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
   int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  int f1=65536-yfrac-f2; // (1.0-xfrac)*(1.0-yfrac);
   *r=(pin[LICE_PIXEL_R]*f1 + pin[4+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[4+LICE_PIXEL_R]*f4)/65536;
   *g=(pin[LICE_PIXEL_G]*f1 + pin[4+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[4+LICE_PIXEL_G]*f4)/65536;
   *b=(pin[LICE_PIXEL_B]*f1 + pin[4+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[4+LICE_PIXEL_B]*f4)/65536;
@@ -61,9 +62,9 @@ static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_p
 static inline void __LICE_BilinearFilterI_2(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int npoffs, int xfrac, int yfrac)
 {
   int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
   int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  int f1=65536-yfrac-f2; // (1.0-xfrac)*(1.0-yfrac);
   npoffs*=4;
   *r=(pin[LICE_PIXEL_R]*f1 + pin[npoffs+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[npoffs+LICE_PIXEL_R]*f4)/65536;
   *g=(pin[LICE_PIXEL_G]*f1 + pin[npoffs+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[npoffs+LICE_PIXEL_G]*f4)/65536;
@@ -84,10 +85,159 @@ static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, LICE_pix
 
 static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, int a)
 {
-  if (r&~0xff) out[LICE_PIXEL_R]=r<0?0:255; else out[LICE_PIXEL_R] = (LICE_pixel_chan) (r);
-  if (g&~0xff) out[LICE_PIXEL_G]=g<0?0:255; else out[LICE_PIXEL_G] = (LICE_pixel_chan) (g);
-  if (b&~0xff) out[LICE_PIXEL_B]=b<0?0:255; else out[LICE_PIXEL_B] = (LICE_pixel_chan) (b);
-  if (a&~0xff) out[LICE_PIXEL_A]=a<0?0:255; else out[LICE_PIXEL_A] = (LICE_pixel_chan) (a);
+#define LICE_PIX_MAKECHAN(a,b) out[a] = (b&~0xff) ? (b<0?0:255) : b; 
+  LICE_PIX_MAKECHAN(LICE_PIXEL_B,b)
+  LICE_PIX_MAKECHAN(LICE_PIXEL_G,g)
+  LICE_PIX_MAKECHAN(LICE_PIXEL_R,r)
+  LICE_PIX_MAKECHAN(LICE_PIXEL_A,a)
+#undef LICE_PIX_MAKECHAN
+}
+
+
+
+#define HSV_P v*(256-s)/256
+#define HSV_Q(hval) v*(16384-(hval)*s)/16384
+#define HSV_T(hval) v*(16384-(64-(hval))*s)/16384
+#define HSV_X v
+extern unsigned short _LICE_RGB2HSV_invtab[256]; // 65536/idx - 1
+
+#ifdef LICE_COMBINE_IMPLEMENT_HSV
+  LICE_pixel LICE_HSV2Pix(int h, int s, int v, int alpha)
+  #define __LICE_HSV2Pix LICE_HSV2Pix
+#else
+  static inline LICE_pixel __LICE_HSV2Pix(int h, int s, int v, int alpha)
+#endif
+{
+  if (h<192)
+  {
+    if (h<64) return LICE_RGBA(HSV_X,HSV_T(h),HSV_P,alpha); 
+    if (h<128) return LICE_RGBA(HSV_Q(h-64),HSV_X,HSV_P,alpha); 
+    return LICE_RGBA(HSV_P,HSV_X,HSV_T(h-128),alpha); 
+  }
+  if (h < 256) return LICE_RGBA(HSV_P,HSV_Q(h-192),HSV_X,alpha); 
+  if (h < 320) return LICE_RGBA(HSV_T(h-256),HSV_P,HSV_X,alpha); 
+  return LICE_RGBA(HSV_X,HSV_P,HSV_Q(h-320),alpha); 
+}
+
+#ifdef LICE_COMBINE_IMPLEMENT_HSV
+void LICE_HSV2RGB(int h, int s, int v, int* r, int* g, int* b)
+#define __LICE_HSV2RGB LICE_HSV2RGB
+#else
+static inline void __LICE_HSV2RGB(int h, int s, int v, int* r, int* g, int* b)
+#endif
+{
+  if (h<192)
+  {
+    if (h<64)
+    {
+      *r = HSV_X; *g = HSV_T(h); *b = HSV_P; 
+    }
+    else if (h<128)
+    {
+      *r = HSV_Q(h-64); *g = HSV_X; *b = HSV_P; 
+    }
+    else
+    {
+      *r = HSV_P; *g = HSV_X; *b = HSV_T(h-128); 
+    }
+  }
+  else
+  {
+    if (h < 256)
+    {
+      *r = HSV_P; *g = HSV_Q(h-192); *b = HSV_X; 
+    }
+    else if (h < 320)
+    {
+      *r = HSV_T(h-256); *g = HSV_P; *b = HSV_X; 
+    }
+    else
+    {
+      *r = HSV_X; *g = HSV_P; *b = HSV_Q(h-320); 
+    }
+  }
+}
+
+
+#define LICE_RGB2HSV_USE_TABLE
+// h = [0,384), s and v = [0,256)
+
+#ifdef LICE_COMBINE_IMPLEMENT_HSV
+  void LICE_RGB2HSV(int r, int g, int b, int* h, int* s, int* v)
+  #define __LICE_RGB2HSV LICE_RGB2HSV
+#else
+  static inline void __LICE_RGB2HSV(int r, int g, int b, int* h, int* s, int* v)
+#endif
+{
+
+  // this makes it just 3 conditional branches per call
+  int df,d,maxrgb;
+  int degoffs;
+  if (g > r)
+  {
+    if (g>b) // green max
+    {
+      maxrgb=g;
+      degoffs=128;
+      df = maxrgb - min(b,r);
+      d=b-r;
+    }
+    else // blue max
+    {
+      maxrgb=b;
+      degoffs=256;
+      df = maxrgb - min(g,r);
+      d=r-g;
+    }
+  }
+  else // r >= g
+  {
+    if (r > b) // red max
+    {
+      maxrgb=r;
+
+      if (g<b)
+      {
+        degoffs=383; // not technically correct, but close enough (and simplifies the rounding case -- if you want more accuracy, set to 384,
+                     // then add a if (*h == 384) *h=0; after the *h assignment below
+        df = maxrgb - g;
+      }
+      else
+      {
+        degoffs=0;
+        df = maxrgb - b;
+      }
+      d=g-b;
+    }
+    else  // blue max
+    {
+      maxrgb=b;
+      degoffs=256;
+      df = maxrgb - min(g,r);
+      d=r-g;
+    }
+  }
+
+  
+  *v = maxrgb;
+#ifndef LICE_RGB2HSV_USE_TABLE // table mode doesnt need this check
+  if (!df) {
+    *h = *s = 0;
+  }
+  else 
+#endif
+  {
+
+#ifdef LICE_RGB2HSV_USE_TABLE
+
+
+    *h = (d*((int)(_LICE_RGB2HSV_invtab[df]+1)))/1024  + degoffs;
+    *s = (df*((int)_LICE_RGB2HSV_invtab[maxrgb]))/256;
+#else
+    *h = ((d*64)/df) + degoffs;
+    *s = (df*256)/(maxrgb+1);
+#endif
+  }
 }
 
 //void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)    // alpha is ignored.
@@ -102,9 +252,9 @@ public:
   {
     _LICE_MakePixel(dest, r, g, b, a);
   }
-  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // alpha is ignored.
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // alpha is ignored.
   {
-    *(LICE_pixel*)dest = src;
+    *dest = src;
   }
 };
 
@@ -120,9 +270,9 @@ public:
       (dest[LICE_PIXEL_B]+b)/2,
       (dest[LICE_PIXEL_A]+a)/2);
   }
-  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is full range
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is full range
   {
-    *(LICE_pixel*)dest = ((*(LICE_pixel*)dest >> 1) &0x7f7f7f7f) + ((src>>1)&0x7f7f7f7f);
+    *dest = ((*dest>>1) &0x7f7f7f7f) + ((src>>1)&0x7f7f7f7f);
   }
 
 };
@@ -139,19 +289,19 @@ public:
       (dest[LICE_PIXEL_B])/2 + b,
       (dest[LICE_PIXEL_A])/2 + a);
   }
-  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is pre-halfed and masked
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is pre-halfed and masked
   {
-    *(LICE_pixel*)dest = ((*(LICE_pixel*)dest >> 1) &0x7f7f7f7f) + src;
+    *dest = ((*dest>>1) &0x7f7f7f7f) + src;
   }
 };
 
 class _LICE_CombinePixelsQuarterMix2
 {
 public:
-  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is pre-quartered and masked
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is pre-quartered and masked
   {
-    LICE_pixel tmp=*(LICE_pixel*)dest;
-    *(LICE_pixel*)dest = ((tmp >> 1) &0x7f7f7f7f) + ((tmp >> 2) &0x3f3f3f3f) +  src;
+    LICE_pixel tmp = *dest;
+    *dest = ((tmp>>1) &0x7f7f7f7f) + ((tmp>>2) &0x3f3f3f3f) + src;
   }
 };
 
@@ -159,10 +309,9 @@ public:
 class _LICE_CombinePixelsThreeQuarterMix2
 {
 public:
-  static inline void doPixFAST(LICE_pixel_chan *dest, LICE_pixel src)    // src is pre-quartered and masked
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is pre-quartered and masked
   {
-    LICE_pixel tmp=*(LICE_pixel*)dest;
-    *(LICE_pixel*)dest = ((tmp >> 2) &0x3f3f3f3f) +  src;
+    *dest = ((*dest>>2) &0x3f3f3f3f) + src;
   }
 };
 
@@ -328,6 +477,107 @@ public:
 #define _LICE_CombinePixelsMul _LICE_CombinePixelsCopy
 #endif
 
+//#define LICE_DISABLE_BLEND_OVERLAY
+#ifndef LICE_DISABLE_BLEND_OVERLAY
+
+class _LICE_CombinePixelsOverlay
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+    // we could check alpha=0 here, but the caller should (since alpha is usually used for static alphas)
+
+    int destr = dest[LICE_PIXEL_R], destg = dest[LICE_PIXEL_G], destb = dest[LICE_PIXEL_B], desta = dest[LICE_PIXEL_A];
+
+#if 0
+    int srcr = r*alpha, srcg = g*alpha, srcb = b*alpha, srca = a*alpha;
+    int da=(256-alpha)*256;
+    int mr = (destr*(da+srcr))/65536;
+    int mg = (destg*(da+srcg))/65536;
+    int mb = (destb*(da+srcb))/65536;
+    int ma = (desta*(da+srca))/65536;
+    int sr = 256-(65536-srcr)*(256-destr)/65536;
+    int sg = 256-(65536-srcg)*(256-destg)/65536;
+    int sb = 256-(65536-srcb)*(256-destb)/65536;
+    int sa = 256-(65536-srca)*(256-desta)/65536;
+
+    destr = (destr*sr+(256-destr)*mr)/256;
+    destg = (destg*sg+(256-destg)*mg)/256;
+    destb = (destb*sb+(256-destb)*mb)/256;
+    desta = (desta*sa+(256-desta)*ma)/256;
+#else 
+    // can produce slightly diff (+-1) results from above due to rounding
+    int da=(256-alpha)*128; 
+    int srcr = r*alpha+da, srcg = g*alpha+da, srcb = b*alpha+da, srca = a*alpha + da;
+    destr = ( destr*( (destr*(32768-srcr))/256 + srcr ) )/32768;
+    destg = ( destg*( (destg*(32768-srcg))/256 + srcg ) )/32768;
+    destb = ( destb*( (destb*(32768-srcb))/256 + srcb ) )/32768;
+    desta = ( desta*( (desta*(32768-srca))/256 + srca ) )/32768;
+
+#endif
+
+    _LICE_MakePixel(dest, destr, destg, destb, desta);
+  }
+};
+
+class _LICE_CombinePixelsOverlaySourceAlpha
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+    _LICE_CombinePixelsOverlay::doPix(dest, r, g, b, a, (alpha*(a+1))/256);
+  }
+};
+
+#else // !LICE_DISABLE_BLEND_OVERLAY
+#define _LICE_CombinePixelsOverlaySourceAlpha _LICE_CombinePixelsCopySourceAlpha
+#define _LICE_CombinePixelsOverlay _LICE_CombinePixelsCopy
+#endif
+
+
+//#define LICE_DISABLE_BLEND_HSVADJ
+#ifndef LICE_DISABLE_BLEND_HSVADJ
+
+class _LICE_CombinePixelsHSVAdjust
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+    int h,s,v;
+    __LICE_RGB2HSV(dest[LICE_PIXEL_R],dest[LICE_PIXEL_G],dest[LICE_PIXEL_B],&h,&s,&v);
+    h+=(((r+r/2) - 192) * alpha)/256;
+    if (h<0)h+=384;
+    else if (h>=384) h-=384;
+    s+=((g-128)*alpha)/256;
+    if (s&~0xff)
+    {
+      if (s<0)s=0;
+      else s=255;
+    }
+    v+=((b-128)*alpha)/256;
+    if (v&~0xff)
+    {
+      if (v<0)v=0;
+      else v=255;
+    }
+
+    *(LICE_pixel *)dest = __LICE_HSV2Pix(h,s,v,a);
+  }
+};
+
+class _LICE_CombinePixelsHSVAdjustSourceAlpha
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  { 
+    _LICE_CombinePixelsHSVAdjust::doPix(dest, r, g, b, a, (alpha*(a+1))/256);
+  }
+};
+
+#else // !LICE_DISABLE_BLEND_HSVADJ
+#define _LICE_CombinePixelsHSVAdjustSourceAlpha _LICE_CombinePixelsCopySourceAlpha
+#define _LICE_CombinePixelsHSVAdjust _LICE_CombinePixelsCopy
+#endif
 
 //#define __LICE__ACTION(comb) templateclass<comb>::function(parameters)
 //__LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
@@ -342,6 +592,8 @@ public:
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
       case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
       case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
+      case LICE_BLIT_MODE_OVERLAY: __LICE__ACTION(_LICE_CombinePixelsOverlay); break;  \
+      case LICE_BLIT_MODE_HSVADJ: __LICE__ACTION(_LICE_CombinePixelsHSVAdjust); break;  \
       case LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA: \
           __LICE__ACTION(_LICE_CombinePixelsCopySourceAlpha); \
       break;  \
@@ -354,6 +606,12 @@ public:
       case LICE_BLIT_MODE_MUL|LICE_BLIT_USE_ALPHA: \
           __LICE__ACTION(_LICE_CombinePixelsMulSourceAlpha); \
       break;  \
+      case LICE_BLIT_MODE_OVERLAY|LICE_BLIT_USE_ALPHA: \
+          __LICE__ACTION(_LICE_CombinePixelsOverlaySourceAlpha); \
+      break;  \
+      case LICE_BLIT_MODE_HSVADJ|LICE_BLIT_USE_ALPHA: \
+          __LICE__ACTION(_LICE_CombinePixelsHSVAdjustSourceAlpha); \
+      break;  \
      }
 
 
@@ -364,6 +622,8 @@ public:
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
       case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
       case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
+      case LICE_BLIT_MODE_OVERLAY: __LICE__ACTION(_LICE_CombinePixelsOverlay); break;  \
+      case LICE_BLIT_MODE_HSVADJ: __LICE__ACTION(_LICE_CombinePixelsHSVAdjust); break;  \
     }
 
 // For drawing where there is constant alpha and no per-pixel alpha.
@@ -377,6 +637,8 @@ public:
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
       case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
       case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
+      case LICE_BLIT_MODE_OVERLAY: __LICE__ACTION(_LICE_CombinePixelsOverlay); break;  \
+      case LICE_BLIT_MODE_HSVADJ: __LICE__ACTION(_LICE_CombinePixelsHSVAdjust); break;  \
     }
         
 #endif // _LICE_COMBINE_H_

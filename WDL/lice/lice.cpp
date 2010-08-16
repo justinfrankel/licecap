@@ -11,6 +11,7 @@
 
 
 #include "lice_combine.h"
+#include "lice_extended.h"
 
 
 _LICE_ImageLoader_rec *LICE_ImageLoader_list;
@@ -197,18 +198,18 @@ template<class COMBFUNC> class _LICE_Template_Blit
         dest+=dest_span;
       }
     }
-    static void solidBlitFAST(LICE_pixel_chan *dest, int w, int h, 
+    static void solidBlitFAST(LICE_pixel *dest, int w, int h, 
                          LICE_pixel color,
                          int dest_span)
     {
       while (h--)
       {
-        LICE_pixel_chan *pout=dest;
+        LICE_pixel *pout=dest;
         int n=w;
         while (n--)
         {
           COMBFUNC::doPixFAST(pout,color);          
-          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+          ++pout;
         }
         dest+=dest_span;
       }
@@ -537,6 +538,14 @@ template<class COMBFUNC> class _LICE_Template_Blit
       int idx=(int)(dx*65536.0);
       int icurx=(int) (srcx*65536.0);
 #endif
+
+      LICE_pixel* destpx = (LICE_pixel*) dest;
+      int destpxspan = dest_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
+
+      //LICE_pixel* srcpx = (LICE_pixel*) src;
+      //int srcpxspan = src_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
+      // todo cast inptr back to LICE_pixel
+
       while (h--)
       {
         int cury = (int)(srcy);
@@ -548,7 +557,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
           double curx=srcx;
 #endif
           LICE_pixel_chan *inptr=src + cury * src_span;
-          LICE_pixel_chan *pout=dest;
+          LICE_pixel* pout = destpx;
           int n=w;
           while (n--)
           {
@@ -562,7 +571,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
               COMBFUNC::doPixFAST(pout,((LICE_pixel *)inptr)[offs]);
             }
 
-            pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+            ++pout;
 #ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
             curx+=idx;
 #else
@@ -570,7 +579,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
 #endif
           }
         }
-        dest+=dest_span;
+        destpx += destpxspan;
         srcy+=dy;
       }
     }
@@ -669,7 +678,7 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
 
 void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *srcrect, float alpha, int mode)
 {
-  if (!dest || !src) return;
+  if (!dest || !src || !alpha) return;
 
   RECT sr={0,0,src->getWidth(),src->getHeight()};
   if (srcrect) 
@@ -689,6 +698,18 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
 
   // ignore blits that are 0
   if (sr.right <= sr.left || sr.bottom <= sr.top) return;
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_BLIT_ACCEL))
+  {
+    LICE_Ext_Blit_acceldata data(src, dstx, dsty, 
+      sr.left, sr.top, 
+      sr.right-sr.left, sr.bottom-sr.top, 
+        alpha, mode);
+    if (dest->Extended(LICE_EXT_BLIT_ACCEL, &data)) return;
+  }
+#endif
+
 
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
   int src_span=src->getRowSpan()*sizeof(LICE_pixel);
@@ -897,7 +918,7 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
                      float srcx, float srcy, float srcw, float srch, 
                      float alpha, int mode)
 {
-  if (!dest || !src || !dstw || !dsth) return;
+  if (!dest || !src || !dstw || !dsth || !alpha) return;
 
   // non-scaling optimized omde
   if (fabs(srcw-dstw)<0.001 && fabs(srch-dsth)<0.001)
@@ -905,15 +926,23 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
     // and if not bilinear filtering, or 
     // the source coordinates are near their integer counterparts
     if ((mode&LICE_BLIT_FILTER_MASK)!=LICE_BLIT_FILTER_BILINEAR ||
-        (fabs(srcx-floor(srcx))<0.03 && fabs(srcy-floor(srcy))<0.03))
+        (fabs(srcx-floor(srcx+0.5f))<0.03 && fabs(srcy-floor(srcy+0.5f))<0.03))
     {
-      RECT sr={(int)srcx,(int)srcy,};
+      RECT sr={(int)(srcx+0.5f),(int)(srcy+0.5f),};
       sr.right=sr.left+dstw;
       sr.bottom=sr.top+dsth;
       LICE_Blit(dest,src,dstx,dsty,&sr,alpha,mode);
       return;
     }
   }
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_SCALEDBLIT_ACCEL))
+  {
+    LICE_Ext_ScaledBlit_acceldata data(src, dstx, dsty, dstw, dsth, srcx, srcy, srcw, srch, alpha, mode);
+    if (dest->Extended(LICE_EXT_SCALEDBLIT_ACCEL, &data)) return;
+  }
+#endif
 
   if (dstw<0)
   {
@@ -979,9 +1008,13 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
     if ((mode&(LICE_BLIT_FILTER_MASK|LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA))==LICE_BLIT_MODE_COPY && (alpha==0.5 || alpha==1.0))
     {
       if (alpha==0.5)
+      {
         _LICE_Template_Blit<_LICE_CombinePixelsHalfMix>::scaleBlitFAST(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span);
+      }
       else
+      {
         _LICE_Template_Blit<_LICE_CombinePixelsClobber>::scaleBlitFAST(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span);
+      }
     }
     else
     {
@@ -1182,6 +1215,14 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color)
 {
   if (!dest) return;
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_CLEAR_ACCEL))
+  {
+    if (dest->Extended(LICE_EXT_CLEAR_ACCEL, &color)) return;
+  }
+#endif
+
   LICE_pixel *p=dest->getBits();
   int h=dest->getHeight();
   int w=dest->getWidth();
@@ -1249,6 +1290,15 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
 void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode)
 {
   if (!dest) return;
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_FILLRECT_ACCEL))
+  {
+    LICE_Ext_FillRect_acceldata data(x, y, w, h, color, alpha, mode);
+    if (dest->Extended(LICE_EXT_FILLRECT_ACCEL, &data)) return;
+  }
+#endif
+
   if (mode & LICE_BLIT_USE_ALPHA) alpha *= LICE_GETA(color)/255.0f;
   LICE_pixel *p=dest->getBits();
 
@@ -1258,7 +1308,7 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
   if (y+h>dest->getHeight()) h=dest->getHeight()-y;
 
   int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
+  if (!alpha || !p || w<1 || h<1 || sp<1) return;
 
   if (dest->isFlipped())
   {
@@ -1273,30 +1323,30 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
   {
     if (alpha==1.0f)
     {
-      _LICE_Template_Blit<_LICE_CombinePixelsClobber>::solidBlitFAST((LICE_pixel_chan*)p,w,h,color,sp*sizeof(LICE_pixel));
+      _LICE_Template_Blit<_LICE_CombinePixelsClobber>::solidBlitFAST(p,w,h,color,sp);
       return;
     }
     if (alpha==0.5f)
     {
       // we use _LICE_CombinePixelsHalfMix2 because we pre-halve color here
-      _LICE_Template_Blit<_LICE_CombinePixelsHalfMix2>::solidBlitFAST((LICE_pixel_chan*)p,w,h,(color>>1)&0x7f7f7f7f,sp*sizeof(LICE_pixel));
+      _LICE_Template_Blit<_LICE_CombinePixelsHalfMix2>::solidBlitFAST(p,w,h,(color>>1)&0x7f7f7f7f,sp);
       return;
     }
     if (alpha==0.25f)
     {
-      _LICE_Template_Blit<_LICE_CombinePixelsQuarterMix2>::solidBlitFAST((LICE_pixel_chan*)p,w,h,(color>>2)&0x3f3f3f3f,sp*sizeof(LICE_pixel));
+      _LICE_Template_Blit<_LICE_CombinePixelsQuarterMix2>::solidBlitFAST(p,w,h,(color>>2)&0x3f3f3f3f,sp);
       return;
     }
     if (alpha==0.75f)
     {
-      _LICE_Template_Blit<_LICE_CombinePixelsThreeQuarterMix2>::solidBlitFAST((LICE_pixel_chan*)p,w,h,
-        ((color>>1)&0x7f7f7f7f)+((color>>2)&0x3f3f3f3f),sp*sizeof(LICE_pixel));
+      _LICE_Template_Blit<_LICE_CombinePixelsThreeQuarterMix2>::solidBlitFAST(p,w,h,
+        ((color>>1)&0x7f7f7f7f)+((color>>2)&0x3f3f3f3f),sp);
       return;
     }
   }
 
   // we use __LICE_ACTIONBYMODE_NOSRCALPHA even though __LICE_ACTIONBYMODE_CONSTANTALPHA
-  // is valid, sinc ewe optimized the 1.0f/0.5f cases above
+  // is valid, sinc we optimized the 1.0f/0.5f cases above
 #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),(int)(alpha*256.0),sp*sizeof(LICE_pixel))
     __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
 #undef __LICE__ACTION
@@ -1337,16 +1387,36 @@ void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel m
 
 LICE_pixel LICE_GetPixel(LICE_IBitmap *bm, int x, int y)
 {
+  if (!bm) return 0;
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (bm->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_GETPIXEL_ACCEL))
+  {
+    LICE_Ext_GetPixel_acceldata data(x, y);
+    if (bm->Extended(LICE_EXT_GETPIXEL_ACCEL, &data)) return data.px;
+  }
+#endif
+
   LICE_pixel *px;
-  if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return 0;
+  if (!(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return 0;
   if (bm->isFlipped()) return px[(bm->getHeight()-1-y) * bm->getRowSpan() + x];
 	return px[y * bm->getRowSpan() + x];
 }
 
 void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode)
 {
+  if (!bm) return;
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (bm->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_PUTPIXEL_ACCEL))
+  {
+    LICE_Ext_PutPixel_acceldata data(x, y, color, alpha, mode);
+    if (bm->Extended(LICE_EXT_PUTPIXEL_ACCEL, &data)) return;
+  }
+#endif
+
   LICE_pixel *px;
-  if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return;
+  if (!(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return;
 
   if (bm->isFlipped()) px+=x+(bm->getHeight()-1-y)*bm->getRowSpan();
   else px+=x+y*bm->getRowSpan();
@@ -1578,7 +1648,9 @@ public:
       LICE_pixel_chan* tsrc = srcalpha;
       LICE_pixel* tdest = destpx;
       for (xi = 0; xi < src_w; ++xi, ++tsrc, ++tdest) {
-        COMBFUNC::doPix((LICE_pixel_chan*) tdest, r, g, b, a, *tsrc*aa/256);
+        if (*tsrc) {  // glyphs should be expected to have a lot of "holes"
+          COMBFUNC::doPix((LICE_pixel_chan*) tdest, r, g, b, a, *tsrc*aa/256);
+        }
       }
     }
   }
@@ -1586,6 +1658,16 @@ public:
 
 void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
 {
+  if (!dest) return;
+
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_DRAWGLYPH_ACCEL))
+  {
+    LICE_Ext_DrawGlyph_acceldata data(x, y, color, alphas, glyph_w, glyph_h, alpha, mode);
+    if (dest->Extended(LICE_EXT_DRAWGLYPH_ACCEL, &data)) return;
+  }
+#endif
+
 #define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(dest, x, y, color, alphas, glyph_w, glyph_h, alpha)
 	__LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
 #undef __LICE__ACTION
@@ -1606,16 +1688,33 @@ void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
   while (h--)
   {
     LICE_pixel *sp = srcptr;
+    LICE_pixel *sp2 = srcptr+src_span;
     LICE_pixel *dp = destptr;
-    int x=w;
-    while (x--)
+    int x=w/2;
+      // perhaps we should use more precision rather than chopping each src pixel to 6 bits, but oh well
+    while (x--) // unroll 2px at a time, about 5% faster on core2 and ICC
     {
-      *dp++ =  // perhaps we should use more precision rather than chopping each src pixel to 6 bits, but oh well
+      int r1=((sp[0]>>2)&0x3f3f3f3f);
+      int r2=((sp[2]>>2)&0x3f3f3f3f);
+      r1 += ((sp[1]>>2)&0x3f3f3f3f);
+      r2 += ((sp[3]>>2)&0x3f3f3f3f);
+      dp[0] = r1  +
+        ((sp2[0]>>2)&0x3f3f3f3f) +
+        ((sp2[1]>>2)&0x3f3f3f3f);
+      dp[1] = r2  +
+        ((sp2[2]>>2)&0x3f3f3f3f) +
+        ((sp2[3]>>2)&0x3f3f3f3f);
+      sp+=4;
+      sp2+=4;
+      dp+=2;
+    }
+    if (w&1)
+    {
+      *dp =
         ((sp[0]>>2)&0x3f3f3f3f) +
         ((sp[1]>>2)&0x3f3f3f3f) +
-        ((sp[src_span]>>2)&0x3f3f3f3f) +
-        ((sp[src_span+1]>>2)&0x3f3f3f3f);
-      sp+=2;
+        ((sp2[0]>>2)&0x3f3f3f3f) +
+        ((sp2[1]>>2)&0x3f3f3f3f);
     }
     srcptr+=src_span*2;
     destptr+=dest_span;
@@ -1640,3 +1739,37 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b)
   return memcmp(a->getBits(), b->getBits(), (aw*ah)*sizeof(LICE_pixel));
 }
 
+unsigned short _LICE_RGB2HSV_invtab[256]={ // 65536/idx - 1
+  0,      0xffff, 0x7fff, 0x5554, 0x3fff, 0x3332, 0x2aa9, 0x2491,
+  0x1fff, 0x1c70, 0x1998, 0x1744, 0x1554, 0x13b0, 0x1248, 0x1110,
+  0x0fff, 0x0f0e, 0x0e37, 0x0d78, 0x0ccb, 0x0c2f, 0x0ba1, 0x0b20,
+  0x0aa9, 0x0a3c, 0x09d7, 0x097a, 0x0923, 0x08d2, 0x0887, 0x0841,
+  0x07ff, 0x07c0, 0x0786, 0x074f, 0x071b, 0x06ea, 0x06bb, 0x068f,
+  0x0665, 0x063d, 0x0617, 0x05f3, 0x05d0, 0x05af, 0x058f, 0x0571,
+  0x0554, 0x0538, 0x051d, 0x0504, 0x04eb, 0x04d3, 0x04bc, 0x04a6,
+  0x0491, 0x047c, 0x0468, 0x0455, 0x0443, 0x0431, 0x0420, 0x040f,
+  0x03ff, 0x03ef, 0x03df, 0x03d1, 0x03c2, 0x03b4, 0x03a7, 0x039a,
+  0x038d, 0x0380, 0x0374, 0x0368, 0x035d, 0x0352, 0x0347, 0x033c,
+  0x0332, 0x0328, 0x031e, 0x0314, 0x030b, 0x0302, 0x02f9, 0x02f0,
+  0x02e7, 0x02df, 0x02d7, 0x02cf, 0x02c7, 0x02bf, 0x02b8, 0x02b0,
+  0x02a9, 0x02a2, 0x029b, 0x0294, 0x028e, 0x0287, 0x0281, 0x027b,
+  0x0275, 0x026f, 0x0269, 0x0263, 0x025d, 0x0258, 0x0252, 0x024d,
+  0x0248, 0x0242, 0x023d, 0x0238, 0x0233, 0x022f, 0x022a, 0x0225,
+  0x0221, 0x021c, 0x0218, 0x0213, 0x020f, 0x020b, 0x0207, 0x0203,
+  0x01ff, 0x01fb, 0x01f7, 0x01f3, 0x01ef, 0x01eb, 0x01e8, 0x01e4,
+  0x01e0, 0x01dd, 0x01d9, 0x01d6, 0x01d3, 0x01cf, 0x01cc, 0x01c9,
+  0x01c6, 0x01c2, 0x01bf, 0x01bc, 0x01b9, 0x01b6, 0x01b3, 0x01b1,
+  0x01ae, 0x01ab, 0x01a8, 0x01a5, 0x01a3, 0x01a0, 0x019d, 0x019b,
+  0x0198, 0x0196, 0x0193, 0x0191, 0x018e, 0x018c, 0x0189, 0x0187,
+  0x0185, 0x0182, 0x0180, 0x017e, 0x017c, 0x0179, 0x0177, 0x0175,
+  0x0173, 0x0171, 0x016f, 0x016d, 0x016b, 0x0169, 0x0167, 0x0165,
+  0x0163, 0x0161, 0x015f, 0x015d, 0x015b, 0x0159, 0x0157, 0x0156,
+  0x0154, 0x0152, 0x0150, 0x014f, 0x014d, 0x014b, 0x0149, 0x0148,
+  0x0146, 0x0145, 0x0143, 0x0141, 0x0140, 0x013e, 0x013d, 0x013b,
+  0x013a, 0x0138, 0x0137, 0x0135, 0x0134, 0x0132, 0x0131, 0x012f,
+  0x012e, 0x012d, 0x012b, 0x012a, 0x0128, 0x0127, 0x0126, 0x0124,
+  0x0123, 0x0122, 0x0120, 0x011f, 0x011e, 0x011d, 0x011b, 0x011a,
+  0x0119, 0x0118, 0x0117, 0x0115, 0x0114, 0x0113, 0x0112, 0x0111,
+  0x0110, 0x010e, 0x010d, 0x010c, 0x010b, 0x010a, 0x0109, 0x0108,
+  0x0107, 0x0106, 0x0105, 0x0104, 0x0103, 0x0102, 0x0101, 0x0100,
+};

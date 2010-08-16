@@ -30,12 +30,11 @@
 
 */
 
-
 #ifdef _WIN32
 #include <windows.h>
 #pragma warning(disable:4244) // float-to-int
 #else
-#include "../SWELL/swell.h" // use SWELL on other systems
+#include "../swell/swell.h" // use SWELL on other systems
 #endif
 
 
@@ -100,15 +99,15 @@ public:
   virtual int getWidth()=0;
   virtual int getHeight()=0;
   virtual int getRowSpan()=0; // includes any off-bitmap data
+  virtual bool isFlipped() { return false;  }
   virtual bool resize(int w, int h)=0;
 
   virtual HDC getDC() { return 0; } // only sysbitmaps have to implement this
 
-  bool isFlipped() const // non-virtual, we set this per-platform (if a platform needs Flipped(), all bitmaps must be flipped!)
-  {
-    return false; 
-  }
+
+  virtual INT_PTR Extended(int id, void* data) { return 0; }  
 };
+
 
 class LICE_MemBitmap : public LICE_IBitmap
 {
@@ -192,16 +191,28 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 
         m_w=w; 
         m_h=h;
-        m_parentptr=m_parent->getBits();
-        if (m_parent->isFlipped()) m_parentptr += (m_parent->getHeight() - (m_y+m_h))*m_parent->getRowSpan()+m_x;
-        else m_parentptr += m_y*m_parent->getRowSpan()+m_x;
       }
 
       return true;
     }
 
+    LICE_pixel *getBits() 
+    {
+      if (!m_parent) return 0;
 
-    LICE_pixel *getBits() { return m_parentptr; }
+      LICE_pixel* parentptr=m_parent->getBits();
+      if (m_parent->isFlipped()) parentptr += (m_parent->getHeight() - (m_y+m_h))*m_parent->getRowSpan()+m_x;
+      else parentptr += m_y*m_parent->getRowSpan()+m_x;
+
+      return parentptr; 
+    }
+
+    INT_PTR Extended(int id, void* data)
+    {
+      if (!m_parent) return 0;
+      return m_parent->Extended(id, data);
+    }
+      
     int getWidth() { return m_w; }
     int getHeight() { return m_h; }
     int getRowSpan() { return m_parent ? m_parent->getRowSpan() : 0; }
@@ -210,7 +221,7 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 
     int m_w,m_h,m_x,m_y;
     LICE_IBitmap *m_parent;
-    LICE_pixel *m_parentptr;
+    //LICE_pixel *m_parentptr;
 };
 // bitmap loaders
 
@@ -218,12 +229,15 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 // dispatch to a linked loader implementation based on file extension 
 LICE_IBitmap* LICE_LoadImage(const char* filename, LICE_IBitmap* bmp=NULL, bool tryIgnoreExtension=false);
 char *LICE_GetImageExtensionList(bool wantAllSup=true, bool wantAllFiles=true); // returns doublenull terminated GetOpenFileName() style list -- free() when done.
-
+bool LICE_ImageIsSupported(const char *filename);  // must be a filename that ends in .jpg, etc. if you want to check the extension, pass .ext
 
 
 // pass a bmp if you wish to load it into that bitmap. note that if it fails bmp will not be deleted.
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+#ifndef _WIN32
+LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+#endif
 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
@@ -236,6 +250,7 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nf
 
 LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
+LICE_IBitmap *LICE_LoadSVG(const char *filename, LICE_IBitmap *bmp=NULL);
 
 // bitmap saving
 bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
@@ -248,6 +263,8 @@ bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool
 #define LICE_BLIT_MODE_ADD 1
 #define LICE_BLIT_MODE_DODGE 2
 #define LICE_BLIT_MODE_MUL 3
+#define LICE_BLIT_MODE_OVERLAY 4
+#define LICE_BLIT_MODE_HSVADJ 5
 
 #define LICE_BLIT_MODE_CHANCOPY 0xf0 // in this mode, only available for LICE_Blit(), the low nibble is 2 bits of source channel (low 2), 2 bits of dest channel (high 2)
 
@@ -358,16 +375,19 @@ void LICE_MeasureText(const char *string, int *w, int *h);
 
 // line drawing functions
 
-void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_Line(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+
+void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxon, int pxoff, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=false); // straight lines only for now
+
 void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha=1.0f, int mode=0);
 
 // Returns false if the line is entirely offscreen.
-bool LICE_ClipLine(float* pX1, float* pY1, float* pX2, float* pY2, int xLo, int yLo, int xHi, int yHi);
+bool LICE_ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int xLo, int yLo, int xHi, int yHi);
 
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
               LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
-void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0);
+void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius,
                     LICE_pixel col, float alpha, int mode, bool aa);
 
@@ -390,12 +410,14 @@ void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixe
 // bitmap compare-by-value function
 int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b);
 
+// colorspace functions
+void LICE_RGB2HSV(int r, int g, int b, int* h, int* s, int* v); // rgb, sv: [0,256), h: [0,384)
+void LICE_HSV2RGB(int h, int s, int v, int* r, int* g, int* b); // rgb, sv: [0,256), h: [0,384)
+LICE_pixel LICE_HSV2Pix(int h, int s, int v, int alpha); // sv: [0,256), h: [0,384)
 
-
-
-
-
-
+LICE_pixel LICE_AlterColorHSV(LICE_pixel color, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
+void LICE_AlterBitmapHSV(LICE_IBitmap* src, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
+void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
 
 struct _LICE_ImageLoader_rec
 {
@@ -405,7 +427,6 @@ struct _LICE_ImageLoader_rec
   struct _LICE_ImageLoader_rec *_next;
 };
 extern _LICE_ImageLoader_rec *LICE_ImageLoader_list;
-
 
 
 #endif

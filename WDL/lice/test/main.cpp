@@ -10,17 +10,52 @@
 #include <math.h>
 #include <stdio.h>
 
+#include "../lice_text.h"
+
+#include "../lice_glbitmap.h"
+
+#define GLEW_STATIC
+#include "../glew/include/gl/glew.h"
+#include "../glew/include/gl/wglew.h"
+
 #include "resource.h"
 
-#define NUM_EFFECTS 19
+#define NUM_EFFECTS 21
+
+char *effect_names[NUM_EFFECTS] =
+{
+  "Rotated + Scaled blit",
+  "Simple alpha blit",
+  "Rotated blit",
+  "Scaled blit",
+  "GradRect",
+  "Marble generator",
+  "Wood generator",
+  "Noise generator",
+  "Circular noise generator",
+  "GradRect + text + rotated blit",
+  "PutPixel",
+  "Line",
+  "DrawText",
+  "Icon loading",
+  "Circles, Arc",
+  "Rotated + Multiply add blit",
+  "Transform blit",
+  "Plush 3D",
+  "3D Fly (use mouse)",
+  "SVG loading",
+  "GL acceleration"
+};
 
 HINSTANCE g_hInstance;
 LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
-LICE_SysBitmap *framebuffer;
+LICE_IBitmap *framebuffer;
 static int m_effect = NUM_EFFECTS-1;
 static int m_doeff = 0;
+
+static LICE_IBitmap* tmpbmp = 0;
 
 static DWORD m_start_time, m_frame_cnt;
 bool m_cap;
@@ -42,7 +77,7 @@ static void DoPaint(HWND hwndDlg)
   if (framebuffer->resize(r.right-r.left,r.bottom-r.top))
   {
     m_doeff=1;
-    memset(framebuffer->getBits(),0,framebuffer->getWidth()*framebuffer->getHeight()*4);
+   // memset(framebuffer->getBits(),0,framebuffer->getWidth()*framebuffer->getHeight()*4);
   }
   
   int x=rand()%(r.right+300)-150;
@@ -50,6 +85,112 @@ static void DoPaint(HWND hwndDlg)
   
   switch(m_effect)
   {
+    case 20:  // GL acceleration
+    {
+      int w = framebuffer->getWidth();
+      int h = framebuffer->getHeight();
+
+      int x, y, tw, th;
+
+      static LICE_IBitmap* glbmp = 0;
+      if (!glbmp) 
+      {
+        glbmp = new LICE_GL_SysBitmap(0, 0);
+        glbmp->resize(w, h);
+
+        glbmp = new LICE_GL_SubBitmap(glbmp, 20, 80, 50, 20);
+
+        framebuffer = glbmp;
+      }
+
+      if (!tmpbmp)
+      {
+        tmpbmp = new LICE_GL_MemBitmap(0, 0);
+        tmpbmp->resize(20, 20);
+        //tmpbmp = new LICE_MemBitmap(20, 20);
+      }
+       
+      LICE_Clear(tmpbmp, LICE_RGBA(255,0,0,255));
+      LICE_Line(tmpbmp, 0, 0, 20, 20, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);      
+
+      static int _n = 0;
+
+      //if (_n < 3)
+      {
+        //LICE_Clear(glbmp, LICE_RGBA(0,0,0,0));
+
+        x = w*rand()/RAND_MAX;
+        y = h*rand()/RAND_MAX;
+        LICE_Blit(glbmp, tmpbmp, x, y, 0, 0, 20, 20, 1.0f, LICE_BLIT_MODE_COPY);  // blit one GL bitmap to another
+
+        x = w*rand()/RAND_MAX;
+        y = h*rand()/RAND_MAX;
+        LICE_ScaledBlit(glbmp, tmpbmp, x, y, 40, 40, 0, 0, 20, 20, 1.0f, LICE_BLIT_MODE_COPY);  // blit one GL bitmap to another
+
+        x = w*rand()/RAND_MAX;
+        y = h*rand()/RAND_MAX;
+        tw = (w-x)*rand()/RAND_MAX;
+        th = (h-y)*rand()/RAND_MAX;
+        int color = (_n%2 ? LICE_RGBA(63,63,63,255) : LICE_RGBA(0,0,0,255));
+        LICE_FillRect(glbmp, x, y, tw, th, color, 1.0f, LICE_BLIT_MODE_COPY);
+  
+        x = w*rand()/RAND_MAX;
+        y = h*rand()/RAND_MAX;
+        tw = (w-x)*rand()/RAND_MAX;
+        th = (h-y)*rand()/RAND_MAX;
+        LICE_Line(glbmp,  x, y, x+tw, y+th, LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+  
+        int x0 = w*rand()/RAND_MAX;
+        int y0 = h*rand()/RAND_MAX;
+        int x1 = w*rand()/RAND_MAX;
+        int y1 = h*rand()/RAND_MAX;
+        int x2 = w*rand()/RAND_MAX;
+        int y2 = h*rand()/RAND_MAX;
+        int x3 = w*rand()/RAND_MAX;
+        int y3 = h*rand()/RAND_MAX;
+        LICE_DrawCBezier(glbmp, x0, y0, x1, y1, x2, y2, x3, y3, LICE_RGBA(0,255,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+
+        #define A(x) ((LICE_pixel_chan)((x)*255.0+0.5))
+  
+        LICE_pixel_chan alphas[81] =
+        { 
+          A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00),
+          A(0.12), A(0.94), A(0.82), A(0.31), A(0.25), A(0.31), A(0.82), A(0.94), A(0.12),
+          A(0.69), A(0.82), A(0.06), A(0.00), A(0.00), A(0.00), A(0.06), A(0.82), A(0.69),
+          A(1.00), A(0.31), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.31), A(1.00),
+          A(1.00), A(0.19), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.19), A(1.00),
+          A(1.00), A(0.31), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.31), A(1.00),
+          A(0.69), A(0.82), A(0.06), A(0.00), A(0.00), A(0.00), A(0.06), A(0.82), A(0.69),
+          A(0.12), A(0.94), A(0.82), A(0.31), A(0.25), A(0.31), A(0.82), A(0.94), A(0.12),
+          A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00)
+        };
+        int gw = 9;
+        int gh = 9;
+        
+        x = w*rand()/RAND_MAX;
+        y = h*rand()/RAND_MAX;
+        LICE_DrawGlyph(glbmp, x, y, LICE_RGBA(255,255,0,255), alphas, gw, gh, 1.0f, LICE_BLIT_MODE_COPY);
+
+        static LICE_CachedFont* font = 0;
+        if (!font)
+        {
+          font = new LICE_CachedFont;
+          LOGFONT lf={ 12, 0, 0, 0, FW_LIGHT, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, "Arial"};
+          HFONT hf = CreateFontIndirect(&lf);
+          font->SetFromHFont(hf, 0);
+          font->SetTextColor(LICE_RGBA(255,255,0,255));
+        } 
+        
+        x = w*rand()/RAND_MAX;
+        y = h*rand()/RAND_MAX;
+        RECT r = { x, y, x+40, y+10 };
+        font->DrawText(glbmp, "foo bar", -1, &r, 0);
+
+      }
+      ++_n;
+    }
+    break;
+
     case 18:
       {
         void doFlyEffect(LICE_IBitmap *fb,HWND);
@@ -185,7 +326,7 @@ static void DoPaint(HWND hwndDlg)
       
       double scale=(1.1+sin(a)*0.3);
       
-      if (1)  // weirdness
+      if (0)  // weirdness
       {
         LICE_RotatedBlit(framebuffer,framebuffer,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,254/255.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
       }
@@ -195,9 +336,10 @@ static void DoPaint(HWND hwndDlg)
         
         LICE_Copy(&framebuffer_back,framebuffer);
         LICE_RotatedBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+        LICE_ScaledBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,r.right/4,r.bottom/4,r.right/2,r.bottom/2,0.1,LICE_BLIT_MODE_HSVADJ|LICE_BLIT_FILTER_BILINEAR);
       }
       //LICE_Clear(framebuffer,0);
-      if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,rand()%16==0 ? -0.5: 0.1,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+      if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,0.3,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
       
       if (m_effect==15)
       {
@@ -415,7 +557,19 @@ static void DoPaint(HWND hwndDlg)
     }
       
       break;
-      
+    case 19:
+      //SVG loading
+      {
+        static int init = 0;
+        static LICE_IBitmap *m_svg;
+        if(!init)
+        {
+          m_svg = LICE_LoadSVG("c:\\test.svg");
+          init = 1;
+        }
+        if(m_svg) LICE_Blit(framebuffer, m_svg, 0, 0, 0, 0, m_svg->getWidth(), m_svg->getHeight(), 1.0f, 0);
+      }
+      break;
   }
   
   if(jpg)
@@ -426,7 +580,8 @@ static void DoPaint(HWND hwndDlg)
   m_frame_cnt++;
   
   double sec=(GetTickCount()-m_start_time)*0.001;
-  if (sec>0.0001)
+  //if (sec>0.0001)
+  if (false)
   {
     char buf[512];
     sprintf(buf,"%dx%d @ %.2ffps",framebuffer->getWidth(),framebuffer->getHeight(),m_frame_cnt / (double)sec);
@@ -441,7 +596,8 @@ static void DoPaint(HWND hwndDlg)
 #endif
   BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
   //      bmp->blitToDC(dc, NULL, 0, 0);
-  
+
+
 #if 0
   if (GetAsyncKeyState(VK_SHIFT)&0x8000)
   if (GetAsyncKeyState(VK_MENU)&0x8000)
@@ -498,16 +654,15 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
   switch(uMsg)
   {
   case WM_INITDIALOG:
-    
+  
     framebuffer = new LICE_SysBitmap(0,0);
     
-    jpg=LICE_LoadJPG("C:/turds.jpg");
+    //jpg=LICE_LoadJPG("C:/turds.jpg");
 
 #ifdef _WIN32
     bmp = LICE_LoadPNGFromResource(g_hInstance, IDC_PNG1);
     icon = LICE_LoadIconFromResource(g_hInstance, IDI_MAIN, 0);
-#endif
-      
+#endif     
     
     SetTimer(hwndDlg,1,3,NULL);
     {
@@ -515,7 +670,7 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
       for (x = 0; x < NUM_EFFECTS; x ++)
       {
         char buf[512];
-        wsprintf(buf,"Effect %d",x+1);
+        wsprintf(buf,"Effect %d - %s",x+1,effect_names[x]);
         SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_ADDSTRING,0,(LPARAM)buf);
       }
       SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_SETCURSEL,m_effect,0);

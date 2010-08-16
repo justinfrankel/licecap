@@ -145,7 +145,7 @@ public:
   {
     int i;
     for (i = 0; i < m_nCh; ++i) {
-      GetChannel(i, forWriteOnly); // converts if necessary
+      GetChannel(i, forWriteOnly, (T*)NULL); // converts if necessary
     }
     return (T**) m_backingStorePtrs.Get();
   }

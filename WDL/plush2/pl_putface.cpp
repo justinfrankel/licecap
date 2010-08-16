@@ -28,6 +28,62 @@
           }
 
 
+static inline void OverlayBlend(int &red, int &green, int &blue, int &alpha, int r, int g, int b, int a, int usea)
+{
+  int da=(256-usea)*128; 
+  int srcr = r*usea+da, srcg = g*usea+da, srcb = b*usea+da, srca = usea*a + da;
+  red = ( red*( (red*(32768-srcr))/256 + srcr ) )/32768;
+  green = ( green*( (green*(32768-srcg))/256 + srcg ) )/32768;
+  blue = ( blue*( (blue*(32768-srcb))/256 + srcb ) )/32768;
+  alpha = ( alpha*( (alpha*(32768-srca))/256 + srca ) )/32768;
+}
+
+static inline void MulBlend(int &red, int &green, int &blue, int &alpha, int r, int g, int b, int a, int ta)
+{
+  int ta2=(256-ta)*256;
+  red = (r*ta*red + red*ta2)/65536;
+  green = (g*ta*green + green*ta2)/65536;
+  blue = (b*ta*blue + blue*ta2)/65536;
+  alpha = (a*ta*alpha + alpha*ta2)/65536;
+}
+
+
+static inline void AdjustHSV(int &red, int &green, int &blue, int r, int g, int b, int texalpha)
+{
+  int h,s,v;
+  __LICE_RGB2HSV(red,green,blue,&h,&s,&v);
+    h+=(((r+r/2) - 192) * texalpha)/256;
+    if (h<0)h+=384;
+    else if (h>=384) h-=384;
+    s+=((g-128)*texalpha)/256;
+    if (s&~0xff)
+    {
+      if (s<0)s=0;
+      else s=255;
+    }
+    v+=((b-128)*texalpha)/256;
+    if (v&~0xff)
+    {
+      if (v<0)v=0;
+      else v=255;
+    }
+  __LICE_HSV2RGB(h,s,v,&red,&green,&blue);
+}
+
+static inline void DodgeBlend(int &red, int &green, int &blue, int &alpha, int r, int g, int b, int a, int ta)
+{
+  int src_r = 256-r*ta/256;
+  int src_g = 256-g*ta/256;
+  int src_b = 256-b*ta/256;
+  int src_a = 256-(a*ta)/256;
+
+  red = src_r > 1 ? 256*red / src_r : 256*red;
+  green = src_g > 1 ? 256*green / src_g : 256*green;
+  blue = src_b > 1 ? 256*blue / src_b : 256*blue;
+  alpha =  src_a > 1 ? 256*alpha / src_a : 256*alpha;
+}
+
+
 static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int &red, int &green, int &blue, int &alpha, int texalpha, int texalpha2)
 {
   switch (texcomb)
@@ -45,29 +101,31 @@ static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int
       alpha += (a*texalpha)/256;
     break;
     case LICE_BLIT_MODE_MUL:
-      {
-        int ta2=texalpha2*256;
-        red = (r*texalpha*red + red*ta2)/65536;
-        green = (g*texalpha*green + green*ta2)/65536;
-        blue = (b*texalpha*blue + blue*ta2)/65536;
-        alpha = (a*texalpha*alpha + alpha*ta2)/65536;
-      }
+      MulBlend(red,green,blue,alpha,r,g,b,a,texalpha);
     break;
     case LICE_BLIT_MODE_DODGE:
+      DodgeBlend(red,green,blue,alpha,r,g,b,a,texalpha);
+
+    break;
+    case LICE_BLIT_MODE_OVERLAY:
+      OverlayBlend(red,green,blue,alpha,r,g,b,a, texalpha);
+    break;
+    case LICE_BLIT_MODE_HSVADJ:
+      AdjustHSV(red,green,blue,r,g,b,texalpha);
     break;
     case LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA:
       {
-        int ta=(texalpha*(alpha+1))/256;
-        int ta2=(256-ta);
-        red = (r*ta + red*ta2)/256;
-        green = (g*ta + green*ta2)/256;
-        blue = (b*ta + blue*ta2)/256;
-        alpha = (a*ta + alpha*ta2)/256;
+        int ta=(texalpha*(a+1));
+        int ta2=(65536-ta);
+        red = (r*ta + red*ta2)/65536;
+        green = (g*ta + green*ta2)/65536;
+        blue = (b*ta + blue*ta2)/65536;
+        alpha = (a*ta + alpha*ta2)/65536;
       }
     break;
     case LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA:
       {
-        int ta=(texalpha*(alpha+1));
+        int ta=(texalpha*(a+1));
         red += (r*ta)/65536;
         green += (g*ta)/65536;
         blue += (b*ta)/65536;
@@ -75,16 +133,19 @@ static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int
       }
     break;
     case LICE_BLIT_MODE_DODGE|LICE_BLIT_USE_ALPHA:
+      {
+        int ta=(texalpha*(a+1))/256;
+        DodgeBlend(red,green,blue,alpha,r,g,b,a,ta);
+      }
     break;
     case LICE_BLIT_MODE_MUL|LICE_BLIT_USE_ALPHA:
-      {
-        int ta=(texalpha*(alpha+1))/256;
-        int ta2=(256-ta)*256;
-        red = (r*ta*red + red*ta2)/65536;
-        green = (g*ta*green + green*ta2)/65536;
-        blue = (b*ta*blue + blue*ta2)/65536;
-        alpha = (a*ta*alpha + alpha*ta2)/65536;
-      }
+      MulBlend(red,green,blue,alpha,r,g,b,a,(texalpha*(a+1))/256);
+    break;
+    case LICE_BLIT_MODE_OVERLAY|LICE_BLIT_USE_ALPHA:
+      OverlayBlend(red,green,blue,alpha,r,g,b,a, (texalpha*(a+1))/256);
+    break;
+    case LICE_BLIT_MODE_HSVADJ|LICE_BLIT_USE_ALPHA:
+      AdjustHSV(red,green,blue,r,g,b,(texalpha*(a+1))/256);
     break;
     case -2:
     break;
@@ -93,6 +154,71 @@ static void inline DoTextureCombine(int texcomb, int r, int g, int b, int a, int
     break;
   }
 }
+
+
+static void inline TextureMakePixelSolidCombine(int &red, int &green, int &blue, int &alpha,
+                                                 pl_sInt32 *CL, int solidcomb, int solidalpha,
+                                                 int solidalpha2,
+                                                 LICE_pixel_chan *gmemptr)
+{
+
+  switch (solidcomb)
+  {
+    case LICE_BLIT_MODE_COPY:
+      red = (CL[0]/256*solidalpha + gmemptr[LICE_PIXEL_R]*solidalpha2)/65536;
+      green = (CL[1]/256*solidalpha + gmemptr[LICE_PIXEL_G]*solidalpha2)/65536;
+      blue = (CL[2]/256*solidalpha + gmemptr[LICE_PIXEL_B]*solidalpha2)/65536;
+      alpha = solidalpha;
+    break;
+    case LICE_BLIT_MODE_ADD: 
+      red = gmemptr[LICE_PIXEL_R] + (CL[0]/256*solidalpha)/65536;
+      green = gmemptr[LICE_PIXEL_G] + (CL[1]/256*solidalpha)/65536;
+      blue = gmemptr[LICE_PIXEL_B] + (CL[2]/256*solidalpha)/65536;
+      alpha = gmemptr[LICE_PIXEL_A] + solidalpha;
+    break;
+    case LICE_BLIT_MODE_DODGE:
+      red=gmemptr[LICE_PIXEL_R];
+      green=gmemptr[LICE_PIXEL_G];
+      blue=gmemptr[LICE_PIXEL_B];
+      alpha=gmemptr[LICE_PIXEL_A];
+      DodgeBlend(red,green,blue,alpha,CL[0]/65536,CL[1]/65536,CL[2]/65536,solidalpha,solidalpha);
+    break;
+    case LICE_BLIT_MODE_MUL:
+      red=gmemptr[LICE_PIXEL_R];
+      green=gmemptr[LICE_PIXEL_G];
+      blue=gmemptr[LICE_PIXEL_B];
+      alpha=gmemptr[LICE_PIXEL_A];
+      MulBlend(red,green,blue,alpha,CL[0]/65536,CL[1]/65536,CL[2]/65536,solidalpha,solidalpha);
+    break;
+    case LICE_BLIT_MODE_OVERLAY:
+      red=gmemptr[LICE_PIXEL_R];
+      green=gmemptr[LICE_PIXEL_G];
+      blue=gmemptr[LICE_PIXEL_B];
+      alpha=gmemptr[LICE_PIXEL_A];
+      OverlayBlend(red,green,blue,alpha,CL[0]/65536,CL[1]/65536,CL[2]/65536,solidalpha, solidalpha);
+    break;
+    case LICE_BLIT_MODE_HSVADJ:
+      red=gmemptr[LICE_PIXEL_R];
+      green=gmemptr[LICE_PIXEL_G];
+      blue=gmemptr[LICE_PIXEL_B];
+      alpha=gmemptr[LICE_PIXEL_A];
+      AdjustHSV(red,green,blue,CL[0]/65536,CL[1]/65536,CL[2]/65536,solidalpha);
+    break;
+    case -2:
+      red=gmemptr[LICE_PIXEL_R];
+      green=gmemptr[LICE_PIXEL_G];
+      blue=gmemptr[LICE_PIXEL_B];
+      alpha=gmemptr[LICE_PIXEL_A];
+    break;
+    default:
+      red=CL[0]/65536;
+      green=CL[1]/65536;
+      blue=CL[2]/65536;
+      alpha=solidalpha;
+    break;
+  }
+}
+
 
 static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
                    int solidcomb, int solidalpha, int solidalpha2,
@@ -115,51 +241,13 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
 
   int red,green,blue,alpha;
   
-  red=gmemptr[LICE_PIXEL_R];
-  green=gmemptr[LICE_PIXEL_G];
-  blue=gmemptr[LICE_PIXEL_B];
-  alpha=gmemptr[LICE_PIXEL_A];
-  switch (solidcomb)
-  {
-    case LICE_BLIT_MODE_COPY:
-      red = (CL[0]/256*solidalpha + red*solidalpha2)/65536;
-      green = (CL[1]/256*solidalpha + green*solidalpha2)/65536;
-      blue = (CL[2]/256*solidalpha + blue*solidalpha2)/65536;
-      alpha = solidalpha;
-    break;
-    case LICE_BLIT_MODE_ADD: // todo
-      red += (CL[0]/256*solidalpha)/65536;
-      green += (CL[1]/256*solidalpha)/65536;
-      blue += (CL[2]/256*solidalpha)/65536;
-      alpha += solidalpha;
-    break;
-    case LICE_BLIT_MODE_DODGE:
-    break;
-    case LICE_BLIT_MODE_MUL:
-      {
-        int ta2=texalpha2*256;
-        red = (red*(CL[0]/65536*solidalpha + solidalpha2))/65536;
-        green = (green*(CL[1]/65536*solidalpha + solidalpha2))/65536;
-        blue = (blue*(CL[2]/65536*solidalpha + solidalpha2))/65536;
-        alpha = solidalpha;
-      }
-    break;
-    case -2:
-    break;
-    default:
-      red=CL[0]/65536;
-      green=CL[1]/65536;
-      blue=CL[2]/65536;
-      alpha=solidalpha;
-    break;
-  }
+  TextureMakePixelSolidCombine(red,green,blue,alpha,CL,solidcomb,solidalpha,solidalpha2,gmemptr);
+
+  int r,g,b,a;
 
   int xpos=iUL>>16;            
   int ypos=iVL>>16;
   LICE_pixel_chan *rd = (LICE_pixel_chan*)(texture + xpos+ypos*tex_rowspan);
-
-
-  int r,g,b,a;
 
 #if defined(PLUSH_NO_TEXTURE)
   if (texture)
@@ -219,56 +307,25 @@ static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
 {
 
   int red,green,blue,alpha;
-  
-  red=gmemptr[LICE_PIXEL_R];
-  green=gmemptr[LICE_PIXEL_G];
-  blue=gmemptr[LICE_PIXEL_B];
-  alpha=gmemptr[LICE_PIXEL_A];
-  switch (solidcomb)
-  {
-    case LICE_BLIT_MODE_COPY:
-      red = (CL[0]/256*solidalpha + red*solidalpha2)/65536;
-      green = (CL[1]/256*solidalpha + green*solidalpha2)/65536;
-      blue = (CL[2]/256*solidalpha + blue*solidalpha2)/65536;
-      alpha = solidalpha;
-    break;
-    case LICE_BLIT_MODE_ADD: // todo
-      red += (CL[0]/256*solidalpha)/65536;
-      green += (CL[1]/256*solidalpha)/65536;
-      blue += (CL[2]/256*solidalpha)/65536;
-      alpha += solidalpha;
-    break;
-    case LICE_BLIT_MODE_DODGE:
-    break;
-    case LICE_BLIT_MODE_MUL:
-      {
-        int ta2=texalpha2*256;
-        red = (red*(CL[0]/65536*solidalpha + solidalpha2))/65536;
-        green = (green*(CL[1]/65536*solidalpha + solidalpha2))/65536;
-        blue = (blue*(CL[2]/65536*solidalpha + solidalpha2))/65536;
-        alpha = solidalpha;
-      }
-    break;
-    case -2:
-    break;
-    default:
-      red=CL[0]/65536;
-      green=CL[1]/65536;
-      blue=CL[2]/65536;
-      alpha=solidalpha;
-    break;
-  }
+
+  if (
+#ifdef PLUSH_NO_SOLIDGOURAUD
+    !texture||
+#endif
+    texcomb!=-1)
+    TextureMakePixelSolidCombine(red,green,blue,alpha,CL,solidcomb,solidalpha,solidalpha2,gmemptr);
 
 
-  int r,g,b,a;
 
 #ifdef PLUSH_NO_SOLIDGOURAUD
   if (texture)
 #endif
   {
+    int r,g,b,a;
     int xpos=iUL>>16;            
     int ypos=iVL>>16;
     LICE_pixel_chan *rd = (LICE_pixel_chan*)(texture + xpos+ypos*tex_rowspan);
+
     if (bilinear)
     {
 

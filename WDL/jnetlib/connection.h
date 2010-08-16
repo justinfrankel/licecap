@@ -80,7 +80,7 @@ class JNL_IConnection
     virtual int send_bytes_in_queue(void)=0;
     virtual int send_bytes_available(void)=0;
     virtual int send(const void *data, int length)=0; // returns -1 if not enough room
-    virtual inline int send_bytes(const void *data, int length)=0;
+    virtual int send_bytes(const void *data, int length)=0;
     virtual int send_string(const char *line)=0;      // returns -1 if not enough room
 
     virtual int recv_bytes_available(void)=0;

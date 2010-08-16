@@ -1,3 +1,32 @@
+2009-01-16: restored LICE bitmap ABI for compatability with older WDL versions
+2009-01-15: Convolution engine optimizations and bugfixes, slightly updated impulse API
+2009-01-13: simple reusable pitch shifter/time stretcher added
+2009-01-11: WDL_Queue autocompact optimizations
+2009-01-10: ADPCM decoder (IMA + MSADPCM + cADPCM), IMA/cADPCM encoder
+2009-01-08: virtwnd comboboxes support SUB tags
+2009-01-07: Vorbis encoder supports multichannel encoding
+2009-01-01: Added LICE_DashedLine
+2009-01-01: LICE_LoadPNGFromNamedResource() for OSX
+2008-12-29: iPlug: added images for example
+2008-12-27: LICE: Preliminary work for allowing LICE operations to be GL accelerated
+2008-12-20: LICE: added effect names to test application
+2008-12-20: LICE: added preliminary SVG support
+2008-12-13: SWELL: Imagelists no longer free their bitmaps (to match win)
+2008-12-13: WDL_WndSizer: reduced chance of HDWP leaks when invalid windows are stored
+2008-12-09: Virtwnd: grayed state for buttons
+2008-12-07: SWELL fixes for BitBlt/StretchBlt() with certain coordinates
+2008-12-06: LICE HSV combining blend modes
+2008-12-05: Plush2 multitexture fixes, fixed source-alpha modes
+2008-12-04: Virtwnd: improved ordering of notification calls to allow deleting a vwnd from a command message
+2008-11-24: WDL_String optimizations for empty strings
+2008-11-22: LICE: line drawing improvements (changed signature of LICE_Line to use integers)
+2008-11-20: SWELL: start on GTK implementations, far away from useful though
+2008-11-19: EEL2 fixes for recent GCC versions on Linux, constness
+2008-11-18: Added WDL_HeapBuf copy constructors
+2008-11-18: LICE: RGB/HSV colorspace conversions
+2008-11-17: LICE: overlay blend modes
+2008-11-16: LICE: Better bezier drawing
+2008-11-16: LICE: improved circle/arc drawing routes
 2008-11-15: LICE JPEG loading fixes, JPEG writing, PNG writing byteorder fixes
 2008-11-14: LICE_FillCircle() (needs optimizing)
 2008-11-11: LICE_LoadImage, LICE_GetImageExtensoinList(),and LICE_CmpBitmap()

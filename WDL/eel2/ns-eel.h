@@ -66,7 +66,7 @@ int NSEEL_init(); // returns 0 on success. clears any added functions as well
 
 #define NSEEL_addfunction(name,nparms,code,len) NSEEL_addfunctionex((name),(nparms),(code),(len),0,0)
 #define NSEEL_addfunctionex(name,nparms,code,len,pproc,fptr) NSEEL_addfunctionex2((name),(nparms),(code),(len),(pproc),(fptr),0)
-void NSEEL_addfunctionex2(char *name, int nparms, char *code_startaddr, int code_len, void *pproc, void *fptr, void *fptr2);
+void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, void *pproc, void *fptr, void *fptr2);
 
 void NSEEL_quit();
 
@@ -82,7 +82,7 @@ void NSEEL_VM_free(NSEEL_VMCTX ctx); // free when done with a VM and ALL of its 
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx); // return false from func to stop
 void NSEEL_VM_resetvars(NSEEL_VMCTX ctx); // clears all vars to 0.0.
 
-EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, char *name); // register a variable (before compilation)
+EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variable (before compilation)
 
 void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx); // clears and frees all (VM) RAM used
 void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX); // call after code to free the script-requested memory

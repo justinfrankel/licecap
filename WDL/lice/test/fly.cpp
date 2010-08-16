@@ -177,6 +177,7 @@ static void setup_materials(pl_Mat **mat) {
   mat[2] = new pl_Mat;
   mat[3] = 0;
 
+  extern LICE_IBitmap *bmp;
   // set up material 0 (the ground)
   mat[0]->Smoothing = true;
   mat[0]->Lightable=true;
@@ -194,9 +195,15 @@ static void setup_materials(pl_Mat **mat) {
 //    LICE_TexGen_Marble(mat[0]->Texture2,NULL,1.0,0.8,0.8,1.0f);
     LICE_TexGen_Noise(mat[0]->Texture2,NULL,1.0,1.0,1.0,1.0f,NOISE_MODE_WOOD,8);
   }
-  mat[0]->Tex2CombineMode=LICE_BLIT_MODE_MUL|LICE_BLIT_FILTER_BILINEAR;
+
+  mat[0]->Texture=mat[0]->Texture2;
+  mat[0]->Texture2=bmp;
+  mat[0]->TexCombineMode=LICE_BLIT_MODE_MUL|LICE_BLIT_FILTER_BILINEAR;
+  mat[0]->Tex2CombineMode=LICE_BLIT_MODE_DODGE|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR;
   mat[0]->Tex2Scaling[1]=
   mat[0]->Tex2Scaling[0] = 40.0*LAND_SIZE/50000;
+  mat[0]->TexScaling[1]=
+  mat[0]->TexScaling[0] = 40.0*LAND_SIZE/50000;
   mat[0]->Tex2MapIdx=0;
   mat[0]->PerspectiveCorrect = 16;
   mat[0]->BackfaceIllumination=1.0;
@@ -222,6 +229,11 @@ static void setup_materials(pl_Mat **mat) {
     mat[1]->Texture = new LICE_MemBitmap(400,400);
     LICE_TexGen_Noise(mat[1]->Texture,NULL,0.0,0.0,1.0,1.0f,NOISE_MODE_WOOD,8);
   }
+  mat[1]->Texture2=bmp;
+  mat[1]->Tex2CombineMode= LICE_BLIT_MODE_HSVADJ|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA;
+  mat[1]->Tex2Scaling[1] = mat[1]->Tex2Scaling[0] = 45.0*LAND_SIZE/50000*0.37;
+  mat[1]->Tex2MapIdx=0;
+
   // set up material 2 (the second sky)
   mat[2]->Lightable=true;
   mat[2]->Smoothing=false;
@@ -241,6 +253,11 @@ static void setup_materials(pl_Mat **mat) {
   mat[2]->TexCombineMode=LICE_BLIT_MODE_COPY;
   mat[2]->PerspectiveCorrect = 16;
     
+  mat[2]->Texture2=bmp;
+  mat[2]->Tex2CombineMode= LICE_BLIT_MODE_HSVADJ|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA;
+  mat[2]->Tex2Scaling[1] = mat[1]->Tex2Scaling[0] = 45.0*LAND_SIZE/50000*3.37;
+  mat[2]->Tex2MapIdx=0;
+
 }
 
 pl_Obj *setup_landscape(pl_Mat *m, pl_Mat *sm, pl_Mat *sm2) {

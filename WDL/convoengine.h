@@ -37,16 +37,40 @@
 #define WDL_CONVO_MAX_IMPULSE_NCH 2
 #define WDL_CONVO_MAX_PROC_NCH 2
 
+//#define WDL_CONVO_WANT_FULLPRECISION_IMPULSE_STORAGE // define this for slowerness with -138dB error difference in resulting output (+-1 LSB at 24 bit)
+
+#ifdef WDL_CONVO_WANT_FULLPRECISION_IMPULSE_STORAGE 
+
+typedef WDL_FFT_REAL WDL_CONVO_IMPULSEBUFf;
+typedef WDL_FFT_COMPLEX WDL_CONVO_IMPULSEBUFCPLXf;
+
+#else
+typedef float WDL_CONVO_IMPULSEBUFf;
+typedef struct
+{
+  WDL_CONVO_IMPULSEBUFf re, im;
+}
+WDL_CONVO_IMPULSEBUFCPLXf;
+#endif
 
 class WDL_ImpulseBuffer
 {
 public:
-  WDL_ImpulseBuffer() { samplerate=44100.0; nch=1; }
+  WDL_ImpulseBuffer() { samplerate=44100.0; m_nch=1; }
   ~WDL_ImpulseBuffer() { }
 
+  int GetLength() { return impulses[0].GetSize(); }
+  void SetLength(int samples); // resizes/clears all channels accordingly
+  void SetNumChannels(int usench); // handles allocating/converting/etc
+  int GetNumChannels() { return m_nch; }
+
+
   double samplerate;
-  int nch;
   WDL_TypedBuf<WDL_FFT_REAL> impulses[WDL_CONVO_MAX_IMPULSE_NCH];
+
+private:
+  int m_nch;
+
 };
 
 class WDL_ConvolutionEngine
@@ -70,7 +94,7 @@ public:
 
 private:
   int m_impulse_nch;
-  WDL_TypedBuf<WDL_FFT_REAL> m_impulse[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
+  WDL_TypedBuf<WDL_CONVO_IMPULSEBUFf> m_impulse[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
   WDL_TypedBuf<char> m_impulse_zflag[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
 
   int m_fft_size;
@@ -80,9 +104,11 @@ private:
   WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
   WDL_Queue m_samplesin2[WDL_CONVO_MAX_PROC_NCH];
   WDL_FastQueue m_samplesin[WDL_CONVO_MAX_PROC_NCH];
+  int m_samplesout_delay[WDL_CONVO_MAX_PROC_NCH];
 
   int m_hist_pos[WDL_CONVO_MAX_PROC_NCH];
   WDL_TypedBuf<WDL_FFT_REAL> m_samplehist[WDL_CONVO_MAX_PROC_NCH]; // FFT'd sample blocks per channel
+  WDL_TypedBuf<char> m_samplehist_zflag[WDL_CONVO_MAX_IMPULSE_NCH];
   WDL_TypedBuf<WDL_FFT_REAL> m_overlaphist[WDL_CONVO_MAX_PROC_NCH]; 
   WDL_TypedBuf<WDL_FFT_REAL> m_combinebuf;
 

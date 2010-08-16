@@ -3825,7 +3825,7 @@ void ImageList_Destroy(HIMAGELIST list)
 {
   if (!list) return;
   WDL_PtrList<char> *p=(WDL_PtrList<char>*)list;
-  p->Empty(true,DeleteObject);
+  // dont delete images, since the caller is responsible!
   delete p;
 }
 
@@ -3838,7 +3838,7 @@ void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
   {
     HICON old=l->Get(offset);
     l->Set(offset,(char*)image);
-    if (old) DestroyIcon(old);
+    // if (old) DestroyIcon(old); // don't delete, caller responsible
   }
 }
 

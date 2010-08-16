@@ -40,6 +40,27 @@
 #endif
 
 
+#ifndef _WIN64
+#if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
+
+#include <fpu_control.h>
+#define _RC_CHOP _FPU_RC_ZERO
+#define _MCW_RC _FPU_RC_ZERO
+static unsigned int _controlfp(unsigned int val, unsigned int mask)
+{
+   unsigned int ret;
+   _FPU_GETCW(ret);
+   if (mask)
+   {
+     ret&=~mask;
+     ret|=val;
+     _FPU_SETCW(ret);
+   }
+   return ret;
+}
+
+#endif
+#endif
 
 
 #ifdef __ppc__
@@ -141,7 +162,12 @@ const static unsigned char  GLUE_POP_EBX[2]={0x5F, 0x5f}; //pop rdi ; twice
 const static unsigned char  GLUE_POP_ECX[2]={0x59, 0x59 }; // pop rcx ; twice
 #else
 #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 5
-static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, int v) {   *((unsigned char *)b)++ =0xB8; *(int *)b = v; }
+static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, int v) 
+{   
+  *((unsigned char *)b) =0xB8; 
+  b= ((unsigned char *)b)+1;
+  *(int *)b = v; 
+}
 const static unsigned char  GLUE_PUSH_EAX[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
 const static unsigned char  GLUE_POP_EBX[4]={0x5F, 0x83, 0xC4, 12}; //pop ebx, add esp, 12 // DI=5F, BX=0x5B;
 const static unsigned char  GLUE_POP_ECX[4]={0x59, 0x83, 0xC4, 12}; // pop ecx, add esp, 12
@@ -545,7 +571,7 @@ int NSEEL_init() // returns 0 on success
   return 0;
 }
 
-void NSEEL_addfunctionex2(char *name, int nparms, char *code_startaddr, int code_len, void *pproc, void *fptr, void *fptr2)
+void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, void *pproc, void *fptr, void *fptr2)
 {
   if (!fnTableUser || !(fnTableUser_size&7))
   {

@@ -84,6 +84,27 @@ class WDL_HeapBuf
         free(m_buf);
     }
 
+
+    WDL_HeapBuf(const WDL_HeapBuf &cp)
+    {
+      memcpy(this,&cp,sizeof(WDL_HeapBuf));
+      if (m_buf) 
+      {
+        m_buf=malloc(m_alloc);
+        memcpy(m_buf,cp.m_buf,m_size);
+      }
+    }
+    WDL_HeapBuf &operator=(const WDL_HeapBuf &cp)
+    {
+      memcpy(this,&cp,sizeof(WDL_HeapBuf));
+      if (m_buf) 
+      {
+        m_buf=malloc(m_alloc);
+        memcpy(m_buf,cp.m_buf,m_size);
+      }
+      return *this;
+    }
+
     void *Get() { return m_size?m_buf:NULL; }
     int GetSize() { return m_size; }
 

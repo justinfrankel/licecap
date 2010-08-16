@@ -44,15 +44,15 @@ public:
   WDL_String(int hbgran) : m_hb(hbgran WDL_HEAPBUF_TRACEPARM("WDL_String(4)"))
   {
   }
-  WDL_String(const char *initial=NULL, int initial_len=0) : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_String"))
+  WDL_String(const char *initial=NULL, int initial_len=0) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String"))
   {
     if (initial) Set(initial,initial_len);
   }
-  WDL_String(WDL_String &s) : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_String(2)"))
+  WDL_String(WDL_String &s) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String(2)"))
   {
     Set(s.Get());
   }
-  WDL_String(WDL_String *s) : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_String(3)"))
+  WDL_String(WDL_String *s) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String(3)"))
   {
     if (s && s != this) Set(s->Get());
   }
@@ -76,6 +76,7 @@ public:
   {
     int s=strlen(str);
     if (maxlen && s > maxlen) s=maxlen;   
+    if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
 
     char *newbuf=(char*)m_hb.Resize(s+1,false);
     if (newbuf) 
@@ -98,6 +99,7 @@ public:
   {
     int s=strlen(str);
     if (maxlen && s > maxlen) s=maxlen;
+    if (!s) return; // do nothing if setting to empty and not allocated
 
     int olds=strlen(Get());
 

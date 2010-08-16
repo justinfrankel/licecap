@@ -187,12 +187,24 @@ inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
 
 #define CBEZ_ITERS 8
 
-#define EVAL_CBEZ(tx,a,b,c,d,t) { double _t2=t*t; tx=(a*t*_t2+b*_t2+c*t+d); }
+#define EVAL_CBEZ(tx,a,b,c,d,t) \
+{ \
+  double _t2=t*t; \
+  tx=(a*t*_t2+b*_t2+c*t+d); \
+}
+
+#define EVAL_CBEZXY(tx, ty, ax, bx, cx, dx, ay, by, cy, dy, t) \
+{ \
+  double _t2=t*t; \
+  double _t3=t*_t2; \
+  tx=ax*_t3+bx*_t2+cx*t+dx; \
+  ty=ay*_t3+by*_t2+cy*t+dy; \
+}
 
 template <class T>
 T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
   T ctrl_y1, T ctrl_y2, T ctrl_y3, T ctrl_y4, T x, 
-  T* pNextX = 0, T* pdYdX = 0)
+  T* pNextX = 0, T* pdYdX = 0, double* ptLo = 0, double* ptHi = 0)
 {
   if (x <= ctrl_x1) {
     if (pNextX) *pNextX = ctrl_x1;
@@ -245,6 +257,9 @@ T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
 
   if (pNextX) *pNextX = (T) xHi;
   if (pdYdX) *pdYdX = (T) dYdX;
+
+  if (ptLo) *ptLo = tLo;
+  if (ptHi) *ptHi = tHi;
 
   return (T) y;
 }

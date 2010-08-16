@@ -746,9 +746,11 @@ void WDL_VWnd::OnMouseMove(int xpos, int ypos)
 
 void WDL_VWnd::OnMouseUp(int xpos, int ypos)
 {
+  int oldcap=m_captureidx;
+  m_captureidx=-1; // set this before passing to children, in case a child ends up destroying us
   if (m_children)
   {
-    WDL_VWnd *wnd=m_children->Get(m_captureidx);
+    WDL_VWnd *wnd=m_children->Get(oldcap);
   
     if (!wnd) 
     {
@@ -763,7 +765,6 @@ void WDL_VWnd::OnMouseUp(int xpos, int ypos)
     }
   }
 
-  m_captureidx=-1;
 }
 
 void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)

@@ -113,3 +113,36 @@ char *LICE_GetImageExtensionList(bool wantAllSup, bool wantAllFiles)
 
   return buf;
 }
+
+bool LICE_ImageIsSupported(const char *filename)
+{
+  const char *extension = filename;
+  while (*extension)extension++;
+  while (extension>=filename && *extension != '/' && *extension != '.' && *extension != '\\') extension--;
+  if (extension<filename || *extension != '.') return false;
+
+  int extlen = strlen(extension);
+
+  _LICE_ImageLoader_rec *hdr = LICE_ImageLoader_list;
+  while (hdr)
+  {
+    const char *el = hdr->get_extlist();
+    if (el)
+    {
+      while (*el) el++; // skip desc
+      ++el;
+
+      // scan rest of buffer
+      while (*el)
+      {
+        if (!strnicmp(el,extension,extlen))
+        {
+          if (el[extlen] == 0|| el[extlen] == ';') return true;
+        }
+        el++;
+      }
+    }
+    hdr=hdr->_next;
+  }
+  return false;
+}

@@ -90,7 +90,7 @@ void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *
 
 
 
-static INT_PTR register_var(compileContext *ctx, char *name, EEL_F **ptr)
+static INT_PTR register_var(compileContext *ctx, const char *name, EEL_F **ptr)
 {
   int wb;
   int ti=0;
@@ -191,7 +191,7 @@ INT_PTR nseel_getVar(compileContext *ctx, INT_PTR i)
 
 
 //------------------------------------------------------------------------------
-EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, char *var)
+EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
 {
   compileContext *ctx = (compileContext *)_ctx;
   EEL_F *r;

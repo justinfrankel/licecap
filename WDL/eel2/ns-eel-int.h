@@ -106,7 +106,7 @@ compileContext;
 #define NSEEL_VARS_PER_BLOCK 64
 
 typedef struct {
-      char *name;
+      const char *name;
       void *afunc;
       void *func_e;
       int nParams;

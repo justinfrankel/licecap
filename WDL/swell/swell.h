@@ -719,6 +719,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define MF_STRING 0
 #define MFT_SEPARATOR 1
 #define MFT_BITMAP 2
+#define MFT_RADIOCHECK 0 // todo this will need to get implemented
 
 #define MF_SEPARATOR        0x00000800L
 

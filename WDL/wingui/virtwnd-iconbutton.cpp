@@ -36,6 +36,7 @@ WDL_VirtualIconButton::WDL_VirtualIconButton()
   m_pressed=0;
   m_iconCfg=0;
   m_en=true;
+  m_grayed = false;
   m_forceborder=false;
 }
 
@@ -85,7 +86,7 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
       LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
         r.right-r.left,
         r.bottom-r.top,
-        (float)sx,(float)sy,(float)w,(float)h,1.0f,
+        (float)sx,(float)sy,(float)w,(float)h, 1.0f,  // m_grayed?
         LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
     }
   }
@@ -96,6 +97,8 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 { 
   HDC hdc=drawbm->getDC();
   int col;
+
+  float alpha = (m_grayed ? 0.25f : 1.0f);
 
   if (m_iconCfg && m_iconCfg->image && !m_iconCfg->image_issingle)
   {
@@ -117,7 +120,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
         r.right-r.left,
         r.bottom-r.top,
-        (float)sx,(float)sy,(float)w,(float)h,1.0f,
+        (float)sx,(float)sy,(float)w,(float)h, alpha,
         LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
     }
   }
@@ -132,7 +135,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     {
       if (WDL_STYLE_WantGlobalButtonBackground(&col))
       {
-        LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(col,255),1.0f,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(col,255),alpha,LICE_BLIT_MODE_COPY);
       }
 
       if ((m_pressed&2) || m_forceborder || WDL_STYLE_WantGlobalButtonBorders())
@@ -142,13 +145,13 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         int pencol = WDL_STYLE_GetSysColor(cidx);
         pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
-        LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,alpha,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,alpha,LICE_BLIT_MODE_COPY,false);
         cidx=(m_pressed&1)?COLOR_3DHILIGHT:COLOR_3DSHADOW;
         pencol = WDL_STYLE_GetSysColor(cidx);
         pencol = LICE_RGBA_FROMNATIVE(pencol,255);
-        LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,alpha,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,alpha,LICE_BLIT_MODE_COPY,false);
       }
     }
     if (m_iconCfg && m_iconCfg->image)
@@ -167,7 +170,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
       LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz2,0,0,
         m_iconCfg->image->getWidth(),
-        m_iconCfg->image->getHeight(),1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+        m_iconCfg->image->getHeight(),alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
 
     }
     if (!m_iconCfg && m_textlbl.Get()[0])
@@ -183,18 +186,18 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         tr.bottom-=2;
         sz-=4;
         sz&=~1;
-        LICE_FillRect(drawbm ,tr.left,tr.top,sz,sz,LICE_RGBA(255,255,255,255),1.0f,LICE_BLIT_MODE_COPY);
-        LICE_Line(drawbm,tr.left,tr.top,tr.left+sz,tr.top,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,tr.left+sz,tr.top,tr.left+sz,tr.bottom,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,tr.left+sz,tr.bottom,tr.left,tr.bottom,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,tr.left,tr.bottom,tr.left,tr.top,LICE_RGBA(128,128,128,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_FillRect(drawbm ,tr.left,tr.top,sz,sz,LICE_RGBA(255,255,255,255),alpha,LICE_BLIT_MODE_COPY);
+        LICE_Line(drawbm,tr.left,tr.top,tr.left+sz,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,tr.left+sz,tr.top,tr.left+sz,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,tr.left+sz,tr.bottom,tr.left,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,tr.left,tr.bottom,tr.left,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
         int nl = (m_checkstate>0) ? 3:0;        
         if (m_pressed&1) nl ^= 2;
 
         if (nl&1)
-          LICE_Line(drawbm,tr.left+2,tr.bottom-2,tr.left+sz-2,tr.top+2,LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_COPY,false);
+          LICE_Line(drawbm,tr.left+2,tr.bottom-2,tr.left+sz-2,tr.top+2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
         if (nl&2)
-          LICE_Line(drawbm,tr.left+2,tr.top+2,tr.left+sz-2,tr.bottom-2,LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_COPY,false);
+          LICE_Line(drawbm,tr.left+2,tr.top+2,tr.left+sz-2,tr.bottom-2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
 
 
       }
@@ -203,6 +206,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       {
         int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
         fgc=LICE_RGBA_FROMNATIVE(fgc,255);
+        m_textfont->SetCombineMode(LICE_BLIT_MODE_COPY, alpha);
         m_textfont->SetBkMode(TRANSPARENT);
         m_textfont->SetTextColor(fgc);
         if (m_pressed&1)
@@ -336,22 +340,39 @@ WDL_VirtualComboBox::~WDL_VirtualComboBox()
 }
 
 
+static void GenSubMenu(HMENU menu, int *x, WDL_PtrList<char> *items, int curitem)
+{
+  int pos=0;
+  while (*x < items->GetSize())
+  {
+    MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING, 0,1000+*x,NULL,NULL,NULL,0};
+    mi.dwTypeData = (char *)items->Get(*x);
+    mi.fState = curitem == *x ?MFS_CHECKED:0;
+
+    (*x) ++; // advance to next item
+
+    if (!strcmp(mi.dwTypeData,"<SEP>")) mi.fType=MFT_SEPARATOR;
+    else if (!strcmp(mi.dwTypeData,"</SUB>")) break; // done!
+    else if (!strncmp(mi.dwTypeData,"<SUB>",5))
+    {
+      mi.hSubMenu= CreatePopupMenu();
+      GenSubMenu(mi.hSubMenu,x,items,curitem);
+      mi.fMask |= MIIM_SUBMENU;
+      mi.dwTypeData += 5; // skip <SUB>
+    }
+    InsertMenuItem(menu,pos++,TRUE,&mi);
+  }
+}
+
 int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 {
   if (m_items.GetSize())
   {
     HMENU menu=CreatePopupMenu();
-    int x;
-    for (x = 0 ; x < m_items.GetSize(); x ++)
-    {
-      MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-        0,1000+x,NULL,NULL,NULL,0};
-      mi.dwTypeData = (char *)m_items.Get(x);
-      if (!strcmp(mi.dwTypeData,"<SEP>"))
-        mi.fType=MFT_SEPARATOR;
-      mi.fState = m_curitem == x ?MFS_CHECKED:0;
-      InsertMenuItem(menu,x,TRUE,&mi);
-    }
+    int x=0;
+    GenSubMenu(menu,&x,&m_items,m_curitem);
+
+
     HWND h=GetRealParent();
     POINT p={0,};
     WDL_VirtualWnd *w=this;
@@ -571,7 +592,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       if (r2.right > r.right-r.left) align=-1;
     }
 
-    int tcol=m_fg!=-1 ? m_fg : WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+    int tcol=m_fg!=-1 ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
     m_font->SetTextColor(tcol);
     m_font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
 

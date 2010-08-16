@@ -3,7 +3,7 @@
 
 
 #include "lice_combine.h"
-
+#include "lice_extended.h"
 
 //not threadsafe ----
 static LICE_SysBitmap s_tempbitmap; // keep a sysbitmap around for rendering fonts
@@ -316,6 +316,14 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned char c,
   int width = ch->width;
   int height = ch->height;
 
+#ifndef DISABLE_LICE_EXTENSIONS
+  if (bm->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_DRAWGLYPH_ACCEL))
+  {
+    LICE_Ext_DrawGlyph_acceldata data(xpos, ypos, m_fg, gsrc, width, height, m_alpha, m_comb);
+    if (bm->Extended(LICE_EXT_DRAWGLYPH_ACCEL, &data)) return true;
+  }
+#endif
+
   if (xpos < clipR->left) 
   { 
     width += (xpos-clipR->left); 
@@ -471,7 +479,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
 
       if (m_chars[c].base_offset>=0)
       {
-        if (m_chars[c].base_offset == 0) RenderGlyph(c);
+        if (m_chars[c].base_offset == 0) RenderGlyph(c);      
 
         if (m_chars[c].base_offset > 0)
         {

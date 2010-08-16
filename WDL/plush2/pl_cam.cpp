@@ -8,6 +8,8 @@ Copyright (c) 1996-2000, Justin Frankel
 #include "plush.h"
 
 
+#include "../lice/lice_extended.h"
+
 #include "../mergesort.h"
 
 #define MACRO_plMatrixApply(m,x,y,z,outx,outy,outz) \
@@ -276,7 +278,32 @@ void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
         (newface.Scrx[2] - newface.Scrx[0]) * 
         (newface.Scry[1] - newface.Scry[0]) );
 
-      PutFace(&newface);
+      if (frameBuffer->Extended(LICE_EXT_SUPPORTS_ID,(void*)(INT_PTR)LICE_EXT_DRAWTRIANGLE_ACCEL))
+      {
+        LICE_Ext_DrawTriangle_acceldata ac;
+        ac.mat = newface.Material;
+        int x,y;
+        for(x=0;x<3;x++) for(y=0;y<3;y++) ac.VertexShades[x][y]=newface.Shades[x][y];
+        for(x=0;x<3;x++) 
+        {
+          ac.scrx[x]=newface.Scrx[x];
+          ac.scry[x]=newface.Scry[x];
+          ac.scrz[x]=newface.Scrz[x];
+        }
+        for(x=0;x<2;x++)
+        {
+          int tidx=x?newface.Material->TexMapIdx : newface.Material->Tex2MapIdx;
+          if (tidx<0 || tidx>=PLUSH_MAX_MAPCOORDS)tidx=PLUSH_MAX_MAPCOORDS-1;
+          for(y=0;y<3;y++)
+          {
+            ac.mapping_coords[x][y][0]=newface.MappingU[tidx][y];
+            ac.mapping_coords[x][y][1]=newface.MappingV[tidx][y];
+          }
+        }
+          
+        frameBuffer->Extended(LICE_EXT_DRAWTRIANGLE_ACCEL,&ac);
+      }
+      else PutFace(&newface);
     }
   }
 }

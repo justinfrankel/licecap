@@ -104,10 +104,15 @@ public:
     PerspectiveCorrect=16;
     BackfaceCull=true;
     BackfaceIllumination=0.0;
+
+    cachedTexture=cachedTexture2=0;
+    cachesInvalid=true;
   }
 
   ~pl_Mat()
   {
+    delete cachedTexture;
+    delete cachedTexture2;
   }
 
 
@@ -141,6 +146,12 @@ public:
   int Tex2MapIdx; // -1 for env
 
 
+  void InvalidateTextureCaches() { cachesInvalid=true; } // call this if you change Texture or Texture2 after rendering
+
+private:
+  bool cachesInvalid;
+  LICE_IBitmap *cachedTexture,*cachedTexture2; // these may need to be LICE_GL_MemBitmaps etc
+
 };
 
 
@@ -165,9 +176,10 @@ public:
   {
   }
 
-  int VertexIndices[3];      /* Vertices of triangle */
-  pl_Float nx, ny, nz;         /* Normal of triangle (object space) */
   pl_Mat *Material;            /* Material of triangle */
+  int VertexIndices[3];      /* Vertices of triangle */
+
+  pl_Float nx, ny, nz;         /* Normal of triangle (object space) */
 
   pl_Float MappingU[PLUSH_MAX_MAPCOORDS][3], MappingV[PLUSH_MAX_MAPCOORDS][3];  /* Texture mapping coordinates */ 
 
@@ -221,7 +233,7 @@ public:
 
 class pl_Spline {
 public:
-  pl_Spline() { }
+  pl_Spline() { cont=1.0; bias=0.3; tens=0.3; keyWidth=1; }
   ~pl_Spline () { }
   void GetPoint(pl_Float frame, pl_Float *out);
   WDL_TypedBuf<pl_Float> keys;              /* Key data, keyWidth*numKeys */
