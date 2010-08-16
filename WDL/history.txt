@@ -1,3 +1,15 @@
+2008-02-09: lineparser improvements
+2008-02-09: slightly faster drawtext, text cleanups
+2008-02-09: virtwnd buttons only refresh on changes of button images
+2008-02-09: virtwnd buttons support overlay outlines
+2008-02-09: SWELL: php converter for menus: .rc to cpp 
+2008-02-09: SWELL: cursor hiding support
+2008-02-09: wndsize: fix for when no window set
+2008-02-09: lice: png write support (thanks cryptomail)
+2008-02-09: shoutcast source: better encoder reinitialization, IRC channel support
+2008-02-09: FFT: more define options
+2008-02-09: convolution engine: fixed some bugs, added test app, _Div mode which allows high-cpu ZL operation
+2008-01-25: LICE: flipped surface support for arcs
 2007-12-17: SWELL: BM_SETCHECK support for buttons, basic FindWindowEx() emulation, better control font size selection
 2007-12-13: SWELL: Basic ScrollWindow() emulation
 2007-12-13: LICE: Updated LICE_IBitmap to include getDC()

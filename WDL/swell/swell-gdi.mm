@@ -142,8 +142,27 @@ HFONT CreateFont(long lfHeight, long lfWidth, long lfEscapement, long lfOrientat
   [str release];
   if (!nsf) nsf=[NSFont labelFontOfSize:fontwid];
   if (!nsf) nsf=[NSFont systemFontOfSize:fontwid];
-  if (nsf) [nsf retain];
-  font->fontptr=nsf;
+
+  font->fontparagraphinfo = [[NSMutableParagraphStyle alloc] init];
+  font->fontdict=[NSMutableDictionary dictionaryWithObjectsAndKeys:font->fontparagraphinfo,NSParagraphStyleAttributeName,nsf,NSFontAttributeName, NULL];
+  [font->fontparagraphinfo release];
+  [font->fontdict retain];
+  
+  if (lfItalic) // italic
+  {
+    [font->fontdict setObject:[NSNumber numberWithFloat:0.33] forKey:NSObliquenessAttributeName];
+  }
+  if (lfUnderline)
+  {
+    [font->fontdict setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
+  }
+  int weight=lfWeight;
+  if (weight>FW_SEMIBOLD)
+  {
+    double sc=40.0*(weight-FW_SEMIBOLD)/(1000-FW_SEMIBOLD);
+    if(sc>0.0)[font->fontdict setObject:[NSNumber numberWithFloat:-sc] forKey:NSStrokeWidthAttributeName];
+  }
+  
   return font;
 }
 
@@ -165,8 +184,9 @@ void DeleteObject(HGDIOBJ pen)
       if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
         if (p->wid<0) return;
       if (p->color) CGColorRelease(p->color);
-      if (p->fontptr)
-        [(NSFont *)p->fontptr release];
+      if (p->fontdict)
+        [(NSMutableDictionary*)p->fontdict release];
+      
       if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
     }
     free(p);
@@ -448,6 +468,11 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
   CGContextStrokePath(ct->ctx);	
 }
 
+#define SWELL_NSSTRING_DRAWING 1
+#define SWELL_HITDRAWING 0
+#define SWELL_CGDRAWING 0
+
+#if SWELL_NSSTRING_DRAWING
 int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
@@ -455,7 +480,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   if (!(align & DT_CALCRECT))
     INVALIDATE_BITMAPCACHE(ct);
   
-#if 1 // new NSAttributedString based drawing
   char tmp[4096];
   const char *p=buf;
   char *op=tmp;
@@ -467,58 +491,59 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     else *op++=*p++;
   }
   *op=0;
-   
-  NSString *str=(NSString*)SWELL_CStringToCFString(tmp);
-  NSFont *curfont=NULL;
-  if (ct->curfont && ct->curfont->fontptr) curfont=(NSFont *)ct->curfont->fontptr;
-  if (!curfont) curfont = [NSFont systemFontOfSize:10]; 
+  
+  // NSString, attributes based text drawing
+  
+  NSMutableDictionary *dict=NULL;
+  NSMutableParagraphStyle *parinfo=NULL;
+  
+  if (ct->curfont) 
+  {
+    dict=ct->curfont->fontdict;
+    parinfo=ct->curfont->fontparagraphinfo;
+  }
+  
+  if (!dict||!parinfo) 
+  {
+    static NSMutableParagraphStyle *dp;
+    static NSMutableDictionary *dd;
+    if (!dd) 
+    {
+      dp=[[NSMutableParagraphStyle alloc] init];
+      dd=[NSMutableDictionary dictionaryWithObjectsAndKeys:dp,NSParagraphStyleAttributeName,[NSFont systemFontOfSize:10],NSFontAttributeName, NULL];
+      [dd retain];
+    }
+    parinfo=dp;
+    dict=dd;
+    
+    if (!dd) return 0;
+  }
   
   
-  // todo: parse ct->curfont->wid to get attributes
-  
-  
-  
-  NSColor *color=[NSColor colorWithCalibratedRed:GetRValue(ct->curtextcol)/255.0f green:GetGValue(ct->curtextcol)/255.0f blue:GetBValue(ct->curtextcol)/255.0f alpha:1.0f];
-  
-  NSMutableParagraphStyle *parinfo = [[NSMutableParagraphStyle alloc] init];
-/*  [parinfo setFirstLineHeadIndent:0.0f];
-  [parinfo setMinimumLineHeight:0.0f];
-  [parinfo setLineSpacing:0.0f];
-  [parinfo setParagraphSpacing:0.0f];
-  [parinfo setParagraphSpacingBefore:0.0f];
-  */
-  [parinfo setAlignment:((align&DT_RIGHT)?NSRightTextAlignment : (align&DT_CENTER) ? NSCenterTextAlignment : NSLeftTextAlignment)];
-  [parinfo setLineBreakMode:((align&DT_END_ELLIPSIS)? NSLineBreakByTruncatingTail:NSLineBreakByClipping)];
-  
-  NSMutableDictionary *dict=[NSMutableDictionary dictionaryWithObjectsAndKeys:color,NSForegroundColorAttributeName,parinfo,NSParagraphStyleAttributeName,curfont,NSFontAttributeName, NULL];
   if (ct->curbkmode==OPAQUE)
   {
     NSColor *bkcol=[NSColor colorWithCalibratedRed:GetRValue(ct->curbkcol)/255.0f green:GetGValue(ct->curbkcol)/255.0f blue:GetBValue(ct->curbkcol)/255.0f alpha:1.0f];
     [dict setObject:bkcol forKey:NSBackgroundColorAttributeName];
   }   
-  if (ct->curfont && ct->curfont->wid&1) // italic
+  else
   {
-    [dict setObject:[NSNumber numberWithFloat:0.33] forKey:NSObliquenessAttributeName];
+    [dict removeObjectForKey:NSBackgroundColorAttributeName];
   }
-  if (ct->curfont && ct->curfont->wid&2)
+  if (ct->curtextcol)
+    [dict setObject:ct->curtextcol forKey:NSForegroundColorAttributeName];
+  
+  
+  NSString *str=(NSString*)SWELL_CStringToCFString(tmp);
+  
+  
+  if (parinfo)
   {
-    [dict setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
+    [parinfo setAlignment:((align&DT_RIGHT)?NSRightTextAlignment : (align&DT_CENTER) ? NSCenterTextAlignment : NSLeftTextAlignment)];
+    [parinfo setLineBreakMode:((align&DT_END_ELLIPSIS)? NSLineBreakByTruncatingTail:NSLineBreakByClipping)];
   }
   
-  int weight=ct->curfont ? ((ct->curfont->wid>>16)&1023) : 0;
-  if (weight>FW_SEMIBOLD)
-  {
-    double sc=40.0*(weight-FW_SEMIBOLD)/(1000-FW_SEMIBOLD);
-    if(sc>0.0)[dict setObject:[NSNumber numberWithFloat:-sc] forKey:NSStrokeWidthAttributeName];
-  }
-  NSAttributedString *as=[[NSAttributedString alloc] initWithString:str attributes:dict];
   
-  // set attributes
   
-  [parinfo release];
-  [str release];
-
-    
   NSGraphicsContext *gc=NULL,*oldgc=NULL;
   if (ct->ctx != [[NSGraphicsContext currentContext] graphicsPort])
   {
@@ -526,11 +551,11 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     oldgc=[NSGraphicsContext currentContext];
     [NSGraphicsContext setCurrentContext:gc];
   }
- 
+  
   NSSize sz={0,0};//[as size];
-  NSRect rsz=[as boundingRectWithSize:sz options:NSStringDrawingUsesDeviceMetrics];
+  NSRect rsz=[str boundingRectWithSize:sz options:NSStringDrawingUsesDeviceMetrics attributes:dict];
   sz=rsz.size;
-
+  
   int ret=10;
   if (align & DT_CALCRECT)
   {
@@ -559,7 +584,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       drawr.size.height=sz.height;
     }
   	drawr.origin.y+=sz.height;
-
+    
     if (align & DT_NOCLIP) // no clip, grow drawr if necessary (preserving alignment)
     {
       if (drawr.size.width < sz.width)
@@ -575,63 +600,129 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         drawr.size.height=sz.height;
       }
     }
-    [as drawWithRect:drawr options:NSStringDrawingUsesDeviceMetrics];
+    [str drawWithRect:drawr options:NSStringDrawingUsesDeviceMetrics attributes:dict];
     
   }
   
   if (gc)
   {
     [NSGraphicsContext setCurrentContext:oldgc];
-//      [gc release];
+    //      [gc release];
   }
-    
-  [as release];
+  
+  [str release];
   
   return ret;
+}
+#endif // NSSTRING_DRAWING
   
-  
-#else // turds
-  
-#if 1 // HIT text drawing
+#if SWELL_HITDRAWING
+
+int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
+{
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (!ct) return 0;
+  if (!(align & DT_CALCRECT))
+    INVALIDATE_BITMAPCACHE(ct);
+
   CFStringRef label=(CFStringRef)SWELL_CStringToCFString(buf); 
   HIRect hiBounds = { {r->left, r->top}, {r->right-r->left, r->bottom-r->top} };
   HIThemeTextInfo textInfo = {0, kThemeStateActive, kThemeCurrentPortFont, kHIThemeTextHorizontalFlushLeft, 
 	  kHIThemeTextVerticalFlushTop, kHIThemeTextBoxOptionStronglyVertical, kHIThemeTextTruncationEnd, 1, false};
-
-  if (ct->curfont && ct->curfont->wid <= 12) textInfo.fontID=kThemeMiniSystemFont;
+  
+//  if (ct->curfont && ct->curfont->wid <= 12) 
+    textInfo.fontID=kThemeMiniSystemFont;
   //else if (ct->curfont->wid < 14) textInfo.fontID=kThemeLabelFont; 
   //else if (ct->curfont->wid <= 16) textInfo.fontID=kThemeSmallSystemFont;
-  else textInfo.fontID=kThemeSystemFont;
+//  else textInfo.fontID=kThemeSystemFont;
   
   if (align & DT_CENTER) textInfo.horizontalFlushness=kHIThemeTextHorizontalFlushCenter;
   else if (align&DT_RIGHT) textInfo.horizontalFlushness=kHIThemeTextHorizontalFlushRight;
   if (align & DT_VCENTER) textInfo.verticalFlushness=kHIThemeTextVerticalFlushCenter;
   else if (align&DT_BOTTOM) textInfo.verticalFlushness=kHIThemeTextVerticalFlushBottom;
 	
+  float h;
   if (align & DT_CALCRECT)
   {
-    float w=r->right-r->left,h=r->bottom-r->top;
+    float w=r->right-r->left;
+    h=r->bottom-r->top;
     HIThemeGetTextDimensions(label,0,&textInfo,&w,&h,NULL);
     r->right=r->left+(int)w;
     r->bottom=r->top+(int)h;
   }
   else
   {
-// fucko this will need to be switched cause curtextcol is now just int    if (ct->curtextcol) CGContextSetFillColorWithColor(ct->ctx,ct->curtextcol);
-
+    // fucko this will need to be switched cause curtextcol is now just int    if (ct->curtextcol) CGContextSetFillColorWithColor(ct->ctx,ct->curtextcol);
+    
     if (!(align&DT_SINGLELINE))
     {
       textInfo.truncationMaxLines=30;
     }
     HIThemeDrawTextBox(label, &hiBounds, &textInfo, ct->ctx, kHIThemeOrientationNormal);
-    float w=r->right-r->left,h=r->bottom-r->top;
+    float w=r->right-r->left;
+    h=r->bottom-r->top;
     HIThemeGetTextDimensions(label,0,&textInfo,&w,&h,NULL);
     return (int)ceil(h);
   }
   CFRelease(label);
-   
-#else
   
+  return h;
+}
+
+#endif//SWELL_HITDRAWING
+  
+  
+  
+#if 0
+  // ATSU drawing/measuring possibly?!
+
+  UniChar strbuf[4096];
+  strbuf[0]=0;
+  int l=strlen(tmp);
+  if (l > sizeof(strbuf)/sizeof(UniChar)-1) l=sizeof(strbuf)/sizeof(UniChar)-1;
+  CFStringRef str=CFStringCreateWithCString(NULL,tmp,kCFStringEncodingASCII);
+  CFStringGetCString(str,(char*)strbuf,sizeof(strbuf),kCFStringEncodingUTF16);
+  CFRelease(str);
+  
+  ATSUStyle style;
+  ATSUCreateStyle(&style);
+  
+  UniCharCount runLengths[1]={kATSUToTextEnd};
+  ATSUTextLayout layout; 
+  ATSUCreateTextLayoutWithTextPtr(strbuf, kATSUFromTextBeginning, kATSUToTextEnd, l, 1, runLengths, &style, &layout);
+  
+  ATSUTextMeasurement leftFixed, rightFixed, ascentFixed, descentFixed;
+  
+  ATSUGetUnjustifiedBounds(layout, kATSUFromTextBeginning, kATSUToTextEnd, &leftFixed, &rightFixed, &ascentFixed, &descentFixed);
+  
+  int w=Fix2X(rightFixed);
+  int h=-Fix2X(ascentFixed) - Fix2X(descentFixed);
+  if (align&DT_CALCRECT)
+  {
+    r->right=r->left+w;
+    r->bottom=r->top+h;
+    
+    return h;  
+  }
+  
+//  ATSUDrawText(layout,kATSUFromTextBeginning,kATSUToTextEnd,X2Fix(r->left),X2Fix(r->top));
+  
+  ATSUDisposeTextLayout(layout);   
+  ATSUDisposeStyle(style);
+  
+  return h;
+#endif
+  
+
+
+#if SWELL_CGDRAWING
+int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
+{
+  GDP_CTX *ct=(GDP_CTX *)ctx;
+  if (!ct) return 0;
+  if (!(align & DT_CALCRECT))
+    INVALIDATE_BITMAPCACHE(ct);
+   
   //NSString *label=(NSString *)SWELL_CStringToCFString(buf); 
   //NSRect r2 = NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
   //[label drawWithRect:r2 options:NSStringDrawingUsesLineFragmentOrigin attributes:nil];
@@ -652,7 +743,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     CGContextRestoreGState(ct->ctx);
 	// measure
 #endif
-	return;
+	return 0;
   }
 	
 #if 0
@@ -697,14 +788,15 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   CGRect cr=CGRectMake((float)r->left,(float)r->top,(float)(r->right-r->left),(float)(r->bottom-r->top));
   CGContextSaveGState(ct->ctx);
 //  CGContextClipToRect(ct->ctx,cr);
+
   if (ct->curtextcol) CGContextSetFillColorWithColor(ct->ctx,ct->curtextcol);
   CGContextSetTextDrawingMode(ct->ctx,kCGTextFill);
   CGContextShowTextAtPoint(ct->ctx,xpos,ypos,buf,strlen(buf));
   CGContextRestoreGState(ct->ctx);
-#endif
-#endif
-  return 0;
+
+  return 30;
 }
+#endif // CG drawing
 
 void SetBkColor(HDC ctx, int col)
 {
@@ -725,7 +817,9 @@ void SetTextColor(HDC ctx, int col)
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (!ct) return;
 //  if (ct->curtextcol) CGColorRelease(ct->curtextcol);
-  ct->curtextcol=col; //CreateColor(col);
+  [ct->curtextcol release];
+  ct->curtextcol=[NSColor colorWithCalibratedRed:GetRValue(col)/255.0f green:GetGValue(col)/255.0f blue:GetBValue(col)/255.0f alpha:1.0f];
+  [ct->curtextcol retain];
 }
 
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
@@ -740,7 +834,13 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmHeight=16;
   }
   if (!ct||!tm) return 0;
-  NSFont *curfont=(NSFont *)(ct->curfont ? ct->curfont->fontptr : 0);
+  
+  NSFont *curfont=NULL;
+  
+  if (ct->curfont && ct->curfont->fontdict)
+  {
+    curfont=[ct->curfont->fontdict objectForKey:NSFontAttributeName];
+  }
   if (!curfont) curfont = [NSFont systemFontOfSize:10]; 
 
   

@@ -188,4 +188,21 @@ HCURSOR SWELL_GetLastSetCursor()
   return m_last_setcursor;
 }
 
+static int m_curvis_cnt;
+int SWELL_ShowCursor(BOOL bShow)
+{
+  m_curvis_cnt += (bShow?1:-1);
+  if (m_curvis_cnt==-1 && !bShow) CGDisplayHideCursor(kCGDirectMainDisplay);
+  if (m_curvis_cnt==0 && bShow) CGDisplayShowCursor(kCGDirectMainDisplay);
+}
+
+BOOL SWELL_SetCursorPos(int X, int Y)
+{
+  // hmm this is still wonkish
+//  CGPoint pos=CGPointMake(X,Y);
+//  return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
+  return false;
+}
+
+
 #endif

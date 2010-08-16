@@ -29,6 +29,9 @@
 #include <memory.h>
 #include "convoengine.h"
 
+
+#define MAX_SIZE_FOR_BRUTE 64
+
 WDL_ConvolutionEngine::WDL_ConvolutionEngine()
 {
   WDL_fft_init();
@@ -42,13 +45,14 @@ WDL_ConvolutionEngine::~WDL_ConvolutionEngine()
 {
 }
 
-int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size)
+int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size, int impulse_sample_offset, int max_imp_size)
 {
   int impulse_len=0;
   int x;
   for (x = 0; x < impulse->nch; x ++)
   {
-    int l=impulse->impulses[x].GetSize();
+    int l=impulse->impulses[x].GetSize()-impulse_sample_offset;
+    if (max_imp_size && l>max_imp_size) l=max_imp_size;
     if (impulse_len < l) impulse_len=l;
   }
   m_impulse_nch=impulse->nch;
@@ -56,15 +60,16 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size)
   m_proc_nch=-1;
 
 
-  if (impulse_len<=128)
+  if (impulse_len<=MAX_SIZE_FOR_BRUTE && fft_size <= 0)
   {
     m_fft_size=0;
 
     // save impulse
     for (x = 0; x < impulse->nch; x ++)
     {
-      WDL_FFT_REAL *imp=impulse->impulses[x].Get();
-      int lenout=impulse->impulses[x].GetSize();  
+      WDL_FFT_REAL *imp=impulse->impulses[x].Get()+impulse_sample_offset;
+      int lenout=impulse->impulses[x].GetSize()-impulse_sample_offset;  
+      if (max_imp_size && lenout>max_imp_size) lenout=max_imp_size;
 
       WDL_FFT_REAL *impout=m_impulse[x].Resize(lenout)+lenout;
       while (lenout-->0) *--impout = *imp++;
@@ -81,7 +86,7 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size)
   }
 
  
-  if (fft_size<0)
+  if (fft_size<=0)
   {
     int msz=fft_size<=-16? -fft_size*2 : 32768;
 
@@ -91,7 +96,7 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size)
 
   m_fft_size=fft_size;
 
-  int impchunksize=fft_size/2 - 1;
+  int impchunksize=fft_size/2;
   int nblocks=(impulse_len+impchunksize-1)/impchunksize;
   //char buf[512];
   //sprintf(buf,"il=%d, ffts=%d, cs=%d, nb=%d\n",impulse_len,fft_size,impchunksize,nblocks);
@@ -101,10 +106,11 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size)
   WDL_FFT_REAL scale=(WDL_FFT_REAL) (1.0/fft_size);
   for (x = 0; x < impulse->nch; x ++)
   {
-    WDL_FFT_REAL *imp=impulse->impulses[x].Get();
+    WDL_FFT_REAL *imp=impulse->impulses[x].Get()+impulse_sample_offset;
     WDL_FFT_REAL *impout=m_impulse[x].Resize(nblocks*fft_size*2);
     char *zbuf=m_impulse_zflag[x].Resize(nblocks);
-    int lenout=impulse->impulses[x].GetSize();  
+    int lenout=impulse->impulses[x].GetSize()-impulse_sample_offset;  
+    if (max_imp_size && lenout>max_imp_size) lenout=max_imp_size;
       
     int bl;
     for (bl = 0; bl < nblocks; bl ++)
@@ -180,7 +186,16 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
           int sza=imp_len*sizeof(WDL_FFT_REAL)-m_samplesin2[ch].Available();
           memset(m_samplesin2[ch].Add(NULL,sza),0,sza);
         }
-        WDL_FFT_REAL *psrc=(WDL_FFT_REAL*)m_samplesin2[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
+        WDL_FFT_REAL *psrc;
+        
+        if (bufs && bufs[ch])
+          psrc=(WDL_FFT_REAL*)m_samplesin2[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
+        else
+        {
+          psrc=(WDL_FFT_REAL*)m_samplesin2[ch].Add(NULL,len*sizeof(WDL_FFT_REAL));
+          memset(psrc,0,len*sizeof(WDL_FFT_REAL));
+        }
+
         WDL_FFT_REAL *pout=(WDL_FFT_REAL*)m_samplesout[ch].Add(NULL,len*sizeof(WDL_FFT_REAL));
         int x;
         for (x=0; x < len; x ++)
@@ -211,7 +226,11 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
       }
       else
       {
-        m_samplesout[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
+        if (bufs && bufs[ch]) m_samplesout[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
+        else
+        {
+          memset(m_samplesout[ch].Add(NULL,len*sizeof(WDL_FFT_REAL)),0,len*sizeof(WDL_FFT_REAL));
+        }
       }
 
     }
@@ -219,7 +238,7 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
   }
 
 
-  int impchunksize=m_fft_size/2-1;
+  int impchunksize=m_fft_size/2;
   int nblocks=(m_impulse_len+impchunksize-1)/impchunksize;
 
   if (m_proc_nch != nch)
@@ -272,7 +291,10 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
   {
     for (ch = 0; ch < nch; ch ++)
     {
-      m_samplesout[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
+      if (bufs && bufs[ch])
+        m_samplesout[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
+      else
+        memset(m_samplesout[ch].Add(NULL,len*sizeof(WDL_FFT_REAL)),0,len*sizeof(WDL_FFT_REAL));
     }
     // pass through
     return;
@@ -282,8 +304,7 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
   {
     if (!m_samplehist[ch].GetSize()||!m_overlaphist[ch].GetSize()) continue;
 
-    m_samplesin[ch].Add(bufs[ch],len*sizeof(WDL_FFT_REAL));
-
+    m_samplesin[ch].Add(bufs ? bufs[ch] : NULL,len*sizeof(WDL_FFT_REAL));
 
   }
 }
@@ -295,7 +316,7 @@ int WDL_ConvolutionEngine::Avail(int want)
     return m_samplesout[0].Available()/sizeof(WDL_FFT_REAL);
   }
 
-  int chunksize=m_fft_size/2-1;
+  int chunksize=m_fft_size/2;
   int nblocks=(m_impulse_len+chunksize-1)/chunksize;
   // clear combining buffer
   WDL_FFT_REAL *workbuf2 = m_combinebuf.Resize(m_fft_size*2); // temp space
@@ -393,3 +414,215 @@ void WDL_ConvolutionEngine::Advance(int len)
     m_samplesout[x].Compact();
   }
 }
+
+
+
+/****************************************************************
+**  low latency version
+*/
+
+WDL_ConvolutionEngine_Div::WDL_ConvolutionEngine_Div()
+{
+  m_proc_nch=2;
+  m_need_feedsilence=true;
+}
+
+int WDL_ConvolutionEngine_Div::SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size)
+{
+  m_need_feedsilence=true;
+
+  m_engines.Empty(true);
+  if (maxfft_size<0)maxfft_size=-maxfft_size;
+  if (!maxfft_size || maxfft_size>65536) maxfft_size=65536;
+  int fftsize=MAX_SIZE_FOR_BRUTE;
+  int offs=0;
+  int implen=impulse->impulses[0].GetSize();
+  while (offs < implen)
+  {
+    WDL_ConvolutionEngine *eng=new WDL_ConvolutionEngine;
+    int timplen=fftsize<=MAX_SIZE_FOR_BRUTE?fftsize:(fftsize/2);
+    if (fftsize>=maxfft_size) { timplen=0; fftsize=maxfft_size; } // no limit on fft size
+    eng->SetImpulse(impulse,fftsize>MAX_SIZE_FOR_BRUTE?fftsize:0,offs,timplen);
+    offs+=timplen;
+    m_engines.Add(eng);
+    if (fftsize>=maxfft_size) break;
+    fftsize*=2;
+  }
+  
+  return GetLatency();
+}
+
+int WDL_ConvolutionEngine_Div::GetLatency()
+{
+  return m_engines.GetSize() ?m_engines.Get(0)->GetLatency() : 0;
+}
+
+
+void WDL_ConvolutionEngine_Div::Reset()
+{
+  int x;
+  for (x = 0; x < m_engines.GetSize(); x ++)
+  {
+    WDL_ConvolutionEngine *eng=m_engines.Get(x);
+    eng->Reset();
+  }
+  for (x = 0; x < WDL_CONVO_MAX_PROC_NCH; x ++)
+  {
+    m_samplesout[x].Clear();
+  }
+
+  m_need_feedsilence=true;
+}
+
+WDL_ConvolutionEngine_Div::~WDL_ConvolutionEngine_Div()
+{
+  m_engines.Empty(true);
+}
+
+void WDL_ConvolutionEngine_Div::Add(WDL_FFT_REAL **bufs, int len, int nch)
+{
+  bool ns=m_need_feedsilence;
+  m_need_feedsilence=false;
+
+  m_proc_nch=nch;
+  int x;
+  for (x = 0; x < m_engines.GetSize(); x ++)
+  {
+    WDL_ConvolutionEngine *eng=m_engines.Get(x);
+    if (ns && x && eng->GetLatency()) eng->Add(NULL,eng->GetLatency(),nch);
+
+    eng->Add(bufs,len,nch);
+  }
+}
+WDL_FFT_REAL **WDL_ConvolutionEngine_Div::Get() 
+{
+  int x;
+  for (x = 0; x < m_proc_nch; x ++)
+  {
+    m_get_tmpptrs[x]=(WDL_FFT_REAL *)m_samplesout[x].Get();
+  }
+  return m_get_tmpptrs;
+}
+
+void WDL_ConvolutionEngine_Div::Advance(int len)
+{
+  int x;
+  for (x = 0; x < m_proc_nch; x ++)
+  {
+    m_samplesout[x].Advance(len*sizeof(WDL_FFT_REAL));
+    m_samplesout[x].Compact();
+  }
+}
+
+int WDL_ConvolutionEngine_Div::Avail(int wantSamples)
+{
+  int wso=wantSamples;
+  int x;
+  for (x = 0; x < m_engines.GetSize(); x ++)
+  {
+    WDL_ConvolutionEngine *eng=m_engines.Get(x);
+    int a=eng->Avail(wso);
+    if (a < wantSamples) wantSamples=a;
+  }
+  if (wantSamples>0)
+  {
+    WDL_FFT_REAL *tp[WDL_CONVO_MAX_PROC_NCH];
+    for (x =0; x < m_proc_nch; x ++)
+    {
+      memset(tp[x]=(WDL_FFT_REAL*)m_samplesout[x].Add(NULL,wantSamples*sizeof(WDL_FFT_REAL)),0,wantSamples*sizeof(WDL_FFT_REAL));
+    }
+
+    for (x = 0; x < m_engines.GetSize(); x ++)
+    {
+      WDL_ConvolutionEngine *eng=m_engines.Get(x);
+      WDL_FFT_REAL **p=eng->Get();
+      if (p)
+      {
+        int i;
+        for (i =0; i < m_proc_nch; i ++)
+        {
+          WDL_FFT_REAL *o=tp[i];
+          WDL_FFT_REAL *in=p[i];
+          int j=wantSamples;
+          while (j--) *o++ += *in++;
+        }
+      }
+      eng->Advance(wantSamples);
+    }
+  }
+
+  int av=m_samplesout[0].Available()/sizeof(WDL_FFT_REAL);
+  return av>wso ? wso : av;
+}
+
+
+#ifdef WDL_TEST_CONVO
+
+#include <stdio.h>
+
+int main(int argc, char **argv)
+{
+  if (argc!=5)
+  {
+    printf("usage: convoengine fftsize implen oneoffs pingoffs\n");
+    return -1;
+  }
+
+  int fftsize=atoi(argv[1]);
+  int implen = atoi(argv[2]);
+  int oneoffs = atoi(argv[3]);
+  int pingoffs=atoi(argv[4]);
+
+  if (implen < 1 || oneoffs < 0 || oneoffs >= implen || pingoffs < 0)
+  {
+    printf("invalid parameters\n");
+    return -1;
+  }
+
+  WDL_ImpulseBuffer imp;
+  imp.nch=1;
+  memset(imp.impulses[0].Resize(implen),0,implen*sizeof(WDL_FFT_REAL));
+  imp.impulses[0].Get()[oneoffs]=1.0;
+
+
+#if WDL_TEST_CONVO==2
+  WDL_ConvolutionEngine_Div engine;
+#else
+  WDL_ConvolutionEngine engine;
+#endif
+  engine.SetImpulse(&imp,fftsize);
+  WDL_TypedBuf<WDL_FFT_REAL> m_tmpbuf;
+  memset(m_tmpbuf.Resize(pingoffs+1),0,pingoffs*sizeof(WDL_FFT_REAL));
+  m_tmpbuf.Get()[pingoffs]=1.0;
+  WDL_FFT_REAL *p=m_tmpbuf.Get();
+  engine.Add(&p,pingoffs+1,1);
+  
+  p=m_tmpbuf.Resize(4096);
+  memset(p,0,m_tmpbuf.GetSize()*sizeof(WDL_FFT_REAL));
+
+  int avail;
+  while ((avail=engine.Avail(pingoffs+oneoffs + 8192)) < pingoffs+oneoffs + 8192)
+  {
+    engine.Add(&p,4096,1);
+  }
+  WDL_FFT_REAL **output = engine.Get();
+  if (!output || !*output)
+  {
+    printf("cant get output\n");
+    return -1;
+  }
+  int x;
+  for (x = 0; x < avail; x ++)
+  {
+    WDL_FFT_REAL val=output[0][x];
+    WDL_FFT_REAL expval = (x==pingoffs+oneoffs) ? 1.0:0.0;
+    if (fabs(val-expval)>0.000000001)
+    {
+      printf("%d: %.4fdB - %f %f\n",x,log10(max(val,0.000000000001))*20.0 - log10(max(expval,0.000000000001))*20.0,val,expval);
+    }
+  }
+
+  return 0;
+}
+
+#endif

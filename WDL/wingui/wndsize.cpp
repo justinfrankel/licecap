@@ -160,6 +160,8 @@ void WDL_WndSizer::remove_itemvirt(WDL_VirtualWnd *vwnd)
 
 void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytranslate)
 {
+  if (!m_hwnd) return;
+
   RECT new_rect;
   
   GetClientRect(m_hwnd,&new_rect);

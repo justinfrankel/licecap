@@ -1084,6 +1084,8 @@ static void __fft_gen(WDL_FFT_COMPLEX *buf, int sz, int isfull)
   }
 }
 
+#ifndef WDL_FFT_NO_PERMUTE
+
 static unsigned int fftfreq_c(unsigned int i,unsigned int n)
 {
   unsigned int m;
@@ -1117,6 +1119,7 @@ int WDL_fft_permute(int fftsize, int idx)
   return _idxperm[fftsize+idx-16];
 }
 
+#endif
 
 void WDL_fft_init()
 {
@@ -1141,12 +1144,14 @@ void WDL_fft_init()
     fft_gen(d32768,0);
 #undef fft_gen
 
+#ifndef WDL_FFT_NO_PERMUTE
 	  offs = 0;
 	  for (i = 16; i <= 32768; i *= 2) 
     {
 		  idx_perm_calc(offs, i);
 		  offs += i;
 	  }
+#endif
 
   }
 }

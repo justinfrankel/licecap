@@ -59,7 +59,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     bool GetEnabled() { return m_en; }
     void OnPaint(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void OnPaintOver(LICE_SysBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { m_iconCfg=cfg; RequestRedraw(NULL); }
+    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { if (m_iconCfg!=cfg) { m_iconCfg=cfg; RequestRedraw(NULL); } }
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
     int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
@@ -67,10 +67,14 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void OnMouseUp(int xpos, int ypos);
     bool OnMouseDblClick(int xpos, int ypos);
 
+    void SetBGCol1Callback(int msg) { m_bgcol1_msg=msg; }
+
     bool WantsPaintOver();
     void GetPositionPaintOverExtent(RECT *r);
 
   private:
+
+    int m_bgcol1_msg;
     bool m_is_button;
     WDL_VirtualIconButton_SkinConfig *m_iconCfg;
     int m_pressed;

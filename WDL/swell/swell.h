@@ -1566,6 +1566,17 @@ SWELL_API_DEFINE(void, SWELL_SetCursor,(HCURSOR curs))
 #undef GetCursor
 #endif
 #define GetCursor SWELL_GetCursor
+
+#ifdef ShowCursor
+#undef ShowCursor
+#endif
+#define ShowCursor SWELL_ShowCursor
+
+#ifdef SetCursorPos
+#undef SetCursorPos
+#endif
+#define SetCursorPos SWELL_SetCursorPos
+
 /*
 ** GetCursor() gets the actual system cursor,
 ** SWELL_GetLastSetCursor() gets the last cursor set via SWELL (if they differ than some other window must have changed the cursor)
@@ -1573,6 +1584,8 @@ SWELL_API_DEFINE(void, SWELL_SetCursor,(HCURSOR curs))
 SWELL_API_DEFINE(HCURSOR, SWELL_GetCursor,())
 SWELL_API_DEFINE(HCURSOR, SWELL_GetLastSetCursor,())
 
+SWELL_API_DEFINE(int, SWELL_ShowCursor, (BOOL bShow))
+SWELL_API_DEFINE(BOOL, SWELL_SetCursorPos, (int X, int Y))
 
 /*
 ** SWELL_GetViewPort

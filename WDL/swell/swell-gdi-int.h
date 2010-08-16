@@ -11,8 +11,9 @@ typedef struct
   int type;
   CGColorRef color;
   int wid;
-  NSFont *fontptr;
-  NSImage *bitmapptr;
+  NSImage *bitmapptr;  
+  NSMutableDictionary *fontdict;
+  NSMutableParagraphStyle *fontparagraphinfo; // dont release this, it's owned by fontdict
 } GDP_OBJECT;
 
 typedef struct {
@@ -21,7 +22,7 @@ typedef struct {
   GDP_OBJECT *curpen;
   GDP_OBJECT *curbrush;
   GDP_OBJECT *curfont;
-  int curtextcol;
+  NSColor *curtextcol;
   int curbkcol;
   int curbkmode;
   CGImageRef bitmapimagecache;

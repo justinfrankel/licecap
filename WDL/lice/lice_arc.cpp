@@ -199,6 +199,13 @@ void ModAngle(float& rA)
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
 	LICE_pixel color, float alpha, int mode, bool aa)
 {
+  if (dest && dest->isFlipped())
+  {
+    cy=dest->getHeight()-1-cy;
+    minAngle=_PI-minAngle;
+    maxAngle=_PI-maxAngle;
+  }
+  
 	ModAngle(minAngle);
 	ModAngle(maxAngle);
 

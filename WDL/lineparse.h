@@ -56,7 +56,7 @@ class LineParser {
     {
       return m_bCommentBlock;
     }
-    int getnumtokens() { return m_nt-m_eat; }
+    int getnumtokens() { return (m_nt-m_eat)>=0 ? (m_nt-m_eat) : 0; }
 
     void eattoken() { m_eat++; }
 
@@ -78,11 +78,11 @@ class LineParser {
       freetokens();
       bool bPrevCB=m_bCommentBlock;
       int n=doline(line, ignore_escaping);
-      if (n) return n;
+      if (n) { m_nt=0; return n; }
       if (m_nt) 
       {
         m_bCommentBlock=bPrevCB;
-        m_tokens=(char**)malloc(sizeof(char*)*m_nt);
+        m_tokens=(char**)calloc(sizeof(char*),m_nt);
         n=doline(line, ignore_escaping);
         if (n) 
         {
@@ -94,6 +94,18 @@ class LineParser {
     }
 #endif
 
+    void WDL_LINEPARSE_PREFIX set_one_token(const char *ptr) 
+#ifdef WDL_LINEPARSE_INTF_ONLY
+      ;
+#else
+    { 
+      freetokens();
+      m_eat=0;
+      m_nt=1;
+      m_tokens=(char**)malloc(sizeof(char*)*m_nt);
+      m_tokens[0]=strdup(ptr);
+    }
+#endif
 
     double WDL_LINEPARSE_PREFIX gettoken_float(int token, int *success
 #ifdef WDL_LINEPARSE_INTF_ONLY
@@ -107,7 +119,7 @@ class LineParser {
 #endif
     {
       token+=m_eat;
-      if (token < 0 || token >= m_nt) 
+      if (token < 0 || token >= m_nt || !m_tokens || !m_tokens[token]) 
       {
         if (success) *success=0;
         return 0.0;
@@ -140,7 +152,7 @@ class LineParser {
 #endif
     { 
       token+=m_eat;
-      if (token < 0 || token >= m_nt || !m_tokens[token][0]) 
+      if (token < 0 || token >= m_nt || !m_tokens || !m_tokens[token] || !m_tokens[token][0]) 
       {
         if (success) *success=0;
         return 0;
@@ -159,7 +171,7 @@ class LineParser {
 #else
     { 
       token+=m_eat;
-      if (token < 0 || token >= m_nt) return "";
+      if (token < 0 || token >= m_nt || !m_tokens || !m_tokens[token]) return "";
       return m_tokens[token]; 
     }
 #endif

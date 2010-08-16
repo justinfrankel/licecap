@@ -28,6 +28,7 @@
 
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
+  m_bgcol1_msg=0;
   m_is_button=true;
   m_pressed=0;
   m_iconCfg=0;
@@ -90,6 +91,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       {
         if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
       }
+
       LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
         r.right-r.left,
         r.bottom-r.top,
@@ -157,6 +159,44 @@ void WDL_VirtualIconButton::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
   #endif
     }
   }
+
+  if (m_bgcol1_msg)
+  {
+    int brcol=-100;
+    SendCommand(m_bgcol1_msg,(int)&brcol,GetID(),this);
+    if (brcol != -100)
+    {
+      RECT r=m_position;
+
+      int bh=(r.bottom-r.top)/5;
+      if (bh<1) bh=1;
+      int bw=(r.right-r.left)/5;
+      if (bw<1) bw=1;
+
+      LICE_FillRect(drawbm,
+        r.left+origin_x,r.top+origin_y,
+        r.right-r.left,
+        bh,LICE_RGBA_FROMNATIVE(brcol,255),0.75,LICE_BLIT_MODE_COPY);
+
+      LICE_FillRect(drawbm,
+        r.left+origin_x,r.top+origin_y+bh,
+        bw,
+        r.bottom-r.top-bh*2,LICE_RGBA_FROMNATIVE(brcol,255),0.75,LICE_BLIT_MODE_COPY);
+
+      LICE_FillRect(drawbm,
+        r.right+origin_x-bw,r.top+origin_y+bh,
+        bw,
+        r.bottom-r.top-bh*2,LICE_RGBA_FROMNATIVE(brcol,255),0.75,LICE_BLIT_MODE_COPY);
+
+      LICE_FillRect(drawbm,
+        r.left+origin_x,r.bottom+origin_y-bh,
+        r.right-r.left,
+        bh,LICE_RGBA_FROMNATIVE(brcol,255),0.75,LICE_BLIT_MODE_COPY);
+
+    
+    }
+  }
+
 } 
 
 

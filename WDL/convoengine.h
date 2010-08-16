@@ -55,7 +55,7 @@ public:
   WDL_ConvolutionEngine();
   ~WDL_ConvolutionEngine();
 
-  int SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size=-1);
+  int SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size=-1, int impulse_sample_offset=0, int max_imp_size=0);
  
   int GetFFTSize() { return m_fft_size; }
   int GetLatency() { return m_fft_size/2; }
@@ -89,7 +89,33 @@ private:
   WDL_FFT_REAL *m_get_tmpptrs[WDL_CONVO_MAX_PROC_NCH];
 };
 
+// low latency version
+class WDL_ConvolutionEngine_Div
+{
+public:
+  WDL_ConvolutionEngine_Div();
+  ~WDL_ConvolutionEngine_Div();
 
+  int SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size=-1);
+
+  int GetLatency();
+  void Reset();
+
+  void Add(WDL_FFT_REAL **bufs, int len, int nch);
+
+  int Avail(int wantSamples);
+  WDL_FFT_REAL **Get(); // returns length valid
+  void Advance(int len);
+
+private:
+  WDL_PtrList<WDL_ConvolutionEngine> m_engines;
+  bool m_need_feedsilence;
+
+  int m_proc_nch;
+  WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
+  WDL_FFT_REAL *m_get_tmpptrs[WDL_CONVO_MAX_PROC_NCH];
+
+};
 
 
 #endif

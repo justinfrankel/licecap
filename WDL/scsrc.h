@@ -48,7 +48,8 @@ public:
   WDL_ShoutcastSource(const char *host, const char *pass, const char *name, bool pub=false, 
                       const char *genre=NULL, const char *url=NULL,
                       
-                      int nch=2, int srate=44100, int kbps=128
+                      int nch=2, int srate=44100, int kbps=128,
+                      const char *ircchan=NULL
                       );
   ~WDL_ShoutcastSource();
 
@@ -66,8 +67,9 @@ public:
 private:
 
   LameEncoder *m_encoder;
+  int m_encoder_splsin;
 
-  WDL_String m_host,m_pass,m_url,m_genre,m_name;
+  WDL_String m_host,m_pass,m_url,m_genre,m_name,m_ircchan;
   int m_br;
   bool m_pub;
 

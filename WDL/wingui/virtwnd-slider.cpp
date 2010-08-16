@@ -664,7 +664,6 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       RequestRedraw(NULL);
     }
   }
-#ifdef _WIN32
   if (precmode&&GetRealParent())
   {
     POINT p;
@@ -706,17 +705,14 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     }
   }
   else
-#endif
   {
     m_last_y=ypos;
     m_last_x=xpos;
     if (m_last_precmode)
     {
       m_last_precmode=0;
-#ifdef _WIN32
       //ShowCursor(TRUE);
       ShowCursor(TRUE);
-#endif
     }
   }
   m_needflush=0;
@@ -741,9 +737,7 @@ void WDL_VirtualSlider::OnMouseUp(int xpos, int ypos)
     if (m_last_precmode)
     {
       m_last_precmode=0;
-#ifdef _WIN32
       ShowCursor(TRUE);
-#endif
     }
   }
   m_captured=false;

@@ -182,6 +182,8 @@ LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int iconnb=0
 LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp=NULL);
 LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nframes=NULL); // if nframes set, will be set to number of images (stacked vertically), otherwise first frame used
 
+// bitmap saving
+bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
 
 // flags that most blit functions can take
 

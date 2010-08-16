@@ -40,7 +40,7 @@
 #define ERR_DISCONNECTED_AFTER_SUCCESS 32
 WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, const char *name, bool pub, 
                                          const char *genre, const char *url,
-                                         int nch, int srate, int kbps)
+                                         int nch, int srate, int kbps, const char *ircchan)
 {
   JNL::open_socketlib();
   m_host.Set(host);
@@ -48,6 +48,7 @@ WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, con
   if (name) m_name.Set(name);
   if (url) m_url.Set(url);
   if (genre) m_genre.Set(genre);
+  if (ircchan) m_ircchan.Set(ircchan);
   m_pub=pub;
   m_br=kbps;
 
@@ -63,7 +64,8 @@ WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, con
   m_title[0]=0;
   m_titlecon=0;
   m_titlecon_start=0;
-  m_encoder=new LameEncoder(srate,nch,kbps);
+  m_encoder_splsin=0;
+  m_encoder=new LameEncoder(m_srate,m_nch,m_br);
   int s=m_encoder->Status();
   if (s == 1) m_state=ERR_NOLAME;
   else if (s) m_state=ERR_CREATINGENCODER;
@@ -270,6 +272,32 @@ int WDL_ShoutcastSource::RunStuff()
 
   if (m_sendcon)
   {
+    if (m_encoder && m_encoder_splsin > 48000*60*60*3) // every 3 hours, reinit the mp3 encoder
+    {
+      m_encoder_splsin=0;
+
+      WDL_Queue tmp;
+      if (m_encoder->outqueue.GetSize()) tmp.Add(m_encoder->outqueue.Get(),m_encoder->outqueue.GetSize());
+
+      delete m_encoder;
+
+      int s=2;
+      m_encoder=new LameEncoder(m_srate,m_nch,m_br);
+      if (m_encoder && !(s=m_encoder->Status()))
+      {
+        // copy out queue from m_encoder to newnc
+        if (tmp.GetSize()) m_encoder->outqueue.Add(tmp.Get(),tmp.GetSize());
+      }
+      else 
+      {
+        if (s == 1) m_state=ERR_NOLAME;
+        else if (s) m_state=ERR_CREATINGENCODER;
+        delete m_encoder;
+        m_encoder=0;
+      }
+
+    }
+
     if (m_encoder)
     {
       // encode data from m_samplequeue
@@ -290,6 +318,7 @@ int WDL_ShoutcastSource::RunStuff()
 
         if (!d) break;
 
+        m_encoder_splsin+=d/m_nch;
         m_encoder->Encode(m_workbuf.Get(),d/m_nch,1);
         ret=1;
       }
@@ -350,6 +379,12 @@ int WDL_ShoutcastSource::RunStuff()
           m_sendcon->send_string("icy-url:");
           m_sendcon->send_string(m_url.Get());
           m_sendcon->send_string("\r\n");
+          if (m_ircchan.Get()[0])
+          {
+            m_sendcon->send_string("icy-irc:");
+            m_sendcon->send_string(m_ircchan.Get());
+            m_sendcon->send_string("\r\n");
+          }
           m_sendcon->send_string("icy-genre:");
           m_sendcon->send_string(m_genre.Get());
           m_sendcon->send_string("\r\n");
