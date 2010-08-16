@@ -155,6 +155,63 @@ public:
       Reset(true);
     }
   }
+
+  void ProcessSampleBlock(double *spl0, double *spl1, double *outp0, double *outp1, int ns)
+  {
+    int x;
+    memset(outp0,0,ns*sizeof(double));
+    memset(outp1,0,ns*sizeof(double));
+
+    for (x = 0; x < sizeof(wdl_verb__combtunings)/sizeof(wdl_verb__combtunings[0]); x += 2)
+    {
+      int i=ns;
+      double *p0=outp0,*p1=outp1,*i0=spl0,*i1=spl1;
+      while (i--)
+      {        
+        double a=*i0++,b=*i1++;
+        *p0+=m_combs[x][0].process(a); 
+        *p1+=m_combs[x][1].process(b);
+        *p0+++=m_combs[x+1][0].process(a); 
+        *p1+++=m_combs[x+1][1].process(b);
+      }
+    }
+    for (x = 0; x < sizeof(wdl_verb__allpasstunings)/sizeof(wdl_verb__allpasstunings[0])-2; x += 2)
+    {
+      int i=ns;
+      double *p0=outp0,*p1=outp1;
+      while (i--)
+      {        
+        double tmp=m_allpasses[x][0].process(*p0);
+        double tmp2=m_allpasses[x][1].process(*p1);
+        *p0++=m_allpasses[x+1][0].process(tmp);
+        *p1++=m_allpasses[x+1][1].process(tmp2);
+      }
+    }
+    int i=ns;
+    double *p0=outp0,*p1=outp1;
+    while (i--)
+    {        
+      double a=m_allpasses[x+1][0].process(m_allpasses[x][0].process(*p0))*0.015;
+      double b=m_allpasses[x+1][1].process(m_allpasses[x][1].process(*p1))*0.015;
+
+      if (m_wid<0)
+      {
+        double m=-m_wid;
+        *p0 = b*m + a*(1.0-m);
+        *p1 = a*m + b*(1.0-m);
+      }
+      else
+      {
+        double m=m_wid;
+        *p0 = a*m + b*(1.0-m);
+        *p1 = b*m + a*(1.0-m);
+      }
+      p0++;
+      p1++;
+    }
+    
+  }
+
   void ProcessSample(double *spl0, double *spl1)
   {
     int x;

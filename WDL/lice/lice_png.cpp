@@ -106,16 +106,16 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
   //put shit in correct order
   for(i=0;i<height;i++)
   {
-    LICE_pixel *bmpptr = (LICE_pixel *)row_pointers[i];
-    unsigned int j;
-    for(j=0;j<width;j++)
+    unsigned char *bmpptr = row_pointers[i];
+    int j=width;
+    while (j-->0)
     {
-      LICE_pixel p = bmpptr[j];
-      unsigned char a = p&0xff;
-      unsigned char r = (p>>8)&0xff;
-      unsigned char g = (p>>16)&0xff;
-      unsigned char b = (p>>24)&0xff;
-      bmpptr[j] = LICE_RGBA(r,g,b,a);
+      unsigned char a = bmpptr[0];
+      unsigned char r = bmpptr[1];
+      unsigned char g = bmpptr[2];
+      unsigned char b = bmpptr[3];
+      ((LICE_pixel*)bmpptr)[0] = LICE_RGBA(r,g,b,a);
+      bmpptr+=4;
     }
   }
   free(row_pointers);
@@ -245,16 +245,16 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   //put shit in correct order
   for(i=0;i<height;i++)
   {
-    LICE_pixel *bmpptr = (LICE_pixel *)row_pointers[i];
-    unsigned int j;
-    for(j=0;j<width;j++)
+    unsigned char *bmpptr = row_pointers[i];
+    int j=width;
+    while (j-->0)
     {
-      LICE_pixel p = bmpptr[j];
-      unsigned char a = p&0xff;
-      unsigned char r = (p>>8)&0xff;
-      unsigned char g = (p>>16)&0xff;
-      unsigned char b = (p>>24)&0xff;
-      bmpptr[j] = LICE_RGBA(r,g,b,a);
+      unsigned char a = bmpptr[0];
+      unsigned char r = bmpptr[1];
+      unsigned char g = bmpptr[2];
+      unsigned char b = bmpptr[3];
+      ((LICE_pixel*)bmpptr)[0] = LICE_RGBA(r,g,b,a);
+      bmpptr+=4;
     }
   }
   free(row_pointers);

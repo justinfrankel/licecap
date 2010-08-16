@@ -259,7 +259,7 @@ void LICE_Line(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_
 		}
 		else {
 #define __LICE__ACTION(COMBFUNC) __LICE_LineClass<COMBFUNC>::LICE_Line_noAA(dest, x1, y1, x2, y2, color, alpha)
-			__LICE_ACTIONBYMODE(mode, alpha);
+			__LICE_ACTIONBYMODE_NOALPHACHANGE(mode, color, alpha);
 #undef __LICE__ACTION
 		}
 	}

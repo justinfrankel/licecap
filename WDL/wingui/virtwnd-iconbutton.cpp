@@ -309,10 +309,10 @@ void WDL_VirtualComboBox::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int orig
         if (m_align==0) tr2.left+=2;
         else if (m_align>0) tr2.left+=2;
         else tr2.right--;
-        DrawText(hdc,m_items.Get(m_curitem),-1,&tr2,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER|DT_NOPREFIX));
+        DrawText(hdc,m_items.Get(m_curitem),-1,&tr2,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
       }
       SetTextColor(hdc,tcol);
-      DrawText(hdc,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER|DT_NOPREFIX));
+      DrawText(hdc,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
     }
 
 
@@ -474,10 +474,10 @@ void WDL_VirtualStaticText::OnPaint(LICE_SysBitmap *drawbm, int origin_x, int or
       if (align==0) r2.left+=2;
       else if (align<0) r2.left++;
       else if (align>0) r.right--;
-      DrawText(hdc,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER|DT_NOPREFIX));
+      DrawText(hdc,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
     }
     SetTextColor(hdc,tcol);
-    DrawText(hdc,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER|DT_NOPREFIX));
+    DrawText(hdc,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
 
     if (m_font) SelectObject(hdc,of);
 

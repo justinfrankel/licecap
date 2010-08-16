@@ -47,6 +47,16 @@ static void inline _LICE_MakePixel(LICE_pixel_chan *out, int r, int g, int b, in
   if (a&~0xff) out[LICE_PIXEL_A]=a<0?0:255; else out[LICE_PIXEL_A] = (LICE_pixel_chan) (a);
 }
 
+// Optimization when a=255 and alpha=1.0f, useful for doing a big vector drawn fill or something.
+// This could be called _LICE_PutPixel but that would probably be confusing.
+class _LICE_CombinePixelsClobber
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)    // alpha is ignored.
+  {
+    _LICE_MakePixel(dest, r, g, b, a);
+  }
+};
 
 class _LICE_CombinePixelsCopy 
 {
@@ -120,9 +130,6 @@ public:
 //#undef __LICE__ACTION
 
 
-
-
-
 #define __LICE_ACTIONBYMODE(mode,alpha) \
      switch ((mode)&LICE_BLIT_MODE_MASK) { \
       case LICE_BLIT_MODE_COPY: \
@@ -146,7 +153,10 @@ public:
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
     }
 
-
-
+// Vector drawing with a single color can be optimized for copy mode if the color has alpha = 255.
+#define __LICE_ACTIONBYMODE_NOALPHACHANGE(mode,color,alpha) \
+    if (LICE_GETA(color)==255 && (alpha)==1.0f) __LICE__ACTION(_LICE_CombinePixelsClobber); \
+    else __LICE_ACTIONBYMODE(mode,alpha);
+        
 
 #endif
