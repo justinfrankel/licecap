@@ -77,20 +77,23 @@ class WDL_DirScan
 #ifdef _WIN32
       if (!isExactSpec) 
 #endif
-	if (dirname[l-1] == '\\' || dirname[l-1] == '/') scanstr.SetLen(l-1);
-
-      m_leading_path.Set(scanstr.Get());
+	 if (dirname[l-1] == '\\' || dirname[l-1] == '/')  scanstr.SetLen(l-1);
+   
+   m_leading_path.Set(scanstr.Get());
 
 #ifdef _WIN32
       if (!isExactSpec) scanstr.Append("\\*");
       else
       {
-        // remove trailing shit from m_leading_path
+        // remove trailing stuff from m_leading_path
         char *p=m_leading_path.Get();
         while (*p) p++;
         while (p > m_leading_path.Get() && *p != '/' && *p != '\\') p--;
         if (p > m_leading_path.Get()) *p=0;
       }
+#else
+   if (l && !scanstr.Get()[0])
+     scanstr.Set("/"); // fix for scanning /
 #endif
 
       Close();

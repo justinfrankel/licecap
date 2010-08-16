@@ -735,7 +735,7 @@
 #  ifndef PNG_ASSEMBLER_CODE_SUPPORTED
 #    define PNG_ASSEMBLER_CODE_SUPPORTED
 #  endif
-#  if defined(XP_MACOSX) && !defined(PNG_NO_MMX_CODE)
+#  if (defined(XP_MACOSX) || defined(__LP64__)) && !defined(PNG_NO_MMX_CODE)
      /* work around Intel-Mac compiler bug */
 #    define PNG_NO_MMX_CODE
 #  endif

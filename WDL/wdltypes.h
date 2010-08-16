@@ -41,6 +41,7 @@ typedef intptr_t INT_PTR;
 
 #define GCLP_WNDPROC GCL_WNDPROC
 #define GCLP_HICON GCL_HICON
+#define GCLP_HICONSM GCL_HICONSM
 #define SetClassLongPtr(a,b,c) SetClassLong(a,b,c)
 #define GetClassLongPtr(a,b) GetClassLong(a,b)
 #endif

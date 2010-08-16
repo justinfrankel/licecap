@@ -97,6 +97,7 @@
 #define DeleteFile(x) (!unlink(x))
 #define MoveFile(x,y) (!rename(x,y))
 #define GetCurrentDirectory(sz,buf) (!getcwd(buf,sz))
+#define SetCurrentDirectory(buf) (!chdir(buf))
 #define CreateDirectory(x,y) (!mkdir((x),0755))
 #define wsprintf sprintf
 
@@ -135,6 +136,30 @@
 #define MAX_PATH 1024
 
 
+#include <stdint.h>
+typedef intptr_t INT_PTR, *PINT_PTR, LONG_PTR, *PLONG_PTR;
+typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWORD_PTR;
+
+// SWELLAPP stuff (swellappmain.mm)
+INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2); // to be implemented by app (if using swellappmain.mm)
+#define SWELLAPP_ONLOAD 0x0001 // initialization of app vars etc
+#define SWELLAPP_LOADED 0x0002 // create dialogs etc
+#define SWELLAPP_DESTROY 0x0003 // about to destroy (cleanup etc)
+#define SWELLAPP_SHOULDDESTROY 0x0004 // return 0 to allow app to terminate, >0 to prevent
+
+#define SWELLAPP_OPENFILE 0x0050 // parm1= (const char *)string, return >0 if allowed
+#define SWELLAPP_NEWFILE 0x0051 // new file, return >0 if allowed
+#define SWELLAPP_SHOULDOPENNEWFILE 0x0052 // allow opening new file? >0 if allowed
+
+#define SWELLAPP_ONCOMMAND 0x0099 // parm1 = (int) command ID, parm2 = (id) sender 
+#define SWELLAPP_PROCESSMESSAGE 0x0100 // parm1=(MSG *)msg (loosely), parm2= (NSEvent *) the event . return >0 to eat
+
+#define SWELLAPP_ACTIVATE 0x1000  // parm1 = (bool) isactive. return nonzero to prevent WM_ACTIVATEAPP from being broadcasted
+//
+
+
+
+
 // basic types
 typedef unsigned int DWORD;
 typedef unsigned short WORD;
@@ -146,10 +171,6 @@ typedef unsigned long WPARAM;
 typedef long LPARAM;
 typedef long LRESULT;
 
-
-#include <stdint.h>
-typedef intptr_t INT_PTR, *PINT_PTR, LONG_PTR, *PLONG_PTR;
-typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWORD_PTR;
 
 
 typedef void *LPVOID, *PVOID;
@@ -506,6 +527,7 @@ typedef BOOL (*PROPENUMPROCEX)(HWND hwnd, const char *lpszString, HANDLE hData, 
 typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h);                                           
 
 
+
 /*
  ** win32 specific constants
  */
@@ -547,6 +569,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WS_CAPTION    0x00C00000L
 #define WS_VSCROLL    0x00200000L
 #define WS_HSCROLL    0x00100000L
+#define WS_SYSMENU    0x00080000L
 #define WS_THICKFRAME 0x00040000L
 #define WS_GROUP      0x00020000L
 #define WS_TABSTOP    0x00010000L
@@ -615,7 +638,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 
 
 #define LVSIL_STATE 1
-#define LVSIL_SMALL 1
+#define LVSIL_SMALL 2
 
 #define LVIR_BOUNDS             0
 #define LVIR_ICON               1
@@ -636,9 +659,12 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 
 #define LVCF_TEXT 1
 #define LVCF_WIDTH 2
+
 #define LVIF_TEXT 1
-#define LVIF_PARAM 2
-#define LVIF_STATE 4
+#define LVIF_IMAGE 2
+#define LVIF_PARAM 4
+#define LVIF_STATE 8
+
 #define LVIS_SELECTED 1
 #define LVIS_FOCUSED 2
 #define LVNI_SELECTED 1
@@ -758,6 +784,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define WM_PAINT                        0x000F
 #define WM_CLOSE                        0x0010
 #define WM_ERASEBKGND                   0x0014
+#define WM_ACTIVATEAPP                  0x001C
 #define WM_SETCURSOR                    0x0020
 #define WM_GETMINMAXINFO                0x0024
 #define WM_DRAWITEM                     0x002B
@@ -1013,6 +1040,8 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define MK_MBUTTON        0x10
 
 
+#define IDC_SIZENESW -1007
+#define IDC_SIZENWSE -1006
 #define IDC_IBEAM -1005
 #define IDC_UPARROW -1004
 #define IDC_NO -1003
@@ -1458,6 +1487,8 @@ SWELL_API_DEFINE(int,WinIntersectRect,(RECT *out, RECT *in1, RECT *in2))
 */
 SWELL_API_DEFINE(void, SetWindowPos,(HWND hwnd, HWND unused, int x, int y, int cx, int cy, int flags))
 
+SWELL_API_DEFINE(int, SWELL_SetWindowLevel, (HWND hwnd, int newlevel))
+
 /*
 ** InvalidateRect()
 ** Notes: eraseBk is ignored, probably not threadsafe! hwnd can be NSWindow or NSView
@@ -1576,6 +1607,7 @@ SWELL_API_DEFINE(void, SWELL_TB_SetTic,(HWND hwnd, int idx, int pos))
 */
 SWELL_API_DEFINE(void, ListView_SetExtendedListViewStyleEx,(HWND h, int flag, int mask))
 SWELL_API_DEFINE(void, ListView_InsertColumn,(HWND h, int pos, const LVCOLUMN *lvc))
+SWELL_API_DEFINE(bool, ListView_DeleteColumn,(HWND h, int pos))
 SWELL_API_DEFINE(int, ListView_GetColumnWidth,(HWND h, int pos))
 SWELL_API_DEFINE(int, ListView_InsertItem,(HWND h, const LVITEM *item))
 SWELL_API_DEFINE(void, ListView_SetItemText,(HWND h, int ipos, int cpos, const char *txt))
@@ -1596,8 +1628,11 @@ SWELL_API_DEFINE(void, ListView_EnsureVisible,(HWND h, int i, BOOL pok))
 SWELL_API_DEFINE(bool, ListView_GetSubItemRect,(HWND h, int item, int subitem, int code, RECT *r))
 SWELL_API_DEFINE(void, ListView_SetImageList,(HWND h, HIMAGELIST imagelist, int which)) 
 SWELL_API_DEFINE(int, ListView_HitTest,(HWND h, LVHITTESTINFO *pinf))
+SWELL_API_DEFINE(int, ListView_SubItemHitTest,(HWND h, LVHITTESTINFO *pinf))
 SWELL_API_DEFINE(void, ListView_GetItemText,(HWND hwnd, int item, int subitem, char *text, int textmax))
 SWELL_API_DEFINE(void, ListView_SortItems,(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm))
+SWELL_API_DEFINE(bool, ListView_GetItemRect,(HWND h, int item, RECT *r, int code))
+SWELL_API_DEFINE(bool, ListView_Scroll,(HWND h, int xscroll, int yscroll))
 
 #ifndef ImageList_Create
 #define ImageList_Create(x,y,a,b,c) ImageList_CreateEx();
@@ -2077,6 +2112,9 @@ SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC h
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
 
 SWELL_API_DEFINE(void, SetOpaque, (HWND h, bool isopaque))
+SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, bool wantGL))
+SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
+SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
 
 SWELL_API_DEFINE(HDC, BeginPaint,(HWND, PAINTSTRUCT *))
 SWELL_API_DEFINE(BOOL, EndPaint,(HWND, PAINTSTRUCT *))
@@ -2095,7 +2133,9 @@ SWELL_API_DEFINE(UINT, DragQueryFile,(HDROP,UINT,char *,UINT))
 
 // source drag/drop - callback is source implementing "create dropped files at droppath"
 SWELL_API_DEFINE(void, SWELL_InitiateDragDrop, (HWND, RECT* srcrect, const char* srcfn, void (*callback)(const char* droppath)))
+SWELL_API_DEFINE(void,SWELL_InitiateDragDropOfFileList,(HWND, RECT *srcrect, const char **srclist, int srccount, HICON icon))
 SWELL_API_DEFINE(void, SWELL_FinishDragDrop, ())  // cancels any outstanding InitiateDragDrop
+
 
 
 // r=NULL to "free" handle
@@ -2103,6 +2143,8 @@ SWELL_API_DEFINE(void, SWELL_FinishDragDrop, ())  // cancels any outstanding Ini
 SWELL_API_DEFINE(void,SWELL_DrawFocusRect,(HWND hwndPar, RECT *rct, void **handle))
 
 
+SWELL_API_DEFINE(void,SWELL_SetWindowRepre,(HWND hwnd, const char *fn, bool isDirty)) // sets the represented file and edited state
+SWELL_API_DEFINE(void,SWELL_PostQuitMessage,(void *sender))
 
 /*
 ** Functions used by swell-dlggen.h and swell-menugen.h
@@ -2222,4 +2264,3 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 #ifndef SWELL_APP_PREFIX
 #define SWELL_APP_PREFIX SWELL_
 #endif
-

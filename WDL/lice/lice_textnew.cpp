@@ -591,6 +591,14 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
 {
   if (!bm) return 0;
 
+  bool forceWantAlpha=false;
+
+  if (dtFlags & LICE_DT_NEEDALPHA)
+  {
+    forceWantAlpha=true;
+    dtFlags &= ~LICE_DT_NEEDALPHA;
+  }
+
 #if 0
   if ((m_flags&LICE_FONT_FLAG_ALLOW_NATIVE) && 
       !(m_flags&LICE_FONT_FLAG_PRECALCALL))
@@ -610,7 +618,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
 
   // if using line-spacing adjustments (m_lsadj), don't allow native rendering 
   // todo: split rendering up into invidual lines and DrawText calls
-  if ((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !LICE_Text_IsWine() && 
+  if ((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !forceWantAlpha &&!LICE_Text_IsWine() && 
       !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags) &&
      (!m_lsadj || (dtFlags&DT_SINGLELINE))) 
   {
@@ -659,7 +667,11 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
       isTmp=true;
       if (w<1)w=1;
       if (h<1)h=1;
-      s_nativerender_tempbitmap.resize(w, h);
+      if (s_nativerender_tempbitmap.getWidth() < w ||
+          s_nativerender_tempbitmap.getHeight() < h)
+        s_nativerender_tempbitmap.resize(w, h);
+
+
       hdc = s_nativerender_tempbitmap.getDC();
 
       oldfont = SelectObject(hdc, m_font);
@@ -707,7 +719,8 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
         h=blit_r.bottom-blit_r.top;
       }
 
-      if (w > s_nativerender_tempbitmap.getWidth() || h > s_nativerender_tempbitmap.getHeight())
+      if (w > s_nativerender_tempbitmap.getWidth() || 
+         h > s_nativerender_tempbitmap.getHeight())
       {
         SelectObject(hdc,oldfont);
         s_nativerender_tempbitmap.resize(w, h);
@@ -845,7 +858,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
   if (dtFlags & (DT_CENTER|DT_VCENTER|DT_RIGHT|DT_BOTTOM))
   {
     RECT tr={0,};
-    DrawText(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE));
+    DrawText(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE)|(forceWantAlpha?LICE_DT_NEEDALPHA:0));
     if (dtFlags & DT_CENTER)
     {
       xpos += (use_rect.right-use_rect.left-tr.right)/2;
@@ -869,7 +882,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
   else if (isVertRev) 
   {
     RECT tr={0,};
-    DrawText(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE));
+    DrawText(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE)|(forceWantAlpha?LICE_DT_NEEDALPHA:0));
     ypos += tr.bottom;
   }
 

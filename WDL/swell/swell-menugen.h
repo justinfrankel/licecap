@@ -68,6 +68,15 @@
 #include "../ptrlist.h"
 
 
+#ifdef BEGIN
+#undef BEGIN
+#endif
+
+#ifdef END
+#undef END
+#endif
+
+
 typedef struct SWELL_MenuResourceIndex
 {
   int resid;

@@ -20,9 +20,10 @@ bool SWELL_owned_windows_levelincrease=false;
 #include "swell-internal.h"
 
 
+
 static NSColor *NSColorFromCGColor(CGColorRef ref)
 {
-  const float *cc = CGColorGetComponents(ref);
+  const CGFloat *cc = CGColorGetComponents(ref);
   if (cc) return [NSColor colorWithCalibratedRed:cc[0] green:cc[1] blue:cc[2] alpha:cc[3]];
   return NULL;
 }
@@ -351,10 +352,19 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(void) swellOnControlDoubleClick:(id)sender
 {
   if ([sender isKindOfClass:[NSTableView class]] && 
-      [sender respondsToSelector:@selector(getSwellNotificationMode)] &&
-      [(SWELL_ListView*)sender getSwellNotificationMode])
+      [sender respondsToSelector:@selector(getSwellNotificationMode)])
   {
-    m_wndproc((HWND)self,WM_COMMAND,(LBN_DBLCLK<<16)|[sender tag],(LPARAM)sender);
+    if ([(SWELL_ListView*)sender getSwellNotificationMode])
+      m_wndproc((HWND)self,WM_COMMAND,(LBN_DBLCLK<<16)|[sender tag],(LPARAM)sender);
+    else
+    {
+      SWELL_ListView* v = (SWELL_ListView*)sender;
+	  NMLISTVIEW nmlv={{(HWND)sender,[sender tag], NM_DBLCLK}, [v clickedRow], [sender clickedColumn], };
+	  SWELL_ListView_Row *row=v->m_items->Get(nmlv.iItem);
+	  if (row)
+       nmlv.lParam = row->m_param;
+	  SendMessage((HWND)self,WM_NOTIFY,[sender tag],(LPARAM)&nmlv);
+	}
   }
   else
   {   
@@ -496,6 +506,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   KillTimer((HWND)self,-1);
   [self onSwellMessage:WM_DESTROY p1:0 p2:0];
   if (GetCapture()==(HWND)self) ReleaseCapture();
+  if (m_glctx)
+  {
+    [m_glctx release];
+    m_glctx=0;
+  }
   [super dealloc];
 }
 
@@ -591,6 +606,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par
 {
+  NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
+  if (!(self = [super initWithFrame:contentRect])) return self;
+
+  m_glctx=NULL;
   m_enabled=TRUE;
   m_dlgproc=NULL;
   m_wndproc=NULL;
@@ -605,7 +624,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_paintctx_used=0;
   m_paintctx_hdc=0;
   m_props=0;
-                                
+  
   m_titlestr[0]=0;
   
   m_wndproc=SwellDialogDefaultWindowProc;
@@ -613,9 +632,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_isopaque = !resstate || (resstate->windowTypeFlags&SWELL_DLG_WS_OPAQUE);
   m_flip = !resstate || (resstate->windowTypeFlags&SWELL_DLG_WS_FLIPPED);
   m_supports_ddrop = resstate && (resstate->windowTypeFlags&SWELL_DLG_WS_DROPTARGET);
-  NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
-  if (!(self = [super initWithFrame:contentRect])) return self;
-
+  
   [self setHidden:YES];
   
 //  BOOL wasHid=[self isHidden];
@@ -694,27 +711,13 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 } 
 - (void)keyDown:(NSEvent *)theEvent
 {
-  if (self == [[self window] contentView] && [theEvent keyCode]==53)
-  {
-    if (!m_wndproc((HWND)self,WM_CLOSE,0,0))
-      m_wndproc((HWND)self,WM_COMMAND,IDCANCEL,0);
-  }
-  else
-  {
-    int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
-    if (m_wndproc((HWND)self,WM_KEYDOWN,code,flag)==69) [super keyDown:theEvent];
-  }
+  int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
+  if (m_wndproc((HWND)self,WM_KEYDOWN,code,flag)==69) [super keyDown:theEvent];
 }
 - (void)keyUp:(NSEvent *)theEvent
 {
-  if (self == [[self window] contentView] && [theEvent keyCode]==53)
-  {
-  }
-  else
-  {
-    int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
-    if (m_wndproc((HWND)self,WM_KEYUP,code,flag)==69) [super keyUp:theEvent];
-  }
+  int flag,code=SWELL_MacKeyToWindowsKey(theEvent,&flag);
+  if (m_wndproc((HWND)self,WM_KEYUP,code,flag)==69) [super keyUp:theEvent];
 }
 
 /*
@@ -730,13 +733,26 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(void) drawRect:(NSRect)rect
 {
   if (m_hashaddestroy) return;
+  
   m_paintctx_hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
+  if (m_paintctx_hdc && m_glctx)
+  {
+    ((GDP_CTX *)m_paintctx_hdc)->GLgfxctx = m_glctx;
+
+    [m_glctx setView:self];
+    [m_glctx makeCurrentContext];
+    [m_glctx update];
+  }
   m_paintctx_rect=rect;
   m_paintctx_used=false;
   DoPaintStuff(m_wndproc,(HWND)self,m_paintctx_hdc,&m_paintctx_rect);
   
   
   SWELL_DeleteGfxContext(m_paintctx_hdc);
+  if (m_paintctx_hdc && m_glctx && [NSOpenGLContext currentContext] == m_glctx)
+  {
+    [NSOpenGLContext clearCurrentContext]; 
+  }
   m_paintctx_hdc=0;
   if (!m_paintctx_used) {
      /*[super drawRect:rect];*/
@@ -1348,7 +1364,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   return self;
 }
 
-- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par
+- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut
 {
   INIT_COMMON_VARS
   
@@ -1383,14 +1399,17 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
     }
   }
   
+  [self retain]; // in case WM_INITDIALOG goes and releases us
+  
   SWELL_hwndChild *ch=[[SWELL_hwndChild alloc] initChild:resstate Parent:(NSView *)self dlgProc:dlgproc Param:par];       // create a new child view class
   ch->m_create_windowflags=sf;
+  *hwndOut = (HWND)ch;
 
-    
-//  DOWINDOWMINMAXSIZES(ch)
   [ch release];
 
   [self display];
+  
+  [self release]; // matching retain above
   
   return self;
 }
@@ -1565,9 +1584,9 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, int resid, HWND pare
   }
   else
   {
-    SWELL_ModelessWindow *ch=[[SWELL_ModelessWindow alloc] initModeless:p Parent:parent dlgProc:dlgproc Param:param];
-    if (!ch) return 0;
-    return (HWND)[ch contentView];
+    HWND h=NULL;
+    SWELL_ModelessWindow *ch=[[SWELL_ModelessWindow alloc] initModeless:p Parent:parent dlgProc:dlgproc Param:param outputHwnd:&h];
+    return h;
   }
   
   return 0;
@@ -1579,7 +1598,10 @@ void SWELL_SetDefaultWindowMenu(HMENU menu)
 {
   g_swell_defaultmenu=menu;
 }
-HMENU SWELL_GetDefaultModalWindowMenu() { return g_swell_defaultmenumodal; }
+HMENU SWELL_GetDefaultModalWindowMenu() 
+{ 
+  return g_swell_defaultmenumodal; 
+}
 void SWELL_SetDefaultModalWindowMenu(HMENU menu)
 {
   g_swell_defaultmenumodal=menu;
@@ -1612,6 +1634,7 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
 }
 #endif
 
+#ifndef __LP64__
 // carbon event handler for carbon-in-cocoa
 OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, void* userdata)
 {
@@ -1677,6 +1700,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
   return noErr;
 }
 
+#endif
 
 @implementation SWELL_hwndCarbonHost
 
@@ -1684,6 +1708,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 {
   if (!(self = [super initChild:nil Parent:parent dlgProc:nil Param:nil])) return self;
 
+#ifndef __LP64__
   WindowRef wndref=0;
   CreateNewWindow (kPlainWindowClass, (wantComp ? kWindowCompositingAttribute : 0) |  kWindowAsyncDragAttribute|kWindowStandardHandlerAttribute|kWindowNoShadowAttribute, r, &wndref);
   if (wndref)
@@ -1732,6 +1757,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
     //[self swellDoRepos]; 
     SetTimer((HWND)self,1,10,NULL);
   }  
+#endif
   return self;
 }
 
@@ -1741,6 +1767,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 {
   KillTimer((HWND)self,1);
   
+#ifndef __LP64__
   if (m_wndhandler)
   {
     EventHandlerRef wndhandler = (EventHandlerRef)m_wndhandler;
@@ -1761,6 +1788,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
     [m_cwnd close];   // this disposes the owned wndref
     m_cwnd=0;
   }
+#endif
 }
 
 -(void)dealloc
@@ -1771,10 +1799,11 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 
 - (void)SWELL_Timer:(id)sender
 {
+#ifndef __LP64__
   id uinfo=[sender userInfo];
   if ([uinfo respondsToSelector:@selector(getValue)]) 
   {
-    int idx=(int)[(SWELL_DataHold*)uinfo getValue];
+    int idx=(int)(INT_PTR)[(SWELL_DataHold*)uinfo getValue];
     if (idx==1)
     {
       if (![self superview] || [[self superview] isHiddenOrHasHiddenAncestor])
@@ -1826,6 +1855,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
     KillTimer((HWND)self,idx);
     return;
   }
+#endif
 }
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam
 {
@@ -1873,6 +1903,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 }
 -(void)swellDoRepos
 {
+#ifndef __LP64__
   if (m_cwnd)
   {
     RECT r;
@@ -1953,6 +1984,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
       }
     }
   }
+#endif
 }
 
 - (void)viewDidMoveToSuperview
@@ -2030,6 +2062,7 @@ void* SWELL_GetWindowFromCarbonWindowView(HWND cwv)
 
 void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
 {
+#ifndef __LP64__
   SWELL_hwndCarbonHost* w = (SWELL_hwndCarbonHost*)cwv;
   if (w)
   {
@@ -2048,6 +2081,7 @@ void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
       InstallControlEventHandler((ControlRef)pane, CarbonEvtHandler, nctlevts, ctlevts, w, &ctlhandler);
     }
   }
+#endif
 }
 
 
@@ -2113,6 +2147,52 @@ void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*
   [str release];
 } 
 
+// owner owns srclist, make copies here etc
+void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **srclist, int srccount, HICON icon)
+{
+  SWELL_FinishDragDrop();
+
+  if (![(id)hwnd isKindOfClass:[SWELL_hwndChild class]]) return;
+  
+  NSMutableArray *ar = [[NSMutableArray alloc] initWithCapacity:srccount];
+  int x;
+  
+  for(x=0;x<srccount;x++)
+  {
+    NSString *s = (NSString*)SWELL_CStringToCFString(srclist[x]);
+    [ar addObject:s];
+    [s release];
+  }
+  NSPasteboard *pb= [NSPasteboard pasteboardWithName:NSDragPboard];
+  [pb declareTypes:[NSArray arrayWithObject:NSFilenamesPboardType]  owner:(id)hwnd];
+  [pb setPropertyList:ar forType:NSFilenamesPboardType];
+  
+  NSImage *img=NULL;// = [NSImage imageNamed:@"readoc"]; // todo!
+  if (!img && icon) 
+  {
+    img = (NSImage *)GetNSImageFromHICON(icon);
+    if (img)
+    {
+      img = [img copy];
+      [img setFlipped:true];
+      [img autorelease];
+    }
+  }
+  
+  if (!img)
+  {
+    NSWorkspace *ws = [NSWorkspace sharedWorkspace];
+    if (ws)
+    {
+      if (ar)
+        img = [ws iconForFiles:ar];
+    }
+    // default image?
+  }
+  [(NSView *)hwnd dragImage:img at:NSMakePoint(srcrect->left,srcrect->top) offset:NSMakeSize(0,0) event:[NSApp currentEvent] pasteboard:pb source:(id)hwnd slideBack:YES];
+  
+  [ar release];
+}
 
 NSArray* SWELL_DoDragDrop(NSURL* droplocation)
 {
@@ -2142,7 +2222,50 @@ void SWELL_FinishDragDrop()
   s_dragdropsrccallback = 0;  
 }
 
+bool SWELL_SetGLContextToView(HWND h)
+{
+  if (!h) [NSOpenGLContext clearCurrentContext];
+  else if ([(id)h isKindOfClass:[SWELL_hwndChild class]])
+  {
+    SWELL_hwndChild *hc = (SWELL_hwndChild*)h;
+    if (hc->m_glctx)
+    {
+      [hc->m_glctx makeCurrentContext];
+      return true;
+    }
+  }
+  return false;
+}
 
+void SWELL_SetViewGL(HWND h, bool wantGL)
+{
+  if (h && [(id)h isKindOfClass:[SWELL_hwndChild class]])
+  {
+    SWELL_hwndChild *hc = (SWELL_hwndChild*)h;
+    if (wantGL != !!hc->m_glctx)
+    {
+      if (wantGL) 
+      {
+        NSOpenGLPixelFormatAttribute atr[] = {(NSOpenGLPixelFormatAttribute)0}; // todo: optionally add any attributes before the 0
+        NSOpenGLPixelFormat *fmt  = [[NSOpenGLPixelFormat alloc] initWithAttributes:atr];
+        
+        hc->m_glctx = [[NSOpenGLContext alloc] initWithFormat:fmt shareContext:nil];
+        [fmt release];
+      }
+      else
+      {
+        if ([NSOpenGLContext currentContext] == hc->m_glctx) [NSOpenGLContext clearCurrentContext];
+        [hc->m_glctx release];
+        hc->m_glctx=0;
+      }
+    }
+    
+  }
+}
 
+bool SWELL_GetViewGL(HWND h)
+{
+  return h && [(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild*)h)->m_glctx;
+}
 
 #endif

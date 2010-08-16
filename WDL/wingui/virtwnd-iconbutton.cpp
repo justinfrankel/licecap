@@ -39,11 +39,16 @@ WDL_VirtualIconButton::WDL_VirtualIconButton()
   m_en=true;
   m_grayed = false;
   m_forceborder=false;
-  m_swapupdown = false;
+  m_ownsicon=false;
 }
 
 WDL_VirtualIconButton::~WDL_VirtualIconButton()
 {
+  if (m_ownsicon && m_iconCfg)
+  {
+    delete m_iconCfg->image;
+    delete m_iconCfg;
+  }
 }
 
 void WDL_VirtualIconButton::SetTextLabel(const char *text, char align, LICE_IFont *font) 
@@ -59,10 +64,25 @@ void WDL_VirtualIconButton::SetCheckState(char state)
   if (state != m_checkstate)
   {
     m_checkstate=state;
-    if (!m_iconCfg) RequestRedraw(NULL);
+    RequestRedraw(NULL);
   }
 }
 
+void WDL_VirtualIconButton::SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float alpha, bool buttonownsicon)
+{ 
+  if (m_iconCfg != cfg || m_alpha != alpha) 
+  {
+    if (m_ownsicon && m_iconCfg && m_iconCfg != cfg)
+    {
+      delete m_iconCfg->image;
+      delete m_iconCfg;
+    }
+    m_alpha=alpha; 
+    m_iconCfg=cfg;
+    RequestRedraw(NULL); 
+  }
+  m_ownsicon = buttonownsicon;
+ }
 
 void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
@@ -107,7 +127,8 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
   if (m_iconCfg && m_iconCfg->image && !m_iconCfg->image_issingle)
   {
-    bool isdownimg = (m_swapupdown != isdown);
+    bool swapupdown = (m_checkstate > 0);
+    bool isdownimg = (swapupdown != isdown);
     
     RECT r=m_position;
 

@@ -34,6 +34,7 @@ JNL_Connection::JNL_Connection(JNL_IAsyncDNS *dns, int sendbufsize, int recvbufs
   memset(m_send_buffer,0,sendbufsize);
   m_remote_port=0;
   m_state=STATE_NOCONNECTION;
+  m_localinterfacereq=INADDR_ANY;
   m_recv_len=m_recv_pos=0;
   m_send_len=m_send_pos=0;
   m_host[0]=0;
@@ -73,6 +74,13 @@ void JNL_Connection::connect(char *hostname, int port)
   }
   else
   {
+    if (m_localinterfacereq != INADDR_ANY)
+    {
+      sockaddr_in sa={0,};
+      sa.sin_family=AF_INET;
+      sa.sin_addr.s_addr=m_localinterfacereq;
+      bind(m_socket,(struct sockaddr *)&sa,16);
+    }
     SET_SOCK_BLOCK(m_socket,0);
     strncpy(m_host,hostname,sizeof(m_host)-1);
     m_host[sizeof(m_host)-1]=0;
@@ -443,6 +451,12 @@ int JNL_Connection::recv_line(char *line, int maxlength)
   }
   return 1;
 }
+
+void JNL_Connection::set_interface(int useInterface) // call before connect if needed
+{
+  m_localinterfacereq = useInterface;
+}
+
 
 unsigned long JNL_Connection::get_interface(void)
 {

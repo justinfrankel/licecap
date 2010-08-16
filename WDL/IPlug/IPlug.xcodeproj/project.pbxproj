@@ -124,9 +124,9 @@
 		452A89BB0FCC0A6500360071 /* pngwtran.c in Sources */ = {isa = PBXBuildFile; fileRef = 452A89A70FCC0A6500360071 /* pngwtran.c */; };
 		452A89BC0FCC0A6500360071 /* pngwutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 452A89A80FCC0A6500360071 /* pngwutil.c */; };
 		452A89BD0FCC0A6500360071 /* pngrio.c in Sources */ = {isa = PBXBuildFile; fileRef = 452A89A90FCC0A6500360071 /* pngrio.c */; };
-		452A89C30FCC0ADC00360071 /* swell-gdi.mm in Sources */ = {isa = PBXBuildFile; fileRef = 452A89C20FCC0ADC00360071 /* swell-gdi.mm */; };
 		452A8A030FCC0F4E00360071 /* swell-internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 452A8A020FCC0F4E00360071 /* swell-internal.h */; };
 		452A8A380FCC122100360071 /* swell-misc.mm in Sources */ = {isa = PBXBuildFile; fileRef = 452A8A370FCC122100360071 /* swell-misc.mm */; };
+		45B61BC610B15E25009E1E8C /* swell-gdi.mm in Sources */ = {isa = PBXBuildFile; fileRef = 45B61BC510B15E25009E1E8C /* swell-gdi.mm */; };
 		521F387F0D1704080060FE32 /* IPlug_include_in_plug_src.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F387D0D1704080060FE32 /* IPlug_include_in_plug_src.h */; };
 		521F38800D1704080060FE32 /* IPlug_include_in_plug_hdr.h in Headers */ = {isa = PBXBuildFile; fileRef = 521F387E0D1704080060FE32 /* IPlug_include_in_plug_hdr.h */; };
 		52780D4C0D20A1A000C2BCA7 /* IGraphicsCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 52780D4B0D20A1A000C2BCA7 /* IGraphicsCocoa.h */; };
@@ -282,9 +282,9 @@
 		452A89A70FCC0A6500360071 /* pngwtran.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pngwtran.c; path = ../libpng/pngwtran.c; sourceTree = SOURCE_ROOT; };
 		452A89A80FCC0A6500360071 /* pngwutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pngwutil.c; path = ../libpng/pngwutil.c; sourceTree = SOURCE_ROOT; };
 		452A89A90FCC0A6500360071 /* pngrio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pngrio.c; path = ../libpng/pngrio.c; sourceTree = SOURCE_ROOT; };
-		452A89C20FCC0ADC00360071 /* swell-gdi.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-gdi.mm"; path = "../swell/swell-gdi.mm"; sourceTree = SOURCE_ROOT; };
 		452A8A020FCC0F4E00360071 /* swell-internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "swell-internal.h"; path = "../swell/swell-internal.h"; sourceTree = SOURCE_ROOT; };
 		452A8A370FCC122100360071 /* swell-misc.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-misc.mm"; path = "../swell/swell-misc.mm"; sourceTree = SOURCE_ROOT; };
+		45B61BC510B15E25009E1E8C /* swell-gdi.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-gdi.mm"; path = "../swell/swell-gdi.mm"; sourceTree = SOURCE_ROOT; };
 		521F387D0D1704080060FE32 /* IPlug_include_in_plug_src.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPlug_include_in_plug_src.h; sourceTree = "<group>"; };
 		521F387E0D1704080060FE32 /* IPlug_include_in_plug_hdr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPlug_include_in_plug_hdr.h; sourceTree = "<group>"; };
 		52780D4B0D20A1A000C2BCA7 /* IGraphicsCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IGraphicsCocoa.h; sourceTree = "<group>"; };
@@ -436,9 +436,9 @@
 		452A87600FCBFFA500360071 /* SWELL */ = {
 			isa = PBXGroup;
 			children = (
+				45B61BC510B15E25009E1E8C /* swell-gdi.mm */,
 				452A8A370FCC122100360071 /* swell-misc.mm */,
 				452A8A020FCC0F4E00360071 /* swell-internal.h */,
-				452A89C20FCC0ADC00360071 /* swell-gdi.mm */,
 				452A87A40FCC004600360071 /* swell.h */,
 			);
 			name = SWELL;
@@ -800,8 +800,8 @@
 				452A89BB0FCC0A6500360071 /* pngwtran.c in Sources */,
 				452A89BC0FCC0A6500360071 /* pngwutil.c in Sources */,
 				452A89BD0FCC0A6500360071 /* pngrio.c in Sources */,
-				452A89C30FCC0ADC00360071 /* swell-gdi.mm in Sources */,
 				452A8A380FCC122100360071 /* swell-misc.mm in Sources */,
+				45B61BC610B15E25009E1E8C /* swell-gdi.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -357,8 +357,7 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
   if (!m_bm||!m_cur_hwnd|| !vwnd->IsVisible()) return;
 
   RECT r;
-  vwnd->GetPosition(&r);
-  
+  vwnd->GetPosition(&r); // maybe should use GetPositionPaintExtent or GetPositionPaintOverExtent ?
 
   if (tr.left<r.left) tr.left=r.left;
   if (tr.right>r.right) tr.right=r.right;
@@ -367,10 +366,10 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 
   if (tr.bottom > tr.top && tr.right > tr.left)
   {
-    tr.left -= r.left+m_paint_xorig;
-    tr.right -= r.left+m_paint_xorig;
-    tr.top -= r.top+m_paint_yorig;
-    tr.bottom -= r.top+m_paint_yorig;
+    tr.left -= m_paint_xorig;
+    tr.right -= m_paint_xorig;
+    tr.top -= m_paint_yorig;
+    tr.bottom -= m_paint_yorig;
     vwnd->OnPaint(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
     if (borderflags)
     {
@@ -555,7 +554,15 @@ WDL_VWnd *WDL_VWnd::GetChildByID(int id)
 void WDL_VWnd::RemoveChild(WDL_VWnd *wnd, bool dodel)
 {
   int idx=m_children ? m_children->Find(wnd) : -1;
-  if (idx>=0) m_children->Delete(idx,dodel);
+  if (idx>=0) 
+  {
+    if (!dodel)
+    {
+      WDL_VWnd *ch = m_children->Get(idx);
+      if (ch) ch->SetParent(NULL);
+    }
+    m_children->Delete(idx,dodel);
+  }
 }
 
 
@@ -569,10 +576,10 @@ void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *c
     {
       RECT re;
       ch->GetPositionPaintExtent(&re);
-      re.left += origin_x;
-      re.right += origin_x;
-      re.top += origin_y;
-      re.bottom += origin_y;
+      re.left += origin_x + m_position.left;
+      re.right += origin_x + m_position.left;
+      re.top += origin_y + m_position.top;
+      re.bottom += origin_y + m_position.top;
 
       RECT cr=*cliprect;
       if (cr.left < re.left) cr.left=re.left;
@@ -598,10 +605,10 @@ void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, REC
     {
       RECT re;
       ch->GetPositionPaintOverExtent(&re);
-      re.left += origin_x;
-      re.right += origin_x;
-      re.top += origin_y;
-      re.bottom += origin_y;
+      re.left += origin_x + m_position.left;
+      re.right += origin_x + m_position.left;
+      re.top += origin_y + m_position.top;
+      re.bottom += origin_y + m_position.top;
 
       RECT cr=*cliprect;
 
@@ -629,7 +636,19 @@ WDL_VWnd *WDL_VWnd::EnumChildren(int x)
 
 void WDL_VWnd::RemoveAllChildren(bool dodel)
 {
-  if (m_children) m_children->Empty(dodel);
+  if (m_children) 
+  {
+    if (!dodel) // update parent pointers
+    {
+      int x;
+      for (x = 0; x < m_children->GetSize(); x++)
+      {
+        WDL_VWnd *ch = m_children->Get(x);
+        if (ch) ch->SetParent(NULL);
+      }
+    }
+    m_children->Empty(dodel);
+  }
 }
 
 WDL_VWnd *WDL_VWnd::VirtWndFromPoint(int xpos, int ypos, int maxdepth)
@@ -697,6 +716,27 @@ bool WDL_VWnd::OnMouseWheel(int xpos, int ypos, int amt)
   RECT r;
   wnd->GetPosition(&r);
   return wnd->OnMouseWheel(xpos-r.left,ypos-r.top,amt);
+}
+
+
+bool WDL_VWnd::GetToolTipString(int xpos, int ypos, char *bufOut, int bufOutSz)
+{
+  WDL_VWnd *wnd=VirtWndFromPoint(xpos,ypos,0);
+  if (!wnd) return false;
+
+  RECT r;
+  wnd->GetPosition(&r);
+  return wnd->GetToolTipString(xpos-r.left,ypos-r.top,bufOut,bufOutSz);
+}
+
+int WDL_VWnd::UpdateCursor(int xpos, int ypos)
+{
+  WDL_VWnd *wnd=VirtWndFromPoint(xpos,ypos,0);
+  if (!wnd) return 0;
+
+  RECT r;
+  wnd->GetPosition(&r);
+  return wnd->UpdateCursor(xpos-r.left,ypos-r.top);
 }
 
 void WDL_VWnd::OnMouseMove(int xpos, int ypos)
@@ -863,20 +903,20 @@ void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
   }
 
   // points at which we change to the next block
-  int xdivs[3] = { a->bgimage_lt[0]+a->bgimage_lt_out[0]-2, w-a->bgimage_rb[0]-a->bgimage_rb_out[0]+1, w-a->bgimage_rb[0]+1};
-  int ydivs[3] = { a->bgimage_lt[1]+a->bgimage_lt_out[1]-2, h-a->bgimage_rb[1]-a->bgimage_rb_out[1]+1, h-a->bgimage_rb[1]+1};
+  int xdivs[3] = { a->bgimage_lt[0]+a->bgimage_lt_out[0]-2, w-a->bgimage_rb[0]-a->bgimage_rb_out[0]+1, w-a->bgimage_rb_out[0]+1};
+  int ydivs[3] = { a->bgimage_lt[1]+a->bgimage_lt_out[1]-2, h-a->bgimage_rb[1]-a->bgimage_rb_out[1]+1, h-a->bgimage_rb_out[1]+1};
 
   int y,ystate=0;
   for(y=0;y<h;y++)
   {
-    if (ystate<3 && y==ydivs[ystate]) ystate++;
+    while (ystate<3 && y>=ydivs[ystate]) ystate++;
     int xstate=0;
 
     int x;
     LICE_pixel_chan *chptr = ch + LICE_PIXEL_A;
     for (x=0;x<w;x++)
     {
-      if (xstate<3 && x==xdivs[xstate]) xstate++;
+      while (xstate<3 && x>=xdivs[xstate]) xstate++;
 
       if (*chptr != 255)
       {
@@ -1181,5 +1221,44 @@ int WDL_VirtualWnd_ScaledBG_GetPix(WDL_VirtualWnd_BGCfg *src,
   }
 
   return LICE_GetPixel(src->bgimage,x,y);
+}
+
+
+#ifdef _WIN32
+
+static WNDPROC vwndDlgHost_oldProc;
+static LRESULT CALLBACK vwndDlgHost_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  if (msg==WM_ERASEBKGND) return 1;
+  if (msg==WM_PAINT)
+  {
+    WNDPROC pc=(WNDPROC)GetWindowLongPtr(hwnd,DWLP_DLGPROC);
+    if (pc)
+    {
+      CallWindowProc(pc,hwnd,msg,wParam,lParam);
+      return 0;
+    }
+  }   
+
+  return CallWindowProc(vwndDlgHost_oldProc,hwnd,msg,wParam,lParam);
+}
+
+#endif
+
+void WDL_VWnd_regHelperClass(const char *classname)
+{
+#ifdef _WIN32
+  static bool reg;
+  if (reg) return;
+
+  reg=true;
+
+  WNDCLASSEX wc={sizeof(wc),};
+  GetClassInfoEx(NULL,"#32770",&wc);
+  wc.lpszClassName = (char*)classname;
+  vwndDlgHost_oldProc=wc.lpfnWndProc;
+  wc.lpfnWndProc=vwndDlgHost_newProc;
+  RegisterClassEx(&wc);
+#endif
 }
 

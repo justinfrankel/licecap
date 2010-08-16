@@ -1229,8 +1229,8 @@ void _asm_generic3parm_retd(void)
     "call *%edi\n"
     "addl $128, %rsp\n"
     "movq xmm0, (%rsi)\n"
-    "addl $8, %rsi\n"
     "movl %rsi, %rax\n"
+    "addl $8, %rsi\n"
 #else
 SAVE_STACK
     "movl $0xFFFFFFFF, %edx\n"
@@ -1291,8 +1291,8 @@ void _asm_generic2parm_retd(void)
     "call *%edi\n"
     "addl $128, %rsp\n"
     "movq xmm0, (%rsi)\n"
-    "addl $8, %rsi\n"
     "movl %rsi, %rax\n"
+    "addl $8, %rsi\n"
 #else
 SAVE_STACK
     "movl $0xFFFFFFFF, %edx\n"
@@ -1354,8 +1354,8 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
     "call *%edi\n"
     "addl $128, %rsp\n"
     "movq xmm0, (%rsi)\n"
-    "addl $8, %rsi\n"
     "movl %rsi, %rax\n"
+    "addl $8, %rsi\n"
 #else
 SAVE_STACK
     "movl $0xFFFFFFFF, %edx\n"

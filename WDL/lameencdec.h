@@ -76,7 +76,7 @@ class LameEncoder
     int errorstat;
     int in_size_samples;
 #ifdef _WIN32
-    unsigned long hbeStream;
+    unsigned long hbeStream; // it seems insane that we have to leave this as this (x64, etc), but WTF?! the lame source seems to only use that bleh
 #else
     lame_t m_lamestate;
 #endif

@@ -566,7 +566,7 @@ static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     SetWindowLongPtr(hwnd, GWLP_WNDPROC,(INT_PTR)oldproc);
     RemoveProp(hwnd,WDL_UTF8_OLDPROCPROP);
   }
-  else if (msg == CB_ADDSTRING || msg == CB_INSERTSTRING)
+  else if (msg == CB_ADDSTRING || msg == CB_INSERTSTRING || msg == LB_ADDSTRING || msg == LB_INSERTSTRING)
   {
     char *str=(char*)lParam;
     if (lParam && WDL_HasUTF8(str))
@@ -582,7 +582,7 @@ static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
       MBTOWIDE_FREE(wbuf);
     }
   }
-  // todo: hook string gettting too?
+  // todo: hook string getting too?
 
   return CallWindowProc(oldproc,hwnd,msg,wParam,lParam);
 }
@@ -592,6 +592,12 @@ void WDL_UTF8_HookComboBox(HWND h)
   if (!h||GetVersion()>=0x80000000||GetProp(h,WDL_UTF8_OLDPROCPROP)) return;
   SetProp(h,WDL_UTF8_OLDPROCPROP,(HANDLE)SetWindowLongPtr(h,GWLP_WNDPROC,(INT_PTR)cb_newProc));
 }
+
+void WDL_UTF8_HookListBox(HWND h)
+{
+  WDL_UTF8_HookComboBox(h);
+}
+
 
 
 static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

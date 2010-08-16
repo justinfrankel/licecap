@@ -32,9 +32,13 @@
 
 #include "../mutex.h"
 
+#ifndef __LP64__ 
 #define SWELL_NSSTRING_DRAWING 0  // face control works?
 #define SWELL_ATSUI_DRAWING 1 // faster
-
+#else
+#define SWELL_NSSTRING_DRAWING 1
+#define SWELL_ATSUI_DRAWING 0
+#endif
 
 // unsupported
 #define SWELL_HITDRAWING 0
@@ -47,7 +51,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
   
   if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
   
-  float cols[4]={GetRValue(col)/255.0,GetGValue(col)/255.0,GetBValue(col)/255.0,alpha};
+  CGFloat cols[4]={GetRValue(col)/255.0,GetGValue(col)/255.0,GetBValue(col)/255.0,alpha};
   CGColorRef color=CGColorCreate(cspace,cols);
   return color;
 }
@@ -1164,7 +1168,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
         NSColor *col=NSReadPixel(NSMakePoint(x,y));
         if (col && [col numberOfComponents]<=4)
         {
-          float comp[4];
+          CGFloat comp[4];
           [col getComponents:comp]; // this relies on the format being RGB
           if (comp[0] == 1.0 && comp[1] == 0.0 && comp[2] == 1.0 && comp[3]==1.0)
             //fabs(comp[0]-1.0) < 0.0001 && fabs(comp[1]-.0) < 0.0001 && fabs(comp[2]-1.0) < 0.0001)
@@ -1582,5 +1586,6 @@ void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
     CGContextFillRect(ctx,rect);	         
   }
 }
+
 
 #endif

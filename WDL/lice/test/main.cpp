@@ -21,7 +21,7 @@
 //uncomment this to enable the ffmpeg video output in test 1
 //#define FFMPEG_TEST
 
-#define TIMING
+//#define TIMING
 #include "../../timing.c"
 
 #ifdef FFMPEG_TEST

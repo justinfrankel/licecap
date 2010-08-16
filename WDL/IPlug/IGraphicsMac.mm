@@ -113,8 +113,6 @@ bool IGraphicsMac::DrawScreen(IRECT* pR)
 
 void* IGraphicsMac::OpenWindow(void* pParent)
 {
-	mGraphicsCocoa = 0;
-	mGraphicsCarbon = 0;
   if (!pParent || [(id) pParent isKindOfClass: [NSView class]]) {
     return OpenCocoaWindow(pParent);
   }
@@ -163,12 +161,13 @@ void IGraphicsMac::CloseWindow()
   {
     IGRAPHICS_COCOA* graphicscocoa = (IGRAPHICS_COCOA*)mGraphicsCocoa;
     [graphicscocoa killTimer];
+    mGraphicsCocoa = 0;
     if (graphicscocoa->mGraphics)
     {
       graphicscocoa->mGraphics = 0;
       [graphicscocoa removeFromSuperview];   // Releases.
     }
-	  mGraphicsCocoa = 0;
+
 	}
 }
 
@@ -308,7 +307,7 @@ bool IGraphicsMac::DrawIText(IText* pTxt, char* cStr, IRECT* pR)
   NSGraphicsContext* destGC = [NSGraphicsContext graphicsContextWithGraphicsPort:destCtx->ctx flipped:YES];
   [destGC setShouldAntialias: antialias];
   [NSGraphicsContext setCurrentContext:destGC];
-  NSRect r = { pR->L, pR->T+yAdj, pR->W(), pR->H() };
+  NSRect r = { pR->L, pR->T+yAdj+6, pR->W(), pR->H() };
   NSString* str = ToNSString(cStr);
   [str drawWithRect:r options: NSStringDrawingUsesDeviceMetrics attributes: mTxtAttrs]; 
   [NSGraphicsContext restoreGraphicsState];

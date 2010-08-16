@@ -700,13 +700,13 @@ public:
     h+=(((r+r/2) - 192) * alpha)/256;
     if (h<0)h+=384;
     else if (h>=384) h-=384;
-    s+=((g-128)*alpha)/256;
+    s+=((g-128)*alpha)/128;
     if (s&~0xff)
     {
       if (s<0)s=0;
       else s=255;
     }
-    v+=((b-128)*alpha)/256;
+    v+=((b-128)*alpha)/128;
     if (v&~0xff)
     {
       if (v<0)v=0;

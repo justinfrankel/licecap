@@ -114,13 +114,15 @@ class JNL_HTTPGet JNL_HTTPGet_PARENTDEF
 
     JNL_IConnection *get_con() { return m_con; }
 
+
+
+    static void do_parse_url(char *url, char **host, int *port, char **req, char **lp); // url gets thrashed, and host/req/lp are freed/allocated
+    static void do_encode_mimestr(char *in, char *out);
+
   protected:
     void reinit();
     void deinit();
     void seterrstr(char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
-
-    void do_parse_url(char *url, char **host, int *port, char **req, char **lp);
-    void do_encode_mimestr(char *in, char *out);
 
     JNL_IAsyncDNS *m_dns;
     JNL_IConnection *m_con;

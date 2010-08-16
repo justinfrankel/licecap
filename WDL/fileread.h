@@ -52,6 +52,10 @@
    #include <sys/file.h>
    #include <sys/errno.h>
    #include <sys/mman.h>
+   #ifdef __APPLE__
+      #include <sys/param.h>
+      #include <sys/mount.h>
+   #endif
   #endif
   
 #endif
@@ -225,7 +229,12 @@ public:
       if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0) // get shared lock
         m_filedes_locked=true;
 #ifdef __APPLE__
-      if (allow_async==1 || allow_async==-1) fcntl(m_filedes,F_NOCACHE,1);
+      if (allow_async==1 || allow_async==-1) 
+      {
+        struct statfs sfs;
+        if (fstatfs(m_filedes,&sfs)||(sfs.f_flags&MNT_LOCAL)) // don't use F_NOCACHE on nfs/smb/afp mounts, we need caching there!
+          fcntl(m_filedes,F_NOCACHE,1);
+      }
 #endif
       m_fsize=lseek(m_filedes,0,SEEK_END);
       lseek(m_filedes,0,SEEK_SET);

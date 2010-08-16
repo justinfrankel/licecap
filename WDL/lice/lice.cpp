@@ -1495,6 +1495,38 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
   }
 }
 
+void LICE_ProcessRect(LICE_IBitmap *dest, int x, int y, int w, int h, void (*procFunc)(LICE_pixel *p, void *parm), void *parm)
+{
+  if (!dest||!procFunc) return;
+  LICE_pixel *p=dest->getBits();
+
+  if (x<0) { w+=x; x=0; }
+  if (y<0) { h+=y; y=0; }
+  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
+  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
+
+  int sp=dest->getRowSpan();
+  if (!p || w<1 || h<1 || sp<1) return;
+
+  if (dest->isFlipped())
+  {
+    p+=(dest->getHeight() - y - h)*sp;
+  }
+  else p+=sp*y;
+
+  p += x;
+
+  while (h--)
+  {
+    LICE_pixel *pout=p;
+    int n=w;
+    while (n--) procFunc(pout++,parm);
+    p+=sp;
+  }
+
+
+}
+
 void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode)
 {
   if (!dest) return;

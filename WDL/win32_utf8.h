@@ -49,6 +49,7 @@ WDL_WIN32_UTF8_IMPL BOOL WDL_HasUTF8(const char *_str);
 
 WDL_WIN32_UTF8_IMPL void WDL_UTF8_HookComboBox(HWND h);
 WDL_WIN32_UTF8_IMPL void WDL_UTF8_HookListView(HWND h);
+WDL_WIN32_UTF8_IMPL void WDL_UTF8_HookListBox(HWND h);
 
 WDL_WIN32_UTF8_IMPL LPSTR GetCommandParametersUTF8();
 WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDISPINFO 

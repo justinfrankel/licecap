@@ -27,6 +27,8 @@
          LICE_FONT_FLAG_FX_BLUR|LICE_FONT_FLAG_FX_INVERT|LICE_FONT_FLAG_FX_MONO| \
          LICE_FONT_FLAG_FX_SHADOW|LICE_FONT_FLAG_FX_OUTLINE))
 
+#define LICE_DT_NEEDALPHA 0x80000000 // include in DrawText() if the output alpha channel is important
+
 class LICE_IFont
 {
   public:

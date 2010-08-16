@@ -288,7 +288,6 @@ public:
   }
   ~pl_Cam()
   {
-    delete frameBuffer;
   }
 
 
@@ -305,7 +304,7 @@ public:
   
   bool WantZBuffer;
 
-  void Begin(LICE_IBitmap *fb, pl_ZBuffer want_zbclear=true, pl_ZBuffer zbclear=0.0);
+  void Begin(LICE_IBitmap *fb, bool want_zbclear=true, pl_ZBuffer zbclear=0.0);
   void RenderLight(pl_Light *light);
   void RenderObject(pl_Obj *obj, pl_Float *bmatrix=NULL, pl_Float *bnmatrix=NULL);
   void SortToCurrent(); // sorts all faces added since Begin() or last SortToCurrent() call. useful for if you use zbuffering with transparent objects (draw them last)
@@ -321,6 +320,7 @@ public:
 
   double RenderPixelsOut;
 
+  void PutFace(pl_Face *TriFace);
 
 private:
   LICE_IBitmap *frameBuffer;         /* Framebuffer  - note this is owned by the camera if you set it */
@@ -348,7 +348,6 @@ private:
    /* Returns: 0 if nothing gets in,  1 or 2 if pout1 & pout2 get in */
   pl_uInt _ClipToPlane(pl_uInt numVerts, pl_Float  *plane);
 
-  void PutFace(pl_Face *TriFace);
 
   typedef struct {
     pl_Float zd;

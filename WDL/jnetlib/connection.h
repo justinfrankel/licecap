@@ -95,6 +95,8 @@ class JNL_IConnection
     virtual unsigned long get_interface(void)=0;        // this returns the interface the connection is on
     virtual unsigned long get_remote(void)=0; // remote host ip.
     virtual short get_remote_port(void)=0; // this returns the remote port of connection
+
+    virtual void set_interface(int useInterface)=0; // call before connect if needed
   };
 
   #define JNL_Connection_PARENTDEF : public JNL_IConnection
@@ -152,6 +154,8 @@ class JNL_Connection JNL_Connection_PARENTDEF
     unsigned long get_remote(void); // remote host ip.
     short get_remote_port(void); // this returns the remote port of connection
   
+    void set_interface(int useInterface); // call before connect if needed
+
   protected:
     int  m_socket;
     short m_remote_port;
@@ -165,6 +169,7 @@ class JNL_Connection JNL_Connection_PARENTDEF
     int  m_send_pos;
     int  m_send_len;
 
+    int m_localinterfacereq;
     struct sockaddr_in *m_saddr;
     char m_host[256];
 

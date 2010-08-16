@@ -46,6 +46,19 @@ extern bool WDL_STYLE_AllowSliderMouseWheel();
 extern int WDL_STYLE_GetSliderDynamicCenterPos();
 
 
+/* recommended defaults for the above:
+
+int WDL_STYLE_WantGlobalButtonBorders() { return 0; }
+bool WDL_STYLE_WantGlobalButtonBackground(int *col) { return false; }
+int WDL_STYLE_GetSysColor(int p) { return GetSysColor(p); }
+void WDL_STYLE_ScaleImageCoords(int *x, int *y) { }
+bool WDL_Style_WantTextShadows(int *col) { return false; }
+bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope) { return false; }
+LICE_IBitmap *WDL_STYLE_GetSliderBitmap2(bool vert) { return NULL; }
+bool WDL_STYLE_AllowSliderMouseWheel() { return true; }
+int WDL_STYLE_GetSliderDynamicCenterPos() { return 500; }
+
+*/
 
 
 
@@ -65,7 +78,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
-    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float alpha=1.0f) { if (m_iconCfg!=cfg||m_alpha!=alpha) { m_alpha=alpha; m_iconCfg=cfg; RequestRedraw(NULL); } }
+    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float alpha=1.0f, bool buttonownsicon=false);
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
     int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
@@ -84,19 +97,21 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void SetTextLabel(const char *text, char align=0, LICE_IFont *font=NULL);
     const char* GetTextLabel() { return m_textlbl.Get(); }
 
+    // if icon config is set, check state == 1 will swap the up and down image
     void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked
     char GetCheckState() { return m_checkstate; }
-
-    void SwapIconUpDownImage(bool swap) { m_swapupdown = swap; } 
     
+    WDL_VirtualIconButton_SkinConfig* GetIcon() { return m_iconCfg; } // note button does not own m_iconCfg
+    bool ButtonOwnsIcon() { return m_ownsicon; }
+
   private:
 
-    WDL_VirtualIconButton_SkinConfig *m_iconCfg;
+    WDL_VirtualIconButton_SkinConfig *m_iconCfg;  
     int m_bgcol1_msg;
     float m_alpha;
     bool m_is_button,m_forceborder;
     char m_pressed;
-    bool m_en, m_grayed, m_swapupdown;
+    bool m_en, m_grayed, m_ownsicon;
     char m_textalign;
     char m_checkstate;
 

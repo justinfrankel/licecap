@@ -97,22 +97,27 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 		lstrcpyn(s,initialfile,sizeof(s));
 		char *p=s;
 		while (*p) p++;
-		while (p > s && *p != '/') p--;
-		*p=0;
-		ifn=(NSString *)SWELL_CStringToCFString(p+1);
-		if (s[0]) 
-			idir=(NSString *)SWELL_CStringToCFString(s);
-    
+		while (p >= s && *p != '/') p--;
+    if (p>=s)
+    {
+      *p=0;
+      ifn=(NSString *)SWELL_CStringToCFString(p+1);
+      idir=(NSString *)SWELL_CStringToCFString(s[0]?s:"/");
+    }
+    else 
+      ifn=(NSString *)SWELL_CStringToCFString(s);
 	}
-	else if (initialdir && *initialdir)
+	if (!idir && initialdir && *initialdir)
 	{
 		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
-  HMENU oldMenu = SWELL_GetCurrentMenu();
-  SWELL_SetCurrentMenu(SWELL_GetDefaultModalWindowMenu());
+  HMENU hm=SWELL_GetDefaultModalWindowMenu();
+  if (hm) hm=SWELL_DuplicateMenu(hm);
+  SWELL_SetCurrentMenu(hm);
 	int result = [panel runModalForDirectory:idir file:ifn];
-  SWELL_SetCurrentMenu(oldMenu);
+  SWELL_SetCurrentMenu(GetMenu(GetFocus()));
+  if (hm) DestroyMenu(hm);
   
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
@@ -161,10 +166,12 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
-  HMENU oldMenu = SWELL_GetCurrentMenu();
-  SWELL_SetCurrentMenu(SWELL_GetDefaultModalWindowMenu());
+  HMENU hm=SWELL_GetDefaultModalWindowMenu();
+  if (hm) hm=SWELL_DuplicateMenu(hm);
+  SWELL_SetCurrentMenu(hm);
 	int result = [panel runModalForDirectory:idir file:nil types:nil];
-  SWELL_SetCurrentMenu(oldMenu);
+  SWELL_SetCurrentMenu(GetMenu(GetFocus()));
+  if (hm) DestroyMenu(hm);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
@@ -218,24 +225,30 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 		lstrcpyn(s,initialfile,sizeof(s));
 		char *p=s;
 		while (*p) p++;
-		while (p > s && *p != '/') p--;
-		*p=0;
-		ifn=(NSString *)SWELL_CStringToCFString(p+1);
-		if (s[0]) 
-			idir=(NSString *)SWELL_CStringToCFString(s);
+		while (p >= s && *p != '/') p--;
+    if (p>=s)
+    {
+  		*p=0;
+	  	ifn=(NSString *)SWELL_CStringToCFString(p+1);
+      idir=(NSString *)SWELL_CStringToCFString(s[0]?s:"/");
+    }
+    else 
+	  	ifn=(NSString *)SWELL_CStringToCFString(s);
     
 	}
-	else if (initialdir && *initialdir)
+	if (!idir && initialdir && *initialdir)
 	{
 		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
-  HMENU oldMenu = SWELL_GetCurrentMenu();
-  SWELL_SetCurrentMenu(SWELL_GetDefaultModalWindowMenu());
+  HMENU hm=SWELL_GetDefaultModalWindowMenu();
+  if (hm) hm=SWELL_DuplicateMenu(hm);
+  SWELL_SetCurrentMenu(hm);
   
 	int result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
 
-  SWELL_SetCurrentMenu(oldMenu);
+  SWELL_SetCurrentMenu(GetMenu(GetFocus()));
+  if (hm) DestroyMenu(hm);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];

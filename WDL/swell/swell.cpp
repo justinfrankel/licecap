@@ -99,7 +99,7 @@ int MulDiv(int a, int b, int c)
 
 unsigned int  _controlfp(unsigned int flag, unsigned int mask)
 {
-#ifndef __ppc__
+#if !defined(__ppc__) && !defined(__LP64__)
   unsigned short ret;
   mask &= _MCW_RC; // don't let the caller set anything other than round control for now
   __asm__ __volatile__("fnstcw %0\n\t":"=m"(ret));
@@ -288,7 +288,7 @@ static void *__threadproc(void *parm)
 
 DWORD GetCurrentThreadId()
 {
-  return (DWORD)pthread_self();
+  return (DWORD)(INT_PTR)pthread_self(); // this is incorrect on x64
 }
 
 HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *ignored)
@@ -321,7 +321,7 @@ HANDLE CreateThread(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVO
   buf->done=0;
   pthread_create(&buf->pt,NULL,__threadproc,buf);
   
-  if (tidOut) *tidOut=(DWORD)buf->pt;
+  if (tidOut) *tidOut=(DWORD)(INT_PTR)buf->pt; // incorrect on x64
 
   return (HANDLE)buf;
 }

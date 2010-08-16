@@ -908,7 +908,11 @@ int LICE_RGBA_from_SVG(const char* s,int len)  // returns LICE_pixel
   double rf = 0.0, gf = 0.0, bf = 0.0;
   const struct svgtiny_named_color* c = 0;
 
+#ifdef _WIN32
   if (len == 4 && !strnicmp(s, "none", 4)) return 0;
+#else
+  if (len == 4 && !strncasecmp(s, "none", 4)) return 0;
+#endif
   
   if (len == 4 && s[0] == '#') 
   {

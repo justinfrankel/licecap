@@ -99,6 +99,10 @@ public:
 
   virtual INT_PTR SendCommand(int command, INT_PTR parm1, INT_PTR parm2, WDL_VWnd *src);
 
+  // request if window has cursor
+  virtual int UpdateCursor(int xpos, int ypos); // >0 if set, 0 if cursor wasnt set , <0 if cursor should be default...
+  virtual bool GetToolTipString(int xpos, int ypos, char *bufOut, int bufOutSz); // true if handled
+
 protected:
   WDL_VWnd *m_parent;
   bool m_visible;
@@ -166,6 +170,6 @@ private:
 
 };
 
-
+void WDL_VWnd_regHelperClass(const char *classname); // register this class if you wish to make your dialogs use it (better paint behavior)
 
 #endif

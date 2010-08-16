@@ -88,7 +88,11 @@ xmlAttr* xmlHasProp(xmlNode* xnode, const xmlChar* name)
   if (xnode && name && name[0])
   {
     xattr = xnode->properties;
+#ifdef _WIN32
     while (xattr && (!xattr->name || stricmp(xattr->name, name))) xattr = xattr->next;
+#else
+    while (xattr && (!xattr->name || strcasecmp(xattr->name, name))) xattr = xattr->next;
+#endif
   }
   return xattr;
 }

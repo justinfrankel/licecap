@@ -227,8 +227,6 @@ typedef struct	{
 
 } BE_VERSION, *PBE_VERSION;			
 
-#ifndef _BLADEDLL
-
 typedef BE_ERR	(*BEINITSTREAM)			(PBE_CONFIG, PDWORD, PDWORD, PHBE_STREAM);
 typedef BE_ERR	(*BEENCODECHUNK)		(HBE_STREAM, DWORD, PSHORT, PBYTE, PDWORD);
 // added for floating point audio  -- DSPguru, jd
@@ -236,15 +234,6 @@ typedef BE_ERR	(*BEENCODECHUNKFLOATS16NI)	(HBE_STREAM, DWORD, PFLOAT, PFLOAT, PB
 typedef BE_ERR	(*BEDEINITSTREAM)		(HBE_STREAM, PBYTE, PDWORD);
 typedef BE_ERR	(*BECLOSESTREAM)		(HBE_STREAM);
 typedef VOID	(*BEVERSION)			(PBE_VERSION);
-typedef VOID	(*BEWRITEVBRHEADER)		(LPCSTR);
-
-#define	TEXT_BEINITSTREAM		"beInitStream"
-#define	TEXT_BEENCODECHUNK		"beEncodeChunk"
-#define	TEXT_BEENCODECHUNKFLOATS16NI	"beEncodeChunkFloatS16NI"
-#define	TEXT_BEDEINITSTREAM		"beDeinitStream"
-#define	TEXT_BECLOSESTREAM		"beCloseStream"
-#define	TEXT_BEVERSION			"beVersion"
-#define	TEXT_BEWRITEVBRHEADER	"beWriteVBRHeader"
 
 
 
@@ -265,19 +254,6 @@ typedef VOID	(*BEWRITEVBRHEADER)		(LPCSTR);
 
 
 
-#else
-
-__declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples, PDWORD dwBufferSize, PHBE_STREAM phbeStream);
-__declspec(dllexport) BE_ERR	beEncodeChunk(HBE_STREAM hbeStream, DWORD nSamples, PSHORT pSamples, PBYTE pOutput, PDWORD pdwOutput);
-// added for floating point audio  -- DSPguru, jd
-__declspec(dllexport) BE_ERR	beEncodeChunkFloatS16NI(HBE_STREAM hbeStream, DWORD nSamples, PFLOAT buffer_l, PFLOAT buffer_r, PBYTE pOutput, PDWORD pdwOutput);
-__declspec(dllexport) BE_ERR	beDeinitStream(HBE_STREAM hbeStream, PBYTE pOutput, PDWORD pdwOutput);
-__declspec(dllexport) BE_ERR	beCloseStream(HBE_STREAM hbeStream);
-__declspec(dllexport) VOID		beVersion(PBE_VERSION pbeVersion);
-__declspec(dllexport) BE_ERR	beWriteVBRHeader(LPCSTR lpszFileName);
-
-#endif
-
 #pragma pack(pop)
 
 #ifdef	__cplusplus
@@ -295,9 +271,6 @@ __declspec(dllexport) BE_ERR	beWriteVBRHeader(LPCSTR lpszFileName);
 #include "lameencdec.h"
 
 
-//#define LATENCY_GAP_HACK
-
-
 
 #ifdef _WIN32
 
@@ -306,7 +279,7 @@ static BEINITSTREAM     beInitStream;
 static BECLOSESTREAM    beCloseStream;
 static BEENCODECHUNKFLOATS16NI    beEncodeChunkFloatS16NI;
 static BEDEINITSTREAM   beDeinitStream;
-static BEWRITEVBRHEADER beWriteVBRHeader;
+static BE_ERR (*beWriteInfoTag)(HBE_STREAM, const char *);
 static BEVERSION        beVersion;
 static void *(*InitMP3_Create)();
 static void (*ExitMP3_Delete)(void *);
@@ -345,6 +318,13 @@ static int (*lame_set_mode)(lame_t,MPEG_mode);
 static int (*lame_set_brate)(lame_t, int);
 static int (*lame_init_params)(lame_t);
 static int (*lame_get_framesize)(lame_t);
+static int (*lame_set_VBR)(lame_t, int);
+static int (*lame_set_VBR_q)(lame_t, int);
+static int (*lame_set_VBR_mean_bitrate_kbps)(lame_t, int);
+static int (*lame_set_VBR_min_bitrate_kbps)(lame_t, int);
+static int (*lame_set_VBR_max_bitrate_kbps)(lame_t, int);
+
+static size_t (*lame_get_lametag_frame)(lame_t, unsigned char *, size_t);
 static int (*lame_encode_buffer_float)(lame_t,
         const float     buffer_l [],       /* PCM data for left channel     */
         const float     buffer_r [],       /* PCM data for right channel    */
@@ -379,7 +359,7 @@ static void initdll()
 		  *((void**)&beEncodeChunkFloatS16NI) = (void *) GetProcAddress(hlamedll, "beEncodeChunkFloatS16NI");
 		  *((void**)&beDeinitStream)	= (void *) GetProcAddress(hlamedll, "beDeinitStream");
 		  *((void**)&beVersion) = (void *) GetProcAddress(hlamedll, "beVersion");
-      *((void**)&beWriteVBRHeader) = (void*) GetProcAddress(hlamedll, "beWriteVBRHeader");
+      *((void**)&beWriteInfoTag) = (void*) GetProcAddress(hlamedll, "beWriteInfoTag");
       *((void**)&InitMP3_Create) = (void *) GetProcAddress(hlamedll,"InitMP3_Create");
       *((void**)&ExitMP3_Delete) = (void *) GetProcAddress(hlamedll,"ExitMP3_Delete");
       *((void**)&decodeMP3_unclipped) = (void *) GetProcAddress(hlamedll,"decodeMP3_unclipped");
@@ -438,6 +418,7 @@ static void initdll()
     if (dll)
     {
     #define TURD(x) *(void **)&x = dlsym(dll,#x);
+    TURD(lame_get_lametag_frame)
     TURD(lame_close) 
     TURD(lame_init) 
     TURD(lame_set_in_samplerate) 
@@ -449,7 +430,13 @@ static void initdll()
     TURD(lame_init_params)
     TURD(lame_get_framesize) 
     TURD(lame_encode_buffer_float) 
-    TURD(lame_encode_flush)
+    TURD(lame_encode_flush)      
+    TURD(lame_set_VBR)
+    TURD(lame_set_VBR_q)
+    TURD(lame_set_VBR_mean_bitrate_kbps)
+    TURD(lame_set_VBR_min_bitrate_kbps)
+    TURD(lame_set_VBR_max_bitrate_kbps)
+      
     }
   }
 #endif
@@ -547,31 +534,30 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   lame_set_quality(m_lamestate,(quality>9 ||quality<0) ? 0 : quality);
   lame_set_mode(m_lamestate,(MPEG_mode) (m_encoder_nch==1?3 :stereomode ));
   lame_set_brate(m_lamestate,bitrate);
-  // todo: vbr modes etc
-  // lame_set_VBR etc
+  
+  //int vbrmethod (-1 no vbr), int vbrquality (nVBRQuality), int vbrmax, int abr
+  if (vbrmethod != -1 && lame_set_VBR)
+  {
+    int vm=4; // mtrh
+    if (vbrmethod == 4) vm = 3; //ABR
+    lame_set_VBR(m_lamestate,vm);
+    
+    if (lame_set_VBR_q) lame_set_VBR_q(m_lamestate,vbrquality);
+    
+    if (vbrmethod == 4&&lame_set_VBR_mean_bitrate_kbps)
+      lame_set_VBR_mean_bitrate_kbps(m_lamestate,abr);
+    if (lame_set_VBR_max_bitrate_kbps)
+      lame_set_VBR_max_bitrate_kbps(m_lamestate,vbrmax);
+    if (lame_set_VBR_min_bitrate_kbps)
+      lame_set_VBR_min_bitrate_kbps(m_lamestate,bitrate);
+    
+  }
   lame_init_params(m_lamestate);
   in_size_samples=lame_get_framesize(m_lamestate);
   int out_size_bytes=65536;
 #endif
 
   outtmp.Resize(out_size_bytes);
-
-#ifdef _WIN32
-
-#ifdef LATENCY_GAP_HACK
-    {
-      WDL_HeapBuf w;
-      w.Resize(in_size_samples*sizeof(float));
-      memset(w.Get(),0,in_size_samples*sizeof(float));
-      DWORD dwo=0;
-      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)w.Get(), (float*)w.Get(), 
-                          (unsigned char*)outtmp.Get(), &dwo) == BE_ERR_SUCCESSFUL && dwo > 0)
-      {
-        outqueue.Add(outtmp.Get(),dwo);
-      }
-    }
-#endif
-#endif
 
 }
 
@@ -627,78 +613,42 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
         pos+=spacing;
       }
     }
-    while (spltmp[0].Available() >= (int) (in_size_samples*sizeof(float)))
-    {
+  }
+  for (;;)
+  {
+    int a = spltmp[0].Available()/sizeof(float);
+    if (a >= in_size_samples) a = in_size_samples;
+    else if (a<1 || in_spls>0) break; // not enough samples available, and not flushing
+
 #ifdef _WIN32
-      DWORD dwo=0;
-      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
-                          (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
-      {
-        errorstat=3;
-        return;
-      }
+    DWORD dwo=0;
+    if (beEncodeChunkFloatS16NI(hbeStream, a, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
+                        (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
+    {
+      errorstat=3;
+      return;
+    }
 //      printf("encoded to %d bytes (%d) %d\n",dwo, outtmp.GetSize(),in_size_samples);
 #else
-      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_encoder_nch>1].Get(),
-           in_size_samples,(unsigned char *)outtmp.Get(),outtmp.GetSize());
-      //printf("encoded %d to %d\n",in_size_samples,dwo);
+    int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_encoder_nch>1].Get(),
+         a,(unsigned char *)outtmp.Get(),outtmp.GetSize());
+    //printf("encoded %d to %d\n",in_size_samples,dwo);
 #endif
-      outqueue.Add(outtmp.Get(),dwo);
-      spltmp[0].Advance(in_size_samples*sizeof(float));
-      if (m_encoder_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
-    }
-
+    outqueue.Add(outtmp.Get(),dwo);
+    spltmp[0].Advance(a*sizeof(float));
+    if (m_encoder_nch > 1) spltmp[1].Advance(a*sizeof(float));
   }
-  else if (1)
+
+  if (in_spls<1)
   {
-    if (spltmp[0].Available() && spltmp[0].Available() < (int) (in_size_samples*sizeof(float)))
-    {
-      float buf[1152]={0,};
-      int l=in_size_samples*sizeof(float)-spltmp[0].Available();
-      spltmp[0].Add(buf,l);
-      if (m_encoder_nch>1) spltmp[1].Add(buf,l);
-
 #ifdef _WIN32
-      DWORD dwo=0;
-      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
-                          (unsigned char*)outtmp.Get(), &dwo) != BE_ERR_SUCCESSFUL)
-      {
-        //printf("error calling encode\n");
-        //errorstat=3;
-        return;
-      }
-
+    DWORD dwo=0;
+    if (beDeinitStream(hbeStream, (unsigned char *)outtmp.Get(), &dwo) == BE_ERR_SUCCESSFUL && dwo>0)
       outqueue.Add(outtmp.Get(),dwo);
+
 #else
-      int dwo=lame_encode_buffer_float(m_lamestate,(float *)spltmp[0].Get(),(float*)spltmp[m_encoder_nch>1].Get(),
-           in_size_samples,(unsigned char *)outtmp.Get(),outtmp.GetSize());
-      if (dwo>0) outqueue.Add(outtmp.Get(),dwo);
-
-      unsigned char tmp[8192];
-      int a=lame_encode_flush(m_lamestate,tmp,sizeof(tmp));
-      if (a>0) outqueue.Add(tmp,a);
-#endif
-
-      spltmp[0].Advance(in_size_samples*sizeof(float));
-      if (m_encoder_nch > 1) spltmp[1].Advance(in_size_samples*sizeof(float));
-    }
-    // encode a spare blank frame to divide
-#ifdef LATENCY_GAP_HACK
-    {
-      WDL_HeapBuf w;
-      w.Resize(in_size_samples*sizeof(float));
-      memset(w.Get(),0,in_size_samples*sizeof(float));
-      int x;
-      for(x=0;x<2;x++) // 2 spare frames!!
-      {
-      DWORD dwo=0;
-      if (beEncodeChunkFloatS16NI(hbeStream, in_size_samples, (float*)w.Get(), (float*)w.Get(), 
-                          (unsigned char*)outtmp.Get(), &dwo) == BE_ERR_SUCCESSFUL && dwo > 0)
-      {
-        outqueue.Add(outtmp.Get(),dwo);
-      }
-      }
-    }
+    int a=lame_encode_flush(m_lamestate,(unsigned char *)outtmp.Get(),outtmp.GetSize());
+    if (a>0) outqueue.Add(outtmp.Get(),a);
 #endif
   }
 
@@ -709,17 +659,112 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 
 }
 
+#ifdef _WIN32
+
+static BOOL HasUTF8(const char *_str)
+{
+  const unsigned char *str = (const unsigned char *)_str;
+  if (!str) return FALSE;
+  while (*str) 
+  {
+    unsigned char c = *str;
+    if (c >= 0xC2) // fuck overlongs
+    {
+      if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
+      else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+      else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+    }
+    str++;
+  }
+  return FALSE;
+}
+#endif
+
 LameEncoder::~LameEncoder()
 {
 #ifdef _WIN32
-  if (hbeStream) beCloseStream(hbeStream);
-  if (m_vbrfile.Get()[0] && beWriteVBRHeader)
+  if (hbeStream) 
   {
-    beWriteVBRHeader(m_vbrfile.Get());
+    if (m_vbrfile.Get()[0] && beWriteInfoTag)
+    {
+      // support UTF-8 filenames
+      if (HasUTF8(m_vbrfile.Get()) && GetVersion()<0x80000000)
+      {
+        WCHAR wf[2048];
+        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,m_vbrfile.Get(),-1,wf,2048))
+        {
+          FILE *fp = _wfopen(wf,L"r+b");
+          if (fp)
+          {
+            char tmpspace[1024],tmpfn[2048];
+            GetTempPath(sizeof(tmpspace),tmpspace);
+            GetTempFileName(tmpspace,"lameenc",0,tmpfn);
+            FILE *tmpfp = fopen(tmpfn,"wb");
+            if (tmpfp)
+            {
+              fseek(fp,0,SEEK_SET);
+              int x=32; // 32kb
+              while(x--)
+              {
+                int a =fread(tmpspace,1,sizeof(tmpspace),fp);
+                if (a<1) break;
+                fwrite(tmpspace,1,a,tmpfp);
+              }
+
+              fclose(tmpfp);
+
+              beWriteInfoTag(hbeStream,tmpfn);
+              hbeStream=0;
+
+              tmpfp = fopen(tmpfn,"r+b");
+              if (tmpfp)
+              {
+                fseek(tmpfp,0,SEEK_SET);
+                fseek(fp,0,SEEK_SET);
+
+                x=32; // 32kb
+                while(x--)
+                {
+                  int a = fread(tmpspace,1,sizeof(tmpspace),tmpfp);
+                  if (a<1) break;
+                  fwrite(tmpspace,1,a,fp);
+                }
+
+                fclose(tmpfp);
+              }
+
+              DeleteFile(tmpfn);
+            }
+            fclose(fp);
+
+          }
+        }
+      }
+
+
+      if (hbeStream) beWriteInfoTag(hbeStream,m_vbrfile.Get());
+    }
+    else beCloseStream(hbeStream);
+    hbeStream=0;
   }
 #else
   if (m_lamestate)
   {
+    if (m_vbrfile.Get()[0] && lame_get_lametag_frame)
+    {
+      unsigned char buf[16384];
+      int a=lame_get_lametag_frame(m_lamestate,buf,sizeof(buf));
+      if (a>0 && a<=sizeof(buf))
+      {
+        FILE *fp = fopen(m_vbrfile.Get(),"r+b");
+        if (fp)
+        {
+          fseek(fp,0,SEEK_SET);
+          fwrite(buf,1,a,fp);
+          fclose(fp);
+        }
+      }
+    }
     lame_close(m_lamestate);
     m_lamestate=0;
   }
@@ -768,16 +813,6 @@ void LameDecoder::DecodeWrote(int srclen)
       int bout_pairs=bout/m_nch;
       double *bufptr=buf;
 
-#ifdef LATENCY_GAP_HACK
-      if (m_samples_remove>0)
-      {
-        int rem=min(m_samples_remove,bout_pairs);
-        bout -= rem*m_nch;
-        bufptr+=rem*m_nch;
-        bout_pairs -= rem;
-        m_samples_remove -= rem;
-      }
-#endif
 
       if (bout > 0)
       {

@@ -1,5 +1,43 @@
+2009-11-30:
+DirScan: handle scanning / on posix correctly
+EEL: fixed x64 bugs on certain functions
+FileRead: no longer use F_NOCACHE on OSX on remote filesystems
+IPlug: OSX updates, project updates
+JNetLib: added outgoing interface option for connections
+LAME: fixed calling of LAME on win32 (correct tag writing, etc)
+LAME: fixed VBR modes on linux/OSX, correct end of encode flushing
+LICE: DrawText supports LICE_DT_NEEDALPHA for forcing setting of alphachannel
+LICE: LICE_ProcessRect() for per pixel transformations
+LICE: HSV adjust blend mode now has S and V adjusting full range rather than 0.5. 
+LICE: ++ Existing code using LICE_BLIT_MODE_HSVADJ may need to be adjusted.
+SWELL: Sample SWELL application
+SWELL: Main application framework (with instructions on creating new applications)
+SWELL: Submenu fixes
+SWELL: listview imagelist separate small/state support
+SWELL: Added API to initiate a drag and drop operation
+SWELL: Greatly improved keyboard handling for dialogs
+SWELL: Tweaks to positioning of group and tab controls
+SWELL: More listview/listbox APIs implemented (thanks sws), WM_CONTEXTMENU fixes
+SWELL: SetWindowPos Z ordering enabled
+SWELL: Added SetCurrentDirectory()
+SWELL: Fixes for browseforfile etc
+SWELL: GL support for swell HWNDs
+SWELL: Fixed WritePrivateProfileString section deletion
+SWELL: Fixed errors when GWL_STYLE changed in WM_CREATE/WM_INITDIALOG
+SWELL: TrackPopupMenu() fixed when initiated from non-mouse-event
+SWELL: preliminary support for targetting 64-bit on 10.6+
+virtwnd: buttons can own their image resources
+virtwnd: handy utility dialog-derived class for win32 (handles paint correctly)
+virtwnd: nested children fixes, vwnds automatically reset parent pointers of children on removal
+virtwnd: cursor, tooltip processing infrastructure
+virtwnd: fixed WDL_VirtualWnd_PreprocessBGConfig() on certain images
+wdltypes: defined GCLP_HICONSM on VC6
+Added scrollbar emulation for SWELL, skinned scrollbar support for win32 (thanks to J Brown / Cool Scrollbar Library)
+Added ProjectContext utility functions
+
 2009-10-10:
 HeapBuf: optional WDL_HEAPBUF_DYNAMIC setting, for simpler and less configurable allocation management
+HeapBuf/etc now handle failures better, added CopyFrom()
 IPlug: OS X updates
 LICE: line drawing optimizations, AA gamma correction
 LICE: bezier-fill improvements
@@ -7,9 +45,12 @@ LICE: size optimizations, options to favor size over speed throughout LICE
 LICE: scaledblit() no longer processes source-clipped pixels
 LICE: scaledblit() now properly supports negative width source/dest rects (flips)
 LICE: blit() fix for negative coordinates
+LICE: Optimized copy/multiply blend modes to not require clamping (big gains in alpha-blended and filtered blits)
+LICE: Optimized alpha blending (half the multiplies)
 Virtwnd: buttons now have constant icon alpha parameter
 Virtwnd: sliders no longer send excess scroll messages
 Virtwnd: theme background drawing has flag to not draw left/right sides
+SHM: fixed/optimized datapipe class, added low-latency threadsafe SHM message/reply class
 SWELL: fixes to GetPrivateProfileString() with NULL second parameter
 SWELL: added SWELL_GetAudioUnitCocoaView
 SWELL: support for EndDialog() in modal WM_INITDIALOG
@@ -26,17 +67,10 @@ scsrc: simplified data reprocessor api
 scsrc: added sc_bounce/*.php (PHP data streaming server for scsrc)
 WDL_PtrList::FindSorted() fixed
 AssocArray fixes
-HeapBuf/etc now handle failures better, added CopyFrom()
-SHM: fixed/optimized datapipe class, added low-latency threadsafe SHM message/reply class
 win32_utf8 fixes
 FileRead/FileWrite: better async file reading error handling, Win32 and OS X locking improvements
-
-
-2009-07-23:
 Added FFMPEG wrapper for encoding video files (with optional audio)
 RFB client support (LICE--jnetlib)
-LICE: Optimized copy/multiply blend modes to not require clamping (big gains in alpha-blended and filtered blits)
-LICE: Optimized alpha blending (half the multiplies)
 
 2009-07-04:
 

@@ -342,10 +342,7 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
     case effEditClose: {
 	    if (_this->GetGUI()) {
 		    _this->OnGUIClose();
-        #ifdef _WIN32
-         // Oh no! An ifdef!
-          _this->GetGUI()->CloseWindow();  
-        #endif
+        _this->GetGUI()->CloseWindow();  
 		    return 1;
 	    }
 	    return 0;

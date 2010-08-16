@@ -38,7 +38,7 @@ void GetVersionStr(int version, char* str)
   //}
   //else
   //if (rmaj) {
-    sprintf(str, "v%d.%d", ver, rmaj);
+    sprintf(str, "v%d.%02d", ver, rmaj);
   //}
   //else {
   //  sprintf(str, "v%d", ver);

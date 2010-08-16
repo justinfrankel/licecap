@@ -42,8 +42,16 @@
 #define SWELL_PopupMenuRecv __SWELL_PREFIX_CLASSNAME(_trackpopupmenurecv)
 
 
+#define SWELL_Menu __SWELL_PREFIX_CLASSNAME(_menu)
+
 #ifdef __OBJC__
 
+@interface SWELL_Menu : NSMenu
+{
+}
+-(void)dealloc;
+- (id)copyWithZone:(NSZone *)zone;
+@end
 
 @interface SWELL_DataHold : NSObject
 {
@@ -172,6 +180,8 @@ public:
   WDL_PtrList<SWELL_ListView_Row> *m_items;
   WDL_PtrList<NSTableColumn> *m_cols;
   WDL_PtrList<char> *m_status_imagelist;
+  int m_status_imagelist_type;
+	
 }
 -(LONG)getSwellStyle;
 -(void)setSwellStyle:(LONG)st;
@@ -256,6 +266,7 @@ public:
   char m_titlestr[1024];
   @public
   unsigned int m_create_windowflags;
+  NSOpenGLContext *m_glctx;
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 -(LONG)sendMouseMessage:(int)msg event:(NSEvent*)theEvent;
@@ -295,7 +306,7 @@ public:
   id m_owner;
   OwnedWindowListRec *m_ownedwnds;
 }
-- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
+- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut;
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask;
 - (void)swellDestroyAllOwnedWindows;
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd;
@@ -413,10 +424,17 @@ typedef struct {
   int curbkcol;
   int curbkmode;
   float lastpos_x,lastpos_y;
+  
+  void *GLgfxctx; // optionally set
 } GDP_CTX;
 
 
 #endif // __OBJC__
+
+// 10.4 sdk just uses "float"
+#if MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_5 
+typedef float CGFloat;
+#endif
 
 
 #else // !SWELL_TARGET_OSX, GTK version

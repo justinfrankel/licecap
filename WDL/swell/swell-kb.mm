@@ -191,7 +191,11 @@ HCURSOR SWELL_LoadCursor(int idx)
 {
   switch (idx)
   {
+    case IDC_SIZENWSE:
+    case IDC_SIZENESW:
+      return (HCURSOR)[NSCursor pointingHandCursor]; // bleh
     case IDC_SIZEALL: // todo
+      return (HCURSOR)[NSCursor closedHandCursor];
     case IDC_SIZEWE:
       return (HCURSOR)[NSCursor resizeLeftRightCursor];
     case IDC_SIZENS:

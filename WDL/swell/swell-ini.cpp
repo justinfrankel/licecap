@@ -216,6 +216,8 @@ BOOL WritePrivateProfileString(const char *appname, const char *keyname, const c
         if (!val)
         {
           m_sections.Get(x)->m_items.Delete(f,true,free);
+          if (!m_sections.Get(x)->m_items.GetSize())
+            m_sections.Delete(x,true);
           doWrite=1;
         }
         else

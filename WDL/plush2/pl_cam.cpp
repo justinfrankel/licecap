@@ -351,7 +351,7 @@ pl_sInt pl_Cam::ClipNeeded(pl_Face *face, pl_Obj *obj) {
 
 
 
-void pl_Cam::Begin(LICE_IBitmap *fb, pl_ZBuffer want_zbclear, pl_ZBuffer zbclear) {
+void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
   if (frameBuffer||!fb) return;
 
   if (WantZBuffer)

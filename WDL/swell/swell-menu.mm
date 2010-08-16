@@ -157,6 +157,7 @@ int GetMenuItemCount(HMENU hMenu)
 int GetMenuItemID(HMENU hMenu, int pos)
 {
   NSMenu *menu=(NSMenu *)hMenu;
+  if (pos < 0 || pos >= [menu numberOfItems]) return 0;
   
   NSMenuItem *item=[menu itemAtIndex:pos]; 
   if (item) 
@@ -268,6 +269,61 @@ static void __filtnametobuf(char *out, const char *in, int outsz)
   *out=0;
 }
 
+// #define SWELL_MENU_ACCOUNTING
+
+#ifdef SWELL_MENU_ACCOUNTING
+struct menuTmp
+{
+  NSMenu *menu;
+  NSString *lbl;
+};
+
+WDL_PtrList<menuTmp> allMenus;
+#endif
+
+@implementation SWELL_Menu
+- (id)copyWithZone:(NSZone *)zone
+{
+  id rv = [super copyWithZone:zone];
+#ifdef SWELL_MENU_ACCOUNTING
+  if (rv)
+  {
+    menuTmp *mt = new menuTmp;
+    mt->menu=(NSMenu *)rv;
+    NSString *lbl = [(SWELL_Menu *)rv title];
+    mt->lbl = lbl;
+    [lbl retain];
+    allMenus.Add(mt);
+    NSLog(@"copy menu, new count=%d lbl=%@\n",allMenus.GetSize(),lbl);
+  }
+#endif
+  return rv;
+}
+-(void)dealloc
+{
+#ifdef SWELL_MENU_ACCOUNTING
+  int x;
+  bool f=false;
+  for(x=0;x<allMenus.GetSize();x++)
+  {
+    if (allMenus.Get(x)->menu == self)
+    {
+      NSLog(@"dealloc menu, found self %@\n",allMenus.Get(x)->lbl);
+      allMenus.Delete(x);
+      f=true;
+      break;
+    }
+  }
+
+  NSLog(@"dealloc menu, new count=%d %@\n",allMenus.GetSize(), [self title]);
+  if (!f) 
+  {
+    NSLog(@"deleting unfound menu!!\n");
+  }
+#endif
+  [super dealloc];
+}
+@end
 
 HMENU CreatePopupMenu()
 {
@@ -275,16 +331,34 @@ HMENU CreatePopupMenu()
 }
 HMENU CreatePopupMenuEx(const char *title)
 {
-  NSMenu *m;
+  SWELL_Menu *m;
   if (title)
   {
-	char buf[1024];
-	__filtnametobuf(buf,title,sizeof(buf));
-	NSString *lbl=(NSString *)SWELL_CStringToCFString(buf);
-	m=[[NSMenu alloc] initWithTitle:lbl];
-	[lbl release];
+    char buf[1024];
+    __filtnametobuf(buf,title,sizeof(buf));
+    NSString *lbl=(NSString *)SWELL_CStringToCFString(buf);
+    m=[[SWELL_Menu alloc] initWithTitle:lbl];
+#ifdef SWELL_MENU_ACCOUNTING
+    menuTmp *mt = new menuTmp;
+    mt->menu=m;
+    mt->lbl = lbl;
+    [lbl retain];
+    allMenus.Add(mt);
+    NSLog(@"alloc menu, new count=%d lbl=%@\n",allMenus.GetSize(),lbl);
+#endif
+    [lbl release];
   }
-  else m=[[NSMenu alloc] init];
+  else
+  {
+    m=[[SWELL_Menu alloc] init];
+#ifdef SWELL_MENU_ACCOUNTING
+    menuTmp *mt = new menuTmp;
+    mt->menu=m;
+    mt->lbl = @"<none>";
+    allMenus.Add(mt);
+    NSLog(@"alloc menu, new count=%d lbl=%@\n",allMenus.GetSize(),@"<none>");
+#endif
+  }
   [m setAutoenablesItems:NO];
 
   return (HMENU)m;
@@ -329,6 +403,11 @@ bool DeleteMenu(HMENU hMenu, int idx, int flag)
     item=[m itemWithTag:idx];
   }
   if (!item) return false;
+  
+  if ([item hasSubmenu])
+  {
+    [m setSubmenu:nil forItem:item];
+  }
   [m removeItem:item];
   return true;
 }
@@ -360,6 +439,12 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     }
     return 0;
   }
+  
+  if ((mi->fMask & MIIM_SUBMENU) && mi->hSubMenu) // do this before MIIM_TYPE so we title the submenu properly
+  {  
+    [m setSubmenu:(NSMenu*)mi->hSubMenu forItem:item];
+    [((NSMenu*)mi->hSubMenu) release]; // let the parent menu free it
+  } 
   if (mi->fMask & MIIM_TYPE)
   {
     if (mi->fType == MFT_STRING && mi->dwTypeData)
@@ -434,7 +519,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_DATA)
   {
     SWELL_DataHold *h=[item representedObject];
-    mi->dwItemData = (DWORD) (h && [h isKindOfClass:[SWELL_DataHold class]]? [h getValue] : 0);
+    mi->dwItemData =  (INT_PTR)(h && [h isKindOfClass:[SWELL_DataHold class]]? [h getValue] : 0);
   }
   
   if (mi->fMask & MIIM_STATE)
@@ -447,6 +532,14 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_ID)
   {
     mi->wID = [item tag];
+  }
+  
+  if(mi->fMask && MIIM_SUBMENU)
+  {
+    if ([item hasSubmenu])
+    {
+      mi->hSubMenu = (HMENU)[item submenu];
+    }
   }
   
   return 1;
@@ -467,13 +560,18 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   NSMenu *m=(NSMenu *)hMenu;
   NSMenuItem *item;
   int ni=[m numberOfItems];
-  if (pos < 0 || pos > ni) pos=ni;
+  
+  if (!byPos) 
+  {
+    pos = [m indexOfItemWithTag:pos];
+  }
+  if (pos < 0 || pos > ni) pos=ni; 
   
   NSString *label=0;
   if (mi->fType == MFT_STRING)
   {
-	char buf[1024];
-	__filtnametobuf(buf,mi->dwTypeData?mi->dwTypeData:"(null)",sizeof(buf));
+    char buf[1024];
+    __filtnametobuf(buf,mi->dwTypeData?mi->dwTypeData:"(null)",sizeof(buf));
     label=(NSString *)SWELL_CStringToCFString(buf); 
     item=[m insertItemWithTitle:label action:NULL keyEquivalent:@"" atIndex:pos];
   }
@@ -495,15 +593,18 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     item = [NSMenuItem separatorItem];
     [m insertItem:item atIndex:pos];
   }
+  
   if ((mi->fMask & MIIM_SUBMENU) && mi->hSubMenu)
   {
-    if (label)
-      [(NSMenu *)mi->hSubMenu setTitle:label];
+    if (label) [(NSMenu *)mi->hSubMenu setTitle:label];
     [m setSubmenu:(NSMenu *)mi->hSubMenu forItem:item];
     [((NSMenu *)mi->hSubMenu) release]; // let the parent menu free it
   }
   if (label) [label release];
+  
+  if (!ni) [m setAutoenablesItems:NO];
   [item setEnabled:YES];
+  
   if (mi->fMask & MIIM_STATE)
   {
     if (mi->fState&MFS_GRAYED)
@@ -515,17 +616,22 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
       [item setState:NSOnState];
     }
   }
-  if (mi->fMask & MIIM_DATA)
+ 
+   if (mi->fMask & MIIM_DATA)
   {
     SWELL_DataHold *h=[[SWELL_DataHold alloc] initWithVal:(void*)mi->dwItemData];
     [item setRepresentedObject:h];
     [h release];
   }
   else
+  {
     [item setRepresentedObject:nil];
+  }
  
   if (mi->fMask & MIIM_ID)
+  {
     [item setTag:mi->wID];
+  }
   
   NSMenuItem *fi=[m itemAtIndex:0];
   if (fi && fi != item)
@@ -620,7 +726,25 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
       SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     }
     
-    [NSMenu popUpContextMenu:m withEvent:[NSApp currentEvent] forView:v];
+    NSEvent *event = [NSApp currentEvent];
+    
+    int etype = [event type];
+#if 1 // disable this if you wish to have xpos/ypos be always used (someday we should enable it, yeah)
+    if ((etype >= NSLeftMouseDown && etype <= NSMouseExited)||(etype >= NSOtherMouseDown && etype <= NSOtherMouseDragged))
+    {
+      
+    }
+    else  
+#endif
+    {
+      // not mouse event! create a new event at these coordinates, faking it
+      NSWindow *w = [v window];
+      NSPoint pt = [w convertScreenToBase:NSMakePoint(xpos,ypos)];
+      event = [NSEvent otherEventWithType:NSApplicationDefined location:pt modifierFlags:0 timestamp:[event timestamp] windowNumber:[w windowNumber] context:[w graphicsContext] subtype:0 data1:0 data2:0];
+
+      //      event = [NSEvent mouseEventWithType:NSMouseMoved location:pt modifierFlags:0 timestamp:[event timestamp] windowNumber:[w windowNumber] context:[w graphicsContext] eventNumber:0 clickCount:0 pressure:0.0];
+    }
+    [NSMenu popUpContextMenu:m withEvent:event forView:v];
 
     int ret=[recv isCommand];
     
@@ -707,9 +831,21 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
 
 HMENU GetMenu(HWND hwnd)
 {
-  if (!hwnd|| ![(id)hwnd respondsToSelector:@selector(swellGetMenu)]) return 0;
+  if (!hwnd) return 0;
   
-  return (HMENU) [(id)hwnd swellGetMenu];
+  HMENU ret = NULL;
+  if (![(id)hwnd respondsToSelector:@selector(swellGetMenu)] || !(ret=(HMENU) [(id)hwnd swellGetMenu])) 
+  {
+    if ([(id)hwnd isKindOfClass:[NSView class]])
+      hwnd = (HWND)[[(NSView *)hwnd window] contentView];
+    else if ([(id)hwnd isKindOfClass:[NSWindow class]])
+      hwnd = (HWND)[(NSWindow *)hwnd contentView];
+  }
+  if (!ret && hwnd && [(id)hwnd respondsToSelector:@selector(swellGetMenu)]) ret=(HMENU) [(id)hwnd swellGetMenu];
+  return ret;
+  
 }
+
+
 
 #endif
