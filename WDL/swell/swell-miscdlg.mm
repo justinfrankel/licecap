@@ -109,7 +109,10 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
+  HMENU oldMenu = SWELL_GetCurrentMenu();
+  SWELL_SetCurrentMenu(SWELL_GetDefaultModalWindowMenu());
 	int result = [panel runModalForDirectory:idir file:ifn];
+  SWELL_SetCurrentMenu(oldMenu);
   
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
@@ -158,7 +161,10 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
+  HMENU oldMenu = SWELL_GetCurrentMenu();
+  SWELL_SetCurrentMenu(SWELL_GetDefaultModalWindowMenu());
 	int result = [panel runModalForDirectory:idir file:nil types:nil];
+  SWELL_SetCurrentMenu(oldMenu);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
@@ -224,7 +230,12 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 		idir=(NSString *)SWELL_CStringToCFString(initialdir);
 	}
 	
+  HMENU oldMenu = SWELL_GetCurrentMenu();
+  SWELL_SetCurrentMenu(SWELL_GetDefaultModalWindowMenu());
+  
 	int result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
+
+  SWELL_SetCurrentMenu(oldMenu);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];

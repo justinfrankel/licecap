@@ -44,6 +44,7 @@
 
 #ifdef __OBJC__
 
+
 @interface SWELL_DataHold : NSObject
 {
   void *m_data;
@@ -234,7 +235,7 @@ public:
 @end
 
 
-@interface SWELL_hwndChild : NSView
+@interface SWELL_hwndChild : NSView // <NSDraggingSource>
 {
   BOOL m_enabled;
   DLGPROC m_dlgproc;
@@ -276,6 +277,8 @@ public:
 -(void)setSwellDialogProc:(DLGPROC)val;
 -(DLGPROC)getSwellDialogProc;
 
+- (NSArray*) namesOfPromisedFilesDroppedAtDestination:(NSURL*)droplocation;
+
 -(void) getSwellPaintInfo:(PAINTSTRUCT *)ps;
 - (int)swellCapChangeNotify;
 -(unsigned int)swellCreateWindowFlags;
@@ -309,6 +312,7 @@ public:
   OwnedWindowListRec *m_ownedwnds;
   
   int m_rv;
+  bool m_hasrv;
 }
 - (id)initDialogBox:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (void)swellDestroyAllOwnedWindows;
@@ -320,6 +324,7 @@ public:
 
 -(void)swellSetModalRetVal:(int)r;
 -(int)swellGetModalRetVal;
+-(bool)swellHasModalRetVal;
 @end
 
 

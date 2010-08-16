@@ -16,9 +16,35 @@
 
 _LICE_ImageLoader_rec *LICE_ImageLoader_list;
 
+LICE_pixel LICE_CombinePixels(LICE_pixel dest, LICE_pixel src, float alpha, int mode)
+{
+  int r = LICE_GETR(src);
+  int g = LICE_GETG(src);
+  int b = LICE_GETB(src);
+  int a = LICE_GETA(src);
+  int al = (int)(alpha*256.0f);
 
-#define LICE_SCALEDBLIT_USE_FIXEDPOINT
-#define LICE_DELTABLIT_USE_FIXEDPOINT
+#define __LICE__ACTION(COMBFUNC) COMBFUNC::doPix((LICE_pixel_chan*)&dest,r, g, b, a, al)
+  __LICE_ACTION_SRCALPHA(mode, al,false);
+#undef __LICE__ACTION
+
+  return dest;
+}
+
+
+void LICE_CombinePixels2(LICE_pixel *destptr, int r, int g, int b, int a, int ia, int mode)
+{
+#define __LICE__ACTION(COMBFUNC) COMBFUNC::doPix((LICE_pixel_chan*)destptr,r, g, b, a, ia)
+  __LICE_ACTION_SRCALPHA(mode, ia, false);
+#undef __LICE__ACTION
+}
+void LICE_CombinePixels2Clamp(LICE_pixel *destptr, int r, int g, int b, int a, int ia, int mode)
+{
+#define __LICE__ACTION(COMBFUNC) COMBFUNC::doPix((LICE_pixel_chan*)destptr,r, g, b, a, ia)
+  __LICE_ACTION_SRCALPHA(mode, ia, true);
+#undef __LICE__ACTION
+}
+
 
 bool LICE_MemBitmap::resize(int w, int h)
 {
@@ -157,47 +183,9 @@ void LICE_Copy(LICE_IBitmap *dest, LICE_IBitmap *src) // resizes dest
 }
 #endif
 
-template<class COMBFUNC> class _LICE_Template_Blit
+template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
 {
   public:
-    static void gradBlit(LICE_pixel_chan *dest, int w, int h, 
-                         int ir, int ig, int ib, int ia,
-                         int drdx, int dgdx, int dbdx, int dadx,
-                         int drdy, int dgdy, int dbdy, int dady,
-                         int dest_span)
-    {
-      while (h--)
-      {
-        int r=ir,g=ig,b=ib,a=ia;
-        ir+=drdy; ig+=dgdy; ib+=dbdy; ia+=dady;
-        LICE_pixel_chan *pout=dest;
-        int n=w;
-        while (n--)
-        {
-          int ia=a/65536;
-          COMBFUNC::doPix(pout,r/65536,g/65536,b/65536,ia,ia);          
-          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-          r+=drdx; g+=dgdx; b+=dbdx; a+=dadx;
-        }
-        dest+=dest_span;
-      }
-    }
-    static void solidBlit(LICE_pixel_chan *dest, int w, int h, 
-                         int ir, int ig, int ib, int ia,
-                         int dest_span)
-    {
-      while (h--)
-      {
-        LICE_pixel_chan *pout=dest;
-        int n=w;
-        while (n--)
-        {
-          COMBFUNC::doPix(pout,ir,ig,ib,ia,ia);          
-          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-        }
-        dest+=dest_span;
-      }
-    }
     static void solidBlitFAST(LICE_pixel *dest, int w, int h, 
                          LICE_pixel color,
                          int dest_span)
@@ -216,232 +204,171 @@ template<class COMBFUNC> class _LICE_Template_Blit
     }
 
 
-    static void deltaBlit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
-                          double srcx, double srcy, double dsdx, double dtdx, double dsdy, double dtdy,
-                          double dsdxdy, double dtdxdy,
-                          int src_left, int src_top, int src_right, int src_bottom,
-                          int src_span, int dest_span, float alpha, int filtermode)
+
+    static void scaleBlitFAST(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
+                          int icurx, int icury, int idx, int idy, int clipright, int clipbottom,     
+                          int src_span, int dest_span)
     {
-      int ia=(int)(alpha*256.0);
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-      int isrcx=(int)(srcx*65536.0);
-      int isrcy=(int)(srcy*65536.0);
-      int idsdx=(int)(dsdx*65536.0);
-      int idtdx=(int)(dtdx*65536.0);
-      int idsdy=(int)(dsdy*65536.0);
-      int idtdy=(int)(dtdy*65536.0);
-      int idsdxdy=(int)(dsdxdy*65536.0);
-      int idtdxdy=(int)(dtdxdy*65536.0);
-#endif
+      LICE_pixel* destpx = (LICE_pixel*) dest;
+      int destpxspan = dest_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
 
-      if (filtermode == LICE_BLIT_FILTER_BILINEAR)
+      //LICE_pixel* srcpx = (LICE_pixel*) src;
+      //int srcpxspan = src_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
+      // todo cast inptr back to LICE_pixel
+
+      while (h--)
       {
-        while (h--)
+        int cury = icury/65536;
+        if (cury >= 0 && cury < clipbottom)
         {
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-          int thisx=isrcx;
-          int thisy=isrcy;
-#else
-          double thisx=srcx;
-          double thisy=srcy;
-#endif
-          LICE_pixel_chan *pout=dest;
+          int curx=icurx;
+          LICE_pixel_chan *inptr=src + cury * src_span;
+          LICE_pixel* pout = destpx;
           int n=w;
           while (n--)
           {
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-            int cury = thisy/65536;
-            int curx = thisx/65536;
-#else
-            int cury = (int)(thisy);
-            int curx = (int)(thisx);
-#endif
-            if (cury >= src_top && cury < src_bottom-1)
+            int offs=curx/65536;
+            if (offs>=0 && offs<clipright)
             {
-              if (curx >= src_left && curx < src_right-1)
-              {
-                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
-                int r,g,b,a;
-
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-                __LICE_BilinearFilterI(&r,&g,&b,&a,pin,pin+src_span,thisx&65535,thisy&65535);
-#else
-                __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,thisx-curx,thisy-cury);
-#endif
-
-                COMBFUNC::doPix(pout,r,g,b,a,ia);
-              }
-              else if (curx==src_right-1)
-              {
-
-                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
-                int r,g,b,a;
-
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-                __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+src_span,thisy&65535);
-#else
-                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+src_span,thisy-cury);
-#endif
-                COMBFUNC::doPix(pout,r,g,b,a,ia);
-              }
-            }
-            else if (cury==src_bottom-1)
-            {
-              if (curx>=src_left && curx<src_right-1)
-              {
-                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
-
-                int r,g,b,a;
-
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-                __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),thisx&65535);
-#else
-                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),thisx-curx);
-#endif
-
-                COMBFUNC::doPix(pout,r,g,b,a,ia);
-              }
-              else if (curx==src_right-1)
-              {
-                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
-                COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
-              }
+              COMBFUNC::doPixFAST(pout,((LICE_pixel *)inptr)[offs]);
             }
 
-            pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-            thisx+=idsdx;
-            thisy+=idtdx;
-#else
-            thisx+=dsdx;
-            thisy+=dtdx;
-#endif
+            ++pout;
+            curx+=idx;
           }
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-          idsdx+=idsdxdy;
-          idtdx+=idtdxdy;
-          isrcx+=idsdy;
-          isrcy+=idtdy;
-#else
-          dsdx+=dsdxdy;
-          dtdx+=dtdxdy;
-          srcx+=dsdy;
-          srcy+=dtdy;
-#endif
-          dest+=dest_span;
         }
+        destpx += destpxspan;
+        icury+=idy;
       }
-      else
+    }
+
+};
+
+#ifndef LICE_FAVOR_SIZE_EXTREME
+template<class COMBFUNC> 
+#endif
+class _LICE_Template_Blit1 // these controlled by LICE_FAVOR_SIZE_EXTREME
+{
+#ifdef LICE_FAVOR_SIZE_EXTREME
+    #define DOPIX(pout,r,g,b,a,ia) combFunc(pout,r,g,b,a,ia);
+#else
+    #define DOPIX(pout,r,g,b,a,ia) COMBFUNC::doPix(pout,r,g,b,a,ia);
+#endif
+  public:
+    static void solidBlit(LICE_pixel_chan *dest, int w, int h, 
+                         int ir, int ig, int ib, int ia,
+                         int dest_span
+#ifdef LICE_FAVOR_SIZE_EXTREME
+                          , LICE_COMBINEFUNC combFunc
+#endif
+                         )
+    {
+      while (h--)
       {
-        while (h--)
+        LICE_pixel_chan *pout=dest;
+        int n=w;
+        while (n--)
         {
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-          int thisx=isrcx;
-          int thisy=isrcy;
-#else
-          double thisx=srcx;
-          double thisy=srcy;
-#endif
-          LICE_pixel_chan *pout=dest;
-          int n=w;
-          while (n--)
-          {
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-            int cury = thisy/65536;
-            int curx = thisx/65536;
-#else
-            int cury = (int)(thisy);
-            int curx = (int)(thisx);
-#endif
-            if (cury >= src_top && cury < src_bottom && curx >= src_left && curx < src_right)
-            {
-
-              LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
-
-              COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
-            }
-
-            pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-            thisx+=idsdx;
-            thisy+=idtdx;
-#else
-            thisx+=dsdx;
-            thisy+=dtdx;
-#endif
-          }
-#ifdef LICE_DELTABLIT_USE_FIXEDPOINT
-          idsdx+=idsdxdy;
-          idtdx+=idtdxdy;
-          isrcx+=idsdy;
-          isrcy+=idtdy;
-#else
-          dsdx+=dsdxdy;
-          dtdx+=dtdxdy;
-          srcx+=dsdy;
-          srcy+=dtdy;
-#endif
-          dest+=dest_span;
+          DOPIX(pout,ir,ig,ib,ia,ia);          
+          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
         }
+        dest+=dest_span;
+      }
+    }
+    static void gradBlit(LICE_pixel_chan *dest, int w, int h, 
+                         int ir, int ig, int ib, int ia,
+                         int drdx, int dgdx, int dbdx, int dadx,
+                         int drdy, int dgdy, int dbdy, int dady,
+                         int dest_span
+#ifdef LICE_FAVOR_SIZE_EXTREME
+                          , LICE_COMBINEFUNC combFunc
+#endif
+                         )
+    {
+      while (h--)
+      {
+        int r=ir,g=ig,b=ib,a=ia;
+        ir+=drdy; ig+=dgdy; ib+=dbdy; ia+=dady;
+        LICE_pixel_chan *pout=dest;
+        int n=w;
+        while (n--)
+        {
+          int ia=a/65536;
+          DOPIX(pout,r/65536,g/65536,b/65536,ia,ia);          
+          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+          r+=drdx; g+=dgdx; b+=dbdx; a+=dadx;
+        }
+        dest+=dest_span;
+      }
+    }
+
+#undef DOPIX
+};
+
+
+#ifndef LICE_FAVOR_SIZE
+template<class COMBFUNC> 
+#endif
+class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
+{
+#ifdef LICE_FAVOR_SIZE
+  #define DOPIX(pout,r,g,b,a,ia) combFunc(pout,r,g,b,a,ia);
+#else
+    #define DOPIX(pout,r,g,b,a,ia) COMBFUNC::doPix(pout,r,g,b,a,ia);
+#endif
+
+  public:
+
+    static void blit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, int src_span, int dest_span, int ia
+#ifdef LICE_FAVOR_SIZE
+                          , LICE_COMBINEFUNC combFunc
+#endif
+      )
+    {
+      while (h-->0)
+      {
+        int n=w;
+        LICE_pixel_chan *pin=src;
+        LICE_pixel_chan *pout=dest;
+        while (n--)
+        {
+
+          DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+
+          pin += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+        }
+        dest+=dest_span;
+        src += src_span;
       }
     }
 
     // this is only designed for filtering down an image approx 2:1 to 4:1 or so.. it'll work (poortly) for higher, and for less it's crap too.
     // probably need to redo it using linear interpolation of the filter coefficients, but bleh I'm gonna go play some call of duty
     static void scaleBlitFilterDown(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
-                          double srcx, double srcy, double dx, double dy, int clipleft, int cliptop, int clipright, int clipbottom,     
-                          int src_span, int dest_span, float alpha)
+                          int icurx, int icury, int idx, int idy, int clipright, int clipbottom,     
+                          int src_span, int dest_span, int ia, int *filter, int filt_start, int filtsz
+#ifdef LICE_FAVOR_SIZE
+                          , LICE_COMBINEFUNC combFunc
+#endif
+                          
+                          )
     {
-      int ia=(int)(alpha*256.0);
-      int idx=(int)(dx*65536.0);
-      int icurx=(int) (srcx*65536.0);
-      double msc = max(dx,dy);
-      const int filtsz=msc>3.0 ? 5 : 3;
-      const int filt_start = - (filtsz/2);
-
-      int filter[25]; // 5x5 max
-      {
-        int y;
-      //  char buf[4096];
-    //    sprintf(buf,"filter, msc=%f: ",msc);
-        int *p=filter;
-        for(y=0;y<filtsz;y++)
-        {
-          int x;
-          for(x=0;x<filtsz;x++)
-          {
-            if (x==y && x==filtsz/2) *p++ = 65536; // src pix is always valued at 1.
-            else
-            {
-              double dx=x+filt_start;
-              double dy=y+filt_start;
-              double v = (msc-1.0) / sqrt(dx*dx+dy*dy); // this needs serious tweaking...
-
-  //            sprintf(buf+strlen(buf),"%f,",v);
-
-              if(v<0.0) *p++=0;
-              else if (v>1.0) *p++=65536;
-              else *p++=(int)(v*65536.0);
-            }
-          }
-        }
-//        OutputDebugString(buf);
-      }
 
       while (h--)
       {
-        int cury = (int)(srcy);
-        int yfrac=(int) ((srcy-cury)*65536.0);
+        int cury = icury/65536;
+        int yfrac=icury&65535;
         int curx=icurx;          
         int n=w;
-        if (cury >= cliptop && cury < clipbottom)
+        if (cury >= 0  && cury < clipbottom)
         {
           LICE_pixel_chan *inptr=src + (cury+filt_start) * src_span;
           LICE_pixel_chan *pout=dest;
           while (n--)
           {
             int offs=curx/65536;            
-            if (offs>=clipleft && offs<clipright)
+            if (offs>=0 && offs<clipright)
             {
               int r=0,g=0,b=0,a=0;
               int sc=0;
@@ -453,7 +380,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
               {
                 if (ypos >= clipbottom) break;
 
-                if (ypos >= cliptop)
+                if (ypos >= 0)
                 {
                   int xpos=offs + filt_start;
                   LICE_pixel_chan *pin = rdptr;
@@ -461,7 +388,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
                   while (fx--)
                   {
                     int tsc = *scaletab++;
-                    if (xpos >= clipleft && xpos < clipright)
+                    if (xpos >= 0 && xpos < clipright)
                     {
                       r+=pin[LICE_PIXEL_R]*tsc;
                       g+=pin[LICE_PIXEL_G]*tsc;
@@ -480,7 +407,7 @@ template<class COMBFUNC> class _LICE_Template_Blit
               }
               if (sc>0)
               {
-                COMBFUNC::doPix(pout,r/sc,g/sc,b/sc,a/sc,ia);
+                DOPIX(pout,r/sc,g/sc,b/sc,a/sc,ia);
               }
             }
 
@@ -489,229 +416,233 @@ template<class COMBFUNC> class _LICE_Template_Blit
           }
         }
         dest+=dest_span;
-        srcy+=dy;
+        icury+=idy;
       }
     }
-
     static void scaleBlit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
-                          double srcx, double srcy, double dx, double dy, int clipleft, int cliptop, int clipright, int clipbottom,     
-                          int src_span, int dest_span, float alpha, int filtermode)
-    {
-      int ia=(int)(alpha*256.0);
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-      int idx=(int)(dx*65536.0);
-      int icurx=(int) (srcx*65536.0);
+                          int icurx, int icury, int idx, int idy, int clipright, int clipbottom,     
+                          int src_span, int dest_span, int ia, int filtermode
+#ifdef LICE_FAVOR_SIZE
+                          , LICE_COMBINEFUNC combFunc
 #endif
+                          
+                          )
+    {
+
       if (filtermode == LICE_BLIT_FILTER_BILINEAR)
       {
         while (h--)
         {
-          int cury = (int)(srcy);
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-          int yfrac=(int) ((srcy-cury)*65536.0);
+          int cury = icury/65536;
+          int yfrac=icury&65535;
           int curx=icurx;          
-#else
-          double yfrac=srcy-cury;
-          double curx=srcx;
-#endif
           LICE_pixel_chan *inptr=src + cury * src_span;
           LICE_pixel_chan *pout=dest;
           int n=w;
-          if (cury >= cliptop && cury < clipbottom-1)
+          if (cury >= 0 && cury < clipbottom-1)
           {
             while (n--)
             {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
               int offs=curx/65536;
-#else
-              int offs=(int)(curx);
-#endif
               LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
-              if (offs>=clipleft && offs<clipright-1)
+              if (offs>=0 && offs<clipright-1)
               {
                 int r,g,b,a;
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
                 __LICE_BilinearFilterI(&r,&g,&b,&a,pin,pin+src_span,curx&0xffff,yfrac);
-#else
-                __LICE_BilinearFilter(&r,&g,&b,&a,pin,pin+src_span,curx-offs,yfrac);
-#endif
-                COMBFUNC::doPix(pout,r,g,b,a,ia);
+                DOPIX(pout,r,g,b,a,ia)
               }
               else if (offs==clipright-1)
               {
                 int r,g,b,a;
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
                 __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+src_span,yfrac);
-#else
-                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+src_span,yfrac);
-#endif
-                COMBFUNC::doPix(pout,r,g,b,a,ia);
+                DOPIX(pout,r,g,b,a,ia)
               }
 
               pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
               curx+=idx;
-#else
-              curx+=dx;
-#endif
             }
           }
           else if (cury == clipbottom-1)
           {
             while (n--)
             {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
               int offs=curx/65536;
-#else
-              int offs=(int)(curx);
-#endif
               LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
-              if (offs>=clipleft && offs<clipright-1)
+              if (offs>=0 && offs<clipright-1)
               {
                 int r,g,b,a;
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
                 __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),curx&0xffff);
-#else
-                __LICE_LinearFilter(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),curx-offs);
-#endif
-                COMBFUNC::doPix(pout,r,g,b,a,ia);
+                DOPIX(pout,r,g,b,a,ia)
               }
               else if (offs==clipright-1)
               {
-                COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+                DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia)
               }
 
               pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
               curx+=idx;
-#else
-              curx+=dx;
-#endif
             }
           }
           dest+=dest_span;
-          srcy+=dy;
+          icury+=idy;
         }
       }
       else
       {
         while (h--)
         {
-          int cury = (int)(srcy);
-          if (cury >= cliptop && cury < clipbottom)
+          int cury = icury/65536;
+          if (cury >= 0 && cury < clipbottom)
           {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
             int curx=icurx;
-#else
-            double curx=srcx;
-#endif
             LICE_pixel_chan *inptr=src + cury * src_span;
             LICE_pixel_chan *pout=dest;
             int n=w;
             while (n--)
             {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-              int offs=curx>>16;
-#else
-              int offs=(int)(curx);
-#endif
-              if (offs>=clipleft && offs<clipright)
+              int offs=curx/65536;
+              if (offs>=0 && offs<clipright)
               {
                 LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
 
-                COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+                DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia)
               }
 
               pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
               curx+=idx;
-#else
-              curx+=dx;
-#endif
             }
           }
           dest+=dest_span;
-          srcy+=dy;
+          icury+=idy;
         }
       }
     }
 
-    static void scaleBlitFAST(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
-                          double srcx, double srcy, double dx, double dy, int clipleft, int cliptop, int clipright, int clipbottom,     
-                          int src_span, int dest_span)
-    {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-      int idx=(int)(dx*65536.0);
-      int icurx=(int) (srcx*65536.0);
+
+#undef DOPIX
+};
+
+#ifdef LICE_FAVOR_SPEED
+template<class COMBFUNC> 
 #endif
-
-      LICE_pixel* destpx = (LICE_pixel*) dest;
-      int destpxspan = dest_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
-
-      //LICE_pixel* srcpx = (LICE_pixel*) src;
-      //int srcpxspan = src_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
-      // todo cast inptr back to LICE_pixel
-
-      while (h--)
-      {
-        int cury = (int)(srcy);
-        if (cury >= cliptop && cury < clipbottom)
-        {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-          int curx=icurx;
+class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
+{
+#ifndef LICE_FAVOR_SPEED
+    #define DOPIX(pout,r,g,b,a,ia) combFunc(pout,r,g,b,a,ia);
 #else
-          double curx=srcx;
+    #define DOPIX(pout,r,g,b,a,ia) COMBFUNC::doPix(pout,r,g,b,a,ia);
 #endif
-          LICE_pixel_chan *inptr=src + cury * src_span;
-          LICE_pixel* pout = destpx;
+
+  public:
+
+    static void deltaBlit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, 
+                          int isrcx, int isrcy, int idsdx, int idtdx, int idsdy, int idtdy,
+                          int idsdxdy, int idtdxdy,
+                          int src_left, int src_top, int src_right, int src_bottom,
+                          int src_span, int dest_span, int ia, int filtermode
+#ifndef LICE_FAVOR_SPEED
+                          , LICE_COMBINEFUNC combFunc
+#endif
+                          )
+    {
+      if (filtermode == LICE_BLIT_FILTER_BILINEAR)
+      {
+        while (h--)
+        {
+          int thisx=isrcx;
+          int thisy=isrcy;
+          LICE_pixel_chan *pout=dest;
           int n=w;
           while (n--)
           {
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-            int offs=curx>>16;
-#else
-            int offs=(int)(curx);
-#endif
-            if (offs>=clipleft && offs<clipright)
+            int cury = thisy/65536;
+            int curx = thisx/65536;
+            if (cury >= src_top && cury < src_bottom-1)
             {
-              COMBFUNC::doPixFAST(pout,((LICE_pixel *)inptr)[offs]);
+              if (curx >= src_left && curx < src_right-1)
+              {
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+                int r,g,b,a;
+
+                __LICE_BilinearFilterI(&r,&g,&b,&a,pin,pin+src_span,thisx&65535,thisy&65535);
+
+                DOPIX(pout,r,g,b,a,ia);
+              }
+              else if (curx==src_right-1)
+              {
+
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+                int r,g,b,a;
+
+                __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+src_span,thisy&65535);
+                DOPIX(pout,r,g,b,a,ia);
+              }
+            }
+            else if (cury==src_bottom-1)
+            {
+              if (curx>=src_left && curx<src_right-1)
+              {
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+
+                int r,g,b,a;
+
+                __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),thisx&65535);
+
+                DOPIX(pout,r,g,b,a,ia);
+              }
+              else if (curx==src_right-1)
+              {
+                LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
+                DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+              }
             }
 
-            ++pout;
-#ifdef LICE_SCALEDBLIT_USE_FIXEDPOINT
-            curx+=idx;
-#else
-            curx+=dx;
-#endif
+            pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+            thisx+=idsdx;
+            thisy+=idtdx;
           }
+          idsdx+=idsdxdy;
+          idtdx+=idtdxdy;
+          isrcx+=idsdy;
+          isrcy+=idtdy;
+          dest+=dest_span;
         }
-        destpx += destpxspan;
-        srcy+=dy;
       }
-    }
-
-    static void blit(LICE_pixel_chan *dest, LICE_pixel_chan *src, int w, int h, int src_span, int dest_span, float alpha)
-    {
-      int ia=(int)(alpha*256.0);
-      while (h-->0)
+      else
       {
-        int n=w;
-        LICE_pixel_chan *pin=src;
-        LICE_pixel_chan *pout=dest;
-        while (n--)
+        while (h--)
         {
+          int thisx=isrcx;
+          int thisy=isrcy;
+          LICE_pixel_chan *pout=dest;
+          int n=w;
+          while (n--)
+          {
+            int cury = thisy/65536;
+            int curx = thisx/65536;
+            if (cury >= src_top && cury < src_bottom && curx >= src_left && curx < src_right)
+            {
 
-          COMBFUNC::doPix(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+              LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
-          pin += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
-          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+              DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
+            }
+
+            pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+            thisx+=idsdx;
+            thisy+=idtdx;
+          }
+          idsdx+=idsdxdy;
+          idtdx+=idtdxdy;
+          isrcx+=idsdy;
+          isrcy+=idtdy;
+          dest+=dest_span;
         }
-        dest+=dest_span;
-        src += src_span;
       }
     }
-};
 
+#undef DOPIX
+};
 
 #ifndef LICE_NO_GRADIENT_SUPPORT
 
@@ -757,17 +688,33 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
   pdest+=dstx*sizeof(LICE_pixel);
 #define TOFIX(a) ((int)((a)*65536.0))
 
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::gradBlit(pdest,dstw,dsth,TOFIX(ir),TOFIX(ig),TOFIX(ib),TOFIX(ia),TOFIX(drdx),TOFIX(dgdx),TOFIX(dbdx),TOFIX(dadx),TOFIX(drdy),TOFIX(dgdy),TOFIX(dbdy),TOFIX(dady),dest_span)
+  int iir=TOFIX(ir), iig=TOFIX(ig), iib=TOFIX(ib), iia=TOFIX(ia), idrdx=TOFIX(drdx),idgdx=TOFIX(dgdx),idbdx=TOFIX(dbdx),idadx=TOFIX(dadx),
+      idrdy=TOFIX(drdy), idgdy=TOFIX(dgdy), idbdy=TOFIX(dbdy), idady=TOFIX(dady);
 
-  if ((mode & LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY && ia==1.0 && dady==0.0 && dadx == 0.0)
-  {
-    __LICE__ACTION(_LICE_CombinePixelsClobber);
-  }
-  else 
-  {
-    __LICE_ACTIONBYMODE_NOSRCALPHA(mode,1.0);
-  }
-#undef __LICE__ACTION
+
+#ifdef LICE_FAVOR_SIZE_EXTREME
+  LICE_COMBINEFUNC blitfunc=NULL;      
+  #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+#else
+
+  #define __LICE__ACTION(comb) _LICE_Template_Blit1<comb>::gradBlit(pdest,dstw,dsth,iir,iig,iib,iia,idrdx,idgdx,idbdx,idadx,idrdy,idgdy,idbdy,idady,dest_span)
+#endif
+
+    // todo: could predict whether or not the colors will ever go out of 0.255 range and optimize
+
+    if ((mode & LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY && iia==65536 && idady==0 && idadx == 0)
+    {
+      __LICE__ACTION(_LICE_CombinePixelsClobberClamp);
+    }
+    else 
+    {
+      __LICE_ACTION_NOSRCALPHA(mode,256,true);
+    }
+  #undef __LICE__ACTION
+
+#ifdef LICE_FAVOR_SIZE_EXTREME
+   if (blitfunc) _LICE_Template_Blit1::gradBlit(pdest,dstw,dsth,iir,iig,iib,iia,idrdx,idgdx,idbdx,idadx,idrdy,idgdy,idbdy,idady,dest_span,blitfunc);
+#endif
 
 #undef TOFIX
 }
@@ -790,8 +737,8 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
   if (srcrect) 
   {
     sr=*srcrect;    
-    if (sr.left < 0) sr.left=0;
-    if (sr.top < 0) sr.top=0;
+    if (sr.left < 0) { dstx-=sr.left; sr.left=0; }
+    if (sr.top < 0) { dsty-=sr.top; sr.top=0; }
     if (sr.right > src->getWidth()) sr.right=src->getWidth();
     if (sr.bottom > src->getHeight()) sr.bottom = src->getHeight();
   }
@@ -888,11 +835,21 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
   }
   else 
   {
+    int ia=(int)(alpha*256.0);
+    #ifdef LICE_FAVOR_SIZE
+        LICE_COMBINEFUNC blitfunc=NULL;      
+        #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+    #else
+        #define __LICE__ACTION(comb) _LICE_Template_Blit2<comb>::blit(pdest,psrc,cpsize,i,src_span,dest_span,ia)
+    #endif
+      
+        __LICE_ACTION_SRCALPHA(mode,ia,false);
+    
+    #undef __LICE__ACTION
 
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::blit(pdest,psrc,cpsize,i,src_span,dest_span,alpha)
-    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
-#undef __LICE__ACTION
-
+    #ifdef LICE_FAVOR_SIZE
+        if (blitfunc) _LICE_Template_Blit2::blit(pdest,psrc,cpsize,i,src_span,dest_span,ia,blitfunc);
+    #endif
   }
 }
 
@@ -1073,7 +1030,58 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   if (dstx+dstw > dest->getWidth()) dstw=dest->getWidth()-dstx;
   if (dsty+dsth > dest->getHeight()) dsth=dest->getHeight()-dsty;
 
+  if (dstw<1 || dsth<1) return; // check before the below calcs since they arent necessary / will fuck up if these area small
+
+  int idx=(int)(xadvance*65536.0);
+  int idy=(int)(yadvance*65536.0);
+  int icurx=(int) (srcx*65536.0);
+  int icury=(int) (srcy*65536.0);
+
+
+#if 1
+  // the clip area calculations need to be done fixed point so the results match runtime
+
+  if (idx>0)
+  {
+    if (icurx < 0) // increase dstx, decrease dstw
+    {
+      int n = (idx-1-icurx)/idx;
+      dstw-=n;
+      dstx+=n;
+      icurx+=idx*n;
+    }
+    if ((icurx + idx*(dstw-1))/65536 >= src->getWidth())
+    {
+      int neww = ((src->getWidth()-1)*65536 - icurx)/idx;
+      if (neww < dstw) dstw=neww;
+    }
+  }
+  else if (idx<0)
+  {
+    // todo: optimize source-clipping with reversed X axis
+  }
+
+  if (idy > 0)
+  {
+    if (icury < 0) // increase dsty, decrease dsth
+    {
+      int n = (idy-1-icury)/idy;
+      dsth-=n;
+      dsty+=n;
+      icury+=idy*n;
+    }
+    if ((icury + idy*(dsth-1))/65536 >= src->getHeight())
+    {
+      int newh = ((src->getHeight()-1)*65536 - icury)/idy;
+      if (newh < dsth) dsth=newh;
+    }
+  }
+  else if (idy<0)
+  {
+    // todo: optimize source-clipping with reversed Y axis (check icury against src->getHeight(), etc)
+  }
   if (dstw<1 || dsth<1) return;
+#endif
 
 
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
@@ -1098,44 +1106,90 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   else pdest += dsty*dest_span;
   pdest+=dstx*sizeof(LICE_pixel);
 
-  int clip_x=(int)srcx;
-  int clip_y=(int)srcy;
-  int clip_r=(int)ceil(srcx+srcw);
-  int clip_b=(int)ceil(srcy+srch);
-
-  if (clip_x<0)clip_x=0;
-  if (clip_y<0)clip_y=0;
+  int clip_r=(int)ceil(srcx+max(srcw,0));
+  int clip_b=(int)ceil(srcy+max(srch,0));
   if (clip_r>src->getWidth()) clip_r=src->getWidth();
   if (clip_b>src->getHeight()) clip_b=src->getHeight();
 
+  if (clip_r<1||clip_b<1) return;
 
-  if (clip_r>clip_x && clip_b > clip_y) // if our parms are out of range then dont run it
+  int ia=(int)(alpha*256.0);
+
+  if ((mode&(LICE_BLIT_FILTER_MASK|LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA))==LICE_BLIT_MODE_COPY && (ia==128 || ia==256))
   {
-    if ((mode&(LICE_BLIT_FILTER_MASK|LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA))==LICE_BLIT_MODE_COPY && (alpha==0.5 || alpha==1.0))
+    if (ia==128)
     {
-      if (alpha==0.5)
-      {
-        _LICE_Template_Blit<_LICE_CombinePixelsHalfMix>::scaleBlitFAST(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span);
-      }
-      else
-      {
-        _LICE_Template_Blit<_LICE_CombinePixelsClobber>::scaleBlitFAST(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span);
-      }
+      _LICE_Template_Blit0<_LICE_CombinePixelsHalfMixFAST>::scaleBlitFAST(pdest,psrc,dstw,dsth,icurx,icury,idx,idy,clip_r,clip_b,src_span,dest_span);
     }
     else
     {
-      if (xadvance>=1.7 && yadvance >=1.7 && (mode&LICE_BLIT_FILTER_MASK)==LICE_BLIT_FILTER_BILINEAR)
+      _LICE_Template_Blit0<_LICE_CombinePixelsClobberFAST>::scaleBlitFAST(pdest,psrc,dstw,dsth,icurx,icury,idx,idy,clip_r,clip_b,src_span,dest_span);
+    }
+  }
+  else
+  {
+    if (xadvance>=1.7 && yadvance >=1.7 && (mode&LICE_BLIT_FILTER_MASK)==LICE_BLIT_FILTER_BILINEAR)
+    {
+      int msc = max(idx,idy);
+      const int filtsz=msc>(3<<16) ? 5 : 3;
+      const int filt_start = - (filtsz/2);
+
+      int filter[25]; // 5x5 max
       {
-          #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::scaleBlitFilterDown(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span,alpha)
-              __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
-          #undef __LICE__ACTION
+        int y;
+      //  char buf[4096];
+    //    sprintf(buf,"filter, msc=%f: ",msc);
+        int *p=filter;
+        for(y=0;y<filtsz;y++)
+        {
+          int x;
+          for(x=0;x<filtsz;x++)
+          {
+            if (x==y && x==filtsz/2) *p++ = 65536; // src pix is always valued at 1.
+            else
+            {
+              double dx=x+filt_start;
+              double dy=y+filt_start;
+              double v = (msc-1.0) / sqrt(dx*dx+dy*dy); // this needs serious tweaking...
+
+  //            sprintf(buf+strlen(buf),"%f,",v);
+
+              if(v<0.0) *p++=0;
+              else if (v>1.0) *p++=65536;
+              else *p++=(int)(v*65536.0);
+            }
+          }
+        }
+//        OutputDebugString(buf);
       }
-      else
-      {
-          #define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::scaleBlit(pdest,psrc,dstw,dsth,srcx,srcy,xadvance,yadvance,clip_x,clip_y,clip_r,clip_b,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
-              __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
-          #undef __LICE__ACTION
-      }
+
+      #ifdef LICE_FAVOR_SIZE
+        LICE_COMBINEFUNC blitfunc=NULL;      
+        #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+      #else
+        #define __LICE__ACTION(comb) _LICE_Template_Blit2<comb>::scaleBlitFilterDown(pdest,psrc,dstw,dsth,icurx,icury,idx,idy,clip_r,clip_b,src_span,dest_span,ia,filter,filt_start,filtsz)
+      #endif
+          __LICE_ACTION_SRCALPHA(mode,ia,false);
+      #undef __LICE__ACTION
+
+      #ifdef LICE_FAVOR_SIZE
+        if (blitfunc) _LICE_Template_Blit2::scaleBlitFilterDown(pdest,psrc,dstw,dsth,icurx,icury,idx,idy,clip_r,clip_b,src_span,dest_span,ia,filter,filt_start,filtsz,blitfunc);
+      #endif
+
+    }
+    else
+    {
+      #ifdef LICE_FAVOR_SIZE
+        LICE_COMBINEFUNC blitfunc=NULL;      
+        #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+      #else
+        #define __LICE__ACTION(comb) _LICE_Template_Blit2<comb>::scaleBlit(pdest,psrc,dstw,dsth,icurx,icury,idx,idy,clip_r,clip_b,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
+      #endif
+          __LICE_ACTION_SRCALPHA(mode,ia,false);
+      #undef __LICE__ACTION
+      #ifdef LICE_FAVOR_SIZE
+        if (blitfunc) _LICE_Template_Blit2::scaleBlit(pdest,psrc,dstw,dsth,icurx,icury,idx,idy,clip_r,clip_b,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
+      #endif
     }
   }
 }
@@ -1220,9 +1274,30 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int sr=(int)(src_right);
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,dsdxdy,dtdxdy,sl,st,sr,sb,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
-    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
-#undef __LICE__ACTION
+
+  int ia=(int)(alpha*256.0);
+  int isrcx=(int)(srcx*65536.0);
+  int isrcy=(int)(srcy*65536.0);
+  int idsdx=(int)(dsdx*65536.0);
+  int idtdx=(int)(dtdx*65536.0);
+  int idsdy=(int)(dsdy*65536.0);
+  int idtdy=(int)(dtdy*65536.0);
+  int idsdxdy=(int)(dsdxdy*65536.0);
+  int idtdxdy=(int)(dtdxdy*65536.0);
+
+#ifndef LICE_FAVOR_SPEED
+  LICE_COMBINEFUNC blitfunc=NULL;
+  #define __LICE__ACTION(comb) blitfunc = comb::doPix;
+#else
+  #define __LICE__ACTION(comb) _LICE_Template_Blit3<comb>::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
+#endif
+      __LICE_ACTION_SRCALPHA(mode,ia,false);
+  #undef __LICE__ACTION
+
+#ifndef LICE_FAVOR_SPEED
+  if (blitfunc) _LICE_Template_Blit3::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
+#endif
+
 }
                       
 
@@ -1319,9 +1394,27 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int sr=(int)(src_right);
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::deltaBlit(pdest,psrc,dstw,dsth,srcx,srcy,dsdx,dtdx,dsdy,dtdy,0,0,sl,st,sr,sb,src_span,dest_span,alpha,mode&LICE_BLIT_FILTER_MASK)
-    __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha);
-#undef __LICE__ACTION
+
+  int ia=(int)(alpha*256.0);
+  int isrcx=(int)(srcx*65536.0);
+  int isrcy=(int)(srcy*65536.0);
+  int idsdx=(int)(dsdx*65536.0);
+  int idtdx=(int)(dtdx*65536.0);
+  int idsdy=(int)(dsdy*65536.0);
+  int idtdy=(int)(dtdy*65536.0);
+
+#ifndef LICE_FAVOR_SPEED
+  LICE_COMBINEFUNC blitfunc=NULL;
+  #define __LICE__ACTION(comb) blitfunc = comb::doPix;
+#else
+  #define __LICE__ACTION(comb) _LICE_Template_Blit3<comb>::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,0,0,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
+#endif
+      __LICE_ACTION_SRCALPHA(mode,ia,false);
+  #undef __LICE__ACTION
+
+#ifndef LICE_FAVOR_SPEED
+  if (blitfunc) _LICE_Template_Blit3::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,0,0,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
+#endif
 }
 
 #endif
@@ -1393,7 +1486,7 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
     while (n--) 
     {
       LICE_pixel_chan *ptr=(LICE_pixel_chan *)p++;
-      _LICE_MakePixel(ptr,(ptr[LICE_PIXEL_R]*ir+ir2)>>8,
+      _LICE_MakePixelClamp(ptr,(ptr[LICE_PIXEL_R]*ir+ir2)>>8,
                           (ptr[LICE_PIXEL_G]*ig+ig2)>>8,
                           (ptr[LICE_PIXEL_B]*ib+ib2)>>8,
                           (ptr[LICE_PIXEL_A]*ia+ia2)>>8);
@@ -1433,38 +1526,49 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
 
   p += x;
 
+  int ia=(int)(alpha*256.0);
   // copy, alpha=1, alpha=0.5, 0.25, 0.75 optimizations
   if ((mode&LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY)
   {
-    if (alpha==1.0f)
+    if (ia==256)
     {
-      _LICE_Template_Blit<_LICE_CombinePixelsClobber>::solidBlitFAST(p,w,h,color,sp);
+      _LICE_Template_Blit0<_LICE_CombinePixelsClobberFAST>::solidBlitFAST(p,w,h,color,sp);
       return;
     }
-    if (alpha==0.5f)
+    if (ia==128)
     {
       // we use _LICE_CombinePixelsHalfMix2 because we pre-halve color here
-      _LICE_Template_Blit<_LICE_CombinePixelsHalfMix2>::solidBlitFAST(p,w,h,(color>>1)&0x7f7f7f7f,sp);
+      _LICE_Template_Blit0<_LICE_CombinePixelsHalfMix2FAST>::solidBlitFAST(p,w,h,(color>>1)&0x7f7f7f7f,sp);
       return;
     }
-    if (alpha==0.25f)
+    if (ia==64)
     {
-      _LICE_Template_Blit<_LICE_CombinePixelsQuarterMix2>::solidBlitFAST(p,w,h,(color>>2)&0x3f3f3f3f,sp);
+      _LICE_Template_Blit0<_LICE_CombinePixelsQuarterMix2FAST>::solidBlitFAST(p,w,h,(color>>2)&0x3f3f3f3f,sp);
       return;
     }
-    if (alpha==0.75f)
+    if (ia==192)
     {
-      _LICE_Template_Blit<_LICE_CombinePixelsThreeQuarterMix2>::solidBlitFAST(p,w,h,
+      _LICE_Template_Blit0<_LICE_CombinePixelsThreeQuarterMix2FAST>::solidBlitFAST(p,w,h,
         ((color>>1)&0x7f7f7f7f)+((color>>2)&0x3f3f3f3f),sp);
       return;
     }
   }
 
-  // we use __LICE_ACTIONBYMODE_NOSRCALPHA even though __LICE_ACTIONBYMODE_CONSTANTALPHA
-  // is valid, sinc we optimized the 1.0f/0.5f cases above
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),(int)(alpha*256.0),sp*sizeof(LICE_pixel))
-    __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
-#undef __LICE__ACTION
+#ifdef LICE_FAVOR_SIZE_EXTREME
+  LICE_COMBINEFUNC blitfunc=NULL;      
+  #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+#else
+  #define __LICE__ACTION(comb) _LICE_Template_Blit1<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),ia,sp*sizeof(LICE_pixel))
+#endif
+
+    // we use __LICE_ACTION_NOSRCALPHA even though __LICE_ACTION_CONSTANTALPHA
+    // is valid, sinc we optimized the 1.0f/0.5f cases above
+      __LICE_ACTION_NOSRCALPHA(mode,ia,false);
+  #undef __LICE__ACTION
+
+#ifdef LICE_FAVOR_SIZE_EXTREME
+  if (blitfunc) _LICE_Template_Blit1::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),ia,sp*sizeof(LICE_pixel),blitfunc);
+#endif
 }
 
 void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask, LICE_pixel orbits)
@@ -1536,31 +1640,32 @@ void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha
   if (bm->isFlipped()) px+=x+(bm->getHeight()-1-y)*bm->getRowSpan();
   else px+=x+y*bm->getRowSpan();
 
+  int ia = (int)(alpha * 256.0f);
   if ((mode&LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY)
   {
-    if (alpha==1.0f)
+    if (ia==256)
     {
       *px = color;
       return;
     }
-    if (alpha==0.5f)
+    if (ia==128)
     {
       *px = ((*px>>1)&0x7f7f7f7f) + ((color>>1)&0x7f7f7f7f);
       return;
     }
-    if (alpha==0.25f)
+    if (ia==64)
     {
       *px = ((*px>>1)&0x7f7f7f7f) + ((*px>>2)&0x3f3f3f3f) + ((color>>2)&0x3f3f3f3f);
       return;
     }
-    if (alpha==0.75f)
+    if (ia==192)
     {
       *px = ((*px>>2)&0x3f3f3f3f) + ((color>>1)&0x7f7f7f7f) + ((color>>2)&0x3f3f3f3f);
       return;
     }
   }
-#define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), (int)(alpha * 256.0f))
-  __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
+#define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), ia)
+  __LICE_ACTION_NOSRCALPHA(mode,ia,false);
 #undef __LICE__ACTION
 }
 
@@ -1722,44 +1827,13 @@ void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,
 template <class COMBFUNC> class GlyphDrawImpl
 {
 public:
-  static void DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, 
-    LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha)
+  static void DrawGlyph(LICE_pixel_chan* srcalpha, LICE_pixel* destpx, int src_w, int src_h, LICE_pixel color,  int span, int src_span, int aa)
   {
-    int src_x = 0, src_y = 0, src_w = glyph_w, src_h = glyph_h;
-    if (x < 0) {
-      src_x -= x;
-      src_w += x;
-      x = 0;
-    }
-    if (x+src_w >= dest->getWidth()) {
-      src_w = dest->getWidth()-x;
-    }
-    if (y < 0) {
-      src_y -= y;
-      src_h += y;
-      y = 0;
-    }
-    if (y+src_h >= dest->getHeight()) {
-      src_h = dest->getHeight()-y;
-    }
 
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
-    int aa = (int)(alpha*256.0f);
-
-    LICE_pixel* destpx = dest->getBits();
-    int span = dest->getRowSpan();
-    if (dest->isFlipped()) {
-      destpx += (dest->getHeight()-y-1)*span+x;
-      span = -span;
-    }
-    else {
-      destpx += y*dest->getRowSpan()+x;
-    }
-
-    LICE_pixel_chan* srcalpha = alphas+src_y*glyph_w+src_x;
 
     int xi, yi;
-    for (yi = 0; yi < src_h; ++yi, srcalpha += glyph_w, destpx += span) {
+    for (yi = 0; yi < src_h; ++yi, srcalpha += src_span, destpx += span) {
       LICE_pixel_chan* tsrc = srcalpha;
       LICE_pixel* tdest = destpx;
       for (xi = 0; xi < src_w; ++xi, ++tsrc, ++tdest) {
@@ -1783,8 +1857,41 @@ void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pix
   }
 #endif
 
-#define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(dest, x, y, color, alphas, glyph_w, glyph_h, alpha)
-	__LICE_ACTIONBYMODE_NOSRCALPHA(mode, alpha);
+  int ia= (int)(alpha*256.0f);
+
+  int src_x = 0, src_y = 0, src_w = glyph_w, src_h = glyph_h;
+  if (x < 0) {
+    src_x -= x;
+    src_w += x;
+    x = 0;
+  }
+  if (x+src_w >= dest->getWidth()) {
+    src_w = dest->getWidth()-x;
+  }
+  if (y < 0) {
+    src_y -= y;
+    src_h += y;
+    y = 0;
+  }
+  if (y+src_h >= dest->getHeight()) {
+    src_h = dest->getHeight()-y;
+  }
+
+
+  LICE_pixel* destpx = dest->getBits();
+  int span = dest->getRowSpan();
+  if (dest->isFlipped()) {
+    destpx += (dest->getHeight()-y-1)*span+x;
+    span = -span;
+  }
+  else {
+    destpx += y*dest->getRowSpan()+x;
+  }
+
+  LICE_pixel_chan* srcalpha = alphas+src_y*glyph_w+src_x;
+
+#define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(srcalpha,destpx, src_w, src_h, color,span,glyph_w,ia)
+	__LICE_ACTION_NOSRCALPHA(mode, ia, false);
 #undef __LICE__ACTION
 }
 
@@ -1888,3 +1995,4 @@ unsigned short _LICE_RGB2HSV_invtab[256]={ // 65536/idx - 1
   0x0110, 0x010e, 0x010d, 0x010c, 0x010b, 0x010a, 0x0109, 0x0108,
   0x0107, 0x0106, 0x0105, 0x0104, 0x0103, 0x0102, 0x0101, 0x0100,
 };
+

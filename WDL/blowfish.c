@@ -10,7 +10,7 @@
 
 #define N 16
 
-static const unsigned long ORIG_P[16 + 2] = {
+static const unsigned int ORIG_P[16 + 2] = {
         0x243F6A88L, 0x85A308D3L, 0x13198A2EL, 0x03707344L,
         0xA4093822L, 0x299F31D0L, 0x082EFA98L, 0xEC4E6C89L,
         0x452821E6L, 0x38D01377L, 0xBE5466CFL, 0x34E90C6CL,
@@ -19,7 +19,7 @@ static const unsigned long ORIG_P[16 + 2] = {
 
 };
 
-static const unsigned long ORIG_S[4*256] = {
+static const unsigned int ORIG_S[4*256] = {
         0xD1310BA6L, 0x98DFB5ACL, 0x2FFD72DBL, 0xD01ADFB7L,
         0xB8E1AFEDL, 0x6A267E96L, 0xBA7C9045L, 0xF12C7F99L,
         0x24A19947L, 0xB3916CF7L, 0x0801F2E2L, 0x858EFC16L,
@@ -283,7 +283,7 @@ static const unsigned long ORIG_S[4*256] = {
 
 static char __bigE;
 
-static void BSWAPONBIGE(unsigned long *a,unsigned long *a2)
+static void BSWAPONBIGE(unsigned int *a,unsigned int *a2)
 {
   if (__bigE>0)
   {
@@ -306,15 +306,15 @@ static void BSWAPONBIGE(unsigned long *a,unsigned long *a2)
   }
 }
 
-void Blowfish_Encrypt(BLOWFISH_CTX *ctx, unsigned long *xl, unsigned long *xr) 
+void Blowfish_Encrypt(BLOWFISH_CTX *ctx, unsigned int *xl, unsigned int *xr) 
 {
   BSWAPONBIGE(xl,xr);
   {
-    unsigned long Xl=*xl;
-    unsigned long Xr=*xr;
+    unsigned int Xl=*xl;
+    unsigned int Xr=*xr;
     int i=N/2;
-    unsigned long *p=ctx->P;
-    unsigned long *s=(unsigned long *)ctx->S;
+    unsigned int *p=ctx->P;
+    unsigned int *s=(unsigned int *)ctx->S;
     while (i--)
     {
       Xl ^= *p++;
@@ -327,14 +327,14 @@ void Blowfish_Encrypt(BLOWFISH_CTX *ctx, unsigned long *xl, unsigned long *xr)
   BSWAPONBIGE(xl,xr);
 }
 
-void Blowfish_Decrypt(BLOWFISH_CTX *ctx, unsigned long *xl, unsigned long *xr) 
+void Blowfish_Decrypt(BLOWFISH_CTX *ctx, unsigned int *xl, unsigned int *xr) 
 {
   BSWAPONBIGE(xl,xr);
   {
-    unsigned long Xl=*xl;
-    unsigned long Xr=*xr;
-    unsigned long *p=ctx->P + N + 1;
-    unsigned long *s=(unsigned long *)ctx->S;
+    unsigned int Xl=*xl;
+    unsigned int Xr=*xr;
+    unsigned int *p=ctx->P + N + 1;
+    unsigned int *s=(unsigned int *)ctx->S;
     int i=N/2;
     while (i--)
     {
@@ -350,10 +350,10 @@ void Blowfish_Decrypt(BLOWFISH_CTX *ctx, unsigned long *xl, unsigned long *xr)
 
 void Blowfish_Init(BLOWFISH_CTX *ctx, unsigned char *key, int keyLen) {
   int i, j=0;
-  unsigned long *s=(unsigned long *)ORIG_P;
-  unsigned long *p=ctx->P;
+  unsigned int *s=(unsigned int *)ORIG_P;
+  unsigned int *p=ctx->P;
 
-  unsigned long datal=0, datar=0;
+  unsigned int datal=0, datar=0;
 
   if (!__bigE)
   {
@@ -365,7 +365,7 @@ void Blowfish_Init(BLOWFISH_CTX *ctx, unsigned char *key, int keyLen) {
   while (i--) 
   {
     int k=4;
-    unsigned long data = 0;
+    unsigned int data = 0;
     while (k--)
     {
       data = (data << 8) | key[j];

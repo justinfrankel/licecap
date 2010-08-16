@@ -14,6 +14,7 @@ typedef struct // if set these override the default virtualwnd styles for this o
 void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a);
 
 // used by elements to draw a WDL_VirtualWnd_BGCfg
+#define WDL_VWND_SCALEDBLITBG_IGNORE_LR 0x40000000
 void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest, 
                                  WDL_VirtualWnd_BGCfg *src,
                                  int destx, int desty, int destw, int desth,

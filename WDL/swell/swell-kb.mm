@@ -125,6 +125,7 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
     if (!(flag&FVIRTKEY)) flag&=~FSHIFT;
     if (!flag)
     {
+    // todo: some OS X API for this?
       flag=FVIRTKEY|FSHIFT;
       switch (code)
       {
@@ -138,7 +139,6 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
         case '*': code='8'; break;
         case '(': code='9'; break;
         case ')': code='0'; break;
-          
         default: flag=0; break;
       }
     }
@@ -146,6 +146,30 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
     if (flags) *flags=flag;
     return code;
 }
+
+int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
+{
+  if (wParam >= '0' && wParam <= '9' && lParam == (FSHIFT|FVIRTKEY))
+  {
+  // todo: some OS X API for this?
+    *newflags = lParam&~(FSHIFT|FVIRTKEY);
+    switch (wParam) 
+    {
+      case '1': return '!';
+      case '2': return '@';
+      case '3': return '#';
+      case '4': return '$';
+      case '5': return '%';
+      case '6': return '^';
+      case '7': return '&';
+      case '8': return '*';
+      case '9': return '(';
+      case '0': return ')';      
+    }
+  }
+  return 0;
+}
+
 
 WORD GetAsyncKeyState(int key)
 {

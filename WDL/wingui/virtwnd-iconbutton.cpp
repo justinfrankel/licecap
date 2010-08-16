@@ -28,6 +28,7 @@
 
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
+  m_alpha=1.0;
   m_checkstate=-1;
   m_textfont=0;
   m_textalign=0;
@@ -87,7 +88,7 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
       LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
         r.right-r.left,
         r.bottom-r.top,
-        (float)sx,(float)sy,(float)w,(float)h, 1.0f,  // m_grayed?
+        (float)sx,(float)sy,(float)w,(float)h, m_alpha,  // m_grayed?
         LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
     }
   }
@@ -99,7 +100,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
   HDC hdc=drawbm->getDC();
   int col;
 
-  float alpha = (m_grayed ? 0.25f : 1.0f);
+  float alpha = (m_grayed ? 0.25f : 1.0f) * m_alpha;
 
   bool isdown = !!(m_pressed&1);
   bool ishover = !!(m_pressed&2);
@@ -375,11 +376,12 @@ static void GenSubMenu(HMENU menu, int *x, WDL_PtrList<char> *items, int curitem
 int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 {
   if (m_items.GetSize())
-  {
+  {    
+    //SendCommand(WM_COMMAND, GetID()|(CBN_DROPDOWN<<16), 0, this);
+
     HMENU menu=CreatePopupMenu();
     int x=0;
     GenSubMenu(menu,&x,&m_items,m_curitem);
-
 
     HWND h=GetRealParent();
     POINT p={0,};
@@ -397,6 +399,7 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       ClientToScreen(h,&p);
       //SetFocus(h);
     }
+    
     int ret=TrackPopupMenu(menu,TPM_LEFTALIGN|TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,NULL);
 
     if (ret>=1000)
@@ -460,8 +463,8 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
 
       int a=(bs/4)&~1;
 
-      LICE_Line(drawbm,l,r.top,l,r.bottom,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-      LICE_Line(drawbm,l-1,r.top,l-1,r.bottom,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,l,r.top,l,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,l-1,r.top,l-1,r.bottom-1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
 
       LICE_Line(drawbm,l+bs/2-a,r.top+bs/2-a/2,
                        l+bs/2,r.top+bs/2+a/2,tcol,1.0f,LICE_BLIT_MODE_COPY,true);

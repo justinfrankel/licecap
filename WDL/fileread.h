@@ -49,6 +49,8 @@
   #if !defined(WDL_NO_POSIX_FILEREAD)
   #define WDL_POSIX_NATIVE_READ 
    #include <sys/fcntl.h>
+   #include <sys/file.h>
+   #include <sys/errno.h>
    #include <sys/mman.h>
   #endif
   
@@ -114,6 +116,7 @@ public:
   // async aspect is unused on OS X, but the buffered mode affects F_NOCACHE
   WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0) : m_bufspace(4096 WDL_HEAPBUF_TRACEPARM("WDL_FileRead"))
   {
+    m_async_hashaderr=false;
     m_sync_bufmode_used=m_sync_bufmode_pos=0;
     m_async_readpos=m_file_position=0;
     m_fsize=0;
@@ -150,19 +153,19 @@ public:
         wfilename.Resize(szreq+10);
 
         if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
-          m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+          m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
       }
       else
       {
         WCHAR wfilename[1024];
 
         if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
-          m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+          m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
       }
     }
     if (m_fh == INVALID_HANDLE_VALUE)
 #endif
-      m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+      m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
 
     if (m_fh != INVALID_HANDLE_VALUE)
     {
@@ -214,10 +217,13 @@ public:
     }
 
 #elif defined(WDL_POSIX_NATIVE_READ)
+    m_filedes_locked=false;
     m_filedes_rdpos=0;
     m_filedes=open(filename,O_RDONLY);
     if (m_filedes>=0)
     {
+      if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0) // get shared lock
+        m_filedes_locked=true;
 #ifdef __APPLE__
       if (allow_async==1 || allow_async==-1) fcntl(m_filedes,F_NOCACHE,1);
 #endif
@@ -284,7 +290,11 @@ public:
 #elif defined(WDL_POSIX_NATIVE_READ)
     if (m_mmap_view) munmap(m_mmap_view,m_fsize);
     m_mmap_view=0;
-    if (m_filedes>=0) close(m_filedes);
+    if (m_filedes>=0) 
+    {
+      if (m_filedes_locked) flock(m_filedes,LOCK_UN); // release shared lock
+      close(m_filedes);
+    }
     m_filedes=-1;
 #else
     if (m_fp) fclose(m_fp);
@@ -384,7 +394,7 @@ public:
     }
     if (maxlen<1) return 0;
 
-    int errcnt=0;
+    int errcnt=!!m_async_hashaderr;
     do
     {
       while (m_full.GetSize() > 0)
@@ -439,13 +449,14 @@ public:
 //          WaitForSingleObject(ent->m_ol.hEvent,INFINITE);
 
           DWORD s=0;
-          if (GetOverlappedResult(m_fh,&ent->m_ol,&s,TRUE))
+          if (GetOverlappedResult(m_fh,&ent->m_ol,&s,TRUE) && s)
           {
             ent->m_size=s;
             m_full.Add(ent);
           }
-          else
+          else // failed read, set the error flag
           {
+            errcnt++;
             ent->m_size=0;
             m_empties.Add(ent);
           }
@@ -454,6 +465,7 @@ public:
     }
     while (maxlen > 0 && (m_pending.GetSize()||m_full.GetSize()) && !errcnt);
     if (!errcnt) RunReads();
+    else m_async_hashaderr=true;
 
     return lenout;
   }
@@ -624,6 +636,8 @@ public:
 
   bool SetPosition(WDL_FILEREAD_POSTYPE pos) // returns 0 on success
   {
+    m_async_hashaderr=false;
+
 #ifdef WDL_WIN32_NATIVE_READ
     if (m_fh == INVALID_HANDLE_VALUE) return true;
 #elif defined(WDL_POSIX_NATIVE_READ)
@@ -685,6 +699,7 @@ public:
   WDL_FILEREAD_POSTYPE m_fsize;
   
   bool m_syncrd_firstbuf;
+  bool m_async_hashaderr;
   void *m_mmap_view;
   void *m_mmap_totalbufmode;
 
@@ -702,6 +717,7 @@ public:
   
 #elif defined(WDL_POSIX_NATIVE_READ)
   int m_filedes;
+  bool m_filedes_locked;
   int GetHandle() { return m_filedes; }
   WDL_FILEREAD_POSTYPE m_filedes_rdpos;
 #else

@@ -92,13 +92,13 @@ EGifOpenFileName(const char *FileName,
 
     if (TestExistance)
         FileHandle = open(FileName, O_WRONLY | O_CREAT | O_EXCL
-#ifdef __MSDOS__
+#if defined(__MSDOS__) || defined(_WIN32)
                           | O_BINARY
 #endif /* __MSDOS__ */
                           , S_IREAD | S_IWRITE);
     else
         FileHandle = open(FileName, O_WRONLY | O_CREAT | O_TRUNC
-#ifdef __MSDOS__
+#if defined(__MSDOS__) || defined(_WIN32)
                           | O_BINARY
 #endif /* __MSDOS__ */
                           , S_IREAD | S_IWRITE);

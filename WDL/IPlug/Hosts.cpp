@@ -53,5 +53,11 @@ EHost LookUpHost(const char* inHost)
   if (strstr(host, "sawstudio")) {
     return kHostSAWStudio;
   }
+	if (strstr(host, "logic")) {
+		return kHostLogic;
+	}
+	if (strstr(host, "digital")) {
+		return kHostDigitalPerformer;
+	}
 	return kHostUnknown;
 }

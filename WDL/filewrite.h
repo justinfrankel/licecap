@@ -48,6 +48,8 @@
   #endif
   #if !defined(WDL_NO_POSIX_FILEWRITE)
     #include <sys/fcntl.h>
+    #include <sys/file.h>
+    #include <sys/errno.h>
     #define WDL_POSIX_NATIVE_WRITE
   #endif
 #endif
@@ -128,6 +130,7 @@ public:
       m_fh = INVALID_HANDLE_VALUE;
       m_async = 0;
 #elif defined(WDL_POSIX_NATIVE_WRITE)
+      m_filedes_locked=false;
       m_filedes=-1;
       m_bufspace_used=0;
 #else
@@ -198,11 +201,27 @@ public:
 
 #elif defined(WDL_POSIX_NATIVE_WRITE)
     m_bufspace_used=0;
-    m_filedes=open(filename,O_WRONLY|O_CREAT|O_TRUNC,0644);
+    m_filedes_locked=false;
+    m_filedes=open(filename,O_WRONLY|O_CREAT,0644);
     if (m_filedes>=0)
     {
+      int preverr;
+      if ((preverr=flock(m_filedes,LOCK_EX|LOCK_NB))<0 && errno == EWOULDBLOCK) // try to get exclusive, at least for a moment
+      {
+        // FAILED exclusive locking
+        close(m_filedes); 
+        m_filedes=-1;
+      }
+      else 
+      {
+        if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0 || // return to shared lock
+            preverr>=0) m_filedes_locked=true;
+      }
+      if (m_filedes>=0) ftruncate(m_filedes,0);
+
+      
 #ifdef __APPLE__
-      if (allow_async>1) fcntl(m_filedes,F_NOCACHE,1);
+      if (m_filedes >= 0 && allow_async>1) fcntl(m_filedes,F_NOCACHE,1);
 #endif
     }
     if (minbufs * bufsize >= 16384) m_bufspace.Resize((minbufs*bufsize+4095)&~4095);
@@ -235,6 +254,7 @@ public:
        if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
        m_bufspace_used=0;
      }
+     if (m_filedes_locked) flock(m_filedes,LOCK_UN);
      close(m_filedes);
    }
    m_filedes=-1;
@@ -579,6 +599,7 @@ public:
   int GetHandle() { return m_filedes; }
 
   int m_filedes;
+  bool m_filedes_locked;
 
   WDL_HeapBuf m_bufspace;
   int m_bufspace_used;

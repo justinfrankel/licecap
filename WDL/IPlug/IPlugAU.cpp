@@ -3,7 +3,7 @@
 #include "Log.h"
 #include "Hosts.h"
 
-#include "/Developer/Examples/CoreAudio/PublicUtility/CAStreamBasicDescription.h"
+//#include "/Developer/Examples/CoreAudio/PublicUtility/CAStreamBasicDescription.h"
 
 #define kAudioUnitRemovePropertyListenerWithUserDataSelect 0x0012
 
@@ -722,7 +722,9 @@ ComponentResult IPlugAU::SetProperty(AudioUnitPropertyID propID, AudioUnitScope 
 {
   Trace(TRACELOC, "(%d:%s):(%d:%s):%d", propID, AUPropertyStr(propID), scope, AUScopeStr(scope), element);
 
-  switch (propID) {
+	InformListeners(propID, scope);
+
+	switch (propID) {
 
     case kAudioUnitProperty_ClassInfo: {                // 0,
       return SetState(*((CFPropertyListRef*) pData));
@@ -1507,6 +1509,18 @@ void IPlugAU::SetBlockSize(int blockSize)
   memset(mInScratchBuf.Get(), 0, nIn * sizeof(AudioSampleType));
   memset(mOutScratchBuf.Get(), 0, nOut * sizeof(AudioSampleType));
   IPlugBase::SetBlockSize(blockSize);
+}
+
+void IPlugAU::InformListeners(AudioUnitPropertyID propID, AudioUnitScope scope)
+{
+	TRACE;
+	int i, n = mPropertyListeners.GetSize();
+	for (i = 0; i < n; ++i) {
+		PropertyListener* pListener = mPropertyListeners.Get(i);
+		if (pListener->mPropID == propID) {
+			pListener->mListenerProc(pListener->mProcArgs, mCI, propID, scope, 0);
+		}
+	}	
 }
 
 void IPlugAU::SetLatency(int samples)

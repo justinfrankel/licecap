@@ -368,7 +368,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 						      SetBkColor(hdc,bgc);
 						    }
 #ifdef _WIN32
-				        TextOut(hdc,xpos,ypos,isprint(c) && !isspace(c) ? p : " ",1);
+				        TextOut(hdc,xpos+1,ypos,isprint(c) && !isspace(c) ? p : " ",1);
 #else
                 RECT tr={xpos,ypos,xpos+32,ypos+32};
                 if (curbgbr) FillRect(hdc,&tr,curbgbr);

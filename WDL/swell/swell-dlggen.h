@@ -152,6 +152,7 @@
 #define WS_EX_RIGHT 0
 #define ES_RIGHT 0
 #define SS_CENTERIMAGE 0                                       
+#define SS_NOPREFIX 0
                      
                                        
 #ifndef IDC_STATIC

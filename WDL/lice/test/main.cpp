@@ -7,6 +7,7 @@
 
 #include "../lice.h"
 #include "../../plush2/plush.h"
+#include "../../MersenneTwister.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -17,9 +18,25 @@
 //#include "../glew/include/gl/glew.h"
 //#include "../glew/include/gl/wglew.h"
 
+//uncomment this to enable the ffmpeg video output in test 1
+//#define FFMPEG_TEST
+
+#define TIMING
+#include "../../timing.c"
+
+#ifdef FFMPEG_TEST
+//ffmpeg encoding test
+#include "../../ffmpeg.h"
+#pragma comment(lib, "../../../sdks/ffmpeg/lib/avcodec.lib")
+#pragma comment(lib, "../../../sdks/ffmpeg/lib/avformat.lib")
+#pragma comment(lib, "../../../sdks/ffmpeg/lib/avutil.lib")
+#pragma comment(lib, "../../../sdks/ffmpeg/lib/swscale.lib")
+static WDL_VideoEncode *m_encoder;
+#endif
+
 #include "resource.h"
 
-#define NUM_EFFECTS 22
+#define NUM_EFFECTS 23
 
 char *effect_names[NUM_EFFECTS] =
 {
@@ -44,7 +61,8 @@ char *effect_names[NUM_EFFECTS] =
   "3D Fly (use mouse)",
   "SVG loading (requires C:\\test.svg)",
   "GL acceleration (disabled)",
-  "Bezier curves"
+  "Bezier curves",
+  "Convex polygon fill",
 };
 
 HINSTANCE g_hInstance;
@@ -52,7 +70,7 @@ LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_IBitmap *framebuffer;
-static int m_effect = NUM_EFFECTS-1;
+static int m_effect = 0; //NUM_EFFECTS-1;
 static int m_doeff = 0;
 
 static LICE_IBitmap* tmpbmp = 0;
@@ -89,9 +107,51 @@ static void DoPaint(HWND hwndDlg)
     s_preveff = m_effect;
     LICE_Clear(framebuffer, 0);
   }
+
+  static MTRand s_rng;
   
   switch(m_effect)
   {
+    case 22:
+    {
+      static int x[16], y[16];
+
+      int i;
+      int w = framebuffer->getWidth();
+      int h = framebuffer->getHeight();
+
+      static bool init = false;
+      if (!init)
+      {
+        init = true;
+        for (i = 0; i < 16; ++i)
+        {
+          x[i] = s_rng.randInt(w-1); 
+          y[i] = s_rng.randInt(h-1);
+        }
+      }
+
+      for (i = 0; i < 16; ++i)
+      {
+        x[i] += s_rng.randNorm(0.0, 1.0)+0.5;
+        y[i] += s_rng.randNorm(0.0, 1.0)+0.5;
+        if (x[i] < 0) x[i] = 0;
+        else if (x[i] >= w) x[i] = w-1;
+        if (y[i] < 0) y[i] = 0;
+        else if (y[i] >= h) y[i] = h-1;
+      }
+
+      LICE_Clear(framebuffer, 0);
+      LICE_FillConvexPolygon(framebuffer, x, y, 16, LICE_RGBA(96,96,96,255), 1.0f, LICE_BLIT_MODE_COPY);
+
+      for (i = 0; i < 16; ++i)
+      {
+        LICE_Line(framebuffer, x[i]-1, y[i], x[i]+1, y[i], LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+        LICE_Line(framebuffer, x[i], y[i]-1, x[i], y[i]+1, LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+      }
+    }
+    break;
+
     case 21:
     {
       int w = framebuffer->getWidth();
@@ -361,7 +421,7 @@ static void DoPaint(HWND hwndDlg)
     case 15:
     case 0:
     {
-      double a=GetTickCount()/1000.0;
+      double a=.51;//GetTickCount()/1000.0;
       
       double scale=(1.1+sin(a)*0.3);
       
@@ -375,7 +435,12 @@ static void DoPaint(HWND hwndDlg)
         
         LICE_Copy(&framebuffer_back,framebuffer);
         LICE_RotatedBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,0+sin(a*0.3)*16.0,0+sin(a*0.21)*16.0,r.right,r.bottom,cos(a*0.5)*0.13,false,1.0,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
-        LICE_ScaledBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,r.right/4,r.bottom/4,r.right/2,r.bottom/2,0.1,LICE_BLIT_MODE_HSVADJ|LICE_BLIT_FILTER_BILINEAR);
+        timingEnter(0);
+        LICE_ScaledBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,-200,-200,3000,3000,0.1,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+        timingLeave(0);
+        timingEnter(1);
+        LICE_ScaledBlit(framebuffer,&framebuffer_back,0,0,r.right,r.bottom,0,0,r.right/2,r.bottom/2,0.1,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+        timingLeave(1);
       }
       //LICE_Clear(framebuffer,0);
       if (bmp) LICE_RotatedBlit(framebuffer,bmp,r.right*scale,r.bottom*scale,r.right*(1.0-scale*2.0),r.bottom*(1.0-scale*2.0),0,0,bmp->getWidth(),bmp->getHeight(),cos(a*0.3)*13.0,false,0.3,LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
@@ -386,6 +451,44 @@ static void DoPaint(HWND hwndDlg)
                              3,2,200,0);
       }
       
+
+#ifdef FFMPEG_TEST
+      //ffmpeg encoding test
+      if(!m_encoder) m_encoder = new WDL_VideoEncode("flv", framebuffer->getWidth(),framebuffer->getHeight(), 25, 1256, NULL, 44100, 1, 128);
+      if(m_encoder->isInited())
+      {
+        //set the alpha bit to 0xff
+        //LICE_FillRect(framebuffer, 0, 0, framebuffer->getWidth(), framebuffer->getHeight(), LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_ADD);
+        m_encoder->encodeVideo(framebuffer->getBits());
+
+        static short audiodata[2000]={0,};
+        static int initaudio=0;
+        if(!initaudio)
+        {
+          float t = 0;
+          for(int j=0;j<2000;j++) 
+          {
+            audiodata[j] = (int)(sin(t) * 10000);
+            t += 2 * M_PI * 440.0 / 44100;
+          }          
+          initaudio = 1;
+        }
+        m_encoder->encodeAudio(audiodata, 44100/25);
+
+        static WDL_HeapBuf h;
+        h.Resize(256*1024);
+        unsigned char *p = (unsigned char *)h.Get();
+        int s = m_encoder->getBytes(p, 256*1024);
+        if(s)
+        {
+          FILE *fh = fopen("c:\\temp\\out.flv", "ab");
+          fwrite(p, s, 1, fh);
+          fclose(fh);
+        }
+      }
+#endif
+      
+
     }
       break;
     case 1:
@@ -405,18 +508,20 @@ static void DoPaint(HWND hwndDlg)
       break;
     case 3:
     {
-      //LICE_Clear(framebuffer,0);
+      LICE_Clear(framebuffer,LICE_RGBA(128,128,128,128));
       static double a;
-      a+=0.04;
-      int xsize=sin(a*3.0)*r.right*1.5;
-      int ysize=sin(a*1.7)*r.bottom*1.5;
+      a+=0.003;
+      int xsize=sin(a*1.1)*r.right*10.5;
+      int ysize=sin(a*1.7)*r.bottom*10.5;
+      int xp = sin(a*0.3+1515851)*r.right*0.5;
+      int yp = sin(a*0.3+15853)*r.bottom*0.5;
       
       if (bmp)
       {
-        if (rand()%3==0)
-          LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),-0.7,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR);
-        else
-          LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),0.25,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+//        if (rand()%3==0)
+  //        LICE_ScaledBlit(framebuffer,bmp,r.right/2-xsize/2,r.bottom/2-ysize/2,xsize,ysize,0.0,0.0,bmp->getWidth(),bmp->getHeight(),-0.7,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_ADD|LICE_BLIT_FILTER_BILINEAR);
+    ///    else
+          LICE_ScaledBlit(framebuffer,bmp,xp + r.right/2-xsize/2,yp + r.bottom/2-ysize/2,xsize,ysize,-300,-300,600+bmp->getWidth(),600+bmp->getHeight(),1,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
       }
     }
       break;
@@ -506,8 +611,38 @@ static void DoPaint(HWND hwndDlg)
     case 11:
       //line test
     {
+
+      LICE_pixel goodCol=LICE_RGBA(192,0,192,64);
+      LICE_Clear(framebuffer,goodCol);
+      int subx=30,suby=30,subw=300,subh=300;
+      LICE_SubBitmap bm(framebuffer,subx,suby,subw,subh);
+      LICE_Clear(&bm,LICE_RGBA(80,80,80,255));
+
+      int n;
       int w = framebuffer->getWidth(), h = framebuffer->getHeight();      
-      LICE_Line(framebuffer, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+      for(n=0;n<10000;n++)
+      {
+        LICE_FLine(&bm, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
+      }
+      int y;
+      for(y=0;y<h;y++)
+      {
+        int x;
+        for(x=0;x<w;x++)
+        {
+          if (x<subx||y<suby||x>=subx+subw||y>=suby+subh)
+          {
+            if (LICE_GetPixel(framebuffer,x,y)!=goodCol)
+            {
+              LICE_Clear(framebuffer,LICE_RGBA(255,255,255,255));
+              y=h;
+              break;
+            }
+          }
+        }
+      }
+
+  //    LICE_Line(framebuffer, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
     }
       break;
     case 12:
@@ -774,9 +909,11 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdParam, int nShowCmd)
 {
 
+  timingInit();
   g_hInstance=hInstance;
   DialogBox(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, dlgProc);
 
+  timingPrint();
 
   return 0;
 }

@@ -60,7 +60,7 @@ public:
   ~WDL_ImpulseBuffer() { }
 
   int GetLength() { return impulses[0].GetSize(); }
-  void SetLength(int samples); // resizes/clears all channels accordingly
+  int SetLength(int samples); // resizes/clears all channels accordingly, returns actual size set (can be 0 if error)
   void SetNumChannels(int usench); // handles allocating/converting/etc
   int GetNumChannels() { return m_nch; }
 

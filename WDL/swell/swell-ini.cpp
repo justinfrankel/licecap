@@ -278,7 +278,17 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
           {
             int y;
             for (y = 0; y < m_sections.Get(x)->m_items.GetSize(); y ++)
-              tmpbuf.Add(m_sections.Get(x)->m_items.Get(y),strlen(m_sections.Get(x)->m_items.Get(y))+1);
+            {
+              char * p = m_sections.Get(x)->m_items.Get(y);
+              char *np=p;
+              while (*np && *np != '=') np++;
+              if (np>p)
+              {
+                tmpbuf.Add(p,np-p);
+                char c=0;
+                tmpbuf.Add(&c,1);
+              }
+            }
             break;
           }
         }

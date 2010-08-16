@@ -83,28 +83,20 @@ template<class PTRTYPE> class WDL_PtrList
       else if (index > s) index=s;
       
       int x;
-      for (x = s; x > index; x --)
-      {
-        GetList()[x]=GetList()[x-1];
-      }
-      return (GetList()[x] = item);
+      PTRTYPE **list = GetList();
+      for (x = s; x > index; x --) list[x]=list[x-1];
+      return (list[x] = item);
     }
     int FindSorted(PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
     {
-      int cursz = GetSize(); PTRTYPE **pp = GetList();
-      while (cursz > 0)
-      {
-        int pvt=cursz/2,v=compar((const PTRTYPE**)&p,(const PTRTYPE**)(pp+pvt));
-        if (v<0) cursz=pvt; else if (v>0) { cursz -= ++pvt; pp += pvt; }
-        else return pp+pvt - GetList();
-      }
-      return -1;
+      bool m;
+      int i = LowerBound(p,&m,compar);
+      return m ? i : -1;
     }
     PTRTYPE *InsertSorted(PTRTYPE *item, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
     {
-      int pos,s=GetSize(); // could bsearch here but meh for now this is fine since we'll have to do a O(N) move of items for the insertion too
-      for(pos=0;pos<s&&compar((const PTRTYPE**)&item,(const PTRTYPE**)(GetList()+pos))<0;pos++);
-      return Insert(pos,item);
+      bool m;
+      return Insert(LowerBound(item,&m,compar),item);
     }
 
     void Delete(int index, bool wantDelete=false, void (*delfunc)(void *)=NULL)
@@ -118,7 +110,7 @@ template<class PTRTYPE> class WDL_PtrList
           if (delfunc) delfunc(Get(index));
           else delete Get(index);
         }
-        if (index < --size) memcpy(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
+        if (index < --size) memmove(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
         m_hb.Resize(size * sizeof(PTRTYPE*),false);
       }
     }
@@ -151,6 +143,27 @@ template<class PTRTYPE> class WDL_PtrList
 
   private:
     WDL_HeapBuf m_hb;
+
+    int LowerBound(PTRTYPE *key, bool* ismatch, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
+    {
+      int a = 0;
+      int c = GetSize();
+      while (a != c)
+      {
+        int b = (a+c)/2;
+        int cmp = compar((const PTRTYPE **)&key, (const PTRTYPE **)(GetList()+b));
+        if (cmp < 0) a = b+1;
+        else if (cmp > 0) c = b;
+        else
+        {
+          *ismatch = true;
+          return b;
+        }
+      }
+      *ismatch = false;
+      return a;
+    }
+
 };
 
 #endif

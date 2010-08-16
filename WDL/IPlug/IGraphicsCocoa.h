@@ -7,7 +7,7 @@
 // Cocoa objects can be supplied by any existing component, 
 // so we need to make sure the C++ static lib code gets the 
 // IGraphicsCocoa that it expects.
-#define IGRAPHICS_COCOA IGraphicsCocoa_v1001
+#define IGRAPHICS_COCOA IGraphicsCocoa_v1002
 
 NSString* ToNSString(const char* cStr);
 

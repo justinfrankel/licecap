@@ -5,11 +5,15 @@
 #include "swell-dlggen.h"
 
 #import <Cocoa/Cocoa.h>
+#include <AudioUnit/AudioUnit.h>
+#include <AudioUnit/AUCocoaUIView.h>
+
 static HMENU g_swell_defaultmenu,g_swell_defaultmenumodal;
 
 void (*SWELL_DDrop_onDragLeave)();
 void (*SWELL_DDrop_onDragOver)(POINT pt);
 void (*SWELL_DDrop_onDragEnter)(void *hGlobal, POINT pt);
+const char* (*SWELL_DDrop_getDroppedFileTargetPath)(const char* extension);
 
 bool SWELL_owned_windows_levelincrease=false;
 
@@ -308,6 +312,14 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 { 
   m_enabled=en; 
 } 
+
+- (void)comboBoxWillPopUp:(NSNotification*)notification
+{
+  id sender=[notification object];
+  int code=CBN_DROPDOWN;
+  m_wndproc((HWND)self,WM_COMMAND,([sender tag])|(code<<16),(LPARAM)sender);
+}
+
 - (void)comboBoxSelectionDidChange:(NSNotification *)notification
 {
   id sender=[notification object];
@@ -421,7 +433,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   {
     int cw=0;
     if ([sender isKindOfClass:[NSComboBox class]]) return; // combo boxes will use delegate messages
-    else if ([sender isKindOfClass:[NSPopUpButton class]]) cw=CBN_SELCHANGE;
+    else if ([sender isKindOfClass:[NSPopUpButton class]]) 
+    {
+      cw=CBN_SELCHANGE;
+    }
     else if ([sender isKindOfClass:[SWELL_Button class]])
     {
       int rf;
@@ -466,6 +481,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       NSEvent *evt=[NSApp currentEvent];
       int ty=evt?[evt type]:0;
       if (evt && (ty==NSLeftMouseDown || ty==NSLeftMouseUp) && [evt clickCount] > 1) cw=STN_DBLCLK;
+    }
+    else if ([sender isKindOfClass:[NSMenuItem class]])
+    {
+//      [[sender menu] update];
+      // wish we could force the top level menu to update here, meh
     }
     m_wndproc((HWND)self,WM_COMMAND,[sender tag]|(cw<<16),(LPARAM)sender);
   }
@@ -624,7 +644,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   
   if (resstate && (resstate->windowTypeFlags&SWELL_DLG_WS_DROPTARGET))
   {
-    [self registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
+    [self registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, NSFilesPromisePboardType, nil]];
   }
   
   if (!resstate)
@@ -823,6 +843,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 }
 - (void)mouseDown:(NSEvent *)theEvent
 {
+  SWELL_FinishDragDrop();
   if (!m_enabled) return;
 	m_isfakerightmouse=0;
   if ([theEvent modifierFlags] & NSControlKeyMask)
@@ -831,6 +852,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     if ([theEvent clickCount]<2) m_isfakerightmouse=1;
         return;
   }
+
   [self sendMouseMessage:([theEvent clickCount]>1 ? WM_LBUTTONDBLCLK : WM_LBUTTONDOWN) event:theEvent];
 }
 - (void)rightMouseUp:(NSEvent *)theEvent
@@ -926,6 +948,14 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(void)onSwellSetText:(const char *)buf { lstrcpyn(m_titlestr,buf,sizeof(m_titlestr)); }
 
 
+// source-side drag/drop, only does something if source called SWELL_InitiateDragDrop while handling mouseDown
+- (NSArray*) namesOfPromisedFilesDroppedAtDestination:(NSURL*) dropdestination
+{
+  NSArray* SWELL_DoDragDrop(NSURL*);
+  return SWELL_DoDragDrop(dropdestination); 
+}
+
+
 /*
 - (BOOL)becomeFirstResponder 
 {
@@ -965,7 +995,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender 
 {
   if (!m_supports_ddrop) return NSDragOperationNone;
-  
+
   if (SWELL_DDrop_onDragEnter)
   {
     HANDLE h = (HANDLE)[self swellExtendedDragOp:sender retGlob:YES];
@@ -983,7 +1013,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)sender 
 {
   if (!m_supports_ddrop) return NSDragOperationNone;
-  
+
   if (SWELL_DDrop_onDragOver)
   {
     NSPoint p=[[self window] convertBaseToScreen:[sender draggingLocation]];
@@ -1008,11 +1038,45 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   sourceDragMask = [sender draggingSourceOperationMask];
   pboard = [sender draggingPasteboard];
  
-  if (! [[pboard types] containsObject:NSFilenamesPboardType] )  return 0;
-
-
+  enum { PB_FILEREF=1, PB_FILEPROMISE };
+  int pbtype = 0;
+  if ([[pboard types] containsObject:NSFilenamesPboardType]) pbtype |= PB_FILEREF;
+  if ([[pboard types] containsObject:NSFilesPromisePboardType]) pbtype |= PB_FILEPROMISE;
+  if (!pbtype) return 0; 
+ 
   int sz=sizeof(DROPFILES);
-  NSArray *files = [pboard propertyListForType:NSFilenamesPboardType];
+
+  bool maketmpfn = false;
+  NSArray *files = 0;
+  if (pbtype&PB_FILEREF) 
+  {
+    files = [pboard propertyListForType:NSFilenamesPboardType]; 
+  }
+  else if (pbtype&PB_FILEPROMISE) 
+  {
+    NSArray* exts = [pboard propertyListForType:NSFilesPromisePboardType];  // just the file extensions
+    if (retG) 
+    {
+      files = exts;
+      maketmpfn = true;
+    }
+    else if (SWELL_DDrop_getDroppedFileTargetPath)
+    {
+      char ext[256];
+      ext[0] = 0;
+      if ([exts objectAtIndex:0]) SWELL_CFStringToCString([exts objectAtIndex:0], ext, sizeof(ext));
+
+      const char* droppath = SWELL_DDrop_getDroppedFileTargetPath(ext);
+      if (!droppath || !droppath[0]) droppath = "/tmp/";
+      NSString* pathstr = (NSString*)SWELL_CStringToCFString(droppath);
+      NSURL* dest = [NSURL fileURLWithPath:pathstr];
+      [pathstr release];
+      
+      files = [sender namesOfPromisedFilesDroppedAtDestination:dest]; // tells the drag source to create the files
+    }      
+  }
+  if (!files) return 0;
+  
   int x;
   for (x = 0; x < [files count]; x ++)
   {
@@ -1023,6 +1087,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       text[0]=0;
       SWELL_CFStringToCString(sv,text,sizeof(text));
       sz+=strlen(text)+1;
+      if (maketmpfn) sz += strlen("tmp.");
     }
   }
 
@@ -1042,8 +1107,13 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     if (sv)
     {
       char text[4096];
-      text[0]=0;
-      SWELL_CFStringToCString(sv,text,sizeof(text));
+      text[0]=0;      
+      SWELL_CFStringToCString(sv,text,sizeof(text));      
+      if (maketmpfn)
+      {
+        strcpy(pout, "tmp.");
+        pout += strlen("tmp.");
+      }
       strcpy(pout,text);
       pout+=strlen(pout)+1;
     }
@@ -1062,7 +1132,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (BOOL)performDragOperation:(id <NSDraggingInfo>)sender
 {
   if (m_supports_ddrop && SWELL_DDrop_onDragLeave) SWELL_DDrop_onDragLeave();
-  
+   
   NSView *v=[self hitTest:[[self superview] convertPoint:[sender draggingLocation] fromView:nil]];
   if (v && [v isDescendantOf:self])
   {
@@ -1073,6 +1143,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       v=[v superview];
     }
   }
+  
   return !![self swellExtendedDragOp:sender retGlob:NO];
 }
 
@@ -1342,6 +1413,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 - (id)initDialogBox:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par
 {
   m_rv=0;
+  m_hasrv=false;
   INIT_COMMON_VARS
   
   NSRect contentRect=NSMakeRect(0,0,resstate->width,resstate->height);
@@ -1380,11 +1452,16 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 
 -(void)swellSetModalRetVal:(int)r
 {
+  m_hasrv=true;
   m_rv=r;
 }
 -(int)swellGetModalRetVal
 {
   return m_rv;
+}
+-(bool)swellHasModalRetVal
+{
+  return m_hasrv;
 }
 
 @end
@@ -1407,11 +1484,11 @@ void EndDialog(HWND wnd, int ret)
   }
   if (!nswnd) return;
    
+  if ([nswnd respondsToSelector:@selector(swellSetModalRetVal:)])
+    [(SWELL_ModalDialog*)nswnd swellSetModalRetVal:ret];
+
   if ([NSApp modalWindow] == nswnd)
-  {
-    if ([nswnd respondsToSelector:@selector(swellSetModalRetVal:)])
-       [(SWELL_ModalDialog*)nswnd swellSetModalRetVal:ret];
-    
+  {   
     if ([nsview respondsToSelector:@selector(onSwellMessage:p1:p2:)])
       [(SWELL_hwndChild*)nsview onSwellMessage:WM_DESTROY p1:0 p2:0];
     
@@ -1436,6 +1513,14 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, int resid, HWND parent, 
      
   if (!box) return -1;
   
+  if ([box swellHasModalRetVal]) // detect EndDialog() in WM_INITDIALOG
+  {
+    int ret=[box swellGetModalRetVal];
+    [(SWELL_hwndChild*)[box contentView] onSwellMessage:WM_DESTROY p1:0 p2:0];
+    [box release];
+    return ret;
+  }
+    
   if (![NSApp isActive]) // using this enables better background processing (i.e. if the app isnt active it still runs)
   {
     NSModalSession session = [NSApp beginModalSessionForWindow:box];
@@ -1538,6 +1623,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
     case kEventWindowActivated:
       [NSApp setMainMenu:nil];
     break;
+    
     case kEventWindowGetClickActivation: 
     {
       ClickActivationResult car = kActivateAndHandleClick;
@@ -1579,6 +1665,14 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
       }
     }
     break;
+    
+    case kEventRawKeyDown:
+    {
+      char c;
+      GetEventParameter(event, kEventParamKeyMacCharCodes, typeChar, 0, sizeof(char), NULL, &c);
+      SendMessage((HWND)_this, WM_KEYDOWN, (WPARAM)c, 0);
+    }
+    break;
   }
   return noErr;
 }
@@ -1608,6 +1702,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
       { kEventClassWindow, kEventWindowActivated },
       { kEventClassWindow, kEventWindowGetClickActivation },
       { kEventClassWindow, kEventWindowHandleDeactivate },
+      { kEventClassKeyboard, kEventRawKeyDown },
     };
     int nwinevts = sizeof(winevts)/sizeof(EventTypeSpec);
           
@@ -1889,6 +1984,30 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 
 @end
 
+HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaViewInfo* viewinfo, RECT* r)
+{
+	NSString* classname = (NSString*)(viewinfo->mCocoaAUViewClass[0]);
+  if (!classname) return 0;
+	NSString* path = (NSString*)(CFURLCopyPath(viewinfo->mCocoaAUViewBundleLocation));
+  if (!path) return 0;
+	NSBundle* bundle = [NSBundle bundleWithPath:[path autorelease]];
+  if (!bundle) return 0;
+	Class factoryclass = [bundle classNamed:classname];
+  if (![factoryclass conformsToProtocol: @protocol(AUCocoaUIBase)]) return 0;
+  if (![factoryclass instancesRespondToSelector: @selector(uiViewForAudioUnit:withSize:)]) return 0;
+  id viewfactory = [[[factoryclass alloc] init] autorelease];
+  if (!viewfactory) return 0;
+  NSView* view = [viewfactory uiViewForAudioUnit:aunit withSize:NSMakeSize(r->right-r->left, r->bottom-r->top)];
+  if (!view) return 0;
+  
+  [(NSView*)parent addSubview:view];
+  NSRect bounds = [view bounds];
+  r->left = r->top = 0;
+  r->right = bounds.size.width;
+  r->bottom = bounds.size.height;
+  return (HWND)view;
+}
+
 
 HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, RECT* r, bool wantcomp)  // window is created with a root control
 {
@@ -1971,7 +2090,57 @@ void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
 @end
 
 
+static char* s_dragdropsrcfn = 0;
+static void (*s_dragdropsrccallback)(const char*) = 0;
 
+void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*callback)(const char* dropfn))
+{
+  SWELL_FinishDragDrop();
+
+  if (![(id)hwnd isKindOfClass:[SWELL_hwndChild class]]) return;
+
+  s_dragdropsrcfn = strdup(srcfn);
+  s_dragdropsrccallback = callback;
+  
+  char* p = s_dragdropsrcfn+strlen(s_dragdropsrcfn)-1;
+  while (p >= s_dragdropsrcfn && *p != '.') --p;
+  ++p;
+  
+  NSString* str = (NSString*)SWELL_CStringToCFString(p);  
+  NSRect r = NSMakeRect(srcrect->left, srcrect->top, srcrect->right-srcrect->left, srcrect->bottom-srcrect->top);
+  NSEvent* evt = [NSApp currentEvent];
+  [(NSView*)hwnd dragPromisedFilesOfTypes:[NSArray arrayWithObject:str] fromRect:r source:(NSView*)hwnd slideBack:YES event:evt];
+  [str release];
+} 
+
+
+NSArray* SWELL_DoDragDrop(NSURL* droplocation)
+{
+  NSArray* fnarr = 0;
+  if (s_dragdropsrcfn && s_dragdropsrccallback && droplocation)
+  {  
+    char* p = s_dragdropsrcfn+strlen(s_dragdropsrcfn)-1;
+    while (p >= s_dragdropsrcfn && *p != '/') --p;
+    ++p;
+
+    NSString* destdir = [droplocation path];  // not ours    
+    NSString* destfn = (NSString*)(SWELL_CStringToCFString(p));
+    NSString* destpath = [destdir stringByAppendingPathComponent:destfn];    
+    [destfn release];  
+      
+    s_dragdropsrccallback([destpath UTF8String]);
+    fnarr = [NSArray arrayWithObject:destpath];  
+  }
+  SWELL_FinishDragDrop();  
+  return fnarr;
+}  
+
+void SWELL_FinishDragDrop()
+{
+  free(s_dragdropsrcfn);
+  s_dragdropsrcfn = 0;
+  s_dragdropsrccallback = 0;  
+}
 
 
 

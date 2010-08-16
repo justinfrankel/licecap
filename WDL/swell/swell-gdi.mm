@@ -955,10 +955,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     r->bottom=r->top+h;
     return h;  
   }
- 
- 
-  
-  
+    
   //if (!(align & DT_NOCLIP))
   {
     CGContextSaveGState(ct->ctx);    
@@ -989,7 +986,18 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     CGContextScaleCTM(ct->ctx,1,-1);
     CGContextTranslateCTM(ct->ctx,0,-t-h);
     
-    
+    if (ct->curbkmode == OPAQUE)
+    {      
+      CGRect bgr = CGRectMake(l, t, w, h);
+      CGColorSpaceRef csr = CGColorSpaceCreateDeviceRGB();
+      float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
+      CGColorRef bgc = CGColorCreate(csr, col);
+      CGContextSetFillColorWithColor(ct->ctx, bgc);
+      CGContextFillRect(ct->ctx, bgr);
+      CGColorRelease(bgc);	
+      CGColorSpaceRelease(csr);
+    }
+        
     ATSUDrawText(layout,kATSUFromTextBeginning,kATSUToTextEnd,Long2Fix(l),Long2Fix(t+descent));
   }
 

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "ptrlist.h"
+#include "queue.h"
 
 class ChannelPinMapper
 {
@@ -32,14 +33,14 @@ public:
   // true if this mapper is a straight 1:1 passthrough
   bool IsStraightPassthrough();
 
-  // return is on the heap
-  char* SaveState(int* pLen);
+  char* SaveStateNew(int* pLen); // owned
   bool LoadState(char* buf, int len);
 
   WDL_TypedBuf<WDL_UINT64> m_mapping;
 
 private:
 
+  WDL_Queue m_cfgret;
   int m_nCh, m_nPins;
 };
 

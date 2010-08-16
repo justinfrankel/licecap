@@ -1,3 +1,4 @@
+#include <Foundation/NSArchiver.h>
 #include "IGraphicsMac.h"
 #include "IControl.h"
 #include "Log.h"
@@ -112,6 +113,8 @@ bool IGraphicsMac::DrawScreen(IRECT* pR)
 
 void* IGraphicsMac::OpenWindow(void* pParent)
 {
+	mGraphicsCocoa = 0;
+	mGraphicsCarbon = 0;
   if (!pParent || [(id) pParent isKindOfClass: [NSView class]]) {
     return OpenCocoaWindow(pParent);
   }
@@ -151,13 +154,20 @@ void* IGraphicsMac::OpenCarbonWindow(void* pParentWnd, void* pParentControl)
 
 void IGraphicsMac::CloseWindow()
 {
-  if (mGraphicsCarbon) {
+  if (mGraphicsCarbon) 
+  {
     DELETE_NULL(mGraphicsCarbon);
   }
   else  
-	if (mGraphicsCocoa) {
-    [(IGRAPHICS_COCOA*) mGraphicsCocoa killTimer];
-    [(IGRAPHICS_COCOA*) mGraphicsCocoa removeFromSuperview];   // Releases.
+	if (mGraphicsCocoa) 
+  {
+    IGRAPHICS_COCOA* graphicscocoa = (IGRAPHICS_COCOA*)mGraphicsCocoa;
+    [graphicscocoa killTimer];
+    if (graphicscocoa->mGraphics)
+    {
+      graphicscocoa->mGraphics = 0;
+      [graphicscocoa removeFromSuperview];   // Releases.
+    }
 	  mGraphicsCocoa = 0;
 	}
 }

@@ -19,7 +19,7 @@ extern "C" {
 #define MBTOWIDE(symbase, src) \
                 int symbase##_size; \
                 WCHAR symbase##_buf[1024]; \
-                WCHAR *symbase = (symbase##_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,NULL,0)) >= 1000 ? (WCHAR *)malloc(symbase##_size + 1) : symbase##_buf; \
+                WCHAR *symbase = (symbase##_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,NULL,0)) >= 1000 ? (WCHAR *)malloc(symbase##_size * sizeof(WCHAR) + 10) : symbase##_buf; \
                 int symbase##_ok = symbase ? (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,symbase,symbase##_size < 1 ? 1024 : symbase##_size)) : 0
 
 #define MBTOWIDE_FREE(symbase) if (symbase != symbase##_buf) free(symbase)
@@ -28,7 +28,7 @@ extern "C" {
 #define WIDETOMB_ALLOC(symbase, length) \
             WCHAR symbase##_buf[1024]; \
             int symbase##_size = sizeof(symbase##_buf); \
-            WCHAR *symbase = length > 1000 ? (WCHAR *)malloc(symbase##_size = length + 10) : symbase##_buf
+            WCHAR *symbase = length > 1000 ? (WCHAR *)malloc(symbase##_size = (sizeof(WCHAR)*length + 10)) : symbase##_buf
 
 #define WIDETOMB_FREE(symbase) if (symbase != symbase##_buf) free(symbase)
 

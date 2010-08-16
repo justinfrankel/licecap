@@ -27,6 +27,8 @@ enum EHost {
   kHostOrion,
   kHostBias,
   kHostSAWStudio,
+	kHostLogic,
+	kHostDigitalPerformer,
 
 	// These hosts don't report the host name:
   // EnergyXT2

@@ -100,6 +100,7 @@ bool EnableMenuItem(HMENU hMenu, int idx, int en)
 bool CheckMenuItem(HMENU hMenu, int idx, int chk)
 {
   NSMenu *menu=(NSMenu *)hMenu;
+  if (!menu) return false;
   
   NSMenuItem *item;
   if (chk & MF_BYPOSITION) item=[menu itemAtIndex:idx];
@@ -125,6 +126,17 @@ bool CheckMenuItem(HMENU hMenu, int idx, int chk)
   [item setState:((chk&MF_CHECKED)?NSOnState:NSOffState)];
   
   return true;
+}
+HMENU SWELL_GetCurrentMenu()
+{
+  return [NSApp mainMenu];
+}
+void SWELL_SetCurrentMenu(HMENU hmenu)
+{
+  if (hmenu && [(id)hmenu isKindOfClass:[NSMenu class]])
+  {
+    [NSApp setMainMenu:(NSMenu *)hmenu];
+  }
 }
 
 HMENU GetSubMenu(HMENU hMenu, int pos)
@@ -157,6 +169,17 @@ int GetMenuItemID(HMENU hMenu, int pos)
 
 bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int mask)
 {
+
+#if 0 // enable this once we make SWELL_KeyToASCII decent
+  int n2=0;
+  int n1 = SWELL_KeyToASCII(code,flag,&n2);
+  if (n1)
+  {
+    code=n1;
+    flag=n2;
+  }
+#endif
+  
   NSMenu *menu=(NSMenu *)hMenu;
   
   NSMenuItem *item;
@@ -181,7 +204,8 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
     return false;
   }
   
-	NSString *label=NULL;
+  bool suppressShift = false;
+  unichar arrowKey = 0;
   int codelow = code&127;
   if ((code>='A' && code <='Z') ||
       (code>='0' && code <= '9') ||   
@@ -190,21 +214,22 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
          codelow == '"' || 
          codelow == ',' ||
          codelow == '.' || 
+         codelow == '!' ||
          codelow == '[' || codelow == ']'
          )))      
   {
-    char buf[2]={codelow,0};
-    if (!(mask & FSHIFT)) buf[0]=tolower(buf[0]);
-    label=[NSString stringWithUTF8String:buf];
+    arrowKey=codelow;
+    if (!(mask & FSHIFT) && arrowKey < 256) arrowKey=tolower(arrowKey);
+    
+    if (code>='A' && code<='Z') suppressShift=true;
   }
   else if (code >= VK_F1 && code <= VK_F12)
   {
-    unichar arrowKey = NSF1FunctionKey + code - VK_F1;
-    label = [NSString stringWithCharacters:&arrowKey length:1];
+    arrowKey = NSF1FunctionKey + code - VK_F1;
   }
   else switch (code&0xff)
   {
-    #define DEFKP(wink,mack) case wink: {  unichar arrowKey = mack; label = [NSString stringWithCharacters:&arrowKey length:1]; } break;
+    #define DEFKP(wink,mack) case wink: arrowKey = mack; break;
     DEFKP(VK_UP,NSUpArrowFunctionKey)
     DEFKP(VK_DOWN,NSDownArrowFunctionKey)
     DEFKP(VK_LEFT,NSLeftArrowFunctionKey)
@@ -215,14 +240,16 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
     DEFKP(VK_END,NSEndFunctionKey)
     DEFKP(VK_NEXT,NSPageDownFunctionKey)
     DEFKP(VK_PRIOR,NSPageUpFunctionKey)
+    DEFKP(VK_SUBTRACT,'-')
   }
+   
   unsigned int mask2=0;
   if (mask&FALT) mask2|=NSAlternateKeyMask;
-  if (mask&FSHIFT) mask2|=NSShiftKeyMask;
+  if (!suppressShift) if (mask&FSHIFT) mask2|=NSShiftKeyMask;
   if (mask&FCONTROL) mask2|=NSCommandKeyMask;
-    
+     
   [item setKeyEquivalentModifierMask:mask2];
-  [item setKeyEquivalent:label?label:@""];
+  [item setKeyEquivalent:arrowKey?[NSString stringWithCharacters:&arrowKey length:1]:@""];
   return true;
 }
 
@@ -409,12 +436,19 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     SWELL_DataHold *h=[item representedObject];
     mi->dwItemData = (DWORD) (h && [h isKindOfClass:[SWELL_DataHold class]]? [h getValue] : 0);
   }
+  
   if (mi->fMask & MIIM_STATE)
   {
     mi->fState=0;
     if ([item state]) mi->fState|=MFS_CHECKED;
     if (![item isEnabled]) mi->fState|=MFS_GRAYED;
   }
+  
+  if (mi->fMask & MIIM_ID)
+  {
+    mi->wID = [item tag];
+  }
+  
   return 1;
   
 }

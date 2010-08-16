@@ -1,4 +1,3 @@
-
 // Double quotes, spaces OK.
 #define PLUG_MFR "Schwa"
 #define PLUG_NAME "IPlug Example"
@@ -23,6 +22,7 @@
 // This is the exported cocoa view class, some hosts display this string.
 // No quotes or spaces.
 #define VIEW_CLASS PlugExample_View
+#define VIEW_CLASS_STR "PlugExample_View"
 
 // This is interpreted as 0xMAJR.MN.BG
 #define PLUG_VER 0x00010000

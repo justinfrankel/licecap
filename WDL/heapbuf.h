@@ -87,26 +87,41 @@ class WDL_HeapBuf
 
     WDL_HeapBuf(const WDL_HeapBuf &cp)
     {
-      memcpy(this,&cp,sizeof(WDL_HeapBuf));
-      if (m_buf) 
-      {
-        m_buf=malloc(m_alloc);
-        memcpy(m_buf,cp.m_buf,m_size);
-      }
+      m_buf=0;
+      CopyFrom(&cp,true);
     }
     WDL_HeapBuf &operator=(const WDL_HeapBuf &cp)
     {
-      memcpy(this,&cp,sizeof(WDL_HeapBuf));
-      if (m_buf) 
-      {
-        m_buf=malloc(m_alloc);
-        memcpy(m_buf,cp.m_buf,m_size);
-      }
+      m_buf=0;
+      CopyFrom(&cp,true);
       return *this;
     }
 
-    void *Get() { return m_size?m_buf:NULL; }
-    int GetSize() { return m_size; }
+    void CopyFrom(const WDL_HeapBuf *hb, bool exactCopyOfConfig=false)
+    {
+      if (exactCopyOfConfig) // copy all settings
+      {
+        free(m_buf);
+        memcpy(this,hb,sizeof(WDL_HeapBuf));
+        if (hb->m_buf) 
+        {
+          m_buf=malloc(m_alloc);
+          if (m_buf) memcpy(m_buf,hb->m_buf,m_size);
+          else m_size=m_alloc=0;
+        }
+      }
+      else // copy just the data + size
+      {
+        int newsz=hb->GetSize();
+        Resize(newsz);
+        if (GetSize()!=newsz) Resize(0);
+        else memcpy(Get(),hb->Get(),newsz);
+      }
+
+    }
+
+    void *Get() const { return m_size?m_buf:NULL; }
+    int GetSize() const { return m_size; }
 
     void SetGranul(int granul) 
     {
@@ -132,6 +147,57 @@ class WDL_HeapBuf
     =true)
 #endif
     {      
+
+//#define WDL_HEAPBUF_DYNAMIC
+#ifdef WDL_HEAPBUF_DYNAMIC
+      // ignoring m_granul and m_mas
+
+      if (newsize!=m_size)
+      {
+        if ((newsize > m_size && newsize <= m_alloc) || (newsize < m_size && !resizedown))
+        {
+          m_size = newsize;
+          return m_buf;
+        }
+
+        // next highest power of 2
+        int n = newsize;
+        if (n)
+        {
+          if (n < 64)
+          {
+            n = 64;
+          }
+          else
+          {
+            --n;
+            n = (n>>1)|n;
+            n = (n>>2)|n;
+            n = (n>>4)|n;
+            n = (n>>8)|n;
+            n = (n>>16)|n;
+            ++n;
+          }
+        }
+
+        if (n == m_alloc)
+        {
+          m_size = newsize;
+          return m_buf;
+        }
+
+        void* newbuf = realloc(m_buf, n);  // realloc==free when size==0
+        if (newbuf || !newsize)
+        {
+          m_alloc = n;
+          m_buf = newbuf;
+          m_size = newsize;
+        }      
+      }
+      
+      return (m_size ? m_buf : 0);
+    }
+#else // WDL_HEAPBUF_DYNAMIC
       if (newsize!=m_size)
       {
         // if we are not using m_smallbuf or we need to not use it
@@ -195,8 +261,9 @@ class WDL_HeapBuf
       } // size change
       return m_size?m_buf:0;
     }
-#endif
+#endif // WDL_HEAPBUF_DYNAMIC
 
+#endif // !WDL_HEAPBUF_IMPL_ONLY, I think
 
 #ifndef WDL_HEAPBUF_IMPL_ONLY
   private:

@@ -11,12 +11,12 @@ Copyright (c) 1996-2000, Justin Frankel
 
 pl_Obj *plReadCOBObj(char *fn, pl_Mat *mat) {
   FILE *fp = fopen(fn,"rt");
-  long int p1,m1,p2,m2,p3,m3;
+  int p1,m1,p2,m2,p3,m3;
   char temp_string[PL_COB_MAX_LINELENGTH];
   float TransMatrix[4][4];
   pl_Obj *obj;
   pl_sInt32 x,i2;
-  long int numVertices, numMappingVertices, numFaces, i;
+  int numVertices, numMappingVertices, numFaces, i;
   pl_Float *MappingVertices = 0;
   if (!fp) return 0;
 
@@ -43,7 +43,7 @@ pl_Obj *plReadCOBObj(char *fn, pl_Mat *mat) {
   do {
     fgets(temp_string,PL_COB_MAX_LINELENGTH,fp);
   } while (!feof(fp) && memcmp("World Vertices",temp_string,12));
-  if (feof(fp) ||  sscanf(temp_string,"World Vertices %ld",&numVertices) != 1)
+  if (feof(fp) ||  sscanf(temp_string,"World Vertices %d",&numVertices) != 1)
     { fclose(fp); return 0; }
 
   rewind(fp);
@@ -51,7 +51,7 @@ pl_Obj *plReadCOBObj(char *fn, pl_Mat *mat) {
     fgets(temp_string,PL_COB_MAX_LINELENGTH,fp);
   } while (!feof(fp) && memcmp("Texture Vertices",temp_string,16));
   if (feof(fp) ||
-      sscanf(temp_string,"Texture Vertices %ld",&numMappingVertices) != 1) {
+      sscanf(temp_string,"Texture Vertices %d",&numMappingVertices) != 1) {
     fclose(fp); return 0;
   }
 
@@ -59,12 +59,12 @@ pl_Obj *plReadCOBObj(char *fn, pl_Mat *mat) {
   do {
     fgets(temp_string,PL_COB_MAX_LINELENGTH,fp);
   } while (!feof(fp) && memcmp("Faces",temp_string,5));
-  if (feof(fp) || sscanf(temp_string,"Faces %ld",&numFaces) != 1) {
+  if (feof(fp) || sscanf(temp_string,"Faces %d",&numFaces) != 1) {
     fclose(fp); return 0;
   }
   for (x = numFaces; x; x--) {
     fgets(temp_string,PL_COB_MAX_LINELENGTH,fp);
-    if (feof(fp) || sscanf(temp_string+4," verts %ld",&i) != 1 || i < 3) {
+    if (feof(fp) || sscanf(temp_string+4," verts %d",&i) != 1 || i < 3) {
       fclose(fp);
       return 0;
     }
@@ -121,10 +121,10 @@ pl_Obj *plReadCOBObj(char *fn, pl_Mat *mat) {
   }
   for (x = 0; x < numFaces; x ++) {
     fgets(temp_string,PL_COB_MAX_LINELENGTH,fp);
-    sscanf(temp_string+4," verts %ld",&i);
+    sscanf(temp_string+4," verts %d",&i);
     fgets(temp_string,PL_COB_MAX_LINELENGTH,fp);
     if (i == 3) {
-      if (feof(fp) || sscanf(temp_string,"<%ld,%ld> <%ld,%ld> <%ld,%ld>",
+      if (feof(fp) || sscanf(temp_string,"<%d,%d> <%d,%d> <%d,%d>",
                              &p3,&m3,&p2,&m2,&p1,&m1) != 6) {
         if (MappingVertices) free(MappingVertices); 
         delete obj; fclose(fp); return 0; 
@@ -142,16 +142,16 @@ pl_Obj *plReadCOBObj(char *fn, pl_Mat *mat) {
       }
       obj->Faces.Get()[x].Material = mat;
     } else {
-      long int p[16],m[16];
+      int p[16],m[16];
       if (feof(fp)) {
         if (MappingVertices) free(MappingVertices); 
         delete obj; fclose(fp); return 0; 
       }
       sscanf(temp_string,
-         "<%ld,%ld> <%ld,%ld> <%ld,%ld> <%ld,%ld> "
-         "<%ld,%ld> <%ld,%ld> <%ld,%ld> <%ld,%ld> "
-         "<%ld,%ld> <%ld,%ld> <%ld,%ld> <%ld,%ld> "
-         "<%ld,%ld> <%ld,%ld> <%ld,%ld> <%ld,%ld> ",
+         "<%d,%d> <%d,%d> <%d,%d> <%d,%d> "
+         "<%d,%d> <%d,%d> <%d,%d> <%d,%d> "
+         "<%d,%d> <%d,%d> <%d,%d> <%d,%d> "
+         "<%d,%d> <%d,%d> <%d,%d> <%d,%d> ",
           p+0,m+0,p+1,m+1,p+2,m+2,p+3,m+3,
           p+4,m+4,p+5,m+5,p+6,m+6,p+7,m+7,
           p+8,m+8,p+9,m+9,p+10,m+10,p+11,m+11,

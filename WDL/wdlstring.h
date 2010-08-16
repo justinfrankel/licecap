@@ -229,7 +229,7 @@ public:
     static char c; c=0; 
     return &c; // don't return "", in case it gets written to.
   }
-  int GetLength() { return strlen(Get()); }
+  int GetLength() { return (int)strlen(Get()); }
 
   private:
     WDL_HeapBuf m_hb;

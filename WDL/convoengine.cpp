@@ -872,16 +872,28 @@ int main(int argc, char **argv)
 #endif
 
 
-void WDL_ImpulseBuffer::SetLength(int samples)
+int WDL_ImpulseBuffer::SetLength(int samples)
 {
   int x;
   for(x=0;x<m_nch;x++)
   {
     int cursz=impulses[x].GetSize();
-    if (cursz>samples) impulses[x].Resize(samples,false);
-    else if (cursz<samples)
-      memset(impulses[x].Resize(samples,false)+cursz,0,(samples-cursz)*sizeof(WDL_FFT_REAL));     
+    if (cursz!=samples) 
+    {
+      impulses[x].Resize(samples,false);
+
+      if (impulses[x].GetSize()!=samples) // validate length!
+      {
+        // ERROR! FREE ALL!
+        for(x=0;x<m_nch;x++) impulses[x].Resize(0);
+        return 0;
+      }
+    }
+
+    if (cursz<samples)
+      memset(impulses[x].Get()+cursz,0,(samples-cursz)*sizeof(WDL_FFT_REAL));     
   }
+  return impulses[0].GetSize();
 }
 
 

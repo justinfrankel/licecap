@@ -135,16 +135,19 @@ void LICE_Bezier_FindCardinalCtlPts(double alpha, T x1, T x2, T x3, T y1, T y2, 
 {
   double dxa = alpha * (double) (x2 - x1);
   double dxb = alpha * (double) (x3 - x2);
-  *ctrl_x2a = x2 - (T) dxa;
-  *ctrl_x2b = x2 + (T) dxb;
+  if (ctrl_x2a) *ctrl_x2a = x2 - (T) dxa;
+  if (ctrl_x2b) *ctrl_x2b = x2 + (T) dxb;
 
-  if (x1 == x3) {
-    *ctrl_y2a = *ctrl_y2b = y2;
+  if (x1 == x3) 
+  {
+    if (ctrl_y2a) *ctrl_y2a = y2;
+    if (ctrl_y2b) *ctrl_y2b = y2;
   }
-  else {
+  else 
+  {
     double m = (double) (y3 - y1) / (double) (x3 - x1);
-    *ctrl_y2a = y2 - (T) (m * dxa);
-    *ctrl_y2b = y2 + (T) (m * dxb);
+    if (ctrl_y2a) *ctrl_y2a = y2 - (T) (m * dxa);
+    if (ctrl_y2b) *ctrl_y2b = y2 + (T) (m * dxb);
   }
 }
 
@@ -217,12 +220,14 @@ T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
   T ctrl_y1, T ctrl_y2, T ctrl_y3, T ctrl_y4, T x, 
   T* pNextX = 0, T* pdYdX = 0, double* ptLo = 0, double* ptHi = 0)
 {
-  if (x <= ctrl_x1) {
+  if (x <= ctrl_x1) 
+  {
     if (pNextX) *pNextX = ctrl_x1;
     if (pdYdX) *pdYdX = (T) 0.0;
     return ctrl_y1;
   }
-  if (x >= ctrl_x4) {
+  if (x >= ctrl_x4) 
+  {
     if (pNextX) *pNextX = ctrl_x4;
     if (pdYdX) *pdYdX = (T) 0.0;
     return ctrl_y4;
@@ -236,18 +241,22 @@ T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
   double tx, t, tLo = 0.0, tHi = 1.0;
   double xLo, xHi, yLo, yHi;
   int i;
-  for (i = 0; i < CBEZ_ITERS; ++i) {
+  for (i = 0; i < CBEZ_ITERS; ++i)
+  {
     t = 0.5 * (tLo + tHi);
     EVAL_CBEZ(tx, ax, bx, cx, (double) ctrl_x1, t);
-    if (tx < (double) x) {
+    if (tx < (double) x)
+    {
       tLo = t;
       xLo = tx;
     }
-    else if (tx > (double) x) {
+    else if (tx > (double) x) 
+    {
       tHi = t;
       xHi = tx;
     }
-    else {
+    else
+    {
       tLo = t;
       xLo = tx;
       tHi = t + 1.0/pow(2.0,CBEZ_ITERS);

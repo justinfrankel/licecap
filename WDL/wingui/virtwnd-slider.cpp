@@ -551,9 +551,11 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       m_pos=pos;
 
-      SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
-
-      RequestRedraw(NULL);
+      if (isup || ypos != m_last_y)
+      {
+        SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
+        RequestRedraw(NULL);
+      }
     }
   }
   else
@@ -584,9 +586,11 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       m_pos=pos;
 
-      SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
-
-      RequestRedraw(NULL);
+      if (isup || xpos != m_last_x)
+      {
+        SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
+        RequestRedraw(NULL);
+      }
     }
   }
   if (precmode&&GetRealParent())

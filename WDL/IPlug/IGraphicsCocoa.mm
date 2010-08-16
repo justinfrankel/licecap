@@ -84,7 +84,7 @@ inline IMouseMod GetMouseMod(NSEvent* pEvent)
 - (void) onTimer: (NSTimer*) pTimer
 {
   IRECT r;
-  if (mGraphics->IsDirty(&r)) {
+  if (pTimer == mTimer && mGraphics && mGraphics->IsDirty(&r)) {
     [self setNeedsDisplayInRect:ToNSRect(mGraphics, &r)];
   }
 }
@@ -142,6 +142,16 @@ inline IMouseMod GetMouseMod(NSEvent* pEvent)
 {
   [mTimer invalidate];
   mTimer = 0;
+}
+
+- (void) removeFromSuperview
+{
+  if (mGraphics)
+  {
+    IGraphics* graphics = mGraphics;
+    mGraphics = 0;
+    graphics->CloseWindow();
+  }
 }
 
 @end

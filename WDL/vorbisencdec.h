@@ -36,6 +36,9 @@
 #ifndef _VORBISENCDEC_H_
 #define _VORBISENCDEC_H_
 
+#ifndef OV_EXCLUDE_STATIC_CALLBACKS
+#define OV_EXCLUDE_STATIC_CALLBACKS
+#endif
 #include "vorbis/vorbisenc.h"
 #include "vorbis/codec.h"
 

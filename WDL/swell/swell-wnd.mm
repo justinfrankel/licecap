@@ -1071,11 +1071,11 @@ int SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           case CB_RESETCONTENT: SWELL_CB_Empty(hwnd,0); return 0;
           case CB_SETCURSEL: SWELL_CB_SetCurSel(hwnd,0,wParam); return 0;
           case CB_GETITEMDATA: return SWELL_CB_GetItemData(hwnd,0,wParam);
-          case CB_SETITEMDATA: SWELL_CB_SetItemData(hwnd,0,wParam,lParam);
+          case CB_SETITEMDATA: SWELL_CB_SetItemData(hwnd,0,wParam,lParam); return 0;
           case CB_FINDSTRING:
           case CB_FINDSTRINGEXACT:
-            // todo: implement
-          return 0;
+            if (lParam) return SWELL_CB_FindString(hwnd,0,(int)wParam,(const char *)lParam,msg==CB_FINDSTRINGEXACT);
+            return CB_ERR;
           case CB_INITSTORAGE: return 0;                                                      
         }
         return 0;
@@ -1654,12 +1654,37 @@ HWND GetFocus()
   if (ret && [ret isKindOfClass:[NSView class]]) 
   {
 //    if (ret == [window contentView]) return (HWND) window;
+
+    if ([ret isKindOfClass:[NSTextView class]] && [ret superview] && [[ret superview] superview])
+    {
+      NSView* v = [[ret superview] superview];
+      if ([v isKindOfClass:[NSTextField class]]) return (HWND) v;
+    }
+
     return (HWND) ret;
   }
   return 0;
 }
 
-
+bool IsEquivalentTextView(HWND h1, HWND h2)
+{
+  if (!h1 || !h2) return false;
+  if (h1 == h2) return true;
+  NSView* v1 = (NSView*)h1;
+  NSView* v2 = (NSView*)v2;
+  if ([v1 isKindOfClass:[NSTextField class]] && [v2 isKindOfClass:[NSTextView class]])
+  {
+    NSView* t = v1;
+    v1 = v2;
+    v2 = t;
+  }
+  if ([v1 isKindOfClass: [NSTextView class]] && [v2 isKindOfClass:[NSTextField class]])
+  {
+    if ([v1 superview] && [[v1 superview] superview] && [[[v1 superview] superview] superview] == v2) return true;
+  }
+  return false;
+}
+  
 // timer stuff
 typedef struct
 {
@@ -1886,6 +1911,53 @@ void SWELL_CB_DeleteString(HWND hwnd, int idx, int wh)
   }
 }
 
+
+int SWELL_CB_FindString(HWND hwnd, int idx, int startAfter, const char *str, bool exact)
+{
+  NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);  
+  if (!p) return 0;
+  
+  int pos = startAfter;
+  if (pos<0)pos=0;
+  else pos++;
+  
+  int l1len =strlen(str);
+  int ni=[p numberOfItems];
+  
+  if ([p isKindOfClass:[NSComboBox class]])
+  {
+    for(;pos<ni;pos++)
+    {
+      NSString *s=[p itemObjectValueAtIndex:pos];
+      if (s)
+      {
+        char buf[4096];
+        SWELL_CFStringToCString(s,buf,sizeof(buf));
+        if (exact ? !stricmp(str,buf) : !strnicmp(str,buf,l1len))
+          return pos;
+      }
+    }
+  }
+  else 
+  {
+    for(;pos<ni;pos++)
+    {
+      NSMenuItem *i=[(NSPopUpButton *)p itemAtIndex:pos];
+      if (i)
+      {
+        NSString *s=[i title];
+        if (s)          
+        {
+          char buf[4096];
+          SWELL_CFStringToCString(s,buf,sizeof(buf));
+          if (exact ? !stricmp(str,buf) : !strnicmp(str,buf,l1len))
+            return pos;
+        }
+      }
+    }
+  }
+  return -1;
+}
 
 int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
 {
@@ -2291,14 +2363,50 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 
 @implementation SWELL_TextView
+
 -(int) tag
 {
   return m_tag;
 }
+
 -(void) setTag:(int)tag
 {
   m_tag=tag;
 }
+
+-(LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam
+{
+  switch (msg)
+  {
+    case EM_SCROLL:
+      if (wParam == SB_TOP)
+      {
+        [self scrollRangeToVisible:NSMakeRange(0, 0)];
+      }
+      else if (wParam == SB_BOTTOM)
+      {
+        int len = [[self string] length];
+        [self scrollRangeToVisible:NSMakeRange(len, 0)];
+      }
+    return 0;
+    
+    case EM_SETSEL:  
+      if (wParam == -1) lParam = wParam = 0;
+      else if (lParam == -1) lParam = [[self string] length];
+      [self setSelectedRange:NSMakeRange(wParam, lParam-wParam)];
+    return 0;
+    
+    case EM_GETSEL:
+    {
+      NSRange r = [self selectedRange];
+      if (wParam) *(int*)wParam = r.location;
+      if (lParam) *(int*)lParam = r.location+r.length;
+    }
+    return 0;
+  }
+  return 0;
+}
+
 @end
 
 HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
@@ -4170,6 +4278,7 @@ BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT 
         [v setFrame:r];
       }
     }
+    [(id)hwnd setNeedsDisplay:YES];
   }
   else
   {
@@ -4684,6 +4793,21 @@ void SetOpaque(HWND h, bool opaque)
   if (!h || ![(id)h isKindOfClass:[SWELL_hwndChild class]]) return;
   SWELL_hwndChild* v = (SWELL_hwndChild*)h;
   [v setOpaque:opaque];
+}
+
+int SWELL_GetDefaultButtonID(HWND hwndDlg, bool onlyIfEnabled)
+{
+  if (![(id)hwndDlg isKindOfClass:[NSView class]]) return 0;
+  NSWindow *wnd = [(NSView *)hwndDlg window];
+  NSButtonCell * cell = wnd ? [wnd defaultButtonCell] : nil;
+  NSView *view;
+  if (!cell || !(view=[cell controlView])) return 0;
+  int cmdid = [view tag];
+  if (cmdid && onlyIfEnabled)
+  {
+    if (![cell isEnabled]) return 0;
+  }
+  return cmdid;
 }
 
 #endif

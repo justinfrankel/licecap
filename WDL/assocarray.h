@@ -12,14 +12,14 @@ template <class KEY, class VAL> class WDL_AssocArray
 {
 public:
 
-  WDL_AssocArray(int (*keycmp)(const KEY k1, const KEY k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
+  WDL_AssocArray(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
   {
     m_keycmp = keycmp;
     m_keydup = keydup;
     m_keydispose = keydispose;
     m_valdispose = valdispose;
   }
-
+ 
   ~WDL_AssocArray() 
   {
     if (m_keydispose || m_valdispose)
@@ -115,6 +115,22 @@ public:
     return notfound; 
   }
 
+  // fast add-block mode
+  void AddUnsorted(KEY key, VAL val)
+  {
+    int i=m_data.GetSize();
+    KeyVal* kv = m_data.Resize(i+1)+i;
+    if (m_keydup) key = m_keydup(key);
+    kv->key = key;
+    kv->val = val;
+  }
+
+  void Resort()
+  {
+    if (m_data.GetSize()>1 && m_keycmp)
+      qsort(m_data.Get(),m_data.GetSize(),sizeof(KeyVal),(int(*)(const void *,const void *))m_keycmp);
+  }
+
 private:
 
   struct KeyVal
@@ -124,7 +140,7 @@ private:
   };
   WDL_TypedBuf<KeyVal> m_data;
 
-  int (*m_keycmp)(const KEY k1, const KEY k2);
+  int (*m_keycmp)(KEY *k1, KEY *k2);
   KEY (*m_keydup)(KEY);
   void (*m_keydispose)(KEY);
   void (*m_valdispose)(VAL);
@@ -136,7 +152,7 @@ private:
     while (a != c)
     {
       int b = (a+c)/2;
-      int cmp = m_keycmp(key, m_data.Get()[b].key);
+      int cmp = m_keycmp(&key, &m_data.Get()[b].key);
       if (cmp > 0) a = b+1;
       else if (cmp < 0) c = b;
       else
@@ -160,22 +176,29 @@ public:
 
 private:
 
-  static int cmpint(const int i1, const int i2) { return i1-i2; }
+  static int cmpint(int *i1, int *i2) { return *i1-*i2; }
 };
 
 
-template <class VAL> class WDL_StringKeyedArray : public WDL_AssocArray<const char*, VAL>
+template <class VAL> class WDL_StringKeyedArray : public WDL_AssocArray<const char *, VAL>
 {
 public:
 
-  WDL_StringKeyedArray(void (*valdispose)(VAL)=0) : WDL_AssocArray<const char*, VAL>(cmpstr, dupstr, freestr, valdispose) {}
-  ~WDL_StringKeyedArray() {}
+  WDL_StringKeyedArray(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_AssocArray<const char*, VAL>(caseSensitive?cmpstr:cmpistr, dupstr, freestr, valdispose) {}
+  
+  ~WDL_StringKeyedArray() { }
 
 private:
 
   static const char *dupstr(const char *s) { return strdup(s);  } // these might not be necessary but depending on the libc maybe...
-  static int cmpstr(const char *s1, const char *s2) { return strcmp(s1, s2); }
-  static void freestr(const char* s) { free(s); }
+  static int cmpstr(const char **s1, const char **s2) { return strcmp(*s1, *s2); }
+  static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
+  static void freestr(const char* s) { free((void*)s); }
+
+public:
+  static void freecharptr(char *p) { free(p); }
+
+
 };
 
 

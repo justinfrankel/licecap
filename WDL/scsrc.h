@@ -63,8 +63,16 @@ public:
   int RunStuff(); // returns nonzero if work done
   
 
+  void *userData;
+  int totalBitrate; // 0 for normal, otherwise if using NSV (below) set to kbps of total stream
+  // allows hooking to say, I dunno, package in some other format such as NSV?
+  void (*sendProcessor)(void *userData, WDL_Queue *dataout, WDL_Queue *data); 
+
+  int GetAudioBitrate() { return m_br*1000; }
 
 private:
+
+  WDL_Queue m_procdata;
 
   LameEncoder *m_encoder;
   int m_encoder_splsin;
@@ -92,6 +100,15 @@ private:
   WDL_Mutex m_titlemutex;
   char m_title[512];
   bool m_needtitle;
+
+
+  bool m_is_postmode;
+  unsigned int m_postmode_session;
+  int m_post_bytesleft;
+  int m_post_postsleft;
+
+  void PostModeConnect();
+
 };
 
 #endif _WDL_SCSRC_H_

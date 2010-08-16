@@ -29,6 +29,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+typedef int DWORD;
+
+static void Sleep(int ms)
+{
+  usleep(ms?ms*1000:100);
+}
+
+static unsigned int GetTickCount()
+{
+  struct timeval tm={0,};
+  gettimeofday(&tm,NULL);
+  return tm.tv_sec*1000 + tm.tv_usec/1000;
+}
 
 
 static char *lstrcpyn(char *dest, const char *src, int l)
@@ -47,11 +64,18 @@ static char *lstrcpyn(char *dest, const char *src, int l)
   return dsrc;
 }
 
-#endif
+#endif // !_WIN32
+
 #include <math.h>
 
 #include "scsrc.h"
 #include "jnetlib/jnetlib.h"
+
+// maybe we need to do this better someday
+#define POST_DIV_STRING "zzzASFIJAHFASJFHASLKFHZI8"
+#define END_POST_BYTES "\r\n--" POST_DIV_STRING "--\r\n"
+    
+
 #define ERR_NOLAME -600
 #define ERR_CREATINGENCODER -599
 
@@ -66,6 +90,14 @@ WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, con
                                          const char *genre, const char *url,
                                          int nch, int srate, int kbps, const char *ircchan)
 {
+  m_post_postsleft=0;
+  m_postmode_session=GetTickCount();
+  m_is_postmode = !!strstr(host,"/");
+
+  totalBitrate=0;
+  sendProcessor=0;
+  userData=0;
+
   JNL::open_socketlib();
   m_host.Set(host);
   m_pass.Set(pass);
@@ -99,20 +131,27 @@ WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, con
   m_sendcon_start=time(NULL);
   if (m_encoder)
   {
-    m_sendcon = new JNL_Connection(JNL_CONNECTION_AUTODNS,65536,65536);
-    WDL_String hb(m_host.Get());
-    int port=8000;
-    char *p=strstr(hb.Get(),":");
-    if (p)
+    if (m_is_postmode)
     {
-      *p++=0;
-      port = atoi(p);
-      if (!port) port=8000;
+      PostModeConnect();      
     }
-    m_sendcon->connect(hb.Get(), port+1);
+    else
+    {
+      m_sendcon = new JNL_Connection(JNL_CONNECTION_AUTODNS,65536,65536);
+      WDL_String hb(m_host.Get());
+      int port=8000;
+      char *p=strstr(hb.Get(),":");
+      if (p)
+      {
+        *p++=0;
+        port = atoi(p);
+        if (!port) port=8000;
+      }
+      m_sendcon->connect(hb.Get(), port+1);
 
-    m_sendcon->send_string(m_pass.Get());
-    m_sendcon->send_string("\r\n");
+      m_sendcon->send_string(m_pass.Get());
+      m_sendcon->send_string("\r\n");
+    }
   }
 
 }
@@ -359,15 +398,34 @@ int WDL_ShoutcastSource::RunStuff()
 
       if (m_state==ST_OK)
       {
-        int mb=m_encoder->outqueue.Available();
+        WDL_Queue *srcq = &m_encoder->outqueue;
+
+        if (sendProcessor)
+        {
+          sendProcessor(userData,&m_procdata,srcq);
+          srcq = &m_procdata;
+        }
+
+        
+        int mb=srcq->Available();
         int mb2=m_sendcon->send_bytes_available();
+
         if (mb>mb2) mb=mb2;
+
+        if (m_is_postmode)
+        {
+          if (m_post_bytesleft<=0) PostModeConnect();
+          
+          if (mb>m_post_bytesleft) mb = m_post_bytesleft;
+        }
+
         if (mb>0)
         {
           m_bytesout+=mb;
-          m_sendcon->send_bytes(m_encoder->outqueue.Get(),mb);
-          m_encoder->outqueue.Advance(mb);
-          m_encoder->outqueue.Compact();
+          m_sendcon->send_bytes(srcq->Get(),mb);
+          if (m_is_postmode) m_post_bytesleft-=mb;
+          srcq->Advance(mb);
+          srcq->Compact();
           ret=1;
         }
       }
@@ -378,7 +436,11 @@ int WDL_ShoutcastSource::RunStuff()
 
     if (m_state == ST_CONNECTING)
     {
-      if (m_sendcon->recv_lines_available()>0)
+      if (m_is_postmode)
+      {
+        m_state=ST_OK;
+      }
+      else if (m_sendcon->recv_lines_available()>0)
       {
         char buf[4096];
         m_sendcon->recv_line(buf, 4095);
@@ -402,7 +464,7 @@ int WDL_ShoutcastSource::RunStuff()
           m_sendcon->send_string("\r\n");
           m_sendcon->send_string("icy-br:");
           char buf[64];
-          wsprintf(buf,"%d",m_br);
+          wsprintf(buf,"%d",totalBitrate ? totalBitrate : m_br);
           m_sendcon->send_string(buf);
           m_sendcon->send_string("\r\n");
           m_sendcon->send_string("icy-url:");
@@ -421,7 +483,7 @@ int WDL_ShoutcastSource::RunStuff()
         }
       }
     }
-    switch (s) 
+    if (!m_is_postmode) switch (s) 
     {
       case JNL_Connection::STATE_ERROR:
       case JNL_Connection::STATE_CLOSED:
@@ -452,7 +514,7 @@ int WDL_ShoutcastSource::RunStuff()
     }
   }
 
-  if (m_needtitle && m_state==ST_OK)
+  if (m_needtitle && m_state==ST_OK && !m_is_postmode)
   {
     char title[512];
     m_titlemutex.Enter();
@@ -472,11 +534,183 @@ int WDL_ShoutcastSource::RunStuff()
 
     delete m_titlecon;
     m_titlecon=new JNL_HTTPGet;
-    m_titlecon->addheader("User-Agent:Cockos Reacast (Mozilla)");
+    m_titlecon->addheader("User-Agent:Cockos WDL scsrc (Mozilla)");
     m_titlecon->addheader("Accept:*/*");
     m_titlecon->connect(url.Get());
     m_titlecon_start=time(NULL);
   }
 
   return ret;
+}
+
+static void AddTextField(WDL_String *s, const char *name, const char *value)
+{
+    s->AppendFormatted(4096,"--" POST_DIV_STRING "\r\n"
+                          "Content-Disposition: form-data; name=\"%s\"\r\n"
+                          "\r\n"
+                          "%s\r\n",
+                              name,
+                              value);
+}
+
+void WDL_ShoutcastSource::PostModeConnect()
+{
+  const char *hsrc = m_host.Get();
+  if (!strnicmp(hsrc,"http://",7)) hsrc+=7;
+  WDL_String hb(hsrc);
+  int port=80;
+  char zb[32]={0,};
+  char *req = zb, *parms=zb;
+  char *p=hb.Get();
+  while (*p && *p != ':' && *p != '/' && *p != '?') p++;
+  if (*p == ':')
+  {
+    *p++=0;
+    port = atoi(p);
+    if (!port) port=80;
+  }
+  while (*p && *p != '/' && *p != '?') p++;
+  if (*p == '/')
+  {
+    *p++=0;
+    req = p;
+  }
+  while (*p && *p != '?') p++;
+  if (*p == '?')
+  {
+    *p++=0;
+    parms = p;
+  }
+
+  bool allowReuse=false;
+
+  if (m_sendcon)
+  {
+    m_sendcon->send_string(END_POST_BYTES);
+    m_sendcon->run();
+    DWORD start=GetTickCount();
+    bool done=false,hadResp=false;
+    while (GetTickCount() < start+1000 && !done)
+    {
+      Sleep(50);
+      m_sendcon->run();
+      if (m_sendcon->get_state() == JNL_Connection::STATE_ERROR ||
+          m_sendcon->get_state() > JNL_Connection::STATE_CONNECTED) break;
+
+      while (m_sendcon->recv_lines_available()>0)
+      {
+        char buf[4096];
+        m_sendcon->recv_line(buf, 4095);
+//        OutputDebugString(buf);
+
+        if (!strnicmp(buf,"HTTP/",5)) hadResp=true;
+        if (!strnicmp(buf,"HTTP/1.1",8)) allowReuse=true;
+  
+        const char *con="Connection:";
+        if (!strnicmp(buf,con,strlen(con)))
+        {
+          char *p=buf+strlen(con);
+          while (*p == ' ') p++;
+          if (!strnicmp(p,"close",5)) allowReuse=false;
+          else if (!strnicmp(p,"keep-alive",10)) allowReuse=true;
+
+          done=true;
+        }
+        if (hadResp && (!buf[0] || buf[0] == '\r' || buf[0] == '\n')) 
+          done=true;
+
+      }
+    }
+  }
+
+  if (m_sendcon) m_sendcon->run();
+
+  if (m_sendcon && 
+      (!allowReuse || m_post_postsleft<=0 ||
+        m_sendcon->get_state() == JNL_Connection::STATE_ERROR ||
+        m_sendcon->get_state() > JNL_Connection::STATE_CONNECTED))
+        
+  {
+    delete m_sendcon;
+    m_sendcon=0;
+  }
+
+  if (!m_sendcon)
+  {
+//    OutputDebugString("new connection\n");
+    m_sendcon = new JNL_Connection(JNL_CONNECTION_AUTODNS,65536,65536);
+    m_sendcon->connect(hb.Get(),port);
+    m_post_postsleft=16; // todo: some configurable amt?
+  }
+
+  int csize = (totalBitrate ? totalBitrate*2 : m_br) * 2000 / 8 + 512; // 2s of audio plus pad
+  if (csize<16384) csize=16384;
+
+
+  WDL_String tmp;
+  tmp.SetFormatted(4096,"POST /%s HTTP/1.1\r\n"
+                        "Connection: %s\r\n"
+                        "Host: %s\r\n"
+                        "User-Agent: WDLScSrc(Mozilla)\r\n"
+                        "MIME-Version: 1.0\r\n"
+                        "Content-type: multipart/form-data; boundary=" POST_DIV_STRING "\r\n"
+                        "Content-length: %d\r\n"
+                        "\r\n",
+                        req,
+                        --m_post_postsleft > 0 ? "Keep-Alive" : "close",
+                        hb.Get(),
+                        csize);
+  m_sendcon->send_string(tmp.Get());
+
+  m_post_bytesleft = csize - strlen(END_POST_BYTES);
+
+  tmp.Set("");
+
+  p = parms;
+  while (*p)
+  {
+    char *eq = p;
+    while (*eq && *eq != '=') eq++;
+    if (!*eq) break;
+    *eq++=0;
+    char *np = eq;
+    while (*np && *np != '&') np++;
+
+    AddTextField(&tmp,p,eq);
+
+
+    if (!*np) break;
+    p=np+1;
+  }
+
+  AddTextField(&tmp,"broadcast",m_pass.Get());
+
+  if (m_title[0])
+  {
+    m_titlemutex.Enter();
+    if (m_title[0]) AddTextField(&tmp,"title",m_title);
+    m_titlemutex.Leave();
+  }
+
+  AddTextField(&tmp,"name",m_name.Get());
+
+
+  {
+    char buf[512];
+    sprintf(buf,"%u",m_postmode_session);
+    AddTextField(&tmp,"session",buf);
+  }
+
+  tmp.AppendFormatted(4096,"--" POST_DIV_STRING "\r\n"
+                        "Content-Disposition: form-data; name=\"file\"; filename=\"bla.dat\"\r\n"
+                        "Content-Type: application/octet-stream\r\n"
+                        "Content-transfer-encoding: binary\r\n"
+                       );
+
+
+  tmp.Append("\r\n");
+
+  m_sendcon->send_string(tmp.Get());
+  m_post_bytesleft -= strlen(tmp.Get());
+
 }

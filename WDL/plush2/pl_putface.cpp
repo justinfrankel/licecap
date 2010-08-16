@@ -291,7 +291,7 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
     DoTextureCombine(tex2comb, r,g,b,a, red,green,blue,alpha,tex2alpha,tex2alpha2);
   }
 
-  _LICE_MakePixel(gmemptr, red,green,blue,alpha);
+  _LICE_MakePixelClamp(gmemptr, red,green,blue,alpha);
 }
 
 static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
@@ -342,7 +342,7 @@ static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
     DoTextureCombine(texcomb, r,g,b,a, red,green,blue,alpha,texalpha,texalpha2);
   }
 
-  _LICE_MakePixel(gmemptr, red,green,blue,alpha);
+  _LICE_MakePixelClamp(gmemptr, red,green,blue,alpha);
 }
 
 
@@ -689,7 +689,7 @@ void pl_Cam::PutFace(pl_Face *TriFace)
 #endif
   {
     #define __LICE__ACTION(comb) PLSolidPutFace<comb>::SolidGouraud(gmem,swidth,TriFace,alpha,zb,zfb_width);
-    __LICE_ACTIONBYMODE_CONSTANTALPHA(mat->SolidCombineMode,mat->SolidOpacity);
+    __LICE_ACTION_CONSTANTALPHA(mat->SolidCombineMode,alpha,true);
     #undef __LICE__ACTION
     return;
   }
@@ -698,7 +698,7 @@ void pl_Cam::PutFace(pl_Face *TriFace)
 #ifndef PLUSH_NO_SOLIDFLAT
 
   #define __LICE__ACTION(comb) PLSolidPutFace<comb>::Solid(gmem,swidth,TriFace,alpha,zb,zfb_width);
-  __LICE_ACTIONBYMODE_CONSTANTALPHA(mat->SolidCombineMode,mat->SolidOpacity);
+  __LICE_ACTION_CONSTANTALPHA(mat->SolidCombineMode,alpha,true);
   #undef __LICE__ACTION
 
 #endif // PLUSH_NO_SOLIDFLAT

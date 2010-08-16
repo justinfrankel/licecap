@@ -1,3 +1,43 @@
+2009-10-10:
+HeapBuf: optional WDL_HEAPBUF_DYNAMIC setting, for simpler and less configurable allocation management
+IPlug: OS X updates
+LICE: line drawing optimizations, AA gamma correction
+LICE: bezier-fill improvements
+LICE: size optimizations, options to favor size over speed throughout LICE
+LICE: scaledblit() no longer processes source-clipped pixels
+LICE: scaledblit() now properly supports negative width source/dest rects (flips)
+LICE: blit() fix for negative coordinates
+Virtwnd: buttons now have constant icon alpha parameter
+Virtwnd: sliders no longer send excess scroll messages
+Virtwnd: theme background drawing has flag to not draw left/right sides
+SWELL: fixes to GetPrivateProfileString() with NULL second parameter
+SWELL: added SWELL_GetAudioUnitCocoaView
+SWELL: support for EndDialog() in modal WM_INITDIALOG
+SWELL: SetMenuItemModifier() cleanups
+SWELL: File browse dialogs now set default menu
+SWELL: ScrollWindow() now properly invalidates the window
+SWELL: EM_SCROLL, EM_SETSEL, EM_GETSEL support for edit fields
+SWELL: OPAQUE text bk mode suport
+SWELL: drag/drop source handling
+SWELL: GetMenuItemInfo() MIIM_ID support
+SWELL: Added SWELL_GetDefaultButtonID(), SWELL_KeyToASCII
+scsrc: support for HTTP POST-ing chunks of encoded data to URL
+scsrc: simplified data reprocessor api
+scsrc: added sc_bounce/*.php (PHP data streaming server for scsrc)
+WDL_PtrList::FindSorted() fixed
+AssocArray fixes
+HeapBuf/etc now handle failures better, added CopyFrom()
+SHM: fixed/optimized datapipe class, added low-latency threadsafe SHM message/reply class
+win32_utf8 fixes
+FileRead/FileWrite: better async file reading error handling, Win32 and OS X locking improvements
+
+
+2009-07-23:
+Added FFMPEG wrapper for encoding video files (with optional audio)
+RFB client support (LICE--jnetlib)
+LICE: Optimized copy/multiply blend modes to not require clamping (big gains in alpha-blended and filtered blits)
+LICE: Optimized alpha blending (half the multiplies)
+
 2009-07-04:
 
 WDL_SharedPool optimizations

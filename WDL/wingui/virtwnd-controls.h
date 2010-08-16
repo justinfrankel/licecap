@@ -65,7 +65,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
 
-    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg) { if (m_iconCfg!=cfg) { m_iconCfg=cfg; RequestRedraw(NULL); } }
+    void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float alpha=1.0f) { if (m_iconCfg!=cfg||m_alpha!=alpha) { m_alpha=alpha; m_iconCfg=cfg; RequestRedraw(NULL); } }
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
 
     int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
@@ -93,6 +93,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
 
     WDL_VirtualIconButton_SkinConfig *m_iconCfg;
     int m_bgcol1_msg;
+    float m_alpha;
     bool m_is_button,m_forceborder;
     char m_pressed;
     bool m_en, m_grayed, m_swapupdown;

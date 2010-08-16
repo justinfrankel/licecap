@@ -339,10 +339,10 @@ template<class T> class GlyphRenderer
 public:
   static void Normal(unsigned char *gsrc, LICE_pixel *pout,
               int src_span, int dest_span, int width, int height,
-              int red, int green, int blue, float alpha)
+              int red, int green, int blue, int a256)
   {
     int y;
-    if (alpha==1.0)
+    if (a256==256)
     {
       for(y=0;y<height;y++)
       {
@@ -358,7 +358,6 @@ public:
     }
     else
     {
-      int a256=(int) (alpha*256.0);
       for(y=0;y<height;y++)
       {
         int x;
@@ -501,7 +500,7 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
       if (avalint>256)avalint=256;
 
       #define __LICE__ACTION(comb) GlyphRenderer<comb>::Mono(gsrc,pout,src_span,dest_span,width,height,red,green,blue,avalint)
-      __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
+      __LICE_ACTION_NOSRCALPHA(mode,avalint, false);
       #undef __LICE__ACTION
     }
   }
@@ -533,14 +532,15 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
       int g2=LICE_GETG(bkcol);
       int b2=LICE_GETB(bkcol);
       #define __LICE__ACTION(comb) GlyphRenderer<comb>::Effect(gsrc,pout,src_span,dest_span,width,height,red,green,blue,avalint,r2,g2,b2)
-      __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
+      __LICE_ACTION_NOSRCALPHA(mode,avalint, false);
       #undef __LICE__ACTION
     }
   }
   else
   {
-    #define __LICE__ACTION(comb) GlyphRenderer<comb>::Normal(gsrc,pout,src_span,dest_span,width,height,red,green,blue,alpha)
-    __LICE_ACTIONBYMODE_NOSRCALPHA(mode,alpha);
+    int avalint = (int) (alpha*256.0);
+    #define __LICE__ACTION(comb) GlyphRenderer<comb>::Normal(gsrc,pout,src_span,dest_span,width,height,red,green,blue,avalint)
+    __LICE_ACTION_NOSRCALPHA(mode,avalint, false);
     #undef __LICE__ACTION
   }
 

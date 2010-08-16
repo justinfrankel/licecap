@@ -39,20 +39,20 @@
 #define UPPER_MASK 0x80000000UL /* most significant w-r bits */
 #define LOWER_MASK 0x7fffffffUL /* least significant r bits */
 
-static unsigned long genrand_int32(void)
+static unsigned int genrand_int32(void)
 {
 
-    unsigned long y;
-    static unsigned long mag01[2]={0x0UL, MATRIX_A};
+    unsigned int y;
+    static unsigned int mag01[2]={0x0UL, MATRIX_A};
     /* mag01[x] = x * MATRIX_A  for x=0,1 */
 
-    static unsigned long mt[N]; /* the array for the state vector  */
+    static unsigned int mt[N]; /* the array for the state vector  */
     static int mti; /* mti==N+1 means mt[N] is not initialized */
 
 
     if (!mti)
     { 
-      unsigned long s=0x4141f00d;
+      unsigned int s=0x4141f00d;
       mt[0]= s & 0xffffffffUL;
       for (mti=1; mti<N; mti++) 
       {

@@ -23,11 +23,6 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
   
-
-  Notes:
-
-  Currently this library only supports win32. Support for other platforms may come at a later date.
-
 */
 
 #ifdef _WIN32
@@ -35,6 +30,25 @@
 #pragma warning(disable:4244) // float-to-int
 #else
 #include "../swell/swell.h" // use SWELL on other systems
+#endif
+
+
+// one of these can be defined in your project if you choose:
+//#define LICE_FAVOR_SPEED // optimizes some stuff that doesnt seem to benefit much (like LICE_DeltaBlit/LICE_RotatedBlit/LICE_TransformBlit)
+// (nothing) default probably good overall
+//#define LICE_FAVOR_SIZE // reduces code size of normal/scaled blit functions
+//#define LICE_FAVOR_SIZE_EXTREME // same as LICE_FAVOR_SIZE w/ smaller gains with bigger perf penalties (solid fills etc)
+
+#ifdef LICE_FAVOR_SPEED
+  #ifdef LICE_FAVOR_SIZE_EXTREME
+    #undef LICE_FAVOR_SIZE_EXTREME
+  #endif
+  #ifdef LICE_FAVOR_SIZE
+    #undef LICE_FAVOR_SIZE
+  #endif
+#endif
+#if defined(LICE_FAVOR_SIZE_EXTREME) && !defined(LICE_FAVOR_SIZE)
+#define LICE_FAVOR_SIZE
 #endif
 
 
@@ -119,15 +133,15 @@ public:
     if (!m_fb) {m_width=m_height=0; }
   }
 
-  ~LICE_MemBitmap() { free(m_fb); }
+  virtual ~LICE_MemBitmap() { free(m_fb); }
 
 
   // LICE_IBitmap interface
-  LICE_pixel *getBits() { return m_fb; }
-  int getWidth() { return m_width; }
-  int getHeight() { return m_height; }
-  int getRowSpan() { return m_width; }
-  bool resize(int w, int h); // returns TRUE if a resize occurred
+  virtual LICE_pixel *getBits() { return m_fb; }
+  virtual int getWidth() { return m_width; }
+  virtual int getHeight() { return m_height; }
+  virtual int getRowSpan() { return m_width; }
+  virtual bool resize(int w, int h); // returns TRUE if a resize occurred
 
 private:
   LICE_pixel *m_fb;
@@ -139,17 +153,17 @@ class LICE_SysBitmap : public LICE_IBitmap
 {
 public:
   LICE_SysBitmap(int w=0, int h=0);
-  ~LICE_SysBitmap();
+  virtual ~LICE_SysBitmap();
   
   // LICE_IBitmap interface
-  LICE_pixel *getBits() { return m_bits; }
-  int getWidth() { return m_width; }
-  int getHeight() { return m_height; }
-  int getRowSpan() { return m_allocw; }; 
-  bool resize(int w, int h); // returns TRUE if a resize occurred
+  virtual LICE_pixel *getBits() { return m_bits; }
+  virtual int getWidth() { return m_width; }
+  virtual int getHeight() { return m_height; }
+  virtual int getRowSpan() { return m_allocw; }; 
+  virtual bool resize(int w, int h); // returns TRUE if a resize occurred
 
   // sysbitmap specific calls
-  HDC getDC() { return m_dc; }
+  virtual HDC getDC() { return m_dc; }
 
 
 private:
@@ -164,6 +178,34 @@ private:
 #endif
 };
 
+class LICE_WrapperBitmap : public LICE_IBitmap 
+{
+  public:
+    LICE_WrapperBitmap(LICE_pixel *buf, int w, int h, int span, bool flipped)
+    {
+      m_buf=buf;
+      m_w=w;
+      m_h=h;
+      m_span=span;
+      m_flipped=flipped;
+    }
+    virtual ~LICE_WrapperBitmap() {}
+
+    virtual bool resize(int w, int h) { return false; }
+    virtual LICE_pixel *getBits() { return m_buf; }
+    virtual int getWidth() { return m_w; }
+    virtual int getHeight() { return m_h; }
+    virtual int getRowSpan() { return m_span; }
+
+    virtual HDC getDC() { return NULL; }
+    virtual bool isFlipped() { return m_flipped; }
+
+
+    LICE_pixel *m_buf;
+    int m_w,m_h,m_span;
+    bool m_flipped;
+};
+
 
 class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these around as long as they are needed, and don't resize the parent while this is allocated
 {
@@ -176,9 +218,9 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       m_x=x;m_y=y;
       resize(w,h);
     }
-    ~LICE_SubBitmap() { }
+    virtual ~LICE_SubBitmap() { }
 
-    bool resize(int w, int h)
+    virtual bool resize(int w, int h)
     {
       m_w=0;m_h=0;
       if (m_parent)
@@ -196,7 +238,7 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       return true;
     }
 
-    LICE_pixel *getBits() 
+    virtual LICE_pixel *getBits() 
     {
       if (!m_parent) return 0;
 
@@ -207,17 +249,17 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       return parentptr; 
     }
 
-    INT_PTR Extended(int id, void* data)
+    virtual INT_PTR Extended(int id, void* data)
     {
       if (!m_parent) return 0;
       return m_parent->Extended(id, data);
     }
       
-    int getWidth() { return m_w; }
-    int getHeight() { return m_h; }
-    int getRowSpan() { return m_parent ? m_parent->getRowSpan() : 0; }
+    virtual int getWidth() { return m_w; }
+    virtual int getHeight() { return m_h; }
+    virtual int getRowSpan() { return m_parent ? m_parent->getRowSpan() : 0; }
 
-    HDC getDC() { return NULL; }
+    virtual HDC getDC() { return NULL; }
 
     int m_w,m_h,m_x,m_y;
     LICE_IBitmap *m_parent;
@@ -257,6 +299,13 @@ LICE_IBitmap *LICE_LoadSVG(const char *filename, LICE_IBitmap *bmp=NULL);
 // bitmap saving
 bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
 bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool force_baseline=true);
+bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alpha=0, bool dither=true); // if alpha<transparent_alpha then transparent
+
+// animated GIF API. use transparent_alpha=-1 to encode unchanged pixels as transparent
+void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true);
+bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool wantNewColorMap);
+bool LICE_WriteGIFEnd(void *handle);
+
 
 // flags that most blit functions can take
 
@@ -382,7 +431,11 @@ void LICE_FLine(LICE_IBitmap* dest, float x1, float y1, float x2, float y2, LICE
 
 void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxon, int pxoff, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=false); // straight lines only for now
 
+void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode);
+void LICE_FillConvexPolygon(LICE_IBitmap* dest, int* x, int* y, int npoints, LICE_pixel color, float alpha, int mode);
+
 void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha=1.0f, int mode=0);
+
 
 // Returns false if the line is entirely offscreen.
 bool LICE_ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int xLo, int yLo, int xHi, int yHi);
@@ -398,12 +451,18 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
 void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha=1.0f, int mode = 0);
 
 // quadratic bezier
+// tol means try to draw segments no longer than tol px
 void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
-  LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, float maxsegmentpx=0.0); // maxsegmentpx<=1 means draw every pixel (best)
+  LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, float tol=0.0); 
 
 // cubic bezier
+// tol means try to draw segments no longer than tol px
 void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, float maxsegmentpx=0.0); // maxsegmentpx<=1 means draw every pixel (best)
+  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, float tol=0.0f); 
+
+// vertical fill from y=yfill
+void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
+  float xctl2, float yctl2, float xend, float yend, int yfill, LICE_pixel color, float alpha=1.0f, int mode=0, float tol=0.0f); 
 
 // convenience functions
 void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha=1.0f, int mode=0);
@@ -420,6 +479,11 @@ LICE_pixel LICE_HSV2Pix(int h, int s, int v, int alpha); // sv: [0,256), h: [0,3
 LICE_pixel LICE_AlterColorHSV(LICE_pixel color, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
 void LICE_AlterBitmapHSV(LICE_IBitmap* src, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
 void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
+
+LICE_pixel LICE_CombinePixels(LICE_pixel dest, LICE_pixel src, float alpha, int mode);
+
+void LICE_CombinePixels2(LICE_pixel *destptr, int r, int g, int b, int a, int ia, int mode); // does not clamp
+void LICE_CombinePixels2Clamp(LICE_pixel *destptr, int r, int g, int b, int a, int ia, int mode);
 
 struct _LICE_ImageLoader_rec
 {

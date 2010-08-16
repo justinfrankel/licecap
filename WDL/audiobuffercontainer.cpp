@@ -82,18 +82,16 @@ bool ChannelPinMapper::IsStraightPassthrough()
 #define PINMAPPER_MAGIC 1000
 
 // return is on the heap
-char* ChannelPinMapper::SaveState(int* pLen)
+char* ChannelPinMapper::SaveStateNew(int* pLen)
 {
-  WDL_Queue chunk;
+  m_cfgret.Clear();
   int magic = PINMAPPER_MAGIC;
-  WDL_Queue__AddToLE(&chunk, &magic);
-  WDL_Queue__AddToLE(&chunk, &m_nCh);
-  WDL_Queue__AddToLE(&chunk, &m_nPins);
-  WDL_Queue__AddDataToLE(&chunk, m_mapping.Get(), m_mapping.GetSize()*sizeof(WDL_UINT64), sizeof(WDL_UINT64));
-  *pLen = chunk.GetSize();
-  char* buf = (char*) malloc(*pLen);
-  memcpy(buf, chunk.Get(), *pLen);
-  return buf;
+  WDL_Queue__AddToLE(&m_cfgret, &magic);
+  WDL_Queue__AddToLE(&m_cfgret, &m_nCh);
+  WDL_Queue__AddToLE(&m_cfgret, &m_nPins);
+  WDL_Queue__AddDataToLE(&m_cfgret, m_mapping.Get(), m_mapping.GetSize()*sizeof(WDL_UINT64), sizeof(WDL_UINT64));
+  *pLen = m_cfgret.GetSize();
+  return (char*)m_cfgret.Get();
 }
 
 bool ChannelPinMapper::LoadState(char* buf, int len)

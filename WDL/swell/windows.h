@@ -36,6 +36,7 @@ typedef struct _browseinfoA {
     int          iImage;
 } BROWSEINFO, *PBROWSEINFO, *LPBROWSEINFO;
 
+#ifdef __cplusplus
 class IMalloc
 {
   public:
@@ -44,6 +45,7 @@ class IMalloc
 };
 #define SHGetMalloc(x) { *(x) = new IMalloc; }
 #define SHGetPathFromIDList(src,dest) { if (src) {lstrcpyn(dest,(char *)src,MAX_PATH); } else *dest=0; }
+#endif
 
 SWELL_API_DEFINE(ITEMIDLIST *, SHBrowseForFolder, (LPBROWSEINFO))
 
@@ -156,4 +158,8 @@ SWELL_API_DEFINE(DWORD,GetFileSize,(HANDLE, DWORD *high))
 #define CharNext(x) ((x)+1)
 #define CharPrev(base,x) ( (x)>(base)?(x)-1:(base)) 
 #define isspace(x) ((x) == ' ' || (x) == '\t' || (x) == '\r' || (x) == '\n')
+
+#define lstrcpyA strcpy
+#define lstrcpynA lstrcpyn
+
 #endif

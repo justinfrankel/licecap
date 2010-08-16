@@ -828,8 +828,12 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 
 #define CBN_SELCHANGE       1
 #define CBN_EDITCHANGE      5
+#define CBN_DROPDOWN        7
 #define CB_ERR (-1)
 
+#define EM_GETSEL               0xF0B0
+#define EM_SETSEL               0xF0B1
+#define EM_SCROLL               0xF0B5
 
 #define SB_HORZ             0
 #define SB_VERT             1
@@ -1552,6 +1556,8 @@ SWELL_API_DEFINE(void, SWELL_CB_Empty,(HWND hwnd, int idx))
 SWELL_API_DEFINE(int, SWELL_CB_InsertString,(HWND hwnd, int idx, int pos, const char *str))
 SWELL_API_DEFINE(int, SWELL_CB_GetItemText,(HWND hwnd, int idx, int item, char *buf, int bufsz))
 SWELL_API_DEFINE(void, SWELL_CB_DeleteString,(HWND hwnd, int idx, int wh))
+SWELL_API_DEFINE(int, SWELL_CB_FindString,(HWND hwnd, int idx, int startAfter, const char *str, bool exact))
+
 
 /*
 ** Trackbar API
@@ -1719,7 +1725,8 @@ SWELL_API_DEFINE(HMENU, SWELL_GetDefaultWindowMenu,())
 SWELL_API_DEFINE(void, SWELL_SetDefaultWindowMenu,(HMENU))
 SWELL_API_DEFINE(HMENU, SWELL_GetDefaultModalWindowMenu,())
 SWELL_API_DEFINE(void, SWELL_SetDefaultModalWindowMenu,(HMENU))
-
+SWELL_API_DEFINE(HMENU, SWELL_GetCurrentMenu,())
+SWELL_API_DEFINE(void, SWELL_SetCurrentMenu,(HMENU))
 
 
 
@@ -1771,6 +1778,8 @@ SWELL_API_DEFINE(long, DefWindowProc,(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 */
 SWELL_API_DEFINE(void, EndDialog,(HWND, int))            
 
+
+SWELL_API_DEFINE(int,SWELL_GetDefaultButtonID,(HWND hwndDlg, bool onlyIfEnabled))
 
 
 /*
@@ -1833,6 +1842,8 @@ SWELL_API_DEFINE(void, SWELL_MessageQueue_Clear,(HWND h))
 ** as SWELL generally encourages this to be used soley for a right mouse button (as modifier).
 */
 SWELL_API_DEFINE(int, SWELL_MacKeyToWindowsKey,(void *nsevent, int *flags))
+SWELL_API_DEFINE(int,SWELL_KeyToASCII,(int wParam, int lParam, int *newflags))
+
 
 /*
 ** GetAsyncKeyState()
@@ -2081,6 +2092,11 @@ SWELL_API_DEFINE(int, GetSystemMetrics, (int))
 SWELL_API_DEFINE(BOOL, DragQueryPoint,(HDROP,LPPOINT))
 SWELL_API_DEFINE(void, DragFinish,(HDROP))
 SWELL_API_DEFINE(UINT, DragQueryFile,(HDROP,UINT,char *,UINT))
+
+// source drag/drop - callback is source implementing "create dropped files at droppath"
+SWELL_API_DEFINE(void, SWELL_InitiateDragDrop, (HWND, RECT* srcrect, const char* srcfn, void (*callback)(const char* droppath)))
+SWELL_API_DEFINE(void, SWELL_FinishDragDrop, ())  // cancels any outstanding InitiateDragDrop
+
 
 // r=NULL to "free" handle
 // otherwise r is in hwndPar coordinates

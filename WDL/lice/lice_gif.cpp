@@ -64,7 +64,7 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
             bmpptr += dbmpptr*(bmp->getHeight()-1);
             dbmpptr=-dbmpptr;
           }
-          GifPixelType *linebuf=(GifPixelType*)malloc(width);
+          GifPixelType *linebuf=(GifPixelType*)malloc(width*sizeof(GifPixelType));
           int y;
           int cmap[256];
           for (y=0;y<256;y++)
