@@ -268,7 +268,7 @@ public:
 -(void)swellSetMenu:(HMENU)menu;
 -(LONG)getSwellUserData;
 -(void)setSwellUserData:(LONG)val;
-
+-(void)setOpaque:(bool)isOpaque;
 -(LPARAM)getSwellExtraData:(int)idx;
 -(void)setSwellExtraData:(int)idx value:(LPARAM)val;
 -(void)setSwellWindowProc:(WNDPROC)val;
@@ -325,10 +325,13 @@ public:
 
 @interface SWELL_hwndCarbonHost : SWELL_hwndChild
 {
-  @public
+@public
   NSWindow *m_cwnd;
-  WindowRef m_wndref;
   bool m_needattach;
+
+  bool m_whileresizing;
+  void* m_wndhandler;   // won't compile if declared EventHandlerRef, wtf
+  void* m_ctlhandler;   // not sure if these need to be separate but cant hurt  
 }
 -(BOOL)swellIsCarbonHostingView;
 -(void)swellDoRepos;

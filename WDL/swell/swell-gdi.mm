@@ -55,7 +55,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 static WDL_Mutex m_ctxpool_mutex;
 static WDL_PtrList<GDP_CTX> m_ctxpool; // not threadsafe but fuck it I dont think anything is yet
 
-static GDP_CTX *GDP_CTX_NEW()
+GDP_CTX *SWELL_GDP_CTX_NEW()
 {
   int ni=m_ctxpool.GetSize();
   GDP_CTX *p=NULL;
@@ -73,7 +73,7 @@ static GDP_CTX *GDP_CTX_NEW()
   if (!p) p=(GDP_CTX *)calloc(sizeof(GDP_CTX),1);
   return p;
 }
-static void GDP_CTX_DELETE(GDP_CTX *p)
+static void SWELL_GDP_CTX_DELETE(GDP_CTX *p)
 {
   if (p && m_ctxpool.GetSize()<1024) 
   {
@@ -87,7 +87,7 @@ static void GDP_CTX_DELETE(GDP_CTX *p)
 
 HDC SWELL_CreateGfxContext(void *c)
 {
-  GDP_CTX *ctx=GDP_CTX_NEW();
+  GDP_CTX *ctx=SWELL_GDP_CTX_NEW();
   NSGraphicsContext *nsc = (NSGraphicsContext *)c;
 //  if (![nsc isFlipped])
 //    nsc = [NSGraphicsContext graphicsContextWithGraphicsPort:[nsc graphicsPort] flipped:YES];
@@ -121,7 +121,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
   CGContextScaleCTM(c,1.0,-1.0);
 
 
-  GDP_CTX *ctx=GDP_CTX_NEW();
+  GDP_CTX *ctx=SWELL_GDP_CTX_NEW();
   ctx->ctx=(CGContextRef)c;
   ctx->ownedData=buf;
   // CGContextSelectFont(ctx->ctx,"Arial",12.0,kCGEncodingMacRoman);
@@ -143,7 +143,7 @@ void SWELL_DeleteGfxContext(HDC ctx)
     }
     if (ct->curtextcol) [ct->curtextcol release];
     if (ct->curcgtextcol) CGColorRelease(ct->curcgtextcol);
-    GDP_CTX_DELETE(ct);
+    SWELL_GDP_CTX_DELETE(ct);
   }
 }
 HPEN CreatePen(int attr, int wid, int col)
@@ -1349,19 +1349,10 @@ void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, 
   CGImage *img=CGBitmapContextCreateImage(newtmpctx);
   if (img)
   {
-  
-    if (dest->ownedData)
-    {
-      CGContextSaveGState(dest->ctx);
-      CGContextScaleCTM(dest->ctx,1.0,-1.0);  
-      CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
-      CGContextRestoreGState(dest->ctx);
-    }
-    else
-    {
-      CGContextDrawImage(dest->ctx,CGRectMake(x,y,w,h),img);    
-    }
-  
+    CGContextSaveGState(dest->ctx);
+    CGContextScaleCTM(dest->ctx,1.0,-1.0);  
+    CGContextDrawImage(dest->ctx,CGRectMake(x,-h-y,w,h),img);    
+    CGContextRestoreGState(dest->ctx);
     CGImageRelease(img);
   }
   CGContextRelease(newtmpctx);

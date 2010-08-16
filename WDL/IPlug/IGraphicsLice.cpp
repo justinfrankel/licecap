@@ -5,27 +5,66 @@
 
 extern HINSTANCE gHInstance;
 
-struct BitmapStorage
+class BitmapStorage
 {
-  WDL_PtrList<LICE_IBitmap> mBitmaps;
+public:
+
+  struct BitmapKey
+  {
+    int id;
+    LICE_IBitmap* bitmap;
+  };
+  
+  WDL_PtrList<BitmapKey> m_bitmaps;
+  WDL_Mutex m_mutex;
+
+  LICE_IBitmap* Find(int id)
+  {
+    WDL_MutexLock lock(&m_mutex);
+    int i, n = m_bitmaps.GetSize();
+    for (i = 0; i < n; ++i)
+    {
+      BitmapKey* key = m_bitmaps.Get(i);
+      if (key->id == id) return key->bitmap;
+    }
+    return 0;
+  }
+
+  void Add(LICE_IBitmap* bitmap, int id = -1)
+  {
+    WDL_MutexLock lock(&m_mutex);
+    BitmapKey* key = m_bitmaps.Add(new BitmapKey);
+    key->id = id;
+    key->bitmap = bitmap;
+  }
+
+  void Remove(LICE_IBitmap* bitmap)
+  {
+    WDL_MutexLock lock(&m_mutex);
+    int i, n = m_bitmaps.GetSize();
+    for (i = 0; i < n; ++i)
+    {
+      if (m_bitmaps.Get(i)->bitmap == bitmap)
+      {
+        m_bitmaps.Delete(i, true);
+        delete(bitmap);
+        break;
+      }
+    }
+  }
 
   ~BitmapStorage()
   {
-    mBitmaps.Empty(true);
+    int i, n = m_bitmaps.GetSize();
+    for (i = 0; i < n; ++i)
+    {
+      delete(m_bitmaps.Get(i)->bitmap);
+    }
+    m_bitmaps.Empty(true);
   }
 };
-static BitmapStorage sRetainedBitmaps;
 
-bool ExistsInStorage(LICE_IBitmap* pBitmap)
-{
-  int i, n = sRetainedBitmaps.mBitmaps.GetSize();
-  for (i = 0; i < n; ++i) {
-    if (sRetainedBitmaps.mBitmaps.Get(i) == pBitmap) {
-      return true;
-    }
-  }
-  return false;
-}
+static BitmapStorage s_bitmapCache;
 
 inline LICE_pixel LiceColor(const IColor* pColor) 
 {
@@ -71,62 +110,25 @@ IGraphicsLice::~IGraphicsLice()
 
 IBitmap IGraphicsLice::LoadIBitmap(int ID, const char* name, int nStates)
 {
-  static WDL_Mutex sMutex;
-  static WDL_TypedBuf<int> sCachedIDs;
-  static WDL_TypedBuf<IBitmap> sCachedBitmaps;
-
-  WDL_MutexLock cacheLock(&sMutex);
-  int i, n = sCachedIDs.GetSize();
-  int* pID = sCachedIDs.Get();
-  IBitmap* pCachedBitmap = 0;
-  for (i = 0; i < n; ++i, ++pID) {
-    if (ID == *pID) {
-     pCachedBitmap = sCachedBitmaps.Get() + i;
-     if (ExistsInStorage((LICE_IBitmap*) pCachedBitmap->mData)) {
-       return *pCachedBitmap;
-     }
-     // Somebody, probably another plugin instance, released the bitmap data
-     // out from under the function-local cache, so we need to reload it.
-     // We can reuse this pointer to the function-local cache.
-     break;
-    }
+  LICE_IBitmap* lb = s_bitmapCache.Find(ID); 
+  if (!lb)
+  {
+    lb = OSLoadBitmap(ID, name);
+    bool imgResourceFound = (lb);
+    assert(imgResourceFound); // Protect against typos in resource.h and .rc files.
+    s_bitmapCache.Add(lb, ID);
   }
-
-  if (!pCachedBitmap) { // Make a new entry in the function-local cache.
-    sCachedIDs.Resize(n + 1);
-    sCachedBitmaps.Resize(n + 1);
-    *(sCachedIDs.Get() + n) = ID;
-    pCachedBitmap = sCachedBitmaps.Get() + n;
-  }
-
-  LICE_IBitmap* pLB = OSLoadBitmap(ID, name);
-  bool imgResourceFound = (pLB);
-  assert(imgResourceFound); // Protect against typos in resource.h and .rc files.
- *pCachedBitmap = IBitmap(pLB, pLB->getWidth(), pLB->getHeight(), nStates);
-  RetainBitmap(pCachedBitmap);
-  return *pCachedBitmap;
+  return IBitmap(lb, lb->getWidth(), lb->getHeight(), nStates);
 }
 
 void IGraphicsLice::RetainBitmap(IBitmap* pBitmap)
 {
-  LICE_IBitmap* pLB = (LICE_IBitmap*) pBitmap->mData;
-  if (pLB) {
-    sRetainedBitmaps.mBitmaps.Add(pLB);
-  }
+  s_bitmapCache.Add((LICE_IBitmap*)pBitmap->mData);
 }
 
 void IGraphicsLice::ReleaseBitmap(IBitmap* pBitmap)
 {
-  LICE_IBitmap* pLB = (LICE_IBitmap*) pBitmap->mData;
-  if (pLB) {
-    int i, n = sRetainedBitmaps.mBitmaps.GetSize();
-    for (i = 0; i < n; ++i) {
-      if (sRetainedBitmaps.mBitmaps.Get(i) == pLB) {
-        sRetainedBitmaps.mBitmaps.Delete(i, true);
-        break;
-      }
-    }
-  }
+  s_bitmapCache.Remove((LICE_IBitmap*)pBitmap->mData);
 }
 
 void IGraphicsLice::PrepDraw()
@@ -280,100 +282,29 @@ bool IGraphicsLice::DrawHorizontalLine(const IColor* pColor, int yi, int xLo, in
   }
   return true;
 }
- 
-struct ScaledBitmapCacheKey
-{
-  LICE_IBitmap* mSrcBitmap;
-  int mW, mH;
-};
 
 IBitmap IGraphicsLice::ScaleBitmap(IBitmap* pIBitmap, int destW, int destH)
 {
-  static WDL_Mutex sMutex;
-  static WDL_TypedBuf<ScaledBitmapCacheKey> sCachedKeys;
-  static WDL_TypedBuf<IBitmap> sCachedBitmaps;
-
-  WDL_MutexLock cacheLock(&sMutex);
-  int i, n = sCachedKeys.GetSize();
-  ScaledBitmapCacheKey* pKey = sCachedKeys.Get();
-  IBitmap* pCachedBitmap = 0;
-  for (i = 0; i < n; ++i, ++pKey) {
-    if ((LICE_IBitmap*) pIBitmap->mData == pKey->mSrcBitmap && destW == pKey->mW && destH == pKey->mH) {
-      pCachedBitmap = sCachedBitmaps.Get() + i;
-      if (ExistsInStorage((LICE_IBitmap*) pCachedBitmap->mData)) {
-       return *pCachedBitmap;
-     }
-     // Somebody, probably another plugin instance, released the bitmap data
-     // out from under the function-local cache, so we need to reload it.
-     // We can reuse this pointer to the function-local cache.
-     break;
-    }
-  }
-
-  if (!pCachedBitmap) { // Make a new entry in the function-local cache.
-    sCachedKeys.Resize(n + 1);
-    sCachedBitmaps.Resize(n + 1);
-    pKey = sCachedKeys.Get() + n;
-    pKey->mSrcBitmap = (LICE_IBitmap*) pIBitmap->mData;
-    pKey->mW = destW;
-    pKey->mH = destH;
-    pCachedBitmap = sCachedBitmaps.Get() + n;
-  }
-
   LICE_IBitmap* pSrc = (LICE_IBitmap*) pIBitmap->mData;
   LICE_MemBitmap* pDest = new LICE_MemBitmap(destW, destH);
   _LICE::LICE_ScaledBlit(pDest, pSrc, 0, 0, destW, destH, 0.0f, 0.0f, (float) pIBitmap->W, (float) pIBitmap->H, 1.0f, 
     LICE_BLIT_MODE_COPY | LICE_BLIT_FILTER_BILINEAR);
-  *pCachedBitmap = IBitmap(pDest, destW, destH, pIBitmap->N);
-  RetainBitmap(pCachedBitmap);
-  return *pCachedBitmap;
-}
 
-struct CroppedBitmapCacheKey
-{
-  LICE_IBitmap* mSrcBitmap;
-  IRECT mR;
-};
+  IBitmap bmp(pDest, destW, destH, pIBitmap->N);
+  RetainBitmap(&bmp);
+  return bmp;
+}
 
 IBitmap IGraphicsLice::CropBitmap(IBitmap* pIBitmap, IRECT* pR)
 {
-  static WDL_Mutex sMutex;
-  static WDL_TypedBuf<CroppedBitmapCacheKey> sCachedKeys;
-  static WDL_TypedBuf<IBitmap> sCachedBitmaps;
-
-  WDL_MutexLock cacheLock(&sMutex);
-  int i, n = sCachedKeys.GetSize();
-  CroppedBitmapCacheKey* pKey = sCachedKeys.Get();
-  IBitmap* pCachedBitmap = 0;
-  for (i = 0; i < n; ++i, ++pKey) {
-    if ((LICE_IBitmap*) pIBitmap->mData == pKey->mSrcBitmap && *pR == pKey->mR) {
-      pCachedBitmap = sCachedBitmaps.Get() + i;
-      if (ExistsInStorage((LICE_IBitmap*) pCachedBitmap->mData)) {
-       return *pCachedBitmap;
-     }
-     // Somebody, probably another plugin instance, released the bitmap data
-     // out from under the function-local cache, so we need to reload it.
-     // We can reuse this pointer to the function-local cache.
-     break;
-    }
-  }
-
-  if (!pCachedBitmap) { // Make a new entry in the function-local cache.
-    sCachedKeys.Resize(n + 1);
-    sCachedBitmaps.Resize(n + 1);
-    pKey = sCachedKeys.Get() + n;
-    pKey->mSrcBitmap = (LICE_IBitmap*) pIBitmap->mData;
-    pKey->mR = *pR;
-    pCachedBitmap = sCachedBitmaps.Get() + n;
-  }
-
   int destW = pR->W(), destH = pR->H();
   LICE_IBitmap* pSrc = (LICE_IBitmap*) pIBitmap->mData;
   LICE_MemBitmap* pDest = new LICE_MemBitmap(destW, destH);
   _LICE::LICE_Blit(pDest, pSrc, 0, 0, pR->L, pR->T, destW, destH, 1.0f, LICE_BLIT_MODE_COPY);
-  *pCachedBitmap = IBitmap(pDest, destW, destH, pIBitmap->N);
-  RetainBitmap(pCachedBitmap);
-  return *pCachedBitmap;
+
+  IBitmap bmp(pDest, destW, destH, pIBitmap->N);
+  RetainBitmap(&bmp);
+  return bmp;
 }
 
 LICE_pixel* IGraphicsLice::GetBits()

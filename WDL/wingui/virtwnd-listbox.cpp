@@ -255,7 +255,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
             if (m_font)
             {
               m_font->SetTextColor(rev?bgc:color);
-              m_font->DrawText(drawbm,buf,-1,&thisr,DT_VCENTER|DT_SINGLELINE|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+              m_font->DrawText(drawbm,buf,-1,&thisr,DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
             }
           }
         }

@@ -608,8 +608,11 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
   }
 #endif
 
+  // if using line-spacing adjustments (m_lsadj), don't allow native rendering 
+  // todo: split rendering up into invidual lines and DrawText calls
   if ((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !LICE_Text_IsWine() && 
-    !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags)) 
+      !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags) &&
+     (!m_lsadj || (dtFlags&DT_SINGLELINE))) 
   {
 
     // on Win2000+, use wide versions if needed for UTF
@@ -648,13 +651,16 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
     RECT srcr={0,};
     bool isTmp=false;
     POINT blitPos={0,};
+
+    static LICE_SysBitmap s_nativerender_tempbitmap; 
+
     if (!hdc)  // use temp buffer
     {
       isTmp=true;
       if (w<1)w=1;
       if (h<1)h=1;
-      s_tempbitmap.resize(w, h);
-      hdc = s_tempbitmap.getDC();
+      s_nativerender_tempbitmap.resize(w, h);
+      hdc = s_nativerender_tempbitmap.getDC();
 
       oldfont = SelectObject(hdc, m_font);
   
@@ -701,11 +707,11 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
         h=blit_r.bottom-blit_r.top;
       }
 
-      if (w > s_tempbitmap.getWidth() || h > s_tempbitmap.getHeight())
+      if (w > s_nativerender_tempbitmap.getWidth() || h > s_nativerender_tempbitmap.getHeight())
       {
         SelectObject(hdc,oldfont);
-        s_tempbitmap.resize(w, h);
-        hdc = s_tempbitmap.getDC();
+        s_nativerender_tempbitmap.resize(w, h);
+        hdc = s_nativerender_tempbitmap.getDC();
         oldfont = SelectObject(hdc, m_font);
       }
 
@@ -713,7 +719,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
       blit_r.top = rect->top + blitPos.y;
       blit_r.right = blit_r.left+w;
       blit_r.bottom = blit_r.top+h;
-      LICE_Blit(&s_tempbitmap, bm, 0, 0, &blit_r, 1.0f, LICE_BLIT_MODE_COPY);
+      LICE_Blit(&s_nativerender_tempbitmap, bm, 0, 0, &blit_r, 1.0f, LICE_BLIT_MODE_COPY);
       srcr.right=w;
       srcr.bottom=h;
     }
@@ -735,7 +741,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
 #endif
       ::DrawText(hdc,str,strcnt,&srcr,dtFlags|DT_NOPREFIX);
 
-    if (isTmp) LICE_Blit(bm, &s_tempbitmap,  rect->left+blitPos.x, rect->top+blitPos.y, &srcr, m_alpha, LICE_BLIT_MODE_COPY);
+    if (isTmp) LICE_Blit(bm, &s_nativerender_tempbitmap,  rect->left+blitPos.x, rect->top+blitPos.y, &srcr, m_alpha, LICE_BLIT_MODE_COPY);
     else if (dtFlags & DT_CALCRECT) *rect = srcr;
 
 

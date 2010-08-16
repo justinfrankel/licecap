@@ -113,7 +113,7 @@ inline IMouseMod GetMouseMod(NSEvent* pEvent)
 {
   int x, y;
   [self getMouseXY:pEvent x:&x y:&y];
-  mGraphics->OnMouseUp(x, y);
+  mGraphics->OnMouseUp(x, y, &GetMouseMod(pEvent));
 }
 
 - (void) mouseDragged: (NSEvent*) pEvent

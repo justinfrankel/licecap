@@ -34,6 +34,10 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
+char* lstrcpyn(char* dest, const char* src, int l);
+
+int g_swell_want_nice_style = 1;
+
 void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
 {
   NSString *s = (NSString *)str;
@@ -50,18 +54,6 @@ void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
   buf[len]=0;
 //  [data release];
 }
-
-void *SWELL_CStringToCFString(const char *str)
-{
-  if (!str) str="";
-  void *ret;
-  
-  ret=(void *)CFStringCreateWithCString(NULL,str,kCFStringEncodingUTF8);
-  if (ret) return ret;
-  ret=(void*)CFStringCreateWithCString(NULL,str,kCFStringEncodingASCII);
-  return ret;
-}
-
 
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
 {
@@ -153,22 +145,6 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 	}
 	return 0;
 }
-
-
-@implementation SWELL_DataHold
--(id) initWithVal:(void *)val
-{
-  if ((self = [super init]))
-  {
-    m_data=val;
-  }
-  return self;
-}
--(void *) getValue
-{
-  return m_data;
-}
-@end
 
 
 @implementation SWELL_TabView
@@ -2285,22 +2261,14 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   }
   
   [button setTag:idx];
-  [button setBezelStyle:NSRoundedBezelStyle ];
+  if (g_swell_want_nice_style==1)
+    [button setBezelStyle:NSShadowlessSquareBezelStyle ];
+  else
+    [button setBezelStyle:NSRoundedBezelStyle ];
   NSRect tr=MakeCoords(x,y,w,h,true);
   
-  // todo: some way to better calculate these!
-  if (tr.size.width < 30)
-  {
-    tr.size.width += 14;
-    tr.origin.x -= 6;
-  }
-  else// if (!def) //strcmp(label,"OK") && strcmp(label,"Cancel"))
-  {
-    tr.size.width+=def?8:12;
-    tr.origin.x -= 4;
-  }
   
-  if (tr.size.height >= 18 && tr.size.height<24)
+  if (g_swell_want_nice_style!=1 && tr.size.height >= 18 && tr.size.height<24)
   {
     tr.size.height=24;
   }
@@ -2442,9 +2410,9 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
 }
 
 
-HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h)
+HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h, int flags=0)
 {
-  return SWELL_MakeControl(name,idx,"Button",BS_AUTOCHECKBOX,x,y,w,h,0);
+  return SWELL_MakeControl(name,idx,"Button",BS_AUTOCHECKBOX|flags,x,y,w,h,0);
 }
 
 HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
@@ -2738,6 +2706,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     {
 //      fr.size.width+=8;
     }
+    
     if (m_transform.size.width < minwidfontadjust)
       [button setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
     [button setFrame:fr];
@@ -2745,6 +2714,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [button setTitle:labelstr];
     [button setTarget:ACTIONTARGET];
     [button setAction:@selector(onSwellCommand:)];
+    if (style&BS_LEFTTEXT) [button setImagePosition:NSImageRight];
     if (style&SWELL_NOT_WS_VISIBLE) [button setHidden:YES];
     [m_make_owner addSubview:button];
     if (m_sizetofits && (style & 0xf) != BS_OWNERDRAW) [button sizeToFit];
@@ -2778,13 +2748,18 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setTag:idx];
     if (m_transform.size.width < minwidfontadjust)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
-    NSRect rc=MakeCoords(x,y-1,w,14,true);
-    if (rc.size.height<14*1.7) rc.size.height=14*1.7;
+    NSRect rc=MakeCoords(x,y,w,13,true);
     [obj setSwellStyle:flags];
     [obj setFrame:rc];
     [obj setAutoenablesItems:NO];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onSwellCommand:)];
+
+    if (g_swell_want_nice_style==1)
+    {
+      [obj setBezelStyle:NSShadowlessSquareBezelStyle ];
+      [[obj cell] setArrowPosition:NSPopUpArrowAtBottom];
+    }
     if (flags&SWELL_NOT_WS_VISIBLE) [obj setHidden:YES];
     [m_make_owner addSubview:obj];
     if (m_doautoright) UpdateAutoCoords([obj frame]);
@@ -2825,6 +2800,12 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, int style)
 {
   SWELL_BoxView *obj=[[SWELL_BoxView alloc] init];
+  
+  // this just doesn't work, you can't color the border unless it's NSBoxCustom, 
+  // and I can't get it to show the title text if it's NSBoxCustom
+  //[obj setBoxType:(NSBoxType)4];   // NSBoxCustom, so we can color the border 
+  //[obj setTitlePosition:(NSTitlePosition)2];  // NSAtTop, default but NSBoxCustom unsets it
+  
 //  [obj setTag:idx];
   NSString *labelstr=(NSString *)SWELL_CStringToCFString_FilterPrefix(name);
   [obj setTitle:labelstr];
@@ -3653,11 +3634,50 @@ long DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return HTCLIENT;
   }
   else if (msg==WM_KEYDOWN || msg==WM_KEYUP) return 69;
+  else if (msg == WM_DISPLAYCHANGE)
+  {
+    if ([(id)hwnd isKindOfClass:[NSView class]])
+    {
+      NSArray *ch = [(NSView *)hwnd subviews];
+      if (ch)
+      {
+        int x;
+        for(x=0;x<[ch count]; x ++)
+        {
+          NSView *v = [ch objectAtIndex:x];
+          if (v && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+          {
+            [v onSwellMessage:WM_DISPLAYCHANGE p1:wParam p2:lParam];
+          }
+        }
+        if (x)
+        {
+          void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate);
+          DLGPROC d = (DLGPROC)GetWindowLong(hwnd,DWL_DLGPROC);
+          if (d) SWELL_DoDialogColorUpdates(hwnd,d,true);
+        }
+      }
+    }
+  }
   return 0;
 }
 
-
-
+void SWELL_BroadcastMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  int x;
+  NSArray *ch=[NSApp orderedWindows];
+  for(x=0;x<[ch count]; x ++)
+  {
+    NSView *v = [[ch objectAtIndex:x] contentView];
+    if (v && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+    {
+      [v onSwellMessage:uMsg p1:wParam p2:lParam];
+      
+      if (uMsg == WM_DISPLAYCHANGE)
+        InvalidateRect((HWND)v,NULL,FALSE);
+    }
+  }  
+}
 
 
 
@@ -4342,6 +4362,7 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
   {
     free(ti->m_value);
     ti->m_value=strdup(pitem->pszText);
+    InvalidateRect(hwnd, 0, FALSE);
   }
 
   if (pitem->stateMask & TVIS_SELECTED)
@@ -4381,8 +4402,23 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
 HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]] || !hti) return NULL;
+  SWELL_TreeView* tv = (SWELL_TreeView*)hwnd;
+  int x = hti->pt.x;
+  int y = hti->pt.y;
   
-  return NULL; // todo implement
+  int i; 
+  for (i = 0; i < [tv numberOfRows]; ++i)
+  {
+    NSRect r = [tv rectOfRow:i];
+    if (x >= r.origin.x && x < r.origin.x+r.size.width && y >= r.origin.y && y < r.origin.y+r.size.height)
+    {
+      SWELL_DataHold* t = [tv itemAtRow:i];
+      if (t) return (HTREEITEM)[t getValue];
+      return 0;
+    }
+  }
+  
+  return NULL; // not hit
 }
 
 HTREEITEM TreeView_GetRoot(HWND hwnd)
@@ -4640,5 +4676,11 @@ bool SWELL_HandleMouseEvent(NSEvent *evt)
   return false;
 }
 
+void SetOpaque(HWND h, bool opaque)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_hwndChild class]]) return;
+  SWELL_hwndChild* v = (SWELL_hwndChild*)h;
+  [v setOpaque:opaque];
+}
 
 #endif

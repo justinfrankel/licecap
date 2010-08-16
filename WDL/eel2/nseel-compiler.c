@@ -935,7 +935,7 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR f
 	  if (preProc) preProc(block+size+4,size2,ctx);
     if (repl)
     {
-      unsigned char *outp=block+size+4;
+      unsigned char *outp=(unsigned char *)block+size+4;
       if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
       if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
       if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);

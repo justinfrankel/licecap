@@ -190,7 +190,7 @@ bool IRadioButtonsControl::Draw(IGraphics* pGraphics)
     return true;
 }
 
-void IContactControl::OnMouseUp(int x, int y)
+void IContactControl::OnMouseUp(int x, int y, IMouseMod* pMod)
 {
 	mValue = 0.0;
 	SetDirty();

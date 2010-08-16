@@ -62,7 +62,8 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
   NSString *label=(NSString *)SWELL_CStringToCFString(text); 
   
   [item setTitle:label];
-  
+  if ([item hasSubmenu] && [item submenu]) [[item submenu] setTitle:label];
+
   [label release];
   return true;
 }
@@ -336,11 +337,12 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   {
     if (mi->fType == MFT_STRING && mi->dwTypeData)
     {
-	  char buf[1024];
-	  __filtnametobuf(buf,mi->dwTypeData?mi->dwTypeData:"(null)",sizeof(buf));
+      char buf[1024];
+      __filtnametobuf(buf,mi->dwTypeData?mi->dwTypeData:"(null)",sizeof(buf));
       NSString *label=(NSString *)SWELL_CStringToCFString(buf); 
       
       [item setTitle:label];
+      if ([item hasSubmenu] && [item submenu]) [[item submenu] setTitle:label];
       
       [label release];      
     }

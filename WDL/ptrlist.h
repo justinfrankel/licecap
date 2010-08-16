@@ -91,9 +91,13 @@ template<class PTRTYPE> class WDL_PtrList
     }
     int FindSorted(PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
     {
-      if (!GetSize()) return -1;
-      PTRTYPE **pp=(PTRTYPE **)bsearch(&p,GetList(),GetSize(),sizeof(PTRTYPE*),(int (*)(const void *, const void*))compar);
-      if (pp) return pp-GetList();
+      int cursz = GetSize(); PTRTYPE **pp = GetList();
+      while (cursz > 0)
+      {
+        int pvt=cursz/2,v=compar(&p,pp+pvt);
+        if (v<0) cursz=pvt; else if (v>0) { cursz -= ++pvt; pp += pvt; }
+        else return pp+pvt - GetList();
+      }
       return -1;
     }
     PTRTYPE *InsertSorted(PTRTYPE *item, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
@@ -131,6 +135,18 @@ template<class PTRTYPE> class WDL_PtrList
         }
       }
       m_hb.Resize(0,false);
+    }
+    void EmptySafe(bool wantDelete=false,void (*delfunc)(void *)=NULL)
+    {
+      if (!wantDelete) Empty();
+      else
+      {
+        WDL_PtrList<PTRTYPE> tmp;
+        int x;
+        for(x=0;x<GetSize();x++)tmp.Add(Get(x));
+        Empty();
+        tmp.Empty(true,delfunc);
+      }
     }
 
   private:

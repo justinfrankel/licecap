@@ -108,7 +108,7 @@
 #define SS_NOTIFY 0x0100L
 
 #define BS_CENTER 0x0300L
-#define BS_LEFTTEXT 0x0000L
+#define BS_LEFTTEXT 0x0020L
                                        
 #define LVS_LIST 0 /* 0x0003 */
 #define LVS_NOCOLUMNHEADER 0x4000

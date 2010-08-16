@@ -86,6 +86,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variabl
 
 void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx); // clears and frees all (VM) RAM used
 void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX); // call after code to free the script-requested memory
+int NSEEL_VM_wantfreeRAM(NSEEL_VMCTX ctx); // want NSEEL_VM_freeRAMIfCodeRequested?
 
 // if you set this, it uses a local GMEM context. 
 // Must be set before compilation. 

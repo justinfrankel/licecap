@@ -249,7 +249,7 @@ int GetIPlugVerFromChunk(ByteChunk* pChunk, int* pPos)
   return ver;
 }
 
-VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, VstInt32 idx, VstIntPtr value, void *ptr, float opt)
+VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, VstInt32 idx, VstIntPtr value, void *ptr, float opt)
 {
 	// VSTDispatcher is an IPlugVST class member, we can access anything in IPlugVST from here.
 	IPlugVST* _this = (IPlugVST*) pEffect->object;
@@ -324,7 +324,7 @@ VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, 
 	    return 0;
     }
     case effEditGetRect: {
-	    if (_this->GetGUI()) {
+	    if (ptr && _this->GetGUI()) {
 		    *(ERect**) ptr = &(_this->mEditRect);
 		    return 1;
 	    }
@@ -362,7 +362,8 @@ VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, 
         bool savedOK = true;
         if (isBank) {
           _this->ModifyCurrentPreset();
-          savedOK = _this->SerializePresets(pChunk);
+          //savedOK = _this->SerializePresets(pChunk);
+          savedOK = _this->SerializeState(pChunk);
         }
         else {
           savedOK = _this->SerializeState(pChunk);
@@ -384,7 +385,8 @@ VstInt32 VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode, 
         int iplugVer = GetIPlugVerFromChunk(pChunk, &pos);
         isBank &= (iplugVer >= 0x010000);
         if (isBank) {
-          pos = _this->UnserializePresets(pChunk, pos);
+          //pos = _this->UnserializePresets(pChunk, pos);
+          pos = _this->UnserializeState(pChunk, pos);
         }
         else {
           pos = _this->UnserializeState(pChunk, pos);

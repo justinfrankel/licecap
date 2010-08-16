@@ -107,11 +107,11 @@ public:
     else if (m_pos > m_hb.GetSize()) m_pos=m_hb.GetSize();
   }
 
-  void Compact(bool allocdown=false)
+  void Compact(bool allocdown=false, bool force=false)
   {
-    if (m_pos > 0)
+    int olen=m_hb.GetSize();
+    if (m_pos > (force ? 0 : olen/2))
     {
-      int olen=m_hb.GetSize();
       if (m_pos < olen)
       {
         void *a=m_hb.Get();
@@ -245,11 +245,11 @@ public:
     else if (m_pos > m_hb.GetSize()) m_pos=m_hb.GetSize();
   }
 
-  void Compact(bool allocdown=false)
+  void Compact(bool allocdown=false, bool force=false)
   {
-    if (m_pos > 0)
+    int olen=m_hb.GetSize();
+    if (m_pos > (force ? 0 : olen/2))
     {
-      int olen=m_hb.GetSize();
       if (m_pos < olen)
       {
         void *a=m_hb.Get();

@@ -280,8 +280,21 @@ struct IPreset
   IPreset(int idx)
   : mInitialized(false)
   {
-    sprintf(mName, "- %d -", idx);
+    sprintf(mName, "- %d -", idx+1);
   }
+};
+
+enum 
+{
+  KEY_SPACE,
+  KEY_UPARROW,
+  KEY_DOWNARROW,
+  KEY_LEFTARROW,
+  KEY_RIGHTARROW,
+  KEY_DIGIT_0,
+  KEY_DIGIT_9=KEY_DIGIT_0+9,
+  KEY_ALPHA_A,
+  KEY_ALPHA_Z=KEY_ALPHA_A+25
 };
 
 #endif

@@ -624,7 +624,12 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     #else
       p.y+=(ypos-m_last_y);
     #endif
-      SetCursorPos(p.x,p.y);
+      
+      if (!SetCursorPos(p.x,p.y)) 
+      {
+        m_last_y = ypos;
+        m_last_x = xpos;
+      }
     }
     if (!m_last_precmode)
     {

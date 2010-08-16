@@ -157,7 +157,8 @@ static void staticPngReadFunc(png_structp png_ptr, png_bytep data, png_size_t le
 LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
   char buf[2048];
-  GetModuleFileName(NULL,buf,sizeof(buf)-512);
+  buf[0] = 0;
+  GetModuleFileName(0, buf, sizeof(buf)-512); // from SWELL
   strcat(buf,"/Contents/Resources/");
   strcat(buf,name);
   return LICE_LoadPNG(buf,bmp);
@@ -267,18 +268,21 @@ LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   DeleteObject(res);
 
   //put shit in correct order
-  for(i=0;i<height;i++)
+  if (color_type != PNG_COLOR_TYPE_PALETTE)
   {
-    unsigned char *bmpptr = row_pointers[i];
-    int j=width;
-    while (j-->0)
+    for(i=0;i<height;i++)
     {
-      unsigned char a = bmpptr[0];
-      unsigned char r = bmpptr[1];
-      unsigned char g = bmpptr[2];
-      unsigned char b = bmpptr[3];
-      ((LICE_pixel*)bmpptr)[0] = LICE_RGBA(r,g,b,a);
-      bmpptr+=4;
+      unsigned char *bmpptr = row_pointers[i];
+      int j=width;
+      while (j-->0)
+      {
+        unsigned char a = bmpptr[0];
+        unsigned char r = bmpptr[1];
+        unsigned char g = bmpptr[2];
+        unsigned char b = bmpptr[3];
+        ((LICE_pixel*)bmpptr)[0] = LICE_RGBA(r,g,b,a);
+        bmpptr+=4;
+      }
     }
   }
   free(row_pointers);

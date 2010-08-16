@@ -46,6 +46,10 @@
   #ifdef WDL_WIN32_NATIVE_WRITE
     #undef WDL_WIN32_NATIVE_WRITE
   #endif
+  #if !defined(WDL_NO_POSIX_FILEWRITE)
+    #include <sys/fcntl.h>
+    #define WDL_POSIX_NATIVE_WRITE
+  #endif
 #endif
 
 
@@ -56,7 +60,7 @@
 #define WDL_FILEWRITE_POSTYPE long long
 #endif
 
-//#define WIN32_ASYNC_NOBUF_WRITE // this doesnt seem to do much for us, yet.
+//#define WIN32_ASYNC_NOBUF_WRITE // this doesnt seem to give much perf increase (writethrough with buffering is fine, since ultimately writes get deferred anyway)
 
 class WDL_FileWrite
 {
@@ -116,13 +120,16 @@ public:
 public:
   WDL_FileWrite(const char *filename, int allow_async=1, int bufsize=8192, int minbufs=16, int maxbufs=16) // async==2 is unbuffered
   {
+    m_file_position=0;
+    m_file_max_position=0;
     if(!filename)
     {
 #ifdef WDL_WIN32_NATIVE_WRITE
       m_fh = INVALID_HANDLE_VALUE;
-      m_file_position = 0;
-      m_file_max_position=0;
       m_async = 0;
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+      m_filedes=-1;
+      m_bufspace_used=0;
 #else
       m_fp = NULL;
 #endif
@@ -189,8 +196,16 @@ public:
       }
     }
 
-    m_file_position=0;
-    m_file_max_position=0;
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+    m_bufspace_used=0;
+    m_filedes=open(filename,O_WRONLY|O_CREAT|O_TRUNC,0644);
+    if (m_filedes>=0)
+    {
+#ifdef __APPLE__
+      if (allow_async>1) fcntl(m_filedes,F_NOCACHE,1);
+#endif
+    }
+    if (minbufs * bufsize >= 16384) m_bufspace.Resize((minbufs*bufsize+4095)&~4095);
 #else
     m_fp=fopen(filename,"wb");
 #endif
@@ -210,6 +225,20 @@ public:
 
     if (m_fh != INVALID_HANDLE_VALUE) CloseHandle(m_fh);
     m_fh=INVALID_HANDLE_VALUE;
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+   if (m_filedes >= 0)
+   {
+     if (m_bufspace.GetSize() > 0 && m_bufspace_used>0)
+     {
+       int v=pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
+       if (v>0) m_file_position+=v;
+       if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
+       m_bufspace_used=0;
+     }
+     close(m_filedes);
+   }
+   m_filedes=-1;
+   
 #else
     if (m_fp) fclose(m_fp);
     m_fp=0;
@@ -221,6 +250,8 @@ public:
   {
 #ifdef WDL_WIN32_NATIVE_WRITE
     return (m_fh != INVALID_HANDLE_VALUE);
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+    return m_filedes >= 0;
 #else
     return m_fp != NULL;
 #endif
@@ -301,6 +332,40 @@ public:
       if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
       return dw;
     }
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+   if (m_bufspace.GetSize()>0)
+   {
+     char *rdptr = (char *)buf;
+     int rdlen = len;
+     while (rdlen>0)
+     {
+       int amt = m_bufspace.GetSize() - m_bufspace_used;
+       if (amt>0)
+       {
+         if (amt>rdlen) amt=rdlen;
+         memcpy((char *)m_bufspace.Get()+m_bufspace_used,rdptr,amt);
+         m_bufspace_used += amt;
+         rdptr+=amt;
+         rdlen -= amt;
+
+         if (m_file_position+m_bufspace_used > m_file_max_position) m_file_max_position=m_file_position + m_bufspace_used;
+       }
+       if (m_bufspace_used >= m_bufspace.GetSize())
+       {
+         int v=pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
+         if (v>0) m_file_position+=v;
+         m_bufspace_used=0;
+       }
+     }    
+     return len;
+   }
+   else
+   {
+     int v=pwrite(m_filedes,buf,len,m_file_position);
+     if (v>0) m_file_position+=v;
+     if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
+     return v;
+   }
 #else
     return fwrite(buf,1,len,m_fp);
 #endif
@@ -320,6 +385,9 @@ public:
     if (tmp<tmp2) return tmp2;
     
     return tmp;
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+    if (m_filedes < 0) return -1;
+    return m_file_max_position;
 #else
     if (!m_fp) return -1;
     int opos=ftell(m_fp);
@@ -343,6 +411,9 @@ public:
       if (ent) pos+=ent->m_bufused;
     }
     return pos;
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+    if (m_filedes < 0) return -1;
+    return m_file_position + m_bufspace_used;
 #else
     if (!m_fp) return -1;
     return ftell(m_fp);
@@ -472,13 +543,30 @@ public:
 
     LONG high=(LONG) (m_file_position>>32);
     return SetFilePointer(m_fh,(LONG)(m_file_position&0xFFFFFFFFi64),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+
+    if (m_filedes < 0) return true;
+    if (m_bufspace.GetSize() > 0 && m_bufspace_used>0)
+    {
+      int v=pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
+      if (v>0) m_file_position+=v;
+      if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
+      m_bufspace_used=0;
+    }
+
+    m_file_position = pos; // seek!
+    if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
+    return false;
 #else
     if (!m_fp) return true;
     return !!fseek(m_fp,pos,SEEK_SET);
 #endif
   }
 
+  WDL_FILEWRITE_POSTYPE m_file_position, m_file_max_position;
+
 #ifdef WDL_WIN32_NATIVE_WRITE
+  HANDLE GetHandle() { return m_fh; }
   HANDLE m_fh;
   bool m_async;
 
@@ -487,9 +575,17 @@ public:
   WDL_PtrList<WDL_FileWrite__WriteEnt> m_empties;
   WDL_PtrList<WDL_FileWrite__WriteEnt> m_pending;
 
-  WDL_FILEWRITE_POSTYPE m_file_position, m_file_max_position;
-  
+#elif defined(WDL_POSIX_NATIVE_WRITE)
+  int GetHandle() { return m_filedes; }
+
+  int m_filedes;
+
+  WDL_HeapBuf m_bufspace;
+  int m_bufspace_used;
+
 #else
+  int GetHandle() { return fileno(m_fp); }
+ 
   FILE *m_fp;
 #endif
 };

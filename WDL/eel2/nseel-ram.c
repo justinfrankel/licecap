@@ -38,6 +38,17 @@ int NSEEL_RAM_memused_errors=0;
 
 
 
+int NSEEL_VM_wantfreeRAM(NSEEL_VMCTX ctx)
+{
+	if (ctx)
+  {
+    compileContext *c=(compileContext*)ctx;
+    if (c->ram_needfree) 
+      return 1;
+  }
+  return 0;
+}
+
 void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our free flag was set
 {
 	if (ctx)
@@ -88,18 +99,8 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
 
   if (!gmembuf)
   {
-    NSEEL_HOSTSTUB_EnterMutex();
-    if (!gmembuf)
-    {
-      EEL_F *turd=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
-
-      // ok this could be a problem on a multithreaded system, 
-      // however the worst case scenario is that we allocate 
-      // an extra per thread, and that's pretty damn unlikely (/me crosses fingers)
-      if (!gmembuf&&turd) gmembuf=turd;
-      else free(turd);
-    }
-
+    NSEEL_HOSTSTUB_EnterMutex(); 
+    if (!gmembuf) gmembuf=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
     NSEEL_HOSTSTUB_LeaveMutex();
 
     if (!gmembuf) return 0;
@@ -112,18 +113,21 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F ***blocks, int w)
 {
   int whichblock;
   EEL_F **pblocks=*blocks;
+
+  int is_locked=0;
+
   if (!pblocks)
   {
-    NSEEL_HOSTSTUB_EnterMutex();
+    if (!is_locked) { is_locked=1; NSEEL_HOSTSTUB_EnterMutex(); }
+
     if (!(pblocks=*blocks))
     {
       pblocks = *blocks = (EEL_F **)calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS);
       if (!pblocks) {
-        NSEEL_HOSTSTUB_LeaveMutex();
+        if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
         return 0;
       }
     }
-    NSEEL_HOSTSTUB_LeaveMutex();
   }
 
 //  fprintf(stderr,"got request at %d, %d\n",w/NSEEL_RAM_ITEMSPERBLOCK, w&(NSEEL_RAM_ITEMSPERBLOCK-1));
@@ -132,7 +136,7 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F ***blocks, int w)
     EEL_F *p=pblocks[whichblock];
     if (!p)
     {
-      NSEEL_HOSTSTUB_EnterMutex();
+      if (!is_locked) { is_locked=1; NSEEL_HOSTSTUB_EnterMutex(); }
 
       if (!(p=pblocks[whichblock]))
       {
@@ -144,12 +148,12 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F ***blocks, int w)
       		if (p) NSEEL_RAM_memused+=msize;
       	}
         if (!p) w=0;
-
       }
-      NSEEL_HOSTSTUB_LeaveMutex();
     }	  
+    if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
     return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   }
+  if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
 //  fprintf(stderr,"ret 0\n");
   return 0;
 }

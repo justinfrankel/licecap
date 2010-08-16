@@ -25,6 +25,7 @@ WDL_WIN32_UTF8_IMPL BOOL DeleteFileUTF8(LPCTSTR path);
 WDL_WIN32_UTF8_IMPL BOOL MoveFileUTF8(LPCTSTR existfn, LPCTSTR newfn);
 WDL_WIN32_UTF8_IMPL DWORD GetCurrentDirectoryUTF8(DWORD nBufferLength, LPTSTR lpBuffer);
 WDL_WIN32_UTF8_IMPL BOOL SetCurrentDirectoryUTF8(LPCTSTR path);
+WDL_WIN32_UTF8_IMPL HINSTANCE LoadLibraryUTF8(LPCTSTR path);
 
 WDL_WIN32_UTF8_IMPL HANDLE CreateFileUTF8(LPCTSTR lpFileName,DWORD dwDesiredAccess,DWORD dwShareMode,LPSECURITY_ATTRIBUTES lpSecurityAttributes,DWORD dwCreationDisposition,DWORD dwFlagsAndAttributes,HANDLE hTemplateFile);
 
@@ -135,6 +136,11 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #undef GetMenuItemInfo
 #endif
 #define GetMenuItemInfo GetMenuItemInfoUTF8
+
+#ifdef LoadLibrary
+#undef LoadLibrary
+#endif
+#define LoadLibrary LoadLibraryUTF8
 
 #else
 

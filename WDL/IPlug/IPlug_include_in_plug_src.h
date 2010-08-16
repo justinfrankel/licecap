@@ -57,7 +57,7 @@
     WDL_MutexLock lock(&sMutex);
     IPlugInstanceInfo instanceInfo;
     instanceInfo.mOSXBundleID.Set(BUNDLE_ID);
-    instanceInfo.mCocoaViewFactoryClassName.Set(VIEW_FACTORY_CLASS);
+    instanceInfo.mCocoaViewFactoryClassName.Set(VIEW_CLASS_STR);
     return new PLUG_CLASS_NAME(instanceInfo);
   }
   extern "C"

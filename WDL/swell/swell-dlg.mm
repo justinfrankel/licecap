@@ -15,6 +15,115 @@ bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
 
+
+static NSColor *NSColorFromCGColor(CGColorRef ref)
+{
+  const float *cc = CGColorGetComponents(ref);
+  if (cc) return [NSColor colorWithCalibratedRed:cc[0] green:cc[1] blue:cc[2] alpha:cc[3]];
+  return NULL;
+}
+
+void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
+{
+  extern GDP_CTX *SWELL_GDP_CTX_NEW();
+  NSArray *children = [(NSView *)hwnd subviews];
+  
+  if (!d || !children || ![children count]) return;
+
+  int had_flags=0;
+
+  NSColor *staticFg=NULL; // had_flags&1, WM_CTLCOLORSTATIC
+  NSColor *editFg=NULL, *editBg=NULL; // had_flags&2, WM_CTLCOLOREDIT
+  NSColor *buttonFg=NULL; // had_flags&4, WM_CTLCOLORBTN
+      
+  int x;
+  for (x = 0; x < [children count]; x ++)
+  {
+    NSView *ch = [children objectAtIndex:x];
+    if (ch)
+    {
+      if ([ch isKindOfClass:[NSButton class]] && [(NSButton *)ch image])
+      {
+        if (!(had_flags&4))
+        {
+          had_flags|=4;
+          GDP_CTX *c = SWELL_GDP_CTX_NEW();
+          if (c)
+          {
+            d(hwnd,WM_CTLCOLORBTN,(WPARAM)c,(LPARAM)ch);
+            if (c->curcgtextcol) buttonFg=NSColorFromCGColor(c->curcgtextcol);
+            else if (isUpdate) buttonFg = [NSColor textColor]; // todo some other col?              
+            SWELL_DeleteGfxContext((HDC)c);
+          }
+        }
+        if (buttonFg) [(NSTextField*)ch setTextColor:buttonFg]; // NSButton had this added below
+      }
+      else if ([ch isKindOfClass:[NSTextField class]] || [ch isKindOfClass:[NSBox class]])
+      {
+        bool isbox = ([ch isKindOfClass:[NSBox class]]);        
+        if (!isbox && [(NSTextField *)ch isEditable])
+        {
+          if (!(had_flags&2))
+          {
+            had_flags|=2;
+            GDP_CTX *c = SWELL_GDP_CTX_NEW();
+            if (c)
+            {
+              d(hwnd,WM_CTLCOLOREDIT,(WPARAM)c,(LPARAM)ch);
+              if (c->curcgtextcol) 
+              {
+                editFg=NSColorFromCGColor(c->curcgtextcol);
+                editBg=[NSColor colorWithCalibratedRed:GetRValue(c->curbkcol)/255.0f green:GetGValue(c->curbkcol)/255.0f blue:GetBValue(c->curbkcol)/255.0f alpha:1.0f];
+              }
+              else if (isUpdate) 
+              {
+                editFg = [NSColor textColor]; 
+                editBg = [NSColor textBackgroundColor];
+              }
+              SWELL_DeleteGfxContext((HDC)c);
+            }
+          }
+          if (editFg) [(NSTextField*)ch setTextColor:editFg]; 
+          if (editBg) [(NSTextField*)ch setBackgroundColor:editBg];
+        }
+        else // isbox or noneditable
+        {
+          if (!(had_flags&1))
+          {
+            had_flags|=1;
+            GDP_CTX *c = SWELL_GDP_CTX_NEW();
+            if (c)
+            {
+              d(hwnd,WM_CTLCOLORSTATIC,(WPARAM)c,(LPARAM)ch);
+              if (c->curcgtextcol) 
+              {
+                staticFg=NSColorFromCGColor(c->curcgtextcol);
+              }
+              else if (isUpdate) 
+              {
+                staticFg = [NSColor textColor]; 
+              }
+              SWELL_DeleteGfxContext((HDC)c);
+            }
+          }
+          if (staticFg)
+          {
+            if (isbox) 
+            {
+              [[(NSBox*)ch titleCell] setTextColor:staticFg];
+              //[(NSBox*)ch setBorderColor:staticFg]; // see comment at SWELL_MakeGroupBox
+            }
+            else
+            {
+              [(NSTextField*)ch setTextColor:staticFg]; 
+            }
+          }
+        } // noneditable           
+      }  //nstextfield
+    } // child
+  }     // children
+}  
+
 static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   DLGPROC d=(DLGPROC)GetWindowLong(hwnd,DWL_DLGPROC);
@@ -40,6 +149,8 @@ static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     }
     
     LRESULT r=(LRESULT) d(hwnd,uMsg,wParam,lParam);
+    
+   
     if (r) return r; 
   }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
@@ -537,12 +648,18 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     
     if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par) && hFoc)
       SetFocus(hFoc);
+    SWELL_DoDialogColorUpdates((HWND)self,m_dlgproc,false);
   }
   
 //  if (!wasHid)
   //  [self setHidden:NO];
   
   return self;
+}
+
+-(void)setOpaque:(bool)isOpaque
+{
+  m_isopaque = isOpaque;
 }
 
 -(BOOL)isOpaque
@@ -597,11 +714,75 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_paintctx_rect=rect;
   m_paintctx_used=false;
   DoPaintStuff(m_wndproc,(HWND)self,m_paintctx_hdc,&m_paintctx_rect);
+  
+  
   SWELL_DeleteGfxContext(m_paintctx_hdc);
   m_paintctx_hdc=0;
   if (!m_paintctx_used) {
      /*[super drawRect:rect];*/
   }
+  
+#if 0
+  // debug: show everything
+  static CGColorSpaceRef cspace;
+  if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
+  float cols[4]={0.0f,1.0f,0.0f,0.8f};
+  CGColorRef color=CGColorCreate(cspace,cols);
+  
+  CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+  CGContextSetStrokeColorWithColor(ctx,color);
+  CGContextStrokeRectWithWidth(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height), 1);
+
+  CGColorRelease(color);
+  
+  cols[0]=1.0f;
+  cols[1]=0.0f;
+  cols[2]=0.0f;
+  cols[3]=1.0f;
+  color=CGColorCreate(cspace,cols);
+
+  NSRect rect2=[self bounds];
+  CGContextSetStrokeColorWithColor(ctx,color);
+  CGContextStrokeRectWithWidth(ctx, CGRectMake(rect2.origin.x,rect2.origin.y,rect2.size.width,rect2.size.height), 1);
+  
+  
+  CGColorRelease(color);
+  
+  cols[0]=0.0f;
+  cols[1]=0.0f;
+  cols[2]=1.0f;
+  cols[3]=0.7f;
+  color=CGColorCreate(cspace,cols);
+  cols[3]=0.25;
+  cols[2]=0.5;
+  CGColorRef color2=CGColorCreate(cspace,cols);
+
+  NSArray *ar = [self subviews];
+  if (ar)
+  {
+    int x;
+    for(x=0;x<[ar count];x++)  
+    {
+      NSView *v = [ar objectAtIndex:x];
+      if (v && ![v isHidden])
+      {
+        NSRect rect = [v frame];
+        CGContextSetStrokeColorWithColor(ctx,color);
+        CGContextStrokeRectWithWidth(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height), 1);
+        CGContextSetFillColorWithColor(ctx,color2);
+        CGContextFillRect(ctx, CGRectMake(rect.origin.x,rect.origin.y,rect.size.width,rect.size.height));
+      }
+    }
+    
+  // draw children
+  }
+  CGColorRelease(color);
+  CGColorRelease(color2);
+  
+#endif
+  
+  
+  
 }
 - (void)rightMouseDragged:(NSEvent *)theEvent
 {
@@ -688,9 +869,12 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     return (LONG)[(SWELL_hwndChild *)capv sendMouseMessage:msg event:theEvent];
   
   if (m_hashaddestroy) return -1;
-	NSPoint localpt=[theEvent locationInWindow];
-	NSPoint p = [self convertPoint:localpt fromView:nil];
+  
+  NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event);
+  
+	NSPoint p = swellProcessMouseEvent(msg,self,theEvent);
 	unsigned short xpos=(int)(p.x); unsigned short ypos=(int)(p.y);
+  
   LRESULT htc=HTCLIENT;
   if (msg != WM_MOUSEWHEEL && !capv) { 
      DWORD p=GetMessagePos(); 
@@ -1324,7 +1508,7 @@ SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head; // this eventual
 #import <Carbon/Carbon.h>
 
 
-#if 1
+#if 0
 static void PrintAllHIViews(HIViewRef f, const char *bla)
 {
   char tmp[4096];
@@ -1343,51 +1527,186 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
 }
 #endif
 
+// carbon event handler for carbon-in-cocoa
+OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, void* userdata)
+{
+  SWELL_hwndCarbonHost* _this = (SWELL_hwndCarbonHost*)userdata;
+  UInt32 evtkind = GetEventKind(event);
+
+  switch (evtkind)
+  {
+    case kEventWindowActivated:
+      [NSApp setMainMenu:nil];
+    break;
+    case kEventWindowGetClickActivation: 
+    {
+      ClickActivationResult car = kActivateAndHandleClick;
+      SetEventParameter(event, kEventParamClickActivation, typeClickActivationResult, sizeof(ClickActivationResult), &car);
+    }
+    break;
+    
+    case kEventWindowHandleDeactivate:
+    {
+      if (_this)
+      {
+        void* SWELL_GetWindowFromCarbonWindowView(HWND);
+        WindowRef wndref = (WindowRef)[_this->m_cwnd windowRef];
+        if (wndref) ActivateWindow(wndref, true);
+      }
+    }
+    break;
+  
+    case kEventControlBoundsChanged:
+    {
+      if (_this && !_this->m_whileresizing)
+      {
+        ControlRef ctl;
+        GetEventParameter(event, kEventParamDirectObject, typeControlRef, 0, sizeof(ControlRef), 0, &ctl);
+        
+        Rect prevr, curr;
+        GetEventParameter(event, kEventParamPreviousBounds, typeQDRectangle, 0, sizeof(Rect), 0, &prevr);
+        GetEventParameter(event, kEventParamCurrentBounds, typeQDRectangle, 0, sizeof(Rect), 0, &curr);
+
+        RECT parr;
+        GetWindowRect((HWND)_this, &parr);
+        parr.left += curr.left-prevr.left;
+        parr.top += curr.top-prevr.top;
+        parr.right += curr.right-prevr.right;
+        parr.bottom += curr.bottom-prevr.bottom;        
+        _this->m_whileresizing = true;
+        SetWindowPos((HWND)_this, 0, parr.left, parr.right, parr.right-parr.left, parr.bottom-parr.top, SWP_NOZORDER|SWP_NOACTIVATE);
+        _this->m_whileresizing = false;
+      }
+    }
+    break;
+  }
+  return noErr;
+}
+
+
 @implementation SWELL_hwndCarbonHost
 
-- (id)initCarbonChild:(NSView *)parent composit:(bool)wantComp
+- (id)initCarbonChild:(NSView *)parent rect:(Rect*)r composit:(bool)wantComp
 {
   if (!(self = [super initChild:nil Parent:parent dlgProc:nil Param:nil])) return self;
 
-  m_cwnd=0;
-  m_wndref=0;
-
-  
-  Rect mRect = {0, 0, 0, 0};
-  CreateNewWindow (kSimpleWindowClass, (wantComp ? kWindowCompositingAttribute : 0) |  kWindowAsyncDragAttribute | kWindowStandardHandlerAttribute | kWindowNoShadowAttribute, &mRect, &m_wndref);
-  if (m_wndref)
+  WindowRef wndref=0;
+  CreateNewWindow (kPlainWindowClass, (wantComp ? kWindowCompositingAttribute : 0) |  kWindowAsyncDragAttribute|kWindowStandardHandlerAttribute|kWindowNoShadowAttribute, r, &wndref);
+  if (wndref)
   {
-  // eventually we should set this and have the real NSWindow parent call ActivateWindow when activated/deactivated
-//    SetWindowActivationScope( m_wndref, kWindowActivationScopeNone);    
-    m_cwnd=[[NSWindow alloc] initWithWindowRef:m_wndref];  
+    // eventually we should set this and have the real NSWindow parent call ActivateWindow when activated/deactivated
+    // SetWindowActivationScope( m_wndref, kWindowActivationScopeNone);    
+
+    // adding a Carbon event handler to catch special stuff that NSWindow::initWithWindowRef
+    // doesn't automatically redirect to a standard Cocoa window method
+    
+    ControlRef ctl=0;
+    CreateRootControl(wndref, &ctl);  // creating root control here so callers must use GetRootControl
+
+    EventTypeSpec winevts[] = 
+    {
+      { kEventClassWindow, kEventWindowActivated },
+      { kEventClassWindow, kEventWindowGetClickActivation },
+      { kEventClassWindow, kEventWindowHandleDeactivate },
+    };
+    int nwinevts = sizeof(winevts)/sizeof(EventTypeSpec);
+          
+    EventTypeSpec ctlevts[] = 
+    {
+      //{ kEventClassControl, kEventControlInitialize },
+      //{ kEventClassControl, kEventControlDraw },            
+      { kEventClassControl, kEventControlBoundsChanged },
+    };
+    int nctlevts = sizeof(ctlevts)/sizeof(EventTypeSpec);  
+          
+    EventHandlerRef wndhandler, ctlhandler;
+    InstallWindowEventHandler(wndref, CarbonEvtHandler, nwinevts, winevts, self, &wndhandler);        
+    InstallControlEventHandler(ctl, CarbonEvtHandler, nctlevts, ctlevts, self, &ctlhandler);
+    m_wndhandler = wndhandler;
+    m_ctlhandler = ctlhandler;
+                    
+    // initWithWindowRef does not retain // MAKE SURE THIS IS NOT BAD TO DO
+    //CFRetain(wndref);
+
+    m_cwnd = [[NSWindow alloc] initWithWindowRef:wndref];  
     [m_cwnd setDelegate:self];    
     
-    ShowWindow(m_wndref);
+    ShowWindow(wndref);
     m_needattach=true;
+    
+    //[[parent window] addChildWindow:m_cwnd ordered:NSWindowAbove];
+    //[self swellDoRepos]; 
     SetTimer((HWND)self,1,10,NULL);
+    SetTimer((HWND)self,2,10,NULL);
   }  
   return self;
 }
+
 -(BOOL)swellIsCarbonHostingView { return YES; }
--(void)dealloc
+
+-(void)close
 {
   KillTimer((HWND)self,1);
+  KillTimer((HWND)self,2);
+  
+  if (m_wndhandler)
+  {
+    EventHandlerRef wndhandler = (EventHandlerRef)m_wndhandler;
+    RemoveEventHandler(wndhandler);
+    m_wndhandler = 0;
+  }
+  if (m_ctlhandler)
+  {
+    EventHandlerRef ctlhandler = (EventHandlerRef)m_ctlhandler;
+    RemoveEventHandler(ctlhandler);
+    m_ctlhandler = 0;
+  }
+  
   if (m_cwnd) 
   {
     if ([m_cwnd parentWindow]) [[m_cwnd parentWindow] removeChildWindow:m_cwnd];
     [m_cwnd orderOut:self];
-    [m_cwnd close];
+    [m_cwnd close];   // this disposes the owned wndref
     m_cwnd=0;
   }
-  m_wndref=0;
-  [super dealloc];
 }
+
+-(void)dealloc
+{
+  [self close];
+  [super dealloc];  // ?!
+}
+
 - (void)SWELL_Timer:(id)sender
 {
   id uinfo=[sender userInfo];
   if ([uinfo respondsToSelector:@selector(getValue)]) 
   {
     int idx=(int)[(SWELL_DataHold*)uinfo getValue];
+    if (idx==2)
+    {
+      if (GetCurrentEventButtonState()&7)
+      {
+        if ([NSApp keyWindow] == [self window])
+        {
+          POINT p;
+          GetCursorPos(&p);
+          RECT r;
+          GetWindowRect((HWND)self,&r);
+          if (r.top>r.bottom)
+          {
+            int a=r.top;
+            r.top=r.bottom;
+            r.bottom=a;
+          }
+          if (m_cwnd && p.x >=r.left &&p.x < r.right && p.y >= r.top && p.y < r.bottom)
+          {
+            [(NSWindow *)m_cwnd makeKeyWindow];
+          }
+        }
+      }
+      return;
+    }
     if (idx!=1)
     {
       KillTimer((HWND)self,idx);
@@ -1401,10 +1720,7 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
       if (par) 
       { 
         [par addChildWindow:m_cwnd ordered:NSWindowAbove];
-        [self swellDoRepos];
-        
-        //
-        
+        [self swellDoRepos];    
       }
     }
   }
@@ -1425,12 +1741,9 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
           if (w && w != m_cwnd && [w isVisible]) { [w makeKeyWindow]; break; }
         }
       }
-      if ([m_cwnd parentWindow]) [[m_cwnd parentWindow] removeChildWindow:m_cwnd];
-      [m_cwnd orderOut:self];
-      [m_cwnd close];
-      m_cwnd=0; 
+      
+      [self close];
     }
-    m_wndref=0;
   }
   return [super onSwellMessage:msg p1:wParam p2:lParam];
 }
@@ -1439,14 +1752,6 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
 }
 - (void)windowDidBecomeKey:(NSNotification *)aNotification
 {
-  NSWindow *w=[self window];
-  NSView *cv=[w contentView];
-  if (cv && [cv respondsToSelector:@selector(swellGetMenu)])
-  {
-    HMENU menu=(HMENU)[(SWELL_hwndChild*)cv swellGetMenu];
-    if (!menu) menu=g_swell_defaultmenu;
-    if (menu && menu != [NSApp mainMenu])  [NSApp setMainMenu:(NSMenu *)menu];
-  }
 }
 
 
@@ -1482,32 +1787,34 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
       r.bottom=a;
     }
     
-//    [m_cwnd setFrameOrigin:NSMakePoint(r.left,r.top)];
+    // [m_cwnd setFrameOrigin:NSMakePoint(r.left,r.top)];
     
     {
       Rect bounds;
-      bounds.left =r.left;
-      bounds.top = CGRectGetHeight(CGDisplayBounds(kCGDirectMainDisplay)) - r.bottom;
-  //    GetWindowBounds (m_wndref, kWindowContentRgn, &bounds);
+      bounds.left = r.left;
+      bounds.top = CGRectGetHeight(CGDisplayBounds(kCGDirectMainDisplay))-r.bottom;
+      // GetWindowBounds (m_wndref, kWindowContentRgn, &bounds);
       bounds.right = bounds.left + (r.right-r.left);
       bounds.bottom = bounds.top + (r.bottom-r.top);
-      SetWindowBounds (m_wndref, kWindowContentRgn, &bounds); 
+      
+      WindowRef wndref = (WindowRef)[m_cwnd windowRef];
+      SetWindowBounds (wndref, kWindowContentRgn, &bounds); 
 
       // might make sense to only do this on initial show, but doesnt seem to hurt to do it often
       WindowAttributes wa=0;
-      GetWindowAttributes(m_wndref,&wa);
+      GetWindowAttributes(wndref,&wa);
       
       if (wa&kWindowCompositingAttribute)
       {
-         HIViewRef ref =HIViewGetRoot((WindowRef)m_wndref);
+         HIViewRef ref = HIViewGetRoot(wndref);
          if (ref)
          {
-//            PrintAllHIViews(ref,"");
+            // PrintAllHIViews(ref,"");
             
             HIViewRef ref2=HIViewGetFirstSubview(ref);
             while  (ref2)
             {                              
-                /*
+            /*
               HIRect r3=CGRectMake(0,0,bounds.right-bounds.left,bounds.bottom-bounds.top);
              HIViewRef ref3=HIViewGetFirstSubview(ref2);
              while (ref3)
@@ -1517,7 +1824,7 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
               HIViewSetFrame(ref3,&r3);
               ref3=HIViewGetNextView(ref3);
              }
-              */
+             */
 
               HIViewSetVisible(ref2,true);            
               HIViewSetNeedsDisplay(ref2,true);
@@ -1537,15 +1844,15 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
         {
           RgnHandle rgn=NewRgn();
           GetControlRegion(rc,kControlEntireControl,rgn);
-          UpdateControls((WindowRef)m_wndref,rgn);
+          UpdateControls(m_wndref,rgn);
           CloseRgn(rgn);
         }
 #endif
-  //      Rect r={0,0,bounds.bottom-bounds.top,bounds.right-bounds.left};
-//        InvalWindowRect(m_wndref,&r);
+        // Rect r={0,0,bounds.bottom-bounds.top,bounds.right-bounds.left};
+        // InvalWindowRect(m_wndref,&r);
         
         // or we could just do: 
-        DrawControls((WindowRef)m_wndref);
+        DrawControls(wndref);
       }
     }
   }
@@ -1581,11 +1888,90 @@ static void PrintAllHIViews(HIViewRef f, const char *bla)
 @end
 
 
-HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, bool wantcomp)
+HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, RECT* r, bool wantcomp)  // window is created with a root control
 {
-  SWELL_hwndCarbonHost *w = [[SWELL_hwndCarbonHost alloc] initCarbonChild:(NSView *)viewpar composit:wantcomp];
-  if (w) *wref = w->m_wndref;
-  [w release];
+  RECT wndr = *r;
+  ClientToScreen(viewpar, (POINT*)&wndr);
+  ClientToScreen(viewpar, (POINT*)&wndr+1);
+  //Rect r2 = { wndr.top, wndr.left, wndr.bottom, wndr.right };
+  Rect r2 = { wndr.bottom, wndr.left, wndr.top, wndr.right };
+  SWELL_hwndCarbonHost *w = [[SWELL_hwndCarbonHost alloc] initCarbonChild:(NSView*)viewpar rect:&r2 composit:wantcomp];
+  if (w) *wref = [w->m_cwnd windowRef];
   return (HWND)w;
 }
+
+void* SWELL_GetWindowFromCarbonWindowView(HWND cwv)
+{
+  SWELL_hwndCarbonHost* w = (SWELL_hwndCarbonHost*)cwv;
+  if (w) return [w->m_cwnd windowRef];
+  return 0;
+}
+
+void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
+{
+  SWELL_hwndCarbonHost* w = (SWELL_hwndCarbonHost*)cwv;
+  if (w)
+  {
+    WindowRef wndref = (WindowRef)[w->m_cwnd windowRef];
+    if (wndref)
+    {
+      EventTypeSpec ctlevts[] = 
+      {
+        //{ kEventClassControl, kEventControlInitialize },
+        //{ kEventClassControl, kEventControlDraw },            
+        { kEventClassControl, kEventControlBoundsChanged },
+      };
+      int nctlevts = sizeof(ctlevts)/sizeof(EventTypeSpec);  
+          
+      EventHandlerRef ctlhandler = (EventHandlerRef)w->m_ctlhandler;   
+      InstallControlEventHandler((ControlRef)pane, CarbonEvtHandler, nctlevts, ctlevts, w, &ctlhandler);
+    }
+  }
+}
+
+
+@interface NSButton (TextColor)
+
+- (NSColor *)textColor;
+- (void)setTextColor:(NSColor *)textColor;
+
+@end
+
+@implementation NSButton (TextColor)
+
+- (NSColor *)textColor
+{
+  NSAttributedString *attrTitle = [self attributedTitle];
+  int len = [attrTitle length];
+  NSRange range = NSMakeRange(0, MIN(len, 1)); // take color from first char
+  NSDictionary *attrs = [attrTitle fontAttributesInRange:range];
+  NSColor *textColor = [NSColor controlTextColor];
+  if (attrs) {
+    textColor = [attrs objectForKey:NSForegroundColorAttributeName];
+  }
+  return textColor;
+}
+
+- (void)setTextColor:(NSColor *)textColor
+{
+  NSMutableAttributedString *attrTitle = [[NSMutableAttributedString alloc] 
+                                          initWithAttributedString:[self attributedTitle]];
+  int len = [attrTitle length];
+  NSRange range = NSMakeRange(0, len);
+  [attrTitle addAttribute:NSForegroundColorAttributeName 
+                    value:textColor 
+                    range:range];
+  [attrTitle fixAttributesInRange:range];
+  [self setAttributedTitle:attrTitle];
+  [attrTitle release];
+}
+
+@end
+
+
+
+
+
+
+
 #endif

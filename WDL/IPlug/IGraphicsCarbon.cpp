@@ -116,7 +116,7 @@ pascal OSStatus IGraphicsCarbon::CarbonEventHandler(EventHandlerCallRef pHandler
           return noErr;
         }
         case kEventMouseUp: {
-          pGraphicsMac->OnMouseUp(x, y);
+          pGraphicsMac->OnMouseUp(x, y, &mmod);
           return noErr;
         }
         case kEventMouseMoved: {
@@ -214,7 +214,7 @@ IGraphicsCarbon::IGraphicsCarbon(IGraphicsMac* pGraphicsMac, WindowRef pWindow, 
   };
   InstallWindowEventHandler(mWindow, CarbonEventHandler, GetEventTypeCount(windowEvents), windowEvents, this, &mWindowHandler);  
   
-  double t = kEventDurationSecond / (double) pGraphicsMac->FPS();
+  double t = 2.0*kEventDurationSecond/(double)pGraphicsMac->FPS();
   OSStatus s = InstallEventLoopTimer(GetMainEventLoop(), 0.0, t, CarbonTimerHandler, this, &mTimer);
   
   if (mIsComposited) {

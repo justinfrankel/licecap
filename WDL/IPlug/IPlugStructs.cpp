@@ -44,8 +44,8 @@ void IMidiMsg::MakePitchWheelMsg(double value)
   mStatus = kPitchWheel << 4;
   int i = 8192 + (int) (value * 8192.0);
   i = BOUNDED(i, 0, 16383);
-  mData2 = i >> 9;
-  mData1 = i - (i << 7);
+  mData2 = i>>7;
+  mData1 = i&0x7F;
 }
 
 void IMidiMsg::MakeControlChangeMsg(EControlChangeMsg idx, double value)

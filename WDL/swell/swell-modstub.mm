@@ -1,7 +1,7 @@
 #ifdef SWELL_PROVIDED_BY_APP
 
 #import <Cocoa/Cocoa.h>
-
+#import <objc/objc-runtime.h>
 #define SWELL_API_DEFPARM(x)
 #define SWELL_API_DEFINE(ret,func,parms) ret (*func) parms ;
 #include "swell.h"
@@ -39,7 +39,7 @@ public:
     
     id del = [NSApp delegate];
     if (del && [del respondsToSelector:@selector(swellGetAPPAPIFunc)])
-      *(void **)&SWELLAPI_GetFunc = (void *)[del swellGetAPPAPIFunc];
+      *(void **)&SWELLAPI_GetFunc = (void *)objc_msgSend(del,@selector(swellGetAPPAPIFunc));
       
     if (SWELLAPI_GetFunc && SWELLAPI_GetFunc(NULL)!=(void*)0x100) SWELLAPI_GetFunc=0;
       

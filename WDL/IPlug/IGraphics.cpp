@@ -318,14 +318,14 @@ void IGraphics::OnMouseDown(int x, int y, IMouseMod* pMod)
   }
 }
 
-void IGraphics::OnMouseUp(int x, int y)
+void IGraphics::OnMouseUp(int x, int y, IMouseMod* pMod)
 {
 	int c = GetMouseControlIdx(x, y);
 	mMouseCapture = mMouseX = mMouseY = -1;
   mDisplayControlValue = false;
 	if (c >= 0) {
     IControl* pControl = mControls.Get(c);
-		pControl->OnMouseUp(x, y);
+		pControl->OnMouseUp(x, y, pMod);
     int paramIdx = pControl->ParamIdx();
     if (paramIdx >= 0) {
       mPlug->EndInformHostOfParamChange(paramIdx);

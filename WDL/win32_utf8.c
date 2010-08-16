@@ -55,17 +55,19 @@ int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
   if (lpString && nMaxCount>0 && GetVersion()< 0x80000000)
   {
     int alloc_size=nMaxCount;
-    if (alloc_size > 512)  // prevent large values of nMaxCount from allocating memory
+
+    // prevent large values of nMaxCount from allocating memory unless the underlying text is big too
+    if (alloc_size > 512)  
     {
       int l=GetWindowTextLengthW(hWnd);
-      if (l>0 && l < 512) alloc_size=1000;
+      if (l>=0 && l < 512) alloc_size=1000;
     }
 
     {
       WIDETOMB_ALLOC(wbuf, alloc_size);
       if (wbuf)
       {
-        GetWindowTextW(hWnd,wbuf,wbuf_size);      
+        GetWindowTextW(hWnd,wbuf,wbuf_size/sizeof(WCHAR));      
 
         if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
           lpString[nMaxCount-1]=0;
@@ -120,7 +122,7 @@ int DragQueryFileUTF8(HDROP hDrop, int idx, char *buf, int bufsz)
     WIDETOMB_ALLOC(wbuf, reqsz);
     if (wbuf)
     {
-      int rv=DragQueryFileW(hDrop,idx,wbuf,wbuf_size);
+      int rv=DragQueryFileW(hDrop,idx,wbuf,wbuf_size/sizeof(WCHAR));
       if (rv)
       {
         if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,buf,bufsz,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
@@ -297,6 +299,25 @@ BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
   return SetCurrentDirectoryA(path);
 }
 
+
+HINSTANCE LoadLibraryUTF8(LPCTSTR path)
+{
+  if (WDL_HasUTF8(path) && GetVersion()< 0x80000000)
+  {
+    MBTOWIDE(wbuf,path);
+    if (wbuf_ok)
+    {
+      HINSTANCE rv=LoadLibraryW(wbuf);
+      if (rv)
+      {
+        MBTOWIDE_FREE(wbuf);
+        return rv;
+      }
+    }
+    MBTOWIDE_FREE(wbuf);
+  }
+  return LoadLibraryA(path);
+}
 
 BOOL CreateDirectoryUTF8(LPCTSTR path, LPSECURITY_ATTRIBUTES attr)
 {
@@ -616,7 +637,7 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         LRESULT rv;
         int oldsz=pItem->cchTextMax;
         *wbuf=0;
-        pItem->cchTextMax=wbuf_size;
+        pItem->cchTextMax=wbuf_size/sizeof(WCHAR);
         pItem->pszText = (char *)wbuf;
         rv=CallWindowProc(oldproc,hwnd,msg==LVM_GETITEMTEXTA ? LVM_GETITEMTEXTW : LVM_GETITEMW,wParam,lParam);
 

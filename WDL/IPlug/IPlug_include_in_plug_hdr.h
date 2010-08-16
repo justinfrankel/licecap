@@ -25,7 +25,6 @@
   #include "IGraphicsMac.h"
   #define EXPORT
   #define BUNDLE_ID "com." BUNDLE_MFR "." API_EXT "." BUNDLE_NAME
-  #define VIEW_FACTORY_CLASS MAKE_STR(PLUG_CLASS_NAME) "_View"
 #else
   #error "No OS defined!"
 #endif

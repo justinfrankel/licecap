@@ -43,7 +43,6 @@ private:
   int m_nCh, m_nPins;
 };
 
-// stupid ... fucking ... VS6 ... templates
 
 // use for float and double only ... ints will break it
 class AudioBufferContainer
@@ -91,25 +90,50 @@ public:
   }
 
   // Copy a channel from an external buffer.
-  template <class T> T* SetChannel(T* pSrc, int chIdx)
+  template <class T> T* SetChannel(T* pSrc, int chIdx, double wstart=1.0, double wend=1.0)
   {
     T* pDest = (T*) GetInternalBackingStore(chIdx, true, sizeof(T));
-    if (pDest) {
-      if (pSrc) memcpy(pDest, pSrc, m_nFrames*sizeof(T));
-      else memset(pDest, 0, m_nFrames*sizeof(T));
+    if (pDest) 
+    {
+      if (pSrc)
+      {
+        if (wstart == 1.0 && wend == 1.0)
+        {
+          memcpy(pDest, pSrc, m_nFrames*sizeof(T));
+        }
+        else
+        {
+          double dw = (wend-wstart)/(double)m_nFrames;
+          double cw = wstart;
+          int i;
+          for (i = 0; i < m_nFrames; ++i)
+          {
+            pDest[i] = (1.0-cw)*pDest[i]+cw*pSrc[i];
+            cw += dw;
+          }
+        }  
+      }
+      else 
+      {
+        memset(pDest, 0, m_nFrames*sizeof(T));
+      }
       SetChannelDesc(chIdx, true, sizeof(T));
     }
     return pDest;
   }
 
-  template <class T> T* AccumulateChannel(T* pSrc, int chIdx)
+  template <class T> T* AccumulateChannel(T* pSrc, int chIdx, double wstart, double wend)
   {
     T* pDest = GetChannel(chIdx, false, pSrc);
-    if (pDest) {
-      T* ptDest = pDest;
+    if (pDest) 
+    {
+      double dw = (wend-wstart)/(double)m_nFrames;
+      double cw = wstart;
       int i;
-      for (i = 0; i < m_nFrames; ++i, ++ptDest, ++pSrc) {
-        *ptDest += *pSrc;
+      for (i = 0; i < m_nFrames; ++i)
+      {
+        pDest[i] += cw*pSrc[i];
+        cw += dw;
       }
     }
     return pDest;
@@ -186,29 +210,34 @@ template <class T> void SetPinsFromChannels(AudioBufferContainer* pDest, AudioBu
           pinUsed = true;
         }
         else {
-          pDest->AccumulateChannel(pSrcBuf, p);
+          pDest->AccumulateChannel(pSrcBuf, p, 1.0, 1.0);
         }
       }
     }
-    if (!pinUsed) pDest->SetChannel((T*) 0, p);
+    if (!pinUsed) pDest->SetChannel((T*) 0, p, 1.0, 1.0);
   }
 }
 
-template <class T> void SetChannelsFromPins(AudioBufferContainer* pDest, AudioBufferContainer* pSrc, ChannelPinMapper* pMapper, T* dummy = 0)
+template <class T> void SetChannelsFromPins(AudioBufferContainer* pDest, AudioBufferContainer* pSrc, ChannelPinMapper* pMapper, double wstart=1.0, double wend=1.0, T* dummy = 0)
 {
   int c, p, nCh = pMapper->GetNChannels(), nPins = pMapper->GetNPins(), nFrames = pSrc->GetNFrames();
   pDest->Resize(nCh, nFrames);
-  for (c = 0; c < nCh; ++c) {
+  for (c = 0; c < nCh; ++c) 
+  {
     bool chanUsed = false;
-    for (p = 0; p < nPins; ++p) {
-      if (pMapper->GetPin(p, c)) {
+    for (p = 0; p < nPins; ++p) 
+    {
+      if (pMapper->GetPin(p, c)) 
+      {
         T* pSrcBuf = pSrc->GetChannel(p, false, dummy);
-        if (!chanUsed) {
-          pDest->SetChannel(pSrcBuf, c);
+        if (!chanUsed) 
+        {
+          pDest->SetChannel(pSrcBuf, c, wstart, wend);
           chanUsed = true;
         }
-        else {
-          pDest->AccumulateChannel(pSrcBuf, c);
+        else 
+        {
+          pDest->AccumulateChannel(pSrcBuf, c, wstart, wend);
         }
       }
     }

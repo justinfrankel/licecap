@@ -160,19 +160,6 @@ WORD GetAsyncKeyState(int key)
   return 0;
 }
 
-void GetCursorPos(POINT *pt)
-{
-  NSPoint localpt=[NSEvent mouseLocation];
-  pt->x=(int)localpt.x;
-  pt->y=(int)localpt.y;
-}
-
-DWORD GetMessagePos()
-{ 
-  // todo: get actual current event
-  NSPoint localpt=[NSEvent mouseLocation];
-  return MAKELONG((int)localpt.x, (int)localpt.y);
-}
 
 SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 
@@ -240,30 +227,90 @@ HCURSOR SWELL_GetLastSetCursor()
   return m_last_setcursor;
 }
 
+
+static bool g_swell_mouse_relmode;
+static bool g_swell_mouse_relmode_synergydet; // only used when synergy is detected on hidden mouse mode
+static bool g_swell_last_set_valid;
+static POINT g_swell_last_set_pos;
+
+
+void GetCursorPos(POINT *pt)
+{
+  NSPoint localpt=[NSEvent mouseLocation];
+  pt->x=(int)localpt.x;
+  pt->y=(int)localpt.y;
+}
+
+DWORD GetMessagePos()
+{  
+  NSPoint localpt=[NSEvent mouseLocation];
+  return MAKELONG((int)localpt.x, (int)localpt.y);
+}
+
+
+NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event)
+{
+  if (g_swell_mouse_relmode && msg==WM_MOUSEMOVE) // event will have relative coordinates
+  {
+    int idx=(int)[event deltaX];
+    int idy=(int)[event deltaY];
+    NSPoint localpt=[event locationInWindow];
+    localpt=[view convertPoint:localpt fromView:nil];
+    POINT p={(int)localpt.x,(int)localpt.y};
+    ClientToScreen((HWND)view,&p);
+    
+     // if deltas set, and the cursor actually moved, then it must be synergy
+    if (!g_swell_mouse_relmode_synergydet && g_swell_last_set_valid && (idx||idy) && g_swell_last_set_pos.x+idx == p.x && g_swell_last_set_pos.y-idy == p.y)
+    {
+      g_swell_mouse_relmode_synergydet=true;
+    }
+    
+    if (g_swell_mouse_relmode_synergydet) idx=idy=0;      
+    else if (idx||idy) SetCursorPos(p.x+idx,p.y-idy);
+    return NSMakePoint(localpt.x+idx,localpt.y+idy);
+  }
+  
+  NSPoint localpt=[event locationInWindow];
+  return [view convertPoint:localpt fromView:nil];
+}
+
 static int m_curvis_cnt;
+bool SWELL_IsCursorVisible()
+{
+  return m_curvis_cnt>=0;
+}
 int SWELL_ShowCursor(BOOL bShow)
 {
   m_curvis_cnt += (bShow?1:-1);
-  if (m_curvis_cnt==-1 && !bShow) CGDisplayHideCursor(kCGDirectMainDisplay);
-  if (m_curvis_cnt==0 && bShow) CGDisplayShowCursor(kCGDirectMainDisplay);
-  
+  if (m_curvis_cnt==-1 && !bShow) 
+  {
+    CGDisplayHideCursor(kCGDirectMainDisplay);
+    CGAssociateMouseAndMouseCursorPosition(false);
+    g_swell_mouse_relmode=true;
+  }
+  if (m_curvis_cnt==0 && bShow) 
+  {
+    CGDisplayShowCursor(kCGDirectMainDisplay);
+    CGAssociateMouseAndMouseCursorPosition(true);
+    g_swell_mouse_relmode=false;
+  }  
+  g_swell_mouse_relmode_synergydet=false;
+  g_swell_last_set_valid=false;
   return m_curvis_cnt;
 }
 
+
 BOOL SWELL_SetCursorPos(int X, int Y)
 {  
-//return false; // todo
-  NSPoint localpt=[NSEvent mouseLocation];
-  
-  if (fabs(X- localpt.x)>2 || fabs(Y-localpt.y)>2)
-  {
-    int h=CGDisplayPixelsHigh(CGMainDisplayID());
-    CGPoint pos=CGPointMake(X,h-Y);
-    pos.x += fmod(localpt.x,1.0);
-    pos.y += fmod(localpt.y,1.0);
-    return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
-  }
-  return false;  
+  if (g_swell_mouse_relmode_synergydet) return false;
+
+  g_swell_last_set_pos.x = X;
+  g_swell_last_set_pos.y = Y;
+  g_swell_last_set_valid=true;
+
+  int h=CGDisplayPixelsHigh(CGMainDisplayID());
+  CGPoint pos=CGPointMake(X,h-Y);
+  return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
 }
 
 

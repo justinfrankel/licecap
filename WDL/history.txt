@@ -1,3 +1,33 @@
+2009-07-02:
+
+SWELL: mouse positioning updates (with synergy2 detection)
+SWELL: WM_CTLCOLOR*, WM_DISPLAYCHANGE support
+SWELL: BS_LEFTTEXT support for checkboxes
+SWELL: Fixed menu item updating for top level submenus
+SWELL: Implemented TreeView_HitTest
+SWELL: Exposed API for SetOpaque
+SWELL: nifty child window debug/diagnostic mode
+SWELL: (default) options to use non-round buttons etc
+SWELL: Fixed BitBltAlpha() for LICE sysbitmaps
+SWELL: Carbon hosted window updates (no menu, activation fixes for BFD2, etc)
+LICE: 8-bit PNG loading, JPG load from resource support
+LICE: optimized source alpha w/ constalpha=1.0, other cases
+virtwnd: listbox text drawing updates
+LICE: LICE_CachedFont fixes when using both cached fonts and OS rendering
+WDL_FileRead: support for synchronous unbuffered reads
+WDL_FileRead/Write: OS X native open()/pread/mmap support (large files and unbuffered reads etc)
+WDL_String: safer Get() for empty strings (returns read-write pointer)
+WDL_PtrList: FindSorted / InsertSorted, EmptySafe()
+WDL_Queue: optimized Compact() to autodetect pointless compacts
+WDL_MergeSort: optimized for in-order data (stays in place)
+EEL: safer locking of RAM
+IPlug: better bitmap caching, jpg loading, x64 support, OS X udpates
+AudioBufferContainer: supports wet/dry
+UTF8 support fixes
+Added WDL_AssocArray
+
+
+
 2009-04-08:
 
 UTF-8 support, win32_utf8.cpp for Win32 support (SWELL gets it automatically)

@@ -46,8 +46,10 @@
     #undef WDL_WIN32_NATIVE_READ
   #endif
   
-  #if defined(__APPLE__) && !defined(WDL_NO_OSX_FILEREAD)
-//  #define WDL_OSX_NATIVE_READ 
+  #if !defined(WDL_NO_POSIX_FILEREAD)
+  #define WDL_POSIX_NATIVE_READ 
+   #include <sys/fcntl.h>
+   #include <sys/mman.h>
   #endif
   
 #endif
@@ -108,31 +110,34 @@ public:
 #endif
 
 public:
-  // allow_async=1 for unbuffered async, 2 for buffered async
+  // allow_async=1 for unbuffered async, 2 for buffered async, =-1 for unbuffered sync
+  // async aspect is unused on OS X, but the buffered mode affects F_NOCACHE
   WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0) : m_bufspace(4096 WDL_HEAPBUF_TRACEPARM("WDL_FileRead"))
   {
     m_sync_bufmode_used=m_sync_bufmode_pos=0;
     m_async_readpos=m_file_position=0;
     m_fsize=0;
     m_syncrd_firstbuf=true;
+    m_mmap_view=0;
+    m_mmap_totalbufmode=0;
+
 #define WDL_UNBUF_ALIGN 8192
     if (bufsize&(WDL_UNBUF_ALIGN-1)) bufsize=(bufsize&~(WDL_UNBUF_ALIGN-1))+WDL_UNBUF_ALIGN; // ensure bufsize is multiple of 4kb
     
 #ifdef WDL_WIN32_NATIVE_READ
 
     m_mmap_fmap=0;
-    m_mmap_view=0;
-    m_mmap_totalbufmode=0;
     bool isNT = GetVersion()<0x80000000;
-    m_async = (allow_async && isNT) ? allow_async : 0;
+    m_async = isNT ? allow_async : 0;
 
     int flags=FILE_ATTRIBUTE_NORMAL;
-    if (m_async)
+    if (m_async>0)
     {
       flags|=FILE_FLAG_OVERLAPPED;
       if (m_async==1) flags|=FILE_FLAG_NO_BUFFERING;
     }
-    else if (nbufs*bufsize>=WDL_UNBUF_ALIGN && !mmap_maxsize) flags|=FILE_FLAG_NO_BUFFERING; // non-async mode unbuffered if we do our own buffering
+    else if (nbufs*bufsize>=WDL_UNBUF_ALIGN && !mmap_maxsize && m_async==-1) 
+      flags|=FILE_FLAG_NO_BUFFERING; // non-async mode unbuffered if we do our own buffering
 
 #ifndef WDL_NO_SUPPORT_UTF8
     m_fh = INVALID_HANDLE_VALUE;
@@ -165,7 +170,7 @@ public:
       DWORD l=GetFileSize(m_fh,&h);
       m_fsize=(((WDL_FILEREAD_POSTYPE)h)<<32)|l;
 
-      if (!h && l < mmap_maxsize && !m_async)
+      if (!h && l < mmap_maxsize && m_async<=0)
       {
         if (l >= mmap_minsize)
         {
@@ -188,7 +193,7 @@ public:
         }
       }
 
-      if (m_async)
+      if (m_async>0)
       {
         m_async_bufsize=bufsize;
         int x;
@@ -208,12 +213,34 @@ public:
       }
     }
 
-#elif defined(WDL_OSX_NATIVE_READ)
-    FSRef r=NULL;
-    if (FSPathMakeRef(filename,&r,NULL)==noErr && r)
+#elif defined(WDL_POSIX_NATIVE_READ)
+    m_filedes_rdpos=0;
+    m_filedes=open(filename,O_RDONLY);
+    if (m_filedes>=0)
     {
-      FSOpenFork(&r,0,L"",fsRdPerm,
+#ifdef __APPLE__
+      if (allow_async==1 || allow_async==-1) fcntl(m_filedes,F_NOCACHE,1);
+#endif
+      m_fsize=lseek(m_filedes,0,SEEK_END);
+      lseek(m_filedes,0,SEEK_SET);
+
+      if (m_fsize < mmap_maxsize)
+      {
+        if (m_fsize >= mmap_minsize)
+        {
+          m_mmap_view = mmap(NULL,m_fsize,PROT_READ,0,m_filedes,0);
+          if (m_mmap_view == MAP_FAILED) m_mmap_view = 0;
+        }
+        else
+        {
+          m_mmap_totalbufmode = malloc(m_fsize);
+          m_fsize = pread(m_filedes,m_mmap_totalbufmode,m_fsize,0);
+        }
+      }
+
     }
+    if (!m_mmap_view && !m_mmap_totalbufmode && m_filedes>=0 && nbufs*bufsize>=WDL_UNBUF_ALIGN)
+      m_bufspace.Resize(nbufs*bufsize+(WDL_UNBUF_ALIGN-1));
 
 #else
     m_fp=fopen(filename,"rb");
@@ -230,8 +257,10 @@ public:
 
   ~WDL_FileRead()
   {
+    free(m_mmap_totalbufmode);
+    m_mmap_totalbufmode=0;
+
 #ifdef WDL_WIN32_NATIVE_READ
-    // todo, async close stuff?
     int x;
     for (x = 0; x < m_empties.GetSize();x ++) delete m_empties.Get(x);
     m_empties.Empty();
@@ -244,9 +273,6 @@ public:
     }
     m_pending.Empty();
 
-    free(m_mmap_totalbufmode);
-    m_mmap_totalbufmode=0;
-
     if (m_mmap_view) UnmapViewOfFile(m_mmap_view);
     m_mmap_view=0;
 
@@ -255,8 +281,11 @@ public:
 
     if (m_fh != INVALID_HANDLE_VALUE) CloseHandle(m_fh);
     m_fh=INVALID_HANDLE_VALUE;
-#elif defined(WDL_OSX_NATIVE_READ)
-
+#elif defined(WDL_POSIX_NATIVE_READ)
+    if (m_mmap_view) munmap(m_mmap_view,m_fsize);
+    m_mmap_view=0;
+    if (m_filedes>=0) close(m_filedes);
+    m_filedes=-1;
 #else
     if (m_fp) fclose(m_fp);
     m_fp=0;
@@ -268,8 +297,8 @@ public:
   {
 #ifdef WDL_WIN32_NATIVE_READ
     return (m_fh != INVALID_HANDLE_VALUE);
-#elif defined(WDL_OSX_NATIVE_READ)
-
+#elif defined(WDL_POSIX_NATIVE_READ)
+    return m_filedes >= 0;
 #else
     return m_fp != NULL;
 #endif
@@ -433,25 +462,18 @@ public:
 
   void *GetMappedView(int offs, int *len)
   {
-#ifdef WDL_WIN32_NATIVE_READ
     if (!m_mmap_view && !m_mmap_totalbufmode) return 0;
+
     int maxl=(int) (m_fsize-(WDL_FILEREAD_POSTYPE)offs);
     if (*len > maxl) *len=maxl;
     if (m_mmap_view)
       return (char *)m_mmap_view + offs;
     else
       return (char *)m_mmap_totalbufmode + offs;
-      
-#else
-    return NULL;
-#endif
   }
 
   int Read(void *buf, int len)
   {
-#ifdef WDL_WIN32_NATIVE_READ
-    if (m_fh == INVALID_HANDLE_VALUE||len<1) return 0;
-
     if (m_mmap_view||m_mmap_totalbufmode)
     {
       int maxl=(int) (m_fsize-m_file_position);
@@ -469,11 +491,15 @@ public:
       return maxl;     
     }
 
-    if (m_async)
+#ifdef WDL_WIN32_NATIVE_READ
+    if (m_fh == INVALID_HANDLE_VALUE||len<1) return 0;
+
+    if (m_async>0)
     {
       return AsyncRead((char *)buf,len);
     }
-#elif defined(WDL_OSX_NATIVE_READ)
+#elif defined(WDL_POSIX_NATIVE_READ)
+    if (m_filedes<0 || len<1) return 0;
 
 #else
     if (!m_fp || len<1) return 0;
@@ -518,27 +544,28 @@ public:
           
           #ifdef WDL_WIN32_NATIVE_READ
             DWORD o;
-            if (m_file_position&(WDL_UNBUF_ALIGN-1))
+            if (m_async==-1)
             {
-              int offs = (int)(m_file_position&(WDL_UNBUF_ALIGN-1));
-              LONG high=(LONG) ((m_file_position-offs)>>32);
-              SetFilePointer(m_fh,(LONG)((m_file_position-offs)&0xFFFFFFFFi64),&high,FILE_BEGIN);
-              m_sync_bufmode_pos=offs;
+              if (m_file_position&(WDL_UNBUF_ALIGN-1))
+              {
+                int offs = (int)(m_file_position&(WDL_UNBUF_ALIGN-1));
+                LONG high=(LONG) ((m_file_position-offs)>>32);
+                SetFilePointer(m_fh,(LONG)((m_file_position-offs)&0xFFFFFFFFi64),&high,FILE_BEGIN);
+                m_sync_bufmode_pos=offs;
+              }
             }
             if (!ReadFile(m_fh,srcbuf,thissz,&o,NULL) || o<1 || m_sync_bufmode_pos>=(int)o) 
             {
               break;
             }
-          #elif defined(WDL_OSX_NATIVE_READ)
+          #elif defined(WDL_POSIX_NATIVE_READ)
+            int o;
+            o=pread(m_filedes,srcbuf,thissz,m_filedes_rdpos);
+            if (o>0) m_filedes_rdpos+=o;
+            if (o<1 || m_sync_bufmode_pos>=o) break;                    
           
           #else
             int o;
-            if (m_file_position&(WDL_UNBUF_ALIGN-1))
-            {
-              int offs = (int)(m_file_position&(WDL_UNBUF_ALIGN-1));
-              fseek(m_fp,m_file_position-offs,SEEK_SET);
-              m_sync_bufmode_pos=offs;
-            }
             o=fread(srcbuf,1,thissz,m_fp);
             if (o<1 || m_sync_bufmode_pos>=o) break;                    
           #endif
@@ -555,9 +582,12 @@ public:
       ReadFile(m_fh,buf,len,&dw,NULL);
       m_file_position+=dw;
       return dw;
-    #elif defined(WDL_OSX_NATIVE_READ)
+    #elif defined(WDL_POSIX_NATIVE_READ)
     
-    
+      int ret=pread(m_filedes,buf,len,m_filedes_rdpos);
+      if (ret>0) m_filedes_rdpos+=ret;
+      m_file_position+=ret;
+      return ret;
     #else
       int ret=fread(buf,1,len,m_fp);
       m_file_position+=ret;
@@ -571,7 +601,8 @@ public:
   {
 #ifdef WDL_WIN32_NATIVE_READ
     if (m_fh == INVALID_HANDLE_VALUE) return 0;
-#elif defined(WDL_OSX_NATIVE_READ)
+#elif defined(WDL_POSIX_NATIVE_READ)
+    if (m_filedes<0) return -1;
 
 #else
     if (!m_fp) return -1;
@@ -583,8 +614,8 @@ public:
   {
 #ifdef WDL_WIN32_NATIVE_READ
     if (m_fh == INVALID_HANDLE_VALUE) return -1;
-#elif defined(WDL_OSX_NATIVE_READ)
-
+#elif defined(WDL_POSIX_NATIVE_READ)
+    if (m_filedes<0) return -1;
 #else
     if (!m_fp) return -1;
 #endif
@@ -595,8 +626,8 @@ public:
   {
 #ifdef WDL_WIN32_NATIVE_READ
     if (m_fh == INVALID_HANDLE_VALUE) return true;
-#elif defined(WDL_OSX_NATIVE_READ)
-
+#elif defined(WDL_POSIX_NATIVE_READ)
+    if (m_filedes<0) return true;
 #else
     if (!m_fp) return true;
 #endif
@@ -605,10 +636,11 @@ public:
     WDL_FILEREAD_POSTYPE oldpos=m_file_position;
     if (m_file_position!=pos) m_file_position=pos;
     else return false;
+
+    if (m_mmap_view||m_mmap_totalbufmode) return false;
     
 #ifdef WDL_WIN32_NATIVE_READ
-    if (m_mmap_view||m_mmap_totalbufmode) return false;
-    if (m_async)
+    if (m_async>0)
     {
       WDL_FileRead__ReadEnt *ent;
 
@@ -638,8 +670,9 @@ public:
 #ifdef WDL_WIN32_NATIVE_READ
     LONG high=(LONG) (m_file_position>>32);
     return SetFilePointer(m_fh,(LONG)(m_file_position&0xFFFFFFFFi64),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
-#elif defined(WDL_OSX_NATIVE_READ)
-
+#elif defined(WDL_POSIX_NATIVE_READ)
+    m_filedes_rdpos = m_file_position;
+    return false;
 #else
     return !!fseek(m_fp,m_file_position,SEEK_SET);
 #endif
@@ -652,26 +685,28 @@ public:
   WDL_FILEREAD_POSTYPE m_fsize;
   
   bool m_syncrd_firstbuf;
+  void *m_mmap_view;
+  void *m_mmap_totalbufmode;
 
 #ifdef WDL_WIN32_NATIVE_READ
   HANDLE GetHandle() { return m_fh; }
   HANDLE m_fh;
   HANDLE m_mmap_fmap;
-  LPVOID m_mmap_view;
-  LPVOID m_mmap_totalbufmode;
   int m_mmap_size;
-  int m_async; // 1=nobuf, 2=buffered async
+  int m_async; // 1=nobuf, 2=buffered async, -1=unbuffered sync
 
   int m_async_bufsize;
   WDL_PtrList<WDL_FileRead__ReadEnt> m_empties;
   WDL_PtrList<WDL_FileRead__ReadEnt> m_pending;
   WDL_PtrList<WDL_FileRead__ReadEnt> m_full;
   
-#elif defined(WDL_OSX_NATIVE_READ)
-
+#elif defined(WDL_POSIX_NATIVE_READ)
+  int m_filedes;
+  int GetHandle() { return m_filedes; }
+  WDL_FILEREAD_POSTYPE m_filedes_rdpos;
 #else
   FILE *m_fp;
-  FILE *GetHandle() { return m_fp; }
+  int GetHandle() { return fileno(m_fp); }
 #endif
 };
 

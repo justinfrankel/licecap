@@ -388,7 +388,7 @@
 
 #ifndef PNG_VERSION_INFO_ONLY
 /* include the compression library's header */
-#include "zlib.h"
+#include "../zlib/zlib.h"
 #endif
 
 /* include all user configurable info, including optional assembler routines */

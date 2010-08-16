@@ -33,16 +33,16 @@ void GetVersionStr(int version, char* str)
 {
   int ver, rmaj, rmin;
   GetVersionParts(version, &ver, &rmaj, &rmin);
-  if (rmin) {
-    sprintf(str, "v%d.%d.%d", ver, rmaj, rmin);
-  }
-  else
-  if (rmaj) {
+  //if (rmin) {
+  //  sprintf(str, "v%d.%d.%d", ver, rmaj, rmin);
+  //}
+  //else
+  //if (rmaj) {
     sprintf(str, "v%d.%d", ver, rmaj);
-  }
-  else {
-    sprintf(str, "v%d", ver);
-  }
+  //}
+  //else {
+  //  sprintf(str, "v%d", ver);
+  //}
 }
 
 IPlugBase::IPlugBase(int nParams, const char* channelIOStr, int nPresets,
@@ -303,6 +303,8 @@ void IPlugBase::AttachOutputBuffers(int idx, int n, float** ppData)
   }
 }
 
+#pragma REMINDER("lock mutex before calling into any IPlugBase processing functions")
+
 void IPlugBase::ProcessBuffers(double sampleType, int nFrames) 
 {
   ProcessDoubleReplacing(mInData.Get(), mOutData.Get(), nFrames);
@@ -358,7 +360,7 @@ void IPlugBase::OnParamReset()
 	for (int i = 0; i < mParams.GetSize(); ++i) {
 		OnParamChange(i);
 	}
-	Reset();
+	//Reset();
 }
 
 // Default passthrough.
@@ -566,8 +568,12 @@ void IPlugBase::ModifyCurrentPreset(const char* name)
   if (mCurrentPresetIdx >= 0 && mCurrentPresetIdx < mPresets.GetSize()) {
     IPreset* pPreset = mPresets.Get(mCurrentPresetIdx);
     pPreset->mChunk.Clear();
+
+
     SerializeParams(&(pPreset->mChunk));
-    if (CSTR_NOT_EMPTY(name)) {
+
+    if (CSTR_NOT_EMPTY(name)) 
+    {
       strcpy(pPreset->mName, name);
     }
   }

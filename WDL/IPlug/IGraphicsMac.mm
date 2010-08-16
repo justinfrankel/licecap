@@ -3,6 +3,7 @@
 #include "Log.h"
 #import "IGraphicsCocoa.h"
 #include "IGraphicsCarbon.h"
+#include "../swell/swell-internal.h"
 
 struct CocoaAutoReleasePool
 {
@@ -44,17 +45,34 @@ IGraphicsMac::~IGraphicsMac()
   }
 }
 
-LICE_IBitmap* LoadPNGFromResourceOSX(const char* bundleID, const char* filename)
-{
+LICE_IBitmap* LoadImgFromResourceOSX(const char* bundleID, const char* filename)
+{ 
+  if (!filename) return 0;
   CocoaAutoReleasePool pool;
+  
+  const char* ext = filename+strlen(filename)-1;
+  while (ext >= filename && *ext != '.') --ext;
+  ++ext;
+  
+  bool ispng = !stricmp(ext, "png");
+  bool isjpg = !stricmp(ext, "jpg");
+  if (!ispng && !isjpg) return 0;
+  
   NSBundle* pBundle = [NSBundle bundleWithIdentifier:ToNSString(bundleID)];
   NSString* pFile = [[[NSString stringWithCString:filename] lastPathComponent] stringByDeletingPathExtension];
-  if (pBundle && pFile) {
-    NSString* pPath = [pBundle pathForResource:pFile ofType:@"png"];  
-    if (pPath) {
+  if (pBundle && pFile) 
+  {
+    NSString* pPath = 0;
+    if (ispng) pPath = [pBundle pathForResource:pFile ofType:@"png"];  
+    if (isjpg) pPath = [pBundle pathForResource:pFile ofType:@"jpg"];  
+
+    if (pPath) 
+    {
       const char* resourceFileName = [pPath cString];
-      if (CSTR_NOT_EMPTY(resourceFileName)) {
-        return LICE_LoadPNG(resourceFileName);
+      if (CSTR_NOT_EMPTY(resourceFileName))
+      {
+        if (ispng) return LICE_LoadPNG(resourceFileName);
+        if (isjpg) return LICE_LoadJPG(resourceFileName);
       }
     }
   }
@@ -63,7 +81,7 @@ LICE_IBitmap* LoadPNGFromResourceOSX(const char* bundleID, const char* filename)
 
 LICE_IBitmap* IGraphicsMac::OSLoadBitmap(int ID, const char* name)
 {
-  return LoadPNGFromResourceOSX(GetBundleID(), name);
+  return LoadImgFromResourceOSX(GetBundleID(), name);
 }
 
 bool IGraphicsMac::DrawScreen(IRECT* pR)
@@ -277,10 +295,10 @@ bool IGraphicsMac::DrawIText(IText* pTxt, char* cStr, IRECT* pR)
   
   [NSGraphicsContext saveGraphicsState];
   GDP_CTX* destCtx = (GDP_CTX*) mDrawBitmap->getDC();
-  NSGraphicsContext* destGC = [NSGraphicsContext graphicsContextWithGraphicsPort:destCtx->ctx flipped:NO];
+  NSGraphicsContext* destGC = [NSGraphicsContext graphicsContextWithGraphicsPort:destCtx->ctx flipped:YES];
   [destGC setShouldAntialias: antialias];
   [NSGraphicsContext setCurrentContext:destGC];
-  NSRect r = { pR->L, Height() - pR->B + yAdj, pR->W(), pR->H() };
+  NSRect r = { pR->L, pR->T+yAdj, pR->W(), pR->H() };
   NSString* str = ToNSString(cStr);
   [str drawWithRect:r options: NSStringDrawingUsesDeviceMetrics attributes: mTxtAttrs]; 
   [NSGraphicsContext restoreGraphicsState];

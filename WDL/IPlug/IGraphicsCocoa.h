@@ -3,12 +3,11 @@
 #include <AudioUnit/AudioUnit.h>
 #import <AudioUnit/AUCocoaUIView.h>
 #include "IGraphicsMac.h"
-#include "../wdl/swell/swell-gdi-int.h"
 
 // Cocoa objects can be supplied by any existing component, 
 // so we need to make sure the C++ static lib code gets the 
 // IGraphicsCocoa that it expects.
-#define IGRAPHICS_COCOA IGraphicsCocoa_v1000
+#define IGRAPHICS_COCOA IGraphicsCocoa_v1001
 
 NSString* ToNSString(const char* cStr);
 

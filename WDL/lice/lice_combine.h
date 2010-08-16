@@ -350,6 +350,30 @@ public:
     }
   }
 };
+class _LICE_CombinePixelsCopySourceAlphaIngoreAlphaParm
+{
+public:
+  static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
+  {
+    if (a)
+    {
+      if (++a==256)
+      {
+        _LICE_MakePixel(dest,r,g,b,a);
+      }
+      else
+      {
+        int a2=(256-a);
+
+        _LICE_MakePixel(dest,
+          (dest[LICE_PIXEL_R]*a2+r*a)/256,
+          (dest[LICE_PIXEL_G]*a2+g*a)/256,
+          (dest[LICE_PIXEL_B]*a2+b*a)/256,
+          (dest[LICE_PIXEL_A]*a2+a*a)/256);  
+      }
+    }
+  }
+};
 
 #ifndef LICE_DISABLE_BLEND_ADD
 
@@ -587,15 +611,20 @@ public:
 // use this for paths that support LICE_BLIT_USE_ALPHA (source-alpha combining), but
 // otherwise have constant alpha
 #define __LICE_ACTIONBYMODE_SRCALPHA(mode,alpha) \
-     if ((alpha)!=0.0) switch ((mode)&(LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA)) { \
-      case LICE_BLIT_MODE_COPY: if (alpha>0.0) __LICE__ACTION(_LICE_CombinePixelsCopy); break;  \
+     if ((alpha)!=0.0f) switch ((mode)&(LICE_BLIT_MODE_MASK|LICE_BLIT_USE_ALPHA)) { \
+      case LICE_BLIT_MODE_COPY: if ((alpha)>0.0) { \
+        if ((alpha)==1.0f) __LICE__ACTION(_LICE_CombinePixelsClobber); \
+        else __LICE__ACTION(_LICE_CombinePixelsCopy);  \
+      }  \
+      break;  \
       case LICE_BLIT_MODE_ADD: __LICE__ACTION(_LICE_CombinePixelsAdd); break;  \
       case LICE_BLIT_MODE_DODGE: __LICE__ACTION(_LICE_CombinePixelsColorDodge);  break;  \
       case LICE_BLIT_MODE_MUL: __LICE__ACTION(_LICE_CombinePixelsMul); break;  \
       case LICE_BLIT_MODE_OVERLAY: __LICE__ACTION(_LICE_CombinePixelsOverlay); break;  \
       case LICE_BLIT_MODE_HSVADJ: __LICE__ACTION(_LICE_CombinePixelsHSVAdjust); break;  \
       case LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA: \
-          __LICE__ACTION(_LICE_CombinePixelsCopySourceAlpha); \
+          if ((alpha)==1.0f) __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaIngoreAlphaParm); \
+          else __LICE__ACTION(_LICE_CombinePixelsCopySourceAlpha); \
       break;  \
       case LICE_BLIT_MODE_ADD|LICE_BLIT_USE_ALPHA:  \
           __LICE__ACTION(_LICE_CombinePixelsAddSourceAlpha);  \

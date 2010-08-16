@@ -38,6 +38,7 @@ WDL_VirtualIconButton::WDL_VirtualIconButton()
   m_en=true;
   m_grayed = false;
   m_forceborder=false;
+  m_swapupdown = false;
 }
 
 WDL_VirtualIconButton::~WDL_VirtualIconButton()
@@ -100,8 +101,13 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
   float alpha = (m_grayed ? 0.25f : 1.0f);
 
+  bool isdown = !!(m_pressed&1);
+  bool ishover = !!(m_pressed&2);
+
   if (m_iconCfg && m_iconCfg->image && !m_iconCfg->image_issingle)
   {
+    bool isdownimg = (m_swapupdown != isdown);
+    
     RECT r=m_position;
 
     int sx=0;
@@ -114,7 +120,8 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     {
       if (m_is_button)
       {
-        if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
+        if (isdownimg) sx += w*2;
+        else if (ishover) sx += w;
       }
 
       LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
@@ -138,16 +145,16 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(col,255),alpha,LICE_BLIT_MODE_COPY);
       }
 
-      if ((m_pressed&2) || m_forceborder || WDL_STYLE_WantGlobalButtonBorders())
+      if (ishover || m_forceborder || WDL_STYLE_WantGlobalButtonBorders())
       {
-        int cidx=(m_pressed&1)?COLOR_3DSHADOW:COLOR_3DHILIGHT;
+        int cidx=isdown?COLOR_3DSHADOW:COLOR_3DHILIGHT;
 
         int pencol = WDL_STYLE_GetSysColor(cidx);
         pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
         LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,alpha,LICE_BLIT_MODE_COPY,false);
         LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,alpha,LICE_BLIT_MODE_COPY,false);
-        cidx=(m_pressed&1)?COLOR_3DHILIGHT:COLOR_3DSHADOW;
+        cidx = isdown?COLOR_3DHILIGHT:COLOR_3DSHADOW;
         pencol = WDL_STYLE_GetSysColor(cidx);
         pencol = LICE_RGBA_FROMNATIVE(pencol,255);
         LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,alpha,LICE_BLIT_MODE_COPY,false);
@@ -165,7 +172,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       int y=r.top+((r.bottom-r.top)-sz2)/2;
       if (m_is_button)
       {
-        if ((m_pressed&3)==3) { x++; y++; }
+        if (isdown && ishover) { x++; y++; }
       }
 
       LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz2,0,0,
@@ -192,7 +199,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         LICE_Line(drawbm,tr.left+sz,tr.bottom,tr.left,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
         LICE_Line(drawbm,tr.left,tr.bottom,tr.left,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
         int nl = (m_checkstate>0) ? 3:0;        
-        if (m_pressed&1) nl ^= 2;
+        if (isdown) nl ^= 2;
 
         if (nl&1)
           LICE_Line(drawbm,tr.left+2,tr.bottom-2,tr.left+sz-2,tr.top+2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
@@ -206,10 +213,11 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       {
         int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
         fgc=LICE_RGBA_FROMNATIVE(fgc,255);
-        m_textfont->SetCombineMode(LICE_BLIT_MODE_COPY, alpha);
+        //m_textfont->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
         m_textfont->SetBkMode(TRANSPARENT);
         m_textfont->SetTextColor(fgc);
-        if (m_pressed&1)
+
+        if (isdown)
         {
           if (m_textalign<0) r2.left+=1;
           else if (m_textalign>0) r2.right+=1;

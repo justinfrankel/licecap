@@ -25,7 +25,7 @@ public:
 	virtual ~IControl() {}
 
 	virtual void OnMouseDown(int x, int y, IMouseMod* pMod);
-	virtual void OnMouseUp(int x, int y) {}
+	virtual void OnMouseUp(int x, int y, IMouseMod* pMod) {}
 	virtual void OnMouseDrag(int x, int y, int dX, int dY, IMouseMod* pMod) {}
 	virtual void OnMouseDblClick(int x, int y, IMouseMod* pMod);
 	virtual void OnMouseWheel(int x, int y, IMouseMod* pMod, int d);
@@ -165,7 +165,7 @@ public:
 	:	ISwitchControl(pPlug, x, y, paramIdx, pBitmap) {}
 	~IContactControl() {}
 
-	void OnMouseUp(int x, int y);
+	void OnMouseUp(int x, int y, IMouseMod* pMod);
 };
 
 // A fader. The bitmap snaps to a mouse click or drag.

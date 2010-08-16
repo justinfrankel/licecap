@@ -766,6 +766,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 
 #define WM_CONTEXTMENU                  0x007B
 #define WM_STYLECHANGED                 0x007D
+#define WM_DISPLAYCHANGE                0x007E
 #define WM_NCDESTROY                    0x0082
 #define WM_NCCALCSIZE                   0x0083
 #define WM_NCHITTEST                    0x0084
@@ -1227,9 +1228,9 @@ SWELL_API_DEFINE(DWORD, GetTickCount,())
 ** GetFileTime() gets the file time of a file (FILE *), and converts it to the Windows time.
 **
 ** NOTE: while it returns a 64 bit time value, it is only accurate to the second since thats 
-** what fstat() returns. Takes a FILE * rather than a HANDLE.
+** what fstat() returns. Takes an int filedes rather than a HANDLE.
 */
-SWELL_API_DEFINE(BOOL, GetFileTime,(void *fh, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime, FILETIME *lpLastWriteTime))
+SWELL_API_DEFINE(BOOL, GetFileTime,(int filedes, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime, FILETIME *lpLastWriteTime))
 
 /*
 ** *PrivateProfileString/Int():
@@ -1792,6 +1793,7 @@ SWELL_API_DEFINE(int, SendMessage,(HWND, UINT, WPARAM, LPARAM))
 #define SendDlgItemMessage(hwnd,idx,msg,wparam,lparam) SendMessage(GetDlgItem(hwnd,idx),msg,wparam,lparam)
 #endif
 
+SWELL_API_DEFINE(void,SWELL_BroadcastMessage,(UINT, WPARAM, LPARAM))
 
 /*
 ** PostMessage()
@@ -1896,6 +1898,7 @@ SWELL_API_DEFINE(void, SWELL_SetCursor,(HCURSOR curs))
 SWELL_API_DEFINE(HCURSOR, SWELL_GetCursor,())
 SWELL_API_DEFINE(HCURSOR, SWELL_GetLastSetCursor,())
 
+SWELL_API_DEFINE(bool, SWELL_IsCursorVisible, ())
 SWELL_API_DEFINE(int, SWELL_ShowCursor, (BOOL bShow))
 SWELL_API_DEFINE(BOOL, SWELL_SetCursorPos, (int X, int Y))
 
@@ -2062,6 +2065,8 @@ SWELL_API_DEFINE(void, BitBltAlphaFromMem,(HDC hdcOut, int x, int y, int w, int 
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
 
+SWELL_API_DEFINE(void, SetOpaque, (HWND h, bool isopaque))
+
 SWELL_API_DEFINE(HDC, BeginPaint,(HWND, PAINTSTRUCT *))
 SWELL_API_DEFINE(BOOL, EndPaint,(HWND, PAINTSTRUCT *))
 
@@ -2096,7 +2101,7 @@ SWELL_API_DEFINE(HWND, SWELL_MakeLabel,(int align, const char *label, int idx, i
 SWELL_API_DEFINE(HWND, SWELL_MakeControl,(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle))
 SWELL_API_DEFINE(HWND, SWELL_MakeCombo,(int idx, int x, int y, int w, int h, int flags))
 SWELL_API_DEFINE(HWND, SWELL_MakeGroupBox,(const char *name, int idx, int x, int y, int w, int h, int style))
-SWELL_API_DEFINE(HWND, SWELL_MakeCheckBox,(const char *name, int idx, int x, int y, int w, int h))
+SWELL_API_DEFINE(HWND, SWELL_MakeCheckBox,(const char *name, int idx, int x, int y, int w, int h, int flags))
 SWELL_API_DEFINE(HWND, SWELL_MakeListBox,(int idx, int x, int y, int w, int h, int styles))
 
 SWELL_API_DEFINE(void, SWELL_Menu_AddMenuItem,(HMENU hMenu, const char *name, int idx, int flags))

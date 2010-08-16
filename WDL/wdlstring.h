@@ -226,7 +226,8 @@ public:
     char *p=NULL;
     if (m_hb.GetSize()) p=(char *)m_hb.Get();
     if (p) return p;
-    return "";
+    static char c; c=0; 
+    return &c; // don't return "", in case it gets written to.
   }
   int GetLength() { return strlen(Get()); }
 

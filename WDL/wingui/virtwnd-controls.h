@@ -86,6 +86,8 @@ class WDL_VirtualIconButton : public WDL_VWnd
 
     void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked
     char GetCheckState() { return m_checkstate; }
+
+    void SwapIconUpDownImage(bool swap) { m_swapupdown = swap; } 
     
   private:
 
@@ -93,7 +95,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     int m_bgcol1_msg;
     bool m_is_button,m_forceborder;
     char m_pressed;
-    bool m_en, m_grayed;
+    bool m_en, m_grayed, m_swapupdown;
     char m_textalign;
     char m_checkstate;
 

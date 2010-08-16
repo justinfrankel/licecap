@@ -35,13 +35,13 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
 {
   if (msg == WM_CREATE) {
     LPCREATESTRUCT lpcs = (LPCREATESTRUCT) lParam;
-    SetWindowLong(hWnd, GWL_USERDATA, (long) (lpcs->lpCreateParams));
+    SetWindowLongPtr(hWnd, GWLP_USERDATA, (long) (lpcs->lpCreateParams));
 		int mSec = int(1000.0 / sFPS);
 		SetTimer(hWnd, IPLUG_TIMER_ID, mSec, NULL);
 		return 0;
 	}
 
-	IGraphicsWin* pGraphics = (IGraphicsWin*) GetWindowLong(hWnd, GWL_USERDATA);
+	IGraphicsWin* pGraphics = (IGraphicsWin*) GetWindowLongPtr(hWnd, GWLP_USERDATA);
 	char txt[MAX_PARAM_LEN];
 	double v;
 
@@ -84,15 +84,16 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
 							pGraphics->mEdControl->SetValueFromUserInput(pGraphics->mEdParam->GetNormalized(v));
 							// Fall through.
             }
-            case kCancel: {
-							SetWindowLong(pGraphics->mParamEditWnd, GWL_WNDPROC, (LONG) pGraphics->mDefEditProc);
+            case kCancel:
+			      {
+							SetWindowLongPtr(pGraphics->mParamEditWnd, GWLP_WNDPROC, (LONG) pGraphics->mDefEditProc);
 							DestroyWindow(pGraphics->mParamEditWnd);
 							pGraphics->mParamEditWnd = 0;
 							pGraphics->mEdParam = 0;
 							pGraphics->mEdControl = 0;
 							pGraphics->mDefEditProc = 0;
-							break;
             }
+            break;            
           }
 					pGraphics->mParamEditMsg = kNone;
 					return 0;
@@ -142,7 +143,7 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
     case WM_LBUTTONUP:
     case WM_RBUTTONUP: {
       ReleaseCapture();
-			pGraphics->OnMouseUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+			pGraphics->OnMouseUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), &GetMouseMod(wParam));
 			return 0;
     }
     case WM_LBUTTONDBLCLK: {
@@ -159,6 +160,32 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
 			pGraphics->OnMouseWheel(x - r.left, y - r.top, &GetMouseMod(wParam), d);
 			return 0;
 		}
+
+    case WM_KEYDOWN:
+    {
+      bool ok = true;
+      int key;     
+
+      if (wParam == VK_SPACE) key = KEY_SPACE;
+      else if (wParam == VK_UP) key = KEY_UPARROW;
+      else if (wParam == VK_DOWN) key = KEY_DOWNARROW;
+      else if (wParam == VK_LEFT) key = KEY_LEFTARROW;
+      else if (wParam == VK_RIGHT) key = KEY_RIGHTARROW;
+      else if (wParam >= '0' && wParam <= '9') key = KEY_DIGIT_0+wParam-'0';
+      else if (wParam >= 'A' && wParam <= 'Z') key = KEY_ALPHA_A+wParam-'A';
+      else if (wParam >= 'a' && wParam <= 'z') key = KEY_ALPHA_A+wParam-'a';
+      else ok = false;
+
+      if (ok)
+      {
+        POINT p;
+        GetCursorPos(&p); 
+        ScreenToClient(hWnd, &p);
+        pGraphics->OnKeyDown(p.x, p.y, key);
+      }
+    }
+    return 0;
+
 		case WM_PAINT: {
       RECT r;
       if (GetUpdateRect(hWnd, &r, FALSE)) {
@@ -167,12 +194,14 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
       }
 			return 0;
 		}
+
 		//case WM_CTLCOLOREDIT: {
 		//	// An edit control just opened.
 		//	HDC dc = (HDC) wParam;
 		//	SetTextColor(dc, ///);
 		//	return 0;
 		//}
+
 		case WM_CLOSE: {
 			pGraphics->CloseWindow();
 			return 0;
@@ -184,9 +213,10 @@ LRESULT CALLBACK IGraphicsWin::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARA
 // static 
 LRESULT CALLBACK IGraphicsWin::ParamEditProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	IGraphicsWin* pGraphics = (IGraphicsWin*) GetWindowLong(hWnd, GWL_USERDATA);
+	IGraphicsWin* pGraphics = (IGraphicsWin*) GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
-	if (pGraphics && pGraphics->mParamEditWnd && pGraphics->mParamEditWnd == hWnd) {
+	if (pGraphics && pGraphics->mParamEditWnd && pGraphics->mParamEditWnd == hWnd) 
+  {
 		switch (msg) {
 			case WM_KEYDOWN: {
 				if (wParam == VK_RETURN) {
@@ -237,7 +267,13 @@ IGraphicsWin::~IGraphicsWin()
 
 LICE_IBitmap* IGraphicsWin::OSLoadBitmap(int ID, const char* name)
 {
-  return _LICE::LICE_LoadPNGFromResource(mHInstance, ID, 0);
+  const char* ext = name+strlen(name)-1;
+  while (ext > name && *ext != '.') --ext;
+  ++ext;
+
+  if (!stricmp(ext, "png")) return _LICE::LICE_LoadPNGFromResource(mHInstance, ID, 0);
+  if (!stricmp(ext, "jpg") || !stricmp(ext, "jpeg")) return _LICE::LICE_LoadJPGFromResource(mHInstance, ID, 0);
+  return 0;
 }
 
 void GetWindowSize(HWND pWnd, int* pW, int* pH)

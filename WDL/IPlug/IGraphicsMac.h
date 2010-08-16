@@ -2,7 +2,7 @@
 #define _IGRAPHICSMAC_
 
 #include "IGraphicsLice.h"
-#include "../wdl/swell/swell.h"
+#include "../swell/swell.h"
 #include <Carbon/Carbon.h>
 
 class IGraphicsCarbon;

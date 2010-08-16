@@ -110,7 +110,7 @@ public:
     const IChannelBlend* pBlend = 0, bool antiAlias = false);
 
 	void OnMouseDown(int x, int y, IMouseMod* pMod);
-	void OnMouseUp(int x, int y);
+	void OnMouseUp(int x, int y, IMouseMod* pMod);
 	void OnMouseDrag(int x, int y, IMouseMod* pMod);
   // Returns true if the control receiving the double click will treat it as a single click
   // (meaning the OS should capture the mouse).

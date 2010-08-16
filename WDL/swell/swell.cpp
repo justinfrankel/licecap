@@ -42,22 +42,6 @@
 #include <pthread.h>
 
 
-char *lstrcpyn(char *dest, const char *src, int l)
-{
-  if (l<1) return dest;
-
-  char *dsrc=dest;
-  while (--l > 0)
-  {
-    char p=*src++;
-    if (!p) break;
-    *dest++=p;
-  }
-  *dest++=0;
-
-  return dsrc;
-}
-
 void Sleep(int ms)
 {
   usleep(ms?ms*1000:100);
@@ -80,12 +64,11 @@ static void intToFileTime(time_t t, FILETIME *out)
   out->dwHighDateTime=a>>32;
 }
 
-BOOL GetFileTime(void *fh, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime, FILETIME *lpLastWriteTime)
+BOOL GetFileTime(int filedes, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime, FILETIME *lpLastWriteTime)
 {
-  if (!fh) return 0;
-  FILE *fp=(FILE *)fh;
+  if (filedes<0) return 0;
   struct stat st;
-  if (fstat(fileno(fp),&st)) return 0;
+  if (fstat(filedes,&st)) return 0;
   
   if (lpCreationTime) intToFileTime(st.st_ctime,lpCreationTime);
   if (lpLastAccessTime) intToFileTime(st.st_atime,lpLastAccessTime);
@@ -113,28 +96,6 @@ int MulDiv(int a, int b, int c)
   if(c == 0) return 0;
   return (int)((double)a*(double)b/c);
 }
-
-DWORD GetModuleFileName(HINSTANCE ignored, char *fn, DWORD nSize)
-{
-  *fn=0;
-#ifdef SWELL_TARGET_OSX
-  CFBundleRef bund=CFBundleGetMainBundle();
-  if (bund) 
-  {
-    CFURLRef url=CFBundleCopyBundleURL(bund);
-    if (url)
-    {
-      char buf[8192];
-      if (CFURLGetFileSystemRepresentation(url,true,(UInt8*)buf,sizeof(buf)))
-        lstrcpyn(fn,buf,nSize);
-
-      CFRelease(url);
-    }
-  }
-#endif
-  return strlen(fn);
-}
-
 
 unsigned int  _controlfp(unsigned int flag, unsigned int mask)
 {
