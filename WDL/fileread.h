@@ -124,6 +124,7 @@ public:
     m_sync_bufmode_used=m_sync_bufmode_pos=0;
     m_async_readpos=m_file_position=0;
     m_fsize=0;
+    m_fsize_maychange=false;
     m_syncrd_firstbuf=true;
     m_mmap_view=0;
     m_mmap_totalbufmode=0;
@@ -160,7 +161,10 @@ public:
         {
           m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
           if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
+          {
             m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+            m_fsize_maychange=true;
+          }
         }
       }
       else
@@ -171,7 +175,10 @@ public:
         {
           m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
           if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
+          {
             m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+            m_fsize_maychange=true;
+          }
         }
       }
     }
@@ -180,7 +187,10 @@ public:
     {
       m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
       if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
+      {
         m_fh = CreateFileA(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,flags,NULL);
+        m_fsize_maychange=true;
+      }
     }
 
     if (m_fh != INVALID_HANDLE_VALUE)
@@ -202,6 +212,7 @@ public:
               CloseHandle(m_mmap_fmap);
               m_mmap_fmap=0;
             }
+            else m_fsize_maychange=false;
           }
         }
         else if (l>0)
@@ -209,6 +220,7 @@ public:
           m_mmap_totalbufmode = malloc(l);
           DWORD sz;
           ReadFile(m_fh,m_mmap_totalbufmode,l,&sz,NULL);
+          m_fsize_maychange=false;
         }
       }
 
@@ -240,6 +252,9 @@ public:
     {
       if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0) // get shared lock
         m_filedes_locked=true;
+      else
+        m_fsize_maychange=true; // if couldnt get shared lock, then it may change
+
 #ifdef __APPLE__
       if (allow_async==1 || allow_async==-1) 
       {
@@ -257,11 +272,13 @@ public:
         {
           m_mmap_view = mmap(NULL,m_fsize,PROT_READ,0,m_filedes,0);
           if (m_mmap_view == MAP_FAILED) m_mmap_view = 0;
+          else m_fsize_maychange=false;
         }
         else
         {
           m_mmap_totalbufmode = malloc(m_fsize);
           m_fsize = pread(m_filedes,m_mmap_totalbufmode,m_fsize,0);
+          m_fsize_maychange=false;
         }
       }
 
@@ -524,6 +541,8 @@ public:
       return maxl;     
     }
 
+    if (m_fsize_maychange) GetSize(); // update m_fsize
+
 #ifdef WDL_WIN32_NATIVE_READ
     if (m_fh == INVALID_HANDLE_VALUE||len<1) return 0;
 
@@ -640,6 +659,20 @@ public:
 #else
     if (!m_fp) return -1;
 #endif
+
+    if (m_fsize_maychange)
+    {
+#ifdef WDL_WIN32_NATIVE_READ
+      DWORD h=0;
+      DWORD l=GetFileSize(m_fh,&h);
+      m_fsize=(((WDL_FILEREAD_POSTYPE)h)<<32)|l;
+#elif defined(WDL_POSIX_NATIVE_READ)
+      struct stat st;
+      if (!fstat(m_filedes,&st))  m_fsize = st.st_size;
+
+#endif
+    }
+
     return m_fsize;
   }
 
@@ -666,6 +699,9 @@ public:
 #else
     if (!m_fp) return true;
 #endif
+
+    if (m_fsize_maychange) GetSize();
+
     if (pos < 0) pos=0;
     if (pos > m_fsize) pos=m_fsize;
     WDL_FILEREAD_POSTYPE oldpos=m_file_position;
@@ -746,6 +782,7 @@ public:
   int GetHandle() { return fileno(m_fp); }
 #endif
 
+  bool m_fsize_maychange;
   bool m_syncrd_firstbuf;
   bool m_async_hashaderr;
 

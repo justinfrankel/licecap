@@ -11,9 +11,7 @@
  * 26 Jun 96 - Version 3.0 by Eric S. Raymond (Full GIF89 support)
  *****************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include "config.h"
 
 /* Find a thirty-two bit int type */
 #ifdef HAVE_SYS_TYPES_H
@@ -639,7 +637,7 @@ EGifPutExtension(GifFileType * GifFile,
         Buf[0] = '!';       /* Extension Introducer 0x21 */
         Buf[1] = ExtCode;   /* Extension Label */
         Buf[2] = ExtLen;    /* Extension length */
-        WRITE(GifFile, Buf, 3);
+        WRITE(GifFile, Buf, ExtCode==0xff ? 2 : 3);
     }
     WRITE(GifFile, Extension, ExtLen);
     Buf[0] = 0;

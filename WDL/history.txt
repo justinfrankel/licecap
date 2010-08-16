@@ -1,3 +1,34 @@
+2010-06-01:
+DirScan: GetCurrentFileSize() support for OSx/Linux
+FileRead: detect when no shared lock acquired, update file size on demand since it can change
+IPlug: tweaks from Tale
+LCF: added LCF read/write (Lice Capture Format, a good high quality lossless screencapture codec)
+LICE: moved warning pragma into lice_combine.h from lice.h, to prevent app warnings from being supressed
+LICE: less dependent on SWELL
+LICE: added octree palette generation/mapping
+LICE: better .gif support, animated .gif writing
+LICE: LICE_bitmapcmp() improvements (can give bounding rect of difference)
+LICE: lice_arc simplification
+Resampler: fixed crash on mode switches
+SHM_msgreply: fixed issue with colliding named pipe names on OSX/Linux
+SWELL: menu shortcuts fixed support for various keys, control modifier
+SWELL: fixed GetDC()/ReleaseDC() updating window
+SWELL: organized swell.h into swell-types.h, swell-functions.h
+SWELL: stronger typing for various handles
+SWELL: listview scrolling fixes
+SWELL: fixed swell prefix support (for app-specific objC class name prefixes)
+SWELL: ES_CENTER, ES_RIGHT support
+SWELL: avoiding excessive WM_SIZE coming from top level window updates (destroying, focus change, etc)
+SWELL: greatly optimized .ini file access functions (use assocarray, for bsearching of contents)
+Virtwnd: rendered bg image cache support
+Virtwnd: better support for 0px wide/tall windows (not drawing)
+Virtwnd: better margin support in static text, button controls
+Virtwnd: static text controls now can have children, autodisable border if background image set
+Virtwnd: added GetPositionInTopVWnd()
+Virtwnd: buttons can now force text along with their images, can ignore double click
+Virtwnd: IAccessible wrapper layer, support for setting per-virtwnd description strings
+
+
 2010-04-19:
 SWELL: support for control key (as FLWIN, windows key)
 iPlug: less dependent on SWELL for OSX (just swell-gdi)

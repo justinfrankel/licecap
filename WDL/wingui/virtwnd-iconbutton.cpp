@@ -39,7 +39,11 @@ WDL_VirtualIconButton::WDL_VirtualIconButton()
   m_en=true;
   m_grayed = false;
   m_forceborder=false;
+  m_forcetext=false;
   m_ownsicon=false;
+  m_immediate=false;
+  m_margin_r = m_margin_l = 0;
+  m_margin_t = m_margin_b = 0;
 }
 
 WDL_VirtualIconButton::~WDL_VirtualIconButton()
@@ -56,7 +60,7 @@ void WDL_VirtualIconButton::SetTextLabel(const char *text, char align, LICE_IFon
   if (font) m_textfont=font;
   m_textalign=align;
   m_textlbl.Set(text); 
-  if (!m_iconCfg) RequestRedraw(NULL); 
+  if (!m_iconCfg || m_forcetext) RequestRedraw(NULL); 
 } 
 
 void WDL_VirtualIconButton::SetCheckState(char state)
@@ -202,54 +206,65 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         m_iconCfg->image->getHeight(),alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
 
     }
-    if (!m_iconCfg && m_textlbl.Get()[0])
+  }
+
+  if (!m_iconCfg || m_forcetext)
+  {
+    RECT r2=m_position;
+    r2.left+=origin_x;
+    r2.right+=origin_x;
+    r2.top+=origin_y;
+    r2.bottom+=origin_y;
+
+    if (m_checkstate>=0 && !m_iconCfg)
     {
-      RECT r2=r;
-      if (m_checkstate>=0)
-      {
-        RECT tr=r2;
-        int sz=tr.bottom-tr.top;
-        r2.left+=sz+2;
+      RECT tr=r2;
+      int sz=tr.bottom-tr.top;
+      r2.left+=sz+2;
 
-        tr.top+=2;
-        tr.bottom-=2;
-        sz-=4;
-        sz&=~1;
-        LICE_FillRect(drawbm ,tr.left,tr.top,sz,sz,LICE_RGBA(255,255,255,255),alpha,LICE_BLIT_MODE_COPY);
-        LICE_Line(drawbm,tr.left,tr.top,tr.left+sz,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,tr.left+sz,tr.top,tr.left+sz,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,tr.left+sz,tr.bottom,tr.left,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
-        LICE_Line(drawbm,tr.left,tr.bottom,tr.left,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
-        int nl = (m_checkstate>0) ? 3:0;        
-        if (isdown) nl ^= 2;
+      tr.top+=2;
+      tr.bottom-=2;
+      sz-=4;
+      sz&=~1;
+      LICE_FillRect(drawbm ,tr.left,tr.top,sz,sz,LICE_RGBA(255,255,255,255),alpha,LICE_BLIT_MODE_COPY);
+      LICE_Line(drawbm,tr.left,tr.top,tr.left+sz,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,tr.left+sz,tr.top,tr.left+sz,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,tr.left+sz,tr.bottom,tr.left,tr.bottom,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,tr.left,tr.bottom,tr.left,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
+      int nl = (m_checkstate>0) ? 3:0;        
+      if (isdown) nl ^= 2;
 
-        if (nl&1)
-          LICE_Line(drawbm,tr.left+2,tr.bottom-2,tr.left+sz-2,tr.top+2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
-        if (nl&2)
-          LICE_Line(drawbm,tr.left+2,tr.top+2,tr.left+sz-2,tr.bottom-2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
+      if (nl&1)
+        LICE_Line(drawbm,tr.left+2,tr.bottom-2,tr.left+sz-2,tr.top+2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
+      if (nl&2)
+        LICE_Line(drawbm,tr.left+2,tr.top+2,tr.left+sz-2,tr.bottom-2,LICE_RGBA(0,0,0,255),alpha,LICE_BLIT_MODE_COPY,false);
 
 
-      }
-      // draw text
-      if (m_textfont)
-      {
-        int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-        fgc=LICE_RGBA_FROMNATIVE(fgc,255);
-        //m_textfont->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
-        m_textfont->SetBkMode(TRANSPARENT);
-        m_textfont->SetTextColor(fgc);
-
-        if (isdown)
-        {
-          if (m_textalign<0) r2.left+=1;
-          else if (m_textalign>0) r2.right+=1;
-          else r2.left+=2;
-          r2.top+=2;
-        }
-        m_textfont->DrawText(drawbm,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
-      }
-      
     }
+    // draw text
+    if (m_textfont&&m_textlbl.Get()[0])
+    {
+      int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+      fgc=LICE_RGBA_FROMNATIVE(fgc,255);
+      //m_textfont->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
+      m_textfont->SetBkMode(TRANSPARENT);
+      m_textfont->SetTextColor(fgc);
+
+      r2.left += m_margin_l;
+      r2.right -= m_margin_r;
+      r2.top += m_margin_t;
+      r2.bottom -= m_margin_b;
+
+      if (isdown)
+      {
+        if (m_textalign<0) r2.left+=1;
+        else if (m_textalign>0) r2.right+=1;
+        else r2.left+=2;
+        r2.top+=2;
+      }
+      m_textfont->DrawText(drawbm,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+    }
+    
   }
 
   if (m_bgcol1_msg)
@@ -284,8 +299,6 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         r.left+origin_x,r.bottom+origin_y-bh,
         r.right-r.left,
         bh,LICE_RGBA_FROMNATIVE(brcol,255),0.75,LICE_BLIT_MODE_COPY);
-
-    
     }
   }
 
@@ -297,12 +310,22 @@ void WDL_VirtualIconButton::OnMouseMove(int xpos, int ypos)
   if (m_en&&m_is_button)
   {
     int wp=m_pressed;
-    if (xpos >= 0&& xpos < m_position.right-m_position.left && ypos >= 0 && ypos < m_position.bottom-m_position.top)
+    if (xpos >= 0 &&
+      xpos < m_position.right-m_position.left && 
+      ypos >= 0 &&
+      ypos < m_position.bottom-m_position.top)
+    {
       m_pressed|=2;
-    else m_pressed&=~2;
+    }
+    else
+    {
+      m_pressed&=~2;
+    }
 
     if ((m_pressed&3)!=(wp&3))
+    {
       RequestRedraw(NULL);
+    }
   }
 }
 
@@ -312,6 +335,12 @@ int WDL_VirtualIconButton::OnMouseDown(int xpos, int ypos)
   {
     m_pressed=3;
     RequestRedraw(NULL);
+
+    if (m_immediate)
+    {
+      DoSendCommand(xpos, ypos);
+    }
+
     return 1;
   }
   return 0;
@@ -319,18 +348,12 @@ int WDL_VirtualIconButton::OnMouseDown(int xpos, int ypos)
 
 bool WDL_VirtualIconButton::OnMouseDblClick(int xpos, int ypos)
 {
-  if (!m_is_button) return false;
-  if (m_en)
-  {
-    int code=GetID();
-    if (!m_iconCfg && m_textlbl.Get()[0] && m_checkstate >= 0)
-    {
-      if (xpos<(m_position.bottom-m_position.top))
-        code|=600<<16;
-    }
-    SendCommand(WM_COMMAND,code,0,this);
+  if (m_is_button) 
+  { 
+    DoSendCommand(xpos, ypos);
+    return true;
   }
-  return true;
+  return false;
 }
 
 void WDL_VirtualIconButton::OnMouseUp(int xpos, int ypos)
@@ -340,21 +363,32 @@ void WDL_VirtualIconButton::OnMouseUp(int xpos, int ypos)
   int waspress=!!m_pressed;
   m_pressed&=~1;
   RequestRedraw(NULL);
-  if (waspress&&xpos >= 0&& xpos < m_position.right-m_position.left && ypos >= 0 && ypos < m_position.bottom-m_position.top)
+
+  if (waspress && !m_immediate)
   {
-    if (m_en)
-    {
-      int code=GetID();
-      if (!m_iconCfg && m_textlbl.Get()[0] && m_checkstate >= 0)
-      {
-        if (xpos<(m_position.bottom-m_position.top))
-          code|=600<<16;
-      }
-      SendCommand(WM_COMMAND,code,0,this);
-    }
+    DoSendCommand(xpos, ypos);
   }
 }
 
+void WDL_VirtualIconButton::DoSendCommand(int xpos, int ypos)
+{
+  if (m_en &&
+    xpos >= 0 &&
+    xpos < m_position.right-m_position.left && 
+    ypos >= 0 && 
+    ypos < m_position.bottom-m_position.top)
+  {
+    int code=GetID();
+    if (!m_iconCfg && m_textlbl.Get()[0] && m_checkstate >= 0)
+    {
+      if (xpos < m_position.bottom-m_position.top)
+      {
+        code|=600<<16;
+      }
+    }
+    SendCommand(WM_COMMAND,code,0,this);
+  }
+}
 
 
 WDL_VirtualComboBox::WDL_VirtualComboBox()
@@ -511,6 +545,7 @@ WDL_VirtualStaticText::WDL_VirtualStaticText()
   m_dotint=false;
   m_bkbm=0;
   m_margin_r=m_margin_l=0;
+  m_margin_t=m_margin_b=0;
   m_fg=m_bg=-1;
   m_wantborder=false;
   m_font=0;
@@ -533,6 +568,9 @@ void WDL_VirtualStaticText::SetText(const char *text)
 
 int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 {
+  int a = WDL_VWnd::OnMouseDown(xpos,ypos);
+  if (a) return a;
+
   if (m_wantsingle)
   {
     SendCommand(WM_COMMAND,GetID() | (STN_CLICKED<<16),0,this);
@@ -582,38 +620,43 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
             0);
     }
   }
-  else if (m_bg!=-1)
+  else 
   {
-    LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(m_bg,255),1.0f,LICE_BLIT_MODE_COPY);
-  }
+    if (m_bg!=-1)
+    {
+      LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(m_bg,255),1.0f,LICE_BLIT_MODE_COPY);
+    }
 
-  if (m_wantborder)
-  {    
-    int cidx=COLOR_3DSHADOW;
+    if (m_wantborder)
+    {    
+      int cidx=COLOR_3DSHADOW;
 
-    int pencol = WDL_STYLE_GetSysColor(cidx);
-    pencol = LICE_RGBA_FROMNATIVE(pencol,255);
+      int pencol = WDL_STYLE_GetSysColor(cidx);
+      pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
-    LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-    LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-    cidx=COLOR_3DHILIGHT;
-    pencol = WDL_STYLE_GetSysColor(cidx);
-    pencol = LICE_RGBA_FROMNATIVE(pencol,255);
-    LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-    LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+      cidx=COLOR_3DHILIGHT;
+      pencol = WDL_STYLE_GetSysColor(cidx);
+      pencol = LICE_RGBA_FROMNATIVE(pencol,255);
+      LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
+      LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
 
-    r.left++;
-    r.bottom--;
-    r.top++;
-    r.right--;
+      r.left++;
+      r.bottom--;
+      r.top++;
+      r.right--;
 
+    }
   }
 
   if (m_font && m_text.Get()[0])
   {
 
-    r.left+=m_margin_l;
-    r.right-=m_margin_r;
+    r.left += m_margin_l;
+    r.right -= m_margin_r;
+    r.top += m_margin_t;
+    r.bottom -= m_margin_b;
     m_font->SetBkMode(TRANSPARENT);
     
     int align=m_align;
@@ -629,14 +672,18 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     m_font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(align<0?DT_LEFT:align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
 
   }
+  WDL_VWnd::OnPaint(drawbm,origin_x,origin_y,cliprect);
 }
 
 
 bool WDL_VirtualStaticText::OnMouseDblClick(int xpos, int ypos)
 {
-  SendCommand(WM_COMMAND,GetID() | (STN_DBLCLK<<16),0,this);
-  return true;
+  if (!WDL_VWnd::OnMouseDblClick(xpos,ypos))
+  {
+    SendCommand(WM_COMMAND,GetID() | (STN_DBLCLK<<16),0,this);
+  }
 
+  return true;
 }
 
 

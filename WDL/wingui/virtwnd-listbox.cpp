@@ -28,6 +28,7 @@
 
 WDL_VirtualListBox::WDL_VirtualListBox()
 {
+  memset(m_lastscrollbuttons,0,sizeof(m_lastscrollbuttons));
   m_scrollbuttonsize=14;
   m_cap_startitem=-1;
   m_cap_state=0;
@@ -267,11 +268,42 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
       }
     }
   }
+  memset(&m_lastscrollbuttons,0,sizeof(m_lastscrollbuttons));
   if (updownbuttonsize||leftrightbuttonsize)
   {
     WDL_VirtualWnd_BGCfg *bkbm=0;
     int a=m_GetItemInfo ? m_GetItemInfo(this,
       leftrightbuttonsize ? WDL_VWND_LISTBOX_ARROWINDEX_LR : WDL_VWND_LISTBOX_ARROWINDEX,NULL,0,NULL,&bkbm) : 0;
+
+    if (leftrightbuttonsize)
+    {
+      RECT br={0,0,r.right-r.left,r.bottom-r.top};
+
+      if (startpos>0)
+      {
+        m_lastscrollbuttons[0]=br;
+        m_lastscrollbuttons[0].right = br.left + m_scrollbuttonsize;
+      }
+      if (itempos < num_items)
+      {
+        m_lastscrollbuttons[1]=br;
+        m_lastscrollbuttons[1].left=br.right - m_scrollbuttonsize;
+      }
+    }
+    else 
+    {
+      RECT br={0,y-r.top - m_rh,r.right-r.left,y-r.top - m_rh  + m_scrollbuttonsize};
+      if (startpos>0)
+      {
+        m_lastscrollbuttons[0]=br;
+        m_lastscrollbuttons[0].right = (br.left+br.right)/2;
+      }
+      if (itempos < num_items)
+      {
+        m_lastscrollbuttons[1]=br;
+        m_lastscrollbuttons[1].left = (br.left+br.right)/2;
+      }
+    }
 
     if (bkbm && bkbm->bgimage)
     {

@@ -16,7 +16,7 @@ static struct api_ent
 }
 api_table[]=
 {
-#include "swell.h"
+#include "swell-functions.h"
 };
 
 static int compfunc(const void *a, const void *b)

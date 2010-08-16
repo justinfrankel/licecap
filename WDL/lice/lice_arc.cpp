@@ -302,68 +302,43 @@ public:
   static void DrawArc(LICE_IBitmap* dest, float cx, float cy, float rad, float anglo, float anghi,
     LICE_pixel color, int ialpha, bool aa)
   {
-    int w = dest->getWidth(), h = dest->getHeight();
-    int clip[4] = { 0, 0, w, h };
-
-    if (anghi-anglo > _PI) 
+    if (anghi-anglo >= 2.0f*_PI) 
     {
-      if (anghi-anglo >= 2.0f*_PI) 
-      {
-        DrawCircle(dest, cx, cy, rad, color, ialpha, aa, false);
-        return;
-      }
-      float xang = (anglo < 0.0f ? 0.0f : _PI);
-      DrawArc(dest, cx, cy, rad, anglo, xang, color, ialpha, aa);
-      DrawArc(dest, cx, cy, rad, xang, anghi, color, ialpha, aa);
+      DrawCircle(dest, cx, cy, rad, color, ialpha, aa, false);
+      return;
+    } 
+    if (anglo < 0.0f && anghi > 0.0f)
+    {   
+      DrawArc(dest, cx, cy, rad, anglo+2.0*_PI, 2.0*_PI, color, ialpha, aa);
+      DrawArc(dest, cx, cy, rad, 0.0f, anghi, color, ialpha, aa);
+      return;
+    }
+    if (anglo < _PI && anghi > _PI)
+    {
+      DrawArc(dest, cx, cy, rad, anglo, _PI, color, ialpha, aa);
+      DrawArc(dest, cx, cy, rad, _PI, anghi, color, ialpha, aa);
       return;
     }
 
-    while (anglo < 0.0f) anglo += 2.0f*_PI;
-    while (anglo >= 2.0f*_PI) anglo -= 2.0f*_PI;
-    int xlo = cx+rad*sin(anglo), ylo = cy-rad*cos(anglo);
+    int w = dest->getWidth();
+    int h = dest->getHeight();
+    int ylo = cy-rad*cos(anglo);
+    int yhi = cy-rad*cos(anghi);
 
-    if (anglo < EPS) 
+    int clip[4];
+    if (anglo <= _PI)
     {
-      clip[0] = max(clip[0], cx);
+      clip[0] = max(0, cx);
+      clip[1] = max(0, ylo);
+      clip[2] = w;
+      clip[3] = min(h, yhi+1);
     }
-    else if (anglo < 0.5*_PI+EPS) 
+    else
     {
-      clip[1] = max(clip[1], ylo);
-    }
-    else if (anglo < _PI+EPS) 
-    {
-      clip[2] = min(clip[2], xlo);
-    }
-    else if (anglo < 1.5*_PI+EPS)
-    {
-      clip[2] = min(clip[2], cx);
-      clip[3] = min(clip[3], ylo);
-    }
-    else 
-    {
-      clip[3] = min(clip[3], cy);
-    }
-
-    while (anghi < 0.0f) anghi += 2.0f*_PI;
-    while (anghi > 2.0f*_PI) anghi -= 2.0f*_PI;
-    int xhi = cx+rad*sin(anghi), yhi = cy-rad*cos(anghi);
-  
-    if (anghi < 0.5*_PI-EPS) 
-    {
-      clip[2] = min(clip[2], xhi);
-      clip[3] = min(clip[3], cy);
-    }
-    else if (anghi < _PI-EPS) 
-    {
-      clip[3] = min(clip[3], yhi);
-    }
-    else if (anghi < 1.5*_PI-EPS)
-    {
-      clip[0] = max(clip[0], xhi);
-    }
-    else 
-    {
-      clip[1] = max(clip[1], yhi);
+      clip[0] = 0;
+      clip[1] = max(0, yhi);
+      clip[2] = min(w, cx);
+      clip[3] = min(h, ylo+1);
     }
 
     if (aa) DrawClippedCircleAA(dest, cx, cy, rad, clip, color, ialpha, false, true);

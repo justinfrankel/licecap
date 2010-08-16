@@ -13,6 +13,9 @@
 #include "lice_combine.h"
 #include "lice_extended.h"
 
+#ifndef _WIN32
+#include "../swell/swell.h"
+#endif
 
 _LICE_ImageLoader_rec *LICE_ImageLoader_list;
 
@@ -367,10 +370,9 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
       while (h--)
       {
         int cury = icury/65536;
-        int yfrac=icury&65535;
         int curx=icurx;          
         int n=w;
-        if (cury >= 0  && cury < clipbottom)
+        if (cury >= 0 && cury < clipbottom)
         {
           LICE_pixel_chan *inptr=src + (cury+filt_start) * src_span;
           LICE_pixel_chan *pout=dest;
@@ -1986,7 +1988,7 @@ void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
 
 #endif // LICE_NO_MISC_SUPPORT
 
-int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b)
+int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
 {
   if (!a || !b) {
     if (!a && b) return -1;
@@ -1999,7 +2001,106 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b)
   int ah = a->getHeight(), bh = b->getHeight();
   if (ah != bh) return bh-ah;
   
-  return memcmp(a->getBits(), b->getBits(), (aw*ah)*sizeof(LICE_pixel));
+  //coordsOut
+  LICE_pixel *px1 = a->getBits();
+  LICE_pixel *px2 = b->getBits();
+  int span1 = a->getRowSpan();
+  int span2 = b->getRowSpan();
+  if (a->isFlipped())
+  {
+    px1+=span1*(ah-1);
+    span1=-span1;
+  }
+  if (b->isFlipped())
+  {
+    px2+=span2*(ah-1);
+    span2=-span2;
+  }
+
+  int y;
+  if (!coordsOut)
+  {
+    for (y=0; y < ah; y ++)
+    {
+      int a = memcmp(px1,px2,aw*sizeof(LICE_pixel));
+      if (a) return a;
+      px1+=span1;
+      px2+=span2;
+    }
+  }
+  else
+  {
+    int x;
+
+    // find first row that differs
+    for (y=0; y < ah; y ++)
+    {
+      // check left side
+      for (x=0;x<aw && px1[x]==px2[x];x++);
+      if (x < aw) break;
+
+      px1+=span1;
+      px2+=span2;
+    }
+    if (y>=ah) 
+    {
+      memset(coordsOut,0,4*sizeof(int));
+      return 0; // no differences
+    }
+
+    int miny=y;
+    int minx=x;
+    // scan right edge of top differing row
+    for (x=aw-1;x>minx && px1[x]==px2[x];x--);
+    int maxx=x;
+
+    // find last row that differs
+    px1+=span1 * (ah-1-y);
+    px2+=span2 * (ah-1-y);
+    for (y = ah-1; y > miny; y --)
+    {
+      int x;
+      // check left side
+      for (x=0;x<aw && px1[x]==px2[x];x++);
+      if (x < aw) break;
+      px1-=span1;
+      px2-=span2;
+    }
+    int maxy=y;
+
+    if (y > miny)
+    {
+      if (x < minx) minx=x;
+      // scan right edge of bottom row that differs
+      for (x=aw-1;x>maxx && px1[x]==px2[x];x--);
+      maxx=x;
+    }
+
+
+    // find min/max x that differ
+    px1+=span1 * (miny+1-y);
+    px2+=span2 * (miny+1-y);
+    for (y=miny+1;y<maxy && (minx>0 || maxx<aw-1);y++) 
+    {
+      int x;
+      for (x=0;x<minx && px1[x]==px2[x];x++);
+      minx=x;
+      for (x=aw-1;x>maxx && px1[x]==px2[x];x--);
+      maxx=x;
+
+      px1+=span1;
+      px2+=span2;
+    }
+
+    coordsOut[0]=minx;
+    coordsOut[1]=miny;
+    coordsOut[2]=maxx-minx+1;
+    coordsOut[3]=maxy-miny+1;
+
+    return 1;
+  }
+
+  return 0;
 }
 
 unsigned short _LICE_RGB2HSV_invtab[256]={ // 65536/idx - 1

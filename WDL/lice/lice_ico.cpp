@@ -9,6 +9,9 @@
 */
 
 #include "lice.h"
+#ifndef _WIN32
+#include "../swell/swell.h"
+#endif
 
 static LICE_IBitmap *icoToBitmap(HICON icon, LICE_IBitmap *bmpOut)
 {

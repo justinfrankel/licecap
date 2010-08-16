@@ -10,9 +10,7 @@
  *  3 Sep 90 - Version 1.1 by Gershon Elber (Support for Gif89, Unique names).
  *****************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include "config.h"
 
 #include <stdlib.h>
 #if defined (__MSDOS__) && !defined(__DJGPP__) && !defined(__GNUC__)

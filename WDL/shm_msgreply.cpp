@@ -27,11 +27,12 @@ SHM_MsgReplyConnection::SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bo
     WDL_INT64 pid = (WDL_INT64) getpid();
 #endif
     WDL_INT64 thisptr = (WDL_INT64) (INT_PTR) this;
+    static int cnt=0xdeadf00d;
     sprintf(m_uniq,"%08x%08x%08x%08x",
       (int)(pid&0xffffffff),
       (int)(pid>>32),
-      (int)(thisptr&0xffffffff),
-      (int)(thisptr>>32));
+      (int)(thisptr&0xffffffff) ^ GetTickCount(),
+      (int)(thisptr>>32)^(cnt++));
   }
 
   m_shm = new WDL_SHM_Connection(dir,m_uniq,bufsize,timeout_sec);

@@ -68,34 +68,41 @@ class WDL_VirtualIconButton : public WDL_VWnd
 {
   public:
     WDL_VirtualIconButton();
-    ~WDL_VirtualIconButton();
+    virtual ~WDL_VirtualIconButton();
+    virtual const char *GetType() { return "vwnd_iconbutton"; }
+
+    virtual int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
+    virtual void OnMouseMove(int xpos, int ypos);
+    virtual void OnMouseUp(int xpos, int ypos);
+    virtual bool OnMouseDblClick(int xpos, int ypos);
+
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+
+    virtual bool WantsPaintOver();
+    virtual void GetPositionPaintOverExtent(RECT *r);
+
 
     void SetEnabled(bool en) {m_en=en; }
     bool GetEnabled() { return m_en; }
 
     void SetGrayed(bool grayed) { m_grayed = grayed; SetEnabled(!grayed); }
 
-    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-
     void SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float alpha=1.0f, bool buttonownsicon=false);
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
+    bool GetIsButton() { return m_is_button; }
 
-    int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
-    void OnMouseMove(int xpos, int ypos);
-    void OnMouseUp(int xpos, int ypos);
-    bool OnMouseDblClick(int xpos, int ypos);
+    void SetImmediate(bool immediate) { m_immediate=true; } // send message on mousedown, not mouseup
 
     void SetBGCol1Callback(int msg) { m_bgcol1_msg=msg; }
-
-    bool WantsPaintOver();
-    void GetPositionPaintOverExtent(RECT *r);
 
     void SetForceBorder(bool fb) { m_forceborder=fb; }
 
     // only used if no icon config set
     void SetTextLabel(const char *text, char align=0, LICE_IFont *font=NULL);
     const char* GetTextLabel() { return m_textlbl.Get(); }
+    void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
+    void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
 
     // if icon config is set, check state == 1 will swap the up and down image
     void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked
@@ -104,16 +111,24 @@ class WDL_VirtualIconButton : public WDL_VWnd
     WDL_VirtualIconButton_SkinConfig* GetIcon() { return m_iconCfg; } // note button does not own m_iconCfg
     bool ButtonOwnsIcon() { return m_ownsicon; }
 
+    void SetForceText(bool ft) { m_forcetext=ft; }
+
   private:
+
+    void DoSendCommand(int xpos, int ypos);
 
     WDL_VirtualIconButton_SkinConfig *m_iconCfg;  
     int m_bgcol1_msg;
+    int m_margin_r, m_margin_l;
+    int m_margin_t, m_margin_b;
     float m_alpha;
     bool m_is_button,m_forceborder;
     char m_pressed;
     bool m_en, m_grayed, m_ownsicon;
+    bool m_immediate;
     char m_textalign;
     char m_checkstate;
+    bool m_forcetext;
 
     WDL_String m_textlbl;
     LICE_IFont *m_textfont;
@@ -125,9 +140,16 @@ class WDL_VirtualStaticText : public WDL_VWnd
 {
   public:
     WDL_VirtualStaticText();
-    ~WDL_VirtualStaticText();
+    virtual ~WDL_VirtualStaticText();
+    
+    virtual const char *GetType() { return "vwnd_statictext"; }
+
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual bool OnMouseDblClick(int xpos, int ypos);
+    virtual int OnMouseDown(int xpos, int ypos);
+
+
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
-    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
     void SetFont(LICE_IFont *font) { m_font=font; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
@@ -136,17 +158,17 @@ class WDL_VirtualStaticText : public WDL_VWnd
     const char *GetText() { return m_text.Get(); }
     void SetColor(int fg=-1, int bg=-1, bool tint=false) { m_fg=fg; m_bg=bg; m_dotint=tint; }
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
+    void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
     void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
+    WDL_VirtualWnd_BGCfg* GetBkImage() { return m_bkbm; }
 
-    bool OnMouseDblClick(int xpos, int ypos);
-    int OnMouseDown(int xpos, int ypos);
-
-  private:
+  protected:
     WDL_VirtualWnd_BGCfg *m_bkbm;
     int m_align;
     bool m_dotint;
     int m_fg,m_bg;
     int m_margin_r, m_margin_l;
+    int m_margin_t, m_margin_b;
     bool m_wantborder;
     bool m_wantsingle;
     LICE_IFont *m_font;
@@ -157,8 +179,11 @@ class WDL_VirtualComboBox : public WDL_VWnd
 {
   public:
     WDL_VirtualComboBox();
-    ~WDL_VirtualComboBox();
-    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual ~WDL_VirtualComboBox();
+    virtual const char *GetType() { return "vwnd_combobox"; }
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual int OnMouseDown(int xpos, int ypos);
+
     void SetFont(LICE_IFont *font) { m_font=font; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
@@ -173,7 +198,6 @@ class WDL_VirtualComboBox : public WDL_VWnd
     const char *GetItem(int item) { return m_items.Get(item); }
     void *GetItemData(int item) { return m_itemdatas.Get(item); }
 
-    int OnMouseDown(int xpos, int ypos);
 
   private:
     int m_align;
@@ -190,7 +214,16 @@ class WDL_VirtualSlider : public WDL_VWnd
 {
   public:
     WDL_VirtualSlider();
-    ~WDL_VirtualSlider();
+    virtual ~WDL_VirtualSlider();
+    virtual const char *GetType() { return "vwnd_slider"; }
+
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual int OnMouseDown(int xpos, int ypos);
+    virtual void OnMouseMove(int xpos, int ypos);
+    virtual void OnMouseUp(int xpos, int ypos);
+    virtual bool OnMouseDblClick(int xpos, int ypos);
+    virtual bool OnMouseWheel(int xpos, int ypos, int amt);
+    virtual void GetPositionPaintExtent(RECT *r);
 
     void SetBGCol1Callback(int msg) { m_bgcol1_msg=msg; }
     void SetScrollMessage(int msg) { m_scrollmsg=msg; }
@@ -205,18 +238,8 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     void GetButtonSize(int *w, int *h);
 
-    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-
-    int OnMouseDown(int xpos, int ypos);
-    void OnMouseMove(int xpos, int ypos);
-    void OnMouseUp(int xpos, int ypos);
-    bool OnMouseDblClick(int xpos, int ypos);
-    bool OnMouseWheel(int xpos, int ypos, int amt);
-
     void SetSkinImageInfo(WDL_VirtualSlider_SkinConfig *cfg) { m_skininfo=cfg; }
 
-    // override
-    virtual void GetPositionPaintExtent(RECT *r);
 
   private:
     WDL_VirtualSlider_SkinConfig *m_skininfo;
@@ -241,8 +264,16 @@ class WDL_VirtualListBox : public WDL_VWnd
 {
   public:
     WDL_VirtualListBox();
-    ~WDL_VirtualListBox();
-    void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual ~WDL_VirtualListBox();
+    virtual const char *GetType() { return "vwnd_listbox"; }
+
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual int OnMouseDown(int xpos, int ypos);
+    virtual bool OnMouseDblClick(int xpos, int ypos);
+    virtual bool OnMouseWheel(int xpos, int ypos, int amt);
+    virtual void OnMouseMove(int xpos, int ypos);
+    virtual void OnMouseUp(int xpos, int ypos);
+
     void SetFont(LICE_IFont *font) { m_font=font; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
@@ -264,17 +295,12 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetViewOffset(int offs);
     int GetViewOffset();
 
+    RECT *GetScrollButtonRect(bool isDown) { return m_lastscrollbuttons[isDown?1:0].left<m_lastscrollbuttons[isDown?1:0].right ? &m_lastscrollbuttons[isDown?1:0]:NULL; }
+
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm);
     void *m_GetItemInfo_ctx;
-
-    int OnMouseDown(int xpos, int ypos);
-    bool OnMouseDblClick(int xpos, int ypos);
-    bool OnMouseWheel(int xpos, int ypos, int amt);
-    void OnMouseMove(int xpos, int ypos);
-    void OnMouseUp(int xpos, int ypos);
-
   
   private:
   
@@ -290,6 +316,8 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_rh,m_maxcolwidth,m_mincolwidth ;
     int m_scrollbuttonsize;
     LICE_IFont *m_font;
+
+    RECT m_lastscrollbuttons[2];
 };
 
 

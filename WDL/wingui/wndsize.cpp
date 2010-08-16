@@ -46,6 +46,15 @@ void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
 }
 
 
+void WDL_WndSizer::init_item(int dlg_id, float *scales, RECT *initr)
+{
+  init_item(dlg_id,scales[0],scales[1],scales[2],scales[3],initr);
+}
+void WDL_WndSizer::init_itemvirt(WDL_VWnd *vwnd, float *scales)
+{
+  init_itemvirt(vwnd,scales[0],scales[1],scales[2],scales[3]);
+}
+
 void WDL_WndSizer::init_itemvirt(WDL_VirtualWnd *vwnd, 
                                  float left_scale, float top_scale, float right_scale, float bottom_scale)
 {

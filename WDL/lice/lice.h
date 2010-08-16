@@ -27,9 +27,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#pragma warning(disable:4244) // float-to-int
 #else
-#include "../swell/swell.h" // use SWELL on other systems
+#include "../swell/swell-types.h" // use SWELL on other systems
 #endif
 
 
@@ -342,13 +341,14 @@ LICE_IBitmap *LICE_LoadSVG(const char *filename, LICE_IBitmap *bmp=NULL);
 // bitmap saving
 bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
 bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool force_baseline=true);
-bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alpha=0, bool dither=true); // if alpha<transparent_alpha then transparent
+bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alpha=0, bool dither=true); // if alpha<transparent_alpha then transparent. if transparent_alpha<0, then intra-frame checking is used
 
 // animated GIF API. use transparent_alpha=-1 to encode unchanged pixels as transparent
 void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true);
-bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool wantNewColorMap);
+void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha=0, bool dither=true);
+bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap=false, int frame_delay=0);
 bool LICE_WriteGIFEnd(void *handle);
-
+int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can use after LICE_WriteGIFBeginNoFrame and before LICE_WriteGIFFrame
 
 // basic primitives
 void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode);
@@ -494,7 +494,7 @@ void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
 void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel bgcolor, LICE_pixel fgcolor, float alpha=1.0f, int mode=0);
 
 // bitmap compare-by-value function
-int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b);
+int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut=NULL);
 
 // colorspace functions
 void LICE_RGB2HSV(int r, int g, int b, int* h, int* s, int* v); // rgb, sv: [0,256), h: [0,384)
@@ -509,6 +509,18 @@ LICE_pixel LICE_CombinePixels(LICE_pixel dest, LICE_pixel src, float alpha, int 
 
 void LICE_CombinePixels2(LICE_pixel *destptr, int r, int g, int b, int a, int ia, int mode); // does not clamp
 void LICE_CombinePixels2Clamp(LICE_pixel *destptr, int r, int g, int b, int a, int ia, int mode);
+
+
+void* LICE_CreateOctree(int maxcolors);
+void LICE_DestroyOctree(void* octree);
+int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp);
+int LICE_FindInOctree(void* octree, LICE_pixel color);
+int LICE_ExtractOctreePalette(void* octree, LICE_pixel* palette);
+
+// wrapper
+int LICE_BuildPalette(LICE_IBitmap* bmp, LICE_pixel* palette, int maxcolors);
+void LICE_TestPalette(LICE_IBitmap* bmp, LICE_pixel* palette, int numcolors);
+
 
 struct _LICE_ImageLoader_rec
 {

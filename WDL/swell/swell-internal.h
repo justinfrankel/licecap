@@ -5,7 +5,9 @@
 
 #ifdef SWELL_TARGET_OSX
 
-#define __SWELL_PREFIX_CLASSNAME(cname) SWELL_APP_PREFIX##cname
+#define __SWELL_PREFIX_CLASSNAME3(a,b) a##b
+#define __SWELL_PREFIX_CLASSNAME2(a,b) __SWELL_PREFIX_CLASSNAME3(a,b)
+#define __SWELL_PREFIX_CLASSNAME(cname) __SWELL_PREFIX_CLASSNAME2(SWELL_APP_PREFIX,cname)
 
 // this defines interfaces to internal swell classes
 #define SWELL_hwndChild __SWELL_PREFIX_CLASSNAME(_hwnd) 
@@ -96,18 +98,17 @@ public:
 };
 
 
-class SWELL_TreeView_Item
+struct HTREEITEM__
 {
-public:
-  SWELL_TreeView_Item();
-  ~SWELL_TreeView_Item();
-  bool FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, int *idxOut);
+  HTREEITEM__();
+  ~HTREEITEM__();
+  bool FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut);
   
   SWELL_DataHold *m_dh;
   
   bool m_haschildren;
   char *m_value;
-  WDL_PtrList<SWELL_TreeView_Item> m_children; // only used in tree mode
+  WDL_PtrList<HTREEITEM__> m_children; // only used in tree mode
   LPARAM m_param;
 };
 
@@ -139,7 +140,7 @@ public:
   @public
   bool m_fakerightmouse;
   LONG style;
-  WDL_PtrList<SWELL_TreeView_Item> *m_items;
+  WDL_PtrList<HTREEITEM__> *m_items;
 }
 @end
 
@@ -155,7 +156,7 @@ public:
   int m_lbMode;
   WDL_PtrList<SWELL_ListView_Row> *m_items;
   WDL_PtrList<NSTableColumn> *m_cols;
-  WDL_PtrList<char> *m_status_imagelist;
+  WDL_PtrList<HGDIOBJ__> *m_status_imagelist;
   int m_status_imagelist_type;
 	
 }
@@ -277,9 +278,10 @@ public:
 
 @interface SWELL_ModelessWindow : NSWindow
 {
-  BOOL m_enabled;
+  NSSize lastFrameSize;
   id m_owner;
   OwnedWindowListRec *m_ownedwnds;
+  BOOL m_enabled;
 }
 - (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut;
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask;
@@ -293,12 +295,13 @@ public:
 
 @interface SWELL_ModalDialog : NSPanel
 {
-  BOOL m_enabled;
+  NSSize lastFrameSize;
   id m_owner;
   OwnedWindowListRec *m_ownedwnds;
   
   int m_rv;
   bool m_hasrv;
+  BOOL m_enabled;
 }
 - (id)initDialogBox:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (void)swellDestroyAllOwnedWindows;
@@ -365,7 +368,7 @@ public:
 
 // GDI internals
 
-struct GDP_OBJECT
+struct HGDIOBJ__
 {
   int type;
   
@@ -382,15 +385,15 @@ struct GDP_OBJECT
   
   float font_rotation;
 
-  struct GDP_OBJECT *_next;
+  struct HGDIOBJ__ *_next;
 };
 
-struct GDP_CTX {
+struct HDC__ {
   CGContextRef ctx; 
   void *ownedData;
-  GDP_OBJECT *curpen;
-  GDP_OBJECT *curbrush;
-  GDP_OBJECT *curfont;
+  HGDIOBJ__ *curpen;
+  HGDIOBJ__ *curbrush;
+  HGDIOBJ__ *curfont;
   
   NSColor *curtextcol; // text color as NSColor
   int cur_text_color_int; // text color as int
@@ -400,7 +403,7 @@ struct GDP_CTX {
   float lastpos_x,lastpos_y;
   
   void *GLgfxctx; // optionally set
-  struct GDP_CTX *_next;
+  struct HDC__ *_next;
 };
 
 
@@ -498,16 +501,16 @@ struct HMENU__
 };
 
 
-struct GDP_OBJECT
+struct HGDIOBJ__
 {
   int type;
   int color;
   int wid;
-  struct GDP_OBJECT *_next;
+  struct HGDIOBJ__ *_next;
 };
 
 
-struct GDP_CTX {
+struct HDC__ {
 #ifdef SWELL_LICE_GDI
   LICE_IBitmap *surface; // owned by context. can be (and usually is, if clipping is desired) LICE_SubBitmap
   POINT surface_offs; // offset drawing into surface by this amount
@@ -518,9 +521,9 @@ struct GDP_CTX {
   void *ownedData; // for mem contexts, support a null rendering 
 #endif
 
-  GDP_OBJECT *curpen;
-  GDP_OBJECT *curbrush;
-  GDP_OBJECT *curfont;
+  HGDIOBJ__ *curpen;
+  HGDIOBJ__ *curbrush;
+  HGDIOBJ__ *curfont;
   
   int cur_text_color_int; // text color as int
   
@@ -528,7 +531,7 @@ struct GDP_CTX {
   int curbkmode;
   float lastpos_x,lastpos_y;
   
-  struct GDP_CTX *_next;
+  struct HDC__ *_next;
 };
 
 #endif // !OSX

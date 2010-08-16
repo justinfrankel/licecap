@@ -161,6 +161,19 @@ template<class RTYPE, class EXTRAINFOTYPE> class WDL_ResourcePool
 
     EXTRAINFOTYPE *extraInfo;
 
+    RTYPE *PeekList()
+    {
+      return m_rlist;
+    }
+    void LockList()
+    {
+      m_mutex.Enter();
+    }
+    void UnlockList()
+    {
+      m_mutex.Leave();
+    }
+
 private:
 
   WDL_Mutex m_mutex;

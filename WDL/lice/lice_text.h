@@ -53,24 +53,29 @@ class LICE_CachedFont : public LICE_IFont
 {
   public:
     LICE_CachedFont();
-    ~LICE_CachedFont();
+    virtual ~LICE_CachedFont();
 
-    void SetFromHFont(HFONT font, int flags=0);
+    virtual void SetFromHFont(HFONT font, int flags=0);
 
-    LICE_pixel SetTextColor(LICE_pixel color) { LICE_pixel ret=m_fg; m_fg=color; return ret; }
-    LICE_pixel SetBkColor(LICE_pixel color) { LICE_pixel ret=m_bg; m_bg=color; return ret; }
-    LICE_pixel SetEffectColor(LICE_pixel color) { LICE_pixel ret=m_effectcol; m_effectcol=color; return ret; }
-    int SetBkMode(int bkmode) { int bk = m_bgmode; m_bgmode=bkmode; return bk; }
-    void SetCombineMode(int combine, float alpha=1.0f) { m_comb=combine; m_alpha=alpha; }
+    virtual LICE_pixel SetTextColor(LICE_pixel color) { LICE_pixel ret=m_fg; m_fg=color; return ret; }
+    virtual LICE_pixel SetBkColor(LICE_pixel color) { LICE_pixel ret=m_bg; m_bg=color; return ret; }
+    virtual LICE_pixel SetEffectColor(LICE_pixel color) { LICE_pixel ret=m_effectcol; m_effectcol=color; return ret; }
+    virtual int SetBkMode(int bkmode) { int bk = m_bgmode; m_bgmode=bkmode; return bk; }
+    virtual void SetCombineMode(int combine, float alpha=1.0f) { m_comb=combine; m_alpha=alpha; }
 
-    int DrawText(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags);
+    virtual int DrawText(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags)
+    {
+      return DrawTextImpl(bm,str,strcnt,rect,dtFlags);
+    }
 
-    LICE_pixel GetTextColor() { return m_fg; }
-    HFONT GetHFont() { return m_font; }
+    virtual LICE_pixel GetTextColor() { return m_fg; }
+    virtual HFONT GetHFont() { return m_font; }
 
     void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
 
   private:
+
+    int DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags); // cause swell defines DrawText to SWELL_DrawText etc
 
     bool DrawGlyph(LICE_IBitmap *bm, unsigned short c, int xpos, int ypos, RECT *clipR);
     bool RenderGlyph(unsigned short idx);

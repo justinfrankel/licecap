@@ -172,20 +172,6 @@ public:
       qsort(m_data.Get(),m_data.GetSize(),sizeof(KeyVal),(int(*)(const void *,const void *))m_keycmp);
   }
 
-private:
-
-  struct KeyVal
-  {
-    KEY key;
-    VAL val;
-  };
-  WDL_TypedBuf<KeyVal> m_data;
-
-  int (*m_keycmp)(KEY *k1, KEY *k2);
-  KEY (*m_keydup)(KEY);
-  void (*m_keydispose)(KEY);
-  void (*m_valdispose)(VAL);
-
   int LowerBound(KEY key, bool* ismatch)
   {
     int a = 0;
@@ -205,6 +191,21 @@ private:
     *ismatch = false;
     return a;
   }
+
+private:
+
+  struct KeyVal
+  {
+    KEY key;
+    VAL val;
+  };
+  WDL_TypedBuf<KeyVal> m_data;
+
+  int (*m_keycmp)(KEY *k1, KEY *k2);
+  KEY (*m_keydup)(KEY);
+  void (*m_keydispose)(KEY);
+  void (*m_valdispose)(VAL);
+
 };
 
 

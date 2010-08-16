@@ -1,6 +1,10 @@
 #ifndef _LICE_COMBINE_H_
 #define _LICE_COMBINE_H_
 
+#if defined(_MSC_VER)
+#pragma warning(disable:4244) // float-to-int
+#endif
+
 #define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
 
 
@@ -421,7 +425,7 @@ public:
     }
   }
 };
-class _LICE_CombinePixelsCopySourceAlphaIngoreAlphaParmNoClamp
+class _LICE_CombinePixelsCopySourceAlphaIgnoreAlphaParmNoClamp
 {
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
@@ -445,7 +449,7 @@ public:
     }
   }
 };
-class _LICE_CombinePixelsCopySourceAlphaIngoreAlphaParmClamp
+class _LICE_CombinePixelsCopySourceAlphaIgnoreAlphaParmClamp
 {
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
@@ -469,6 +473,7 @@ public:
     }
   }
 };
+
 #ifndef LICE_DISABLE_BLEND_ADD
 
 class _LICE_CombinePixelsAdd
@@ -504,8 +509,8 @@ public:
 };
 
 #else // !LICE_DISABLE_BLEND_ADD
-#define _LICE_CombinePixelsAddSourceAlpha _LICE_CombinePixelsCopySourceAlpha
-#define _LICE_CombinePixelsAdd _LICE_CombinePixelsCopy
+#define _LICE_CombinePixelsAddSourceAlpha _LICE_CombinePixelsCopySourceAlphaClamp
+#define _LICE_CombinePixelsAdd _LICE_CombinePixelsCopyClamp
 #endif
 
 #ifndef LICE_DISABLE_BLEND_DODGE
@@ -548,8 +553,8 @@ public:
 };
 
 #else // !LICE_DISABLE_BLEND_DODGE
-#define _LICE_CombinePixelsColorDodgeSourceAlpha _LICE_CombinePixelsCopySourceAlpha
-#define _LICE_CombinePixelsColorDodge _LICE_CombinePixelsCopy
+#define _LICE_CombinePixelsColorDodgeSourceAlpha _LICE_CombinePixelsCopySourceAlphaClamp
+#define _LICE_CombinePixelsColorDodge _LICE_CombinePixelsCopyClamp
 #endif
 
 
@@ -625,8 +630,10 @@ public:
 };
 
 #else // !LICE_DISABLE_BLEND_MUL
-#define _LICE_CombinePixelsMulSourceAlpha _LICE_CombinePixelsCopySourceAlpha
-#define _LICE_CombinePixelsMul _LICE_CombinePixelsCopy
+#define _LICE_CombinePixelsMulSourceAlphaNoClamp _LICE_CombinePixelsCopySourceAlphaNoClamp
+#define _LICE_CombinePixelsMulSourceAlphaClamp _LICE_CombinePixelsCopySourceAlphaClamp
+#define _LICE_CombinePixelsMulNoClamp _LICE_CombinePixelsCopyNoClamp
+#define _LICE_CombinePixelsMulClamp _LICE_CombinePixelsCopyClamp
 #endif
 
 //#define LICE_DISABLE_BLEND_OVERLAY
@@ -682,8 +689,8 @@ public:
 };
 
 #else // !LICE_DISABLE_BLEND_OVERLAY
-#define _LICE_CombinePixelsOverlaySourceAlpha _LICE_CombinePixelsCopySourceAlpha
-#define _LICE_CombinePixelsOverlay _LICE_CombinePixelsCopy
+#define _LICE_CombinePixelsOverlaySourceAlpha _LICE_CombinePixelsCopySourceAlphaClamp
+#define _LICE_CombinePixelsOverlay _LICE_CombinePixelsCopyClamp
 #endif
 
 
@@ -727,8 +734,8 @@ public:
 };
 
 #else // !LICE_DISABLE_BLEND_HSVADJ
-#define _LICE_CombinePixelsHSVAdjustSourceAlpha _LICE_CombinePixelsCopySourceAlpha
-#define _LICE_CombinePixelsHSVAdjust _LICE_CombinePixelsCopy
+#define _LICE_CombinePixelsHSVAdjustSourceAlpha _LICE_CombinePixelsCopySourceAlphaClamp
+#define _LICE_CombinePixelsHSVAdjust _LICE_CombinePixelsCopyClamp
 #endif
 
 // note: the "clamp" parameter would generally be false, unless you're working with
@@ -765,10 +772,10 @@ public:
       case LICE_BLIT_MODE_HSVADJ: __LICE__ACTION(_LICE_CombinePixelsHSVAdjust); break;  \
       case LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA: \
         if (clamp) { \
-          if ((ia)==256) { __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaIngoreAlphaParmClamp);} \
+          if ((ia)==256) { __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaIgnoreAlphaParmClamp);} \
           else { __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaClamp); } \
         } else { \
-          if ((ia)==256) { __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaIngoreAlphaParmNoClamp); } \
+          if ((ia)==256) { __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaIgnoreAlphaParmNoClamp); } \
           else { __LICE__ACTION(_LICE_CombinePixelsCopySourceAlphaNoClamp); } \
         } \
       break;  \

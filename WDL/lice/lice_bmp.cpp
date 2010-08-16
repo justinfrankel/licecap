@@ -6,6 +6,9 @@
 */
 
 #include "lice.h"
+#ifndef _WIN32
+#include "../swell/swell.h"
+#endif
 
 static LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
 {

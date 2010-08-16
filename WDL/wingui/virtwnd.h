@@ -53,11 +53,22 @@ class LICE_IBitmap;
 #define WDL_VirtualWnd_ChildList WDL_VWnd
 #define WDL_VirtualWnd WDL_VWnd
 #define WDL_VirtualWnd_Painter WDL_VWnd_Painter
+
+class WDL_VWnd;
+
+class WDL_VWnd_IAccessibleBridge
+{
+public:
+  virtual void Release()=0;
+};
+
 class WDL_VWnd
 {
 public:
   WDL_VWnd();
   virtual ~WDL_VWnd();
+  virtual const char *GetType() { return "vwnd_unknown"; }
+
   virtual void SetID(int id) { m_id=id; }
   virtual int GetID() { return m_id; }
   virtual INT_PTR GetUserData() { return m_userdata; }
@@ -103,8 +114,18 @@ public:
   virtual int UpdateCursor(int xpos, int ypos); // >0 if set, 0 if cursor wasnt set , <0 if cursor should be default...
   virtual bool GetToolTipString(int xpos, int ypos, char *bufOut, int bufOutSz); // true if handled
 
+  virtual void GetPositionInTopVWnd(RECT *r);
+
+  // these do not store a copy, usually you set them to static strings etc, but a control can override, too...
+  virtual void SetAccessDesc(const char *desc) { m__iaccess_desc=desc; }
+  virtual const char *GetAccessDesc() { return m__iaccess_desc; }
+
+  virtual WDL_VWnd_IAccessibleBridge *GetAccessibilityBridge() { return m__iaccess; }
+  virtual void SetAccessibilityBridge(WDL_VWnd_IAccessibleBridge *br) { m__iaccess=br; }
+
 protected:
   WDL_VWnd *m_parent;
+  WDL_VWnd_IAccessibleBridge *m__iaccess;
   bool m_visible;
   int m_id;
   RECT m_position;
@@ -114,6 +135,8 @@ protected:
   int m_captureidx;
   int m_lastmouseidx;
   WDL_PtrList<WDL_VWnd> *m_children;
+
+  const char *m__iaccess_desc;
 
 };
 
@@ -136,7 +159,7 @@ public:
 
   void SetGSC(int (*GSC)(int));
   void PaintBegin(HWND hwnd, int bgcolor=-1);  
-  void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1) { m_bgbm=bitmap; m_bgbmtintcolor=tint; } // call before every paintbegin (resets if you dont)
+  void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1, WDL_VirtualWnd_BGCfgCache *cacheObj=NULL) { m_bgbm=bitmap; m_bgbmtintcolor=tint; m_bgcache=cacheObj; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
   void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
@@ -165,6 +188,7 @@ private:
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
 
+  WDL_VirtualWnd_BGCfgCache *m_bgcache;
   HWND m_cur_hwnd;
   PAINTSTRUCT m_ps;
   int m_paint_xorig, m_paint_yorig;
@@ -172,5 +196,8 @@ private:
 };
 
 void WDL_VWnd_regHelperClass(const char *classname, void *icon=NULL, void *iconsm=NULL); // register this class if you wish to make your dialogs use it (better paint behavior)
+
+// in virtwnd-iaccessible.cpp
+LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, WPARAM wParam, LPARAM lParam);
 
 #endif

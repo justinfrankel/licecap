@@ -36,7 +36,7 @@ static WDL_VideoEncode *m_encoder;
 
 #include "resource.h"
 
-#define NUM_EFFECTS 23
+#define NUM_EFFECTS 24
 
 char *effect_names[NUM_EFFECTS] =
 {
@@ -59,10 +59,11 @@ char *effect_names[NUM_EFFECTS] =
   "Transform blit",
   "Plush 3D",
   "3D Fly (use mouse)",
-  "SVG loading (requires C:\\test.svg)",
+  "SVG loading (C:\\test.svg)",
   "GL acceleration (disabled)",
   "Bezier curves",
   "Convex polygon fill",
+  "Palette generator (C:\\test.png)",
 };
 
 HINSTANCE g_hInstance;
@@ -112,6 +113,57 @@ static void DoPaint(HWND hwndDlg)
   
   switch(m_effect)
   {
+    case 23:
+    {
+      const int palnumcols=256;
+
+      static int init=0;
+      static LICE_IBitmap* srcbmp=0;
+      static LICE_IBitmap* palbmp=0;
+      static LICE_pixel palette[palnumcols] = { 0 };
+
+      if (!init)
+      {
+        init=-1;
+        srcbmp = LICE_LoadPNG("C:\\test.png");
+        if (srcbmp)
+        {          
+          int n = LICE_BuildPalette(srcbmp, palette, palnumcols);
+          palbmp = new LICE_MemBitmap;
+          LICE_Copy(palbmp, srcbmp);
+          void LICE_TestPalette(LICE_IBitmap*, LICE_pixel*, int);
+          LICE_TestPalette(palbmp, palette, n);
+          init=1;
+        }
+      }
+
+      if (init > 0)
+      {
+        static int lastw=0;
+        static int lasth=0;
+        if (lastw != framebuffer->getWidth() || lasth != framebuffer->getHeight())
+        {
+          lastw = framebuffer->getWidth();
+          lasth = framebuffer->getHeight();
+          int y = framebuffer->getHeight()*3/4;
+          LICE_ScaledBlit(framebuffer, srcbmp, 0, 0, lastw/2, y, 0, 0, srcbmp->getWidth(), srcbmp->getHeight(), 1.0f, LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(framebuffer, palbmp, lastw/2, 0, lastw/2, y, 0, 0, palbmp->getWidth(), palbmp->getHeight(), 1.0f, LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+
+          int dy = (lasth-y)/4;
+          int dx = lastw/(palnumcols/4);
+          int i, j, k=0;
+          for (i = 0; i < 4; ++i)
+          {
+            for (j = 0; j < palnumcols/4; ++j)
+            {
+              LICE_FillRect(framebuffer, j*dx, y+i*dy, dx, dy, palette[k++], 1.0f, LICE_BLIT_MODE_COPY);
+            }
+          }
+        }
+      }
+    }
+    break;
+
     case 22:
     {
       static int x[16], y[16];

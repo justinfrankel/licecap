@@ -210,14 +210,20 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
   int codelow = code&127;
   if ((code>='A' && code <='Z') ||
       (code>='0' && code <= '9') ||   
-      ( !(flag&FVIRTKEY) && ( 
+      ( !(mask&FVIRTKEY) && 
+       ( 
          codelow == '\'' ||
+         codelow == '/' ||
+         codelow == '\\' ||
+         codelow == '|' ||
          codelow == '"' || 
          codelow == ',' ||
          codelow == '.' || 
          codelow == '!' ||
-         codelow == '[' || codelow == ']'
-         )))      
+         codelow == '?' ||
+         codelow == '[' || 
+         codelow == ']' 
+        )))      
   {
     arrowKey=codelow;
     if (!(mask & FSHIFT) && arrowKey < 256) arrowKey=tolower(arrowKey);
@@ -236,7 +242,8 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
     DEFKP(VK_LEFT,NSLeftArrowFunctionKey)
     DEFKP(VK_RIGHT,NSRightArrowFunctionKey)
     DEFKP(VK_INSERT,NSInsertFunctionKey)
-    DEFKP(VK_DELETE,NSDeleteFunctionKey)
+    DEFKP(VK_DELETE,NSDeleteCharacter)
+    DEFKP(VK_BACK,NSBackspaceCharacter) 
     DEFKP(VK_HOME,NSHomeFunctionKey)
     DEFKP(VK_END,NSEndFunctionKey)
     DEFKP(VK_NEXT,NSPageDownFunctionKey)
@@ -248,6 +255,7 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
   if (mask&FALT) mask2|=NSAlternateKeyMask;
   if (!suppressShift) if (mask&FSHIFT) mask2|=NSShiftKeyMask;
   if (mask&FCONTROL) mask2|=NSCommandKeyMask;
+  if (mask&FLWIN) mask2|=NSControlKeyMask;
      
   [item setKeyEquivalentModifierMask:mask2];
   [item setKeyEquivalent:arrowKey?[NSString stringWithCharacters:&arrowKey length:1]:@""];
@@ -586,7 +594,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     item=[m insertItemWithTitle:@"(no image)" action:NULL keyEquivalent:@"" atIndex:pos];
     if (mi->dwTypeData)
     {
-      NSImage *i=(NSImage *)GetNSImageFromHICON(mi->dwTypeData);
+      NSImage *i=(NSImage *)GetNSImageFromHICON((HICON)mi->dwTypeData);
       if (i)
       {
         [item setImage:i];

@@ -85,6 +85,8 @@ public:
   // 1.0 means it moves completely with the point, 0.0 = not at all
   void init_item(int dlg_id, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0, RECT *initr=NULL);
   void init_itemvirt(WDL_VWnd *vwnd, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0);
+  void init_item(int dlg_id, float *scales, RECT *initr=NULL);
+  void init_itemvirt(WDL_VWnd *vwnd, float *scales);
   void init_itemhwnd(HWND h, float left_scale=0.0, float top_scale=0.0, float right_scale=1.0, float bottom_scale=1.0, RECT *srcr=NULL);
   void remove_item(int dlg_id);
   void remove_itemvirt(WDL_VWnd *vwnd);

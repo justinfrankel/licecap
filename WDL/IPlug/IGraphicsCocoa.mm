@@ -98,7 +98,6 @@ inline IMouseMod GetMouseMod(NSEvent* pEvent)
 
 - (void) mouseDown: (NSEvent*) pEvent
 {
-  [super mouseDown: pEvent];
   int x, y;
   [self getMouseXY:pEvent x:&x y:&y];
   if ([pEvent clickCount] > 1) {

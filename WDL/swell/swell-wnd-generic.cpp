@@ -2449,27 +2449,26 @@ UINT RegisterClipboardFormat(const char *desc)
 
 HIMAGELIST ImageList_CreateEx()
 {
-  return new WDL_PtrList<char>;
+  return (HIMAGELIST)new WDL_PtrList<HGDIOBJ__>;
 }
 
 void ImageList_Destroy(HIMAGELIST list)
 {
   if (!list) return;
-  WDL_PtrList<char> *p=(WDL_PtrList<char>*)list;
-  p->Empty(true,DeleteObject);
+  WDL_PtrList<HGDIOBJ__> *p=(WDL_PtrList<HGDIOBJ__>*)list;
+  // dont delete images, since the caller is responsible!
   delete p;
 }
 
 void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 {
   if (!image || !list) return;
-  WDL_PtrList<char> *l=(WDL_PtrList<char> *)list;
-  if (offset<0||offset>=l->GetSize()) l->Add((char*)image);
+  WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
+  if (offset<0||offset>=l->GetSize()) l->Add(image);
   else
   {
     HICON old=l->Get(offset);
-    l->Set(offset,(char*)image);
-    if (old) DestroyIcon(old);
+    l->Set(offset,image);
   }
 }
 

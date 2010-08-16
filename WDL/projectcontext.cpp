@@ -3,6 +3,7 @@
 #else
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
 #endif
 #include <stdlib.h>
 #include <stdio.h>

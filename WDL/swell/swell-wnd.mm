@@ -141,14 +141,14 @@ SWELL_ListView_Row::~SWELL_ListView_Row()
   m_vals.Empty(true,free);
 }
 
-SWELL_TreeView_Item::SWELL_TreeView_Item()
+HTREEITEM__::HTREEITEM__()
 {
   m_param=0;
   m_value=0;
   m_haschildren=false;
   m_dh = [[SWELL_DataHold alloc] initWithVal:this];
 }
-SWELL_TreeView_Item::~SWELL_TreeView_Item()
+HTREEITEM__::~HTREEITEM__()
 {
   free(m_value);
   m_children.Empty(true);
@@ -156,9 +156,9 @@ SWELL_TreeView_Item::~SWELL_TreeView_Item()
 }
 
 
-bool SWELL_TreeView_Item::FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, int *idxOut)
+bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
 {
-  int a=m_children.Find((SWELL_TreeView_Item*)it);
+  int a=m_children.Find((HTREEITEM__*)it);
   if (a>=0)
   {
     *parOut=this;
@@ -262,7 +262,7 @@ bool SWELL_TreeView_Item::FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, i
 {
   id ret=[super init];
   m_fakerightmouse=false;
-  m_items=new WDL_PtrList<SWELL_TreeView_Item>;
+  m_items=new WDL_PtrList<HTREEITEM__>;
   return ret;
 }
 -(void) dealloc
@@ -273,10 +273,10 @@ bool SWELL_TreeView_Item::FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, i
   [super dealloc];
 }
 
--(bool) findItem:(HTREEITEM)item parOut:(SWELL_TreeView_Item **)par idxOut:(int *)idx
+-(bool) findItem:(HTREEITEM)item parOut:(HTREEITEM__ **)par idxOut:(int *)idx
 {
   if (!m_items||!item) return false;
-  int x=m_items->Find((SWELL_TreeView_Item*)item);
+  int x=m_items->Find((HTREEITEM__*)item);
   if (x>=0)
   {
     *par=NULL;
@@ -294,13 +294,13 @@ bool SWELL_TreeView_Item::FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, i
 -(NSInteger) outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item
 {
   if (item == nil) return m_items ? m_items->GetSize() : 0;
-  return ((SWELL_TreeView_Item*)[item getValue])->m_children.GetSize();
+  return ((HTREEITEM__*)[item getValue])->m_children.GetSize();
 }
 
 - (BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:(id)item
 {
   if (item==nil) return YES;
-  SWELL_TreeView_Item *it=(SWELL_TreeView_Item *)[item getValue];
+  HTREEITEM__ *it=(HTREEITEM__ *)[item getValue];
   
   return it && it->m_haschildren;
 }
@@ -309,7 +309,7 @@ bool SWELL_TreeView_Item::FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, i
             child:(NSInteger)index
            ofItem:(id)item
 {
-  SWELL_TreeView_Item *row=item ? ((SWELL_TreeView_Item*)[item getValue])->m_children.Get(index) : m_items ? m_items->Get(index) : 0;
+  HTREEITEM__ *row=item ? ((HTREEITEM__*)[item getValue])->m_children.Get(index) : m_items ? m_items->Get(index) : 0;
 
   return (id)row->m_dh;
 }
@@ -319,7 +319,7 @@ bool SWELL_TreeView_Item::FindItem(HTREEITEM it, SWELL_TreeView_Item **parOut, i
            byItem:(id)item
 {
   if (!item) return @"";
-  SWELL_TreeView_Item *it=(SWELL_TreeView_Item *)[item getValue];
+  HTREEITEM__ *it=(HTREEITEM__ *)[item getValue];
   
   if (!it || !it->m_value) return @"";
  
@@ -1049,7 +1049,7 @@ bool IsWindowVisible(HWND hwnd)
 
 static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link dependent on swell-gdi.mm
 {
-  GDP_OBJECT *i = (GDP_OBJECT *)ico;
+  HGDIOBJ__ *i = (HGDIOBJ__ *)ico;
   if (!i || i->type != TYPE_BITMAP) return 0;
   return i->bitmapptr;
 }
@@ -1314,6 +1314,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   
   // todo : WM_NCCALCSIZE 
   NSPoint po = [ch convertPoint:wndpt fromView:nil];
+  
   p->x=(int)(po.x+0.5);
   p->y=(int)(po.y+0.5);
 }
@@ -2487,7 +2488,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
       
     case WM_SETFONT:
     {
-      GDP_OBJECT* obj = (GDP_OBJECT*)wParam;
+      HGDIOBJ__* obj = (HGDIOBJ__*)wParam;
       if (obj && obj->type == TYPE_FONT)
       {        
 #ifndef __LP64__
@@ -2600,10 +2601,14 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   if (flags & ES_READONLY) [obj setSelectable:YES];
   if (m_transform.size.width < minwidfontadjust)
     [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
+  
+  NSCell* cell = [obj cell];  
+  if (flags&ES_CENTER) [cell setAlignment:NSCenterTextAlignment];
+  else if (flags&ES_RIGHT) [cell setAlignment:NSRightTextAlignment];
   if (abs(h) < 20)
   {
-    [[obj cell] setWraps:NO];
-    [[obj cell] setScrollable:YES];
+    [cell setWraps:NO];
+    [cell setScrollable:YES];
   }
   [obj setTag:idx];
   [obj setTarget:ACTIONTARGET];
@@ -3163,7 +3168,7 @@ void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which)
   SWELL_ListView *v=(SWELL_ListView *)h;
   
   v->m_status_imagelist_type=which;
-  v->m_status_imagelist=(WDL_PtrList<char> *)imagelist;
+  v->m_status_imagelist=(WDL_PtrList<HGDIOBJ__> *)imagelist;
   if (v->m_cols && v->m_cols->GetSize()>0)
   {
     NSTableColumn *col=(NSTableColumn*)v->m_cols->Get(0);
@@ -3778,20 +3783,48 @@ bool ListView_GetItemRect(HWND h, int item, RECT *r, int code)
 bool ListView_Scroll(HWND h, int xscroll, int yscroll)
 {
   NSTableView* tv = (NSTableView*)h;
-  NSRect tvr = [tv bounds];
-  NSPoint pt = { 0, 0 };
-  if (xscroll > 0) pt.x = tvr.size.width-1;
-  if (yscroll > 0) pt.y = tvr.size.height-1;  
+  NSScrollView* sv = [tv enclosingScrollView];
+  if (!sv) return false;
+  
+  NSRect tvr = [sv documentVisibleRect];
+  NSPoint pt = { tvr.origin.x, tvr.origin.y };
+  if (xscroll > 0) pt.x += tvr.size.width-1;
+  if (yscroll > 0) pt.y += tvr.size.height-1;  
   int rowidx = [tv rowAtPoint:pt];
   int colidx = [tv columnAtPoint:pt];
+
   NSRect ir = [tv frameOfCellAtColumn:colidx row:rowidx];
   if (ir.size.width) xscroll /= ir.size.width;
   else xscroll = 0;
   if (ir.size.height) yscroll /= ir.size.height;
   else yscroll = 0;
+   
+  rowidx += yscroll;
+  if (rowidx < 0) rowidx=0;
+  else if (rowidx >= [tv numberOfRows]) rowidx = [tv numberOfRows]-1;
+  colidx += xscroll;
+  if (colidx < 0) colidx=0;
+  else if (colidx >= [tv numberOfColumns]) colidx = [tv numberOfColumns]-1;
+  
   [tv scrollRowToVisible:rowidx+yscroll];
   [tv scrollColumnToVisible:colidx+xscroll];
+  
   return true;
+}
+
+bool ListView_GetScroll(HWND h, POINT* p)
+{
+  NSTableView* tv = (NSTableView*)h;
+  NSScrollView* sv = [tv enclosingScrollView];
+  if (sv)
+  {
+    NSRect cr = [sv documentVisibleRect];
+    p->x = cr.origin.x;
+    p->y = cr.origin.y;
+    return true;
+  }
+  p->x=p->y=0;
+  return false;
 }
 
 static int __listview_sortfunc(void *p1, void *p2, int (*compar)(LPARAM val1, LPARAM val2, LPARAM userval), LPARAM userval)
@@ -4325,13 +4358,13 @@ UINT RegisterClipboardFormat(const char *desc)
 
 HIMAGELIST ImageList_CreateEx()
 {
-  return new WDL_PtrList<char>;
+  return (HIMAGELIST)new WDL_PtrList<HGDIOBJ__>;
 }
 
 void ImageList_Destroy(HIMAGELIST list)
 {
   if (!list) return;
-  WDL_PtrList<char> *p=(WDL_PtrList<char>*)list;
+  WDL_PtrList<HGDIOBJ__> *p=(WDL_PtrList<HGDIOBJ__>*)list;
   // dont delete images, since the caller is responsible!
   delete p;
 }
@@ -4339,12 +4372,12 @@ void ImageList_Destroy(HIMAGELIST list)
 void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 {
   if (!image || !list) return;
-  WDL_PtrList<char> *l=(WDL_PtrList<char> *)list;
-  if (offset<0||offset>=l->GetSize()) l->Add((char*)image);
+  WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
+  if (offset<0||offset>=l->GetSize()) l->Add(image);
   else
   {
     HICON old=l->Get(offset);
-    l->Set(offset,(char*)image);
+    l->Set(offset,image);
     // if (old) DestroyIcon(old); // don't delete, caller responsible
   }
 }
@@ -4475,30 +4508,30 @@ HTREEITEM TreeView_InsertItem(HWND hwnd, TV_INSERTSTRUCT *ins)
   
   SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
 
-  SWELL_TreeView_Item *par=NULL;
+  HTREEITEM__ *par=NULL;
   int inspos=0;
   
   if (ins->hParent && ins->hParent != TVI_ROOT && ins->hParent != TVI_FIRST && ins->hParent != TVI_LAST && ins->hParent != TVI_SORT)
   {
     if ([tv findItem:ins->hParent parOut:&par idxOut:&inspos])
     {
-      par = (SWELL_TreeView_Item *)ins->hParent; 
+      par = (HTREEITEM__ *)ins->hParent; 
     }
     else return 0;
   }
   
   if (ins->hInsertAfter == TVI_FIRST) inspos=0;
   else if (ins->hInsertAfter == TVI_LAST || ins->hInsertAfter == TVI_SORT || !ins->hInsertAfter) inspos=par ? par->m_children.GetSize() : tv->m_items ? tv->m_items->GetSize() : 0;
-  else inspos = par ? par->m_children.Find((SWELL_TreeView_Item*)ins->hInsertAfter)+1 : tv->m_items ? tv->m_items->Find((SWELL_TreeView_Item*)ins->hInsertAfter)+1 : 0;      
+  else inspos = par ? par->m_children.Find((HTREEITEM__*)ins->hInsertAfter)+1 : tv->m_items ? tv->m_items->Find((HTREEITEM__*)ins->hInsertAfter)+1 : 0;      
   
-  SWELL_TreeView_Item *item=new SWELL_TreeView_Item;
+  HTREEITEM__ *item=new HTREEITEM__;
   if (ins->item.mask & TVIF_CHILDREN)
     item->m_haschildren = !!ins->item.cChildren;
   if (ins->item.mask & TVIF_PARAM) item->m_param = ins->item.lParam;
   if (ins->item.mask & TVIF_TEXT) item->m_value = strdup(ins->item.pszText);
   if (!par)
   {
-    if (!tv->m_items) tv->m_items = new WDL_PtrList<SWELL_TreeView_Item>;
+    if (!tv->m_items) tv->m_items = new WDL_PtrList<HTREEITEM__>;
     tv->m_items->Insert(inspos,item);
   }
   else par->m_children.Insert(inspos,item);
@@ -4515,7 +4548,7 @@ BOOL TreeView_Expand(HWND hwnd, HTREEITEM item, UINT flag)
   
   SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
   
-  id itemid=((SWELL_TreeView_Item*)item)->m_dh;
+  id itemid=((HTREEITEM__*)item)->m_dh;
   bool isExp=!![tv isItemExpanded:itemid];
   
   if (flag == TVE_EXPAND && !isExp) [tv expandItem:itemid];
@@ -4550,7 +4583,7 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
   SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
   
-  SWELL_TreeView_Item *par=NULL;
+  HTREEITEM__ *par=NULL;
   int idx=0;
   
   if ([tv findItem:item parOut:&par idxOut:&idx])
@@ -4571,7 +4604,7 @@ void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
   
-  int row=[(SWELL_TreeView*)hwnd rowForItem:((SWELL_TreeView_Item*)item)->m_dh];
+  int row=[(SWELL_TreeView*)hwnd rowForItem:((HTREEITEM__*)item)->m_dh];
   if (row>=0)
          [(SWELL_TreeView*)hwnd selectRow:row byExtendingSelection:NO];            
   static int __rent;
@@ -4588,7 +4621,7 @@ BOOL TreeView_GetItem(HWND hwnd, LPTVITEM pitem)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]] || !pitem || !(pitem->mask & TVIF_HANDLE) || !(pitem->hItem)) return FALSE;
   
-  SWELL_TreeView_Item *ti = (SWELL_TreeView_Item*)pitem->hItem;
+  HTREEITEM__ *ti = (HTREEITEM__*)pitem->hItem;
   pitem->cChildren = ti->m_haschildren ? 1:0;
   pitem->lParam = ti->m_param;
   if ((pitem->mask&TVIF_TEXT)&&pitem->pszText&&pitem->cchTextMax>0)
@@ -4611,12 +4644,12 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]] || !pitem || !(pitem->mask & TVIF_HANDLE) || !(pitem->hItem)) return FALSE;
   
-  SWELL_TreeView_Item *par=NULL;
+  HTREEITEM__ *par=NULL;
   int idx=0;
   
   if (![(SWELL_TreeView*)hwnd findItem:pitem->hItem parOut:&par idxOut:&idx]) return FALSE;
   
-  SWELL_TreeView_Item *ti = (SWELL_TreeView_Item*)pitem->hItem;
+  HTREEITEM__ *ti = (HTREEITEM__*)pitem->hItem;
   
   if (pitem->mask & TVIF_CHILDREN) ti->m_haschildren = pitem->cChildren?1:0;
   if (pitem->mask & TVIF_PARAM)  ti->m_param =  pitem->lParam;
@@ -4698,7 +4731,7 @@ HTREEITEM TreeView_GetChild(HWND hwnd, HTREEITEM item)
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return NULL;
   SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
 
-  SWELL_TreeView_Item *titem=(SWELL_TreeView_Item *)item;
+  HTREEITEM__ *titem=(HTREEITEM__ *)item;
   if (!titem) return TreeView_GetRoot(hwnd);
   
   return (HTREEITEM) titem->m_children.Get(0);
@@ -4710,7 +4743,7 @@ HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
 
   if (!item) return TreeView_GetRoot(hwnd);
   
-  SWELL_TreeView_Item *par=NULL;
+  HTREEITEM__ *par=NULL;
   int idx=0;  
   if ([tv findItem:item parOut:&par idxOut:&idx])
   {

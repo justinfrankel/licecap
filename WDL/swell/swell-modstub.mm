@@ -24,7 +24,7 @@ static struct
 #undef SWELL_API_DEFINE
 #define SWELL_API_DEFINE(ret, func, parms) {#func, (void **)&func },
 
-#include "swell.h"
+#include "swell-functions.h"
   
 };
 

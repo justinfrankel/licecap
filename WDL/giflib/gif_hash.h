@@ -10,9 +10,7 @@
 #ifndef _GIF_HASH_H_
 #define _GIF_HASH_H_
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include "config.h"
 
 /* Find a thirty-two bit int type */
 #ifdef HAVE_SYS_TYPES_H

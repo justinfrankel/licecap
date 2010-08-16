@@ -92,7 +92,7 @@ static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event)
 
 void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
 {
-  extern GDP_CTX *SWELL_GDP_CTX_NEW();
+  extern HDC__ *SWELL_GDP_CTX_NEW();
   NSArray *children = [(NSView *)hwnd subviews];
   
   if (!d || !children || ![children count]) return;
@@ -114,7 +114,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
         if (!(had_flags&4))
         {
           had_flags|=4;
-          GDP_CTX *c = SWELL_GDP_CTX_NEW();
+          HDC__ *c = SWELL_GDP_CTX_NEW();
           if (c)
           {
             d(hwnd,WM_CTLCOLORBTN,(WPARAM)c,(LPARAM)ch);
@@ -133,7 +133,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
           if (!(had_flags&2))
           {
             had_flags|=2;
-            GDP_CTX *c = SWELL_GDP_CTX_NEW();
+            HDC__ *c = SWELL_GDP_CTX_NEW();
             if (c)
             {
               d(hwnd,WM_CTLCOLOREDIT,(WPARAM)c,(LPARAM)ch);
@@ -158,7 +158,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
           if (!(had_flags&1))
           {
             had_flags|=1;
-            GDP_CTX *c = SWELL_GDP_CTX_NEW();
+            HDC__ *c = SWELL_GDP_CTX_NEW();
             if (c)
             {
               d(hwnd,WM_CTLCOLORSTATIC,(WPARAM)c,(LPARAM)ch);
@@ -814,7 +814,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_paintctx_hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
   if (m_paintctx_hdc && m_glctx)
   {
-    ((GDP_CTX *)m_paintctx_hdc)->GLgfxctx = m_glctx;
+    m_paintctx_hdc->GLgfxctx = m_glctx;
 
     [m_glctx setView:self];
     [m_glctx makeCurrentContext];
@@ -1320,7 +1320,10 @@ static HWND last_key_window;
 - (void)setFrame:(NSRect)frameRect display:(BOOL)displayFlag \
 { \
   [super setFrame:frameRect display:displayFlag]; \
+  if((int)frameRect.size.width != (int)lastFrameSize.width || (int)frameRect.size.height != (int)lastFrameSize.height) { \
     [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_SIZE p1:0 p2:0]; \
+    lastFrameSize=frameRect.size; \
+   } \
 } \
 - (void)windowDidMove:(NSNotification *)aNotification { \
     NSRect f=[self frame]; \
@@ -1482,6 +1485,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask
 {
   INIT_COMMON_VARS
+  lastFrameSize.width=lastFrameSize.height=0.0f;
     
   NSRect cr=[(NSView *)child bounds];
   
@@ -1515,6 +1519,8 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 - (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut
 {
   INIT_COMMON_VARS
+
+  lastFrameSize.width=lastFrameSize.height=0.0f;
   
   int w = (resstate ? resstate->width : 10);
   int h = (resstate ? resstate->height : 10);

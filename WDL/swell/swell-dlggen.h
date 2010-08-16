@@ -132,7 +132,10 @@
 #define LBS_SORT           0x0002L
 #define LBS_OWNERDRAWFIXED 0x0010L
 #define LBS_EXTENDEDSEL 0x0800L
-                                                                            
+                                        
+#define ES_LEFT 0
+#define ES_CENTER 1
+#define ES_RIGHT 2
                                     
 // flags we ignore
 #define LVS_SHOWSELALWAYS 0
@@ -140,7 +143,6 @@
 #define ES_AUTOHSCROLL 0
 #define ES_MULTILINE 0
 #define ES_AUTOVSCROLL 0
-#define ES_CENTER 0
 #define GROUP 0
 #define PBS_SMOOTH 0
 #define CBS_AUTOHSCROLL 0
@@ -160,7 +162,6 @@
 #define BS_RIGHT 0
 #define WS_EX_STATICEDGE 0
 #define WS_EX_RIGHT 0
-#define ES_RIGHT 0
 #define SS_CENTERIMAGE 0                                       
 #define SS_NOPREFIX 0
                      

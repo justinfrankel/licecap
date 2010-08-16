@@ -4,6 +4,16 @@
 
 const int VST_VERSION = 2400;
 
+
+int VSTSpkrArrType(int nchan)
+{
+  if (!nchan) return kSpeakerArrEmpty;
+  if (nchan == 1) return kSpeakerArrMono;
+  if (nchan == 2) return kSpeakerArrStereo;
+  return kSpeakerArrUserDefined;
+}
+
+
 IPlugVST::IPlugVST(IPlugInstanceInfo instanceInfo, int nParams, const char* channelIOStr, int nPresets,
 	const char* effectName, const char* productName, const char* mfrName,
 	int vendorVersion, int uniqueID, int mfrID, int latency, 
@@ -53,6 +63,8 @@ IPlugVST::IPlugVST(IPlugInstanceInfo instanceInfo, int nParams, const char* chan
   memset(&mOutputSpkrArr, 0, sizeof(VstSpeakerArrangement));
   mInputSpkrArr.numChannels = nInputs;
   mOutputSpkrArr.numChannels = nOutputs;
+  mInputSpkrArr.type = VSTSpkrArrType(nInputs);
+  mOutputSpkrArr.type = VSTSpkrArrType(nOutputs);
 
   // Default everything to connected, then disconnect pins if the host says to.
   SetInputChannelConnections(0, nInputs, true);
@@ -440,7 +452,8 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
       if (ptr && idx >= 0 && idx < _this->NInChannels()) {
         VstPinProperties* pp = (VstPinProperties*) ptr;
         pp->flags = kVstPinIsActive;
-        if (idx % 2 == 0) {
+        if (!(idx%2) && idx < _this->NInChannels()-1)
+        {
           pp->flags |= kVstPinIsStereo;
         }
         sprintf(pp->label, "Input %d", idx + 1);
@@ -452,7 +465,8 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
 	    if (ptr && idx >= 0 && idx < _this->NOutChannels()) {
 		    VstPinProperties* pp = (VstPinProperties*) ptr;
 			  pp->flags = kVstPinIsActive;
-			  if (idx % 2 == 0) {
+        if (!(idx%2) && idx < _this->NOutChannels()-1)
+        {
 			  	pp->flags |= kVstPinIsStereo;
 			  }
 		    sprintf(pp->label, "Output %d", idx + 1);
@@ -461,6 +475,7 @@ VstIntPtr VSTCALLBACK IPlugVST::VSTDispatcher(AEffect *pEffect, VstInt32 opCode,
 	    return 0;
     }
     case effGetPlugCategory: {
+      if (_this->IsSynth()) return kPlugCategSynth;
 	    return kPlugCategEffect;
     }
     case effProcessVarIo: {

@@ -40,7 +40,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
   LICE_MemBitmap * bm = new LICE_MemBitmap(w,h);
   if (!bm) return 0;
 
-  GDP_CTX *ctx=SWELL_GDP_CTX_NEW();
+  HDC__ *ctx=SWELL_GDP_CTX_NEW();
   ctx->surface = bm;
   ctx->surface_offs.x=0;
   ctx->surface_offs.y=0;
@@ -53,7 +53,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 
 void SWELL_DeleteGfxContext(HDC ctx)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (ct)
   {   
     delete ct->surface;
@@ -74,7 +74,7 @@ HBRUSH CreateSolidBrush(int col)
 
 HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
 {
-  GDP_OBJECT *pen=GDP_OBJECT_NEW();
+  HGDIOBJ__ *pen=GDP_OBJECT_NEW();
   pen->type=TYPE_PEN;
   pen->wid=wid<0?0:wid;
   pen->color=LICE_RGBA_FROMNATIVE(col);
@@ -82,7 +82,7 @@ HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
 }
 HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
 {
-  GDP_OBJECT *brush=GDP_OBJECT_NEW();
+  HGDIOBJ__ *brush=GDP_OBJECT_NEW();
   brush->type=TYPE_BRUSH;
   brush->color=LICE_RGBA_FROMNATIVE(col);
   brush->wid=0; 
@@ -91,14 +91,14 @@ HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
 
 void SetBkColor(HDC ctx, int col)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (!ct) return;
   ct->curbkcol=LICE_RGBA_FROMNATIVE(col,255);
 }
 
 void SetBkMode(HDC ctx, int col)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (!ct) return;
   ct->curbkmode=col;
 }
@@ -109,14 +109,14 @@ HGDIOBJ GetStockObject(int wh)
   {
     case NULL_BRUSH:
     {
-      static GDP_OBJECT br={0,};
+      static HGDIOBJ__ br={0,};
       br.type=TYPE_BRUSH;
       br.wid=-1;
       return &br;
     }
     case NULL_PEN:
     {
-      static GDP_OBJECT pen={0,};
+      static HGDIOBJ__ pen={0,};
       pen.type=TYPE_PEN;
       pen.wid=-1;
       return &pen;
@@ -131,7 +131,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
 {
-  GDP_OBJECT *font=GDP_OBJECT_NEW();
+  HGDIOBJ__ *font=GDP_OBJECT_NEW();
   font->type=TYPE_FONT;
   float fontwid=lfHeight;
   
@@ -156,7 +156,7 @@ void DeleteObject(HGDIOBJ pen)
 {
   if (pen)
   {
-    GDP_OBJECT *p=(GDP_OBJECT *)pen;
+    HGDIOBJ__ *p=(HGDIOBJ__ *)pen;
     if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
     {
       if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
@@ -171,18 +171,18 @@ void DeleteObject(HGDIOBJ pen)
 
 HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
-  GDP_OBJECT *p=(GDP_OBJECT*) pen;
-  GDP_OBJECT **mod=0;
+  HDC__ *c=(HDC__ *)ctx;
+  HGDIOBJ__ *p= pen;
+  HGDIOBJ__ **mod=0;
   if (!c||!p) return 0;
   
-  if (p == (GDP_OBJECT*)TYPE_PEN) mod=&c->curpen;
-  else if (p == (GDP_OBJECT*)TYPE_BRUSH) mod=&c->curbrush;
-  else if (p == (GDP_OBJECT*)TYPE_FONT) mod=&c->curfont;
+  if (p == (HGDIOBJ__ *)TYPE_PEN) mod=&c->curpen;
+  else if (p == (HGDIOBJ__ *)TYPE_BRUSH) mod=&c->curbrush;
+  else if (p == (HGDIOBJ__ *)TYPE_FONT) mod=&c->curfont;
 
   if (mod)
   {
-    GDP_OBJECT *np=*mod;
+    HGDIOBJ__ *np=*mod;
     *mod=0;
     return np?np:p;
   }
@@ -193,8 +193,8 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   else if (p->type == TYPE_FONT) mod=&c->curfont;
   else return 0;
   
-  GDP_OBJECT *op=*mod;
-  if (!op) op=(GDP_OBJECT*)p->type;
+  HGDIOBJ__ *op=*mod;
+  if (!op) op=(HGDIOBJ__ *)p->type;
   if (op != p)
   {
     *mod=p;
@@ -208,7 +208,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
 }
 
 
-static void swell_DirtyContext(GDP_CTX *out, int x1, int y1, int x2, int y2)
+static void swell_DirtyContext(HDC__ *out, int x1, int y1, int x2, int y2)
 {
   if (x2<x1) { int t=x1; x1=x2; x2=t; } 
   if (y2<y1) { int t=y1; y1=y2; y2=t; } 
@@ -237,9 +237,9 @@ static void swell_DirtyContext(GDP_CTX *out, int x1, int y1, int x2, int y2)
 
 void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
-  GDP_OBJECT *b=(GDP_OBJECT*) br;
-  if (!c || !b || b == (GDP_OBJECT*)TYPE_BRUSH || b->type != TYPE_BRUSH) return;
+  HDC__ *c=(HDC__ *)ctx;
+  HGDIOBJ__ *b=(HGDIOBJ__ *) br;
+  if (!c || !b || b == (HGDIOBJ__ *)TYPE_BRUSH || b->type != TYPE_BRUSH) return;
   if (!c->surface) return;
 
   if (b->wid<0) return;
@@ -269,7 +269,7 @@ void RoundRect(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd)
 
 void Ellipse(HDC ctx, int l, int t, int r, int b)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c) return;
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
@@ -284,7 +284,7 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
 
 void Rectangle(HDC ctx, int l, int t, int r, int b)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c) return;
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
@@ -301,7 +301,7 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
 
 void Polygon(HDC ctx, POINT *pts, int npts)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c) return;
   if (((!c->curbrush||c->curbrush->wid<0) && (!c->curpen||c->curpen->wid<0)) || npts<2) return;
 
@@ -326,7 +326,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c) return;
   if (op) 
   { 
@@ -339,7 +339,7 @@ void MoveToEx(HDC ctx, int x, int y, POINT *op)
 
 void PolyBezierTo(HDC ctx, POINT *pts, int np)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0||np<3) return;
   
 //  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
@@ -366,7 +366,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
 
 void SWELL_LineTo(HDC ctx, int x, int y)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0) return;
 
 //  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
@@ -388,7 +388,7 @@ void SWELL_LineTo(HDC ctx, int x, int y)
 
 void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
 {
-  GDP_CTX *c=(GDP_CTX *)ctx;
+  HDC__ *c=(HDC__ *)ctx;
   if (!c||!c->curpen||c->curpen->wid<0||nseg<1) return;
 
 //  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
@@ -415,7 +415,7 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
 }
 void *SWELL_GetCtxGC(HDC ctx)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (!ct) return 0;
   return NULL; 
 }
@@ -423,7 +423,7 @@ void *SWELL_GetCtxGC(HDC ctx)
 
 void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (!ct) return;
  /* CGContextBeginPath(ct->ctx);
   CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
@@ -437,7 +437,7 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (tm) // give some sane defaults
   {
     tm->tmInternalLeading=0;
@@ -454,7 +454,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 
 int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (!r) return 0;
 
 #ifdef SWELL_FREETYPE
@@ -586,7 +586,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 
 void SetTextColor(HDC ctx, int col)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (!ct) return;
   ct->cur_text_color_int = LICE_RGBA_FROMNATIVE(col,255);
   
@@ -611,7 +611,7 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
   memset(_bm,0,bmsz);
   if (bmsz != sizeof(BITMAP)) return false;
   BITMAP *bm=(BITMAP *)_bm;
-  GDP_OBJECT *i = (GDP_OBJECT *)icon;
+  HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
   if (!i || i->type != TYPE_BITMAP) return false;
 
   return false;
@@ -656,8 +656,8 @@ void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, 
 void BitBltAlpha(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
 {
   if (!hdcOut || !hdcIn) return;
-  GDP_CTX *in = (GDP_CTX*)hdcIn;
-  GDP_CTX *out = (GDP_CTX*)hdcOut;
+  HDC__ *in = (HDC__ *)hdcIn;
+  HDC__ *out = (HDC__ *)hdcOut;
   if (!in->surface || !out->surface) return;
   LICE_Blit(out->surface,in->surface,
             x+out->surface_offs.x,y+out->surface_offs.y,
@@ -669,8 +669,8 @@ void BitBltAlpha(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int
 void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode)
 {
   if (!hdcOut || !hdcIn) return;
-  GDP_CTX *in = (GDP_CTX*)hdcIn;
-  GDP_CTX *out = (GDP_CTX*)hdcOut;
+  HDC__ *in = (HDC__ *)hdcIn;
+  HDC__ *out = (HDC__ *)hdcOut;
   if (!in->surface || !out->surface) return;
   LICE_Blit(out->surface,in->surface,
             x+out->surface_offs.x,y+out->surface_offs.y,
@@ -689,26 +689,26 @@ void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
 
 void SWELL_PushClipRegion(HDC ctx)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
 void SWELL_SetClipRegion(HDC ctx, RECT *r)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
 
 }
 
 void SWELL_PopClipRegion(HDC ctx)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextRestoreGState(ct->ctx);
 }
 
 void *SWELL_GetCtxFrameBuffer(HDC ctx)
 {
-  GDP_CTX *ct=(GDP_CTX *)ctx;
+  HDC__ *ct=(HDC__ *)ctx;
   if (ct&&ct->surface) return ct->surface->getBits();
   return 0;
 }
@@ -717,7 +717,7 @@ void *SWELL_GetCtxFrameBuffer(HDC ctx)
 
 struct swell_gdpLocalContext
 {
-  GDP_CTX ctx;
+  HDC__ ctx;
   RECT clipr;
 };
 
@@ -768,7 +768,7 @@ HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
   p->clipr.right=xoffs + p->ctx.surface->getWidth();
   p->clipr.bottom=yoffs + p->ctx.surface->getHeight();
 
-  return p;
+  return (HDC)p;
 }
 HDC GetWindowDC(HWND h)
 {
@@ -813,7 +813,7 @@ void ReleaseDC(HWND h, HDC hdc)
     }
   }
   delete p->ctx.surface;
-  SWELL_GDP_CTX_DELETE((GDP_CTX*)hdc);
+  SWELL_GDP_CTX_DELETE(hdc);
 }
 
 

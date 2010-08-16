@@ -2,6 +2,11 @@
 #include <math.h>
 
 
+#ifndef _WIN32
+#include "../swell/swell.h"
+#endif
+
+
 #include "lice_combine.h"
 #include "lice_extended.h"
 
@@ -586,7 +591,8 @@ static BOOL LICE_Text_HasUTF8(const char *_str)
 }
 #endif
 
-int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt, 
+
+int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, 
                                RECT *rect, UINT dtFlags)
 {
   if (!bm) return 0;
@@ -858,7 +864,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
   if (dtFlags & (DT_CENTER|DT_VCENTER|DT_RIGHT|DT_BOTTOM))
   {
     RECT tr={0,};
-    DrawText(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE)|(forceWantAlpha?LICE_DT_NEEDALPHA:0));
+    DrawTextImpl(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE)|(forceWantAlpha?LICE_DT_NEEDALPHA:0));
     if (dtFlags & DT_CENTER)
     {
       xpos += (use_rect.right-use_rect.left-tr.right)/2;
@@ -882,7 +888,7 @@ int LICE_CachedFont::DrawText(LICE_IBitmap *bm, const char *str, int strcnt,
   else if (isVertRev) 
   {
     RECT tr={0,};
-    DrawText(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE)|(forceWantAlpha?LICE_DT_NEEDALPHA:0));
+    DrawTextImpl(bm,str,strcnt,&tr,DT_CALCRECT|(dtFlags & DT_SINGLELINE)|(forceWantAlpha?LICE_DT_NEEDALPHA:0));
     ypos += tr.bottom;
   }
 

@@ -692,6 +692,10 @@ SOURCE=.\lice_line.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_palette.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_pcx.cpp
 
 !IF  "$(CFG)" == "lice - Win32 Release"

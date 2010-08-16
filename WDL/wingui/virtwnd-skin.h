@@ -3,6 +3,8 @@
 
 class LICE_IBitmap;
 
+#include "../ptrlist.h"
+
 typedef struct // if set these override the default virtualwnd styles for this object
 {
   LICE_IBitmap *bgimage;
@@ -10,6 +12,25 @@ typedef struct // if set these override the default virtualwnd styles for this o
   int bgimage_lt_out[2],bgimage_rb_out[2]; // size of outside area (like shadows)
   int bgimage_noalphaflags; // 4x4 flags of "no alpha", so 65535 is image has no alpha whatsoever
 } WDL_VirtualWnd_BGCfg;
+
+
+class WDL_VirtualWnd_BGCfgCache_img;
+
+class WDL_VirtualWnd_BGCfgCache
+{
+public:
+  WDL_VirtualWnd_BGCfgCache(int want_size=15, int max_size=30);
+  ~WDL_VirtualWnd_BGCfgCache();
+
+  void Invalidate();
+
+  LICE_IBitmap *GetCachedBG(int w, int h, void *owner_hint);
+  void SetCachedBG(int w, int h, LICE_IBitmap *bm, void *owner_hint);
+
+private:
+  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> m_cache;
+  int m_want_size, m_max_size;
+};
 
 void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a);
 

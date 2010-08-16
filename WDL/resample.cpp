@@ -203,7 +203,11 @@ void WDL_Resampler::SetMode(bool interp, int filtercnt, bool sinc, int sinc_size
 //  sprintf(buf,"setting interp=%d, filtercnt=%d, sinc=%d,%d\n",m_interp,m_filtercnt,m_sincsize,m_sincoversize);
 //  OutputDebugString(buf);
 
-  if (!m_sincsize) m_filter_coeffs.Resize(0);
+  if (!m_sincsize) 
+  {
+    m_filter_coeffs.Resize(0);
+    m_filter_coeffs_size=0;
+  }
   if (!m_filtercnt) 
   {
     delete m_iirfilter;
