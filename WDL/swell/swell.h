@@ -790,6 +790,7 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define DT_RIGHT 32
 #define DT_SINGLELINE 64
 #define DT_NOPREFIX 128
+#define DT_NOCLIP 256
 
 #define DT_TOP 0
 #define DT_LEFT 0
@@ -827,6 +828,15 @@ typedef HWND (*SWELL_ControlCreatorProc)(HWND parent, const char *cname, int idx
 #define NULL_PEN 1
 #define NULL_BRUSH 2
 
+#define GMEM_ZEROINIT 1
+#define GMEM_FIXED 0
+#define GMEM_MOVEABLE 0
+#define GMEM_DDESHARE 0
+#define GMEM_DISCARDABLE 0
+#define GMEM_SHARE 0
+#define GMEM_LOWER 0
+#define GHND (GMEM_MOVEABLE|GM_ZEROINIT)
+#define GPTR (GMEM_FIXED|GMEM_ZEROINIT)
 
 
 
@@ -863,6 +873,14 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 ** lstrpcyn always null terminates the string and doesnt fill anything extra.
 */
 SWELL_API_DEFINE(char *, lstrcpyn, (char *dest, const char *src, int l))
+
+
+/*
+** MulDiv(): (parm1*parm2)/parm3
+** Implemented using long longs.
+*/
+SWELL_API_DEFINE(int, MulDiv, (int, int, int))
+
 
 /*
 ** Sleep() sleeps for specified milliseconds. This maps to usleep, with a ms value of 0 
@@ -908,6 +926,12 @@ SWELL_API_DEFINE(BOOL, GetPrivateProfileStruct,(const char *appname, const char 
 SWELL_API_DEFINE(BOOL, WritePrivateProfileStruct,(const char *appname, const char *keyname, const void *buf, int bufsz, const char *fn))
 
 
+/*
+** GetModuleFileName()
+**
+** This currently ignores the HINSTANCE parameter and returns the main bundle name of the
+** application (i.e. /Applications/MyApp.app).
+*/
 SWELL_API_DEFINE(DWORD, GetModuleFileName,(HINSTANCE ignored, char *fn, DWORD nSize))
 
 /*
@@ -1021,6 +1045,13 @@ SWELL_API_DEFINE(HWND, GetForegroundWindow,())
 ** GetCapture/SetCapture/ReleaseCapture are completely faked, with just an internal state.
 ** Mouse click+drag automatically captures the focus sending mouseDrag events in OSX, so
 ** these are as a porting aid.
+**
+** Updated: they actually send WM_CAPTURECHANGED messages now, if the window supports
+** onSwellMessage:p1:p2: and swellCapChangeNotify (and swellCapChangeNotify returns YES).
+**
+** Note that any HWND that returns YES to swellCapChangeNotify should do the following on 
+** destroy or dealloc: if (GetCapture()==(HWND)self) ReleaseCapture(); Failure to do so
+** can cause a dealloc'd window to get messages sent to it.
 */
 SWELL_API_DEFINE(HWND, SetCapture,(HWND hwnd))
 SWELL_API_DEFINE(HWND, GetCapture,())
@@ -1050,6 +1081,11 @@ SWELL_API_DEFINE(HWND, GetParent,(HWND hwnd))
 */
 SWELL_API_DEFINE(HWND, SetParent,(HWND hwnd, HWND newPar))
 
+/*
+** GetWindow()
+** Most of the standard GW_CHILD etc work. Does not do anything to prevent you from 
+** getting into infinite loops if you go changing the order on the fly etc.
+*/
 SWELL_API_DEFINE(HWND, GetWindow,(HWND hwnd, int what))
 
 /*
@@ -1115,12 +1151,25 @@ SWELL_API_DEFINE(int, GetWindowLong,(HWND hwnd, int idx))
 SWELL_API_DEFINE(int, SetWindowLong,(HWND hwnd, int idx, int val))
 
 
+/* 
+** GetProp() SetProp() RemoveProp() EnumPropsEx()
+** These should work like in win32. Free your props otherwise they will leak.
+** Restriction on what you can do in the PROPENUMPROCEX is similar to win32 
+** (you can remove only the called prop, and can't add props within it).
+** if the prop name is < (void *)65536 then it is treated as a short identifier.
+*/
 SWELL_API_DEFINE(int, EnumPropsEx,(HWND, PROPENUMPROCEX, LPARAM))
 SWELL_API_DEFINE(HANDLE, GetProp, (HWND, const char *))
 SWELL_API_DEFINE(BOOL, SetProp, (HWND, const char *, HANDLE))
 SWELL_API_DEFINE(HANDLE, RemoveProp, (HWND, const char *))
                 
 
+/*
+** IsWindowVisible()
+** if hwnd is a NSView, returns !isHiddenOrHasHiddenAncestor
+** if hwnd is a NSWindow returns isVisible
+** otherwise returns TRUE if non-null hwnd
+*/
 SWELL_API_DEFINE(bool, IsWindowVisible,(HWND hwnd))
 #ifndef IsWindow
 #define IsWindow(x) (!!(x)) // todo use isKindOf
@@ -1418,6 +1467,11 @@ SWELL_API_DEFINE(int, SWELL_MacKeyToWindowsKey,(void *nsevent, int *flags))
 */
 SWELL_API_DEFINE(WORD, GetAsyncKeyState,(int key))
 
+/*
+** GetCursorPos(), GetMessagePos()
+** Notes: GetMessagePos() currently returns the same coordinates as GetCursorPos(),
+** this needs to be fixed.
+*/
 SWELL_API_DEFINE(void, GetCursorPos,(POINT *pt))
 SWELL_API_DEFINE(DWORD, GetMessagePos,())
 
@@ -1455,7 +1509,16 @@ SWELL_API_DEFINE(HCURSOR, SWELL_GetLastSetCursor,())
 
 
 /*
+** SWELL_GetViewPort
+** Gets screen information, for the screen that contains sourcerect. if wantWork is set
+** it excluses the menu bar etc.
+*/
+SWELL_API_DEFINE(void, SWELL_GetViewPort,(RECT *r, RECT *sourcerect, bool wantWork))
+
+/*
 ** Clipboard API emulation
+** Notes: setting multiple types may not work right
+** 
 */
 SWELL_API_DEFINE(bool, OpenClipboard,(HWND hwndDlg))
 SWELL_API_DEFINE(void, CloseClipboard,())
@@ -1466,26 +1529,82 @@ SWELL_API_DEFINE(void, SetClipboardData,(UINT type, HANDLE h))
 SWELL_API_DEFINE(UINT, RegisterClipboardFormat,(const char *desc))
 SWELL_API_DEFINE(UINT, EnumClipboardFormats,(UINT lastfmt))
 
-// these are only currently used by the clipboard system
-#ifndef GlobalAlloc
-#define GlobalAlloc(flags, size) SWELL_GlobalAlloc(size)
-#endif
-SWELL_API_DEFINE(HANDLE, SWELL_GlobalAlloc,(int sz))
+/*
+** GlobalAlloc*() 
+** These are only currently used by the clipboard system,
+** but should work normally. 
+*/
+
+SWELL_API_DEFINE(HANDLE, GlobalAlloc,(int flags, int sz))
 SWELL_API_DEFINE(void *, GlobalLock,(HANDLE h))
 SWELL_API_DEFINE(int, GlobalSize,(HANDLE h))
 SWELL_API_DEFINE(void, GlobalUnlock,(HANDLE h))
 SWELL_API_DEFINE(void, GlobalFree,(HANDLE h))
 
 
+
 /*
- ** swell-gdi.mm
- */
+** GDI functions.
+** Everything should be all hunky dory, your windows may get WM_PAINT, call 
+** GetDC()/ReleaseDC(), etc.
+**
+** Or, there are these helper functions:
+*/
+
+/*
+** SWELL_CreateContext()
+** pass a CGContextRef, and it will create a "HDC" for it.
+*/
+
+SWELL_API_DEFINE(HDC, SWELL_CreateContext,(void *))
+
+/*
+** SWELL_CreateMemContext()
+** Creates a memory context (that you can get the bits for, below)
+** hdc is currently ignored.
+*/
+SWELL_API_DEFINE(HDC, SWELL_CreateMemContext,(HDC hdc, int w, int h))
+
+/*
+** SWELL_DeleteContext()
+** Deletes a context created with SWELL_CreateContext() or SWELL_CreateMemContext()
+*/
+SWELL_API_DEFINE(void, SWELL_DeleteContext,(HDC))
+
+/*
+** SWELL_GetCtxGC()
+** Returns the CGContextRef of a HDC
+*/
+SWELL_API_DEFINE(void *, SWELL_GetCtxGC,(HDC ctx))
 
 
+/*
+** SWELL_GetCtxFrameBuffer()
+** Gets the framebuffer of a memory context. NULL if none available.
+*/
+SWELL_API_DEFINE(void *, SWELL_GetCtxFrameBuffer,(HDC ctx))
 
-SWELL_API_DEFINE(HDC, WDL_GDP_CreateContext,(void *))
-SWELL_API_DEFINE(HDC, WDL_GDP_CreateMemContext,(HDC hdc, int w, int h))
-SWELL_API_DEFINE(void, WDL_GDP_DeleteContext,(HDC))
+/*
+** SWELL_SyncCtxFrameBuffer()
+** If you modify the framebuffer, and will BitBlt() from this memory DC,
+** you will probably want to call this before blitting. Note that you may
+** not always HAVE to (it may work if you don't), but you SHOULD.
+*/
+SWELL_API_DEFINE(void, SWELL_SyncCtxFrameBuffer,(HDC ctx))
+
+/* 
+** Some utility functions for pushing, setting, and popping the clip region. 
+*/
+SWELL_API_DEFINE(void, SWELL_PushClipRegion,(HDC ctx))
+SWELL_API_DEFINE(void, SWELL_SetClipRegion,(HDC ctx, RECT *r))
+SWELL_API_DEFINE(void, SWELL_PopClipRegion,(HDC ctx))
+
+
+/* 
+** GDI emulation functions
+** todo: document
+*/
+
 SWELL_API_DEFINE(HFONT, CreateFontIndirect,(LOGFONT *))
 SWELL_API_DEFINE(HFONT, CreateFont,(long lfHeight, long lfWidth, long lfEscapement, long lfOrientation, long lfWeight, char lfItalic, 
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
@@ -1543,13 +1662,6 @@ SWELL_API_DEFINE(BOOL, GetTextMetrics,(HDC ctx, TEXTMETRIC *tm))
 SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
 SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
-SWELL_API_DEFINE(void, SWELL_PushClipRegion,(HDC ctx))
-SWELL_API_DEFINE(void, SWELL_SetClipRegion,(HDC ctx, RECT *r))
-SWELL_API_DEFINE(void, SWELL_PopClipRegion,(HDC ctx))
-SWELL_API_DEFINE(void *, SWELL_GetCtxFrameBuffer,(HDC ctx))
-SWELL_API_DEFINE(void *, SWELL_GetCtxGC,(HDC ctx))
-SWELL_API_DEFINE(void, SWELL_SyncCtxFrameBuffer,(HDC ctx))
-SWELL_API_DEFINE(void, SWELL_GetViewPort,(RECT *r, RECT *sourcerect, bool wantWork))
 SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode))
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
@@ -1561,8 +1673,15 @@ SWELL_API_DEFINE(HDC, GetDC,(HWND)) // use these sparingly! they kinda work but 
 SWELL_API_DEFINE(HDC, GetWindowDC,(HWND)) 
 SWELL_API_DEFINE(void, ReleaseDC,(HWND, HDC))
             
-SWELL_API_DEFINE(int, MulDiv, (int, int, int))
 
+
+
+
+
+/*
+** Functions used by swell-dlggen.h and swell-menugen.h
+** No need to really dig into these unless you're working on swell or debugging..
+*/
 
 SWELL_API_DEFINE(void, SWELL_MakeSetCurParms,(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit))
 SWELL_API_DEFINE(void, SWELL_Make_SetMessageMode,(int wantParentView))
@@ -1648,6 +1767,10 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 
 #ifndef WDL_GDP_CTX                // stupid GDP compatibility layer, deprecated
+
+#define WDL_GDP_CreateContext(x) SWELL_CreateContext(x)
+#define WDL_GDP_CreateMemContext(hdc,w,h) SWELL_CreateMemContext(hdc,w,h)
+#define WDL_GDP_DeleteContext(x) SWELL_DeleteContext(x)
 
 #define WDL_GDP_CTX HDC
 #define WDL_GDP_PEN HPEN

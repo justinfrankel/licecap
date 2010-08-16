@@ -1,10 +1,9 @@
 /*
   Cockos WDL - LICE - Lightweight Image Compositing Engine
   Copyright (C) 2007 and later, Cockos Incorporated
-  File: lice.cpp (LICE core processing)
+  File: lice.cpp (LICE blit processing)
   See lice.h for license and other information
 */
-
 
 #include "lice.h"
 #include <math.h>
@@ -16,98 +15,8 @@
 #define LICE_SCALEDBLIT_USE_FIXEDPOINT
 #define LICE_DELTABLIT_USE_FIXEDPOINT
 
-bool LICE_MemBitmap::resize(int w, int h)
-{
-  if (w!=m_width||h!=m_height)
-  {
-    int sz=(m_width=w)*(m_height=h)*sizeof(LICE_pixel);
-
-    if (sz<=0) { free(m_fb); m_fb=0; }
-    else if (!m_fb) m_fb=(LICE_pixel*)malloc(sz);
-    else 
-    {
-      void *op=m_fb;
-      if (!(m_fb=(LICE_pixel*)realloc(m_fb,sz)))
-      {
-        free(op);
-        m_fb=(LICE_pixel*)malloc(sz);
-      }
-    }
-
-    return true;
-  }
-  return false;
-}
 
 
-
-LICE_SysBitmap::LICE_SysBitmap(int w, int h)
-{
-#ifdef _WIN32
-  m_dc = CreateCompatibleDC(NULL);
-  m_bitmap = 0;
-  m_oldbitmap = 0;
-#else
-  m_dc=0;
-#endif
-  m_bits=0;
-  m_width=m_height=0;
-
-  resize(w,h);
-}
-
-
-LICE_SysBitmap::~LICE_SysBitmap()
-{
-#ifdef _WIN32
-  if(m_bitmap) DeleteObject(m_bitmap);
-  DeleteDC(m_dc);
-#else
-  if (m_dc)
-    WDL_GDP_DeleteContext(m_dc);
-#endif
-}
-
-bool LICE_SysBitmap::resize(int w, int h)
-{
-  if (m_width==w && m_height == h) return false;
-
-  m_width=w;
-  m_height=h;
-
-  if (!w || !h) return false;
-
-#ifdef _WIN32
-  if (m_oldbitmap) 
-  {
-    SelectObject(m_dc,m_oldbitmap);
-    m_oldbitmap=0;
-  }
-  if (m_bitmap) DeleteObject(m_bitmap);
-  m_bits=0;
-
-  BITMAPINFO pbmInfo = {0,};
-  pbmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-  pbmInfo.bmiHeader.biWidth = m_width;
-  pbmInfo.bmiHeader.biHeight = isFlipped()?m_height:-m_height;
-  pbmInfo.bmiHeader.biPlanes = 1;
-  pbmInfo.bmiHeader.biBitCount = sizeof(LICE_pixel)*8;
-  pbmInfo.bmiHeader.biCompression = BI_RGB;
-  m_bitmap = CreateDIBSection( NULL, &pbmInfo, DIB_RGB_COLORS, (void **)&m_bits, NULL, 0);
-
-  m_oldbitmap=SelectObject(m_dc, m_bitmap);
-#else
-  if (m_dc) WDL_GDP_DeleteContext(m_dc);
-  m_dc=WDL_GDP_CreateMemContext(0,w,h);
-  m_bits=(LICE_pixel*)SWELL_GetCtxFrameBuffer(m_dc);
-#endif
-
-  return true;
-}
-
-
-
-#ifndef LICE_NO_BLIT_SUPPORT
 void LICE_Copy(LICE_IBitmap *dest, LICE_IBitmap *src) // resizes dest
 {
   if (src&&dest)
@@ -116,7 +25,6 @@ void LICE_Copy(LICE_IBitmap *dest, LICE_IBitmap *src) // resizes dest
     LICE_Blit(dest,src,NULL,0,0,1.0,LICE_BLIT_MODE_COPY);
   }
 }
-#endif
 
 template<class COMBFUNC> class _LICE_Template_Blit
 {
@@ -139,22 +47,6 @@ template<class COMBFUNC> class _LICE_Template_Blit
           COMBFUNC::doPix(pout,r/65536,g/65536,b/65536,ia,ia);          
           pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
           r+=drdx; g+=dgdx; b+=dbdx; a+=dadx;
-        }
-        dest+=dest_span;
-      }
-    }
-    static void solidBlit(LICE_pixel_chan *dest, int w, int h, 
-                         int ir, int ig, int ib, int ia,
-                         int dest_span)
-    {
-      while (h--)
-      {
-        LICE_pixel_chan *pout=dest;
-        int n=w;
-        while (n--)
-        {
-          COMBFUNC::doPix(pout,ir,ig,ib,ia,ia);          
-          pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
         }
         dest+=dest_span;
       }
@@ -498,7 +390,6 @@ template<class COMBFUNC> class _LICE_Template_Blit
 };
 
 
-#ifndef LICE_NO_GRADIENT_SUPPORT
 
 void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth, 
                       float ir, float ig, float ib, float ia,
@@ -549,10 +440,7 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
 #undef TOFIX
 }
 
-#endif
 
-
-#ifndef LICE_NO_BLIT_SUPPORT 
 void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch, float alpha, int mode)
 {
   RECT r={srcx,srcy,srcx+srcw,srcy+srch};
@@ -643,10 +531,6 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
 
   }
 }
-
-#endif
-
-#ifndef LICE_NO_BLUR_SUPPORT
 
 void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch) // src and dest can overlap, however it may look fudgy if they do
 {
@@ -764,9 +648,6 @@ void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
     free(tmpbuf);
 }
 
-#endif
-
-#ifndef LICE_NO_BLIT_SUPPORT
 void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
                      int dstx, int dsty, int dstw, int dsth, 
                      float srcx, float srcy, float srcw, float srch, 
@@ -1038,158 +919,6 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 #undef __LICE__ACTION
 }
 
-#endif
-
-
-void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color)
-{
-  if (!dest) return;
-  LICE_pixel *p=dest->getBits();
-  int h=dest->getHeight();
-  int w=dest->getWidth();
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
-
-  while (h-->0)
-  {
-    int n=w;
-    while (n--) *p++ = color;
-    p+=sp-w;
-  }
-}
-
-
-
-
-void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h, 
-                          float rsc, float gsc, float bsc, float asc,
-                          float radd, float gadd, float badd, float aadd)
-{
-  if (!dest) return;
-  LICE_pixel *p=dest->getBits();
-
-  if (x<0) { w+=x; x=0; }
-  if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
-
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
-
-  if (dest->isFlipped())
-  {
-    p+=(dest->getHeight() - y - h)*sp;
-  }
-  else p+=sp*y;
-
-  p += x;
-
-  int ir=(int)(rsc*65536.0);
-  int ig=(int)(gsc*65536.0);
-  int ib=(int)(bsc*65536.0);
-  int ia=(int)(asc*65536.0);
-  int ir2=(int)(radd*65536.0);
-  int ig2=(int)(gadd*65536.0);
-  int ib2=(int)(badd*65536.0);
-  int ia2=(int)(aadd*65536.0);
-
-  while (h-->0)
-  {
-    int n=w;
-    while (n--) 
-    {
-      LICE_pixel_chan *ptr=(LICE_pixel_chan *)p++;
-      _LICE_MakePixel(ptr,(ptr[LICE_PIXEL_R]*ir+ir2)>>16,
-                          (ptr[LICE_PIXEL_G]*ig+ig2)>>16,
-                          (ptr[LICE_PIXEL_B]*ib+ib2)>>16,
-                          (ptr[LICE_PIXEL_A]*ia+ia2)>>16);
-    }
-    p+=sp-w;
-  }
-}
-
-void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode)
-{
-  if (!dest) return;
-  if (mode & LICE_BLIT_USE_ALPHA) alpha *= LICE_GETA(color)/255.0f;
-  LICE_pixel *p=dest->getBits();
-
-  if (x<0) { w+=x; x=0; }
-  if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
-
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
-
-  if (dest->isFlipped())
-  {
-    p+=(dest->getHeight() - y - h)*sp;
-  }
-  else p+=sp*y;
-
-  p += x;
-#define __LICE__ACTION(comb) _LICE_Template_Blit<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),(int)(alpha*256.0),sp*sizeof(LICE_pixel))
-    __LICE_ACTIONBYMODE_NOALPHA(mode);
-#undef __LICE__ACTION
-}
-
-void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel mask, LICE_pixel orbits)
-{
-  if (!dest) return;
-  LICE_pixel *p=dest->getBits();
-
-  if (x<0) { w+=x; x=0; }
-  if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
-
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
-
-  if (dest->isFlipped())
-  {
-    p+=(dest->getHeight() - y - h)*sp;
-  }
-  else p+=sp*y;
-
-  p += x;
-  while (h-->0)
-  {
-    int n=w;
-    while (n--) 
-    {
-      *p = (*p&mask)|orbits;
-      p++;
-    }
-    p+=sp-w;
-  }
-}
-
-
-LICE_pixel LICE_GetPixel(LICE_IBitmap *bm, int x, int y)
-{
-  LICE_pixel *px;
-  if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return 0;
-  if (bm->isFlipped()) return px[(bm->getHeight()-1-y) * bm->getRowSpan() + x];
-	return px[y * bm->getRowSpan() + x];
-}
-
-void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode)
-{
-  LICE_pixel *px;
-  if (!bm || !(px=bm->getBits()) || x < 0 || y < 0 || x >= bm->getWidth() || y>= bm->getHeight()) return;
-
-  if (bm->isFlipped()) px+=x+(bm->getHeight()-1-y)*bm->getRowSpan();
-  else px+=x+y*bm->getRowSpan();
-
-#define __LICE__ACTION(comb) comb::doPix((LICE_pixel_chan *)px, LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color), (int)(alpha * 256.0f))
-  __LICE_ACTIONBYMODE(mode,alpha);
-#undef __LICE__ACTION
-}
-
-
-#ifndef LICE_NO_BLIT_SUPPORT
 void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,  
                     int dstx, int dsty, int dstw, int dsth,
                     float *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
@@ -1253,94 +982,3 @@ void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   }
 
 }
-
-#endif
-
-#ifndef LICE_NO_MISC_SUPPORT
-
-void LICE_SetAlphaFromColorMask(LICE_IBitmap *dest, LICE_pixel color)
-{
-  if (!dest) return;
-  LICE_pixel *p=dest->getBits();
-  int h=dest->getHeight();
-  int w=dest->getWidth();
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
-
-  while (h-->0)
-  {
-    int n=w;
-    while (n--) 
-    {
-      if ((*p&LICE_RGBA(255,255,255,0)) == color) *p&=LICE_RGBA(255,255,255,0);
-      else *p|=LICE_RGBA(0,0,0,255);
-      p++;
-    }
-    p+=sp-w;
-  }
-}
-
-
-void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,  
-                     LICE_pixel comparemask, 
-                     LICE_pixel keepmask)
-{
-  if (!dest) return;
-  int dw=dest->getWidth();
-  int dh=dest->getHeight();
-  int rowsize=dest->getRowSpan();
-  if (x<0||x>=dw||y<0||y>=dh) return;
-  LICE_pixel *ptr=dest->getBits();
-  if (!ptr) return;
-  ptr += rowsize*y;
-
-  LICE_pixel compval=ptr[x]&comparemask;
-  int ay;
-  for (ay=y;ay<dh; ay++)
-  {
-    if ((ptr[x]&comparemask)!=compval) break;
-    ptr[x]=(ptr[x]&keepmask)|newcolor;
-
-    int ax;
-    for(ax=x+1;ax<dw;ax++)
-    {
-      if ((ptr[ax]&comparemask)!=compval) break;
-      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
-    }
-    ax=x;
-    while (--ax>=0)
-    {
-      if ((ptr[ax]&comparemask)!=compval) break;
-      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
-    }
-    
-    ptr+=rowsize;
-  }
-  ptr =dest->getBits()+rowsize*y;
-
-  ay=y;
-  while (--ay>=0)
-  {
-    ptr-=rowsize;
-    if ((ptr[x]&comparemask)!=compval) break;
-    ptr[x]=(ptr[x]&keepmask)|newcolor;
-
-    int ax;
-    for(ax=x+1;ax<dw;ax++)
-    {
-      if ((ptr[ax]&comparemask)!=compval) break;
-      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
-    }
-    ax=x;
-    while (--ax>=0)
-    {
-      if ((ptr[ax]&comparemask)!=compval) break;
-      ptr[ax]=(ptr[ax]&keepmask)|newcolor;
-    }
-    
-  }
-
-}
-
-
-#endif

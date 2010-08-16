@@ -131,13 +131,14 @@ WORD GetAsyncKeyState(int key)
 
 void GetCursorPos(POINT *pt)
 {
-	NSPoint localpt=[NSEvent mouseLocation];
+  NSPoint localpt=[NSEvent mouseLocation];
   pt->x=(int)localpt.x;
   pt->y=(int)localpt.y;
 }
 
 DWORD GetMessagePos()
-{
+{ 
+  // todo: get actual current event
   NSPoint localpt=[NSEvent mouseLocation];
   return MAKELONG((int)localpt.x, (int)localpt.y);
 }

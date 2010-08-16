@@ -68,6 +68,7 @@ public:
   int Add(const void *buf, int l)
   {
     char *p = (char *)buf;
+    if (l > m_size) l = m_size;
     int put = l;
     int l2;
     if (!m_size) return 0;
@@ -86,6 +87,7 @@ public:
       p += l;
     }
     m_inbuf += put;
+    if (m_inbuf > m_size) m_inbuf = m_size;
     return put;
   }
   int Get(void *buf, int l)
@@ -121,6 +123,48 @@ private:
   WDL_HeapBuf m_hb;
   char *m_head, *m_tail, *m_endbuf;
   int m_size, m_inbuf;
+};
+
+
+template <class T>
+class WDL_TypedCircBuf
+{
+public:
+
+    WDL_TypedCircBuf() {}
+    ~WDL_TypedCircBuf() {}
+
+    void SetSize(int size, bool keepcontents = false)
+    {
+        mBuf.SetSize(size * sizeof(T), keepcontents);
+    }
+
+    void Reset()
+    {
+        mBuf.Reset();
+    }
+
+    int Add(const T* buf, int l)
+    {
+        return mBuf.Add(buf, l * sizeof(T)) / sizeof(T);
+    }
+
+    int Get(T* buf, int l)
+    {
+        return mBuf.Get(buf, l * sizeof(T)) / sizeof(T);
+    }
+
+    int Available() 
+    {
+        return mBuf.Available() / sizeof(T);
+    }
+     int NbInBuf() 
+     { 
+         return mBuf.NbInBuf() / sizeof(T);
+     }
+
+private:
+    WDL_CircBuf mBuf;
 };
 
 #endif

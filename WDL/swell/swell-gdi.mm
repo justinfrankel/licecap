@@ -42,7 +42,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
   return color;
 }
 
-HDC WDL_GDP_CreateContext(void *c)
+HDC SWELL_CreateContext(void *c)
 {
   GDP_CTX *ctx=(GDP_CTX *) calloc(1,sizeof(GDP_CTX));
   ctx->ctx=(CGContextRef)c;
@@ -52,7 +52,7 @@ HDC WDL_GDP_CreateContext(void *c)
   return ctx;
 }
 
-HDC WDL_GDP_CreateMemContext(HDC hdc, int w, int h)
+HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   // we could use CGLayer here, but it's 10.4+ and seems to be slower than this
 //  if (w&1) w++;
@@ -75,7 +75,7 @@ HDC WDL_GDP_CreateMemContext(HDC hdc, int w, int h)
 }
 
 #define INVALIDATE_BITMAPCACHE(x) if ((x)->bitmapimagecache) { CGImageRelease((x)->bitmapimagecache); (x)->bitmapimagecache=0;  }
-void WDL_GDP_DeleteContext(HDC ctx)
+void SWELL_DeleteContext(HDC ctx)
 {
   GDP_CTX *ct=(GDP_CTX *)ctx;
   if (ct)
@@ -471,7 +471,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   NSString *str=(NSString*)SWELL_CStringToCFString(tmp);
   NSFont *curfont=NULL;
   if (ct->curfont && ct->curfont->fontptr) curfont=(NSFont *)ct->curfont->fontptr;
-  if (!curfont) return 0;
+  if (!curfont) curfont = [NSFont systemFontOfSize:10]; 
   
   
   // todo: parse ct->curfont->wid to get attributes
@@ -481,6 +481,12 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   NSColor *color=[NSColor colorWithCalibratedRed:GetRValue(ct->curtextcol)/255.0f green:GetGValue(ct->curtextcol)/255.0f blue:GetBValue(ct->curtextcol)/255.0f alpha:1.0f];
   
   NSMutableParagraphStyle *parinfo = [[NSMutableParagraphStyle alloc] init];
+/*  [parinfo setFirstLineHeadIndent:0.0f];
+  [parinfo setMinimumLineHeight:0.0f];
+  [parinfo setLineSpacing:0.0f];
+  [parinfo setParagraphSpacing:0.0f];
+  [parinfo setParagraphSpacingBefore:0.0f];
+  */
   [parinfo setAlignment:((align&DT_RIGHT)?NSRightTextAlignment : (align&DT_CENTER) ? NSCenterTextAlignment : NSLeftTextAlignment)];
   [parinfo setLineBreakMode:((align&DT_END_ELLIPSIS)? NSLineBreakByTruncatingTail:NSLineBreakByClipping)];
   
@@ -490,16 +496,16 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     NSColor *bkcol=[NSColor colorWithCalibratedRed:GetRValue(ct->curbkcol)/255.0f green:GetGValue(ct->curbkcol)/255.0f blue:GetBValue(ct->curbkcol)/255.0f alpha:1.0f];
     [dict setObject:bkcol forKey:NSBackgroundColorAttributeName];
   }   
-  if (ct->curfont->wid&1) // italic
+  if (ct->curfont && ct->curfont->wid&1) // italic
   {
     [dict setObject:[NSNumber numberWithFloat:0.33] forKey:NSObliquenessAttributeName];
   }
-  if (ct->curfont->wid&2)
+  if (ct->curfont && ct->curfont->wid&2)
   {
     [dict setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
   }
   
-  int weight=(ct->curfont->wid>>16)&1023;
+  int weight=ct->curfont ? ((ct->curfont->wid>>16)&1023) : 0;
   if (weight>FW_SEMIBOLD)
   {
     double sc=40.0*(weight-FW_SEMIBOLD)/(1000-FW_SEMIBOLD);
@@ -512,17 +518,28 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   [parinfo release];
   [str release];
 
+    
+  NSGraphicsContext *gc=NULL,*oldgc=NULL;
+  if (ct->ctx != [[NSGraphicsContext currentContext] graphicsPort])
+  {
+    gc=[NSGraphicsContext graphicsContextWithGraphicsPort:ct->ctx flipped:YES];
+    oldgc=[NSGraphicsContext currentContext];
+    [NSGraphicsContext setCurrentContext:gc];
+  }
+ 
+  NSSize sz={0,0};//[as size];
+  NSRect rsz=[as boundingRectWithSize:sz options:NSStringDrawingUsesDeviceMetrics];
+  sz=rsz.size;
+
   int ret=10;
   if (align & DT_CALCRECT)
   {
-    NSSize sz=[as size];
     r->right=r->left+ceil(sz.width);
-    r->bottom=r->top+ceil(sz.height);
+    r->bottom=r->top+ceil(sz.height)+1;
     ret=ceil(sz.height);
   }
   else
   {
-    NSSize sz=[as size];
     ret=ceil(sz.height);
     NSRect drawr=NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
     if (align&DT_BOTTOM)
@@ -541,24 +558,32 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     {
       drawr.size.height=sz.height;
     }
-    
-    NSGraphicsContext *gc=NULL,*oldgc=NULL;
-    if (ct->ctx != [[NSGraphicsContext currentContext] graphicsPort])
+  	drawr.origin.y+=sz.height;
+
+    if (align & DT_NOCLIP) // no clip, grow drawr if necessary (preserving alignment)
     {
-      gc=[NSGraphicsContext graphicsContextWithGraphicsPort:ct->ctx flipped:YES];
-      oldgc=[NSGraphicsContext currentContext];
-      [NSGraphicsContext setCurrentContext:gc];
+      if (drawr.size.width < sz.width)
+      {
+        if (align&DT_RIGHT) drawr.origin.x -= (sz.width-drawr.size.width);
+        else if (align&DT_CENTER) drawr.origin.x -= (sz.width-drawr.size.width)/2;
+        drawr.size.width=sz.width;
+      }
+      if (drawr.size.height < sz.height)
+      {
+        if (align&DT_BOTTOM) drawr.origin.y -= (sz.height-drawr.size.height);
+        else if (align&DT_VCENTER) drawr.origin.y -= (sz.height-drawr.size.height)/2;
+        drawr.size.height=sz.height;
+      }
     }
+    [as drawWithRect:drawr options:NSStringDrawingUsesDeviceMetrics];
     
-    [as drawInRect:drawr];
-    
-    if (gc)
-    {
-      [NSGraphicsContext setCurrentContext:oldgc];
-//      [gc release];
-    }
   }
   
+  if (gc)
+  {
+    [NSGraphicsContext setCurrentContext:oldgc];
+//      [gc release];
+  }
     
   [as release];
   
@@ -703,24 +728,34 @@ void SetTextColor(HDC ctx, int col)
   ct->curtextcol=col; //CreateColor(col);
 }
 
-#define FONTSCALE 0.9 // todo font point->pix conversion etc
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
+// what the fuck.
   GDP_CTX *ct=(GDP_CTX *)ctx;
-  if (tm)
+  if (tm) // give some sane defaults
   {
     tm->tmInternalLeading=3;
     tm->tmAscent=12;
     tm->tmDescent=4;
     tm->tmHeight=16;
   }
-  if (!ct||!tm||!ct->curfont||!ct->curfont->fontptr) return 0;
+  if (!ct||!tm) return 0;
+  NSFont *curfont=(NSFont *)(ct->curfont ? ct->curfont->fontptr : 0);
+  if (!curfont) curfont = [NSFont systemFontOfSize:10]; 
+
   
-  NSFont *curfont=(NSFont *)ct->curfont->fontptr;
-  tm->tmAscent = (int)ceil([curfont ascender]/FONTSCALE);
-  tm->tmDescent = (int)ceil(-[curfont descender]/FONTSCALE);
-  tm->tmInternalLeading=(int)ceil([curfont leading]/FONTSCALE);
-  tm->tmHeight=tm->tmAscent+tm->tmDescent+tm->tmInternalLeading;
+  float asc=[curfont ascender];
+  float desc=-[curfont descender];
+  float leading=[curfont leading];
+  float ch=[curfont capHeight];
+  
+  tm->tmAscent = (int)ceil(asc);
+  tm->tmDescent = (int)ceil(desc);
+  tm->tmInternalLeading=(int)(asc - ch);
+  tm->tmHeight=(int) ceil(asc+desc+leading);
+  
+  
+//  tm->tmAscent += tm->tmDescent;
   return 1;
 }
 

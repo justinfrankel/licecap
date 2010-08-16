@@ -1,3 +1,5 @@
+2007-12-04: SWELL: updated documentation in swell.h, GlobalAlloc supports GMEM_FIXED
+2007-12-03: SWELL: added time.h inclusion for 10.5, fixed DrawText() when no font selected
 2007-12-02: SWELL: GetProp API support, GetDC/GetWindowDC now usable during WM_PAINT/NCPAINT (they get the same HDC as BeginPaint)
 2007-12-02: SWELL: dialogs can now have their window procedures subclassed, WM_NCPAINT support
 2007-11-29: SWELL: fixed EnumClipboardFormats sometimes getting in an infinite loop

@@ -2623,49 +2623,49 @@ typedef struct
 {
   int sz;
   int refcnt;
-  void *buf;
 } GLOBAL_REC;
 
 
 void *GlobalLock(HANDLE h)
 {
   if (!h) return 0;
-  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
   rec->refcnt++;
-  return rec->buf;
+  return h;
 }
 int GlobalSize(HANDLE h)
 {
   if (!h) return 0;
-  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
   return rec->sz;
 }
 
 void GlobalUnlock(HANDLE h)
 {
   if (!h) return;
-  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
   rec->refcnt--;
 }
 void GlobalFree(HANDLE h)
 {
   if (!h) return;
-  GLOBAL_REC *rec=(GLOBAL_REC*)h;
+  GLOBAL_REC *rec=((GLOBAL_REC*)h)-1;
   if (rec->refcnt)
   {
     // note error freeing locked ram
   }
-  free(rec->buf);
   free(rec);
   
 }
-HANDLE SWELL_GlobalAlloc(int sz)
+HANDLE GlobalAlloc(int flags, int sz)
 {
-  GLOBAL_REC *rec=(GLOBAL_REC*)malloc(sizeof(GLOBAL_REC));
+  if (sz<0)sz=0;
+  GLOBAL_REC *rec=(GLOBAL_REC*)malloc(sizeof(GLOBAL_REC)+sz);
+  if (!rec) return 0;
   rec->sz=sz;
-  rec->buf=malloc(sz);
   rec->refcnt=0;
-  return rec;
+  if (flags&GMEM_FIXED) memset(rec+1,0,sz);
+  return rec+1;
 }
 
 
