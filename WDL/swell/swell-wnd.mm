@@ -2406,21 +2406,22 @@ static void UpdateAutoCoords(NSRect r)
   m_lastdoauto.size.width=r.origin.x + r.size.width - m_lastdoauto.origin.x;
 }
 
-static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto)
+static NSRect MakeCoords(int x, int y, int w, int h, bool wantauto, bool ignorevscaleheight=false)
 {
   if (w<0&&h<0)
   {
     return NSMakeRect(-x,-y,-w,-h);
   }
   float ysc=m_transform.size.height;
+  float ysc2 = ignorevscaleheight ? 1.0 : ysc;
   int newx=(int)((x+m_transform.origin.x)*m_transform.size.width + 0.5);
-  int newy=(int)((ysc >= 0.0 ? m_parent_h - ((y+m_transform.origin.y) + h)*ysc : 
+  int newy=(int)((ysc >= 0.0 ? m_parent_h - ((y+m_transform.origin.y) )*ysc + h*ysc2 : 
                          ((y+m_transform.origin.y) )*-ysc) + 0.5);
                          
   NSRect ret= NSMakeRect(newx,  
                          newy,                  
                         (int) (w*m_transform.size.width+0.5),
-                        (int) (h*fabs(ysc)+0.5));
+                        (int) (h*fabs(ysc2)+0.5));
                         
   NSRect oret=ret;
   if (wantauto && m_doautoright)
@@ -3059,9 +3060,8 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setTag:idx];
     if (m_transform.size.width < minwidfontadjust)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
-    if (h > 24) h /= 14; // units from res
-    if (h < 12) h=12;
-    NSRect rc=MakeCoords(x,y,w,h,true);
+    NSRect rc=MakeCoords(x,y,w,18,true,true);
+        
     [obj setSwellStyle:flags];
     [obj setFrame:rc];
     [obj setAutoenablesItems:NO];
@@ -3087,7 +3087,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setEditable:(flags & 0x3) == CBS_DROPDOWNLIST?NO:YES];
     [obj setSwellStyle:flags];
     [obj setTag:idx];
-    [obj setFrame:MakeCoords(x,y-1,w,14,true)];
+    [obj setFrame:MakeCoords(x,y-1,w,22,true,true)];
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onSwellCommand:)];
     [obj setDelegate:ACTIONTARGET];
