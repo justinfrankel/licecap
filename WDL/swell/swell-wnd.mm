@@ -3058,8 +3058,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   {
     SWELL_PopUpButton *obj=[[SWELL_PopUpButton alloc] init];
     [obj setTag:idx];
-    if (m_transform.size.width < minwidfontadjust)
-      [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
+    [obj setFont:[NSFont systemFontOfSize:10.0f]];
     NSRect rc=MakeCoords(x,y,w,18,true,true);
         
     [obj setSwellStyle:flags];
@@ -3082,8 +3081,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   else
   {
     SWELL_ComboBox *obj=[[SWELL_ComboBox alloc] init];
-    if (m_transform.size.width < minwidfontadjust)
-      [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
+    [obj setFont:[NSFont systemFontOfSize:10.0f]];
     [obj setEditable:(flags & 0x3) == CBS_DROPDOWNLIST?NO:YES];
     [obj setSwellStyle:flags];
     [obj setTag:idx];
