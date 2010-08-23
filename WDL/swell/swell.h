@@ -41,10 +41,15 @@
 
 #endif
 
+#ifdef __APPLE__
+// go ahead and get this included before we define FSHIFT in swell-types.h
+#include <sys/param.h>
+#endif
 
 // IF YOU ADD TO SWELL:
 // Adding types, defines, etc: add to swell-types.h 
 // Adding functions: put them in swell-functions.h
+
 
 #include "swell-types.h"
 #include "swell-functions.h"

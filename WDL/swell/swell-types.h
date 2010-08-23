@@ -1032,6 +1032,10 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define MAKEINTRESOURCE(x) ((const char *)(UINT_PTR)(x))         
 #endif                
 
+#ifdef FSHIFT
+#undef FSHIFT
+#endif
+
 #define FVIRTKEY  1
 #define FSHIFT    0x04
 #define FCONTROL  0x08
