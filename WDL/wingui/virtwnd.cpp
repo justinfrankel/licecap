@@ -1311,7 +1311,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         outy=desty+top_margin;
         outh=desth-top_margin-bottom_margin;
         iny=src->bgimage_lt[1]+top_margin_out;
-        inh=sh-src->bgimage_lt[1]-src->bgimage_rb[1]-bottom_margin_out;
+        inh=sh-src->bgimage_rb[1]-bottom_margin_out - iny;
       break;
       case 2:
         outy=desty+desth-bottom_margin;
@@ -1357,7 +1357,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+left_margin,outy,
                                 destw-right_margin-left_margin,outh,
                              src->bgimage_lt[0]+left_margin_out,iny,
-                             sw-src->bgimage_lt[0]-src->bgimage_rb[0]-src->bgimage_rb_out[0],
+                             sw-src->bgimage_lt[0]-src->bgimage_rb[0]-src->bgimage_rb_out[0]-left_margin_out,
                              inh,alpha,(no_alpha_flags&2) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
         // right
         if (right_margin > 0)
