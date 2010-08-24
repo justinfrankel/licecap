@@ -142,6 +142,9 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     int w=m_iconCfg->image->getWidth();
     int h=m_iconCfg->image->getHeight();
 
+    if (w>0 && !m_iconCfg->olimage && m_iconCfg->image_ltrb_used)
+      w-=2;
+
     w/=3;
     if (w>0 && h > 0)
     {
@@ -151,11 +154,30 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         else if (ishover) sx += w;
       }
 
-      LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
-        r.right-r.left,
-        r.bottom-r.top,
-        (float)sx,(float)sy,(float)w,(float)h, alpha,
-        LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
+
+      if (!m_iconCfg->olimage && m_iconCfg->image_ltrb_used)
+      {
+        WDL_VirtualWnd_BGCfg cfg={0,};
+        LICE_SubBitmap sb(m_iconCfg->image,sx+1,sy+1,w,h-2);
+        cfg.bgimage = &sb;
+        cfg.bgimage_lt[0] = m_iconCfg->image_ltrb[0];
+        cfg.bgimage_lt[1] = m_iconCfg->image_ltrb[1];
+        cfg.bgimage_rb[0] = m_iconCfg->image_ltrb[2];
+        cfg.bgimage_rb[1] = m_iconCfg->image_ltrb[3];
+        cfg.bgimage_noalphaflags=0;
+
+        WDL_VirtualWnd_ScaledBlitBG(drawbm,&cfg,
+          r.left+origin_x,r.top+origin_y,r.right-r.left,r.bottom-r.top,
+          r.left+origin_x,r.top+origin_y,r.right-r.left,r.bottom-r.top,
+          alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+
+      }
+      else
+        LICE_ScaledBlit(drawbm,m_iconCfg->image,r.left+origin_x,r.top+origin_y,
+          r.right-r.left,
+          r.bottom-r.top,
+          (float)sx,(float)sy,(float)w,(float)h, alpha,
+          LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
     }
   }
   else
@@ -840,26 +862,27 @@ void WDL_VirtualIconButton::GetPositionPaintOverExtent(RECT *r)
 }
 void WDL_VirtualIconButton_PreprocessSkinConfig(WDL_VirtualIconButton_SkinConfig *a)
 {
-  if (a && a->image && a->olimage)
+  if (a && a->image)
   {
+    LICE_IBitmap *srcimg = a->olimage ? a->olimage : a->image;
     a->image_ltrb_used=false;
     int lext=0,rext=0,bext=0,text=0;
 
-    int w=a->olimage->getWidth();
-    int h=a->olimage->getHeight();
+    int w=srcimg->getWidth();
+    int h=srcimg->getHeight();
 
-    if (LICE_GetPixel(a->olimage,0,0)==LICE_RGBA(255,0,255,255)&&
-        LICE_GetPixel(a->olimage,w-1,h-1)==LICE_RGBA(255,0,255,255))
+    if (LICE_GetPixel(srcimg,0,0)==LICE_RGBA(255,0,255,255)&&
+        LICE_GetPixel(srcimg,w-1,h-1)==LICE_RGBA(255,0,255,255))
     {
       int x;
-      for (x = 1; x < w/3 && LICE_GetPixel(a->olimage,x,0)==LICE_RGBA(255,0,255,255); x ++);
+      for (x = 1; x < w/3 && LICE_GetPixel(srcimg,x,0)==LICE_RGBA(255,0,255,255); x ++);
       lext=x-1;
-      for (x = 1; x < h && LICE_GetPixel(a->olimage,0,x)==LICE_RGBA(255,0,255,255); x ++);
+      for (x = 1; x < h && LICE_GetPixel(srcimg,0,x)==LICE_RGBA(255,0,255,255); x ++);
       text=x-1;
 
-      for (x = w-2; x > (w*2/3) && LICE_GetPixel(a->olimage,x,h-1)==LICE_RGBA(255,0,255,255); x --);
+      for (x = w-2; x > (w*2/3) && LICE_GetPixel(srcimg,x,h-1)==LICE_RGBA(255,0,255,255); x --);
       rext=w-2-x;
-      for (x = h-2; x > text && LICE_GetPixel(a->olimage,w-1,x)==LICE_RGBA(255,0,255,255); x --);
+      for (x = h-2; x > text && LICE_GetPixel(srcimg,w-1,x)==LICE_RGBA(255,0,255,255); x --);
       bext=h-2-x;
       if (lext||text||rext||bext)
       {
