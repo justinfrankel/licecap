@@ -31,6 +31,7 @@ WDL_VirtualIconButton::WDL_VirtualIconButton()
   m_alpha=1.0;
   m_checkstate=-1;
   m_textfont=0;
+  m_textfontv=0;
   m_textalign=0;
   m_bgcol1_msg=0;
   m_is_button=true;
@@ -241,14 +242,20 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
 
     }
+
+    LICE_IFont *font = m_textfont;
+    if (font && m_textfontv && m_position.right-m_position.left < m_position.bottom - m_position.top)
+    {
+      font = m_textfontv;
+    }
     // draw text
-    if (m_textfont&&m_textlbl.Get()[0])
+    if (font&&m_textlbl.Get()[0])
     {
       int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
       fgc=LICE_RGBA_FROMNATIVE(fgc,255);
-      //m_textfont->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
-      m_textfont->SetBkMode(TRANSPARENT);
-      m_textfont->SetTextColor(fgc);
+      //font->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
+      font->SetBkMode(TRANSPARENT);
+      font->SetTextColor(fgc);
 
       r2.left += m_margin_l;
       r2.right -= m_margin_r;
@@ -262,7 +269,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         else r2.left+=2;
         r2.top+=2;
       }
-      m_textfont->DrawText(drawbm,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      font->DrawText(drawbm,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
     }
     
   }

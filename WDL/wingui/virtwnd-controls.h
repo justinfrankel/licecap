@@ -113,6 +113,8 @@ class WDL_VirtualIconButton : public WDL_VWnd
 
     void SetForceText(bool ft) { m_forcetext=ft; }
 
+    void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_textfont=font; m_textfontv=vfont; }
+
   private:
 
     void DoSendCommand(int xpos, int ypos);
@@ -131,7 +133,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     bool m_forcetext;
 
     WDL_String m_textlbl;
-    LICE_IFont *m_textfont;
+    LICE_IFont *m_textfont,*m_textfontv;
 };
 
 
