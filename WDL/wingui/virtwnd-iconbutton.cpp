@@ -100,7 +100,7 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
     int sy=0;
     int w=m_iconCfg->olimage->getWidth();
     int h=m_iconCfg->olimage->getHeight();
-    if (m_iconCfg->image_ltrb_used)  { w-=2; h-= 2; sx++,sy++; }
+    if (m_iconCfg->image_ltrb_used.flags&1)  { w-=2; h-= 2; sx++,sy++; }
 
     w/=3;
 
@@ -142,7 +142,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     int w=m_iconCfg->image->getWidth();
     int h=m_iconCfg->image->getHeight();
 
-    if (w>0 && !m_iconCfg->olimage && m_iconCfg->image_ltrb_used)
+    if (w>0 && (m_iconCfg->image_ltrb_used.flags&2))
       w-=2;
 
     w/=3;
@@ -155,15 +155,15 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       }
 
 
-      if (!m_iconCfg->olimage && m_iconCfg->image_ltrb_used)
+      if (m_iconCfg->image_ltrb_used.flags&2)
       {
         WDL_VirtualWnd_BGCfg cfg={0,};
         LICE_SubBitmap sb(m_iconCfg->image,sx+1,sy+1,w,h-2);
         cfg.bgimage = &sb;
-        cfg.bgimage_lt[0] = m_iconCfg->image_ltrb[0];
-        cfg.bgimage_lt[1] = m_iconCfg->image_ltrb[1];
-        cfg.bgimage_rb[0] = m_iconCfg->image_ltrb[2];
-        cfg.bgimage_rb[1] = m_iconCfg->image_ltrb[3];
+        cfg.bgimage_lt[0] = m_iconCfg->image_ltrb_main[0];
+        cfg.bgimage_lt[1] = m_iconCfg->image_ltrb_main[1];
+        cfg.bgimage_rb[0] = m_iconCfg->image_ltrb_main[2];
+        cfg.bgimage_rb[1] = m_iconCfg->image_ltrb_main[3];
         cfg.bgimage_noalphaflags=0;
 
         WDL_VirtualWnd_ScaledBlitBG(drawbm,&cfg,
@@ -844,55 +844,59 @@ bool WDL_VirtualIconButton::WantsPaintOver()
 void WDL_VirtualIconButton::GetPositionPaintOverExtent(RECT *r)
 {
   *r=m_position;
-  if (m_iconCfg && m_iconCfg->image && m_iconCfg->olimage && m_iconCfg->image_ltrb_used)
+  if (m_iconCfg && m_iconCfg->image && m_iconCfg->olimage && (m_iconCfg->image_ltrb_used.flags&1))
   {
-    int w=(m_iconCfg->olimage->getWidth()-2)/3-m_iconCfg->image_ltrb[0]-m_iconCfg->image_ltrb[2];
+    int w=(m_iconCfg->olimage->getWidth()-2)/3-m_iconCfg->image_ltrb_ol[0]-m_iconCfg->image_ltrb_ol[2];
     if (w<1)w=1;
     double wsc=(r->right-r->left)/(double)w;
 
-    int h=m_iconCfg->olimage->getHeight()-2-m_iconCfg->image_ltrb[1]-m_iconCfg->image_ltrb[3];
+    int h=m_iconCfg->olimage->getHeight()-2-m_iconCfg->image_ltrb_ol[1]-m_iconCfg->image_ltrb_ol[3];
     if (h<1)h=1;
     double hsc=(r->bottom-r->top)/(double)h;
 
-    r->left-=(int) (m_iconCfg->image_ltrb[0]*wsc);
-    r->top-=(int) (m_iconCfg->image_ltrb[1]*hsc);
-    r->right+=(int) (m_iconCfg->image_ltrb[2]*wsc);
-    r->bottom+=(int) (m_iconCfg->image_ltrb[3]*hsc);
+    r->left-=(int) (m_iconCfg->image_ltrb_ol[0]*wsc);
+    r->top-=(int) (m_iconCfg->image_ltrb_ol[1]*hsc);
+    r->right+=(int) (m_iconCfg->image_ltrb_ol[2]*wsc);
+    r->bottom+=(int) (m_iconCfg->image_ltrb_ol[3]*hsc);
   }
 }
 void WDL_VirtualIconButton_PreprocessSkinConfig(WDL_VirtualIconButton_SkinConfig *a)
 {
   if (a && a->image)
   {
-    LICE_IBitmap *srcimg = a->olimage ? a->olimage : a->image;
-    a->image_ltrb_used=false;
-    int lext=0,rext=0,bext=0,text=0;
-
-    int w=srcimg->getWidth();
-    int h=srcimg->getHeight();
-
-    if (LICE_GetPixel(srcimg,0,0)==LICE_RGBA(255,0,255,255)&&
-        LICE_GetPixel(srcimg,w-1,h-1)==LICE_RGBA(255,0,255,255))
+    a->image_ltrb_used.flags=0;
+    int wi;
+    for(wi=0;wi<2;wi++)
     {
-      int x;
-      for (x = 1; x < w/3 && LICE_GetPixel(srcimg,x,0)==LICE_RGBA(255,0,255,255); x ++);
-      lext=x-1;
-      for (x = 1; x < h && LICE_GetPixel(srcimg,0,x)==LICE_RGBA(255,0,255,255); x ++);
-      text=x-1;
+      LICE_IBitmap *srcimg = wi ? a->image : a->olimage;
+      if (!srcimg) continue;
+      int w=srcimg->getWidth();
+      int h=srcimg->getHeight();
 
-      for (x = w-2; x > (w*2/3) && LICE_GetPixel(srcimg,x,h-1)==LICE_RGBA(255,0,255,255); x --);
-      rext=w-2-x;
-      for (x = h-2; x > text && LICE_GetPixel(srcimg,w-1,x)==LICE_RGBA(255,0,255,255); x --);
-      bext=h-2-x;
-      if (lext||text||rext||bext)
+      if (LICE_GetPixel(srcimg,0,0)==LICE_RGBA(255,0,255,255)&&
+          LICE_GetPixel(srcimg,w-1,h-1)==LICE_RGBA(255,0,255,255))
       {
-        a->image_ltrb_used=true;
-        a->image_ltrb[0]=lext;
-        a->image_ltrb[1]=text;
-        a->image_ltrb[2]=rext;
-        a->image_ltrb[3]=bext;
+        int lext=0,rext=0,bext=0,text=0;
+        int x;
+        for (x = 1; x < w/3 && LICE_GetPixel(srcimg,x,0)==LICE_RGBA(255,0,255,255); x ++);
+        lext=x-1;
+        for (x = 1; x < h && LICE_GetPixel(srcimg,0,x)==LICE_RGBA(255,0,255,255); x ++);
+        text=x-1;
+
+        for (x = w-2; x > (w*2/3) && LICE_GetPixel(srcimg,x,h-1)==LICE_RGBA(255,0,255,255); x --);
+        rext=w-2-x;
+        for (x = h-2; x > text && LICE_GetPixel(srcimg,w-1,x)==LICE_RGBA(255,0,255,255); x --);
+        bext=h-2-x;
+        if (lext||text||rext||bext)
+        {
+          a->image_ltrb_used.flags |= 1 << wi;
+          short *buf = wi ? a->image_ltrb_main : a->image_ltrb_ol;
+          buf[0]=lext;
+          buf[1]=text;
+          buf[2]=rext;
+          buf[3]=bext;
+        }
       }
     }
-
   }
 }
