@@ -150,6 +150,8 @@ class WDL_VirtualStaticText : public WDL_VWnd
     virtual bool OnMouseDblClick(int xpos, int ypos);
     virtual int OnMouseDown(int xpos, int ypos);
 
+    virtual void GetPositionPaintExtent(RECT *r); // override in case m_bkbm has outer areas
+
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_font=font; m_vfont=vfont; }
     LICE_IFont *GetFont(bool vfont=false) { return vfont?m_vfont:m_font; }

@@ -575,6 +575,29 @@ void WDL_VirtualStaticText::SetText(const char *text)
   }
 }
 
+void WDL_VirtualStaticText::GetPositionPaintExtent(RECT *r)
+{
+  // overridden in case m_bkbm has outer areas
+  *r = m_position;
+  if (m_bkbm && m_bkbm->bgimage)
+  {
+    if (m_bkbm->bgimage_lt[0]>0 &&
+        m_bkbm->bgimage_lt[1]>0 &&
+        m_bkbm->bgimage_rb[0]>0 &&
+        m_bkbm->bgimage_rb[1]>0 &&
+        m_bkbm->bgimage_lt_out[0]>0 &&
+        m_bkbm->bgimage_lt_out[1]>0 &&
+        m_bkbm->bgimage_rb_out[0]>0 &&
+        m_bkbm->bgimage_rb_out[1]>0)
+    {
+      r->left -= m_bkbm->bgimage_lt_out[0]-1;
+      r->top -= m_bkbm->bgimage_lt_out[1]-1;
+      r->right += m_bkbm->bgimage_rb_out[0]-1;
+      r->bottom += m_bkbm->bgimage_rb_out[1]-1;
+    }
+  }
+}
+
 int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 {
   int a = WDL_VWnd::OnMouseDown(xpos,ypos);
