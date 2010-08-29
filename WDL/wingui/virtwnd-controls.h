@@ -159,7 +159,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void SetText(const char *text);
     void SetBorder(bool bor) { m_wantborder=bor; }
     const char *GetText() { return m_text.Get(); }
-    void SetColor(int fg=-1, int bg=-1, bool tint=false) { m_fg=fg; m_bg=bg; m_dotint=tint; }
+    void SetColors(int fg=0, int bg=0, bool tint=false) { m_fg=fg; m_bg=bg; m_dotint=tint; }
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
     void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
     void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
