@@ -650,9 +650,9 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
     if (m_dotint && m_bg>=0) 
     {
-        float rv=GetRValue(m_bg)/255.0f;
-        float gv=GetGValue(m_bg)/255.0f;
-        float bv=GetBValue(m_bg)/255.0f;
+        float rv=LICE_GETR(m_bg)/255.0f;
+        float gv=LICE_GETG(m_bg)/255.0f;
+        float bv=LICE_GETB(m_bg)/255.0f;
 
         float avg=(rv+gv+bv)*0.33333f;
         if (avg<0.05f)avg=0.05f;
@@ -678,7 +678,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
   {
     if (m_bg!=-1)
     {
-      LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,LICE_RGBA_FROMNATIVE(m_bg,255),1.0f,LICE_BLIT_MODE_COPY);
+      LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,m_bg,1.0f,LICE_BLIT_MODE_COPY);
     }
 
     if (m_wantborder)
