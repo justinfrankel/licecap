@@ -650,6 +650,10 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
     if (m_dotint && m_bg>=0) 
     {
+        float amt = LICE_GETA(m_bg)/255.0f;
+
+        // todo: apply amt
+
         float rv=LICE_GETR(m_bg)/255.0f;
         float gv=LICE_GETG(m_bg)/255.0f;
         float bv=LICE_GETB(m_bg)/255.0f;
@@ -678,7 +682,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
   {
     if (m_bg!=-1)
     {
-      LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,m_bg,1.0f,LICE_BLIT_MODE_COPY);
+      LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,m_bg,LICE_GETA(m_bg)/255.0f,LICE_BLIT_MODE_COPY);
     }
 
     if (m_wantborder)
@@ -732,7 +736,9 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
       int tcol=m_fg!=-1 ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
       font->SetTextColor(tcol);
+      if (m_fg != -1 && LICE_GETA(m_fg) != 0xff) font->SetCombineMode(LICE_BLIT_MODE_COPY,LICE_GETA(m_fg)/255.0f);
       font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(m_didalign<0?DT_LEFT:m_didalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      if (m_fg != -1 && LICE_GETA(m_fg) != 0xff) font->SetCombineMode(LICE_BLIT_MODE_COPY,1.0f);
     }
 
 
