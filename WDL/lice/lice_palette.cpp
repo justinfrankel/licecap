@@ -7,8 +7,8 @@
 
 struct ONode
 {
-  WDL_UINT64 colorcount;  // number of color instances at or below this node
-  WDL_UINT64 sumrgb[3];
+  WDL_INT64 colorcount;  // number of color instances at or below this node
+  WDL_INT64 sumrgb[3];
   int childflag;   // 0=leaf, >0=index of single child, <0=branch
   int leafidx;     // populated at the end
   ONode* next;     // for OTree::branches
