@@ -44,7 +44,7 @@ public:
   void SetFilterParms(float filterpos=0.693, float filterq=0.707) { m_filterpos=filterpos; m_filterq=filterq; } // used for filtercnt>0 but not sinc
   void SetFeedMode(bool wantInputDriven) { m_feedmode=wantInputDriven; } // if true, that means the first parameter to ResamplePrepare will specify however much input you have, not how much you want
 
-  void Reset();
+  void Reset(double fracpos=0.0);
   void SetRates(double rate_in, double rate_out);
 
   double GetCurrentLatency(); // amount of input that has been received but not yet converted to output, in seconds

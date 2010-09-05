@@ -183,11 +183,11 @@ WDL_Resampler::~WDL_Resampler()
   delete m_iirfilter;
 }
 
-void WDL_Resampler::Reset()
+void WDL_Resampler::Reset(double fracpos)
 {
   m_last_requested=0;
   m_filtlatency=0;
-  m_fracpos=0.0; 
+  m_fracpos=fracpos; 
   m_samples_in_rsinbuf=0; 
   if (m_iirfilter) m_iirfilter->Reset();   
 }
