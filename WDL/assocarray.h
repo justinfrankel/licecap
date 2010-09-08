@@ -199,6 +199,14 @@ public:
     return a;
   }
 
+  int GetIdx(KEY key)
+  {
+    bool ismatch=false;
+    int i = LowerBound(key, &ismatch);
+    if (ismatch) return i;
+    return -1;
+  }
+
 private:
 
   struct KeyVal
