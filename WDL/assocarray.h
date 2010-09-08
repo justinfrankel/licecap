@@ -45,6 +45,13 @@ public:
     return notfound;
   }
 
+  bool Exists(KEY key)
+  {
+    bool ismatch = false;
+    LowerBound(key, &ismatch);
+    return ismatch;
+  }
+
   void Insert(KEY key, VAL val, KEY *keyPtrOut=NULL) 
   {
     bool ismatch = false;
