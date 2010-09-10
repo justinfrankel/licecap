@@ -522,14 +522,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       m_start_item_clickmode=1;
     }
     
-    if (!m_lbMode)
-    {
-      NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, [self rowAtPoint:pt], [self columnAtPoint:pt], 0, 0, 0, {pt.x, pt.y}, };
-      SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
-      if (row)
-        nmlv.lParam = row->m_param;
-      SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
-    }
+    // send NM_CLICK on mouseup
   }
 }
 
@@ -579,13 +572,23 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       HWND tgt=(HWND)[self target];
       POINT p;
       GetCursorPos(&p);
-      ScreenToClient(tgt,&p);
-      
-      SendMessage(tgt,WM_LBUTTONUP,0,(p.x&0xffff) + (((int)p.y)<<16));
-      
+      ScreenToClient(tgt,&p);      
+      SendMessage(tgt,WM_LBUTTONUP,0,(p.x&0xffff) + (((int)p.y)<<16));      
     }
   }
+  
+  if (!m_lbMode)
+  {
+    NSPoint pt=[theEvent locationInWindow];
+    pt=[self convertPoint:pt fromView:nil];    
+    NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, [self rowAtPoint:pt], [self columnAtPoint:pt], 0, 0, 0, {pt.x, pt.y}, };
+    SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
+    if (row)
+      nmlv.lParam = row->m_param;
+    SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
+  }  
 }
+
 - (void)rightMouseUp:(NSEvent *)theEvent
 {
   bool wantContext=true;
