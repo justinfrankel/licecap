@@ -893,9 +893,9 @@ void WDL_VirtualIconButton_PreprocessSkinConfig(WDL_VirtualIconButton_SkinConfig
         for (x = 1; x < h && LICE_GetPixel(srcimg,0,x)==LICE_RGBA(255,0,255,255); x ++);
         text=x-1;
 
-        for (x = w-2; x > (w*2/3) && LICE_GetPixel(srcimg,x,h-1)==LICE_RGBA(255,0,255,255); x --);
+        for (x = w-2; x >= (w*2/3) && LICE_GetPixel(srcimg,x,h-1)==LICE_RGBA(255,0,255,255); x --);
         rext=w-2-x;
-        for (x = h-2; x > text && LICE_GetPixel(srcimg,w-1,x)==LICE_RGBA(255,0,255,255); x --);
+        for (x = h-2; x >= text && LICE_GetPixel(srcimg,w-1,x)==LICE_RGBA(255,0,255,255); x --);
         bext=h-2-x;
         if (lext||text||rext||bext)
         {
