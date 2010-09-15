@@ -126,16 +126,22 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 {
   if (!m_heapbuf) return;
 
-  char buf[4096];
+  char buf[8192];
   va_list va;
   va_start(va,fmt);
-  // todo: a more compact representation for things such as %f?
-  int l=vsprintf(buf,fmt,va);
+
+#ifdef _WIN32
+  int l = _vsnprintf(buf,sizeof(buf)-1,fmt,va);
+  // returns <0 if too long
+#else
+  int l = vsnprintf(buf,sizeof(buf)-1,fmt,va);
+  // returns >sizeof(buf) if too long
+#endif
   va_end(va);
 
-  if (l<=0) return;
+  if (l < 0 || l >= sizeof(buf)-1) return; // drop long lines
 
-  l++;
+  l++; // include null terminator
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
   if (!m_usecomp)
@@ -315,10 +321,14 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     va_start(va,fmt);
 #ifdef _WIN32
     int buflen = _vsnprintf(buf,sizeof(buf),fmt,va);
+    // returns <0 if too long
 #else
     int buflen = vsnprintf(buf,sizeof(buf),fmt,va);
+    // returns >sizeof(buf) if too long
 #endif
     va_end(va);
+    if (buflen < 0 || buflen >= sizeof(buf)-1) buflen=0; // drop long lines
+    
     err |= m_wr->Write(buf,buflen) != buflen;
     err |= m_wr->Write("\r\n",2) != 2;
     m_bytesOut += 2 + buflen;
