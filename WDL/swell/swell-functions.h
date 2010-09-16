@@ -767,6 +767,11 @@ SWELL_API_DEFINE(void, SWELL_SetCursor,(HCURSOR curs))
 #define ScrollWindowEx(a,b,c,d,e,f,g,h) ScrollWindow(a,b,c,d,e)
 
 
+/*
+** Globally enable or disable emulating mouse right-click using control+left-click
+*/
+SWELL_API_DEFINE(void, SWELL_EnableRightClickEmulate, (BOOL enable))
+
 
 /*
 ** GetCursor() gets the actual system cursor,

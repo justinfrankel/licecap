@@ -626,4 +626,6 @@ typedef struct
 } SWELL_InternalObjectHeader_NSTask;
 
 
+bool IsRightClickEmulateEnabled();
+
 #endif

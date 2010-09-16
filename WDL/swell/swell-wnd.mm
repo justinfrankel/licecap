@@ -351,7 +351,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(void)mouseDown:(NSEvent *)theEvent
 {
-  if (([theEvent modifierFlags] & NSControlKeyMask))
+  if (([theEvent modifierFlags] & NSControlKeyMask) && IsRightClickEmulateEnabled())
   {
     m_fakerightmouse=1;  
   }
@@ -502,7 +502,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(void)mouseDown:(NSEvent *)theEvent
 {
-  if (([theEvent modifierFlags] & NSControlKeyMask))
+  if (([theEvent modifierFlags] & NSControlKeyMask) && IsRightClickEmulateEnabled())
   {
     m_fakerightmouse=1;  
     m_start_item=-1;

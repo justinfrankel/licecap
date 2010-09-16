@@ -1031,7 +1031,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if (!m_enabled) return;  
   
   m_isfakerightmouse=0;
-  if ([theEvent modifierFlags] & NSControlKeyMask)
+  if (([theEvent modifierFlags] & NSControlKeyMask) && IsRightClickEmulateEnabled())
   {
     [self rightMouseDown:theEvent];
     if ([theEvent clickCount]<2) m_isfakerightmouse=1;

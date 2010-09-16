@@ -497,6 +497,17 @@ BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 
+static bool s_rightclickemulate=true;
+
+bool IsRightClickEmulateEnabled()
+{
+  return s_rightclickemulate;
+}
+
+void SWELL_EnableRightClickEmulate(BOOL enable)
+{
+  s_rightclickemulate=enable;
+}
 
 
 #endif
