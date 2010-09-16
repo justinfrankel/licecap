@@ -1265,7 +1265,20 @@ void EnableWindow(HWND hwnd, int enable)
   id bla=(id)hwnd;
   if ([bla isKindOfClass:[NSWindow class]]) bla = [bla contentView];
     
-  if (bla && [bla respondsToSelector:@selector(setEnabled:)]) [bla setEnabled:(enable?YES:NO)];
+  if (bla && [bla respondsToSelector:@selector(setEnabled:)])
+  {
+    [bla setEnabled:(enable?YES:NO)];
+    if ([bla isKindOfClass:[SWELL_TextField class]])
+    {
+      NSTextField* txt = (NSTextField*)bla;
+      if (![txt isEditable] && ![txt isBordered] && ![txt drawsBackground]) // looks like a static text control
+      {
+        NSColor* col = [txt textColor];
+        float alpha = (enable ? 1.0f : 0.5f);
+        [txt setTextColor:[col colorWithAlphaComponent:alpha]];
+      }
+    }    
+  }
 }
 
 void SetForegroundWindow(HWND hwnd)
