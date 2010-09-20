@@ -2722,6 +2722,16 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
           }
           else if (passflags&1)
           {
+            if ([v isKindOfClass:[NSScrollView class]])
+            {
+              NSView *sv = [(NSScrollView *)v contentView];
+              if (sv)
+              {
+                [v retain];
+                needdraws->Add(v);
+                v=sv;
+              }
+            }
             [v retain];
             if (!doforce && ![v isOpaque]) 
             {
