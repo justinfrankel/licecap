@@ -4066,7 +4066,12 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
     }
     if (r)
     {
-      [sv setNeedsDisplayInRect:NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top)]; 
+      RECT tr=*r;
+      if (tr.top>tr.bottom)
+      {
+        int a = tr.top; tr.top=tr.bottom; tr.bottom=a;
+      }
+      [sv setNeedsDisplayInRect:NSMakeRect(tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top)]; 
     }
     else [sv setNeedsDisplay:YES];
     
