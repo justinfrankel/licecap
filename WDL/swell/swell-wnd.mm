@@ -2319,16 +2319,18 @@ void ShowWindow(HWND hwnd, int cmd)
         }
         if (![((NSView *)pid) isHidden])
         {
-          HWND par = GetParent((HWND)pid);
-          if (par)
+          if ((NSView *)pid != [pw contentView])
           {
-            RECT r;
-            GetWindowRect((HWND)pid,&r);
-            ScreenToClient(par,(LPPOINT)&r);
-            ScreenToClient(par,((LPPOINT)&r)+1);
-            InvalidateRect(par,&r,FALSE);
+            HWND par = (HWND) [(NSView *)pid superview];
+            if (par)
+            {
+              RECT r;
+              GetWindowRect((HWND)pid,&r);
+              ScreenToClient(par,(LPPOINT)&r);
+              ScreenToClient(par,((LPPOINT)&r)+1);
+              InvalidateRect(par,&r,FALSE);
+            }
           }
-
           [((NSView *)pid) setHidden:YES];
         }
     }
