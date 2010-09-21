@@ -1052,6 +1052,34 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
   return 0;
 }
 
+static bool IsWindowImpl(NSView *ch, NSView *par)
+{
+  if (!par) return false;
+  NSArray *ar = [par subviews];
+  if (!ar) return false;
+  int x,n=[ar count];
+  for (x=0;x<n;x++)
+    if ([ar objectAtIndex:x] == ch) return true;
+  for (x=0;x<n;x++)
+    if (IsWindowImpl(ch,[ar objectAtIndex:x])) return true;
+  return false;
+}
+bool IsWindow(HWND hwnd)
+{
+  if (!hwnd) return false;
+  // this is very costly, but required
+  NSArray *ch=[NSApp windows];
+  int x,n=[ch count];
+  for(x=0;x<n; x ++)
+  {
+    NSWindow *w = [ch objectAtIndex:x]; 
+    if (w == (NSWindow *)hwnd || [w contentView] == (NSView *)hwnd) return true;
+  }
+  for(x=0;x<n; x ++)
+    if (IsWindowImpl((NSView*)hwnd,[[ch objectAtIndex:x] contentView])) return true;
+  return false;
+}
+
 bool IsWindowVisible(HWND hwnd)
 {
   if (!hwnd) return false;
