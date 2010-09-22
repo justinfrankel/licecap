@@ -1141,16 +1141,20 @@ void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
 
       if (*chptr != 255)
       {
-        if (isFull)
+        if (isFull) 
         {
           flags=0;
           break;
         }
-        flags &= ~(1<<(ystate*4 + xstate));
+        else 
+        {
+          flags &= ~(1<<(ystate*4 + xstate));
+          if (!flags) break;
+        }
       }
       chptr+=4;
     }
-    if (x<w) break;
+    if (!flags) break;
 
     ch += span;
   }
