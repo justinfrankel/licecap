@@ -1120,8 +1120,12 @@ void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
   }
 
   // points at which we change to the next block
-  int xdivs[3] = { a->bgimage_lt[0]+a->bgimage_lt_out[0]-2, w-a->bgimage_rb[0]-a->bgimage_rb_out[0]+1, w-a->bgimage_rb_out[0]+1};
-  int ydivs[3] = { a->bgimage_lt[1]+a->bgimage_lt_out[1]-2, h-a->bgimage_rb[1]-a->bgimage_rb_out[1]+1, h-a->bgimage_rb_out[1]+1};
+  int xdivs[3] = { a->bgimage_lt[0]+a->bgimage_lt_out[0]-2, 
+                   w-a->bgimage_rb[0]-a->bgimage_rb_out[0]+2, 
+                   w-a->bgimage_rb_out[0]+1};
+  int ydivs[3] = { a->bgimage_lt[1]+a->bgimage_lt_out[1]-2, 
+                   h-a->bgimage_rb[1]-a->bgimage_rb_out[1]+2, 
+                   h-a->bgimage_rb_out[1]+1};
 
   int y,ystate=0;
   for(y=0;y<h;y++)
