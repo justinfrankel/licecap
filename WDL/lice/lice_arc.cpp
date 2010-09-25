@@ -302,43 +302,51 @@ public:
   static void DrawArc(LICE_IBitmap* dest, float cx, float cy, float rad, float anglo, float anghi,
     LICE_pixel color, int ialpha, bool aa)
   {
+    if (anghi < anglo) return;
+    
     if (anghi-anglo >= 2.0f*_PI) 
     {
       DrawCircle(dest, cx, cy, rad, color, ialpha, aa, false);
       return;
-    } 
+    }
+     
+    if (anglo < 0.0f && anghi < 0.0f)
+    {
+      anglo += 2.0*_PI;
+      anghi += 2.0*_PI;
+    }
+    
     if (anglo < 0.0f && anghi > 0.0f)
     {   
       DrawArc(dest, cx, cy, rad, anglo+2.0*_PI, 2.0*_PI, color, ialpha, aa);
-      DrawArc(dest, cx, cy, rad, 0.0f, anghi, color, ialpha, aa);
-      return;
+      anglo=0.0f;
     }
+    
     if (anglo < _PI && anghi > _PI)
     {
       DrawArc(dest, cx, cy, rad, anglo, _PI, color, ialpha, aa);
-      DrawArc(dest, cx, cy, rad, _PI, anghi, color, ialpha, aa);
-      return;
+      anglo=_PI;
     }
 
     int w = dest->getWidth();
     int h = dest->getHeight();
     int ylo = (int) (cy-rad*cos(anglo)+0.5);
     int yhi = (int) (cy-rad*cos(anghi)+0.5);
-
+      
+    if (yhi < ylo) { int tmp = ylo; ylo = yhi; yhi=tmp; }
+    
     int clip[4];
+    clip[1] = max(0, ylo);
+    clip[3] = min(h, yhi+1);
     if (anglo >= 0.0 && anglo < _PI)
     {
       clip[0] = max(0, cx);
-      clip[1] = max(0, ylo);
       clip[2] = w;
-      clip[3] = min(h, yhi+1);
     }
     else
     {
       clip[0] = 0;
-      clip[1] = max(0, yhi);
       clip[2] = min(w, cx);
-      clip[3] = min(h, ylo+1);
     }
 
     if (aa) DrawClippedCircleAA(dest, cx, cy, rad, clip, color, ialpha, false, true);
