@@ -333,7 +333,7 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
      
   if (anglo < 0.0f && anghi > 0.0f)
   {   
-    __DrawArc(w,h,dest, cx, cy, rad, anglo+2.0*_PI, 2.0*_PI, color, ialpha, aa,mode);
+    __DrawArc(w,h,dest, cx, cy, rad, anglo+2.0f*_PI, 2.0f*_PI, color, ialpha, aa,mode);
     anglo=0.0f;
   }
   
@@ -348,18 +348,15 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
     
   if (yhi < ylo) { int tmp = ylo; ylo = yhi; yhi=tmp; }
   
-  int clip[4];
-  clip[1] = max(0, ylo);
-  clip[3] = min(h, yhi+1);
-  if (sin(anglo) >= 0.0)
+  int clip[4]={0,max(0, ylo),w,min(h, yhi+1)};
+
+  if (anglo < -_PI || (anglo >= 0.0f && anglo < _PI))
   {
-    clip[0] = max(0, cx);
-    clip[2] = w;
+    if (cx>0) clip[0]=cx;
   }
   else
   {
-    clip[0] = 0;
-    clip[2] = min(w, cx);
+    if (cx<w) clip[2]=cx;
   }
 
   __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
