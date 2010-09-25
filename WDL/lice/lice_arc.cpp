@@ -302,20 +302,14 @@ public:
   static void DrawArc(LICE_IBitmap* dest, float cx, float cy, float rad, float anglo, float anghi,
     LICE_pixel color, int ialpha, bool aa)
   {
-    if (anghi < anglo) return;
-    
-    if (anghi-anglo >= 2.0f*_PI) 
-    {
-      DrawCircle(dest, cx, cy, rad, color, ialpha, aa, false);
-      return;
+    // -2PI <= anglo <= anghi <= 2PI
+
+    if (anglo < -_PI && anghi > -_PI)
+    {   
+      DrawArc(dest, cx, cy, rad, anglo, -_PI, color, ialpha, aa);
+      anglo=-_PI;
     }
-     
-    if (anglo < 0.0f && anghi < 0.0f)
-    {
-      anglo += 2.0*_PI;
-      anghi += 2.0*_PI;
-    }
-    
+       
     if (anglo < 0.0f && anghi > 0.0f)
     {   
       DrawArc(dest, cx, cy, rad, anglo+2.0*_PI, 2.0*_PI, color, ialpha, aa);
@@ -338,7 +332,7 @@ public:
     int clip[4];
     clip[1] = max(0, ylo);
     clip[3] = min(h, yhi+1);
-    if (anglo >= 0.0 && anglo < _PI)
+    if (sin(anglo) >= 0.0)
     {
       clip[0] = max(0, cx);
       clip[2] = w;
@@ -370,6 +364,34 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
 	LICE_pixel color, float alpha, int mode, bool aa)
 {
   if (dest->isFlipped()) { cy=dest->getHeight()-1-cy; minAngle=_PI-minAngle; maxAngle=_PI-maxAngle; }
+
+  if (maxAngle < minAngle)
+  {
+    float tmp=maxAngle; 
+    maxAngle=minAngle;
+    minAngle=tmp;
+  }
+
+  if (maxAngle - minAngle >= 2.0f*_PI) 
+  {
+    LICE_Circle(dest,cx,cy,r,color,alpha,mode,aa);
+    return;
+  }
+
+  if (maxAngle >= 2.0f*_PI)
+  {
+    float tmp = fmod(maxAngle,2.0f*_PI);
+    minAngle -= maxAngle - tmp; // reduce by factors of 2PI 
+    maxAngle = tmp;
+  }
+  else if (minAngle <= -2.0f*_PI)
+  {
+    float tmp = fmod(minAngle,2.0f*_PI);
+    maxAngle -= minAngle - tmp; // toward zero by factors of 2pi
+    minAngle = tmp;
+  }
+
+  // -2PI <= minAngle <= maxAngle <= 2PI
 
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
