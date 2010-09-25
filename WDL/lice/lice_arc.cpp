@@ -347,18 +347,25 @@ public:
     else DrawClippedCircle(dest, cx, cy, rad, clip, color, ialpha, false, true);
   }
 
-  static void DrawCircle(LICE_IBitmap* dest, float cx, float cy, float rad,
-    LICE_pixel color, int ialpha, bool aa, bool filled)
-  {
-    int w = dest->getWidth(), h = dest->getHeight();
-    int clip[4] = { 0, 0, w, h };
-
-    bool doclip = (cx-rad-1 < 0 || cy-rad-1 < 0 || cx+rad+1 >= w || cy+rad+1 >= h);
-    if (aa) DrawClippedCircleAA(dest, cx, cy, rad, clip, color, ialpha, filled, doclip);
-    else DrawClippedCircle(dest, cx, cy, rad, clip, color, ialpha, filled, doclip);
-  }
-
 };
+
+static void __DrawCircle(LICE_IBitmap* dest, float cx, float cy, float rad,
+  LICE_pixel color, int ia, bool aa, bool filled, int mode, int *clip, bool doclip)
+{
+  if (aa) 
+  {
+    #define __LICE__ACTION(COMBFUNC) _LICE_CircleDrawer<COMBFUNC>::DrawClippedCircleAA(dest, cx, cy, rad, clip, color, ia, filled, doclip)
+      __LICE_ACTION_NOSRCALPHA(mode, ia,false)
+    #undef __LICE__ACTION
+  }
+  else 
+  {
+    #define __LICE__ACTION(COMBFUNC) _LICE_CircleDrawer<COMBFUNC>::DrawClippedCircle(dest, cx, cy, rad, clip, color, ia, filled, doclip)
+      __LICE_ACTION_CONSTANTALPHA(mode,ia,false)
+    #undef __LICE__ACTION
+  }
+}
+
 
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
 	LICE_pixel color, float alpha, int mode, bool aa)
@@ -401,30 +408,39 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
 #undef __LICE__ACTION
 }
 
+
+
+
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
+  if (!dest) return;
   if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa)) return;  
 
   if (dest->isFlipped()) cy=dest->getHeight()-1-cy;
 
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
-#define __LICE__ACTION(COMBFUNC) _LICE_CircleDrawer<COMBFUNC>::DrawCircle(dest, cx, cy, r, color, ia, aa, false)
-  if (aa) { __LICE_ACTION_NOSRCALPHA(mode, ia,false) }
-  else { __LICE_ACTION_CONSTANTALPHA(mode,ia,false) }
-#undef __LICE__ACTION
+
+  int w = dest->getWidth(), h = dest->getHeight();
+  int clip[4] = { 0, 0, w, h };
+
+  bool doclip = (cx-r-1 < 0 || cy-r-1 < 0 || cx+r+1 >= w || cy+r+1 >= h);
+
+  __DrawCircle(dest,cx,cy,r,color,ia,aa,false,mode,clip,doclip);
 }
 
 void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
+  if (!dest) return;
   if (dest->isFlipped()) cy=dest->getHeight()-1-cy;
 
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
-#define __LICE__ACTION(COMBFUNC) _LICE_CircleDrawer<COMBFUNC>::DrawCircle(dest, cx, cy, r, color, ia, aa, true)
-  if (aa) { __LICE_ACTION_NOSRCALPHA(mode, ia,false) }
-  else { __LICE_ACTION_CONSTANTALPHA(mode,ia,false) }
-#undef __LICE__ACTION
+  int w = dest->getWidth(), h = dest->getHeight();
+  int clip[4] = { 0, 0, w, h };
+
+  bool doclip = (cx-r-1 < 0 || cy-r-1 < 0 || cx+r+1 >= w || cy+r+1 >= h);
+  __DrawCircle(dest,cx,cy,r,color,ia,aa,true,mode,clip,doclip);
 }
 
 
