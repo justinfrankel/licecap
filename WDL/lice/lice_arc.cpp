@@ -322,8 +322,8 @@ public:
 
     int w = dest->getWidth();
     int h = dest->getHeight();
-    int ylo = cy-rad*cos(anglo);
-    int yhi = cy-rad*cos(anghi);
+    int ylo = (int) (cy-rad*cos(anglo)+0.5);
+    int yhi = (int) (cy-rad*cos(anghi)+0.5);
 
     int clip[4];
     if (anglo >= 0.0 && anglo < _PI)
