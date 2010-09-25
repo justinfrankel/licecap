@@ -304,6 +304,7 @@ public:
 static void __DrawCircleClipped(LICE_IBitmap* dest, float cx, float cy, float rad,
   LICE_pixel color, int ia, bool aa, bool filled, int mode, int *clip, bool doclip)
 {
+  // todo: more clipped/filled versions (to optimize constants out?)
   if (aa) 
   {
     #define __LICE__ACTION(COMBFUNC) _LICE_CircleDrawer<COMBFUNC>::DrawClippedCircleAA(dest, cx, cy, rad, clip, color, ia, filled, doclip)
