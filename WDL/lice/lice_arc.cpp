@@ -319,31 +319,29 @@ static void __DrawCircleClipped(LICE_IBitmap* dest, float cx, float cy, float ra
 }
 
 
-static void __DrawArc(LICE_IBitmap* dest, float cx, float cy, float rad, float anglo, float anghi,
+static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, float rad, float anglo, float anghi,
   LICE_pixel color, int ialpha, bool aa, int mode)
 {
   // -2PI <= anglo <= anghi <= 2PI
 
   if (anglo < -_PI && anghi > -_PI)
   {   
-    __DrawArc(dest, cx, cy, rad, anglo, -_PI, color, ialpha, aa,mode);
+    __DrawArc(w,h,dest, cx, cy, rad, anglo, -_PI, color, ialpha, aa,mode);
     anglo=-_PI;
   }
      
   if (anglo < 0.0f && anghi > 0.0f)
   {   
-    __DrawArc(dest, cx, cy, rad, anglo+2.0*_PI, 2.0*_PI, color, ialpha, aa,mode);
+    __DrawArc(w,h,dest, cx, cy, rad, anglo+2.0*_PI, 2.0*_PI, color, ialpha, aa,mode);
     anglo=0.0f;
   }
   
   if (anglo < _PI && anghi > _PI)
   {
-    __DrawArc(dest, cx, cy, rad, anglo, _PI, color, ialpha, aa,mode);
+    __DrawArc(w,h,dest, cx, cy, rad, anglo, _PI, color, ialpha, aa,mode);
     anglo=_PI;
   }
 
-  int w = dest->getWidth();
-  int h = dest->getHeight();
   int ylo = (int) (cy-rad*cos(anglo)+0.5);
   int yhi = (int) (cy-rad*cos(anghi)+0.5);
     
@@ -404,7 +402,7 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
 
-  __DrawArc(dest,cx,cy,r,minAngle,maxAngle,color,ia,aa,mode);
+  __DrawArc(dest->getWidth(),dest->getHeight(),dest,cx,cy,r,minAngle,maxAngle,color,ia,aa,mode);
 }
 
 
