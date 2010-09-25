@@ -326,7 +326,7 @@ public:
     int yhi = cy-rad*cos(anghi);
 
     int clip[4];
-    if (anglo <= _PI)
+    if (anglo >= 0.0 && anglo < _PI)
     {
       clip[0] = max(0, cx);
       clip[1] = max(0, ylo);
