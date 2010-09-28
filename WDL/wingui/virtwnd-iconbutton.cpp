@@ -41,6 +41,7 @@ WDL_VirtualIconButton::WDL_VirtualIconButton()
   m_grayed = false;
   m_forceborder=false;
   m_forcetext=false;
+  m_forcetext_color=0;
   m_ownsicon=false;
   m_immediate=false;
   m_margin_r = m_margin_l = 0;
@@ -273,8 +274,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     // draw text
     if (font&&m_textlbl.Get()[0])
     {
-      int fgc=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-      fgc=LICE_RGBA_FROMNATIVE(fgc,255);
+      int fgc=m_forcetext_color ? m_forcetext_color : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT),255);
       //font->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
       font->SetBkMode(TRANSPARENT);
       font->SetTextColor(fgc);

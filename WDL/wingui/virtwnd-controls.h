@@ -111,7 +111,8 @@ class WDL_VirtualIconButton : public WDL_VWnd
     WDL_VirtualIconButton_SkinConfig* GetIcon() { return m_iconCfg; } // note button does not own m_iconCfg
     bool ButtonOwnsIcon() { return m_ownsicon; }
 
-    void SetForceText(bool ft) { m_forcetext=ft; }
+    void SetForceText(bool ft, int color=0) { m_forcetext=ft; m_forcetext_color=color; }
+    bool GetForceText() { return m_forcetext; }
 
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_textfont=font; m_textfontv=vfont; }
 
@@ -131,6 +132,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     char m_textalign;
     char m_checkstate;
     bool m_forcetext;
+    int m_forcetext_color;
 
     WDL_String m_textlbl;
     LICE_IFont *m_textfont,*m_textfontv;
