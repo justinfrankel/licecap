@@ -19,6 +19,7 @@ CFG=lice - Win32 Debug
 !MESSAGE 
 !MESSAGE "lice - Win32 Release" (based on "Win32 (x86) Static Library")
 !MESSAGE "lice - Win32 Debug" (based on "Win32 (x86) Static Library")
+!MESSAGE "lice - Win32 Release Profile" (based on "Win32 (x86) Static Library")
 !MESSAGE 
 
 # Begin Project
@@ -74,12 +75,37 @@ LIB32=xilink6.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "lice___Win32_Release_Profile"
+# PROP BASE Intermediate_Dir "lice___Win32_Release_Profile"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "Release_Profile"
+# PROP Intermediate_Dir "Release_Profile"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /Zi /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /FR /FD /c
+# SUBTRACT CPP /YX
+# ADD BASE RSC /l 0x409 /d "NDEBUG"
+# ADD RSC /l 0x409 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=xilink6.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+
 !ENDIF 
 
 # Begin Target
 
 # Name "lice - Win32 Release"
 # Name "lice - Win32 Debug"
+# Name "lice - Win32 Release Profile"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
@@ -458,6 +484,11 @@ SOURCE=..\giflib\dgif_lib.c
 
 # ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+
 !ENDIF 
 
 # End Source File
@@ -473,6 +504,11 @@ SOURCE=..\giflib\egif_lib.c
 
 # ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+
 !ENDIF 
 
 # End Source File
@@ -487,6 +523,11 @@ SOURCE=..\giflib\gif_hash.c
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
 # ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -514,6 +555,11 @@ SOURCE=..\giflib\gifalloc.c
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
 # ADD CPP /I "../giflib" /D "HAVE_CONFIG_H"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -557,6 +603,11 @@ SOURCE=.\lice.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -569,6 +620,11 @@ SOURCE=.\lice_arc.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -583,6 +639,11 @@ SOURCE=.\lice_bmp.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -595,6 +656,11 @@ SOURCE=.\lice_colorspace.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -609,6 +675,11 @@ SOURCE=.\lice_gif.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -621,6 +692,11 @@ SOURCE=.\lice_gl_ctx.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -635,6 +711,11 @@ SOURCE=.\lice_glbitmap.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -647,6 +728,11 @@ SOURCE=.\lice_ico.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -661,6 +747,11 @@ SOURCE=.\lice_jpg.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -674,6 +765,11 @@ SOURCE=.\lice_jpg_write.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -686,6 +782,11 @@ SOURCE=.\lice_line.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -704,6 +805,11 @@ SOURCE=.\lice_pcx.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -716,6 +822,11 @@ SOURCE=.\lice_png.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -730,6 +841,11 @@ SOURCE=.\lice_png_write.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -742,6 +858,11 @@ SOURCE=.\lice_svg.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
@@ -756,6 +877,11 @@ SOURCE=.\lice_texgen.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -769,6 +895,11 @@ SOURCE=.\lice_text.cpp
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
+
 !ENDIF 
 
 # End Source File
@@ -781,6 +912,11 @@ SOURCE=.\lice_textnew.cpp
 # ADD CPP /D "USE_ICC"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+# ADD BASE CPP /D "USE_ICC"
+# ADD CPP /D "USE_ICC"
 
 !ENDIF 
 
