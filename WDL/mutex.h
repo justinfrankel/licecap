@@ -59,6 +59,10 @@ class WDL_Mutex {
   public:
     WDL_Mutex() 
     {
+#ifdef _DEBUG
+      _debug_cnt=0;
+#endif
+
 #ifdef _WIN32
       InitializeCriticalSection(&m_cs);
 #else
@@ -86,6 +90,10 @@ class WDL_Mutex {
 
     void Enter()
     {
+#ifdef _DEBUG
+      _debug_cnt++;
+#endif
+
 #ifdef _WIN32
       EnterCriticalSection(&m_cs);
 #else
@@ -106,6 +114,9 @@ class WDL_Mutex {
 
     void Leave()
     {
+#ifdef _DEBUG
+      _debug_cnt--;
+#endif
 #ifdef _WIN32
       LeaveCriticalSection(&m_cs);
 #else
@@ -120,6 +131,10 @@ class WDL_Mutex {
 #endif
 #endif
     }
+
+#ifdef _DEBUG
+  int _debug_cnt;
+#endif
 
   private:
 #ifdef _WIN32
