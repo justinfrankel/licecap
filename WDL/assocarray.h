@@ -100,7 +100,7 @@ public:
     }
   }
 
-  void DeleteAll()
+  void DeleteAll(bool resizedown=false)
   {
     if (m_keydispose || m_valdispose)
     {
@@ -112,7 +112,7 @@ public:
         if (m_valdispose) m_valdispose(kv->val);
       }
     }
-    m_data.Resize(0);
+    m_data.Resize(0, resizedown);
   }
 
   int GetSize()

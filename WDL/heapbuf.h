@@ -293,6 +293,14 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
 
+    PTRTYPE *Add(PTRTYPE val) 
+    {
+      int sz=GetSize(); 
+      PTRTYPE *p=Resize(sz+1);
+      if (p) p[sz]=val; 
+      return p; 
+    }
+
   private:
     WDL_HeapBuf m_hb;
 };
