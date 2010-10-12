@@ -5099,6 +5099,25 @@ bool SWELL_HandleMouseEvent(NSEvent *evt)
   return false;
 }
 
+int SWELL_GetWindowWantRaiseAmt(HWND h)
+{
+  SWELL_ModelessWindow* mw=0;
+  if ([(id)h isKindOfClass:[SWELL_ModelessWindow class]])
+  {
+    mw=(SWELL_ModelessWindow*)h;
+  }
+  else if ([(id)h isKindOfClass:[NSView class]])
+  {
+    NSWindow* wnd=[(NSView*)h window];
+    if (wnd && [wnd isKindOfClass:[SWELL_ModelessWindow class]])
+    {
+      mw=(SWELL_ModelessWindow*)wnd;
+    }
+  }
+  if (mw) return mw->m_wantraiseamt;  
+  return 0; 
+}
+
 void SWELL_SetWindowWantRaiseAmt(HWND h, int  amt)
 {
   SWELL_ModelessWindow *mw=NULL;
