@@ -13,6 +13,10 @@ typedef unsigned long long WDL_UINT64;
 
 #endif
 
+#define WDL_UINT64_CONST(x) ((WDL_UINT64)(x))
+#define WDL_INT64_CONST(x) ((WDL_INT64)(x))
+
+
 #if !defined(_MSC_VER) ||  _MSC_VER > 1200
 #define WDL_DLGRET INT_PTR CALLBACK
 #else
