@@ -1886,14 +1886,14 @@ void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,
 template <class COMBFUNC> class GlyphDrawImpl
 {
 public:
-  static void DrawGlyph(LICE_pixel_chan* srcalpha, LICE_pixel* destpx, int src_w, int src_h, LICE_pixel color,  int span, int src_span, int aa)
+  static void DrawGlyph(const LICE_pixel_chan* srcalpha, LICE_pixel* destpx, int src_w, int src_h, LICE_pixel color,  int span, int src_span, int aa)
   {
 
     int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
 
     int xi, yi;
     for (yi = 0; yi < src_h; ++yi, srcalpha += src_span, destpx += span) {
-      LICE_pixel_chan* tsrc = srcalpha;
+      const LICE_pixel_chan* tsrc = srcalpha;
       LICE_pixel* tdest = destpx;
       for (xi = 0; xi < src_w; ++xi, ++tsrc, ++tdest) {
         if (*tsrc) {  // glyphs should be expected to have a lot of "holes"
@@ -1904,7 +1904,7 @@ public:
   }
 };
 
-void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
+void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
 {
   if (!dest) return;
 
@@ -1947,7 +1947,7 @@ void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, LICE_pix
     destpx += y*dest->getRowSpan()+x;
   }
 
-  LICE_pixel_chan* srcalpha = alphas+src_y*glyph_w+src_x;
+  const LICE_pixel_chan* srcalpha = alphas+src_y*glyph_w+src_x;
 
 #define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(srcalpha,destpx, src_w, src_h, color,span,glyph_w,ia)
 	__LICE_ACTION_NOSRCALPHA(mode, ia, false);
