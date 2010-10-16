@@ -69,7 +69,7 @@ struct LICE_Ext_DrawGlyph_acceldata
   int x;
   int y;
   LICE_pixel color;
-  LICE_pixel_chan* alphas;
+  const LICE_pixel_chan* alphas;
   int glyph_w, glyph_h;
   float alpha;
   int mode;

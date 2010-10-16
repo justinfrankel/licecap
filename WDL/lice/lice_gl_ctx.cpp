@@ -19,7 +19,7 @@ public:
 
   GLUnurbsObj* GetNurbsObj(int linetol=8);  // linetol = maximum number of straight-line pixels
 
-  int GetTexFromGlyph(unsigned char* glyph, int glyph_w, int glyph_h);
+  int GetTexFromGlyph(const unsigned char* glyph, int glyph_w, int glyph_h);
   void ClearTex();
 
   struct GlyphCache
@@ -197,13 +197,13 @@ static int _glyphcmp(const void* p1, const void* p2)
   return memcmp(gc1->glyph, gc2->glyph, gc1->glyph_w*gc1->glyph_h);
 }
 
-int LICE_GL_ctx::GetTexFromGlyph(unsigned char* glyph, int glyph_w, int glyph_h)
+int LICE_GL_ctx::GetTexFromGlyph(const unsigned char* glyph, int glyph_w, int glyph_h)
 {
   if (!IsValid()) return false;
 
   GlyphCache gc;
   gc.tex = 0;
-  gc.glyph = glyph;
+  gc.glyph = (unsigned char *)glyph;
   gc.glyph_w = glyph_w;
   gc.glyph_h = glyph_h;
 
@@ -252,7 +252,7 @@ GLUnurbsObj* LICE_GL_GetNurbsObj(int linetol)  // linetol = maximum number of st
   return s_glctx.GetNurbsObj(linetol);
 }
 
-GLuint LICE_GL_GetTexFromGlyph(unsigned char* glyph, int glyph_w, int glyph_h)
+GLuint LICE_GL_GetTexFromGlyph(const unsigned char* glyph, int glyph_w, int glyph_h)
 {
   return s_glctx.GetTexFromGlyph(glyph, glyph_w, glyph_h);
 }
