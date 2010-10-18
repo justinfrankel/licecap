@@ -5157,6 +5157,19 @@ void SetOpaque(HWND h, bool opaque)
   [v setOpaque:opaque];
 }
 
+void SetTransparent(HWND h)
+{
+  if (!h) return;
+  NSWindow* wnd=0;
+  if ([(id)h isKindOfClass:[NSWindow class]]) wnd=(NSWindow*)h;
+  else if ([(id)h isKindOfClass:[NSView class]]) wnd=[(NSView*)h window];
+  if (wnd) 
+  {
+    [wnd setBackgroundColor:[NSColor clearColor]];
+    [wnd setOpaque:NO];
+  }  
+}
+
 int SWELL_GetDefaultButtonID(HWND hwndDlg, bool onlyIfEnabled)
 {
   if (![(id)hwndDlg isKindOfClass:[NSView class]]) return 0;
