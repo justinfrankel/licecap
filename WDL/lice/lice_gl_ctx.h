@@ -21,7 +21,7 @@ void LICE_GL_CloseCtx();  // Something failed, turn off GL context forever so we
 GLUnurbsObj* LICE_GL_GetNurbsObj(int linetol=8);  // linetol = maximum number of straight-line pixels
 
 // facility for associating a glyph with a texture
-GLuint LICE_GL_GetTexFromGlyph(unsigned char* glyph, int glyph_w, int glyph_h); 
+GLuint LICE_GL_GetTexFromGlyph(const unsigned char* glyph, int glyph_w, int glyph_h); 
 void LICE_GL_ClearTex();
 
 #endif

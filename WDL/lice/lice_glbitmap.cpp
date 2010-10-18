@@ -464,7 +464,7 @@ bool LICE_GLBitmap::DrawGlyph_accel(LICE_Ext_DrawGlyph_acceldata* p)
 
   glEnable(GL_TEXTURE_RECTANGLE_ARB);
 
-  int texID = LICE_GL_GetTexFromGlyph((unsigned char*)p->alphas, p->glyph_w, p->glyph_h);
+  int texID = LICE_GL_GetTexFromGlyph(p->alphas, p->glyph_w, p->glyph_h);
   if (!texID) return false;
   
   SetGLColor(p->color, p->alpha, p->mode);
