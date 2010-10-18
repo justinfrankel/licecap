@@ -489,6 +489,9 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 // vertical fill from y=yfill
 void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
   float xctl2, float yctl2, float xend, float yend, int yfill, LICE_pixel color, float alpha=1.0f, int mode=0, float tol=0.0f); 
+// horizontal fill from x=xfill
+void LICE_FillCBezierX(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
+  float xctl2, float yctl2, float xend, float yend, int xfill, LICE_pixel color, float alpha=1.0f, int mode=0, float tol=0.0f); 
 
 // convenience functions
 void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha=1.0f, int mode=0);

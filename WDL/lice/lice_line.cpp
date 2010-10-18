@@ -883,8 +883,6 @@ bool LICE_ClipFLine(float* px1, float* py1, float* px2, float* py2, float xlo, f
 
 static void DoBezierFillSegment(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int yfill, LICE_pixel color, float alpha, int mode)
 {
-  // rather than tweaking here we should make LICE_FillTrapezoid subpixel aware (or at least round better)
-  //++x1; 
   if (x2 < x1) return;
   if (x2 == x1)
   {
@@ -913,6 +911,38 @@ static void DoBezierFillSegment(LICE_IBitmap* dest, int x1, int y1, int x2, int 
     LICE_FillTriangle(dest, x, yf, x2, yf, x2, y2, color, alpha, mode);
   }
 }
+
+static void DoBezierFillSegmentX(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int xfill, LICE_pixel color, float alpha, int mode)
+{
+  if (y2 < y1) return;
+  if (y2 == y1)
+  {
+    int xlo = min(x1,xfill);
+    int xhi = max(x2,xfill);
+    if (xhi != xfill) --xhi;
+    LICE_Line(dest, xlo, y1, xhi, y1, color, alpha, mode, false);
+    return;
+  }
+
+  if ((x1 < xfill) == (x2 < xfill))
+  {       
+    if (x1 < xfill) ++xfill;
+    int x[4] = { x1, xfill, x2, xfill };
+    int y[4] = { y1, y1, y2+1, y2+1 };
+    LICE_FillConvexPolygon(dest, x, y, 4, color, alpha, mode);
+  }
+  else
+  {    
+    int y = y1+(int)((double)(xfill-x1)*(double)(y2-y1)/(double)(x2-x1));
+    int xf = xfill;
+    if (x1 < xfill) ++xf;
+    LICE_FillTriangle(dest, x1, y1, xf, y1, xf, y, color, alpha, mode);
+    xf = xfill;
+    if (x2 < xfill) ++xf;
+    LICE_FillTriangle(dest, xf, y, xf, y2, x2, y2, color, alpha, mode);
+  }
+}
+
 
 // quadratic bezier ... NOT TESTED YET
 // attempt to draw segments no longer than tol px
@@ -977,7 +1007,7 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 }
 
 static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, float tol,
+  float xctl2, float yctl2, float xend, float yend, float tol, bool xbasis,
   double* ax, double* bx, double* cx, double* dx, double* ay, double* by, double* cy, double* dy,
   float* xlo, float* xhi, float* ylo, float* yhi, double* tlo, double* thi)
 {
@@ -986,14 +1016,14 @@ static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1,
   int w = dest->getWidth();
   int h = dest->getHeight();
     
-  if (xstart > xend) 
+  if ((xbasis && xstart > xend) || (!xbasis && ystart > yend))
   {
     SWAP(xstart, xend);
     SWAP(xctl1, xctl2);
     SWAP(ystart, yend);
     SWAP(yctl1, yctl2);
   }
-    
+
   double len = sqrt((xctl1-xstart)*(xctl1-xstart)+(yctl1-ystart)*(yctl1-ystart));
   len += sqrt((xctl2-xctl1)*(xctl2-xctl1)+(yctl2-yctl1)*(yctl2-yctl1));
   len += sqrt((xend-xctl2)*(xend-xctl2)+(yend-yctl2)*(yend-yctl2));
@@ -1019,7 +1049,10 @@ static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1,
     *xhi = (float)(w-1);
     *yhi = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xhi, (float*)0, (float*)0, thi, (double*)0);
   }
-  if (*xlo > *xhi) return 0;
+  if ((xbasis && *xlo > *xhi) || (!xbasis && *ylo > *yhi))
+  {
+    return 0;
+  }
 
   len *= (*thi-*tlo);
   if (tol <= 0.0f) tol = 1.0f;
@@ -1044,7 +1077,7 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   double ax, bx, cx, dx, ay, by, cy, dy;
   float xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol,
+  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1074,7 +1107,7 @@ void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   double ax, bx, cx, dx, ay, by, cy, dy;
   float xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol,
+  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1098,9 +1131,47 @@ void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
     }
     t += dt;
   } 
-  if (yfill && (int)(xhi-1.0f) >= lastfillx)
+  if ((int)(xhi-1.0f) >= lastfillx)
   {
     DoBezierFillSegment(dest, lastfillx, lastfilly, (int)(xhi-1.0f),(int)(yhi+0.5f), yfill, color, alpha, mode);
+  }
+}
+
+void LICE_FillCBezierX(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
+  float xctl2, float yctl2, float xend, float yend, int xfill, LICE_pixel color, float alpha, int mode, float tol)
+{
+  if (!dest) return;
+
+  double ax, bx, cx, dx, ay, by, cy, dy;
+  float xlo, xhi, ylo, yhi;
+  double tlo, thi;
+  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, false,
+    &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
+  if (!nsteps) return;
+   
+  double dt = (thi-tlo)/(double)nsteps;
+  double t = tlo+dt;
+
+  int lastfillx = (int)(xlo+0.5f);
+  int lastfilly = (int)ylo;
+  float x, y;
+  int i;
+  for (i = 1; i < nsteps-1; ++i)
+  {
+    EVAL_CBEZXY(x, y, ax, bx, cx, dx, ay, by, cy, dy, t);
+    if ((int)y >= lastfilly)
+    {
+      int xi = (int)(x+0.5f);
+      int yi = (int)y;
+      DoBezierFillSegmentX(dest, lastfillx, lastfilly, xi, yi, xfill, color, alpha, mode);
+      lastfillx = xi;
+      lastfilly = yi+1;
+    }
+    t += dt;
+  } 
+  if ((int)(yhi-1.0f) >= lastfilly)
+  {
+    DoBezierFillSegmentX(dest, lastfillx, lastfilly, (int)(xhi+0.5),(int)(yhi-1.0f), xfill, color, alpha, mode);
   }
 }
 
