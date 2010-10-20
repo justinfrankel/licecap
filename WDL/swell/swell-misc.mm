@@ -130,6 +130,12 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
 @implementation SWELL_ThreadTmp
 -(void)bla:(id)obj
 {
+  if (a) 
+  {
+    DWORD (*func)(void *);
+    *(void **)(&func) = a;
+    func(b);
+  }
   [NSThread exit];
 }
 @end
@@ -143,11 +149,22 @@ void SWELL_EnsureMultithreadedCocoa()
     if (![NSThread isMultiThreaded]) // force cocoa into multithreaded mode
     {
       SWELL_ThreadTmp *t=[[SWELL_ThreadTmp alloc] init]; 
+      t->a=0;
+      t->b=0;
       [NSThread detachNewThreadSelector:@selector(bla:) toTarget:t withObject:t];
       ///      [t release];
     }
   }
 }
+
+void CreateThreadNS(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut)
+{
+  SWELL_ThreadTmp *t=[[SWELL_ThreadTmp alloc] init]; 
+  t->a=(void*)ThreadProc;
+  t->b=parm;
+  return [NSThread detachNewThreadSelector:@selector(bla:) toTarget:t withObject:t];
+}
+
 
 // used by swell.cpp (lazy these should go elsewhere)
 void *SWELL_InitAutoRelease()
@@ -250,6 +267,10 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   }
   
   return timerid;
+}
+void SWELL_RunRunLoop(int ms)
+{
+  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:ms*0.001]];
 }
 
 BOOL KillTimer(HWND hwnd, UINT_PTR timerid)

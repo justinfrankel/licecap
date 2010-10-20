@@ -401,7 +401,6 @@ HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *igno
   return (HANDLE)buf;
 }
 
-
 HANDLE CreateThread(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVOID parm, DWORD cf, DWORD *tidOut)
 {
 #ifdef SWELL_TARGET_OSX

@@ -221,6 +221,8 @@ struct HTREEITEM__
 
 @interface SWELL_ThreadTmp : NSObject
 {
+@public
+  void *a, *b;
 }
 -(void)bla:(id)obj;
 @end
