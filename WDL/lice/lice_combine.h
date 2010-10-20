@@ -432,13 +432,13 @@ public:
   {
     if (a)
     {
-      if (++a==256)
+      if (a==255)
       {
         _LICE_MakePixelNoClamp(dest,r,g,b,a);
       }
       else
       {
-        int sc=(256-a);
+        int sc=(255-a);
 
         _LICE_MakePixelNoClamp(dest,
             r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
@@ -456,13 +456,13 @@ public:
   {
     if (a)
     {
-      if (++a==256)
+      if (a==255)
       {
         _LICE_MakePixelClamp(dest,r,g,b,a);
       }
       else
       {
-        int sc=(256-a);
+        int sc=(255-a);
 
         _LICE_MakePixelClamp(dest,
            r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
