@@ -37,6 +37,8 @@ static LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
   LICE_Copy(bmp,&sysbitmap);
   #endif
 
+  LICE_FillRect(bmp,0,0,bmp->getWidth(),bmp->getHeight(),LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_ADD);
+
   return bmp;
 }
 
