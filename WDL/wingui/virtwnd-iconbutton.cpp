@@ -161,10 +161,10 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         WDL_VirtualWnd_BGCfg cfg={0,};
         LICE_SubBitmap sb(m_iconCfg->image,sx+1,sy+1,w,h-2);
         cfg.bgimage = &sb;
-        cfg.bgimage_lt[0] = m_iconCfg->image_ltrb_main[0];
-        cfg.bgimage_lt[1] = m_iconCfg->image_ltrb_main[1];
-        cfg.bgimage_rb[0] = m_iconCfg->image_ltrb_main[2];
-        cfg.bgimage_rb[1] = m_iconCfg->image_ltrb_main[3];
+        cfg.bgimage_lt[0] = m_iconCfg->image_ltrb_main[0]+1; // image_ltrb_main expects 1-based number
+        cfg.bgimage_lt[1] = m_iconCfg->image_ltrb_main[1]+1;
+        cfg.bgimage_rb[0] = m_iconCfg->image_ltrb_main[2]+1;
+        cfg.bgimage_rb[1] = m_iconCfg->image_ltrb_main[3]+1;
         cfg.bgimage_noalphaflags=0;
 
         WDL_VirtualWnd_ScaledBlitBG(drawbm,&cfg,
