@@ -516,7 +516,9 @@ void LICE_CombinePixels2Clamp(LICE_pixel *destptr, int r, int g, int b, int a, i
 
 //// LVG
 
+class ProjectStateContext;
 void *LICE_LoadLVG(const char *filename);
+void *LICE_LoadLVGFromContext(ProjectStateContext *ctx, const char *nameInfo=NULL, int defw=0, int defh=0);
 void *LICE_GetSubLVG(void *lvg, const char *subname);
 LICE_IBitmap *LICE_RenderLVG(void *lvg, int reqw=0, int reqh=0, LICE_IBitmap *useBM=NULL);
 void LICE_DestroyLVG(void *lvg);
