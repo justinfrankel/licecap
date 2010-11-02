@@ -68,6 +68,24 @@ void *SWELL_CStringToCFString(const char *str)
   return ret;
 }
 
+void SWELL_MakeProcessFront(HANDLE h)
+{
+  SWELL_InternalObjectHeader_NSTask *buf = (SWELL_InternalObjectHeader_NSTask*)h;
+  if (buf && buf->hdr.type == INTERNAL_OBJECT_NSTASK && buf->task)
+  {
+    ProcessSerialNumber psn;
+    
+    int pid=[buf->task processIdentifier];
+    // try for 1sec to get the PSN, if it fails
+    int n = 20;
+    while (GetProcessForPID(pid,&psn) != noErr && n-- > 0)
+    {
+      Sleep(50);
+    }
+    if (n>0) SetFrontProcess(&psn);
+  }
+}
+
 void SWELL_ReleaseNSTask(void *p)
 {
   NSTask *a =(NSTask*)p;
