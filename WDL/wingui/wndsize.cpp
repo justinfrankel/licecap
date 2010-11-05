@@ -171,6 +171,29 @@ void WDL_WndSizer::remove_itemvirt(WDL_VirtualWnd *vwnd)
   }
 }
 
+void WDL_WndSizer::transformRect(RECT *r, const float *scales, const RECT *wndSize)
+{
+  if (scales[0] >= 1.0) r->left = r->left + wndSize->right - m_orig_rect.right;
+  else if (scales[0]>0.0) r->left = r->left + (int) ((wndSize->right - m_orig_rect.right)*scales[0]);
+
+  if (scales[1] >= 1.0) r->top = r->top + wndSize->bottom - m_orig_rect.bottom;
+  else if (scales[1]>0.0) r->top = r->top + (int) ((wndSize->bottom - m_orig_rect.bottom)*scales[1]);
+
+  if (scales[2] >= 1.0) r->right = r->right + wndSize->right - m_orig_rect.right;
+  else if (scales[2]>0.0) r->right = r->right + (int) ((wndSize->right - m_orig_rect.right)*scales[2]);
+
+  if (scales[3] >= 1.0) r->bottom = r->bottom + wndSize->bottom - m_orig_rect.bottom;
+  else if (scales[3]>0.0) r->bottom = r->bottom + (int) ((wndSize->bottom - m_orig_rect.bottom)*scales[3]);
+
+  r->left += m_margins.left;
+  r->right += m_margins.left;
+  r->top += m_margins.top;
+  r->bottom += m_margins.top;
+
+  if (r->bottom < r->top) r->bottom=r->top;
+  if (r->right < r->left) r->right=r->left;
+}
+
 
 void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytranslate)
 {
@@ -199,31 +222,8 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
 
     if ((rec->vwnd && !only) || (rec->hwnd && (!only || only == rec->hwnd)))
     {
-      RECT r;
-      if (rec->scales[0] <= 0.0) r.left = rec->orig.left;
-      else if (rec->scales[0] >= 1.0) r.left = rec->orig.left + new_rect.right - m_orig_rect.right;
-      else r.left = rec->orig.left + (int) ((new_rect.right - m_orig_rect.right)*rec->scales[0]);
-
-      if (rec->scales[1] <= 0.0) r.top = rec->orig.top;
-      else if (rec->scales[1] >= 1.0) r.top = rec->orig.top + new_rect.bottom - m_orig_rect.bottom;
-      else r.top = rec->orig.top + (int) ((new_rect.bottom - m_orig_rect.bottom)*rec->scales[1]);
-
-      if (rec->scales[2] <= 0.0) r.right = rec->orig.right;
-      else if (rec->scales[2] >= 1.0) r.right = rec->orig.right + new_rect.right - m_orig_rect.right;
-      else r.right = rec->orig.right + (int) ((new_rect.right - m_orig_rect.right)*rec->scales[2]);
-
-      if (rec->scales[3] <= 0.0) r.bottom = rec->orig.bottom;
-      else if (rec->scales[3] >= 1.0) r.bottom = rec->orig.bottom + new_rect.bottom - m_orig_rect.bottom;
-      else r.bottom = rec->orig.bottom + (int) ((new_rect.bottom - m_orig_rect.bottom)*rec->scales[3]);
-
-
-      r.left += m_margins.left;
-      r.right += m_margins.left;
-      r.top += m_margins.top;
-      r.bottom += m_margins.top;
-
-      if (r.bottom < r.top) r.bottom=r.top;
-      if (r.right < r.left) r.right=r.left;
+      RECT r=rec->orig;
+      transformRect(&r,rec->scales,&new_rect);
     
       rec->last = r;
 

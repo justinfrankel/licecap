@@ -112,6 +112,8 @@ public:
     if (bottom) *bottom=m_margins.bottom;
   }
 
+  void transformRect(RECT *r, const float *scales, const RECT *wndSize);
+
 private:
 #ifdef _WIN32
   static BOOL CALLBACK enum_RegionRemove(HWND hwnd,LPARAM lParam);
