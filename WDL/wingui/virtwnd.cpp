@@ -107,28 +107,7 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
                                     1.0,LICE_BLIT_MODE_COPY|fflags);
       }
 
-      if (m_bgbmtintcolor>=0)
-      {
-        float rv=GetRValue(m_bgbmtintcolor)/255.0;
-        float gv=GetGValue(m_bgbmtintcolor)/255.0;
-        float bv=GetBValue(m_bgbmtintcolor)/255.0;
-
-        float avg=(rv+gv+bv)*0.33333f;
-        if (avg<0.05f)avg=0.05f;
-
-        float sc=0.5f;
-        float sc2 = (1.0f-sc)/avg;
-
-        float sc3=32.0f;
-        float sc4=64.0f*(avg-0.5);
-        // tint
-        LICE_MultiplyAddRect(m_bm,clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,clipr->right-clipr->left,clipr->bottom-clipr->top,
-            sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
-            (rv-avg)*sc3+sc4,
-            (gv-avg)*sc3+sc4,
-            (bv-avg)*sc3+sc4,
-            0);
-      }
+      tintRect(clipr);
 
       m_bgbm=0;
       return;
@@ -380,7 +359,34 @@ void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
   if (yoffsdraw) *yoffsdraw = -m_paint_yorig;
 }
 
-void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coords, float alpha, int mode)
+void WDL_VWnd_Painter::tintRect(RECT *clipr)
+{
+  if (m_bgbmtintcolor>=0)
+  {
+    float rv=GetRValue(m_bgbmtintcolor)/255.0;
+    float gv=GetGValue(m_bgbmtintcolor)/255.0;
+    float bv=GetBValue(m_bgbmtintcolor)/255.0;
+
+    float avg=(rv+gv+bv)*0.33333f;
+    if (avg<0.05f)avg=0.05f;
+
+    float sc=0.5f;
+    float sc2 = (1.0f-sc)/avg;
+
+    float sc3=32.0f;
+    float sc4=64.0f*(avg-0.5);
+    // tint
+    LICE_MultiplyAddRect(m_bm,clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,clipr->right-clipr->left,clipr->bottom-clipr->top,
+        sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
+        (rv-avg)*sc3+sc4,
+        (gv-avg)*sc3+sc4,
+        (bv-avg)*sc3+sc4,
+        0);
+  }
+}
+
+
+void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coords, bool allowTint, float alpha, int mode)
 {
   if (!bitmap || !coords || !bitmap->bgimage || !m_bm) return;
 
@@ -393,6 +399,20 @@ void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coor
                                           m_ps.rcPaint.top - m_paint_yorig,
                                           m_ps.rcPaint.right - m_ps.rcPaint.left,
                                           m_ps.rcPaint.bottom - m_ps.rcPaint.top,alpha,mode);
+
+  if (allowTint) 
+  {
+    RECT rr={
+      max(coords->left,m_ps.rcPaint.left),
+      max(coords->top,m_ps.rcPaint.top),
+      min(coords->right,m_ps.rcPaint.right),
+      min(coords->bottom,m_ps.rcPaint.bottom)
+    };
+
+    if (rr.right>rr.left && rr.bottom>rr.top)
+      tintRect(&rr);
+  }
+
 }
 
 void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
