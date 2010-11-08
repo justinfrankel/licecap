@@ -380,6 +380,21 @@ void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
   if (yoffsdraw) *yoffsdraw = -m_paint_yorig;
 }
 
+void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coords, float alpha, int mode)
+{
+  if (!bitmap || !coords || !bitmap->bgimage || !m_bm) return;
+
+
+  WDL_VirtualWnd_ScaledBlitBG(m_bm,bitmap,coords->left - m_paint_xorig,
+                                          coords->top - m_paint_yorig,
+                                          coords->right-coords->left,
+                                          coords->bottom-coords->top,
+                                          m_ps.rcPaint.left - m_paint_xorig,
+                                          m_ps.rcPaint.top - m_paint_yorig,
+                                          m_ps.rcPaint.right - m_ps.rcPaint.left,
+                                          m_ps.rcPaint.bottom - m_ps.rcPaint.top,alpha,mode);
+}
+
 void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 {
   RECT tr=m_ps.rcPaint;

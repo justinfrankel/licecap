@@ -162,6 +162,7 @@ public:
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1, WDL_VirtualWnd_BGCfgCache *cacheObj=NULL) { m_bgbm=bitmap; m_bgbmtintcolor=tint; m_bgcache=cacheObj; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
+  void PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coords, float alpha=1.0, int mode=0);
   void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
   void PaintBorderForHWND(HWND hwnd, int borderflags);
   void PaintBorderForRect(const RECT *r, int borderflags);
