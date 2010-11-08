@@ -27,10 +27,6 @@
 #include "../lice/lice.h"
 #include "../assocarray.h"
 
-#ifdef _WIN32
-//#define WIN32_NATIVE_GRADIENT // manually enable this if you want it
-#endif
-
 WDL_VWnd_Painter::WDL_VWnd_Painter()
 {
   m_GSC=0;
@@ -62,9 +58,9 @@ void WDL_VWnd_Painter::SetBGGradient(int wantGradient, double start, double slop
   m_gradslope=slope;
 }
 
-void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h)
+void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const RECT *clipr, int wnd_w, int wnd_h, int xoffs, int yoffs)
 {
-  if (!m_bm) return;
+  if (!bmOut) return;
 
   if (m_bgbm&&m_bgbm->bgimage)
   {
@@ -77,37 +73,37 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         fflags|=LICE_BLIT_FILTER_BILINEAR;
    
 
-      if (m_bgcache && !m_paint_xorig && !m_paint_yorig)
+      if (m_bgcache && !xoffs && !yoffs)
       {
         LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w,wnd_h,this,m_bgbm->bgimage);
         if (tmp)
         {
 //          OutputDebugString("got cached render\n");
-          LICE_Blit(m_bm,tmp,clipr->left,clipr->top,clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,1.0f,LICE_BLIT_MODE_COPY);
+          LICE_Blit(bmOut,tmp,clipr->left,clipr->top,clipr->left,clipr->top,clipr->right-clipr->left,clipr->bottom-clipr->top,1.0f,LICE_BLIT_MODE_COPY);
         }
         else
         {
 //          char bf[4096];
 //          sprintf(bf,"fail %d,%d %08x\n",wnd_w,wnd_h,m_bgbm->bgimage);
 //          OutputDebugString(bf);
-          WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,0,0,wnd_w,wnd_h,
+          WDL_VirtualWnd_ScaledBlitBG(bmOut,m_bgbm,0,0,wnd_w,wnd_h,
                                       0,0,
                                       wnd_w,
                                       wnd_h,
                                       1.0,LICE_BLIT_MODE_COPY|fflags);
-          m_bgcache->SetCachedBG(wnd_w,wnd_h,m_bm,this,m_bgbm->bgimage);
+          m_bgcache->SetCachedBG(wnd_w,wnd_h,bmOut,this,m_bgbm->bgimage);
         }
       }
       else
       {
-        WDL_VirtualWnd_ScaledBlitBG(m_bm,m_bgbm,-m_paint_xorig,-m_paint_yorig,wnd_w,wnd_h,
-                                    clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,
+        WDL_VirtualWnd_ScaledBlitBG(bmOut,m_bgbm,xoffs,yoffs,wnd_w,wnd_h,
+                                    clipr->left+xoffs,clipr->top+yoffs,
                                     clipr->right-clipr->left,
                                     clipr->bottom-clipr->top,
                                     1.0,LICE_BLIT_MODE_COPY|fflags);
       }
 
-      tintRect(clipr);
+      tintRect(bmOut,clipr,xoffs,yoffs);
 
       m_bgbm=0;
       return;
@@ -126,18 +122,6 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
   if (wantGrad && gradslope >= 0.01)
   {
 
-#ifdef WIN32_NATIVE_GRADIENT
-    static BOOL (WINAPI *__GradientFill)(HDC hdc,CONST PTRIVERTEX pVertex,DWORD dwNumVertex,CONST PVOID pMesh,DWORD dwNumMesh,DWORD dwMode); 
-    static bool hasld;
-
-    if (!hasld)
-    {
-      hasld=true;
-      HINSTANCE  lib=LoadLibrary("msimg32.dll");
-      if (lib) *((void **)&__GradientFill) = (void *)GetProcAddress(lib,"GradientFill");
-    }
-#endif
-
     {
       needfill=0;
 
@@ -147,7 +131,7 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
         if (spos > wnd_h) spos=wnd_h;
         if (clipr->top < spos)
         {
-          LICE_FillRect(m_bm,clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,
+          LICE_FillRect(bmOut,clipr->left+xoffs,clipr->top+yoffs,
                              clipr->right-clipr->left,spos-clipr->top,
                              LICE_RGBA_FROMNATIVE(bgcolor,255),1.0f,LICE_BLIT_MODE_COPY);
         }
@@ -156,16 +140,12 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
 
       if (spos < wnd_h)
       {
-#ifdef WIN32_NATIVE_GRADIENT
-        TRIVERTEX        vert[2] = {0,} ;
-#else
         struct
         {
           int x,y,Red,Green,Blue;
         }
         vert[2]={0,};
 
-#endif
         double sr=GetRValue(bgcolor);
         double sg=GetGValue(bgcolor);
         double sb=GetBValue(bgcolor);
@@ -190,27 +170,14 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
           vert[x].Red = (int) (sr * sc1);
           vert[x].Green = (int) (sg * sc1);
           vert[x].Blue = (int) (sb * sc1);
-          vert[x].x -= m_paint_xorig;
-          vert[x].y -= m_paint_yorig;
-
         }
 
-#ifdef WIN32_NATIVE_GRADIENT
-        if (__GradientFill)
-        {
-          GRADIENT_RECT    gRect;
-          gRect.UpperLeft  = 0;
-          gRect.LowerRight = 1;
-          __GradientFill(m_bm->getDC(),vert,2,&gRect,1,GRADIENT_FILL_RECT_V);
-        }
-        else
-#endif
         {
 
           int bmh=vert[1].y-vert[0].y;
           float s=(float) (1.0/(65535.0*bmh));
 
-          LICE_GradRect(m_bm,vert[0].x,vert[0].y,clipr->right-clipr->left,bmh,
+          LICE_GradRect(bmOut,vert[0].x+xoffs,vert[0].y+yoffs,clipr->right-clipr->left,bmh,
             vert[0].Red/65535.0f,vert[0].Green/65535.0f,vert[0].Blue/65535.0f,1.0,0,0,0,0,
             (vert[1].Red-vert[0].Red)*s,
             (vert[1].Green-vert[0].Green)*s,
@@ -225,15 +192,15 @@ void WDL_VWnd_Painter::DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, in
 
   if (needfill)
   {
-    LICE_FillRect(m_bm,clipr->left-m_paint_xorig,
-                       clipr->top-m_paint_yorig,
+    LICE_FillRect(bmOut,clipr->left+xoffs,
+                       clipr->top+yoffs,
                        clipr->right-clipr->left,
                        clipr->bottom-clipr->top,LICE_RGBA_FROMNATIVE(bgcolor,255),1.0f,LICE_BLIT_MODE_COPY);
   }        
 
 }
 
-void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
+void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrect)
 {
   if (!hwnd) return;
   if (!m_cur_hwnd)
@@ -277,7 +244,33 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor)
         m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
       }
 
-      DoPaintBackground(bgcolor,&m_ps.rcPaint, fwnd_w, fwnd_h);
+      if (!limitBGrect)
+      {
+        DoPaintBackground(m_bm,bgcolor,&m_ps.rcPaint, fwnd_w, fwnd_h, -m_paint_xorig, -m_paint_yorig);
+      }
+      else
+      {
+        RECT tr = m_ps.rcPaint;
+        if (tr.left < limitBGrect->left) tr.left = limitBGrect->left;
+        if (tr.top < limitBGrect->top) tr.top = limitBGrect->top;
+        if (tr.right > limitBGrect->right) tr.right = limitBGrect->right;
+        if (tr.bottom > limitBGrect->bottom) tr.bottom = limitBGrect->bottom;
+
+        if (tr.left < tr.right && tr.top < tr.bottom)
+        {
+          int w=limitBGrect->right-limitBGrect->left;
+          int h=limitBGrect->bottom-limitBGrect->top;
+
+          int x=limitBGrect->left - m_paint_xorig;
+          int y=limitBGrect->top - m_paint_yorig;
+          LICE_SubBitmap bm(m_bm,x,y,w,h);
+          tr.left -= max(x,0);
+          tr.right -= max(x,0);
+          tr.bottom -= max(y,0);
+          tr.top -= max(y,0);
+          DoPaintBackground(&bm,bgcolor,&tr, w,h,-m_paint_xorig + min(x,0), -m_paint_yorig + min(y,0));
+        }
+      }
     }
   }
 }
@@ -359,7 +352,7 @@ void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
   if (yoffsdraw) *yoffsdraw = -m_paint_yorig;
 }
 
-void WDL_VWnd_Painter::tintRect(RECT *clipr)
+void WDL_VWnd_Painter::tintRect(LICE_IBitmap *bmOut, const RECT *clipr, int xoffs, int yoffs)
 {
   if (m_bgbmtintcolor>=0)
   {
@@ -376,7 +369,7 @@ void WDL_VWnd_Painter::tintRect(RECT *clipr)
     float sc3=32.0f;
     float sc4=64.0f*(avg-0.5);
     // tint
-    LICE_MultiplyAddRect(m_bm,clipr->left-m_paint_xorig,clipr->top-m_paint_yorig,clipr->right-clipr->left,clipr->bottom-clipr->top,
+    LICE_MultiplyAddRect(bmOut,clipr->left+xoffs,clipr->top+yoffs,clipr->right-clipr->left,clipr->bottom-clipr->top,
         sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
         (rv-avg)*sc3+sc4,
         (gv-avg)*sc3+sc4,
@@ -410,7 +403,7 @@ void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coor
     };
 
     if (rr.right>rr.left && rr.bottom>rr.top)
-      tintRect(&rr);
+      tintRect(m_bm,&rr,-m_paint_xorig,-m_paint_yorig);
   }
 
 }

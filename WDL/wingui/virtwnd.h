@@ -158,7 +158,7 @@ public:
 
 
   void SetGSC(int (*GSC)(int));
-  void PaintBegin(HWND hwnd, int bgcolor=-1);  
+  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL);  
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1, WDL_VirtualWnd_BGCfgCache *cacheObj=NULL) { m_bgbm=bitmap; m_bgbmtintcolor=tint; m_bgcache=cacheObj; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
@@ -184,8 +184,8 @@ private:
 
   int m_wantg;
   int (*m_GSC)(int);
-  void DoPaintBackground(int bgcolor, RECT *clipr, int wnd_w, int wnd_h);
-  void tintRect(RECT *clipr);
+  void DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const RECT *clipr, int wnd_w, int wnd_h, int xoffs, int yoffs);
+  void tintRect(LICE_IBitmap *bmOut, const RECT *clipr, int xoffs, int yoffs);
   LICE_IBitmap *m_bm;
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
