@@ -3854,18 +3854,12 @@ static bool ListViewGetRectImpl(HWND h, int item, int subitem, RECT* r) // subit
   NSRect ar;
   if (subitem < 0) ar = [tv rectOfRow:item];
   else ar=[tv frameOfCellAtColumn:subitem row:item];
+  NSSize sp=[tv intercellSpacing];
   
   r->left=(int)ar.origin.x;
   r->top=(int)ar.origin.y;
-  r->right=r->left+(int)ar.size.width;
-  r->bottom=r->top+(int)ar.size.height;
-
-// on windows this seems to return coordinates in parent view, lets match that
-  ClientToScreen(h,(LPPOINT)r);
-  ClientToScreen(h,((LPPOINT)r)+1);
-  HWND hwndDlg=GetParent(h);
-  ScreenToClient(hwndDlg,(LPPOINT)r);
-  ScreenToClient(hwndDlg,((LPPOINT)r)+1);
+  r->right=(int)(ar.origin.x+ar.size.width+sp.width);
+  r->bottom=(int)(ar.origin.y+ar.size.height+sp.height);
   
   return true;
 }

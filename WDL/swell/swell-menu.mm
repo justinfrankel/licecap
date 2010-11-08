@@ -730,6 +730,19 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     if (!v) v=[[NSApp mainWindow] contentView];
     if (!v) return 0;
     
+    NSEvent *event = [NSApp currentEvent];
+    if (!event) return 0;
+    
+    int etype = [event type];
+    {      
+      //create a new event at these coordinates, faking it
+      NSWindow *w = [v window];
+      NSPoint pt = NSMakePoint(xpos, ypos);
+      pt=[w convertScreenToBase:pt];
+      pt.y -= 4;
+      event = [NSEvent otherEventWithType:NSApplicationDefined location:pt modifierFlags:0 timestamp:[event timestamp] windowNumber:[event windowNumber] context:[event context] subtype:0 data1:0 data2:0];
+    }
+    
     SWELL_PopupMenuRecv *recv = [[SWELL_PopupMenuRecv alloc] initWithWnd:((flags & TPM_NONOTIFY) ? 0 : hwnd)];
     
     SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
@@ -740,28 +753,9 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
       SWELL_SetMenuDestination((HMENU)m,(HWND)recv);
     }
     
-    NSEvent *event = [NSApp currentEvent];
-    
-    int etype = [event type];
-#if 1 // disable this if you wish to have xpos/ypos be always used (someday we should enable it, yeah)
-    if ((etype >= NSLeftMouseDown && etype <= NSMouseExited)||(etype >= NSOtherMouseDown && etype <= NSOtherMouseDragged))
-    {
-      
-    }
-    else  
-#endif
-    {
-      // not mouse event! create a new event at these coordinates, faking it
-      NSWindow *w = [v window];
-      NSPoint pt = [w convertScreenToBase:NSMakePoint(xpos,ypos)];
-      event = [NSEvent otherEventWithType:NSApplicationDefined location:pt modifierFlags:0 timestamp:[event timestamp] windowNumber:[w windowNumber] context:[w graphicsContext] subtype:0 data1:0 data2:0];
-
-      //      event = [NSEvent mouseEventWithType:NSMouseMoved location:pt modifierFlags:0 timestamp:[event timestamp] windowNumber:[w windowNumber] context:[w graphicsContext] eventNumber:0 clickCount:0 pressure:0.0];
-    }
     [NSMenu popUpContextMenu:m withEvent:event forView:v];
 
-    int ret=[recv isCommand];
-    
+    int ret=[recv isCommand];    
     SWELL_SetMenuDestination((HMENU)m,(HWND)NULL);
     [recv release];
     
