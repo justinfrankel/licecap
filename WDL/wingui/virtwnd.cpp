@@ -244,7 +244,7 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
         m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
       }
 
-      if (!limitBGrect)
+      if (!limitBGrect || (limitBGrect->left <1 && limitBGrect->top < 1 && limitBGrect->right >= fwnd_w && limitBGrect->bottom >= fwnd_h))
       {
         DoPaintBackground(m_bm,bgcolor,&m_ps.rcPaint, fwnd_w, fwnd_h, -m_paint_xorig, -m_paint_yorig);
       }
