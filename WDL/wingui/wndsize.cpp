@@ -177,6 +177,10 @@ void WDL_WndSizer::remove_itemvirt(WDL_VirtualWnd *vwnd)
 void WDL_WndSizer::transformRect(RECT *r, const float *scales, const RECT *wndSize)
 {
   POINT sz = { wndSize->right, wndSize->bottom };
+
+  sz.x -= m_margins.left+m_margins.right;
+  sz.y -= m_margins.top+m_margins.bottom;
+
   if (sz.x < m_min_size.x) sz.x=m_min_size.x;
   if (sz.y < m_min_size.y) sz.y=m_min_size.y;
 
@@ -222,9 +226,6 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
 #endif
   WDL_WndSizer__rec *rec=(WDL_WndSizer__rec *) ((char *)m_list.Get());
   int cnt=m_list.GetSize() / sizeof(WDL_WndSizer__rec);
-
-  new_rect.right -= m_margins.left+m_margins.right;
-  new_rect.bottom -= m_margins.top+m_margins.bottom;
 
   int x;
   for (x = 0; x < cnt; x ++)
