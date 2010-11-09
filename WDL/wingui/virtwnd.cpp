@@ -200,7 +200,7 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
 
 }
 
-void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrect)
+void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrect, const RECT *windowRect)
 {
   if (!hwnd) return;
   if (!m_cur_hwnd)
@@ -212,7 +212,8 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
     if (m_cur_hwnd)
     {
       RECT r;
-      GetClientRect(m_cur_hwnd,&r);
+      if (windowRect) r=*windowRect;
+      else GetClientRect(m_cur_hwnd,&r);
       int fwnd_w=r.right-r.left,fwnd_h=r.bottom-r.top;
       if (fwnd_h<0)fwnd_h=-fwnd_h;
 

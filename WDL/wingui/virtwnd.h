@@ -158,7 +158,7 @@ public:
 
 
   void SetGSC(int (*GSC)(int));
-  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL);  
+  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL, const RECT *windowRect=NULL);  
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1, WDL_VirtualWnd_BGCfgCache *cacheObj=NULL) { m_bgbm=bitmap; m_bgbmtintcolor=tint; m_bgcache=cacheObj; } // call before every paintbegin (resets if you dont)
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
