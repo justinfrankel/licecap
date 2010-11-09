@@ -36,10 +36,13 @@ For information on how to use this class, see wndsize.h :)
 void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
 {
   m_hwnd=hwndDlg;
+  RECT r;
   if (initr)
-    m_orig_rect=*initr;
+    r=*initr;
   else
-    GetClientRect(m_hwnd,&m_orig_rect);
+    GetClientRect(m_hwnd,&r);
+  set_orig_rect(&r);
+
   m_list.Resize(0);
 
   memset(&m_margins,0,sizeof(m_margins));
@@ -173,17 +176,24 @@ void WDL_WndSizer::remove_itemvirt(WDL_VirtualWnd *vwnd)
 
 void WDL_WndSizer::transformRect(RECT *r, const float *scales, const RECT *wndSize)
 {
-  if (scales[0] >= 1.0) r->left = r->left + wndSize->right - m_orig_rect.right;
-  else if (scales[0]>0.0) r->left = r->left + (int) ((wndSize->right - m_orig_rect.right)*scales[0]);
+  POINT sz = { wndSize->right, wndSize->bottom };
+  if (sz.x < m_min_size.x) sz.x=m_min_size.x;
+  if (sz.y < m_min_size.y) sz.y=m_min_size.y;
 
-  if (scales[1] >= 1.0) r->top = r->top + wndSize->bottom - m_orig_rect.bottom;
-  else if (scales[1]>0.0) r->top = r->top + (int) ((wndSize->bottom - m_orig_rect.bottom)*scales[1]);
+  sz.x -= m_orig_size.x;
+  sz.y -= m_orig_size.y;
 
-  if (scales[2] >= 1.0) r->right = r->right + wndSize->right - m_orig_rect.right;
-  else if (scales[2]>0.0) r->right = r->right + (int) ((wndSize->right - m_orig_rect.right)*scales[2]);
+  if (scales[0] >= 1.0) r->left += sz.x;
+  else if (scales[0]>0.0) r->left += (int) (sz.x*scales[0]);
 
-  if (scales[3] >= 1.0) r->bottom = r->bottom + wndSize->bottom - m_orig_rect.bottom;
-  else if (scales[3]>0.0) r->bottom = r->bottom + (int) ((wndSize->bottom - m_orig_rect.bottom)*scales[3]);
+  if (scales[1] >= 1.0) r->top += sz.y;
+  else if (scales[1]>0.0) r->top += (int) (sz.y*scales[1]);
+
+  if (scales[2] >= 1.0) r->right += sz.x;
+  else if (scales[2]>0.0) r->right += (int) (sz.x*scales[2]);
+
+  if (scales[3] >= 1.0) r->bottom += sz.y;
+  else if (scales[3]>0.0) r->bottom += (int) (sz.y*scales[3]);
 
   r->left += m_margins.left;
   r->right += m_margins.left;

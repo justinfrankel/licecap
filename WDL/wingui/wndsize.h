@@ -97,8 +97,13 @@ public:
   WDL_WndSizer__rec *get_itembywnd(HWND h);
   WDL_WndSizer__rec *get_itembyvirt(WDL_VWnd *vwnd);
   
-  RECT get_orig_rect() { return m_orig_rect; }
-  void set_orig_rect(RECT *r) { if (r) m_orig_rect = *r; }
+  RECT get_orig_rect() { RECT r={0,0,m_orig_size.x,m_orig_size.y}; return r; }
+  void set_orig_rect(const RECT *r, const POINT *minSize=NULL) 
+  {
+    if (r) { m_orig_size.x = r->right; m_orig_size.y = r->bottom; } 
+    if (minSize) m_min_size = *minSize;
+    else m_min_size.x=m_min_size.y=0;
+  }
 
   void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
 
@@ -120,7 +125,7 @@ private:
   HRGN m_enum_rgn;
 #endif
   HWND m_hwnd;
-  RECT m_orig_rect;
+  POINT m_orig_size,m_min_size;
   RECT m_margins;
 
   // treat as WDL_WndSizer__rec[]
