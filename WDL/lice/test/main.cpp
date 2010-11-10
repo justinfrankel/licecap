@@ -188,7 +188,7 @@ static void DoPaint(HWND hwndDlg)
         LICE_Line(&bm,x+tw,y,x+tw,y+th,lc,1.0f,LICE_BLIT_MODE_COPY);
         LICE_Line(&bm,x,y,x,y+th,lc,1.0f,LICE_BLIT_MODE_COPY);
 
-        LICE_FillTriangle(&bm,x+tw,y+(flip?th:0),x+cx,y+(flip?0:th),x,y+(flip?th:0),LICE_RGBA(255,255,255,255),0.75f,LICE_BLIT_MODE_COPY);
+        LICE_FillTriangle(&bm,x+tw,y+(flip?th:0)/*+th/4*/,x+cx,y+(flip?0:th),x,y+(flip?th:0),LICE_RGBA(255,255,255,255),0.75f,LICE_BLIT_MODE_COPY);
 
         int sc=16;
         LICE_ScaledBlit(framebuffer,&bm,0,0,bm.getWidth()*sc,bm.getHeight()*sc,0,0,bm.getWidth(),bm.getHeight(),1.0,LICE_BLIT_MODE_COPY);
@@ -228,7 +228,7 @@ static void DoPaint(HWND hwndDlg)
       }
 
       LICE_Clear(framebuffer, 0);
-      LICE_FillConvexPolygon(framebuffer, x, y, 16, LICE_RGBA(96,96,96,255), 1.0f, LICE_BLIT_MODE_COPY);
+      LICE_FillConvexPolygon(framebuffer, x, y, 16, LICE_RGBA(96,96,96,255), 0.5f, LICE_BLIT_MODE_ADD);
 
       for (i = 0; i < 16; ++i)
       {
