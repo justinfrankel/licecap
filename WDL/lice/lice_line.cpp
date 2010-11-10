@@ -1551,13 +1551,33 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
   else xy = (int*)malloc(npoints*sizeof(int)*2);
 
   int i;
-  for (i = 0; i < npoints; ++i)
   {
-    _X(i) = x[i];
-    _Y(i) = y[i];    
-    if (dest->isFlipped()) _Y(i) = dest->getHeight()-_Y(i)-1;
+    int min_x=dest->getWidth(),max_x=0;
+    for (i = 0; i < npoints; ++i)
+    {
+      int tx = x[i];
+      if (tx < min_x) min_x=tx;
+      if (tx > max_x) max_x=tx;
+      _X(i) = tx;
+      _Y(i) = y[i];    
+      if (dest->isFlipped()) _Y(i) = dest->getHeight()-_Y(i)-1;
+    }
+    qsort(xy, npoints, 2*sizeof(int), _ysort);  // sorts by y, at same y sorts by x
+
+
+    int ty=_Y(0);
+    if (ty == _Y(npoints-1))
+    {
+      // special case 1px high polygon
+      if (ty >= 0 && ty < dest->getHeight() && min_x <= max_x)
+      {
+        LICE_FillTrapezoid(dest,min_x,max_x,ty,min_x,max_x,ty,color,alpha,mode);
+      }
+      if (!usestack) free(xy);
+
+      return;
+    }
   }
-  qsort(xy, npoints, 2*sizeof(int), _ysort);  // sorts by y, at same y sorts by x
 
   int a1, b1;   // index of previous vertex L and R
   int a2, b2;   // index of next vertex L and R
