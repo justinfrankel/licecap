@@ -1221,7 +1221,7 @@ public:
 
     if (!da && !db)
     {
-      for (y = 0; y < ny; ++y)
+      for (y = 0; y <= ny; ++y)
       {
         LICE_pixel* xpx = px;
         for (x = 0; x <= nx; ++x)
@@ -1249,7 +1249,7 @@ public:
       bstep = -1;
     }
 
-    for (y = 0; y < ny; ++y)
+    for (y = 0; y <= ny; ++y)
     {
       LICE_pixel* xpx = px;
       for (x = 0; x <= nx; ++x)
@@ -1293,7 +1293,7 @@ public:
 
     if (!da && !db)
     {
-      for (y = 0; y < ny; ++y)
+      for (y = 0; y <= ny; ++y)
       {
         LICE_pixel* xpx = px;
         for (x = 0; x <= nx; ++x)
@@ -1306,8 +1306,8 @@ public:
       return;
     }
 
-    int a = 0;
-    int b = 0;
+    int a = 32767;
+    int b = 32767;
     int astep = 1;
     int bstep = 1;
     if (da < 0)
@@ -1321,7 +1321,7 @@ public:
       bstep = -1;
     }
  
-    for (y = 0; y < ny; ++y)
+    for (y = 0; y <= ny; ++y)
     {
       LICE_pixel* xpx = px;
       for (x = 0; x <= nx; ++x)
@@ -1378,8 +1378,7 @@ static int FindYOnSegment(int x1, int y1, int x2, int y2, int tx)
 
 void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode)
 {
-  if (!dest) return;
-  if (y1 == y2) return;
+  if (!dest) return; 
   if (y1 > y2)
   {
     SWAP(y1, y2);
@@ -1400,7 +1399,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
 
   if (y1 < 0)
   {
-    if (y2 <= 0) return;
+    if (y2 < 0) return;
     x1a = FindXOnSegment(x1a, y1, x2a, y2, 0);
     x1b = FindXOnSegment(x1b, y1, x2b, y2, 0);
     y1 = 0;
@@ -1458,11 +1457,11 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     return;
   }
 
-  if (y1 == y2) return;
-  float dy = (float)(y2-y1);
-  int dxady = (int)((float)(x2a-x1a)/dy*65536.0f);
-  int dxbdy = (int)((float)(x2b-x1b)/dy*65536.0f);
-  if (y2 > h) y2 = h;
+  if (y1 > y2) return;
+  double idy = y2==y1 ? 0.0 : (65536.0/(y2-y1));
+  int dxady = (int)((x2a-x1a)*idy);
+  int dxbdy = (int)((x2b-x1b)*idy);
+  if (y2 > h-1) y2 = h-1;
 
   int aw = (int)(alpha*256.0f);
 
@@ -1589,6 +1588,8 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
   
     LICE_FillTrapezoid(dest, x1a, x1b, y1, x2a, x2b, y2, color, alpha, mode);
 
+    bool dir = y1<=y2; // should always be true
+
     y1 = y2;
     if (y_a2 == y1) 
     {
@@ -1600,6 +1601,9 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
       b1 = b2;
       b2 = FindNextEdgeVertex(xy, b2, npoints, 1);
     }
+
+    if (dir) y1++; 
+    else y1--;
   }
 
   if (!usestack) free(xy);
