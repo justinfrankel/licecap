@@ -406,7 +406,16 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(LONG)getSwellStyle { return style; }
--(void)setSwellStyle:(LONG)st { style=st; }
+
+-(void)setSwellStyle:(LONG)st 
+{
+  bool hdrchg= ((style&LVS_NOCOLUMNHEADER) != (st&LVS_NOCOLUMNHEADER));
+  style=st;
+  if ((style&LVS_REPORT) && hdrchg)
+  {
+    // todo some crap with NSTableView::setHeaderView, but it's complicated
+  }
+}
 
 -(id) init
 {
