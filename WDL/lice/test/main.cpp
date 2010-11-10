@@ -36,7 +36,7 @@ static WDL_VideoEncode *m_encoder;
 
 #include "resource.h"
 
-#define NUM_EFFECTS 24
+#define NUM_EFFECTS 25
 
 char *effect_names[NUM_EFFECTS] =
 {
@@ -64,6 +64,7 @@ char *effect_names[NUM_EFFECTS] =
   "Bezier curves",
   "Convex polygon fill",
   "Palette generator (C:\\test.png)",
+  "Triangle test",
 };
 
 HINSTANCE g_hInstance;
@@ -71,7 +72,7 @@ LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_IBitmap *framebuffer;
-static int m_effect = 0; //NUM_EFFECTS-1;
+static int m_effect = NUM_EFFECTS-1;
 static int m_doeff = 0;
 
 static LICE_IBitmap* tmpbmp = 0;
@@ -163,7 +164,40 @@ static void DoPaint(HWND hwndDlg)
       }
     }
     break;
+    case 24:
+      {
+        LICE_MemBitmap bm(128,128);
+        LICE_Clear(framebuffer,0);
+        LICE_Clear(&bm,0);
 
+        static POINT sp;
+        POINT p;
+        if (!sp.x&&!sp.y) GetCursorPos(&sp);
+        GetCursorPos(&p);
+        p.x-=sp.x;
+        p.y-=sp.y;
+        int th=p.y+16;
+        bool flip = th < 0;
+        if (flip) th=-th;
+        int tw=p.x+16;
+        int cx=(tw+1)/2;
+        int x=1,y=1;
+        LICE_pixel lc=LICE_RGBA(255,0,255,255);
+        LICE_Line(&bm,x,y,x+tw-1,y,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x,y+th-1,x+tw-1,y+th-1,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x+tw-1,y,x+tw-1,y+th-1,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x,y,x,y+th-1,lc,1.0f,LICE_BLIT_MODE_COPY);
+
+        LICE_FillTriangle(&bm,x+tw,y+(flip?th:0),x+cx,y+(flip?0:th),x,y+(flip?th:0),LICE_RGBA(255,255,255,255),0.75f,LICE_BLIT_MODE_COPY);
+
+        int sc=16;
+        LICE_ScaledBlit(framebuffer,&bm,0,0,bm.getWidth()*sc,bm.getHeight()*sc,0,0,bm.getWidth(),bm.getHeight(),1.0,LICE_BLIT_MODE_COPY);
+        for (y=0;y<bm.getHeight();y++)
+          LICE_Line(framebuffer,0,y*sc,bm.getWidth()*sc,y*sc,LICE_RGBA(255,255,255,255),0.5,LICE_BLIT_MODE_COPY,false);
+        for (x=0;x<bm.getWidth();x++)
+          LICE_Line(framebuffer,x*sc,0,x*sc,bm.getHeight()*sc,LICE_RGBA(255,255,255,255),0.5,LICE_BLIT_MODE_COPY,false);
+      }
+    break;
     case 22:
     {
       static int x[16], y[16];
