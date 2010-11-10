@@ -183,10 +183,10 @@ static void DoPaint(HWND hwndDlg)
         int cx=(tw+1)/2;
         int x=1,y=1;
         LICE_pixel lc=LICE_RGBA(255,0,255,255);
-        LICE_Line(&bm,x,y,x+tw-1,y,lc,1.0f,LICE_BLIT_MODE_COPY);
-        LICE_Line(&bm,x,y+th-1,x+tw-1,y+th-1,lc,1.0f,LICE_BLIT_MODE_COPY);
-        LICE_Line(&bm,x+tw-1,y,x+tw-1,y+th-1,lc,1.0f,LICE_BLIT_MODE_COPY);
-        LICE_Line(&bm,x,y,x,y+th-1,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x,y,x+tw,y,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x,y+th,x+tw,y+th,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x+tw,y,x+tw,y+th,lc,1.0f,LICE_BLIT_MODE_COPY);
+        LICE_Line(&bm,x,y,x,y+th,lc,1.0f,LICE_BLIT_MODE_COPY);
 
         LICE_FillTriangle(&bm,x+tw,y+(flip?th:0),x+cx,y+(flip?0:th),x,y+(flip?th:0),LICE_RGBA(255,255,255,255),0.75f,LICE_BLIT_MODE_COPY);
 
