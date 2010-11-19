@@ -11,7 +11,33 @@ template <class T> inline void _SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
   // fast draw for some small circles 
-  if (r == 2.0f)
+  if (r == 1.5f)
+  {
+    if (aa) 
+    {
+      LICE_pixel_chan alphas[25] = 
+      {
+        A(0.31), A(1.00), A(1.00), A(0.31),
+        A(1.00), A(0.06), A(0.06), A(1.00),
+        A(1.00), A(0.06), A(0.06), A(1.00),
+        A(0.31), A(1.00), A(1.00), A(0.31),
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 4, 4, alpha, mode);
+    }
+    else 
+    {
+      LICE_pixel_chan alphas[25] = 
+      {
+        A(0.00), A(1.00), A(1.00), A(0.00),
+        A(1.00), A(0.00), A(0.00), A(1.00),
+        A(1.00), A(0.00), A(0.00), A(1.00),
+        A(0.00), A(1.00), A(1.00), A(0.00),
+      };
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 4, 4, alpha, mode);    
+    }
+    return true;
+  }
+  else if (r == 2.0f)
   {
     if (aa) 
     {
@@ -35,7 +61,7 @@ static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_p
         A(0.00), A(1.00), A(0.00), A(1.00), A(0.00),
         A(0.00), A(0.00), A(1.00), A(0.00), A(0.00)
       };
-      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 6, 6, alpha, mode);    
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 5, 5, alpha, mode);    
     }
     return true;
   }
