@@ -299,6 +299,21 @@ BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
   return SetCurrentDirectoryA(path);
 }
 
+BOOL RemoveDirectoryUTF8(LPCTSTR path)
+{
+  if (WDL_HasUTF8(path) && GetVersion()< 0x80000000)
+  {
+    MBTOWIDE(wbuf,path);
+    if (wbuf_ok)
+    {
+      BOOL rv=RemoveDirectoryW(wbuf);
+      MBTOWIDE_FREE(wbuf);
+      return rv;
+    }
+    MBTOWIDE_FREE(wbuf);
+  }
+  return RemoveDirectoryA(path);
+}
 
 HINSTANCE LoadLibraryUTF8(LPCTSTR path)
 {
