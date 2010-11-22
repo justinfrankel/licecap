@@ -166,7 +166,8 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
     void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
     WDL_VirtualWnd_BGCfg* GetBkImage() { return m_bkbm; }
-    int GetCharFromCoord(LICE_IBitmap* bmp, int xpos, int ypos);  // for "AB", -1=out of bounds left, 0="A", 1="B", 2=out of bounds right
+    int GetCharFromCoord(int xpos, int ypos);  // for "AB", -1=out of bounds left, 0="A", 1="B", 2=out of bounds right
+    void SetWantPreserveTrailingNumber(bool preserve); // if the text ends in a number, make sure the number is always displayed
 
   protected:
     WDL_VirtualWnd_BGCfg *m_bkbm;
@@ -177,6 +178,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     int m_margin_t, m_margin_b;
     bool m_wantborder;
     bool m_wantsingle;
+    bool m_wantabbr;
     LICE_IFont *m_font,*m_vfont;
     WDL_String m_text;
     bool m_didvert; // true if text was drawn vertically on the last paint

@@ -586,6 +586,7 @@ WDL_VirtualStaticText::WDL_VirtualStaticText()
   m_wantsingle=false;
   m_didvert=0;
   m_didalign=-1;
+  m_wantabbr=false;
 }
 
 WDL_VirtualStaticText::~WDL_VirtualStaticText()
@@ -599,6 +600,12 @@ void WDL_VirtualStaticText::SetText(const char *text)
     m_text.Set(text); 
     if (m_font) RequestRedraw(NULL); 
   }
+}
+
+void WDL_VirtualStaticText::SetWantPreserveTrailingNumber(bool abbreviate)
+{
+  m_wantabbr=abbreviate;
+  if (m_font) RequestRedraw(NULL); 
 }
 
 void WDL_VirtualStaticText::GetPositionPaintExtent(RECT *r)
@@ -716,10 +723,8 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     }
   }
 
-
   if (m_text.Get()[0])
   {
-
     r.left += m_margin_l;
     r.right -= m_margin_r;
     r.top += m_margin_t;
@@ -728,12 +733,10 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     m_didvert=m_vfont && (r.right-r.left)<(r.bottom-r.top);
     LICE_IFont *font = m_didvert ? m_vfont : m_font;
 
-
     if (font)
     {
-      font->SetBkMode(TRANSPARENT);
+      font->SetBkMode(TRANSPARENT);    
 
-    
       m_didalign=m_align;
       if (m_didalign==0)
       {
@@ -742,10 +745,59 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         if (r2.right > r.right-r.left) m_didalign=-1;
       }
 
+      int dtflags=DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX;
+      if (m_didalign < 0) dtflags |= DT_LEFT;
+      else if (m_didalign > 0) dtflags |= DT_RIGHT;
+      else dtflags |= DT_CENTER;
+
+      const char* txt=m_text.Get();
+
+      int abbrx=0;
+      char abbrbuf[64];
+      abbrbuf[0]=0;
+
+      if (m_wantabbr)
+      {
+        int len=strlen(txt);
+        if (len && isdigit(txt[len-1]))
+        {
+          RECT tr = { 0, 0, 0, 0 };
+          font->DrawText(drawbm, txt, -1, &tr, dtflags|DT_CALCRECT);
+          if (tr.right > r.right-r.left)
+          {
+            strcpy(abbrbuf, "..");
+            int i;
+            for (i=len-1; i >= 0; --i)
+            {
+              if (!isdigit(txt[i]) || len-i > 4) break;
+            }
+            strcat(abbrbuf, txt+i+1);
+
+            int f=dtflags&~(DT_LEFT|DT_CENTER);
+            RECT tr2 = { 0, 0, 0, 0 };
+            font->DrawText(drawbm, abbrbuf, -1, &tr2, f|DT_RIGHT|DT_CALCRECT);
+            abbrx=tr2.right;
+          }
+        }
+      }
+
       int tcol=m_fg ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
       font->SetTextColor(tcol);
       if (m_fg && LICE_GETA(m_fg) != 0xff) font->SetCombineMode(LICE_BLIT_MODE_COPY,LICE_GETA(m_fg)/255.0f);
-      font->DrawText(drawbm,m_text.Get(),-1,&r,DT_SINGLELINE|DT_VCENTER|(m_didalign<0?DT_LEFT:m_didalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+
+      if (abbrx && abbrbuf[0])
+      {
+        int f=dtflags&~(DT_LEFT|DT_CENTER|DT_RIGHT);
+        RECT r1 = { r.left, r.top, r.right-abbrx, r.bottom };
+        font->DrawText(drawbm, txt, -1, &r1, f|DT_LEFT);
+        RECT r2 = { r.right-abbrx, r.top, r.right, r.bottom };
+        font->DrawText(drawbm, abbrbuf, -1, &r2, f|DT_RIGHT);
+      }
+      else
+      {
+        font->DrawText(drawbm,txt,-1,&r,dtflags);
+      }
+
       if (m_fg && LICE_GETA(m_fg) != 0xff) font->SetCombineMode(LICE_BLIT_MODE_COPY,1.0f);
     }
 
@@ -755,7 +807,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 }
 
 
-int WDL_VirtualStaticText::GetCharFromCoord(LICE_IBitmap* bmp, int xpos, int ypos)
+int WDL_VirtualStaticText::GetCharFromCoord(int xpos, int ypos)
 {
   LICE_IFont *font = (m_didvert ? m_vfont : m_font);
   if (!font) return -1;
@@ -766,8 +818,8 @@ int WDL_VirtualStaticText::GetCharFromCoord(LICE_IBitmap* bmp, int xpos, int ypo
 
   // for align left/right, we could DT_CALCRECT with 1 char, then 2, etc, but that won't work for align center
   // so we'll just estimate
-  RECT tr;
-  font->DrawText(bmp, str, len, &tr, DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX|DT_CALCRECT);
+  RECT tr = { 0, 0, m_position.right-m_position.left, m_position.bottom-m_position.top };
+  font->DrawText(0, str, len, &tr, DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX|DT_CALCRECT);
   int tw = tr.right;
   int th = tr.bottom;
 
@@ -830,8 +882,8 @@ int WDL_VirtualStaticText::GetCharFromCoord(LICE_IBitmap* bmp, int xpos, int ypo
   }
   else
   {
-    if (xpos < r.left) c=len;
-    else if (xpos > r.right) c=-1;
+    if (xpos < r.left) c=-1;
+    else if (xpos > r.right) c=len;
     else c = (int)((double)len*(double)(xpos-r.left)/(double)(r.right-r.left));
   }
 
