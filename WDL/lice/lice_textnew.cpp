@@ -597,7 +597,7 @@ static BOOL LICE_Text_HasUTF8(const char *_str)
 int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, 
                                RECT *rect, UINT dtFlags)
 {
-  if (!bm) return 0;
+  if (!bm && !(dtFlags&DT_CALCRECT)) return 0;
 
   bool forceWantAlpha=false;
 
@@ -611,7 +611,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
   if ((m_flags&LICE_FONT_FLAG_ALLOW_NATIVE) && 
       !(m_flags&LICE_FONT_FLAG_PRECALCALL))
   {
-    HDC hdc=bm->getDC();
+    HDC hdc = (bm ? bm->getDC() : 0);
     if (hdc)
     {
       ::SetTextColor(hdc,RGB(LICE_GETR(m_fg),LICE_GETG(m_fg),LICE_GETB(m_fg)));
@@ -660,7 +660,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     }
 #endif
 
-    HDC hdc = bm->getDC();
+    HDC hdc = (bm ? bm->getDC() : 0);
     int w = rect->right-rect->left;
     int h = rect->bottom-rect->top;
     HGDIOBJ oldfont = 0;
@@ -703,6 +703,8 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 #endif
         return rv;
       }
+
+      if (!bm) return 0;
 
       // if noclip, resize up
       if (dtFlags&DT_NOCLIP)
