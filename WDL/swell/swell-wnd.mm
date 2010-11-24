@@ -237,6 +237,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   else if (msg==PBM_SETPOS)
   {
     [self setDoubleValue:(double)wParam];
+    [self stopAnimation:self];    
   }
   else if (msg==PBM_DELTAPOS)
   {
