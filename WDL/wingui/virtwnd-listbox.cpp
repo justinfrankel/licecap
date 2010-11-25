@@ -126,7 +126,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, int *nrows, int *ncols, int *
 }
 
 static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int drawx, int drawy, int draww, int drawh,
-                RECT *cliprect, int drawsrcx, int drawsrcw, int bkbmstate, float alpha=1.0f)
+                RECT *cliprect, int drawsrcx, int drawsrcw, int bkbmstate, float alpha)
 {
   int hh=bkbm->bgimage->getHeight()/3;
 
@@ -135,6 +135,7 @@ static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int dr
     WDL_VirtualWnd_BGCfg tmp = *bkbm;
     if ((tmp.bgimage_noalphaflags&0xffff)!=0xffff) tmp.bgimage_noalphaflags=0;  // force alpha channel if any alpha
 
+    if (drawsrcx>0) { drawsrcx--; drawsrcw++; }
     LICE_SubBitmap bm(tmp.bgimage,drawsrcx,bkbmstate*hh,drawsrcw+1,hh+2);
     tmp.bgimage = &bm;
 
@@ -278,6 +279,8 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
     int a=m_GetItemInfo ? m_GetItemInfo(this,
       leftrightbuttonsize ? WDL_VWND_LISTBOX_ARROWINDEX_LR : WDL_VWND_LISTBOX_ARROWINDEX,NULL,0,NULL,&bkbm) : 0;
 
+    if (!a) bkbm=0;
+
     if (leftrightbuttonsize)
     {
       RECT br={0,0,r.right-r.left,r.bottom-r.top};
@@ -316,14 +319,14 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         DrawBkImage(drawbm,bkbm,
             r.left,r.top,m_scrollbuttonsize,(r.bottom-r.top),
             cliprect,
-            0,bkbm->bgimage->getWidth()/2,bkbmstate);
+            0,bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
 
 
         bkbmstate=itempos<num_items ? 2 : 1;
         DrawBkImage(drawbm,bkbm,
             r.right-m_scrollbuttonsize,r.top,m_scrollbuttonsize,(r.bottom-r.top),
             cliprect,
-            bkbm->bgimage->getWidth()/2,bkbm->bgimage->getWidth() - bkbm->bgimage->getWidth()/2,bkbmstate);
+            bkbm->bgimage->getWidth()/2,bkbm->bgimage->getWidth() - bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
       }
       else
       {
@@ -331,13 +334,13 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         DrawBkImage(drawbm,bkbm,
             r.left,y-m_rh,(r.right-r.left)/2,m_scrollbuttonsize,
             cliprect,
-            0,bkbm->bgimage->getWidth()/2,bkbmstate);
+            0,bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
   
         bkbmstate=itempos<num_items ? 2 : 1;
         DrawBkImage(drawbm,bkbm,
             (r.left+r.right)/2,y-m_rh,(r.right-r.left) - (r.right-r.left)/2,m_scrollbuttonsize,
             cliprect,
-            bkbm->bgimage->getWidth()/2,bkbm->bgimage->getWidth() - bkbm->bgimage->getWidth()/2,bkbmstate);
+            bkbm->bgimage->getWidth()/2,bkbm->bgimage->getWidth() - bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
       }
     }
 
