@@ -125,7 +125,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, int *nrows, int *ncols, int *
 
 }
 
-void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int drawx, int drawy, int draww, int drawh,
+static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int drawx, int drawy, int draww, int drawh,
                 RECT *cliprect, int drawsrcx, int drawsrcw, int bkbmstate, float alpha=1.0f)
 {
   int hh=bkbm->bgimage->getHeight()/3;
@@ -349,6 +349,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         int cx=(r.left+r.right)/2;
         int bs=5;
         int bsh=8;
+        y -= m_rh-m_scrollbuttonsize;
         LICE_Line(drawbm,cx,y-m_scrollbuttonsize+2,cx,y-1,pencol2,1.0f,0,false);
         LICE_Line(drawbm,r.left,y,r.right,y,pencol2,1.0f,0,false);
       
