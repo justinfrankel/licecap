@@ -730,7 +730,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     r.top += m_margin_t;
     r.bottom -= m_margin_b;
 
-    m_didvert=m_vfont && (r.right-r.left)<(r.bottom-r.top);
+    m_didvert=m_vfont && (r.right-r.left)<(r.bottom-r.top)/2;
     LICE_IFont *font = m_didvert ? m_vfont : m_font;
 
     if (font)
