@@ -1243,6 +1243,35 @@ static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
     LICE_ScaledBlit(dest,src,dstx,dsty,dstw,dsth,srcx,srcy,srcw,srch,alpha,mode);
 }
 
+void WDL_VirtualWnd_ScaledBlitSubBG(LICE_IBitmap *dest,
+                                    WDL_VirtualWnd_BGCfg *src,
+                                    int destx, int desty, int destw, int desth,
+                                    int clipx, int clipy, int clipw, int cliph,
+                                    int srcx, int srcy, int srcw, int srch, // these coordinates are not including pink lines (i.e. if pink lines are present, use src->bgimage->getWidth()-2, etc)
+                                    float alpha, int mode)
+{
+  if (!src || !src->bgimage) return;
+
+  int adj=2;
+  if (src->bgimage_lt[0] < 1 || src->bgimage_lt[1] < 1 || src->bgimage_rb[0] < 1 || src->bgimage_rb[1] < 1) 
+  {
+    adj=0;
+  }
+  if (srcx == 0 && srcy == 0 && srcw+adj >= src->bgimage->getWidth()  && srch+adj >= src->bgimage->getHeight()) 
+  {
+    WDL_VirtualWnd_ScaledBlitBG(dest,src,destx,desty,destw,desth,clipx,clipy,clipw,cliph,alpha,mode);
+    return;
+  }
+
+  LICE_SubBitmap bm(src->bgimage,srcx,srcy,srcw+adj,srch+adj);
+  WDL_VirtualWnd_BGCfg ts = *src;
+  ts.bgimage = &bm;
+
+  if ((ts.bgimage_noalphaflags&0xffff)!=0xffff) ts.bgimage_noalphaflags=0;  // force alpha channel if any alpha
+
+  WDL_VirtualWnd_ScaledBlitBG(dest,&ts,destx,desty,destw,desth,clipx,clipy,clipw,cliph,alpha,mode);
+}
+
 void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest, 
                                  WDL_VirtualWnd_BGCfg *src,
                                  int destx, int desty, int destw, int desth,

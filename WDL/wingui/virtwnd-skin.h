@@ -48,6 +48,13 @@ int WDL_VirtualWnd_ScaledBG_GetPix(WDL_VirtualWnd_BGCfg *src,
                                    int ww, int wh,
                                    int x, int y);
 
+void WDL_VirtualWnd_ScaledBlitSubBG(LICE_IBitmap *dest,
+                                    WDL_VirtualWnd_BGCfg *src,
+                                    int destx, int desty, int destw, int desth,
+                                    int clipx, int clipy, int clipw, int cliph,
+                                    int srcx, int srcy, int srcw, int srch, // these coordinates are not including pink lines (i.e. if pink lines are present, use src->bgimage->getWidth()-2, etc)
+                                    float alpha, int mode);
+
 
 typedef struct // if set these override the default virtualwnd styles for this object
 {
