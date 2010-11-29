@@ -357,9 +357,9 @@ void WDL_VWnd_Painter::tintRect(LICE_IBitmap *bmOut, const RECT *clipr, int xoff
 {
   if (m_bgbmtintcolor>=0)
   {
-    float rv=GetRValue(m_bgbmtintcolor)/255.0;
-    float gv=GetGValue(m_bgbmtintcolor)/255.0;
-    float bv=GetBValue(m_bgbmtintcolor)/255.0;
+    float rv=GetRValue(m_bgbmtintcolor)/255.0f;
+    float gv=GetGValue(m_bgbmtintcolor)/255.0f;
+    float bv=GetBValue(m_bgbmtintcolor)/255.0f;
 
     float avg=(rv+gv+bv)*0.33333f;
     if (avg<0.05f)avg=0.05f;
@@ -368,7 +368,7 @@ void WDL_VWnd_Painter::tintRect(LICE_IBitmap *bmOut, const RECT *clipr, int xoff
     float sc2 = (1.0f-sc)/avg;
 
     float sc3=32.0f;
-    float sc4=64.0f*(avg-0.5);
+    float sc4=64.0f*(avg-0.5f);
     // tint
     LICE_MultiplyAddRect(bmOut,clipr->left+xoffs,clipr->top+yoffs,clipr->right-clipr->left,clipr->bottom-clipr->top,
         sc+rv*sc2,sc+gv*sc2,sc+bv*sc2,1,
@@ -1194,7 +1194,7 @@ void WDL_VirtualWnd_PreprocessBGConfig(WDL_VirtualWnd_BGCfg *a)
 
 static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
                            LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int dstw, int dsth, 
-                           float srcx, float srcy, float srcw, float srch, float alpha, int mode)
+                           int _srcx, int _srcy, int _srcw, int _srch, float alpha, int mode)
 {
   if (dstw<1||dsth<1 || dstx+dstw < clipx || dstx > clipright ||
       dsty+dsth < clipy || dsty > clipbottom) 
@@ -1202,11 +1202,15 @@ static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
     return; // dont draw if fully outside
   }
 
-  if (dstx < clipx || dsty < clipy || 
-      dstx+dstw > clipright || dsty+dsth > clipbottom) 
+  float srcx = (float) _srcx;
+  float srcy = (float) _srcy;
+  float srcw = (float) _srcw;
+  float srch = (float) _srch;
+
+  if (dstx < clipx || dsty < clipy || dstx+dstw > clipright || dsty+dsth > clipbottom) 
   {
-    float xsc=(float)srcw/dstw;
-    float ysc=(float)srch/dsth;
+    float xsc=srcw/dstw;
+    float ysc=srch/dsth;
 
     if (dstx<clipx)
     {
