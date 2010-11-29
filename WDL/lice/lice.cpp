@@ -1133,8 +1133,8 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   else pdest += dsty*dest_span;
   pdest+=dstx*sizeof(LICE_pixel);
 
-  int clip_r=(int)ceil(srcx+max(srcw,0));
-  int clip_b=(int)ceil(srcy+max(srch,0));
+  int clip_r=(int)(srcx+max(srcw,0)+0.5);
+  int clip_b=(int)(srcy+max(srch,0)+0.5);
   if (clip_r>src->getWidth()) clip_r=src->getWidth();
   if (clip_b>src->getHeight()) clip_b=src->getHeight();
 
