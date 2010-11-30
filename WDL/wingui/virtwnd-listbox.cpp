@@ -125,12 +125,49 @@ void WDL_VirtualListBox::CalcLayout(int num_items, int *nrows, int *ncols, int *
 
 }
 
-static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int drawx, int drawy, int draww, int drawh,
-                RECT *cliprect, int drawsrcx, int drawsrcw, int bkbmstate, float alpha)
+static void maxSizePreservingAspect(int sw, int sh, int dw, int dh, int *outw, int *outh)
 {
+  *outw=dw;
+  *outh=dh;
+  if (sw < 1 || sh < 1) return;
+  int xwid = (sw * dh) / sh; // calculate width required if we make it dh pixels tall
+  if (xwid > dw)
+  {
+    // too wide, make maximum width and reduce height
+    *outh = (dw * sh) / sw;
+  }
+  else 
+  {
+    // too narrow, use full height and reduce width
+    *outw = (dh * sw) / sh;
+  }
+}
+
+static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int drawx, int drawy, int draww, int drawh,
+                RECT *cliprect, int drawsrcx, int drawsrcw, int bkbmstate, float alpha, int whichpass=0)
+{
+  bool haspink=bkbm->bgimage_lt[0]||bkbm->bgimage_lt[1]||bkbm->bgimage_rb[0] || bkbm->bgimage_rb[1];
+
+  if (whichpass==1)
+  {
+    int sw = (bkbm->bgimage->getWidth() - (haspink? 2 :0))/2;
+    int sh = (bkbm->bgimage->getHeight() - (haspink? 2 :0))/3;
+
+    int usew,useh;
+    // scale drawing coords by image dimensions
+    maxSizePreservingAspect(sw,sh,draww,drawh,&usew,&useh);
+
+    if (usew == sw-1 || usew == sw+1) usew=sw;
+    if (useh == sh-1 || useh == sh+1) useh=sh;
+    drawx += (draww-usew)/2;
+    drawy += (drawh-useh)/2;
+    draww = usew;
+    drawh = useh;
+  }
+
   int hh=bkbm->bgimage->getHeight()/3;
 
-  if (bkbm->bgimage_lt[0]||bkbm->bgimage_lt[1]||bkbm->bgimage_rb[0] || bkbm->bgimage_rb[1])
+  if (haspink)
   {
     WDL_VirtualWnd_BGCfg tmp = *bkbm;
     if ((tmp.bgimage_noalphaflags&0xffff)!=0xffff) tmp.bgimage_noalphaflags=0;  // force alpha channel if any alpha
@@ -275,11 +312,11 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
   memset(&m_lastscrollbuttons,0,sizeof(m_lastscrollbuttons));
   if (updownbuttonsize||leftrightbuttonsize)
   {
-    WDL_VirtualWnd_BGCfg *bkbm=0;
+    WDL_VirtualWnd_BGCfg *bkbm[2]={0,};
     int a=m_GetItemInfo ? m_GetItemInfo(this,
-      leftrightbuttonsize ? WDL_VWND_LISTBOX_ARROWINDEX_LR : WDL_VWND_LISTBOX_ARROWINDEX,NULL,0,NULL,&bkbm) : 0;
+      leftrightbuttonsize ? WDL_VWND_LISTBOX_ARROWINDEX_LR : WDL_VWND_LISTBOX_ARROWINDEX,NULL,0,NULL,bkbm) : 0;
 
-    if (!a) bkbm=0;
+    if (!a) bkbm[0]=0;
 
     if (leftrightbuttonsize)
     {
@@ -311,40 +348,46 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
       }
     }
 
-    if (bkbm && bkbm->bgimage)
+
+    int wb;
+    for (wb=0;wb<2;wb++)
     {
-      if (leftrightbuttonsize)
+      if (bkbm[wb] && bkbm[wb]->bgimage)
       {
+        int tw = bkbm[wb]->bgimage->getWidth();
         int bkbmstate=startpos>0 ? 2 : 1;
-        DrawBkImage(drawbm,bkbm,
-            r.left,r.top,m_scrollbuttonsize,(r.bottom-r.top),
-            cliprect,
-            0,bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
+        if (leftrightbuttonsize)
+        {
+          DrawBkImage(drawbm,bkbm[wb],
+              r.left,r.top,m_scrollbuttonsize,(r.bottom-r.top),
+              cliprect,
+              0,tw/2,bkbmstate,1.0, wb);
 
 
-        bkbmstate=itempos<num_items ? 2 : 1;
-        DrawBkImage(drawbm,bkbm,
-            r.right-m_scrollbuttonsize,r.top,m_scrollbuttonsize,(r.bottom-r.top),
-            cliprect,
-            bkbm->bgimage->getWidth()/2,bkbm->bgimage->getWidth() - bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
-      }
-      else
-      {
-        int bkbmstate=startpos>0 ? 2 : 1;
-        DrawBkImage(drawbm,bkbm,
-            r.left,y-m_rh,(r.right-r.left)/2,m_scrollbuttonsize,
-            cliprect,
-            0,bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
+          bkbmstate=itempos<num_items ? 2 : 1;
+          DrawBkImage(drawbm,bkbm[wb],
+              r.right-m_scrollbuttonsize,r.top,m_scrollbuttonsize,(r.bottom-r.top),
+              cliprect,
+              tw/2,tw - tw/2,bkbmstate,1.0,wb);
+        }
+        else
+        {
+          DrawBkImage(drawbm,bkbm[wb],
+              r.left,y-m_rh,(r.right-r.left)/2,m_scrollbuttonsize,
+              cliprect,
+              0,tw/2,bkbmstate,1.0,wb);
   
-        bkbmstate=itempos<num_items ? 2 : 1;
-        DrawBkImage(drawbm,bkbm,
-            (r.left+r.right)/2,y-m_rh,(r.right-r.left) - (r.right-r.left)/2,m_scrollbuttonsize,
-            cliprect,
-            bkbm->bgimage->getWidth()/2,bkbm->bgimage->getWidth() - bkbm->bgimage->getWidth()/2,bkbmstate,1.0);
+          bkbmstate=itempos<num_items ? 2 : 1;
+          DrawBkImage(drawbm,bkbm[wb],
+              (r.left+r.right)/2,y-m_rh,(r.right-r.left) - (r.right-r.left)/2,m_scrollbuttonsize,
+              cliprect,
+              tw/2,tw - tw/2,bkbmstate,1.0,wb);
+        }
       }
     }
 
-    if (!a||!bkbm||!bkbm->bgimage)
+    if (!bkbm[0] || !bkbm[0]->bgimage ||
+        !bkbm[1] || !bkbm[1]->bgimage)
     {
       bool butaa = true;
       if (updownbuttonsize)
@@ -353,65 +396,75 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         int bs=5;
         int bsh=8;
         y -= m_rh-m_scrollbuttonsize;
-        LICE_Line(drawbm,cx,y-m_scrollbuttonsize+2,cx,y-1,pencol2,1.0f,0,false);
-        LICE_Line(drawbm,r.left,y,r.right,y,pencol2,1.0f,0,false);
+
+        if (!bkbm[0] || !bkbm[0]->bgimage)
+        {
+          LICE_Line(drawbm,cx,y-m_scrollbuttonsize+2,cx,y-1,pencol2,1.0f,0,false);
+          LICE_Line(drawbm,r.left,y,r.right,y,pencol2,1.0f,0,false);
+        }
       
         y-=m_scrollbuttonsize/2+bsh/2;
 
-        if (itempos<num_items)
+        if (!bkbm[1] || !bkbm[1]->bgimage)
         {
-          cx=(r.left+r.right)*3/4;
+          if (itempos<num_items)
+          {
+            cx=(r.left+r.right)*3/4;
 
-          LICE_Line(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
-          LICE_Line(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
-          LICE_Line(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
+            LICE_Line(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
+            LICE_Line(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
+            LICE_Line(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
 
-          LICE_Line(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
-          LICE_Line(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
-          LICE_Line(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
-        }
-        if (startpos>0)
-        {
-          y-=2;
-          cx=(r.left+r.right)/4;
-          LICE_Line(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
-          LICE_Line(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
-          LICE_Line(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
+            LICE_Line(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
+            LICE_Line(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
+            LICE_Line(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
+          }
+          if (startpos>0)
+          {
+            y-=2;
+            cx=(r.left+r.right)/4;
+            LICE_Line(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
+            LICE_Line(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
+            LICE_Line(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
 
-          LICE_Line(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
-          LICE_Line(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
-          LICE_Line(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
+            LICE_Line(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
+            LICE_Line(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
+            LICE_Line(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
+          }
         }
       }
       else  // sideways buttons
       {
-        #define LICE_LINEROT(bm,x1,y1,x2,y2,pc,al,mode,aa) LICE_Line(bm,y1,x1,y2,x2,pc,al,mode,aa)
-        int bs=5;
-        int bsh=8;
-        int cx = (r.bottom + r.top)/2;
-        if (itempos < num_items)
+        if (!bkbm[1] || !bkbm[1]->bgimage)
         {
-          int y = r.right - leftrightbuttonsize/2 - bsh/2;
-          LICE_LINEROT(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
+          #define LICE_LINEROT(bm,x1,y1,x2,y2,pc,al,mode,aa) LICE_Line(bm,y1,x1,y2,x2,pc,al,mode,aa)
+          int bs=5;
+          int bsh=8;
+          int cx = (r.bottom + r.top)/2;
+          if (itempos < num_items)
+          {
+            int y = r.right - leftrightbuttonsize/2 - bsh/2;
+            LICE_LINEROT(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
 
-          LICE_LINEROT(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
-        }
-        if (startpos>0)
-        {
-          int y = r.left + leftrightbuttonsize/2-bsh/2 - 2;
-          LICE_LINEROT(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
+          }
+          if (startpos>0)
+          {
+            int y = r.left + leftrightbuttonsize/2-bsh/2 - 2;
+            LICE_LINEROT(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
 
-          LICE_LINEROT(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
-          LICE_LINEROT(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
+          }
+          #undef LICE_LINEROT
         }
-        #undef LICE_LINEROT
       }
     }
   }
