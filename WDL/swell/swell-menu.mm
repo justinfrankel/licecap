@@ -731,16 +731,17 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     if (!v) return 0;
     
     NSEvent *event = [NSApp currentEvent];
-    if (!event) return 0;
-    
-    int etype = [event type];
+       
     {      
       //create a new event at these coordinates, faking it
       NSWindow *w = [v window];
       NSPoint pt = NSMakePoint(xpos, ypos);
       pt=[w convertScreenToBase:pt];
       pt.y -= 4;
-      event = [NSEvent otherEventWithType:NSApplicationDefined location:pt modifierFlags:0 timestamp:[event timestamp] windowNumber:[event windowNumber] context:[event context] subtype:0 data1:0 data2:0];
+      int wn = event ? [event windowNumber] : [w windowNumber];
+      NSTimeInterval ts = event ? [event timestamp] : 0;
+      NSGraphicsContext *gctx = event ? [event context] : 0;
+      event = [NSEvent otherEventWithType:NSApplicationDefined location:pt modifierFlags:0 timestamp:ts windowNumber:wn context:gctx subtype:0 data1:0 data2:0];
     }
     
     SWELL_PopupMenuRecv *recv = [[SWELL_PopupMenuRecv alloc] initWithWnd:((flags & TPM_NONOTIFY) ? 0 : hwnd)];
