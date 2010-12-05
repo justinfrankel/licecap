@@ -1435,6 +1435,15 @@ static NSView *NavigateUpScrollClipViews(NSView *ch)
   return ch;
 }
 
+HWND SWELL_NavigateUpScrollClipViews(HWND h)
+{
+  NSView *v = 0;
+  if (h && [(id)h isKindOfClass:[NSView class]]) v = (NSView *)h;
+  else if (h && [(id)h isKindOfClass:[NSWindow class]]) v = [(NSWindow *)h contentView];
+  if (v)
+    return (HWND)NavigateUpScrollClipViews(v);
+  return 0;
+}
 
 bool GetWindowRect(HWND hwnd, RECT *r)
 {
