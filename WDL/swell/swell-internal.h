@@ -156,6 +156,7 @@ struct HTREEITEM__
   LONG style;
   int ownermode_cnt;
   int m_start_item;
+  int m_start_subitem;
   int m_start_item_clickmode;
   int m_lbMode;
   WDL_PtrList<SWELL_ListView_Row> *m_items;
