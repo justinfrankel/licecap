@@ -148,6 +148,7 @@
 #define CBS_AUTOHSCROLL 0
 #define TBS_NOTICKS 0
 #define TBS_TOP 0
+#define TBS_BOTH 0
 #define BS_BITMAP 0
 #define LBS_NOINTEGRALHEIGHT 0
 #define TVS_HASLINES 0

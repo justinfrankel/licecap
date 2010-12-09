@@ -3107,6 +3107,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setMinValue:0.0];
     [obj setMaxValue:1000.0];
     [obj setFrame:MakeCoords(x,y,w,h,false)];
+    if (!stricmp(classname, "msctls_trackbar32"))
+    {
+      [[obj cell] setControlSize:NSMiniControlSize];
+    }
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onSwellCommand:)];
     if (style&SWELL_NOT_WS_VISIBLE) [obj setHidden:YES];
