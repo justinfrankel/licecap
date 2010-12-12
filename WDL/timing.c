@@ -3,6 +3,9 @@
 #ifdef TIMING
 
 #include <stdio.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 static struct {
 	__int64 st_time;
