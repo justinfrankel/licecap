@@ -515,8 +515,11 @@ HCURSOR SWELL_GetLastSetCursor()
   return m_last_setcursor;
 }
 
-
+static POINT g_swell_mouse_relmode_curpos; // stored in osx-native coordinates (y=0=top of screen)
 static bool g_swell_mouse_relmode;
+
+
+
 static bool g_swell_mouse_relmode_synergydet; // only used when synergy is detected on hidden mouse mode
 static bool g_swell_last_set_valid;
 static POINT g_swell_last_set_pos;
@@ -524,6 +527,11 @@ static POINT g_swell_last_set_pos;
 
 void GetCursorPos(POINT *pt)
 {
+  if (g_swell_mouse_relmode)
+  {
+    *pt=g_swell_mouse_relmode_curpos;
+    return;
+  }
   NSPoint localpt=[NSEvent mouseLocation];
   pt->x=(int)localpt.x;
   pt->y=(int)localpt.y;
@@ -531,6 +539,10 @@ void GetCursorPos(POINT *pt)
 
 DWORD GetMessagePos()
 {  
+  if (g_swell_mouse_relmode)
+  {
+    return MAKELONG((int)g_swell_mouse_relmode_curpos.x,(int)g_swell_mouse_relmode_curpos.y);
+  }
   NSPoint localpt=[NSEvent mouseLocation];
   return MAKELONG((int)localpt.x, (int)localpt.y);
 }
@@ -542,6 +554,8 @@ NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event)
   {
     int idx=(int)[event deltaX];
     int idy=(int)[event deltaY];
+    g_swell_mouse_relmode_curpos.x += idx;
+    g_swell_mouse_relmode_curpos.y -= idy;
     NSPoint localpt=[event locationInWindow];
     localpt=[view convertPoint:localpt fromView:nil];
     POINT p={(int)localpt.x,(int)localpt.y};
@@ -553,11 +567,14 @@ NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event)
       g_swell_mouse_relmode_synergydet=true;
     }
     
-    if (g_swell_mouse_relmode_synergydet) idx=idy=0;      
-    else if (idx||idy) SetCursorPos(p.x+idx,p.y-idy);
-    return NSMakePoint(localpt.x+idx,localpt.y+idy);
+    if (g_swell_mouse_relmode_synergydet) return NSMakePoint(localpt.x+idx,localpt.y+idy);
   }
-  
+  if (g_swell_mouse_relmode) 
+  {
+    POINT p=g_swell_mouse_relmode_curpos;
+    ScreenToClient((HWND)view,&p);
+    return NSMakePoint(p.x,p.y);
+  }
   NSPoint localpt=[event locationInWindow];
   return [view convertPoint:localpt fromView:nil];
 }
@@ -572,6 +589,7 @@ int SWELL_ShowCursor(BOOL bShow)
   m_curvis_cnt += (bShow?1:-1);
   if (m_curvis_cnt==-1 && !bShow) 
   {
+    GetCursorPos(&g_swell_mouse_relmode_curpos);
     CGDisplayHideCursor(kCGDirectMainDisplay);
     CGAssociateMouseAndMouseCursorPosition(false);
     g_swell_mouse_relmode=true;
@@ -581,6 +599,7 @@ int SWELL_ShowCursor(BOOL bShow)
     CGDisplayShowCursor(kCGDirectMainDisplay);
     CGAssociateMouseAndMouseCursorPosition(true);
     g_swell_mouse_relmode=false;
+    SetCursorPos(g_swell_mouse_relmode_curpos.x,g_swell_mouse_relmode_curpos.y);
   }  
   g_swell_mouse_relmode_synergydet=false;
   g_swell_last_set_valid=false;
@@ -591,10 +610,17 @@ int SWELL_ShowCursor(BOOL bShow)
 BOOL SWELL_SetCursorPos(int X, int Y)
 {  
   if (g_swell_mouse_relmode_synergydet) return false;
-
   g_swell_last_set_pos.x = X;
   g_swell_last_set_pos.y = Y;
   g_swell_last_set_valid=true;
+
+  if (g_swell_mouse_relmode)
+  {
+    g_swell_mouse_relmode_curpos.x=X;
+    g_swell_mouse_relmode_curpos.y=Y;
+    return TRUE;
+  }
+
 
   int h=CGDisplayPixelsHigh(CGMainDisplayID());
   CGPoint pos=CGPointMake(X,h-Y);
