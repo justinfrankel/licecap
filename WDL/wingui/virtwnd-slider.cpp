@@ -681,33 +681,39 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       POINT p;
       GetCursorPos(&p);
       p.x-=(xpos-m_last_x);
+#ifdef _WIN32
+      p.y-=(ypos-m_last_y);
+#else
+      p.y+=(ypos-m_last_y);
+#endif
+      
       
     #ifdef _WIN32
-      p.y-=(ypos-m_last_y);
-      POINT pt={0,0};
-      ClientToScreen(GetRealParent(),&pt);
-      WDL_VWnd *wnd=this;
-      while (wnd)
+      if (!m_is_knob)
       {
-        RECT r;
-        wnd->GetPosition(&r);
-        pt.x+=r.left;
-        pt.y+=r.top;
-        wnd=wnd->GetParent();
-      }
+        POINT pt={0,0};
+        ClientToScreen(GetRealParent(),&pt);
+        WDL_VWnd *wnd=this;
+        while (wnd)
+        {
+          RECT r;
+          wnd->GetPosition(&r);
+          pt.x+=r.left;
+          pt.y+=r.top;
+          wnd=wnd->GetParent();
+        }
 
-      if (isVert) 
-      {
-        m_last_y=( viewh - bm_h - (((m_pos-m_minr) * (viewh-bm_h))/rsize))+m_move_offset;
-        p.y=m_last_y+pt.y;
+        if (isVert) 
+        {
+          m_last_y=( viewh - bm_h - (((m_pos-m_minr) * (viewh-bm_h))/rsize))+m_move_offset;
+          p.y=m_last_y+pt.y;
+        }
+        else 
+        {
+          m_last_x=( (((m_pos-m_minr) * (vieww-bm_w))/rsize))+m_move_offset;
+          p.x=m_last_x+pt.x;
+        }
       }
-      else 
-      {
-        m_last_x=( (((m_pos-m_minr) * (vieww-bm_w))/rsize))+m_move_offset;
-        p.x=m_last_x+pt.x;
-      }
-    #else
-      p.y+=(ypos-m_last_y);
     #endif
       
       if (!SetCursorPos(p.x,p.y)) 
