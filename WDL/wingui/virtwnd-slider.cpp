@@ -718,21 +718,14 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     }
     if (!m_last_precmode)
     {
-      m_last_precmode=1;
-      //ShowCursor(FALSE);
-      ShowCursor(FALSE);
+      do m_last_precmode++; while (ShowCursor(FALSE)>=0);
     }
   }
   else
   {
     m_last_y=ypos;
     m_last_x=xpos;
-    if (m_last_precmode)
-    {
-      m_last_precmode=0;
-      //ShowCursor(TRUE);
-      ShowCursor(TRUE);
-    }
+    while (m_last_precmode>0) {m_last_precmode--; ShowCursor(TRUE); }
   }
   m_needflush=0;
 }
@@ -757,11 +750,7 @@ void WDL_VirtualSlider::OnMouseUp(int xpos, int ypos)
   if (m_captured) 
   {
     OnMoveOrUp(xpos,ypos,1);
-    if (m_last_precmode)
-    {
-      m_last_precmode=0;
-      ShowCursor(TRUE);
-    }
+    while (m_last_precmode>0) {m_last_precmode--; ShowCursor(TRUE); }
   }
   m_captured=false;
 }
