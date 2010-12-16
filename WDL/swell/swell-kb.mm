@@ -520,11 +520,6 @@ static bool g_swell_mouse_relmode;
 
 
 
-static bool g_swell_mouse_relmode_synergydet; // only used when synergy is detected on hidden mouse mode
-static bool g_swell_last_set_valid;
-static POINT g_swell_last_set_pos;
-
-
 void GetCursorPos(POINT *pt)
 {
   if (g_swell_mouse_relmode)
@@ -556,18 +551,6 @@ NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event)
     int idy=(int)[event deltaY];
     g_swell_mouse_relmode_curpos.x += idx;
     g_swell_mouse_relmode_curpos.y -= idy;
-    NSPoint localpt=[event locationInWindow];
-    localpt=[view convertPoint:localpt fromView:nil];
-    POINT p={(int)localpt.x,(int)localpt.y};
-    ClientToScreen((HWND)view,&p);
-    
-     // if deltas set, and the cursor actually moved, then it must be synergy
-    if (!g_swell_mouse_relmode_synergydet && g_swell_last_set_valid && (idx||idy) && g_swell_last_set_pos.x+idx == p.x && g_swell_last_set_pos.y-idy == p.y)
-    {
-      g_swell_mouse_relmode_synergydet=true;
-    }
-    
-    if (g_swell_mouse_relmode_synergydet) return NSMakePoint(localpt.x+idx,localpt.y+idy);
   }
   if (g_swell_mouse_relmode) 
   {
@@ -601,19 +584,12 @@ int SWELL_ShowCursor(BOOL bShow)
     g_swell_mouse_relmode=false;
     SetCursorPos(g_swell_mouse_relmode_curpos.x,g_swell_mouse_relmode_curpos.y);
   }  
-  g_swell_mouse_relmode_synergydet=false;
-  g_swell_last_set_valid=false;
   return m_curvis_cnt;
 }
 
 
 BOOL SWELL_SetCursorPos(int X, int Y)
 {  
-  if (g_swell_mouse_relmode_synergydet) return false;
-  g_swell_last_set_pos.x = X;
-  g_swell_last_set_pos.y = Y;
-  g_swell_last_set_valid=true;
-
   if (g_swell_mouse_relmode)
   {
     g_swell_mouse_relmode_curpos.x=X;
