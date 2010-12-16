@@ -75,20 +75,20 @@ static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfi
   }
   if (vert)
   {
+    if (want_knob && *bmh >= wndh*3/4) *want_knob=true;
     if (*bmh > wndh/2)
     {
       if (startoffs) *startoffs += (*bmh - wndh/2)/2;
       *bmh=wndh/2;
-      if (want_knob) *want_knob=true;
     }
   }
   else
   {
+    if (want_knob && *bmw >= wndw*3/4) *want_knob=true;
     if (*bmw > wndw/2)
     {
       if (startoffs) *startoffs += (*bmw - wndw/2)/2;
       *bmw=wndw/2;
-      if (want_knob) *want_knob=true;
     }
   }
 }
