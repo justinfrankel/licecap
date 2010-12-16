@@ -49,23 +49,40 @@ bool WDL_VirtualSlider::GetIsVert()
   return m_position.right-m_position.left < m_position.bottom-m_position.top;
 }
 
-static void AdjustThumbImageSize(WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL)
+static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL)
 {
-  if (!a) return;
-  int ret=a->thumbimage_rb[vert] - a->thumbimage_lt[vert];
-  if (ret<1) return;
-  if (startoffs) *startoffs = a->thumbimage_lt[vert];
-  if (ret>0)
+  if (a) 
   {
-    if (vert)
+    int ret=a->thumbimage_rb[vert] - a->thumbimage_lt[vert];
+    if (ret>0)
     {
-      if (*bmh > ret) (*bmw)--;
-      *bmh=ret;
+      if (startoffs) *startoffs = a->thumbimage_lt[vert];
+      if (vert)
+      {
+        if (*bmh > ret) (*bmw)--;
+        *bmh=ret;
+      }
+      else 
+      {
+        if (*bmw > ret) (*bmh)--;
+        *bmw=ret;
+      }
     }
-    else 
+  }
+  if (vert)
+  {
+    if (*bmh > wndh/2)
     {
-      if (*bmw > ret) (*bmh)--;
-      *bmw=ret;
+      if (startoffs) *startoffs += (*bmh - wndh/2)/2;
+      *bmh=wndh/2;
+    }
+  }
+  else
+  {
+    if (*bmw > wndw/2)
+    {
+      if (startoffs) *startoffs += (*bmw - wndw/2)/2;
+      *bmw=wndw/2;
     }
   }
 }
@@ -104,7 +121,7 @@ void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
   {
     *w = bm_image->getWidth();
     *h = bm_image->getHeight();
-    AdjustThumbImageSize(m_skininfo,isVert,w,h);
+    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,w,h);
   }
   else
   {
@@ -115,6 +132,7 @@ void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
       *h=bm_image->getHeight();
     }
     else *w=*h=16;
+    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,NULL,isVert,w,h);
   }
 }
 
@@ -138,12 +156,9 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
   HBITMAP bm=0;
   if (bm_image)
   {
-    bm_w=bm_image->getWidth();
-    bm_h=bm_image->getHeight();
-
-    bm_w2=bm_w;
-    bm_h2=bm_h;
-    AdjustThumbImageSize(m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset);
+    bm_w2=bm_w=bm_image->getWidth();
+    bm_h2=bm_h=bm_image->getHeight();
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset);
   }
   else
   {
@@ -153,6 +168,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       bm_w2=bm_w=bm_image->getWidth();
       bm_h2=bm_h=bm_image->getHeight();
     }
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w2,&bm_h2,&imgoffset);
   }
 
   float alpha = (m_grayed ? 0.25f : 1.0f);
@@ -401,7 +417,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
-    AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h);
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w,&bm_h);
   }
   else
   {
@@ -411,6 +427,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
       bm_w=bm_image->getWidth();
       bm_h=bm_image->getHeight();
     }
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w,&bm_h);
   }
 
   m_last_y=ypos;    
@@ -508,7 +525,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
-    AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h);
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w,&bm_h);
   }
   else
   {
@@ -518,6 +535,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       bm_w=bm_image->getWidth();
       bm_h=bm_image->getHeight();
     }
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w,&bm_h);
   }
 
   int precmode=0;
@@ -765,7 +783,7 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     int s=0;
     int bm_w2=bm_w;
     int bm_h2=bm_h;
-    AdjustThumbImageSize(m_skininfo,isVert,&bm_w,&bm_h,&s);
+    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s);
     int rsize=m_maxr-m_minr;
     int viewh=m_position.bottom-m_position.top;
     int vieww=m_position.right-m_position.left;
