@@ -23,12 +23,14 @@
 
 */
 
+#include <math.h>
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
+  m_is_knob=false;
   m_tl_extra=m_br_extra=0;
   m_skininfo=0;
   m_bgcol1_msg=0;
@@ -38,6 +40,7 @@ WDL_VirtualSlider::WDL_VirtualSlider()
   m_pos=m_center=500;
   m_captured=false;
   m_grayed = false;
+  m_knobbg[0]=m_knobbg[1]=0;
 }
 
 WDL_VirtualSlider::~WDL_VirtualSlider()
@@ -49,8 +52,9 @@ bool WDL_VirtualSlider::GetIsVert()
   return m_position.right-m_position.left < m_position.bottom-m_position.top;
 }
 
-static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL)
+static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL, bool *want_knob=NULL)
 {
+  if (want_knob) *want_knob=false;
   if (a) 
   {
     int ret=a->thumbimage_rb[vert] - a->thumbimage_lt[vert];
@@ -75,6 +79,7 @@ static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfi
     {
       if (startoffs) *startoffs += (*bmh - wndh/2)/2;
       *bmh=wndh/2;
+      if (want_knob) *want_knob=true;
     }
   }
   else
@@ -83,6 +88,7 @@ static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfi
     {
       if (startoffs) *startoffs += (*bmw - wndw/2)/2;
       *bmw=wndw/2;
+      if (want_knob) *want_knob=true;
     }
   }
 }
@@ -115,6 +121,11 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
 
 void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
 {
+  if (m_is_knob)
+  {
+    *w=*h=0;
+    return;
+  }
   bool isVert = GetIsVert();
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   if (bm_image)
@@ -154,11 +165,12 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
   int bm_w=16,bm_h=16,bm_w2=16,bm_h2=16;
   int imgoffset=0;
   HBITMAP bm=0;
+  bool wantKnob=false;
   if (bm_image)
   {
     bm_w2=bm_w=bm_image->getWidth();
     bm_h2=bm_h=bm_image->getHeight();
-    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset);
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset,&wantKnob);
   }
   else
   {
@@ -168,14 +180,28 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       bm_w2=bm_w=bm_image->getWidth();
       bm_h2=bm_h=bm_image->getHeight();
     }
-    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w2,&bm_h2,&imgoffset);
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w2,&bm_h2,&imgoffset,&wantKnob);
   }
 
   float alpha = (m_grayed ? 0.25f : 1.0f);
 
-  if (isVert)
+  m_is_knob = wantKnob;
+
+  if (isVert||wantKnob)
   {
     int pos = ((m_maxr-m_pos)*(viewh-bm_h2))/rsize; //viewh - bm_h2 - ((m_pos-m_minr) * (viewh - bm_h2))/rsize;
+
+    if (wantKnob)
+    {
+      int sz= min(vieww,viewh);
+      origin_x += (vieww-sz)/2;
+      origin_y += (viewh-sz)/2;
+      vieww = viewh = sz;       
+      back_image = m_knobbg[sz>28];
+
+      if (back_image && !back_image->bgimage) back_image=NULL;
+    }
+
 
     if (back_image)
     {
@@ -203,79 +229,109 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       }
     }
 
-    if (!back_image || (m_skininfo&&m_skininfo->zeroline_color))
+    if (!wantKnob)
     {
+      if (!back_image || (m_skininfo&&m_skininfo->zeroline_color))
+      {
+        int center=m_center;
+        if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
+
+        int y=((m_maxr-center)*(viewh-bm_h2))/rsize + ((bm_h-1)/2-imgoffset);
+
+        if (m_skininfo && m_skininfo->zeroline_color)
+        {
+          LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y,
+            m_skininfo->zeroline_color,
+            LICE_GETA(m_skininfo->zeroline_color)/255.0,
+            LICE_BLIT_MODE_COPY,false);
+        }
+        else
+        {
+          LICE_pixel col = WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+          LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y,
+              LICE_RGBA_FROMNATIVE(col,255),1.0f,LICE_BLIT_MODE_COPY,false);
+        }
+      }
+
+
+      if (!back_image)
+      {
+
+        LICE_pixel fgcol  = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+        fgcol = LICE_RGBA_FROMNATIVE(fgcol,255);
+        LICE_pixel bgcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+        if (m_bgcol1_msg)
+          SendCommand(m_bgcol1_msg,(INT_PTR)&bgcol,GetID(),this);
+        bgcol = LICE_RGBA_FROMNATIVE(bgcol,255);
+
+
+        int offs= (vieww - 4)/2;
+        // white with black border, mmm
+
+        RECT r={origin_x + offs,origin_y + bm_h2/3, origin_x + offs + 5,origin_y + viewh - bm_h2/3};
+
+        LICE_FillRect(drawbm,r.left+1,r.top+1,
+                             r.right-r.left-2,r.bottom-r.top-2,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+
+        LICE_Line(drawbm,r.left+1,r.top,r.right-2,r.top,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.left+1,r.bottom-1,r.right-2,r.bottom-1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+
+        LICE_Line(drawbm,r.left,r.top+1,r.left,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+        LICE_Line(drawbm,r.right-1,r.top+1,r.right-1,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);    
+
+      }
+
+      if (bm_image)
+      {
+        int ypos=origin_y+pos-imgoffset;
+        int xpos=origin_x;
+
+        RECT r={0,0,bm_w2,bm_h};
+  /*      if (vieww<bm_w)
+        {
+          r.left=(bm_w-vieww)/2;
+          r.right=r.left+vieww;
+        }
+        else 
+        */
+        xpos+=(vieww-bm_w2)/2;
+
+        m_tl_extra=origin_y-ypos;
+        if (m_tl_extra<0)m_tl_extra=0;
+
+        m_br_extra=ypos+(r.bottom-r.top) - (origin_y+m_position.bottom-m_position.top);
+        if (m_br_extra<0)m_br_extra=0;
+
+
+        LICE_Blit(drawbm,bm_image,xpos,ypos,&r,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
+      }
+    }
+    else
+    {
+      LICE_pixel col  = LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_3DHILIGHT),255);
+
+      int cx=origin_x+vieww/2;
+      int cy=origin_y+viewh/2;
+      float rd = vieww/2-4;
+      float r2=rd*0.125f;
+      if (!back_image) LICE_Circle(drawbm, cx, cy, rd, col, 1.0f, LICE_BLIT_MODE_COPY, true);
+
+      float val;
+      
       int center=m_center;
       if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
+      if (m_pos < center) val = (m_pos-center) / (double)(center-m_minr);
+      else val = (m_pos-center) / (double)(m_maxr-center);
+      #define KNOBANGLE_MAX (3.14159*7.0/8.0);
+      float a = val*KNOBANGLE_MAX;
+      float sina=sin(a);
+      float cosa=cos(a);
+      float x1=cx+r2*sina;
+      float y1=cy-r2*cosa;
+      float x2=cx+rd*sina;
+      float y2=cy-rd*cosa;
+      LICE_FLine(drawbm, x1, y1, x2, y2, col, 1.0f, LICE_BLIT_MODE_COPY, true);
 
-      int y=((m_maxr-center)*(viewh-bm_h2))/rsize + ((bm_h-1)/2-imgoffset);
-
-      if (m_skininfo && m_skininfo->zeroline_color)
-      {
-        LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y,
-          m_skininfo->zeroline_color,
-          LICE_GETA(m_skininfo->zeroline_color)/255.0,
-          LICE_BLIT_MODE_COPY,false);
-      }
-      else
-      {
-        LICE_pixel col = WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
-        LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y,
-            LICE_RGBA_FROMNATIVE(col,255),1.0f,LICE_BLIT_MODE_COPY,false);
-      }
-    }
-
-
-    if (!back_image)
-    {
-
-      LICE_pixel fgcol  = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
-      fgcol = LICE_RGBA_FROMNATIVE(fgcol,255);
-      LICE_pixel bgcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-      if (m_bgcol1_msg)
-        SendCommand(m_bgcol1_msg,(INT_PTR)&bgcol,GetID(),this);
-      bgcol = LICE_RGBA_FROMNATIVE(bgcol,255);
-
-
-      int offs= (vieww - 4)/2;
-      // white with black border, mmm
-
-      RECT r={origin_x + offs,origin_y + bm_h2/3, origin_x + offs + 5,origin_y + viewh - bm_h2/3};
-
-      LICE_FillRect(drawbm,r.left+1,r.top+1,
-                           r.right-r.left-2,r.bottom-r.top-2,bgcol,1.0f,LICE_BLIT_MODE_COPY);
-
-      LICE_Line(drawbm,r.left+1,r.top,r.right-2,r.top,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
-      LICE_Line(drawbm,r.left+1,r.bottom-1,r.right-2,r.bottom-1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
-
-      LICE_Line(drawbm,r.left,r.top+1,r.left,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
-      LICE_Line(drawbm,r.right-1,r.top+1,r.right-1,r.bottom-2,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);    
-
-    }
-
-    if (bm_image)
-    {
-      int ypos=origin_y+pos-imgoffset;
-      int xpos=origin_x;
-
-      RECT r={0,0,bm_w2,bm_h};
-/*      if (vieww<bm_w)
-      {
-        r.left=(bm_w-vieww)/2;
-        r.right=r.left+vieww;
-      }
-      else 
-      */
-      xpos+=(vieww-bm_w2)/2;
-
-      m_tl_extra=origin_y-ypos;
-      if (m_tl_extra<0)m_tl_extra=0;
-
-      m_br_extra=ypos+(r.bottom-r.top) - (origin_y+m_position.bottom-m_position.top);
-      if (m_br_extra<0)m_br_extra=0;
-
-
-      LICE_Blit(drawbm,bm_image,xpos,ypos,&r,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
     }
   }
   else
@@ -413,11 +469,12 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16;
+  bool wantKnob=false;
   if (bm_image)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
-    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w,&bm_h);
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w,&bm_h,NULL,&wantKnob);
   }
   else
   {
@@ -427,8 +484,12 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
       bm_w=bm_image->getWidth();
       bm_h=bm_image->getHeight();
     }
-    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w,&bm_h);
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w,&bm_h,NULL,&wantKnob);
   }
+
+  m_is_knob = wantKnob;
+
+  if (m_is_knob) isVert=true;
 
   m_last_y=ypos;    
   m_last_x=xpos;
@@ -539,6 +600,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
   }
 
   int precmode=0;
+  if (m_is_knob) isVert=true;
 
   if (isVert)
   {
@@ -546,9 +608,10 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     if (isup) pos=m_pos;
     else 
 #endif
-      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || viewh <= bm_h)
+      if (viewh <= bm_h || m_is_knob || (GetAsyncKeyState(VK_CONTROL)&0x8000))
     {
-      pos = m_pos- (ypos-m_last_y);
+        int sc=m_is_knob && !(GetAsyncKeyState(VK_CONTROL)&0x8000)?4:1;
+        pos = m_pos- ((ypos-m_last_y) - (m_is_knob ?xpos-m_last_x:0))*sc;
       precmode=1;
     }
     else 
@@ -561,7 +624,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
     if (pos != m_pos || isup)
     {
-      if (ypos == m_last_y)
+      if (ypos == m_last_y&&(m_is_knob && xpos==m_last_x))
         pos=m_pos;
 
       if ((GetAsyncKeyState(VK_MENU)&0x8000) && isup)
@@ -569,7 +632,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       m_pos=pos;
 
-      if (isup || ypos != m_last_y)
+      if (isup || ypos != m_last_y||(m_is_knob&&xpos!=m_last_x))
       {
         SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
@@ -582,7 +645,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     if (isup) pos=m_pos;
     else 
 #endif
-      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || vieww <= bm_w)
+      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || vieww <= bm_w || m_is_knob)
     {
       pos = m_pos+ (xpos-m_last_x);
       precmode=1;
@@ -783,7 +846,10 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     int s=0;
     int bm_w2=bm_w;
     int bm_h2=bm_h;
-    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s);
+    bool wantKnob=false;
+    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s,&wantKnob);
+    if (wantKnob) return;
+
     int rsize=m_maxr-m_minr;
     int viewh=m_position.bottom-m_position.top;
     int vieww=m_position.right-m_position.left;
