@@ -74,8 +74,21 @@ public:
     =0)
 #endif
   {
-    int s=strlen(str);
-    if (maxlen && s > maxlen) s=maxlen;   
+    // this would be ideal
+    //int s = (maxlen ? strnlen(str, maxlen) : strlen(str));
+
+    int s;
+    if (maxlen)
+    {    
+      const char* p=str;
+      while (p-str < maxlen && *p) ++p;
+      s=p-str;
+    }
+    else
+    {
+      s=strlen(str);
+    }
+     
     if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
 
     char *newbuf=(char*)m_hb.Resize(s+1,false);
