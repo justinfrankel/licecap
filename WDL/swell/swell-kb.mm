@@ -82,6 +82,8 @@ static int MacKeyCodeToVK(int code)
 	return 0;
 }
 
+bool IsRightClickEmulateEnabled();
+
 int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
 {
   NSEvent *theEvent = (NSEvent *)nsevent;
@@ -92,7 +94,7 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
   if (mod & NSShiftKeyMask) flag|=FSHIFT;
   if (mod & NSCommandKeyMask) flag|=FCONTROL; // todo: this should be command once we figure it out
   if (mod & NSAlternateKeyMask) flag|=FALT;
-  if (mod & NSControlKeyMask) flag|=FLWIN;
+  if ((mod&NSControlKeyMask) && !IsRightClickEmulateEnabled()) flag|=FLWIN;
     
   int rawcode=[theEvent keyCode];
 
@@ -181,7 +183,10 @@ WORD GetAsyncKeyState(int key)
   if (key == VK_CONTROL) return ([evt modifierFlags]&NSCommandKeyMask)?0x8000:0;
   if (key == VK_MENU) return ([evt modifierFlags]&NSAlternateKeyMask)?0x8000:0;
   if (key == VK_SHIFT) return ([evt modifierFlags]&NSShiftKeyMask)?0x8000:0;
-  if (key == VK_LWIN) return ([evt modifierFlags]&NSControlKeyMask)?0x8000:0;
+  if (key == VK_LWIN && !IsRightClickEmulateEnabled())
+  {
+    return ([evt modifierFlags]&NSControlKeyMask)?0x8000:0;
+  }
   return 0;
 }
 
