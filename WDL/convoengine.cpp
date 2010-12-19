@@ -683,7 +683,13 @@ int WDL_ConvolutionEngine::Avail(int want)
     if (mono_impulse_mode) ch++;
   }
 
-  return m_samplesout[0].Available()/sizeof(WDL_FFT_REAL);
+  int mv = want;
+  for (ch=0;ch<m_proc_nch;ch++)
+  {
+    int v = m_samplesout[ch].Available()/sizeof(WDL_FFT_REAL)  - m_samplesout_delay[ch];
+    if (!ch || v<mv)mv=v;
+  }
+  return mv;
 }
 
 WDL_FFT_REAL **WDL_ConvolutionEngine::Get() 
