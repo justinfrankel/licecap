@@ -142,6 +142,8 @@ class WDL_HeapBuf
 #endif
     {      
 #ifdef DEBUG_TIGHT_ALLOC // horribly slow, do not use for release builds
+      if (newsize == m_size) return m_buf;
+
       int a = newsize; 
       if (a > m_size) a=m_size;
       void *newbuf = newsize ? malloc(newsize) : 0;
