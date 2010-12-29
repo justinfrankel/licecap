@@ -851,8 +851,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   int ret=ceil(sz.height);
   if (align & DT_CALCRECT)
   {
-    r->right=r->left+ceil(sz.width);
-    r->bottom=r->top+ceil(sz.height);
+    r->right=r->left+ceil(sz.width)*1.02;
+    r->bottom=r->top+ceil(sz.height)*1.02;
   }
   else
   {
