@@ -255,31 +255,13 @@ IColor IGraphicsLice::GetPoint(int x, int y)
 
 bool IGraphicsLice::DrawVerticalLine(const IColor* pColor, int xi, int yLo, int yHi)
 {
-  int W = Width(), H = Height();
-  xi = BOUNDED(xi, 0, W - 1);
-  yLo = BOUNDED(yLo, 0, H - 1);
-  yHi = BOUNDED(yHi, 0, H - 1);
-
-  LICE_pixel px = LiceColor(pColor);
-  LICE_pixel* pPx = mDrawBitmap->getBits() + yLo * W + xi;
-  for (int i = yLo; i <= yHi; ++i, pPx += W) {
-    *pPx = px;
-  }
+  _LICE::LICE_Line(mDrawBitmap, (float)xi, (float)yLo, (float)xi, (float)yHi, LiceColor(pColor), 1.0f, LICE_BLIT_MODE_COPY, false);
   return true;
 }
 
 bool IGraphicsLice::DrawHorizontalLine(const IColor* pColor, int yi, int xLo, int xHi)
 {
-  int W = Width(), H = Height();
-  yi = BOUNDED(yi, 0, H - 1);
-  xLo = BOUNDED(xLo, 0, W - 1);
-  xHi = BOUNDED(xHi, 0, W - 1);
-    
-  LICE_pixel px = LiceColor(pColor);
-  LICE_pixel* pPx = mDrawBitmap->getBits() + yi * W + xLo;
-  for (int i = xLo; i <= xHi; ++i, ++pPx) {
-    *pPx = px;
-  }
+  _LICE::LICE_Line(mDrawBitmap, (float)xLo, (float)yi, (float)xHi, (float)yi, LiceColor(pColor), 1.0f, LICE_BLIT_MODE_COPY, false);
   return true;
 }
 

@@ -134,7 +134,10 @@ public:
   virtual void RetainBitmap(IBitmap* pBitmap) = 0;
   virtual void ReleaseBitmap(IBitmap* pBitmap) = 0;
   
-  struct IMutexLock {
+  WDL_Mutex mMutex;
+  
+  struct IMutexLock 
+  {
     WDL_Mutex* mpMutex;
     IMutexLock(IGraphics* pGraphics) : mpMutex(&(pGraphics->mMutex)) { mpMutex->Enter(); }
     ~IMutexLock() { mpMutex->Leave(); }
@@ -145,8 +148,7 @@ protected:
   WDL_PtrList<IControl> mControls;
 	IPlugBase* mPlug;
   IRECT mDrawRECT;
-  WDL_Mutex mMutex;
-  
+
   bool CanHandleMouseOver() { return mHandleMouseOver; }
 
 private:
