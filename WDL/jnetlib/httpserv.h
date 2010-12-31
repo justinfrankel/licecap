@@ -34,6 +34,7 @@ class JNL_IHTTPServ
 
     virtual void set_reply_string(char *reply_string)=0; // should be HTTP/1.1 OK or the like
     virtual void set_reply_header(char *header)=0; // i.e. "content-size: 12345"
+    virtual void set_reply_size(int sz)=0; // if set, size will also add keep-alive etc
 
     virtual void send_reply()=0;
 
@@ -45,6 +46,9 @@ class JNL_IHTTPServ
     virtual void close(int quick)=0;
 
     virtual JNL_IConnection *get_con()=0;
+    virtual JNL_IConnection *steal_con()=0;
+
+    virtual bool canKeepAlive()=0;
 };
   #define JNL_HTTPServ_PARENTDEF : public JNL_IHTTPServ
 #else
@@ -73,6 +77,7 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
 
     void set_reply_string(char *reply_string); // should be HTTP/1.1 OK or the like
     void set_reply_header(char *header); // i.e. "content-size: 12345"
+    void set_reply_size(int sz); // if set, size will also add keep-alive etc
 
     void send_reply() { m_reply_ready=1; } // send reply, state will advance to 3.
 
@@ -84,12 +89,16 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
     void close(int quick) { m_con->close(quick); m_state=4; }
 
     JNL_IConnection *get_con() { return m_con; }
+    JNL_IConnection *steal_con() { JNL_IConnection *ret= m_con; m_con=0; return ret; }
+
+    bool canKeepAlive() { return m_keepalive; }
 
   protected:
     void seterrstr(char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
 
     int m_reply_ready;
     int m_state;
+    bool m_keepalive;
 
     char *m_errstr;
     char *m_reply_headers;

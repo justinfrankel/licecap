@@ -99,7 +99,7 @@ WebServerBaseClass::WebServerBaseClass()
   m_connections=new WS_ItemList;
   m_listeners=new WS_ItemList;
   m_listener_rot=0;
-  m_timeout_s=15;
+  m_timeout_s=30;
   m_max_con=100;
 }
 
@@ -116,7 +116,6 @@ void WebServerBaseClass::setRequestTimeout(int timeout_s)
 
 int WebServerBaseClass::addListenPort(int port, unsigned long which_interface)
 {
-  int ffree=-1;
   removeListenPort(port);
 
   JNL_Listen *p=new JNL_Listen(port,which_interface);
@@ -175,15 +174,27 @@ void WebServerBaseClass::run(void)
     JNL_IConnection *c=l->get_connect();
     if (c)
     {
+//      char buf[512];
+//      sprintf(buf,"got new connection at %.3f",GetTickCount()/1000.0);
+//      OutputDebugString(buf);
       attachConnection(c,l->port());
     }
   }
   int x;
   for (x = 0; x < m_connections->GetSize(); x ++)
   {
-    if (run_connection((WS_conInst *)m_connections->Get(x)))
+    WS_conInst *ci = (WS_conInst *)m_connections->Get(x);
+    int rv = run_connection(ci);
+
+    if (rv<0)
     {
-      delete ((WS_conInst *)m_connections->Get(x));
+      JNL_IConnection *c=ci->m_serv.steal_con();
+      if (c) attachConnection(c,ci->m_port);
+    }
+
+    if (rv)
+    {
+      delete ci;
       m_connections->Del(x--);
     }
   }
@@ -211,6 +222,8 @@ int WebServerBaseClass::run_connection(WS_conInst *con)
   {
     if (!con->m_pagegen) 
     {
+      if (con->m_serv.canKeepAlive()) return -1;
+
       return !con->m_serv.bytes_inqueue();
     }
     char buf[16384];
@@ -221,6 +234,7 @@ int WebServerBaseClass::run_connection(WS_conInst *con)
       l=con->m_pagegen->GetData(buf,l);
       if (l < (con->m_pagegen->IsNonBlocking() ? 0 : 1)) // if nonblocking, this is l < 0, otherwise it's l<1
       {
+        if (con->m_serv.canKeepAlive()) return -1;
         return !con->m_serv.bytes_inqueue();
       }
       if (l>0)
@@ -228,6 +242,7 @@ int WebServerBaseClass::run_connection(WS_conInst *con)
     }
     return 0;
   }
+  if (con->m_serv.canKeepAlive()) return -1;
   return 1; // we're done by this point
 }
 

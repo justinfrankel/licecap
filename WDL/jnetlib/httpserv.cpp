@@ -27,6 +27,7 @@
 
 JNL_HTTPServ::JNL_HTTPServ(JNL_IConnection *con)
 {
+  m_keepalive=true;
   m_con=con;
   m_state=0;
   m_reply_headers=0;
@@ -81,6 +82,7 @@ run_again:
       }
       else
       {
+        if (buf[strlen(buf)-1]=='0') m_keepalive=false; // old http 1.0
         m_state=1;
         cnt=0;
         if (buf >= m_recv_request) buf[0]=buf[1]=0;
@@ -111,6 +113,14 @@ run_again:
       buf[0]=0;
       m_con->recv_line(buf,4096);
       if (!buf[0]) { m_state=2; break; }
+      
+      if (!strnicmp(buf,"Connection:",11))
+      {
+        const char *p=buf+11;
+        while (*p && strnicmp(p,"close",5)) p++;
+        if (*p) m_keepalive=false;
+      }
+      
       if (!m_recvheaders)
       {
         m_recvheaders_size=strlen(buf)+1;
@@ -214,6 +224,16 @@ void JNL_HTTPServ::set_reply_string(char *reply_string) // should be HTTP/1.1 OK
   strcpy(m_reply_string,reply_string);
 }
 
+void JNL_HTTPServ::set_reply_size(int sz) // if set, size will also add keep-alive etc
+{
+  if (sz>=0)
+  {
+    char buf[512];
+    sprintf(buf,"Content-length: %d",sz);
+    set_reply_header(buf);
+    if (m_keepalive) set_reply_header("Connection: keep-alive");
+  }
+}
 void JNL_HTTPServ::set_reply_header(char *header) // "Connection: close" for example
 {
   if (m_reply_headers)
