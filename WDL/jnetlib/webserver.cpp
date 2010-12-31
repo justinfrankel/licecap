@@ -7,7 +7,9 @@
 ** see test.cpp for an example of how to use this class
 */
 
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include "jnetlib.h"
 #include "webserver.h"
 
@@ -189,7 +191,12 @@ void WebServerBaseClass::run(void)
     if (rv<0)
     {
       JNL_IConnection *c=ci->m_serv.steal_con();
-      if (c) attachConnection(c,ci->m_port);
+      if (c) 
+      {
+        if (c->get_state() == JNL_Connection::STATE_CONNECTED)
+          attachConnection(c,ci->m_port);
+        else delete c;
+      }
     }
 
     if (rv)
