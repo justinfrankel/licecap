@@ -31,15 +31,18 @@
 class ProjectStateContext_Mem : public ProjectStateContext
 {
 public:
+
   ProjectStateContext_Mem(WDL_HeapBuf *hb) 
   { 
     m_heapbuf=hb; 
     m_pos=0; 
-    #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
-      memset(&m_compstream,0,sizeof(m_compstream));
-      m_usecomp=0;
-    #endif
+    m_tmpflag=0;
+#ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+    memset(&m_compstream,0,sizeof(m_compstream));
+    m_usecomp=0;
+#endif
   }
+
   virtual ~ProjectStateContext_Mem() 
   { 
     #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
@@ -55,15 +58,17 @@ public:
     #endif
   };
 
-
-
   virtual void AddLine(const char *fmt, ...);
-  virtual int GetLine(char *buf, int buflen); // returns -1 on eof
+  virtual int GetLine(char *buf, int buflen); // returns -1 on eof  
 
   virtual WDL_INT64 GetOutputSize() { return m_heapbuf ? m_heapbuf->GetSize() : 0; }
 
+  virtual int GetTempFlag() { return m_tmpflag; }
+  virtual void SetTempFlag(int flag) { m_tmpflag=flag; }
+  
   int m_pos;
   WDL_HeapBuf *m_heapbuf;
+  int m_tmpflag;
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
   int DecompressData()
@@ -254,6 +259,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
 class ProjectStateContext_File : public ProjectStateContext
 {
 public:
+
   ProjectStateContext_File(WDL_FileRead *rd, WDL_FileWrite *wr) 
   { 
     m_rd=rd; 
@@ -261,6 +267,7 @@ public:
     m_indent=0; 
     m_bytesOut=0;
     m_errcnt=false; 
+    m_tmpflag=0;
   }
   virtual ~ProjectStateContext_File(){ delete m_rd; delete m_wr; };
 
@@ -269,6 +276,9 @@ public:
 
   virtual WDL_INT64 GetOutputSize() { return m_bytesOut; }
 
+  virtual int GetTempFlag() { return m_tmpflag; }
+  virtual void SetTempFlag(int flag) { m_tmpflag=flag; }    
+
   bool HasError() { return m_errcnt; }
 
   WDL_INT64 m_bytesOut WDL_FIXALIGN;
@@ -276,7 +286,7 @@ public:
   WDL_FileRead *m_rd;
   WDL_FileWrite *m_wr;
   int m_indent;
-
+  int m_tmpflag;
   bool m_errcnt;
 };
 

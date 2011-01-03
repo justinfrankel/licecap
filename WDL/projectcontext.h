@@ -18,6 +18,9 @@ public:
   virtual int GetLine(char *buf, int buflen)=0; // returns -1 on eof
 
   virtual WDL_INT64 GetOutputSize()=0;
+
+  virtual int GetTempFlag()=0;
+  virtual void SetTempFlag(int flag)=0;
 };
 
 #endif
