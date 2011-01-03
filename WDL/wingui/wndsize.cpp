@@ -36,10 +36,10 @@ For information on how to use this class, see wndsize.h :)
 void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
 {
   m_hwnd=hwndDlg;
-  RECT r;
+  RECT r={0,};
   if (initr)
     r=*initr;
-  else
+  else if (m_hwnd) 
     GetClientRect(m_hwnd,&r);
   set_orig_rect(&r);
 
@@ -85,9 +85,11 @@ void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, floa
   else if (h)
   {
     GetWindowRect(h,&this_r);
-    ScreenToClient(m_hwnd,(LPPOINT) &this_r);
-    ScreenToClient(m_hwnd,((LPPOINT) &this_r)+1);
-    
+    if (m_hwnd)
+    {
+      ScreenToClient(m_hwnd,(LPPOINT) &this_r);
+      ScreenToClient(m_hwnd,((LPPOINT) &this_r)+1);
+    }    
   #ifndef _WIN32
     if (this_r.bottom < this_r.top)
     {
@@ -114,7 +116,8 @@ void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, floa
 
 void WDL_WndSizer::init_item(int dlg_id, float left_scale, float top_scale, float right_scale, float bottom_scale, RECT *initr)
 {
-  init_itemhwnd(GetDlgItem(m_hwnd,dlg_id),left_scale,top_scale,right_scale,bottom_scale,initr);
+  if (m_hwnd)
+    init_itemhwnd(GetDlgItem(m_hwnd,dlg_id),left_scale,top_scale,right_scale,bottom_scale,initr);
 }
 
 #ifdef _WIN32
@@ -127,9 +130,11 @@ BOOL CALLBACK WDL_WndSizer::enum_RegionRemove(HWND hwnd,LPARAM lParam)
   {
     RECT r;
     GetWindowRect(hwnd,&r);
-    ScreenToClient(_this->m_hwnd,(LPPOINT)&r);
-    ScreenToClient(_this->m_hwnd,((LPPOINT)&r)+1);
-
+    if (_this->m_hwnd)
+    {
+      ScreenToClient(_this->m_hwnd,(LPPOINT)&r);
+      ScreenToClient(_this->m_hwnd,((LPPOINT)&r)+1);
+    }
     HRGN rgn2=CreateRectRgn(r.left,r.top,r.right,r.bottom);
     CombineRgn(_this->m_enum_rgn,_this->m_enum_rgn,rgn2,RGN_DIFF);
     DeleteObject(rgn2);
@@ -141,7 +146,7 @@ BOOL CALLBACK WDL_WndSizer::enum_RegionRemove(HWND hwnd,LPARAM lParam)
 
 void WDL_WndSizer::remove_item(int dlg_id)
 {
-  remove_itemhwnd(GetDlgItem(m_hwnd,dlg_id));
+  if (m_hwnd) remove_itemhwnd(GetDlgItem(m_hwnd,dlg_id));
 }
 
 void WDL_WndSizer::remove_itemhwnd(HWND h)
@@ -329,5 +334,5 @@ WDL_WndSizer__rec *WDL_WndSizer::get_item(int dlg_id)
     rec++;
   }
 
-  return get_itembywnd(GetDlgItem(m_hwnd,dlg_id));
+  return m_hwnd ? get_itembywnd(GetDlgItem(m_hwnd,dlg_id)) : 0;
 }

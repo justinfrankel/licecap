@@ -77,7 +77,13 @@ struct WDL_WndSizer__rec
 class WDL_WndSizer
 {
 public:
-  WDL_WndSizer() {  }
+  WDL_WndSizer() 
+  { 
+    m_hwnd=NULL; 
+    memset(&m_min_size,0,sizeof(m_min_size));
+    memset(&m_orig_size,0,sizeof(m_orig_size));
+    memset(&m_margins,0,sizeof(m_margins));
+  }
   ~WDL_WndSizer() { }
 
   void init(HWND hwndDlg, RECT *initr=NULL);
