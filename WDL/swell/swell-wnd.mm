@@ -611,7 +611,19 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   
   if (!m_lbMode) 
   {
-    NMCLICK nmlv={{(HWND)self,[self tag], NM_RCLICK},};
+    NSPoint pt=[theEvent locationInWindow];
+    pt=[self convertPoint:pt fromView:nil];
+    
+    // note, windows selects on right mousedown    
+    int row=[self rowAtPoint:pt];
+    if (row >= 0 && ![self isRowSelected:row])
+    {
+      NSIndexSet* rows=[NSIndexSet indexSetWithIndex:row];
+      [self deselectAll:self];
+      [self selectRowIndexes:rows byExtendingSelection:NO];
+    }       
+    
+    NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_RCLICK}, [self rowAtPoint:pt], [self columnAtPoint:pt], 0, 0, 0, {pt.x, pt.y}, };
     if (SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv)) wantContext=false;
   }
   if (wantContext)
