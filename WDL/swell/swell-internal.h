@@ -229,6 +229,7 @@ struct HTREEITEM__
 @end
 
 
+
 @interface SWELL_hwndChild : NSView // <NSDraggingSource>
 {
 @public
@@ -282,6 +283,39 @@ struct HTREEITEM__
 -(int)swellEnumProps:(PROPENUMPROCEX)proc lp:(LPARAM)lParam;
 -(void *)swellGetProp:(const char *)name wantRemove:(BOOL)rem;
 -(int)swellSetProp:(const char *)name value:(void *)val ;
+
+
+// NSAccessibility
+
+// attribute methods
+- (NSArray *)accessibilityAttributeNames;
+- (id)accessibilityAttributeValue:(NSString *)attribute;
+- (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute;
+- (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
+
+// parameterized attribute methods
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_3
+- (NSArray *)accessibilityParameterizedAttributeNames;
+- (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
+#endif
+
+// action methods
+- (NSArray *)accessibilityActionNames;
+- (NSString *)accessibilityActionDescription:(NSString *)action;
+- (void)accessibilityPerformAction:(NSString *)action;
+
+// Return YES if the UIElement doesn't show up to the outside world - i.e. its parent should return the UIElement's children as its own - cutting the UIElement out. E.g. NSControls are ignored when they are single-celled.
+- (BOOL)accessibilityIsIgnored;
+
+// Returns the deepest descendant of the UIElement hierarchy that contains the point. You can assume the point has already been determined to lie within the receiver. Override this method to do deeper hit testing within a UIElement - e.g. a NSMatrix would test its cells. The point is bottom-left relative screen coordinates.
+- (id)accessibilityHitTest:(NSPoint)point;
+
+// Returns the UI Element that has the focus. You can assume that the search for the focus has already been narrowed down to the reciever. Override this method to do a deeper search with a UIElement - e.g. a NSMatrix would determine if one of its cells has the focus.
+- (id)accessibilityFocusedUIElement;
+
+
+
+
 @end
 
 @interface SWELL_ModelessWindow : NSWindow

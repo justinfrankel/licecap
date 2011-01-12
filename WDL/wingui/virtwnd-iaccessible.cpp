@@ -839,12 +839,22 @@ LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, W
 #include <windows.h>
 #else
 #include "../swell/swell.h"
-#endif
+#endif 
+
+
+#ifdef __APPLE__
+
+// see virtwnd-nsaccessibility.mm
+
+#else
+
 
 class WDL_VWnd;
 LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, WPARAM wParam, LPARAM lParam)
 {
   return 0;
 }
+
+#endif
 
 #endif

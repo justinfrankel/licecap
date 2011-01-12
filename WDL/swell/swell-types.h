@@ -518,7 +518,6 @@ typedef INT_PTR (*DLGPROC)(HWND, UINT, WPARAM, LPARAM);
 typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
 
-#define WM_GESTURE 0x119
 
 #define GF_BEGIN 1
 #define GF_INERTIA 2
@@ -860,6 +859,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_DRAWITEM                     0x002B
 #define WM_SETFONT                      0x0030
 #define WM_GETFONT                      0x0031
+#define WM_GETOBJECT 			0x003D // implemented differently than win32 -- see virtwnd/virtwnd-nsaccessibility.mm
 #define WM_NOTIFY                       0x004E
 
 #define WM_CONTEXTMENU                  0x007B
@@ -894,9 +894,10 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_SYSCOMMAND                   0x0112
 #define SC_CLOSE        0xF060
 #define WM_TIMER                        0x0113
-#define WM_INITMENUPOPUP                0x0117
 #define WM_HSCROLL                      0x0114
 #define WM_VSCROLL                      0x0115
+#define WM_INITMENUPOPUP                0x0117
+#define WM_GESTURE 			0x0119
 #define WM_MOUSEFIRST                   0x0200
 #define WM_MOUSEMOVE                    0x0200
 #define WM_LBUTTONDOWN                  0x0201
@@ -914,6 +915,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_CAPTURECHANGED               0x0215
 #define WM_DROPFILES                    0x0233
 #define WM_USER                         0x0400
+
 
 #define HTCAPTION 2
 #define HTBOTTOMRIGHT 17

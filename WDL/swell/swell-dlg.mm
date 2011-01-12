@@ -1391,6 +1391,58 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
   return m_create_windowflags;
 }
 
+
+
+
+// NSAccessibility
+
+
+
+- (id)accessibilityAttributeValue:(NSString *)attribute
+{
+  id ret = [super accessibilityAttributeValue:attribute];
+  if ([attribute isEqual:NSAccessibilityChildrenAttribute] || 
+      [attribute isEqual:NSAccessibilityVisibleChildrenAttribute])
+  {
+    id use_obj = NULL;
+    SendMessage((HWND)self,WM_GETOBJECT,0x1001,(LPARAM)&use_obj);
+    if (use_obj)
+    {
+      NSArray *ar=NULL;
+      if (ret && [ret count])
+      {
+        ar = [NSMutableArray arrayWithArray:ret];
+        [(NSMutableArray *)ar addObject:use_obj];        
+      }
+      else ar = [NSArray arrayWithObject:use_obj];
+      
+      ret = NSAccessibilityUnignoredChildren(ar);
+    }  
+  }
+  
+  return ret;
+}
+// Return YES if the UIElement doesn't show up to the outside world - i.e. its parent should return the UIElement's children as its own - cutting the UIElement out. E.g. NSControls are ignored when they are single-celled.
+- (BOOL)accessibilityIsIgnored
+{
+  if (![[self subviews] count])
+  {
+    id use_obj = NULL;
+    SendMessage((HWND)self,WM_GETOBJECT,0x1001,(LPARAM)&use_obj);
+  
+    if (use_obj)
+    {
+      return YES;
+    }
+  }
+  return [super accessibilityIsIgnored];
+}
+
+
+
+
+
+
 @end
 
 
