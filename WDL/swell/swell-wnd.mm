@@ -5032,20 +5032,30 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
       *handle=0;
     }
   }
-  else if (hwndPar)
+  else 
   {
     RECT r=*rct;
-    ClientToScreen(hwndPar,((LPPOINT)&r));
-    ClientToScreen(hwndPar,((LPPOINT)&r)+1);
+    if (hwndPar)
+    {
+      ClientToScreen(hwndPar,((LPPOINT)&r));
+      ClientToScreen(hwndPar,((LPPOINT)&r)+1);
+    }
+    else
+    {
+      // todo: flip?
+    }
     if (r.top>r.bottom) { int a=r.top; r.top=r.bottom;r.bottom=a; }
     NSRect rr=NSMakeRect(r.left,r.top,r.right-r.left,r.bottom-r.top);
     
     if (!wnd)
     {
       NSWindow *par=nil;
-      if ([(id)hwndPar isKindOfClass:[NSWindow class]]) par=(NSWindow *)hwndPar;
-      else if ([(id)hwndPar isKindOfClass:[NSView class]]) par=[(NSView *)hwndPar window];
-      else return;
+      if (hwndPar)
+      {
+        if ([(id)hwndPar isKindOfClass:[NSWindow class]]) par=(NSWindow *)hwndPar;
+        else if ([(id)hwndPar isKindOfClass:[NSView class]]) par=[(NSView *)hwndPar window];
+        else return;
+      }
       
       *handle  = wnd = [[NSWindow alloc] initWithContentRect:rr styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES];
       [wnd setOpaque:YES];
@@ -5054,7 +5064,7 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
       [wnd setIgnoresMouseEvents:YES];
       [wnd setContentView:[[SWELL_FocusRectWnd alloc] init]];
       
-      [par addChildWindow:wnd ordered:NSWindowAbove];
+      if (par) [par addChildWindow:wnd ordered:NSWindowAbove];
       //    [wnd setParentWindow:par];
 //      [wnd orderWindow:NSWindowAbove relativeTo:[par windowNumber]];
     }
