@@ -64,7 +64,7 @@ static void Dlg_removeFromRgn(HRGN hrgn, int left, int top, int right, int botto
 #define Dlg_removeFromRgn(a,b,c,d,e)
 #endif
 
-static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0
+static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0, PAINTSTRUCT *__use_ps=NULL
 #ifdef WDL_DLGITEMBORDER_CUSTOMPARMS                                       
   , WDL_DLGITEMBORDER_CUSTOMPARMS
 #endif
@@ -72,13 +72,17 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
                                        )
 {
   PAINTSTRUCT ps;
-  BeginPaint(hwndDlg,&ps);
+  if (!__use_ps) 
+  {
+    BeginPaint(hwndDlg,&ps);
+    __use_ps=&ps;
+  }
 
 #ifdef _WIN32
   HRGN hrgn=NULL;
-  if(ps.fErase)
+  if(__use_ps->fErase)
   {
-    RECT r=ps.rcPaint;
+    RECT r=__use_ps->rcPaint;
     hrgn=CreateRectRgn(r.left,r.top,r.right,r.bottom);
   }
 #else
@@ -121,21 +125,21 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
       }
     }
 
-    if (RectInRect(&ps.rcPaint,&r)) 
+    if (RectInRect(&__use_ps->rcPaint,&r)) 
     {
       if ((a & 0xffff0000) == DCW_SUNKENBORDER || (a&0xffff0000) == DCW_SUNKENBORDER_NOTOP)
       {
-        MoveToEx(ps.hdc,r.left-1,r.bottom,NULL);
-        HGDIOBJ o=SelectObject(ps.hdc,pen);
-        LineTo(ps.hdc,r.right,r.bottom);
-        LineTo(ps.hdc,r.right,r.top-1);
-        SelectObject(ps.hdc,pen2);
+        MoveToEx(__use_ps->hdc,r.left-1,r.bottom,NULL);
+        HGDIOBJ o=SelectObject(__use_ps->hdc,pen);
+        LineTo(__use_ps->hdc,r.right,r.bottom);
+        LineTo(__use_ps->hdc,r.right,r.top-1);
+        SelectObject(__use_ps->hdc,pen2);
         if ((a&0xffff0000) == DCW_SUNKENBORDER_NOTOP)
-          MoveToEx(ps.hdc,r.left-1,r.top-1,NULL);
+          MoveToEx(__use_ps->hdc,r.left-1,r.top-1,NULL);
         else
-          LineTo(ps.hdc,r.left-1,r.top-1);
-        LineTo(ps.hdc,r.left-1,r.bottom);
-        SelectObject(ps.hdc,o);
+          LineTo(__use_ps->hdc,r.left-1,r.top-1);
+        LineTo(__use_ps->hdc,r.left-1,r.bottom);
+        SelectObject(__use_ps->hdc,o);
         if(hrgn)
         {
           Dlg_removeFromRgn(hrgn,r.left,r.bottom,r.right,r.bottom+1);
@@ -150,25 +154,25 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
         if ((a & 0xffff0000) == DCW_DIVIDER_VERT) // vertical
         {
           int left=r.left;
-          HGDIOBJ o=SelectObject(ps.hdc,pen2);
-          MoveToEx(ps.hdc,left,r.top,NULL);
-          LineTo(ps.hdc,left,r.bottom+1);
-          SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,left+1,r.top,NULL);
-          LineTo(ps.hdc,left+1,r.bottom+1);
-          SelectObject(ps.hdc,o);
+          HGDIOBJ o=SelectObject(__use_ps->hdc,pen2);
+          MoveToEx(__use_ps->hdc,left,r.top,NULL);
+          LineTo(__use_ps->hdc,left,r.bottom+1);
+          SelectObject(__use_ps->hdc,pen);
+          MoveToEx(__use_ps->hdc,left+1,r.top,NULL);
+          LineTo(__use_ps->hdc,left+1,r.bottom+1);
+          SelectObject(__use_ps->hdc,o);
           if(hrgn) Dlg_removeFromRgn(hrgn,left,r.top,left+2,r.bottom);
         }
         else // horiz
         {
           int top=r.top+1;
-          HGDIOBJ o=SelectObject(ps.hdc,pen2);
-          MoveToEx(ps.hdc,r.left,top,NULL);
-          LineTo(ps.hdc,r.right+1,top);
-          SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,r.left,top+1,NULL);
-          LineTo(ps.hdc,r.right+1,top+1);
-          SelectObject(ps.hdc,o);
+          HGDIOBJ o=SelectObject(__use_ps->hdc,pen2);
+          MoveToEx(__use_ps->hdc,r.left,top,NULL);
+          LineTo(__use_ps->hdc,r.right+1,top);
+          SelectObject(__use_ps->hdc,pen);
+          MoveToEx(__use_ps->hdc,r.left,top+1,NULL);
+          LineTo(__use_ps->hdc,r.right+1,top+1);
+          SelectObject(__use_ps->hdc,o);
           if(hrgn) Dlg_removeFromRgn(hrgn,r.left,top,r.right,top+2);
         }
       }
@@ -185,14 +189,14 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
     WDL_DLGITEMBORDER_CUSTOMBGCODE
 #else
     HBRUSH b=CreateSolidBrush(GSC?GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE));
-    FillRgn(ps.hdc,hrgn,b);
+    FillRgn(__use_ps->hdc,hrgn,b);
     DeleteObject(b);
 #endif
 
     DeleteObject(hrgn);
   }
 #endif
-  EndPaint(hwndDlg,&ps);
+  if (__use_ps == &ps) EndPaint(hwndDlg,&ps);
 }
 
 #endif
