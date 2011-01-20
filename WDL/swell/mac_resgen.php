@@ -173,10 +173,11 @@ function swell_rc2cpp_menu($fp) // returns array with ["data"] and optionally ["
     $y=trim($x);
     if ($menu_symbol == "")
     {
-      $tok = "MENU DISCARDABLE";
-      if (substr($y,-strlen($tok)) == $tok)
+      $parms = explode(" ", $y);
+      $tok = "MENU";
+      if (count($parms) >= 2 && $parms[1] == $tok)
       {
-        $menu_symbol = substr($y,0,-strlen($tok));
+        $menu_symbol = $parms[0];
         $menu_depth=0;
         $retstr .= "SWELL_DEFINE_MENU_RESOURCE_BEGIN($menu_symbol)\n";
       }
