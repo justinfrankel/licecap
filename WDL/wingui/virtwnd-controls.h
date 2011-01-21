@@ -255,7 +255,7 @@ class WDL_VirtualSlider : public WDL_VWnd
       m_knobbg[1]=knobbg;
     }
 
-    void SetKnobColor(int col) { m_knob_color=col; }
+    void SetFGColors(int knobcol, int zlcol) { m_knob_color=knobcol; m_zl_color = zlcol; }
 
 
   private:
@@ -268,7 +268,7 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     int m_tl_extra, m_br_extra;
 
-    int m_knob_color;
+    int m_knob_color,m_zl_color;
 
     bool m_captured;
     bool m_needflush;
