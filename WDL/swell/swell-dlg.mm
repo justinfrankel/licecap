@@ -132,7 +132,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
     {
       if ([ch isKindOfClass:[NSButton class]] && [(NSButton *)ch image])
       {
-        if (!(had_flags&4))
+        if (!buttonFg && !(had_flags&4))
         {
           had_flags|=4;
           HDC__ *c = SWELL_GDP_CTX_NEW();
@@ -141,6 +141,8 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
             d(hwnd,WM_CTLCOLORBTN,(WPARAM)c,(LPARAM)ch);
             if (c->curtextcol) buttonFg=c->curtextcol;
             else if (isUpdate) buttonFg = [NSColor textColor]; // todo some other col?              
+            if (buttonFg) [buttonFg retain];
+
             SWELL_DeleteGfxContext((HDC)c);
           }
         }
@@ -152,7 +154,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
         if (!isbox && [(NSTextField *)ch isEditable])
         {
 #if 0 // no color overrides for editable text fields
-          if (!(had_flags&2))
+          if (!editFg && !editBg && !(had_flags&2))
           {
             had_flags|=2;
             HDC__ *c = SWELL_GDP_CTX_NEW();
@@ -169,6 +171,8 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
                 editFg = [NSColor textColor]; 
                 editBg = [NSColor textBackgroundColor];
               }
+              if (editFg) [editFg retain];
+              if (editBg) [editBg retain];
               SWELL_DeleteGfxContext((HDC)c);
             }
           }
@@ -178,7 +182,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
         }
         else // isbox or noneditable
         {
-          if (!(had_flags&1))
+          if (!staticFg && !(had_flags&1))
           {
             had_flags|=1;
             HDC__ *c = SWELL_GDP_CTX_NEW();
@@ -190,6 +194,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
               {
                 staticFg = [NSColor textColor]; 
               }
+              if (staticFg) [staticFg retain];
               SWELL_DeleteGfxContext((HDC)c);
             }
           }
@@ -209,6 +214,10 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
       }  //nstextfield
     } // child
   }     // children
+  if (buttonFg) [buttonFg release];
+  if (staticFg) [staticFg release];
+  if (editFg) [editFg release];
+  if (editBg) [editBg release];
 }  
 
 static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
