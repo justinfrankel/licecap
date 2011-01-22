@@ -5,14 +5,15 @@
 
 
 // on all of these, if valdispose is set, the array will dispose of values as needed.
-// if keydup/keydispose are set, copies of (any)key data will be made/destroyed as necessary
+// if keydup/keydispose are set, copies of (any) key data will be made/destroyed as necessary
 
 
-template <class KEY, class VAL> class WDL_AssocArray
+// WDL_AssocArrayImpl can be used on its own, and can contain structs for values
+template <class KEY, class VAL> class WDL_AssocArrayImpl 
 {
 public:
 
-  WDL_AssocArray(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
+  WDL_AssocArrayImpl(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
   {
     m_keycmp = keycmp;
     m_keydup = keydup;
@@ -20,7 +21,7 @@ public:
     m_valdispose = valdispose;
   }
  
-  ~WDL_AssocArray() 
+  ~WDL_AssocArrayImpl() 
   {
     DeleteAll();
   }
@@ -36,13 +37,6 @@ public:
       return &(kv->val);
     }
     return 0;
-  }
-
-  VAL Get(KEY key, VAL notfound=0)  
-  {
-    VAL* p = GetPtr(key);
-    if (p) return *p;
-    return notfound;
   }
 
   bool Exists(KEY key)
@@ -131,13 +125,6 @@ public:
     return 0;
   }
 
-  VAL Enumerate(int i, KEY* key=0, VAL notfound=0)
-  {
-    VAL* p = EnumeratePtr(i, key);
-    if (p) return *p;
-    return notfound; 
-  }
-
   KEY ReverseLookup(VAL val, KEY notfound=0)
   {
     int i;
@@ -176,7 +163,9 @@ public:
   void Resort()
   {
     if (m_data.GetSize()>1 && m_keycmp)
+    {
       qsort(m_data.Get(),m_data.GetSize(),sizeof(KeyVal),(int(*)(const void *,const void *))m_keycmp);
+    }
   }
 
   int LowerBound(KEY key, bool* ismatch)
@@ -224,6 +213,32 @@ private:
 };
 
 
+// WDL_AssocArray adds useful functions but cannot contain structs for values
+template <class KEY, class VAL> class WDL_AssocArray : public WDL_AssocArrayImpl<KEY, VAL>
+{
+public:
+
+  WDL_AssocArray(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
+  : WDL_AssocArrayImpl<KEY, VAL>(keycmp, keydup, keydispose, valdispose)
+  { 
+  }
+
+  VAL Get(KEY key, VAL notfound=0)  
+  {
+    VAL* p = GetPtr(key);
+    if (p) return *p;
+    return notfound;
+  }
+
+  VAL Enumerate(int i, KEY* key=0, VAL notfound=0)
+  {
+    VAL* p = EnumeratePtr(i, key);
+    if (p) return *p;
+    return notfound; 
+  }
+};
+
+
 template <class VAL> class WDL_IntKeyedArray : public WDL_AssocArray<int, VAL>
 {
 public:
@@ -254,8 +269,6 @@ private:
 
 public:
   static void freecharptr(char *p) { free(p); }
-
-
 };
 
 
