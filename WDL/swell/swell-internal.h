@@ -96,6 +96,8 @@ public:
   WDL_PtrList<char> m_vals;
   LPARAM m_param;
   int m_imageidx;
+  
+  int m_tmp;
 };
 
 

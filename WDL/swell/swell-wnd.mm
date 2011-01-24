@@ -4024,9 +4024,32 @@ void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
     
   WDL_HeapBuf tmp;
   tmp.Resize(tv->m_items->GetSize()*sizeof(void *));
+  int x;
+  int sc=0;
+  for(x=0;x<tv->m_items->GetSize();x++)
+  {
+    SWELL_ListView_Row *r = tv->m_items->Get(x);
+    if (r) 
+    {
+      r->m_tmp = !![tv isRowSelected:x];
+      sc++;
+    }
+  }
   __listview_mergesort_internal(tv->m_items->GetList(),tv->m_items->GetSize(),sizeof(void *),compf,parm,(char*)tmp.Get());
+  if (sc)
+  {
+    NSMutableIndexSet *indexSet = [[NSMutableIndexSet  alloc] init];
+    
+    for(x=0;x<tv->m_items->GetSize();x++)
+    {
+      SWELL_ListView_Row *r = tv->m_items->Get(x);
+      if (r && (r->m_tmp&1)) [indexSet addIndex:x];
+    }
+    [tv selectRowIndexes:indexSet byExtendingSelection:NO];
+    [indexSet release];
+  }
   
-   [tv reloadData];
+  [tv reloadData];
 }
 
 
