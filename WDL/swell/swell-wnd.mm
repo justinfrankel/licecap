@@ -548,7 +548,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       if (!m_lbMode)
       {
         // if m_start_item isnt selected, change selection to it now
-        if (![self isRowSelected:m_start_item]) [self selectRow:m_start_item byExtendingSelection:!!(GetAsyncKeyState(VK_CONTROL)&0x8000)];
+        if (![self isRowSelected:m_start_item]) [self selectRowIndexes:[NSIndexSet indexSetWithIndex:m_start_item] byExtendingSelection:!!(GetAsyncKeyState(VK_CONTROL)&0x8000)];
         NMLISTVIEW hdr={{(HWND)self,[self tag],LVN_BEGINDRAG},m_start_item,m_start_subitem,0,};
         SendMessage((HWND)[self target],WM_NOTIFY,[self tag], (LPARAM) &hdr);
         m_start_item_clickmode |= 2;
@@ -685,7 +685,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       {
         if (wParam>=0 && wParam<ListView_GetItemCount(hwnd))
         {
-          [self selectRow:wParam byExtendingSelection:NO];        
+          [self selectRowIndexes:[NSIndexSet indexSetWithIndex:wParam] byExtendingSelection:NO];        
         }
         else
         {
@@ -3480,7 +3480,7 @@ int ListView_InsertItem(HWND h, const LVITEM *item)
       if (item->state&LVIS_SELECTED)
       {
         bool isSingle = tv->m_lbMode ? !(tv->style & LBS_EXTENDEDSEL) : !!(tv->style&LVS_SINGLESEL);
-        [tv selectRow:a byExtendingSelection:isSingle?NO:YES];        
+        [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:a] byExtendingSelection:isSingle?NO:YES];        
       }
     }
   }
@@ -3680,7 +3680,7 @@ bool ListView_SetItemState(HWND h, int ipos, int state, int statemask)
     if (state & LVIS_SELECTED)
     {      
       bool isSingle = tv->m_lbMode ? !(tv->style & LBS_EXTENDEDSEL) : !!(tv->style&LVS_SINGLESEL);
-      if (![tv isRowSelected:ipos]) { didsel=true;  [tv selectRow:ipos byExtendingSelection:isSingle?NO:YES]; }
+      if (![tv isRowSelected:ipos]) { didsel=true;  [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:ipos] byExtendingSelection:isSingle?NO:YES]; }
     }
     else
     {
@@ -4822,7 +4822,7 @@ void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
   
   int row=[(SWELL_TreeView*)hwnd rowForItem:((HTREEITEM__*)item)->m_dh];
   if (row>=0)
-         [(SWELL_TreeView*)hwnd selectRow:row byExtendingSelection:NO];            
+    [(SWELL_TreeView*)hwnd selectRowIndexes:[NSIndexSet indexSetWithIndex:row] byExtendingSelection:NO];            
   static int __rent;
   if (!__rent)
   {
@@ -4884,7 +4884,7 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
     {
       if (pitem->state&TVIS_SELECTED)
       {
-        [(SWELL_TreeView*)hwnd selectRow:itemRow byExtendingSelection:NO];
+        [(SWELL_TreeView*)hwnd selectRowIndexes:[NSIndexSet indexSetWithIndex:itemRow] byExtendingSelection:NO];
         
         static int __rent;
         if (!__rent)
@@ -4899,7 +4899,7 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
       else
       {
         // todo figure out unselect?!
-//         [(SWELL_TreeView*)hwnd selectRow:itemRow byExtendingSelection:NO];
+//         [(SWELL_TreeView*)hwnd selectRowIndexes:[NSIndexSet indexSetWithIndex:itemRow] byExtendingSelection:NO];
       }
     }
   }
