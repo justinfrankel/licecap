@@ -431,6 +431,7 @@ struct HGDIOBJ__
   
   float font_rotation;
 
+  bool _infreelist;
   struct HGDIOBJ__ *_next;
 };
 
@@ -449,6 +450,7 @@ struct HDC__ {
   float lastpos_x,lastpos_y;
   
   void *GLgfxctx; // optionally set
+  bool _infreelist;
   struct HDC__ *_next;
 };
 

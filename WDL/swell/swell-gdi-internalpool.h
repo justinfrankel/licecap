@@ -33,11 +33,14 @@ static void SWELL_GDP_CTX_DELETE(HDC__ *p)
 {
   if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
 
-  if (p) memset(p,0,sizeof(*p));
+  if (!p || p->_infreelist) return;
 
-  if (p && m_ctxpool_size<100)
+  memset(p,0,sizeof(*p));
+
+  if (m_ctxpool_size<100)
   {
     m_ctxpool_mutex->Enter();
+    p->_infreelist=true;
     p->_next = m_ctxpool;
     m_ctxpool = p;
     m_ctxpool_size++;
@@ -51,10 +54,10 @@ static void SWELL_GDP_CTX_DELETE(HDC__ *p)
 }
 static HGDIOBJ__ *GDP_OBJECT_NEW()
 {
+  if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
   HGDIOBJ__ *p=NULL;
   if (m_objpool)
   {
-    if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
     m_ctxpool_mutex->Enter();
     if ((p=m_objpool))
     {
@@ -73,11 +76,14 @@ static HGDIOBJ__ *GDP_OBJECT_NEW()
 }
 static void GDP_OBJECT_DELETE(HGDIOBJ__ *p)
 {
-  if (p) memset(p,0,sizeof(*p));
-  if (p && m_objpool_size<200)
+  if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
+  if (!p || p->_infreelist) return;
+
+  memset(p,0,sizeof(*p));
+  if (m_objpool_size<200)
   {
-    if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
     m_ctxpool_mutex->Enter();
+    p->_infreelist = true;
     p->_next = m_objpool;
     m_objpool = p;
     m_objpool_size++;
