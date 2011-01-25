@@ -8,8 +8,8 @@ static WDL_Mutex *m_ctxpool_mutex;
 #ifdef SWELL_GDI_DEBUG
   #include <assert.h>
   #include "../ptrlist.h"
-  static WDL_PtrList<HDC__> m_ctxpool_debug;
-  static WDL_PtrList<HGDIOBJ__> m_objpool_debug;
+  static WDL_PtrList<HDC__> *m_ctxpool_debug;
+  static WDL_PtrList<HGDIOBJ__> *m_objpool_debug;
 #else
   static HDC__ *m_ctxpool;
   static int m_ctxpool_size;
@@ -26,10 +26,11 @@ HDC__ *SWELL_GDP_CTX_NEW()
   HDC__ *p=NULL;
 #ifdef SWELL_GDI_DEBUG
   m_ctxpool_mutex->Enter();
-  if (m_ctxpool_debug.GetSize() > 8192)
+  if (!m_ctxpool_debug) m_ctxpool_debug = new WDL_PtrList<HDC__>;
+  if (m_ctxpool_debug->GetSize() > 8192)
   {
-    p =  m_ctxpool_debug.Get(0);
-    m_ctxpool_debug.Delete(0);
+    p =  m_ctxpool_debug->Get(0);
+    m_ctxpool_debug->Delete(0);
     memset(p,0,sizeof(*p));
   }
   m_ctxpool_mutex->Leave();
@@ -72,7 +73,8 @@ static void SWELL_GDP_CTX_DELETE(HDC__ *p)
 #ifdef SWELL_GDI_DEBUG
   m_ctxpool_mutex->Enter();
   p->_infreelist=true;
-  m_ctxpool_debug.Add(p);
+  if (!m_ctxpool_debug) m_ctxpool_debug = new WDL_PtrList<HDC__>;
+  m_ctxpool_debug->Add(p);
   m_ctxpool_mutex->Leave();
 #else
   if (m_ctxpool_size<100)
@@ -97,10 +99,11 @@ static HGDIOBJ__ *GDP_OBJECT_NEW()
   HGDIOBJ__ *p=NULL;
 #ifdef SWELL_GDI_DEBUG
   m_ctxpool_mutex->Enter();
-  if (m_objpool_debug.GetSize()>8192)
+  if (!m_objpool_debug) m_objpool_debug = new WDL_PtrList<HGDIOBJ__>;
+  if (m_objpool_debug->GetSize()>8192)
   {
-    p = m_objpool_debug.Get(0);
-    m_objpool_debug.Delete(0);
+    p = m_objpool_debug->Get(0);
+    m_objpool_debug->Delete(0);
     memset(p,0,sizeof(*p));
   }
   m_ctxpool_mutex->Leave();
@@ -141,7 +144,8 @@ static void GDP_OBJECT_DELETE(HGDIOBJ__ *p)
 #ifdef SWELL_GDI_DEBUG
   m_ctxpool_mutex->Enter();
   p->_infreelist = true;
-  m_objpool_debug.Add(p);
+  if (!m_objpool_debug) m_objpool_debug = new WDL_PtrList<HGDIOBJ__>;
+  m_objpool_debug->Add(p);
   m_ctxpool_mutex->Leave();
 #else
   if (m_objpool_size<200)
