@@ -874,9 +874,9 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     }
   }
   // expand paintextent by background image outer extent if necessary
-  if (m_skininfo && m_skininfo->bgimagecfg && m_skininfo->bgimagecfg->bgimage)
+  if (m_skininfo && m_skininfo->bgimagecfg[isVert].bgimage)
   {
-    WDL_VirtualWnd_BGCfg *b = m_skininfo->bgimagecfg;
+    WDL_VirtualWnd_BGCfg *b = &m_skininfo->bgimagecfg[isVert];
     if (b->bgimage_lt[0]>0 &&
         b->bgimage_lt[1]>0 &&
         b->bgimage_rb[0]>0 &&
