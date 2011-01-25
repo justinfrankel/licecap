@@ -113,23 +113,6 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
   return ctx;
 }
 
-static bool HGDIOBJ_VALID(HGDIOBJ__ *p, int reqType=0)
-{
-  if (p == (HGDIOBJ__*)TYPE_PEN || p == (HGDIOBJ__*)TYPE_BRUSH ||
-      p == (HGDIOBJ__*)TYPE_FONT || p == (HGDIOBJ__*)TYPE_BITMAP) return false;
-  // insert breakpoints in these parts for debugging
-  if (p && !p->_infreelist)
-  {
-    return !reqType || reqType == p->type;
-  }
-  return false;
-}
-
-static bool HDC_VALID(HDC__ *ct)
-{
-  // insert breakpoints in these parts for debugging
-  return ct && !ct->_infreelist;
-}
 void SWELL_DeleteGfxContext(HDC ctx)
 {
   HDC__ *ct=(HDC__ *)ctx;
