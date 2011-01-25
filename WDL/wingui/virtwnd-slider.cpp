@@ -872,6 +872,29 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
       r->left-=ladj; //s;
       r->right += radj; // (bm_w2-bm_w)-s;
     }
+  }
+  // expand paintextent by background image outer extent if necessary
+  if (m_skininfo && m_skininfo->bgimagecfg && m_skininfo->bgimagecfg->bgimage)
+  {
+    WDL_VirtualWnd_BGCfg *b = m_skininfo->bgimagecfg;
+    if (b->bgimage_lt[0]>0 &&
+        b->bgimage_lt[1]>0 &&
+        b->bgimage_rb[0]>0 &&
+        b->bgimage_rb[1]>0 &&
+        b->bgimage_lt_out[0]>0 &&
+        b->bgimage_lt_out[1]>0 &&
+        b->bgimage_rb_out[0]>0 &&
+        b->bgimage_rb_out[1]>0)
+    {
+      int l = m_position.left - (b->bgimage_lt_out[0]-1);
+      int t = m_position.top - (b->bgimage_lt_out[1]-1);
+      int right = m_position.right + b->bgimage_rb_out[0]-1;
+      int bot = m_position.bottom + b->bgimage_rb_out[1]-1;
 
+      if (l < r->left) r->left=l;
+      if (t < r->top) r->top=t;
+      if (right > r->right) r->right = right;
+      if (bot > r->bottom) r->bottom = bot;
+    }
   }
 }
