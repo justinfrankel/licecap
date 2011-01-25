@@ -945,6 +945,7 @@ SWELL_API_DEFINE(void, SetPixel,(HDC ctx, int x, int y, int c))
 SWELL_API_DEFINE(void, PolyBezierTo,(HDC ctx, POINT *pts, int np))
 SWELL_API_DEFINE(int, SWELL_DrawText,(HDC ctx, const char *buf, int len, RECT *r, int align))
 SWELL_API_DEFINE(void, SetTextColor,(HDC ctx, int col))
+SWELL_API_DEFINE(int, GetTextColor,(HDC ctx))
 SWELL_API_DEFINE(void, SetBkColor,(HDC ctx, int col))
 SWELL_API_DEFINE(void, SetBkMode,(HDC ctx, int col))
 

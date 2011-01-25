@@ -927,6 +927,13 @@ void SetBkMode(HDC ctx, int col)
   ct->curbkmode=col;
 }
 
+int GetTextColor(HDC ctx)
+{
+  HDC__ *ct=(HDC__ *)ctx;
+  if (!HDC_VALID(ct)) return -1;
+  return ct->cur_text_color_int;
+}
+
 void SetTextColor(HDC ctx, int col)
 {
   HDC__ *ct=(HDC__ *)ctx;
