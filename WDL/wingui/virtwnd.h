@@ -123,6 +123,8 @@ public:
   virtual WDL_VWnd_IAccessibleBridge *GetAccessibilityBridge() { return m__iaccess; }
   virtual void SetAccessibilityBridge(WDL_VWnd_IAccessibleBridge *br) { m__iaccess=br; }
 
+  virtual void SetChildPosition(WDL_VWnd *ch, int pos);
+  
 protected:
   WDL_VWnd *m_parent;
   WDL_VWnd_IAccessibleBridge *m__iaccess;

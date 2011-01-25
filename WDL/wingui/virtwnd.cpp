@@ -591,6 +591,25 @@ void WDL_VWnd::RequestRedraw(RECT *r)
 }
 
 
+void WDL_VWnd::SetChildPosition(WDL_VWnd *ch, int pos)
+{
+  if (!ch || !m_children) return;
+  int x;
+  for(x=0;x<m_children->GetSize();x++)
+  {
+    if (m_children->Get(x) == ch) 
+    {
+      if (pos>x) pos--;
+      if (pos != x)
+      {
+        m_children->Delete(x);
+        m_children->Insert(pos,ch);
+      }
+      return;
+    }
+  }
+}
+
 
 void WDL_VWnd::AddChild(WDL_VWnd *wnd, int pos)
 {
