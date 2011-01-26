@@ -299,8 +299,17 @@ template<class PTRTYPE> class WDL_TypedBuf
     {
       int sz=GetSize(); 
       PTRTYPE *p=Resize(sz+1);
-      if (p) p[sz]=val; 
-      return p; 
+      if (p && GetSize() == sz+1)
+      {
+        p[sz]=val; 
+        return p+sz;
+      }
+      return 0;
+    }
+
+    void SetGranul(int gran)
+    {
+      m_hb.SetGranul(gran);
     }
 
   private:

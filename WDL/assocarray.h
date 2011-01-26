@@ -20,7 +20,7 @@ public:
     m_keydispose = keydispose;
     m_valdispose = valdispose;
   }
- 
+
   ~WDL_AssocArrayImpl() 
   {
     DeleteAll();
@@ -194,6 +194,11 @@ public:
     int i = LowerBound(key, &ismatch);
     if (ismatch) return i;
     return -1;
+  }
+
+  void SetGranul(int gran)
+  {
+    m_data.SetGranul(gran);
   }
 
 private:
