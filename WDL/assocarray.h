@@ -8,7 +8,7 @@
 // if keydup/keydispose are set, copies of (any) key data will be made/destroyed as necessary
 
 
-// WDL_AssocArrayImpl can be used on its own, and can contain structs for values
+// WDL_AssocArrayImpl can be used on its own, and can contain structs for keys or values
 template <class KEY, class VAL> class WDL_AssocArrayImpl 
 {
 public:
@@ -125,17 +125,6 @@ public:
     return 0;
   }
 
-  KEY ReverseLookup(VAL val, KEY notfound=0)
-  {
-    int i;
-    for (i = 0; i < m_data.GetSize(); ++i)
-    {
-      KeyVal* kv = m_data.Get()+i;
-      if (kv->val == val) return kv->key;
-    }
-    return notfound;
-  }
-
   void ChangeKey(KEY oldkey, KEY newkey)
   {
     bool ismatch=false;
@@ -218,7 +207,7 @@ private:
 };
 
 
-// WDL_AssocArray adds useful functions but cannot contain structs for values
+// WDL_AssocArray adds useful functions but cannot contain structs for keys or values
 template <class KEY, class VAL> class WDL_AssocArray : public WDL_AssocArrayImpl<KEY, VAL>
 {
 public:
@@ -240,6 +229,17 @@ public:
     VAL* p = EnumeratePtr(i, key);
     if (p) return *p;
     return notfound; 
+  }
+
+  KEY ReverseLookup(VAL val, KEY notfound=0)
+  {
+    int i;
+    for (i = 0; i < m_data.GetSize(); ++i)
+    {
+      KeyVal* kv = m_data.Get()+i;
+      if (kv->val == val) return kv->key;
+    }
+    return notfound;
   }
 };
 
