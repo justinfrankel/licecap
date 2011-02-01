@@ -272,5 +272,19 @@ public:
 };
 
 
+template <class VAL> class WDL_PtrKeyedArray : public WDL_AssocArray<INT_PTR, VAL>
+{
+public:
+
+  WDL_PtrKeyedArray(void (*valdispose)(VAL)=0) : WDL_AssocArray<INT_PTR, VAL>(cmpptr, 0, 0, valdispose) {}
+
+  ~WDL_PtrKeyedArray() {}
+
+private:
+  
+  static int cmpptr(INT_PTR* a, INT_PTR* b) { return *a-*b; }
+};
+
+
 #endif
 
