@@ -77,6 +77,17 @@ void WDL_WndSizer::init_itemvirt(WDL_VirtualWnd *vwnd,
   rec->real_orig = rec->last = rec->orig = this_r;
 }
 
+POINT WDL_WndSizer::get_min_size(bool applyMargins)
+{ 
+  POINT p = m_min_size;
+  if (applyMargins)
+  {
+    p.x += m_margins.left+m_margins.right;
+    p.y += m_margins.top+m_margins.bottom;
+  }
+  return p; 
+}
+
 
 void WDL_WndSizer::init_itemhwnd(HWND h, float left_scale, float top_scale, float right_scale, float bottom_scale, RECT *srcr)
 {

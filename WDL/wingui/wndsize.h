@@ -110,7 +110,7 @@ public:
     if (minSize) m_min_size = *minSize;
     else m_min_size.x=m_min_size.y=0;
   }
-  POINT get_min_size() { return m_min_size; }
+  POINT get_min_size(bool applyMargins=false);
 
   void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
 
