@@ -312,6 +312,17 @@ template<class PTRTYPE> class WDL_TypedBuf
       m_hb.SetGranul(gran);
     }
 
+    int Find(PTRTYPE val)
+    {
+      PTRTYPE* p=Get();
+      int i;
+      for (i=0; i < GetSize(); ++i)
+      {
+        if (p[i] == val) return i;
+      }
+      return -1;
+    }
+
   private:
     WDL_HeapBuf m_hb;
 };
