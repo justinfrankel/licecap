@@ -124,6 +124,17 @@ public:
     }
     return 0;
   }
+  
+  KEY* ReverseLookupPtr(VAL val)
+  {
+    int i;
+    for (i = 0; i < m_data.GetSize(); ++i)
+    {
+      KeyVal* kv = m_data.Get()+i;
+      if (kv->val == val) return &kv->key;
+    }
+    return 0;    
+  }
 
   void ChangeKey(KEY oldkey, KEY newkey)
   {
@@ -233,12 +244,8 @@ public:
 
   KEY ReverseLookup(VAL val, KEY notfound=0)
   {
-    int i;
-    for (i = 0; i < m_data.GetSize(); ++i)
-    {
-      KeyVal* kv = m_data.Get()+i;
-      if (kv->val == val) return kv->key;
-    }
+    KEY* p=ReverseLookupPtr(val);
+    if (p) return *p;
     return notfound;
   }
 };
