@@ -3534,7 +3534,7 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
         istart++;
       }
       istart=0;
-      while (istart <= orig_start && istart < n)
+      while (istart < orig_start && istart < n)
       {
         if ([tv isRowSelected:istart]) return istart;
         istart++;        
