@@ -5070,16 +5070,26 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
     if (r.top>r.bottom) { int a=r.top; r.top=r.bottom;r.bottom=a; }
     NSRect rr=NSMakeRect(r.left,r.top,r.right-r.left,r.bottom-r.top);
     
+    NSWindow *par=nil;
+    if (hwndPar)
+    {
+      if ([(id)hwndPar isKindOfClass:[NSWindow class]]) par=(NSWindow *)hwndPar;
+      else if ([(id)hwndPar isKindOfClass:[NSView class]]) par=[(NSView *)hwndPar window];
+      else return;
+    }
+    
+    if (wnd && ([wnd parentWindow] != par))
+    {
+      NSWindow *ow=[wnd parentWindow];
+      if (ow) [ow removeChildWindow:wnd];
+      //      [wnd setParentWindow:nil];
+      [wnd close];
+      *handle=0;
+      wnd=0;    
+    }
+    
     if (!wnd)
     {
-      NSWindow *par=nil;
-      if (hwndPar)
-      {
-        if ([(id)hwndPar isKindOfClass:[NSWindow class]]) par=(NSWindow *)hwndPar;
-        else if ([(id)hwndPar isKindOfClass:[NSView class]]) par=[(NSView *)hwndPar window];
-        else return;
-      }
-      
       *handle  = wnd = [[NSWindow alloc] initWithContentRect:rr styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES];
       [wnd setOpaque:YES];
       [wnd setAlphaValue:0.5];
@@ -5088,6 +5098,11 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
       [wnd setContentView:[[SWELL_FocusRectWnd alloc] init]];
       
       if (par) [par addChildWindow:wnd ordered:NSWindowAbove];
+      else 
+      {
+        [wnd setLevel:NSPopUpMenuWindowLevel];
+        [wnd orderFront:wnd];
+      }
       //    [wnd setParentWindow:par];
 //      [wnd orderWindow:NSWindowAbove relativeTo:[par windowNumber]];
     }
