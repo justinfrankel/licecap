@@ -317,7 +317,9 @@ LICECaptureDecompressor::LICECaptureDecompressor(const char *fn, bool want_seeka
         while (ReadHdr(0))
         {
           m_file_frame_info.Add(&lastpos,1);
-          m_file_frame_info.Add(&m_file_length_ms,1);         
+          unsigned int mst = m_file_length_ms;
+          if (m_frame_deltas[0].GetSize()) mst += m_frame_deltas[0].Get()[0]; // TOC is by time of first frames, ignore first delay when seeking
+          m_file_frame_info.Add(&mst,1);         
 
           int x;
           for(x=0;x<m_frame_deltas[0].GetSize();x++)
@@ -382,16 +384,8 @@ int LICECaptureDecompressor::Seek(unsigned int offset_ms)
     {
       if (offset_ms < m_file_frame_info.Get()[x+2+1]) break;
     }
-    if (x>=m_file_frame_info.GetSize()-2) 
-    {
-      offset_ms=0;
-      rval=-1;
-    }
-    else
-    {
-      seekpos = m_file_frame_info.Get()[x];
-      offset_ms -= m_file_frame_info.Get()[x+1];
-    }
+    seekpos = m_file_frame_info.Get()[x];
+    offset_ms -= m_file_frame_info.Get()[x+1];
     // figure out the best place to seek
   }
   else 
@@ -412,7 +406,7 @@ int LICECaptureDecompressor::Seek(unsigned int offset_ms)
     if (offset_ms>0 && rval==0)
     {
       int x;
-      for (x = 0; x < m_frame_deltas[m_rd_which].GetSize(); x++)
+      for (x = 1; x < m_frame_deltas[m_rd_which].GetSize(); x++)
       {
         if (offset_ms < m_frame_deltas[m_rd_which].Get()[x])
         {
@@ -421,7 +415,7 @@ int LICECaptureDecompressor::Seek(unsigned int offset_ms)
         }
         offset_ms -= m_frame_deltas[m_rd_which].Get()[x];
       }
-      m_frameidx=x;
+      m_frameidx=x-1;
     }
     if (!ReadHdr(!m_rd_which))
         memset(&m_curhdr[!m_rd_which],0,sizeof(m_curhdr[!m_rd_which]));
