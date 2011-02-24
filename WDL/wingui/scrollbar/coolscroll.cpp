@@ -369,12 +369,12 @@ static void OSX_REMAP_SCREENY(HWND hwnd, LONG *y)
 #define OSX_REMAP_SCREENY(hwnd, y)
 #endif
 
-static BOOL ownDrawEdge(HDC hdc, LPRECT qrc, UINT edge, UINT grfFlags)
+static BOOL ownDrawEdge(HWND hwnd, HDC hdc, LPRECT qrc, UINT edge, UINT grfFlags)
 {
-  HPEN pen1 = CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_3DHILIGHT));
-  HPEN pen2 = CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_3DSHADOW));
-  HPEN pen3 = CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_BTNFACE));
-  HPEN pen4 = CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_3DDKSHADOW));
+  HPEN pen1 = CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_3DHILIGHT));
+  HPEN pen2 = CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_3DSHADOW));
+  HPEN pen3 = CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
+  HPEN pen4 = CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_3DDKSHADOW));
   HPEN oldpen = (HPEN)SelectObject(hdc,pen3);
 
   if(edge == EDGE_RAISED)
@@ -401,7 +401,7 @@ static BOOL ownDrawEdge(HDC hdc, LPRECT qrc, UINT edge, UINT grfFlags)
   }
   else
   {
-    HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
+    HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
     FillRect(hdc, qrc, br);
     DeleteObject(br);
     
@@ -458,7 +458,7 @@ static LRESULT CallWindowProcStyleMod(SCROLLWND *sw, HWND hwnd, UINT msg, WPARAM
   return ret;
 }
 
-static BOOL ownDrawFrameControl(HDC hdc, LPRECT lprc, UINT uType, UINT uState, int mouseOver)
+static BOOL ownDrawFrameControl(HWND hwnd, HDC hdc, LPRECT lprc, UINT uType, UINT uState, int mouseOver)
 {
   LICE_IBitmap *bmp;
   if(m_scrollbar_bmp && (bmp = *m_scrollbar_bmp))
@@ -486,13 +486,13 @@ static BOOL ownDrawFrameControl(HDC hdc, LPRECT lprc, UINT uType, UINT uState, i
   }
 
   RECT r = *lprc;
-  HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
-  HBRUSH br2 = CreateSolidBrush(GSC_mainwnd(COLOR_BTNTEXT));
-  HPEN pen = CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_BTNTEXT));
+  HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
+  HBRUSH br2 = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNTEXT));
+  HPEN pen = CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_BTNTEXT));
   HPEN oldpen;
   HBRUSH oldbrush;
 
-  ownDrawEdge(hdc, &r, uState&DFCS_PUSHED?EDGE_ETCHED:EDGE_RAISED, BF_ADJUST);
+  ownDrawEdge(hwnd,hdc, &r, uState&DFCS_PUSHED?EDGE_ETCHED:EDGE_RAISED, BF_ADJUST);
 	FillRect(hdc, &r, br);
 
   if(uState & DFCS_PUSHED) 
@@ -574,7 +574,7 @@ static BOOL ownDrawFrameControl(HDC hdc, LPRECT lprc, UINT uType, UINT uState, i
 //
 //	Draw a standard scrollbar arrow
 //
-static int DrawScrollArrow(SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT arrow, BOOL fMouseDown, BOOL fMouseOver)
+static int DrawScrollArrow(HWND hwnd, SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT arrow, BOOL fMouseDown, BOOL fMouseOver)
 {
 	UINT ret;
 	UINT flags = arrow;
@@ -589,7 +589,7 @@ static int DrawScrollArrow(SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT arrow, BOO
 	if(fMouseDown) flags |= (DFCS_FLAT | DFCS_PUSHED);
 
 
-	ret = ownDrawFrameControl(hdc, rect, DFC_SCROLL, flags, fMouseOver);
+	ret = ownDrawFrameControl(hwnd,hdc, rect, DFC_SCROLL, flags, fMouseOver);
 
 	return ret;
 }
@@ -641,24 +641,24 @@ static int GetZoomButtonSize(BOOL isVert)
 //
 //	
 //
-static COLORREF GetSBForeColor(void)
+static COLORREF GetSBForeColor(HWND hwnd)
 {
-	COLORREF c1 = GSC_mainwnd(COLOR_3DHILIGHT);
-	COLORREF c2 = GSC_mainwnd(COLOR_WINDOW);
+	COLORREF c1 = CoolSB_GetSysColor(hwnd,COLOR_3DHILIGHT);
+	COLORREF c2 = CoolSB_GetSysColor(hwnd,COLOR_WINDOW);
 
 	if(c1 != 0xffffff && c1 == c2)
 	{
-		return GSC_mainwnd(COLOR_BTNFACE);
+		return CoolSB_GetSysColor(hwnd,COLOR_BTNFACE);
 	}
 	else
 	{
-		return GSC_mainwnd(COLOR_3DHILIGHT);
+		return CoolSB_GetSysColor(hwnd,COLOR_3DHILIGHT);
 	}
 }
 
-static COLORREF GetSBBackColor(void)
+static COLORREF GetSBBackColor(HWND hwnd)
 {
-	return GSC_mainwnd(COLOR_SCROLLBAR);
+	return CoolSB_GetSysColor(hwnd,COLOR_SCROLLBAR);
 }
 
 //
@@ -828,12 +828,12 @@ static void PaintRect(HDC hdc, RECT *rect, COLORREF color)
 //	to draw a push button, or the scrollbar thumb
 //	drawflag - could set to BF_FLAT to make flat scrollbars
 //
-static void DrawBlankButton(HDC hdc, const RECT *rect)
+static void DrawBlankButton(HWND hwnd, HDC hdc, const RECT *rect)
 {
 	RECT rc = *rect;
-  HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
+  HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
 			
-	ownDrawEdge(hdc, &rc, EDGE_RAISED, BF_RECT | BF_ADJUST);
+	ownDrawEdge(hwnd,hdc, &rc, EDGE_RAISED, BF_RECT | BF_ADJUST);
 	FillRect(hdc, &rc, br);
   DeleteObject(br);
 }
@@ -1266,8 +1266,8 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 	BOOL fMouseDownL = 0, fMouseOverL = 0, fBarHot = 0;
 	BOOL fMouseDownR = 0, fMouseOverR = 0;
 
-	COLORREF crCheck1   = GetSBForeColor();
-	COLORREF crCheck2   = GetSBBackColor();
+	COLORREF crCheck1   = GetSBForeColor(hwnd);
+	COLORREF crCheck2   = GetSBBackColor(hwnd);
 	COLORREF crInverse1 = InvertCOLORREF(crCheck1);
 	COLORREF crInverse2 = InvertCOLORREF(crCheck2);
 
@@ -1345,7 +1345,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
 		RotateRect0(sb, &ctrl);
 
-  	DrawScrollArrow(sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL);
+  	DrawScrollArrow(hwnd,sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL);
 
 		RotateRect0(sb, &ctrl);
 
@@ -1406,7 +1406,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
               r.bottom -= m_thumbsize;*/
             }
           }
-          DrawBlankButton(hdc, &r);
+          DrawBlankButton(hwnd,hdc, &r);
         }
         
         if(sw->resizingHthumb)
@@ -1414,15 +1414,15 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           //draw left and right resizers
           if(sb->nBarType == SB_HORZ)
           {
-            HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
+            HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
             {
               RECT r={thumb.left, thumb.top, thumb.left+m_thumbsize, thumb.bottom};
-              ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+              ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
               FillRect(hdc, &r, br);
             }
             {
               RECT r={thumb.right-m_thumbsize, thumb.top, thumb.right, thumb.bottom};
-              ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+              ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
               FillRect(hdc, &r, br);
             }
             DeleteObject(br);
@@ -1430,15 +1430,15 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           else
           {
             //disabled for now
-            /*HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
+            /*HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
             {
             RECT r={thumb.left, thumb.top, thumb.right, thumb.top+m_thumbsize};
-            ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
             }
             {
             RECT r={thumb.left, thumb.bottom - m_thumbsizeE, thumb.right, thumb.bottom};
-            ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
             }
             DeleteObject(br);*/
@@ -1463,7 +1463,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 				ctrl.right --;
 				RotateRect0(sb, &ctrl);
 
-				DrawBlankButton(hdc, &ctrl);
+				DrawBlankButton(hwnd,hdc, &ctrl);
 
 				RotateRect0(sb, &ctrl);
 
@@ -1476,7 +1476,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 				RotateRect0(sb, &ctrl);
         RotateRect0(sb, &r2);
 				
-  			PaintRect(hdc, &r2, GSC_mainwnd(COLOR_SCROLLBAR));
+  			PaintRect(hdc, &r2, CoolSB_GetSysColor(hwnd,COLOR_SCROLLBAR));
 
 				RotateRect0(sb, &ctrl);
 			}
@@ -1499,7 +1499,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
     RotateRect0(sb, &ctrl);
     RotateRect0(sb, &r2);
 
-		DrawScrollArrow(sb, hdc, &r2, uRightButFlags, fMouseDownR, fMouseOverR);
+		DrawScrollArrow(hwnd,sb, hdc, &r2, uRightButFlags, fMouseDownR, fMouseOverR);
 
     if(sw->resizingHthumb && hasZoomButtons)
     {
@@ -1539,14 +1539,14 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
         }
         else
         {
-          HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
-          HPEN pen=CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_3DDKSHADOW));
+          HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
+          HPEN pen=CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_3DDKSHADOW));
           HGDIOBJ oldPen=SelectObject(hdc,pen);
           // +
           {
             int pressed = (uDrawFlags == HTSCROLL_ZOOMIN);
             RECT r = {ctrl.right+pressed, ctrl.top+pressed, ctrl.right + zbs, ctrl.bottom};
-            ownDrawEdge(hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
 
 
@@ -1562,7 +1562,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           // resize thumb
           {
             RECT r = {ctrl.right + zbs, ctrl.top, ctrl.right + zbs + ZOOMBUTTON_RESIZER_SIZE(zbs), ctrl.bottom};
-            ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
           }
           // -
@@ -1570,7 +1570,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
             int pressed = (uDrawFlags == HTSCROLL_ZOOMOUT);
             RECT r = {ctrl.right + zbs + ZOOMBUTTON_RESIZER_SIZE(zbs) +pressed, ctrl.top+pressed, 
               ctrl.right + zbs*2 + ZOOMBUTTON_RESIZER_SIZE(zbs), ctrl.bottom};
-            ownDrawEdge(hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
             int cy=(ctrl.top+ctrl.bottom)/2+pressed,
                 cx=ctrl.right+zbs+ZOOMBUTTON_RESIZER_SIZE(zbs)+zbs/2+pressed;
@@ -1615,14 +1615,14 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
         }
         else
         {
-          HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
-          HPEN pen=CreatePen(PS_SOLID, 0, GSC_mainwnd(COLOR_3DDKSHADOW));
+          HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
+          HPEN pen=CreatePen(PS_SOLID, 0, CoolSB_GetSysColor(hwnd,COLOR_3DDKSHADOW));
           HGDIOBJ oldPen=SelectObject(hdc,pen);
           // +
           {
             int pressed = (uDrawFlags == HTSCROLL_ZOOMIN);
             RECT r = {ctrl.left+pressed, ctrl.bottom+pressed, ctrl.right, ctrl.bottom + zbs};
-            ownDrawEdge(hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
 
             int cx=(ctrl.left+ctrl.right)/2+pressed,cy=ctrl.bottom+zbs/2+pressed;
@@ -1636,7 +1636,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           // resize thumb
           {
             RECT r = {ctrl.left, ctrl.bottom + zbs, ctrl.right, ctrl.bottom + zbs + ZOOMBUTTON_RESIZER_SIZE(zbs)};
-            ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
           }
           // -
@@ -1644,7 +1644,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
             int pressed = (uDrawFlags == HTSCROLL_ZOOMOUT);
             RECT r = {ctrl.left+pressed, ctrl.bottom + zbs  + ZOOMBUTTON_RESIZER_SIZE(zbs) + pressed, 
                       ctrl.right, ctrl.bottom + ZOOMBUTTON_RESIZER_SIZE(zbs) + zbs*2};
-            ownDrawEdge(hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
+            ownDrawEdge(hwnd,hdc, &r, pressed?0:EDGE_RAISED, BF_RECT | BF_ADJUST);
             FillRect(hdc, &r, br);
 
             int cx=(ctrl.left+ctrl.right)/2+pressed,cy=ctrl.bottom+zbs+ZOOMBUTTON_RESIZER_SIZE(zbs)+zbs/2+pressed;
@@ -1671,14 +1671,14 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 		SetRect(&ctrl, rect->left, rect->top, rect->left + butwidth, rect->bottom);
 
 		RotateRect0(sb, &ctrl);
-		DrawScrollArrow(sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL);
+		DrawScrollArrow(hwnd,sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL);
 		RotateRect0(sb, &ctrl);
 
 		//RIGHT ARROW
 		OffsetRect(&ctrl, scrollwidth - butwidth, 0);
 		
 		RotateRect0(sb, &ctrl);
-		DrawScrollArrow(sb, hdc, &ctrl, uRightButFlags, fMouseDownR, fMouseOverR);		
+		DrawScrollArrow(hwnd,sb, hdc, &ctrl, uRightButFlags, fMouseDownR, fMouseOverR);		
 		RotateRect0(sb, &ctrl);
 
 		//if there is a gap between the buttons, fill it with a solid color
@@ -1962,10 +1962,10 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 #if 0 // never seems to look right (adds an extra arrow)
 			if(!sw->fLeftScrollbar && parent.right == rect2.right+sw->cxRightEdge && parent.bottom == rect2.bottom+sw->cyBottomEdge
 			 || sw->fLeftScrollbar && parent.left  == rect2.left -sw->cxLeftEdge  && parent.bottom == rect2.bottom+sw->cyBottomEdge)
-				ownDrawFrameControl(hdc, &rect, DFC_SCROLL, sw->fLeftScrollbar ? DFCS_SCROLLSIZEGRIPRIGHT : DFCS_SCROLLSIZEGRIP, 0 );
+				ownDrawFrameControl(hwnd,hdc, &rect, DFC_SCROLL, sw->fLeftScrollbar ? DFCS_SCROLLSIZEGRIPRIGHT : DFCS_SCROLLSIZEGRIP, 0 );
 			else
 #endif
-				PaintRect(hdc, &rect, GSC_mainwnd(COLOR_3DFACE));
+				PaintRect(hdc, &rect, CoolSB_GetSysColor(hwnd,COLOR_3DFACE));
 		}
 	}
 
@@ -2420,8 +2420,8 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 {
 	POINT pt;
 	RECT rc, winrect, rc2;
-	COLORREF crCheck1 = GetSBForeColor();
-	COLORREF crCheck2 = GetSBBackColor();
+	COLORREF crCheck1 = GetSBForeColor(hwnd);
+	COLORREF crCheck2 = GetSBBackColor(hwnd);
 	HDC hdc;
 	int thumbpos = nThumbPos;
 	int pos;
@@ -2522,7 +2522,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
           r.bottom -= m_thumbsize;*/
         }
       }
-      DrawBlankButton(hdc, &r);
+      DrawBlankButton(hwnd,hdc, &r);
     }
     
     if(sw->resizingHthumb)
@@ -2531,15 +2531,15 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
       if(sbar->nBarType == SB_HORZ)
       {
         RECT thumb = rc2;
-        HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
+        HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
         {
           RECT r={thumb.left, thumb.top, thumb.left+m_thumbsize, thumb.bottom};
-          ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+          ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
           FillRect(hdc, &r, br);
         }
         {
           RECT r={thumb.right-m_thumbsize, thumb.top, thumb.right, thumb.bottom};
-          ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+          ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
           FillRect(hdc, &r, br);
         }
         DeleteObject(br);
@@ -2548,15 +2548,15 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
       {
         //disabled for now
         /*RECT thumb = rc2;
-        HBRUSH br = CreateSolidBrush(GSC_mainwnd(COLOR_BTNFACE));
+        HBRUSH br = CreateSolidBrush(CoolSB_GetSysColor(hwnd,COLOR_BTNFACE));
         {
         RECT r={thumb.left, thumb.top, thumb.right, thumb.top+m_thumbsize};
-        ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+        ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
         FillRect(hdc, &r, br);
         }
         {
         RECT r={thumb.left, thumb.bottom - m_thumbsize, thumb.right, thumb.bottom};
-        ownDrawEdge(hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
+        ownDrawEdge(hwnd,hdc, &r, EDGE_RAISED, BF_RECT | BF_ADJUST);
         FillRect(hdc, &r, br);
         }
         DeleteObject(br);*/

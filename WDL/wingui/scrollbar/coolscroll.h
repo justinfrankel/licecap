@@ -81,7 +81,7 @@ void CoolSB_OnColorThemeChange(); // refreshes all
 
 // TO BE IMPLEMENTED BY APP:
 void *GetIconThemePointer(const char *name); // implemented by calling app, can return a LICE_IBitmap **img for "scrollbar"
-int GSC_mainwnd(int val); // can be a passthrough to GetSysColor()
+int CoolSB_GetSysColor(HWND hwnd, int val); // can be a passthrough to GetSysColor()
 
 
 #ifdef __cplusplus
