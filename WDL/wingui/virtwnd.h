@@ -47,6 +47,7 @@
 
 
 
+class WDL_VWnd_Painter;
 class LICE_IBitmap;
 
 // deprecated
@@ -125,6 +126,7 @@ public:
 
   virtual void SetChildPosition(WDL_VWnd *ch, int pos);
   
+  virtual void SetCurPainter(WDL_VWnd_Painter *p) { m_curPainter=p; }
 protected:
   WDL_VWnd *m_parent;
   WDL_VWnd_IAccessibleBridge *m__iaccess;
@@ -139,6 +141,9 @@ protected:
   WDL_PtrList<WDL_VWnd> *m_children;
 
   const char *m__iaccess_desc;
+
+  WDL_VWnd_Painter *m_curPainter;
+  virtual int GSC(int a);
 
 };
 
@@ -180,6 +185,7 @@ public:
 
   void PaintEnd();
 
+  int GSC(int a);
 private:
 
   double m_gradstart,m_gradslope;

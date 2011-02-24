@@ -199,13 +199,13 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       {
         int cidx=isdown?COLOR_3DSHADOW:COLOR_3DHILIGHT;
 
-        int pencol = WDL_STYLE_GetSysColor(cidx);
+        int pencol = GSC(cidx);
         pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
         LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,alpha,LICE_BLIT_MODE_COPY,false);
         LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,alpha,LICE_BLIT_MODE_COPY,false);
         cidx = isdown?COLOR_3DHILIGHT:COLOR_3DSHADOW;
-        pencol = WDL_STYLE_GetSysColor(cidx);
+        pencol = GSC(cidx);
         pencol = LICE_RGBA_FROMNATIVE(pencol,255);
         LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,alpha,LICE_BLIT_MODE_COPY,false);
         LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,alpha,LICE_BLIT_MODE_COPY,false);
@@ -274,7 +274,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     // draw text
     if (font&&m_textlbl.Get()[0])
     {
-      int fgc=m_forcetext_color ? m_forcetext_color : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT),255);
+      int fgc=m_forcetext_color ? m_forcetext_color : LICE_RGBA_FROMNATIVE(GSC(COLOR_BTNTEXT),255);
       //font->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // this affects the glyphs that get cached
       font->SetBkMode(TRANSPARENT);
       font->SetTextColor(fgc);
@@ -512,21 +512,21 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
     r.top+=origin_y;
     r.bottom+=origin_y;
 
-    int col=WDL_STYLE_GetSysColor(COLOR_WINDOW);
+    int col=GSC(COLOR_WINDOW);
     col = LICE_RGBA_FROMNATIVE(col,255);
     LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,col,1.0f,LICE_BLIT_MODE_COPY);
 
     {
       RECT tr=r;
       tr.left=tr.right-(tr.bottom-tr.top);
-      int col2=WDL_STYLE_GetSysColor(COLOR_BTNFACE);
+      int col2=GSC(COLOR_BTNFACE);
       col2 = LICE_RGBA_FROMNATIVE(col2,255);
 
       LICE_FillRect(drawbm,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,col,1.0f,LICE_BLIT_MODE_COPY);
     }
     
 
-    int tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+    int tcol=GSC(COLOR_BTNTEXT);
     tcol=LICE_RGBA_FROMNATIVE(tcol,255);
     if (m_font && m_items.Get(m_curitem)&&m_items.Get(m_curitem)[0])
     {
@@ -539,9 +539,9 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
 
 
     // pen3=tcol
-    int pencol = WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+    int pencol = GSC(COLOR_3DSHADOW);
     pencol = LICE_RGBA_FROMNATIVE(pencol,255);
-    int pencol2 = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+    int pencol2 = GSC(COLOR_3DHILIGHT);
     pencol2 = LICE_RGBA_FROMNATIVE(pencol2,255);
 
     // draw the down arrow button
@@ -704,13 +704,13 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     {    
       int cidx=COLOR_3DSHADOW;
 
-      int pencol = WDL_STYLE_GetSysColor(cidx);
+      int pencol = GSC(cidx);
       pencol = LICE_RGBA_FROMNATIVE(pencol,255);
 
       LICE_Line(drawbm,r.left,r.bottom-1,r.left,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
       LICE_Line(drawbm,r.left,r.top,r.right-1,r.top,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
       cidx=COLOR_3DHILIGHT;
-      pencol = WDL_STYLE_GetSysColor(cidx);
+      pencol = GSC(cidx);
       pencol = LICE_RGBA_FROMNATIVE(pencol,255);
       LICE_Line(drawbm,r.right-1,r.top,r.right-1,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
       LICE_Line(drawbm,r.right-1,r.bottom-1,r.left,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
@@ -781,7 +781,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         }
       }
 
-      int tcol=m_fg ? m_fg : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT));
+      int tcol=m_fg ? m_fg : LICE_RGBA_FROMNATIVE(GSC(COLOR_BTNTEXT));
       font->SetTextColor(tcol);
       if (m_fg && LICE_GETA(m_fg) != 0xff) font->SetCombineMode(LICE_BLIT_MODE_COPY,LICE_GETA(m_fg)/255.0f);
 

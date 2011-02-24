@@ -241,7 +241,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
         int y=((m_maxr-center)*(viewh-bm_h2))/rsize + ((bm_h-1)/2-imgoffset);
 
-        if (!zlc) zlc = LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT),255);
+        if (!zlc) zlc = LICE_RGBA_FROMNATIVE(GSC(COLOR_BTNTEXT),255);
         LICE_Line(drawbm,origin_x+2,origin_y+y,origin_x+vieww-2,origin_y+y, zlc, LICE_GETA(zlc)/255.0, LICE_BLIT_MODE_COPY,false);
       }
 
@@ -249,9 +249,9 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       if (!back_image)
       {
 
-        LICE_pixel fgcol  = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+        LICE_pixel fgcol  = GSC(COLOR_3DHILIGHT);
         fgcol = LICE_RGBA_FROMNATIVE(fgcol,255);
-        LICE_pixel bgcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+        LICE_pixel bgcol=GSC(COLOR_3DSHADOW);
         if (m_bgcol1_msg)
           SendCommand(m_bgcol1_msg,(INT_PTR)&bgcol,GetID(),this);
         bgcol = LICE_RGBA_FROMNATIVE(bgcol,255);
@@ -300,7 +300,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
     }
     else
     {
-      LICE_pixel col  = m_knob_color ? m_knob_color : LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_3DHILIGHT),255);
+      LICE_pixel col  = m_knob_color ? m_knob_color : LICE_RGBA_FROMNATIVE(GSC(COLOR_3DHILIGHT),255);
 
       float alpha = LICE_GETA(col)/255.0f;
       int cx=origin_x+vieww/2;
@@ -369,7 +369,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
       int x=((center-m_minr)*(vieww-bm_w2))/rsize + bm_w/2 - imgoffset;
 
-      if (!zlc) zlc = LICE_RGBA_FROMNATIVE(WDL_STYLE_GetSysColor(COLOR_BTNTEXT),255);
+      if (!zlc) zlc = LICE_RGBA_FROMNATIVE(GSC(COLOR_BTNTEXT),255);
 
       LICE_Line(drawbm,origin_x+x,origin_y+2,origin_x+x,origin_y+viewh-2,
         zlc, LICE_GETA(zlc)/255.0, LICE_BLIT_MODE_COPY,false);
@@ -377,9 +377,9 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
     if (!back_image)
     {
-      LICE_pixel fgcol  = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+      LICE_pixel fgcol  = GSC(COLOR_3DHILIGHT);
       fgcol = LICE_RGBA_FROMNATIVE(fgcol,255);
-      LICE_pixel bgcol=WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
+      LICE_pixel bgcol=GSC(COLOR_3DSHADOW);
       if (m_bgcol1_msg)
         SendCommand(m_bgcol1_msg,(INT_PTR)&bgcol,GetID(),this);
       bgcol = LICE_RGBA_FROMNATIVE(bgcol,255);

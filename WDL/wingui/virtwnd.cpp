@@ -50,6 +50,11 @@ void WDL_VWnd_Painter::SetGSC(int (*GSC)(int))
 {
   m_GSC=GSC;
 }
+int WDL_VWnd_Painter::GSC(int a)
+{
+  if (m_GSC) return m_GSC(a);
+  return GetSysColor(a);
+}
 
 void WDL_VWnd_Painter::SetBGGradient(int wantGradient, double start, double slope)
 {
@@ -428,12 +433,14 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
     tr.right -= m_paint_xorig;
     tr.top -= m_paint_yorig;
     tr.bottom -= m_paint_yorig;
+    vwnd->SetCurPainter(this);
     vwnd->OnPaint(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
     if (borderflags)
     {
       PaintBorderForRect(&r,borderflags);
     }
     if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
+    vwnd->SetCurPainter(NULL);
 
   }
 }
@@ -503,6 +510,7 @@ WDL_VWnd::WDL_VWnd()
   m_captureidx=-1;
   m_lastmouseidx=-1;
   m_userdata=0;
+  m_curPainter=0;
 }
 
 WDL_VWnd::~WDL_VWnd() 
@@ -515,6 +523,10 @@ WDL_VWnd::~WDL_VWnd()
   if (m__iaccess) m__iaccess->Release();
 }
 
+int WDL_VWnd::GSC(int a)
+{
+  return m_curPainter ? m_curPainter->GSC(a) : GetSysColor(a);
+}
 
 INT_PTR WDL_VWnd::SendCommand(int command, INT_PTR parm1, INT_PTR parm2, WDL_VWnd *src)
 {
@@ -676,7 +688,9 @@ void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *c
 
         if (cr.left < cr.right && cr.top < cr.bottom)
         {
+          ch->SetCurPainter(m_curPainter);
           ch->OnPaint(drawbm,m_position.left+origin_x,m_position.top+origin_y,&cr);
+          ch->SetCurPainter(NULL);
         }
       }
     }
@@ -710,7 +724,9 @@ void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, REC
 
         if (cr.left < cr.right && cr.top < cr.bottom)
         {
+          ch->SetCurPainter(m_curPainter);
           ch->OnPaintOver(drawbm,m_position.left+origin_x,m_position.top+origin_y,&cr);
+          ch->SetCurPainter(NULL);
         }
       }
     }

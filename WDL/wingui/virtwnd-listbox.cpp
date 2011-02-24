@@ -201,7 +201,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
 
   WDL_VirtualWnd_BGCfg *mainbk=0;
   int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,&mainbk) : 0;
-  LICE_pixel bgc=WDL_STYLE_GetSysColor(COLOR_BTNFACE);
+  LICE_pixel bgc=GSC(COLOR_BTNFACE);
   bgc=LICE_RGBA_FROMNATIVE(bgc,255);
 
   int nrows,num_cols,updownbuttonsize,leftrightbuttonsize,startpos,usedw;
@@ -223,12 +223,12 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
     LICE_FillRect(drawbm,r.left,r.top,r.right-r.left,r.bottom-r.top,bgc,1.0f,LICE_BLIT_MODE_COPY);
   }
 
-  LICE_pixel pencol = WDL_STYLE_GetSysColor(COLOR_3DSHADOW);
-  LICE_pixel pencol2 = WDL_STYLE_GetSysColor(COLOR_3DHILIGHT);
+  LICE_pixel pencol = GSC(COLOR_3DSHADOW);
+  LICE_pixel pencol2 = GSC(COLOR_3DHILIGHT);
   pencol=LICE_RGBA_FROMNATIVE(pencol,255);
   pencol2=LICE_RGBA_FROMNATIVE(pencol2,255);
 
-  LICE_pixel tcol=WDL_STYLE_GetSysColor(COLOR_BTNTEXT);
+  LICE_pixel tcol=GSC(COLOR_BTNTEXT);
   if (m_font) m_font->SetBkMode(TRANSPARENT);
 
   float alpha = (m_grayed ? 0.25f : 1.0f);
