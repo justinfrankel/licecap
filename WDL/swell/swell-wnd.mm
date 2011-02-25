@@ -5297,4 +5297,24 @@ void SWELL_PostQuitMessage(void *sender)
   [NSApp terminate:(id)sender];
 }
 
+#if 0 // not sure if this will interfere with coolSB
+BOOL ShowScrollBar(HWND hwnd, int nBar, BOOL vis)
+{
+  int v=0;
+  if (nBar == SB_HORZ || nBar == SB_BOTH) v |= WS_HSCROLL;
+  if (nBar == SB_VERT || nBar == SB_BOTH) v |= WS_VSCROLL;
+  if (v)
+  {
+    int s=GetWindowLong(hwnd, GWL_STYLE);
+    if (vis) s |= v;
+    else s &= ~v;
+    SetWindowLong(hwnd, GWL_STYLE, s);
+    SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_FRAMECHANGED|SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+    return TRUE;
+  }
+  return FALSE;
+}
+#endif
+
+
 #endif
