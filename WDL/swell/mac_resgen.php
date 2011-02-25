@@ -170,6 +170,17 @@ function swell_rc2cpp_menu($fp) // returns array with ["data"] and optionally ["
   $menu_depth=0;
   while (($x=fgets($fp)))
   {
+    $a=strpos($x, "\"\"");
+    if ($a)
+    {
+      $b=strpos($x, "\"");
+      $c=strpos($x, "\"", $a+1);
+      if ($b && $c && $b < $a && $c > $a)
+      {
+        $x=str_replace("\"\"", "\\\"", $x);
+      }
+    }
+
     $y=trim($x);
     if ($menu_symbol == "")
     {
