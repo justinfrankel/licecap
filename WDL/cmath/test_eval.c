@@ -40,14 +40,14 @@ int main(void)
   cnum_t y[] = {2, -6, 2, -1};
   cnum_s cy[] = {{2, 0}, {-6, 0}, {2, 0}, {-1, 0}};
 
-  cnum_t fx = horner_eval(y, 3, poly_order(y));
-  cnum_s fcx = horner_eval_c(cy, _CNUM(3, 0), poly_order(y));
+  cnum_t fx = horner_eval(y, 5, poly_order(y));
+  cnum_s fcx = horner_eval_c(cy, _CNUM(5, 0), poly_order(y));
 
-  cnum_t dk_coeff[] = {1, -3, 3, -5};
-  cnum_s dk_roots[3];
+  cnum_t dk_coeff[] = {12, -7, 0.001, 0, 3, -5};
+  cnum_s dk_roots[5];
 
-  cnum_s dk_coeff_c[] = {{1, 0}, {-3, 0}, {3, 0}, {-5, 0}};
-  cnum_s dk_roots_c[3];
+  cnum_s dk_coeff_c[] = {{12, 0}, {-7, 0}, {0.001, 0}, {0, 0}, {3, 0}, {-5, 0}};
+  cnum_s dk_roots_c[5];
 
   durand_kerner(dk_coeff, dk_roots, poly_order(dk_coeff));
   durand_kerner_c(dk_coeff_c, dk_roots_c, poly_order(dk_coeff_c));
@@ -60,24 +60,22 @@ int main(void)
   #endif
 
   /* */
-  puts("\n\nevaluate polynomials:\n");
-  puts("y(x) = x^3 - 6*x^2 + 2*x - 1");
-  printf("y(3) = %.15f\n\n", (double)fx);
-  puts("y(x) = x^(3 + i*0) - 6*x^(2 + i*0) + 2*x^(1 + i*0) - 1");
-  printf("y(3 + i*0) = %.15f \t %.15f*i\n", (double)fcx.r, (double)fcx.i);
+  puts("\n\nevaluate polynomials:\n");  
+  printf("* y[]: %.15f\n", (double)fx);  
+  printf("* cy[]: %.15f \t %.15f*i\n", (double)fcx.r, (double)fcx.i);
 
   /* */
-  puts("\n\nfind roots of:");
-  puts("\nx^3 - 3*x^2 + 3*x - 5 = 0");
+  puts("\nfind roots:");
+  puts("\n* dk_coeff[]:");  
   i = 0;
   while (i < poly_order(dk_coeff))
   {
     printf("root[%2d]: %.15f \t % .15f*i\n",
       i+1, (double)dk_roots[i].r, (double)dk_roots[i].i);
     i++;
-  }
-  puts("\n(1 + i*0)*x^3 - (3 + i*0)*x^2 + (3 + i*0)*x - 5 = 0");
+  }  
   i = 0;
+  puts("\n* dk_coeff_c[]:");
   while (i < poly_order(dk_coeff_c))
   {
     printf("root[%2d]: %.15f \t % .15f*i\n",

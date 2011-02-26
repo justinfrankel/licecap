@@ -177,7 +177,7 @@ _CNUM_INLINE
 cnum_s cnum_div(const cnum_s x, const cnum_s y)
 {
   return  cnum_div_r(cnum_mul(x, cnum_conjugate(y)),
-          (y.r*y.r + cmath_abs(y.i*y.i)));
+                    (y.r*y.r + cmath_abs(y.i*y.i)));
 }
 
 #define cnum_inv(x) \
@@ -216,7 +216,7 @@ _CNUM_INLINE
 cnum_s cnum_log_k(const cnum_s x, const cmath_int32_t k)
 {
   return  cnum_new(cmath_log(cmath_cabs(x.r, x.i)),
-          (cmath_carg(x.r, x.i) + (cmath_pi2*k)));
+                  (cmath_carg(x.r, x.i) + (cmath_pi2*k)));
 }
 
 #define cnum_log(x) \
@@ -314,15 +314,15 @@ cnum_s cnum_pow(const cnum_s x, const cnum_t n)
 
 #define cnum_asin(x) \
   cnum_negative(cnum_mul(cnum_i1, cnum_log(cnum_add(cnum_mul(cnum_i1, x), \
-  cnum_sqrt(cnum_sub(cnum_r1, cnum_sqr(x)))))))
+    cnum_sqrt(cnum_sub(cnum_r1, cnum_sqr(x)))))))
 
 #define cnum_acos(x) \
   cnum_negative(cnum_mul(cnum_i1, cnum_log(cnum_add(x, cnum_mul(cnum_i1, \
-  cnum_sqrt(cnum_sub(cnum_r1, cnum_sqr(x))))))))
+    cnum_sqrt(cnum_sub(cnum_r1, cnum_sqr(x))))))))
 
 #define cnum_atan(x) \
   cnum_div(cnum_mul(cnum_i1, cnum_log(cnum_div(cnum_sub(cnum_r1, \
-  cnum_mul(cnum_i1, x)), cnum_add(cnum_r1, cnum_mul(cnum_i1, x))))), cnum_r2)
+    cnum_mul(cnum_i1, x)), cnum_add(cnum_r1, cnum_mul(cnum_i1, x))))), cnum_r2)
 
 #define cnum_acsc(x) \
   cnum_asin(cnum_inv(x))
@@ -347,11 +347,11 @@ cnum_s cnum_pow(const cnum_s x, const cnum_t n)
 
 #define cnum_acosh(x) \
   cnum_log(cnum_add(x, cnum_mul(cnum_sqrt(cnum_add(x, cnum_r1)), \
-  cnum_sqrt(cnum_sub(x, cnum_r1)))))
+    cnum_sqrt(cnum_sub(x, cnum_r1)))))
 
 #define cnum_atanh(x) \
   cnum_div(cnum_sub(cnum_log(cnum_add(cnum_r1, x)), \
-  cnum_log(cnum_sub(cnum_r1, x))), cnum_r2)
+    cnum_log(cnum_sub(cnum_r1, x))), cnum_r2)
 
 #define cnum_acsch(x) \
   cnum_asinh(cnum_inv(x))
