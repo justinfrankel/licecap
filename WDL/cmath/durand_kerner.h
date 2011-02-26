@@ -54,7 +54,7 @@ void durand_kerner_c
   register cmath_uint32_t itr;
   cnum_s coeff_sc[DK_MAX_N];
   cnum_s x;
-  cnum_s hor; // needs an address or breaks g++ 4.x
+  cnum_s hor; /* needs an address or breaks g++ 4.x */
 
   i = 0;
   while(i < order)
