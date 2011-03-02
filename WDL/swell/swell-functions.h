@@ -1023,6 +1023,7 @@ SWELL_API_DEFINE(HWND, SWELL_MakeCheckBox,(const char *name, int idx, int x, int
 SWELL_API_DEFINE(HWND, SWELL_MakeListBox,(int idx, int x, int y, int w, int h, int styles))
 
 SWELL_API_DEFINE(void, SWELL_Menu_AddMenuItem,(HMENU hMenu, const char *name, int idx, int flags))
+SWELL_API_DEFINE(int, SWELL_GenerateMenuFromList,(HMENU hMenu, const void *list, int listsz)) // list is SWELL_MenuGen_Entry
 
 
 
