@@ -1025,6 +1025,7 @@ SWELL_API_DEFINE(HWND, SWELL_MakeListBox,(int idx, int x, int y, int w, int h, i
 SWELL_API_DEFINE(void, SWELL_Menu_AddMenuItem,(HMENU hMenu, const char *name, int idx, int flags))
 SWELL_API_DEFINE(int, SWELL_GenerateMenuFromList,(HMENU hMenu, const void *list, int listsz)) // list is SWELL_MenuGen_Entry
 
+SWELL_API_DEFINE(void, SWELL_GenerateDialogFromList, (const void *list, int listsz))
 
 
 SWELL_API_DEFINE(unsigned int, _controlfp,(unsigned int flag, unsigned int mask))

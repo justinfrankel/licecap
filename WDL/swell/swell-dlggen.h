@@ -44,24 +44,6 @@
 
   This file also provides functions to dynamically create controls in a view from a win32 resource script.
 
-  To create these controls, do something like the following:
-
-  -createControls
-  {
-    NSView *view=self;
-
-    SWELL_DLGGEN_DLGFOLLOWS(view,1.8);
-    BEGIN
-      LTEXT           "Bla bla bla",IDC_TEXT1,6,2,225,9
-    END
-
-    NSView *textview=(NSView *)GetDlgItem((HWND)self,IDC_TEXT1);
-  }
-
-
-  Not all controls are supported, and Cocoa can be picky about the ordering of controls, too.
-  You can also use SWELL_DLGGEN_DLGFOLLOWS_EX to set things like separate scaling, translation, and autopositioning of items (to avoid overlapping)
-  
 
 
 */
@@ -81,22 +63,34 @@
 #endif
 
 
-#define SWELL_DLGGEN_DLGFOLLOWS(par, scale) SWELL_DLGGEN_DLGFOLLOWS_EX(par,scale,scale,0,0,false)
-#define SWELL_DLGGEN_DLGFOLLOWS_EX(par, xscale, yscale, xtrans, ytrans, doauto) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,true);
-#define SWELL_DLGGEN_DLGFOLLOWS_EX2(par, xscale, yscale, xtrans, ytrans, doauto, dosizetofit) { SWELL_MakeSetCurParms(xscale,yscale,xtrans,ytrans,(HWND)par,doauto,dosizetofit);
-#define BEGIN (0
-#define END );  }
-#define PUSHBUTTON ); __SWELL_MakeButton(0,
-#define DEFPUSHBUTTON ); __SWELL_MakeButton(1,
-#define EDITTEXT ); __SWELL_MakeEditField(
-#define CTEXT ); __SWELL_MakeLabel(0,                                
-#define LTEXT ); __SWELL_MakeLabel(-1,
-#define RTEXT ); __SWELL_MakeLabel(1,
-#define CONTROL ); __SWELL_MakeControl(                               
-#define COMBOBOX ); __SWELL_MakeCombo(
-#define GROUPBOX ); __SWELL_MakeGroupBox(
-#define CHECKBOX ); SWELL_MakeCheckBox(
-#define LISTBOX ); __SWELL_MakeListBox(
+struct SWELL_DlgResourceEntry
+{
+  const char *str1;
+  int flag1;
+  const char *str2;
+  
+  int p1; // often used for ID
+
+  // todo: see at runtime if some of these can be short instead of int (p2-p6 probably can, but not completely sure) -- i.e. do we use any
+  // big values in flags. note: it can't be unsigned short, because we want negative values.
+  int p2, p3, p4, p5, p6; // meaning is dependent on class
+};
+
+
+#define BEGIN {NULL,
+#define END  },
+
+#define PUSHBUTTON     }, { "__SWELL_BUTTON", 0, 
+#define DEFPUSHBUTTON  }, { "__SWELL_BUTTON", 1, 
+#define EDITTEXT       }, { "__SWELL_EDIT", 0, "",
+#define CTEXT          }, { "__SWELL_LABEL", 0, 
+#define LTEXT          }, { "__SWELL_LABEL", -1, 
+#define RTEXT          }, { "__SWELL_LABEL", 1, 
+#define CONTROL        }, { 
+#define COMBOBOX       }, { "__SWELL_COMBO", 0, "", 
+#define GROUPBOX       }, { "__SWELL_GROUP", 0, 
+#define CHECKBOX       }, { "__SWELL_CHECKBOX", 0, 
+#define LISTBOX        }, { "__SWELL_LISTBOX", 0, "", 
 
 #define NOT 
                                     
@@ -200,6 +194,8 @@ typedef struct SWELL_CursorResourceIndex
   struct SWELL_CursorResourceIndex *_next;
 } SWELL_CursorResourceIndex;
 
+
+
 static inline HWND __SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0, int exstyle=0)
 {
   return SWELL_MakeButton(def,label,idx,x,y,w,h,flags);
@@ -255,10 +251,11 @@ static void SWELL_Register_Cursor_Resource(const char *idx, const char *name, in
                                               if (recid) { m_rec.resid=MAKEINTRESOURCE(recid); m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
                                               m_rec._next=SWELL_curmodule_dialogresource_head; SWELL_curmodule_dialogresource_head=&m_rec; } } \
                                            static void cf(HWND view, int wflags) { \
-                                             { SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE)); 
+                                             SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE));  \
+                                               static const SWELL_DlgResourceEntry list[]={
 
                                             
-#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) } }; static NewCustomResource_##recid NewCustomResourceInst_##recid;                                       
+#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) }; SWELL_GenerateDialogFromList(list+1,sizeof(list)/sizeof(list[0])-1); }  }; static NewCustomResource_##recid NewCustomResourceInst_##recid;                                       
 
                                        
                                 
