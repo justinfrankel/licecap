@@ -242,20 +242,34 @@ static void SWELL_Register_Cursor_Resource(const char *idx, const char *name, in
 }
 
 
+class SWELL_DialogRegHelper { 
+  public:
+     SWELL_DialogResourceIndex m_rec;
+     SWELL_DialogRegHelper(SWELL_DialogResourceIndex **h, void (*cf)(HWND,int), int recid, int flags, const char *titlestr, int wid, int hei, double scale)
+     {
+       if (recid) 
+       {
+         m_rec.resid=MAKEINTRESOURCE(recid); 
+         m_rec.title=titlestr; 
+         m_rec.windowTypeFlags=flags; 
+         m_rec.createFunc=cf; 
+         m_rec.width=(int)((wid)*(scale)); 
+         m_rec.height=(int)((hei)*(scale)); 
+         m_rec._next=*h;
+         *h = &m_rec;
+       } 
+     }
+};
 
 #define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(recid, flags, titlestr, wid, hei, scale) \
-                                       class NewCustomResource_##recid { \
-                                          public: \
-                                            SWELL_DialogResourceIndex m_rec; \
-                                            NewCustomResource_##recid () { \
-                                              if (recid) { m_rec.resid=MAKEINTRESOURCE(recid); m_rec.title=titlestr; m_rec.windowTypeFlags=flags; m_rec.createFunc=cf; m_rec.width=(int)((wid)*(scale)); m_rec.height=(int)((hei)*(scale)); \
-                                              m_rec._next=SWELL_curmodule_dialogresource_head; SWELL_curmodule_dialogresource_head=&m_rec; } } \
-                                           static void cf(HWND view, int wflags) { \
-                                             SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE));  \
-                                               static const SWELL_DlgResourceEntry list[]={
+                                       static void SWELL__dlg_cf__##recid(HWND view, int wflags); \
+                                          static SWELL_DialogRegHelper __swell_dlg_helper_##recid(&SWELL_curmodule_dialogresource_head, SWELL__dlg_cf__##recid, recid,flags,titlestr,wid,hei,scale); \
+                                           void SWELL__dlg_cf__##recid(HWND view, int wflags) { \
+                                              SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE));  \
+                                              static const SWELL_DlgResourceEntry list[]={
 
                                             
-#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) }; SWELL_GenerateDialogFromList(list+1,sizeof(list)/sizeof(list[0])-1); }  }; static NewCustomResource_##recid NewCustomResourceInst_##recid;                                       
+#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) }; SWELL_GenerateDialogFromList(list+1,sizeof(list)/sizeof(list[0])-1); }
 
                                        
                                 

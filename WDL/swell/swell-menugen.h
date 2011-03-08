@@ -61,14 +61,25 @@ struct SWELL_MenuGen_Entry
   unsigned short flags;
 };
 
+class SWELL_MenuGenHelper
+{
+  public:
+    SWELL_MenuResourceIndex m_rec;
+    SWELL_MenuGenHelper(SWELL_MenuResourceIndex **h, void (*cf)(HMENU), int recid)
+    {
+      m_rec.resid=MAKEINTRESOURCE(recid); 
+      m_rec.createFunc=cf; 
+      m_rec._next=*h;
+      *h = &m_rec;
+    }
+};
+
 #define SWELL_DEFINE_MENU_RESOURCE_BEGIN(recid) \
-class NewCustomMenuResource_##recid { \
-public: \
-  SWELL_MenuResourceIndex m_rec; \
-  NewCustomMenuResource_##recid() {  m_rec.resid=MAKEINTRESOURCE(recid); m_rec.createFunc=cf; m_rec._next=SWELL_curmodule_menuresource_head; SWELL_curmodule_menuresource_head=&m_rec; } \
-  static void cf(HMENU hMenu) { static const SWELL_MenuGen_Entry list[]={{NULL,0,0
+  static void __swell_menu_cf__##recid(HMENU hMenu); \
+  static SWELL_MenuGenHelper __swell_menu_cf_helper__##recid(&SWELL_curmodule_menuresource_head, __swell_menu_cf__##recid, recid);  \
+  static void __swell_menu_cf__##recid(HMENU hMenu) { static const SWELL_MenuGen_Entry list[]={{NULL,0,0
         
-#define SWELL_DEFINE_MENU_RESOURCE_END(recid) } }; SWELL_GenerateMenuFromList(hMenu,list+1,sizeof(list)/sizeof(list[0])-1);  } }; static NewCustomMenuResource_##recid NewCustomMenuResourceInst_##recid;     
+#define SWELL_DEFINE_MENU_RESOURCE_END(recid) } }; SWELL_GenerateMenuFromList(hMenu,list+1,sizeof(list)/sizeof(list[0])-1);  } 
 
 
 #define GRAYED 1
