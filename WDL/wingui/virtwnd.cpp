@@ -1237,15 +1237,15 @@ static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
     return; // dont draw if fully outside
   }
 
-  float srcx = (float) _srcx;
-  float srcy = (float) _srcy;
-  float srcw = (float) _srcw;
-  float srch = (float) _srch;
+  double srcx = (double) _srcx;
+  double srcy = (double) _srcy;
+  double srcw = (double) _srcw;
+  double srch = (double) _srch;
 
   if (dstx < clipx || dsty < clipy || dstx+dstw > clipright || dsty+dsth > clipbottom) 
   {
-    float xsc=srcw/dstw;
-    float ysc=srch/dsth;
+    double xsc=srcw/dstw;
+    double ysc=srch/dsth;
 
     if (dstx<clipx)
     {
@@ -1279,7 +1279,12 @@ static void __VirtClipBlit(int clipx, int clipy, int clipright, int clipbottom,
   }
 
   if (dstw>0&&dsth>0)
-    LICE_ScaledBlit(dest,src,dstx,dsty,dstw,dsth,srcx,srcy,srcw,srch,alpha,mode);
+  {
+    const double eps=0.0005;
+    if (srcw > 0.0 && srcw < eps) srcw=eps;
+    if (srch > 0.0 && srch < eps) srch=eps;
+    LICE_ScaledBlit(dest,src,dstx,dsty,dstw,dsth,(float)srcx,(float)srcy,(float)srcw,(float)srch,alpha,mode);
+  }
 }
 
 void WDL_VirtualWnd_ScaledBlitSubBG(LICE_IBitmap *dest,
