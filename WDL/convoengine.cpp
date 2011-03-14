@@ -25,6 +25,7 @@
 #include <windows.h>
 #endif
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 #include "convoengine.h"
@@ -733,7 +734,7 @@ int WDL_ConvolutionEngine_Div::SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft
   m_engines.Empty(true);
   if (maxfft_size<0)maxfft_size=-maxfft_size;
   maxfft_size*=2;
-  if (!maxfft_size || maxfft_size>65536) maxfft_size=65536;
+  if (!maxfft_size || maxfft_size>32768) maxfft_size=32768;
 
   int fftsize = MAX_SIZE_FOR_BRUTE;
   int impulsechunksize = MAX_SIZE_FOR_BRUTE;

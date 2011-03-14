@@ -136,7 +136,7 @@ public:
   WDL_ConvolutionEngine_Div();
   ~WDL_ConvolutionEngine_Div();
 
-  int SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size=-1, int known_blocksize=0, int max_imp_size=0, int impulse_offset=0, int latency_allowed=0);
+  int SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size=0, int known_blocksize=0, int max_imp_size=0, int impulse_offset=0, int latency_allowed=0);
 
   int GetLatency();
   void Reset();
