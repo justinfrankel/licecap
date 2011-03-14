@@ -131,11 +131,14 @@ HMENU SWELL_GetCurrentMenu()
 {
   return (HMENU)[NSApp mainMenu];
 }
+
+extern int g_swell_terminating;
+
 void SWELL_SetCurrentMenu(HMENU hmenu)
 {
   if (hmenu && [(id)hmenu isKindOfClass:[NSMenu class]])
   {
-    [NSApp setMainMenu:(NSMenu *)hmenu];
+    if (!g_swell_terminating) [NSApp setMainMenu:(NSMenu *)hmenu];
   }
 }
 
@@ -842,7 +845,8 @@ HMENU SWELL_DuplicateMenu(HMENU menu)
 BOOL  SetMenu(HWND hwnd, HMENU menu)
 {
   if (!hwnd||![(id)hwnd respondsToSelector:@selector(swellSetMenu:)]) return FALSE;
-  
+  if (g_swell_terminating)  return FALSE;
+
   SWELL_SetMenuDestination(menu,hwnd);
 
   [(id)hwnd swellSetMenu:(HMENU)menu];

@@ -23,6 +23,7 @@ bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
 
+extern int g_swell_terminating;
 
 static BOOL useNoMiddleManCocoa()
 {
@@ -416,7 +417,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     
     if (m_menu) 
     {
-      if ((HMENU)[NSApp mainMenu] == m_menu) [NSApp setMainMenu:nil];
+      if ((HMENU)[NSApp mainMenu] == m_menu && !g_swell_terminating) [NSApp setMainMenu:nil];
       [(NSMenu *)m_menu release]; 
       m_menu=0;
     }
@@ -1522,7 +1523,7 @@ static HWND last_key_window;
   if (!cv || ![cv respondsToSelector:@selector(swellHasBeenDestroyed)] || ![cv swellHasBeenDestroyed])  { \
     if ([cv respondsToSelector:@selector(swellGetMenu)]) menu = (HMENU) [cv swellGetMenu]; \
     if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
-    if (menu && menu != (HMENU)[NSApp mainMenu]) [NSApp setMainMenu:(NSMenu *)menu]; \
+    if (menu && menu != (HMENU)[NSApp mainMenu] && !g_swell_terminating) [NSApp setMainMenu:(NSMenu *)menu]; \
     [(SWELL_hwndChild*)cv onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc]; \
   } \
 } \
@@ -1990,7 +1991,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
   switch (evtkind)
   {
     case kEventWindowActivated:
-      [NSApp setMainMenu:nil];
+      if (!g_swell_terminating) [NSApp setMainMenu:nil];
     break;
     
     case kEventWindowGetClickActivation: 

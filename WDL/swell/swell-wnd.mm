@@ -5286,8 +5286,11 @@ void SWELL_SetWindowRepre(HWND hwnd, const char *fn, bool isDirty)
   }
 }
 
+int g_swell_terminating;
 void SWELL_PostQuitMessage(void *sender)
 {
+  g_swell_terminating=true;
+
   [NSApp terminate:(id)sender];
 }
 
