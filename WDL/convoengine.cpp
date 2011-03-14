@@ -726,7 +726,7 @@ WDL_ConvolutionEngine_Div::WDL_ConvolutionEngine_Div()
   m_need_feedsilence=true;
 }
 
-int WDL_ConvolutionEngine_Div::SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size, int known_blocksize)
+int WDL_ConvolutionEngine_Div::SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft_size, int known_blocksize, int max_imp_size)
 {
   m_need_feedsilence=true;
 
@@ -745,6 +745,8 @@ int WDL_ConvolutionEngine_Div::SetImpulse(WDL_ImpulseBuffer *impulse, int maxfft
 
   int offs=0;
   int samplesleft=impulse->impulses[0].GetSize();
+  if (max_imp_size>0 && samplesleft>max_imp_size) samplesleft=max_imp_size;
+
   do
   {
     WDL_ConvolutionEngine *eng=new WDL_ConvolutionEngine;
