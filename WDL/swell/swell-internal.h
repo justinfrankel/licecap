@@ -264,6 +264,7 @@ struct HTREEITEM__
 -(LONG)swellGetExtendedStyle;
 -(void)swellSetExtendedStyle:(LONG)st;
 -(HMENU)swellGetMenu;
+-(BOOL)swellHasBeenDestroyed;
 -(void)swellSetMenu:(HMENU)menu;
 -(LONG_PTR)getSwellUserData;
 -(void)setSwellUserData:(LONG_PTR)val;

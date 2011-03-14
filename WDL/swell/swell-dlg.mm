@@ -737,6 +737,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 - (BOOL)acceptsFirstMouse:(NSEvent *)theEvent {	return m_enabled?YES:NO; }
 -(HMENU)swellGetMenu {   return m_menu; }
+-(BOOL)swellHasBeenDestroyed { return !!m_hashaddestroy; }
 -(void)swellSetMenu:(HMENU)menu {   m_menu=menu; }
 
 
@@ -1514,13 +1515,16 @@ static HWND last_key_window;
 -(void)becomeKeyWindow \
 { \
   [super becomeKeyWindow]; \
-  HWND foc=last_key_window ? (HWND)[(NSWindow *)last_key_window contentView] : 0; \
-    HMENU menu=0; \
-      if ([[self contentView] respondsToSelector:@selector(swellGetMenu)]) \
-        menu = (HMENU) [[self contentView] swellGetMenu]; \
-          if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
-            if (menu && menu != (HMENU)[NSApp mainMenu])  [NSApp setMainMenu:(NSMenu *)menu]; \
-  [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc]; \
+  NSView *foc=last_key_window && IsWindow(last_key_window) ? [(NSWindow *)last_key_window contentView] : 0; \
+  HMENU menu=0; \
+  if (foc && [foc respondsToSelector:@selector(swellHasBeenDestroyed)] && [foc swellHasBeenDestroyed]) foc=NULL; \
+  NSView *cv = [self contentView];  \
+  if (!cv || ![cv respondsToSelector:@selector(swellHasBeenDestroyed)] || ![cv swellHasBeenDestroyed])  { \
+    if ([cv respondsToSelector:@selector(swellGetMenu)]) menu = (HMENU) [cv swellGetMenu]; \
+    if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
+    if (menu && menu != (HMENU)[NSApp mainMenu]) [NSApp setMainMenu:(NSMenu *)menu]; \
+    [(SWELL_hwndChild*)cv onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc]; \
+  } \
 } \
 -(BOOL)windowShouldClose:(id)sender \
 { \
