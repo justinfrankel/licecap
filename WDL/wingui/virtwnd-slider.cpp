@@ -436,7 +436,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
 }
 
-static int m_move_offset;
+static double m_move_offset;
 static int m_click_pos,m_last_y,m_last_x, m_last_precmode;
 
 
@@ -485,7 +485,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   bool needsendcmd = m_sendmsgonclick;
   if (isVert)
   {
-    m_move_offset=ypos-( viewh - bm_h - (((m_pos-m_minr) * (viewh-bm_h))/rsize));
+    m_move_offset=ypos-( viewh - bm_h - ((double)((m_pos-m_minr) * (viewh-bm_h))/(double)rsize));
     m_click_pos=m_pos;
     if (m_move_offset < 0 || m_move_offset >= bm_h)
     {
@@ -518,7 +518,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   }
   else
   {
-    m_move_offset=xpos-( (((m_pos-m_minr) * (vieww-bm_w))/rsize));
+    m_move_offset=xpos-( ((double)((m_pos-m_minr) * (vieww-bm_w))/(double)rsize));
     m_click_pos=m_pos;
     if (m_move_offset < 0 || m_move_offset >= bm_w)
     {
@@ -603,7 +603,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     }
     else 
     {
-      pos=m_minr+ (((viewh-bm_h - ypos + m_move_offset)*rsize)/(viewh-bm_h));
+      pos=m_minr+ (((double)(viewh-bm_h - ypos + m_move_offset)*(double)rsize)/(double)(viewh-bm_h));
     }
     if (pos < m_minr)pos=m_minr;
     else if (pos > m_maxr)pos=m_maxr;
@@ -639,7 +639,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     }
     else 
     {
-      pos=m_minr + (((xpos - m_move_offset)*rsize)/(vieww-bm_w));
+      pos=m_minr + (((double)(xpos - m_move_offset)*(double)rsize)/(double)(vieww-bm_w));
     }
     if (pos < m_minr)pos=m_minr;
     else if (pos > m_maxr)pos=m_maxr;
