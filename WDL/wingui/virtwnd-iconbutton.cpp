@@ -267,8 +267,10 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     }
 
     LICE_IFont *font = m_textfont;
+    bool isVert=false;
     if (font && m_textfontv && m_position.right-m_position.left < m_position.bottom - m_position.top)
     {
+      isVert=true;
       font = m_textfontv;
     }
     // draw text
@@ -291,7 +293,16 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         else r2.left+=2;
         r2.top+=2;
       }
-      font->DrawText(drawbm,m_textlbl.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      int f = DT_SINGLELINE|DT_NOPREFIX;
+      if (isVert)
+      {
+        f |= DT_CENTER | (m_textalign<0?DT_TOP:m_textalign>0?DT_BOTTOM:DT_VCENTER);
+      }
+      else
+      {
+        f |= DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER);
+      }
+      font->DrawText(drawbm,m_textlbl.Get(),-1,&r2,f);
     }
     
   }
@@ -741,15 +752,34 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       if (m_didalign==0)
       {
         RECT r2={0,0,0,0};
-        font->DrawText(drawbm,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_VCENTER|DT_LEFT|DT_NOPREFIX|DT_CALCRECT);
-        if (r2.right > r.right-r.left) m_didalign=-1;
+        font->DrawText(drawbm,m_text.Get(),-1,&r2,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+        if (m_didvert)
+        {
+         if (r2.bottom > r.bottom-r.top) m_didalign=-1;
+        }
+        else
+        {
+          if (r2.right > r.right-r.left) m_didalign=-1;
+        }
       }
 
-      int dtflags=DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX;
-      if (m_didalign < 0) dtflags |= DT_LEFT;
-      else if (m_didalign > 0) dtflags |= DT_RIGHT;
-      else dtflags |= DT_CENTER;
+      int dtflags=DT_SINGLELINE|DT_NOPREFIX;
 
+      if (m_didvert)
+      {
+        dtflags |= DT_CENTER;
+        if (m_didalign < 0) dtflags |= DT_TOP;
+        else if (m_didalign > 0) dtflags |= DT_BOTTOM;
+        else dtflags |= DT_VCENTER;
+      }
+      else
+      {
+        dtflags|=DT_VCENTER;
+
+        if (m_didalign < 0) dtflags |= DT_LEFT;
+        else if (m_didalign > 0) dtflags |= DT_RIGHT;
+        else dtflags |= DT_CENTER;
+      }
       const char* txt=m_text.Get();
 
       int abbrx=0;
@@ -762,8 +792,8 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         if (len && isdigit(txt[len-1]))
         {
           RECT tr = { 0, 0, 0, 0 };
-          font->DrawText(drawbm, txt, -1, &tr, dtflags|DT_CALCRECT);
-          if (tr.right > r.right-r.left)
+          font->DrawText(drawbm, txt, -1, &tr, DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+          if (m_didvert ? (tr.bottom > r.bottom-r.top) : (tr.right > r.right-r.left))
           {
             strcpy(abbrbuf, "..");
             int i;
@@ -773,10 +803,18 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
             }
             strcat(abbrbuf, txt+i+1);
 
-            int f=dtflags&~(DT_LEFT|DT_CENTER);
+            int f=dtflags&~(DT_TOP|DT_VCENTER|DT_BOTTOM|DT_LEFT|DT_CENTER|DT_RIGHT);
             RECT tr2 = { 0, 0, 0, 0 };
-            font->DrawText(drawbm, abbrbuf, -1, &tr2, f|DT_RIGHT|DT_CALCRECT);
-            abbrx=tr2.right;
+            if (m_didvert)
+            {
+              font->DrawText(drawbm, abbrbuf, -1, &tr2, f|DT_CALCRECT);
+              abbrx=tr2.bottom;
+            }
+            else
+            {
+              font->DrawText(drawbm, abbrbuf, -1, &tr2, f|DT_CALCRECT);
+              abbrx=tr2.right;
+            }
           }
         }
       }
@@ -787,11 +825,22 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
       if (abbrx && abbrbuf[0])
       {
-        int f=dtflags&~(DT_LEFT|DT_CENTER|DT_RIGHT);
-        RECT r1 = { r.left, r.top, r.right-abbrx, r.bottom };
-        font->DrawText(drawbm, txt, -1, &r1, f|DT_LEFT);
-        RECT r2 = { r.right-abbrx, r.top, r.right, r.bottom };
-        font->DrawText(drawbm, abbrbuf, -1, &r2, f|DT_RIGHT);
+        if (m_didvert)
+        {
+          int f=dtflags&~(DT_TOP|DT_VCENTER|DT_BOTTOM);
+          RECT r1 = { r.left, r.top, r.right, r.bottom-abbrx };
+          font->DrawText(drawbm, txt, -1, &r1, f|DT_TOP);
+          RECT r2 = { r.left, r.bottom-abbrx, r.right, r.bottom };
+          font->DrawText(drawbm, abbrbuf, -1, &r2, f|DT_BOTTOM);
+        }
+        else
+        {
+          int f=dtflags&~(DT_LEFT|DT_CENTER|DT_RIGHT);
+          RECT r1 = { r.left, r.top, r.right-abbrx, r.bottom };
+          font->DrawText(drawbm, txt, -1, &r1, f|DT_LEFT);
+          RECT r2 = { r.right-abbrx, r.top, r.right, r.bottom };
+          font->DrawText(drawbm, abbrbuf, -1, &r2, f|DT_RIGHT);
+        }
       }
       else
       {
@@ -819,7 +868,7 @@ int WDL_VirtualStaticText::GetCharFromCoord(int xpos, int ypos)
   // for align left/right, we could DT_CALCRECT with 1 char, then 2, etc, but that won't work for align center
   // so we'll just estimate
   RECT tr = { 0, 0, m_position.right-m_position.left, m_position.bottom-m_position.top };
-  font->DrawText(0, str, len, &tr, DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX|DT_CALCRECT);
+  font->DrawText(0, str, len, &tr, DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
   int tw = tr.right;
   int th = tr.bottom;
 
