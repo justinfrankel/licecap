@@ -594,6 +594,12 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
 }
 
 
+bool IsWindow(HWND hwnd)
+{
+  // todo: verify window is valid (somehow)
+  return !!hwnd;
+}
+
 bool IsWindowVisible(HWND hwnd)
 {
   if (!hwnd) return false;

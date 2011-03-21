@@ -838,8 +838,9 @@ SWELL_API_DEFINE(BOOL,ResetEvent,(HANDLE evt))
 SWELL_API_DEFINE(void,SWELL_EnsureMultithreadedCocoa,())
 SWELL_API_DEFINE(void *, SWELL_InitAutoRelease,())
 SWELL_API_DEFINE(void, SWELL_QuitAutoRelease,(void *p))
-SWELL_API_DEFINE(HANDLE,SWELL_CreateProcess,(const char *exe, int nparams, const char **params))
 #endif
+
+SWELL_API_DEFINE(HANDLE,SWELL_CreateProcess,(const char *exe, int nparams, const char **params))
 
 
 SWELL_API_DEFINE(HINSTANCE,LoadLibraryGlobals,(const char *fileName, bool symbolsAsGlobals))
