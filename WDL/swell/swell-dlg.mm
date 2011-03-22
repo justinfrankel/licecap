@@ -736,7 +736,18 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   return TRUE;
 }
 
-- (BOOL)acceptsFirstMouse:(NSEvent *)theEvent {	return m_enabled?YES:NO; }
+- (BOOL)acceptsFirstMouse:(NSEvent *)theEvent
+{
+  if (m_enabled)
+  {
+    SendMessage((HWND)self, WM_MOUSEACTIVATE, 0, 0);
+    NSView* par=[self superview];
+    if (par) SendMessage((HWND)par, WM_MOUSEACTIVATE, 0, 0);
+    return YES;
+  }
+  return NO;
+}
+
 -(HMENU)swellGetMenu {   return m_menu; }
 -(BOOL)swellHasBeenDestroyed { return !!m_hashaddestroy; }
 -(void)swellSetMenu:(HMENU)menu {   m_menu=menu; }
@@ -1525,6 +1536,7 @@ static HWND last_key_window;
     if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
     if (menu && menu != (HMENU)[NSApp mainMenu] && !g_swell_terminating) [NSApp setMainMenu:(NSMenu *)menu]; \
     [(SWELL_hwndChild*)cv onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc]; \
+    [(SWELL_hwndChild*)cv onSwellMessage:WM_MOUSEACTIVATE p1:0 p2:0]; \
   } \
 } \
 -(BOOL)windowShouldClose:(id)sender \
