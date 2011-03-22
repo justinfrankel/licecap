@@ -82,11 +82,11 @@ public:
     {    
       const char* p=str;
       while (p-str < maxlen && *p) ++p;
-      s=p-str;
+      s=(int) (p-str);
     }
     else
     {
-      s=strlen(str);
+      s=(int)strlen(str);
     }
      
     if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
@@ -110,11 +110,11 @@ public:
     =0)
 #endif
   {
-    int s=strlen(str);
+    int s=(int)strlen(str);
     if (maxlen && s > maxlen) s=maxlen;
     if (!s) return; // do nothing if setting to empty and not allocated
 
-    int olds=strlen(Get());
+    int olds=(int)strlen(Get());
 
     char *newbuf=(char*)m_hb.Resize(olds + s + 1,false);
     if (newbuf)
@@ -133,7 +133,7 @@ public:
 	  char *p=Get();
 	  if (!p || !*p) return;
 
-	  int l=strlen(p);
+	  int l=(int)strlen(p);
 	  if (position < 0 || position >= l) return;
 	  if (position+len > l) len=l-position;
 	  memmove(p+position,p+position+len,l-position-len+1); // +1 for null
@@ -150,10 +150,10 @@ public:
     =0)
 #endif
   {
-	  int sl=strlen(Get());
+	  int sl=(int)strlen(Get());
 	  if (position > sl) position=sl;
 
-	  int ilen=strlen(str);
+	  int ilen=(int)strlen(str);
 	  if (maxlen > 0 && maxlen < ilen) ilen=maxlen;
 
 	  Append(str);
@@ -204,7 +204,7 @@ public:
     ; 
 #else
   {
-    int offs=strlen(Get());
+    int offs=(int)strlen(Get());
     char* b= (char*) m_hb.Resize(offs+maxlen+1,false)+offs;
   	va_list arglist;
 		va_start(arglist, fmt);
