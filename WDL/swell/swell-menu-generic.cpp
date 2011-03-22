@@ -573,4 +573,26 @@ void DrawMenuBar(HWND hwnd)
 }
 
 
+// copied from swell-menu.mm, can have a common impl someday
+int SWELL_GenerateMenuFromList(HMENU hMenu, const void *_list, int listsz)
+{
+  SWELL_MenuGen_Entry *list = (SWELL_MenuGen_Entry *)_list;
+  const int l1=strlen(SWELL_MENUGEN_POPUP_PREFIX);
+  while (listsz>0)
+  {
+    int cnt=1;
+    if (!list->name) SWELL_Menu_AddMenuItem(hMenu,NULL,-1,0);
+    else if (!strcmp(list->name,SWELL_MENUGEN_ENDPOPUP)) return list + 1 - (SWELL_MenuGen_Entry *)_list;
+    else if (!strncmp(list->name,SWELL_MENUGEN_POPUP_PREFIX,l1)) 
+    { 
+      MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,0,0,CreatePopupMenuEx(list->name+l1),NULL,NULL,0,(char *)list->name+l1};
+      cnt += SWELL_GenerateMenuFromList(mi.hSubMenu,list+1,listsz-1);
+      InsertMenuItem(hMenu,GetMenuItemCount(hMenu),TRUE,&mi);
+    }
+    else SWELL_Menu_AddMenuItem(hMenu,list->name,list->idx,list->flags);
+
+    list+=cnt;
+    listsz -= cnt;
+  }
+}
 #endif

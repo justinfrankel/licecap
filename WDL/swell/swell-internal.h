@@ -556,6 +556,7 @@ struct HGDIOBJ__
   int color;
   int wid;
   struct HGDIOBJ__ *_next;
+  bool _infreelist;
 };
 
 
@@ -581,6 +582,7 @@ struct HDC__ {
   float lastpos_x,lastpos_y;
   
   struct HDC__ *_next;
+  bool _infreelist;
 };
 
 #endif // !OSX

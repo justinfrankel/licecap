@@ -62,7 +62,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 void SWELL_DeleteGfxContext(HDC ctx)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (ct)
+  if (HDC_VALID(ct))
   {   
     if (ct->ownedData)
     {
@@ -126,7 +126,7 @@ HFONT CreateFontIndirect(LOGFONT *lf)
 
 void DeleteObject(HGDIOBJ pen)
 {
-  if (pen)
+  if (HGDIOBJ_VALID(pen))
   {
     HGDIOBJ__ *p=(HGDIOBJ__ *)pen;
     if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
@@ -146,7 +146,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   HDC__ *c=(HDC__ *)ctx;
   HGDIOBJ__ *p=(HGDIOBJ__ *) pen;
   HGDIOBJ__ **mod=0;
-  if (!c||!p) return 0;
+  if (!HDC_VALID(c)||!p) return 0;
   
   if (p == (HGDIOBJ__ *)TYPE_PEN) mod=&c->curpen;
   else if (p == (HGDIOBJ__ *)TYPE_BRUSH) mod=&c->curbrush;
@@ -159,6 +159,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
     return np?np:p;
   }
 
+  if (!HGDIOBJ_VALID(p)) return 0;
   
   if (p->type == TYPE_PEN) mod=&c->curpen;
   else if (p->type == TYPE_BRUSH) mod=&c->curbrush;
@@ -185,7 +186,7 @@ void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
 {
   HDC__ *c=(HDC__ *)ctx;
   HGDIOBJ__ *b=(HGDIOBJ__ *) br;
-  if (!c || !b || b == (HGDIOBJ__ *)TYPE_BRUSH || b->type != TYPE_BRUSH) return;
+  if (!HDC_VALID(c) || !HGDIOBJ_VALID(b,TYPE_BRUSH)) return;
 
   if (b->wid<0) return;
   
@@ -215,14 +216,14 @@ void RoundRect(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd)
 void Ellipse(HDC ctx, int l, int t, int r, int b)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c) return;
+  if (!HDC_VALID(c)) return;
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
   
-  if (c->curbrush && c->curbrush->wid >=0)
+  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >=0)
   {
   }
-  if (c->curpen && c->curpen->wid >= 0)
+  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
   {
   }
 }
@@ -230,14 +231,14 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
 void Rectangle(HDC ctx, int l, int t, int r, int b)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c) return;
+  if (!HDC_VALID(c)) return;
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
   
-  if (c->curbrush && c->curbrush->wid >= 0)
+  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
   }
-  if (c->curpen && c->curpen->wid >= 0)
+  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
   {
   }
 }
@@ -267,8 +268,9 @@ HGDIOBJ GetStockObject(int wh)
 void Polygon(HDC ctx, POINT *pts, int npts)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c) return;
-  if (((!c->curbrush||c->curbrush->wid<0) && (!c->curpen||c->curpen->wid<0)) || npts<2) return;
+  if (!HDC_VALID(c)) return;
+  if (((!HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH)||c->curbrush->wid<0) && 
+       (!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0)) || npts<2) return;
 
 //  CGContextBeginPath(c->ctx);
  // CGContextMoveToPoint(c->ctx,(float)pts[0].x,(float)pts[0].y);
@@ -277,11 +279,11 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   {
   //  CGContextAddLineToPoint(c->ctx,(float)pts[x].x,(float)pts[x].y);
   }
-  if (c->curbrush && c->curbrush->wid >= 0)
+  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
    // CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
   }
-  if (c->curpen && c->curpen->wid>=0)
+  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0)
   {
 //    CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
  //   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
@@ -292,7 +294,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c) return;
+  if (!HDC_VALID(c)) return;
   if (op) 
   { 
     op->x = (int) (c->lastpos_x);
@@ -305,7 +307,7 @@ void MoveToEx(HDC ctx, int x, int y, POINT *op)
 void PolyBezierTo(HDC ctx, POINT *pts, int np)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c||!c->curpen||c->curpen->wid<0||np<3) return;
+  if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||np<3) return;
   
 //  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
 //  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
@@ -332,7 +334,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
 void SWELL_LineTo(HDC ctx, int x, int y)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c||!c->curpen||c->curpen->wid<0) return;
+  if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0) return;
 
 //  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
 //  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
@@ -350,7 +352,7 @@ void SWELL_LineTo(HDC ctx, int x, int y)
 void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!c||!c->curpen||c->curpen->wid<0||nseg<1) return;
+  if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||nseg<1) return;
 
 //  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
 //  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
@@ -377,7 +379,7 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
 void *SWELL_GetCtxGC(HDC ctx)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!ct) return 0;
+  if (!HDC_VALID(ct)) return 0;
   return NULL;
 }
 
@@ -385,7 +387,7 @@ void *SWELL_GetCtxGC(HDC ctx)
 void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!ct) return;
+  if (!HDC_VALID(ct)) return;
  /* CGContextBeginPath(ct->ctx);
   CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
   CGContextAddLineToPoint(ct->ctx,(float)x+0.5,(float)y+0.5);
@@ -407,7 +409,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmHeight=16;
     tm->tmAveCharWidth = 10;
   }
-  if (!ct||!tm) return 0;
+  if (!HDC_VALID(ct)||!tm) return 0;
   
   return 1;
 }
@@ -416,7 +418,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!ct) return 0;
+  if (!HDC_VALID(ct)) return 0;
   if (r && (align&DT_CALCRECT)) 
   {
     r->top=r->left=0;
@@ -430,21 +432,27 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 void SetBkColor(HDC ctx, int col)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!ct) return;
+  if (!HDC_VALID(ct)) return;
   ct->curbkcol=col;
 }
 
 void SetBkMode(HDC ctx, int col)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!ct) return;
+  if (!HDC_VALID(ct)) return;
   ct->curbkmode=col;
+}
+int GetTextColor(HDC ctx)
+{
+  HDC__ *ct=(HDC__ *)ctx;
+  if (!HDC_VALID(ct)) return -1;
+  return ct->cur_text_color_int;
 }
 
 void SetTextColor(HDC ctx, int col)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!ct) return;
+  if (!HDC_VALID(ct)) return;
   ct->cur_text_color_int = col;
   
 }
@@ -466,7 +474,7 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
   if (bmsz != sizeof(BITMAP)) return false;
   BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
-  if (!i || i->type != TYPE_BITMAP) return false;
+  if (!HGDIOBJ_VALID(i,TYPE_BITMAP)) return false;
 
   return false;
 /*
@@ -538,7 +546,7 @@ void SWELL_PopClipRegion(HDC ctx)
 void *SWELL_GetCtxFrameBuffer(HDC ctx)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (ct) return ct->ownedData;
+  if (HDC_VALID(ct)) return ct->ownedData;
   return 0;
 }
 
