@@ -8,9 +8,7 @@
 
 #ifdef _WIN32
   #define PREF_DIRCH '\\'
-  #if _MSC_VER < 1600 // vcx has a mixed bag of defines so just omit this for now
-    #define WDL_FILEBROWSE_WIN7VISTAMODE
-  #endif
+  #define WDL_FILEBROWSE_WIN7VISTAMODE
 #else
   #define PREF_DIRCH '/'
 #endif

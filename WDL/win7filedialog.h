@@ -15,7 +15,9 @@
 #define __RPC__deref_out_opt_string
 #define __RPC__in_ecount_full(x)
 #define __RPC__out_ecount_part(x,y)
+#ifndef __in
 #define __in
+#endif
 
 typedef ULONG SFGAOF;
 
@@ -88,8 +90,12 @@ typedef void *REFPROPERTYKEY;
 class IPropertyStore;
 class IPropertyDescriptionList;
 class IFileOperationProgressSink;
-
-#endif //msvc6
+//msvc6
+#else
+#if defined(_MSC_VER) && _MSC_VER >= 1600
+#include <shobjidl.h>
+#endif
+#endif 
 
 #ifndef __IFileDialog_FWD_DEFINED__
 #define __IFileDialog_FWD_DEFINED__
