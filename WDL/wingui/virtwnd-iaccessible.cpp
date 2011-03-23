@@ -3,7 +3,12 @@
 #include <windows.h>
 
 #include <oleacc.h>
+#if !defined(_MSC_VER) || _MSC_VER < 1600
 #include <winable.h>
+#else
+#include <WinUser.h>
+#endif
+
 
 #include "virtwnd-controls.h"
 #include "../wdltypes.h"
