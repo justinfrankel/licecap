@@ -792,6 +792,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define SWP_NOZORDER 4
 #define SWP_NOACTIVATE 8
 #define SWP_SHOWWINDOW 16
+#define SWP_FRAMECHANGED 32
 #define SWP_NOCOPYBITS 0
 #define HWND_TOP        ((HWND)0)
 #define HWND_BOTTOM     ((HWND)1)
