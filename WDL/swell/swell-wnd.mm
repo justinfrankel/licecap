@@ -811,7 +811,30 @@ HWND GetDlgItem(HWND hwnd, int idx)
   
   if (!idx || !v) return (HWND)v;
   
-  return (HWND) [v viewWithTag:idx];
+  NSArray *ar = [v subviews];
+  int n=[ar count];
+  int x;
+  for (x=0;x<n;x++)
+  {
+    NSView *sv = [ar objectAtIndex:x];
+    if (sv)
+    {
+      if ([sv respondsToSelector:@selector(tag)] && [sv tag] == idx) return (HWND)sv;
+
+      if (sv && [sv isKindOfClass:[NSScrollView class]])
+      {
+        sv=[(NSScrollView *)sv documentView];
+        if (sv && [sv respondsToSelector:@selector(tag)] && [sv tag] == idx) return (HWND)sv;
+      }
+      if (sv && [sv isKindOfClass:[NSClipView class]]) 
+      {
+        sv = [(NSClipView *)sv documentView];
+        if (sv && [sv respondsToSelector:@selector(tag)] && [sv tag] == idx) return (HWND)sv;
+      }
+    }
+  }
+  // we might want to enable this for max compat with old code, but hopefully not:  return [v viewWithTag:idx]; 
+  return NULL;
 }
 
 
