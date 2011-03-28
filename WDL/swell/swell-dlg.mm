@@ -844,8 +844,19 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     }
     
     // do not mess with focus if initdialog returns 0 -- just like windows heh
-    if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par) && hFoc)
-      SetFocus(hFoc);
+    if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par))
+    {
+      if (hFoc) SetFocus(hFoc);
+    }
+    else
+    {
+      if (hFoc && parent && [(id)parent isKindOfClass:[SWELL_ModalDialog class]])
+      {
+        id fr = [(id)parent firstResponder];
+	if (!fr || fr == self || fr == (id)parent) [(id)parent makeFirstResponder:(id)hFoc];
+        
+      }
+    }
     
     SWELL_DoDialogColorUpdates((HWND)self,m_dlgproc,false);
   }
