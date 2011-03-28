@@ -1820,6 +1820,10 @@ HWND SetParent(HWND hwnd, HWND newPar)
       GetWindowText(hwnd,oldtitle,sizeof(oldtitle));
     
       NSWindow *oldwnd = [tv window];
+      id oldown = NULL;
+      if ([oldwnd respondsToSelector:@selector(swellGetOwner)]) oldown=[oldwnd swellGetOwner];
+
+      if ([tv isKindOfClass:[SWELL_hwndChild class]]) ((SWELL_hwndChild*)tv)->m_lastTopLevelOwner = oldown;
     
       [tv retain];
       SWELL_hwndChild *tmpview = [[SWELL_hwndChild alloc] initChild:nil Parent:(NSView *)oldwnd dlgProc:nil Param:0];          
@@ -1834,7 +1838,6 @@ HWND SetParent(HWND hwnd, HWND newPar)
     }
     else if (!newPar) // not content view, not parent (so making it a top level modeless dialog)
     {
-      NSWindow *oldw = [tv window];
       char oldtitle[2048];
       oldtitle[0]=0;
       GetWindowText(hwnd,oldtitle,sizeof(oldtitle));
@@ -1846,16 +1849,27 @@ HWND SetParent(HWND hwnd, HWND newPar)
       unsigned int wf=(NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask|NSResizableWindowMask);
       if ([tv respondsToSelector:@selector(swellCreateWindowFlags)])
         wf=(unsigned int)[(SWELL_hwndChild *)tv swellCreateWindowFlags];
-      HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int);
-      HWND bla=SWELL_CreateModelessFrameForWindow((HWND)tv,(HWND)NULL,wf);
-      // create a new modeless frame 
-      if (oldw)
+
+      HWND newOwner=NULL;
+      if ([tv isKindOfClass:[SWELL_hwndChild class]])
       {
-        [(NSWindow *)bla setLevel:[oldw level]];
-        if ([(id)bla isKindOfClass:[SWELL_ModelessWindow class]] && 
-            [(id)oldw isKindOfClass:[SWELL_ModelessWindow class]])
-        ((SWELL_ModelessWindow *)bla)->m_wantraiseamt = ((SWELL_ModelessWindow *)oldw)->m_wantraiseamt;
+         id oldown = ((SWELL_hwndChild*)tv)->m_lastTopLevelOwner;
+         if (oldown)
+         {
+           NSArray *ch=[NSApp windows];
+           int x,n=[ch count];
+           for(x=0;x<n && !newOwner; x ++)
+           {
+             NSWindow *w = [ch objectAtIndex:x];
+             if (w == (NSWindow *)oldown || [w contentView] == (NSView *)oldown) newOwner = (HWND)w;
+           }
+         }
       }
+
+      HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int);
+      HWND bla=SWELL_CreateModelessFrameForWindow((HWND)tv,(HWND)newOwner,wf);
+      // create a new modeless frame 
+
      
       
       [(NSWindow *)bla display];

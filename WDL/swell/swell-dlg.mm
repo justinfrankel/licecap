@@ -761,6 +761,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_isdirty=3;
   m_glctx=NULL;
   m_enabled=TRUE;
+  m_lastTopLevelOwner=NULL;
   m_dlgproc=NULL;
   m_wndproc=NULL;
   m_userdata=0;
