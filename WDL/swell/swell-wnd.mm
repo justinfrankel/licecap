@@ -1382,19 +1382,19 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
   
   if ([r isKindOfClass:[NSWindow class]])
   {
-    [(NSWindow *)r makeKeyAndOrderFront:nil];
     [(NSWindow *)r makeFirstResponder:[(NSWindow *)r contentView]]; 
+    if ([(NSWindow *)r isVisible]) [(NSWindow *)r makeKeyAndOrderFront:nil];
   }
   else if ([r isKindOfClass:[NSView class]])
   {
     NSWindow *wnd=[(NSView *)r window];
     if (wnd)
     {
-      if ((NSView *)r == [wnd contentView])
+      [wnd makeFirstResponder:r];
+      if ([wnd isVisible])
       {
         [wnd makeKeyAndOrderFront:nil];
       }
-      [wnd makeFirstResponder:r];
     }
   }
 }
