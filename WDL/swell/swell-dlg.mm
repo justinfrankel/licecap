@@ -846,7 +846,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     // do not mess with focus if initdialog returns 0 -- just like windows heh
     if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par))
     {
-      if (hFoc) SetFocus(hFoc);
+      if (hFoc) 
+      {
+        id wnd = [self window];
+        if (wnd && [wnd firstResponder] != (id)hFoc) [wnd makeFirstResponder:(id)hFoc];
+      }
     }
     else
     {
