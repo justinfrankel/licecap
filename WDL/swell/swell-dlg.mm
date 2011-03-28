@@ -854,7 +854,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     }
     else
     {
-      if (hFoc && parent && [(id)parent isKindOfClass:[SWELL_ModalDialog class]])
+      // if top level dialog,always set default focus if it wasn't set (just like win32)
+      // if this causes problems, change NSWindow to be SWELL_ModalDialog, as that would
+      // only affect DialogBox() and not CreateDialog(), which might be preferable.
+      if (hFoc && parent && [(id)parent isKindOfClass:[NSWindow class]]) 
       {
         id fr = [(id)parent firstResponder];
 	if (!fr || fr == self || fr == (id)parent) [(id)parent makeFirstResponder:(id)hFoc];
