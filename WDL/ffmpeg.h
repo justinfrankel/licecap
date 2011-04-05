@@ -323,6 +323,8 @@ public:
     m_frame = NULL;
     m_ic = NULL;
     m_sws = NULL;
+    m_sws_destw=0;
+    m_sws_desth=0;
 
     //initialize FFMpeg
     {
@@ -367,18 +369,9 @@ public:
     
     m_w = m_ctx->width;
     m_h = m_ctx->height;
-    
-    PixelFormat pfout = 
-#ifdef _WIN32
-      PIX_FMT_RGB32;
-#else
-    PIX_FMT_BGR32_1;
-#endif
-    
-    int sws_flags = SWS_BICUBIC;
-    m_sws = sws_getContext(m_w, m_h, st->codec->pix_fmt, m_w, m_h, pfout,
-      sws_flags, NULL, NULL, NULL);
-    
+
+    m_pixfmt=st->codec->pix_fmt;
+        
     if(m_ic->duration == AV_NOPTS_VALUE)
     {
       //FFmpeg can't get the duration
@@ -468,7 +461,24 @@ public:
             uint8_t *dstd[4]= {(uint8_t *)bits,};
             int dst_stride[4]={dst->getRowSpan()*4,};
 //#endif
-            sws_scale(m_sws, m_frame->data, m_frame->linesize, 0, h, dstd, dst_stride);
+
+            if (!m_sws || m_sws_desth != h || m_sws_destw != w)
+            {
+              int sws_flags = SWS_BICUBIC;
+              PixelFormat pfout = 
+          #ifdef _WIN32
+                PIX_FMT_RGB32;
+          #else
+              PIX_FMT_BGR32_1;
+          #endif
+              if(m_sws) sws_freeContext(m_sws);
+              m_sws = sws_getContext(m_w, m_h, m_pixfmt, w, h, pfout, sws_flags, NULL, NULL, NULL);
+              m_sws_desth = h;
+              m_sws_destw = w;
+            }
+
+            if (m_sws)
+              sws_scale(m_sws, m_frame->data, m_frame->linesize, 0, m_h, dstd, dst_stride);
               
             av_free_packet(&packet);
             return 1;
@@ -505,6 +515,8 @@ protected:
   int m_w, m_h, m_format;
   double m_fps, m_len;
   struct SwsContext *m_sws;
+  int m_sws_desth, m_sws_destw;
+  PixelFormat m_pixfmt;
 };
 
 #endif
