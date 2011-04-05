@@ -41,6 +41,18 @@ extern "C"
 #define INT64_C(val) val##i64
 #endif
 
+#ifndef INT64_MIN
+#ifdef _MSC_VER
+#define INT64_MIN       (-0x7fffffffffffffff##i64 - 1)
+#else
+#define INT64_MIN       (-0x7fffffffffffffffLL - 1)
+#endif
+#endif
+
+#ifndef INT64_MAX
+#define INT64_MAX INT64_C(9223372036854775807)
+#endif
+
 class WDL_VideoEncode
 {
 public:
@@ -299,6 +311,200 @@ protected:
   int m_bit_buffer_size;
 
   WDL_Queue m_queue;
+};
+
+class WDL_VideoDecode
+{
+public:
+  WDL_VideoDecode(const char *fn)
+  {
+    m_inited = 0;
+    m_ctx = NULL;
+    m_frame = NULL;
+    m_ic = NULL;
+    m_sws = NULL;
+
+    //initialize FFMpeg
+    {
+      static int init = 0;
+      if(!init) av_register_all();
+      init = 1;
+    }
+    
+    int ret = av_open_input_file(&m_ic, fn, NULL, 0, NULL);
+    if (ret < 0) return;
+
+    ret = av_find_stream_info(m_ic);
+    if (ret < 0) return;
+    
+    // find the stream that corresponds to the stream type
+    int i, stream = -1;
+    for(i=0; i < (int)m_ic->nb_streams; i++)
+    {
+      int st = m_ic->streams[i]->codec->codec_type;
+      if(st==CODEC_TYPE_VIDEO)
+      {
+        stream = i;
+        break;
+      }
+    }
+    if(stream==-1) return; //no stream found
+
+    m_ctx = m_ic->streams[stream]->codec;
+
+    AVCodec *pCodec = avcodec_find_decoder(m_ctx->codec_id);
+    if(pCodec == NULL) return; // codec not found
+
+    if(avcodec_open(m_ctx, pCodec)<0) return; // Could not open codec
+    
+    AVStream *st = m_ic->streams[stream];
+    if(st->r_frame_rate.den && st->r_frame_rate.num)
+      m_fps = av_q2d(st->r_frame_rate);
+    else
+      m_fps = 1/av_q2d(st->codec->time_base);
+    
+    m_frame = avcodec_alloc_frame();
+    
+    m_w = m_ctx->width;
+    m_h = m_ctx->height;
+    
+    PixelFormat pfout = 
+#ifdef _WIN32
+      PIX_FMT_RGB32;
+#else
+    PIX_FMT_BGR32_1;
+#endif
+    
+    int sws_flags = SWS_BICUBIC;
+    m_sws = sws_getContext(m_w, m_h, st->codec->pix_fmt, m_w, m_h, pfout,
+      sws_flags, NULL, NULL, NULL);
+    
+    if(m_ic->duration == AV_NOPTS_VALUE)
+    {
+      //FFmpeg can't get the duration
+      //approximate the duration of the file with the first packets bitrates
+      AVStream *st = m_ic->streams[stream];
+      int bitrate = 0;
+      for(i=0; i < (int)m_ic->nb_streams; i++)
+      {
+        bitrate += m_ic->streams[i]->codec->bit_rate;
+      }
+      bitrate /= 8;
+      if(bitrate)
+        m_len = (double)m_ic->file_size/bitrate;
+      else
+        m_len = 30; //last resort
+    }
+    else
+      m_len = (double)m_ic->duration/AV_TIME_BASE;
+    m_stream = stream;
+   
+    m_inited = 1;
+  }
+  ~WDL_VideoDecode()
+  {
+    if(m_frame) av_free(m_frame);
+    if(m_ic) av_close_input_file(m_ic);
+    if(m_sws) sws_freeContext(m_sws);
+  }
+  int isInited() { return m_inited; }
+  int GetVideoFrameAtTime(LICE_IBitmap *dst, double atTime, double *startTime, double *endTime, bool resizeToBuf)
+  {
+    if(!m_inited) return 0;
+    if(avformat_seek_file(m_ic, -1, INT64_MIN, atTime*AV_TIME_BASE, INT64_MAX, AVSEEK_FLAG_BACKWARD) < 0)
+    {
+      //fallback to old seeking API
+      av_seek_frame(m_ic, -1, atTime*AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+    }
+    avcodec_flush_buffers(m_ctx);
+
+    double startpts = -1;
+    while(1)
+    {
+      AVPacket packet;
+      if(av_read_frame(m_ic, &packet)<0) return 0; //end of file
+      if(packet.stream_index==m_stream)
+      {
+        double packetpts = getPresentationTime(&packet);
+        if(startpts == -1) startpts = packetpts;
+
+        int frameFinished = 0;
+        int l = avcodec_decode_video(m_ctx, m_frame, &frameFinished, packet.data, packet.size);
+        if(l>=0)
+        {
+          // Did we get a video frame?
+          if(frameFinished)
+          {
+            double pts = startpts;
+            double epts = packetpts+(1.0/m_fps);
+
+            if(epts<atTime)
+            {
+              //keep decoding until we get to the desired seek frame
+              startpts = packetpts;
+              continue;
+            }
+
+            if(startTime) *startTime = pts;
+            if(endTime) *endTime = epts;
+
+            //convert decoded image to correct format
+            int w = m_w;
+            int h = m_h;
+            if(resizeToBuf) 
+            {
+              w = dst->getWidth();
+              h = dst->getHeight();
+            }
+            else
+            {
+              dst->resize(w, h);
+            }
+            unsigned int *bits = dst->getBits();
+/*#ifdef _WIN32
+            uint8_t *dstd[4]= {(uint8_t *)bits+(dst->getRowSpan()*4*(h-1)),};
+            int dst_stride[4]={-dst->getRowSpan()*4,};
+#else*/
+            uint8_t *dstd[4]= {(uint8_t *)bits,};
+            int dst_stride[4]={dst->getRowSpan()*4,};
+//#endif
+            sws_scale(m_sws, m_frame->data, m_frame->linesize, 0, h, dstd, dst_stride);
+              
+            av_free_packet(&packet);
+            return 1;
+          }
+        }
+        
+        av_free_packet(&packet);
+      }
+    }
+
+    return 0;
+  }
+
+protected:
+
+  double getPresentationTime(AVPacket *packet)
+  {
+    double mpts = 0;
+    if(packet->dts != AV_NOPTS_VALUE) mpts = (double)packet->dts;
+    mpts *= av_q2d(m_ic->streams[packet->stream_index]->time_base);
+    mpts -= (double)m_ic->start_time/AV_TIME_BASE;
+    return mpts;
+  }
+
+  int m_inited;
+  
+  AVFormatContext *m_ic;
+  AVCodecContext *m_ctx;
+
+  AVFrame *m_frame;
+  
+  int m_stream;
+  
+  int m_w, m_h, m_format;
+  double m_fps, m_len;
+  struct SwsContext *m_sws;
 };
 
 #endif

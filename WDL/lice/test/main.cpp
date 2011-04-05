@@ -32,6 +32,7 @@
 #pragma comment(lib, "../../../sdks/ffmpeg/lib/avutil.lib")
 #pragma comment(lib, "../../../sdks/ffmpeg/lib/swscale.lib")
 static WDL_VideoEncode *m_encoder;
+static WDL_VideoDecode *m_decoder;
 #endif
 
 #include "resource.h"
@@ -539,6 +540,8 @@ static void DoPaint(HWND hwndDlg)
       
 
 #ifdef FFMPEG_TEST
+
+#if 0
       //ffmpeg encoding test
       if(!m_encoder) m_encoder = new WDL_VideoEncode("flv", framebuffer->getWidth(),framebuffer->getHeight(), 25, 1256, NULL, 44100, 1, 128);
       if(m_encoder->isInited())
@@ -572,6 +575,22 @@ static void DoPaint(HWND hwndDlg)
           fclose(fh);
         }
       }
+#else
+      //ffmpeg decoding test
+      if(!m_decoder) m_decoder = new WDL_VideoDecode("c:\\test.avi");
+      if(m_decoder->isInited())
+      {
+        static LICE_IBitmap *m_tmpframe;
+        if(!m_tmpframe)
+        {
+          m_tmpframe = new LICE_MemBitmap(framebuffer->getWidth(), framebuffer->getHeight());
+          m_decoder->GetVideoFrameAtTime(m_tmpframe, 50, NULL, NULL, true);
+        }
+
+        LICE_Blit(framebuffer, m_tmpframe, 0, 0, 0, 0, m_tmpframe->getWidth(), m_tmpframe->getHeight(), 1.0f, 0);
+      }
+#endif
+
 #endif
       
 

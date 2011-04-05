@@ -1,3 +1,5 @@
+FFMPEG: added WDL_VideoDecode class to grab video frames
+
 2010-08-16:
 Now available via Git! The zipped distributions may go away someday?
 EEL2: optional eel1 compat (allows you to build AVS using EEL2 and support old presets)
