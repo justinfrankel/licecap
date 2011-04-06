@@ -464,7 +464,7 @@ SWELL_API_DEFINE(bool, ListView_Scroll,(HWND h, int xscroll, int yscroll))
 #define ImageList_Create(x,y,a,b,c) ImageList_CreateEx();
 #endif
 SWELL_API_DEFINE(HIMAGELIST, ImageList_CreateEx,())
-SWELL_API_DEFINE(void, ImageList_ReplaceIcon,(HIMAGELIST list, int offset, HICON image))
+SWELL_API_DEFINE(int, ImageList_ReplaceIcon,(HIMAGELIST list, int offset, HICON image))
 SWELL_API_DEFINE(void, ImageList_Destroy, (HIMAGELIST))
 /*
 ** TabCtrl api. 
