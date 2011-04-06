@@ -946,6 +946,21 @@ void SetTextColor(HDC ctx, int col)
 }
 
 
+HICON CreateIconIndirect(ICONINFO* iconinfo)
+{
+  if (!iconinfo || !iconinfo->fIcon) return 0;  
+  HGDIOBJ__* i=iconinfo->hbmColor;
+  if (!i || i->type != TYPE_BITMAP || !i->bitmapptr) return 0;
+  NSImage* img=i->bitmapptr;
+  if (!img) return 0;
+    
+  HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  icon->type=TYPE_BITMAP;
+  icon->wid=0; // reusing img, is this right?
+  [img retain];
+  icon->bitmapptr=img;
+  return icon;   
+}
 
 HICON LoadNamedImage(const char *name, bool alphaFromMask)
 {
@@ -998,6 +1013,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
     needfree=1;
     img=newImage;    
   }
+  
   HGDIOBJ__ *i=GDP_OBJECT_NEW();
   i->type=TYPE_BITMAP;
   i->wid=needfree;

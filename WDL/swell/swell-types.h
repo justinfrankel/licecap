@@ -1284,4 +1284,14 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 #define INFINITE            0xFFFFFFFF
 
 
+typedef struct _ICONINFO
+{
+  BOOL fIcon;
+  DWORD xHotspot;
+  DWORD yHotspot;
+  HBITMAP hbmMask;
+  HBITMAP hbmColor;
+} ICONINFO, *PICONINFO;
+
+
 #endif //_WDL_SWELL_H_TYPES_DEFINED_

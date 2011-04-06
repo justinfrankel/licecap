@@ -957,6 +957,7 @@ SWELL_API_DEFINE(BOOL, GetTextMetrics,(HDC ctx, TEXTMETRIC *tm))
 SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
 #endif
 SWELL_API_DEFINE(BOOL, GetObject, (HICON icon, int bmsz, void *_bm))
+SWELL_API_DEFINE(HICON, CreateIconIndirect, (ICONINFO* iconinfo))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
 SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
 SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode))
