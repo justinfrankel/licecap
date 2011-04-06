@@ -956,7 +956,7 @@ HICON CreateIconIndirect(ICONINFO* iconinfo)
     
   HGDIOBJ__* icon=GDP_OBJECT_NEW();
   icon->type=TYPE_BITMAP;
-  icon->wid=0; // reusing img, is this right?
+  icon->wid=1;
   [img retain];
   icon->bitmapptr=img;
   return icon;   
