@@ -329,6 +329,7 @@ public:
     m_sws = NULL;
     m_sws_destw=0;
     m_sws_desth=0;
+    m_curtime=-1.0;
 
     //initialize FFMpeg
     {
@@ -408,12 +409,15 @@ public:
   int GetVideoFrameAtTime(LICE_IBitmap *dst, double atTime, double *startTime, double *endTime, bool resizeToBuf)
   {
     if(!m_inited) return 0;
-    if(avformat_seek_file(m_ic, -1, INT64_MIN, atTime*AV_TIME_BASE, INT64_MAX, AVSEEK_FLAG_BACKWARD) < 0)
+    if(m_curtime == -1.0 || atTime<m_curtime || (atTime-m_curtime)>(1.0/m_fps))
     {
-      //fallback to old seeking API
-      av_seek_frame(m_ic, -1, atTime*AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+      if(avformat_seek_file(m_ic, -1, INT64_MIN, atTime*AV_TIME_BASE, INT64_MAX, AVSEEK_FLAG_BACKWARD) < 0)
+      {
+        //fallback to old seeking API
+        av_seek_frame(m_ic, -1, atTime*AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+      }
+      avcodec_flush_buffers(m_ctx);
     }
-    avcodec_flush_buffers(m_ctx);
 
     double startpts = -1;
     while(1)
@@ -444,6 +448,7 @@ public:
 
             if(startTime) *startTime = pts;
             if(endTime) *endTime = epts;
+            m_curtime = epts;
 
             //convert decoded image to correct format
             int w = m_w;
@@ -521,6 +526,8 @@ protected:
   struct SwsContext *m_sws;
   int m_sws_desth, m_sws_destw;
   PixelFormat m_pixfmt;
+
+  double m_curtime;
 };
 
 #endif

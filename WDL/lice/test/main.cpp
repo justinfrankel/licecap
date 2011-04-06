@@ -581,12 +581,13 @@ static void DoPaint(HWND hwndDlg)
       if(m_decoder->isInited())
       {
         static LICE_IBitmap *m_tmpframe;
+        static double t = 0;
         if(!m_tmpframe)
         {
           m_tmpframe = new LICE_MemBitmap(framebuffer->getWidth(), framebuffer->getHeight());
-          m_decoder->GetVideoFrameAtTime(m_tmpframe, 50, NULL, NULL, true);
         }
-
+        m_decoder->GetVideoFrameAtTime(m_tmpframe, t, NULL, &t, true);
+        t+=0.0001;
         LICE_Blit(framebuffer, m_tmpframe, 0, 0, 0, 0, m_tmpframe->getWidth(), m_tmpframe->getHeight(), 1.0f, 0);
       }
 #endif
