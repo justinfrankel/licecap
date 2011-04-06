@@ -261,14 +261,17 @@ public:
   int getBytes(unsigned char *p, int size)
   {
     //looks like there's no other way to get data from ffmpeg's dynamic buffers apart from closing them
-    uint8_t *pb_buffer;
-    int l = url_close_dyn_buf(m_ctx-> pb, &pb_buffer);
-    if(l > 0)
+    if (m_queue.GetSize() < size && m_init)
     {
-      m_queue.Add(pb_buffer, l);
-      av_free(pb_buffer);
+      uint8_t *pb_buffer;
+      int l = url_close_dyn_buf(m_ctx-> pb, &pb_buffer);
+      if(l > 0)
+      {
+        m_queue.Add(pb_buffer, l);
+        av_free(pb_buffer);
+      }
+      url_open_dyn_buf(&m_ctx->pb); //sets up next dynamic buffer for ffmpeg
     }
-    url_open_dyn_buf(&m_ctx->pb); //sets up next dynamic buffer for ffmpeg
 
     int s = min(size, m_queue.GetSize());
     if(s)
@@ -290,6 +293,7 @@ public:
       m_queue.Add(pb_buffer, l);
       av_free(pb_buffer);
     }
+    m_init=0;
   }
 
   //useful to get debugging information from ffmpeg
