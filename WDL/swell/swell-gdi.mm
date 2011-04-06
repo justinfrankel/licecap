@@ -950,7 +950,7 @@ HICON CreateIconIndirect(ICONINFO* iconinfo)
 {
   if (!iconinfo || !iconinfo->fIcon) return 0;  
   HGDIOBJ__* i=iconinfo->hbmColor;
-  if (!i || i->type != TYPE_BITMAP || !i->bitmapptr) return 0;
+  if (!HGDIOBJ_VALID(i,TYPE_BITMAP) || !i->bitmapptr) return 0;
   NSImage* img=i->bitmapptr;
   if (!img) return 0;
     
