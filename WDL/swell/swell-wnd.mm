@@ -1167,38 +1167,38 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd) return 0;
-  id turd=(id)hwnd;
-  if ([turd respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  id obj=(id)hwnd;
+  if ([obj respondsToSelector:@selector(onSwellMessage:p1:p2:)])
   {
-    return (LRESULT) [turd onSwellMessage:msg p1:wParam p2:lParam];
+    return (LRESULT) [obj onSwellMessage:msg p1:wParam p2:lParam];
   }
   else 
   {
-    if (msg == BM_GETCHECK && [turd isKindOfClass:[NSButton class]])
+    if (msg == BM_GETCHECK && [obj isKindOfClass:[NSButton class]])
     {
-      int a=[(NSButton*)turd state];
+      int a=[(NSButton*)obj state];
       if (a==NSMixedState) return BST_INDETERMINATE;
       return a!=NSOffState;
     }
-    if (msg == BM_SETCHECK && [turd isKindOfClass:[NSButton class]])
+    if (msg == BM_SETCHECK && [obj isKindOfClass:[NSButton class]])
     {
-      [(NSButton*)turd setState:(wParam&BST_INDETERMINATE)?NSMixedState:((wParam&BST_CHECKED)?NSOnState:NSOffState)];
+      [(NSButton*)obj setState:(wParam&BST_INDETERMINATE)?NSMixedState:((wParam&BST_CHECKED)?NSOnState:NSOffState)];
       return 0;
     }
-    if ((msg==BM_GETIMAGE || msg == BM_SETIMAGE) && [turd isKindOfClass:[SWELL_Button class]])
+    if ((msg==BM_GETIMAGE || msg == BM_SETIMAGE) && [obj isKindOfClass:[SWELL_Button class]])
     {
       if (wParam != IMAGE_BITMAP && wParam != IMAGE_ICON) return 0; // ignore unknown types
-      LONG_PTR ret=(LONG_PTR) (void *)[turd getSwellGDIImage];
+      LONG_PTR ret=(LONG_PTR) (void *)[obj getSwellGDIImage];
       if (msg==BM_SETIMAGE)
       {
         NSImage *img=NULL;
         if (lParam) img=(NSImage *)__GetNSImageFromHICON((HICON)lParam);
-        [turd setImage:img];
-        [turd setSwellGDIImage:(void *)(img?lParam:0)];
+        [obj setImage:img];
+        [obj setSwellGDIImage:(void *)(img?lParam:0)];
       }
       return ret;
     }
-    else if (msg >= CB_ADDSTRING && msg <= CB_INITSTORAGE && ([turd isKindOfClass:[NSPopUpButton class]] || [turd isKindOfClass:[NSComboBox class]]))
+    else if (msg >= CB_ADDSTRING && msg <= CB_INITSTORAGE && ([obj isKindOfClass:[NSPopUpButton class]] || [obj isKindOfClass:[NSComboBox class]]))
     {
         switch (msg)
         {
@@ -1220,7 +1220,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         return 0;
     }
-    else if (msg >= TBM_GETPOS && msg <= TBM_SETRANGE && ([turd isKindOfClass:[NSSlider class]]))
+    else if (msg >= TBM_GETPOS && msg <= TBM_SETRANGE && ([obj isKindOfClass:[NSSlider class]]))
     {
         switch (msg)
         {
@@ -1231,19 +1231,20 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         return 0;
     }
-    else if (msg == EM_SETSEL && ([turd isKindOfClass:[NSTextField class]]))
-    {
-      [(NSTextField*)turd selectText:turd]; // Force the window's text field editor onto this control
-      NSText* text = [[turd window] fieldEditor:YES forObject:(NSTextField*)turd]; // then get it from the window
+    else if ((msg == EM_SETSEL || msg == EM_GETSEL) && ([obj isKindOfClass:[NSTextField class]]))
+    {   
+      [(NSTextField*)obj selectText:obj]; // Force the window's text field editor onto this control
+      NSText* text = [[obj window] fieldEditor:YES forObject:(NSTextField*)obj]; // then get it from the window
       
-      int sl = [[text string] length];
-      if (wParam == -1) lParam = wParam = 0;
-      else if (lParam == -1) lParam = sl;
-      
-      if (wParam>sl) wParam=sl;
-      if (lParam>sl) lParam=sl;
-      
-      [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+      if (msg == EM_SETSEL)
+      {
+        int sl = [[text string] length];
+        if (wParam == -1) lParam = wParam = 0;
+        else if (lParam == -1) lParam = sl;        
+        if (wParam>sl) wParam=sl;
+        if (lParam>sl) lParam=sl;      
+        [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+      }
       return 0;
     }
     else
@@ -1251,12 +1252,12 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       NSWindow *w;
       NSView *v;
       // if content view gets unhandled message send to window
-      if ([turd isKindOfClass:[NSView class]] && (w=[turd window]) && [w contentView] == turd && [w respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      if ([obj isKindOfClass:[NSView class]] && (w=[obj window]) && [w contentView] == obj && [w respondsToSelector:@selector(onSwellMessage:p1:p2:)])
       {
         return (LRESULT) [(SWELL_hwndChild *)w onSwellMessage:msg p1:wParam p2:lParam];
       }
       // if window gets unhandled message send to content view
-      else if ([turd isKindOfClass:[NSWindow class]] && (v=[turd contentView]) && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+      else if ([obj isKindOfClass:[NSWindow class]] && (v=[obj contentView]) && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
       {
         return (LRESULT) [(SWELL_hwndChild *)v onSwellMessage:msg p1:wParam p2:lParam];
       }
