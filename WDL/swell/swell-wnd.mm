@@ -1926,31 +1926,33 @@ bool IsEquivalentTextView(HWND h1, HWND h2)
 
 BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
 {
-  NSView *poo=(NSView *)(idx ? GetDlgItem(hwnd,idx) : hwnd);
-  if (!poo) return false;
+  NSView *obj=(NSView *)(idx ? GetDlgItem(hwnd,idx) : hwnd);
+  if (!obj) return false;
   
   NSWindow *nswnd;
-  if ([(id)poo isKindOfClass:[NSView class]] && (nswnd=[(NSView *)poo window]) && [nswnd contentView]==(id)poo)
-    SetDlgItemText((HWND)nswnd,0,text); // also set window if setting content view
-    
-  if ([poo respondsToSelector:@selector(onSwellSetText:)])
+  if ([(id)obj isKindOfClass:[NSView class]] && (nswnd=[(NSView *)obj window]) && [nswnd contentView]==(id)obj)
   {
-    [(SWELL_hwndChild*)poo onSwellSetText:text];
+    SetDlgItemText((HWND)nswnd,0,text); // also set window if setting content view
+  }
+  
+  if ([obj respondsToSelector:@selector(onSwellSetText:)])
+  {
+    [(SWELL_hwndChild*)obj onSwellSetText:text];
     return TRUE;
   }
   
   BOOL rv=TRUE;  
   NSString *lbl=(NSString *)SWELL_CStringToCFString(text);
-  if ([poo isKindOfClass:[NSWindow class]] || [poo isKindOfClass:[NSButton class]]) [(NSButton*)poo setTitle:lbl];
-  else if ([poo isKindOfClass:[NSControl class]]) 
+  if ([obj isKindOfClass:[NSWindow class]] || [obj isKindOfClass:[NSButton class]]) [(NSButton*)obj setTitle:lbl];
+  else if ([obj isKindOfClass:[NSControl class]]) 
   {
-    [(NSControl*)poo setStringValue:lbl];
-    if ([poo isKindOfClass:[NSTextField class]] && [(NSTextField *)poo isEditable])
+    [(NSControl*)obj setStringValue:lbl];
+    if ([obj isKindOfClass:[NSTextField class]] && [(NSTextField *)obj isEditable])
     {
-      SendMessage(GetParent((HWND)poo),WM_COMMAND,[(NSControl *)poo tag]|(EN_CHANGE<<16),(LPARAM)poo);
+      SendMessage(GetParent((HWND)obj),WM_COMMAND,[(NSControl *)obj tag]|(EN_CHANGE<<16),(LPARAM)obj);
     }
   }
-  else if ([poo isKindOfClass:[NSText class]])  [(NSText*)poo setString:lbl];
+  else if ([obj isKindOfClass:[NSText class]])  [(NSText*)obj setString:lbl];
   else rv=FALSE;
   
   [lbl release];
