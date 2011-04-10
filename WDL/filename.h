@@ -40,10 +40,6 @@ char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
     return repl;
   }
 
-#ifndef _WIN32
-  if (p == '\'') return repl;
-#endif
-
   if (filterSlashes && (p == '/' || p == '\\' ))
   {
     return repl;
