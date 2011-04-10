@@ -29,11 +29,20 @@
 
 char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
 {
-  if (p == '?' || p == '*' || p == ':' || p == '\'' || 
-    p == '\"' || p == '|' || p == '<' || p == '>') 
+  if (p == '?'  || 
+      p == '*'  ||
+      p == ':'  ||
+      p == '\"' ||
+      p == '|'  ||
+      p == '<'  || 
+      p == '>') 
   {
     return repl;
   }
+
+#ifndef _WIN32
+  if (p == '\'') return repl;
+#endif
 
   if (filterSlashes && (p == '/' || p == '\\' ))
   {
