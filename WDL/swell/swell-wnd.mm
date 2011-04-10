@@ -1952,8 +1952,16 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
       SendMessage(GetParent((HWND)obj),WM_COMMAND,[(NSControl *)obj tag]|(EN_CHANGE<<16),(LPARAM)obj);
     }
   }
-  else if ([obj isKindOfClass:[NSText class]])  [(NSText*)obj setString:lbl];
-  else rv=FALSE;
+  else if ([obj isKindOfClass:[NSText class]])  
+  {
+    // todo if there is a way to find out that the window's NSTextField is already assigned 
+    // to another field, restore the assignment afterwards
+    [(NSText*)obj setString:lbl];
+  }
+  else
+  {
+    rv=FALSE;
+  }
   
   [lbl release];
   return rv;
