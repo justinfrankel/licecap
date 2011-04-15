@@ -841,10 +841,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
         if (v && [v acceptsFirstResponder]) hFoc=(HWND)v;
       }
     }
-    if (!isChild && hFoc) SetFocus(hFoc); // if not child window, set focus anyway
     
+    // do not mess with focus if initdialog returns 0 -- just like windows heh
     if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par) && hFoc)
       SetFocus(hFoc);
+    
     SWELL_DoDialogColorUpdates((HWND)self,m_dlgproc,false);
   }
   
@@ -1736,11 +1737,10 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   SWELL_hwndChild *ch=[[SWELL_hwndChild alloc] initChild:resstate Parent:(NSView *)self dlgProc:dlgproc Param:par];       // create a new child view class
   ch->m_create_windowflags=sf;
   *hwndOut = (HWND)ch;
-
+ 
   [ch release];
 
   [self display];
-  
   [self release]; // matching retain above
   
   return self;
