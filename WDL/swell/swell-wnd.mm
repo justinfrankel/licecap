@@ -1390,7 +1390,7 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
     NSWindow *wnd=[(NSView *)r window];
     if (wnd)
     {
-     // if ((NSView *)r == [wnd contentView])
+      if ((NSView *)r == [wnd contentView])
       {
         [wnd makeKeyAndOrderFront:nil];
       }
