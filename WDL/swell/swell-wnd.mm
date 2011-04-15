@@ -1847,7 +1847,7 @@ HWND SetParent(HWND hwnd, HWND newPar)
       if ([tv respondsToSelector:@selector(swellCreateWindowFlags)])
         wf=(unsigned int)[(SWELL_hwndChild *)tv swellCreateWindowFlags];
       HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int);
-      HWND bla=SWELL_CreateModelessFrameForWindow((HWND)tv,(HWND)oldw,wf);
+      HWND bla=SWELL_CreateModelessFrameForWindow((HWND)tv,(HWND)NULL,wf);
       // create a new modeless frame 
       
       [(NSWindow *)bla display];
