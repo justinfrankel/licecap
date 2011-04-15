@@ -1849,6 +1849,14 @@ HWND SetParent(HWND hwnd, HWND newPar)
       HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int);
       HWND bla=SWELL_CreateModelessFrameForWindow((HWND)tv,(HWND)NULL,wf);
       // create a new modeless frame 
+      if (oldw)
+      {
+        [(NSWindow *)bla setLevel:[oldw level]];
+        if ([(id)bla isKindOfClass:[SWELL_ModelessWindow class]] && 
+            [(id)oldw isKindOfClass:[SWELL_ModelessWindow class]])
+        ((SWELL_ModelessWindow *)bla)->m_wantraiseamt = ((SWELL_ModelessWindow *)oldw)->m_wantraiseamt;
+      }
+     
       
       [(NSWindow *)bla display];
       
