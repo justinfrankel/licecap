@@ -1390,7 +1390,7 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
     NSWindow *wnd=[(NSView *)r window];
     if (wnd)
     {
-     // if ((NSView *)r == [wnd contentView])
+      //if ((NSView *)r == [wnd contentView])
       {
         [wnd makeKeyAndOrderFront:nil];
       }
@@ -1835,13 +1835,13 @@ HWND SetParent(HWND hwnd, HWND newPar)
     else if (!newPar) // not content view, not parent (so making it a top level modeless dialog)
     {
       NSWindow *oldw = [tv window];
+      NSWindow *oldpar = [oldw parentWindow];
       char oldtitle[2048];
       oldtitle[0]=0;
       GetWindowText(hwnd,oldtitle,sizeof(oldtitle));
       
       [tv retain];
       [tv removeFromSuperview];
-
     
       unsigned int wf=(NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask|NSResizableWindowMask);
       if ([tv respondsToSelector:@selector(swellCreateWindowFlags)])
@@ -1854,6 +1854,47 @@ HWND SetParent(HWND hwnd, HWND newPar)
       
       [tv release];
       
+      // move owned windows over
+      if ([oldw respondsToSelector:@selector(swellGetOwnerWindowHead)])
+      {
+        void **p=(void **)[(SWELL_ModelessWindow*)oldw swellGetOwnerWindowHead];
+        if (p && [(id)bla respondsToSelector:@selector(swellGetOwnerWindowHead)])
+        {
+          void **p2=(void **)[(SWELL_ModelessWindow*)bla swellGetOwnerWindowHead];
+          if (p && p2) 
+          {
+            *p2=*p;
+            *p=0;
+            OwnedWindowListRec *rec = (OwnedWindowListRec *) *p2;
+            while (rec)
+            {
+              if (rec->hwnd && [rec->hwnd respondsToSelector:@selector(swellSetOwner:)])
+                [(SWELL_ModelessWindow *)rec->hwnd swellSetOwner:(id)bla];
+              rec=rec->_next;
+            }
+          }
+        }
+      }
+      // move all child and owned windows over to new window
+      NSArray *ar=[oldw childWindows];
+      if (ar)
+      {
+        int x;
+        for (x = 0; x < [ar count]; x ++)
+        {
+          NSWindow *cw=[ar objectAtIndex:x];
+          if (cw)
+          {
+            [cw retain];
+            [oldw removeChildWindow:cw];
+            [(NSWindow *)bla addChildWindow:cw ordered:NSWindowAbove];
+            [cw release];
+          }
+        }
+      }
+      
+      if (oldpar) [oldpar addChildWindow:(NSWindow *)bla ordered:NSWindowAbove];
+       
       if (oldtitle[0]) SetWindowText(hwnd,oldtitle);
       
       return NULL;
