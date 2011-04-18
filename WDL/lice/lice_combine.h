@@ -404,7 +404,7 @@ public:
         r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
         g + ((dest[LICE_PIXEL_G]-g)*sc)/256,
         b + ((dest[LICE_PIXEL_B]-b)*sc)/256,
-        min(255,a*sc2/256 + dest[LICE_PIXEL_A]));
+        min(255,sc2 + dest[LICE_PIXEL_A]));
     }
   }
 };
@@ -423,7 +423,7 @@ public:
         r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
         g + ((dest[LICE_PIXEL_G]-g)*sc)/256,
         b + ((dest[LICE_PIXEL_B]-b)*sc)/256,
-        a*sc2/256 + dest[LICE_PIXEL_A]);  
+        sc2 + dest[LICE_PIXEL_A]);  
     }
   }
 };
@@ -446,7 +446,7 @@ public:
             r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
             g + ((dest[LICE_PIXEL_G]-g)*sc)/256,
             b + ((dest[LICE_PIXEL_B]-b)*sc)/256,
-            min(255,a*(a+1)/256 + dest[LICE_PIXEL_A]));  
+            min(255,a + dest[LICE_PIXEL_A]));  
       }
     }
   }
@@ -470,7 +470,7 @@ public:
            r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
            g + ((dest[LICE_PIXEL_G]-g)*sc)/256,
            b + ((dest[LICE_PIXEL_B]-b)*sc)/256,
-           a*(a+1)/256 + dest[LICE_PIXEL_A]);  
+           a + dest[LICE_PIXEL_A]);  
       }
     }
   }
