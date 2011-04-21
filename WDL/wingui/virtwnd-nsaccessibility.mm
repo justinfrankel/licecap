@@ -289,6 +289,25 @@ public:
 //    printf("size of (%s) %d,%d\n",m_br->vwnd->GetAccessDesc()?m_br->vwnd->GetAccessDesc():"nul",r.right-r.left,r.bottom-r.top);
     return [NSValue valueWithSize:NSMakeSize(r.right-r.left,r.bottom-r.top)];
   }
+  if ([attribute isEqual:NSAccessibilityRoleDescriptionAttribute])
+  {
+    const char *str= NULL; 
+    if (!str || !*str)
+    {
+      if (!strcmp(type,"vwnd_statictext")) str = "text";
+      else if (!strcmp(type,"vwnd_slider")) str = "slider";
+      else if (!strcmp(type,"vwnd_combobox")) str = "selection box";
+      else if (!strcmp(type,"vwnd_iconbutton"))
+      {
+        WDL_VirtualIconButton *b = (WDL_VirtualIconButton *)m_br->vwnd;
+        if (b->GetCheckState()>=0) str = "check box";
+        else str = "button";
+      }
+      if (!str) str = m_br->vwnd->GetAccessDesc();
+    }
+    if (str && *str) return [(id)SWELL_CStringToCFString(str) autorelease];
+
+  }
   if ([attribute isEqual:NSAccessibilityRoleAttribute])
   {
     if (!strcmp(type,"vwnd_statictext")) return NSAccessibilityButtonRole; // fail: seems to need 10.5+ to deliver text? NSAccessibilityStaticTextRole;
@@ -388,7 +407,6 @@ public:
        return [NSNumber numberWithInt:v];
      }
   }
-  
   return nil;
 }
 - (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute
