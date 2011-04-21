@@ -5,20 +5,31 @@
 
 @class VWndNSAccessibility;
 static VWndNSAccessibility *GetVWndNSAccessible(WDL_VWnd *vwnd);
+static WDL_VWnd *__focus;
 
 class VWndBridgeNS : public WDL_VWnd_IAccessibleBridge
 {
 public:
-  VWndBridgeNS() { }
-  ~VWndBridgeNS() { }
+  VWndBridgeNS(VWndNSAccessibility *p, WDL_VWnd *vw) 
+  { 
+     [(par=p) retain]; 
+     (vwnd=vw)->SetAccessibilityBridge(this);
+  }
+  ~VWndBridgeNS() 
+  { 
+//    if (vwnd) printf("Destroying self before Released, wtf!\n");
+  }
+
   virtual void Release() 
   {  
+    if (__focus == vwnd) __focus=0;
+
+    vwnd=0; 
     if (par) 
     {
       [par release];
-      par=0;
+       // this is probably no longer valid!
     }
-    vwnd=0; 
   }
   
   VWndNSAccessibility *par;
@@ -64,29 +75,18 @@ public:
 
 @end
 
-static WDL_VWnd *__focus;
-
 @implementation VWndNSAccessibility
 -(id) initWithVWnd:(WDL_VWnd *)vw
 {
   if ((self = [super init]))
   {
-    m_br = new VWndBridgeNS;
-    m_br->par = self;
-    m_br->vwnd = vw;
-    vw->SetAccessibilityBridge(m_br);
+    m_br = new VWndBridgeNS(self,vw);
   }
   return self;
 }
 -(void)dealloc
 {
-  if (m_br->vwnd)
-  {
-    if (__focus == m_br->vwnd) __focus=0;
-    m_br->vwnd->SetAccessibilityBridge(NULL);
-    m_br->vwnd = NULL;
-    delete m_br;
-  }
+  delete m_br;
   [super dealloc];
 }
 
@@ -517,9 +517,7 @@ static VWndNSAccessibility *GetVWndNSAccessible(WDL_VWnd *vwnd)
     return p->par;
   }
 
-  VWndNSAccessibility *ret = [[VWndNSAccessibility alloc] initWithVWnd:vwnd];
-  [ret retain]; // caller will release, and the vwnd will own one reference too
-  return ret;
+  return [[VWndNSAccessibility alloc] initWithVWnd:vwnd];
 }
 
 LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, WPARAM wParam, LPARAM lParam)
