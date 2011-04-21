@@ -1421,6 +1421,32 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 // NSAccessibility
 
 
+- (id)accessibilityHitTest:(NSPoint)point
+{
+  id ret = NULL;
+  id use_obj = NULL;
+  SendMessage((HWND)self,WM_GETOBJECT,0x1001,(LPARAM)&use_obj);
+  if (use_obj)
+  {
+    ret = [use_obj accessibilityHitTest:point];
+    if (ret == use_obj && [ret accessibilityIsIgnored]) ret = NULL;
+  }
+
+  if (!ret) ret = [super accessibilityHitTest:point];
+  return ret;
+}
+- (id)accessibilityFocusedUIElement
+{
+  id use_obj = NULL, ret = NULL;
+  SendMessage((HWND)self,WM_GETOBJECT,0x1001,(LPARAM)&use_obj);
+  if (use_obj)
+  {
+    ret = [use_obj accessibilityFocusedUIElement];
+    if (ret == use_obj) ret=  NULL;
+  }
+  if (!ret) ret = [super accessibilityFocusedUIElement];
+  return ret;
+}
 
 - (id)accessibilityAttributeValue:(NSString *)attribute
 {

@@ -40,7 +40,7 @@ public:
     if (vwnd && __focus != vwnd && par)
     {
       __focus = vwnd;
-      NSAccessibilityPostNotification(par,NSAccessibilityFocusedWindowChangedNotification);
+//      NSAccessibilityPostNotification(par,NSAccessibilityFocusedWindowChangedNotification);
       NSAccessibilityPostNotification(par,NSAccessibilityFocusedUIElementChangedNotification);
    }
   } 
@@ -503,7 +503,7 @@ public:
   {
     const char *type = m_br->vwnd ?  m_br->vwnd->GetType() : NULL;
     if (!type) type="";
-    //NSLog(@"accessibilityHitTest: %f,%f %s %p\n",point.x,point.y,type,m_br->vwnd);
+//    NSLog(@"accessibilityHitTest: %f,%f %s %p\n",point.x,point.y,type,m_br->vwnd);
   }  
   
   if (m_br->vwnd)
