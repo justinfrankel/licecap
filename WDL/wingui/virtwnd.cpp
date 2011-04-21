@@ -631,6 +631,7 @@ void WDL_VWnd::AddChild(WDL_VWnd *wnd, int pos)
   if (!m_children) m_children=new WDL_PtrList<WDL_VWnd>;
   if (pos<0||pos>=m_children->GetSize()) m_children->Add(wnd);
   else m_children->Insert(pos,wnd);
+  if (m__iaccess) m__iaccess->ClearCaches();
 }
 
 WDL_VWnd *WDL_VWnd::GetChildByID(int id)
@@ -659,6 +660,7 @@ void WDL_VWnd::RemoveChild(WDL_VWnd *wnd, bool dodel)
     }
     m_children->Delete(idx,dodel);
   }
+  if (m__iaccess) m__iaccess->ClearCaches();
 }
 
 

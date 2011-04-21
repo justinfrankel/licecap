@@ -31,6 +31,10 @@ public:
        // this is probably no longer valid!
     }
   }
+  virtual void ClearCaches()
+  {
+    if (par) [par clearCaches];
+  }
   
   VWndNSAccessibility *par;
   WDL_VWnd *vwnd;
@@ -40,10 +44,13 @@ public:
 {
 @public
   VWndBridgeNS *m_br;
+  NSArray *m_cached_children;
+  int m_cached_children_lastcnt;
+  NSArray *m_cached_attrnames;
 }
 -(id) initWithVWnd:(WDL_VWnd *)vw;
 -(void)dealloc;
-
+-(void)clearCaches;
 
 
 // attribute methods
@@ -81,17 +88,36 @@ public:
   if ((self = [super init]))
   {
     m_br = new VWndBridgeNS(self,vw);
+    m_cached_children=0;
+    m_cached_attrnames = 0;
+    m_cached_children_lastcnt=0;
   }
   return self;
 }
+-(void)clearCaches
+{
+  if (m_cached_children)
+  {
+    [m_cached_children release];
+    m_cached_children=0;
+    m_cached_children_lastcnt=0;
+  }
+  if (m_cached_attrnames)
+  {
+    [m_cached_attrnames release];
+    m_cached_attrnames = 0;
+  }
+}
 -(void)dealloc
 {
+  [self clearCaches];
   delete m_br;
   [super dealloc];
 }
 
 - (NSArray *)accessibilityAttributeNames
 {
+  if (m_cached_attrnames) return m_cached_attrnames;
   NSString *s[32];
   int sidx=0;
   const char *type = NULL;
@@ -134,7 +160,10 @@ public:
     s[sidx++] = NSAccessibilityWindowAttribute;
   }
 
-  return [NSArray arrayWithObjects:s count:sidx];
+  if (m_cached_attrnames) [m_cached_attrnames release];
+  m_cached_attrnames = [NSArray arrayWithObjects:s count:sidx];
+  [m_cached_attrnames retain];
+  return m_cached_attrnames;
 }
 
 - (id)accessibilityAttributeValue:(NSString *)attribute
@@ -150,7 +179,10 @@ public:
   if (a) // if 2, only add visible items
   {
     int nc = m_br->vwnd->GetNumChildren();
-    if (!nc) return nil;
+    if (!nc) { if (m_cached_children) { [m_cached_children release]; m_cached_children=0; } return nil; }
+
+    if (m_cached_children && nc == m_cached_children_lastcnt) return m_cached_children;
+
     NSMutableArray *ar = [NSMutableArray arrayWithCapacity:nc];
     int x;
     for (x=0;x<nc;x++)
@@ -169,7 +201,11 @@ public:
         }
       }
     }
-    return NSAccessibilityUnignoredChildren(ar);
+    [m_cached_children release];
+    m_cached_children_lastcnt = nc;
+    m_cached_children = NSAccessibilityUnignoredChildren(ar);
+    [m_cached_children retain];
+    return m_cached_children;
   }
 
   if ([attribute isEqual:NSAccessibilityEnabledAttribute])
@@ -496,8 +532,8 @@ public:
   }  
   if (__focus)
   {
-    VWndNSAccessibility *a = GetVWndNSAccessible(__focus);
-    if (a) return [a autorelease];
+    VWndBridgeNS *p = (VWndBridgeNS *)__focus->GetAccessibilityBridge();
+    if (p) return p->par;
   }
   return self;
 }

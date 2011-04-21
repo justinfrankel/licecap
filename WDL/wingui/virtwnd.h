@@ -61,6 +61,7 @@ class WDL_VWnd_IAccessibleBridge
 {
 public:
   virtual void Release()=0;
+  virtual void ClearCaches(){}
 };
 
 class WDL_VWnd
