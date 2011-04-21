@@ -63,6 +63,7 @@ public:
   virtual void Release()=0;
   virtual void ClearCaches(){}
   virtual void OnFocused() {} 
+  virtual void OnStateChange() {}
 };
 
 class WDL_VWnd

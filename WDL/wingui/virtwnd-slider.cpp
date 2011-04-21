@@ -514,6 +514,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         needsendcmd=false;
         SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
+        if (m__iaccess) m__iaccess->OnStateChange();
       }
       else return false;
     }
@@ -547,6 +548,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         needsendcmd=false;
         SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
+        if (m__iaccess) m__iaccess->OnStateChange();
       }
       else return false;
     }
@@ -554,7 +556,10 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   m_captured=true;
   if (needsendcmd)
+  {
     SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
+    if (m__iaccess) m__iaccess->OnStateChange();
+  }
   return 1;
 }
 
@@ -625,6 +630,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       {
         SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
+        if (m__iaccess) m__iaccess->OnStateChange();
       }
     }
   }
@@ -660,6 +666,7 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       {
         SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
         RequestRedraw(NULL);
+        if (m__iaccess) m__iaccess->OnStateChange();
       }
     }
   }
@@ -732,6 +739,7 @@ void WDL_VirtualSlider::OnMouseMove(int xpos, int ypos)
     bool isVert = GetIsVert();
     m_needflush=0;
     SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
+    if (m__iaccess) m__iaccess->OnStateChange();
   }
 }
 
@@ -758,6 +766,7 @@ bool WDL_VirtualSlider::OnMouseDblClick(int xpos, int ypos)
   SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
 
   RequestRedraw(NULL);
+  if (m__iaccess) m__iaccess->OnStateChange();
   
   m_captured=false;
   return true;
@@ -786,6 +795,7 @@ bool WDL_VirtualSlider::OnMouseWheel(int xpos, int ypos, int amt)
   SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_THUMBTRACK,GetID(),this);
 
   RequestRedraw(NULL);
+  if (m__iaccess) m__iaccess->OnStateChange();
 
   return true;
 }

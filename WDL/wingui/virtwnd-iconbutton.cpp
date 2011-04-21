@@ -432,6 +432,7 @@ void WDL_VirtualIconButton::DoSendCommand(int xpos, int ypos)
       }
     }
     SendCommand(WM_COMMAND,code,0,this);
+    if (m__iaccess && m_checkstate>=0) m__iaccess->OnStateChange();
   }
 }
 
@@ -509,6 +510,7 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       RequestRedraw(NULL);
     // track menu
       SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
+      if (m__iaccess) m__iaccess->OnStateChange();
     }
   }
   return -1;

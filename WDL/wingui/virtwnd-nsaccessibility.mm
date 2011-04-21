@@ -27,6 +27,7 @@ public:
     vwnd=0; 
     if (par) 
     {
+      NSAccessibilityPostNotification(par,NSAccessibilityUIElementDestroyedNotification);
       [par release];
        // this is probably no longer valid!
     }
@@ -44,6 +45,10 @@ public:
       NSAccessibilityPostNotification(par,NSAccessibilityFocusedUIElementChangedNotification);
    }
   } 
+  virtual void OnStateChange() 
+  {
+    if (par) NSAccessibilityPostNotification(par,NSAccessibilityValueChangedNotification);
+  }
   
   VWndNSAccessibility *par;
   WDL_VWnd *vwnd;
@@ -167,6 +172,20 @@ public:
     }
     
     s[sidx++] = NSAccessibilityWindowAttribute;
+    bool hasState = false;
+    if (!strcmp(type,"vwnd_iconbutton"))
+    {
+      hasState = ((WDL_VirtualIconButton*)m_br->vwnd)->GetCheckState()>=0;
+    }
+    else if (!strcmp(type,"vwnd_combobox")) hasState=true;
+    else if (!strcmp(type,"vwnd_slider")) hasState=true;
+
+    if (hasState)
+    {
+      s[sidx++] = NSAccessibilityMaxValueAttribute;
+      s[sidx++] = NSAccessibilityMinValueAttribute;
+      s[sidx++] = NSAccessibilityValueAttribute;
+    }
   }
 
   if (m_cached_attrnames) [m_cached_attrnames release];
@@ -325,7 +344,7 @@ public:
         lstrcpyn(buf,str,sizeof(buf)-128);
         str=buf;
       }
-      strcat(buf,cs>0 ? " checked" : " unchecked");
+//      strcat(buf,cs>0 ? " checked" : " unchecked");
       
     }
     
@@ -339,6 +358,35 @@ public:
     {
       return [(NSView *)h window];
     }
+  }
+  int s;
+  if ((s=!![attribute isEqual:NSAccessibilityMaxValueAttribute]) ||
+       (s=[attribute isEqual:NSAccessibilityValueAttribute]?2:0) || 
+        [attribute isEqual:NSAccessibilityMinValueAttribute])
+  {
+     if (!strcmp(type,"vwnd_slider"))
+     {
+       WDL_VirtualSlider *slid = (WDL_VirtualSlider *)m_br->vwnd;
+       int v=0;
+       if (s!=2) slid->GetRange(s ? NULL : &v, s ? &v :NULL,NULL);
+       else v= slid->GetSliderPosition();
+       return [NSNumber numberWithInt:v];
+     }
+     if (!strcmp(type,"vwnd_combobox"))
+     {
+       int v=0;
+       if (s==1) v=((WDL_VirtualComboBox*)m_br->vwnd)->GetCount();
+       else if (s==2) v= !!((WDL_VirtualComboBox *)m_br->vwnd)->GetCurSel();
+       if (v<0)v=0;
+       return [NSNumber numberWithInt:v];
+     }
+     if (!strcmp(type,"vwnd_iconbutton"))
+     {
+       int v=0;
+       if (s==1) v=1;
+       else if (s==2) v= !!((WDL_VirtualIconButton *)m_br->vwnd)->GetCheckState()>0;
+       return [NSNumber numberWithInt:v];
+     }
   }
   
   return nil;
