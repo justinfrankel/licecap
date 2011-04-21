@@ -602,6 +602,18 @@ void WDL_VWnd::RequestRedraw(RECT *r)
   else if (m_parent) m_parent->RequestRedraw(&r2); 
 }
 
+bool WDL_VWnd::IsDescendent(WDL_VWnd *w)
+{
+  if (!w || !m_children) return false;
+  int x,n=m_children->GetSize();
+  for(x=0;x<n;x++) if (m_children->Get(x) == w) return true;
+  for(x=0;x<n;x++) 
+  {
+    WDL_VWnd *tmp = m_children->Get(x);
+    if (tmp && tmp->IsDescendent(w)) return true;
+  }
+  return false;
+}
 
 void WDL_VWnd::SetChildPosition(WDL_VWnd *ch, int pos)
 {

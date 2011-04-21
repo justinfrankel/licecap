@@ -445,6 +445,8 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   if (m_grayed) return false;
   m_needflush=0;
 
+  if (m__iaccess) m__iaccess->OnFocused();
+
   bool isVert = GetIsVert();
   int rsize=m_maxr-m_minr;
   if (rsize<1)rsize=1;

@@ -35,6 +35,15 @@ public:
   {
     if (par) [par clearCaches];
   }
+  virtual void OnFocused() 
+  {
+    if (vwnd && __focus != vwnd && par)
+    {
+      __focus = vwnd;
+      NSAccessibilityPostNotification(par,NSAccessibilityFocusedWindowChangedNotification);
+      NSAccessibilityPostNotification(par,NSAccessibilityFocusedUIElementChangedNotification);
+   }
+  } 
   
   VWndNSAccessibility *par;
   WDL_VWnd *vwnd;
@@ -218,7 +227,7 @@ public:
   }
   if ([attribute isEqual:NSAccessibilityFocusedAttribute])
   {
-    return [NSNumber numberWithBool:__focus == m_br->vwnd]; // todo focus bleh
+    return [NSNumber numberWithBool:(__focus == m_br->vwnd || (m_br->vwnd && m_br->vwnd->IsDescendent(__focus)))]; // todo focus bleh
   }
   if ([attribute isEqual:NSAccessibilityParentAttribute])
   {
@@ -530,7 +539,7 @@ public:
     if (!type) type="";
     //NSLog(@"accessibilityFocusedUIElement: %s %p\n",type,m_br->vwnd);
   }  
-  if (__focus)
+  if (__focus && m_br && m_br->vwnd && m_br->vwnd->IsDescendent(__focus))
   {
     VWndBridgeNS *p = (VWndBridgeNS *)__focus->GetAccessibilityBridge();
     if (p) return p->par;

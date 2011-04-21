@@ -379,6 +379,7 @@ int WDL_VirtualIconButton::OnMouseDown(int xpos, int ypos)
   {
     m_pressed=3;
     RequestRedraw(NULL);
+    if (m__iaccess) m__iaccess->OnFocused();
 
     if (m_immediate)
     {
@@ -474,6 +475,7 @@ static void GenSubMenu(HMENU menu, int *x, WDL_PtrList<char> *items, int curitem
 
 int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 {
+  if (m__iaccess) m__iaccess->OnFocused();
   if (m_items.GetSize())
   {    
     //SendCommand(WM_COMMAND, GetID()|(CBN_DROPDOWN<<16), 0, this);
@@ -646,6 +648,8 @@ int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 {
   int a = WDL_VWnd::OnMouseDown(xpos,ypos);
   if (a) return a;
+
+  if (m__iaccess) m__iaccess->OnFocused();
 
   if (m_wantsingle)
   {

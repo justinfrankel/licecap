@@ -539,6 +539,7 @@ int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
 {
   if (m_grayed) return false;
 
+  if (m__iaccess) m__iaccess->OnFocused();
   int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
 
   int nrows,num_cols,updownbuttonsize,leftrightbuttonsize,startpos,usedw;

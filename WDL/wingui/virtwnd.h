@@ -62,6 +62,7 @@ class WDL_VWnd_IAccessibleBridge
 public:
   virtual void Release()=0;
   virtual void ClearCaches(){}
+  virtual void OnFocused() {} 
 };
 
 class WDL_VWnd
@@ -128,6 +129,7 @@ public:
   virtual void SetChildPosition(WDL_VWnd *ch, int pos);
   
   virtual void SetCurPainter(WDL_VWnd_Painter *p) { m_curPainter=p; }
+  virtual bool IsDescendent(WDL_VWnd *w);
 protected:
   WDL_VWnd *m_parent;
   WDL_VWnd_IAccessibleBridge *m__iaccess;
