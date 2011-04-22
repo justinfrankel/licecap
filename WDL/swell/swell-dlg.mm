@@ -843,18 +843,26 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       }
     }
     
-    // do not mess with focus if initdialog returns 0 -- just like windows heh
     if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par))
     {
+      // set first responder to first item in window
       if (hFoc) 
       {
         id wnd = [self window];
         if (wnd && [wnd firstResponder] != (id)hFoc) [wnd makeFirstResponder:(id)hFoc];
       }
+
+
+      if (parent && [(id)parent isKindOfClass:[SWELL_ModelessWindow class]] && ![(NSWindow *)parent isVisible])
+      {
+        // on win32, if you do CreateDialog(), WM_INITDIALOG(ret=1), then ShowWindow(SW_SHOWNA), you get the
+        // window brought to front. this simulates that, hackishly.
+        ((SWELL_ModelessWindow *)parent)->m_wantInitialKeyWindowOnShow = true;
+      }
     }
     else
     {
-      // if top level dialog,always set default focus if it wasn't set (just like win32)
+      // if top level dialog,always set default focus if it wasn't set
       // if this causes problems, change NSWindow to be SWELL_ModalDialog, as that would
       // only affect DialogBox() and not CreateDialog(), which might be preferable.
       if (hFoc && parent && [(id)parent isKindOfClass:[NSWindow class]]) 
@@ -1702,6 +1710,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask
 {
   INIT_COMMON_VARS
+  m_wantInitialKeyWindowOnShow=0;
   m_wantraiseamt=0;
   lastFrameSize.width=lastFrameSize.height=0.0f;
     
@@ -1737,6 +1746,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
 - (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut
 {
   INIT_COMMON_VARS
+  m_wantInitialKeyWindowOnShow=0;
   m_wantraiseamt=0;
 
   lastFrameSize.width=lastFrameSize.height=0.0f;

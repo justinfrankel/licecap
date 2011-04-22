@@ -330,6 +330,7 @@ struct HTREEITEM__
   OwnedWindowListRec *m_ownedwnds;
   BOOL m_enabled;
   int m_wantraiseamt;
+  bool  m_wantInitialKeyWindowOnShow;
 }
 - (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut;
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask;

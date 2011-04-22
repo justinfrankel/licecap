@@ -2401,6 +2401,14 @@ void ShowWindow(HWND hwnd, int cmd)
   
   if (pid && [pid isKindOfClass:[NSWindow class]])
   {
+    if (cmd == SW_SHOWNA && [pid isKindOfClass:[SWELL_ModelessWindow class]])
+    {
+      if (((SWELL_ModelessWindow *)pid)->m_wantInitialKeyWindowOnShow)
+      {
+        ((SWELL_ModelessWindow *)pid)->m_wantInitialKeyWindowOnShow=false;
+        cmd = SW_SHOW;
+      }
+    }
     if (cmd==SW_SHOW)
     {
       [pid makeKeyAndOrderFront:pid];
