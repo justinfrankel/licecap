@@ -162,9 +162,23 @@ public:
 
   void Resort()
   {
-    if (m_data.GetSize()>1 && m_keycmp)
+    if (m_data.GetSize() > 1 && m_keycmp)
     {
       qsort(m_data.Get(),m_data.GetSize(),sizeof(KeyVal),(int(*)(const void *,const void *))m_keycmp);
+
+      // AddUnsorted can add duplicate keys
+      // unfortunately qsort is not guaranteed to preserve order,
+      // ideally this filter would always preserve the last-added key
+      int i;
+      for (i=0; i < m_data.GetSize()-1; ++i)
+      {
+        KeyVal* kv=m_data.Get()+i;
+        KeyVal* nv=kv+1;
+        if (!m_keycmp(&kv->key, &nv->key))
+        {
+          DeleteByIndex(i--);
+        }
+      }
     }
   }
 
@@ -175,7 +189,8 @@ public:
     while (a != c)
     {
       int b = (a+c)/2;
-      int cmp = m_keycmp(&key, &m_data.Get()[b].key);
+      KeyVal* kv=m_data.Get()+b;
+      int cmp = m_keycmp(&key, &kv->key);
       if (cmp > 0) a = b+1;
       else if (cmp < 0) c = b;
       else
