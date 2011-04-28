@@ -37,6 +37,21 @@ static BOOL useNoMiddleManCocoa()
   return is105>0;
 }
 
+void updateWindowCollection(NSWindow *w)
+{
+  static SInt32 ver;
+  if (!ver)
+  {
+    Gestalt(gestaltSystemVersion,&ver);
+    if (!ver) ver=0x1040;
+  }
+  if (ver>=0x1060)
+  {
+    const int NSWindowCollectionBehaviorParticipatesInCycle = 1 << 5;
+    const int  NSWindowCollectionBehaviorManaged = 1 << 2;
+    [w setCollectionBehavior:NSWindowCollectionBehaviorManaged|NSWindowCollectionBehaviorParticipatesInCycle];
+  }
+}
 
 static void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc);
 static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv);
@@ -1725,6 +1740,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   [self setAcceptsMouseMovedEvents:YES];
   [self setContentView:(NSView *)child];
   [self useOptimizedDrawing:YES];
+  updateWindowCollection(self);
     
   if (owner && [(id)owner respondsToSelector:@selector(swellAddOwnedWindow:)])
   {
@@ -1770,6 +1786,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   [self setAcceptsMouseMovedEvents:YES];
   [self useOptimizedDrawing:YES];
   [self setDelegate:self];
+  updateWindowCollection(self);
   
   if (resstate&&resstate->title) SetWindowText((HWND)self, resstate->title);
   
@@ -1851,6 +1868,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
   [self setAcceptsMouseMovedEvents:YES];
   [self useOptimizedDrawing:YES];
   [self setDelegate:self];
+  updateWindowCollection(self);
 
   if (parent && [(id)parent respondsToSelector:@selector(swellAddOwnedWindow:)])
   {
