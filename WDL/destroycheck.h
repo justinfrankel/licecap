@@ -7,7 +7,7 @@
 // is still valid).
 //
 // example:
-// class myClass // {
+// class myClass {
 //   WDL_DestroyState dest;
 //   ...
 // };
@@ -20,22 +20,55 @@
 // NOTE: only use this when these objects will be accessed from the same thread -- it will fail miserably
 // in a multithreaded environment
 
+
+struct WDL_DestroyStateRec
+{
+  WDL_DestroyStateRec *next; // this may sometimes be WDL_DestroyState::next
+  WDL_DestroyStateRec *prev; // never use prev->prev, it may not be valid (if prev points to WDL_DestroyState::next instead of a WDL_DestroyStateRec)!
+};
+
 class WDL_DestroyState
 {
-    int *b;
   public:
-    WDL_DestroyState() : b(NULL) {  }
-    ~WDL_DestroyState() { if (b && !(*b&=0x7fffffff)) free(b); }
-    int *getB() { if (!b && (b=(int *)malloc(sizeof(int)))) *b = 0x80000000; return b; }
+    WDL_DestroyState() { next=NULL; }
+
+    ~WDL_DestroyState() 
+    { 
+      while (next)
+      {
+        WDL_DestroyStateRec *np = next->next;
+        next->prev=next->next=NULL;
+        next=np;
+      }
+    }
+
+    WDL_DestroyStateRec *next;
 };
 
 class WDL_DestroyCheck
 {
-    int *m_s;
+    WDL_DestroyStateRec s;
   public:
-    WDL_DestroyCheck(WDL_DestroyState *s) { if ((m_s = s->getB())) ++*m_s; }
-    ~WDL_DestroyCheck() { if (m_s && !--*m_s) free(m_s); }
-    bool isOK() { return m_s && (*m_s&0x80000000); }
+    WDL_DestroyCheck(WDL_DestroyState *state)
+    { 
+      s.next=NULL;
+      if ((s.prev=(WDL_DestroyStateRec *)&state->next)) 
+      {
+	if ((s.next=s.prev->next)) s.next->prev = &s;
+	s.prev->next=&s;
+      }
+
+    }
+    ~WDL_DestroyCheck() 
+    { 
+      if (s.prev)
+      {
+        s.prev->next = s.next; 
+        if (s.next) s.next->prev = s.prev; 
+      }
+    }
+
+    bool isOK() { return !!s.prev; }
 };
 
 #endif
