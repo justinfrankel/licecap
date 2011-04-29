@@ -22,52 +22,44 @@
 
 
 
-struct WDL_DestroyStateRec;
-struct WDL_DestroyStateNextRec { WDL_DestroyStateRec *next; };
-struct WDL_DestroyStateRec { WDL_DestroyStateNextRec n, *prev;  };
-
-class WDL_DestroyState
-{
-  public:
-    WDL_DestroyState() { nn.next=NULL; }
-
-    ~WDL_DestroyState() 
-    { 
-      while (nn.next)
-      {
-        WDL_DestroyStateRec *np = nn.next->n.next;
-        nn.next->prev=NULL; nn.next->n.next=NULL;
-        nn.next=np;
-      }
-    }
-
-    WDL_DestroyStateNextRec nn;
-};
 
 class WDL_DestroyCheck
 {
-    WDL_DestroyStateRec s;
   public:
-    WDL_DestroyCheck(WDL_DestroyState *state)
-    { 
-      s.n.next=NULL;
-      if ((s.prev=&state->nn)) 
-      {
-	      if ((s.n.next=s.prev->next)) s.n.next->prev = &s.n;
-	      s.prev->next=&s;
-      }
+    class WDL_DestroyStateNextRec { public: WDL_DestroyCheck *next; };
 
+    WDL_DestroyStateNextRec n, *prev; 
+    WDL_DestroyCheck(WDL_DestroyStateNextRec *state)
+    {
+      n.next=NULL;
+      if ((prev=state)) 
+      {
+        if ((n.next=prev->next)) n.next->prev = &n;
+        prev->next=this;
+      }
     }
     ~WDL_DestroyCheck() 
     { 
-      if (s.prev)
+      if (prev)
       {
-        s.prev->next = s.n.next; 
-        if (s.n.next) s.n.next->prev = s.prev; 
+        prev->next = n.next; 
+        if (n.next) n.next->prev = prev; 
       }
     }
 
-    bool isOK() { return !!s.prev; }
+    bool isOK() { return !!prev; }
+};
+
+class WDL_DestroyState : public WDL_DestroyCheck::WDL_DestroyStateNextRec
+{
+  public:
+    WDL_DestroyState() { next=NULL; }
+
+    ~WDL_DestroyState() 
+    { 
+      WDL_DestroyCheck *p = next;
+      while (p) { WDL_DestroyCheck *np = p->n.next; p->prev=NULL; p->n.next=NULL; p=np; }
+    }
 };
 
 #endif
