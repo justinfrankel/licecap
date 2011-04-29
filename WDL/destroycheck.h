@@ -21,26 +21,18 @@
 class WDL_DestroyState
 {
   public:
-   struct buff
-   {
-      buff() { refcnt=1; isOK=true; }
-      ~buff() { }
-      void Release() { if (--refcnt<1) delete this; }
-      int refcnt;
-      bool isOK; 
-    };
-    WDL_DestroyState() { b=new buff; }
-    ~WDL_DestroyState() { b->isOK=false; b->Release(); }
-    buff *b;
+    WDL_DestroyState() { if ((b=(int *)malloc(sizeof(int)))) *b = 0x80000000; }
+    ~WDL_DestroyState() { if (b && !(*b&=0x7fffffff)) free(b); }
+    int *b;
 };
 
 class WDL_DestroyCheck
 {
-    WDL_DestroyState::buff *m_s;
+    int *m_s;
   public:
-    WDL_DestroyCheck(WDL_DestroyState *s) { m_s = s->b; m_s->refcnt++; }
-    ~WDL_DestroyCheck() { m_s->Release();  }
-    bool isOK() { return m_s->isOK; }
+    WDL_DestroyCheck(WDL_DestroyState *s) { if ((m_s = s->b)) ++*m_s; }
+    ~WDL_DestroyCheck() { if (m_s && !--*m_s) free(m_s); }
+    bool isOK() { return !m_s || (*m_s&0x80000000); }
 };
 
 #endif
