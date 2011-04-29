@@ -20,19 +20,20 @@
 
 class WDL_DestroyState
 {
-  public:
-    WDL_DestroyState() { if ((b=(int *)malloc(sizeof(int)))) *b = 0x80000000; }
-    ~WDL_DestroyState() { if (b && !(*b&=0x7fffffff)) free(b); }
     int *b;
+  public:
+    WDL_DestroyState() : b(NULL) {  }
+    ~WDL_DestroyState() { if (b && !(*b&=0x7fffffff)) free(b); }
+    int *getB() { if (!b && (b=(int *)malloc(sizeof(int)))) *b = 0x80000000; return b; }
 };
 
 class WDL_DestroyCheck
 {
     int *m_s;
   public:
-    WDL_DestroyCheck(WDL_DestroyState *s) { if ((m_s = s->b)) ++*m_s; }
+    WDL_DestroyCheck(WDL_DestroyState *s) { if ((m_s = s->getB())) ++*m_s; }
     ~WDL_DestroyCheck() { if (m_s && !--*m_s) free(m_s); }
-    bool isOK() { return !m_s || (*m_s&0x80000000); }
+    bool isOK() { return m_s && (*m_s&0x80000000); }
 };
 
 #endif
