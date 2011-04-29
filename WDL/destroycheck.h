@@ -21,28 +21,27 @@
 // in a multithreaded environment
 
 
-struct WDL_DestroyStateRec
-{
-  WDL_DestroyStateRec *next; // this may sometimes be WDL_DestroyState::next
-  WDL_DestroyStateRec *prev; // never use prev->prev, it may not be valid (if prev points to WDL_DestroyState::next instead of a WDL_DestroyStateRec)!
-};
+
+struct WDL_DestroyStateRec;
+struct WDL_DestroyStateNextRec { WDL_DestroyStateRec *next; };
+struct WDL_DestroyStateRec { WDL_DestroyStateNextRec n, *prev;  };
 
 class WDL_DestroyState
 {
   public:
-    WDL_DestroyState() { next=NULL; }
+    WDL_DestroyState() { nn.next=NULL; }
 
     ~WDL_DestroyState() 
     { 
-      while (next)
+      while (nn.next)
       {
-        WDL_DestroyStateRec *np = next->next;
-        next->prev=next->next=NULL;
-        next=np;
+        WDL_DestroyStateRec *np = nn.next->n.next;
+        nn.next->prev=NULL; nn.next->n.next=NULL;
+        nn.next=np;
       }
     }
 
-    WDL_DestroyStateRec *next;
+    WDL_DestroyStateNextRec nn;
 };
 
 class WDL_DestroyCheck
@@ -51,11 +50,11 @@ class WDL_DestroyCheck
   public:
     WDL_DestroyCheck(WDL_DestroyState *state)
     { 
-      s.next=NULL;
-      if ((s.prev=(WDL_DestroyStateRec *)&state->next)) 
+      s.n.next=NULL;
+      if ((s.prev=&state->nn)) 
       {
-	if ((s.next=s.prev->next)) s.next->prev = &s;
-	s.prev->next=&s;
+	      if ((s.n.next=s.prev->next)) s.n.next->prev = &s.n;
+	      s.prev->next=&s;
       }
 
     }
@@ -63,8 +62,8 @@ class WDL_DestroyCheck
     { 
       if (s.prev)
       {
-        s.prev->next = s.next; 
-        if (s.next) s.next->prev = s.prev; 
+        s.prev->next = s.n.next; 
+        if (s.n.next) s.n.next->prev = s.prev; 
       }
     }
 
