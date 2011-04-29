@@ -17,6 +17,8 @@
 //  somefunction();
 //  if (!chk.isOK()) printf("classInstance got deleted!\n");
 //
+// NOTE: only use this when these objects will be accessed from the same thread -- it will fail miserably
+// in a multithreaded environment
 
 class WDL_DestroyState
 {
