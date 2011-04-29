@@ -431,8 +431,9 @@ void WDL_VirtualIconButton::DoSendCommand(int xpos, int ypos)
         code|=600<<16;
       }
     }
+    WDL_VWND_DCHK(a);
     SendCommand(WM_COMMAND,code,0,this);
-    if (m__iaccess && m_checkstate>=0) m__iaccess->OnStateChange();
+    if (a.isOK() && m__iaccess && m_checkstate>=0) m__iaccess->OnStateChange();
   }
 }
 
@@ -509,8 +510,9 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       m_curitem=ret-1000;
       RequestRedraw(NULL);
     // track menu
+      WDL_VWND_DCHK(a);
       SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
-      if (m__iaccess) m__iaccess->OnStateChange();
+      if (a.isOK() && m__iaccess) m__iaccess->OnStateChange();
     }
   }
   return -1;

@@ -512,9 +512,13 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         m_pos=pos;
 
         needsendcmd=false;
+        WDL_VWND_DCHK(chk);
         SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
-        RequestRedraw(NULL);
-        if (m__iaccess) m__iaccess->OnStateChange();
+        if (chk.isOK()) 
+        {
+          RequestRedraw(NULL);
+          if (m__iaccess) m__iaccess->OnStateChange();
+        }
       }
       else return false;
     }
@@ -546,9 +550,13 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
         m_pos=pos;
 
         needsendcmd=false;
+        WDL_VWND_DCHK(chk);
         SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
-        RequestRedraw(NULL);
-        if (m__iaccess) m__iaccess->OnStateChange();
+        if (chk.isOK())
+        {
+          RequestRedraw(NULL);
+          if (m__iaccess) m__iaccess->OnStateChange();
+        }
       }
       else return false;
     }
@@ -557,8 +565,9 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   m_captured=true;
   if (needsendcmd)
   {
+    WDL_VWND_DCHK(chk);
     SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
-    if (m__iaccess) m__iaccess->OnStateChange();
+    if (chk.isOK() && m__iaccess) m__iaccess->OnStateChange();
   }
   return 1;
 }
@@ -628,9 +637,13 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       if (isup || ypos != m_last_y||(m_is_knob&&xpos!=m_last_x))
       {
+        WDL_VWND_DCHK(chk);
         SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
-        RequestRedraw(NULL);
-        if (m__iaccess) m__iaccess->OnStateChange();
+        if (chk.isOK())
+        {
+          RequestRedraw(NULL);
+          if (m__iaccess) m__iaccess->OnStateChange();
+        }
       }
     }
   }
@@ -664,9 +677,13 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 
       if (isup || xpos != m_last_x)
       {
+        WDL_VWND_DCHK(chk);
         SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,isup?SB_ENDSCROLL:SB_THUMBTRACK,GetID(),this);
-        RequestRedraw(NULL);
-        if (m__iaccess) m__iaccess->OnStateChange();
+        if (chk.isOK())
+        {
+          RequestRedraw(NULL);
+          if (m__iaccess) m__iaccess->OnStateChange();
+        }
       }
     }
   }
@@ -738,8 +755,9 @@ void WDL_VirtualSlider::OnMouseMove(int xpos, int ypos)
   {
     bool isVert = GetIsVert();
     m_needflush=0;
+    WDL_VWND_DCHK(chk);
     SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
-    if (m__iaccess) m__iaccess->OnStateChange();
+    if (chk.isOK() && m__iaccess) m__iaccess->OnStateChange();
   }
 }
 
@@ -763,10 +781,14 @@ bool WDL_VirtualSlider::OnMouseDblClick(int xpos, int ypos)
   int pos=m_center;
   if (pos < 0) pos=WDL_STYLE_GetSliderDynamicCenterPos();
   m_pos=pos;
+  WDL_VWND_DCHK(chk);
   SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_ENDSCROLL,GetID(),this);
 
-  RequestRedraw(NULL);
-  if (m__iaccess) m__iaccess->OnStateChange();
+  if (chk.isOK())
+  {
+    RequestRedraw(NULL);
+    if (m__iaccess) m__iaccess->OnStateChange();
+  }
   
   m_captured=false;
   return true;
@@ -792,11 +814,14 @@ bool WDL_VirtualSlider::OnMouseWheel(int xpos, int ypos, int amt)
   m_pos=pos;
 
   m_needflush=1;
+  WDL_VWND_DCHK(chk);
   SendCommand(m_scrollmsg?m_scrollmsg:(isVert?WM_VSCROLL:WM_HSCROLL),SB_THUMBTRACK,GetID(),this);
 
-  RequestRedraw(NULL);
-  if (m__iaccess) m__iaccess->OnStateChange();
-
+  if (chk.isOK())
+  {
+    RequestRedraw(NULL);
+    if (m__iaccess) m__iaccess->OnStateChange();
+  }
   return true;
 }
 

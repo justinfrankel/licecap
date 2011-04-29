@@ -811,11 +811,12 @@ int WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
   }  
   RECT r;
   wnd->GetPosition(&r);
+  WDL_VWND_DCHK(chk);
   int a;
   if ((a=wnd->OnMouseDown(xpos-r.left,ypos-r.top)))
   {
     if (a<0) return -1;
-    m_captureidx=m_children->Find(wnd);
+    if (chk.isOK()) m_captureidx=m_children->Find(wnd);
     return 1;
   }
   return false;
@@ -867,6 +868,7 @@ void WDL_VWnd::OnMouseMove(int xpos, int ypos)
 
   WDL_VWnd *wnd=m_children->Get(m_captureidx);
   
+  WDL_VWND_DCHK(chk);
   if (!wnd) 
   {
     wnd=VirtWndFromPoint(xpos,ypos,0);
@@ -882,7 +884,7 @@ void WDL_VWnd::OnMouseMove(int xpos, int ypos)
           t->GetPosition(&r);
           t->OnMouseMove(xpos-r.left,ypos-r.top);
         }
-        m_lastmouseidx=idx;
+        if (chk.isOK()) m_lastmouseidx=idx;
       }
     }
     else
@@ -894,11 +896,11 @@ void WDL_VWnd::OnMouseMove(int xpos, int ypos)
         t->GetPosition(&r);
         t->OnMouseMove(xpos-r.left,ypos-r.top);
       }
-      m_lastmouseidx=-1;
+      if (chk.isOK()) m_lastmouseidx=-1;
     }
   }
 
-  if (wnd) 
+  if (wnd && chk.isOK()) 
   {
     RECT r;
     wnd->GetPosition(&r);

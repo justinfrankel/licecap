@@ -66,6 +66,10 @@ public:
   virtual void OnStateChange() {}
 };
 
+
+#include "../destroycheck.h"
+#define WDL_VWND_DCHK(n) WDL_DestroyCheck n(&m_destroystate)
+
 class WDL_VWnd
 {
 public:
@@ -149,6 +153,7 @@ protected:
   WDL_VWnd_Painter *m_curPainter;
   virtual int GSC(int a);
 
+  WDL_DestroyState m_destroystate;
 };
 
 
