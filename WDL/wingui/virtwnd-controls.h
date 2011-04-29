@@ -132,6 +132,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     char m_textalign;
     char m_checkstate;
     bool m_forcetext;
+    bool m_need_iaccess_update;
     int m_forcetext_color;
 
     WDL_String m_textlbl;
@@ -213,6 +214,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
     int m_align;
     int m_curitem;
     LICE_IFont *m_font;
+    bool m_need_iaccess_update;
 
     WDL_PtrList<char> m_items;
     WDL_PtrList<void> m_itemdatas;
