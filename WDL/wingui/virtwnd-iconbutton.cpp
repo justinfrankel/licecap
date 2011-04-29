@@ -28,7 +28,6 @@
 
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
-  m_need_iaccess_update = false;
   m_alpha=1.0;
   m_checkstate=-1;
   m_textfont=0;
@@ -124,11 +123,6 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
 
 void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
-  if (m_need_iaccess_update)
-  {
-    m_need_iaccess_update = false;
-    if (m__iaccess) m__iaccess->OnStateChange();
-  }
   HDC hdc=drawbm->getDC();
   int col;
 
@@ -437,16 +431,14 @@ void WDL_VirtualIconButton::DoSendCommand(int xpos, int ypos)
         code|=600<<16;
       }
     }
-    if (m__iaccess && m_checkstate>=0) m_need_iaccess_update=true;
     SendCommand(WM_COMMAND,code,0,this);
-    // "this" might not be valid
+    if (m__iaccess && m_checkstate>=0) m__iaccess->OnStateChange();
   }
 }
 
 
 WDL_VirtualComboBox::WDL_VirtualComboBox()
 {
-  m_need_iaccess_update = false;
   m_font=0;
   m_align=-1;
   m_curitem=-1;
@@ -516,9 +508,9 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
     {
       m_curitem=ret-1000;
       RequestRedraw(NULL);
-      if (m__iaccess) m_need_iaccess_update=true;
+    // track menu
       SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
-      // "this" might not be valid
+      if (m__iaccess) m__iaccess->OnStateChange();
     }
   }
   return -1;
@@ -526,11 +518,6 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 
 void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
-  if (m_need_iaccess_update)
-  {
-    m_need_iaccess_update = false;
-    if (m__iaccess) m__iaccess->OnStateChange();
-  }
   {
     if (m_font) m_font->SetBkMode(TRANSPARENT);
 
