@@ -858,7 +858,7 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
         [NSApp mainMenu] != (NSMenu *)menu)
     {
       [NSApp setMainMenu:(NSMenu *)menu];
-      SendMessage(hwnd,WM_INITMENUPOPUP,(WPARAM)menu,0); // find a better place for this! TODO !!!
+      if (menu) SendMessage(hwnd,WM_INITMENUPOPUP,(WPARAM)menu,0); // find a better place for this! TODO !!!
     }
   }
   
@@ -867,19 +867,10 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
 
 HMENU GetMenu(HWND hwnd)
 {
-  if (!hwnd) return 0;
-  
-  HMENU ret = NULL;
-  if (![(id)hwnd respondsToSelector:@selector(swellGetMenu)] || !(ret=(HMENU) [(id)hwnd swellGetMenu])) 
-  {
-    if ([(id)hwnd isKindOfClass:[NSView class]])
-      hwnd = (HWND)[[(NSView *)hwnd window] contentView];
-    else if ([(id)hwnd isKindOfClass:[NSWindow class]])
-      hwnd = (HWND)[(NSWindow *)hwnd contentView];
-  }
-  if (!ret && hwnd && [(id)hwnd respondsToSelector:@selector(swellGetMenu)]) ret=(HMENU) [(id)hwnd swellGetMenu];
-  return ret;
-  
+  if (!hwnd) return NULL;
+  if ([(id)hwnd isKindOfClass:[NSWindow class]]) hwnd = (HWND)[(NSWindow *)hwnd contentView];
+  if ([(id)hwnd respondsToSelector:@selector(swellGetMenu)]) return (HMENU) [(id)hwnd swellGetMenu];
+  return NULL;
 }
 
 void DrawMenuBar(HWND hwnd)
