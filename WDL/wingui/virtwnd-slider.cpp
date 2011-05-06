@@ -478,18 +478,21 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   m_is_knob = wantKnob;
 
-  if (m_is_knob) isVert=true;
-
   m_last_y=ypos;    
   m_last_x=xpos;
   m_last_precmode=0;
 
   bool needsendcmd = m_sendmsgonclick;
-  if (isVert)
+  if (m_is_knob)
+  {
+    m_move_offset=0;
+    m_click_pos=m_pos;
+  }
+  else if (isVert)
   {
     m_move_offset=ypos-( viewh - bm_h - ((double)((m_pos-m_minr) * (viewh-bm_h))/(double)rsize));
     m_click_pos=m_pos;
-    if (m_move_offset < 0 || m_move_offset >= bm_h)
+    if (!m_is_knob && (m_move_offset < 0 || m_move_offset >= bm_h))
     {
       int xcent=xpos - vieww/2;
       bool hit;
