@@ -1631,7 +1631,7 @@ static HWND last_key_window;
     if (SWELL_owned_windows_levelincrease) if ([wnd isKindOfClass:[NSWindow class]]) \
     { \
       int extra = [wnd isKindOfClass:[SWELL_ModelessWindow class]] ? ((SWELL_ModelessWindow *)wnd)->m_wantraiseamt : 0; \
-      [wnd setLevel:[self level]+1+extra];  \
+      if ([NSApp isActive]) [wnd setLevel:[self level]+1+extra];  \
     } \
 }  \
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd \
@@ -1650,10 +1650,11 @@ static HWND last_key_window;
 } \
 - (void)swellResetOwnedWindowLevels { \
   if (SWELL_owned_windows_levelincrease) { OwnedWindowListRec *p=m_ownedwnds; \
-  int l=[self level]+1; \
+  bool active =  [NSApp isActive]; \
+  int l=[self level]+!!active; \
     while (p) { \
       if (p->hwnd) { \
-        int extra = [(id)p->hwnd isKindOfClass:[SWELL_ModelessWindow class]] ? ((SWELL_ModelessWindow *)p->hwnd)->m_wantraiseamt : 0; \
+        int extra = active && [(id)p->hwnd isKindOfClass:[SWELL_ModelessWindow class]] ? ((SWELL_ModelessWindow *)p->hwnd)->m_wantraiseamt : 0; \
         [(NSWindow *)p->hwnd setLevel:l+extra]; \
         if ([(id)p->hwnd respondsToSelector:@selector(swellResetOwnedWindowLevels)]) \
           [(id)p->hwnd swellResetOwnedWindowLevels]; \

@@ -5283,7 +5283,7 @@ void SWELL_SetWindowWantRaiseAmt(HWND h, int  amt)
   {
     int diff = amt - mw->m_wantraiseamt;
     mw->m_wantraiseamt = amt;
-    if (diff) [mw setLevel:[mw level]+diff];
+    if (diff && [NSApp isActive]) [mw setLevel:[mw level]+diff];
   }
 }
 
