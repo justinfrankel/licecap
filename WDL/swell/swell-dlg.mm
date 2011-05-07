@@ -1969,6 +1969,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
     
   if (![NSApp isActive]) // using this enables better background processing (i.e. if the app isnt active it still runs)
   {
+    [NSApp activateIgnoringOtherApps:YES];
     NSModalSession session = [NSApp beginModalSessionForWindow:box];
     for (;;) 
     {
