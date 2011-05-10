@@ -168,6 +168,32 @@ class LineParser {
       return l;
     }
 #endif
+
+  unsigned int WDL_LINEPARSE_PREFIX gettoken_uint(int token, int *success
+#ifdef WDL_LINEPARSE_INTF_ONLY
+      =0) ;
+#else
+#ifdef WDL_LINEPARSE_IMPL_ONLY
+    )
+#else
+    =0)
+#endif
+    { 
+      token+=m_eat;
+      if (token < 0 || token >= m_nt || !m_tokens || !m_tokens[token] || !m_tokens[token][0]) 
+      {
+        if (success) *success=0;
+        return 0;
+      }
+      char *tmp;      
+      const char* p=m_tokens[token];
+      if (p[0] == '-') ++p;
+      unsigned int val=(int)strtoul(p, &tmp, 0);
+      if (success) *success=! (int)(*tmp);
+      return val;
+    }
+#endif
+
     const char * WDL_LINEPARSE_PREFIX gettoken_str(int token) 
 #ifdef WDL_LINEPARSE_INTF_ONLY
       ;
