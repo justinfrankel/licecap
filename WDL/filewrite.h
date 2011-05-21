@@ -214,16 +214,20 @@ public:
       if (!noFileLocking)
       {
         int preverr;
-        if ((preverr=flock(m_filedes,LOCK_EX|LOCK_NB))<0 && errno == EWOULDBLOCK) // try to get exclusive, at least for a moment
+        m_filedes_locked = !flock(m_filedes,LOCK_EX|LOCK_NB);
+        if (!m_filedes_locked)
         {
-          // FAILED exclusive locking
-          close(m_filedes); 
-          m_filedes=-1;
-        }
-        else 
-        {
-          if (flock(m_filedes,LOCK_SH|LOCK_NB)>=0 || // return to shared lock
-              preverr>=0) m_filedes_locked=true;
+          // this check might not be necessary, it might be sufficient to just fail and close if no exclusive lock possible
+          if (errno == EWOULDBLOCK)  
+          {
+            // FAILED exclusive locking because someone else has a lock
+            close(m_filedes); 
+            m_filedes=-1;
+          }
+          else  // failed for some other reason, try to keep a shared lock at least
+          {
+            m_filedes_locked = !flock(m_filedes,LOCK_SH|LOCK_NB);
+          }
         }
       }
 
