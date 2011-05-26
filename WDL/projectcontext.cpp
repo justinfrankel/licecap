@@ -249,7 +249,8 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
 
   if (buflen > 0&&buf)
   {
-    int l = min(buflen-1,x);
+    int l = buflen-1;
+    if (l>x) l=x;
     memcpy(buf,p,l);
     buf[l]=0;
   }
