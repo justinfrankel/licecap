@@ -1410,6 +1410,8 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
   if (bottom_margin_out>0) 
     nbpass = 4;
 
+  bool no_inside = !!(mode & WDL_VWND_SCALEDBLITBG_IGNORE_INSIDE);
+
   bool no_lr=!!(mode & WDL_VWND_SCALEDBLITBG_IGNORE_LR);
 
 
@@ -1453,8 +1455,10 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         clipbottom += bottom_margin_out;
       break;
     }
-    
-    if (outh > 0 && inh > 0)
+    if (no_inside && pass >=0 && pass < 3)
+    {
+    }
+    else if (outh > 0 && inh > 0)
     {
 
       if (no_lr)
@@ -1475,23 +1479,26 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
                                (no_alpha_flags&1) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
         }
 
-        if (left_margin > 0)
-          __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx,outy,left_margin,outh,
-                               1+left_margin_out,iny,src->bgimage_lt[0]-1,inh,alpha,
-                               (no_alpha_flags&1) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
+        if (!no_inside)
+        {
+          if (left_margin > 0)
+            __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx,outy,left_margin,outh,
+                                 1+left_margin_out,iny,src->bgimage_lt[0]-1,inh,alpha,
+                                 (no_alpha_flags&1) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
 
 
-        // center
-        __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+left_margin,outy,
-                                destw-right_margin-left_margin,outh,
-                             src->bgimage_lt[0]+left_margin_out,iny,
-                             sw-src->bgimage_lt[0]-src->bgimage_rb[0]-right_margin_out-left_margin_out,
-                             inh,alpha,(no_alpha_flags&2) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
-        // right
-        if (right_margin > 0)
-          __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+destw-right_margin,outy, right_margin,outh,
-                               sw-src->bgimage_rb[0]-right_margin_out,iny,
-                               src->bgimage_rb[0]-1,inh,alpha,(no_alpha_flags&4) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode); 
+          // center
+          __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+left_margin,outy,
+                                  destw-right_margin-left_margin,outh,
+                               src->bgimage_lt[0]+left_margin_out,iny,
+                               sw-src->bgimage_lt[0]-src->bgimage_rb[0]-right_margin_out-left_margin_out,
+                               inh,alpha,(no_alpha_flags&2) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
+          // right
+          if (right_margin > 0)
+            __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+destw-right_margin,outy, right_margin,outh,
+                                 sw-src->bgimage_rb[0]-right_margin_out,iny,
+                                 src->bgimage_rb[0]-1,inh,alpha,(no_alpha_flags&4) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode); 
+        }
 
         // right outside area
         if (right_margin_out>0)
