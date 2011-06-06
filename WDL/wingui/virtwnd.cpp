@@ -1411,6 +1411,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
     nbpass = 4;
 
   bool no_inside = !!(mode & WDL_VWND_SCALEDBLITBG_IGNORE_INSIDE);
+  bool no_outside = !!(mode & WDL_VWND_SCALEDBLITBG_IGNORE_OUTSIDE);
 
   bool no_lr=!!(mode & WDL_VWND_SCALEDBLITBG_IGNORE_LR);
 
@@ -1455,7 +1456,8 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         clipbottom += bottom_margin_out;
       break;
     }
-    if (no_inside && pass >=0 && pass < 3)
+
+    if ((pass >=0 && pass < 3) ? no_inside : no_outside)
     {
     }
     else if (outh > 0 && inh > 0)
@@ -1472,7 +1474,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
       else
       {
         // left 
-        if (left_margin_out>0)
+        if (left_margin_out>0 && !no_outside)
         {
           __VirtClipBlit(clipx-left_margin_out,this_clipy,clipright,clipbottom,dest,src->bgimage,destx-left_margin_out,outy,left_margin_out,outh,
                                1,iny,left_margin_out,inh,alpha,
@@ -1501,7 +1503,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         }
 
         // right outside area
-        if (right_margin_out>0)
+        if (right_margin_out>0 && !no_outside)
           __VirtClipBlit(clipx,this_clipy,clipright+right_margin_out,clipbottom,dest,src->bgimage,destx+destw,outy,right_margin_out,outh,
             sw-right_margin_out-1,iny,
             right_margin_out,inh,alpha,(no_alpha_flags&8) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode); 
