@@ -627,6 +627,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
   // if using line-spacing adjustments (m_lsadj), don't allow native rendering 
   // todo: split rendering up into invidual lines and DrawText calls
   if ((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !forceWantAlpha &&!LICE_Text_IsWine() && 
+      !(dtFlags & LICE_DT_USEFGALPHA) &&
       !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags) &&
      (!m_lsadj || (dtFlags&DT_SINGLELINE))) 
   {
@@ -850,9 +851,16 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
     return (m_flags&LICE_FONT_FLAG_VERTICAL) ? max_xpos : max_ypos;
   }
+  float alphaSave  = m_alpha;
+
+  if (dtFlags & LICE_DT_USEFGALPHA)
+  {
+    m_alpha *= LICE_GETA(m_fg)/255.0;
+  }
 
   if (m_alpha==0.0) 
   {
+    m_alpha=alphaSave;
     return 0;
   }
 
@@ -910,6 +918,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     if (use_rect.bottom > bm->getHeight()) use_rect.bottom = bm->getHeight();
     if (use_rect.right <= use_rect.left || use_rect.bottom <= use_rect.top)
     {
+      m_alpha=alphaSave;
       return 0;
     }
   }
@@ -992,5 +1001,6 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     }
   }
 
+  m_alpha=alphaSave;
   return (m_flags&LICE_FONT_FLAG_VERTICAL) ? max_xpos - start_x : max_ypos - start_y;
 }

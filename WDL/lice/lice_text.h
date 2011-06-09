@@ -27,7 +27,8 @@
          LICE_FONT_FLAG_FX_BLUR|LICE_FONT_FLAG_FX_INVERT|LICE_FONT_FLAG_FX_MONO| \
          LICE_FONT_FLAG_FX_SHADOW|LICE_FONT_FLAG_FX_OUTLINE))
 
-#define LICE_DT_NEEDALPHA 0x80000000 // include in DrawText() if the output alpha channel is important
+#define LICE_DT_NEEDALPHA  0x80000000 // include in DrawText() if the output alpha channel is important
+#define LICE_DT_USEFGALPHA 0x40000000 // uses alpha channel in fg color 
 
 class LICE_IFont
 {
