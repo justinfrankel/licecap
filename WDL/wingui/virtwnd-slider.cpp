@@ -30,6 +30,7 @@
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
+  m_knobbias=0;
   m_zl_color = m_knob_color=0;
   m_is_knob=false;
   m_tl_extra=m_br_extra=0;
@@ -53,9 +54,9 @@ bool WDL_VirtualSlider::GetIsVert()
   return m_position.right-m_position.left < m_position.bottom-m_position.top;
 }
 
-static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL, bool *want_knob=NULL)
+static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfig *a, bool vert, int *bmw, int *bmh, int *startoffs=NULL, bool *want_knob=NULL, int knob_bias=0)
 {
-  if (want_knob) *want_knob=false;
+  if (want_knob) *want_knob=knob_bias>0;
   if (a) 
   {
     int ret=a->thumbimage_rb[vert] - a->thumbimage_lt[vert];
@@ -76,7 +77,7 @@ static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfi
   }
   if (vert)
   {
-    if (want_knob && *bmh >= wndh*3/4) *want_knob=true;
+    if (want_knob && *bmh >= wndh*3/4 && !knob_bias) *want_knob=true;
     if (*bmh > wndh/2)
     {
       if (startoffs) *startoffs += (*bmh - wndh/2)/2;
@@ -85,7 +86,7 @@ static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfi
   }
   else
   {
-    if (want_knob && *bmw >= wndw*3/4) *want_knob=true;
+    if (want_knob && *bmw >= wndw*3/4 && !knob_bias) *want_knob=true;
     if (*bmw > wndw/2)
     {
       if (startoffs) *startoffs += (*bmw - wndw/2)/2;
@@ -171,7 +172,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
   {
     bm_w2=bm_w=bm_image->getWidth();
     bm_h2=bm_h=bm_image->getHeight();
-    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset,&wantKnob);
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w2,&bm_h2,&imgoffset,&wantKnob,m_knobbias);
   }
   else
   {
@@ -181,7 +182,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       bm_w2=bm_w=bm_image->getWidth();
       bm_h2=bm_h=bm_image->getHeight();
     }
-    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w2,&bm_h2,&imgoffset,&wantKnob);
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w2,&bm_h2,&imgoffset,&wantKnob,m_knobbias);
   }
 
   float alpha = (m_grayed ? 0.25f : 1.0f);
@@ -463,7 +464,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
   {
     bm_w=bm_image->getWidth();
     bm_h=bm_image->getHeight();
-    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w,&bm_h,NULL,&wantKnob);
+    AdjustThumbImageSize(vieww,viewh,m_skininfo,isVert,&bm_w,&bm_h,NULL,&wantKnob,m_knobbias);
   }
   else
   {
@@ -473,7 +474,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
       bm_w=bm_image->getWidth();
       bm_h=bm_image->getHeight();
     }
-    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w,&bm_h,NULL,&wantKnob);
+    AdjustThumbImageSize(vieww,viewh,NULL,isVert,&bm_w,&bm_h,NULL,&wantKnob,m_knobbias);
   }
 
   m_is_knob = wantKnob;
@@ -866,7 +867,7 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     int bm_w2=bm_w;
     int bm_h2=bm_h;
     bool wantKnob=false;
-    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s,&wantKnob);
+    AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s,&wantKnob,m_knobbias);
     if (wantKnob) return;
 
     int rsize=m_maxr-m_minr;
