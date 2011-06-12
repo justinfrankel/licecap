@@ -584,5 +584,10 @@ HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, uns
   return NULL;
 }
 
+HICON CreateIconIndirect(ICONINFO* iconinfo)
+{
+  return NULL;
+}
+
 #endif
 #endif // !SWELL_LICE_GDI

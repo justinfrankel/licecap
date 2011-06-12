@@ -2589,16 +2589,21 @@ void ImageList_Destroy(HIMAGELIST list)
   delete p;
 }
 
-void ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
+int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 {
-  if (!image || !list) return;
+  if (!image || !list) return -1;
   WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
-  if (offset<0||offset>=l->GetSize()) l->Add(image);
+  if (offset<0||offset>=l->GetSize()) 
+  {
+    l->Add(image);
+    offset=l->GetSize()-1;
+  }
   else
   {
     HICON old=l->Get(offset);
     l->Set(offset,image);
   }
+  return offset;
 }
 
 

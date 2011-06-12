@@ -954,6 +954,21 @@ HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, uns
   return NULL;
 }
 
+HICON CreateIconIndirect(ICONINFO* iconinfo)
+{
+  if (!iconinfo || !iconinfo->fIcon) return 0;  
+  HGDIOBJ__* i=iconinfo->hbmColor;
+  if (!HGDIOBJ_VALID(i,TYPE_BITMAP) ) return 0;
+/*
+  if (!i->bitmapptr) return 0;
+  HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  icon->type=TYPE_BITMAP;
+  icon->wid=1;
+  return icon;   
+*/
+  return NULL;
+}
+
 #endif
 
 #endif // SWELL_LICE_GDI
