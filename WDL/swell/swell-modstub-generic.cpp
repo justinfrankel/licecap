@@ -2,7 +2,9 @@
 
 #define SWELL_API_DEFPARM(x)
 #define SWELL_API_DEFINE(ret,func,parms) ret (*func) parms ;
+extern "C" {
 #include "swell.h"
+};
 
 // only include this file in projects that are linked to swell.dylib
 
@@ -91,7 +93,7 @@ public:
 SwellAPPInitializer m_swell_appAPIinit;
 
 #ifdef SWELL_LOAD_SWELL_DYLIB
-__attribute__ ((visibility ("default"))) void *SWELLAPI_GetFunc(const char *name)
+extern "C" __attribute__ ((visibility ("default"))) void *SWELLAPI_GetFunc(const char *name)
 {
   if (__loaded_getfunc) return __loaded_getfunc(name);
   return NULL;

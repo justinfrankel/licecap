@@ -106,7 +106,14 @@ typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWO
 
 
 // SWELLAPP stuff (swellappmain.mm)
+#ifdef __cplusplus
+extern "C"  {
+#endif
 INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2); // to be implemented by app (if using swellappmain.mm)
+#ifdef __cplusplus
+};
+#endif
+
 #define SWELLAPP_ONLOAD 0x0001 // initialization of app vars etc
 #define SWELLAPP_LOADED 0x0002 // create dialogs etc
 #define SWELLAPP_DESTROY 0x0003 // about to destroy (cleanup etc)
