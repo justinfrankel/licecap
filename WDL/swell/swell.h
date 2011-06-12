@@ -55,16 +55,13 @@
 #include "swell-functions.h"
 
 
-
 #ifndef SWELL_PROVIDED_BY_APP
 #ifndef _WDL_SWELL_H_UTIL_DEFINED_
 #define _WDL_SWELL_H_UTIL_DEFINED_
 
 // these should never be called directly!!! put SWELL_POSTMESSAGE_DELEGATE_IMPL in your nsapp delegate, and call SWELL_POSTMESSAGE_INIT at some point from there too
-void SWELL_Internal_PostMessage_Init();
-BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
                  
+#define SWELL_POSTMESSAGE_INIT SWELL_Internal_PostMessage_Init();
 #define SWELL_POSTMESSAGE_DELEGATE_IMPL \
                  -(bool)swellPostMessage:(HWND)dest msg:(int)message wp:(WPARAM)wParam lp:(LPARAM)lParam { \
                    return SWELL_Internal_PostMessage(dest,message,wParam,lParam); \
@@ -76,7 +73,8 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
                    SWELL_MessageQueue_Flush(); \
                  } 
                  
-#define SWELL_POSTMESSAGE_INIT SWELL_Internal_PostMessage_Init();
+BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 
 // if you use this then include swell-appstub.mm in your project

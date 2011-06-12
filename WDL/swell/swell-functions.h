@@ -1032,6 +1032,15 @@ SWELL_API_DEFINE(void, SWELL_GenerateDialogFromList, (const void *list, int list
 
 SWELL_API_DEFINE(unsigned int, _controlfp,(unsigned int flag, unsigned int mask))
 
+SWELL_API_DEFINE(void,SWELL_Internal_PostMessage_Init,())
 
+
+SWELL_API_DEFINE(HCURSOR,SWELL_LoadCursorFromFile,(const char *fn))
+SWELL_API_DEFINE(void,SWELL_SetWindowWantRaiseAmt,(HWND h, int  amt))
+
+#ifndef __APPLE__
+SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))
+SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
+#endif
 
 #endif // _WDL_SWELL_H_API_DEFINED_
