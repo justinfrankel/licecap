@@ -50,7 +50,7 @@ char *LICE_GetImageExtensionList(bool wantAllSup, bool wantAllFiles)
   if (wantAllSup)
   {
     static const char af[]="All supported images";
-    if (grow_buf(&buf,&bufsz,&wrpos,af,sizeof(af))) { free(buf); return "\0\0"; } // fail
+    if (grow_buf(&buf,&bufsz,&wrpos,af,sizeof(af))) { free(buf); return NULL; } // fail
 
     int cnt=0;
     while (hdr)
@@ -65,8 +65,8 @@ char *LICE_GetImageExtensionList(bool wantAllSup, bool wantAllFiles)
           if (st)
           {
             if (cnt++)
-              if (grow_buf(&buf,&bufsz,&wrpos,";",1))  { free(buf); return "\0\0"; } // fail
-            if (grow_buf(&buf,&bufsz,&wrpos,p,strlen(p)+1))  { free(buf); return "\0\0"; } // fail
+              if (grow_buf(&buf,&bufsz,&wrpos,";",1))  { free(buf); return NULL; } // fail
+            if (grow_buf(&buf,&bufsz,&wrpos,p,strlen(p)+1))  { free(buf); return NULL; } // fail
             wrpos--;
           }
           while (*p) p++;
