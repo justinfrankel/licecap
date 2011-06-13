@@ -75,7 +75,7 @@ void SWELL_MakeProcessFront(HANDLE h)
   {
     ProcessSerialNumber psn;
     
-    int pid=[buf->task processIdentifier];
+    int pid=[(id)buf->task processIdentifier];
     // try for 1sec to get the PSN, if it fails
     int n = 20;
     while (GetProcessForPID(pid,&psn) != noErr && n-- > 0)
