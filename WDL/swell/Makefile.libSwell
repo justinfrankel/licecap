@@ -1,8 +1,19 @@
+# use make -f Makefile.libSwell 
+# or make -f Makefile.libSwell NOGDK=1
+# or make -f Makefile.libSwell DEBUG=1 
+# etc
+
 ARCH := $(shell uname -m)
 
-CFLAGS = -O0 -g -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC
-CXXFLAGS = $(CFLAGS)
+CFLAGS = -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC
 
+ifdef DEBUG
+CFLAGS += -O0 -g 
+else
+CFLAGS += -O2 -s
+endif
+
+CXXFLAGS = $(CFLAGS)
 LINKEXTRA =  -lpthread -ldl -shared
 
 
@@ -20,7 +31,8 @@ LICE_OBJS = lice.o  lice_arc.o lice_colorspace.o lice_image.o lice_jpg.o lice_li
             lice_textnew.o lice_ico.o lice_bmp.o lice_lvg.o
 
 OBJS = $(SWELL_OBJS)
-ifdef GDK
+
+ifndef NOGDK
 GDK_CFLAGS = -DSWELL_TARGET_GDK $(shell pkg-config --cflags gdk-2.0) -DSWELL_LICE_GDI
 CFLAGS += $(GDK_CFLAGS)
 CXXFLAGS += $(GDK_CFLAGS)
