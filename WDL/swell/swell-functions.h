@@ -33,7 +33,11 @@
 
 
 #ifdef SWELL_PROVIDED_BY_APP
-#define SWELL_API_DEFINE(ret,func,parms) extern ret (*func)parms;
+  #ifdef __cplusplus
+    #define SWELL_API_DEFINE(ret,func,parms) extern "C" ret (*func)parms;
+  #else
+    #define SWELL_API_DEFINE(ret,func,parms) extern ret (*func)parms;
+  #endif
 #else
 #define SWELL_API_DEFINE(ret,func,parms) ret func parms ;
 #endif
