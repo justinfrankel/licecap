@@ -62,7 +62,7 @@ public:
   void BufferDone(int input_filled);
   void FlushSamples() {}
 
-  static char *enumQual(int q);
+  static const char *enumQual(int q);
  static bool GetSizes(int qv, int *ws, int *os);
 
   int GetSamples(int requested_output, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *buffer);
@@ -181,7 +181,7 @@ void WDL_SimplePitchShifter::BufferDone(int input_filled)
   }    
 }
 
-char *WDL_SimplePitchShifter::enumQual(int q)
+const char *WDL_SimplePitchShifter::enumQual(int q)
 {
   int ws,os;
   if (!GetSizes(q,&ws,&os)) return NULL;
