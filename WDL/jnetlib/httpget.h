@@ -54,19 +54,19 @@
 
       virtual void addheader(const char *header)=0;
 
-      virtual void connect(const char *url, int ver=0, char *requestmethod="GET")=0;
+      virtual void connect(const char *url, int ver=0, const char *requestmethod="GET")=0;
 
       virtual int run()=0; // returns: 0 if all is OK. -1 if error (call geterrorstr()). 1 if connection closed.
 
       virtual int   get_status()=0; // returns 0 if connecting, 1 if reading headers, 
                           // 2 if reading content, -1 if error.
 
-      virtual char *getallheaders()=0; // double null terminated, null delimited list
-      virtual char *getheader(char *headername)=0;
-      virtual char *getreply()=0;
+      virtual const char *getallheaders()=0; // double null terminated, null delimited list
+      virtual const char *getheader(const char *headername)=0;
+      virtual const char *getreply()=0;
       virtual int   getreplycode()=0; // returns 0 if none yet, otherwise returns http reply code.
 
-      virtual char *geterrorstr()=0;
+      virtual const char *geterrorstr()=0;
 
       virtual int bytes_available()=0;
       virtual int get_bytes(char *buf, int len)=0;
@@ -92,25 +92,25 @@ class JNL_HTTPGet JNL_HTTPGet_PARENTDEF
 
     void addheader(const char *header);
 
-    void connect(const char *url, int ver=0, char *requestmethod="GET");
+    void connect(const char *url, int ver=0, const char *requestmethod="GET");
 
     int run(); // returns: 0 if all is OK. -1 if error (call geterrorstr()). 1 if connection closed.
 
     int   get_status(); // returns 0 if connecting, 1 if reading headers, 
                         // 2 if reading content, -1 if error.
 
-    char *getallheaders(); // double null terminated, null delimited list
-    char *getheader(char *headername);
-    char *getreply() { return m_reply; }
+    const char *getallheaders(); // double null terminated, null delimited list
+    const char *getheader(const char *headername);
+    const char *getreply() { return m_reply; }
     int   getreplycode(); // returns 0 if none yet, otherwise returns http reply code.
 
-    char *geterrorstr() { return m_errstr;}
+    const char *geterrorstr() { return m_errstr;}
 
     int bytes_available();
     int get_bytes(char *buf, int len);
     int peek_bytes(char *buf, int len);
 
-    int content_length() { char *p=getheader("content-length"); if (p) return atoi(p); return 0; }
+    int content_length() { const char *p=getheader("content-length"); if (p) return atoi(p); return 0; }
 
     JNL_IConnection *get_con() { return m_con; }
 
@@ -122,7 +122,7 @@ class JNL_HTTPGet JNL_HTTPGet_PARENTDEF
   protected:
     void reinit();
     void deinit();
-    void seterrstr(char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
+    void seterrstr(const char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
 
     JNL_IAsyncDNS *m_dns;
     JNL_IConnection *m_con;

@@ -134,7 +134,7 @@ void JNL_HTTPGet::do_encode_mimestr(char *in, char *out)
 }
 
 
-void JNL_HTTPGet::connect(const char *url, int ver, char *requestmethod)
+void JNL_HTTPGet::connect(const char *url, int ver, const char *requestmethod)
 {
   deinit();
   m_http_url=(char*)malloc(strlen(url)+1);
@@ -277,13 +277,13 @@ void JNL_HTTPGet::do_parse_url(char *url, char **host, int *port, char **req, ch
 }
 
 
-char *JNL_HTTPGet::getallheaders()
+const char *JNL_HTTPGet::getallheaders()
 { // double null terminated, null delimited list
   if (m_recvheaders) return m_recvheaders;
   else return "\0\0";
 }
 
-char *JNL_HTTPGet::getheader(char *headername)
+const char *JNL_HTTPGet::getheader(const char *headername)
 {
   char *ret=NULL;
   if (strlen(headername)<1||!m_recvheaders) return NULL;
@@ -360,7 +360,7 @@ run_again:
       }
       if (!strnicmp(buf,"Location:",9))
       {
-        char *p=buf+9; while (*p== ' ') p++;
+        const char *p=buf+9; while (*p== ' ') p++;
         if (*p)
         {
           connect(p);

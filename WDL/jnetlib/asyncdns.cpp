@@ -107,7 +107,7 @@ unsigned int JNL_AsyncDNS::_threadfunc(void *_d)
   return 0;
 }
 
-int JNL_AsyncDNS::resolve(char *hostname, unsigned long *addr)
+int JNL_AsyncDNS::resolve(const char *hostname, unsigned long *addr)
 {
   // return 0 on success, 1 on wait, -1 on unresolvable
   int x;
