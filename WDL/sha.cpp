@@ -46,7 +46,7 @@ void WDL_SHA1::reset()
   H[3] = 0x10325476;
   H[4] = 0xc3d2e1f0;
   int x;
-  for (x = 0; x < sizeof(W)/sizeof(W[0]); x ++) W[x]=0;
+  for (x = 0; x < (int)(sizeof(W)/sizeof(W[0])); x ++) W[x]=0;
 }
 
 
