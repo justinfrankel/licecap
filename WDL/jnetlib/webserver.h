@@ -119,12 +119,12 @@ public:
   // stats getting functions
 
   // these can be used externally, as well as are used by the web server
-  static void url_encode(char *in, char *out, int max_out);
-  static void url_decode(char *in, char *out, int maxlen);
-  static void base64decode(char *src, char *dest, int destsize);
-  static void base64encode(char *in, char *out);
+  static void url_encode(const char *in, char *out, int max_out);
+  static void url_decode(const char *in, char *out, int maxlen);
+  static void base64decode(const char *src, char *dest, int destsize);
+  static void base64encode(const char *in, char *out);
 
-  static int parseAuth(char *auth_header, char *out, int out_len);//returns 0 on unknown auth, 1 on basic
+  static int parseAuth(const char *auth_header, char *out, int out_len);//returns 0 on unknown auth, 1 on basic
 
 
 private:

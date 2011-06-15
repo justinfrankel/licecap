@@ -167,7 +167,7 @@ run_again:
   return m_state;
 }
 
-char *JNL_HTTPServ::get_request_file()
+const char *JNL_HTTPServ::get_request_file()
 {
   // file portion of http request
   if (!m_recv_request) return NULL;
@@ -178,9 +178,9 @@ char *JNL_HTTPServ::get_request_file()
   return t;
 }
 
-char *JNL_HTTPServ::get_request_parm(char *parmname) // parameter portion (after ?)
+const char *JNL_HTTPServ::get_request_parm(const char *parmname) // parameter portion (after ?)
 {
-  char *t=m_recv_request;
+  const char *t=m_recv_request;
   while (*t) t++;
   t++;
   while (*t)
@@ -195,14 +195,14 @@ char *JNL_HTTPServ::get_request_parm(char *parmname) // parameter portion (after
   return NULL;
 }
 
-char *JNL_HTTPServ::getheader(char *headername)
+const char *JNL_HTTPServ::getheader(const char *headername)
 {
-  char *ret=NULL;
+  const char *ret=NULL;
   if (strlen(headername)<1||!m_recvheaders) return NULL;
   char *buf=(char*)malloc(strlen(headername)+2);
   strcpy(buf,headername);
   if (buf[strlen(buf)-1]!=':') strcat(buf,":");
-  char *p=m_recvheaders;
+  const char *p=m_recvheaders;
   while (*p)
   {
     if (!strnicmp(buf,p,strlen(buf)))
@@ -217,7 +217,7 @@ char *JNL_HTTPServ::getheader(char *headername)
   return ret;
 }
 
-void JNL_HTTPServ::set_reply_string(char *reply_string) // should be HTTP/1.1 OK or the like
+void JNL_HTTPServ::set_reply_string(const char *reply_string) // should be HTTP/1.1 OK or the like
 {
   free(m_reply_string);
   m_reply_string=(char*)malloc(strlen(reply_string)+1);
@@ -234,7 +234,7 @@ void JNL_HTTPServ::set_reply_size(int sz) // if set, size will also add keep-ali
     if (m_keepalive) set_reply_header("Connection: keep-alive");
   }
 }
-void JNL_HTTPServ::set_reply_header(char *header) // "Connection: close" for example
+void JNL_HTTPServ::set_reply_header(const char *header) // "Connection: close" for example
 {
   if (m_reply_headers)
   {

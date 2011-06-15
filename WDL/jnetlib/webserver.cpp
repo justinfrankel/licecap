@@ -255,7 +255,7 @@ int WebServerBaseClass::run_connection(WS_conInst *con)
 
 
 
-void WebServerBaseClass::url_encode(char *in, char *out, int max_out)
+void WebServerBaseClass::url_encode(const char *in, char *out, int max_out)
 {
   while (*in && max_out > 4)
   {
@@ -283,7 +283,7 @@ void WebServerBaseClass::url_encode(char *in, char *out, int max_out)
 }
 
 
-void WebServerBaseClass::url_decode(char *in, char *out, int maxlen)
+void WebServerBaseClass::url_decode(const char *in, char *out, int maxlen)
 {
   while (*in && maxlen>1)
   {
@@ -319,7 +319,7 @@ void WebServerBaseClass::url_decode(char *in, char *out, int maxlen)
 
 
 
-void WebServerBaseClass::base64decode(char *src, char *dest, int destsize)
+void WebServerBaseClass::base64decode(const char *src, char *dest, int destsize)
 {
   int accum=0;
   int nbits=0;
@@ -349,7 +349,7 @@ void WebServerBaseClass::base64decode(char *src, char *dest, int destsize)
   *dest=0;
 }
 
-void WebServerBaseClass::base64encode(char *in, char *out)
+void WebServerBaseClass::base64encode(const char *in, char *out)
 {
   char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   int shift = 0;
@@ -384,9 +384,9 @@ void WebServerBaseClass::base64encode(char *in, char *out)
   *out++=0;
 }
 
-int WebServerBaseClass::parseAuth(char *auth_header, char *out, int out_len)//returns 0 on unknown auth, 1 on basic
+int WebServerBaseClass::parseAuth(const char *auth_header, char *out, int out_len)//returns 0 on unknown auth, 1 on basic
 {
-  char *authstr=auth_header;
+  const char *authstr=auth_header;
   *out=0;
   if (!auth_header || !*auth_header) return 0;
   while (*authstr == ' ') authstr++;

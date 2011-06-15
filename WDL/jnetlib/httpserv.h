@@ -24,16 +24,16 @@ class JNL_IHTTPServ
 
     virtual int run()=0; // returns: < 0 on error, 0 on request not read yet, 1 if reading headers, 2 if reply not sent, 3 if reply sent, sending data. 4 on connection closed.
 
-    virtual char *geterrorstr()=0;
+    virtual const char *geterrorstr()=0;
 
     // use these when state returned by run() is 2 
-    virtual char *get_request_file()=0; // file portion of http request
-    virtual char *get_request_parm(char *parmname)=0; // parameter portion (after ?)
-    virtual char *getallheaders()=0;
-    virtual char *getheader(char *headername)=0;
+    virtual const char *get_request_file()=0; // file portion of http request
+    virtual const char *get_request_parm(const char *parmname)=0; // parameter portion (after ?)
+    virtual const char *getallheaders()=0;
+    virtual const char *getheader(const char *headername)=0;
 
-    virtual void set_reply_string(char *reply_string)=0; // should be HTTP/1.1 OK or the like
-    virtual void set_reply_header(char *header)=0; // i.e. "content-size: 12345"
+    virtual void set_reply_string(const char *reply_string)=0; // should be HTTP/1.1 OK or the like
+    virtual void set_reply_header(const char *header)=0; // i.e. "content-size: 12345"
     virtual void set_reply_size(int sz)=0; // if set, size will also add keep-alive etc
 
     virtual void send_reply()=0;
@@ -67,16 +67,16 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
 
     int run(); // returns: < 0 on error, 0 on request not read yet, 1 if reading headers, 2 if reply not sent, 3 if reply sent, sending data. 4 on connection closed.
 
-    char *geterrorstr() { return m_errstr;}
+    const char *geterrorstr() { return m_errstr;}
 
     // use these when state returned by run() is 2 
-    char *get_request_file(); // file portion of http request
-    char *get_request_parm(char *parmname); // parameter portion (after ?)
-    char *getallheaders() { return m_recvheaders; } // double null terminated, null delimited list
-    char *getheader(char *headername);
+    const char *get_request_file(); // file portion of http request
+    const char *get_request_parm(const char *parmname); // parameter portion (after ?)
+    const char *getallheaders() { return m_recvheaders; } // double null terminated, null delimited list
+    const char *getheader(const char *headername);
 
-    void set_reply_string(char *reply_string); // should be HTTP/1.1 OK or the like
-    void set_reply_header(char *header); // i.e. "content-size: 12345"
+    void set_reply_string(const char *reply_string); // should be HTTP/1.1 OK or the like
+    void set_reply_header(const char *header); // i.e. "content-size: 12345"
     void set_reply_size(int sz); // if set, size will also add keep-alive etc
 
     void send_reply() { m_reply_ready=1; } // send reply, state will advance to 3.
@@ -94,7 +94,7 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
     bool canKeepAlive() { return m_keepalive; }
 
   protected:
-    void seterrstr(char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
+    void seterrstr(const char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
 
     int m_reply_ready;
     int m_state;
