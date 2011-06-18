@@ -103,6 +103,7 @@ struct SWELL_DlgResourceEntry
 #define ES_WANTRETURN 0x1000L
 #define ES_NUMBER 0x2000L
          
+#define SS_LEFT 0
 #define SS_CENTER 0x1L                                                                     
 #define SS_BLACKRECT 0x4L
 #define SS_BLACKFRAME (SS_BLACKRECT)
@@ -112,6 +113,9 @@ struct SWELL_DlgResourceEntry
 
 #define BS_CENTER 0x0300L
 #define BS_LEFTTEXT 0x0020L
+#define BS_GROUPBOX      0x20000000
+#define BS_DEFPUSHBUTTON 0x10000000
+#define BS_PUSHBUTTON    0x8000000
                                        
 #define LVS_LIST 0 /* 0x0003 */
 #define LVS_NOCOLUMNHEADER 0x4000

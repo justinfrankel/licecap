@@ -3147,6 +3147,18 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   }
   else if (!stricmp(classname,"Button"))
   {
+    if (style & BS_GROUPBOX)
+    {
+       return SWELL_MakeGroupBox(cname, idx, x, y, w, h, style &~BS_GROUPBOX)
+    }
+    if (style & BS_DEFPUSHBUTTON)
+    {
+       return SWELL_MakeButton(1, cname, idx, x,y,w,h,style &~BS_DEFPUSHBUTTON);
+    }
+    if (style & BS_PUSHBUTTON)
+    {
+       return SWELL_MakeButton(0, cname, idx, x,y,w,h,style &~BS_PUSHBUTTON);
+    }
     SWELL_Button *button=[[SWELL_Button alloc] init];
     [button setTag:idx];
     NSRect fr=MakeCoords(x,y,w,h,true);
