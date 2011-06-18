@@ -256,7 +256,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     }
 
     void SetFGColors(int knobcol, int zlcol) { m_knob_color=knobcol; m_zl_color = zlcol; }
-    void SetKnobBias(int knobbias) { m_knobbias=knobbias; } // 1=force knob, -1=prevent knob
+    void SetKnobBias(int knobbias, int knobextrasize=0) { m_knobbias=knobbias; m_knob_lineextrasize=knobextrasize; } // 1=force knob, -1=prevent knob
 
   private:
     WDL_VirtualSlider_SkinConfig *m_skininfo;
@@ -271,6 +271,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     int m_knob_color,m_zl_color;
 
     signed char m_knobbias;
+    signed char m_knob_lineextrasize;
     bool m_captured;
     bool m_needflush;
     bool m_sendmsgonclick;
