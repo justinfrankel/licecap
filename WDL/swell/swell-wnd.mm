@@ -3149,7 +3149,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     if (style & BS_GROUPBOX)
     {
-       return SWELL_MakeGroupBox(cname, idx, x, y, w, h, style &~BS_GROUPBOX)
+      return SWELL_MakeGroupBox(cname, idx, x, y, w, h, style &~BS_GROUPBOX);
     }
     if (style & BS_DEFPUSHBUTTON)
     {
