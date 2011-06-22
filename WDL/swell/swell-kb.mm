@@ -175,18 +175,27 @@ int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 
 WORD GetAsyncKeyState(int key)
 {
-  if (key == VK_LBUTTON) return (GetCurrentEventButtonState()&1)?0x8000:0;
-  if (key == VK_RBUTTON) return (GetCurrentEventButtonState()&2)?0x8000:0;
-  if (key == VK_MBUTTON) return (GetCurrentEventButtonState()&4)?0x8000:0;
-  NSEvent *evt=[NSApp currentEvent];
-  if (!evt) return 0;
-  if (key == VK_CONTROL) return ([evt modifierFlags]&NSCommandKeyMask)?0x8000:0;
-  if (key == VK_MENU) return ([evt modifierFlags]&NSAlternateKeyMask)?0x8000:0;
-  if (key == VK_SHIFT) return ([evt modifierFlags]&NSShiftKeyMask)?0x8000:0;
-  if (key == VK_LWIN && !IsRightClickEmulateEnabled())
+  int state=0;
+  if (key == VK_LBUTTON || key == VK_RBUTTON || key == VK_MBUTTON)
   {
-    return ([evt modifierFlags]&NSControlKeyMask)?0x8000:0;
+    state=GetCurrentEventButtonState();
   }
+  else    
+  {
+    state=CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
+  }
+
+  if ((key == VK_LBUTTON && (state&1)) ||
+      (key == VK_RBUTTON && (state&2)) ||
+      (key == VK_MBUTTON && (state&4)) ||      
+      (key == VK_SHIFT && (state&kCGEventFlagMaskShift)) ||
+      (key == VK_CONTROL && (state&kCGEventFlagMaskCommand)) ||
+      (key == VK_MENU && (state&kCGEventFlagMaskAlternate)) ||
+      (key == VK_LWIN && !IsRightClickEmulateEnabled() && (state&kCGEventFlagMaskControl)))
+  {
+    return 0x8000;
+  }
+  
   return 0;
 }
 
@@ -608,16 +617,6 @@ BOOL SWELL_SetCursorPos(int X, int Y)
   return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
 }
 
-
-bool SWELL_GetCurrentModKeyState(int mask)
-{
-  CGEventFlags flags=CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
-
-  return (((mask&VK_SHIFT) && (flags&kCGEventFlagMaskShift)) ||
-          ((mask&VK_CONTROL) && (flags&kCGEventFlagMaskCommand)) ||
-          ((mask&VK_MENU) && (flags&kCGEventFlagMaskAlternate)) ||
-          ((mask&VK_LWIN) && (flags&kCGEventFlagMaskControl)));
-}
 
 
 #endif
