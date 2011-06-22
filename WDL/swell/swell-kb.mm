@@ -609,4 +609,15 @@ BOOL SWELL_SetCursorPos(int X, int Y)
 }
 
 
+bool SWELL_GetCurrentModKeyState(int mask)
+{
+  CGEventFlags flags=CGEventSourceFlagsState(kCGEventSourceStateCombinedSessionState);
+
+  return (((mask&VK_SHIFT) && (flags&kCGEventFlagMaskShift)) ||
+          ((mask&VK_CONTROL) && (flags&kCGEventFlagMaskCommand)) ||
+          ((mask&VK_MENU) && (flags&kCGEventFlagMaskAlternate)) ||
+          ((mask&VK_LWIN) && (flags&kCGEventFlagMaskControl)));
+}
+
+
 #endif
