@@ -1042,6 +1042,8 @@ SWELL_API_DEFINE(void,SWELL_Internal_PostMessage_Init,())
 SWELL_API_DEFINE(HCURSOR,SWELL_LoadCursorFromFile,(const char *fn))
 SWELL_API_DEFINE(void,SWELL_SetWindowWantRaiseAmt,(HWND h, int  amt))
 
+SWELL_API_DEFINE(void,SWELL_SetListViewFastClickMask,(HWND hList, int mask))
+
 
 #ifndef __APPLE__
 SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))

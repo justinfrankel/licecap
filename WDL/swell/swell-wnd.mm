@@ -427,9 +427,10 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   m_leftmousemovecnt=0;
   m_fakerightmouse=false;
   m_lbMode=0;
+  m_fastClickMask=0;
   m_start_item=-1;
   m_start_subitem=-1;
-  m_start_item_clickmode=0; // 0=clicked item, 1=clicked image, &2=sent drag message
+  m_start_item_clickmode=0; // 0=clicked item, 1=clicked image, &2=sent drag message, &4=quickclick mode
   m_cols = new WDL_PtrList<NSTableColumn>;
   m_items=new WDL_PtrList<SWELL_ListView_Row>;
   return ret;
@@ -529,13 +530,22 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     m_start_item=[self rowAtPoint:pt];
     m_start_subitem=[self columnAtPoint:pt];
     m_start_item_clickmode=0;
-    
-    if (m_start_item>=0 && m_status_imagelist && LVSIL_STATE == m_status_imagelist_type && pt.x <= [self rowHeight]) // in left area
+    if (m_start_item >=0 && (m_fastClickMask&(1<<m_start_subitem)))
     {
-      m_start_item_clickmode=1;
+      NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, m_start_item, m_start_subitem, 0, 0, 0, {pt.x, pt.y}, };
+      SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
+      if (row)
+        nmlv.lParam = row->m_param;
+      SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
+      m_start_item_clickmode=4;
     }
-    
-    // send NM_CLICK on mouseup
+    else
+    {
+      if (m_start_item>=0 && m_status_imagelist && LVSIL_STATE == m_status_imagelist_type && pt.x <= [self rowHeight]) // in left area
+      {
+        m_start_item_clickmode=1;
+      }
+    }
   }
 }
 
@@ -543,12 +553,15 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   if (++m_leftmousemovecnt==4)
   {
-    if (m_start_item>=0 && !m_start_item_clickmode)
+    if (m_start_item>=0 && !(m_start_item_clickmode&3))
     {
       if (!m_lbMode)
       {
         // if m_start_item isnt selected, change selection to it now
-        if (![self isRowSelected:m_start_item]) [self selectRowIndexes:[NSIndexSet indexSetWithIndex:m_start_item] byExtendingSelection:!!(GetAsyncKeyState(VK_CONTROL)&0x8000)];
+        if (!(m_start_item_clickmode&4) && ![self isRowSelected:m_start_item]) 
+        {
+          [self selectRowIndexes:[NSIndexSet indexSetWithIndex:m_start_item] byExtendingSelection:!!(GetAsyncKeyState(VK_CONTROL)&0x8000)];
+        }
         NMLISTVIEW hdr={{(HWND)self,[self tag],LVN_BEGINDRAG},m_start_item,m_start_subitem,0,};
         SendMessage((HWND)[self target],WM_NOTIFY,[self tag], (LPARAM) &hdr);
         m_start_item_clickmode |= 2;
@@ -574,7 +587,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   }
   else if (!(m_start_item_clickmode&1))
   {
-    if (m_leftmousemovecnt>=0 && m_leftmousemovecnt<4)
+    if (m_leftmousemovecnt>=0 && m_leftmousemovecnt<4 && !(m_start_item_clickmode&4))
     {
       if (m_lbMode && ![self allowsMultipleSelection]) // listboxes --- allow clicking to reset the selection
       {
@@ -593,11 +606,12 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     }
   }
   
-  if (!m_lbMode && !(m_start_item_clickmode&2))
+  if (!m_lbMode && !(m_start_item_clickmode&(2|4)))
   {
     NSPoint pt=[theEvent locationInWindow];
     pt=[self convertPoint:pt fromView:nil];    
-    NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, [self rowAtPoint:pt], [self columnAtPoint:pt], 0, 0, 0, {pt.x, pt.y}, };
+    int col = [self columnAtPoint:pt];
+    NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, [self rowAtPoint:pt], col, 0, 0, 0, {pt.x, pt.y}, };
     SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
     if (row)
       nmlv.lParam = row->m_param;
@@ -3388,6 +3402,15 @@ int TabCtrl_GetCurSel(HWND hwnd)
 void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask)
 {
 }
+
+void SWELL_SetListViewFastClickMask(HWND hList, int mask)
+{
+  if (!hList || ![(id)hList isKindOfClass:[SWELL_ListView class]]) return;
+  SWELL_ListView *lv = (SWELL_ListView *)hList;
+  lv->m_fastClickMask=mask;
+
+}
+
 
 void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which)
 {
