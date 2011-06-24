@@ -434,7 +434,7 @@ SWELL_API_DEFINE(void, SWELL_TB_SetTic,(HWND hwnd, int idx, int pos))
 ** ListView API. In owner data mode only LVN_GETDISPINFO is used (not ODFINDITEM etc).
 ** LVN_BEGINDRAG also should work as on windows. Imagelists state icons work as well.
 */
-SWELL_API_DEFINE(void, ListView_SetExtendedListViewStyleEx,(HWND h, int flag, int mask))
+SWELL_API_DEFINE(void, ListView_SetExtendedListViewStyleEx,(HWND h, int mask, int style))
 SWELL_API_DEFINE(void, ListView_InsertColumn,(HWND h, int pos, const LVCOLUMN *lvc))
 SWELL_API_DEFINE(bool, ListView_DeleteColumn,(HWND h, int pos))
 SWELL_API_DEFINE(void, ListView_SetColumn,(HWND h, int pos, const LVCOLUMN *lvc))

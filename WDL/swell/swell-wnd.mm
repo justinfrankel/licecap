@@ -3399,8 +3399,19 @@ int TabCtrl_GetCurSel(HWND hwnd)
   return [tv indexOfTabViewItem:item];
 }
 
-void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask)
+void ListView_SetExtendedListViewStyleEx(HWND h, int mask, int style)
 {
+  if (!h) return;
+  if (![(id)h isKindOfClass:[SWELL_ListView class]]) return;
+  SWELL_ListView *tv=(SWELL_ListView*)h;
+  
+  if (mask&LVS_EX_GRIDLINES)
+  {
+    int s=0;
+    if (style&LVS_EX_GRIDLINES) s=NSTableViewSolidVerticalGridLineMask|NSTableViewSolidHorizontalGridLineMask;
+    [tv setGridStyleMask:s];
+  }
+  // todo LVS_EX_FULLROWSELECT
 }
 
 void SWELL_SetListViewFastClickMask(HWND hList, int mask)
@@ -3820,6 +3831,7 @@ bool ListView_SetItemState(HWND h, int ipos, int state, int statemask)
   }
   return true;
 }
+
 void ListView_RedrawItems(HWND h, int startitem, int enditem)
 {
   if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return;
