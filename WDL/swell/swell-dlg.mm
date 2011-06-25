@@ -1570,8 +1570,11 @@ static HWND last_key_window;
             DestroyWindow((HWND)p->hwnd); \
               free(p); p=next;  \
         } \
-  if (m_owner) [(SWELL_ModelessWindow*)m_owner swellRemoveOwnedWindow:self]; \
-    m_owner=0;  \
+  if (m_owner) { \
+     [(SWELL_ModelessWindow*)m_owner swellRemoveOwnedWindow:self]; \
+     if ([NSApp keyWindow] == self) [(SWELL_ModelessWindow*)m_owner makeKeyWindow]; \
+     m_owner=0;  \
+   } \
 } \
 -(void)dealloc \
 { \
