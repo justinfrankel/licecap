@@ -1969,6 +1969,10 @@ void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask)
 {
 }
 
+void SWELL_SetListViewFastClickMask(HWND hList, int mask)
+{
+}
+
 void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which)
 {
   if (!h || !imagelist || which != LVSIL_STATE) return;
