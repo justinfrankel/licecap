@@ -168,10 +168,19 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 #ifdef SWELL_LICE_GDI
   if (hwnd && hwnd->m_backingstore && hwnd->m_oswindow)
   {
+#if 0
     LICE_SubBitmap tmpbm(hwnd->m_backingstore,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
     GdkGC *gc=gdk_gc_new(hwnd->m_oswindow);
     gdk_draw_rgb_32_image(hwnd->m_oswindow,gc,rect->left,rect->top,tmpbm.getWidth(),tmpbm.getHeight(),GDK_RGB_DITHER_NONE,(guchar*)tmpbm.getBits(),tmpbm.getRowSpan()*4);
     g_object_unref(gc);
+#endif
+    LICE_SubBitmap tmpbm(hwnd->m_backingstore,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
+    cairo_t * crc = gdk_cairo_create (hwnd->m_oswindow);
+    cairo_surface_t *temp_surface = cairo_image_surface_create_for_data((guchar*)tmpbm.getBits(), CAIRO_FORMAT_RGB24, tmpbm.getWidth(),tmpbm.getHeight(), tmpbm.getRowSpan()*4);
+    cairo_set_source_surface(crc, temp_surface, rect->left, rect->top);
+    cairo_paint(crc);
+    cairo_surface_destroy(temp_surface);
+    cairo_destroy(crc);
   }
 #endif
 }
@@ -304,10 +313,18 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             {
               void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int bmout_ypos, bool forceref);
               SWELL_internalLICEpaint(hwnd, &tmpbm, r.left, r.top, forceref);
-
+#if 0
               GdkGC *gc=gdk_gc_new(exp->window);
               gdk_draw_rgb_32_image(exp->window,gc,r.left,r.top,tmpbm.getWidth(),tmpbm.getHeight(),GDK_RGB_DITHER_NONE,(guchar*)tmpbm.getBits(),tmpbm.getRowSpan()*4);
               g_object_unref(gc);
+#endif
+              cairo_t *crc = gdk_cairo_create (exp->window);
+              cairo_surface_t *temp_surface = cairo_image_surface_create_for_data((guchar*)tmpbm.getBits(), CAIRO_FORMAT_RGB24, tmpbm.getWidth(),tmpbm.getHeight(), tmpbm.getRowSpan()*4);
+//              cairo_surface_t *sub_surface = cairo_surface_create_for_rectangle(hwnd->m_backingstore, 0, 0, cr.right, cr.bottom);
+              cairo_set_source_surface(crc, temp_surface, r.left, r.top);
+              cairo_paint(crc);
+              cairo_surface_destroy(temp_surface);
+              cairo_destroy(crc);
             }
 #endif
           }
