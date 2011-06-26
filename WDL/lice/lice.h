@@ -97,16 +97,16 @@ typedef unsigned char LICE_pixel_chan;
 #else
 
 //GDK etc (tested on linux 386/x86_64)
-#define LICE_RGBA(r,g,b,a) (((r)&0xff)|(((g)&0xff)<<8)|(((b)&0xff)<<16)|(((a)&0xff)<<24))
-#define LICE_GETR(v) ((v)&0xff)
+#define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
+#define LICE_GETB(v) ((v)&0xff)
 #define LICE_GETG(v) (((v)>>8)&0xff)
-#define LICE_GETB(v) (((v)>>16)&0xff)
+#define LICE_GETR(v) (((v)>>16)&0xff)
 #define LICE_GETA(v) (((v)>>24)&0xff)
 
 
-#define LICE_PIXEL_R 0
+#define LICE_PIXEL_B 0
 #define LICE_PIXEL_G 1
-#define LICE_PIXEL_B 2
+#define LICE_PIXEL_R 2
 #define LICE_PIXEL_A 3
 
 #endif
