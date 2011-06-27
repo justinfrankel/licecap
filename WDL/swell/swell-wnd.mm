@@ -3425,7 +3425,7 @@ void SWELL_SetListViewFastClickMask(HWND hList, int mask)
 
 void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which)
 {
-  if (!h || !imagelist) return;
+  if (!h) return;
   
   SWELL_ListView *v=(SWELL_ListView *)h;
   
