@@ -1384,7 +1384,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   int w = dest->getWidth();
   int h = dest->getHeight();
 
-  if (x1b <= 0 && x2b <= 0) return;
+  if (x1b < 0 && x2b < 0) return;
   if (x1a >= w && x2a >= w) return;
 
   if (x1a <= 0 && x2a <= 0) x1a = x2a = 0;
