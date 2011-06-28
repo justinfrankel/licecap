@@ -1206,36 +1206,24 @@ class _LICE_Fill
 public:
 
   // da, db are [0..65536]
-  static void FillClippedTrapezoid(LICE_IBitmap* dest, int xa, int xb, int da, int db, int y1, int y2, int a, int b, int astep, int bstep, LICE_pixel color, int aw
+  static void FillClippedTrapezoid(int wid, int span, LICE_pixel *px, int y, int xa, int xb, int da, int db, int a, int b, int astep, int bstep, int cr, int cg, int cb, int ca, int aw
 #ifdef LICE_FAVOR_SIZE_EXTREME
                           , LICE_COMBINEFUNC combFunc
 #endif
     )
   {
-    int wm1 = dest->getWidth()-1;
-    int span = dest->getRowSpan();
-    LICE_pixel* px = dest->getBits()+y1*span;
-    int cr = LICE_GETR(color), cg = LICE_GETG(color), cb = LICE_GETB(color), ca = LICE_GETA(color);
-    int y = (y2-y1) + 1;
-
     if (!da && !db)
     {
-      if (xa<0)xa=0;
-      int cnt = min(xb,wm1)-xa + 1;    
-      if (cnt > 0) 
+      while (y-->0)
       {
-        px+=xa;
-        while (y-->0)
+        LICE_pixel* xpx = px;
+        int x=xb;
+        while (x--)
         {
-          LICE_pixel* xpx = px;
-          int x=cnt;
-          while (x--)
-          {
-            DOPIX((LICE_pixel_chan*)xpx, cr, cg, cb, ca, aw)
-            ++xpx;
-          }
-          px += span;
+          DOPIX((LICE_pixel_chan*)xpx, cr, cg, cb, ca, aw)
+          ++xpx;
         }
+        px += span;
       }
       return;
     }
@@ -1244,9 +1232,9 @@ public:
     while (y-->0)
     {
       int x1=max(xa,0);
-      int x2=min(xb,wm1);
+      int x2=min(xb,wid);
       LICE_pixel* xpx = px + x1;
-      int cnt=x2-x1 + 1;
+      int cnt=x2-x1;
       while (cnt-->0)
       {
         DOPIX((LICE_pixel_chan*)xpx, cr, cg, cb, ca, aw)
@@ -1280,31 +1268,20 @@ template <class COMBFUNC> class _LICE_FillFast
 public:
 
   // da, db are [0..65536]
-  static void FillClippedTrapezoidFAST(LICE_IBitmap* dest, int xa, int xb, int da, int db, int y1, int y2, int a, int b, int astep, int bstep, LICE_pixel color)
+  static void FillClippedTrapezoidFAST(int wid, int span, LICE_pixel *px, int y, int xa, int xb, int da, int db, int a, int b, int astep, int bstep, LICE_pixel color)
   {
-    int wm1 = dest->getWidth()-1;
-    int span = dest->getRowSpan();
-    LICE_pixel* px = dest->getBits()+y1*span;
-    int y = y2-y1 + 1;
-
     if (!da && !db)
     {
-      if (xa<0)xa=0;
-      int cnt = min(xb,wm1)-xa + 1;    
-      if (cnt > 0) 
+      while (y-->0)
       {
-        px+=xa;
-        while (y-->0)
+        LICE_pixel* xpx = px;
+        int x=xb;
+        while (x--)
         {
-          LICE_pixel* xpx = px;
-          int x=cnt;
-          while (x--)
-          {
-            COMBFUNC::doPixFAST(xpx, color);
-            ++xpx;
-          }
-          px += span;
+          COMBFUNC::doPixFAST(xpx, color);
+          ++xpx;
         }
+        px += span;
       }
       return;
     }
@@ -1313,9 +1290,9 @@ public:
     while (y-->0)
     {
       int x1=max(xa,0);
-      int x2=min(xb,wm1);
+      int x2=min(xb,wid);
       LICE_pixel* xpx = px + x1;
-      int cnt=x2-x1 + 1;
+      int cnt=x2-x1;
       while (cnt-->0)
       {
         COMBFUNC::doPixFAST(xpx, color);
@@ -1435,39 +1412,55 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   }
   if (y2 > h-1) y2 = h-1;
 
+  int wid = dest->getWidth();
+  int span = dest->getRowSpan();
+  LICE_pixel* px = dest->getBits()+y1*span;
+  int y = y2-y1 + 1;
+
+  x1b++; // from now on draw [x1a,x1b)
+
+  if (!dxady && !dxbdy)
+  {
+    if (x1a<0)x1a=0;
+    x1b = min(x1b,wid)-x1a;    
+    px+=x1a;
+    if (x1b<1) return;
+  }
+
   if ((mode&LICE_BLIT_MODE_MASK) == LICE_BLIT_MODE_COPY && aw==256)
   {
-    _LICE_FillFast<_LICE_CombinePixelsClobberFAST>::FillClippedTrapezoidFAST(dest, x1a, x1b, dxady, dxbdy, y1, y2, a,b, astep,bstep, color);
+    _LICE_FillFast<_LICE_CombinePixelsClobberFAST>::FillClippedTrapezoidFAST(wid,span,px,y, x1a, x1b, dxady, dxbdy, a,b, astep,bstep, color);
   }
   else if ((mode&LICE_BLIT_MODE_MASK) == LICE_BLIT_MODE_COPY && aw==128)
   {
     color = (color>>1)&0x7f7f7f7f;
-    _LICE_FillFast<_LICE_CombinePixelsHalfMix2FAST>::FillClippedTrapezoidFAST(dest, x1a, x1b, dxady, dxbdy, y1, y2,a,b, astep,bstep, color);
+    _LICE_FillFast<_LICE_CombinePixelsHalfMix2FAST>::FillClippedTrapezoidFAST(wid,span,px,y,  x1a, x1b, dxady, dxbdy, a,b, astep,bstep, color);
   }
   else if ((mode&LICE_BLIT_MODE_MASK) == LICE_BLIT_MODE_COPY && aw==64)
   {
     color = (color>>2)&0x3f3f3f3f;
-    _LICE_FillFast<_LICE_CombinePixelsQuarterMix2FAST>::FillClippedTrapezoidFAST(dest, x1a, x1b, dxady, dxbdy, y1, y2,a,b, astep,bstep, color);
+    _LICE_FillFast<_LICE_CombinePixelsQuarterMix2FAST>::FillClippedTrapezoidFAST(wid,span,px,y,  x1a, x1b, dxady, dxbdy, a,b, astep,bstep, color);
   }
   else if ((mode&LICE_BLIT_MODE_MASK) == LICE_BLIT_MODE_COPY && aw==192)
   {
     color = ((color>>1)&0x7f7f7f7f)+((color>>2)&0x3f3f3f3f);
-    _LICE_FillFast<_LICE_CombinePixelsThreeQuarterMix2FAST>::FillClippedTrapezoidFAST(dest, x1a, x1b, dxady, dxbdy, y1, y2,a,b, astep,bstep, color);
+    _LICE_FillFast<_LICE_CombinePixelsThreeQuarterMix2FAST>::FillClippedTrapezoidFAST(wid,span,px,y,  x1a, x1b, dxady, dxbdy,a,b, astep,bstep, color);
   }
   else
   {
+    int cr = LICE_GETR(color), cg = LICE_GETG(color), cb = LICE_GETB(color), ca = LICE_GETA(color);
 #ifdef LICE_FAVOR_SIZE_EXTREME
 
     LICE_COMBINEFUNC blitfunc=NULL;      
 #define __LICE__ACTION(comb) blitfunc=comb::doPix;
 #else
-#define __LICE__ACTION(COMBFUNC) _LICE_Fill<COMBFUNC>::FillClippedTrapezoid(dest, x1a, x1b, dxady, dxbdy, y1, y2,a,b, astep,bstep, color, aw);
+#define __LICE__ACTION(COMBFUNC) _LICE_Fill<COMBFUNC>::FillClippedTrapezoid(wid,span,px,y,  x1a, x1b, dxady, dxbdy, a,b, astep,bstep, cr,cg,cb,ca, aw);
 #endif
 
     __LICE_ACTION_CONSTANTALPHA(mode, aw, false);
 
 #ifdef LICE_FAVOR_SIZE_EXTREME
-      if (blitfunc) _LICE_Fill::FillClippedTrapezoid(dest, x1a, x1b, dxady, dxbdy, y1, y2,a,b, astep,bstep, color, aw, blitfunc);
+      if (blitfunc) _LICE_Fill::FillClippedTrapezoid(wid,span,px,y,  x1a, x1b, dxady, dxbdy, a,b, astep,bstep, cr,cg,cb,ca, aw, blitfunc);
 #endif
 
 #undef __LICE__ACTION
