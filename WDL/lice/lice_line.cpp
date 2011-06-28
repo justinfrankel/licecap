@@ -1424,7 +1424,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     int y = FindYOnSegment(x1a, y1, x2a, y2, 0);
     int xb = FindXOnSegment(x1b, y1, x2b, y2, y);
     LICE_FillTrapezoid(dest, x1a, x1b, y1, 0, xb, y, color, alpha, mode);
-    LICE_FillTrapezoid(dest, 0, xb, y, x2a, x2b, y2, color, alpha, mode);
+    LICE_FillTrapezoid(dest, 0, xb, y+1, x2a, x2b, y2, color, alpha, mode);
     return;
   }
   if (x1b >= w || x2b >= w) // clip right
@@ -1432,7 +1432,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     int y = FindYOnSegment(x1b, y1, x2b, y2, w-1);
     int xa = FindXOnSegment(x1a, y1, x2a, y2, y);
     LICE_FillTrapezoid(dest, x1a, x1b, y1, xa, w-1, y, color, alpha, mode);
-    LICE_FillTrapezoid(dest, xa, w-1, y, x2a, x2b, y2, color, alpha, mode);
+    LICE_FillTrapezoid(dest, xa, w-1, y+1, x2a, x2b, y2, color, alpha, mode);
     return;
   }
 
