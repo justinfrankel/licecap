@@ -1475,7 +1475,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
 }
 
 
-int _ysort(const void* a, const void* b)
+static int _ysort(const void* a, const void* b)
 {
   int* xya = (int*)a;
   int* xyb = (int*)b;
