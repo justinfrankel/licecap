@@ -457,6 +457,10 @@ static void initdll()
     if (!dll) dll=dlopen("libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
     if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
     if (!dll) dll=dlopen("/usr/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
+
+    if (!dll) dll=dlopen("libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("/usr/lib/libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
     if (!dll) 
     {
        char tmp[64];
