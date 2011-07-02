@@ -81,9 +81,9 @@ function swell_rc2cpp_dialog($fp) // returns array with ["data"] and optionally 
             if ($parms[$rdidx] == 'DISCARDABLE') $rdidx++;
             while ($parms[$rdidx] == "" && $rdidx < count($parms)) $rdidx++;
             $rdidx  += 2;
-            $dlg_size_w = (int)$parms[$rdidx++];
-            $dlg_size_h = (int)$parms[$rdidx++];
-            if (count($parms) >= $rdidx && $dlg_size_w >0 && $dlg_size_h >0)
+            $dlg_size_w = $parms[$rdidx++];
+            $dlg_size_h = $parms[$rdidx++];
+            if (count($parms) >= $rdidx && $dlg_size_w != "" && $dlg_size_h != "")
             {
               $dlg_title=""; 
               $dlg_styles="SWELL_DLG_FLAGS_AUTOGEN"; 
