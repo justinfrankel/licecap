@@ -254,8 +254,8 @@ for (; $x < count($argv); $x ++)
    {
      $err++;
      echo "error";
-     if ($res["error"] = "") echo " dialog: " . $res["error"];
-     if ($res2["error"] = "") echo " menu: " . $res2["error"];
+     if ($res["error"] != "") echo " dialog: " . $res["error"];
+     if ($res2["error"] != "") echo " menu: " . $res2["error"];
      echo "\n";
      continue;
    }
