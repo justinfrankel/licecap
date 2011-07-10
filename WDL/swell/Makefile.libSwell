@@ -13,7 +13,6 @@ else
 CFLAGS += -O2 -s
 endif
 
-CXXFLAGS = $(CFLAGS)
 LINKEXTRA =  -lpthread -ldl -shared
 
 
@@ -33,13 +32,18 @@ LICE_OBJS = lice.o  lice_arc.o lice_colorspace.o lice_image.o lice_jpg.o lice_li
 OBJS = $(SWELL_OBJS)
 
 ifndef NOGDK
-GDK_CFLAGS = -DSWELL_TARGET_GDK $(shell pkg-config --cflags gdk-2.0) -DSWELL_LICE_GDI
-CFLAGS += $(GDK_CFLAGS)
-CXXFLAGS += $(GDK_CFLAGS)
-LINKEXTRA += $(shell pkg-config --libs gdk-2.0)
-OBJS += $(LICE_OBJS)
+  ifdef GDK2
+    CFLAGS += -DSWELL_TARGET_GDK=2 $(shell pkg-config --cflags gdk-2.0)
+    LINKEXTRA += $(shell pkg-config --libs gdk-2.0)
+  else
+    CFLAGS += -DSWELL_TARGET_GDK=3 $(shell pkg-config --cflags gdk-3.0)
+    LINKEXTRA += $(shell pkg-config --libs gdk-3.0)
+  endif
+  CFLAGS += -DSWELL_LICE_GDI
+  OBJS += $(LICE_OBJS)
 endif
 
+CXXFLAGS = $(CFLAGS)
 
 default: libSwell.so
 
