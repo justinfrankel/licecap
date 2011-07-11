@@ -48,6 +48,8 @@
 		332A9BD013CB5B4D00EBEB86 /* zutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 332A9BC313CB5B4D00EBEB86 /* zutil.c */; };
 		332A9BD513CB5B6E00EBEB86 /* wndsize.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 332A9BD413CB5B6E00EBEB86 /* wndsize.cpp */; };
 		332A9BFB13CB5D7200EBEB86 /* filebrowse.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 332A9BFA13CB5D7200EBEB86 /* filebrowse.cpp */; };
+		332A9CA913CB829300EBEB86 /* capturewindow.mm in Sources */ = {isa = PBXBuildFile; fileRef = 332A9CA813CB829300EBEB86 /* capturewindow.mm */; };
+		332A9F7A13CB982800EBEB86 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 332A9F7913CB982800EBEB86 /* OpenGL.framework */; };
 		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		8D11072D0486CEB800E47090 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
 		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
@@ -127,6 +129,8 @@
 		332A9BC413CB5B4D00EBEB86 /* zutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zutil.h; path = ../WDL/zlib/zutil.h; sourceTree = SOURCE_ROOT; };
 		332A9BD413CB5B6E00EBEB86 /* wndsize.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = wndsize.cpp; path = ../WDL/wingui/wndsize.cpp; sourceTree = SOURCE_ROOT; };
 		332A9BFA13CB5D7200EBEB86 /* filebrowse.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = filebrowse.cpp; path = ../WDL/filebrowse.cpp; sourceTree = SOURCE_ROOT; };
+		332A9CA813CB829300EBEB86 /* capturewindow.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = capturewindow.mm; sourceTree = "<group>"; };
+		332A9F7913CB982800EBEB86 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		8D1107310486CEB800E47090 /* licecap-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "licecap-Info.plist"; sourceTree = "<group>"; };
 		8D1107320486CEB800E47090 /* licecap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = licecap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -138,6 +142,7 @@
 			files = (
 				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
 				332A9B2C13CB587700EBEB86 /* Carbon.framework in Frameworks */,
+				332A9F7A13CB982800EBEB86 /* OpenGL.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -156,6 +161,7 @@
 			children = (
 				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
 				332A9B2B13CB587700EBEB86 /* Carbon.framework */,
+				332A9F7913CB982800EBEB86 /* OpenGL.framework */,
 			);
 			name = "Linked Frameworks";
 			sourceTree = "<group>";
@@ -197,6 +203,7 @@
 				332A9B3F13CB596200EBEB86 /* licecap_ui.cpp */,
 				256AC3F00F4B6AF500CF3369 /* licecap_Prefix.pch */,
 				29B97316FDCFA39411CA2CEA /* main.m */,
+				332A9CA813CB829300EBEB86 /* capturewindow.mm */,
 			);
 			name = "Other Sources";
 			sourceTree = "<group>";
@@ -417,6 +424,7 @@
 				332A9BD013CB5B4D00EBEB86 /* zutil.c in Sources */,
 				332A9BD513CB5B6E00EBEB86 /* wndsize.cpp in Sources */,
 				332A9BFB13CB5D7200EBEB86 /* filebrowse.cpp in Sources */,
+				332A9CA913CB829300EBEB86 /* capturewindow.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

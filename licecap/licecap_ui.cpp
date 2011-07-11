@@ -61,7 +61,7 @@ typedef struct {
   POINT   ptScreenPos;
 } pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
 
-void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
+void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
 {
   // XP+ only
   
@@ -236,7 +236,7 @@ char g_title[4096];
 bool g_dotitle;
 int g_last_sec_written;
 
-LICE_SysBitmap *g_cap_bm;
+LICE_IBitmap *g_cap_bm;
 
 DWORD g_last_wndstyle;
 
@@ -244,6 +244,18 @@ int g_reent=0;
 
 
 static WDL_WndSizer g_wndsize;
+
+#ifndef _WIN32
+int g_capwnd_levelsave=-1;
+#endif
+
+static void GetViewRectSize(int *w, int *h)
+{
+  RECT r={0,0,320,240};
+  GetWindowRect(GetDlgItem(g_hwnd,IDC_VIEWRECT),&r);
+  if (w) *w=r.right-r.left - 2;
+  if (h) *h=abs(r.bottom-r.top) - 2;
+}
 
 void UpdateDimBoxes(HWND hwndDlg)
 {
@@ -271,12 +283,7 @@ void UpdateDimBoxes(HWND hwndDlg)
   if (!g_cap_state)
   {
     int x, y;
-    RECT r;
-    GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-    x=r.right-r.left-2;
-    y=r.bottom-r.top;
-    if (y<0)y=-y;
-    y-=2;
+    GetViewRectSize(&x,&y);
 
     char buf[2048];
     char obuf[2048];
@@ -311,12 +318,7 @@ void UpdateStatusText(HWND hwndDlg)
   }
   else
   {
-    RECT r;
-    GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-    x=r.right-r.left-2;
-    y=r.bottom-r.top;
-    if (y<0)y=-y;
-    y-=2;
+    GetViewRectSize(&x,&y);
   }
 
   char buf[2048];
@@ -360,6 +362,12 @@ void UpdateStatusText(HWND hwndDlg)
 
 void UpdateCaption(HWND hwndDlg)
 {
+#ifndef _WIN32
+#ifdef __APPLE__
+  extern void SWELL_SetWindowShadow(HWND, bool);
+  SWELL_SetWindowShadow(hwndDlg,g_cap_state==0);
+#endif
+#endif
   if (!g_cap_state) SetWindowText(hwndDlg,"LICEcap " LICECAP_VERSION " [stopped]");
   else
   {
@@ -386,6 +394,7 @@ void UpdateCaption(HWND hwndDlg)
 
 void SaveRestoreRecRect(HWND hwndDlg, bool restore)
 {
+#ifdef _WIN32
   static RECT r;
   if (!restore) GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
   else
@@ -403,6 +412,7 @@ void SaveRestoreRecRect(HWND hwndDlg, bool restore)
     SetWindowPos(hwndDlg,NULL,r2.left+xdiff,r2.top+ydiff,r2.right-r2.left + wdiff, r2.bottom-r2.top + hdiff,SWP_NOZORDER|SWP_NOACTIVATE);
 
   }
+#endif
 }
 
 void Capture_Finish(HWND hwndDlg)
@@ -417,6 +427,12 @@ void Capture_Finish(HWND hwndDlg)
     SetWindowLong(hwndDlg,GWL_STYLE,g_last_wndstyle);
     SetWindowPos(hwndDlg,HWND_NOTOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_DRAWFRAME|SWP_NOACTIVATE);
     SaveRestoreRecRect(hwndDlg,true);
+#else
+    if (g_capwnd_levelsave>=0)
+    {
+      SWELL_SetWindowLevel(hwndDlg,g_capwnd_levelsave);
+      g_capwnd_levelsave=-1;
+    }
 #endif
     g_cap_state=0;
   }
@@ -656,6 +672,73 @@ WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+
+#ifndef _WIN32
+#include <CoreFoundation/CoreFoundation.h>
+#include <ApplicationServices/ApplicationServices.h>
+#include <OpenGL/OpenGL.h>
+#include <OpenGL/gl.h>
+bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
+{ 
+  CGLContextObj    glContextObj;
+  CGLPixelFormatObj pixelFormatObj ;
+  long numPixelFormats ;
+  CGLPixelFormatAttribute attribs[4] =
+  {
+    kCGLPFAFullScreen,
+    kCGLPFADisplayMask,
+    (CGLPixelFormatAttribute)CGDisplayIDToOpenGLDisplayMask(CGMainDisplayID()),
+  } ;
+  
+   
+  
+  /* Build a full-screen GL context */
+  CGLChoosePixelFormat( attribs, &pixelFormatObj, &numPixelFormats );
+  if ( pixelFormatObj == NULL )  return false;
+  
+  CGLCreateContext( pixelFormatObj, NULL, &glContextObj ) ;
+  CGLDestroyPixelFormat( pixelFormatObj ) ;
+  if ( glContextObj == NULL ) return false;
+  
+  
+  CGLSetCurrentContext( glContextObj ) ;
+  CGLSetFullScreen( glContextObj ) ;
+  
+  glReadBuffer(GL_FRONT);
+      
+  
+  /* Read framebuffer into our bitmap */
+  glFinish(); /* Finish all OpenGL commands */
+  glPixelStorei(GL_PACK_ALIGNMENT, 4); /* Force 4-byte alignment */
+  glPixelStorei(GL_PACK_ROW_LENGTH, bmOut->getRowSpan());
+  glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+  glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+  
+  /*
+   * Fetch the data in XRGB format, matching the bitmap context.
+   */
+  glReadPixels(xpos,ypos, bmOut->getWidth(), bmOut->getHeight(),
+               GL_BGRA,
+#ifdef __BIG_ENDIAN__
+               GL_UNSIGNED_INT_8_8_8_8_REV, // for PPC
+#else
+               GL_UNSIGNED_INT_8_8_8_8, // for Intel! http://lists.apple.com/archives/quartz-dev/2006/May/msg00100.html
+#endif
+                 bmOut->getBits());
+  
+  
+  
+  /* Get rid of GL context */
+  CGLSetCurrentContext( NULL );
+  CGLClearDrawable( glContextObj ); // disassociate from full screen
+  CGLDestroyContext( glContextObj ); // and destroy the context
+  
+  return true;
+}
+#endif
+
+
+
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static POINT s_last_mouse;
@@ -680,6 +763,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       g_wndsize.init_item(IDC_STOP,1,1,1,1);
       g_wndsize.init_item(IDC_INSERT,1,1,1,1);
 
+      void SetNSWindowOpaque(HWND, bool);
+      SetNSWindowOpaque(hwndDlg,false);
+      
       ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_HIDE);
       SendMessage(hwndDlg,WM_SIZE,0,0);
 
@@ -693,31 +779,27 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       UpdateCaption(hwndDlg);
       UpdateStatusText(hwndDlg);
-      UpdateDimBoxes(hwndDlg);
 
       SetTimer(hwndDlg,1,30,NULL);
 
       {
         char buf[1024];
         GetPrivateProfileString("licecap","wnd_r","",buf,sizeof(buf),g_ini_file.Get());
-        if (buf[0])
+        int a[4]={0,};
+        const char *p=buf;
+        int x;
+        const int maxcnt  = 4;
+        for (x=0;x<maxcnt;x++)
         {
-          int a[4]={0,};
-          const char *p=buf;
-          int x;
-          for (x=0;x<4;x++)
-          {
-            a[x] = atoi(p);
-            if (x==3) break;
-            while (*p && *p != ' ') p++;
-            while (*p == ' ') p++;
-          }
-          if (*p && a[2]>a[0] && a[3]>a[1])
-          {
-            SetWindowPos(hwndDlg,NULL,a[0],a[1],a[2]-a[0],a[3]-a[1],SWP_NOZORDER|SWP_NOACTIVATE);
-          }
+          a[x] = atoi(p);
+          if (x==maxcnt-1) break;
+          while (*p && *p != ' ') p++;
+          while (*p == ' ') p++;
         }
+        if (*p && a[2]>a[0] && a[3]!=a[1]) SetWindowPos(hwndDlg,NULL,a[0],a[1],a[2]-a[0],a[3]-a[1],SWP_NOZORDER|SWP_NOACTIVATE);
+
       }
+      UpdateDimBoxes(hwndDlg);
 
       g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file.Get());
       g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file.Get());
@@ -728,9 +810,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       Capture_Finish(hwndDlg);
       {
+        char buf[1024];
         RECT r;
         GetWindowRect(hwndDlg,&r);
-        char buf[1024];
         sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
         WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file.Get());
         sprintf(buf, "%d", g_max_fps);
@@ -759,25 +841,29 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
 #ifdef _WIN32
             HWND h = GetDesktopWindow();
-            RECT r;
-            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
 
             HDC hdc = GetDC(h);
-#else
-            RECT r;
-            HWND h = NULL;
-            HDC hdc = NULL;
-#endif
             if (hdc)
             {
+              RECT r;
+              GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
               int bw = g_cap_bm->getWidth();
               int bh = g_cap_bm->getHeight();
-
+              
               LICE_Clear(g_cap_bm,0);
               BitBlt(g_cap_bm->getDC(),0,0,bw,bh,hdc,r.left+1,r.top+1,SRCCOPY);
               ReleaseDC(h,hdc);
-
               DoMouseCursor(g_cap_bm,h,-(r.left+1),-(r.top+1));                        
+#else
+            HWND h=0;
+            int bw = g_cap_bm->getWidth();
+            int bh = g_cap_bm->getHeight();
+            RECT r2;
+            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
+            if (GetScreenData(r2.left,min(r2.top,r2.bottom),g_cap_bm))
+            {
+#endif
+
 
               bool dotime = !!(g_prefs&8);
               bool newtime = false;
@@ -915,6 +1001,20 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         SendMessage(hwndDlg, WM_COMMAND, IDC_REC, 0);
       }
     break;   
+#else
+    case WM_PAINT:
+
+      // osx hook
+      {
+        RECT r;
+        void DrawTransparentRectInCurrentContext(RECT r);
+        GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+        ScreenToClient(hwndDlg,(LPPOINT)&r);
+        ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
+        DrawTransparentRectInCurrentContext(r);
+        // might need to notify the window things changed?
+      }      
+    break;
 #endif
 
     case WM_COMMAND:
@@ -934,10 +1034,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           if (HIWORD(wParam) == EN_CHANGE && !g_cap_state && !g_reent)
           {
             int ox, oy;
-            RECT r;
-            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-            ox=r.right-r.left-2;
-            oy=r.bottom-r.top-2;
+            GetViewRectSize(&ox,&oy);
 
             int nx=ox;
             int ny=oy;
@@ -950,10 +1047,16 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
             if (nx != ox || ny != oy)
             {
+              RECT r;
               GetWindowRect(hwndDlg, &r);
               int w=(r.right-r.left)+(nx-ox);
-              int h=(r.bottom-r.top)+(ny-oy);
+              int h=abs(r.bottom-r.top)+(ny-oy);
               SetWindowPos(hwndDlg, 0, 0, 0, w, h, SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE);
+#ifndef _WIN32
+              void RefreshWindowShadows(HWND);
+              RefreshWindowShadows(hwndDlg);
+              
+#endif
             }
           }
         break;
@@ -976,9 +1079,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         case IDC_INSERT:
           if (!g_cap_bm_txt)
           {
-            RECT r;
-            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-            g_cap_bm_txt = new LICE_SysBitmap(r.right-r.left-2,r.bottom-r.top-2);
+            int w,h;
+            GetViewRectSize(&w,&h);
+            g_cap_bm_txt = new LICE_SysBitmap(w,h);
             LICE_Copy(g_cap_bm_txt, g_cap_bm);
           }
           DialogBox(g_hInst,MAKEINTRESOURCE(IDD_INSERT),hwndDlg,InsertProc);
@@ -1015,13 +1118,19 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               }
 #endif
 
-              RECT r;
-              GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-              int w = r.right-r.left-2, h=r.bottom-r.top;
-              if (h<0)h=-h;
-              h-=2;
+              int w,h;
+              GetViewRectSize(&w,&h);
+              
               delete g_cap_bm;
+#ifdef _WIN32
               g_cap_bm = new LICE_SysBitmap(w,h);
+#else
+              
+              // on OSX GL gives us a top-up bitmap, so we create a flipped bitmap here to avoid having to flip later
+              static LICE_MemBitmap bms;
+              bms.resize(w,h);
+              g_cap_bm = new LICE_WrapperBitmap(bms.getBits(),bms.getWidth(),bms.getHeight(),bms.getRowSpan(),true);
+#endif
 
               g_dotitle = ((g_prefs&1) && g_titlems);
 
@@ -1047,6 +1156,12 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 SetWindowPos(hwndDlg,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_DRAWFRAME|SWP_NOACTIVATE);
 
                 SaveRestoreRecRect(hwndDlg,true);
+#else
+                if (g_capwnd_levelsave < 0)
+                {
+                  g_capwnd_levelsave=SWELL_SetWindowLevel(hwndDlg,1000);
+                }
+                
 #endif
 
                 SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
@@ -1183,6 +1298,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         UpdateDimBoxes(hwndDlg);
 
         InvalidateRect(hwndDlg,NULL,TRUE);
+        
       }
     break;
   }
