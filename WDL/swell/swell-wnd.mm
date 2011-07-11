@@ -5416,6 +5416,14 @@ void SWELL_PostQuitMessage(void *sender)
   [NSApp terminate:(id)sender];
 }
 
+void SWELL_SetWindowShadow(HWND hwnd, bool shadow)
+{
+  if (!hwnd) return;
+  NSWindow *w = (NSWindow *)hwnd;
+  if ([w isKindOfClass:[NSView class]]) w = [(NSView *)w window];
+  if (w && [w isKindOfClass:[NSWindow class]]) [w setHasShadow:shadow];
+}
+
 #if 0 // not sure if this will interfere with coolSB
 BOOL ShowScrollBar(HWND hwnd, int nBar, BOOL vis)
 {
