@@ -18,13 +18,19 @@
 */
 
 
-#include <windows.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <windows.h>
 #include <multimon.h>
+#else
+#include "../WDL/swell/swell.h"
+#endif
+
 #include "../WDL/lice/lice_lcf.h"
 #include "../WDL/wdltypes.h"
 #include "../WDL/wingui/wndsize.h"
 #include "../WDL/filebrowse.h"
+#include "../WDL/wdlstring.h"
 
 
 #include "licecap_version.h"
@@ -44,8 +50,9 @@ int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline,
 int g_max_fps=8;  
 
 char g_last_fn[2048];
-char g_ini_file[1024];
+WDL_String g_ini_file;
 
+HWND g_hwnd;
 
 typedef struct {
   DWORD   cbSize;
@@ -57,6 +64,8 @@ typedef struct {
 void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
 {
   // XP+ only
+  
+#ifdef _WIN32
 
   static BOOL (WINAPI *pGetCursorInfo)(pLPCURSORINFO);
   static bool tr;
@@ -91,6 +100,7 @@ void DoMouseCursor(LICE_SysBitmap* sbm, HWND h, int xoffs, int yoffs)
       if (inf.hbmMask) DeleteObject(inf.hbmMask);
     }
   }
+#endif
 }
 
 
@@ -108,7 +118,9 @@ void MakeTimeStr(int sec, char* buf, int w, int h, int* timepos)
 
 #undef GetSystemMetrics
 
-void my_getViewport(RECT *r, RECT *sr, bool wantWork) {
+void my_getViewport(RECT *r, RECT *sr, bool wantWork) 
+{
+#ifdef _WIN32
   if (sr) 
   {
 	  static HINSTANCE hlib;
@@ -147,6 +159,9 @@ void my_getViewport(RECT *r, RECT *sr, bool wantWork) {
     SystemParametersInfo(SPI_GETWORKAREA,0,r,0);
   else
     GetWindowRect(GetDesktopWindow(), r);
+#else
+  return SWELL_GetViewPort(r,sr,wantWork);
+#endif
 }
 
 void EnsureNotCompletelyOffscreen(RECT *r)
@@ -259,7 +274,9 @@ void UpdateDimBoxes(HWND hwndDlg)
     RECT r;
     GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
     x=r.right-r.left-2;
-    y=r.bottom-r.top-2;
+    y=r.bottom-r.top;
+    if (y<0)y=-y;
+    y-=2;
 
     char buf[2048];
     char obuf[2048];
@@ -297,7 +314,9 @@ void UpdateStatusText(HWND hwndDlg)
     RECT r;
     GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
     x=r.right-r.left-2;
-    y=r.bottom-r.top-2;
+    y=r.bottom-r.top;
+    if (y<0)y=-y;
+    y-=2;
   }
 
   char buf[2048];
@@ -393,11 +412,12 @@ void Capture_Finish(HWND hwndDlg)
 
   if (g_cap_state)
   {
+#ifdef _WIN32
     SaveRestoreRecRect(hwndDlg,false);
     SetWindowLong(hwndDlg,GWL_STYLE,g_last_wndstyle);
     SetWindowPos(hwndDlg,HWND_NOTOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_DRAWFRAME|SWP_NOACTIVATE);
     SaveRestoreRecRect(hwndDlg,true);
-    
+#endif
     g_cap_state=0;
   }
 
@@ -483,10 +503,12 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
         }
         return 0;
         case IDC_TITLE:
+#ifdef _WIN32
           if (HIWORD(wParam) == EN_SETFOCUS)
           {
             SendDlgItemMessage(hwndDlg, IDC_TITLE, EM_SETSEL, 0, -1);
-          }          
+          }  
+#endif
         return 0;
       }
     return 0;
@@ -641,7 +663,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
   {
     case WM_INITDIALOG:
 
+      g_hwnd=hwndDlg;
+#ifdef _WIN32
       SetClassLong(hwndDlg,GCL_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
+#endif
       g_wndsize.init(hwndDlg);
       g_wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
       g_wndsize.init_item(IDC_MAXFPS_LBL,0,1,0,1);
@@ -660,7 +685,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       ++g_reent;
 
-      g_max_fps = GetPrivateProfileInt("licecap", "maxfps", g_max_fps, g_ini_file);
+      g_max_fps = GetPrivateProfileInt("licecap", "maxfps", g_max_fps, g_ini_file.Get());
       SetDlgItemInt(hwndDlg,IDC_MAXFPS,g_max_fps,FALSE);
       --g_reent;
 
@@ -674,7 +699,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       {
         char buf[1024];
-        GetPrivateProfileString("licecap","wnd_r","",buf,sizeof(buf),g_ini_file);
+        GetPrivateProfileString("licecap","wnd_r","",buf,sizeof(buf),g_ini_file.Get());
         if (buf[0])
         {
           int a[4]={0,};
@@ -694,8 +719,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         }
       }
 
-      g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file);
-      g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file);
+      g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file.Get());
+      g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file.Get());
       g_title[0]=0;
 
     return 1;
@@ -707,14 +732,18 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         GetWindowRect(hwndDlg,&r);
         char buf[1024];
         sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
-        WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file);
+        WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file.Get());
         sprintf(buf, "%d", g_max_fps);
-        WritePrivateProfileString("licecap","maxfps",buf,g_ini_file);
+        WritePrivateProfileString("licecap","maxfps",buf,g_ini_file.Get());
         sprintf(buf, "%d", g_prefs);
-        WritePrivateProfileString("licecap","prefs",buf,g_ini_file);
+        WritePrivateProfileString("licecap","prefs",buf,g_ini_file.Get());
         sprintf(buf, "%d", g_titlems);
-        WritePrivateProfileString("licecap","titlems",buf,g_ini_file);
+        WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
       }
+      g_hwnd=NULL;
+#ifndef _WIN32
+      SWELL_PostQuitMessage(0);
+#endif
 
     break;
     case WM_TIMER:
@@ -728,11 +757,17 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           {
             g_ms_written += now-g_last_frame_capture_time;
 
+#ifdef _WIN32
             HWND h = GetDesktopWindow();
             RECT r;
             GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
 
             HDC hdc = GetDC(h);
+#else
+            RECT r;
+            HWND h = NULL;
+            HDC hdc = NULL;
+#endif
             if (hdc)
             {
               int bw = g_cap_bm->getWidth();
@@ -873,13 +908,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       }
     break;
-
+#ifdef _WIN32
     case WM_HOTKEY:
       if (lParam == MAKELPARAM(MOD_CONTROL|MOD_ALT, 'P') && (g_prefs&16)) // prefs check not necessary
       {
         SendMessage(hwndDlg, WM_COMMAND, IDC_REC, 0);
       }
-    break;    
+    break;   
+#endif
 
     case WM_COMMAND:
       switch (LOWORD(wParam))
@@ -928,11 +964,13 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           Capture_Finish(hwndDlg);
           UpdateCaption(hwndDlg);
           UpdateStatusText(hwndDlg);
-              
+
+#ifdef _WIN32
           if (g_prefs&16)
           {          
             UnregisterHotKey(hwndDlg, IDC_REC);
           }
+#endif
         break;
 
         case IDC_INSERT:
@@ -960,18 +998,28 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
             if (WDL_ChooseFileForSave(hwndDlg, "Choose file for recording", NULL, g_last_fn,
               useextlist, useext, false, g_last_fn, sizeof(g_last_fn),
-              MAKEINTRESOURCE(IDD_SAVEOPTS),(void*)SaveOptsProc, g_hInst))
+              MAKEINTRESOURCE(IDD_SAVEOPTS),(void*)SaveOptsProc, 
+#ifdef _WIN32
+                                      g_hInst
+#else
+                                      SWELL_curmodule_dialogresource_head
+#endif
+                                      ))
             {
-              WritePrivateProfileString("licecap","lastfn",g_last_fn,g_ini_file);
+              WritePrivateProfileString("licecap","lastfn",g_last_fn,g_ini_file.Get());
 
+#ifdef _WIN32
               if (g_prefs&16)
               {          
                 RegisterHotKey(hwndDlg, IDC_REC, MOD_CONTROL|MOD_ALT, 'P');               
               }
+#endif
 
               RECT r;
               GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-              int w = r.right-r.left-2, h=r.bottom-r.top-2;
+              int w = r.right-r.left-2, h=r.bottom-r.top;
+              if (h<0)h=-h;
+              h-=2;
               delete g_cap_bm;
               g_cap_bm = new LICE_SysBitmap(w,h);
 
@@ -992,12 +1040,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 if (g_dotitle)
                   WriteTextFrame(g_title,g_titlems,true,w,h);
 
+#ifdef _WIN32
                 SaveRestoreRecRect(hwndDlg,false);
 
                 g_last_wndstyle = SetWindowLong(hwndDlg,GWL_STYLE,GetWindowLong(hwndDlg,GWL_STYLE)&~WS_THICKFRAME);
                 SetWindowPos(hwndDlg,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_DRAWFRAME|SWP_NOACTIVATE);
 
                 SaveRestoreRecRect(hwndDlg,true);
+#endif
 
                 SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
                 EnableWindow(GetDlgItem(hwndDlg,IDC_STOP),1);
@@ -1041,11 +1091,22 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           }
 
         break;
+#ifndef _WIN32
+        case IDCANCEL:
+          SendMessage(hwndDlg,WM_CLOSE,0,0);
+        return 1;
+#endif
       }
     break;
     case WM_CLOSE:
       if (!g_cap_state)
+      {
+#ifdef _WIN32
         EndDialog(hwndDlg,0);
+#else
+        DestroyWindow(hwndDlg);
+#endif
+      }
     break;
     case WM_GETMINMAXINFO:
       if (lParam)
@@ -1092,6 +1153,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         g_wndsize.onResize();
        
 
+#ifdef _WIN32
 				RECT r,r2;
 				GetWindowRect(hwndDlg,&r);
         GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
@@ -1117,7 +1179,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			  DeleteObject(rgn);
 		    DeleteObject(rgn2);
         SetWindowRgn(hwndDlg,rgn3,TRUE);
-
+#endif
         UpdateDimBoxes(hwndDlg);
 
         InvalidateRect(hwndDlg,NULL,TRUE);
@@ -1128,9 +1190,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 }
 
 
+#ifdef _WIN32
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
-  strcpy(g_ini_file,"licecap.ini");
+  g_ini_file.Set("licecap.ini");
 
   HKEY k;
   if (RegOpenKeyEx(HKEY_CURRENT_USER,"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",0,KEY_READ,&k) == ERROR_SUCCESS)
@@ -1140,16 +1204,86 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     DWORD t=REG_SZ;
     if (RegQueryValueEx(k,"AppData",0,&t,(unsigned char *)buf,&b) == ERROR_SUCCESS && t == REG_SZ)
     {
- 
-      lstrcpyn(g_ini_file,buf,sizeof(g_ini_file)-32);
-      strcat(g_ini_file,"\\licecap.ini");
+      g_ini_file.Set(buf);
+      g_ini_file.Append("\\licecap.ini");
     }
     RegCloseKey(k);
   }
 
-  GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file);
+  GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file.Get());
 
   g_hInst = hInstance;
   DialogBox(hInstance,MAKEINTRESOURCE(IDD_DIALOG1),GetDesktopWindow(),liceCapMainProc);
   return 0;
 }
+
+#else
+INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
+{
+  switch (msg)
+  {
+    case SWELLAPP_ONLOAD:
+      {
+        char exepath[2048];
+        exepath[0]=0;
+        GetModuleFileName(NULL,exepath,sizeof(exepath));
+        char *p=exepath;
+        while (*p) p++;
+        while (p > exepath && *p != '/') p--; *p=0;
+      
+        g_ini_file.Set(exepath);
+        g_ini_file.Append("/licecap.ini");
+        FILE *fp = fopen(g_ini_file.Get(),"r");
+        if (fp) 
+        {
+          fclose(fp);
+        }
+        else
+        {
+          char *p=getenv("HOME");
+          if (p && *p)
+          {
+            g_ini_file.Set(p);
+            g_ini_file.Append("/Library/Application Support/LICEcap");
+            mkdir(g_ini_file.Get(),0777);
+            
+            g_ini_file.Append("/licecap.ini");
+            fp=fopen(g_ini_file.Get(),"a");
+            if (fp)
+            {
+              fclose(fp);
+            }
+            else
+            {
+              g_ini_file.Set(exepath);
+              g_ini_file.Append("/licecap.ini");
+            }
+          }
+        }
+        GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file.Get());
+      }
+    break;
+    case SWELLAPP_LOADED:
+    
+      CreateDialog(hInstance,MAKEINTRESOURCE(IDD_DIALOG1),NULL,liceCapMainProc);
+      ShowWindow(g_hwnd,SW_SHOW);
+    break;
+    case SWELLAPP_ONCOMMAND:
+      if (g_hwnd) SendMessage(g_hwnd,WM_COMMAND,parm1&0xffff,0);
+      break;
+    case SWELLAPP_DESTROY:
+      if (g_hwnd && !g_cap_state) DestroyWindow(g_hwnd);
+      break;
+  //  case SWELLAPP_PROCESSMESSAGE:
+  //    if (MainProcessMessage((MSG*)parm1)>0) return 1;
+  //    return 0;
+      
+  }
+  return 0;
+}
+
+
+#include "../WDL/swell/swell-dlggen.h"
+#include "licecap.rc_mac_dlg"
+
+#endif
