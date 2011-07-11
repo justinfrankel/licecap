@@ -100,6 +100,49 @@ bool GetScreenDataOld(int xpos, int ypos, LICE_IBitmap *bmOut)
   
 }
 
+void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
+{
+  POINT pt;
+  GetCursorPos(&pt);
+  pt.x += xoffs;
+  pt.y += yoffs;
+  
+  NSCursor *c = [NSCursor arrowCursor]; // currentCursor but thats useless too
+  NSImage *img = [c image];
+  NSPoint hs = [c hotSpot];
+
+  extern int g_prefs;
+  // this doesnt work, since osx wont let us query the mouse if we're not the active app
+  if ((g_prefs&4) && ((GetAsyncKeyState(VK_LBUTTON)&0x8000) || (GetAsyncKeyState(VK_RBUTTON)&0x8000)))
+  {
+    LICE_Circle(bmOut, pt.x+1, pt.y+1, 10.0f, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+    LICE_Circle(bmOut, pt.x+1, pt.y+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+  }
+  
+  if (c && img)
+  {
+    HDC hdc= bmOut->getDC();
+    if (hdc)
+    {
+      void *ctx=SWELL_GetCtxGC(hdc);
+      if (ctx)
+      {
+        NSRect rect0;
+        rect0.size = [img size];
+        rect0.origin.x = pt.x - hs.x;
+        rect0.origin.y = pt.y + hs.y - rect0.size.height;
+        [NSGraphicsContext saveGraphicsState];
+        NSGraphicsContext *gc=[NSGraphicsContext graphicsContextWithGraphicsPort:ctx flipped:NO];
+        [NSGraphicsContext setCurrentContext:gc];
+        [img drawInRect:rect0 fromRect:NSMakeRect(0,0,rect0.size.width,rect0.size.height) operation:NSCompositeSourceOver fraction:1.0];
+        [NSGraphicsContext restoreGraphicsState];    
+      }
+    }
+  }
+  
+}
+
+
 static bool hasGLfailed=false;
 
 bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)

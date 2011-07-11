@@ -61,11 +61,11 @@ typedef struct {
   POINT   ptScreenPos;
 } pCURSORINFO, *pPCURSORINFO, *pLPCURSORINFO;
 
+#ifdef _WIN32
+
 void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
 {
   // XP+ only
-  
-#ifdef _WIN32
 
   static BOOL (WINAPI *pGetCursorInfo)(pLPCURSORINFO);
   static bool tr;
@@ -100,8 +100,8 @@ void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
       if (inf.hbmMask) DeleteObject(inf.hbmMask);
     }
   }
-#endif
 }
+#endif
 
 
 void MakeTimeStr(int sec, char* buf, int w, int h, int* timepos)
@@ -802,6 +802,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
             if (GetScreenData(r2.left,min(r2.top,r2.bottom),g_cap_bm_inv?g_cap_bm_inv:g_cap_bm))
             {
+              void DoMouseCursor(LICE_IBitmap *,int,int);
+              DoMouseCursor(g_cap_bm_inv?g_cap_bm_inv:g_cap_bm,-(r2.left+1),-(r2.bottom+1));                        
 #endif
 
 
