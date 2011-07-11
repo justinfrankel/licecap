@@ -1161,6 +1161,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define DT_SINGLELINE 64
 #define DT_NOPREFIX 128
 #define DT_NOCLIP 256
+#define DT_WORDBREAK 512
 
 #define DT_TOP 0
 #define DT_LEFT 0
