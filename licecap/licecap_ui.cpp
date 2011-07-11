@@ -749,6 +749,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       g_hwnd=hwndDlg;
 #ifdef _WIN32
       SetClassLong(hwndDlg,GCL_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
+#else
+      void SetNSWindowOpaque(HWND, bool);
+      SetNSWindowOpaque(hwndDlg,false);
 #endif
       g_wndsize.init(hwndDlg);
       g_wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
@@ -762,9 +765,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       g_wndsize.init_item(IDC_REC,1,1,1,1);
       g_wndsize.init_item(IDC_STOP,1,1,1,1);
       g_wndsize.init_item(IDC_INSERT,1,1,1,1);
-
-      void SetNSWindowOpaque(HWND, bool);
-      SetNSWindowOpaque(hwndDlg,false);
       
       ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_HIDE);
       SendMessage(hwndDlg,WM_SIZE,0,0);
