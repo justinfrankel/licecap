@@ -1,4 +1,8 @@
+v1.2 - ???
   + Allow user to set capture dimensions before recording
+
+v1.11 - October 10 2010 (JeffOS release)
+  + Insert text frames (when paused)
 
 v1.1 - June 9 2010
   + Fixed LCF export for widths not multiples of 4

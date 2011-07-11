@@ -276,6 +276,12 @@ void UpdateDimBoxes(HWND hwndDlg)
 }
 
 
+DWORD g_pause_time; // time of last pause
+DWORD g_insert_cnt=0; // number of frames inserted, purely for display
+int g_insert_ms=g_titlems;
+double g_insert_alpha=0.5f;
+LICE_SysBitmap *g_cap_bm_txt; 
+
 void UpdateStatusText(HWND hwndDlg)
 {
   if (!g_cap_state) return;
@@ -488,6 +494,145 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
   return 0;
 }
 
+void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double bgAlpha=1.0f)
+{
+  if (isTitle)
+    LICE_Clear(g_cap_bm, 0);
+
+  if (str)
+  {
+    int tw=w;
+    int th=h;   
+
+	  LICE_IBitmap* tbm = g_cap_bm;
+    if (isTitle)
+  	{
+		  if (g_prefs&2) 
+		  {
+		    tw /= 2;
+		    th /= 2;
+		  }
+		  tbm = new LICE_MemBitmap(tw, th); 
+		  LICE_Clear(tbm, 0);                      
+	  }
+	  else
+	  {
+		  tbm = new LICE_MemBitmap(tw, th); 
+		  LICE_Copy(tbm, g_cap_bm_txt);
+      LICE_FillRect(tbm, 0,0,w,h, LICE_RGBA(0,0,0,255), bgAlpha, LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+	  }
+    /*
+	    LICE_DrawRect(tbm,30,30,150,150,LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+	    LICE_DrawRect(tbm,31,31,148,148,LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+	    LICE_DrawRect(tbm,32,32,146,146,LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+    */
+	  char buf[4096];
+    lstrcpyn(buf, str,sizeof(buf));                    
+
+    int numlines=1;
+    char* p = strstr(buf, "\n");
+    while (p)
+    {
+      *p=0;
+      p = strstr(p+1, "\n");
+      ++numlines;
+    }
+
+    p=buf;
+    int i;
+    for (i = 0; i < numlines; ++i)
+    {                   
+      int txtw, txth;
+      LICE_MeasureText(p, &txtw, &txth);
+      LICE_DrawText(tbm, (tw-txtw)/2, (th-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+      p += strlen(p)+1;
+    }
+
+	  if (tbm != g_cap_bm)
+    {
+      LICE_ScaledBlit(g_cap_bm, tbm, 0, 0, w, h, 0, 0, tw, th, 1.0f, LICE_BLIT_MODE_COPY);
+      delete tbm;
+    }
+  }
+
+  if (g_cap_gif) 
+  {
+	  LICE_WriteGIFFrame(g_cap_gif, g_cap_bm, 0, 0, true, ms);                 
+	  g_cap_gif_lastbm=NULL; // force bm refresh
+  }
+
+  if (g_cap_lcf) 
+  {
+	  int del=0;
+	  g_cap_lcf->OnFrame(g_cap_bm, del); 
+	  if (!isTitle)
+	  {
+      del = g_pause_time-g_last_frame_capture_time;
+      del += ms;
+	  }
+	  g_cap_lcf->OnFrame(g_cap_bm, del); 
+  }
+}
+
+WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
+{
+	switch(Message)
+	{
+    case WM_INITDIALOG :
+		  {
+        char buf[256];
+        sprintf(buf,"Insert (%d)",g_insert_cnt);
+        SetDlgItemText(hwnd,IDOK,buf);
+        sprintf(buf, "%.1f", (double)g_insert_ms/1000.0);
+        SetDlgItemText(hwnd, IDC_MS, buf);
+        sprintf(buf, "%.1f", g_insert_alpha);
+        SetDlgItemText(hwnd, IDC_ALPHA, buf);
+        SetFocus(GetDlgItem(hwnd,IDC_EDIT));
+		  }
+		return 0;
+    case WM_CLOSE:
+	    EndDialog(hwnd,0);
+		break;
+		case WM_COMMAND:
+      switch(LOWORD(wParam))
+      {
+        case IDC_ALPHA:
+        {
+				  char buf[256];
+				  buf[0]=0;
+				  GetDlgItemText(hwnd, IDC_ALPHA, buf, sizeof(buf)-1);
+				  g_insert_alpha = min(1.0f, atof(buf));
+        }
+        break;
+        case IDC_MS:
+				{
+				  char buf[256];
+				  buf[0]=0;
+				  GetDlgItemText(hwnd, IDC_MS, buf, sizeof(buf)-1);
+				  g_insert_ms = (int)(atof(buf)*1000.0);
+        }
+        break;
+        case IDOK:
+			    if (g_cap_bm_txt && g_insert_ms)
+          {
+            char buf[4096];
+            GetDlgItemText(hwnd,IDC_EDIT,buf,4096);
+				    WriteTextFrame(buf,g_insert_ms,g_insert_alpha<0,g_cap_bm_txt->getWidth(),g_cap_bm_txt->getHeight(), g_insert_alpha >=0 ? g_insert_alpha : 1.0f);
+				    g_insert_cnt++;
+				    sprintf(buf,"Insert (%d)",g_insert_cnt);
+            SetDlgItemText(hwnd,IDOK,buf);
+            SetDlgItemText(hwnd,IDC_EDIT,"");
+            SetFocus(GetDlgItem(hwnd,IDC_EDIT));
+          }
+        break;
+        case IDCANCEL:
+          EndDialog(hwnd,0);
+        break;
+			}
+		break;
+	}
+	return 0;
+}
 
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -508,10 +653,13 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       g_wndsize.init_item(IDC_STATUS,0,1,1,1);
       g_wndsize.init_item(IDC_REC,1,1,1,1);
       g_wndsize.init_item(IDC_STOP,1,1,1,1);
+      g_wndsize.init_item(IDC_INSERT,1,1,1,1);
 
+      ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_HIDE);
       SendMessage(hwndDlg,WM_SIZE,0,0);
 
       ++g_reent;
+
       g_max_fps = GetPrivateProfileInt("licecap", "maxfps", g_max_fps, g_ini_file);
       SetDlgItemInt(hwndDlg,IDC_MAXFPS,g_max_fps,FALSE);
       --g_reent;
@@ -775,6 +923,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         break;
 
         case IDC_STOP:
+          ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_HIDE);
+          g_insert_cnt=0;
           Capture_Finish(hwndDlg);
           UpdateCaption(hwndDlg);
           UpdateStatusText(hwndDlg);
@@ -783,6 +933,17 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           {          
             UnregisterHotKey(hwndDlg, IDC_REC);
           }
+        break;
+
+        case IDC_INSERT:
+          if (!g_cap_bm_txt)
+          {
+            RECT r;
+            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+            g_cap_bm_txt = new LICE_SysBitmap(r.right-r.left-2,r.bottom-r.top-2);
+            LICE_Copy(g_cap_bm_txt, g_cap_bm);
+          }
+          DialogBox(g_hInst,MAKEINTRESOURCE(IDD_INSERT),hwndDlg,InsertProc);
         break;
 
         case IDC_REC:
@@ -829,60 +990,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               {
 
                 if (g_dotitle)
-                {           
-                  LICE_Clear(g_cap_bm, 0);
-
-                  if (g_title[0])
-                  {
-                    int tw=w;
-                    int th=h;                    
-                    LICE_IBitmap* tbm = g_cap_bm;
-                    if (g_prefs&2) 
-                    {
-                      tw /= 2;
-                      th /= 2;
-                      tbm = new LICE_MemBitmap(tw, th); 
-                      LICE_Clear(tbm, 0);                      
-                    }
-
-                    char buf[4096];
-                    strcpy(buf, g_title);                    
-
-                    int numlines=1;
-                    char* p = strstr(buf, "\n");
-                    while (p)
-                    {
-                      *p=0;
-                      p = strstr(p+1, "\n");
-                      ++numlines;
-                    }
-            
-                    p=buf;
-                    int i;
-                    for (i = 0; i < numlines; ++i)
-                    {                   
-                      int txtw, txth;
-                      LICE_MeasureText(p, &txtw, &txth);
-                      LICE_DrawText(tbm, (tw-txtw)/2, (th-txth*numlines*4)/2+txth*i*4, p, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-                      p += strlen(p)+1;
-                    }
-
-                    if (tbm != g_cap_bm)
-                    {
-                      LICE_ScaledBlit(g_cap_bm, tbm, 0, 0, w, h, 0, 0, tw, th, 1.0f, LICE_BLIT_MODE_COPY);
-                      delete tbm;
-                    }
-                  }
-
-                  if (g_cap_gif) 
-                  {
-                    LICE_WriteGIFFrame(g_cap_gif, g_cap_bm, 0, 0, true, g_titlems);                 
-                  }
-                  if (g_cap_lcf)
-                  {
-                    g_cap_lcf->OnFrame(g_cap_bm, 0); 
-                  }
-                }
+                  WriteTextFrame(g_title,g_titlems,true,w,h);
 
                 SaveRestoreRecRect(hwndDlg,false);
 
@@ -908,19 +1016,26 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               }
             }
           }
-          else
+          else if (g_cap_state==1)
           {
-            if (g_cap_state==1)
-            {
-              SetDlgItemText(hwndDlg,IDC_REC,"[unpause]");
-              g_cap_state=2;
-            }
-            else // unpause
-            {
-              SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
-              g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
-              g_cap_state=1;
-            }
+            g_pause_time = timeGetTime();
+            ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_SHOWNA);
+            ShowWindow(GetDlgItem(hwndDlg,IDC_STATUS),SW_HIDE);
+            SetDlgItemText(hwndDlg,IDC_REC,"[unpause]");
+            g_cap_state=2;
+            UpdateCaption(hwndDlg);
+            UpdateStatusText(hwndDlg);
+          }
+          else // unpause!
+          {
+            delete g_cap_bm_txt;
+            g_cap_bm_txt = NULL;
+            g_insert_cnt=0;
+            ShowWindow(GetDlgItem(hwndDlg,IDC_STATUS),SW_SHOWNA);
+            ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_HIDE);
+            SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
+            g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
+            g_cap_state=1;
             UpdateCaption(hwndDlg);
             UpdateStatusText(hwndDlg);
           }
