@@ -228,13 +228,30 @@ DWORD g_last_wndstyle;
 int g_reent=0;
 
 
+static WDL_WndSizer g_wndsize;
+
 void UpdateDimBoxes(HWND hwndDlg)
 {
   ShowWindow(GetDlgItem(hwndDlg, IDC_STATUS), (g_cap_state ? SW_SHOWNA : SW_HIDE));
-  ShowWindow(GetDlgItem(hwndDlg, IDC_XSZ), (g_cap_state ? SW_HIDE : SW_SHOWNA));
-  ShowWindow(GetDlgItem(hwndDlg, IDC_YSZ), (g_cap_state ? SW_HIDE : SW_SHOWNA));
-  ShowWindow(GetDlgItem(hwndDlg, IDC_DIMLBL_1), (g_cap_state ? SW_HIDE : SW_SHOWNA));  
-  ShowWindow(GetDlgItem(hwndDlg, IDC_DIMLBL), (g_cap_state ? SW_HIDE : SW_SHOWNA));  
+  {
+    WDL_WndSizer__rec* rec=g_wndsize.get_item(IDC_REC);
+    if (rec && rec->last.left > 0)
+    {
+      int xmin=rec->last.left-4;     
+      static const unsigned short ids[] = { IDC_MAXFPS_LBL, IDC_MAXFPS, IDC_DIMLBL_1, IDC_XSZ, IDC_YSZ, IDC_DIMLBL };
+      int i;
+      for (i=0; i < sizeof(ids)/sizeof(ids[0]); ++i)
+      {
+        WDL_WndSizer__rec* rec=g_wndsize.get_item(ids[i]);
+        if (rec) 
+        {
+          int show = (rec->last.right > xmin || (i >= 2 && g_cap_state)) ? SW_HIDE : SW_SHOWNA;
+          HWND h = GetDlgItem(hwndDlg, ids[i]);
+          if (h) ShowWindow(h, show);
+        }
+      }
+    }
+  }
 
   if (!g_cap_state)
   {
@@ -475,23 +492,22 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static POINT s_last_mouse;
-  static WDL_WndSizer wndsize;
   switch (uMsg)
   {
     case WM_INITDIALOG:
 
       SetClassLong(hwndDlg,GCL_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
-      wndsize.init(hwndDlg);
-      wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
-      wndsize.init_item(IDC_MAXFPS_LBL,0,1,0,1);
-      wndsize.init_item(IDC_MAXFPS,0,1,0,1);
-      wndsize.init_item(IDC_XSZ,0,1,0,1);
-      wndsize.init_item(IDC_YSZ,0,1,0,1);
-      wndsize.init_item(IDC_DIMLBL_1,0,1,0,1);
-      wndsize.init_item(IDC_DIMLBL,0,1,0,1);
-      wndsize.init_item(IDC_STATUS,0,1,1,1);
-      wndsize.init_item(IDC_REC,1,1,1,1);
-      wndsize.init_item(IDC_STOP,1,1,1,1);
+      g_wndsize.init(hwndDlg);
+      g_wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
+      g_wndsize.init_item(IDC_MAXFPS_LBL,0,1,0,1);
+      g_wndsize.init_item(IDC_MAXFPS,0,1,0,1);
+      g_wndsize.init_item(IDC_XSZ,0,1,0,1);
+      g_wndsize.init_item(IDC_YSZ,0,1,0,1);
+      g_wndsize.init_item(IDC_DIMLBL_1,0,1,0,1);
+      g_wndsize.init_item(IDC_DIMLBL,0,1,0,1);
+      g_wndsize.init_item(IDC_STATUS,0,1,1,1);
+      g_wndsize.init_item(IDC_REC,1,1,1,1);
+      g_wndsize.init_item(IDC_STOP,1,1,1,1);
 
       SendMessage(hwndDlg,WM_SIZE,0,0);
 
@@ -958,24 +974,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       if (wParam != SIZE_MINIMIZED)
       {
-        wndsize.onResize();
+        g_wndsize.onResize();
        
-        WDL_WndSizer__rec* rec=wndsize.get_item(IDC_REC);
-        if (rec && rec->last.left > 0)
-        {
-          int xmin=rec->last.left-4;     
-          int ids[] = { IDC_MAXFPS_LBL, IDC_MAXFPS, IDC_DIMLBL_1, IDC_XSZ, IDC_YSZ, IDC_DIMLBL };
-          int i;
-          for (i=0; i < sizeof(ids)/sizeof(ids[0]); ++i)
-          {
-            WDL_WndSizer__rec* rec=wndsize.get_item(ids[i]);
-            if (rec) 
-            {
-              int show = (rec->last.right > xmin ? SW_HIDE : SW_SHOWNA);
-              ShowWindow(GetDlgItem(hwndDlg, ids[i]), show);
-            }
-          }
-        }
 
 				RECT r,r2;
 				GetWindowRect(hwndDlg,&r);
