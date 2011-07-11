@@ -34,6 +34,10 @@
 HINSTANCE g_hInst;
 
 
+#define MIN_SIZE_X 160
+#define MIN_SIZE_Y 120
+
+
 int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause
 
 
@@ -221,23 +225,63 @@ LICE_SysBitmap *g_cap_bm;
 
 DWORD g_last_wndstyle;
 
+int g_reent=0;
+
+
+void UpdateDimBoxes(HWND hwndDlg)
+{
+  ShowWindow(GetDlgItem(hwndDlg, IDC_STATUS), (g_cap_state ? SW_SHOWNA : SW_HIDE));
+  ShowWindow(GetDlgItem(hwndDlg, IDC_XSZ), (g_cap_state ? SW_HIDE : SW_SHOWNA));
+  ShowWindow(GetDlgItem(hwndDlg, IDC_YSZ), (g_cap_state ? SW_HIDE : SW_SHOWNA));
+  ShowWindow(GetDlgItem(hwndDlg, IDC_DIMLBL_1), (g_cap_state ? SW_HIDE : SW_SHOWNA));  
+  ShowWindow(GetDlgItem(hwndDlg, IDC_DIMLBL), (g_cap_state ? SW_HIDE : SW_SHOWNA));  
+
+  if (!g_cap_state)
+  {
+    int x, y;
+    RECT r;
+    GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+    x=r.right-r.left-2;
+    y=r.bottom-r.top-2;
+
+    char buf[2048];
+    char obuf[2048];
+
+    ++g_reent;
+    sprintf(buf, "%d", x);
+    GetDlgItemText(hwndDlg, IDC_XSZ, obuf, sizeof(obuf));
+    if (strcmp(buf, obuf)) SetDlgItemText(hwndDlg, IDC_XSZ, buf);
+    sprintf(buf, "%d", y);
+    GetDlgItemText(hwndDlg, IDC_YSZ, obuf, sizeof(obuf));
+    if (strcmp(buf, obuf)) SetDlgItemText(hwndDlg, IDC_YSZ, buf);   
+    --g_reent;  
+  }
+}
+
 
 void UpdateStatusText(HWND hwndDlg)
 {
-  char dims[128];
+  if (!g_cap_state) return;
+
+  int x, y;
   if (g_cap_bm)
   {
-    sprintf(dims,"%dx%d", g_cap_bm->getWidth(),g_cap_bm->getHeight());
+    x=g_cap_bm->getWidth();
+    y=g_cap_bm->getHeight();
   }
   else
   {
     RECT r;
     GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-    sprintf(dims,"%dx%d",r.right-r.left-2,r.bottom-r.top-2);
+    x=r.right-r.left-2;
+    y=r.bottom-r.top-2;
   }
 
   char buf[2048];
   char oldtext[2048];
+
+  char dims[128];
+  sprintf(dims,"%dx%d", x, y);
 
   char pbuf[64];
   pbuf[0]=0;
@@ -333,6 +377,8 @@ void Capture_Finish(HWND hwndDlg)
     
     g_cap_state=0;
   }
+
+  UpdateDimBoxes(hwndDlg);
 
   delete g_cap_lcf;
   g_cap_lcf=0;
@@ -439,19 +485,26 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
       wndsize.init_item(IDC_MAXFPS_LBL,0,1,0,1);
       wndsize.init_item(IDC_MAXFPS,0,1,0,1);
+      wndsize.init_item(IDC_XSZ,0,1,0,1);
+      wndsize.init_item(IDC_YSZ,0,1,0,1);
+      wndsize.init_item(IDC_DIMLBL_1,0,1,0,1);
+      wndsize.init_item(IDC_DIMLBL,0,1,0,1);
       wndsize.init_item(IDC_STATUS,0,1,1,1);
       wndsize.init_item(IDC_REC,1,1,1,1);
       wndsize.init_item(IDC_STOP,1,1,1,1);
 
       SendMessage(hwndDlg,WM_SIZE,0,0);
 
+      ++g_reent;
       g_max_fps = GetPrivateProfileInt("licecap", "maxfps", g_max_fps, g_ini_file);
       SetDlgItemInt(hwndDlg,IDC_MAXFPS,g_max_fps,FALSE);
+      --g_reent;
 
       Capture_Finish(hwndDlg);
 
       UpdateCaption(hwndDlg);
       UpdateStatusText(hwndDlg);
+      UpdateDimBoxes(hwndDlg);
 
       SetTimer(hwndDlg,1,30,NULL);
 
@@ -668,11 +721,40 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       switch (LOWORD(wParam))
       {
         case IDC_MAXFPS:
-          {
+          if (HIWORD(wParam) == EN_CHANGE && !g_reent)
+          {          
             BOOL t;
             int a = GetDlgItemInt(hwndDlg,IDC_MAXFPS,&t,FALSE);
-            if (t && a)
-              g_max_fps = a;
+            if (t && a) g_max_fps = a;
+          }
+        break;
+
+        case IDC_XSZ:
+        case IDC_YSZ:
+          if (HIWORD(wParam) == EN_CHANGE && !g_cap_state && !g_reent)
+          {
+            int ox, oy;
+            RECT r;
+            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+            ox=r.right-r.left-2;
+            oy=r.bottom-r.top-2;
+
+            int nx=ox;
+            int ny=oy;
+
+            BOOL t;
+            int a=GetDlgItemInt(hwndDlg, IDC_XSZ, &t, FALSE);
+            if (t && a > MIN_SIZE_X) nx=a;
+            a=GetDlgItemInt(hwndDlg, IDC_YSZ, &t, FALSE);
+            if (t && a > MIN_SIZE_Y) ny=a;
+
+            if (nx != ox || ny != oy)
+            {
+              GetWindowRect(hwndDlg, &r);
+              int w=(r.right-r.left)+(nx-ox);
+              int h=(r.bottom-r.top)+(ny-oy);
+              SetWindowPos(hwndDlg, 0, 0, 0, w, h, SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE);
+            }
           }
         break;
 
@@ -806,26 +888,26 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 g_cap_state=1;
                 UpdateCaption(hwndDlg);
                 UpdateStatusText(hwndDlg);
-
+                UpdateDimBoxes(hwndDlg);
               }
             }
           }
-          else if (g_cap_state==1)
+          else
           {
-            SetDlgItemText(hwndDlg,IDC_REC,"[unpause]");
-            g_cap_state=2;
+            if (g_cap_state==1)
+            {
+              SetDlgItemText(hwndDlg,IDC_REC,"[unpause]");
+              g_cap_state=2;
+            }
+            else // unpause
+            {
+              SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
+              g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
+              g_cap_state=1;
+            }
             UpdateCaption(hwndDlg);
             UpdateStatusText(hwndDlg);
           }
-          else // unpause!
-          {
-            SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
-            g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
-            g_cap_state=1;
-            UpdateCaption(hwndDlg);
-            UpdateStatusText(hwndDlg);
-          }
-
 
         break;
       }
@@ -838,8 +920,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       if (lParam)
       {
         LPMINMAXINFO l = (LPMINMAXINFO)lParam;
-        l->ptMinTrackSize.x = 160;
-        l->ptMinTrackSize.y = 120;
+        l->ptMinTrackSize.x = MIN_SIZE_X;
+        l->ptMinTrackSize.y = MIN_SIZE_Y;
 
       }
     break;
@@ -877,6 +959,24 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       if (wParam != SIZE_MINIMIZED)
       {
         wndsize.onResize();
+       
+        WDL_WndSizer__rec* rec=wndsize.get_item(IDC_REC);
+        if (rec && rec->last.left > 0)
+        {
+          int xmin=rec->last.left-4;     
+          int ids[] = { IDC_MAXFPS_LBL, IDC_MAXFPS, IDC_DIMLBL_1, IDC_XSZ, IDC_YSZ, IDC_DIMLBL };
+          int i;
+          for (i=0; i < sizeof(ids)/sizeof(ids[0]); ++i)
+          {
+            WDL_WndSizer__rec* rec=wndsize.get_item(ids[i]);
+            if (rec) 
+            {
+              int show = (rec->last.right > xmin ? SW_HIDE : SW_SHOWNA);
+              ShowWindow(GetDlgItem(hwndDlg, ids[i]), show);
+            }
+          }
+        }
+
 				RECT r,r2;
 				GetWindowRect(hwndDlg,&r);
         GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
@@ -902,6 +1002,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 			  DeleteObject(rgn);
 		    DeleteObject(rgn2);
         SetWindowRgn(hwndDlg,rgn3,TRUE);
+
+        UpdateDimBoxes(hwndDlg);
 
         InvalidateRect(hwndDlg,NULL,TRUE);
       }

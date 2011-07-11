@@ -1,3 +1,5 @@
+  + Allow user to set capture dimensions before recording
+
 v1.1 - June 9 2010
   + Fixed LCF export for widths not multiples of 4
   + Added hotkey for pause (shift+space)

@@ -14,11 +14,15 @@
 #define IDC_VIEWRECT                    1006
 #define IDC_TITLEUSE                    1007
 #define IDC_BIGFONT                     1008
+#define IDC_XSZ                         1008
 #define IDC_MS                          1009
+#define IDC_YSZ                         1009
 #define IDC_TITLE                       1010
 #define IDC_MOUSECAP                    1011
 #define IDC_TIMELINE                    1012
 #define IDC_SSPAUSE                     1013
+#define IDC_DIMLBL                      1014
+#define IDC_DIMLBL_1                    1015
 
 // Next default values for new objects
 // 
@@ -26,7 +30,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        105
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1014
+#define _APS_NEXT_CONTROL_VALUE         1016
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
