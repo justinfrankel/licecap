@@ -236,7 +236,7 @@ char g_title[4096];
 bool g_dotitle;
 int g_last_sec_written;
 
-LICE_IBitmap *g_cap_bm;
+LICE_IBitmap *g_cap_bm,*g_cap_bm_inv;
 
 DWORD g_last_wndstyle;
 
@@ -674,67 +674,8 @@ WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
 
 
 #ifndef _WIN32
-#include <CoreFoundation/CoreFoundation.h>
-#include <ApplicationServices/ApplicationServices.h>
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/gl.h>
-bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
-{ 
-  CGLContextObj    glContextObj;
-  CGLPixelFormatObj pixelFormatObj ;
-  long numPixelFormats ;
-  CGLPixelFormatAttribute attribs[4] =
-  {
-    kCGLPFAFullScreen,
-    kCGLPFADisplayMask,
-    (CGLPixelFormatAttribute)CGDisplayIDToOpenGLDisplayMask(CGMainDisplayID()),
-  } ;
-  
-   
-  
-  /* Build a full-screen GL context */
-  CGLChoosePixelFormat( attribs, &pixelFormatObj, &numPixelFormats );
-  if ( pixelFormatObj == NULL )  return false;
-  
-  CGLCreateContext( pixelFormatObj, NULL, &glContextObj ) ;
-  CGLDestroyPixelFormat( pixelFormatObj ) ;
-  if ( glContextObj == NULL ) return false;
-  
-  
-  CGLSetCurrentContext( glContextObj ) ;
-  CGLSetFullScreen( glContextObj ) ;
-  
-  glReadBuffer(GL_FRONT);
-      
-  
-  /* Read framebuffer into our bitmap */
-  glFinish(); /* Finish all OpenGL commands */
-  glPixelStorei(GL_PACK_ALIGNMENT, 4); /* Force 4-byte alignment */
-  glPixelStorei(GL_PACK_ROW_LENGTH, bmOut->getRowSpan());
-  glPixelStorei(GL_PACK_SKIP_ROWS, 0);
-  glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
-  
-  /*
-   * Fetch the data in XRGB format, matching the bitmap context.
-   */
-  glReadPixels(xpos,ypos, bmOut->getWidth(), bmOut->getHeight(),
-               GL_BGRA,
-#ifdef __BIG_ENDIAN__
-               GL_UNSIGNED_INT_8_8_8_8_REV, // for PPC
-#else
-               GL_UNSIGNED_INT_8_8_8_8, // for Intel! http://lists.apple.com/archives/quartz-dev/2006/May/msg00100.html
-#endif
-                 bmOut->getBits());
-  
-  
-  
-  /* Get rid of GL context */
-  CGLSetCurrentContext( NULL );
-  CGLClearDrawable( glContextObj ); // disassociate from full screen
-  CGLDestroyContext( glContextObj ); // and destroy the context
-  
-  return true;
-}
+bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut);
+
 #endif
 
 
@@ -855,12 +796,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               ReleaseDC(h,hdc);
               DoMouseCursor(g_cap_bm,h,-(r.left+1),-(r.top+1));                        
 #else
-            HWND h=0;
             int bw = g_cap_bm->getWidth();
             int bh = g_cap_bm->getHeight();
             RECT r2;
             GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
-            if (GetScreenData(r2.left,min(r2.top,r2.bottom),g_cap_bm))
+            if (GetScreenData(r2.left,min(r2.top,r2.bottom),g_cap_bm_inv?g_cap_bm_inv:g_cap_bm))
             {
 #endif
 
@@ -1125,11 +1065,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 #ifdef _WIN32
               g_cap_bm = new LICE_SysBitmap(w,h);
 #else
-              
-              // on OSX GL gives us a top-up bitmap, so we create a flipped bitmap here to avoid having to flip later
-              static LICE_MemBitmap bms;
-              bms.resize(w,h);
-              g_cap_bm = new LICE_WrapperBitmap(bms.getBits(),bms.getWidth(),bms.getHeight(),bms.getRowSpan(),true);
+              delete g_cap_bm_inv;
+              g_cap_bm_inv = new LICE_SysBitmap(w,h);
+              g_cap_bm = new LICE_WrapperBitmap(g_cap_bm_inv->getBits(),g_cap_bm_inv->getWidth(),g_cap_bm_inv->getHeight(),g_cap_bm_inv->getRowSpan(),true);
 #endif
 
               g_dotitle = ((g_prefs&1) && g_titlems);
