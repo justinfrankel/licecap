@@ -272,7 +272,7 @@ void UpdateDimBoxes(HWND hwndDlg)
         WDL_WndSizer__rec* rec=g_wndsize.get_item(ids[i]);
         if (rec) 
         {
-          int show = (rec->last.right > xmin || (i >= 2 && g_cap_state)) ? SW_HIDE : SW_SHOWNA;
+          int show = (rec->last.right > xmin || g_cap_state) ? SW_HIDE : SW_SHOWNA;
           HWND h = GetDlgItem(hwndDlg, ids[i]);
           if (h) ShowWindow(h, show);
         }
