@@ -983,9 +983,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
             BOOL t;
             int a=GetDlgItemInt(hwndDlg, IDC_XSZ, &t, FALSE);
-            if (t && a > MIN_SIZE_X) nx=a;
+            if (t && a >= MIN_SIZE_X) nx=a;
             a=GetDlgItemInt(hwndDlg, IDC_YSZ, &t, FALSE);
-            if (t && a > MIN_SIZE_Y) ny=a;
+            if (t && a >= MIN_SIZE_Y) ny=a;
 
             if (nx != ox || ny != oy)
             {
