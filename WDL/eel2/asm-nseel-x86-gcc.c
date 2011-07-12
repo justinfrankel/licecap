@@ -366,7 +366,8 @@ void nseel_asm_assign(void)
     "movll %rdx, %rcx\n"
     "shrl $32, %rdx\n"
     "andl $0x7FF00000, %edx\n"
-    "jz 1f\n"
+    "cmpl $0x3c900000, %edx\n"
+    "jl 1f\n"
     "cmpl $0x7FF00000, %edx\n"
     "je 1f\n"
     "jmp 0f\n"
@@ -383,7 +384,8 @@ void nseel_asm_assign(void)
     "movl 4(%eax), %edx\n"
     "movl (%eax), %ecx\n"
     "andl  $0x7ff00000, %edx\n"
-    "jz 1f\n"   // if exponent=zero, zero
+    "cmpl  $0x3c900000, %edx\n"
+    "jl 1f\n"   // if smaller than about 2^-53, then zero
     "cmpl  $0x7ff00000, %edx\n"
     "je 1f\n" // if exponent=all 1s, zero
     "movl 4(%eax), %edx\n" // reread

@@ -582,7 +582,8 @@ __declspec(naked) void nseel_asm_assign(void)
     mov rcx, rdx;
     shr rdx, 32;
     and edx, 0x7FF00000;
-    jz label_0;
+    cmp edx, 0x3c900000;
+    jl label_0;
     cmp edx, 0x7FF00000;
     je label_0;
     jmp label_1;
@@ -613,7 +614,8 @@ _emit 0x90;
     mov edx, dword ptr [eax+4];
     mov ecx, dword ptr [eax];
     and edx, 0x7ff00000;
-    jz label_2;   // if exponent=zero, zero
+    cmp edx, 0x3c900000;
+    jl label_2;   // if smaller than about 2^-53, then zero
     cmp edx, 0x7ff00000;
     je label_2; // if exponent=all 1s, zero
     mov edx, dword ptr [eax+4]; // reread
