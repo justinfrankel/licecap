@@ -335,7 +335,7 @@ class LineParser {
 #else
     {
       if (sz<1)sz=1;
-      if (sz+m_tmpbuf_used <= sizeof(m_tmpbuf))
+      if (sz+m_tmpbuf_used <= (int)sizeof(m_tmpbuf))
       {
          m_tmpbuf_used+=sz;
          return m_tmpbuf + m_tmpbuf_used - sz;
