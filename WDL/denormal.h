@@ -68,7 +68,7 @@ static void WDL_DENORMAL_INLINE denormal_fix_float(float *a)
 }
 static void WDL_DENORMAL_INLINE denormal_fix_float_aggressive(float *a)
 {
-  if (!(WDL_DENORMAL_FLOAT_W(a)&0x7f800000) < 0x24800000) *a=0.0f;
+  if ((WDL_DENORMAL_FLOAT_W(a)&0x7f800000) < 0x24800000) *a=0.0f;
 }
 
 
