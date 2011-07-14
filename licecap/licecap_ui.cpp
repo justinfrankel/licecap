@@ -362,12 +362,6 @@ void UpdateStatusText(HWND hwndDlg)
 
 void UpdateCaption(HWND hwndDlg)
 {
-#ifndef _WIN32
-#ifdef __APPLE__
-  extern void SWELL_SetWindowShadow(HWND, bool);
-  SWELL_SetWindowShadow(hwndDlg,g_cap_state==0);
-#endif
-#endif
   if (!g_cap_state) SetWindowText(hwndDlg,"LICEcap " LICECAP_VERSION " [stopped]");
   else
   {
@@ -686,12 +680,13 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
   switch (uMsg)
   {
     case WM_INITDIALOG:
-
       g_hwnd=hwndDlg;
 #ifdef _WIN32
       SetClassLong(hwndDlg,GCL_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
-#else
+#elif defined(__APPLE__)
+      extern void SWELL_SetWindowShadow(HWND, bool);
       void SetNSWindowOpaque(HWND, bool);
+      SWELL_SetWindowShadow(hwndDlg,false);
       SetNSWindowOpaque(hwndDlg,false);
 #endif
       g_wndsize.init(hwndDlg);
@@ -948,13 +943,36 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       // osx hook
       {
-        RECT r;
-        void DrawTransparentRectInCurrentContext(RECT r);
-        GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
-        ScreenToClient(hwndDlg,(LPPOINT)&r);
-        ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
-        DrawTransparentRectInCurrentContext(r);
-        // might need to notify the window things changed?
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwndDlg,&ps))
+        {
+          RECT r;
+          void DrawTransparentRectInCurrentContext(RECT r);
+          GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
+          ScreenToClient(hwndDlg,(LPPOINT)&r);
+          ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
+          DrawTransparentRectInCurrentContext(r);
+          HPEN pen = CreatePen(PS_SOLID,0,RGB(128,128,128));
+          HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
+          
+          r.left--;r.top--;
+          MoveToEx(ps.hdc,r.left,r.top,NULL);
+          LineTo(ps.hdc,r.right,r.top);
+          LineTo(ps.hdc,r.right,r.bottom);
+          LineTo(ps.hdc,r.left,r.bottom);
+          LineTo(ps.hdc,r.left,r.top);
+          
+          GetClientRect(hwndDlg,&r);
+          r.right--;r.bottom--;
+          MoveToEx(ps.hdc,r.right,r.top,NULL);
+          LineTo(ps.hdc,r.right,r.bottom);
+          LineTo(ps.hdc,r.left,r.bottom);
+          LineTo(ps.hdc,r.left,r.top);
+          
+          SelectObject(ps.hdc,oldPen);
+          DeleteObject(pen);
+          EndPaint(hwndDlg,&ps);
+        }
       }      
     break;
 #endif
