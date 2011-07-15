@@ -581,16 +581,12 @@ __declspec(naked) void nseel_asm_assign(void)
     mov rdx, qword ptr [rax];
     mov rcx, rdx;
     shr rdx, 32;
+    add edx, 0x00100000;
     and edx, 0x7FF00000;
-    cmp edx, 0x3c900000;
-    jl label_0;
-    cmp edx, 0x7FF00000;
-    je label_0;
-    jmp label_1;
-label_0:
-    
+    cmp edx, 0x3cA00000;
+    jge label_0;
     sub rcx, rcx;
-label_1:
+label_0:
     
     mov qword ptr [edi], rcx;
 _emit 0x89;
@@ -611,20 +607,18 @@ _emit 0x90;
 
 #if EEL_F_SIZE == 8
   __asm {
-    mov edx, dword ptr [eax+4];
-    mov ecx, dword ptr [eax];
-    and edx, 0x7ff00000;
-    cmp edx, 0x3c900000;
-    jl label_2;   // if smaller than about 2^-53, then zero
-    cmp edx, 0x7ff00000;
-    je label_2; // if exponent=all 1s, zero
-    mov edx, dword ptr [eax+4]; // reread
-    jmp label_3;
-label_2:
-    
+    mov ecx, dword ptr [eax+4];
+    mov edx, ecx;
+    add ecx, 0x00100000; // force inf/nan to 0 exponent
+    and ecx, 0x7ff00000;
+    cmp ecx, 0x3cA00000;
+    mov ecx, dword ptr [eax]; // read low word, for no reason if denorm/nan/inf, but meh
+
+    jge label_1;   // if smaller than about 2^-53, or if nan/inf, then zero
     sub ecx, ecx;
     sub edx, edx;
-label_3:
+
+label_1:
     
     mov dword ptr [edi], ecx;
     mov dword ptr [edi+4], edx;
@@ -873,10 +867,10 @@ __declspec(naked) void nseel_asm_mod(void)
     sub eax, eax;
 #endif
     cmp dword ptr [esi], 0;
-    je label_4; // skip devide, set return to 0
+    je label_2; // skip devide, set return to 0
     mov eax, dword ptr [esi+4];
     div dword ptr [esi];
-label_4:
+label_2:
     
     mov dword ptr [esi], edx;
     fild dword ptr [esi];
@@ -913,10 +907,10 @@ __declspec(naked) void nseel_asm_mod_op(void)
 #endif
     xor edx, edx;
     cmp dword ptr [edi], 0;
-    je label_5; // skip devide, set return to 0
+    je label_3; // skip devide, set return to 0
     mov eax, dword ptr [esi];
     div dword ptr [edi];
-label_5:
+label_3:
     
     mov dword ptr [edi], edx;
     fild dword ptr [edi];
@@ -1153,7 +1147,7 @@ __declspec(naked) void nseel_asm_sign(void)
     mov rcx, qword ptr [rax];
     mov rdx, 0x7FFFFFFFFFFFFFFF;
     test rcx, rdx;
-    jz label_6;
+    jz label_4;
     shr rcx, 60;
     and rcx, 8;
     add rcx, rdi;
@@ -1161,7 +1155,7 @@ __declspec(naked) void nseel_asm_sign(void)
     add rsi, 8;
     mov rdi, qword ptr [rcx];
     mov qword ptr [rax], rdi;
-label_6:
+label_4:
 	
 
 
@@ -1172,14 +1166,14 @@ label_6:
     mov ecx, dword ptr [eax+4];
     mov edx, dword ptr [eax];
     test edx, 0xFFFFFFFF;
-    jnz label_7;
+    jnz label_5;
 #else
     mov ecx, dword ptr [eax];
 #endif
     // high dword (minus sign bit) is zero
     test ecx, 0x7FFFFFFF;
-    jz label_8; // zero zero, return the value passed directly
-label_7:
+    jz label_6; // zero zero, return the value passed directly
+label_5:
     
 #if EEL_F_SIZE == 8
 	shr ecx, 28;
@@ -1201,7 +1195,7 @@ label_7:
 #if EEL_F_SIZE == 8
     mov dword ptr [eax+4], edx;
 #endif
-label_8:
+label_6:
 	
 
 #endif
@@ -1252,13 +1246,13 @@ _emit 0xFF;
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jz label_9;
+    jz label_7;
     fld1;
-    jmp label_10;
-label_9:
+    jmp label_8;
+label_7:
     
     fldz;
-label_10:
+label_8:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1351,11 +1345,11 @@ __declspec(naked) void nseel_asm_repeat(void)
 #endif
     mov ecx, dword ptr [esi];
     cmp ecx, 1;
-    jl label_11;
+    jl label_9;
     cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-    jl label_12;
+    jl label_10;
     mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-label_12:
+label_10:
 
       mov edx, 0xFFFFFFFF;
       sub esp, 8; /* keep stack aligned -- note this is required on x64 too!*/
@@ -1366,8 +1360,8 @@ label_12:
       pop esi;
       add esp, 8; /* keep stack aligned -- also required on x64*/
     dec ecx;
-    jnz label_12;
-label_11:
+    jnz label_10;
+label_9:
 
 _emit 0x89;
 _emit 0x90;
@@ -1389,7 +1383,7 @@ __declspec(naked) void nseel_asm_repeatwhile(void)
 {
   __asm {
     mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-label_13:
+label_11:
 
       mov edx, 0xFFFFFFFF;
       sub esp, 8; /* keep stack aligned -- required on x86 and x64*/
@@ -1423,10 +1417,10 @@ _emit 0xFF;
 #endif
       fstsw ax;
 	  test eax, 256;
-	  jnz label_14;
+	  jnz label_12;
     dec ecx;
-    jnz label_13;
-label_14:
+    jnz label_11;
+label_12:
 	
 	mov eax, esi;
 _emit 0x89;
@@ -1473,7 +1467,7 @@ _emit 0xFF;
 #endif
     fstsw ax;
     test eax, 256;
-    jnz label_15; // if Z, then we are nonzero
+    jnz label_13; // if Z, then we are nonzero
 
         mov ecx, 0xFFFFFFFF;
 #ifdef TARGET_X64
@@ -1507,14 +1501,14 @@ _emit 0xFF;
 #endif
     	fstsw ax;
         test eax, 256;
-	jnz label_15;
+	jnz label_13;
 	fld1;
-	jmp label_16;
+	jmp label_14;
 
-label_15:
+label_13:
 
     fldz;
-label_16:
+label_14:
 
 
     mov eax, esi;
@@ -1563,7 +1557,7 @@ _emit 0xFF;
 #endif
     fstsw ax;
     test eax, 256;
-    jz label_17; // if Z, then we are nonzero
+    jz label_15; // if Z, then we are nonzero
 
         mov ecx, 0xFFFFFFFF;
 #ifdef TARGET_X64
@@ -1597,14 +1591,14 @@ _emit 0xFF;
 #endif
     	fstsw ax;
         test eax, 256;
-	jz label_17;
+	jz label_15;
 	fldz;
-	jmp label_18;
+	jmp label_16;
 
-label_17:
+label_15:
 
     fld1;
-label_18:
+label_16:
 
 
     mov eax, esi;
@@ -1656,13 +1650,13 @@ _emit 0xFF;
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jz label_19;
+    jz label_17;
     fld1;
-    jmp label_20;
-label_19:
+    jmp label_18;
+label_17:
     
     fldz;
-label_20:
+label_18:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1712,13 +1706,13 @@ _emit 0xFF;
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jnz label_21;
+    jnz label_19;
     fld1;
-    jmp label_22;
-label_21:
+    jmp label_20;
+label_19:
     
     fldz;
-label_22:
+label_20:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1748,13 +1742,13 @@ __declspec(naked) void nseel_asm_below(void)
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jz label_23;
+    jz label_21;
     fld1;
-    jmp label_24;
-label_23:
+    jmp label_22;
+label_21:
     
     fldz;
-label_24:
+label_22:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1783,13 +1777,13 @@ __declspec(naked) void nseel_asm_beloweq(void)
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jnz label_25;
+    jnz label_23;
     fld1;
-    jmp label_26;
-label_25:
+    jmp label_24;
+label_23:
     
     fldz;
-label_26:
+label_24:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1819,13 +1813,13 @@ __declspec(naked) void nseel_asm_above(void)
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jz label_27;
+    jz label_25;
     fld1;
-    jmp label_28;
-label_27:
+    jmp label_26;
+label_25:
     
     fldz;
-label_28:
+label_26:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1853,13 +1847,13 @@ __declspec(naked) void nseel_asm_aboveeq(void)
     fstsw ax;
     test eax, 256;
     mov eax, esi;
-    jnz label_29;
+    jnz label_27;
     fld1;
-    jmp label_30;
-label_29:
+    jmp label_28;
+label_27:
     
     fldz;
-label_30:
+label_28:
     
     fstp EEL_ASM_TYPE [esi];
     add esi, EEL_F_SIZE;
@@ -1890,9 +1884,9 @@ __declspec(naked) void nseel_asm_min(void)
     fstsw ax;
     test eax, 256;
     pop eax;
-    jz label_31;
+    jz label_29;
     mov eax, edi;
-label_31:
+label_29:
     
 _emit 0x89;
 _emit 0x90;
@@ -1920,9 +1914,9 @@ __declspec(naked) void nseel_asm_max(void)
     fstsw ax;
     test eax, 256;
     pop eax;
-    jnz label_32;
+    jnz label_30;
     mov eax, edi;
-label_32:
+label_30:
     
 _emit 0x89;
 _emit 0x90;
@@ -2326,11 +2320,11 @@ SAVE_STACK
     mov rsi, r15;
     add rsp, 128;
     and rax, rax;
-    jnz label_33;
+    jnz label_31;
     mov rax, r15;
     mov qword ptr [esi], 0;
     add rsi, EEL_F_SIZE;
-label_33:
+label_31:
     
 
 #else
@@ -2346,11 +2340,11 @@ label_33:
     call edi;
     add rsp, 128;
     and rax, rax;
-    jnz label_34;
+    jnz label_32;
     mov rax, rsi;
     mov qword ptr [esi], 0;
     add esi, EEL_F_SIZE;
-label_34:
+label_32:
     
 #endif
 
@@ -2381,14 +2375,14 @@ _emit 0xFF;
     call edi;
     add esp, 16;
     and eax, eax;
-    jnz label_35;
+    jnz label_33;
     mov eax, esi;
     mov dword ptr [esi], 0;
 #if EEL_F_SIZE == 8
     mov dword ptr [esi+4], 0;
 #endif
     add esi, EEL_F_SIZE;
-label_35:
+label_33:
     
 
 

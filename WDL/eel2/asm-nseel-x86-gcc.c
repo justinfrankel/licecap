@@ -365,13 +365,10 @@ void nseel_asm_assign(void)
     "movll (%rax), %rdx\n"
     "movll %rdx, %rcx\n"
     "shrl $32, %rdx\n"
+    "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x3c900000, %edx\n"
-    "jl 1f\n"
-    "cmpl $0x7FF00000, %edx\n"
-    "je 1f\n"
-    "jmp 0f\n"
-    "1:\n"
+    "cmpl $0x3cA00000, %edx\n"
+    "jge 0f\n"
     "subl %rcx, %rcx\n"
     "0:\n"
     "movll %rcx, (%edi)\n"
@@ -381,18 +378,17 @@ void nseel_asm_assign(void)
 
 #if EEL_F_SIZE == 8
   __asm__(
-    "movl 4(%eax), %edx\n"
-    "movl (%eax), %ecx\n"
-    "andl  $0x7ff00000, %edx\n"
-    "cmpl  $0x3c900000, %edx\n"
-    "jl 1f\n"   // if smaller than about 2^-53, then zero
-    "cmpl  $0x7ff00000, %edx\n"
-    "je 1f\n" // if exponent=all 1s, zero
-    "movl 4(%eax), %edx\n" // reread
-    "jmp 0f\n"
-    "1:\n"
+    "movl 4(%eax), %ecx\n"
+    "movl %ecx, %edx\n"
+    "addl  $0x00100000, %ecx\n" // force inf/nan to 0 exponent
+    "andl  $0x7ff00000, %ecx\n" 
+    "cmpl  $0x3cA00000, %ecx\n"
+    "movl (%eax), %ecx\n" // read low word, for no reason if denorm/nan/inf, but meh
+
+    "jge 0f\n"   // if smaller than about 2^-53, or if nan/inf, then zero
     "subl %ecx, %ecx\n"
     "subl %edx, %edx\n"
+
     "0:\n"
     "movl %ecx, (%edi)\n"
     "movl %edx, 4(%edi)\n"
