@@ -367,7 +367,7 @@ void nseel_asm_assign(void)
     "shrl $32, %rdx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x3cA00000, %edx\n"
+    "cmpl $0x30000000, %edx\n"
     "jge 0f\n"
     "subl %rcx, %rcx\n"
     "0:\n"
@@ -382,10 +382,10 @@ void nseel_asm_assign(void)
     "movl %ecx, %edx\n"
     "addl  $0x00100000, %ecx\n" // force inf/nan to 0 exponent
     "andl  $0x7ff00000, %ecx\n" 
-    "cmpl  $0x3cA00000, %ecx\n"
+    "cmpl  $0x30000000, %ecx\n"
     "movl (%eax), %ecx\n" // read low word, for no reason if denorm/nan/inf, but meh
 
-    "jge 0f\n"   // if smaller than about 2^-53, or if nan/inf, then zero
+    "jge 0f\n"   // if smaller than about 2^-256, or if nan/inf, then zero
     "subl %ecx, %ecx\n"
     "subl %edx, %edx\n"
 

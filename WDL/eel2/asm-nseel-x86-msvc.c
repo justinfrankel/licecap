@@ -583,7 +583,7 @@ __declspec(naked) void nseel_asm_assign(void)
     shr rdx, 32;
     add edx, 0x00100000;
     and edx, 0x7FF00000;
-    cmp edx, 0x3cA00000;
+    cmp edx, 0x30000000;
     jge label_0;
     sub rcx, rcx;
 label_0:
@@ -611,10 +611,10 @@ _emit 0x90;
     mov edx, ecx;
     add ecx, 0x00100000; // force inf/nan to 0 exponent
     and ecx, 0x7ff00000;
-    cmp ecx, 0x3cA00000;
+    cmp ecx, 0x30000000;
     mov ecx, dword ptr [eax]; // read low word, for no reason if denorm/nan/inf, but meh
 
-    jge label_1;   // if smaller than about 2^-53, or if nan/inf, then zero
+    jge label_1;   // if smaller than about 2^-256, or if nan/inf, then zero
     sub ecx, ecx;
     sub edx, edx;
 
