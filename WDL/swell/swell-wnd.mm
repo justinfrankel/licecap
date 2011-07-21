@@ -470,6 +470,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     nm.item.iSubItem=m_cols->Find(aTableColumn);
     nm.item.pszText=buf;
     nm.item.cchTextMax=sizeof(buf)-1;
+    buf[0]=0;
     SendMessage(tgt,WM_NOTIFY,[self tag],(LPARAM)&nm);
     
     if (m_status_imagelist_type == LVSIL_STATE) image_idx=(nm.item.state>>16)&0xff;
