@@ -150,6 +150,10 @@ void WDL_SimplePitchShifter::BufferDone(int input_filled)
       }
 
       int outlen = (int) (input_filled*itempo-fp) + 128; // upper bound on possible sample count
+      if (outlen<0) 
+      {
+        outlen=0;
+      }
 
       WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *bufo = (WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *)m_queue.Add(NULL,outlen*m_last_nch*sizeof(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE));
       // resample bufi to bufo
