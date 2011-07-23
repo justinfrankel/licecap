@@ -30,6 +30,8 @@
 #include <memory.h>
 #include "convoengine.h"
 
+#include "denormal.h"
+
 //#define TIMING
 #include "timing.c"
 
@@ -235,14 +237,14 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size, 
         WDL_FFT_REAL v2=(WDL_FFT_REAL)fabs(v);
         if (v2 > mv) mv=v2;
 
-        imptmp[i*2]=v * scale;
+        imptmp[i*2]=denormal_filter_aggressive(v * scale);
 
         if (imp2)
         {
           v=*imp2++;
           v2=(WDL_FFT_REAL)fabs(v);
           if (v2>mv2) mv2=v2;
-          imptmp[i*2+1]=v*scale;
+          imptmp[i*2+1]=denormal_filter_aggressive(v*scale);
         }
         else imptmp[i*2+1]=0.0;
       }
@@ -542,9 +544,9 @@ int WDL_ConvolutionEngine::Avail(int want)
         int i;
         for (i = 0; i < sz; i ++) // unpack samples
         {
-          WDL_FFT_REAL f = optr[i*2]=optr[sz+i];
+          WDL_FFT_REAL f = optr[i*2]=denormal_filter_aggressive(optr[sz+i]);
           if (!nonzflag && (f<-1.0e-6 || f>1.0e-6)) nonzflag=true;
-          f=optr[i*2+1]=workbuf2[i];
+          f=optr[i*2+1]=denormal_filter_aggressive(workbuf2[i]);
           if (!nonzflag && (f<-1.0e-6 || f>1.0e-6)) nonzflag=true;
         }
       }
@@ -563,7 +565,7 @@ int WDL_ConvolutionEngine::Avail(int want)
         int i;
         for (i = 0; i < sz; i ++) // unpack samples
         {
-          WDL_FFT_REAL f=optr[i*2]=optr[sz+i];
+          WDL_FFT_REAL f=optr[i*2]=denormal_filter_aggressive(optr[sz+i]);
           optr[i*2+1]=0.0;
           if (!nonzflag && (f<-1.0e-6 || f>1.0e-6)) nonzflag=true;
         }
