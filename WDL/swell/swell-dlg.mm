@@ -2508,7 +2508,7 @@ void SWELL_CarbonWndHost_SetWantAllKeys(void* carbonhost, bool want)
 
 HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaViewInfo* viewinfo, RECT* r)
 {
-	NSString* classname = (NSString*)(viewinfo->mCocoaAUViewClass[0]);
+  NSString* classname = (NSString*)(viewinfo->mCocoaAUViewClass[0]);
   if (!classname) return 0;
   
   NSBundle* bundle=0;
@@ -2516,11 +2516,13 @@ HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaVie
   {
     bundle=[NSBundle bundleWithURL:(NSURL*)viewinfo->mCocoaAUViewBundleLocation];    
   }
-  else 
+
+  if (!bundle)
   {
     NSString* path = (NSString*)(CFURLCopyFileSystemPath(viewinfo->mCocoaAUViewBundleLocation,kCFURLPOSIXPathStyle));
     if (path) bundle = [NSBundle bundleWithPath:[path autorelease]];
   }
+
   if (!bundle) return 0;
 	
   Class factoryclass = [bundle classNamed:classname];
