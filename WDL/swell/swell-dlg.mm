@@ -2510,11 +2510,20 @@ HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaVie
 {
 	NSString* classname = (NSString*)(viewinfo->mCocoaAUViewClass[0]);
   if (!classname) return 0;
-	NSString* path = (NSString*)(CFURLCopyFileSystemPath(viewinfo->mCocoaAUViewBundleLocation,kCFURLPOSIXPathStyle));
-  if (!path) return 0;
-	NSBundle* bundle = [NSBundle bundleWithPath:[path autorelease]];
+  
+  NSBundle* bundle=0;
+  if ([NSBundle respondsToSelector:@selector(bundleWithURL:)])
+  {
+    bundle=[NSBundle bundleWithURL:(NSURL*)viewinfo->mCocoaAUViewBundleLocation];    
+  }
+  else 
+  {
+    NSString* path = (NSString*)(CFURLCopyFileSystemPath(viewinfo->mCocoaAUViewBundleLocation,kCFURLPOSIXPathStyle));
+    if (path) bundle = [NSBundle bundleWithPath:[path autorelease]];
+  }
   if (!bundle) return 0;
-	Class factoryclass = [bundle classNamed:classname];
+	
+  Class factoryclass = [bundle classNamed:classname];
   if (![factoryclass conformsToProtocol: @protocol(AUCocoaUIBase)]) return 0;
   if (![factoryclass instancesRespondToSelector: @selector(uiViewForAudioUnit:withSize:)]) return 0;
   id viewfactory = [[[factoryclass alloc] init] autorelease];
