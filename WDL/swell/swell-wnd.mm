@@ -744,6 +744,11 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   m_lbMode=lbMode;
 }
 
+-(void)onSwellCommand:(int)cmd
+{
+  // ignore commands
+}
+
 @end
 
 
