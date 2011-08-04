@@ -19,6 +19,7 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
 
                     )
 {
+  m_timeout_cnt=0;
   m_timeout_sec=timeout_sec;
   m_last_recvt=time(NULL)+2; // grace period
   { // make shmsize the next power of two
@@ -128,12 +129,19 @@ int WDL_SHM_Connection::Run()
   {
     if (m_mem[4*5 + !m_whichChan])
     {
+      m_timeout_cnt=0;
       m_last_recvt=time(NULL);
       m_mem[4*5 + !m_whichChan]=0;
     }
     else
     {
-      if (time(NULL) > m_timeout_sec+m_last_recvt) return -1;
+      if (time(NULL) > m_timeout_sec+m_last_recvt) 
+      {
+        if (m_timeout_cnt >= 4) return -1;
+
+        m_timeout_cnt++;
+        m_last_recvt=time(NULL);
+      }
     }
   }
 
@@ -234,6 +242,7 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan, // first created must be 
     signal(SIGPIPE,sigpipehandler);
     hasSigHandler=true;
   }
+  m_timeout_cnt=0;
   m_timeout_sec=timeout_sec;
   m_last_recvt=time(NULL)+3; // grace period
   m_next_keepalive = time(NULL)+1;
@@ -351,7 +360,12 @@ int WDL_SHM_Connection::Run()
       struct timeval tv={0,};
       m_isConnected = select(m_socket+1,NULL,&f,NULL,&tv) > 0 && FD_ISSET(m_socket,&f);
     }
-    if (!m_isConnected && m_timeout_sec>0 && time(NULL) > m_timeout_sec+m_last_recvt) return -1;
+    if (!m_isConnected && m_timeout_sec>0 && time(NULL) > m_timeout_sec+m_last_recvt) 
+    {
+      if (m_timeout_cnt >= 2) return -1;
+      m_timeout_cnt++;
+      m_last_recvt=time(NULL);
+    }
     if (!m_isConnected) return 0;
   }
   if (!m_socket) return -1;
@@ -394,8 +408,17 @@ int WDL_SHM_Connection::Run()
   if (m_timeout_sec>0)
   {
     time_t now = time(NULL);
-    if (recvcnt) m_last_recvt=now; 
-    else if (now > m_timeout_sec+m_last_recvt) return -1;
+    if (recvcnt) 
+    {
+      m_last_recvt=now; 
+      m_timeout_cnt=0;
+    }
+    else if (now > m_timeout_sec+m_last_recvt) 
+    {
+      if (m_timeout_cnt >= 3) return -1;
+      m_timeout_cnt++;
+      m_last_recvt=now; 
+    }
     
     if (sendcnt||send_queue.GetSize()) m_next_keepalive = now + (m_timeout_sec+1)/2;
   }

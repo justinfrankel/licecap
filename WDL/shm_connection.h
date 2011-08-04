@@ -49,6 +49,7 @@ private:
 
   int m_timeout_sec;
   time_t m_last_recvt;
+  int m_timeout_cnt;
 
   WDL_String m_tempfn;
 
