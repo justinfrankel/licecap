@@ -106,6 +106,18 @@ Section "LICEcap Source Code"
   File licecap_ui.cpp
   File requires_wdl.txt
   File whatsnew.txt
+  
+  File licecap.icns
+  File capturewindow.mm
+
+  File licecap-Info.plist
+  File main.m
+  File licecap_Prefix.pch
+
+  File /r English.lproj
+
+  SetOutPath $INSTDIR\Source\licecap\licecap.xcodeproj
+  File licecap.xcodeproj\project.pbxproj
 
 SectionEnd
 
@@ -142,6 +154,19 @@ Section "Uninstall"
   Delete $INSTDIR\Source\LICEcap\licecap_ui.cpp
   Delete $INSTDIR\Source\LICEcap\requires_wdl.txt
   Delete $INSTDIR\Source\requires_wdl.txt
+
+  Delete $INSTDIR\Source\licecap.icns
+  Delete $INSTDIR\Source\capturewindow.mm
+
+  Delete $INSTDIR\Source\licecap-Info.plist
+  Delete $INSTDIR\Source\main.m
+  Delete $INSTDIR\Source\licecap_Prefix.pch
+
+  Delete "$INSTDIR\English.lproj\*.*"
+  Delete "$INSTDIR\Source\licecap\licecap.xcodeproj\*.*"
+
+  RMDir $INSTDIR\English.lproj
+  RMDir  "$INSTDIR\Source\licecap\licecap.xcodeproj"
 
   RMDir $INSTDIR\Source\LICEcap
   RMDir $INSTDIR\Source
