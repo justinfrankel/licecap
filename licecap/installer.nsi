@@ -113,6 +113,10 @@ Section "LICEcap Source Code"
   File licecap-Info.plist
   File main.m
   File licecap_Prefix.pch
+  File makedmg.sh
+  File pkg-dmg
+  File stage_DS_Store
+  File background.png
 
   File /r English.lproj
 
@@ -151,12 +155,17 @@ Section "Uninstall"
   Delete $INSTDIR\Source\LICEcap\resource.h
   Delete $INSTDIR\Source\LICEcap\licecap_version.h
   Delete $INSTDIR\Source\LICEcap\licecap_cli.cpp
+  Delete $INSTDIR\Source\LICEcap\background.png
   Delete $INSTDIR\Source\LICEcap\licecap_ui.cpp
   Delete $INSTDIR\Source\LICEcap\requires_wdl.txt
   Delete $INSTDIR\Source\requires_wdl.txt
 
   Delete $INSTDIR\Source\licecap.icns
   Delete $INSTDIR\Source\capturewindow.mm
+
+  Delete $INSTDIR\Source\makedmg.sh
+  Delete $INSTDIR\Source\pkg-dmg
+  Delete $INSTDIR\Source\stage_DS_Store
 
   Delete $INSTDIR\Source\licecap-Info.plist
   Delete $INSTDIR\Source\main.m
