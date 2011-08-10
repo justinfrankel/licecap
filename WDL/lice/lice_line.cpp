@@ -1369,11 +1369,22 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
 
   if (y2 < 0 || y1 >= h) return;
 
+
   int aw = (int)(alpha*256.0f);
 
   double idy = y2==y1 ? 0.0 : (65536.0/(y2-y1));
-  int dxady = (int)((x2a-x1a)*idy);
-  int dxbdy = (int)((x2b-x1b)*idy);
+
+  
+  const double maxv=(double)(1<<29);
+  double tmp = (x2a-x1a)*idy;
+  if (tmp > maxv) tmp=maxv;
+  else if (tmp < -maxv) tmp=-maxv;
+  int dxady = (int)tmp;
+
+  tmp = ((x2b-x1b)*idy);
+  if (tmp > maxv) tmp=maxv;
+  else if (tmp < -maxv) tmp=-maxv;
+  int dxbdy = (int)tmp;
 
   int a = 0;
   int b = 0;
