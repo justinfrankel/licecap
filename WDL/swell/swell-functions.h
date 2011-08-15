@@ -463,6 +463,7 @@ SWELL_API_DEFINE(void, ListView_GetItemText,(HWND hwnd, int item, int subitem, c
 SWELL_API_DEFINE(void, ListView_SortItems,(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm))
 SWELL_API_DEFINE(bool, ListView_GetItemRect,(HWND h, int item, RECT *r, int code))
 SWELL_API_DEFINE(bool, ListView_Scroll,(HWND h, int xscroll, int yscroll))
+SWELL_API_DEFINE(int, ListView_GetTopIndex,(HWND h))
 
 #ifndef ImageList_Create
 #define ImageList_Create(x,y,a,b,c) ImageList_CreateEx();

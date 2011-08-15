@@ -4037,6 +4037,18 @@ bool ListView_GetItemRect(HWND h, int item, RECT *r, int code)
   return ListViewGetRectImpl(h, item, -1, r);
 }
 
+int ListView_GetTopIndex(HWND h)
+{
+  NSTableView* tv = (NSTableView*)h;
+  if (!tv) return -1;
+  NSScrollView* sv = [tv enclosingScrollView];
+  if (!sv) return -1;  
+  
+  NSRect tvr = [sv documentVisibleRect];
+  NSPoint pt = { tvr.origin.x, tvr.origin.y };  
+  return [tv rowAtPoint:pt];      
+}
+
 bool ListView_Scroll(HWND h, int xscroll, int yscroll)
 {
   NSTableView* tv = (NSTableView*)h;
