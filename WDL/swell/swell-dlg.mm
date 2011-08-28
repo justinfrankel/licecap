@@ -1895,6 +1895,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 //  DOWINDOWMINMAXSIZES(ch)
   [ch release];
 
+  [self setHidesOnDeactivate:NO];
   [self display];
   
   return self;
@@ -1972,7 +1973,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
     return ret;
   }
     
-  if (![NSApp isActive]) // using this enables better background processing (i.e. if the app isnt active it still runs)
+  if (0 && ![NSApp isActive]) // using this enables better background processing (i.e. if the app isnt active it still runs)
   {
     [NSApp activateIgnoringOtherApps:YES];
     NSModalSession session = [NSApp beginModalSessionForWindow:box];
