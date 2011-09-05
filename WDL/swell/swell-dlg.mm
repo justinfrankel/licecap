@@ -868,7 +868,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       }
 
 
-      if (parent && [(id)parent isKindOfClass:[SWELL_ModelessWindow class]] && ![(NSWindow *)parent isVisible])
+      if (parent && [self window] == parent && [(id)parent isKindOfClass:[SWELL_ModelessWindow class]] && ![(NSWindow *)parent isVisible])
       {
         // on win32, if you do CreateDialog(), WM_INITDIALOG(ret=1), then ShowWindow(SW_SHOWNA), you get the
         // window brought to front. this simulates that, hackishly.
@@ -880,7 +880,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       // if top level dialog,always set default focus if it wasn't set
       // if this causes problems, change NSWindow to be SWELL_ModalDialog, as that would
       // only affect DialogBox() and not CreateDialog(), which might be preferable.
-      if (hFoc && parent && [(id)parent isKindOfClass:[NSWindow class]]) 
+      if (hFoc && parent && [self window] == parent && [(id)parent isKindOfClass:[NSWindow class]]) 
       {
         id fr = [(id)parent firstResponder];
 	if (!fr || fr == self || fr == (id)parent) [(id)parent makeFirstResponder:(id)hFoc];
