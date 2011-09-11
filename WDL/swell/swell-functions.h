@@ -527,7 +527,7 @@ SWELL_API_DEFINE(bool, EnableMenuItem,(HMENU hMenu, int idx, int en))
 SWELL_API_DEFINE(bool, DeleteMenu,(HMENU hMenu, int idx, int flag))
 SWELL_API_DEFINE(bool, CheckMenuItem,(HMENU hMenu, int idx, int chk))
 SWELL_API_DEFINE(void, InsertMenuItem,(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi))
-SWELL_API_DEFINE(void,SWELL_InsertMenu,(HMENU menu, int pos, int flag, int idx, const char *str))
+SWELL_API_DEFINE(void,SWELL_InsertMenu,(HMENU menu, int pos, int flag, UINT_PTR idx, const char *str))
 #ifdef InsertMenu
 #undef InsertMenu
 #endif

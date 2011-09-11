@@ -837,6 +837,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define MF_GRAYED 1
 #define MF_DISABLED 1
 #define MF_CHECKED 4
+#define MF_POPUP 0x10
 
 #define MFS_UNCHECKED 0
 #define MFS_ENABLED 0
