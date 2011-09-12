@@ -165,13 +165,13 @@ struct HTREEITEM__
   WDL_PtrList<NSTableColumn> *m_cols;
   WDL_PtrList<HGDIOBJ__> *m_status_imagelist;
   int m_status_imagelist_type;
-  int m_fastClickMask;
-	
+  int m_fastClickMask;	
 }
 -(LONG)getSwellStyle;
 -(void)setSwellStyle:(LONG)st;
 -(int)getSwellNotificationMode;
 -(void)setSwellNotificationMode:(int)lbMode;
+-(int)columnAtPoint:(NSPoint)pt;
 @end
 
 @interface SWELL_ODButtonCell : NSButtonCell

@@ -445,11 +445,30 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   [super dealloc];
 }
 
+-(int)columnAtPoint:(NSPoint)pt
+{
+  int idx=[super columnAtPoint:pt];
+  if (m_cols)
+  {
+    NSArray* arr=[self tableColumns];
+    if (arr)
+    {
+      NSTableColumn* col=[arr objectAtIndex:idx];
+      if (col)
+      {
+        idx=m_cols->Find(col);
+      }
+    }
+  }
+  return idx;
+}
+
+
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView
 {
   return (!m_lbMode && (style & LVS_OWNERDATA)) ? ownermode_cnt : (m_items ? m_items->GetSize():0);
 }
-
+                                            
 
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
 {
@@ -530,6 +549,9 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     pt=[self convertPoint:pt fromView:nil];
     m_start_item=[self rowAtPoint:pt];
     m_start_subitem=[self columnAtPoint:pt];
+    
+    
+    
     m_start_item_clickmode=0;
     if (m_start_item >=0 && (m_fastClickMask&(1<<m_start_subitem)))
     {
@@ -614,8 +636,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     int col = [self columnAtPoint:pt];
     NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, [self rowAtPoint:pt], col, 0, 0, 0, {pt.x, pt.y}, };
     SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
-    if (row)
-      nmlv.lParam = row->m_param;
+    if (row) nmlv.lParam = row->m_param;
     SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
   }  
 }
@@ -3414,10 +3435,20 @@ void ListView_SetExtendedListViewStyleEx(HWND h, int mask, int style)
   if (mask&LVS_EX_GRIDLINES)
   {
     int s=0;
-    if (style&LVS_EX_GRIDLINES) s=NSTableViewSolidVerticalGridLineMask|NSTableViewSolidHorizontalGridLineMask;
+    if (style&LVS_EX_GRIDLINES) 
+    {
+      s=NSTableViewSolidVerticalGridLineMask|NSTableViewSolidHorizontalGridLineMask;
+    }
     [tv setGridStyleMask:s];
   }
-  // todo LVS_EX_FULLROWSELECT
+  
+  if (mask&LVS_EX_HEADERDRAGDROP)
+  {
+    [tv setAllowsColumnReordering:!!(style&LVS_EX_HEADERDRAGDROP)];
+  }
+  
+  
+  // todo LVS_EX_FULLROWSELECT (enabled by default on OSX)
 }
 
 void SWELL_SetListViewFastClickMask(HWND hList, int mask)

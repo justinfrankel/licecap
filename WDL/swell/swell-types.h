@@ -752,7 +752,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 
 #define LVS_EX_GRIDLINES 0x01
 #define LVS_EX_HEADERDRAGDROP 0x10
-#define LVS_EX_FULLROWSELECT 0x20 // ignored for now
+#define LVS_EX_FULLROWSELECT 0x20 // ignored for now (enabled by default on OSX)
 
 
 #define TCIF_TEXT               0x0001
