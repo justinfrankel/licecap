@@ -3923,6 +3923,18 @@ void ListView_SetColumnWidth(HWND h, int colpos, int wid)
 {
 }
 
+BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
+{
+ 
+  return TRUE;
+}
+
+BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
+{
+  
+  return TRUE;
+}
+
 int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
 {
   if (!h) return -1;
