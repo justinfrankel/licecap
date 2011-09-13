@@ -445,22 +445,43 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   [super dealloc];
 }
 
--(int)columnAtPoint:(NSPoint)pt
+-(int)getColumnPos:(int)idx // get current position of column that was originally at idx
 {
-  int idx=[super columnAtPoint:pt];
+  int pos=idx;
   if (m_cols)
   {
-    NSArray* arr=[self tableColumns];
-    if (arr)
+    NSTableColumn* col=m_cols->Get(idx);
+    if (col)
     {
-      NSTableColumn* col=[arr objectAtIndex:idx];
-      if (col)
+      NSArray* arr=[self tableColumns];
+      if (arr)
       {
-        idx=m_cols->Find(col);
+        pos=[arr indexOfObject:col];
       }
     }
   }
+  return pos;
+}
+
+-(int)getColumnIdx:(int)pos // get original index of column that is currently at position
+{
+  int idx=pos;
+  NSArray* arr=[self tableColumns];
+  if (arr)
+  {
+    NSTableColumn* col=[arr objectAtIndex:pos];
+    if (col && m_cols)
+    {
+      idx=m_cols->Find(col);
+    }
+  }
   return idx;
+}
+
+-(int)columnAtPoint:(NSPoint)pt
+{
+  int pos=[super columnAtPoint:pt];
+  return [self getColumnIdx:pos];
 }
 
 
@@ -4056,6 +4077,7 @@ static bool ListViewGetRectImpl(HWND h, int item, int subitem, RECT* r) // subit
   SWELL_ListView *tv=(SWELL_ListView*)h;
   
   if (subitem >= 0 && (!tv->m_cols || subitem >= tv->m_cols->GetSize())) return false;
+  subitem=[tv getColumnPos:subitem];
   
   NSRect ar;
   if (subitem < 0) ar = [tv rectOfRow:item];
