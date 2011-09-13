@@ -567,12 +567,21 @@ void SWELL_InsertMenu(HMENU menu, int pos, int flag, UINT_PTR idx, const char *s
 {
   MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
     (flag & ~MF_BYPOSITION),(flag&MF_POPUP) ? 0 : (int)idx,NULL,NULL,NULL,0,(char *)str};
+  
   if (flag&MF_POPUP) 
   {
     mi.hSubMenu = (HMENU)idx;
     mi.fMask |= MIIM_SUBMENU;
     mi.fState &= ~MF_POPUP;
   }
+  
+  if (flag&MF_SEPARATOR)
+  {
+    mi.fMask=MIIM_TYPE;
+    mi.fType=MFT_SEPARATOR;
+    mi.fState &= ~MF_SEPARATOR;
+  }
+    
   InsertMenuItem(menu,pos,(flag&MF_BYPOSITION) ?  TRUE : FALSE, &mi);
 }
 
