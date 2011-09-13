@@ -3977,13 +3977,33 @@ void ListView_SetColumnWidth(HWND h, int colpos, int wid)
 
 BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
 {
- 
+  if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return FALSE;
+  SWELL_ListView* lv=(SWELL_ListView*)h;
+  if (!lv->m_cols || lv->m_cols->GetSize() != cnt) return FALSE;
+  
+  int i;
+  for (i=0; i < cnt; ++i)
+  {
+    arr[i]=[lv getColumnPos:i];
+  }
+
   return TRUE;
 }
 
 BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
 {
+  if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return FALSE;
+  SWELL_ListView* lv=(SWELL_ListView*)h;
+  if (!lv->m_cols || lv->m_cols->GetSize() != cnt) return FALSE;
   
+  int i;
+  for (i=0; i < cnt; ++i)
+  {
+    int pos=[lv getColumnPos:i];
+    int dest=arr[i];
+    [lv moveColumn:pos toColumn:dest];
+  }
+
   return TRUE;
 }
 
