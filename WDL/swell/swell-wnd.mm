@@ -1170,11 +1170,13 @@ static bool IsWindowImpl(NSView *ch, NSView *par)
   if (!par) return false;
   NSArray *ar = [par subviews];
   if (!ar) return false;
+  [ar retain];
   int x,n=[ar count];
   for (x=0;x<n;x++)
     if ([ar objectAtIndex:x] == ch) return true;
   for (x=0;x<n;x++)
     if (IsWindowImpl(ch,[ar objectAtIndex:x])) return true;
+  [ar release];
   return false;
 }
 bool IsWindow(HWND hwnd)
@@ -1182,6 +1184,7 @@ bool IsWindow(HWND hwnd)
   if (!hwnd) return false;
   // this is very costly, but required
   NSArray *ch=[NSApp windows];
+  [ch retain];
   int x,n=[ch count];
   for(x=0;x<n; x ++)
   {
@@ -1190,6 +1193,7 @@ bool IsWindow(HWND hwnd)
   }
   for(x=0;x<n; x ++)
     if (IsWindowImpl((NSView*)hwnd,[[ch objectAtIndex:x] contentView])) return true;
+  [ch release];
   return false;
 }
 
