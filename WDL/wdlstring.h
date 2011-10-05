@@ -74,9 +74,6 @@ public:
     =0)
 #endif
   {
-    // this would be ideal
-    //int s = (maxlen ? strnlen(str, maxlen) : strlen(str));
-
     int s;
     if (maxlen)
     {    
@@ -92,7 +89,7 @@ public:
     if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
 
     char *newbuf=(char*)m_hb.Resize(s+1,false);
-    if (newbuf) 
+    if (m_hb.GetSize()==s+1) 
     {
       memcpy(newbuf,str,s);
       newbuf[s]=0;
@@ -114,10 +111,9 @@ public:
     if (maxlen && s > maxlen) s=maxlen;
     if (!s) return; // do nothing if setting to empty and not allocated
 
-    int olds=(int)strlen(Get());
-
+    int olds=GetLength();
     char *newbuf=(char*)m_hb.Resize(olds + s + 1,false);
-    if (newbuf)
+    if (m_hb.GetSize() == olds + s + 1)
     {
       memcpy(newbuf + olds, str, s);
       newbuf[olds+s]=0;
@@ -130,13 +126,15 @@ public:
     ;
 #else
     {
-	  char *p=Get();
-	  if (!p || !*p) return;
-
-	  int l=(int)strlen(p);
+	  char *p=(char *)m_hb.Get();
+	  if (!m_hb.GetSize() || !*p) return;
+	  int l=GetLength();
 	  if (position < 0 || position >= l) return;
 	  if (position+len > l) len=l-position;
 	  memmove(p+position,p+position+len,l-position-len+1); // +1 for null
+#ifdef WDL_STRING_FASTSUB_DEFINED
+    m_hb.Resize(l+1-len,false);
+#endif
   }
 #endif
 
@@ -150,18 +148,21 @@ public:
     =0)
 #endif
   {
-	  int sl=(int)strlen(Get());
-	  if (position > sl) position=sl;
-
 	  int ilen=(int)strlen(str);
 	  if (maxlen > 0 && maxlen < ilen) ilen=maxlen;
 
-	  Append(str);
-	  char *cur=Get();
+    if (!ilen) return;
 
-      	  memmove(cur+position+ilen,cur+position,sl-position);
-	  memcpy(cur+position,str,ilen);
-	  cur[sl+ilen]=0;
+	  int sl=GetLength();
+	  if (position > sl) position=sl;
+
+    char *cur = (char*)m_hb.Resize(sl + ilen + 1,false);
+	  if (m_hb.GetSize() == sl + ilen + 1)
+    {
+      memmove(cur+position+ilen,cur+position,sl-position);
+	    memcpy(cur+position,str,ilen);
+	    cur[sl+ilen]=0;
+    }
   }
 #endif
 
@@ -174,9 +175,10 @@ public:
 #else
     =false)
 #endif
-  {                       // can use to resize down, too, or resize up for a sprintf() etc
+  {                       
+    // can use to resize down, too, or resize up for a sprintf() etc
     char *b=(char*)m_hb.Resize(length+1,resizeDown);
-    if (b) b[length]=0;
+    if (m_hb.GetSize()==length+1) b[length]=0;
   }
 #endif
 
@@ -186,6 +188,8 @@ public:
 #else
   {
     char* b= (char*) m_hb.Resize(maxlen+1,false);
+    if (m_hb.GetSize() != maxlen+1) return;
+
   	va_list arglist;
 		va_start(arglist, fmt);
     #ifdef _WIN32
@@ -196,6 +200,10 @@ public:
     if (written < 0) written = 0;
 		va_end(arglist);
     b[written] = '\0';
+
+#ifdef WDL_STRING_FASTSUB_DEFINED
+    m_hb.Resize(written+1,false);
+#endif
 	}
 #endif
 
@@ -204,8 +212,10 @@ public:
     ; 
 #else
   {
-    int offs=(int)strlen(Get());
+    int offs=GetLength();
     char* b= (char*) m_hb.Resize(offs+maxlen+1,false)+offs;
+    if (m_hb.GetSize() != offs+maxlen+1) return;
+
   	va_list arglist;
 		va_start(arglist, fmt);
     #ifdef _WIN32
@@ -216,6 +226,11 @@ public:
     if (written < 0) written = 0;
 		va_end(arglist);
     b[written] = '\0';
+
+#ifdef WDL_STRING_FASTSUB_DEFINED
+    m_hb.Resize(offs + written +1,false);
+#endif
+
 	}
 #endif
 
@@ -224,34 +239,57 @@ public:
     ;
 #else
   {
-    char* b = Get();
-    if ((int) strlen(b) > maxlen) {
+    if (m_hb.GetSize() && GetLength() > maxlen) 
+    {
+      char *b = (char *)m_hb.Get();
       int i;
-      for (i = maxlen-4; i >= minlen; --i) {
-        if (b[i] == ' ') {
+      for (i = maxlen-4; i >= minlen; --i) 
+      {
+        if (b[i] == ' ') 
+        {
           strcpy(b+i, "...");
+#ifdef WDL_STRING_FASTSUB_DEFINED
+          m_hb.Resize(i+4,false);
+#endif
           break;
         }
       }
-      if (i < minlen) strcpy(b+maxlen-4, "...");    
+      if (i < minlen) 
+      {
+        strcpy(b+maxlen-4, "...");    
+#ifdef WDL_STRING_FASTSUB_DEFINED
+        m_hb.Resize(maxlen,false);
+#endif
+      }
     }
   }
 #endif
 
 #ifndef WDL_STRING_IMPL_ONLY
-  char *Get()
+#ifdef WDL_STRING_FASTSUB_DEFINED
+  const char *Get() const { return m_hb.GetSize()?(char*)m_hb.Get():""; }
+  int GetLength() const { int a = m_hb.GetSize(); return a>0?a-1:0; }
+#else
+  char *Get() const
   {
-    char *p=NULL;
-    if (m_hb.GetSize()) p=(char *)m_hb.Get();
-    if (p) return p;
-    static char c; c=0; 
-    return &c; // don't return "", in case it gets written to.
+    if (m_hb.GetSize()) return (char *)m_hb.Get();
+    static char c; c=0; return &c; // don't return "", in case it gets written to.
   }
-  int GetLength() { return (int)strlen(Get()); }
+  int GetLength() const { return m_hb.GetSize() ? (int)strlen((const char *)m_hb.Get()) : 0; }
+#endif
 
   private:
     WDL_HeapBuf m_hb;
 };
+#endif
+
+#ifndef WDL_STRING_FASTSUB_DEFINED
+#undef _WDL_STRING_H_
+#define WDL_STRING_FASTSUB_DEFINED
+#define WDL_String WDL_FastString
+#include "wdlstring.h"
+#undef WDL_STRING_FASTSUB_DEFINED
+#undef WDL_String
 #endif
 
 #endif
