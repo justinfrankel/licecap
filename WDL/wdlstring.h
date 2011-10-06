@@ -74,18 +74,10 @@ public:
     =0)
 #endif
   {
-    int s;
-    if (maxlen)
-    {    
-      const char* p=str;
-      while (p-str < maxlen && *p) ++p;
-      s=(int) (p-str);
-    }
-    else
-    {
-      s=(int)strlen(str);
-    }
-     
+    int s=0;
+    if (maxlen) while (s < maxlen && str[s]) s++;
+    else while (str[s]) s++;
+    
     if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
 
     char *newbuf=(char*)m_hb.Resize(s+1,false);
@@ -107,8 +99,10 @@ public:
     =0)
 #endif
   {
-    int s=(int)strlen(str);
-    if (maxlen && s > maxlen) s=maxlen;
+    int s=0;
+    if (maxlen) while (s < maxlen && str[s]) s++;
+    else while (str[s]) s++;
+
     if (!s) return; // do nothing if setting to empty and not allocated
 
     int olds=GetLength();
@@ -148,8 +142,9 @@ public:
     =0)
 #endif
   {
-	  int ilen=(int)strlen(str);
-	  if (maxlen > 0 && maxlen < ilen) ilen=maxlen;
+    int ilen=0;
+    if (maxlen) while (ilen < maxlen && str[ilen]) ilen++;
+    else while (str[ilen]) ilen++;
 
     if (!ilen) return;
 
@@ -176,9 +171,15 @@ public:
     =false)
 #endif
   {                       
-    // can use to resize down, too, or resize up for a sprintf() etc
+    int osz = m_hb.GetSize()-1;
     char *b=(char*)m_hb.Resize(length+1,resizeDown);
-    if (m_hb.GetSize()==length+1) b[length]=0;
+    if (m_hb.GetSize()==length+1) 
+    {
+#ifdef WDL_STRING_FASTSUB_DEFINED
+      if (length > osz) memset(b+osz,' ',length-osz);
+#endif
+      b[length]=0;
+    }
   }
 #endif
 
@@ -247,7 +248,7 @@ public:
       {
         if (b[i] == ' ') 
         {
-          strcpy(b+i, "...");
+          memcpy(b+i, "...",4);
 #ifdef WDL_STRING_FASTSUB_DEFINED
           m_hb.Resize(i+4,false);
 #endif
@@ -256,7 +257,7 @@ public:
       }
       if (i < minlen) 
       {
-        strcpy(b+maxlen-4, "...");    
+        memcpy(b+maxlen-4, "...",4);    
 #ifdef WDL_STRING_FASTSUB_DEFINED
         m_hb.Resize(maxlen,false);
 #endif
@@ -275,7 +276,16 @@ public:
     if (m_hb.GetSize()) return (char *)m_hb.Get();
     static char c; c=0; return &c; // don't return "", in case it gets written to.
   }
-  int GetLength() const { return m_hb.GetSize() ? (int)strlen((const char *)m_hb.Get()) : 0; }
+  int GetLength() const 
+  {
+    int s=0;
+    if (m_hb.GetSize())
+    {
+      const char *p = (const char *)m_hb.Get();
+      while (p[s]) s++;
+    }
+    return s;
+  }
 #endif
 
   private:
