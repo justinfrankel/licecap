@@ -575,6 +575,37 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
   return -1;  
 }
 
+int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
+{
+  int child_count=1;
+  bool comment_state=false;
+  for (;;)
+  {
+    char linebuf[4096];
+    if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
+
+    if (!linebuf[0]) continue;
+    LineParser lp(comment_state);
+    if (!lp.parse(linebuf)&&lp.getnumtokens()>0) 
+    {
+      if (lp.gettoken_str(0)[0] == '<') { child_count++; continue; }
+      else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; continue; }
+    }
+    if (child_count == 1)
+    {     
+      char *p=linebuf;
+      while (*p == ' ' || *p == '\t') p++;
+      if (*p == '|')
+      {
+        if (str->Get()[0]) str->Append("\r\n");
+        str->Append(++p);
+      }
+    }
+  }
+  return -1;  
+}
+
+
 void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
 {
   WDL_String tmpcopy(text);

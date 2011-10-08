@@ -4,6 +4,7 @@
 #include "wdltypes.h"
 
 class WDL_String;
+class WDL_FastString;
 class WDL_HeapBuf;
 
 #ifndef _REAPER_PLUGIN_PROJECTSTATECONTEXT_DEFINED_
@@ -41,6 +42,7 @@ int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb); // 0 on succes
 void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len);
 
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str); // 0 on success, appends to str
+int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str); // 0 on success, appends to str
 void cfg_encode_textblock(ProjectStateContext *ctx, const char *text);
 
 void makeEscapedConfigString(const char *in, WDL_String *out);
