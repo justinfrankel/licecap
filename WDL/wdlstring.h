@@ -171,7 +171,7 @@ public:
     =false)
 #endif
   {                       
-    int osz = m_hb.GetSize()-1;
+    int osz = m_hb.GetSize()?m_hb.GetSize()-1:0;
     char *b=(char*)m_hb.Resize(length+1,resizeDown);
     if (m_hb.GetSize()==length+1) 
     {
@@ -255,7 +255,7 @@ public:
           break;
         }
       }
-      if (i < minlen) 
+      if (i < minlen && maxlen >= 4) 
       {
         memcpy(b+maxlen-4, "...",4);    
 #ifdef WDL_STRING_FASTSUB_DEFINED
