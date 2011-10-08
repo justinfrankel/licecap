@@ -76,7 +76,7 @@ public:
   {
     int s=0;
     if (maxlen) while (s < maxlen && str[s]) s++;
-    else while (str[s]) s++;
+    else s=(int)strlen(str);
     
     if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
 
@@ -101,7 +101,7 @@ public:
   {
     int s=0;
     if (maxlen) while (s < maxlen && str[s]) s++;
-    else while (str[s]) s++;
+    else s=(int)strlen(str);
 
     if (!s) return; // do nothing if setting to empty and not allocated
 
@@ -144,7 +144,7 @@ public:
   {
     int ilen=0;
     if (maxlen) while (ilen < maxlen && str[ilen]) ilen++;
-    else while (str[ilen]) ilen++;
+    else ilen=(int)strlen(str);
 
     if (!ilen) return;
 
@@ -278,13 +278,7 @@ public:
   }
   int GetLength() const 
   {
-    int s=0;
-    if (m_hb.GetSize())
-    {
-      const char *p = (const char *)m_hb.Get();
-      while (p[s]) s++;
-    }
-    return s;
+    return m_hb.GetSize()?(int)strlen((const char*)m_hb.Get()):0;
   }
 #endif
 
