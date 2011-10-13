@@ -48,13 +48,13 @@ public:
   {
     if (initial) Set(initial,initial_len);
   }
-  WDL_String(WDL_String &s) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String(2)"))
+  WDL_String(const WDL_String &s) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String(2)"))
   {
-    Set(s.Get());
+    Set(&s);
   }
-  WDL_String(WDL_String *s) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String(3)"))
+  WDL_String(const WDL_String *s) : m_hb(128 WDL_HEAPBUF_TRACEPARM("WDL_String(3)"))
   {
-    if (s && s != this) Set(s->Get());
+    if (s && s != this) Set(s);
   }
   ~WDL_String()
   {
@@ -89,6 +89,34 @@ public:
   }
 #endif
 
+  void WDL_STRING_PREFIX Set(const WDL_String *str, int maxlen
+#ifdef WDL_STRING_INTF_ONLY
+      =0); 
+#else
+#ifdef WDL_STRING_IMPL_ONLY
+    )
+#else
+    =0)
+#endif
+  {
+#ifdef WDL_STRING_FASTSUB_DEFINED
+    int s = str->GetLength();
+    if (maxlen && maxlen<s) s=maxlen;
+    
+    if (!s && !m_hb.GetSize()) return; // do nothing if setting to empty and not allocated
+
+    char *newbuf=(char*)m_hb.Resize(s+1,false);
+    if (m_hb.GetSize()==s+1) 
+    {
+      memcpy(newbuf,str->Get(),s);
+      newbuf[s]=0;
+    }
+#else
+    Set(str->Get(), maxlen); // might be faster: "partial" strlen
+#endif
+  }
+#endif
+
   void WDL_STRING_PREFIX Append(const char *str, int maxlen
 #ifdef WDL_STRING_INTF_ONLY
       =0); 
@@ -103,7 +131,7 @@ public:
     if (maxlen) while (s < maxlen && str[s]) s++;
     else s=(int)strlen(str);
 
-    if (!s) return; // do nothing if setting to empty and not allocated
+    if (!s) return;
 
     int olds=GetLength();
     char *newbuf=(char*)m_hb.Resize(olds + s + 1,false);
@@ -112,6 +140,35 @@ public:
       memcpy(newbuf + olds, str, s);
       newbuf[olds+s]=0;
     }
+  }
+#endif
+
+  void WDL_STRING_PREFIX Append(const WDL_String *str, int maxlen
+#ifdef WDL_STRING_INTF_ONLY
+      =0); 
+#else
+#ifdef WDL_STRING_IMPL_ONLY
+    )
+#else
+    =0)
+#endif
+  {
+#ifdef WDL_STRING_FASTSUB_DEFINED
+    int s = str->GetLength();
+    if (maxlen && maxlen<s) s=maxlen;
+
+    if (!s) return;
+
+    int olds=GetLength();
+    char *newbuf=(char*)m_hb.Resize(olds + s + 1,false);
+    if (m_hb.GetSize() == olds + s + 1)
+    {
+      memcpy(newbuf + olds, str->Get(), s);
+      newbuf[olds+s]=0;
+    }
+#else
+    Append(str->Get(), maxlen); // might be faster: "partial" strlen
+#endif
   }
 #endif
 
@@ -158,6 +215,38 @@ public:
 	    memcpy(cur+position,str,ilen);
 	    cur[sl+ilen]=0;
     }
+  }
+#endif
+
+  void WDL_STRING_PREFIX Insert(const WDL_String *str, int position, int maxlen
+#ifdef WDL_STRING_INTF_ONLY
+      =0); 
+#else
+#ifdef WDL_STRING_IMPL_ONLY
+    )
+#else
+    =0)
+#endif
+  {
+#ifdef WDL_STRING_FASTSUB_DEFINED
+    int ilen = str->GetLength();
+    if (maxlen && maxlen<ilen) ilen=maxlen;
+
+    if (!ilen) return;
+
+	  int sl=GetLength();
+	  if (position > sl) position=sl;
+
+    char *cur = (char*)m_hb.Resize(sl + ilen + 1,false);
+    if (m_hb.GetSize() == sl + ilen + 1)
+    {
+      memmove(cur+position+ilen,cur+position,sl-position);
+      memcpy(cur+position,str->Get(),ilen);
+      cur[sl+ilen]=0;
+    }
+#else
+    Insert(str->Get(), position, maxlen); // might be faster: "partial" strlen
+#endif
   }
 #endif
 
