@@ -178,7 +178,7 @@ public:
       ilen+=position;
       position=0;
     }
-    __doSet(position,str,ilen,true);
+    if (ilen>0) __doSet(position,str,ilen,true);
   }
 #endif
 
@@ -196,7 +196,14 @@ public:
     int ilen = str->GetLength();
     if (maxlen>0 && maxlen<ilen) ilen=maxlen;
 
-    __doSet(position,str->Get(),ilen,true);
+    const char *p=str->Get();
+    if (position<0)  // skip leading chars if position is negative
+    {
+      p+= -position;
+      ilen+=position;
+      position=0;
+    }
+    if (ilen>0) __doSet(position,p,ilen,true);
 #else
     Insert(str->Get(), position, maxlen); // might be faster: "partial" strlen
 #endif
@@ -332,14 +339,6 @@ public:
     ; 
 #else
     {   
-      if (offs<0)  // skip leading chars if position is negative
-      {
-        str+= -offs;
-        len+=offs;
-        if (len<0)len=0;
-        offs=0;
-      }
-
       if (len>0 || (!isInsert && offs==0 && m_hb.GetSize())) // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
       {
         int trail = isInsert ? GetLength() - offs : 0;
