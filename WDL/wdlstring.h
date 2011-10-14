@@ -172,13 +172,10 @@ public:
     if (maxlen>0) while (ilen < maxlen && str[ilen]) ilen++;
     else ilen=(int)strlen(str);
 
-    if (position<0)  // skip leading chars if position is negative
-    {
-      str+= -position;
-      ilen+=position;
-      position=0;
-    }
-    if (ilen>0) __doSet(position,str,ilen,true);
+    int srclen = GetLength();
+    if (position<0) position=0;
+    else if (position>srclen) position=srclen;
+    if (ilen>0) __doSet(position,str,ilen,srclen-position);
   }
 #endif
 
@@ -196,14 +193,10 @@ public:
     int ilen = str->GetLength();
     if (maxlen>0 && maxlen<ilen) ilen=maxlen;
 
-    const char *p=str->Get();
-    if (position<0)  // skip leading chars if position is negative
-    {
-      p+= -position;
-      ilen+=position;
-      position=0;
-    }
-    if (ilen>0) __doSet(position,p,ilen,true);
+    int srclen = GetLength();
+    if (position<0) position=0;
+    else if (position>srclen) position=srclen;
+    if (ilen>0) __doSet(position,str->Get(),ilen,srclen-position);
 #else
     Insert(str->Get(), position, maxlen); // might be faster: "partial" strlen
 #endif
@@ -334,22 +327,19 @@ public:
   private:
 
 
-    void __doSet(int offs, const char *str, int len, bool isInsert)
+    void __doSet(int offs, const char *str, int len, int trailkeep)
 #ifdef WDL_STRING_INTF_ONLY
     ; 
 #else
     {   
-      if (len>0 || (!isInsert && offs==0 && m_hb.GetSize())) // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
+      if (len>0 || (!trailkeep && !offs && m_hb.GetSize()>1)) // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
       {
-        int trail = isInsert ? GetLength() - offs : 0;
-        if (trail<0) trail=0;
-
-        char *newbuf=(char*)m_hb.Resize(offs+len+trail+1,false);
-        if (m_hb.GetSize()==offs+len+trail+1) 
+        char *newbuf=(char*)m_hb.Resize(offs+len+trailkeep+1,false);
+        if (m_hb.GetSize()==offs+len+trailkeep+1) 
         {
-          if (trail>0) memmove(newbuf+offs+len,newbuf+offs,trail);
+          if (trailkeep>0) memmove(newbuf+offs+len,newbuf+offs,trailkeep);
           memcpy(newbuf+offs,str,len);
-          newbuf[offs+len+trail]=0;
+          newbuf[offs+len+trailkeep]=0;
         }
       }
     }
