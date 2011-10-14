@@ -148,13 +148,14 @@ public:
     {
 	  char *p=(char *)m_hb.Get();
 	  if (!m_hb.GetSize() || !*p) return;
-	  int l=GetLength();
+	  int l=m_hb.GetSize()-1;
 	  if (position < 0 || position >= l) return;
 	  if (position+len > l) len=l-position;
-	  memmove(p+position,p+position+len,l-position-len+1); // +1 for null
-#ifdef WDL_STRING_FASTSUB_DEFINED
-    m_hb.Resize(l+1-len,false);
-#endif
+    if (len>0)
+    {
+  	  memmove(p+position,p+position+len,l-position-len+1);
+      m_hb.Resize(l+1-len,false);
+    }
   }
 #endif
 
@@ -172,7 +173,7 @@ public:
     if (maxlen>0) while (ilen < maxlen && str[ilen]) ilen++;
     else ilen=(int)strlen(str);
 
-    int srclen = GetLength();
+    int srclen = m_hb.GetSize()>0 ? m_hb.GetSize()-1 : 0;
     if (position<0) position=0;
     else if (position>srclen) position=srclen;
     if (ilen>0) __doSet(position,str,ilen,srclen-position);
@@ -193,7 +194,7 @@ public:
     int ilen = str->GetLength();
     if (maxlen>0 && maxlen<ilen) ilen=maxlen;
 
-    int srclen = GetLength();
+    int srclen = m_hb.GetSize()>0 ? m_hb.GetSize()-1 : 0;
     if (position<0) position=0;
     else if (position>srclen) position=srclen;
     if (ilen>0) __doSet(position,str->Get(),ilen,srclen-position);
@@ -244,9 +245,7 @@ public:
 		va_end(arglist);
     b[written] = '\0';
 
-#ifdef WDL_STRING_FASTSUB_DEFINED
     m_hb.Resize(written+1,false);
-#endif
 	}
 #endif
 
@@ -270,10 +269,7 @@ public:
 		va_end(arglist);
     b[written] = '\0';
 
-#ifdef WDL_STRING_FASTSUB_DEFINED
     m_hb.Resize(offs + written +1,false);
-#endif
-
 	}
 #endif
 
@@ -282,8 +278,9 @@ public:
     ;
 #else
   {
-    if (m_hb.GetSize() && GetLength() > maxlen) 
+    if (maxlen >= 4 && m_hb.GetSize() && GetLength() > maxlen) 
     {
+      if (minlen<0) minlen=0;
       char *b = (char *)m_hb.Get();
       int i;
       for (i = maxlen-4; i >= minlen; --i) 
@@ -291,18 +288,14 @@ public:
         if (b[i] == ' ') 
         {
           memcpy(b+i, "...",4);
-#ifdef WDL_STRING_FASTSUB_DEFINED
           m_hb.Resize(i+4,false);
-#endif
           break;
         }
       }
       if (i < minlen && maxlen >= 4) 
       {
         memcpy(b+maxlen-4, "...",4);    
-#ifdef WDL_STRING_FASTSUB_DEFINED
         m_hb.Resize(maxlen,false);
-#endif
       }
     }
   }
