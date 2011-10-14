@@ -173,7 +173,7 @@ public:
     if (maxlen>0) while (ilen < maxlen && str[ilen]) ilen++;
     else ilen=(int)strlen(str);
 
-    int srclen = m_hb.GetSize()>0 ? m_hb.GetSize()-1 : 0;
+    int srclen = GetLength();
     if (position<0) position=0;
     else if (position>srclen) position=srclen;
     if (ilen>0) __doSet(position,str,ilen,srclen-position);
