@@ -302,28 +302,26 @@ public:
 #endif
 
 #ifndef WDL_STRING_IMPL_ONLY
-#ifdef WDL_STRING_FASTSUB_DEFINED
-  const char *Get() const { return m_hb.GetSize()?(char*)m_hb.Get():""; }
-  int GetLength() const { int a = m_hb.GetSize(); return a>0?a-1:0; }
-#else
-  char *Get() const
-  {
-    if (m_hb.GetSize()) return (char *)m_hb.Get();
-    static char c; c=0; return &c; // don't return "", in case it gets written to.
-  }
-  int GetLength() const 
-  {
-    return m_hb.GetSize()?(int)strlen((const char*)m_hb.Get()):0;
-  }
+    #ifdef WDL_STRING_FASTSUB_DEFINED
+      const char *Get() const { return m_hb.GetSize()?(char*)m_hb.Get():""; }
+      int GetLength() const { int a = m_hb.GetSize(); return a>0?a-1:0; }
+    #else
+      char *Get() const
+      {
+        if (m_hb.GetSize()) return (char *)m_hb.Get();
+        static char c; c=0; return &c; // don't return "", in case it gets written to.
+      }
+      int GetLength() const { return m_hb.GetSize()?(int)strlen((const char*)m_hb.Get()):0; }
+    #endif
+
+    private:
+
 #endif
 
-  private:
-
-
-    void __doSet(int offs, const char *str, int len, int trailkeep)
-#ifdef WDL_STRING_INTF_ONLY
-    ; 
-#else
+    void WDL_STRING_PREFIX __doSet(int offs, const char *str, int len, int trailkeep)
+    #ifdef WDL_STRING_INTF_ONLY
+        ; 
+    #else
     {   
       if (len>0 || (!trailkeep && !offs && m_hb.GetSize()>1)) // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
       {
@@ -336,7 +334,10 @@ public:
         }
       }
     }
-#endif
+    #endif
+
+#ifndef WDL_STRING_IMPL_ONLY
+
     WDL_HeapBuf m_hb;
 };
 #endif
