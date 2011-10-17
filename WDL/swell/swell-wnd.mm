@@ -467,7 +467,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   int idx=pos;
   NSArray* arr=[self tableColumns];
-  if (arr)
+  if (arr && pos>=0 && pos < [arr count])
   {
     NSTableColumn* col=[arr objectAtIndex:pos];
     if (col && m_cols)
