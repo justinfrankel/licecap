@@ -135,7 +135,7 @@ struct HTREEITEM__
 }
 @end
 
-@interface SWELL_StatusCell : NSCell
+@interface SWELL_StatusCell : NSTextFieldCell
 {
   NSImage *status;
 }
