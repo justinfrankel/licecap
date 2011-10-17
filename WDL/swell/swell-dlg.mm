@@ -462,6 +462,26 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_enabled=en; 
 } 
 
+- (void)tableView:(NSTableView *)aTableView willDisplayCell:(id)aCell forTableColumn:(NSTableColumn *)aTableColumn row:(int)rowIndex 
+{
+  if ([aTableView isKindOfClass:[SWELL_ListView class]])
+  {
+    SWELL_ListView *f = (SWELL_ListView *)aTableView;
+    if (f->m_fgColor && [aCell respondsToSelector:@selector(setTextColor:)]) [aCell setTextColor:f->m_fgColor];
+  }
+}
+- (void)outlineView:(NSOutlineView *)outlineView willDisplayCell:(id)cell forTableColumn:(NSTableColumn *)tableColumn item:(id)item
+{
+  if ([outlineView isKindOfClass:[SWELL_TreeView class]])
+  {
+    SWELL_TreeView *f = (SWELL_TreeView *)outlineView;
+    if (f->m_fgColor && [cell respondsToSelector:@selector(setTextColor:)]) [cell setTextColor:f->m_fgColor];
+  }
+}
+
+
+//- (void)outlineView:(NSOutlineView *)outlineView willDisplayOutlineCell:(id)cell forTableColumn:(NSTableColumn *)tableColumn item:(id)item
+
 - (void)comboBoxWillPopUp:(NSNotification*)notification
 {
   id sender=[notification object];

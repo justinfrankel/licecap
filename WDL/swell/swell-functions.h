@@ -501,6 +501,12 @@ SWELL_API_DEFINE(HTREEITEM, TreeView_GetChild, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetNextSibling, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetRoot, (HWND hwnd))
 
+SWELL_API_DEFINE(void,TreeView_SetBkColor,(HWND hwnd, int color))
+SWELL_API_DEFINE(void,TreeView_SetTextColor,(HWND hwnd, int color))
+SWELL_API_DEFINE(void,ListView_SetBkColor,(HWND hwnd, int color))
+SWELL_API_DEFINE(void,ListView_SetTextBkColor,(HWND hwnd, int color))
+SWELL_API_DEFINE(void,ListView_SetTextColor,(HWND hwnd, int color))
+SWELL_API_DEFINE(void,ListView_SetGridColor,(HWND hwnd, int color))
 
 /*
 ** These are deprecated functions for launching a modal window but still running

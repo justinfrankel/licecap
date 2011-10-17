@@ -147,6 +147,7 @@ struct HTREEITEM__
   bool m_fakerightmouse;
   LONG style;
   WDL_PtrList<HTREEITEM__> *m_items;
+  NSColor *m_fgColor;
 }
 @end
 
@@ -166,6 +167,7 @@ struct HTREEITEM__
   WDL_PtrList<HGDIOBJ__> *m_status_imagelist;
   int m_status_imagelist_type;
   int m_fastClickMask;	
+  NSColor *m_fgColor;
 }
 -(LONG)getSwellStyle;
 -(void)setSwellStyle:(LONG)st;

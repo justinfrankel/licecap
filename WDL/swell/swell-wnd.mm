@@ -251,8 +251,10 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 @implementation SWELL_StatusCell
 -(id)initNewCell
 {
-  self=[super initTextCell:@""];
-  status=0;
+  if ((self=[super initTextCell:@""]))
+  {
+    status=0;
+  }
   return self;
 }
 -(void)setStatusImage:(NSImage *)img
@@ -280,16 +282,20 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(id) init
 {
-  id ret=[super init];
-  m_fakerightmouse=false;
-  m_items=new WDL_PtrList<HTREEITEM__>;
-  return ret;
+  if ((self = [super init]))
+  {
+    m_fakerightmouse=false;
+    m_items=new WDL_PtrList<HTREEITEM__>;
+    m_fgColor=0;
+  }
+  return self;
 }
 -(void) dealloc
 {
   if (m_items) m_items->Empty(true);
   delete m_items;
   m_items=0;
+  [m_fgColor release];
   [super dealloc];
 }
 
@@ -420,20 +426,23 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(id) init
 {
-  id ret=[super init];
-  ownermode_cnt=0;
-  m_status_imagelist_type=-1;
-  m_status_imagelist=0;
-  m_leftmousemovecnt=0;
-  m_fakerightmouse=false;
-  m_lbMode=0;
-  m_fastClickMask=0;
-  m_start_item=-1;
-  m_start_subitem=-1;
-  m_start_item_clickmode=0; // 0=clicked item, 1=clicked image, &2=sent drag message, &4=quickclick mode
-  m_cols = new WDL_PtrList<NSTableColumn>;
-  m_items=new WDL_PtrList<SWELL_ListView_Row>;
-  return ret;
+  if ((self = [super init]))
+  {
+    m_fgColor = 0;
+    ownermode_cnt=0;
+    m_status_imagelist_type=-1;
+    m_status_imagelist=0;
+    m_leftmousemovecnt=0;
+    m_fakerightmouse=false;
+    m_lbMode=0;
+    m_fastClickMask=0;
+    m_start_item=-1;
+    m_start_subitem=-1;
+    m_start_item_clickmode=0; // 0=clicked item, 1=clicked image, &2=sent drag message, &4=quickclick mode
+    m_cols = new WDL_PtrList<NSTableColumn>;
+    m_items=new WDL_PtrList<SWELL_ListView_Row>;
+  }
+  return self;
 }
 -(void) dealloc
 {
@@ -442,6 +451,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   delete m_cols;
   m_cols=0;
   m_items=0;
+  [m_fgColor release];
   [super dealloc];
 }
 
@@ -489,7 +499,6 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   return (!m_lbMode && (style & LVS_OWNERDATA)) ? ownermode_cnt : (m_items ? m_items->GetSize():0);
 }
-                                            
 
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
 {
@@ -5192,6 +5201,55 @@ HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
     }    
   }
   return 0;
+}
+
+void TreeView_SetBkColor(HWND hwnd, int color)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
+  [(NSOutlineView*)hwnd setBackgroundColor:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+              green:GetGValue(color)/255.0f 
+              blue:GetBValue(color)/255.0f alpha:1.0f]];
+}
+void TreeView_SetTextColor(HWND hwnd, int color)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
+
+  SWELL_TreeView *f = (SWELL_TreeView *)hwnd;
+  [f->m_fgColor release];
+  f->m_fgColor = [NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+              green:GetGValue(color)/255.0f 
+              blue:GetBValue(color)/255.0f alpha:1.0f];
+  [f->m_fgColor retain];
+}
+void ListView_SetBkColor(HWND hwnd, int color)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_ListView class]]) return;
+  [(NSTableView*)hwnd setBackgroundColor:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+              green:GetGValue(color)/255.0f 
+              blue:GetBValue(color)/255.0f alpha:1.0f]];
+}
+void ListView_SetGridColor(HWND hwnd, int color)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_ListView class]]) return;
+  [(NSTableView*)hwnd setGridColor:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+              green:GetGValue(color)/255.0f 
+              blue:GetBValue(color)/255.0f alpha:1.0f]];
+}
+void ListView_SetTextBkColor(HWND hwnd, int color)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_ListView class]]) return;
+  // not implemented atm
+}
+void ListView_SetTextColor(HWND hwnd, int color)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_ListView class]]) return;
+
+  SWELL_ListView *f = (SWELL_ListView *)hwnd;
+  [f->m_fgColor release];
+  f->m_fgColor = [NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+              green:GetGValue(color)/255.0f 
+              blue:GetBValue(color)/255.0f alpha:1.0f];
+  [f->m_fgColor retain];
 }
 
 
