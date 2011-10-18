@@ -467,6 +467,17 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if ([aTableView isKindOfClass:[SWELL_ListView class]])
   {
     SWELL_ListView *f = (SWELL_ListView *)aTableView;
+    if (f->m_selColors&&[aTableView isRowSelected:rowIndex]) 
+    {
+      int cnt = [f->m_selColors count];
+      int offs = GetFocus() == (HWND)aTableView ? 0 : 2;
+      if (cnt>=offs+2)
+      {
+        if ([aCell respondsToSelector:@selector(setTextColor:)]) [aCell setTextColor:[f->m_selColors objectAtIndex:(offs+1)]];
+        return;
+      }
+    }
+
     if (f->m_fgColor && [aCell respondsToSelector:@selector(setTextColor:)]) [aCell setTextColor:f->m_fgColor];
   }
 }

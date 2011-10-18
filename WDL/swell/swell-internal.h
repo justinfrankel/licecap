@@ -28,6 +28,7 @@
 #define SWELL_ComboBox __SWELL_PREFIX_CLASSNAME(_cbox)
 
 #define SWELL_StatusCell __SWELL_PREFIX_CLASSNAME(_statuscell)
+#define SWELL_ListViewCell __SWELL_PREFIX_CLASSNAME(_listviewcell)
 #define SWELL_ODListViewCell __SWELL_PREFIX_CLASSNAME(_ODlistviewcell)
 #define SWELL_ODButtonCell __SWELL_PREFIX_CLASSNAME(_ODbuttoncell)
 
@@ -135,6 +136,11 @@ struct HTREEITEM__
 }
 @end
 
+@interface SWELL_ListViewCell : NSTextFieldCell
+{
+}
+@end
+
 @interface SWELL_StatusCell : NSTextFieldCell
 {
   NSImage *status;
@@ -168,6 +174,7 @@ struct HTREEITEM__
   int m_status_imagelist_type;
   int m_fastClickMask;	
   NSColor *m_fgColor;
+  NSMutableArray *m_selColors;
 }
 -(LONG)getSwellStyle;
 -(void)setSwellStyle:(LONG)st;

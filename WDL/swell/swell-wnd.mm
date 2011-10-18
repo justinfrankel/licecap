@@ -248,6 +248,14 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 @end
 
+@implementation SWELL_ListViewCell
+-(NSColor *)highlightColorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView 
+{
+  if ([controlView isKindOfClass:[SWELL_ListView class]] && ((SWELL_ListView *)controlView)->m_selColors) return nil;
+  return [super highlightColorWithFrame:cellFrame inView:controlView];
+}
+@end
+
 @implementation SWELL_StatusCell
 -(id)initNewCell
 {
@@ -273,6 +281,13 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   cellFrame.size.width -= cellFrame.size.height + 2.0;
   [super drawWithFrame:cellFrame inView:controlView];
 }
+
+-(NSColor *)highlightColorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView 
+{
+  if ([controlView isKindOfClass:[SWELL_ListView class]] && ((SWELL_ListView *)controlView)->m_selColors) return nil;
+  return [super highlightColorWithFrame:cellFrame inView:controlView];
+}
+
 @end
 
 
@@ -428,6 +443,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   if ((self = [super init]))
   {
+    m_selColors=0;
     m_fgColor = 0;
     ownermode_cnt=0;
     m_status_imagelist_type=-1;
@@ -452,6 +468,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   m_cols=0;
   m_items=0;
   [m_fgColor release];
+  [m_selColors release];
   [super dealloc];
 }
 
@@ -473,6 +490,41 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   return pos;
 }
 
+- (void)highlightSelectionInClipRect:(NSRect)theClipRect
+{
+  if (m_selColors)
+  {
+    int a = GetFocus() == (HWND)self ? 0 : 2;
+    if ([m_selColors count] >= a)
+    {
+      NSColor *c=[m_selColors objectAtIndex:a];
+      if (c)
+      {
+        // calculate rect of selected items, combine with theClipRect, and fill these areas with our background (phew!)
+        [c setFill];      
+        int x = [self rowAtPoint:NSMakePoint(0,theClipRect.origin.y)];
+        if (x<0)x=0;
+        int n = [self numberOfRows];
+        for (;x <n;x++)
+        {
+          NSRect r = [self rectOfRow:x];
+          if (r.origin.y >= theClipRect.origin.y + theClipRect.size.height) break;
+          
+          if ([self isRowSelected:x])
+          {
+            r = NSIntersectionRect(r,theClipRect);
+            if (r.size.height>0 && r.size.width>0)
+            {
+              NSRectFill(r);
+            }
+          }
+        }
+        return ;
+      }
+    }
+  }
+  return [super highlightSelectionInClipRect:theClipRect];
+}
 -(int)getColumnIdx:(int)pos // get original index of column that is currently at position
 {
   int idx=pos;
@@ -3558,9 +3610,13 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   }
   else
   {  
-    [[col dataCell] setWraps:NO];
-    if (lvc->fmt == LVCFMT_CENTER) [[col dataCell] setAlignment:NSCenterTextAlignment];
-    else if (lvc->fmt == LVCFMT_RIGHT) [[col dataCell] setAlignment:NSRightTextAlignment];
+    SWELL_ListViewCell *cell = [[SWELL_ListViewCell alloc] initTextCell:@""];
+    [col setDataCell:cell];
+    [cell setWraps:NO];
+   
+    if (lvc->fmt == LVCFMT_CENTER) [cell setAlignment:NSCenterTextAlignment];
+    else if (lvc->fmt == LVCFMT_RIGHT) [cell setAlignment:NSRightTextAlignment];
+    [cell release];
   }
 
   [v addTableColumn:col];
@@ -5227,6 +5283,28 @@ void ListView_SetBkColor(HWND hwnd, int color)
   [(NSTableView*)hwnd setBackgroundColor:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
               green:GetGValue(color)/255.0f 
               blue:GetBValue(color)/255.0f alpha:1.0f]];
+}
+void ListView_SetSelColors(HWND hwnd, int *colors, int ncolors)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_ListView class]]) return;
+  SWELL_ListView *lv = (SWELL_ListView*)hwnd;
+  if (lv->m_selColors) [lv->m_selColors release];
+  
+  if (ncolors>0 && colors)
+  {   
+    lv->m_selColors = [[NSMutableArray alloc] initWithCapacity:ncolors];
+    while (ncolors-->0)
+    {
+      int color = *colors++;
+      [lv->m_selColors addObject:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+                                                           green:GetGValue(color)/255.0f 
+                                                            blue:GetBValue(color)/255.0f alpha:1.0f]]; 
+    }
+  }
+  else 
+  {
+    lv->m_selColors=0;
+  }
 }
 void ListView_SetGridColor(HWND hwnd, int color)
 {

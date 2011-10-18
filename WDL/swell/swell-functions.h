@@ -507,6 +507,7 @@ SWELL_API_DEFINE(void,ListView_SetBkColor,(HWND hwnd, int color))
 SWELL_API_DEFINE(void,ListView_SetTextBkColor,(HWND hwnd, int color))
 SWELL_API_DEFINE(void,ListView_SetTextColor,(HWND hwnd, int color))
 SWELL_API_DEFINE(void,ListView_SetGridColor,(HWND hwnd, int color))
+SWELL_API_DEFINE(void,ListView_SetSelColors,(HWND hwnd, int *colors, int ncolors))
 
 /*
 ** These are deprecated functions for launching a modal window but still running
