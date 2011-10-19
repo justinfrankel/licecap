@@ -154,6 +154,7 @@ struct HTREEITEM__
   LONG style;
   WDL_PtrList<HTREEITEM__> *m_items;
   NSColor *m_fgColor;
+  NSMutableArray *m_selColors;
 }
 @end
 

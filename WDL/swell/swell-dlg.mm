@@ -486,6 +486,20 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if ([outlineView isKindOfClass:[SWELL_TreeView class]])
   {
     SWELL_TreeView *f = (SWELL_TreeView *)outlineView;
+    if (f->m_selColors)
+    {
+      HTREEITEM sel = TreeView_GetSelection((HWND)outlineView);
+      if (sel && sel->m_dh == item)
+      {
+        int cnt = [f->m_selColors count];
+        int offs = GetFocus() == (HWND)outlineView ? 0 : 2;
+        if (cnt>=offs+2)
+        {
+          if ([cell respondsToSelector:@selector(setTextColor:)]) [cell setTextColor:[f->m_selColors objectAtIndex:(offs+1)]];
+          return;
+        }
+      }
+    }
     if (f->m_fgColor && [cell respondsToSelector:@selector(setTextColor:)]) [cell setTextColor:f->m_fgColor];
   }
 }
