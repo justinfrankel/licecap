@@ -214,7 +214,9 @@ public:
     =false)
 #endif
   {                       
+#ifdef WDL_STRING_FASTSUB_DEFINED
     int osz = m_hb.GetSize()?m_hb.GetSize()-1:0;
+#endif
     char *b=(char*)m_hb.Resize(length+1,resizeDown);
     if (m_hb.GetSize()==length+1) 
     {
