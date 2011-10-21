@@ -3144,6 +3144,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysListView32")||!stricmp(classname, "SysListView32_LB"))
   {
     SWELL_ListView *obj = [[SWELL_ListView alloc] init];
+    [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:obj];
     obj->style=style;
 
@@ -3214,6 +3215,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysTreeView32"))
   {
     SWELL_TreeView *obj = [[SWELL_TreeView alloc] init];
+    [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:obj];
     obj->style=style;
     id target=ACTIONTARGET;
@@ -3414,6 +3416,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   else
   {
     SWELL_ComboBox *obj=[[SWELL_ComboBox alloc] init];
+    [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setFont:[NSFont systemFontOfSize:10.0f]];
     [obj setEditable:(flags & 0x3) == CBS_DROPDOWNLIST?NO:YES];
     [obj setSwellStyle:flags];
