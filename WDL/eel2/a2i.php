@@ -122,6 +122,8 @@ while (($line = fgets($in)))
 
           $parms=preg_replace("/EEL_F_SUFFIX ([0-9]+)\\((.*)\\)/","EEL_ASM_TYPE [$2+$1]",$parms);
           $parms=preg_replace("/EEL_F_SUFFIX \\((.*)\\)/","EEL_ASM_TYPE [$1]",$parms);
+
+          if ($inst == "sh" && $suffix == "ll") { $suffix="l"; $inst="shl"; }
           
           if ($suffix == "ll" || ($suffix == "l" && substr($inst,0,1) == "f" && substr($inst,0,2) != "fi")) $suffixstr = "qword ptr ";
           else if ($suffix == "l") $suffixstr = "dword ptr ";

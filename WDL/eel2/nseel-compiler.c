@@ -451,6 +451,8 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(mul_op)
   DECL_ASMFUNC(div_op)
   DECL_ASMFUNC(mod)
+  DECL_ASMFUNC(shl)
+  DECL_ASMFUNC(shr)
   DECL_ASMFUNC(mod_op)
   DECL_ASMFUNC(or)
   DECL_ASMFUNC(and)
@@ -525,6 +527,8 @@ static functionType fnTable1[] = {
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2},
   { "_mod",nseel_asm_mod,nseel_asm_mod_end,2},
+  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2},
+  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2},
   { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2},
   { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2},
   { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2},
@@ -1212,6 +1216,8 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 				{{'=','='}, 1, 2, "_equal" },
 				{{'<','='}, 1, 2, "_beleq" },
 				{{'>','='}, 1, 2, "_aboeq" },
+				{{'<','<'}, 0, 0, "_shl" },
+				{{'>','>'}, 0, 0, "_shr" },
 				{{'<',0  }, 1, 2, "_below" },
 				{{'>',0  }, 1, 2, "_above" },
 				{{'!','='}, 1, 2, "_noteq" },
@@ -1244,14 +1250,14 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 				int lscan=preprocSymbols[n].lscan;
 				int rscan=preprocSymbols[n].rscan;
 
-	       		// parse left side of =, scanning back for an unparenthed nonwhitespace nonalphanumeric nonparenth?
-	       		// so megabuf(x+y)= would be fine, x=, but +x= would do +set(x,)
-       			char *l_ptr=0;
+	      // parse left side of =, scanning back for an unparenthed nonwhitespace nonalphanumeric nonparenth?
+	      // so megabuf(x+y)= would be fine, x=, but +x= would do +set(x,)
+       	char *l_ptr=0;
 				char *r_ptr=0;
-	       		if (lscan >= 0)
+	      if (lscan >= 0)
 				{
 					char *scan=symbollists[lscan];
-	       			int l_semicnt=0;
+	       	int l_semicnt=0;
 					l_ptr=buf + len - 1;
 					while (l_ptr >= buf)
 					{
@@ -1288,7 +1294,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 					len = l_ptr - buf;
 
 					l_ptr = strdup(l_ptr); // doesn't need to be preprocessed since it just was
-	       		}
+        }
 				if (preprocSymbols[n].op[1]) expression++;
 
 				r_ptr=expression;

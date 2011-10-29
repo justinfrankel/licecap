@@ -532,6 +532,49 @@ void nseel_asm_mod(void)
 }
 void nseel_asm_mod_end(void) {}
 
+void nseel_asm_shl(void)
+{
+  __asm__(
+    "fld" EEL_F_SUFFIX " (%edi)\n"
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fistpl (%esi)\n"
+    "fistpl 4(%esi)\n"
+    "pushl %ecx\n"
+    "movl (%esi), %ecx\n"
+    "movl 4(%esi), %eax\n"
+    "shll %cl, %eax\n"
+    "movl %eax, (%esi)\n"
+    "popl %ecx\n"
+    "fildl (%esi)\n"
+    "movl %esi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%esi)\n"
+    "addl $" EEL_F_SSTR ", %esi\n"
+  );
+}
+void nseel_asm_shl_end(void) {}
+
+void nseel_asm_shr(void)
+{
+  __asm__(
+    "fld" EEL_F_SUFFIX " (%edi)\n"
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fistpl (%esi)\n"
+    "fistpl 4(%esi)\n"
+    "pushl %ecx\n"
+    "movl (%esi), %ecx\n"
+    "movl 4(%esi), %eax\n"
+    "shrl %cl, %eax\n"
+    "movl %eax, (%esi)\n"
+    "popl %ecx\n"
+    "fildl (%esi)\n"
+    "movl %esi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%esi)\n"
+    "addl $" EEL_F_SSTR ", %esi\n"
+  );
+}
+void nseel_asm_shr_end(void) {}
+
+
 void nseel_asm_mod_op(void)
 {
   __asm__(
