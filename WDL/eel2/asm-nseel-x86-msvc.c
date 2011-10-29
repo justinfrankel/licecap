@@ -940,7 +940,7 @@ __declspec(naked) void nseel_asm_shr(void)
     push ecx;
     mov ecx, dword ptr [esi];
     mov eax, dword ptr [esi+4];
-    shr eax, cl;
+    sar eax, cl;
     mov dword ptr [esi], eax;
     pop ecx;
     fild dword ptr [esi];

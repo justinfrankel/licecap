@@ -563,7 +563,7 @@ void nseel_asm_shr(void)
     "pushl %ecx\n"
     "movl (%esi), %ecx\n"
     "movl 4(%esi), %eax\n"
-    "shrl %cl, %eax\n"
+    "sarl %cl, %eax\n"
     "movl %eax, (%esi)\n"
     "popl %ecx\n"
     "fildl (%esi)\n"
