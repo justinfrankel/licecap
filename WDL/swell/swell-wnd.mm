@@ -4379,14 +4379,18 @@ void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
 HWND WindowFromPoint(POINT p)
 {
   NSArray *windows=[NSApp orderedWindows];
-  if (!windows) return 0;
-  
-  NSWindow *bestwnd=0;
   int x;
-  for (x = 0; x < [windows count]; x ++)
+  int cnt=windows ? [windows count] : 0;
+
+  NSWindow *kw = [NSApp keyWindow];
+  if (kw && windows && [windows containsObject:kw]) kw=NULL;
+
+  NSWindow *bestwnd=0;
+  for (x = kw ? -1 : 0; x < cnt; x ++)
   {
-    NSWindow *wnd=[windows objectAtIndex:x];
-    if (wnd)
+    NSWindow *wnd = kw;
+    if (x>=0) wnd=[windows objectAtIndex:x];
+    if (wnd && [wnd isVisible])
     {
       NSRect fr=[wnd frame];
       if (p.x >= fr.origin.x && p.x < fr.origin.x + fr.size.width &&
@@ -4403,7 +4407,7 @@ HWND WindowFromPoint(POINT p)
   NSPoint lpt=[bestwnd convertScreenToBase:pt];
   NSView *v=[[bestwnd contentView] hitTest:lpt];
   if (v) return (HWND)v;
-  return (HWND)[bestwnd contentView]; // todo: implement
+  return (HWND)[bestwnd contentView]; 
 }
 
 void UpdateWindow(HWND hwnd)
