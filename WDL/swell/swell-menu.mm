@@ -408,12 +408,25 @@ bool DeleteMenu(HMENU hMenu, int idx, int flag)
   {
     if (idx >=0 && idx < [m numberOfItems])
       item=[m itemAtIndex:idx];
+    if (!item) return false;
   }
   else
   {
     item=[m itemWithTag:idx];
+    if (!item) 
+    {
+      int x,n=[m numberOfItems];
+      for (x=0;x<n;x++)
+      {
+        item=[m itemAtIndex:x];
+        if (item && [item hasSubmenu])
+        {
+          if (DeleteMenu((HMENU)[item submenu],idx,flag)) return true;
+        }
+      }
+      return false;
+    }
   }
-  if (!item) return false;
   
   if ([item hasSubmenu])
   {
