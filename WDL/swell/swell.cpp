@@ -893,5 +893,20 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
   return 0;
 }
 
+#ifdef __APPLE__
+
+void SWELL_GenerateGUID(void *g)
+{
+  CFUUIDRef r = CFUUIDCreate(NULL);
+  if (r)
+  {
+    CFUUIDBytes a = CFUUIDGetUUIDBytes(r);
+    if (g) memcpy(g,&a,16);
+    CFRelease(r);
+  }
+}
+
+#endif
+
 
 #endif

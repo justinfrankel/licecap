@@ -1060,4 +1060,8 @@ SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))
 SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
 #endif
 
+#ifdef __APPLE__
+SWELL_API_DEFINE(void,SWELL_GenerateGUID,(void *g))
+#endif
+
 #endif // _WDL_SWELL_H_API_DEFINED_
