@@ -78,7 +78,7 @@ bool ChannelPinMapper::PinHasMoreMappings(int pinIdx, int chIdx)
   if (pinIdx >= 0 && pinIdx < CHANNELPINMAPPER_MAXPINS)
   {
     WDL_UINT64 map = m_mapping[pinIdx];
-    return (chIdx < 64 && map >= BITMASK64(chIdx+1));
+    return (chIdx < 63 && map >= BITMASK64(chIdx+1));
   }
   return false;
 }
