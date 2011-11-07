@@ -4,7 +4,8 @@
 
 void ChannelPinMapper::SetNPins(int nPins)
 {
-  m_mapping.Resize(nPins);
+  if (nPins<0) nPins=0;
+  else if (nPins>CHANNELPINMAPPER_MAXPINS) nPins=CHANNELPINMAPPER_MAXPINS;
   int i;
   for (i = m_nPins; i < nPins; ++i) {
     ClearPin(i);
@@ -26,8 +27,9 @@ void ChannelPinMapper::SetNChannels(int nCh)
 
 void ChannelPinMapper::Init(WDL_UINT64* pMapping, int nPins)
 {
-  m_mapping.Resize(nPins);
-  memcpy(m_mapping.Get(), pMapping, nPins*sizeof(WDL_UINT64));
+  if (nPins<0) nPins=0;
+  else if (nPins>CHANNELPINMAPPER_MAXPINS) nPins=CHANNELPINMAPPER_MAXPINS;
+  memcpy(m_mapping, pMapping, nPins*sizeof(WDL_UINT64));
   m_nPins = m_nCh = nPins;
 }
 
@@ -35,16 +37,21 @@ void ChannelPinMapper::Init(WDL_UINT64* pMapping, int nPins)
  
 void ChannelPinMapper::ClearPin(int pinIdx)
 {
-  *(m_mapping.Get()+pinIdx) = 0;
+  if (pinIdx >=0 && pinIdx < CHANNELPINMAPPER_MAXPINS) m_mapping[pinIdx] = 0;
 }
 
 void ChannelPinMapper::SetPin(int pinIdx, int chIdx, bool on)
 {
-  if (on) {
-    *(m_mapping.Get()+pinIdx) |= BITMASK64(chIdx);
-  }
-  else {
-   *(m_mapping.Get()+pinIdx) &= ~BITMASK64(chIdx);
+  if (pinIdx >=0 && pinIdx < CHANNELPINMAPPER_MAXPINS)
+  {
+    if (on) 
+    {
+      m_mapping[pinIdx] |= BITMASK64(chIdx);
+    }
+    else 
+    {
+      m_mapping[pinIdx] &= ~BITMASK64(chIdx);
+    }
   }
 }
 
@@ -58,20 +65,28 @@ bool ChannelPinMapper::TogglePin(int pinIdx, int chIdx)
 
 bool ChannelPinMapper::GetPin(int pinIdx, int chIdx)
 {
-  WDL_UINT64 map = *(m_mapping.Get()+pinIdx);
-  return !!(map & BITMASK64(chIdx));
+  if (pinIdx >= 0 && pinIdx < CHANNELPINMAPPER_MAXPINS)
+  {
+    WDL_UINT64 map = m_mapping[pinIdx];
+    return !!(map & BITMASK64(chIdx));
+  }
+  return false;
 }
 
 bool ChannelPinMapper::PinHasMoreMappings(int pinIdx, int chIdx)
 {
-  WDL_UINT64 map = *(m_mapping.Get()+pinIdx);
-  return (chIdx < 64 && map >= BITMASK64(chIdx+1));
+  if (pinIdx >= 0 && pinIdx < CHANNELPINMAPPER_MAXPINS)
+  {
+    WDL_UINT64 map = m_mapping[pinIdx];
+    return (chIdx < 64 && map >= BITMASK64(chIdx+1));
+  }
+  return false;
 }
 
 bool ChannelPinMapper::IsStraightPassthrough()
 {
   if (m_nCh != m_nPins) return false;
-  WDL_UINT64* pMap = m_mapping.Get();
+  WDL_UINT64* pMap = m_mapping;
   int i;
   for (i = 0; i < m_nPins; ++i, ++pMap) {
     if (*pMap != BITMASK64(i)) return false;
@@ -89,7 +104,7 @@ char* ChannelPinMapper::SaveStateNew(int* pLen)
   WDL_Queue__AddToLE(&m_cfgret, &magic);
   WDL_Queue__AddToLE(&m_cfgret, &m_nCh);
   WDL_Queue__AddToLE(&m_cfgret, &m_nPins);
-  WDL_Queue__AddDataToLE(&m_cfgret, m_mapping.Get(), m_mapping.GetSize()*sizeof(WDL_UINT64), sizeof(WDL_UINT64));
+  WDL_Queue__AddDataToLE(&m_cfgret, m_mapping, m_nPins*sizeof(WDL_UINT64), sizeof(WDL_UINT64));
   *pLen = m_cfgret.GetSize();
   return (char*)m_cfgret.Get();
 }
@@ -108,7 +123,10 @@ bool ChannelPinMapper::LoadState(char* buf, int len)
   int maplen = *pNPins*sizeof(WDL_UINT64);
   if (chunk.Available() < maplen) return false;
   void* pMap = WDL_Queue__GetDataFromLE(&chunk, maplen, sizeof(WDL_UINT64));
-  memcpy(m_mapping.Get(), pMap, maplen);
+  
+  int sz= m_nPins*sizeof(WDL_UINT64);
+  if (sz>maplen) sz=maplen;
+  memcpy(m_mapping, pMap, sz);
   return true;
 }
 

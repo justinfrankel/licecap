@@ -7,6 +7,9 @@
 #include "ptrlist.h"
 #include "queue.h"
 
+
+#define CHANNELPINMAPPER_MAXPINS 64
+
 class ChannelPinMapper
 {
 public: 
@@ -36,7 +39,7 @@ public:
   char* SaveStateNew(int* pLen); // owned
   bool LoadState(char* buf, int len);
 
-  WDL_TypedBuf<WDL_UINT64> m_mapping;
+  WDL_UINT64 m_mapping[CHANNELPINMAPPER_MAXPINS];
 
 private:
 
