@@ -135,6 +135,8 @@ public:
   
   virtual void SetCurPainter(WDL_VWnd_Painter *p) { m_curPainter=p; }
   virtual bool IsDescendent(WDL_VWnd *w);
+
+  virtual void OnCaptureLost();
 protected:
   WDL_VWnd *m_parent;
   WDL_VWnd_IAccessibleBridge *m__iaccess;

@@ -235,6 +235,8 @@ class WDL_VirtualSlider : public WDL_VWnd
     virtual bool OnMouseWheel(int xpos, int ypos, int amt);
     virtual void GetPositionPaintExtent(RECT *r);
 
+    virtual void OnCaptureLost();
+
     void SetBGCol1Callback(int msg) { m_bgcol1_msg=msg; }
     void SetScrollMessage(int msg) { m_scrollmsg=msg; }
     void SetRange(int minr, int maxr, int center) { m_minr=minr; m_maxr=maxr; m_center=center; }

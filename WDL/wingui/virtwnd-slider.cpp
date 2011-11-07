@@ -766,6 +766,12 @@ void WDL_VirtualSlider::OnMouseMove(int xpos, int ypos)
   }
 }
 
+void WDL_VirtualSlider::OnCaptureLost()
+{
+  m_captured=false;
+  while (m_last_precmode>0) {m_last_precmode--; ShowCursor(TRUE); }
+}
+
 void WDL_VirtualSlider::OnMouseUp(int xpos, int ypos)
 {
   if (m_grayed) return;

@@ -908,6 +908,20 @@ void WDL_VWnd::OnMouseMove(int xpos, int ypos)
   }
 }
 
+void WDL_VWnd::OnCaptureLost()
+{
+  int oldcap=m_captureidx;
+  m_captureidx=-1;
+  if (m_children)
+  {
+    WDL_VWnd *wnd=m_children->Get(oldcap);
+    if (wnd) 
+    {
+      wnd->OnCaptureLost();
+    }
+  }
+}
+
 void WDL_VWnd::OnMouseUp(int xpos, int ypos)
 {
   int oldcap=m_captureidx;
