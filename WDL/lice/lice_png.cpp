@@ -57,7 +57,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
 
   png_read_info(png_ptr, info_ptr);
 
-  unsigned long width, height;
+  unsigned int width, height;
   int bit_depth, color_type, interlace_type, compression_type, filter_method;
   png_get_IHDR(png_ptr, info_ptr, &width, &height,
        &bit_depth, &color_type, &interlace_type,
@@ -68,7 +68,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
     png_set_palette_to_rgb(png_ptr);
 
   if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) 
-    png_set_gray_1_2_4_to_8(png_ptr);
+    png_set_expand_gray_1_2_4_to_8(png_ptr);
 
   if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) 
     png_set_tRNS_to_alpha(png_ptr);
@@ -94,7 +94,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
     bmp->resize(width,height);
     if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
     {
-      png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
+      png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
       fclose(fp);
       return 0;
     }
@@ -116,7 +116,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
     bmpptr+=dbmpptr;
   }
   png_read_image(png_ptr, row_pointers);
-  png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
+  png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
   fclose(fp);
 
   //put shit in correct order
@@ -226,7 +226,7 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
 
   png_read_info(png_ptr, info_ptr);
 
-  unsigned long width, height;
+  unsigned int width, height;
   int bit_depth, color_type, interlace_type, compression_type, filter_method;
   png_get_IHDR(png_ptr, info_ptr, &width, &height,
        &bit_depth, &color_type, &interlace_type,
@@ -237,7 +237,7 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
     png_set_palette_to_rgb(png_ptr);
 
   if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) 
-    png_set_gray_1_2_4_to_8(png_ptr);
+    png_set_expand_gray_1_2_4_to_8(png_ptr);
 
   if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) 
     png_set_tRNS_to_alpha(png_ptr);
@@ -263,7 +263,7 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
     bmp->resize(width,height);
     if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
     {
-      png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
+      png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
       return 0;
     }
   }
@@ -279,7 +279,7 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
     bmpptr+=dbmpptr;
   }
   png_read_image(png_ptr, row_pointers);
-  png_destroy_read_struct(&png_ptr, &info_ptr, png_infopp_NULL);
+  png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
 
   //put shit in correct order
   if (color_type != PNG_COLOR_TYPE_PALETTE)
