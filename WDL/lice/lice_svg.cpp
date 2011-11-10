@@ -6,6 +6,9 @@
 */
 
 
+#ifndef _WIN32
+#include "../SWELL/swell.h"
+#endif
 #include "lice.h"
 #include "lice_text.h"
 
@@ -13,7 +16,7 @@
 #include <assert.h>
 #include <math.h>
 
-#include "../../wdl/tinyxml/tinyxml.h"
+#include "../tinyxml/tinyxml.h"
 
 extern "C" int LICE_RGBA_from_SVG(const char* s, int len);
 

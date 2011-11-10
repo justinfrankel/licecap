@@ -1,7 +1,9 @@
 #include "../lice.h"
 #include "../../plush2/plush.h"
 
-
+#ifndef _WIN32
+#include "../../swell/swell.h"
+#endif
 
 
 /* Physical size of land */

@@ -26,7 +26,7 @@ CFG=lice - Win32 Debug
 # PROP AllowPerConfigDependencies 0
 # PROP Scc_ProjName ""
 # PROP Scc_LocalPath ""
-CPP=xicl6.exe
+CPP=cl.exe
 RSC=rc.exe
 
 !IF  "$(CFG)" == "lice - Win32 Release"
@@ -42,13 +42,13 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LIB32=xilink6.exe -lib
+LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
@@ -71,7 +71,7 @@ LIB32=xilink6.exe -lib
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LIB32=xilink6.exe -lib
+LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
@@ -95,7 +95,7 @@ LIB32=xilink6.exe -lib
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-LIB32=xilink6.exe -lib
+LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo
 
@@ -115,6 +115,15 @@ LIB32=xilink6.exe -lib
 # Begin Source File
 
 SOURCE=..\libpng\png.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -127,70 +136,197 @@ SOURCE=..\libpng\pngconf.h
 # Begin Source File
 
 SOURCE=..\libpng\pngerror.c
-# End Source File
-# Begin Source File
 
-SOURCE=..\libpng\pnggccrd.c
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngget.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngmem.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngpread.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngread.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngrio.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngrtran.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngrutil.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngset.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngtest.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngtrans.c
-# End Source File
-# Begin Source File
 
-SOURCE=..\libpng\pngvcrd.c
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngwio.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngwrite.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngwtran.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=..\libpng\pngwutil.c
+
+!IF  "$(CFG)" == "lice - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "zlib"
