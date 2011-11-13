@@ -115,8 +115,9 @@ class WDL_VirtualIconButton : public WDL_VWnd
     bool GetForceText() { return m_forcetext; }
 
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_textfont=font; m_textfontv=vfont; }
+    LICE_IFont *GetFont(bool vfont=false) { return vfont?m_textfontv:m_textfont; }
 
-  private:
+  protected:
 
     void DoSendCommand(int xpos, int ypos);
 
@@ -209,7 +210,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
     void *GetItemData(int item) { return m_itemdatas.Get(item); }
 
 
-  private:
+  protected:
     int m_align;
     int m_curitem;
     LICE_IFont *m_font;
@@ -260,7 +261,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     void SetFGColors(int knobcol, int zlcol) { m_knob_color=knobcol; m_zl_color = zlcol; }
     void SetKnobBias(int knobbias, int knobextrasize=0) { m_knobbias=knobbias; m_knob_lineextrasize=knobextrasize; } // 1=force knob, -1=prevent knob
 
-  private:
+  protected:
     WDL_VirtualSlider_SkinConfig *m_skininfo;
     WDL_VirtualWnd_BGCfg *m_knobbg[2];
 
@@ -329,7 +330,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm);
     void *m_GetItemInfo_ctx;
   
-  private:
+  protected:
   
     void CalcLayout(int num_items, int *nrows, int *ncols, int *leftrightbuttonsize, int *updownbuttonsize, int *startpos, int *usedw);
     bool HandleScrollClicks(int xpos, int ypos, int leftrightbuttonsize, int updownbuttonsize, int nrows, int num_cols, int num_items, int usedw);
