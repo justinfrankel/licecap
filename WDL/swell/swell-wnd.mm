@@ -5812,5 +5812,30 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
   }
 }
 
+BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[NSView class]]) return TRUE;
+  NSArray *ar = [(NSView *)hwnd subviews];
+  if (ar)
+  {
+    [ar retain];
+    int x,n=[ar count];
+    for (x=0;x<n;x++)
+    {
+      NSView *v = [ar objectAtIndex:x];
+      if (v)
+      {
+        if (!cwEnumFunc((HWND)v,lParam) || !EnumChildWindows((HWND)v,cwEnumFunc,lParam)) 
+        {
+          [ar release];
+          return FALSE;
+        }
+      }
+    }
+    [ar release];
+  }
+  return TRUE;
+}
+
 
 #endif

@@ -1066,4 +1066,7 @@ SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
 SWELL_API_DEFINE(void,SWELL_GenerateGUID,(void *g))
 #endif
 
+SWELL_API_DEFINE(BOOL,EnumChildWindows,(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam))
+
+
 #endif // _WDL_SWELL_H_API_DEFINED_
