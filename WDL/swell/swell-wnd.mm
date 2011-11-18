@@ -3144,6 +3144,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysListView32")||!stricmp(classname, "SysListView32_LB"))
   {
     SWELL_ListView *obj = [[SWELL_ListView alloc] init];
+    [obj setColumnAutoresizingStyle:NSTableViewNoColumnAutoresizing];
     [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:obj];
     obj->style=style;
