@@ -94,9 +94,6 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
 {
   if (m_iconCfg && m_iconCfg->olimage)
   {
-    RECT r;
-    GetPositionPaintOverExtent(&r);
-
     int sx=0;
     int sy=0;
     int w=m_iconCfg->olimage->getWidth();
@@ -111,11 +108,39 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
       {
         if ((m_pressed&2))  sx+=(m_pressed&1) ? w*2 : w;
       }
-      LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
-        r.right-r.left,
-        r.bottom-r.top,
-        (float)sx,(float)sy,(float)w,(float)h, m_alpha,  // m_grayed?
-        LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
+
+      if (m_iconCfg->image_ltrb_used.flags&2) // use main image's stretch areas (outer areas become unstretched)
+      {
+        WDL_VirtualWnd_BGCfg cfg={0,};
+        LICE_SubBitmap sb(m_iconCfg->olimage,sx,sy,w,h);
+        cfg.bgimage = &sb;
+        cfg.bgimage_lt[0] = m_iconCfg->image_ltrb_main[0]+1; // image_ltrb_main expects 1-based number
+        cfg.bgimage_lt[1] = m_iconCfg->image_ltrb_main[1]+1;
+        cfg.bgimage_rb[0] = m_iconCfg->image_ltrb_main[2]+1;
+        cfg.bgimage_rb[1] = m_iconCfg->image_ltrb_main[3]+1;
+        cfg.bgimage_lt_out[0] = m_iconCfg->image_ltrb_ol[0]+1;
+        cfg.bgimage_lt_out[1] = m_iconCfg->image_ltrb_ol[1]+1;
+        cfg.bgimage_rb_out[0] = m_iconCfg->image_ltrb_ol[2]+1;
+        cfg.bgimage_rb_out[1] = m_iconCfg->image_ltrb_ol[3]+1;
+        cfg.bgimage_noalphaflags=0;
+
+        RECT r=m_position,r2;
+        GetPositionPaintOverExtent(&r2);
+        WDL_VirtualWnd_ScaledBlitBG(drawbm,&cfg,
+          r.left+origin_x,r.top+origin_y,r.right-r.left,r.bottom-r.top,
+          r2.left+origin_x,r2.top+origin_y,r2.right-r2.left,r2.bottom-r2.top,
+          m_alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+      }
+      else
+      {
+        RECT r;
+        GetPositionPaintOverExtent(&r);
+        LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
+          r.right-r.left,
+          r.bottom-r.top,
+          (float)sx,(float)sy,(float)w,(float)h, m_alpha,  // m_grayed?
+          LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);      
+      }
     }
   }
 }
@@ -969,18 +994,28 @@ void WDL_VirtualIconButton::GetPositionPaintOverExtent(RECT *r)
   *r=m_position;
   if (m_iconCfg && m_iconCfg->image && m_iconCfg->olimage && (m_iconCfg->image_ltrb_used.flags&1))
   {
-    int w=(m_iconCfg->olimage->getWidth()-2)/3-m_iconCfg->image_ltrb_ol[0]-m_iconCfg->image_ltrb_ol[2];
-    if (w<1)w=1;
-    double wsc=(r->right-r->left)/(double)w;
+    if (m_iconCfg->image_ltrb_used.flags&2) // main image has pink lines, use 1:1 pixel for outer area size
+    {
+      r->left -= m_iconCfg->image_ltrb_ol[0];
+      r->top -= m_iconCfg->image_ltrb_ol[1];
+      r->right += m_iconCfg->image_ltrb_ol[2];
+      r->bottom += m_iconCfg->image_ltrb_ol[3];
+    }
+    else
+    {
+      int w=(m_iconCfg->olimage->getWidth()-2)/3-m_iconCfg->image_ltrb_ol[0]-m_iconCfg->image_ltrb_ol[2];
+      if (w<1)w=1;
+      double wsc=(r->right-r->left)/(double)w;
 
-    int h=m_iconCfg->olimage->getHeight()-2-m_iconCfg->image_ltrb_ol[1]-m_iconCfg->image_ltrb_ol[3];
-    if (h<1)h=1;
-    double hsc=(r->bottom-r->top)/(double)h;
+      int h=m_iconCfg->olimage->getHeight()-2-m_iconCfg->image_ltrb_ol[1]-m_iconCfg->image_ltrb_ol[3];
+      if (h<1)h=1;
+      double hsc=(r->bottom-r->top)/(double)h;
 
-    r->left-=(int) (m_iconCfg->image_ltrb_ol[0]*wsc);
-    r->top-=(int) (m_iconCfg->image_ltrb_ol[1]*hsc);
-    r->right+=(int) (m_iconCfg->image_ltrb_ol[2]*wsc);
-    r->bottom+=(int) (m_iconCfg->image_ltrb_ol[3]*hsc);
+      r->left-=(int) (m_iconCfg->image_ltrb_ol[0]*wsc);
+      r->top-=(int) (m_iconCfg->image_ltrb_ol[1]*hsc);
+      r->right+=(int) (m_iconCfg->image_ltrb_ol[2]*wsc);
+      r->bottom+=(int) (m_iconCfg->image_ltrb_ol[3]*hsc);
+    }
   }
 }
 void WDL_VirtualIconButton_PreprocessSkinConfig(WDL_VirtualIconButton_SkinConfig *a)
