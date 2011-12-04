@@ -6,6 +6,9 @@
 */
 
 
+#ifndef __LICE_CPP_IMPLEMENTED__
+#define __LICE_CPP_IMPLEMENTED__
+
 #include "lice.h"
 #include <math.h>
 #include <stdio.h> // only included in case we need to debug with sprintf etc
@@ -2154,3 +2157,5 @@ unsigned short _LICE_RGB2HSV_invtab[256]={ // 65536/idx - 1
   0x0107, 0x0106, 0x0105, 0x0104, 0x0103, 0x0102, 0x0101, 0x0100,
 };
 
+
+#endif//__LICE_CPP_IMPLEMENTED__
