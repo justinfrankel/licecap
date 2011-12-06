@@ -100,7 +100,17 @@ template<class PTRTYPE> class WDL_PtrList
       return Insert(LowerBound(item,&m,compar),item);
     }
 
-    void Delete(int index, bool wantDelete=false, void (*delfunc)(void *)=NULL)
+    void Delete(int index)
+    {
+      PTRTYPE **list=GetList();
+      int size=GetSize();
+      if (list && index >= 0 && index < size)
+      {
+        if (index < --size) memmove(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
+        m_hb.Resize(size * sizeof(PTRTYPE*),false);
+      }
+    }
+    void Delete(int index, bool wantDelete, void (*delfunc)(void *)=NULL)
     {
       PTRTYPE **list=GetList();
       int size=GetSize();
@@ -115,7 +125,11 @@ template<class PTRTYPE> class WDL_PtrList
         m_hb.Resize(size * sizeof(PTRTYPE*),false);
       }
     }
-    void Empty(bool wantDelete=false, void (*delfunc)(void *)=NULL)
+    void Empty()
+    {
+      m_hb.Resize(0,false);
+    }
+    void Empty(bool wantDelete, void (*delfunc)(void *)=NULL)
     {
       if (wantDelete)
       {
