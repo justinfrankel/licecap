@@ -875,7 +875,32 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     int bm_h2=bm_h;
     bool wantKnob=false;
     AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s,&wantKnob,m_knobbias);
-    if (wantKnob) return;
+    if (wantKnob) 
+    {
+      int viewh=m_position.bottom-m_position.top;
+      int vieww=m_position.right-m_position.left;
+      int sz= min(vieww,viewh);
+      int ox = (vieww-sz)/2;
+      int oy = (viewh-sz)/2;
+      WDL_VirtualWnd_BGCfg *back_image = m_knobbg[sz>28];
+      if (back_image && back_image->bgimage && 
+          back_image->bgimage_lt_out[0]>0 &&
+          back_image->bgimage_lt_out[1]>0 &&
+          back_image->bgimage_rb_out[0]>0 &&
+          back_image->bgimage_rb_out[1]>0)
+      {
+        int tmp = ox - (back_image->bgimage_lt_out[0]-1);
+        if (tmp < 0) r->left+=tmp;
+        tmp = oy - (back_image->bgimage_lt_out[1]-1);
+        if (tmp < 0) r->top+=tmp;
+        tmp = ox+sz+(back_image->bgimage_rb_out[0]-1);
+        if (tmp > vieww) r->right += tmp-vieww;
+        tmp = oy+sz+(back_image->bgimage_rb_out[1]-1);
+        if (tmp > viewh) r->bottom += tmp-viewh;
+
+      }
+      return;
+    }
 
     int rsize=m_maxr-m_minr;
     int viewh=m_position.bottom-m_position.top;
