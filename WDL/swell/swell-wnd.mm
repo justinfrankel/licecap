@@ -2163,6 +2163,10 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
     // to another field, restore the assignment afterwards
     [(NSText*)obj setString:lbl];
   }
+  else if ([obj isKindOfClass:[NSBox class]])
+  {
+    [(NSBox *)obj setTitle:lbl];
+  }
   else
   {
     rv=FALSE;
@@ -2195,6 +2199,7 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   if ([poo isKindOfClass:[NSButton class]]||[poo isKindOfClass:[NSWindow class]]) s=[((NSButton *)poo) title];
   else if ([poo isKindOfClass:[NSControl class]]) s=[((NSControl *)poo) stringValue];
   else if ([poo isKindOfClass:[NSText class]])  s=[(NSText*)poo string];
+  else if ([poo isKindOfClass:[NSBox class]]) s=[(NSBox *)poo title];
   else return FALSE;
   
   if (s) SWELL_CFStringToCString(s,text,textlen);
