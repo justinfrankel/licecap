@@ -43,6 +43,18 @@ extern "C"{
 
 */
 
+// notifications sent on user actions
+#define WM_SB_RESIZE (WM_USER+511)
+#define WM_SB_ZOOM (WM_USER+512)
+#define WM_SB_TRESIZE_HL (WM_USER+513)
+#define WM_SB_TRESIZE_HR (WM_USER+514)
+#define WM_SB_TRESIZE_VT (WM_USER+515)
+#define WM_SB_TRESIZE_VB (WM_USER+516)
+#define WM_SB_TRESIZE_START (WM_USER+517)
+#define WM_SB_DBLCLK (WM_USER+518) // wParam has SB_HORZ or SB_VERT
+
+
+#ifndef COOLSB_NO_FUNC_DEFS
 BOOL	WINAPI InitializeCoolSB(HWND hwnd);
 HRESULT WINAPI UninitializeCoolSB(HWND hwnd); // call in WM_DESTROY -- not strictly required, but recommended
 
@@ -61,18 +73,6 @@ int  WINAPI CoolSB_SetScrollPos	(HWND hwnd, int nBar, int nPos, BOOL fRedraw);
 int  WINAPI CoolSB_SetScrollRange	(HWND hwnd, int nBar, int nMinPos, int nMaxPos, BOOL fRedraw);
 BOOL WINAPI CoolSB_ShowScrollBar	(HWND hwnd, int wBar, BOOL fShow);
 
-
-
-// notifications sent on user actions
-#define WM_SB_RESIZE (WM_USER+511)
-#define WM_SB_ZOOM (WM_USER+512)
-#define WM_SB_TRESIZE_HL (WM_USER+513)
-#define WM_SB_TRESIZE_HR (WM_USER+514)
-#define WM_SB_TRESIZE_VT (WM_USER+515)
-#define WM_SB_TRESIZE_VB (WM_USER+516)
-#define WM_SB_TRESIZE_START (WM_USER+517)
-#define WM_SB_DBLCLK (WM_USER+518) // wParam has SB_HORZ or SB_VERT
-
 BOOL WINAPI CoolSB_SetResizingThumb(HWND hwnd, BOOL active);
 void CoolSB_SetScale(float scale); // sets scale to use for scrollbars (does not refresh, though -- set this at startup/etc)
 void CoolSB_OnColorThemeChange(); // refreshes all
@@ -82,6 +82,8 @@ void CoolSB_OnColorThemeChange(); // refreshes all
 // TO BE IMPLEMENTED BY APP:
 void *GetIconThemePointer(const char *name); // implemented by calling app, can return a LICE_IBitmap **img for "scrollbar"
 int CoolSB_GetSysColor(HWND hwnd, int val); // can be a passthrough to GetSysColor()
+
+#endif
 
 
 #ifdef __cplusplus
