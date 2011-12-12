@@ -190,7 +190,6 @@ inline static void LICE_DottedVertLineFAST(LICE_IBitmap* dest, int x, int y1, in
   int span = dest->getRowSpan();
   LICE_pixel* px = dest->getBits()+y1*span+x;
 
-  int h = dest->getHeight();
   int n = (y2-y1+1)/2;
   while (n--)
   {
@@ -952,7 +951,6 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   if (!dest) return;
 
   int w = dest->getWidth();
-  int h = dest->getHeight();
     
   if (xstart > xend) 
   {
@@ -1014,7 +1012,6 @@ static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1,
  if (!dest) return 0;
 
   int w = dest->getWidth();
-  int h = dest->getHeight();
     
   if ((xbasis && xstart > xend) || (!xbasis && ystart > yend))
   {

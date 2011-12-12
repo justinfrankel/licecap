@@ -278,7 +278,11 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     }
     if (flags&LICE_FONT_FLAG_FX_MONO)
     {
-      for(y=0;y<r.bottom;y++) for (x=0;x<r.right;x++) *destbuf++ = *destbuf>130 ? 255:0;
+      for(y=0;y<r.bottom;y++) for (x=0;x<r.right;x++) 
+      {
+        *destbuf = *destbuf>130 ? 255:0;
+        destbuf++;
+      }
 
       destbuf -= r.right*r.bottom;
     }
@@ -286,7 +290,10 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     {
       for(y=0;y<r.bottom;y++)
         for (x=0;x<r.right;x++)
-          *destbuf++ = *destbuf>130 ? 255:0;
+        {
+          *destbuf = *destbuf>130 ? 255:0;
+          destbuf++;
+        }
 
       destbuf -= r.right*r.bottom;
       if (flags&LICE_FONT_FLAG_FX_SHADOW)

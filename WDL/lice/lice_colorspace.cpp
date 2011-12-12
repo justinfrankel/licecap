@@ -125,7 +125,10 @@ void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float dH, 
       px+=span;
       int xi=w;
       while (xi-->0)
-        *tpx++ = LICE_AlterColorHSV_int(*tpx, dHi, dSi, dVi);
+      {
+        *tpx = LICE_AlterColorHSV_int(*tpx, dHi, dSi, dVi);
+        tpx++;
+      }
     }
   }
 }

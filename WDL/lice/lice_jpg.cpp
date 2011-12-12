@@ -176,7 +176,7 @@ LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp)
 {
   struct jpeg_decompress_struct cinfo;
-  struct my_error_mgr jerr={0,};
+  struct my_error_mgr jerr={{0},};
   JSAMPARRAY buffer;
   int row_stride;
 

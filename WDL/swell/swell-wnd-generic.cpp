@@ -2926,6 +2926,51 @@ BOOL TreeView_SetIndent(HWND hwnd, int indent)
 {
   return FALSE;
 }
+void TreeView_SetBkColor(HWND hwnd, int color)
+{
+}
+void TreeView_SetTextColor(HWND hwnd, int color)
+{
+}
+void ListView_SetBkColor(HWND hwnd, int color)
+{
+}
+void ListView_SetTextBkColor(HWND hwnd, int color)
+{
+}
+void ListView_SetTextColor(HWND hwnd, int color)
+{
+}
+void ListView_SetGridColor(HWND hwnd, int color)
+{
+}
+void ListView_SetSelColors(HWND hwnd, int *colors, int ncolors)
+{
+}
+int ListView_GetTopIndex(HWND h)
+{
+}
+BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
+{
+}
+BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
+{
+  return FALSE;
+}
+
+BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
+{
+  if (hwnd && hwnd->m_children)
+  {
+    HWND n=hwnd->m_children;
+    while (n)
+    {
+      if (!cwEnumFunc(n,lParam) || !EnumChildWindows(n,cwEnumFunc,lParam)) return FALSE;
+      n = n->m_next;
+    }
+  }
+  return TRUE;
+}
 
 
 BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah)

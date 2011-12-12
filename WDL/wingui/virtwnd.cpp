@@ -149,7 +149,7 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
         {
           int x,y,Red,Green,Blue;
         }
-        vert[2]={0,};
+        vert[2]={{0,},};
 
         double sr=GetRValue(bgcolor);
         double sg=GetGValue(bgcolor);

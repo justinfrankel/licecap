@@ -209,7 +209,7 @@ void LICE_Copy(LICE_IBitmap *dest, LICE_IBitmap *src) // resizes dest
   if (src&&dest)
   {
     dest->resize(src->getWidth(),src->getHeight());
-    LICE_Blit(dest,src,NULL,0,0,1.0,LICE_BLIT_MODE_COPY);
+    LICE_Blit(dest,src,0,0,NULL,1.0,LICE_BLIT_MODE_COPY);
   }
 }
 #endif
@@ -847,7 +847,10 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *
         LICE_pixel *rd = (LICE_pixel *)psrc;
         LICE_pixel *wr = (LICE_pixel *)pdest;
         while (a-->0)
-          *wr++ = ((*wr>>1)&0x7f7f7f7f)+((*rd++>>1)&0x7f7f7f7f);
+        {
+          *wr = ((*wr>>1)&0x7f7f7f7f)+((*rd++>>1)&0x7f7f7f7f);
+          wr++;
+        }
 
         pdest+=dest_span;
         psrc += src_span;

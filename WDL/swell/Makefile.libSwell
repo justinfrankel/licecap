@@ -13,7 +13,7 @@ else
 CFLAGS += -O2 -s
 endif
 
-LINKEXTRA =  -lpthread -ldl -shared
+LINKEXTRA =  -lpthread -ldl 
 
 
 EXTRA_OBJS = 
@@ -50,7 +50,10 @@ default: libSwell.so
 .PHONY: clean 
 
 libSwell.so: $(OBJS)
-	$(CXX) -o $@ $(CFLAGS) $(LFLAGS) $(LINKEXTRA) $^ 
+	$(CXX) -shared -o $@ $(CFLAGS) $(LFLAGS) $(LINKEXTRA) $^ 
+
+test: $(OBJS) test.o
+	$(CXX) -o test $(CFLAGS) $(LFLAGS) $(LINKEXTRA) $^
 
 clean: 
 	-rm $(OBJS) libSwell.so

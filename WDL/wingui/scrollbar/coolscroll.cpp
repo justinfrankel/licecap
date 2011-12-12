@@ -582,8 +582,8 @@ static int DrawScrollArrow(HWND hwnd, SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT
 	//HACKY bit so this routine can be called by vertical and horizontal code
 	if(sbar->nBarType == SB_VERT)
 	{
-		if(flags & DFCS_SCROLLLEFT)		flags = flags & ~DFCS_SCROLLLEFT  | DFCS_SCROLLUP;
-		if(flags & DFCS_SCROLLRIGHT)	flags = flags & ~DFCS_SCROLLRIGHT | DFCS_SCROLLDOWN;
+		if(flags & DFCS_SCROLLLEFT)		flags = (flags & ~DFCS_SCROLLLEFT)  | DFCS_SCROLLUP;
+		if(flags & DFCS_SCROLLRIGHT)	flags = (flags & ~DFCS_SCROLLRIGHT) | DFCS_SCROLLDOWN;
 	}
 
 	if(fMouseDown) flags |= (DFCS_FLAT | DFCS_PUSHED);

@@ -57,6 +57,7 @@ public:
     if (!tmp)
     {
       printf("Error loading '%s'\n",fn);
+      perror("dlopen:");
       exit(2);
     }
 #else
