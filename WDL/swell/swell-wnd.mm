@@ -5842,5 +5842,36 @@ BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
   return TRUE;
 }
 
+void SWELL_GetDesiredControlSize(HWND hwnd, RECT *r)
+{
+  if (hwnd && r && [(id)hwnd isKindOfClass:[NSControl class]])
+  {
+    NSControl *c = (NSControl *)hwnd;
+    NSRect fr = [c frame];
+    [c sizeToFit];
+    NSRect frnew=[c frame];
+    [c setFrame:fr];
+    r->left=r->top=0;
+    r->right = (int)frnew.size.width;
+    r->bottom = (int)frnew.size.height;
+  }
+}
+
+BOOL SWELL_IsGroupBox(HWND hwnd)
+{
+  if (hwnd && [(id)hwnd isKindOfClass:[SWELL_BoxView class]]) return TRUE;
+  return FALSE;
+}
+BOOL SWELL_IsButton(HWND hwnd)
+{
+  if (hwnd && [(id)hwnd isKindOfClass:[SWELL_Button class]]) return TRUE;
+  return FALSE;
+}
+BOOL SWELL_IsStaticText(HWND hwnd)
+{
+  if (hwnd && [(id)hwnd isKindOfClass:[NSTextField class]]) return TRUE;
+  //todo
+  return FALSE;
+}
 
 #endif

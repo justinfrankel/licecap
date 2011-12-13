@@ -2971,6 +2971,25 @@ BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
   }
   return TRUE;
 }
+void SWELL_GetDesiredControlSize(HWND hwnd, RECT *r)
+{
+}
+
+BOOL SWELL_IsGroupBox(HWND hwnd)
+{
+  //todo
+  return FALSE;
+}
+BOOL SWELL_IsButton(HWND hwnd)
+{
+  //todo
+  return FALSE;
+}
+BOOL SWELL_IsStaticText(HWND hwnd)
+{
+  //todo
+  return FALSE;
+}
 
 
 BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah)
