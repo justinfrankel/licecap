@@ -101,6 +101,8 @@ bool LICE_MemBitmap::resize(int w, int h)
 
 
 
+#ifndef _LICE_NO_SYSBITMAPS_
+
 LICE_SysBitmap::LICE_SysBitmap(int w, int h)
 {
   m_allocw=m_alloch=0;
@@ -200,6 +202,8 @@ bool LICE_SysBitmap::resize(int w, int h)
 
   return true;
 }
+
+#endif // _LICE_NO_SYSBITMAPS_
 
 
 
