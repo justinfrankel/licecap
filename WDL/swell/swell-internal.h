@@ -345,7 +345,7 @@ struct HTREEITEM__
   int m_wantraiseamt;
   bool  m_wantInitialKeyWindowOnShow;
 }
-- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut;
+- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut forceStyles:(unsigned int)smask;
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask;
 - (void)swellDestroyAllOwnedWindows;
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd;

@@ -1809,7 +1809,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   return self;
 }
 
-- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut
+- (id)initModeless:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par outputHwnd:(HWND *)hwndOut forceStyles:(unsigned int)smask
 {
   INIT_COMMON_VARS
   m_wantInitialKeyWindowOnShow=0;
@@ -1823,7 +1823,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   int wx, wy;
   GetInitialWndPos(parent, h, &wx, &wy);  
   NSRect contentRect=NSMakeRect(wx,wy,w,h);
-  int sf=0;
+  int sf=smask;
   
   if (resstate)
   {
@@ -2047,6 +2047,16 @@ HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int w
 
 HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent, DLGPROC dlgproc, LPARAM param)
 {
+  unsigned int forceStyles=0;
+  if ((((INT_PTR)resid)&~0xf)==0x400000)
+  {
+    int a = (int)(INT_PTR)resid;
+    forceStyles = NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask;
+    if (a&1) forceStyles|=NSResizableWindowMask;
+    if (a&2) forceStyles&=~NSMiniaturizableWindowMask;
+    if (a&4) forceStyles&=~NSClosableWindowMask;
+    resid=NULL;
+  }
   SWELL_DialogResourceIndex *p=resById(reshead,resid);
   if (!p&&resid) return 0;
   
@@ -2069,7 +2079,7 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   else
   {
     HWND h=NULL;
-    SWELL_ModelessWindow *ch=[[SWELL_ModelessWindow alloc] initModeless:p Parent:parent dlgProc:dlgproc Param:param outputHwnd:&h];
+    SWELL_ModelessWindow *ch=[[SWELL_ModelessWindow alloc] initModeless:p Parent:parent dlgProc:dlgproc Param:param outputHwnd:&h forceStyles:forceStyles];
     return h;
   }
   
