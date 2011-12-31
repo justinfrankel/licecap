@@ -4076,6 +4076,17 @@ int ListView_GetSelectionMark(HWND h)
   return [tv selectedRow];
 }
 
+int SWELL_GetListViewHeaderHeight(HWND h)
+{
+  if (!h) return 0;
+  if (![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
+  
+  SWELL_ListView* tv=(SWELL_ListView*)h;
+  NSTableHeaderView* hv=[tv headerView];
+  NSRect r=[hv bounds];
+  return (int)(r.size.height+0.5);
+}
+
 void ListView_SetColumnWidth(HWND h, int colpos, int wid)
 {
 }

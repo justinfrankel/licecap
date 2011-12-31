@@ -467,6 +467,8 @@ SWELL_API_DEFINE(int, ListView_GetTopIndex,(HWND h))
 SWELL_API_DEFINE(BOOL, ListView_SetColumnOrderArray,(HWND h, int cnt, int* arr))
 SWELL_API_DEFINE(BOOL, ListView_GetColumnOrderArray,(HWND h, int cnt, int* arr))
 
+SWELL_API_DEFINE(int, SWELL_GetListViewHeaderHeight, (HWND h))
+
 #ifndef ImageList_Create
 #define ImageList_Create(x,y,a,b,c) ImageList_CreateEx();
 #endif
