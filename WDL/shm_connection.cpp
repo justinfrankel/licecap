@@ -31,7 +31,7 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
   m_file=INVALID_HANDLE_VALUE;
   m_filemap=NULL;
   m_mem=NULL;
-  m_events[0]=m_events[1]=NULL;
+  m_lockmutex=m_events[0]=m_events[1]=NULL;
 
   m_whichChan=whichChan ? 1 : 0;
 
@@ -44,41 +44,55 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
   m_tempfn.Append(uniquestring);
   m_tempfn.Append(".tmp");
 
+  WDL_String tmp;
+  if (!(GetVersion()&0x80000000)) tmp.Set("Global\\WDL_SHM_");
+  else tmp.Set("WDL_SHM_");
+  tmp.Append(uniquestring);
+  int tmp_l = strlen(tmp.Get());
 
-  HANDLE mutex=NULL;
-
-  {
-    WDL_String tmp;
-    tmp.Set("WDL_SHM_");
-    tmp.Append(uniquestring);
-    tmp.Append(".mutex");
-    mutex = CreateMutex(NULL,FALSE,tmp.Get());
-  }
+  tmp.Append(".m");
+  HANDLE mutex = CreateMutex(NULL,FALSE,tmp.Get());
 
   if (mutex) WaitForSingleObject(mutex,INFINITE);
 
-  DeleteFile(m_tempfn.Get()); // this is designed to fail if another process has it locked
-
-  m_file=CreateFile(m_tempfn.Get(),GENERIC_READ|GENERIC_WRITE,
-        FILE_SHARE_READ|FILE_SHARE_WRITE ,
-        NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,NULL);
+  tmp.Get()[tmp_l]=0;
+  tmp.Append(whichChan?".l1":".l0");
+  m_lockmutex = CreateMutex(NULL,FALSE,tmp.Get());
+  if (m_lockmutex)
+  {
+    if (WaitForSingleObject(m_lockmutex,100) == WAIT_OBJECT_0)
+    {
+      DeleteFile(m_tempfn.Get()); // this is designed to fail if another process has it locked
+      m_file=CreateFile(m_tempfn.Get(),GENERIC_READ|GENERIC_WRITE,
+                        FILE_SHARE_READ|FILE_SHARE_WRITE ,
+                        NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,NULL);
+    }
+    else
+    {
+      CloseHandle(m_lockmutex);
+      m_lockmutex=0;
+    }
+  }
   
   int mapsize;
   if (m_file != INVALID_HANDLE_VALUE && 
         ((mapsize=GetFileSize(m_file,NULL)) < SHM_HDRSIZE+SHM_MINSIZE*2 || 
           mapsize == 0xFFFFFFFF))
   {
-    WDL_HeapBuf tmp;
-    memset(tmp.Resize(shmsize*2 + SHM_HDRSIZE),0,shmsize*2 + SHM_HDRSIZE);
-    ((int *)tmp.Get())[0] = shmsize;
-    DWORD d;
-    WriteFile(m_file,tmp.Get(),tmp.GetSize(),&d,NULL);
-  }
+    char buf[4096];
+    memset(buf,0,sizeof(buf));
+    *(int *)buf=shmsize;
 
-  if (mutex) 
-  {
-    ReleaseMutex(mutex);
-    CloseHandle(mutex);
+    int sz=shmsize*2 + SHM_HDRSIZE;
+    while (sz>0)
+    {
+      DWORD d;
+      int a = sz;
+      if (a>sizeof(buf))a=sizeof(buf);
+      WriteFile(m_file,buf,a,&d,NULL);
+      sz-=a;
+      *(int *)buf = 0;
+    }
   }
 
   if (m_file!=INVALID_HANDLE_VALUE)
@@ -88,15 +102,19 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
   {
     m_mem=(unsigned char *)MapViewOfFile(m_filemap,FILE_MAP_WRITE,0,0,0);
 
-    WDL_String tmp;
-    if (!(GetVersion()&0x80000000)) tmp.Set("Global\\WDL_SHM_");
-    else tmp.Set("WDL_SHM_");
-    tmp.Append(uniquestring);
+    tmp.Get()[tmp_l]=0;
     tmp.Append(".1");
     m_events[0]=CreateEvent(NULL,false,false,tmp.Get());
     tmp.Get()[strlen(tmp.Get())-1]++; 
     m_events[1]=CreateEvent(NULL,false,false,tmp.Get());
   }
+
+  if (mutex) 
+  {
+    ReleaseMutex(mutex);
+    CloseHandle(mutex);
+  }
+
 }
 
 
@@ -109,6 +127,11 @@ WDL_SHM_Connection::~WDL_SHM_Connection()
 
   if (m_events[0]) CloseHandle(m_events[0]);
   if (m_events[1]) CloseHandle(m_events[1]);
+  if (m_lockmutex)
+  {
+    ReleaseMutex(m_lockmutex);
+    CloseHandle(m_lockmutex);
+  }
 }
 
 bool WDL_SHM_Connection::WantSendKeepAlive() { return false; }

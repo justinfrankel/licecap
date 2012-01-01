@@ -55,9 +55,9 @@ private:
 
 #ifdef _WIN32
 
-  // todo: abstract for OS X?
   HANDLE m_file, m_filemap; 
   HANDLE m_events[2]; // [m_whichChan] set when the other side did something useful
+  HANDLE m_lockmutex;
 
   unsigned char *m_mem; 
   int m_whichChan; // which channel we read from
