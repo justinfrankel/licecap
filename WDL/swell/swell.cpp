@@ -146,8 +146,8 @@ BOOL CloseHandle(HANDLE hand)
       case INTERNAL_OBJECT_SOCKETEVENT:
         {
           SWELL_InternalObjectHeader_SocketEvent *se= (SWELL_InternalObjectHeader_SocketEvent *)hdr;
-          if (se->socket[0]) close(se->socket[0]);
-          if (se->socket[1]) close(se->socket[1]);
+          if (se->socket[0]>=0) close(se->socket[0]);
+          if (se->socket[1]>=0) close(se->socket[1]);
         }
       break;
       case INTERNAL_OBJECT_EVENT:
@@ -186,7 +186,7 @@ HANDLE CreateEventAsSocket(void *SA, BOOL manualReset, BOOL initialSig, const ch
   buf->hdr.type=INTERNAL_OBJECT_SOCKETEVENT;
   buf->hdr.count=1;
   buf->autoReset = !manualReset;
-  buf->socket[0]=buf->socket[1]=0;
+  buf->socket[0]=buf->socket[1]=-1;
   if (socketpair(AF_UNIX,SOCK_STREAM,0,buf->socket)<0) 
   { 
     free(buf);
@@ -195,7 +195,7 @@ HANDLE CreateEventAsSocket(void *SA, BOOL manualReset, BOOL initialSig, const ch
   fcntl(buf->socket[0], F_SETFL, fcntl(buf->socket[0],F_GETFL) | O_NONBLOCK); // nonblocking
 
   char c=0;
-  if (initialSig&&buf->socket[1]) write(buf->socket[1],&c,1);
+  if (initialSig&&buf->socket[1]>=0) write(buf->socket[1],&c,1);
 
   return buf;
 }
@@ -209,7 +209,7 @@ DWORD WaitForAnySocketObject(int numObjs, HANDLE *objs, DWORD msTO) // only supp
   for (x = 0; x < numObjs; x ++)
   {
     SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
-    if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0])
+    if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]>=0)
     {
       FD_SET(se->socket[0],&s);
       if (se->socket[0] > max_s) max_s = se->socket[0];
@@ -223,7 +223,7 @@ again:
     if (select(max_s+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0) for (x = 0; x < numObjs; x ++)
     {
       SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
-      if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]) 
+      if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]>=0) 
       {
         if (FD_ISSET(se->socket[0],&s)) 
         {
@@ -279,7 +279,7 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
     case INTERNAL_OBJECT_SOCKETEVENT:
       {
         SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)hdr;
-        if (!se->socket[0]) Sleep(msTO!=INFINITE?msTO:1);
+        if (se->socket[0]<0) Sleep(msTO!=INFINITE?msTO:1);
         else
         {
           fd_set s;
@@ -469,9 +469,9 @@ BOOL SetEvent(HANDLE hand)
   if (evt->hdr.type == INTERNAL_OBJECT_SOCKETEVENT)
   {
     SWELL_InternalObjectHeader_SocketEvent *se=(SWELL_InternalObjectHeader_SocketEvent*)hand;
-    if (se->socket[1])
+    if (se->socket[1]>=0)
     {
-      if (se->socket[0]) 
+      if (se->socket[0]>=0) 
       {
         fd_set s;
         FD_ZERO(&s);
@@ -498,7 +498,7 @@ BOOL ResetEvent(HANDLE hand)
   if (evt->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) 
   {
     SWELL_InternalObjectHeader_SocketEvent *se=(SWELL_InternalObjectHeader_SocketEvent*)hand;
-    if (se->socket[0])
+    if (se->socket[0]>=0)
     {
       char buf[128];
       read(se->socket[0],buf,sizeof(buf));
