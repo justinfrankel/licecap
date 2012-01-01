@@ -6,7 +6,7 @@
 #include "sha.cpp"
 #endif
 
-SHM_MsgReplyConnection::SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bool dir, const char *uniquestr, int timeout_sec)
+SHM_MsgReplyConnection::SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bool dir, const char *uniquestr, int timeout_sec, int extra_flags)
 {
   m_maxqueuesize=maxqueuesize;
   m_has_had_error=false;
@@ -35,7 +35,7 @@ SHM_MsgReplyConnection::SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bo
       (int)(thisptr>>32)^(cnt++));
   }
 
-  m_shm = new WDL_SHM_Connection(dir,m_uniq,bufsize,timeout_sec);
+  m_shm = new WDL_SHM_Connection(dir,m_uniq,bufsize,timeout_sec,extra_flags);
 
 }
 

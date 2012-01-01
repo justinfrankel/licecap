@@ -40,7 +40,7 @@ public:
   };
 
 
-  SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bool dir, const char *uniquestr=NULL, int timeout_sec=0);
+  SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bool dir, const char *uniquestr=NULL, int timeout_sec=0, int extra_flags=0);
   ~SHM_MsgReplyConnection();
 
   // be sure to set these, and have OnRecv() Reply() to any nonzero msgID !

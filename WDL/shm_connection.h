@@ -20,7 +20,8 @@ public:
   WDL_SHM_Connection(bool whichChan, // a true con connects to a false con -- note on SHM false should be created FIRST.
                      const char *uniquestring, // identify 
                      int shmsize=262144, // bytes, whoever opens first decides
-                     int timeout_sec=0
+                     int timeout_sec=0,
+                     int extra_flags=0 // on posix, set 1 for the master to create a .lock file as well
                      );
 
   ~WDL_SHM_Connection();
@@ -53,6 +54,8 @@ private:
 
   WDL_String m_tempfn;
 
+  int m_whichChan; // which channel we read from
+
 #ifdef _WIN32
 
   HANDLE m_file, m_filemap; 
@@ -60,7 +63,6 @@ private:
   HANDLE m_lockmutex;
 
   unsigned char *m_mem; 
-  int m_whichChan; // which channel we read from
 #else
   time_t m_next_keepalive;
   
@@ -72,10 +74,12 @@ private:
   int m_listen_socket;
   int m_socket;
 
-  bool m_isConnected;
-
   HANDLE m_waitevt;
   void *m_sockaddr;
+
+  void acquireListener();
+  WDL_String m_lockfn;
+  int m_lockhandle;
 #endif
 
 };
