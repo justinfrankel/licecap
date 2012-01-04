@@ -64,9 +64,10 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
     if (WaitForSingleObject(m_lockmutex,100) == WAIT_OBJECT_0)
     {
       DeleteFile(m_tempfn.Get()); // this is designed to fail if another process has it locked
+
       m_file=CreateFile(m_tempfn.Get(),GENERIC_READ|GENERIC_WRITE,
                         FILE_SHARE_READ|FILE_SHARE_WRITE ,
-                        NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,NULL);
+                        NULL,whichChan ? OPEN_EXISTING : OPEN_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,NULL);
     }
     else
     {
