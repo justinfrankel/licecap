@@ -102,7 +102,11 @@ class WDL_HeapBuf
 
         m_size=m_alloc=0;
         m_buf=hb->m_buf && hb->m_alloc>0 ? malloc(m_alloc = hb->m_alloc) : NULL;
+#ifdef WDL_HEAPBUF_ONMALLOCFAIL
+        if (!m_buf && m_alloc) { WDL_HEAPBUF_ONMALLOCFAIL(m_alloc) } ;
+#endif
         if (m_buf) memcpy(m_buf,hb->m_buf,m_size = hb->m_size);
+        else m_alloc=0;
       }
       else // copy just the data + size
       {
@@ -147,7 +151,13 @@ class WDL_HeapBuf
       int a = newsize; 
       if (a > m_size) a=m_size;
       void *newbuf = newsize ? malloc(newsize) : 0;
-      if (!newbuf && newsize) return m_buf;
+      if (!newbuf && newsize) 
+      {
+#ifdef WDL_HEAPBUF_ONMALLOCFAIL
+        WDL_HEAPBUF_ONMALLOCFAIL(newsize)
+#endif
+        return m_buf;
+      }
       if (newbuf&&m_buf) memcpy(newbuf,m_buf,a);
       m_size=m_alloc=newsize;
       free(m_buf);
@@ -193,6 +203,9 @@ class WDL_HeapBuf
         }
 
         void* newbuf = realloc(m_buf, n);  // realloc==free when size==0
+#ifdef WDL_HEAPBUF_ONMALLOCFAIL
+        if (!newbuf && n) { WDL_HEAPBUF_ONMALLOCFAIL(n) } ;
+#endif
         if (newbuf || !newsize)
         {
           m_alloc = n;
@@ -239,7 +252,13 @@ class WDL_HeapBuf
             void *nbuf= realloc(m_buf,newalloc);
             if (!nbuf && newalloc) 
             {
-              if (!(nbuf=malloc(newalloc))) return m_size?m_buf:0; // failed, do not resize
+              if (!(nbuf=malloc(newalloc))) 
+              {
+#ifdef WDL_HEAPBUF_ONMALLOCFAIL
+                WDL_HEAPBUF_ONMALLOCFAIL(newalloc);
+#endif
+                return m_size?m_buf:0; // failed, do not resize
+              }
 
               if (m_buf) 
               {
