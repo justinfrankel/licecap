@@ -4283,9 +4283,15 @@ bool ListView_Scroll(HWND h, int xscroll, int yscroll)
   NSRect tvr = [sv documentVisibleRect];
   NSPoint pt = { tvr.origin.x, tvr.origin.y };
   if (xscroll > 0) pt.x += tvr.size.width-1;
-  if (yscroll > 0) pt.y += tvr.size.height-1;  
+  if (yscroll > 0) pt.y += tvr.size.height-1;
+  
   int rowidx = [tv rowAtPoint:pt];
+  if (rowidx < 0) rowidx=0;
+  else if (rowidx >= [tv numberOfRows]) rowidx=[tv numberOfRows]-1;
+  
   int colidx = [tv columnAtPoint:pt];
+  if (colidx < 0) colidx=0;
+  else if (colidx >= [tv numberOfColumns]) colidx = [tv numberOfColumns]-1;
 
   NSRect ir = [tv frameOfCellAtColumn:colidx row:rowidx];
   if (ir.size.width) xscroll /= ir.size.width;
@@ -4296,12 +4302,13 @@ bool ListView_Scroll(HWND h, int xscroll, int yscroll)
   rowidx += yscroll;
   if (rowidx < 0) rowidx=0;
   else if (rowidx >= [tv numberOfRows]) rowidx = [tv numberOfRows]-1;
+  
   colidx += xscroll;
   if (colidx < 0) colidx=0;
   else if (colidx >= [tv numberOfColumns]) colidx = [tv numberOfColumns]-1;
   
-  [tv scrollRowToVisible:rowidx+yscroll];
-  [tv scrollColumnToVisible:colidx+xscroll];
+  [tv scrollRowToVisible:rowidx];
+  [tv scrollColumnToVisible:colidx];
   
   return true;
 }
