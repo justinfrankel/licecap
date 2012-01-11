@@ -4280,8 +4280,20 @@ int ListView_GetTopIndex(HWND h)
   if (!sv) return -1;  
   
   NSRect tvr = [sv documentVisibleRect];
-  NSPoint pt = { tvr.origin.x, tvr.origin.y };  
+  NSPoint pt = { 0, tvr.origin.y };  
   return [tv rowAtPoint:pt];      
+}
+
+int ListView_GetCountPerPage(HWND h)
+{
+  NSTableView* tv = (NSTableView*)h;
+  if (!tv) return 0;
+  NSScrollView* sv = [tv enclosingScrollView];
+  if (!sv) return 0;  
+  
+  NSRect tvr = [sv documentVisibleRect];
+  int rowh = [tv rowHeight];
+  return tvr.size.height/rowh;
 }
 
 bool ListView_Scroll(HWND h, int xscroll, int yscroll)
