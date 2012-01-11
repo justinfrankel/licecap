@@ -4149,7 +4149,7 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
 
 int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
 {
-  if (!h) return -1;
+  if (!h || !pinf) return -1;
   if (![(id)h isKindOfClass:[SWELL_ListView class]]) return -1;
   
   SWELL_ListView *tv=(SWELL_ListView*)h;
@@ -4157,26 +4157,36 @@ int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
   pinf->flags=0;
   pinf->iItem=-1;
   
-  NSPoint pt={pinf->pt.x,pinf->pt.y};
-    
-  pinf->iItem=[(NSTableView *)h rowAtPoint:pt];
-  if (pinf->iItem >= 0 && tv->m_status_imagelist)
+  // rowAtPoint will return a row even if it is scrolled out of the clip view
+  NSScrollView* sv=NavigateUpScrollClipViews(tv);
+  NSRect r=[sv documentVisibleRect];
+  int x=pinf->pt.x-r.origin.x;
+  int y=pinf->pt.y-r.origin.y;
+
+  if (x < 0) pinf->flags |= LVHT_TOLEFT;
+  if (x >= r.size.width) pinf->flags |= LVHT_TORIGHT;
+  if (y < 0) pinf->flags |= LVHT_ABOVE;
+  if (y >= r.size.height) pinf->flags |= LVHT_BELOW;
+  
+  if (!pinf->flags)
   {
-    pinf->flags=LVHT_ONITEMLABEL;
-    float rh = [tv rowHeight];
-    if (pinf->pt.x <= rh)
-    {      
-      pinf->flags=LVHT_ONITEMSTATEICON;
+    NSPoint pt = { pinf->pt.x, pinf->pt.y };
+    pinf->iItem=[(NSTableView *)h rowAtPoint:pt];
+    if (pinf->iItem >= 0)
+    {
+      if (tv->m_status_imagelist && pt.x <= [tv rowHeight])
+      {
+        pinf->flags=LVHT_ONITEMSTATEICON;
+      }
+      else 
+      {
+        pinf->flags=LVHT_ONITEMLABEL;
+      }
     }
-  }
-  else
-  {
-    pinf->flags=LVHT_NOWHERE;
-    
-    NSRect fr=[(NSTableView *)h bounds];
-    if (pt.y < 0) pinf->flags=LVHT_ABOVE;
-    else pinf->flags=LVHT_BELOW;
-    
+    else 
+    {
+      pinf->flags=LVHT_NOWHERE;
+    }
   }
   
   return pinf->iItem;
@@ -4189,7 +4199,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   NSPoint pt={pinf->pt.x,pinf->pt.y};
   if (row < 0 && pt.y < 0)
   { // Fake the point in the client area of the listview to get the column # (like win32)
-	pt.y = 0;
+    pt.y = 0;
   }
   pinf->iSubItem=[(NSTableView *)h columnAtPoint:pt];
   return row;
