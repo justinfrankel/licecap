@@ -3679,7 +3679,8 @@ void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
   
   if (lvc->mask&LVCF_FMT)
   {
-    if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
+    if (lvc->fmt == LVCFMT_LEFT) [[col headerCell] setAlignment:NSLeftTextAlignment];
+    else if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
     else if (lvc->fmt == LVCFMT_RIGHT) [[col headerCell] setAlignment:NSRightTextAlignment];
   }
   if (lvc->mask&LVCF_WIDTH)
@@ -4152,6 +4153,67 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
     [lv moveColumn:pos toColumn:dest];
   }
 
+  return TRUE;
+}
+
+HWND ListView_GetHeader(HWND h)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
+  return h;
+}
+
+int Header_GetItemCount(HWND h)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
+  SWELL_ListView* lv=(SWELL_ListView*)h;
+  if (lv->m_cols) return lv->m_cols->GetSize();
+  return 0;
+}
+
+BOOL Header_GetItem(HWND h, int col, HDITEM* hi)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]] || !hi) return FALSE;
+  SWELL_ListView* lv=(SWELL_ListView*)h;
+  if (!lv->m_cols || col < 0 || col >= lv->m_cols->GetSize()) return FALSE;
+  NSTableColumn* hcol=lv->m_cols->Get(col);
+  if (!hcol) return FALSE;
+  
+  if (hi->mask&HDI_FORMAT)
+  {
+    hi->fmt=0;
+    NSImage* img=[lv indicatorImageInTableColumn:hcol];
+    if (img)
+    {
+      NSString* imgname=[img name];
+      if (imgname)
+      {
+        if ([imgname isEqualToString:@"NSAscendingSortIndicator"]) hi->fmt |= HDF_SORTUP;
+        else if ([imgname isEqualToString:@"NSDescendingSortIndicator"]) hi->fmt |= HDF_SORTDOWN;
+      }
+    }
+  }
+  // etc todo
+  
+  return TRUE;
+}
+
+BOOL Header_SetItem(HWND h, int col, HDITEM* hi)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]] || !hi) return FALSE;
+  SWELL_ListView* lv=(SWELL_ListView*)h;
+  if (!lv->m_cols || col < 0 || col >= lv->m_cols->GetSize()) return FALSE;
+  NSTableColumn* hcol=lv->m_cols->Get(col);
+  if (!hcol) return FALSE;
+  
+  if (hi->mask&HDI_FORMAT)
+  {
+    NSImage* img=0;
+    if (hi->fmt&HDF_SORTUP) img=[NSImage imageNamed:@"NSAscendingSortIndicator"];
+    else if (hi->fmt&HDF_SORTDOWN) img=[NSImage imageNamed:@"NSDescendingSortIndicator"];
+    [lv setIndicatorImage:img inTableColumn:hcol];
+  }
+  // etc todo
+  
   return TRUE;
 }
 

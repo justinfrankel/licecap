@@ -296,10 +296,27 @@ typedef struct
   LPARAM  lParam;
 } NMLISTVIEW, *LPNMLISTVIEW;
 
-typedef struct {
+typedef struct
+{
   NMHDR hdr;
   LVITEM item;
 } NMLVDISPINFO, *LPNMLVDISPINFO;
+
+typedef struct
+{
+  UINT    mask;
+  int     cxy;
+  char*   pszText;
+  HBITMAP hbm;
+  int     cchTextMax;
+  int     fmt;
+  LPARAM  lParam;
+  int     iImage;
+  int     iOrder;
+  UINT    type;
+  void    *pvFilter;
+  UINT    state;
+} HDITEM, *LPHDITEM;  
 
 typedef struct TCITEM
 {
@@ -754,6 +771,9 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define LVS_EX_HEADERDRAGDROP 0x10
 #define LVS_EX_FULLROWSELECT 0x20 // ignored for now (enabled by default on OSX)
 
+#define HDI_FORMAT 0x4
+#define HDF_SORTUP 0x0400
+#define HDF_SORTDOWN 0x0200
 
 #define TCIF_TEXT               0x0001
 #define TCIF_IMAGE              0x0002

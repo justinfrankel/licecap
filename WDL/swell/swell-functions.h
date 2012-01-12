@@ -467,6 +467,10 @@ SWELL_API_DEFINE(int, ListView_GetTopIndex,(HWND h))
 SWELL_API_DEFINE(int, ListView_GetCountPerPage,(HWND h))
 SWELL_API_DEFINE(BOOL, ListView_SetColumnOrderArray,(HWND h, int cnt, int* arr))
 SWELL_API_DEFINE(BOOL, ListView_GetColumnOrderArray,(HWND h, int cnt, int* arr))
+SWELL_API_DEFINE(HWND, ListView_GetHeader,(HWND h))
+SWELL_API_DEFINE(int, Header_GetItemCount,(HWND h))
+SWELL_API_DEFINE(BOOL, Header_GetItem,(HWND h, int col, HDITEM* hi))
+SWELL_API_DEFINE(BOOL, Header_SetItem,(HWND h, int col, HDITEM* hi))
 
 SWELL_API_DEFINE(int, SWELL_GetListViewHeaderHeight, (HWND h))
 
