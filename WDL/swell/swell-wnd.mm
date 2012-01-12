@@ -3684,7 +3684,15 @@ void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
   }
   if (lvc->mask&LVCF_WIDTH)
   {
-    [col setWidth:lvc->cx];
+    if (!lvc->cx)
+    {
+      [col setHidden:YES];
+    }
+    else 
+    {
+      [col setHidden:NO];
+      [col setWidth:lvc->cx];
+    }
   }
   if (lvc->mask&LVCF_TEXT)
   {
