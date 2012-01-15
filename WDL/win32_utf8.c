@@ -653,6 +653,72 @@ void WDL_UTF8_HookListBox(HWND h)
 }
 
 
+static LRESULT WINAPI tv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  WNDPROC oldproc = (WNDPROC)GetProp(hwnd,WDL_UTF8_OLDPROCPROP);
+  if (!oldproc) return 0;
+
+  if (msg==WM_NCDESTROY)
+  {
+    SetWindowLongPtr(hwnd, GWLP_WNDPROC,(INT_PTR)oldproc);
+    RemoveProp(hwnd,WDL_UTF8_OLDPROCPROP);
+  }
+  else if (msg == TVM_INSERTITEMA || msg == TVM_SETITEMA) 
+  {
+    LPTVITEM pItem = msg == TVM_INSERTITEMA ? &((LPTVINSERTSTRUCT)lParam)->item : (LPTVITEM) lParam;
+    char *str;
+    if (pItem && (str=pItem->pszText) && (pItem->mask&TVIF_TEXT) && WDL_HasUTF8(str))
+    {
+      MBTOWIDE(wbuf,str);
+      if (wbuf_ok)
+      {
+        LRESULT rv;
+        pItem->pszText=(char*)wbuf; // set new buffer
+        rv=CallWindowProc(oldproc,hwnd,msg == TVM_INSERTITEMA ? TVM_INSERTITEMW : TVM_SETITEMW,wParam,lParam);
+        pItem->pszText = str; // restore old pointer
+        MBTOWIDE_FREE(wbuf);
+        return rv;
+      }
+
+      MBTOWIDE_FREE(wbuf);
+    }
+  }
+  else if (msg==TVM_GETITEMA)
+  {
+    LPTVITEM pItem = (LPTVITEM) lParam;
+    char *obuf;
+    if (pItem && (pItem->mask & TVIF_TEXT) && (obuf=pItem->pszText) && pItem->cchTextMax > 3)
+    {
+      WIDETOMB_ALLOC(wbuf,pItem->cchTextMax);
+      *obuf=0;
+      if (wbuf)
+      {
+        LRESULT rv;
+        int oldsz=pItem->cchTextMax;
+        *wbuf=0;
+        pItem->cchTextMax=wbuf_size/sizeof(WCHAR);
+        pItem->pszText = (char *)wbuf;
+        rv=CallWindowProc(oldproc,hwnd,TVM_GETITEMW,wParam,lParam);
+
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,obuf,oldsz,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+          obuf[oldsz-1]=0;
+
+        pItem->cchTextMax=oldsz;
+        pItem->pszText=obuf;
+        WIDETOMB_FREE(wbuf);
+
+        if (obuf[0]) return rv;
+      }
+      else
+      {
+        WIDETOMB_FREE(wbuf);
+      }
+
+    }
+  }
+
+  return CallWindowProc(oldproc,hwnd,msg,wParam,lParam);
+}
 
 static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -725,6 +791,12 @@ void WDL_UTF8_HookListView(HWND h)
 {
   if (!h||GetVersion()>=0x80000000||GetProp(h,WDL_UTF8_OLDPROCPROP)) return;
   SetProp(h,WDL_UTF8_OLDPROCPROP,(HANDLE)SetWindowLongPtr(h,GWLP_WNDPROC,(INT_PTR)lv_newProc));
+}
+
+void WDL_UTF8_HookTreeView(HWND h)
+{
+  if (!h||GetVersion()>=0x80000000||GetProp(h,WDL_UTF8_OLDPROCPROP)) return;
+  SetProp(h,WDL_UTF8_OLDPROCPROP,(HANDLE)SetWindowLongPtr(h,GWLP_WNDPROC,(INT_PTR)tv_newProc));
 }
 
 void WDL_UTF8_ListViewConvertDispInfoToW(void *_di)
