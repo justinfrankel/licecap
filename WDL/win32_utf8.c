@@ -35,19 +35,22 @@ extern "C" {
 BOOL WDL_HasUTF8(const char *_str)
 {
   const unsigned char *str = (const unsigned char *)_str;
-  if (!str) return FALSE;
+  BOOL hasUTF=FALSE;
   while (*str) 
   {
-    unsigned char c = *str;
-    if (c >= 0xC2) // fuck overlongs
+    unsigned char c = *str++;
+    if (c >= 0xC2) // treat overlongs as invalid chars
     {
-      if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
-      else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
-      else if (c <= 0xF7 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF && str[3] >=0x80 && str[3] <= 0xBF) return TRUE;
+      if (c <= 0xDF && str[0] >=0x80 && str[0] <= 0xBF) { hasUTF=TRUE; str++; }
+      else if (c <= 0xEF && str[0] >=0x80 && str[0] <= 0xBF && str[1] >=0x80 && str[1] <= 0xBF) { hasUTF=TRUE; str+=2; }
+      else if (c <= 0xF7 && str[0] >=0x80 && str[0] <= 0xBF && 
+                            str[1] >=0x80 && str[1] <= 0xBF && 
+                            str[2] >=0x80 && str[2] <= 0xBF) { hasUTF=TRUE; str+=3; }
+      else return FALSE; // invalid sequence, must be ANSI encoded
     }
-    str++;
+    else if (c>=128) return FALSE;
   }
-  return FALSE;
+  return hasUTF;
 }
 
 int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
