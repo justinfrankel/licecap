@@ -43,7 +43,7 @@ BOOL WDL_HasUTF8(const char *_str)
     {
       if (c <= 0xDF && str[1] >=0x80 && str[1] <= 0xBF) return TRUE;
       else if (c <= 0xEF && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
-      else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
+      else if (c <= 0xF7 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF && str[3] >=0x80 && str[3] <= 0xBF) return TRUE;
     }
     str++;
   }
