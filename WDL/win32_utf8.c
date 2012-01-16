@@ -36,7 +36,8 @@ BOOL WDL_HasUTF8(const char *_str)
 {
   const unsigned char *str = (const unsigned char *)_str;
   BOOL hasUTF=FALSE;
-  while (*str) 
+  
+  if (str) while (*str) 
   {
     unsigned char c = *str++;
     if (c >= 0xC2) // treat overlongs as invalid chars
