@@ -40,16 +40,18 @@ BOOL WDL_HasUTF8(const char *_str)
   if (str) while (*str) 
   {
     unsigned char c = *str++;
-    if (c >= 0xC2) // treat overlongs as invalid chars
+    if (c<0x80) { } // allow 7 bit ascii straight through
+    else if (c < 0xC2 || c > 0xF7) return FALSE; // treat overlongs or other values in this range as indicators of non-utf8ness
+    else 
     {
-      if (c <= 0xDF && str[0] >=0x80 && str[0] <= 0xBF) { hasUTF=TRUE; str++; }
-      else if (c <= 0xEF && str[0] >=0x80 && str[0] <= 0xBF && str[1] >=0x80 && str[1] <= 0xBF) { hasUTF=TRUE; str+=2; }
-      else if (c <= 0xF7 && str[0] >=0x80 && str[0] <= 0xBF && 
-                            str[1] >=0x80 && str[1] <= 0xBF && 
-                            str[2] >=0x80 && str[2] <= 0xBF) { hasUTF=TRUE; str+=3; }
-      else return FALSE; // invalid sequence, must be ANSI encoded
+      hasUTF=TRUE;
+      if (str[0] < 0x80 || str[0] > 0xBF) return FALSE;
+      else if (c < 0xE0) str++; 
+      else if (str[1] < 0x80 || str[1] > 0xBF) return FALSE;
+      else if (c < 0xF0) str+=2;
+      else if (str[2] < 0x80 || str[2] > 0xBF) return FALSE;
+      else str+=3;
     }
-    else if (c>=128) return FALSE;
   }
   return hasUTF;
 }
