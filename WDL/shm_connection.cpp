@@ -244,6 +244,9 @@ int WDL_SHM_Connection::Run()
 #include <sys/time.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
+#ifndef __APPLE__
+#include <sys/file.h>
+#endif
 #include "swell/swell-internal.h"
 
 static void sigpipehandler(int sig) { }
