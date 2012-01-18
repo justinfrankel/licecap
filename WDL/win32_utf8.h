@@ -169,6 +169,7 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #define fopenUTF8 fopen
 #define WDL_UTF8_HookComboBox(x)
 #define WDL_UTF8_HookListView(x)
+#define WDL_UTF8_HookListBox(x)
 #define WDL_UTF8_HookTreeView(x)
 #define WDL_UTF8_ListViewConvertDispInfoToW(x)
 
