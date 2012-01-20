@@ -616,7 +616,10 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     if (m_items && m_cols && (r=m_items->Get(rowIndex))) 
     {
       p=r->m_vals.Get(m_cols->Find(aTableColumn));
-      if (LVSIL_STATE == m_status_imagelist_type) image_idx=r->m_imageidx;
+      if (m_status_imagelist_type == LVSIL_STATE || m_status_imagelist_type == LVSIL_SMALL)
+      {
+        image_idx=r->m_imageidx;
+      }
     }
     
     str=(NSString *)SWELL_CStringToCFString(p);    
@@ -3855,11 +3858,24 @@ bool ListView_SetItem(HWND h, LVITEM *item)
     SWELL_ListView_Row *row=tv->m_items->Get(item->iItem);
     if (!row) return false;  
   
-    if (item->mask & LVIF_PARAM) row->m_param=item->lParam;
-    if (item->mask & LVIF_TEXT) if (item->pszText) ListView_SetItemText(h,item->iItem,item->iSubItem,item->pszText);
+    if (item->mask & LVIF_PARAM) 
+    {
+      row->m_param=item->lParam;
+    }
+    if ((item->mask & LVIF_TEXT) && item->pszText) 
+    {
+      ListView_SetItemText(h,item->iItem,item->iSubItem,item->pszText);
+    }
+    if ((item->mask&LVIF_IMAGE) && item->iImage >= 0)
+    {
+      row->m_imageidx=item->iImage+1;
+      ListView_RedrawItems(h, item->iItem, item->iItem);
+    }
   }
-  if (item->mask & LVIF_STATE) if (item->stateMask)
+  if ((item->mask & LVIF_STATE) && item->stateMask)
+  {
     ListView_SetItemState(h,item->iItem,item->state,item->stateMask); 
+  }
 
   return true;
 }
