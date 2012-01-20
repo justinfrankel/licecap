@@ -183,7 +183,7 @@ void DeleteObject(HGDIOBJ pen)
       if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
       GDP_OBJECT_DELETE(p);
     }
-    else free(p);
+    // JF> don't free unknown objects, this shouldn't ever happen anyway: else free(p);
   }
 }
 

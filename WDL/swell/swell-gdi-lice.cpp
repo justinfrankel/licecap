@@ -164,7 +164,7 @@ void DeleteObject(HGDIOBJ pen)
 
       GDP_OBJECT_DELETE(p);
     }
-    else free(p);
+    // JF> don't free unknown objects, this should never happen anyway: else free(p);
   }
 }
 
