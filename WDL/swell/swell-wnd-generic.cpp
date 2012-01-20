@@ -2115,6 +2115,10 @@ int ListView_GetSelectionMark(HWND h)
   if (!h) return 0;
   return 0;
 }
+int SWELL_GetListViewHeaderHeight(HWND h)
+{
+  return 0;
+}
 
 void ListView_SetColumnWidth(HWND h, int colpos, int wid)
 {
@@ -2160,6 +2164,10 @@ void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
 bool ListView_DeleteColumn(HWND h, int pos)
 {
   return false;
+}
+int ListView_GetCountPerPage(HWND h)
+{
+  return 1;
 }
 
 HWND ChildWindowFromPoint(HWND h, POINT p)
@@ -2957,6 +2965,26 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
 {
   return FALSE;
 }
+HWND ListView_GetHeader(HWND h)
+{
+  return 0;
+}
+
+int Header_GetItemCount(HWND h)
+{
+  return 0;
+}
+
+BOOL Header_GetItem(HWND h, int col, HDITEM* hi)
+{
+  return FALSE;
+}
+
+BOOL Header_SetItem(HWND h, int col, HDITEM* hi)
+{
+  return FALSE;
+}
+
 
 BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
 {
