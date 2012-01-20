@@ -5039,26 +5039,45 @@ HIMAGELIST ImageList_CreateEx()
   return (HIMAGELIST)new WDL_PtrList<HGDIOBJ__>;
 }
 
+BOOL ImageList_Remove(HIMAGELIST list, int idx)
+{
+  WDL_PtrList<HGDIOBJ__>* imglist=(WDL_PtrList<HGDIOBJ__>*)list;
+  if (imglist && idx < imglist->GetSize())
+  {
+    if (idx < 0) 
+    {
+      imglist->Empty(); // todo destroy list contents
+    }
+    else 
+    {
+      imglist->Set(idx, NULL); // todo destroy existing image
+    }
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
 void ImageList_Destroy(HIMAGELIST list)
 {
   if (!list) return;
-  WDL_PtrList<HGDIOBJ__> *p=(WDL_PtrList<HGDIOBJ__>*)list;
-  // dont delete images, since the caller is responsible!
-  delete p;
+  ImageList_Remove(list, -1);
+  delete (WDL_PtrList<HGDIOBJ__>*)list;
 }
 
 int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 {
   if (!image || !list) return -1;
   WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
+
   if (offset<0||offset>=l->GetSize()) 
   {
-    l->Add(image);
+    l->Add(image); // todo store a copy
     offset=l->GetSize()-1;
   }
   else
   {
-    HICON old=l->Get(offset);
+    HICON old=l->Get(offset); // todo destroy
     l->Set(offset,image);
   }
   return offset;
