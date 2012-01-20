@@ -588,6 +588,76 @@ HICON CreateIconIndirect(ICONINFO* iconinfo)
 {
   return NULL;
 }
+HIMAGELIST ImageList_CreateEx()
+{
+  return (HIMAGELIST)new WDL_PtrList<HGDIOBJ__>;
+}
+BOOL ImageList_Remove(HIMAGELIST list, int idx)
+{
+  WDL_PtrList<HGDIOBJ__>* imglist=(WDL_PtrList<HGDIOBJ__>*)list;
+  if (imglist && idx < imglist->GetSize())
+  {
+    if (idx < 0) 
+    {
+      int x,n=imglist->GetSize();
+      for (x=0;x<n;x++)
+      {
+        HGDIOBJ__ *a = imglist->Get(x);
+        if (a) DeleteObject(a);
+      }
+      imglist->Empty();
+    }
+    else 
+    {
+      HGDIOBJ__ *a = imglist->Get(idx);
+      imglist->Set(idx, NULL); 
+      if (a) DeleteObject(a);
+    }
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+void ImageList_Destroy(HIMAGELIST list)
+{
+  if (!list) return;
+  WDL_PtrList<HGDIOBJ__> *p=(WDL_PtrList<HGDIOBJ__>*)list;
+  ImageList_Remove(list,-1);
+  delete p;
+}
+
+int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
+{
+  if (!image || !list) return -1;
+  WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
+
+  HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;
+  if (!HGDIOBJ_VALID(imgsrc,TYPE_BITMAP)) return -1;
+
+  HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  icon->type=TYPE_BITMAP;
+  icon->wid=1;
+  // todo: copy underlying image
+
+  image = (HICON) icon;
+
+  if (offset<0||offset>=l->GetSize()) 
+  {
+    l->Add(image);
+    offset=l->GetSize()-1;
+  }
+  else
+  {
+    HICON old=l->Get(offset);
+    l->Set(offset,image);
+    if (old) DeleteObject(old);
+  }
+  return offset;
+}
+
+
+
 
 #endif
 #endif // !SWELL_LICE_GDI

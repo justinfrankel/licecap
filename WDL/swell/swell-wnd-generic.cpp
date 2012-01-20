@@ -2589,38 +2589,6 @@ UINT RegisterClipboardFormat(const char *desc)
 
 
 
-HIMAGELIST ImageList_CreateEx()
-{
-  return (HIMAGELIST)new WDL_PtrList<HGDIOBJ__>;
-}
-
-void ImageList_Destroy(HIMAGELIST list)
-{
-  if (!list) return;
-  WDL_PtrList<HGDIOBJ__> *p=(WDL_PtrList<HGDIOBJ__>*)list;
-  // dont delete images, since the caller is responsible!
-  delete p;
-}
-
-int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
-{
-  if (!image || !list) return -1;
-  WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
-  if (offset<0||offset>=l->GetSize()) 
-  {
-    l->Add(image);
-    offset=l->GetSize()-1;
-  }
-  else
-  {
-    HICON old=l->Get(offset);
-    l->Set(offset,image);
-  }
-  return offset;
-}
-
-
-
 ///////// PostMessage emulation
 
 BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
