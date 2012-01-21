@@ -680,6 +680,41 @@ void WDL_UTF8_HookListBox(HWND h)
   WDL_UTF8_HookComboBox(h);
 }
 
+static LRESULT WINAPI tc_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  WNDPROC oldproc = (WNDPROC)GetProp(hwnd,WDL_UTF8_OLDPROCPROP);
+  if (!oldproc) return 0;
+
+  if (msg==WM_NCDESTROY)
+  {
+    SetWindowLongPtr(hwnd, GWLP_WNDPROC,(INT_PTR)oldproc);
+    RemoveProp(hwnd,WDL_UTF8_OLDPROCPROP);
+  }
+  else if (msg == TCM_INSERTITEMA) 
+  {
+    LPTCITEM pItem = (LPTCITEM) lParam;
+    char *str;
+    if (pItem && (str=pItem->pszText) && (pItem->mask&TCIF_TEXT) && WDL_HasUTF8(str))
+    {
+      MBTOWIDE(wbuf,str);
+      if (wbuf_ok)
+      {
+        LRESULT rv;
+        pItem->pszText=(char*)wbuf; // set new buffer
+        rv=CallWindowProc(oldproc,hwnd,TCM_INSERTITEMW,wParam,lParam);
+        pItem->pszText = str; // restore old pointer
+        MBTOWIDE_FREE(wbuf);
+        return rv;
+      }
+
+      MBTOWIDE_FREE(wbuf);
+    }
+  }
+
+
+  return CallWindowProc(oldproc,hwnd,msg,wParam,lParam);
+}
+
 
 static LRESULT WINAPI tv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -844,6 +879,12 @@ void WDL_UTF8_HookTreeView(HWND h)
 {
   if (!h||GetVersion()>=0x80000000||GetProp(h,WDL_UTF8_OLDPROCPROP)) return;
   SetProp(h,WDL_UTF8_OLDPROCPROP,(HANDLE)SetWindowLongPtr(h,GWLP_WNDPROC,(INT_PTR)tv_newProc));
+}
+
+void WDL_UTF8_HookTabCtrl(HWND h)
+{
+  if (!h||GetVersion()>=0x80000000||GetProp(h,WDL_UTF8_OLDPROCPROP)) return;
+  SetProp(h,WDL_UTF8_OLDPROCPROP,(HANDLE)SetWindowLongPtr(h,GWLP_WNDPROC,(INT_PTR)tc_newProc));
 }
 
 void WDL_UTF8_ListViewConvertDispInfoToW(void *_di)
