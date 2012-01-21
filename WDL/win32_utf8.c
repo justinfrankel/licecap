@@ -517,31 +517,35 @@ BOOL GetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMIN
 {
   if (lpmii && (lpmii->fMask & MIIM_TYPE) && lpmii->dwTypeData && lpmii->cch && GetVersion()<0x80000000)
   {
-    BOOL rv;
     MENUITEMINFOW tmp = *(MENUITEMINFOW*)lpmii;
     WIDETOMB_ALLOC(wbuf,lpmii->cch);
 
-    char *otd=lpmii->dwTypeData;
-    int osz=lpmii->cbSize;
-    tmp.cbSize=sizeof(tmp);
-    tmp.dwTypeData = wbuf;
-    rv=GetMenuItemInfoW(hMenu,uItem,fByPosition,&tmp);
-
-    if (rv && tmp.fType == MFT_STRING)
+    if (wbuf)
     {
-      if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpmii->dwTypeData,lpmii->cch,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+      BOOL rv;
+      char *otd=lpmii->dwTypeData;
+      int osz=lpmii->cbSize;
+      tmp.cbSize=sizeof(tmp);
+      tmp.dwTypeData = wbuf;
+      tmp.cch = wbuf_size/sizeof(WCHAR);
+      rv=GetMenuItemInfoW(hMenu,uItem,fByPosition,&tmp);
+
+      if (rv && tmp.fType == MFT_STRING)
       {
-        lpmii->dwTypeData[lpmii->cch-1]=0;
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpmii->dwTypeData,lpmii->cch,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        {
+          lpmii->dwTypeData[lpmii->cch-1]=0;
+        }
+
+        *lpmii = *(MENUITEMINFO*)&tmp; // copy results
+        lpmii->cbSize=osz; // restore old stuff
+        lpmii->dwTypeData = otd;
       }
+      else rv=0;
 
-      *lpmii = *(MENUITEMINFO*)&tmp; // copy results
-      lpmii->cbSize=osz; // restore old stuff
-      lpmii->dwTypeData = otd;
+      WIDETOMB_FREE(wbuf);
+      if (rv)return rv;
     }
-    else rv=0;
-
-    WIDETOMB_FREE(wbuf);
-    if (rv)return rv;
   }
   return GetMenuItemInfoA(hMenu,uItem,fByPosition,lpmii);
 }
@@ -753,12 +757,12 @@ static LRESULT WINAPI tv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     if (pItem && (pItem->mask & TVIF_TEXT) && (obuf=pItem->pszText) && pItem->cchTextMax > 3)
     {
       WIDETOMB_ALLOC(wbuf,pItem->cchTextMax);
-      *obuf=0;
       if (wbuf)
       {
         LRESULT rv;
         int oldsz=pItem->cchTextMax;
         *wbuf=0;
+        *obuf=0;
         pItem->cchTextMax=wbuf_size/sizeof(WCHAR);
         pItem->pszText = (char *)wbuf;
         rv=CallWindowProc(oldproc,hwnd,TVM_GETITEMW,wParam,lParam);
@@ -772,11 +776,6 @@ static LRESULT WINAPI tv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         if (obuf[0]) return rv;
       }
-      else
-      {
-        WIDETOMB_FREE(wbuf);
-      }
-
     }
   }
 
@@ -839,12 +838,12 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     if (pItem && (msg == LVM_GETITEMTEXTA || (pItem->mask & LVIF_TEXT)) && (obuf=pItem->pszText) && pItem->cchTextMax > 3)
     {
       WIDETOMB_ALLOC(wbuf,pItem->cchTextMax);
-      *obuf=0;
       if (wbuf)
       {
         LRESULT rv;
         int oldsz=pItem->cchTextMax;
         *wbuf=0;
+        *obuf=0;
         pItem->cchTextMax=wbuf_size/sizeof(WCHAR);
         pItem->pszText = (char *)wbuf;
         rv=CallWindowProc(oldproc,hwnd,msg==LVM_GETITEMTEXTA ? LVM_GETITEMTEXTW : LVM_GETITEMW,wParam,lParam);
@@ -858,11 +857,6 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         if (obuf[0]) return rv;
       }
-      else
-      {
-        WIDETOMB_FREE(wbuf);
-      }
-
     }
   }
 
