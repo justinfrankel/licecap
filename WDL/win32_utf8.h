@@ -20,6 +20,7 @@ WDL_WIN32_UTF8_IMPL BOOL SetWindowTextUTF8(HWND hwnd, LPCTSTR str);
 WDL_WIN32_UTF8_IMPL BOOL SetDlgItemTextUTF8(HWND hDlg, int nIDDlgItem, LPCTSTR lpString);
 WDL_WIN32_UTF8_IMPL int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount);
 WDL_WIN32_UTF8_IMPL UINT GetDlgItemTextUTF8(HWND hDlg, int nIDDlgItem, LPTSTR lpString, int nMaxCount);
+WDL_WIN32_UTF8_IMPL int MessageBoxUTF8(HWND hwnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT fl);
 
 WDL_WIN32_UTF8_IMPL BOOL CreateDirectoryUTF8(LPCTSTR path, LPSECURITY_ATTRIBUTES attr);
 WDL_WIN32_UTF8_IMPL BOOL DeleteFileUTF8(LPCTSTR path);
@@ -81,6 +82,11 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #undef GetDlgItemText
 #endif
 #define GetDlgItemText GetDlgItemTextUTF8
+
+#ifdef MessageBox
+#undef MessageBox
+#endif
+#define MessageBox MessageBoxUTF8
 
 #ifdef DragQueryFile
 #undef DragQueryFile

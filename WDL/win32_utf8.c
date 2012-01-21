@@ -120,6 +120,28 @@ BOOL SetWindowTextUTF8(HWND hwnd, LPCTSTR str)
   return SetWindowTextA(hwnd,str);
 }
 
+int MessageBoxUTF8(HWND hwnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT fl)
+{
+  if ((WDL_HasUTF8(lpText)||WDL_HasUTF8(lpCaption)) && GetVersion()< 0x80000000)
+  {
+    int ret;
+    MBTOWIDE(wbuf,lpText);
+    if (wbuf_ok)
+    {
+      MBTOWIDE(wcap,lpCaption?lpCaption:"");
+      if (wcap_ok)
+      {
+        ret=MessageBoxW(hwnd,wbuf,lpCaption?wcap:NULL,fl);
+        MBTOWIDE_FREE(wcap);
+        MBTOWIDE_FREE(wbuf);
+        return ret;
+      }
+      MBTOWIDE_FREE(wbuf);
+    }
+  }
+  return MessageBoxA(hwnd,lpText,lpCaption,fl);
+}
+
 int DragQueryFileUTF8(HDROP hDrop, int idx, char *buf, int bufsz)
 {
   if (buf && bufsz && idx!=-1 && GetVersion()< 0x80000000)
