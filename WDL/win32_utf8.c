@@ -758,6 +758,25 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     SetWindowLongPtr(hwnd, GWLP_WNDPROC,(INT_PTR)oldproc);
     RemoveProp(hwnd,WDL_UTF8_OLDPROCPROP);
   }
+  else if (msg == LVM_INSERTCOLUMNA || msg==LVM_SETCOLUMNA)
+  {
+    LPLVCOLUMN pCol = (LPLVCOLUMN) lParam;
+    char *str;
+    if (pCol && (str=pCol->pszText) && (pCol->mask & LVCF_TEXT) && WDL_HasUTF8(str))
+    {
+      MBTOWIDE(wbuf,str);
+      if (wbuf_ok)
+      {
+        LRESULT rv;
+        pCol->pszText=(char*)wbuf; // set new buffer
+        rv=CallWindowProc(oldproc,hwnd,msg==LVM_INSERTCOLUMNA?LVM_INSERTCOLUMNW:LVM_SETCOLUMNW,wParam,lParam);
+        pCol->pszText = str; // restore old pointer
+        MBTOWIDE_FREE(wbuf);
+        return rv;
+      }
+
+    }
+  }
   else if (msg == LVM_INSERTITEMA || msg == LVM_SETITEMA || msg == LVM_SETITEMTEXTA) 
   {
     LPLVITEM pItem = (LPLVITEM) lParam;
