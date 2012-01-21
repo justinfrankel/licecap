@@ -700,6 +700,13 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 }
 -(void) dealloc
 {
+
+  int x;
+  for (x=0;x<sizeof(m_access_cacheptrs)/sizeof(m_access_cacheptrs[0]);x ++)
+  {
+    if (m_access_cacheptrs[x]) [m_access_cacheptrs[x] release];
+    m_access_cacheptrs[x]=0;
+  }
   KillTimer((HWND)self,-1);
   [self onSwellMessage:WM_DESTROY p1:0 p2:0];
   if (GetCapture()==(HWND)self) ReleaseCapture();
@@ -818,6 +825,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
   if (!(self = [super initWithFrame:contentRect])) return self;
 
+  memset(m_access_cacheptrs,0,sizeof(m_access_cacheptrs));
   m_isdirty=3;
   m_glctx=NULL;
   m_enabled=TRUE;
@@ -1537,13 +1545,16 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 - (id)accessibilityAttributeValue:(NSString *)attribute
 {
   id ret = [super accessibilityAttributeValue:attribute];
-  if ([attribute isEqual:NSAccessibilityChildrenAttribute] || 
-      [attribute isEqual:NSAccessibilityVisibleChildrenAttribute])
+  int wo=0;
+  if ([attribute isEqual:NSAccessibilityChildrenAttribute] || (wo = !![attribute isEqual:NSAccessibilityVisibleChildrenAttribute]))
   {
+    id *cp = wo ? m_access_cacheptrs+3 : m_access_cacheptrs;
     id use_obj = NULL;
     SendMessage((HWND)self,WM_GETOBJECT,0x1001,(LPARAM)&use_obj);
     if (use_obj)
     {
+      if (cp[0] && cp[1] && use_obj == cp[2] && (ret==cp[1] || [ret isEqualToArray:cp[1]])) return cp[0];
+
       NSArray *ar=NULL;
       if (ret && [ret count])
       {
@@ -1552,8 +1563,21 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
       }
       else ar = [NSArray arrayWithObject:use_obj];
       
+      int x;
+      for (x=0;x<3;x++) if (cp[x]) { [cp[x] release]; cp[x]=0; }
+
+     // cp[1]=ret;
+//      cp[2]=use_obj;
+
       ret = NSAccessibilityUnignoredChildren(ar);
+ //     cp[0]=ret;
+
+      for (x=0;x<3;x++) if (cp[x]) [cp[x] retain];
+
+      return ret;
     }  
+    int x;
+    for (x=0;x<3;x++) if (cp[x]) { [cp[x] release]; cp[x]=0; }
   }
   
   return ret;
