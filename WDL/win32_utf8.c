@@ -668,7 +668,28 @@ static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
       MBTOWIDE_FREE(wbuf);
     }
   }
-  // todo: hook string getting too?
+  else if (msg == CB_GETLBTEXT && lParam)
+  {
+    int l = CallWindowProcW(oldproc,hwnd,CB_GETLBTEXTLEN,wParam,0)+1;
+    WIDETOMB_ALLOC(tmp,l);
+    if (tmp)
+    {
+      int rv=CallWindowProcW(oldproc,hwnd,msg,wParam,(LPARAM)tmp)+1;
+      if (rv>=0)
+      {
+        *(char *)lParam=0;
+        rv=WideCharToMultiByte(CP_UTF8,0,tmp,-1,(char *)lParam,l*3 + 32,NULL,NULL);
+        if (rv>0) rv--;
+      }
+      WIDETOMB_FREE(tmp);
+
+      return rv;
+    }
+  }
+  else if (msg == CB_GETLBTEXTLEN)
+  {
+    return CallWindowProcW(oldproc,hwnd,msg,wParam,lParam) * 3 + 32; // make sure caller allocates a lot extra
+  }
 
   return CallWindowProc(oldproc,hwnd,msg,wParam,lParam);
 }
