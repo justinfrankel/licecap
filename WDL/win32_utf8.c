@@ -473,7 +473,7 @@ int DrawTextUTF8(HDC hdc, LPCTSTR str, int nc, LPRECT lpRect, UINT format)
 
 BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii)
 {
-  if (lpmii && (lpmii->fMask & MIIM_TYPE) && lpmii->fType == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
+  if (lpmii && (lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
   {
     BOOL rv;
     MENUITEMINFOW tmp = *(MENUITEMINFOW*)lpmii;
@@ -494,7 +494,7 @@ BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINF
 }
 BOOL SetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii)
 {
-  if (lpmii && (lpmii->fMask & MIIM_TYPE) && lpmii->fType == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
+  if (lpmii && (lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
   {
     BOOL rv;
     MENUITEMINFOW tmp = *(MENUITEMINFOW*)lpmii;
@@ -530,7 +530,7 @@ BOOL GetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMIN
       tmp.cch = wbuf_size/sizeof(WCHAR);
       rv=GetMenuItemInfoW(hMenu,uItem,fByPosition,&tmp);
 
-      if (rv && tmp.fType == MFT_STRING)
+      if (rv && (tmp.fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING)
       {
         if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpmii->dwTypeData,lpmii->cch,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
         {
