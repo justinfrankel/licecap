@@ -3620,7 +3620,7 @@ int ListView_GetColumnWidth(HWND h, int pos)
   NSTableColumn *col=v->m_cols->Get(pos);
   if (!col) return 0;
   
-  if ([col isHidden]) return 0;
+  if ([col respondsToSelector:@selector(isHidden)] && [col isHidden]) return 0;
   return (int) floor(0.5+[col width]);
 }
 
@@ -3635,7 +3635,7 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [col setEditable:NO];
   // [col setResizingMask:2];  // user resizable, this seems to be the default
   
-  if (!lvc->cx) [col setHidden:YES];
+  if (!lvc->cx && [col respondsToSelector:@selector(setHidden:)]) [col setHidden:YES];
   else [col setWidth:lvc->cx];
   
   if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
@@ -3690,11 +3690,11 @@ void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
   {
     if (!lvc->cx)
     {
-      [col setHidden:YES];
+      if ([col respondsToSelector:@selector(setHidden:)])  [col setHidden:YES];
     }
     else 
     {
-      [col setHidden:NO];
+      if ([col respondsToSelector:@selector(setHidden:)])  [col setHidden:NO];
       [col setWidth:lvc->cx];
     }
   }
@@ -4131,11 +4131,11 @@ void ListView_SetColumnWidth(HWND h, int pos, int wid)
   
   if (!wid)
   {
-    [col setHidden:YES];
+    if ([col respondsToSelector:@selector(setHidden:)])  [col setHidden:YES];
   }
   else 
   {
-    [col setHidden:NO];
+    if ([col respondsToSelector:@selector(setHidden:)])  [col setHidden:NO];
     [col setWidth:wid];
   }
 }
