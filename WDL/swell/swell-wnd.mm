@@ -961,6 +961,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 HWND GetDlgItem(HWND hwnd, int idx)
 {
   if (!hwnd) return 0;
+
   NSView *v=0;
   id pid=(id)hwnd;
   if ([pid isKindOfClass:[NSWindow class]]) v=[((NSWindow *)pid) contentView];
@@ -968,6 +969,8 @@ HWND GetDlgItem(HWND hwnd, int idx)
   
   if (!idx || !v) return (HWND)v;
   
+  SWELL_BEGIN_TRY
+
   NSArray *ar = [v subviews];
   int n=[ar count];
   int x;
@@ -991,6 +994,7 @@ HWND GetDlgItem(HWND hwnd, int idx)
     }
   }
   // we might want to enable this for max compat with old code, but hopefully not:  return [v viewWithTag:idx]; 
+  SWELL_END_TRY(;)
   return NULL;
 }
 
@@ -998,6 +1002,8 @@ HWND GetDlgItem(HWND hwnd, int idx)
 LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
 {
   if (!hwnd) return 0;
+
+  SWELL_BEGIN_TRY
   id pid=(id)hwnd;
   if (idx==GWL_EXSTYLE && [pid respondsToSelector:@selector(swellSetExtendedStyle:)])
   {
@@ -1182,6 +1188,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
     return ov;
   }
    
+  SWELL_END_TRY(;)
   return 0;
 }
 
@@ -1189,6 +1196,8 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
 {
   if (!hwnd) return 0;
   id pid=(id)hwnd;
+
+  SWELL_BEGIN_TRY
   
   if (idx==GWL_EXSTYLE && [pid respondsToSelector:@selector(swellGetExtendedStyle)])
   {
@@ -1257,6 +1266,7 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
     return (LONG_PTR)[pid getSwellExtraData:idx];
   }
   
+  SWELL_END_TRY(;)
   return 0;
 }
 
@@ -1278,6 +1288,8 @@ bool IsWindow(HWND hwnd)
 {
   if (!hwnd) return false;
   // this is very costly, but required
+  SWELL_BEGIN_TRY
+
   NSArray *ch=[NSApp windows];
   [ch retain];
   int x,n=[ch count];
@@ -1289,6 +1301,8 @@ bool IsWindow(HWND hwnd)
   for(x=0;x<n; x ++)
     if (IsWindowImpl((NSView*)hwnd,[[ch objectAtIndex:x] contentView])) return true;
   [ch release];
+
+  SWELL_END_TRY(;)
   return false;
 }
 
@@ -1296,6 +1310,7 @@ bool IsWindowVisible(HWND hwnd)
 {
   if (!hwnd) return false;
 
+  SWELL_BEGIN_TRY
   id turd=(id)hwnd;
   if ([turd isKindOfClass:[NSView class]])
   {
@@ -1308,6 +1323,7 @@ bool IsWindowVisible(HWND hwnd)
   {
     return !![turd isVisible];
   }
+  SWELL_END_TRY(;)
   return true;
 }
 
@@ -1351,6 +1367,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd) return 0;
+
+  SWELL_BEGIN_TRY
   id obj=(id)hwnd;
   if ([obj respondsToSelector:@selector(onSwellMessage:p1:p2:)])
   {
@@ -1456,12 +1474,14 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       }
     }
   }
+  SWELL_END_TRY(;)
   return 0;
 }
 
 void DestroyWindow(HWND hwnd)
 {
   if (!hwnd) return;
+  SWELL_BEGIN_TRY
   id pid=(id)hwnd;
   if ([pid isKindOfClass:[NSView class]])
   {
@@ -1507,11 +1527,13 @@ void DestroyWindow(HWND hwnd)
     }
     [(NSWindow *)pid close]; // this is probably bad, but close takes too long to close!
   }
+  SWELL_END_TRY(;)
 }
 
 void EnableWindow(HWND hwnd, int enable)
 {
   if (!hwnd) return;
+  SWELL_BEGIN_TRY
   id bla=(id)hwnd;
   if ([bla isKindOfClass:[NSWindow class]]) bla = [bla contentView];
     
@@ -1529,6 +1551,7 @@ void EnableWindow(HWND hwnd, int enable)
       }
     }    
   }
+  SWELL_END_TRY(;)
 }
 
 void SetForegroundWindow(HWND hwnd)
@@ -1541,6 +1564,7 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
   id r=(id) hwnd;
   if (!r) return;
   
+  SWELL_BEGIN_TRY
   if ([r isKindOfClass:[NSWindow class]])
   {
     [(NSWindow *)r makeFirstResponder:[(NSWindow *)r contentView]]; 
@@ -1558,10 +1582,13 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
       }
     }
   }
+  SWELL_END_TRY(;)
 }
 
 void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork)
 {
+  SWELL_BEGIN_TRY
+
   NSArray *ar=[NSScreen screens];
   
   int cnt=[ar count];
@@ -1595,11 +1622,13 @@ void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork)
     r->right=1600;
     r->bottom=1200;
   }
+  SWELL_END_TRY(;)
 }
 
 void ScreenToClient(HWND hwnd, POINT *p)
 {
   if (!hwnd) return;
+  // no need to try/catch, this should never have an issue *wince*
   
   id ch=(id)hwnd;
   if ([ch isKindOfClass:[NSWindow class]]) ch=[((NSWindow *)ch) contentView];
@@ -1663,6 +1692,8 @@ bool GetWindowRect(HWND hwnd, RECT *r)
 {
   r->left=r->top=r->right=r->bottom=0;
   if (!hwnd) return false;
+
+  SWELL_BEGIN_TRY
   
   id ch=(id)hwnd;
   NSWindow *nswnd;
@@ -1687,11 +1718,14 @@ bool GetWindowRect(HWND hwnd, RECT *r)
   r->bottom= (int)(b.origin.y+b.size.height+0.5);
   ClientToScreen((HWND)ch,(POINT *)r);
   ClientToScreen((HWND)ch,((POINT *)r)+1);
+  SWELL_END_TRY(return false;)
+
   return true;
 }
 
 void GetWindowContentViewRect(HWND hwnd, RECT *r)
 {
+  SWELL_BEGIN_TRY
   NSWindow *nswnd;
   if (hwnd && [(id)hwnd isKindOfClass:[NSView class]] && (nswnd=[(NSView *)hwnd window]) && [nswnd contentView]==(id)hwnd)
     hwnd=(HWND)nswnd;
@@ -1708,6 +1742,7 @@ void GetWindowContentViewRect(HWND hwnd, RECT *r)
     ClientToScreen(hwnd,((POINT *)r)+1);
   }
   else GetWindowRect(hwnd,r);
+  SWELL_END_TRY(;)
 }
 
 
@@ -1716,6 +1751,7 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->left=r->top=r->right=r->bottom=0;
   if (!hwnd) return;
   
+  SWELL_BEGIN_TRY
   id ch=(id)hwnd;
   if ([ch isKindOfClass:[NSWindow class]]) ch=[((NSWindow *)ch) contentView];
   if (!ch || ![ch isKindOfClass:[NSView class]]) return;
@@ -1732,6 +1768,7 @@ void GetClientRect(HWND hwnd, RECT *r)
   SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&tr);
   r->right = r->left + (tr.right-tr.left);
   r->bottom = r->top + (tr.bottom-tr.top);
+  SWELL_END_TRY(;)
 }
 
 
@@ -1740,6 +1777,7 @@ void SetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int cx, int cy, int f
 {
   if (!hwnd) return;
  
+  SWELL_BEGIN_TRY
   NSWindow *nswnd; // content views = move window
   if (hwnd && [(id)hwnd isKindOfClass:[NSView class]] && (nswnd=[(NSView *)hwnd window]) && [nswnd contentView]==(id)hwnd)
     hwnd=(HWND)nswnd;
@@ -1854,13 +1892,15 @@ void SetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int cx, int cy, int f
     }    
     return;
   }  
-  
+  SWELL_END_TRY(;)  
 }
 
 
 HWND GetWindow(HWND hwnd, int what)
 {
   if (!hwnd) return 0;
+  SWELL_BEGIN_TRY
+
   if ([(id)hwnd isKindOfClass:[NSWindow class]]) hwnd=(HWND)[(id)hwnd contentView];
   if (!hwnd || ![(id)hwnd isKindOfClass:[NSView class]]) return 0;
   
@@ -1922,12 +1962,14 @@ HWND GetWindow(HWND hwnd, int what)
     }
     return 0;
   }
+  SWELL_END_TRY(;)
   return 0;
 }
 
 
 HWND GetParent(HWND hwnd)
 {  
+  SWELL_BEGIN_TRY
   if (hwnd && [(id)hwnd isKindOfClass:[NSView class]])
   {
     hwnd=(HWND)NavigateUpScrollClipViews((NSView *)hwnd);
@@ -1955,11 +1997,13 @@ HWND GetParent(HWND hwnd)
     return h;  
   }
   
+  SWELL_END_TRY(;)
   return 0;
 }
 
 HWND SetParent(HWND hwnd, HWND newPar)
 {
+  SWELL_BEGIN_TRY
   NSView *v=(NSView *)hwnd;
   if (!v || ![(id)v isKindOfClass:[NSView class]]) return 0;
   v=NavigateUpScrollClipViews(v);
@@ -2058,12 +2102,15 @@ HWND SetParent(HWND hwnd, HWND newPar)
     [v release];
   }
   return ret;
+  SWELL_END_TRY(;)
+  return NULL;
 }
 
 
 int IsChild(HWND hwndParent, HWND hwndChild)
 {
   if (!hwndParent || !hwndChild || hwndParent == hwndChild) return 0;
+  SWELL_BEGIN_TRY
   id par=(id)hwndParent;
   id ch=(id)hwndChild;
   if (![ch isKindOfClass:[NSView class]]) return 0;
@@ -2075,11 +2122,13 @@ int IsChild(HWND hwndParent, HWND hwndChild)
   {
     return !![ch isDescendantOf:par];
   }
+  SWELL_END_TRY(;)
   return 0;
 }
 
 HWND GetForegroundWindow()
 {
+  SWELL_BEGIN_TRY
   NSWindow *window=[NSApp keyWindow];
   if (!window) return 0;
   id ret=[window firstResponder];
@@ -2089,10 +2138,13 @@ HWND GetForegroundWindow()
     return (HWND) ret;
   }
   return (HWND)window;
+  SWELL_END_TRY(;)
+  return NULL;
 }
 
 HWND GetFocus()
 {
+  SWELL_BEGIN_TRY
   NSWindow *window=[NSApp keyWindow];
   if (!window) return 0;
   id ret=[window firstResponder];
@@ -2108,6 +2160,7 @@ HWND GetFocus()
 
     return (HWND) ret;
   }
+  SWELL_END_TRY(;)
   return 0;
 }
 
@@ -2115,6 +2168,7 @@ bool IsEquivalentTextView(HWND h1, HWND h2)
 {
   if (!h1 || !h2) return false;
   if (h1 == h2) return true;
+  SWELL_BEGIN_TRY
   NSView* v1 = (NSView*)h1;
   NSView* v2 = (NSView*)v2;
   if ([v1 isKindOfClass:[NSTextField class]] && [v2 isKindOfClass:[NSTextView class]])
@@ -2127,6 +2181,7 @@ bool IsEquivalentTextView(HWND h1, HWND h2)
   {
     if ([v1 superview] && [[v1 superview] superview] && [[[v1 superview] superview] superview] == v2) return true;
   }
+  SWELL_END_TRY(;)
   return false;
 }
   
@@ -2137,6 +2192,7 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
   NSView *obj=(NSView *)(idx ? GetDlgItem(hwnd,idx) : hwnd);
   if (!obj) return false;
   
+  SWELL_BEGIN_TRY
   NSWindow *nswnd;
   if ([(id)obj isKindOfClass:[NSView class]] && (nswnd=[(NSView *)obj window]) && [nswnd contentView]==(id)obj)
   {
@@ -2177,6 +2233,8 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
   
   [lbl release];
   return rv;
+  SWELL_END_TRY(;)
+  return NULL;
 }
 
 BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
@@ -2184,6 +2242,8 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   *text=0;
   NSView *poo=(NSView *)(idx?GetDlgItem(hwnd,idx) : hwnd);
   if (!poo) return false;
+
+  SWELL_BEGIN_TRY
   
   if ([(id)poo isKindOfClass:[NSView class]] && [[(id)poo window] contentView] == poo)
   {
@@ -2209,6 +2269,8 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
 //    [s getCString:text maxLength:textlen];
     
   return !!s;
+  SWELL_END_TRY(;)
+  return FALSE;
 }
 
 void CheckDlgButton(HWND hwnd, int idx, int check)
@@ -3628,6 +3690,9 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
 {
   if (!h || !lvc) return;
   if (![(id)h isKindOfClass:[SWELL_ListView class]]) return;
+
+  SWELL_BEGIN_TRY
+
   SWELL_ListView *v=(SWELL_ListView *)h;
   NSTableColumn *col=[[NSTableColumn alloc] init];
   // note, not looking at lvc->mask at all
@@ -3669,6 +3734,7 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [v addTableColumn:col];
   v->m_cols->Add(col);
   [col release];
+  SWELL_END_TRY(;)
 }
 
 void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)

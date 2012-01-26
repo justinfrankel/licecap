@@ -5,6 +5,15 @@
 
 #ifdef SWELL_TARGET_OSX
 
+#if 0
+  // at some point we should enable this and use it in most SWELL APIs that call Cocoa code...
+  #define SWELL_BEGIN_TRY @try { 
+  #define SWELL_END_TRY(x) } @catch (NSException *ex) { NSLog(@"SWELL exception in %s:%d :: %@:%@\n",__FILE__,__LINE__,[ex name], [ex reason]); x }
+#else
+  #define SWELL_BEGIN_TRY
+  #define SWELL_END_TRY(x)
+#endif
+
 #define __SWELL_PREFIX_CLASSNAME3(a,b) a##b
 #define __SWELL_PREFIX_CLASSNAME2(a,b) __SWELL_PREFIX_CLASSNAME3(a,b)
 #define __SWELL_PREFIX_CLASSNAME(cname) __SWELL_PREFIX_CLASSNAME2(SWELL_APP_PREFIX,cname)
