@@ -416,6 +416,28 @@ BOOL MoveFileUTF8(LPCTSTR existfn, LPCTSTR newfn)
   return MoveFileA(existfn,newfn);
 }
 
+BOOL CopyFileUTF8(LPCTSTR existfn, LPCTSTR newfn, BOOL fie)
+{
+  if ((WDL_HasUTF8(existfn)||WDL_HasUTF8(newfn)) && GetVersion()< 0x80000000)
+  {
+    MBTOWIDE(wbuf,existfn);
+    if (wbuf_ok)
+    {
+      MBTOWIDE(wbuf2,newfn);
+      if (wbuf2_ok)
+      {
+        int rv=CopyFileW(wbuf,wbuf2,fie);
+        MBTOWIDE_FREE(wbuf2);
+        MBTOWIDE_FREE(wbuf);
+        return rv;
+      }
+      MBTOWIDE_FREE(wbuf2);
+    }
+    MBTOWIDE_FREE(wbuf);
+  }
+  return CopyFileA(existfn,newfn,fie);
+}
+
 DWORD GetCurrentDirectoryUTF8(DWORD nBufferLength, LPTSTR lpBuffer)
 {
   if (lpBuffer && nBufferLength > 1 && GetVersion()< 0x80000000)

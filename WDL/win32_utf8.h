@@ -25,6 +25,7 @@ WDL_WIN32_UTF8_IMPL int MessageBoxUTF8(HWND hwnd, LPCTSTR lpText, LPCTSTR lpCapt
 WDL_WIN32_UTF8_IMPL BOOL CreateDirectoryUTF8(LPCTSTR path, LPSECURITY_ATTRIBUTES attr);
 WDL_WIN32_UTF8_IMPL BOOL DeleteFileUTF8(LPCTSTR path);
 WDL_WIN32_UTF8_IMPL BOOL MoveFileUTF8(LPCTSTR existfn, LPCTSTR newfn);
+WDL_WIN32_UTF8_IMPL BOOL CopyFileUTF8(LPCTSTR existfn, LPCTSTR newfn, BOOL fie);
 WDL_WIN32_UTF8_IMPL DWORD GetCurrentDirectoryUTF8(DWORD nBufferLength, LPTSTR lpBuffer);
 WDL_WIN32_UTF8_IMPL BOOL SetCurrentDirectoryUTF8(LPCTSTR path);
 WDL_WIN32_UTF8_IMPL BOOL RemoveDirectoryUTF8(LPCTSTR path);
@@ -125,6 +126,11 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #undef MoveFile
 #endif
 #define MoveFile MoveFileUTF8
+
+#ifdef CopyFile
+#undef CopyFile
+#endif
+#define CopyFile CopyFileUTF8
 
 #ifdef GetCurrentDirectory
 #undef GetCurrentDirectory
