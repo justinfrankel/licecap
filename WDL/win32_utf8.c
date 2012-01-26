@@ -471,6 +471,21 @@ int DrawTextUTF8(HDC hdc, LPCTSTR str, int nc, LPRECT lpRect, UINT format)
 }
 
 
+BOOL InsertMenuUTF8(HMENU hMenu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewItem, LPCTSTR str)
+{
+  if (str && WDL_HasUTF8(str) && GetVersion()<0x80000000)
+  {
+    MBTOWIDE(wbuf,str);
+    if (wbuf_ok)
+    {
+      BOOL rv=InsertMenuW(hMenu,uPosition,uFlags,uIDNewItem,wbuf);
+      MBTOWIDE_FREE(wbuf);
+      return rv;
+    }
+  }
+  return InsertMenuA(hMenu,uPosition,uFlags,uIDNewItem,str);
+}
+
 BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii)
 {
   if (lpmii && (lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)

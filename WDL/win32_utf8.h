@@ -42,6 +42,7 @@ WDL_WIN32_UTF8_IMPL BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn);
 
 WDL_WIN32_UTF8_IMPL HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd);
 
+WDL_WIN32_UTF8_IMPL BOOL InsertMenuUTF8(HMENU hMenu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewItem, LPCTSTR str);
 WDL_WIN32_UTF8_IMPL BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii);
 WDL_WIN32_UTF8_IMPL BOOL SetMenuItemInfoUTF8(HMENU hMenu, UINT uItem, BOOL fByPosition,LPMENUITEMINFO lpmii);
 WDL_WIN32_UTF8_IMPL BOOL GetMenuItemInfoUTF8(HMENU hMenu, UINT uItem,BOOL fByPosition,LPMENUITEMINFO lpmii);
@@ -147,6 +148,11 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #endif
 #define CreateFile CreateFileUTF8
 
+
+#ifdef InsertMenu
+#undef InsertMenu
+#endif
+#define InsertMenu InsertMenuUTF8
 
 #ifdef InsertMenuItem
 #undef InsertMenuItem
