@@ -915,6 +915,7 @@ SWELL_API_DEFINE(void, SWELL_SetClipRegion,(HDC ctx, RECT *r))
 SWELL_API_DEFINE(void, SWELL_PopClipRegion,(HDC ctx))
 
 
+
 /* 
 ** GDI emulation functions
 ** todo: document
@@ -1006,6 +1007,8 @@ SWELL_API_DEFINE(void, SWELL_FlushWindow,(HWND))
 #endif
             
 SWELL_API_DEFINE(void, SWELL_FillDialogBackground,(HDC hdc, RECT *r, int level))
+
+SWELL_API_DEFINE(HGDIOBJ,SWELL_CloneGDIObject,(HGDIOBJ a))
 
 SWELL_API_DEFINE(int, GetSystemMetrics, (int))
 

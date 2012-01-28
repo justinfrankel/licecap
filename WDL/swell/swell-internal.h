@@ -443,6 +443,8 @@ struct HTREEITEM__
 struct HGDIOBJ__
 {
   int type;
+
+  int additional_refcnt; // refcnt of 0 means one owner (if >0, additional owners)
   
   // used by pen/brush
   CGColorRef color;
@@ -578,6 +580,8 @@ struct HMENU__
 struct HGDIOBJ__
 {
   int type;
+  int additional_refcnt; // refcnt of 0 means one owner (if >0, additional owners)
+
   int color;
   int wid;
   struct HGDIOBJ__ *_next;

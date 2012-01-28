@@ -173,17 +173,20 @@ void DeleteObject(HGDIOBJ pen)
 
   if (HGDIOBJ_VALID(p))
   {
-    if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
+    if (--p->additional_refcnt < 0)
     {
-      if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
-        if (p->wid<0) return;
-      if (p->color) CGColorRelease(p->color);
-      if (p->fontdict) [p->fontdict release];
-      if (p->font_style) ATSUDisposeStyle(p->font_style);
-      if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
-      GDP_OBJECT_DELETE(p);
+      if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
+      {
+        if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
+          if (p->wid<0) return;
+        if (p->color) CGColorRelease(p->color);
+        if (p->fontdict) [p->fontdict release];
+        if (p->font_style) ATSUDisposeStyle(p->font_style);
+        if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
+        GDP_OBJECT_DELETE(p);
+      }
+      // JF> don't free unknown objects, this shouldn't ever happen anyway: else free(p);
     }
-    // JF> don't free unknown objects, this shouldn't ever happen anyway: else free(p);
   }
 }
 
@@ -1355,6 +1358,16 @@ void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
     CGRect rect=CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top);
     CGContextFillRect(ctx,rect);	         
   }
+}
+
+HGDIOBJ SWELL_CloneGDIObject(HGDIOBJ a)
+{
+  if (HGDIOBJ_VALID(a))
+  {
+    a->additional_refcnt++;
+    return a;
+  }
+  return NULL;
 }
 
 

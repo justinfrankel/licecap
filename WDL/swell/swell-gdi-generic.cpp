@@ -129,14 +129,17 @@ void DeleteObject(HGDIOBJ pen)
   if (HGDIOBJ_VALID(pen))
   {
     HGDIOBJ__ *p=(HGDIOBJ__ *)pen;
-    if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
+    if (--p->additional_refcnt < 0)
     {
-      if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
-        if (p->wid<0) return;
+      if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
+      {
+        if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
+          if (p->wid<0) return;
 
-      GDP_OBJECT_DELETE(p);
+        GDP_OBJECT_DELETE(p);
+      }
+      // JF> don't free unknown objects, this should never happen anyway: else free(p);
     }
-    // JF> don't free unknown objects, this should never happen anyway: else free(p);
   }
 }
 
@@ -567,6 +570,16 @@ void ReleaseDC(HWND h, HDC hdc)
 
 void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
 {
+}
+
+HGDIOBJ SWELL_CloneGDIObject(HGDIOBJ a)
+{
+  if (HGDIOBJ_VALID(a))
+  {
+    a->additional_refcnt++;
+    return a;
+  }
+  return NULL;
 }
 
 HDC BeginPaint(HWND hwnd, PAINTSTRUCT *ps)
