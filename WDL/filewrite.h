@@ -213,7 +213,6 @@ public:
 
       if (!noFileLocking)
       {
-        int preverr;
         m_filedes_locked = !flock(m_filedes,LOCK_EX|LOCK_NB);
         if (!m_filedes_locked)
         {
