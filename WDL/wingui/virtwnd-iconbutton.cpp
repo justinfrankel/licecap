@@ -26,6 +26,11 @@
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
+#ifdef _WIN32
+#define WDL_WIN32_UTF8_IMPL static
+#include "../win32_utf8.c"
+#endif
+
 WDL_VirtualIconButton::WDL_VirtualIconButton()
 {
   m_alpha=1.0;
