@@ -135,18 +135,22 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   va_list va;
   va_start(va,fmt);
 
-#ifdef _WIN32
-  int l = _vsnprintf(buf,sizeof(buf)-1,fmt,va);
-  // returns <0 if too long
+  buf[0]=0;
+#if defined(_WIN32) && defined(_MSC_VER)
+  int l = _vsnprintf(buf,sizeof(buf),fmt,va); // _vsnprintf() does not always null terminate
+  if (l < 0 || l >= sizeof(buf)) 
+  {
+    buf[sizeof(buf)-1]=0;
+    l = strlen(buf);
+  }
 #else
-  int l = vsnprintf(buf,sizeof(buf)-1,fmt,va);
-  // returns >sizeof(buf) if too long
+  // vsnprintf() on non-win32, always null terminates
+  int l = vsnprintf(buf,sizeof(buf),fmt,va);
+  if (l>sizeof(buf)-1) l=sizeof(buf)-1;
 #endif
   va_end(va);
 
-  if (l < 0 || l >= sizeof(buf)-1) return; // drop long lines
-
-  l++; // include null terminator
+  l++; // include NULL term
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
   if (!m_usecomp)
@@ -351,19 +355,26 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     char buf[8192];
     va_list va;
     va_start(va,fmt);
-#ifdef _WIN32
-    int buflen = _vsnprintf(buf,sizeof(buf),fmt,va);
-    // returns <0 if too long
-#else
-    int buflen = vsnprintf(buf,sizeof(buf),fmt,va);
-    // returns >sizeof(buf) if too long
-#endif
+
+    buf[0]=0;
+  #if defined(_WIN32) && defined(_MSC_VER)
+    int l = _vsnprintf(buf,sizeof(buf),fmt,va); // _vsnprintf() does not always null terminate
+    if (l < 0 || l >= sizeof(buf)) 
+    {
+      buf[sizeof(buf)-1] = 0;
+      l = strlen(buf);
+    }
+  #else
+    // vsnprintf() on non-win32, always null terminates
+    int l = vsnprintf(buf,sizeof(buf),fmt,va);
+    if (l>sizeof(buf)-1) l=sizeof(buf)-1;
+  #endif
+
     va_end(va);
-    if (buflen < 0 || buflen >= sizeof(buf)-1) buflen=0; // drop long lines
     
-    err |= m_wr->Write(buf,buflen) != buflen;
+    err |= m_wr->Write(buf,l) != l;
     err |= m_wr->Write("\r\n",2) != 2;
-    m_bytesOut += 2 + buflen;
+    m_bytesOut += 2 + l;
 
     if (err) m_errcnt=true;
   }

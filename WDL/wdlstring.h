@@ -227,27 +227,37 @@ public:
     }
   }
 #endif
+  void WDL_STRING_PREFIX SetAppendFormattedArgs(bool append, int maxlen, const char* fmt, va_list arglist) 
+#ifdef WDL_STRING_INTF_ONLY
+    ; 
+#else
+  {
+    int offs = append ? GetLength() : 0;
+    char* b= (char*) m_hb.Resize(offs+maxlen+1,false)+offs;
+    if (m_hb.GetSize() != offs+maxlen+1) return;
+
+    #ifdef _WIN32
+		  int written = _vsnprintf(b, maxlen+1, fmt, arglist);
+      if (written < 0 || written>=maxlen) b[written=b[0]?maxlen:0]=0;
+    #else
+		  int written = vsnprintf(b, maxlen+1, fmt, arglist);
+      if (written > maxlen) written=maxlen;
+    #endif
+
+    m_hb.Resize(offs + written + 1,false);
+	}
+#endif
+
 
   void WDL_STRING_PREFIX SetFormatted(int maxlen, const char* fmt, ...) 
 #ifdef WDL_STRING_INTF_ONLY
     ; 
 #else
   {
-    char* b= (char*) m_hb.Resize(maxlen+1,false);
-    if (m_hb.GetSize() != maxlen+1) return;
-
   	va_list arglist;
 		va_start(arglist, fmt);
-    #ifdef _WIN32
-		int written = _vsnprintf(b, maxlen, fmt, arglist);
-    #else
-		int written = vsnprintf(b, maxlen, fmt, arglist);
-    #endif
-    if (written < 0) written = 0;
+    SetAppendFormattedArgs(false,maxlen,fmt,arglist);
 		va_end(arglist);
-    b[written] = '\0';
-
-    m_hb.Resize(written+1,false);
 	}
 #endif
 
@@ -256,24 +266,13 @@ public:
     ; 
 #else
   {
-    int offs=GetLength();
-    char* b= (char*) m_hb.Resize(offs+maxlen+1,false)+offs;
-    if (m_hb.GetSize() != offs+maxlen+1) return;
-
   	va_list arglist;
 		va_start(arglist, fmt);
-    #ifdef _WIN32
-		int written = _vsnprintf(b, maxlen, fmt, arglist);
-    #else
-		int written = vsnprintf(b, maxlen, fmt, arglist);
-    #endif
-    if (written < 0) written = 0;
+    SetAppendFormattedArgs(true,maxlen,fmt,arglist);
 		va_end(arglist);
-    b[written] = '\0';
-
-    m_hb.Resize(offs + written +1,false);
 	}
 #endif
+
 
   void WDL_STRING_PREFIX Ellipsize(int minlen, int maxlen)
 #ifdef WDL_STRING_INTF_ONLY
