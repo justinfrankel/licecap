@@ -207,7 +207,7 @@ public:
   if (a) // if 2, only add visible items
   {
     int nc = m_br->vwnd->GetNumChildren();
-    if (!nc) { if (m_cached_children) { [m_cached_children release]; m_cached_children=0; } return nil; }
+//    if (!nc) { if (m_cached_children) { [m_cached_children release]; m_cached_children=0; } printf("ret nil\n"); return nil; }
 
     if (m_cached_children && nc == m_cached_children_lastcnt) return m_cached_children;
 

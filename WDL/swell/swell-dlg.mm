@@ -1566,11 +1566,11 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
       int x;
       for (x=0;x<3;x++) if (cp[x]) { [cp[x] release]; cp[x]=0; }
 
-     // cp[1]=ret;
-//      cp[2]=use_obj;
+      //cp[1]=ret;
+      //cp[2]=use_obj;
 
       ret = NSAccessibilityUnignoredChildren(ar);
- //     cp[0]=ret;
+      //cp[0]=ret;
 
       for (x=0;x<3;x++) if (cp[x]) [cp[x] retain];
 
@@ -1628,6 +1628,11 @@ static HWND last_key_window;
 - (void)windowDidMove:(NSNotification *)aNotification { \
     NSRect f=[self frame]; \
     [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_MOVE p1:0 p2:MAKELPARAM((int)f.origin.x,(int)f.origin.y)]; \
+} \
+- (BOOL)accessibilityIsIgnored \
+{ \
+  if (!([self styleMask] & NSTitledWindowMask) && ![[[self contentView] subviews] count]) return YES; \
+  return [super accessibilityIsIgnored]; \
 } \
 -(void)swellDoDestroyStuff \
 { \
