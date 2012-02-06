@@ -58,6 +58,7 @@ WDL_VirtualIconButton::~WDL_VirtualIconButton()
   if (m_ownsicon && m_iconCfg)
   {
     delete m_iconCfg->image;
+    delete m_iconCfg->olimage;
     delete m_iconCfg;
   }
 }
@@ -83,9 +84,14 @@ void WDL_VirtualIconButton::SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float
 { 
   if (m_iconCfg != cfg || m_alpha != alpha) 
   {
+    if (m_iconCfg && m_iconCfg != cfg && m_iconCfg->olimage)
+    {
+      RequestRedraw(NULL); // in case the old icon has an overlay, go ahead and invalidate the old overlay region
+    }
     if (m_ownsicon && m_iconCfg && m_iconCfg != cfg)
     {
       delete m_iconCfg->image;
+      delete m_iconCfg->olimage;
       delete m_iconCfg;
     }
     m_alpha=alpha; 
