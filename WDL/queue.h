@@ -54,7 +54,8 @@ public:
     if (m_pos >= olen) m_pos=olen=0; // if queue is empty then autoreset it
 
     void *obuf=m_hb.Resize(olen+len,false);
-    if (!obuf) return 0;
+    if (m_hb.GetSize() != olen+len) return NULL;
+
     char* newbuf = (char*) obuf + olen;
     if (buf) memcpy(newbuf,buf,len);
     return newbuf; 
