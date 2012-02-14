@@ -1437,24 +1437,29 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     { 
       if (msg == EM_GETSEL)
       {
-        NSText* text=[[obj window] fieldEditor:YES forObject:(NSTextField*)obj];  
-        // don't know how to validate that the field editor is currently associated with obj,
-        // but if it's not, there's no point in sending EM_GETSEL in the first place 
-        NSRange range=[text selectedRange];
+        NSRange range={0,};
+        if ([[obj window] firstResponder] == obj)
+        {
+          NSText* text=[[obj window] fieldEditor:YES forObject:(NSTextField*)obj];  
+          if (text) range=[text selectedRange];
+        }
         if (wParam) *(int*)wParam=range.location;
         if (lParam) *(int*)lParam=range.location+range.length;
       }      
       else if (msg == EM_SETSEL)
       {        
-        [(NSTextField*)obj selectText:obj]; // Force the window's text field editor onto this control
-        NSText* text = [[obj window] fieldEditor:YES forObject:(NSTextField*)obj]; // then get it from the window        
-        
-        int sl = [[text string] length];
-        if (wParam == -1) lParam = wParam = 0;
-        else if (lParam == -1) lParam = sl;        
-        if (wParam>sl) wParam=sl;
-        if (lParam>sl) lParam=sl;      
-        [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+        //        [(NSTextField*)obj selectText:obj]; // Force the window's text field editor onto this control
+        // don't force it, just ignore EM_GETSEL/EM_SETSEL if not in focus
+        if ([[obj window] firstResponder] == obj)
+        {
+          NSText* text = [[obj window] fieldEditor:YES forObject:(NSTextField*)obj]; // then get it from the window 
+          int sl = [[text string] length];
+          if (wParam == -1) lParam = wParam = 0;
+          else if (lParam == -1) lParam = sl;        
+          if (wParam>sl) wParam=sl;
+          if (lParam>sl) lParam=sl;      
+          if (text) [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+        }
       }
       return 0;
     }
