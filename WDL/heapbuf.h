@@ -50,7 +50,7 @@
 class WDL_HeapBuf
 {
   public:
-    WDL_HeapBuf(int granul=4096
+    explicit WDL_HeapBuf(int granul=4096
 #ifdef WDL_HEAPBUF_TRACE
       , const char *tracetype="WDL_HeapBuf"
 #endif
@@ -299,7 +299,7 @@ class WDL_HeapBuf
 template<class PTRTYPE> class WDL_TypedBuf 
 {
   public:
-    WDL_TypedBuf(int granul=4096
+    explicit WDL_TypedBuf(int granul=4096
 #ifdef WDL_HEAPBUF_TRACE
       , const char *tracetype="WDL_TypedBuf"
 #endif      

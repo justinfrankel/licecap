@@ -58,14 +58,13 @@ typedef bool WDL_bool;
 
 #ifdef __GNUC__
 // for structures that contain doubles, or doubles in structures that are after stuff of questionable alignment (for OSX/linux)
-#define WDL_FIXALIGN  __attribute__ ((aligned (8)))
-
+  #define WDL_FIXALIGN  __attribute__ ((aligned (8)))
 // usage: void func(int a, const char *fmt, ...) WDL_VARARG_WARN(printf,2,3); // note: if member function, this pointer is counted as well, so as member function that would be 3,4
-#define WDL_VARARG_WARN(x,n,s) __attribute__ ((format (x,n,s)))
+  #define WDL_VARARG_WARN(x,n,s) __attribute__ ((format (x,n,s)))
 
 #else
-#define WDL_FIXALIGN 
-#define WDL_VARARG_WARN(x,n,s)
+  #define WDL_FIXALIGN 
+  #define WDL_VARARG_WARN(x,n,s)
 #endif
 
 

@@ -39,7 +39,7 @@
 template<class PTRTYPE> class WDL_PtrList 
 {
   public:
-    WDL_PtrList(int defgran=4096) : m_hb(defgran WDL_HEAPBUF_TRACEPARM("WDL_PtrList"))
+    explicit WDL_PtrList(int defgran=4096) : m_hb(defgran WDL_HEAPBUF_TRACEPARM("WDL_PtrList"))
     {
     }
 
@@ -189,7 +189,7 @@ template<class PTRTYPE> class WDL_PtrList
 template<class PTRTYPE> class WDL_PtrList_DeleteOnDestroy : public WDL_PtrList<PTRTYPE>
 {
 public:
-  WDL_PtrList_DeleteOnDestroy(void (*delfunc)(void *)=NULL, int defgran=4096) : WDL_PtrList<PTRTYPE>(defgran), m_delfunc(delfunc) {  } 
+  explicit WDL_PtrList_DeleteOnDestroy(void (*delfunc)(void *)=NULL, int defgran=4096) : WDL_PtrList<PTRTYPE>(defgran), m_delfunc(delfunc) {  } 
   ~WDL_PtrList_DeleteOnDestroy()
   {
     WDL_PtrList<PTRTYPE>::EmptySafe(true,m_delfunc);

@@ -13,7 +13,7 @@ template <class KEY, class VAL> class WDL_AssocArrayImpl
 {
 public:
 
-  WDL_AssocArrayImpl(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
+  explicit WDL_AssocArrayImpl(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
   {
     m_keycmp = keycmp;
     m_keydup = keydup;
@@ -238,7 +238,7 @@ template <class KEY, class VAL> class WDL_AssocArray : public WDL_AssocArrayImpl
 {
 public:
 
-  WDL_AssocArray(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
+  explicit WDL_AssocArray(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
   : WDL_AssocArrayImpl<KEY, VAL>(keycmp, keydup, keydispose, valdispose)
   { 
   }
@@ -270,7 +270,7 @@ template <class VAL> class WDL_IntKeyedArray : public WDL_AssocArray<int, VAL>
 {
 public:
 
-  WDL_IntKeyedArray(void (*valdispose)(VAL)=0) : WDL_AssocArray<int, VAL>(cmpint, NULL, NULL, valdispose) {}
+  explicit WDL_IntKeyedArray(void (*valdispose)(VAL)=0) : WDL_AssocArray<int, VAL>(cmpint, NULL, NULL, valdispose) {}
   ~WDL_IntKeyedArray() {}
 
 private:
@@ -283,7 +283,7 @@ template <class VAL> class WDL_StringKeyedArray : public WDL_AssocArray<const ch
 {
 public:
 
-  WDL_StringKeyedArray(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_AssocArray<const char*, VAL>(caseSensitive?cmpstr:cmpistr, dupstr, freestr, valdispose) {}
+  explicit WDL_StringKeyedArray(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_AssocArray<const char*, VAL>(caseSensitive?cmpstr:cmpistr, dupstr, freestr, valdispose) {}
   
   ~WDL_StringKeyedArray() { }
 
@@ -303,7 +303,7 @@ template <class VAL> class WDL_PtrKeyedArray : public WDL_AssocArray<INT_PTR, VA
 {
 public:
 
-  WDL_PtrKeyedArray(void (*valdispose)(VAL)=0) : WDL_AssocArray<INT_PTR, VAL>(cmpptr, 0, 0, valdispose) {}
+  explicit WDL_PtrKeyedArray(void (*valdispose)(VAL)=0) : WDL_AssocArray<INT_PTR, VAL>(cmpptr, 0, 0, valdispose) {}
 
   ~WDL_PtrKeyedArray() {}
 
