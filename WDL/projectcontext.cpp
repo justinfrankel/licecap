@@ -58,7 +58,7 @@ public:
     #endif
   };
 
-  virtual void AddLine(const char *fmt, ...);
+  virtual void WDL_VARARG_WARN(printf,2,3) AddLine(const char *fmt, ...);
   virtual int GetLine(char *buf, int buflen); // returns -1 on eof  
 
   virtual WDL_INT64 GetOutputSize() { return m_heapbuf ? m_heapbuf->GetSize() : 0; }
@@ -276,7 +276,7 @@ public:
   }
   virtual ~ProjectStateContext_File(){ delete m_rd; delete m_wr; };
 
-  virtual void AddLine(const char *fmt, ...);
+  virtual void WDL_VARARG_WARN(printf,2,3) AddLine(const char *fmt, ...);
   virtual int GetLine(char *buf, int buflen); // returns -1 on eof
 
   virtual WDL_INT64 GetOutputSize() { return m_bytesOut; }
@@ -549,7 +549,7 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
     if (thiss > 40) thiss=40;
     pc_base64encode(p,buf,thiss);
 
-    ctx->AddLine(buf);
+    ctx->AddLine("%s",buf);
     p+=thiss;
     len-=thiss;
   }

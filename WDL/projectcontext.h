@@ -15,7 +15,7 @@ class ProjectStateContext // this is also defined in reaper_plugin.h (keep them 
 public:
   virtual ~ProjectStateContext(){};
 
-  virtual void AddLine(const char *fmt, ...)=0;
+  virtual void WDL_VARARG_WARN(printf,2,3) AddLine(const char *fmt, ...) = 0;
   virtual int GetLine(char *buf, int buflen)=0; // returns -1 on eof
 
   virtual WDL_INT64 GetOutputSize()=0;

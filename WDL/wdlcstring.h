@@ -29,6 +29,8 @@ C string manipulation utilities -- [v]snprintf for Win32, also snprintf_append, 
 #include <stdarg.h>
 #include <stdio.h>
 
+#include "wdltypes.h"
+
 #ifdef _WDL_CSTRING_IMPL_ONLY_
   #ifdef _WDL_CSTRING_IF_ONLY_
     #undef _WDL_CSTRING_IF_ONLY_
@@ -64,12 +66,12 @@ extern "C" {
 
   void lstrcpyn_safe(char *o, const char *in, int count);
   void lstrcatn(char *o, const char *in, int count);
-  void snprintf_append(char *o, int count, const char *format, ...);
+  void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, int count, const char *format, ...);
   void vsnprintf_append(char *o, int count, const char *format, va_list va);
 
   #if defined(_WIN32) && defined(_MSC_VER)
     void WDL_vsnprintf(char *o, size_t count, const char *format, va_list args);
-    void WDL_snprintf(char *o, size_t count, const char *format, ...);
+    void WDL_VARARG_WARN(printf,3,4) WDL_snprintf(char *o, size_t count, const char *format, ...);
   #endif
 
 #else
@@ -87,7 +89,7 @@ extern "C" {
         if (rv < 0 || rv>=(int)count-1) o[count-1]=0;
       }
     }
-    _WDL_CSTRING_PREFIX void WDL_snprintf(char *o, size_t count, const char *format, ...)
+    _WDL_CSTRING_PREFIX void WDL_VARARG_WARN(printf,3,4) WDL_snprintf(char *o, size_t count, const char *format, ...)
     {
       if (count>0)
       {
@@ -121,8 +123,7 @@ extern "C" {
       *o=0;
     }
   }
-
-  _WDL_CSTRING_PREFIX void snprintf_append(char *o, int count, const char *format, ...)
+  _WDL_CSTRING_PREFIX void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, int count, const char *format, ...)
   {
     if (count>0)
     {
@@ -132,7 +133,7 @@ extern "C" {
       vsnprintf(o,count,format,va);
       va_end(va);
     }
-  }
+  } 
 
   _WDL_CSTRING_PREFIX void vsnprintf_append(char *o, int count, const char *format, va_list va)
   {
