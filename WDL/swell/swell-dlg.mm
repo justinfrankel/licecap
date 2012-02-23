@@ -25,6 +25,14 @@ bool SWELL_owned_windows_levelincrease=false;
 
 extern int g_swell_terminating;
 
+static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  if (obj && [obj respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+    return [(SWELL_hwndChild *)obj onSwellMessage:uMsg p1:wParam p2:lParam];
+  return 0;
+}
+
+
 static BOOL useNoMiddleManCocoa()
 {
   static char is105;
@@ -444,8 +452,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       for (x = 0; x < [ar count]; x ++) 
       {
         NSView *sv=[ar objectAtIndex:x]; 
-        if (sv && [sv respondsToSelector:@selector(onSwellMessage:p1:p2:)]) 
-           [(SWELL_hwndChild*)sv onSwellMessage:WM_DESTROY p1:0 p2:0];
+        sendSwellMessage(sv,WM_DESTROY,0,0);
       }
     }
     KillTimer((HWND)self,-1);
@@ -1620,14 +1627,14 @@ static HWND last_key_window;
   [super setFrame:frameRect display:displayFlag]; \
   if((int)frameRect.size.width != (int)lastFrameSize.width || (int)frameRect.size.height != (int)lastFrameSize.height) { \
     SWELL_hwndChild *hc = (SWELL_hwndChild*)[self contentView]; \
-    [hc onSwellMessage:WM_SIZE p1:0 p2:0]; \
+    sendSwellMessage(hc,WM_SIZE,0,0); \
     if ([hc isOpaque]) InvalidateRect((HWND)hc,NULL,FALSE); \
     lastFrameSize=frameRect.size; \
    } \
 } \
 - (void)windowDidMove:(NSNotification *)aNotification { \
     NSRect f=[self frame]; \
-    [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_MOVE p1:0 p2:MAKELPARAM((int)f.origin.x,(int)f.origin.y)]; \
+    sendSwellMessage([self contentView], WM_MOVE,0, MAKELPARAM((int)f.origin.x,(int)f.origin.y)); \
 } \
 - (BOOL)accessibilityIsIgnored \
 { \
@@ -1668,7 +1675,7 @@ static HWND last_key_window;
 } \
 - (void)resignKeyWindow { \
   [super resignKeyWindow]; \
-  [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_ACTIVATE p1:WA_INACTIVE p2:(LPARAM)0]; \
+  sendSwellMessage([self contentView],WM_ACTIVATE,WA_INACTIVE,0); \
   last_key_window=(HWND)self; \
 } \
 -(void)becomeKeyWindow \
@@ -1682,17 +1689,17 @@ static HWND last_key_window;
     if ([cv respondsToSelector:@selector(swellGetMenu)]) menu = (HMENU) [cv swellGetMenu]; \
     if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
     if (menu && menu != (HMENU)[NSApp mainMenu] && !g_swell_terminating) [NSApp setMainMenu:(NSMenu *)menu]; \
-    [(SWELL_hwndChild*)cv onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc]; \
-    [(SWELL_hwndChild*)cv onSwellMessage:WM_MOUSEACTIVATE p1:0 p2:0]; \
+    sendSwellMessage(cv,WM_ACTIVATE,WA_ACTIVE,(LPARAM)foc); \
+    sendSwellMessage(cv,WM_MOUSEACTIVATE,0,0); \
   } \
 } \
 -(BOOL)windowShouldClose:(id)sender \
 { \
   NSView *v=[self contentView]; \
-    if ([v respondsToSelector:@selector(onSwellMessage:p1:p2:)]) \
-      if (![(SWELL_hwndChild*)v onSwellMessage:WM_CLOSE p1:0 p2:0]) \
-        [(SWELL_hwndChild*)v onSwellMessage:WM_COMMAND p1:IDCANCEL p2:0]; \
-          return NO; \
+  if ([v respondsToSelector:@selector(onSwellMessage:p1:p2:)]) \
+    if (![(SWELL_hwndChild*)v onSwellMessage:WM_CLOSE p1:0 p2:0]) \
+      [(SWELL_hwndChild*)v onSwellMessage:WM_COMMAND p1:IDCANCEL p2:0]; \
+  return NO; \
 } \
 - (BOOL)canBecomeKeyWindow {   return !!m_enabled; } \
 - (void **)swellGetOwnerWindowHead { return (void **)&m_ownedwnds; } \
@@ -1748,7 +1755,7 @@ static HWND last_key_window;
   MINMAXINFO mmi={0}; \
   NSSize minsz=(NSSize)[super minSize]; \
   mmi.ptMinTrackSize.x=(int)minsz.width; mmi.ptMinTrackSize.y=(int)minsz.height; \
-  [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_GETMINMAXINFO p1:0 p2:(LPARAM)&mmi]; \
+  sendSwellMessage([self contentView],WM_GETMINMAXINFO,0,(LPARAM)&mmi); \
   minsz.width=mmi.ptMinTrackSize.x; minsz.height=mmi.ptMinTrackSize.y; \
   return minsz; \
 } \
@@ -1759,7 +1766,7 @@ static HWND last_key_window;
   if (tmp.width<1)tmp.width=1; else if (tmp.width > 1000000.0) tmp.width=1000000.0; \
   if (tmp.height<1)tmp.height=1; else if (tmp.height > 1000000.0) tmp.height=1000000.0; \
   mmi.ptMaxTrackSize.x=(int)tmp.width; mmi.ptMaxTrackSize.y=(int)tmp.height; \
-  [(SWELL_hwndChild*)[self contentView] onSwellMessage:WM_GETMINMAXINFO p1:0 p2:(LPARAM)&mmi]; \
+  sendSwellMessage([self contentView], WM_GETMINMAXINFO, 0, (LPARAM)&mmi); \
   if (mmi.ptMaxTrackSize.x < 1000000) maxsz.width=mmi.ptMaxTrackSize.x; \
   if (mmi.ptMaxTrackSize.y < 1000000) maxsz.height=mmi.ptMaxTrackSize.y; \
   return maxsz; \
@@ -1779,7 +1786,7 @@ static HWND last_key_window;
   MINMAXINFO mmi={0}; \
     NSSize minsz=(NSSize)[super contentMinSize]; \
       mmi.ptMinTrackSize.x=(int)minsz.width; mmi.ptMinTrackSize.y=(int)minsz.height; \
-        [ch onSwellMessage:WM_GETMINMAXINFO p1:0 p2:(LPARAM)&mmi]; \
+        sendSwellMessage(ch,WM_GETMINMAXINFO,0,(LPARAM)&mmi); \
           minsz.width=mmi.ptMinTrackSize.x; minsz.height=mmi.ptMinTrackSize.y; \
             [super setContentMinSize:minsz];  \
 }
@@ -2015,8 +2022,7 @@ void EndDialog(HWND wnd, int ret)
 
   if ([NSApp modalWindow] == nswnd)
   {   
-    if ([nsview respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-      [(SWELL_hwndChild*)nsview onSwellMessage:WM_DESTROY p1:0 p2:0];
+    sendSwellMessage(nsview,WM_DESTROY,0,0);
     
     NSEvent *evt=[NSApp currentEvent];
     if (evt && [evt window] == nswnd)
@@ -2042,7 +2048,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
   if ([box swellHasModalRetVal]) // detect EndDialog() in WM_INITDIALOG
   {
     int ret=[box swellGetModalRetVal];
-    [(SWELL_hwndChild*)[box contentView] onSwellMessage:WM_DESTROY p1:0 p2:0];
+    sendSwellMessage([box contentView],WM_DESTROY,0,0);
     [box release];
     return ret;
   }

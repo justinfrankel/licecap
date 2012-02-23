@@ -34,6 +34,12 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
+static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  if (obj && [obj respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+    return [(SWELL_hwndChild *)obj onSwellMessage:uMsg p1:wParam p2:lParam];
+  return 0;
+}
 static void InvalidateSuperViews(NSView *view);
 #define STANDARD_CONTROL_NEEDSDISPLAY_IMPL \
   - (void)setNeedsDisplay:(BOOL)flag \
@@ -1491,8 +1497,7 @@ void DestroyWindow(HWND hwnd)
   if ([pid isKindOfClass:[NSView class]])
   {
     KillTimer(hwnd,-1);
-    if ([(id)pid respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-      [(id)pid onSwellMessage:WM_DESTROY p1:0 p2:0];
+    sendSwellMessage((id)pid,WM_DESTROY,0,0);
       
     NSWindow *pw = [(NSView *)pid window];
     if (pw && [pw contentView] == pid) // destroying contentview should destroy top level window
@@ -1516,11 +1521,8 @@ void DestroyWindow(HWND hwnd)
   else if ([pid isKindOfClass:[NSWindow class]])
   {
     KillTimer(hwnd,-1);
-    if ([[(id)pid contentView] respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-      [[(id)pid contentView] onSwellMessage:WM_DESTROY p1:0 p2:0];
-    
-    if ([(id)pid respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-      [(id)pid onSwellMessage:WM_DESTROY p1:0 p2:0];
+    sendSwellMessage([(id)pid contentView],WM_DESTROY,0,0);
+    sendSwellMessage((id)pid,WM_DESTROY,0,0);
       
     if ([(id)pid respondsToSelector:@selector(swellDoDestroyStuff)])
       [(id)pid swellDoDestroyStuff];
@@ -2305,9 +2307,9 @@ void SWELL_TB_SetPos(HWND hwnd, int idx, int pos)
   {
     [p setDoubleValue:(double)pos];
   }
-  else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  else 
   {
-    [(SWELL_hwndChild *)p onSwellMessage:TBM_SETPOS p1:1 p2:pos];
+    sendSwellMessage(p,TBM_SETPOS,1,pos); 
   }
 }
 
@@ -2319,9 +2321,9 @@ void SWELL_TB_SetRange(HWND hwnd, int idx, int low, int hi)
     [p setMinValue:low];
     [p setMaxValue:hi];
   }
-  else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  else 
   {
-    [(SWELL_hwndChild *)p onSwellMessage:TBM_SETRANGE p1:1 p2:((low&0xffff)|(hi<<16))];
+    sendSwellMessage(p,TBM_SETRANGE,1,((low&0xffff)|(hi<<16)));
   }
   
 }
@@ -2333,9 +2335,9 @@ int SWELL_TB_GetPos(HWND hwnd, int idx)
   {
     return (int) ([p doubleValue]+0.5);
   }
-  else if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
+  else 
   {
-    return (int) [(SWELL_hwndChild *)p onSwellMessage:TBM_GETPOS p1:0 p2:0];
+    return (int) sendSwellMessage(p,TBM_GETPOS,0,0);
   }
   return 0;
 }
@@ -2343,10 +2345,7 @@ int SWELL_TB_GetPos(HWND hwnd, int idx)
 void SWELL_TB_SetTic(HWND hwnd, int idx, int pos)
 {
   NSSlider *p=(NSSlider *)GetDlgItem(hwnd,idx);
-  if (p && [p respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-  {
-    [(SWELL_hwndChild *)p onSwellMessage:TBM_SETTIC p1:0 p2:pos];
-  }
+  sendSwellMessage(p,TBM_SETTIC,0,pos);
 }
 
 void SWELL_CB_DeleteString(HWND hwnd, int idx, int wh)
@@ -4807,10 +4806,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         for(x=0;x<[ch count]; x ++)
         {
           NSView *v = [ch objectAtIndex:x];
-          if (v && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-          {
-            [v onSwellMessage:WM_DISPLAYCHANGE p1:wParam p2:lParam];
-          }
+          sendSwellMessage(v,WM_DISPLAYCHANGE,wParam,lParam);
         }
         if (x)
         {
@@ -5784,11 +5780,9 @@ bool SWELL_HandleMouseEvent(NSEvent *evt)
       
       while (hitv)
       {
-        if ([hitv respondsToSelector:@selector(onSwellMessage:p1:p2:)])
-        {
-          int ht=(int) [(SWELL_hwndChild*)hitv onSwellMessage:WM_NCHITTEST p1:0 p2:MAKELPARAM(xpos,ypos)];
-          if (ht && ht != HTCLIENT) besthit=hitv;
-        }
+        int ht=(int)sendSwellMessage(hitv,WM_NCHITTEST,0,MAKELPARAM(xpos,ypos));
+        if (ht && ht != HTCLIENT) besthit=hitv;
+
         if (hitv==cview) break;
         hitv = [hitv superview];
       }
