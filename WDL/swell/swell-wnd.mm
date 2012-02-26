@@ -6063,7 +6063,7 @@ bool SWELL_SetAppAutoHideMenuAndDock(bool ah)
     if (v>=0x1060)
     {
       _init=1;
-      _defpres = (int)[[NSApplication sharedApplication] presentationOptions];
+      _defpres = (int)(INT_PTR)[[NSApplication sharedApplication] presentationOptions];
     }
   }
   if (_init > 0)
