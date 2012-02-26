@@ -6050,4 +6050,32 @@ BOOL SWELL_IsStaticText(HWND hwnd)
   return FALSE;
 }
 
+
+bool SWELL_SetAppAutoHideMenuAndDock(bool ah)
+{
+  static char _init;
+  static int _defpres;
+  if (!_init)
+  {
+    _init=-1;
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    if (v>=0x1060)
+    {
+      _init=1;
+      _defpres = (int)[[NSApplication sharedApplication] presentationOptions];
+    }
+  }
+  if (_init > 0)
+  {
+    const int NSApplicationPresentationAutoHideDock               = (1 <<  0),
+              NSApplicationPresentationAutoHideMenuBar            = (1 <<  2);
+
+    if (ah) [[NSApplication sharedApplication] setPresentationOptions:(NSApplicationPresentationAutoHideDock|NSApplicationPresentationAutoHideMenuBar)];
+    else [[NSApplication sharedApplication] setPresentationOptions:_defpres];
+    return true;
+  }
+  return false;
+}
+
 #endif
