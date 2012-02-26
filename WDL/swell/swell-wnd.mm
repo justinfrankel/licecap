@@ -5201,7 +5201,36 @@ BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT 
 
 HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title)
 {
-  if (!par&&!lastw) return NULL; // need to implement this modes
+  // note: this currently is far far far from fully functional, bleh
+  if (!par)
+  {
+    if (!title) return NULL;
+
+    // get a list of top level windows, find any that match
+    // (this does not scan child windows, which is a todo really)
+    HWND rv=NULL;
+    NSArray *ch=[NSApp windows];
+    int x=0,n=[ch count];
+    if (lastw)
+    {
+      for(;x<n; x ++)
+      {
+        NSWindow *w = [ch objectAtIndex:x]; 
+        if ((HWND)w == lastw || (HWND)[w contentView] == lastw) break;
+      }
+      x++;
+    }
+
+    NSString *srch=(NSString*)SWELL_CStringToCFString(title);
+    for(;x<n && !rv; x ++)
+    {
+      NSWindow *w = [ch objectAtIndex:x]; 
+      if ([[w title] isEqualToString:srch]) rv=(HWND)[w contentView];
+    }
+    [srch release]; 
+
+    return rv;
+  }
   HWND h=lastw?GetWindow(lastw,GW_HWNDNEXT):GetWindow(par,GW_CHILD);
   while (h)
   {
