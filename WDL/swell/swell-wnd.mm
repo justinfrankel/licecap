@@ -6051,7 +6051,7 @@ BOOL SWELL_IsStaticText(HWND hwnd)
 }
 
 
-bool SWELL_SetAppAutoHideMenuAndDock(bool ah)
+bool SWELL_SetAppAutoHideMenuAndDock(int ah) 
 {
   static char _init;
   static int _defpres;
@@ -6069,9 +6069,10 @@ bool SWELL_SetAppAutoHideMenuAndDock(bool ah)
   if (_init > 0)
   {
     const int NSApplicationPresentationAutoHideDock               = (1 <<  0),
+              NSApplicationPresentationHideDock = (1<<1),
               NSApplicationPresentationAutoHideMenuBar            = (1 <<  2);
 
-    if (ah) [[NSApplication sharedApplication] setPresentationOptions:(NSApplicationPresentationAutoHideDock|NSApplicationPresentationAutoHideMenuBar)];
+    if (ah>0) [[NSApplication sharedApplication] setPresentationOptions:((ah>=2?NSApplicationPresentationHideDock:NSApplicationPresentationAutoHideDock)|NSApplicationPresentationAutoHideMenuBar)];
     else [[NSApplication sharedApplication] setPresentationOptions:_defpres];
     return true;
   }
