@@ -825,7 +825,7 @@ int SWELL_GenerateMenuFromList(HMENU hMenu, const void *_list, int listsz)
   {
     int cnt=1;
     if (!list->name) SWELL_Menu_AddMenuItem(hMenu,NULL,-1,0);
-    else if (!strcmp(list->name,SWELL_MENUGEN_ENDPOPUP)) return list + 1 - (SWELL_MenuGen_Entry *)_list;
+    else if (!strcmp(list->name,SWELL_MENUGEN_ENDPOPUP)) break;
     else if (!strncmp(list->name,SWELL_MENUGEN_POPUP_PREFIX,l1)) 
     { 
       MENUITEMINFO mi={sizeof(mi),MIIM_SUBMENU|MIIM_STATE|MIIM_TYPE,MFT_STRING,0,0,CreatePopupMenuEx(list->name+l1),NULL,NULL,0,(char *)list->name+l1};
@@ -837,6 +837,7 @@ int SWELL_GenerateMenuFromList(HMENU hMenu, const void *_list, int listsz)
     list+=cnt;
     listsz -= cnt;
   }
+  return list + 1 - (SWELL_MenuGen_Entry *)_list;
 }
 
 

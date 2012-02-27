@@ -27,6 +27,7 @@
 
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
+#import <objc/objc-runtime.h>
 #include "swell.h"
 #include "swell-internal.h"
 
@@ -1172,7 +1173,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
     rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&p pixelsWide:w pixelsHigh:h
                                                bitsPerSample:8 samplesPerPixel:(3+use_alphachannel) hasAlpha:use_alphachannel isPlanar:FALSE
                                               colorSpaceName:NSDeviceRGBColorSpace bitmapFormat:(NSBitmapFormat)((use_alphachannel ? NSAlphaNonpremultipliedBitmapFormat : 0) |NSAlphaFirstBitmapFormat) bytesPerRow:sw*4 bitsPerPixel:32];
-    img=(CGImageRef)[rep CGImage];
+    img=(CGImageRef)objc_msgSend(rep,@selector(CGImage));
     if (img) CGImageRetain(img);
   }
   else

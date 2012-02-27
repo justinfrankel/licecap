@@ -57,6 +57,7 @@
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 typedef int NSInteger;
+typedef unsigned int NSUInteger;
 #endif
 
 @interface SWELL_Menu : NSMenu
@@ -363,6 +364,7 @@ struct HTREEITEM__
 - (id)swellGetOwner;
 - (void **)swellGetOwnerWindowHead;
 -(void)swellDoDestroyStuff;
+-(void)swellResetOwnedWindowLevels;
 @end
 
 @interface SWELL_ModalDialog : NSPanel
@@ -481,6 +483,42 @@ struct HDC__ {
   bool _infreelist;
   struct HDC__ *_next;
 };
+
+
+
+
+
+// some extras so we can call functions available only on some OSX versions without warnings, and with the correct types
+#define SWELL_DelegateExtensions __SWELL_PREFIX_CLASSNAME(_delext)
+#define SWELL_ViewExtensions __SWELL_PREFIX_CLASSNAME(_viewext)
+#define SWELL_AppExtensions __SWELL_PREFIX_CLASSNAME(_appext)
+#define SWELL_WindowExtensions __SWELL_PREFIX_CLASSNAME(_wndext)
+#define SWELL_TableColumnExtensions __SWELL_PREFIX_CLASSNAME(_tcolext)
+
+@interface SWELL_WindowExtensions : NSWindow
+-(void)setCollectionBehavior:(NSUInteger)a;
+@end
+@interface SWELL_ViewExtensions : NSView
+-(void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)vr rectIsVisibleRectForView:(NSView*)v topView:(NSView *)v2;
+@end
+
+@interface SWELL_DelegateExtensions : NSObject
+-(bool)swellPostMessage:(HWND)dest msg:(int)message wp:(WPARAM)wParam lp:(LPARAM)lParam;
+-(void)swellPostMessageClearQ:(HWND)dest;
+-(void)swellPostMessageTick:(id)sender;
+@end
+
+@interface SWELL_AppExtensions : NSApplication
+-(NSUInteger)presentationOptions;
+-(void)setPresentationOptions:(NSUInteger)o;
+@end
+@interface SWELL_TableColumnExtensions : NSTableColumn
+-(BOOL)isHidden;
+-(void)setHidden:(BOOL)h;
+@end
+
+
+
 
 
 #endif // __OBJC__

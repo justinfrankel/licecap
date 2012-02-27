@@ -43,18 +43,19 @@
 void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
 {
   NSString *s = (NSString *)str;
-  if (!s) { if (buflen>0) *buf=0; return; }
+  if (buflen>0) *buf=0;
+  if (buflen <= 1 || !s || [s getCString:buf maxLength:buflen encoding:NSUTF8StringEncoding]) return; // should always work, I'd hope (ambiguous documentation ugh)
+  
   NSData *data = [s dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
   if (!data)
   {
-    [s getCString:buf maxLength:buflen];
+    [s getCString:buf maxLength:buflen-1];
     return;
   }
   int len = [data length];
   if (len > buflen-1) len=buflen-1;
   [data getBytes:buf length:len];
   buf[len]=0;
-  //  [data release];
 }
 
 void *SWELL_CStringToCFString(const char *str)
@@ -215,9 +216,9 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   
   if (hwnd && !timerid) return 0;
   
-  if (timerid != -1 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
+  if (timerid != ~(UINT_PTR)0 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
   {   
-    SWELL_pmq_settimer(hwnd,timerid,rate==-1?-2:rate,tProc);
+    SWELL_pmq_settimer(hwnd,timerid,(rate==(UINT)-1)?((UINT)-2):rate,tProc);
     return timerid;
   }
   
@@ -296,21 +297,21 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
   if (!hwnd && !timerid) return FALSE;
   
   WDL_MutexLock lock(&m_timermutex);
-  if (timerid != -1 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
+  if (timerid != ~(UINT_PTR)0 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
   {
-    SWELL_pmq_settimer(hwnd,timerid,-1,NULL);
+    SWELL_pmq_settimer(hwnd,timerid,~(UINT)0,NULL);
     return TRUE;
   }
   BOOL rv=FALSE;
   
   // don't allow removing all global timers
-  if (timerid!=-1 || hwnd) 
+  if (timerid!=~(UINT_PTR)0 || hwnd) 
   {
     TimerInfoRec *rec = m_timer_list, *lrec=NULL;
     while (rec)
     {
       
-      if (rec->hwnd == hwnd && (timerid==-1 || rec->timerid == timerid))
+      if (rec->hwnd == hwnd && (timerid==~(UINT_PTR)0 || rec->timerid == timerid))
       {
         TimerInfoRec *nrec = rec->_next;
         
@@ -322,7 +323,7 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
         free(rec);
         
         rv=TRUE;
-        if (timerid!=-1) break;
+        if (timerid!=~(UINT_PTR)0) break;
         
         rec=nrec;
       }
@@ -344,7 +345,7 @@ BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   id del=[NSApp delegate];
   if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
-    return (BOOL)!![del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
+    return !![(SWELL_DelegateExtensions*)del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
   return FALSE;
 }
 
@@ -352,7 +353,7 @@ void SWELL_MessageQueue_Clear(HWND h)
 {
   id del=[NSApp delegate];
   if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
-    [del swellPostMessageClearQ:h];
+    [(SWELL_DelegateExtensions*)del swellPostMessageClearQ:h];
 }
 
 
@@ -409,7 +410,7 @@ void SWELL_MessageQueue_Flush()
   {
     if (p->is_special_timer)
     {
-      if (p->msg == (UINT)-1)  KillTimer(p->hwnd,p->wParam);
+      if (p->msg == ~(UINT)0) KillTimer(p->hwnd,p->wParam);
       else SetTimer(p->hwnd,p->wParam,p->msg,(TIMERPROC)p->lParam);
     }
     else

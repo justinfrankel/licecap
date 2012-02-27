@@ -57,7 +57,7 @@ void updateWindowCollection(NSWindow *w)
   {
     const int NSWindowCollectionBehaviorParticipatesInCycle = 1 << 5;
     const int  NSWindowCollectionBehaviorManaged = 1 << 2;
-    [w setCollectionBehavior:NSWindowCollectionBehaviorManaged|NSWindowCollectionBehaviorParticipatesInCycle];
+    [(SWELL_WindowExtensions*)w setCollectionBehavior:NSWindowCollectionBehaviorManaged|NSWindowCollectionBehaviorParticipatesInCycle];
   }
 }
 
@@ -455,7 +455,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
         sendSwellMessage(sv,WM_DESTROY,0,0);
       }
     }
-    KillTimer((HWND)self,-1);
+    KillTimer((HWND)self,~(UINT_PTR)0);
     m_hashaddestroy=2;
 
     return ret;
@@ -469,7 +469,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_enabled=en; 
 } 
 
-- (void)tableView:(NSTableView *)aTableView willDisplayCell:(id)aCell forTableColumn:(NSTableColumn *)aTableColumn row:(int)rowIndex 
+- (void)tableView:(NSTableView *)aTableView willDisplayCell:(id)aCell forTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex 
 {
   if ([aTableView isKindOfClass:[SWELL_ListView class]])
   {
@@ -714,7 +714,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     if (m_access_cacheptrs[x]) [m_access_cacheptrs[x] release];
     m_access_cacheptrs[x]=0;
   }
-  KillTimer((HWND)self,-1);
+  KillTimer((HWND)self,~(UINT_PTR)0);
   [self onSwellMessage:WM_DESTROY p1:0 p2:0];
   if (GetCapture()==(HWND)self) ReleaseCapture();
   if (m_glctx)
@@ -928,7 +928,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       }
 
 
-      if (parent && [self window] == parent && [(id)parent isKindOfClass:[SWELL_ModelessWindow class]] && ![(NSWindow *)parent isVisible])
+      if (parent && [self window] == (NSWindow *)parent && [(id)parent isKindOfClass:[SWELL_ModelessWindow class]] && ![(NSWindow *)parent isVisible])
       {
         // on win32, if you do CreateDialog(), WM_INITDIALOG(ret=1), then ShowWindow(SW_SHOWNA), you get the
         // window brought to front. this simulates that, hackishly.
@@ -940,10 +940,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       // if top level dialog,always set default focus if it wasn't set
       // if this causes problems, change NSWindow to be SWELL_ModalDialog, as that would
       // only affect DialogBox() and not CreateDialog(), which might be preferable.
-      if (hFoc && parent && [self window] == parent && [(id)parent isKindOfClass:[NSWindow class]]) 
+      if (hFoc && parent && [self window] == (NSWindow *)parent && [(id)parent isKindOfClass:[NSWindow class]]) 
       {
-        id fr = [(id)parent firstResponder];
-	if (!fr || fr == self || fr == (id)parent) [(id)parent makeFirstResponder:(id)hFoc];
+        id fr = [(NSWindow *)parent firstResponder];
+        if (!fr || fr == self || fr == (id)parent) [(NSWindow *)parent makeFirstResponder:(id)hFoc];
         
       }
     }
@@ -1036,7 +1036,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 //  NSLog(@"r:%@ vr:%d v=%p tv=%p self=%p %p\n",NSStringFromRect(rect),vr,v,v2,self, [[self window] contentView]);
   if (!useNoMiddleManCocoa() || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor])
   {
-    [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
+    [(SWELL_ViewExtensions *)super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
     return;
   }
   
@@ -1683,10 +1683,10 @@ static HWND last_key_window;
   [super becomeKeyWindow]; \
   NSView *foc=last_key_window && IsWindow(last_key_window) ? [(NSWindow *)last_key_window contentView] : 0; \
   HMENU menu=0; \
-  if (foc && [foc respondsToSelector:@selector(swellHasBeenDestroyed)] && [foc swellHasBeenDestroyed]) foc=NULL; \
+  if (foc && [foc respondsToSelector:@selector(swellHasBeenDestroyed)] && [(SWELL_hwndChild*)foc swellHasBeenDestroyed]) foc=NULL; \
   NSView *cv = [self contentView];  \
-  if (!cv || ![cv respondsToSelector:@selector(swellHasBeenDestroyed)] || ![cv swellHasBeenDestroyed])  { \
-    if ([cv respondsToSelector:@selector(swellGetMenu)]) menu = (HMENU) [cv swellGetMenu]; \
+  if (!cv || ![cv respondsToSelector:@selector(swellHasBeenDestroyed)] || ![(SWELL_hwndChild*)cv swellHasBeenDestroyed])  { \
+    if ([cv respondsToSelector:@selector(swellGetMenu)]) menu = [(SWELL_hwndChild*)cv swellGetMenu]; \
     if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
     if (menu && menu != (HMENU)[NSApp mainMenu] && !g_swell_terminating) [NSApp setMainMenu:(NSMenu *)menu]; \
     sendSwellMessage(cv,WM_ACTIVATE,WA_ACTIVE,(LPARAM)foc); \
@@ -2114,7 +2114,7 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   else
   {
     HWND h=NULL;
-    SWELL_ModelessWindow *ch=[[SWELL_ModelessWindow alloc] initModeless:p Parent:parent dlgProc:dlgproc Param:param outputHwnd:&h forceStyles:forceStyles];
+    [[SWELL_ModelessWindow alloc] initModeless:p Parent:parent dlgProc:dlgproc Param:param outputHwnd:&h forceStyles:forceStyles];
     return h;
   }
   
