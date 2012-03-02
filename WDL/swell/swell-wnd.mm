@@ -1331,7 +1331,11 @@ bool IsWindow(HWND hwnd)
   for(x=0;x<n; x ++)
   {
     @try { 
-      if (IsWindowImpl((NSView*)hwnd,[[ch objectAtIndex:x] contentView])) 
+      NSWindow *w = [ch objectAtIndex:x];
+      if (w && 
+          // only validate children of our windows (maybe an option for this?)
+          ([w isKindOfClass:[SWELL_ModelessWindow class]] || [w isKindOfClass:[SWELL_ModalDialog class]]) &&
+          IsWindowImpl((NSView*)hwnd,[w contentView])) 
       {
         [ch release];
         return true;
