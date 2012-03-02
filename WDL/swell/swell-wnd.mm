@@ -1281,15 +1281,26 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
 
 static bool IsWindowImpl(NSView *ch, NSView *par)
 {
-  if (!par) return false;
+  if (!par || ![par isKindOfClass:[NSView class]]) return false;
+
   NSArray *ar = [par subviews];
   if (!ar) return false;
   [ar retain];
   int x,n=[ar count];
   for (x=0;x<n;x++)
-    if ([ar objectAtIndex:x] == ch) return true;
+    if ([ar objectAtIndex:x] == ch) 
+    {
+      [ar release];
+      return true;
+    }
+
   for (x=0;x<n;x++)
-    if (IsWindowImpl(ch,[ar objectAtIndex:x])) return true;
+    if (IsWindowImpl(ch,[ar objectAtIndex:x])) 
+    {
+      [ar release];
+      return true;
+    }
+
   [ar release];
   return false;
 }
@@ -1304,11 +1315,33 @@ bool IsWindow(HWND hwnd)
   int x,n=[ch count];
   for(x=0;x<n; x ++)
   {
-    NSWindow *w = [ch objectAtIndex:x]; 
-    if (w == (NSWindow *)hwnd || [w contentView] == (NSView *)hwnd) return true;
+    @try { 
+      NSWindow *w = [ch objectAtIndex:x]; 
+      if (w == (NSWindow *)hwnd || [w contentView] == (NSView *)hwnd) 
+      {
+        [ch release];
+        return true;
+      }
+    }
+    @catch (NSException *ex) { 
+    }
+    @catch (id ex) {
+    }
   }
   for(x=0;x<n; x ++)
-    if (IsWindowImpl((NSView*)hwnd,[[ch objectAtIndex:x] contentView])) return true;
+  {
+    @try { 
+      if (IsWindowImpl((NSView*)hwnd,[[ch objectAtIndex:x] contentView])) 
+      {
+        [ch release];
+        return true;
+      }
+    } 
+    @catch (NSException *ex) { 
+    }
+    @catch (id ex) {
+    }
+  }
   [ch release];
 
   SWELL_END_TRY(;)
