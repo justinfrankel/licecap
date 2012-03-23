@@ -42,7 +42,6 @@ static int MacKeyCodeToVK(int code)
     case 71: return VK_NUMLOCK;
     case 75: return VK_DIVIDE;
     case 76: return VK_RETURN|0x8000;
-    case 27:
     case 78: return VK_SUBTRACT;
     case 81: return VK_SEPARATOR;
     case 82: return VK_NUMPAD0;
