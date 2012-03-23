@@ -102,12 +102,9 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
   if (!code)
   {
     NSString *str=[theEvent charactersIgnoringModifiers];
-    const char *p=[str cStringUsingEncoding: NSASCIIStringEncoding];
-    if (!p) 
-    {
-      return 0;
-    }
-    code=toupper(*p);
+    if (!str || ![str length]) return 0;
+    code=[str characterAtIndex:0];
+    if (code >= 'a' && code <= 'z') code+='A'-'a';
     if (code == 25 && (flag&FSHIFT)) code=VK_TAB;
     if (isalnum(code)||code==' ' || code == '\r' || code == '\n' || code ==27 || code == VK_TAB) flag|=FVIRTKEY;
   }
