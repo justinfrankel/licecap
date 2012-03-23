@@ -152,7 +152,7 @@ int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
   {
   // todo: some OS X API for this?
     *newflags = lParam&~(FSHIFT|FVIRTKEY);
-    switch (wParam) 
+    if (!(lParam & (FCONTROL|FLWIN))) switch (wParam) 
     {
       case '1': return '!';
       case '2': return '@';
