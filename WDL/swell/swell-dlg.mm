@@ -130,7 +130,7 @@ static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event)
 {
   if (!slf) return 0;
   [slf retain];
-  LRESULT res=SWELL_SendMouseMessageImpl(slf,msg,event);
+  LRESULT res=SWELL_SendMouseMessageImpl((SWELL_hwndChild*)slf,msg,event);
   [slf release];
   return res;
 }
@@ -1036,7 +1036,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 //  NSLog(@"r:%@ vr:%d v=%p tv=%p self=%p %p\n",NSStringFromRect(rect),vr,v,v2,self, [[self window] contentView]);
   if (!useNoMiddleManCocoa() || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor])
   {
-    [(SWELL_ViewExtensions *)super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
+    [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
     return;
   }
   
@@ -1822,7 +1822,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   NSRect contentRect=NSMakeRect(wx,wy,cr.size.width,cr.size.height);
   if (!(self = [super initWithContentRect:contentRect styleMask:smask backing:NSBackingStoreBuffered defer:NO])) return self;
 
-  [self setDelegate:self];
+  [self setDelegate:(id)self];
   [self setAcceptsMouseMovedEvents:YES];
   [self setContentView:(NSView *)child];
   [self useOptimizedDrawing:YES];
@@ -1871,7 +1871,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   
   [self setAcceptsMouseMovedEvents:YES];
   [self useOptimizedDrawing:YES];
-  [self setDelegate:self];
+  [self setDelegate:(id)self];
   updateWindowCollection(self);
   
   if (resstate&&resstate->title) SetWindowText((HWND)self, resstate->title);
@@ -1953,7 +1953,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 
   [self setAcceptsMouseMovedEvents:YES];
   [self useOptimizedDrawing:YES];
-  [self setDelegate:self];
+  [self setDelegate:(id)self];
   updateWindowCollection(self);
 
   if (parent && [(id)parent respondsToSelector:@selector(swellAddOwnedWindow:)])

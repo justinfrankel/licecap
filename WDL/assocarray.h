@@ -245,21 +245,21 @@ public:
 
   VAL Get(KEY key, VAL notfound=0)  
   {
-    VAL* p = GetPtr(key);
+    VAL* p = this->GetPtr(key);
     if (p) return *p;
     return notfound;
   }
 
   VAL Enumerate(int i, KEY* key=0, VAL notfound=0)
   {
-    VAL* p = EnumeratePtr(i, key);
+    VAL* p = this->EnumeratePtr(i, key);
     if (p) return *p;
     return notfound; 
   }
 
   KEY ReverseLookup(VAL val, KEY notfound=0)
   {
-    KEY* p=ReverseLookupPtr(val);
+    KEY* p=this->ReverseLookupPtr(val);
     if (p) return *p;
     return notfound;
   }

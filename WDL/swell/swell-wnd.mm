@@ -822,7 +822,6 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
           }
         }
         if (msg==LB_ADDSTRING) wParam=cnt;
-        else if (wParam < 0) wParam=0;
         else if (wParam > cnt) wParam=cnt;
         LVITEM lvi={LVIF_TEXT,wParam,0,0,0,(char *)lParam};
         ListView_InsertItem(hwnd,&lvi);
@@ -844,7 +843,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
         return [self selectedRow];
       case LB_SETCURSEL:
       {
-        if (wParam>=0 && wParam<ListView_GetItemCount(hwnd))
+        if (wParam<ListView_GetItemCount(hwnd))
         {
           [self selectRowIndexes:[NSIndexSet indexSetWithIndex:wParam] byExtendingSelection:NO];        
         }
@@ -3245,7 +3244,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
       h+=6;
     }
     [obj setTag:idx];
-    [obj setDelegate:obj];
+    [obj setDelegate:(id)obj];
     [obj setAllowsTruncatedLabels:YES];
     [obj setNotificationWindow:ACTIONTARGET];
     [obj setHidden:NO];
@@ -3260,7 +3259,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     SWELL_ListView *obj = [[SWELL_ListView alloc] init];
     [obj setColumnAutoresizingStyle:NSTableViewNoColumnAutoresizing];
     [obj setFocusRingType:NSFocusRingTypeNone];
-    [obj setDataSource:obj];
+    [obj setDataSource:(id)obj];
     obj->style=style;
 
     BOOL isLB=!stricmp(classname, "SysListView32_LB");
@@ -3331,7 +3330,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     SWELL_TreeView *obj = [[SWELL_TreeView alloc] init];
     [obj setFocusRingType:NSFocusRingTypeNone];
-    [obj setDataSource:obj];
+    [obj setDataSource:(id)obj];
     obj->style=style;
     id target=ACTIONTARGET;
     [obj setHeaderView:nil];    
