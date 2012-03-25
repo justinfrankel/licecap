@@ -158,7 +158,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
 
       int oldsz=m_extracharlist.GetSize();
       ent = m_extracharlist.Resize(oldsz+1) + oldsz;
-      memset(ent,0,sizeof(ent));
+      memset(ent,0,sizeof(*ent));
       ent->charid = idx;
 
       needSort=true;

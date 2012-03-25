@@ -1566,7 +1566,7 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
   a2 = FindNextEdgeVertex(xy, a1, npoints, -1);
   b2 = FindNextEdgeVertex(xy, b1, npoints, 1);
 
-  while (a1 != a1 || b1 != b2)
+  while (a1 != a2 || b1 != b2)
   {
     int y_a2 = _Y(a2);
     int y_b2 = _Y(b2);
