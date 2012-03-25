@@ -111,4 +111,4 @@ private:
 
 };
 
-#endif _WDL_SCSRC_H_
+#endif // _WDL_SCSRC_H_
