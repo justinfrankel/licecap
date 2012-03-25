@@ -564,7 +564,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     mi->wID = [item tag];
   }
   
-  if(mi->fMask && MIIM_SUBMENU)
+  if(mi->fMask & MIIM_SUBMENU)
   {
     if ([item hasSubmenu])
     {
