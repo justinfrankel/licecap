@@ -147,10 +147,18 @@ typedef LONG_PTR LRESULT;
 
 
 typedef void *LPVOID, *PVOID;
-typedef int HRESULT;
-typedef short SHORT;
+
+#if defined(__APPLE__) && !defined(__LP64__)
+typedef signed long HRESULT;
+typedef signed long LONG;
+typedef unsigned long ULONG;
+#else
+typedef signed int HRESULT;
+typedef signed int LONG;
 typedef unsigned int ULONG;
-typedef int LONG;
+#endif
+
+typedef short SHORT;
 typedef int *LPINT;
 typedef char CHAR;
 typedef char *LPSTR;
