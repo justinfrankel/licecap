@@ -80,6 +80,11 @@ void Win7FileDialog::setDefaultExtension(const char *ext)
 #endif
 }
 
+void Win7FileDialog::setFileTypeIndex(int i)
+{
+  m_fod->SetFileTypeIndex(i);
+}
+
 void Win7FileDialog::setFolder(const char *folder, int def)
 {
   static HRESULT (WINAPI *my_SHCreateItemFromParsingName)(PCWSTR pszPath, IBindCtx *pbc, REFIID riid, void **ppv) = NULL;

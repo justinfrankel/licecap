@@ -2175,6 +2175,7 @@ public:
   
   void setFilterList(const char *list);
   void setDefaultExtension(const char *ext);
+  void setFileTypeIndex(int i); //1-based
   void setFolder(const char *folder, int def=1); //def is for default folder
   void setFilename(const char *fn);
   void setTemplate(HINSTANCE inst, const char *dlgid, LPOFNHOOKPROC proc);

@@ -145,8 +145,26 @@ bool WDL_ChooseFileForSave(HWND parent,
       char olddir[2048];
       GetCurrentDirectory(sizeof(olddir),olddir);
 
-      if (defext) fd.setDefaultExtension(defext);
       fd.setFilterList(extlist);
+      if (defext) 
+      {
+        fd.setDefaultExtension(defext);
+
+        int i = 0;
+        const char *p = extlist;
+        while(*p)
+        {
+          if(*p) p+=strlen(p)+1;
+          if(!*p) break;
+
+          if(strstr(p, defext)) break;
+
+          i++;
+
+          p+=strlen(p)+1;
+        }
+        fd.setFileTypeIndex(i+1);
+      }
       fd.setFolder(initialdir?initialdir:olddir, 0);
       if(initialfile) 
       {
