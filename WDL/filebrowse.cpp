@@ -109,6 +109,17 @@ bool WDL_ChooseDirectory(HWND parent, const char *text, const char *initialdir, 
 #endif
 }
 
+static const char *stristr(const char* a, const char* b)
+{
+  int i;
+  int len = strlen(b);
+  int n = strlen(a)-len;
+  for (i = 0; i <= n; ++i)
+    if (!strnicmp(a+i, b, len)) 
+      return a+i;
+  return NULL;
+}
+
 bool WDL_ChooseFileForSave(HWND parent, 
                                       const char *text, 
                                       const char *initialdir, 
@@ -156,14 +167,14 @@ bool WDL_ChooseFileForSave(HWND parent,
         {
           if(*p) p+=strlen(p)+1;
           if(!*p) break;
-
-          if(strstr(p, defext)) break;
-
+          if(stristr(p, defext)) 
+          {
+            fd.setFileTypeIndex(i+1);
+            break;
+          }
           i++;
-
           p+=strlen(p)+1;
         }
-        fd.setFileTypeIndex(i+1);
       }
       fd.setFolder(initialdir?initialdir:olddir, 0);
       if(initialfile) 
