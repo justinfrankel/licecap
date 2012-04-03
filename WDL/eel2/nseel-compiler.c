@@ -1513,6 +1513,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   codeHandleType *handle;
   startPtr *scode=NULL;
   startPtr *startpts=NULL;
+  char *tabptr = NULL;
 
   if (!ctx) return 0;
 
@@ -1610,7 +1611,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   }
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
 
-  char *tabptr = NULL;
   if (scode && (tabptr = (char *)(handle->workTable=calloc(computable_size+64,  sizeof(EEL_F)))))
   {
     unsigned char *writeptr;
