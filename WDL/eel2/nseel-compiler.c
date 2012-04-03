@@ -383,10 +383,6 @@ typedef struct {
   int code_stats[4];
 } codeHandleType;
 
-#ifndef NSEEL_MAX_TEMPSPACE_ENTRIES
-#define NSEEL_MAX_TEMPSPACE_ENTRIES 2048
-#endif
-
 static void *__newBlock(llBlock **start,int size);
 
 #define newTmpBlock(x) __newTmpBlock((llBlock **)&ctx->tmpblocks_head,x)
@@ -1562,8 +1558,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
     
     startptr=nseel_compileExpression(ctx,expr);
 
-    if (ctx->computTableTop > NSEEL_MAX_TEMPSPACE_ENTRIES- /* safety */ 16 - /* alignment */4 ||
-        !startptr) 
+    if (ctx->computTableTop > 512*1024*1024 || !startptr) 
     { 
       int byteoffs = expr - expression_start;
       int destoffs,linenumber;
@@ -1615,14 +1610,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   }
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
 
-  // check to see if failed on the first startingCode
-  if (!scode)
+  char *tabptr = NULL;
+  if (scode && (tabptr = (char *)(handle->workTable=calloc(computable_size+64,  sizeof(EEL_F)))))
   {
-    handle=NULL;              // return NULL (after resetting blocks_head)
-  }
-  else 
-  {
-    char *tabptr = (char *)(handle->workTable=calloc(computable_size+64,  sizeof(EEL_F)));
     unsigned char *writeptr;
     startPtr *p=startpts;
     int size=sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE; // for ret at end :)
@@ -1660,8 +1650,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
     }
     handle->blocks = ctx->blocks_head;
     ctx->blocks_head=0;
-
   }
+  else
+  {
+    // failed compiling, or failed calloc()
+    handle=NULL;              // return NULL (after resetting blocks_head)
+  }
+
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
   freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
 

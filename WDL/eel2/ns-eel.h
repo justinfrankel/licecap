@@ -127,12 +127,6 @@ extern int NSEEL_RAM_memused_errors;
 #define NSEEL_MAX_VARIABLE_NAMELEN 16
 // define this to override the max variable length (default is 16 bytes)
 
-//#define NSEEL_MAX_TEMPSPACE_ENTRIES 2048
-// define this to override the maximum working space in 8 byte units.
-// 2048 is the default, and is way more than enough for most applications
-// but in theory you might be able to come up with an expression big enough? maybe?
-
-
 // maximum loop length
 #define NSEEL_LOOPFUNC_SUPPORT_MAXLEN 1048576 // scary, we can do a million entries. probably will never want to, though.
 #define NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR "1048576"
