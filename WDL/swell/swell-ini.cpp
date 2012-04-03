@@ -71,6 +71,26 @@ static time_t getfileupdtime(FILE *fp)
   return st.st_mtime;
 }
 
+static bool fgets_to_typedbuf(WDL_TypedBuf<char> *buf, FILE *fp) 
+{
+  int rdpos=0;
+  while (rdpos < 1024*1024*32)
+  {
+    if (buf->GetSize()<rdpos+8192) buf->Resize(rdpos+8192);
+    if (buf->GetSize()<rdpos+4) break; // malloc fail, erg
+    char *p = buf->Get()+rdpos;
+    *p=0;
+    fgets(p,buf->GetSize()-rdpos,fp); 
+    if (!*p) break;
+    while (*p) p++;
+    if (p[-1] == '\r' || p[-1] == '\n') break;
+
+    rdpos = p - buf->Get();
+  }
+  return buf->GetSize()>0 && buf->Get()[0];
+}
+
+
 // return true on success
 static iniFileContext *GetFileContext(const char *name)
 {
@@ -121,16 +141,19 @@ static iniFileContext *GetFileContext(const char *name)
     
     // parse .ini file
     WDL_StringKeyedArray<char *> *cursec=NULL;
-    char buf[32768];
+
     int lcnt=0;
     for (;;)
     {
-      buf[0]=0;
-      fgets(buf,ctx->m_sections.GetSize()?sizeof(buf):2048,fp); // until we get a secction, read max of 2k (meaning the first section name has to be <2k)
-      if (!buf[0] || feof(fp)) break;
+      static WDL_TypedBuf<char> _buf;
+      if (!fgets_to_typedbuf(&_buf,fp)) break;
+
+      char *buf = _buf.Get();
       char *p=buf;
       if (lcnt++ == 8 && !ctx->m_sections.GetSize()) break; // dont bother reading more than 8 lines if no section encountered
+
       while (*p) p++;
+
       if (p>buf)
       {
         p--;
