@@ -133,6 +133,59 @@ const static unsigned int GLUE_POP_EBX[2]={ 0x81C10000, 0x38210004, };
 const static unsigned int GLUE_POP_ECX[2]={ 0x81E10000, 0x38210004 };
 
 
+
+// lwz r14, 0(r3)
+// lwz r15, 4(r3)
+// stwu r15, -4(r1)
+// stwu r14, -4(r1)
+static unsigned int GLUE_PUSH_EAXPTR_AS_VALUE[] = { 0x81C30000, 0x81E30004, 0x95E1FFFC, 0x95C1FFFC,  };
+
+static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
+{    
+  // lwz r14, 0(r1)
+  // lwz r15, 4(r1)
+  // addi r1,r1,8
+  // GLUE_MOV_EAX_DIRECTVALUE_GEN / GLUE_MOV_EAX_DIRECTVALUE_SIZE (r3)
+  // stw r14, 0(r3)
+  // stw r15, 4(r3)
+  if (buf)
+  {
+    unsigned int *bufptr = (unsigned int *)buf;
+    *bufptr++ = 0x81C10000;
+    *bufptr++ = 0x81E10004;
+    *bufptr++ = 0x38210008;    
+    GLUE_MOV_EAX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
+    bufptr += GLUE_MOV_EAX_DIRECTVALUE_SIZE/4;
+    *bufptr++ = 0x95C30000;
+    *bufptr++ = 0x95E30004;
+  }
+  return 3*4 + GLUE_MOV_EAX_DIRECTVALUE_SIZE + 2*4;
+}
+
+static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+{    
+  // lwz r14, 0(r3)
+  // lwz r15, 4(r3)
+  // GLUE_MOV_EAX_DIRECTVALUE_GEN / GLUE_MOV_EAX_DIRECTVALUE_SIZE (r3)
+  // stw r14, 0(r3)
+  // stw r15, 4(r3)
+
+  if (buf)
+  {
+    unsigned int *bufptr = (unsigned int *)buf;
+    *bufptr++ = 0x81C30000;
+    *bufptr++ = 0x81E30004;
+    GLUE_MOV_EAX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
+    bufptr += GLUE_MOV_EAX_DIRECTVALUE_SIZE/4;
+    *bufptr++ = 0x95C30000;
+    *bufptr++ = 0x95E30004;
+  }
+  
+  return 2*4 + GLUE_MOV_EAX_DIRECTVALUE_SIZE + 2*4;
+}
+
+
+
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
 {
   __asm__(
@@ -174,26 +227,121 @@ const static unsigned int GLUE_FUNC_ENTER[1];
 const static unsigned int GLUE_FUNC_LEAVE[1];
 
 #if defined(_WIN64) || defined(__LP64__)
-#define GLUE_MOV_EAX_DIRECTVALUE_SIZE 10
-static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) {   
-  unsigned short *bb = (unsigned short *)b;
-  *bb++ =0xB848; 
-  *(INT_PTR *)bb = v; 
-}
-const static unsigned char  GLUE_PUSH_EAX[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
-const static unsigned char  GLUE_POP_EBX[2]={0x5F, 0x5f}; //pop rdi ; twice
-const static unsigned char  GLUE_POP_ECX[2]={0x59, 0x59 }; // pop rcx ; twice
+  #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 10
+  static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) {   
+    unsigned short *bb = (unsigned short *)b;
+    *bb++ =0xB848; 
+    *(INT_PTR *)bb = v; 
+  }
+  const static unsigned char  GLUE_PUSH_EAX[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
+  const static unsigned char  GLUE_POP_EBX[2]={0x5F, 0x5f}; //pop rdi ; twice
+  const static unsigned char  GLUE_POP_ECX[2]={0x59, 0x59 }; // pop rcx ; twice
+
+  static unsigned char GLUE_PUSH_EAXPTR_AS_VALUE[] = {  0xff, 0x30 /* push qword [rax] */, 0x50 /*push rax - for alignment */ };
+  static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
+  {    
+    if (buf)
+    {
+      *buf++ = 0x48; *buf++ = 0xB9; *(void **) buf = destptr; buf+=8; // mov rcx, directvalue
+      *buf++ = 0x5F ; // pop rdi (alignment)
+      *buf++ = 0x8f; *buf++ = 0x01; // pop qword [rcx]      
+    }
+    return 1+10+2;
+  }
+
+  static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+  {    
+    if (buf)
+    {
+      *buf++ = 0x48; *buf++ = 0xB9; *(void **) buf = destptr; buf+=8; // mov rcx, directvalue
+      *buf++ = 0x48; *buf++ = 0x8B; *buf++ = 0x38; // mov rdi, [rax]
+      *buf++ = 0x48; *buf++ = 0x89; *buf++ = 0x39; // mov [rcx], rdi
+    }
+
+    return 3 + 10 + 3;
+  }
+
 #else
-#define GLUE_MOV_EAX_DIRECTVALUE_SIZE 5
-static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, int v) 
-{   
-  *((unsigned char *)b) =0xB8; 
-  b= ((unsigned char *)b)+1;
-  *(int *)b = v; 
-}
-const static unsigned char  GLUE_PUSH_EAX[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
-const static unsigned char  GLUE_POP_EBX[4]={0x5F, 0x83, 0xC4, 12}; //pop ebx, add esp, 12 // DI=5F, BX=0x5B;
-const static unsigned char  GLUE_POP_ECX[4]={0x59, 0x83, 0xC4, 12}; // pop ecx, add esp, 12
+
+  #if EEL_F_SIZE == 4
+    static unsigned char GLUE_PUSH_EAXPTR_AS_VALUE[] = { 0x83, 0xEC, 12, /* sub esp, 12 */,   0xff, 0x30 /* push dword [eax] */ };
+
+    static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
+    {    
+      if (buf)
+      {
+        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
+        
+        *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
+        
+        *buf++ = 0x59; // pop ecx
+        *buf++ = 0x59; // pop ecx
+        *buf++ = 0x59; // pop ecx
+      }
+      
+      return 10;
+    }
+
+
+    static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+    {    
+      if (buf)
+      {
+        *buf++ = 0x8B; *buf++ = 0x38; // mov edi, [eax]        
+        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
+        *buf++ = 0x89; *buf++ = 0x38; // mov [eax], edi
+      }
+      
+      return 2 + 5 + 2;
+    }
+  #else
+    static unsigned char GLUE_PUSH_EAXPTR_AS_VALUE[] = { 0x83, 0xEC, 8, /* sub esp, 8 */   0xff, 0x30 /* push dword [eax] */, 0xff, 0x70, 0x4 /* push dword [eax+4] */ };
+
+    static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
+    {    
+      if (buf)
+      {
+        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
+        
+        *buf++ = 0x8f; *buf++ = 0x40; *buf++ = 4; // pop dword [eax+4]
+        
+        *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
+        
+        *buf++ = 0x59; // pop ecx
+        *buf++ = 0x59; // pop ecx
+      }
+      
+      return 12;
+    }
+
+    static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+    {    
+      if (buf)
+      {
+        *buf++ = 0x8B; *buf++ = 0x38; // mov edi, [eax]
+        *buf++ = 0x8B; *buf++ = 0x48; *buf++ = 0x04; // mov ecx, [eax+4]
+        
+        
+        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
+        *buf++ = 0x89; *buf++ = 0x38; // mov [eax], edi
+        *buf++ = 0x89; *buf++ = 0x48; *buf++ = 0x04; // mov [eax+4], ecx
+      }
+      
+      return 2 + 3 + 5 + 2 + 3;
+    }
+
+  #endif
+
+  #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 5
+  static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, int v) 
+  {   
+    *((unsigned char *)b) =0xB8; 
+    b= ((unsigned char *)b)+1;
+    *(int *)b = v; 
+  }
+  const static unsigned char  GLUE_PUSH_EAX[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
+  const static unsigned char  GLUE_POP_EBX[4]={0x5F, 0x83, 0xC4, 12}; //pop ebx, add esp, 12 // DI=5F, BX=0x5B;
+  const static unsigned char  GLUE_POP_ECX[4]={0x59, 0x83, 0xC4, 12}; // pop ecx, add esp, 12
 
 #endif
 
@@ -268,7 +416,6 @@ INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
 }
 
 #endif
-
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 {
@@ -374,6 +521,7 @@ typedef struct _startPtr {
   struct _startPtr *next;
   void *startptr;
 } startPtr;
+
 
 typedef struct {
   llBlock *blocks, 
@@ -745,8 +893,10 @@ INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value, EEL_F *addrV
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *nseel_getFunctionAddress(int fntype, int fn, int *size, NSEEL_PPPROC *pProc, void ***replList)
+static void *nseel_getFunctionAddress(compileContext *_ctx, int fntype, int fn, int *size, NSEEL_PPPROC *pProc, void ***replList, int *customFuncParmSize, EEL_F **customFuncParamPtrs)
 {
+  *customFuncParamPtrs=NULL;
+  *customFuncParmSize=-1;
   *replList=0;
   switch (fntype)
 	{
@@ -782,6 +932,20 @@ static void *nseel_getFunctionAddress(int fntype, int fn, int *size, NSEEL_PPPRO
           *replList=p->replptrs;
           *pProc=p->pProc;
           return GLUE_realAddress(p->afunc,p->func_e,size);
+        }
+        else
+        {
+          _codeHandleFunctionRec *fr = _ctx->functions;
+          int a = fn - sizeof(fnTable1)/sizeof(fnTable1[0]) - fnTableUser_size;        
+          while (fr && a>0) { a--; fr=fr->next; }
+          if (!a && fr)
+          {
+            _ctx->computTableTop += fr->tmpspace_req;
+            *customFuncParmSize = fr->num_params;
+            *customFuncParamPtrs = fr->param_ptrs;
+            *size = fr->codesz;
+            return fr->startptr;
+          }
         }
       }
 	}
@@ -841,6 +1005,8 @@ INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR f
   }
   else
   {
+    EEL_F *cfp_ptrs;
+    int cfpsize;
     int size2;
     unsigned char *block;
     unsigned char *outp;
@@ -849,34 +1015,74 @@ INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR f
     NSEEL_PPPROC preProc=0;
     void **repl;
   
-    myfunc = nseel_getFunctionAddress(fntype, fn, &size2, &preProc,&repl);
-
-    block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizes3+
-      sizeof(GLUE_PUSH_EAX) + 
-      sizeof(GLUE_PUSH_EAX) +
-      sizeof(GLUE_POP_EBX) + 
-      sizeof(GLUE_POP_ECX));
-
-    outp=block+4;
-    memcpy(outp,(char*)code1+4,sizes1); 
-    outp+=sizes1;
-    memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
-    memcpy(outp,(char*)code2+4,sizes2); 
-    outp+=sizes2;
-    memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
-    memcpy(outp,(char*)code3+4,sizes3); 
-    outp+=sizes3;
-    memcpy(outp,&GLUE_POP_EBX,sizeof(GLUE_POP_EBX)); outp+=sizeof(GLUE_POP_EBX);
-    memcpy(outp,&GLUE_POP_ECX,sizeof(GLUE_POP_ECX)); outp+=sizeof(GLUE_POP_ECX);
-
-    memcpy(outp,myfunc,size2);
-    if (preProc) preProc(outp,size2,ctx);
-    if (repl)
+    myfunc = nseel_getFunctionAddress(ctx,fntype, fn, &size2, &preProc,&repl,&cfpsize,&cfp_ptrs);
+    if (cfpsize>=0)
     {
-      if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
-      if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
-      if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
-      if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+      int store_sz = cfpsize > 0 && cfp_ptrs ? 
+        (GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL)+
+        2*GLUE_POP_VALUE_TO_ADDR(NULL,NULL)+
+        2*sizeof(GLUE_PUSH_EAXPTR_AS_VALUE))
+      : 0;
+      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizes3+ store_sz);
+
+      outp=block+4;
+      memcpy(outp,(char*)code1+4,sizes1); 
+      outp+=sizes1;
+      if (store_sz>0) 
+      {
+        memcpy(outp,GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE));
+        outp += sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
+      }
+
+      memcpy(outp,(char*)code2+4,sizes2); 
+      outp+=sizes2;
+      if (store_sz>0) 
+      {
+        memcpy(outp,GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE));
+        outp += sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
+      }
+      
+      memcpy(outp,(char*)code3+4,sizes3); 
+      outp+=sizes3;
+      if (store_sz>0) 
+      {
+        outp += GLUE_COPY_VALUE_AT_EAX_TO_PTR(outp,cfp_ptrs + 2);
+        outp += GLUE_POP_VALUE_TO_ADDR(outp,cfp_ptrs+1);
+        outp += GLUE_POP_VALUE_TO_ADDR(outp,cfp_ptrs);
+      }
+      memcpy(outp,myfunc,size2);
+
+      // special for custom function
+    }
+    else
+    {
+      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizes3+
+        sizeof(GLUE_PUSH_EAX) + 
+        sizeof(GLUE_PUSH_EAX) +
+        sizeof(GLUE_POP_EBX) + 
+        sizeof(GLUE_POP_ECX));
+
+      outp=block+4;
+      memcpy(outp,(char*)code1+4,sizes1); 
+      outp+=sizes1;
+      memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
+      memcpy(outp,(char*)code2+4,sizes2); 
+      outp+=sizes2;
+      memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
+      memcpy(outp,(char*)code3+4,sizes3); 
+      outp+=sizes3;
+      memcpy(outp,&GLUE_POP_EBX,sizeof(GLUE_POP_EBX)); outp+=sizeof(GLUE_POP_EBX);
+      memcpy(outp,&GLUE_POP_ECX,sizeof(GLUE_POP_ECX)); outp+=sizeof(GLUE_POP_ECX);
+
+      memcpy(outp,myfunc,size2);
+      if (preProc) preProc(outp,size2,ctx);
+      if (repl)
+      {
+        if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
+        if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
+        if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
+        if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+      }
     }
 
     ctx->computTableTop++;
@@ -934,29 +1140,55 @@ INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR f
   }
 
   {
+    EEL_F *cfp_ptrs;
+    int cfpsize;
     NSEEL_PPPROC preProc=0;
     unsigned char *block;
     void **repl;
-    myfunc = nseel_getFunctionAddress(fntype, fn, &size2,&preProc,&repl);
+    myfunc = nseel_getFunctionAddress(ctx,fntype, fn, &size2,&preProc,&repl,&cfpsize,&cfp_ptrs);
 
-    block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizeof(GLUE_PUSH_EAX)+sizeof(GLUE_POP_EBX));
-
-    outp=block+4;
-    memcpy(outp,(char*)code1+4,sizes1); 
-    outp+=sizes1;
-    memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
-    memcpy(outp,(char*)code2+4,sizes2); 
-    outp+=sizes2;
-    memcpy(outp,&GLUE_POP_EBX,sizeof(GLUE_POP_EBX)); outp+=sizeof(GLUE_POP_EBX);
-
-    memcpy(outp,myfunc,size2);
-    if (preProc) preProc(outp,size2,ctx);
-    if (repl)
+    if (cfpsize>=0)
     {
-      if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
-      if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
-      if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
-      if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+      int store_sz = cfpsize > 0 && cfp_ptrs ?sizeof(GLUE_PUSH_EAXPTR_AS_VALUE) + GLUE_POP_VALUE_TO_ADDR(NULL,NULL) + GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL) : 0;
+
+      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+store_sz);
+      outp=block+4;
+      memcpy(outp,(char*)code1+4,sizes1); 
+      outp+=sizes1;
+      if (store_sz>0) 
+      {
+        memcpy(outp,GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE)); outp+=sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
+      }
+      memcpy(outp,(char*)code2+4,sizes2); 
+      outp+=sizes2;
+      if (store_sz>0) 
+      {
+        outp += GLUE_COPY_VALUE_AT_EAX_TO_PTR(outp,cfp_ptrs + 1);
+        outp += GLUE_POP_VALUE_TO_ADDR(outp,cfp_ptrs);
+      }
+      memcpy(outp,myfunc,size2);
+    }
+    else
+    {
+      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizeof(GLUE_PUSH_EAX)+sizeof(GLUE_POP_EBX));
+
+      outp=block+4;
+      memcpy(outp,(char*)code1+4,sizes1); 
+      outp+=sizes1;
+      memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
+      memcpy(outp,(char*)code2+4,sizes2); 
+      outp+=sizes2;
+      memcpy(outp,&GLUE_POP_EBX,sizeof(GLUE_POP_EBX)); outp+=sizeof(GLUE_POP_EBX);
+
+      memcpy(outp,myfunc,size2);
+      if (preProc) preProc(outp,size2,ctx);
+      if (repl)
+      {
+        if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
+        if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
+        if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
+        if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+      }
     }
 
     ctx->computTableTop++;
@@ -1008,20 +1240,38 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR f
 
   {
     void **repl;
-    myfunc = nseel_getFunctionAddress(fntype, fn, &size2,&preProc,&repl);
+    int cfpsize;
+    EEL_F *cfp_ptrs;
+    myfunc = nseel_getFunctionAddress(ctx, fntype, fn, &size2,&preProc,&repl,&cfpsize,&cfp_ptrs);
 
-    block=(char *)newTmpBlock(size+size2);
-
-    memcpy(block+4, func1, size);
-    memcpy(block+size+4,myfunc,size2);
-    if (preProc) preProc(block+size+4,size2,ctx);
-    if (repl)
+    if (cfpsize>=0)
     {
-      unsigned char *outp=(unsigned char *)block+size+4;
-      if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
-      if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
-      if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
-      if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+      int store_sz=0;
+      if (cfpsize>0 && cfp_ptrs) store_sz = GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL);
+      block=(char *)newTmpBlock(size+store_sz+size2);
+      memcpy(block+4, func1, size);
+      if (store_sz>0)
+      {
+        // add store [eax]->[parm0]
+        GLUE_COPY_VALUE_AT_EAX_TO_PTR((unsigned char *)block+4+size,cfp_ptrs);
+      }
+      memcpy(block+4+size+store_sz,myfunc,size2);
+    }
+    else
+    {
+      block=(char *)newTmpBlock(size+size2);
+
+      memcpy(block+4, func1, size);
+      memcpy(block+size+4,myfunc,size2);
+      if (preProc) preProc(block+size+4,size2,ctx);
+      if (repl)
+      {
+        unsigned char *outp=(unsigned char *)block+size+4;
+        if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
+        if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
+        if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
+        if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+      }
     }
 
     ctx->computTableTop++;
@@ -1533,6 +1783,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 
   if (!ctx) return 0;
 
+  ctx->functions=NULL; // each block of code has separate function-space
   ctx->last_error_string[0]=0;
 
   if (!_expression || !*_expression) return 0;
@@ -1558,6 +1809,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   {
     void *startptr;
     char *expr;
+    int function_numparms=0;
+    EEL_F *function_paramptrs=NULL;
+    char is_fname[MAX_USERFN_LEN];
+    is_fname[0]=0;
 
     ctx->colCount=0;
     ctx->computTableTop=0;
@@ -1573,7 +1828,111 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 
     // parse
     
+    ctx->function_localTable_Size=0;
+    ctx->function_localTable_Names=0;
+    ctx->function_localTable_Values=0;
+
+    if (!strncasecmp(expr,"function",8) && isspace(expr[8]))
+    {
+      char *p = expr+8;
+      while (isspace(p[0])) p++;
+      if (isalpha(p[0]) || p[0] == '_') 
+      {
+        int had_parms_locals=0;
+        char *sp=p;
+        int l;
+        while (isalnum(p[0]) || p[0] == '_') p++;
+        l=min(p-sp, sizeof(is_fname)-1);
+        memcpy(is_fname, sp, l);
+        is_fname[l]=0;
+
+        expr = p;
+
+        while (*expr)
+        {
+          p=expr;
+          while (isspace(*p)) p++;
+        
+          // todo: parameters as locals =)
+          if (p[0] == '(' || !strncasecmp(p,"locals(",7))
+          {
+            int maxcnt=0,state=0;
+            int is_parms = p[0] == '(';
+
+            if (had_parms_locals && p[0] == '(') break; 
+            had_parms_locals=1;
+
+            if (p[0] == '(') p++;
+            else p+=7;
+
+            sp=p;
+            while (*p && *p != ')') 
+            {
+              if (isspace(*p) || *p == ',')
+              {
+                if (state) maxcnt++;
+                state=0;
+              }
+              else state=1;
+              p++;
+            }
+            if (state) maxcnt++;
+            if (*p)
+            {
+              expr=p+1;
+          
+              if (maxcnt > 0)
+              {
+                char *ot = ctx->function_localTable_Names;
+                int osz = ctx->function_localTable_Size;
+
+                maxcnt += osz;
+
+                ctx->function_localTable_Names = newTmpBlock(NSEEL_MAX_VARIABLE_NAMELEN * maxcnt);
+                if (ctx->function_localTable_Names)
+                {
+                  int i=osz;
+                  if (osz && ot) memcpy(ctx->function_localTable_Names,ot,NSEEL_MAX_VARIABLE_NAMELEN * osz);
+                  p=sp;
+                  while (p < expr-1 && i < maxcnt)
+                  {
+                    while (p < expr && (isspace(*p) || *p == ',')) p++;
+                    sp=p;
+                    while (p < expr-1 && (!isspace(*p) && *p != ',')) p++;
+                    
+                    if (isalpha(*sp) || *sp == '_')
+                    {
+                      memset(ctx->function_localTable_Names + i*NSEEL_MAX_VARIABLE_NAMELEN, 0, NSEEL_MAX_VARIABLE_NAMELEN);
+                      strncpy(ctx->function_localTable_Names + i++ * NSEEL_MAX_VARIABLE_NAMELEN, sp, min(NSEEL_MAX_VARIABLE_NAMELEN,p-sp));               
+                    }
+                  }
+
+                  ctx->function_localTable_Size=i;
+
+                  if (is_parms) function_numparms = i;
+                }
+              }
+            }         
+          }
+          else break;
+        }
+      }
+    }
+    if (ctx->function_localTable_Size>0)
+    {
+      ctx->function_localTable_Values = newDataBlock(sizeof(EEL_F)*ctx->function_localTable_Size,8);
+      if (ctx->function_localTable_Values) memset(ctx->function_localTable_Values,0,sizeof(EEL_F)*ctx->function_localTable_Size);
+      function_paramptrs=ctx->function_localTable_Values;
+    }
+   
     startptr=nseel_compileExpression(ctx,expr);
+
+    if (ctx->function_localTable_Size)
+    {
+      ctx->function_localTable_Size=0;
+      ctx->function_localTable_Names=0;
+      ctx->function_localTable_Values=0;
+    }
 
     if (ctx->computTableTop > 512*1024*1024 || !startptr) 
     { 
@@ -1606,11 +1965,30 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       scode=NULL; 
       break; 
     }
-    if (curtabptr_sz < ctx->computTableTop)
+      
+    if (is_fname[0])
     {
-      curtabptr_sz=ctx->computTableTop;
-    }
+      _codeHandleFunctionRec *fr = newTmpBlock(sizeof(_codeHandleFunctionRec)); // allocates extra but we ignore it
+      if (fr)
+      {
+        int sz = *(int *)startptr;
+        fr->startptr = newCodeBlock(sz,32);
 
+        if (fr->startptr)
+        {
+          memcpy(fr->startptr,(char*)startptr+4,sz);                 
+          fr->tmpspace_req = ctx->computTableTop;
+          fr->codesz = sz;
+          fr->num_params=function_numparms;
+          fr->param_ptrs = function_paramptrs;
+          strcpy(fr->fname,is_fname);
+          
+          fr->next = ctx->functions;
+          ctx->functions = fr;
+        }
+      }
+    }
+    else
     {
       startPtr *tmp=(startPtr*) newTmpBlock(sizeof(startPtr)); // newTmpBlock allocates extra+puts the size at the start, but we ignore it
       if (!tmp) break;
@@ -1622,6 +2000,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       {
         scode->next=tmp;
         scode=tmp;
+      }
+
+      if (curtabptr_sz < ctx->computTableTop)
+      {
+        curtabptr_sz=ctx->computTableTop;
       }
     }
   }
@@ -1678,9 +2061,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
     handle=NULL;              // return NULL (after resetting blocks_head)
   }
 
+  ctx->functions=NULL; // these reference tmpblocks_head, no need to free.
+
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
-  freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
-  freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks
+  freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks of code (will be nonzero only on error)
+  freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks of data (will be nonzero only on error)
 
   if (handle)
   {
@@ -1743,7 +2128,10 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
     nseel_evallib_stats[2]-=h->code_stats[2];
     nseel_evallib_stats[3]-=h->code_stats[3];
     nseel_evallib_stats[4]--;
-    freeBlocks(&h->blocks);
+    
+//    if (0) // COMMENT THIS LINE OUT WHEN FINISHED THANK YOU
+      freeBlocks(&h->blocks);
+    
     freeBlocks(&h->blocks_data);
 
 

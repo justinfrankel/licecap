@@ -60,7 +60,21 @@ typedef struct
 	int srcByteCount;
 	int destByteCount;
 } lineRecItem;
-
+  
+#define MAX_USERFN_LEN 40
+  
+  
+typedef struct _codeHandleFunctionRec 
+{
+  struct _codeHandleFunctionRec *next;
+  void *startptr;
+  int codesz;
+  int tmpspace_req;
+  int num_params;
+  EEL_F *param_ptrs;
+  char fname[MAX_USERFN_LEN];
+} _codeHandleFunctionRec;  
+  
 typedef struct _compileContext
 {
   EEL_F **varTable_Values;
@@ -94,6 +108,12 @@ typedef struct _compileContext
   int compileLineRecs_size;
   int compileLineRecs_alloc;
 
+  _codeHandleFunctionRec *functions;
+
+  int function_localTable_Size;
+  char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
+  EEL_F *function_localTable_Values;
+  
   void *ram_blocks; // this needs to be immediately followed by
   int ram_needfree;
 
@@ -125,12 +145,6 @@ INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR f
 extern EEL_F nseel_globalregs[100];
 
 void nseel_resetVars(compileContext *ctx);
-EEL_F *nseel_getVarPtr(compileContext *ctx, char *varName);
-EEL_F *nseel_registerVar(compileContext *ctx, char *varName);
-
-INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv);
-
-// other shat
 
 
 
