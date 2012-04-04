@@ -341,7 +341,7 @@ case 2:
                                  YYSTYPE i = nseel_setVar(ctx,yyvsp[-2]);
                                  YYSTYPE v=nseel_getVar(ctx,i);
 
-                                 yyval = nseel_createCompiledFunction2(ctx,MATH_SIMPLE, FN_ASSIGN, v, yyvsp[0]);
+                                 yyval = nseel_createCompiledFunction2(ctx,MATH_SIMPLE, FN_ASSIGN_UNUSED_MAYBE, v, yyvsp[0]);
                                  ctx->result = yyval;
                                  }
                        ;
@@ -376,7 +376,7 @@ case 9:
     break;}
 case 10:
 //#ln 78 "cal.y"
-{                                  yyval = nseel_createCompiledFunction2(ctx,MATH_SIMPLE, FN_MODULO, yyvsp[-2], yyvsp[0]);
+{                                  yyval = nseel_createCompiledFunction2(ctx,MATH_SIMPLE, FN_DELIM_STATEMENTS, yyvsp[-2], yyvsp[0]);
     break;}
 case 11:
 //#ln 84 "cal.y"

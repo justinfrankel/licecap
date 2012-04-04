@@ -37,10 +37,10 @@
 extern "C" {
 #endif
 
-#define FN_ASSIGN   0
+#define FN_ASSIGN_UNUSED_MAYBE   0
 #define FN_MULTIPLY 1
 #define FN_DIVIDE   2
-#define FN_MODULO   3
+#define FN_DELIM_STATEMENTS   3
 #define FN_ADD      4
 #define FN_SUB      5
 #define FN_AND      6

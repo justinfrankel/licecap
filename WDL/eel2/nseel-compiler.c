@@ -745,7 +745,7 @@ static void *nseel_getFunctionAddress(int fntype, int fn, int *size, NSEEL_PPPRO
   	case MATH_SIMPLE:
 	  	switch (fn)
 			{
-			  case FN_ASSIGN:
+			  case FN_ASSIGN_UNUSED_MAYBE:
 				  return GLUE_realAddress(nseel_asm_assign,nseel_asm_assign_end,size);
 			  case FN_ADD:
 				  return GLUE_realAddress(nseel_asm_add,nseel_asm_add_end,size);
@@ -755,7 +755,7 @@ static void *nseel_getFunctionAddress(int fntype, int fn, int *size, NSEEL_PPPRO
 				  return GLUE_realAddress(nseel_asm_mul,nseel_asm_mul_end,size);
 			  case FN_DIVIDE:
 				  return GLUE_realAddress(nseel_asm_div,nseel_asm_div_end,size);
-			  case FN_MODULO:
+			  case FN_DELIM_STATEMENTS:
 				  return GLUE_realAddress(nseel_asm_exec2,nseel_asm_exec2_end,size);
 			  case FN_AND:
 				  return GLUE_realAddress(nseel_asm_and,nseel_asm_and_end,size);
