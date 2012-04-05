@@ -1071,6 +1071,14 @@ static char *preprocessCode(compileContext *ctx, char *expression)
       }
     }
     
+    if (expression[0] == '(' && expression[1]==')')
+    {
+      expression+=2;
+      memcpy(buf+len,"(0)",3);
+      len+=3;
+      ctx->l_stats[0]+=3;
+      continue;
+    }
     if (expression[0] == '$')
     {
       if (toupper(expression[1]) == 'X')
