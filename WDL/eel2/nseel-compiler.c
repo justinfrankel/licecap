@@ -1745,7 +1745,7 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
 
 
 //------------------------------------------------------------------------------
-void NSEEL_VM_resetvars(NSEEL_VMCTX _ctx)
+static void NSEEL_VM_freevars(NSEEL_VMCTX _ctx)
 {
   if (_ctx)
   {
@@ -1779,7 +1779,7 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
   if (_ctx)
   {
     compileContext *ctx=(compileContext *)_ctx;
-    NSEEL_VM_resetvars(_ctx);
+    NSEEL_VM_freevars(_ctx);
     NSEEL_VM_freeRAM(_ctx);
 
     freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks

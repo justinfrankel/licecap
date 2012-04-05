@@ -82,7 +82,6 @@ NSEEL_VMCTX NSEEL_VM_alloc(); // return a handle
 void NSEEL_VM_free(NSEEL_VMCTX ctx); // free when done with a VM and ALL of its code have been freed, as well
 
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx); // return false from func to stop
-void NSEEL_VM_resetvars(NSEEL_VMCTX ctx); // clears all vars to 0.0.
 
 EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variable (before compilation)
 
