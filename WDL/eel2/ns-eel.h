@@ -139,7 +139,7 @@ extern int NSEEL_RAM_memused_errors;
 #define NSEEL_RAM_BLOCKS 128
 #define NSEEL_RAM_ITEMSPERBLOCK 65536
 
-
+#define NSEEL_STACK_SIZE 4096 // about 64k overhead if the stack functions are used in a given code handle
 
 
 #ifdef __cplusplus

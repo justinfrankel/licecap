@@ -117,6 +117,8 @@ typedef struct _compileContext
   void *ram_blocks; // this needs to be immediately followed by
   int ram_needfree;
 
+  void *tmpCodeHandle;
+
   void *gram_blocks;
 
   void *caller_this;

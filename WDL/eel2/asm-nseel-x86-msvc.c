@@ -2479,6 +2479,231 @@ _emit 0x90;
 __declspec(naked) void _asm_megabuf_end(void) {}
 
 
+{
+#ifdef TARGET_X64
+
+  /// todo
+
+__declspec(naked) void nseel_asm_stack_push(void)
+{
+#ifdef TARGET_X64
+  __asm {
+    mov rdi, 0xFFFFFFFF;
+    mov rcx, qword ptr [rax];
+    mov rax, qword ptr [rdi];
+    add rax, 8;
+    mov rdx, 0xFEFEFEFEFEFEFEFE;
+    and rax, rdx;
+    mov rdx, 0xFEFEFEFEFEFEFEFE;
+    or rax, rdx;
+    mov qword ptr [rax], rcx;
+    mov qword ptr [rdi], rax;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    }
+#else
+
+  __asm {
+    mov edi, 0xffffffff;
+
+    mov ecx, dword ptr [eax];
+    mov edx, dword ptr [eax+4];
+
+    mov eax, dword ptr [edi];
+
+    add eax, 8;
+    and eax, 0xfefefefe;
+    or eax, 0xfefefefe;
+
+    mov dword ptr [eax], ecx;
+    mov dword ptr [eax+4], edx;
+
+    mov dword ptr [edi], eax;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+
+#endif
+
+}
+__declspec(naked) void nseel_asm_stack_push_end(void) {}
+
+
+
+__declspec(naked) void nseel_asm_stack_pop(void)
+{
+#ifdef TARGET_X64
+
+  __asm {
+      mov rdi, 0xFFFFFFFF;
+      mov rcx, qword ptr [rdi];
+      mov rax, rcx;
+      sub rcx, 8;
+      mov rdx, 0xFEFEFEFEFEFEFEFE;
+      and rcx, rdx;
+      mov rdx, 0xFEFEFEFEFEFEFEFE;
+      or rcx, rdx;
+      mov qword ptr [rdi], rcx;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    }
+
+#else
+
+  __asm {
+    mov edi, 0xffffffff;
+    mov ecx, dword ptr [edi];
+    mov eax, ecx;
+    sub ecx, 8;
+    and ecx, 0xfefefefe;
+    or ecx, 0xfefefefe;
+    mov dword ptr [edi], ecx;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+
+#endif
+}
+__declspec(naked) void nseel_asm_stack_pop_end(void) {}
+
+__declspec(naked) void nseel_asm_stack_peek(void)
+{
+#ifdef TARGET_X64
+
+  __asm {
+    mov rdi, 0xffffffff;
+    mov rax, qword ptr [rdi];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+
+#else
+
+  __asm {
+    mov edi, 0xffffffff;
+    mov eax, dword ptr [edi];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+
+#endif
+
+}
+__declspec(naked) void nseel_asm_stack_peek_end(void) {}
+
+__declspec(naked) void nseel_asm_stack_exch(void)
+{
+#ifdef TARGET_X64
+
+  __asm {
+    mov rdi, 0xffffffff;
+    mov rcx, qword ptr [rdi];
+    movq xmm0, [rcx];
+    movq xmm1, [rax];
+    movq [rax], xmm0;
+    movq [rcx], xmm1;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+
+#else
+
+  __asm {
+    mov edi, 0xffffffff;
+    mov ecx, dword ptr [edi];
+    fld EEL_ASM_TYPE [ecx];
+    fld EEL_ASM_TYPE [eax];
+    fstp EEL_ASM_TYPE [ecx];
+    fstp EEL_ASM_TYPE [eax];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+
+#endif
+
+}
+__declspec(naked) void nseel_asm_stack_exch_end(void) {}
+
 #ifdef TARGET_X64
 __declspec(naked) void win64_callcode()
 {

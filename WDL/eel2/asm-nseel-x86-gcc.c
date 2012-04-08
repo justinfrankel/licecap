@@ -1571,6 +1571,130 @@ RESTORE_STACK
 void _asm_megabuf_end(void) {}
 
 
+void nseel_asm_stack_push(void)
+{
+#ifdef TARGET_X64
+  __asm__(
+    "movl $0xFFFFFFFF, %rdi\n"
+    "movll (%rax), %rcx\n"
+    "movll (%rdi), %rax\n"
+    "addll $8, %rax\n"
+    "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+    "andll %rdx, %rax\n"
+    "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+    "orll %rdx, %rax\n"
+    "movll %rcx, (%rax)\n"
+    "movll %rax, (%rdi)\n"
+    );
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    
+    "movl (%eax), %ecx\n"
+    "movl 4(%eax), %edx\n"
+
+    "movl (%edi), %eax\n"
+
+    "addl $8, %eax\n"
+    "andl $0xfefefefe, %eax\n"
+    "orl $0xfefefefe, %eax\n"
+    
+    "movl %ecx, (%eax)\n"
+    "movl %edx, 4(%eax)\n"
+
+    "movl %eax, (%edi)\n"
+  );
+
+#endif
+
+}
+void nseel_asm_stack_push_end(void) {}
+
+
+
+void nseel_asm_stack_pop(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+      "movl $0xFFFFFFFF, %rdi\n"
+      "movll (%rdi), %rcx\n"
+      "movll %rcx, %rax\n"
+      "subll $8, %rcx\n"
+      "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+      "andll %rdx, %rcx\n"
+      "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+      "orll %rdx, %rcx\n"
+      "movll %rcx, (%rdi)\n"
+    );
+
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    "movl (%edi), %ecx\n"
+    "movl %ecx, %eax\n"
+    "subl $8, %ecx\n"
+    "andl $0xfefefefe, %ecx\n"
+    "orl $0xfefefefe, %ecx\n"
+    "movl %ecx, (%edi)\n"        
+  );
+
+#endif
+}
+void nseel_asm_stack_pop_end(void) {}
+
+void nseel_asm_stack_peek(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+    "movll $0xffffffff, %rdi\n"
+    "movll (%rdi), %rax\n"   
+  );
+
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    "movl (%edi), %eax\n"   
+  );
+
+#endif
+
+}
+void nseel_asm_stack_peek_end(void) {}
+
+void nseel_asm_stack_exch(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+    "movll $0xffffffff, %rdi\n"
+    "movll (%rdi), %rcx\n"   
+    "movq (%rcx), %xmm0\n"
+    "movq (%rax), %xmm1\n"
+    "movq %xmm0, (%rax)\n"
+    "movq %xmm1, (%rcx)\n"
+  );
+
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    "movl (%edi), %ecx\n"   
+    "fld" EEL_F_SUFFIX  " (%ecx)\n"
+    "fld" EEL_F_SUFFIX  " (%eax)\n"
+    "fstp" EEL_F_SUFFIX  " (%ecx)\n"
+    "fstp" EEL_F_SUFFIX " (%eax)\n"
+  );
+
+#endif
+
+}
+void nseel_asm_stack_exch_end(void) {}
+
 #ifdef TARGET_X64
 void win64_callcode() 
 {

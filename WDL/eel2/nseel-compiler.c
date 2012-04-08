@@ -415,6 +415,16 @@ INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
   return ((INT_PTR*)p)+1;
 }
 
+
+INT_PTR *EEL_GLUE_set_immediate2(void *_p, void *newv, INT_PTR scanval)
+{
+  char *p=(char*)_p;
+  while (*(INT_PTR *)p != scanval) p++;
+  *(INT_PTR *)p = (INT_PTR)newv;
+  return ((INT_PTR*)p)+1;
+}
+
+
 #endif
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
@@ -530,6 +540,9 @@ typedef struct {
 
   void *code;
   int code_stats[4];
+
+  int want_stack;
+  void *stack;  // references a chunk in blocks_data, somewhere within the complete NSEEL_STACK_SIZE aligned at NSEEL_STACK_SIZE
 } codeHandleType;
 
 static void *__newBlock(llBlock **start,int size, char wantMprotect);
@@ -610,11 +623,59 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(invsqrt)
   DECL_ASMFUNC(exec2)
 
+  DECL_ASMFUNC(stack_push)
+  DECL_ASMFUNC(stack_pop)
+  DECL_ASMFUNC(stack_peek)
+  DECL_ASMFUNC(stack_exch)
+
 static void NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
 {
   if (data_size>0) EEL_GLUE_set_immediate(data, ctx->gram_blocks);
 }
 
+static void NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
+{
+  codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
+
+  if (data_size>0) 
+  {
+    UINT_PTR m1=(UINT_PTR)(NSEEL_STACK_SIZE * sizeof(EEL_F) - 1);
+    UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
+
+    ch->want_stack=1;
+    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
+
+    data=EEL_GLUE_set_immediate(data, (void *)stackptr);
+
+#if defined(__ppc__)
+    data=EEL_GLUE_set_immediate(data, (void*) m1); // and
+    data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
+#elif defined(_WIN64) || defined(__LP64__)
+    data=EEL_GLUE_set_immediate2(data, (void*) m1,0xfefefefefefefefe); // and
+    data=EEL_GLUE_set_immediate2(data, (void *)((UINT_PTR)ch->stack&~m1),0xfefefefefefefefe); // or
+#else
+    // msvc's assembler generates short opcodes for and/or with ~0, erg. need to test gcc I guess too?
+    data=EEL_GLUE_set_immediate2(data, (void*) m1,0xfefefefe); // and
+    data=EEL_GLUE_set_immediate2(data, (void *)((UINT_PTR)ch->stack&~m1),0xfefefefe); // or
+#endif
+
+  }
+}
+static void NSEEL_PProc_Stack_Peek(void *data, int data_size, compileContext *ctx)
+{
+  codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
+
+  if (data_size>0) 
+  {
+    UINT_PTR m1=(UINT_PTR)(NSEEL_STACK_SIZE * sizeof(EEL_F) - 1);
+    UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
+
+    ch->want_stack=1;
+    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
+
+    data=EEL_GLUE_set_immediate(data, (void *)stackptr);
+  }
+}
 
 static EEL_F g_signs[2]={1.0,-1.0};
 static EEL_F negativezeropointfive=-0.5f;
@@ -758,6 +819,10 @@ static functionType fnTable1[] = {
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
 
+  {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1,{0,},NSEEL_PProc_Stack},
+  {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1,{0,},NSEEL_PProc_Stack},
+  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1,{0,},NSEEL_PProc_Stack_Peek},
+  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1,{0,},NSEEL_PProc_Stack_Peek},
 
 
 };
@@ -1803,6 +1868,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   
   memset(handle,0,sizeof(codeHandleType));
 
+  ctx->tmpCodeHandle = handle;
   expression_start=expression=preprocessCode(ctx,_expression);
 
   while (*expression)
@@ -2010,12 +2076,20 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   }
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
 
+  if (handle->want_stack)
+  {
+    if (!handle->stack) scode=NULL;
+  }
+
   if (scode) 
   {
     handle->workTable = curtabptr = newDataBlock((curtabptr_sz+64) * sizeof(EEL_F),32);
+    if (!curtabptr) scode=NULL;
   }
 
-  if (scode && curtabptr)
+  ctx->tmpCodeHandle = NULL;
+
+  if (scode)
   {
     unsigned char *writeptr;
     startPtr *p=startpts;
