@@ -104,6 +104,10 @@ void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr);
   // fudge with the string during the compilation (it will always restore it to the 
   // original value though).
 NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX ctx, char *code, int lineoffs);
+#define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS 1 // allows that code's functions to be used in other code (note you shouldn't destroy that codehandle without destroying others first if used)
+#define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET 2 // resets common code functions
+
+NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX ctx, char *code, int lineoffs, int flags);
 
 char *NSEEL_code_getcodeerror(NSEEL_VMCTX ctx);
 void NSEEL_code_execute(NSEEL_CODEHANDLE code);

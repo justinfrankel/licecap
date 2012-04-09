@@ -1839,6 +1839,11 @@ static void movestringover(char *str, int amount)
 //------------------------------------------------------------------------------
 NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lineoffs)
 {
+  return NSEEL_code_compile_ex(_ctx,_expression,lineoffs,0);
+}
+
+NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int lineoffs, int compile_flags)
+{
   compileContext *ctx = (compileContext *)_ctx;
   char *expression,*expression_start;
   codeHandleType *handle;
@@ -1846,13 +1851,20 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   startPtr *startpts=NULL;
   int curtabptr_sz=0;
   void *curtabptr=NULL;
+  _codeHandleFunctionRec *fr_save;
 
   if (!ctx) return 0;
 
-  ctx->functions=NULL; // each block of code has separate function-space
+  if (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET)
+  {
+    ctx->functions=NULL; // reset common function list
+  }
+
   ctx->last_error_string[0]=0;
 
   if (!_expression || !*_expression) return 0;
+
+  fr_save = ctx->functions; // save old common function list to restore if NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS not set
 
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
   freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
@@ -2035,11 +2047,18 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       
     if (is_fname[0])
     {
-      _codeHandleFunctionRec *fr = newTmpBlock(sizeof(_codeHandleFunctionRec)); // allocates extra but we ignore it
+      _codeHandleFunctionRec *fr = 
+        (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS) ? 
+        newDataBlock(sizeof(_codeHandleFunctionRec),8)
+        :
+        newTmpBlock(sizeof(_codeHandleFunctionRec)); 
       if (fr)
       {
         int sz = *(int *)startptr;
-        fr->startptr = newCodeBlock(sz,32);
+        fr->startptr = 
+          (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS) ?           
+            newDataBlock(sz,8) :
+            newTmpBlock(sz);
 
         if (fr->startptr)
         {
@@ -2136,7 +2155,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
     handle=NULL;              // return NULL (after resetting blocks_head)
   }
 
-  ctx->functions=NULL; // these reference tmpblocks_head, no need to free.
+  if (!handle || !(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS))
+  {
+    // if failed or NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS not set, remove our local function defs
+    ctx->functions=fr_save; // these reference tmpblocks_head, no need to free.
+  }
 
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
   freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks of code (will be nonzero only on error)
