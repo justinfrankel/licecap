@@ -1401,14 +1401,24 @@ static char *preprocessCode(compileContext *ctx, char *expression)
     }
     if (expression[0] == '$')
     {
-      if (toupper(expression[1]) == 'X')
+      if (toupper(expression[1]) == 'X'||expression[1] == '~')
       {
+        char isBits = expression[1] == '~';
         char *p=expression+2;
-        unsigned int v=strtoul(expression+2,&p,16);
-        char tmp[64];
+        unsigned int v=strtoul(expression+2,&p,isBits ? 10 : 16);
+        char tmp[256];
         expression=p;
 
-        sprintf(tmp,"%u",v);
+        if (isBits)
+        {
+          if (v<0) v=0;
+          if (v>53) v=53;
+          sprintf(tmp,"%.1f",(double) ((((WDL_INT64)1) << v) - 1));
+        }
+        else
+        {
+          sprintf(tmp,"%u",v);
+        }
         memcpy(buf+len,tmp,strlen(tmp));
         len+=strlen(tmp);
         ctx->l_stats[0]+=strlen(tmp);
