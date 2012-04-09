@@ -615,6 +615,8 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(shr)
   DECL_ASMFUNC(mod_op)
   DECL_ASMFUNC(or)
+  DECL_ASMFUNC(xor)
+  DECL_ASMFUNC(xor_op)
   DECL_ASMFUNC(and)
   DECL_ASMFUNC(or_op)
   DECL_ASMFUNC(and_op)
@@ -742,6 +744,7 @@ static functionType fnTable1[] = {
   { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2},
   { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2},
   { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2},
+  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2},
   { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2},
   { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2},
   { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2},
@@ -798,6 +801,7 @@ static functionType fnTable1[] = {
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1, {&negativezeropointfive, &onepointfive} },
 #endif
 
+  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2 } ,
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
   { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1sigmoid}, },
@@ -1536,6 +1540,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 				{{'%','='}, 0, 3, "_modop" },
 				{{'|','='}, 0, 3, "_orop" },
 				{{'&','='}, 0, 3, "_andop"},
+				{{'~','='}, 0, 3, "_xorop" },
 
 				{{'/','='}, 0, 3, "_divop"},
 				{{'*','='}, 0, 3, "_mulop"},
@@ -1552,6 +1557,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 				{{'|','|'}, 1, 2, "_or" },
 				{{'&','&'}, 1, 2, "_and" },
 				{{'=',0  }, 0, 3, "_set" },
+				{{'~',0},   0, 0, "_xor" },
 				{{'%',0},   0, 0, "_mod" },
 				{{'^',0},   0, 0, "pow" },
 

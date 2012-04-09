@@ -1075,6 +1075,79 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_or_op_end(void) {}
 
+
+__declspec(naked) void nseel_asm_xor(void)
+{
+  __asm {
+    fld EEL_ASM_TYPE [edi];
+    fld EEL_ASM_TYPE [eax];
+    mov eax, esi;
+    fistp qword ptr [esi];
+    fistp qword ptr [esi+8];
+#ifdef TARGET_X64
+    mov rdi, qword ptr [rsi+8];
+    xor qword ptr [rsi], rdi;
+#else
+    mov edi, dword ptr [esi+8];
+    mov ecx, dword ptr [esi+12];
+    xor dword ptr [esi], edi;
+    xor dword ptr [esi+4], ecx;
+#endif
+    fild qword ptr [esi];
+    fstp EEL_ASM_TYPE [esi];
+    add esi, EEL_F_SIZE;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_xor_end(void) {}
+
+__declspec(naked) void nseel_asm_xor_op(void)
+{
+  __asm {
+    fld EEL_ASM_TYPE [edi];
+    fld EEL_ASM_TYPE [eax];
+    fistp qword ptr [edi];
+    fistp qword ptr [esi];
+#ifdef TARGET_X64
+    mov rax, qword ptr [rsi];
+    xor qword ptr [rdi], rax;
+#else
+    mov eax, dword ptr [esi];
+    mov ecx, dword ptr [esi+4];
+    xor dword ptr [edi], eax;
+    xor dword ptr [edi+4], ecx;
+#endif
+    fild qword ptr [edi];
+    mov eax, edi;
+    fstp EEL_ASM_TYPE [edi];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_xor_op_end(void) {}
+
+
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_and(void)
 {

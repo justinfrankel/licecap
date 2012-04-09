@@ -649,6 +649,55 @@ void nseel_asm_or_op(void)
 }
 void nseel_asm_or_op_end(void) {}
 
+
+void nseel_asm_xor(void)
+{
+  __asm__(
+    "fld" EEL_F_SUFFIX " (%edi)\n"
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "movl %esi, %eax\n"
+    "fistpll (%esi)\n"
+    "fistpll 8(%esi)\n"
+#ifdef TARGET_X64
+    "movll 8(%rsi), %rdi\n"
+    "xorll %rdi, (%rsi)\n"
+#else
+    "movl 8(%esi), %edi\n"
+    "movl 12(%esi), %ecx\n"
+    "xorl %edi, (%esi)\n"
+    "xorl %ecx, 4(%esi)\n"
+#endif
+    "fildll (%esi)\n"
+    "fstp" EEL_F_SUFFIX " (%esi)\n"
+    "addl $" EEL_F_SSTR ", %esi\n"
+  );
+}
+void nseel_asm_xor_end(void) {}
+
+void nseel_asm_xor_op(void)
+{
+  __asm__(
+    "fld" EEL_F_SUFFIX " (%edi)\n"
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fistpll (%edi)\n"
+    "fistpll (%esi)\n"
+#ifdef TARGET_X64
+    "movll (%rsi), %rax\n"
+    "xorll %rax, (%rdi)\n"
+#else
+    "movl (%esi), %eax\n"
+    "movl 4(%esi), %ecx\n"
+    "xorl %eax, (%edi)\n"
+    "xorl %ecx, 4(%edi)\n"
+#endif
+    "fildll (%edi)\n"
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+  );
+}
+void nseel_asm_xor_op_end(void) {}
+
+
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_and(void)
 {
