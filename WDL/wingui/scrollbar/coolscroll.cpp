@@ -2617,7 +2617,7 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 	if(sw->fThumbTracking == TRUE)
 	{
-		int x, y;
+		LONG x, y;
 		lParam = GetMessagePos();
 		x = GET_X_LPARAM(lParam);
 		y = GET_Y_LPARAM(lParam);
@@ -2851,7 +2851,7 @@ static LRESULT NCCalcSize(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam
 static LRESULT NCMouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wHitTest, LPARAM lParam)
 {
   {
-    int x, y;
+    LONG x, y;
     int p;
     RECT hr, vr;
     lParam = GetMessagePos();
