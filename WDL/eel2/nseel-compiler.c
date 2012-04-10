@@ -206,7 +206,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
 
 unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
 {
-// todo 64 bit ppc will take some work
+  // 64 bit ppc would take some work
   unsigned int *p=(unsigned int *)_p;
   while ((p[0]&0x0000FFFF) != 0x0000dead && 
          (p[1]&0x0000FFFF) != 0x0000beef) p++;
@@ -657,7 +657,10 @@ static void freeBlocks(llBlock **start);
 
   DECL_ASMFUNC(stack_push)
   DECL_ASMFUNC(stack_pop)
+  DECL_ASMFUNC(stack_pop_fast) // just returns value, doesn't mod param
   DECL_ASMFUNC(stack_peek)
+  DECL_ASMFUNC(stack_peek_int)
+  DECL_ASMFUNC(stack_peek_top)
   DECL_ASMFUNC(stack_exch)
 
 static void NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
@@ -855,7 +858,7 @@ static functionType fnTable1[] = {
 
   {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1,{0,},NSEEL_PProc_Stack},
   {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1,{0,},NSEEL_PProc_Stack},
-  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1,{0,},NSEEL_PProc_Stack_Peek},
+  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1,{0,},NSEEL_PProc_Stack},
   {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1,{0,},NSEEL_PProc_Stack_Peek},
 
 
@@ -1285,10 +1288,50 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         }
         else
         {
-          // todo: if func == asm_stack_peek(), and constant parm, optimize some things
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+          {
+            if (func == nseel_asm_stack_pop)
+            {
+              func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
+              if (!func || bufOut_len < func_size) return -1;
 
+              if (bufOut) 
+              {
+                memcpy(bufOut,func,func_size);
+                NSEEL_PProc_Stack(bufOut,func_size,ctx);
+              }
+              return rv_offset + func_size;            
+            }
+            else if (func == nseel_asm_stack_peek)
+            {
+              int f = (int) op->parms.parms[0]->parms.dv.directValue;
+              if (!f)
+              {
+                func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
+                if (!func || bufOut_len < func_size) return -1;
 
+                if (bufOut) 
+                {
+                  memcpy(bufOut,func,func_size);
+                  NSEEL_PProc_Stack_Peek(bufOut,func_size,ctx);
+                }
+                return rv_offset + func_size;
+              }
+              else
+              {
+                func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
+                if (!func || bufOut_len < func_size) return -1;
 
+                if (bufOut)
+                {
+                  memcpy(bufOut,func,func_size);
+                  NSEEL_PProc_Stack(bufOut,func_size,ctx);
+                  EEL_GLUE_set_immediate(bufOut,(void*)(INT_PTR) (f*sizeof(EEL_F)));
+                }
+                return rv_offset + func_size;
+              }
+            }
+          }
 
           func = GLUE_realAddress(func,func_e,&func_size);
           if (!func) return -1;
@@ -2008,7 +2051,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           p=expr;
           while (isspace(*p)) p++;
         
-          // todo: parameters as locals =)
           if (p[0] == '(' || !strncasecmp(p,"locals(",7))
           {
             int maxcnt=0,state=0;

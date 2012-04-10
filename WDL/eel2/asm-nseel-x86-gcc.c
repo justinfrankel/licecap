@@ -1810,6 +1810,41 @@ void nseel_asm_stack_pop(void)
   __asm__(
       "movl $0xFFFFFFFF, %rdi\n"
       "movll (%rdi), %rcx\n"
+      "movq (%rcx), %xmm0\n"
+      "subll $8, %rcx\n"
+      "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+      "andll %rdx, %rcx\n"
+      "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+      "orll %rdx, %rcx\n"
+      "movll %rcx, (%rdi)\n"
+      "movq %xmm0, (%eax)\n"
+    );
+
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    "movl (%edi), %ecx\n"
+    "fld" EEL_F_SUFFIX  " (%ecx)\n"
+    "subl $8, %ecx\n"
+    "andl $0xfefefefe, %ecx\n"
+    "orl $0xfefefefe, %ecx\n"
+    "movl %ecx, (%edi)\n"
+    "fstp" EEL_F_SUFFIX " (%eax)\n"
+  );
+
+#endif
+}
+void nseel_asm_stack_pop_end(void) {}
+
+
+void nseel_asm_stack_pop_fast(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+      "movl $0xFFFFFFFF, %rdi\n"
+      "movll (%rdi), %rcx\n"
       "movll %rcx, %rax\n"
       "subll $8, %rcx\n"
       "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
@@ -1833,9 +1868,80 @@ void nseel_asm_stack_pop(void)
 
 #endif
 }
-void nseel_asm_stack_pop_end(void) {}
+void nseel_asm_stack_pop_fast_end(void) {}
+
+void nseel_asm_stack_peek_int(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+    "movll $0xffffffff, %rdi\n"
+    "movll (%rdi), %rax\n"   
+    "movl $0xFFFFFFFF, %rdx\n"
+    "subll %rdx, %rax\n"
+    "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+    "andll %rdx, %rax\n"
+    "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+    "orll %rdx, %rax\n"
+  );
+
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    "movl (%edi), %eax\n"   
+    "movl $0xffffffff, %edx\n"
+    "subl %edx, %eax\n"
+    "andl $0xfefefefe, %eax\n"
+    "orl $0xfefefefe, %eax\n"
+  );
+
+#endif
+
+}
+void nseel_asm_stack_peek_int_end(void) {}
+
+
 
 void nseel_asm_stack_peek(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+    "movll $0xffffffff, %rdi\n"
+    "fld" EEL_F_SUFFIX  " (%rax)\n"
+    "fistpl (%rsi)\n"
+    "movll (%rdi), %rax\n"   
+    "movll (%rsi), %rdx\n"
+    "shll $3, %rdx\n" // log2(sizeof(EEL_F))
+    "subl %rdx, %rax\n"
+    "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+    "andll %rdx, %rax\n"
+    "movl $0xFEFEFEFEFEFEFEFE, %rdx\n"
+    "orll %rdx, %rax\n"
+  );
+
+#else
+
+  __asm__(
+    "movl $0xffffffff, %edi\n"
+    "fld" EEL_F_SUFFIX  " (%eax)\n"
+    "fistpl (%esi)\n"
+    "movl (%edi), %eax\n"   
+    "movl (%esi), %edx\n"
+    "shll $3, %edx\n" // log2(sizeof(EEL_F))
+    "subl %edx, %eax\n"
+    "andl $0xfefefefe, %eax\n"
+    "orl $0xfefefefe, %eax\n"
+  );
+
+#endif
+
+}
+void nseel_asm_stack_peek_end(void) {}
+
+
+void nseel_asm_stack_peek_top(void)
 {
 #ifdef TARGET_X64
 
@@ -1854,7 +1960,7 @@ void nseel_asm_stack_peek(void)
 #endif
 
 }
-void nseel_asm_stack_peek_end(void) {}
+void nseel_asm_stack_peek_top_end(void) {}
 
 void nseel_asm_stack_exch(void)
 {
