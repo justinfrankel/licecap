@@ -214,22 +214,22 @@ INT_PTR nseel_getVar(compileContext *ctx, INT_PTR i)
   
   if (i >= NSEEL_GLOBALVAR_BASE && i < NSEEL_GLOBALVAR_BASE+100) 
   {
-    return nseel_createCompiledValue(ctx,0, nseel_globalregs+i-NSEEL_GLOBALVAR_BASE);
+    return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i-NSEEL_GLOBALVAR_BASE);
   }
 
   if (i >= 0 && i < lt_size)
   {
-    return nseel_createCompiledValue(ctx,0, ctx->function_localTable_Values + i); 
+    return nseel_createCompiledValuePtr(ctx, ctx->function_localTable_Values + i); 
   }
 
   i-=lt_size;
 
   if (i >= 0 && i < (NSEEL_VARS_PER_BLOCK*ctx->varTable_numBlocks))
   {
-    return nseel_createCompiledValue(ctx,0, ctx->varTable_Values[i/NSEEL_VARS_PER_BLOCK] + i%NSEEL_VARS_PER_BLOCK); 
+    return nseel_createCompiledValuePtr(ctx,ctx->varTable_Values[i/NSEEL_VARS_PER_BLOCK] + i%NSEEL_VARS_PER_BLOCK); 
   }
 
-  return nseel_createCompiledValue(ctx,0, NULL);
+  return nseel_createCompiledValue(ctx,0);
 }
 
 
@@ -263,8 +263,8 @@ INT_PTR nseel_translate(compileContext *ctx, int type)
 
   switch (type)
   {
-    case INTCONST: return nseel_createCompiledValue(ctx,(EEL_F)atoi(ctx->yytext), NULL);
-    case DBLCONST: return nseel_createCompiledValue(ctx,(EEL_F)atof(ctx->yytext), NULL);
+    case INTCONST: return nseel_createCompiledValue(ctx,(EEL_F)atoi(ctx->yytext));
+    case DBLCONST: return nseel_createCompiledValue(ctx,(EEL_F)atof(ctx->yytext));
     case HEXCONST:
       v=0;
       n=0;
@@ -276,7 +276,7 @@ INT_PTR nseel_translate(compileContext *ctx, int type)
         else if (a >= 'a' && a <= 'f') v=(v<<4)+10+a-'a';
         else break;
       }
-		return nseel_createCompiledValue(ctx,(EEL_F)v, NULL);
+		return nseel_createCompiledValue(ctx,(EEL_F)v);
   }
   return 0;
 }

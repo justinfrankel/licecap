@@ -63,13 +63,18 @@ typedef struct
   
 #define MAX_USERFN_LEN 40
   
-  
+typedef struct opcodeRec opcodeRec;
+
 typedef struct _codeHandleFunctionRec 
 {
   struct _codeHandleFunctionRec *next;
-  void *startptr;
-  int codesz;
+  void *startptr; // compiled code (may be cleared + recompiled when shraed)
+  int startptr_size;
+  
   int tmpspace_req;
+
+  opcodeRec *opcodes;
+    
   int num_params;
   EEL_F *param_ptrs;
   char fname[MAX_USERFN_LEN];
@@ -101,13 +106,14 @@ typedef struct _compileContext
   int     yyline;//  = 0;
 
   void *tmpblocks_head,*blocks_head, *blocks_head_data;
-  int computTableTop; // make it abort on potential overflow =)
+
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
 
   lineRecItem *compileLineRecs;
   int compileLineRecs_size;
   int compileLineRecs_alloc;
 
+  int isSharedFunctions;
   _codeHandleFunctionRec *functions;
 
   int function_localTable_Size;
@@ -139,10 +145,11 @@ typedef struct {
 
 extern functionType *nseel_getFunctionFromTable(int idx);
 
-INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value, EEL_F *addrValue);
-INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code);
-INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2);
-INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
+INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value);
+INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
+INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, int fn, INT_PTR code);
+INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2);
+INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
 
 extern EEL_F nseel_globalregs[100];
 

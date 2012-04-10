@@ -204,7 +204,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
             ::"r" (cp), "r" (bp));
 };
 
-INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
+unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
 {
 // todo 64 bit ppc will take some work
   unsigned int *p=(unsigned int *)_p;
@@ -213,7 +213,7 @@ INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
   p[0] = (p[0]&0xFFFF0000) | (((unsigned int)newv)>>16);
   p[1] = (p[1]&0xFFFF0000) | (((unsigned int)newv)&0xFFFF);
 
-  return (INT_PTR*)++p;
+  return (unsigned char *)(p+1);
 }
 
 
@@ -407,21 +407,21 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
   #endif // 32bit
 }
 
-INT_PTR *EEL_GLUE_set_immediate(void *_p, void *newv)
+unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
 {
   char *p=(char*)_p;
   while (*(INT_PTR *)p != ~(INT_PTR)0) p++;
   *(INT_PTR *)p = (INT_PTR)newv;
-  return ((INT_PTR*)p)+1;
+  return (unsigned char *) (((INT_PTR*)p)+1);
 }
 
 
-INT_PTR *EEL_GLUE_set_immediate2(void *_p, void *newv, INT_PTR scanval)
+unsigned char *EEL_GLUE_set_immediate2(void *_p, void *newv, INT_PTR scanval)
 {
   char *p=(char*)_p;
   while (*(INT_PTR *)p != scanval) p++;
   *(INT_PTR *)p = (INT_PTR)newv;
-  return ((INT_PTR*)p)+1;
+  return (unsigned char *)(((INT_PTR*)p)+1);
 }
 
 
@@ -527,12 +527,6 @@ typedef struct _llBlock {
   char block[LLB_DSIZE];
 } llBlock;
 
-typedef struct _startPtr {
-  struct _startPtr *next;
-  void *startptr;
-} startPtr;
-
-
 typedef struct {
   llBlock *blocks, 
           *blocks_data;
@@ -547,9 +541,38 @@ typedef struct {
 
 static void *__newBlock(llBlock **start,int size, char wantMprotect);
 
+enum {
+  OPCODETYPE_DIRECTVALUE=0,
+  OPCODETYPE_VARPTR,
+  OPCODETYPE_FUNC1,
+  OPCODETYPE_FUNC2,
+  OPCODETYPE_FUNC3
+};
+
+struct opcodeRec
+{
+ int opcodeType; 
+ int fntype;
+ int fn;
+ 
+ union {
+   struct opcodeRec *parms[3];
+   struct {
+     double directValue;
+     EEL_F *valuePtr; // if direct value, valuePtr can be cached
+   } dv;
+ } parms;
+  
+ struct opcodeRec *_next; // used for top level stuff
+};
+
+
+#define newOpCode() __newOpCode(ctx)
+
 #define newTmpBlock(x) __newTmpBlock(ctx,x) // allocates extra and puts the size at the start
 #define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
 #define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
+
 
 static void *__newTmpBlock(compileContext *ctx, int size)
 {
@@ -558,12 +581,19 @@ static void *__newTmpBlock(compileContext *ctx, int size)
   return p;
 }
 
-static void *__newBlock_align(compileContext *ctx, int size, int align, char isForCode) // makes sure block is aligned to 32 byte boundary, for code
+static void *__newBlock_align(compileContext *ctx, int size, int align, char isForCode) 
 {
   int a1=align-1;
   char *p=(char*)__newBlock(
-       (llBlock **)(isForCode ? &ctx->blocks_head : &ctx->blocks_head_data) ,size+a1, isForCode);
+                            (llBlock **)(isForCode < 0 ? &ctx->tmpblocks_head : 
+                                         isForCode > 0 ? &ctx->blocks_head : 
+                                          &ctx->blocks_head_data) ,size+a1, isForCode>0);
   return p+((align-(((INT_PTR)p)&a1))&a1);
+}
+
+static opcodeRec *__newOpCode(compileContext *ctx)
+{
+  return (opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec),8, ctx->isSharedFunctions ? 0 : -1); 
 }
 
 static void freeBlocks(llBlock **start);
@@ -669,7 +699,6 @@ static void NSEEL_PProc_Stack_Peek(void *data, int data_size, compileContext *ct
 
   if (data_size>0) 
   {
-    UINT_PTR m1=(UINT_PTR)(NSEEL_STACK_SIZE * sizeof(EEL_F) - 1);
     UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
 
     ch->want_stack=1;
@@ -944,412 +973,433 @@ static void *__newBlock(llBlock **start, int size, char wantMprotect)
 
 
 //---------------------------------------------------------------------------------------------------------------
-INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value, EEL_F *addrValue)
+INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 {
-  unsigned char *block;
-
-  block=(unsigned char *)newTmpBlock(GLUE_MOV_EAX_DIRECTVALUE_SIZE);
-
-  if (addrValue == NULL)
-  {
-    *(addrValue = (EEL_F *)newDataBlock(sizeof(EEL_F),sizeof(EEL_F))) = value;
-    ctx->l_stats[3]+=sizeof(EEL_F);
-  }
-
-  GLUE_MOV_EAX_DIRECTVALUE_GEN(block+4,(INT_PTR)addrValue);
-
-  return ((INT_PTR)(block));
-
+  opcodeRec *r=newOpCode();
+  r->opcodeType = OPCODETYPE_DIRECTVALUE;
+  r->parms.dv.directValue = value; 
+  r->parms.dv.valuePtr = NULL;
+  return (INT_PTR)r;
 }
 
+INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
+{
+  opcodeRec *r=newOpCode();
+  r->opcodeType = OPCODETYPE_VARPTR;
+  r->parms.dv.valuePtr=addrValue;
+  r->parms.dv.directValue=0.0;
+  return (INT_PTR)r;
+}
+INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
+{
+  opcodeRec *r=newOpCode();
+  r->opcodeType = OPCODETYPE_FUNC3;
+  r->fntype = fntype;
+  r->fn = fn;
+  r->parms.parms[0] = (opcodeRec*)code1;
+  r->parms.parms[1] = (opcodeRec*)code2;
+  r->parms.parms[2] = (opcodeRec*)code3;
+  return (INT_PTR)r;  
+}
+INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2)
+{
+  opcodeRec *r=newOpCode();
+  r->opcodeType = OPCODETYPE_FUNC2;
+  r->fntype = fntype;
+  r->fn = fn;
+  r->parms.parms[0] = (opcodeRec*)code1;
+  r->parms.parms[1] = (opcodeRec*)code2;
+  return (INT_PTR)r;  
+}
+INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, int fn, INT_PTR code1)
+{
+  opcodeRec *r=newOpCode();
+  r->opcodeType = OPCODETYPE_FUNC1;
+  r->fntype = fntype;
+  r->fn = fn;
+  r->parms.parms[0] = (opcodeRec*)code1;
+  return (INT_PTR)r;  
+}
+
+static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable);
+
 //---------------------------------------------------------------------------------------------------------------
-static void *nseel_getFunctionAddress(compileContext *_ctx, int fntype, int fn, int *size, NSEEL_PPPROC *pProc, void ***replList, int *customFuncParmSize, EEL_F **customFuncParamPtrs)
+static void *nseel_getFunctionAddress(compileContext *ctx, 
+      int fntype, int fn, 
+      NSEEL_PPPROC *pProc, void ***replList, 
+      int *customFuncParmSize, EEL_F **customFuncParamPtrs, int *computTableTop, 
+      void **endP, int *isRaw)
 {
   *customFuncParamPtrs=NULL;
   *customFuncParmSize=-1;
   *replList=0;
   switch (fntype)
-	{
-  	case MATH_SIMPLE:
-	  	switch (fn)
-			{
-			  case FN_ASSIGN_UNUSED_MAYBE:
-				  return GLUE_realAddress(nseel_asm_assign,nseel_asm_assign_end,size);
-			  case FN_ADD:
-				  return GLUE_realAddress(nseel_asm_add,nseel_asm_add_end,size);
-			  case FN_SUB:
-				  return GLUE_realAddress(nseel_asm_sub,nseel_asm_sub_end,size);
-			  case FN_MULTIPLY:
-				  return GLUE_realAddress(nseel_asm_mul,nseel_asm_mul_end,size);
-			  case FN_DIVIDE:
-				  return GLUE_realAddress(nseel_asm_div,nseel_asm_div_end,size);
-			  case FN_DELIM_STATEMENTS:
-				  return GLUE_realAddress(nseel_asm_exec2,nseel_asm_exec2_end,size);
-			  case FN_AND:
-				  return GLUE_realAddress(nseel_asm_and,nseel_asm_and_end,size);
-			  case FN_OR:
-				  return GLUE_realAddress(nseel_asm_or,nseel_asm_or_end,size);
-			  case FN_UPLUS:
-				  return GLUE_realAddress(nseel_asm_uplus,nseel_asm_uplus_end,size);
-			  case FN_UMINUS:
-				  return GLUE_realAddress(nseel_asm_uminus,nseel_asm_uminus_end,size);
-			}
-	  case MATH_FN:
+  {
+    case MATH_SIMPLE:
+      switch (fn)
+      {
+#define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
+        case FN_ASSIGN_UNUSED_MAYBE: RF(assign);
+        case FN_ADD: RF(add);
+        case FN_SUB: RF(sub);
+        case FN_MULTIPLY: RF(mul);
+        case FN_DIVIDE: RF(div);
+        case FN_DELIM_STATEMENTS: RF(exec2);
+        case FN_AND: RF(and);
+        case FN_OR: RF(or);
+        case FN_UPLUS: RF(uplus); 
+        case FN_UMINUS: RF(uminus);
+#undef RF
+      }
+    case MATH_FN:
       {
         functionType *p=nseel_getFunctionFromTable(fn);
-		    if (p) 
+        if (p) 
         {
           *replList=p->replptrs;
           *pProc=p->pProc;
-          return GLUE_realAddress(p->afunc,p->func_e,size);
+          *endP = p->func_e;
+          return p->afunc; 
         }
-        else
+      }
+      {
+        _codeHandleFunctionRec *fr = ctx->functions;
+        int a = fn - sizeof(fnTable1)/sizeof(fnTable1[0]) - fnTableUser_size;        
+        while (fr && a>0) { a--; fr=fr->next; }
+        if (!a && fr)
         {
-          _codeHandleFunctionRec *fr = _ctx->functions;
-          int a = fn - sizeof(fnTable1)/sizeof(fnTable1[0]) - fnTableUser_size;        
-          while (fr && a>0) { a--; fr=fr->next; }
-          if (!a && fr)
+          if (!fr->startptr && fr->opcodes && fr->startptr_size > 0)
           {
-            _ctx->computTableTop += fr->tmpspace_req;
+            void *p=newTmpBlock(fr->startptr_size);
+            fr->tmpspace_req=0;
+            if (p)
+            {
+              int sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req);
+              // recompile function with native context pointers
+              if (sz>0)
+              {
+                fr->startptr_size=sz;
+                fr->startptr=p;
+              }
+            }
+          }
+          if (fr->startptr)
+          {
+            if (computTableTop) *computTableTop += fr->tmpspace_req;
             *customFuncParmSize = fr->num_params;
             *customFuncParamPtrs = fr->param_ptrs;
-            *size = fr->codesz;
+            *endP = (char*)fr->startptr + fr->startptr_size;
+            *isRaw=1;
             return fr->startptr;
           }
         }
       }
-	}
-
-  *size=0;
+    break;
+  }
+  
   return 0;
 }
 
-
-//---------------------------------------------------------------------------------------------------------------
-INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
+static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize)
 {
-  int sizes1=((int *)code1)[0];
-  int sizes2=((int *)code2)[0];
-  int sizes3=((int *)code3)[0];
-
-  if (fntype == MATH_FN && fn == 0) // special case: IF
-  {
-    void *func3;
-    int size;
-    INT_PTR *ptr;
-    char *block;
-
-    unsigned char *newblock2,*newblock3;
-    unsigned char *p;
-
-    p=newblock2=newCodeBlock(sizes2+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
-    memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
-    memcpy(p,(char*)code2+4,sizes2); p+=sizes2;
-    memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
-    memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
-
-    p=newblock3=newCodeBlock(sizes3+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
-    memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
-    memcpy(p,(char*)code3+4,sizes3); p+=sizes3;
-    memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
-    memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
-
-    ctx->l_stats[2]+=sizes2+sizes3+sizeof(GLUE_RET)*2;
-    
-    func3 = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&size);
-
-    block=(char *)newTmpBlock(sizes1+size);
-
-    memcpy(block+4,(char*)code1+4,sizes1);
-    ptr=(INT_PTR *)(block+4+sizes1);
-    memcpy(ptr,func3,size);
-
-    ptr=EEL_GLUE_set_immediate(ptr,&g_closefact);
-    ptr=EEL_GLUE_set_immediate(ptr,newblock2);
-    EEL_GLUE_set_immediate(ptr,newblock3);
-
-    ctx->computTableTop++;
-
-    return (INT_PTR)block;
-
-  }
-  else
-  {
-    EEL_F *cfp_ptrs;
-    int cfpsize;
-    int size2;
-    unsigned char *block;
-    unsigned char *outp;
-
-    void *myfunc;
-    NSEEL_PPPROC preProc=0;
-    void **repl;
+  unsigned char *p, *newblock2;
+  // generate code call
+  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL);
+  if (funcsz<0) return NULL;
   
-    myfunc = nseel_getFunctionAddress(ctx,fntype, fn, &size2, &preProc,&repl,&cfpsize,&cfp_ptrs);
-    if (cfpsize>=0)
+  p = newblock2 = newCodeBlock(funcsz+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+  if (!newblock2) return NULL;
+  memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
+  p+=compileOpcodes(ctx,rec,p, funcsz, computTableSize);         
+  memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
+  memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
+  
+  ctx->l_stats[2]+=funcsz+2;
+  return newblock2;
+}      
+
+
+int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize)
+{
+  int rv_offset=0;
+  if (!op) return -1;
+ 
+  // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
+  // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
+  while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == MATH_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
+  {
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize);
+    if (parm_size < 0) return -1;
+    op = op->parms.parms[1];
+    if (!op) return -1;
+
+    if (bufOut) bufOut += parm_size;
+    bufOut_len -= parm_size;
+    rv_offset += parm_size;
+  }
+
+
+  if (op->fntype == MATH_FN)
+  {
+    // special case: while
+    int fn=op->fn;
+    if (op->opcodeType == OPCODETYPE_FUNC1 && fn == 4)
     {
-      int store_sz = cfpsize > 0 && cfp_ptrs ? 
-        (GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL)+
-        2*GLUE_POP_VALUE_TO_ADDR(NULL,NULL)+
-        2*sizeof(GLUE_PUSH_EAXPTR_AS_VALUE))
-      : 0;
-      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizes3+ store_sz);
-
-      outp=block+4;
-      memcpy(outp,(char*)code1+4,sizes1); 
-      outp+=sizes1;
-      if (store_sz>0) 
+      unsigned char *newblock2;
+      int stubsz;
+      void *stubfunc = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&stubsz);
+      if (bufOut_len < stubsz) return -1;        
+      if (!bufOut) return rv_offset+stubsz;
+      
+      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize);
+      if (!newblock2) return -1;
+      
+      memcpy(bufOut,stubfunc,stubsz);
+      bufOut=EEL_GLUE_set_immediate(bufOut,newblock2); 
+      EEL_GLUE_set_immediate(bufOut,&g_closefact); 
+      
+      if (computTableSize) (*computTableSize)++;
+      return rv_offset+stubsz;
+    }
+    
+    // special case: BAND/BOR/LOOP
+    if (op->opcodeType == OPCODETYPE_FUNC2 && (fn == 1 || fn == 2 || fn == 3))
+    {
+      void *stub;
+      int stubsize;        
+      unsigned char *newblock2, *p;
+      
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize);
+      if (parm_size < 0) return -1;
+      
+      if (fn == 1) stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
+      else if (fn == 3) stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
+      else stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
+      
+      if (computTableSize) (*computTableSize) ++;
+      
+      if (bufOut_len < parm_size + stubsize) return -1;
+      
+      if (!bufOut)
       {
-        memcpy(outp,GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE));
-        outp += sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
-      }
-
-      memcpy(outp,(char*)code2+4,sizes2); 
-      outp+=sizes2;
-      if (store_sz>0) 
-      {
-        memcpy(outp,GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE));
-        outp += sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
+        return rv_offset + parm_size + stubsize;
       }
       
-      memcpy(outp,(char*)code3+4,sizes3); 
-      outp+=sizes3;
-      if (store_sz>0) 
+      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize);
+      
+      p = bufOut + parm_size;
+      memcpy(p, stub, stubsize);
+      
+      if (fn!=3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
+      p=EEL_GLUE_set_immediate(p,newblock2);
+      if (fn!=3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
+  #ifdef __ppc__
+      if (fn!=3) // for or/and on ppc we need a one
       {
-        outp += GLUE_COPY_VALUE_AT_EAX_TO_PTR(outp,cfp_ptrs + 2);
-        outp += GLUE_POP_VALUE_TO_ADDR(outp,cfp_ptrs+1);
-        outp += GLUE_POP_VALUE_TO_ADDR(outp,cfp_ptrs);
+        p=EEL_GLUE_set_immediate(p,&eel_one);
       }
-      memcpy(outp,myfunc,size2);
-
-      // special for custom function
-    }
-    else
-    {
-      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizes3+
-        sizeof(GLUE_PUSH_EAX) + 
-        sizeof(GLUE_PUSH_EAX) +
-        sizeof(GLUE_POP_EBX) + 
-        sizeof(GLUE_POP_ECX));
-
-      outp=block+4;
-      memcpy(outp,(char*)code1+4,sizes1); 
-      outp+=sizes1;
-      memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
-      memcpy(outp,(char*)code2+4,sizes2); 
-      outp+=sizes2;
-      memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
-      memcpy(outp,(char*)code3+4,sizes3); 
-      outp+=sizes3;
-      memcpy(outp,&GLUE_POP_EBX,sizeof(GLUE_POP_EBX)); outp+=sizeof(GLUE_POP_EBX);
-      memcpy(outp,&GLUE_POP_ECX,sizeof(GLUE_POP_ECX)); outp+=sizeof(GLUE_POP_ECX);
-
-      memcpy(outp,myfunc,size2);
-      if (preProc) preProc(outp,size2,ctx);
-      if (repl)
-      {
-        if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
-        if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
-        if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
-        if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
-      }
-    }
-
-    ctx->computTableTop++;
-
-    return ((INT_PTR)(block));  
-  }
-}
-
-//---------------------------------------------------------------------------------------------------------------
-INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2)
-{
-  int size2;
-  unsigned char *outp;
-  void *myfunc;
-  int sizes1=((int *)code1)[0];
-  int sizes2=((int *)code2)[0];
-  if (fntype == MATH_FN && (fn == 1 || fn == 2 || fn == 3)) // special case: LOOP/BOR/BAND
-  {
-    void *func3;
-    int size;
-    INT_PTR *ptr;
-    char *block;
-
-    unsigned char *newblock2, *p;
-
-    p=newblock2=newCodeBlock(sizes2+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
-    memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
-    memcpy(p,(char*)code2+4,sizes2); p+=sizes2;
-    memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
-    memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
-
-    ctx->l_stats[2]+=sizes2+2;
+  #endif
+      return rv_offset + parm_size + stubsize;
+    }  
     
-    if (fn == 1) func3 = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&size);
-    else if (fn == 3) func3 = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&size);
-    else func3 = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&size);
-
-    block=(char *)newTmpBlock(sizes1+size);
-    memcpy(block+4,(char*)code1+4,sizes1);
-    ptr=(INT_PTR *)(block+4+sizes1);
-    memcpy(ptr,func3,size);
-
-    if (fn!=3) ptr=EEL_GLUE_set_immediate(ptr,&g_closefact); // for or/and
-    ptr=EEL_GLUE_set_immediate(ptr,newblock2);
-    if (fn!=3) ptr=EEL_GLUE_set_immediate(ptr,&g_closefact); // for or/and
-#ifdef __ppc__
-    if (fn!=3) // for or/and on ppc we need a one
+    if (op->opcodeType == OPCODETYPE_FUNC3 && fn == 0) // special case: IF
     {
-      ptr=EEL_GLUE_set_immediate(ptr,&eel_one);
-    }
-#endif
+      void *stub;
+      unsigned char *newblock2,*newblock3,*ptr;
+      int stubsize;
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize);
+      if (parm_size < 0) return -1;
+      
+      stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
 
-    ctx->computTableTop++;
-    return (INT_PTR)block;
+      if (computTableSize) (*computTableSize) ++;
+      
+      if (bufOut_len < parm_size + stubsize) return -1;
+      
+      if (!bufOut)
+      {
+        return rv_offset + parm_size + stubsize;
+      }
+      
+      
+      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize);
+      newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize);
+      if (!newblock2 || !newblock3) return -1;
+      
+      ptr = bufOut + parm_size;
+      memcpy(ptr, stub, stubsize);
+           
+      ptr=EEL_GLUE_set_immediate(ptr,&g_closefact);
+      ptr=EEL_GLUE_set_immediate(ptr,newblock2);
+      EEL_GLUE_set_immediate(ptr,newblock3);
+      
+      return rv_offset + parm_size + stubsize;
+    }
+    
   }
-
-  {
-    EEL_F *cfp_ptrs;
-    int cfpsize;
-    NSEEL_PPPROC preProc=0;
-    unsigned char *block;
-    void **repl;
-    myfunc = nseel_getFunctionAddress(ctx,fntype, fn, &size2,&preProc,&repl,&cfpsize,&cfp_ptrs);
-
-    if (cfpsize>=0)
-    {
-      int store_sz = cfpsize > 0 && cfp_ptrs ?sizeof(GLUE_PUSH_EAXPTR_AS_VALUE) + GLUE_POP_VALUE_TO_ADDR(NULL,NULL) + GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL) : 0;
-
-      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+store_sz);
-      outp=block+4;
-      memcpy(outp,(char*)code1+4,sizes1); 
-      outp+=sizes1;
-      if (store_sz>0) 
-      {
-        memcpy(outp,GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE)); outp+=sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
-      }
-      memcpy(outp,(char*)code2+4,sizes2); 
-      outp+=sizes2;
-      if (store_sz>0) 
-      {
-        outp += GLUE_COPY_VALUE_AT_EAX_TO_PTR(outp,cfp_ptrs + 1);
-        outp += GLUE_POP_VALUE_TO_ADDR(outp,cfp_ptrs);
-      }
-      memcpy(outp,myfunc,size2);
-    }
-    else
-    {
-      block=(unsigned char *)newTmpBlock(size2+sizes1+sizes2+sizeof(GLUE_PUSH_EAX)+sizeof(GLUE_POP_EBX));
-
-      outp=block+4;
-      memcpy(outp,(char*)code1+4,sizes1); 
-      outp+=sizes1;
-      memcpy(outp,&GLUE_PUSH_EAX,sizeof(GLUE_PUSH_EAX)); outp+=sizeof(GLUE_PUSH_EAX);
-      memcpy(outp,(char*)code2+4,sizes2); 
-      outp+=sizes2;
-      memcpy(outp,&GLUE_POP_EBX,sizeof(GLUE_POP_EBX)); outp+=sizeof(GLUE_POP_EBX);
-
-      memcpy(outp,myfunc,size2);
-      if (preProc) preProc(outp,size2,ctx);
-      if (repl)
-      {
-        if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
-        if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
-        if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
-        if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
-      }
-    }
-
-    ctx->computTableTop++;
-
-    return ((INT_PTR)(block));
-  }
-}
-
-
-//---------------------------------------------------------------------------------------------------------------
-INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code)
-{
-  NSEEL_PPPROC preProc=0;
-  int size,size2;
-  char *block;
-  void *myfunc;
-  void *func1;
+    
   
-  size =((int *)code)[0];
-  func1 = (void *)(code+4);
-
- 
-  if (fntype == MATH_FN && fn == 4) // special case: while
+  
+  
+  switch (op->opcodeType)
   {
-    void *func3;
-    INT_PTR *ptr;
-
-    unsigned char *newblock2, *p;
-
-    p=newblock2=newCodeBlock(size+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
-    memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
-    memcpy(p,func1,size); p+=size;
-    memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
-    memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
-
-    ctx->l_stats[2]+=size+2;
-    
-    func3 = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&size);
-
-    block=(char *)newTmpBlock(size);
-    ptr = (INT_PTR *)(block+4);
-    memcpy(ptr,func3,size);
-    ptr=EEL_GLUE_set_immediate(ptr,newblock2); 
-    EEL_GLUE_set_immediate(ptr,&g_closefact); 
-
-    ctx->computTableTop++;
-    return (INT_PTR)block;
-  }
-
-  {
-    void **repl;
-    int cfpsize;
-    EEL_F *cfp_ptrs;
-    myfunc = nseel_getFunctionAddress(ctx, fntype, fn, &size2,&preProc,&repl,&cfpsize,&cfp_ptrs);
-
-    if (cfpsize>=0)
-    {
-      int store_sz=0;
-      if (cfpsize>0 && cfp_ptrs) store_sz = GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL);
-      block=(char *)newTmpBlock(size+store_sz+size2);
-      memcpy(block+4, func1, size);
-      if (store_sz>0)
+    case OPCODETYPE_DIRECTVALUE:
+    case OPCODETYPE_VARPTR:
+      if (bufOut_len < GLUE_MOV_EAX_DIRECTVALUE_SIZE) 
       {
-        // add store [eax]->[parm0]
-        GLUE_COPY_VALUE_AT_EAX_TO_PTR((unsigned char *)block+4+size,cfp_ptrs);
+        return -1;
       }
-      memcpy(block+4+size+store_sz,myfunc,size2);
-    }
-    else
-    {
-      block=(char *)newTmpBlock(size+size2);
-
-      memcpy(block+4, func1, size);
-      memcpy(block+size+4,myfunc,size2);
-      if (preProc) preProc(block+size+4,size2,ctx);
-      if (repl)
+      if (bufOut) 
       {
-        unsigned char *outp=(unsigned char *)block+size+4;
-        if (repl[0]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[0]);
-        if (repl[1]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[1]);
-        if (repl[2]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[2]);
-        if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
+        EEL_F *b=op->parms.dv.valuePtr;
+        if (!b)
+        {
+          b = op->parms.dv.valuePtr = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+          if (!b) return -1;
+          *b = op->parms.dv.directValue;
+        }
+        GLUE_MOV_EAX_DIRECTVALUE_GEN(bufOut,(INT_PTR)b);
       }
-    }
+    return rv_offset + GLUE_MOV_EAX_DIRECTVALUE_SIZE;
+    case OPCODETYPE_FUNC1:
+    case OPCODETYPE_FUNC2:
+    case OPCODETYPE_FUNC3:
+      
+      {
+        int n_params = 1 + op->opcodeType - OPCODETYPE_FUNC1;
+        NSEEL_PPPROC preProc=0;
+        void **repl;
+        int cfpsize;
+        EEL_F *cfp_ptrs;
+        
+        int func_size, parm_size;
+        int func_raw=0;
+        void *func_e=NULL;
+        void *func = nseel_getFunctionAddress(ctx, op->fntype, op->fn, 
+                                              &preProc,&repl,&cfpsize,&cfp_ptrs, computTableSize, &func_e, &func_raw);
+        if (!func) return -1;
 
-    ctx->computTableTop++;
+        if (func_raw)
+        {
+          func_size = (char*)func_e  - (char*)func;
+        }
+        else
+        {
+          // todo: if func == asm_stack_peek(), and constant parm, optimize some things
 
-    return ((INT_PTR)(block));
+
+
+
+          func = GLUE_realAddress(func,func_e,&func_size);
+          if (!func) return -1;
+        }
+
+        
+        parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize);
+        if (parm_size < 0) return -1;               
+        
+        if (computTableSize) (*computTableSize) ++;
+        
+        if (cfpsize>=0) 
+        {
+          // user defined function                   
+          int pn;
+          for (pn=0; pn < n_params; pn++)
+          { 
+            if (pn) // first parameter is compiled above
+            {
+              int lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len, computTableSize);
+              if (lsz<0) return -1;
+              parm_size += lsz;            
+            }
+            
+            if (cfpsize>0 && cfp_ptrs)
+            {
+              if (pn == n_params - 1)
+              {
+                const int cpsize = GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL);
+                const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
+                int x = pn;
+
+                if (bufOut_len < parm_size + func_size + cpsize + (n_params-1) * popsize) return -1;
+
+                // pop necessary stuff
+                while (--x >= 0)
+                {
+                  if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs + x);
+                  parm_size+=popsize;
+                }
+
+                // direct-copy last parameter
+                if (bufOut) GLUE_COPY_VALUE_AT_EAX_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs + pn);
+                parm_size += cpsize;
+              }
+              else
+              {
+                // not last parameter, push values
+                if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_EAXPTR_AS_VALUE)) return -1;
+                
+                // push
+                if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE));
+                parm_size+=sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
+              }
+            }
+          }          
+          
+          if (bufOut) memcpy(bufOut + parm_size, func, func_size);
+          
+          return rv_offset + parm_size + func_size;
+        }
+        else
+        {   
+          int pn;
+          for (pn=1; pn < n_params; pn++)
+          { 
+            int lsz=0;
+            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_EAX)) return -1;
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_EAX, sizeof(GLUE_PUSH_EAX));
+            parm_size += sizeof(GLUE_PUSH_EAX);
+            
+            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len, computTableSize);
+            if (lsz<0) return -1;
+            parm_size += lsz;            
+          }
+          
+          if (n_params>1)
+          {
+            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_EBX)) return -1;
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_EBX,sizeof(GLUE_POP_EBX));
+            parm_size += sizeof(GLUE_POP_EBX);
+          }
+          if (n_params>2)
+          {
+            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_ECX)) return -1;
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_ECX,sizeof(GLUE_POP_ECX));
+            parm_size += sizeof(GLUE_POP_ECX);
+          }
+                             
+          if (bufOut_len < parm_size + func_size) return -1;
+          
+          if (bufOut)
+          {
+            unsigned char *p=bufOut + parm_size;
+            memcpy(p, func, func_size);
+            if (preProc) preProc(p,func_size,ctx);
+            if (repl)
+            {
+              if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
+              if (repl[1]) p=EEL_GLUE_set_immediate(p,repl[1]);
+              if (repl[2]) p=EEL_GLUE_set_immediate(p,repl[2]);
+              if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
+            }
+          }
+          return rv_offset + parm_size + func_size;
+        }
+      }
+    return -1;
   }
+  return -1; // invalid opcode
 }
-
 
 static char *preprocessCode(compileContext *ctx, char *expression)
 {
@@ -1858,16 +1908,23 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   return NSEEL_code_compile_ex(_ctx,_expression,lineoffs,0);
 }
 
+typedef struct topLevelCodeSegmentRec {
+  struct topLevelCodeSegmentRec *_next;
+  void *code;
+  int codesz;
+} topLevelCodeSegmentRec;
+
 NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int lineoffs, int compile_flags)
 {
   compileContext *ctx = (compileContext *)_ctx;
   char *expression,*expression_start;
   codeHandleType *handle;
-  startPtr *scode=NULL;
-  startPtr *startpts=NULL;
+  topLevelCodeSegmentRec *startpts_tail=NULL;
+  topLevelCodeSegmentRec *startpts=NULL;
   int curtabptr_sz=0;
   void *curtabptr=NULL;
   _codeHandleFunctionRec *fr_save;
+  int had_err=0;
 
   if (!ctx) return 0;
 
@@ -1880,6 +1937,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
   if (!_expression || !*_expression) return 0;
 
+  ctx->isSharedFunctions = !!(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
   fr_save = ctx->functions; // save old common function list to restore if NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS not set
 
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
@@ -1902,7 +1960,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
   while (*expression)
   {
-    void *startptr;
+    int computTableTop = 0;
+    int startptr_size=0;
+    void *startptr=NULL;
+    opcodeRec *start_opcode;
     char *expr;
     int function_numparms=0;
     EEL_F *function_paramptrs=NULL;
@@ -1910,7 +1971,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     is_fname[0]=0;
 
     ctx->colCount=0;
-    ctx->computTableTop=0;
 
     
     // single out segment
@@ -2020,22 +2080,43 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       function_paramptrs=ctx->function_localTable_Values;
     }
    
-    startptr=nseel_compileExpression(ctx,expr);
-
+    start_opcode=(opcodeRec *)nseel_compileExpression(ctx,expr);
+    
     if (ctx->function_localTable_Size)
     {
       ctx->function_localTable_Size=0;
       ctx->function_localTable_Names=0;
       ctx->function_localTable_Values=0;
     }
+    
+    
+    
+    if (start_opcode)
+    {
+      // todo: optimizeOpcodes()
+      startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL);
 
-    if (ctx->computTableTop > 512*1024*1024 || !startptr) 
+      if (!startptr_size) continue; // optimized away
+      if (startptr_size>0)
+      {
+        startptr = newTmpBlock(startptr_size);
+        if (startptr)
+        {
+          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop);
+          if (startptr_size<=0) startptr = NULL;
+          
+        }
+      }
+    }
+    
+
+    if (!startptr) 
     { 
       int byteoffs = expr - expression_start;
       int destoffs,linenumber;
       char buf[21], *p;
       int x,le;
-
+      
 #ifdef NSEEL_EEL1_COMPAT_MODE
       if (!startptr) continue;
 #endif
@@ -2057,56 +2138,51 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       sprintf(ctx->last_error_string,"Around line %d '%s'",linenumber+lineoffs,buf);
 
       ctx->last_error_string[sizeof(ctx->last_error_string)-1]=0;
-      scode=NULL; 
+      startpts=NULL;
+      startpts_tail=NULL; 
+      had_err=1;
       break; 
     }
       
     if (is_fname[0])
     {
       _codeHandleFunctionRec *fr = 
-        (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS) ? 
+        ctx->isSharedFunctions ? 
         newDataBlock(sizeof(_codeHandleFunctionRec),8)
         :
         newTmpBlock(sizeof(_codeHandleFunctionRec)); 
       if (fr)
       {
-        int sz = *(int *)startptr;
-        fr->startptr = 
-          (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS) ?           
-            newDataBlock(sz,8) :
-            newTmpBlock(sz);
-
-        if (fr->startptr)
-        {
-          memcpy(fr->startptr,(char*)startptr+4,sz);                 
-          fr->tmpspace_req = ctx->computTableTop;
-          fr->codesz = sz;
-          fr->num_params=function_numparms;
-          fr->param_ptrs = function_paramptrs;
-          strcpy(fr->fname,is_fname);
+        fr->startptr = startptr;
+        fr->startptr_size = startptr_size;
+        fr->opcodes = start_opcode;
+        
+        fr->tmpspace_req = computTableTop;
+        fr->num_params=function_numparms;
+        fr->param_ptrs = function_paramptrs;
+        strcpy(fr->fname,is_fname);
           
-          fr->next = ctx->functions;
-          ctx->functions = fr;
-        }
+        fr->next = ctx->functions;
+        ctx->functions = fr;
       }
     }
     else
     {
-      startPtr *tmp=(startPtr*) newTmpBlock(sizeof(startPtr)); // newTmpBlock allocates extra+puts the size at the start, but we ignore it
-      if (!tmp) break;
-
-      tmp->startptr = startptr;
-      tmp->next=NULL;
-      if (!scode) scode=startpts=tmp;
+      topLevelCodeSegmentRec *p = newTmpBlock(sizeof(topLevelCodeSegmentRec));
+      p->_next=0;
+      p->code = startptr;
+      p->codesz = startptr_size;
+                  
+      if (!startpts_tail) startpts_tail=startpts=p;
       else
       {
-        scode->next=tmp;
-        scode=tmp;
+        startpts_tail->_next=p;
+        startpts_tail=p;
       }
 
-      if (curtabptr_sz < ctx->computTableTop)
+      if (curtabptr_sz < computTableTop)
       {
-        curtabptr_sz=ctx->computTableTop;
+        curtabptr_sz=computTableTop;
       }
     }
   }
@@ -2114,29 +2190,29 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
   if (handle->want_stack)
   {
-    if (!handle->stack) scode=NULL;
+    if (!handle->stack) startpts=NULL;
   }
 
-  if (scode) 
+  if (startpts) 
   {
     handle->workTable = curtabptr = newDataBlock((curtabptr_sz+64) * sizeof(EEL_F),32);
-    if (!curtabptr) scode=NULL;
+    if (!curtabptr) startpts=NULL;
   }
 
   ctx->tmpCodeHandle = NULL;
 
-  if (scode)
+  if (startpts || (!had_err && (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS)))
   {
     unsigned char *writeptr;
-    startPtr *p=startpts;
+    topLevelCodeSegmentRec *p=startpts;
     int size=sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE; // for ret at end :)
 
     // now we build one big code segment out of our list of them, inserting a mov esi, computable before each item
     while (p)
     {
       size += GLUE_RESET_ESI(NULL,0);
-      size+=*(int *)p->startptr;
-      p=p->next;
+      size+=p->codesz;
+      p=p->_next;
     }
     handle->code = newCodeBlock(size,32);
     if (handle->code)
@@ -2146,14 +2222,12 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       p=startpts;
       while (p)
       {
-        int thissize=*(int *)p->startptr;
+        int thissize=p->codesz;
         writeptr+=GLUE_RESET_ESI(writeptr,curtabptr);
-        //memcpy(writeptr,&GLUE_MOV_ESI_EDI,sizeof(GLUE_MOV_ESI_EDI));
-        //writeptr+=sizeof(GLUE_MOV_ESI_EDI);
-        memcpy(writeptr,(char*)p->startptr + 4,thissize);
+        memcpy(writeptr,(char*)p->code,thissize);
         writeptr += thissize;
       
-        p=p->next;
+        p=p->_next;
       }
       memcpy(writeptr,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); writeptr += GLUE_FUNC_LEAVE_SIZE;
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
@@ -2176,6 +2250,19 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     // if failed or NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS not set, remove our local function defs
     ctx->functions=fr_save; // these reference tmpblocks_head, no need to free.
   }
+
+  
+  // reset compiled function code, forcing a recompile if shared
+  {
+    _codeHandleFunctionRec *a = ctx->functions;
+    while (a)
+    {
+      a->startptr = NULL;
+      a=a->next;
+    }
+  }
+  
+  ctx->isSharedFunctions=0;
 
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
   freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks of code (will be nonzero only on error)

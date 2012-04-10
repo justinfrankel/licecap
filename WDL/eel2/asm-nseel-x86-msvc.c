@@ -2462,14 +2462,14 @@ SAVE_STACK
     test rdx, 0xff800000; // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
     jnz label_33;
     mov rax, rdx;
-    shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(EEL_F))
-    and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(EEL_F)
+    shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
+    and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov rax, qword ptr [rdi+rax];
     and rax, rax;
     jz label_34;
     and rdx, 0xFFFF; // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdx, 3;      // log2(sizeof(EEL_F))
-    add rdx, rax;
+    add rax, rdx;
     jmp label_35;
 
 
@@ -2505,14 +2505,14 @@ label_35:
     test edi, 0xff800000;   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
     jnz label_36;
     mov rax, rdi;
-    shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(EEL_F))
-    and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(EEL_F)
+    shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
+    and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov rax, qword ptr [rcx+rax];
     and rax, rax;
     jz label_37;
     and rdi, 0xFFFF;   // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdi, 3;        // log2(sizeof(EEL_F))
-    add rdi, rax;
+    add rax, rdi;
     jmp label_38;
 
 
@@ -2560,22 +2560,23 @@ _emit 0xFF;
     mov edi, dword ptr [esi];
     test edi, 0xff800000;  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
     jnz label_39;
+
     mov eax, edi;
-    shr eax, 13;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(EEL_F))
-    and eax, 0x3F8;    // (NSEEL_RAM_BLOCKS-1)*sizeof(EEL_F)
+    shr eax, 14;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
+    and eax, 0x1FC;    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov eax, dword ptr [edx+eax];
     and eax, eax;
     jz label_40;
     and edi, 0xFFFF;  // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl edi, 3;       // log2(sizeof(EEL_F))
-    add edi, eax;
+    add eax, edi;
     jmp label_41;
 
 
 label_40:
     
     sub esp, 8; // keep stack aligned
-    push dword ptr [esi]; // parameter
+    push edi; // parameter
     push edx; // push context pointer
     mov edi, 0xffffffff;
     call edi;
