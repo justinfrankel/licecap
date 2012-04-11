@@ -971,6 +971,18 @@ void nseel_asm_repeat(void)
 }
 void nseel_asm_repeat_end(void) {}
 
+//---------------------------------------------------------------------------------------------------------------
+void nseel_asm_fcall(void)
+{
+  __asm__(
+     "movl $0xFFFFFFFF, %edx\n"
+     "subl $8, %esp\n" /* keep stack aligned -- note this is required on x64 too!*/ 
+     "call *%edx\n"
+     "addl $8, %esp\n" /* keep stack aligned -- also required on x64*/ 
+  );
+}
+void nseel_asm_fcall_end(void) {}
+
 void nseel_asm_repeatwhile(void)
 {
   __asm__(

@@ -135,6 +135,7 @@ extern int NSEEL_RAM_memused_errors;
 #define NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR "1048576"
 
 
+#define NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE 2048
 
 // when a VM ctx doesn't have a GRAM context set, make the global one this big
 #define NSEEL_SHARED_GRAM_SIZE (1<<20)

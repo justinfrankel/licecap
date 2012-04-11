@@ -623,6 +623,7 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(bor)
   DECL_ASMFUNC(bnot)
   DECL_ASMFUNC(if)
+  DECL_ASMFUNC(fcall)
   DECL_ASMFUNC(repeat)
   DECL_ASMFUNC(repeatwhile)
   DECL_ASMFUNC(equal)
@@ -1027,6 +1028,7 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, int fn, I
 
 
 static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable);
+static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize);
 
 //---------------------------------------------------------------------------------------------------------------
 static void *nseel_getFunctionAddress(compileContext *ctx, 
@@ -1075,16 +1077,37 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
         {
           if (!fr->startptr && fr->opcodes && fr->startptr_size > 0)
           {
-            void *p=newTmpBlock(fr->startptr_size);
-            fr->tmpspace_req=0;
-            if (p)
+            int sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,NULL);
+            if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
             {
-              int sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req);
-              // recompile function with native context pointers
-              if (sz>0)
+              void *p=newTmpBlock(sz);
+              fr->tmpspace_req=0;
+              if (p)
               {
-                fr->startptr_size=sz;
-                fr->startptr=p;
+                sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req);
+                // recompile function with native context pointers
+                if (sz>0)
+                {
+                  fr->startptr_size=sz;
+                  fr->startptr=p;
+                }
+              }
+            }
+            else
+            {
+              unsigned char *codeCall;
+              fr->tmpspace_req=0;
+              codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req);
+              if (codeCall)
+              {
+                void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
+                fr->startptr = newTmpBlock(sz);
+                if (fr->startptr)
+                {
+                  memcpy(fr->startptr,f,sz);
+                  EEL_GLUE_set_immediate(fr->startptr,(void *)codeCall);
+                  fr->startptr_size = sz;
+                }
               }
             }
           }
@@ -1311,7 +1334,7 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   }
 }
 
-static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize)
+unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize)
 {
   unsigned char *p, *newblock2;
   // generate code call
@@ -2374,6 +2397,29 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
       startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL);
 
+      if (is_fname[0])
+      {
+        _codeHandleFunctionRec *fr = 
+          ctx->isSharedFunctions ? 
+          newDataBlock(sizeof(_codeHandleFunctionRec),8)
+          :
+          newTmpBlock(sizeof(_codeHandleFunctionRec)); 
+        if (fr)
+        {
+          fr->startptr = NULL;
+          fr->startptr_size = startptr_size;
+          fr->opcodes = start_opcode;
+        
+          fr->tmpspace_req = computTableTop;
+          fr->num_params=function_numparms;
+          fr->param_ptrs = function_paramptrs;
+          strcpy(fr->fname,is_fname);
+          
+          fr->next = ctx->functions;
+          ctx->functions = fr;
+        }
+        continue;
+      }
 
       if (!startptr_size) continue; // optimized away
       if (startptr_size>0)
@@ -2388,7 +2434,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
     
-
     if (!startptr) 
     { 
       int byteoffs = expr - expression_start;
@@ -2422,30 +2467,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       had_err=1;
       break; 
     }
-      
-    if (is_fname[0])
-    {
-      _codeHandleFunctionRec *fr = 
-        ctx->isSharedFunctions ? 
-        newDataBlock(sizeof(_codeHandleFunctionRec),8)
-        :
-        newTmpBlock(sizeof(_codeHandleFunctionRec)); 
-      if (fr)
-      {
-        fr->startptr = startptr;
-        fr->startptr_size = startptr_size;
-        fr->opcodes = start_opcode;
-        
-        fr->tmpspace_req = computTableTop;
-        fr->num_params=function_numparms;
-        fr->param_ptrs = function_paramptrs;
-        strcpy(fr->fname,is_fname);
-          
-        fr->next = ctx->functions;
-        ctx->functions = fr;
-      }
-    }
-    else
+    
+    if (!is_fname[0]) // redundant check (if is_fname[0] is set and we succeeded, it should continue)
+                      // but we'll be on the safe side
     {
       topLevelCodeSegmentRec *p = newTmpBlock(sizeof(topLevelCodeSegmentRec));
       p->_next=0;

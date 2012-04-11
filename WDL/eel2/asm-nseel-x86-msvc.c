@@ -1588,6 +1588,30 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_repeat_end(void) {}
 
+//---------------------------------------------------------------------------------------------------------------
+__declspec(naked) void nseel_asm_fcall(void)
+{
+  __asm {
+     mov edx, 0xFFFFFFFF;
+     sub esp, 8; /* keep stack aligned -- note this is required on x64 too!*/
+     call edx;
+     add esp, 8; /* keep stack aligned -- also required on x64*/
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_fcall_end(void) {}
+
 __declspec(naked) void nseel_asm_repeatwhile(void)
 {
   __asm {
