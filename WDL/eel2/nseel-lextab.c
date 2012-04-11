@@ -30,6 +30,7 @@
 static int _lmovb(struct lextab *lp, int c, int st)
 {
         int base;
+        if (c == '.' && st >= 15 && st < 30) c='_'; // if in a token, treat . as _ (should probably modify llnext instead)
 
         while ((base = lp->llbase[st]+c) > lp->llnxtmax ||
                         (lp->llcheck[base] & 0377) != st) {
