@@ -29,10 +29,6 @@
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 #define NSEEL_GLOBALVAR_BASE (1<<24)
 
-#ifndef NSEEL_MAX_VARIABLE_NAMELEN
-#define NSEEL_MAX_VARIABLE_NAMELEN 8
-#endif
-
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
 
 
@@ -90,7 +86,7 @@ void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *
 
 
 
-static INT_PTR register_var(compileContext *ctx, const char *name, EEL_F **ptr)
+INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **ptr)
 {
   int wb;
   int ti=0;
@@ -169,7 +165,7 @@ INT_PTR nseel_setVar(compileContext *ctx, INT_PTR varNum)
       return i;
     }
 
-    return register_var(ctx,ctx->lastVar,NULL);
+    return nseel_int_register_var(ctx,ctx->lastVar,NULL);
 
   }
 
@@ -248,7 +244,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
     return nseel_globalregs + x;
   }
 
-  register_var(ctx,var,&r);
+  nseel_int_register_var(ctx,var,&r);
 
   return r;
 }
@@ -323,18 +319,49 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       }
     }
   
-    if (ctx->functions) 
     {
-      _codeHandleFunctionRec *fr = ctx->functions;
+      _codeHandleFunctionRec *fr = ctx->functions_local;
+      _codeHandleFunctionRec *bmatch=NULL;
+      int bmatch_local=1;
+      const char *postName = strstr(nptr,".");
+      if (postName) postName++;
       while (fr)
       {
         if (!strcasecmp(fr->fname,nptr))
         {
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return i;
+          return (INT_PTR)fr;
         }
-        i++;
+        if (!bmatch && postName && !strcasecmp(fr->fname,postName)) bmatch=fr;
+
         fr=fr->next;
+      }
+      fr = ctx->functions_common;
+      while (fr)
+      {
+        if (!strcasecmp(fr->fname,nptr))
+        {
+          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+          return (INT_PTR)fr;
+        }
+        if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
+        {
+          bmatch_local=0;
+          bmatch=fr;
+        }
+
+        fr=fr->next;
+      }
+
+      if (bmatch) 
+      {
+        _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, const char *nameptr);
+        fr = eel_createFunctionInstance(ctx,bmatch,bmatch_local,nptr);
+        if (fr)
+        {
+          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+          return (INT_PTR)fr;
+        }
       }
     }
   }

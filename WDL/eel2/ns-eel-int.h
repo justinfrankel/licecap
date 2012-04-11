@@ -61,7 +61,6 @@ typedef struct
 	int destByteCount;
 } lineRecItem;
   
-#define MAX_USERFN_LEN 40
   
 typedef struct opcodeRec opcodeRec;
 
@@ -77,7 +76,12 @@ typedef struct _codeHandleFunctionRec
     
   int num_params;
   EEL_F *param_ptrs;
-  char fname[MAX_USERFN_LEN];
+
+  int nummembervars;
+  char *membervarnames;
+  EEL_F **membervars; 
+
+  char fname[NSEEL_MAX_VARIABLE_NAMELEN];
 } _codeHandleFunctionRec;  
   
 typedef struct _compileContext
@@ -114,11 +118,14 @@ typedef struct _compileContext
   int compileLineRecs_alloc;
 
   int isSharedFunctions;
-  _codeHandleFunctionRec *functions;
+  _codeHandleFunctionRec *functions_local, *functions_common;
 
   int function_localTable_Size;
   char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F *function_localTable_Values;
+
+  int function_localTable_MemberSize; // last items in localtable are member ptrs
+  EEL_F **function_localTable_MemberPtrs;
   
   EEL_F *ram_blocks[NSEEL_RAM_BLOCKS];
   int ram_needfree;
