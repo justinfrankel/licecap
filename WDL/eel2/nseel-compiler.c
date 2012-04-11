@@ -632,6 +632,7 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(beloweq)
   DECL_ASMFUNC(aboveeq)
   DECL_ASMFUNC(assign)
+  DECL_ASMFUNC(assign_fast)
   DECL_ASMFUNC(add)
   DECL_ASMFUNC(sub)
   DECL_ASMFUNC(add_op)
@@ -1203,6 +1204,7 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
 
       /*
       probably worth doing reduction on:
+      _divop (constant change to multiply)
       _and
       _or
       _not
@@ -1539,6 +1541,20 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
               }
             }
           }
+          else if (func == nseel_asm_assign &&
+              (op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE
+#if 0
+               ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTR
+            // this might be a bad idea, since if someone does x*=0.01; a lot it will probably denormal, and this could let y=x; have it propagate
+            // or maybe we need to fix the mulop/divop/etc modes?
+#endif
+               ))
+          {
+            // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
+            func = nseel_asm_assign_fast;
+            func_e = nseel_asm_assign_fast_end;
+          }
+
 
           func = GLUE_realAddress(func,func_e,&func_size);
           if (!func) return -1;

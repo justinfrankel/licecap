@@ -403,9 +403,38 @@ void nseel_asm_assign(void)
 #endif
 
 #endif
-
 }
 void nseel_asm_assign_end(void) {}
+
+//---------------------------------------------------------------------------------------------------------------
+void nseel_asm_assign_fast(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+    "movll (%rax), %rdx\n"
+    "movll %rdx, (%edi)\n"
+    );
+
+#else
+
+#if EEL_F_SIZE == 8
+  __asm__(
+    "movl 4(%eax), %edx\n"
+    "movl (%eax), %ecx\n"
+    "movl %ecx, (%edi)\n"
+    "movl %edx, 4(%edi)\n"
+  );
+#else
+  __asm__(
+    "movl (%eax), %ecx\n"
+    "movl %ecx, (%edi)\n"
+  );
+#endif
+
+#endif
+}
+void nseel_asm_assign_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_add(void)

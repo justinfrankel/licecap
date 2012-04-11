@@ -659,9 +659,74 @@ _emit 0x90;
 #endif
 
 #endif
-
 }
 __declspec(naked) void nseel_asm_assign_end(void) {}
+
+//---------------------------------------------------------------------------------------------------------------
+__declspec(naked) void nseel_asm_assign_fast(void)
+{
+#ifdef TARGET_X64
+
+  __asm {
+    mov rdx, qword ptr [rax];
+    mov qword ptr [edi], rdx;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    }
+
+#else
+
+#if EEL_F_SIZE == 8
+  __asm {
+    mov edx, dword ptr [eax+4];
+    mov ecx, dword ptr [eax];
+    mov dword ptr [edi], ecx;
+    mov dword ptr [edi+4], edx;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+#else
+  __asm {
+    mov ecx, dword ptr [eax];
+    mov dword ptr [edi], ecx;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+#endif
+
+#endif
+}
+__declspec(naked) void nseel_asm_assign_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_add(void)
@@ -2916,7 +2981,7 @@ __declspec(naked) void nseel_asm_stack_peek_int(void)
   __asm {
     mov rdi, 0xffffffff;
     mov rax, qword ptr [rdi];
-    mov rdx, 0xFFFFFFFFFFFFFFFF;
+    mov rdx, 0xFFFFFFFF;
     sub rax, rdx;
     mov rdx, 0xFEFEFEFEFEFEFEFE;
     and rax, rdx;
