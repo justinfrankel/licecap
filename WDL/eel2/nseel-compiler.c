@@ -1035,7 +1035,7 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
       int fntype, int fn, 
       NSEEL_PPPROC *pProc, void ***replList, 
       int *customFuncParmSize, EEL_F **customFuncParamPtrs, int *computTableTop, 
-      void **endP, int *isRaw)
+      void **endP, int *isRaw, int wantCodeGenerated) // if wantCodeGenerated is false, can return bogus pointers in raw mode
 {
   *customFuncParamPtrs=NULL;
   *customFuncParmSize=-1;
@@ -1077,7 +1077,27 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
         {
           if (!fr->startptr && fr->opcodes && fr->startptr_size > 0)
           {
-            int sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,NULL);
+            int sz;
+            fr->tmpspace_req=0;
+            sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req);
+
+
+            if (!wantCodeGenerated)
+            {
+              // don't compile anything for now, just give stats
+              if (computTableTop) *computTableTop += fr->tmpspace_req;
+              *customFuncParmSize = fr->num_params;
+              *customFuncParamPtrs = fr->param_ptrs;
+              if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
+              {
+                *isRaw = 1;
+                *endP = ((char *)1) + sz;
+                return (char *)1;
+              }
+              *endP = (void*)nseel_asm_fcall_end;
+              return (void*)nseel_asm_fcall;
+            }
+
             if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
             {
               void *p=newTmpBlock(sz);
@@ -1511,7 +1531,9 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         int func_raw=0;
         void *func_e=NULL;
         void *func = nseel_getFunctionAddress(ctx, op->fntype, op->fn, 
-                                              &preProc,&repl,&cfpsize,&cfp_ptrs, computTableSize, &func_e, &func_raw);
+                                              &preProc,&repl,&cfpsize,&cfp_ptrs, computTableSize, &func_e, &func_raw,
+                                              
+                                              !!bufOut);
         if (!func) return -1;
 
         if (func_raw)
