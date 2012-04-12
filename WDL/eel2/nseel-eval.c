@@ -308,7 +308,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       functionType *f=nseel_getFunctionFromTable(i);
       if (!strcasecmp(f->name, nptr))
       {
-        switch (f->nParams)
+        switch (f->nParams&0xff)
         {
           case 1: *typeOfObject = FUNCTION1; break;
           case 2: *typeOfObject = FUNCTION2; break;

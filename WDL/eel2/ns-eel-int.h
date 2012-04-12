@@ -140,6 +140,8 @@ compileContext;
 
 #define NSEEL_VARS_PER_BLOCK 64
 
+//#define NSEEL_NPARAMS_FLAG_DOESNT_MODIFY_ANYTHING 0x8000000
+#define NSEEL_NPARAMS_FLAG_MODSTUFF 0x40000
 typedef struct {
       const char *name;
       void *afunc;
