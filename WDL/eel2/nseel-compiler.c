@@ -27,6 +27,7 @@
 
 #include "ns-eel-int.h"
 
+#include "../denormal.h"
 
 #include <string.h>
 #include <math.h>
@@ -1663,7 +1664,12 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           if (!b) return -1;
 
           if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
-          *b = op->parms.dv.directValue;
+          #if EEL_F_SIZE == 8
+            *b = denormal_filter_double(op->parms.dv.directValue);
+          #else
+            *b = denormal_filter_float(op->parms.dv.directValue);
+          #endif
+
         }
         GLUE_MOV_EAX_DIRECTVALUE_GEN(bufOut,(INT_PTR)b);
       }
