@@ -60,6 +60,13 @@
 
 #endif
 
+#define EEL_STACK_SUPPORT
+
+
+
+//#define LOG_OPT
+//#define EEL_PPC_NOFREECODE
+
 #ifndef _WIN64
 #if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
 
@@ -103,14 +110,19 @@ static unsigned int _controlfp(unsigned int val, unsigned int mask)
 #ifdef __ppc__
 
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
-static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, INT_PTR v) 
+static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
 {   
+  static const unsigned short tab[3][2] = {
+    {0x3C60, 0x6063}, // addis r3, r0, hw -- ori r3,r3, lw
+    {0x3DC0, 0x61CE}, // addis r14, r0, hw -- ori r14, r14, lw
+    {0x3DE0, 0x61EF}, // addis r15, r0, hw -- oris r15, r15, lw
+  };
   unsigned int uv=(unsigned int)v;
 	unsigned short *p=(unsigned short *)b;
 
-  *p++ = 0x3C60; // addis r3, r0, hw
+  *p++ = tab[wv][0]; // addis rX, r0, hw
 	*p++ = (uv>>16)&0xffff;
-  *p++ = 0x6063; // ori r3, r3, lw
+  *p++ = tab[wv][1]; // ori rX, rX, lw
 	*p++ = uv&0xffff;
 }
 
@@ -128,7 +140,7 @@ const static unsigned int GLUE_FUNC_LEAVE[3] = { 0x80A10000, 0x38210004, 0x7CA80
 
 const static unsigned int GLUE_RET[]={0x4E800020}; // blr
 
-static int GLUE_RESET_WTP(char *out, void *ptr)
+static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 {
   const static unsigned int GLUE_SET_WTP_FROM_R17=0x7E308B78; // mr r16 (dest), r17 (src)
   if (out) memcpy(out,&GLUE_SET_WTP_FROM_R17,sizeof(GLUE_SET_WTP_FROM_R17));
@@ -141,13 +153,29 @@ static int GLUE_RESET_WTP(char *out, void *ptr)
 // stwu r3, -4(r1)
 const static unsigned int GLUE_PUSH_P1[1]={ 0x9461FFFC};
 
-// lwz r14, 0(r1)
-// addi r1, r1, 4
-const static unsigned int GLUE_POP_P2[2]={ 0x81C10000, 0x38210004, };
 
-// lwz r15, 0(r1)
-// addi r1, r1, 4
-const static unsigned int GLUE_POP_P3[2]={ 0x81E10000, 0x38210004 };
+#define GLUE_POP_PX_SIZE 8
+static void GLUE_POP_PX(void *b, int wv)
+{
+  static const unsigned int tab[3] ={
+      0x80610000, // lwz r3, 0(r1)
+      0x81c10000, // lwz r14, 0(r1)
+      0x81e10000, // lwz r15, 0(r1)
+  };
+  ((unsigned int *)b)[0] = tab[wv];
+  ((unsigned int *)b)[1] = 0x38210004; // addi r1,r1, 4
+}
+
+#define GLUE_SET_PX_FROM_P1_SIZE 4
+static void GLUE_SET_PX_FROM_P1(void *b, int wv)
+{
+  static const unsigned int tab[3]={
+    0x7c631b78, // never used: mr r3, r3
+    0x7c6e1b78, // mr r14, r3
+    0x7c6f1b78, // mr r15, r3
+  };
+  *(unsigned int *)b  = tab[wv];
+}
 
 
 
@@ -171,7 +199,7 @@ static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
     *bufptr++ = 0x81C10000;
     *bufptr++ = 0x81E10004;
     *bufptr++ = 0x38210008;    
-    GLUE_MOV_P1_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
+    GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
     bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0x95C30000;
     *bufptr++ = 0x95E30004;
@@ -192,7 +220,7 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
     unsigned int *bufptr = (unsigned int *)buf;
     *bufptr++ = 0x81C30000;
     *bufptr++ = 0x81E30004;
-    GLUE_MOV_P1_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
+    GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
     bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0x95C30000;
     *bufptr++ = 0x95E30004;
@@ -221,7 +249,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
             ::"r" (cp), "r" (bp));
 };
 
-unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
+unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {
   // 64 bit ppc would take some work
   unsigned int *p=(unsigned int *)_p;
@@ -232,7 +260,6 @@ unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
 
   return (unsigned char *)(p+1);
 }
-
 
 #else 
 
@@ -444,7 +471,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
   #endif // 32bit
 }
 
-unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
+unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {
   char *p=(char*)_p;
 #if defined(__LP64__) || defined(_WIN64)
@@ -696,6 +723,7 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(invsqrt)
   DECL_ASMFUNC(exec2)
 
+#ifdef EEL_STACK_SUPPORT
   DECL_ASMFUNC(stack_push)
   DECL_ASMFUNC(stack_pop)
   DECL_ASMFUNC(stack_pop_fast) // just returns value, doesn't mod param
@@ -703,6 +731,7 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(stack_peek_int)
   DECL_ASMFUNC(stack_peek_top)
   DECL_ASMFUNC(stack_exch)
+#endif
 
 static void NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
 {
@@ -760,9 +789,11 @@ static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext 
   }
 }
 
+#ifndef __ppc__
 static EEL_F g_signs[2]={1.0,-1.0};
 static EEL_F negativezeropointfive=-0.5f;
 static EEL_F onepointfive=1.5f;
+#endif
 static EEL_F g_closefact = NSEEL_CLOSEFACTOR;
 static const EEL_F eel_zero=0.0, eel_one=1.0;
 
@@ -905,10 +936,12 @@ static functionType fnTable1[] = {
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3 | NSEEL_NPARAMS_FLAG_MODSTUFF,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3 | NSEEL_NPARAMS_FLAG_MODSTUFF,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
 
+#ifdef EEL_STACK_SUPPORT
   {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{0,},NSEEL_PProc_Stack},
   {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{0,},NSEEL_PProc_Stack},
   {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1,{0,},NSEEL_PProc_Stack},
   {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{0,},NSEEL_PProc_Stack_PeekTop},
+#endif
 
 
 };
@@ -1274,8 +1307,6 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   int retv = 0, retv_parm[3]={0,0,0};
   while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == MATH_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
   {
-    opcodeRec *lp = NULL;
-
     if (!optimizeOpcodes(ctx,op->parms.parms[0]) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
     {
       // direct value, can skip ourselves
@@ -1786,6 +1817,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         {
           if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
           {
+#ifdef EEL_STACK_SUPPORT
             if (func == nseel_asm_stack_pop)
             {
               func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
@@ -1826,6 +1858,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
                 return rv_offset + func_size;
               }
             }
+#endif // EEL_STACK_SUPPORT
           }
           else if (func == nseel_asm_assign &&
               (op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE
@@ -1838,8 +1871,10 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
                ))
           {
             // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
-            func = nseel_asm_assign_fast;
-            func_e = nseel_asm_assign_fast_end;
+             #ifndef __ppc__
+               func = nseel_asm_assign_fast;
+               func_e = nseel_asm_assign_fast_end;
+             #endif
           }
 
 
@@ -2765,17 +2800,24 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     if (start_opcode)
     {
 
-//#define LOG_OPT
 
 #ifdef LOG_OPT
       char buf[512];
       sprintf(buf,"pre opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL));
+#ifdef _WIN32
       OutputDebugString(buf);
+#else
+      printf("%s\n",buf);
+#endif
 #endif
       optimizeOpcodes(ctx,start_opcode);
 #ifdef LOG_OPT
       sprintf(buf,"post opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL));
+#ifdef _WIN32
       OutputDebugString(buf);
+#else
+      printf("%s\n",buf);
+#endif
 #endif
 
       startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL);
@@ -3044,8 +3086,11 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
     nseel_evallib_stats[3]-=h->code_stats[3];
     nseel_evallib_stats[4]--;
     
-//    if (0) // COMMENT THIS LINE OUT WHEN FINISHED THANK YOU
-      freeBlocks(&h->blocks);
+#ifdef EEL_PPC_NOFREECODE
+  #pragma warn leaky-code mode, not freeing code, will leak, fixme!!!
+#else
+  freeBlocks(&h->blocks);
+#endif
     
     freeBlocks(&h->blocks_data);
 

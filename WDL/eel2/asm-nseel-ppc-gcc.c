@@ -1125,27 +1125,59 @@ void _asm_megabuf(void)
 {
   __asm__(
    "lfd f1, 0(r3)\n"
+   
    "addis r3, 0, 0xdead\n" // set up context pointer
    "ori r3, r3, 0xbeef\n"
+
    "addis r4, 0, 0xdead\n"
    "ori r4, r4, 0xbeef\n"
    "lfd f2, 0(r4)\n"
    "fadd f1, f2, f1\n"
-   "addis r7, 0, 0xdead\n"
-   "ori r7, r7, 0xbeef\n"
-   "mtctr r7\n"
+
+   // f1 has (float) index of array, r3 has EEL_F **
    "fctiwz f1, f1\n"
    "stfd f1, 8(r16)\n"
-   "lwz r4, 12(r16)\n"
-   "subi r1, r1, 64\n"
-   "bctrl\n"
-   "addi r1, r1, 64\n"
-   "cmpi cr0, r3, 0\n"
+   "lwz r4, 12(r16)\n" // r4 is index of array
+
+   "addis r15, 0, 0xFF80\n" // r15 = 0xFF800000, which is 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+   "and. r15, r15, r4\n"
+   "bne cr0, 1f\n" // out of range, jump to error
+
+   // shr 14 (16 for NSEEL_RAM_ITEMSPERBLOCK, minus two for pointer size), which is rotate 18
+   // mask 7 bits (NSEEL_RAM_BLOCKS), but leave two empty bits (pointer size)
+   "rlwinm r15, r4, 18, 23, 29\n"
+   "add r15, r15, r3\n"
+   "lwz r15, 0(r15)\n"
+   "cmpi cr0, r15, 0\n"
+   "beq cr0, 2f\n"
+
+     // good news: we can do a direct addr return
+     // bad news: more rlwinm ugliness!
+     // shift left by 3 (sizeof(EEL_F)), mask off lower 3 bits, only allow 16 bits (NSEEL_RAM_ITEMSPERBLOCK) through
+     "rlwinm r3, r4, 3, 13, 28\n" 
+
+     // add offset of loaded block
+     "add r3, r3, r15\n"
+   // done, jump to end!
+   "b 0f\n"
+
+   "2:\n"
+   // set up function call
+     "addis r7, 0, 0xdead\n"
+     "ori r7, r7, 0xbeef\n"
+     "mtctr r7\n"
+     "subi r1, r1, 64\n"
+     "bctrl\n"
+     "addi r1, r1, 64\n"
+     "cmpi cr0, r3, 0\n"
    "bne cr0, 0f\n"
-   "sub r5, r5, r5\n"
-   "stwu r5, 8(r16)\n"
-   "stw r5, 4(r16)\n"
-   "mr r3, r16\n"
+
+   "1:\n"
+     "sub r5, r5, r5\n"
+     "mr r3, r16\n"
+     "stw r5, 0(r16)\n"
+     "stw r5, 4(r16)\n"
+     "addi r16, r16, 8\n"
    "0:\n"
   ::
  ); 
@@ -1184,3 +1216,167 @@ void _asm_gmegabuf(void)
 }
 
 void _asm_gmegabuf_end(void) {}
+
+void nseel_asm_fcall(void)
+{
+  __asm__(
+   "addis r6, 0, 0xdead\n"
+   "ori r6, r6, 0xbeef\n"
+   "mtctr r6\n"
+   "bctrl\n"
+  );
+}
+void nseel_asm_fcall_end(void) {}
+
+
+
+void nseel_asm_stack_push(void)
+{
+  __asm__(
+
+   "addis r6, 0, 0xdead\n"
+   "ori r6, r6, 0xbeef\n" // r6 is stack
+
+   "lfd f1, 0(r3)\n" // f1 is value to copy to stack
+   "lwz r3, 0(r6)\n"
+
+   "addis r14, 0, 0xdead\n"
+   "ori r14, r14, 0xbeef\n" 
+   "addi r3, r3, 0x8\n"
+
+   "and r3, r3, r14\n"
+
+   "addis r14, 0, 0xdead\n"
+   "ori r14, r14, 0xbeef\n" 
+   "or r3, r3, r14\n"
+
+   "stfd f1, 0(r3)\n" // copy parameter to stack
+
+   "stw r3, 0(r6)\n" // update stack state
+  );
+}
+void nseel_asm_stack_push_end(void) {}
+
+void nseel_asm_stack_pop(void)
+{
+  __asm__(
+   "addis r6, 0, 0xdead\n"
+   "ori r6, r6, 0xbeef\n" // r6 is stack
+   "lwz r15, 0(r6)\n" // return the old stack pointer
+
+   "lfd f1, 0(r15)\n"
+   "subi r15, r15, 0x8\n"
+
+   "addis r14, 0, 0xdead\n"
+   "ori r14, r14, 0xbeef\n" 
+   "and r15, r15, r14\n"
+
+   "addis r14, 0, 0xdead\n"
+   "ori r14, r14, 0xbeef\n" 
+   "or r15, r15, r14\n"
+   "stw r15, 0(r6)\n"
+
+   "stfd f1, 0(r3)\n"
+  );
+}
+void nseel_asm_stack_pop_end(void) {}
+
+
+
+void nseel_asm_stack_pop_fast(void)
+{
+  __asm__(
+   "addis r6, 0, 0xdead\n"
+   "ori r6, r6, 0xbeef\n" // r6 is stack
+   "lwz r3, 0(r6)\n" // return the old stack pointer
+
+   "mr r15, r3\n"  // update stack pointer
+   "subi r15, r15, 0x8\n"
+
+   "addis r14, 0, 0xdead\n"
+   "ori r14, r14, 0xbeef\n" 
+   "and r15, r15, r14\n"
+
+   "addis r14, 0, 0xdead\n"
+   "ori r14, r14, 0xbeef\n" 
+   "or r15, r15, r14\n"
+   "stw r15, 0(r6)\n"
+  );
+}
+void nseel_asm_stack_pop_fast_end(void) {}
+
+void nseel_asm_stack_peek(void)
+{
+  __asm__(
+    "lfd f1, 0(r3)\n"
+    "fctiwz f1, f1\n"
+    "stfd f1, 0(r16)\n"
+
+    "addis r6, 0, 0xdead\n"
+    "ori r6, r6, 0xbeef\n" // r6 is stack
+
+    "lwz r14, 4(r16)\n"
+    "rlwinm r14, r14,  3, 0, 28\n" // slwi r14, r14, 3 -- 3 is log2(sizeof(EEL_F)) -- 28 represents 31-3
+    "lwz r3, 0(r6)\n" // return the old stack pointer
+
+    "sub r3, r3, r14\n"
+
+    "addis r14, 0, 0xdead\n"
+    "ori r14, r14, 0xbeef\n" 
+    "and r3, r3, r14\n"
+
+    "addis r14, 0, 0xdead\n"
+    "ori r14, r14, 0xbeef\n" 
+    "or r3, r3, r14\n"
+  );
+}
+void nseel_asm_stack_peek_end(void) {}
+
+
+void nseel_asm_stack_peek_top(void)
+{
+  __asm__(
+    "addis r6, 0, 0xdead\n"
+    "ori r6, r6, 0xbeef\n" // r6 is stack
+    "lwz r3, 0(r6)\n" // return the old stack pointer
+  );
+}
+void nseel_asm_stack_peek_top_end(void) {}
+
+
+void nseel_asm_stack_peek_int(void)
+{
+  __asm__(
+    "addis r6, 0, 0xdead\n"
+    "ori r6, r6, 0xbeef\n" // r6 is stack
+    "lwz r3, 0(r6)\n" // return the old stack pointer
+
+    "addis r14, 0, 0xdead\n" // add manual offset
+    "ori r14, r14, 0xbeef\n" 
+    "sub r3, r3, r14\n"
+
+    "addis r14, 0, 0xdead\n"
+    "ori r14, r14, 0xbeef\n" 
+    "and r3, r3, r14\n"
+
+    "addis r14, 0, 0xdead\n"
+    "ori r14, r14, 0xbeef\n" 
+    "or r3, r3, r14\n"
+  );
+}
+void nseel_asm_stack_peek_int_end(void) {}
+
+void nseel_asm_stack_exch(void)
+{
+  __asm__(
+    "addis r6, 0, 0xdead\n"
+    "ori r6, r6, 0xbeef\n" // r6 is stack
+    "lfd f1, 0(r3)\n"
+    "lwz r14, 0(r6)\n" 
+    "lfd f2, 0(r14)\n"
+
+    "stfd f1, 0(r14)\n"
+    "stfd f2, 0(r3)\n"
+  );
+}
+void nseel_asm_stack_exch_end(void) {}
