@@ -83,6 +83,9 @@ static unsigned int _controlfp(unsigned int val, unsigned int mask)
 #endif
 
 /*
+  P1 is rightmost parameter
+  P2 is second rightmost, if any
+  P3 is third rightmost, if any
   registers on x86 are  (RAX etc on x86-64)
     P1(ret) EAX
     P2 EDI
@@ -93,24 +96,21 @@ static unsigned int _controlfp(unsigned int val, unsigned int mask)
     P1(ret) r3
     P2 r14 
     P3 r15
-    WTP r16 (r17 will have the base of it)
+    WTP r16 (r17 has the original value)
 
-
-  todo: have generatecode detect direct (const/var) loads, avoid pushes/pops
-        need to add glue_p1_to_p2, glue_p1_to_p3, and glue_mov_p2/3_directvalue
   */
 
 #ifdef __ppc__
 
-#define GLUE_MOV_P1_DIRECTVALUE_SIZE 8
+#define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
 static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, INT_PTR v) 
 {   
-    	unsigned int uv=(unsigned int)v;
+  unsigned int uv=(unsigned int)v;
 	unsigned short *p=(unsigned short *)b;
 
-        *p++ = 0x3C60; // addis r3, r0, hw
+  *p++ = 0x3C60; // addis r3, r0, hw
 	*p++ = (uv>>16)&0xffff;
-        *p++ = 0x6063; // ori r3, r3, lw
+  *p++ = 0x6063; // ori r3, r3, lw
 	*p++ = uv&0xffff;
 }
 
@@ -162,7 +162,7 @@ static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
   // lwz r14, 0(r1)
   // lwz r15, 4(r1)
   // addi r1,r1,8
-  // GLUE_MOV_P1_DIRECTVALUE_GEN / GLUE_MOV_P1_DIRECTVALUE_SIZE (r3)
+  // GLUE_MOV_PX_DIRECTVALUE_GEN / GLUE_MOV_PX_DIRECTVALUE_SIZE (r3)
   // stw r14, 0(r3)
   // stw r15, 4(r3)
   if (buf)
@@ -172,18 +172,18 @@ static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
     *bufptr++ = 0x81E10004;
     *bufptr++ = 0x38210008;    
     GLUE_MOV_P1_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
-    bufptr += GLUE_MOV_P1_DIRECTVALUE_SIZE/4;
+    bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0x95C30000;
     *bufptr++ = 0x95E30004;
   }
-  return 3*4 + GLUE_MOV_P1_DIRECTVALUE_SIZE + 2*4;
+  return 3*4 + GLUE_MOV_PX_DIRECTVALUE_SIZE + 2*4;
 }
 
 static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 {    
   // lwz r14, 0(r3)
   // lwz r15, 4(r3)
-  // GLUE_MOV_P1_DIRECTVALUE_GEN / GLUE_MOV_P1_DIRECTVALUE_SIZE (r3)
+  // GLUE_MOV_PX_DIRECTVALUE_GEN / GLUE_MOV_PX_DIRECTVALUE_SIZE (r3)
   // stw r14, 0(r3)
   // stw r15, 4(r3)
 
@@ -193,12 +193,12 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
     *bufptr++ = 0x81C30000;
     *bufptr++ = 0x81E30004;
     GLUE_MOV_P1_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
-    bufptr += GLUE_MOV_P1_DIRECTVALUE_SIZE/4;
+    bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0x95C30000;
     *bufptr++ = 0x95E30004;
   }
   
-  return 2*4 + GLUE_MOV_P1_DIRECTVALUE_SIZE + 2*4;
+  return 2*4 + GLUE_MOV_PX_DIRECTVALUE_SIZE + 2*4;
 }
 
 
@@ -234,9 +234,9 @@ unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
 }
 
 
-#else
+#else 
 
-//x86 specific code
+//x86 and x86-64 code
 
 #define GLUE_FUNC_ENTER_SIZE 0
 #define GLUE_FUNC_LEAVE_SIZE 0
@@ -244,15 +244,32 @@ const static unsigned int GLUE_FUNC_ENTER[1];
 const static unsigned int GLUE_FUNC_LEAVE[1];
 
 #if defined(_WIN64) || defined(__LP64__)
-  #define GLUE_MOV_P1_DIRECTVALUE_SIZE 10
-  static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, INT_PTR v) {   
+  #define GLUE_MOV_PX_DIRECTVALUE_SIZE 10
+  static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wr) {   
+    const static unsigned short tab[3] = 
+    {
+      0xB848 /* mov rax, dv*/, 
+      0xBF48 /* mov rdi, dv */ , 
+      0xB948 /* mov rcx, dv */ 
+    };
     unsigned short *bb = (unsigned short *)b;
-    *bb++ =0xB848;  // mov rax, directvalue
+    *bb++ = tab[wr];  // mov rax, directvalue
     *(INT_PTR *)bb = v; 
   }
+
   const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
-  const static unsigned char  GLUE_POP_P2[2]={0x5F, 0x5f}; //pop rdi ; twice
-  const static unsigned char  GLUE_POP_P3[2]={0x59, 0x59 }; // pop rcx ; twice
+
+  #define GLUE_POP_PX_SIZE 2
+  static void GLUE_POP_PX(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_POP_PX_SIZE]=
+    {
+      {0x58,/*pop eax*/  0x58}, // pop twice to preserve alignment
+      {0x5F,/*pop edi*/  0x5F}, 
+      {0x59,/*pop ecx*/  0x59}, 
+    };    
+    memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
+  }
 
   static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = {  0xff, 0x30 /* push qword [rax] */, 0x50 /*push rax - for alignment */ };
   static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
@@ -278,87 +295,90 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     return 3 + 10 + 3;
   }
 
+  #define GLUE_SET_PX_FROM_P1_SIZE 3
+  static void GLUE_SET_PX_FROM_P1(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_SET_PX_FROM_P1_SIZE]={
+      {0x90,0x90,0x90}, // should never be used! (nopnop)
+      {0x48,0x89,0xC7}, // mov edi, eax
+      {0x48,0x89,0xC1}, // mov ecx, eax
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_P1_SIZE);
+  }
 #else
 
-  #if EEL_F_SIZE == 4
-    static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x83, 0xEC, 12, /* sub esp, 12 */,   0xff, 0x30 /* push dword [eax] */ };
+  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x83, 0xEC, 8, /* sub esp, 8 */   0xff, 0x30 /* push dword [eax] */, 0xff, 0x70, 0x4 /* push dword [eax+4] */ };
 
-    static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
-    {    
-      if (buf)
-      {
-        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
-        
-        *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
-        
-        *buf++ = 0x59; // pop ecx
-        *buf++ = 0x59; // pop ecx
-        *buf++ = 0x59; // pop ecx
-      }
+  static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
+  {    
+    if (buf)
+    {
+      *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
       
-      return 10;
-    }
-
-
-    static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
-    {    
-      if (buf)
-      {
-        *buf++ = 0x8B; *buf++ = 0x38; // mov edi, [eax]        
-        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
-        *buf++ = 0x89; *buf++ = 0x38; // mov [eax], edi
-      }
+      *buf++ = 0x8f; *buf++ = 0x40; *buf++ = 4; // pop dword [eax+4]
       
-      return 2 + 5 + 2;
-    }
-  #else
-    static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x83, 0xEC, 8, /* sub esp, 8 */   0xff, 0x30 /* push dword [eax] */, 0xff, 0x70, 0x4 /* push dword [eax+4] */ };
-
-    static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
-    {    
-      if (buf)
-      {
-        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
-        
-        *buf++ = 0x8f; *buf++ = 0x40; *buf++ = 4; // pop dword [eax+4]
-        
-        *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
-        
-        *buf++ = 0x59; // pop ecx
-        *buf++ = 0x59; // pop ecx
-      }
+      *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
       
-      return 12;
+      *buf++ = 0x59; // pop ecx
+      *buf++ = 0x59; // pop ecx
     }
+    
+    return 12;
+  }
 
-    static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
-    {    
-      if (buf)
-      {
-        *buf++ = 0x8B; *buf++ = 0x38; // mov edi, [eax]
-        *buf++ = 0x8B; *buf++ = 0x48; *buf++ = 0x04; // mov ecx, [eax+4]
-        
-        
-        *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
-        *buf++ = 0x89; *buf++ = 0x38; // mov [eax], edi
-        *buf++ = 0x89; *buf++ = 0x48; *buf++ = 0x04; // mov [eax+4], ecx
-      }
+  static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
+  {    
+    if (buf)
+    {
+      *buf++ = 0x8B; *buf++ = 0x38; // mov edi, [eax]
+      *buf++ = 0x8B; *buf++ = 0x48; *buf++ = 0x04; // mov ecx, [eax+4]
       
-      return 2 + 3 + 5 + 2 + 3;
+      
+      *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
+      *buf++ = 0x89; *buf++ = 0x38; // mov [eax], edi
+      *buf++ = 0x89; *buf++ = 0x48; *buf++ = 0x04; // mov [eax+4], ecx
     }
+    
+    return 2 + 3 + 5 + 2 + 3;
+  }
 
-  #endif
 
-  #define GLUE_MOV_P1_DIRECTVALUE_SIZE 5
-  static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, int v) 
+  #define GLUE_MOV_PX_DIRECTVALUE_SIZE 5
+  static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, int v, int wv) 
   {   
-    *((unsigned char *)b) =0xB8;  // mov eax, dv
+    const static unsigned char tab[3] = {
+      0xB8 /* mov eax, dv*/, 
+      0xBF /* mov edi, dv */ , 
+      0xB9 /* mov ecx, dv */ 
+    };
+    *((unsigned char *)b) = tab[wv];  // mov eax, dv
     b= ((unsigned char *)b)+1;
     *(int *)b = v; 
   }
   const static unsigned char  GLUE_PUSH_P1[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
-  const static unsigned char  GLUE_POP_P2[4]={0x5F, 0x83, 0xC4, 12}; //pop edi, add esp, 12
-  const static unsigned char  GLUE_POP_P3[4]={0x59, 0x83, 0xC4, 12}; // pop ecx, add esp, 12
+  
+  #define GLUE_POP_PX_SIZE 4
+  static void GLUE_POP_PX(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_POP_PX_SIZE]=
+    {
+      {0x58,/*pop eax*/  0x83, 0xC4, 12 /* add esp, 12*/},
+      {0x5F,/*pop edi*/  0x83, 0xC4, 12}, 
+      {0x59,/*pop ecx*/  0x83, 0xC4, 12}, 
+    };    
+    memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
+  }
+
+  #define GLUE_SET_PX_FROM_P1_SIZE 2
+  static void GLUE_SET_PX_FROM_P1(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_SET_PX_FROM_P1_SIZE]={
+      {0x90,0x90}, // should never be used! (nopnop)
+      {0x89,0xC7}, // mov edi, eax
+      {0x89,0xC1}, // mov ecx, eax
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_P1_SIZE);
+  }
 
 #endif
 
@@ -1513,6 +1533,29 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   return retv||retv_parm[0]||retv_parm[1]||retv_parm[2];
 }
 
+static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int whichReg)
+{
+  EEL_F *b=op->parms.dv.valuePtr;
+  if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
+
+  if (!b)
+  {
+    b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+    if (!b) return -1;
+
+    if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
+    #if EEL_F_SIZE == 8
+      *b = denormal_filter_double(op->parms.dv.directValue);
+    #else
+      *b = denormal_filter_float(op->parms.dv.directValue);
+    #endif
+
+  }
+  GLUE_MOV_PX_DIRECTVALUE_GEN(bufOut,(INT_PTR)b,whichReg);
+  return GLUE_MOV_PX_DIRECTVALUE_SIZE;
+}
+
+
 unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize)
 {
   unsigned char *p, *newblock2;
@@ -1660,31 +1703,15 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     case OPCODETYPE_DIRECTVALUE:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
-      if (bufOut_len < GLUE_MOV_P1_DIRECTVALUE_SIZE) 
+      if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_SIZE) 
       {
         return -1;
       }
       if (bufOut) 
       {
-        EEL_F *b=op->parms.dv.valuePtr;
-        if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
-
-        if (!b)
-        {
-          b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
-          if (!b) return -1;
-
-          if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
-          #if EEL_F_SIZE == 8
-            *b = denormal_filter_double(op->parms.dv.directValue);
-          #else
-            *b = denormal_filter_float(op->parms.dv.directValue);
-          #endif
-
-        }
-        GLUE_MOV_P1_DIRECTVALUE_GEN(bufOut,(INT_PTR)b);
+        if (generateValueToReg(ctx,op,bufOut,0)<0) return -1;
       }
-    return rv_offset + GLUE_MOV_P1_DIRECTVALUE_SIZE;
+    return rv_offset + GLUE_MOV_PX_DIRECTVALUE_SIZE;
     case OPCODETYPE_FUNC1:
     case OPCODETYPE_FUNC2:
     case OPCODETYPE_FUNC3:
@@ -1696,7 +1723,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         int cfpsize;
         EEL_F *cfp_ptrs;
         
-        int func_size, parm_size;
+        int func_size=0, parm_size=0;
         int func_raw=0;
         void *func_e=NULL;
         void *func = nseel_getFunctionAddress(ctx, op->fntype, op->fn, 
@@ -1773,58 +1800,86 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           func = GLUE_realAddress(func,func_e,&func_size);
           if (!func) return -1;
         }
-
-        
-        parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize);
-        if (parm_size < 0) return -1;               
         
         if (computTableSize) (*computTableSize) ++;
         
         if (cfpsize>=0) 
         {
-          // user defined function                   
+          // user defined function
           int pn;
+          int do_parms = cfpsize>0 && cfp_ptrs;
+          int last_nt_parm=-1;
+          // first process parameters that are non-trivial
           for (pn=0; pn < n_params; pn++)
           { 
-            if (pn) // first parameter is compiled above
+            int lsz;
+            if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; // skip and process after
+
+            if (last_nt_parm >= 0 && do_parms)
             {
-              int lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len, computTableSize);
-              if (lsz<0) return -1;
-              parm_size += lsz;            
+              if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
+              
+              // push
+              if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
+              parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
             }
-            
-            if (cfpsize>0 && cfp_ptrs)
-            {
-              if (pn == n_params - 1)
+
+            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize);
+            if (lsz<0) return -1;
+            parm_size += lsz;
+
+            last_nt_parm = pn;
+          }
+          // pop non-trivial results into place
+          if (last_nt_parm >=0 && do_parms)
+          {
+            while (--pn >= 0)
+            { 
+              if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; // skip and process after
+              if (pn == last_nt_parm)
               {
+                // copy direct p1ptr to mem
                 const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
-                const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
-                int x = pn;
+                if (bufOut_len < parm_size + cpsize) return -1;
 
-                if (bufOut_len < parm_size + func_size + cpsize + (n_params-1) * popsize) return -1;
-
-                // pop necessary stuff
-                while (--x >= 0)
-                {
-                  if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs + x);
-                  parm_size+=popsize;
-                }
-
-                // direct-copy last parameter
                 if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs + pn);
                 parm_size += cpsize;
               }
               else
               {
-                // not last parameter, push values
-                if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
-                
-                // push
-                if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
-                parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
+                const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
+                if (bufOut_len < parm_size + popsize) return -1;
+
+                if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs + pn);
+                parm_size+=popsize;
+
               }
             }
-          }          
+          }
+
+          // finally, set any trivial parameters
+          if (do_parms)
+          {
+            const int cpsize = GLUE_MOV_PX_DIRECTVALUE_SIZE + GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
+            for (pn=0; pn < n_params; pn++)
+            { 
+              if (op->parms.parms[pn]->opcodeType >= OPCODETYPE_FUNC1) continue; // set trivial values, we already set nontrivials
+
+              if (bufOut_len < parm_size + cpsize) return -1;
+
+              if (bufOut) 
+              {
+                if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,0)<0) return -1;
+                GLUE_COPY_VALUE_AT_P1_TO_PTR(bufOut + parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE,cfp_ptrs + pn);
+              }
+              parm_size += cpsize;
+
+            }
+          }
+
+
+ 
+          if (bufOut_len < parm_size + func_size) return -1;
           
           if (bufOut) memcpy(bufOut + parm_size, func, func_size);
           
@@ -1833,30 +1888,62 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         else
         {   
           int pn;
-          for (pn=1; pn < n_params; pn++)
+          int last_nt_parm=-1;
+
+          // first pass, calculate any non-trivial parameters
+          for (pn=0; pn < n_params; pn++)
           { 
-            int lsz=0;
-            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
-            if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
-            parm_size += sizeof(GLUE_PUSH_P1);
-            
-            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len, computTableSize);
+            int lsz=0; 
+            if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; // skip and process after
+            if (last_nt_parm>=0)
+            {
+              // push last result
+              if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+              if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+              parm_size += sizeof(GLUE_PUSH_P1);
+            }
+          
+            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize);
             if (lsz<0) return -1;
             parm_size += lsz;            
+            last_nt_parm = pn;
+          }
+
+          // pop/copy non-trivial values to their correct places
+          for (pn=0; pn < n_params; pn++)
+          { 
+            if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; 
+
+            if (pn == last_nt_parm)
+            {
+              if (pn != n_params-1)
+              {
+                // generate mov p1->pX
+                if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
+                if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params-1 - pn);
+                parm_size += GLUE_SET_PX_FROM_P1_SIZE;
+              }
+            }
+            else
+            {
+              if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
+              if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params-1 - pn);
+              parm_size += GLUE_POP_PX_SIZE;
+            }           
+          }
+
+          // finally, set simple pointers
+          for (pn=0; pn < n_params; pn++)
+          { 
+            if (op->parms.parms[pn]->opcodeType >= OPCODETYPE_FUNC1) continue; 
+            if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
+            if (bufOut) 
+            {
+              if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn)<0) return -1;
+            }
+            parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
           }
           
-          if (n_params>1)
-          {
-            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_P2)) return -1;
-            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_P2,sizeof(GLUE_POP_P2));
-            parm_size += sizeof(GLUE_POP_P2);
-          }
-          if (n_params>2)
-          {
-            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_P3)) return -1;
-            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_P3,sizeof(GLUE_POP_P3));
-            parm_size += sizeof(GLUE_POP_P3);
-          }
                              
           if (bufOut_len < parm_size + func_size) return -1;
           
@@ -1906,18 +1993,18 @@ static char *preprocessCode(compileContext *ctx, char *expression)
       {
         expression+=2;
         while (expression[0] && expression[0] != '\n') expression++;
-	continue;
+	      continue;
       }
       else if (expression[1] == '*')
       {
         expression+=2;
         while (expression[0] && (expression[0] != '*' || expression[1] != '/')) 
-	{
-		if (expression[0] == '\n') onCompileNewLine(ctx,expression+1-expression_start,len);
-		expression++;
-	}
+	      {
+		      if (expression[0] == '\n') onCompileNewLine(ctx,expression+1-expression_start,len);
+		      expression++;
+	      }
         if (expression[0]) expression+=2; // at this point we KNOW expression[0]=* and expression[1]=/
-	continue;
+	      continue;
       }
     }
     
@@ -2278,12 +2365,12 @@ static char *preprocessCode(compileContext *ctx, char *expression)
             }
             else if (rp && *rp && strcmp(rp,"0"))
             {
-  	      len+=sprintf(buf+len,"_mem((%s)+(%s)",lp,rp);
+  	          len+=sprintf(buf+len,"_mem((%s)+(%s)",lp,rp);
               ctx->l_stats[0]+=strlen(lp)+strlen(rp)+8;
             }
             else 
             {
-	      len+=sprintf(buf+len,"_mem(%s",lp);
+	            len+=sprintf(buf+len,"_mem(%s",lp);
               ctx->l_stats[0]+=strlen(lp)+4;
             }
 
@@ -2293,8 +2380,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
           }
 					else if (n == ns-2)
 					{
-						len+=sprintf(buf+len,"_not(%s",
-							r_ptr);
+						len+=sprintf(buf+len,"_not(%s",r_ptr);
 
 						ctx->l_stats[0]+=4;
 					}
