@@ -83,15 +83,27 @@ static unsigned int _controlfp(unsigned int val, unsigned int mask)
 #endif
 
 /*
-  todo: rename eax/ebx(edi)/ecx to p1, p2, p3
+  registers on x86 are  (RAX etc on x86-64)
+    P1(ret) EAX
+    P2 EDI
+    P3 ECX
+    WTP RSI
+
+  registers on PPC are:
+    P1(ret) r3
+    P2 r14 
+    P3 r15
+    WTP r16 (r17 will have the base of it)
+
+
   todo: have generatecode detect direct (const/var) loads, avoid pushes/pops
         need to add glue_p1_to_p2, glue_p1_to_p3, and glue_mov_p2/3_directvalue
   */
 
 #ifdef __ppc__
 
-#define GLUE_MOV_EAX_DIRECTVALUE_SIZE 8
-static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) 
+#define GLUE_MOV_P1_DIRECTVALUE_SIZE 8
+static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, INT_PTR v) 
 {   
     	unsigned int uv=(unsigned int)v;
 	unsigned short *p=(unsigned short *)b;
@@ -116,27 +128,26 @@ const static unsigned int GLUE_FUNC_LEAVE[3] = { 0x80A10000, 0x38210004, 0x7CA80
 
 const static unsigned int GLUE_RET[]={0x4E800020}; // blr
 
-const static unsigned int GLUE_MOV_ESI_EDI=0x7E308B78; // mr r16, r17
-
-static int GLUE_RESET_ESI(char *out, void *ptr)
+static int GLUE_RESET_WTP(char *out, void *ptr)
 {
-  if (out) memcpy(out,&GLUE_MOV_ESI_EDI,sizeof(GLUE_MOV_ESI_EDI));
-  return sizeof(GLUE_MOV_ESI_EDI);
+  const static unsigned int GLUE_SET_WTP_FROM_R17=0x7E308B78; // mr r16 (dest), r17 (src)
+  if (out) memcpy(out,&GLUE_SET_WTP_FROM_R17,sizeof(GLUE_SET_WTP_FROM_R17));
+  return sizeof(GLUE_SET_WTP_FROM_R17);
 
 }
 
 
 
 // stwu r3, -4(r1)
-const static unsigned int GLUE_PUSH_EAX[1]={ 0x9461FFFC};
+const static unsigned int GLUE_PUSH_P1[1]={ 0x9461FFFC};
 
 // lwz r14, 0(r1)
 // addi r1, r1, 4
-const static unsigned int GLUE_POP_EBX[2]={ 0x81C10000, 0x38210004, };
+const static unsigned int GLUE_POP_P2[2]={ 0x81C10000, 0x38210004, };
 
 // lwz r15, 0(r1)
 // addi r1, r1, 4
-const static unsigned int GLUE_POP_ECX[2]={ 0x81E10000, 0x38210004 };
+const static unsigned int GLUE_POP_P3[2]={ 0x81E10000, 0x38210004 };
 
 
 
@@ -144,14 +155,14 @@ const static unsigned int GLUE_POP_ECX[2]={ 0x81E10000, 0x38210004 };
 // lwz r15, 4(r3)
 // stwu r15, -4(r1)
 // stwu r14, -4(r1)
-static unsigned int GLUE_PUSH_EAXPTR_AS_VALUE[] = { 0x81C30000, 0x81E30004, 0x95E1FFFC, 0x95C1FFFC,  };
+static unsigned int GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x81C30000, 0x81E30004, 0x95E1FFFC, 0x95C1FFFC,  };
 
 static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
 {    
   // lwz r14, 0(r1)
   // lwz r15, 4(r1)
   // addi r1,r1,8
-  // GLUE_MOV_EAX_DIRECTVALUE_GEN / GLUE_MOV_EAX_DIRECTVALUE_SIZE (r3)
+  // GLUE_MOV_P1_DIRECTVALUE_GEN / GLUE_MOV_P1_DIRECTVALUE_SIZE (r3)
   // stw r14, 0(r3)
   // stw r15, 4(r3)
   if (buf)
@@ -160,19 +171,19 @@ static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
     *bufptr++ = 0x81C10000;
     *bufptr++ = 0x81E10004;
     *bufptr++ = 0x38210008;    
-    GLUE_MOV_EAX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
-    bufptr += GLUE_MOV_EAX_DIRECTVALUE_SIZE/4;
+    GLUE_MOV_P1_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
+    bufptr += GLUE_MOV_P1_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0x95C30000;
     *bufptr++ = 0x95E30004;
   }
-  return 3*4 + GLUE_MOV_EAX_DIRECTVALUE_SIZE + 2*4;
+  return 3*4 + GLUE_MOV_P1_DIRECTVALUE_SIZE + 2*4;
 }
 
-static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 {    
   // lwz r14, 0(r3)
   // lwz r15, 4(r3)
-  // GLUE_MOV_EAX_DIRECTVALUE_GEN / GLUE_MOV_EAX_DIRECTVALUE_SIZE (r3)
+  // GLUE_MOV_P1_DIRECTVALUE_GEN / GLUE_MOV_P1_DIRECTVALUE_SIZE (r3)
   // stw r14, 0(r3)
   // stw r15, 4(r3)
 
@@ -181,13 +192,13 @@ static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
     unsigned int *bufptr = (unsigned int *)buf;
     *bufptr++ = 0x81C30000;
     *bufptr++ = 0x81E30004;
-    GLUE_MOV_EAX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
-    bufptr += GLUE_MOV_EAX_DIRECTVALUE_SIZE/4;
+    GLUE_MOV_P1_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr);
+    bufptr += GLUE_MOV_P1_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0x95C30000;
     *bufptr++ = 0x95E30004;
   }
   
-  return 2*4 + GLUE_MOV_EAX_DIRECTVALUE_SIZE + 2*4;
+  return 2*4 + GLUE_MOV_P1_DIRECTVALUE_SIZE + 2*4;
 }
 
 
@@ -233,17 +244,17 @@ const static unsigned int GLUE_FUNC_ENTER[1];
 const static unsigned int GLUE_FUNC_LEAVE[1];
 
 #if defined(_WIN64) || defined(__LP64__)
-  #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 10
-  static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, INT_PTR v) {   
+  #define GLUE_MOV_P1_DIRECTVALUE_SIZE 10
+  static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, INT_PTR v) {   
     unsigned short *bb = (unsigned short *)b;
-    *bb++ =0xB848; 
+    *bb++ =0xB848;  // mov rax, directvalue
     *(INT_PTR *)bb = v; 
   }
-  const static unsigned char  GLUE_PUSH_EAX[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
-  const static unsigned char  GLUE_POP_EBX[2]={0x5F, 0x5f}; //pop rdi ; twice
-  const static unsigned char  GLUE_POP_ECX[2]={0x59, 0x59 }; // pop rcx ; twice
+  const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
+  const static unsigned char  GLUE_POP_P2[2]={0x5F, 0x5f}; //pop rdi ; twice
+  const static unsigned char  GLUE_POP_P3[2]={0x59, 0x59 }; // pop rcx ; twice
 
-  static unsigned char GLUE_PUSH_EAXPTR_AS_VALUE[] = {  0xff, 0x30 /* push qword [rax] */, 0x50 /*push rax - for alignment */ };
+  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = {  0xff, 0x30 /* push qword [rax] */, 0x50 /*push rax - for alignment */ };
   static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
   {    
     if (buf)
@@ -255,7 +266,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     return 1+10+2;
   }
 
-  static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+  static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
   {    
     if (buf)
     {
@@ -270,7 +281,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 #else
 
   #if EEL_F_SIZE == 4
-    static unsigned char GLUE_PUSH_EAXPTR_AS_VALUE[] = { 0x83, 0xEC, 12, /* sub esp, 12 */,   0xff, 0x30 /* push dword [eax] */ };
+    static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x83, 0xEC, 12, /* sub esp, 12 */,   0xff, 0x30 /* push dword [eax] */ };
 
     static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
     {    
@@ -289,7 +300,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     }
 
 
-    static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+    static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
     {    
       if (buf)
       {
@@ -301,7 +312,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
       return 2 + 5 + 2;
     }
   #else
-    static unsigned char GLUE_PUSH_EAXPTR_AS_VALUE[] = { 0x83, 0xEC, 8, /* sub esp, 8 */   0xff, 0x30 /* push dword [eax] */, 0xff, 0x70, 0x4 /* push dword [eax+4] */ };
+    static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x83, 0xEC, 8, /* sub esp, 8 */   0xff, 0x30 /* push dword [eax] */, 0xff, 0x70, 0x4 /* push dword [eax+4] */ };
 
     static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
     {    
@@ -320,7 +331,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
       return 12;
     }
 
-    static int GLUE_COPY_VALUE_AT_EAX_TO_PTR(unsigned char *buf, void *destptr)
+    static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
     {    
       if (buf)
       {
@@ -338,23 +349,23 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 
   #endif
 
-  #define GLUE_MOV_EAX_DIRECTVALUE_SIZE 5
-  static void GLUE_MOV_EAX_DIRECTVALUE_GEN(void *b, int v) 
+  #define GLUE_MOV_P1_DIRECTVALUE_SIZE 5
+  static void GLUE_MOV_P1_DIRECTVALUE_GEN(void *b, int v) 
   {   
-    *((unsigned char *)b) =0xB8; 
+    *((unsigned char *)b) =0xB8;  // mov eax, dv
     b= ((unsigned char *)b)+1;
     *(int *)b = v; 
   }
-  const static unsigned char  GLUE_PUSH_EAX[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
-  const static unsigned char  GLUE_POP_EBX[4]={0x5F, 0x83, 0xC4, 12}; //pop ebx, add esp, 12 // DI=5F, BX=0x5B;
-  const static unsigned char  GLUE_POP_ECX[4]={0x59, 0x83, 0xC4, 12}; // pop ecx, add esp, 12
+  const static unsigned char  GLUE_PUSH_P1[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
+  const static unsigned char  GLUE_POP_P2[4]={0x5F, 0x83, 0xC4, 12}; //pop edi, add esp, 12
+  const static unsigned char  GLUE_POP_P3[4]={0x59, 0x83, 0xC4, 12}; // pop ecx, add esp, 12
 
 #endif
 
-//const static unsigned short GLUE_MOV_ESI_EDI=0xF78B;
+
 const static unsigned char  GLUE_RET=0xC3;
 
-static int GLUE_RESET_ESI(unsigned char *out, void *ptr)
+static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 {
 #if defined(_WIN64) || defined(__LP64__)
   if (out)
@@ -1649,7 +1660,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     case OPCODETYPE_DIRECTVALUE:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
-      if (bufOut_len < GLUE_MOV_EAX_DIRECTVALUE_SIZE) 
+      if (bufOut_len < GLUE_MOV_P1_DIRECTVALUE_SIZE) 
       {
         return -1;
       }
@@ -1671,9 +1682,9 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           #endif
 
         }
-        GLUE_MOV_EAX_DIRECTVALUE_GEN(bufOut,(INT_PTR)b);
+        GLUE_MOV_P1_DIRECTVALUE_GEN(bufOut,(INT_PTR)b);
       }
-    return rv_offset + GLUE_MOV_EAX_DIRECTVALUE_SIZE;
+    return rv_offset + GLUE_MOV_P1_DIRECTVALUE_SIZE;
     case OPCODETYPE_FUNC1:
     case OPCODETYPE_FUNC2:
     case OPCODETYPE_FUNC3:
@@ -1786,7 +1797,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
             {
               if (pn == n_params - 1)
               {
-                const int cpsize = GLUE_COPY_VALUE_AT_EAX_TO_PTR(NULL,NULL);
+                const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
                 const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
                 int x = pn;
 
@@ -1800,17 +1811,17 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
                 }
 
                 // direct-copy last parameter
-                if (bufOut) GLUE_COPY_VALUE_AT_EAX_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs + pn);
+                if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs + pn);
                 parm_size += cpsize;
               }
               else
               {
                 // not last parameter, push values
-                if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_EAXPTR_AS_VALUE)) return -1;
+                if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
                 
                 // push
-                if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_EAXPTR_AS_VALUE,sizeof(GLUE_PUSH_EAXPTR_AS_VALUE));
-                parm_size+=sizeof(GLUE_PUSH_EAXPTR_AS_VALUE);
+                if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
+                parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
               }
             }
           }          
@@ -1825,9 +1836,9 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           for (pn=1; pn < n_params; pn++)
           { 
             int lsz=0;
-            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_EAX)) return -1;
-            if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_EAX, sizeof(GLUE_PUSH_EAX));
-            parm_size += sizeof(GLUE_PUSH_EAX);
+            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+            parm_size += sizeof(GLUE_PUSH_P1);
             
             lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len, computTableSize);
             if (lsz<0) return -1;
@@ -1836,15 +1847,15 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           
           if (n_params>1)
           {
-            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_EBX)) return -1;
-            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_EBX,sizeof(GLUE_POP_EBX));
-            parm_size += sizeof(GLUE_POP_EBX);
+            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_P2)) return -1;
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_P2,sizeof(GLUE_POP_P2));
+            parm_size += sizeof(GLUE_POP_P2);
           }
           if (n_params>2)
           {
-            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_ECX)) return -1;
-            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_ECX,sizeof(GLUE_POP_ECX));
-            parm_size += sizeof(GLUE_POP_ECX);
+            if (bufOut_len < parm_size + func_size + (int)sizeof(GLUE_POP_P3)) return -1;
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_P3,sizeof(GLUE_POP_P3));
+            parm_size += sizeof(GLUE_POP_P3);
           }
                              
           if (bufOut_len < parm_size + func_size) return -1;
@@ -2785,7 +2796,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     // now we build one big code segment out of our list of them, inserting a mov esi, computable before each item
     while (p)
     {
-      size += GLUE_RESET_ESI(NULL,0);
+      size += GLUE_RESET_WTP(NULL,0);
       size+=p->codesz;
       p=p->_next;
     }
@@ -2798,7 +2809,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       while (p)
       {
         int thissize=p->codesz;
-        writeptr+=GLUE_RESET_ESI(writeptr,curtabptr);
+        writeptr+=GLUE_RESET_WTP(writeptr,curtabptr);
         memcpy(writeptr,(char*)p->code,thissize);
         writeptr += thissize;
       
