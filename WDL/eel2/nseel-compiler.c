@@ -576,13 +576,16 @@ typedef struct {
 
 static void *__newBlock(llBlock **start,int size, char wantMprotect);
 
+#define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
   OPCODETYPE_DIRECTVALUE=0,
   OPCODETYPE_VARPTR,
   OPCODETYPE_VARPTRPTR,
   OPCODETYPE_FUNC1,
   OPCODETYPE_FUNC2,
-  OPCODETYPE_FUNC3
+  OPCODETYPE_FUNC3,
+
+  OPCODETYPE_INVALID,
 };
 
 struct opcodeRec
@@ -1273,7 +1276,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   {
     opcodeRec *lp = NULL;
 
-    if (!optimizeOpcodes(ctx,op->parms.parms[0]) || op->parms.parms[0]->opcodeType < OPCODETYPE_FUNC1)
+    if (!optimizeOpcodes(ctx,op->parms.parms[0]) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
     {
       // direct value, can skip ourselves
       memcpy(op,op->parms.parms[1],sizeof(*op));
@@ -1285,8 +1288,9 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
     }
   }
   if (!op || // should never really happen
-      op->opcodeType < OPCODETYPE_FUNC1 || // should happen often (vars)
-      op->opcodeType > OPCODETYPE_FUNC3) return retv;
+      OPCODE_IS_TRIVIAL(op) || // should happen often (vars)
+      op->opcodeType < 0 || op->opcodeType >= OPCODETYPE_INVALID // should never happen (assert would be appropriate heh)
+      ) return retv;
 
   retv_parm[0] = optimizeOpcodes(ctx,op->parms.parms[0]);
   if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1]);
@@ -1383,7 +1387,23 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
             }
             else if (dvalue == 0.0) // remove multiply by 0.0 (using 0.0 direct value as replacement), unless the nonzero side did something
             {
-              if (!retv_parm[!!dv0]) memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
+              if (!retv_parm[!!dv0]) 
+              {
+                memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
+              }
+              else
+              {
+                // this is 0.0 * oldexpressionthatmustbeprocessed or oldexpressionthatmustbeprocessed*0.0
+                op->fn = FN_DELIM_STATEMENTS;
+
+                if (dv0) // 0.0*oldexpression, reverse the order so that 0 is returned
+                {
+                  // set to (oldexpression;0)
+                  opcodeRec *tmp = op->parms.parms[1];
+                  op->parms.parms[1] = op->parms.parms[0];
+                  op->parms.parms[0] = tmp;
+                }
+              }
             }
           break;
           case FN_DIVIDE:
@@ -1397,8 +1417,34 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               {
                 // change to a multiply
                 op->fn = FN_MULTIPLY;
-                op->parms.parms[1]->parms.dv.directValue = 1.0/op->parms.parms[1]->parms.dv.directValue;
-                op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                if (op->parms.parms[1]->parms.dv.directValue == 0.0)
+                {
+                  optimizeOpcodes(ctx,op); // since we're a multiply, this might reduce us to 0.0 ourselves (or exec2)
+                }
+                else
+                {
+                  op->parms.parms[1]->parms.dv.directValue = 1.0/op->parms.parms[1]->parms.dv.directValue;
+                  op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                }
+              }
+            }
+            else if (dvalue == 0.0)
+            {
+              if (!retv_parm[!!dv0])
+              {
+                // if 0/x set to always 0.
+                // this is 0.0 / (oldexpression that can be eliminated)
+                memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
+              }
+              else
+              {
+                opcodeRec *tmp;
+                // this is 0.0 / oldexpressionthatmustbeprocessed
+                op->fn = FN_DELIM_STATEMENTS;
+                tmp = op->parms.parms[1];
+                op->parms.parms[1] = op->parms.parms[0];
+                op->parms.parms[0] = tmp;
+                // set to (oldexpression;0)
               }
             }
           break;
@@ -1527,7 +1573,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   else
   {
     // user func or unknown func time, always does stuff
-    // todo: for user tables, support some variant on nParams/NSEEL_NPARAMS_FLAG_MODSTUFF
+    // todo: for user tables, support some variant on nParams&NSEEL_NPARAMS_FLAG_MODSTUFF
     retv |= 1;
   }
   return retv||retv_parm[0]||retv_parm[1]||retv_parm[2];
@@ -1813,7 +1859,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           for (pn=0; pn < n_params; pn++)
           { 
             int lsz;
-            if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; // skip and process after
+            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // skip and process after
 
             if (last_nt_parm >= 0 && do_parms)
             {
@@ -1835,7 +1881,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           {
             while (--pn >= 0)
             { 
-              if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; // skip and process after
+              if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // skip and process after
               if (pn == last_nt_parm)
               {
                 // copy direct p1ptr to mem
@@ -1863,7 +1909,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
             const int cpsize = GLUE_MOV_PX_DIRECTVALUE_SIZE + GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
             for (pn=0; pn < n_params; pn++)
             { 
-              if (op->parms.parms[pn]->opcodeType >= OPCODETYPE_FUNC1) continue; // set trivial values, we already set nontrivials
+              if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // set trivial values, we already set nontrivials
 
               if (bufOut_len < parm_size + cpsize) return -1;
 
@@ -1894,7 +1940,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           for (pn=0; pn < n_params; pn++)
           { 
             int lsz=0; 
-            if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; // skip and process after
+            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // skip and process after
             if (last_nt_parm>=0)
             {
               // push last result
@@ -1912,7 +1958,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           // pop/copy non-trivial values to their correct places
           for (pn=0; pn < n_params; pn++)
           { 
-            if (op->parms.parms[pn]->opcodeType < OPCODETYPE_FUNC1) continue; 
+            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; 
 
             if (pn == last_nt_parm)
             {
@@ -1932,10 +1978,10 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
             }           
           }
 
-          // finally, set simple pointers
+          // finally, set trivial pointers
           for (pn=0; pn < n_params; pn++)
           { 
-            if (op->parms.parms[pn]->opcodeType >= OPCODETYPE_FUNC1) continue; 
+            if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; 
             if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
             if (bufOut) 
             {
