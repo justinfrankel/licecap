@@ -619,7 +619,7 @@ struct opcodeRec
 {
  int opcodeType; 
  int fntype;
- int fn;
+ INT_PTR fn;
  
  union {
    struct opcodeRec *parms[3];
@@ -1092,7 +1092,7 @@ INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
   r->parms.dv.directValue=0.0;
   return (INT_PTR)r;
 }
-INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
+INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
 {
   opcodeRec *r=newOpCode();
   r->opcodeType = OPCODETYPE_FUNC3;
@@ -1103,7 +1103,7 @@ INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, int fn, I
   r->parms.parms[2] = (opcodeRec*)code3;
   return (INT_PTR)r;  
 }
-INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2)
+INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2)
 {
   opcodeRec *r=newOpCode();
   r->opcodeType = OPCODETYPE_FUNC2;
@@ -1113,7 +1113,7 @@ INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, int fn, I
   r->parms.parms[1] = (opcodeRec*)code2;
   return (INT_PTR)r;  
 }
-INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, int fn, INT_PTR code1)
+INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1)
 {
   opcodeRec *r=newOpCode();
   r->opcodeType = OPCODETYPE_FUNC1;
@@ -1149,7 +1149,7 @@ _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHan
 
 //---------------------------------------------------------------------------------------------------------------
 static void *nseel_getFunctionAddress(compileContext *ctx, 
-      int fntype, int fn, 
+      int fntype, INT_PTR fn, 
       NSEEL_PPPROC *pProc, void ***replList, 
       int *customFuncParmSize, EEL_F **customFuncParamPtrs, int *computTableTop, 
       void **endP, int *isRaw, int wantCodeGenerated) // if wantCodeGenerated is false, can return bogus pointers in raw mode
@@ -1176,6 +1176,8 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
 #undef RF
       }
     case MATH_FN:
+
+      if (fn >=0 && fn < 0x7FFFFFFF)
       {
         functionType *p=nseel_getFunctionFromTable(fn);
         if (p) 
@@ -1567,7 +1569,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
       else if (pfn->replptrs[0] == &pow)
       {
         opcodeRec *first_parm = op->parms.parms[0];
-        if (first_parm->opcodeType == op->opcodeType &&first_parm->fn == op->fn && first_parm->fntype == op->fntype)
+        if (first_parm->opcodeType == op->opcodeType && first_parm->fn == op->fn && first_parm->fntype == op->fntype)
         {            
           // since first_parm is a pow too, we can multiply the exponents.
 
@@ -1676,7 +1678,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   if (op->fntype == MATH_FN)
   {
     // special case: while
-    int fn=op->fn;
+    INT_PTR fn=op->fn;
     if (op->opcodeType == OPCODETYPE_FUNC1 && fn == 4)
     {
       unsigned char *newblock2;

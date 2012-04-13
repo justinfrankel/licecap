@@ -156,9 +156,9 @@ extern functionType *nseel_getFunctionFromTable(int idx);
 
 INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
-INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, int fn, INT_PTR code);
-INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2);
-INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, int fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
+INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code);
+INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2);
+INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
 
 extern EEL_F nseel_globalregs[100];
 
