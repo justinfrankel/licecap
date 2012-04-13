@@ -2377,6 +2377,182 @@ SAVE_STACK
 
 #ifdef AMD64ABI
 
+    mov rdi, 0xFFFFFFFF; // first parameter = context pointer
+
+    fld EEL_ASM_TYPE [eax];
+    mov rdx, 0xFFFFFFFF;
+    fadd EEL_ASM_TYPE [rdx];
+    fistp dword ptr [rsi];
+
+    // check if (%rsi) is in range, and buffer available, otherwise call function
+    mov edx, dword ptr [rsi];
+    test rdx, 0xff800000; // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    jnz label_33;
+    mov rax, rdx;
+    shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(EEL_F))
+    and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(EEL_F)
+    mov rax, qword ptr [rdi+rax];
+    and rax, rax;
+    jz label_34;
+    and rdx, 0xFFFF; // (NSEEL_RAM_ITEMSPERBLOCK-1)
+    shl rdx, 3;      // log2(sizeof(EEL_F))
+    add rdx, rax;
+    jmp label_35;
+
+
+label_34:
+    
+    mov r15, rsi;
+    xor rsi, rsi;
+    mov esi, dword ptr [r15]; // r15 = esi (from above)
+    mov edx, 0xffffffff;
+    sub rsp, 128;
+    call edx;
+    mov rsi, r15;
+    add rsp, 128;
+    and rax, rax;
+    jnz label_35;
+label_33:
+    
+    mov rax, rsi;
+    mov qword ptr [esi], 0;
+    add rsi, EEL_F_SIZE;
+label_35:
+    
+
+#else
+    mov ecx, 0xFFFFFFFF; // first parameter = context pointer
+    fld EEL_ASM_TYPE [eax];
+    mov edx, 0xFFFFFFFF;
+    fadd EEL_ASM_TYPE [rdx];
+    fistp dword ptr [esi];
+
+    // check if (%esi) is in range...
+    mov edi, dword ptr [rsi];
+    test edi, 0xff800000;   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    jnz label_36;
+    mov rax, rdi;
+    shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(EEL_F))
+    and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(EEL_F)
+    mov rax, qword ptr [rcx+rax];
+    and rax, rax;
+    jz label_37;
+    and rdi, 0xFFFF;   // (NSEEL_RAM_ITEMSPERBLOCK-1)
+    shl rdi, 3;        // log2(sizeof(EEL_F))
+    add rdi, rax;
+    jmp label_38;
+
+
+label_37:
+    
+    xor rdx, rdx;
+    mov edx, dword ptr [esi];
+    mov edi, 0xffffffff;
+    sub rsp, 128;
+    call edi;
+    add rsp, 128;
+    and rax, rax;
+    jnz label_38;
+label_36:
+    
+    mov rax, rsi;
+    mov qword ptr [esi], 0;
+    add esi, EEL_F_SIZE;
+label_38:
+    
+#endif
+
+
+#else
+    mov edx, 0xFFFFFFFF;
+    fld EEL_ASM_TYPE [eax];
+#if EEL_F_SIZE == 8
+_emit 0xDC; // fadd qword ptr [0xffffffff]
+_emit 0x05;
+_emit 0xFF;
+_emit 0xFF;
+_emit 0xFF;
+_emit 0xFF;
+#else
+_emit 0xD8; // fadd dword ptr [0xffffffff]
+_emit 0x05;
+_emit 0xFF;
+_emit 0xFF;
+_emit 0xFF;
+_emit 0xFF;
+#endif
+    fistp dword ptr [esi];
+
+    // check if (%esi) is in range, and buffer available, otherwise call function
+    mov edi, dword ptr [esi];
+    test edi, 0xff800000;  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    jnz label_39;
+    mov eax, edi;
+    shr eax, 13;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(EEL_F))
+    and eax, 0x3F8;    // (NSEEL_RAM_BLOCKS-1)*sizeof(EEL_F)
+    mov eax, dword ptr [edx+eax];
+    and eax, eax;
+    jz label_40;
+    and edi, 0xFFFF;  // (NSEEL_RAM_ITEMSPERBLOCK-1)
+    shl edi, 3;       // log2(sizeof(EEL_F))
+    add edi, eax;
+    jmp label_41;
+
+
+label_40:
+    
+    sub esp, 8; // keep stack aligned
+    push dword ptr [esi]; // parameter
+    push edx; // push context pointer
+    mov edi, 0xffffffff;
+    call edi;
+    add esp, 16;
+    and eax, eax;
+    jnz label_41;
+label_39:
+    
+    mov eax, esi;
+    mov dword ptr [esi], 0;
+#if EEL_F_SIZE == 8
+    mov dword ptr [esi+4], 0;
+#endif
+    add esi, EEL_F_SIZE;
+label_41:
+    
+
+
+#endif
+
+RESTORE_STACK
+
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+ }
+}
+
+__declspec(naked) void _asm_megabuf_end(void) {}
+
+
+__declspec(naked) void _asm_gmegabuf(void)
+{
+  __asm {
+SAVE_STACK
+
+#ifdef TARGET_X64
+
+
+#ifdef AMD64ABI
+
     mov r15, rsi;
     mov rdi, 0xFFFFFFFF; // first parameter = context pointer
     fld EEL_ASM_TYPE [eax];
@@ -2391,11 +2567,11 @@ SAVE_STACK
     mov rsi, r15;
     add rsp, 128;
     and rax, rax;
-    jnz label_33;
+    jnz label_42;
     mov rax, r15;
     mov qword ptr [esi], 0;
     add rsi, EEL_F_SIZE;
-label_33:
+label_42:
     
 
 #else
@@ -2411,11 +2587,11 @@ label_33:
     call edi;
     add rsp, 128;
     and rax, rax;
-    jnz label_34;
+    jnz label_43;
     mov rax, rsi;
     mov qword ptr [esi], 0;
     add esi, EEL_F_SIZE;
-label_34:
+label_43:
     
 #endif
 
@@ -2446,14 +2622,14 @@ _emit 0xFF;
     call edi;
     add esp, 16;
     and eax, eax;
-    jnz label_35;
+    jnz label_44;
     mov eax, esi;
     mov dword ptr [esi], 0;
 #if EEL_F_SIZE == 8
     mov dword ptr [esi+4], 0;
 #endif
     add esi, EEL_F_SIZE;
-label_35:
+label_44:
     
 
 
@@ -2476,13 +2652,7 @@ _emit 0x90;
  }
 }
 
-__declspec(naked) void _asm_megabuf_end(void) {}
-
-
-{
-#ifdef TARGET_X64
-
-  /// todo
+__declspec(naked) void _asm_gmegabuf_end(void) {}
 
 __declspec(naked) void nseel_asm_stack_push(void)
 {

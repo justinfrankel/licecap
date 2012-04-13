@@ -687,6 +687,7 @@ static const EEL_F eel_zero=0.0, eel_one=1.0;
 static double __floor(double a) { return floor(a); }
 #endif
 
+void NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx);
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
 static double eel1band(double a, double b)
@@ -814,8 +815,8 @@ static functionType fnTable1[] = {
 
 
   {"_mem",_asm_megabuf,_asm_megabuf_end,1,{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
-  {"_gmem",_asm_megabuf,_asm_megabuf_end,1,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
-  {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM},
+  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
+  {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM_freeblocks},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
 
@@ -2286,8 +2287,13 @@ void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr)
 
 void NSEEL_PProc_RAM(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) EEL_GLUE_set_immediate(data, &ctx->ram_blocks); 
+  if (data_size>0) EEL_GLUE_set_immediate(data, ctx->ram_blocks); 
 }
+void NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx)
+{
+  if (data_size>0) EEL_GLUE_set_immediate(data, &ctx->ram_needfree); 
+}
+
 void NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
 {
   if (data_size>0) EEL_GLUE_set_immediate(data, ctx->caller_this);

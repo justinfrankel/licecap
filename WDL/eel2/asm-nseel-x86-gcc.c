@@ -1498,6 +1498,148 @@ SAVE_STACK
 
 #ifdef AMD64ABI
 
+    "movl $0xFFFFFFFF, %rdi\n" // first parameter = context pointer
+
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "movl $0xFFFFFFFF, %rdx\n"
+    "fadd" EEL_F_SUFFIX " (%rdx)\n"
+    "fistpl (%rsi)\n"
+
+    // check if (%rsi) is in range, and buffer available, otherwise call function
+    "movl (%rsi), %edx\n"
+    "testl $0xff800000, %rdx\n" // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    "jnz 1f\n"
+    "movll %rdx, %rax\n"
+    "shrll $13, %rax\n"     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
+    "andll $0x3F8, %rax\n"  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    "movll (%rdi, %rax), %rax\n"
+    "andl %rax, %rax\n"
+    "jz 2f\n"
+    "andll $0xFFFF, %rdx\n" // (NSEEL_RAM_ITEMSPERBLOCK-1)
+    "shlll $3, %rdx\n"      // log2(sizeof(EEL_F))
+    "addll %rdx, %rax\n"
+    "jmp 0f\n"
+
+    
+    "2:\n"
+    "movl %rsi, %r15\n"
+    "xorl %rsi, %rsi\n"
+    "movl (%r15), %esi\n" // r15 = esi (from above)
+    "movl $0xffffffff, %edx\n"
+    "subl $128, %rsp\n"
+    "call *%edx\n"
+    "movl %r15, %rsi\n"
+    "addl $128, %rsp\n"
+    "and %rax, %rax\n"
+    "jnz 0f\n"
+    "1:\n"
+    "movl %rsi, %rax\n"
+    "movll $0, (%esi)\n"
+    "addl $" EEL_F_SSTR ", %rsi\n"
+    "0:"
+
+#else
+    "movl $0xFFFFFFFF, %ecx\n" // first parameter = context pointer
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "movl $0xFFFFFFFF, %edx\n"
+    "fadd" EEL_F_SUFFIX " (%rdx)\n"
+    "fistpl (%esi)\n"
+
+    // check if (%esi) is in range...
+    "movl (%rsi), %edi\n"
+    "testl $0xff800000, %edi\n"   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    "jnz 1f\n"
+    "movll %rdi, %rax\n"
+    "shrll $13, %rax\n"           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
+    "andll $0x3F8, %rax\n"        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    "movll (%rcx, %rax), %rax\n"
+    "andl %rax, %rax\n"
+    "jz 2f\n"
+    "andll $0xFFFF, %rdi\n"   // (NSEEL_RAM_ITEMSPERBLOCK-1)
+    "shlll $3, %rdi\n"        // log2(sizeof(EEL_F))
+    "addll %rdi, %rax\n"
+    "jmp 0f\n"
+
+
+    "2:\n"
+    "xorl %rdx, %rdx\n"
+    "movl (%esi), %edx\n"
+    "movl $0xffffffff, %edi\n"
+    "subl $128, %rsp\n"
+    "call *%edi\n"
+    "addl $128, %rsp\n"
+    "and %rax, %rax\n"
+    "jnz 0f\n"
+    "1:\n"
+    "movl %rsi, %rax\n"
+    "movll $0, (%esi)\n"
+    "addl $" EEL_F_SSTR ", %esi\n"
+    "0:"
+#endif
+
+
+#else
+    "movl $0xFFFFFFFF, %edx\n"
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fadd" EEL_F_SUFFIX " (0xFFFFFFFF)\n"
+    "fistpl (%esi)\n"
+
+    // check if (%esi) is in range, and buffer available, otherwise call function
+    "movl (%esi), %edi\n"
+    "testl $0xff800000, %edi\n"  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    "jnz 1f\n"
+
+    "movl %edi, %eax\n"
+    "shrl $14, %eax\n"            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
+    "andl $0x1FC, %eax\n"    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    "movl (%edx, %eax), %eax\n"
+    "andl %eax, %eax\n"
+    "jz 2f\n"
+    "andl $0xFFFF, %edi\n"  // (NSEEL_RAM_ITEMSPERBLOCK-1)
+    "shll $3, %edi\n"       // log2(sizeof(EEL_F))
+    "addl %edi, %eax\n"
+    "jmp 0f\n"
+
+
+    "2:\n"
+    "subl $8, %esp\n" // keep stack aligned
+    "pushl %edi\n" // parameter
+    "pushl %edx\n" // push context pointer
+    "movl $0xffffffff, %edi\n"
+    "call *%edi\n"
+    "addl $16, %esp\n"
+    "and %eax, %eax\n"
+    "jnz 0f\n"
+    "1:\n"
+    "movl %esi, %eax\n"
+    "movl $0, (%esi)\n"
+#if EEL_F_SIZE == 8
+    "movl $0, 4(%esi)\n"
+#endif
+    "addl $" EEL_F_SSTR ", %esi\n"
+    "0:"
+
+
+#endif
+
+RESTORE_STACK
+
+ );
+}
+
+void _asm_megabuf_end(void) {}
+
+
+void _asm_gmegabuf(void)
+{
+  __asm__(
+SAVE_STACK
+
+#ifdef TARGET_X64
+
+
+#ifdef AMD64ABI
+
     "movl %rsi, %r15\n"
     "movl $0xFFFFFFFF, %rdi\n" // first parameter = context pointer
     "fld" EEL_F_SUFFIX " (%eax)\n"
@@ -1568,8 +1710,7 @@ RESTORE_STACK
  );
 }
 
-void _asm_megabuf_end(void) {}
-
+void _asm_gmegabuf_end(void) {}
 
 void nseel_asm_stack_push(void)
 {

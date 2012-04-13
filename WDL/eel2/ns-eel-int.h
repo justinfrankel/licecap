@@ -114,7 +114,7 @@ typedef struct _compileContext
   char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F *function_localTable_Values;
   
-  void *ram_blocks; // this needs to be immediately followed by
+  EEL_F *ram_blocks[NSEEL_RAM_BLOCKS];
   int ram_needfree;
 
   void *tmpCodeHandle;
@@ -189,11 +189,11 @@ struct  lextab {
 };
 extern struct lextab nseel_lextab;
 
-EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAlloc(EEL_F ***blocks, int w);
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAlloc(EEL_F **blocks, int w);
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w);
-EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F ***blocks,EEL_F *dest, EEL_F *v, EEL_F *lenptr);
-EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(EEL_F ***blocks, EEL_F *which);
-EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F ***blocks,EEL_F *dest, EEL_F *src, EEL_F *lenptr);
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F **blocks,EEL_F *dest, EEL_F *v, EEL_F *lenptr);
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(int *flag, EEL_F *which);
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *src, EEL_F *lenptr);
 
 
 

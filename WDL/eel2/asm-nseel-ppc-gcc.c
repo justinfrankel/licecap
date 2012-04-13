@@ -1095,3 +1095,35 @@ void _asm_megabuf(void)
 }
 
 void _asm_megabuf_end(void) {}
+
+void _asm_gmegabuf(void)
+{
+  __asm__(
+   "lfd f1, 0(r3)\n"
+   "addis r3, 0, 0xdead\n" // set up context pointer
+   "ori r3, r3, 0xbeef\n"
+   "addis r4, 0, 0xdead\n"
+   "ori r4, r4, 0xbeef\n"
+   "lfd f2, 0(r4)\n"
+   "fadd f1, f2, f1\n"
+   "addis r7, 0, 0xdead\n"
+   "ori r7, r7, 0xbeef\n"
+   "mtctr r7\n"
+   "fctiwz f1, f1\n"
+   "stfd f1, 8(r16)\n"
+   "lwz r4, 12(r16)\n"
+   "subi r1, r1, 64\n"
+   "bctrl\n"
+   "addi r1, r1, 64\n"
+   "cmpi cr0, r3, 0\n"
+   "bne cr0, 0f\n"
+   "sub r5, r5, r5\n"
+   "stwu r5, 8(r16)\n"
+   "stw r5, 4(r16)\n"
+   "mr r3, r16\n"
+   "0:\n"
+  ::
+ ); 
+}
+
+void _asm_gmegabuf_end(void) {}

@@ -50,6 +50,8 @@ void _asm_generic1parm_retd_end(void);
 
 void _asm_megabuf(void);
 void _asm_megabuf_end(void);
+void _asm_gmegabuf(void);
+void _asm_gmegabuf_end(void);
 
 
 
