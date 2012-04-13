@@ -633,23 +633,19 @@ struct opcodeRec
 };
 
 
-#define newOpCode() __newOpCode(ctx)
-
-#define newTmpBlock(x) __newTmpBlock(ctx,x) // allocates extra and puts the size at the start
-#define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
-#define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
 
 
-static void *__newTmpBlock(compileContext *ctx, int size)
+static void *newTmpBlock(compileContext *ctx, int size)
 {
-  void *p=__newBlock((llBlock **)&ctx->tmpblocks_head,size+4, 0);
-  if (p && size>=0) *((int *)p) = size;
-  return p;
+  const int align = 8;
+  const int a1=align-1;
+  char *p=(char*)__newBlock((llBlock **)&ctx->tmpblocks_head,size+a1, 0);
+  return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
 static void *__newBlock_align(compileContext *ctx, int size, int align, char isForCode) 
 {
-  int a1=align-1;
+  const int a1=align-1;
   char *p=(char*)__newBlock(
                             (llBlock **)(isForCode < 0 ? &ctx->tmpblocks_head : 
                                          isForCode > 0 ? &ctx->blocks_head : 
@@ -657,10 +653,14 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, char isF
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
-static opcodeRec *__newOpCode(compileContext *ctx)
+static opcodeRec *newOpCode(compileContext *ctx)
 {
   return (opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec),8, ctx->isSharedFunctions ? 0 : -1); 
 }
+
+#define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
+#define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
+
 
 static void freeBlocks(llBlock **start);
 
@@ -1060,7 +1060,7 @@ static void *__newBlock(llBlock **start, int size, char wantMprotect)
 //---------------------------------------------------------------------------------------------------------------
 INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 {
-  opcodeRec *r=newOpCode();
+  opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_DIRECTVALUE;
   r->parms.dv.directValue = value; 
   r->parms.dv.valuePtr = NULL;
@@ -1069,7 +1069,7 @@ INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 
 INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
 {
-  opcodeRec *r=newOpCode();
+  opcodeRec *r=newOpCode(ctx);
   if (ctx->function_localTable_Size > 0 &&
       ctx->function_localTable_MemberSize >0 &&
       ctx->function_localTable_MemberPtrs &&
@@ -1094,7 +1094,7 @@ INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
 }
 INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
 {
-  opcodeRec *r=newOpCode();
+  opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_FUNC3;
   r->fntype = fntype;
   r->fn = fn;
@@ -1105,7 +1105,7 @@ INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR f
 }
 INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2)
 {
-  opcodeRec *r=newOpCode();
+  opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_FUNC2;
   r->fntype = fntype;
   r->fn = fn;
@@ -1115,7 +1115,7 @@ INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR f
 }
 INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1)
 {
-  opcodeRec *r=newOpCode();
+  opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_FUNC1;
   r->fntype = fntype;
   r->fn = fn;
@@ -1130,7 +1130,7 @@ static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *re
 _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, const char *nameptr)
 {
   int n;
-  _codeHandleFunctionRec *subfr = !islocal ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : newTmpBlock(sizeof(_codeHandleFunctionRec)); 
+  _codeHandleFunctionRec *subfr = islocal ? newTmpBlock(ctx,sizeof(_codeHandleFunctionRec)) : newDataBlock(sizeof(_codeHandleFunctionRec),8);
   if (!subfr) return 0;
   // fr points to functionname()'s rec, nameptr to blah.functionname()
 
@@ -1254,7 +1254,7 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
 
             if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
             {
-              void *p=newTmpBlock(sz);
+              void *p=newTmpBlock(ctx,sz);
               fr->tmpspace_req=0;
               if (p)
               {
@@ -1275,7 +1275,7 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
               if (codeCall)
               {
                 void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
-                fr->startptr = newTmpBlock(sz);
+                fr->startptr = newTmpBlock(ctx,sz);
                 if (fr->startptr)
                 {
                   memcpy(fr->startptr,f,sz);
@@ -2711,7 +2711,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
                 }
                 else 
                 {
-                  ctx->function_localTable_Names = newTmpBlock(NSEEL_MAX_VARIABLE_NAMELEN * maxcnt);
+                  ctx->function_localTable_Names = newTmpBlock(ctx,NSEEL_MAX_VARIABLE_NAMELEN * maxcnt);
                 }
 
                 if (ctx->function_localTable_Names)
@@ -2848,7 +2848,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
         }
         else
         {
-          fr = ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : newTmpBlock(sizeof(_codeHandleFunctionRec)); 
+          fr = ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : newTmpBlock(ctx,sizeof(_codeHandleFunctionRec)); 
           if (fr)
           {
             memset(fr,0,sizeof(_codeHandleFunctionRec));
@@ -2883,7 +2883,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       if (!startptr_size) continue; // optimized away
       if (startptr_size>0)
       {
-        startptr = newTmpBlock(startptr_size);
+        startptr = newTmpBlock(ctx,startptr_size);
         if (startptr)
         {
           startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop);
@@ -2930,7 +2930,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     if (!is_fname[0]) // redundant check (if is_fname[0] is set and we succeeded, it should continue)
                       // but we'll be on the safe side
     {
-      topLevelCodeSegmentRec *p = newTmpBlock(sizeof(topLevelCodeSegmentRec));
+      topLevelCodeSegmentRec *p = newTmpBlock(ctx,sizeof(topLevelCodeSegmentRec));
       p->_next=0;
       p->code = startptr;
       p->codesz = startptr_size;
