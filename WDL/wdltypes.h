@@ -29,6 +29,7 @@ typedef unsigned long long WDL_UINT64;
 #else
 #include <stdint.h>
 typedef intptr_t INT_PTR;
+typedef uintptr_t UINT_PTR;
 #endif
 
 #if defined(__ppc__) || !defined(__cplusplus)
