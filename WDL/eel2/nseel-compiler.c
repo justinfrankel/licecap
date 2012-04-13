@@ -1050,12 +1050,16 @@ static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *re
 
 _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, const char *nameptr)
 {
+  int n;
   _codeHandleFunctionRec *subfr = !islocal ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : newTmpBlock(sizeof(_codeHandleFunctionRec)); 
   if (!subfr) return 0;
   // fr points to functionname()'s rec, nameptr to blah.functionname()
 
   *subfr = *fr;
-  lstrcpyn(subfr->fname,nameptr,sizeof(subfr->fname));
+  n = strlen(nameptr);
+  if (n > sizeof(subfr->fname)-1) n=sizeof(subfr->fname)-1;
+  memcpy(subfr->fname,nameptr,n);
+  subfr->fname[n]=0;
   subfr->startptr=0; // make sure this code gets recompiled (with correct member ptrs) for this instance!
   
   fr->next = subfr;
@@ -1244,13 +1248,13 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           {
             case FN_UMINUS:
               op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.valuePtr=NULL;
               op->parms.dv.directValue = - op->parms.parms[0]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
             break;
             case FN_UPLUS:
               op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.valuePtr=NULL;
               op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
             break;
           }
         }
@@ -1265,33 +1269,33 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
             {
               case FN_DIVIDE:
                 op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.valuePtr=NULL;
                 op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue;
+                op->parms.dv.valuePtr=NULL;
               break;
               case FN_MULTIPLY:
                 op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.valuePtr=NULL;
                 op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue;
+                op->parms.dv.valuePtr=NULL;
               break;
               case FN_ADD:
                 op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.valuePtr=NULL;
                 op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
+                op->parms.dv.valuePtr=NULL;
               break;
               case FN_SUB:
                 op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.valuePtr=NULL;
                 op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
+                op->parms.dv.valuePtr=NULL;
               break;
               case FN_AND:
                 op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.valuePtr=NULL;
                 op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
+                op->parms.dv.valuePtr=NULL;
               break;
               case FN_OR:
                 op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.valuePtr=NULL;
                 op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
+                op->parms.dv.valuePtr=NULL;
               break;
             }
           }
@@ -1302,8 +1306,8 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               case FN_DIVIDE:
                 // change to a multiply
                 op->fn = FN_MULTIPLY;
-                op->parms.parms[1]->parms.dv.valuePtr=NULL;
                 op->parms.parms[1]->parms.dv.directValue = 1.0/op->parms.parms[1]->parms.dv.directValue;
+                op->parms.parms[1]->parms.dv.valuePtr=NULL;
               break;
             }
           }
@@ -1362,8 +1366,8 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           if (suc)
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.valuePtr=NULL;
             op->parms.dv.directValue = v;
+            op->parms.dv.valuePtr=NULL;
           }
 
 
@@ -1378,10 +1382,10 @@ static void optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               pfn->replptrs[0] == &atan2) 
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.valuePtr=NULL;
             op->parms.dv.directValue = pfn->replptrs[0]==pow ? 
               pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue) :
               atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.valuePtr=NULL;
           }
         }
         else if (pfn->replptrs[0] == &pow)
