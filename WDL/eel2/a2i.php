@@ -165,7 +165,7 @@ while (($line = fgets($in)))
               $parms = $bthist[$d];
             }
           }
-          if (stristr($parms,"[0xffffffff]"))
+          if (stristr($parms,"[0xfefefefe]"))
           {
             if ($inst == "fmul" || $inst=="fadd" || $inst == "fcomp")
             { 
@@ -174,19 +174,19 @@ while (($line = fgets($in)))
               if ($inst=="fcomp") $hdr="0x1D";
 
               fputs($out,"#if EEL_F_SIZE == 8\n");
-              fputs($out,"_emit 0xDC; // $inst qword ptr [0xffffffff]\n");
+              fputs($out,"_emit 0xDC; // $inst qword ptr [0xfefefefe]\n");
               fputs($out,"_emit $hdr;\n");
-              fputs($out,"_emit 0xFF;\n");
-              fputs($out,"_emit 0xFF;\n");
-              fputs($out,"_emit 0xFF;\n");
-              fputs($out,"_emit 0xFF;\n");
+              fputs($out,"_emit 0xFE;\n");
+              fputs($out,"_emit 0xFE;\n");
+              fputs($out,"_emit 0xFE;\n");
+              fputs($out,"_emit 0xFE;\n");
               fputs($out,"#else\n");
-              fputs($out,"_emit 0xD8; // $inst dword ptr [0xffffffff]\n");
+              fputs($out,"_emit 0xD8; // $inst dword ptr [0xfefefefe]\n");
               fputs($out,"_emit $hdr;\n");
-              fputs($out,"_emit 0xFF;\n");
-              fputs($out,"_emit 0xFF;\n");
-              fputs($out,"_emit 0xFF;\n");
-              fputs($out,"_emit 0xFF;\n");
+              fputs($out,"_emit 0xFE;\n");
+              fputs($out,"_emit 0xFE;\n");
+              fputs($out,"_emit 0xFE;\n");
+              fputs($out,"_emit 0xFE;\n");
               fputs($out,"#endif\n");
               $nowrite=1;
             }

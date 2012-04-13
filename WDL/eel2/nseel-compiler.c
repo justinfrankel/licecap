@@ -410,19 +410,17 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
 unsigned char *EEL_GLUE_set_immediate(void *_p, void *newv)
 {
   char *p=(char*)_p;
-  while (*(INT_PTR *)p != ~(INT_PTR)0) p++;
+#if defined(__LP64__) || defined(_WIN64)
+  INT_PTR scan = 0xFEFEFEFEFEFEFEFE;
+#else
+  INT_PTR scan = 0xFEFEFEFE;
+#endif
+  while (*(INT_PTR *)p != scan) p++;
   *(INT_PTR *)p = (INT_PTR)newv;
   return (unsigned char *) (((INT_PTR*)p)+1);
 }
 
 
-unsigned char *EEL_GLUE_set_immediate2(void *_p, void *newv, INT_PTR scanval)
-{
-  char *p=(char*)_p;
-  while (*(INT_PTR *)p != scanval) p++;
-  *(INT_PTR *)p = (INT_PTR)newv;
-  return (unsigned char *)(((INT_PTR*)p)+1);
-}
 
 
 #endif
@@ -684,22 +682,30 @@ static void NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
     if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
 
     data=EEL_GLUE_set_immediate(data, (void *)stackptr);
-
-#if defined(__ppc__)
     data=EEL_GLUE_set_immediate(data, (void*) m1); // and
     data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
-#elif defined(_WIN64) || defined(__LP64__)
-    data=EEL_GLUE_set_immediate2(data, (void*) m1,0xfefefefefefefefe); // and
-    data=EEL_GLUE_set_immediate2(data, (void *)((UINT_PTR)ch->stack&~m1),0xfefefefefefefefe); // or
-#else
-    // msvc's assembler generates short opcodes for and/or with ~0, erg. need to test gcc I guess too?
-    data=EEL_GLUE_set_immediate2(data, (void*) m1,0xfefefefe); // and
-    data=EEL_GLUE_set_immediate2(data, (void *)((UINT_PTR)ch->stack&~m1),0xfefefefe); // or
-#endif
-
   }
 }
-static void NSEEL_PProc_Stack_Peek(void *data, int data_size, compileContext *ctx)
+
+static void NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext *ctx, INT_PTR offs)
+{
+  codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
+
+  if (data_size>0) 
+  {
+    UINT_PTR m1=(UINT_PTR)(NSEEL_STACK_SIZE * sizeof(EEL_F) - 1);
+    UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
+
+    ch->want_stack=1;
+    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
+
+    data=EEL_GLUE_set_immediate(data, (void *)stackptr);
+    data=EEL_GLUE_set_immediate(data, (void *)offs);
+    data=EEL_GLUE_set_immediate(data, (void*) m1); // and
+    data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
+  }
+}
+static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext *ctx)
 {
   codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
 
@@ -862,7 +868,7 @@ static functionType fnTable1[] = {
   {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1,{0,},NSEEL_PProc_Stack},
   {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1,{0,},NSEEL_PProc_Stack},
   {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1,{0,},NSEEL_PProc_Stack},
-  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1,{0,},NSEEL_PProc_Stack_Peek},
+  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1,{0,},NSEEL_PProc_Stack_PeekTop},
 
 
 };
@@ -1645,7 +1651,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
                 if (bufOut) 
                 {
                   memcpy(bufOut,func,func_size);
-                  NSEEL_PProc_Stack_Peek(bufOut,func_size,ctx);
+                  NSEEL_PProc_Stack_PeekTop(bufOut,func_size,ctx);
                 }
                 return rv_offset + func_size;
               }
@@ -1657,8 +1663,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
                 if (bufOut)
                 {
                   memcpy(bufOut,func,func_size);
-                  NSEEL_PProc_Stack(bufOut,func_size,ctx);
-                  EEL_GLUE_set_immediate(bufOut,(void*)(INT_PTR) (f*sizeof(EEL_F)));
+                  NSEEL_PProc_Stack_PeekInt(bufOut,func_size,ctx,f*sizeof(EEL_F));
                 }
                 return rv_offset + func_size;
               }

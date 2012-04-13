@@ -8,7 +8,7 @@ SECTION .text
 	global _asm_generic1parm
 _asm_generic1parm:
 	fld qword [rax]
-	mov rax,[qword 0xFFFFFFFFFFFFFFFF]
+	mov rax,[qword 0xFEFEFEFEFEFEFEFE]
 	global _asm_generic1parm_end
 _asm_generic1parm_end:
 
@@ -222,7 +222,7 @@ while (($line = fgets($in)))
               $parms = $bthist[$d];
             }
           }
-          $parms = preg_replace("/0x[f,F]{8}/","qword 0xFFFFFFFFFFFFFFFF",$parms);
+          $parms = preg_replace("/0x[fe,FE]{8}/","qword 0xFEFEFEFEFEFEFEFE",$parms);
 
           
 
