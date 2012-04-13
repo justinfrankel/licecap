@@ -120,16 +120,19 @@ typedef struct _compileContext
   int compileLineRecs_size;
   int compileLineRecs_alloc;
 
-  int isSharedFunctions;
   _codeHandleFunctionRec *functions_local, *functions_common;
 
+
+  int isSharedFunctions;
+  // state used while generating functions
   int function_localTable_Size;
   char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F *function_localTable_Values;
-
   int function_callsFunctionsThatNeedImpliedPrefix; // state to end up in fn->callsFunctionsThatNeedImpliedPrefix
   int function_localTable_MemberSize; // last items in localtable are member ptrs
   EEL_F **function_localTable_MemberPtrs;
+
+
   
   EEL_F *ram_blocks[NSEEL_RAM_BLOCKS];
   int ram_needfree;

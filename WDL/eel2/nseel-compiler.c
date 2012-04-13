@@ -2675,15 +2675,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     opcodeRec *start_opcode;
     char *expr;
     int function_numparms=0;
-    EEL_F *function_paramptrs=NULL;
-
-    int function_nummembervars=0;
-    char *function_membervarnames=NULL;
-    EEL_F **function_membervars=NULL; 
-
     char is_fname[NSEEL_MAX_VARIABLE_NAMELEN];
     is_fname[0]=0;
 
+    ctx->function_localTable_Size=0;
+    ctx->function_localTable_Names=0;
+    ctx->function_localTable_Values=0;
+    ctx->function_localTable_MemberSize=0;
+    ctx->function_localTable_MemberPtrs=0;
+    ctx->function_callsFunctionsThatNeedImpliedPrefix=0;
+    
     ctx->colCount=0;
 
     
@@ -2695,14 +2696,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     while (*expression && *expression != ';') expression++;
     if (*expression) *expression++ = 0;
 
-    // parse
-    
-    ctx->function_localTable_Size=0;
-    ctx->function_localTable_Names=0;
-    ctx->function_localTable_Values=0;
-    ctx->function_localTable_MemberSize=0;
-    ctx->function_localTable_MemberPtrs=0;
-    ctx->function_callsFunctionsThatNeedImpliedPrefix=0;
+    // parse   
 
     if (!strncasecmp(expr,"function",8) && isspace(expr[8]))
     {
@@ -2826,7 +2820,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     {
       ctx->function_localTable_Values = newDataBlock(sizeof(EEL_F)*ctx->function_localTable_Size,8);
       if (ctx->function_localTable_Values) memset(ctx->function_localTable_Values,0,sizeof(EEL_F)*ctx->function_localTable_Size);
-      function_paramptrs=ctx->function_localTable_Values;
 
       //
       if (ctx->function_localTable_MemberSize>0)
@@ -2840,25 +2833,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
     start_opcode=(opcodeRec *)nseel_compileExpression(ctx,expr);
-    
-
-    if (ctx->function_localTable_Size)
-    {
-      if (ctx->function_localTable_Names && ctx->function_localTable_MemberPtrs)
-      {
-        function_nummembervars = ctx->function_localTable_MemberSize;
-        function_membervarnames = ctx->function_localTable_Names + 
-          (ctx->function_localTable_Size-ctx->function_localTable_MemberSize)*NSEEL_MAX_VARIABLE_NAMELEN;
-        function_membervars = ctx->function_localTable_MemberPtrs;
-
-      }
-      ctx->function_localTable_MemberSize=0;
-      ctx->function_localTable_MemberPtrs=0;
-      ctx->function_localTable_Size=0;
-      ctx->function_localTable_Names=0;
-      ctx->function_localTable_Values=0;
-    }
-       
+           
     if (start_opcode)
     {
 
@@ -2916,14 +2891,23 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
             fr->opcodes = start_opcode;
         
             fr->tmpspace_req = computTableTop;
-            fr->num_params=function_numparms;
-            fr->param_ptrs = function_paramptrs;
+
+            if (ctx->function_localTable_Size > 0)
+            {
+              fr->num_params=function_numparms;
+              fr->param_ptrs = ctx->function_localTable_Values;
+
+              if (ctx->function_localTable_Names && ctx->function_localTable_MemberPtrs)
+              {
+                fr->nummembervars = ctx->function_localTable_MemberSize;
+                fr->membervarnames = ctx->function_localTable_Names + 
+                  (ctx->function_localTable_Size-ctx->function_localTable_MemberSize)*NSEEL_MAX_VARIABLE_NAMELEN;
+                fr->membervars = ctx->function_localTable_MemberPtrs;
+
+              }
+            }
 
             fr->callsFunctionsThatNeedImpliedPrefix=ctx->function_callsFunctionsThatNeedImpliedPrefix;
-
-            fr->nummembervars=function_nummembervars;
-            fr->membervarnames=function_membervarnames;
-            fr->membervars=function_membervars; 
 
             strcpy(fr->fname,is_fname);
 
@@ -2955,6 +2939,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
 
+    ctx->function_localTable_MemberSize=0;
+    ctx->function_localTable_MemberPtrs=0;
+    ctx->function_localTable_Size=0;
+    ctx->function_localTable_Names=0;
+    ctx->function_localTable_Values=0;
     ctx->function_callsFunctionsThatNeedImpliedPrefix=0;
     
     if (!startptr) 
