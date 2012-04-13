@@ -81,7 +81,10 @@ typedef struct _codeHandleFunctionRec
   char *membervarnames;
   EEL_F **membervars; 
 
-  char fname[NSEEL_MAX_VARIABLE_NAMELEN];
+  int callsFunctionsThatNeedImpliedPrefix;  // means this function may call a method that needs an implied prefix
+
+  char fname[NSEEL_MAX_VARIABLE_NAMELEN]; // includes "prefix.func" if applicable
+  char prefix_name[NSEEL_MAX_VARIABLE_NAMELEN];
 } _codeHandleFunctionRec;  
   
 typedef struct _compileContext
@@ -124,6 +127,7 @@ typedef struct _compileContext
   char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F *function_localTable_Values;
 
+  int function_callsFunctionsThatNeedImpliedPrefix; // state to end up in fn->callsFunctionsThatNeedImpliedPrefix
   int function_localTable_MemberSize; // last items in localtable are member ptrs
   EEL_F **function_localTable_MemberPtrs;
   

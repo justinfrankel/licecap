@@ -351,6 +351,11 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       {
         if (!strcasecmp(fr->fname,nptr))
         {
+          if (!fr->prefix_name[0] && (fr->callsFunctionsThatNeedImpliedPrefix || fr->nummembervars))
+          {
+            ctx->function_callsFunctionsThatNeedImpliedPrefix = 1;
+          }
+
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
           return (INT_PTR)fr;
         }
@@ -363,6 +368,11 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       {
         if (!strcasecmp(fr->fname,nptr))
         {
+          if (!fr->prefix_name[0] && (fr->callsFunctionsThatNeedImpliedPrefix || fr->nummembervars))
+          {
+            ctx->function_callsFunctionsThatNeedImpliedPrefix = 1;
+          }
+
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
           return (INT_PTR)fr;
         }
@@ -376,11 +386,24 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       }
 
       if (bmatch) 
-      {
-        _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, const char *nameptr);
-        fr = eel_createFunctionInstance(ctx,bmatch,bmatch_local,nptr);
+      {       
+        if (!bmatch->nummembervars && !bmatch->callsFunctionsThatNeedImpliedPrefix) 
+        {
+          // if bmatch can't access any prefixed state (via calls or member vars), ignore prefix context
+          fr = bmatch;
+        }
+        else 
+        {
+          _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, 
+                const char *nameptr, int prefixLen);
+
+          fr = eel_createFunctionInstance(ctx,bmatch,bmatch_local,nptr, postName - 1 - nptr);
+        }
+
         if (fr)
         {
+          // no need to set ctx->function_callsFunctionsThatNeedImpliedPrefix, since we're either calling the original function
+          // (which can't access prefixed state), or created prefixed copy, which is prefixed itself
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
           return (INT_PTR)fr;
         }
