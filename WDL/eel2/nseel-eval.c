@@ -319,6 +319,28 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       }
     }
   
+
+
+    // scan for local/member variables before user functions
+    i=0;
+
+    if (ctx->function_localTable_Names && ctx->function_localTable_Values)
+    {
+      const char *p = ctx->function_localTable_Names;
+      int n= ctx->function_localTable_Size;
+      while (n-->0)
+      {
+        if (!strnicmp(p,ctx->yytext,NSEEL_MAX_VARIABLE_NAMELEN))
+        {
+          *typeOfObject = IDENTIFIER;
+          return i;
+        }
+        p += NSEEL_MAX_VARIABLE_NAMELEN;
+        i++;
+      }
+    }
+
+
     {
       _codeHandleFunctionRec *fr = ctx->functions_local;
       _codeHandleFunctionRec *bmatch=NULL;
@@ -366,24 +388,6 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
     }
   }
 
-
-  i=0;
-
-  if (ctx->function_localTable_Names && ctx->function_localTable_Values)
-  {
-    const char *p = ctx->function_localTable_Names;
-    int n= ctx->function_localTable_Size;
-    while (n-->0)
-    {
-      if (!strnicmp(p,ctx->yytext,NSEEL_MAX_VARIABLE_NAMELEN))
-      {
-        *typeOfObject = IDENTIFIER;
-        return i;
-      }
-      p += NSEEL_MAX_VARIABLE_NAMELEN;
-      i++;
-    }
-  }
 
   {
     int wb;
