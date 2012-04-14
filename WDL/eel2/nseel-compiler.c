@@ -2789,7 +2789,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           p=expr;
           while (isspace(*p)) p++;
         
-          if (p[0] == '(' || !strncasecmp(p,"local(",6) || !strncasecmp(p,"instance(",9))
+          if (p[0] == '(' || 
+              !strncasecmp(p,"local(",6)  ||
+              !strncasecmp(p,"static(",7) ||
+              !strncasecmp(p,"instance(",9))
           {
             int maxcnt=0,state=0;
             int is_parms = 0;
@@ -2801,18 +2804,15 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
             if (p[0] == '(') 
             {
               is_parms = 1;
-              p++;
             }
             else if (!strncasecmp(p,"instance(",9))
             {
-              p+=9;
               localTableContext = 1; //adding to implied this table
             }
-            else 
-            {
-              // locals
-              p+=6;
-            }
+
+            // skip past parens
+            while (*p && *p != '(') p++;
+            if (*p) p++;
 
             sp=p;
             while (*p && *p != ')') 
