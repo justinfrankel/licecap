@@ -1174,6 +1174,7 @@ _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx
   subfr->fname[n]=0;
 
   subfr->startptr=0; // make sure this code gets recompiled (with correct member ptrs) for this instance!
+  subfr->basedOn = fr;
   
   fr->next = subfr;
   
@@ -1273,7 +1274,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           // scan for function
           while (fr && !fn)
           {
-            if (!strcasecmp(fr->fname,nm)) fn = (INT_PTR) fr;
+            if (!strcasecmp(fr->fname,nm) && (!fr->basedOn || fr->basedOn == fr_base)) fn = (INT_PTR) fr;
             fr=fr->next;
           }
         }
@@ -1284,7 +1285,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           // scan for function
           while (fr && !fn)
           {
-            if (!strcasecmp(fr->fname,nm)) fn = (INT_PTR) fr;
+            if (!strcasecmp(fr->fname,nm) && (!fr->basedOn || fr->basedOn == fr_base)) fn = (INT_PTR) fr;
             fr=fr->next;
           }
         }
@@ -2922,63 +2923,41 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
       if (is_fname[0])
       {
-        _codeHandleFunctionRec *fr = ctx->functions_local;
-        while (fr)
-        {
-          if (!strcmp(fr->fname,is_fname)) break;
-          fr=fr->next;
-        }
-        if (!fr)
-        {
-          fr = ctx->functions_common;
-          while (fr)
-          {
-            if (!strcmp(fr->fname,is_fname)) break;
-            fr=fr->next;
-          }
-        }
-
-        if (fr) 
-        {
-          startptr_size=-1;
-        }
-        else
-        {
-          fr = ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : 
+        _codeHandleFunctionRec *fr = ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : 
                                         newTmpBlock(ctx,sizeof(_codeHandleFunctionRec)); 
-          if (fr)
+        if (fr)
+        {
+          int namelen = strlen(is_fname);
+          memset(fr,0,sizeof(_codeHandleFunctionRec));
+          fr->startptr_size = startptr_size;
+          fr->opcodes = start_opcode;
+      
+          fr->tmpspace_req = computTableTop;
+
+          if (ctx->function_localTable_Size[0] > 0 && ctx->function_localTable_ValuePtrs)
           {
-            memset(fr,0,sizeof(_codeHandleFunctionRec));
-            fr->startptr_size = startptr_size;
-            fr->opcodes = start_opcode;
-        
-            fr->tmpspace_req = computTableTop;
-
-            if (ctx->function_localTable_Size[0] > 0 && ctx->function_localTable_ValuePtrs)
-            {
-              fr->num_params=function_numparms;
-              fr->localstorage = ctx->function_localTable_ValuePtrs;
-              fr->localstorage_size = ctx->function_localTable_Size[0];
-            }
-
-            fr->usesThisPointer = ctx->function_usesThisPointer;
-            fr->isCommonFunction = ctx->isSharedFunctions;
-
-            strcpy(fr->fname,is_fname);
-
-            if (ctx->isSharedFunctions)
-            {
-              fr->next = ctx->functions_common;
-              ctx->functions_common = fr;
-            }
-            else
-            {
-              fr->next = ctx->functions_local;
-              ctx->functions_local = fr;
-            }
+            fr->num_params=function_numparms;
+            fr->localstorage = ctx->function_localTable_ValuePtrs;
+            fr->localstorage_size = ctx->function_localTable_Size[0];
           }
-          continue;
+
+          fr->usesThisPointer = ctx->function_usesThisPointer;
+          fr->isCommonFunction = ctx->isSharedFunctions;
+
+          strcpy(fr->fname,is_fname);
+
+          if (ctx->isSharedFunctions)
+          {
+            fr->next = ctx->functions_common;
+            ctx->functions_common = fr;
+          }
+          else
+          {
+            fr->next = ctx->functions_local;
+            ctx->functions_local = fr;
+          }         
         }
+        continue;
       }
 
       if (!startptr_size) continue; // optimized away

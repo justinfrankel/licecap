@@ -276,8 +276,12 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
     {
       if (!is_this_ptr && !strcasecmp(fr->fname,tmp))
       {
-        *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-        return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
+        // this relies on derived versions always being after their base version
+        if (!bmatch || fr->basedOn == bmatch)
+        {
+          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
+        }
       }
 
       if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
@@ -289,15 +293,20 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       fr=fr->next;
     }
 
-    if (!is_this_ptr || !bmatch)
+    // if matched base function in local functions, don't search for full match in common functions
+    if (!bmatch)
     {
       fr = ctx->functions_common;
       while (fr)
       {
         if (!is_this_ptr && !strcasecmp(fr->fname,tmp))
         {
-          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
+          // this relies on derived versions always being after their base version
+          if (!bmatch || fr->basedOn == bmatch)
+          {
+            *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+            return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
+          }
         }
         if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
         {

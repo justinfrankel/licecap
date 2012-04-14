@@ -100,6 +100,8 @@ typedef struct _codeHandleFunctionRec
   int isCommonFunction;
   int usesThisPointer;
 
+  struct _codeHandleFunctionRec *basedOn; // if set, functionrec derived from (foo() if we are blah.foo())
+
   char fname[NSEEL_MAX_VARIABLE_NAMELEN+1]; // includes "prefix.func" if applicable
 } _codeHandleFunctionRec;  
   
