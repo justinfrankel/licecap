@@ -197,19 +197,19 @@ INT_PTR nseel_translate(compileContext *ctx, int type)
 {
   int v;
   int n;
-  *ctx->yytext = 0;
-  nseel_gettoken(ctx,ctx->yytext, sizeof(ctx->yytext));
+  char tmp[256];
+  nseel_gettoken(ctx,tmp, sizeof(tmp));
 
   switch (type)
   {
-    case INTCONST: return nseel_createCompiledValue(ctx,(EEL_F)atoi(ctx->yytext));
-    case DBLCONST: return nseel_createCompiledValue(ctx,(EEL_F)atof(ctx->yytext));
+    case INTCONST: return nseel_createCompiledValue(ctx,(EEL_F)atoi(tmp)); // todo: this could be atof() eventually
+    case DBLCONST: return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
     case HEXCONST:
       v=0;
       n=0;
       while (1)
       {
-        int a=ctx->yytext[n++];
+        int a=tmp[n++];
         if (a >= '0' && a <= '9') v=(v<<4)+a-'0';
         else if (a >= 'A' && a <= 'F') v=(v<<4)+10+a-'A';
         else if (a >= 'a' && a <= 'f') v=(v<<4)+10+a-'a';
@@ -224,9 +224,10 @@ INT_PTR nseel_translate(compileContext *ctx, int type)
 INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
 {
   int i=0;
-  nseel_gettoken(ctx,ctx->yytext, sizeof(ctx->yytext));
+  char tmp[256];
+  nseel_gettoken(ctx,tmp, sizeof(tmp));
 
-  if (!strnicmp(ctx->yytext,"reg",3) && strlen(ctx->yytext) == 5 && isdigit(ctx->yytext[3]) && isdigit(ctx->yytext[4]) && (i=atoi(ctx->yytext+3))>=0 && i<100)
+  if (!strnicmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
   {
     *typeOfObject=IDENTIFIER;
     return i+NSEEL_GLOBALVAR_BASE;
@@ -234,7 +235,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
 
 
   {
-    const char *nptr = ctx->yytext;
+    const char *nptr = tmp;
 #ifdef NSEEL_EEL1_COMPAT_MODE
     if (!strcasecmp(nptr,"if")) nptr="_if";
     else if (!strcasecmp(nptr,"bnot")) nptr="_not";
@@ -273,7 +274,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       int n= ctx->function_localTable_Size;
       while (n-->0)
       {
-        if (!strnicmp(p,ctx->yytext,NSEEL_MAX_VARIABLE_NAMELEN))
+        if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
         {
           *typeOfObject = IDENTIFIER;
           return i;
@@ -365,7 +366,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       {        
         if (!ctx->varTable_Names[wb][namepos]) break;
 
-        if (!strnicmp(ctx->varTable_Names[wb]+namepos,ctx->yytext,NSEEL_MAX_VARIABLE_NAMELEN))
+        if (!strnicmp(ctx->varTable_Names[wb]+namepos,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
         {
           *typeOfObject = IDENTIFIER;
           return i;
@@ -379,17 +380,9 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   }
 
   *typeOfObject = IDENTIFIER;
-  return nseel_int_register_var(ctx,ctx->yytext,NULL);
+  return nseel_int_register_var(ctx,tmp,NULL);
 }
 
-
-
-//---------------------------------------------------------------------------
-void nseel_count(compileContext *ctx)
-{
-  nseel_gettoken(ctx,ctx->yytext, sizeof(ctx->yytext));
-  ctx->colCount+=strlen(ctx->yytext);
-}
 
 //---------------------------------------------------------------------------
 int nseel_yyerror(compileContext *ctx)

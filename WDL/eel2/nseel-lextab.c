@@ -56,17 +56,22 @@ static int _Alextab(compileContext *ctx, int __na__)
 	// fucko: JF> 17 -> 19?
   
    if (__na__ >= 0 && __na__ <= 17) 
-	   nseel_count(ctx);
+   {     
+     ctx->colCount+=nseel_gettokenlen(ctx,256);
+   }
    switch (__na__)
    {
       case 0:           
-        *ctx->yytext = 0;
-        nseel_gettoken(ctx,ctx->yytext, sizeof(ctx->yytext));
-        if (ctx->yytext[0] < '0' || ctx->yytext[0] > '9') // not really a hex value, lame
         {
-          ctx->yylval = nseel_lookup(ctx,&__na__); return __na__;
+          char tmp[8];
+          nseel_gettoken(ctx,tmp, sizeof(tmp));
+          if (tmp[0] < '0' || tmp[0] > '9') // not really a hex value, lame
+          {
+            ctx->yylval = nseel_lookup(ctx,&__na__); 
+            return __na__;
+          }
+          ctx->yylval = nseel_translate(ctx,HEXCONST); 
         }
-        ctx->yylval = nseel_translate(ctx,HEXCONST); 
       return VALUE;
       case 1:   ctx->yylval = nseel_translate(ctx,INTCONST); return VALUE; 
       case 2:   ctx->yylval = nseel_translate(ctx,INTCONST); return VALUE; 

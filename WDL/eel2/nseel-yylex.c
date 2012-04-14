@@ -45,16 +45,24 @@ static int tst__b(register int c, char tab[])
   return (tab[(c >> 3) & 037] & (1 << (c & 07)) );
 }
 
+int nseel_gettokenlen(compileContext *ctx, int lltbsiz)
+{
+  char *lp;
+  int tp=0;
+  for (lp = ctx->llbuf; lp < ctx->llend && tp < lltbsiz; tp++, lp++);
+  return tp;
+
+}
+
 int nseel_gettoken(compileContext *ctx, char *lltb, int lltbsiz)
 {
-        register char *lp, *tp, *ep;
+  char *lp, *tp, *ep;
 
-        tp = lltb;
-        ep = tp+lltbsiz-1;
-        for (lp = ctx->llbuf; lp < ctx->llend && tp < ep;)
-                *tp++ = *lp++;
-        *tp = 0;
-        return(tp-lltb);
+  tp = lltb;
+  ep = tp+lltbsiz-1;
+  for (lp = ctx->llbuf; lp < ctx->llend && tp < ep;) *tp++ = *lp++;
+  *tp = 0;
+  return(tp-lltb);
 }
 
 

@@ -100,10 +100,9 @@ typedef struct _compileContext
   YYSTYPE yylval;
   int	yychar;			/*  the lookahead symbol		*/
   int yynerrs;			/*  number of parse errors so far       */
-  char yytext[256];
 
   char    *llsave[16];             /* Look ahead buffer            */
-  char    llbuf[100];             /* work buffer                          */
+  char    llbuf[512];             /* work buffer                          */
   char    *llp1;//   = &llbuf[0];    /* pointer to next avail. in token      */
   char    *llp2;//   = &llbuf[0];    /* pointer to end of lookahead          */
   char    *llend;//  = &llbuf[0];    /* pointer to end of token              */
@@ -184,7 +183,7 @@ void *nseel_compileExpression(compileContext *ctx, char *txt);
 #define	UPLUS	264
 
 INT_PTR nseel_translate(compileContext *ctx, int type);
-void nseel_count(compileContext *ctx);
+int nseel_gettokenlen(compileContext *ctx, int maxlen);
 INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject);
 int nseel_yyerror(compileContext *ctx);
 int nseel_yylex(compileContext *ctx, char **exp);
