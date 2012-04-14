@@ -53,10 +53,6 @@ void *nseel_compileExpression(compileContext *ctx, char *exp)
 }
 
 //------------------------------------------------------------------------------
-void nseel_setLastVar(compileContext *ctx)
-{
-  nseel_gettoken(ctx,ctx->lastVar, sizeof(ctx->lastVar));
-}
 
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx)
 {
@@ -148,59 +144,6 @@ INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **pt
   }
   if (ptr) *ptr = ctx->varTable_Values[wb] + ti;
   return i;
-}
-
-//------------------------------------------------------------------------------
-INT_PTR nseel_setVar(compileContext *ctx, INT_PTR varNum)
-{
-  int lt_size=0;
-  if (varNum < 0) // adding new var
-  {
-    char *var=ctx->lastVar;
-    if (!strnicmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
-    {
-      int i,x=atoi(var+3);
-      if (x < 0 || x > 99) x=0;
-      i=NSEEL_GLOBALVAR_BASE+x;
-      return i;
-    }
-
-    return nseel_int_register_var(ctx,ctx->lastVar,NULL);
-
-  }
-
-  // this is actually unused and legacy code, and can be removed:
-
-
-  // setting/getting oldvar
-
-  if (varNum >= NSEEL_GLOBALVAR_BASE && varNum < NSEEL_GLOBALVAR_BASE+100)
-  {
-    return varNum;
-  }
-
-  if (ctx->function_localTable_Values && ctx->function_localTable_Names) lt_size=ctx->function_localTable_Size;
-  if (varNum >=0 && varNum < lt_size)
-  {
-    return varNum;
-  }
-  else 
-  {
-    int wb,ti;
-    char *nameptr;
-    int vnu = varNum - lt_size;
-    if (vnu < 0 || vnu >= ctx->varTable_numBlocks*NSEEL_VARS_PER_BLOCK) return -1;
-
-    wb=vnu/NSEEL_VARS_PER_BLOCK;
-    ti=vnu%NSEEL_VARS_PER_BLOCK;
-    nameptr=ctx->varTable_Names[wb]+ti*NSEEL_MAX_VARIABLE_NAMELEN;
-    if (!nameptr[0]) 
-    {
-      strncpy(nameptr,ctx->lastVar,NSEEL_MAX_VARIABLE_NAMELEN);
-    }  
-    return varNum;  
-  }
-
 }
 
 //------------------------------------------------------------------------------
@@ -436,8 +379,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   }
 
   *typeOfObject = IDENTIFIER;
-  nseel_setLastVar(ctx);
-  return nseel_setVar(ctx,-1);
+  return nseel_int_register_var(ctx,ctx->yytext,NULL);
 }
 
 

@@ -338,11 +338,7 @@ case 1:
 case 2:
 //#ln 34 "cal.y"
 {                                {
-                                 YYSTYPE i = nseel_setVar(ctx,yyvsp[-2]);
-                                 YYSTYPE v=nseel_getVar(ctx,i);
-
-                                 yyval = nseel_createCompiledFunction2(ctx,MATH_SIMPLE, FN_ASSIGN_UNUSED_MAYBE, v, yyvsp[0]);
-                                 ctx->result = yyval;
+                                 ctx->result = 0; // unused!
                                  }
                        ;
     break;}

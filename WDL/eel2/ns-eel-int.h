@@ -101,7 +101,6 @@ typedef struct _compileContext
   int	yychar;			/*  the lookahead symbol		*/
   int yynerrs;			/*  number of parse errors so far       */
   char yytext[256];
-  char lastVar[256];
 
   char    *llsave[16];             /* Look ahead buffer            */
   char    llbuf[100];             /* work buffer                          */
@@ -173,7 +172,6 @@ void nseel_resetVars(compileContext *ctx);
 
 
 
-INT_PTR nseel_setVar(compileContext *ctx, INT_PTR varNum);
 INT_PTR nseel_getVar(compileContext *ctx, INT_PTR varNum);
 void *nseel_compileExpression(compileContext *ctx, char *txt);
 
@@ -187,7 +185,6 @@ void *nseel_compileExpression(compileContext *ctx, char *txt);
 
 INT_PTR nseel_translate(compileContext *ctx, int type);
 void nseel_count(compileContext *ctx);
-void nseel_setLastVar(compileContext *ctx);
 INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject);
 int nseel_yyerror(compileContext *ctx);
 int nseel_yylex(compileContext *ctx, char **exp);

@@ -64,7 +64,7 @@ static int _Alextab(compileContext *ctx, int __na__)
         nseel_gettoken(ctx,ctx->yytext, sizeof(ctx->yytext));
         if (ctx->yytext[0] < '0' || ctx->yytext[0] > '9') // not really a hex value, lame
         {
-          nseel_setLastVar(ctx); ctx->yylval = nseel_lookup(ctx,&__na__); return __na__;
+          ctx->yylval = nseel_lookup(ctx,&__na__); return __na__;
         }
         ctx->yylval = nseel_translate(ctx,HEXCONST); 
       return VALUE;
@@ -72,7 +72,7 @@ static int _Alextab(compileContext *ctx, int __na__)
       case 2:   ctx->yylval = nseel_translate(ctx,INTCONST); return VALUE; 
       case 3:   ctx->yylval = nseel_translate(ctx,DBLCONST); return VALUE; 
       case 4:
-      case 5:   nseel_setLastVar(ctx); ctx->yylval = nseel_lookup(ctx,&__na__); return __na__;
+      case 5:   ctx->yylval = nseel_lookup(ctx,&__na__); return __na__;
       case 6:   return '+';
       case 7:   return '-';
       case 8:   return '*'; 
