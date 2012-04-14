@@ -171,7 +171,6 @@ void nseel_resetVars(compileContext *ctx);
 
 
 
-INT_PTR nseel_getVar(compileContext *ctx, INT_PTR varNum);
 void *nseel_compileExpression(compileContext *ctx, char *txt);
 
 #define	VALUE	258

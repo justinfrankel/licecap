@@ -348,7 +348,7 @@ case 3:
     break;}
 case 4:
 //#ln 55 "cal.y"
-{       yyval = nseel_getVar(ctx,yyvsp[0]);;
+{       yyval = yyvsp[0];;
     break;}
 case 5:
 //#ln 57 "cal.y"
