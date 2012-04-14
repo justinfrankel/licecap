@@ -52,6 +52,14 @@ enum {
   FUNCTYPE_SIMPLE=0, // fn maps to FN_*
   FUNCTYPE_FUNCTIONTYPEREC, // fn is a functionType *
   FUNCTYPE_EELFUNC, // _codeHandleFunctionRec *
+
+
+
+    // _codeHandleFunctionRec*, relname in opcode field is the namespace specifier 
+    // (i.e. if called via this.something.function(), "something".)
+    // note that calls to function() or some.function() are both normal FUNCTYPE_EELFUNC calls, as they can be resolved
+    // earlier in the process
+  FUNCTYPE_EELFUNC_THIS, 
 };
 
 
@@ -82,14 +90,10 @@ typedef struct _codeHandleFunctionRec
   int num_params;
   EEL_F *param_ptrs;
 
-  int nummembervars;
-  char *membervarnames;
-  EEL_F **membervars; 
+  int isCommonFunction;
+  int usesThisPointer;
 
-  int callsFunctionsThatNeedImpliedPrefix;  // means this function may call a method that needs an implied prefix
-
-  char fname[NSEEL_MAX_VARIABLE_NAMELEN]; // includes "prefix.func" if applicable
-  char prefix_name[NSEEL_MAX_VARIABLE_NAMELEN];
+  char fname[NSEEL_MAX_VARIABLE_NAMELEN+1]; // includes "prefix.func" if applicable
 } _codeHandleFunctionRec;  
   
 typedef struct _compileContext
@@ -131,8 +135,8 @@ typedef struct _compileContext
   int function_localTable_Size;
   char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F *function_localTable_Values;
-  int function_callsFunctionsThatNeedImpliedPrefix; // state to end up in fn->callsFunctionsThatNeedImpliedPrefix
-  int function_localTable_MemberSize; // last items in localtable are member ptrs
+
+  int function_usesThisPointer;
   EEL_F **function_localTable_MemberPtrs;
 
 
@@ -169,7 +173,12 @@ INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
 
 INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2);
 INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, INT_PTR fn);
+INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, int np, INT_PTR fn, const char *thistext);
 INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
+
+INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);
+INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **ptr);
+_codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
 extern EEL_F nseel_globalregs[100];
 

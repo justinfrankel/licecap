@@ -198,20 +198,20 @@ INT_PTR nseel_translate(compileContext *ctx, int type)
 INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
 {
   char tmp[256];
+  int i;
+
   nseel_gettoken(ctx,tmp, sizeof(tmp));
 
+  if (!strnicmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
   {
-    int i;
-    if (!strnicmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
-    {
-      *typeOfObject=IDENTIFIER;
-      return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i-NSEEL_GLOBALVAR_BASE);
-    }
+    *typeOfObject=IDENTIFIER;
+    return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i-NSEEL_GLOBALVAR_BASE);
   }
-
+  
 
   {
     const char *nptr = tmp;
+
 #ifdef NSEEL_EEL1_COMPAT_MODE
     if (!strcasecmp(nptr,"if")) nptr="_if";
     else if (!strcasecmp(nptr,"bnot")) nptr="_not";
@@ -223,120 +223,119 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
     else if (!strcasecmp(nptr,"gmegabuf")) nptr="_gmem";
 #endif
 
+    for (i=0;nseel_getFunctionFromTable(i);i++)
     {
-      int i;
-      for (i=0;nseel_getFunctionFromTable(i);i++)
+      functionType *f=nseel_getFunctionFromTable(i);
+      if (!strcasecmp(f->name, nptr))
       {
-        functionType *f=nseel_getFunctionFromTable(i);
-        if (!strcasecmp(f->name, nptr))
+        switch (f->nParams&0xff)
         {
-          switch (f->nParams&0xff)
-          {
-            case 0:
-            case 1: *typeOfObject = FUNCTION1; break;
-            case 2: *typeOfObject = FUNCTION2; break;
-            case 3: *typeOfObject = FUNCTION3; break;
-            default: 
-              *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
-            break;
-          }
-          return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(INT_PTR) f);
+          case 0:
+          case 1: *typeOfObject = FUNCTION1; break;
+          case 2: *typeOfObject = FUNCTION2; break;
+          case 3: *typeOfObject = FUNCTION3; break;
+          default: 
+            *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
+          break;
         }
+        return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(INT_PTR) f);
       }
     }
+  }
   
-
-
-    // scan for local/member variables before user functions   
-    if (ctx->function_localTable_Names && ctx->function_localTable_Values)
+  // scan for parameters/local variables before user functions   
+  if (ctx->function_localTable_Names && ctx->function_localTable_Values)
+  {
+    const char *p = ctx->function_localTable_Names;
+    for (i=0; i < ctx->function_localTable_Size; i++)
     {
-      int i=0;
-      const char *p = ctx->function_localTable_Names;
-      int n= ctx->function_localTable_Size;
-      while (n-->0)
+      if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
       {
-        if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
-        {
-          *typeOfObject = IDENTIFIER;
-          return nseel_createCompiledValuePtr(ctx, ctx->function_localTable_Values + i);
-        }
-        p += NSEEL_MAX_VARIABLE_NAMELEN;
-        i++;
+        *typeOfObject = IDENTIFIER;
+        return nseel_createCompiledValuePtr(ctx, ctx->function_localTable_Values + i);
       }
+      p += NSEEL_MAX_VARIABLE_NAMELEN;
+    }
+  }
+
+
+  {
+    _codeHandleFunctionRec *fr = ctx->functions_local;
+    _codeHandleFunctionRec *bmatch=NULL;
+    int is_this_ptr = 0;    
+    char *postName = tmp;
+
+    while (*postName) postName++;
+    while (postName >= tmp && *postName != '.') postName--;
+
+    if (++postName <= tmp) postName=0;
+    else is_this_ptr = !strnicmp(tmp,"this.",5) && tmp[5];
+
+    while (fr)
+    {
+      if (!is_this_ptr && !strcasecmp(fr->fname,tmp))
+      {
+        *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+        return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
+      }
+
+      if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
+      {
+        bmatch=fr;
+        if (is_this_ptr) break; // if not searching for actual function, bmatch is good enough!
+      }
+
+      fr=fr->next;
     }
 
-
+    if (!is_this_ptr || !bmatch)
     {
-      _codeHandleFunctionRec *fr = ctx->functions_local;
-      _codeHandleFunctionRec *bmatch=NULL;
-      int bmatch_local=1;
-      const char *postName = strstr(nptr,".");
-      if (postName) postName++;
-      while (fr)
-      {
-        if (!strcasecmp(fr->fname,nptr))
-        {
-          if (!fr->prefix_name[0] && (fr->callsFunctionsThatNeedImpliedPrefix || fr->nummembervars))
-          {
-            ctx->function_callsFunctionsThatNeedImpliedPrefix = 1;
-          }
-
-          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-
-          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
-        }
-        if (!bmatch && postName && !strcasecmp(fr->fname,postName)) bmatch=fr;
-
-        fr=fr->next;
-      }
       fr = ctx->functions_common;
       while (fr)
       {
-        if (!strcasecmp(fr->fname,nptr))
+        if (!is_this_ptr && !strcasecmp(fr->fname,tmp))
         {
-          if (!fr->prefix_name[0] && (fr->callsFunctionsThatNeedImpliedPrefix || fr->nummembervars))
-          {
-            ctx->function_callsFunctionsThatNeedImpliedPrefix = 1;
-          }
-
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
           return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
         }
         if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
         {
-          bmatch_local=0;
           bmatch=fr;
+          if (is_this_ptr) break;
         }
-
         fr=fr->next;
       }
+    }
 
-      if (bmatch) 
-      {       
-        if (!bmatch->nummembervars && !bmatch->callsFunctionsThatNeedImpliedPrefix) 
-        {
-          // if bmatch can't access any prefixed state (via calls or member vars), ignore prefix context
-          fr = bmatch;
-        }
-        else 
-        {
-          _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, 
-                const char *nameptr, int prefixLen);
-
-          fr = eel_createFunctionInstance(ctx,bmatch,bmatch_local,nptr, postName - 1 - nptr);
-        }
-
-        if (fr)
-        {
-          // no need to set ctx->function_callsFunctionsThatNeedImpliedPrefix, since we're either calling the original function
-          // (which can't access prefixed state), or created prefixed copy, which is prefixed itself
-          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
-        }
+    if (bmatch) 
+    {     
+      *typeOfObject=bmatch->num_params>=3?FUNCTION3 : bmatch->num_params==2?FUNCTION2 : FUNCTION1;
+      if (!bmatch->usesThisPointer) 
+      {
+        // if bmatch doesn't access this, no need to implement a unique function, just call the main function
+        return nseel_createCompiledFunctionCall(ctx,bmatch->num_params,FUNCTYPE_EELFUNC,(INT_PTR)bmatch);
       }
+
+      if (is_this_ptr)
+      {
+        ctx->function_usesThisPointer = 1;
+        return nseel_createCompiledFunctionCallEELThis(ctx,bmatch->num_params,(INT_PTR)bmatch, tmp+5);
+      }
+  
+      // we can go ahead and create our fully qualified function instance
+      fr = eel_createFunctionNamespacedInstance(ctx,bmatch,tmp);
+      if (!fr) fr=bmatch;
+      return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
     }
   }
 
+  if (!strnicmp(tmp,"this.",5) && tmp[5])
+  {
+    ctx->function_usesThisPointer=1;
+    *typeOfObject = IDENTIFIER;
+    return nseel_createCompiledValueFromNamespaceName(ctx,tmp+5); 
+    // 
+  }
 
   {
     int wb;

@@ -606,6 +606,7 @@ static void *__newBlock(llBlock **start,int size, char wantMprotect);
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
   OPCODETYPE_DIRECTVALUE=0,
+  OPCODETYPE_VALUE_FROM_NAMESPACENAME, // this.* are encoded this way
   OPCODETYPE_VARPTR,
   OPCODETYPE_VARPTRPTR,
   OPCODETYPE_FUNC1,
@@ -629,7 +630,11 @@ struct opcodeRec
    } dv;
  } parms;
   
- struct opcodeRec *_next; // used for top level stuff
+ // allocate extra if using this field. used with:
+ // OPCODETYPE_VALUE_FROM_NAMESPACENAME
+ ///  or 
+ // OPCODETYPE_FUNC* with fntype=FUNCTYPE_EELFUNC_THIS
+ char relname[1]; 
 };
 
 
@@ -1067,29 +1072,41 @@ INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value)
   return (INT_PTR)r;
 }
 
+INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName)
+{
+  int n=strlen(relName);
+  opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+NSEEL_MAX_VARIABLE_NAMELEN,8, ctx->isSharedFunctions ? 0 : -1); 
+  if (!r) return 0;
+  r->opcodeType=OPCODETYPE_VALUE_FROM_NAMESPACENAME;
+  if (n > NSEEL_MAX_VARIABLE_NAMELEN-1) n=NSEEL_MAX_VARIABLE_NAMELEN-1;
+  memcpy(r->relname,relName,n);
+  r->relname[n]=0;
+  return (INT_PTR)r;
+}
+
 INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
 {
   opcodeRec *r=newOpCode(ctx);
-  if (ctx->function_localTable_Size > 0 &&
-      ctx->function_localTable_MemberSize >0 &&
-      ctx->function_localTable_MemberPtrs &&
-      ctx->function_localTable_Size >= ctx->function_localTable_MemberSize &&
-      ctx->function_localTable_Values &&
-      addrValue < ctx->function_localTable_Values + ctx->function_localTable_Size &&
-      addrValue >= ctx->function_localTable_Values + ctx->function_localTable_Size - ctx->function_localTable_MemberSize
-      )
-  {
-    r->opcodeType = OPCODETYPE_VARPTRPTR;
-    r->parms.dv.valuePtr=(EEL_F *) (ctx->function_localTable_MemberPtrs +  
-      (addrValue - (ctx->function_localTable_Values + ctx->function_localTable_Size - ctx->function_localTable_MemberSize))
-      );
-  }
-  else
-  {
-    r->opcodeType = OPCODETYPE_VARPTR;
-    r->parms.dv.valuePtr=addrValue;
-  }
+  r->opcodeType = OPCODETYPE_VARPTR;
+  r->parms.dv.valuePtr=addrValue;
   r->parms.dv.directValue=0.0;
+  return (INT_PTR)r;
+}
+
+INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, int np, INT_PTR fn, const char *relName)
+{
+  int n=strlen(relName);
+  opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+NSEEL_MAX_VARIABLE_NAMELEN,8, ctx->isSharedFunctions ? 0 : -1); 
+  if (!r) return 0;
+  r->fntype=FUNCTYPE_EELFUNC_THIS;
+  r->fn = fn;
+  if (np >= 3) r->opcodeType = OPCODETYPE_FUNC3;
+  else if (np==2) r->opcodeType = OPCODETYPE_FUNC2;
+  else r->opcodeType = OPCODETYPE_FUNC1;
+  if (n > NSEEL_MAX_VARIABLE_NAMELEN-1) n=NSEEL_MAX_VARIABLE_NAMELEN-1;
+  memcpy(r->relname,relName,n);
+  r->relname[n]=0;
+
   return (INT_PTR)r;
 }
 
@@ -1131,13 +1148,13 @@ INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, 
 }
 
 
-static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable, const char *impliedFunctionPrefix);
-static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *impliedFunctionPrefix);
+static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable, const char *namespacePathToThis);
+static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis);
 
-_codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHandleFunctionRec *fr, int islocal, const char *nameptr, int prefixLen)
+_codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr)
 {
   int n;
-  _codeHandleFunctionRec *subfr = islocal ? newTmpBlock(ctx,sizeof(_codeHandleFunctionRec)) : newDataBlock(sizeof(_codeHandleFunctionRec),8);
+  _codeHandleFunctionRec *subfr = fr->isCommonFunction ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : newTmpBlock(ctx,sizeof(_codeHandleFunctionRec));
   if (!subfr) return 0;
   // fr points to functionname()'s rec, nameptr to blah.functionname()
 
@@ -1147,17 +1164,35 @@ _codeHandleFunctionRec *eel_createFunctionInstance(compileContext *ctx, _codeHan
   memcpy(subfr->fname,nameptr,n);
   subfr->fname[n]=0;
 
-  if (prefixLen<0) prefixLen=0;
-  if (prefixLen>sizeof(subfr->prefix_name)-1) prefixLen=sizeof(subfr->prefix_name)-1;
-  if (prefixLen>0) memcpy(subfr->prefix_name, nameptr, prefixLen);
-  subfr->prefix_name[prefixLen]=0;
-
   subfr->startptr=0; // make sure this code gets recompiled (with correct member ptrs) for this instance!
   
   fr->next = subfr;
   
   return subfr;
 
+}
+static void combineNamespaceFields(char *nm, const char *prefix, const char *relname) // nm must be NSEEL_MAX_VARIABLE_NAMELEN+1 bytes
+{
+  int lfp = prefix ? strlen(prefix) : 0, lrn=strlen(relname);
+
+  while (*relname == '.') // if relname begins with ., then remove a chunk of context from prefix
+  {
+    relname++;
+    while (lfp>0 && prefix[lfp-1] != '.') lfp--;
+    if (lfp>0) lfp--;       
+  }
+
+  if (lfp > NSEEL_MAX_VARIABLE_NAMELEN-2) lfp=NSEEL_MAX_VARIABLE_NAMELEN-2;
+  if (lfp>0) memcpy(nm,prefix,lfp);
+
+  if (lrn > NSEEL_MAX_VARIABLE_NAMELEN - lfp - (lfp>0)) lrn=NSEEL_MAX_VARIABLE_NAMELEN - lfp - (lfp>0);
+  if (lrn > 0)
+  {
+    if (lfp>0) nm[lfp++] = '.';
+    memcpy(nm+lfp,relname,lrn);
+    lfp+=lrn;
+  }
+  nm[lfp++]=0;
 }
 
 //---------------------------------------------------------------------------------------------------------------
@@ -1166,7 +1201,8 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
       NSEEL_PPPROC *pProc, void ***replList, 
       int *customFuncParmSize, EEL_F **customFuncParamPtrs, int *computTableTop, 
       void **endP, int *isRaw, int wantCodeGenerated,
-      const char *impliedFunctionPrefix) // if wantCodeGenerated is false, can return bogus pointers in raw mode
+      const char *namespacePathToThis,
+      const char *relname) // if wantCodeGenerated is false, can return bogus pointers in raw mode
 {
   *customFuncParamPtrs=NULL;
   *customFuncParmSize=-1;
@@ -1201,167 +1237,137 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
         return p->afunc; 
       }
     break;
-    case FUNCTYPE_EELFUNC:
+    case FUNCTYPE_EELFUNC_THIS:
+      if (fn)
       {
-        int isLocal=1;
-        _codeHandleFunctionRec *fr = ctx->functions_local;
-        while (fr && (INT_PTR)fr != fn) fr=fr->next;
-        if (!fr)
+        _codeHandleFunctionRec *fr_base = (_codeHandleFunctionRec *) fn;
+        char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
+        combineNamespaceFields(nm,namespacePathToThis,relname);
+
+        fn = 0; // setting fn back to non-zero indicates success
+
+        // find resolved function
+        if (!fn)
         {
-          isLocal=0;
-          fr = ctx->functions_common;
-          while (fr && (INT_PTR)fr != fn) fr=fr->next;
+          _codeHandleFunctionRec *fr = ctx->functions_local;
+          // scan for function
+          while (fr && !fn)
+          {
+            if (!strcasecmp(fr->fname,nm)) fn = (INT_PTR) fr;
+            fr=fr->next;
+          }
         }
 
-        if (fr)
+        if (!fn)
         {
-          const char *fPrefix=NULL;
-
-          if (fr->prefix_name[0]) 
+          _codeHandleFunctionRec *fr = ctx->functions_common;
+          // scan for function
+          while (fr && !fn)
           {
-            if (fr->callsFunctionsThatNeedImpliedPrefix)
-            {
-              // if calling a function via x.y(), the function already exists, just set the default implied function prefix accordingly
-              fPrefix=fr->prefix_name;
-            }
+            if (!strcasecmp(fr->fname,nm)) fn = (INT_PTR) fr;
+            fr=fr->next;
           }
-          else if (!impliedFunctionPrefix) 
+        }
+
+        if (!fn) // generate copy of function
+        {
+          fn = (INT_PTR)eel_createFunctionNamespacedInstance(ctx,fr_base,nm);
+        }
+
+
+      }
+      // fall through!
+    case FUNCTYPE_EELFUNC:
+      if (fn)
+      {
+        const char *fPrefix=NULL;
+        char prefix_buf[NSEEL_MAX_VARIABLE_NAMELEN+1];
+
+        _codeHandleFunctionRec *fr = (_codeHandleFunctionRec *) fn;
+
+        if (fr->usesThisPointer)
+        {
+          char *p=fr->fname;
+          while (*p) p++;
+          while (p >= fr->fname && *p != '.') p--;
+          if (p >= fr->fname)
           {
-            // if not in an existing prefix (top level function call), 
-            // call normal version of the function with the function name as the implied function prefix
-            if (fr->callsFunctionsThatNeedImpliedPrefix)
+            int l = p-fr->fname;
+            memcpy(prefix_buf,fr->fname,l);
+            prefix_buf[l]=0;
+            fPrefix = prefix_buf;
+          }
+          else
+          {
+            fPrefix = fr->fname; // default prefix is function name if no other context
+          }
+        }
+
+
+        if (!fr->startptr && fr->opcodes && fr->startptr_size > 0)
+        {
+          int sz;
+          fr->tmpspace_req=0;
+
+          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix);
+
+          if (!wantCodeGenerated)
+          {
+            // don't compile anything for now, just give stats
+            if (computTableTop) *computTableTop += fr->tmpspace_req;
+            *customFuncParmSize = fr->num_params;
+            *customFuncParamPtrs = fr->param_ptrs;
+            if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
             {
-              fPrefix = fr->fname; 
+              *isRaw = 1;
+              *endP = ((char *)1) + sz;
+              return (char *)1;
+            }
+            *endP = (void*)nseel_asm_fcall_end;
+            return (void*)nseel_asm_fcall;
+          }
+
+          if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
+          {
+            void *p=newTmpBlock(ctx,sz);
+            fr->tmpspace_req=0;
+            if (p)
+            {
+              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req,fPrefix);
+              // recompile function with native context pointers
+              if (sz>0)
+              {
+                fr->startptr_size=sz;
+                fr->startptr=p;
+              }
             }
           }
           else
           {
-            // in an implied prefix, find and/or generate the correct version of the function (only if needed)
-            if (fr->nummembervars || fr->callsFunctionsThatNeedImpliedPrefix)
-            {
-              fPrefix = impliedFunctionPrefix;
-
-              if (wantCodeGenerated)
-              {
-                _codeHandleFunctionRec *fr2 = ctx->functions_local;
-                int pflen = strlen(fPrefix);
-
-                // check to see if our prefixed function already exists
-                while (fr2) 
-                {
-                  if (!strncasecmp(fr2->fname,fPrefix,pflen) && fr2->fname[pflen] == '.' && !strcasecmp(fr2->fname+pflen+1,fr->fname)) break;
-                  fr2=fr2->next;
-                }
-                if (!fr2)
-                {
-                  fr2 = ctx->functions_common;
-                  while (fr2) 
-                  {
-                    if (!strncasecmp(fr2->fname,fPrefix,pflen) && fr2->fname[pflen] == '.' && !strcasecmp(fr2->fname+pflen+1,fr->fname)) break;
-                    fr2=fr2->next;
-                  }
-                }  
-        
-                if (!fr2)
-                {
-                  // duplicate this function with our (implied) prefix
-                  char pbuf[NSEEL_MAX_VARIABLE_NAMELEN*2 + 1];
-                  strcpy(pbuf,fPrefix);
-                  pbuf[pflen] = '.';
-                  strcpy(pbuf+pflen+1,fr->fname);
-
-                  fr2 = eel_createFunctionInstance(ctx,fr,isLocal,pbuf,pflen);
-                }
-
-                if (fr2) fr=fr2;
-              }
-            }
-          }
-
-          if (!fr->startptr && fr->opcodes && fr->startptr_size > 0)
-          {
-            int sz;
+            unsigned char *codeCall;
             fr->tmpspace_req=0;
-
-            sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix);
-
-            if (!wantCodeGenerated)
+            codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req,fPrefix);
+            if (codeCall)
             {
-              // don't compile anything for now, just give stats
-              if (computTableTop) *computTableTop += fr->tmpspace_req;
-              *customFuncParmSize = fr->num_params;
-              *customFuncParamPtrs = fr->param_ptrs;
-              if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
+              void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
+              fr->startptr = newTmpBlock(ctx,sz);
+              if (fr->startptr)
               {
-                *isRaw = 1;
-                *endP = ((char *)1) + sz;
-                return (char *)1;
-              }
-              *endP = (void*)nseel_asm_fcall_end;
-              return (void*)nseel_asm_fcall;
-            }
-
-            if (fr->nummembervars && fr->membervarnames && fr->membervars)
-            {
-              // register the vars for this specific instance
-              int x;
-              char prefixbuf[NSEEL_MAX_VARIABLE_NAMELEN*2+2],*p;
-              strcpy(prefixbuf,fr->prefix_name[0] ? fr->prefix_name : fr->fname);
-              p=prefixbuf+strlen(prefixbuf);
-              *p++ = '.';
-              
-              for (x=0;x<fr->nummembervars; x++)
-              {
-                INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **ptr);
-                memcpy(p,fr->membervarnames + NSEEL_MAX_VARIABLE_NAMELEN*x, NSEEL_MAX_VARIABLE_NAMELEN);
-                p[NSEEL_MAX_VARIABLE_NAMELEN]=0;
-                
-                nseel_int_register_var(ctx,prefixbuf,&fr->membervars[x]);
-              }
-            }
-
-            if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
-            {
-              void *p=newTmpBlock(ctx,sz);
-              fr->tmpspace_req=0;
-              if (p)
-              {
-                sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req,fPrefix);
-                // recompile function with native context pointers
-                if (sz>0)
-                {
-                  fr->startptr_size=sz;
-                  fr->startptr=p;
-                }
-              }
-            }
-            else
-            {
-              unsigned char *codeCall;
-              fr->tmpspace_req=0;
-              codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req,fPrefix);
-              if (codeCall)
-              {
-                void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
-                fr->startptr = newTmpBlock(ctx,sz);
-                if (fr->startptr)
-                {
-                  memcpy(fr->startptr,f,sz);
-                  EEL_GLUE_set_immediate(fr->startptr,(void *)codeCall);
-                  fr->startptr_size = sz;
-                }
+                memcpy(fr->startptr,f,sz);
+                EEL_GLUE_set_immediate(fr->startptr,(void *)codeCall);
+                fr->startptr_size = sz;
               }
             }
           }
-          if (fr->startptr)
-          {
-            if (computTableTop) *computTableTop += fr->tmpspace_req;
-            *customFuncParmSize = fr->num_params;
-            *customFuncParamPtrs = fr->param_ptrs;
-            *endP = (char*)fr->startptr + fr->startptr_size;
-            *isRaw=1;
-            return fr->startptr;
-          }
+        }
+        if (fr->startptr)
+        {
+          if (computTableTop) *computTableTop += fr->tmpspace_req;
+          *customFuncParmSize = fr->num_params;
+          *customFuncParamPtrs = fr->param_ptrs;
+          *endP = (char*)fr->startptr + fr->startptr_size;
+          *isRaw=1;
+          return fr->startptr;
         }
       }
     break;
@@ -1680,40 +1686,55 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   return retv||retv_parm[0]||retv_parm[1]||retv_parm[2];
 }
 
-static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int whichReg)
+
+static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int whichReg, const char *functionPrefix)
 {
-  EEL_F *b=op->parms.dv.valuePtr;
-  if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
-
-  if (!b)
+  EEL_F *b=NULL;
+  if (op->opcodeType==OPCODETYPE_VALUE_FROM_NAMESPACENAME)
   {
-    b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+    char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
+
+    combineNamespaceFields(nm,functionPrefix,op->relname);
+    
+    nseel_int_register_var(ctx,nm,&b);
     if (!b) return -1;
-
-    if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
-    #if EEL_F_SIZE == 8
-      *b = denormal_filter_double(op->parms.dv.directValue);
-    #else
-      *b = denormal_filter_float(op->parms.dv.directValue);
-    #endif
-
   }
+  else
+  {
+    b=op->parms.dv.valuePtr;
+    if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
+
+    if (!b)
+    {
+      b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+      if (!b) return -1;
+
+      if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
+      #if EEL_F_SIZE == 8
+        *b = denormal_filter_double(op->parms.dv.directValue);
+      #else
+        *b = denormal_filter_float(op->parms.dv.directValue);
+      #endif
+
+    }
+  }
+
   GLUE_MOV_PX_DIRECTVALUE_GEN(bufOut,(INT_PTR)b,whichReg);
   return GLUE_MOV_PX_DIRECTVALUE_SIZE;
 }
 
 
-unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *impliedFunctionPrefix)
+unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis)
 {
   unsigned char *p, *newblock2;
   // generate code call
-  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,impliedFunctionPrefix);
+  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis);
   if (funcsz<0) return NULL;
   
   p = newblock2 = newCodeBlock(funcsz+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
   if (!newblock2) return NULL;
   memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
-  p+=compileOpcodes(ctx,rec,p, funcsz, computTableSize,impliedFunctionPrefix);         
+  p+=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis);         
   memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
   
@@ -1723,7 +1744,7 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
 
 
 
-int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *impliedFunctionPrefix)
+int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
 {
   int rv_offset=0;
   if (!op) return -1;
@@ -1732,7 +1753,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
   while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FUNCTYPE_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
   {
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, impliedFunctionPrefix);
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
     if (parm_size < 0) return -1;
     op = op->parms.parms[1];
     if (!op) return -1;
@@ -1755,7 +1776,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       if (bufOut_len < stubsz) return -1;        
       if (!bufOut) return rv_offset+stubsz;
       
-      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,impliedFunctionPrefix);
+      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis);
       if (!newblock2) return -1;
       
       memcpy(bufOut,stubfunc,stubsz);
@@ -1773,7 +1794,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       int stubsize;        
       unsigned char *newblock2, *p;
       
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, impliedFunctionPrefix);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
       if (parm_size < 0) return -1;
       
       if (fn_ptr == fnTable1+1) stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
@@ -1789,7 +1810,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         return rv_offset + parm_size + stubsize;
       }
       
-      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,impliedFunctionPrefix);
+      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis);
       
       p = bufOut + parm_size;
       memcpy(p, stub, stubsize);
@@ -1811,7 +1832,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       void *stub;
       unsigned char *newblock2,*newblock3,*ptr;
       int stubsize;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, impliedFunctionPrefix);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
       if (parm_size < 0) return -1;
       
       stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
@@ -1826,8 +1847,8 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       }
       
       
-      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,impliedFunctionPrefix);
-      newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,impliedFunctionPrefix);
+      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis);
+      newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis);
       if (!newblock2 || !newblock3) return -1;
       
       ptr = bufOut + parm_size;
@@ -1856,7 +1877,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       }
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,op,bufOut,0)<0) return -1;
+        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis)<0) return -1;
       }
     return rv_offset + GLUE_MOV_PX_DIRECTVALUE_SIZE;
     case OPCODETYPE_FUNC1:
@@ -1876,7 +1897,8 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         void *func = nseel_getFunctionAddress(ctx, op->fntype, op->fn, 
                                               &preProc,&repl,&cfpsize,&cfp_ptrs, computTableSize, &func_e, &func_raw,
                                               
-                                              !!bufOut,impliedFunctionPrefix);
+                                              !!bufOut,namespacePathToThis,
+                                              op->relname);
         if (!func) return -1;
 
         if (func_raw)
@@ -1975,7 +1997,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
               parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
             }
 
-            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, impliedFunctionPrefix);
+            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
             if (lsz<0) return -1;
             parm_size += lsz;
 
@@ -2020,7 +2042,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 
               if (bufOut) 
               {
-                if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,0)<0) return -1;
+                if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,0,namespacePathToThis)<0) return -1;
                 GLUE_COPY_VALUE_AT_P1_TO_PTR(bufOut + parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE,cfp_ptrs + pn);
               }
               parm_size += cpsize;
@@ -2054,7 +2076,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
               parm_size += sizeof(GLUE_PUSH_P1);
             }
           
-            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, impliedFunctionPrefix);
+            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
             if (lsz<0) return -1;
             parm_size += lsz;            
             last_nt_parm = pn;
@@ -2090,7 +2112,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
             if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
             if (bufOut) 
             {
-              if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn)<0) return -1;
+              if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
             }
             parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
           }
@@ -2682,15 +2704,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     opcodeRec *start_opcode;
     char *expr;
     int function_numparms=0;
-    char is_fname[NSEEL_MAX_VARIABLE_NAMELEN];
+    char is_fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
     is_fname[0]=0;
 
     ctx->function_localTable_Size=0;
     ctx->function_localTable_Names=0;
     ctx->function_localTable_Values=0;
-    ctx->function_localTable_MemberSize=0;
-    ctx->function_localTable_MemberPtrs=0;
-    ctx->function_callsFunctionsThatNeedImpliedPrefix=0;
+    ctx->function_usesThisPointer=0;
     
     ctx->colCount=0;
 
@@ -2726,23 +2746,15 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           p=expr;
           while (isspace(*p)) p++;
         
-          if (p[0] == '(' || 
-              !strncasecmp(p,"local(",6) || 
-              !strncasecmp(p,"instance(",9))
+          if (p[0] == '(' || !strncasecmp(p,"local(",6))
           {
             int maxcnt=0,state=0;
             int is_parms = p[0] == '(';
-            int is_instancelocals=0;
 
             if (had_parms_locals && p[0] == '(') break; 
             had_parms_locals=1;
 
             if (p[0] == '(') p++;
-            else if (!strncasecmp(p,"instance(",9)) 
-            {
-              is_instancelocals=1;
-              p+=9;
-            }
             else p+=6;
 
             sp=p;
@@ -2792,20 +2804,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
                     {
                       int use_i = i++;
 
-                      if (is_instancelocals) 
-                      {
-                        ctx->function_localTable_MemberSize++;
-                      }
-                      else if (ctx->function_localTable_MemberSize) 
-                      {
-                        // we have trailing instance/call locals, move one to the end to make room
-                        memcpy(
-                          ctx->function_localTable_Names + use_i*NSEEL_MAX_VARIABLE_NAMELEN,
-                          ctx->function_localTable_Names + (use_i-ctx->function_localTable_MemberSize)*NSEEL_MAX_VARIABLE_NAMELEN,
-                          NSEEL_MAX_VARIABLE_NAMELEN);
-
-                        use_i -= ctx->function_localTable_MemberSize;
-                      }
                       memset(ctx->function_localTable_Names + use_i*NSEEL_MAX_VARIABLE_NAMELEN, 0, NSEEL_MAX_VARIABLE_NAMELEN);
                       strncpy(ctx->function_localTable_Names + use_i * NSEEL_MAX_VARIABLE_NAMELEN, sp, min(NSEEL_MAX_VARIABLE_NAMELEN,p-sp));               
                     }
@@ -2827,17 +2825,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     {
       ctx->function_localTable_Values = newDataBlock(sizeof(EEL_F)*ctx->function_localTable_Size,8);
       if (ctx->function_localTable_Values) memset(ctx->function_localTable_Values,0,sizeof(EEL_F)*ctx->function_localTable_Size);
-
-      //
-      if (ctx->function_localTable_MemberSize>0)
-      {
-        // could do temp block if not shared, but might as well keep things aligned
-        ctx->function_localTable_MemberPtrs = (EEL_F**) newDataBlock(sizeof(EEL_F *) * ctx->function_localTable_MemberSize, 8);
-        if (ctx->function_localTable_MemberPtrs)
-        {
-          memset(ctx->function_localTable_MemberPtrs,0,sizeof(EEL_F *) * ctx->function_localTable_MemberSize);
-        }
-      }
     }
     start_opcode=(opcodeRec *)nseel_compileExpression(ctx,expr);
            
@@ -2903,18 +2890,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
             {
               fr->num_params=function_numparms;
               fr->param_ptrs = ctx->function_localTable_Values;
-
-              if (ctx->function_localTable_Names && ctx->function_localTable_MemberPtrs)
-              {
-                fr->nummembervars = ctx->function_localTable_MemberSize;
-                fr->membervarnames = ctx->function_localTable_Names + 
-                  (ctx->function_localTable_Size-ctx->function_localTable_MemberSize)*NSEEL_MAX_VARIABLE_NAMELEN;
-                fr->membervars = ctx->function_localTable_MemberPtrs;
-
-              }
             }
 
-            fr->callsFunctionsThatNeedImpliedPrefix=ctx->function_callsFunctionsThatNeedImpliedPrefix;
+            fr->usesThisPointer = ctx->function_usesThisPointer;
+            fr->isCommonFunction = ctx->isSharedFunctions;
 
             strcpy(fr->fname,is_fname);
 
@@ -2946,12 +2925,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
 
-    ctx->function_localTable_MemberSize=0;
-    ctx->function_localTable_MemberPtrs=0;
     ctx->function_localTable_Size=0;
     ctx->function_localTable_Names=0;
     ctx->function_localTable_Values=0;
-    ctx->function_callsFunctionsThatNeedImpliedPrefix=0;
+    ctx->function_usesThisPointer=0;
     
     if (!startptr) 
     { 
