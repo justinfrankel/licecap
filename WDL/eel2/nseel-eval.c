@@ -82,30 +82,12 @@ void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *
 
 
 
-INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **ptr)
+EEL_F *nseel_int_register_var(compileContext *ctx, const char *name)
 {
   int wb;
   int ti=0;
   int i=0;
   char *nameptr;
-
-  if (ctx->function_localTable_Size &&
-      ctx->function_localTable_Names &&
-      ctx->function_localTable_Values)
-  {
-    int n=ctx->function_localTable_Size;
-    char *p =ctx->function_localTable_Names;
-    while (n-->0)
-    {
-      if (!strnicmp(name,p,NSEEL_MAX_VARIABLE_NAMELEN))
-      {
-        if (ptr) *ptr = ctx->function_localTable_Values + i;
-        return i;
-      }
-      p += NSEEL_MAX_VARIABLE_NAMELEN;
-      i++;
-    }
-  }
 
   for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
   {
@@ -142,8 +124,7 @@ INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **pt
   {
     strncpy(nameptr,name,NSEEL_MAX_VARIABLE_NAMELEN);
   }
-  if (ptr) *ptr = ctx->varTable_Values[wb] + ti;
-  return i;
+  return ctx->varTable_Values[wb] + ti;
 }
 
 
@@ -151,7 +132,6 @@ INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **pt
 EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
 {
   compileContext *ctx = (compileContext *)_ctx;
-  EEL_F *r;
   if (!ctx) return 0;
 
   if (!strnicmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
@@ -161,9 +141,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
     return nseel_globalregs + x;
   }
 
-  nseel_int_register_var(ctx,var,&r);
-
-  return r;
+  return nseel_int_register_var(ctx,var);
 }
 
 //------------------------------------------------------------------------------
@@ -199,13 +177,29 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
 {
   char tmp[256];
   int i;
+  *typeOfObject = IDENTIFIER;
 
   nseel_gettoken(ctx,tmp, sizeof(tmp));
 
   if (!strnicmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
   {
-    *typeOfObject=IDENTIFIER;
     return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i-NSEEL_GLOBALVAR_BASE);
+  }
+
+  // scan for parameters/local variables before user functions   
+  if (ctx->function_localTable_Size > 0 &&
+      ctx->function_localTable_Names && 
+      ctx->function_localTable_ValuePtrs)
+  {
+    const char *p = ctx->function_localTable_Names;
+    for (i=0; i < ctx->function_localTable_Size; i++)
+    {
+      if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
+      {
+        return nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
+      }
+      p += NSEEL_MAX_VARIABLE_NAMELEN;
+    }
   }
   
 
@@ -241,23 +235,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
         return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(INT_PTR) f);
       }
     }
-  }
-  
-  // scan for parameters/local variables before user functions   
-  if (ctx->function_localTable_Names && ctx->function_localTable_Values)
-  {
-    const char *p = ctx->function_localTable_Names;
-    for (i=0; i < ctx->function_localTable_Size; i++)
-    {
-      if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
-      {
-        *typeOfObject = IDENTIFIER;
-        return nseel_createCompiledValuePtr(ctx, ctx->function_localTable_Values + i);
-      }
-      p += NSEEL_MAX_VARIABLE_NAMELEN;
-    }
-  }
-
+  } 
 
   {
     _codeHandleFunctionRec *fr = ctx->functions_local;
@@ -332,37 +310,12 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   if (!strnicmp(tmp,"this.",5) && tmp[5])
   {
     ctx->function_usesThisPointer=1;
-    *typeOfObject = IDENTIFIER;
     return nseel_createCompiledValueFromNamespaceName(ctx,tmp+5); 
     // 
   }
 
   {
-    int wb;
-    for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
-    {
-      int namepos=0;
-      int ti;
-      for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-      {        
-        if (!ctx->varTable_Names[wb][namepos]) break;
-
-        if (!strnicmp(ctx->varTable_Names[wb]+namepos,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
-        {
-          *typeOfObject = IDENTIFIER;
-          return nseel_createCompiledValuePtr(ctx,ctx->varTable_Values[wb] + ti); 
-        }
-
-        namepos += NSEEL_MAX_VARIABLE_NAMELEN;
-      }
-      if (ti < NSEEL_VARS_PER_BLOCK) break;
-    }
-  }
-
-  *typeOfObject = IDENTIFIER;
-  {
-    EEL_F *p=NULL;
-    nseel_int_register_var(ctx,tmp,&p);
+    EEL_F *p=nseel_int_register_var(ctx,tmp);
     if (p) return nseel_createCompiledValuePtr(ctx,p); 
   }
   return nseel_createCompiledValue(ctx,0.0);

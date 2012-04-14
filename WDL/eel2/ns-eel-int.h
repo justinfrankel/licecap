@@ -88,7 +88,14 @@ typedef struct _codeHandleFunctionRec
   opcodeRec *opcodes;
     
   int num_params;
-  EEL_F *param_ptrs;
+
+  // local storage's first items are the parameters, then locals. Note that the opcodes will reference localstorage[] via VARPTRPTR, but 
+  // the values localstorage[x] points are reallocated from context-to-context, if it is a common function.
+
+  // separately allocated list of pointers, the contents of the list should be zeroed on context changes if a common function
+  // note that when making variations on a function (context), it is shared, but since it is zeroed on context changes, it is context-local
+  int localstorage_size;
+  EEL_F **localstorage; 
 
   int isCommonFunction;
   int usesThisPointer;
@@ -132,14 +139,12 @@ typedef struct _compileContext
 
   int isSharedFunctions;
   // state used while generating functions
-  int function_localTable_Size;
+
+  int function_localTable_Size; // for parameters only
   char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
-  EEL_F *function_localTable_Values;
+  EEL_F **function_localTable_ValuePtrs;
 
   int function_usesThisPointer;
-  EEL_F **function_localTable_MemberPtrs;
-
-
   
   EEL_F *ram_blocks[NSEEL_RAM_BLOCKS];
   int ram_needfree;
@@ -170,6 +175,7 @@ extern functionType *nseel_getFunctionFromTable(int idx);
 
 INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
+INT_PTR nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue);
 
 INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2);
 INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, INT_PTR fn);
@@ -177,7 +183,7 @@ INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, int np, INT
 INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
 
 INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);
-INT_PTR nseel_int_register_var(compileContext *ctx, const char *name, EEL_F **ptr);
+EEL_F *nseel_int_register_var(compileContext *ctx, const char *name);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
 extern EEL_F nseel_globalregs[100];
