@@ -140,9 +140,14 @@ typedef struct _compileContext
   int isSharedFunctions;
   // state used while generating functions
 
-  int function_localTable_Size; // for parameters only
-  char *function_localTable_Names; // NSEEL_MAX_VARIABLE_NAMELEN chunks
+
+
+  // [0] is parameter+local symbols (combined space)
+  // [1] is symbols which get implied "this." if used
+  int function_localTable_Size[2]; // for parameters only
+  char *function_localTable_Names[2]; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F **function_localTable_ValuePtrs;
+
 
   int function_usesThisPointer;
   

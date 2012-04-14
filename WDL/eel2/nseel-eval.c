@@ -187,12 +187,13 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   }
 
   // scan for parameters/local variables before user functions   
-  if (ctx->function_localTable_Size > 0 &&
-      ctx->function_localTable_Names && 
+  if (strncasecmp(tmp,"this.",5) && 
+      ctx->function_localTable_Size[0] > 0 &&
+      ctx->function_localTable_Names[0] && 
       ctx->function_localTable_ValuePtrs)
   {
-    const char *p = ctx->function_localTable_Names;
-    for (i=0; i < ctx->function_localTable_Size; i++)
+    const char *p = ctx->function_localTable_Names[0];
+    for (i=0; i < ctx->function_localTable_Size[0]; i++)
     {
       if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
       {
@@ -201,8 +202,30 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
       p += NSEEL_MAX_VARIABLE_NAMELEN;
     }
   }
+
+  // if instance name set, translate tmp or tmp.* into "this.tmp.*"
+  if (strncasecmp(tmp,"this.",5) && 
+      ctx->function_localTable_Size[1] > 0 && 
+      ctx->function_localTable_Names[1])
+  {
+    const char *p = ctx->function_localTable_Names[1];
+    for (i=0; i < ctx->function_localTable_Size[1]; i++)
+    {
+      int tl=0;
+      while (tl < NSEEL_MAX_VARIABLE_NAMELEN && p[tl]) tl++;
+
+      if (!strnicmp(p,tmp,tl) && (tmp[tl] == 0 || tmp[tl] == '.'))
+      {
+        strcpy(tmp,"this.");
+        nseel_gettoken(ctx,tmp + 5, sizeof(tmp) - 5); // update tmp with "this.tokenname"
+        break;
+      }
+      p += NSEEL_MAX_VARIABLE_NAMELEN;
+    }
+  }
   
 
+  if (strncasecmp(tmp,"this.",5))
   {
     const char *nptr = tmp;
 
@@ -307,6 +330,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
     }
   }
 
+  // instance variables
   if (!strnicmp(tmp,"this.",5) && tmp[5])
   {
     ctx->function_usesThisPointer=1;

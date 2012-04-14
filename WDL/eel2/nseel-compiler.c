@@ -2749,8 +2749,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     char is_fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
     is_fname[0]=0;
 
-    ctx->function_localTable_Size=0;
-    ctx->function_localTable_Names=0;
+    memset(ctx->function_localTable_Size,0,sizeof(ctx->function_localTable_Size));
+    memset(ctx->function_localTable_Names,0,sizeof(ctx->function_localTable_Names));
     ctx->function_localTable_ValuePtrs=0;
 
     ctx->function_usesThisPointer=0;
@@ -2789,16 +2789,30 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           p=expr;
           while (isspace(*p)) p++;
         
-          if (p[0] == '(' || !strncasecmp(p,"local(",6))
+          if (p[0] == '(' || !strncasecmp(p,"local(",6) || !strncasecmp(p,"instance(",9))
           {
             int maxcnt=0,state=0;
-            int is_parms = p[0] == '(';
+            int is_parms = 0;
+            int localTableContext = 0;
 
             if (had_parms_locals && p[0] == '(') break; 
             had_parms_locals=1;
 
-            if (p[0] == '(') p++;
-            else p+=6;
+            if (p[0] == '(') 
+            {
+              is_parms = 1;
+              p++;
+            }
+            else if (!strncasecmp(p,"instance(",9))
+            {
+              p+=9;
+              localTableContext = 1; //adding to implied this table
+            }
+            else 
+            {
+              // locals
+              p+=6;
+            }
 
             sp=p;
             while (*p && *p != ')') 
@@ -2818,24 +2832,24 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           
               if (maxcnt > 0)
               {
-                char *ot = ctx->function_localTable_Names;
-                int osz = ctx->function_localTable_Size;
+                char *ot = ctx->function_localTable_Names[localTableContext];
+                int osz = ctx->function_localTable_Size[localTableContext];
 
                 maxcnt += osz;
 
                 if (ctx->isSharedFunctions)
                 {
-                  ctx->function_localTable_Names = newDataBlock(NSEEL_MAX_VARIABLE_NAMELEN * maxcnt,1);
+                  ctx->function_localTable_Names[localTableContext] = newDataBlock(NSEEL_MAX_VARIABLE_NAMELEN * maxcnt,1);
                 }
                 else 
                 {
-                  ctx->function_localTable_Names = newTmpBlock(ctx,NSEEL_MAX_VARIABLE_NAMELEN * maxcnt);
+                  ctx->function_localTable_Names[localTableContext] = newTmpBlock(ctx,NSEEL_MAX_VARIABLE_NAMELEN * maxcnt);
                 }
 
-                if (ctx->function_localTable_Names)
+                if (ctx->function_localTable_Names[localTableContext])
                 {
                   int i=osz;
-                  if (osz && ot) memcpy(ctx->function_localTable_Names,ot,NSEEL_MAX_VARIABLE_NAMELEN * osz);
+                  if (osz && ot) memcpy(ctx->function_localTable_Names[localTableContext],ot,NSEEL_MAX_VARIABLE_NAMELEN * osz);
                   p=sp;
                   while (p < expr-1 && i < maxcnt)
                   {
@@ -2847,13 +2861,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
                     {
                       int use_i = i++;
 
-                      memset(ctx->function_localTable_Names + use_i*NSEEL_MAX_VARIABLE_NAMELEN, 0, NSEEL_MAX_VARIABLE_NAMELEN);
-                      strncpy(ctx->function_localTable_Names + use_i * NSEEL_MAX_VARIABLE_NAMELEN, sp, min(NSEEL_MAX_VARIABLE_NAMELEN,p-sp));               
+                      memset(ctx->function_localTable_Names[localTableContext] + use_i*NSEEL_MAX_VARIABLE_NAMELEN, 0, NSEEL_MAX_VARIABLE_NAMELEN);
+                      strncpy(ctx->function_localTable_Names[localTableContext] + use_i * NSEEL_MAX_VARIABLE_NAMELEN, sp, min(NSEEL_MAX_VARIABLE_NAMELEN,p-sp));               
                     }
                   }
 
 
-                  ctx->function_localTable_Size=i;
+                  ctx->function_localTable_Size[localTableContext]=i;
 
                   if (is_parms) function_numparms = i;
                 }
@@ -2867,16 +2881,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     if (ctx->function_localTable_Size>0)
     {
       ctx->function_localTable_ValuePtrs = 
-          ctx->isSharedFunctions ? newDataBlock(ctx->function_localTable_Size * sizeof(EEL_F *),8) : 
-                                   newTmpBlock(ctx,ctx->function_localTable_Size * sizeof(EEL_F *)); 
+          ctx->isSharedFunctions ? newDataBlock(ctx->function_localTable_Size[0] * sizeof(EEL_F *),8) : 
+                                   newTmpBlock(ctx,ctx->function_localTable_Size[0] * sizeof(EEL_F *)); 
       if (!ctx->function_localTable_ValuePtrs)
       {
-        ctx->function_localTable_Size=0;
+        ctx->function_localTable_Size[0]=0;
         function_numparms=0;
       }
       else
       {
-        memset(ctx->function_localTable_ValuePtrs,0,sizeof(EEL_F *) * ctx->function_localTable_Size); // force values to be allocated
+        memset(ctx->function_localTable_ValuePtrs,0,sizeof(EEL_F *) * ctx->function_localTable_Size[0]); // force values to be allocated
       }
     }
     start_opcode=(opcodeRec *)nseel_compileExpression(ctx,expr);
@@ -2940,11 +2954,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
         
             fr->tmpspace_req = computTableTop;
 
-            if (ctx->function_localTable_Size > 0 && ctx->function_localTable_ValuePtrs)
+            if (ctx->function_localTable_Size[0] > 0 && ctx->function_localTable_ValuePtrs)
             {
               fr->num_params=function_numparms;
               fr->localstorage = ctx->function_localTable_ValuePtrs;
-              fr->localstorage_size = ctx->function_localTable_Size;
+              fr->localstorage_size = ctx->function_localTable_Size[0];
             }
 
             fr->usesThisPointer = ctx->function_usesThisPointer;
@@ -2980,8 +2994,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
 
-    ctx->function_localTable_Size=0;
-    ctx->function_localTable_Names=0;
+    memset(ctx->function_localTable_Size,0,sizeof(ctx->function_localTable_Size));
+    memset(ctx->function_localTable_Names,0,sizeof(ctx->function_localTable_Names));
     ctx->function_localTable_ValuePtrs=0;
     ctx->function_usesThisPointer=0;
     
