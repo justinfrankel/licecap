@@ -230,7 +230,6 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
         functionType *f=nseel_getFunctionFromTable(i);
         if (!strcasecmp(f->name, nptr))
         {
-          // todo: return opcode directly?
           switch (f->nParams&0xff)
           {
             case 0:
@@ -239,9 +238,9 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
             case 3: *typeOfObject = FUNCTION3; break;
             default: 
               *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
-              break;
+            break;
           }
-          return i;
+          return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(INT_PTR) f);
         }
       }
     }
@@ -283,7 +282,8 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
           }
 
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return (INT_PTR)fr;
+
+          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
         }
         if (!bmatch && postName && !strcasecmp(fr->fname,postName)) bmatch=fr;
 
@@ -300,7 +300,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
           }
 
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return (INT_PTR)fr;
+          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
         }
         if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
         {
@@ -331,7 +331,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
           // no need to set ctx->function_callsFunctionsThatNeedImpliedPrefix, since we're either calling the original function
           // (which can't access prefixed state), or created prefixed copy, which is prefixed itself
           *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return (INT_PTR)fr;
+          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
         }
       }
     }

@@ -1092,34 +1092,41 @@ INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
   r->parms.dv.directValue=0.0;
   return (INT_PTR)r;
 }
-INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
+
+INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype, INT_PTR fn)
 {
   opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_FUNC3;
-  r->fntype = fntype;
+  if (!r) return 0;
+  r->fntype=fntype;
   r->fn = fn;
+  if (np >= 3) r->opcodeType = OPCODETYPE_FUNC3;
+  else if (np==2) r->opcodeType = OPCODETYPE_FUNC2;
+  else r->opcodeType = OPCODETYPE_FUNC1;
+
+  return (INT_PTR)r;
+}
+
+INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
+{
+  if (fn)
+  {
+    opcodeRec *r = (opcodeRec *)fn;
+    r->parms.parms[0] = (opcodeRec*)code1;
+    r->parms.parms[1] = (opcodeRec*)code2;
+    r->parms.parms[2] = (opcodeRec*)code3;
+  }
+  return fn;
+}
+
+
+INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2)
+{
+  opcodeRec *r=newOpCode(ctx);
+  r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
+  r->fntype = FUNCTYPE_SIMPLE;
+  r->fn = (INT_PTR)fn;
   r->parms.parms[0] = (opcodeRec*)code1;
   r->parms.parms[1] = (opcodeRec*)code2;
-  r->parms.parms[2] = (opcodeRec*)code3;
-  return (INT_PTR)r;  
-}
-INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2)
-{
-  opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_FUNC2;
-  r->fntype = fntype;
-  r->fn = fn;
-  r->parms.parms[0] = (opcodeRec*)code1;
-  r->parms.parms[1] = (opcodeRec*)code2;
-  return (INT_PTR)r;  
-}
-INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1)
-{
-  opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_FUNC1;
-  r->fntype = fntype;
-  r->fn = fn;
-  r->parms.parms[0] = (opcodeRec*)code1;
   return (INT_PTR)r;  
 }
 
@@ -1166,7 +1173,7 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
   *replList=0;
   switch (fntype)
   {
-    case MATH_SIMPLE:
+    case FUNCTYPE_SIMPLE:
       switch (fn)
       {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
@@ -1182,19 +1189,19 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
         case FN_UMINUS: RF(uminus);
 #undef RF
       }
-    case MATH_FN:
+    break;
 
-      if (fn >=0 && fn < 0x7FFFFFFF)
+    case FUNCTYPE_FUNCTIONTYPEREC:
+      if (fn)
       {
-        functionType *p=nseel_getFunctionFromTable((int)fn);
-        if (p) 
-        {
-          *replList=p->replptrs;
-          *pProc=p->pProc;
-          *endP = p->func_e;
-          return p->afunc; 
-        }
+        functionType *p=(functionType *)fn;
+        *replList=p->replptrs;
+        *pProc=p->pProc;
+        *endP = p->func_e;
+        return p->afunc; 
       }
+    break;
+    case FUNCTYPE_EELFUNC:
       {
         int isLocal=1;
         _codeHandleFunctionRec *fr = ctx->functions_local;
@@ -1368,7 +1375,7 @@ static void *nseel_getFunctionAddress(compileContext *ctx,
 static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
 {
   int retv = 0, retv_parm[3]={0,0,0};
-  while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == MATH_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
+  while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FUNCTYPE_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
   {
     if (!optimizeOpcodes(ctx,op->parms.parms[0]) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
     {
@@ -1390,11 +1397,11 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1]);
   if (op->opcodeType>=OPCODETYPE_FUNC3) retv_parm[2] = optimizeOpcodes(ctx,op->parms.parms[2]);
 
-  if (op->fntype == MATH_SIMPLE)
+  if (op->fntype == FUNCTYPE_SIMPLE)
   {
     if (op->fn == FN_ASSIGN_UNUSED_MAYBE) retv|=1; // for simple math, only thing that can cause state to change
 
-    if (op->opcodeType == OPCODETYPE_FUNC1) // within MATH_SIMPLE
+    if (op->opcodeType == OPCODETYPE_FUNC1) // within FUNCTYPE_SIMPLE
     {
       if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
       {
@@ -1413,7 +1420,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
         }
       }
     }
-    else if (op->opcodeType == OPCODETYPE_FUNC2)  // within MATH_SIMPLE
+    else if (op->opcodeType == OPCODETYPE_FUNC2)  // within FUNCTYPE_SIMPLE
     {
       int dv0 = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
       int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
@@ -1545,9 +1552,9 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
         }
       }
     }
-    // MATH_SIMPLE
+    // FUNCTYPE_SIMPLE
   }   
-  else if (op->fntype == MATH_FN && op->fn >= 0 && op->fn < sizeof(fnTable1)/sizeof(fnTable1[0]))
+  else if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && op->fn)
   {
 
     /*
@@ -1579,11 +1586,11 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
     */
 
 
-    functionType  *pfn = fnTable1 + op->fn;
+    functionType  *pfn = (functionType *)op->fn;
 
     if (pfn->nParams&NSEEL_NPARAMS_FLAG_MODSTUFF) retv|=1;
 
-    if (op->opcodeType==OPCODETYPE_FUNC1) // within MATH_FN
+    if (op->opcodeType==OPCODETYPE_FUNC1) // within FUNCTYPE_FUNCTIONTYPEREC
     {
       if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
       {
@@ -1612,7 +1619,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
 
       }
     }
-    else if (op->opcodeType==OPCODETYPE_FUNC2)  // within MATH_FN
+    else if (op->opcodeType==OPCODETYPE_FUNC2)  // within FUNCTYPE_FUNCTIONTYPEREC
     {
       if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE &&
           op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE)
@@ -1638,7 +1645,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           op->parms.parms[0] = first_parm->parms.parms[0];
 
           // make the old extra pow be a multiply of the exponents
-          first_parm->fntype = MATH_SIMPLE;
+          first_parm->fntype = FUNCTYPE_SIMPLE;
           first_parm->fn = FN_MULTIPLY;
           first_parm->parms.parms[0] = op->parms.parms[1];
 
@@ -1650,7 +1657,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
         }
       }
     }
-    else if (op->opcodeType==OPCODETYPE_FUNC3)  // within MATH_FN
+    else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
     {
       if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
       {
@@ -1662,7 +1669,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
         }
       }
     }
-    // MATH_FN
+    // FUNCTYPE_FUNCTIONTYPEREC
   }
   else
   {
@@ -1723,7 +1730,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
  
   // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
   // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
-  while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == MATH_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
+  while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FUNCTYPE_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
   {
     int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, impliedFunctionPrefix);
     if (parm_size < 0) return -1;
@@ -1736,11 +1743,11 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   }
 
 
-  if (op->fntype == MATH_FN)
+  if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
   {
     // special case: while
-    INT_PTR fn=op->fn;
-    if (op->opcodeType == OPCODETYPE_FUNC1 && fn == 4)
+    functionType *fn_ptr = (functionType *)op->fn;
+    if (op->opcodeType == OPCODETYPE_FUNC1 && fn_ptr == fnTable1 + 4)
     {
       unsigned char *newblock2;
       int stubsz;
@@ -1760,7 +1767,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     }
     
     // special case: BAND/BOR/LOOP
-    if (op->opcodeType == OPCODETYPE_FUNC2 && (fn == 1 || fn == 2 || fn == 3))
+    if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2 || fn_ptr == fnTable1+3))
     {
       void *stub;
       int stubsize;        
@@ -1769,8 +1776,8 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, impliedFunctionPrefix);
       if (parm_size < 0) return -1;
       
-      if (fn == 1) stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
-      else if (fn == 3) stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
+      if (fn_ptr == fnTable1+1) stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
+      else if (fn_ptr == fnTable1+3) stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
       else stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
       
       if (computTableSize) (*computTableSize) ++;
@@ -1787,11 +1794,11 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       p = bufOut + parm_size;
       memcpy(p, stub, stubsize);
       
-      if (fn!=3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
+      if (fn_ptr!=fnTable1 + 3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
       p=EEL_GLUE_set_immediate(p,newblock2);
-      if (fn!=3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
+      if (fn_ptr!=fnTable1 + 3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
   #ifdef __ppc__
-      if (fn!=3) // for or/and on ppc we need a one
+      if (fn_ptr!=fnTable1 + 3) // for or/and on ppc we need a one
       {
         p=EEL_GLUE_set_immediate(p,&eel_one);
       }
@@ -1799,7 +1806,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       return rv_offset + parm_size + stubsize;
     }  
     
-    if (op->opcodeType == OPCODETYPE_FUNC3 && fn == 0) // special case: IF
+    if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
     {
       void *stub;
       unsigned char *newblock2,*newblock3,*ptr;

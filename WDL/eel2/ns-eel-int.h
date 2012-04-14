@@ -48,8 +48,13 @@ extern "C" {
 #define FN_UMINUS   8
 #define FN_UPLUS    9
 
-#define MATH_SIMPLE 0
-#define MATH_FN     1
+enum {
+  FUNCTYPE_SIMPLE=0, // fn maps to FN_*
+  FUNCTYPE_FUNCTIONTYPEREC, // fn is a functionType *
+  FUNCTYPE_EELFUNC, // _codeHandleFunctionRec *
+};
+
+
 
 #define YYSTYPE INT_PTR
 
@@ -161,9 +166,10 @@ extern functionType *nseel_getFunctionFromTable(int idx);
 
 INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
-INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code);
-INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2);
-INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
+
+INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2);
+INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, INT_PTR fn);
+INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
 
 extern EEL_F nseel_globalregs[100];
 
