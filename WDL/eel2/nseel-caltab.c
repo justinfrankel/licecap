@@ -330,7 +330,7 @@ case 1:
 case 2:
 //#ln 34 "cal.y"
 {                                {
-                                 ctx->result = 0; // unused!
+                                 ctx->result = yyval = yyvsp[0]; // unused!
                                  }
                        ;
     break;}

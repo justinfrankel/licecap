@@ -1851,6 +1851,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   
   switch (op->opcodeType)
   {
+    case OPCODETYPE_VALUE_FROM_NAMESPACENAME:
     case OPCODETYPE_DIRECTVALUE:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
