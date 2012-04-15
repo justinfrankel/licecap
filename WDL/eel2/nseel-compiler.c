@@ -1471,12 +1471,13 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           case FN_ADD:
             if (dvalue == 0.0) memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
           break;
+          case FN_AND:
+            if ((WDL_INT64)dvalue) break;
+            dvalue = 0.0; // treat x&0 as x*0, which optimizes to 0
+            
+            // fall through
           case FN_MULTIPLY:
-            if (dvalue == 1.0) // remove multiply by 1.0 (using non-1.0 value as replacement)
-            {
-              memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
-            }
-            else if (dvalue == 0.0) // remove multiply by 0.0 (using 0.0 direct value as replacement), unless the nonzero side did something
+            if (dvalue == 0.0) // remove multiply by 0.0 (using 0.0 direct value as replacement), unless the nonzero side did something
             {
               if (!retv_parm[!!dv0]) 
               {
@@ -1495,6 +1496,10 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
                   op->parms.parms[0] = tmp;
                 }
               }
+            }
+            else if (dvalue == 1.0) // remove multiply by 1.0 (using non-1.0 value as replacement)
+            {
+              memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
             }
           break;
           case FN_DIVIDE:
