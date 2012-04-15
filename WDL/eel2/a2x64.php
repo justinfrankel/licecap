@@ -261,6 +261,7 @@ if ($argv[1] != "") $fmt = $argv[1];
 $fnout = "asm-nseel-x64.asm";
 
 if ($fmt == "macho64") {  $fnout="asm-nseel-x64-macho.asm"; $nasm = "nasm64"; $want_funclead = "_"; }
+if ($fmt == "win64x") { $nasm="nasm64"; $fmt = "win64"; }
 
 process_file("asm-nseel-x86-gcc.c" , $fnout, $fmt != "win64" ? "%define AMD64ABI\n" : "");
 

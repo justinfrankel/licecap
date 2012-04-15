@@ -1105,6 +1105,31 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_or_end(void) {}
 
+__declspec(naked) void nseel_asm_or0(void)
+{
+  __asm {
+    fld EEL_ASM_TYPE [eax];
+    mov eax, esi;
+    fistp qword ptr [esi];
+    fild qword ptr [esi];
+    fstp EEL_ASM_TYPE [esi];
+    add esi, EEL_F_SIZE;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_or0_end(void) {}
+
 __declspec(naked) void nseel_asm_or_op(void)
 {
   __asm {

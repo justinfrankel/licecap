@@ -655,6 +655,19 @@ void nseel_asm_or(void)
 }
 void nseel_asm_or_end(void) {}
 
+void nseel_asm_or0(void)
+{
+  __asm__(
+    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "movl %esi, %eax\n"
+    "fistpll (%esi)\n"
+    "fildll (%esi)\n"
+    "fstp" EEL_F_SUFFIX " (%esi)\n"
+    "addl $" EEL_F_SSTR ", %esi\n"
+  );
+}
+void nseel_asm_or0_end(void) {}
+
 void nseel_asm_or_op(void)
 {
   __asm__(

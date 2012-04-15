@@ -697,6 +697,7 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(shr)
   DECL_ASMFUNC(mod_op)
   DECL_ASMFUNC(or)
+  DECL_ASMFUNC(or0)
   DECL_ASMFUNC(xor)
   DECL_ASMFUNC(xor_op)
   DECL_ASMFUNC(and)
@@ -1455,6 +1456,18 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
         double dvalue = op->parms.parms[!dv0]->parms.dv.directValue;
         switch (op->fntype)
         {
+          case FN_OR:
+            if (!(WDL_INT64)dvalue)
+            {
+              // replace with or0
+              static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1, {0}, NULL};
+
+              op->opcodeType = OPCODETYPE_FUNC1;
+              op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+              op->fn = &fr;
+              if (dv0) op->parms.parms[0] = op->parms.parms[1];
+            }
+          break;
           case FN_SUB:
             if (dv0) 
             {
