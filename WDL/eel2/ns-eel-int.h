@@ -79,13 +79,14 @@ typedef struct opcodeRec opcodeRec;
 
 typedef struct _codeHandleFunctionRec 
 {
-  struct _codeHandleFunctionRec *next;
-  void *startptr; // compiled code (may be cleared + recompiled when shraed)
-  int startptr_size;
-  
-  int tmpspace_req;
+  struct _codeHandleFunctionRec *next; // main linked list (only used for high level functions)
+  struct _codeHandleFunctionRec *derivedCopies; // separate linked list, head being the main function, other copies being derived versions
 
+  void *startptr; // compiled code (may be cleared + recompiled when shraed)
   opcodeRec *opcodes;
+
+  int startptr_size; 
+  int tmpspace_req;
     
   int num_params;
 
@@ -100,9 +101,7 @@ typedef struct _codeHandleFunctionRec
   int isCommonFunction;
   int usesThisPointer;
 
-  struct _codeHandleFunctionRec *basedOn; // if set, functionrec derived from (foo() if we are blah.foo())
-
-  char fname[NSEEL_MAX_VARIABLE_NAMELEN+1]; // includes "prefix.func" if applicable
+  char fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
 } _codeHandleFunctionRec;  
   
 typedef struct _compileContext
@@ -186,7 +185,7 @@ INT_PTR nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue);
 
 INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2);
 INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, INT_PTR fn);
-INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, int np, INT_PTR fn, const char *thistext);
+INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext);
 INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
 
 INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);

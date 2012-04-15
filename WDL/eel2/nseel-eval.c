@@ -261,82 +261,63 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   } 
 
   {
-    _codeHandleFunctionRec *fr = ctx->functions_local;
-    _codeHandleFunctionRec *bmatch=NULL;
-    int is_this_ptr = 0;    
-    char *postName = tmp;
+    _codeHandleFunctionRec *fr = NULL;
 
+    char *postName = tmp;
     while (*postName) postName++;
     while (postName >= tmp && *postName != '.') postName--;
-
     if (++postName <= tmp) postName=0;
-    else is_this_ptr = !strnicmp(tmp,"this.",5) && tmp[5];
 
-    while (fr)
+    if (!fr)
     {
-      if (!is_this_ptr && !strcasecmp(fr->fname,tmp))
+      fr = ctx->functions_local;
+      while (fr)
       {
-        // this relies on derived versions always being after their base version
-        if (!bmatch || fr->basedOn == bmatch)
-        {
-          *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-          return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
-        }
+        if (!strcasecmp(fr->fname,postName?postName:tmp)) break;
+        fr=fr->next;
       }
-
-      if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
-      {
-        bmatch=fr;
-        if (is_this_ptr) break; // if not searching for actual function, bmatch is good enough!
-      }
-
-      fr=fr->next;
     }
-
-    // if matched base function in local functions, don't search for full match in common functions
-    if (!bmatch)
+    if (!fr)
     {
       fr = ctx->functions_common;
       while (fr)
       {
-        if (!is_this_ptr && !strcasecmp(fr->fname,tmp))
-        {
-          // this relies on derived versions always being after their base version
-          if (!bmatch || fr->basedOn == bmatch)
-          {
-            *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
-            return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
-          }
-        }
-        if (!bmatch && postName && !strcasecmp(fr->fname,postName)) 
-        {
-          bmatch=fr;
-          if (is_this_ptr) break;
-        }
+        if (!strcasecmp(fr->fname,postName?postName:tmp)) break;
         fr=fr->next;
       }
     }
 
-    if (bmatch) 
-    {     
-      *typeOfObject=bmatch->num_params>=3?FUNCTION3 : bmatch->num_params==2?FUNCTION2 : FUNCTION1;
-      if (!bmatch->usesThisPointer) 
+    if (fr)
+    {
+      *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+
+      if (!strncasecmp(tmp,"this.",5) && tmp[5]) // relative scoped call
       {
-        // if bmatch doesn't access this, no need to implement a unique function, just call the main function
-        return nseel_createCompiledFunctionCall(ctx,bmatch->num_params,FUNCTYPE_EELFUNC,(INT_PTR)bmatch);
+        // we're calling this. something, defer lookup of derived version to code generation
+        ctx->function_usesThisPointer = 1;
+        return nseel_createCompiledFunctionCallEELThis(ctx,fr,tmp+5);
       }
 
-      if (is_this_ptr)
+      if (postName && fr->usesThisPointer) // if has context and calling an eel function that needs context
       {
-        ctx->function_usesThisPointer = 1;
-        return nseel_createCompiledFunctionCallEELThis(ctx,bmatch->num_params,(INT_PTR)bmatch, tmp+5);
+        _codeHandleFunctionRec *scan=fr;
+        while (scan)
+        {
+          if (!strcasecmp(scan->fname,tmp)) break;
+          scan=scan->derivedCopies;
+        }
+
+        // if didn't find a cached instance, create our fully qualified function instance
+        if (!scan) scan = eel_createFunctionNamespacedInstance(ctx,fr,tmp);
+
+
+        // use our derived/cached version if we didn't fail
+        if (scan) fr=scan; 
       }
-  
-      // we can go ahead and create our fully qualified function instance
-      fr = eel_createFunctionNamespacedInstance(ctx,bmatch,tmp);
-      if (!fr) fr=bmatch;
-      return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);
+
+      return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);     
     }
+
   }
 
   // instance variables
@@ -344,7 +325,6 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
   {
     ctx->function_usesThisPointer=1;
     return nseel_createCompiledValueFromNamespaceName(ctx,tmp+5); 
-    // 
   }
 
   {

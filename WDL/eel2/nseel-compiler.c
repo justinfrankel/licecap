@@ -1102,15 +1102,15 @@ INT_PTR nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue)
   return (INT_PTR)r;
 }
 
-INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, int np, INT_PTR fn, const char *relName)
+INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fnp, const char *relName)
 {
   int n=strlen(relName);
   opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+NSEEL_MAX_VARIABLE_NAMELEN,8, ctx->isSharedFunctions ? 0 : -1); 
   if (!r) return 0;
   r->fntype=FUNCTYPE_EELFUNC_THIS;
-  r->fn = fn;
-  if (np >= 3) r->opcodeType = OPCODETYPE_FUNC3;
-  else if (np==2) r->opcodeType = OPCODETYPE_FUNC2;
+  r->fn = (INT_PTR)fnp;
+  if (fnp->num_params >= 3) r->opcodeType = OPCODETYPE_FUNC3;
+  else if (fnp->num_params==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
   if (n > NSEEL_MAX_VARIABLE_NAMELEN-1) n=NSEEL_MAX_VARIABLE_NAMELEN-1;
   memcpy(r->relname,relName,n);
@@ -1173,10 +1173,11 @@ _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx
   memcpy(subfr->fname,nameptr,n);
   subfr->fname[n]=0;
 
+  subfr->next = NULL;
   subfr->startptr=0; // make sure this code gets recompiled (with correct member ptrs) for this instance!
-  subfr->basedOn = fr;
-  
-  fr->next = subfr;
+
+  // subfr->derivedCopies already points to the right place
+  fr->derivedCopies = subfr; 
   
   return subfr;
 
@@ -1270,23 +1271,12 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
         // find resolved function
         if (!fn)
         {
-          _codeHandleFunctionRec *fr = ctx->functions_local;
+          _codeHandleFunctionRec *fr = fr_base;
           // scan for function
           while (fr && !fn)
           {
-            if (!strcasecmp(fr->fname,nm) && (!fr->basedOn || fr->basedOn == fr_base)) fn = (INT_PTR) fr;
-            fr=fr->next;
-          }
-        }
-
-        if (!fn)
-        {
-          _codeHandleFunctionRec *fr = ctx->functions_common;
-          // scan for function
-          while (fr && !fn)
-          {
-            if (!strcasecmp(fr->fname,nm) && (!fr->basedOn || fr->basedOn == fr_base)) fn = (INT_PTR) fr;
-            fr=fr->next;
+            if (!strcasecmp(fr->fname,nm)) fn = (INT_PTR) fr;
+            fr=fr->derivedCopies;
           }
         }
 
