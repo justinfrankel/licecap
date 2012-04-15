@@ -32,11 +32,6 @@
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
 
 
-#define INTCONST 1
-#define DBLCONST 2
-#define HEXCONST 3
-#define VARIABLE 4
-#define OTHER    5
 
 EEL_F nseel_globalregs[100];
 
@@ -134,7 +129,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
 }
 
 //------------------------------------------------------------------------------
-INT_PTR nseel_translate(compileContext *ctx, int type)
+opcodeRec *nseel_translate(compileContext *ctx, int type)
 {
   int v;
   int n;
@@ -162,7 +157,7 @@ INT_PTR nseel_translate(compileContext *ctx, int type)
 }
 
 //------------------------------------------------------------------------------
-INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
+opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
 {
   char tmp[256];
   int i;
@@ -244,7 +239,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
             *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
           break;
         }
-        return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(INT_PTR) f);
+        return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
       }
     }
   } 
@@ -304,7 +299,7 @@ INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject)
         if (scan) fr=scan; 
       }
 
-      return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(INT_PTR)fr);     
+      return nseel_createCompiledFunctionCall(ctx,fr->num_params,FUNCTYPE_EELFUNC,(void *)fr);     
     }
 
   }

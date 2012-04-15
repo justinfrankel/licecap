@@ -37,34 +37,37 @@
 extern "C" {
 #endif
 
-#define FN_ASSIGN_UNUSED_MAYBE   0
-#define FN_MULTIPLY 1
-#define FN_DIVIDE   2
-#define FN_DELIM_STATEMENTS   3
-#define FN_ADD      4
-#define FN_SUB      5
-#define FN_AND      6
-#define FN_OR       7
-#define FN_UMINUS   8
-#define FN_UPLUS    9
 
-enum {
-  FUNCTYPE_SIMPLE=0, // fn maps to FN_*
+
+enum { 
+
+  // these ignore fn in opcodes, just use fntype to determine function
+  FN_MULTIPLY=0,
+  FN_DIVIDE,
+  FN_JOIN_STATEMENTS,
+  FN_ADD,
+  FN_SUB,
+  FN_AND,
+  FN_OR,
+  FN_UMINUS,
+  FN_UPLUS,
+  FUNCTYPE_SIMPLEMAX,
+
+
   FUNCTYPE_FUNCTIONTYPEREC, // fn is a functionType *
-  FUNCTYPE_EELFUNC, // _codeHandleFunctionRec *
-
+  FUNCTYPE_EELFUNC, // fn is a _codeHandleFunctionRec *
 
 
     // _codeHandleFunctionRec*, relname in opcode field is the namespace specifier 
     // (i.e. if called via this.something.function(), "something".)
     // note that calls to function() or some.function() are both normal FUNCTYPE_EELFUNC calls, as they can be resolved
     // earlier in the process
-  FUNCTYPE_EELFUNC_THIS, 
+  FUNCTYPE_EELFUNC_THIS,  // fn is a _codeHandleFunctionRec * to base function, relname set
 };
 
 
 
-#define YYSTYPE INT_PTR
+#define YYSTYPE opcodeRec *
 
 #define NSEEL_CLOSEFACTOR 0.00001
 
@@ -111,6 +114,20 @@ typedef struct _llBlock {
   char block[LLB_DSIZE];
 } llBlock;
 
+typedef struct {
+  llBlock *blocks, 
+          *blocks_data;
+  void *workTable; // references a chunk in blocks_data
+
+  void *code;
+  int code_stats[4];
+
+  int want_stack;
+  void *stack;  // references a chunk in blocks_data, somewhere within the complete NSEEL_STACK_SIZE aligned at NSEEL_STACK_SIZE
+} codeHandleType;
+
+
+
 typedef struct _compileContext
 {
   EEL_F **varTable_Values;
@@ -119,7 +136,7 @@ typedef struct _compileContext
 
   int errVar;
   int colCount;
-  INT_PTR result;
+  opcodeRec *result;
   char last_error_string[256];
   YYSTYPE yylval;
   int	yychar;			/*  the lookahead symbol		*/
@@ -153,7 +170,7 @@ typedef struct _compileContext
   char *function_localTable_Names[2]; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F **function_localTable_ValuePtrs;
 
-  void *tmpCodeHandle;
+  codeHandleType *tmpCodeHandle;
   
   EEL_F *ram_blocks[NSEEL_RAM_BLOCKS];
   int ram_needfree;
@@ -180,16 +197,16 @@ typedef struct {
 
 extern functionType *nseel_getFunctionFromTable(int idx);
 
-INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value);
-INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
-INT_PTR nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue);
+opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
+opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
+opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue);
 
-INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2);
-INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, INT_PTR fn);
-INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext);
-INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3);
+opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2);
+opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, void *fn);
+opcodeRec *nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext);
+opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
-INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);
+opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
@@ -200,12 +217,18 @@ extern EEL_F nseel_globalregs[100];
 #define	FUNCTION1	260
 #define	FUNCTION2	261
 #define	FUNCTION3	262
-#define	UMINUS	263
-#define	UPLUS	264
+#define UMINUS  263
+#define UPLUS   264
 
-INT_PTR nseel_translate(compileContext *ctx, int type);
+#define INTCONST 1
+#define DBLCONST 2
+#define HEXCONST 3
+#define VARIABLE 4
+#define OTHER    5
+
+opcodeRec *nseel_translate(compileContext *ctx, int type);
 int nseel_gettokenlen(compileContext *ctx, int maxlen);
-INT_PTR nseel_lookup(compileContext *ctx, int *typeOfObject);
+opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject);
 int nseel_yyerror(compileContext *ctx);
 int nseel_yylex(compileContext *ctx, char **exp);
 int nseel_yyparse(compileContext *ctx, char *exp);

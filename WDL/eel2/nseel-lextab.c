@@ -45,12 +45,6 @@ static int _lmovb(struct lextab *lp, int c, int st)
         return(lp->llnext[base]&0377);
 }
 
-#define INTCONST 1
-#define DBLCONST 2
-#define HEXCONST 3
-#define VARIABLE 4
-#define OTHER    5
-
 static int _Alextab(compileContext *ctx, int __na__)		 
 {
 	// fucko: JF> 17 -> 19?

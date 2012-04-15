@@ -580,18 +580,6 @@ static void onCompileNewLine(compileContext *ctx, int srcBytes, int destBytes)
 	}
 }
 
-typedef struct {
-  llBlock *blocks, 
-          *blocks_data;
-  void *workTable; // references a chunk in blocks_data
-
-  void *code;
-  int code_stats[4];
-
-  int want_stack;
-  void *stack;  // references a chunk in blocks_data, somewhere within the complete NSEEL_STACK_SIZE aligned at NSEEL_STACK_SIZE
-} codeHandleType;
-
 static void *__newBlock(llBlock **start,int size, char wantMprotect);
 
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
@@ -611,7 +599,7 @@ struct opcodeRec
 {
  int opcodeType; 
  int fntype;
- INT_PTR fn;
+ void *fn;
  
  union {
    struct opcodeRec *parms[3];
@@ -736,7 +724,7 @@ static void NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
 
 static void NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
 {
-  codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
+  codeHandleType *ch=ctx->tmpCodeHandle;
 
   if (data_size>0) 
   {
@@ -754,7 +742,7 @@ static void NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
 
 static void NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext *ctx, INT_PTR offs)
 {
-  codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
+  codeHandleType *ch=ctx->tmpCodeHandle;
 
   if (data_size>0) 
   {
@@ -772,7 +760,7 @@ static void NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext 
 }
 static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext *ctx)
 {
-  codeHandleType *ch=(codeHandleType*)ctx->tmpCodeHandle;
+  codeHandleType *ch=ctx->tmpCodeHandle;
 
   if (data_size>0) 
   {
@@ -1054,16 +1042,16 @@ static void *__newBlock(llBlock **start, int size, char wantMprotect)
 
 
 //---------------------------------------------------------------------------------------------------------------
-INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value)
+opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 {
   opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_DIRECTVALUE;
   r->parms.dv.directValue = value; 
   r->parms.dv.valuePtr = NULL;
-  return (INT_PTR)r;
+  return r;
 }
 
-INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName)
+opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName)
 {
   int n=strlen(relName);
   opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+NSEEL_MAX_VARIABLE_NAMELEN,8, ctx->isSharedFunctions ? 0 : -1); 
@@ -1072,34 +1060,34 @@ INT_PTR nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const ch
   if (n > NSEEL_MAX_VARIABLE_NAMELEN-1) n=NSEEL_MAX_VARIABLE_NAMELEN-1;
   memcpy(r->relname,relName,n);
   r->relname[n]=0;
-  return (INT_PTR)r;
+  return r;
 }
 
-INT_PTR nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
+opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
 {
   opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_VARPTR;
   r->parms.dv.valuePtr=addrValue;
   r->parms.dv.directValue=0.0;
-  return (INT_PTR)r;
+  return r;
 }
 
-INT_PTR nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue)
+opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue)
 {
   opcodeRec *r=newOpCode(ctx);
   r->opcodeType = OPCODETYPE_VARPTRPTR;
   r->parms.dv.valuePtr=(EEL_F *)addrValue;
   r->parms.dv.directValue=0.0;
-  return (INT_PTR)r;
+  return r;
 }
 
-INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fnp, const char *relName)
+opcodeRec *nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fnp, const char *relName)
 {
   int n=strlen(relName);
   opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+NSEEL_MAX_VARIABLE_NAMELEN,8, ctx->isSharedFunctions ? 0 : -1); 
   if (!r) return 0;
   r->fntype=FUNCTYPE_EELFUNC_THIS;
-  r->fn = (INT_PTR)fnp;
+  r->fn = fnp;
   if (fnp->num_params >= 3) r->opcodeType = OPCODETYPE_FUNC3;
   else if (fnp->num_params==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
@@ -1107,10 +1095,10 @@ INT_PTR nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandle
   memcpy(r->relname,relName,n);
   r->relname[n]=0;
 
-  return (INT_PTR)r;
+  return r;
 }
 
-INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype, INT_PTR fn)
+opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype, void *fn)
 {
   opcodeRec *r=newOpCode(ctx);
   if (!r) return 0;
@@ -1120,31 +1108,30 @@ INT_PTR nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype
   else if (np==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
 
-  return (INT_PTR)r;
+  return r;
 }
 
-INT_PTR nseel_setCompiledFunctionCallParameters(INT_PTR fn, INT_PTR code1, INT_PTR code2, INT_PTR code3)
+opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
 {
   if (fn)
   {
-    opcodeRec *r = (opcodeRec *)fn;
-    r->parms.parms[0] = (opcodeRec*)code1;
-    r->parms.parms[1] = (opcodeRec*)code2;
-    r->parms.parms[2] = (opcodeRec*)code3;
+    opcodeRec *r = fn;
+    r->parms.parms[0] = code1;
+    r->parms.parms[1] = code2;
+    r->parms.parms[2] = code3;
   }
   return fn;
 }
 
 
-INT_PTR nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, INT_PTR code1, INT_PTR code2)
+opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
   opcodeRec *r=newOpCode(ctx);
   r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
-  r->fntype = FUNCTYPE_SIMPLE;
-  r->fn = (INT_PTR)fn;
-  r->parms.parms[0] = (opcodeRec*)code1;
-  r->parms.parms[1] = (opcodeRec*)code2;
-  return (INT_PTR)r;  
+  r->fntype = fn;
+  r->parms.parms[0] = code1;
+  r->parms.parms[1] = code2;
+  return r;  
 }
 
 
@@ -1199,29 +1186,23 @@ static void combineNamespaceFields(char *nm, const char *prefix, const char *rel
 
 //---------------------------------------------------------------------------------------------------------------
 static void *nseel_getBuiltinFunctionAddress(compileContext *ctx, 
-      int fntype, INT_PTR fn, 
+      int fntype, void *fn, 
       NSEEL_PPPROC *pProc, void ***replList, 
       void **endP)
 {
   switch (fntype)
   {
-    case FUNCTYPE_SIMPLE:
-      switch (fn)
-      {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
-        case FN_ASSIGN_UNUSED_MAYBE: RF(assign);
-        case FN_ADD: RF(add);
-        case FN_SUB: RF(sub);
-        case FN_MULTIPLY: RF(mul);
-        case FN_DIVIDE: RF(div);
-        case FN_DELIM_STATEMENTS: RF(exec2);
-        case FN_AND: RF(and);
-        case FN_OR: RF(or);
-        case FN_UPLUS: RF(uplus); 
-        case FN_UMINUS: RF(uminus);
+    case FN_ADD: RF(add);
+    case FN_SUB: RF(sub);
+    case FN_MULTIPLY: RF(mul);
+    case FN_DIVIDE: RF(div);
+    case FN_JOIN_STATEMENTS: RF(exec2);
+    case FN_AND: RF(and);
+    case FN_OR: RF(or);
+    case FN_UPLUS: RF(uplus); 
+    case FN_UMINUS: RF(uminus);
 #undef RF
-      }
-    break;
 
     case FUNCTYPE_FUNCTIONTYPEREC:
       if (fn)
@@ -1247,13 +1228,13 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       void **endP, int *isRaw, int wantCodeGenerated,
       const char *namespacePathToThis) // if wantCodeGenerated is false, can return bogus pointers in raw mode
 {
-  INT_PTR fn = op->fn;
+  _codeHandleFunctionRec *fn = (_codeHandleFunctionRec*)op->fn;
   switch (op->fntype)
   {
     case FUNCTYPE_EELFUNC_THIS:
       if (fn)
       {
-        _codeHandleFunctionRec *fr_base = (_codeHandleFunctionRec *) fn;
+        _codeHandleFunctionRec *fr_base = fn;
         char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
         combineNamespaceFields(nm,namespacePathToThis,op->relname);
 
@@ -1266,14 +1247,14 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           // scan for function
           while (fr && !fn)
           {
-            if (!strcasecmp(fr->fname,nm)) fn = (INT_PTR) fr;
+            if (!strcasecmp(fr->fname,nm)) fn = fr;
             fr=fr->derivedCopies;
           }
         }
 
         if (!fn) // generate copy of function
         {
-          fn = (INT_PTR)eel_createFunctionNamespacedInstance(ctx,fr_base,nm);
+          fn = eel_createFunctionNamespacedInstance(ctx,fr_base,nm);
         }
       }
 
@@ -1386,7 +1367,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
 static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
 {
   int retv = 0, retv_parm[3]={0,0,0};
-  while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FUNCTYPE_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
+  while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
     if (!optimizeOpcodes(ctx,op->parms.parms[0]) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
     {
@@ -1408,15 +1389,13 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1]);
   if (op->opcodeType>=OPCODETYPE_FUNC3) retv_parm[2] = optimizeOpcodes(ctx,op->parms.parms[2]);
 
-  if (op->fntype == FUNCTYPE_SIMPLE)
+  if (op->fntype >= 0 && op->fntype < FUNCTYPE_SIMPLEMAX)
   {
-    if (op->fn == FN_ASSIGN_UNUSED_MAYBE) retv|=1; // for simple math, only thing that can cause state to change
-
     if (op->opcodeType == OPCODETYPE_FUNC1) // within FUNCTYPE_SIMPLE
     {
       if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
       {
-        switch (op->fn)
+        switch (op->fntype)
         {
           case FN_UMINUS:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
@@ -1437,7 +1416,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
       int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
       if (dv0 && dv1)
       {
-        switch (op->fn)
+        switch (op->fntype)
         {
           case FN_DIVIDE:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
@@ -1474,7 +1453,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
       else if (dv0 || dv1)
       {
         double dvalue = op->parms.parms[!dv0]->parms.dv.directValue;
-        switch (op->fn)
+        switch (op->fntype)
         {
           case FN_SUB:
             if (dv0) 
@@ -1482,7 +1461,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               if (dvalue == 0.0)
               {
                 op->opcodeType = OPCODETYPE_FUNC1;
-                op->fn = FN_UMINUS;
+                op->fntype = FN_UMINUS;
                 op->parms.parms[0] = op->parms.parms[1];
               }
               break;
@@ -1506,7 +1485,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               else
               {
                 // this is 0.0 * oldexpressionthatmustbeprocessed or oldexpressionthatmustbeprocessed*0.0
-                op->fn = FN_DELIM_STATEMENTS;
+                op->fntype = FN_JOIN_STATEMENTS;
 
                 if (dv0) // 0.0*oldexpression, reverse the order so that 0 is returned
                 {
@@ -1528,7 +1507,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               else
               {
                 // change to a multiply
-                op->fn = FN_MULTIPLY;
+                op->fntype = FN_MULTIPLY;
                 if (op->parms.parms[1]->parms.dv.directValue == 0.0)
                 {
                   optimizeOpcodes(ctx,op); // since we're a multiply, this might reduce us to 0.0 ourselves (or exec2)
@@ -1552,7 +1531,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               {
                 opcodeRec *tmp;
                 // this is 0.0 / oldexpressionthatmustbeprocessed
-                op->fn = FN_DELIM_STATEMENTS;
+                op->fntype = FN_JOIN_STATEMENTS;
                 tmp = op->parms.parms[1];
                 op->parms.parms[1] = op->parms.parms[0];
                 op->parms.parms[0] = tmp;
@@ -1656,8 +1635,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           op->parms.parms[0] = first_parm->parms.parms[0];
 
           // make the old extra pow be a multiply of the exponents
-          first_parm->fntype = FUNCTYPE_SIMPLE;
-          first_parm->fn = FN_MULTIPLY;
+          first_parm->fntype = FN_MULTIPLY;
           first_parm->parms.parms[0] = op->parms.parms[1];
 
           // put that as the exponent
@@ -1756,7 +1734,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
  
   // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
   // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
-  while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FUNCTYPE_SIMPLE && op->fn == FN_DELIM_STATEMENTS)
+  while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
     int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
     if (parm_size < 0) return -1;
@@ -2880,7 +2858,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     nseel_llinit(ctx);
     if (!nseel_yyparse(ctx,expr) && !ctx->errVar)
     {
-      start_opcode = (opcodeRec *)ctx->result;
+      start_opcode = ctx->result;
     }
            
     if (start_opcode)

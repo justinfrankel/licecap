@@ -24,14 +24,6 @@
 
 #include "ns-eel-int.h"
 
-#define	VALUE	258
-#define	IDENTIFIER	259
-#define	FUNCTION1	260
-#define	FUNCTION2	261
-#define	FUNCTION3	262
-#define	UMINUS	263
-#define	UPLUS	264
-
 #define YYERROR(x) nseel_yyerror(ctx)
        
 #define	YYFINAL		51
@@ -372,7 +364,7 @@ case 9:
     break;}
 case 10:
 //#ln 78 "cal.y"
-{                                  yyval = nseel_createSimpleCompiledFunction(ctx,FN_DELIM_STATEMENTS, 2, yyvsp[-2], yyvsp[0]);
+{                                  yyval = nseel_createSimpleCompiledFunction(ctx,FN_JOIN_STATEMENTS, 2, yyvsp[-2], yyvsp[0]);
     break;}
 case 11:
 //#ln 84 "cal.y"
