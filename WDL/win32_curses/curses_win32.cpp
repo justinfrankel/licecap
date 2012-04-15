@@ -301,6 +301,10 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #ifdef WIN32_CONSOLE_KBQUEUE
       SetTimer(hwnd,1,33,NULL);
 #endif
+#ifndef _WIN32
+	m_reinit_framebuffer(ctx);
+	ctx->m_need_redraw=1;
+#endif
     return 0;
     case WM_ERASEBKGND:
     return 0;
