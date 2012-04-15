@@ -1436,7 +1436,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           break;
           case FN_SUB:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
+            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
           break;
           case FN_AND:
