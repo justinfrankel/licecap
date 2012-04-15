@@ -2673,7 +2673,33 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
   {
     ctx->functions_common=NULL; // reset common function list
   }
+  else
+  {
+    // reset common compiled function code, forcing a recompile if shared
+    _codeHandleFunctionRec *a = ctx->functions_common;
+    while (a)
+    {
+      _codeHandleFunctionRec *b = a->derivedCopies;
 
+      if (a->localstorage) 
+      {
+        // force local storage actual values to be reallocated if used again
+        memset(a->localstorage,0,sizeof(EEL_F *) * a->localstorage_size);
+      }
+
+      a->startptr = NULL; // force this copy to be recompiled
+
+      while (b)
+      {
+        b->startptr = NULL; // force derived copies to get recompiled
+        // no need to reset b->localstorage, since it points to a->localstorage
+        b=b->derivedCopies;
+      }
+
+      a=a->next;
+    }
+  }
+  
   ctx->last_error_string[0]=0;
 
   if (!_expression || !*_expression) return 0;
@@ -2893,7 +2919,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
                                         newTmpBlock(ctx,sizeof(_codeHandleFunctionRec)); 
         if (fr)
         {
-          int namelen = strlen(is_fname);
           memset(fr,0,sizeof(_codeHandleFunctionRec));
           fr->startptr_size = startptr_size;
           fr->opcodes = start_opcode;
@@ -3060,17 +3085,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
 
   ctx->functions_local = NULL;
-  
-  // reset compiled function code, forcing a recompile if shared
-  {
-    _codeHandleFunctionRec *a = ctx->functions_common;
-    while (a)
-    {
-      if (a->localstorage) memset(a->localstorage,0,sizeof(EEL_F *) * a->localstorage_size); // force values to be reallocated if used again
-      a->startptr = NULL;
-      a=a->next;
-    }
-  }
   
   ctx->isSharedFunctions=0;
 
