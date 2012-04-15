@@ -40,17 +40,6 @@
 
 EEL_F nseel_globalregs[100];
 
-//------------------------------------------------------------------------------
-void *nseel_compileExpression(compileContext *ctx, char *exp)
-{
-  ctx->errVar=0;
-  nseel_llinit(ctx);
-  if (!nseel_yyparse(ctx,exp) && !ctx->errVar)
-  {
-    return (void*)ctx->result;
-  }
-  return 0;
-}
 
 //------------------------------------------------------------------------------
 

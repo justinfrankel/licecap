@@ -104,6 +104,13 @@ typedef struct _codeHandleFunctionRec
   char fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
 } _codeHandleFunctionRec;  
   
+#define LLB_DSIZE (65536-64)
+typedef struct _llBlock {
+  struct _llBlock *next;
+  int sizeused;
+  char block[LLB_DSIZE];
+} llBlock;
+
 typedef struct _compileContext
 {
   EEL_F **varTable_Values;
@@ -125,9 +132,8 @@ typedef struct _compileContext
   char    *llend;//  = &llbuf[0];    /* pointer to end of token              */
   char    *llebuf;// = &llbuf[sizeof llbuf];
   int     lleof;
-  int     yyline;//  = 0;
 
-  void *tmpblocks_head,*blocks_head, *blocks_head_data;
+  llBlock *tmpblocks_head,*blocks_head, *blocks_head_data;
 
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
 
@@ -137,25 +143,20 @@ typedef struct _compileContext
 
   _codeHandleFunctionRec *functions_local, *functions_common;
 
-
-  int isSharedFunctions;
   // state used while generating functions
 
-
-
+  int isSharedFunctions;
+  int function_usesThisPointer;
   // [0] is parameter+local symbols (combined space)
   // [1] is symbols which get implied "this." if used
   int function_localTable_Size[2]; // for parameters only
   char *function_localTable_Names[2]; // NSEEL_MAX_VARIABLE_NAMELEN chunks
   EEL_F **function_localTable_ValuePtrs;
 
-
-  int function_usesThisPointer;
+  void *tmpCodeHandle;
   
   EEL_F *ram_blocks[NSEEL_RAM_BLOCKS];
   int ram_needfree;
-
-  void *tmpCodeHandle;
 
   void *gram_blocks;
 
@@ -193,12 +194,6 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
 extern EEL_F nseel_globalregs[100];
-
-void nseel_resetVars(compileContext *ctx);
-
-
-
-void *nseel_compileExpression(compileContext *ctx, char *txt);
 
 #define	VALUE	258
 #define	IDENTIFIER	259

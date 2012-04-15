@@ -580,15 +580,6 @@ static void onCompileNewLine(compileContext *ctx, int srcBytes, int destBytes)
 	}
 }
 
-
-
-#define LLB_DSIZE (65536-64)
-typedef struct _llBlock {
-  struct _llBlock *next;
-  int sizeused;
-  char block[LLB_DSIZE];
-} llBlock;
-
 typedef struct {
   llBlock *blocks, 
           *blocks_data;
@@ -644,7 +635,7 @@ static void *newTmpBlock(compileContext *ctx, int size)
 {
   const int align = 8;
   const int a1=align-1;
-  char *p=(char*)__newBlock((llBlock **)&ctx->tmpblocks_head,size+a1, 0);
+  char *p=(char*)__newBlock(&ctx->tmpblocks_head,size+a1, 0);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -652,7 +643,7 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, char isF
 {
   const int a1=align-1;
   char *p=(char*)__newBlock(
-                            (llBlock **)(isForCode < 0 ? &ctx->tmpblocks_head : 
+                            (isForCode < 0 ? &ctx->tmpblocks_head : 
                                          isForCode > 0 ? &ctx->blocks_head : 
                                           &ctx->blocks_head_data) ,size+a1, isForCode>0);
   return p+((align-(((INT_PTR)p)&a1))&a1);
@@ -2711,9 +2702,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
   ctx->isSharedFunctions = !!(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
   ctx->functions_local = NULL;
 
-  freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
-  freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
-  freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks
+  freeBlocks(&ctx->tmpblocks_head);  // free blocks
+  freeBlocks(&ctx->blocks_head);  // free blocks
+  freeBlocks(&ctx->blocks_head_data);  // free blocks
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
 
@@ -2734,7 +2725,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     int computTableTop = 0;
     int startptr_size=0;
     void *startptr=NULL;
-    opcodeRec *start_opcode;
+    opcodeRec *start_opcode=NULL;
     char *expr;
     int function_numparms=0;
     char is_fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
@@ -2884,7 +2875,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
         memset(ctx->function_localTable_ValuePtrs,0,sizeof(EEL_F *) * ctx->function_localTable_Size[0]); // force values to be allocated
       }
     }
-    start_opcode=(opcodeRec *)nseel_compileExpression(ctx,expr);
+
+    ctx->errVar=0;
+    nseel_llinit(ctx);
+    if (!nseel_yyparse(ctx,expr) && !ctx->errVar)
+    {
+      start_opcode = (opcodeRec *)ctx->result;
+    }
            
     if (start_opcode)
     {
@@ -3098,9 +3095,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
   
   ctx->isSharedFunctions=0;
 
-  freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
-  freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks of code (will be nonzero only on error)
-  freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks of data (will be nonzero only on error)
+  freeBlocks(&ctx->tmpblocks_head);  // free blocks
+  freeBlocks(&ctx->blocks_head);  // free blocks of code (will be nonzero only on error)
+  freeBlocks(&ctx->blocks_head_data);  // free blocks of data (will be nonzero only on error)
 
   if (handle)
   {
@@ -3216,9 +3213,9 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
     NSEEL_VM_freevars(_ctx);
     NSEEL_VM_freeRAM(_ctx);
 
-    freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
-    freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
-    freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks
+    freeBlocks(&ctx->tmpblocks_head);  // free blocks
+    freeBlocks(&ctx->blocks_head);  // free blocks
+    freeBlocks(&ctx->blocks_head_data);  // free blocks
     free(ctx->compileLineRecs);
     free(ctx);
   }

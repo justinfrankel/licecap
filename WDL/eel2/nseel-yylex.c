@@ -123,7 +123,7 @@ void nseel_llinit(compileContext *ctx)
 {
    ctx->llp1 = ctx->llp2 = ctx->llend = ctx->llbuf;
    ctx->llebuf = ctx->llbuf + sizeof(ctx->llbuf);
-   ctx->lleof = ctx->yyline = 0;
+   ctx->lleof = 0;
 }
 
 
