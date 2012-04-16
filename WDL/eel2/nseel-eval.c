@@ -26,8 +26,6 @@
 #include <ctype.h>
 #include "ns-eel-int.h"
 
-#define NSEEL_GLOBALVAR_BASE (1<<24)
-
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
 
 
@@ -114,7 +112,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
 
   if (!strnicmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
   {
-    return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i-NSEEL_GLOBALVAR_BASE);
+    return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i);
   }
 
   // scan for parameters/local variables before user functions   
