@@ -172,7 +172,7 @@ typedef struct _compileContext
   // [0] is parameter+local symbols (combined space)
   // [1] is symbols which get implied "this." if used
   int function_localTable_Size[2]; // for parameters only
-  char *function_localTable_Names[2]; // NSEEL_MAX_VARIABLE_NAMELEN chunks
+  const char **function_localTable_Names[2]; // lists of pointers
   EEL_F **function_localTable_ValuePtrs;
 
   codeHandleType *tmpCodeHandle;

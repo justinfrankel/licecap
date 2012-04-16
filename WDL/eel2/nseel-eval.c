@@ -123,14 +123,13 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
       ctx->function_localTable_Names[0] && 
       ctx->function_localTable_ValuePtrs)
   {
-    const char *p = ctx->function_localTable_Names[0];
+    const char **namelist = ctx->function_localTable_Names[0];
     for (i=0; i < ctx->function_localTable_Size[0]; i++)
     {
-      if (!strnicmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
+      if (namelist[i] && !strnicmp(namelist[i],tmp,NSEEL_MAX_VARIABLE_NAMELEN))
       {
         return nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
       }
-      p += NSEEL_MAX_VARIABLE_NAMELEN;
     }
   }
 
@@ -139,19 +138,17 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
       ctx->function_localTable_Size[1] > 0 && 
       ctx->function_localTable_Names[1])
   {
-    const char *p = ctx->function_localTable_Names[1];
+    const char **namelist = ctx->function_localTable_Names[1];
     for (i=0; i < ctx->function_localTable_Size[1]; i++)
     {
-      int tl=0;
-      while (tl < NSEEL_MAX_VARIABLE_NAMELEN && p[tl]) tl++;
+      int tl = namelist[i] ? strlen(namelist[i]) : 0;
 
-      if (!strnicmp(p,tmp,tl) && (tmp[tl] == 0 || tmp[tl] == '.'))
+      if (tl && !strnicmp(namelist[i],tmp,tl) && (tmp[tl] == 0 || tmp[tl] == '.'))
       {
         strcpy(tmp,"this.");
         nseel_gettoken(ctx,tmp + 5, sizeof(tmp) - 5); // update tmp with "this.tokenname"
         break;
       }
-      p += NSEEL_MAX_VARIABLE_NAMELEN;
     }
   }
   

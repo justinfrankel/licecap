@@ -1060,7 +1060,7 @@ opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const
   opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+NSEEL_MAX_VARIABLE_NAMELEN,8, ctx->isSharedFunctions ? 0 : -1); 
   if (!r) return 0;
   r->opcodeType=OPCODETYPE_VALUE_FROM_NAMESPACENAME;
-  if (n > NSEEL_MAX_VARIABLE_NAMELEN-1) n=NSEEL_MAX_VARIABLE_NAMELEN-1;
+  if (n > NSEEL_MAX_VARIABLE_NAMELEN) n=NSEEL_MAX_VARIABLE_NAMELEN;
   memcpy(r->relname,relName,n);
   r->relname[n]=0;
   return r;
@@ -1094,7 +1094,7 @@ opcodeRec *nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHan
   if (fnp->num_params >= 3) r->opcodeType = OPCODETYPE_FUNC3;
   else if (fnp->num_params==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
-  if (n > NSEEL_MAX_VARIABLE_NAMELEN-1) n=NSEEL_MAX_VARIABLE_NAMELEN-1;
+  if (n > NSEEL_MAX_VARIABLE_NAMELEN) n=NSEEL_MAX_VARIABLE_NAMELEN;
   memcpy(r->relname,relName,n);
   r->relname[n]=0;
 
@@ -1174,7 +1174,7 @@ static void combineNamespaceFields(char *nm, const char *prefix, const char *rel
     if (lfp>0) lfp--;       
   }
 
-  if (lfp > NSEEL_MAX_VARIABLE_NAMELEN-2) lfp=NSEEL_MAX_VARIABLE_NAMELEN-2;
+  if (lfp > NSEEL_MAX_VARIABLE_NAMELEN-3) lfp=NSEEL_MAX_VARIABLE_NAMELEN-3;
   if (lfp>0) memcpy(nm,prefix,lfp);
 
   if (lrn > NSEEL_MAX_VARIABLE_NAMELEN - lfp - (lfp>0)) lrn=NSEEL_MAX_VARIABLE_NAMELEN - lfp - (lfp>0);
@@ -2839,24 +2839,17 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           
               if (maxcnt > 0)
               {
-                char *ot = ctx->function_localTable_Names[localTableContext];
+                const char **ot = ctx->function_localTable_Names[localTableContext];
                 int osz = ctx->function_localTable_Size[localTableContext];
 
                 maxcnt += osz;
 
-                if (ctx->isSharedFunctions)
-                {
-                  ctx->function_localTable_Names[localTableContext] = newDataBlock(NSEEL_MAX_VARIABLE_NAMELEN * maxcnt,1);
-                }
-                else 
-                {
-                  ctx->function_localTable_Names[localTableContext] = newTmpBlock(ctx,NSEEL_MAX_VARIABLE_NAMELEN * maxcnt);
-                }
+                ctx->function_localTable_Names[localTableContext] = (const char **)newTmpBlock(ctx,sizeof(char *) * maxcnt);
 
                 if (ctx->function_localTable_Names[localTableContext])
                 {
                   int i=osz;
-                  if (osz && ot) memcpy(ctx->function_localTable_Names[localTableContext],ot,NSEEL_MAX_VARIABLE_NAMELEN * osz);
+                  if (osz && ot) memcpy(ctx->function_localTable_Names[localTableContext],ot,sizeof(char *) * osz);
                   p=sp;
                   while (p < expr-1 && i < maxcnt)
                   {
@@ -2866,13 +2859,18 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
                     
                     if (isalpha(*sp) || *sp == '_')
                     {
-                      int use_i = i++;
-
-                      memset(ctx->function_localTable_Names[localTableContext] + use_i*NSEEL_MAX_VARIABLE_NAMELEN, 0, NSEEL_MAX_VARIABLE_NAMELEN);
-                      strncpy(ctx->function_localTable_Names[localTableContext] + use_i * NSEEL_MAX_VARIABLE_NAMELEN, sp, min(NSEEL_MAX_VARIABLE_NAMELEN,p-sp));               
+                      char *newstr;
+                      int l = (p-sp);
+                      if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
+                      newstr = newTmpBlock(ctx,l+1);
+                      if (newstr)
+                      {
+                        memcpy(newstr,sp,l);
+                        newstr[l]=0;
+                        ctx->function_localTable_Names[localTableContext][i++] = newstr;
+                      }
                     }
                   }
-
 
                   ctx->function_localTable_Size[localTableContext]=i;
 
@@ -3285,7 +3283,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name)
 
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
     {        
-      if (!plist[ti] || !strnicmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN)) break;
+      if (!plist[ti] || !strncasecmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN)) break;
     }
     if (ti < NSEEL_VARS_PER_BLOCK) break;
   }
