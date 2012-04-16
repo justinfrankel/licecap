@@ -62,6 +62,7 @@
 
 #define EEL_STACK_SUPPORT
 
+#define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
 
 //#define LOG_OPT
@@ -631,9 +632,10 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, char isF
 {
   const int a1=align-1;
   char *p=(char*)__newBlock(
-                            (isForCode < 0 ? &ctx->tmpblocks_head : 
-                                         isForCode > 0 ? &ctx->blocks_head : 
-                                          &ctx->blocks_head_data) ,size+a1, isForCode>0);
+                            (                            
+                             isForCode < 0 ? (isForCode == -2 ? &ctx->pblocks : &ctx->tmpblocks_head) : 
+                             isForCode > 0 ? &ctx->blocks_head : 
+                             &ctx->blocks_head_data) ,size+a1, isForCode>0);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -644,7 +646,7 @@ static opcodeRec *newOpCode(compileContext *ctx)
 
 #define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
 #define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
-
+#define newCtxDataBlock(x,a) __newBlock_align(ctx,x,a,-2)
 
 static void freeBlocks(llBlock **start);
 
@@ -3192,12 +3194,6 @@ static void NSEEL_VM_freevars(NSEEL_VMCTX _ctx)
   if (_ctx)
   {
     compileContext *ctx=(compileContext *)_ctx;
-    int x;
-    if (ctx->varTable_Names || ctx->varTable_Values) for (x = 0; x < ctx->varTable_numBlocks; x ++)
-    {
-      if (ctx->varTable_Names) free(ctx->varTable_Names[x]);
-      if (ctx->varTable_Values) free(ctx->varTable_Values[x]);
-    }
 
     free(ctx->varTable_Values);
     free(ctx->varTable_Names);
@@ -3224,9 +3220,14 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
     NSEEL_VM_freevars(_ctx);
     NSEEL_VM_freeRAM(_ctx);
 
+    freeBlocks(&ctx->pblocks);
+
+    // these should be 0 normally but just in case
     freeBlocks(&ctx->tmpblocks_head);  // free blocks
     freeBlocks(&ctx->blocks_head);  // free blocks
     freeBlocks(&ctx->blocks_head_data);  // free blocks
+
+
     free(ctx->compileLineRecs);
     free(ctx);
   }
@@ -3268,4 +3269,62 @@ void NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx)
 void NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
 {
   if (data_size>0) EEL_GLUE_set_immediate(data, ctx->caller_this);
+}
+
+
+
+EEL_F *nseel_int_register_var(compileContext *ctx, const char *name)
+{
+  int wb;
+  int ti=0;
+
+  for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+  {
+    char **plist=ctx->varTable_Names[wb];
+    if (!plist) return NULL; // error!
+
+    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
+    {        
+      if (!plist[ti] || !strnicmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN)) break;
+    }
+    if (ti < NSEEL_VARS_PER_BLOCK) break;
+  }
+  if (wb == ctx->varTable_numBlocks)
+  {
+    ti=0;
+    // add new block
+    if (!(ctx->varTable_numBlocks&(NSEEL_VARS_MALLOC_CHUNKSIZE-1)) || !ctx->varTable_Values || !ctx->varTable_Names )
+    {
+      ctx->varTable_Values = (EEL_F **)realloc(ctx->varTable_Values,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(EEL_F *));
+      ctx->varTable_Names = (char ***)realloc(ctx->varTable_Names,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(char **));
+
+      if (!ctx->varTable_Names || !ctx->varTable_Values) return NULL;
+    }
+    ctx->varTable_numBlocks++;
+
+    ctx->varTable_Values[wb] = (EEL_F *)newCtxDataBlock(sizeof(EEL_F)*NSEEL_VARS_PER_BLOCK,8);
+    ctx->varTable_Names[wb] = (char **)newCtxDataBlock(sizeof(char *)*NSEEL_VARS_PER_BLOCK,1);
+    if (ctx->varTable_Values[wb])
+    {
+      memset(ctx->varTable_Values[wb],0,sizeof(EEL_F)*NSEEL_VARS_PER_BLOCK);
+    }
+    if (ctx->varTable_Names[wb])
+    {
+      memset(ctx->varTable_Names[wb],0,sizeof(char *)*NSEEL_VARS_PER_BLOCK);
+    }
+  }
+  if (!ctx->varTable_Names[wb] || 
+      !ctx->varTable_Values[wb]) return NULL;
+
+  if (!ctx->varTable_Names[wb][ti])
+  {
+    int l = strlen(name);
+    if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
+    ctx->varTable_Names[wb][ti] = newCtxDataBlock(l+1,1);
+    if (!ctx->varTable_Names[wb][ti]) return NULL; // malloc fail
+
+    memcpy(ctx->varTable_Names[wb][ti],name,l);
+    ctx->varTable_Names[wb][ti][l] = 0;
+  }
+  return ctx->varTable_Values[wb] + ti;
 }

@@ -26,7 +26,6 @@
 #include <ctype.h>
 #include "ns-eel-int.h"
 
-#define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 #define NSEEL_GLOBALVAR_BASE (1<<24)
 
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
@@ -47,68 +46,16 @@ void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *
   for (wb = 0; wb < tctx->varTable_numBlocks; wb ++)
   {
     int ti;
-    int namepos=0;
+    char **plist=tctx->varTable_Names[wb];
+    if (!plist) break;
+
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      char *p=tctx->varTable_Names[wb]+namepos;
-      if (!*p) break;
-
-
-      if (!func(p,&tctx->varTable_Values[wb][ti],userctx)) 
-        break;
-
-      namepos += NSEEL_MAX_VARIABLE_NAMELEN;
+    {              
+      if (!plist[ti] || !func(plist[ti],tctx->varTable_Values[wb] + ti,userctx)) break;
     }
     if (ti < NSEEL_VARS_PER_BLOCK)
       break;
   }
-}
-
-
-
-EEL_F *nseel_int_register_var(compileContext *ctx, const char *name)
-{
-  int wb;
-  int ti=0;
-  int i=0;
-  char *nameptr;
-
-  for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
-  {
-    int namepos=0;
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      if (!ctx->varTable_Names[wb][namepos] || !strnicmp(ctx->varTable_Names[wb]+namepos,name,NSEEL_MAX_VARIABLE_NAMELEN))
-      {
-        break;
-      }
-      namepos += NSEEL_MAX_VARIABLE_NAMELEN;
-      i++;
-    }
-    if (ti < NSEEL_VARS_PER_BLOCK)
-      break;
-  }
-  if (wb == ctx->varTable_numBlocks)
-  {
-    ti=0;
-    // add new block
-    if (!(ctx->varTable_numBlocks&(NSEEL_VARS_MALLOC_CHUNKSIZE-1)) || !ctx->varTable_Values || !ctx->varTable_Names )
-    {
-      ctx->varTable_Values = (EEL_F **)realloc(ctx->varTable_Values,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(EEL_F *));
-      ctx->varTable_Names = (char **)realloc(ctx->varTable_Names,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(char *));
-    }
-    ctx->varTable_numBlocks++;
-
-    ctx->varTable_Values[wb] = (EEL_F *)calloc(sizeof(EEL_F),NSEEL_VARS_PER_BLOCK);
-    ctx->varTable_Names[wb] = (char *)calloc(NSEEL_MAX_VARIABLE_NAMELEN,NSEEL_VARS_PER_BLOCK);
-  }
-
-  nameptr=ctx->varTable_Names[wb]+ti*NSEEL_MAX_VARIABLE_NAMELEN;
-  if (!nameptr[0])
-  {
-    strncpy(nameptr,name,NSEEL_MAX_VARIABLE_NAMELEN);
-  }
-  return ctx->varTable_Values[wb] + ti;
 }
 
 

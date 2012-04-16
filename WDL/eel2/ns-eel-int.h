@@ -131,7 +131,7 @@ typedef struct {
 typedef struct _compileContext
 {
   EEL_F **varTable_Values;
-  char   **varTable_Names;
+  char   ***varTable_Names;
   int varTable_numBlocks;
 
   int errVar;
@@ -143,14 +143,19 @@ typedef struct _compileContext
   int yynerrs;			/*  number of parse errors so far       */
 
   char    *llsave[16];             /* Look ahead buffer            */
-  char    llbuf[512];             /* work buffer                          */
+  char    llbuf[NSEEL_MAX_VARIABLE_NAMELEN*2+128];             /* work buffer                          */
   char    *llp1;//   = &llbuf[0];    /* pointer to next avail. in token      */
   char    *llp2;//   = &llbuf[0];    /* pointer to end of lookahead          */
   char    *llend;//  = &llbuf[0];    /* pointer to end of token              */
   char    *llebuf;// = &llbuf[sizeof llbuf];
   int     lleof;
 
-  llBlock *tmpblocks_head,*blocks_head, *blocks_head_data;
+  llBlock *tmpblocks_head, // used while compiling, and freed after compiling
+
+          *blocks_head,  // used while compiling, transferred to code context (these are pages marked as executable)
+          *blocks_head_data, // used while compiling, transferred to code context
+
+          *pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
 
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
 

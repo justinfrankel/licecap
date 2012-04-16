@@ -127,8 +127,7 @@ extern int NSEEL_RAM_memused_errors;
 
 // #define NSEEL_EEL1_COMPAT_MODE
 
-#define NSEEL_MAX_VARIABLE_NAMELEN 64
-// define this to override the max variable length (now 64)
+#define NSEEL_MAX_VARIABLE_NAMELEN 128  // define this to override the max variable length
 
 // maximum loop length
 #define NSEEL_LOOPFUNC_SUPPORT_MAXLEN 1048576 // scary, we can do a million entries. probably will never want to, though.
