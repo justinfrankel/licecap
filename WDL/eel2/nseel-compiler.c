@@ -2731,7 +2731,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
   freeBlocks(&ctx->blocks_head);  // free blocks
   freeBlocks(&ctx->blocks_head_data);  // free blocks
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
-  free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
+  free(ctx->compileLineRecs); 
+  ctx->compileLineRecs=0; 
+  ctx->compileLineRecs_size=0; 
+  ctx->compileLineRecs_alloc=0;
 
   handle = (codeHandleType*)newDataBlock(sizeof(codeHandleType),8);
 
@@ -2759,8 +2762,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     memset(ctx->function_localTable_Size,0,sizeof(ctx->function_localTable_Size));
     memset(ctx->function_localTable_Names,0,sizeof(ctx->function_localTable_Names));
     ctx->function_localTable_ValuePtrs=0;
-
     ctx->function_usesThisPointer=0;
+    ctx->function_curName=NULL;
     
     ctx->colCount=0;
 
@@ -2788,6 +2791,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
         l=min(p-sp, sizeof(is_fname)-1);
         memcpy(is_fname, sp, l);
         is_fname[l]=0;
+        ctx->function_curName = is_fname;
 
         expr = p;
 
@@ -2982,11 +2986,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
 
-    memset(ctx->function_localTable_Size,0,sizeof(ctx->function_localTable_Size));
-    memset(ctx->function_localTable_Names,0,sizeof(ctx->function_localTable_Names));
-    ctx->function_localTable_ValuePtrs=0;
-    ctx->function_usesThisPointer=0;
-    
     if (!startptr) 
     { 
       int byteoffs = expr - expression_start;
@@ -3042,8 +3041,19 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
       }
     }
   }
-  free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
+  free(ctx->compileLineRecs); 
+  ctx->compileLineRecs=0; 
+  ctx->compileLineRecs_size=0; 
+  ctx->compileLineRecs_alloc=0;
 
+  memset(ctx->function_localTable_Size,0,sizeof(ctx->function_localTable_Size));
+  memset(ctx->function_localTable_Names,0,sizeof(ctx->function_localTable_Names));
+  ctx->function_localTable_ValuePtrs=0;
+  ctx->function_usesThisPointer=0;
+  ctx->function_curName=NULL;
+
+  ctx->tmpCodeHandle = NULL;
+    
   if (handle->want_stack)
   {
     if (!handle->stack) startpts=NULL;
@@ -3055,7 +3065,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
     if (!curtabptr) startpts=NULL;
   }
 
-  ctx->tmpCodeHandle = NULL;
 
   if (startpts || (!had_err && (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS)))
   {

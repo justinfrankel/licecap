@@ -174,6 +174,7 @@ typedef struct _compileContext
   int function_localTable_Size[2]; // for parameters only
   const char **function_localTable_Names[2]; // lists of pointers
   EEL_F **function_localTable_ValuePtrs;
+  const char *function_curName; // name of current function
 
   codeHandleType *tmpCodeHandle;
   
