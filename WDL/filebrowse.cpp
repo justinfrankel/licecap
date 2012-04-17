@@ -275,9 +275,27 @@ char *WDL_ChooseFileForOpen(HWND parent,
     if(fd.inited())
     {
       //vista+ file open dialog
-      if (defext) fd.setDefaultExtension(defext);
       fd.addOptions(FOS_FILEMUSTEXIST);
       fd.setFilterList(extlist);
+      if (defext) 
+      {
+        fd.setDefaultExtension(defext);
+        
+        int i = 0;
+        const char *p = extlist;
+        while(*p)
+        {
+          if(*p) p+=strlen(p)+1;
+          if(!*p) break;
+          if(stristr(p, defext)) 
+          {
+            fd.setFileTypeIndex(i+1);
+            break;
+          }
+          i++;
+          p+=strlen(p)+1;
+        }
+      }
       fd.setFolder(initialdir?initialdir:olddir, 0);
       fd.setTemplate(hInstance, dlgid, (LPOFNHOOKPROC)dlgProc);
       if(initialfile) 
