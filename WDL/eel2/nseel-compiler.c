@@ -2843,12 +2843,12 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
           
               if (maxcnt > 0)
               {
-                const char **ot = ctx->function_localTable_Names[localTableContext];
+                char **ot = ctx->function_localTable_Names[localTableContext];
                 int osz = ctx->function_localTable_Size[localTableContext];
 
                 maxcnt += osz;
 
-                ctx->function_localTable_Names[localTableContext] = (const char **)newTmpBlock(ctx,sizeof(char *) * maxcnt);
+                ctx->function_localTable_Names[localTableContext] = (char **)newTmpBlock(ctx,sizeof(char *) * maxcnt);
 
                 if (ctx->function_localTable_Names[localTableContext])
                 {
@@ -3403,7 +3403,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
       ctx->function_localTable_Names[0] && 
       ctx->function_localTable_ValuePtrs)
   {
-    const char **namelist = ctx->function_localTable_Names[0];
+    char **namelist = ctx->function_localTable_Names[0];
     for (i=0; i < ctx->function_localTable_Size[0]; i++)
     {
       if (namelist[i] && !strncasecmp(namelist[i],tmp,NSEEL_MAX_VARIABLE_NAMELEN))
@@ -3418,7 +3418,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
       ctx->function_localTable_Size[1] > 0 && 
       ctx->function_localTable_Names[1])
   {
-    const char **namelist = ctx->function_localTable_Names[1];
+    char **namelist = ctx->function_localTable_Names[1];
     for (i=0; i < ctx->function_localTable_Size[1]; i++)
     {
       int tl = namelist[i] ? strlen(namelist[i]) : 0;
