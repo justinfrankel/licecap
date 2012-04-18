@@ -1699,7 +1699,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
 
     combineNamespaceFields(nm,functionPrefix,op->relname);
     
-    b = nseel_int_register_var(ctx,nm);
+    b = nseel_int_register_var(ctx,nm,0);
     if (!b) return -1;
   }
   else
@@ -3278,24 +3278,90 @@ void NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
   if (data_size>0) EEL_GLUE_set_immediate(data, ctx->caller_this);
 }
 
-
-
-EEL_F *nseel_int_register_var(compileContext *ctx, const char *name)
+void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx)
 {
+  compileContext *ctx = (compileContext *)_ctx;
+  int wb;
+  if (ctx) for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+  {
+    int ti;
+    char **plist=ctx->varTable_Names[wb];
+    if (!plist) break;
+
+    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
+    {        
+      int a=0;
+      if (plist[ti])
+      {
+        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
+        if (!v->refcnt && !v->isreg) 
+        {
+          plist[ti]=NULL;
+        }
+      }
+    }
+  }
+}
+
+
+void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
+{
+  compileContext *ctx = (compileContext *)_ctx;
+  int wb;
+  if (ctx) for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+  {
+    int ti;
+    char **plist=ctx->varTable_Names[wb];
+    if (!plist) break;
+
+    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
+    {        
+      int a=0;
+      if (plist[ti])
+      {
+        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
+        v->refcnt=0;
+      }
+    }
+  }
+}
+
+EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
+{
+  int match_wb = -1, match_ti=-1;
   int wb;
   int ti=0;
-
   for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
   {
     char **plist=ctx->varTable_Names[wb];
     if (!plist) return NULL; // error!
 
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      if (!plist[ti] || !strncasecmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN)) break;
+    { 
+      if (!plist[ti])
+      {
+        if (match_wb < 0)
+        {
+          match_wb=wb;
+          match_ti=ti;
+        }
+      }
+      else if (!strncasecmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN))
+      {
+        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
+        v->refcnt++;
+        break;
+      }
     }
     if (ti < NSEEL_VARS_PER_BLOCK) break;
   }
+
+  if (wb == ctx->varTable_numBlocks && match_wb >=0 && match_ti >= 0)
+  {
+    wb = match_wb;
+    ti = match_ti;
+  }
+
   if (wb == ctx->varTable_numBlocks)
   {
     ti=0;
@@ -3320,18 +3386,28 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name)
       memset(ctx->varTable_Names[wb],0,sizeof(char *)*NSEEL_VARS_PER_BLOCK);
     }
   }
-  if (!ctx->varTable_Names[wb] || 
-      !ctx->varTable_Values[wb]) return NULL;
+
+  if (!ctx->varTable_Names[wb] || !ctx->varTable_Values[wb]) return NULL;
 
   if (!ctx->varTable_Names[wb][ti])
   {
     int l = strlen(name);
+    char *b;
+    varNameHdr *vh;
     if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
-    ctx->varTable_Names[wb][ti] = newCtxDataBlock(l+1,1);
-    if (!ctx->varTable_Names[wb][ti]) return NULL; // malloc fail
+    b=newCtxDataBlock( sizeof(varNameHdr) + l+1,1);
+    if (!b) return NULL; // malloc fail
+    vh=(varNameHdr *)b;
+    vh->refcnt=1;
+    vh->isreg=isReg;
 
-    memcpy(ctx->varTable_Names[wb][ti],name,l);
-    ctx->varTable_Names[wb][ti][l] = 0;
+    b+=sizeof(varNameHdr);
+
+    memcpy(b,name,l);
+    b[l] = 0;
+
+    ctx->varTable_Names[wb][ti] = b;
+    ctx->varTable_Values[wb][ti]=0.0;
   }
   return ctx->varTable_Values[wb] + ti;
 }
@@ -3357,7 +3433,7 @@ void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *
     
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
     {              
-      if (!plist[ti] || !func(plist[ti],tctx->varTable_Values[wb] + ti,userctx)) break;
+      if (plist[ti] && !func(plist[ti],tctx->varTable_Values[wb] + ti,userctx)) break;
     }
     if (ti < NSEEL_VARS_PER_BLOCK)
       break;
@@ -3378,7 +3454,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
     return nseel_globalregs + x;
   }
   
-  return nseel_int_register_var(ctx,var);
+  return nseel_int_register_var(ctx,var,1);
 }
 
 
@@ -3536,7 +3612,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
   }
   
   {
-    EEL_F *p=nseel_int_register_var(ctx,tmp);
+    EEL_F *p=nseel_int_register_var(ctx,tmp,0);
     if (p) return nseel_createCompiledValuePtr(ctx,p); 
   }
   return nseel_createCompiledValue(ctx,0.0);

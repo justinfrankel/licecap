@@ -81,6 +81,8 @@ typedef void *NSEEL_CODEHANDLE;
 NSEEL_VMCTX NSEEL_VM_alloc(); // return a handle
 void NSEEL_VM_free(NSEEL_VMCTX ctx); // free when done with a VM and ALL of its code have been freed, as well
 
+void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx);
+void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx);
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx); // return false from func to stop
 
 EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variable (before compilation)

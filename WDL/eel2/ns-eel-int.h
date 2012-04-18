@@ -201,6 +201,12 @@ typedef struct {
 } functionType;
 
 
+typedef struct
+{
+  int refcnt;
+  char isreg;
+} varNameHdr;
+
 extern functionType *nseel_getFunctionFromTable(int idx);
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
@@ -213,7 +219,7 @@ opcodeRec *nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHan
 opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
 opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);
-EEL_F *nseel_int_register_var(compileContext *ctx, const char *name);
+EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
 extern EEL_F nseel_globalregs[100];
