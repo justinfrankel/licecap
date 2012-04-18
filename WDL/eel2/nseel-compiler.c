@@ -811,106 +811,106 @@ static double eel1sigmoid(double x, double constraint)
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
 
 static functionType fnTable1[] = {
-  { "_if",     nseel_asm_if,nseel_asm_if_end,    3,  {&g_closefact} },
-  { "_and",   nseel_asm_band,nseel_asm_band_end,  2 } ,
-  { "_or",    nseel_asm_bor,nseel_asm_bor_end,   2 } ,
-  { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2 },
-  { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1 },
+  { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST,  {&g_closefact} },
+  { "_and",   nseel_asm_band,nseel_asm_band_end,  2|NSEEL_NPARAMS_FLAG_CONST } ,
+  { "_or",    nseel_asm_bor,nseel_asm_bor_end,   2|NSEEL_NPARAMS_FLAG_CONST } ,
+  { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST },
+  { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST },
 
 #ifdef __ppc__
-  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1, {&g_closefact,&eel_zero,&eel_one} } ,
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2, {&g_closefact,&eel_zero, &eel_one} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2, {&g_closefact,&eel_one,&eel_zero} },
-  { "_below",  nseel_asm_below,nseel_asm_below_end, 2, {&eel_zero, &eel_one} },
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2, {&eel_zero, &eel_one}  },
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2, {&eel_zero, &eel_one}  },
-  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2, {&eel_zero, &eel_one} },
+  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact,&eel_zero,&eel_one} } ,
+  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact,&eel_zero, &eel_one} },
+  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact,&eel_one,&eel_zero} },
+  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one} },
+  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one}  },
+  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one}  },
+  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one} },
 #else
-  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1, {&g_closefact} } ,
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2, {&g_closefact} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2, {&g_closefact} },
-  { "_below",  nseel_asm_below,nseel_asm_below_end, 2 },
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2 },
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2 },
-  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2 },
+  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact} } ,
+  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact} },
+  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact} },
+  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST },
+  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST },
+  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST },
+  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST },
 #endif
 
-  { "_set",nseel_asm_assign,nseel_asm_assign_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2},
-  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2},
-  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2},
-  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
-  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2 | NSEEL_NPARAMS_FLAG_MODSTUFF},
+  { "_set",nseel_asm_assign,nseel_asm_assign_end,2, },
+  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST },
+  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST },
+  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST },
+  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2},
+  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2},
+  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2}, 
+  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2}, 
+  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2}, 
+  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2}, 
+  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2}, 
+  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2}, 
 
 
 #ifdef __ppc__
-   { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1, {&sin} },
-   { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1, {&cos} },
-   { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1, {&tan}  },
+   { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&sin} },
+   { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&cos} },
+   { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&tan}  },
 #else
-   { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1 },
-   { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1 },
-   { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1 },
+   { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST },
+   { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST },
+   { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST },
 #endif
-   { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1, {&asin}, },
-   { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1, {&acos}, },
-   { "atan",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1, {&atan}, },
-   { "atan2",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&atan2}, },
-   { "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1 },
+   { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&asin}, },
+   { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&acos}, },
+   { "atan",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&atan}, },
+   { "atan2",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&atan2}, },
+   { "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1|NSEEL_NPARAMS_FLAG_CONST },
 #ifdef __ppc__
-   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1, {&sqrt}, },
+   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&sqrt}, },
 #else
-   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1 },
+   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST },
 #endif
-   { "pow",    nseel_asm_2pdd,nseel_asm_2pdd_end,   2, {&pow}, },
-   { "_powop",    nseel_asm_2pdds,nseel_asm_2pdds_end,   2 | NSEEL_NPARAMS_FLAG_MODSTUFF, {&pow}, },
-   { "exp",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1, {&exp}, },
+   { "pow",    nseel_asm_2pdd,nseel_asm_2pdd_end,   2|NSEEL_NPARAMS_FLAG_CONST, {&pow}, },
+   { "_powop",    nseel_asm_2pdds,nseel_asm_2pdds_end,   2, {&pow}, },
+   { "exp",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&exp}, },
 #ifdef __ppc__
-   { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1, {&log} },
-   { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1, {&log10} },
+   { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&log} },
+   { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST, {&log10} },
 #else
-   { "log",    nseel_asm_log,nseel_asm_log_end,   1, },
-   { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1, },
+   { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST, },
+   { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST, },
 #endif
-   { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1 },
-   { "min",    nseel_asm_min,nseel_asm_min_end,   2 },
-   { "max",    nseel_asm_max,nseel_asm_max_end,   2 },
+   { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1|NSEEL_NPARAMS_FLAG_CONST },
+   { "min",    nseel_asm_min,nseel_asm_min_end,   2|NSEEL_NPARAMS_FLAG_CONST },
+   { "max",    nseel_asm_max,nseel_asm_max_end,   2|NSEEL_NPARAMS_FLAG_CONST },
 #ifdef __ppc__
-   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1, {&eel_zero}} ,
+   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero}} ,
 #else
-   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1, {&g_signs}} ,
+   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&g_signs}} ,
 #endif
-	 { "rand",   nseel_asm_1pp,nseel_asm_1pp_end,  1, {&nseel_int_rand}, } ,
+   { "rand",   nseel_asm_1pp,nseel_asm_1pp_end,  1, {&nseel_int_rand}, } ,
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
-   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1, {&__floor} },
+   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST, {&__floor} },
 #else
-   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1, {&floor} },
+   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST, {&floor} },
 #endif
-   { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1, {&ceil} },
+   { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&ceil} },
 #ifdef __ppc__
-   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1,  },
+   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST,  },
 #else
-   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1, {&negativezeropointfive, &onepointfive} },
+   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&negativezeropointfive, &onepointfive} },
 #endif
 
-  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2 } ,
+  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST } ,
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
-  { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1sigmoid}, },
+  { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel1sigmoid}, },
 
   // these differ from _and/_or, they always evaluate both...
-  { "band",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1band}, },
-  { "bor",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2, {&eel1bor}, },
+  { "band",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel1band}, },
+  { "bor",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel1bor}, },
 
-  {"exec2",nseel_asm_exec2,nseel_asm_exec2_end,2},
-  {"exec3",nseel_asm_exec2,nseel_asm_exec2_end,3},
+  {"exec2",nseel_asm_exec2,nseel_asm_exec2_end,2|NSEEL_NPARAMS_FLAG_CONST},
+  {"exec3",nseel_asm_exec2,nseel_asm_exec2_end,3|NSEEL_NPARAMS_FLAG_CONST},
 
 
 #endif // end EEL1 compat
@@ -919,15 +919,15 @@ static functionType fnTable1[] = {
 
   {"_mem",_asm_megabuf,_asm_megabuf_end,1,{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
   {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
-  {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM_freeblocks},
-  {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3 | NSEEL_NPARAMS_FLAG_MODSTUFF,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
-  {"memset",_asm_generic3parm,_asm_generic3parm_end,3 | NSEEL_NPARAMS_FLAG_MODSTUFF,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
+  {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM_freeblocks},
+  {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
+  {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
 
 #ifdef EEL_STACK_SUPPORT
-  {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{0,},NSEEL_PProc_Stack},
-  {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{0,},NSEEL_PProc_Stack},
-  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1,{0,},NSEEL_PProc_Stack},
-  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1 | NSEEL_NPARAMS_FLAG_MODSTUFF,{0,},NSEEL_PProc_Stack_PeekTop},
+  {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1,{0,},NSEEL_PProc_Stack},
+  {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1,{0,},NSEEL_PProc_Stack},
+  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1|NSEEL_NPARAMS_FLAG_CONST,{0,},NSEEL_PProc_Stack},
+  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1, {0,},NSEEL_PProc_Stack_PeekTop},
 #endif
 
 
@@ -1462,7 +1462,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
             if (!(WDL_INT64)dvalue)
             {
               // replace with or0
-              static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1, {0}, NULL};
+              static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1|NSEEL_NPARAMS_FLAG_CONST, {0}, NULL};
 
               op->opcodeType = OPCODETYPE_FUNC1;
               op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
@@ -1598,7 +1598,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
 
     functionType  *pfn = (functionType *)op->fn;
 
-    if (pfn->nParams&NSEEL_NPARAMS_FLAG_MODSTUFF) retv|=1;
+    if (!(pfn->nParams&NSEEL_NPARAMS_FLAG_CONST)) retv|=1;
 
     if (op->opcodeType==OPCODETYPE_FUNC1) // within FUNCTYPE_FUNCTIONTYPEREC
     {
