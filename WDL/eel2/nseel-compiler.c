@@ -2341,17 +2341,17 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 
 			static char *symbollists[]=
 			{
-				"", // or any control char that is not parenthed
+				"", // stop at any control char that is not parenthed
 				":(,;?%", 
 				",):?;", // or || or &&
 				",);", // jf> removed :? from this, for =
 				",);",
-        "",  // only scans for a negative ] level
-
+        "",  // rscan=5, only scans for a negative ] level
+        "", // rscan=6, like rscan==0 but lower precedence -- stop at any non-^ control char that is not parenthed
 			};
 
 
-			static struct 
+			static const struct 
 			{
 			  char op[2];
 			  char lscan,rscan;
@@ -2372,16 +2372,16 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 				{{'=','='}, 1, 2, "_equal" },
 				{{'<','='}, 1, 2, "_beleq" },
 				{{'>','='}, 1, 2, "_aboeq" },
-				{{'<','<'}, 0, 0, "_shl" },
-				{{'>','>'}, 0, 0, "_shr" },
+				{{'<','<'}, 0, 6, "_shl" },
+				{{'>','>'}, 0, 6, "_shr" },
 				{{'<',0  }, 1, 2, "_below" },
 				{{'>',0  }, 1, 2, "_above" },
 				{{'!','='}, 1, 2, "_noteq" },
 				{{'|','|'}, 1, 2, "_or" },
 				{{'&','&'}, 1, 2, "_and" },
 				{{'=',0  }, 0, 3, "_set" },
-				{{'~',0},   0, 0, "_xor" },
-				{{'%',0},   0, 0, "_mod" },
+				{{'~',0},   0, 6, "_xor" },
+				{{'%',0},   0, 6, "_mod" },
 				{{'^',0},   0, 0, "pow" },
 
 
@@ -2494,10 +2494,11 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 								char *sc=scan;
 								if (*r_ptr == ';' || *r_ptr == ',') break;
 							
-								if (!rscan)
+								if (!rscan || rscan == 6)
 								{
 									if (*r_ptr == ':') break;
-									if (!isspace(*r_ptr) && !isalnum(*r_ptr) && *r_ptr != '_' && *r_ptr != '.' && hashadch) break;
+									if (!isspace(*r_ptr) && !isalnum(*r_ptr) && *r_ptr != '_' && *r_ptr != '.' && 
+                      (rscan != 6  || *r_ptr != '^' || r_ptr[1] == '=') && hashadch) break;
 									if (isalnum(*r_ptr) || *r_ptr == '_')hashadch=1;
 								}								
 								else if (rscan == 2 &&
