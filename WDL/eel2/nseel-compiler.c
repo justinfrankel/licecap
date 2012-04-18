@@ -2456,13 +2456,12 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 
 				r_ptr=expression;
 				{ 
-					// scan forward to an uncommented,  unparenthed semicolon, comma, or )
-					int r_semicnt=0;
+					// scan forward to an uncommented,  unparenthed semicolon, comma, or ), or ]
+					int r_semicnt=0,r_semicnt2=0;
 					int r_qcnt=0;
 					char *scan=symbollists[rscan];
 					int commentstate=0;
 					int hashadch=0;
-          int bracketcnt=0;
 					while (*r_ptr)
 					{
 						if (!commentstate && *r_ptr == '/')
@@ -2478,13 +2477,19 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 						}
 						else if (!commentstate)
 						{
-							if (*r_ptr == '(') {hashadch=1; r_semicnt++; }
+              if (*r_ptr == '(') { hashadch=1; r_semicnt++; }
+              else if (*r_ptr == '[') { hashadch=1; r_semicnt2++; }
 							else if (*r_ptr == ')') 
 							{
 								r_semicnt--;
-								if (r_semicnt < 0) break;
+								if (r_semicnt < 0 && r_semicnt2<=0) break;
 							}
-							else if (!r_semicnt)
+							else if (*r_ptr == ']') 
+							{
+								r_semicnt2--;
+								if (r_semicnt2 < 0 && r_semicnt<=0) break;
+							}
+							else if (!r_semicnt && !r_semicnt2)
 							{
 								char *sc=scan;
 								if (*r_ptr == ';' || *r_ptr == ',') break;
@@ -2508,12 +2513,6 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 
 									if (r_qcnt < 3-rscan) break;
 								}
-                else if (rscan == 5)
-                {
-                  if (*r_ptr == '[') bracketcnt++;
-                  else if (*r_ptr == ']') bracketcnt--;
-                  if (bracketcnt < 0) break;
-                }
 
 								while (*sc && *r_ptr != *sc) sc++;
 								if (*sc) break;
