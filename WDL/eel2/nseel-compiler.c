@@ -2088,55 +2088,56 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
           // first pass, calculate any non-trivial parameters
           for (pn=0; pn < n_params; pn++)
           { 
-            int lsz=0; 
-            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // skip and process after
-            if (last_nt_parm>=0)
+            if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
             {
-              // push last result
-              if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
-              if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
-              parm_size += sizeof(GLUE_PUSH_P1);
+              int lsz=0; 
+              if (last_nt_parm>=0)
+              {
+                // push last result
+                if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+                if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+                parm_size += sizeof(GLUE_PUSH_P1);
+              }         
+              lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
+              if (lsz<0) return -1;
+              parm_size += lsz;            
+              last_nt_parm = pn;
             }
-          
-            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
-            if (lsz<0) return -1;
-            parm_size += lsz;            
-            last_nt_parm = pn;
           }
 
-          // pop/copy non-trivial values to their correct places
-          for (pn=0; pn < n_params; pn++)
-          { 
-            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; 
+          pn = last_nt_parm;
+          // if the last thing executed doesn't go to the last parameter, move it there
+          if (pn >= 0 && pn != n_params-1)
+          {
+            // generate mov p1->pX
+            if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
+            if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
+            parm_size += GLUE_SET_PX_FROM_P1_SIZE;
+          }
 
-            if (pn == last_nt_parm)
-            {
-              if (pn != n_params-1)
-              {
-                // generate mov p1->pX
-                if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
-                if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params-1 - pn);
-                parm_size += GLUE_SET_PX_FROM_P1_SIZE;
-              }
-            }
-            else
+          // pop any pushed parameters
+          while (--pn >= 0)
+          { 
+            if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
             {
               if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
-              if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params-1 - pn);
+              if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
               parm_size += GLUE_POP_PX_SIZE;
-            }           
+            }
           }
 
           // finally, set trivial pointers
           for (pn=0; pn < n_params; pn++)
           { 
-            if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; 
-            if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
-            if (bufOut) 
+            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
             {
-              if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
+              if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
+              if (bufOut) 
+              {
+                if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
+              }
+              parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
             }
-            parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
           }
           
                              
