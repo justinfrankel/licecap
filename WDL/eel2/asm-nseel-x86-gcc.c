@@ -958,11 +958,13 @@ void nseel_asm_repeat(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%eax)\n"
+#ifdef TARGET_X64
+    "fistpll (%esi)\n"
+    "movll (%rsi), %rcx\n"
+#else
     "fistpl (%esi)\n"
-#ifdef TARGET_X64 // safe not sure if movl ecx will zero the high word
-    "xorl %ecx, %ecx\n"
-#endif 
     "movl (%esi), %ecx\n"
+#endif 
     "cmpl $1, %ecx\n"
     "jl 1f\n"
     "cmpl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"

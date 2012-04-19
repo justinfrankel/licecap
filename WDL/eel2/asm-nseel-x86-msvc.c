@@ -1573,11 +1573,13 @@ __declspec(naked) void nseel_asm_repeat(void)
 {
   __asm {
     fld EEL_ASM_TYPE [eax];
+#ifdef TARGET_X64
+    fistp qword ptr [esi];
+    mov rcx, qword ptr [rsi];
+#else
     fistp dword ptr [esi];
-#ifdef TARGET_X64 // safe not sure if movl ecx will zero the high word
-    xor ecx, ecx;
-#endif
     mov ecx, dword ptr [esi];
+#endif
     cmp ecx, 1;
     jl label_11;
     cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
