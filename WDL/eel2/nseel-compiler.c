@@ -2666,9 +2666,9 @@ static void movestringover(char *str, int amount)
 #endif
 
 //------------------------------------------------------------------------------
-NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lineoffs)
+NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, const char *__expression, int lineoffs)
 {
-  return NSEEL_code_compile_ex(_ctx,_expression,lineoffs,0);
+  return NSEEL_code_compile_ex(_ctx,__expression,lineoffs,0);
 }
 
 typedef struct topLevelCodeSegmentRec {
@@ -2677,8 +2677,9 @@ typedef struct topLevelCodeSegmentRec {
   int codesz;
 } topLevelCodeSegmentRec;
 
-NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int lineoffs, int compile_flags)
+NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expression, int lineoffs, int compile_flags)
 {
+  char *_expression;
   compileContext *ctx = (compileContext *)_ctx;
   char *expression,*expression_start;
   codeHandleType *handle;
@@ -2723,7 +2724,33 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
   
   ctx->last_error_string[0]=0;
 
-  if (!_expression || !*_expression) return 0;
+  if (!__expression || !*__expression) return 0;
+
+
+  _expression = strdup(__expression);
+  if (!_expression) return 0;
+
+  {
+    // do in place replace of "$'x'" to "56  " or whatnot
+    // we avoid changing the length of the string here, due to wanting to know where errors occur
+    char *p=_expression;
+    while (*p)
+    {
+      if (p[0] == '$' && p[1]=='\'' && p[2] && p[3]=='\'')
+      {
+        char tmp[64];
+        int a;
+        sprintf(tmp,"%d",((unsigned char *)p)[2]);
+        for (a=0;a<strlen(tmp)&&a<3;a++) p[a]=tmp[a];
+        for (;a<4;a++) p[a]=' ';
+        p+=4;
+      }
+      else
+      {
+        p++;
+      }
+    }
+  }
 
   ctx->isSharedFunctions = !!(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
   ctx->functions_local = NULL;
@@ -2741,8 +2768,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
 
   if (!handle) 
   {
+    free(_expression);
     return 0;
   }
+
   
   memset(handle,0,sizeof(codeHandleType));
 
@@ -3132,6 +3161,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, char *_expression, int 
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
 
   free(expression_start);
+  free(_expression);
 
   return (NSEEL_CODEHANDLE)handle;
 }
