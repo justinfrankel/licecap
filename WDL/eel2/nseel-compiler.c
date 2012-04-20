@@ -1051,6 +1051,7 @@ opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
   r->opcodeType = OPCODETYPE_DIRECTVALUE;
   r->parms.dv.directValue = value; 
   r->parms.dv.valuePtr = NULL;
+  ctx->l_stats[3]++;
   return r;
 }
 
