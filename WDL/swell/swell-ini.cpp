@@ -337,7 +337,7 @@ DWORD GetPrivateProfileSection(const char *appname, char *strout, DWORD strout_l
   int szOut=0;
   WDL_StringKeyedArray<char *> *cursec = ctx ? ctx->m_sections.Get(appname) : NULL;
 
-  if (ctx) 
+  if (ctx && cursec) 
   {
     int x;
     for(x=0;x<cursec->GetSize();x++)
