@@ -345,6 +345,8 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 #ifndef _WIN32
             HBRUSH curbgbr=NULL;
+#else
+            int win_cv=(GetVersion()&0xFF);
 #endif
                     
             if (ctx->m_framebuffer) for (y = r.top; y < r.bottom; y ++, ypos+=ctx->m_font_h)
@@ -360,7 +362,18 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 char c=p[0];
                 char attr=p[1];
 
-				        if (attr != lattr)
+						    if (y == ctx->m_cursor_y && x == ctx->m_cursor_x)
+						    {
+                  lattr = -1;
+						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
+                  int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0];
+#ifndef _WIN32
+                  if (curbgbr) DeleteObject(curbgbr);
+                  curbgbr=CreateSolidBrush(bgc);
+#endif
+						      SetBkColor(hdc,bgc);
+						    }
+				        else if (attr != lattr)
 				        {
 						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
                   int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1];
@@ -371,21 +384,9 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 						      SetBkColor(hdc,bgc);
 					        lattr=attr;
 				        }
-						    int rf=0;
-						    if (y == ctx->m_cursor_y && x == ctx->m_cursor_x)
-						    {
-							    rf=1;
-						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
-                  int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0];
-#ifndef _WIN32
-                  if (curbgbr) DeleteObject(curbgbr);
-                  curbgbr=CreateSolidBrush(bgc);
-#endif
-						      SetBkColor(hdc,bgc);
-						    }
 #ifdef _WIN32
                 int txpos = xpos;
-                if ((GetVersion()&0xFF) >= 6) ++txpos; // absolutely no idea why this is needed
+                if (win_cv >= 6) ++txpos; // absolutely no idea why this is needed
                 TextOut(hdc,txpos,ypos,isprint(c) && !isspace(c) ? p : " ",1);
 #else
                 RECT tr={xpos,ypos,xpos+32,ypos+32};
@@ -393,16 +394,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 char tmp[2]={c,0};
                 DrawText(hdc,isprint(c) && !isspace(c) ?tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
 #endif
-						    if (rf)
-						    {
-						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
-                  int bgc=ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1];
-						      SetBkColor(hdc,bgc);
-#ifndef _WIN32
-                  if (curbgbr) DeleteObject(curbgbr);
-                  curbgbr=CreateSolidBrush(bgc);
-#endif
-						    }
                 p+=2;
               }
             }
