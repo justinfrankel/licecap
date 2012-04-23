@@ -234,11 +234,28 @@ static void m_reinit_framebuffer(win32CursesCtx *ctx)
     ctx->m_framebuffer=(unsigned char *)realloc(ctx->m_framebuffer,2*ctx->lines*ctx->cols);
     if (ctx->m_framebuffer) memset(ctx->m_framebuffer,0,2*ctx->lines*ctx->cols);
 }
+#ifndef WM_MOUSEWHEEL
+#define WM_MOUSEWHEEL 0x20A
+#endif
 
 LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 {
   win32CursesCtx *ctx = (win32CursesCtx*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
+#ifdef _WIN32
+
+  static int Scroll_Message;
+  if (!Scroll_Message)
+  {
+    Scroll_Message = (int)RegisterWindowMessage("MSWHEEL_ROLLMSG");
+    if (!Scroll_Message) Scroll_Message=-1;
+  }
+  if (Scroll_Message > 0 && uMsg == (UINT)Scroll_Message)
+  {
+    uMsg=WM_MOUSEWHEEL;
+    wParam<<=16; 
+  }
+#endif
 
   if (ctx)switch (uMsg)
   {
@@ -272,8 +289,15 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			ctx->m_need_redraw=1;
 		}
 	return 0;
+  case WM_RBUTTONDOWN:
   case WM_LBUTTONDOWN:
     SetFocus(hwnd);
+  case WM_LBUTTONUP:
+  case WM_RBUTTONUP:
+  case WM_CAPTURECHANGED:
+  case WM_MOUSEMOVE:
+  case WM_MOUSEWHEEL:
+    if (ctx && ctx->onMouseMessage) return ctx->onMouseMessage(ctx->user_data,hwnd,uMsg,wParam,lParam);
   return 0;
 #ifdef _WIN32
   case WM_GETDLGCODE:

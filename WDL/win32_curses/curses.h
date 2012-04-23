@@ -83,6 +83,8 @@ typedef struct win32CursesCtx
 
   void (*ui_run)(struct win32CursesCtx *ctx);
   void *user_data;
+
+  LRESULT (*onMouseMessage)(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 } win32CursesCtx;
 
 extern win32CursesCtx g_curses_context; // declare this if you need it
