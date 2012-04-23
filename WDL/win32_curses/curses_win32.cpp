@@ -364,8 +364,13 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
               for (;; x ++, xpos+=ctx->m_font_w, p += 2)
               {
-                char c=p[0];
-                char attr=p[1];
+                char c=' ',attr=0; 
+                
+                if (x < r.right)
+                {
+                  c=p[0];
+                  attr=p[1];
+                }
 
                 bool isCursor = y == ctx->m_cursor_y && x == ctx->m_cursor_x;
                 bool isNotBlank = (isprint(c) && !isspace(c));
