@@ -1528,15 +1528,20 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
               else
               {
                 // change to a multiply
-                op->fntype = FN_MULTIPLY;
                 if (op->parms.parms[1]->parms.dv.directValue == 0.0)
                 {
+                  op->fntype = FN_MULTIPLY;
                   optimizeOpcodes(ctx,op); // since we're a multiply, this might reduce us to 0.0 ourselves (or exec2)
                 }
                 else
                 {
-                  op->parms.parms[1]->parms.dv.directValue = 1.0/op->parms.parms[1]->parms.dv.directValue;
-                  op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                  double d = 1.0/op->parms.parms[1]->parms.dv.directValue;
+                  if ((1.0/d) == op->parms.parms[1]->parms.dv.directValue) // todo: code option for optimization level?
+                  {
+                    op->fntype = FN_MULTIPLY;
+                    op->parms.parms[1]->parms.dv.directValue = d;
+                    op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                  }
                 }
               }
             }
