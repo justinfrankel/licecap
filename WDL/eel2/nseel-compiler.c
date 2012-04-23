@@ -1536,7 +1536,12 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
                 else
                 {
                   double d = 1.0/op->parms.parms[1]->parms.dv.directValue;
-                  if ((1.0/d) == op->parms.parms[1]->parms.dv.directValue) // todo: code option for optimization level?
+
+                  WDL_DenormalDoubleAccess *p = (WDL_DenormalDoubleAccess*)&d;
+                  // allow conversion to multiply if reciprocal is exact
+                  // we could also just look to see if the last few digits of the mantissa were 0, which would probably be good
+                  // enough, but if the user really wants it they should do * (1/x) instead to force precalculation of reciprocal.
+                  if (!p->w.lw && !(p->w.hw & 0xfffff)) 
                   {
                     op->fntype = FN_MULTIPLY;
                     op->parms.parms[1]->parms.dv.directValue = d;
@@ -2747,9 +2752,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       if (p[0] == '$' && p[1]=='\'' && p[2] && p[3]=='\'')
       {
         char tmp[64];
-        int a;
-        sprintf(tmp,"%d",((unsigned char *)p)[2]);
-        for (a=0;a<strlen(tmp)&&a<3;a++) p[a]=tmp[a];
+        int a,tl;
+        sprintf(tmp,"%d",(int)((unsigned char *)p)[2]);
+        tl=strlen(tmp);
+        if (tl>3) tl=3;
+        for (a=0;a<tl;a++) p[a]=tmp[a];
         for (;a<4;a++) p[a]=' ';
         p+=4;
       }
