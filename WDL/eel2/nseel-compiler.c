@@ -2686,6 +2686,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   codeHandleType *handle;
   topLevelCodeSegmentRec *startpts_tail=NULL;
   topLevelCodeSegmentRec *startpts=NULL;
+  _codeHandleFunctionRec *oldCommonFunctionList;
   int curtabptr_sz=0;
   void *curtabptr=NULL;
   int had_err=0;
@@ -2731,6 +2732,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   _expression = strdup(__expression);
   if (!_expression) return 0;
 
+  oldCommonFunctionList = ctx->functions_common;
   {
     // do in place replace of "$'x'" to "56  " or whatnot
     // we avoid changing the length of the string here, due to wanting to know where errors occur
@@ -3158,6 +3160,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     nseel_evallib_stats[2]+=ctx->l_stats[2];
     nseel_evallib_stats[3]+=ctx->l_stats[3];
     nseel_evallib_stats[4]++;
+  }
+  else
+  {
+    ctx->functions_common = oldCommonFunctionList; // failed compiling, remove any added common functions from the list
   }
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
 
