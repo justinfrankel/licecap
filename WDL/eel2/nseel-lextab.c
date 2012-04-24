@@ -57,21 +57,31 @@ static int _Alextab(compileContext *ctx, int __na__)
    {
       case 0:           
         {
-          char tmp[8];
+          char tmp[NSEEL_MAX_VARIABLE_NAMELEN*2];
           nseel_gettoken(ctx,tmp, sizeof(tmp));
-          if (tmp[0] < '0' || tmp[0] > '9') // not really a hex value, lame
+          if (tmp[0] < '0' || tmp[0] > '9') // not sure where this logic came from
           {
-            ctx->yylval = nseel_lookup(ctx,&__na__); 
+            ctx->yylval = nseel_lookup(ctx,&__na__,tmp); 
             return __na__;
           }
-          ctx->yylval = nseel_translate(ctx,HEXCONST); 
         }
-      return VALUE;
-      case 1:   ctx->yylval = nseel_translate(ctx,INTCONST); return VALUE; 
-      case 2:   ctx->yylval = nseel_translate(ctx,INTCONST); return VALUE; 
-      case 3:   ctx->yylval = nseel_translate(ctx,DBLCONST); return VALUE; 
+      case 1:
+      case 2:
+      case 3:
+        {
+          char tmp[NSEEL_MAX_VARIABLE_NAMELEN*2];
+          nseel_gettoken(ctx,tmp, sizeof(tmp));
+          ctx->yylval = nseel_translate(ctx,tmp); 
+          return VALUE; 
+        }
       case 4:
-      case 5:   ctx->yylval = nseel_lookup(ctx,&__na__); return __na__;
+      case 5:   
+        {
+          char tmp[NSEEL_MAX_VARIABLE_NAMELEN*2];
+          nseel_gettoken(ctx,tmp, sizeof(tmp));
+          ctx->yylval = nseel_lookup(ctx,&__na__,tmp); 
+          return __na__;
+        }
       case 6:   return '+';
       case 7:   return '-';
       case 8:   return '*'; 

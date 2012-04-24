@@ -28,6 +28,7 @@
 #include "ns-eel-int.h"
 
 #include "../denormal.h"
+#include "../wdlcstring.h"
 
 #include <string.h>
 #include <math.h>
@@ -3511,13 +3512,13 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
 
 
 //------------------------------------------------------------------------------
-opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
+opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname)
 {
-  char tmp[256];
+  char tmp[NSEEL_MAX_VARIABLE_NAMELEN*2];
   int i;
   *typeOfObject = IDENTIFIER;
   
-  nseel_gettoken(ctx,tmp, sizeof(tmp));
+  lstrcpyn_safe(tmp,sname,sizeof(tmp));
   
   if (!strncasecmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
   {
@@ -3673,30 +3674,9 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
 
 
 //------------------------------------------------------------------------------
-opcodeRec *nseel_translate(compileContext *ctx, int type)
+opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
 {
-  int v;
-  int n;
-  char tmp[256];
-  nseel_gettoken(ctx,tmp, sizeof(tmp));
-
-  switch (type)
-  {
-    case INTCONST: return nseel_createCompiledValue(ctx,(EEL_F)atoi(tmp)); // todo: this could be atof() eventually
-    case DBLCONST: return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
-    case HEXCONST:
-      v=0;
-      n=0;
-      while (1)
-      {
-        int a=tmp[n++];
-        if (a >= '0' && a <= '9') v=(v<<4)+a-'0';
-        else if (a >= 'A' && a <= 'F') v=(v<<4)+10+a-'A';
-        else if (a >= 'a' && a <= 'f') v=(v<<4)+10+a-'a';
-        else break;
-      }
-		return nseel_createCompiledValue(ctx,(EEL_F)v);
-  }
-  return 0;
+  if (strstr(tmp,".")) return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
+  return nseel_createCompiledValue(ctx,(EEL_F)atoi(tmp)); // todo: this could be atof()  too, eventually, but that might break things
 }
 

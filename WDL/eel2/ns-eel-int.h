@@ -238,9 +238,9 @@ extern EEL_F nseel_globalregs[100];
 #define VARIABLE 4
 #define OTHER    5
 
-opcodeRec *nseel_translate(compileContext *ctx, int type);
+opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
 int nseel_gettokenlen(compileContext *ctx, int maxlen);
-opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject);
+opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname);
 int nseel_yyerror(compileContext *ctx);
 int nseel_yylex(compileContext *ctx, char **exp);
 int nseel_yyparse(compileContext *ctx, char *exp);
