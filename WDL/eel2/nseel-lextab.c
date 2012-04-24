@@ -24,6 +24,7 @@
 
 #include "ns-eel-int.h"
 
+#ifdef NSEEL_USE_OLD_PARSER
 
 #define LEXSKIP		(-1)
 
@@ -285,3 +286,5 @@ struct lextab nseel_lextab =	{
 			};
 
  
+
+#endif

@@ -26,6 +26,21 @@
 #include "ns-eel-int.h"
 
 
+#ifndef NSEEL_USE_OLD_PARSER
+
+#   define YYMALLOC malloc
+#   define YYFREE free
+
+int nseellex(void * yylval_param,void * yylloc_param ,void *yyscanner);
+void nseelerror(void *pos,compileContext *ctx, const char *str);
+
+#include <stdlib.h>
+#include <string.h>
+
+#include "y.tab.c"
+
+#else
+
 #define NBPW		 16
 #define EOF			(-1)
 
@@ -44,6 +59,7 @@ static int tst__b(register int c, char tab[])
 {
   return (tab[(c >> 3) & 037] & (1 << (c & 07)) );
 }
+
 
 int nseel_gettokenlen(compileContext *ctx, int lltbsiz)
 {
@@ -169,3 +185,5 @@ static int llset(compileContext *ctx)
         ctx->llp2 = lp1;
         return(ctx->lleof && lp1 == ctx->llbuf);
 }
+
+#endif

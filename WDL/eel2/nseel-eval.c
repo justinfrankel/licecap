@@ -26,7 +26,42 @@
 #include <ctype.h>
 #include "ns-eel-int.h"
 
+#ifndef NSEEL_USE_OLD_PARSER
 
+
+int nseel_gets(compileContext *ctx, char *buf, size_t sz)
+{
+  int n=0;
+  while (n < sz)
+  {
+    char c=ctx->inputbufferptr[0];
+    if (!c) break;
+    if (c == '/' && ctx->inputbufferptr[1] == '*')
+    {
+      ctx->inputbufferptr+=2; // skip /*
+
+      while (ctx->inputbufferptr[0] && (ctx->inputbufferptr[0]  != '*' || ctx->inputbufferptr[1] != '/'))  ctx->inputbufferptr++;
+      if (ctx->inputbufferptr[0]) ctx->inputbufferptr+=2; // skip */
+      continue;
+    }
+
+    ctx->inputbufferptr++;
+    buf[n++] = c;
+  }
+  return n;
+
+}
+
+
+#include "lex.nseel.c"
+
+void nseelerror(YYLTYPE *pos,compileContext *ctx, const char *str)
+{
+  ctx->errVar=pos->first_column>0?pos->first_column:1;
+  ctx->errVar_l = pos->first_line;
+}
+
+#else
 
 //---------------------------------------------------------------------------
 int nseel_yyerror(compileContext *ctx)
@@ -34,3 +69,6 @@ int nseel_yyerror(compileContext *ctx)
   ctx->errVar = ctx->colCount;
   return 0;
 }
+
+
+#endif

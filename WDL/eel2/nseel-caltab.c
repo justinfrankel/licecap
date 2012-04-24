@@ -24,6 +24,8 @@
 
 #include "ns-eel-int.h"
 
+#ifdef NSEEL_USE_OLD_PARSER
+
 #define YYERROR(x) nseel_yyerror(ctx)
        
 #define	YYFINAL		51
@@ -539,3 +541,5 @@ yyerrhandle:
   yystate = yyn;
   goto yynewstate;
 }
+
+#endif

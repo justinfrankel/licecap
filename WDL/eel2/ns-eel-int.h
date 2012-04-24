@@ -37,6 +37,7 @@
 extern "C" {
 #endif
 
+//#define NSEEL_USE_OLD_PARSER
 
 
 enum { 
@@ -136,9 +137,11 @@ typedef struct _compileContext
   int varTable_numBlocks;
 
   int errVar;
-  int colCount;
   opcodeRec *result;
   char last_error_string[256];
+
+#ifdef NSEEL_USE_OLD_PARSER
+  int colCount;
   YYSTYPE yylval;
   int	yychar;			/*  the lookahead symbol		*/
   int yynerrs;			/*  number of parse errors so far       */
@@ -150,6 +153,11 @@ typedef struct _compileContext
   char    *llend;//  = &llbuf[0];    /* pointer to end of token              */
   char    *llebuf;// = &llbuf[sizeof llbuf];
   int     lleof;
+#else
+  const char *inputbufferptr;
+  void *scanner;
+  int errVar_l;
+#endif
 
   llBlock *tmpblocks_head, // used while compiling, and freed after compiling
 
@@ -224,19 +232,23 @@ _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx
 
 extern EEL_F nseel_globalregs[100];
 
-#define	VALUE	258
-#define	IDENTIFIER	259
-#define	FUNCTION1	260
-#define	FUNCTION2	261
-#define	FUNCTION3	262
-#define UMINUS  263
-#define UPLUS   264
+#ifdef NSEEL_USE_OLD_PARSER
+  #define	VALUE	258
+  #define	IDENTIFIER	259
+  #define	FUNCTION1	260
+  #define	FUNCTION2	261
+  #define	FUNCTION3	262
+  #define UMINUS  263
+  #define UPLUS   264
 
-#define INTCONST 1
-#define DBLCONST 2
-#define HEXCONST 3
-#define VARIABLE 4
-#define OTHER    5
+  #define INTCONST 1
+  #define DBLCONST 2
+  #define HEXCONST 3
+  #define VARIABLE 4
+  #define OTHER    5
+#else
+  #include "y.tab.h"
+#endif
 
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
 int nseel_gettokenlen(compileContext *ctx, int maxlen);

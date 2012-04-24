@@ -2811,8 +2811,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     ctx->function_usesThisPointer=0;
     ctx->function_curName=NULL;
     
+#ifdef NSEEL_USE_OLD_PARSER
     ctx->colCount=0;
-
+#endif
     
     // single out segment
     while (*expression == ';' || isspace(*expression)) expression++;
@@ -2950,11 +2951,44 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     }
 
     ctx->errVar=0;
+
+#ifdef NSEEL_USE_OLD_PARSER
     nseel_llinit(ctx);
     if (!nseel_yyparse(ctx,expr) && !ctx->errVar)
     {
       start_opcode = ctx->result;
     }
+#else
+   {
+     int nseelparse(compileContext* context);
+     int nseellex_init(void ** ptr_yy_globals);
+     int nseellex_destroy(void *yyscanner);
+     void nseelset_extra(void *user_defined , void *yyscanner);
+
+     if (!nseellex_init(&ctx->scanner))
+     {
+       ctx->inputbufferptr = expr;
+       nseelset_extra(ctx,ctx->scanner);
+       if (!nseelparse(ctx) && !ctx->errVar)
+       {
+         start_opcode = ctx->result;
+       }
+       if (ctx->errVar && ctx->errVar_l>0)
+       {
+         const char *p=expr;
+         while (*p && ctx->errVar_l-->0)
+         {
+           while (*p && *p != '\n') { p++; ctx->errVar++; }
+           if (*p) { ctx->errVar++; p++; }
+         }
+       }
+       ctx->inputbufferptr=NULL;
+       nseellex_destroy(ctx->scanner);
+     }
+     ctx->scanner=0;
+
+   }
+#endif
            
     if (start_opcode)
     {
@@ -3554,7 +3588,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
       if (tl && !strncasecmp(namelist[i],tmp,tl) && (tmp[tl] == 0 || tmp[tl] == '.'))
       {
         strcpy(tmp,"this.");
-        nseel_gettoken(ctx,tmp + 5, sizeof(tmp) - 5); // update tmp with "this.tokenname"
+        lstrcpyn_safe(tmp + 5, sname, sizeof(tmp) - 5); // update tmp with "this.tokenname"
         break;
       }
     }
