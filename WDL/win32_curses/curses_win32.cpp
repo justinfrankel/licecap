@@ -11,6 +11,9 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#define CURSOR_BLINK_TIMER_MS 400
+#define CURSOR_BLINK_TIMER 2
+#define CURSOR_BLINK_TIMER_ZEROEVERY 3
 
 #define WIN32CURSES_CLASS_NAME "WDLCursesWindow"
 
@@ -92,10 +95,10 @@ void __curses_erase(win32CursesCtx *ctx)
 
 void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
 {
-  m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+  m_InvalidateArea(ctx,ctx->m_cursor_x-1,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
   ctx->m_cursor_x=y;
   ctx->m_cursor_y=x;
-  if (!noupdest) m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+  if (!noupdest) m_InvalidateArea(ctx,ctx->m_cursor_x-1,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 
 
@@ -308,6 +311,14 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   return 0;
 #endif
   case WM_TIMER:
+    if (wParam==CURSOR_BLINK_TIMER && ctx)
+    {
+      int la = ctx->m_cursor_state;
+      ctx->m_cursor_state= (ctx->m_cursor_state+1)%CURSOR_BLINK_TIMER_ZEROEVERY;
+      
+      if (!!ctx->m_cursor_state != !!la)
+        __move(ctx,ctx->m_cursor_y,ctx->m_cursor_x,1);// refresh cursor
+    }
 #ifdef WIN32_CONSOLE_KBQUEUE
     if (wParam == 1)
     {
@@ -321,14 +332,17 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #endif
   return 0;
     case WM_CREATE:
+
+      // this only is called on osx or from standalone, it seems, since on win32 ctx isnt set up yet
       ctx->m_hwnd=hwnd;
-#ifdef WIN32_CONSOLE_KBQUEUE
-      SetTimer(hwnd,1,33,NULL);
-#endif
-#ifndef _WIN32
-	m_reinit_framebuffer(ctx);
-	ctx->m_need_redraw=1;
-#endif
+      #ifdef WIN32_CONSOLE_KBQUEUE
+         SetTimer(hwnd,1,33,NULL);
+      #endif
+      #ifndef _WIN32
+	      m_reinit_framebuffer(ctx);
+	      ctx->m_need_redraw=1;
+      #endif
+      SetTimer(hwnd,CURSOR_BLINK_TIMER,CURSOR_BLINK_TIMER_MS,NULL);
     return 0;
     case WM_ERASEBKGND:
     return 0;
@@ -377,6 +391,16 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #ifdef _WIN32
             int win_cv=(GetVersion()&0xFF);
 #endif
+
+            int cstate=ctx->m_cursor_state;
+            if (ctx->m_cursor_y != ctx->m_cursor_state_ly ||
+                ctx->m_cursor_x != ctx->m_cursor_state_lx)
+            {
+              ctx->m_cursor_state_lx=ctx->m_cursor_x;
+              ctx->m_cursor_state_ly=ctx->m_cursor_y;
+              ctx->m_cursor_state=0;
+              cstate=1;
+            }
                     
             if (ctx->m_framebuffer) for (y = r.top; y < r.bottom; y ++, ypos+=ctx->m_font_h, ptr += ctx->cols*2)
             {
@@ -396,7 +420,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                   attr=p[1];
                 }
 
-                bool isCursor = y == ctx->m_cursor_y && x == ctx->m_cursor_x;
+                bool isCursor = cstate && y == ctx->m_cursor_y && x == ctx->m_cursor_x;
                 bool isNotBlank = (isprint(c) && !isspace(c));
 
                 if (defer_blanks > 0 && (isNotBlank || isCursor || attr != lattr || x>=r.right))
@@ -465,6 +489,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) DeleteObject(bgbrushes[y]);
             SelectObject(hdc,oldf);
+
             EndPaint(hwnd,&ps);
           }
         }
@@ -628,6 +653,7 @@ void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx)
     free(ctx->m_framebuffer);
     ctx->m_framebuffer=0;
 
+    SetTimer(hwnd,CURSOR_BLINK_TIMER,CURSOR_BLINK_TIMER_MS,NULL);
     reInitializeContext(ctx);
     m_reinit_framebuffer(ctx);
     InvalidateRect(hwnd,NULL,FALSE);
