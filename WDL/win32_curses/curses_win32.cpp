@@ -15,6 +15,9 @@
 #define CURSOR_BLINK_TIMER 2
 #define CURSOR_BLINK_TIMER_ZEROEVERY 3
 
+#ifndef WIN32_CURSES_CURSORTYPE
+#define WIN32_CURSES_CURSORTYPE 1 // 1 for vertical bar, 2 for horz bar, 0 for block
+#endif
 #define WIN32CURSES_CLASS_NAME "WDLCursesWindow"
 
 #define WIN32_CONSOLE_KBQUEUE
@@ -95,10 +98,10 @@ void __curses_erase(win32CursesCtx *ctx)
 
 void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
 {
-  m_InvalidateArea(ctx,ctx->m_cursor_x-1,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+  m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
   ctx->m_cursor_x=y;
   ctx->m_cursor_y=x;
-  if (!noupdest) m_InvalidateArea(ctx,ctx->m_cursor_x-1,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+  if (!noupdest) m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 
 
@@ -432,13 +435,16 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
                 if (x>=r.right) break;
 
+#if WIN32_CURSES_CURSORTYPE == 0
 						    if (isCursor)
 						    {
 						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
 						      SetBkColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
                   lattr = -1;
 						    }
-				        else if (attr != lattr)
+				        else 
+#endif // WIN32_CURSES_CURSORTYPE == 0
+                if (attr != lattr)
 				        {
 						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
 						      SetBkColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
@@ -454,6 +460,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                   #else
                     RECT tr={xpos,ypos,xpos+32,ypos+32};
                     HBRUSH br=bgbrushes[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)];
+#if WIN32_CURSES_CURSORTYPE == 0
                     if (isCursor)
                     {
                       br = CreateSolidBrush(ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
@@ -461,12 +468,26 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                       DeleteObject(br);
                     }
                     else
+#endif
                     {
                       FillRect(hdc,&tr,br);
                     }
                     char tmp[2]={c,0};
                     DrawText(hdc,isprint(c) && !isspace(c) ?tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
                   #endif
+#if WIN32_CURSES_CURSORTYPE > 0
+                  if (isCursor)
+                  {
+                    #if WIN32_CURSES_CURSORTYPE == 1
+                      RECT r={xpos,ypos,xpos+2,ypos+ctx->m_font_h};
+                    #elif WIN32_CURSES_CURSORTYPE == 2
+                      RECT r={xpos,ypos+ctx->m_font_h-2,xpos+ctx->m_font_w,ypos+ctx->m_font_h};
+                    #endif
+                    HBRUSH br=CreateSolidBrush(ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
+                    FillRect(hdc,&r,br);
+                    DeleteObject(br);
+                  }
+#endif
                 }
                 else 
                 {
