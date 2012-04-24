@@ -3667,3 +3667,35 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject)
   }
   return nseel_createCompiledValue(ctx,0.0);
 }
+
+
+
+
+//------------------------------------------------------------------------------
+opcodeRec *nseel_translate(compileContext *ctx, int type)
+{
+  int v;
+  int n;
+  char tmp[256];
+  nseel_gettoken(ctx,tmp, sizeof(tmp));
+
+  switch (type)
+  {
+    case INTCONST: return nseel_createCompiledValue(ctx,(EEL_F)atoi(tmp)); // todo: this could be atof() eventually
+    case DBLCONST: return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
+    case HEXCONST:
+      v=0;
+      n=0;
+      while (1)
+      {
+        int a=tmp[n++];
+        if (a >= '0' && a <= '9') v=(v<<4)+a-'0';
+        else if (a >= 'A' && a <= 'F') v=(v<<4)+10+a-'A';
+        else if (a >= 'a' && a <= 'f') v=(v<<4)+10+a-'a';
+        else break;
+      }
+		return nseel_createCompiledValue(ctx,(EEL_F)v);
+  }
+  return 0;
+}
+
