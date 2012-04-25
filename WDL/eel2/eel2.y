@@ -52,11 +52,11 @@ value_thing:
 
 unary_expr:
 	value_thing
-	| '+' value_thing
+	| '+' unary_expr
 	{
 	  $$ = $2;
 	}
-	| '-' value_thing
+	| '-' unary_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_UMINUS,1,$2,0);
 	}
