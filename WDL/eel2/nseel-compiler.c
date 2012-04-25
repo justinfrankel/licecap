@@ -3037,6 +3037,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #else
    {
      int nseelparse(compileContext* context);
+
+#ifdef NSEEL_SUPER_MINIMAL_LEXER
+     ctx->rdbuf_start = ctx->rdbuf = expr;
+     if (!nseelparse(ctx) && !ctx->errVar)
+     {
+       start_opcode = ctx->result;
+     }
+     ctx->rdbuf = NULL;
+#else
+
      void nseelrestart (void *input_file ,void *yyscanner );
 
      nseelrestart(NULL,ctx->scanner);
@@ -3056,6 +3066,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
        }
      }
      ctx->inputbufferptr=NULL;
+#endif
 
    }
 #endif
@@ -3372,17 +3383,23 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 {
   compileContext *ctx=calloc(1,sizeof(compileContext));
 #ifndef NSEEL_USE_OLD_PARSER
-  if (ctx)
-  {
-    int nseellex_init(void ** ptr_yy_globals);
-    void nseelset_extra(void *user_defined , void *yyscanner);
-    if (nseellex_init(&ctx->scanner))
+
+  #ifdef NSEEL_SUPER_MINIMAL_LEXER
+    ctx->scanner = ctx;
+  #else
+    if (ctx)
     {
-      free(ctx);
-      return NULL;
+      int nseellex_init(void ** ptr_yy_globals);
+      void nseelset_extra(void *user_defined , void *yyscanner);
+      if (nseellex_init(&ctx->scanner))
+      {
+        free(ctx);
+        return NULL;
+      }
+      nseelset_extra(ctx,ctx->scanner);
     }
-    nseelset_extra(ctx,ctx->scanner);
-  }
+  #endif
+
 #endif
   return ctx;
 }
@@ -3407,12 +3424,14 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
     free(ctx->compileLineRecs);
 
 #ifndef NSEEL_USE_OLD_PARSER
-    if (ctx->scanner)
-    {
-     int nseellex_destroy(void *yyscanner);
-     nseellex_destroy(ctx->scanner);
-     ctx->scanner=0;
-    }
+    #ifndef NSEEL_SUPER_MINIMAL_LEXER
+      if (ctx->scanner)
+      {
+       int nseellex_destroy(void *yyscanner);
+       nseellex_destroy(ctx->scanner);
+      }
+    #endif
+    ctx->scanner=0;
 #endif
     free(ctx);
   }

@@ -152,9 +152,13 @@ typedef struct _compileContext
   char    *llebuf;// = &llbuf[sizeof llbuf];
   int     lleof;
 #else
-  const char *inputbufferptr;
   void *scanner;
-  int errVar_l;
+  #ifdef NSEEL_SUPER_MINIMAL_LEXER
+    char *rdbuf, *rdbuf_start;
+  #else
+    const char *inputbufferptr;
+    int errVar_l;
+  #endif
 #endif
 
   llBlock *tmpblocks_head, // used while compiling, and freed after compiling

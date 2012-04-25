@@ -131,6 +131,7 @@ extern int NSEEL_RAM_memused_errors;
   //   4) new parser allows more than 3 parameter eel-functions (up to NSEEL_MAX_EELFUNC_PARAMETERS)
 
   //#define NSEEL_USE_OLD_PARSER
+#define NSEEL_SUPER_MINIMAL_LEXER // smaller code that uses far less ram, but the flex version we'll keep around too in case we want to do fancier things someday
 
  // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc.
 
