@@ -119,18 +119,12 @@ andor_expr:
 	}
 	;
 
-join_expr: 
+expression: 
 	andor_expr
-	| join_expr '%' andor_expr
+	| expression '%' andor_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,$1,$3);
 	}
-	;
-
-
-
-expression:
-	join_expr /* really should be join_expr, which then goes to andor_expr */
 	;
 
 
