@@ -32,7 +32,7 @@
 int nseel_gets(compileContext *ctx, char *buf, size_t sz)
 {
   int n=0;
-  while (n < sz)
+  if (ctx->inputbufferptr) while (n < sz)
   {
     char c=ctx->inputbufferptr[0];
     if (!c) break;

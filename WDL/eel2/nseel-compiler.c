@@ -3037,31 +3037,25 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #else
    {
      int nseelparse(compileContext* context);
-     int nseellex_init(void ** ptr_yy_globals);
-     int nseellex_destroy(void *yyscanner);
-     void nseelset_extra(void *user_defined , void *yyscanner);
+     void nseelrestart (void *input_file ,void *yyscanner );
 
-     if (!nseellex_init(&ctx->scanner))
+     nseelrestart(NULL,ctx->scanner);
+     ctx->inputbufferptr = expr;
+
+     if (!nseelparse(ctx) && !ctx->errVar)
      {
-       ctx->inputbufferptr = expr;
-       nseelset_extra(ctx,ctx->scanner);
-       if (!nseelparse(ctx) && !ctx->errVar)
-       {
-         start_opcode = ctx->result;
-       }
-       if (ctx->errVar && ctx->errVar_l>0)
-       {
-         const char *p=expr;
-         while (*p && ctx->errVar_l-->0)
-         {
-           while (*p && *p != '\n') { p++; ctx->errVar++; }
-           if (*p) { ctx->errVar++; p++; }
-         }
-       }
-       ctx->inputbufferptr=NULL;
-       nseellex_destroy(ctx->scanner);
+       start_opcode = ctx->result;
      }
-     ctx->scanner=0;
+     if (ctx->errVar && ctx->errVar_l>0)
+     {
+       const char *p=expr;
+       while (*p && ctx->errVar_l-->0)
+       {
+         while (*p && *p != '\n') { p++; ctx->errVar++; }
+         if (*p) { ctx->errVar++; p++; }
+       }
+     }
+     ctx->inputbufferptr=NULL;
 
    }
 #endif
@@ -3377,6 +3371,19 @@ static void NSEEL_VM_freevars(NSEEL_VMCTX _ctx)
 NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 {
   compileContext *ctx=calloc(1,sizeof(compileContext));
+#ifndef NSEEL_USE_OLD_PARSER
+  if (ctx)
+  {
+    int nseellex_init(void ** ptr_yy_globals);
+    void nseelset_extra(void *user_defined , void *yyscanner);
+    if (nseellex_init(&ctx->scanner))
+    {
+      free(ctx);
+      return NULL;
+    }
+    nseelset_extra(ctx,ctx->scanner);
+  }
+#endif
   return ctx;
 }
 
@@ -3398,6 +3405,15 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
 
 
     free(ctx->compileLineRecs);
+
+#ifndef NSEEL_USE_OLD_PARSER
+    if (ctx->scanner)
+    {
+     int nseellex_destroy(void *yyscanner);
+     nseellex_destroy(ctx->scanner);
+     ctx->scanner=0;
+    }
+#endif
     free(ctx);
   }
 
