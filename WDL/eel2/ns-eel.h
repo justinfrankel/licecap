@@ -123,10 +123,19 @@ extern int NSEEL_RAM_memused_errors;
 
 // configuration:
 
+  // the old parser may have more quirks. 
+  // Changes in the new parser:
+  //   1) expressions such as a = (1+5;3); now work as expected (a is set to 3, rather than 4).
+  //   2) 0xHEXNUMBER is now allowed (old parser required $xHEXNUMBER
+  //   3) error notices (unsure which is more accurate)
+  //   4) new parser allows more than 3 parameter eel-functions (up to NSEEL_MAX_EELFUNC_PARAMETERS)
 
-// #define NSEEL_EEL1_COMPAT_MODE
+  //#define NSEEL_USE_OLD_PARSER
+
+ // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc.
 
 #define NSEEL_MAX_VARIABLE_NAMELEN 128  // define this to override the max variable length
+#define NSEEL_MAX_EELFUNC_PARAMETERS 40
 
 // maximum loop length
 #define NSEEL_LOOPFUNC_SUPPORT_MAXLEN 1048576 // scary, we can do a million entries. probably will never want to, though.

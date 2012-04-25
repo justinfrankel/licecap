@@ -593,6 +593,9 @@ enum {
   OPCODETYPE_FUNC1,
   OPCODETYPE_FUNC2,
   OPCODETYPE_FUNC3,
+  OPCODETYPE_FUNCX,
+
+  OPCODETYPE_MOREPARAMS,
 
   OPCODETYPE_INVALID,
 };
@@ -1093,7 +1096,8 @@ opcodeRec *nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHan
   if (!r) return 0;
   r->fntype=FUNCTYPE_EELFUNC_THIS;
   r->fn = fnp;
-  if (fnp->num_params >= 3) r->opcodeType = OPCODETYPE_FUNC3;
+  if (fnp->num_params > 3) r->opcodeType = OPCODETYPE_FUNCX;
+  else if (fnp->num_params == 3) r->opcodeType = OPCODETYPE_FUNC3;
   else if (fnp->num_params==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
   if (n > NSEEL_MAX_VARIABLE_NAMELEN) n=NSEEL_MAX_VARIABLE_NAMELEN;
@@ -1109,7 +1113,9 @@ opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fnt
   if (!r) return 0;
   r->fntype=fntype;
   r->fn = fn;
-  if (np >= 3) r->opcodeType = OPCODETYPE_FUNC3;
+
+  if (np > 3) r->opcodeType = OPCODETYPE_FUNCX;
+  else if (np == 3) r->opcodeType = OPCODETYPE_FUNC3;
   else if (np==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
 
@@ -1128,6 +1134,16 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *cod
   return fn;
 }
 
+
+opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
+{
+  opcodeRec *r=newOpCode(ctx);
+  r->opcodeType = OPCODETYPE_MOREPARAMS;
+  r->parms.parms[0] = code1;
+  r->parms.parms[1] = code2;
+  r->parms.parms[2] = 0;
+  return r;
+}
 
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
@@ -1758,6 +1774,320 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
 }      
 
 
+static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
+{
+  // builtin function generation
+  int func_size=0, parm_size=0;
+  int pn;
+  int last_nt_parm=-1;
+  void *func_e=NULL;
+  int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
+  NSEEL_PPPROC preProc=0;
+  void **repl=NULL;
+  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e);
+
+  if (!func) return -1;
+
+  if (op->opcodeType == OPCODETYPE_FUNCX)
+  {
+    // this is not yet supported (calling conventions will need to be sorted, among other things)
+    return -1;
+  }
+
+
+  if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+  {
+#ifdef EEL_STACK_SUPPORT
+    if (func == nseel_asm_stack_pop)
+    {
+      func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
+      if (!func || bufOut_len < func_size) return -1;
+
+      if (bufOut) 
+      {
+        memcpy(bufOut,func,func_size);
+        NSEEL_PProc_Stack(bufOut,func_size,ctx);
+      }
+      return func_size;            
+    }
+    else if (func == nseel_asm_stack_peek)
+    {
+      int f = (int) op->parms.parms[0]->parms.dv.directValue;
+      if (!f)
+      {
+        func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
+        if (!func || bufOut_len < func_size) return -1;
+
+        if (bufOut) 
+        {
+          memcpy(bufOut,func,func_size);
+          NSEEL_PProc_Stack_PeekTop(bufOut,func_size,ctx);
+        }
+        return func_size;
+      }
+      else
+      {
+        func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
+        if (!func || bufOut_len < func_size) return -1;
+
+        if (bufOut)
+        {
+          memcpy(bufOut,func,func_size);
+          NSEEL_PProc_Stack_PeekInt(bufOut,func_size,ctx,f*sizeof(EEL_F));
+        }
+        return func_size;
+      }
+    }
+#endif // EEL_STACK_SUPPORT
+  }
+  else if (func == nseel_asm_assign &&
+      (op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE
+#if 0
+       ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTR
+       ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTRPTR
+    // this might be a bad idea, since if someone does x*=0.01; a lot it will probably denormal, and this could let y=x; have it propagate
+    // or maybe we need to fix the mulop/divop/etc modes?
+#endif
+       ))
+  {
+    // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
+     #ifndef __ppc__
+       func = nseel_asm_assign_fast;
+       func_e = nseel_asm_assign_fast_end;
+     #endif
+  }
+
+  // end of built-in function specific special casing
+  func = GLUE_realAddress(func,func_e,&func_size);
+  if (!func) return -1;
+
+  // first pass, calculate any non-trivial parameters
+  for (pn=0; pn < n_params; pn++)
+  { 
+    if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
+    {
+      int lsz=0; 
+      if (last_nt_parm>=0)
+      {
+        // push last result
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+        if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+        parm_size += sizeof(GLUE_PUSH_P1);
+      }         
+      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
+      if (lsz<0) return -1;
+      parm_size += lsz;            
+      last_nt_parm = pn;
+    }
+  }
+
+  pn = last_nt_parm;
+  // if the last thing executed doesn't go to the last parameter, move it there
+  if (pn >= 0 && pn != n_params-1)
+  {
+    // generate mov p1->pX
+    if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
+    if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
+    parm_size += GLUE_SET_PX_FROM_P1_SIZE;
+  }
+
+  // pop any pushed parameters
+  while (--pn >= 0)
+  { 
+    if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
+    {
+      if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
+      if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
+      parm_size += GLUE_POP_PX_SIZE;
+    }
+  }
+
+  // finally, set trivial pointers
+  for (pn=0; pn < n_params; pn++)
+  { 
+    if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
+    {
+      if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
+      if (bufOut) 
+      {
+        if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
+      }
+      parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
+    }
+  }
+  
+                     
+  if (bufOut_len < parm_size + func_size) return -1;
+  
+  if (bufOut)
+  {
+    unsigned char *p=bufOut + parm_size;
+    memcpy(p, func, func_size);
+    if (preProc) preProc(p,func_size,ctx);
+    if (repl)
+    {
+      if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
+      if (repl[1]) p=EEL_GLUE_set_immediate(p,repl[1]);
+      if (repl[2]) p=EEL_GLUE_set_immediate(p,repl[2]);
+      if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
+    }
+  }
+  return parm_size + func_size;
+  // end of builtin function generation
+}
+static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
+{
+
+  int func_size=0, parm_size=0;
+  int pn;
+  int last_nt_parm=-1;
+  void *func_e=NULL;
+  int n_params;
+  opcodeRec *parmptrs[NSEEL_MAX_EELFUNC_PARAMETERS];
+  int cfp_numparams=-1;
+  int cfp_statesize=0;
+  EEL_F **cfp_ptrs=NULL;
+  int func_raw=0;
+  int do_parms;
+
+  void *func;
+
+  memcpy(parmptrs,op->parms.parms,3*sizeof(opcodeRec*));
+
+  if (op->opcodeType == OPCODETYPE_FUNCX)
+  {
+    int x;
+    n_params=0;
+    for (x=0;x<3;x++)
+    {
+      opcodeRec *prni=op->parms.parms[x];
+      while (prni && n_params < NSEEL_MAX_EELFUNC_PARAMETERS)
+      {
+        const int isMP = prni->opcodeType == OPCODETYPE_MOREPARAMS;
+        parmptrs[n_params++] = isMP ? prni->parms.parms[0] : prni;
+        if (!isMP) break;
+        prni = prni->parms.parms[1];
+      }
+    }
+  }
+  else 
+  {
+    n_params = 1 + op->opcodeType - OPCODETYPE_FUNC1;
+  }
+          
+  func = nseel_getEELFunctionAddress(ctx, op,
+                                      &cfp_numparams,&cfp_statesize,&cfp_ptrs, 
+                                      computTableSize, 
+                                      &func_e, &func_raw,                                              
+                                      !!bufOut,namespacePathToThis);
+
+  if (func_raw) func_size = (char*)func_e  - (char*)func;
+  else if (func) func = GLUE_realAddress(func,func_e,&func_size);
+  
+  if (!func) return -1;
+
+  if (cfp_numparams>0 && n_params != cfp_numparams)
+  {
+    _codeHandleFunctionRec *fn = (_codeHandleFunctionRec*)op->fn;
+    snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Function '%s' takes %d parameters, passed %d\n",fn->fname,cfp_numparams,n_params);
+    return -1;
+  }
+
+  // user defined function
+  do_parms = cfp_numparams>0 && cfp_ptrs && cfp_statesize>0;
+
+  // if function local/parameter state is zero, we need to allocate storage for it
+  if (cfp_statesize>0 && cfp_ptrs && !cfp_ptrs[0])
+  {
+    EEL_F *pstate = newDataBlock(sizeof(EEL_F)*cfp_statesize,8);
+    if (!pstate) return -1;
+
+    for (pn=0;pn<cfp_statesize;pn++)
+    {
+      pstate[pn]=0;
+      cfp_ptrs[pn] = pstate + pn;
+    }
+  }
+
+
+  // first process parameters that are non-trivial
+  for (pn=0; pn < n_params; pn++)
+  { 
+    int lsz;                      
+    
+    if (OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // skip and process after
+
+    if (last_nt_parm >= 0 && do_parms)
+    {
+      if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
+      
+      // push
+      if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
+      parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
+    }
+
+    lsz = compileOpcodes(ctx,parmptrs[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
+    if (lsz<0) return -1;
+    parm_size += lsz;
+
+    last_nt_parm = pn;
+  }
+  // pop non-trivial results into place
+  if (last_nt_parm >=0 && do_parms)
+  {
+    while (--pn >= 0)
+    { 
+      if (OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // skip and process after
+      if (pn == last_nt_parm)
+      {
+        // copy direct p1ptr to mem
+        const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
+        if (bufOut_len < parm_size + cpsize) return -1;
+
+        if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
+        parm_size += cpsize;
+      }
+      else
+      {
+        const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
+        if (bufOut_len < parm_size + popsize) return -1;
+
+        if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
+        parm_size+=popsize;
+
+      }
+    }
+  }
+
+  // finally, set any trivial parameters
+  if (do_parms)
+  {
+    const int cpsize = GLUE_MOV_PX_DIRECTVALUE_SIZE + GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
+    for (pn=0; pn < n_params; pn++)
+    { 
+      if (!OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // set trivial values, we already set nontrivials
+
+      if (bufOut_len < parm_size + cpsize) return -1;
+
+      if (bufOut) 
+      {
+        if (generateValueToReg(ctx,parmptrs[pn],bufOut + parm_size,0,namespacePathToThis)<0) return -1;
+        GLUE_COPY_VALUE_AT_P1_TO_PTR(bufOut + parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE,cfp_ptrs[pn]);
+      }
+      parm_size += cpsize;
+
+    }
+  }
+
+
+
+  if (bufOut_len < parm_size + func_size) return -1;
+  
+  if (bufOut) memcpy(bufOut + parm_size, func, func_size);
+  
+  return parm_size + func_size;
+  // end of EEL function generation
+}
 
 int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
 {
@@ -1896,280 +2226,26 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis)<0) return -1;
       }
     return rv_offset + GLUE_MOV_PX_DIRECTVALUE_SIZE;
+
+    case OPCODETYPE_FUNCX:
     case OPCODETYPE_FUNC1:
     case OPCODETYPE_FUNC2:
     case OPCODETYPE_FUNC3:
       
-      {
-        const int n_params = 1 + op->opcodeType - OPCODETYPE_FUNC1;
-       
-        int func_size=0, parm_size=0;
-        int pn;
-        int last_nt_parm=-1;
-        void *func_e=NULL;
-        
+      {      
         if (computTableSize) (*computTableSize) ++;
         
         if (op->fntype == FUNCTYPE_EELFUNC_THIS || op->fntype == FUNCTYPE_EELFUNC)
         {
-          int cfp_numparams=-1;
-          int cfp_statesize=0;
-          EEL_F **cfp_ptrs=NULL;
-          int func_raw=0;
-          int do_parms;
-
-          void *func = nseel_getEELFunctionAddress(ctx, op,
-                                              &cfp_numparams,&cfp_statesize,&cfp_ptrs, 
-                                              computTableSize, 
-                                              &func_e, &func_raw,                                              
-                                              !!bufOut,namespacePathToThis);
-
-          if (func_raw) func_size = (char*)func_e  - (char*)func;
-          else if (func) func = GLUE_realAddress(func,func_e,&func_size);
-          
-          if (!func) return -1;
-
-          // user defined function
-          do_parms = cfp_numparams>0 && cfp_ptrs && cfp_statesize>0;
-
-          // if function local/parameter state is zero, we need to allocate storage for it
-          if (cfp_statesize>0 && cfp_ptrs && !cfp_ptrs[0])
-          {
-            EEL_F *pstate = newDataBlock(sizeof(EEL_F)*cfp_statesize,8);
-            if (!pstate) return -1;
-
-            for (pn=0;pn<cfp_statesize;pn++)
-            {
-              pstate[pn]=0;
-              cfp_ptrs[pn] = pstate + pn;
-            }
-          }
-
-          // first process parameters that are non-trivial
-          for (pn=0; pn < n_params; pn++)
-          { 
-            int lsz;
-            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // skip and process after
-
-            if (last_nt_parm >= 0 && do_parms)
-            {
-              if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
-              
-              // push
-              if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
-              parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
-            }
-
-            lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
-            if (lsz<0) return -1;
-            parm_size += lsz;
-
-            last_nt_parm = pn;
-          }
-          // pop non-trivial results into place
-          if (last_nt_parm >=0 && do_parms)
-          {
-            while (--pn >= 0)
-            { 
-              if (OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // skip and process after
-              if (pn == last_nt_parm)
-              {
-                // copy direct p1ptr to mem
-                const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
-                if (bufOut_len < parm_size + cpsize) return -1;
-
-                if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
-                parm_size += cpsize;
-              }
-              else
-              {
-                const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
-                if (bufOut_len < parm_size + popsize) return -1;
-
-                if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
-                parm_size+=popsize;
-
-              }
-            }
-          }
-
-          // finally, set any trivial parameters
-          if (do_parms)
-          {
-            const int cpsize = GLUE_MOV_PX_DIRECTVALUE_SIZE + GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
-            for (pn=0; pn < n_params; pn++)
-            { 
-              if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn])) continue; // set trivial values, we already set nontrivials
-
-              if (bufOut_len < parm_size + cpsize) return -1;
-
-              if (bufOut) 
-              {
-                if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,0,namespacePathToThis)<0) return -1;
-                GLUE_COPY_VALUE_AT_P1_TO_PTR(bufOut + parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE,cfp_ptrs[pn]);
-              }
-              parm_size += cpsize;
-
-            }
-          }
-
-
- 
-          if (bufOut_len < parm_size + func_size) return -1;
-          
-          if (bufOut) memcpy(bufOut + parm_size, func, func_size);
-          
-          return rv_offset + parm_size + func_size;
-          // end of EEL function generation
+          int a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis);
+          if (a<0)return a;
+          return rv_offset + a;
         }
         else
         {
-          // builtin function generation
-          NSEEL_PPPROC preProc=0;
-          void **repl=NULL;
-          void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e);
-
-          if (!func) return -1;
-
-          if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
-          {
-#ifdef EEL_STACK_SUPPORT
-            if (func == nseel_asm_stack_pop)
-            {
-              func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
-              if (!func || bufOut_len < func_size) return -1;
-
-              if (bufOut) 
-              {
-                memcpy(bufOut,func,func_size);
-                NSEEL_PProc_Stack(bufOut,func_size,ctx);
-              }
-              return rv_offset + func_size;            
-            }
-            else if (func == nseel_asm_stack_peek)
-            {
-              int f = (int) op->parms.parms[0]->parms.dv.directValue;
-              if (!f)
-              {
-                func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
-                if (!func || bufOut_len < func_size) return -1;
-
-                if (bufOut) 
-                {
-                  memcpy(bufOut,func,func_size);
-                  NSEEL_PProc_Stack_PeekTop(bufOut,func_size,ctx);
-                }
-                return rv_offset + func_size;
-              }
-              else
-              {
-                func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
-                if (!func || bufOut_len < func_size) return -1;
-
-                if (bufOut)
-                {
-                  memcpy(bufOut,func,func_size);
-                  NSEEL_PProc_Stack_PeekInt(bufOut,func_size,ctx,f*sizeof(EEL_F));
-                }
-                return rv_offset + func_size;
-              }
-            }
-#endif // EEL_STACK_SUPPORT
-          }
-          else if (func == nseel_asm_assign &&
-              (op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE
-#if 0
-               ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTR
-               ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTRPTR
-            // this might be a bad idea, since if someone does x*=0.01; a lot it will probably denormal, and this could let y=x; have it propagate
-            // or maybe we need to fix the mulop/divop/etc modes?
-#endif
-               ))
-          {
-            // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
-             #ifndef __ppc__
-               func = nseel_asm_assign_fast;
-               func_e = nseel_asm_assign_fast_end;
-             #endif
-          }
-
-          // end of built-in function specific special casing
-          func = GLUE_realAddress(func,func_e,&func_size);
-          if (!func) return -1;
-
-          // first pass, calculate any non-trivial parameters
-          for (pn=0; pn < n_params; pn++)
-          { 
-            if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
-            {
-              int lsz=0; 
-              if (last_nt_parm>=0)
-              {
-                // push last result
-                if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
-                if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
-                parm_size += sizeof(GLUE_PUSH_P1);
-              }         
-              lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
-              if (lsz<0) return -1;
-              parm_size += lsz;            
-              last_nt_parm = pn;
-            }
-          }
-
-          pn = last_nt_parm;
-          // if the last thing executed doesn't go to the last parameter, move it there
-          if (pn >= 0 && pn != n_params-1)
-          {
-            // generate mov p1->pX
-            if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
-            if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
-            parm_size += GLUE_SET_PX_FROM_P1_SIZE;
-          }
-
-          // pop any pushed parameters
-          while (--pn >= 0)
-          { 
-            if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
-            {
-              if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
-              if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
-              parm_size += GLUE_POP_PX_SIZE;
-            }
-          }
-
-          // finally, set trivial pointers
-          for (pn=0; pn < n_params; pn++)
-          { 
-            if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
-            {
-              if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
-              if (bufOut) 
-              {
-                if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
-              }
-              parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
-            }
-          }
-          
-                             
-          if (bufOut_len < parm_size + func_size) return -1;
-          
-          if (bufOut)
-          {
-            unsigned char *p=bufOut + parm_size;
-            memcpy(p, func, func_size);
-            if (preProc) preProc(p,func_size,ctx);
-            if (repl)
-            {
-              if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
-              if (repl[1]) p=EEL_GLUE_set_immediate(p,repl[1]);
-              if (repl[2]) p=EEL_GLUE_set_immediate(p,repl[2]);
-              if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
-            }
-          }
-          return rv_offset + parm_size + func_size;
-          // end of builtin function generation
+          int a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis);
+          if (a<0)return a;
+          return rv_offset + a;
         }        
       }
     return -1;
@@ -3091,9 +3167,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       }
       buf[x]=0;
 
-      sprintf(ctx->last_error_string,"Around line %d '%s'",linenumber+lineoffs,buf);
+      if (!ctx->last_error_string[0])
+        snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d '%s'",linenumber+lineoffs,buf);
 
-      ctx->last_error_string[sizeof(ctx->last_error_string)-1]=0;
       startpts=NULL;
       startpts_tail=NULL; 
       had_err=1;
@@ -3615,17 +3691,22 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
       functionType *f=nseel_getFunctionFromTable(i);
       if (!strcasecmp(f->name, nptr))
       {
-        switch (f->nParams&0xff)
+        int np=f->nParams&0xff;
+        switch (np)
         {
           case 0:
           case 1: *typeOfObject = FUNCTION1; break;
           case 2: *typeOfObject = FUNCTION2; break;
           case 3: *typeOfObject = FUNCTION3; break;
           default: 
+#ifndef NSEEL_USE_OLD_PARSER
+            *typeOfObject = FUNCTIONX; // newly supported X-parameter functions
+#else
             *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
+#endif
             break;
         }
-        return nseel_createCompiledFunctionCall(ctx,f->nParams&0xff,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
+        return nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
       }
     }
   } 
@@ -3659,7 +3740,11 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     
     if (fr)
     {
-      *typeOfObject=fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
+      *typeOfObject=
+#ifndef NSEEL_USE_OLD_PARSER
+        fr->num_params>3?FUNCTIONX :
+#endif       
+        fr->num_params>=3?FUNCTION3 : fr->num_params==2?FUNCTION2 : FUNCTION1;
       
       if (!strncasecmp(tmp,"this.",5) && tmp[5]) // relative scoped call
       {

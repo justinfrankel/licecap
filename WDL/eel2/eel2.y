@@ -20,14 +20,20 @@
 
 %}
 
-%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3
+%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX
 
 
 %start program
 
 %%
 
-
+more_params:
+	expression
+	| expression ',' more_params
+	{
+	  $$ = nseel_createMoreParametersOpcode(context,$1,$3);
+	}
+	;
 
 value_thing:
 	VALUE
@@ -45,6 +51,10 @@ value_thing:
   	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, 0);
 	}
 	| FUNCTION3 '(' expression ',' expression ',' expression ')' 
+	{
+  	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, $7);
+	}
+	| FUNCTIONX '(' expression ',' expression ',' more_params ')' 
 	{
   	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, $7);
 	}
