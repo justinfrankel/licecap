@@ -34,8 +34,7 @@ int nseel_gets(compileContext *ctx, char *buf, size_t sz);
 
 [0-9]+\.?[0-9]*               PARSENUM;
 \.[0-9]+                      PARSENUM;
-
-# // eventually: 0[xX][0-9a-fA-F]+             PARSENUM; 
+0[xX][0-9a-fA-F]+             PARSENUM; 
 
 [a-zA-Z_][a-zA-Z0-9\._]*      do { int toktype=IDENTIFIER; *yylval = nseel_lookup((compileContext*)yyextra,&toktype, yytext); return toktype; } while (0);
 

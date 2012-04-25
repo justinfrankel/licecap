@@ -37,7 +37,14 @@
 extern "C" {
 #endif
 
-//#define NSEEL_USE_OLD_PARSER
+  // the old parser may have more quirks. 
+  // Changes in the new parser:
+  //   1) expressions such as a = (1+5;3); now work as expected (a is set to 3, rather than 4).
+  //   2) 0xHEXNUMBER is now allowed (old parser required $xHEXNUMBER
+  //   3) error notices (unsure which is more accurate)
+  //   4) new parser will allow more than 3 parameter eel-functions
+
+  //#define NSEEL_USE_OLD_PARSER
 
 
 enum { 
