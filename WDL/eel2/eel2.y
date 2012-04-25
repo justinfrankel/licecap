@@ -80,18 +80,10 @@ mul_expr:
 	}
 	;
 
-join_expr: /* this belongs at the lowest precedence, below andor, ugh, but that's the way it was stupidly done by JF(me) originally, convert ; into %. that was dumb. */
-	mul_expr
-	| join_expr '%' mul_expr
-	{
-	  $$ = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,$1,$3);
-	}
-	;
-
 
 sub_expr:
-	join_expr
-	| sub_expr '-' join_expr
+	mul_expr
+	| sub_expr '-' mul_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_SUB,2,$1,$3);
 	}
@@ -117,10 +109,18 @@ andor_expr:
 	}
 	;
 
+join_expr: 
+	andor_expr
+	| join_expr '%' andor_expr
+	{
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,$1,$3);
+	}
+	;
+
 
 
 expression:
-	andor_expr /* really should be join_expr, which then goes to andor_expr */
+	join_expr /* really should be join_expr, which then goes to andor_expr */
 	;
 
 
