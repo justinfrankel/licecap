@@ -4,6 +4,12 @@
 %lex-param { void* scanner  }
 
 
+/* this will prevent y.tab.c from ever calling yydestruct(), since we do not use it and it is a waste */
+%destructor {
+ #define yydestruct(a,b,c,d,e) 0
+} VALUE
+
+
 %{
 #ifdef _WIN32
 #include <windows.h>
@@ -17,6 +23,7 @@
 #include "ns-eel-int.h"
   
 #define scanner context->scanner
+#define YY_(x) ("")
 
 %}
 
