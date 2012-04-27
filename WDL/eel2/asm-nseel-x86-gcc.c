@@ -956,7 +956,6 @@ void nseel_asm_repeatwhile(void)
     "decl %ecx\n"
     "jnz 0b\n"
 	"0:\n"
-	"movl %esi, %eax\n"
   );
 }
 void nseel_asm_repeatwhile_end(void) {}

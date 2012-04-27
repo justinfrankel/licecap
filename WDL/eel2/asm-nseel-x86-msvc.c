@@ -1614,7 +1614,6 @@ label_20:
     jnz label_20;
 label_21:
 	
-	mov eax, esi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;

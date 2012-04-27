@@ -2410,6 +2410,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       int stubsz;
       void *stubfunc = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&stubsz);
       if (bufOut_len < stubsz) return -1;        
+
+      *calledRvType = RETURNVALUE_BOOL;
+
       if (!bufOut) return rv_offset+stubsz;
       
       newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
