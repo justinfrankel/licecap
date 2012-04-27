@@ -92,7 +92,7 @@ typedef struct _codeHandleFunctionRec
     
   int num_params;
 
-  int rvOnStack; // set if the return from startptr has the result on the fp stack (if supported on this arch)
+  int rvMode; // RETURNVALUE_*
 
   // local storage's first items are the parameters, then locals. Note that the opcodes will reference localstorage[] via VARPTRPTR, but 
   // the values localstorage[x] points are reallocated from context-to-context, if it is a common function.
