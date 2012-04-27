@@ -108,10 +108,7 @@ void nseel_asm_exec2_end(void) { }
 void nseel_asm_invsqrt(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "frsqrte f1, f1\n" // less accurate than our x86 equivilent, but invsqrt() is inherently inaccurate anyway
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_invsqrt_end(void) {}
@@ -122,10 +119,7 @@ void nseel_asm_invsqrt_end(void) {}
 void nseel_asm_sqr(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "fmul f1, f1, f1\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_sqr_end(void) {}
@@ -150,6 +144,16 @@ void nseel_asm_assign(void)
   );
 }
 void nseel_asm_assign_end(void) {}
+//
+//---------------------------------------------------------------------------------------------------------------
+void nseel_asm_assign_fromfp(void)
+{
+  __asm__(
+   "stfd f1, 0(r14)\n"
+   "mr r3, r14\n"
+  );
+}
+void nseel_asm_assign_fromfp_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_add(void)
@@ -240,8 +244,6 @@ void nseel_asm_div_op_end(void) {}
 void nseel_asm_mod(void)
 {
   __asm__(
-
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fabs f1, f1\n"
    "fabs f2, f2\n"
@@ -266,10 +268,6 @@ void nseel_asm_mod(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
-
-
   );
 }
 void nseel_asm_mod_end(void) {}
@@ -277,7 +275,6 @@ void nseel_asm_mod_end(void) {}
 void nseel_asm_shl(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -296,8 +293,6 @@ void nseel_asm_shl(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_shl_end(void) {}
@@ -305,7 +300,6 @@ void nseel_asm_shl_end(void) {}
 void nseel_asm_shr(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -324,8 +318,6 @@ void nseel_asm_shr(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_shr_end(void) {}
@@ -334,8 +326,6 @@ void nseel_asm_mod_op(void)
 {
 
   __asm__(
-
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fabs f1, f1\n"
    "fabs f2, f2\n"
@@ -416,7 +406,6 @@ void nseel_asm_or0_end(void) {}
 void nseel_asm_or_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -470,7 +459,6 @@ void nseel_asm_xor_end(void) {}
 void nseel_asm_xor_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -523,7 +511,6 @@ void nseel_asm_and_end(void) {}
 void nseel_asm_and_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -559,10 +546,7 @@ void nseel_asm_uplus_end(void) {}
 void nseel_asm_uminus(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "fneg f1, f1\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_uminus_end(void) {}
@@ -601,25 +585,11 @@ void nseel_asm_sign_end(void) {}
 void nseel_asm_bnot(void)
 {
   __asm__(
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f2, 0(r5)\n"
-    "lfd f1, 0(r3)\n"
-    "fabs f1, f1\n"
-    "fcmpu cr7, f1, f2\n"
-    "blt cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "b 1f\n"
+    "cmpwi cr0, r3, 0\n"
+    "addis r3, 0, 0\n"
+    "bne cr0, 0f\n"
+    "addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "1:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
-    :: 
   );
 }
 void nseel_asm_bnot_end(void) {}
@@ -628,23 +598,19 @@ void nseel_asm_bnot_end(void) {}
 void nseel_asm_if(void)
 {
   __asm__(
-   "addis r5, 0, 0xdead\n"
-   "ori r5, r5, 0xbeef\n"
-   "lfd f2, 0(r5)\n"
-   "lfd f1, 0(r3)\n"
-   "addis r6, 0, 0xdead\n"
-   "ori r6, r6, 0xbeef\n"
-   "addis r7, 0, 0xdead\n"
-   "ori r7, r7, 0xbeef\n"
-   "fabs f1, f1\n"
-   "fcmpu cr7, f1, f2\n"
-   "blt cr7, 0f\n"
+   "cmpwi cr0, r3, 0\n"
+   "beq cr0, 0f\n"
+   "  addis r6, 0, 0xdead\n"
+   "  ori r6, r6, 0xbeef\n"
    "  mtctr r6\n"
+   "  bctrl\n"
    "b 1f\n"
    "0:\n"
-   "  mtctr r7\n"
+   "  addis r6, 0, 0xdead\n"
+   "  ori r6, r6, 0xbeef\n"
+   "  mtctr r6\n"
+   "  bctrl\n"
    "1:\n"
-   "bctrl\n"
   :: );
 }
 void nseel_asm_if_end(void) {}
@@ -709,14 +675,8 @@ void nseel_asm_repeatwhile(void)
    "addi r1, r1, 12\n"
    "addi r5, r5, -1\n"
 
-   "addis r7, 0, 0xdead\n"
-   "ori r7, r7, 0xbeef\n"
-   "lfd f2, 0(r7)\n"
-
-   "lfd f1, 0(r3)\n"
-   "fabs f1, f1\n"
-   "fcmpu cr7, f1, f2\n"
-   "blt cr7, 1f\n"
+   "cmpwi cr7, r3, 0\n"
+   "beq cr7, 1f\n"
 
    "cmpwi cr0, r5, 0\n"
    "bgt cr0, 0b\n"
@@ -730,35 +690,13 @@ void nseel_asm_repeatwhile_end(void) {}
 void nseel_asm_band(void)
 {
   __asm__(
-
-   "addis r5, 0, 0xdead\n"
-   "ori r5, r5, 0xbeef\n"
-   "lfd f2, 0(r5)\n"
-   "lfd f1, 0(r3)\n"
-   "fabs f1, f1\n"
-   "fcmpu cr7, f1, f2\n"
-   "blt cr7, 0f\n"
-   "addis r6, 0, 0xdead\n"
-   "ori r6, r6, 0xbeef\n"
+   "cmpwi cr7, r3, 0\n"
+   "beq cr7, 0f\n"
+   "  addis r6, 0, 0xdead\n"
+   "  ori r6, r6, 0xbeef\n"
    "  mtctr r6\n"
    "  bctrl\n"
-   "  addis r5, 0, 0xdead\n"
-   "  ori r5, r5, 0xbeef\n"
-   "  lfd f2, 0(r5)\n"
-   "  lfd f1, 0(r3)\n"
-   "  fabs f1, f1\n"
-   "  fcmpu cr7, f1, f2\n"
-   "  bge cr7, 1f\n"
    "0:\n"
-   "  fsub f1, f1, f1\n" // set f1 to 0!
-   "  b 2f\n"
-   "1:\n"
-   "  addis r5, 0, 0xdead\n" // set f1 to 1
-   "  ori r5, r5, 0xbeef\n"
-   "  lfd f1, 0(r5)\n"
-   "2:\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   :: );
 }
 void nseel_asm_band_end(void) {}
@@ -766,34 +704,13 @@ void nseel_asm_band_end(void) {}
 void nseel_asm_bor(void)
 {
   __asm__(
-   "addis r5, 0, 0xdead\n"
-   "ori r5, r5, 0xbeef\n"
-   "lfd f2, 0(r5)\n"
-   "lfd f1, 0(r3)\n"
-   "fabs f1, f1\n"
-   "fcmpu cr7, f1, f2\n"
-   "bge cr7, 0f\n"
-   "addis r6, 0, 0xdead\n"
-   "ori r6, r6, 0xbeef\n"
+   "cmpwi cr7, r3, 0\n"
+   "bne cr7, 0f\n"
+   "  addis r6, 0, 0xdead\n"
+   "  ori r6, r6, 0xbeef\n"
    "  mtctr r6\n"
    "  bctrl\n"
-   "  addis r5, 0, 0xdead\n"
-   "  ori r5, r5, 0xbeef\n"
-   "  lfd f2, 0(r5)\n"
-   "  lfd f1, 0(r3)\n"
-   "  fabs f1, f1\n"
-   "  fcmpu cr7, f1, f2\n"
-   "  blt cr7, 1f\n"
    "0:\n"
-   "  addis r5, 0, 0xdead\n" // set f1 to 1
-   "  ori r5, r5, 0xbeef\n"
-   "  lfd f1, 0(r5)\n"
-   "  b 2f\n"
-   "1:\n"
-   "  fsub f1, f1, f1\n" // set f1 to 0!
-   "2:\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   :: );
 }
 void nseel_asm_bor_end(void) {}
@@ -802,7 +719,6 @@ void nseel_asm_bor_end(void) {}
 void nseel_asm_equal(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "lfd f2, 0(r14)\n"
     "addis r5, 0, 0xdead\n"
     "ori r5, r5, 0xbeef\n"
@@ -810,17 +726,10 @@ void nseel_asm_equal(void)
     "fabs f1, f1\n"
     "lfd f2, 0(r5)\n"
     "fcmpu cr7, f1, f2\n"
-    "blt cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "b 1f\n"
+    "addis r3, 0, 0\n"
+    "bge cr7, 0f\n"
+    "addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "1:\n"
-    "lfd f1, 0(r5)\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
     :: 
   );
 }
@@ -830,7 +739,6 @@ void nseel_asm_equal_end(void) {}
 void nseel_asm_notequal(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "lfd f2, 0(r14)\n"
     "addis r5, 0, 0xdead\n"
     "ori r5, r5, 0xbeef\n"
@@ -838,17 +746,10 @@ void nseel_asm_notequal(void)
     "fabs f1, f1\n"
     "lfd f2, 0(r5)\n"
     "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
     "blt cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "b 1f\n"
+    "  addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "1:\n"
-    "lfd f1, 0(r5)\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
     :: 
   );
 }
@@ -859,21 +760,12 @@ void nseel_asm_notequal_end(void) {}
 void nseel_asm_below(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "lfd f2, 0(r14)\n"
-    "fcmpu cr7, f2, f1\n"
-    "blt cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "b 1f\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
+    "ble cr7, 0f\n"
+    "addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "1:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
     ::
   );
 }
@@ -883,22 +775,13 @@ void nseel_asm_below_end(void) {}
 void nseel_asm_beloweq(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "lfd f2, 0(r14)\n"
-    "fcmpu cr7, f2, f1\n"
-    "ble cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "b 1f\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
+    "blt cr7, 0f\n"
+    "  addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "1:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
-    :: 
+    ::
   );
 }
 void nseel_asm_beloweq_end(void) {}
@@ -908,21 +791,12 @@ void nseel_asm_beloweq_end(void) {}
 void nseel_asm_above(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "lfd f2, 0(r14)\n"
-    "fcmpu cr7, f2, f1\n"
-    "bgt cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "b 1f\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
+    "bge cr7, 0f\n"
+    "addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "1:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
     ::
   );
 }
@@ -931,22 +805,13 @@ void nseel_asm_above_end(void) {}
 void nseel_asm_aboveeq(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "lfd f2, 0(r14)\n"
-    "fcmpu cr7, f2, f1\n"
-    "bge cr7, 0f\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "b 1f\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
+    "bgt cr7, 0f\n"
+    "addis r3, 0, 1\n"
     "0:\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f1, 0(r5)\n"
-    "1:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
-    :: 
+    ::
   );
 }
 void nseel_asm_aboveeq_end(void) {}
@@ -983,7 +848,6 @@ void nseel_asm_max(void)
 }
 
 void nseel_asm_max_end(void) {}
-
 
 
 
@@ -1116,8 +980,6 @@ void _asm_generic1parm_retd_end(void) {}
 void _asm_megabuf(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
-   
    "addis r3, 0, 0xdead\n" // set up context pointer
    "ori r3, r3, 0xbeef\n"
 
@@ -1180,7 +1042,6 @@ void _asm_megabuf_end(void) {}
 void _asm_gmegabuf(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "addis r3, 0, 0xdead\n" // set up context pointer
    "ori r3, r3, 0xbeef\n"
    "addis r4, 0, 0xdead\n"
@@ -1300,7 +1161,6 @@ void nseel_asm_stack_pop_fast_end(void) {}
 void nseel_asm_stack_peek(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
     "fctiwz f1, f1\n"
     "stfd f1, 0(r16)\n"
 
@@ -1372,3 +1232,37 @@ void nseel_asm_stack_exch(void)
   );
 }
 void nseel_asm_stack_exch_end(void) {}
+
+
+void nseel_asm_booltofp(void)
+{
+  __asm__(
+    "cmpwi cr7, r3, 0\n"
+    "addis r3, 0, 0xdead\n"
+    "ori r3, r3, 0xbeef\n"
+    "bne cr7, 0f\n"
+      "addis r3, 0, 0xdead\n"
+      "ori r3, r3, 0xbeef\n"
+    "0:\n"
+    "lfd f1, 0(r3)\n"
+  );
+}
+void nseel_asm_booltofp_end(void){ }
+
+void nseel_asm_fptobool(void)
+{
+  __asm__(
+    "addis r5, 0, 0xdead\n"
+    "ori r5, r5, 0xbeef\n"
+    "fabs f1, f1\n"
+    "lfd f2, 0(r5)\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 1\n"
+    "bge cr7, 0f\n"
+    "  addis r3, 0, 0\n"
+    "0:\n"
+    :: 
+          );
+}
+void nseel_asm_fptobool_end(void){ }
+

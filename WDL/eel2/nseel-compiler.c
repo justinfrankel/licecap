@@ -1017,29 +1017,20 @@ static double eel1sigmoid(double x, double constraint)
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
 
 static functionType fnTable1[] = {
-  { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST,  {&g_closefact} },
+  { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST, }, 
   { "_and",   nseel_asm_band,nseel_asm_band_end,  2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
   { "_or",    nseel_asm_bor,nseel_asm_bor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
   { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST },
   { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST },
 
-#ifdef __ppc__
-  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact,&eel_zero,&eel_one} } ,
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact,&eel_zero, &eel_one} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact,&eel_one,&eel_zero} },
-  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one} },
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one}  },
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one}  },
-  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one} },
-#else
   { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL, } ,
+
   { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL, {&g_closefact} },
   { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL, {&g_closefact} },
   { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
   { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
   { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
   { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
-#endif
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2, },
   { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
@@ -1101,7 +1092,7 @@ static functionType fnTable1[] = {
 #endif
    { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&ceil} },
 #ifdef __ppc__
-   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST,  },
+   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK,  },
 #else
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&negativezeropointfive, &onepointfive} },
 #endif
@@ -2472,12 +2463,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         memcpy(p, stub, stubsize);
       
         p=EEL_GLUE_set_immediate(p,newblock2);
-    #ifdef __ppc__
-        if (fn_ptr!=fnTable1 + 3) // for or/and on ppc we need a one
-        {
-          p=EEL_GLUE_set_immediate(p,&eel_one);
-        }
-    #endif
       }
       return rv_offset + parm_size + stubsize;
     }  
@@ -2574,7 +2559,12 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     if (!stub || bufOut_len < stubsize) return -1;
     if (bufOut) 
     {
+      char *p=bufOut;
       memcpy(bufOut,stub,stubsize);
+#ifdef __ppc__
+      p=EEL_GLUE_set_immediate(p,&eel_one);
+      EEL_GLUE_set_immediate(p,&eel_zero);
+#endif
       bufOut += stubsize;
     }
     codesz+=stubsize;
