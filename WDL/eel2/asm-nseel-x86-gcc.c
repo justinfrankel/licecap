@@ -836,25 +836,12 @@ void nseel_asm_sign_end(void) {}
 void nseel_asm_bnot(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fabs\n"
-#ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
-#else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-#endif
-    "fstsw %ax\n"
-    "test $256, %eax\n"
-    "movl %esi, %eax\n"
+    "test %eax, %eax\n"
     "jz 0f\n"
-    "fld1\n"
-    "jmp 1f\n"
+    "subl %eax, %eax\n"
+    "decl %eax\n"
     "0:\n"
-    "fldz\n"
-    "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "incl %eax\n"
   );
 }
 void nseel_asm_bnot_end(void) {}
@@ -863,28 +850,22 @@ void nseel_asm_bnot_end(void) {}
 void nseel_asm_if(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fabs\n"
+    "testl %eax, %eax\n"
 #ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
+    "jz 0f\n"
     "movll $0xfefefefe, %rax\n"
-    "movll %rax, (%esi)\n" // conversion script will extend these out to full len
+    "jmp 1f\n"
+    "0:\n"
     "movll $0xfefefefe, %rax\n"
-    "movll %rax, 8(%esi)\n"
-    "fstsw %ax\n"
-    "shrl $5, %rax\n"
-    "andl $8, %rax\n"
-    "movll (%rax, %rsi), %rax\n"
+    "1:\n"
     "subl $8, %rsp\n"
 #else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-    "movl $0xfefefefe, (%esi)\n"
-    "movl $0xfefefefe, 4(%esi)\n"
-    "fstsw %ax\n"
-    "shrl $6, %eax\n"
-    "andl $4, %eax\n"
-    "movl (%eax, %esi), %eax\n"
+    "jz 0f\n"
+    "movl $0xfefefefe, %eax\n"
+    "jmp 1f\n"
+    "0:\n"
+    "movl $0xfefefefe, %eax\n"
+    "1:\n"
 #endif
     "call *%eax\n"
 #ifdef TARGET_X64
@@ -953,17 +934,8 @@ void nseel_asm_repeatwhile(void)
       "popl %ecx\n"
       "popl %esi\n"
       "addl $8, %esp\n" /* keep stack aligned -- required on x86 and x64 */ 
-      "fld" EEL_F_SUFFIX " (%eax)\n"
-	  "fabs\n"
-#ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
-#else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-#endif
-      "fstsw %ax\n"
-	  "testl $256, %eax\n"
-	  "jnz 0f\n"
+	  "testl %eax, %eax\n"
+	  "jz 0f\n"
     "decl %ecx\n"
     "jnz 0b\n"
 	"0:\n"
@@ -976,47 +948,18 @@ void nseel_asm_repeatwhile_end(void) {}
 void nseel_asm_band(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fabs\n"
-#ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
-#else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-#endif
-    "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "jnz 0f\n" // if Z, then we are nonzero
+    "testl %eax, %eax\n"
+    "jz 0f\n"
 
-        "movl $0xfefefefe, %ecx\n"
+     "movl $0xfefefefe, %ecx\n"
 #ifdef TARGET_X64
-    "subl $8, %rsp\n"
+        "subl $8, %rsp\n"
 #endif
         "call *%ecx\n"
 #ifdef TARGET_X64
-    "addl $8, %rsp\n"
+        "addl $8, %rsp\n"
 #endif
-    	"fld" EEL_F_SUFFIX " (%eax)\n"
-    	"fabs\n"
-#ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
-#else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-#endif
-    	"fstsw %ax\n"
-        "testl $256, %eax\n"
-	"jnz 0f\n"
-	"fld1\n"
-	"jmp 1f\n"
-
-"0:\n"
-    "fldz\n"
-"1:\n"
-
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "0:\n"
   );
 }
 void nseel_asm_band_end(void) {}
@@ -1024,47 +967,18 @@ void nseel_asm_band_end(void) {}
 void nseel_asm_bor(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fabs\n"
-#ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
-#else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-#endif
-    "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "jz 0f\n" // if Z, then we are nonzero
+    "testl %eax, %eax\n"
+    "jnz 0f\n"
 
-        "movl $0xfefefefe, %ecx\n"
+    "movl $0xfefefefe, %ecx\n"
 #ifdef TARGET_X64
     "subl $8, %rsp\n"
 #endif
-        "call *%ecx\n"
+    "call *%ecx\n"
 #ifdef TARGET_X64
     "addl $8, %rsp\n"
 #endif
-    	"fld" EEL_F_SUFFIX " (%eax)\n"
-    	"fabs\n"
-#ifdef TARGET_X64
-    "movl $0xfefefefe, %rax\n"
-    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
-#else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
-#endif
-    	"fstsw %ax\n"
-        "testl $256, %eax\n"
-	"jz 0f\n"
-	"fldz\n"
-	"jmp 1f\n"
-
-"0:\n"
-    "fld1\n"
-"1:\n"
-
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "0:\n"
   );
 }
 void nseel_asm_bor_end(void) {}
@@ -1073,7 +987,6 @@ void nseel_asm_bor_end(void) {}
 void nseel_asm_equal(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fsub" EEL_F_SUFFIX " (%edi)\n"
     "fabs\n"
 #ifdef TARGET_X64
@@ -1083,16 +996,7 @@ void nseel_asm_equal(void)
     "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
 #endif
     "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "movl %esi, %eax\n"
-    "jz 0f\n"
-    "fld1\n"
-    "jmp 1f\n"
-    "0:\n"
-    "fldz\n"
-    "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n" 
+    "andl $256, %eax\n" // old behavior: if 256 set, true (NaN means true)
   );
 }
 void nseel_asm_equal_end(void) {}
@@ -1101,7 +1005,6 @@ void nseel_asm_equal_end(void) {}
 void nseel_asm_notequal(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fsub" EEL_F_SUFFIX " (%edi)\n"
     "fabs\n"
 #ifdef TARGET_X64
@@ -1111,16 +1014,8 @@ void nseel_asm_notequal(void)
     "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
 #endif
     "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "movl %esi, %eax\n"
-    "jnz 0f\n"
-    "fld1\n"
-    "jmp 1f\n"
-    "0:\n"
-    "fldz\n"
-    "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n" 
+    "andl $256, %eax\n"
+    "xorl $256, %eax\n" // old behavior: if 256 set, FALSE (NaN makes for false)
   );
 }
 void nseel_asm_notequal_end(void) {}
@@ -1131,18 +1026,9 @@ void nseel_asm_below(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fcomp" EEL_F_SUFFIX " (%eax)\n"
+    "fcompp\n"
     "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "movl %esi, %eax\n"
-    "jz 0f\n"
-    "fld1\n"
-    "jmp 1f\n"
-    "0:\n"
-    "fldz\n"
-    "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "andl $1280, %eax\n" //  (1024+256) old behavior: NaN would mean 1, preserve that
   );
 }
 void nseel_asm_below_end(void) {}
@@ -1151,19 +1037,10 @@ void nseel_asm_below_end(void) {}
 void nseel_asm_beloweq(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fcomp" EEL_F_SUFFIX " (%edi)\n"
     "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "movl %esi, %eax\n"
-    "jnz 0f\n"
-    "fld1\n"
-    "jmp 1f\n"
-    "0:\n"
-    "fldz\n"
-    "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "andl $256, %eax\n" // old behavior: NaN would be 0 (ugh)
+    "xorl $256, %eax\n"
   );
 }
 void nseel_asm_beloweq_end(void) {}
@@ -1173,19 +1050,9 @@ void nseel_asm_beloweq_end(void) {}
 void nseel_asm_above(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fcomp" EEL_F_SUFFIX " (%edi)\n"
     "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "movl %esi, %eax\n"
-    "jz 0f\n"
-    "fld1\n"
-    "jmp 1f\n"
-    "0:\n"
-    "fldz\n"
-    "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "andl $1280, %eax\n" //  (1024+256) old behavior: NaN would mean 1, preserve that
   );
 }
 void nseel_asm_above_end(void) {}
@@ -1194,22 +1061,45 @@ void nseel_asm_aboveeq(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fcomp" EEL_F_SUFFIX " (%eax)\n"
+    "fcompp\n"
     "fstsw %ax\n"
-    "testl $256, %eax\n"
-    "movl %esi, %eax\n"
-    "jnz 0f\n"
+    "andl $256, %eax\n" // old behavior: NaN would be 0 (ugh)
+    "xorl $256, %eax\n"
+
+  );
+}
+void nseel_asm_aboveeq_end(void) {}
+
+void nseel_asm_booltofp(void)
+{
+  __asm__(
+    "testl %eax, %eax\n"
+    "jz 0f\n"
     "fld1\n"
     "jmp 1f\n"
     "0:\n"
     "fldz\n"
     "1:\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
-void nseel_asm_aboveeq_end(void) {}
+void nseel_asm_booltofp_end(void) {}
 
+void nseel_asm_fptobool(void)
+{
+  __asm__(
+    "fabs\n"
+#ifdef TARGET_X64
+    "movl $0xfefefefe, %rax\n"
+    "fcomp" EEL_F_SUFFIX " (%rax)\n" //[g_closefact]
+#else
+    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
+#endif
+    "fstsw %ax\n"
+    "andl $256, %eax\n"
+    "xorl $256, %eax\n"
+  );
+}
+void nseel_asm_fptobool_end(void) {}
 
 
 void nseel_asm_min(void)

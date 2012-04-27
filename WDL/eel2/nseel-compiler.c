@@ -1010,14 +1010,15 @@ static double eel1sigmoid(double x, double constraint)
   #define BIF_RETURNSONSTACK 0x1000
   #define BIF_LASTPARMONSTACK 0x2000
   #define BIF_RETURNSBOOL 0x4000
+#define BIF_LASTPARM_ASBOOL 0x8000
 
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
 
 static functionType fnTable1[] = {
   { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST,  {&g_closefact} },
-  { "_and",   nseel_asm_band,nseel_asm_band_end,  2|NSEEL_NPARAMS_FLAG_CONST } ,
-  { "_or",    nseel_asm_bor,nseel_asm_bor_end,   2|NSEEL_NPARAMS_FLAG_CONST } ,
+  { "_and",   nseel_asm_band,nseel_asm_band_end,  2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
+  { "_or",    nseel_asm_bor,nseel_asm_bor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
   { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST },
   { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST },
 
@@ -1030,13 +1031,13 @@ static functionType fnTable1[] = {
   { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one}  },
   { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero, &eel_one} },
 #else
-  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact} } ,
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&g_closefact} },
-  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST },
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST },
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST },
-  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST },
+  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL, } ,
+  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL, {&g_closefact} },
+  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL, {&g_closefact} },
+  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
+  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
+  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
+  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
 #endif
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2, },
@@ -2090,6 +2091,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
     {
       int lsz=0; 
+      int rvt=RETURNVALUE_NORMAL;
       if (last_nt_parm>=0)
       {
         // push last result
@@ -2098,8 +2100,12 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         parm_size += sizeof(GLUE_PUSH_P1);
       }         
 
-      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, 
-        (pn == n_params - 1 && (cfunc_abiinfo&BIF_LASTPARMONSTACK)) ? RETURNVALUE_FPSTACK : RETURNVALUE_NORMAL,NULL);
+      if (pn == n_params - 1)
+      {
+        if (cfunc_abiinfo&BIF_LASTPARMONSTACK) rvt=RETURNVALUE_FPSTACK;
+        else if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL) rvt=RETURNVALUE_BOOL;
+      }
+      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,NULL);
       if (lsz<0) return -1;
       parm_size += lsz;            
       last_nt_parm = pn;
@@ -2138,17 +2144,32 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
+        if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis)<0) return -1;
       }
       parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
 
-      if ((cfunc_abiinfo&BIF_LASTPARMONSTACK) && pn == n_params-1) // last parameter, but we have an address and we need to load it to the fp stack
+      if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL))) // last parameter, but we have an address and we need to load it to the fp stack
       {
+        // load value to fp stack
         if (bufOut_len < parm_size + GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
         if (bufOut) GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut + parm_size,n_params - 1 - pn); // always fld qword [eax] but we might change that later
         parm_size += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;      
-      }
 
+        if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL)
+        {
+          // convert value on fp stack to bool
+          int stubsize;
+          void *stub = GLUE_realAddress(nseel_asm_fptobool,nseel_asm_fptobool_end,&stubsize);
+          if (!stub || bufOut_len < parm_size + stubsize) return -1;
+          if (bufOut) 
+          {
+            memcpy(bufOut + parm_size,stub,stubsize);
+            EEL_GLUE_set_immediate(bufOut + parm_size,&g_closefact);
+          }
+          parm_size += stubsize;
+        }
+
+      }
     }
   }
   
@@ -2385,12 +2406,11 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       if (bufOut_len < stubsz) return -1;        
       if (!bufOut) return rv_offset+stubsz;
       
-      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_NORMAL, NULL);
+      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
       if (!newblock2) return -1;
       
       memcpy(pwr,stubfunc,stubsz);
       pwr=EEL_GLUE_set_immediate(pwr,newblock2); 
-      EEL_GLUE_set_immediate(pwr,&g_closefact); 
       
       if (computTableSize) (*computTableSize)++;
       return rv_offset+stubsz;
@@ -2403,28 +2423,40 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       int stubsize;        
       unsigned char *newblock2, *p;
       
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_NORMAL, NULL);
+      int rvt = RETURNVALUE_NORMAL;
+      int parm_size;
+
+      if (fn_ptr == fnTable1+3) stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
+      else 
+      {
+        if (fn_ptr == fnTable1+1) 
+        {
+          stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
+        }
+        else 
+        {
+          stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
+        }
+        rvt = RETURNVALUE_BOOL;
+        *calledRvType = RETURNVALUE_BOOL;
+      }
+      
+      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, rvt, NULL);
       if (parm_size < 0) return -1;
       
-      if (fn_ptr == fnTable1+1) stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
-      else if (fn_ptr == fnTable1+3) stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
-      else stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
-      
+
       if (computTableSize) (*computTableSize) ++;
       
       if (bufOut_len < parm_size + stubsize) return -1;
       
       if (bufOut)
       {
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, 
-          RETURNVALUE_NORMAL, NULL);
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, rvt, NULL);
       
         p = bufOut + parm_size;
         memcpy(p, stub, stubsize);
       
-        if (fn_ptr!=fnTable1 + 3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
         p=EEL_GLUE_set_immediate(p,newblock2);
-        if (fn_ptr!=fnTable1 + 3) p=EEL_GLUE_set_immediate(p,&g_closefact); // for or/and
     #ifdef __ppc__
         if (fn_ptr!=fnTable1 + 3) // for or/and on ppc we need a one
         {
@@ -2440,7 +2472,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       void *stub;
       unsigned char *newblock2,*newblock3,*ptr;
       int stubsize;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_NORMAL, NULL);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
       if (parm_size < 0) return -1;
       
       stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
@@ -2458,7 +2490,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         ptr = bufOut + parm_size;
         memcpy(ptr, stub, stubsize);
            
-        ptr=EEL_GLUE_set_immediate(ptr,&g_closefact);
         ptr=EEL_GLUE_set_immediate(ptr,newblock2);
         EEL_GLUE_set_immediate(ptr,newblock3);
       }
