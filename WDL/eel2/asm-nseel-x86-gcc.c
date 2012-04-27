@@ -340,6 +340,7 @@ void nseel_asm_assign(void)
     "subl %rcx, %rcx\n"
     "0:\n"
     "movll %rcx, (%edi)\n"
+    "movll %rdi, %rax\n"
     );
 
 #else
@@ -360,11 +361,13 @@ void nseel_asm_assign(void)
     "0:\n"
     "movl %ecx, (%edi)\n"
     "movl %edx, 4(%edi)\n"
+    "movl %edi, %eax\n"
   );
 #else
   __asm__(
     "movl (%eax), %ecx\n"
     "movl %ecx, (%edi)\n"
+    "movl %edi, %eax\n"
   );
 #endif
 
@@ -428,6 +431,7 @@ void nseel_asm_assign_fast(void)
   __asm__(
     "movll (%rax), %rdx\n"
     "movll %rdx, (%edi)\n"
+    "movll %rdi, %rax\n"
     );
 
 #else
@@ -438,11 +442,13 @@ void nseel_asm_assign_fast(void)
     "movl (%eax), %ecx\n"
     "movl %ecx, (%edi)\n"
     "movl %edx, 4(%edi)\n"
+    "movl %edi, %eax\n"
   );
 #else
   __asm__(
     "movl (%eax), %ecx\n"
     "movl %ecx, (%edi)\n"
+    "movl %edi, %eax\n"
   );
 #endif
 

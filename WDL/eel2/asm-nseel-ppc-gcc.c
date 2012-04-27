@@ -141,6 +141,7 @@ void nseel_asm_assign(void)
   __asm__(
    "lfd f1, 0(r3)\n"
    "stfd f1, 0(r14)\n"
+   "mr r3, r14\n"
   );
 }
 void nseel_asm_assign_end(void) {}

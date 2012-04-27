@@ -558,6 +558,7 @@ label_0:
 label_1:
     
     mov qword ptr [edi], rcx;
+    mov rax, rdi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -592,6 +593,7 @@ label_3:
     
     mov dword ptr [edi], ecx;
     mov dword ptr [edi+4], edx;
+    mov eax, edi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -609,6 +611,7 @@ _emit 0x90;
   __asm {
     mov ecx, dword ptr [eax];
     mov dword ptr [edi], ecx;
+    mov eax, edi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -724,6 +727,7 @@ __declspec(naked) void nseel_asm_assign_fast(void)
   __asm {
     mov rdx, qword ptr [rax];
     mov qword ptr [edi], rdx;
+    mov rax, rdi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -746,6 +750,7 @@ _emit 0x90;
     mov ecx, dword ptr [eax];
     mov dword ptr [edi], ecx;
     mov dword ptr [edi+4], edx;
+    mov eax, edi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -763,6 +768,7 @@ _emit 0x90;
   __asm {
     mov ecx, dword ptr [eax];
     mov dword ptr [edi], ecx;
+    mov eax, edi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
