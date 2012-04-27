@@ -253,6 +253,66 @@ unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
   return (unsigned char *)(p+1);
 }
 
+  #define GLUE_SET_PX_FROM_WTP_SIZE sizeof(int)
+  static void GLUE_SET_PX_FROM_WTP(void *b, int wv)
+  {
+    static const unsigned int tab[3]={
+      0x7e038378, // mr r3, r16
+      0x7e0e8378, // mr r14, r16
+      0x7e0f8378, // mr r15, r16
+    };
+    *(unsigned int *)b = tab[wv];
+  }
+  static int GLUE_POP_FPSTACK_TO_PTR(unsigned char *buf, void *destptr)
+  {
+    // set r3 to destptr
+    // stfd f1, 0(r3)
+    if (buf)
+    {
+      unsigned int *bufptr = (unsigned int *)buf;
+      GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
+      bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
+
+      *bufptr++ = 0xD8230000; // stfd f1, 0(r3)
+    }
+    return GLUE_MOV_PX_DIRECTVALUE_SIZE + sizeof(int);
+  }
+  #define GLUE_POP_FPSTACK_SIZE 0
+  static unsigned int GLUE_POP_FPSTACK[1] = { 0 }; // no need to pop, not a stack
+
+  static unsigned int GLUE_POP_FPSTACK_TOSTACK[] = {
+    0xdc21fff8, // stfdu f1, -8(r1)
+  };
+
+  static unsigned int GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+    0xdc300008, // stfdu f1, 8(r16)
+    0x9601fff8, // stwu r16, -8(r1)
+  };
+
+  static unsigned int GLUE_POP_FPSTACK_TO_WTP[] = { 
+    0xdc300008, // stfdu f1, 8(r16)
+  };
+
+  #define GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE 4
+  static void GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(void *b, int wv)
+  {
+    static const unsigned int tab[3] = {
+      0xC8230000, // lfd f1, 0(r3)
+      0xC82E0000, // lfd f1, 0(r14)
+      0xC82F0000, // lfd f1, 0(r15)
+    };
+    *(unsigned int *)b = tab[wv];
+  }
+
+#define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (sizeof(GLUE_POP_FPSTACK_TO_WTP) + GLUE_SET_PX_FROM_WTP_SIZE)
+static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(char *buf, int wv)
+{
+  memcpy(buf,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
+  GLUE_SET_PX_FROM_WTP(buf + sizeof(GLUE_POP_FPSTACK_TO_WTP),wv); // ppc preincs the WTP, so we do this after
+};
+
+// end of ppc
+
 #else 
 
 //x86 and x86-64 code
@@ -263,6 +323,11 @@ const static unsigned int GLUE_FUNC_ENTER[1];
 const static unsigned int GLUE_FUNC_LEAVE[1];
 
 #if defined(_WIN64) || defined(__LP64__)
+
+  // on x86-64:
+  //  stack is always 16 byte aligned
+  //  pushing values to the stack (for eel functions) has alignment pushed first, then value (value is at the lower address)
+  //  pushing pointers to the stack has the pointer pushed first, then the alignment (pointer is at the higher address)
   #define GLUE_MOV_PX_DIRECTVALUE_SIZE 10
   static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wr) {   
     const static unsigned short tab[3] = 
@@ -276,33 +341,38 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     *(INT_PTR *)bb = v; 
   }
 
-  const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax ; push rax (push twice to preserve alignment)
+  const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax (pointer); push rax (alignment)
 
   #define GLUE_POP_PX_SIZE 2
   static void GLUE_POP_PX(void *b, int wv)
   {
     static const unsigned char tab[3][GLUE_POP_PX_SIZE]=
     {
-      {0x58,/*pop eax*/  0x58}, // pop twice to preserve alignment
+      {0x58,/*pop eax*/  0x58}, // pop alignment, then pop pointer
       {0x5F,/*pop edi*/  0x5F}, 
       {0x59,/*pop ecx*/  0x59}, 
     };    
     memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
   }
 
-  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = {  0xff, 0x30 /* push qword [rax] */, 0x50 /*push rax - for alignment */ };
-  static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
+  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
+  {  
+    0x50, /*push rax - for alignment */  
+    0xff, 0x30, /* push qword [rax] */
+  };
+
+  static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr) // trashes P2 (rdi) and P3 (rcx)
   {    
     if (buf)
     {
       *buf++ = 0x48; *buf++ = 0xB9; *(void **) buf = destptr; buf+=8; // mov rcx, directvalue
-      *buf++ = 0x5F ; // pop rdi (alignment)
       *buf++ = 0x8f; *buf++ = 0x01; // pop qword [rcx]      
+      *buf++ = 0x5F ; // pop rdi (alignment, safe to trash rdi though)
     }
     return 1+10+2;
   }
 
-  static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
+  static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr) // trashes P2/P3
   {    
     if (buf)
     {
@@ -314,32 +384,100 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     return 3 + 10 + 3;
   }
 
+  static int GLUE_POP_FPSTACK_TO_PTR(unsigned char *buf, void *destptr)
+  {
+    if (buf)
+    {
+      *buf++ = 0x48;
+      *buf++ = 0xB8; 
+      *(void **) buf = destptr; buf+=8; // mov rax, directvalue
+      *buf++ = 0xDD; *buf++ = 0x18;  // fstp qword [rax]
+    }
+    return 2+8+2;
+  }
+
+
   #define GLUE_SET_PX_FROM_P1_SIZE 3
   static void GLUE_SET_PX_FROM_P1(void *b, int wv)
   {
     static const unsigned char tab[3][GLUE_SET_PX_FROM_P1_SIZE]={
       {0x90,0x90,0x90}, // should never be used! (nopnop)
-      {0x48,0x89,0xC7}, // mov edi, eax
-      {0x48,0x89,0xC1}, // mov ecx, eax
+      {0x48,0x89,0xC7}, // mov rdi, rax
+      {0x48,0x89,0xC1}, // mov rcx, rax
     };
     memcpy(b,tab[wv],GLUE_SET_PX_FROM_P1_SIZE);
   }
+
+
+  #define GLUE_POP_FPSTACK_SIZE 2
+  static unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
+
+  static unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
+    0x48, 0x81, 0xEC, 16, 0,0,0, // sub rsp, 16 
+    0xDD, 0x1C, 0x24 // fstp qword (%rsp)  
+  };
+
+  static unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+      0x56, //  push rsi (alignment)
+      0x56, //  push rsi (value used)
+      0xDD, 0x1E, // fstp qword [rsi]
+      0x48, 0x81, 0xC6, 8, 0,0,0, // add rsi, 8
+  };
+
+  static unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
+      0xDD, 0x1E, /* fstp qword [rsi] */
+      0x48, 0x81, 0xC6, 8, 0,0,0,/* add rsi, 8 */ 
+  };
+
+  #define GLUE_SET_PX_FROM_WTP_SIZE 3
+  static void GLUE_SET_PX_FROM_WTP(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_SET_PX_FROM_WTP_SIZE]={
+      {0x48, 0x89,0xF0}, // mov rax, rsi
+      {0x48, 0x89,0xF7}, // mov rdi, rsi
+      {0x48, 0x89,0xF1}, // mov rcx, rsi
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+  }
+
+  #define GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE 2
+  static void GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE]={
+      {0xDD,0x00}, // fld qword [rax]
+      {0xDD,0x07}, // fld qword [rdi]
+      {0xDD,0x01}, // fld qword [rcx]
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+  }
+
+// end of x86-64
+
 #else
 
-  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x83, 0xEC, 8, /* sub esp, 8 */   0xff, 0x30 /* push dword [eax] */, 0xff, 0x70, 0x4 /* push dword [eax+4] */ };
+  // x86
+  // stack is 16 byte aligned
+  // when pushing values to stack, alignment pushed first, then value (value is at the lower address)
+  // when pushing pointers to stack, alignment pushed first, then pointer (pointer is at the lower address)
+
+  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
+  { 
+    0x83, 0xEC, 8, /* sub esp, 8 */   
+    0xff, 0x70, 0x4, /* push dword [eax+4] */ 
+    0xff, 0x30, /* push dword [eax] */
+  };
 
   static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
   {    
     if (buf)
     {
       *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
-      
+           
+      *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
       *buf++ = 0x8f; *buf++ = 0x40; *buf++ = 4; // pop dword [eax+4]
       
-      *buf++ = 0x8f; *buf++ = 0x00; // pop dword [eax]
-      
-      *buf++ = 0x59; // pop ecx
-      *buf++ = 0x59; // pop ecx
+      *buf++ = 0x59; // pop ecx (alignment)
+      *buf++ = 0x59; // pop ecx (alignment)
     }
     
     return 12;
@@ -359,6 +497,16 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     }
     
     return 2 + 3 + 5 + 2 + 3;
+  }
+
+  static int GLUE_POP_FPSTACK_TO_PTR(unsigned char *buf, void *destptr)
+  {
+    if (buf)
+    {
+      *buf++ = 0xB8; *(void **) buf = destptr; buf+=4; // mov eax, directvalue
+      *buf++ = 0xDD; *buf++ = 0x18;  // fstp qword [eax]
+    }
+    return 1+4+2;
   }
 
 
@@ -399,7 +547,57 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     memcpy(b,tab[wv],GLUE_SET_PX_FROM_P1_SIZE);
   }
 
+  #define GLUE_POP_FPSTACK_SIZE 2
+  static unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
+
+  static unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
+    0x83, 0xEC, 16, // sub esp, 16
+    0xDD, 0x1C, 0x24 // fstp qword (%esp)  
+  };
+
+ 
+  static unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+      0xDD, 0x1E, // fstp qword [esi]
+      0x83, 0xEC, 12, // sub esp, 12 
+      0x56, //  push esi
+      0x83, 0xC6, 8, // add esi, 8
+  };
+
+  static unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
+      0xDD, 0x1E, /* fstp qword [esi] */
+      0x83, 0xC6, 8, /* add esi, 8 */ 
+  };
+
+  #define GLUE_SET_PX_FROM_WTP_SIZE 2
+  static void GLUE_SET_PX_FROM_WTP(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_SET_PX_FROM_WTP_SIZE]={
+      {0x89,0xF0}, // mov eax, esi
+      {0x89,0xF7}, // mov edi, esi
+      {0x89,0xF1}, // mov ecx, esi
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+  }
+
+  #define GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE 2
+  static void GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE]={
+      {0xDD,0x00}, // fld qword [eax]
+      {0xDD,0x07}, // fld qword [edi]
+      {0xDD,0x01}, // fld qword [ecx]
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+  }
+
 #endif
+
+#define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (GLUE_SET_PX_FROM_WTP_SIZE + sizeof(GLUE_POP_FPSTACK_TO_WTP))
+static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(char *buf, int wv)
+{
+  GLUE_SET_PX_FROM_WTP(buf,wv);
+  memcpy(buf + GLUE_SET_PX_FROM_WTP_SIZE,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
+};
 
 
 const static unsigned char  GLUE_RET=0xC3;
@@ -802,6 +1000,20 @@ static double eel1sigmoid(double x, double constraint)
 
 #endif
 
+
+
+#define FUNCTIONTYPE_PARAMETERCOUNTMASK 0xff
+#define BIF_NPARAMS_MASK 0xf000
+
+#ifndef __ppc__
+  #define BIF_RETURNSONSTACK 0x1000
+  #define BIF_LASTPARMONSTACK 0x2000
+#else
+  #define BIF_RETURNSONSTACK 0
+  #define BIF_LASTPARMONSTACK 0
+#endif
+
+
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
 
 static functionType fnTable1[] = {
@@ -1146,8 +1358,8 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 }
 
 
-static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable, const char *namespacePathToThis);
-static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis);
+static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable, const char *namespacePathToThis, int *rvOnFPStack);
+static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis, int *rvOnFPStack);
 
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr)
 {
@@ -1199,7 +1411,7 @@ static void combineNamespaceFields(char *nm, const char *prefix, const char *rel
 static void *nseel_getBuiltinFunctionAddress(compileContext *ctx, 
       int fntype, void *fn, 
       NSEEL_PPPROC *pProc, void ***replList, 
-      void **endP)
+      void **endP, int *abiInfo)
 {
   switch (fntype)
   {
@@ -1222,6 +1434,7 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
         *replList=p->replptrs;
         *pProc=p->pProc;
         *endP = p->func_e;
+        *abiInfo = p->nParams & BIF_NPARAMS_MASK;
         return p->afunc; 
       }
     break;
@@ -1237,7 +1450,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       int *customFuncParmSize, int *customFuncLocalStorageSize,
       EEL_F ***customFuncLocalStorage, int *computTableTop, 
       void **endP, int *isRaw, int wantCodeGenerated,
-      const char *namespacePathToThis) // if wantCodeGenerated is false, can return bogus pointers in raw mode
+      const char *namespacePathToThis, int *rvOnStack) // if wantCodeGenerated is false, can return bogus pointers in raw mode
 {
   _codeHandleFunctionRec *fn = (_codeHandleFunctionRec*)op->fn;
   switch (op->fntype)
@@ -1301,8 +1514,9 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
         {
           int sz;
           fr->tmpspace_req=0;
+          fr->rvOnStack = 0;
 
-          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix);
+          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix,&fr->rvOnStack);
 
           if (!wantCodeGenerated)
           {
@@ -1311,6 +1525,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             *customFuncParmSize = fr->num_params;
             *customFuncLocalStorage = fr->localstorage;
             *customFuncLocalStorageSize = fr->localstorage_size;
+            *rvOnStack = fr->rvOnStack;
 
             if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
             {
@@ -1328,7 +1543,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             fr->tmpspace_req=0;
             if (p)
             {
-              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req,fPrefix);
+              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req,fPrefix,&fr->rvOnStack);
               // recompile function with native context pointers
               if (sz>0)
               {
@@ -1341,7 +1556,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           {
             unsigned char *codeCall;
             fr->tmpspace_req=0;
-            codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req,fPrefix);
+            codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req,fPrefix,&fr->rvOnStack);
             if (codeCall)
             {
               void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
@@ -1361,6 +1576,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           *customFuncParmSize = fr->num_params;
           *customFuncLocalStorage = fr->localstorage;
           *customFuncLocalStorageSize = fr->localstorage_size;
+          *rvOnStack = fr->rvOnStack;
           *endP = (char*)fr->startptr + fr->startptr_size;
           *isRaw=1;
           return fr->startptr;
@@ -1745,17 +1961,35 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
 }
 
 
-unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis)
+unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis, int *rvOnStack)
 {
   unsigned char *p, *newblock2;
+  int rvos=0;
+  int extra_sz=0;
   // generate code call
-  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis);
+  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,&rvos);
   if (funcsz<0) return NULL;
-  
-  p = newblock2 = newCodeBlock(funcsz+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+ 
+  if (!rvOnStack)
+  {
+    if (rvos) extra_sz += GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
+  }
+  else
+  {
+    *rvOnStack = rvos;
+  }
+
+  p = newblock2 = newCodeBlock(funcsz+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE+extra_sz,32);
   if (!newblock2) return NULL;
   memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
-  p+=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis);         
+  p+=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis,&rvos);         
+
+  if (extra_sz)
+  {
+    GLUE_POP_FPSTACK_TO_WTP_TO_PX(p,0);
+    p+=GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
+  }
+
   memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
   
@@ -1764,17 +1998,19 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
 }      
 
 
-static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
+static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *rvOnStack)
 {
   // builtin function generation
+  int cfunc_abiinfo=0;
   int func_size=0, parm_size=0;
   int pn;
   int last_nt_parm=-1;
+  int last_nt_parm_onstack=0;
   void *func_e=NULL;
   int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
   NSEEL_PPPROC preProc=0;
   void **repl=NULL;
-  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e);
+  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e,&cfunc_abiinfo);
 
   if (!func) return -1;
 
@@ -1860,11 +2096,27 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       if (last_nt_parm>=0)
       {
         // push last result
-        if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
-        if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
-        parm_size += sizeof(GLUE_PUSH_P1);
+        if (last_nt_parm_onstack)
+        {
+          if (bufOut_len < parm_size + (int)(sizeof(GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR))) return -1;
+          if (bufOut) 
+          {
+            memcpy(bufOut + parm_size, &GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR, sizeof(GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR));
+          }
+          parm_size += sizeof(GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR);
+          
+          // store to [esi], push esi, advance esi by sizeof(EEL_F)
+        }
+        else
+        {
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+          if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+          parm_size += sizeof(GLUE_PUSH_P1);
+        }
       }         
-      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
+
+      last_nt_parm_onstack=0;
+      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, &last_nt_parm_onstack);
       if (lsz<0) return -1;
       parm_size += lsz;            
       last_nt_parm = pn;
@@ -1872,13 +2124,39 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   }
 
   pn = last_nt_parm;
-  // if the last thing executed doesn't go to the last parameter, move it there
-  if (pn >= 0 && pn != n_params-1)
+  
+  if (last_nt_parm_onstack)  // last thing executed is still on fp stack, move it to temp space and set the parm addr to that
   {
-    // generate mov p1->pX
-    if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
-    if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
-    parm_size += GLUE_SET_PX_FROM_P1_SIZE;
+    if ((cfunc_abiinfo&BIF_LASTPARMONSTACK) && pn == n_params - 1)
+    {
+      // yay, do nothing! (last parameter needs to be on the fp stack, and it is)
+    }
+    else
+    {
+      // need to get the parameter off of the fp stack and put it in temp space, setting up the correct register to point to it
+      if (bufOut_len < parm_size + GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) return -1;
+      if (bufOut) 
+      {      
+        GLUE_POP_FPSTACK_TO_WTP_TO_PX(bufOut + parm_size,n_params - 1 - pn);
+      }
+      parm_size += GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
+    }
+  }
+  else if (pn >= 0) // if the last thing executed doesn't go to the last parameter, move it there
+  {
+    if (pn != n_params-1)
+    {
+      // generate mov p1->pX
+      if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
+      if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
+      parm_size += GLUE_SET_PX_FROM_P1_SIZE;
+    }
+    else if (cfunc_abiinfo&BIF_LASTPARMONSTACK) // last parameter, but we have an address and we need to load it to the fp stack
+    {
+      if (bufOut_len < parm_size + GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
+      if (bufOut) GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut + parm_size,n_params - 1 - pn); // always fld qword [eax] but we might change that later
+      parm_size += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;      
+    }
   }
 
   // pop any pushed parameters
@@ -1903,6 +2181,14 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params-1 - pn,namespacePathToThis)<0) return -1;
       }
       parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
+
+      if ((cfunc_abiinfo&BIF_LASTPARMONSTACK) && pn == n_params-1) // last parameter, but we have an address and we need to load it to the fp stack
+      {
+        if (bufOut_len < parm_size + GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
+        if (bufOut) GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut + parm_size,n_params - 1 - pn); // always fld qword [eax] but we might change that later
+        parm_size += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;      
+      }
+
     }
   }
   
@@ -1922,15 +2208,31 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
     }
   }
+
+  if (rvOnStack)
+  {
+    *rvOnStack = !!(cfunc_abiinfo&BIF_RETURNSONSTACK);
+  }
+  else if (cfunc_abiinfo&BIF_RETURNSONSTACK)
+  {
+    if (bufOut_len < parm_size+func_size+GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) return -1;
+
+    // generate fp-pop to temp space
+    if (bufOut)
+    {
+      GLUE_POP_FPSTACK_TO_WTP_TO_PX(bufOut + parm_size+func_size,0);
+    }
+    func_size+=GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
+  }
   return parm_size + func_size;
   // end of builtin function generation
 }
-static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
-{
 
+static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *rvOnFPStack)
+{
   int func_size=0, parm_size=0;
   int pn;
-  int last_nt_parm=-1;
+  int last_nt_parm=-1,last_nt_parm_onstack=0;
   void *func_e=NULL;
   int n_params;
   opcodeRec *parmptrs[NSEEL_MAX_EELFUNC_PARAMETERS];
@@ -1939,6 +2241,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   EEL_F **cfp_ptrs=NULL;
   int func_raw=0;
   int do_parms;
+  int eelfunc_rv_on_stack=0;
 
   void *func;
 
@@ -1969,7 +2272,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
                                       &cfp_numparams,&cfp_statesize,&cfp_ptrs, 
                                       computTableSize, 
                                       &func_e, &func_raw,                                              
-                                      !!bufOut,namespacePathToThis);
+                                      !!bufOut,namespacePathToThis,&eelfunc_rv_on_stack);
 
   if (func_raw) func_size = (char*)func_e  - (char*)func;
   else if (func) func = GLUE_realAddress(func,func_e,&func_size);
@@ -2007,44 +2310,92 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
     
     if (OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // skip and process after
 
-    if (last_nt_parm >= 0 && do_parms)
+    if (last_nt_parm >= 0)
     {
-      if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
+      if (last_nt_parm_onstack)
+      {
+        if (do_parms)
+        {
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) return -1;
+          if (bufOut) memcpy(bufOut + parm_size,GLUE_POP_FPSTACK_TOSTACK,sizeof(GLUE_POP_FPSTACK_TOSTACK));
+          parm_size+=sizeof(GLUE_POP_FPSTACK_TOSTACK);
+        }
+        else
+        {
+          // toss return value that will be ignored
+          if (bufOut_len < parm_size + GLUE_POP_FPSTACK_SIZE) return -1;
+          if (bufOut) memcpy(bufOut + parm_size,GLUE_POP_FPSTACK,GLUE_POP_FPSTACK_SIZE);
+          parm_size+=GLUE_POP_FPSTACK_SIZE;
+        }
+      }
+      else
+      {
+        if (do_parms)
+        {
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
       
-      // push
-      if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
-      parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
+          // push
+          if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
+          parm_size+=sizeof(GLUE_PUSH_P1PTR_AS_VALUE);
+        }
+      }
     }
 
-    lsz = compileOpcodes(ctx,parmptrs[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis);
+    last_nt_parm_onstack=0;
+    lsz = compileOpcodes(ctx,parmptrs[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis,&last_nt_parm_onstack);
     if (lsz<0) return -1;
     parm_size += lsz;
 
     last_nt_parm = pn;
   }
   // pop non-trivial results into place
-  if (last_nt_parm >=0 && do_parms)
+  if (last_nt_parm >=0)
   {
-    while (--pn >= 0)
-    { 
-      if (OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // skip and process after
-      if (pn == last_nt_parm)
+    if (!do_parms)
+    {
+      if (last_nt_parm_onstack)
       {
-        // copy direct p1ptr to mem
-        const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
-        if (bufOut_len < parm_size + cpsize) return -1;
-
-        if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
-        parm_size += cpsize;
+        // toss return value that will be ignored
+        if (bufOut_len < parm_size + GLUE_POP_FPSTACK_SIZE) return -1;
+        if (bufOut) memcpy(bufOut + parm_size,GLUE_POP_FPSTACK,GLUE_POP_FPSTACK_SIZE);
+        parm_size+=GLUE_POP_FPSTACK_SIZE;
       }
-      else
-      {
-        const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
-        if (bufOut_len < parm_size + popsize) return -1;
+    }
+    else
+    {
+      while (--pn >= 0)
+      { 
+        if (OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // skip and process after
+        if (pn == last_nt_parm)
+        {
+          if (last_nt_parm_onstack)
+          {
+            // pop to memory directly
+            const int cpsize = GLUE_POP_FPSTACK_TO_PTR(NULL,NULL);
+            if (bufOut_len < parm_size + cpsize) return -1;
 
-        if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
-        parm_size+=popsize;
+            if (bufOut) GLUE_POP_FPSTACK_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
+            parm_size += cpsize;
+          }
+          else
+          {
+            // copy direct p1ptr to mem
+            const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
+            if (bufOut_len < parm_size + cpsize) return -1;
 
+            if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
+            parm_size += cpsize;
+          }
+        }
+        else
+        {
+          const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
+          if (bufOut_len < parm_size + popsize) return -1;
+
+          if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
+          parm_size+=popsize;
+
+        }
       }
     }
   }
@@ -2074,12 +2425,28 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   if (bufOut_len < parm_size + func_size) return -1;
   
   if (bufOut) memcpy(bufOut + parm_size, func, func_size);
+
+  if (rvOnFPStack)
+  {
+    *rvOnFPStack = eelfunc_rv_on_stack;
+  }
+  else if (eelfunc_rv_on_stack)
+  {
+    if (bufOut_len < parm_size+func_size+GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) return -1;
+
+    // generate fp-pop to temp space
+    if (bufOut)
+    {
+      GLUE_POP_FPSTACK_TO_WTP_TO_PX(bufOut + parm_size+func_size,0);
+    }
+    func_size+=GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
+  }
   
   return parm_size + func_size;
   // end of EEL function generation
 }
 
-int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis)
+int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *rvOnStack)
 {
   int rv_offset=0;
   if (!op) return -1;
@@ -2088,7 +2455,8 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
   while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
+    int rvsl = 0;
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, &rvsl);
     if (parm_size < 0) return -1;
     op = op->parms.parms[1];
     if (!op) return -1;
@@ -2096,6 +2464,19 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     if (bufOut) bufOut += parm_size;
     bufOut_len -= parm_size;
     rv_offset += parm_size;
+
+    if (rvsl) 
+    {
+      // pop return value and ignore it
+      int psz = GLUE_POP_FPSTACK_SIZE;
+      if (bufOut) 
+      {
+        memcpy(bufOut,GLUE_POP_FPSTACK,GLUE_POP_FPSTACK_SIZE);
+        bufOut += GLUE_POP_FPSTACK_SIZE;
+      }
+      bufOut_len -= GLUE_POP_FPSTACK_SIZE;
+      rv_offset += GLUE_POP_FPSTACK_SIZE;
+    }
   }
 
 
@@ -2111,7 +2492,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       if (bufOut_len < stubsz) return -1;        
       if (!bufOut) return rv_offset+stubsz;
       
-      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis);
+      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, NULL); // NULL for rvOnFPStack means always give us an address back
       if (!newblock2) return -1;
       
       memcpy(bufOut,stubfunc,stubsz);
@@ -2129,7 +2510,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       int stubsize;        
       unsigned char *newblock2, *p;
       
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, NULL);
       if (parm_size < 0) return -1;
       
       if (fn_ptr == fnTable1+1) stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
@@ -2145,7 +2526,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         return rv_offset + parm_size + stubsize;
       }
       
-      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis);
+      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, NULL); // NULL for rvOnFPStack means always give us an address back
       
       p = bufOut + parm_size;
       memcpy(p, stub, stubsize);
@@ -2167,7 +2548,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       void *stub;
       unsigned char *newblock2,*newblock3,*ptr;
       int stubsize;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, NULL);
       if (parm_size < 0) return -1;
       
       stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
@@ -2182,8 +2563,8 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       }
       
       
-      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis);
-      newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis);
+      newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, NULL); // NULL for rvOnFPStack means always give us an address back
+      newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, NULL);
       if (!newblock2 || !newblock3) return -1;
       
       ptr = bufOut + parm_size;
@@ -2227,13 +2608,13 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
         
         if (op->fntype == FUNCTYPE_EELFUNC_THIS || op->fntype == FUNCTYPE_EELFUNC)
         {
-          int a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis);
+          int a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, rvOnStack);
           if (a<0)return a;
           return rv_offset + a;
         }
         else
         {
-          int a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis);
+          int a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, rvOnStack);
           if (a<0)return a;
           return rv_offset + a;
         }        
@@ -3063,7 +3444,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
            
     if (start_opcode)
     {
-
+      int rvonstack=0;
 
 #ifdef LOG_OPT
       char buf[512];
@@ -3084,7 +3465,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #endif
 #endif
 
-      startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL);
+      startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL, 
+        is_fname[0] ? &rvonstack : NULL); // if not a function, force return value as address (avoid having to pop it ourselves
+                                          // if a function, allow the code to decide how return values are generated
 
       if (is_fname[0])
       {
@@ -3095,6 +3478,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
           memset(fr,0,sizeof(_codeHandleFunctionRec));
           fr->startptr_size = startptr_size;
           fr->opcodes = start_opcode;
+          fr->rvOnStack = rvonstack;
       
           fr->tmpspace_req = computTableTop;
 
@@ -3130,7 +3514,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
         startptr = newTmpBlock(ctx,startptr_size);
         if (startptr)
         {
-          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop, NULL);
+          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop, NULL, NULL);
           if (startptr_size<=0) startptr = NULL;
           
         }
@@ -3716,7 +4100,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
       functionType *f=nseel_getFunctionFromTable(i);
       if (!strcasecmp(f->name, nptr))
       {
-        int np=f->nParams&0xff;
+        int np=f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK;
         switch (np)
         {
           case 0:
