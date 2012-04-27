@@ -1005,13 +1005,8 @@ static double eel1sigmoid(double x, double constraint)
 #define FUNCTIONTYPE_PARAMETERCOUNTMASK 0xff
 #define BIF_NPARAMS_MASK 0xf000
 
-#ifndef __ppc__
   #define BIF_RETURNSONSTACK 0x1000
   #define BIF_LASTPARMONSTACK 0x2000
-#else
-  #define BIF_RETURNSONSTACK 0
-  #define BIF_LASTPARMONSTACK 0
-#endif
 
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
@@ -1045,13 +1040,13 @@ static functionType fnTable1[] = {
   { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST },
   { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST },
   { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST },
-  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2},
-  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2},
+  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK},
+  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK},
   { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2}, 
   { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2}, 
   { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2}, 
-  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2}, 
-  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2}, 
+  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK}, 
+  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK}, 
   { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2}, 
 
 
@@ -1060,9 +1055,9 @@ static functionType fnTable1[] = {
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&cos} },
    { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&tan}  },
 #else
-   { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST },
-   { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST },
-   { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST },
+   { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+   { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+   { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
 #endif
    { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&asin}, },
    { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&acos}, },
@@ -1072,7 +1067,7 @@ static functionType fnTable1[] = {
 #ifdef __ppc__
    { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&sqrt}, },
 #else
-   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST },
+   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
 #endif
    { "pow",    nseel_asm_2pdd,nseel_asm_2pdd_end,   2|NSEEL_NPARAMS_FLAG_CONST, {&pow}, },
    { "_powop",    nseel_asm_2pdds,nseel_asm_2pdds_end,   2, {&pow}, },
@@ -1081,10 +1076,10 @@ static functionType fnTable1[] = {
    { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&log} },
    { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST, {&log10} },
 #else
-   { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST, },
-   { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST, },
+   { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, },
+   { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, },
 #endif
-   { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1|NSEEL_NPARAMS_FLAG_CONST },
+   { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
    { "min",    nseel_asm_min,nseel_asm_min_end,   2|NSEEL_NPARAMS_FLAG_CONST },
    { "max",    nseel_asm_max,nseel_asm_max_end,   2|NSEEL_NPARAMS_FLAG_CONST },
 #ifdef __ppc__
@@ -1106,7 +1101,7 @@ static functionType fnTable1[] = {
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&negativezeropointfive, &onepointfive} },
 #endif
 
-  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST } ,
+  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK } ,
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
   { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel1sigmoid}, },
@@ -1407,6 +1402,7 @@ static void combineNamespaceFields(char *nm, const char *prefix, const char *rel
   nm[lfp++]=0;
 }
 
+
 //---------------------------------------------------------------------------------------------------------------
 static void *nseel_getBuiltinFunctionAddress(compileContext *ctx, 
       int fntype, void *fn, 
@@ -1416,13 +1412,13 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
   switch (fntype)
   {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
-    case FN_ADD: RF(add);
-    case FN_SUB: RF(sub);
-    case FN_MULTIPLY: RF(mul);
-    case FN_DIVIDE: RF(div);
+    case FN_ADD: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(add);
+    case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(sub);
+    case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(mul);
+    case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(div);
     case FN_JOIN_STATEMENTS: RF(exec2);
-    case FN_AND: RF(and);
-    case FN_OR: RF(or);
+    case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(and);
+    case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(or);
     case FN_UPLUS: RF(uplus); 
     case FN_UMINUS: RF(uminus);
 #undef RF
@@ -1686,7 +1682,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
             if (!(WDL_INT64)dvalue)
             {
               // replace with or0
-              static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1|NSEEL_NPARAMS_FLAG_CONST, {0}, NULL};
+              static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSONSTACK, {0}, NULL};
 
               op->opcodeType = OPCODETYPE_FUNC1;
               op->fntype = FUNCTYPE_FUNCTIONTYPEREC;

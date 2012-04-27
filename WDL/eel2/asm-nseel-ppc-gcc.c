@@ -135,10 +135,7 @@ void nseel_asm_sqr_end(void) {}
 void nseel_asm_abs(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "fabs f1, f1\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_abs_end(void) {}
@@ -158,11 +155,8 @@ void nseel_asm_assign_end(void) {}
 void nseel_asm_add(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fadd f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_add_end(void) {}
@@ -170,7 +164,6 @@ void nseel_asm_add_end(void) {}
 void nseel_asm_add_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fadd f1, f1, f2\n"
    "stfd f1, 0(r14)\n"
@@ -184,11 +177,8 @@ void nseel_asm_add_op_end(void) {}
 void nseel_asm_sub(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fsub f1, f2, f1\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_sub_end(void) {}
@@ -196,7 +186,6 @@ void nseel_asm_sub_end(void) {}
 void nseel_asm_sub_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fsub f1, f2, f1\n"
    "stfd f1, 0(r14)\n"
@@ -209,11 +198,8 @@ void nseel_asm_sub_op_end(void) {}
 void nseel_asm_mul(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fmul f1, f2, f1\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_mul_end(void) {}
@@ -221,7 +207,6 @@ void nseel_asm_mul_end(void) {}
 void nseel_asm_mul_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fmul f1, f2, f1\n"
    "stfd f1, 0(r14)\n"
@@ -234,11 +219,8 @@ void nseel_asm_mul_op_end(void) {}
 void nseel_asm_div(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fdiv f1, f2, f1\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_div_end(void) {}
@@ -246,7 +228,6 @@ void nseel_asm_div_end(void) {}
 void nseel_asm_div_op(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fdiv f1, f2, f1\n"
    "stfd f1, 0(r14)\n"
@@ -390,7 +371,6 @@ void nseel_asm_mod_op_end(void) {}
 void nseel_asm_or(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -409,8 +389,6 @@ void nseel_asm_or(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_or_end(void) {}
@@ -418,7 +396,6 @@ void nseel_asm_or_end(void) {}
 void nseel_asm_or0(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "addis r11, 0, 0x4330\n"
    "fctiwz f1, f1\n"
    "addis r12, 0, 0x8000\n"
@@ -432,8 +409,6 @@ void nseel_asm_or0(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_or0_end(void) {}
@@ -470,7 +445,6 @@ void nseel_asm_or_op_end(void) {}
 void nseel_asm_xor(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -489,8 +463,6 @@ void nseel_asm_xor(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );
 }
 void nseel_asm_xor_end(void) {}
@@ -527,7 +499,6 @@ void nseel_asm_xor_op_end(void) {}
 void nseel_asm_and(void)
 {
   __asm__(
-   "lfd f1, 0(r3)\n"
    "lfd f2, 0(r14)\n"
    "fctiwz f1, f1\n"
    "fctiwz f2, f2\n"
@@ -546,8 +517,6 @@ void nseel_asm_and(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   );}
 void nseel_asm_and_end(void) {}
 

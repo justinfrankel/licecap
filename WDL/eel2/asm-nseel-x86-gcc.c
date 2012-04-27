@@ -249,11 +249,7 @@ void nseel_asm_invsqrt_end(void) {}
 void nseel_asm_sin(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fsin\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_sin_end(void) {}
@@ -262,11 +258,7 @@ void nseel_asm_sin_end(void) {}
 void nseel_asm_cos(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fcos\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_cos_end(void) {}
@@ -275,12 +267,8 @@ void nseel_asm_cos_end(void) {}
 void nseel_asm_tan(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fptan\n"
-    "movl %esi, %eax\n"
     "fstp %st(0)\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_tan_end(void) {}
@@ -302,12 +290,8 @@ void nseel_asm_sqr_end(void) {}
 void nseel_asm_sqrt(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fabs\n"
     "fsqrt\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_sqrt_end(void) {}
@@ -318,11 +302,8 @@ void nseel_asm_log(void)
 {
   __asm__(
     "fldln2\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
+    "fxch\n"
     "fyl2x\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_log_end(void) {}
@@ -332,11 +313,8 @@ void nseel_asm_log10(void)
 {
   __asm__(
     "fldlg2\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
+    "fxch\n"
     "fyl2x\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
     
   );
 }
@@ -346,11 +324,7 @@ void nseel_asm_log10_end(void) {}
 void nseel_asm_abs(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fabs\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_abs_end(void) {}
@@ -440,11 +414,7 @@ void nseel_asm_assign_fast_end(void) {}
 void nseel_asm_add(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fadd" EEL_F_SUFFIX " (%edi)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_add_end(void) {}
@@ -452,7 +422,6 @@ void nseel_asm_add_end(void) {}
 void nseel_asm_add_op(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fadd" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -465,11 +434,8 @@ void nseel_asm_add_op_end(void) {}
 void nseel_asm_sub(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fsub" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "fsub" EEL_F_SUFFIX " (%edi)\n"
+    "fchs\n"
   );
 }
 void nseel_asm_sub_end(void) {}
@@ -477,9 +443,9 @@ void nseel_asm_sub_end(void) {}
 void nseel_asm_sub_op(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fsub" EEL_F_SUFFIX " (%eax)\n"
+    "fsub" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
+    "fchs\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
   );
 }
@@ -489,11 +455,7 @@ void nseel_asm_sub_op_end(void) {}
 void nseel_asm_mul(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fmul" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "fmul" EEL_F_SUFFIX " (%edi)\n"
   );
 }
 void nseel_asm_mul_end(void) {}
@@ -501,7 +463,6 @@ void nseel_asm_mul_end(void) {}
 void nseel_asm_mul_op(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fmul" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -514,10 +475,7 @@ void nseel_asm_div(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fdiv" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "fdiv\n" // a2x64 and a2i.php should convert this to fdivr
   );
 }
 void nseel_asm_div_end(void) {}
@@ -526,7 +484,7 @@ void nseel_asm_div_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fdiv" EEL_F_SUFFIX " (%eax)\n"
+    "fdiv\n" // a2x64 and a2i.php should convert this to fdivr
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
   );
@@ -635,8 +593,6 @@ void nseel_asm_or(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -649,8 +605,6 @@ void nseel_asm_or(void)
     "orl %ecx, 4(%esi)\n"
 #endif
     "fildll (%esi)\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_or_end(void) {}
@@ -658,12 +612,8 @@ void nseel_asm_or_end(void) {}
 void nseel_asm_or0(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
     "fistpll (%esi)\n"
     "fildll (%esi)\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_or0_end(void) {}
@@ -696,8 +646,6 @@ void nseel_asm_xor(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -710,8 +658,6 @@ void nseel_asm_xor(void)
     "xorl %ecx, 4(%esi)\n"
 #endif
     "fildll (%esi)\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_xor_end(void) {}
@@ -745,8 +691,6 @@ void nseel_asm_and(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "movl %esi, %eax\n"
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -759,8 +703,6 @@ void nseel_asm_and(void)
     "andl %ecx, 4(%esi)\n"
 #endif
     "fildll (%esi)\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_and_end(void) {}

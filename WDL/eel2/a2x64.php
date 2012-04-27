@@ -158,9 +158,11 @@ while (($line = fgets($in)))
 
           if ($inst=="j") $inst="jmp";
 
+          if ($inst == "fdiv" && $parms == "") $inst="fdivr";
+
           if ($inst != "call" && substr($inst,-2) == "ll") $suffix = "ll";
           else if ($inst != "call" && $inst != "fmul" && substr($inst,-1) == "l") $suffix = "l";
-          else if (substr($inst,0,1)=="f" && $inst != "fcos" && $inst != "fsincos" && $inst != "fabs" && substr($inst,-1) == "s") $suffix = "s";
+          else if (substr($inst,0,1)=="f" && $inst != "fcos" && $inst != "fsincos" && $inst != "fchs" && $inst != "fabs" && substr($inst,-1) == "s") $suffix = "s";
 
 
           if ($suffix != "" && $inst != "jl") $inst = substr($inst,0,-strlen($suffix));
@@ -261,6 +263,7 @@ if ($argv[1] != "") $fmt = $argv[1];
 $fnout = "asm-nseel-x64.asm";
 
 if ($fmt == "macho64") {  $fnout="asm-nseel-x64-macho.asm"; $nasm = "nasm64"; $want_funclead = "_"; }
+if ($fmt == "macho64x") {  $fnout="asm-nseel-x64-macho.asm"; $nasm = "nasm"; $want_funclead = "_"; $fmt="macho64"; }
 if ($fmt == "win64x") { $nasm="nasm64"; $fmt = "win64"; }
 
 process_file("asm-nseel-x86-gcc.c" , $fnout, $fmt != "win64" ? "%define AMD64ABI\n" : "");

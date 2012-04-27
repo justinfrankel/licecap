@@ -111,9 +111,11 @@ while (($line = fgets($in)))
 
           if ($inst=="j") $inst="jmp";
 
+          if ($inst == "fdiv" && $parms == "") $inst="fdivr";
+
           if ($inst != "call" && substr($inst,-2) == "ll") $suffix = "ll";
           else if ($inst != "call" && $inst != "fmul" && substr($inst,-1) == "l") $suffix = "l";
-          else if (substr($inst,0,1)=="f" && $inst != "fcos" && $inst != "fsincos" && $inst != "fabs" && substr($inst,-1) == "s") $suffix = "s";
+          else if (substr($inst,0,1)=="f" && $inst != "fcos" && $inst != "fsincos" && $inst != "fabs" && $inst != "fchs" && substr($inst,-1) == "s") $suffix = "s";
 
 
           if ($suffix != "" && $inst != "jl") $inst = substr($inst,0,-strlen($suffix));

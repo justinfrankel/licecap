@@ -369,11 +369,7 @@ __declspec(naked) void nseel_asm_invsqrt_end(void) {}
 __declspec(naked) void nseel_asm_sin(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fsin;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -394,11 +390,7 @@ __declspec(naked) void nseel_asm_sin_end(void) {}
 __declspec(naked) void nseel_asm_cos(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fcos;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -419,12 +411,8 @@ __declspec(naked) void nseel_asm_cos_end(void) {}
 __declspec(naked) void nseel_asm_tan(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fptan;
-    mov eax, esi;
     fstp st(0);
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -470,12 +458,8 @@ __declspec(naked) void nseel_asm_sqr_end(void) {}
 __declspec(naked) void nseel_asm_sqrt(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fabs;
     fsqrt;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -498,11 +482,8 @@ __declspec(naked) void nseel_asm_log(void)
 {
   __asm {
     fldln2;
-    fld EEL_ASM_TYPE [eax];
-    mov eax, esi;
+    fxch;
     fyl2x;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -524,11 +505,8 @@ __declspec(naked) void nseel_asm_log10(void)
 {
   __asm {
     fldlg2;
-    fld EEL_ASM_TYPE [eax];
-    mov eax, esi;
+    fxch;
     fyl2x;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 
 _emit 0x89;
 _emit 0x90;
@@ -550,11 +528,7 @@ __declspec(naked) void nseel_asm_log10_end(void) {}
 __declspec(naked) void nseel_asm_abs(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fabs;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -732,11 +706,7 @@ __declspec(naked) void nseel_asm_assign_fast_end(void) {}
 __declspec(naked) void nseel_asm_add(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fadd EEL_ASM_TYPE [edi];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -756,7 +726,6 @@ __declspec(naked) void nseel_asm_add_end(void) {}
 __declspec(naked) void nseel_asm_add_op(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fadd EEL_ASM_TYPE [edi];
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -781,11 +750,8 @@ __declspec(naked) void nseel_asm_add_op_end(void) {}
 __declspec(naked) void nseel_asm_sub(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fsub EEL_ASM_TYPE [eax];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
+    fsub EEL_ASM_TYPE [edi];
+    fchs;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -805,9 +771,9 @@ __declspec(naked) void nseel_asm_sub_end(void) {}
 __declspec(naked) void nseel_asm_sub_op(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fsub EEL_ASM_TYPE [eax];
+    fsub EEL_ASM_TYPE [edi];
     mov eax, edi;
+    fchs;
     fstp EEL_ASM_TYPE [edi];
 _emit 0x89;
 _emit 0x90;
@@ -829,11 +795,7 @@ __declspec(naked) void nseel_asm_sub_op_end(void) {}
 __declspec(naked) void nseel_asm_mul(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fmul EEL_ASM_TYPE [eax];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
+    fmul EEL_ASM_TYPE [edi];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -853,7 +815,6 @@ __declspec(naked) void nseel_asm_mul_end(void) {}
 __declspec(naked) void nseel_asm_mul_op(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fmul EEL_ASM_TYPE [edi];
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -878,10 +839,7 @@ __declspec(naked) void nseel_asm_div(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fdiv EEL_ASM_TYPE [eax];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
+    fdivr; // a2x64 and a2i.php should convert this to fdivr
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -902,7 +860,7 @@ __declspec(naked) void nseel_asm_div_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fdiv EEL_ASM_TYPE [eax];
+    fdivr; // a2x64 and a2i.php should convert this to fdivr
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
 _emit 0x89;
@@ -1073,8 +1031,6 @@ __declspec(naked) void nseel_asm_or(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
-    mov eax, esi;
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
 #ifdef TARGET_X64
@@ -1087,8 +1043,6 @@ __declspec(naked) void nseel_asm_or(void)
     or dword ptr [esi+4], ecx;
 #endif
     fild qword ptr [esi];
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1108,12 +1062,8 @@ __declspec(naked) void nseel_asm_or_end(void) {}
 __declspec(naked) void nseel_asm_or0(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
-    mov eax, esi;
     fistp qword ptr [esi];
     fild qword ptr [esi];
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1170,8 +1120,6 @@ __declspec(naked) void nseel_asm_xor(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
-    mov eax, esi;
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
 #ifdef TARGET_X64
@@ -1184,8 +1132,6 @@ __declspec(naked) void nseel_asm_xor(void)
     xor dword ptr [esi+4], ecx;
 #endif
     fild qword ptr [esi];
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1243,8 +1189,6 @@ __declspec(naked) void nseel_asm_and(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
-    mov eax, esi;
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
 #ifdef TARGET_X64
@@ -1257,8 +1201,6 @@ __declspec(naked) void nseel_asm_and(void)
     and dword ptr [esi+4], ecx;
 #endif
     fild qword ptr [esi];
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
