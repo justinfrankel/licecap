@@ -373,6 +373,54 @@ void nseel_asm_assign(void)
 void nseel_asm_assign_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
+void nseel_asm_assign_fromfp(void)
+{
+#ifdef TARGET_X64
+
+  __asm__(
+    "fstpl (%rdi)\n"
+    "movll (%rdi), %rdx\n"
+    "movll $0x7FF0000000000000, %r15\n"
+    "andll %r15, %rdx\n"
+    "jz 1f\n"
+    "cmpll %r15, %rdx\n"
+    "jne 0f\n"
+    "1:"
+    "subll %rcx, %rcx\n"
+    "movll %rcx, (%rdi)\n"
+    "0:\n"
+    "movll %rdi, %rax\n"
+    );
+
+#else
+
+#if EEL_F_SIZE == 8
+  __asm__(
+    "fstpl (%edi)\n"
+    "movl 4(%edi), %edx\n"
+    "andl $0x7ff00000, %edx\n"
+    "jz 1f\n"
+    "cmpl $0x7ff00000, %edx\n"
+    "jne 0f\n"
+    "1:\n"
+      "fldz\n"
+      "fstpl (%edi)\n"
+    "0:\n"
+    "movl %edi, %eax\n"
+  );
+#else
+  __asm__(
+    "fstps (%edi)\n"
+    "movl %edi, %eax\n"
+  );
+#endif
+
+#endif
+}
+void nseel_asm_assign_fromfp_end(void) {}
+
+
+//---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fast(void)
 {
 #ifdef TARGET_X64

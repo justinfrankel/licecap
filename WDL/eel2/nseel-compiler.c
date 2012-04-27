@@ -879,6 +879,7 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(beloweq)
   DECL_ASMFUNC(aboveeq)
   DECL_ASMFUNC(assign)
+  DECL_ASMFUNC(assign_fromfp)
   DECL_ASMFUNC(assign_fast)
   DECL_ASMFUNC(add)
   DECL_ASMFUNC(sub)
@@ -2000,7 +2001,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 {
   // builtin function generation
   int cfunc_abiinfo=0;
-  int func_size=0, parm_size=0;
+  int parm_size=0;
   int pn;
   int last_nt_parm=-1;
   void *func_e=NULL;
@@ -2024,6 +2025,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 #ifdef EEL_STACK_SUPPORT
     if (func == nseel_asm_stack_pop)
     {
+      int func_size=0;
       func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
       if (!func || bufOut_len < func_size) return -1;
 
@@ -2039,6 +2041,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       int f = (int) op->parms.parms[0]->parms.dv.directValue;
       if (!f)
       {
+        int func_size=0;
         func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
         if (!func || bufOut_len < func_size) return -1;
 
@@ -2051,6 +2054,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       }
       else
       {
+        int func_size=0;
         func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
         if (!func || bufOut_len < func_size) return -1;
 
@@ -2080,10 +2084,8 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
        func_e = nseel_asm_assign_fast_end;
      #endif
   }
-
   // end of built-in function specific special casing
-  func = GLUE_realAddress(func,func_e,&func_size);
-  if (!func) return -1;
+
 
   // first pass, calculate any non-trivial parameters
   for (pn=0; pn < n_params; pn++)
@@ -2104,11 +2106,19 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         if (cfunc_abiinfo&BIF_LASTPARMONSTACK) rvt=RETURNVALUE_FPSTACK;
         else if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL) rvt=RETURNVALUE_BOOL;
+        else if (func == nseel_asm_assign) rvt=RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL;
       }
-      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,NULL);
+      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt);
       if (lsz<0) return -1;
       parm_size += lsz;            
       last_nt_parm = pn;
+
+      if (func == nseel_asm_assign && rvt == RETURNVALUE_FPSTACK)
+      {
+        cfunc_abiinfo |= BIF_LASTPARMONSTACK;
+        func = nseel_asm_assign_fromfp;
+        func_e = nseel_asm_assign_fromfp_end;
+      }
     }
   }
 
@@ -2173,27 +2183,32 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     }
   }
   
-                     
-  if (bufOut_len < parm_size + func_size) return -1;
-  
-  if (bufOut)
   {
-    unsigned char *p=bufOut + parm_size;
-    memcpy(p, func, func_size);
-    if (preProc) preProc(p,func_size,ctx);
-    if (repl)
+    int func_size=0;
+    func = GLUE_realAddress(func,func_e,&func_size);
+    if (!func) return -1;
+                     
+    if (bufOut_len < parm_size + func_size) return -1;
+  
+    if (bufOut)
     {
-      if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
-      if (repl[1]) p=EEL_GLUE_set_immediate(p,repl[1]);
-      if (repl[2]) p=EEL_GLUE_set_immediate(p,repl[2]);
-      if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
+      unsigned char *p=bufOut + parm_size;
+      memcpy(p, func, func_size);
+      if (preProc) preProc(p,func_size,ctx);
+      if (repl)
+      {
+        if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
+        if (repl[1]) p=EEL_GLUE_set_immediate(p,repl[1]);
+        if (repl[2]) p=EEL_GLUE_set_immediate(p,repl[2]);
+        if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
+      }
     }
+
+    if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
+    else if (cfunc_abiinfo&BIF_RETURNSBOOL) *rvMode=RETURNVALUE_BOOL;
+
+    return parm_size + func_size;
   }
-
-  if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
-  else if (cfunc_abiinfo&BIF_RETURNSBOOL) *rvMode=RETURNVALUE_BOOL;
-
-  return parm_size + func_size;
   // end of builtin function generation
 }
 
