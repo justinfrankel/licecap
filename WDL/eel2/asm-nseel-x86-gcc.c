@@ -214,7 +214,6 @@ void nseel_asm_exec2_end(void) { }
 void nseel_asm_invsqrt(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "movl $0x5f3759df, %edx\n"
     "fsts (%esi)\n"
 #ifdef TARGET_X64
@@ -237,9 +236,6 @@ void nseel_asm_invsqrt(void)
     "fadd" EEL_F_SUFFIX " (0xfefefefe)\n"
 #endif
     "fmuls (%esi)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_invsqrt_end(void) {}
@@ -277,11 +273,7 @@ void nseel_asm_tan_end(void) {}
 void nseel_asm_sqr(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fmul %st(0), %st(0)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_sqr_end(void) {}
@@ -496,7 +488,7 @@ void nseel_asm_mod(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fxch\n"
     "fabs\n"
     "fistpl (%esi)\n"
     "fabs\n"
@@ -512,9 +504,6 @@ void nseel_asm_mod(void)
     "0:\n"
     "movl %edx, (%esi)\n"
     "fildl (%esi)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_mod_end(void) {}
@@ -523,9 +512,8 @@ void nseel_asm_shl(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fistpl (%esi)\n"
     "fistpl 4(%esi)\n"
+    "fistpl (%esi)\n"
     "pushl %ecx\n"
     "movl (%esi), %ecx\n"
     "movl 4(%esi), %eax\n"
@@ -533,9 +521,6 @@ void nseel_asm_shl(void)
     "movl %eax, (%esi)\n"
     "popl %ecx\n"
     "fildl (%esi)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_shl_end(void) {}
@@ -544,9 +529,8 @@ void nseel_asm_shr(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
-    "fistpl (%esi)\n"
     "fistpl 4(%esi)\n"
+    "fistpl (%esi)\n"
     "pushl %ecx\n"
     "movl (%esi), %ecx\n"
     "movl 4(%esi), %eax\n"
@@ -554,9 +538,6 @@ void nseel_asm_shr(void)
     "movl %eax, (%esi)\n"
     "popl %ecx\n"
     "fildl (%esi)\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
   );
 }
 void nseel_asm_shr_end(void) {}
@@ -566,7 +547,7 @@ void nseel_asm_mod_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fxch\n"
     "fabs\n"
     "fistpl (%edi)\n"
     "fabs\n"
@@ -622,7 +603,7 @@ void nseel_asm_or_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fxch\n"
     "fistpll (%edi)\n"
     "fistpll (%esi)\n"
 #ifdef TARGET_X64
@@ -666,7 +647,7 @@ void nseel_asm_xor_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fxch\n"
     "fistpll (%edi)\n"
     "fistpll (%esi)\n"
 #ifdef TARGET_X64
@@ -711,7 +692,7 @@ void nseel_asm_and_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
+    "fxch\n"
     "fistpll (%edi)\n"
     "fistpll (%esi)\n"
 #ifdef TARGET_X64
@@ -744,21 +725,7 @@ void nseel_asm_uplus_end(void) {}
 void nseel_asm_uminus(void)
 {
   __asm__(
-#if EEL_F_SIZE == 8
-    "movl (%eax), %ecx\n"
-    "movl 4(%eax), %edi\n"
-    "movl %ecx, (%esi)\n"
-    "xorl $0x80000000, %edi\n"
-    "movl %esi, %eax\n"
-    "movl %edi, 4(%esi)\n"
-    "addl $8, %esi\n"
-#else
-    "movl (%eax), %ecx\n"
-    "xorl $0x80000000, %ecx\n"
-    "movl %esi, %eax\n"
-    "movl %ecx, (%esi)\n"
-    "addl $4, %esi\n"
-#endif
+    "fchs\n"
   );
 }
 void nseel_asm_uminus_end(void) {}
@@ -1439,7 +1406,6 @@ SAVE_STACK
 
     "movl $0xfefefefe, %rdx\n"
 
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fadd" EEL_F_SUFFIX " (%rdx)\n"
     "fistpl (%rsi)\n"
     "xorll %rdx, %rdx\n"
@@ -1481,7 +1447,6 @@ SAVE_STACK
     "movl $0xfefefefe, %edx\n"
     "subll %rdi, %rdi\n"
 
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fadd" EEL_F_SUFFIX " (%rdx)\n"
 
     "fistpl (%esi)\n"
@@ -1520,7 +1485,6 @@ SAVE_STACK
 
 #else
     "movl $0xfefefefe, %edx\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fadd" EEL_F_SUFFIX " (0xfefefefe)\n"
     "fistpl (%esi)\n"
 
@@ -1582,7 +1546,6 @@ SAVE_STACK
 
     "movl %rsi, %r15\n"
     "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "movl $0xfefefefe, %rdx\n"
     "fadd" EEL_F_SUFFIX " (%rdx)\n"
     "fistpl (%r15)\n"
@@ -1602,7 +1565,6 @@ SAVE_STACK
 
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "movl $0xfefefefe, %edx\n"
     "fadd" EEL_F_SUFFIX " (%rdx)\n"
     "fistpl (%esi)\n"
@@ -1623,7 +1585,6 @@ SAVE_STACK
 
 #else
     "movl $0xfefefefe, %edx\n"
-    "fld" EEL_F_SUFFIX " (%eax)\n"
     "fadd" EEL_F_SUFFIX " (0xfefefefe)\n"
     "fistpl (%esi)\n"
     "subl $8, %esp\n" // keep stack aligned
@@ -1800,7 +1761,6 @@ void nseel_asm_stack_peek(void)
 
   __asm__(
     "movll $0xfefefefe, %rdi\n"
-    "fld" EEL_F_SUFFIX  " (%rax)\n"
     "fistpl (%rsi)\n"
     "movll (%rdi), %rax\n"   
     "movll (%rsi), %rdx\n"
@@ -1816,7 +1776,6 @@ void nseel_asm_stack_peek(void)
 
   __asm__(
     "movl $0xfefefefe, %edi\n"
-    "fld" EEL_F_SUFFIX  " (%eax)\n"
     "fistpl (%esi)\n"
     "movl (%edi), %eax\n"   
     "movl (%esi), %edx\n"

@@ -294,7 +294,6 @@ __declspec(naked) void nseel_asm_exec2_end(void) { }
 __declspec(naked) void nseel_asm_invsqrt(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     mov edx, 0x5f3759df;
     fst dword ptr [esi];
 #ifdef TARGET_X64
@@ -345,9 +344,6 @@ _emit 0xFE;
 #endif
 #endif
     fmul dword ptr [esi];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -433,11 +429,7 @@ __declspec(naked) void nseel_asm_tan_end(void) {}
 __declspec(naked) void nseel_asm_sqr(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
     fmul st(0), st(0);
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -884,7 +876,7 @@ __declspec(naked) void nseel_asm_mod(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
+    fxch;
     fabs;
     fistp dword ptr [esi];
     fabs;
@@ -901,9 +893,6 @@ label_4:
     
     mov dword ptr [esi], edx;
     fild dword ptr [esi];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -924,9 +913,8 @@ __declspec(naked) void nseel_asm_shl(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
-    fistp dword ptr [esi];
     fistp dword ptr [esi+4];
+    fistp dword ptr [esi];
     push ecx;
     mov ecx, dword ptr [esi];
     mov eax, dword ptr [esi+4];
@@ -934,9 +922,6 @@ __declspec(naked) void nseel_asm_shl(void)
     mov dword ptr [esi], eax;
     pop ecx;
     fild dword ptr [esi];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -957,9 +942,8 @@ __declspec(naked) void nseel_asm_shr(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
-    fistp dword ptr [esi];
     fistp dword ptr [esi+4];
+    fistp dword ptr [esi];
     push ecx;
     mov ecx, dword ptr [esi];
     mov eax, dword ptr [esi+4];
@@ -967,9 +951,6 @@ __declspec(naked) void nseel_asm_shr(void)
     mov dword ptr [esi], eax;
     pop ecx;
     fild dword ptr [esi];
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -991,7 +972,7 @@ __declspec(naked) void nseel_asm_mod_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
+    fxch;
     fabs;
     fistp dword ptr [edi];
     fabs;
@@ -1084,7 +1065,7 @@ __declspec(naked) void nseel_asm_or_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
+    fxch;
     fistp qword ptr [edi];
     fistp qword ptr [esi];
 #ifdef TARGET_X64
@@ -1152,7 +1133,7 @@ __declspec(naked) void nseel_asm_xor_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
+    fxch;
     fistp qword ptr [edi];
     fistp qword ptr [esi];
 #ifdef TARGET_X64
@@ -1221,7 +1202,7 @@ __declspec(naked) void nseel_asm_and_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fld EEL_ASM_TYPE [eax];
+    fxch;
     fistp qword ptr [edi];
     fistp qword ptr [esi];
 #ifdef TARGET_X64
@@ -1278,21 +1259,7 @@ __declspec(naked) void nseel_asm_uplus_end(void) {}
 __declspec(naked) void nseel_asm_uminus(void)
 {
   __asm {
-#if EEL_F_SIZE == 8
-    mov ecx, dword ptr [eax];
-    mov edi, dword ptr [eax+4];
-    mov dword ptr [esi], ecx;
-    xor edi, 0x80000000;
-    mov eax, esi;
-    mov dword ptr [esi+4], edi;
-    add esi, 8;
-#else
-    mov ecx, dword ptr [eax];
-    xor ecx, 0x80000000;
-    mov eax, esi;
-    mov dword ptr [esi], ecx;
-    add esi, 4;
-#endif
+    fchs;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -2333,7 +2300,6 @@ SAVE_STACK
 
     mov rdx, 0xfefefefe;
 
-    fld EEL_ASM_TYPE [eax];
     fadd EEL_ASM_TYPE [rdx];
     fistp dword ptr [rsi];
     xor rdx, rdx;
@@ -2378,7 +2344,6 @@ label_26:
     mov edx, 0xfefefefe;
     sub rdi, rdi;
 
-    fld EEL_ASM_TYPE [eax];
     fadd EEL_ASM_TYPE [rdx];
 
     fistp dword ptr [esi];
@@ -2420,7 +2385,6 @@ label_29:
 
 #else
     mov edx, 0xfefefefe;
-    fld EEL_ASM_TYPE [eax];
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fadd qword ptr [0xfefefefe]
 _emit 0x05;
@@ -2511,7 +2475,6 @@ SAVE_STACK
 
     mov r15, rsi;
     mov rdi, 0xfefefefe; // first parameter = context pointer
-    fld EEL_ASM_TYPE [eax];
     mov rdx, 0xfefefefe;
     fadd EEL_ASM_TYPE [rdx];
     fistp dword ptr [r15];
@@ -2532,7 +2495,6 @@ label_33:
 
 #else
     mov ecx, 0xfefefefe; // first parameter = context pointer
-    fld EEL_ASM_TYPE [eax];
     mov edx, 0xfefefefe;
     fadd EEL_ASM_TYPE [rdx];
     fistp dword ptr [esi];
@@ -2554,7 +2516,6 @@ label_34:
 
 #else
     mov edx, 0xfefefefe;
-    fld EEL_ASM_TYPE [eax];
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fadd qword ptr [0xfefefefe]
 _emit 0x05;
@@ -2854,7 +2815,6 @@ __declspec(naked) void nseel_asm_stack_peek(void)
 
   __asm {
     mov rdi, 0xfefefefe;
-    fld EEL_ASM_TYPE [rax];
     fistp dword ptr [rsi];
     mov rax, qword ptr [rdi];
     mov rdx, qword ptr [rsi];
@@ -2882,7 +2842,6 @@ _emit 0x90;
 
   __asm {
     mov edi, 0xfefefefe;
-    fld EEL_ASM_TYPE [eax];
     fistp dword ptr [esi];
     mov eax, dword ptr [edi];
     mov edx, dword ptr [esi];

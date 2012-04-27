@@ -1041,17 +1041,17 @@ static functionType fnTable1[] = {
 #endif
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2, },
-  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST },
-  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST },
-  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST },
+  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
   { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK},
   { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK},
-  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2}, 
-  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2}, 
-  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2}, 
+  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2|BIF_LASTPARMONSTACK}, 
+  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2|BIF_LASTPARMONSTACK}, 
+  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2|BIF_LASTPARMONSTACK}, 
   { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK}, 
   { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK}, 
-  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2}, 
+  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2|BIF_LASTPARMONSTACK}, 
 
 
 #ifdef __ppc__
@@ -1067,7 +1067,7 @@ static functionType fnTable1[] = {
    { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&acos}, },
    { "atan",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&atan}, },
    { "atan2",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&atan2}, },
-   { "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1|NSEEL_NPARAMS_FLAG_CONST },
+   { "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
 #ifdef __ppc__
    { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&sqrt}, },
 #else
@@ -1102,7 +1102,7 @@ static functionType fnTable1[] = {
 #ifdef __ppc__
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST,  },
 #else
-   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&negativezeropointfive, &onepointfive} },
+   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&negativezeropointfive, &onepointfive} },
 #endif
 
   { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK } ,
@@ -1122,8 +1122,8 @@ static functionType fnTable1[] = {
 
 
 
-  {"_mem",_asm_megabuf,_asm_megabuf_end,1,{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
-  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
+  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK,{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
+  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM_freeblocks},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
@@ -1131,7 +1131,7 @@ static functionType fnTable1[] = {
 #ifdef EEL_STACK_SUPPORT
   {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1,{0,},NSEEL_PProc_Stack},
   {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1,{0,},NSEEL_PProc_Stack},
-  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1|NSEEL_NPARAMS_FLAG_CONST,{0,},NSEEL_PProc_Stack},
+  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK,{0,},NSEEL_PProc_Stack},
   {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1, {0,},NSEEL_PProc_Stack_PeekTop},
 #endif
 
@@ -1437,7 +1437,7 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(and);
     case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(or);
     case FN_UPLUS: RF(uplus); 
-    case FN_UMINUS: RF(uminus);
+    case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(uminus);
 #undef RF
 
     case FUNCTYPE_FUNCTIONTYPEREC:
