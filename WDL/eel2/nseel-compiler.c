@@ -846,6 +846,8 @@ static void freeBlocks(llBlock **start);
   void nseel_asm_##x(void);        \
   void nseel_asm_##x##_end(void);    \
 
+  DECL_ASMFUNC(booltofp)
+  DECL_ASMFUNC(fptobool)
   DECL_ASMFUNC(sin)
   DECL_ASMFUNC(cos)
   DECL_ASMFUNC(tan)
@@ -1007,6 +1009,7 @@ static double eel1sigmoid(double x, double constraint)
 
   #define BIF_RETURNSONSTACK 0x1000
   #define BIF_LASTPARMONSTACK 0x2000
+  #define BIF_RETURNSBOOL 0x4000
 
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
@@ -1357,7 +1360,7 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 #define RETURNVALUE_IGNORE 0 // ignore return value
 #define RETURNVALUE_NORMAL 1 // pointer
 #define RETURNVALUE_FPSTACK 2
-#define RETURNVALUE_BOOL 4
+#define RETURNVALUE_BOOL 4 // P1 is nonzero if true
 
 
 
@@ -2167,6 +2170,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   }
 
   if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
+  else if (cfunc_abiinfo&BIF_RETURNSBOOL) *rvMode=RETURNVALUE_BOOL;
 
   return parm_size + func_size;
   // end of builtin function generation
@@ -2516,6 +2520,24 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   if (bufOut) bufOut += codesz;
   bufOut_len -= codesz;
 
+
+  if (code_returns == RETURNVALUE_BOOL && !(supportedReturnValues & RETURNVALUE_BOOL) && supportedReturnValues)
+  {
+    int stubsize;
+    void *stub = GLUE_realAddress(nseel_asm_booltofp,nseel_asm_booltofp_end,&stubsize);
+    if (!stub || bufOut_len < stubsize) return -1;
+    if (bufOut) 
+    {
+      memcpy(bufOut,stub,stubsize);
+      bufOut += stubsize;
+    }
+    codesz+=stubsize;
+    bufOut_len -= stubsize;
+    
+    code_returns = RETURNVALUE_FPSTACK;
+  }
+
+
   // default processing of code_returns to meet return value requirements
   if (supportedReturnValues & code_returns) 
   {
@@ -2526,35 +2548,65 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 
   if (rvType) *rvType = RETURNVALUE_IGNORE;
 
-  switch (code_returns)
-  {
-    case RETURNVALUE_NORMAL:
-      if (supportedReturnValues & RETURNVALUE_FPSTACK)
-      {
-        if (bufOut_len < GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
-        if (bufOut) GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut,0); // always fld qword [eax] but we might change that later
-        codesz += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;      
-        if (rvType) *rvType = RETURNVALUE_FPSTACK;
-      }
-    break;
-    case RETURNVALUE_FPSTACK:
-      if (supportedReturnValues & RETURNVALUE_NORMAL)
-      {
-        if (bufOut_len < GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) return -1;
 
-        // generate fp-pop to temp space
-        if (bufOut) GLUE_POP_FPSTACK_TO_WTP_TO_PX(bufOut,0);
-        codesz+=GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
-        if (rvType) *rvType = RETURNVALUE_NORMAL;
+  if (code_returns == RETURNVALUE_NORMAL)
+  {
+    if (supportedReturnValues & (RETURNVALUE_FPSTACK|RETURNVALUE_BOOL))
+    {
+      if (bufOut_len < GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
+      if (bufOut) 
+      {
+        GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut,0); // always fld qword [eax] but we might change that later
+        bufOut += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;
+      }
+      codesz += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;  
+      bufOut_len -= GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;
+
+      if (supportedReturnValues & RETURNVALUE_BOOL) 
+      {
+        code_returns = RETURNVALUE_FPSTACK;
       }
       else
       {
-        // toss return value that will be ignored
-        if (bufOut_len < GLUE_POP_FPSTACK_SIZE) return -1;
-        if (bufOut) memcpy(bufOut,GLUE_POP_FPSTACK,GLUE_POP_FPSTACK_SIZE);   
-        codesz+=GLUE_POP_FPSTACK_SIZE;
+        if (rvType) *rvType = RETURNVALUE_FPSTACK;
       }
-    break;
+    }
+  }
+
+  if (code_returns == RETURNVALUE_FPSTACK)
+  {
+    if (supportedReturnValues & RETURNVALUE_BOOL)
+    {
+      int stubsize;
+      void *stub = GLUE_realAddress(nseel_asm_fptobool,nseel_asm_fptobool_end,&stubsize);
+      if (!stub || bufOut_len < stubsize) return -1;
+      if (bufOut) 
+      {
+        memcpy(bufOut,stub,stubsize);
+        EEL_GLUE_set_immediate(bufOut,&g_closefact);
+        bufOut += stubsize;
+      }
+      codesz+=stubsize;
+      bufOut_len -= stubsize;
+
+      if (rvType) *rvType = RETURNVALUE_BOOL;
+    }
+    else if (supportedReturnValues & RETURNVALUE_NORMAL)
+    {
+      if (bufOut_len < GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) return -1;
+
+      // generate fp-pop to temp space
+      if (bufOut) GLUE_POP_FPSTACK_TO_WTP_TO_PX(bufOut,0);
+      codesz+=GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE;
+      if (rvType) *rvType = RETURNVALUE_NORMAL;
+    }
+    else
+    {
+      // toss return value that will be ignored
+      if (bufOut_len < GLUE_POP_FPSTACK_SIZE) return -1;
+      if (bufOut) memcpy(bufOut,GLUE_POP_FPSTACK,GLUE_POP_FPSTACK_SIZE);   
+      codesz+=GLUE_POP_FPSTACK_SIZE;
+    }
   }
 
   return codesz;
