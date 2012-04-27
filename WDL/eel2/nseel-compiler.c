@@ -181,54 +181,44 @@ static void GLUE_SET_PX_FROM_P1(void *b, int wv)
 
 
 
-// lwz r14, 0(r3)
-// lwz r15, 4(r3)
-// stwu r15, -4(r1)
-// stwu r14, -4(r1)
-static unsigned int GLUE_PUSH_P1PTR_AS_VALUE[] = { 0x81C30000, 0x81E30004, 0x95E1FFFC, 0x95C1FFFC,  };
+// lfd f2, 0(r3)
+// stfdu f2, -8(r1)
+static unsigned int GLUE_PUSH_P1PTR_AS_VALUE[] = { 0xC8430000, 0xDC41FFF8 };
 
 static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
 {    
-  // lwz r14, 0(r1)
-  // lwz r15, 4(r1)
+  // lfd f2, 0(r1)
   // addi r1,r1,8
   // GLUE_MOV_PX_DIRECTVALUE_GEN / GLUE_MOV_PX_DIRECTVALUE_SIZE (r3)
-  // stw r14, 0(r3)
-  // stw r15, 4(r3)
+  // stfd f2, 0(r3)
   if (buf)
   {
     unsigned int *bufptr = (unsigned int *)buf;
-    *bufptr++ = 0x81C10000;
-    *bufptr++ = 0x81E10004;
+    *bufptr++ = 0xC8410000;
     *bufptr++ = 0x38210008;    
     GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
     bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
-    *bufptr++ = 0x95C30000;
-    *bufptr++ = 0x95E30004;
+    *bufptr++ = 0xd8430000;
   }
-  return 3*4 + GLUE_MOV_PX_DIRECTVALUE_SIZE + 2*4;
+  return 2*4 + GLUE_MOV_PX_DIRECTVALUE_SIZE + 4;
 }
 
 static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 {    
-  // lwz r14, 0(r3)
-  // lwz r15, 4(r3)
+  // lfd f2, 0(r3)
   // GLUE_MOV_PX_DIRECTVALUE_GEN / GLUE_MOV_PX_DIRECTVALUE_SIZE (r3)
-  // stw r14, 0(r3)
-  // stw r15, 4(r3)
+  // stfd f2, 0(r3)
 
   if (buf)
   {
     unsigned int *bufptr = (unsigned int *)buf;
-    *bufptr++ = 0x81C30000;
-    *bufptr++ = 0x81E30004;
+    *bufptr++ = 0xc8430000;
     GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
     bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
-    *bufptr++ = 0x95C30000;
-    *bufptr++ = 0x95E30004;
+    *bufptr++ = 0xd8430000;
   }
   
-  return 2*4 + GLUE_MOV_PX_DIRECTVALUE_SIZE + 2*4;
+  return 4 + GLUE_MOV_PX_DIRECTVALUE_SIZE + 4;
 }
 
 
