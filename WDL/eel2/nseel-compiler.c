@@ -2782,8 +2782,8 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           ptr=EEL_GLUE_set_immediate(ptr,newblock2);
           EEL_GLUE_set_immediate(ptr,newblock3);
         }
+        return rv_offset + parm_size + stubsize;
       }
-      return rv_offset + parm_size + stubsize;
 #else
       {
         // x86/x86-64 ifs now do not require calls, yay
