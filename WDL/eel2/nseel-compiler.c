@@ -305,7 +305,7 @@ unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
   }
 
 #define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (sizeof(GLUE_POP_FPSTACK_TO_WTP) + GLUE_SET_PX_FROM_WTP_SIZE)
-static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(char *buf, int wv)
+static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
 {
   memcpy(buf,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
   GLUE_SET_PX_FROM_WTP(buf + sizeof(GLUE_POP_FPSTACK_TO_WTP),wv); // ppc preincs the WTP, so we do this after
@@ -593,7 +593,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 #endif
 
 #define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (GLUE_SET_PX_FROM_WTP_SIZE + sizeof(GLUE_POP_FPSTACK_TO_WTP))
-static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(char *buf, int wv)
+static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
 {
   GLUE_SET_PX_FROM_WTP(buf,wv);
   memcpy(buf + GLUE_SET_PX_FROM_WTP_SIZE,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
@@ -2517,7 +2517,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           0x85, 0xC0, 0x0F, 0x85 // test eax, eax, jnz  looppt
         };
 
-        char *looppt, *jzoutpt;
+        unsigned char *looppt, *jzoutpt;
         int parm_size=0,subsz;
         if (bufOut_len < parm_size + sizeof(hdr1) + sizeof(push_stuff)) return -1;
         if (bufOut) memcpy(bufOut + parm_size,hdr1,sizeof(hdr1));
@@ -2542,7 +2542,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) *(int *)(bufOut + parm_size) = (looppt - (bufOut+parm_size+4));
 
         parm_size+=4;
-        if (bufOut) *(int *)jzoutpt = (bufOut + parm_size - (jzoutpt + 4));
+        if (bufOut) *(int *)jzoutpt = ((bufOut + parm_size) - (jzoutpt + 4));
         
         return rv_offset+parm_size;
       }
@@ -2631,7 +2631,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         };
 #endif
         int subsz;
-        char *skipptr1, *skipclampptr, *loopdest;
+        unsigned char *skipptr1, *skipclampptr, *loopdest;
         if (bufOut_len < parm_size + sizeof(hdr1) + 4 + sizeof(hdr2) + 4 + sizeof(hdr3) + sizeof(push_stuff)) return -1;
 
         // store, convert to int, compare against 1, if less than, skip to end
@@ -2718,7 +2718,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #else
       {
         int sz2;
-        char *destbuf;
+        unsigned char *destbuf;
         static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
 
         if (bufOut_len < parm_size+sizeof(testbuf) + 4) return -1;
@@ -2873,7 +2873,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     if (!stub || bufOut_len < stubsize) return -1;
     if (bufOut) 
     {
-      char *p=bufOut;
+      unsigned char *p=bufOut;
       memcpy(bufOut,stub,stubsize);
 #ifdef __ppc__
       p=EEL_GLUE_set_immediate(p,&eel_one);
