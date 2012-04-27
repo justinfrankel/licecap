@@ -130,13 +130,13 @@ static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv)
 
 
 // mflr r5
-// stwu r5, -4(r1)
-const static unsigned int GLUE_FUNC_ENTER[2] = { 0x7CA802A6, 0x94A1FFFC };
+// stwu r5, -8(r1)
+const static unsigned int GLUE_FUNC_ENTER[2] = { 0x7CA802A6, 0x94A1FFF8 };
 
 // lwz r5, 0(r1)
-// addi r1, r1, 4
+// addi r1, r1, 8
 // mtlr r5
-const static unsigned int GLUE_FUNC_LEAVE[3] = { 0x80A10000, 0x38210004, 0x7CA803A6 };
+const static unsigned int GLUE_FUNC_LEAVE[3] = { 0x80A10000, 0x38210008, 0x7CA803A6 };
 #define GLUE_FUNC_ENTER_SIZE sizeof(GLUE_FUNC_ENTER)
 #define GLUE_FUNC_LEAVE_SIZE sizeof(GLUE_FUNC_LEAVE)
 
@@ -152,8 +152,8 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 
 
 
-// stwu r3, -4(r1)
-const static unsigned int GLUE_PUSH_P1[1]={ 0x9461FFFC};
+// stwu r3, -8(r1)
+const static unsigned int GLUE_PUSH_P1[1]={ 0x9461FFF8};
 
 
 #define GLUE_POP_PX_SIZE 8
@@ -165,7 +165,7 @@ static void GLUE_POP_PX(void *b, int wv)
       0x81e10000, // lwz r15, 0(r1)
   };
   ((unsigned int *)b)[0] = tab[wv];
-  ((unsigned int *)b)[1] = 0x38210004; // addi r1,r1, 4
+  ((unsigned int *)b)[1] = 0x38210008; // addi r1,r1, 8
 }
 
 #define GLUE_SET_PX_FROM_P1_SIZE 4
