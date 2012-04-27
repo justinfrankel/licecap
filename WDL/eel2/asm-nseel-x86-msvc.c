@@ -1391,30 +1391,32 @@ __declspec(naked) void nseel_asm_bnot_end(void) {}
 __declspec(naked) void nseel_asm_if(void)
 {
   __asm {
-    test eax, eax;
 #ifdef TARGET_X64
+    sub rsp, 8;
+    test eax, eax;
     jz label_10;
     mov rax, 0xfefefefe;
+    call eax;
     jmp label_11;
 label_10:
     
     mov rax, 0xfefefefe;
+    call eax;
 label_11:
     
-    sub rsp, 8;
+    add rsp, 8;
 #else
     jz label_12;
+    test eax, eax;
     mov eax, 0xfefefefe;
+    call eax;
     jmp label_13;
 label_12:
     
     mov eax, 0xfefefefe;
+    call eax;
 label_13:
     
-#endif
-    call eax;
-#ifdef TARGET_X64
-    add rsp, 8;
 #endif
 
 _emit 0x89;

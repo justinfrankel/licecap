@@ -817,26 +817,28 @@ void nseel_asm_bnot_end(void) {}
 void nseel_asm_if(void)
 {
   __asm__(
-    "testl %eax, %eax\n"
 #ifdef TARGET_X64
+    "subl $8, %rsp\n"
+    "testl %eax, %eax\n"
     "jz 0f\n"
     "movll $0xfefefefe, %rax\n"
+    "call *%eax\n"
     "jmp 1f\n"
     "0:\n"
     "movll $0xfefefefe, %rax\n"
+    "call *%eax\n"
     "1:\n"
-    "subl $8, %rsp\n"
+    "addl $8, %rsp\n"
 #else
     "jz 0f\n"
+    "testl %eax, %eax\n"
     "movl $0xfefefefe, %eax\n"
+    "call *%eax\n"
     "jmp 1f\n"
     "0:\n"
     "movl $0xfefefefe, %eax\n"
-    "1:\n"
-#endif
     "call *%eax\n"
-#ifdef TARGET_X64
-    "addl $8, %rsp\n"
+    "1:\n"
 #endif
 
   );
