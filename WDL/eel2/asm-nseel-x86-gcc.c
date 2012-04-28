@@ -868,7 +868,7 @@ void nseel_asm_bnot(void)
 void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-void nseel_asm_if(void)
+void nseel_asm_if(void) // not currently used on x86/x86-64
 {
   __asm__(
 #ifdef TARGET_X64

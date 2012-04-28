@@ -2479,38 +2479,72 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     
     if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
     {
-      void *stub;
-      unsigned char *newblock2,*newblock3,*ptr;
-      int stubsize;
+      int use_rv = RETURNVALUE_NORMAL;
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
       if (parm_size < 0) return -1;
       
-      stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
-
       if (computTableSize) (*computTableSize) ++;
 
-      // todo: calculate info about subcode blocks:
-      // 1) see if they both prefer to return BOOL or FLOAT -- if both return BOOL, use BOOL, if both BOOL-or-FLOAT, use FLOAT
-      // 2) if x86 and each is less than 125 bytes (?), can use near jumps rather than calls?
-      // 3) if x86 and each is less than 32k (?), can use short relative jumps?
-
-      
-      if (bufOut_len < parm_size + stubsize) return -1;
-      
-      if (bufOut)
       {
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_NORMAL, NULL); 
-        newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, RETURNVALUE_NORMAL, NULL);
-        if (!newblock2 || !newblock3) return -1;
-      
-        ptr = bufOut + parm_size;
-        memcpy(ptr, stub, stubsize);
-           
-        ptr=EEL_GLUE_set_immediate(ptr,newblock2);
-        EEL_GLUE_set_immediate(ptr,newblock3);
+        int t1,t2;
+        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1);
+        if (a<0) return -1;
+        a = compileOpcodes(ctx,op->parms.parms[2],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2);
+        if (a<0) return -1;
+        if (t1 == RETURNVALUE_BOOL && t2 == RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
+        else if (t1 != RETURNVALUE_NORMAL && t2 != RETURNVALUE_NORMAL) use_rv=RETURNVALUE_FPSTACK;
       }
+      *calledRvType = use_rv;
+
+
+#ifdef __ppc__
+      {
+        unsigned char *newblock2,*newblock3,*ptr;
+        void *stub;
+        int stubsize;
+        stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
       
+        if (bufOut_len < parm_size + stubsize) return -1;
+      
+        if (bufOut)
+        {
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL); 
+          newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL);
+          if (!newblock2 || !newblock3) return -1;
+      
+          ptr = bufOut + parm_size;
+          memcpy(ptr, stub, stubsize);
+           
+          ptr=EEL_GLUE_set_immediate(ptr,newblock2);
+          EEL_GLUE_set_immediate(ptr,newblock3);
+        }
+      }
       return rv_offset + parm_size + stubsize;
+#else
+      {
+        // x86/x86-64 branches now do not require calls, yay
+        int csz;
+        if (bufOut_len < parm_size + 2 + 6 + 5) return -1;
+        if (bufOut)
+        {
+          bufOut[parm_size] = 0x85; bufOut[parm_size+1] = 0xC0; // test eax, eax
+          bufOut[parm_size+2] = 0x0F; bufOut[parm_size+3] = 0x84; // jz 32 bit relative
+        }
+        parm_size+=2+6;
+        csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL);
+        if (csz<0) return -1;
+        if (bufOut) *((int *) (bufOut + parm_size-4)) = csz + 5; // update jump address
+        parm_size+=csz;
+        if (bufOut_len < parm_size + 5) return -1;
+        if (bufOut) { bufOut[parm_size] = 0xE9; } // jmp 32 bit relative
+        parm_size+=5;
+        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL);
+        if (csz<0) return -1;
+        if (bufOut) *((int *) (bufOut + parm_size-4)) = csz; // update jump address
+        parm_size+=csz;       
+      }
+      return rv_offset + parm_size;
+#endif    
     }    
   }   
  
