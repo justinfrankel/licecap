@@ -884,8 +884,8 @@ void nseel_asm_if(void)
     "1:\n"
     "addl $8, %rsp\n"
 #else
-    "jz 0f\n"
     "testl %eax, %eax\n"
+    "jz 0f\n"
     "movl $0xfefefefe, %eax\n"
     "call *%eax\n"
     "jmp 1f\n"

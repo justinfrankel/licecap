@@ -1500,8 +1500,8 @@ label_15:
     
     add rsp, 8;
 #else
-    jz label_16;
     test eax, eax;
+    jz label_16;
     mov eax, 0xfefefefe;
     call eax;
     jmp label_17;
