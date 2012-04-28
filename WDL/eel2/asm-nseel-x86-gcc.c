@@ -480,7 +480,11 @@ void nseel_asm_add_op_end(void) {}
 void nseel_asm_sub(void)
 {
   __asm__(
+#ifdef __GNUC__
+    "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+#else
     "fsub\n"
+#endif
   );
 }
 void nseel_asm_sub_end(void) {}
