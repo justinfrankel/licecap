@@ -2412,6 +2412,10 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       if (bufOut_len < stubsz) return -1;        
 
       *calledRvType = RETURNVALUE_BOOL;
+      // todo:
+      // 1) if x86 and less than 125 bytes (?), can use near jumps rather than calls?
+      // 2) if x86 and less than 32k (?), can use short relative jumps?
+      
 
       if (!bufOut) return rv_offset+stubsz;
       
@@ -2449,6 +2453,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         rvt = RETURNVALUE_BOOL;
         *calledRvType = RETURNVALUE_BOOL;
       }
+      // todo:
+      // 1) if x86 and less than 125 bytes (?), can use near jumps rather than calls?
+      // 2) if x86 and less than 32k (?), can use short relative jumps?
       
       parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, rvt, NULL);
       if (parm_size < 0) return -1;
@@ -2481,6 +2488,12 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
 
       if (computTableSize) (*computTableSize) ++;
+
+      // todo: calculate info about subcode blocks:
+      // 1) see if they both prefer to return BOOL or FLOAT -- if both return BOOL, use BOOL, if both BOOL-or-FLOAT, use FLOAT
+      // 2) if x86 and each is less than 125 bytes (?), can use near jumps rather than calls?
+      // 3) if x86 and each is less than 32k (?), can use short relative jumps?
+
       
       if (bufOut_len < parm_size + stubsize) return -1;
       
