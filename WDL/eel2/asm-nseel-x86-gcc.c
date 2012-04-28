@@ -903,7 +903,6 @@ void nseel_asm_if_end(void) {}
 void nseel_asm_repeat(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%eax)\n"
 #ifdef TARGET_X64
     "fistpll (%esi)\n"
     "movll (%rsi), %rcx\n"
@@ -921,7 +920,9 @@ void nseel_asm_repeat(void)
       "subl $8, %esp\n" /* keep stack aligned -- note this is required on x64 too!*/ 
       "pushl %esi\n" // revert back to last temp workspace
       "pushl %ecx\n"
+      
       "call *%edx\n"
+
       "popl %ecx\n"
       "popl %esi\n"
       "addl $8, %esp\n" /* keep stack aligned -- also required on x64*/ 

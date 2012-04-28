@@ -2428,9 +2428,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       if (computTableSize) (*computTableSize)++;
       return rv_offset+stubsz;
     }
-    
-    // special case: BAND/BOR/LOOP
-    if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2 || fn_ptr == fnTable1+3))
+
+    // special case: loop
+    if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+3)
     {
       void *stub;
       int stubsize;        
@@ -2439,20 +2439,46 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       int rvt = RETURNVALUE_NORMAL;
       int parm_size;
 
-      if (fn_ptr == fnTable1+3) stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
+      stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
+      
+      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL);
+      if (parm_size < 0) return -1;
+      
+      if (computTableSize) (*computTableSize) ++;
+      
+      if (bufOut_len < parm_size + stubsize) return -1;
+      
+      if (bufOut)
+      {
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, rvt, NULL);
+      
+        p = bufOut + parm_size;
+        memcpy(p, stub, stubsize);
+      
+        p=EEL_GLUE_set_immediate(p,newblock2);
+      }
+      return rv_offset + parm_size + stubsize;
+    }
+    
+    // special case: BAND/BOR
+    if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2))
+    {
+      void *stub;
+      int stubsize;        
+      unsigned char *newblock2, *p;
+      
+      int rvt = RETURNVALUE_BOOL;
+      int parm_size;
+
+      if (fn_ptr == fnTable1+1) 
+      {
+        stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
+      }
       else 
       {
-        if (fn_ptr == fnTable1+1) 
-        {
-          stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
-        }
-        else 
-        {
-          stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
-        }
-        rvt = RETURNVALUE_BOOL;
-        *calledRvType = RETURNVALUE_BOOL;
+        stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
       }
+      *calledRvType = RETURNVALUE_BOOL;
       // todo:
       // 1) if x86 and less than 125 bytes (?), can use near jumps rather than calls?
       // 2) if x86 and less than 32k (?), can use short relative jumps?

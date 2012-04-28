@@ -624,7 +624,6 @@ void nseel_asm_repeat(void)
    "ori r6, r6, 0xbeef\n"
    "addis r7, 0, ha16(%0)\n"
    "addi r7, r7, lo16(%0)\n"
-   "lfd f1, 0(r3)\n"
    "fctiwz f1, f1\n"
    "stfd f1, 8(r16)\n"
    "lwz r5, 12(r16)\n" // r5 has count now

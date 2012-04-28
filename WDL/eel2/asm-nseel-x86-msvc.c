@@ -1482,7 +1482,7 @@ _emit 0x90;
 __declspec(naked) void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_if(void)
+__declspec(naked) void nseel_asm_if(void) // not currently used on x86/x86-64
 {
   __asm {
 #ifdef TARGET_X64
@@ -1533,7 +1533,6 @@ __declspec(naked) void nseel_asm_if_end(void) {}
 __declspec(naked) void nseel_asm_repeat(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [eax];
 #ifdef TARGET_X64
     fistp qword ptr [esi];
     mov rcx, qword ptr [rsi];
@@ -1552,7 +1551,9 @@ label_19:
       sub esp, 8; /* keep stack aligned -- note this is required on x64 too!*/
       push esi; // revert back to last temp workspace
       push ecx;
+
       call edx;
+
       pop ecx;
       pop esi;
       add esp, 8; /* keep stack aligned -- also required on x64*/
