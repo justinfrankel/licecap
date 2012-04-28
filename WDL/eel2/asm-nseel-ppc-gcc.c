@@ -785,10 +785,8 @@ void nseel_asm_min(void)
     "lfd f2, 0(r14)\n"
     "fcmpu cr7, f2, f1\n"
     "bgt cr7, 0f\n"
-    "fmr f1, f2\n"
+    "mr r3, r14\n"
     "0:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
   );
 }
 void nseel_asm_min_end(void) {}
@@ -800,10 +798,8 @@ void nseel_asm_max(void)
     "lfd f2, 0(r14)\n"
     "fcmpu cr7, f2, f1\n"
     "blt cr7, 0f\n"
-    "fmr f1, f2\n"
+    "mr r3, r14\n"
     "0:\n"
-    "  stfdu f1, 8(r16)\n"
-    "  mr r3, r16\n"
   );
 }
 
