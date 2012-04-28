@@ -2017,11 +2017,14 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
   int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);
   if (funcsz<0) return NULL;
  
-  p = newblock2 = newCodeBlock(funcsz+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+  p = newblock2 = newCodeBlock(funcsz+FUNCTIONCOMPILE_EXTRASPACE_SIZE + 
+                               sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
   if (!newblock2) return NULL;
   memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
   *fpStackUsage=0;
-  p+=compileOpcodes(ctx,rec,p, funcsz + FUNCTIONCOMPILE_EXTRASPACE_SIZE, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);         
+  funcsz=compileOpcodes(ctx,rec,p, funcsz + FUNCTIONCOMPILE_EXTRASPACE_SIZE, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);         
+  if (funcsz<0) return NULL;
+  p+=funcsz;
 
   memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
@@ -2533,7 +2536,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
         if (bufOut)
         {
-          newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
+          newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, fpStackUse);
           if (!newblock2) return -1;
       
           memcpy(pwr,stubfunc,stubsz);
@@ -3978,7 +3981,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
 #ifdef LOG_OPT
       char buf[512];
-      sprintf(buf,"pre opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL,RETURNVALUE_IGNORE,NULL));
+      int sd=0;
+      sprintf(buf,"pre opt sz=%d (tsackDepth=%d)\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL,RETURNVALUE_IGNORE,NULL,&sd),sd);
 #ifdef _WIN32
       OutputDebugString(buf);
 #else
@@ -3987,7 +3991,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #endif
       optimizeOpcodes(ctx,start_opcode);
 #ifdef LOG_OPT
-      sprintf(buf,"post opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL));
+      sprintf(buf,"post opt sz=%d, stack depth=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL,&sd),sd);
 #ifdef _WIN32
       OutputDebugString(buf);
 #else
