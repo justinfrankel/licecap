@@ -20,7 +20,7 @@ void nseel_asm_2pdd(void)
   __asm__( 
     "addis r7, 0, 0xdead\n" 
     "ori r7, r7, 0xbeef\n"  
-    "mr f2, f1\n" 
+    "fmr f2, f1\n" 
     "lfd f1, 0(r14)\n" 
     "mtctr r7\n" 
     "subi r1, r1, 64\n" 
@@ -35,7 +35,7 @@ void nseel_asm_2pdds(void)
   __asm__( 
     "addis r5, 0, 0xdead\n" 
     "ori r5, r5, 0xbeef\n"  
-    "mr f2, f1\n" 
+    "fmr f2, f1\n" 
     "lfd f1, 0(r14)\n" 
     "mtctr r5\n" 
     "subi r1, r1, 64\n" 
