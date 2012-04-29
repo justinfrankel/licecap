@@ -2431,33 +2431,127 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
     // special case: loop
     if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+3)
-    {
-      void *stub;
-      int stubsize;        
-      unsigned char *newblock2, *p;
-      
-      int rvt = RETURNVALUE_NORMAL;
-      int parm_size;
-
-      stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
-      
-      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL);
+    {    
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL);
       if (parm_size < 0) return -1;
       
       if (computTableSize) (*computTableSize) ++;
-      
-      if (bufOut_len < parm_size + stubsize) return -1;
-      
-      if (bufOut)
+      *calledRvType = RETURNVALUE_BOOL;
+           
+#ifdef __ppc__
       {
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, rvt, NULL);
+        void *stub;
+        int stubsize;        
+        unsigned char *newblock2, *p;
+        stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
+        if (bufOut_len < parm_size + stubsize) return -1;
+        if (bufOut)
+        {
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_IGNORE, NULL);
       
-        p = bufOut + parm_size;
-        memcpy(p, stub, stubsize);
+          p = bufOut + parm_size;
+          memcpy(p, stub, stubsize);
       
-        p=EEL_GLUE_set_immediate(p,newblock2);
+          p=EEL_GLUE_set_immediate(p,newblock2);
+        }
+        return rv_offset + parm_size + stubsize;
       }
-      return rv_offset + parm_size + stubsize;
+#else
+      {
+        #define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
+#if defined(_WIN64) || defined(__LP64__)
+        static const unsigned char hdr1[]={
+                0xDF, 0x3E,           //fistp qword [rsi]
+          0x48, 0x8B, 0x0E,           // mov rcx, [rsi]
+          0x48, 0x81, 0xf9, 1,0,0,0,  // cmp rcx, 1
+                0x0F, 0x8C,           // JL <skipptr>
+        };
+        static const unsigned char hdr2[]={
+          0x48, 0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+                0x0F, 0x8C,         // JL <skipptr>
+        };
+        static const unsigned char hdr3[]={
+          0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+        };
+        static const unsigned char push_stuff[]={ 
+          0x56, //push rsi
+          0x51, // push rcx
+        };
+        static const unsigned char pop_stuff_dec_jnz[]={ 
+          0x59, //pop rcx
+          0x5E, // pop rsi
+          0xff, 0xc9, // dec rcx
+          0x0f, 0x85, // jnz ...
+        };
+#else
+        static const unsigned char hdr1[]={
+                0xDB, 0x1E,           //fistp dword [esi]
+                0x8B, 0x0E,           // mov ecx, [esi]
+                0x81, 0xf9, 1,0,0,0,  // cmp ecx, 1
+                0x0F, 0x8C,           // JL <skipptr>
+        };
+        static const unsigned char hdr2[]={
+                0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+                0x0F, 0x8C,           // JL <skipptr>
+        };
+        static const unsigned char hdr3[]={
+                0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+        };
+        static const unsigned char push_stuff[]={ 
+          0x56, //push esi
+          0x51, // push ecx
+          0x81, 0xEC, 0x08, 0,0,0, // sub esp, 8
+        };
+        static const unsigned char pop_stuff_dec_jnz[]={ 
+          0x81, 0xC4, 0x08, 0,0,0, // add esp, 8
+          0x59, //pop ecx
+          0x5E, // pop esi
+          0x49, // dec ecx
+          0x0f, 0x85, // jnz ...
+        };
+#endif
+        int subsz;
+        char *skipptr1, *skipclampptr, *loopdest;
+        if (bufOut_len < parm_size + sizeof(hdr1) + 4 + sizeof(hdr2) + 4 + sizeof(hdr3) + sizeof(push_stuff)) return -1;
+
+        // store, convert to int, compare against 1, if less than, skip to end
+        if (bufOut) memcpy(bufOut+parm_size,hdr1,sizeof(hdr1));
+        parm_size += sizeof(hdr1) + 4;
+        skipptr1 = bufOut+parm_size - 4; 
+
+        // compare aginst max loop length, jump to loop start if not above it
+        if (bufOut) memcpy(bufOut+parm_size,hdr2,sizeof(hdr2));
+        parm_size += sizeof(hdr2) + 4;
+        skipclampptr = bufOut+parm_size - 4;
+
+        // clamp to max loop length
+        if (bufOut) memcpy(bufOut+parm_size,hdr3,sizeof(hdr3));
+        parm_size += sizeof(hdr3);
+
+        // loop code:
+        loopdest = bufOut + parm_size;
+        if (bufOut) memcpy(bufOut+parm_size,push_stuff,sizeof(push_stuff));
+        parm_size += sizeof(push_stuff);
+
+        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL);
+        if (subsz<0) return -1;
+        parm_size += subsz;
+
+        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + 4) return -1;
+
+        if (bufOut) memcpy(bufOut+parm_size,pop_stuff_dec_jnz,sizeof(pop_stuff_dec_jnz));
+        parm_size += sizeof(pop_stuff_dec_jnz);
+        
+        if (bufOut) *(int *)(bufOut + parm_size) = (loopdest - (bufOut+parm_size+4));
+        parm_size += 4;
+
+        if (bufOut) *(int *)skipptr1 =  (bufOut+parm_size - (skipptr1 + 4));
+        if (bufOut) *(int *)skipclampptr =  (loopdest - (skipclampptr + 4));
+
+        return rv_offset + parm_size;
+
+      }
+#endif
     }
     
     // special case: BAND/BOR
@@ -2467,7 +2561,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       int stubsize;        
       unsigned char *newblock2, *p;
       
-      int rvt = RETURNVALUE_BOOL;
       int parm_size;
 
       if (fn_ptr == fnTable1+1) 
@@ -2483,7 +2576,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       // 1) if x86 and less than 125 bytes (?), can use near jumps rather than calls?
       // 2) if x86 and less than 32k (?), can use short relative jumps?
       
-      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, rvt, NULL);
+      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
       if (parm_size < 0) return -1;
       
 
@@ -2493,7 +2586,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       
       if (bufOut)
       {
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, rvt, NULL);
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
       
         p = bufOut + parm_size;
         memcpy(p, stub, stubsize);
@@ -2548,7 +2641,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       return rv_offset + parm_size + stubsize;
 #else
       {
-        // x86/x86-64 branches now do not require calls, yay
+        // x86/x86-64 ifs now do not require calls, yay
         int csz;
         if (bufOut_len < parm_size + 2 + 6 + 5) return -1;
         if (bufOut)
