@@ -792,7 +792,7 @@ __declspec(naked) void nseel_asm_assign_fast_end(void) {}
 __declspec(naked) void nseel_asm_add(void)
 {
   __asm {
-    fadd EEL_ASM_TYPE [edi];
+    fadd;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -836,7 +836,7 @@ __declspec(naked) void nseel_asm_add_op_end(void) {}
 __declspec(naked) void nseel_asm_sub(void)
 {
   __asm {
-    fsubr EEL_ASM_TYPE [edi];
+    fsub;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -879,7 +879,7 @@ __declspec(naked) void nseel_asm_sub_op_end(void) {}
 __declspec(naked) void nseel_asm_mul(void)
 {
   __asm {
-    fmul EEL_ASM_TYPE [edi];
+    fmul;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -922,8 +922,7 @@ __declspec(naked) void nseel_asm_mul_op_end(void) {}
 __declspec(naked) void nseel_asm_div(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fdivr; // a2x64 and a2i.php should convert this to fdivr
+    fdiv;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -944,7 +943,8 @@ __declspec(naked) void nseel_asm_div_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fdivr; // a2x64 and a2i.php should convert this to fdivr
+    fxch;
+    fdiv;
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
 _emit 0x89;
@@ -967,8 +967,6 @@ __declspec(naked) void nseel_asm_div_op_end(void) {}
 __declspec(naked) void nseel_asm_mod(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fxch;
     fabs;
     fistp dword ptr [esi];
     fabs;
@@ -1004,15 +1002,12 @@ __declspec(naked) void nseel_asm_mod_end(void) {}
 __declspec(naked) void nseel_asm_shl(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fistp dword ptr [esi+4];
     fistp dword ptr [esi];
-    push ecx;
+    fistp dword ptr [esi+4];
     mov ecx, dword ptr [esi];
     mov eax, dword ptr [esi+4];
     shl eax, cl;
     mov dword ptr [esi], eax;
-    pop ecx;
     fild dword ptr [esi];
 _emit 0x89;
 _emit 0x90;
@@ -1033,15 +1028,12 @@ __declspec(naked) void nseel_asm_shl_end(void) {}
 __declspec(naked) void nseel_asm_shr(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
-    fistp dword ptr [esi+4];
     fistp dword ptr [esi];
-    push ecx;
+    fistp dword ptr [esi+4];
     mov ecx, dword ptr [esi];
     mov eax, dword ptr [esi+4];
     sar eax, cl;
     mov dword ptr [esi], eax;
-    pop ecx;
     fild dword ptr [esi];
 _emit 0x89;
 _emit 0x90;
@@ -1103,7 +1095,6 @@ __declspec(naked) void nseel_asm_mod_op_end(void) {}
 __declspec(naked) void nseel_asm_or(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
 #ifdef TARGET_X64
@@ -1192,7 +1183,6 @@ __declspec(naked) void nseel_asm_or_op_end(void) {}
 __declspec(naked) void nseel_asm_xor(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
 #ifdef TARGET_X64
@@ -1261,7 +1251,6 @@ __declspec(naked) void nseel_asm_xor_op_end(void) {}
 __declspec(naked) void nseel_asm_and(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
 #ifdef TARGET_X64
@@ -1704,7 +1693,7 @@ __declspec(naked) void nseel_asm_bor_end(void) {}
 __declspec(naked) void nseel_asm_equal(void)
 {
   __asm {
-    fsub EEL_ASM_TYPE [edi];
+    fsub;
     fabs;
 #ifdef TARGET_X64
     mov rax, 0xfefefefe;
@@ -1748,7 +1737,7 @@ __declspec(naked) void nseel_asm_equal_end(void) {}
 __declspec(naked) void nseel_asm_notequal(void)
 {
   __asm {
-    fsub EEL_ASM_TYPE [edi];
+    fsub;
     fabs;
 #ifdef TARGET_X64
     mov rax, 0xfefefefe;
@@ -1791,10 +1780,9 @@ __declspec(naked) void nseel_asm_notequal_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_below(void)
+__declspec(naked) void nseel_asm_above(void)
 {
   __asm {
-    fld EEL_ASM_TYPE [edi];
     fcompp;
     fstsw ax;
     and eax, 1280; //  (1024+256) old behavior: NaN would mean 1, preserve that
@@ -1812,13 +1800,13 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_below_end(void) {}
+__declspec(naked) void nseel_asm_above_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_beloweq(void)
 {
   __asm {
-    fcomp EEL_ASM_TYPE [edi];
+    fcompp;
     fstsw ax;
     and eax, 256; // old behavior: NaN would be 0 (ugh)
     xor eax, 256;
@@ -1838,54 +1826,6 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_beloweq_end(void) {}
 
-
-//---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_above(void)
-{
-  __asm {
-    fcomp EEL_ASM_TYPE [edi];
-    fstsw ax;
-    and eax, 1280; //  (1024+256) old behavior: NaN would mean 1, preserve that
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-}
-__declspec(naked) void nseel_asm_above_end(void) {}
-
-__declspec(naked) void nseel_asm_aboveeq(void)
-{
-  __asm {
-    fld EEL_ASM_TYPE [edi];
-    fcompp;
-    fstsw ax;
-    and eax, 256; // old behavior: NaN would be 0 (ugh)
-    xor eax, 256;
-
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-}
-__declspec(naked) void nseel_asm_aboveeq_end(void) {}
 
 __declspec(naked) void nseel_asm_booltofp(void)
 {

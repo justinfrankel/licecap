@@ -311,6 +311,8 @@ static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
   GLUE_SET_PX_FROM_WTP(buf + sizeof(GLUE_POP_FPSTACK_TO_WTP),wv); // ppc preincs the WTP, so we do this after
 };
 
+static unsigned int GLUE_POP_STACK_TO_FPSTACK[1] = { 0 }; // todo
+
 // end of ppc
 
 #else 
@@ -450,6 +452,10 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     };
     memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
   }
+  static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
+    0xDD, 0x04, 0x24, // fld qword (%rsp)
+    0x48, 0x81, 0xC4, 16, 0,0,0, //  add rsp, 16
+  };
 
 // end of x86-64
 
@@ -555,6 +561,10 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     0xDD, 0x1C, 0x24 // fstp qword (%esp)  
   };
 
+  static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
+    0xDD, 0x04, 0x24, // fld qword (%esp)
+    0x83, 0xC4, 16 //  add esp, 16
+  };
  
   static unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
       0xDD, 0x1E, // fstp qword [esi]
@@ -1006,12 +1016,26 @@ static double eel1sigmoid(double x, double constraint)
 
 
 #define FUNCTIONTYPE_PARAMETERCOUNTMASK 0xff
-#define BIF_NPARAMS_MASK 0xf000
 
-  #define BIF_RETURNSONSTACK 0x1000
-  #define BIF_LASTPARMONSTACK 0x2000
-  #define BIF_RETURNSBOOL 0x4000
-#define BIF_LASTPARM_ASBOOL 0x8000
+#define BIF_NPARAMS_MASK     0x0ff00
+#define BIF_RETURNSONSTACK   0x00100
+#define BIF_LASTPARMONSTACK  0x00200
+#define BIF_RETURNSBOOL      0x00400
+#define BIF_LASTPARM_ASBOOL  0x00800
+#define BIF_SECONDLASTPARMST 0x01000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
+#define BIF_LAZYPARMORDERING 0x02000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
+#define BIF_REVERSEFPORDER   0x04000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
+
+
+#define BIF_TWOPARMSONFPSTACK (BIF_SECONDLASTPARMST|BIF_LASTPARMONSTACK)
+#define BIF_TWOPARMSONFPSTACK_LAZY (BIF_LAZYPARMORDERING|BIF_SECONDLASTPARMST|BIF_LASTPARMONSTACK)
+
+
+// disable fp stack on ppc for now
+#ifdef __ppc__
+  #undef BIF_SECONDLASTPARMST
+  #define BIF_SECONDLASTPARMST 0
+#endif
 
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
@@ -1025,17 +1049,26 @@ static functionType fnTable1[] = {
 
   { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL, } ,
 
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL, {&g_closefact} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL, {&g_closefact} },
-  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
+  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL, {&g_closefact} },
+  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL, {&g_closefact} },
+
+#ifdef __ppc__
   { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
   { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
+  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
+  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
+#else
+  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
+  { "_aboeq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER  },
+  { "_below",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER},
+  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
+#endif
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2, },
-  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
-  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
-  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK },
+  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK },
+  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK },
+
   { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK},
   { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK},
   { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2|BIF_LASTPARMONSTACK}, 
@@ -1097,7 +1130,7 @@ static functionType fnTable1[] = {
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&negativezeropointfive, &onepointfive} },
 #endif
 
-  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK } ,
+  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY } ,
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
   { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel1sigmoid}, },
@@ -1421,13 +1454,13 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
   switch (fntype)
   {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
-    case FN_ADD: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(add);
-    case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(sub);
-    case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(mul);
-    case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(div);
+    case FN_ADD: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(add);
+    case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK; RF(sub);
+    case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(mul);
+    case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK; RF(div);
     case FN_JOIN_STATEMENTS: RF(exec2);
-    case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(and);
-    case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(or);
+    case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(and);
+    case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(or);
     case FN_UPLUS: RF(uplus); 
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(uminus);
 #undef RF
@@ -1993,8 +2026,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   // builtin function generation
   int cfunc_abiinfo=0;
   int parm_size=0;
+  int need_fxch=0;
   int pn;
-  int last_nt_parm=-1;
+  int last_nt_parm=-1, last_nt_parm_type;
   void *func_e=NULL;
   int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
   NSEEL_PPPROC preProc=0;
@@ -2087,10 +2121,20 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       int rvt=RETURNVALUE_NORMAL;
       if (last_nt_parm>=0)
       {
-        // push last result
-        if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
-        if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
-        parm_size += sizeof(GLUE_PUSH_P1);
+        if (last_nt_parm_type==RETURNVALUE_FPSTACK)
+        {          
+          // push last result
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) return -1;
+          if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
+          parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
+        }
+        else
+        {
+          // push last result
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+          if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+          parm_size += sizeof(GLUE_PUSH_P1);
+        }
       }         
 
       if (pn == n_params - 1)
@@ -2099,10 +2143,15 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         else if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL) rvt=RETURNVALUE_BOOL;
         else if (func == nseel_asm_assign) rvt=RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL;
       }
+      else if (pn == n_params -2 && (cfunc_abiinfo&BIF_SECONDLASTPARMST))
+      {
+        rvt=RETURNVALUE_FPSTACK;
+      }
       lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt);
       if (lsz<0) return -1;
       parm_size += lsz;            
       last_nt_parm = pn;
+      last_nt_parm_type = rvt;
 
       if (func == nseel_asm_assign && rvt == RETURNVALUE_FPSTACK)
       {
@@ -2117,7 +2166,11 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   
   if (pn >= 0) // if the last thing executed doesn't go to the last parameter, move it there
   {
-    if (pn != n_params-1)
+    if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
+    {
+      // do nothing, things are in the right place
+    }
+    else if (pn != n_params-1)
     {
       // generate mov p1->pX
       if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
@@ -2131,9 +2184,19 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   { 
     if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
     {
-      if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
-      if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
-      parm_size += GLUE_POP_PX_SIZE;
+      if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
+      {
+        if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) return -1;
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
+        parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
+        need_fxch = 1;
+      }
+      else
+      {
+        if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
+        if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
+        parm_size += GLUE_POP_PX_SIZE;
+      }
     }
   }
 
@@ -2142,12 +2205,20 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   { 
     if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
     {
-      if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL)))  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
+      if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
+      {
+        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,RETURNVALUE_FPSTACK,NULL);
+        if (a<0) return -1;
+        parm_size+=a;
+        need_fxch = 1;
+      }
+      else if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL)))  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
       {
         int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
           (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : RETURNVALUE_BOOL,NULL);
         if (a<0) return -1;
         parm_size+=a;
+        need_fxch = 0;
       }
       else
       {
@@ -2160,6 +2231,22 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       }
     }
   }
+
+#ifndef __ppc__
+  if ((cfunc_abiinfo&(BIF_SECONDLASTPARMST)) && !(cfunc_abiinfo&(BIF_LAZYPARMORDERING))&&
+      ((!!need_fxch)^!!(cfunc_abiinfo&BIF_REVERSEFPORDER)) 
+      )
+  {
+    // emit fxch
+    if (bufOut_len < 2) return -1;
+    if (bufOut) 
+    { 
+      bufOut[parm_size] = 0xd9; 
+      bufOut[parm_size+1] = 0xc9; 
+    }
+    parm_size+=2;
+  }
+#endif
   
   {
     int func_size=0;

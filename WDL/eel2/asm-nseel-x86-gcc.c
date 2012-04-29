@@ -460,7 +460,7 @@ void nseel_asm_assign_fast_end(void) {}
 void nseel_asm_add(void)
 {
   __asm__(
-    "fadd" EEL_F_SUFFIX " (%edi)\n"
+    "fadd\n"
   );
 }
 void nseel_asm_add_end(void) {}
@@ -480,7 +480,7 @@ void nseel_asm_add_op_end(void) {}
 void nseel_asm_sub(void)
 {
   __asm__(
-    "fsubr" EEL_F_SUFFIX " (%edi)\n"
+    "fsub\n"
   );
 }
 void nseel_asm_sub_end(void) {}
@@ -499,7 +499,7 @@ void nseel_asm_sub_op_end(void) {}
 void nseel_asm_mul(void)
 {
   __asm__(
-    "fmul" EEL_F_SUFFIX " (%edi)\n"
+    "fmul\n"
   );
 }
 void nseel_asm_mul_end(void) {}
@@ -518,8 +518,7 @@ void nseel_asm_mul_op_end(void) {}
 void nseel_asm_div(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fdiv\n" // a2x64 and a2i.php should convert this to fdivr
+    "fdiv\n"
   );
 }
 void nseel_asm_div_end(void) {}
@@ -528,7 +527,8 @@ void nseel_asm_div_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fdiv\n" // a2x64 and a2i.php should convert this to fdivr
+    "fxch\n"
+    "fdiv\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
   );
@@ -539,8 +539,6 @@ void nseel_asm_div_op_end(void) {}
 void nseel_asm_mod(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fxch\n"
     "fabs\n"
     "fistpl (%esi)\n"
     "fabs\n"
@@ -563,15 +561,12 @@ void nseel_asm_mod_end(void) {}
 void nseel_asm_shl(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fistpl 4(%esi)\n"
     "fistpl (%esi)\n"
-    "pushl %ecx\n"
+    "fistpl 4(%esi)\n"
     "movl (%esi), %ecx\n"
     "movl 4(%esi), %eax\n"
     "shll %cl, %eax\n"
     "movl %eax, (%esi)\n"
-    "popl %ecx\n"
     "fildl (%esi)\n"
   );
 }
@@ -580,15 +575,12 @@ void nseel_asm_shl_end(void) {}
 void nseel_asm_shr(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fistpl 4(%esi)\n"
     "fistpl (%esi)\n"
-    "pushl %ecx\n"
+    "fistpl 4(%esi)\n"
     "movl (%esi), %ecx\n"
     "movl 4(%esi), %eax\n"
     "sarl %cl, %eax\n"
     "movl %eax, (%esi)\n"
-    "popl %ecx\n"
     "fildl (%esi)\n"
   );
 }
@@ -625,7 +617,6 @@ void nseel_asm_mod_op_end(void) {}
 void nseel_asm_or(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -678,7 +669,6 @@ void nseel_asm_or_op_end(void) {}
 void nseel_asm_xor(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -723,7 +713,6 @@ void nseel_asm_xor_op_end(void) {}
 void nseel_asm_and(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -1008,7 +997,7 @@ void nseel_asm_bor_end(void) {}
 void nseel_asm_equal(void)
 {
   __asm__(
-    "fsub" EEL_F_SUFFIX " (%edi)\n"
+    "fsub\n"
     "fabs\n"
 #ifdef TARGET_X64
     "movl $0xfefefefe, %rax\n"
@@ -1026,7 +1015,7 @@ void nseel_asm_equal_end(void) {}
 void nseel_asm_notequal(void)
 {
   __asm__(
-    "fsub" EEL_F_SUFFIX " (%edi)\n"
+    "fsub\n"
     "fabs\n"
 #ifdef TARGET_X64
     "movl $0xfefefefe, %rax\n"
@@ -1043,22 +1032,21 @@ void nseel_asm_notequal_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-void nseel_asm_below(void)
+void nseel_asm_above(void)
 {
   __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
     "fcompp\n"
     "fstsw %ax\n"
     "andl $1280, %eax\n" //  (1024+256) old behavior: NaN would mean 1, preserve that
   );
 }
-void nseel_asm_below_end(void) {}
+void nseel_asm_above_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_beloweq(void)
 {
   __asm__(
-    "fcomp" EEL_F_SUFFIX " (%edi)\n"
+    "fcompp\n"
     "fstsw %ax\n"
     "andl $256, %eax\n" // old behavior: NaN would be 0 (ugh)
     "xorl $256, %eax\n"
@@ -1066,30 +1054,6 @@ void nseel_asm_beloweq(void)
 }
 void nseel_asm_beloweq_end(void) {}
 
-
-//---------------------------------------------------------------------------------------------------------------
-void nseel_asm_above(void)
-{
-  __asm__(
-    "fcomp" EEL_F_SUFFIX " (%edi)\n"
-    "fstsw %ax\n"
-    "andl $1280, %eax\n" //  (1024+256) old behavior: NaN would mean 1, preserve that
-  );
-}
-void nseel_asm_above_end(void) {}
-
-void nseel_asm_aboveeq(void)
-{
-  __asm__(
-    "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fcompp\n"
-    "fstsw %ax\n"
-    "andl $256, %eax\n" // old behavior: NaN would be 0 (ugh)
-    "xorl $256, %eax\n"
-
-  );
-}
-void nseel_asm_aboveeq_end(void) {}
 
 void nseel_asm_booltofp(void)
 {
