@@ -2381,7 +2381,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 
 #define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
 
-static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType)
+static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType, int preferredReturnValues)
 {
   int rv_offset=0;
   if (!op) return -1;
@@ -2400,6 +2400,50 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     rv_offset += parm_size;
   }
 
+#ifndef __ppc__ // todo ppc
+  if (op->opcodeType == OPCODETYPE_DIRECTVALUE && (preferredReturnValues&RETURNVALUE_BOOL))
+  {
+    // if this function would take a bool, short circuit it
+    *calledRvType = RETURNVALUE_BOOL;
+
+#if defined(_WIN64) || defined(__LP64__)
+    if (bufOut_len < 3) return -1;
+    if (bufOut) 
+    {
+      bufOut[0]=0x48;
+      bufOut[1]=0x29;
+      bufOut[2]=0xC0;
+    }
+    rv_offset+=3;
+    if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
+    {
+      if (bufOut_len < 5) return -1;
+      if (bufOut) 
+      {
+        bufOut[3] = 0xFF;
+        bufOut[4] = 0xC0; // inc eax
+      }
+      rv_offset+=2;
+    }
+    return rv_offset;
+#else
+    if (bufOut_len < 2) return -1;
+    if (bufOut)
+    {
+      bufOut[0]=0x29;
+      bufOut[1]=0xC0;
+    }
+    rv_offset+=2;
+    if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
+    {
+      if (bufOut_len < 3) return -1;
+      if (bufOut) bufOut[2] = 0x40; // inc eax
+      rv_offset++;
+    }
+    return rv_offset;
+#endif
+  }
+#endif
 
   if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
   {
@@ -2811,7 +2855,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
                    int supportedReturnValues, int *rvType)
 {
   int code_returns=RETURNVALUE_NORMAL;
-  int codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns);
+  int codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues);
   if (codesz < 0) return codesz;
 
   if (bufOut) bufOut += codesz;
@@ -3741,7 +3785,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
 #ifdef LOG_OPT
       char buf[512];
-      sprintf(buf,"pre opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, RETURNVALUE_IGNORE,NULL));
+      sprintf(buf,"pre opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL,RETURNVALUE_IGNORE,NULL));
 #ifdef _WIN32
       OutputDebugString(buf);
 #else
@@ -3750,7 +3794,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #endif
       optimizeOpcodes(ctx,start_opcode);
 #ifdef LOG_OPT
-      sprintf(buf,"post opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, RETURNVALUE_IGNORE,NULL));
+      sprintf(buf,"post opt sz=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL));
 #ifdef _WIN32
       OutputDebugString(buf);
 #else
