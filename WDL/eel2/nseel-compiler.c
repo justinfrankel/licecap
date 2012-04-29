@@ -2379,6 +2379,8 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   // end of EEL function generation
 }
 
+#define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
+
 static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType)
 {
   int rv_offset=0;
@@ -2405,28 +2407,99 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     functionType *fn_ptr = (functionType *)op->fn;
     if (op->opcodeType == OPCODETYPE_FUNC1 && fn_ptr == fnTable1 + 4)
     {
-      unsigned char *pwr=bufOut;
-      unsigned char *newblock2;
-      int stubsz;
-      void *stubfunc = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&stubsz);
-      if (bufOut_len < stubsz) return -1;        
-
       *calledRvType = RETURNVALUE_BOOL;
-      // todo:
-      // 1) if x86 and less than 125 bytes (?), can use near jumps rather than calls?
-      // 2) if x86 and less than 32k (?), can use short relative jumps?
-      
-
-      if (!bufOut) return rv_offset+stubsz;
-      
-      newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
-      if (!newblock2) return -1;
-      
-      memcpy(pwr,stubfunc,stubsz);
-      pwr=EEL_GLUE_set_immediate(pwr,newblock2); 
-      
       if (computTableSize) (*computTableSize)++;
-      return rv_offset+stubsz;
+
+#ifdef __ppc__
+      {
+        unsigned char *pwr=bufOut;
+        unsigned char *newblock2;
+        int stubsz;
+        void *stubfunc = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&stubsz);
+        if (!stubfunc || bufOut_len < stubsz) return -1;             
+
+        if (bufOut)
+        {
+          newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
+          if (!newblock2) return -1;
+      
+          memcpy(pwr,stubfunc,stubsz);
+          pwr=EEL_GLUE_set_immediate(pwr,newblock2); 
+        }
+      
+        return rv_offset+stubsz;
+      }
+#else
+      {
+#if defined(_WIN64) || defined(__LP64__)
+        static const unsigned char hdr1[]={
+          0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+        };
+        static const unsigned char push_stuff[]={ 
+          0x56, //push rsi
+          0x51, // push rcx
+        };
+        static const unsigned char pop_stuff_dec_jnz[]={ 
+          0x59, //pop rcx
+          0x5E, // pop rsi
+
+          0xff, 0xc9, // dec rcx
+          0x0f, 0x84, // jz endpt
+        };
+#else
+        static const unsigned char hdr1[]={
+                0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+        };
+        static const unsigned char push_stuff[]={ 
+          0x56, //push esi
+          0x51, // push ecx
+          0x81, 0xEC, 0x08, 0,0,0, // sub esp, 8
+        };
+        static const unsigned char pop_stuff_dec_jnz[]={ 
+          0x81, 0xC4, 0x08, 0,0,0, // add esp, 8
+          0x59, //pop ecx
+          0x5E, // pop esi
+
+
+          0x49, // dec ecx
+          0x0f, 0x84, // jz endpt
+        };
+#endif
+        static const unsigned char check_rv[] = {
+          0x85, 0xC0, 0x0F, 0x85 // test eax, eax, jnz  looppt
+        };
+
+        char *looppt, *jzoutpt;
+        int parm_size=0,subsz;
+        if (bufOut_len < parm_size + sizeof(hdr1) + sizeof(push_stuff)) return -1;
+        if (bufOut) memcpy(bufOut + parm_size,hdr1,sizeof(hdr1));
+        parm_size+=sizeof(hdr1);
+        looppt = bufOut + parm_size;
+        if (bufOut) memcpy(bufOut + parm_size,push_stuff,sizeof(push_stuff));
+        parm_size+=sizeof(push_stuff);
+
+        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
+        if (subsz<0) return -1;
+
+        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + sizeof(check_rv) + 4 + 4) return -1;
+
+        parm_size+=subsz;
+        if (bufOut) memcpy(bufOut + parm_size, pop_stuff_dec_jnz, sizeof(pop_stuff_dec_jnz));
+        parm_size+=sizeof(pop_stuff_dec_jnz);
+        jzoutpt = bufOut + parm_size;
+
+        parm_size += 4;
+        if (bufOut) memcpy(bufOut + parm_size, check_rv, sizeof(check_rv));
+        parm_size+=sizeof(check_rv);
+        if (bufOut) *(int *)(bufOut + parm_size) = (looppt - (bufOut+parm_size+4));
+
+        parm_size+=4;
+        if (bufOut) *(int *)jzoutpt = (bufOut + parm_size - (jzoutpt + 4));
+        
+        return rv_offset+parm_size;
+      }
+
+#endif
     }
 
     // special case: loop
@@ -2458,7 +2531,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       }
 #else
       {
-        #define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
 #if defined(_WIN64) || defined(__LP64__)
         static const unsigned char hdr1[]={
                 0xDF, 0x3E,           //fistp qword [rsi]
