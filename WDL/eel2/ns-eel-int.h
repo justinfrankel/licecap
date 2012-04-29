@@ -120,6 +120,7 @@ typedef struct {
   void *workTable; // references a chunk in blocks_data
 
   void *code;
+  int code_size; // in case the caller wants to write it out
   int code_stats[4];
 
   int want_stack;

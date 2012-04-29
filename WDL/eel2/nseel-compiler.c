@@ -3142,6 +3142,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       memcpy(writeptr,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); writeptr += GLUE_FUNC_LEAVE_SIZE;
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
       ctx->l_stats[1]=size;
+      handle->code_size = writeptr - (unsigned char *)handle->code;
     }
     
     handle->blocks = ctx->blocks_head;
