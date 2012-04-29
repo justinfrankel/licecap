@@ -2142,34 +2142,21 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   { 
     if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
     {
-      if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
-      if (bufOut) 
+      if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL)))  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
       {
-        if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis)<0) return -1;
+        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
+          (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : RETURNVALUE_BOOL,NULL);
+        if (a<0) return -1;
+        parm_size+=a;
       }
-      parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
-
-      if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL))) // last parameter, but we have an address and we need to load it to the fp stack
+      else
       {
-        // load value to fp stack
-        if (bufOut_len < parm_size + GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
-        if (bufOut) GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut + parm_size,n_params - 1 - pn); // always fld qword [eax] but we might change that later
-        parm_size += GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE;      
-
-        if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL)
+        if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
+        if (bufOut) 
         {
-          // convert value on fp stack to bool
-          int stubsize;
-          void *stub = GLUE_realAddress(nseel_asm_fptobool,nseel_asm_fptobool_end,&stubsize);
-          if (!stub || bufOut_len < parm_size + stubsize) return -1;
-          if (bufOut) 
-          {
-            memcpy(bufOut + parm_size,stub,stubsize);
-            EEL_GLUE_set_immediate(bufOut + parm_size,&g_closefact);
-          }
-          parm_size += stubsize;
+          if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis)<0) return -1;
         }
-
+        parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
       }
     }
   }
@@ -2401,47 +2388,64 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
   }
 
 #ifndef __ppc__ // todo ppc
-  if (op->opcodeType == OPCODETYPE_DIRECTVALUE && (preferredReturnValues&RETURNVALUE_BOOL))
+  if (op->opcodeType == OPCODETYPE_DIRECTVALUE)
   {
-    // if this function would take a bool, short circuit it
-    *calledRvType = RETURNVALUE_BOOL;
+    if (preferredReturnValues&RETURNVALUE_BOOL)
+    {
+      // if this function would take a bool, short circuit it
+      *calledRvType = RETURNVALUE_BOOL;
 
-#if defined(_WIN64) || defined(__LP64__)
-    if (bufOut_len < 3) return -1;
-    if (bufOut) 
-    {
-      bufOut[0]=0x48;
-      bufOut[1]=0x29;
-      bufOut[2]=0xC0;
-    }
-    rv_offset+=3;
-    if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
-    {
-      if (bufOut_len < 5) return -1;
+  #if defined(_WIN64) || defined(__LP64__)
+      if (bufOut_len < 3) return -1;
       if (bufOut) 
       {
-        bufOut[3] = 0xFF;
-        bufOut[4] = 0xC0; // inc eax
+        bufOut[0]=0x48;
+        bufOut[1]=0x29;
+        bufOut[2]=0xC0;
+      }
+      rv_offset+=3;
+      if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
+      {
+        if (bufOut_len < 5) return -1;
+        if (bufOut) 
+        {
+          bufOut[3] = 0xFF;
+          bufOut[4] = 0xC0; // inc eax
+        }
+        rv_offset+=2;
+      }
+      return rv_offset;
+  #else
+      if (bufOut_len < 2) return -1;
+      if (bufOut)
+      {
+        bufOut[0]=0x29;
+        bufOut[1]=0xC0;
       }
       rv_offset+=2;
+      if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
+      {
+        if (bufOut_len < 3) return -1;
+        if (bufOut) bufOut[2] = 0x40; // inc eax
+        rv_offset++;
+      }
+      return rv_offset;
+  #endif
     }
-    return rv_offset;
-#else
-    if (bufOut_len < 2) return -1;
-    if (bufOut)
+    else if (preferredReturnValues & RETURNVALUE_FPSTACK)
     {
-      bufOut[0]=0x29;
-      bufOut[1]=0xC0;
+      if (op->parms.dv.directValue == 1.0 || op->parms.dv.directValue == 0.0)
+      {
+        *calledRvType = RETURNVALUE_FPSTACK;
+        if (bufOut_len < 2) return -1;
+        if (bufOut)
+        {
+          bufOut[0] = 0xd9;
+          bufOut[1] = op->parms.dv.directValue == 0.0 ? 0xee : 0xe8;  // fldz : fld1
+        }
+        return rv_offset+2;
+      }
     }
-    rv_offset+=2;
-    if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
-    {
-      if (bufOut_len < 3) return -1;
-      if (bufOut) bufOut[2] = 0x40; // inc eax
-      rv_offset++;
-    }
-    return rv_offset;
-#endif
   }
 #endif
 
