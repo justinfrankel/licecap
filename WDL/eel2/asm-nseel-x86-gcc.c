@@ -480,8 +480,7 @@ void nseel_asm_add_op_end(void) {}
 void nseel_asm_sub(void)
 {
   __asm__(
-    "fsub" EEL_F_SUFFIX " (%edi)\n"
-    "fchs\n"
+    "fsubr" EEL_F_SUFFIX " (%edi)\n"
   );
 }
 void nseel_asm_sub_end(void) {}
@@ -489,9 +488,8 @@ void nseel_asm_sub_end(void) {}
 void nseel_asm_sub_op(void)
 {
   __asm__(
-    "fsub" EEL_F_SUFFIX " (%edi)\n"
+    "fsubr" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
-    "fchs\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
   );
 }

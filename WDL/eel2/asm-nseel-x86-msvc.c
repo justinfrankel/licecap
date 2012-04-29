@@ -836,8 +836,7 @@ __declspec(naked) void nseel_asm_add_op_end(void) {}
 __declspec(naked) void nseel_asm_sub(void)
 {
   __asm {
-    fsub EEL_ASM_TYPE [edi];
-    fchs;
+    fsubr EEL_ASM_TYPE [edi];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -857,9 +856,8 @@ __declspec(naked) void nseel_asm_sub_end(void) {}
 __declspec(naked) void nseel_asm_sub_op(void)
 {
   __asm {
-    fsub EEL_ASM_TYPE [edi];
+    fsubr EEL_ASM_TYPE [edi];
     mov eax, edi;
-    fchs;
     fstp EEL_ASM_TYPE [edi];
 _emit 0x89;
 _emit 0x90;
