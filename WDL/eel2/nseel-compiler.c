@@ -2390,7 +2390,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #ifndef __ppc__ // todo ppc
   if (op->opcodeType == OPCODETYPE_DIRECTVALUE)
   {
-    if (preferredReturnValues&RETURNVALUE_BOOL)
+    if (preferredReturnValues == RETURNVALUE_BOOL)
     {
       // if this function would take a bool, short circuit it
       *calledRvType = RETURNVALUE_BOOL;
