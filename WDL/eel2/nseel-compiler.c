@@ -2557,43 +2557,68 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     // special case: BAND/BOR
     if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2))
     {
-      void *stub;
-      int stubsize;        
-      unsigned char *newblock2, *p;
-      
       int parm_size;
-
-      if (fn_ptr == fnTable1+1) 
-      {
-        stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
-      }
-      else 
-      {
-        stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
-      }
       *calledRvType = RETURNVALUE_BOOL;
-      // todo:
-      // 1) if x86 and less than 125 bytes (?), can use near jumps rather than calls?
-      // 2) if x86 and less than 32k (?), can use short relative jumps?
       
       parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
       if (parm_size < 0) return -1;
       
 
       if (computTableSize) (*computTableSize) ++;
-      
-      if (bufOut_len < parm_size + stubsize) return -1;
-      
-      if (bufOut)
+
+#ifdef __ppc__
       {
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
+        void *stub;
+        int stubsize;        
+        unsigned char *newblock2, *p;
       
-        p = bufOut + parm_size;
-        memcpy(p, stub, stubsize);
+
+        if (fn_ptr == fnTable1+1) 
+        {
+          stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
+        }
+        else 
+        {
+          stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
+        }
       
-        p=EEL_GLUE_set_immediate(p,newblock2);
+        if (bufOut_len < parm_size + stubsize) return -1;
+      
+        if (bufOut)
+        {
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
+      
+          p = bufOut + parm_size;
+          memcpy(p, stub, stubsize);
+      
+          p=EEL_GLUE_set_immediate(p,newblock2);
+        }
+        return rv_offset + parm_size + stubsize;
       }
-      return rv_offset + parm_size + stubsize;
+#else
+      {
+        int sz2;
+        char *destbuf;
+        static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
+
+        if (bufOut_len < parm_size+sizeof(testbuf) + 4) return -1;
+        if (bufOut) 
+        { 
+          memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
+          if (fn_ptr == fnTable1+2) bufOut[parm_size+sizeof(testbuf)-1]++/*jnz*/; 
+        }
+        parm_size += sizeof(testbuf);
+        destbuf = bufOut + parm_size;
+        parm_size += 4;
+
+        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
+        if (sz2<0) return -1;
+        parm_size+=sz2;
+        if (bufOut) *(int *)destbuf = (bufOut + parm_size - (destbuf+4));
+
+        return rv_offset + parm_size;
+      }
+#endif
     }  
     
     if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
