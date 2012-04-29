@@ -120,7 +120,7 @@ static unsigned int _controlfp(unsigned int val, unsigned int mask)
 
 #ifdef __ppc__
 
-#define PPC_MAX_JMPSIZE 16000 // could really be 32000, probably
+#define PPC_MAX_JMPSIZE 30000 // could really be 32000, probably
 
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
 static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
