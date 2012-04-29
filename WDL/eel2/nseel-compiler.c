@@ -2387,67 +2387,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     rv_offset += parm_size;
   }
 
-#ifndef __ppc__ // todo ppc
-  if (op->opcodeType == OPCODETYPE_DIRECTVALUE)
-  {
-    if (preferredReturnValues == RETURNVALUE_BOOL)
-    {
-      // if this function would take a bool, short circuit it
-      *calledRvType = RETURNVALUE_BOOL;
-
-  #if defined(_WIN64) || defined(__LP64__)
-      if (bufOut_len < 3) return -1;
-      if (bufOut) 
-      {
-        bufOut[0]=0x48;
-        bufOut[1]=0x29;
-        bufOut[2]=0xC0;
-      }
-      rv_offset+=3;
-      if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
-      {
-        if (bufOut_len < 5) return -1;
-        if (bufOut) 
-        {
-          bufOut[3] = 0xFF;
-          bufOut[4] = 0xC0; // inc eax
-        }
-        rv_offset+=2;
-      }
-      return rv_offset;
-  #else
-      if (bufOut_len < 2) return -1;
-      if (bufOut)
-      {
-        bufOut[0]=0x29;
-        bufOut[1]=0xC0;
-      }
-      rv_offset+=2;
-      if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
-      {
-        if (bufOut_len < 3) return -1;
-        if (bufOut) bufOut[2] = 0x40; // inc eax
-        rv_offset++;
-      }
-      return rv_offset;
-  #endif
-    }
-    else if (preferredReturnValues & RETURNVALUE_FPSTACK)
-    {
-      if (op->parms.dv.directValue == 1.0 || op->parms.dv.directValue == 0.0)
-      {
-        *calledRvType = RETURNVALUE_FPSTACK;
-        if (bufOut_len < 2) return -1;
-        if (bufOut)
-        {
-          bufOut[0] = 0xd9;
-          bufOut[1] = op->parms.dv.directValue == 0.0 ? 0xee : 0xe8;  // fldz : fld1
-        }
-        return rv_offset+2;
-      }
-    }
-  }
-#endif
 
   if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
   {
@@ -2818,6 +2757,93 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     case OPCODETYPE_DIRECTVALUE:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
+
+
+      #ifndef __ppc__ // todo ppc
+        if (op->opcodeType == OPCODETYPE_DIRECTVALUE)
+        {
+          if (preferredReturnValues == RETURNVALUE_BOOL)
+          {
+            // if this function would take a bool, short circuit it
+            *calledRvType = RETURNVALUE_BOOL;
+
+        #if defined(_WIN64) || defined(__LP64__)
+            if (bufOut_len < 3) return -1;
+            if (bufOut) 
+            {
+              bufOut[0]=0x48;
+              bufOut[1]=0x29;
+              bufOut[2]=0xC0;
+            }
+            rv_offset+=3;
+            if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
+            {
+              if (bufOut_len < 5) return -1;
+              if (bufOut) 
+              {
+                bufOut[3] = 0xFF;
+                bufOut[4] = 0xC0; // inc eax
+              }
+              rv_offset+=2;
+            }
+            return rv_offset;
+        #else
+            if (bufOut_len < 2) return -1;
+            if (bufOut)
+            {
+              bufOut[0]=0x29;
+              bufOut[1]=0xC0;
+            }
+            rv_offset+=2;
+            if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
+            {
+              if (bufOut_len < 3) return -1;
+              if (bufOut) bufOut[2] = 0x40; // inc eax
+              rv_offset++;
+            }
+            return rv_offset;
+        #endif
+          }
+          else if (preferredReturnValues & RETURNVALUE_FPSTACK)
+          {
+            if (op->parms.dv.directValue == 1.0 || op->parms.dv.directValue == 0.0)
+            {
+              *calledRvType = RETURNVALUE_FPSTACK;
+              if (bufOut_len < 2) return -1;
+              if (bufOut)
+              {
+                bufOut[0] = 0xd9;
+                bufOut[1] = op->parms.dv.directValue == 0.0 ? 0xee : 0xe8;  // fldz : fld1
+              }
+              return rv_offset+2;
+            }
+          }
+        }
+      #endif
+
+      #if !defined(__ppc__) && !defined(_WIN64) && !defined(__LP64__)
+        if (OPCODE_IS_TRIVIAL(op))
+        {
+          if (preferredReturnValues & RETURNVALUE_FPSTACK)
+          {
+            if (bufOut_len < 6) return -1;
+            // generate fld qword [abs]  -- 0xdd, 0x05
+            if (bufOut)
+            {
+              char tmp[GLUE_MOV_PX_DIRECTVALUE_SIZE];
+              if (generateValueToReg(ctx,op,tmp,0,namespacePathToThis)<0) return -1;
+
+              bufOut[0] = 0xDD;
+              bufOut[1] = 0x05;
+              memcpy(bufOut+2,tmp + GLUE_MOV_PX_DIRECTVALUE_SIZE-4,4);          
+            }
+
+            *calledRvType = RETURNVALUE_FPSTACK;
+            return rv_offset+6;
+          }
+        }
+      #endif
+
       if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_SIZE) 
       {
         return -1;
