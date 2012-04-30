@@ -2855,9 +2855,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
       {
         int t1,t2;
-        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1,NULL);
+        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,1024*1024*128, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1,NULL);
         if (a<0) RET_MINUS1_FAIL("if subcalcfail1")
-        a = compileOpcodes(ctx,op->parms.parms[2],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2,NULL);
+        a = compileOpcodes(ctx,op->parms.parms[2],NULL,1024*1024*128, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2,NULL);
         if (a<0) RET_MINUS1_FAIL("if subclacfail2")
         if (t1 == RETURNVALUE_BOOL && t2 == RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
         else if (t1 != RETURNVALUE_NORMAL && t2 != RETURNVALUE_NORMAL) use_rv=RETURNVALUE_FPSTACK;
