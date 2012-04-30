@@ -65,6 +65,7 @@
 
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
+#define FUNCTIONCOMPILE_EXTRASPACE_SIZE 256 // a little extra workspace so that compileOpcodes() can have working space to generate code and optimize
 
 //#define LOG_OPT
 //#define EEL_PPC_NOFREECODE
@@ -1017,25 +1018,31 @@ static double eel1sigmoid(double x, double constraint)
 
 #define FUNCTIONTYPE_PARAMETERCOUNTMASK 0xff
 
-#define BIF_NPARAMS_MASK     0x0ff00
+#define BIF_NPARAMS_MASK     0x7ff00
 #define BIF_RETURNSONSTACK   0x00100
 #define BIF_LASTPARMONSTACK  0x00200
 #define BIF_RETURNSBOOL      0x00400
 #define BIF_LASTPARM_ASBOOL  0x00800
-#define BIF_SECONDLASTPARMST 0x01000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
-#define BIF_LAZYPARMORDERING 0x02000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
-#define BIF_REVERSEFPORDER   0x04000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
 
+#ifndef __ppc__
+  #define BIF_SECONDLASTPARMST 0x01000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
+  #define BIF_LAZYPARMORDERING 0x02000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
+  #define BIF_REVERSEFPORDER   0x04000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
+  #define BIF_FPSTACKUSE(x) (((x)>=0&&(x)<8) ? ((7-(x))<<16):0)
+  #define BIF_GETFPSTACKUSE(x) (7 - (((x)>>16)&7))
+#else
+  // powerpc does not support fp stack use (yet)
+  #define BIF_SECONDLASTPARMST 0
+  #define BIF_LAZYPARMORDERING 0
+  #define BIF_REVERSEFPORDER   0
+  #define BIF_FPSTACKUSE(x) 0
+  #define BIF_GETFPSTACKUSE(x) 0
+#endif
 
 #define BIF_TWOPARMSONFPSTACK (BIF_SECONDLASTPARMST|BIF_LASTPARMONSTACK)
 #define BIF_TWOPARMSONFPSTACK_LAZY (BIF_LAZYPARMORDERING|BIF_SECONDLASTPARMST|BIF_LASTPARMONSTACK)
 
 
-// disable fp stack on ppc for now
-#ifdef __ppc__
-  #undef BIF_SECONDLASTPARMST
-  #define BIF_SECONDLASTPARMST 0
-#endif
 
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f);
@@ -1047,10 +1054,10 @@ static functionType fnTable1[] = {
   { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST },
   { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST },
 
-  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL, } ,
+  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1), } ,
 
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL, {&g_closefact} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL, {&g_closefact} },
+  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {&g_closefact} },
+  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {&g_closefact} },
 
 #ifdef __ppc__
   { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
@@ -1058,25 +1065,25 @@ static functionType fnTable1[] = {
   { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
   { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
 #else
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
-  { "_aboeq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER  },
-  { "_below",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER},
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
+  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2) },
+  { "_aboeq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2)  },
+  { "_below",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2)},
+  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2) },
 #endif
 
-  { "_set",nseel_asm_assign,nseel_asm_assign_end,2, },
-  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK },
-  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK },
-  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK },
+  { "_set",nseel_asm_assign,nseel_asm_assign_end,2|BIF_FPSTACKUSE(1), },
+  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(1) },
+  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2) },
+  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2) },
 
-  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK},
-  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK},
-  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2|BIF_LASTPARMONSTACK}, 
-  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2|BIF_LASTPARMONSTACK}, 
-  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2|BIF_LASTPARMONSTACK}, 
-  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK}, 
-  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK}, 
-  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2|BIF_LASTPARMONSTACK}, 
+  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)},
+  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)},
+  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
+  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
+  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
+  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
+  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
+  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
 
 
 #ifdef __ppc__
@@ -1084,9 +1091,9 @@ static functionType fnTable1[] = {
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&cos} },
    { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST, {&tan}  },
 #else
-   { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
-   { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
-   { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+   { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
+   { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
+   { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
 #endif
    { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&asin}, },
    { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&acos}, },
@@ -1127,10 +1134,10 @@ static functionType fnTable1[] = {
 #ifdef __ppc__
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK,  },
 #else
-   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&negativezeropointfive, &onepointfive} },
+   { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), {&negativezeropointfive, &onepointfive} },
 #endif
 
-  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY } ,
+  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2) } ,
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
   { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST, {&eel1sigmoid}, },
@@ -1147,17 +1154,17 @@ static functionType fnTable1[] = {
 
 
 
-  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK,{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
-  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK,{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
+  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
+  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM_freeblocks},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
 
 #ifdef EEL_STACK_SUPPORT
-  {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1,{0,},NSEEL_PProc_Stack},
-  {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1,{0,},NSEEL_PProc_Stack},
-  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK,{0,},NSEEL_PProc_Stack},
-  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1, {0,},NSEEL_PProc_Stack_PeekTop},
+  {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1|BIF_FPSTACKUSE(0),{0,},NSEEL_PProc_Stack},
+  {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1|BIF_FPSTACKUSE(1),{0,},NSEEL_PProc_Stack},
+  {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(0),{0,},NSEEL_PProc_Stack},
+  {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1|BIF_FPSTACKUSE(1), {0,},NSEEL_PProc_Stack_PeekTop},
 #endif
 
 
@@ -1392,11 +1399,11 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 
 
 static int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTable, const char *namespacePathToThis, 
-                          int supportedReturnValues, int *rvType);
+                          int supportedReturnValues, int *rvType, int *fpStackUsage);
 
 
 static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis, 
-                                              int supportedReturnValues, int *rvType);
+                                              int supportedReturnValues, int *rvType, int *fpStackUse);
 
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr)
 {
@@ -1454,13 +1461,13 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
   switch (fntype)
   {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
-    case FN_ADD: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(add);
-    case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK; RF(sub);
-    case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(mul);
-    case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK; RF(div);
+    case FN_ADD: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(add);
+    case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2); RF(sub);
+    case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(mul);
+    case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2); RF(div);
     case FN_JOIN_STATEMENTS: RF(exec2);
-    case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(and);
-    case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY; RF(or);
+    case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(and);
+    case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(or);
     case FN_UPLUS: RF(uplus); 
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(uminus);
 #undef RF
@@ -1488,7 +1495,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       int *customFuncParmSize, int *customFuncLocalStorageSize,
       EEL_F ***customFuncLocalStorage, int *computTableTop, 
       void **endP, int *isRaw, int wantCodeGenerated,
-      const char *namespacePathToThis, int *rvMode) // if wantCodeGenerated is false, can return bogus pointers in raw mode
+      const char *namespacePathToThis, int *rvMode, int *fpStackUse) // if wantCodeGenerated is false, can return bogus pointers in raw mode
 {
   _codeHandleFunctionRec *fn = (_codeHandleFunctionRec*)op->fn;
   switch (op->fntype)
@@ -1554,7 +1561,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           fr->tmpspace_req=0;
           fr->rvMode = RETURNVALUE_IGNORE;
 
-          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode);
+          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage);
 
           if (!wantCodeGenerated)
           {
@@ -1564,6 +1571,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             *customFuncLocalStorage = fr->localstorage;
             *customFuncLocalStorageSize = fr->localstorage_size;
             *rvMode = fr->rvMode;
+            *fpStackUse = fr->fpStackUsage;
 
             if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
             {
@@ -1577,11 +1585,11 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
 
           if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
           {
-            void *p=newTmpBlock(ctx,sz);
+            void *p=newTmpBlock(ctx,sz + FUNCTIONCOMPILE_EXTRASPACE_SIZE);
             fr->tmpspace_req=0;
             if (p)
             {
-              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,fr->startptr_size,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode);
+              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,sz + FUNCTIONCOMPILE_EXTRASPACE_SIZE,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage);
               // recompile function with native context pointers
               if (sz>0)
               {
@@ -1594,7 +1602,8 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           {
             unsigned char *codeCall;
             fr->tmpspace_req=0;
-            codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode);
+            fr->fpStackUsage=0;
+            codeCall=compileCodeBlockWithRet(ctx,fr->opcodes,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage);
             if (codeCall)
             {
               void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
@@ -1615,6 +1624,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           *customFuncLocalStorage = fr->localstorage;
           *customFuncLocalStorageSize = fr->localstorage_size;
           *rvMode = fr->rvMode;
+          *fpStackUse = fr->fpStackUsage;
           *endP = (char*)fr->startptr + fr->startptr_size;
           *isRaw=1;
           return fr->startptr;
@@ -2000,17 +2010,18 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
 
 
 unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int *computTableSize, const char *namespacePathToThis, 
-                                       int supportedReturnValues, int *rvType)
+                                       int supportedReturnValues, int *rvType, int *fpStackUsage)
 {
   unsigned char *p, *newblock2;
   // generate code call
-  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,supportedReturnValues, rvType);
+  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);
   if (funcsz<0) return NULL;
  
   p = newblock2 = newCodeBlock(funcsz+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
   if (!newblock2) return NULL;
   memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
-  p+=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis,supportedReturnValues, rvType);         
+  *fpStackUsage=0;
+  p+=compileOpcodes(ctx,rec,p, funcsz + FUNCTIONCOMPILE_EXTRASPACE_SIZE, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);         
 
   memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
@@ -2021,10 +2032,11 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
 
 
 static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, 
-                                     int *rvMode)
+                                     int *rvMode, int *fpStackUsage)
 {
   // builtin function generation
   int cfunc_abiinfo=0;
+  int local_fpstack_use=0; // how many items we have pushed onto the fp stack
   int parm_size=0;
   int need_fxch=0;
   int pn;
@@ -2042,6 +2054,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     // this is not yet supported (calling conventions will need to be sorted, among other things)
     return -1;
   }
+  *fpStackUsage=BIF_GETFPSTACKUSE(cfunc_abiinfo);
 
   *rvMode = RETURNVALUE_NORMAL;
 
@@ -2117,8 +2130,10 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   { 
     if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
     {
+      int subfpstackuse=0;
       int lsz=0; 
       int rvt=RETURNVALUE_NORMAL;
+      int pushed_fpstack_size=0;
       if (last_nt_parm>=0)
       {
         if (last_nt_parm_type==RETURNVALUE_FPSTACK)
@@ -2127,6 +2142,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) return -1;
           if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
           parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
+          pushed_fpstack_size=sizeof(GLUE_POP_FPSTACK_TOSTACK);
         }
         else
         {
@@ -2147,8 +2163,19 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         rvt=RETURNVALUE_FPSTACK;
       }
-      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt);
+      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse);
+
       if (lsz<0) return -1;
+
+      if (local_fpstack_use+subfpstackuse < 7 && pushed_fpstack_size>0)
+      {
+        local_fpstack_use++;
+        parm_size -= pushed_fpstack_size;
+        if (bufOut) memmove(bufOut + parm_size, bufOut+parm_size+pushed_fpstack_size, lsz);
+      }
+
+      if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
+
       parm_size += lsz;            
       last_nt_parm = pn;
       last_nt_parm_type = rvt;
@@ -2186,10 +2213,13 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     {
       if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
       {
-        if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) return -1;
-        if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
-        parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
-        need_fxch = 1;
+        if (!local_fpstack_use)
+        {
+          if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) return -1;
+          if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
+          parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
+          need_fxch = 1;
+        }
       }
       else
       {
@@ -2207,7 +2237,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     {
       if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
       {
-        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,RETURNVALUE_FPSTACK,NULL);
+        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,RETURNVALUE_FPSTACK,NULL,NULL);
         if (a<0) return -1;
         parm_size+=a;
         need_fxch = 1;
@@ -2215,7 +2245,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       else if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL)))  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
       {
         int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
-          (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : RETURNVALUE_BOOL,NULL);
+          (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : RETURNVALUE_BOOL,NULL, NULL);
         if (a<0) return -1;
         parm_size+=a;
         need_fxch = 0;
@@ -2278,7 +2308,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 }
 
 static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, 
-                                  int *rvMode)
+                                  int *rvMode, int *fpStackUse)
 {
   int func_size=0, parm_size=0;
   int pn;
@@ -2317,16 +2347,19 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
     n_params = 1 + op->opcodeType - OPCODETYPE_FUNC1;
   }
           
+  *fpStackUse = 0;
   func = nseel_getEELFunctionAddress(ctx, op,
                                       &cfp_numparams,&cfp_statesize,&cfp_ptrs, 
                                       computTableSize, 
                                       &func_e, &func_raw,                                              
-                                      !!bufOut,namespacePathToThis,rvMode);
+                                      !!bufOut,namespacePathToThis,rvMode,fpStackUse);
 
   if (func_raw) func_size = (char*)func_e  - (char*)func;
   else if (func) func = GLUE_realAddress(func,func_e,&func_size);
   
   if (!func) return -1;
+
+  *fpStackUse += 1;
 
   if (cfp_numparams>0 && n_params != cfp_numparams)
   {
@@ -2355,7 +2388,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   // first process parameters that are non-trivial
   for (pn=0; pn < n_params; pn++)
   { 
-    int lsz;                      
+    int lsz,sUse=0;                      
     
     if (OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // skip and process after
 
@@ -2379,9 +2412,12 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 
     last_nt_parm_mode=0;
     lsz = compileOpcodes(ctx,parmptrs[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis,
-      do_parms ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : RETURNVALUE_IGNORE,&last_nt_parm_mode);
+      do_parms ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : RETURNVALUE_IGNORE,&last_nt_parm_mode,&sUse);
 
     if (lsz<0) return -1;
+
+    if (last_nt_parm_mode == RETURNVALUE_FPSTACK) sUse++;
+    if (sUse > *fpStackUse) *fpStackUse=sUse;
     parm_size += lsz;
 
     last_nt_parm = pn;
@@ -2455,20 +2491,23 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 
 #define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
 
-static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType, int preferredReturnValues)
+static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType, int preferredReturnValues, int *fpStackUse)
 {
   int rv_offset=0;
   if (!op) return -1;
 
+  *fpStackUse=0;
   // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
   // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
   while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL);
+    int fUse;
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse);
     if (parm_size < 0) return -1;
     op = op->parms.parms[1];
     if (!op) return -1;
 
+    if (fUse>*fpStackUse) *fpStackUse=fUse;
     if (bufOut) bufOut += parm_size;
     bufOut_len -= parm_size;
     rv_offset += parm_size;
@@ -2552,7 +2591,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) memcpy(bufOut + parm_size,push_stuff,sizeof(push_stuff));
         parm_size+=sizeof(push_stuff);
 
-        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
+        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse);
         if (subsz<0) return -1;
 
         if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + sizeof(check_rv) + 4 + 4) return -1;
@@ -2579,11 +2618,13 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     // special case: loop
     if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+3)
     {    
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL);
+      int fUse;
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse);
       if (parm_size < 0) return -1;
       
       if (computTableSize) (*computTableSize) ++;
       *calledRvType = RETURNVALUE_BOOL;
+      if (fUse > *fpStackUse) *fpStackUse=fUse;
            
 #ifdef __ppc__
       {
@@ -2594,7 +2635,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut_len < parm_size + stubsize) return -1;
         if (bufOut)
         {
-          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_IGNORE, NULL);
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_IGNORE, NULL,fpStackUse);
       
           p = bufOut + parm_size;
           memcpy(p, stub, stubsize);
@@ -2657,6 +2698,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         };
 #endif
         int subsz;
+        int fUse=0;
         unsigned char *skipptr1, *skipclampptr, *loopdest;
         if (bufOut_len < parm_size + sizeof(hdr1) + 4 + sizeof(hdr2) + 4 + sizeof(hdr3) + sizeof(push_stuff)) return -1;
 
@@ -2679,8 +2721,10 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) memcpy(bufOut+parm_size,push_stuff,sizeof(push_stuff));
         parm_size += sizeof(push_stuff);
 
-        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL);
+        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse);
         if (subsz<0) return -1;
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
+
         parm_size += subsz;
 
         if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + 4) return -1;
@@ -2703,12 +2747,15 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     // special case: BAND/BOR
     if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2))
     {
+      int fUse=0;
       int parm_size;
       *calledRvType = RETURNVALUE_BOOL;
       
-      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
+      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse);
       if (parm_size < 0) return -1;
       
+      if (fUse > *fpStackUse) *fpStackUse=fUse;
+
 
       if (computTableSize) (*computTableSize) ++;
 
@@ -2732,7 +2779,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       
         if (bufOut)
         {
-          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL);
+          fUse=0;
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse);
+          if (fUse > *fpStackUse) *fpStackUse=fUse;
       
           p = bufOut + parm_size;
           memcpy(p, stub, stubsize);
@@ -2743,7 +2792,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       }
 #else
       {
-        int sz2;
+        int sz2, fUse=0;
         unsigned char *destbuf;
         static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
 
@@ -2757,11 +2806,12 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         destbuf = bufOut + parm_size;
         parm_size += 4;
 
-        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
+        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse);
         if (sz2<0) return -1;
         parm_size+=sz2;
         if (bufOut) *(int *)destbuf = (bufOut + parm_size - (destbuf+4));
 
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
         return rv_offset + parm_size;
       }
 #endif
@@ -2769,17 +2819,20 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     
     if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
     {
+      int fUse=0;
       int use_rv = RETURNVALUE_NORMAL;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse);
       if (parm_size < 0) return -1;
+      if (fUse > *fpStackUse) *fpStackUse=fUse;
+
       
       if (computTableSize) (*computTableSize) ++;
 
       {
         int t1,t2;
-        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1);
+        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1,NULL);
         if (a<0) return -1;
-        a = compileOpcodes(ctx,op->parms.parms[2],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2);
+        a = compileOpcodes(ctx,op->parms.parms[2],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2,NULL);
         if (a<0) return -1;
         if (t1 == RETURNVALUE_BOOL && t2 == RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
         else if (t1 != RETURNVALUE_NORMAL && t2 != RETURNVALUE_NORMAL) use_rv=RETURNVALUE_FPSTACK;
@@ -2798,8 +2851,11 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       
         if (bufOut)
         {
-          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL); 
-          newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL);
+          fUse=0;
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL,&fUse); 
+          if (fUse > *fpStackUse) *fpStackUse=fUse;
+          newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL,&fUse);
+          if (fUse > *fpStackUse) *fpStackUse=fUse;
           if (!newblock2 || !newblock3) return -1;
       
           ptr = bufOut + parm_size;
@@ -2821,17 +2877,19 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           bufOut[parm_size+2] = 0x0F; bufOut[parm_size+3] = 0x84; // jz 32 bit relative
         }
         parm_size+=2+6;
-        csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL);
+        csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse);
         if (csz<0) return -1;
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
         if (bufOut) *((int *) (bufOut + parm_size-4)) = csz + 5; // update jump address
         parm_size+=csz;
         if (bufOut_len < parm_size + 5) return -1;
         if (bufOut) { bufOut[parm_size] = 0xE9; } // jmp 32 bit relative
         parm_size+=5;
-        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL);
+        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
         if (csz<0) return -1;
         if (bufOut) *((int *) (bufOut + parm_size-4)) = csz; // update jump address
         parm_size+=csz;       
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
       }
       return rv_offset + parm_size;
 #endif    
@@ -2895,6 +2953,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           {
             if (op->parms.dv.directValue == 1.0 || op->parms.dv.directValue == 0.0)
             {
+              *fpStackUse = 1;
               *calledRvType = RETURNVALUE_FPSTACK;
               if (bufOut_len < 2) return -1;
               if (bufOut)
@@ -2913,6 +2972,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         {
           if (preferredReturnValues & RETURNVALUE_FPSTACK)
           {
+            *fpStackUse = 1;
             if (bufOut_len < 6) return -1;
             // generate fld qword [abs]  -- 0xdd, 0x05
             if (bufOut)
@@ -2951,14 +3011,14 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       {
         int a;
         
-        a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType);
+        a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,fpStackUse);
         if (a<0) return a;
         rv_offset += a;
       }
       else
       {
         int a;
-        a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType);
+        a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,fpStackUse);
         if (a<0)return a;
         rv_offset += a;
       }        
@@ -2969,11 +3029,27 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 }
 
 int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, 
-                   int supportedReturnValues, int *rvType)
+                   int supportedReturnValues, int *rvType, int *fpStackUse)
 {
   int code_returns=RETURNVALUE_NORMAL;
-  int codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues);
+  int fpsu=0;
+  int codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues,&fpsu);
   if (codesz < 0) return codesz;
+
+
+  /*
+  {
+    char buf[512];
+    sprintf(buf,"opcode %d %d (%s): fpu use: %d\n",op->opcodeType,op->fntype,
+      op->opcodeType >= OPCODETYPE_FUNC1 && op->fntype == FUNCTYPE_FUNCTIONTYPEREC ? (
+      ((functionType *)op->fn)->name
+      ) : "",
+      fpsu);
+    OutputDebugString(buf);
+  }
+  */
+
+  if (fpStackUse) *fpStackUse=fpsu;
 
   if (bufOut) bufOut += codesz;
   bufOut_len -= codesz;
@@ -3898,7 +3974,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
            
     if (start_opcode)
     {
-      int rvMode=0;
+      int rvMode=0, fUse=0;
 
 #ifdef LOG_OPT
       char buf[512];
@@ -3920,7 +3996,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #endif
 
       startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL, 
-        is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode); // if not a function, force return value as address (avoid having to pop it ourselves
+        is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode, &fUse); // if not a function, force return value as address (avoid having to pop it ourselves
                                           // if a function, allow the code to decide how return values are generated
 
       if (is_fname[0])
@@ -3933,7 +4009,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
           fr->startptr_size = startptr_size;
           fr->opcodes = start_opcode;
           fr->rvMode = rvMode;
-      
+     
+          fr->fpStackUsage=fUse;
           fr->tmpspace_req = computTableTop;
 
           if (ctx->function_localTable_Size[0] > 0 && ctx->function_localTable_ValuePtrs)
@@ -3965,10 +4042,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       if (!startptr_size) continue; // optimized away
       if (startptr_size>0)
       {
-        startptr = newTmpBlock(ctx,startptr_size);
+        startptr = newTmpBlock(ctx,startptr_size + FUNCTIONCOMPILE_EXTRASPACE_SIZE);
         if (startptr)
         {
-          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop, NULL, RETURNVALUE_IGNORE, NULL);
+          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size + FUNCTIONCOMPILE_EXTRASPACE_SIZE,&computTableTop, NULL, RETURNVALUE_IGNORE, NULL,NULL);
           if (startptr_size<=0) startptr = NULL;
           
         }
