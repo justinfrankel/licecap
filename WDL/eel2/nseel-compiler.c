@@ -2326,7 +2326,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 		// fucko, we should look for even more chars, me thinks
         if (nc && (isalnum(nc) 
 #if 1
-				|| nc == '(' || nc == '_' || nc == '!' || nc == '$' || nc == '-' 
+				|| nc == '(' || nc == '_' || nc == '!' || nc == '$' || nc == '-' || nc == '+' /* unary +, -, !, symbols, etc, mean new statement */
 #endif
 				)) c='%';
         else c = ' '; // stray ;
