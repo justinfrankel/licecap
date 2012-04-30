@@ -65,7 +65,6 @@
 
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
-#define FUNCTIONCOMPILE_EXTRASPACE_SIZE 256 // a little extra workspace so that compileOpcodes() can have working space to generate code and optimize
 
 //#define LOG_OPT
 //#define EEL_PPC_NOFREECODE
@@ -1592,11 +1591,11 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
 
           if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
           {
-            void *p=newTmpBlock(ctx,sz + FUNCTIONCOMPILE_EXTRASPACE_SIZE);
+            void *p=newTmpBlock(ctx,sz);
             fr->tmpspace_req=0;
             if (p)
             {
-              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,sz + FUNCTIONCOMPILE_EXTRASPACE_SIZE,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage);
+              sz=compileOpcodes(ctx,fr->opcodes,(unsigned char*)p,sz,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage);
               // recompile function with native context pointers
               if (sz>0)
               {
@@ -2024,12 +2023,11 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
   int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);
   if (funcsz<0) return NULL;
  
-  p = newblock2 = newCodeBlock(funcsz+FUNCTIONCOMPILE_EXTRASPACE_SIZE + 
-                               sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+  p = newblock2 = newCodeBlock(funcsz+ sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
   if (!newblock2) return NULL;
   memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
   *fpStackUsage=0;
-  funcsz=compileOpcodes(ctx,rec,p, funcsz + FUNCTIONCOMPILE_EXTRASPACE_SIZE, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);         
+  funcsz=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage);         
   if (funcsz<0) return NULL;
   p+=funcsz;
 
@@ -2143,16 +2141,12 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       int subfpstackuse=0;
       int lsz=0; 
       int rvt=RETURNVALUE_NORMAL;
-      int pushed_fpstack_size=0;
+      int may_need_fppush=-1;
       if (last_nt_parm>=0)
       {
         if (last_nt_parm_type==RETURNVALUE_FPSTACK)
         {          
-          // push last result
-          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) RET_MINUS1_FAIL("failed on size, popfpstacktostack")
-          if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
-          parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
-          pushed_fpstack_size=sizeof(GLUE_POP_FPSTACK_TOSTACK);
+          may_need_fppush= parm_size;
         }
         else
         {
@@ -2177,16 +2171,31 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
       if (lsz<0) RET_MINUS1_FAIL("call coc failed")
 
-      if (local_fpstack_use+subfpstackuse < 7 && pushed_fpstack_size>0)
+      parm_size += lsz;            
+
+      if (may_need_fppush>=0)
       {
-        local_fpstack_use++;
-        parm_size -= pushed_fpstack_size;
-        if (bufOut) memmove(bufOut + parm_size, bufOut+parm_size+pushed_fpstack_size, lsz);
+        if (local_fpstack_use+subfpstackuse >= 7)
+        {
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) 
+            RET_MINUS1_FAIL("failed on size, popfpstacktostack")
+
+          if (bufOut) 
+          {
+            memmove(bufOut + may_need_fppush + sizeof(GLUE_POP_FPSTACK_TOSTACK), bufOut + may_need_fppush, parm_size - may_need_fppush);
+            memcpy(bufOut + may_need_fppush, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
+
+          }
+          parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
+        }
+        else
+        {
+          local_fpstack_use++;
+        }
       }
 
       if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
 
-      parm_size += lsz;            
       last_nt_parm = pn;
       last_nt_parm_type = rvt;
 
@@ -2229,6 +2238,10 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
           parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
           need_fxch = 1;
+        }
+        else
+        {
+          local_fpstack_use--;
         }
       }
       else
@@ -4055,10 +4068,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       if (!startptr_size) continue; // optimized away
       if (startptr_size>0)
       {
-        startptr = newTmpBlock(ctx,startptr_size + FUNCTIONCOMPILE_EXTRASPACE_SIZE);
+        startptr = newTmpBlock(ctx,startptr_size);
         if (startptr)
         {
-          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size + FUNCTIONCOMPILE_EXTRASPACE_SIZE,&computTableTop, NULL, RETURNVALUE_IGNORE, NULL,NULL);
+          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop, NULL, RETURNVALUE_IGNORE, NULL,NULL);
           if (startptr_size<=0) startptr = NULL;
           
         }
