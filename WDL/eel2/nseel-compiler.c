@@ -69,6 +69,13 @@
 
 //#define LOG_OPT
 //#define EEL_PPC_NOFREECODE
+//#define EEL_PRINT_FAILS
+
+#ifdef EEL_PRINT_FAILS
+#define RET_MINUS1_FAIL(x) { printf("%s\n",x); return -1; }
+#else
+#define RET_MINUS1_FAIL(x) return -1;
+#endif
 
 #ifndef _WIN64
 #if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
@@ -1982,7 +1989,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     combineNamespaceFields(nm,functionPrefix,op->relname);
     
     b = nseel_int_register_var(ctx,nm,0);
-    if (!b) return -1;
+    if (!b) RET_MINUS1_FAIL("error registering var")
   }
   else
   {
@@ -1992,7 +1999,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     if (!b)
     {
       b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
-      if (!b) return -1;
+      if (!b) RET_MINUS1_FAIL("error allocating data block")
 
       if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
       #if EEL_F_SIZE == 8
@@ -2050,12 +2057,12 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   void **repl=NULL;
   void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e,&cfunc_abiinfo);
 
-  if (!func) return -1;
+  if (!func) RET_MINUS1_FAIL("error getting funcaddr")
 
   if (op->opcodeType == OPCODETYPE_FUNCX)
   {
     // this is not yet supported (calling conventions will need to be sorted, among other things)
-    return -1;
+    RET_MINUS1_FAIL("funcx not supported for native functions")
   }
   *fpStackUsage=BIF_GETFPSTACKUSE(cfunc_abiinfo);
 
@@ -2068,7 +2075,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     {
       int func_size=0;
       func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
-      if (!func || bufOut_len < func_size) return -1;
+      if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on popfast size":"failed on popfast addr")
 
       if (bufOut) 
       {
@@ -2084,7 +2091,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         int func_size=0;
         func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
-        if (!func || bufOut_len < func_size) return -1;
+        if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on peek size":"failed on peek addr")
 
         if (bufOut) 
         {
@@ -2097,7 +2104,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         int func_size=0;
         func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
-        if (!func || bufOut_len < func_size) return -1;
+        if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on peekint size":"failed on peekint addr")
 
         if (bufOut)
         {
@@ -2142,7 +2149,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         if (last_nt_parm_type==RETURNVALUE_FPSTACK)
         {          
           // push last result
-          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) return -1;
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) RET_MINUS1_FAIL("failed on size, popfpstacktostack")
           if (bufOut) memcpy(bufOut + parm_size, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
           parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
           pushed_fpstack_size=sizeof(GLUE_POP_FPSTACK_TOSTACK);
@@ -2150,7 +2157,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         else
         {
           // push last result
-          if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) return -1;
+          if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) RET_MINUS1_FAIL("failed on size, pushp1")
           if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
           parm_size += sizeof(GLUE_PUSH_P1);
         }
@@ -2168,7 +2175,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       }
       lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse);
 
-      if (lsz<0) return -1;
+      if (lsz<0) RET_MINUS1_FAIL("call coc failed")
 
       if (local_fpstack_use+subfpstackuse < 7 && pushed_fpstack_size>0)
       {
@@ -2203,7 +2210,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     else if (pn != n_params-1)
     {
       // generate mov p1->pX
-      if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) return -1;
+      if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) RET_MINUS1_FAIL("size, pxfromp1")
       if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
       parm_size += GLUE_SET_PX_FROM_P1_SIZE;
     }
@@ -2218,7 +2225,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         if (!local_fpstack_use)
         {
-          if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) return -1;
+          if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
           if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
           parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
           need_fxch = 1;
@@ -2226,7 +2233,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       }
       else
       {
-        if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) return -1;
+        if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) RET_MINUS1_FAIL("size, poppx")
         if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
         parm_size += GLUE_POP_PX_SIZE;
       }
@@ -2241,7 +2248,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
       {
         int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,RETURNVALUE_FPSTACK,NULL,NULL);
-        if (a<0) return -1;
+        if (a<0) RET_MINUS1_FAIL("coc call here 2")
         parm_size+=a;
         need_fxch = 1;
       }
@@ -2249,16 +2256,16 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
           (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : RETURNVALUE_BOOL,NULL, NULL);
-        if (a<0) return -1;
+        if (a<0) RET_MINUS1_FAIL("coc call here 3")
         parm_size+=a;
         need_fxch = 0;
       }
       else
       {
-        if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) return -1;
+        if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) RET_MINUS1_FAIL("size, pxdvsz")
         if (bufOut) 
         {
-          if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis)<0) return -1;
+          if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis)<0) RET_MINUS1_FAIL("gvtr")
         }
         parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
       }
@@ -2271,7 +2278,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       )
   {
     // emit fxch
-    if (bufOut_len < 2) return -1;
+    if (bufOut_len < 2) RET_MINUS1_FAIL("len,fxch")
     if (bufOut) 
     { 
       bufOut[parm_size] = 0xd9; 
@@ -2284,9 +2291,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   {
     int func_size=0;
     func = GLUE_realAddress(func,func_e,&func_size);
-    if (!func) return -1;
+    if (!func) RET_MINUS1_FAIL("failrealladdrfunc")
                      
-    if (bufOut_len < parm_size + func_size) return -1;
+    if (bufOut_len < parm_size + func_size) RET_MINUS1_FAIL("funcsz")
   
     if (bufOut)
     {
@@ -2360,7 +2367,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   if (func_raw) func_size = (char*)func_e  - (char*)func;
   else if (func) func = GLUE_realAddress(func,func_e,&func_size);
   
-  if (!func) return -1;
+  if (!func) RET_MINUS1_FAIL("eelfuncaddr")
 
   *fpStackUse += 1;
 
@@ -2368,7 +2375,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   {
     _codeHandleFunctionRec *fn = (_codeHandleFunctionRec*)op->fn;
     snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Function '%s' takes %d parameters, passed %d\n",fn->fname,cfp_numparams,n_params);
-    return -1;
+    RET_MINUS1_FAIL("eelfuncnp")
   }
 
   // user defined function
@@ -2378,7 +2385,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   if (cfp_statesize>0 && cfp_ptrs && !cfp_ptrs[0])
   {
     EEL_F *pstate = newDataBlock(sizeof(EEL_F)*cfp_statesize,8);
-    if (!pstate) return -1;
+    if (!pstate) RET_MINUS1_FAIL("eelfuncdb")
 
     for (pn=0;pn<cfp_statesize;pn++)
     {
@@ -2399,13 +2406,13 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
     {
       if (last_nt_parm_mode == RETURNVALUE_FPSTACK)
       {
-        if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) return -1;
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) RET_MINUS1_FAIL("eelfunc_size popfpstacktostack")
         if (bufOut) memcpy(bufOut + parm_size,GLUE_POP_FPSTACK_TOSTACK,sizeof(GLUE_POP_FPSTACK_TOSTACK));
         parm_size+=sizeof(GLUE_POP_FPSTACK_TOSTACK);
       }
       else
       {
-        if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) return -1;
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1PTR_AS_VALUE)) RET_MINUS1_FAIL("eelfunc_size pushp1ptrasval")
     
         // push
         if (bufOut) memcpy(bufOut + parm_size,&GLUE_PUSH_P1PTR_AS_VALUE,sizeof(GLUE_PUSH_P1PTR_AS_VALUE));
@@ -2417,7 +2424,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
     lsz = compileOpcodes(ctx,parmptrs[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis,
       do_parms ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : RETURNVALUE_IGNORE,&last_nt_parm_mode,&sUse);
 
-    if (lsz<0) return -1;
+    if (lsz<0) RET_MINUS1_FAIL("eelfunc, coc fail")
 
     if (last_nt_parm_mode == RETURNVALUE_FPSTACK) sUse++;
     if (sUse > *fpStackUse) *fpStackUse=sUse;
@@ -2437,7 +2444,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
         {
           // pop to memory directly
           const int cpsize = GLUE_POP_FPSTACK_TO_PTR(NULL,NULL);
-          if (bufOut_len < parm_size + cpsize) return -1;
+          if (bufOut_len < parm_size + cpsize) RET_MINUS1_FAIL("eelfunc size popfpstacktoptr")
 
           if (bufOut) GLUE_POP_FPSTACK_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
           parm_size += cpsize;
@@ -2446,7 +2453,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
         {
           // copy direct p1ptr to mem
           const int cpsize = GLUE_COPY_VALUE_AT_P1_TO_PTR(NULL,NULL);
-          if (bufOut_len < parm_size + cpsize) return -1;
+          if (bufOut_len < parm_size + cpsize) RET_MINUS1_FAIL("eelfunc size copyvalueatp1toptr")
 
           if (bufOut) GLUE_COPY_VALUE_AT_P1_TO_PTR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
           parm_size += cpsize;
@@ -2455,7 +2462,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
       else
       {
         const int popsize =  GLUE_POP_VALUE_TO_ADDR(NULL,NULL);
-        if (bufOut_len < parm_size + popsize) return -1;
+        if (bufOut_len < parm_size + popsize) RET_MINUS1_FAIL("eelfunc size pop value to addr")
 
         if (bufOut) GLUE_POP_VALUE_TO_ADDR((unsigned char *)bufOut + parm_size,cfp_ptrs[pn]);
         parm_size+=popsize;
@@ -2472,11 +2479,11 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
     { 
       if (!OPCODE_IS_TRIVIAL(parmptrs[pn])) continue; // set trivial values, we already set nontrivials
 
-      if (bufOut_len < parm_size + cpsize) return -1;
+      if (bufOut_len < parm_size + cpsize) RET_MINUS1_FAIL("eelfunc size trivial set")
 
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,parmptrs[pn],bufOut + parm_size,0,namespacePathToThis)<0) return -1;
+        if (generateValueToReg(ctx,parmptrs[pn],bufOut + parm_size,0,namespacePathToThis)<0) RET_MINUS1_FAIL("eelfunc gvr fail")
         GLUE_COPY_VALUE_AT_P1_TO_PTR(bufOut + parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE,cfp_ptrs[pn]);
       }
       parm_size += cpsize;
@@ -2484,7 +2491,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
     }
   }
 
-  if (bufOut_len < parm_size + func_size) return -1;
+  if (bufOut_len < parm_size + func_size) RET_MINUS1_FAIL("eelfunc size combined")
   
   if (bufOut) memcpy(bufOut + parm_size, func, func_size);
 
@@ -2497,7 +2504,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType, int preferredReturnValues, int *fpStackUse)
 {
   int rv_offset=0;
-  if (!op) return -1;
+  if (!op) RET_MINUS1_FAIL("coi !op")
 
   *fpStackUse=0;
   // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
@@ -2506,9 +2513,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
   {
     int fUse;
     int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse);
-    if (parm_size < 0) return -1;
+    if (parm_size < 0) RET_MINUS1_FAIL("coc join fail")
     op = op->parms.parms[1];
-    if (!op) return -1;
+    if (!op) RET_MINUS1_FAIL("join got to null")
 
     if (fUse>*fpStackUse) *fpStackUse=fUse;
     if (bufOut) bufOut += parm_size;
@@ -2532,12 +2539,12 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         unsigned char *newblock2;
         int stubsz;
         void *stubfunc = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&stubsz);
-        if (!stubfunc || bufOut_len < stubsz) return -1;             
+        if (!stubfunc || bufOut_len < stubsz) RET_MINUS1_FAIL(stubfunc ? "repeatwhile size fail" :"repeatwhile addr fail")
 
         if (bufOut)
         {
           newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, fpStackUse);
-          if (!newblock2) return -1;
+          if (!newblock2) RET_MINUS1_FAIL("repeatwhile ccbwr fail")
       
           memcpy(pwr,stubfunc,stubsz);
           pwr=EEL_GLUE_set_immediate(pwr,newblock2); 
@@ -2587,7 +2594,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
         unsigned char *looppt, *jzoutpt;
         int parm_size=0,subsz;
-        if (bufOut_len < parm_size + sizeof(hdr1) + sizeof(push_stuff)) return -1;
+        if (bufOut_len < parm_size + sizeof(hdr1) + sizeof(push_stuff)) RET_MINUS1_FAIL("while size fail 1")
         if (bufOut) memcpy(bufOut + parm_size,hdr1,sizeof(hdr1));
         parm_size+=sizeof(hdr1);
         looppt = bufOut + parm_size;
@@ -2595,9 +2602,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         parm_size+=sizeof(push_stuff);
 
         subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse);
-        if (subsz<0) return -1;
+        if (subsz<0) RET_MINUS1_FAIL("while coc fail")
 
-        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + sizeof(check_rv) + 4 + 4) return -1;
+        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + sizeof(check_rv) + 4 + 4) RET_MINUS1_FAIL("which size fial 2")
 
         parm_size+=subsz;
         if (bufOut) memcpy(bufOut + parm_size, pop_stuff_dec_jnz, sizeof(pop_stuff_dec_jnz));
@@ -2623,7 +2630,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     {    
       int fUse;
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse);
-      if (parm_size < 0) return -1;
+      if (parm_size < 0) RET_MINUS1_FAIL("loop coc fail")
       
       if (computTableSize) (*computTableSize) ++;
       *calledRvType = RETURNVALUE_BOOL;
@@ -2635,7 +2642,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         int stubsize;        
         unsigned char *newblock2, *p;
         stub = GLUE_realAddress(nseel_asm_repeat,nseel_asm_repeat_end,&stubsize);
-        if (bufOut_len < parm_size + stubsize) return -1;
+        if (bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL("loop size fail")
         if (bufOut)
         {
           newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_IGNORE, NULL,fpStackUse);
@@ -2703,7 +2710,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         int subsz;
         int fUse=0;
         unsigned char *skipptr1, *skipclampptr, *loopdest;
-        if (bufOut_len < parm_size + sizeof(hdr1) + 4 + sizeof(hdr2) + 4 + sizeof(hdr3) + sizeof(push_stuff)) return -1;
+        if (bufOut_len < parm_size + sizeof(hdr1) + 4 + sizeof(hdr2) + 4 + sizeof(hdr3) + sizeof(push_stuff)) RET_MINUS1_FAIL("loop size fail")
 
         // store, convert to int, compare against 1, if less than, skip to end
         if (bufOut) memcpy(bufOut+parm_size,hdr1,sizeof(hdr1));
@@ -2725,12 +2732,12 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         parm_size += sizeof(push_stuff);
 
         subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse);
-        if (subsz<0) return -1;
+        if (subsz<0) RET_MINUS1_FAIL("loop coc fail")
         if (fUse > *fpStackUse) *fpStackUse=fUse;
 
         parm_size += subsz;
 
-        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + 4) return -1;
+        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + 4) RET_MINUS1_FAIL("loop size fail 2")
 
         if (bufOut) memcpy(bufOut+parm_size,pop_stuff_dec_jnz,sizeof(pop_stuff_dec_jnz));
         parm_size += sizeof(pop_stuff_dec_jnz);
@@ -2755,7 +2762,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       *calledRvType = RETURNVALUE_BOOL;
       
       parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse);
-      if (parm_size < 0) return -1;
+      if (parm_size < 0) RET_MINUS1_FAIL("loop band/bor coc fail")
       
       if (fUse > *fpStackUse) *fpStackUse=fUse;
 
@@ -2778,12 +2785,14 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
         }
       
-        if (bufOut_len < parm_size + stubsize) return -1;
+        if (bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL("band/bor len fail")
       
         if (bufOut)
         {
           fUse=0;
           newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse);
+          if (!newblock2) RET_MINUS1_FAIL("band/bor ccbwr fail")
+
           if (fUse > *fpStackUse) *fpStackUse=fUse;
       
           p = bufOut + parm_size;
@@ -2799,7 +2808,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         unsigned char *destbuf;
         static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
 
-        if (bufOut_len < parm_size+sizeof(testbuf) + 4) return -1;
+        if (bufOut_len < parm_size+sizeof(testbuf) + 4) RET_MINUS1_FAIL("band/bor len fail")
         if (bufOut) 
         { 
           memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
@@ -2810,7 +2819,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         parm_size += 4;
 
         sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse);
-        if (sz2<0) return -1;
+        if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
         parm_size+=sz2;
         if (bufOut) *(int *)destbuf = (bufOut + parm_size - (destbuf+4));
 
@@ -2825,7 +2834,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       int fUse=0;
       int use_rv = RETURNVALUE_NORMAL;
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse);
-      if (parm_size < 0) return -1;
+      if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
       if (fUse > *fpStackUse) *fpStackUse=fUse;
 
       
@@ -2834,9 +2843,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       {
         int t1,t2;
         int a = compileOpcodes(ctx,op->parms.parms[1],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1,NULL);
-        if (a<0) return -1;
+        if (a<0) RET_MINUS1_FAIL("if subcalcfail1")
         a = compileOpcodes(ctx,op->parms.parms[2],NULL,bufOut_len, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2,NULL);
-        if (a<0) return -1;
+        if (a<0) RET_MINUS1_FAIL("if subclacfail2")
         if (t1 == RETURNVALUE_BOOL && t2 == RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
         else if (t1 != RETURNVALUE_NORMAL && t2 != RETURNVALUE_NORMAL) use_rv=RETURNVALUE_FPSTACK;
       }
@@ -2850,7 +2859,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         int stubsize;
         stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
       
-        if (bufOut_len < parm_size + stubsize) return -1;
+        if (!stub || bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL(stub ? "if sz fail" : "if addr fail")
       
         if (bufOut)
         {
@@ -2859,7 +2868,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           if (fUse > *fpStackUse) *fpStackUse=fUse;
           newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL,&fUse);
           if (fUse > *fpStackUse) *fpStackUse=fUse;
-          if (!newblock2 || !newblock3) return -1;
+          if (!newblock2 || !newblock3) RET_MINUS1_FAIL("if subblock gen fail")
       
           ptr = bufOut + parm_size;
           memcpy(ptr, stub, stubsize);
@@ -2873,7 +2882,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       {
         // x86/x86-64 ifs now do not require calls, yay
         int csz;
-        if (bufOut_len < parm_size + 2 + 6 + 5) return -1;
+        if (bufOut_len < parm_size + 2 + 6 + 5) RET_MINUS1_FAIL("if size fail")
         if (bufOut)
         {
           bufOut[parm_size] = 0x85; bufOut[parm_size+1] = 0xC0; // test eax, eax
@@ -2881,15 +2890,15 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         }
         parm_size+=2+6;
         csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse);
-        if (csz<0) return -1;
+        if (csz<0) RET_MINUS1_FAIL("if coc fial")
         if (fUse > *fpStackUse) *fpStackUse=fUse;
         if (bufOut) *((int *) (bufOut + parm_size-4)) = csz + 5; // update jump address
         parm_size+=csz;
-        if (bufOut_len < parm_size + 5) return -1;
+        if (bufOut_len < parm_size + 5) RET_MINUS1_FAIL("if len fail")
         if (bufOut) { bufOut[parm_size] = 0xE9; } // jmp 32 bit relative
         parm_size+=5;
         csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
-        if (csz<0) return -1;
+        if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
         if (bufOut) *((int *) (bufOut + parm_size-4)) = csz; // update jump address
         parm_size+=csz;       
         if (fUse > *fpStackUse) *fpStackUse=fUse;
@@ -2916,7 +2925,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
             *calledRvType = RETURNVALUE_BOOL;
 
         #if defined(_WIN64) || defined(__LP64__)
-            if (bufOut_len < 3) return -1;
+            if (bufOut_len < 3) RET_MINUS1_FAIL("direct bool size fail")
             if (bufOut) 
             {
               bufOut[0]=0x48;
@@ -2926,7 +2935,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
             rv_offset+=3;
             if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
             {
-              if (bufOut_len < 5) return -1;
+              if (bufOut_len < 5) RET_MINUS1_FAIL("direct bool size fail 2")
               if (bufOut) 
               {
                 bufOut[3] = 0xFF;
@@ -2936,7 +2945,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
             }
             return rv_offset;
         #else
-            if (bufOut_len < 2) return -1;
+            if (bufOut_len < 2) RET_MINUS1_FAIL("direct bool size fail3")
             if (bufOut)
             {
               bufOut[0]=0x29;
@@ -2945,7 +2954,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
             rv_offset+=2;
             if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
             {
-              if (bufOut_len < 3) return -1;
+              if (bufOut_len < 3) RET_MINUS1_FAIL("direct bool size fail 4")
               if (bufOut) bufOut[2] = 0x40; // inc eax
               rv_offset++;
             }
@@ -2958,7 +2967,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
             {
               *fpStackUse = 1;
               *calledRvType = RETURNVALUE_FPSTACK;
-              if (bufOut_len < 2) return -1;
+              if (bufOut_len < 2) RET_MINUS1_FAIL("direct fp fail 1")
               if (bufOut)
               {
                 bufOut[0] = 0xd9;
@@ -2976,12 +2985,12 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           if (preferredReturnValues & RETURNVALUE_FPSTACK)
           {
             *fpStackUse = 1;
-            if (bufOut_len < 6) return -1;
+            if (bufOut_len < 6) RET_MINUS1_FAIL("direct fp fail 2")
             // generate fld qword [abs]  -- 0xdd, 0x05
             if (bufOut)
             {
               char tmp[GLUE_MOV_PX_DIRECTVALUE_SIZE];
-              if (generateValueToReg(ctx,op,tmp,0,namespacePathToThis)<0) return -1;
+              if (generateValueToReg(ctx,op,tmp,0,namespacePathToThis)<0) RET_MINUS1_FAIL("direct fp fail gvr")
 
               bufOut[0] = 0xDD;
               bufOut[1] = 0x05;
@@ -2996,11 +3005,11 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
       if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_SIZE) 
       {
-        return -1;
+        RET_MINUS1_FAIL("direct value fail 1")
       }
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis)<0) return -1;
+        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis)<0) RET_MINUS1_FAIL("direct value gvr fail3")
       }
     return rv_offset + GLUE_MOV_PX_DIRECTVALUE_SIZE;
 
@@ -3028,7 +3037,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     return rv_offset;
   }
 
-  return -1;
+  RET_MINUS1_FAIL("default opcode fail")
 }
 
 int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, 
@@ -3062,7 +3071,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   {
     int stubsize;
     void *stub = GLUE_realAddress(nseel_asm_booltofp,nseel_asm_booltofp_end,&stubsize);
-    if (!stub || bufOut_len < stubsize) return -1;
+    if (!stub || bufOut_len < stubsize) RET_MINUS1_FAIL(stub?"booltofp size":"booltfp addr")
     if (bufOut) 
     {
       unsigned char *p=bufOut;
@@ -3095,7 +3104,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   {
     if (supportedReturnValues & (RETURNVALUE_FPSTACK|RETURNVALUE_BOOL))
     {
-      if (bufOut_len < GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) return -1;
+      if (bufOut_len < GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE) RET_MINUS1_FAIL("pushvalatpxtofpstack,size")
       if (bufOut) 
       {
         GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(bufOut,0); // always fld qword [eax] but we might change that later
@@ -3121,7 +3130,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     {
       int stubsize;
       void *stub = GLUE_realAddress(nseel_asm_fptobool,nseel_asm_fptobool_end,&stubsize);
-      if (!stub || bufOut_len < stubsize) return -1;
+      if (!stub || bufOut_len < stubsize) RET_MINUS1_FAIL(stub?"fptobool size":"fptobool addr")
       if (bufOut) 
       {
         memcpy(bufOut,stub,stubsize);
@@ -3135,7 +3144,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     }
     else if (supportedReturnValues & RETURNVALUE_NORMAL)
     {
-      if (bufOut_len < GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) return -1;
+      if (bufOut_len < GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) RET_MINUS1_FAIL("popfpstacktowtptopxsize")
 
       // generate fp-pop to temp space
       if (bufOut) GLUE_POP_FPSTACK_TO_WTP_TO_PX(bufOut,0);
@@ -3145,7 +3154,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     else
     {
       // toss return value that will be ignored
-      if (bufOut_len < GLUE_POP_FPSTACK_SIZE) return -1;
+      if (bufOut_len < GLUE_POP_FPSTACK_SIZE) RET_MINUS1_FAIL("popfpstack size")
       if (bufOut) memcpy(bufOut,GLUE_POP_FPSTACK,GLUE_POP_FPSTACK_SIZE);   
       codesz+=GLUE_POP_FPSTACK_SIZE;
     }
