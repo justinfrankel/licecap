@@ -76,6 +76,8 @@
 #define RET_MINUS1_FAIL(x) return -1;
 #endif
 
+#define MIN_COMPUTABLE_SIZE 32 // always use at least this big of a temp storage table (and reset the temp ptr when it goes past this boundary)
+
 #ifndef _WIN64
 #if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
 
@@ -3689,6 +3691,7 @@ typedef struct topLevelCodeSegmentRec {
   struct topLevelCodeSegmentRec *_next;
   void *code;
   int codesz;
+  int tmptable_use;
 } topLevelCodeSegmentRec;
 
 NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expression, int lineoffs, int compile_flags)
@@ -4119,6 +4122,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       p->_next=0;
       p->code = startptr;
       p->codesz = startptr_size;
+      p->tmptable_use = computTableTop;
                   
       if (!startpts_tail) startpts_tail=startpts=p;
       else
@@ -4153,7 +4157,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (startpts) 
   {
-    handle->workTable = curtabptr = newDataBlock((curtabptr_sz+64) * sizeof(EEL_F),32);
+    handle->workTable = curtabptr = newDataBlock((curtabptr_sz+MIN_COMPUTABLE_SIZE + 32) * sizeof(EEL_F),32);
     if (!curtabptr) startpts=NULL;
   }
 
@@ -4163,12 +4167,18 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     unsigned char *writeptr;
     topLevelCodeSegmentRec *p=startpts;
     int size=sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE; // for ret at end :)
+    int wtpos=0;
 
-    // now we build one big code segment out of our list of them, inserting a mov esi, computable before each item
+    // now we build one big code segment out of our list of them, inserting a mov esi, computable before each item as necessary
     while (p)
     {
-      size += GLUE_RESET_WTP(NULL,0);
+      if (wtpos <= 0)
+      {
+        wtpos=MIN_COMPUTABLE_SIZE;
+        size += GLUE_RESET_WTP(NULL,0);
+      }
       size+=p->codesz;
+      wtpos -= p->tmptable_use;
       p=p->_next;
     }
     handle->code = newCodeBlock(size,32);
@@ -4177,12 +4187,17 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       writeptr=(unsigned char *)handle->code;
       memcpy(writeptr,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); writeptr += GLUE_FUNC_ENTER_SIZE;
       p=startpts;
+      wtpos=0;
       while (p)
       {
-        int thissize=p->codesz;
-        writeptr+=GLUE_RESET_WTP(writeptr,curtabptr);
-        memcpy(writeptr,(char*)p->code,thissize);
-        writeptr += thissize;
+        if (wtpos <= 0)
+        {
+          wtpos=MIN_COMPUTABLE_SIZE;
+          writeptr+=GLUE_RESET_WTP(writeptr,curtabptr);
+        }
+        memcpy(writeptr,(char*)p->code,p->codesz);
+        writeptr += p->codesz;
+        wtpos -= p->tmptable_use;
       
         p=p->_next;
       }
