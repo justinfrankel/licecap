@@ -518,7 +518,11 @@ void nseel_asm_mul_op_end(void) {}
 void nseel_asm_div(void)
 {
   __asm__(
+#ifdef __GNUC__
+    "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+#else
     "fdiv\n"
+#endif
   );
 }
 void nseel_asm_div_end(void) {}
@@ -527,8 +531,10 @@ void nseel_asm_div_op(void)
 {
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
-    "fxch\n"
-    "fdiv\n"
+#ifndef __GNUC__
+    "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+#endif
+    "fdiv\n" 
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
   );

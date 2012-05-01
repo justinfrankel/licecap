@@ -922,7 +922,11 @@ __declspec(naked) void nseel_asm_mul_op_end(void) {}
 __declspec(naked) void nseel_asm_div(void)
 {
   __asm {
+#ifdef __GNUC__
+    fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+#else
     fdiv;
+#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -943,7 +947,9 @@ __declspec(naked) void nseel_asm_div_op(void)
 {
   __asm {
     fld EEL_ASM_TYPE [edi];
-    fxch;
+#ifndef __GNUC__
+    fxch; // gcc inline asm seems to have fdiv/fdivr backwards
+#endif
     fdiv;
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
