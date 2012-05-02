@@ -1387,20 +1387,38 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *cod
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
 {
   opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_MOREPARAMS;
-  r->parms.parms[0] = code1;
-  r->parms.parms[1] = code2;
-  r->parms.parms[2] = 0;
+  if (r)
+  {
+    r->opcodeType = OPCODETYPE_MOREPARAMS;
+    r->parms.parms[0] = code1;
+    r->parms.parms[1] = code2;
+    r->parms.parms[2] = 0;
+  }
   return r;
 }
 
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
   opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
-  r->fntype = fn;
-  r->parms.parms[0] = code1;
-  r->parms.parms[1] = code2;
+  if (r)
+  {
+    r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
+    r->fntype = fn;
+    r->fn = fn == FN_JOIN_STATEMENTS ? r : NULL; // for joins, fn is temporarily used for tail pointers
+    if (code1 && fn == FN_JOIN_STATEMENTS && code1->opcodeType == OPCODETYPE_FUNC2 && code1->fntype == fn)
+    {
+      opcodeRec *t = (opcodeRec *)code1->fn;
+      // keep joins in the form of dosomething->morestuff. 
+      // in this instance, code1 is previous stuff to do, code2 is new stuff to do
+      r->parms.parms[0] = t->parms.parms[1];
+      r->parms.parms[1] = code2;
+
+      code1->fn = (t->parms.parms[1] = r);
+      return code1;
+    }
+    r->parms.parms[0] = code1;
+    r->parms.parms[1] = code2;
+  }
   return r;  
 }
 
