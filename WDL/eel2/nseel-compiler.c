@@ -2948,7 +2948,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       else
 #endif    
       {
-        int csz;
+        int csz,hasSecondHalf;
 #ifdef __ppc__
         if (bufOut_len < parm_size + 4 + 4 + 4) RET_MINUS1_FAIL("if size fail")
         if (bufOut)
@@ -2969,28 +2969,36 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse);
         if (csz<0) RET_MINUS1_FAIL("if coc fial")
         if (fUse > *fpStackUse) *fpStackUse=fUse;
+
+        hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
 #ifdef __ppc__
-        if (bufOut) *((short *)(bufOut + parm_size - 2)) = csz + 4 + 4;
-        parm_size+=csz;
-        if (bufOut_len < parm_size + 4) RET_MINUS1_FAIL("if len fail")
-        if (bufOut) *((int *)(bufOut+parm_size)) = 0x48000000; // b 32 bit relative
-        parm_size+=4;
+        if (bufOut) *((short *)(bufOut + parm_size - 2)) = csz + 4 + (hasSecondHalf?4:0);
 #else
-        if (bufOut) *((int *) (bufOut + parm_size-4)) = csz + 5; // update jump address
+        if (bufOut) *((int *) (bufOut + parm_size-4)) = csz + (hasSecondHalf?5:0); // update jump address
+#endif
         parm_size+=csz;
-        if (bufOut_len < parm_size + 5) RET_MINUS1_FAIL("if len fail")
-        if (bufOut) { bufOut[parm_size] = 0xE9; } // jmp 32 bit relative
-        parm_size+=5;
-#endif
-        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
-        if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
-#ifdef __ppc__
-        if (bufOut) *((short *) (bufOut + parm_size-2)) = csz + 4; // update jump address
-#else
-        if (bufOut) *((int *) (bufOut + parm_size-4)) = csz; // update jump address
-#endif
-        parm_size+=csz;       
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
+
+        if (hasSecondHalf)
+        {
+  #ifdef __ppc__
+          if (bufOut_len < parm_size + 4) RET_MINUS1_FAIL("if len fail")
+          if (bufOut) *((int *)(bufOut+parm_size)) = 0x48000000; // b 32 bit relative
+          parm_size+=4;
+  #else
+          if (bufOut_len < parm_size + 5) RET_MINUS1_FAIL("if len fail")
+          if (bufOut) { bufOut[parm_size] = 0xE9; } // jmp 32 bit relative
+          parm_size+=5;
+  #endif
+          csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
+          if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
+  #ifdef __ppc__
+          if (bufOut) *((short *) (bufOut + parm_size-2)) = csz + 4; // update jump address
+  #else
+          if (bufOut) *((int *) (bufOut + parm_size-4)) = csz; // update jump address
+  #endif
+          parm_size+=csz;       
+          if (fUse > *fpStackUse) *fpStackUse=fUse;
+        }
         return rv_offset + parm_size;
       }
     }    
