@@ -3254,7 +3254,7 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 
 
 
-static char *preprocessCode(compileContext *ctx, char *expression)
+static char *preprocessCode(compileContext *ctx, char *expression, int src_offset_bytes, int dest_offset_bytes)
 {
   char *expression_start=expression;
   int len=0;
@@ -3286,7 +3286,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
         expression+=2;
         while (expression[0] && (expression[0] != '*' || expression[1] != '/')) 
 	      {
-		      if (expression[0] == '\n') onCompileNewLine(ctx,expression+1-expression_start,len);
+		      if (expression[0] == '\n') onCompileNewLine(ctx,expression+1-expression_start + src_offset_bytes,dest_offset_bytes+len);
 		      expression++;
 	      }
         if (expression[0]) expression+=2; // at this point we KNOW expression[0]=* and expression[1]=/
@@ -3372,7 +3372,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
     {
       char c=*expression++;
 
-      if (c == '\n') onCompileNewLine(ctx,expression-expression_start,len);
+      if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
       if (isspace(c)) c=' ';
 
       if (c == '(') semicnt++;
@@ -3619,7 +3619,7 @@ static char *preprocessCode(compileContext *ctx, char *expression)
 						char rps=*orp;
 						*orp=0; // temporarily terminate
 
-						r_ptr=preprocessCode(ctx,expression);
+						r_ptr=preprocessCode(ctx,expression,src_offset_bytes + (expression-expression_start),dest_offset_bytes + len);
 						expression=orp;
 
 						*orp = rps; // fix termination(restore string)
@@ -3870,7 +3870,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   memset(handle,0,sizeof(codeHandleType));
 
   ctx->tmpCodeHandle = handle;
-  expression_start=expression=preprocessCode(ctx,_expression);
+  expression_start=expression=preprocessCode(ctx,_expression,0,0);
 
   while (*expression)
   {
