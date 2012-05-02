@@ -1111,11 +1111,7 @@ void _asm_generic3parm_retd(void)
     "movl $0xfefefefe, %rax\n" // call function
     "subl $128, %rsp\n"
     "call *%rax\n"
-    "addl $128, %rsp\n"
     "movl %r15, %rsi\n"
-    "movl %r15, %rax\n"
-    "movq xmm0, (%r15)\n"
-    "addl $8, %rsi\n"
 #else
     "movl %ecx, %edx\n" // second parameter = parm
     "movl $0xfefefefe, %ecx\n" // first parameter= context
@@ -1124,23 +1120,20 @@ void _asm_generic3parm_retd(void)
     "movl $0xfefefefe, %edi\n" // call function
     "subl $128, %rsp\n"
     "call *%edi\n"
-    "addl $128, %rsp\n"
-    "movq xmm0, (%rsi)\n"
-    "movl %rsi, %rax\n"
-    "addl $8, %rsi\n"
 #endif
+    "movq xmm0, (%rsp)\n"
+    "fldl (%rsp)\n"
+    "addl $128, %rsp\n"
 #else
     SAVE_STACK
+    "subl $16, %esp\n"
+    "movl %edi, 8(%esp)\n"
     "movl $0xfefefefe, %edx\n"
-    "pushl %eax\n" // push parameter
-    "pushl %edi\n" // push parameter
-    "pushl %ecx\n" // push parameter
-    "pushl %edx\n" // push context pointer
     "movl $0xfefefefe, %edi\n"
+    "movl %eax, 12(%esp)\n"
+    "movl %ecx, 4(%esp)\n"
+    "movl %edx, (%esp)\n"
     "call *%edi\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
     "addl $16, %esp\n"
     RESTORE_STACK
 #endif
@@ -1198,39 +1191,31 @@ void _asm_generic2parm_retd(void)
     "movl %rsi, %r15\n"
     "movl %rdi, %rsi\n" // second parameter = parm
     "movl $0xfefefefe, %rdi\n" // first parameter= context
-    "movl %rax, %rdx\n" // third parameter = parm
     "movl $0xfefefefe, %rcx\n" // call function
+    "movl %rax, %rdx\n" // third parameter = parm
     "subl $128, %rsp\n"
     "call *%rcx\n"
     "movl %r15, %rsi\n"
-    "addl $128, %rsp\n"
-    "movq xmm0, (%r15)\n"
-    "movl %r15, %rax\n"
-    "addl $8, %rsi\n"
 #else
-    "movl $0xfefefefe, %ecx\n" // first parameter= context
-    "movl %edi, %edx\n" // second parameter = parm
+    "movl %rdi, %rdx\n" // second parameter = parm
+    "movl $0xfefefefe, %rcx\n" // first parameter= context
+    "movl $0xfefefefe, %rdi\n" // call function
     "movl %rax, %r8\n" // third parameter = parm
-    "movl $0xfefefefe, %edi\n" // call function
     "subl $128, %rsp\n"
     "call *%edi\n"
-    "addl $128, %rsp\n"
-    "movq xmm0, (%rsi)\n"
-    "movl %rsi, %rax\n"
-    "addl $8, %rsi\n"
 #endif
+    "movq xmm0, (%rsp)\n"
+    "fldl (%rsp)\n"
+    "addl $128, %rsp\n"
 #else
     SAVE_STACK
+    "subl $16, %esp\n"
     "movl $0xfefefefe, %edx\n"
-    "pushl %eax\n" // push parameter
-    "pushl %edi\n" // push parameter
-    "pushl %ecx\n" // push parameter
-    "pushl %edx\n" // push context pointer
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
+    "movl $0xfefefefe, %ecx\n"
+    "movl %edx, (%esp)\n"
+    "movl %edi, 4(%esp)\n"
+    "movl %eax, 8(%esp)\n"
+    "call *%ecx\n"
     "addl $16, %esp\n"
     RESTORE_STACK
 #endif
@@ -1242,7 +1227,7 @@ void _asm_generic2parm_retd_end(void) {}
 
 
 
-void _asm_generic1parm(void) // this prob neds to be fixed for ppc
+void _asm_generic1parm(void) 
 {
   __asm__(
 #ifdef TARGET_X64
@@ -1284,40 +1269,35 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
 {
   __asm__(
 #ifdef TARGET_X64
-#ifdef AMD64ABI
-    "movl %rsi, %r15\n"
-    "movl $0xfefefefe, %rdi\n" // first parameter= context
-    "movl %rax, %rsi\n" // second parameter = parm
-    "movl $0xfefefefe, %rcx\n" // call function
     "subl $128, %rsp\n"
+#ifdef AMD64ABI
+    "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
+    "movl $0xfefefefe, %rcx\n" // function address
+    "movl %rsi, %r15\n" // save rsi
+    "movl %rax, %rsi\n" // second parameter = parameter
+
     "call *%rcx\n"
+    
     "movl %r15, %rsi\n"
-    "addl $128, %rsp\n"
-    "movq xmm0, (%r15)\n"
-    "movl %r15, %rax\n"
-    "addl $8, %rsi\n"
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter= context
-    "movl %eax, %edx\n" // second parameter = parm
     "movl $0xfefefefe, %edi\n" // call function
-    "subl $128, %rsp\n"
+
+    "movl %rax, %rdx\n" // second parameter = parm
+
     "call *%edi\n"
-    "addl $128, %rsp\n"
-    "movq xmm0, (%rsi)\n"
-    "movl %rsi, %rax\n"
-    "addl $8, %rsi\n"
 #endif
+    "movq xmm0, (%rsp)\n"
+    "fldl (%rsp)\n"
+    "addl $128, %rsp\n"
 #else
     SAVE_STACK
-    "movl $0xfefefefe, %edx\n"
-    "subl $8, %esp\n" // keep stack aligned
-    "pushl %eax\n" // push parameter
-    "pushl %edx\n" // push context pointer
-    "movl $0xfefefefe, %edi\n"
+    "movl $0xfefefefe, %edx\n" // context pointer
+    "movl $0xfefefefe, %edi\n" // func-addr
+    "subl $16, %esp\n"
+    "movl %eax, 4(%esp)\n" // push parameter
+    "movl %edx, (%esp)\n" // push context pointer
     "call *%edi\n"
-    "movl %esi, %eax\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
     "addl $16, %esp\n"
     RESTORE_STACK
 #endif

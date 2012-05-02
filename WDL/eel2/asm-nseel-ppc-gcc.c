@@ -849,8 +849,6 @@ void _asm_generic3parm_retd(void)
    "subi r1, r1, 64\n"
    "bctrl\n"
    "addi r1, r1, 64\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   ::
  ); 
 }
@@ -889,8 +887,6 @@ void _asm_generic2parm_retd(void)
    "subi r1, r1, 64\n"
    "bctrl\n"
    "addi r1, r1, 64\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   ::
  ); 
 }
@@ -927,8 +923,6 @@ void _asm_generic1parm_retd(void)
    "subi r1, r1, 64\n"
    "bctrl\n"
    "addi r1, r1, 64\n"
-   "stfdu f1, 8(r16)\n"
-   "mr r3, r16\n"
   ::
  ); 
 }

@@ -1936,11 +1936,7 @@ __declspec(naked) void _asm_generic3parm_retd(void)
     mov rax, 0xfefefefe; // call function
     sub rsp, 128;
     call rax;
-    add rsp, 128;
     mov rsi, r15;
-    mov rax, r15;
-    movq [r15], xmm0;
-    add rsi, 8;
 #else
     mov edx, ecx; // second parameter = parm
     mov ecx, 0xfefefefe; // first parameter= context
@@ -1949,23 +1945,20 @@ __declspec(naked) void _asm_generic3parm_retd(void)
     mov edi, 0xfefefefe; // call function
     sub rsp, 128;
     call edi;
-    add rsp, 128;
-    movq [rsi], xmm0;
-    mov rax, rsi;
-    add rsi, 8;
 #endif
+    movq [rsp], xmm0;
+    fld qword ptr [rsp];
+    add rsp, 128;
 #else
     SAVE_STACK
+    sub esp, 16;
+    mov dword ptr [esp+8], edi;
     mov edx, 0xfefefefe;
-    push eax; // push parameter
-    push edi; // push parameter
-    push ecx; // push parameter
-    push edx; // push context pointer
     mov edi, 0xfefefefe;
+    mov dword ptr [esp+12], eax;
+    mov dword ptr [esp+4], ecx;
+    mov dword ptr [esp], edx;
     call edi;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
     add esp, 16;
     RESTORE_STACK
 #endif
@@ -2047,39 +2040,31 @@ __declspec(naked) void _asm_generic2parm_retd(void)
     mov r15, rsi;
     mov rsi, rdi; // second parameter = parm
     mov rdi, 0xfefefefe; // first parameter= context
-    mov rdx, rax; // third parameter = parm
     mov rcx, 0xfefefefe; // call function
+    mov rdx, rax; // third parameter = parm
     sub rsp, 128;
     call rcx;
     mov rsi, r15;
-    add rsp, 128;
-    movq [r15], xmm0;
-    mov rax, r15;
-    add rsi, 8;
 #else
-    mov ecx, 0xfefefefe; // first parameter= context
-    mov edx, edi; // second parameter = parm
+    mov rdx, rdi; // second parameter = parm
+    mov rcx, 0xfefefefe; // first parameter= context
+    mov rdi, 0xfefefefe; // call function
     mov r8, rax; // third parameter = parm
-    mov edi, 0xfefefefe; // call function
     sub rsp, 128;
     call edi;
-    add rsp, 128;
-    movq [rsi], xmm0;
-    mov rax, rsi;
-    add rsi, 8;
 #endif
+    movq [rsp], xmm0;
+    fld qword ptr [rsp];
+    add rsp, 128;
 #else
     SAVE_STACK
+    sub esp, 16;
     mov edx, 0xfefefefe;
-    push eax; // push parameter
-    push edi; // push parameter
-    push ecx; // push parameter
-    push edx; // push context pointer
-    mov edi, 0xfefefefe;
-    call edi;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
+    mov ecx, 0xfefefefe;
+    mov dword ptr [esp], edx;
+    mov dword ptr [esp+4], edi;
+    mov dword ptr [esp+8], eax;
+    call ecx;
     add esp, 16;
     RESTORE_STACK
 #endif
@@ -2103,7 +2088,7 @@ __declspec(naked) void _asm_generic2parm_retd_end(void) {}
 
 
 
-__declspec(naked) void _asm_generic1parm(void) // this prob neds to be fixed for ppc
+__declspec(naked) void _asm_generic1parm(void)
 {
   __asm {
 #ifdef TARGET_X64
@@ -2157,40 +2142,35 @@ __declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning dou
 {
   __asm {
 #ifdef TARGET_X64
-#ifdef AMD64ABI
-    mov r15, rsi;
-    mov rdi, 0xfefefefe; // first parameter= context
-    mov rsi, rax; // second parameter = parm
-    mov rcx, 0xfefefefe; // call function
     sub rsp, 128;
+#ifdef AMD64ABI
+    mov rdi, 0xfefefefe; // first parameter = context pointer
+    mov rcx, 0xfefefefe; // function address
+    mov r15, rsi; // save rsi
+    mov rsi, rax; // second parameter = parameter
+
     call rcx;
+
     mov rsi, r15;
-    add rsp, 128;
-    movq [r15], xmm0;
-    mov rax, r15;
-    add rsi, 8;
 #else
     mov ecx, 0xfefefefe; // first parameter= context
-    mov edx, eax; // second parameter = parm
     mov edi, 0xfefefefe; // call function
-    sub rsp, 128;
+
+    mov rdx, rax; // second parameter = parm
+
     call edi;
-    add rsp, 128;
-    movq [rsi], xmm0;
-    mov rax, rsi;
-    add rsi, 8;
 #endif
+    movq [rsp], xmm0;
+    fld qword ptr [rsp];
+    add rsp, 128;
 #else
     SAVE_STACK
-    mov edx, 0xfefefefe;
-    sub esp, 8; // keep stack aligned
-    push eax; // push parameter
-    push edx; // push context pointer
-    mov edi, 0xfefefefe;
+    mov edx, 0xfefefefe; // context pointer
+    mov edi, 0xfefefefe; // func-addr
+    sub esp, 16;
+    mov dword ptr [esp+4], eax; // push parameter
+    mov dword ptr [esp], edx; // push context pointer
     call edi;
-    mov eax, esi;
-    fstp EEL_ASM_TYPE [esi];
-    add esi, EEL_F_SIZE;
     add esp, 16;
     RESTORE_STACK
 #endif

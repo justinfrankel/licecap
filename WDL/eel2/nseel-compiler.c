@@ -1029,7 +1029,7 @@ static double eel1sigmoid(double x, double constraint)
 #define BIF_NPARAMS_MASK     0x7ff00
 #define BIF_RETURNSONSTACK   0x00100
 #define BIF_LASTPARMONSTACK  0x00200
-#define BIF_RETURNSBOOL      0x00400
+#define BIF_RETURNSBOOL      0x00400 // this value is used in ns-eel.h in some macros, be sure to update it there if you change it here
 #define BIF_LASTPARM_ASBOOL  0x00800
 
 #ifndef __ppc__
@@ -1208,6 +1208,16 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
   if (fnTableUser)
   {
     memset(&fnTableUser[fnTableUser_size],0,sizeof(functionType));
+
+    if (!(nparms & BIF_RETURNSBOOL)) 
+    {
+      if (code_startaddr == (void *)&_asm_generic1parm_retd || 
+          code_startaddr == (void *)&_asm_generic2parm_retd ||
+          code_startaddr == (void *)&_asm_generic3parm_retd)
+      {
+        nparms |= BIF_RETURNSONSTACK;
+      }
+    }
     fnTableUser[fnTableUser_size].nParams = nparms;
     fnTableUser[fnTableUser_size].name = name;
     fnTableUser[fnTableUser_size].afunc = code_startaddr;

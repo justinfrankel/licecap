@@ -66,6 +66,21 @@ void NSEEL_HOSTSTUB_LeaveMutex();
 
 int NSEEL_init(); // returns 0 on success. clears any added functions as well
 
+
+
+// adds a function that returns a value (EEL_F)
+#define NSEEL_addfunc_retval(name,np,pproc,fptr) \
+    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd##_end-(char *)_asm_generic##np##parm_retd,(void*)(pproc),(void*)(fptr))
+
+// adds a function that returns a pointer (EEL_F*)
+#define NSEEL_addfunc_retptr(name,np,pproc,fptr) \
+    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm,(char *)_asm_generic##np##parm##_end-(char *)_asm_generic##np##parm,(void*)(pproc),(void*)(fptr))
+
+// adds a void or bool function
+#define NSEEL_addfunc_retbool(name,np,pproc,fptr) \
+  NSEEL_addfunctionex(name,(np)|(/*BIF_RETURNSBOOL*/0x00400),(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd##_end-(char *)_asm_generic##np##parm_retd,(void*)(pproc),(void*)(fptr))
+
+
 #define NSEEL_addfunction(name,nparms,code,len) NSEEL_addfunctionex((name),(nparms),(code),(len),0,0)
 #define NSEEL_addfunctionex(name,nparms,code,len,pproc,fptr) NSEEL_addfunctionex2((name),(nparms),(code),(len),(pproc),(fptr),0)
 void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, void *pproc, void *fptr, void *fptr2);
