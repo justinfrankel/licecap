@@ -4085,7 +4085,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     { 
       int byteoffs = expr - expression_start;
       int destoffs,linenumber;
-      char buf[21], *p;
+      char buf[50], *p;
       int x,le;
       
 #ifdef NSEEL_EEL1_COMPAT_MODE
@@ -4099,10 +4099,15 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       le=strlen(_expression);
       if (destoffs >= le) destoffs=le;
       p= _expression + destoffs;
-      for (x = 0;x < 20; x ++)
+      x=0;
+      while (x < sizeof(buf)-1)
       {
-	      if (!*p || *p == '\r' || *p == '\n') break;
-	      buf[x]=*p++;
+	      if (!*p) break;
+        if (x && (*p == '\r' || *p == '\n')) break;
+
+        if (!isspace(*p) || (x && !isspace(p[-1]))) buf[x++]=*p;
+        
+        p++;
       }
       buf[x]=0;
 
