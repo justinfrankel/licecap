@@ -854,12 +854,9 @@ void nseel_asm_sign_end(void) {}
 void nseel_asm_bnot(void)
 {
   __asm__(
-    "test %eax, %eax\n"
-    "jz 0f\n"
-    "subl %eax, %eax\n"
-    "decl %eax\n"
-    "0:\n"
-    "incl %eax\n"
+    "testl %eax, %eax\n"
+    "setz %al\n"   
+    "andl $0xff, %eax\n"
   );
 }
 void nseel_asm_bnot_end(void) {}
