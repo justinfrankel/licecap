@@ -259,7 +259,6 @@ void nseel_asm_assign(void)
 
 #else
 
-#if EEL_F_SIZE == 8
   __asm__(
     "movl 4(%eax), %edx\n"
     "movl (%eax), %ecx\n"
@@ -277,13 +276,6 @@ void nseel_asm_assign(void)
     "movl %edx, 4(%edi)\n"
     "movl %edi, %eax\n"
   );
-#else
-  __asm__(
-    "movl (%eax), %ecx\n"
-    "movl %ecx, (%edi)\n"
-    "movl %edi, %eax\n"
-  );
-#endif
 
 #endif
 }
@@ -311,7 +303,6 @@ void nseel_asm_assign_fromfp(void)
 
 #else
 
-#if EEL_F_SIZE == 8
   __asm__(
     "fstpl (%edi)\n"
     "movl 4(%edi), %edx\n"
@@ -325,12 +316,6 @@ void nseel_asm_assign_fromfp(void)
     "0:\n"
     "movl %edi, %eax\n"
   );
-#else
-  __asm__(
-    "fstps (%edi)\n"
-    "movl %edi, %eax\n"
-  );
-#endif
 
 #endif
 }
@@ -350,7 +335,6 @@ void nseel_asm_assign_fast(void)
 
 #else
 
-#if EEL_F_SIZE == 8
   __asm__(
     "movl 4(%eax), %edx\n"
     "movl (%eax), %ecx\n"
@@ -358,13 +342,6 @@ void nseel_asm_assign_fast(void)
     "movl %edx, 4(%edi)\n"
     "movl %edi, %eax\n"
   );
-#else
-  __asm__(
-    "movl (%eax), %ecx\n"
-    "movl %ecx, (%edi)\n"
-    "movl %edi, %eax\n"
-  );
-#endif
 
 #endif
 }
@@ -1334,7 +1311,7 @@ SAVE_STACK
 
     "fadd" EEL_F_SUFFIX " (%rdx)\n"
     "fistpl (%rsi)\n"
-    "xorll %rdx, %rdx\n"
+    "subll %rdx, %rdx\n"
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     "movl (%rsi), %edx\n"
@@ -1344,15 +1321,15 @@ SAVE_STACK
     "shrll $13, %rax\n"     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     "andll $0x3F8, %rax\n"  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     "movll (%rdi, %rax), %rax\n"
-    "andl %rax, %rax\n"
-    "jz 2f\n"
+    "testl %rax, %rax\n"
+    "jz 1f\n"
     "andll $0xFFFF, %rdx\n" // (NSEEL_RAM_ITEMSPERBLOCK-1)
     "shlll $3, %rdx\n"      // log2(sizeof(EEL_F))
     "addll %rdx, %rax\n"
     "jmp 0f\n"
 
     
-    "2:\n"
+    "1:\n"
     "movl %rsi, %r15\n" // save rsi
     "movl %rdx, %esi\n" // esi becomes second parameter (edi is first, context pointer)
     "movl $0xfefefefe, %edx\n"
@@ -1360,13 +1337,7 @@ SAVE_STACK
     "call *%edx\n"
     "movl %r15, %rsi\n" // restore rsi
     "addl $128, %rsp\n"
-    "and %rax, %rax\n"
-    "jnz 0f\n"
-    "1:\n"
-    "movl %rsi, %rax\n"
-    "movll $0, (%esi)\n"
-    "addl $" EEL_F_SSTR ", %rsi\n"
-    "0:"
+    "0:\n"
 
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
@@ -1385,26 +1356,19 @@ SAVE_STACK
     "shrll $13, %rax\n"           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     "andll $0x3F8, %rax\n"        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     "movll (%rcx, %rax), %rax\n"
-    "andl %rax, %rax\n"
-    "jz 2f\n"
+    "testl %rax, %rax\n"
+    "jz 1f\n"
     "andll $0xFFFF, %rdi\n"   // (NSEEL_RAM_ITEMSPERBLOCK-1)
     "shlll $3, %rdi\n"        // log2(sizeof(EEL_F))
     "addll %rdi, %rax\n"
     "jmp 0f\n"
 
-
-    "2:\n"
+    "1:\n"
     "movl %rdi, %rdx\n" // rdx is second parameter (rcx is first)
     "movl $0xfefefefe, %edi\n" // function ptr
     "subl $128, %rsp\n"
     "call *%edi\n"
     "addl $128, %rsp\n"
-    "and %rax, %rax\n"
-    "jnz 0f\n"
-    "1:\n"
-    "movl %rsi, %rax\n"
-    "movll $0, (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
     "0:"
 #endif
 
@@ -1423,30 +1387,22 @@ SAVE_STACK
     "shrl $14, %eax\n"            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
     "andl $0x1FC, %eax\n"    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     "movl (%edx, %eax), %eax\n"
-    "andl %eax, %eax\n"
-    "jz 2f\n"
+    "testl %eax, %eax\n"
+    "jz 1f\n"
     "andl $0xFFFF, %edi\n"  // (NSEEL_RAM_ITEMSPERBLOCK-1)
     "shll $3, %edi\n"       // log2(sizeof(EEL_F))
     "addl %edi, %eax\n"
     "jmp 0f\n"
 
 
-    "2:\n"
+    "1:\n"
     "subl $8, %esp\n" // keep stack aligned
     "pushl %edi\n" // parameter
     "pushl %edx\n" // push context pointer
     "movl $0xfefefefe, %edi\n"
     "call *%edi\n"
     "addl $16, %esp\n"
-    "and %eax, %eax\n"
-    "jnz 0f\n"
-    "1:\n"
-    "movl %esi, %eax\n"
-    "movl $0, (%esi)\n"
-#if EEL_F_SIZE == 8
-    "movl $0, 4(%esi)\n"
-#endif
-    "addl $" EEL_F_SSTR ", %esi\n"
+
     "0:"
 
 
@@ -1482,12 +1438,6 @@ SAVE_STACK
     "call *%edx\n"
     "movl %r15, %rsi\n"
     "addl $128, %rsp\n"
-    "and %rax, %rax\n"
-    "jnz 0f\n"
-    "movl %r15, %rax\n"
-    "movll $0, (%esi)\n"
-    "addl $" EEL_F_SSTR ", %rsi\n"
-    "0:"
 
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
@@ -1500,12 +1450,6 @@ SAVE_STACK
     "subl $128, %rsp\n"
     "call *%edi\n"
     "addl $128, %rsp\n"
-    "and %rax, %rax\n"
-    "jnz 0f\n"
-    "movl %rsi, %rax\n"
-    "movll $0, (%esi)\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
-    "0:"
 #endif
 
 
@@ -1519,16 +1463,6 @@ SAVE_STACK
     "movl $0xfefefefe, %edi\n"
     "call *%edi\n"
     "addl $16, %esp\n"
-    "and %eax, %eax\n"
-    "jnz 0f\n"
-    "movl %esi, %eax\n"
-    "movl $0, (%esi)\n"
-#if EEL_F_SIZE == 8
-    "movl $0, 4(%esi)\n"
-#endif
-    "addl $" EEL_F_SSTR ", %esi\n"
-    "0:"
-
 
 #endif
 

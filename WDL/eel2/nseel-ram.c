@@ -92,6 +92,7 @@ void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our fre
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
 {
   static EEL_F * volatile  gmembuf;
+  static EEL_F fail;
   if (blocks) 
   {
     int whichblock;
@@ -108,7 +109,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
         pblocks = *blocks = (EEL_F **)calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS);
         if (!pblocks) {
           if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
-          return 0;
+          return &fail;
         }
       }
     }
@@ -135,7 +136,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
       return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
     }
     if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
-    return 0;
+    return &fail;
   }
 
   if (!gmembuf)
@@ -144,7 +145,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
     if (!gmembuf) gmembuf=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
     NSEEL_HOSTSTUB_LeaveMutex();
 
-    if (!gmembuf) return 0;
+    if (!gmembuf) return &fail;
   }
 
   return gmembuf+(((unsigned int)w)&((NSEEL_SHARED_GRAM_SIZE)-1));
@@ -153,6 +154,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
 EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, int w)
 {
   int whichblock;
+  static EEL_F fail;
 
 //  fprintf(stderr,"got request at %d, %d\n",w/NSEEL_RAM_ITEMSPERBLOCK, w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   if (w >= 0 && (whichblock = w/NSEEL_RAM_ITEMSPERBLOCK) < NSEEL_RAM_BLOCKS)
@@ -178,7 +180,7 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, int w)
     return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   }
 //  fprintf(stderr,"ret 0\n");
-  return 0;
+  return &fail;
 }
 
 

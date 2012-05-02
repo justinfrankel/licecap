@@ -465,7 +465,6 @@ _emit 0x90;
 
 #else
 
-#if EEL_F_SIZE == 8
   __asm {
     mov edx, dword ptr [eax+4];
     mov ecx, dword ptr [eax];
@@ -497,25 +496,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-#else
-  __asm {
-    mov ecx, dword ptr [eax];
-    mov dword ptr [edi], ecx;
-    mov eax, edi;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-#endif
 
 #endif
 }
@@ -557,7 +537,6 @@ _emit 0x90;
 
 #else
 
-#if EEL_F_SIZE == 8
   __asm {
     fstp qword ptr [edi];
     mov edx, dword ptr [edi+4];
@@ -585,24 +564,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-#else
-  __asm {
-    fstp dword ptr [edi];
-    mov eax, edi;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-#endif
 
 #endif
 }
@@ -634,7 +595,6 @@ _emit 0x90;
 
 #else
 
-#if EEL_F_SIZE == 8
   __asm {
     mov edx, dword ptr [eax+4];
     mov ecx, dword ptr [eax];
@@ -654,25 +614,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-#else
-  __asm {
-    mov ecx, dword ptr [eax];
-    mov dword ptr [edi], ecx;
-    mov eax, edi;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-#endif
 
 #endif
 }
@@ -2244,7 +2185,7 @@ SAVE_STACK
 
     fadd EEL_ASM_TYPE [rdx];
     fistp dword ptr [rsi];
-    xor rdx, rdx;
+    sub rdx, rdx;
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
@@ -2254,15 +2195,15 @@ SAVE_STACK
     shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov rax, qword ptr [rdi+rax];
-    and rax, rax;
-    jz label_29;
+    test rax, rax;
+    jz label_28;
     and rdx, 0xFFFF; // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdx, 3;      // log2(sizeof(EEL_F))
     add rax, rdx;
-    jmp label_30;
+    jmp label_29;
 
 
-label_29:
+label_28:
     
     mov r15, rsi; // save rsi
     mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
@@ -2271,14 +2212,7 @@ label_29:
     call edx;
     mov rsi, r15; // restore rsi
     add rsp, 128;
-    and rax, rax;
-    jnz label_30;
-label_28:
-    
-    mov rax, rsi;
-    mov qword ptr [esi], 0;
-    add rsi, EEL_F_SIZE;
-label_30:
+label_29:
     
 
 #else
@@ -2293,34 +2227,26 @@ label_30:
     // check if (%esi) is in range...
     mov edi, dword ptr [rsi];
     test edi, 0xff800000;   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
-    jnz label_31;
+    jnz label_30;
     mov rax, rdi;
     shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov rax, qword ptr [rcx+rax];
-    and rax, rax;
-    jz label_32;
+    test rax, rax;
+    jz label_30;
     and rdi, 0xFFFF;   // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdi, 3;        // log2(sizeof(EEL_F))
     add rax, rdi;
-    jmp label_33;
+    jmp label_31;
 
-
-label_32:
+label_30:
     
     mov rdx, rdi; // rdx is second parameter (rcx is first)
     mov edi, 0xfefefefe; // function ptr
     sub rsp, 128;
     call edi;
     add rsp, 128;
-    and rax, rax;
-    jnz label_33;
 label_31:
-    
-    mov rax, rsi;
-    mov qword ptr [esi], 0;
-    add esi, EEL_F_SIZE;
-label_33:
     
 #endif
 
@@ -2347,21 +2273,21 @@ _emit 0xFE;
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     test edi, 0xff800000;  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
-    jnz label_34;
+    jnz label_32;
 
     mov eax, edi;
     shr eax, 14;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
     and eax, 0x1FC;    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov eax, dword ptr [edx+eax];
-    and eax, eax;
-    jz label_35;
+    test eax, eax;
+    jz label_32;
     and edi, 0xFFFF;  // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl edi, 3;       // log2(sizeof(EEL_F))
     add eax, edi;
-    jmp label_36;
+    jmp label_33;
 
 
-label_35:
+label_32:
     
     sub esp, 8; // keep stack aligned
     push edi; // parameter
@@ -2369,17 +2295,8 @@ label_35:
     mov edi, 0xfefefefe;
     call edi;
     add esp, 16;
-    and eax, eax;
-    jnz label_36;
-label_34:
-    
-    mov eax, esi;
-    mov dword ptr [esi], 0;
-#if EEL_F_SIZE == 8
-    mov dword ptr [esi+4], 0;
-#endif
-    add esi, EEL_F_SIZE;
-label_36:
+
+label_33:
     
 
 
@@ -2427,13 +2344,6 @@ SAVE_STACK
     call edx;
     mov rsi, r15;
     add rsp, 128;
-    and rax, rax;
-    jnz label_37;
-    mov rax, r15;
-    mov qword ptr [esi], 0;
-    add rsi, EEL_F_SIZE;
-label_37:
-    
 
 #else
     mov ecx, 0xfefefefe; // first parameter = context pointer
@@ -2446,13 +2356,6 @@ label_37:
     sub rsp, 128;
     call edi;
     add rsp, 128;
-    and rax, rax;
-    jnz label_38;
-    mov rax, rsi;
-    mov qword ptr [esi], 0;
-    add esi, EEL_F_SIZE;
-label_38:
-    
 #endif
 
 
@@ -2480,17 +2383,6 @@ _emit 0xFE;
     mov edi, 0xfefefefe;
     call edi;
     add esp, 16;
-    and eax, eax;
-    jnz label_39;
-    mov eax, esi;
-    mov dword ptr [esi], 0;
-#if EEL_F_SIZE == 8
-    mov dword ptr [esi+4], 0;
-#endif
-    add esi, EEL_F_SIZE;
-label_39:
-    
-
 
 #endif
 

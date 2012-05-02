@@ -972,7 +972,7 @@ void _asm_megabuf(void)
    "add r15, r15, r3\n"
    "lwz r15, 0(r15)\n"
    "cmpi cr0, r15, 0\n"
-   "beq cr0, 2f\n"
+   "beq cr0, 1f\n"
 
      // good news: we can do a direct addr return
      // bad news: more rlwinm ugliness!
@@ -984,7 +984,7 @@ void _asm_megabuf(void)
    // done, jump to end!
    "b 0f\n"
 
-   "2:\n"
+   "1:\n"
    // set up function call
      "addis r7, 0, 0xdead\n"
      "ori r7, r7, 0xbeef\n"
@@ -992,15 +992,6 @@ void _asm_megabuf(void)
      "subi r1, r1, 64\n"
      "bctrl\n"
      "addi r1, r1, 64\n"
-     "cmpi cr0, r3, 0\n"
-   "bne cr0, 0f\n"
-
-   "1:\n"
-     "sub r5, r5, r5\n"
-     "mr r3, r16\n"
-     "stw r5, 0(r16)\n"
-     "stw r5, 4(r16)\n"
-     "addi r16, r16, 8\n"
    "0:\n"
   ::
  ); 
@@ -1026,13 +1017,6 @@ void _asm_gmegabuf(void)
    "subi r1, r1, 64\n"
    "bctrl\n"
    "addi r1, r1, 64\n"
-   "cmpi cr0, r3, 0\n"
-   "bne cr0, 0f\n"
-   "sub r5, r5, r5\n"
-   "stwu r5, 8(r16)\n"
-   "stw r5, 4(r16)\n"
-   "mr r3, r16\n"
-   "0:\n"
   ::
  ); 
 }
