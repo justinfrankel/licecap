@@ -1301,10 +1301,13 @@ static void *__newBlock(llBlock **start, int size, char wantMprotect)
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 {
   opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_DIRECTVALUE;
-  r->parms.dv.directValue = value; 
-  r->parms.dv.valuePtr = NULL;
-  ctx->l_stats[3]++;
+  if (r)
+  {
+    r->opcodeType = OPCODETYPE_DIRECTVALUE;
+    r->parms.dv.directValue = value; 
+    r->parms.dv.valuePtr = NULL;
+    ctx->l_stats[3]++;
+  }
   return r;
 }
 
@@ -1323,18 +1326,24 @@ opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue)
 {
   opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_VARPTR;
-  r->parms.dv.valuePtr=addrValue;
-  r->parms.dv.directValue=0.0;
+  if (r)
+  {
+    r->opcodeType = OPCODETYPE_VARPTR;
+    r->parms.dv.valuePtr=addrValue;
+    r->parms.dv.directValue=0.0;
+  }
   return r;
 }
 
 opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue)
 {
   opcodeRec *r=newOpCode(ctx);
-  r->opcodeType = OPCODETYPE_VARPTRPTR;
-  r->parms.dv.valuePtr=(EEL_F *)addrValue;
-  r->parms.dv.directValue=0.0;
+  if (r)
+  {
+    r->opcodeType = OPCODETYPE_VARPTRPTR;
+    r->parms.dv.valuePtr=(EEL_F *)addrValue;
+    r->parms.dv.directValue=0.0;
+  }
   return r;
 }
 
@@ -1386,7 +1395,7 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *cod
 
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
 {
-  opcodeRec *r=newOpCode(ctx);
+  opcodeRec *r=code1 && code2 ? newOpCode(ctx) : NULL;
   if (r)
   {
     r->opcodeType = OPCODETYPE_MOREPARAMS;
@@ -1399,7 +1408,7 @@ opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code
 
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
-  opcodeRec *r=newOpCode(ctx);
+  opcodeRec *r=code1 && (np<2 || code2) ? newOpCode(ctx) : NULL;
   if (r)
   {
     r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
