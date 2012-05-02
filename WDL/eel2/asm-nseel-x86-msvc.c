@@ -1290,7 +1290,7 @@ label_10:
     test ecx, edx;
     jz label_11; // zero zero, return the value passed directly
       // calculate sign
-      inc edx;, // edx becomes 0x8000...
+      inc edx; // edx becomes 0x8000...
       fstp st(0);
       fld1;
       test ecx, edx;
@@ -1833,6 +1833,61 @@ __declspec(naked) void nseel_asm_max_end(void) {}
 
 
 
+__declspec(naked) void nseel_asm_min_fp(void)
+{
+  __asm {
+    fcom;
+    fstsw ax;
+    test eax, 256;
+    jz label_26;
+    fxch;
+label_26:
+    
+    fstp st(0);
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    }
+
+}
+__declspec(naked) void nseel_asm_min_fp_end(void) {}
+
+__declspec(naked) void nseel_asm_max_fp(void)
+{
+  __asm {
+    fcom;
+    fstsw ax;
+    test eax, 256;
+    jnz label_27;
+    fxch;
+label_27:
+    
+    fstp st(0);
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    }
+}
+__declspec(naked) void nseel_asm_max_fp_end(void) {}
+
 
 
 // just generic functions left, yay
@@ -2194,20 +2249,20 @@ SAVE_STACK
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
     test rdx, 0xff800000; // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
-    jnz label_26;
+    jnz label_28;
     mov rax, rdx;
     shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov rax, qword ptr [rdi+rax];
     and rax, rax;
-    jz label_27;
+    jz label_29;
     and rdx, 0xFFFF; // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdx, 3;      // log2(sizeof(EEL_F))
     add rax, rdx;
-    jmp label_28;
+    jmp label_30;
 
 
-label_27:
+label_29:
     
     mov r15, rsi; // save rsi
     mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
@@ -2217,13 +2272,13 @@ label_27:
     mov rsi, r15; // restore rsi
     add rsp, 128;
     and rax, rax;
-    jnz label_28;
-label_26:
+    jnz label_30;
+label_28:
     
     mov rax, rsi;
     mov qword ptr [esi], 0;
     add rsi, EEL_F_SIZE;
-label_28:
+label_30:
     
 
 #else
@@ -2238,20 +2293,20 @@ label_28:
     // check if (%esi) is in range...
     mov edi, dword ptr [rsi];
     test edi, 0xff800000;   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
-    jnz label_29;
+    jnz label_31;
     mov rax, rdi;
     shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov rax, qword ptr [rcx+rax];
     and rax, rax;
-    jz label_30;
+    jz label_32;
     and rdi, 0xFFFF;   // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdi, 3;        // log2(sizeof(EEL_F))
     add rax, rdi;
-    jmp label_31;
+    jmp label_33;
 
 
-label_30:
+label_32:
     
     mov rdx, rdi; // rdx is second parameter (rcx is first)
     mov edi, 0xfefefefe; // function ptr
@@ -2259,13 +2314,13 @@ label_30:
     call edi;
     add rsp, 128;
     and rax, rax;
-    jnz label_31;
-label_29:
+    jnz label_33;
+label_31:
     
     mov rax, rsi;
     mov qword ptr [esi], 0;
     add esi, EEL_F_SIZE;
-label_31:
+label_33:
     
 #endif
 
@@ -2292,21 +2347,21 @@ _emit 0xFE;
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     test edi, 0xff800000;  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
-    jnz label_32;
+    jnz label_34;
 
     mov eax, edi;
     shr eax, 14;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
     and eax, 0x1FC;    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
     mov eax, dword ptr [edx+eax];
     and eax, eax;
-    jz label_33;
+    jz label_35;
     and edi, 0xFFFF;  // (NSEEL_RAM_ITEMSPERBLOCK-1)
     shl edi, 3;       // log2(sizeof(EEL_F))
     add eax, edi;
-    jmp label_34;
+    jmp label_36;
 
 
-label_33:
+label_35:
     
     sub esp, 8; // keep stack aligned
     push edi; // parameter
@@ -2315,8 +2370,8 @@ label_33:
     call edi;
     add esp, 16;
     and eax, eax;
-    jnz label_34;
-label_32:
+    jnz label_36;
+label_34:
     
     mov eax, esi;
     mov dword ptr [esi], 0;
@@ -2324,7 +2379,7 @@ label_32:
     mov dword ptr [esi+4], 0;
 #endif
     add esi, EEL_F_SIZE;
-label_34:
+label_36:
     
 
 
@@ -2373,11 +2428,11 @@ SAVE_STACK
     mov rsi, r15;
     add rsp, 128;
     and rax, rax;
-    jnz label_35;
+    jnz label_37;
     mov rax, r15;
     mov qword ptr [esi], 0;
     add rsi, EEL_F_SIZE;
-label_35:
+label_37:
     
 
 #else
@@ -2392,11 +2447,11 @@ label_35:
     call edi;
     add rsp, 128;
     and rax, rax;
-    jnz label_36;
+    jnz label_38;
     mov rax, rsi;
     mov qword ptr [esi], 0;
     add esi, EEL_F_SIZE;
-label_36:
+label_38:
     
 #endif
 
@@ -2426,14 +2481,14 @@ _emit 0xFE;
     call edi;
     add esp, 16;
     and eax, eax;
-    jnz label_37;
+    jnz label_39;
     mov eax, esi;
     mov dword ptr [esi], 0;
 #if EEL_F_SIZE == 8
     mov dword ptr [esi+4], 0;
 #endif
     add esi, EEL_F_SIZE;
-label_37:
+label_39:
     
 
 

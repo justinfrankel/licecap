@@ -882,6 +882,8 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(abs)
   DECL_ASMFUNC(min)
   DECL_ASMFUNC(max)
+  DECL_ASMFUNC(min_fp)
+  DECL_ASMFUNC(max_fp)
   DECL_ASMFUNC(sig)
   DECL_ASMFUNC(sign)
   DECL_ASMFUNC(band)
@@ -1470,7 +1472,7 @@ static void combineNamespaceFields(char *nm, const char *prefix, const char *rel
 static void *nseel_getBuiltinFunctionAddress(compileContext *ctx, 
       int fntype, void *fn, 
       NSEEL_PPPROC *pProc, void ***replList, 
-      void **endP, int *abiInfo)
+      void **endP, int *abiInfo, int preferredReturnValues)
 {
   switch (fntype)
   {
@@ -1490,6 +1492,17 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       if (fn)
       {
         functionType *p=(functionType *)fn;
+
+        // if prefers fpstack or bool, or ignoring value, then use fp-stack versions
+        if ((preferredReturnValues&(RETURNVALUE_BOOL|RETURNVALUE_FPSTACK)) || !preferredReturnValues)
+        {
+          static functionType min2={ "min",    nseel_asm_min_fp,nseel_asm_min_fp_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2) };
+          static functionType max2={ "max",    nseel_asm_max_fp,nseel_asm_max_fp_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2) };
+
+          if (p->afunc == (void*)nseel_asm_min) p = &min2;
+          else if (p->afunc == (void*)nseel_asm_max) p = &max2;
+        }
+
         *replList=p->replptrs;
         *pProc=p->pProc;
         *endP = p->func_e;
@@ -2048,7 +2061,7 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
 
 
 static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, 
-                                     int *rvMode, int *fpStackUsage)
+                                     int *rvMode, int *fpStackUsage, int preferredReturnValues)
 {
   // builtin function generation
   int cfunc_abiinfo=0;
@@ -2061,7 +2074,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
   NSEEL_PPPROC preProc=0;
   void **repl=NULL;
-  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e,&cfunc_abiinfo);
+  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e,&cfunc_abiinfo,preferredReturnValues);
 
   if (!func) RET_MINUS1_FAIL("error getting funcaddr")
 
@@ -3010,7 +3023,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
             // generate fld qword [abs]  -- 0xdd, 0x05
             if (bufOut)
             {
-              char tmp[GLUE_MOV_PX_DIRECTVALUE_SIZE];
+              unsigned char tmp[GLUE_MOV_PX_DIRECTVALUE_SIZE];
               if (generateValueToReg(ctx,op,tmp,0,namespacePathToThis)<0) RET_MINUS1_FAIL("direct fp fail gvr")
 
               bufOut[0] = 0xDD;
@@ -3051,7 +3064,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       else
       {
         int a;
-        a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,fpStackUse);
+        a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,fpStackUse,preferredReturnValues);
         if (a<0)return a;
         rv_offset += a;
       }        

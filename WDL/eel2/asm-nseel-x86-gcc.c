@@ -712,7 +712,7 @@ void nseel_asm_sign(void)
     "jz 0f\n" // zero zero, return the value passed directly
       // calculate sign
       "incll %rcx\n" // rcx becomes 0x80000...
-      "fstp st(0)\n"
+      "fstp %st(0)\n"
       "fld1\n"
       "testl %rcx, %rdx\n"
       "jz 0f\n"
@@ -727,8 +727,8 @@ void nseel_asm_sign(void)
     "testl %edx, %ecx\n"
     "jz 0f\n" // zero zero, return the value passed directly
       // calculate sign
-      "incl %edx\n", // edx becomes 0x8000...
-      "fstp st(0)\n"
+      "incl %edx\n" // edx becomes 0x8000...
+      "fstp %st(0)\n"
       "fld1\n"
       "testl %edx, %ecx\n"
       "jz 0f\n"
@@ -1020,6 +1020,35 @@ void nseel_asm_max(void)
 void nseel_asm_max_end(void) {}
 
 
+
+void nseel_asm_min_fp(void)
+{
+  __asm__(
+    "fcom\n"
+    "fstsw %ax\n"
+    "testl $256, %eax\n"
+    "jz 0f\n"
+    "fxch\n"
+    "0:\n"
+    "fstp %st(0)\n"
+    );
+
+}
+void nseel_asm_min_fp_end(void) {}
+
+void nseel_asm_max_fp(void)
+{
+  __asm__(
+    "fcom\n"
+    "fstsw %ax\n"
+    "testl $256, %eax\n"
+    "jnz 0f\n"
+    "fxch\n"
+    "0:\n"
+    "fstp %st(0)\n"
+    );
+}
+void nseel_asm_max_fp_end(void) {}
 
 
 
