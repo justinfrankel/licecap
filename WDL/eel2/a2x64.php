@@ -169,7 +169,7 @@ while (($line = fgets($in)))
 
           $parms = preg_replace("/\\((.{2,3}),(.{2,3})\\)/","($1+$2)",$parms);
 
-          $parms=preg_replace("/EEL_F_SUFFIX ([0-9]+)\\((.*)\\)/","qword [$2+$1]",$parms);
+          $parms=preg_replace("/EEL_F_SUFFIX (-?[0-9]+)\\((.*)\\)/","qword [$2+$1]",$parms);
           $parms=preg_replace("/EEL_F_SUFFIX \\((.*)\\)/","qword [$1]",$parms);
 
           if ($inst == "sh" && $suffix == "ll") { $suffix="l"; $inst="shl"; }

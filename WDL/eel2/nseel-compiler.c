@@ -1126,11 +1126,7 @@ static functionType fnTable1[] = {
    { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
    { "min",    nseel_asm_min,nseel_asm_min_end,   2|NSEEL_NPARAMS_FLAG_CONST },
    { "max",    nseel_asm_max,nseel_asm_max_end,   2|NSEEL_NPARAMS_FLAG_CONST },
-#ifdef __ppc__
-   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&eel_zero}} ,
-#else
-   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST, {&g_signs}} ,
-#endif
+   { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2), } ,
    { "rand",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&nseel_int_rand}, } ,
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -4448,7 +4444,6 @@ void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx)
 
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
     {        
-      int a=0;
       if (plist[ti])
       {
         varNameHdr *v = ((varNameHdr*)plist[ti])-1;
@@ -4474,7 +4469,6 @@ void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
 
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
     {        
-      int a=0;
       if (plist[ti])
       {
         varNameHdr *v = ((varNameHdr*)plist[ti])-1;

@@ -131,7 +131,7 @@ while (($line = fgets($in)))
           else if ($suffix == "l") $suffixstr = "dword ptr ";
           else if ($suffix == "s") $suffixstr = "dword ptr ";
           else $suffixstr = "";
-          $parms=preg_replace("/([0-9]+)\\((.*)\\)/",$suffixstr . "[$2+$1]",$parms);
+          $parms=preg_replace("/(-?[0-9]+)\\((.*)\\)/",$suffixstr . "[$2+$1]",$parms);
           $parms=preg_replace("/\\((.*)\\)/",$suffixstr . "[$1]",$parms);
 
 

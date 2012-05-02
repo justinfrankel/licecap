@@ -517,24 +517,19 @@ void nseel_asm_uminus_end(void) {}
 void nseel_asm_sign(void)
 {
   __asm__(
-    "lfd f1, 0(r3)\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
-    "lfd f2, 0(r5)\n"
-    "lis r9, 0xbff0\n"
+    "li r9, 0\n"
+    "stw r9, -4(r1)\n"
+    "lis r9, 0xbf80\n" // -1 in float
+    "lfs f2, -4(r1)\n"
+
     "fcmpu cr7, f1, f2\n"
     "blt- cr7, 0f\n"
-    "ble- cr7, 1f\n"
-    "  lis r9, 0x3ff0\n"
+      "ble- cr7, 1f\n"
+        "  lis r9, 0x3f80\n" // 1 in float
     "0:\n"
-    "  li r10, 0\n"
-    "  stwu r9, 8(r16)\n"
-    "  stw  r10, 4(r16)\n"
-    "  b 2f\n"
+    "  stw  r9, -4(r1)\n"
+    "  lfs f1, -4(r1)\n"
     "1:\n"
-    "  stfdu f1, 8(r16)\n"
-    "2:\n"
-    "  mr r3, r16\n"
     :: 
   );
 }

@@ -705,57 +705,35 @@ void nseel_asm_sign(void)
 #ifdef TARGET_X64
 
 
-    "movl $0xfefefefe, %rdi\n"
-    "movll (%rax), %rcx\n"
-    "movll $0x7FFFFFFFFFFFFFFF, %rdx\n"
-    "testl %rdx, %rcx\n"
-    "jz 1f\n"
-    "shr $60, %rcx\n"
-    "andl $8, %rcx\n"
-    "addll %rdi, %rcx\n"
-    "movl %rsi, %rax\n"
-    "addl $8, %rsi\n"
-    "movll (%rcx), %rdi\n"
-    "movll %rdi, (%rax)\n"
-	"1:\n"
-   
+    "fst" EEL_F_SUFFIX " -8(%rsp)\n"
+    "mov" EEL_F_SUFFIX " -8(%rsp), %rdx\n"
+    "movll $0x7FFFFFFFFFFFFFFF, %rcx\n"
+    "testll %rcx, %rdx\n"
+    "jz 0f\n" // zero zero, return the value passed directly
+      // calculate sign
+      "incll %rcx\n" // rcx becomes 0x80000...
+      "fstp st(0)\n"
+      "fld1\n"
+      "testl %rcx, %rdx\n"
+      "jz 0f\n"
+      "fchs\n"      
+  	"0:\n"
 
 #else
 
-    "movl $0xfefefefe, %edi\n"
-#if EEL_F_SIZE == 8
-    "movl 4(%eax), %ecx\n"
-    "movl (%eax), %edx\n"
-    "testl $0xfefefefe, %edx\n"
-    "jnz 0f\n"
-#else
-    "movl (%eax), %ecx\n"
-#endif
-    // high dword (minus sign bit) is zero 
-    "test $0x7FFFFFFF, %ecx\n"
-    "jz 1f\n" // zero zero, return the value passed directly
-    "0:\n"
-#if EEL_F_SIZE == 8
-	"shrl $28, %ecx\n"
-#else
-	"shrl $29, %ecx\n"
-#endif
-
-    "andl $" EEL_F_SSTR ", %ecx\n"
-    "addl %edi, %ecx\n"
-
-    "movl %esi, %eax\n"
-    "addl $" EEL_F_SSTR ", %esi\n"
-
-    "movl (%ecx), %edi\n"
-#if EEL_F_SIZE == 8
-    "movl 4(%ecx), %edx\n"
-#endif
-    "movl %edi, (%eax)\n"
-#if EEL_F_SIZE == 8
-    "movl %edx, 4(%eax)\n"
-#endif
-	"1:\n"
+    "fsts -4(%esp)\n"
+    "movl -4(%esp), %ecx\n"
+    "movl $0x7FFFFFFF, %edx\n"
+    "testl %edx, %ecx\n"
+    "jz 0f\n" // zero zero, return the value passed directly
+      // calculate sign
+      "incl %edx\n", // edx becomes 0x8000...
+      "fstp st(0)\n"
+      "fld1\n"
+      "testl %edx, %ecx\n"
+      "jz 0f\n"
+      "fchs\n"      
+  	"0:\n"
    
 #endif
 );
