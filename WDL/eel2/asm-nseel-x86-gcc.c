@@ -12,33 +12,28 @@ void nseel_asm_1pdd(void)
 {
   __asm__(
     SAVE_STACK 
+    "movl $0xfefefefe, %edi\n" 
 #ifdef TARGET_X64
-     "movq (%eax), %xmm0\n"
-     "subl $128, %rsp\n"
-     "movl $0xfefefefe, %edi\n" 
-#ifdef AMD64ABI
-     "movl %rsi, %r15\n"
-     "call *%edi\n" 
-     "movl %r15, %rsi\n"
-     "movq xmm0, (%r15)\n"
+    "subl $128, %rsp\n"
+    "fstpl (%rsp)\n"
+    "movq (%rsp), %xmm0\n"
+    #ifdef AMD64ABI
+       "movl %rsi, %r15\n"
+       "call *%edi\n" 
+       "movl %r15, %rsi\n"
+    #else
+       "call *%edi\n" 
+    #endif
+    "movq xmm0, (%rsp)\n"
+    "fldl (%rsp)\n"
+    "addl $128, %rsp\n"
 #else
-     "call *%edi\n" 
-     "movq xmm0, (%esi)\n"
+    "subl $16, %esp\n"
+    "fstpl (%esp)\n"
+    "call *%edi\n" 
+    "addl $16, %esp\n" 
 #endif
-     "addl $128, %rsp\n"
-#else
-     "subl $8, %esp\n" /* keep stack aligned */ 
-     "pushl 4(%eax)\n" /* push parameter */ 
-     "pushl (%eax)\n"    /* push the rest of the parameter */ 
-     "movl $0xfefefefe, %edi\n" 
-     "call *%edi\n" 
-     "fstpl (%esi)\n" /* store result */ 
-     "addl $16, %esp\n" 
-#endif
-
-     "movl %esi, %eax\n" /* set return value */ 
-     "addl $8, %esi\n" /* advance worktab ptr */ 
-     RESTORE_STACK 
+    RESTORE_STACK 
   );
 }
 void nseel_asm_1pdd_end(void){}
@@ -47,34 +42,30 @@ void nseel_asm_2pdd(void)
 {
   __asm__(
     SAVE_STACK
-#ifdef TARGET_X64
-    "movq (%eax), xmm1\n"
-    "movq (%edi), xmm0\n"
-    "subl $128, %rsp\n"
     "movl $0xfefefefe, %edi\n"
-#ifdef AMD64ABI
-    "movl %rsi, %r15\n"
-    "call *%edi\n"
-    "movl %r15, %rsi\n"
-    "movq xmm0, (%r15)\n"
-#else
-    "call *%edi\n"
-    "movq xmm0, (%esi)\n"
-#endif
+#ifdef TARGET_X64
+    "subl $128, %rsp\n"
+    "fstpl 8(%rsp)\n"
+    "fstpl (%rsp)\n"
+    "movq 8(%rsp), %xmm1\n"
+    "movq (%rsp), %xmm0\n"
+    #ifdef AMD64ABI
+      "movl %rsi, %r15\n"
+      "call *%edi\n"
+      "movl %r15, %rsi\n"
+    #else
+      "call *%edi\n"
+    #endif
+    "movq xmm0, (%rsp)\n"
+    "fldl (%rsp)\n"
     "addl $128, %rsp\n"
 #else
-    "pushl 4(%eax)\n" /* push parameter */
-    "pushl (%eax)\n"    /* push the rest of the parameter */
-    "pushl 4(%edi)\n" /* push parameter */
-    "pushl (%edi)\n"    /* push the rest of the parameter */
-    "movl $0xfefefefe, %edi\n"
+    "subl $16, %esp\n"
+    "fstpl 8(%esp)\n"
+    "fstpl (%esp)\n"
     "call *%edi\n"
-    "fstpl (%esi)\n" /* store result */
     "addl $16, %esp\n"
 #endif
-
-    "movl %esi, %eax\n" /* set return value */
-    "addl $8, %esi\n" /* advance worktab ptr */
     RESTORE_STACK
   );
 }
@@ -84,116 +75,39 @@ void nseel_asm_2pdds(void)
 {
   __asm__(
     SAVE_STACK
-#ifdef TARGET_X64
-    "movq (%eax), xmm1\n"
-    "movq (%edi), xmm0\n"
-    "subl $128, %rsp\n"
     "movl $0xfefefefe, %eax\n"
-#ifdef AMD64ABI
-    "movl %rsi, %r15\n"
-    "movl %rdi, %r14\n"
-    "call *%eax\n"
-    "movl %r15, %rsi\n"
-    "movq xmm0, (%r14)\n"
-    "movl %r14, %rax\n" /* set return value */
-#else
-    "call *%eax\n"
-    "movq xmm0, (%edi)\n"
-    "movl %edi, %eax\n" /* set return value */
-#endif
+#ifdef TARGET_X64
     "subl $128, %rsp\n"
+    "fstpl (%rsp)\n"
+    "movq (%rdi), %xmm0\n"
+    "movq (%rsp), %xmm1\n"
+    #ifdef AMD64ABI
+      "movl %rsi, %r15\n"
+      "movl %rdi, %r14\n"
+      "call *%eax\n"
+      "movl %r15, %rsi\n"
+      "movq xmm0, (%r14)\n"
+      "movl %r14, %rax\n" /* set return value */
+    #else
+      "call *%eax\n"
+      "movq xmm0, (%edi)\n"
+      "movl %edi, %eax\n" /* set return value */
+    #endif
+    "addl $128, %rsp\n"
 #else
-    "pushl 4(%eax)\n" /* push parameter */
-    "pushl (%eax)\n"    /* push the rest of the parameter */
+    "subl $8, %esp\n"
+    "fstpl (%esp)\n"
     "pushl 4(%edi)\n" /* push parameter */
     "pushl (%edi)\n"    /* push the rest of the parameter */
-    "movl $0xfefefefe, %eax\n"
     "call *%eax\n"
-    "fstpl (%edi)\n" /* store result */
     "addl $16, %esp\n"
+    "fstpl (%edi)\n" /* store result */
     "movl %edi, %eax\n" /* set return value */
 #endif
     RESTORE_STACK
   );
 }
 void nseel_asm_2pdds_end(void){}
-
-void nseel_asm_2pp(void)
-{
-__asm__(
-    SAVE_STACK
-#ifdef TARGET_X64
-
-#ifdef AMD64ABI
-    "movl %rsi, %r15\n"
-    /* rdi is first parameter */
-    "movl %rax, %rsi\n"
-    "subl $128, %rsp\n"
-    "movl $0xfefefefe, %eax\n"
-    "call *%eax\n"
-    "movl %r15, %rsi\n"
-    "movq xmm0, (%r15)\n"
-#else
-    "movl %edi, %ecx\n"
-    "movl %eax, %edx\n"
-    "subl $128, %rsp\n"
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
-    "movq xmm0, (%esi)\n"
-#endif
-    "addl $128, %rsp\n"
-#else
-    "subl $8, %esp\n" /* keep stack aligned */
-    "pushl %eax\n" /* push parameter */
-    "pushl %edi\n"    /* push second parameter */
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n" /* store result */
-    "addl $16, %esp\n"
-#endif
-    "movl %esi, %eax\n" /* set return value */
-    "addl $" EEL_F_SSTR ", %esi\n" /* advance worktab ptr */
-    RESTORE_STACK
-  );
-}
-void nseel_asm_2pp_end(void) {}
-  
-
-void nseel_asm_1pp(void)
-{
-__asm__(
-    SAVE_STACK
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-    "movl %rsi, %r15\n"
-    "movl %eax, %edi\n"
-    "subl $128, %rsp\n"
-    "movl $0xfefefefe, %rax\n"
-    "call *%rax\n"
-    "movl %r15, %rsi\n"
-    "movq xmm0, (%r15)\n"
-#else
-    "movl %eax, %ecx\n"
-    "subl $128, %rsp\n"
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
-    "movq xmm0, (%esi)\n"
-#endif
-    "addl $128, %rsp\n"
-#else
-    "subl $12, %esp\n" /* keep stack aligned */
-    "pushl %eax\n" /* push parameter */
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
-    "fstp" EEL_F_SUFFIX " (%esi)\n" /* store result */
-    "addl $16, %esp\n"
-#endif
-    "movl %esi, %eax\n" /* set return value */
-    "addl $" EEL_F_SSTR ", %esi\n" /* advance worktab ptr */
-    RESTORE_STACK
-  );
-}
-void nseel_asm_1pp_end(void){}
 
 
 

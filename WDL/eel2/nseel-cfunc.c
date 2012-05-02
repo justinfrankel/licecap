@@ -98,9 +98,9 @@ static unsigned int genrand_int32(void)
 
 
 //---------------------------------------------------------------------------------------------------------------
-EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F *f)
+EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
 {
-  EEL_F x=floor(*f);
+  EEL_F x=floor(f);
   if (x < 1.0) x=1.0;
  
 #ifdef NSEEL_EEL1_COMPAT_MODE 

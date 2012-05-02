@@ -6,13 +6,10 @@ void nseel_asm_1pdd(void)
   __asm__( 
     "addis r5, 0, 0xdead\n" 
     "ori r5, r5, 0xbeef\n"  
-    "lfd f1, 0(r3)\n" 
     "mtctr r5\n" 
     "subi r1, r1, 64\n" 
     "bctrl\n" 
     "addi r1, r1, 64\n" 
-    "stfdu f1, 8(r16)\n" 
-    "mr r3, r16\n" 
    :: );
 }
 void nseel_asm_1pdd_end(void){}
@@ -23,14 +20,12 @@ void nseel_asm_2pdd(void)
   __asm__( 
     "addis r7, 0, 0xdead\n" 
     "ori r7, r7, 0xbeef\n"  
-    "lfd f2, 0(r3)\n" 
+    "mr f2, f1\n" 
     "lfd f1, 0(r14)\n" 
     "mtctr r7\n" 
     "subi r1, r1, 64\n" 
     "bctrl\n" 
     "addi r1, r1, 64\n" 
-    "stfdu f1, 8(r16)\n" 
-    "mr r3, r16\n" 
    :: );
 };
 void nseel_asm_2pdd_end(void){}
@@ -40,7 +35,7 @@ void nseel_asm_2pdds(void)
   __asm__( 
     "addis r5, 0, 0xdead\n" 
     "ori r5, r5, 0xbeef\n"  
-    "lfd f2, 0(r3)\n" 
+    "mr f2, f1\n" 
     "lfd f1, 0(r14)\n" 
     "mtctr r5\n" 
     "subi r1, r1, 64\n" 
@@ -54,44 +49,9 @@ void nseel_asm_2pdds_end(void){}
 
 #else // 32 bit floating point calls
 
-#error mac only can do 64 bit floats for now
+#error no 32 bit float support
 
 #endif
-
-
-void nseel_asm_2pp(void)
-{
-// r3=firstparm, r4=second parm, returns in f1
-  __asm__( 
-    "addis r5, 0, 0xdead\n" 
-    "ori r5, r5, 0xbeef\n"  
-    "mtctr r5\n" 
-    "mr r4, r3\n" 
-    "mr r3, r14\n" 
-    "subi r1, r1, 64\n" 
-    "bctrl\n" 
-    "addi r1, r1, 64\n" 
-    "stfdu f1, 8(r16)\n" 
-    "mr r3, r16\n" 
-   :: );
-};
-void nseel_asm_2pp_end(void){}
-
-void nseel_asm_1pp(void)
-{
-  __asm__( 
-    "addis r5, 0, 0xdead\n" 
-    "ori r5, r5, 0xbeef\n"  
-    "mtctr r5\n" 
-    "subi r1, r1, 64\n" 
-    "bctrl\n" 
-    "addi r1, r1, 64\n" 
-    "stfdu f1, 8(r16)\n" 
-    "mr r3, r16\n" 
-   :: );
-};
-void nseel_asm_1pp_end(void){}
-
 
 //---------------------------------------------------------------------------------------------------------------
 

@@ -20,33 +20,28 @@ __declspec(naked) void nseel_asm_1pdd(void)
 {
   __asm {
     SAVE_STACK
+    mov edi, 0xfefefefe;
 #ifdef TARGET_X64
-     movq xmm0, [eax];
-     sub rsp, 128;
-     mov edi, 0xfefefefe;
-#ifdef AMD64ABI
-     mov r15, rsi;
-     call edi;
-     mov rsi, r15;
-     movq [r15], xmm0;
+    sub rsp, 128;
+    fstp qword ptr [rsp];
+    movq xmm0, [rsp];
+    #ifdef AMD64ABI
+       mov r15, rsi;
+       call edi;
+       mov rsi, r15;
+    #else
+       call edi;
+    #endif
+    movq [rsp], xmm0;
+    fld qword ptr [rsp];
+    add rsp, 128;
 #else
-     call edi;
-     movq [esi], xmm0;
+    sub esp, 16;
+    fstp qword ptr [esp];
+    call edi;
+    add esp, 16;
 #endif
-     add rsp, 128;
-#else
-     sub esp, 8; /* keep stack aligned */
-     push dword ptr [eax+4]; /* push parameter */
-     push dword ptr [eax];    /* push the rest of the parameter */
-     mov edi, 0xfefefefe;
-     call edi;
-     fstp qword ptr [esi]; /* store result */
-     add esp, 16;
-#endif
-
-     mov eax, esi; /* set return value */
-     add esi, 8; /* advance worktab ptr */
-     RESTORE_STACK
+    RESTORE_STACK
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -67,34 +62,30 @@ __declspec(naked) void nseel_asm_2pdd(void)
 {
   __asm {
     SAVE_STACK
-#ifdef TARGET_X64
-    movq xmm1, [eax];
-    movq xmm0, [edi];
-    sub rsp, 128;
     mov edi, 0xfefefefe;
-#ifdef AMD64ABI
-    mov r15, rsi;
-    call edi;
-    mov rsi, r15;
-    movq [r15], xmm0;
-#else
-    call edi;
-    movq [esi], xmm0;
-#endif
+#ifdef TARGET_X64
+    sub rsp, 128;
+    fstp qword ptr [rsp+8];
+    fstp qword ptr [rsp];
+    movq xmm1, [rsp+8];
+    movq xmm0, [rsp];
+    #ifdef AMD64ABI
+      mov r15, rsi;
+      call edi;
+      mov rsi, r15;
+    #else
+      call edi;
+    #endif
+    movq [rsp], xmm0;
+    fld qword ptr [rsp];
     add rsp, 128;
 #else
-    push dword ptr [eax+4]; /* push parameter */
-    push dword ptr [eax];    /* push the rest of the parameter */
-    push dword ptr [edi+4]; /* push parameter */
-    push dword ptr [edi];    /* push the rest of the parameter */
-    mov edi, 0xfefefefe;
+    sub esp, 16;
+    fstp qword ptr [esp+8];
+    fstp qword ptr [esp];
     call edi;
-    fstp qword ptr [esi]; /* store result */
     add esp, 16;
 #endif
-
-    mov eax, esi; /* set return value */
-    add esi, 8; /* advance worktab ptr */
     RESTORE_STACK
 _emit 0x89;
 _emit 0x90;
@@ -116,33 +107,33 @@ __declspec(naked) void nseel_asm_2pdds(void)
 {
   __asm {
     SAVE_STACK
-#ifdef TARGET_X64
-    movq xmm1, [eax];
-    movq xmm0, [edi];
-    sub rsp, 128;
     mov eax, 0xfefefefe;
-#ifdef AMD64ABI
-    mov r15, rsi;
-    mov r14, rdi;
-    call eax;
-    mov rsi, r15;
-    movq [r14], xmm0;
-    mov rax, r14; /* set return value */
-#else
-    call eax;
-    movq [edi], xmm0;
-    mov eax, edi; /* set return value */
-#endif
+#ifdef TARGET_X64
     sub rsp, 128;
+    fstp qword ptr [rsp];
+    movq xmm0, [rdi];
+    movq xmm1, [rsp];
+    #ifdef AMD64ABI
+      mov r15, rsi;
+      mov r14, rdi;
+      call eax;
+      mov rsi, r15;
+      movq [r14], xmm0;
+      mov rax, r14; /* set return value */
+    #else
+      call eax;
+      movq [edi], xmm0;
+      mov eax, edi; /* set return value */
+    #endif
+    add rsp, 128;
 #else
-    push dword ptr [eax+4]; /* push parameter */
-    push dword ptr [eax];    /* push the rest of the parameter */
+    sub esp, 8;
+    fstp qword ptr [esp];
     push dword ptr [edi+4]; /* push parameter */
     push dword ptr [edi];    /* push the rest of the parameter */
-    mov eax, 0xfefefefe;
     call eax;
-    fstp qword ptr [edi]; /* store result */
     add esp, 16;
+    fstp qword ptr [edi]; /* store result */
     mov eax, edi; /* set return value */
 #endif
     RESTORE_STACK
@@ -161,107 +152,6 @@ _emit 0x90;
   }
 }
 __declspec(naked) void nseel_asm_2pdds_end(void){}
-
-__declspec(naked) void nseel_asm_2pp(void)
-{
-__asm {
-    SAVE_STACK
-#ifdef TARGET_X64
-
-#ifdef AMD64ABI
-    mov r15, rsi;
-    /* rdi is first parameter */
-    mov rsi, rax;
-    sub rsp, 128;
-    mov eax, 0xfefefefe;
-    call eax;
-    mov rsi, r15;
-    movq [r15], xmm0;
-#else
-    mov ecx, edi;
-    mov edx, eax;
-    sub rsp, 128;
-    mov edi, 0xfefefefe;
-    call edi;
-    movq [esi], xmm0;
-#endif
-    add rsp, 128;
-#else
-    sub esp, 8; /* keep stack aligned */
-    push eax; /* push parameter */
-    push edi;    /* push second parameter */
-    mov edi, 0xfefefefe;
-    call edi;
-    fstp EEL_ASM_TYPE [esi]; /* store result */
-    add esp, 16;
-#endif
-    mov eax, esi; /* set return value */
-    add esi, EEL_F_SIZE; /* advance worktab ptr */
-    RESTORE_STACK
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-}
-__declspec(naked) void nseel_asm_2pp_end(void) {}
-
-
-__declspec(naked) void nseel_asm_1pp(void)
-{
-__asm {
-    SAVE_STACK
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-    mov r15, rsi;
-    mov edi, eax;
-    sub rsp, 128;
-    mov rax, 0xfefefefe;
-    call rax;
-    mov rsi, r15;
-    movq [r15], xmm0;
-#else
-    mov ecx, eax;
-    sub rsp, 128;
-    mov edi, 0xfefefefe;
-    call edi;
-    movq [esi], xmm0;
-#endif
-    add rsp, 128;
-#else
-    sub esp, 12; /* keep stack aligned */
-    push eax; /* push parameter */
-    mov edi, 0xfefefefe;
-    call edi;
-    fstp EEL_ASM_TYPE [esi]; /* store result */
-    add esp, 16;
-#endif
-    mov eax, esi; /* set return value */
-    add esi, EEL_F_SIZE; /* advance worktab ptr */
-    RESTORE_STACK
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-}
-__declspec(naked) void nseel_asm_1pp_end(void){}
 
 
 
