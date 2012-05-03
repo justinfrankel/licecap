@@ -730,12 +730,25 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   }
 #else
 
-  char *p=(char *)fn_e - sizeof(GLUE_RET);
-  if (p <= (char *)fn) *size=0;
+  // gcc, 32 bit (ppc or x86)
+  unsigned char *p=(unsigned char *)fn_e - sizeof(GLUE_RET);
+  if (p <= (unsigned char *)fn) *size=0;
   else
   {
-    while (p > (char *)fn && memcmp(p,&GLUE_RET,sizeof(GLUE_RET))) p-=sizeof(GLUE_RET);
-    *size = p - (char *)fn;
+    while (p > (unsigned char *)fn && memcmp(p,&GLUE_RET,sizeof(GLUE_RET))) p-=sizeof(GLUE_RET);
+    *size = p - (unsigned char *)fn;
+#ifndef __ppc__
+    // x86, gcc: look for push ebp, mov ebp, esp (0x55, 0x89, 0xE5), and 0xC9 (leave) at end
+    if (*size >= 4)
+    {
+      unsigned char *pfn = (unsigned char *)fn;
+      if (pfn[0] == 0x55 && pfn[1] == 0x89 && pfn[2] == 0xE5 && p[-1] == 0xC9)
+      {
+        *size -= 4;
+        return pfn+3;
+      }
+    }
+#endif
   }
   return fn;
 
@@ -993,7 +1006,6 @@ static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext 
 }
 
 #ifndef __ppc__
-static EEL_F g_signs[2]={1.0,-1.0};
 static EEL_F negativezeropointfive=-0.5f;
 static EEL_F onepointfive=1.5f;
 #endif
