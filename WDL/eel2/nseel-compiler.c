@@ -1057,6 +1057,8 @@ static double eel1sigmoid(double x, double constraint)
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f);
 
+#define FNPTR_HAS_CONDITIONAL_EXEC(op) (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && (functionType*)op->fn >= fnTable1 && (functionType*)op->fn < fnTable1+5)
+
 static functionType fnTable1[] = {
   { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST, }, 
   { "_and",   nseel_asm_band,nseel_asm_band_end,  2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
@@ -1693,30 +1695,48 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
 
 
 // returns true if does something (other than calculating and throwing away a value)
-static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
+static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
 {
-  int retv = 0, retv_parm[3]={0,0,0};
+  opcodeRec *lastJoinOp=NULL;
+  char retv = 0, retv_parm[3]={0}, joined_retv=0;
   while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
-    if (!optimizeOpcodes(ctx,op->parms.parms[0]) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
+    if (!optimizeOpcodes(ctx,op->parms.parms[0], 0) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
     {
       // direct value, can skip ourselves
       memcpy(op,op->parms.parms[1],sizeof(*op));
     }
     else
     {
-      retv |= 1;
+      joined_retv |= 1;
+      lastJoinOp = op;
       op = op->parms.parms[1];
     }
   }
   if (!op || // should never really happen
       OPCODE_IS_TRIVIAL(op) || // should happen often (vars)
       op->opcodeType < 0 || op->opcodeType >= OPCODETYPE_INVALID // should never happen (assert would be appropriate heh)
-      ) return retv;
+      ) return joined_retv;
+  
+  if (!needsResult)
+  {
+    if (op->fntype == FUNCTYPE_EELFUNC) 
+    {
+      needsResult=1; // assume eel functions are non-const for now
+    }
+    else if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
+    {
+      functionType  *pfn = (functionType *)op->fn;
+      if (!pfn || !(pfn->nParams&NSEEL_NPARAMS_FLAG_CONST)) needsResult=1;
+    }
+  }
 
-  retv_parm[0] = optimizeOpcodes(ctx,op->parms.parms[0]);
-  if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1]);
-  if (op->opcodeType>=OPCODETYPE_FUNC3) retv_parm[2] = optimizeOpcodes(ctx,op->parms.parms[2]);
+
+  if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1], needsResult);
+  if (op->opcodeType>=OPCODETYPE_FUNC3) retv_parm[2] = optimizeOpcodes(ctx,op->parms.parms[2], needsResult);
+
+  retv_parm[0] = optimizeOpcodes(ctx,op->parms.parms[0], needsResult || 
+      (FNPTR_HAS_CONDITIONAL_EXEC(op) && (retv_parm[1] || retv_parm[2] || op->opcodeType <= OPCODETYPE_FUNC1)) );
 
   if (op->fntype >= 0 && op->fntype < FUNCTYPE_SIMPLEMAX)
   {
@@ -1856,7 +1876,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
                 if (op->parms.parms[1]->parms.dv.directValue == 0.0)
                 {
                   op->fntype = FN_MULTIPLY;
-                  optimizeOpcodes(ctx,op); // since we're a multiply, this might reduce us to 0.0 ourselves (or exec2)
+                  optimizeOpcodes(ctx,op, needsResult); // since we're a multiply, this might reduce us to 0.0 ourselves (or exec2)
                 }
                 else
                 {
@@ -1997,7 +2017,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
           // put that as the exponent
           op->parms.parms[1] = first_parm;
 
-          retv|=optimizeOpcodes(ctx,op);
+          retv|=optimizeOpcodes(ctx,op,needsResult);
 
         }
       }
@@ -2010,7 +2030,7 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
         {
           int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= g_closefact;
           memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
-          retv_parm[s ? 2 : 1]=0; // we're ignoring theo ther code
+          retv_parm[s ? 2 : 1]=0; // we're ignoring the other code
         }
       }
     }
@@ -2018,11 +2038,65 @@ static int optimizeOpcodes(compileContext *ctx, opcodeRec *op)
   }
   else
   {
-    // user func or unknown func time, always does stuff
-    // todo: for user tables, support some variant on nParams&NSEEL_NPARAMS_FLAG_MODSTUFF
+    // unknown or eel func, assume non-const
     retv |= 1;
   }
-  return retv||retv_parm[0]||retv_parm[1]||retv_parm[2];
+
+  // if we need results, or our function has effects itself, then finish
+  if (retv || needsResult)
+  {
+    return retv || joined_retv || retv_parm[0] || retv_parm[1] || retv_parm[2];
+  }
+
+  // we don't need results here, and our function is const, which means we can remove it
+  {
+    int cnt=0, idx1=0, idx2=0, x;
+    for (x=0;x<3;x++) if (retv_parm[x]) { if (!cnt++) idx1=x; else idx2=x; }
+
+    if (!cnt) // none of the parameters do anything, remove this opcode
+    {
+      if (lastJoinOp)
+      {
+        // replace previous join with its first linked opcode, removing this opcode completely
+        memcpy(lastJoinOp,lastJoinOp->parms.parms[0],sizeof(*lastJoinOp));
+      }
+      else if (op->opcodeType != OPCODETYPE_DIRECTVALUE)
+      {
+        // allow caller to easily detect this as trivial and remove it
+        op->opcodeType = OPCODETYPE_DIRECTVALUE;
+        op->parms.dv.valuePtr=NULL;
+        op->parms.dv.directValue=0.0;
+      }
+      // return joined_retv below
+    }
+    else
+    {
+      // if parameters are non-const, and we're a conditional, preserve our function
+      if (FNPTR_HAS_CONDITIONAL_EXEC(op)) return 1;
+
+      // otherwise, condense into either the non-const statement, or a join
+      if (cnt==1)
+      {
+        memcpy(op,op->parms.parms[idx1],sizeof(*op));
+      }
+      else if (cnt == 2)
+      {
+        op->opcodeType = OPCODETYPE_FUNC2;
+        op->fntype = FN_JOIN_STATEMENTS;
+        op->fn = op;
+        op->parms.parms[0] = op->parms.parms[idx1];
+        op->parms.parms[1] = op->parms.parms[idx2];
+        op->parms.parms[2] = NULL;
+      }
+      else
+      {
+        // todo need to create a new opcodeRec here, for now just leave as is 
+        // (non-conditional const 3 parameter functions are rare anyway)
+      }
+      return 1;
+    }
+  }
+  return joined_retv;
 }
 
 
@@ -4122,7 +4196,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       printf("%s\n",buf);
 #endif
 #endif
-      optimizeOpcodes(ctx,start_opcode);
+      optimizeOpcodes(ctx,start_opcode,is_fname[0] ? 1 : 0);
 #ifdef LOG_OPT
       sprintf(buf,"post opt sz=%d, stack depth=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL,&sd),sd);
 #ifdef _WIN32
