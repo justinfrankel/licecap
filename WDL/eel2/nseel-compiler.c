@@ -739,21 +739,36 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 #else
 
   // gcc, 32 bit (ppc or x86)
-  unsigned char *p=(unsigned char *)fn_e - sizeof(GLUE_RET);
-  if (p <= (unsigned char *)fn) *size=0;
+  unsigned char *endp=(unsigned char *)fn_e - sizeof(GLUE_RET);
+  if (endp <= (unsigned char *)fn) *size=0;
   else
   {
-    while (p > (unsigned char *)fn && memcmp(p,&GLUE_RET,sizeof(GLUE_RET))) p-=sizeof(GLUE_RET);
-    *size = p - (unsigned char *)fn;
+    while (endp > (unsigned char *)fn && memcmp(endp,&GLUE_RET,sizeof(GLUE_RET))) endp-=sizeof(GLUE_RET);
+    *size = endp - (unsigned char *)fn;
 #ifndef __ppc__
     // x86, gcc: look for push ebp, mov ebp, esp (0x55, 0x89, 0xE5), and 0xC9 (leave) at end
     if (*size >= 4)
     {
+      int hadnop=0;
       unsigned char *pfn = (unsigned char *)fn;
-      if (pfn[0] == 0x55 && pfn[1] == 0x89 && pfn[2] == 0xE5 && p[-1] == 0xC9)
+      
+      // in debug mode, there will be nops before the stack frame code
+      while (pfn < endp-4 && *pfn == 0x90) 
       {
-        *size -= 4;
-        return pfn+3;
+        hadnop++;
+        pfn++;
+      }
+      if (endp[-1] == 0xC9 && pfn < endp-4 && pfn[0] == 0x55 && pfn[1] == 0x89 && pfn[2] == 0xE5)
+      {
+        endp--;
+        pfn += 3;
+        
+        // if had nops (debug mode), skip any sub esp, byte
+        if (hadnop && pfn < endp-2 && pfn[0] == 0x83 && pfn[1] == 0xEC) pfn+=3;
+        
+        *size = endp - pfn;
+        if (*size < 0) *size=0;
+        return pfn;
       }
     }
 #endif
