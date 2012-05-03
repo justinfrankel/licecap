@@ -1733,7 +1733,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
 static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
 {
   opcodeRec *lastJoinOp=NULL;
-  char retv = 0, retv_parm[3]={0}, joined_retv=0;
+  char retv, retv_parm[3], joined_retv=0;
   while (op && op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
     if (!optimizeOpcodes(ctx,op->parms.parms[0], 0) || OPCODE_IS_TRIVIAL(op->parms.parms[0]))
@@ -1748,6 +1748,11 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
       op = op->parms.parms[1];
     }
   }
+  
+start_over: // when an opcode changed substantially in optimization, goto here to reprocess it
+
+  retv = retv_parm[0]=retv_parm[1]=retv_parm[2]=0;
+
   if (!op || // should never really happen
       OPCODE_IS_TRIVIAL(op) || // should happen often (vars)
       op->opcodeType < 0 || op->opcodeType >= OPCODETYPE_INVALID // should never happen (assert would be appropriate heh)
@@ -1765,7 +1770,6 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
       if (!pfn || !(pfn->nParams&NSEEL_NPARAMS_FLAG_CONST)) needsResult=1;
     }
   }
-
 
   if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1], needsResult);
   if (op->opcodeType>=OPCODETYPE_FUNC3) retv_parm[2] = optimizeOpcodes(ctx,op->parms.parms[2], needsResult);
@@ -1785,12 +1789,12 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = - op->parms.parms[0]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
           case FN_UPLUS:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
         }
       }
     }
@@ -1806,32 +1810,32 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
           case FN_MULTIPLY:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
           case FN_ADD:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
           case FN_SUB:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue;
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
           case FN_AND:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
           case FN_OR:
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
             op->parms.dv.valuePtr=NULL;
-          break;
+          goto start_over;
         }
       }
       else if (dv0 || dv1)
@@ -1849,6 +1853,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
               op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
               op->fn = &fr;
               if (dv0) op->parms.parms[0] = op->parms.parms[1];
+              goto start_over;
             }
           break;
           case FN_SUB:
@@ -1859,13 +1864,18 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
                 op->opcodeType = OPCODETYPE_FUNC1;
                 op->fntype = FN_UMINUS;
                 op->parms.parms[0] = op->parms.parms[1];
+                goto start_over;
               }
               break;
             }
             // fall through, if dv1 we can remove +0.0
 
           case FN_ADD:
-            if (dvalue == 0.0) memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
+            if (dvalue == 0.0) 
+            {
+              memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
+              goto start_over;
+            }
           break;
           case FN_AND:
             if ((WDL_INT64)dvalue) break;
@@ -1878,6 +1888,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
               if (!retv_parm[!!dv0]) 
               {
                 memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
+                goto start_over;
               }
               else
               {
@@ -1891,11 +1902,13 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
                   op->parms.parms[1] = op->parms.parms[0];
                   op->parms.parms[0] = tmp;
                 }
+                goto start_over;
               }
             }
             else if (dvalue == 1.0) // remove multiply by 1.0 (using non-1.0 value as replacement)
             {
               memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
+              goto start_over;
             }
           break;
           case FN_DIVIDE:
@@ -1904,6 +1917,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
               if (dvalue == 1.0)  // remove divide by 1.0  (using non-1.0 value as replacement)
               {
                 memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
+                goto start_over;
               }
               else
               {
@@ -1911,7 +1925,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
                 if (op->parms.parms[1]->parms.dv.directValue == 0.0)
                 {
                   op->fntype = FN_MULTIPLY;
-                  optimizeOpcodes(ctx,op, needsResult); // since we're a multiply, this might reduce us to 0.0 ourselves (or exec2)
+                  goto start_over;
                 }
                 else
                 {
@@ -1926,6 +1940,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
                     op->fntype = FN_MULTIPLY;
                     op->parms.parms[1]->parms.dv.directValue = d;
                     op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                    goto start_over;
                   }
                 }
               }
@@ -1948,6 +1963,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
                 op->parms.parms[0] = tmp;
                 // set to (oldexpression;0)
               }
+              goto start_over;
             }
           break;
         }
@@ -2015,6 +2031,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
           op->opcodeType = OPCODETYPE_DIRECTVALUE;
           op->parms.dv.directValue = v;
           op->parms.dv.valuePtr=NULL;
+          goto start_over;
         }
 
 
@@ -2033,6 +2050,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
             pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue) :
             atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
           op->parms.dv.valuePtr=NULL;
+          goto start_over;
         }
       }
       else if (pfn->replptrs[0] == &pow)
@@ -2052,8 +2070,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
           // put that as the exponent
           op->parms.parms[1] = first_parm;
 
-          retv|=optimizeOpcodes(ctx,op,needsResult);
-
+          goto start_over;
         }
       }
     }
@@ -2065,7 +2082,7 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
         {
           int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= g_closefact;
           memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
-          retv_parm[s ? 2 : 1]=0; // we're ignoring the other code
+          goto start_over;
         }
       }
     }
