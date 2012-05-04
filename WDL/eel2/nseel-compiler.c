@@ -3056,31 +3056,34 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
     {
       int fUse=0;
-      int use_rv = RETURNVALUE_NORMAL;
-      int maxsubsz=0;
+      int useInline=1;
+      int use_rv = RETURNVALUE_IGNORE;
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse);
       if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
       if (fUse > *fpStackUse) *fpStackUse=fUse;
 
+      if (preferredReturnValues & RETURNVALUE_NORMAL) use_rv=RETURNVALUE_NORMAL;
+      else if (preferredReturnValues & RETURNVALUE_FPSTACK) use_rv=RETURNVALUE_FPSTACK;
+      else if (preferredReturnValues & RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
       
       if (computTableSize) (*computTableSize) ++;
 
-      {
-        int t1,t2;
-        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,1024*1024*128, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t1,NULL);
-        if (a<0) RET_MINUS1_FAIL("if subcalcfail1")
-        if (a > maxsubsz) maxsubsz=a;
-        a = compileOpcodes(ctx,op->parms.parms[2],NULL,1024*1024*128, NULL, namespacePathToThis, (RETURNVALUE_BOOL|RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL), &t2,NULL);
-        if (a<0) RET_MINUS1_FAIL("if subclacfail2")
-        if (t1 == RETURNVALUE_BOOL && t2 == RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
-        else if (t1 != RETURNVALUE_NORMAL && t2 != RETURNVALUE_NORMAL) use_rv=RETURNVALUE_FPSTACK;
-        if (a > maxsubsz) maxsubsz=a;
-      }
       *calledRvType = use_rv;
 
-
 #ifdef __ppc__
-      if (maxsubsz>=16000)
+      {
+        const int max_inline_size=16000;
+        int a = compileOpcodes(ctx,op->parms.parms[1],NULL,max_inline_size, NULL, namespacePathToThis, use_rv, NULL,NULL);
+        if (a<0 || a>=max_inline_size) useInline=0;
+        else
+        {
+          a=compileOpcodes(ctx,op->parms.parms[2],NULL,max_inline_size, NULL, namespacePathToThis, use_rv, NULL,NULL);
+          if (a<0 || a>=max_inline_size) useInline=0;
+        }
+      }
+#endif
+
+      if (!useInline)
       {
         unsigned char *newblock2,*newblock3,*ptr;
         void *stub;
@@ -3107,7 +3110,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         return rv_offset + parm_size + stubsize;
       }
       else
-#endif    
       {
         int csz,hasSecondHalf;
 #ifdef __ppc__
