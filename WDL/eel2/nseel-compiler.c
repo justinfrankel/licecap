@@ -120,6 +120,8 @@ static unsigned int _controlfp(unsigned int val, unsigned int mask)
 
 #ifdef __ppc__
 
+#define PPC_MAX_JMPSIZE 16000 // could really be 32000, probably
+
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
 static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
 {   
@@ -2956,7 +2958,10 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     {
       int fUse=0;
       int parm_size;
-      *calledRvType = RETURNVALUE_BOOL;
+      int retType=RETURNVALUE_IGNORE;
+      if (preferredReturnValues != RETURNVALUE_IGNORE) retType = RETURNVALUE_BOOL;
+
+      *calledRvType = retType;
       
       parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse);
       if (parm_size < 0) RET_MINUS1_FAIL("loop band/bor coc fail")
@@ -2968,10 +2973,10 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
 #ifdef __ppc__
 
-      int subsz=compileOpcodes(ctx,op->parms.parms[1],NULL,128*1024*1024, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,NULL);
-      if (subsz<0) RET_MINUS1_FAIL("ppc band/bor size calc")
+      const int ppc_maxjmp=PPC_MAX_JMPSIZE;
+      int _subsz=compileOpcodes(ctx,op->parms.parms[1],NULL,ppc_maxjmp, computTableSize, namespacePathToThis, retType, NULL,NULL);
 
-      if (subsz >= 16000) // encode as function call
+      if (_subsz >= ppc_maxjmp || _subsz<0) // encode as function call
       {
         void *stub;
         int stubsize;        
@@ -2992,7 +2997,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut)
         {
           fUse=0;
-          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse);
+          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, retType, NULL, &fUse);
           if (!newblock2) RET_MINUS1_FAIL("band/bor ccbwr fail")
 
           if (fUse > *fpStackUse) *fpStackUse=fUse;
@@ -3038,7 +3043,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         #endif
 
 
-        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse);
+        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse);
         if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
         parm_size+=sz2;
 
@@ -3072,7 +3077,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
 #ifdef __ppc__
       {
-        const int max_inline_size=16000;
+        const int max_inline_size=PPC_MAX_JMPSIZE;
         int a = compileOpcodes(ctx,op->parms.parms[1],NULL,max_inline_size, NULL, namespacePathToThis, use_rv, NULL,NULL);
         if (a<0 || a>=max_inline_size) useInline=0;
         else
