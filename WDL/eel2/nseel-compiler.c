@@ -2688,6 +2688,10 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 
 #define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
 
+#ifdef DUMP_OPS_DURING_COMPILE
+void dumpOp(compileContext *ctx, opcodeRec *op, int start);
+#endif
+
 static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType, int preferredReturnValues, int *fpStackUse)
 {
   int rv_offset=0;
@@ -2708,7 +2712,11 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     if (bufOut) bufOut += parm_size;
     bufOut_len -= parm_size;
     rv_offset += parm_size;
+#ifdef DUMP_OPS_DURING_COMPILE
+    if (op->opcodeType != OPCODETYPE_FUNC2 || op->fntype != FN_JOIN_STATEMENTS) dumpOp(ctx,op,0);
+#endif
   }
+
 
 
   if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
@@ -3289,12 +3297,102 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
   RET_MINUS1_FAIL("default opcode fail")
 }
 
+#ifdef DUMP_OPS_DURING_COMPILE
+FILE *g_debugfp;
+int g_debugfp_indent;
+int g_debugfp_histsz=0;
+
+void dumpOp(compileContext *ctx, opcodeRec *op, int start)
+{
+  if (start>=0)
+  {
+    if (g_debugfp)
+    {
+      static opcodeRec **hist;
+      
+      int x;
+      int hit=0;
+      if (!hist) hist = (opcodeRec**) calloc(1024,1024*sizeof(opcodeRec*));
+      for(x=0;x<g_debugfp_histsz;x++)
+      {
+        if (hist[x] == op) { hit=1; break; }
+      }
+      if (x ==g_debugfp_histsz && g_debugfp_histsz<1024*1024) hist[g_debugfp_histsz++] = op;
+
+      if (!start) 
+      {
+        g_debugfp_indent-=2;
+        fprintf(g_debugfp,"%*s}(join)\n",g_debugfp_indent," ");
+      }
+      if (g_debugfp_indent>=100) *(char *)1=0;
+      fprintf(g_debugfp,"%*s{ %p : %d%s: ",g_debugfp_indent," ",op,op->opcodeType, hit ? " -- DUPLICATE" : "");
+      switch (op->opcodeType)
+      {
+        case OPCODETYPE_DIRECTVALUE:
+          fprintf(g_debugfp,"dv %f",op->parms.dv.directValue);
+        break;
+        case OPCODETYPE_VARPTR:
+          {
+            int wb; 
+            for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+            {
+              char **plist=ctx->varTable_Names[wb];
+              if (!plist) break;
+    
+              if (op->parms.dv.valuePtr >= ctx->varTable_Values[wb] && op->parms.dv.valuePtr < ctx->varTable_Values[wb] + NSEEL_VARS_PER_BLOCK)
+              {
+                fprintf(g_debugfp,"var %s",plist[op->parms.dv.valuePtr - ctx->varTable_Values[wb]]);
+                break;
+              }
+            }        
+          }
+        break;
+        case OPCODETYPE_FUNC1:
+        case OPCODETYPE_FUNC2:
+        case OPCODETYPE_FUNC3:
+        case OPCODETYPE_FUNCX:
+          if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
+          {
+            functionType *p=(functionType*)op->fn;
+            fprintf(g_debugfp,"func %d: %s",p->nParams&0xff,p->name);
+          }
+          else
+            fprintf(g_debugfp,"sf %d",op->fntype);
+        break;
+
+      }
+      fprintf(g_debugfp,"\n");
+      g_debugfp_indent+=2;
+    }
+  }
+  else
+  {
+    if (g_debugfp)
+    {
+      g_debugfp_indent-=2;
+      fprintf(g_debugfp,"%*s}%p\n",g_debugfp_indent," ",op);
+    }
+  }
+}
+#endif
+
 int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, 
                    int supportedReturnValues, int *rvType, int *fpStackUse)
 {
   int code_returns=RETURNVALUE_NORMAL;
   int fpsu=0;
-  int codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues,&fpsu);
+  int codesz;
+
+#ifdef DUMP_OPS_DURING_COMPILE
+  dumpOp(ctx,op,1);
+#endif
+  
+  codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues,&fpsu);
+
+#ifdef DUMP_OPS_DURING_COMPILE
+  dumpOp(ctx,op,-1);
+#endif
+
   if (codesz < 0) return codesz;
 
 
@@ -4258,9 +4356,19 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #endif
 #endif
 
+#ifdef DUMP_OPS_DURING_COMPILE
+      g_debugfp_indent=0;
+      g_debugfp_histsz=0;
+      g_debugfp = fopen("C:/temp/foo.txt","w");
+#endif
       startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL, 
         is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode, &fUse); // if not a function, force return value as address (avoid having to pop it ourselves
                                           // if a function, allow the code to decide how return values are generated
+
+#ifdef DUMP_OPS_DURING_COMPILE
+      if (g_debugfp) fclose(g_debugfp);
+      g_debugfp=0;
+#endif
 
       if (is_fname[0])
       {
