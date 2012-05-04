@@ -2957,7 +2957,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2))
     {
       int fUse=0;
-      int parm_size;
+      int parm_size,parm_size_pre;
       int retType=RETURNVALUE_IGNORE;
       if (preferredReturnValues != RETURNVALUE_IGNORE) retType = RETURNVALUE_BOOL;
 
@@ -2971,17 +2971,65 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
       if (computTableSize) (*computTableSize) ++;
 
+      parm_size_pre=parm_size;
+
+      {
+        int sz2, fUse=0;
+        unsigned char *destbuf;
+        #ifdef __ppc__
+          static const unsigned int testbuf[]=
+          {
+            0x2f830000,  //cmpwi cr7, r3, 0
+            0x419e0000,  // beq cr7, offset-bytes-from-startofthisinstruction. bne is 0x409e
+          };
+          if (bufOut_len < parm_size+sizeof(testbuf)) goto doNonInlinedAndOr_;
+          if (bufOut) 
+          { 
+            memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
+            if (fn_ptr == fnTable1+2) bufOut[parm_size+4]--/*bne*/; 
+          }
+          parm_size += sizeof(testbuf);
+          destbuf = bufOut + parm_size - 2;
+        #else
+          static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
+
+          if (bufOut_len < parm_size+sizeof(testbuf) + 4) RET_MINUS1_FAIL("band/bor len fail")
+          if (bufOut) 
+          { 
+            memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
+            if (fn_ptr == fnTable1+2) bufOut[parm_size+sizeof(testbuf)-1]++/*jnz*/; 
+          }
+          parm_size += sizeof(testbuf);
+          destbuf = bufOut + parm_size;
+          parm_size += 4;
+        #endif
+
+
+        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse);
+
+        #ifdef __ppc__
+          if (sz2<0||sz2>=PPC_MAX_JMPSIZE) goto doNonInlinedAndOr_;
+          parm_size+=sz2;
+          if (bufOut) *(short *)destbuf = (bufOut + parm_size - (destbuf-2));
+        #else
+          if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
+          parm_size+=sz2;
+          if (bufOut) *(int *)destbuf = (bufOut + parm_size - (destbuf+4));
+        #endif
+
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        return rv_offset + parm_size;
+      }
 #ifdef __ppc__
-
-      const int ppc_maxjmp=PPC_MAX_JMPSIZE;
-      int _subsz=compileOpcodes(ctx,op->parms.parms[1],NULL,ppc_maxjmp, computTableSize, namespacePathToThis, retType, NULL,NULL);
-
-      if (_subsz >= ppc_maxjmp || _subsz<0) // encode as function call
+      if (0) 
       {
         void *stub;
         int stubsize;        
         unsigned char *newblock2, *p;
       
+        // encode as function call
+doNonInlinedAndOr_:
+        parm_size = parm_size_pre;
 
         if (fn_ptr == fnTable1+1) 
         {
@@ -3009,53 +3057,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         }
         return rv_offset + parm_size + stubsize;
       }
-      else
 #endif
-      {
-        int sz2, fUse=0;
-        unsigned char *destbuf;
-        #ifdef __ppc__
-          static const unsigned int testbuf[]=
-          {
-            0x2f830000,  //cmpwi cr7, r3, 0
-            0x419e0000,  // beq cr7, offset-bytes-from-startofthisinstruction. bne is 0x409e
-          };
-          if (bufOut_len < parm_size+sizeof(testbuf)) RET_MINUS1_FAIL("band/bor len fail-ppc")
-          if (bufOut) 
-          { 
-            memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
-            if (fn_ptr == fnTable1+2) bufOut[parm_size+4]--/*bne*/; 
-          }
-          parm_size += sizeof(testbuf);
-          destbuf = bufOut + parm_size - 2;
-        #else
-          static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
-
-          if (bufOut_len < parm_size+sizeof(testbuf) + 4) RET_MINUS1_FAIL("band/bor len fail")
-          if (bufOut) 
-          { 
-            memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
-            if (fn_ptr == fnTable1+2) bufOut[parm_size+sizeof(testbuf)-1]++/*jnz*/; 
-          }
-          parm_size += sizeof(testbuf);
-          destbuf = bufOut + parm_size;
-          parm_size += 4;
-        #endif
-
-
-        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse);
-        if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
-        parm_size+=sz2;
-
-        #ifdef __ppc__
-          if (bufOut) *(short *)destbuf = (bufOut + parm_size - (destbuf-2));
-        #else
-          if (bufOut) *(int *)destbuf = (bufOut + parm_size - (destbuf+4));
-        #endif
-
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
-        return rv_offset + parm_size;
-      }
     }  
     
     if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
