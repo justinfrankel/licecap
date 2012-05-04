@@ -71,7 +71,11 @@
 //#define EEL_PRINT_FAILS
 
 #ifdef EEL_PRINT_FAILS
-#define RET_MINUS1_FAIL(x) { printf("%s\n",x); return -1; }
+  #ifdef _WIN32
+    #define RET_MINUS1_FAIL(x) { OutputDebugString(x); return -1; }
+  #else
+    #define RET_MINUS1_FAIL(x) { printf("%s\n",x); return -1; }
+  #endif
 #else
 #define RET_MINUS1_FAIL(x) return -1;
 #endif
@@ -3081,7 +3085,7 @@ doNonInlinedAndOr_:
       {
         int csz,hasSecondHalf;
 #ifdef __ppc__
-        if (bufOut_len < parm_size + 4 + 4 + 4) goto doNonInlineIf_;
+        if (bufOut_len < parm_size + 4 + 4) goto doNonInlineIf_;
         if (bufOut)
         {
           ((int *)(bufOut+parm_size))[0] = 0x2f830000;  //cmpwi cr7, r3, 0
@@ -3089,7 +3093,7 @@ doNonInlinedAndOr_:
         }
         parm_size += 4+4;
 #else
-        if (bufOut_len < parm_size + 2 + 6 + 5) RET_MINUS1_FAIL("if size fail")
+        if (bufOut_len < parm_size + 2 + 6) RET_MINUS1_FAIL("if size fail")
         if (bufOut)
         {
           bufOut[parm_size] = 0x85; bufOut[parm_size+1] = 0xC0; // test eax, eax
