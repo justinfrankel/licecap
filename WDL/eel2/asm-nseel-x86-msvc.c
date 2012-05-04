@@ -959,8 +959,7 @@ __declspec(naked) void nseel_asm_or_end(void) {}
 __declspec(naked) void nseel_asm_or0(void)
 {
   __asm {
-    fistp qword ptr [esi];
-    fild qword ptr [esi];
+    frndint;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
