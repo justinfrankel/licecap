@@ -4796,6 +4796,29 @@ void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx)
   }
 }
 
+void NSEEL_VM_remove_all_nonreg_vars(NSEEL_VMCTX _ctx)
+{
+  compileContext *ctx = (compileContext *)_ctx;
+  int wb;
+  if (ctx) for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+  {
+    int ti;
+    char **plist=ctx->varTable_Names[wb];
+    if (!plist) break;
+
+    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
+    {        
+      if (plist[ti])
+      {
+        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
+        if (!v->isreg) 
+        {
+          plist[ti]=NULL;
+        }
+      }
+    }
+  }
+}
 
 void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
 {
@@ -4842,6 +4865,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
       {
         varNameHdr *v = ((varNameHdr*)plist[ti])-1;
         v->refcnt++;
+        if (isReg) v->isreg=isReg;
         break;
       }
     }
