@@ -365,9 +365,9 @@ static void onCompileNewLine(compileContext *ctx, int srcBytes, int destBytes)
 
 #define LLB_DSIZE (65536-64)
 typedef struct _llBlock {
-	struct _llBlock *next;
+  struct _llBlock *next;
   int sizeused;
-	char block[LLB_DSIZE];
+  char block[LLB_DSIZE];
 } llBlock;
 
 typedef struct _startPtr {
@@ -376,29 +376,32 @@ typedef struct _startPtr {
 } startPtr;
 
 typedef struct {
-  void *workTable;
+  llBlock *blocks, 
+          *blocks_data;
+  void *workTable; // references a chunk in blocks_data
 
-  llBlock *blocks;
   void *code;
   int code_stats[4];
 } codeHandleType;
 
-static void *__newBlock(llBlock **start,int size);
+static void *__newBlock(llBlock **start,int size, char wantMprotect);
 
-#define newTmpBlock(x) __newTmpBlock((llBlock **)&ctx->tmpblocks_head,x)
-#define newBlock(x,a) __newBlock_align(ctx,x,a)
+#define newTmpBlock(x) __newTmpBlock(ctx,x) // allocates extra and puts the size at the start
+#define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
+#define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
 
-static void *__newTmpBlock(llBlock **start, int size)
+static void *__newTmpBlock(compileContext *ctx, int size)
 {
-  void *p=__newBlock(start,size+4);
+  void *p=__newBlock((llBlock **)&ctx->tmpblocks_head,size+4, 0);
   if (p && size>=0) *((int *)p) = size;
   return p;
 }
 
-static void *__newBlock_align(compileContext *ctx, int size, int align) // makes sure block is aligned to 32 byte boundary, for code
+static void *__newBlock_align(compileContext *ctx, int size, int align, char isForCode) // makes sure block is aligned to 32 byte boundary, for code
 {
   int a1=align-1;
-  char *p=(char*)__newBlock((llBlock **)&ctx->blocks_head,size+a1);
+  char *p=(char*)__newBlock(
+       (llBlock **)(isForCode ? &ctx->blocks_head : &ctx->blocks_head_data) ,size+a1, isForCode);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -673,7 +676,7 @@ static void freeBlocks(llBlock **start)
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *__newBlock(llBlock **start, int size)
+static void *__newBlock(llBlock **start, int size, char wantMprotect)
 {
 #ifdef _WIN32
   DWORD ov;
@@ -691,25 +694,30 @@ static void *__newBlock(llBlock **start, int size)
   alloc_size=sizeof(llBlock);
   if ((int)size > LLB_DSIZE) alloc_size += size - LLB_DSIZE;
   llb = (llBlock *)malloc(alloc_size); // grab bigger block if absolutely necessary (heh)
-#ifdef _WIN32
-  offs=((UINT_PTR)llb)&~4095;
-  eoffs=((UINT_PTR)llb + alloc_size + 4095)&~4095;
-  VirtualProtect((LPVOID)offs,eoffs-offs,PAGE_EXECUTE_READWRITE,&ov);
-//  MessageBox(NULL,"vprotecting, yay\n","a",0);
-#elif defined(EEL_USE_MPROTECT)
+  if (!llb) return NULL;
+  
+  if (wantMprotect) 
   {
-    static int pagesize = 0;
-    if (!pagesize)
+  #ifdef _WIN32
+    offs=((UINT_PTR)llb)&~4095;
+    eoffs=((UINT_PTR)llb + alloc_size + 4095)&~4095;
+    VirtualProtect((LPVOID)offs,eoffs-offs,PAGE_EXECUTE_READWRITE,&ov);
+  //  MessageBox(NULL,"vprotecting, yay\n","a",0);
+  #elif defined(EEL_USE_MPROTECT)
     {
-      pagesize=sysconf(_SC_PAGESIZE);
-      if (!pagesize) pagesize=4096;
+      static int pagesize = 0;
+      if (!pagesize)
+      {
+        pagesize=sysconf(_SC_PAGESIZE);
+        if (!pagesize) pagesize=4096;
+      }
+      uintptr_t offs,eoffs;
+      offs=((uintptr_t)llb)&~(pagesize-1);
+      eoffs=((uintptr_t)llb + alloc_size + pagesize-1)&~(pagesize-1);
+      mprotect((void*)offs,eoffs-offs,PROT_WRITE|PROT_READ|PROT_EXEC);
     }
-    uintptr_t offs,eoffs;
-    offs=((uintptr_t)llb)&~(pagesize-1);
-    eoffs=((uintptr_t)llb + alloc_size + pagesize-1)&~(pagesize-1);
-    mprotect((void*)offs,eoffs-offs,PROT_WRITE|PROT_READ|PROT_EXEC);
+  #endif
   }
-#endif
   llb->sizeused=(size+7)&~7;
   llb->next = *start;  
   *start = llb;
@@ -726,7 +734,7 @@ INT_PTR nseel_createCompiledValue(compileContext *ctx, EEL_F value, EEL_F *addrV
 
   if (addrValue == NULL)
   {
-    *(addrValue = (EEL_F *)newBlock(sizeof(EEL_F),sizeof(EEL_F))) = value;
+    *(addrValue = (EEL_F *)newDataBlock(sizeof(EEL_F),sizeof(EEL_F))) = value;
     ctx->l_stats[3]+=sizeof(EEL_F);
   }
 
@@ -800,13 +808,13 @@ INT_PTR nseel_createCompiledFunction3(compileContext *ctx, int fntype, INT_PTR f
     unsigned char *newblock2,*newblock3;
     unsigned char *p;
 
-    p=newblock2=newBlock(sizes2+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+    p=newblock2=newCodeBlock(sizes2+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
     memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
     memcpy(p,(char*)code2+4,sizes2); p+=sizes2;
     memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
     memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
 
-    p=newblock3=newBlock(sizes3+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+    p=newblock3=newCodeBlock(sizes3+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
     memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
     memcpy(p,(char*)code3+4,sizes3); p+=sizes3;
     memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
@@ -894,7 +902,7 @@ INT_PTR nseel_createCompiledFunction2(compileContext *ctx, int fntype, INT_PTR f
 
     unsigned char *newblock2, *p;
 
-    p=newblock2=newBlock(sizes2+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+    p=newblock2=newCodeBlock(sizes2+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
     memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
     memcpy(p,(char*)code2+4,sizes2); p+=sizes2;
     memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
@@ -978,7 +986,7 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR f
 
     unsigned char *newblock2, *p;
 
-    p=newblock2=newBlock(size+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
+    p=newblock2=newCodeBlock(size+sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
     memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p+=GLUE_FUNC_ENTER_SIZE;
     memcpy(p,func1,size); p+=size;
     memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
@@ -989,7 +997,7 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR f
     func3 = GLUE_realAddress(nseel_asm_repeatwhile,nseel_asm_repeatwhile_end,&size);
 
     block=(char *)newTmpBlock(size);
-  	ptr = (INT_PTR *)(block+4);
+    ptr = (INT_PTR *)(block+4);
     memcpy(ptr,func3,size);
     ptr=EEL_GLUE_set_immediate(ptr,newblock2); 
     EEL_GLUE_set_immediate(ptr,&g_closefact); 
@@ -1000,13 +1008,13 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR f
 
   {
     void **repl;
-	  myfunc = nseel_getFunctionAddress(fntype, fn, &size2,&preProc,&repl);
+    myfunc = nseel_getFunctionAddress(fntype, fn, &size2,&preProc,&repl);
 
-	  block=(char *)newTmpBlock(size+size2);
+    block=(char *)newTmpBlock(size+size2);
 
-	  memcpy(block+4, func1, size);
-	  memcpy(block+size+4,myfunc,size2);
-	  if (preProc) preProc(block+size+4,size2,ctx);
+    memcpy(block+4, func1, size);
+    memcpy(block+size+4,myfunc,size2);
+    if (preProc) preProc(block+size+4,size2,ctx);
     if (repl)
     {
       unsigned char *outp=(unsigned char *)block+size+4;
@@ -1016,9 +1024,9 @@ INT_PTR nseel_createCompiledFunction1(compileContext *ctx, int fntype, INT_PTR f
       if (repl[3]) outp=(unsigned char *)EEL_GLUE_set_immediate(outp,repl[3]);
     }
 
-	  ctx->computTableTop++;
+    ctx->computTableTop++;
 
-	  return ((INT_PTR)(block));
+    return ((INT_PTR)(block));
   }
 }
 
@@ -1509,11 +1517,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 {
   compileContext *ctx = (compileContext *)_ctx;
   char *expression,*expression_start;
-  int computable_size=0;
   codeHandleType *handle;
   startPtr *scode=NULL;
   startPtr *startpts=NULL;
-  char *tabptr = NULL;
+  int curtabptr_sz=0;
+  void *curtabptr=NULL;
 
   if (!ctx) return 0;
 
@@ -1523,10 +1531,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
   freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
+  freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
 
-  handle = (codeHandleType*)newBlock(sizeof(codeHandleType),8);
+  handle = (codeHandleType*)newDataBlock(sizeof(codeHandleType),8);
 
   if (!handle) 
   {
@@ -1536,7 +1545,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   memset(handle,0,sizeof(codeHandleType));
 
   expression_start=expression=preprocessCode(ctx,_expression);
-
 
   while (*expression)
   {
@@ -1590,13 +1598,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       scode=NULL; 
       break; 
     }
-    if (computable_size < ctx->computTableTop)
+    if (curtabptr_sz < ctx->computTableTop)
     {
-      computable_size=ctx->computTableTop;
+      curtabptr_sz=ctx->computTableTop;
     }
 
     {
-      startPtr *tmp=(startPtr*) __newBlock((llBlock **)&ctx->tmpblocks_head,sizeof(startPtr));
+      startPtr *tmp=(startPtr*) newTmpBlock(sizeof(startPtr)); // newTmpBlock allocates extra+puts the size at the start, but we ignore it
       if (!tmp) break;
 
       tmp->startptr = startptr;
@@ -1611,14 +1619,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
   }
   free(ctx->compileLineRecs); ctx->compileLineRecs=0; ctx->compileLineRecs_size=0; ctx->compileLineRecs_alloc=0;
 
-  if (scode && (tabptr = (char *)(handle->workTable=calloc(computable_size+64,  sizeof(EEL_F)))))
+  if (scode) 
+  {
+    handle->workTable = curtabptr = newDataBlock((curtabptr_sz+64) * sizeof(EEL_F),32);
+  }
+
+  if (scode && curtabptr)
   {
     unsigned char *writeptr;
     startPtr *p=startpts;
     int size=sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE; // for ret at end :)
-
-    if (((INT_PTR)tabptr)&31)
-      tabptr += 32-(((INT_PTR)tabptr)&31);
 
     // now we build one big code segment out of our list of them, inserting a mov esi, computable before each item
     while (p)
@@ -1627,7 +1637,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       size+=*(int *)p->startptr;
       p=p->next;
     }
-    handle->code = newBlock(size,32);
+    handle->code = newCodeBlock(size,32);
     if (handle->code)
     {
       writeptr=(unsigned char *)handle->code;
@@ -1636,7 +1646,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       while (p)
       {
         int thissize=*(int *)p->startptr;
-        writeptr+=GLUE_RESET_ESI(writeptr,tabptr);
+        writeptr+=GLUE_RESET_ESI(writeptr,curtabptr);
         //memcpy(writeptr,&GLUE_MOV_ESI_EDI,sizeof(GLUE_MOV_ESI_EDI));
         //writeptr+=sizeof(GLUE_MOV_ESI_EDI);
         memcpy(writeptr,(char*)p->startptr + 4,thissize);
@@ -1648,8 +1658,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
       ctx->l_stats[1]=size;
     }
+    
     handle->blocks = ctx->blocks_head;
+    handle->blocks_data = ctx->blocks_head_data;
     ctx->blocks_head=0;
+    ctx->blocks_head_data=0;
   }
   else
   {
@@ -1659,6 +1672,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, char *_expression, int lin
 
   freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
   freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
+  freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks
 
   if (handle)
   {
@@ -1697,8 +1711,6 @@ void NSEEL_code_execute(NSEEL_CODEHANDLE code)
 #endif
 
   tabptr=(INT_PTR)h->workTable;
-  if (tabptr&31)
-    tabptr += 32-((tabptr)&31);
   //printf("calling code!\n");
   GLUE_CALL_CODE(tabptr,codeptr);
 
@@ -1718,13 +1730,13 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
   codeHandleType *h = (codeHandleType *)code;
   if (h != NULL)
   {
-    free(h->workTable);
     nseel_evallib_stats[0]-=h->code_stats[0];
     nseel_evallib_stats[1]-=h->code_stats[1];
     nseel_evallib_stats[2]-=h->code_stats[2];
     nseel_evallib_stats[3]-=h->code_stats[3];
     nseel_evallib_stats[4]--;
     freeBlocks(&h->blocks);
+    freeBlocks(&h->blocks_data);
 
 
   }
@@ -1772,6 +1784,7 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
 
     freeBlocks((llBlock **)&ctx->tmpblocks_head);  // free blocks
     freeBlocks((llBlock **)&ctx->blocks_head);  // free blocks
+    freeBlocks((llBlock **)&ctx->blocks_head_data);  // free blocks
     free(ctx->compileLineRecs);
     free(ctx);
   }

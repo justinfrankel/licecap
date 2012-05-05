@@ -86,7 +86,7 @@ typedef struct _compileContext
   int     lleof;
   int     yyline;//  = 0;
 
-  void *tmpblocks_head,*blocks_head;
+  void *tmpblocks_head,*blocks_head, *blocks_head_data;
   int computTableTop; // make it abort on potential overflow =)
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
 
