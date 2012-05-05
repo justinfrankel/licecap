@@ -6,20 +6,12 @@
   #define EEL_ASM_TYPE dword ptr
 #endif
 
-#if defined(__APPLE__)
-#define SAVE_STACK "pushl %ebp\nmovl %esp, %ebp\nandl $-16, %esp\n"
-#define RESTORE_STACK "leave\n"
-#else
-#define SAVE_STACK
-#define RESTORE_STACK
-#endif
-
 /* note: only EEL_F_SIZE=8 is now supported (no float EEL_F's) */
 
 __declspec(naked) void nseel_asm_1pdd(void)
 {
   __asm {
-    SAVE_STACK
+
     mov edi, 0xfefefefe;
 #ifdef TARGET_X64
     sub rsp, 128;
@@ -41,7 +33,7 @@ __declspec(naked) void nseel_asm_1pdd(void)
     call edi;
     add esp, 16;
 #endif
-    RESTORE_STACK
+
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -61,7 +53,7 @@ __declspec(naked) void nseel_asm_1pdd_end(void){}
 __declspec(naked) void nseel_asm_2pdd(void)
 {
   __asm {
-    SAVE_STACK
+
     mov edi, 0xfefefefe;
 #ifdef TARGET_X64
     sub rsp, 128;
@@ -86,7 +78,7 @@ __declspec(naked) void nseel_asm_2pdd(void)
     call edi;
     add esp, 16;
 #endif
-    RESTORE_STACK
+
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -106,7 +98,7 @@ __declspec(naked) void nseel_asm_2pdd_end(void){}
 __declspec(naked) void nseel_asm_2pdds(void)
 {
   __asm {
-    SAVE_STACK
+
     mov eax, 0xfefefefe;
 #ifdef TARGET_X64
     sub rsp, 128;
@@ -136,7 +128,7 @@ __declspec(naked) void nseel_asm_2pdds(void)
     fstp qword ptr [edi]; /* store result */
     mov eax, edi; /* set return value */
 #endif
-    RESTORE_STACK
+
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1301,6 +1293,7 @@ label_13:
     
     add rsp, 8;
 #else
+    sub esp, 12;
     test eax, eax;
     jz label_14;
     mov eax, 0xfefefefe;
@@ -1312,6 +1305,7 @@ label_14:
     call eax;
 label_15:
     
+    add esp, 12;
 #endif
 
 _emit 0x89;
@@ -1349,7 +1343,11 @@ __declspec(naked) void nseel_asm_repeat(void)
 label_17:
 
       mov edx, 0xfefefefe;
-      sub esp, 8; /* keep stack aligned -- note this is required on x64 too!*/
+#ifdef TARGET_X64
+      sub esp, 8; /* keep stack aligned to 16 byte */
+#else
+      sub esp, 4; /* keep stack aligned to 16 byte */
+#endif
       push esi; // revert back to last temp workspace
       push ecx;
 
@@ -1357,7 +1355,11 @@ label_17:
 
       pop ecx;
       pop esi;
-      add esp, 8; /* keep stack aligned -- also required on x64*/
+#ifdef TARGET_X64
+      add esp, 8; /* keep stack aligned to 16 byte */
+#else
+      add esp, 4; /* keep stack aligned to 16 byte */
+#endif
     dec ecx;
     jnz label_17;
 label_16:
@@ -1383,9 +1385,15 @@ __declspec(naked) void nseel_asm_fcall(void)
 {
   __asm {
      mov edx, 0xfefefefe;
-     sub esp, 8; /* keep stack aligned -- note this is required on x64 too!*/
+#ifdef TARGET_X64
+     sub esp, 8;
      call edx;
-     add esp, 8; /* keep stack aligned -- also required on x64*/
+     add esp, 8;
+#else
+     sub esp, 12; /* keep stack 16 byte aligned, 4 bytes for return address */
+     call edx;
+     add esp, 12;
+#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1409,13 +1417,22 @@ __declspec(naked) void nseel_asm_repeatwhile(void)
 label_18:
 
       mov edx, 0xfefefefe;
+
+#ifdef TARGET_X64
       sub esp, 8; /* keep stack aligned -- required on x86 and x64*/
+#else
+      sub esp, 4; /* keep stack aligned -- required on x86 and x64*/
+#endif
       push esi; // revert back to last temp workspace
       push ecx;
       call edx;
       pop ecx;
       pop esi;
+#ifdef TARGET_X64
       add esp, 8; /* keep stack aligned -- required on x86 and x64 */
+#else
+      add esp, 4; /* keep stack aligned -- required on x86 and x64 */
+#endif
 	  test eax, eax;
 	  jz label_19;
     dec ecx;
@@ -1448,10 +1465,14 @@ __declspec(naked) void nseel_asm_band(void)
      mov ecx, 0xfefefefe;
 #ifdef TARGET_X64
         sub rsp, 8;
+#else
+        sub esp, 12;
 #endif
         call ecx;
 #ifdef TARGET_X64
         add rsp, 8;
+#else
+        add esp, 12;
 #endif
 label_20:
     
@@ -1480,10 +1501,14 @@ __declspec(naked) void nseel_asm_bor(void)
     mov ecx, 0xfefefefe;
 #ifdef TARGET_X64
     sub rsp, 8;
+#else
+    sub esp, 12;
 #endif
     call ecx;
 #ifdef TARGET_X64
     add rsp, 8;
+#else
+    add esp, 12;
 #endif
 label_21:
     
@@ -1868,7 +1893,7 @@ __declspec(naked) void _asm_generic3parm(void)
 #endif
 
 #else
-    SAVE_STACK
+
     mov edx, 0xfefefefe;
     push eax; // push parameter
     push edi; // push parameter
@@ -1877,7 +1902,7 @@ __declspec(naked) void _asm_generic3parm(void)
     mov edi, 0xfefefefe;
     call edi;
     add esp, 16;
-    RESTORE_STACK
+
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -1923,7 +1948,7 @@ __declspec(naked) void _asm_generic3parm_retd(void)
     fld qword ptr [rsp];
     add rsp, 128;
 #else
-    SAVE_STACK
+
     sub esp, 16;
     mov dword ptr [esp+8], edi;
     mov edx, 0xfefefefe;
@@ -1933,7 +1958,7 @@ __declspec(naked) void _asm_generic3parm_retd(void)
     mov dword ptr [esp], edx;
     call edi;
     add esp, 16;
-    RESTORE_STACK
+
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -1977,7 +2002,7 @@ __declspec(naked) void _asm_generic2parm(void) // this prob neds to be fixed for
     add rsp, 128;
 #endif
 #else
-    SAVE_STACK
+
     mov edx, 0xfefefefe;
     sub esp, 4; // keep stack aligned
     push eax; // push parameter
@@ -1986,7 +2011,7 @@ __declspec(naked) void _asm_generic2parm(void) // this prob neds to be fixed for
     mov edi, 0xfefefefe;
     call edi;
     add esp, 16;
-    RESTORE_STACK
+
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -2030,7 +2055,7 @@ __declspec(naked) void _asm_generic2parm_retd(void)
     fld qword ptr [rsp];
     add rsp, 128;
 #else
-    SAVE_STACK
+
     sub esp, 16;
     mov edx, 0xfefefefe;
     mov ecx, 0xfefefefe;
@@ -2039,7 +2064,7 @@ __declspec(naked) void _asm_generic2parm_retd(void)
     mov dword ptr [esp+8], eax;
     call ecx;
     add esp, 16;
-    RESTORE_STACK
+
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -2083,7 +2108,7 @@ __declspec(naked) void _asm_generic1parm(void)
     add rsp, 128;
 #endif
 #else
-    SAVE_STACK
+
     mov edx, 0xfefefefe;
     sub esp, 8; // keep stack aligned
     push eax; // push parameter
@@ -2091,7 +2116,7 @@ __declspec(naked) void _asm_generic1parm(void)
     mov edi, 0xfefefefe;
     call edi;
     add esp, 16;
-    RESTORE_STACK
+
 #endif
 
 _emit 0x89;
@@ -2137,7 +2162,7 @@ __declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning dou
     fld qword ptr [rsp];
     add rsp, 128;
 #else
-    SAVE_STACK
+
     mov edx, 0xfefefefe; // context pointer
     mov edi, 0xfefefefe; // func-addr
     sub esp, 16;
@@ -2145,7 +2170,7 @@ __declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning dou
     mov dword ptr [esp], edx; // push context pointer
     call edi;
     add esp, 16;
-    RESTORE_STACK
+
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -2172,7 +2197,7 @@ __declspec(naked) void _asm_generic1parm_retd_end(void) {}
 __declspec(naked) void _asm_megabuf(void)
 {
   __asm {
-SAVE_STACK
+
 
 #ifdef TARGET_X64
 
@@ -2302,7 +2327,7 @@ label_33:
 
 #endif
 
-RESTORE_STACK
+
 
 _emit 0x89;
 _emit 0x90;
@@ -2325,7 +2350,7 @@ __declspec(naked) void _asm_megabuf_end(void) {}
 __declspec(naked) void _asm_gmegabuf(void)
 {
   __asm {
-SAVE_STACK
+
 
 #ifdef TARGET_X64
 
@@ -2386,7 +2411,7 @@ _emit 0xFE;
 
 #endif
 
-RESTORE_STACK
+
 
 _emit 0x89;
 _emit 0x90;

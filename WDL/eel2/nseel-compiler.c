@@ -672,7 +672,15 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
         unsigned int old_v=_controlfp(0,0); 
         _controlfp(_RC_CHOP,_MCW_RC);
       #endif
-      __asm__("call *%%eax"::"a" (cp): "%ecx","%edx","%esi","%edi");
+      __asm__(
+          "pushl %%ebp\n"
+          "movl %%esp, %%ebp\n"
+          "andl $-16, %%esp\n" // align stack to 16 bytes
+          "subl $12, %%esp\n" // call will push 4 bytes on stack, align for that
+          "call *%%eax\n"
+          "leave\n"
+          ::
+          "a" (cp): "%ecx","%edx","%esi","%edi");
       #ifndef EEL_NO_CHANGE_FPFLAGS
         _controlfp(old_v,_MCW_RC);
       #endif

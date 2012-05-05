@@ -1,17 +1,9 @@
-#if defined(__APPLE__)
-#define SAVE_STACK "pushl %ebp\nmovl %esp, %ebp\nandl $-16, %esp\n"
-#define RESTORE_STACK "leave\n"
-#else
-#define SAVE_STACK
-#define RESTORE_STACK
-#endif
-
 /* note: only EEL_F_SIZE=8 is now supported (no float EEL_F's) */
 
 void nseel_asm_1pdd(void)
 {
   __asm__(
-    SAVE_STACK 
+     
     "movl $0xfefefefe, %edi\n" 
 #ifdef TARGET_X64
     "subl $128, %rsp\n"
@@ -33,7 +25,7 @@ void nseel_asm_1pdd(void)
     "call *%edi\n" 
     "addl $16, %esp\n" 
 #endif
-    RESTORE_STACK 
+     
   );
 }
 void nseel_asm_1pdd_end(void){}
@@ -41,7 +33,7 @@ void nseel_asm_1pdd_end(void){}
 void nseel_asm_2pdd(void)
 {
   __asm__(
-    SAVE_STACK
+    
     "movl $0xfefefefe, %edi\n"
 #ifdef TARGET_X64
     "subl $128, %rsp\n"
@@ -66,7 +58,7 @@ void nseel_asm_2pdd(void)
     "call *%edi\n"
     "addl $16, %esp\n"
 #endif
-    RESTORE_STACK
+    
   );
 }
 void nseel_asm_2pdd_end(void){}
@@ -74,7 +66,7 @@ void nseel_asm_2pdd_end(void){}
 void nseel_asm_2pdds(void)
 {
   __asm__(
-    SAVE_STACK
+    
     "movl $0xfefefefe, %eax\n"
 #ifdef TARGET_X64
     "subl $128, %rsp\n"
@@ -104,7 +96,7 @@ void nseel_asm_2pdds(void)
     "fstpl (%edi)\n" /* store result */
     "movl %edi, %eax\n" /* set return value */
 #endif
-    RESTORE_STACK
+    
   );
 }
 void nseel_asm_2pdds_end(void){}
@@ -747,6 +739,7 @@ void nseel_asm_if(void) // not currently used on x86/x86-64
     "1:\n"
     "addl $8, %rsp\n"
 #else
+    "subl $12, %esp\n"
     "testl %eax, %eax\n"
     "jz 0f\n"
     "movl $0xfefefefe, %eax\n"
@@ -756,6 +749,7 @@ void nseel_asm_if(void) // not currently used on x86/x86-64
     "movl $0xfefefefe, %eax\n"
     "call *%eax\n"
     "1:\n"
+    "addl $12, %esp\n"
 #endif
 
   );
@@ -780,7 +774,11 @@ void nseel_asm_repeat(void)
     "movl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"
 "0:\n"
       "movl $0xfefefefe, %edx\n"
-      "subl $8, %esp\n" /* keep stack aligned -- note this is required on x64 too!*/ 
+#ifdef TARGET_X64
+      "subl $8, %esp\n" /* keep stack aligned to 16 byte */
+#else
+      "subl $4, %esp\n" /* keep stack aligned to 16 byte */
+#endif
       "pushl %esi\n" // revert back to last temp workspace
       "pushl %ecx\n"
       
@@ -788,7 +786,11 @@ void nseel_asm_repeat(void)
 
       "popl %ecx\n"
       "popl %esi\n"
-      "addl $8, %esp\n" /* keep stack aligned -- also required on x64*/ 
+#ifdef TARGET_X64
+      "addl $8, %esp\n" /* keep stack aligned to 16 byte */
+#else
+      "addl $4, %esp\n" /* keep stack aligned to 16 byte */
+#endif
     "decl %ecx\n"
     "jnz 0b\n"
 "1:\n"
@@ -801,9 +803,15 @@ void nseel_asm_fcall(void)
 {
   __asm__(
      "movl $0xfefefefe, %edx\n"
-     "subl $8, %esp\n" /* keep stack aligned -- note this is required on x64 too!*/ 
+#ifdef TARGET_X64
+     "subl $8, %esp\n" 
      "call *%edx\n"
-     "addl $8, %esp\n" /* keep stack aligned -- also required on x64*/ 
+     "addl $8, %esp\n"
+#else
+     "subl $12, %esp\n" /* keep stack 16 byte aligned, 4 bytes for return address */
+     "call *%edx\n"
+     "addl $12, %esp\n"
+#endif
   );
 }
 void nseel_asm_fcall_end(void) {}
@@ -814,13 +822,22 @@ void nseel_asm_repeatwhile(void)
     "movl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"
 "0:\n"
       "movl $0xfefefefe, %edx\n"
+
+#ifdef TARGET_X64
       "subl $8, %esp\n" /* keep stack aligned -- required on x86 and x64*/ 
+#else
+      "subl $4, %esp\n" /* keep stack aligned -- required on x86 and x64*/ 
+#endif
       "pushl %esi\n" // revert back to last temp workspace
       "pushl %ecx\n"
       "call *%edx\n"
       "popl %ecx\n"
       "popl %esi\n"
+#ifdef TARGET_X64
       "addl $8, %esp\n" /* keep stack aligned -- required on x86 and x64 */ 
+#else
+      "addl $4, %esp\n" /* keep stack aligned -- required on x86 and x64 */ 
+#endif
 	  "testl %eax, %eax\n"
 	  "jz 0f\n"
     "decl %ecx\n"
@@ -840,10 +857,14 @@ void nseel_asm_band(void)
      "movl $0xfefefefe, %ecx\n"
 #ifdef TARGET_X64
         "subl $8, %rsp\n"
+#else
+        "subl $12, %esp\n"
 #endif
         "call *%ecx\n"
 #ifdef TARGET_X64
         "addl $8, %rsp\n"
+#else
+        "addl $12, %esp\n"
 #endif
     "0:\n"
   );
@@ -859,10 +880,14 @@ void nseel_asm_bor(void)
     "movl $0xfefefefe, %ecx\n"
 #ifdef TARGET_X64
     "subl $8, %rsp\n"
+#else
+    "subl $12, %esp\n"
 #endif
     "call *%ecx\n"
 #ifdef TARGET_X64
     "addl $8, %rsp\n"
+#else
+    "addl $12, %esp\n"
 #endif
     "0:\n"
   );
@@ -1066,7 +1091,7 @@ void _asm_generic3parm(void)
 #endif
 
 #else
-    SAVE_STACK
+    
     "movl $0xfefefefe, %edx\n"
     "pushl %eax\n" // push parameter
     "pushl %edi\n" // push parameter
@@ -1075,7 +1100,7 @@ void _asm_generic3parm(void)
     "movl $0xfefefefe, %edi\n"
     "call *%edi\n"
     "addl $16, %esp\n"
-    RESTORE_STACK
+    
 #endif
  );
 }
@@ -1109,7 +1134,7 @@ void _asm_generic3parm_retd(void)
     "fldl (%rsp)\n"
     "addl $128, %rsp\n"
 #else
-    SAVE_STACK
+    
     "subl $16, %esp\n"
     "movl %edi, 8(%esp)\n"
     "movl $0xfefefefe, %edx\n"
@@ -1119,7 +1144,7 @@ void _asm_generic3parm_retd(void)
     "movl %edx, (%esp)\n"
     "call *%edi\n"
     "addl $16, %esp\n"
-    RESTORE_STACK
+    
 #endif
  );
 }
@@ -1151,7 +1176,7 @@ void _asm_generic2parm(void) // this prob neds to be fixed for ppc
     "addl $128, %rsp\n"
 #endif
 #else
-    SAVE_STACK
+    
     "movl $0xfefefefe, %edx\n"
     "subl $4, %esp\n" // keep stack aligned
     "pushl %eax\n" // push parameter
@@ -1160,7 +1185,7 @@ void _asm_generic2parm(void) // this prob neds to be fixed for ppc
     "movl $0xfefefefe, %edi\n"
     "call *%edi\n"
     "addl $16, %esp\n"
-    RESTORE_STACK
+    
 #endif
  );
 }
@@ -1192,7 +1217,7 @@ void _asm_generic2parm_retd(void)
     "fldl (%rsp)\n"
     "addl $128, %rsp\n"
 #else
-    SAVE_STACK
+    
     "subl $16, %esp\n"
     "movl $0xfefefefe, %edx\n"
     "movl $0xfefefefe, %ecx\n"
@@ -1201,7 +1226,7 @@ void _asm_generic2parm_retd(void)
     "movl %eax, 8(%esp)\n"
     "call *%ecx\n"
     "addl $16, %esp\n"
-    RESTORE_STACK
+    
 #endif
  );
 }
@@ -1233,7 +1258,7 @@ void _asm_generic1parm(void)
     "addl $128, %rsp\n"
 #endif
 #else
-    SAVE_STACK
+    
     "movl $0xfefefefe, %edx\n"
     "subl $8, %esp\n" // keep stack aligned
     "pushl %eax\n" // push parameter
@@ -1241,7 +1266,7 @@ void _asm_generic1parm(void)
     "movl $0xfefefefe, %edi\n"
     "call *%edi\n"
     "addl $16, %esp\n"
-    RESTORE_STACK
+    
 #endif
 
  );
@@ -1275,7 +1300,7 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
     "fldl (%rsp)\n"
     "addl $128, %rsp\n"
 #else
-    SAVE_STACK
+    
     "movl $0xfefefefe, %edx\n" // context pointer
     "movl $0xfefefefe, %edi\n" // func-addr
     "subl $16, %esp\n"
@@ -1283,7 +1308,7 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
     "movl %edx, (%esp)\n" // push context pointer
     "call *%edi\n"
     "addl $16, %esp\n"
-    RESTORE_STACK
+    
 #endif
  );
 }
@@ -1298,7 +1323,7 @@ void _asm_generic1parm_retd_end(void) {}
 void _asm_megabuf(void)
 {
   __asm__(
-SAVE_STACK
+
 
 #ifdef TARGET_X64
 
@@ -1408,7 +1433,7 @@ SAVE_STACK
 
 #endif
 
-RESTORE_STACK
+
 
  );
 }
@@ -1419,7 +1444,7 @@ void _asm_megabuf_end(void) {}
 void _asm_gmegabuf(void)
 {
   __asm__(
-SAVE_STACK
+
 
 #ifdef TARGET_X64
 
@@ -1466,7 +1491,7 @@ SAVE_STACK
 
 #endif
 
-RESTORE_STACK
+
 
  );
 }

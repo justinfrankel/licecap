@@ -65,8 +65,6 @@ while (($line = fgets($in)))
      continue;
   }
   
-  $line=str_replace("SAVE_STACK","",$line);
-  $line=str_replace("RESTORE_STACK","",$line);
   $line=preg_replace("/(.*)\\/\\*(.*)\\*\\/(.*)/","$1$3 ; $2",$line);
   $line=preg_replace("/(.*)\\/\\/(.*)/","$1 ; $2",$line);
   {
