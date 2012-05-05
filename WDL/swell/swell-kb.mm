@@ -123,36 +123,7 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
     if (code==8) code='\b';
   }
 
-  if (flag & FSHIFT)
-  {
-    if (rawcode == 33 && code=='[') { code='{'; flag&=~(FSHIFT|FVIRTKEY); }
-    else if (rawcode == 30 && code==']') { code='}'; flag&=~(FSHIFT|FVIRTKEY); }
-  }
-    
-  //if (code == ' ' && flag==(FVIRTKEY) && (mod&NSControlKeyMask)) flag|=FCONTROL;
-    
   if (!(flag&FVIRTKEY)) flag&=~FSHIFT;
-  if (!flag) 
-  {
-    // todo: some OS X API for this?
-    flag=FVIRTKEY|FSHIFT;
-    int oc=code;
-    switch (code)
-    {
-      case '!': code='1'; break;
-      case '@': code='2'; break;
-      case '#': code='3'; break;
-      case '$': code='4'; break;
-      case '%': code='5'; break;
-      case '^': code='6'; break;
-      case '&': code='7'; break;
-      case '*': code='8'; break;
-      case '(': code='9'; break;
-      case ')': code='0'; break;
-      default: flag=0; break;
-    }
-    if (flag && (code-'0')+17 != rawcode) { code=oc; flag=0; } // dont map shift+X to these unless it is a us keyboard mapping
-  }
   
   if (flags) *flags=flag;
   return code;
@@ -162,8 +133,6 @@ int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 {
   if (wParam >= '0' && wParam <= '9' && lParam == (FSHIFT|FVIRTKEY))
   {
-    // todo: some OS X API for this?
-    // todo: detect if non-US keyboard, and not do this?
     *newflags = lParam&~(FSHIFT|FVIRTKEY);
     if (!(lParam & (FCONTROL|FLWIN))) switch (wParam) 
     {
