@@ -4185,33 +4185,43 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
         while (*expr)
         {
+          const char *tn;
+          int tn_len;
           p=expr;
           while (isspace(*p)) p++;
+
+          tn = p;
+          while (*p && !isspace(*p) && *p != '(') p++;
+          tn_len = p - tn;
+
+          while (isspace(*p)) p++;
         
-          if (p[0] == '(' || 
-              !strncasecmp(p,"local(",6)  ||
-              !strncasecmp(p,"static(",7) ||
-              !strncasecmp(p,"instance(",9))
+          if (*p == '(' && 
+              (
+                !tn_len ||
+                (tn_len == 5 && !strncasecmp(tn,"local",tn_len))  ||
+                (tn_len == 6 && !strncasecmp(tn,"static",tn_len))  ||
+                (tn_len == 8 && !strncasecmp(tn,"instance",tn_len))
+              )
+             )
           {
             int maxcnt=0,state=0;
             int is_parms = 0;
             int localTableContext = 0;
 
-            if (had_parms_locals && p[0] == '(') break; 
-            had_parms_locals=1;
-
-            if (p[0] == '(') 
+            if (tn_len == 0) 
             {
+              if (had_parms_locals) break; // formal parameters must be before instance() static() or local(), otherwise it is assumed to be the body of the function
               is_parms = 1;
             }
-            else if (!strncasecmp(p,"instance(",9))
+            else 
             {
-              localTableContext = 1; //adding to implied this table
+              localTableContext = (tn_len == 8 && !strncasecmp(tn,"instance",tn_len)); //adding to "implied this" table
             }
+            had_parms_locals=1;
 
-            // skip past parens
-            while (*p && *p != '(') p++;
-            if (*p) p++;
+            // skip past opening paren
+            p++;
 
             sp=p;
             while (*p && *p != ')') 
