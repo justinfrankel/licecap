@@ -1766,7 +1766,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
   
   if (!needsResult)
   {
-    if (op->fntype == FUNCTYPE_EELFUNC) 
+    if (op->fntype == FUNCTYPE_EELFUNC || op->fntype == FUNCTYPE_EELFUNC_THIS) 
     {
       needsResult=1; // assume eel functions are non-const for now
     }
