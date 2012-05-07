@@ -2091,8 +2091,6 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   // end of EEL function generation
 }
 
-#define INT_TO_LECHARS(x) ((x)&0xff),(((x)>>8)&0xff), (((x)>>16)&0xff), (((x)>>24)&0xff)
-
 #ifdef DUMP_OPS_DURING_COMPILE
 void dumpOp(compileContext *ctx, opcodeRec *op, int start);
 #endif
@@ -2133,7 +2131,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       *calledRvType = RETURNVALUE_BOOL;
       if (computTableSize) (*computTableSize)++;
 
-#ifdef __ppc__
+#ifndef GLUE_INLINE_LOOPS
       // todo: PPC looping support when loop length is small enough
       {
         unsigned char *pwr=bufOut;
@@ -2155,70 +2153,30 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       }
 #else
       {
-#if defined(_WIN64) || defined(__LP64__)
-        static const unsigned char hdr1[]={
-          0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-        };
-        static const unsigned char push_stuff[]={ 
-          0x56, //push rsi
-          0x51, // push rcx
-        };
-        static const unsigned char pop_stuff_dec_jnz[]={ 
-          0x59, //pop rcx
-          0x5E, // pop rsi
-
-          0xff, 0xc9, // dec rcx
-          0x0f, 0x84, // jz endpt
-        };
-#else
-        static const unsigned char hdr1[]={
-                0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-        };
-        static const unsigned char push_stuff[]={ 
-          0x56, //push esi
-          0x51, // push ecx
-          0x81, 0xEC, 0x08, 0,0,0, // sub esp, 8
-        };
-        static const unsigned char pop_stuff_dec_jnz[]={ 
-          0x81, 0xC4, 0x08, 0,0,0, // add esp, 8
-          0x59, //pop ecx
-          0x5E, // pop esi
-
-
-          0x49, // dec ecx
-          0x0f, 0x84, // jz endpt
-        };
-#endif
-        static const unsigned char check_rv[] = {
-          0x85, 0xC0, 0x0F, 0x85 // test eax, eax, jnz  looppt
-        };
-
         unsigned char *looppt, *jzoutpt;
         int parm_size=0,subsz;
-        if (bufOut_len < parm_size + sizeof(hdr1) + sizeof(push_stuff)) RET_MINUS1_FAIL("while size fail 1")
-        if (bufOut) memcpy(bufOut + parm_size,hdr1,sizeof(hdr1));
-        parm_size+=sizeof(hdr1);
+        if (bufOut_len < parm_size + sizeof(GLUE_WHILE_SETUP) + sizeof(GLUE_WHILE_BEGIN)) RET_MINUS1_FAIL("while size fail 1")
+        if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_SETUP,sizeof(GLUE_WHILE_SETUP));
+        parm_size+=sizeof(GLUE_WHILE_SETUP);
         looppt = bufOut + parm_size;
-        if (bufOut) memcpy(bufOut + parm_size,push_stuff,sizeof(push_stuff));
-        parm_size+=sizeof(push_stuff);
+        if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_BEGIN,sizeof(GLUE_WHILE_BEGIN));
+        parm_size+=sizeof(GLUE_WHILE_BEGIN);
 
         subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse);
         if (subsz<0) RET_MINUS1_FAIL("while coc fail")
 
-        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + sizeof(check_rv) + 4 + 4) RET_MINUS1_FAIL("which size fial 2")
+        if (bufOut_len < parm_size + sizeof(GLUE_WHILE_END) + sizeof(GLUE_WHILE_CHECK_RV)) RET_MINUS1_FAIL("which size fial 2")
 
         parm_size+=subsz;
-        if (bufOut) memcpy(bufOut + parm_size, pop_stuff_dec_jnz, sizeof(pop_stuff_dec_jnz));
-        parm_size+=sizeof(pop_stuff_dec_jnz);
-        jzoutpt = bufOut + parm_size;
+        if (bufOut) memcpy(bufOut + parm_size, GLUE_WHILE_END, sizeof(GLUE_WHILE_END));
+        parm_size+=sizeof(GLUE_WHILE_END);
+        jzoutpt = bufOut + parm_size - sizeof(GLUE_JMP_TYPE);
 
-        parm_size += 4;
-        if (bufOut) memcpy(bufOut + parm_size, check_rv, sizeof(check_rv));
-        parm_size+=sizeof(check_rv);
-        if (bufOut) *(int *)(bufOut + parm_size) = (looppt - (bufOut+parm_size+4));
+        if (bufOut) memcpy(bufOut + parm_size, GLUE_WHILE_CHECK_RV, sizeof(GLUE_WHILE_CHECK_RV));
+        parm_size+=sizeof(GLUE_WHILE_CHECK_RV);
+        if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (looppt - (bufOut+parm_size + GLUE_JMP_OFFSET));
 
-        parm_size+=4;
-        if (bufOut) *(int *)jzoutpt = ((bufOut + parm_size) - (jzoutpt + 4));
+        if (bufOut) *(GLUE_JMP_TYPE *)jzoutpt = ((bufOut + parm_size) - (jzoutpt + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
         
         return rv_offset+parm_size;
       }
@@ -2237,7 +2195,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       *calledRvType = RETURNVALUE_BOOL;
       if (fUse > *fpStackUse) *fpStackUse=fUse;
            
-#ifdef __ppc__
+#ifndef GLUE_INLINE_LOOPS
       // todo: PPC looping support when loop length is small enough
       {
         void *stub;
@@ -2258,80 +2216,29 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       }
 #else
       {
-#if defined(_WIN64) || defined(__LP64__)
-        static const unsigned char hdr1[]={
-                0xDF, 0x3E,           //fistp qword [rsi]
-          0x48, 0x8B, 0x0E,           // mov rcx, [rsi]
-          0x48, 0x81, 0xf9, 1,0,0,0,  // cmp rcx, 1
-                0x0F, 0x8C,           // JL <skipptr>
-        };
-        static const unsigned char hdr2[]={
-          0x48, 0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-                0x0F, 0x8C,         // JL <skipptr>
-        };
-        static const unsigned char hdr3[]={
-          0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-        };
-        static const unsigned char push_stuff[]={ 
-          0x56, //push rsi
-          0x51, // push rcx
-        };
-        static const unsigned char pop_stuff_dec_jnz[]={ 
-          0x59, //pop rcx
-          0x5E, // pop rsi
-          0xff, 0xc9, // dec rcx
-          0x0f, 0x85, // jnz ...
-        };
-#else
-        static const unsigned char hdr1[]={
-                0xDB, 0x1E,           //fistp dword [esi]
-                0x8B, 0x0E,           // mov ecx, [esi]
-                0x81, 0xf9, 1,0,0,0,  // cmp ecx, 1
-                0x0F, 0x8C,           // JL <skipptr>
-        };
-        static const unsigned char hdr2[]={
-                0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-                0x0F, 0x8C,           // JL <skipptr>
-        };
-        static const unsigned char hdr3[]={
-                0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-        };
-        static const unsigned char push_stuff[]={ 
-          0x56, //push esi
-          0x51, // push ecx
-          0x81, 0xEC, 0x08, 0,0,0, // sub esp, 8
-        };
-        static const unsigned char pop_stuff_dec_jnz[]={ 
-          0x81, 0xC4, 0x08, 0,0,0, // add esp, 8
-          0x59, //pop ecx
-          0x5E, // pop esi
-          0x49, // dec ecx
-          0x0f, 0x85, // jnz ...
-        };
-#endif
         int subsz;
         int fUse=0;
         unsigned char *skipptr1, *skipclampptr, *loopdest;
-        if (bufOut_len < parm_size + sizeof(hdr1) + 4 + sizeof(hdr2) + 4 + sizeof(hdr3) + sizeof(push_stuff)) RET_MINUS1_FAIL("loop size fail")
+        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + sizeof(GLUE_LOOP_CLAMPCNT) + sizeof(GLUE_LOOP_CLAMPCNT2) + sizeof(GLUE_LOOP_BEGIN)) RET_MINUS1_FAIL("loop size fail")
 
         // store, convert to int, compare against 1, if less than, skip to end
-        if (bufOut) memcpy(bufOut+parm_size,hdr1,sizeof(hdr1));
-        parm_size += sizeof(hdr1) + 4;
-        skipptr1 = bufOut+parm_size - 4; 
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_LOADCNT,sizeof(GLUE_LOOP_LOADCNT));
+        parm_size += sizeof(GLUE_LOOP_LOADCNT);
+        skipptr1 = bufOut+parm_size - sizeof(GLUE_JMP_TYPE); 
 
         // compare aginst max loop length, jump to loop start if not above it
-        if (bufOut) memcpy(bufOut+parm_size,hdr2,sizeof(hdr2));
-        parm_size += sizeof(hdr2) + 4;
-        skipclampptr = bufOut+parm_size - 4;
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_CLAMPCNT,sizeof(GLUE_LOOP_CLAMPCNT));
+        parm_size += sizeof(GLUE_LOOP_CLAMPCNT);
+        skipclampptr = bufOut+parm_size - sizeof(GLUE_JMP_TYPE);
 
         // clamp to max loop length
-        if (bufOut) memcpy(bufOut+parm_size,hdr3,sizeof(hdr3));
-        parm_size += sizeof(hdr3);
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_CLAMPCNT2,sizeof(GLUE_LOOP_CLAMPCNT2));
+        parm_size += sizeof(GLUE_LOOP_CLAMPCNT2);
 
         // loop code:
         loopdest = bufOut + parm_size;
-        if (bufOut) memcpy(bufOut+parm_size,push_stuff,sizeof(push_stuff));
-        parm_size += sizeof(push_stuff);
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_BEGIN,sizeof(GLUE_LOOP_BEGIN));
+        parm_size += sizeof(GLUE_LOOP_BEGIN);
 
         subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse);
         if (subsz<0) RET_MINUS1_FAIL("loop coc fail")
@@ -2339,16 +2246,15 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
         parm_size += subsz;
 
-        if (bufOut_len < parm_size + sizeof(pop_stuff_dec_jnz) + 4) RET_MINUS1_FAIL("loop size fail 2")
+        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_END)) RET_MINUS1_FAIL("loop size fail 2")
 
-        if (bufOut) memcpy(bufOut+parm_size,pop_stuff_dec_jnz,sizeof(pop_stuff_dec_jnz));
-        parm_size += sizeof(pop_stuff_dec_jnz);
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_END,sizeof(GLUE_LOOP_END));
+        parm_size += sizeof(GLUE_LOOP_END);
         
-        if (bufOut) *(int *)(bufOut + parm_size) = (loopdest - (bufOut+parm_size+4));
-        parm_size += 4;
+        if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (loopdest - (bufOut+parm_size + GLUE_JMP_OFFSET));
 
-        if (bufOut) *(int *)skipptr1 =  (bufOut+parm_size - (skipptr1 + 4));
-        if (bufOut) *(int *)skipclampptr =  (loopdest - (skipclampptr + 4));
+        if (bufOut) *(GLUE_JMP_TYPE *)skipptr1 =  (bufOut+parm_size - (skipptr1 + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
+        if (bufOut) *(GLUE_JMP_TYPE *)skipclampptr =  (loopdest - (skipclampptr + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
 
         return rv_offset + parm_size;
 
