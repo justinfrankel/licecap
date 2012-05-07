@@ -1,7 +1,11 @@
 #ifndef _NSEEL_GLUE_PPC_H_
 #define _NSEEL_GLUE_PPC_H_
 
-#define PPC_MAX_JMPSIZE 30000 // could really be 32000, probably
+#define GLUE_MAX_JMPSIZE 30000 // maximum relative jump size for this arch (if not defined, any jump is possible)
+#define GLUE_JMP_TYPE short
+#define GLUE_JMP_OFFSET (-4) // jumps are from start of instruction on ppc
+
+static const unsigned char GLUE_JMP_NC[] = { 0x48,0, 0, 0, }; // b <offset>
 
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
 static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
@@ -75,7 +79,7 @@ static void GLUE_SET_PX_FROM_P1(void *b, int wv)
 
 // lfd f2, 0(r3)
 // stfdu f2, -8(r1)
-static unsigned int GLUE_PUSH_P1PTR_AS_VALUE[] = { 0xC8430000, 0xDC41FFF8 };
+static const unsigned int GLUE_PUSH_P1PTR_AS_VALUE[] = { 0xC8430000, 0xDC41FFF8 };
 
 static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
 {    
@@ -133,7 +137,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
             ::"r" (cp), "r" (bp));
 };
 
-unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
+static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {
   // 64 bit ppc would take some work
   unsigned int *p=(unsigned int *)_p;
@@ -170,18 +174,18 @@ unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
     return GLUE_MOV_PX_DIRECTVALUE_SIZE + sizeof(int);
   }
   #define GLUE_POP_FPSTACK_SIZE 0
-  static unsigned int GLUE_POP_FPSTACK[1] = { 0 }; // no need to pop, not a stack
+  static const unsigned int GLUE_POP_FPSTACK[1] = { 0 }; // no need to pop, not a stack
 
-  static unsigned int GLUE_POP_FPSTACK_TOSTACK[] = {
+  static const unsigned int GLUE_POP_FPSTACK_TOSTACK[] = {
     0xdc21fff8, // stfdu f1, -8(r1)
   };
 
-  static unsigned int GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+  static const unsigned int GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
     0xdc300008, // stfdu f1, 8(r16)
     0x9601fff8, // stwu r16, -8(r1)
   };
 
-  static unsigned int GLUE_POP_FPSTACK_TO_WTP[] = { 
+  static const unsigned int GLUE_POP_FPSTACK_TO_WTP[] = { 
     0xdc300008, // stfdu f1, 8(r16)
   };
 

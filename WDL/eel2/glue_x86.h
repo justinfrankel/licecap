@@ -1,6 +1,11 @@
 #ifndef _NSEEL_GLUE_X86_H_
 #define _NSEEL_GLUE_X86_H_
 
+#define GLUE_JMP_TYPE int
+#define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
+
+static const unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
+
 #define GLUE_FUNC_ENTER_SIZE 0
 #define GLUE_FUNC_LEAVE_SIZE 0
 const static unsigned int GLUE_FUNC_ENTER[1];
@@ -11,7 +16,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
   // when pushing values to stack, alignment pushed first, then value (value is at the lower address)
   // when pushing pointers to stack, alignment pushed first, then pointer (pointer is at the lower address)
 
-  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
+  static const unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
   { 
     0x83, 0xEC, 8, /* sub esp, 8 */   
     0xff, 0x70, 0x4, /* push dword [eax+4] */ 
@@ -99,26 +104,26 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
   }
 
   #define GLUE_POP_FPSTACK_SIZE 2
-  static unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
+  static const unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
 
-  static unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
+  static const unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
     0x83, 0xEC, 16, // sub esp, 16
     0xDD, 0x1C, 0x24 // fstp qword (%esp)  
   };
 
-  static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
+  static const unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
     0xDD, 0x04, 0x24, // fld qword (%esp)
     0x83, 0xC4, 16 //  add esp, 16
   };
  
-  static unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+  static const unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
       0xDD, 0x1E, // fstp qword [esi]
       0x83, 0xEC, 12, // sub esp, 12 
       0x56, //  push esi
       0x83, 0xC6, 8, // add esi, 8
   };
 
-  static unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
+  static const unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
       0xDD, 0x1E, /* fstp qword [esi] */
       0x83, 0xC6, 8, /* add esi, 8 */ 
   };
@@ -166,6 +171,30 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 1+sizeof(void *);
 }
 
+
+
+// for gcc on x86 (msvc should already have _controlfp defined)
+#if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
+
+  #include <fpu_control.h>
+  #define _RC_CHOP _FPU_RC_ZERO
+  #define _MCW_RC _FPU_RC_ZERO
+  static unsigned int _controlfp(unsigned int val, unsigned int mask)
+  {
+     unsigned int ret;
+     _FPU_GETCW(ret);
+     if (mask)
+     {
+       ret&=~mask;
+       ret|=val;
+       _FPU_SETCW(ret);
+     }
+     return ret;
+  }
+
+#endif
+
+
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
 {
   #ifdef _MSC_VER
@@ -205,7 +234,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp)
   #endif //gcc x86
 }
 
-unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
+static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {
   char *p=(char*)_p;
   INT_PTR scan = 0xFEFEFEFE;

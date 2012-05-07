@@ -82,28 +82,6 @@
 
 #define MIN_COMPUTABLE_SIZE 32 // always use at least this big of a temp storage table (and reset the temp ptr when it goes past this boundary)
 
-#ifndef _WIN64
-#if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
-
-#include <fpu_control.h>
-#define _RC_CHOP _FPU_RC_ZERO
-#define _MCW_RC _FPU_RC_ZERO
-static unsigned int _controlfp(unsigned int val, unsigned int mask)
-{
-   unsigned int ret;
-   _FPU_GETCW(ret);
-   if (mask)
-   {
-     ret&=~mask;
-     ret|=val;
-     _FPU_SETCW(ret);
-   }
-   return ret;
-}
-
-#endif
-#endif
-
 /*
   P1 is rightmost parameter
   P2 is second rightmost, if any
@@ -463,6 +441,7 @@ static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext 
 static EEL_F negativezeropointfive=-0.5f;
 static EEL_F onepointfive=1.5f;
 #endif
+
 static EEL_F g_closefact = NSEEL_CLOSEFACTOR;
 static const EEL_F eel_zero=0.0, eel_one=1.0;
 
@@ -568,31 +547,25 @@ static functionType fnTable1[] = {
    { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sin} },
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&cos} },
    { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&tan}  },
+   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sqrt}, },
+   { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log} },
+   { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log10} },
 #else
    { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
    { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
    { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
+   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
+   { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, },
+   { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, },
 #endif
    { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&asin}, },
    { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&acos}, },
    { "atan",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&atan}, },
    { "atan2",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK, {&atan2}, },
    { "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
-#ifdef __ppc__
-   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sqrt}, },
-#else
-   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
-#endif
    { "pow",    nseel_asm_2pdd,nseel_asm_2pdd_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK, {&pow}, },
    { "_powop",    nseel_asm_2pdds,nseel_asm_2pdds_end,   2|BIF_LASTPARMONSTACK, {&pow}, },
    { "exp",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&exp}, },
-#ifdef __ppc__
-   { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log} },
-   { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log10} },
-#else
-   { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, },
-   { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, },
-#endif
    { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK },
    { "min",    nseel_asm_min,nseel_asm_min_end,   2|NSEEL_NPARAMS_FLAG_CONST },
    { "max",    nseel_asm_max,nseel_asm_max_end,   2|NSEEL_NPARAMS_FLAG_CONST },
@@ -605,6 +578,7 @@ static functionType fnTable1[] = {
    { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&floor} },
 #endif
    { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&ceil} },
+
 #ifdef __ppc__
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK,  },
 #else
@@ -2436,20 +2410,19 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
         sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse);
 
-        #ifdef __ppc__
-          if (sz2<0||sz2>=PPC_MAX_JMPSIZE) goto doNonInlinedAndOr_;
-          parm_size+=sz2;
-          if (bufOut) *(short *)destbuf = (bufOut + parm_size - (destbuf-2));
+        #ifdef GLUE_MAX_JMPSIZE
+          if (sz2<0||sz2>=GLUE_MAX_JMPSIZE) goto doNonInlinedAndOr_;
         #else
           if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
-          parm_size+=sz2;
-          if (bufOut) *(int *)destbuf = (bufOut + parm_size - (destbuf+4));
         #endif
+
+        parm_size+=sz2;
+        if (bufOut) *(GLUE_JMP_TYPE *)destbuf = (bufOut + parm_size - (destbuf + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
 
         if (fUse > *fpStackUse) *fpStackUse=fUse;
         return rv_offset + parm_size;
       }
-#ifdef __ppc__
+#ifdef GLUE_MAX_JMPSIZE
       if (0) 
       {
         void *stub;
@@ -2530,38 +2503,41 @@ doNonInlinedAndOr_:
         if (fUse > *fpStackUse) *fpStackUse=fUse;
         hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
 
-#ifdef __ppc__
-        if (csz<0 || csz>= PPC_MAX_JMPSIZE) goto doNonInlineIf_;
-        if (bufOut) *((short *)(bufOut + parm_size - 2)) = csz + 4 + (hasSecondHalf?4:0);
+#ifdef GLUE_MAX_JMPSIZE
+        if (csz<0 || csz>= GLUE_MAX_JMPSIZE) goto doNonInlineIf_;
 #else
         if (csz<0) RET_MINUS1_FAIL("if coc fial")
-        if (bufOut) *((int *) (bufOut + parm_size-4)) = csz + (hasSecondHalf?5:0); // update jump address
 #endif
+
+        if (bufOut) *((GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE))) = csz - GLUE_JMP_OFFSET + (hasSecondHalf?sizeof(GLUE_JMP_NC):0);
         parm_size+=csz;
 
         if (hasSecondHalf)
         {
-  #ifdef __ppc__
-          if (bufOut_len < parm_size + 4) goto doNonInlineIf_;
-          if (bufOut) *((int *)(bufOut+parm_size)) = 0x48000000; // b 32 bit relative
-          parm_size+=4;
+#ifdef GLUE_MAX_JMPSIZE
+          if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) goto doNonInlineIf_;
+#else
+          if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL("if len fail")
+#endif
+          if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
+          parm_size+=sizeof(GLUE_JMP_NC);
+
           csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
-          if (csz<0 || csz>= PPC_MAX_JMPSIZE) goto doNonInlineIf_;
-          if (bufOut) *((short *) (bufOut + parm_size-2)) = csz + 4; // update jump address
-  #else
-          if (bufOut_len < parm_size + 5) RET_MINUS1_FAIL("if len fail")
-          if (bufOut) { bufOut[parm_size] = 0xE9; } // jmp 32 bit relative
-          parm_size+=5;
-          csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
+
+#ifdef GLUE_MAX_JMPSIZE
+          if (csz<0 || csz>= GLUE_MAX_JMPSIZE) goto doNonInlineIf_;
+#else
           if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
-          if (bufOut) *((int *) (bufOut + parm_size-4)) = csz; // update jump address
-  #endif
+#endif
+
+          // update jump address
+          if (bufOut) *((GLUE_JMP_TYPE *) (bufOut + parm_size-sizeof(GLUE_JMP_TYPE))) = csz - GLUE_JMP_OFFSET; 
           parm_size+=csz;       
           if (fUse > *fpStackUse) *fpStackUse=fUse;
         }
         return rv_offset + parm_size;
       }
-#ifdef __ppc__
+#ifdef GLUE_MAX_JMPSIZE
       if (0)
       {
         unsigned char *newblock2,*newblock3,*ptr;

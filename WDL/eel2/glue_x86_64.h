@@ -1,6 +1,11 @@
 #ifndef _NSEEL_GLUE_X86_64_H_
 #define _NSEEL_GLUE_X86_64_H_
 
+#define GLUE_JMP_TYPE int
+#define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
+
+static unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
+
 #define GLUE_FUNC_ENTER_SIZE 0
 #define GLUE_FUNC_LEAVE_SIZE 0
 const static unsigned int GLUE_FUNC_ENTER[1];
@@ -37,7 +42,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
   }
 
-  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
+  static const unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
   {  
     0x50, /*push rax - for alignment */  
     0xff, 0x30, /* push qword [rax] */
@@ -92,21 +97,21 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 
 
   #define GLUE_POP_FPSTACK_SIZE 2
-  static unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
+  static const unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
 
-  static unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
+  static const unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
     0x48, 0x81, 0xEC, 16, 0,0,0, // sub rsp, 16 
     0xDD, 0x1C, 0x24 // fstp qword (%rsp)  
   };
 
-  static unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+  static const unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
       0x56, //  push rsi (alignment)
       0x56, //  push rsi (value used)
       0xDD, 0x1E, // fstp qword [rsi]
       0x48, 0x81, 0xC6, 8, 0,0,0, // add rsi, 8
   };
 
-  static unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
+  static const unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
       0xDD, 0x1E, /* fstp qword [rsi] */
       0x48, 0x81, 0xC6, 8, 0,0,0,/* add rsi, 8 */ 
   };
@@ -159,13 +164,11 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   }
   return 2+sizeof(void *);
 }
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
-{
-  extern void win64_callcode(INT_PTR code);
-  win64_callcode(cp);
-}
 
-unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
+extern void win64_callcode(INT_PTR code);
+#define GLUE_CALL_CODE(bp, cp) win64_callcode(cp)
+
+static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {
   char *p=(char*)_p;
   INT_PTR scan = 0xFEFEFEFEFEFEFEFE;
