@@ -1,0 +1,180 @@
+#ifndef _NSEEL_GLUE_X86_64_H_
+#define _NSEEL_GLUE_X86_64_H_
+
+#define GLUE_FUNC_ENTER_SIZE 0
+#define GLUE_FUNC_LEAVE_SIZE 0
+const static unsigned int GLUE_FUNC_ENTER[1];
+const static unsigned int GLUE_FUNC_LEAVE[1];
+
+  // on x86-64:
+  //  stack is always 16 byte aligned
+  //  pushing values to the stack (for eel functions) has alignment pushed first, then value (value is at the lower address)
+  //  pushing pointers to the stack has the pointer pushed first, then the alignment (pointer is at the higher address)
+  #define GLUE_MOV_PX_DIRECTVALUE_SIZE 10
+  static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wr) {   
+    const static unsigned short tab[3] = 
+    {
+      0xB848 /* mov rax, dv*/, 
+      0xBF48 /* mov rdi, dv */ , 
+      0xB948 /* mov rcx, dv */ 
+    };
+    unsigned short *bb = (unsigned short *)b;
+    *bb++ = tab[wr];  // mov rax, directvalue
+    *(INT_PTR *)bb = v; 
+  }
+
+  const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax (pointer); push rax (alignment)
+
+  #define GLUE_POP_PX_SIZE 2
+  static void GLUE_POP_PX(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_POP_PX_SIZE]=
+    {
+      {0x58,/*pop eax*/  0x58}, // pop alignment, then pop pointer
+      {0x5F,/*pop edi*/  0x5F}, 
+      {0x59,/*pop ecx*/  0x59}, 
+    };    
+    memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
+  }
+
+  static unsigned char GLUE_PUSH_P1PTR_AS_VALUE[] = 
+  {  
+    0x50, /*push rax - for alignment */  
+    0xff, 0x30, /* push qword [rax] */
+  };
+
+  static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr) // trashes P2 (rdi) and P3 (rcx)
+  {    
+    if (buf)
+    {
+      *buf++ = 0x48; *buf++ = 0xB9; *(void **) buf = destptr; buf+=8; // mov rcx, directvalue
+      *buf++ = 0x8f; *buf++ = 0x01; // pop qword [rcx]      
+      *buf++ = 0x5F ; // pop rdi (alignment, safe to trash rdi though)
+    }
+    return 1+10+2;
+  }
+
+  static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr) // trashes P2/P3
+  {    
+    if (buf)
+    {
+      *buf++ = 0x48; *buf++ = 0xB9; *(void **) buf = destptr; buf+=8; // mov rcx, directvalue
+      *buf++ = 0x48; *buf++ = 0x8B; *buf++ = 0x38; // mov rdi, [rax]
+      *buf++ = 0x48; *buf++ = 0x89; *buf++ = 0x39; // mov [rcx], rdi
+    }
+
+    return 3 + 10 + 3;
+  }
+
+  static int GLUE_POP_FPSTACK_TO_PTR(unsigned char *buf, void *destptr)
+  {
+    if (buf)
+    {
+      *buf++ = 0x48;
+      *buf++ = 0xB8; 
+      *(void **) buf = destptr; buf+=8; // mov rax, directvalue
+      *buf++ = 0xDD; *buf++ = 0x18;  // fstp qword [rax]
+    }
+    return 2+8+2;
+  }
+
+
+  #define GLUE_SET_PX_FROM_P1_SIZE 3
+  static void GLUE_SET_PX_FROM_P1(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_SET_PX_FROM_P1_SIZE]={
+      {0x90,0x90,0x90}, // should never be used! (nopnop)
+      {0x48,0x89,0xC7}, // mov rdi, rax
+      {0x48,0x89,0xC1}, // mov rcx, rax
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_P1_SIZE);
+  }
+
+
+  #define GLUE_POP_FPSTACK_SIZE 2
+  static unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
+
+  static unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
+    0x48, 0x81, 0xEC, 16, 0,0,0, // sub rsp, 16 
+    0xDD, 0x1C, 0x24 // fstp qword (%rsp)  
+  };
+
+  static unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
+      0x56, //  push rsi (alignment)
+      0x56, //  push rsi (value used)
+      0xDD, 0x1E, // fstp qword [rsi]
+      0x48, 0x81, 0xC6, 8, 0,0,0, // add rsi, 8
+  };
+
+  static unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
+      0xDD, 0x1E, /* fstp qword [rsi] */
+      0x48, 0x81, 0xC6, 8, 0,0,0,/* add rsi, 8 */ 
+  };
+
+  #define GLUE_SET_PX_FROM_WTP_SIZE 3
+  static void GLUE_SET_PX_FROM_WTP(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_SET_PX_FROM_WTP_SIZE]={
+      {0x48, 0x89,0xF0}, // mov rax, rsi
+      {0x48, 0x89,0xF7}, // mov rdi, rsi
+      {0x48, 0x89,0xF1}, // mov rcx, rsi
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+  }
+
+  #define GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE 2
+  static void GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE]={
+      {0xDD,0x00}, // fld qword [rax]
+      {0xDD,0x07}, // fld qword [rdi]
+      {0xDD,0x01}, // fld qword [rcx]
+    };
+    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+  }
+  static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
+    0xDD, 0x04, 0x24, // fld qword (%rsp)
+    0x48, 0x81, 0xC4, 16, 0,0,0, //  add rsp, 16
+  };
+
+
+#define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (GLUE_SET_PX_FROM_WTP_SIZE + sizeof(GLUE_POP_FPSTACK_TO_WTP))
+static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
+{
+  GLUE_SET_PX_FROM_WTP(buf,wv);
+  memcpy(buf + GLUE_SET_PX_FROM_WTP_SIZE,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
+};
+
+
+const static unsigned char  GLUE_RET=0xC3;
+
+static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
+{
+  if (out)
+  {
+	  *out++ = 0x48;
+    *out++ = 0xBE; // mov rsi, constant64
+  	*(void **)out = ptr;
+    out+=sizeof(void *);
+  }
+  return 2+sizeof(void *);
+}
+static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
+{
+  extern void win64_callcode(INT_PTR code);
+  win64_callcode(cp);
+}
+
+unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
+{
+  char *p=(char*)_p;
+  INT_PTR scan = 0xFEFEFEFEFEFEFEFE;
+  while (*(INT_PTR *)p != scan) p++;
+  *(INT_PTR *)p = (INT_PTR)newv;
+  return (unsigned char *) (((INT_PTR*)p)+1);
+}
+
+
+// end of x86-64
+
+#endif
