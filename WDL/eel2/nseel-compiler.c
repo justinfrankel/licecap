@@ -479,14 +479,14 @@ static double eel1sigmoid(double x, double constraint)
 #define BIF_RETURNSBOOL      0x00400 // this value is used in ns-eel.h in some macros, be sure to update it there if you change it here
 #define BIF_LASTPARM_ASBOOL  0x00800
 
-#ifndef __ppc__
+#ifdef GLUE_HAS_FXCH
   #define BIF_SECONDLASTPARMST 0x01000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
   #define BIF_LAZYPARMORDERING 0x02000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
   #define BIF_REVERSEFPORDER   0x04000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
   #define BIF_FPSTACKUSE(x) (((x)>=0&&(x)<8) ? ((7-(x))<<16):0)
   #define BIF_GETFPSTACKUSE(x) (7 - (((x)>>16)&7))
 #else
-  // powerpc does not support fp stack use (yet)
+  // do not support fp stack use unless GLUE_HAS_FXCH is defined (maybe other things)
   #define BIF_SECONDLASTPARMST 0
   #define BIF_LAZYPARMORDERING 0
   #define BIF_REVERSEFPORDER   0
@@ -1864,19 +1864,18 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     }
   }
 
-#ifndef __ppc__
+#ifdef GLUE_HAS_FXCH
   if ((cfunc_abiinfo&(BIF_SECONDLASTPARMST)) && !(cfunc_abiinfo&(BIF_LAZYPARMORDERING))&&
       ((!!need_fxch)^!!(cfunc_abiinfo&BIF_REVERSEFPORDER)) 
       )
   {
     // emit fxch
-    if (bufOut_len < 2) RET_MINUS1_FAIL("len,fxch")
+    if (bufOut_len < sizeof(GLUE_FXCH)) RET_MINUS1_FAIL("len,fxch")
     if (bufOut) 
     { 
-      bufOut[parm_size] = 0xd9; 
-      bufOut[parm_size+1] = 0xc9; 
+      memcpy(bufOut+parm_size,GLUE_FXCH,sizeof(GLUE_FXCH));
     }
-    parm_size+=2;
+    parm_size+=sizeof(GLUE_FXCH);
   }
 #endif
   
@@ -2095,6 +2094,13 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 void dumpOp(compileContext *ctx, opcodeRec *op, int start);
 #endif
 
+#ifdef GLUE_MAX_JMPSIZE
+#define CHECK_SIZE_FORJMP(x,y) if ((x)<0 || (x)>=GLUE_MAX_JMPSIZE) goto y;
+#define RET_MINUS1_FAIL_FALLBACK(err,j) goto j;
+#else
+#define CHECK_SIZE_FORJMP(x,y)
+#define RET_MINUS1_FAIL_FALLBACK(err,j) RET_MINUS1_FAIL(err)
+#endif
 static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const char *namespacePathToThis, int *calledRvType, int preferredReturnValues, int *fpStackUse)
 {
   int rv_offset=0;
@@ -2285,42 +2291,17 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       {
         int sz2, fUse=0;
         unsigned char *destbuf;
-        #ifdef __ppc__
-          static const unsigned int testbuf[]=
-          {
-            0x2f830000,  //cmpwi cr7, r3, 0
-            0x419e0000,  // beq cr7, offset-bytes-from-startofthisinstruction. bne is 0x409e
-          };
-          if (bufOut_len < parm_size+sizeof(testbuf)) goto doNonInlinedAndOr_;
-          if (bufOut) 
-          { 
-            memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
-            if (fn_ptr == fnTable1+2) bufOut[parm_size+4]--/*bne*/; 
-          }
-          parm_size += sizeof(testbuf);
-          destbuf = bufOut + parm_size - 2;
-        #else
-          static const unsigned char testbuf[] = {0x85, 0xC0, 0x0F, 0x84 }; // test eax, eax, jz  (jnz has last byte incr)
+        const int testsz=(fn_ptr == fnTable1+2) ? sizeof(GLUE_JMP_IF_P1_NZ) : sizeof(GLUE_JMP_IF_P1_Z);
+        if (bufOut_len < parm_size+testsz) RET_MINUS1_FAIL_FALLBACK("band/bor size fail",doNonInlinedAndOr_)
 
-          if (bufOut_len < parm_size+sizeof(testbuf) + 4) RET_MINUS1_FAIL("band/bor len fail")
-          if (bufOut) 
-          { 
-            memcpy(bufOut+parm_size,testbuf,sizeof(testbuf)); 
-            if (fn_ptr == fnTable1+2) bufOut[parm_size+sizeof(testbuf)-1]++/*jnz*/; 
-          }
-          parm_size += sizeof(testbuf);
-          destbuf = bufOut + parm_size;
-          parm_size += 4;
-        #endif
-
+        if (bufOut)  memcpy(bufOut+parm_size,(fn_ptr == fnTable1+2) ? GLUE_JMP_IF_P1_NZ : GLUE_JMP_IF_P1_Z,testsz); 
+        parm_size += testsz;
+        destbuf = bufOut + parm_size - sizeof(GLUE_JMP_TYPE);
 
         sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse);
 
-        #ifdef GLUE_MAX_JMPSIZE
-          if (sz2<0||sz2>=GLUE_MAX_JMPSIZE) goto doNonInlinedAndOr_;
-        #else
-          if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
-        #endif
+        CHECK_SIZE_FORJMP(sz2,doNonInlinedAndOr_)
+        if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
 
         parm_size+=sz2;
         if (bufOut) *(GLUE_JMP_TYPE *)destbuf = (bufOut + parm_size - (destbuf + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
@@ -2388,53 +2369,29 @@ doNonInlinedAndOr_:
 
       {
         int csz,hasSecondHalf;
-#ifdef __ppc__
-        if (bufOut_len < parm_size + 4 + 4) goto doNonInlineIf_;
-        if (bufOut)
-        {
-          ((int *)(bufOut+parm_size))[0] = 0x2f830000;  //cmpwi cr7, r3, 0
-          ((int *)(bufOut+parm_size))[1] = 0x419e0000;  // beq cr7, offset-bytes-from-startofthisinstruction
-        }
-        parm_size += 4+4;
-#else
-        if (bufOut_len < parm_size + 2 + 6) RET_MINUS1_FAIL("if size fail")
-        if (bufOut)
-        {
-          bufOut[parm_size] = 0x85; bufOut[parm_size+1] = 0xC0; // test eax, eax
-          bufOut[parm_size+2] = 0x0F; bufOut[parm_size+3] = 0x84; // jz 32 bit relative
-        }
-        parm_size+=2+6;
-#endif
+        if (bufOut_len < parm_size + sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
+        parm_size += sizeof(GLUE_JMP_IF_P1_Z);
         csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse);
         if (fUse > *fpStackUse) *fpStackUse=fUse;
         hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
 
-#ifdef GLUE_MAX_JMPSIZE
-        if (csz<0 || csz>= GLUE_MAX_JMPSIZE) goto doNonInlineIf_;
-#else
+        CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
         if (csz<0) RET_MINUS1_FAIL("if coc fial")
-#endif
 
         if (bufOut) *((GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE))) = csz - GLUE_JMP_OFFSET + (hasSecondHalf?sizeof(GLUE_JMP_NC):0);
         parm_size+=csz;
 
         if (hasSecondHalf)
         {
-#ifdef GLUE_MAX_JMPSIZE
-          if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) goto doNonInlineIf_;
-#else
-          if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL("if len fail")
-#endif
+          if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL_FALLBACK("if len fail",doNonInlineIf_)
           if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
           parm_size+=sizeof(GLUE_JMP_NC);
 
           csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse);
 
-#ifdef GLUE_MAX_JMPSIZE
-          if (csz<0 || csz>= GLUE_MAX_JMPSIZE) goto doNonInlineIf_;
-#else
+          CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
           if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
-#endif
 
           // update jump address
           if (bufOut) *((GLUE_JMP_TYPE *) (bufOut + parm_size-sizeof(GLUE_JMP_TYPE))) = csz - GLUE_JMP_OFFSET; 
@@ -2483,90 +2440,56 @@ doNonInlineIf_:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
 
-
-      #ifndef __ppc__ // todo ppc
         if (op->opcodeType == OPCODETYPE_DIRECTVALUE)
         {
           if (preferredReturnValues == RETURNVALUE_BOOL)
           {
-            // if this function would take a bool, short circuit it
-            *calledRvType = RETURNVALUE_BOOL;
+            int w = fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR;
+            int wsz=(w?sizeof(GLUE_SET_P1_NZ):sizeof(GLUE_SET_P1_Z));
 
-        #if defined(_WIN64) || defined(__LP64__)
-            if (bufOut_len < 3) RET_MINUS1_FAIL("direct bool size fail")
-            if (bufOut) 
-            {
-              bufOut[0]=0x48;
-              bufOut[1]=0x29;
-              bufOut[2]=0xC0;
-            }
-            rv_offset+=3;
-            if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
-            {
-              if (bufOut_len < 5) RET_MINUS1_FAIL("direct bool size fail 2")
-              if (bufOut) 
-              {
-                bufOut[3] = 0xFF;
-                bufOut[4] = 0xC0; // inc eax
-              }
-              rv_offset+=2;
-            }
-            return rv_offset;
-        #else
-            if (bufOut_len < 2) RET_MINUS1_FAIL("direct bool size fail3")
-            if (bufOut)
-            {
-              bufOut[0]=0x29;
-              bufOut[1]=0xC0;
-            }
-            rv_offset+=2;
-            if (fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR)
-            {
-              if (bufOut_len < 3) RET_MINUS1_FAIL("direct bool size fail 4")
-              if (bufOut) bufOut[2] = 0x40; // inc eax
-              rv_offset++;
-            }
-            return rv_offset;
-        #endif
+            *calledRvType = RETURNVALUE_BOOL;
+            if (bufOut_len < wsz) RET_MINUS1_FAIL("direct bool size fail3")
+            if (bufOut) memcpy(bufOut,w?GLUE_SET_P1_NZ:GLUE_SET_P1_Z,wsz);
+            return rv_offset+wsz;
           }
           else if (preferredReturnValues & RETURNVALUE_FPSTACK)
           {
-            if (op->parms.dv.directValue == 1.0 || op->parms.dv.directValue == 0.0)
+#ifdef GLUE_HAS_FLDZ
+            if (op->parms.dv.directValue == 0.0)
             {
               *fpStackUse = 1;
               *calledRvType = RETURNVALUE_FPSTACK;
-              if (bufOut_len < 2) RET_MINUS1_FAIL("direct fp fail 1")
-              if (bufOut)
-              {
-                bufOut[0] = 0xd9;
-                bufOut[1] = op->parms.dv.directValue == 0.0 ? 0xee : 0xe8;  // fldz : fld1
-              }
-              return rv_offset+2;
+              if (bufOut_len < sizeof(GLUE_FLDZ)) RET_MINUS1_FAIL("direct fp fail 1")
+              if (bufOut) memcpy(bufOut,GLUE_FLDZ,sizeof(GLUE_FLDZ));
+              return rv_offset+sizeof(GLUE_FLDZ);
             }
+#endif
+#ifdef GLUE_HAS_FLD1
+            if (op->parms.dv.directValue == 1.0)
+            {
+              *fpStackUse = 1;
+              *calledRvType = RETURNVALUE_FPSTACK;
+              if (bufOut_len < sizeof(GLUE_FLD1)) RET_MINUS1_FAIL("direct fp fail 1")
+              if (bufOut) memcpy(bufOut,GLUE_FLD1,sizeof(GLUE_FLD1));
+              return rv_offset+sizeof(GLUE_FLD1);
+            }
+#endif
           }
         }
-      #endif
 
-      #if !defined(__ppc__) && !defined(_WIN64) && !defined(__LP64__)
+      #ifdef GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE
         if (OPCODE_IS_TRIVIAL(op))
         {
           if (preferredReturnValues & RETURNVALUE_FPSTACK)
           {
             *fpStackUse = 1;
-            if (bufOut_len < 6) RET_MINUS1_FAIL("direct fp fail 2")
-            // generate fld qword [abs]  -- 0xdd, 0x05
+            if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE) RET_MINUS1_FAIL("direct fp fail 2")
             if (bufOut)
             {
-              unsigned char tmp[GLUE_MOV_PX_DIRECTVALUE_SIZE];
-              if (generateValueToReg(ctx,op,tmp,0,namespacePathToThis)<0) RET_MINUS1_FAIL("direct fp fail gvr")
-
-              bufOut[0] = 0xDD;
-              bufOut[1] = 0x05;
-              memcpy(bufOut+2,tmp + GLUE_MOV_PX_DIRECTVALUE_SIZE-4,4);          
+              if (generateValueToReg(ctx,op,bufOut,-1,namespacePathToThis)<0) RET_MINUS1_FAIL("direct fp fail gvr")
             }
-
             *calledRvType = RETURNVALUE_FPSTACK;
-            return rv_offset+6;
+            return rv_offset+GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE;
           }
         }
       #endif

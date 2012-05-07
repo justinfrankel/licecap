@@ -4,7 +4,9 @@
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
 
-static unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
+static const unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
+static const unsigned char GLUE_JMP_IF_P1_Z[] = {0x85, 0xC0, 0x0F, 0x84, 0,0,0,0 }; // test eax, eax, jz
+static const unsigned char GLUE_JMP_IF_P1_NZ[] = {0x85, 0xC0, 0x0F, 0x85, 0,0,0,0 }; // test eax, eax, jnz
 
 
 #define GLUE_FUNC_ENTER_SIZE 0
@@ -227,7 +229,17 @@ static const unsigned char GLUE_WHILE_CHECK_RV[] = {
   0x0F, 0x85, 0,0,0,0 // jnz  looppt
 };
 
+static const unsigned char GLUE_SET_P1_Z[] = { 0x48, 0x29, 0xC0 }; // sub rax, rax
+static const unsigned char GLUE_SET_P1_NZ[] = { 0xb0, 0x01 }; // mov al, 1
 
+
+#define GLUE_HAS_FXCH
+static const unsigned char GLUE_FXCH[] = {0xd9, 0xc9};
+
+#define GLUE_HAS_FLDZ
+static const unsigned char GLUE_FLDZ[] = {0xd9, 0xee};
+#define GLUE_HAS_FLD1
+static const unsigned char GLUE_FLD1[] = {0xd9, 0xe8};
 
 // end of x86-64
 

@@ -5,6 +5,8 @@
 #define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
 
 static const unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
+static const unsigned char GLUE_JMP_IF_P1_Z[] = {0x85, 0xC0, 0x0F, 0x84, 0,0,0,0 }; // test eax, eax, jz
+static const unsigned char GLUE_JMP_IF_P1_NZ[] = {0x85, 0xC0, 0x0F, 0x85, 0,0,0,0 }; // test eax, eax, jnz
 
 #define GLUE_FUNC_ENTER_SIZE 0
 #define GLUE_FUNC_LEAVE_SIZE 0
@@ -67,16 +69,27 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 
 
   #define GLUE_MOV_PX_DIRECTVALUE_SIZE 5
-  static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, int v, int wv) 
+  #define GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE 6 // length when wv == -1
+
+  static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
   {   
-    const static unsigned char tab[3] = {
-      0xB8 /* mov eax, dv*/, 
-      0xBF /* mov edi, dv */ , 
-      0xB9 /* mov ecx, dv */ 
-    };
-    *((unsigned char *)b) = tab[wv];  // mov eax, dv
-    b= ((unsigned char *)b)+1;
-    *(int *)b = v; 
+    if (wv==-1)
+    {
+      const static unsigned char t[2] = {0xDD, 0x05};
+      memcpy(b,t,2);
+      b= ((unsigned char *)b)+2;
+    }
+    else
+    {
+      const static unsigned char tab[3] = {
+        0xB8 /* mov eax, dv*/, 
+        0xBF /* mov edi, dv */ , 
+        0xB9 /* mov ecx, dv */ 
+      };
+      *((unsigned char *)b) = tab[wv];  // mov eax, dv
+      b= ((unsigned char *)b)+1;
+    }
+    *(INT_PTR *)b = v; 
   }
   const static unsigned char  GLUE_PUSH_P1[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
   
@@ -296,5 +309,17 @@ static const unsigned char GLUE_WHILE_CHECK_RV[] = {
   0x85, 0xC0, // test eax, eax
   0x0F, 0x85, 0,0,0,0 // jnz  looppt
 };
+
+static const unsigned char GLUE_SET_P1_Z[] = { 0x29, 0xC0 }; // sub eax, eax
+static const unsigned char GLUE_SET_P1_NZ[] = { 0xb0, 0x01 }; // mov al, 1
+
+#define GLUE_HAS_FXCH
+static const unsigned char GLUE_FXCH[] = {0xd9, 0xc9};
+
+#define GLUE_HAS_FLDZ
+static const unsigned char GLUE_FLDZ[] = {0xd9, 0xee};
+#define GLUE_HAS_FLD1
+static const unsigned char GLUE_FLD1[] = {0xd9, 0xe8};
+
 
 #endif

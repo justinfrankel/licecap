@@ -7,6 +7,18 @@
 
 static const unsigned char GLUE_JMP_NC[] = { 0x48,0, 0, 0, }; // b <offset>
 
+static const unsigned int GLUE_JMP_IF_P1_Z[]=
+{
+  0x2f830000,  //cmpwi cr7, r3, 0
+  0x419e0000,  // beq cr7, offset-bytes-from-startofthisinstruction
+};
+static const unsigned int GLUE_JMP_IF_P1_NZ[]=
+{
+  0x2f830000,  //cmpwi cr7, r3, 0
+  0x409e0000,  // bne cr7, offset-bytes-from-startofthisinstruction
+};
+
+
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
 static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
 {   
@@ -92,7 +104,7 @@ static int GLUE_POP_VALUE_TO_ADDR(unsigned char *buf, void *destptr)
     unsigned int *bufptr = (unsigned int *)buf;
     *bufptr++ = 0xC8410000;
     *bufptr++ = 0x38210008;    
-    GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
+    GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (INT_PTR)destptr,0);
     bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0xd8430000;
   }
@@ -109,7 +121,7 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
   {
     unsigned int *bufptr = (unsigned int *)buf;
     *bufptr++ = 0xc8430000;
-    GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
+    GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (INT_PTR)destptr,0);
     bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
     *bufptr++ = 0xd8430000;
   }
@@ -166,7 +178,7 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
     if (buf)
     {
       unsigned int *bufptr = (unsigned int *)buf;
-      GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (unsigned int)destptr,0);
+      GLUE_MOV_PX_DIRECTVALUE_GEN(bufptr, (INT_PTR)destptr,0);
       bufptr += GLUE_MOV_PX_DIRECTVALUE_SIZE/4;
 
       *bufptr++ = 0xD8230000; // stfd f1, 0(r3)
@@ -208,6 +220,10 @@ static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
 };
 
 static unsigned int GLUE_POP_STACK_TO_FPSTACK[1] = { 0 }; // todo
+
+
+static const unsigned int GLUE_SET_P1_Z[] =  { 0x38600000 }; // li r3, 0
+static const unsigned int GLUE_SET_P1_NZ[] = { 0x38600001 }; // li r3, 1
 
 // end of ppc
 
