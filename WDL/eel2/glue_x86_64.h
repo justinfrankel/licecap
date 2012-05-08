@@ -138,7 +138,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
       {0xDD,0x07}, // fld qword [rdi]
       {0xDD,0x01}, // fld qword [rcx]
     };
-    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+    memcpy(b,tab[wv],GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE);
   }
   static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
     0xDD, 0x04, 0x24, // fld qword (%rsp)

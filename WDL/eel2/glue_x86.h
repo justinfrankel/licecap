@@ -160,7 +160,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
       {0xDD,0x07}, // fld qword [edi]
       {0xDD,0x01}, // fld qword [ecx]
     };
-    memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
+    memcpy(b,tab[wv],GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE);
   }
 
 #define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (GLUE_SET_PX_FROM_WTP_SIZE + sizeof(GLUE_POP_FPSTACK_TO_WTP))
