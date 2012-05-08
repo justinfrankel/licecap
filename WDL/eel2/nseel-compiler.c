@@ -1182,321 +1182,324 @@ start_over: // when an opcode changed substantially in optimization, goto here t
   retv_parm[0] = optimizeOpcodes(ctx,op->parms.parms[0], needsResult || 
       (FNPTR_HAS_CONDITIONAL_EXEC(op) && (retv_parm[1] || retv_parm[2] || op->opcodeType <= OPCODETYPE_FUNC1)) );
 
-  if (op->fntype >= 0 && op->fntype < FUNCTYPE_SIMPLEMAX)
+  if (op->opcodeType != OPCODETYPE_MOREPARAMS)
   {
-    if (op->opcodeType == OPCODETYPE_FUNC1) // within FUNCTYPE_SIMPLE
+    if (op->fntype >= 0 && op->fntype < FUNCTYPE_SIMPLEMAX)
     {
-      if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+      if (op->opcodeType == OPCODETYPE_FUNC1) // within FUNCTYPE_SIMPLE
       {
-        switch (op->fntype)
+        if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
         {
-          case FN_UMINUS:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = - op->parms.parms[0]->parms.dv.directValue;
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
-          case FN_UPLUS:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue;
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
+          switch (op->fntype)
+          {
+            case FN_UMINUS:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = - op->parms.parms[0]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+            case FN_UPLUS:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
         }
       }
-    }
-    else if (op->opcodeType == OPCODETYPE_FUNC2)  // within FUNCTYPE_SIMPLE
-    {
-      int dv0 = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
-      int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
-      if (dv0 && dv1)
+      else if (op->opcodeType == OPCODETYPE_FUNC2)  // within FUNCTYPE_SIMPLE
       {
-        switch (op->fntype)
+        int dv0 = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        if (dv0 && dv1)
         {
-          case FN_DIVIDE:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue;
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
-          case FN_MULTIPLY:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue;
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
-          case FN_ADD:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
-          case FN_SUB:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue;
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
-          case FN_AND:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
-          case FN_OR:
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
-            op->parms.dv.valuePtr=NULL;
-          goto start_over;
+          switch (op->fntype)
+          {
+            case FN_DIVIDE:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+            case FN_MULTIPLY:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+            case FN_ADD:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+            case FN_SUB:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+            case FN_AND:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+            case FN_OR:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
         }
-      }
-      else if (dv0 || dv1)
-      {
-        double dvalue = op->parms.parms[!dv0]->parms.dv.directValue;
-        switch (op->fntype)
+        else if (dv0 || dv1)
         {
-          case FN_OR:
-            if (!(WDL_INT64)dvalue)
-            {
-              // replace with or0
-              static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSONSTACK, {0}, NULL};
-
-              op->opcodeType = OPCODETYPE_FUNC1;
-              op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
-              op->fn = &fr;
-              if (dv0) op->parms.parms[0] = op->parms.parms[1];
-              goto start_over;
-            }
-          break;
-          case FN_SUB:
-            if (dv0) 
-            {
-              if (dvalue == 0.0)
+          double dvalue = op->parms.parms[!dv0]->parms.dv.directValue;
+          switch (op->fntype)
+          {
+            case FN_OR:
+              if (!(WDL_INT64)dvalue)
               {
+                // replace with or0
+                static functionType fr={"or0",nseel_asm_or0, nseel_asm_or0_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSONSTACK, {0}, NULL};
+
                 op->opcodeType = OPCODETYPE_FUNC1;
-                op->fntype = FN_UMINUS;
-                op->parms.parms[0] = op->parms.parms[1];
+                op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+                op->fn = &fr;
+                if (dv0) op->parms.parms[0] = op->parms.parms[1];
                 goto start_over;
               }
-              break;
-            }
-            // fall through, if dv1 we can remove +0.0
-
-          case FN_ADD:
-            if (dvalue == 0.0) 
-            {
-              memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
-              goto start_over;
-            }
-          break;
-          case FN_AND:
-            if ((WDL_INT64)dvalue) break;
-            dvalue = 0.0; // treat x&0 as x*0, which optimizes to 0
-            
-            // fall through
-          case FN_MULTIPLY:
-            if (dvalue == 0.0) // remove multiply by 0.0 (using 0.0 direct value as replacement), unless the nonzero side did something
-            {
-              if (!retv_parm[!!dv0]) 
+            break;
+            case FN_SUB:
+              if (dv0) 
               {
-                memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
-                goto start_over;
-              }
-              else
-              {
-                // this is 0.0 * oldexpressionthatmustbeprocessed or oldexpressionthatmustbeprocessed*0.0
-                op->fntype = FN_JOIN_STATEMENTS;
-
-                if (dv0) // 0.0*oldexpression, reverse the order so that 0 is returned
+                if (dvalue == 0.0)
                 {
-                  // set to (oldexpression;0)
-                  opcodeRec *tmp = op->parms.parms[1];
-                  op->parms.parms[1] = op->parms.parms[0];
-                  op->parms.parms[0] = tmp;
+                  op->opcodeType = OPCODETYPE_FUNC1;
+                  op->fntype = FN_UMINUS;
+                  op->parms.parms[0] = op->parms.parms[1];
+                  goto start_over;
                 }
-                goto start_over;
+                break;
               }
-            }
-            else if (dvalue == 1.0) // remove multiply by 1.0 (using non-1.0 value as replacement)
-            {
-              memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
-              goto start_over;
-            }
-          break;
-          case FN_DIVIDE:
-            if (dv1)
-            {
-              if (dvalue == 1.0)  // remove divide by 1.0  (using non-1.0 value as replacement)
+              // fall through, if dv1 we can remove +0.0
+
+            case FN_ADD:
+              if (dvalue == 0.0) 
               {
                 memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
                 goto start_over;
               }
-              else
+            break;
+            case FN_AND:
+              if ((WDL_INT64)dvalue) break;
+              dvalue = 0.0; // treat x&0 as x*0, which optimizes to 0
+            
+              // fall through
+            case FN_MULTIPLY:
+              if (dvalue == 0.0) // remove multiply by 0.0 (using 0.0 direct value as replacement), unless the nonzero side did something
               {
-                // change to a multiply
-                if (op->parms.parms[1]->parms.dv.directValue == 0.0)
+                if (!retv_parm[!!dv0]) 
                 {
-                  op->fntype = FN_MULTIPLY;
+                  memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
                   goto start_over;
                 }
                 else
                 {
-                  double d = 1.0/op->parms.parms[1]->parms.dv.directValue;
+                  // this is 0.0 * oldexpressionthatmustbeprocessed or oldexpressionthatmustbeprocessed*0.0
+                  op->fntype = FN_JOIN_STATEMENTS;
 
-                  WDL_DenormalDoubleAccess *p = (WDL_DenormalDoubleAccess*)&d;
-                  // allow conversion to multiply if reciprocal is exact
-                  // we could also just look to see if the last few digits of the mantissa were 0, which would probably be good
-                  // enough, but if the user really wants it they should do * (1/x) instead to force precalculation of reciprocal.
-                  if (!p->w.lw && !(p->w.hw & 0xfffff)) 
+                  if (dv0) // 0.0*oldexpression, reverse the order so that 0 is returned
+                  {
+                    // set to (oldexpression;0)
+                    opcodeRec *tmp = op->parms.parms[1];
+                    op->parms.parms[1] = op->parms.parms[0];
+                    op->parms.parms[0] = tmp;
+                  }
+                  goto start_over;
+                }
+              }
+              else if (dvalue == 1.0) // remove multiply by 1.0 (using non-1.0 value as replacement)
+              {
+                memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
+                goto start_over;
+              }
+            break;
+            case FN_DIVIDE:
+              if (dv1)
+              {
+                if (dvalue == 1.0)  // remove divide by 1.0  (using non-1.0 value as replacement)
+                {
+                  memcpy(op,op->parms.parms[!!dv0],sizeof(*op));
+                  goto start_over;
+                }
+                else
+                {
+                  // change to a multiply
+                  if (op->parms.parms[1]->parms.dv.directValue == 0.0)
                   {
                     op->fntype = FN_MULTIPLY;
-                    op->parms.parms[1]->parms.dv.directValue = d;
-                    op->parms.parms[1]->parms.dv.valuePtr=NULL;
                     goto start_over;
+                  }
+                  else
+                  {
+                    double d = 1.0/op->parms.parms[1]->parms.dv.directValue;
+
+                    WDL_DenormalDoubleAccess *p = (WDL_DenormalDoubleAccess*)&d;
+                    // allow conversion to multiply if reciprocal is exact
+                    // we could also just look to see if the last few digits of the mantissa were 0, which would probably be good
+                    // enough, but if the user really wants it they should do * (1/x) instead to force precalculation of reciprocal.
+                    if (!p->w.lw && !(p->w.hw & 0xfffff)) 
+                    {
+                      op->fntype = FN_MULTIPLY;
+                      op->parms.parms[1]->parms.dv.directValue = d;
+                      op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                      goto start_over;
+                    }
                   }
                 }
               }
-            }
-            else if (dvalue == 0.0)
-            {
-              if (!retv_parm[!!dv0])
+              else if (dvalue == 0.0)
               {
-                // if 0/x set to always 0.
-                // this is 0.0 / (oldexpression that can be eliminated)
-                memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
+                if (!retv_parm[!!dv0])
+                {
+                  // if 0/x set to always 0.
+                  // this is 0.0 / (oldexpression that can be eliminated)
+                  memcpy(op,op->parms.parms[!dv0],sizeof(*op)); // set to 0 if other action wouldn't do anything
+                }
+                else
+                {
+                  opcodeRec *tmp;
+                  // this is 0.0 / oldexpressionthatmustbeprocessed
+                  op->fntype = FN_JOIN_STATEMENTS;
+                  tmp = op->parms.parms[1];
+                  op->parms.parms[1] = op->parms.parms[0];
+                  op->parms.parms[0] = tmp;
+                  // set to (oldexpression;0)
+                }
+                goto start_over;
               }
-              else
-              {
-                opcodeRec *tmp;
-                // this is 0.0 / oldexpressionthatmustbeprocessed
-                op->fntype = FN_JOIN_STATEMENTS;
-                tmp = op->parms.parms[1];
-                op->parms.parms[1] = op->parms.parms[0];
-                op->parms.parms[0] = tmp;
-                // set to (oldexpression;0)
-              }
-              goto start_over;
-            }
-          break;
+            break;
+          }
         }
       }
-    }
-    // FUNCTYPE_SIMPLE
-  }   
-  else if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && op->fn)
-  {
-
-    /*
-    probably worth doing reduction on:
-    _divop (constant change to multiply)
-    _and
-    _or
-    _not
-    _mod
-    _shr
-    _shl
-    _xor
-    abs
-
-    maybe:
-    min
-    max
-    _equal
-    _noteq
-    _below
-    _above
-    _beleq
-    _aboeq
-
-
-    also, optimize should (recursively or maybe iteratively?) search transitive functions (mul/div) for more constant reduction possibilities
-
-
-    */
-
-
-    functionType  *pfn = (functionType *)op->fn;
-
-    if (!(pfn->nParams&NSEEL_NPARAMS_FLAG_CONST)) retv|=1;
-
-    if (op->opcodeType==OPCODETYPE_FUNC1) // within FUNCTYPE_FUNCTIONTYPEREC
+      // FUNCTYPE_SIMPLE
+    }   
+    else if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && op->fn)
     {
-      if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+
+      /*
+      probably worth doing reduction on:
+      _divop (constant change to multiply)
+      _and
+      _or
+      _not
+      _mod
+      _shr
+      _shl
+      _xor
+      abs
+
+      maybe:
+      min
+      max
+      _equal
+      _noteq
+      _below
+      _above
+      _beleq
+      _aboeq
+
+
+      also, optimize should (recursively or maybe iteratively?) search transitive functions (mul/div) for more constant reduction possibilities
+
+
+      */
+
+
+      functionType  *pfn = (functionType *)op->fn;
+
+      if (!(pfn->nParams&NSEEL_NPARAMS_FLAG_CONST)) retv|=1;
+
+      if (op->opcodeType==OPCODETYPE_FUNC1) // within FUNCTYPE_FUNCTIONTYPEREC
       {
-        int suc=1;
-        EEL_F v = op->parms.parms[0]->parms.dv.directValue;
-#define DOF(x) if (!strcmp(pfn->name,#x)) v = x(v); else
-        DOF(sin)
-        DOF(cos)
-        DOF(tan)
-        DOF(asin)
-        DOF(acos)
-        DOF(atan)
-        DOF(sqrt)
-        DOF(exp)
-        DOF(log)
-        DOF(log10)
-        /*else*/ suc=0;
-#undef DOF
-        if (suc)
+        if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
         {
-          op->opcodeType = OPCODETYPE_DIRECTVALUE;
-          op->parms.dv.directValue = v;
-          op->parms.dv.valuePtr=NULL;
-          goto start_over;
+          int suc=1;
+          EEL_F v = op->parms.parms[0]->parms.dv.directValue;
+  #define DOF(x) if (!strcmp(pfn->name,#x)) v = x(v); else
+          DOF(sin)
+          DOF(cos)
+          DOF(tan)
+          DOF(asin)
+          DOF(acos)
+          DOF(atan)
+          DOF(sqrt)
+          DOF(exp)
+          DOF(log)
+          DOF(log10)
+          /*else*/ suc=0;
+  #undef DOF
+          if (suc)
+          {
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = v;
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+
+
         }
-
-
       }
+      else if (op->opcodeType==OPCODETYPE_FUNC2)  // within FUNCTYPE_FUNCTIONTYPEREC
+      {
+        if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE &&
+            op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE)
+        {
+          if (pfn->replptrs[0] == &pow || 
+              pfn->replptrs[0] == &atan2) 
+          {
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = pfn->replptrs[0]==pow ? 
+              pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue) :
+              atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+        }
+        else if (pfn->replptrs[0] == &pow)
+        {
+          opcodeRec *first_parm = op->parms.parms[0];
+          if (first_parm->opcodeType == op->opcodeType && first_parm->fn == op->fn && first_parm->fntype == op->fntype)
+          {            
+            // since first_parm is a pow too, we can multiply the exponents.
+
+            // set our base to be the base of the inner pow
+            op->parms.parms[0] = first_parm->parms.parms[0];
+
+            // make the old extra pow be a multiply of the exponents
+            first_parm->fntype = FN_MULTIPLY;
+            first_parm->parms.parms[0] = op->parms.parms[1];
+
+            // put that as the exponent
+            op->parms.parms[1] = first_parm;
+
+            goto start_over;
+          }
+        }
+      }
+      else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
+      {
+        if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+        {
+          if (!strcmp(pfn->name,"_if"))
+          {
+            int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= g_closefact;
+            memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
+            goto start_over;
+          }
+        }
+      }
+      // FUNCTYPE_FUNCTIONTYPEREC
     }
-    else if (op->opcodeType==OPCODETYPE_FUNC2)  // within FUNCTYPE_FUNCTIONTYPEREC
+    else
     {
-      if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE &&
-          op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE)
-      {
-        if (pfn->replptrs[0] == &pow || 
-            pfn->replptrs[0] == &atan2) 
-        {
-          op->opcodeType = OPCODETYPE_DIRECTVALUE;
-          op->parms.dv.directValue = pfn->replptrs[0]==pow ? 
-            pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue) :
-            atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
-          op->parms.dv.valuePtr=NULL;
-          goto start_over;
-        }
-      }
-      else if (pfn->replptrs[0] == &pow)
-      {
-        opcodeRec *first_parm = op->parms.parms[0];
-        if (first_parm->opcodeType == op->opcodeType && first_parm->fn == op->fn && first_parm->fntype == op->fntype)
-        {            
-          // since first_parm is a pow too, we can multiply the exponents.
-
-          // set our base to be the base of the inner pow
-          op->parms.parms[0] = first_parm->parms.parms[0];
-
-          // make the old extra pow be a multiply of the exponents
-          first_parm->fntype = FN_MULTIPLY;
-          first_parm->parms.parms[0] = op->parms.parms[1];
-
-          // put that as the exponent
-          op->parms.parms[1] = first_parm;
-
-          goto start_over;
-        }
-      }
+      // unknown or eel func, assume non-const
+      retv |= 1;
     }
-    else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
-    {
-      if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
-      {
-        if (!strcmp(pfn->name,"_if"))
-        {
-          int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= g_closefact;
-          memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
-          goto start_over;
-        }
-      }
-    }
-    // FUNCTYPE_FUNCTIONTYPEREC
-  }
-  else
-  {
-    // unknown or eel func, assume non-const
-    retv |= 1;
   }
 
   // if we need results, or our function has effects itself, then finish
