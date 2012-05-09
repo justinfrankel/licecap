@@ -381,12 +381,13 @@ static void freeBlocks(llBlock **start);
   DECL_ASMFUNC(stack_exch)
 #endif
 
-static void NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
+static void *NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) EEL_GLUE_set_immediate(data, ctx->gram_blocks);
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, ctx->gram_blocks);
+  return data;
 }
 
-static void NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
+static void *NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
 {
   codeHandleType *ch=ctx->tmpCodeHandle;
 
@@ -402,9 +403,10 @@ static void NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
     data=EEL_GLUE_set_immediate(data, (void*) m1); // and
     data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
   }
+  return data;
 }
 
-static void NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext *ctx, INT_PTR offs)
+static void *NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext *ctx, INT_PTR offs)
 {
   codeHandleType *ch=ctx->tmpCodeHandle;
 
@@ -421,8 +423,9 @@ static void NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext 
     data=EEL_GLUE_set_immediate(data, (void*) m1); // and
     data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
   }
+  return data;
 }
-static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext *ctx)
+static void *NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext *ctx)
 {
   codeHandleType *ch=ctx->tmpCodeHandle;
 
@@ -435,6 +438,7 @@ static void NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext 
 
     data=EEL_GLUE_set_immediate(data, (void *)stackptr);
   }
+  return data;
 }
 
 #ifndef __ppc__
@@ -449,7 +453,7 @@ static const EEL_F eel_zero=0.0, eel_one=1.0;
 static double __floor(double a) { return floor(a); }
 #endif
 
-void NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx);
+void *NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx);
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
 static double eel1band(double a, double b)
@@ -639,7 +643,7 @@ int NSEEL_init() // returns 0 on success
   return 0;
 }
 
-void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, void *pproc, void *fptr, void *fptr2)
+void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, NSEEL_PPPROC pproc, void *fptr, void *fptr2)
 {
   if (!fnTableUser || !(fnTableUser_size&7))
   {
@@ -662,7 +666,7 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
     fnTableUser[fnTableUser_size].name = name;
     fnTableUser[fnTableUser_size].afunc = code_startaddr;
     fnTableUser[fnTableUser_size].func_e = code_startaddr + code_len;
-    fnTableUser[fnTableUser_size].pProc = (NSEEL_PPPROC) pproc;
+    fnTableUser[fnTableUser_size].pProc = pproc;
     fnTableUser[fnTableUser_size].replptrs[0]=fptr;
     fnTableUser[fnTableUser_size].replptrs[1]=fptr2;
     fnTableUser_size++;
@@ -1893,7 +1897,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     {
       unsigned char *p=bufOut + parm_size;
       memcpy(p, func, func_size);
-      if (preProc) preProc(p,func_size,ctx);
+      if (preProc) p=preProc(p,func_size,ctx);
       if (repl)
       {
         if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
@@ -3995,18 +3999,21 @@ void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr)
 
 
 
-void NSEEL_PProc_RAM(void *data, int data_size, compileContext *ctx)
+void *NSEEL_PProc_RAM(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) EEL_GLUE_set_immediate(data, ctx->ram_blocks); 
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, ctx->ram_blocks); 
+  return data;
 }
-void NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx)
+void *NSEEL_PProc_RAM_freeblocks(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) EEL_GLUE_set_immediate(data, &ctx->ram_needfree); 
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, &ctx->ram_needfree); 
+  return data;
 }
 
-void NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
+void *NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) EEL_GLUE_set_immediate(data, ctx->caller_this);
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, ctx->caller_this);
+  return data;
 }
 
 void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx)

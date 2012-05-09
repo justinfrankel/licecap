@@ -29,10 +29,9 @@ extern "C" {
 #endif
 
 struct _compileContext;
-typedef void (*NSEEL_PPPROC)(void *data, int data_size, struct _compileContext *userfunc_data);
 
-void NSEEL_PProc_RAM(void *data, int data_size, struct _compileContext *ctx);
-void NSEEL_PProc_THIS(void *data, int data_size, struct _compileContext *ctx);
+void *NSEEL_PProc_RAM(void *data, int data_size, struct _compileContext *ctx);
+void *NSEEL_PProc_THIS(void *data, int data_size, struct _compileContext *ctx);
 
 
 void _asm_generic3parm(void); // 3 double * parms, returning double *
