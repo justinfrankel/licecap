@@ -100,7 +100,12 @@
 
   */
 
-#ifdef __ppc__
+#ifdef EEL_TARGET_PORTABLE
+
+#define EEL_DOESNT_NEED_EXEC_PERMS
+#include "glue_port.h"
+
+#elif defined(__ppc__)
 
 #include "glue_ppc.h"
 
@@ -114,78 +119,79 @@
 
 #endif
 
-
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
-{
-#if defined(_MSC_VER) || defined(__LP64__)
-
-  unsigned char *p;
-
-#if defined(_DEBUG) && !defined(__LP64__)
-  if (*(unsigned char *)fn == 0xE9) // this means jump to the following address
+#ifndef EEL_TARGET_PORTABLE
+  static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   {
-    fn = ((unsigned char *)fn) + *(int *)((char *)fn+1) + 5;
-  }
-#endif
+  #if defined(_MSC_VER) || defined(__LP64__)
 
-  // this may not work in debug mode?
-  p=(unsigned char *)fn;
-  for (;;)
-  {
-    int a;
-    for (a=0;a<12;a++)
+    unsigned char *p;
+
+  #if defined(_DEBUG) && !defined(__LP64__)
+    if (*(unsigned char *)fn == 0xE9) // this means jump to the following address
     {
-      if (p[a] != (a?0x90:0x89)) break;
+      fn = ((unsigned char *)fn) + *(int *)((char *)fn+1) + 5;
     }
-    if (a>=12)
-    {
-      *size = (char *)p - (char *)fn;
-    //  if (*size<0) MessageBox(NULL,"expect poof","a",0);
-      return fn;
-    }
-    p++;
-  }
-#else
+  #endif
 
-  // gcc, 32 bit (ppc or x86)
-  unsigned char *endp=(unsigned char *)fn_e - sizeof(GLUE_RET);
-  if (endp <= (unsigned char *)fn) *size=0;
-  else
-  {
-    while (endp > (unsigned char *)fn && memcmp(endp,&GLUE_RET,sizeof(GLUE_RET))) endp-=sizeof(GLUE_RET);
-    *size = endp - (unsigned char *)fn;
-#ifndef __ppc__
-    // x86, gcc: look for push ebp, mov ebp, esp (0x55, 0x89, 0xE5), and 0xC9 (leave) at end
-    if (*size >= 4)
+    // this may not work in debug mode?
+    p=(unsigned char *)fn;
+    for (;;)
     {
-      int hadnop=0;
-      unsigned char *pfn = (unsigned char *)fn;
+      int a;
+      for (a=0;a<12;a++)
+      {
+        if (p[a] != (a?0x90:0x89)) break;
+      }
+      if (a>=12)
+      {
+        *size = (char *)p - (char *)fn;
+      //  if (*size<0) MessageBox(NULL,"expect poof","a",0);
+        return fn;
+      }
+      p++;
+    }
+  #else
+
+    // gcc, 32 bit (ppc or x86)
+    unsigned char *endp=(unsigned char *)fn_e - sizeof(GLUE_RET);
+    if (endp <= (unsigned char *)fn) *size=0;
+    else
+    {
+      while (endp > (unsigned char *)fn && memcmp(endp,&GLUE_RET,sizeof(GLUE_RET))) endp-=sizeof(GLUE_RET);
+      *size = endp - (unsigned char *)fn;
+  #ifndef __ppc__
+      // x86, gcc: look for push ebp, mov ebp, esp (0x55, 0x89, 0xE5), and 0xC9 (leave) at end
+      if (*size >= 4)
+      {
+        int hadnop=0;
+        unsigned char *pfn = (unsigned char *)fn;
       
-      // in debug mode, there will be nops before the stack frame code
-      while (pfn < endp-4 && *pfn == 0x90) 
-      {
-        hadnop++;
-        pfn++;
-      }
-      if (endp[-1] == 0xC9 && pfn < endp-4 && pfn[0] == 0x55 && pfn[1] == 0x89 && pfn[2] == 0xE5)
-      {
-        endp--;
-        pfn += 3;
+        // in debug mode, there will be nops before the stack frame code
+        while (pfn < endp-4 && *pfn == 0x90) 
+        {
+          hadnop++;
+          pfn++;
+        }
+        if (endp[-1] == 0xC9 && pfn < endp-4 && pfn[0] == 0x55 && pfn[1] == 0x89 && pfn[2] == 0xE5)
+        {
+          endp--;
+          pfn += 3;
         
-        // if had nops (debug mode), skip any sub esp, byte
-        if (hadnop && pfn < endp-2 && pfn[0] == 0x83 && pfn[1] == 0xEC) pfn+=3;
+          // if had nops (debug mode), skip any sub esp, byte
+          if (hadnop && pfn < endp-2 && pfn[0] == 0x83 && pfn[1] == 0xEC) pfn+=3;
         
-        *size = endp - pfn;
-        if (*size < 0) *size=0;
-        return pfn;
+          *size = endp - pfn;
+          if (*size < 0) *size=0;
+          return pfn;
+        }
       }
+  #endif
     }
-#endif
-  }
-  return fn;
+    return fn;
 
-#endif
-}
+  #endif
+  }
+#endif 
 
 
 
@@ -306,9 +312,19 @@ static opcodeRec *newOpCode(compileContext *ctx)
 
 static void freeBlocks(llBlock **start);
 
+#ifndef DECL_ASMFUNC
 #define DECL_ASMFUNC(x)         \
   void nseel_asm_##x(void);        \
-  void nseel_asm_##x##_end(void);    \
+  void nseel_asm_##x##_end(void);
+
+
+void _asm_megabuf(void);
+void _asm_megabuf_end(void);
+void _asm_gmegabuf(void);
+void _asm_gmegabuf_end(void);
+
+#endif
+
 
   DECL_ASMFUNC(booltofp)
   DECL_ASMFUNC(fptobool)
@@ -520,7 +536,7 @@ static functionType fnTable1[] = {
   { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {&g_closefact} },
   { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {&g_closefact} },
 
-#ifdef __ppc__
+#if defined(__ppc__) || defined(EEL_TARGET_PORTABLE)
   { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
   { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
   { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
@@ -547,7 +563,7 @@ static functionType fnTable1[] = {
   { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)}, 
 
 
-#ifdef __ppc__
+#if defined(__ppc__) || defined(EEL_TARGET_PORTABLE)
    { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sin} },
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&cos} },
    { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&tan}  },
@@ -583,7 +599,7 @@ static functionType fnTable1[] = {
 #endif
    { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&ceil} },
 
-#ifdef __ppc__
+#if defined(__ppc__) || defined(EEL_TARGET_PORTABLE)
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK,  },
 #else
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), {&negativezeropointfive, &onepointfive} },
@@ -605,9 +621,13 @@ static functionType fnTable1[] = {
 #endif // end EEL1 compat
 
 
-
+#ifdef EEL_TARGET_PORTABLE
+  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK,{&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
+  {"_gmem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK,{&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
+#else
   {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&g_closefact,&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
   {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&g_closefact,&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
+#endif
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM_freeblocks},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
@@ -696,7 +716,7 @@ static void freeBlocks(llBlock **start)
 //---------------------------------------------------------------------------------------------------------------
 static void *__newBlock(llBlock **start, int size, char wantMprotect)
 {
-#ifdef _WIN32
+#if !defined(EEL_DOESNT_NEED_EXEC_PERMS) && defined(_WIN32)
   DWORD ov;
   UINT_PTR offs,eoffs;
 #endif
@@ -714,6 +734,7 @@ static void *__newBlock(llBlock **start, int size, char wantMprotect)
   llb = (llBlock *)malloc(alloc_size); // grab bigger block if absolutely necessary (heh)
   if (!llb) return NULL;
   
+#ifndef EEL_DOESNT_NEED_EXEC_PERMS
   if (wantMprotect) 
   {
   #ifdef _WIN32
@@ -736,6 +757,7 @@ static void *__newBlock(llBlock **start, int size, char wantMprotect)
     }
   #endif
   }
+#endif
   llb->sizeused=(size+7)&~7;
   llb->next = *start;  
   *start = llb;
@@ -954,10 +976,14 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2); RF(sub);
     case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(mul);
     case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2); RF(div);
-    case FN_JOIN_STATEMENTS: RF(exec2);
+#ifndef EEL_TARGET_PORTABLE
+    case FN_JOIN_STATEMENTS: RF(exec2); // shouldn't ever be used anyway, but scared to remove
+#endif
     case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(and);
     case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(or);
-    case FN_UPLUS: RF(uplus); 
+#ifndef EEL_TARGET_PORTABLE
+    case FN_UPLUS: RF(uplus);   // shouldn't ever be used anyway, but scared to remove
+#endif
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK; RF(uminus);
 #undef RF
 

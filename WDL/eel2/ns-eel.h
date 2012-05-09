@@ -174,6 +174,11 @@ extern int NSEEL_RAM_memused_errors;
 
 #define NSEEL_STACK_SIZE 4096 // about 64k overhead if the stack functions are used in a given code handle
 
+//#define EEL_TARGET_PORTABLE
+
+#ifdef EEL_TARGET_PORTABLE
+#define EEL_BC_TYPE int
+#endif
 
 #ifdef __cplusplus
 }
