@@ -192,9 +192,7 @@ static const unsigned char GLUE_LOOP_LOADCNT[]={
 };
 static const unsigned char GLUE_LOOP_CLAMPCNT[]={
   0x48, 0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
-        0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
-};
-static const unsigned char GLUE_LOOP_CLAMPCNT2[]={
+        0x0F, 0x8C, 10,0,0,0,  // JL over-the-mov
   0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
 };
 static const unsigned char GLUE_LOOP_BEGIN[]={ 

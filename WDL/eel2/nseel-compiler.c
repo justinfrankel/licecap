@@ -2227,8 +2227,8 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       {
         int subsz;
         int fUse=0;
-        unsigned char *skipptr1, *skipclampptr, *loopdest;
-        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + sizeof(GLUE_LOOP_CLAMPCNT) + sizeof(GLUE_LOOP_CLAMPCNT2) + sizeof(GLUE_LOOP_BEGIN)) RET_MINUS1_FAIL("loop size fail")
+        unsigned char *skipptr1,*loopdest;
+        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + sizeof(GLUE_LOOP_CLAMPCNT) + sizeof(GLUE_LOOP_BEGIN)) RET_MINUS1_FAIL("loop size fail")
 
         // store, convert to int, compare against 1, if less than, skip to end
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_LOADCNT,sizeof(GLUE_LOOP_LOADCNT));
@@ -2238,11 +2238,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         // compare aginst max loop length, jump to loop start if not above it
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_CLAMPCNT,sizeof(GLUE_LOOP_CLAMPCNT));
         parm_size += sizeof(GLUE_LOOP_CLAMPCNT);
-        skipclampptr = bufOut+parm_size - sizeof(GLUE_JMP_TYPE);
-
-        // clamp to max loop length
-        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_CLAMPCNT2,sizeof(GLUE_LOOP_CLAMPCNT2));
-        parm_size += sizeof(GLUE_LOOP_CLAMPCNT2);
 
         // loop code:
         loopdest = bufOut + parm_size;
@@ -2263,7 +2258,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (loopdest - (bufOut+parm_size + GLUE_JMP_OFFSET));
 
         if (bufOut) *(GLUE_JMP_TYPE *)skipptr1 =  (bufOut+parm_size - (skipptr1 + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
-        if (bufOut) *(GLUE_JMP_TYPE *)skipclampptr =  (loopdest - (skipclampptr + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
 
         return rv_offset + parm_size;
 
