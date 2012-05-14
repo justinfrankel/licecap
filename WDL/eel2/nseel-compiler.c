@@ -3857,6 +3857,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   else
   {
     ctx->functions_common = oldCommonFunctionList; // failed compiling, remove any added common functions from the list
+
+    // remove any derived copies of functions due to error, since we may have added some that have been freed
+    while (oldCommonFunctionList)
+    {
+      oldCommonFunctionList->derivedCopies=NULL;
+      oldCommonFunctionList=oldCommonFunctionList->next;
+    }
   }
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
 
