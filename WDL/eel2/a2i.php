@@ -89,7 +89,7 @@ while (($line = fgets($in)))
            $a = strstr($sline,":");
            if ($a) $sline = substr($a,1);
 
-           if ($btfut[$d] != "") $thislbl = $btfut[$d]; 
+           if (isset($btfut[$d]) && $btfut[$d] != "") $thislbl = $btfut[$d]; 
            else $thislbl = "label_" . $labelcnt++;
 
            $btfut[$d]="";
@@ -156,7 +156,7 @@ while (($line = fgets($in)))
             if (substr($parms,-1) == "f")
             {
               $d = (int) substr($parms,0,-1);
-              if ($btfut[$d] != "") $thislbl = $btfut[$d]; 
+              if (isset($btfut[$d]) && $btfut[$d] != "") $thislbl = $btfut[$d]; 
               else $btfut[$d] = $thislbl = "label_" . $labelcnt++;
               $parms = $thislbl;
             }
