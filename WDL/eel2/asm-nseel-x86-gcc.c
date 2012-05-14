@@ -1329,13 +1329,11 @@ void _asm_megabuf(void)
 
 #ifdef AMD64ABI
 
-    "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
-
-    "movl $0xfefefefe, %rdx\n"
-
-    "fadd" EEL_F_SUFFIX " (%rdx)\n"
-    "fistpl (%rsi)\n"
+    "movl $0xfefefefe, %rdi\n" // first parameter = context pointer, which also is 8 bytes after the close-factor
     "subll %rdx, %rdx\n"
+
+    "fadd" EEL_F_SUFFIX " -8(%rdi)\n"
+    "fistpl (%rsi)\n"
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     "movl (%rsi), %edx\n"
@@ -1368,7 +1366,7 @@ void _asm_megabuf(void)
     "movl $0xfefefefe, %edx\n"
     "subll %rdi, %rdi\n"
 
-    "fadd" EEL_F_SUFFIX " (%rdx)\n"
+    "fadd" EEL_F_SUFFIX " -8(%rcx)\n"
 
     "fistpl (%esi)\n"
 
@@ -1399,7 +1397,7 @@ void _asm_megabuf(void)
 
 #else
     "movl $0xfefefefe, %edx\n"
-    "fadd" EEL_F_SUFFIX " (0xfefefefe)\n"
+    "fadd" EEL_F_SUFFIX " -8(%edx)\n"
     "fistpl (%esi)\n"
 
     // check if (%esi) is in range, and buffer available, otherwise call function

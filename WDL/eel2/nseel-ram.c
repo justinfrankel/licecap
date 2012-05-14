@@ -43,7 +43,7 @@ int NSEEL_VM_wantfreeRAM(NSEEL_VMCTX ctx)
 	if (ctx)
   {
     compileContext *c=(compileContext*)ctx;
-    if (c->ram_needfree) 
+    if (c->ram_state.needfree) 
       return 1;
   }
   return 0;
@@ -54,12 +54,12 @@ void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our fre
 	if (ctx)
 	{
   	compileContext *c=(compileContext*)ctx;
-  	if (c->ram_needfree) 
+  	if (c->ram_state.needfree) 
 		{
       NSEEL_HOSTSTUB_EnterMutex();
       {
-			  INT_PTR startpos=((INT_PTR)c->ram_needfree)-1;
-	 		  EEL_F **blocks = c->ram_blocks;
+			  INT_PTR startpos=((INT_PTR)c->ram_state.needfree)-1;
+	 		  EEL_F **blocks = c->ram_state.blocks;
 			  INT_PTR pos=0;
 			  int x;
   		  for (x = 0; x < NSEEL_RAM_BLOCKS; x ++)
@@ -71,13 +71,13 @@ void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our fre
 						  if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
 							  NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
 						  else NSEEL_RAM_memused_errors++;
+       	 	    free(blocks[x]);
+       	 	    blocks[x]=0;
 					  }
-       	 	  free(blocks[x]);
-       	 	  blocks[x]=0;
 				  }
 				  pos+=NSEEL_RAM_ITEMSPERBLOCK;
  			  }
-			  c->ram_needfree=0;
+			  c->ram_state.needfree=0;
       }
       NSEEL_HOSTSTUB_LeaveMutex();
 		}
@@ -184,8 +184,10 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, int w)
 }
 
 
-EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(int *flag, EEL_F *which)
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(void *blocks, EEL_F *which)
 {
+  // blocks points to ram_state.blocks, so back it up past closefact and pad to needfree
+  int *flag = (int *)((char *)blocks - sizeof(double) - 2*sizeof(int));
 	int d=EEL_F2int(*which);
 	if (d < 0) d=0;
 	if (d < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) flag[0]=1+d;
@@ -301,7 +303,7 @@ void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx)
   {
     int x;
     compileContext *c=(compileContext*)ctx;
-    EEL_F **blocks = c->ram_blocks;
+    EEL_F **blocks = c->ram_state.blocks;
     for (x = 0; x < NSEEL_RAM_BLOCKS; x ++)
     {
 	    if (blocks[x])
@@ -309,11 +311,11 @@ void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx)
 		    if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
 			    NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
 		    else NSEEL_RAM_memused_errors++;
+        free(blocks[x]);
+        blocks[x]=0;
 	    }
-      free(blocks[x]);
-      blocks[x]=0;
     }
-    c->ram_needfree=0; // no need to free anymore
+    c->ram_state.needfree=0; // no need to free anymore
   }
 }
 

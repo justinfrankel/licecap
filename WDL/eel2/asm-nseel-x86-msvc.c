@@ -2203,13 +2203,11 @@ __declspec(naked) void _asm_megabuf(void)
 
 #ifdef AMD64ABI
 
-    mov rdi, 0xfefefefe; // first parameter = context pointer
-
-    mov rdx, 0xfefefefe;
-
-    fadd EEL_ASM_TYPE [rdx];
-    fistp dword ptr [rsi];
+    mov rdi, 0xfefefefe; // first parameter = context pointer, which also is 8 bytes after the close-factor
     sub rdx, rdx;
+
+    fadd EEL_ASM_TYPE [rdi+-8];
+    fistp dword ptr [rsi];
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
@@ -2244,7 +2242,7 @@ label_29:
     mov edx, 0xfefefefe;
     sub rdi, rdi;
 
-    fadd EEL_ASM_TYPE [rdx];
+    fadd EEL_ASM_TYPE [rcx+-8];
 
     fistp dword ptr [esi];
 
@@ -2277,21 +2275,7 @@ label_31:
 
 #else
     mov edx, 0xfefefefe;
-#if EEL_F_SIZE == 8
-_emit 0xDC; // fadd qword ptr [0xfefefefe]
-_emit 0x05;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#else
-_emit 0xD8; // fadd dword ptr [0xfefefefe]
-_emit 0x05;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#endif
+    fadd EEL_ASM_TYPE [edx+-8];
     fistp dword ptr [esi];
 
     // check if (%esi) is in range, and buffer available, otherwise call function
