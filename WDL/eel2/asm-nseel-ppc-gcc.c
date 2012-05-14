@@ -962,15 +962,13 @@ void _asm_megabuf(void)
    "stfd f1, 8(r16)\n"
    "lwz r4, 12(r16)\n" // r4 is index of array
 
-   "addis r15, 0, 0xFF80\n" // r15 = 0xFF800000, which is 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
-   "and. r15, r15, r4\n"
+   "andis. r15, r4, 0xFF80\n" // check to see if it has any bits in 0xFF800000, which is 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
    "bne cr0, 1f\n" // out of range, jump to error
 
    // shr 14 (16 for NSEEL_RAM_ITEMSPERBLOCK, minus two for pointer size), which is rotate 18
    // mask 7 bits (NSEEL_RAM_BLOCKS), but leave two empty bits (pointer size)
    "rlwinm r15, r4, 18, 23, 29\n"
-   "add r15, r15, r3\n"
-   "lwz r15, 0(r15)\n"
+   "lwzx r15, r3, r15\n" // r15 = (r3+r15)
    "cmpi cr0, r15, 0\n"
    "beq cr0, 1f\n"
 
