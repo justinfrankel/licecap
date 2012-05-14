@@ -100,8 +100,8 @@ void nseel_asm_assign(void)
 {
   __asm__(
    "lfd f1, 0(r3)\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_assign_end(void) {}
@@ -110,8 +110,8 @@ void nseel_asm_assign_end(void) {}
 void nseel_asm_assign_fromfp(void)
 {
   __asm__(
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_assign_fromfp_end(void) {}
@@ -131,8 +131,8 @@ void nseel_asm_add_op(void)
   __asm__(
    "lfd f2, 0(r14)\n"
    "fadd f1, f1, f2\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_add_op_end(void) {}
@@ -153,8 +153,8 @@ void nseel_asm_sub_op(void)
   __asm__(
    "lfd f2, 0(r14)\n"
    "fsub f1, f2, f1\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_sub_op_end(void) {}
@@ -174,8 +174,8 @@ void nseel_asm_mul_op(void)
   __asm__(
    "lfd f2, 0(r14)\n"
    "fmul f1, f2, f1\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_mul_op_end(void) {}
@@ -195,8 +195,8 @@ void nseel_asm_div_op(void)
   __asm__(
    "lfd f2, 0(r14)\n"
    "fdiv f1, f2, f1\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_div_op_end(void) {}
@@ -311,8 +311,8 @@ void nseel_asm_mod_op(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 
 }
@@ -385,8 +385,8 @@ void nseel_asm_or_op(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_or_op_end(void) {}
@@ -438,8 +438,8 @@ void nseel_asm_xor_op(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_xor_op_end(void) {}
@@ -490,8 +490,8 @@ void nseel_asm_and_op(void)
    "lfd f1, 8(r16)\n"
    "lfd f2, 16(r16)\n"
    "fsub f1, f1, f2\n"
-   "stfd f1, 0(r14)\n"
    "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
   );
 }
 void nseel_asm_and_op_end(void) {}
