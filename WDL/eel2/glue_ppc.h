@@ -133,7 +133,11 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
-  static const double consttab[] = { NSEEL_CLOSEFACTOR, 4503601774854144.0 /* 0x43300000, 0x80000000, used for integer conversion*/,  };
+  static const double consttab[] = { 
+    NSEEL_CLOSEFACTOR, 
+    4503601774854144.0 /* 0x43300000, 0x80000000, used for integer conversion*/, 
+  };
+  // we could have r18 refer to the current user-stack pointer, someday, perhaps
   __asm__(
           "subi r1, r1, 128\n"
           "stfd f31, 8(r1)\n"
