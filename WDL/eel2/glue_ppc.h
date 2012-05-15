@@ -133,23 +133,26 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
-  static const double consttab[] = { NSEEL_CLOSEFACTOR };
+  static const double consttab[] = { NSEEL_CLOSEFACTOR, 4503601774854144.0 /* 0x43300000, 0x80000000, used for integer conversion*/,  };
   __asm__(
           "subi r1, r1, 128\n"
-          "stfd f14, 8(r1)\n"
-          "stmw r13, 24(r1)\n"
+          "stfd f31, 8(r1)\n"
+          "stfd f30, 16(r1)\n"
+          "stmw r13, 32(r1)\n"
           "mtctr %0\n"
           "mr r17, %1\n" 
           "mr r13, %2\n"
-          "lfd f14, 0(%3)\n"
+          "lfd f31, 0(%3)\n"
+          "lfd f30, 8(%3)\n"
       	  "subi r17, r17, 8\n"
           "mflr r0\n" 
-          "stw r0, 16(r1)\n"
+          "stw r0, 24(r1)\n"
           "bctrl\n"
-          "lwz r0, 16(r1)\n"
+          "lwz r0, 24(r1)\n"
           "mtlr r0\n"
-          "lmw r13, 24(r1)\n"
-          "lfd f14, 8(r1)\n"
+          "lmw r13, 32(r1)\n"
+          "lfd f31, 8(r1)\n"
+          "lfd f30, 16(r1)\n"
           "addi r1, r1, 128\n"
             ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab));
 };

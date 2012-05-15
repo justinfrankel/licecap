@@ -100,7 +100,7 @@
     WTP r16 (r17 has the original value)
     r13 is a pointer to ram_state.blocks
 
-    f14 is g_closefact
+    ppc uses f31 and f30 and others for certain constants
 
   */
 

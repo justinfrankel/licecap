@@ -220,15 +220,11 @@ void nseel_asm_mod(void)
    "subf r10, r12, r11\n"
 
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );
 }
 void nseel_asm_mod_end(void) {}
@@ -245,15 +241,11 @@ void nseel_asm_shl(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "slw r10, r11, r10\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );
 }
 void nseel_asm_shl_end(void) {}
@@ -270,15 +262,11 @@ void nseel_asm_shr(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "sraw r10, r11, r10\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );
 }
 void nseel_asm_shr_end(void) {}
@@ -302,15 +290,11 @@ void nseel_asm_mod_op(void)
    "subf r10, r12, r11\n"
 
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
    "mr r3, r14\n"
    "stfd f1, 0(r14)\n"
   );
@@ -331,15 +315,11 @@ void nseel_asm_or(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "or r10, r10, r11\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );
 }
 void nseel_asm_or_end(void) {}
@@ -347,19 +327,15 @@ void nseel_asm_or_end(void) {}
 void nseel_asm_or0(void)
 {
   __asm__(
-   "addis r11, 0, 0x4330\n"
    "fctiwz f1, f1\n"
-   "addis r12, 0, 0x8000\n"
+   "addis r11, 0, 0x4330\n"
    "stfd f1, 8(r16)\n"
    "lwz r10, 12(r16)\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );
 }
 void nseel_asm_or0_end(void) {}
@@ -376,15 +352,11 @@ void nseel_asm_or_op(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "or r10, r10, r11\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
    "mr r3, r14\n"
    "stfd f1, 0(r14)\n"
   );
@@ -404,15 +376,11 @@ void nseel_asm_xor(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "xor r10, r10, r11\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );
 }
 void nseel_asm_xor_end(void) {}
@@ -429,15 +397,11 @@ void nseel_asm_xor_op(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "xor r10, r10, r11\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
    "mr r3, r14\n"
    "stfd f1, 0(r14)\n"
   );
@@ -457,15 +421,11 @@ void nseel_asm_and(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "and r10, r10, r11\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
   );}
 void nseel_asm_and_end(void) {}
 
@@ -481,15 +441,11 @@ void nseel_asm_and_op(void)
    "lwz r11, 20(r16)\n" //r11 and r12 have the integers
    "and r10, r10, r11\n" // r10 has the result
    "addis r11, 0, 0x4330\n"
-   "addis r12, 0, 0x8000\n"
    "xoris r10, r10, 0x8000\n"
    "stw r11, 8(r16)\n"   // 0x43300000
    "stw r10, 12(r16)\n"  // our integer sign flipped
-   "stw r11, 16(r16)\n"  // 0x43300000
-   "stw r12, 20(r16)\n"  // 0x80000000
    "lfd f1, 8(r16)\n"
-   "lfd f2, 16(r16)\n"
-   "fsub f1, f1, f2\n"
+   "fsub f1, f1, f30\n"
    "mr r3, r14\n"
    "stfd f1, 0(r14)\n"
   );
@@ -677,7 +633,7 @@ void nseel_asm_equal(void)
     "lfd f2, 0(r14)\n"
     "fsub f1, f1, f2\n"
     "fabs f1, f1\n"
-    "fcmpu cr7, f1, f14\n"
+    "fcmpu cr7, f1, f31\n"
     "addis r3, 0, 0\n"
     "bge cr7, 0f\n"
     "addis r3, 0, 1\n"
@@ -694,7 +650,7 @@ void nseel_asm_notequal(void)
     "lfd f2, 0(r14)\n"
     "fsub f1, f1, f2\n"
     "fabs f1, f1\n"
-    "fcmpu cr7, f1, f14\n"
+    "fcmpu cr7, f1, f31\n"
     "addis r3, 0, 0\n"
     "blt cr7, 0f\n"
     "  addis r3, 0, 1\n"
@@ -991,7 +947,7 @@ void _asm_megabuf_end(void) {}
 void _asm_gmegabuf(void)
 {
   __asm__(
-   "fadd f1, f14, f1\n"
+   "fadd f1, f31, f1\n"
    "addis r3, 0, 0xdead\n" // set up context pointer
    "ori r3, r3, 0xbeef\n"
 
@@ -1197,7 +1153,7 @@ void nseel_asm_fptobool(void)
 {
   __asm__(
     "fabs f1, f1\n"
-    "fcmpu cr7, f1, f14\n"
+    "fcmpu cr7, f1, f31\n"
     "addis r3, 0, 1\n"
     "bge cr7, 0f\n"
     "  addis r3, 0, 0\n"
