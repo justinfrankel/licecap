@@ -131,13 +131,13 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 
 
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
+static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
   __asm__(
           "stmw r14, -80(r1)\n"
           "mtctr %0\n"
           "mr r17, %1\n" 
-	  "subi r17, r17, 8\n"
+      	  "subi r17, r17, 8\n"
           "mflr r5\n" 
           "stw r5, -84(r1)\n"
           "subi r1, r1, 88\n"

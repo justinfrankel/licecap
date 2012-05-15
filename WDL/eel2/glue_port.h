@@ -446,7 +446,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 
 #define EEL_BC_TRUE ((EEL_F*)(INT_PTR)1)
 
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
+static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
   char __stack[EEL_BC_STACKSIZE];
   char *iptr = (char*)cp;

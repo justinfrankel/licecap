@@ -127,6 +127,8 @@ typedef struct {
 
   int want_stack;
   void *stack;  // references a chunk in blocks_data, somewhere within the complete NSEEL_STACK_SIZE aligned at NSEEL_STACK_SIZE
+
+  void *ramPtr;
 } codeHandleType;
 
 

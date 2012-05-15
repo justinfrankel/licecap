@@ -1329,10 +1329,9 @@ void _asm_megabuf(void)
 
 #ifdef AMD64ABI
 
-    "movl $0xfefefefe, %rdi\n" // first parameter = context pointer, which also is 8 bytes after the close-factor
+    "fadd" EEL_F_SUFFIX " -8(%r12)\n"
     "subll %rdx, %rdx\n"
 
-    "fadd" EEL_F_SUFFIX " -8(%rdi)\n"
     "fistpl (%rsi)\n"
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
@@ -1342,7 +1341,7 @@ void _asm_megabuf(void)
     "movll %rdx, %rax\n"
     "shrll $13, %rax\n"     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     "andll $0x3F8, %rax\n"  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    "movll (%rdi, %rax), %rax\n"
+    "movll (%r12, %rax), %rax\n"
     "testl %rax, %rax\n"
     "jz 1f\n"
     "andll $0xFFFF, %rdx\n" // (NSEEL_RAM_ITEMSPERBLOCK-1)
@@ -1352,21 +1351,20 @@ void _asm_megabuf(void)
 
     
     "1:\n"
+    "movl $0xfefefefe, %rax\n"
+    "movl %r12, %rdi\n" // set first parm to ctx
     "movl %rsi, %r15\n" // save rsi
     "movl %rdx, %esi\n" // esi becomes second parameter (edi is first, context pointer)
-    "movl $0xfefefefe, %edx\n"
     "subl $128, %rsp\n"
-    "call *%edx\n"
+    "call *%rax\n"
     "movl %r15, %rsi\n" // restore rsi
     "addl $128, %rsp\n"
     "0:\n"
 
 #else
-    "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
-    "movl $0xfefefefe, %edx\n"
-    "subll %rdi, %rdi\n"
 
-    "fadd" EEL_F_SUFFIX " -8(%rcx)\n"
+    "fadd" EEL_F_SUFFIX " -8(%r12)\n"
+    "subll %rdi, %rdi\n"
 
     "fistpl (%esi)\n"
 
@@ -1377,7 +1375,7 @@ void _asm_megabuf(void)
     "movll %rdi, %rax\n"
     "shrll $13, %rax\n"           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     "andll $0x3F8, %rax\n"        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    "movll (%rcx, %rax), %rax\n"
+    "movll (%r12, %rax), %rax\n"
     "testl %rax, %rax\n"
     "jz 1f\n"
     "andll $0xFFFF, %rdi\n"   // (NSEEL_RAM_ITEMSPERBLOCK-1)
@@ -1386,10 +1384,11 @@ void _asm_megabuf(void)
     "jmp 0f\n"
 
     "1:\n"
+    "movl $0xfefefefe, %rax\n" // function ptr
+    "movl %r12, %rcx\n" // set first parm to ctx
     "movl %rdi, %rdx\n" // rdx is second parameter (rcx is first)
-    "movl $0xfefefefe, %edi\n" // function ptr
     "subl $128, %rsp\n"
-    "call *%edi\n"
+    "call *%rax\n"
     "addl $128, %rsp\n"
     "0:"
 #endif
@@ -1727,32 +1726,31 @@ void nseel_asm_stack_exch_end(void) {}
 void win64_callcode() 
 {
 	__asm__(
-#ifdef AMD64ABI
-		"movll %edi, %eax\n"
-#else
-		"movll %ecx, %eax\n"
-#endif
-
 		"push %rbx\n"
 		"push %rbp\n"
-#ifndef AMD64ABI
-		"push %rdi\n"
-		"push %rsi\n"
 		"push %r12\n"
 		"push %r13\n"
-#endif
-		"push %r14\n" // on AMD64ABI, we'll use r14/r15 to save edi/esi
+		"push %r14\n"
 		"push %r15\n"
-		"call %eax\n"
-		"pop %r15\n"
-		"pop %r14\n"
-#ifndef AMD64ABI
-		"pop %r13\n"
-		"pop %r12\n"
+
+#ifdef AMD64ABI
+    "movll %rsi, %r12\n" // second parameter is ram-blocks pointer
+		"call %rdi\n"
+#else
+		"push %rdi\n"
+		"push %rsi\n"
+    "movll %rdx, %r12\n" // second parameter is ram-blocks pointer
+		"call %rcx\n"
 		"pop %rsi\n"
 		"pop %rdi\n"
-		"fclex\n"
 #endif
+
+		"fclex\n"
+
+		"pop %r15\n"
+		"pop %r14\n"
+		"pop %r13\n"
+		"pop %r12\n"
 		"pop %rbp\n"
 		"pop %rbx\n"
 		"ret\n"

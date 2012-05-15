@@ -620,7 +620,12 @@ static functionType fnTable1[] = {
 #endif // end EEL1 compat
 
 
+#if defined(__LP64__) || defined(_WIN64)
+  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&__NSEEL_RAMAlloc},NULL}, // 64-bit arch (and PPC soon) use a register to keep this pointer
+#else
   {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
+#endif
+
 #ifdef EEL_TARGET_PORTABLE
   {"_gmem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK,{&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
 #else
@@ -3845,6 +3850,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (handle)
   {
+    handle->ramPtr = ctx->ram_state.blocks;
     memcpy(handle->code_stats,ctx->l_stats,sizeof(ctx->l_stats));
     nseel_evallib_stats[0]+=ctx->l_stats[0];
     nseel_evallib_stats[1]+=ctx->l_stats[1];
@@ -3893,7 +3899,7 @@ void NSEEL_code_execute(NSEEL_CODEHANDLE code)
 
   tabptr=(INT_PTR)h->workTable;
   //printf("calling code!\n");
-  GLUE_CALL_CODE(tabptr,codeptr);
+  GLUE_CALL_CODE(tabptr,codeptr,(INT_PTR)h->ramPtr);
 
 }
 

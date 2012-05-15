@@ -208,7 +208,7 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 #endif
 
 
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp) 
+static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr) 
 {
   #ifdef _MSC_VER
     #ifndef EEL_NO_CHANGE_FPFLAGS

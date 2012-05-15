@@ -168,8 +168,8 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 2+sizeof(void *);
 }
 
-extern void win64_callcode(INT_PTR code);
-#define GLUE_CALL_CODE(bp, cp) win64_callcode(cp)
+extern void win64_callcode(INT_PTR code, INT_PTR ram_tab);
+#define GLUE_CALL_CODE(bp, cp, rt) win64_callcode(cp, rt)
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {

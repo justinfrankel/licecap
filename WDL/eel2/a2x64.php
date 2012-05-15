@@ -256,7 +256,7 @@ $nasm="nasm";
 $want_funclead="";
 
 $fmt = "win64";
-if ($argv[1] != "") $fmt = $argv[1];
+if (isset($argv[1]) && $argv[1] != "") $fmt = $argv[1];
 
 $fnout = "asm-nseel-x64.asm";
 

@@ -2203,10 +2203,9 @@ __declspec(naked) void _asm_megabuf(void)
 
 #ifdef AMD64ABI
 
-    mov rdi, 0xfefefefe; // first parameter = context pointer, which also is 8 bytes after the close-factor
+    fadd EEL_ASM_TYPE [r12+-8];
     sub rdx, rdx;
 
-    fadd EEL_ASM_TYPE [rdi+-8];
     fistp dword ptr [rsi];
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
@@ -2216,7 +2215,7 @@ __declspec(naked) void _asm_megabuf(void)
     mov rax, rdx;
     shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    mov rax, qword ptr [rdi+rax];
+    mov rax, qword ptr [r12+rax];
     test rax, rax;
     jz label_28;
     and rdx, 0xFFFF; // (NSEEL_RAM_ITEMSPERBLOCK-1)
@@ -2227,22 +2226,21 @@ __declspec(naked) void _asm_megabuf(void)
 
 label_28:
     
+    mov rax, 0xfefefefe;
+    mov rdi, r12; // set first parm to ctx
     mov r15, rsi; // save rsi
     mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
-    mov edx, 0xfefefefe;
     sub rsp, 128;
-    call edx;
+    call rax;
     mov rsi, r15; // restore rsi
     add rsp, 128;
 label_29:
     
 
 #else
-    mov ecx, 0xfefefefe; // first parameter = context pointer
-    mov edx, 0xfefefefe;
-    sub rdi, rdi;
 
-    fadd EEL_ASM_TYPE [rcx+-8];
+    fadd EEL_ASM_TYPE [r12+-8];
+    sub rdi, rdi;
 
     fistp dword ptr [esi];
 
@@ -2253,7 +2251,7 @@ label_29:
     mov rax, rdi;
     shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
     and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    mov rax, qword ptr [rcx+rax];
+    mov rax, qword ptr [r12+rax];
     test rax, rax;
     jz label_30;
     and rdi, 0xFFFF;   // (NSEEL_RAM_ITEMSPERBLOCK-1)
@@ -2263,10 +2261,11 @@ label_29:
 
 label_30:
     
+    mov rax, 0xfefefefe; // function ptr
+    mov rcx, r12; // set first parm to ctx
     mov rdx, rdi; // rdx is second parameter (rcx is first)
-    mov edi, 0xfefefefe; // function ptr
     sub rsp, 128;
-    call edi;
+    call rax;
     add rsp, 128;
 label_31:
     
@@ -2813,32 +2812,31 @@ __declspec(naked) void nseel_asm_stack_exch_end(void) {}
 __declspec(naked) void win64_callcode()
 {
 	__asm {
-#ifdef AMD64ABI
-		mov eax, edi;
-#else
-		mov eax, ecx;
-#endif
-
 		push rbx;
 		push rbp;
-#ifndef AMD64ABI
-		push rdi;
-		push rsi;
 		push r12;
 		push r13;
-#endif
-		push r14; // on AMD64ABI, we'll use r14/r15 to save edi/esi
+		push r14;
 		push r15;
-		call eax;
-		pop r15;
-		pop r14;
-#ifndef AMD64ABI
-		pop r13;
-		pop r12;
+
+#ifdef AMD64ABI
+    mov r12, rsi; // second parameter is ram-blocks pointer
+		call rdi;
+#else
+		push rdi;
+		push rsi;
+    mov r12, rdx; // second parameter is ram-blocks pointer
+		call rcx;
 		pop rsi;
 		pop rdi;
-		fclex;
 #endif
+
+		fclex;
+
+		pop r15;
+		pop r14;
+		pop r13;
+		pop r12;
 		pop rbp;
 		pop rbx;
 		ret;
