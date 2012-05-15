@@ -135,19 +135,20 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
   __asm__(
-          "stmw r14, -80(r1)\n"
+          "stmw r13, -84(r1)\n"
           "mtctr %0\n"
           "mr r17, %1\n" 
+          "mr r13, %2\n"
       	  "subi r17, r17, 8\n"
-          "mflr r5\n" 
-          "stw r5, -84(r1)\n"
-          "subi r1, r1, 88\n"
+          "mflr r0\n" 
+          "stw r0, -88(r1)\n"
+          "subi r1, r1, 92\n"
           "bctrl\n"
-          "addi r1, r1, 88\n"
-          "lwz r5, -84(r1)\n"
-          "lmw r14, -80(r1)\n"
-          "mtlr r5\n"
-            ::"r" (cp), "r" (bp));
+          "addi r1, r1, 92\n"
+          "lwz r0, -88(r1)\n"
+          "lmw r13, -84(r1)\n"
+          "mtlr r0\n"
+            ::"r" (cp), "r" (bp), "r" (rt));
 };
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)

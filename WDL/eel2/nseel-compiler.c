@@ -91,12 +91,14 @@
     P2 EDI
     P3 ECX
     WTP RSI
+    x86_64: r12 is a pointer to ram_state.blocks
 
   registers on PPC are:
     P1(ret) r3
     P2 r14 
     P3 r15
     WTP r16 (r17 has the original value)
+    r13 is a pointer to ram_state.blocks
 
   */
 
@@ -620,8 +622,8 @@ static functionType fnTable1[] = {
 #endif // end EEL1 compat
 
 
-#if defined(__LP64__) || defined(_WIN64)
-  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&__NSEEL_RAMAlloc},NULL}, // 64-bit arch (and PPC soon) use a register to keep this pointer
+#if defined(__LP64__) || defined(_WIN64) || defined(__ppc__)
+  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&__NSEEL_RAMAlloc},NULL}, // 64-bit arch and PPC use a register to keep this pointer
 #else
   {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&__NSEEL_RAMAlloc},NSEEL_PProc_RAM},
 #endif

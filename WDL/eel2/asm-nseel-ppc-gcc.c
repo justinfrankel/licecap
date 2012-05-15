@@ -949,10 +949,9 @@ void _asm_generic1parm_retd_end(void) {}
 void _asm_megabuf(void)
 {
   __asm__(
-   "addis r3, 0, 0xdead\n" // set up context pointer
-   "ori r3, r3, 0xbeef\n"
+   "lfd f2, -8(r13)\n"
+   "mr r3, r13\n"
 
-   "lfd f2, -8(r3)\n"
    "fadd f1, f2, f1\n"
 
    // f1 has (float) index of array, r3 has EEL_F **
