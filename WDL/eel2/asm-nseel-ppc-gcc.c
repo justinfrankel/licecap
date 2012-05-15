@@ -675,12 +675,9 @@ void nseel_asm_equal(void)
 {
   __asm__(
     "lfd f2, 0(r14)\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
     "fsub f1, f1, f2\n"
     "fabs f1, f1\n"
-    "lfd f2, 0(r5)\n"
-    "fcmpu cr7, f1, f2\n"
+    "fcmpu cr7, f1, f14\n"
     "addis r3, 0, 0\n"
     "bge cr7, 0f\n"
     "addis r3, 0, 1\n"
@@ -695,12 +692,9 @@ void nseel_asm_notequal(void)
 {
   __asm__(
     "lfd f2, 0(r14)\n"
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
     "fsub f1, f1, f2\n"
     "fabs f1, f1\n"
-    "lfd f2, 0(r5)\n"
-    "fcmpu cr7, f1, f2\n"
+    "fcmpu cr7, f1, f14\n"
     "addis r3, 0, 0\n"
     "blt cr7, 0f\n"
     "  addis r3, 0, 1\n"
@@ -997,19 +991,21 @@ void _asm_megabuf_end(void) {}
 void _asm_gmegabuf(void)
 {
   __asm__(
+   "fadd f1, f14, f1\n"
    "addis r3, 0, 0xdead\n" // set up context pointer
    "ori r3, r3, 0xbeef\n"
-   "addis r4, 0, 0xdead\n"
-   "ori r4, r4, 0xbeef\n"
-   "lfd f2, 0(r4)\n"
-   "fadd f1, f2, f1\n"
+
+   "fctiwz f1, f1\n"
+   "subi r1, r1, 64\n"
+
    "addis r7, 0, 0xdead\n"
    "ori r7, r7, 0xbeef\n"
+
+   "stfd f1, 8(r1)\n"
    "mtctr r7\n"
-   "fctiwz f1, f1\n"
-   "stfd f1, 8(r16)\n"
-   "lwz r4, 12(r16)\n"
-   "subi r1, r1, 64\n"
+
+   "lwz r4, 12(r1)\n"
+
    "bctrl\n"
    "addi r1, r1, 64\n"
   ::
@@ -1200,11 +1196,8 @@ void nseel_asm_booltofp_end(void){ }
 void nseel_asm_fptobool(void)
 {
   __asm__(
-    "addis r5, 0, 0xdead\n"
-    "ori r5, r5, 0xbeef\n"
     "fabs f1, f1\n"
-    "lfd f2, 0(r5)\n"
-    "fcmpu cr7, f1, f2\n"
+    "fcmpu cr7, f1, f14\n"
     "addis r3, 0, 1\n"
     "bge cr7, 0f\n"
     "  addis r3, 0, 0\n"
