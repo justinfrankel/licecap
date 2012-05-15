@@ -4,6 +4,7 @@
 #define GLUE_MAX_JMPSIZE 30000 // maximum relative jump size for this arch (if not defined, any jump is possible)
 #define GLUE_JMP_TYPE short
 #define GLUE_JMP_OFFSET (-4) // jumps are from start of instruction on ppc
+#define GLUE_JMP_OFFSET_MASK 0xfffc
 
 static const unsigned char GLUE_JMP_NC[] = { 0x48,0, 0, 0, }; // b <offset>
 

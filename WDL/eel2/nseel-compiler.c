@@ -2216,9 +2216,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
         if (bufOut) memcpy(bufOut + parm_size, GLUE_WHILE_CHECK_RV, sizeof(GLUE_WHILE_CHECK_RV));
         parm_size+=sizeof(GLUE_WHILE_CHECK_RV);
-        if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (looppt - (bufOut+parm_size + GLUE_JMP_OFFSET));
+        if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (looppt - (bufOut+parm_size + GLUE_JMP_OFFSET)) & GLUE_JMP_OFFSET_MASK;
 
-        if (bufOut) *(GLUE_JMP_TYPE *)jzoutpt = ((bufOut + parm_size) - (jzoutpt + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
+        if (bufOut) *(GLUE_JMP_TYPE *)jzoutpt = ((bufOut + parm_size) - (jzoutpt + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET)) & GLUE_JMP_OFFSET_MASK;
         
         return rv_offset+parm_size;
       }
@@ -2288,9 +2288,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_END,sizeof(GLUE_LOOP_END));
         parm_size += sizeof(GLUE_LOOP_END);
         
-        if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (loopdest - (bufOut+parm_size + GLUE_JMP_OFFSET));
+        if (bufOut) *(GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE)) = (loopdest - (bufOut+parm_size + GLUE_JMP_OFFSET)) & GLUE_JMP_OFFSET_MASK;
 
-        if (bufOut) *(GLUE_JMP_TYPE *)skipptr1 =  (bufOut+parm_size - (skipptr1 + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
+        if (bufOut) *(GLUE_JMP_TYPE *)skipptr1 =  (bufOut+parm_size - (skipptr1 + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET)) & GLUE_JMP_OFFSET_MASK;
 
         return rv_offset + parm_size;
 
@@ -2334,7 +2334,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
 
         parm_size+=sz2;
-        if (bufOut) *(GLUE_JMP_TYPE *)destbuf = (bufOut + parm_size - (destbuf + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET));
+        if (bufOut) *(GLUE_JMP_TYPE *)destbuf = (bufOut + parm_size - (destbuf + sizeof(GLUE_JMP_TYPE) + GLUE_JMP_OFFSET)) & GLUE_JMP_OFFSET_MASK;
 
         if (fUse > *fpStackUse) *fpStackUse=fUse;
         return rv_offset + parm_size;
@@ -2409,7 +2409,7 @@ doNonInlinedAndOr_:
         CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
         if (csz<0) RET_MINUS1_FAIL("if coc fial")
 
-        if (bufOut) *((GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE))) = csz - GLUE_JMP_OFFSET + (hasSecondHalf?sizeof(GLUE_JMP_NC):0);
+        if (bufOut) *((GLUE_JMP_TYPE *)(bufOut + parm_size - sizeof(GLUE_JMP_TYPE))) = (csz - GLUE_JMP_OFFSET + (hasSecondHalf?sizeof(GLUE_JMP_NC):0)) & GLUE_JMP_OFFSET_MASK;
         parm_size+=csz;
 
         if (hasSecondHalf)
@@ -2424,7 +2424,7 @@ doNonInlinedAndOr_:
           if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
 
           // update jump address
-          if (bufOut) *((GLUE_JMP_TYPE *) (bufOut + parm_size-sizeof(GLUE_JMP_TYPE))) = csz - GLUE_JMP_OFFSET; 
+          if (bufOut) *((GLUE_JMP_TYPE *) (bufOut + parm_size-sizeof(GLUE_JMP_TYPE))) = (csz - GLUE_JMP_OFFSET) & GLUE_JMP_OFFSET_MASK; 
           parm_size+=csz;       
           if (fUse > *fpStackUse) *fpStackUse=fUse;
         }

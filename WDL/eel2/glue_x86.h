@@ -3,6 +3,7 @@
 
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
+#define GLUE_JMP_OFFSET_MASK 0xffffffff
 
 static const unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
 static const unsigned char GLUE_JMP_IF_P1_Z[] = {0x85, 0xC0, 0x0F, 0x84, 0,0,0,0 }; // test eax, eax, jz
