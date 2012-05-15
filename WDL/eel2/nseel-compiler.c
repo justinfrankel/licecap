@@ -466,8 +466,6 @@ static void *NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext
     static EEL_F negativezeropointfive=-0.5f;
     static EEL_F onepointfive=1.5f;
     static EEL_F g_closefact = NSEEL_CLOSEFACTOR;
-  #else
-    static const EEL_F eel_zero=0.0, eel_one=1.0;
   #endif
 #endif
 
@@ -2693,10 +2691,6 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     {
       unsigned char *p=bufOut;
       memcpy(bufOut,stub,stubsize);
-#ifdef __ppc__
-      p=EEL_GLUE_set_immediate(p,&eel_one);
-      EEL_GLUE_set_immediate(p,&eel_zero);
-#endif
       bufOut += stubsize;
     }
     codesz+=stubsize;

@@ -1138,13 +1138,12 @@ void nseel_asm_booltofp(void)
 {
   __asm__(
     "cmpwi cr7, r3, 0\n"
-    "addis r3, 0, 0xdead\n"
-    "ori r3, r3, 0xbeef\n"
-    "bne cr7, 0f\n"
-      "addis r3, 0, 0xdead\n"
-      "ori r3, r3, 0xbeef\n"
+    "li r14, 0\n"
+    "beq cr7, 0f\n"
+      "addis r14, 0, 0x3f80\n"
     "0:\n"
-    "lfd f1, 0(r3)\n"
+    "stw r14, -8(r1)\n"
+    "lfs f1, -8(r1)\n"
   );
 }
 void nseel_asm_booltofp_end(void){ }
