@@ -5,7 +5,8 @@
 
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_OFFSET 0
-  
+#define GLUE_JMP_OFFSET_MASK 0xffffffff
+#define GLUE_MEM_NEEDS_PPROC  
 
 enum {
   EEL_BC_NOP=1,
@@ -361,6 +362,9 @@ BC_DECLASM_N_EXPORT(generic3parm,GENERIC3PARM,2)
 BC_DECLASM_N_EXPORT(generic1parm_retd,GENERIC1PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic2parm_retd,GENERIC2PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
+
+#define _asm_gmegabuf _asm_megabuf
+#define _asm_gmegabuf_end _asm_megabuf_end
 
 #define nseel_asm_1pdd_end EEL_BC_ENDOF(nseel_asm_1pdd)
 #define nseel_asm_2pdd_end EEL_BC_ENDOF(nseel_asm_2pdd)
