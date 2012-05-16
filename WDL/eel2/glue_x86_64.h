@@ -169,8 +169,9 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 2+sizeof(void *);
 }
 
-extern void win64_callcode(INT_PTR code, INT_PTR ram_tab);
-#define GLUE_CALL_CODE(bp, cp, rt) win64_callcode(cp, rt)
+static EEL_F _x64_closefact = NSEEL_CLOSEFACTOR;
+extern void win64_callcode(INT_PTR code, INT_PTR ram_tab, INT_PTR closefact);
+#define GLUE_CALL_CODE(bp, cp, rt) win64_callcode(cp, rt, (INT_PTR)&_x64_closefact)
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 {
@@ -239,6 +240,12 @@ static const unsigned char GLUE_FXCH[] = {0xd9, 0xc9};
 static const unsigned char GLUE_FLDZ[] = {0xd9, 0xee};
 #define GLUE_HAS_FLD1
 static const unsigned char GLUE_FLD1[] = {0xd9, 0xe8};
+
+
+static EEL_F negativezeropointfive=-0.5f;
+static EEL_F onepointfive=1.5f;
+#define GLUE_INVSQRT_NEEDREPL &negativezeropointfive, &onepointfive,
+
 
 // end of x86-64
 

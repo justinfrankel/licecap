@@ -1534,8 +1534,7 @@ __declspec(naked) void nseel_asm_equal(void)
     fsub;
     fabs;
 #ifdef TARGET_X64
-    mov rax, 0xfefefefe;
-    fcomp EEL_ASM_TYPE [rax]; //[g_closefact]
+    fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
 #else
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fcomp qword ptr [0xfefefefe]
@@ -1578,8 +1577,7 @@ __declspec(naked) void nseel_asm_notequal(void)
     fsub;
     fabs;
 #ifdef TARGET_X64
-    mov rax, 0xfefefefe;
-    fcomp EEL_ASM_TYPE [rax]; //[g_closefact]
+    fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
 #else
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fcomp qword ptr [0xfefefefe]
@@ -1698,8 +1696,7 @@ __declspec(naked) void nseel_asm_fptobool(void)
   __asm {
     fabs;
 #ifdef TARGET_X64
-    mov rax, 0xfefefefe;
-    fcomp EEL_ASM_TYPE [rax]; //[g_closefact]
+    fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
 #else
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fcomp qword ptr [0xfefefefe]
@@ -2341,8 +2338,7 @@ __declspec(naked) void _asm_gmegabuf(void)
 
     mov r15, rsi;
     mov rdi, 0xfefefefe; // first parameter = context pointer
-    mov rdx, 0xfefefefe;
-    fadd EEL_ASM_TYPE [rdx];
+    fadd EEL_ASM_TYPE [r13];
     fistp dword ptr [r15];
     xor rsi, rsi;
     mov esi, dword ptr [r15]; // r15 = esi (from above)
@@ -2354,8 +2350,7 @@ __declspec(naked) void _asm_gmegabuf(void)
 
 #else
     mov ecx, 0xfefefefe; // first parameter = context pointer
-    mov edx, 0xfefefefe;
-    fadd EEL_ASM_TYPE [rdx];
+    fadd EEL_ASM_TYPE [r13];
     fistp dword ptr [esi];
     xor rdx, rdx;
     mov edx, dword ptr [esi];
@@ -2821,11 +2816,13 @@ __declspec(naked) void win64_callcode()
 
 #ifdef AMD64ABI
     mov r12, rsi; // second parameter is ram-blocks pointer
+    mov r13, rdx; // third parameter is ptr to g_closefact
 		call rdi;
 #else
 		push rdi;
 		push rsi;
     mov r12, rdx; // second parameter is ram-blocks pointer
+    mov r13, r8; // third parameter is ptr to g_closefact
 		call rcx;
 		pop rsi;
 		pop rdi;

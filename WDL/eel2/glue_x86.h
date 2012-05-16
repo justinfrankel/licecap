@@ -320,5 +320,13 @@ static const unsigned char GLUE_FLDZ[] = {0xd9, 0xee};
 #define GLUE_HAS_FLD1
 static const unsigned char GLUE_FLD1[] = {0xd9, 0xe8};
 
+static EEL_F negativezeropointfive=-0.5f;
+static EEL_F onepointfive=1.5f;
+#define GLUE_INVSQRT_NEEDREPL &negativezeropointfive, &onepointfive,
+#define GLUE_CLOSEFACTOR_NEEDADDR &_x86_closefact,
+#define GLUE_CLOSEFACTOR_NEEDADDR_PLAIN &_x86_closefact
+static EEL_F _x86_closefact = NSEEL_CLOSEFACTOR;
+
+#define GLUE_MEM_NEEDS_PPROC  // x86 doesnt have enough registers to keep the ram ptr around
 
 #endif
