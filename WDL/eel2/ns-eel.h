@@ -168,9 +168,13 @@ extern int NSEEL_RAM_memused_errors;
 #define NSEEL_SHARED_GRAM_SIZE (1<<20)
 
 // 128*65536 = ~8million entries. (64MB RAM used)
-// note: for optimization purposes, you can no longer change these without having to modify some assembly, sorry
-#define NSEEL_RAM_BLOCKS 128
-#define NSEEL_RAM_ITEMSPERBLOCK 65536
+// note: for optimization purposes, you can no longer change these without having to modify some assembly (for x86/x86-64)
+
+#define NSEEL_RAM_BLOCKS_LOG2 7
+#define NSEEL_RAM_ITEMSPERBLOCK_LOG2 16
+
+#define NSEEL_RAM_BLOCKS (1 << NSEEL_RAM_BLOCKS_LOG2)
+#define NSEEL_RAM_ITEMSPERBLOCK (1<<NSEEL_RAM_ITEMSPERBLOCK_LOG2)
 
 #define NSEEL_STACK_SIZE 4096 // about 64k overhead if the stack functions are used in a given code handle
 

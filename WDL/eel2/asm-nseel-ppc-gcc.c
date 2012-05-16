@@ -909,12 +909,12 @@ void _asm_megabuf(void)
    "stfd f1, 8(r16)\n"
    "lwz r4, 12(r16)\n" // r4 is index of array
 
-   "andis. r15, r4, 0xFF80\n" // check to see if it has any bits in 0xFF800000, which is 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+   "andis. r15, r4, %0\n" // check to see if it has any bits in 0xFF800000, which is 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
    "bne cr0, 1f\n" // out of range, jump to error
 
    // shr 14 (16 for NSEEL_RAM_ITEMSPERBLOCK, minus two for pointer size), which is rotate 18
    // mask 7 bits (NSEEL_RAM_BLOCKS), but leave two empty bits (pointer size)
-   "rlwinm r15, r4, 18, 23, 29\n"
+   "rlwinm r15, r4, %1, %2, 29\n"
    "lwzx r15, r3, r15\n" // r15 = (r3+r15)
    "cmpi cr0, r15, 0\n"
    "beq cr0, 1f\n"
@@ -922,7 +922,7 @@ void _asm_megabuf(void)
      // good news: we can do a direct addr return
      // bad news: more rlwinm ugliness!
      // shift left by 3 (sizeof(EEL_F)), mask off lower 3 bits, only allow 16 bits (NSEEL_RAM_ITEMSPERBLOCK) through
-     "rlwinm r3, r4, 3, 13, 28\n" 
+     "rlwinm r3, r4, 3, %3, 28\n" 
 
      // add offset of loaded block
      "add r3, r3, r15\n"
@@ -938,7 +938,11 @@ void _asm_megabuf(void)
      "bctrl\n"
      "addi r1, r1, 64\n"
    "0:\n"
-  ::
+  :: 
+    "i" ((0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))>>16),
+    "i" (32 - NSEEL_RAM_ITEMSPERBLOCK_LOG2 + 2),
+    "i" (30 - NSEEL_RAM_BLOCKS_LOG2),
+    "i" (28 - NSEEL_RAM_ITEMSPERBLOCK_LOG2 + 1)
  ); 
 }
 
