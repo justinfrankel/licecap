@@ -61,8 +61,6 @@
 
 #endif
 
-#define EEL_STACK_SUPPORT
-
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
 
@@ -400,7 +398,6 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(invsqrt)
   DECL_ASMFUNC(exec2)
 
-#ifdef EEL_STACK_SUPPORT
   DECL_ASMFUNC(stack_push)
   DECL_ASMFUNC(stack_pop)
   DECL_ASMFUNC(stack_pop_fast) // just returns value, doesn't mod param
@@ -408,7 +405,6 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(stack_peek_int)
   DECL_ASMFUNC(stack_peek_top)
   DECL_ASMFUNC(stack_exch)
-#endif
 
 static void *NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
 {
@@ -472,6 +468,9 @@ static void *NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 static double __floor(double a) { return floor(a); }
+static double __ceil(double a) { return ceil(a); }
+#define floor __floor
+#define ceil __ceil
 #endif
 
 
@@ -598,11 +597,7 @@ static functionType fnTable1[] = {
    { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2), },
    { "rand",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&nseel_int_rand}, },
 
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&__floor} },
-#else
    { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&floor} },
-#endif
    { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&ceil} },
 
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), {GLUE_INVSQRT_NEEDREPL} },
@@ -618,8 +613,6 @@ static functionType fnTable1[] = {
 
   {"exec2",nseel_asm_exec2,nseel_asm_exec2_end,2|NSEEL_NPARAMS_FLAG_CONST},
   {"exec3",nseel_asm_exec2,nseel_asm_exec2_end,3|NSEEL_NPARAMS_FLAG_CONST},
-
-
 #endif // end EEL1 compat
 
 
@@ -636,14 +629,10 @@ static functionType fnTable1[] = {
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
 
-#ifdef EEL_STACK_SUPPORT
   {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1|BIF_FPSTACKUSE(0),{0,},NSEEL_PProc_Stack},
   {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1|BIF_FPSTACKUSE(1),{0,},NSEEL_PProc_Stack},
   {"stack_peek",nseel_asm_stack_peek,nseel_asm_stack_peek_end,1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(0),{0,},NSEEL_PProc_Stack},
   {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1|BIF_FPSTACKUSE(1), {0,},NSEEL_PProc_Stack_PeekTop},
-#endif
-
-
 };
 
 static functionType *fnTableUser;
@@ -1684,7 +1673,6 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
   {
-#ifdef EEL_STACK_SUPPORT
     if (func == nseel_asm_stack_pop)
     {
       int func_size=0;
@@ -1728,7 +1716,6 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         return func_size;
       }
     }
-#endif // EEL_STACK_SUPPORT
   }
   else if (func == nseel_asm_assign &&
       (op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE
