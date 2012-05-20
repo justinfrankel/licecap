@@ -182,6 +182,7 @@ typedef struct _compileContext
   _codeHandleFunctionRec *functions_local, *functions_common;
 
   // state used while generating functions
+  int optimizeDisableFlags;
 
   int isSharedFunctions;
   int function_usesThisPointer;

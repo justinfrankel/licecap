@@ -63,7 +63,6 @@
 
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
-
 //#define LOG_OPT
 //#define EEL_PPC_NOFREECODE
 //#define EEL_PRINT_FAILS
@@ -203,6 +202,15 @@
   #endif
   }
 #endif 
+
+
+
+
+// used by //#eel-no-optimize:xxx, in ctx->optimizeDisableFlags
+#define OPTFLAG_NO_OPTIMIZE 1
+#define OPTFLAG_NO_FPSTACK 2
+#define OPTFLAG_NO_INLINEFUNC 4
+
 
 
 
@@ -1092,7 +1100,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             *rvMode = fr->rvMode;
             *fpStackUse = fr->fpStackUsage;
 
-            if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
+            if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE && !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
             {
               *isRaw = 1;
               *endP = ((char *)1) + sz;
@@ -1102,7 +1110,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             return (void*)nseel_asm_fcall;
           }
 
-          if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE)
+          if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE && !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
           {
             void *p=newTmpBlock(ctx,sz);
             fr->tmpspace_req=0;
@@ -1778,7 +1786,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
       if (may_need_fppush>=0)
       {
-        if (local_fpstack_use+subfpstackuse >= 7)
+        if (local_fpstack_use+subfpstackuse >= 7 || (ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
         {
           if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) 
             RET_MINUS1_FAIL("failed on size, popfpstacktostack")
@@ -2787,6 +2795,11 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       if (expression[1] == '/')
       {
         expression+=2;
+        if (!strncasecmp(expression,"#eel-no-optimize:",17))
+        {
+          ctx->optimizeDisableFlags = atoi(expression+17);
+        }
+
         while (expression[0] && expression[0] != '\n') expression++;
 	      continue;
       }
@@ -3291,6 +3304,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (!ctx) return 0;
 
+  ctx->optimizeDisableFlags=0;
+
   if (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET)
   {
     ctx->functions_common=NULL; // reset common function list
@@ -3606,7 +3621,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       printf("%s\n",buf);
 #endif
 #endif
-      optimizeOpcodes(ctx,start_opcode,is_fname[0] ? 1 : 0);
+      if (!(ctx->optimizeDisableFlags&OPTFLAG_NO_OPTIMIZE)) optimizeOpcodes(ctx,start_opcode,is_fname[0] ? 1 : 0);
 #ifdef LOG_OPT
       sprintf(buf,"post opt sz=%d, stack depth=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL,&sd),sd);
 #ifdef _WIN32
