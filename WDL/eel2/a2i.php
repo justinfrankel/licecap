@@ -122,7 +122,7 @@ while (($line = fgets($in)))
 
           $parms = preg_replace("/\\((.{2,3}),(.{2,3})\\)/","($1+$2)",$parms);
 
-          $parms=preg_replace("/EEL_F_SUFFIX ([0-9]+)\\((.*)\\)/","EEL_ASM_TYPE [$2+$1]",$parms);
+          $parms=preg_replace("/EEL_F_SUFFIX (-?[0-9]+)\\((.*)\\)/","EEL_ASM_TYPE [$2+$1]",$parms);
           $parms=preg_replace("/EEL_F_SUFFIX \\((.*)\\)/","EEL_ASM_TYPE [$1]",$parms);
 
           if ($inst == "sh" && $suffix == "ll") { $suffix="l"; $inst="shl"; }
