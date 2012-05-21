@@ -1739,10 +1739,10 @@ __declspec(naked) void nseel_asm_min(void)
   __asm {
     fld EEL_ASM_TYPE [edi];
     fcomp EEL_ASM_TYPE [eax];
-    push eax;
+    mov ecx, eax;
     fstsw ax;
     test eax, 256;
-    pop eax;
+    mov eax, ecx;
     jz label_24;
     mov eax, edi;
 label_24:
@@ -1769,10 +1769,10 @@ __declspec(naked) void nseel_asm_max(void)
   __asm {
     fld EEL_ASM_TYPE [edi];
     fcomp EEL_ASM_TYPE [eax];
-    push eax;
+    mov ecx, eax;
     fstsw ax;
     test eax, 256;
-    pop eax;
+    mov eax, ecx;
     jnz label_25;
     mov eax, edi;
 label_25:
@@ -1893,9 +1893,9 @@ __declspec(naked) void _asm_generic3parm(void)
     mov edx, 0xfefefefe;
     push eax; // push parameter
     push edi; // push parameter
+    mov edi, 0xfefefefe;
     push ecx; // push parameter
     push edx; // push context pointer
-    mov edi, 0xfefefefe;
     call edi;
     add esp, 16;
 
@@ -2000,12 +2000,12 @@ __declspec(naked) void _asm_generic2parm(void) // this prob neds to be fixed for
 #else
 
     mov edx, 0xfefefefe;
+    mov ecx, 0xfefefefe;
     sub esp, 4; // keep stack aligned
     push eax; // push parameter
     push edi; // push parameter
     push edx; // push context pointer
-    mov edi, 0xfefefefe;
-    call edi;
+    call ecx;
     add esp, 16;
 
 #endif
@@ -2107,10 +2107,10 @@ __declspec(naked) void _asm_generic1parm(void)
 
     mov edx, 0xfefefefe;
     sub esp, 8; // keep stack aligned
+    mov ecx, 0xfefefefe;
     push eax; // push parameter
     push edx; // push context pointer
-    mov edi, 0xfefefefe;
-    call edi;
+    call ecx;
     add esp, 16;
 
 #endif
@@ -2160,11 +2160,11 @@ __declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning dou
 #else
 
     mov edx, 0xfefefefe; // context pointer
-    mov edi, 0xfefefefe; // func-addr
+    mov ecx, 0xfefefefe; // func-addr
     sub esp, 16;
     mov dword ptr [esp+4], eax; // push parameter
     mov dword ptr [esp], edx; // push context pointer
-    call edi;
+    call ecx;
     add esp, 16;
 
 #endif
@@ -2294,10 +2294,10 @@ label_31:
 label_32:
     
     sub esp, 8; // keep stack aligned
+    mov ecx, 0xfefefefe;
     push edi; // parameter
     push edx; // push context pointer
-    mov edi, 0xfefefefe;
-    call edi;
+    call ecx;
     add esp, 16;
 
 label_33:

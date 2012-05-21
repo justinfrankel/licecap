@@ -989,10 +989,10 @@ void nseel_asm_min(void)
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fcomp" EEL_F_SUFFIX " (%eax)\n"
-    "pushl %eax\n"
+    "movl %eax, %ecx\n"
     "fstsw %ax\n"
     "testl $256, %eax\n"
-    "popl %eax\n"
+    "movl %ecx, %eax\n"
     "jz 0f\n"
     "movl %edi, %eax\n"
     "0:\n"
@@ -1006,10 +1006,10 @@ void nseel_asm_max(void)
   __asm__(
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fcomp" EEL_F_SUFFIX " (%eax)\n"
-    "pushl %eax\n"
+    "movl %eax, %ecx\n"
     "fstsw %ax\n"
     "testl $256, %eax\n"
-    "popl %eax\n"
+    "movl %ecx, %eax\n"
     "jnz 0f\n"
     "movl %edi, %eax\n"
     "0:\n"
@@ -1091,9 +1091,9 @@ void _asm_generic3parm(void)
     "movl $0xfefefefe, %edx\n"
     "pushl %eax\n" // push parameter
     "pushl %edi\n" // push parameter
+    "movl $0xfefefefe, %edi\n"
     "pushl %ecx\n" // push parameter
     "pushl %edx\n" // push context pointer
-    "movl $0xfefefefe, %edi\n"
     "call *%edi\n"
     "addl $16, %esp\n"
     
@@ -1174,12 +1174,12 @@ void _asm_generic2parm(void) // this prob neds to be fixed for ppc
 #else
     
     "movl $0xfefefefe, %edx\n"
+    "movl $0xfefefefe, %ecx\n"
     "subl $4, %esp\n" // keep stack aligned
     "pushl %eax\n" // push parameter
     "pushl %edi\n" // push parameter
     "pushl %edx\n" // push context pointer
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
+    "call *%ecx\n"
     "addl $16, %esp\n"
     
 #endif
@@ -1257,10 +1257,10 @@ void _asm_generic1parm(void)
     
     "movl $0xfefefefe, %edx\n"
     "subl $8, %esp\n" // keep stack aligned
+    "movl $0xfefefefe, %ecx\n"
     "pushl %eax\n" // push parameter
     "pushl %edx\n" // push context pointer
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
+    "call *%ecx\n"
     "addl $16, %esp\n"
     
 #endif
@@ -1298,11 +1298,11 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
 #else
     
     "movl $0xfefefefe, %edx\n" // context pointer
-    "movl $0xfefefefe, %edi\n" // func-addr
+    "movl $0xfefefefe, %ecx\n" // func-addr
     "subl $16, %esp\n"
     "movl %eax, 4(%esp)\n" // push parameter
     "movl %edx, (%esp)\n" // push context pointer
-    "call *%edi\n"
+    "call *%ecx\n"
     "addl $16, %esp\n"
     
 #endif
@@ -1415,10 +1415,10 @@ void _asm_megabuf(void)
 
     "1:\n"
     "subl $8, %esp\n" // keep stack aligned
+    "movl $0xfefefefe, %ecx\n"
     "pushl %edi\n" // parameter
     "pushl %edx\n" // push context pointer
-    "movl $0xfefefefe, %edi\n"
-    "call *%edi\n"
+    "call *%ecx\n"
     "addl $16, %esp\n"
 
     "0:"
