@@ -3776,6 +3776,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (startpts) 
   {
+    curtabptr_sz += 2; // many functions use the worktable for temporary storage of up to 2 EEL_F's
+
     handle->workTable_size = curtabptr_sz;
     handle->workTable = curtabptr = newDataBlock((curtabptr_sz+MIN_COMPUTABLE_SIZE + COMPUTABLE_EXTRA_SPACE) * sizeof(EEL_F),32);
 
