@@ -900,7 +900,7 @@ void nseel_asm_equal(void)
     "fsub\n"
     "fabs\n"
 #ifdef TARGET_X64
-    "fcomp" EEL_F_SUFFIX " (%r13)\n" //[g_closefact]
+    "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
 #else
     "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
 #endif
@@ -917,7 +917,7 @@ void nseel_asm_notequal(void)
     "fsub\n"
     "fabs\n"
 #ifdef TARGET_X64
-    "fcomp" EEL_F_SUFFIX " (%r13)\n" //[g_closefact]
+    "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
 #else
     "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
 #endif
@@ -972,7 +972,7 @@ void nseel_asm_fptobool(void)
   __asm__(
     "fabs\n"
 #ifdef TARGET_X64
-    "fcomp" EEL_F_SUFFIX " (%r13)\n" //[g_closefact]
+    "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
 #else
     "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
 #endif
@@ -1444,7 +1444,7 @@ void _asm_gmegabuf(void)
 #ifdef AMD64ABI
 
     "movl %rsi, %r15\n"
-    "fadd" EEL_F_SUFFIX " (%r13)\n"
+    "fadd" EEL_F_SUFFIX " -8(%r12)\n"
     "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
     "xorl %rsi, %rsi\n"
     "fistpl -8(%rsp)\n"
@@ -1457,7 +1457,7 @@ void _asm_gmegabuf(void)
 
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
-    "fadd" EEL_F_SUFFIX " (%r13)\n"
+    "fadd" EEL_F_SUFFIX " -8(%r12)\n"
     "fistpl -8(%esp)\n"
     "xorl %rdx, %rdx\n"
     "movl -8(%esp), %edx\n"
@@ -1727,13 +1727,11 @@ void win64_callcode()
 
 #ifdef AMD64ABI
     "movll %rsi, %r12\n" // second parameter is ram-blocks pointer
-    "movll %rdx, %r13\n" // third parameter is ptr to g_closefact
 		"call %rdi\n"
 #else
 		"push %rdi\n"
 		"push %rsi\n"
     "movll %rdx, %r12\n" // second parameter is ram-blocks pointer
-    "movll %r8, %r13\n" // third parameter is ptr to g_closefact
 		"call %rcx\n"
 		"pop %rsi\n"
 		"pop %rdi\n"
