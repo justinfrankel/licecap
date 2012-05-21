@@ -129,13 +129,6 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     0xDD, 0x04, 0x24, // fld qword (%esp)
     0x83, 0xC4, 16 //  add esp, 16
   };
- 
-  static const unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
-      0xDD, 0x1E, // fstp qword [esi]
-      0x83, 0xEC, 12, // sub esp, 12 
-      0x56, //  push esi
-      0x83, 0xC6, 8, // add esi, 8
-  };
 
   static const unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
       0xDD, 0x1E, /* fstp qword [esi] */
@@ -263,8 +256,8 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 #define GLUE_INLINE_LOOPS
 
 static const unsigned char GLUE_LOOP_LOADCNT[]={
-        0xDB, 0x1E,           //fistp dword [esi]
-        0x8B, 0x0E,           // mov ecx, [esi]
+        0xDB, 0x5C, 0x24, 0xf8, // fistp dword [esp-8]
+        0x8B, 0x4C, 0x24, 0xf8, // mov ecx, [esp-8]
         0x81, 0xf9, 1,0,0,0,  // cmp ecx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
 };

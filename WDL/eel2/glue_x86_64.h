@@ -108,13 +108,6 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     0xDD, 0x1C, 0x24 // fstp qword (%rsp)  
   };
 
-  static const unsigned char GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
-      0x56, //  push rsi (alignment)
-      0x56, //  push rsi (value used)
-      0xDD, 0x1E, // fstp qword [rsi]
-      0x48, 0x81, 0xC6, 8, 0,0,0, // add rsi, 8
-  };
-
   static const unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
       0xDD, 0x1E, /* fstp qword [rsi] */
       0x48, 0x81, 0xC6, 8, 0,0,0,/* add rsi, 8 */ 
@@ -187,8 +180,8 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
 #define GLUE_INLINE_LOOPS
 
 static const unsigned char GLUE_LOOP_LOADCNT[]={
-        0xDF, 0x3E,           //fistp qword [rsi]
-  0x48, 0x8B, 0x0E,           // mov rcx, [rsi]
+        0xDF, 0x7C, 0x24, 0xf8, // fistp qword [rsp-8]
+  0x48, 0x8B, 0x4C, 0x24, 0xf8, // mov rcx, [rsp-8]
   0x48, 0x81, 0xf9, 1,0,0,0,  // cmp rcx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
 };

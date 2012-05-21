@@ -204,11 +204,6 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
     0xdc21fff8, // stfdu f1, -8(r1)
   };
 
-  static const unsigned int GLUE_POP_FPSTACK_TO_WTP_ANDPUSHADDR[] = { 
-    0xdc300008, // stfdu f1, 8(r16)
-    0x9601fff8, // stwu r16, -8(r1)
-  };
-
   static const unsigned int GLUE_POP_FPSTACK_TO_WTP[] = { 
     0xdc300008, // stfdu f1, 8(r16)
   };
