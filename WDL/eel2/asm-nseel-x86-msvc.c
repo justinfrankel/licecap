@@ -2166,16 +2166,16 @@ __declspec(naked) void _asm_megabuf(void)
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
-    test rdx, 0xff800000; // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    test rdx, (0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1));     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
     jnz label_28;
     mov rax, rdx;
-    shr rax, 13;     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
-    and rax, 0x3F8;  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+    and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
     mov rax, qword ptr [r12+rax];
     test rax, rax;
     jz label_28;
-    and rdx, 0xFFFF; // (NSEEL_RAM_ITEMSPERBLOCK-1)
-    shl rdx, 3;      // log2(sizeof(EEL_F))
+    and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+    shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
     add rax, rdx;
     jmp label_29;
 
@@ -2200,16 +2200,16 @@ label_29:
 
     // check if (%rsi) is in range...
     mov edi, dword ptr [rsi];
-    test edi, 0xff800000;   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    test edi, (0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1));       //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
     jnz label_30;
     mov rax, rdi;
-    shr rax, 13;           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
-    and rax, 0x3F8;        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+    and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
     mov rax, qword ptr [r12+rax];
     test rax, rax;
     jz label_30;
-    and rdi, 0xFFFF;   // (NSEEL_RAM_ITEMSPERBLOCK-1)
-    shl rdi, 3;        // log2(sizeof(EEL_F))
+    and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+    shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
     add rax, rdi;
     jmp label_31;
 

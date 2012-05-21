@@ -1334,16 +1334,16 @@ void _asm_megabuf(void)
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     "movl (%rsi), %edx\n"
-    "testl $0xff800000, %rdx\n" // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    "testl %1, %rdx\n"     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
     "jnz 1f\n"
     "movll %rdx, %rax\n"
-    "shrll $13, %rax\n"     // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
-    "andll $0x3F8, %rax\n"  // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    "shrll %2, %rax\n"     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+    "andll %3, %rax\n"     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
     "movll (%r12, %rax), %rax\n"
     "testl %rax, %rax\n"
     "jz 1f\n"
-    "andll $0xFFFF, %rdx\n" // (NSEEL_RAM_ITEMSPERBLOCK-1)
-    "shlll $3, %rdx\n"      // log2(sizeof(EEL_F))
+    "andll %4, %rdx\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+    "shlll $3, %rdx\n"      // 3 is log2(sizeof(EEL_F))
     "addll %rdx, %rax\n"
     "jmp 0f\n"
 
@@ -1366,16 +1366,16 @@ void _asm_megabuf(void)
 
     // check if (%rsi) is in range...
     "movl (%rsi), %edi\n"
-    "testl $0xff800000, %edi\n"   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    "testl %1, %edi\n"       //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
     "jnz 1f\n"
     "movll %rdi, %rax\n"
-    "shrll $13, %rax\n"           // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void*))
-    "andll $0x3F8, %rax\n"        // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    "shrll %2, %rax\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+    "andll %3, %rax\n"       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
     "movll (%r12, %rax), %rax\n"
     "testl %rax, %rax\n"
     "jz 1f\n"
-    "andll $0xFFFF, %rdi\n"   // (NSEEL_RAM_ITEMSPERBLOCK-1)
-    "shlll $3, %rdi\n"        // log2(sizeof(EEL_F))
+    "andll %4, %rdi\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+    "shlll $3, %rdi\n"       // 3 is log2(sizeof(EEL_F))
     "addll %rdi, %rax\n"
     "jmp 0f\n"
 
