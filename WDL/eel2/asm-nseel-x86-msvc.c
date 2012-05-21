@@ -8,9 +8,7 @@
 
 /* note: only EEL_F_SIZE=8 is now supported (no float EEL_F's) */
 
-#ifdef AMD64ABI
-#define X64_EXTRA_STACK_SPACE 128
-#else
+#ifndef AMD64ABI
 #define X64_EXTRA_STACK_SPACE 32 // win32 requires allocating space for 4 parameters at 8 bytes each, even though we pass via register
 #endif
 
@@ -20,7 +18,6 @@ __declspec(naked) void nseel_asm_1pdd(void)
 
     mov edi, 0xfefefefe;
 #ifdef TARGET_X64
-    sub rsp, X64_EXTRA_STACK_SPACE;
     fstp qword ptr [rsi];
     movq xmm0, [rsi];
     #ifdef AMD64ABI
@@ -28,11 +25,12 @@ __declspec(naked) void nseel_asm_1pdd(void)
        call edi;
        mov rsi, r15;
     #else
+       sub rsp, X64_EXTRA_STACK_SPACE;
        call edi;
+       add rsp, X64_EXTRA_STACK_SPACE;
     #endif
     movq [rsi], xmm0;
     fld qword ptr [rsi];
-    add rsp, X64_EXTRA_STACK_SPACE;
 #else
     sub esp, 16;
     fstp qword ptr [esp];
@@ -62,7 +60,6 @@ __declspec(naked) void nseel_asm_2pdd(void)
 
     mov edi, 0xfefefefe;
 #ifdef TARGET_X64
-    sub rsp, X64_EXTRA_STACK_SPACE;
     fstp qword ptr [rsi+8];
     fstp qword ptr [rsi];
     movq xmm1, [rsi+8];
@@ -72,11 +69,12 @@ __declspec(naked) void nseel_asm_2pdd(void)
       call edi;
       mov rsi, r15;
     #else
+      sub rsp, X64_EXTRA_STACK_SPACE;
       call edi;
+      add rsp, X64_EXTRA_STACK_SPACE;
     #endif
     movq [rsi], xmm0;
     fld qword ptr [rsi];
-    add rsp, X64_EXTRA_STACK_SPACE;
 #else
     sub esp, 16;
     fstp qword ptr [esp+8];
@@ -107,7 +105,6 @@ __declspec(naked) void nseel_asm_2pdds(void)
 
     mov eax, 0xfefefefe;
 #ifdef TARGET_X64
-    sub rsp, X64_EXTRA_STACK_SPACE;
     fstp qword ptr [rsi];
     movq xmm0, [rdi];
     movq xmm1, [rsi];
@@ -119,11 +116,12 @@ __declspec(naked) void nseel_asm_2pdds(void)
       movq [r14], xmm0;
       mov rax, r14; /* set return value */
     #else
+      sub rsp, X64_EXTRA_STACK_SPACE;
       call eax;
       movq [edi], xmm0;
       mov eax, edi; /* set return value */
+      add rsp, X64_EXTRA_STACK_SPACE;
     #endif
-    add rsp, X64_EXTRA_STACK_SPACE;
 #else
     sub esp, 8;
     fstp qword ptr [esp];
@@ -1835,12 +1833,9 @@ __declspec(naked) void _asm_generic3parm(void)
     mov rsi, ecx; // second parameter = parm
     mov rcx, rax; // fourth parameter = parm
     mov rax, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
     call rax;
 
     mov rsi, r15;
-    add rsp, X64_EXTRA_STACK_SPACE;
-
 #else
     mov edx, ecx; // second parameter = parm
     mov ecx, 0xfefefefe; // first parameter= context
@@ -1892,9 +1887,10 @@ __declspec(naked) void _asm_generic3parm_retd(void)
     mov rsi, ecx; // second parameter = parm
     mov rcx, rax; // fourth parameter = parm
     mov rax, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
     call rax;
     mov rsi, r15;
+    movq [r15], xmm0;
+    fld qword ptr [r15];
 #else
     mov edx, ecx; // second parameter = parm
     mov ecx, 0xfefefefe; // first parameter= context
@@ -1903,10 +1899,10 @@ __declspec(naked) void _asm_generic3parm_retd(void)
     mov edi, 0xfefefefe; // call function
     sub rsp, X64_EXTRA_STACK_SPACE;
     call edi;
-#endif
+    add rsp, X64_EXTRA_STACK_SPACE;
     movq [rsi], xmm0;
     fld qword ptr [rsi];
-    add rsp, X64_EXTRA_STACK_SPACE;
+#endif
 #else
 
     sub esp, 16;
@@ -1948,10 +1944,8 @@ __declspec(naked) void _asm_generic2parm(void) // this prob neds to be fixed for
     mov edi, 0xfefefefe; // first parameter= context
     mov rdx, rax; // third parameter = parm
     mov rcx, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
     call rcx;
     mov rsi, r15;
-    add rsp, X64_EXTRA_STACK_SPACE;
 #else
     mov ecx, 0xfefefefe; // first parameter= context
     mov edx, edi; // second parameter = parm
@@ -2000,9 +1994,10 @@ __declspec(naked) void _asm_generic2parm_retd(void)
     mov rdi, 0xfefefefe; // first parameter= context
     mov rcx, 0xfefefefe; // call function
     mov rdx, rax; // third parameter = parm
-    sub rsp, X64_EXTRA_STACK_SPACE;
     call rcx;
     mov rsi, r15;
+    movq [r15], xmm0;
+    fld qword ptr [r15];
 #else
     mov rdx, rdi; // second parameter = parm
     mov rcx, 0xfefefefe; // first parameter= context
@@ -2010,10 +2005,10 @@ __declspec(naked) void _asm_generic2parm_retd(void)
     mov r8, rax; // third parameter = parm
     sub rsp, X64_EXTRA_STACK_SPACE;
     call edi;
-#endif
+    add rsp, X64_EXTRA_STACK_SPACE;
     movq [rsi], xmm0;
     fld qword ptr [rsi];
-    add rsp, X64_EXTRA_STACK_SPACE;
+#endif
 #else
 
     sub esp, 16;
@@ -2054,11 +2049,9 @@ __declspec(naked) void _asm_generic1parm(void)
     mov rdi, 0xfefefefe; // first parameter= context
     mov r15, rsi;
     mov rsi, eax; // second parameter = parm
-    sub rsp, X64_EXTRA_STACK_SPACE;
     mov rcx, 0xfefefefe; // call function
     call rcx;
     mov rsi, r15;
-    add rsp, X64_EXTRA_STACK_SPACE;
 #else
     mov ecx, 0xfefefefe; // first parameter= context
     mov edx, eax; // second parameter = parm
@@ -2100,7 +2093,6 @@ __declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning dou
 {
   __asm {
 #ifdef TARGET_X64
-    sub rsp, X64_EXTRA_STACK_SPACE;
 #ifdef AMD64ABI
     mov rdi, 0xfefefefe; // first parameter = context pointer
     mov rcx, 0xfefefefe; // function address
@@ -2110,17 +2102,20 @@ __declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning dou
     call rcx;
 
     mov rsi, r15;
+    movq [r15], xmm0;
+    fld qword ptr [r15];
 #else
     mov ecx, 0xfefefefe; // first parameter= context
     mov edi, 0xfefefefe; // call function
 
     mov rdx, rax; // second parameter = parm
 
+    sub rsp, X64_EXTRA_STACK_SPACE;
     call edi;
-#endif
+    add rsp, X64_EXTRA_STACK_SPACE;
     movq [rsi], xmm0;
     fld qword ptr [rsi];
-    add rsp, X64_EXTRA_STACK_SPACE;
+#endif
 #else
 
     mov edx, 0xfefefefe; // context pointer
@@ -2191,10 +2186,8 @@ label_28:
     mov rdi, r12; // set first parm to ctx
     mov r15, rsi; // save rsi
     mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
-    sub rsp, X64_EXTRA_STACK_SPACE;
     call rax;
     mov rsi, r15; // restore rsi
-    add rsp, X64_EXTRA_STACK_SPACE;
 label_29:
     
 
@@ -2314,10 +2307,8 @@ __declspec(naked) void _asm_gmegabuf(void)
     fistp dword ptr [r15];
     mov esi, dword ptr [r15];
     mov edx, 0xfefefefe;
-    sub rsp, X64_EXTRA_STACK_SPACE;
     call edx;
     mov rsi, r15;
-    add rsp, X64_EXTRA_STACK_SPACE;
 
 #else
     mov ecx, 0xfefefefe; // first parameter = context pointer

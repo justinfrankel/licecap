@@ -1,8 +1,6 @@
 /* note: only EEL_F_SIZE=8 is now supported (no float EEL_F's) */
 
-#ifdef AMD64ABI
-#define X64_EXTRA_STACK_SPACE 128
-#else
+#ifndef AMD64ABI
 #define X64_EXTRA_STACK_SPACE 32 // win32 requires allocating space for 4 parameters at 8 bytes each, even though we pass via register
 #endif
 
@@ -12,7 +10,6 @@ void nseel_asm_1pdd(void)
      
     "movl $0xfefefefe, %edi\n" 
 #ifdef TARGET_X64
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "fstpl (%rsi)\n"
     "movq (%rsi), %xmm0\n"
     #ifdef AMD64ABI
@@ -20,11 +17,12 @@ void nseel_asm_1pdd(void)
        "call *%edi\n" 
        "movl %r15, %rsi\n"
     #else
+       "subl X64_EXTRA_STACK_SPACE, %rsp\n"
        "call *%edi\n" 
+       "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     #endif
     "movq xmm0, (%rsi)\n"
     "fldl (%rsi)\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 #else
     "subl $16, %esp\n"
     "fstpl (%esp)\n"
@@ -42,7 +40,6 @@ void nseel_asm_2pdd(void)
     
     "movl $0xfefefefe, %edi\n"
 #ifdef TARGET_X64
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "fstpl 8(%rsi)\n"
     "fstpl (%rsi)\n"
     "movq 8(%rsi), %xmm1\n"
@@ -52,11 +49,12 @@ void nseel_asm_2pdd(void)
       "call *%edi\n"
       "movl %r15, %rsi\n"
     #else
+      "subl X64_EXTRA_STACK_SPACE, %rsp\n"
       "call *%edi\n"
+      "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     #endif
     "movq xmm0, (%rsi)\n"
     "fldl (%rsi)\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 #else
     "subl $16, %esp\n"
     "fstpl 8(%esp)\n"
@@ -75,7 +73,6 @@ void nseel_asm_2pdds(void)
     
     "movl $0xfefefefe, %eax\n"
 #ifdef TARGET_X64
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "fstpl (%rsi)\n"
     "movq (%rdi), %xmm0\n"
     "movq (%rsi), %xmm1\n"
@@ -87,11 +84,12 @@ void nseel_asm_2pdds(void)
       "movq xmm0, (%r14)\n"
       "movl %r14, %rax\n" /* set return value */
     #else
+      "subl X64_EXTRA_STACK_SPACE, %rsp\n"
       "call *%eax\n"
       "movq xmm0, (%edi)\n"
       "movl %edi, %eax\n" /* set return value */
+      "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     #endif
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 #else
     "subl $8, %esp\n"
     "fstpl (%esp)\n"
@@ -1075,12 +1073,9 @@ void _asm_generic3parm(void)
     "movl %ecx, %rsi\n" // second parameter = parm
     "movl %rax, %rcx\n" // fourth parameter = parm
     "movl $0xfefefefe, %rax\n" // call function
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%rax\n"
 
     "movl %r15, %rsi\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
-
 #else
     "movl %ecx, %edx\n" // second parameter = parm
     "movl $0xfefefefe, %ecx\n" // first parameter= context
@@ -1120,9 +1115,10 @@ void _asm_generic3parm_retd(void)
     "movl %ecx, %rsi\n" // second parameter = parm
     "movl %rax, %rcx\n" // fourth parameter = parm
     "movl $0xfefefefe, %rax\n" // call function
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%rax\n"
     "movl %r15, %rsi\n"
+    "movq xmm0, (%r15)\n"
+    "fldl (%r15)\n"
 #else
     "movl %ecx, %edx\n" // second parameter = parm
     "movl $0xfefefefe, %ecx\n" // first parameter= context
@@ -1131,10 +1127,10 @@ void _asm_generic3parm_retd(void)
     "movl $0xfefefefe, %edi\n" // call function
     "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%edi\n"
-#endif
+    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     "movq xmm0, (%rsi)\n"
     "fldl (%rsi)\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
+#endif
 #else
     
     "subl $16, %esp\n"
@@ -1164,10 +1160,8 @@ void _asm_generic2parm(void) // this prob neds to be fixed for ppc
     "movl $0xfefefefe, %edi\n" // first parameter= context
     "movl %rax, %rdx\n" // third parameter = parm
     "movl $0xfefefefe, %rcx\n" // call function
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%rcx\n"
     "movl %r15, %rsi\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter= context
     "movl %edi, %edx\n" // second parameter = parm
@@ -1204,9 +1198,10 @@ void _asm_generic2parm_retd(void)
     "movl $0xfefefefe, %rdi\n" // first parameter= context
     "movl $0xfefefefe, %rcx\n" // call function
     "movl %rax, %rdx\n" // third parameter = parm
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%rcx\n"
     "movl %r15, %rsi\n"
+    "movq xmm0, (%r15)\n"
+    "fldl (%r15)\n"
 #else
     "movl %rdi, %rdx\n" // second parameter = parm
     "movl $0xfefefefe, %rcx\n" // first parameter= context
@@ -1214,10 +1209,10 @@ void _asm_generic2parm_retd(void)
     "movl %rax, %r8\n" // third parameter = parm
     "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%edi\n"
-#endif
+    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     "movq xmm0, (%rsi)\n"
     "fldl (%rsi)\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
+#endif
 #else
     
     "subl $16, %esp\n"
@@ -1246,11 +1241,9 @@ void _asm_generic1parm(void)
     "movl $0xfefefefe, %rdi\n" // first parameter= context
     "movl %rsi, %r15\n"
     "movl %eax, %rsi\n" // second parameter = parm
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "movl $0xfefefefe, %rcx\n" // call function
     "call *%rcx\n"
     "movl %r15, %rsi\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter= context
     "movl %eax, %edx\n" // second parameter = parm
@@ -1280,7 +1273,6 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
 {
   __asm__(
 #ifdef TARGET_X64
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
 #ifdef AMD64ABI
     "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
     "movl $0xfefefefe, %rcx\n" // function address
@@ -1290,17 +1282,20 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
     "call *%rcx\n"
     
     "movl %r15, %rsi\n"
+    "movq xmm0, (%r15)\n"
+    "fldl (%r15)\n"
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter= context
     "movl $0xfefefefe, %edi\n" // call function
 
     "movl %rax, %rdx\n" // second parameter = parm
 
+    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%edi\n"
-#endif
+    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     "movq xmm0, (%rsi)\n"
     "fldl (%rsi)\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
+#endif
 #else
     
     "movl $0xfefefefe, %edx\n" // context pointer
@@ -1358,10 +1353,8 @@ void _asm_megabuf(void)
     "movl %r12, %rdi\n" // set first parm to ctx
     "movl %rsi, %r15\n" // save rsi
     "movl %rdx, %esi\n" // esi becomes second parameter (edi is first, context pointer)
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%rax\n"
     "movl %r15, %rsi\n" // restore rsi
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
     "0:\n"
 
 #else
@@ -1464,10 +1457,8 @@ void _asm_gmegabuf(void)
     "fistpl (%r15)\n"
     "movl (%r15), %esi\n" 
     "movl $0xfefefefe, %edx\n"
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
     "call *%edx\n"
     "movl %r15, %rsi\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 
 #else
     "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
