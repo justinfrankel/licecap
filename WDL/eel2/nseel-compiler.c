@@ -2176,7 +2176,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     if (op->opcodeType == OPCODETYPE_FUNC1 && fn_ptr == fnTable1 + 4)
     {
       *calledRvType = RETURNVALUE_BOOL;
-      if (computTableSize) (*computTableSize)++;
 
 #ifndef GLUE_INLINE_LOOPS
       // todo: PPC looping support when loop length is small enough
@@ -2238,7 +2237,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse);
       if (parm_size < 0) RET_MINUS1_FAIL("loop coc fail")
       
-      if (computTableSize) (*computTableSize) ++;
       *calledRvType = RETURNVALUE_BOOL;
       if (fUse > *fpStackUse) *fpStackUse=fUse;
            
@@ -2319,8 +2317,6 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       if (fUse > *fpStackUse) *fpStackUse=fUse;
 
 
-      if (computTableSize) (*computTableSize) ++;
-
       parm_size_pre=parm_size;
 
       {
@@ -2397,8 +2393,6 @@ doNonInlinedAndOr_:
       else if (preferredReturnValues & RETURNVALUE_FPSTACK) use_rv=RETURNVALUE_FPSTACK;
       else if (preferredReturnValues & RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
       
-      if (computTableSize) (*computTableSize) ++;
-
       *calledRvType = use_rv;
       parm_size_pre = parm_size;
 
@@ -2542,8 +2536,7 @@ doNonInlineIf_:
     case OPCODETYPE_FUNCX:
     case OPCODETYPE_FUNC1:
     case OPCODETYPE_FUNC2:
-    case OPCODETYPE_FUNC3:      
-      if (computTableSize) (*computTableSize) ++;
+    case OPCODETYPE_FUNC3:
       
       if (op->fntype == FUNCTYPE_EELFUNC_THIS || op->fntype == FUNCTYPE_EELFUNC)
       {
@@ -2758,6 +2751,8 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     }
     else if (supportedReturnValues & RETURNVALUE_NORMAL)
     {
+      if (computTableSize) (*computTableSize) ++;
+
       if (bufOut_len < GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE) RET_MINUS1_FAIL("popfpstacktowtptopxsize")
 
       // generate fp-pop to temp space
