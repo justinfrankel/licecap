@@ -177,7 +177,7 @@ __declspec(naked) void nseel_asm_invsqrt(void)
 {
   __asm {
     mov edx, 0x5f3759df;
-    fst dword ptr [esi];
+    fst dword ptr [esp+-8];
 #ifdef TARGET_X64
     mov rax, 0xfefefefe;
     sub ecx, ecx;
@@ -199,12 +199,12 @@ _emit 0xFE;
 _emit 0xFE;
 #endif
 #endif
-    mov ecx, dword ptr [esi];
+    mov ecx, dword ptr [esp+-8];
     sar ecx, 1;
     sub edx, ecx;
-    mov dword ptr [esi], edx;
-    fmul dword ptr [esi];
-    fmul dword ptr [esi];
+    mov dword ptr [esp+-8], edx;
+    fmul dword ptr [esp+-8];
+    fmul dword ptr [esp+-8];
 #ifdef TARGET_X64
     mov rax, 0xfefefefe;
     fadd EEL_ASM_TYPE [rax];
@@ -225,7 +225,7 @@ _emit 0xFE;
 _emit 0xFE;
 #endif
 #endif
-    fmul dword ptr [esi];
+    fmul dword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -801,21 +801,21 @@ __declspec(naked) void nseel_asm_mod(void)
 {
   __asm {
     fabs;
-    fistp dword ptr [esi];
+    fistp dword ptr [esp+-8];
     fabs;
-    fistp dword ptr [esi+4];
+    fistp dword ptr [esp+-4];
     xor edx, edx;
 #ifdef TARGET_X64
     sub eax, eax;
 #endif
-    cmp dword ptr [esi], 0;
+    cmp dword ptr [esp+-8], 0;
     je label_8; // skip devide, set return to 0
-    mov eax, dword ptr [esi+4];
-    div dword ptr [esi];
+    mov eax, dword ptr [esp+-4];
+    div dword ptr [esp+-8];
 label_8:
     
-    mov dword ptr [esi], edx;
-    fild dword ptr [esi];
+    mov dword ptr [esp+-8], edx;
+    fild dword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -835,13 +835,13 @@ __declspec(naked) void nseel_asm_mod_end(void) {}
 __declspec(naked) void nseel_asm_shl(void)
 {
   __asm {
-    fistp dword ptr [esi];
-    fistp dword ptr [esi+4];
-    mov ecx, dword ptr [esi];
-    mov eax, dword ptr [esi+4];
+    fistp dword ptr [esp+-8];
+    fistp dword ptr [esp+-4];
+    mov ecx, dword ptr [esp+-8];
+    mov eax, dword ptr [esp+-4];
     shl eax, cl;
-    mov dword ptr [esi], eax;
-    fild dword ptr [esi];
+    mov dword ptr [esp+-8], eax;
+    fild dword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -861,13 +861,13 @@ __declspec(naked) void nseel_asm_shl_end(void) {}
 __declspec(naked) void nseel_asm_shr(void)
 {
   __asm {
-    fistp dword ptr [esi];
-    fistp dword ptr [esi+4];
-    mov ecx, dword ptr [esi];
-    mov eax, dword ptr [esi+4];
+    fistp dword ptr [esp+-8];
+    fistp dword ptr [esp+-4];
+    mov ecx, dword ptr [esp+-8];
+    mov eax, dword ptr [esp+-4];
     sar eax, cl;
-    mov dword ptr [esi], eax;
-    fild dword ptr [esi];
+    mov dword ptr [esp+-8], eax;
+    fild dword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -893,14 +893,14 @@ __declspec(naked) void nseel_asm_mod_op(void)
     fabs;
     fistp dword ptr [edi];
     fabs;
-    fistp dword ptr [esi];
+    fistp dword ptr [esp+-8];
 #ifdef TARGET_X64
     sub eax, eax;
 #endif
     xor edx, edx;
     cmp dword ptr [edi], 0;
     je label_9; // skip devide, set return to 0
-    mov eax, dword ptr [esi];
+    mov eax, dword ptr [esp+-8];
     div dword ptr [edi];
 label_9:
     
@@ -928,18 +928,18 @@ __declspec(naked) void nseel_asm_mod_op_end(void) {}
 __declspec(naked) void nseel_asm_or(void)
 {
   __asm {
-    fistp qword ptr [esi];
-    fistp qword ptr [esi+8];
+    fistp qword ptr [esp+-8];
+    fistp qword ptr [esp+-16];
 #ifdef TARGET_X64
-    mov rdi, qword ptr [rsi+8];
-    or qword ptr [rsi], rdi;
+    mov rdi, qword ptr [rsp+-16];
+    or qword ptr [rsp+-8], rdi;
 #else
-    mov edi, dword ptr [esi+8];
-    mov ecx, dword ptr [esi+12];
-    or dword ptr [esi], edi;
-    or dword ptr [esi+4], ecx;
+    mov edi, dword ptr [esp+-16];
+    mov ecx, dword ptr [esp+-12];
+    or dword ptr [esp+-8], edi;
+    or dword ptr [esp+-4], ecx;
 #endif
-    fild qword ptr [esi];
+    fild qword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -982,13 +982,13 @@ __declspec(naked) void nseel_asm_or_op(void)
     fld EEL_ASM_TYPE [edi];
     fxch;
     fistp qword ptr [edi];
-    fistp qword ptr [esi];
+    fistp qword ptr [esp+-8];
 #ifdef TARGET_X64
-    mov rax, qword ptr [rsi];
+    mov rax, qword ptr [rsp+-8];
     or qword ptr [rdi], rax;
 #else
-    mov eax, dword ptr [esi];
-    mov ecx, dword ptr [esi+4];
+    mov eax, dword ptr [esp+-8];
+    mov ecx, dword ptr [esp+-4];
     or dword ptr [edi], eax;
     or dword ptr [edi+4], ecx;
 #endif
@@ -1015,18 +1015,18 @@ __declspec(naked) void nseel_asm_or_op_end(void) {}
 __declspec(naked) void nseel_asm_xor(void)
 {
   __asm {
-    fistp qword ptr [esi];
-    fistp qword ptr [esi+8];
+    fistp qword ptr [esp+-8];
+    fistp qword ptr [esp+-16];
 #ifdef TARGET_X64
-    mov rdi, qword ptr [rsi+8];
-    xor qword ptr [rsi], rdi;
+    mov rdi, qword ptr [rsp+-16];
+    xor qword ptr [rsp+-8], rdi;
 #else
-    mov edi, dword ptr [esi+8];
-    mov ecx, dword ptr [esi+12];
-    xor dword ptr [esi], edi;
-    xor dword ptr [esi+4], ecx;
+    mov edi, dword ptr [esp+-16];
+    mov ecx, dword ptr [esp+-12];
+    xor dword ptr [esp+-8], edi;
+    xor dword ptr [esp+-4], ecx;
 #endif
-    fild qword ptr [esi];
+    fild qword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1049,13 +1049,13 @@ __declspec(naked) void nseel_asm_xor_op(void)
     fld EEL_ASM_TYPE [edi];
     fxch;
     fistp qword ptr [edi];
-    fistp qword ptr [esi];
+    fistp qword ptr [esp+-8];
 #ifdef TARGET_X64
-    mov rax, qword ptr [rsi];
+    mov rax, qword ptr [rsp+-8];
     xor qword ptr [rdi], rax;
 #else
-    mov eax, dword ptr [esi];
-    mov ecx, dword ptr [esi+4];
+    mov eax, dword ptr [esp+-8];
+    mov ecx, dword ptr [esp+-4];
     xor dword ptr [edi], eax;
     xor dword ptr [edi+4], ecx;
 #endif
@@ -1083,18 +1083,18 @@ __declspec(naked) void nseel_asm_xor_op_end(void) {}
 __declspec(naked) void nseel_asm_and(void)
 {
   __asm {
-    fistp qword ptr [esi];
-    fistp qword ptr [esi+8];
+    fistp qword ptr [esp+-8];
+    fistp qword ptr [esp+-16];
 #ifdef TARGET_X64
-    mov rdi, qword ptr [rsi+8];
-    and qword ptr [rsi], rdi;
+    mov rdi, qword ptr [rsp+-16];
+    and qword ptr [rsp+-8], rdi;
 #else
-    mov edi, dword ptr [esi+8];
-    mov ecx, dword ptr [esi+12];
-    and dword ptr [esi], edi;
-    and dword ptr [esi+4], ecx;
+    mov edi, dword ptr [esp+-16];
+    mov ecx, dword ptr [esp+-12];
+    and dword ptr [esp+-8], edi;
+    and dword ptr [esp+-4], ecx;
 #endif
-    fild qword ptr [esi];
+    fild qword ptr [esp+-8];
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1117,13 +1117,13 @@ __declspec(naked) void nseel_asm_and_op(void)
     fld EEL_ASM_TYPE [edi];
     fxch;
     fistp qword ptr [edi];
-    fistp qword ptr [esi];
+    fistp qword ptr [esp+-8];
 #ifdef TARGET_X64
-    mov rax, qword ptr [rsi];
+    mov rax, qword ptr [rsp+-8];
     and qword ptr [rdi], rax;
 #else
-    mov eax, dword ptr [esi];
-    mov ecx, dword ptr [esi+4];
+    mov eax, dword ptr [esp+-8];
+    mov ecx, dword ptr [esp+-4];
     and dword ptr [edi], eax;
     and dword ptr [edi+4], ecx;
 #endif
@@ -1328,11 +1328,11 @@ __declspec(naked) void nseel_asm_repeat(void)
 {
   __asm {
 #ifdef TARGET_X64
-    fistp qword ptr [esi];
-    mov rcx, qword ptr [rsi];
+    fistp qword ptr [esp+-8];
+    mov rcx, qword ptr [rsp+-8];
 #else
-    fistp dword ptr [esi];
-    mov ecx, dword ptr [esi];
+    fistp dword ptr [esp+-8];
+    mov ecx, dword ptr [esp+-8];
 #endif
     cmp ecx, 1;
     jl label_16;
@@ -2203,10 +2203,10 @@ __declspec(naked) void _asm_megabuf(void)
     fadd EEL_ASM_TYPE [r12+-8];
     sub rdx, rdx;
 
-    fistp dword ptr [rsi];
+    fistp dword ptr [rsp+-8];
 
-    // check if (%rsi) is in range, and buffer available, otherwise call function
-    mov edx, dword ptr [rsi];
+    // check if -8(%rsp) is in range, and buffer available, otherwise call function
+    mov edx, dword ptr [rsp+-8];
     test rdx, 0xff800000; // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
     jnz label_28;
     mov rax, rdx;
@@ -2239,10 +2239,10 @@ label_29:
     fadd EEL_ASM_TYPE [r12+-8];
     sub rdi, rdi;
 
-    fistp dword ptr [esi];
+    fistp dword ptr [esp+-8];
 
-    // check if (%esi) is in range...
-    mov edi, dword ptr [rsi];
+    // check if -8(%esp) is in range...
+    mov edi, dword ptr [rsp+-8];
     test edi, 0xff800000;   // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
     jnz label_30;
     mov rax, rdi;
@@ -2272,10 +2272,10 @@ label_31:
 #else
     mov edx, 0xfefefefe;
     fadd EEL_ASM_TYPE [edx+-8];
-    fistp dword ptr [esi];
+    fistp dword ptr [esp+-8];
 
-    // check if (%esi) is in range, and buffer available, otherwise call function
-    mov edi, dword ptr [esi];
+    // check if -8(%esp) is in range, and buffer available, otherwise call function
+    mov edi, dword ptr [esp+-8];
     test edi, 0xff800000;  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
     jnz label_32;
 
@@ -2337,11 +2337,11 @@ __declspec(naked) void _asm_gmegabuf(void)
 #ifdef AMD64ABI
 
     mov r15, rsi;
-    mov rdi, 0xfefefefe; // first parameter = context pointer
     fadd EEL_ASM_TYPE [r13];
-    fistp dword ptr [r15];
+    mov rdi, 0xfefefefe; // first parameter = context pointer
     xor rsi, rsi;
-    mov esi, dword ptr [r15]; // r15 = esi (from above)
+    fistp dword ptr [rsp+-8];
+    mov esi, dword ptr [rsp+-8];
     mov edx, 0xfefefefe;
     sub rsp, 128;
     call edx;
@@ -2351,9 +2351,9 @@ __declspec(naked) void _asm_gmegabuf(void)
 #else
     mov ecx, 0xfefefefe; // first parameter = context pointer
     fadd EEL_ASM_TYPE [r13];
-    fistp dword ptr [esi];
+    fistp dword ptr [esp+-8];
     xor rdx, rdx;
-    mov edx, dword ptr [esi];
+    mov edx, dword ptr [esp+-8];
     mov edi, 0xfefefefe;
     sub rsp, 128;
     call edi;
@@ -2362,7 +2362,7 @@ __declspec(naked) void _asm_gmegabuf(void)
 
 
 #else
-    mov edx, 0xfefefefe;
+    mov dword ptr [esp+-16], 0xfefefefe;
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fadd qword ptr [0xfefefefe]
 _emit 0x05;
@@ -2378,11 +2378,9 @@ _emit 0xFE;
 _emit 0xFE;
 _emit 0xFE;
 #endif
-    fistp dword ptr [esi];
-    sub esp, 8; // keep stack aligned
-    push dword ptr [esi]; // parameter
-    push edx; // push context pointer
     mov edi, 0xfefefefe;
+    fistp dword ptr [esp+-12];
+    sub esp, 16; // keep stack aligned
     call edi;
     add esp, 16;
 
@@ -2651,9 +2649,9 @@ __declspec(naked) void nseel_asm_stack_peek(void)
 
   __asm {
     mov rdi, 0xfefefefe;
-    fistp dword ptr [rsi];
+    fistp dword ptr [rsp+-8];
     mov rax, qword ptr [rdi];
-    mov rdx, qword ptr [rsi];
+    mov rdx, qword ptr [rsp+-8];
     shl rdx, 3; // log2(sizeof(EEL_F))
     sub rax, rdx;
     mov rdx, 0xFEFEFEFE;
@@ -2678,9 +2676,9 @@ _emit 0x90;
 
   __asm {
     mov edi, 0xfefefefe;
-    fistp dword ptr [esi];
+    fistp dword ptr [esp+-8];
     mov eax, dword ptr [edi];
-    mov edx, dword ptr [esi];
+    mov edx, dword ptr [esp+-8];
     shl edx, 3; // log2(sizeof(EEL_F))
     sub eax, edx;
     and eax, 0xfefefefe;
