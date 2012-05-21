@@ -213,6 +213,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
     __asm
     {
       mov eax, cp
+      mov ebx, ramptr
       pushad 
       call eax
       popad
@@ -227,14 +228,17 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
       _controlfp(_RC_CHOP,_MCW_RC);
     #endif
     __asm__(
+          "pushl %%ebx\n"
+          "movl %%ecx, %%ebx\n"
           "pushl %%ebp\n"
           "movl %%esp, %%ebp\n"
           "andl $-16, %%esp\n" // align stack to 16 bytes
           "subl $12, %%esp\n" // call will push 4 bytes on stack, align for that
           "call *%%eax\n"
           "leave\n"
+          "popl %%ebx\n"
           ::
-          "a" (cp): "%ecx","%edx","%esi","%edi");
+          "a" (cp), "c" (ramptr): "%edx","%esi","%edi");
     #ifndef EEL_NO_CHANGE_FPFLAGS
       _controlfp(old_v,_MCW_RC);
     #endif
@@ -316,10 +320,5 @@ static const unsigned char GLUE_FLD1[] = {0xd9, 0xe8};
 static EEL_F negativezeropointfive=-0.5f;
 static EEL_F onepointfive=1.5f;
 #define GLUE_INVSQRT_NEEDREPL &negativezeropointfive, &onepointfive,
-#define GLUE_CLOSEFACTOR_NEEDADDR &_x86_closefact,
-#define GLUE_CLOSEFACTOR_NEEDADDR_PLAIN &_x86_closefact
-static EEL_F _x86_closefact = NSEEL_CLOSEFACTOR;
-
-#define GLUE_MEM_NEEDS_PPROC  // x86 doesnt have enough registers to keep the ram ptr around
 
 #endif

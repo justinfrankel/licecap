@@ -902,7 +902,7 @@ void nseel_asm_equal(void)
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " (%r13)\n" //[g_closefact]
 #else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
+    "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
 #endif
     "fstsw %ax\n"
     "andl $256, %eax\n" // old behavior: if 256 set, true (NaN means true)
@@ -919,7 +919,7 @@ void nseel_asm_notequal(void)
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " (%r13)\n" //[g_closefact]
 #else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
+    "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
 #endif
     "fstsw %ax\n"
     "andl $256, %eax\n"
@@ -974,7 +974,7 @@ void nseel_asm_fptobool(void)
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " (%r13)\n" //[g_closefact]
 #else
-    "fcomp" EEL_F_SUFFIX " (0xfefefefe)\n" //[g_closefact]
+    "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
 #endif
     "fstsw %ax\n"
     "andl $256, %eax\n"
@@ -1392,8 +1392,7 @@ void _asm_megabuf(void)
 
 
 #else
-    "movl $0xfefefefe, %edx\n"
-    "fadd" EEL_F_SUFFIX " -8(%edx)\n"
+    "fadd" EEL_F_SUFFIX " -8(%ebx)\n"
     "fistpl -8(%esp)\n"
 
     // check if -8(%esp) is in range, and buffer available, otherwise call function
@@ -1404,7 +1403,7 @@ void _asm_megabuf(void)
     "movl %edi, %eax\n"
     "shrl $14, %eax\n"            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
     "andl $0x1FC, %eax\n"    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    "movl (%edx, %eax), %eax\n"
+    "movl (%ebx, %eax), %eax\n"
     "testl %eax, %eax\n"
     "jz 1f\n"
     "andl $0xFFFF, %edi\n"  // (NSEEL_RAM_ITEMSPERBLOCK-1)
@@ -1417,7 +1416,7 @@ void _asm_megabuf(void)
     "subl $8, %esp\n" // keep stack aligned
     "movl $0xfefefefe, %ecx\n"
     "pushl %edi\n" // parameter
-    "pushl %edx\n" // push context pointer
+    "pushl %ebx\n" // push context pointer
     "call *%ecx\n"
     "addl $16, %esp\n"
 
@@ -1471,7 +1470,7 @@ void _asm_gmegabuf(void)
 
 #else
     "movl $0xfefefefe, -16(%esp)\n"
-    "fadd" EEL_F_SUFFIX " (0xfefefefe)\n"
+    "fadd" EEL_F_SUFFIX " -8(%ebx)\n"
     "movl $0xfefefefe, %edi\n"
     "fistpl -12(%esp)\n"
     "subl $16, %esp\n" // keep stack aligned

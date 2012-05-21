@@ -1536,21 +1536,7 @@ __declspec(naked) void nseel_asm_equal(void)
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
 #else
-#if EEL_F_SIZE == 8
-_emit 0xDC; // fcomp qword ptr [0xfefefefe]
-_emit 0x1D;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#else
-_emit 0xD8; // fcomp dword ptr [0xfefefefe]
-_emit 0x1D;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#endif
+    fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
 #endif
     fstsw ax;
     and eax, 256; // old behavior: if 256 set, true (NaN means true)
@@ -1579,21 +1565,7 @@ __declspec(naked) void nseel_asm_notequal(void)
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
 #else
-#if EEL_F_SIZE == 8
-_emit 0xDC; // fcomp qword ptr [0xfefefefe]
-_emit 0x1D;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#else
-_emit 0xD8; // fcomp dword ptr [0xfefefefe]
-_emit 0x1D;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#endif
+    fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
 #endif
     fstsw ax;
     and eax, 256;
@@ -1698,21 +1670,7 @@ __declspec(naked) void nseel_asm_fptobool(void)
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
 #else
-#if EEL_F_SIZE == 8
-_emit 0xDC; // fcomp qword ptr [0xfefefefe]
-_emit 0x1D;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#else
-_emit 0xD8; // fcomp dword ptr [0xfefefefe]
-_emit 0x1D;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#endif
+    fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
 #endif
     fstsw ax;
     and eax, 256;
@@ -2270,8 +2228,7 @@ label_31:
 
 
 #else
-    mov edx, 0xfefefefe;
-    fadd EEL_ASM_TYPE [edx+-8];
+    fadd EEL_ASM_TYPE [ebx+-8];
     fistp dword ptr [esp+-8];
 
     // check if -8(%esp) is in range, and buffer available, otherwise call function
@@ -2282,7 +2239,7 @@ label_31:
     mov eax, edi;
     shr eax, 14;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
     and eax, 0x1FC;    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    mov eax, dword ptr [edx+eax];
+    mov eax, dword ptr [ebx+eax];
     test eax, eax;
     jz label_32;
     and edi, 0xFFFF;  // (NSEEL_RAM_ITEMSPERBLOCK-1)
@@ -2296,7 +2253,7 @@ label_32:
     sub esp, 8; // keep stack aligned
     mov ecx, 0xfefefefe;
     push edi; // parameter
-    push edx; // push context pointer
+    push ebx; // push context pointer
     call ecx;
     add esp, 16;
 
@@ -2363,21 +2320,7 @@ __declspec(naked) void _asm_gmegabuf(void)
 
 #else
     mov dword ptr [esp+-16], 0xfefefefe;
-#if EEL_F_SIZE == 8
-_emit 0xDC; // fadd qword ptr [0xfefefefe]
-_emit 0x05;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#else
-_emit 0xD8; // fadd dword ptr [0xfefefefe]
-_emit 0x05;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-_emit 0xFE;
-#endif
+    fadd EEL_ASM_TYPE [ebx+-8];
     mov edi, 0xfefefefe;
     fistp dword ptr [esp+-12];
     sub esp, 16; // keep stack aligned

@@ -134,10 +134,6 @@
 #define GLUE_INVSQRT_NEEDREPL 0
 #endif
 
-#ifndef GLUE_CLOSEFACTOR_NEEDADDR
-#define GLUE_CLOSEFACTOR_NEEDADDR
-#endif
-
 #ifndef EEL_TARGET_PORTABLE
   static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   {
@@ -553,8 +549,8 @@ static functionType fnTable1[] = {
 
   { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1), } ,
 
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {GLUE_CLOSEFACTOR_NEEDADDR 0} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {GLUE_CLOSEFACTOR_NEEDADDR 0} },
+  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
+  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
 
 #ifdef GLUE_HAS_FXCH
   { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2) },
@@ -641,7 +637,7 @@ static functionType fnTable1[] = {
     #endif
   },
 
-  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{GLUE_CLOSEFACTOR_NEEDADDR &__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
+  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),{&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
@@ -2739,9 +2735,6 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       if (bufOut) 
       {
         memcpy(bufOut,stub,stubsize);
-#ifdef GLUE_CLOSEFACTOR_NEEDADDR_PLAIN
-        EEL_GLUE_set_immediate(bufOut,GLUE_CLOSEFACTOR_NEEDADDR_PLAIN);
-#endif
         bufOut += stubsize;
       }
       codesz+=stubsize;
