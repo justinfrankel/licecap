@@ -1392,35 +1392,43 @@ void _asm_megabuf(void)
 
 
 #else
-    "fadd" EEL_F_SUFFIX " -8(%ebx)\n"
-    "fistpl -8(%esp)\n"
+    "fadd" EEL_F_SUFFIX " -8(%%ebx)\n"
+    "fistpl -8(%%esp)\n"
 
     // check if -8(%esp) is in range, and buffer available, otherwise call function
-    "movl -8(%esp), %edi\n"
-    "testl $0xff800000, %edi\n"  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    "movl -8(%%esp), %%edi\n"
+    "testl %0, %%edi\n"     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
     "jnz 1f\n"
 
-    "movl %edi, %eax\n"
-    "shrl $14, %eax\n"            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
-    "andl $0x1FC, %eax\n"    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
-    "movl (%ebx, %eax), %eax\n"
-    "testl %eax, %eax\n"
+    "movl %%edi, %%eax\n"
+    "shrl %1, %%eax\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
+    "andl %2, %%eax\n"      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
+    "movl (%%ebx, %%eax), %%eax\n"
+    "testl %%eax, %%eax\n"
     "jz 1f\n"
-    "andl $0xFFFF, %edi\n"  // (NSEEL_RAM_ITEMSPERBLOCK-1)
-    "shll $3, %edi\n"       // log2(sizeof(EEL_F))
-    "addl %edi, %eax\n"
+    "andl %3, %%edi\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+    "shll $3, %%edi\n"      // 3 is log2(sizeof(EEL_F))
+    "addl %%edi, %%eax\n"
     "jmp 0f\n"
 
 
     "1:\n"
-    "subl $8, %esp\n" // keep stack aligned
-    "movl $0xfefefefe, %ecx\n"
-    "pushl %edi\n" // parameter
-    "pushl %ebx\n" // push context pointer
-    "call *%ecx\n"
-    "addl $16, %esp\n"
+    "subl $8, %%esp\n" // keep stack aligned
+    "movl $0xfefefefe, %%ecx\n"
+    "pushl %%edi\n" // parameter
+    "pushl %%ebx\n" // push context pointer
+    "call *%%ecx\n"
+    "addl $16, %%esp\n"
 
     "0:"
+
+    #ifndef _MSC_VER
+        :: "i" ((0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))),
+           "i" ((NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )),
+           "i" (((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )),
+           "i" ((NSEEL_RAM_ITEMSPERBLOCK-1                                  ))
+    #endif
+
 
 
 #endif

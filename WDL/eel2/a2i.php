@@ -67,6 +67,8 @@ while (($line = fgets($in)))
         $sline = substr($sline,1,strlen($sline)-1-strlen($lastchunk));
 
         // get rid of chars we can ignore
+        $sline=preg_replace("/%\d+/","__TEMP_REPLACE__", $sline);
+
         $sline=str_replace("\\n","", $sline);
         $sline=str_replace("\"","", $sline);
         $sline=str_replace("$","", $sline);
@@ -211,7 +213,15 @@ while (($line = fgets($in)))
   }
 
   if (!$nowrite)
+  {
+    if (strstr($line,"__TEMP_REPLACE__"))
+    {
+      $a = strstr($line,"//REPLACE=");
+      if ($a === false) die ("__TEMP_REPLACE__ found, no REPLACE=\n");
+      $line=str_replace("__TEMP_REPLACE__",substr($a,10),$line);
+    }
     fputs($out,$line . "\n");
+  }
 }
  
 if ($inblock) echo "Error (ended in __asm__ block???)\n";

@@ -1534,7 +1534,7 @@ __declspec(naked) void nseel_asm_equal(void)
     fsub;
     fabs;
 #ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
+    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
 #else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
 #endif
@@ -1563,7 +1563,7 @@ __declspec(naked) void nseel_asm_notequal(void)
     fsub;
     fabs;
 #ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
+    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
 #else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
 #endif
@@ -1668,7 +1668,7 @@ __declspec(naked) void nseel_asm_fptobool(void)
   __asm {
     fabs;
 #ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r13]; //[g_closefact]
+    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
 #else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
 #endif
@@ -2233,17 +2233,17 @@ label_31:
 
     // check if -8(%esp) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esp+-8];
-    test edi, 0xff800000;  // 0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1)
+    test edi, (0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1));     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
     jnz label_32;
 
     mov eax, edi;
-    shr eax, 14;            // log2(NSEEL_RAM_ITEMSPERBLOCK) - log2(sizeof(void *))
-    and eax, 0x1FC;    // (NSEEL_RAM_BLOCKS-1)*sizeof(void*)
+    shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
+    and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
     mov eax, dword ptr [ebx+eax];
     test eax, eax;
     jz label_32;
-    and edi, 0xFFFF;  // (NSEEL_RAM_ITEMSPERBLOCK-1)
-    shl edi, 3;       // log2(sizeof(EEL_F))
+    and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+    shl edi, 3;      // 3 is log2(sizeof(EEL_F))
     add eax, edi;
     jmp label_33;
 
@@ -2259,6 +2259,14 @@ label_32:
 
 label_33:
     
+
+    #ifndef _MSC_VER
+        :: i; ((0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))),
+           i; ((NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )),
+           i; (((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )),
+           i; ((NSEEL_RAM_ITEMSPERBLOCK-1                                  ))
+    #endif
+
 
 
 #endif
@@ -2294,7 +2302,7 @@ __declspec(naked) void _asm_gmegabuf(void)
 #ifdef AMD64ABI
 
     mov r15, rsi;
-    fadd EEL_ASM_TYPE [r13];
+    fadd EEL_ASM_TYPE [r12+-8];
     mov rdi, 0xfefefefe; // first parameter = context pointer
     xor rsi, rsi;
     fistp dword ptr [rsp+-8];
@@ -2307,7 +2315,7 @@ __declspec(naked) void _asm_gmegabuf(void)
 
 #else
     mov ecx, 0xfefefefe; // first parameter = context pointer
-    fadd EEL_ASM_TYPE [r13];
+    fadd EEL_ASM_TYPE [r12+-8];
     fistp dword ptr [esp+-8];
     xor rdx, rdx;
     mov edx, dword ptr [esp+-8];
@@ -2757,13 +2765,11 @@ __declspec(naked) void win64_callcode()
 
 #ifdef AMD64ABI
     mov r12, rsi; // second parameter is ram-blocks pointer
-    mov r13, rdx; // third parameter is ptr to g_closefact
 		call rdi;
 #else
 		push rdi;
 		push rsi;
     mov r12, rdx; // second parameter is ram-blocks pointer
-    mov r13, r8; // third parameter is ptr to g_closefact
 		call rcx;
 		pop rsi;
 		pop rdi;
