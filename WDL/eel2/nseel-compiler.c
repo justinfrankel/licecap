@@ -66,6 +66,7 @@
 //#define LOG_OPT
 //#define EEL_PPC_NOFREECODE
 //#define EEL_PRINT_FAILS
+//#define EEL_VALIDATE_WORKTABLE_USE
 
 #ifdef EEL_PRINT_FAILS
   #ifdef _WIN32
@@ -77,7 +78,15 @@
 #define RET_MINUS1_FAIL(x) return -1;
 #endif
 
-#define MIN_COMPUTABLE_SIZE 32 // always use at least this big of a temp storage table (and reset the temp ptr when it goes past this boundary)
+
+#ifdef EEL_VALIDATE_WORKTABLE_USE
+  #define MIN_COMPUTABLE_SIZE 0
+  #define COMPUTABLE_EXTRA_SPACE 64 // safety buffer, if EEL_VALIDATE_WORKTABLE_USE set, used for magic-value-checking
+#else
+  #define MIN_COMPUTABLE_SIZE 32 // always use at least this big of a temp storage table (and reset the temp ptr when it goes past this boundary)
+  #define COMPUTABLE_EXTRA_SPACE 16 // safety buffer, if EEL_VALIDATE_WORKTABLE_USE set, used for magic-value-checking
+#endif
+
 
 /*
   P1 is rightmost parameter
@@ -3779,7 +3788,12 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (startpts) 
   {
-    handle->workTable = curtabptr = newDataBlock((curtabptr_sz+MIN_COMPUTABLE_SIZE + 32) * sizeof(EEL_F),32);
+    handle->workTable_size = curtabptr_sz;
+    handle->workTable = curtabptr = newDataBlock((curtabptr_sz+MIN_COMPUTABLE_SIZE + COMPUTABLE_EXTRA_SPACE) * sizeof(EEL_F),32);
+
+#ifdef EEL_VALIDATE_WORKTABLE_USE
+    if (curtabptr) memset(curtabptr,0x3a,(curtabptr_sz+MIN_COMPUTABLE_SIZE + COMPUTABLE_EXTRA_SPACE) * sizeof(EEL_F));
+#endif
     if (!curtabptr) startpts=NULL;
   }
 
@@ -3918,6 +3932,22 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
   codeHandleType *h = (codeHandleType *)code;
   if (h != NULL)
   {
+#ifdef EEL_VALIDATE_WORKTABLE_USE
+    if (h->workTable)
+    {
+      char *p = ((char*)h->workTable) + h->workTable_size*sizeof(EEL_F);
+      int x;
+      for(x=COMPUTABLE_EXTRA_SPACE*sizeof(EEL_F) - 1;x >= 0; x --)
+        if (p[x] != 0x3a)
+        {
+          char buf[512];
+          sprintf(buf,"worktable overrun at byte %d (wts=%d), value = %f\n",x,h->workTable_size, *(EEL_F*)(p+(x&~(sizeof(EEL_F)-1))));
+          OutputDebugString(buf);
+          break;
+        }
+    }
+#endif
+
     nseel_evallib_stats[0]-=h->code_stats[0];
     nseel_evallib_stats[1]-=h->code_stats[1];
     nseel_evallib_stats[2]-=h->code_stats[2];
