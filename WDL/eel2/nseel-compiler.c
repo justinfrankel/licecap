@@ -1620,9 +1620,9 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
 
       if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
       #if EEL_F_SIZE == 8
-        *b = denormal_filter_double(op->parms.dv.directValue);
+        *b = denormal_filter_double2(op->parms.dv.directValue);
       #else
-        *b = denormal_filter_float(op->parms.dv.directValue);
+        *b = denormal_filter_float2(op->parms.dv.directValue);
       #endif
 
     }
