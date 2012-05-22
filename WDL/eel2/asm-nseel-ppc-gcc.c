@@ -531,34 +531,38 @@ void nseel_asm_if_end(void) {}
 void nseel_asm_repeat(void)
 {
   __asm__(
-   "addis r6, 0, 0xdead\n"
-   "ori r6, r6, 0xbeef\n"
-   "addis r7, 0, ha16(%0)\n"
-   "addi r7, r7, lo16(%0)\n"
    "fctiwz f1, f1\n"
    "stfd f1, -8(r1)\n"
    "lwz r5, -4(r1)\n" // r5 has count now
    "cmpwi cr0, r5, 0\n"
-   "ble cr0, 1f\n"
+   "ble cr0, 1f\n" // skip the loop
+
+   "addis r7, 0, ha16(%0)\n"
+   "addi r7, r7, lo16(%0)\n"
+
+   "stwu r16, -16(r1)\n" // set up the stack for the loop, save r16
+
    "cmpw cr0, r7, r5\n"
    "bge cr0, 0f\n"
    "mr r5, r7\n" // set r5 to max if we have to
 "0:\n"
-   "stw r5, -4(r1)\n"
-   "stw r6, -8(r1)\n"
-   "stwu r16, -12(r1)\n"
+   "addis r6, 0, 0xdead\n"
+   "ori r6, r6, 0xbeef\n"
+
+   "addi r5, r5, -1\n"
+   "stw r5, 4(r1)\n"
 
    "mtctr r6\n"
    "bctrl\n"
 
    "lwz r16, 0(r1)\n"
-   "lwz r6, 4(r1)\n"
-   "lwz r5, 8(r1)\n"
-   "addi r1, r1, 12\n"
-   "addi r5, r5, -1\n"
+   "lwz r5, 4(r1)\n"
 
    "cmpwi cr0, r5, 0\n"
    "bgt cr0, 0b\n"
+
+   "addi r1, r1, 16\n" // restore old stack
+
    "1:\n"
     ::"g" (NSEEL_LOOPFUNC_SUPPORT_MAXLEN)
   );
@@ -568,30 +572,30 @@ void nseel_asm_repeat_end(void) {}
 void nseel_asm_repeatwhile(void)
 {
   __asm__(
-   "addis r6, 0, 0xdead\n"
-   "ori r6, r6, 0xbeef\n"
+   "stwu r16, -16(r1)\n" // save r16 to stack, update stack
    "addis r5, 0, ha16(%0)\n"
    "addi r5, r5, lo16(%0)\n"
 "0:\n"
-   "stw r5, -4(r1)\n"
-   "stw r6, -8(r1)\n"
-   "stwu r16, -12(r1)\n"
 
-   "mtctr r6\n"
-   "bctrl\n"
+     "addis r6, 0, 0xdead\n"
+     "ori r6, r6, 0xbeef\n"
+     "stw r5, 4(r1)\n" // save maxcnt
 
-   "lwz r16, 0(r1)\n"
-   "lwz r6, 4(r1)\n"
-   "lwz r5, 8(r1)\n"
-   "addi r1, r1, 12\n"
-   "addi r5, r5, -1\n"
+     "mtctr r6\n"
+     "bctrl\n"
 
-   "cmpwi cr7, r3, 0\n"
-   "beq cr7, 1f\n"
+     "lwz r16, 0(r1)\n" // restore r16
+     "lwz r5, 4(r1)\n" // restore, check maxcnt
 
-   "cmpwi cr0, r5, 0\n"
-   "bgt cr0, 0b\n"
+     "cmpwi cr7, r3, 0\n" // check return value
+     "addi r5, r5, -1\n"
+
+     "beq cr7, 1f\n"
+
+     "cmpwi cr0, r5, 0\n"
+     "bgt cr0, 0b\n"
    "1:\n"
+   "addi r1, r1, 16\n" // restore stack
     ::"g" (NSEEL_LOOPFUNC_SUPPORT_MAXLEN)
   );
 }
