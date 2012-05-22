@@ -184,7 +184,6 @@ __declspec(naked) void nseel_asm_invsqrt(void)
     fst dword ptr [esi];
 #ifdef TARGET_X64
     mov rax, 0xfefefefe;
-    sub ecx, ecx;
     fmul EEL_ASM_TYPE [rax];
 #else
 #if EEL_F_SIZE == 8
@@ -773,9 +772,6 @@ __declspec(naked) void nseel_asm_mod(void)
     fabs;
     fistp dword ptr [esi+4];
     xor edx, edx;
-#ifdef TARGET_X64
-    sub eax, eax;
-#endif
     cmp dword ptr [esi], 0;
     je label_3; // skip devide, set return to 0
     mov eax, dword ptr [esi+4];
@@ -862,9 +858,6 @@ __declspec(naked) void nseel_asm_mod_op(void)
     fistp dword ptr [edi];
     fabs;
     fistp dword ptr [esi];
-#ifdef TARGET_X64
-    sub eax, eax;
-#endif
     xor edx, edx;
     cmp dword ptr [edi], 0;
     je label_4; // skip devide, set return to 0
@@ -2124,7 +2117,6 @@ __declspec(naked) void _asm_megabuf(void)
 #ifdef AMD64ABI
 
     fadd EEL_ASM_TYPE [r12+-8];
-    sub rdx, rdx;
 
     fistp dword ptr [rsi];
 
@@ -2158,7 +2150,6 @@ label_25:
 #else
 
     fadd EEL_ASM_TYPE [r12+-8];
-    sub rdi, rdi;
 
     fistp dword ptr [rsi];
 
@@ -2267,22 +2258,20 @@ __declspec(naked) void _asm_gmegabuf(void)
     mov r15, rsi;
     fadd EEL_ASM_TYPE [r12+-8];
     mov rdi, 0xfefefefe; // first parameter = context pointer
-    xor rsi, rsi;
-    fistp dword ptr [r15];
-    mov esi, dword ptr [r15];
+    fistp dword ptr [rsi];
     mov edx, 0xfefefefe;
-    call edx;
+    mov esi, dword ptr [rsi];
+    call rdx;
     mov rsi, r15;
 
 #else
-    mov ecx, 0xfefefefe; // first parameter = context pointer
     fadd EEL_ASM_TYPE [r12+-8];
+    mov rcx, 0xfefefefe; // first parameter = context pointer
     fistp dword ptr [rsi];
-    xor rdx, rdx;
+    mov rdi, 0xfefefefe;
     mov edx, dword ptr [rsi];
-    mov edi, 0xfefefefe;
     sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
+    call rdi;
     add rsp, X64_EXTRA_STACK_SPACE;
 #endif
 

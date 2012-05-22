@@ -128,7 +128,6 @@ void nseel_asm_invsqrt(void)
     "fsts (%esi)\n"
 #ifdef TARGET_X64
     "movl 0xfefefefe, %rax\n"
-    "subl %ecx, %ecx\n"
     "fmul" EEL_F_SUFFIX " (%rax)\n"
 #else
     "fmul" EEL_F_SUFFIX " (0xfefefefe)\n"
@@ -282,7 +281,7 @@ void nseel_asm_assign_fromfp(void)
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
     "cmpl $0x00100000, %edx\n"
-    "movll %edi, %eax\n"
+    "movl %edi, %eax\n"
     "jg 0f\n"
 #ifdef TARGET_X64
       "subll %rdx, %rdx\n"
@@ -422,9 +421,6 @@ void nseel_asm_mod(void)
     "fabs\n"
     "fistpl 4(%esi)\n"
     "xorl %edx, %edx\n"
-#ifdef TARGET_X64
-    "subl %eax, %eax\n"
-#endif
     "cmpl $0, (%esi)\n"
     "je 0f\n" // skip devide, set return to 0
     "movl 4(%esi), %eax\n"
@@ -474,9 +470,6 @@ void nseel_asm_mod_op(void)
     "fistpl (%edi)\n"
     "fabs\n"
     "fistpl (%esi)\n"
-#ifdef TARGET_X64
-    "subl %eax, %eax\n"
-#endif
     "xorl %edx, %edx\n"
     "cmpl $0, (%edi)\n"
     "je 0f\n" // skip devide, set return to 0
@@ -1309,7 +1302,6 @@ void _asm_megabuf(void)
 #ifdef AMD64ABI
 
     "fadd" EEL_F_SUFFIX " -8(%r12)\n"
-    "subll %rdx, %rdx\n"
 
     "fistpl (%rsi)\n"
 
@@ -1340,7 +1332,6 @@ void _asm_megabuf(void)
 #else
 
     "fadd" EEL_F_SUFFIX " -8(%r12)\n"
-    "subll %rdi, %rdi\n"
 
     "fistpl (%rsi)\n"
 
@@ -1431,22 +1422,20 @@ void _asm_gmegabuf(void)
     "movl %rsi, %r15\n"
     "fadd" EEL_F_SUFFIX " -8(%r12)\n"
     "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
-    "xorl %rsi, %rsi\n"
-    "fistpl (%r15)\n"
-    "movl (%r15), %esi\n" 
+    "fistpl (%rsi)\n"
     "movl $0xfefefefe, %edx\n"
-    "call *%edx\n"
+    "movl (%rsi), %esi\n" 
+    "call *%rdx\n"
     "movl %r15, %rsi\n"
 
 #else
-    "movl $0xfefefefe, %ecx\n" // first parameter = context pointer
     "fadd" EEL_F_SUFFIX " -8(%r12)\n"
+    "movl $0xfefefefe, %rcx\n" // first parameter = context pointer
     "fistpl (%rsi)\n"
-    "xorl %rdx, %rdx\n"
+    "movl $0xfefefefe, %rdi\n"
     "movl (%rsi), %edx\n"
-    "movl $0xfefefefe, %edi\n"
     "subl X64_EXTRA_STACK_SPACE, %rsp\n"
-    "call *%edi\n"
+    "call *%rdi\n"
     "addl X64_EXTRA_STACK_SPACE, %rsp\n"
 #endif
 
