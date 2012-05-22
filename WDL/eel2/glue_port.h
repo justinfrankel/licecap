@@ -6,7 +6,6 @@
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_OFFSET 0
 #define GLUE_JMP_OFFSET_MASK 0xffffffff
-#define GLUE_MEM_NEEDS_PPROC  
 
 enum {
   EEL_BC_NOP=1,
@@ -39,7 +38,6 @@ enum {
   EEL_BC_PUSH_VAL_AT_P1_TO_FPSTACK, 
   EEL_BC_PUSH_VAL_AT_P2_TO_FPSTACK, 
   EEL_BC_PUSH_VAL_AT_P3_TO_FPSTACK, 
-  EEL_BC_POP_FPSTACK_TO_WTP_ANDPUSHADDR,
   EEL_BC_POP_FPSTACK_TO_WTP,
   EEL_BC_SET_P1_Z,
   EEL_BC_SET_P1_NZ,
@@ -107,6 +105,7 @@ enum {
   EEL_BC_CFUNC_2PDDS,
 
   EEL_BC_MEGABUF,
+  EEL_BC_GMEGABUF,
 
   EEL_BC_GENERIC1PARM,
   EEL_BC_GENERIC2PARM,
@@ -134,7 +133,6 @@ BC_DECL(RET)
 BC_DECL(PUSH_P1)
 BC_DECL(PUSH_P1PTR_AS_VALUE)
 BC_DECL(POP_FPSTACK_TOSTACK)
-BC_DECL(POP_FPSTACK_TO_WTP_ANDPUSHADDR)
 BC_DECL(POP_FPSTACK_TO_WTP)
 BC_DECL(SET_P1_Z)
 BC_DECL(SET_P1_NZ)
@@ -335,9 +333,9 @@ BC_DECLASM(invsqrt,INVSQRT)
 BC_DECLASM(booltofp,BOOLTOFP)
 BC_DECLASM(fptobool,FPTOBOOL)
 
-#define BC_DECLASM_N(x,y,n) static EEL_BC_TYPE nseel_asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, 0};
+#define BC_DECLASM_N(x,y,n) static EEL_BC_TYPE nseel_asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
 
-#define BC_DECLASM_N_EXPORT(x,y,n) EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, 0}; EEL_BC_TYPE _asm_##x##_end[1]={1,};
+#define BC_DECLASM_N_EXPORT(x,y,n) EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, }; EEL_BC_TYPE _asm_##x##_end[1]={1,};
 
 BC_DECLASM_N(stack_push,USERSTACK_PUSH,3)
 BC_DECLASM_N(stack_pop,USERSTACK_POP,3)
@@ -355,7 +353,8 @@ BC_DECLASM_N(1pdd,CFUNC_1PDD,1)
 BC_DECLASM_N(2pdd,CFUNC_2PDD,1)
 BC_DECLASM_N(2pdds,CFUNC_2PDDS,1)
 
-BC_DECLASM_N_EXPORT(megabuf,MEGABUF,2)
+BC_DECLASM_N_EXPORT(megabuf,MEGABUF,0)
+BC_DECLASM_N_EXPORT(gmegabuf,GMEGABUF,2)
 BC_DECLASM_N_EXPORT(generic1parm,GENERIC1PARM,2)
 BC_DECLASM_N_EXPORT(generic2parm,GENERIC2PARM,2)
 BC_DECLASM_N_EXPORT(generic3parm,GENERIC3PARM,2)
@@ -363,8 +362,6 @@ BC_DECLASM_N_EXPORT(generic1parm_retd,GENERIC1PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic2parm_retd,GENERIC2PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 
-#define _asm_gmegabuf _asm_megabuf
-#define _asm_gmegabuf_end _asm_megabuf_end
 
 #define nseel_asm_1pdd_end EEL_BC_ENDOF(nseel_asm_1pdd)
 #define nseel_asm_2pdd_end EEL_BC_ENDOF(nseel_asm_2pdd)
@@ -556,12 +553,6 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
       case EEL_BC_PUSH_VAL_AT_P3_TO_FPSTACK: 
         fp_top = *p3;
-      break;
-      case EEL_BC_POP_FPSTACK_TO_WTP_ANDPUSHADDR:
-        *wtp = fp_top;
-        memcpy(stackptr,&wtp,sizeof(void *));
-        EEL_BC_STACK_FWD();       
-        wtp+=sizeof(EEL_F);
       break;
       case EEL_BC_POP_FPSTACK_TO_WTP:
         *wtp = fp_top;
@@ -812,10 +803,12 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
 
       case EEL_BC_MEGABUF:
+        p1 = __NSEEL_RAMAlloc((void*)rt,(int) (fp_top + NSEEL_CLOSEFACTOR));
+      break;
+      case EEL_BC_GMEGABUF:
         {
-          EEL_F *(*f)(void *,int) = (EEL_F *(*)(void *, int)) *(void **)(iptr+sizeof(void *));
-          p1 = f(*(void **)iptr,(int) (fp_top + NSEEL_CLOSEFACTOR));
-          iptr += sizeof(void *)*2;
+          p1 = __NSEEL_RAMAllocGMEM(*(EEL_F ****)iptr,(int) (fp_top + NSEEL_CLOSEFACTOR));
+          iptr += sizeof(void *)*2; // also includes ptr to __NSEEL_RAMAllocGMEM, which we ignore
         }
       break;
       case EEL_BC_GENERIC1PARM:
