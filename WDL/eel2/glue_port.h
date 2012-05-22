@@ -803,7 +803,13 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
 
       case EEL_BC_MEGABUF:
-        p1 = __NSEEL_RAMAlloc((void*)rt,(int) (fp_top + NSEEL_CLOSEFACTOR));
+        {
+          unsigned int idx=(unsigned int) (fp_top + NSEEL_CLOSEFACTOR);
+          EEL_F **f = (EEL_F **)rt,*f2;
+          p1 = (idx < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK && (f2=f[idx/NSEEL_RAM_ITEMSPERBLOCK])) ? 
+              (f2 + (idx&(NSEEL_RAM_ITEMSPERBLOCK-1))) : 
+             __NSEEL_RAMAlloc((void*)rt,idx);
+        }
       break;
       case EEL_BC_GMEGABUF:
         {

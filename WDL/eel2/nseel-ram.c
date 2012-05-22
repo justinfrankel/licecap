@@ -89,13 +89,12 @@ void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our fre
 
 
 
-EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
 {
   static EEL_F * volatile  gmembuf;
   static EEL_F fail;
   if (blocks) 
   {
-    int whichblock;
     EEL_F **pblocks=*blocks;
 
     int is_locked=0;
@@ -114,8 +113,9 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
       }
     }
 
-    if (w >= 0 && (whichblock = w/NSEEL_RAM_ITEMSPERBLOCK) < NSEEL_RAM_BLOCKS)
+    if (w < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK)
     {
+      unsigned int whichblock = w/NSEEL_RAM_ITEMSPERBLOCK;
       EEL_F *p=pblocks[whichblock];
       if (!p)
       {
@@ -129,11 +129,13 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
 	      	  p=pblocks[whichblock]=(EEL_F *)calloc(sizeof(EEL_F),NSEEL_RAM_ITEMSPERBLOCK);
       		  if (p) NSEEL_RAM_memused+=msize;
       	  }
-          if (!p) w=0;
         }
       }	  
-      if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
-      return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
+      if (p) 
+      {
+        if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
+        return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
+      }
     }
     if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
     return &fail;
@@ -144,21 +146,20 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, int w)
     NSEEL_HOSTSTUB_EnterMutex(); 
     if (!gmembuf) gmembuf=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
     NSEEL_HOSTSTUB_LeaveMutex();
-
     if (!gmembuf) return &fail;
   }
 
   return gmembuf+(((unsigned int)w)&((NSEEL_SHARED_GRAM_SIZE)-1));
 }
 
-EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, int w)
+EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
 {
-  int whichblock;
   static EEL_F fail;
 
 //  fprintf(stderr,"got request at %d, %d\n",w/NSEEL_RAM_ITEMSPERBLOCK, w&(NSEEL_RAM_ITEMSPERBLOCK-1));
-  if (w >= 0 && (whichblock = w/NSEEL_RAM_ITEMSPERBLOCK) < NSEEL_RAM_BLOCKS)
+  if (w < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK)
   {
+    unsigned int whichblock = w/NSEEL_RAM_ITEMSPERBLOCK;
     EEL_F *p=pblocks[whichblock];
     if (!p)
     {
@@ -173,11 +174,10 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, int w)
 	      	p=pblocks[whichblock]=(EEL_F *)calloc(sizeof(EEL_F),NSEEL_RAM_ITEMSPERBLOCK);
       		if (p) NSEEL_RAM_memused+=msize;
       	}
-        if (!p) w=0;
       }
       NSEEL_HOSTSTUB_LeaveMutex();
     }	  
-    return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
+    if (p) return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   }
 //  fprintf(stderr,"ret 0\n");
   return &fail;
