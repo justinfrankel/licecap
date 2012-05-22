@@ -433,18 +433,15 @@ __declspec(naked) void nseel_asm_assign(void)
     mov rdx, qword ptr [rax];
     mov rcx, rdx;
     shr rdx, 32;
+    add edx, 0x00100000;
     and edx, 0x7FF00000;
-    jz label_0;
-    cmp edx, 0x7FF00000;
-    je label_0;
-    jmp label_1;
+    cmp edx, 0x00100000;
+    mov rax, rdi;
+    jg label_0;
+      sub rcx, rcx;
 label_0:
     
-    sub rcx, rcx;
-label_1:
-    
     mov qword ptr [edi], rcx;
-    mov rax, rdi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -462,23 +459,20 @@ _emit 0x90;
 #else
 
   __asm {
-    mov edx, dword ptr [eax+4];
     mov ecx, dword ptr [eax];
-    and edx, 0x7ff00000;
-    jz label_2;   // if exponent=zero, zero
-    cmp edx, 0x7ff00000;
-    je label_2; // if exponent=all 1s, zero
-    mov edx, dword ptr [eax+4]; // reread
-    jmp label_3;
-label_2:
+    mov edx, dword ptr [eax+4];
+    mov eax, edx;
+    add eax, 0x00100000; // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
+    and eax, 0x7ff00000;
+    cmp eax, 1;
+    jg label_1;
+      sub ecx, ecx;
+      sub edx, edx;
+label_1:
     
-    sub ecx, ecx;
-    sub edx, edx;
-label_3:
-    
+    mov eax, edi;
     mov dword ptr [edi], ecx;
     mov dword ptr [edi+4], edx;
-    mov eax, edi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -500,23 +494,23 @@ __declspec(naked) void nseel_asm_assign_end(void) {}
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_assign_fromfp(void)
 {
-#ifdef TARGET_X64
-
   __asm {
-    fstp qword ptr [rdi];
-    mov rdx, qword ptr [rdi];
-    mov r15, 0x7FF0000000000000;
-    and rdx, r15;
-    jz label_4;
-    cmp rdx, r15;
-    jne label_5;
-label_4:
+    fstp qword ptr [edi];
+    mov edx, dword ptr [edi+4];
+    add edx, 0x00100000;
+    and edx, 0x7FF00000;
+    cmp edx, 0x00100000;
+    mov eax, edi;
+    jg label_2;
+#ifdef TARGET_X64
+      sub rdx, rdx;
+      mov qword ptr [rdi], rdx;
+#else
+      fldz;
+      fstp qword ptr [edi];
+#endif
+label_2:
     
-    sub rcx, rcx;
-    mov qword ptr [rdi], rcx;
-label_5:
-    
-    mov rax, rdi;
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -531,37 +525,7 @@ _emit 0x90;
 _emit 0x90;
     }
 
-#else
 
-  __asm {
-    fstp qword ptr [edi];
-    mov edx, dword ptr [edi+4];
-    and edx, 0x7ff00000;
-    jz label_6;
-    cmp edx, 0x7ff00000;
-    jne label_7;
-label_6:
-    
-      fldz;
-      fstp qword ptr [edi];
-label_7:
-    
-    mov eax, edi;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-
-#endif
 }
 __declspec(naked) void nseel_asm_assign_fromfp_end(void) {}
 
@@ -813,10 +777,10 @@ __declspec(naked) void nseel_asm_mod(void)
     sub eax, eax;
 #endif
     cmp dword ptr [esi], 0;
-    je label_8; // skip devide, set return to 0
+    je label_3; // skip devide, set return to 0
     mov eax, dword ptr [esi+4];
     div dword ptr [esi];
-label_8:
+label_3:
     
     mov dword ptr [esi], edx;
     fild dword ptr [esi];
@@ -903,10 +867,10 @@ __declspec(naked) void nseel_asm_mod_op(void)
 #endif
     xor edx, edx;
     cmp dword ptr [edi], 0;
-    je label_9; // skip devide, set return to 0
+    je label_4; // skip devide, set return to 0
     mov eax, dword ptr [esi];
     div dword ptr [edi];
-label_9:
+label_4:
     
     mov dword ptr [edi], edx;
     fild dword ptr [edi];
@@ -1207,15 +1171,15 @@ __declspec(naked) void nseel_asm_sign(void)
     mov rdx, EEL_ASM_TYPE [rsi];
     mov rcx, 0x7FFFFFFFFFFFFFFF;
     test rdx, rcx;
-    jz label_10; // zero zero, return the value passed directly
+    jz label_5; // zero zero, return the value passed directly
       // calculate sign
       inc rcx; // rcx becomes 0x80000...
       fstp st(0);
       fld1;
       test rdx, rcx;
-      jz label_10;
+      jz label_5;
       fchs;
-label_10:
+label_5:
   	
 
 #else
@@ -1224,15 +1188,15 @@ label_10:
     mov ecx, dword ptr [esi];
     mov edx, 0x7FFFFFFF;
     test ecx, edx;
-    jz label_11; // zero zero, return the value passed directly
+    jz label_6; // zero zero, return the value passed directly
       // calculate sign
       inc edx; // edx becomes 0x8000...
       fstp st(0);
       fld1;
       test ecx, edx;
-      jz label_11;
+      jz label_6;
       fchs;
-label_11:
+label_6:
   	
 
 #endif
@@ -1284,29 +1248,29 @@ __declspec(naked) void nseel_asm_if(void) // not currently used on x86/x86-64
 #ifdef TARGET_X64
     sub rsp, 8;
     test eax, eax;
-    jz label_12;
+    jz label_7;
     mov rax, 0xfefefefe;
     call eax;
-    jmp label_13;
-label_12:
+    jmp label_8;
+label_7:
     
     mov rax, 0xfefefefe;
     call eax;
-label_13:
+label_8:
     
     add rsp, 8;
 #else
     sub esp, 12;
     test eax, eax;
-    jz label_14;
+    jz label_9;
     mov eax, 0xfefefefe;
     call eax;
-    jmp label_15;
-label_14:
+    jmp label_10;
+label_9:
     
     mov eax, 0xfefefefe;
     call eax;
-label_15:
+label_10:
     
     add esp, 12;
 #endif
@@ -1339,11 +1303,11 @@ __declspec(naked) void nseel_asm_repeat(void)
     mov ecx, dword ptr [esi];
 #endif
     cmp ecx, 1;
-    jl label_16;
+    jl label_11;
     cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-    jl label_17;
+    jl label_12;
     mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-label_17:
+label_12:
 
       mov edx, 0xfefefefe;
 #ifdef TARGET_X64
@@ -1364,8 +1328,8 @@ label_17:
       add esp, 4; /* keep stack aligned to 16 byte */
 #endif
     dec ecx;
-    jnz label_17;
-label_16:
+    jnz label_12;
+label_11:
 
 _emit 0x89;
 _emit 0x90;
@@ -1417,7 +1381,7 @@ __declspec(naked) void nseel_asm_repeatwhile(void)
 {
   __asm {
     mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-label_18:
+label_13:
 
       mov edx, 0xfefefefe;
 
@@ -1437,10 +1401,10 @@ label_18:
       add esp, 4; /* keep stack aligned -- required on x86 and x64 */
 #endif
 	  test eax, eax;
-	  jz label_19;
+	  jz label_14;
     dec ecx;
-    jnz label_18;
-label_19:
+    jnz label_13;
+label_14:
 	
 _emit 0x89;
 _emit 0x90;
@@ -1463,7 +1427,7 @@ __declspec(naked) void nseel_asm_band(void)
 {
   __asm {
     test eax, eax;
-    jz label_20;
+    jz label_15;
 
      mov ecx, 0xfefefefe;
 #ifdef TARGET_X64
@@ -1477,7 +1441,7 @@ __declspec(naked) void nseel_asm_band(void)
 #else
         add esp, 12;
 #endif
-label_20:
+label_15:
     
 _emit 0x89;
 _emit 0x90;
@@ -1499,7 +1463,7 @@ __declspec(naked) void nseel_asm_bor(void)
 {
   __asm {
     test eax, eax;
-    jnz label_21;
+    jnz label_16;
 
     mov ecx, 0xfefefefe;
 #ifdef TARGET_X64
@@ -1513,7 +1477,7 @@ __declspec(naked) void nseel_asm_bor(void)
 #else
     add esp, 12;
 #endif
-label_21:
+label_16:
     
 _emit 0x89;
 _emit 0x90;
@@ -1643,13 +1607,13 @@ __declspec(naked) void nseel_asm_booltofp(void)
 {
   __asm {
     test eax, eax;
-    jz label_22;
+    jz label_17;
     fld1;
-    jmp label_23;
-label_22:
+    jmp label_18;
+label_17:
     
     fldz;
-label_23:
+label_18:
     
 _emit 0x89;
 _emit 0x90;
@@ -1705,9 +1669,9 @@ __declspec(naked) void nseel_asm_min(void)
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jz label_24;
+    jz label_19;
     mov eax, edi;
-label_24:
+label_19:
     
 _emit 0x89;
 _emit 0x90;
@@ -1735,9 +1699,9 @@ __declspec(naked) void nseel_asm_max(void)
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jnz label_25;
+    jnz label_20;
     mov eax, edi;
-label_25:
+label_20:
     
 _emit 0x89;
 _emit 0x90;
@@ -1763,9 +1727,9 @@ __declspec(naked) void nseel_asm_min_fp(void)
     fcom;
     fstsw ax;
     test eax, 256;
-    jz label_26;
+    jz label_21;
     fxch;
-label_26:
+label_21:
     
     fstp st(0);
 _emit 0x89;
@@ -1791,9 +1755,9 @@ __declspec(naked) void nseel_asm_max_fp(void)
     fcom;
     fstsw ax;
     test eax, 256;
-    jnz label_27;
+    jnz label_22;
     fxch;
-label_27:
+label_22:
     
     fstp st(0);
 _emit 0x89;
@@ -2167,20 +2131,20 @@ __declspec(naked) void _asm_megabuf(void)
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
     test rdx, (0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1));     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
-    jnz label_28;
+    jnz label_23;
     mov rax, rdx;
     shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
     and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
     mov rax, qword ptr [r12+rax];
     test rax, rax;
-    jz label_28;
+    jz label_23;
     and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
     add rax, rdx;
-    jmp label_29;
+    jmp label_24;
 
 
-label_28:
+label_23:
     
     mov rax, 0xfefefefe;
     mov rdi, r12; // set first parm to ctx
@@ -2188,7 +2152,7 @@ label_28:
     mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
     call rax;
     mov rsi, r15; // restore rsi
-label_29:
+label_24:
     
 
 #else
@@ -2201,19 +2165,19 @@ label_29:
     // check if (%rsi) is in range...
     mov edi, dword ptr [rsi];
     test edi, (0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1));       //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
-    jnz label_30;
+    jnz label_25;
     mov rax, rdi;
     shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
     and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
     mov rax, qword ptr [r12+rax];
     test rax, rax;
-    jz label_30;
+    jz label_25;
     and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
     shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
     add rax, rdi;
-    jmp label_31;
+    jmp label_26;
 
-label_30:
+label_25:
     
     mov rax, 0xfefefefe; // function ptr
     mov rcx, r12; // set first parm to ctx
@@ -2221,7 +2185,7 @@ label_30:
     sub rsp, X64_EXTRA_STACK_SPACE;
     call rax;
     add rsp, X64_EXTRA_STACK_SPACE;
-label_31:
+label_26:
     
 #endif
 
@@ -2233,21 +2197,21 @@ label_31:
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     test edi, (0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1));     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
-    jnz label_32;
+    jnz label_27;
 
     mov eax, edi;
     shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
     and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
     mov eax, dword ptr [ebx+eax];
     test eax, eax;
-    jz label_32;
+    jz label_27;
     and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
     shl edi, 3;      // 3 is log2(sizeof(EEL_F))
     add eax, edi;
-    jmp label_33;
+    jmp label_28;
 
 
-label_32:
+label_27:
     
     sub esp, 8; // keep stack aligned
     mov ecx, 0xfefefefe;
@@ -2256,7 +2220,7 @@ label_32:
     call ecx;
     add esp, 16;
 
-label_33:
+label_28:
     
 
     #ifndef _MSC_VER

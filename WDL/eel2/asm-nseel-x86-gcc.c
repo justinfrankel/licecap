@@ -241,36 +241,32 @@ void nseel_asm_assign(void)
     "movll (%rax), %rdx\n"
     "movll %rdx, %rcx\n"
     "shrl $32, %rdx\n"
+    "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "jz 1f\n"
-    "cmpl $0x7FF00000, %edx\n"
-    "je 1f\n"
-    "jmp 0f\n"
-    "1:\n"
-    "subl %rcx, %rcx\n"
+    "cmpl $0x00100000, %edx\n"
+    "movll %rdi, %rax\n"
+    "jg 0f\n"
+      "subl %rcx, %rcx\n"
     "0:\n"
     "movll %rcx, (%edi)\n"
-    "movll %rdi, %rax\n"
     );
 
 #else
 
   __asm__(
-    "movl 4(%eax), %edx\n"
     "movl (%eax), %ecx\n"
-    "andl  $0x7ff00000, %edx\n"
-    "jz 1f\n"   // if exponent=zero, zero
-    "cmpl  $0x7ff00000, %edx\n"
-    "je 1f\n" // if exponent=all 1s, zero
-    "movl 4(%eax), %edx\n" // reread
-    "jmp 0f\n"
-    "1:\n"
-    "subl %ecx, %ecx\n"
-    "subl %edx, %edx\n"
+    "movl 4(%eax), %edx\n"
+    "movl %edx, %eax\n"
+    "addl $0x00100000, %eax\n" // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
+    "andl $0x7ff00000, %eax\n" 
+    "cmpl $1, %eax\n"
+    "jg 0f\n"
+      "subl %ecx, %ecx\n"
+      "subl %edx, %edx\n"
     "0:\n"
+    "movl %edi, %eax\n"
     "movl %ecx, (%edi)\n"
     "movl %edx, 4(%edi)\n"
-    "movl %edi, %eax\n"
   );
 
 #endif
@@ -280,40 +276,25 @@ void nseel_asm_assign_end(void) {}
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fromfp(void)
 {
-#ifdef TARGET_X64
-
-  __asm__(
-    "fstpl (%rdi)\n"
-    "movll (%rdi), %rdx\n"
-    "movll $0x7FF0000000000000, %r15\n"
-    "andll %r15, %rdx\n"
-    "jz 1f\n"
-    "cmpll %r15, %rdx\n"
-    "jne 0f\n"
-    "1:"
-    "subll %rcx, %rcx\n"
-    "movll %rcx, (%rdi)\n"
-    "0:\n"
-    "movll %rdi, %rax\n"
-    );
-
-#else
-
   __asm__(
     "fstpl (%edi)\n"
     "movl 4(%edi), %edx\n"
-    "andl $0x7ff00000, %edx\n"
-    "jz 1f\n"
-    "cmpl $0x7ff00000, %edx\n"
-    "jne 0f\n"
-    "1:\n"
+    "addl $0x00100000, %edx\n"
+    "andl $0x7FF00000, %edx\n"
+    "cmpl $0x00100000, %edx\n"
+    "movll %edi, %eax\n"
+    "jg 0f\n"
+#ifdef TARGET_X64
+      "subll %rdx, %rdx\n"
+      "movll %rdx, (%rdi)\n"
+#else
       "fldz\n"
       "fstpl (%edi)\n"
-    "0:\n"
-    "movl %edi, %eax\n"
-  );
-
 #endif
+    "0:\n"
+    );
+
+
 }
 void nseel_asm_assign_fromfp_end(void) {}
 
