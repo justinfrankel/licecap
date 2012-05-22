@@ -1316,58 +1316,57 @@ void _asm_megabuf(void)
     // check if (%rsi) is in range, and buffer available, otherwise call function
     "movl (%rsi), %edx\n"
     "cmpl %1, %rdx\n"      //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    "jae 1f\n"
-    "movll %rdx, %rax\n"
-    "shrll %2, %rax\n"     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
-    "andll %3, %rax\n"     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
-    "movll (%r12, %rax), %rax\n"
-    "testl %rax, %rax\n"
-    "jz 1f\n"
-    "andll %4, %rdx\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-    "shlll $3, %rdx\n"      // 3 is log2(sizeof(EEL_F))
-    "addll %rdx, %rax\n"
-    "jmp 0f\n"
-
-    
-    "1:\n"
-    "movl $0xfefefefe, %rax\n"
-    "movl %r12, %rdi\n" // set first parm to ctx
-    "movl %rsi, %r15\n" // save rsi
-    "movl %rdx, %esi\n" // esi becomes second parameter (edi is first, context pointer)
-    "call *%rax\n"
-    "movl %r15, %rsi\n" // restore rsi
+    "jae 0f\n"
+      "movll %rdx, %rax\n"
+      "shrll %2, %rax\n"     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+      "andll %3, %rax\n"     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
+      "movll (%r12, %rax), %rax\n"
+      "testl %rax, %rax\n"
+      "jnz 1f\n"   
     "0:\n"
+      "movl $0xfefefefe, %rax\n"
+      "movl %r12, %rdi\n" // set first parm to ctx
+      "movl %rsi, %r15\n" // save rsi
+      "movl %rdx, %esi\n" // esi becomes second parameter (edi is first, context pointer)
+      "call *%rax\n"
+      "movl %r15, %rsi\n" // restore rsi
+      "jmp 2f\n"
+    "1:\n"
+      "andll %4, %rdx\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+      "shlll $3, %rdx\n"      // 3 is log2(sizeof(EEL_F))
+      "addll %rdx, %rax\n"
+    "2:\n"
 
 #else
 
     "fadd" EEL_F_SUFFIX " -8(%r12)\n"
     "subll %rdi, %rdi\n"
 
-    "fistpl (%esi)\n"
+    "fistpl (%rsi)\n"
 
     // check if (%rsi) is in range...
     "movl (%rsi), %edi\n"
     "cmpl %1, %edi\n"       //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    "jae 1f\n"
-    "movll %rdi, %rax\n"
-    "shrll %2, %rax\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
-    "andll %3, %rax\n"       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
-    "movll (%r12, %rax), %rax\n"
-    "testl %rax, %rax\n"
-    "jz 1f\n"
-    "andll %4, %rdi\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-    "shlll $3, %rdi\n"       // 3 is log2(sizeof(EEL_F))
-    "addll %rdi, %rax\n"
-    "jmp 0f\n"
-
+    "jae 0f\n"
+      "movll %rdi, %rax\n"
+      "shrll %2, %rax\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+      "andll %3, %rax\n"       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
+      "movll (%r12, %rax), %rax\n"
+      "testl %rax, %rax\n"
+      "jnz 1f\n"
+    "0:\n"
+      "movl $0xfefefefe, %rax\n" // function ptr
+      "movl %r12, %rcx\n" // set first parm to ctx
+      "movl %rdi, %rdx\n" // rdx is second parameter (rcx is first)
+      "subl X64_EXTRA_STACK_SPACE, %rsp\n"
+      "call *%rax\n"
+      "addl X64_EXTRA_STACK_SPACE, %rsp\n"
+      "jmp 2f\n"
     "1:\n"
-    "movl $0xfefefefe, %rax\n" // function ptr
-    "movl %r12, %rcx\n" // set first parm to ctx
-    "movl %rdi, %rdx\n" // rdx is second parameter (rcx is first)
-    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
-    "call *%rax\n"
-    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
-    "0:"
+      "andll %4, %rdi\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+      "shlll $3, %rdi\n"       // 3 is log2(sizeof(EEL_F))
+      "addll %rdi, %rax\n"
+    "2:\n"
 #endif
 
 
@@ -1378,29 +1377,27 @@ void _asm_megabuf(void)
     // check if (%esi) is in range, and buffer available, otherwise call function
     "movl (%%esi), %%edi\n"
     "cmpl %0, %%edi\n"     //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    "jae 1f\n"
+    "jae 0f\n"
 
-    "movl %%edi, %%eax\n"
-    "shrl %1, %%eax\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
-    "andl %2, %%eax\n"      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
-    "movl (%%ebx, %%eax), %%eax\n"
-    "testl %%eax, %%eax\n"
-    "jz 1f\n"
-    "andl %3, %%edi\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-    "shll $3, %%edi\n"      // 3 is log2(sizeof(EEL_F))
-    "addl %%edi, %%eax\n"
-    "jmp 0f\n"
-
-
+      "movl %%edi, %%eax\n"
+      "shrl %1, %%eax\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
+      "andl %2, %%eax\n"      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
+      "movl (%%ebx, %%eax), %%eax\n"
+      "testl %%eax, %%eax\n"
+      "jnz 1f\n"
+    "0:\n"
+      "subl $8, %%esp\n" // keep stack aligned
+      "movl $0xfefefefe, %%ecx\n"
+      "pushl %%edi\n" // parameter
+      "pushl %%ebx\n" // push context pointer
+      "call *%%ecx\n"
+      "addl $16, %%esp\n"
+      "jmp 2f\n"
     "1:\n"
-    "subl $8, %%esp\n" // keep stack aligned
-    "movl $0xfefefefe, %%ecx\n"
-    "pushl %%edi\n" // parameter
-    "pushl %%ebx\n" // push context pointer
-    "call *%%ecx\n"
-    "addl $16, %%esp\n"
-
-    "0:"
+      "andl %3, %%edi\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+      "shll $3, %%edi\n"      // 3 is log2(sizeof(EEL_F))
+      "addl %%edi, %%eax\n"
+    "2:"
 
     #ifndef _MSC_VER
         :: "i" (((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))),

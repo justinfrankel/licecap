@@ -2132,27 +2132,27 @@ __declspec(naked) void _asm_megabuf(void)
     mov edx, dword ptr [rsi];
     cmp rdx, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));      //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
     jae label_23;
-    mov rax, rdx;
-    shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
-    and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
-    mov rax, qword ptr [r12+rax];
-    test rax, rax;
-    jz label_23;
-    and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-    shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
-    add rax, rdx;
-    jmp label_24;
-
-
+      mov rax, rdx;
+      shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+      and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
+      mov rax, qword ptr [r12+rax];
+      test rax, rax;
+      jnz label_24;
 label_23:
     
-    mov rax, 0xfefefefe;
-    mov rdi, r12; // set first parm to ctx
-    mov r15, rsi; // save rsi
-    mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
-    call rax;
-    mov rsi, r15; // restore rsi
+      mov rax, 0xfefefefe;
+      mov rdi, r12; // set first parm to ctx
+      mov r15, rsi; // save rsi
+      mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
+      call rax;
+      mov rsi, r15; // restore rsi
+      jmp label_25;
 label_24:
+    
+      and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+      shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
+      add rax, rdx;
+label_25:
     
 
 #else
@@ -2160,32 +2160,33 @@ label_24:
     fadd EEL_ASM_TYPE [r12+-8];
     sub rdi, rdi;
 
-    fistp dword ptr [esi];
+    fistp dword ptr [rsi];
 
     // check if (%rsi) is in range...
     mov edi, dword ptr [rsi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));       //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_25;
-    mov rax, rdi;
-    shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
-    and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
-    mov rax, qword ptr [r12+rax];
-    test rax, rax;
-    jz label_25;
-    and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-    shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
-    add rax, rdi;
-    jmp label_26;
-
-label_25:
-    
-    mov rax, 0xfefefefe; // function ptr
-    mov rcx, r12; // set first parm to ctx
-    mov rdx, rdi; // rdx is second parameter (rcx is first)
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call rax;
-    add rsp, X64_EXTRA_STACK_SPACE;
+    jae label_26;
+      mov rax, rdi;
+      shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
+      and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
+      mov rax, qword ptr [r12+rax];
+      test rax, rax;
+      jnz label_27;
 label_26:
+    
+      mov rax, 0xfefefefe; // function ptr
+      mov rcx, r12; // set first parm to ctx
+      mov rdx, rdi; // rdx is second parameter (rcx is first)
+      sub rsp, X64_EXTRA_STACK_SPACE;
+      call rax;
+      add rsp, X64_EXTRA_STACK_SPACE;
+      jmp label_28;
+label_27:
+    
+      and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+      shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
+      add rax, rdi;
+label_28:
     
 #endif
 
@@ -2197,30 +2198,29 @@ label_26:
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));     //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_27;
+    jae label_29;
 
-    mov eax, edi;
-    shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
-    and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
-    mov eax, dword ptr [ebx+eax];
-    test eax, eax;
-    jz label_27;
-    and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-    shl edi, 3;      // 3 is log2(sizeof(EEL_F))
-    add eax, edi;
-    jmp label_28;
-
-
-label_27:
+      mov eax, edi;
+      shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
+      and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
+      mov eax, dword ptr [ebx+eax];
+      test eax, eax;
+      jnz label_30;
+label_29:
     
-    sub esp, 8; // keep stack aligned
-    mov ecx, 0xfefefefe;
-    push edi; // parameter
-    push ebx; // push context pointer
-    call ecx;
-    add esp, 16;
-
-label_28:
+      sub esp, 8; // keep stack aligned
+      mov ecx, 0xfefefefe;
+      push edi; // parameter
+      push ebx; // push context pointer
+      call ecx;
+      add esp, 16;
+      jmp label_31;
+label_30:
+    
+      and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
+      shl edi, 3;      // 3 is log2(sizeof(EEL_F))
+      add eax, edi;
+label_31:
     
 
     #ifndef _MSC_VER
