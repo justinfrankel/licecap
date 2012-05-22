@@ -1315,8 +1315,8 @@ void _asm_megabuf(void)
 
     // check if (%rsi) is in range, and buffer available, otherwise call function
     "movl (%rsi), %edx\n"
-    "testl %1, %rdx\n"     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
-    "jnz 1f\n"
+    "cmpl %1, %rdx\n"      //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
+    "jae 1f\n"
     "movll %rdx, %rax\n"
     "shrll %2, %rax\n"     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
     "andll %3, %rax\n"     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
@@ -1347,8 +1347,8 @@ void _asm_megabuf(void)
 
     // check if (%rsi) is in range...
     "movl (%rsi), %edi\n"
-    "testl %1, %edi\n"       //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
-    "jnz 1f\n"
+    "cmpl %1, %edi\n"       //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
+    "jae 1f\n"
     "movll %rdi, %rax\n"
     "shrll %2, %rax\n"       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
     "andll %3, %rax\n"       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
@@ -1377,8 +1377,8 @@ void _asm_megabuf(void)
 
     // check if (%esi) is in range, and buffer available, otherwise call function
     "movl (%%esi), %%edi\n"
-    "testl %0, %%edi\n"     //REPLACE=(0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))
-    "jnz 1f\n"
+    "cmpl %0, %%edi\n"     //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
+    "jae 1f\n"
 
     "movl %%edi, %%eax\n"
     "shrl %1, %%eax\n"      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
@@ -1403,7 +1403,7 @@ void _asm_megabuf(void)
     "0:"
 
     #ifndef _MSC_VER
-        :: "i" ((0xFFFFFFFF - (NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - 1))),
+        :: "i" (((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))),
            "i" ((NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )),
            "i" (((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )),
            "i" ((NSEEL_RAM_ITEMSPERBLOCK-1                                  ))
