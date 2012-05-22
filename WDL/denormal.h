@@ -44,6 +44,11 @@ static double WDL_DENORMAL_INLINE denormal_filter_double(double a)
   return (WDL_DENORMAL_DOUBLE_HW(&a)&0x7ff00000) ? a : 0.0;
 }
 
+static double WDL_DENORMAL_INLINE denormal_filter_double2(double a)
+{
+  return ((WDL_DENORMAL_DOUBLE_HW(&a)+0x100000)&0x7ff00000) > 0x100000 ? a : 0.0;
+}
+
 static double WDL_DENORMAL_INLINE denormal_filter_double_aggressive(double a)
 {
   return ((WDL_DENORMAL_DOUBLE_HW(&a)+0x100000)&0x7ff00000) >= WDL_DENORMAL_DOUBLE_AGGRESSIVE_CUTOFF ? a : 0.0;
@@ -53,6 +58,13 @@ static float WDL_DENORMAL_INLINE denormal_filter_float(float a)
 {
   return (WDL_DENORMAL_FLOAT_W(&a)&0x7f800000) ? a : 0.0f;
 }
+
+static float WDL_DENORMAL_INLINE denormal_filter_float2(float a)
+{
+  return ((WDL_DENORMAL_FLOAT_W(&a)+0x800000)&0x7f800000) > 0x800000 ? a : 0.0f; 
+}
+
+
 static float WDL_DENORMAL_INLINE denormal_filter_float_aggressive(float a)
 {
   return ((WDL_DENORMAL_FLOAT_W(&a)+0x800000)&0x7f800000) >= WDL_DENORMAL_FLOAT_AGGRESSIVE_CUTOFF ? a : 0.0f; 
