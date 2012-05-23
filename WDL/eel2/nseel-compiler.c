@@ -515,14 +515,19 @@ static double eel1sigmoid(double x, double constraint)
 #define BIF_RETURNSBOOL      0x00400 // this value is used in ns-eel.h in some macros, be sure to update it there if you change it here
 #define BIF_LASTPARM_ASBOOL  0x00800
 
-#ifdef GLUE_HAS_FXCH
+#if defined(GLUE_HAS_FXCH) && GLUE_MAX_FPSTACK_SIZE > 0
   #define BIF_SECONDLASTPARMST 0x01000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
   #define BIF_LAZYPARMORDERING 0x02000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
   #define BIF_REVERSEFPORDER   0x04000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
-  #define BIF_FPSTACKUSE(x) (((x)>=0&&(x)<8) ? ((7-(x))<<16):0)
-  #define BIF_GETFPSTACKUSE(x) (7 - (((x)>>16)&7))
+
+  #ifndef BIF_FPSTACKUSE
+    #define BIF_FPSTACKUSE(x) (((x)>=0&&(x)<8) ? ((7-(x))<<16):0)
+  #endif
+  #ifndef BIF_GETFPSTACKUSE
+    #define BIF_GETFPSTACKUSE(x) (7 - (((x)>>16)&7))
+  #endif
 #else
-  // do not support fp stack use unless GLUE_HAS_FXCH is defined (maybe other things)
+  // do not support fp stack use unless GLUE_HAS_FXCH and GLUE_MAX_FPSTACK_SIZE>0
   #define BIF_SECONDLASTPARMST 0
   #define BIF_LAZYPARMORDERING 0
   #define BIF_REVERSEFPORDER   0
@@ -1791,7 +1796,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
       if (may_need_fppush>=0)
       {
-        if (local_fpstack_use+subfpstackuse >= 7 || (ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
+        if (local_fpstack_use+subfpstackuse >= (GLUE_MAX_FPSTACK_SIZE-1) || (ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
         {
           if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) 
             RET_MINUS1_FAIL("failed on size, popfpstacktostack")

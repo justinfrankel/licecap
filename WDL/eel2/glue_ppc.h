@@ -1,6 +1,7 @@
 #ifndef _NSEEL_GLUE_PPC_H_
 #define _NSEEL_GLUE_PPC_H_
 
+#define GLUE_MAX_FPSTACK_SIZE 0 // no stack support
 #define GLUE_MAX_JMPSIZE 30000 // maximum relative jump size for this arch (if not defined, any jump is possible)
 #define GLUE_JMP_TYPE short
 #define GLUE_JMP_OFFSET (-4) // jumps are from start of instruction on ppc

@@ -7,6 +7,7 @@
 #define GLUE_JMP_OFFSET 0
 #define GLUE_JMP_OFFSET_MASK 0xffffffff
 
+#define GLUE_MAX_FPSTACK_SIZE 0
 enum {
   EEL_BC_NOP=1,
   EEL_BC_RET,

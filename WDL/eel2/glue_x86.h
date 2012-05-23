@@ -1,6 +1,7 @@
 #ifndef _NSEEL_GLUE_X86_H_
 #define _NSEEL_GLUE_X86_H_
 
+#define GLUE_MAX_FPSTACK_SIZE 8
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
 #define GLUE_JMP_OFFSET_MASK 0xffffffff
