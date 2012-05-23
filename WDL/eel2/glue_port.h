@@ -14,6 +14,7 @@ enum {
   EEL_BC_JMP_IF_P1_Z,
   EEL_BC_JMP_IF_P1_NZ,
 
+  EEL_BC_MOV_FPTOP_DV,
   EEL_BC_MOV_P1_DV, // followed by INT_PTR ptr
   EEL_BC_MOV_P2_DV,
   EEL_BC_MOV_P3_DV,
@@ -147,14 +148,16 @@ BC_DECL_JMP(WHILE_END)
 BC_DECL_JMP(WHILE_CHECK_RV)
 
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE (sizeof(EEL_BC_TYPE) + sizeof(INT_PTR))
+#define GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE GLUE_MOV_PX_DIRECTVALUE_SIZE 
 static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv) 
 {   
-  static const EEL_BC_TYPE tab[3] = {
+  static const EEL_BC_TYPE tab[] = {
+    EEL_BC_MOV_FPTOP_DV,
     EEL_BC_MOV_P1_DV,
     EEL_BC_MOV_P2_DV,
     EEL_BC_MOV_P3_DV,
   };
-  *(EEL_BC_TYPE *)b = tab[wv];
+  *(EEL_BC_TYPE *)b = tab[wv+1];
   *(INT_PTR *) ((char *)b + sizeof(EEL_BC_TYPE)) = v;
 }
 
@@ -476,6 +479,10 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
       case EEL_BC_JMP_IF_P1_NZ:
         iptr += p1 ? sizeof(GLUE_JMP_TYPE)+*(GLUE_JMP_TYPE *)iptr : sizeof(GLUE_JMP_TYPE);
+      break;
+      case EEL_BC_MOV_FPTOP_DV:
+        fp_top = **(EEL_F **)iptr;
+        iptr += sizeof(void*);
       break;
       case EEL_BC_MOV_P1_DV:
         p1 = *(void **)iptr;
