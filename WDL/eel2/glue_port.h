@@ -555,8 +555,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
         fp_top = *p3;
       break;
       case EEL_BC_POP_FPSTACK_TO_WTP:
-        *wtp = fp_top;
-        wtp+=sizeof(EEL_F);
+        *wtp++ = fp_top;
       break;
       case EEL_BC_SET_P1_Z:
         p1=NULL;
