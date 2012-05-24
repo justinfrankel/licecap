@@ -785,7 +785,6 @@ opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
     r->opcodeType = OPCODETYPE_DIRECTVALUE;
     r->parms.dv.directValue = value; 
     r->parms.dv.valuePtr = NULL;
-    ctx->l_stats[3]++;
   }
   return r;
 }
@@ -1617,9 +1616,14 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
   {
     b=op->parms.dv.valuePtr;
     if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
-
+    if (!b && op->opcodeType == OPCODETYPE_DIRECTVALUE)
+    {
+      // todo: eventually can cache these pointers in certain instances
+      ctx->l_stats[3]++;
+    }
     if (!b)
     {
+
       b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
       if (!b) RET_MINUS1_FAIL("error allocating data block")
 
