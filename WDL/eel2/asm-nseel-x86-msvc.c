@@ -139,11 +139,12 @@ __declspec(naked) void nseel_asm_2pdds(void)
     and edx, 0x7FF00000;
     cmp edx, 0x00100000;
     jg label_0;
+      sub edx, edx;
 #ifdef TARGET_X64
-      mov qword ptr [rdi], 0;
+      mov qword ptr [rdi], rdx;
 #else
-      mov dword ptr [edi], 0;
-      mov dword ptr [edi+4], 0;
+      mov dword ptr [edi], edx;
+      mov dword ptr [edi+4], edx;
 #endif
 label_0:
     
@@ -453,7 +454,7 @@ __declspec(naked) void nseel_asm_assign(void)
     cmp edx, 0x00100000;
     mov rax, rdi;
     jg label_1;
-      sub rcx, rcx;
+      sub ecx, ecx;
 label_1:
     
     mov qword ptr [edi], rcx;
@@ -517,11 +518,12 @@ __declspec(naked) void nseel_asm_assign_fromfp(void)
     cmp edx, 0x00100000;
     mov eax, edi;
     jg label_3;
+      sub edx, edx;
 #ifdef TARGET_X64
-      mov qword ptr [rdi], 0;
+      mov qword ptr [rdi], rdx;
 #else
-      mov dword ptr [edi], 0;
-      mov dword ptr [edi+4], 0;
+      mov dword ptr [edi], edx;
+      mov dword ptr [edi+4], edx;
 #endif
 label_3:
     
@@ -742,11 +744,12 @@ __declspec(naked) void nseel_asm_mul_op(void)
     and edx, 0x7FF00000;
     cmp edx, 0x00100000;
     jg label_4;
+      sub edx, edx;
 #ifdef TARGET_X64
-      mov qword ptr [rdi], 0;
+      mov qword ptr [rdi], rdx;
 #else
-      mov dword ptr [edi], 0;
-      mov dword ptr [edi+4], 0;
+      mov dword ptr [edi], edx;
+      mov dword ptr [edi+4], edx;
 #endif
 label_4:
     
@@ -808,11 +811,12 @@ __declspec(naked) void nseel_asm_div_op(void)
     and edx, 0x7FF00000;
     cmp edx, 0x00100000;
     jg label_5;
+      sub edx, edx;
 #ifdef TARGET_X64
-      mov qword ptr [rdi], 0;
+      mov qword ptr [rdi], rdx;
 #else
-      mov dword ptr [edi], 0;
-      mov dword ptr [edi+4], 0;
+      mov dword ptr [edi], edx;
+      mov dword ptr [edi+4], edx;
 #endif
 label_5:
     

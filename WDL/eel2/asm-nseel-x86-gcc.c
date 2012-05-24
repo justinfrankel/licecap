@@ -107,11 +107,12 @@ void nseel_asm_2pdds(void)
     "andl $0x7FF00000, %edx\n"
     "cmpl $0x00100000, %edx\n"
     "jg 0f\n"
+      "subl %edx, %edx\n"
 #ifdef TARGET_X64
-      "movll $0, (%rdi)\n"
+      "movll %rdx, (%rdi)\n"
 #else
-      "movl $0, (%edi)\n"
-      "movl $0, 4(%edi)\n"
+      "movl %edx, (%edi)\n"
+      "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
 
@@ -260,7 +261,7 @@ void nseel_asm_assign(void)
     "cmpl $0x00100000, %edx\n"
     "movll %rdi, %rax\n"
     "jg 0f\n"
-      "subl %rcx, %rcx\n"
+      "subl %ecx, %ecx\n"
     "0:\n"
     "movll %rcx, (%edi)\n"
     );
@@ -298,11 +299,12 @@ void nseel_asm_assign_fromfp(void)
     "cmpl $0x00100000, %edx\n"
     "movl %edi, %eax\n"
     "jg 0f\n"
+      "subl %edx, %edx\n"
 #ifdef TARGET_X64
-      "movll $0, (%rdi)\n"
+      "movll %rdx, (%rdi)\n"
 #else
-      "movl $0, (%edi)\n"
-      "movl $0, 4(%edi)\n"
+      "movl %edx, (%edi)\n"
+      "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
     );
@@ -414,11 +416,12 @@ void nseel_asm_mul_op(void)
     "andl $0x7FF00000, %edx\n"
     "cmpl $0x00100000, %edx\n"
     "jg 0f\n"
+      "subl %edx, %edx\n"
 #ifdef TARGET_X64
-      "movll $0, (%rdi)\n"
+      "movll %rdx, (%rdi)\n"
 #else
-      "movl $0, (%edi)\n"
-      "movl $0, 4(%edi)\n"
+      "movl %edx, (%edi)\n"
+      "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
 
@@ -455,11 +458,12 @@ void nseel_asm_div_op(void)
     "andl $0x7FF00000, %edx\n"
     "cmpl $0x00100000, %edx\n"
     "jg 0f\n"
+      "subl %edx, %edx\n"
 #ifdef TARGET_X64
-      "movll $0, (%rdi)\n"
+      "movll %rdx, (%rdi)\n"
 #else
-      "movl $0, (%edi)\n"
-      "movl $0, 4(%edi)\n"
+      "movl %edx, (%edi)\n"
+      "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
 
