@@ -94,6 +94,7 @@ typedef struct _codeHandleFunctionRec
 
   int rvMode; // RETURNVALUE_*
   int fpStackUsage; // 0-8, usually
+  int canHaveDenormalOutput;
 
   // local storage's first items are the parameters, then locals. Note that the opcodes will reference localstorage[] via VARPTRPTR, but 
   // the values localstorage[x] points are reallocated from context-to-context, if it is a common function.
