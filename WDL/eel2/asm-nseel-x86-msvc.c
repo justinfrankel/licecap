@@ -463,7 +463,7 @@ _emit 0x90;
     mov eax, edx;
     add eax, 0x00100000; // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
     and eax, 0x7ff00000;
-    cmp eax, 1;
+    cmp eax, 0x00100000;
     jg label_1;
       sub ecx, ecx;
       sub edx, edx;

@@ -258,7 +258,7 @@ void nseel_asm_assign(void)
     "movl %edx, %eax\n"
     "addl $0x00100000, %eax\n" // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
     "andl $0x7ff00000, %eax\n" 
-    "cmpl $1, %eax\n"
+    "cmpl $0x00100000, %eax\n"
     "jg 0f\n"
       "subl %ecx, %ecx\n"
       "subl %edx, %edx\n"
