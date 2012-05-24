@@ -1601,7 +1601,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
 }
 
 
-static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int whichReg, const char *functionPrefix)
+static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int whichReg, const char *functionPrefix, int allowCache)
 {
   EEL_F *b=NULL;
   if (op->opcodeType==OPCODETYPE_VALUE_FROM_NAMESPACENAME)
@@ -1615,16 +1615,23 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
   }
   else
   {
+    if (op->opcodeType != OPCODETYPE_DIRECTVALUE) allowCache=0;
+
     b=op->parms.dv.valuePtr;
     if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
-    if (!b && op->opcodeType == OPCODETYPE_DIRECTVALUE)
+    if (!b && allowCache)
     {
-      // todo: eventually can cache these pointers in certain instances
-      ctx->l_stats[3]++;
+      int n=50; // only scan last X items
+      opcodeRec *r = ctx->directValueCache;
+      while (r && n--)
+      {
+        if (r->parms.dv.directValue == op->parms.dv.directValue && (b=r->parms.dv.valuePtr)) break;
+        r=(opcodeRec*)r->fn;
+      }
     }
     if (!b)
     {
-
+      ctx->l_stats[3]++;
       b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
       if (!b) RET_MINUS1_FAIL("error allocating data block")
 
@@ -1635,6 +1642,11 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
         *b = denormal_filter_float2(op->parms.dv.directValue);
       #endif
 
+      if (allowCache)
+      {
+        op->fn = ctx->directValueCache;
+        ctx->directValueCache = op;
+      }
     }
   }
 
@@ -1911,7 +1923,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) RET_MINUS1_FAIL("size, pxdvsz")
         if (bufOut) 
         {
-          if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis)<0) RET_MINUS1_FAIL("gvtr")
+          if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis, 0/*nocaching, function gets pointer*/)<0) RET_MINUS1_FAIL("gvtr")
         }
         parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
       }
@@ -2128,7 +2140,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,parmptrs[pn],bufOut + parm_size,0,namespacePathToThis)<0) RET_MINUS1_FAIL("eelfunc gvr fail")
+        if (generateValueToReg(ctx,parmptrs[pn],bufOut + parm_size,0,namespacePathToThis, 1)<0) RET_MINUS1_FAIL("eelfunc gvr fail")
         GLUE_COPY_VALUE_AT_P1_TO_PTR(bufOut + parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE,cfp_ptrs[pn]);
       }
       parm_size += cpsize;
@@ -2527,7 +2539,7 @@ doNonInlineIf_:
             if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE) RET_MINUS1_FAIL("direct fp fail 2")
             if (bufOut)
             {
-              if (generateValueToReg(ctx,op,bufOut,-1,namespacePathToThis)<0) RET_MINUS1_FAIL("direct fp fail gvr")
+              if (generateValueToReg(ctx,op,bufOut,-1,namespacePathToThis, 1 /*allow caching*/)<0) RET_MINUS1_FAIL("direct fp fail gvr")
             }
             *calledRvType = RETURNVALUE_FPSTACK;
             return rv_offset+GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE;
@@ -2541,7 +2553,7 @@ doNonInlineIf_:
       }
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis)<0) RET_MINUS1_FAIL("direct value gvr fail3")
+        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis, !!(preferredReturnValues&RETURNVALUE_FPSTACK)/*cache if going to the fp stack*/)<0) RET_MINUS1_FAIL("direct value gvr fail3")
       }
     return rv_offset + GLUE_MOV_PX_DIRECTVALUE_SIZE;
 
@@ -3317,6 +3329,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (!ctx) return 0;
 
+  ctx->directValueCache=0;
   ctx->optimizeDisableFlags=0;
 
   if (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET)
@@ -3861,6 +3874,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   }
 
 
+  ctx->directValueCache=0;
   ctx->functions_local = NULL;
   
   ctx->isSharedFunctions=0;

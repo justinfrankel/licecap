@@ -185,6 +185,7 @@ typedef struct _compileContext
 
   // state used while generating functions
   int optimizeDisableFlags;
+  struct opcodeRec *directValueCache; // linked list using fn as next
 
   int isSharedFunctions;
   int function_usesThisPointer;
