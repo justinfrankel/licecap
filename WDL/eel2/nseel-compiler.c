@@ -1891,7 +1891,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       else if (pn == n_params-1)  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
       {
         int rvt=0;
-        int isFastAssign = func == nseel_asm_assign && op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        int isFastAssign = func == nseel_asm_assign;
 
         int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
           (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 

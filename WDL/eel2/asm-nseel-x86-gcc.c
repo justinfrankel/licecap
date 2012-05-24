@@ -100,6 +100,21 @@ void nseel_asm_2pdds(void)
     "fstpl (%edi)\n" /* store result */
     "movl %edi, %eax\n" /* set return value */
 #endif
+
+    // denormal-fix result (this is only currently used for pow_op, so we want this!)
+    "movl 4(%edi), %edx\n"
+    "addl $0x00100000, %edx\n"
+    "andl $0x7FF00000, %edx\n"
+    "cmpl $0x00100000, %edx\n"
+    "jg 0f\n"
+#ifdef TARGET_X64
+      "movll $0, (%rdi)\n"
+#else
+      "movl $0, (%edi)\n"
+      "movl $0, 4(%edi)\n"
+#endif
+    "0:\n"
+
     
   );
 }
@@ -284,11 +299,10 @@ void nseel_asm_assign_fromfp(void)
     "movl %edi, %eax\n"
     "jg 0f\n"
 #ifdef TARGET_X64
-      "subll %rdx, %rdx\n"
-      "movll %rdx, (%rdi)\n"
+      "movll $0, (%rdi)\n"
 #else
-      "fldz\n"
-      "fstpl (%edi)\n"
+      "movl $0, (%edi)\n"
+      "movl $0, 4(%edi)\n"
 #endif
     "0:\n"
     );
@@ -302,8 +316,8 @@ void nseel_asm_assign_fromfp_end(void) {}
 void nseel_asm_assign_fast_fromfp(void)
 {
   __asm__(
-    "fstpl (%edi)\n"
     "movl %edi, %eax\n"
+    "fstpl (%edi)\n"
     );
 }
 void nseel_asm_assign_fast_fromfp_end(void) {}
@@ -324,11 +338,12 @@ void nseel_asm_assign_fast(void)
 #else
 
   __asm__(
-    "movl 4(%eax), %edx\n"
     "movl (%eax), %ecx\n"
     "movl %ecx, (%edi)\n"
-    "movl %edx, 4(%edi)\n"
+    "movl 4(%eax), %ecx\n"
+
     "movl %edi, %eax\n"
+    "movl %ecx, 4(%edi)\n"
   );
 
 #endif
@@ -393,6 +408,20 @@ void nseel_asm_mul_op(void)
     "fmul" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    "movl 4(%edi), %edx\n"
+    "addl $0x00100000, %edx\n"
+    "andl $0x7FF00000, %edx\n"
+    "cmpl $0x00100000, %edx\n"
+    "jg 0f\n"
+#ifdef TARGET_X64
+      "movll $0, (%rdi)\n"
+#else
+      "movl $0, (%edi)\n"
+      "movl $0, 4(%edi)\n"
+#endif
+    "0:\n"
+
   );
 }
 void nseel_asm_mul_op_end(void) {}
@@ -420,6 +449,20 @@ void nseel_asm_div_op(void)
     "fdiv\n" 
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    "movl 4(%edi), %edx\n"
+    "addl $0x00100000, %edx\n"
+    "andl $0x7FF00000, %edx\n"
+    "cmpl $0x00100000, %edx\n"
+    "jg 0f\n"
+#ifdef TARGET_X64
+      "movll $0, (%rdi)\n"
+#else
+      "movl $0, (%edi)\n"
+      "movl $0, 4(%edi)\n"
+#endif
+    "0:\n"
+
   );
 }
 void nseel_asm_div_op_end(void) {}
