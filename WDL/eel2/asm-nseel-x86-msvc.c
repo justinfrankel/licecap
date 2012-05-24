@@ -530,6 +530,30 @@ __declspec(naked) void nseel_asm_assign_fromfp_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
+__declspec(naked) void nseel_asm_assign_fast_fromfp(void)
+{
+  __asm {
+    fstp qword ptr [edi];
+    mov eax, edi;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    }
+}
+__declspec(naked) void nseel_asm_assign_fast_fromfp_end(void) {}
+
+
+
+//---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_assign_fast(void)
 {
 #ifdef TARGET_X64

@@ -87,6 +87,7 @@ enum {
 
   EEL_BC_ASSIGN,
   EEL_BC_ASSIGN_FAST,
+  EEL_BC_ASSIGN_FAST_FROMFP,
   EEL_BC_ASSIGN_FROMFP,
   EEL_BC_MOD,
   EEL_BC_MOD_OP,
@@ -323,6 +324,7 @@ BC_DECLASM(uminus,UMINUS)
 
 BC_DECLASM(assign,ASSIGN)
 BC_DECLASM(assign_fast,ASSIGN_FAST)
+BC_DECLASM(assign_fast_fromfp,ASSIGN_FAST_FROMFP)
 BC_DECLASM(assign_fromfp,ASSIGN_FROMFP)
 BC_DECLASM(mod,MOD)
 BC_DECLASM(mod_op,MOD_OP)
@@ -417,6 +419,7 @@ BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 #define nseel_asm_uminus_end EEL_BC_ENDOF(nseel_asm_uminus)
 #define nseel_asm_assign_end EEL_BC_ENDOF(nseel_asm_assign)
 #define nseel_asm_assign_fast_end EEL_BC_ENDOF(nseel_asm_assign_fast)
+#define nseel_asm_assign_fast_fromfp_end EEL_BC_ENDOF(nseel_asm_assign_fast_fromfp)
 #define nseel_asm_assign_fromfp_end EEL_BC_ENDOF(nseel_asm_assign_fromfp)
 #define nseel_asm_mod_end EEL_BC_ENDOF(nseel_asm_mod)
 #define nseel_asm_mod_op_end EEL_BC_ENDOF(nseel_asm_mod_op)
@@ -736,6 +739,10 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
 
       case EEL_BC_ASSIGN_FAST:
         *p2 = *p1;
+      break;
+      case EEL_BC_ASSIGN_FAST_FROMFP:
+        *p2 = fp_pop();
+        p1 = p2;
       break;
       case EEL_BC_ASSIGN_FROMFP:
         *p2 = denormal_filter_double2(fp_pop());

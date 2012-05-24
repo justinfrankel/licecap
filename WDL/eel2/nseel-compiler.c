@@ -387,6 +387,7 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(assign)
   DECL_ASMFUNC(assign_fromfp)
   DECL_ASMFUNC(assign_fast)
+  DECL_ASMFUNC(assign_fast_fromfp)
   DECL_ASMFUNC(add)
   DECL_ASMFUNC(sub)
   DECL_ASMFUNC(add_op)
@@ -1739,22 +1740,6 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       }
     }
   }
-  else if (func == nseel_asm_assign &&
-      (op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE
-#if 0
-       ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTR
-       ||op->parms.parms[1]->opcodeType == OPCODETYPE_VARPTRPTR
-    // this might be a bad idea, since if someone does x*=0.01; a lot it will probably denormal, and this could let y=x; have it propagate
-    // or maybe we need to fix the mulop/divop/etc modes?
-#endif
-       ))
-  {
-    // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
-     #ifndef __ppc__
-       func = nseel_asm_assign_fast;
-       func_e = nseel_asm_assign_fast_end;
-     #endif
-  }
   // end of built-in function specific special casing
 
 
@@ -1824,7 +1809,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       last_nt_parm = pn;
       last_nt_parm_type = rvt;
 
-      if (func == nseel_asm_assign && rvt == RETURNVALUE_FPSTACK)
+      if (pn == n_params - 1 && rvt == RETURNVALUE_FPSTACK && func == nseel_asm_assign)
       {
         cfunc_abiinfo |= BIF_LASTPARMONSTACK;
         func = nseel_asm_assign_fromfp;
@@ -1885,18 +1870,41 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     {
       if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
       {
-        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,RETURNVALUE_FPSTACK,NULL,NULL);
+        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
+                                RETURNVALUE_FPSTACK,NULL,NULL);
         if (a<0) RET_MINUS1_FAIL("coc call here 2")
         parm_size+=a;
         need_fxch = 1;
       }
-      else if (pn == n_params-1 && (cfunc_abiinfo&(BIF_LASTPARMONSTACK|BIF_LASTPARM_ASBOOL)))  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
+      else if (pn == n_params-1)  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
       {
+        int rvt=0;
+        int isFastAssign = func == nseel_asm_assign && op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
+
         int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
-          (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : RETURNVALUE_BOOL,NULL, NULL);
+          (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
+          (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
+          isFastAssign ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
+          RETURNVALUE_NORMAL,&rvt, NULL);
+        
         if (a<0) RET_MINUS1_FAIL("coc call here 3")
         parm_size+=a;
         need_fxch = 0;
+
+        if (isFastAssign)
+        {
+          if (rvt == RETURNVALUE_FPSTACK)
+          {           
+            func = nseel_asm_assign_fast_fromfp;
+            func_e = nseel_asm_assign_fast_fromfp_end;
+          }
+          else
+          {
+             // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
+            func = nseel_asm_assign_fast;
+            func_e = nseel_asm_assign_fast_end;
+          }
+        }
       }
       else
       {
@@ -2469,47 +2477,46 @@ doNonInlineIf_:
  
   switch (op->opcodeType)
   {
-    case OPCODETYPE_VALUE_FROM_NAMESPACENAME:
     case OPCODETYPE_DIRECTVALUE:
+        if (preferredReturnValues == RETURNVALUE_BOOL)
+        {
+          int w = fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR;
+          int wsz=(w?sizeof(GLUE_SET_P1_NZ):sizeof(GLUE_SET_P1_Z));
+
+          *calledRvType = RETURNVALUE_BOOL;
+          if (bufOut_len < wsz) RET_MINUS1_FAIL("direct bool size fail3")
+          if (bufOut) memcpy(bufOut,w?GLUE_SET_P1_NZ:GLUE_SET_P1_Z,wsz);
+          return rv_offset+wsz;
+        }
+        else if (preferredReturnValues & RETURNVALUE_FPSTACK)
+        {
+#ifdef GLUE_HAS_FLDZ
+          if (op->parms.dv.directValue == 0.0)
+          {
+            *fpStackUse = 1;
+            *calledRvType = RETURNVALUE_FPSTACK;
+            if (bufOut_len < sizeof(GLUE_FLDZ)) RET_MINUS1_FAIL("direct fp fail 1")
+            if (bufOut) memcpy(bufOut,GLUE_FLDZ,sizeof(GLUE_FLDZ));
+            return rv_offset+sizeof(GLUE_FLDZ);
+          }
+#endif
+#ifdef GLUE_HAS_FLD1
+          if (op->parms.dv.directValue == 1.0)
+          {
+            *fpStackUse = 1;
+            *calledRvType = RETURNVALUE_FPSTACK;
+            if (bufOut_len < sizeof(GLUE_FLD1)) RET_MINUS1_FAIL("direct fp fail 1")
+            if (bufOut) memcpy(bufOut,GLUE_FLD1,sizeof(GLUE_FLD1));
+            return rv_offset+sizeof(GLUE_FLD1);
+          }
+#endif
+        }
+        // fall through
+
+    case OPCODETYPE_VALUE_FROM_NAMESPACENAME:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
 
-        if (op->opcodeType == OPCODETYPE_DIRECTVALUE)
-        {
-          if (preferredReturnValues == RETURNVALUE_BOOL)
-          {
-            int w = fabs(op->parms.dv.directValue) >= NSEEL_CLOSEFACTOR;
-            int wsz=(w?sizeof(GLUE_SET_P1_NZ):sizeof(GLUE_SET_P1_Z));
-
-            *calledRvType = RETURNVALUE_BOOL;
-            if (bufOut_len < wsz) RET_MINUS1_FAIL("direct bool size fail3")
-            if (bufOut) memcpy(bufOut,w?GLUE_SET_P1_NZ:GLUE_SET_P1_Z,wsz);
-            return rv_offset+wsz;
-          }
-          else if (preferredReturnValues & RETURNVALUE_FPSTACK)
-          {
-#ifdef GLUE_HAS_FLDZ
-            if (op->parms.dv.directValue == 0.0)
-            {
-              *fpStackUse = 1;
-              *calledRvType = RETURNVALUE_FPSTACK;
-              if (bufOut_len < sizeof(GLUE_FLDZ)) RET_MINUS1_FAIL("direct fp fail 1")
-              if (bufOut) memcpy(bufOut,GLUE_FLDZ,sizeof(GLUE_FLDZ));
-              return rv_offset+sizeof(GLUE_FLDZ);
-            }
-#endif
-#ifdef GLUE_HAS_FLD1
-            if (op->parms.dv.directValue == 1.0)
-            {
-              *fpStackUse = 1;
-              *calledRvType = RETURNVALUE_FPSTACK;
-              if (bufOut_len < sizeof(GLUE_FLD1)) RET_MINUS1_FAIL("direct fp fail 1")
-              if (bufOut) memcpy(bufOut,GLUE_FLD1,sizeof(GLUE_FLD1));
-              return rv_offset+sizeof(GLUE_FLD1);
-            }
-#endif
-          }
-        }
 
       #ifdef GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE
         if (OPCODE_IS_TRIVIAL(op))

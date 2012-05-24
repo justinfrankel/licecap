@@ -117,6 +117,29 @@ void nseel_asm_assign_fromfp(void)
 void nseel_asm_assign_fromfp_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
+void nseel_asm_assign_fast(void)
+{
+  __asm__(
+   "lfd f1, 0(r3)\n"
+   "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
+  );
+}
+void nseel_asm_assign_fast_end(void) {}
+//
+//---------------------------------------------------------------------------------------------------------------
+void nseel_asm_assign_fast_fromfp(void)
+{
+  __asm__(
+   "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
+  );
+}
+void nseel_asm_assign_fast_fromfp_end(void) {}
+
+
+
+//---------------------------------------------------------------------------------------------------------------
 void nseel_asm_add(void)
 {
   __asm__(

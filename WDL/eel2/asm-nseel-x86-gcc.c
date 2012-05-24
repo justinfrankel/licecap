@@ -299,6 +299,18 @@ void nseel_asm_assign_fromfp_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
+void nseel_asm_assign_fast_fromfp(void)
+{
+  __asm__(
+    "fstpl (%edi)\n"
+    "movl %edi, %eax\n"
+    );
+}
+void nseel_asm_assign_fast_fromfp_end(void) {}
+
+
+
+//---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fast(void)
 {
 #ifdef TARGET_X64
