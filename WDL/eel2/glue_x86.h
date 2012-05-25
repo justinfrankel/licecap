@@ -322,4 +322,7 @@ static EEL_F negativezeropointfive=-0.5f;
 static EEL_F onepointfive=1.5f;
 #define GLUE_INVSQRT_NEEDREPL &negativezeropointfive, &onepointfive,
 
+
+#define GLUE_HAS_NATIVE_TRIGSQRTLOG
+
 #endif
