@@ -1103,8 +1103,9 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           int sz;
           fr->tmpspace_req=0;
           fr->rvMode = RETURNVALUE_IGNORE;
+          fr->canHaveDenormalOutput=0;
 
-          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage,NULL);
+          sz=compileOpcodes(ctx,fr->opcodes,NULL,128*1024*1024,&fr->tmpspace_req,fPrefix,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fr->rvMode,&fr->fpStackUsage,&fr->canHaveDenormalOutput);
 
           if (!wantCodeGenerated)
           {
