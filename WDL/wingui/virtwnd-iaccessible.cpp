@@ -815,8 +815,8 @@ LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, W
       HINSTANCE hInst = LoadLibrary("oleacc.dll");
       if (hInst)
       {
-        *(void **)&__LresultFromObject = GetProcAddress(hInst,"LresultFromObject");
-        *(void **)&__CreateStdAccessibleObject = GetProcAddress(hInst,"CreateStdAccessibleObject");
+        *(FARPROC *)&__LresultFromObject = GetProcAddress(hInst,"LresultFromObject");
+        *(FARPROC *)&__CreateStdAccessibleObject = GetProcAddress(hInst,"CreateStdAccessibleObject");
       }
     }
     if (!__LresultFromObject) return 0;

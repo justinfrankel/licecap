@@ -3,6 +3,7 @@
 #include "ptrlist.h"
 #include "win32_utf8.h"
 
+
 Win7FileDialog::Win7FileDialog(const char *name, int issave)
 {
   m_dlgid = 0;

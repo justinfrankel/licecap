@@ -602,7 +602,7 @@ public:
               {
                 int offs = (int)(m_file_position&(WDL_UNBUF_ALIGN-1));
                 LONG high=(LONG) ((m_file_position-offs)>>32);
-                SetFilePointer(m_fh,(LONG)((m_file_position-offs)&0xFFFFFFFFi64),&high,FILE_BEGIN);
+                SetFilePointer(m_fh,(LONG)((m_file_position-offs)&((WDL_FILEREAD_POSTYPE)0xFFFFFFFF)),&high,FILE_BEGIN);
                 m_sync_bufmode_pos=offs;
               }
             }
@@ -740,7 +740,7 @@ public:
     m_syncrd_firstbuf=true;
 #ifdef WDL_WIN32_NATIVE_READ
     LONG high=(LONG) (m_file_position>>32);
-    return SetFilePointer(m_fh,(LONG)(m_file_position&0xFFFFFFFFi64),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
+    return SetFilePointer(m_fh,(LONG)(m_file_position&((WDL_FILEREAD_POSTYPE)0xFFFFFFFF)),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
 #elif defined(WDL_POSIX_NATIVE_READ)
     m_filedes_rdpos = m_file_position;
     return false;

@@ -585,7 +585,7 @@ public:
     if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
 
     LONG high=(LONG) (m_file_position>>32);
-    return SetFilePointer(m_fh,(LONG)(m_file_position&0xFFFFFFFFi64),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
+    return SetFilePointer(m_fh,(LONG)(m_file_position&((WDL_FILEWRITE_POSTYPE)0xFFFFFFFF)),&high,FILE_BEGIN)==0xFFFFFFFF && GetLastError() != NO_ERROR;
 #elif defined(WDL_POSIX_NATIVE_WRITE)
 
     if (m_filedes < 0) return true;

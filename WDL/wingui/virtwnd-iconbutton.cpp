@@ -23,6 +23,7 @@
 
 */
 
+#include <ctype.h>
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 

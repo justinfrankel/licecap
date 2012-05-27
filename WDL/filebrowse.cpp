@@ -8,7 +8,9 @@
 
 #ifdef _WIN32
   #define PREF_DIRCH '\\'
-  #define WDL_FILEBROWSE_WIN7VISTAMODE
+  #ifdef _MSC_VER // todo: win7filedialog.cpp support for mingw32
+    #define WDL_FILEBROWSE_WIN7VISTAMODE
+  #endif
 #else
   #define PREF_DIRCH '/'
 #endif
