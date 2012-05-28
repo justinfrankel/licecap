@@ -566,7 +566,8 @@ void nseel_asm_or_end(void) {}
 void nseel_asm_or0(void)
 {
   __asm__(
-    "frndint\n"
+    "fistpll (%esi)\n"
+    "fildll (%esi)\n"
   );
 }
 void nseel_asm_or0_end(void) {}
