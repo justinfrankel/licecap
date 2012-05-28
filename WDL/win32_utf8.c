@@ -857,7 +857,7 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
   }
   else if (msg == LVM_INSERTCOLUMNA || msg==LVM_SETCOLUMNA)
   {
-    LPLVCOLUMN pCol = (LPLVCOLUMN) lParam;
+    LPLVCOLUMNA pCol = (LPLVCOLUMNA) lParam;
     char *str;
     if (pCol && (str=pCol->pszText) && (pCol->mask & LVCF_TEXT) && WDL_HasUTF8(str))
     {
@@ -876,7 +876,7 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
   }
   else if (msg == LVM_INSERTITEMA || msg == LVM_SETITEMA || msg == LVM_SETITEMTEXTA) 
   {
-    LPLVITEM pItem = (LPLVITEM) lParam;
+    LPLVITEMA pItem = (LPLVITEMA) lParam;
     char *str;
     if (pItem && (str=pItem->pszText) && (msg==LVM_SETITEMTEXTA || (pItem->mask&LVIF_TEXT)) && WDL_HasUTF8(str))
     {
@@ -896,7 +896,7 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
   }
   else if (msg==LVM_GETITEMA||msg==LVM_GETITEMTEXTA)
   {
-    LPLVITEM pItem = (LPLVITEM) lParam;
+    LPLVITEMA pItem = (LPLVITEMA) lParam;
     char *obuf;
     if (pItem && (msg == LVM_GETITEMTEXTA || (pItem->mask & LVIF_TEXT)) && (obuf=pItem->pszText) && pItem->cchTextMax > 3)
     {
