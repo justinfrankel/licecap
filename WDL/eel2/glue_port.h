@@ -77,6 +77,8 @@ enum {
 
   EEL_BC_ADD_OP,
   EEL_BC_SUB_OP,
+  EEL_BC_ADD_OP_FAST,
+  EEL_BC_SUB_OP_FAST,
   EEL_BC_MUL_OP,
   EEL_BC_DIV_OP,
   EEL_BC_AND_OP,
@@ -314,6 +316,8 @@ BC_DECLASM(xor,XOR)
 
 BC_DECLASM(add_op,ADD_OP)
 BC_DECLASM(sub_op,SUB_OP)
+BC_DECLASM(add_op_fast,ADD_OP_FAST)
+BC_DECLASM(sub_op_fast,SUB_OP_FAST)
 BC_DECLASM(mul_op,MUL_OP)
 BC_DECLASM(div_op,DIV_OP)
 BC_DECLASM(and_op,AND_OP)
@@ -410,6 +414,8 @@ BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 
 #define nseel_asm_add_op_end EEL_BC_ENDOF(nseel_asm_add_op)
 #define nseel_asm_sub_op_end EEL_BC_ENDOF(nseel_asm_sub_op)
+#define nseel_asm_add_op_fast_end EEL_BC_ENDOF(nseel_asm_add_op_fast)
+#define nseel_asm_sub_op_fast_end EEL_BC_ENDOF(nseel_asm_sub_op_fast)
 #define nseel_asm_mul_op_end EEL_BC_ENDOF(nseel_asm_mul_op)
 #define nseel_asm_div_op_end EEL_BC_ENDOF(nseel_asm_div_op)
 #define nseel_asm_and_op_end EEL_BC_ENDOF(nseel_asm_and_op)
@@ -706,16 +712,22 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
 
       case EEL_BC_ADD_OP:
-        *(p1 = p2) += fp_pop();        
+        *(p1 = p2) = denormal_filter_double2(*p2 + fp_pop());
       break;
       case EEL_BC_SUB_OP:
+        *(p1 = p2) = denormal_filter_double2(*p2 - fp_pop());
+      break;
+      case EEL_BC_ADD_OP_FAST:
+        *(p1 = p2) += fp_pop();        
+      break;
+      case EEL_BC_SUB_OP_FAST:
         *(p1 = p2) -= fp_pop();
       break;
       case EEL_BC_MUL_OP:
-        *(p1 = p2) *= fp_pop();
+        *(p1 = p2) = denormal_filter_double2(*p2 * fp_pop());
       break;
       case EEL_BC_DIV_OP:
-        *(p1 = p2) /= fp_pop();
+        *(p1 = p2) = denormal_filter_double2(*p2 * fp_pop());
       break;
       case EEL_BC_AND_OP:
         p1 = p2;

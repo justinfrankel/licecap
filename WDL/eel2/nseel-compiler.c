@@ -394,6 +394,8 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(sub)
   DECL_ASMFUNC(add_op)
   DECL_ASMFUNC(sub_op)
+  DECL_ASMFUNC(add_op_fast)
+  DECL_ASMFUNC(sub_op_fast)
   DECL_ASMFUNC(mul)
   DECL_ASMFUNC(div)
   DECL_ASMFUNC(mul_op)
@@ -604,8 +606,8 @@ static functionType fnTable1[] = {
   { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
   { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
 
-  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL}, 
-  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL}, 
+  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL},  // default versions of these clear denormals, but we can shortcut to non-denorm check versions if input is known non-denormal
+  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
 
 
    { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&asin}, },
@@ -2002,7 +2004,19 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   }
 #endif
   
+  if (!*canHaveDenormalOutput)
   {
+    // if add_op or sub_op, and non-denormal input, safe to omit denormal checks
+    if (func == (void*)nseel_asm_add_op)
+    {
+      func = nseel_asm_add_op_fast;
+      func_e = nseel_asm_add_op_fast_end;
+    }
+    else if (func == (void*)nseel_asm_sub_op)
+    {
+      func = nseel_asm_sub_op_fast;
+      func_e = nseel_asm_sub_op_fast_end;
+    }
   }
 
 

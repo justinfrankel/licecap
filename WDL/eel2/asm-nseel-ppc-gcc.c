@@ -160,6 +160,17 @@ void nseel_asm_add_op(void)
 }
 void nseel_asm_add_op_end(void) {}
 
+void nseel_asm_add_op_fast(void)
+{
+  __asm__(
+   "lfd f2, 0(r14)\n"
+   "fadd f1, f1, f2\n"
+   "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
+  );
+}
+void nseel_asm_add_op_fast_end(void) {}
+
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_sub(void)
@@ -181,6 +192,17 @@ void nseel_asm_sub_op(void)
   );
 }
 void nseel_asm_sub_op_end(void) {}
+
+void nseel_asm_sub_op_fast(void)
+{
+  __asm__(
+   "lfd f2, 0(r14)\n"
+   "fsub f1, f2, f1\n"
+   "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
+  );
+}
+void nseel_asm_sub_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mul(void)

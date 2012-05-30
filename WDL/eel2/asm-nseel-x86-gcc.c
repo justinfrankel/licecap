@@ -367,9 +367,33 @@ void nseel_asm_add_op(void)
     "fadd" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    "movl 4(%edi), %edx\n"
+    "addl $0x00100000, %edx\n"
+    "andl $0x7FF00000, %edx\n"
+    "cmpl $0x00100000, %edx\n"
+    "jg 0f\n"
+      "subl %edx, %edx\n"
+#ifdef TARGET_X64
+      "movll %rdx, (%rdi)\n"
+#else
+      "movl %edx, (%edi)\n"
+      "movl %edx, 4(%edi)\n"
+#endif
+    "0:\n"
   );
 }
 void nseel_asm_add_op_end(void) {}
+
+void nseel_asm_add_op_fast(void)
+{
+  __asm__(
+    "fadd" EEL_F_SUFFIX " (%edi)\n"
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+  );
+}
+void nseel_asm_add_op_fast_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -391,9 +415,33 @@ void nseel_asm_sub_op(void)
     "fsubr" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    "movl 4(%edi), %edx\n"
+    "addl $0x00100000, %edx\n"
+    "andl $0x7FF00000, %edx\n"
+    "cmpl $0x00100000, %edx\n"
+    "jg 0f\n"
+      "subl %edx, %edx\n"
+#ifdef TARGET_X64
+      "movll %rdx, (%rdi)\n"
+#else
+      "movl %edx, (%edi)\n"
+      "movl %edx, 4(%edi)\n"
+#endif
+    "0:\n"
   );
 }
 void nseel_asm_sub_op_end(void) {}
+
+void nseel_asm_sub_op_fast(void)
+{
+  __asm__(
+    "fsubr" EEL_F_SUFFIX " (%edi)\n"
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+  );
+}
+void nseel_asm_sub_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mul(void)
