@@ -1673,20 +1673,16 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
 {
   unsigned char *p, *newblock2;
   // generate code call
-  int cdenorm=0;
-  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage, &cdenorm);
+  int funcsz=compileOpcodes(ctx,rec,NULL,1024*1024*128,NULL,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage, NULL);
   if (funcsz<0) return NULL;
  
   p = newblock2 = newCodeBlock(funcsz+ sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
   if (!newblock2) return NULL;
   memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
   *fpStackUsage=0;
-  cdenorm=0;
-  funcsz=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage, &cdenorm);         
+  funcsz=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage, canHaveDenormalOutput);         
   if (funcsz<0) return NULL;
   p+=funcsz;
-
-  if (canHaveDenormalOutput) *canHaveDenormalOutput=cdenorm;
 
   memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
@@ -1948,7 +1944,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
           (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
           wantFpStack ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
-          RETURNVALUE_NORMAL,&rvt, NULL,NULL);
+          RETURNVALUE_NORMAL,&rvt, NULL,canHaveDenormalOutput);
         
         if (a<0) RET_MINUS1_FAIL("coc call here 3")
         parm_size+=a;
@@ -2258,8 +2254,8 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
   // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
   while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
   {
-    int fUse,cdenorm=0;
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse,&cdenorm);
+    int fUse;
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse,NULL);
     if (parm_size < 0) RET_MINUS1_FAIL("coc join fail")
     op = op->parms.parms[1];
     if (!op) RET_MINUS1_FAIL("join got to null")
@@ -2304,7 +2300,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #else
       {
         unsigned char *looppt, *jzoutpt;
-        int parm_size=0,subsz,cdenorm;
+        int parm_size=0,subsz;
         if (bufOut_len < parm_size + sizeof(GLUE_WHILE_SETUP) + sizeof(GLUE_WHILE_BEGIN)) RET_MINUS1_FAIL("while size fail 1")
         if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_SETUP,sizeof(GLUE_WHILE_SETUP));
         parm_size+=sizeof(GLUE_WHILE_SETUP);
@@ -2312,7 +2308,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_BEGIN,sizeof(GLUE_WHILE_BEGIN));
         parm_size+=sizeof(GLUE_WHILE_BEGIN);
 
-        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse, &cdenorm);
+        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse, NULL);
         if (subsz<0) RET_MINUS1_FAIL("while coc fail")
 
         if (bufOut_len < parm_size + sizeof(GLUE_WHILE_END) + sizeof(GLUE_WHILE_CHECK_RV)) RET_MINUS1_FAIL("which size fial 2")
@@ -2337,8 +2333,8 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     // special case: loop
     if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+3)
     {    
-      int fUse,cdenorm=0;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse, &cdenorm);
+      int fUse;
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse, NULL);
       if (parm_size < 0) RET_MINUS1_FAIL("loop coc fail")
       
       *calledRvType = RETURNVALUE_BOOL;
@@ -2366,7 +2362,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #else
       {
         int subsz;
-        int fUse=0,cdenorm=0;
+        int fUse=0;
         unsigned char *skipptr1,*loopdest;
         if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + sizeof(GLUE_LOOP_CLAMPCNT) + sizeof(GLUE_LOOP_BEGIN)) RET_MINUS1_FAIL("loop size fail")
 
@@ -2384,7 +2380,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_BEGIN,sizeof(GLUE_LOOP_BEGIN));
         parm_size += sizeof(GLUE_LOOP_BEGIN);
 
-        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse, &cdenorm);
+        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse, NULL);
         if (subsz<0) RET_MINUS1_FAIL("loop coc fail")
         if (fUse > *fpStackUse) *fpStackUse=fUse;
 
@@ -2410,12 +2406,12 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     {
       int fUse=0;
       int parm_size,parm_size_pre;
-      int retType=RETURNVALUE_IGNORE,cdenorm=0;
+      int retType=RETURNVALUE_IGNORE;
       if (preferredReturnValues != RETURNVALUE_IGNORE) retType = RETURNVALUE_BOOL;
 
       *calledRvType = retType;
       
-      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse, &cdenorm);
+      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse, NULL);
       if (parm_size < 0) RET_MINUS1_FAIL("loop band/bor coc fail")
       
       if (fUse > *fpStackUse) *fpStackUse=fUse;
@@ -2424,7 +2420,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       parm_size_pre=parm_size;
 
       {
-        int sz2, fUse=0,cdenorm=0;
+        int sz2, fUse=0;
         unsigned char *destbuf;
         const int testsz=(fn_ptr == fnTable1+2) ? sizeof(GLUE_JMP_IF_P1_NZ) : sizeof(GLUE_JMP_IF_P1_Z);
         if (bufOut_len < parm_size+testsz) RET_MINUS1_FAIL_FALLBACK("band/bor size fail",doNonInlinedAndOr_)
@@ -2433,7 +2429,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
         parm_size += testsz;
         destbuf = bufOut + parm_size - sizeof(GLUE_JMP_TYPE);
 
-        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse, &cdenorm);
+        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse, NULL);
 
         CHECK_SIZE_FORJMP(sz2,doNonInlinedAndOr_)
         if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
@@ -2486,10 +2482,10 @@ doNonInlinedAndOr_:
     
     if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
     {
-      int fUse=0,cdenorm=0;
+      int fUse=0;
       int parm_size_pre;
       int use_rv = RETURNVALUE_IGNORE;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse, &cdenorm);
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse, NULL);
       if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
       if (fUse > *fpStackUse) *fpStackUse=fUse;
 
@@ -2517,14 +2513,11 @@ doNonInlinedAndOr_:
 
         if (hasSecondHalf)
         {
-          int dnorm=0;
           if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL_FALLBACK("if len fail",doNonInlineIf_)
           if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
           parm_size+=sizeof(GLUE_JMP_NC);
 
-          csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse, &dnorm);
-
-          if (dnorm && canHaveDenormalOutput) *canHaveDenormalOutput=1;
+          csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse, canHaveDenormalOutput);
 
           CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
           if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
@@ -2750,12 +2743,14 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
   int code_returns=RETURNVALUE_NORMAL;
   int fpsu=0;
   int codesz;
+  int denorm=0;
 
 #ifdef DUMP_OPS_DURING_COMPILE
   dumpOp(ctx,op,1);
 #endif
   
-  codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues,&fpsu,canHaveDenormalOutput);
+  codesz = compileOpcodesInternal(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis,&code_returns, supportedReturnValues,&fpsu,&denorm);
+  if (denorm && canHaveDenormalOutput) *canHaveDenormalOutput=1;
 
 #ifdef DUMP_OPS_DURING_COMPILE
   dumpOp(ctx,op,-1);
@@ -3718,13 +3713,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     if (start_opcode)
     {
       int rvMode=0, fUse=0;
-      int cdenorm=0;
 
 #ifdef LOG_OPT
       char buf[512];
       int sd=0;
-      cdenorm=0;
-      sprintf(buf,"pre opt sz=%d (tsackDepth=%d)\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL,RETURNVALUE_IGNORE,NULL,&sd,&cdenorm),sd);
+      sprintf(buf,"pre opt sz=%d (tsackDepth=%d)\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL,RETURNVALUE_IGNORE,NULL,&sd,NULL),sd);
 #ifdef _WIN32
       OutputDebugString(buf);
 #else
@@ -3733,8 +3726,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #endif
       if (!(ctx->optimizeDisableFlags&OPTFLAG_NO_OPTIMIZE)) optimizeOpcodes(ctx,start_opcode,is_fname[0] ? 1 : 0);
 #ifdef LOG_OPT
-      cdenorm=0;
-      sprintf(buf,"post opt sz=%d, stack depth=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL,&sd,&cdenorm),sd);
+      sprintf(buf,"post opt sz=%d, stack depth=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL,&sd,NULL),sd);
 #ifdef _WIN32
       OutputDebugString(buf);
 #else
@@ -3747,9 +3739,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       g_debugfp_histsz=0;
       g_debugfp = fopen("C:/temp/foo.txt","w");
 #endif
-      cdenorm=0;
       startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL, 
-        is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode, &fUse, &cdenorm); // if not a function, force return value as address (avoid having to pop it ourselves
+        is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode, &fUse, NULL); // if not a function, force return value as address (avoid having to pop it ourselves
                                           // if a function, allow the code to decide how return values are generated
 
 #ifdef DUMP_OPS_DURING_COMPILE
@@ -3803,8 +3794,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
         startptr = newTmpBlock(ctx,startptr_size);
         if (startptr)
         {
-          cdenorm=0;
-          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop, NULL, RETURNVALUE_IGNORE, NULL,NULL, &cdenorm);
+          startptr_size=compileOpcodes(ctx,start_opcode,(unsigned char*)startptr,startptr_size,&computTableTop, NULL, RETURNVALUE_IGNORE, NULL,NULL, NULL);
           if (startptr_size<=0) startptr = NULL;
           
         }
