@@ -215,10 +215,23 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
     {
       mov eax, cp
       mov ebx, ramptr
+      
       pushad 
+      mov ebp, esp
+      and esp, -16
+
+       // on win32, which _MSC_VER implies, we keep things aligned to 16 bytes, and if we call a win32 function,
+       // the stack is 16 byte aligned before the call, meaning that if calling a function with no frame pointer,
+       // the stack would be aligned to a 16 byte boundary +4, which isn't good for performance. Having said that,
+       // normally we compile with frame pointers (which brings that to 16 byte + 8, which is fine), or ICC, which
+       // for nontrivial functions will align the stack itself (for very short functions, it appears to weigh the 
+       // cost of aligning the stack vs that of the slower misaligned double accesses).
+
+       // it may be worthwhile (at some point) to put some logic in the code that calls out to functions
+       // (generic1parm etc) to detect which alignment would be most optimal.
       sub esp, 12
       call eax
-      add esp, 12
+      mov esp, ebp
       popad
     };
 
