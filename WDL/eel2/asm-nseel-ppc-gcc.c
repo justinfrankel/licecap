@@ -73,6 +73,18 @@ void nseel_asm_invsqrt(void)
 }
 void nseel_asm_invsqrt_end(void) {}
 
+void nseel_asm_dbg_getstackptr(void)
+{
+  __asm__(
+    "addis r11, 0, 0x4330\n"
+    "xoris r10, r1, 0x8000\n"
+    "stw r11, -8(r1)\n"   // 0x43300000
+    "stw r10, -4(r1)\n"  // our integer sign flipped
+    "lfd f1, -8(r1)\n"
+    "fsub f1, f1, f30\n"
+  );
+}
+void nseel_asm_dbg_getstackptr_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------

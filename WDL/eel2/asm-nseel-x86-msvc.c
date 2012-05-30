@@ -263,6 +263,28 @@ _emit 0x90;
 __declspec(naked) void nseel_asm_invsqrt_end(void) {}
 
 
+__declspec(naked) void nseel_asm_dbg_getstackptr(void)
+{
+  __asm {
+    fstp st(0);
+    mov dword ptr [esi], esp;
+    fild dword ptr [esi];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_dbg_getstackptr_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_sin(void)
 {

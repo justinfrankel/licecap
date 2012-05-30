@@ -166,6 +166,16 @@ void nseel_asm_invsqrt(void)
 void nseel_asm_invsqrt_end(void) {}
 
 
+void nseel_asm_dbg_getstackptr(void)
+{
+  __asm__(
+    "fstpl %st(0)\n"
+    "movl %esp, (%esi)\n"
+    "fildl (%esi)\n"
+  );
+}
+void nseel_asm_dbg_getstackptr_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_sin(void)
 {

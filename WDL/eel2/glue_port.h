@@ -134,6 +134,8 @@ enum {
   EEL_BC_USERSTACK_PEEK_TOP,
   EEL_BC_USERSTACK_EXCH,
 
+  EEL_BC_DBG_GETSTACKPTR,
+
 };
 
 #define BC_DECL(x) static const EEL_BC_TYPE GLUE_##x[] = { EEL_BC_##x };
@@ -343,6 +345,7 @@ BC_DECLASM(max_fp,MAX_FP)
 BC_DECLASM(abs,ABS)
 BC_DECLASM(sign,SIGN)
 BC_DECLASM(invsqrt,INVSQRT)
+BC_DECLASM(dbg_getstackptr,DBG_GETSTACKPTR)
 
 BC_DECLASM(booltofp,BOOLTOFP)
 BC_DECLASM(fptobool,FPTOBOOL)
@@ -401,6 +404,7 @@ BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 #define nseel_asm_max_fp_end EEL_BC_ENDOF(nseel_asm_max_fp)
 #define nseel_asm_sign_end EEL_BC_ENDOF(nseel_asm_sign)
 #define nseel_asm_invsqrt_end EEL_BC_ENDOF(nseel_asm_invsqrt)
+#define nseel_asm_dbg_getstackptr_end EEL_BC_ENDOF(nseel_asm_dbg_getstackptr)
 
 
 #define nseel_asm_add_end EEL_BC_ENDOF(nseel_asm_add)
@@ -809,6 +813,9 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       case EEL_BC_SIGN:
         if (fp_top<0.0) fp_top=-1.0;
         else if (fp_top>0.0) fp_top=1.0;
+      break;
+      case EEL_BC_DBG_GETSTACKPTR:
+        fp_top = (int)(INT_PTR)stackptr;
       break;
       case EEL_BC_INVSQRT:
         {
