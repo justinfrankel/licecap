@@ -216,7 +216,9 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
       mov eax, cp
       mov ebx, ramptr
       pushad 
+      sub esp, 12
       call eax
+      add esp, 12
       popad
     };
 
