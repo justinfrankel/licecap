@@ -3,9 +3,12 @@
 
 #define GLUE_MAX_FPSTACK_SIZE 0 // no stack support
 #define GLUE_MAX_JMPSIZE 30000 // maximum relative jump size for this arch (if not defined, any jump is possible)
-#define GLUE_JMP_TYPE short
-#define GLUE_JMP_OFFSET (-4) // jumps are from start of instruction on ppc
-#define GLUE_JMP_OFFSET_MASK 0xfffc
+
+
+// endOfInstruction is end of jump with relative offset, offset passed in is offset from end of dest instruction.
+// on PPC the offset needs to be from the start of the instruction (hence +4), and also the low two bits are flags so 
+// we make sure they are clear (they should always be clear, anyway, since we always generate 4 byte instructions)
+#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((short *)(endOfInstruction))[-1] = ((offset) + 4) & 0xFFFC)
 
 static const unsigned char GLUE_JMP_NC[] = { 0x48,0, 0, 0, }; // b <offset>
 

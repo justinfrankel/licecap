@@ -2,9 +2,9 @@
 #define _NSEEL_GLUE_X86_H_
 
 #define GLUE_MAX_FPSTACK_SIZE 8
-#define GLUE_JMP_TYPE int
-#define GLUE_JMP_OFFSET 0 // offset from end of instruction that is the "source" of the jump
-#define GLUE_JMP_OFFSET_MASK 0xffffffff
+
+// endOfInstruction is end of jump with relative offset, offset is offset from end of instruction to jump to
+#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (offset))
 
 static const unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
 static const unsigned char GLUE_JMP_IF_P1_Z[] = {0x85, 0xC0, 0x0F, 0x84, 0,0,0,0 }; // test eax, eax, jz

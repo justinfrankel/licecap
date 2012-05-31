@@ -3,10 +3,8 @@
 
 
 #define DECL_ASMFUNC(x) 
-
 #define GLUE_JMP_TYPE int
-#define GLUE_JMP_OFFSET 0
-#define GLUE_JMP_OFFSET_MASK 0xffffffff
+#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((GLUE_JMP_TYPE *)(endOfInstruction))[-1] = (offset))
 
 #define GLUE_HAS_FXCH 
 #define GLUE_MAX_FPSTACK_SIZE 64
