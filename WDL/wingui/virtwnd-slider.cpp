@@ -44,6 +44,8 @@ WDL_VirtualSlider::WDL_VirtualSlider()
   m_captured=false;
   m_grayed = false;
   m_knobbg[0]=m_knobbg[1]=0;
+  m_knobstacks=0;
+  m_nknobstacks=0;
 }
 
 WDL_VirtualSlider::~WDL_VirtualSlider()
@@ -300,33 +302,73 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
         LICE_Blit(drawbm,bm_image,xpos,ypos,&r,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
       }
     }
-    else
+    else 
     {
-      LICE_pixel col  = m_knob_color ? m_knob_color : LICE_RGBA_FROMNATIVE(GSC(COLOR_3DHILIGHT),255);
+      int ks=0;
+      LICE_IBitmap *knobimage = NULL;
+      if (m_knobstacks)
+      {
+        int x;
+        int bestdiff=0;
+        for(x=0;x<m_nknobstacks; x++)
+        {
+          if (m_knobstacks[x])
+          {
+            int w=m_knobstacks[x]->getWidth(), h=m_knobstacks[x]->getHeight();
+            int md = w<h?w:h;
+            int diff = md-vieww;
+            if (diff<0)diff=-diff;
 
-      float alpha = LICE_GETA(col)/255.0f;
-      int cx=origin_x+vieww/2;
-      int cy=origin_y+viewh/2;
-      float rd = vieww/2-4 + m_knob_lineextrasize;
-      float r2=rd*0.125f;
-      if (!back_image) LICE_Circle(drawbm, cx, cy, rd, col, alpha, LICE_BLIT_MODE_COPY, true);
+            if (md > 0 && (!knobimage || bestdiff > diff))
+            {
+              knobimage=m_knobstacks[x];
+              bestdiff=diff;
+              ks = md;
+            }
+          }
+        }
+      }
 
       float val;
-      
       int center=m_center;
       if (center < 0) center=WDL_STYLE_GetSliderDynamicCenterPos();
       if (center > m_minr && (m_pos < center || center >= m_maxr)) val = (m_pos-center) / (double)(center-m_minr);
       else val = (m_pos-center) / (double)(m_maxr-center);
-      #define KNOBANGLE_MAX (3.14159*7.0/8.0);
-      float a = val*KNOBANGLE_MAX;
-      float sina=sin(a);
-      float cosa=cos(a);
-      float x1=cx+r2*sina;
-      float y1=cy-r2*cosa;
-      float x2=cx+rd*sina;
-      float y2=cy-rd*cosa;
-      LICE_FLine(drawbm, x1, y1, x2, y2, col, alpha, LICE_BLIT_MODE_COPY, true);
 
+      if (knobimage && ks>0)
+      {
+        bool v = knobimage->getWidth() == ks;
+        int ni=(v ? knobimage->getHeight() : knobimage->getWidth()) / ks;
+
+        if (val<-1.0)val=-1.0;
+        else if (val>1.0)val=1.0;
+        int p=(int) ((val+1.0)*0.5 * (ni-1));
+        if (p<0) p=0;
+        else if (p> ni-1) p=ni-1;
+        p *= ks;
+        LICE_ScaledBlit(drawbm,knobimage,origin_x,origin_y,vieww,viewh,v?0:p,v?p:0,ks,ks,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+      }
+      else
+      {
+        LICE_pixel col  = m_knob_color ? m_knob_color : LICE_RGBA_FROMNATIVE(GSC(COLOR_3DHILIGHT),255);
+
+        float alpha = LICE_GETA(col)/255.0f;
+        int cx=origin_x+vieww/2;
+        int cy=origin_y+viewh/2;
+        float rd = vieww/2-4 + m_knob_lineextrasize;
+        float r2=rd*0.125f;
+        if (!back_image) LICE_Circle(drawbm, cx, cy, rd, col, alpha, LICE_BLIT_MODE_COPY, true);
+      
+        #define KNOBANGLE_MAX (3.14159*7.0/8.0);
+        float a = val*KNOBANGLE_MAX;
+        float sina=sin(a);
+        float cosa=cos(a);
+        float x1=cx+r2*sina;
+        float y1=cy-r2*cosa;
+        float x2=cx+rd*sina;
+        float y2=cy-rd*cosa;
+        LICE_FLine(drawbm, x1, y1, x2, y2, col, alpha, LICE_BLIT_MODE_COPY, true);
+      }
     }
   }
   else
