@@ -251,7 +251,7 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     void GetButtonSize(int *w, int *h);
 
-    void SetSkinImageInfo(WDL_VirtualSlider_SkinConfig *cfg, WDL_VirtualWnd_BGCfg *knobbg=NULL, WDL_VirtualWnd_BGCfg *knobbgsm=NULL, LICE_IBitmap **knobstacks=NULL, int nknobstacks=0)
+    void SetSkinImageInfo(WDL_VirtualSlider_SkinConfig *cfg, WDL_VirtualWnd_BGCfg *knobbg=NULL, WDL_VirtualWnd_BGCfg *knobbgsm=NULL, WDL_VirtualWnd_BGCfg *knobstacks=NULL, int nknobstacks=0)
     { 
       m_skininfo=cfg; 
       m_knobbg[0]=knobbgsm;
@@ -266,7 +266,7 @@ class WDL_VirtualSlider : public WDL_VWnd
   protected:
     WDL_VirtualSlider_SkinConfig *m_skininfo;
     WDL_VirtualWnd_BGCfg *m_knobbg[2];
-    LICE_IBitmap **m_knobstacks;
+    WDL_VirtualWnd_BGCfg *m_knobstacks;
     int m_nknobstacks;
 
     int m_bgcol1_msg,m_scrollmsg;

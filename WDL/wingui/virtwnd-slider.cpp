@@ -306,24 +306,30 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
     {
       int ks=0;
       LICE_IBitmap *knobimage = NULL;
+      int ks_offs=0;
       if (m_knobstacks)
       {
         int x;
         int bestdiff=0;
         for(x=0;x<m_nknobstacks; x++)
         {
-          if (m_knobstacks[x])
+          if (m_knobstacks[x].bgimage)
           {
-            int w=m_knobstacks[x]->getWidth(), h=m_knobstacks[x]->getHeight();
+            int w=m_knobstacks[x].bgimage->getWidth(), h=m_knobstacks[x].bgimage->getHeight();
             int md = w<h?w:h;
             int diff = md-vieww;
             if (diff<0)diff=-diff;
 
             if (md > 0 && (!knobimage || bestdiff > diff))
             {
-              knobimage=m_knobstacks[x];
+              knobimage=m_knobstacks[x].bgimage;
+              ks_offs = m_knobstacks[x].bgimage_lt[0] > 0 &&
+                        m_knobstacks[x].bgimage_lt[1] > 0 &&
+                        m_knobstacks[x].bgimage_rb[0] > 0 &&
+                        m_knobstacks[x].bgimage_rb[1] > 0;
+
               bestdiff=diff;
-              ks = md;
+              ks = md - ks_offs*2;
             }
           }
         }
@@ -337,8 +343,8 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
       if (knobimage && ks>0)
       {
-        bool v = knobimage->getWidth() == ks;
-        int ni=(v ? knobimage->getHeight() : knobimage->getWidth()) / ks;
+        bool v = (knobimage->getWidth()-ks_offs*2) == ks;
+        int ni=((v ? knobimage->getHeight() : knobimage->getWidth())-ks_offs*2) / ks;
 
         if (val<-1.0)val=-1.0;
         else if (val>1.0)val=1.0;
@@ -346,7 +352,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
         if (p<0) p=0;
         else if (p> ni-1) p=ni-1;
         p *= ks;
-        LICE_ScaledBlit(drawbm,knobimage,origin_x,origin_y,vieww,viewh,v?0:p,v?p:0,ks,ks,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+        LICE_ScaledBlit(drawbm,knobimage,origin_x,origin_y,vieww,viewh,ks_offs + (v?0:p),ks_offs + (v?p:0),ks,ks,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
       }
       else
       {
