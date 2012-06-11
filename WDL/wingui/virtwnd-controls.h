@@ -284,6 +284,9 @@ class WDL_VirtualSlider : public WDL_VWnd
     bool m_sendmsgonclick;
     bool m_grayed;
     bool m_is_knob;
+
+    WDL_VirtualWnd_BGCfg *GetKnobImageForSize(int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs);
+
 };
 
 

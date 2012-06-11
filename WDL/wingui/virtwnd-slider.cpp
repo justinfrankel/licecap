@@ -152,6 +152,76 @@ void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
   }
 }
 
+
+WDL_VirtualWnd_BGCfg *WDL_VirtualSlider::GetKnobImageForSize(int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs)
+{
+  if (!m_knobstacks) return NULL;
+  WDL_VirtualWnd_BGCfg *knobimage=NULL;
+  int x;
+  int best_neww=*vieww, best_newh = *viewh;
+
+  double bestdiff=0;
+  double target_area_inv=0.0001 / ((double)*vieww * *viewh);
+
+  double target_aspect_inv = *viewh / (double) *vieww;
+
+  for(x=0;x<m_nknobstacks; x++)
+  {
+    if (m_knobstacks[x].bgimage)
+    {
+      const int w=m_knobstacks[x].bgimage->getWidth(), h=m_knobstacks[x].bgimage->getHeight();
+      const bool isVS = w < h;
+
+      const int hasPink = m_knobstacks[x].bgimage_lt[0] > 0 &&
+                  m_knobstacks[x].bgimage_lt[1] > 0 &&
+                  m_knobstacks[x].bgimage_rb[0] > 0 &&
+                  m_knobstacks[x].bgimage_rb[1] > 0;
+
+      const int slice_w = isVS ? (w - hasPink*2) : 
+            hasPink && m_knobstacks[x].bgimage_lt[0]>1 ? (m_knobstacks[x].bgimage_lt[0]-1 + (m_knobstacks[x].bgimage_lt_out[0]>1 ? m_knobstacks[x].bgimage_lt_out[0]-1:0)) : 
+            (h-hasPink*2);
+      const int slice_h = !isVS ? (h - hasPink*2) : 
+            hasPink && m_knobstacks[x].bgimage_lt[1]>1 ? (m_knobstacks[x].bgimage_lt[1]-1  + (m_knobstacks[x].bgimage_lt_out[1]>1 ? m_knobstacks[x].bgimage_lt_out[1]-1:0)) : 
+            (w-hasPink*2);
+
+      // prioritize getting the aspect ratio right, then add target area differences -- this needs testing!
+      double diff = ((double)slice_w / slice_h) * target_aspect_inv;
+      if (diff < 1.0) diff=1.0/diff;
+
+      double diff2 = ((slice_w * (double)slice_h) * target_area_inv);
+      if (diff2 < 1.0) diff2=1.0/diff2;
+      
+      diff += diff2;     
+
+      if (slice_w > 0 && slice_h > 0 && (!knobimage || bestdiff > diff))
+      {
+        knobimage=&m_knobstacks[x];
+        bestdiff=diff;
+        *ksw = slice_w;
+        *ksh = slice_h;
+        int tmp=(slice_w * *viewh) / slice_h;
+        if (tmp <= *vieww)
+        {
+          best_neww = tmp;
+          best_newh = *viewh;
+        }
+        else
+        {
+          best_neww = *vieww;
+          best_newh = (slice_h * *vieww) / slice_w;
+        }
+        *ks_offs = hasPink;
+      }
+    }
+  }
+  if (knobimage)
+  {
+    *vieww=best_neww;
+    *viewh=best_newh;
+  }
+  return knobimage;
+}
+
 void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
   origin_x += m_position.left; // convert drawing origin to local coords
@@ -195,6 +265,8 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
   if (isVert||wantKnob)
   {
     int pos = ((m_maxr-m_pos)*(viewh-bm_h2))/rsize; //viewh - bm_h2 - ((m_pos-m_minr) * (viewh - bm_h2))/rsize;
+
+    const int old_vieww=vieww, old_viewh=viewh;
 
     if (wantKnob)
     {
@@ -304,36 +376,11 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
     }
     else 
     {
-      int ks=0;
-      LICE_IBitmap *knobimage = NULL;
+      int ksw=0,ksh=0;
+      WDL_VirtualWnd_BGCfg *knobimage = NULL;
       int ks_offs=0;
-      if (m_knobstacks)
-      {
-        int x;
-        int bestdiff=0;
-        for(x=0;x<m_nknobstacks; x++)
-        {
-          if (m_knobstacks[x].bgimage)
-          {
-            int w=m_knobstacks[x].bgimage->getWidth(), h=m_knobstacks[x].bgimage->getHeight();
-            int md = w<h?w:h;
-            int diff = md-vieww;
-            if (diff<0)diff=-diff;
-
-            if (md > 0 && (!knobimage || bestdiff > diff))
-            {
-              knobimage=m_knobstacks[x].bgimage;
-              ks_offs = m_knobstacks[x].bgimage_lt[0] > 0 &&
-                        m_knobstacks[x].bgimage_lt[1] > 0 &&
-                        m_knobstacks[x].bgimage_rb[0] > 0 &&
-                        m_knobstacks[x].bgimage_rb[1] > 0;
-
-              bestdiff=diff;
-              ks = md - ks_offs*2;
-            }
-          }
-        }
-      }
+      int vw = old_vieww, vh=old_viewh;
+      knobimage = GetKnobImageForSize(&vw,&vh,&ksw, &ksh,&ks_offs);
 
       float val;
       int center=m_center;
@@ -341,18 +388,40 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       if (center > m_minr && (m_pos < center || center >= m_maxr)) val = (m_pos-center) / (double)(center-m_minr);
       else val = (m_pos-center) / (double)(m_maxr-center);
 
-      if (knobimage && ks>0)
+      if (knobimage && ksw>0 && ksh>0)
       {
-        bool v = (knobimage->getWidth()-ks_offs*2) == ks;
-        int ni=((v ? knobimage->getHeight() : knobimage->getWidth())-ks_offs*2) / ks;
+        const bool v = knobimage->bgimage->getWidth() < knobimage->bgimage->getHeight();
+
+        const int ni=((v ? knobimage->bgimage->getHeight() : knobimage->bgimage->getWidth())-ks_offs*2) / (v ? ksh : ksw);
 
         if (val<-1.0)val=-1.0;
         else if (val>1.0)val=1.0;
         int p=(int) ((val+1.0)*0.5 * (ni-1));
         if (p<0) p=0;
         else if (p> ni-1) p=ni-1;
-        p *= ks;
-        LICE_ScaledBlit(drawbm,knobimage,origin_x,origin_y,vieww,viewh,ks_offs + (v?0:p),ks_offs + (v?p:0),ks,ks,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+
+        p *= (v ? ksh : ksw);
+
+        int dx=origin_x + (vieww-vw)/2,dy=origin_y+(viewh-vh)/2,dw=vw,dh=vh;
+        if (ks_offs && 
+            knobimage->bgimage_lt_out[0] > 0 &&
+            knobimage->bgimage_lt_out[1] > 0 && 
+            knobimage->bgimage_rb_out[0] > 0 &&
+            knobimage->bgimage_rb_out[1] > 0)
+        {
+          int l = knobimage->bgimage_lt_out[0]-1;
+          int t = knobimage->bgimage_lt_out[1]-1;
+          int r = knobimage->bgimage_rb_out[0]-1;
+          int b = knobimage->bgimage_rb_out[1]-1;
+
+          dx -= (dw * l)/ksw;
+          dy -= (dh * t)/ksh;
+
+          dw = (dw * (ksw + l + r)) / ksw;
+          dh = (dh * (ksh + t + b)) / ksh;
+        }
+
+        LICE_ScaledBlit(drawbm,knobimage->bgimage,dx,dy,dw,dh,ks_offs + (v?0:p),ks_offs + (v?p:0),ksw,ksh,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
       }
       else
       {
@@ -913,23 +982,78 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
 {
   *r=m_position;
   bool isVert=GetIsVert();
+  bool wantKnob=m_knobbias > 0;
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
-  if (bm_image)
+  if (!bm_image && !wantKnob)
+  {
+    bm_image=WDL_STYLE_GetSliderBitmap2(isVert);
+  }
+  if (bm_image && !wantKnob)
   {
     int bm_w=bm_image->getWidth();
     int bm_h=bm_image->getHeight();
     int s=0;
     int bm_w2=bm_w;
     int bm_h2=bm_h;
-    bool wantKnob=false;
     AdjustThumbImageSize(m_position.right-m_position.left,m_position.bottom-m_position.top,m_skininfo,isVert,&bm_w,&bm_h,&s,&wantKnob,m_knobbias);
-    if (wantKnob) 
+
+    if (!wantKnob)
     {
+      int rsize=m_maxr-m_minr;
       int viewh=m_position.bottom-m_position.top;
       int vieww=m_position.right-m_position.left;
+
+      if (isVert)
+      {
+        if (bm_w > vieww)
+        {
+          r->left-=(bm_w-vieww)/2+1;
+          r->right+=(bm_w-vieww)/2+1;
+        }
+
+        int tadj=m_tl_extra;
+        int badj=m_br_extra;
+
+        int pos = viewh - bm_h - ((m_pos-m_minr) * (viewh - bm_h))/rsize-s;
+
+        if (-pos > tadj) tadj=-pos;
+        if (pos+bm_h2 > viewh+badj) badj=pos+bm_h2-viewh;
+
+        //m_tl_extra=m_br_extra=
+        r->top-=tadj; //s;
+        r->bottom += badj; //(bm_h2-bm_h)-s;
+      }
+      else
+      {
+        if (bm_h > viewh)
+        {
+          r->top-=(bm_h-viewh)/2+1;
+          r->bottom+=(bm_h-viewh)/2+1;
+        }
+
+        int ladj=m_tl_extra;
+        int radj=m_br_extra;
+
+        int pos = ((m_pos-m_minr) * (vieww - bm_w))/rsize - s;
+
+        if (-pos > ladj) ladj=-pos;
+        if (pos+bm_w2 > vieww+radj) radj=pos+bm_w2-vieww;
+
+        r->left-=ladj; //s;
+        r->right += radj; // (bm_w2-bm_w)-s;
+      }
+    }
+  }
+
+  if (wantKnob) 
+  {
+    const int viewh=m_position.bottom-m_position.top;
+    const int vieww=m_position.right-m_position.left;
+    {
       int sz= min(vieww,viewh);
-      int ox = (vieww-sz)/2;
-      int oy = (viewh-sz)/2;
+      int ox = r->left + (vieww-sz)/2;
+      int oy = r->top + (viewh-sz)/2;
+
       WDL_VirtualWnd_BGCfg *back_image = m_knobbg[sz>28];
       if (back_image && back_image->bgimage && 
           back_image->bgimage_lt_out[0]>0 &&
@@ -938,65 +1062,45 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
           back_image->bgimage_rb_out[1]>0)
       {
         int tmp = ox - (back_image->bgimage_lt_out[0]-1);
-        if (tmp < 0) r->left+=tmp;
+        if (tmp < r->left) r->left=tmp;
         tmp = oy - (back_image->bgimage_lt_out[1]-1);
-        if (tmp < 0) r->top+=tmp;
+        if (tmp < r->top) r->top=tmp;
         tmp = ox+sz+(back_image->bgimage_rb_out[0]-1);
-        if (tmp > vieww) r->right += tmp-vieww;
+        if (tmp > r->right) r->right = tmp;
         tmp = oy+sz+(back_image->bgimage_rb_out[1]-1);
-        if (tmp > viewh) r->bottom += tmp-viewh;
-
+        if (tmp > r->bottom) r->bottom = tmp;
       }
-      return;
     }
 
-    int rsize=m_maxr-m_minr;
-    int viewh=m_position.bottom-m_position.top;
-    int vieww=m_position.right-m_position.left;
-
-    if (isVert)
     {
-      if (bm_w > vieww)
+      int kvw = vieww, kvh=viewh;
+      int ksw=0,ksh=0,kso=0;
+      WDL_VirtualWnd_BGCfg *knobimage=GetKnobImageForSize(&kvw,&kvh,&ksw,&ksh,&kso);
+
+      if (knobimage && kso && ksw>0 && ksh>0 && 
+            knobimage->bgimage_lt_out[0] > 0 &&
+            knobimage->bgimage_lt_out[1] > 0 && 
+            knobimage->bgimage_rb_out[0] > 0 &&
+            knobimage->bgimage_rb_out[1] > 0)
       {
-        r->left-=(bm_w-vieww)/2+1;
-        r->right+=(bm_w-vieww)/2+1;
+        const int ox = r->left + (vieww - kvw)/2;
+        const int oy = r->top + (viewh - kvh)/2;
+
+        int tmp = ox - (kvw * (knobimage->bgimage_lt_out[0]-1))/ksw;
+        if (tmp < r->left) r->left=tmp;
+        tmp = oy - (kvh * (knobimage->bgimage_lt_out[1]-1))/ksh;
+        if (tmp < r->top) r->top=tmp;
+
+        tmp = ox + kvw + (kvw * (knobimage->bgimage_rb_out[0]-1))/ksw;
+        if (tmp > r->right) r->right=tmp;
+        tmp = oy + kvh + (kvh * (knobimage->bgimage_rb_out[1]-1))/ksh;
+        if (tmp > r->bottom) r->bottom=tmp;
       }
-
-      int tadj=m_tl_extra;
-      int badj=m_br_extra;
-
-      int pos = viewh - bm_h - ((m_pos-m_minr) * (viewh - bm_h))/rsize-s;
-
-      if (-pos > tadj) tadj=-pos;
-      if (pos+bm_h2 > viewh+badj) badj=pos+bm_h2-viewh;
-
-      //m_tl_extra=m_br_extra=
-      r->top-=tadj; //s;
-      r->bottom += badj; //(bm_h2-bm_h)-s;
-    }
-    else
-    {
-      if (bm_h > viewh)
-      {
-        r->top-=(bm_h-viewh)/2+1;
-        r->bottom+=(bm_h-viewh)/2+1;
-      }
-
-      int ladj=m_tl_extra;
-      int radj=m_br_extra;
-
-      int pos = ((m_pos-m_minr) * (vieww - bm_w))/rsize - s;
-
-      if (-pos > ladj) ladj=-pos;
-      if (pos+bm_w2 > vieww+radj) radj=pos+bm_w2-vieww;
-
-      r->left-=ladj; //s;
-      r->right += radj; // (bm_w2-bm_w)-s;
     }
   }
-  // expand paintextent by background image outer extent if necessary
-  if (m_skininfo && m_skininfo->bgimagecfg[isVert].bgimage)
+  else if (m_skininfo && m_skininfo->bgimagecfg[isVert].bgimage)
   {
+    // expand paintextent by background image outer extent if necessary
     WDL_VirtualWnd_BGCfg *b = &m_skininfo->bgimagecfg[isVert];
     if (b->bgimage_lt[0]>0 &&
         b->bgimage_lt[1]>0 &&
