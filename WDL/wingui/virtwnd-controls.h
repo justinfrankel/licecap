@@ -113,6 +113,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
 
     void SetForceText(bool ft, int color=0) { m_forcetext=ft; m_forcetext_color=color; }
     bool GetForceText() { return m_forcetext; }
+    void SetTextLabelAlign(char align) { m_textalign=align; }
 
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_textfont=font; m_textfontv=vfont; }
     LICE_IFont *GetFont(bool vfont=false) { return vfont?m_textfontv:m_textfont; }
