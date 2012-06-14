@@ -27,7 +27,7 @@
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
-void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh)
+void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh, double alpha)
 {
   const bool v = knobimage->bgimage->getWidth() < knobimage->bgimage->getHeight();
 
@@ -66,7 +66,7 @@ void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_
     }
   }
 
-  LICE_ScaledBlit(drawbm,knobimage->bgimage,dx,dy,dw,dh,ks_offs + (v?0:p),ks_offs + (v?p:0),ksw,ksh,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+  LICE_ScaledBlit(drawbm,knobimage->bgimage,dx,dy,dw,dh,ks_offs + (v?0:p),ks_offs + (v?p:0),ksw,ksh,alpha,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
 }
 
 
@@ -452,7 +452,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       if (knobimage && ksw>0 && ksh>0)
       {
         vwnd_slider_drawknobstack(drawbm,(val+1.0)*0.5,knobimage,ksw,ksh,ks_offs,
-          old_origin_x + (old_vieww - vw)/2,old_origin_y+(old_viewh - vh)/2,vw,vh
+          old_origin_x + (old_vieww - vw)/2,old_origin_y+(old_viewh - vh)/2,vw,vh,alpha
           );
       }
       else
