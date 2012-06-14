@@ -27,6 +27,136 @@
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
+void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh)
+{
+  const bool v = knobimage->bgimage->getWidth() < knobimage->bgimage->getHeight();
+
+  const int ni=((v ? knobimage->bgimage->getHeight() : knobimage->bgimage->getWidth())-ks_offs*2) / (v ? ksh : ksw);
+
+  if (val<0.0)val=0.0;
+  else if (val>1.0)val=1.0;
+  int p=(int) (val * (ni-1));
+  if (p<0) p=0;
+  else if (p> ni-1) p=ni-1;
+
+  p *= (v ? ksh : ksw);
+
+  if (ks_offs && 
+      knobimage->bgimage_lt_out[0] > 0 &&
+      knobimage->bgimage_lt_out[1] > 0 && 
+      knobimage->bgimage_rb_out[0] > 0 &&
+      knobimage->bgimage_rb_out[1] > 0)
+  {
+    int l = knobimage->bgimage_lt_out[0]-1;
+    int t = knobimage->bgimage_lt_out[1]-1;
+    int r = knobimage->bgimage_rb_out[0]-1;
+    int b = knobimage->bgimage_rb_out[1]-1;
+
+    int ww = ksw - l - r;
+    if (ww > 0)
+    {
+      dx -= (dw * l) / ww;
+      dw = (dw * ksw) / ww;
+    }
+    int wh=ksh - t -b;
+    if (wh)
+    {
+      dy -= (dh * t) / wh;
+      dh = (dh * ksh) / wh;
+    }
+  }
+
+  LICE_ScaledBlit(drawbm,knobimage->bgimage,dx,dy,dw,dh,ks_offs + (v?0:p),ks_offs + (v?p:0),ksw,ksh,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+}
+
+
+WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knoblist, int nknoblist,int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs)
+{
+  if (!knoblist) return NULL;
+  WDL_VirtualWnd_BGCfg *knobimage=NULL;
+  int x;
+  int best_neww=*vieww, best_newh = *viewh;
+
+  double bestdiff=0;
+  double target_area_inv=0.0001 / ((double)*vieww * *viewh);
+
+  double target_aspect_inv = *viewh / (double) *vieww;
+
+  for(x=0;x<nknoblist; x++)
+  {
+    if (knoblist[x].bgimage)
+    {
+      const int w=knoblist[x].bgimage->getWidth(), h=knoblist[x].bgimage->getHeight();
+      const bool isVS = w < h;
+
+      const int hasPink = knoblist[x].bgimage_lt[0] > 0 &&
+                  knoblist[x].bgimage_lt[1] > 0 &&
+                  knoblist[x].bgimage_rb[0] > 0 &&
+                  knoblist[x].bgimage_rb[1] > 0;
+
+      const int slice_w = isVS ? (w - hasPink*2) : 
+            hasPink && knoblist[x].bgimage_lt[0]>1 ? (knoblist[x].bgimage_lt[0]-1 + (knoblist[x].bgimage_lt_out[0]>1 ? knoblist[x].bgimage_lt_out[0]-1:0)) : 
+            (h-hasPink*2);
+      const int slice_h = !isVS ? (h - hasPink*2) : 
+            hasPink && knoblist[x].bgimage_lt[1]>1 ? (knoblist[x].bgimage_lt[1]-1  + (knoblist[x].bgimage_lt_out[1]>1 ? knoblist[x].bgimage_lt_out[1]-1:0)) : 
+            (w-hasPink*2);
+
+
+      int fmtw = slice_w, fmth=slice_h;
+      if (hasPink && 
+          knoblist[x].bgimage_lt_out[0] > 0 &&
+          knoblist[x].bgimage_lt_out[1] > 0 && 
+          knoblist[x].bgimage_rb_out[0] > 0 &&
+          knoblist[x].bgimage_rb_out[1] > 0)
+      {
+        int l = knoblist[x].bgimage_lt_out[0]-1;
+        int t = knoblist[x].bgimage_lt_out[1]-1;
+        int r = knoblist[x].bgimage_rb_out[0]-1;
+        int b = knoblist[x].bgimage_rb_out[1]-1;
+
+        if (fmtw > l+r) fmtw -= l+r;
+        if (fmth > b+t) fmth -= b+t;
+      }
+
+      // prioritize getting the aspect ratio right, then add target area differences -- this needs testing!
+      double diff = ((double)fmtw / fmth) * target_aspect_inv;
+      if (diff < 1.0) diff=1.0/diff;
+
+      double diff2 = ((fmtw * (double)fmth) * target_area_inv);
+      if (diff2 < 1.0) diff2=1.0/diff2;
+      
+      diff += diff2;     
+
+      if (slice_w > 0 && slice_h > 0 && (!knobimage || bestdiff > diff))
+      {
+        knobimage=&knoblist[x];
+        bestdiff=diff;
+        *ksw = slice_w;
+        *ksh = slice_h;
+        *ks_offs = hasPink;
+
+        int tmp=(fmtw * *viewh) / fmth;
+        if (tmp <= *vieww)
+        {
+          best_neww = tmp;
+          best_newh = *viewh;
+        }
+        else
+        {
+          best_neww = *vieww;
+          best_newh = (fmth * *vieww) / fmtw;
+        }
+      }
+    }
+  }
+  if (knobimage)
+  {
+    *vieww=best_neww;
+    *viewh=best_newh;
+  }
+  return knobimage;
+}
+
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
@@ -152,93 +282,6 @@ void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
   }
 }
 
-
-WDL_VirtualWnd_BGCfg *WDL_VirtualSlider::GetKnobImageForSize(int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs)
-{
-  if (!m_knobstacks) return NULL;
-  WDL_VirtualWnd_BGCfg *knobimage=NULL;
-  int x;
-  int best_neww=*vieww, best_newh = *viewh;
-
-  double bestdiff=0;
-  double target_area_inv=0.0001 / ((double)*vieww * *viewh);
-
-  double target_aspect_inv = *viewh / (double) *vieww;
-
-  for(x=0;x<m_nknobstacks; x++)
-  {
-    if (m_knobstacks[x].bgimage)
-    {
-      const int w=m_knobstacks[x].bgimage->getWidth(), h=m_knobstacks[x].bgimage->getHeight();
-      const bool isVS = w < h;
-
-      const int hasPink = m_knobstacks[x].bgimage_lt[0] > 0 &&
-                  m_knobstacks[x].bgimage_lt[1] > 0 &&
-                  m_knobstacks[x].bgimage_rb[0] > 0 &&
-                  m_knobstacks[x].bgimage_rb[1] > 0;
-
-      const int slice_w = isVS ? (w - hasPink*2) : 
-            hasPink && m_knobstacks[x].bgimage_lt[0]>1 ? (m_knobstacks[x].bgimage_lt[0]-1 + (m_knobstacks[x].bgimage_lt_out[0]>1 ? m_knobstacks[x].bgimage_lt_out[0]-1:0)) : 
-            (h-hasPink*2);
-      const int slice_h = !isVS ? (h - hasPink*2) : 
-            hasPink && m_knobstacks[x].bgimage_lt[1]>1 ? (m_knobstacks[x].bgimage_lt[1]-1  + (m_knobstacks[x].bgimage_lt_out[1]>1 ? m_knobstacks[x].bgimage_lt_out[1]-1:0)) : 
-            (w-hasPink*2);
-
-
-      int fmtw = slice_w, fmth=slice_h;
-      if (hasPink && 
-          m_knobstacks[x].bgimage_lt_out[0] > 0 &&
-          m_knobstacks[x].bgimage_lt_out[1] > 0 && 
-          m_knobstacks[x].bgimage_rb_out[0] > 0 &&
-          m_knobstacks[x].bgimage_rb_out[1] > 0)
-      {
-        int l = m_knobstacks[x].bgimage_lt_out[0]-1;
-        int t = m_knobstacks[x].bgimage_lt_out[1]-1;
-        int r = m_knobstacks[x].bgimage_rb_out[0]-1;
-        int b = m_knobstacks[x].bgimage_rb_out[1]-1;
-
-        if (fmtw > l+r) fmtw -= l+r;
-        if (fmth > b+t) fmth -= b+t;
-      }
-
-      // prioritize getting the aspect ratio right, then add target area differences -- this needs testing!
-      double diff = ((double)fmtw / fmth) * target_aspect_inv;
-      if (diff < 1.0) diff=1.0/diff;
-
-      double diff2 = ((fmtw * (double)fmth) * target_area_inv);
-      if (diff2 < 1.0) diff2=1.0/diff2;
-      
-      diff += diff2;     
-
-      if (slice_w > 0 && slice_h > 0 && (!knobimage || bestdiff > diff))
-      {
-        knobimage=&m_knobstacks[x];
-        bestdiff=diff;
-        *ksw = slice_w;
-        *ksh = slice_h;
-        *ks_offs = hasPink;
-
-        int tmp=(fmtw * *viewh) / fmth;
-        if (tmp <= *vieww)
-        {
-          best_neww = tmp;
-          best_newh = *viewh;
-        }
-        else
-        {
-          best_neww = *vieww;
-          best_newh = (fmth * *vieww) / fmtw;
-        }
-      }
-    }
-  }
-  if (knobimage)
-  {
-    *vieww=best_neww;
-    *viewh=best_newh;
-  }
-  return knobimage;
-}
 
 void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
@@ -398,7 +441,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       WDL_VirtualWnd_BGCfg *knobimage = NULL;
       int ks_offs=0;
       int vw = old_vieww, vh=old_viewh;
-      knobimage = GetKnobImageForSize(&vw,&vh,&ksw, &ksh,&ks_offs);
+      knobimage = vwnd_slider_getknobimageforsize(m_knobstacks,m_nknobstacks,&vw,&vh,&ksw, &ksh,&ks_offs);
 
       float val;
       int center=m_center;
@@ -408,45 +451,9 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
       if (knobimage && ksw>0 && ksh>0)
       {
-        const bool v = knobimage->bgimage->getWidth() < knobimage->bgimage->getHeight();
-
-        const int ni=((v ? knobimage->bgimage->getHeight() : knobimage->bgimage->getWidth())-ks_offs*2) / (v ? ksh : ksw);
-
-        if (val<-1.0)val=-1.0;
-        else if (val>1.0)val=1.0;
-        int p=(int) ((val+1.0)*0.5 * (ni-1));
-        if (p<0) p=0;
-        else if (p> ni-1) p=ni-1;
-
-        p *= (v ? ksh : ksw);
-
-        int dx=old_origin_x + (old_vieww - vw)/2,dy=old_origin_y+(old_viewh - vh)/2,dw=vw,dh=vh;
-        if (ks_offs && 
-            knobimage->bgimage_lt_out[0] > 0 &&
-            knobimage->bgimage_lt_out[1] > 0 && 
-            knobimage->bgimage_rb_out[0] > 0 &&
-            knobimage->bgimage_rb_out[1] > 0)
-        {
-          int l = knobimage->bgimage_lt_out[0]-1;
-          int t = knobimage->bgimage_lt_out[1]-1;
-          int r = knobimage->bgimage_rb_out[0]-1;
-          int b = knobimage->bgimage_rb_out[1]-1;
-
-          int ww = ksw - l - r;
-          if (ww > 0)
-          {
-            dx -= (dw * l) / ww;
-            dw = (dw * ksw) / ww;
-          }
-          int wh=ksh - t -b;
-          if (wh)
-          {
-            dy -= (dh * t) / wh;
-            dh = (dh * ksh) / wh;
-          }
-        }
-
-        LICE_ScaledBlit(drawbm,knobimage->bgimage,dx,dy,dw,dh,ks_offs + (v?0:p),ks_offs + (v?p:0),ksw,ksh,1.0f,LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
+        vwnd_slider_drawknobstack(drawbm,(val+1.0)*0.5,knobimage,ksw,ksh,ks_offs,
+          old_origin_x + (old_vieww - vw)/2,old_origin_y+(old_viewh - vh)/2,vw,vh
+          );
       }
       else
       {
@@ -1100,7 +1107,7 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     {
       int kvw = vieww, kvh=viewh;
       int ksw=0,ksh=0,kso=0;
-      WDL_VirtualWnd_BGCfg *knobimage=GetKnobImageForSize(&kvw,&kvh,&ksw,&ksh,&kso);
+      WDL_VirtualWnd_BGCfg *knobimage=vwnd_slider_getknobimageforsize(m_knobstacks,m_nknobstacks,&kvw,&kvh,&ksw,&ksh,&kso);
 
       if (knobimage && kso && ksw>0 && ksh>0 && 
             knobimage->bgimage_lt_out[0] > 0 &&

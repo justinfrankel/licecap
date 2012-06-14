@@ -46,6 +46,11 @@ extern bool WDL_STYLE_AllowSliderMouseWheel();
 extern int WDL_STYLE_GetSliderDynamicCenterPos();
 
 
+// functions for handling knob drawing in non-vwnds
+extern WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knoblist, int nknoblist,int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs);
+extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh);
+
+
 /* recommended defaults for the above:
 
 int WDL_STYLE_WantGlobalButtonBorders() { return 0; }
@@ -285,9 +290,6 @@ class WDL_VirtualSlider : public WDL_VWnd
     bool m_sendmsgonclick;
     bool m_grayed;
     bool m_is_knob;
-
-    WDL_VirtualWnd_BGCfg *GetKnobImageForSize(int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs);
-
 };
 
 
