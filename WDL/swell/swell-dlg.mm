@@ -1675,12 +1675,14 @@ static HWND last_key_window;
 } \
 - (void)resignKeyWindow { \
   [super resignKeyWindow]; \
+  if (g_swell_terminating) return; \
   sendSwellMessage([self contentView],WM_ACTIVATE,WA_INACTIVE,0); \
   last_key_window=(HWND)self; \
 } \
 -(void)becomeKeyWindow \
 { \
   [super becomeKeyWindow]; \
+  if (g_swell_terminating) return; \
   NSView *foc=last_key_window && IsWindow(last_key_window) ? [(NSWindow *)last_key_window contentView] : 0; \
   HMENU menu=0; \
   if (foc && [foc respondsToSelector:@selector(swellHasBeenDestroyed)] && [(SWELL_hwndChild*)foc swellHasBeenDestroyed]) foc=NULL; \
@@ -1701,7 +1703,7 @@ static HWND last_key_window;
       [(SWELL_hwndChild*)v onSwellMessage:WM_COMMAND p1:IDCANCEL p2:0]; \
   return NO; \
 } \
-- (BOOL)canBecomeKeyWindow {   return !!m_enabled; } \
+- (BOOL)canBecomeKeyWindow {   return !!m_enabled && !g_swell_terminating; } \
 - (void **)swellGetOwnerWindowHead { return (void **)&m_ownedwnds; } \
 - (void)swellAddOwnedWindow:(NSWindow*)wnd \
 { \
