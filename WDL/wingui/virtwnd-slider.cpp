@@ -78,7 +78,7 @@ WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knob
   int best_neww=*vieww, best_newh = *viewh;
 
   double bestdiff=0;
-  double target_area_inv=0.0001 / ((double)*vieww * *viewh);
+  double target_area_inv=1.0 / ((double)*vieww * *viewh);
 
   double target_aspect_inv = *viewh / (double) *vieww;
 
@@ -125,7 +125,7 @@ WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knob
       double diff2 = ((fmtw * (double)fmth) * target_area_inv);
       if (diff2 < 1.0) diff2=1.0/diff2;
       
-      diff += diff2;     
+      diff += diff2 * 0.01;     
 
       if (slice_w > 0 && slice_h > 0 && (!knobimage || bestdiff > diff))
       {
