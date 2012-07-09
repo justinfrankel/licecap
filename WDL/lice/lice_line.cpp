@@ -1041,9 +1041,9 @@ static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1,
     *xlo = 0.0f;
     *ylo = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xlo, (float*)0, (float*)0, (double*)0, tlo);
   }
-  if (*xhi >= (float)w)
+  if (*xhi > (float)w)
   {
-    *xhi = (float)(w-1);
+    *xhi = (float)(w);
     *yhi = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xhi, (float*)0, (float*)0, thi, (double*)0);
   }
   if ((xbasis && *xlo > *xhi) || (!xbasis && *ylo > *yhi))
