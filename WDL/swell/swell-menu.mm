@@ -876,8 +876,6 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
   if (!hwnd||![(id)hwnd respondsToSelector:@selector(swellSetMenu:)]) return FALSE;
   if (g_swell_terminating)  return FALSE;
 
-  SWELL_SetMenuDestination(menu,hwnd);
-
   [(id)hwnd swellSetMenu:(HMENU)menu];
   NSWindow *nswnd = (NSWindow *)hwnd;
   if ([nswnd isKindOfClass:[NSWindow class]] || 

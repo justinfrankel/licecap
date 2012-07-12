@@ -441,6 +441,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     if (m_menu) 
     {
       if ((HMENU)[NSApp mainMenu] == m_menu && !g_swell_terminating) [NSApp setMainMenu:nil];
+      SWELL_SetMenuDestination(m_menu,NULL);
       [(NSMenu *)m_menu release]; 
       m_menu=0;
     }
@@ -824,7 +825,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 -(HMENU)swellGetMenu {   return m_menu; }
 -(BOOL)swellHasBeenDestroyed { return !!m_hashaddestroy; }
--(void)swellSetMenu:(HMENU)menu {   m_menu=menu; }
+-(void)swellSetMenu:(HMENU)menu {   
+  if (m_menu) SWELL_SetMenuDestination(m_menu,NULL); // don't free m_menu, but at least make it not point to us anymore
+  m_menu=menu; 
+  if (m_menu) SWELL_SetMenuDestination(m_menu,(HWND)self);
+}
 
 
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par
