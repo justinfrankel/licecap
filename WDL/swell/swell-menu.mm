@@ -379,6 +379,7 @@ void DestroyMenu(HMENU hMenu)
 {
   if (hMenu)
   {
+    SWELL_SetMenuDestination(hMenu,NULL);
     NSMenu *m=(NSMenu *)hMenu;
     [m release];
   }
@@ -430,6 +431,8 @@ bool DeleteMenu(HMENU hMenu, int idx, int flag)
   
   if ([item hasSubmenu])
   {
+    HMENU sm = (HMENU)[item submenu];
+    if (sm) SWELL_SetMenuDestination(sm,NULL);
     [m setSubmenu:nil forItem:item];
   }
   [m removeItem:item];
