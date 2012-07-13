@@ -217,4 +217,22 @@ class WDL_SharedMutex
 } WDL_FIXALIGN;
 
 
+
+class WDL_MutexLockShared {
+  public:
+    WDL_MutexLockShared(WDL_SharedMutex *m) : m_m(m) { if (m) m->LockShared(); }
+    ~WDL_MutexLockShared() { if (m_m) m_m->UnlockShared(); }
+  private:
+    WDL_SharedMutex *m_m;
+} WDL_FIXALIGN;
+
+class WDL_MutexLockExclusive {
+  public:
+    WDL_MutexLockExclusive(WDL_SharedMutex *m) : m_m(m) { if (m) m->LockExclusive(); }
+    ~WDL_MutexLockExclusive() { if (m_m) m_m->UnlockExclusive(); }
+  private:
+    WDL_SharedMutex *m_m;
+} WDL_FIXALIGN;
+
+
 #endif
