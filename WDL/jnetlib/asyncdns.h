@@ -61,7 +61,7 @@ private:
   volatile int m_thread_kill;
 #ifdef _WIN32
   HANDLE m_thread;
-  static unsigned long WINAPI _threadfunc(LPVOID _d);
+  static unsigned WINAPI _threadfunc(void *_d);
 #else
   pthread_t m_thread;
   static unsigned int _threadfunc(void *_d);
