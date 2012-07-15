@@ -17,6 +17,7 @@
 #include <math.h>
 
 #include "../tinyxml/tinyxml.h"
+#include "../wdlcstring.h"
 
 extern "C" int LICE_RGBA_from_SVG(const char* s, int len);
 
@@ -348,7 +349,7 @@ bool LICE_SVGState::ParseFont(TiXmlElement* xmlelem)
     s = GetSVGStyleStr(str, "font-family:", &len);
     if (s) 
     {
-      lstrcpyn(m_logfont.lfFaceName, s, len);
+      lstrcpyn_safe(m_logfont.lfFaceName, s, len);
       m_fontdirty = true;
     }
 

@@ -1,4 +1,5 @@
 #include "shm_msgreply.h"
+#include "wdlcstring.h"
 
 //#define VERIFY_MESSAGES // this is not endian-aware (so it'll fail if enabled and doing ppc<->x86 etc)
 #ifdef VERIFY_MESSAGES
@@ -18,7 +19,7 @@ SHM_MsgReplyConnection::SHM_MsgReplyConnection(int bufsize, int maxqueuesize, bo
   m_spares=0;
   m_waiting_replies=0;
 
-  if (uniquestr) lstrcpyn(m_uniq,uniquestr,sizeof(m_uniq));
+  if (uniquestr) lstrcpyn_safe(m_uniq,uniquestr,sizeof(m_uniq));
   else
   {
 #ifdef _WIN32

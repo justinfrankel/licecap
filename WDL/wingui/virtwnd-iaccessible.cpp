@@ -12,6 +12,7 @@
 
 #include "virtwnd-controls.h"
 #include "../wdltypes.h"
+#include "../wdlcstring.h"
 
 static BSTR SysAllocStringUTF8(const char *str)
 {
@@ -314,7 +315,7 @@ public:
         if (txt1)
         {
           if (buf[0]) strcat(buf," ");
-          lstrcpyn(buf+strlen(buf),txt1,512);
+          lstrcpyn_safe(buf+strlen(buf),txt1,512);
         }*/
 
 //          OutputDebugString(buf);
@@ -354,7 +355,7 @@ public:
         if (txt && *txt) 
         {
           if (buf[0]) strcat(buf," ");
-          lstrcpyn(buf+strlen(buf),txt,200);
+          lstrcpyn_safe(buf+strlen(buf),txt,200);
         }
         p=p->GetParent();
       }

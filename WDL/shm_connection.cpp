@@ -38,7 +38,7 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
 
   char buf[512];
   GetTempPath(sizeof(buf)-4,buf);
-  if (!buf[0]) lstrcpyn(buf,"C:\\",32);
+  if (!buf[0]) strcpy(buf,"C:\\");
   if (buf[strlen(buf)-1] != '/' && buf[strlen(buf)-1] != '\\') strcat(buf,"\\");
   m_tempfn.Set(buf);
   m_tempfn.Append("WDL_SHM_");

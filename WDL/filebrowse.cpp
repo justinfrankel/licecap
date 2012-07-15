@@ -4,6 +4,7 @@
 #include "filebrowse.h"
 
 #include "win32_utf8.h"
+#include "wdlcstring.h"
 
 
 #ifdef _WIN32
@@ -90,7 +91,7 @@ bool WDL_ChooseDirectory(HWND parent, const char *text, const char *initialdir, 
   GetCurrentDirectory(sizeof(olddir),olddir);
 #ifdef _WIN32
   char name[4096];
-  lstrcpyn(name,initialdir?initialdir:"",sizeof(name));
+  lstrcpyn_safe(name,initialdir?initialdir:"",sizeof(name));
   BROWSEINFO bi={parent,NULL, name, text, BIF_RETURNONLYFSDIRS|BIF_NEWDIALOGSTYLE, WDL_BrowseCallbackProc, (LPARAM)name,};
   LPITEMIDLIST idlist = SHBrowseForFolder( &bi );
   if (idlist) 
@@ -99,7 +100,7 @@ bool WDL_ChooseDirectory(HWND parent, const char *text, const char *initialdir, 
     IMalloc *m;
     SHGetMalloc(&m);
     m->Free(idlist);
-    lstrcpyn(fn,name,fnsize);
+    lstrcpyn_safe(fn,name,fnsize);
     return true;
   }
   return false;
@@ -146,7 +147,7 @@ bool WDL_ChooseFileForSave(HWND parent,
 #ifdef _WIN32
   char temp[4096];
   memset(temp,0,sizeof(temp));
-  if (initialfile) lstrcpyn(temp,initialfile,sizeof(temp));
+  if (initialfile) lstrcpyn_safe(temp,initialfile,sizeof(temp));
   WDL_fixfnforopenfn(temp);
 
 #ifdef WDL_FILEBROWSE_WIN7VISTAMODE
@@ -224,7 +225,7 @@ bool WDL_ChooseFileForSave(HWND parent,
     return false;
   }
   if (preservecwd) SetCurrentDirectory(cwd);
-  lstrcpyn(fn,temp,fnsize);
+  lstrcpyn_safe(fn,temp,fnsize);
   return true;
 
 #else
@@ -232,7 +233,7 @@ bool WDL_ChooseFileForSave(HWND parent,
   char if_temp[4096];
   if (initialfile) 
   {
-    lstrcpyn(if_temp,initialfile,sizeof(if_temp));
+    lstrcpyn_safe(if_temp,initialfile,sizeof(if_temp));
     WDL_fixfnforopenfn(if_temp);
     initialfile = if_temp;
   }
@@ -303,7 +304,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
       if(initialfile) 
       {
         char temp[4096];
-        lstrcpyn(temp,initialfile,sizeof(temp));
+        lstrcpyn_safe(temp,initialfile,sizeof(temp));
         //check for folder name
         char *p = temp+strlen(temp);
         while(p>temp && *p!='/' && *p!='\\') p--;
@@ -347,7 +348,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
   if (allowmul) l.Flags|=OFN_ALLOWMULTISELECT;
   if (preservecwd) l.Flags|=OFN_NOCHANGEDIR;
 
-  if (initialfile) lstrcpyn(temp,initialfile,temp_size);
+  if (initialfile) lstrcpyn_safe(temp,initialfile,temp_size);
 
   WDL_fixfnforopenfn(temp);
 
@@ -363,7 +364,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
   char if_temp[4096];
   if (initialfile) 
   {
-    lstrcpyn(if_temp,initialfile,sizeof(if_temp));
+    lstrcpyn_safe(if_temp,initialfile,sizeof(if_temp));
     WDL_fixfnforopenfn(if_temp);
     initialfile = if_temp;
   }

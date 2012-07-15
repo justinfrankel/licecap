@@ -47,29 +47,13 @@ static unsigned int GetTickCount()
   return tm.tv_sec*1000 + tm.tv_usec/1000;
 }
 
-
-static char *lstrcpyn(char *dest, const char *src, int l)
-{
-  if (l<1) return dest;
-
-  char *dsrc=dest;
-  while (--l > 0)
-  {
-    char p=*src++;
-    if (!p) break;
-    *dest++=p;
-  }
-  *dest++=0;
-
-  return dsrc;
-}
-
 #endif // !_WIN32
 
 #include <math.h>
 
 #include "scsrc.h"
 #include "jnetlib/jnetlib.h"
+#include "wdlcstring.h"
 
 // maybe we need to do this better someday
 #define POST_DIV_STRING "zzzASFIJAHFASJFHASLKFHZI8"
@@ -171,27 +155,27 @@ int WDL_ShoutcastSource::GetStatus() // returns 0 if connected/connecting, >0 if
 
 void WDL_ShoutcastSource::GetStatusText(char *buf, int bufsz) // gets status text
 {
-  if (m_state == ST_OK) wsprintf(buf,"Connected. Sent %u bytes",m_bytesout);
-  else if (m_state == ST_CONNECTING) lstrcpyn(buf,"Connecting...",bufsz);
-  else if (m_state == ERR_DISCONNECTED_AFTER_SUCCESS) wsprintf(buf,"Disconnected after sending %u bytes",m_bytesout);
-  else if (m_state == ERR_AUTH) lstrcpyn(buf,"Error authenticating with server",bufsz);
-  else if (m_state == ERR_CONNECT) lstrcpyn(buf,"Error connecting to server",bufsz);
-  else if (m_state == ERR_TIMEOUT) lstrcpyn(buf,"Timed out connecting to server",bufsz);
-  else if (m_state == ERR_CREATINGENCODER) lstrcpyn(buf,"Error creating encoder",bufsz);
+  if (m_state == ST_OK) snprintf(buf,sizeof(buf),"Connected. Sent %u bytes",m_bytesout);
+  else if (m_state == ST_CONNECTING) lstrcpyn_safe(buf,"Connecting...",bufsz);
+  else if (m_state == ERR_DISCONNECTED_AFTER_SUCCESS) snprintf(buf,sizeof(buf),"Disconnected after sending %u bytes",m_bytesout);
+  else if (m_state == ERR_AUTH) lstrcpyn_safe(buf,"Error authenticating with server",bufsz);
+  else if (m_state == ERR_CONNECT) lstrcpyn_safe(buf,"Error connecting to server",bufsz);
+  else if (m_state == ERR_TIMEOUT) lstrcpyn_safe(buf,"Timed out connecting to server",bufsz);
+  else if (m_state == ERR_CREATINGENCODER) lstrcpyn_safe(buf,"Error creating encoder",bufsz);
   else if (m_state == ERR_NOLAME) 
   #ifdef _WIN32
-    lstrcpyn(buf,"Error loading lame_enc.dll",bufsz);
+    lstrcpyn_safe(buf,"Error loading lame_enc.dll",bufsz);
   #else
-    lstrcpyn(buf,"Error loading libmp3lame.dylib",bufsz);
+    lstrcpyn_safe(buf,"Error loading libmp3lame.dylib",bufsz);
   #endif
-  else lstrcpyn(buf,"Error creating encoder",bufsz);
+  else lstrcpyn_safe(buf,"Error creating encoder",bufsz);
 
 }
 
 void WDL_ShoutcastSource::SetCurTitle(const char *title)
 {
   m_titlemutex.Enter();
-  lstrcpyn(m_title,title,sizeof(m_title));
+  lstrcpyn_safe(m_title,title,sizeof(m_title));
   m_needtitle=true;
   m_titlemutex.Leave();
   
@@ -464,7 +448,7 @@ int WDL_ShoutcastSource::RunStuff()
           m_sendcon->send_string("\r\n");
           m_sendcon->send_string("icy-br:");
           char buf[64];
-          wsprintf(buf,"%d",totalBitrate ? totalBitrate : m_br);
+          snprintf(buf,sizeof(buf),"%d",totalBitrate ? totalBitrate : m_br);
           m_sendcon->send_string(buf);
           m_sendcon->send_string("\r\n");
           m_sendcon->send_string("icy-url:");

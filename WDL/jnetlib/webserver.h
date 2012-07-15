@@ -73,6 +73,7 @@
 #define _JNL_WEBSERVER_H_
 
 #include "httpserv.h"
+#include "../wdlcstring.h"
 
 class IPageGenerator
 {
@@ -197,7 +198,7 @@ static void JNL_get_mime_type_for_file(const char *fn, char *strout, int strouts
   else if (!stricmp(ext,".txt")) type = "text/plain";
   else if (!stricmp(ext,".js")) type = "application/x-javascript";
 
-  lstrcpyn(strout,type,stroutsz);
+  lstrcpyn_safe(strout,type,stroutsz);
 }
 
 static void JNL_Format_RFC1123(time_t t, char *buf)
