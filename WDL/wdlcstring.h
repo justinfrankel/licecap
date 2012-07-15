@@ -58,10 +58,12 @@ C string manipulation utilities -- [v]snprintf for Win32, also snprintf_append, 
 #endif // win32 snprintf/vsnprintf
 
 // use wdlcstring.h's lstrcpyn_safe rather than the real lstrcpyn.
-#ifdef lstrcpyn
-#undef lstrcpyn
+#ifdef _WIN32
+  #ifdef lstrcpyn
+  #undef lstrcpyn
+  #endif
+  #define lstrcpyn lstrcpyn_safe
 #endif
-#define lstrcpyn lstrcpyn_safe
 
 #ifdef __cplusplus
 extern "C" {
