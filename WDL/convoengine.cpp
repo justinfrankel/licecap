@@ -229,7 +229,7 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size, 
       int i=0;    
       WDL_FFT_REAL mv=0.0;
       WDL_FFT_REAL mv2=0.0;
-      WDL_FFT_REAL *imptmp = (WDL_FFT_REAL *)impout;
+      WDL_FFT_REAL *imptmp = (WDL_FFT_REAL *)impout; //-V615
 
       for (; i < thissz; i ++)
       {
