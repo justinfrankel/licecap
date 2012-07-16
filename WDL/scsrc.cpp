@@ -155,9 +155,9 @@ int WDL_ShoutcastSource::GetStatus() // returns 0 if connected/connecting, >0 if
 
 void WDL_ShoutcastSource::GetStatusText(char *buf, int bufsz) // gets status text
 {
-  if (m_state == ST_OK) snprintf(buf,sizeof(buf),"Connected. Sent %u bytes",m_bytesout);
+  if (m_state == ST_OK) snprintf(buf,bufsz,"Connected. Sent %u bytes",m_bytesout);
   else if (m_state == ST_CONNECTING) lstrcpyn_safe(buf,"Connecting...",bufsz);
-  else if (m_state == ERR_DISCONNECTED_AFTER_SUCCESS) snprintf(buf,sizeof(buf),"Disconnected after sending %u bytes",m_bytesout);
+  else if (m_state == ERR_DISCONNECTED_AFTER_SUCCESS) snprintf(buf,bufsz,"Disconnected after sending %u bytes",m_bytesout);
   else if (m_state == ERR_AUTH) lstrcpyn_safe(buf,"Error authenticating with server",bufsz);
   else if (m_state == ERR_CONNECT) lstrcpyn_safe(buf,"Error connecting to server",bufsz);
   else if (m_state == ERR_TIMEOUT) lstrcpyn_safe(buf,"Timed out connecting to server",bufsz);
