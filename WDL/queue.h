@@ -61,11 +61,6 @@ public:
     return newbuf; 
   }
 
-  int GetSize()
-  {
-    return m_hb.GetSize()-m_pos;
-  }
-
   template <class T> T* GetT(T* val=0)
   {
     T* p = (T*) Get(sizeof(T));
@@ -93,7 +88,11 @@ public:
     return m_hb.Get();
   }
 
-  int Available() { return m_hb.GetSize() - m_pos; }
+  int GetSize()
+  {
+    return m_hb.GetSize()-m_pos;
+  }
+  int Available() { return GetSize(); }
 
   void Clear()
   {
@@ -220,11 +219,6 @@ public:
     return (T*) ((char*)obuf+olen);
   }
 
-  int GetSize()
-  {
-    return (m_hb.GetSize()-m_pos)/sizeof(T);
-  }
-
   T *Get()
   {
     void *buf=m_hb.Get();
@@ -232,7 +226,11 @@ public:
     return NULL;
   }
 
-  int Available() { return (m_hb.GetSize() - m_pos)/sizeof(T); }
+  int GetSize()
+  {
+    return (m_hb.GetSize()-m_pos)/sizeof(T);
+  }
+  int Available() { return GetSize(); }
 
   void Clear()
   {
