@@ -77,7 +77,7 @@ public:
     int s=0;
     if (maxlen>0) while (s < maxlen && str[s]) s++;
     else s=(int)strlen(str);   
-    __doSet(0,str,s,false);
+    __doSet(0,str,s,0);
   }
 #endif
 
@@ -95,7 +95,7 @@ public:
     int s = str->GetLength();
     if (maxlen>0 && maxlen<s) s=maxlen;
 
-    __doSet(0,str->Get(),s,false);
+    __doSet(0,str->Get(),s,0);
 #else
     Set(str->Get(), maxlen); // might be faster: "partial" strlen
 #endif
@@ -116,7 +116,7 @@ public:
     if (maxlen>0) while (s < maxlen && str[s]) s++;
     else s=(int)strlen(str);
 
-    __doSet(GetLength(),str,s,false);
+    __doSet(GetLength(),str,s,0);
   }
 #endif
 
@@ -134,7 +134,7 @@ public:
     int s = str->GetLength();
     if (maxlen>0 && maxlen<s) s=maxlen;
 
-    __doSet(GetLength(),str->Get(),s,false);
+    __doSet(GetLength(),str->Get(),s,0);
 #else
     Append(str->Get(), maxlen); // might be faster: "partial" strlen
 #endif
