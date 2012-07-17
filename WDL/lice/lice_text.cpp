@@ -1284,7 +1284,7 @@ void LICE_DrawChar(LICE_IBitmap *bm, int x, int y, char c,
                    LICE_pixel color, float alpha, int mode)
 {
   LICE_pixel *fb;
-  if (c<1||c>127||!bm || !(fb=bm->getBits()))return;
+  if (c<1 || !bm || !(fb=bm->getBits()))return;
   unsigned char *font = LICE_deffont + ((c-1)*LICE_FONT_HEIGHT);
   int len = LICE_FONT_HEIGHT;
   if (y < 0) 
