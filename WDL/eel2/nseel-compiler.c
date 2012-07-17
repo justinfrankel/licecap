@@ -2944,7 +2944,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
         if (isBits)
         {
-          if (v<0) v=0;
           if (v>53) v=53;
           sprintf(tmp,"%.1f",(double) ((((WDL_INT64)1) << v) - 1));
         }
@@ -3549,7 +3548,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
         l=min(p-sp, sizeof(is_fname)-1);
         memcpy(is_fname, sp, l);
         is_fname[l]=0;
-        ctx->function_curName = is_fname;
+        ctx->function_curName = is_fname; // only assigned for the duration of the loop, cleared later.  //-V507  
 
         expr = p;
 
