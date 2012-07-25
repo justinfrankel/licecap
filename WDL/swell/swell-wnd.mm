@@ -1478,7 +1478,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         return 0;
     }
-    else if ((msg == EM_SETSEL || msg == EM_GETSEL) && ([obj isKindOfClass:[NSTextField class]]))
+    else if ((msg == EM_SETSEL || msg == EM_GETSEL || msg == EM_SETPASSWORDCHAR) && ([obj isKindOfClass:[NSTextField class]]))
     { 
       if (msg == EM_GETSEL)
       {
@@ -1505,6 +1505,11 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           if (lParam>sl) lParam=sl;      
           if (text) [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
         }
+      }
+      else if (msg == EM_SETPASSWORDCHAR)
+      {
+        // not implemented, because it requires replacing obj within its parent window
+        // instead caller explicitly destroy the edit control and create a new one with ES_PASSWORD
       }
       return 0;
     }
