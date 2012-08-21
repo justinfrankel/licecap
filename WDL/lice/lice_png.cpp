@@ -71,7 +71,10 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
     png_set_expand_gray_1_2_4_to_8(png_ptr);
 
   if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) 
+  {
     png_set_tRNS_to_alpha(png_ptr);
+    color_type |= PNG_COLOR_MASK_ALPHA;
+  }
 
   if (bit_depth == 16)
     png_set_strip_16(png_ptr);
@@ -241,7 +244,10 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
     png_set_expand_gray_1_2_4_to_8(png_ptr);
 
   if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) 
+  {
     png_set_tRNS_to_alpha(png_ptr);
+    color_type |= PNG_COLOR_MASK_ALPHA;
+  }
 
   if (bit_depth == 16)
     png_set_strip_16(png_ptr);
