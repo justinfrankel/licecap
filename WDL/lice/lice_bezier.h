@@ -227,7 +227,7 @@ T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
   T ctrl_y1, T ctrl_y2, T ctrl_y3, T ctrl_y4, T x, 
   T* pNextX = 0, T* pdYdX = 0, double* ptLo = 0, double* ptHi = 0)
 {
-  if (x <= ctrl_x1) 
+  if (x < ctrl_x1) 
   {
     if (pNextX) *pNextX = ctrl_x1;
     if (pdYdX) *pdYdX = (T) 0.0;
