@@ -251,7 +251,10 @@ class WDL_VirtualSlider : public WDL_VWnd
     int GetSliderPosition();
     void SetSliderPosition(int pos);
     bool GetIsVert();
-    void SetNotifyOnClick(bool en) { m_sendmsgonclick=en; }
+    void SetNotifyOnClick(bool en) { m_sendmsgonclick=en; }  // default false
+
+    void SetDblClickCallback(int msg) { m_dblclickmsg=msg; }
+    int GetDblClickCallback() { return m_dblclickmsg; }
 
     void SetGrayed(bool grayed) { m_grayed = grayed; }
 
@@ -275,7 +278,10 @@ class WDL_VirtualSlider : public WDL_VWnd
     WDL_VirtualWnd_BGCfg *m_knobstacks;
     int m_nknobstacks;
 
-    int m_bgcol1_msg,m_scrollmsg;
+    int m_bgcol1_msg;
+    int m_scrollmsg;
+    int m_dblclickmsg;
+
     void OnMoveOrUp(int xpos, int ypos, int isup);
     int m_minr, m_maxr, m_center, m_pos;
 

@@ -176,6 +176,8 @@ WDL_VirtualSlider::WDL_VirtualSlider()
   m_knobbg[0]=m_knobbg[1]=0;
   m_knobstacks=0;
   m_nknobstacks=0;
+  m_sendmsgonclick=false;
+  m_dblclickmsg=0;
 }
 
 WDL_VirtualSlider::~WDL_VirtualSlider()
@@ -937,6 +939,12 @@ bool WDL_VirtualSlider::OnMouseDblClick(int xpos, int ypos)
 {
   if (m_grayed) return false;
 
+  if (m_dblclickmsg)
+  {
+    SendCommand(m_dblclickmsg, 0, 0, this);
+    return true;
+  }
+
   bool isVert = GetIsVert();
   int pos=m_center;
   if (pos < 0) pos=WDL_STYLE_GetSliderDynamicCenterPos();
@@ -949,7 +957,7 @@ bool WDL_VirtualSlider::OnMouseDblClick(int xpos, int ypos)
     RequestRedraw(NULL);
     if (m__iaccess) m__iaccess->OnStateChange();
   }
-  
+
   m_captured=false;
   return true;
 }
