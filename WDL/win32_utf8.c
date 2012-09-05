@@ -495,7 +495,7 @@ int DrawTextUTF8(HDC hdc, LPCTSTR str, int nc, LPRECT lpRect, UINT format)
 
 BOOL InsertMenuUTF8(HMENU hMenu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewItem, LPCTSTR str)
 {
-  if (str && WDL_HasUTF8(str) && GetVersion()<0x80000000)
+  if ((uFlags&MF_STRING) && str && WDL_HasUTF8(str) && GetVersion()<0x80000000)
   {
     MBTOWIDE(wbuf,str);
     if (wbuf_ok)
