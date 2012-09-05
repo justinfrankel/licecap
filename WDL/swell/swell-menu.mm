@@ -597,6 +597,12 @@ void SWELL_InsertMenu(HMENU menu, int pos, int flag, UINT_PTR idx, const char *s
     mi.fType=MFT_SEPARATOR;
     mi.fState &= ~MF_SEPARATOR;
   }
+  
+  if (flag&MF_BITMAP)
+  {
+    mi.fType=MFT_BITMAP;
+    mi.fState &= ~MF_BITMAP;
+  }
     
   InsertMenuItem(menu,pos,(flag&MF_BYPOSITION) ?  TRUE : FALSE, &mi);
 }

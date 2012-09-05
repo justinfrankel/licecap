@@ -854,29 +854,29 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define MIIM_TYPE 4
 #define MIIM_SUBMENU 8
 #define MIIM_DATA 16
-#define MFT_STRING 0
-#define MF_STRING 0
-#define MFT_SEPARATOR 1
-#define MFT_BITMAP 2
-#define MFT_RADIOCHECK 0 // todo this will need to get implemented
 
-#define MF_SEPARATOR        0x00000800L
-
-#define MF_UNCHECKED 0
 #define MF_ENABLED 0
 #define MF_GRAYED 1
-#define MF_DISABLED 1
-#define MF_CHECKED 4
+#define MF_DISABLED 2
+#define MF_STRING 0
+#define MF_BITMAP 4
+#define MF_UNCHECKED 0
+#define MF_CHECKED 8
 #define MF_POPUP 0x10
-
-#define MFS_UNCHECKED 0
-#define MFS_ENABLED 0
-#define MFS_GRAYED 1
-#define MFS_CHECKED 4
-
 #define MF_BYCOMMAND 0
-#define MF_BYPOSITION 0x100
+#define MF_BYPOSITION 0x400
+#define MF_SEPARATOR 0x800
 
+#define MFT_STRING MF_STRING
+#define MFT_BITMAP MF_BITMAP
+#define MFT_SEPARATOR MF_SEPARATOR
+#define MFT_RADIOCHECK 0x200
+
+#define MFS_GRAYED (MF_GRAYED|MF_DISABLED)
+#define MFS_DISABLED MFS_GRAYED
+#define MFS_CHECKED MF_CHECKED
+#define MFS_ENABLED MF_ENABLED
+#define MFS_UNCHECKED MF_UNCHECKED
 
 #define EN_CHANGE           0x0300
 #define STN_CLICKED         0
