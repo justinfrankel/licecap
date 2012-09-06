@@ -51,6 +51,7 @@
 class LameEncoder
 {
   public:
+
     LameEncoder(int srate, int nch, int bitrate, int stereomode = 1, int quality = 0, int vbrmethod = -1, int vbrquality = 2, int vbrmax = 320, int abr = 128);
     ~LameEncoder();
 
@@ -69,6 +70,7 @@ class LameEncoder
     }
 
     static bool CheckDLL(); // returns true if dll is present
+    static void InitDLL(const char *extrapath=NULL); // call with extrapath != NULL if you want to try loading from another path
 
     void SetVBRFilename(const char *fn)
     {

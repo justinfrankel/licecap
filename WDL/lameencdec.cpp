@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "wdlcstring.h"
 #include "lameencdec.h"
 
 
@@ -335,30 +336,36 @@ static int (*lame_encode_flush)(lame_t,unsigned char*       mp3buf,  int        
 #endif
 
 
-static void initdll()
+void LameEncoder::InitDLL(const char *extrapath)
 {
 #ifdef USE_LAME_BLADE_API
   if (!hlamedll) 
   {
+#ifdef _WIN64
+    const char *dllName = "lame_enc64.dll";
+#else
+    const char *dllName = "lame_enc.dll";
+#endif
     char me[1024];
-    GetModuleFileName(NULL,me,sizeof(me)-1);
+    GetModuleFileName(NULL,me,sizeof(me)-64);
 
     char *p=me;
     while (*p) p++;
     while(p>=me && *p!='\\') p--;
 
-#ifdef _WIN64
-    strcpy(++p,"lame_enc64.dll");
-#else
-    strcpy(++p,"lame_enc.dll");
-#endif
+    strcpy(++p,dllName);
 
     hlamedll=LoadLibrary(me);
-#ifdef _WIN64
-    if (!hlamedll) hlamedll=LoadLibrary("lame_enc64.dll");//try cur dir
-#else
-    if (!hlamedll) hlamedll=LoadLibrary("lame_enc.dll");//try cur dir
-#endif
+    if (extrapath && !hlamedll)
+    {
+      lstrcpyn_safe(me,extrapath,sizeof(me)-64);
+      lstrcatn(me,"\\",sizeof(me));
+      lstrcatn(me,dllname,sizeof(me));
+      hlamedll=LoadLibrary(me);
+    }
+
+    if (!hlamedll) hlamedll=LoadLibrary(dllname);
+
     if (hlamedll)
     {
 		  *((void**)&beInitStream) = (void *) GetProcAddress(hlamedll, "beInitStream");
@@ -378,45 +385,66 @@ static void initdll()
 #elif defined(DYNAMIC_LAME)
   static int a;
   static void *dll;
-  if (!dll&&a<100) // try a bunch of times before giving up
+  if (!dll&& (a<100 || extrapath)) // try a bunch of times before giving up
   {
     a++;
 #ifdef _WIN32
+    const char *dllname = "libmp3lame.dll";
+  #ifdef _WIN64
+    const char *dllName2 = "lame_enc64.dll";
+  #else
+    const char *dllName2 = "lame_enc.dll";
+  #endif
+    char me[1024];
+
+    if (extrapath)
+    {
+      lstrcpyn_safe(me,extrapath,sizeof(me)-64);
+      lstrcatn(me,"\\",sizeof(me));
+      lstrcatn(me,dllname,sizeof(me));
+      dll=LoadLibrary(me);
+      if (!dll)
+      {
+        lstrcpyn_safe(me,extrapath,sizeof(me)-64);
+        lstrcatn(me,"\\",sizeof(me));
+        lstrcatn(me,dllName2,sizeof(me));
+        dll=LoadLibrary(me);
+      }
+    }
+
     if (!dll)
     {
-      char me[1024];
-      GetModuleFileName(NULL,me,sizeof(me)-1);
+      GetModuleFileName(NULL,me,sizeof(me)-64);
 
       char *p=me;
       while (*p) p++;
       while(p>=me && *p!='\\') p--;
 
-      strcpy(++p,"libmp3lame.dll");
+      strcpy(++p,dllname);
 
       dll=(void*)LoadLibrary(me);
       if (!dll)
       {
-  #ifdef _WIN64
-        strcpy(p,"lame_enc64.dll");
-  #else
-        strcpy(p,"lame_enc.dll");
-  #endif
+        strcpy(p,dllName2);
         dll=(void*)LoadLibrary(me);
       }
     }
-    if (!dll) dll=LoadLibrary("libmp3lame.dll");
-
-#ifdef _WIN64
-    if (!dll) dll=LoadLibrary("lame_enc64.dll");
-#else
-    if (!dll) dll=LoadLibrary("lame_enc.dll");
-#endif
+    if (!dll) dll=LoadLibrary(dllname);
+    if (!dll) dll=LoadLibrary(dllName2);
 
 #elif defined(__APPLE__)
-    if (!dll) dll=dlopen("libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
+    if (!dll && extrapath)
+    {
+      char me[1024];
+      lstrcpyn_safe(me,extrapath,sizeof(me)-64);
+      lstrcatn(me,"/libmp3lame.dylib",sizeof(me));
+      dll = dlopen(me, RTLD_NOW|RTLD_LOCAL);    
+    }
+    if (!dll) dll = dlopen("/Library/Application Support/libmp3lame.dylib", RTLD_NOW|RTLD_LOCAL);    
     if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
     if (!dll) dll=dlopen("/usr/lib/libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
-    if (!dll) dll = dlopen("/Library/Application Support/libmp3lame.dylib", RTLD_NOW|RTLD_LOCAL);    
+
+    if (!dll) dll=dlopen("libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
 
     if (!dll)
     {
@@ -454,13 +482,21 @@ static void initdll()
       }
     }
 #else // linux default to .so
-    if (!dll) dll=dlopen("libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
+    if (!dll && extrapath)
+    {
+      char me[1024];
+      lstrcpyn_safe(me,extrapath,sizeof(me)-64);
+      lstrcatn(me,"/libmp3lame.so",sizeof(me));
+      dll=LoadLibrary(me);
+      dll = dlopen(me, RTLD_NOW|RTLD_LOCAL);    
+    }
     if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
     if (!dll) dll=dlopen("/usr/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
 
-    if (!dll) dll=dlopen("libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
     if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
     if (!dll) dll=dlopen("/usr/lib/libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
+    if (!dll) dll=dlopen("libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
     if (!dll) 
     {
        char tmp[64];
@@ -519,7 +555,7 @@ static void initdll()
 
 bool LameEncoder::CheckDLL() // returns true if dll is present
 {
-  initdll();
+  InitDLL();
 #ifdef USE_LAME_BLADE_API
   if (!beInitStream||!beCloseStream||!beEncodeChunkFloatS16NI||!beDeinitStream||!beVersion) return false;
 #elif defined(DYNAMIC_LAME)
@@ -532,7 +568,7 @@ bool LameEncoder::CheckDLL() // returns true if dll is present
 LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int quality, int vbrmethod, int vbrquality, int vbrmax, int abr)
 {
   errorstat=0;
-  initdll();
+  InitDLL();
 #ifdef USE_LAME_BLADE_API
   hbeStream=0;
   if (!CheckDLL())
@@ -887,7 +923,7 @@ LameDecoder::LameDecoder()
   errorstat=0;
   m_samples_used=0;
   m_srate=m_nch=0;
-  initdll();
+  InitDLL();
   if (!InitMP3_Create||!ExitMP3_Delete||!decodeMP3_unclipped||!get_decode_info||!remove_buf)
   {
     errorstat=1;
