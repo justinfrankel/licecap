@@ -360,11 +360,11 @@ void LameEncoder::InitDLL(const char *extrapath)
     {
       lstrcpyn_safe(me,extrapath,sizeof(me)-64);
       lstrcatn(me,"\\",sizeof(me));
-      lstrcatn(me,dllname,sizeof(me));
+      lstrcatn(me,dllName,sizeof(me));
       hlamedll=LoadLibrary(me);
     }
 
-    if (!hlamedll) hlamedll=LoadLibrary(dllname);
+    if (!hlamedll) hlamedll=LoadLibrary(dllName);
 
     if (hlamedll)
     {
@@ -923,7 +923,7 @@ LameDecoder::LameDecoder()
   errorstat=0;
   m_samples_used=0;
   m_srate=m_nch=0;
-  InitDLL();
+  LameEncoder::InitDLL();
   if (!InitMP3_Create||!ExitMP3_Delete||!decodeMP3_unclipped||!get_decode_info||!remove_buf)
   {
     errorstat=1;
