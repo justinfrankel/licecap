@@ -78,7 +78,7 @@ typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWO
 
 #ifndef LOWORD
 #define MAKEWORD(a, b)      ((unsigned short)(((BYTE)(a)) | ((WORD)((BYTE)(b))) << 8))
-#define MAKELONG(a, b)      ((long)(((unsigned short)(a)) | ((DWORD)((unsigned short)(b))) << 16))
+#define MAKELONG(a, b)      ((int)(((unsigned short)(a)) | ((DWORD)((unsigned short)(b))) << 16))
 #define MAKEWPARAM(l, h)      (WPARAM)MAKELONG(l, h)
 #define MAKELPARAM(l, h)      (LPARAM)MAKELONG(l, h)
 #define MAKELRESULT(l, h)     (LRESULT)MAKELONG(l, h)

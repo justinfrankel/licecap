@@ -151,7 +151,7 @@ SWELL_API_DEFINE(DWORD,GetFileSize,(HANDLE, DWORD *high))
 #define DispatchMessage(a) { }
 */
 
-#define INVALID_HANDLE_VALUE ((HANDLE)((long)-1))
+#define INVALID_HANDLE_VALUE ((HANDLE)((unsigned int)-1))
 
 #define RemoveDirectory(x) (!rmdir(x))
 
