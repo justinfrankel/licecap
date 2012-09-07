@@ -449,7 +449,7 @@ int main()
     printf("pass %d\n",pass++);
     for (x = 0; x < sizeof(hosts)/sizeof(hosts[0]); x ++)
     {
-      unsigned long addr;
+      unsigned int addr;
       printf("%-30s",hosts[x]);
       switch (dns.resolve(hosts[x],&addr))
       {

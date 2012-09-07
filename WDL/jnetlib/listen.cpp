@@ -11,7 +11,7 @@
 #include "util.h"
 #include "listen.h"
 
-JNL_Listen::JNL_Listen(short port, unsigned long which_interface)
+JNL_Listen::JNL_Listen(short port, unsigned int which_interface)
 {
   m_port=port;
   m_socket = ::socket(AF_INET,SOCK_STREAM,0);

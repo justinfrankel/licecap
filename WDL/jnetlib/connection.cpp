@@ -130,7 +130,7 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
     case STATE_RESOLVING:
       if (m_saddr->sin_addr.s_addr == INADDR_NONE)
       {
-        int a=m_dns?m_dns->resolve(m_host,(unsigned long int *)&m_saddr->sin_addr.s_addr):-1;
+        int a=m_dns?m_dns->resolve(m_host,(unsigned int *)&m_saddr->sin_addr.s_addr):-1;
         if (!a) { m_state=STATE_CONNECTING; }
         else if (a == 1)
         {
@@ -458,17 +458,17 @@ void JNL_Connection::set_interface(int useInterface) // call before connect if n
 }
 
 
-unsigned long JNL_Connection::get_interface(void)
+unsigned int JNL_Connection::get_interface(void)
 {
   if (m_socket==-1) return 0;
   struct sockaddr_in sin;
   memset(&sin,0,sizeof(sin));
   socklen_t len=16;
   if (::getsockname(m_socket,(struct sockaddr *)&sin,&len)) return 0;
-  return (unsigned long) sin.sin_addr.s_addr;
+  return (unsigned int) sin.sin_addr.s_addr;
 }
 
-unsigned long JNL_Connection::get_remote()
+unsigned int JNL_Connection::get_remote()
 {
   return m_saddr->sin_addr.s_addr;
 }

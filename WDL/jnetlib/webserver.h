@@ -101,7 +101,7 @@ public:
   void setRequestTimeout(int timeout_s);
 
   // stuff for setting listener port
-  int addListenPort(int port, unsigned long which_interface=0);
+  int addListenPort(int port, unsigned int which_interface=0);
   int getListenPort(int idx, int *err=0);
   void removeListenPort(int port);
   void removeListenIdx(int idx);

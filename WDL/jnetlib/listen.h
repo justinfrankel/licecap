@@ -45,7 +45,7 @@
 class JNL_Listen JNL_Listen_PARENTDEF
 {
   public:
-    JNL_Listen(short port, unsigned long which_interface=0);
+    JNL_Listen(short port, unsigned int which_interface=0);
     ~JNL_Listen();
 
     JNL_IConnection *get_connect(int sendbufsize=8192, int recvbufsize=8192);

@@ -15,11 +15,11 @@
 **    closes the socketlib. Call this when you're done with the network,
 **    after all your JNetLib objects have been destroyed.
 **
-**   unsigned long JNL::ipstr_to_addr(const char *cp); 
+**   unsigned int JNL::ipstr_to_addr(const char *cp); 
 **    gives you the integer representation of a ip address in dotted 
 **    decimal form.
 **
-**  JNL::addr_to_ipstr(unsigned long addr, char *host, int maxhostlen);
+**  JNL::addr_to_ipstr(unsigned int addr, char *host, int maxhostlen);
 **    gives you the dotted decimal notation of an integer ip address.
 **
 */
@@ -32,8 +32,8 @@ class JNL
   public:
     static int open_socketlib();
     static void close_socketlib();
-    static unsigned long ipstr_to_addr(const char *cp);
-    static void addr_to_ipstr(unsigned long addr, char *host, int maxhostlen);
+    static unsigned int ipstr_to_addr(const char *cp);
+    static void addr_to_ipstr(unsigned int addr, char *host, int maxhostlen);
 };
 
 #endif //_UTIL_H_

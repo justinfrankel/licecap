@@ -110,11 +110,11 @@ unsigned int JNL_AsyncDNS::_threadfunc(void *_d)
   return 0;
 }
 
-int JNL_AsyncDNS::resolve(const char *hostname, unsigned long *addr)
+int JNL_AsyncDNS::resolve(const char *hostname, unsigned int *addr)
 {
   // return 0 on success, 1 on wait, -1 on unresolvable
   int x;
-  unsigned long ip=inet_addr(hostname);
+  unsigned int ip=inet_addr(hostname);
   if (ip != INADDR_NONE) 
   {
     *addr=ip;
@@ -173,7 +173,7 @@ int JNL_AsyncDNS::resolve(const char *hostname, unsigned long *addr)
 #endif
 }
 
-int JNL_AsyncDNS::reverse(unsigned long addr, char *hostname)
+int JNL_AsyncDNS::reverse(unsigned int addr, char *hostname)
 {
   // return 0 on success, 1 on wait, -1 on unresolvable
   int x;

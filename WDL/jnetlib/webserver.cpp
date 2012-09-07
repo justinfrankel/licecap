@@ -116,7 +116,7 @@ void WebServerBaseClass::setRequestTimeout(int timeout_s)
   m_timeout_s=timeout_s;
 }
 
-int WebServerBaseClass::addListenPort(int port, unsigned long which_interface)
+int WebServerBaseClass::addListenPort(int port, unsigned int which_interface)
 {
   removeListenPort(port);
 

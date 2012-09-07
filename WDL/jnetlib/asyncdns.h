@@ -24,8 +24,8 @@ class JNL_IAsyncDNS
 {
 public:
   virtual ~JNL_IAsyncDNS() { }
-  virtual int resolve(const char *hostname, unsigned long *addr)=0; // return 0 on success, 1 on wait, -1 on unresolvable
-  virtual int reverse(unsigned long addr, char *hostname)=0; // return 0 on success, 1 on wait, -1 on unresolvable. hostname must be at least 256 bytes.
+  virtual int resolve(const char *hostname, unsigned int *addr)=0; // return 0 on success, 1 on wait, -1 on unresolvable
+  virtual int reverse(unsigned int addr, char *hostname)=0; // return 0 on success, 1 on wait, -1 on unresolvable. hostname must be at least 256 bytes.
 };
 #define JNL_AsyncDNS_PARENTDEF : public JNL_IAsyncDNS
 #else 
@@ -42,8 +42,8 @@ public:
   JNL_AsyncDNS(int max_cache_entries=64);
   ~JNL_AsyncDNS();
 
-  int resolve(const char *hostname, unsigned long *addr); // return 0 on success, 1 on wait, -1 on unresolvable
-  int reverse(unsigned long addr, char *hostname); // return 0 on success, 1 on wait, -1 on unresolvable. hostname must be at least 256 bytes.
+  int resolve(const char *hostname, unsigned int *addr); // return 0 on success, 1 on wait, -1 on unresolvable
+  int reverse(unsigned int addr, char *hostname); // return 0 on success, 1 on wait, -1 on unresolvable. hostname must be at least 256 bytes.
 
 private:
   typedef struct 
@@ -52,7 +52,7 @@ private:
     char resolved;
     char mode; // 1=reverse
     char hostname[256];
-    unsigned long addr;
+    unsigned int addr;
   } 
   cache_entry;
 

@@ -92,8 +92,8 @@ class JNL_IConnection
                                               // the connection has.)
     virtual int peek_bytes(void *data, int maxlength)=0; // returns bytes peeked
 
-    virtual unsigned long get_interface(void)=0;        // this returns the interface the connection is on
-    virtual unsigned long get_remote(void)=0; // remote host ip.
+    virtual unsigned int get_interface(void)=0;        // this returns the interface the connection is on
+    virtual unsigned int get_remote(void)=0; // remote host ip.
     virtual short get_remote_port(void)=0; // this returns the remote port of connection
 
     virtual void set_interface(int useInterface)=0; // call before connect if needed
@@ -150,8 +150,8 @@ class JNL_Connection JNL_Connection_PARENTDEF
                                               // the connection has.)
     int peek_bytes(void *data, int maxlength); // returns bytes peeked
 
-    unsigned long get_interface(void);        // this returns the interface the connection is on
-    unsigned long get_remote(void); // remote host ip.
+    unsigned int get_interface(void);        // this returns the interface the connection is on
+    unsigned int get_remote(void); // remote host ip.
     short get_remote_port(void); // this returns the remote port of connection
   
     void set_interface(int useInterface); // call before connect if needed
