@@ -267,7 +267,7 @@ void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int 
       {
         if (nch>1)
         {
-          *outptr++ = (float) ((((samples[0][ioffs]+samples[1][ioffs]) * fp + (ls[0]+ls[1])*(1-fp)))*0.5);
+          *outptr++ = (float) (((samples[0][ioffs]+samples[1][ioffs]) * fp + (ls[0]+ls[1])*(1-fp))*0.5);
         }
         else
           *outptr++ = (float) (samples[0][ioffs] * fp + ls[0]*(1-fp));

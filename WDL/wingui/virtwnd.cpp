@@ -801,7 +801,7 @@ WDL_VWnd *WDL_VWnd::VirtWndFromPoint(int xpos, int ypos, int maxdepth)
 
 int WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
 {
-  if (!m_children) return false;
+  if (!m_children) return 0;
 
   WDL_VWnd *wnd=VirtWndFromPoint(xpos,ypos,0);
   if (!wnd) 
@@ -819,7 +819,7 @@ int WDL_VWnd::OnMouseDown(int xpos, int ypos) // returns TRUE if handled
     if (chk.isOK()) m_captureidx=m_children->Find(wnd);
     return 1;
   }
-  return false;
+  return 0;
 }
 
 bool WDL_VWnd::OnMouseDblClick(int xpos, int ypos) // returns TRUE if handled

@@ -595,7 +595,7 @@ static int m_click_pos,m_last_y,m_last_x, m_last_precmode;
 
 int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 {
-  if (m_grayed) return false;
+  if (m_grayed) return 0;
   m_needflush=0;
 
   if (m__iaccess) m__iaccess->OnFocused();
@@ -676,7 +676,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
           if (m__iaccess) m__iaccess->OnStateChange();
         }
       }
-      else return false;
+      else return 0;
     }
   }
   else
@@ -714,7 +714,7 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
           if (m__iaccess) m__iaccess->OnStateChange();
         }
       }
-      else return false;
+      else return 0;
     }
   }
 

@@ -1838,10 +1838,11 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 	GET_WINDOW_RECT(hwnd, &winrect);
 	
 	//if entire region needs painting, then make a region to cover the entire window
-	if(fUpdateAll)
+/*	if(fUpdateAll)
 		hrgn = (HRGN)wParam;
 	else
-		hrgn = (HRGN)wParam;
+  */
+  hrgn = (HRGN)wParam;
 	
 	//hdc = GetWindowDC(hwnd);
   if(hdcParam != NULL) 
