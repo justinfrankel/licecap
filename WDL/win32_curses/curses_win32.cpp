@@ -391,10 +391,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             HBRUSH bgbrushes[COLOR_PAIRS << NUM_ATTRBITS];
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) bgbrushes[y] = CreateSolidBrush(ctx->colortab[y][1]);
 
-#ifdef _WIN32
-            int win_cv=(GetVersion()&0xFF);
-#endif
-
             int cstate=ctx->m_cursor_state;
             if (ctx->m_cursor_y != ctx->m_cursor_state_ly ||
                 ctx->m_cursor_x != ctx->m_cursor_state_lx)
@@ -455,7 +451,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 {
                   #ifdef _WIN32
                     int txpos = xpos;
-                    if (win_cv >= 6) ++txpos; // absolutely no idea why this is needed
                     TextOut(hdc,txpos,ypos,isNotBlank ? p : " ",1);
                   #else
                     RECT tr={xpos,ypos,xpos+32,ypos+32};
@@ -567,7 +562,7 @@ static void reInitializeContext(win32CursesCtx *ctx)
                         ANSI_CHARSET,
                         OUT_DEFAULT_PRECIS,
                         CLIP_DEFAULT_PRECIS,
-                        DEFAULT_QUALITY,
+                        NONANTIALIASED_QUALITY,//DEFAULT_QUALITY,
 #ifdef _WIN32
                         FF_MODERN,
 #else
