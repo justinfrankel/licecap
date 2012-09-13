@@ -404,6 +404,15 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 @implementation SWELL_hwndChild : NSView 
 
+-(void)viewDidHide
+{
+  SendMessage((HWND)self, WM_SHOWWINDOW, FALSE, 0);
+}
+-(void) viewDidUnhide
+{
+  SendMessage((HWND)self, WM_SHOWWINDOW, TRUE, 0);
+}
+
 - (void)SWELL_Timer:(id)sender
 {  
   id uinfo=[sender userInfo];
