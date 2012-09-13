@@ -233,7 +233,7 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 
 
-static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
+static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {
   int mv=5;
   char *p=(char*)_p;
@@ -241,7 +241,7 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
   while (*(INT_PTR*)p && mv-- > 0) p++;
   if (!mv) return p;
 
-  *(INT_PTR *)p = (INT_PTR)newv;
+  *(INT_PTR *)p = newv;
   return (unsigned char *) p + sizeof(INT_PTR) - sizeof(EEL_BC_TYPE);
 }
 

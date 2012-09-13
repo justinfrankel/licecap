@@ -166,12 +166,12 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 extern void win64_callcode(INT_PTR code, INT_PTR ram_tab);
 #define GLUE_CALL_CODE(bp, cp, rt) win64_callcode(cp, rt)
 
-static unsigned char *EEL_GLUE_set_immediate(void *_p, const void *newv)
+static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {
   char *p=(char*)_p;
   INT_PTR scan = 0xFEFEFEFEFEFEFEFE;
   while (*(INT_PTR *)p != scan) p++;
-  *(INT_PTR *)p = (INT_PTR)newv;
+  *(INT_PTR *)p = newv;
   return (unsigned char *) (((INT_PTR*)p)+1);
 }
 

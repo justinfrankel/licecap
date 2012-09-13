@@ -427,7 +427,7 @@ void _asm_gmegabuf_end(void);
 
 static void *NSEEL_PProc_GRAM(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) data=EEL_GLUE_set_immediate(data, ctx->gram_blocks);
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, (INT_PTR)ctx->gram_blocks);
   return data;
 }
 
@@ -443,9 +443,9 @@ static void *NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
     ch->want_stack=1;
     if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
 
-    data=EEL_GLUE_set_immediate(data, (void *)stackptr);
-    data=EEL_GLUE_set_immediate(data, (void*) m1); // and
-    data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
+    data=EEL_GLUE_set_immediate(data, stackptr);
+    data=EEL_GLUE_set_immediate(data, m1); // and
+    data=EEL_GLUE_set_immediate(data, ((UINT_PTR)ch->stack&~m1)); //or
   }
   return data;
 }
@@ -462,10 +462,10 @@ static void *NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext
     ch->want_stack=1;
     if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
 
-    data=EEL_GLUE_set_immediate(data, (void *)stackptr);
-    data=EEL_GLUE_set_immediate(data, (void *)offs);
-    data=EEL_GLUE_set_immediate(data, (void*) m1); // and
-    data=EEL_GLUE_set_immediate(data, (void *)((UINT_PTR)ch->stack&~m1)); //or
+    data=EEL_GLUE_set_immediate(data, stackptr);
+    data=EEL_GLUE_set_immediate(data, offs);
+    data=EEL_GLUE_set_immediate(data, m1); // and
+    data=EEL_GLUE_set_immediate(data, ((UINT_PTR)ch->stack&~m1)); //or
   }
   return data;
 }
@@ -480,7 +480,7 @@ static void *NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext
     ch->want_stack=1;
     if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
 
-    data=EEL_GLUE_set_immediate(data, (void *)stackptr);
+    data=EEL_GLUE_set_immediate(data, stackptr);
   }
   return data;
 }
@@ -1163,7 +1163,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
               if (fr->startptr)
               {
                 memcpy(fr->startptr,f,sz);
-                EEL_GLUE_set_immediate(fr->startptr,(void *)codeCall);
+                EEL_GLUE_set_immediate(fr->startptr,(INT_PTR)codeCall);
                 fr->startptr_size = sz;
               }
             }
@@ -1681,13 +1681,19 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
  
   p = newblock2 = newCodeBlock(funcsz+ sizeof(GLUE_RET)+GLUE_FUNC_ENTER_SIZE+GLUE_FUNC_LEAVE_SIZE,32);
   if (!newblock2) return NULL;
-  memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); p += GLUE_FUNC_ENTER_SIZE;       
+  #if GLUE_FUNC_ENTER_SIZE > 0
+    memcpy(p,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); 
+    p += GLUE_FUNC_ENTER_SIZE;
+  #endif
   *fpStackUsage=0;
   funcsz=compileOpcodes(ctx,rec,p, funcsz, computTableSize,namespacePathToThis,supportedReturnValues, rvType,fpStackUsage, canHaveDenormalOutput);         
   if (funcsz<0) return NULL;
   p+=funcsz;
 
-  memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); p+=GLUE_FUNC_LEAVE_SIZE;
+  #if GLUE_FUNC_LEAVE_SIZE > 0
+    memcpy(p,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); 
+    p+=GLUE_FUNC_LEAVE_SIZE;
+  #endif
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
   
   ctx->l_stats[2]+=funcsz+2;
@@ -2036,10 +2042,10 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       if (preProc) p=preProc(p,func_size,ctx);
       if (repl)
       {
-        if (repl[0]) p=EEL_GLUE_set_immediate(p,repl[0]);
-        if (repl[1]) p=EEL_GLUE_set_immediate(p,repl[1]);
-        if (repl[2]) p=EEL_GLUE_set_immediate(p,repl[2]);
-        if (repl[3]) p=EEL_GLUE_set_immediate(p,repl[3]);
+        if (repl[0]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[0]);
+        if (repl[1]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[1]);
+        if (repl[2]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[2]);
+        if (repl[3]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[3]);
       }
     }
 
@@ -2065,14 +2071,14 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   EEL_F **cfp_ptrs=NULL;
   int func_raw=0;
   int do_parms;
+  int x;
 
   void *func;
 
-  memcpy(parmptrs,op->parms.parms,3*sizeof(opcodeRec*));
+  for (x=0; x < 3; x ++) parmptrs[x] = op->parms.parms[x];
 
   if (op->opcodeType == OPCODETYPE_FUNCX)
   {
-    int x;
     n_params=0;
     for (x=0;x<3;x++)
     {
@@ -2295,7 +2301,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           if (!newblock2) RET_MINUS1_FAIL("repeatwhile ccbwr fail")
       
           memcpy(pwr,stubfunc,stubsz);
-          pwr=EEL_GLUE_set_immediate(pwr,newblock2); 
+          pwr=EEL_GLUE_set_immediate(pwr,(INT_PTR)newblock2); 
         }
       
         return rv_offset+stubsz;
@@ -2359,7 +2365,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
           p = bufOut + parm_size;
           memcpy(p, stub, stubsize);
       
-          p=EEL_GLUE_set_immediate(p,newblock2);
+          p=EEL_GLUE_set_immediate(p,(INT_PTR)newblock2);
         }
         return rv_offset + parm_size + stubsize;
       }
@@ -2479,7 +2485,7 @@ doNonInlinedAndOr_:
           p = bufOut + parm_size;
           memcpy(p, stub, stubsize);
       
-          p=EEL_GLUE_set_immediate(p,newblock2);
+          p=EEL_GLUE_set_immediate(p,(INT_PTR)newblock2);
         }
         return rv_offset + parm_size + stubsize;
       }
@@ -2559,8 +2565,8 @@ doNonInlineIf_:
           ptr = bufOut + parm_size;
           memcpy(ptr, stub, stubsize);
            
-          ptr=EEL_GLUE_set_immediate(ptr,newblock2);
-          EEL_GLUE_set_immediate(ptr,newblock3);
+          ptr=EEL_GLUE_set_immediate(ptr,(INT_PTR)newblock2);
+          EEL_GLUE_set_immediate(ptr,(INT_PTR)newblock3);
         }
         return rv_offset + parm_size + stubsize;
       }
@@ -3548,7 +3554,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
         l=min(p-sp, sizeof(is_fname)-1);
         memcpy(is_fname, sp, l);
         is_fname[l]=0;
-        ctx->function_curName = is_fname; // only assigned for the duration of the loop, cleared later.  //-V507  
+        ctx->function_curName = is_fname; // only assigned for the duration of the loop, cleared later //-V507
 
         expr = p;
 
@@ -3922,7 +3928,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     if (handle->code)
     {
       writeptr=(unsigned char *)handle->code;
-      memcpy(writeptr,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); writeptr += GLUE_FUNC_ENTER_SIZE;
+      #if GLUE_FUNC_ENTER_SIZE > 0
+        memcpy(writeptr,&GLUE_FUNC_ENTER,GLUE_FUNC_ENTER_SIZE); 
+        writeptr += GLUE_FUNC_ENTER_SIZE;
+      #endif
       p=startpts;
       wtpos=0;
       while (p)
@@ -3938,7 +3947,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       
         p=p->_next;
       }
-      memcpy(writeptr,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); writeptr += GLUE_FUNC_LEAVE_SIZE;
+      #if GLUE_FUNC_LEAVE_SIZE > 0
+        memcpy(writeptr,&GLUE_FUNC_LEAVE,GLUE_FUNC_LEAVE_SIZE); 
+        writeptr += GLUE_FUNC_LEAVE_SIZE;
+      #endif
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
       ctx->l_stats[1]=size;
       handle->code_size = writeptr - (unsigned char *)handle->code;
@@ -4173,13 +4185,13 @@ void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr)
 
 void *NSEEL_PProc_RAM(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) data=EEL_GLUE_set_immediate(data, ctx->ram_state.blocks); 
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, (INT_PTR)ctx->ram_state.blocks); 
   return data;
 }
 
 void *NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) data=EEL_GLUE_set_immediate(data, ctx->caller_this);
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, (INT_PTR)ctx->caller_this);
   return data;
 }
 
