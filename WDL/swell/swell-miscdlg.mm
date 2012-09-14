@@ -148,6 +148,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 	[panel setTitle:title];
 	[panel setAllowsMultipleSelection:NO];
 	[panel setCanChooseFiles:NO];
+	[panel setCanCreateDirectories:YES];
 	[panel setCanChooseDirectories:YES];
 	[panel setResolvesAliases:YES];
 
