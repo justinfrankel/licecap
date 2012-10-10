@@ -22,6 +22,7 @@ const char* (*SWELL_DDrop_getDroppedFileTargetPath)(const char* extension);
 bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
+#include "../wdlstring.h"
 
 extern int g_swell_terminating;
 
@@ -2804,21 +2805,96 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
 
 NSArray* SWELL_DoDragDrop(NSURL* droplocation)
 {
-  NSArray* fnarr = 0;
+  NSArray* fnarr=0;
   if (s_dragdropsrcfn && s_dragdropsrccallback && droplocation)
   {  
-    char* p = s_dragdropsrcfn+strlen(s_dragdropsrcfn)-1;
-    while (p >= s_dragdropsrcfn && *p != '/') --p;
-    ++p;
+    s_dragdropsrccallback(s_dragdropsrcfn);
+    
+    struct stat sb = { 0 };
+    bool ok=!stat(s_dragdropsrcfn, &sb); // the callback created this file
+    if (ok)
+    {
+      const char* srcpath=s_dragdropsrcfn;
+    
+      const char* fn = srcpath+strlen(srcpath)-1;
+      while (fn >= srcpath && *fn != '/') --fn;
+      ++fn;
+    
+      WDL_String destpath;
+      destpath.SetFormatted(4096, "%s/%s", [[droplocation path] UTF8String], fn);
+    
+      ok=!stricmp(srcpath, destpath.Get()); // OK if caller wants to access the file directly
+      if (!ok)
+      {
+        ok=stat(destpath.Get(), &sb);
+        if (!ok)
+        {
+          char buf[2048];
+          sprintf(buf, "An item named \"%s\" already exists in this location."
+                      " Do you want to replace it with the one you're moving?", fn);
+        
+          NSString* msg=(NSString*)SWELL_CStringToCFString(buf);
+          int ret=NSRunAlertPanel(@"Copy", msg, @"Keep Both Files", @"Stop", @"Replace");
+          [msg release];
+        
+          if (ret == -1) // replace
+          {
+            ok=true;
+          }
+          else if (ret == 1) // keep both
+          {
+            WDL_String base(destpath.Get());
+            char* p=base.Get();
+            int len=strlen(p);
+            const char* ext="";
+            int incr=0;   
+          
+            const char* q=fn+strlen(fn)-1;
+            while (q > fn && *q != '.') --q;
+            if (*q == '.') 
+            {
+              ext=q;
+              len -= strlen(ext);
+              p[len]=0;
+            }
 
-    NSString* destdir = [droplocation path];  // not ours    
-    NSString* destfn = (NSString*)(SWELL_CStringToCFString(p));
-    NSString* destpath = [destdir stringByAppendingPathComponent:destfn];    
-    [destfn release];  
+            int digits=0;
+            int i;
+            for (i=0; i < 3 && len > i+1 && isdigit(p[len-i-1]); ++i) ++digits;
       
-    s_dragdropsrccallback([destpath UTF8String]);
-    fnarr = [NSArray arrayWithObject:destpath];  
+            if (len > digits+1 && (p[len-digits-1] == ' ' || p[len-digits-1] == '-' || p[len-digits-1] == '_'))
+            {
+              incr=atoi(p+len-digits);
+              p[len-digits]=0;
+            }
+            else 
+            {
+              base.Append(" ");
+            }
+ 
+            WDL_String trypath;
+            while (!ok && ++incr < 1000)
+            {
+              trypath.SetFormatted(4096, "%s%03d%s", base.Get(), incr, ext);
+              ok=stat(trypath.Get(), &sb);
+            }
+
+            if (ok) destpath.Set(trypath.Get());
+          }
+        }
+        
+        if (ok) ok=!rename(srcpath, destpath.Get());
+        if (!ok) unlink(srcpath);
+      }
+      
+      if (ok)
+      {
+        NSString* nfn=(NSString*)SWELL_CStringToCFString(fn);
+        fnarr=[NSArray arrayWithObject:nfn];
+      }
+    }
   }
+  
   SWELL_FinishDragDrop();  
   return fnarr;
 }  
