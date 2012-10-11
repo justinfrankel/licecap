@@ -2829,13 +2829,9 @@ NSArray* SWELL_DoDragDrop(NSURL* droplocation)
         ok=stat(destpath.Get(), &sb);
         if (!ok)
         {
-          char buf[2048];
-          sprintf(buf, "An item named \"%s\" already exists in this location."
-                      " Do you want to replace it with the one you're moving?", fn);
-        
-          NSString* msg=(NSString*)SWELL_CStringToCFString(buf);
-          int ret=NSRunAlertPanel(@"Copy", msg, @"Keep Both Files", @"Stop", @"Replace");
-          [msg release];
+          int ret=NSRunAlertPanel(@"Copy",
+               @"An item named \"%s\" already exists in this location. Do you want to replace it with the one you're moving?",
+               @"Keep Both Files", @"Stop", @"Replace", fn);
         
           if (ret == -1) // replace
           {
@@ -2899,6 +2895,7 @@ NSArray* SWELL_DoDragDrop(NSURL* droplocation)
       {
         NSString* nfn=(NSString*)SWELL_CStringToCFString(fn);
         fnarr=[NSArray arrayWithObject:nfn];
+        [nfn release];
       }
     }
   }
