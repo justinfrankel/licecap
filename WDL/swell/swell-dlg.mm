@@ -1840,6 +1840,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   if (!(self = [super initWithContentRect:contentRect styleMask:smask backing:NSBackingStoreBuffered defer:NO])) return self;
 
   [self setDelegate:(id)self];
+  [self disableCursorRects];
   [self setAcceptsMouseMovedEvents:YES];
   [self setContentView:(NSView *)child];
   [self useOptimizedDrawing:YES];
@@ -1886,6 +1887,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   
   if (!(self = [super initWithContentRect:contentRect styleMask:sf backing:NSBackingStoreBuffered defer:NO])) return self;
   
+  [self disableCursorRects];
   [self setAcceptsMouseMovedEvents:YES];
   [self useOptimizedDrawing:YES];
   [self setDelegate:(id)self];
@@ -1969,6 +1971,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
   if (!(self = [super initWithContentRect:contentRect styleMask:sf backing:NSBackingStoreBuffered defer:NO])) return self;
 
   [self setAcceptsMouseMovedEvents:YES];
+  [self disableCursorRects];
   [self useOptimizedDrawing:YES];
   [self setDelegate:(id)self];
   updateWindowCollection(self);
