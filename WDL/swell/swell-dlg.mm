@@ -2885,6 +2885,14 @@ NSArray* SWELL_DoDragDrop(NSURL* droplocation)
         
         if (ok) ok=!rename(srcpath, destpath.Get());
         if (!ok) unlink(srcpath);
+
+        const char *dp=[[droplocation path] UTF8String];
+        const int dpl=strlen(dp);
+        if (dpl < destpath.GetLength()) 
+        {
+          fn = destpath.Get()+dpl;
+          if (*fn == '/') fn++;
+        }
       }
       
       if (ok)
