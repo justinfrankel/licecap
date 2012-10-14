@@ -2806,100 +2806,100 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
   [ar release];
 }
 
-NSArray* SWELL_DoDragDrop(NSURL* droplocation)
+
+static bool _file_exists(const char* fn)
 {
+  struct stat sb= { 0 };
+  return !stat(fn, &sb);
+}
+
+NSArray* SWELL_DoDragDrop(NSURL* droplocation)
+{  
   NSArray* fnarr=0;
   if (s_dragdropsrcfn && s_dragdropsrccallback && droplocation)
   {  
-    s_dragdropsrccallback(s_dragdropsrcfn);
+    const char* srcpath=s_dragdropsrcfn;
     
-    struct stat sb = { 0 };
-    bool ok=!stat(s_dragdropsrcfn, &sb); // the callback created this file
-    if (ok)
+    const char* fn = srcpath+strlen(srcpath)-1;
+    while (fn >= srcpath && *fn != '/') --fn;
+    ++fn;
+    
+    WDL_String destpath;
+    destpath.SetFormatted(4096, "%s/%s", [[droplocation path] UTF8String], fn);
+    
+    bool ok=!stricmp(srcpath, destpath.Get()); // OK if caller wants to access the file directly
+    if (!ok) // need to create a new file
     {
-      const char* srcpath=s_dragdropsrcfn;
-    
-      const char* fn = srcpath+strlen(srcpath)-1;
-      while (fn >= srcpath && *fn != '/') --fn;
-      ++fn;
-    
-      WDL_String destpath;
-      destpath.SetFormatted(4096, "%s/%s", [[droplocation path] UTF8String], fn);
-    
-      ok=!stricmp(srcpath, destpath.Get()); // OK if caller wants to access the file directly
+      ok=!_file_exists(destpath.Get());
       if (!ok)
       {
-        ok=stat(destpath.Get(), &sb);
-        if (!ok)
-        {
-          int ret=NSRunAlertPanel(@"Copy",
-               @"An item named \"%s\" already exists in this location. Do you want to replace it with the one you're moving?",
-               @"Keep Both Files", @"Stop", @"Replace", fn);
-        
-          if (ret == -1) // replace
-          {
-            ok=true;
-          }
-          else if (ret == 1) // keep both
-          {
-            WDL_String base(destpath.Get());
-            char* p=base.Get();
-            int len=strlen(p);
-            const char* ext="";
-            int incr=0;   
-          
-            const char* q=fn+strlen(fn)-1;
-            while (q > fn && *q != '.') --q;
-            if (*q == '.') 
-            {
-              ext=q;
-              len -= strlen(ext);
-              p[len]=0;
-            }
-
-            int digits=0;
-            int i;
-            for (i=0; i < 3 && len > i+1 && isdigit(p[len-i-1]); ++i) ++digits;
+        int ret=NSRunAlertPanel(@"Copy",
+              @"An item named \"%s\" already exists in this location. Do you want to replace it with the one you're moving?",
+              @"Keep Both Files", @"Stop", @"Replace", fn);
       
-            if (len > digits+1 && (p[len-digits-1] == ' ' || p[len-digits-1] == '-' || p[len-digits-1] == '_'))
-            {
-              incr=atoi(p+len-digits);
-              p[len-digits]=0;
-            }
-            else 
-            {
-              base.Append(" ");
-            }
- 
-            WDL_String trypath;
-            while (!ok && ++incr < 1000)
-            {
-              trypath.SetFormatted(4096, "%s%03d%s", base.Get(), incr, ext);
-              ok=stat(trypath.Get(), &sb);
-            }
-
-            if (ok) destpath.Set(trypath.Get());
-          }
-        }
-        
-        if (ok) ok=!rename(srcpath, destpath.Get());
-        if (!ok) unlink(srcpath);
-
-        const char *dp=[[droplocation path] UTF8String];
-        const int dpl=strlen(dp);
-        if (dpl < destpath.GetLength()) 
+        if (ret == -1) // replace
         {
-          fn = destpath.Get()+dpl;
-          if (*fn == '/') fn++;
+          ok=true;
+        }
+        else if (ret == 1) // keep both
+        {
+          WDL_String base(destpath.Get());
+          char* p=base.Get();
+          int len=strlen(p);
+          const char* ext="";
+          int incr=0;   
+          
+          const char* q=fn+strlen(fn)-1;
+          while (q > fn && *q != '.') --q;
+          if (*q == '.') 
+          {
+            ext=q;
+            len -= strlen(ext);
+            p[len]=0;
+          }
+
+          int digits=0;
+          int i;
+          for (i=0; i < 3 && len > i+1 && isdigit(p[len-i-1]); ++i) ++digits;
+  
+          if (len > digits+1 && (p[len-digits-1] == ' ' || p[len-digits-1] == '-' || p[len-digits-1] == '_'))
+          {
+            incr=atoi(p+len-digits);
+            p[len-digits]=0;
+          }
+          else 
+          {
+            base.Append(" ");
+          }
+ 
+          WDL_String trypath;
+          while (!ok && ++incr < 1000)
+          {
+            trypath.SetFormatted(4096, "%s%03d%s", base.Get(), incr, ext);
+            ok=!_file_exists(trypath.Get());
+          }
+
+          if (ok) destpath.Set(trypath.Get());
         }
       }
       
       if (ok)
       {
-        NSString* nfn=(NSString*)SWELL_CStringToCFString(fn);
-        fnarr=[NSArray arrayWithObject:nfn];
-        [nfn release];
+        s_dragdropsrccallback(destpath.Get());
+        ok=_file_exists(destpath.Get());
       }
+    }
+  
+    if (ok)
+    {
+      fn=destpath.Get();
+      fn += strlen(fn)-1;
+      while (fn >= destpath.Get() && *fn != '/') --fn;
+      ++fn;
+            
+      NSString* nfn=(NSString*)SWELL_CStringToCFString(fn);
+      fnarr=[NSArray arrayWithObject:nfn];
+      [nfn release];
     }
   }
   
