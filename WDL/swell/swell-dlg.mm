@@ -1430,9 +1430,28 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
       if (!droppath || !droppath[0]) droppath = "/tmp/";
       NSString* pathstr = (NSString*)SWELL_CStringToCFString(droppath);
       NSURL* dest = [NSURL fileURLWithPath:pathstr];
-      [pathstr release];
       
       files = [sender namesOfPromisedFilesDroppedAtDestination:dest]; // tells the drag source to create the files
+      
+      if ([files count])
+      {
+        NSMutableArray* paths=[NSMutableArray arrayWithCapacity:[files count]];
+        int i;
+        for (i=0; i < [files count]; ++i)
+        {
+          NSString* fn=[files objectAtIndex:i];
+          if (fn) 
+          {
+            NSString* path=[pathstr stringByAppendingPathComponent:fn];
+            [paths addObject:path];
+            [path release];
+          }
+        }
+        [files release];
+        files=paths;
+      }
+      
+      [pathstr release];
     }      
   }
   if (!files) return 0;
@@ -2827,67 +2846,62 @@ NSArray* SWELL_DoDragDrop(NSURL* droplocation)
     WDL_String destpath;
     destpath.SetFormatted(4096, "%s/%s", [[droplocation path] UTF8String], fn);
     
-    bool ok=!stricmp(srcpath, destpath.Get()); // OK if caller wants to access the file directly
-    if (!ok) // need to create a new file
+    bool ok=!_file_exists(destpath.Get());
+    if (!ok)
     {
-      ok=!_file_exists(destpath.Get());
-      if (!ok)
-      {
-        int ret=NSRunAlertPanel(@"Copy",
-              @"An item named \"%s\" already exists in this location. Do you want to replace it with the one you're moving?",
-              @"Keep Both Files", @"Stop", @"Replace", fn);
+      int ret=NSRunAlertPanel(@"Copy",
+            @"An item named \"%s\" already exists in this location. Do you want to replace it with the one you're moving?",
+            @"Keep Both Files", @"Stop", @"Replace", fn);
       
-        if (ret == -1) // replace
+      if (ret == -1) // replace
+      {
+        ok=true;
+      }
+      else if (ret == 1) // keep both
+      {
+        WDL_String base(destpath.Get());
+        char* p=base.Get();
+        int len=strlen(p);
+        const char* ext="";
+        int incr=0;   
+        
+        const char* q=fn+strlen(fn)-1;
+        while (q > fn && *q != '.') --q;
+        if (*q == '.') 
         {
-          ok=true;
+          ext=q;
+          len -= strlen(ext);
+          p[len]=0;
         }
-        else if (ret == 1) // keep both
+        
+        int digits=0;
+        int i;
+        for (i=0; i < 3 && len > i+1 && isdigit(p[len-i-1]); ++i) ++digits;
+        if (len > digits+1 && (p[len-digits-1] == ' ' || p[len-digits-1] == '-' || p[len-digits-1] == '_'))         
         {
-          WDL_String base(destpath.Get());
-          char* p=base.Get();
-          int len=strlen(p);
-          const char* ext="";
-          int incr=0;   
-          
-          const char* q=fn+strlen(fn)-1;
-          while (q > fn && *q != '.') --q;
-          if (*q == '.') 
-          {
-            ext=q;
-            len -= strlen(ext);
-            p[len]=0;
-          }
-
-          int digits=0;
-          int i;
-          for (i=0; i < 3 && len > i+1 && isdigit(p[len-i-1]); ++i) ++digits;
-  
-          if (len > digits+1 && (p[len-digits-1] == ' ' || p[len-digits-1] == '-' || p[len-digits-1] == '_'))
-          {
-            incr=atoi(p+len-digits);
-            p[len-digits]=0;
-          }
-          else 
-          {
-            base.Append(" ");
-          }
+          incr=atoi(p+len-digits);
+          p[len-digits]=0;
+        }
+        else 
+        {
+          base.Append(" ");
+        }
  
-          WDL_String trypath;
-          while (!ok && ++incr < 1000)
-          {
-            trypath.SetFormatted(4096, "%s%03d%s", base.Get(), incr, ext);
-            ok=!_file_exists(trypath.Get());
-          }
-
-          if (ok) destpath.Set(trypath.Get());
+        WDL_String trypath;
+        while (!ok && ++incr < 1000)
+        {
+          trypath.SetFormatted(4096, "%s%03d%s", base.Get(), incr, ext);
+          ok=!_file_exists(trypath.Get());
         }
+
+        if (ok) destpath.Set(trypath.Get());
       }
-      
-      if (ok)
-      {
-        s_dragdropsrccallback(destpath.Get());
-        ok=_file_exists(destpath.Get());
-      }
+    }
+    
+    if (ok)
+    {
+      s_dragdropsrccallback(destpath.Get());
+      ok=_file_exists(destpath.Get());
     }
   
     if (ok)
