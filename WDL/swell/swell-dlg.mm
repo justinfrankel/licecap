@@ -1442,12 +1442,9 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
           NSString* fn=[files objectAtIndex:i];
           if (fn) 
           {
-            NSString* path=[pathstr stringByAppendingPathComponent:fn];
-            [paths addObject:path];
-            [path release];
+            [paths addObject:[pathstr stringByAppendingPathComponent:fn]];
           }
         }
-        [files release];
         files=paths;
       }
       
