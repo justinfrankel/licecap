@@ -415,7 +415,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 }
 
 - (void)SWELL_Timer:(id)sender
-{  
+{ 
+  extern HWND g_swell_only_timerhwnd;
+  if (g_swell_only_timerhwnd && (HWND)self != g_swell_only_timerhwnd) return;
+  
   id uinfo=[sender userInfo];
   if ([uinfo respondsToSelector:@selector(getValue)]) 
   {
