@@ -936,9 +936,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       }
     }
     
-    if (m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par))
+    INT_PTR a;
+    if ((a=m_dlgproc((HWND)self,WM_INITDIALOG,(WPARAM)hFoc,par)))
     {
       // set first responder to first item in window
+      if (a == 0xbeef) hFoc = (HWND)self; // ret 0xbeef overrides to make the window itself focused (argh, need a cleaner way)
       if (hFoc) 
       {
         id wnd = [self window];
