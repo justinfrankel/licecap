@@ -77,8 +77,9 @@ static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent
   
   NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event);
   
-	NSPoint p = swellProcessMouseEvent(msg,slf,theEvent);
-	unsigned short xpos=(int)(p.x); unsigned short ypos=(int)(p.y);
+  NSPoint p = swellProcessMouseEvent(msg,slf,theEvent);
+  unsigned short xpos=(int)floor(p.x); 
+  unsigned short ypos=(int)floor(p.y);
   
   LRESULT htc=HTCLIENT;
   if (msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL && !capv) 
@@ -367,7 +368,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     {
       p=[w convertBaseToScreen:p];
     
-      POINT pt={(int)(p.x+0.5),(int)(p.y+0.5)};
+      POINT pt={(int)floor(p.x),(int)floor(p.y)};
       HWND h=WindowFromPoint(pt);
       if (h && [(id)h isKindOfClass:[SWELL_hwndChild class]])
       {
