@@ -522,7 +522,7 @@ void GetCursorPos(POINT *pt)
   }
   NSPoint localpt=[NSEvent mouseLocation];
   pt->x=(int)localpt.x;
-  pt->y=(int)localpt.y;
+  pt->y=-(int)floor(-localpt.y); // floor() is used with negative sign, effectively ceil(), because screen coordinates are flipped and everywhere else we use nonflipped rounding
 }
 
 DWORD GetMessagePos()
@@ -532,7 +532,7 @@ DWORD GetMessagePos()
     return MAKELONG((int)g_swell_mouse_relmode_curpos.x,(int)g_swell_mouse_relmode_curpos.y);
   }
   NSPoint localpt=[NSEvent mouseLocation];
-  return MAKELONG((int)localpt.x, (int)localpt.y);
+  return MAKELONG((int)localpt.x, -(int)floor(-localpt.y)); // floor() is used with negative sign, effectively ceil(), because screen coordinates are flipped and everywhere else we use nonflipped rounding
 }
 
 
