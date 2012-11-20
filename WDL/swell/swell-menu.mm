@@ -32,6 +32,21 @@
 #include "swell-internal.h"
 
 
+static void __filtnametobuf(char *out, const char *in, int outsz)
+{
+  while (*in && outsz>1)
+  {
+    if (*in == '\t') break;
+    if (*in == '&')
+    {
+      in++;
+    }
+    *out++=*in++;
+    outsz--;
+  }
+  *out=0;
+}
+
 
 
 bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
@@ -59,7 +74,9 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
     }
     return false;
   }
-  NSString *label=(NSString *)SWELL_CStringToCFString(text); 
+  char buf[1024];
+  __filtnametobuf(buf,text?text:"",sizeof(buf));
+  NSString *label=(NSString *)SWELL_CStringToCFString(buf);
   
   [item setTitle:label];
   if ([item hasSubmenu] && [item submenu]) [[item submenu] setTitle:label];
@@ -263,21 +280,6 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
   [item setKeyEquivalentModifierMask:mask2];
   [item setKeyEquivalent:arrowKey?[NSString stringWithCharacters:&arrowKey length:1]:@""];
   return true;
-}
-
-static void __filtnametobuf(char *out, const char *in, int outsz)
-{
-  while (*in && outsz>1)
-  {
-    if (*in == '\t') break;
-    if (*in == '&')
-    {
-      in++;
-    }
-    *out++=*in++;
-    outsz--;
-  }
-  *out=0;
 }
 
 // #define SWELL_MENU_ACCOUNTING
