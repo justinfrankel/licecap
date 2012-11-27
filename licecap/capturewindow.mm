@@ -143,14 +143,13 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
 }
 
 
-static bool hasGLfailed=false;
-
-bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
+bool GetScreenDataGL(int xpos, int ypos, LICE_IBitmap *bmOut)
 { 
+  static bool hasGLfailed=false;
   if (hasGLfailed) return GetScreenDataOld(xpos,ypos,bmOut);
   CGLContextObj    glContextObj;
   CGLPixelFormatObj pixelFormatObj ;
-  long numPixelFormats ;
+  GLint numPixelFormats ;
   CGLPixelFormatAttribute attribs[4] =
   {
     kCGLPFAFullScreen,
@@ -208,6 +207,41 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
   CGLDestroyContext( glContextObj ); // and destroy the context
   
   return true;
+}
+
+bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
+{
+#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_5
+  return GetScreenDataGL(xpos,ypos,bmOut);
+#else
+  static bool hasNewFailed=false;
+  if (hasNewFailed) return GetScreenDataGL(xpos,ypos,bmOut);
+
+  int use_h=bmOut->getHeight();
+  int use_w=bmOut->getWidth();
+	CGImageRef r=CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,ypos,use_w,use_h));
+  if (!r) 
+  {
+    hasNewFailed=true;
+    return GetScreenDataGL(xpos,ypos,bmOut);
+  }
+  static CGColorSpaceRef cs;
+  if (!cs) cs=CGColorSpaceCreateDeviceRGB();
+  CGContextRef ctx=CGBitmapContextCreate(bmOut->getBits(),use_w,use_h,8,4*bmOut->getRowSpan(),cs,kCGImageAlphaNoneSkipFirst);
+  if (!ctx)
+  {
+    hasNewFailed=true;
+    CGImageRelease(r);
+    return GetScreenDataGL(xpos,ypos,bmOut);
+  }
+  CGContextScaleCTM(ctx,1.0,-1.0);
+  CGContextDrawImage(ctx,CGRectMake(0,-use_h,use_w,use_h),r);
+  
+  CGContextRelease(ctx);
+  CGImageRelease(r);
+                        
+  return true;
+#endif
 }
 
 void DrawTransparentRectInCurrentContext(RECT r)
