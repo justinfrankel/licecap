@@ -100,14 +100,14 @@ static bool CompareQueueToBuf(WDL_FastQueue *q, const void *data, int len)
     if (sz<1) return true; // not enough data = not equal!
     if (sz>len) sz=len;
     
-    int i=sz/sizeof(WDL_FFT_REAL)/4;
+    int i=sz/sizeof(WDL_FFT_REAL);
     WDL_FFT_REAL *a1=(WDL_FFT_REAL*)td;
     WDL_FFT_REAL *b1=(WDL_FFT_REAL*)data;
     while (i--) 
     {
-      if (fabs(*a1-*b1)>1.0e-7) return true; // differing bytes = not equal
-      a1+=4;
-      b1+=4;
+      if (fabs(*a1-*b1)>1.0e-7) return true;
+      a1++;
+      b1++;
     }
 
     data = ((char *)data)+sz;
