@@ -105,7 +105,6 @@ private:
   WDL_Queue m_samplesin2[WDL_CONVO_MAX_PROC_NCH];
   WDL_FastQueue m_samplesin[WDL_CONVO_MAX_PROC_NCH];
 
-  int m_samplesout_delay[WDL_CONVO_MAX_PROC_NCH];
   int m_hist_pos[WDL_CONVO_MAX_PROC_NCH];
 
   WDL_TypedBuf<WDL_FFT_REAL> m_samplehist[WDL_CONVO_MAX_PROC_NCH]; // FFT'd sample blocks per channel

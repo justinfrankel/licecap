@@ -121,7 +121,6 @@ static bool CompareQueueToBuf(WDL_FastQueue *q, const void *data, int len)
 WDL_ConvolutionEngine::WDL_ConvolutionEngine()
 {
   WDL_fft_init();
-  memset(m_samplesout_delay,0,sizeof(m_samplesout_delay));
   m_impulse_nch=1;
   m_fft_size=0;
   m_impulse_len=0;
@@ -178,7 +177,6 @@ int WDL_ConvolutionEngine::SetImpulse(WDL_ImpulseBuffer *impulse, int fft_size, 
 
     for (x = 0; x < WDL_CONVO_MAX_PROC_NCH; x ++)
     {
-      m_samplesout_delay[x]=0;
       m_samplesin[x].Clear();
       m_samplesin2[x].Clear();
       m_samplesout[x].Clear();
@@ -279,7 +277,6 @@ void WDL_ConvolutionEngine::Reset() // clears out any latent samples
   memset(m_hist_pos,0,sizeof(m_hist_pos));
   for (x = 0; x < WDL_CONVO_MAX_PROC_NCH; x ++)
   {
-    m_samplesout_delay[x]=0;
     m_samplesin[x].Clear();
     m_samplesin2[x].Clear();
     m_samplesout[x].Clear();
@@ -402,7 +399,6 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
       {
         m_samplesin[x].Clear();
         m_samplesout[x].Clear();
-        m_samplesout_delay[x]=0;
       }
       else 
       {
@@ -473,14 +469,13 @@ int WDL_ConvolutionEngine::Avail(int want)
     return m_samplesout[0].Available()/sizeof(WDL_FFT_REAL);
   }
 
-  int chunksize=m_fft_size/2;
-  int nblocks=(m_impulse_len+chunksize-1)/chunksize;
+  const int sz=m_fft_size/2;
+  const int chunksize=m_fft_size/2;
+  const int nblocks=(m_impulse_len+chunksize-1)/chunksize;
   // clear combining buffer
   WDL_FFT_REAL *workbuf2 = m_combinebuf.Resize(m_fft_size*4); // temp space
 
-  int ch=0;
-  int sz=m_fft_size/2;
-
+  int ch;
 
   for (ch = 0; ch < m_proc_nch; ch ++)
   {
@@ -502,16 +497,12 @@ int WDL_ConvolutionEngine::Avail(int want)
     }
 
 
-    int in_needed=sz;
-    // if on an odd channel, make sure we delay this channel a bit so that the FFTs are more evenly distribyted
-    // if we comment out this line we can always disable this behavior
-    if ((ch&1) && m_samplesout_delay[ch] < sz/2)
-      in_needed = sz/2-m_samplesout_delay[ch];
+    const int in_needed=sz;
 
     // useSilentList[x] = 1 for mono signal, 2 for stereo, 0 for silent
     char *useSilentList=m_samplehist_zflag[ch].GetSize()==nblocks ? m_samplehist_zflag[ch].Get() : NULL;
-    while (m_samplesin[ch].Available()/(int)sizeof(WDL_FFT_REAL) >= in_needed && 
-           m_samplesout[ch].Available() < (want+m_samplesout_delay[ch])*(int)sizeof(WDL_FFT_REAL))
+    while (m_samplesin[ch].Available()/(int)sizeof(WDL_FFT_REAL) >= sz && 
+           m_samplesout[ch].Available() < want*(int)sizeof(WDL_FFT_REAL))
     {
       int histpos;
       if ((histpos=++m_hist_pos[ch]) >= nblocks) histpos=m_hist_pos[ch]=0;
@@ -519,18 +510,8 @@ int WDL_ConvolutionEngine::Avail(int want)
       // get samples from input, to history
       WDL_FFT_REAL *optr = m_samplehist[ch].Get()+histpos*m_fft_size*2;   
 
-      if (in_needed<sz)
-      {
-        memset(optr+sz,0,(sz-in_needed)*sizeof(WDL_FFT_REAL));
-        m_samplesin[ch].GetToBuf(0,optr+sz+sz-in_needed,in_needed*sizeof(WDL_FFT_REAL));
-        m_samplesout_delay[ch] += (sz-in_needed);
-      }
-      else
-        m_samplesin[ch].GetToBuf(0,optr+sz,in_needed*sizeof(WDL_FFT_REAL));
-
+      m_samplesin[ch].GetToBuf(0,optr+sz,in_needed*sizeof(WDL_FFT_REAL));
       m_samplesin[ch].Advance(in_needed*sizeof(WDL_FFT_REAL));
-
-      in_needed=sz;
 
 
       bool mono_input_mode=false;
@@ -560,7 +541,10 @@ int WDL_ConvolutionEngine::Avail(int want)
         {
           mono_input_mode=true;
         }
-        else allow_mono_input_mode=false;
+        else 
+        {
+          allow_mono_input_mode=false;
+        }
 
         int i;
         for (i = 0; i < sz; i ++) // unpack samples
@@ -686,7 +670,7 @@ int WDL_ConvolutionEngine::Avail(int want)
   int mv = want;
   for (ch=0;ch<m_proc_nch;ch++)
   {
-    int v = m_samplesout[ch].Available()/sizeof(WDL_FFT_REAL)  - m_samplesout_delay[ch];
+    int v = m_samplesout[ch].Available()/sizeof(WDL_FFT_REAL);
     if (!ch || v<mv)mv=v;
   }
   return mv;
@@ -697,8 +681,7 @@ WDL_FFT_REAL **WDL_ConvolutionEngine::Get()
   int x;
   for (x = 0; x < m_proc_nch; x ++)
   {
-    m_get_tmpptrs[x]=(WDL_FFT_REAL *)m_samplesout[x].Get() + 
-      m_samplesout_delay[x];
+    m_get_tmpptrs[x]=(WDL_FFT_REAL *)m_samplesout[x].Get();
   }
   return m_get_tmpptrs;
 }
