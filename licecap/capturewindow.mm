@@ -219,7 +219,8 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
 
   int use_h=bmOut->getHeight();
   int use_w=bmOut->getWidth();
-	CGImageRef r=CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,ypos,use_w,use_h));
+  
+	CGImageRef r=CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,CGDisplayPixelsHigh(CGMainDisplayID()) - ypos - use_h,use_w,use_h));
   if (!r) 
   {
     hasNewFailed=true;
