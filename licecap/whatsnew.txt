@@ -1,3 +1,6 @@
+v1.21 - November 29 2012
+  + OSX version: fixed support for 10.7+, newer API use on 10.6 (CGDisplayCreateImageForRect)
+
 v1.2 - August 4 2011
   + Allow user to set capture dimensions before recording
   + OSX version: v1.2alpha (doesn't support proper cursors or mouse status or hotkeys, but somewhat usable)
