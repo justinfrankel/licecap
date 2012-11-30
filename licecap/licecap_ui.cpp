@@ -408,6 +408,7 @@ void SaveRestoreRecRect(HWND hwndDlg, bool restore)
   }
 #endif
 }
+void SWELL_SetWindowResizeable(HWND, bool);
 
 void Capture_Finish(HWND hwndDlg)
 {
@@ -427,6 +428,7 @@ void Capture_Finish(HWND hwndDlg)
       SWELL_SetWindowLevel(hwndDlg,g_capwnd_levelsave);
       g_capwnd_levelsave=-1;
     }
+    SWELL_SetWindowResizeable(hwndDlg,true);
 #endif
     g_cap_state=0;
   }
@@ -1119,7 +1121,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 {
                   g_capwnd_levelsave=SWELL_SetWindowLevel(hwndDlg,1000);
                 }
-                
+                SWELL_SetWindowResizeable(hwndDlg,false);
 #endif
 
                 SetDlgItemText(hwndDlg,IDC_REC,"[pause]");

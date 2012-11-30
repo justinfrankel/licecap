@@ -272,3 +272,21 @@ void RefreshWindowShadows(HWND h)
     [w setHasShadow:YES];
   }
 }
+
+@interface tmpNSWindow
+-(NSUInteger) styleMask;
+-(void) setStyleMask:(NSUInteger)mask;
+@end
+
+void SWELL_SetWindowResizeable(HWND h, bool allow)
+{
+  NSWindow *w = [(NSView *)h window];
+  if ([w respondsToSelector:@selector(setStyleMask:)])
+  {
+    NSUInteger a = [(tmpNSWindow*)w styleMask];
+    NSUInteger oa=a;
+    if (allow) a |= NSResizableWindowMask;
+    else a &= ~NSResizableWindowMask;
+    if (a != oa) [(tmpNSWindow*)w setStyleMask:a];
+  }
+}
