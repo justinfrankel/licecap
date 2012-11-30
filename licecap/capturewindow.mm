@@ -209,18 +209,38 @@ bool GetScreenDataGL(int xpos, int ypos, LICE_IBitmap *bmOut)
   return true;
 }
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_5
+
+#if __LP64__ || TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_OS_WIN32 || NS_BUILD_32_LIKE_64
+typedef unsigned long NSUInteger;
+#else
+typedef unsigned int NSUInteger;
+#endif
+
+#endif
+
+
 bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_5
-  return GetScreenDataGL(xpos,ypos,bmOut);
-#else
   static bool hasNewFailed=false;
   if (hasNewFailed) return GetScreenDataGL(xpos,ypos,bmOut);
 
   int use_h=bmOut->getHeight();
   int use_w=bmOut->getWidth();
   
-	CGImageRef r=CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,CGDisplayPixelsHigh(CGMainDisplayID()) - ypos - use_h,use_w,use_h));
+  static CGImageRef (*__CGDisplayCreateImageForRect)(CGDirectDisplayID displayID,CGRect rect);
+  if (!__CGDisplayCreateImageForRect)
+  {
+    CFBundleRef r = CFBundleGetBundleWithIdentifier((CFStringRef)@"com.apple.CoreGraphics");
+    if (r) *(void **)&__CGDisplayCreateImageForRect = CFBundleGetFunctionPointerForName(r,(CFStringRef)@"CGDisplayCreateImageForRect");
+  }
+  if (!__CGDisplayCreateImageForRect)
+  {
+    hasNewFailed=true;
+    return GetScreenDataGL(xpos,ypos,bmOut);
+  }
+  
+	CGImageRef r=__CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,CGDisplayPixelsHigh(CGMainDisplayID()) - ypos - use_h,use_w,use_h));
   if (!r) 
   {
     hasNewFailed=true;
@@ -242,7 +262,6 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
   CGImageRelease(r);
                         
   return true;
-#endif
 }
 
 void DrawTransparentRectInCurrentContext(RECT r)
