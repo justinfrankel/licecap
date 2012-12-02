@@ -109,27 +109,48 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
   pt.y += yoffs;
   
   NSCursor *c = NULL;
+  NSImage *img = NULL;
+  NSPoint hs;
+  bool img_needrelease=false;
   
   if ([NSCursor respondsToSelector:@selector(currentSystemCursor)])
   {
     c = (NSCursor *)[NSCursor currentSystemCursor];
   }
-  if (!c) c=[NSCursor arrowCursor]; // currentCursor but thats useless too
-  if (!c) return;
+  else
+  {
+    PixMapHandle h=nil;
+    Point pt;
+    QDGetCursorData(true,&h,&pt);
+    if (h)
+    {      
+      hs.x = pt.h;
+      hs.y = pt.v;
+      img = [[NSImage alloc] initWithData:[NSData dataWithBytes:*h length:GetHandleSize((Handle)h)]];
+      img_needrelease=true;
+    }
+  }
+  
+  if (!c && !img) c=[NSCursor arrowCursor]; // currentCursor but thats useless too
+  
+  if (c)
+  {
+    img = [c image];
+    hs = [c hotSpot];
+  }
+
+  if (!img) return;
        
-
-  NSImage *img = [c image];
-  NSPoint hs = [c hotSpot];
-
-  extern int g_prefs;
+/*  extern int g_prefs;
   // this doesnt work, since osx wont let us query the mouse if we're not the active app
-  if ((g_prefs&4) && ((GetAsyncKeyState(VK_LBUTTON)&0x8000) || (GetAsyncKeyState(VK_RBUTTON)&0x8000)))
+  if ((g_prefs&4) && [NSEvent respondsToSelector:@selector(pressedMouseButtons)] && [NSEvent pressedMouseButtons])
   {
     LICE_Circle(bmOut, pt.x+1, pt.y+1, 10.0f, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
     LICE_Circle(bmOut, pt.x+1, pt.y+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
   }
+ */
   
-  if (c && img)
+  if (img)
   {
     HDC hdc= bmOut->getDC();
     if (hdc)
@@ -149,7 +170,7 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
       }
     }
   }
-  
+  if (img_needrelease) [img release];
 }
 
 
