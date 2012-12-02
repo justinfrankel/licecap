@@ -83,6 +83,7 @@
   #include <windowsx.h>
   #include <commctrl.h>
   #include <tchar.h>
+  #pragma warning(disable:4244) // implicit cast int to float
 #else
   #include "../../swell/swell.h"
   #define __stdcall
@@ -660,6 +661,83 @@ static COLORREF GetSBBackColor(HWND hwnd)
 {
 	return CoolSB_GetSysColor(hwnd,COLOR_SCROLLBAR);
 }
+
+
+void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max)
+{
+  LICE_IBitmap* src=*m_scrollbar_bmp;
+  if (!src) return;
+
+  int x=r->left;
+  int y=r->top;
+  int w=r->right-r->left;
+  int h=r->bottom-r->top;
+
+  int range=h-17*2;
+  int thumb=range*page/max;
+  int tpos=(range*pos)/max;
+
+  if (m_scrollbar_hasPink) 
+  { 
+    LICE_ScaledBlit(dest, src, 
+                    x, y, w, m_sb_bkgvt, 
+                    170, 37, 17, m_sb_bkgvt, 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+    LICE_ScaledBlit(dest, src, 
+                    x, y+m_sb_bkgvt, w, h-m_sb_bkgvt-m_sb_bkgvb, 
+                    170, 37+m_sb_bkgvt, 17, 238-37-m_sb_bkgvt-m_sb_bkgvb, 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+    LICE_ScaledBlit(dest, src, x, y+h-m_sb_bkgvb, w, m_sb_bkgvb, 
+                    170, 238-m_sb_bkgvb, 17, m_sb_bkgvb,
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+
+    int th=(thumb-m_sb_thumbVV[0]-m_sb_thumbVV[2]-m_sb_thumbVV[4])/2;
+    if (th < 0) th=0;
+
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos, w, m_sb_thumbVV[0], 
+                    0, 91, 17, m_sb_thumbVV[0], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0], w, th, 
+                    0, 91+m_sb_thumbVV[0], 17, m_sb_thumbVV[1], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0]+th, w, m_sb_thumbVV[2], 
+                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1], 17, m_sb_thumbVV[2], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0]+th+m_sb_thumbVV[2], w, th, 
+                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1]+m_sb_thumbVV[2], 17, m_sb_thumbVV[3], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0]+th+m_sb_thumbVV[2]+th, w, m_sb_thumbVV[4], 
+                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1]+m_sb_thumbVV[2]+m_sb_thumbVV[3], 17, m_sb_thumbVV[4], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+  }
+  else
+  {
+    LICE_ScaledBlit(dest, src,
+                    x, y, w, h, 
+                    170, 34, 17, 238-34, 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+ 
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos, w, thumb, 
+                    0, 90, 17, 238-90, 1.0f, 
+                    LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+  }
+
+  LICE_ScaledBlit(dest, src,
+                  x, y, w, w,
+                  116, 121, 17, 17, 
+                  1.0f, LICE_BLIT_FILTER_BILINEAR);
+  LICE_ScaledBlit(dest, src,
+                  x, y+h-w, w, w,
+                  116, 181, 17, 17, 
+                  1.0f, LICE_BLIT_FILTER_BILINEAR);
+}
+
 
 //
 //	Paint a checkered rectangle, with each alternate
