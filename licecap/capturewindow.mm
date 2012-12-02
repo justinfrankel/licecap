@@ -100,6 +100,21 @@ bool GetScreenDataOld(int xpos, int ypos, LICE_IBitmap *bmOut)
   
 }
 
+static CGEventRef eventCallback(CGEventTapProxy proxy,
+                                CGEventType type,
+                                CGEventRef event,
+                                void *refcon)
+{
+  if (type == kCGEventLeftMouseDown) { *(int *)refcon |= 0x101; }
+  else if (type == kCGEventLeftMouseUp) { *(int *)refcon  &= ~0x001; }
+  else if (type == kCGEventRightMouseDown) { *(int *)refcon |= 0x102; }
+  else if (type == kCGEventRightMouseUp) { *(int *)refcon  &= ~0x002; }
+  else if (type == kCGEventOtherMouseDown) { *(int *)refcon |= 0x104; }
+  else if (type == kCGEventOtherMouseUp) { *(int *)refcon  &= ~0x004; }
+  
+  return event;
+}
+
 
 void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
 {
@@ -141,14 +156,36 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
 
   if (!img) return;
        
-/*  extern int g_prefs;
-  // this doesnt work, since osx wont let us query the mouse if we're not the active app
-  if ((g_prefs&4) && [NSEvent respondsToSelector:@selector(pressedMouseButtons)] && [NSEvent pressedMouseButtons])
+  extern int g_prefs;
+  if (g_prefs&4)
   {
-    LICE_Circle(bmOut, pt.x+1, pt.y+1, 10.0f, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
-    LICE_Circle(bmOut, pt.x+1, pt.y+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+    static int clicked;
+    static bool triedreg;
+    if (!triedreg)
+    {
+      triedreg=true;
+      CFMachPortRef r=CGEventTapCreate(kCGHIDEventTap,kCGHeadInsertEventTap,kCGEventTapOptionListenOnly,
+                                       CGEventMaskBit(kCGEventLeftMouseDown)|
+                                       CGEventMaskBit(kCGEventRightMouseDown)|
+                                       CGEventMaskBit(kCGEventOtherMouseDown)|
+                                       CGEventMaskBit(kCGEventLeftMouseUp)|
+                                       CGEventMaskBit(kCGEventRightMouseUp)|
+                                       CGEventMaskBit(kCGEventOtherMouseUp)                                  
+                                       ,
+                       eventCallback,&clicked);
+      if (r)
+      {
+        CFRunLoopAddSource(CFRunLoopGetCurrent(),CFMachPortCreateRunLoopSource(NULL,r,0),kCFRunLoopCommonModes);
+      }
+    }
+    
+    if (clicked)
+    {
+      clicked &= 0xf;
+      LICE_Circle(bmOut, pt.x+1, pt.y+1, 10.0f, LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+      LICE_Circle(bmOut, pt.x+1, pt.y+1, 9.0f, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY, true);
+    }
   }
- */
   
   if (img)
   {
