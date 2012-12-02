@@ -100,6 +100,7 @@ bool GetScreenDataOld(int xpos, int ypos, LICE_IBitmap *bmOut)
   
 }
 
+
 void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
 {
   POINT pt;
@@ -107,7 +108,16 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
   pt.x += xoffs;
   pt.y += yoffs;
   
-  NSCursor *c = [NSCursor arrowCursor]; // currentCursor but thats useless too
+  NSCursor *c = NULL;
+  
+  if ([NSCursor respondsToSelector:@selector(currentSystemCursor)])
+  {
+    c = (NSCursor *)[NSCursor currentSystemCursor];
+  }
+  if (!c) c=[NSCursor arrowCursor]; // currentCursor but thats useless too
+  if (!c) return;
+       
+
   NSImage *img = [c image];
   NSPoint hs = [c hotSpot];
 
