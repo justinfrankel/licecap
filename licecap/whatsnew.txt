@@ -1,3 +1,7 @@
+v1.22 - December 2 2012
+  + OSX version: cursor support (untested on 10.5 and earlier)
+  + OSX version: mouse click detection (may require "enable access for assistive devices" on some OS versions)
+
 v1.21 - November 29 2012
   + OSX version: fixed support for 10.7+, newer API use on 10.6 (CGDisplayCreateImageForRect)
 
