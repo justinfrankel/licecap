@@ -134,6 +134,7 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
   }
   else
   {
+    /* //todo: support cursors on 10.4-10.5
     PixMapHandle h=nil;
     Point pt;
     QDGetCursorData(true,&h,&pt);
@@ -144,6 +145,7 @@ void DoMouseCursor(LICE_IBitmap *bmOut, int xoffs, int yoffs)
       img = [[NSImage alloc] initWithData:[NSData dataWithBytes:*h length:GetHandleSize((Handle)h)]];
       img_needrelease=true;
     }
+     */
   }
   
   if (!c && !img) c=[NSCursor arrowCursor]; // currentCursor but thats useless too
