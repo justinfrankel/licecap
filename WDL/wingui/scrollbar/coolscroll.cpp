@@ -166,6 +166,7 @@ typedef struct
   UINT uLastHitTestPortion;
   UINT uScrollTimerPortion;
 
+  UINT vscrollbarShrinkBottom;
 
 } SCROLLWND;
 
@@ -1005,6 +1006,8 @@ static BOOL GetVScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomBu
       rect->bottom -= zbs*2 + ZOOMBUTTON_RESIZER_SIZE(zbs);
     }
   }
+
+  rect->bottom -= sw->vscrollbarShrinkBottom;
 
 	return TRUE;
 }
@@ -1998,7 +2001,7 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 		OffsetRect(&rect, -winrect.left, -winrect.top);
 
 		rect.bottom -= sw->cyBottomEdge;
-		rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB);
+		rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB) - sw->vscrollbarShrinkBottom;
 
 		if(sw->fLeftScrollbar)
 		{
@@ -3350,6 +3353,17 @@ static void RedrawNonClient(HWND hwnd, BOOL fFrameChanged)
 #endif
 	}
 }
+
+void CoolSB_SetVScrollBottomPad(HWND hwnd, UINT amt)
+{
+	SCROLLWND *sw = GetScrollWndFromHwnd(hwnd);
+  if (sw && amt != sw->vscrollbarShrinkBottom) 
+  {
+    sw->vscrollbarShrinkBottom = amt;
+    RedrawNonClient(hwnd,FALSE);
+  }
+}
+
 
 //
 //	return the default minimum size of a scrollbar thumb
