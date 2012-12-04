@@ -2892,6 +2892,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         GetWindowContentViewRect(hwnd,&r);
         if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+menubar_size) return HTMENU;
       }
+      // todo: WM_NCCALCSIZE etc
     return HTCLIENT;
     case WM_KEYDOWN:
     case WM_KEYUP: return 69;
