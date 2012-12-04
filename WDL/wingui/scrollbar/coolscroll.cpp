@@ -166,7 +166,7 @@ typedef struct
   UINT uLastHitTestPortion;
   UINT uScrollTimerPortion;
 
-  UINT vscrollbarShrinkBottom;
+  UINT vscrollbarShrinkBottom,vscrollbarShrinkTop;
 
 } SCROLLWND;
 
@@ -977,9 +977,9 @@ static BOOL GetHScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomBu
 static BOOL GetVScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomButtons)
 {
 	GET_WINDOW_RECT(hwnd, rect);
-	rect->top	 += sw->cyTopEdge;						//top window edge
+	rect->top	 += sw->cyTopEdge + sw->vscrollbarShrinkTop;						//top window edge
 	
-	rect->bottom -= sw->cyBottomEdge + 
+	rect->bottom -= sw->cyBottomEdge + sw->vscrollbarShrinkBottom + 
 					(sw->sbarHorz.fScrollVisible ?		//bottom window edge
 					GetScrollMetric(FALSE, SM_CYHORZSB) : 0);
 
@@ -1006,8 +1006,6 @@ static BOOL GetVScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomBu
       rect->bottom -= zbs*2 + ZOOMBUTTON_RESIZER_SIZE(zbs);
     }
   }
-
-  rect->bottom -= sw->vscrollbarShrinkBottom;
 
 	return TRUE;
 }
@@ -1364,7 +1362,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 	si = &sb->scrollInfo;
 	siMaxMin = si->nMax - si->nMin;
 
-  int sbYoffs=0,sbXoffs=0;
+  int sbYoffs=-(int)sw->vscrollbarShrinkTop,sbXoffs=0;
 #ifdef _WIN32
     // this is a stupid fix for now . this needs a ton of overhauling
   {
@@ -1373,7 +1371,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
     ClientToScreen(hwnd,&p);
     GetWindowRect(hwnd,&r);
 
-    if (sb == &sw->sbarVert) sbYoffs =  r.top - p.y;
+    if (sb == &sw->sbarVert) sbYoffs =  r.top - p.y - sw->vscrollbarShrinkTop;
     if (sb == &sw->sbarHorz) sbXoffs =  r.left - p.x;
   }
 #endif
@@ -1995,13 +1993,11 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 
 	// DRAW THE DEAD AREA
 	// only do this if the horizontal and vertical bars are visible
-	if(sw->sbarHorz.fScrollVisible && sw->sbarVert.fScrollVisible)
-	{
+  if (sw->sbarVert.fScrollVisible && (sw->vscrollbarShrinkTop && sw->sbarHorz.fScrollVisible))
+  {
+    int col=CoolSB_GetSysColor(hwnd,COLOR_3DFACE);
 		GET_WINDOW_RECT(hwnd, &rect);
 		OffsetRect(&rect, -winrect.left, -winrect.top);
-
-		rect.bottom -= sw->cyBottomEdge;
-		rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB) - sw->vscrollbarShrinkBottom;
 
 		if(sw->fLeftScrollbar)
 		{
@@ -2013,43 +2009,23 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 			rect.right -= sw->cxRightEdge;
 			rect.left = rect.right  - GetScrollMetric(TRUE, SM_CXVERTSB);
 		}
-		
-		{
-			//calculate the position of THIS window's dead area
-			//with the position of the PARENT window's client rectangle.
-			//if THIS window has been positioned such that its bottom-right
-			//corner sits in the parent's bottom-right corner, then we should
-			//show the sizing-grip.
-			//Otherwise, assume this window is not in the right place, and
-			//just draw a blank rectangle
-			RECT parent;
-			RECT rect2;
-			HWND hwndParent = GetParent(hwnd);
 
-			GetClientRect(hwndParent, &parent);
-			//MapWindowPoints(hwndParent, 0, (POINT *)&parent, 2);
-      ClientToScreen(hwndParent, (LPPOINT)&parent);
-      ClientToScreen(hwndParent, ((LPPOINT)&parent)+1);
-      if (parent.bottom<parent.top)
-      {
-        int a=parent.top;
-        parent.top=parent.bottom;
-        parent.bottom=a;
-      }
+    if (sw->vscrollbarShrinkTop)
+    {
+      RECT r2=rect;
+      r2.top += sw->cyTopEdge;
+	  	r2.bottom = r2.top + sw->vscrollbarShrinkTop;
 
-			//CopyRect(&rect2, &rect);
-      rect2 = rect;
-			OffsetRect(&rect2, winrect.left, winrect.top);
+		  PaintRect(hdc, &r2, col);
+    }
 
-#if 0 // never seems to look right (adds an extra arrow)
-			if(!sw->fLeftScrollbar && parent.right == rect2.right+sw->cxRightEdge && parent.bottom == rect2.bottom+sw->cyBottomEdge
-			 || sw->fLeftScrollbar && parent.left  == rect2.left -sw->cxLeftEdge  && parent.bottom == rect2.bottom+sw->cyBottomEdge)
-				ownDrawFrameControl(hwnd,hdc, &rect, DFC_SCROLL, sw->fLeftScrollbar ? DFCS_SCROLLSIZEGRIPRIGHT : DFCS_SCROLLSIZEGRIP, 0 );
-			else
-#endif
-				PaintRect(hdc, &rect, CoolSB_GetSysColor(hwnd,COLOR_3DFACE));
-		}
-	}
+    if (sw->sbarVert.fScrollVisible)
+    {
+		  rect.bottom -= sw->cyBottomEdge;
+		  rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB) - sw->vscrollbarShrinkBottom;
+  		PaintRect(hdc, &rect, col);
+    }
+  }
 
 	UNREFERENCED_PARAMETER(clip);
 
@@ -2516,8 +2492,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 	pt.x = x;
 	pt.y = y;
 
-
-  int sbYoffs=0,sbXoffs=0;
+  int sbYoffs=-(int)sw->vscrollbarShrinkTop,sbXoffs=0;
 #ifdef _WIN32
   // this is a stupid fix for now . this needs a ton of overhauling
   {
@@ -2526,7 +2501,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
     ClientToScreen(hwnd,&p);
     GetWindowRect(hwnd,&r);
 
-    if (sbar == &sw->sbarVert) sbYoffs =  r.top - p.y;
+    if (sbar == &sw->sbarVert) sbYoffs =  r.top - p.y - sw->vscrollbarShrinkTop;
     if (sbar == &sw->sbarHorz) sbXoffs =  r.left - p.x;
   }
 #endif
@@ -3354,12 +3329,13 @@ static void RedrawNonClient(HWND hwnd, BOOL fFrameChanged)
 	}
 }
 
-void CoolSB_SetVScrollBottomPad(HWND hwnd, UINT amt)
+void CoolSB_SetVScrollPad(HWND hwnd, UINT topamt, UINT botamt)
 {
 	SCROLLWND *sw = GetScrollWndFromHwnd(hwnd);
-  if (sw && amt != sw->vscrollbarShrinkBottom) 
+  if (sw && (botamt != sw->vscrollbarShrinkBottom||topamt != sw->vscrollbarShrinkTop)) 
   {
-    sw->vscrollbarShrinkBottom = amt;
+    sw->vscrollbarShrinkBottom = botamt;
+    sw->vscrollbarShrinkTop = topamt;
     RedrawNonClient(hwnd,FALSE);
   }
 }
