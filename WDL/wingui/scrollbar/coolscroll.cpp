@@ -167,6 +167,7 @@ typedef struct
   UINT uScrollTimerPortion;
 
   UINT vscrollbarShrinkBottom,vscrollbarShrinkTop;
+  void *(*getDeadAreaBitmap)(int, HWND, RECT *,int);
 
 } SCROLLWND;
 
@@ -1993,7 +1994,7 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 
 	// DRAW THE DEAD AREA
 	// only do this if the horizontal and vertical bars are visible
-  if (sw->sbarVert.fScrollVisible && (sw->vscrollbarShrinkTop && sw->sbarHorz.fScrollVisible))
+  if (sw->sbarVert.fScrollVisible && (sw->vscrollbarShrinkTop || sw->vscrollbarShrinkBottom || sw->sbarHorz.fScrollVisible))
   {
     int col=CoolSB_GetSysColor(hwnd,COLOR_3DFACE);
 		GET_WINDOW_RECT(hwnd, &rect);
@@ -2016,14 +2017,34 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
       r2.top += sw->cyTopEdge;
 	  	r2.bottom = r2.top + sw->vscrollbarShrinkTop;
 
-		  PaintRect(hdc, &r2, col);
+      LICE_IBitmap *bm=NULL;
+      if (sw->getDeadAreaBitmap) bm = (LICE_IBitmap *)sw->getDeadAreaBitmap(1,hwnd,&r2,col);
+      
+      if (bm)
+      {
+        BitBlt(hdc,r2.left,r2.top,r2.right-r2.left,r2.bottom-r2.top,bm->getDC(),0,0,SRCCOPY);
+      }
+      else
+      {
+  		  PaintRect(hdc, &r2, col);
+      }
     }
 
-    if (sw->sbarVert.fScrollVisible)
+    if (sw->sbarHorz.fScrollVisible||sw->vscrollbarShrinkBottom)
     {
 		  rect.bottom -= sw->cyBottomEdge;
 		  rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB) - sw->vscrollbarShrinkBottom;
-  		PaintRect(hdc, &rect, col);
+      LICE_IBitmap *bm=NULL;
+      if (sw->getDeadAreaBitmap) bm = (LICE_IBitmap *)sw->getDeadAreaBitmap(0,hwnd,&rect,col);
+
+      if (bm)
+      {
+        BitBlt(hdc,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,bm->getDC(),0,0,SRCCOPY);
+      }
+      else
+      {
+    		PaintRect(hdc, &rect, col);
+      }
     }
   }
 
@@ -3329,11 +3350,12 @@ static void RedrawNonClient(HWND hwnd, BOOL fFrameChanged)
 	}
 }
 
-void CoolSB_SetVScrollPad(HWND hwnd, UINT topamt, UINT botamt)
+void CoolSB_SetVScrollPad(HWND hwnd, UINT topamt, UINT botamt, void *(*getDeadAreaBitmap)(int which, HWND hwnd, RECT *r, int col))
 {
 	SCROLLWND *sw = GetScrollWndFromHwnd(hwnd);
-  if (sw && (botamt != sw->vscrollbarShrinkBottom||topamt != sw->vscrollbarShrinkTop)) 
+  if (sw && (botamt != sw->vscrollbarShrinkBottom||topamt != sw->vscrollbarShrinkTop||sw->getDeadAreaBitmap != getDeadAreaBitmap)) 
   {
+    sw->getDeadAreaBitmap=getDeadAreaBitmap;
     sw->vscrollbarShrinkBottom = botamt;
     sw->vscrollbarShrinkTop = topamt;
     RedrawNonClient(hwnd,FALSE);
