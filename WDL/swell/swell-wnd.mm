@@ -4840,7 +4840,16 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
   else if (msg==WM_NCHITTEST) 
   {
-    return HTCLIENT;
+    int rv=HTCLIENT;
+    SWELL_BEGIN_TRY
+    RECT r;
+    GetWindowRect(hwnd,&r);
+    if (r.top > r.bottom) { int a=r.top; r.top=r.bottom; r.bottom=a; }
+    SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&r);
+    POINT pt={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+    if (!PtInRect(&r,pt)) rv=HTNOWHERE;
+    SWELL_END_TRY(;)
+    return rv;
   }
   else if (msg==WM_KEYDOWN || msg==WM_KEYUP) return 69;
   else if (msg == WM_DISPLAYCHANGE)

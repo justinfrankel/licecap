@@ -2082,19 +2082,6 @@ static LRESULT NCHitTest(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
     vrect.bottom += zbs*2+ZOOMBUTTON_RESIZER_SIZE(zbs);
   }
 	  
-#ifndef _WIN32
-  if (sw->sbarHorz.fScrollVisible || sw->sbarVert.fScrollVisible)
-  {
-    int sz=sw->sbarHorz.fScrollVisible ? hrect.bottom-hrect.top : vrect.right-vrect.left;
-    if (sz<0)sz=-sz;
-    RECT r;
-    GetWindowRect(hwnd,&r);
-    int bot = max(r.top,r.bottom);
-    int v= (bot-pt.y) + (r.right-pt.x);
-    if (v < sz*3/4) return HTNOWHERE;
-  }
-#endif
-
     
 	//Clicked in the horizontal scrollbar area
 	if(sw->sbarHorz.fScrollVisible && PtInRect(&hrect, pt))
@@ -2107,12 +2094,6 @@ static LRESULT NCHitTest(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 		return HTVSCROLL;
 	}
-#ifndef _WIN32
-  else if (sw->sbarHorz.fScrollVisible && sw->sbarVert.fScrollVisible && pt.y >= hrect.top && pt.y <= hrect.bottom && pt.x >= vrect.left && pt.x <= vrect.right)
-  {
-    return HTNOWHERE;
-  }
-#endif  
 	//clicked somewhere else
 	else
 	{
