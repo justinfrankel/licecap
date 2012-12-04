@@ -254,6 +254,8 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       return true;
     }
 
+    virtual bool isFlipped() { return m_parent && m_parent->isFlipped();  }
+
     virtual LICE_pixel *getBits() 
     {
       if (!m_parent) return 0;
