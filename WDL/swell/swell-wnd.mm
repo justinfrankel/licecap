@@ -1816,10 +1816,10 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->bottom= (int)(b.origin.y+b.size.height+0.5);
 
   // todo this may need more attention
-  RECT tr=*r;
+  NCCALCSIZE_PARAMS tr={{*r,},};
   SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&tr);
-  r->right = r->left + (tr.right-tr.left);
-  r->bottom = r->top + (tr.bottom-tr.top);
+  r->right = r->left + (tr.rgrc[0].right-tr.rgrc[0].left);
+  r->bottom = r->top + (tr.rgrc[0].bottom-tr.rgrc[0].top);
   SWELL_END_TRY(;)
 }
 
@@ -4845,9 +4845,10 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     RECT r;
     GetWindowRect(hwnd,&r);
     if (r.top > r.bottom) { int a=r.top; r.top=r.bottom; r.bottom=a; }
-    SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&r);
+    NCCALCSIZE_PARAMS p={{r,}};
+    SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
     POINT pt={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
-    if (!PtInRect(&r,pt)) rv=HTNOWHERE;
+    if (!PtInRect(&p.rgrc[0],pt)) rv=HTNOWHERE;
     SWELL_END_TRY(;)
     return rv;
   }
