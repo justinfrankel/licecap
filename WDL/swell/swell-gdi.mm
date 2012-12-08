@@ -833,7 +833,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     parinfo = [[NSMutableParagraphStyle alloc] init];
     [parinfo setAlignment:amode];
     [parinfo setLineBreakMode:lbmode];
-    [dict setObject:[parinfo autorelease] forKey:NSParagraphStyleAttributeName];
+    [dict setObject:parinfo forKey:NSParagraphStyleAttributeName];
+    [parinfo release];
   }
 
   
@@ -849,11 +850,10 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   NSStringDrawingOptions opt = NSStringDrawingUsesFontLeading;
   NSSize sz={0,0};//[as size];
   NSRect rsz=[str boundingRectWithSize:sz options:opt attributes:dict];
+  sz=rsz.size;
+
   TEXTMETRIC tm;
   GetTextMetrics(ctx,&tm);
-        
-  sz=rsz.size;
-  
   
   int ret=ceil(sz.height);
   if (align & DT_CALCRECT)
