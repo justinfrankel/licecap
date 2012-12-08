@@ -6,6 +6,8 @@
 #ifndef _WDL_RESAMPLE_H_
 #define _WDL_RESAMPLE_H_
 
+#include <stdlib.h>
+#include <string.h>
 #include "wdltypes.h"
 #include "heapbuf.h"
 
