@@ -760,15 +760,21 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   HDC__ *ct=(HDC__ *)ctx;
   if (!HDC_VALID(ct)) return 0;
   
+  bool has_ml=false;
   char tmp[4096];
   const char *p=buf;
   char *op=tmp;
   while (*p && (op-tmp)<sizeof(tmp)-1 && (buflen<0 || (p-buf)<buflen))
   {
     if (*p == '&' && !(align&DT_NOPREFIX)) p++; 
-    else if (*p == '\r')  p++; 
+
+    if (*p == '\r')  p++; 
     else if (*p == '\n' && (align&DT_SINGLELINE)) { *op++ = ' '; p++; }
-    else *op++=*p++;
+    else 
+    {
+      if (*p == '\n') has_ml=true;
+      *op++=*p++;
+    }
   }
   *op=0;
   
@@ -847,10 +853,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     [NSGraphicsContext setCurrentContext:gc];
   }
   
-  NSStringDrawingOptions opt = NSStringDrawingUsesFontLeading;
-  NSSize sz={0,0};//[as size];
-  NSRect rsz=[str boundingRectWithSize:sz options:opt attributes:dict];
-  sz=rsz.size;
+  NSSize sz=[str sizeWithAttributes:dict];
 
   TEXTMETRIC tm;
   GetTextMetrics(ctx,&tm);
@@ -880,7 +883,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     {
       drawr.size.height=sz.height;
     }
-  	drawr.origin.y+=tm.tmAscent;
+    drawr.origin.y+=tm.tmAscent;
     
     if (align & DT_NOCLIP) // no clip, grow drawr if necessary (preserving alignment)
     {
@@ -897,8 +900,14 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         drawr.size.height=sz.height;
       }
     }
-    [str drawWithRect:drawr options:opt attributes:dict];
-    
+    if (has_ml)
+    {
+      [str drawInRect:drawr withAttributes:dict];
+    }
+    else
+    {
+      [str drawWithRect:drawr options:NSStringDrawingUsesFontLeading attributes:dict];
+    }
   }
   
   if (gc)
