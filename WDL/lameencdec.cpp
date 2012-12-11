@@ -487,7 +487,6 @@ void LameEncoder::InitDLL(const char *extrapath)
       char me[1024];
       lstrcpyn_safe(me,extrapath,sizeof(me)-64);
       lstrcatn(me,"/libmp3lame.so",sizeof(me));
-      dll=LoadLibrary(me);
       dll = dlopen(me, RTLD_NOW|RTLD_LOCAL);    
     }
     if (!dll) dll=dlopen("/usr/local/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
