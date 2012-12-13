@@ -35,6 +35,61 @@
 #include "swell-gdi-internalpool.h"
 
 
+#ifdef SWELL_FREETYPE
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_GLYPH_H
+
+static bool s_freetype_failed;
+static FT_Library s_freetype; // todo: TLS for multithread support?
+
+#include "../dirscan.h"
+
+static int utf8char(const char *ptr, unsigned short *charOut) // returns char length
+{
+  const unsigned char *p = (const unsigned char *)ptr;
+  unsigned char tc = *p;
+
+  if (tc < 128) 
+  {
+    if (charOut) *charOut = (unsigned short) tc;
+    return 1;
+  }
+  else if (tc < 0xC2) // invalid chars (subsequent in sequence, or overlong which we disable for)
+  {
+  }
+  else if (tc < 0xE0) // 2 char seq
+  {
+    if (p[1] >= 0x80 && p[1] <= 0xC0)
+    {
+      if (charOut) *charOut = ((tc&0x1f)<<6) | (p[1]&0x3f);
+      return 2;
+    }
+  }
+  else if (tc < 0xF0) // 3 char seq
+  {
+    if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0)
+    {
+      if (charOut) *charOut = ((tc&0xf)<<12) | ((p[1]&0x3f)<<6) | ((p[2]&0x3f));
+      return 3;
+    }
+  }
+  else if (tc < 0xF5) // 4 char seq
+  {
+    if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0 && p[3] >= 0x80 && p[3] <= 0xC0)
+    {
+      if (charOut) *charOut = (unsigned short)' '; // dont support 4 byte sequences yet(ever?)
+      return 4;
+    }
+  }  
+  if (charOut) *charOut = (unsigned short) tc;
+  return 1;  
+}
+
+
+
+#endif
+
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   LICE_MemBitmap * bm = new LICE_MemBitmap(w,h);
@@ -131,15 +186,67 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
 {
-  HGDIOBJ__ *font=GDP_OBJECT_NEW();
+  HGDIOBJ__ *font=NULL;
+#ifdef SWELL_FREETYPE
+  FT_Face face=NULL;
+  if (!s_freetype_failed && !s_freetype) s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
+  if (s_freetype)
+  {
+    if (!lfFaceName || !*lfFaceName) lfFaceName = "Arial";
+
+    int fn_len = strlen(lfFaceName);
+
+    const char *leadpath = "/usr/share/fonts/truetype/msttcorefonts"; // todo: scan subdirs?
+    char tmp[1024];
+    char bestmatch[512];
+    bestmatch[0]=0;
+    snprintf(tmp,sizeof(tmp),"%s/%s.ttf",leadpath,lfFaceName);
+    FT_New_Face(s_freetype,tmp,0,&face);
+    if (!face)
+    {
+      WDL_DirScan ds;
+      if (!ds.First(leadpath)) do
+      { 
+        if (!strnicmp(ds.GetCurrentFN(),lfFaceName,fn_len))
+        {
+          if (!stricmp(ds.GetCurrentFN()+fn_len,".ttf"))
+          {
+            snprintf(tmp,sizeof(tmp),"%s/%s",leadpath,ds.GetCurrentFN());
+            FT_New_Face(s_freetype,tmp,0,&face);
+          }
+          else 
+          {
+            // todo look for italic/bold/etc too
+            int sl = strlen(ds.GetCurrentFN());
+            if (sl > 4 && !stricmp(ds.GetCurrentFN() + sl - 4, ".ttf")  && (!bestmatch[0] || sl < strlen(bestmatch)))
+            {
+              lstrcpyn(bestmatch,ds.GetCurrentFN(),sizeof(bestmatch));
+            }
+          }
+        }
+      } while (!face && !ds.Next());
+      if (!face && bestmatch[0])
+      {
+        snprintf(tmp,sizeof(tmp),"%s/%s",leadpath,bestmatch);
+        FT_New_Face(s_freetype,tmp,0,&face);
+      }
+    }
+  }
+  
+  if (face)
+  {
+    font = GDP_OBJECT_NEW();
+    font->type=TYPE_FONT;
+    font->fontface = face;
+    ////unsure here
+    if (lfWidth<0) lfWidth=-lfWidth;
+    if (lfHeight<0) lfHeight=-lfHeight;
+    FT_Set_Char_Size(face,lfWidth*64, lfHeight*64,0,0); // 72dpi
+//    FT_Set_Pixel_Sizes(face,0,lfHeight);
+  }
+#else
   font->type=TYPE_FONT;
-  float fontwid=lfHeight;
-  
-  
-  if (!fontwid) fontwid=lfWidth;
-  if (fontwid<0)fontwid=-fontwid;
-  
-  if (fontwid < 2 || fontwid > 8192) fontwid=10;
+#endif
  
   return font;
 }
@@ -161,8 +268,20 @@ void DeleteObject(HGDIOBJ pen)
     {
       if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
       {
-        if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
+        if (p->type == TYPE_FONT)
+        {
+#ifdef SWELL_FREETYPE
+          if (p->fontface)
+          {
+            FT_Done_Face((FT_Face)p->fontface);
+            p->fontface = 0;
+          }
+#endif
+        }
+        else if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
+        {
           if (p->wid<0) return;
+        }
   
         GDP_OBJECT_DELETE(p);
       }
@@ -190,8 +309,8 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
     return np?np:p;
   }
   
-  if (!HGDIOBJ_VALID(p)) return 0
-;
+  if (!HGDIOBJ_VALID(p)) return 0;
+
   if (p->type == TYPE_PEN) mod=&c->curpen;
   else if (p->type == TYPE_BRUSH) mod=&c->curbrush;
   else if (p->type == TYPE_FONT) mod=&c->curfont;
@@ -202,11 +321,6 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   if (op != p)
   {
     *mod=p;
-  
-    if (p->type == TYPE_FONT)
-    {
-//      CGContextSelectFont(c->ctx,p->fontface,(float)p->wid,kCGEncodingMacRoman);
-    }
   }
   return op;
 }
@@ -439,6 +553,17 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 */
 }
 
+#ifdef SWELL_FREETYPE
+HFONT SWELL_GetDefaultFont()
+{
+  static HFONT def;
+  if (!def)
+  {
+    def = CreateFont(12,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); // todo better defaults
+  }
+  return def;
+}
+#endif
 
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
@@ -452,6 +577,19 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmAveCharWidth = 8;
   }
   if (!HDC_VALID(ct)||!tm) return 0;
+
+#ifdef SWELL_FREETYPE
+  HGDIOBJ__  *font  = HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
+  if (font && font->fontface)
+  {
+    FT_Face face=(FT_Face) font->fontface;
+    tm->tmAscent = face->size->metrics.ascender/64;
+    tm->tmDescent = face->size->metrics.descender/64;
+    tm->tmHeight = face->size->metrics.height/64;
+    tm->tmAveCharWidth = face->size->metrics.max_advance/64;
+    tm->tmInternalLeading=0;
+  }
+#endif
   
   return 1;
 }
@@ -459,30 +597,53 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 
 int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
+  const char *obuf=buf;
   HDC__ *ct=(HDC__ *)ctx;
   if (!r) return 0;
 
+  int lineh = 8;
+  int charw = 8;
+
+  HGDIOBJ__  *font  = NULL;
 #ifdef SWELL_FREETYPE
-#else
-  const int lineh = 8;
-  const int charw = 8;
+  int ascent=0;
+  font  = HDC_VALID(ct) && HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
+  FT_Face face = NULL;
+  if (font && font->fontface) 
+  {
+    face=(FT_Face)font->fontface;
+    lineh = face->size->metrics.height/64;
+    ascent = face->size->metrics.ascender/64;
+    charw = face->size->metrics.max_advance/64;
+  }
+#endif
+
   if (align&DT_CALCRECT)
   {
-    if (align&DT_SINGLELINE) 
+    if (!font && (align&DT_SINGLELINE))
     {
-      r->right = r->left + ( buflen < 0 ? strlen(buf) : buflen ) *charw;
+      r->right = r->left + ( buflen < 0 ? strlen(buf) : buflen ) * charw;
       int h = r->right ? lineh:0;
       r->bottom = r->top+h;
       return h;
     }
+
     int xpos=0;
+    int ypos=0;
+
     r->bottom=r->top;
     bool in_prefix=false;
-    while (buflen--) // if buflen<0, go forever
+    while (buflen && *buf) // if buflen<0, go forever
     {
-      char c = *buf++;
+      unsigned short c=0;
+      int charlen = utf8char(buf,&c);
+      buf+=charlen;
+      if (buflen > 0) 
+      {
+        buflen -= charlen;
+        if (buflen < 0) buflen=0;
+      }
       if (!c) break;
-      if (!xpos) r->bottom += lineh;
 
       if (c=='&' && !in_prefix && !(align&DT_NOPREFIX)) 
       {
@@ -491,12 +652,31 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       }
       in_prefix=false;
  
-      if (c == '\n') xpos=0; 
-      else if (c == '\r') xpos+=0; 
-      else if (c =='\t') xpos+=charw*5;
-      else xpos += charw;
+      if (c == '\n') { ypos += lineh; xpos=0; }
+      else if (c != '\r')
+      {
+        if (font)
+        {
+#ifdef SWELL_FREETYPE
+          if (!FT_Load_Char(face, c, FT_LOAD_DEFAULT) && face->glyph)
+          {
+            // measure character
+            FT_GlyphSlot g = face->glyph;
+            int rext = xpos + (g->metrics.width + g->metrics.horiBearingX)/64;
+            if (rext<=xpos) rext=xpos + g->metrics.horiAdvance/64;
+            if (r->left+rext > r->right) r->right = r->left+rext;
+            xpos += g->metrics.horiAdvance/64;
 
-      if (r->left+xpos>r->right) r->right=r->left+xpos;
+            int bext = r->top + ypos + ascent + (g->metrics.height - g->metrics.horiBearingY)/64;
+            if (bext > r->bottom) r->bottom = bext;
+            continue;
+          }
+        }
+#endif
+        xpos += c=='\t' ? charw*5 : charw;
+        if (r->top + ypos + lineh > r->bottom) r->bottom = r->top+ypos+lineh;
+        if (r->left+xpos>r->right) r->right=r->left+xpos;
+      }
     }
     return r->bottom-r->top;
   }
@@ -548,11 +728,16 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   int start_ypos = ypos;
   bool in_prefix=false;
 
-  while (buflen--)
+  while (buflen && *buf)
   {
-    char c = *buf++;
-    if (!c) break;
-    if (xpos==left_xpos) ysize+=lineh;
+    unsigned short c=0;
+    int  charlen = utf8char(buf,&c);
+    if (buflen>0)
+    {
+      buflen -= charlen;
+      if (buflen<0) buflen=0;
+    }
+    buf+=charlen;
 
     bool doUl=in_prefix;
 
@@ -565,18 +750,48 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 
     if (c=='\n' && !(align&DT_SINGLELINE)) { xpos=left_xpos; ypos+=lineh; }
     else if (c=='\r')  {} 
-    else if (c=='\t') 
-    {
-      if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
-      xpos+=charw*5;
-    }
     else 
     {
-      if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
-      LICE_DrawChar(surface,xpos,ypos,c,fgcol,1.0f,LICE_BLIT_MODE_COPY);
-      if (doUl) LICE_Line(surface,xpos,ypos+lineh+1,xpos+charw,ypos+lineh+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+      bool needr=true;
+      if (font)
+      {
+#ifdef SWELL_FREETYPE
+        if (!FT_Load_Char(face, c, FT_LOAD_RENDER) && face->glyph)
+        {
+          FT_GlyphSlot g = face->glyph;
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,g->metrics.horiAdvance/64,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+  
+          LICE_DrawGlyphEx(surface,xpos+g->bitmap_left,ypos+ascent-g->bitmap_top,fgcol,(LICE_pixel_chan *)g->bitmap.buffer,g->bitmap.width,g->bitmap.pitch,g->bitmap.rows,1.0f,LICE_BLIT_MODE_COPY);
+  
+          int rext = xpos + (g->metrics.width + g->metrics.horiBearingX)/64;
+          if (rext<=xpos) rext=xpos + g->metrics.horiAdvance/64;
+          if (rext > max_xpos) max_xpos=rext;
+          xpos += g->metrics.horiAdvance/64;
+          int bext = ypos + lineh +  (g->metrics.height - g->metrics.horiBearingY)/64;
+          if (ysize < bext) ysize=bext;
+          needr=false;
+        }
+#endif
+      }
 
-      xpos+=charw;
+      if (needr)
+      {
+        if (c=='\t') 
+        {
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          xpos+=charw*5;
+          if (ysize < ypos+lineh) ysize=ypos+lineh;
+        }
+        else 
+        {
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          LICE_DrawChar(surface,xpos,ypos,c,fgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (doUl) LICE_Line(surface,xpos,ypos+lineh+1,xpos+charw,ypos+lineh+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+  
+          if (ysize < ypos+lineh+(doUl ? 2:1)) ysize=ypos+lineh+(doUl ? 2:1);
+          xpos+=charw;
+        }
+      }
     }
     if(xpos>max_xpos)max_xpos=xpos;
   }
@@ -585,7 +800,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   else
     swell_DirtyContext(ct,left_xpos,start_ypos,max_xpos,start_ypos+ysize);
   return ysize;
-#endif
 }
 
 

@@ -2468,6 +2468,15 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_KEYUP: return 69;
     case WM_CONTEXTMENU:
         return hwnd->m_parent ? SendMessage(hwnd->m_parent,msg,wParam,lParam) : 0;
+    case WM_GETFONT:
+#ifdef SWELL_FREETYPE
+        {
+          HFONT SWELL_GetDefaultFont();
+          return (LRESULT)SWELL_GetDefaultFont();
+        }
+#endif
+
+        return 0;
   }
   return 0;
 }

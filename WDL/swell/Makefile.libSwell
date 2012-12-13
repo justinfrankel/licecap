@@ -5,7 +5,7 @@
 
 ARCH := $(shell uname -m)
 
-CFLAGS = -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC
+CFLAGS = -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall
 
 ifdef DEBUG
 CFLAGS += -O0 -g 
@@ -41,6 +41,11 @@ ifndef NOGDK
   endif
   CFLAGS += -DSWELL_LICE_GDI
   OBJS += $(LICE_OBJS)
+
+  ifndef NOFREETYPE
+    CFLAGS += -DSWELL_FREETYPE $(shell freetype-config --cflags)
+    LINKEXTRA += $(shell freetype-config --libs)
+  endif
 endif
 
 CXXFLAGS = $(CFLAGS)
