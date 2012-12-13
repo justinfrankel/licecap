@@ -1914,12 +1914,12 @@ public:
   }
 };
 
-void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
+void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_span, int glyph_h, float alpha, int mode)
 {
   if (!dest) return;
 
 #ifndef DISABLE_LICE_EXTENSIONS
-  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_DRAWGLYPH_ACCEL))
+  if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_DRAWGLYPH_ACCEL) && glyph_w == glyph_span)
   {
     LICE_Ext_DrawGlyph_acceldata data(x, y, color, alphas, glyph_w, glyph_h, alpha, mode);
     if (dest->Extended(LICE_EXT_DRAWGLYPH_ACCEL, &data)) return;
@@ -1957,11 +1957,16 @@ void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LI
     destpx += y*dest->getRowSpan()+x;
   }
 
-  const LICE_pixel_chan* srcalpha = alphas+src_y*glyph_w+src_x;
+  const LICE_pixel_chan* srcalpha = alphas+src_y*glyph_span+src_x;
 
-#define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(srcalpha,destpx, src_w, src_h, color,span,glyph_w,ia)
+#define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyph(srcalpha,destpx, src_w, src_h, color,span,glyph_span,ia)
 	__LICE_ACTION_NOSRCALPHA(mode, ia, false);
 #undef __LICE__ACTION
+}
+
+void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
+{
+  LICE_DrawGlyphEx(dest,x,y,color,alphas,glyph_w,glyph_w,glyph_h,alpha,mode);
 }
 
 void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
