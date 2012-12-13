@@ -932,13 +932,10 @@ void GetWindowContentViewRect(HWND hwnd, RECT *r)
 #ifdef SWELL_TARGET_GDK
   if (hwnd && hwnd->m_oswindow) 
   {
-#if SWELL_TARGET_GDK == 2
-    gint w=0,h=0,d=0,px=0,py=0;
-    gdk_window_get_geometry(hwnd->m_oswindow,&px,&py,&w,&h,&d);
-#else
     gint w=0,h=0,px=0,py=0;
-    gdk_window_get_geometry(hwnd->m_oswindow,&px,&py,&w,&h);
-#endif
+    gdk_window_get_position(hwnd->m_oswindow,&px,&py);
+    w = gdk_window_get_width(hwnd->m_oswindow);
+    h = gdk_window_get_height(hwnd->m_oswindow);
     r->left=px;
     r->top=py;
     r->right = px+w;
