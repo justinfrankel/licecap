@@ -167,6 +167,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   else ent = m_lowchars+idx;
 
   int bmsz=m_line_height;
+  if (bmsz<1) bmsz=1;
   if (s_tempbitmap.getWidth() < bmsz || s_tempbitmap.getHeight() < bmsz)
   {
     s_tempbitmap.resize(bmsz,bmsz);
