@@ -3365,7 +3365,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
 
     {
       NSTableColumn *col=[[NSTableColumn alloc] init];
-      [col setDataCell:[[[SWELL_ListViewCell alloc] initTextCell:@""] autorelease]];
+      SWELL_ListViewCell *cell = [[SWELL_ListViewCell alloc] initTextCell:@""];
+      [col setDataCell:cell];
+      [cell release];
+
       [col setWidth:(int)ceil(max(tr.size.width,300.0))];
       [col setEditable:NO];
       [[col dataCell] setWraps:NO];     
