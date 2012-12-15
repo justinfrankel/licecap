@@ -2653,7 +2653,11 @@ HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaVie
   if (!bundle)
   {
     NSString* path = (NSString*)(CFURLCopyFileSystemPath(viewinfo->mCocoaAUViewBundleLocation,kCFURLPOSIXPathStyle));
-    if (path) bundle = [NSBundle bundleWithPath:[path autorelease]];
+    if (path) 
+    {
+      bundle = [NSBundle bundleWithPath:path];
+      [path release];
+    }
   }
 
   if (!bundle) return 0;
@@ -2661,16 +2665,22 @@ HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaVie
   Class factoryclass = [bundle classNamed:classname];
   if (![factoryclass conformsToProtocol: @protocol(AUCocoaUIBase)]) return 0;
   if (![factoryclass instancesRespondToSelector: @selector(uiViewForAudioUnit:withSize:)]) return 0;
-  id viewfactory = [[[factoryclass alloc] init] autorelease];
+  id viewfactory = [[factoryclass alloc] init];
   if (!viewfactory) return 0;
   NSView* view = [viewfactory uiViewForAudioUnit:aunit withSize:NSMakeSize(r->right-r->left, r->bottom-r->top)];
-  if (!view) return 0;
+  if (!view) 
+  {
+    [viewfactory release];
+    return 0;
+  }
   
   [(NSView*)parent addSubview:view];
   NSRect bounds = [view bounds];
   r->left = r->top = 0;
   r->right = bounds.size.width;
   r->bottom = bounds.size.height;
+  [viewfactory release];
+
   return (HWND)view;
 }
 
