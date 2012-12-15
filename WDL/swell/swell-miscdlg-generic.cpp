@@ -77,37 +77,49 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         int nbuttons=1;
         const char *buttons[3] = { "OK", "", "" };
         int button_ids[3] = {IDOK,0,0};
+        int button_sizes[3];
+
         int mode =  ((int)(INT_PTR)parms[2]);
         if (mode == MB_RETRYCANCEL) { buttons[0]="Retry"; button_ids[0]=IDRETRY;  }
         if (mode == MB_YESNO || mode == MB_YESNOCANCEL) { buttons[0]="Yes"; button_ids[0] = IDYES;  buttons[nbuttons] = "No"; button_ids[nbuttons] = IDNO; nbuttons++; }
         if (mode == MB_OKCANCEL || mode == MB_YESNOCANCEL || mode == MB_RETRYCANCEL) { buttons[nbuttons] = "Cancel"; button_ids[nbuttons] = IDCANCEL; nbuttons++; }
 
         SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
-        RECT labsize = {0,0,300,80};
-        HWND lab = SWELL_MakeLabel(-1,parms[0] ? (const char *)parms[0] : "", 0, 0,0,10,10,0); //we'll resize this manually
+        RECT labsize = {0,0,300,20};
+        HWND lab = SWELL_MakeLabel(-1,parms[0] ? (const char *)parms[0] : "", 0, 0,0,10,10,SS_CENTER); //we'll resize this manually
+        HDC dc=GetDC(lab); 
         if (lab && parms[0])
         {
-          HDC dc=GetDC(lab); 
           DrawText(dc,(const char *)parms[0],-1,&labsize,DT_CALCRECT);// if dc isnt valid yet, try anyway
-          if (dc) ReleaseDC(lab,dc);
         }
-        
-        int buttonh=12;
-        int buttonw = 35, buttonspace=5;
-        int buttontotalw = nbuttons * buttonw + (nbuttons-1)*buttonspace;
-        if (labsize.right < buttontotalw) labsize.right = buttontotalw;
-        if (labsize.bottom < 40) labsize.bottom = 40;
+        labsize.top += 10;
+        labsize.bottom += 18;
 
-        int x,xpos = labsize.right/2 - buttontotalw/2;
+        int x;
+        const int button_spacing = 8;
+        int button_height=0, button_total_w=0;;
         for (x = 0; x < nbuttons; x ++)
         {
-          SWELL_MakeButton(0,buttons[x],button_ids[x],xpos,labsize.bottom+4,buttonw,buttonh,0);
-          xpos += buttonw + buttonspace;
+          RECT r={0,0,35,12};
+          DrawText(dc,buttons[x],-1,&r,DT_CALCRECT|DT_SINGLELINE);
+          button_sizes[x] = r.right-r.left + 8;
+          button_total_w += button_sizes[x] + (x ? button_spacing : 0);
+          if (r.bottom-r.top+10 > button_height) button_height = r.bottom-r.top+10;
         }
 
+        if (labsize.right < button_total_w+16) labsize.right = button_total_w+16;
+
+        int xpos = labsize.right/2 - button_total_w/2;
+        for (x = 0; x < nbuttons; x ++)
+        {
+          SWELL_MakeButton(0,buttons[x],button_ids[x],xpos,labsize.bottom,button_sizes[x],button_height,0);
+          xpos += button_sizes[x] + button_spacing;
+        }
+
+        if (dc) ReleaseDC(lab,dc);
         SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
-        if (lab) SetWindowPos(lab,NULL,0,0,labsize.right+3,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
-        SetWindowPos(hwnd,NULL,0,0,labsize.right+10,labsize.bottom+buttonh+4,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        if (lab) SetWindowPos(lab,NULL,0,0,labsize.right,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
+        SetWindowPos(hwnd,NULL,0,0,labsize.right,labsize.bottom + button_height + 8,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
       }
     break;
     case WM_COMMAND:

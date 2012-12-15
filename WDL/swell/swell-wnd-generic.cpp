@@ -1596,20 +1596,26 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           SetBkMode(ps.hdc,TRANSPARENT);
 
 
-          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
-          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-          HPEN br = CreateSolidBrush(pressed ? RGB(255,128,128) : RGB(128,192,64));
-          HGDIOBJ oldbr = SelectObject(ps.hdc,br);
 
-          Rectangle(ps.hdc,r.left,r.top,r.right-1,r.bottom-1);
-
-
-          SelectObject(ps.hdc,oldbr);
-          SelectObject(ps.hdc,oldpen);
-          DeleteObject(pen);
+          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+          FillRect(ps.hdc,&r,br);
           DeleteObject(br);
 
+          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+          MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
+          LineTo(ps.hdc,r.left,r.top);
+          LineTo(ps.hdc,r.right-1,r.top);
+          SelectObject(ps.hdc,pen2);
+          LineTo(ps.hdc,r.right-1,r.bottom-1);
+          LineTo(ps.hdc,r.left,r.bottom-1);
+          SelectObject(ps.hdc,oldpen);
+          DeleteObject(pen);
+          DeleteObject(pen2);
 
+
+          int f=DT_VCENTER;
           if ((hwnd->m_style & 0xf) == BS_AUTOCHECKBOX || (hwnd->m_style & 0xf) == BS_AUTO3STATE)
           {
             int st = (int)(hwnd->m_private_data&3);
@@ -1618,18 +1624,21 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             else if (st==2) DrawText(ps.hdc,"[-]",-1,&r,DT_VCENTER);
             else DrawText(ps.hdc,"[ ]",-1,&r,DT_VCENTER);
             r.left += 20;
+            if (hwnd->m_style & SS_CENTER) f|=DT_CENTER;
           }
           else if ((hwnd->m_style & 0xf) == BS_AUTORADIOBUTTON)
           {
             r.left += r.bottom-r.top;
+            if (hwnd->m_style & SS_CENTER) f|=DT_CENTER;
           }
-
+          else f|=DT_CENTER;
 
 
           char buf[512];
           buf[0]=0;
+          if (pressed) r.left+=2, r.top+=2;
           GetWindowText(hwnd,buf,sizeof(buf));
-          if (buf[0]) DrawText(ps.hdc,buf,-1,&r,((hwnd->m_style & SS_CENTER) ? DT_CENTER:0)|DT_VCENTER);
+          if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
 
 
           EndPaint(hwnd,&ps);
@@ -1677,14 +1686,8 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         {
           RECT r; 
           GetClientRect(hwnd,&r); 
-          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
-          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-          HPEN br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-          HGDIOBJ oldbr = SelectObject(ps.hdc,br);
-          Rectangle(ps.hdc,r.left,r.top,r.right-1,r.bottom-1);
-          SelectObject(ps.hdc,oldbr);
-          SelectObject(ps.hdc,oldpen);
-          DeleteObject(pen);
+          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+          FillRect(ps.hdc,&r,br);
           DeleteObject(br);
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
