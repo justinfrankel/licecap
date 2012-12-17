@@ -1560,7 +1560,8 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         POINT p={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
         if (PtInRect(&r,p) && hwnd->m_id && hwnd->m_parent) 
         {
-          if ((hwnd->m_style & 0xf) == BS_AUTO3STATE)
+          int sf = (hwnd->m_style & 0xf);
+          if (sf == BS_AUTO3STATE)
           {
             int a = hwnd->m_private_data&3;
             if (a==0) a=1;
@@ -1568,11 +1569,11 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             else a=0;
             hwnd->m_private_data = (a) | (hwnd->m_private_data&~3);
           }    
-          else if ((hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)
+          else if (sf == BS_AUTOCHECKBOX)
           {
             hwnd->m_private_data = (!(hwnd->m_private_data&3)) | (hwnd->m_private_data&~3);
           }
-          else if ((hwnd->m_style & 0xf) == BS_AUTORADIOBUTTON)
+          else if (sf == BS_AUTORADIOBUTTON)
           {
             // todo: uncheck other nearby radios 
           }
@@ -1595,48 +1596,84 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
 
-
-
           HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
 
-          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
-          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
-          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
-          LineTo(ps.hdc,r.left,r.top);
-          LineTo(ps.hdc,r.right-1,r.top);
-          SelectObject(ps.hdc,pen2);
-          LineTo(ps.hdc,r.right-1,r.bottom-1);
-          LineTo(ps.hdc,r.left,r.bottom-1);
-          SelectObject(ps.hdc,oldpen);
-          DeleteObject(pen);
-          DeleteObject(pen2);
-
 
           int f=DT_VCENTER;
-          if ((hwnd->m_style & 0xf) == BS_AUTOCHECKBOX || (hwnd->m_style & 0xf) == BS_AUTO3STATE)
+          int sf = (hwnd->m_style & 0xf);
+          if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
           {
-            int st = (int)(hwnd->m_private_data&3);
-            if (st==3||(st==2 && (hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)) st=1;
-            if (st==1) DrawText(ps.hdc,"[X]",-1,&r,DT_VCENTER);
-            else if (st==2) DrawText(ps.hdc,"[-]",-1,&r,DT_VCENTER);
-            else DrawText(ps.hdc,"[ ]",-1,&r,DT_VCENTER);
-            r.left += 20;
-            if (hwnd->m_style & SS_CENTER) f|=DT_CENTER;
+            const int chksz = 16;
+            RECT tr={r.left,(r.top+r.bottom)/2-chksz/2,r.left+chksz};
+            tr.bottom = tr.top+chksz;
+
+            HPEN pen=CreatePen(PS_SOLID,0,RGB(0,0,0));
+            HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
+            if (sf == BS_AUTOCHECKBOX || sf == BS_AUTO3STATE)
+            {
+              int st = (int)(hwnd->m_private_data&3);
+              if (st==3||(st==2 && (hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)) st=1;
+              
+              HBRUSH br = CreateSolidBrush(st==2?RGB(192,192,192):RGB(255,255,255));
+              FillRect(ps.hdc,&tr,br);
+              DeleteObject(br);
+
+              if (st == 1||pressed)
+              {
+                RECT ar=tr;
+                ar.left+=2;
+                ar.right-=3;
+                ar.top+=2;
+                ar.bottom-=3;
+                if (pressed) 
+                { 
+                  const int rsz=chksz/4;
+                  ar.left+=rsz;
+                  ar.top+=rsz;
+                  ar.right-=rsz;
+                  ar.bottom-=rsz;
+                }
+                MoveToEx(ps.hdc,ar.left,ar.top,NULL);
+                LineTo(ps.hdc,ar.right,ar.bottom);
+                MoveToEx(ps.hdc,ar.right,ar.top,NULL);
+                LineTo(ps.hdc,ar.left,ar.bottom);
+              }
+            }
+            else if (sf == BS_AUTORADIOBUTTON)
+            {
+              // todo radio circle
+            }
+            SelectObject(ps.hdc,oldPen);
+            DeleteObject(pen);
+            r.left += chksz + 4;
           }
-          else if ((hwnd->m_style & 0xf) == BS_AUTORADIOBUTTON)
+          else
           {
-            r.left += r.bottom-r.top;
-            if (hwnd->m_style & SS_CENTER) f|=DT_CENTER;
+            HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+            HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+            HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+            MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
+            LineTo(ps.hdc,r.left,r.top);
+            LineTo(ps.hdc,r.right-1,r.top);
+            SelectObject(ps.hdc,pen2);
+            LineTo(ps.hdc,r.right-1,r.bottom-1);
+            LineTo(ps.hdc,r.left,r.bottom-1);
+            SelectObject(ps.hdc,oldpen);
+            DeleteObject(pen);
+            DeleteObject(pen2);
+            f|=DT_CENTER;
+            if (pressed) 
+            {
+              r.left+=2;
+              r.top+=2;
+            }
           }
-          else f|=DT_CENTER;
 
 
           char buf[512];
           buf[0]=0;
-          if (pressed) r.left+=2, r.top+=2;
           GetWindowText(hwnd,buf,sizeof(buf));
           if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
 
