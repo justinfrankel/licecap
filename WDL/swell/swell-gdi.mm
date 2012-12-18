@@ -37,6 +37,7 @@
 
 static bool IsCoreTextSupported()
 {
+#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
   static char is105;
   if (!is105)
   {
@@ -47,6 +48,10 @@ static bool IsCoreTextSupported()
   
   return is105 > 0 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString;
+#else
+  // targetting 10.5+, CT is always valid
+  return true;
+#endif
 }
 
 static CTFontRef GetCoreTextDefaultFont()
