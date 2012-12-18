@@ -725,13 +725,13 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
   if (ct->curbkmode == OPAQUE)
   {      
     CGRect bgr = CGRectMake(l, t, w, h);
-    CGColorSpaceRef csr = CGColorSpaceCreateDeviceRGB();
+    static CGColorSpaceRef csr;
+    if (!csr) csr = CGColorSpaceCreateDeviceRGB();
     float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
     CGColorRef bgc = CGColorCreate(csr, col);
     CGContextSetFillColorWithColor(ct->ctx, bgc);
     CGContextFillRect(ct->ctx, bgr);
     CGColorRelease(bgc);	
-    CGColorSpaceRelease(csr);
   }
  
   if (ATSUDrawText(layout,kATSUFromTextBeginning,kATSUToTextEnd,Long2Fix(l),Long2Fix(t+descent))!=noErr)
@@ -888,7 +888,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     if (ct->curbkmode == OPAQUE)
     {      
       CGColorSpaceRef csr = CGColorSpaceCreateDeviceRGB();
-      float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
+      CGFloat col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
       bgc = CGColorCreate(csr, col);
       CGColorSpaceRelease(csr);
     }
@@ -976,7 +976,11 @@ void SetTextColor(HDC ctx, int col)
   ct->cur_text_color_int = col;
   
   if (ct->curtextcol) CFRelease(ct->curtextcol);
-  ct->curtextcol=CGColorCreateGenericRGB(GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,1.0);
+
+  static CGColorSpaceRef csr;
+  if (!csr) csr = CGColorSpaceCreateDeviceRGB();
+  CGFloat ccol[] = { GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,1.0 };
+  ct->curtextcol = csr ? CGColorCreate(csr, ccol) : NULL;
 }
 
 
