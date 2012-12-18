@@ -502,6 +502,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     NSString *str=CStringToNSString(buf); 
     font->ct_FontRef = (void*)CTFontCreateWithName((CFStringRef)str,fontwid,NULL);
     [str release];
+    if (!font->ct_FontRef) font->ct_FontRef = (void*)[[NSFont labelFontOfSize:fontwid] retain]; 
 
     // might want to make this conditional (i.e. only return font if created successfully), but I think we'd rather fallback to a system font than use ATSUI
     return font;
