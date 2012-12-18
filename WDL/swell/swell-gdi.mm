@@ -37,7 +37,15 @@
 
 static bool IsCoreTextSupported()
 {
-  return CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
+  static char is105;
+  if (!is105)
+  {
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    is105 = v>=0x1050 ? 1 : -1;    
+  }
+  
+  return is105 > 0 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString;
 }
 
