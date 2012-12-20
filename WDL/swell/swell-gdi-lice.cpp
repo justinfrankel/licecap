@@ -361,7 +361,10 @@ void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
   if (!c->surface) return;
 
   if (b->wid<0) return;
-  LICE_FillRect(c->surface,r->left,r->top,r->right-r->left,r->bottom-r->top,b->color,1.0f,LICE_BLIT_MODE_COPY);
+  LICE_FillRect(c->surface,
+      r->left+c->surface_offs.x,
+      r->top+c->surface_offs.y,
+      r->right-r->left,r->bottom-r->top,b->color,1.0f,LICE_BLIT_MODE_COPY);
 
 }
 
@@ -407,6 +410,11 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
   
+  l += c->surface_offs.x;
+  t += c->surface_offs.y;
+  r += c->surface_offs.x;
+  b += c->surface_offs.y;
+
   if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
     LICE_FillRect(c->surface,l,t,r-l,b-t,c->curbrush->color,1.0f,LICE_BLIT_MODE_COPY);
@@ -1116,6 +1124,8 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
         tmpsub.m_h = ctx.ctx.surface->getHeight()-dy;
         if (tmpsub.m_w<0) tmpsub.m_w=0;
         if (tmpsub.m_h<0) tmpsub.m_h=0;
+        ctx.ctx.surface_offs.x += dx;
+        ctx.ctx.surface_offs.y += dy;
         ctx.ctx.surface = &tmpsub;
 
         ctx.clipr.left-=dx;
