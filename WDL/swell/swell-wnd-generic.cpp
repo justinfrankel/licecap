@@ -1781,6 +1781,32 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  switch (msg)
+  {
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+          HBRUSH br = CreateSolidBrush(RGB(255,255,255)); // todo edit colors
+          FillRect(ps.hdc,&r,br);
+          DeleteObject(br);
+          SetTextColor(ps.hdc,RGB(0,0,0)); // todo edit colors
+          SetBkMode(ps.hdc,TRANSPARENT);
+          const char *buf = hwnd->m_title;
+          if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
@@ -1792,9 +1818,6 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         {
           RECT r; 
           GetClientRect(hwnd,&r); 
-          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-          FillRect(ps.hdc,&r,br);
-          DeleteObject(br);
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title;
@@ -1836,7 +1859,7 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
 HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 {  
   RECT tr=MakeCoords(x,y,w,h,true);
-  HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),labelWindowProc);
+  HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),editWindowProc);
   hwnd->m_style |= WS_CHILD;
   hwnd->m_classname = "Edit";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
