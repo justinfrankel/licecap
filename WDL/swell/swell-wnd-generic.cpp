@@ -1268,7 +1268,6 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
     }
     SendMessage(hwnd,WM_SETTEXT,0,(LPARAM)text);
     swell_setOSwindowtext(hwnd);
-    if (hwnd->m_parent) InvalidateRect(hwnd,NULL,FALSE); // todo: better way to handle this, probably
   } 
   return true;
 }
@@ -1547,7 +1546,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
   {
     case WM_LBUTTONDOWN:
       SetCapture(hwnd);
-      InvalidateRect(hwnd,NULL,FALSE);
+      SendMessage(hwnd,WM_USER+100,0,0); // invalidate
     return 0;
     case WM_MOUSEMOVE:
     return 0;
@@ -1581,9 +1580,6 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         }
       }
     return 0;
-    case WM_CAPTURECHANGED:
-      InvalidateRect(hwnd,NULL,FALSE);
-    return 0;
     case WM_PAINT:
       { 
         PAINTSTRUCT ps;
@@ -1595,11 +1591,6 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
-
-          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-          FillRect(ps.hdc,&r,br);
-          DeleteObject(br);
-
 
           int f=DT_VCENTER;
           int sf = (hwnd->m_style & 0xf);
@@ -1651,6 +1642,11 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           }
           else
           {
+
+            HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+            FillRect(ps.hdc,&r,br);
+            DeleteObject(br);
+
             HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
             HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
             HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
@@ -1694,9 +1690,33 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int check = (int)wParam;
         INT_PTR op = hwnd->m_private_data;
         hwnd->m_private_data=(check > 2 || check<0 ? 1 : (check&3)) | (hwnd->m_private_data&~3);
-        if (hwnd->m_private_data != op) InvalidateRect(hwnd,NULL,FALSE);
+        if (hwnd->m_private_data == op) break; 
       }
-    return 0;
+      else
+      {
+        break;
+      }
+      // fall through (invalidating)
+    case WM_USER+100:
+    case WM_CAPTURECHANGED:
+    case WM_SETTEXT:
+      {
+        int sf = (hwnd->m_style & 0xf);
+        if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
+        {
+          HWND par=GetParent(hwnd);
+          if (par)
+          {
+            RECT r;
+            GetWindowRect(hwnd,&r);
+            ScreenToClient(par,((LPPOINT)&r));
+            ScreenToClient(par,((LPPOINT)&r)+1);
+            InvalidateRect(par,&r,FALSE);
+          }
+        }
+        else InvalidateRect(hwnd,NULL,FALSE);
+      }
+    break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -1777,6 +1797,20 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
       }
     return 0;
+    case WM_SETTEXT:
+      // partially transparent, so invalidate parent rect
+      {
+        HWND par=GetParent(hwnd);
+        if (par)
+        {
+          RECT r;
+          GetWindowRect(hwnd,&r);
+          ScreenToClient(par,((LPPOINT)&r));
+          ScreenToClient(par,((LPPOINT)&r)+1);
+          InvalidateRect(par,&r,FALSE);
+        }
+      }
+    break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -1803,6 +1837,9 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         }
       }
     return 0;
+    case WM_SETTEXT:
+      InvalidateRect(hwnd,NULL,FALSE);
+    break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -1819,15 +1856,6 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           RECT r; 
           GetClientRect(hwnd,&r); 
 
-          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
-          if (hbrush && hbrush != (HBRUSH)1) FillRect(ps.hdc,&ps.rcPaint,hbrush);
-          else
-          {
-             hbrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
-             FillRect(ps.hdc,&ps.rcPaint,hbrush);
-             DeleteObject(hbrush);
-          }
-
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title;
@@ -1836,6 +1864,19 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
       }
     return 0;
+    case WM_SETTEXT:
+      {
+        HWND par=GetParent(hwnd);
+        if (par)
+        {
+          RECT r;
+          GetWindowRect(hwnd,&r);
+          ScreenToClient(par,((LPPOINT)&r));
+          ScreenToClient(par,((LPPOINT)&r)+1);
+          InvalidateRect(par,&r,FALSE);
+        }
+      }
+    break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
