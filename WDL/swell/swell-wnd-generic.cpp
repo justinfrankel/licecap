@@ -1711,6 +1711,75 @@ static HWND swell_makeButton(HWND owner, int idx, RECT *tr, const char *label, b
 }
 #endif
 
+static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  switch (msg)
+  {
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+          int col = GetSysColor(COLOR_BTNTEXT);
+
+          const char *buf = hwnd->m_title;
+          int th=20;
+          int tw=0;
+          int xp=0;
+          if (buf && buf[0]) 
+          {
+            RECT tr={0,};
+            DrawText(ps.hdc,buf,-1,&tr,DT_CALCRECT);
+            th=tr.bottom-tr.top;
+            tw=tr.right-tr.left;
+          }
+          if (hwnd->m_style & SS_CENTER)
+          {
+            xp = r.right/2 - tw/2;
+          }
+          if (xp<8)xp=8;
+          if (xp+tw > r.right-8) tw=r.right-8-xp;
+
+          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DHILIGHT));
+          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
+          HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
+
+          MoveToEx(ps.hdc,xp - (tw?4:0) + 1,th/2+1,NULL);
+          LineTo(ps.hdc,1,th/2+1);
+          LineTo(ps.hdc,1,r.bottom-1);
+          LineTo(ps.hdc,r.right-1,r.bottom-1);
+          LineTo(ps.hdc,r.right-1,th/2+1);
+          LineTo(ps.hdc,xp+tw + (tw?4:0),th/2+1);
+
+          SelectObject(ps.hdc,pen2);
+
+          MoveToEx(ps.hdc,xp - (tw?4:0),th/2,NULL);
+          LineTo(ps.hdc,0,th/2);
+          LineTo(ps.hdc,0,r.bottom-2);
+          LineTo(ps.hdc,r.right-2,r.bottom-2);
+          LineTo(ps.hdc,r.right-2,th/2);
+          LineTo(ps.hdc,xp+tw + (tw?4:0),th/2);
+
+
+          SelectObject(ps.hdc,oldPen);
+          DeleteObject(pen);
+          DeleteObject(pen2);
+
+          SetTextColor(ps.hdc,col);
+          SetBkMode(ps.hdc,TRANSPARENT);
+          r.left = xp;
+          r.right = xp+tw;
+          r.bottom = th;
+          if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_LEFT|DT_TOP);
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
 
 static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -1950,7 +2019,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, int style)
 {
   RECT tr=MakeCoords(x,y,w,h,false);
-  HWND hwnd = new HWND__(m_make_owner,idx,&tr,name, !(style&SWELL_NOT_WS_VISIBLE));
+  HWND hwnd = new HWND__(m_make_owner,idx,&tr,name, !(style&SWELL_NOT_WS_VISIBLE),groupWindowProc);
   hwnd->m_style |= WS_CHILD;
   hwnd->m_classname = "groupbox";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
