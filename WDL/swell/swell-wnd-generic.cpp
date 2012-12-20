@@ -1818,6 +1818,16 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         {
           RECT r; 
           GetClientRect(hwnd,&r); 
+
+          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
+          if (hbrush && hbrush != (HBRUSH)1) FillRect(ps.hdc,&ps.rcPaint,hbrush);
+          else
+          {
+             hbrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+             FillRect(ps.hdc,&ps.rcPaint,hbrush);
+             DeleteObject(hbrush);
+          }
+
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title;
