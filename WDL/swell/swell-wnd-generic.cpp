@@ -1704,15 +1704,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int sf = (hwnd->m_style & 0xf);
         if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
         {
-          HWND par=GetParent(hwnd);
-          if (par)
-          {
-            RECT r;
-            GetWindowRect(hwnd,&r);
-            ScreenToClient(par,((LPPOINT)&r));
-            ScreenToClient(par,((LPPOINT)&r)+1);
-            InvalidateRect(par,&r,FALSE);
-          }
+          InvalidateRect(hwnd,NULL,TRUE);
         }
         else InvalidateRect(hwnd,NULL,FALSE);
       }
@@ -1798,18 +1790,7 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       }
     return 0;
     case WM_SETTEXT:
-      // partially transparent, so invalidate parent rect
-      {
-        HWND par=GetParent(hwnd);
-        if (par)
-        {
-          RECT r;
-          GetWindowRect(hwnd,&r);
-          ScreenToClient(par,((LPPOINT)&r));
-          ScreenToClient(par,((LPPOINT)&r)+1);
-          InvalidateRect(par,&r,FALSE);
-        }
-      }
+      InvalidateRect(hwnd,NULL,TRUE);
     break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -1865,17 +1846,7 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       }
     return 0;
     case WM_SETTEXT:
-      {
-        HWND par=GetParent(hwnd);
-        if (par)
-        {
-          RECT r;
-          GetWindowRect(hwnd,&r);
-          ScreenToClient(par,((LPPOINT)&r));
-          ScreenToClient(par,((LPPOINT)&r)+1);
-          InvalidateRect(par,&r,FALSE);
-        }
-      }
+       InvalidateRect(hwnd,NULL,TRUE);
     break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -2424,7 +2395,16 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
   {
     hwnd->m_invalidated=true;
     HWND t=hwnd->m_parent;
-    while (t && !t->m_child_invalidated) { t->m_child_invalidated=true; t=t->m_parent; }
+    while (t && !t->m_child_invalidated) 
+    { 
+      if (eraseBk)
+      {
+        t->m_invalidated=true;
+        eraseBk--;
+      }
+      t->m_child_invalidated=true;
+      t=t->m_parent; 
+    }
   }
 #endif
 #ifdef SWELL_TARGET_GDK
