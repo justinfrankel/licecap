@@ -457,18 +457,18 @@ struct HGDIOBJ__
   int wid;
   NSImage *bitmapptr;  
   
-  // if using CoreText to draw text
-  void *ct_FontRef;
-
-#ifdef SWELL_ATSUI_TEXT_SUPPORT
+  NSMutableDictionary *__old_fontdict; // unused, for ABI compat
+  //
   // if ATSUI used, meaning IsCoreTextSupported() returned false
   ATSUStyle atsui_font_style;
-#endif
-  
+
   float font_rotation;
 
   bool _infreelist;
   struct HGDIOBJ__ *_next;
+ 
+  // if using CoreText to draw text
+  void *ct_FontRef;
 };
 
 struct HDC__ {
@@ -478,7 +478,7 @@ struct HDC__ {
   HGDIOBJ__ *curbrush;
   HGDIOBJ__ *curfont;
   
-  CGColorRef curtextcol; // text color as CGColor
+  NSColor *__old_nstextcol; // provided for ABI compat, but unused
   int cur_text_color_int; // text color as int
   
   int curbkcol;
@@ -488,6 +488,8 @@ struct HDC__ {
   void *GLgfxctx; // optionally set
   bool _infreelist;
   struct HDC__ *_next;
+
+  CGColorRef curtextcol; // text color as CGColor
 };
 
 
