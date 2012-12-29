@@ -4844,10 +4844,16 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     SWELL_BEGIN_TRY
     RECT r;
     GetWindowRect(hwnd,&r);
-    if (r.top > r.bottom) { int a=r.top; r.top=r.bottom; r.bottom=a; }
+    POINT pt={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+
+    if (r.top > r.bottom) 
+    { 
+      pt.y = r.bottom + (r.top - pt.y); // translate coordinate into flipped-window
+
+      int a=r.top; r.top=r.bottom; r.bottom=a; 
+    }
     NCCALCSIZE_PARAMS p={{r,}};
     SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
-    POINT pt={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
     if (!PtInRect(&p.rgrc[0],pt)) rv=HTNOWHERE;
     SWELL_END_TRY(;)
     return rv;
