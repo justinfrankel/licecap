@@ -851,7 +851,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           {
             CGFloat asc=0,desc=0,lead=0;
             int w = (int) floor(CTLineGetTypographicBounds(l,&asc,&desc,&lead)+0.5);
-            int h =(int) floor(asc+desc+lead+0.5);
+            int h =(int) floor(asc+desc+lead+1.5);
             line_h+=h;
             if (line_w < w) line_w=w;
           }
@@ -866,7 +866,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       {
         CGFloat desc=0,lead=0;
         line_w = (int) floor(CTLineGetTypographicBounds(line,&asc,&desc,&lead)+0.5);
-        line_h =(int) floor(asc+desc+lead+0.5);
+        line_h =(int) floor(asc+desc+lead+1.5);
       }
     }
     if (line_h) line_h++;
