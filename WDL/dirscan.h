@@ -168,9 +168,9 @@ class WDL_DirScan
       return ((WIN32_FIND_DATA *)&m_fd)->cFileName; 
     }
 #else
-    char *GetCurrentFN() { return m_ent?m_ent->d_name : (char *)""; }
+    char *GetCurrentFN() const { return m_ent?m_ent->d_name : (char *)""; }
 #endif
-    void GetCurrentFullFN(WDL_String *str) 
+    void GetCurrentFullFN(WDL_String *str) const
     { 
       str->Set(m_leading_path.Get()); 
 #ifdef _WIN32
@@ -180,7 +180,8 @@ class WDL_DirScan
 #endif
       str->Append(GetCurrentFN()); 
     }
-    int GetCurrentIsDirectory() { 
+    int GetCurrentIsDirectory() const
+    { 
 #ifdef _WIN32
        return !!(m_fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY); 
 #else
@@ -190,15 +191,15 @@ class WDL_DirScan
 
     // these are somewhat windows specific calls, eh
 #ifdef _WIN32
-    DWORD GetCurrentFileSize(DWORD *HighWord=NULL) { if (HighWord) *HighWord = m_fd.nFileSizeHigh; return m_fd.nFileSizeLow; }
-    void GetCurrentLastWriteTime(FILETIME *ft) { *ft = m_fd.ftLastWriteTime; }
-    void GetCurrentLastAccessTime(FILETIME *ft) { *ft = m_fd.ftLastAccessTime; }
-    void GetCurrentCreationTime(FILETIME *ft) { *ft = m_fd.ftCreationTime; }
+    DWORD GetCurrentFileSize(DWORD *HighWord=NULL) const { if (HighWord) *HighWord = m_fd.nFileSizeHigh; return m_fd.nFileSizeLow; }
+    void GetCurrentLastWriteTime(FILETIME *ft) const { *ft = m_fd.ftLastWriteTime; }
+    void GetCurrentLastAccessTime(FILETIME *ft) const { *ft = m_fd.ftLastAccessTime; }
+    void GetCurrentCreationTime(FILETIME *ft) const { *ft = m_fd.ftCreationTime; }
 #elif defined(_WDL_SWELL_H_)
 
   // todo: compat for more of these functions
   
-  void GetCurrentLastWriteTime(FILETIME *ft) 
+  void GetCurrentLastWriteTime(FILETIME *ft) const
   { 
     WDL_String tmp;
     GetCurrentFullFN(&tmp);
@@ -210,7 +211,7 @@ class WDL_DirScan
     ft->dwLowDateTime=a & 0xffffffff;
     ft->dwHighDateTime=a>>32;
   }
-  DWORD GetCurrentFileSize(DWORD *HighWord=NULL) 
+  DWORD GetCurrentFileSize(DWORD *HighWord=NULL) const
   { 
     WDL_String tmp;
     GetCurrentFullFN(&tmp);

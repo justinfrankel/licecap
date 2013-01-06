@@ -26,7 +26,7 @@ public:
     DeleteAll();
   }
 
-  VAL* GetPtr(KEY key, KEY *keyPtrOut=NULL)
+  VAL* GetPtr(KEY key, KEY *keyPtrOut=NULL) const
   {
     bool ismatch = false;
     int i = LowerBound(key, &ismatch);
@@ -39,7 +39,7 @@ public:
     return 0;
   }
 
-  bool Exists(KEY key)
+  bool Exists(KEY key) const
   {
     bool ismatch = false;
     LowerBound(key, &ismatch);
@@ -109,12 +109,12 @@ public:
     m_data.Resize(0, resizedown);
   }
 
-  int GetSize()
+  int GetSize() const
   {
     return m_data.GetSize();
   }
 
-  VAL* EnumeratePtr(int i, KEY* key=0)
+  VAL* EnumeratePtr(int i, KEY* key=0) const
   {
     if (i >= 0 && i < m_data.GetSize()) 
     {
@@ -125,7 +125,7 @@ public:
     return 0;
   }
   
-  KEY* ReverseLookupPtr(VAL val)
+  KEY* ReverseLookupPtr(VAL val) const
   {
     int i;
     for (i = 0; i < m_data.GetSize(); ++i)
@@ -182,7 +182,7 @@ public:
     }
   }
 
-  int LowerBound(KEY key, bool* ismatch)
+  int LowerBound(KEY key, bool* ismatch) const
   {
     int a = 0;
     int c = m_data.GetSize();
@@ -203,7 +203,7 @@ public:
     return a;
   }
 
-  int GetIdx(KEY key)
+  int GetIdx(KEY key) const
   {
     bool ismatch=false;
     int i = LowerBound(key, &ismatch);
@@ -243,21 +243,21 @@ public:
   { 
   }
 
-  VAL Get(KEY key, VAL notfound=0)  
+  VAL Get(KEY key, VAL notfound=0) const
   {
     VAL* p = this->GetPtr(key);
     if (p) return *p;
     return notfound;
   }
 
-  VAL Enumerate(int i, KEY* key=0, VAL notfound=0)
+  VAL Enumerate(int i, KEY* key=0, VAL notfound=0) const
   {
     VAL* p = this->EnumeratePtr(i, key);
     if (p) return *p;
     return notfound; 
   }
 
-  KEY ReverseLookup(VAL val, KEY notfound=0)
+  KEY ReverseLookup(VAL val, KEY notfound=0) const
   {
     KEY* p=this->ReverseLookupPtr(val);
     if (p) return *p;

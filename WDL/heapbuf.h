@@ -302,8 +302,8 @@ class WDL_HeapBuf
 template<class PTRTYPE> class WDL_TypedBuf 
 {
   public:
-    PTRTYPE *Get() { return (PTRTYPE *) m_hb.Get(); }
-    int GetSize() { return m_hb.GetSize()/sizeof(PTRTYPE); }
+    PTRTYPE *Get() const { return (PTRTYPE *) m_hb.Get(); }
+    int GetSize() const { return m_hb.GetSize()/sizeof(PTRTYPE); }
 
     PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
 
@@ -317,7 +317,7 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     void SetGranul(int gran) { m_hb.SetGranul(gran); }
 
-    int Find(PTRTYPE val)
+    int Find(PTRTYPE val) const
     {
       PTRTYPE* p=Get();
       int i;

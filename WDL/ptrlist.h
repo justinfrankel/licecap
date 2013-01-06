@@ -47,11 +47,11 @@ template<class PTRTYPE> class WDL_PtrList
     {
     }
 
-    PTRTYPE **GetList() { return (PTRTYPE**)m_hb.Get(); }
-    PTRTYPE *Get(INT_PTR index) { if (GetList() && index >= 0 && index < (INT_PTR)GetSize()) return GetList()[index]; return NULL; }
-    int GetSize(void) { return m_hb.GetSize()/sizeof(PTRTYPE *); }  
+    PTRTYPE **GetList() const { return (PTRTYPE**)m_hb.Get(); }
+    PTRTYPE *Get(INT_PTR index) const { if (GetList() && index >= 0 && index < (INT_PTR)GetSize()) return GetList()[index]; return NULL; }
+    int GetSize(void) const { return m_hb.GetSize()/sizeof(PTRTYPE *); }  
 
-    int Find(PTRTYPE *p)
+    int Find(PTRTYPE *p) const
     {
       if (p)
       {
@@ -88,7 +88,7 @@ template<class PTRTYPE> class WDL_PtrList
       for (x = s; x > index; x --) list[x]=list[x-1];
       return (list[x] = item);
     }
-    int FindSorted(PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
+    int FindSorted(PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
     {
       bool m;
       int i = LowerBound(p,&m,compar);
@@ -184,7 +184,7 @@ template<class PTRTYPE> class WDL_PtrList
   private:
     WDL_HeapBuf m_hb;
 
-    int LowerBound(PTRTYPE *key, bool* ismatch, int (*compar)(const PTRTYPE **a, const PTRTYPE **b))
+    int LowerBound(PTRTYPE *key, bool* ismatch, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
     {
       int a = 0;
       int c = GetSize();
