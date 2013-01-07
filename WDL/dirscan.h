@@ -170,7 +170,7 @@ class WDL_DirScan
 #else
     char *GetCurrentFN() const { return m_ent?m_ent->d_name : (char *)""; }
 #endif
-    void GetCurrentFullFN(WDL_String *str) const
+    void GetCurrentFullFN(WDL_String *str)
     { 
       str->Set(m_leading_path.Get()); 
 #ifdef _WIN32
