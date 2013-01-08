@@ -767,7 +767,7 @@ int IsChild(HWND hwndParent, HWND hwndChild)
 }
 
 
-HWND GetForegroundWindow()
+HWND GetForegroundWindowIncludeMenus()
 {
 #ifdef SWELL_TARGET_GDK
   if (!SWELL_g_focus_oswindow) return 0;
@@ -781,7 +781,7 @@ HWND GetForegroundWindow()
 #endif
 }
 
-HWND GetFocus()
+HWND GetFocusIncludeMenus()
 {
 #ifdef SWELL_TARGET_GDK
   if (!SWELL_g_focus_oswindow) return 0;
@@ -791,6 +791,22 @@ HWND GetFocus()
 #else
   return SWELL_g_focuswnd;
 #endif
+}
+
+HWND GetForegroundWindow()
+{
+  HWND h =GetForegroundWindowIncludeMenus();
+  HWND ho;
+  while (h && (ho=(HWND)GetProp(h,"SWELL_MenuOwner"))) h=ho; 
+  return h;
+}
+
+HWND GetFocus()
+{
+  HWND h =GetFocusIncludeMenus();
+  HWND ho;
+  while (h && (ho=(HWND)GetProp(h,"SWELL_MenuOwner"))) h=ho; 
+  return h;
 }
 
 
