@@ -1852,6 +1852,255 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+struct __SWELL_ComboBoxInternalState_rec 
+{ 
+  __SWELL_ComboBoxInternalState_rec(const char *_desc=NULL, LPARAM _parm=0) { desc=_desc?strdup(_desc):NULL; parm=_parm; } 
+  ~__SWELL_ComboBoxInternalState_rec() { free(desc); } 
+  char *desc; 
+  LPARAM parm; 
+  static int cmp(const __SWELL_ComboBoxInternalState_rec **a, const __SWELL_ComboBoxInternalState_rec **b) { return strcmp((*a)->desc, (*b)->desc); }
+};
+
+class __SWELL_ComboBoxInternalState
+{
+  public:
+    __SWELL_ComboBoxInternalState() { selidx=-1; }
+    ~__SWELL_ComboBoxInternalState() { }
+
+    int selidx;
+    WDL_PtrList_DeleteOnDestroy<__SWELL_ComboBoxInternalState_rec> items;
+};
+
+static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  static const char *stateName = "__SWELL_COMBOBOXSTATE";
+  if (msg >= CB_ADDSTRING && msg <= CB_INITSTORAGE)
+  {
+    __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)GetProp(hwnd,stateName);
+    if (!s)
+    {
+      s = new __SWELL_ComboBoxInternalState;
+      SetProp(hwnd,stateName,(HANDLE)s);
+    }
+    if (s)
+    {
+      switch (msg)
+      {
+        case CB_ADDSTRING:
+          
+          if (!(hwnd->m_style & CBS_SORT))
+          {
+            s->items.Add(new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
+            return s->items.GetSize() - 1;
+          }
+          else
+          {
+            __SWELL_ComboBoxInternalState_rec *r=new __SWELL_ComboBoxInternalState_rec((const char *)lParam);
+            // find position of insert for wParam
+            bool m;
+            int idx = s->items.LowerBound(r,&m,__SWELL_ComboBoxInternalState_rec::cmp);
+            s->items.Insert(idx,r);
+            return idx;
+          }
+
+        case CB_INSERTSTRING:
+          if ((int)wParam == -1)
+          {
+            s->items.Add(new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
+            return s->items.GetSize() - 1;
+          }
+          else
+          {
+            if (wParam > s->items.GetSize()) wParam=s->items.GetSize();
+            s->items.Insert(wParam,new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
+            return wParam;
+          }
+        return 0;
+
+        case CB_DELETESTRING:
+          if (wParam >= s->items.GetSize()) return CB_ERR;
+          s->items.Delete(wParam,true);
+        return s->items.GetSize();
+
+        case CB_GETCOUNT: return s->items.GetSize();
+        case CB_GETCURSEL: return s->selidx >=0 && s->selidx < s->items.GetSize() ? s->selidx : -1;
+
+        case CB_GETLBTEXT: 
+          if (wParam < s->items.GetSize()) 
+          {
+            if (lParam)
+            {
+              char *ptr=s->items.Get(wParam)->desc;
+              int l = strlen(ptr);
+              memcpy((char *)lParam,ptr,l+1);
+              return l;
+            }
+          }
+        return CB_ERR;
+        case CB_RESETCONTENT:
+          s->selidx=-1;
+          s->items.Empty(true);
+        return 0;
+        case CB_SETCURSEL:
+          if ((int) wParam == -1 || wParam >= s->items.GetSize())
+          {
+            if (s->selidx!=-1)
+            {
+              s->selidx = -1;
+              SetWindowText(hwnd,"");
+              InvalidateRect(hwnd,NULL,FALSE);
+            }
+          }
+          else
+          {
+            if (s->selidx != wParam)
+            {
+              s->selidx=wParam;
+              char *ptr=s->items.Get(wParam)->desc;
+              SetWindowText(hwnd,ptr);
+              InvalidateRect(hwnd,NULL,FALSE);
+            }
+          }
+        case CB_GETITEMDATA:
+          if (wParam < s->items.GetSize()) 
+          {
+            return s->items.Get(wParam)->parm;
+          }
+        return CB_ERR;
+        case CB_SETITEMDATA:
+          if (wParam < s->items.GetSize()) 
+          {
+            s->items.Get(wParam)->parm=lParam;
+            return 0;
+          }
+        return CB_ERR;
+        case CB_INITSTORAGE:
+        return 0;
+
+        case CB_FINDSTRINGEXACT:
+        case CB_FINDSTRING:
+        return CB_ERR;
+      }
+    }
+  }
+
+  switch (msg)
+  {
+    case WM_DESTROY:
+      {
+        __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)GetProp(hwnd,stateName);
+        if (s)
+        {
+          SetProp(hwnd,stateName,NULL);
+          delete s;
+        }
+      }
+    break;
+
+    case WM_LBUTTONDOWN:
+      SetCapture(hwnd);
+      InvalidateRect(hwnd,NULL,FALSE);
+    return 0;
+    case WM_MOUSEMOVE:
+    return 0;
+    case WM_LBUTTONUP:
+      if (GetCapture()==hwnd)
+      {
+        ReleaseCapture(); 
+        __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)GetProp(hwnd,stateName);
+        if (s && s->items.GetSize())
+        {
+          int x;
+          HMENU menu = CreatePopupMenu();
+          for (x=0;x<s->items.GetSize();x++)
+          {
+            MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
+              x == s->selidx?MFS_CHECKED:0,100+x,NULL,NULL,NULL,0,s->items.Get(x)->desc};
+            InsertMenuItem(menu,x,TRUE,&mi);
+          }
+          RECT r;
+          GetWindowRect(hwnd,&r);
+          int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,r.left,r.bottom,0,hwnd,0);
+          DestroyMenu(menu);
+          if (a>=100 && a < s->items.GetSize()+100)
+          {
+            s->selidx = a-100;
+            char *ptr=s->items.Get(s->selidx)->desc;
+            SetWindowText(hwnd,ptr);
+            InvalidateRect(hwnd,NULL,FALSE);
+            SendMessage(GetParent(hwnd),WM_COMMAND,(GetWindowLong(hwnd,GWL_ID)&0xffff) | (CBN_SELCHANGE<<16),(LPARAM)hwnd);
+          }
+        }
+      }
+    return 0;
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+          bool pressed = GetCapture()==hwnd;
+
+          SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+          SetBkMode(ps.hdc,TRANSPARENT);
+
+          int f=DT_VCENTER;
+          {
+            HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+            FillRect(ps.hdc,&r,br);
+            DeleteObject(br);
+
+            HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+            HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+            HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+            MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
+            LineTo(ps.hdc,r.left,r.top);
+            LineTo(ps.hdc,r.right-1,r.top);
+            SelectObject(ps.hdc,pen2);
+            LineTo(ps.hdc,r.right-1,r.bottom-1);
+            LineTo(ps.hdc,r.left,r.bottom-1);
+
+
+            const int dw = 8;
+            const int dh = 4;
+            const int cx = r.right-dw/2-4;
+            const int cy = (r.bottom+r.top)/2;
+            MoveToEx(ps.hdc,cx-dw/2,cy-dh/2,NULL);
+            LineTo(ps.hdc,cx,cy+dh/2);
+            LineTo(ps.hdc,cx+dw/2,cy-dh/2);
+
+
+            SelectObject(ps.hdc,oldpen);
+            DeleteObject(pen);
+            DeleteObject(pen2);
+
+           
+            if (pressed) 
+            {
+              r.left+=2;
+              r.top+=2;
+            }
+          }
+
+          char buf[512];
+          buf[0]=0;
+          GetWindowText(hwnd,buf,sizeof(buf));
+          if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+
+    case WM_CAPTURECHANGED:
+    case WM_SETTEXT:
+      InvalidateRect(hwnd,NULL,FALSE);
+    break;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 
 /// these are for swell-dlggen.h
 HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags)
@@ -2053,7 +2302,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 {
   if (h>18)h=18;
   RECT tr=MakeCoords(x,y,w,h,true);
-  HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE));
+  HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),comboWindowProc);
   hwnd->m_style |= WS_CHILD;
   hwnd->m_classname = "combobox";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
