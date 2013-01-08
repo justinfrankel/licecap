@@ -199,7 +199,7 @@ class WDL_DirScan
 
   // todo: compat for more of these functions
   
-  void GetCurrentLastWriteTime(FILETIME *ft) const
+  void GetCurrentLastWriteTime(FILETIME *ft)
   { 
     WDL_String tmp;
     GetCurrentFullFN(&tmp);
@@ -211,7 +211,7 @@ class WDL_DirScan
     ft->dwLowDateTime=a & 0xffffffff;
     ft->dwHighDateTime=a>>32;
   }
-  DWORD GetCurrentFileSize(DWORD *HighWord=NULL) const
+  DWORD GetCurrentFileSize(DWORD *HighWord=NULL)
   { 
     WDL_String tmp;
     GetCurrentFullFN(&tmp);
