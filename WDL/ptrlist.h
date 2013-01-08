@@ -181,9 +181,6 @@ template<class PTRTYPE> class WDL_PtrList
       }
     }
 
-  private:
-    WDL_HeapBuf m_hb;
-
     int LowerBound(PTRTYPE *key, bool* ismatch, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
     {
       int a = 0;
@@ -203,6 +200,9 @@ template<class PTRTYPE> class WDL_PtrList
       *ismatch = false;
       return a;
     }
+
+  private:
+    WDL_HeapBuf m_hb;
 
 };
 
