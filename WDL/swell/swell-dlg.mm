@@ -357,49 +357,83 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 {
   static int __nofwd;
   if (__nofwd) return 0;
-  
-  NSPoint p=[theEvent locationInWindow];
+
   NSWindow *w=[theEvent window];
   if (!w) return 0;
-  NSView *v=[[w contentView] hitTest:p];
-  
-  if (!v) 
+
+  NSPoint p=[theEvent locationInWindow];
+  NSPoint screen_p=[w convertBaseToScreen:p];
+
+  NSWindow *bestwnd = w;
+  HWND cap = GetCapture();
+  if (!cap)
   {
-    if (![NSApp modalWindow])
+    // if not captured, find the window that should receive this event
+
+    NSArray *windows=[NSApp orderedWindows];
+    int x,cnt=windows ? [windows count] : 0;
+    NSWindow *kw = [NSApp keyWindow];
+    if (kw && windows && [windows containsObject:kw]) kw=NULL;
+    // make sure the keywindow, if any, is checked, but not twice
+
+    for (x = kw ? -1 : 0; x < cnt; x ++)
     {
-      p=[w convertBaseToScreen:p];
-    
-      POINT pt={(int)floor(p.x),(int)floor(p.y)};
-      HWND h=WindowFromPoint(pt);
-      if (h && [(id)h isKindOfClass:[SWELL_hwndChild class]])
+      NSWindow *wnd = x < 0 ? kw : [windows objectAtIndex:x];
+      if (wnd && [wnd isVisible])
       {
-        NSWindow *nw = [(NSView *)h window];
-        if (nw != w)
+        NSRect fr=[wnd frame];
+        if (screen_p.x >= fr.origin.x && screen_p.x < fr.origin.x + fr.size.width &&
+            screen_p.y >= fr.origin.y && screen_p.y < fr.origin.y + fr.size.height)
         {
-          p = [nw convertScreenToBase:p];
-          theEvent = [NSEvent mouseEventWithType:[theEvent type] 
-                              location:p 
+          bestwnd=wnd;
+          break;
+        }    
+      }
+    }
+  }
+
+  if (bestwnd == w || [NSApp modalWindow])
+  {
+    NSView *v=[[w contentView] hitTest:p];
+    if (!v || v == view) return 0; // default processing if in view, or if in nonclient area
+
+    __nofwd=1;
+    [v mouseMoved:theEvent];
+    __nofwd=0;
+    return 1;
+  }
+
+  // bestwnd != w
+  NSView *cv = [bestwnd contentView];
+  if (cv && [cv isKindOfClass:[SWELL_hwndChild class]])
+  {
+    p = [bestwnd convertScreenToBase:screen_p];
+    NSView *v=[cv hitTest:p];
+    if (v)
+    {
+      theEvent = [NSEvent mouseEventWithType:[theEvent type] 
+                            location:p 
                             modifierFlags:[theEvent modifierFlags]
                             timestamp:[theEvent timestamp]
-                            windowNumber:[nw windowNumber] 
-                            context:[nw graphicsContext] 
+                            windowNumber:[bestwnd windowNumber] 
+                            context:[bestwnd graphicsContext] 
                             eventNumber:[theEvent eventNumber] 
                             clickCount:[theEvent clickCount]
                             pressure:[theEvent pressure]];
-        }
-        v=(NSView *)h;      
-      }
-    }  
-    
-    if (!v) return !GetCapture(); // eat mouse move if not captured
+      __nofwd=1;
+      [v mouseMoved:theEvent];
+      __nofwd=0;
+      return 1;
+    }
   }
-  if (v==view) return 0;
-  
-  __nofwd=1;
-  [v mouseMoved:theEvent];
-  __nofwd=0;
-  
-  return 1;
+  if (!cap)
+  {
+    // set default cursor, and eat message
+    NSCursor *arr= [NSCursor arrowCursor];
+    if (GetCursor() != (HCURSOR)arr) SetCursor((HCURSOR)arr);
+    return 1;
+  }
+  return 0;
 }
 
 
