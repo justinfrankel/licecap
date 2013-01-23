@@ -1,3 +1,5 @@
+  + Windows: use licecap.ini in same path as executable if it exists (portable mode)
+
 v1.22 - December 4 2012
   + OSX version: cursor support for 10.6+
   + OSX version: mouse click detection (may require "enable access for assistive devices" on some OS versions)

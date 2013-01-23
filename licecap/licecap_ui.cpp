@@ -1270,21 +1270,50 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+  bool want_appdata = true;
   g_ini_file.Set("licecap.ini");
 
-  HKEY k;
-  if (RegOpenKeyEx(HKEY_CURRENT_USER,"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",0,KEY_READ,&k) == ERROR_SUCCESS)
+  // if exepath\licecap.ini is present, use it
+  if (!g_ini_file.Get()[0])
   {
-    char buf[1024];
-    DWORD b=sizeof(buf);
-    DWORD t=REG_SZ;
-    if (RegQueryValueEx(k,"AppData",0,&t,(unsigned char *)buf,&b) == ERROR_SUCCESS && t == REG_SZ)
+    char exepath[2048];
+    exepath[0]=0;
+    GetModuleFileName(NULL,exepath,sizeof(exepath));
+    char *p=exepath;
+    while (*p) p++;
+    while (p > exepath && *p != '\\') p--; *p=0;
+
+    if (exepath[0])
     {
-      g_ini_file.Set(buf);
+      g_ini_file.Set(exepath);
       g_ini_file.Append("\\licecap.ini");
+      FILE *fp=fopen(g_ini_file.Get(),"r");
+      if (fp) 
+      {
+        fclose(fp);
+        want_appdata = false;
+      }
     }
-    RegCloseKey(k);
   }
+
+  // use appdata/licecap.ini
+  if (want_appdata)
+  {
+    HKEY k;
+    if (RegOpenKeyEx(HKEY_CURRENT_USER,"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders",0,KEY_READ,&k) == ERROR_SUCCESS)
+    {
+      char buf[1024];
+      DWORD b=sizeof(buf);
+      DWORD t=REG_SZ;
+      if (RegQueryValueEx(k,"AppData",0,&t,(unsigned char *)buf,&b) == ERROR_SUCCESS && t == REG_SZ)
+      {
+        g_ini_file.Set(buf);
+        g_ini_file.Append("\\licecap.ini");
+      }
+      RegCloseKey(k);
+    }
+  }
+
 
   GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file.Get());
 
