@@ -270,7 +270,7 @@ public:
       {
         if (m_fsize >= mmap_minsize)
         {
-          m_mmap_view = mmap(NULL,m_fsize,PROT_READ,0,m_filedes,0);
+          m_mmap_view = mmap(NULL,m_fsize,PROT_READ,MAP_SHARED,m_filedes,0);
           if (m_mmap_view == MAP_FAILED) m_mmap_view = 0;
           else m_fsize_maychange=false;
         }
