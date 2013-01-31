@@ -189,8 +189,8 @@ template<class PTRTYPE> class WDL_PtrList
       {
         int b = (a+c)/2;
         int cmp = compar((const PTRTYPE **)&key, (const PTRTYPE **)(GetList()+b));
-        if (cmp < 0) a = b+1;
-        else if (cmp > 0) c = b;
+        if (cmp > 0) a = b+1;
+        else if (cmp < 0) c = b;
         else
         {
           *ismatch = true;
