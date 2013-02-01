@@ -239,14 +239,16 @@ static const unsigned int GLUE_SET_P1_NZ[] = { 0x38600001 }; // li r3, 1
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 {
-  // use actual fn_e and scan back -- todo phase this out and use start/end markers
-  unsigned char *endp=(unsigned char *)fn_e - sizeof(GLUE_RET);
-  if (endp <= (unsigned char *)fn) *size=0;
-  else
-  {
-    while (endp > (unsigned char *)fn && memcmp(endp,&GLUE_RET,sizeof(GLUE_RET))) endp-=sizeof(GLUE_RET);
-    *size = endp - (unsigned char *)fn;
-  }
+  // magic numbers: mr r0,r0 ; mr r1,r1 ; mr r2, r2
+  static const unsigned char sig[12] = { 0x7c, 0x00, 0x03, 0x78, 0x7c, 0x21, 0x0b, 0x78, 0x7c, 0x42, 0x13, 0x78 };
+  unsigned char *p = (unsigned char *)fn;
+
+  while (memcmp(p,sig,sizeof(sig))) p+=4;
+  p+=sizeof(sig);
+  fn = p;
+
+  while (memcmp(p,sig,sizeof(sig))) p+=4;
+  *size = p - (unsigned char *)fn;
   return fn;
 }
 
