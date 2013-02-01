@@ -137,45 +137,6 @@
 #define GLUE_INVSQRT_NEEDREPL 0
 #endif
 
-#ifndef EEL_TARGET_PORTABLE
-  static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
-  {
-  #ifdef __ppc__
-    // PPC only, use actual fn_e and scan back -- todo phase this out and use markers
-    unsigned char *endp=(unsigned char *)fn_e - sizeof(GLUE_RET);
-    if (endp <= (unsigned char *)fn) *size=0;
-    else
-    {
-      while (endp > (unsigned char *)fn && memcmp(endp,&GLUE_RET,sizeof(GLUE_RET))) endp-=sizeof(GLUE_RET);
-      *size = endp - (unsigned char *)fn;
-    }
-    return fn;
-  #else
-
-    static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
-    // x86  and x86-64
-    unsigned char *p = (unsigned char *)fn;
-
-    #if defined(_DEBUG) && defined(_MSC_VER) && !defined(__LP64__)
-      if (*p == 0xE9) // this means jump to the following address (debug stub)
-      {
-        p += 5 + *(int *)(p+1);
-      }
-    #endif
-
-    while (memcmp(p,sig,sizeof(sig))) p++;
-    p+=sizeof(sig);
-    fn = p;
-
-    while (memcmp(p,sig,sizeof(sig))) p++;
-    *size = p - (unsigned char *)fn;
-    return fn;
-  #endif
-  }
-#endif 
-
-
-
 
 // used by //#eel-no-optimize:xxx, in ctx->optimizeDisableFlags
 #define OPTFLAG_NO_OPTIMIZE 1

@@ -241,6 +241,21 @@ static EEL_F onepointfive=1.5f;
 
 #define GLUE_HAS_NATIVE_TRIGSQRTLOG
 
+
+static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+{
+  static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+  unsigned char *p = (unsigned char *)fn;
+
+  while (memcmp(p,sig,sizeof(sig))) p++;
+  p+=sizeof(sig);
+  fn = p;
+
+  while (memcmp(p,sig,sizeof(sig))) p++;
+  *size = p - (unsigned char *)fn;
+  return fn;
+}
+
 // end of x86-64
 
 #endif

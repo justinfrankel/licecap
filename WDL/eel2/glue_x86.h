@@ -340,4 +340,25 @@ static EEL_F onepointfive=1.5f;
 
 #define GLUE_HAS_NATIVE_TRIGSQRTLOG
 
+static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+{
+  static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+  unsigned char *p = (unsigned char *)fn;
+
+  #if defined(_DEBUG) && defined(_MSC_VER)
+    if (*p == 0xE9) // this means jump to the following address (debug stub)
+    {
+      p += 5 + *(int *)(p+1);
+    }
+  #endif
+
+  while (memcmp(p,sig,sizeof(sig))) p++;
+  p+=sizeof(sig);
+  fn = p;
+
+  while (memcmp(p,sig,sizeof(sig))) p++;
+  *size = p - (unsigned char *)fn;
+  return fn;
+}
+
 #endif

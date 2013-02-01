@@ -236,6 +236,20 @@ static unsigned int GLUE_POP_STACK_TO_FPSTACK[1] = { 0 }; // todo
 static const unsigned int GLUE_SET_P1_Z[] =  { 0x38600000 }; // li r3, 0
 static const unsigned int GLUE_SET_P1_NZ[] = { 0x38600001 }; // li r3, 1
 
+
+static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+{
+  // use actual fn_e and scan back -- todo phase this out and use start/end markers
+  unsigned char *endp=(unsigned char *)fn_e - sizeof(GLUE_RET);
+  if (endp <= (unsigned char *)fn) *size=0;
+  else
+  {
+    while (endp > (unsigned char *)fn && memcmp(endp,&GLUE_RET,sizeof(GLUE_RET))) endp-=sizeof(GLUE_RET);
+    *size = endp - (unsigned char *)fn;
+  }
+  return fn;
+}
+
 // end of ppc
 
 #endif
