@@ -7,6 +7,8 @@
 void nseel_asm_1pdd(void)
 {
   __asm__(
+
+    FUNCTION_MARKER
      
     "movl $0xfefefefe, %edi\n" 
 #ifdef TARGET_X64
@@ -29,6 +31,8 @@ void nseel_asm_1pdd(void)
     "call *%edi\n" 
     "addl $16, %esp\n" 
 #endif
+
+    FUNCTION_MARKER
      
   );
 }
@@ -37,6 +41,7 @@ void nseel_asm_1pdd_end(void){}
 void nseel_asm_2pdd(void)
 {
   __asm__(
+    FUNCTION_MARKER
     
     "movl $0xfefefefe, %edi\n"
 #ifdef TARGET_X64
@@ -63,6 +68,7 @@ void nseel_asm_2pdd(void)
     "addl $16, %esp\n"
 #endif
     
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_2pdd_end(void){}
@@ -70,6 +76,7 @@ void nseel_asm_2pdd_end(void){}
 void nseel_asm_2pdds(void)
 {
   __asm__(
+    FUNCTION_MARKER
     
     "movl $0xfefefefe, %eax\n"
 #ifdef TARGET_X64
@@ -116,6 +123,7 @@ void nseel_asm_2pdds(void)
 #endif
     "0:\n"
 
+    FUNCTION_MARKER
     
   );
 }
@@ -130,7 +138,9 @@ void nseel_asm_2pdds_end(void){}
 void nseel_asm_exec2(void)
 {
    __asm__(
+      FUNCTION_MARKER
       ""
+      FUNCTION_MARKER
     );
 }
 void nseel_asm_exec2_end(void) { }
@@ -140,6 +150,7 @@ void nseel_asm_exec2_end(void) { }
 void nseel_asm_invsqrt(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "movl $0x5f3759df, %edx\n"
     "fsts (%esi)\n"
 #ifdef TARGET_X64
@@ -161,6 +172,8 @@ void nseel_asm_invsqrt(void)
     "fadd" EEL_F_SUFFIX " (0xfefefefe)\n"
 #endif
     "fmuls (%esi)\n"
+
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_invsqrt_end(void) {}
@@ -169,9 +182,12 @@ void nseel_asm_invsqrt_end(void) {}
 void nseel_asm_dbg_getstackptr(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fstpl %st(0)\n"
     "movl %esp, (%esi)\n"
     "fildl (%esi)\n"
+
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_dbg_getstackptr_end(void) {}
@@ -180,7 +196,9 @@ void nseel_asm_dbg_getstackptr_end(void) {}
 void nseel_asm_sin(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fsin\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_sin_end(void) {}
@@ -189,7 +207,9 @@ void nseel_asm_sin_end(void) {}
 void nseel_asm_cos(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fcos\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_cos_end(void) {}
@@ -198,8 +218,10 @@ void nseel_asm_cos_end(void) {}
 void nseel_asm_tan(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fptan\n"
     "fstp %st(0)\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_tan_end(void) {}
@@ -208,7 +230,9 @@ void nseel_asm_tan_end(void) {}
 void nseel_asm_sqr(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fmul %st(0), %st(0)\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_sqr_end(void) {}
@@ -217,8 +241,10 @@ void nseel_asm_sqr_end(void) {}
 void nseel_asm_sqrt(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fabs\n"
     "fsqrt\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_sqrt_end(void) {}
@@ -228,9 +254,11 @@ void nseel_asm_sqrt_end(void) {}
 void nseel_asm_log(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fldln2\n"
     "fxch\n"
     "fyl2x\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_log_end(void) {}
@@ -239,10 +267,12 @@ void nseel_asm_log_end(void) {}
 void nseel_asm_log10(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fldlg2\n"
     "fxch\n"
     "fyl2x\n"
     
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_log10_end(void) {}
@@ -251,7 +281,9 @@ void nseel_asm_log10_end(void) {}
 void nseel_asm_abs(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fabs\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_abs_end(void) {}
@@ -263,6 +295,7 @@ void nseel_asm_assign(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
     "movll (%rax), %rdx\n"
     "movll %rdx, %rcx\n"
     "shrl $32, %rdx\n"
@@ -274,11 +307,14 @@ void nseel_asm_assign(void)
       "subl %ecx, %ecx\n"
     "0:\n"
     "movll %rcx, (%edi)\n"
+
+     FUNCTION_MARKER
     );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl (%eax), %ecx\n"
     "movl 4(%eax), %edx\n"
     "movl %edx, %eax\n"
@@ -292,6 +328,8 @@ void nseel_asm_assign(void)
     "movl %edi, %eax\n"
     "movl %ecx, (%edi)\n"
     "movl %edx, 4(%edi)\n"
+
+     FUNCTION_MARKER
   );
 
 #endif
@@ -302,6 +340,7 @@ void nseel_asm_assign_end(void) {}
 void nseel_asm_assign_fromfp(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fstpl (%edi)\n"
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
@@ -317,9 +356,9 @@ void nseel_asm_assign_fromfp(void)
       "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
+
+     FUNCTION_MARKER
     );
-
-
 }
 void nseel_asm_assign_fromfp_end(void) {}
 
@@ -328,9 +367,11 @@ void nseel_asm_assign_fromfp_end(void) {}
 void nseel_asm_assign_fast_fromfp(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "movl %edi, %eax\n"
     "fstpl (%edi)\n"
-    );
+     FUNCTION_MARKER
+   );
 }
 void nseel_asm_assign_fast_fromfp_end(void) {}
 
@@ -342,20 +383,24 @@ void nseel_asm_assign_fast(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
     "movll (%rax), %rdx\n"
     "movll %rdx, (%edi)\n"
     "movll %rdi, %rax\n"
+     FUNCTION_MARKER
     );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl (%eax), %ecx\n"
     "movl %ecx, (%edi)\n"
     "movl 4(%eax), %ecx\n"
 
     "movl %edi, %eax\n"
     "movl %ecx, 4(%edi)\n"
+     FUNCTION_MARKER
   );
 
 #endif
@@ -366,7 +411,9 @@ void nseel_asm_assign_fast_end(void) {}
 void nseel_asm_add(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fadd\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_add_end(void) {}
@@ -374,6 +421,7 @@ void nseel_asm_add_end(void) {}
 void nseel_asm_add_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fadd" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -391,6 +439,7 @@ void nseel_asm_add_op(void)
       "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_add_op_end(void) {}
@@ -398,9 +447,11 @@ void nseel_asm_add_op_end(void) {}
 void nseel_asm_add_op_fast(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fadd" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_add_op_fast_end(void) {}
@@ -410,11 +461,13 @@ void nseel_asm_add_op_fast_end(void) {}
 void nseel_asm_sub(void)
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef __GNUC__
     "fsubr\n" // gnuc has fsub/fsubr backwards, ack
 #else
     "fsub\n"
 #endif
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_sub_end(void) {}
@@ -422,6 +475,7 @@ void nseel_asm_sub_end(void) {}
 void nseel_asm_sub_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fsubr" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -439,6 +493,7 @@ void nseel_asm_sub_op(void)
       "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_sub_op_end(void) {}
@@ -446,9 +501,11 @@ void nseel_asm_sub_op_end(void) {}
 void nseel_asm_sub_op_fast(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fsubr" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_sub_op_fast_end(void) {}
@@ -457,7 +514,9 @@ void nseel_asm_sub_op_fast_end(void) {}
 void nseel_asm_mul(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fmul\n"
+     FUNCTION_MARKER
   );
 }
 void nseel_asm_mul_end(void) {}
@@ -465,6 +524,7 @@ void nseel_asm_mul_end(void) {}
 void nseel_asm_mul_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fmul" EEL_F_SUFFIX " (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -482,7 +542,7 @@ void nseel_asm_mul_op(void)
       "movl %edx, 4(%edi)\n"
 #endif
     "0:\n"
-
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_mul_op_end(void) {}
@@ -491,11 +551,13 @@ void nseel_asm_mul_op_end(void) {}
 void nseel_asm_div(void)
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef __GNUC__
     "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
 #else
     "fdiv\n"
 #endif
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_div_end(void) {}
@@ -503,6 +565,7 @@ void nseel_asm_div_end(void) {}
 void nseel_asm_div_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
 #ifndef __GNUC__
     "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
@@ -525,6 +588,7 @@ void nseel_asm_div_op(void)
 #endif
     "0:\n"
 
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_div_op_end(void) {}
@@ -533,6 +597,7 @@ void nseel_asm_div_op_end(void) {}
 void nseel_asm_mod(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fabs\n"
     "fistpl (%esi)\n"
     "fabs\n"
@@ -545,6 +610,8 @@ void nseel_asm_mod(void)
     "0:\n"
     "movl %edx, (%esi)\n"
     "fildl (%esi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_mod_end(void) {}
@@ -552,6 +619,7 @@ void nseel_asm_mod_end(void) {}
 void nseel_asm_shl(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fistpl (%esi)\n"
     "fistpl 4(%esi)\n"
     "movl (%esi), %ecx\n"
@@ -559,6 +627,7 @@ void nseel_asm_shl(void)
     "shll %cl, %eax\n"
     "movl %eax, (%esi)\n"
     "fildl (%esi)\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_shl_end(void) {}
@@ -566,6 +635,7 @@ void nseel_asm_shl_end(void) {}
 void nseel_asm_shr(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fistpl (%esi)\n"
     "fistpl 4(%esi)\n"
     "movl (%esi), %ecx\n"
@@ -573,6 +643,7 @@ void nseel_asm_shr(void)
     "sarl %cl, %eax\n"
     "movl %eax, (%esi)\n"
     "fildl (%esi)\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_shr_end(void) {}
@@ -581,6 +652,7 @@ void nseel_asm_shr_end(void) {}
 void nseel_asm_mod_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fxch\n"
     "fabs\n"
@@ -597,6 +669,8 @@ void nseel_asm_mod_op(void)
     "fildl (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    FUNCTION_MARKER
     );
 }
 void nseel_asm_mod_op_end(void) {}
@@ -605,6 +679,7 @@ void nseel_asm_mod_op_end(void) {}
 void nseel_asm_or(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -617,6 +692,8 @@ void nseel_asm_or(void)
     "orl %ecx, 4(%esi)\n"
 #endif
     "fildll (%esi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_or_end(void) {}
@@ -624,8 +701,10 @@ void nseel_asm_or_end(void) {}
 void nseel_asm_or0(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fistpll (%esi)\n"
     "fildll (%esi)\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_or0_end(void) {}
@@ -633,6 +712,7 @@ void nseel_asm_or0_end(void) {}
 void nseel_asm_or_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fxch\n"
     "fistpll (%edi)\n"
@@ -649,6 +729,8 @@ void nseel_asm_or_op(void)
     "fildll (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_or_op_end(void) {}
@@ -657,6 +739,7 @@ void nseel_asm_or_op_end(void) {}
 void nseel_asm_xor(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -669,6 +752,8 @@ void nseel_asm_xor(void)
     "xorl %ecx, 4(%esi)\n"
 #endif
     "fildll (%esi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_xor_end(void) {}
@@ -676,6 +761,7 @@ void nseel_asm_xor_end(void) {}
 void nseel_asm_xor_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fxch\n"
     "fistpll (%edi)\n"
@@ -692,6 +778,8 @@ void nseel_asm_xor_op(void)
     "fildll (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_xor_op_end(void) {}
@@ -701,6 +789,7 @@ void nseel_asm_xor_op_end(void) {}
 void nseel_asm_and(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fistpll (%esi)\n"
     "fistpll 8(%esi)\n"
 #ifdef TARGET_X64
@@ -713,6 +802,8 @@ void nseel_asm_and(void)
     "andl %ecx, 4(%esi)\n"
 #endif
     "fildll (%esi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_and_end(void) {}
@@ -720,6 +811,7 @@ void nseel_asm_and_end(void) {}
 void nseel_asm_and_op(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fxch\n"
     "fistpll (%edi)\n"
@@ -736,6 +828,8 @@ void nseel_asm_and_op(void)
     "fildll (%edi)\n"
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_and_op_end(void) {}
@@ -745,7 +839,9 @@ void nseel_asm_and_op_end(void) {}
 void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
 {
    __asm__(
+      FUNCTION_MARKER
       ""
+      FUNCTION_MARKER
     );
 }
 void nseel_asm_uplus_end(void) {}
@@ -754,7 +850,9 @@ void nseel_asm_uplus_end(void) {}
 void nseel_asm_uminus(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fchs\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_uminus_end(void) {}
@@ -765,6 +863,7 @@ void nseel_asm_uminus_end(void) {}
 void nseel_asm_sign(void)
 {
   __asm__(
+      FUNCTION_MARKER
 
 #ifdef TARGET_X64
 
@@ -800,6 +899,7 @@ void nseel_asm_sign(void)
   	"0:\n"
    
 #endif
+    FUNCTION_MARKER
 );
 }
 void nseel_asm_sign_end(void) {}
@@ -810,9 +910,11 @@ void nseel_asm_sign_end(void) {}
 void nseel_asm_bnot(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "testl %eax, %eax\n"
     "setz %al\n"   
     "andl $0xff, %eax\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_bnot_end(void) {}
@@ -821,6 +923,7 @@ void nseel_asm_bnot_end(void) {}
 void nseel_asm_if(void) // not currently used on x86/x86-64
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
     "subl $8, %rsp\n"
     "testl %eax, %eax\n"
@@ -846,6 +949,7 @@ void nseel_asm_if(void) // not currently used on x86/x86-64
     "1:\n"
     "addl $12, %esp\n"
 #endif
+    FUNCTION_MARKER
 
   );
 }
@@ -855,6 +959,7 @@ void nseel_asm_if_end(void) {}
 void nseel_asm_repeat(void)
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
     "fistpll (%rsi)\n"
     "movll (%rsi), %rcx\n"
@@ -889,6 +994,8 @@ void nseel_asm_repeat(void)
     "decl %ecx\n"
     "jnz 0b\n"
 "1:\n"
+    FUNCTION_MARKER
+
   );
 }
 void nseel_asm_repeat_end(void) {}
@@ -897,6 +1004,7 @@ void nseel_asm_repeat_end(void) {}
 void nseel_asm_fcall(void)
 {
   __asm__(
+      FUNCTION_MARKER
      "movl $0xfefefefe, %edx\n"
 #ifdef TARGET_X64
      "subl $8, %esp\n" 
@@ -907,6 +1015,7 @@ void nseel_asm_fcall(void)
      "call *%edx\n"
      "addl $12, %esp\n"
 #endif
+      FUNCTION_MARKER
   );
 }
 void nseel_asm_fcall_end(void) {}
@@ -914,6 +1023,7 @@ void nseel_asm_fcall_end(void) {}
 void nseel_asm_repeatwhile(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "movl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"
 "0:\n"
       "movl $0xfefefefe, %edx\n"
@@ -938,6 +1048,7 @@ void nseel_asm_repeatwhile(void)
     "decl %ecx\n"
     "jnz 0b\n"
 	"0:\n"
+      FUNCTION_MARKER
   );
 }
 void nseel_asm_repeatwhile_end(void) {}
@@ -946,6 +1057,7 @@ void nseel_asm_repeatwhile_end(void) {}
 void nseel_asm_band(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "testl %eax, %eax\n"
     "jz 0f\n"
 
@@ -962,6 +1074,7 @@ void nseel_asm_band(void)
         "addl $12, %esp\n"
 #endif
     "0:\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_band_end(void) {}
@@ -969,6 +1082,7 @@ void nseel_asm_band_end(void) {}
 void nseel_asm_bor(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "testl %eax, %eax\n"
     "jnz 0f\n"
 
@@ -985,6 +1099,7 @@ void nseel_asm_bor(void)
     "addl $12, %esp\n"
 #endif
     "0:\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_bor_end(void) {}
@@ -993,6 +1108,7 @@ void nseel_asm_bor_end(void) {}
 void nseel_asm_equal(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fsub\n"
     "fabs\n"
 #ifdef TARGET_X64
@@ -1002,6 +1118,8 @@ void nseel_asm_equal(void)
 #endif
     "fstsw %ax\n"
     "andl $256, %eax\n" // old behavior: if 256 set, true (NaN means true)
+
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_equal_end(void) {}
@@ -1010,6 +1128,7 @@ void nseel_asm_equal_end(void) {}
 void nseel_asm_notequal(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fsub\n"
     "fabs\n"
 #ifdef TARGET_X64
@@ -1020,6 +1139,7 @@ void nseel_asm_notequal(void)
     "fstsw %ax\n"
     "andl $256, %eax\n"
     "xorl $256, %eax\n" // old behavior: if 256 set, FALSE (NaN makes for false)
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_notequal_end(void) {}
@@ -1029,9 +1149,11 @@ void nseel_asm_notequal_end(void) {}
 void nseel_asm_above(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fcompp\n"
     "fstsw %ax\n"
     "andl $1280, %eax\n" //  (1024+256) old behavior: NaN would mean 1, preserve that
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_above_end(void) {}
@@ -1040,10 +1162,12 @@ void nseel_asm_above_end(void) {}
 void nseel_asm_beloweq(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fcompp\n"
     "fstsw %ax\n"
     "andl $256, %eax\n" // old behavior: NaN would be 0 (ugh)
     "xorl $256, %eax\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_beloweq_end(void) {}
@@ -1052,6 +1176,7 @@ void nseel_asm_beloweq_end(void) {}
 void nseel_asm_booltofp(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "testl %eax, %eax\n"
     "jz 0f\n"
     "fld1\n"
@@ -1059,6 +1184,7 @@ void nseel_asm_booltofp(void)
     "0:\n"
     "fldz\n"
     "1:\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_booltofp_end(void) {}
@@ -1066,6 +1192,7 @@ void nseel_asm_booltofp_end(void) {}
 void nseel_asm_fptobool(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fabs\n"
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
@@ -1075,6 +1202,7 @@ void nseel_asm_fptobool(void)
     "fstsw %ax\n"
     "andl $256, %eax\n"
     "xorl $256, %eax\n"
+    FUNCTION_MARKER
   );
 }
 void nseel_asm_fptobool_end(void) {}
@@ -1083,6 +1211,7 @@ void nseel_asm_fptobool_end(void) {}
 void nseel_asm_min(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fcomp" EEL_F_SUFFIX " (%eax)\n"
     "movl %eax, %ecx\n"
@@ -1092,6 +1221,7 @@ void nseel_asm_min(void)
     "jz 0f\n"
     "movl %edi, %eax\n"
     "0:\n"
+    FUNCTION_MARKER
     );
 
 }
@@ -1100,6 +1230,7 @@ void nseel_asm_min_end(void) {}
 void nseel_asm_max(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
     "fcomp" EEL_F_SUFFIX " (%eax)\n"
     "movl %eax, %ecx\n"
@@ -1109,6 +1240,7 @@ void nseel_asm_max(void)
     "jnz 0f\n"
     "movl %edi, %eax\n"
     "0:\n"
+    FUNCTION_MARKER
     );
 }
 void nseel_asm_max_end(void) {}
@@ -1118,6 +1250,7 @@ void nseel_asm_max_end(void) {}
 void nseel_asm_min_fp(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fcom\n"
     "fstsw %ax\n"
     "testl $256, %eax\n"
@@ -1125,6 +1258,7 @@ void nseel_asm_min_fp(void)
     "fxch\n"
     "0:\n"
     "fstp %st(0)\n"
+    FUNCTION_MARKER
     );
 
 }
@@ -1133,6 +1267,7 @@ void nseel_asm_min_fp_end(void) {}
 void nseel_asm_max_fp(void)
 {
   __asm__(
+      FUNCTION_MARKER
     "fcom\n"
     "fstsw %ax\n"
     "testl $256, %eax\n"
@@ -1140,6 +1275,7 @@ void nseel_asm_max_fp(void)
     "fxch\n"
     "0:\n"
     "fstp %st(0)\n"
+    FUNCTION_MARKER
     );
 }
 void nseel_asm_max_fp_end(void) {}
@@ -1154,6 +1290,7 @@ void nseel_asm_max_fp_end(void) {}
 void _asm_generic3parm(void)
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
 
 #ifdef AMD64ABI
@@ -1191,6 +1328,7 @@ void _asm_generic3parm(void)
     "addl $16, %esp\n"
     
 #endif
+    FUNCTION_MARKER
  );
 }
 void _asm_generic3parm_end(void) {}
@@ -1199,6 +1337,7 @@ void _asm_generic3parm_end(void) {}
 void _asm_generic3parm_retd(void)
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
 #ifdef AMD64ABI
     "movl %rsi, %r15\n"
@@ -1236,6 +1375,7 @@ void _asm_generic3parm_retd(void)
     "addl $16, %esp\n"
     
 #endif
+    FUNCTION_MARKER
  );
 }
 void _asm_generic3parm_retd_end(void) {}
@@ -1244,6 +1384,7 @@ void _asm_generic3parm_retd_end(void) {}
 void _asm_generic2parm(void) // this prob neds to be fixed for ppc
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
 
 #ifdef AMD64ABI
@@ -1275,6 +1416,7 @@ void _asm_generic2parm(void) // this prob neds to be fixed for ppc
     "addl $16, %esp\n"
     
 #endif
+    FUNCTION_MARKER
  );
 }
 void _asm_generic2parm_end(void) {}
@@ -1283,6 +1425,7 @@ void _asm_generic2parm_end(void) {}
 void _asm_generic2parm_retd(void)
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
 #ifdef AMD64ABI
     "movl %rsi, %r15\n"
@@ -1317,6 +1460,7 @@ void _asm_generic2parm_retd(void)
     "addl $16, %esp\n"
     
 #endif
+    FUNCTION_MARKER
  );
 }
 void _asm_generic2parm_retd_end(void) {}
@@ -1328,6 +1472,7 @@ void _asm_generic2parm_retd_end(void) {}
 void _asm_generic1parm(void) 
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
 #ifdef AMD64ABI
     "movl $0xfefefefe, %rdi\n" // first parameter= context
@@ -1356,6 +1501,7 @@ void _asm_generic1parm(void)
     
 #endif
 
+    FUNCTION_MARKER
  );
 }
 void _asm_generic1parm_end(void) {}
@@ -1364,6 +1510,7 @@ void _asm_generic1parm_end(void) {}
 void _asm_generic1parm_retd(void) // 1 parameter returning double
 {
   __asm__(
+      FUNCTION_MARKER
 #ifdef TARGET_X64
 #ifdef AMD64ABI
     "movl $0xfefefefe, %rdi\n" // first parameter = context pointer
@@ -1399,6 +1546,7 @@ void _asm_generic1parm_retd(void) // 1 parameter returning double
     "addl $16, %esp\n"
     
 #endif
+    FUNCTION_MARKER
  );
 }
 void _asm_generic1parm_retd_end(void) {}
@@ -1413,6 +1561,7 @@ void _asm_megabuf(void)
 {
   __asm__(
 
+      FUNCTION_MARKER
 
 #ifdef TARGET_X64
 
@@ -1479,6 +1628,7 @@ void _asm_megabuf(void)
 #endif
 
 
+    FUNCTION_MARKER
 #else
     "fadd" EEL_F_SUFFIX " -8(%%ebx)\n"
     "fistpl (%%esi)\n"
@@ -1507,6 +1657,7 @@ void _asm_megabuf(void)
       "shll $3, %%edi\n"      // 3 is log2(sizeof(EEL_F))
       "addl %%edi, %%eax\n"
     "2:"
+    FUNCTION_MARKER
 
     #ifndef _MSC_VER
         :: "i" (((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))),
@@ -1519,9 +1670,7 @@ void _asm_megabuf(void)
 
 #endif
 
-
-
- );
+  );
 }
 
 void _asm_megabuf_end(void) {}
@@ -1531,6 +1680,7 @@ void _asm_gmegabuf(void)
 {
   __asm__(
 
+      FUNCTION_MARKER
 
 #ifdef TARGET_X64
 
@@ -1571,6 +1721,7 @@ void _asm_gmegabuf(void)
 
 
 
+    FUNCTION_MARKER
  );
 }
 
@@ -1580,6 +1731,7 @@ void nseel_asm_stack_push(void)
 {
 #ifdef TARGET_X64
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %rdi\n"
     "movll (%rax), %rcx\n"
     "movll (%rdi), %rax\n"
@@ -1590,10 +1742,12 @@ void nseel_asm_stack_push(void)
     "orll %rdx, %rax\n"
     "movll %rcx, (%rax)\n"
     "movll %rax, (%rdi)\n"
+    FUNCTION_MARKER
     );
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     
     "movl (%eax), %ecx\n"
@@ -1609,6 +1763,7 @@ void nseel_asm_stack_push(void)
     "movl %edx, 4(%eax)\n"
 
     "movl %eax, (%edi)\n"
+    FUNCTION_MARKER
   );
 
 #endif
@@ -1623,6 +1778,7 @@ void nseel_asm_stack_pop(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
       "movl $0xfefefefe, %rdi\n"
       "movll (%rdi), %rcx\n"
       "movq (%rcx), %xmm0\n"
@@ -1633,11 +1789,13 @@ void nseel_asm_stack_pop(void)
       "orll %rdx, %rcx\n"
       "movll %rcx, (%rdi)\n"
       "movq %xmm0, (%eax)\n"
+      FUNCTION_MARKER
     );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     "movl (%edi), %ecx\n"
     "fld" EEL_F_SUFFIX  " (%ecx)\n"
@@ -1646,6 +1804,7 @@ void nseel_asm_stack_pop(void)
     "orl $0xfefefefe, %ecx\n"
     "movl %ecx, (%edi)\n"
     "fstp" EEL_F_SUFFIX " (%eax)\n"
+    FUNCTION_MARKER
   );
 
 #endif
@@ -1658,6 +1817,7 @@ void nseel_asm_stack_pop_fast(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
       "movl $0xfefefefe, %rdi\n"
       "movll (%rdi), %rcx\n"
       "movll %rcx, %rax\n"
@@ -1667,11 +1827,13 @@ void nseel_asm_stack_pop_fast(void)
       "movl $0xFEFEFEFE, %rdx\n"
       "orll %rdx, %rcx\n"
       "movll %rcx, (%rdi)\n"
+      FUNCTION_MARKER
     );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     "movl (%edi), %ecx\n"
     "movl %ecx, %eax\n"
@@ -1679,6 +1841,7 @@ void nseel_asm_stack_pop_fast(void)
     "andl $0xfefefefe, %ecx\n"
     "orl $0xfefefefe, %ecx\n"
     "movl %ecx, (%edi)\n"        
+    FUNCTION_MARKER
   );
 
 #endif
@@ -1690,6 +1853,7 @@ void nseel_asm_stack_peek_int(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
     "movll $0xfefefefe, %rdi\n"
     "movll (%rdi), %rax\n"   
     "movl $0xfefefefe, %rdx\n"
@@ -1698,17 +1862,20 @@ void nseel_asm_stack_peek_int(void)
     "andll %rdx, %rax\n"
     "movl $0xFEFEFEFE, %rdx\n"
     "orll %rdx, %rax\n"
+    FUNCTION_MARKER
   );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     "movl (%edi), %eax\n"   
     "movl $0xfefefefe, %edx\n"
     "subl %edx, %eax\n"
     "andl $0xfefefefe, %eax\n"
     "orl $0xfefefefe, %eax\n"
+    FUNCTION_MARKER
   );
 
 #endif
@@ -1723,6 +1890,7 @@ void nseel_asm_stack_peek(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
     "movll $0xfefefefe, %rdi\n"
     "fistpl (%rsi)\n"
     "movll (%rdi), %rax\n"   
@@ -1733,11 +1901,13 @@ void nseel_asm_stack_peek(void)
     "andll %rdx, %rax\n"
     "movl $0xFEFEFEFE, %rdx\n"
     "orll %rdx, %rax\n"
+    FUNCTION_MARKER
   );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     "fistpl (%esi)\n"
     "movl (%edi), %eax\n"   
@@ -1746,6 +1916,7 @@ void nseel_asm_stack_peek(void)
     "subl %edx, %eax\n"
     "andl $0xfefefefe, %eax\n"
     "orl $0xfefefefe, %eax\n"
+    FUNCTION_MARKER
   );
 
 #endif
@@ -1759,15 +1930,19 @@ void nseel_asm_stack_peek_top(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
     "movll $0xfefefefe, %rdi\n"
     "movll (%rdi), %rax\n"   
+    FUNCTION_MARKER
   );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     "movl (%edi), %eax\n"   
+    FUNCTION_MARKER
   );
 
 #endif
@@ -1780,23 +1955,27 @@ void nseel_asm_stack_exch(void)
 #ifdef TARGET_X64
 
   __asm__(
+      FUNCTION_MARKER
     "movll $0xfefefefe, %rdi\n"
     "movll (%rdi), %rcx\n"   
     "movq (%rcx), %xmm0\n"
     "movq (%rax), %xmm1\n"
     "movq %xmm0, (%rax)\n"
     "movq %xmm1, (%rcx)\n"
+    FUNCTION_MARKER
   );
 
 #else
 
   __asm__(
+      FUNCTION_MARKER
     "movl $0xfefefefe, %edi\n"
     "movl (%edi), %ecx\n"   
     "fld" EEL_F_SUFFIX  " (%ecx)\n"
     "fld" EEL_F_SUFFIX  " (%eax)\n"
     "fstp" EEL_F_SUFFIX  " (%ecx)\n"
     "fstp" EEL_F_SUFFIX " (%eax)\n"
+    FUNCTION_MARKER
   );
 
 #endif

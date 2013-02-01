@@ -1,6 +1,6 @@
 /*
   Expression Evaluator Library (NS-EEL)
-  Copyright (C) 2004-2008 Cockos Incorporated
+  Copyright (C) 2004-2013 Cockos Incorporated
   Copyright (C) 1999-2003 Nullsoft, Inc.
   
   nseel-yylex.c

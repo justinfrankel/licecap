@@ -1,6 +1,6 @@
 /*
   Expression Evaluator Library (NS-EEL) v2
-  Copyright (C) 2004-2008 Cockos Incorporated
+  Copyright (C) 2004-2013 Cockos Incorporated
   Copyright (C) 1999-2003 Nullsoft, Inc.
   
   nseel-cfunc.c: assembly/C implementation of operator/function templates
@@ -126,6 +126,7 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
       #include "asm-nseel-x86-msvc.c"
     #endif
   #elif !defined(__LP64__)
+    #define FUNCTION_MARKER "\n.byte 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90\n"
     #include "asm-nseel-x86-gcc.c"
   #endif
 #endif

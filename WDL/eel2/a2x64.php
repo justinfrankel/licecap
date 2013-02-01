@@ -74,6 +74,13 @@ fputs($out,"SECTION .text\n");
 while (($line = fgets($in)))
 {
   $line = rtrim($line);
+  if (trim($line) == "FUNCTION_MARKER")
+  {
+    fputs($out,"db 0x89");
+    for ($tmp=0;$tmp<11;$tmp++) fputs($out,",0x90");
+    fputs($out,"\n");
+    continue;
+  }
   $nowrite=0;
   if (substr(trim($line),0,1) == '#')
   {
@@ -110,9 +117,6 @@ while (($line = fgets($in)))
     {
       if (substr(trim($line),-2) == ");") 
       {
-        fputs($out,"db 0x89");
-        for ($tmp=0;$tmp<11;$tmp++) fputs($out,",0x90");
-        fputs($out,"\n");
         $line = substr(trim($line),0,-2);
 	fputs($out,$line);
         $inblock=0;

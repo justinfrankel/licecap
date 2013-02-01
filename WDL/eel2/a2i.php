@@ -26,6 +26,12 @@ $labelcnt=0;
 while (($line = fgets($in)))
 {
   $line = rtrim($line);
+  if (trim($line) == "FUNCTION_MARKER")
+  {
+    fputs($out,"_emit 0x89;\n");
+    for ($tmp=0;$tmp<11;$tmp++) fputs($out,"_emit 0x90;\n");
+    continue;
+  }
   $nowrite=0;
   
   {
@@ -48,8 +54,6 @@ while (($line = fgets($in)))
     {
       if (substr(trim($line),-2) == ");") 
       {
-        fputs($out,"_emit 0x89;\n");
-        for ($tmp=0;$tmp<11;$tmp++) fputs($out,"_emit 0x90;\n");
         $line = str_replace(");","}",$line);
         $inblock=0;
       }
