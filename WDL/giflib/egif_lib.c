@@ -93,13 +93,13 @@ EGifOpenFileName(const char *FileName,
 #if defined(__MSDOS__) || defined(_WIN32)
                           | O_BINARY
 #endif /* __MSDOS__ */
-                          , S_IREAD | S_IWRITE);
+                          , 0644 );
     else
         FileHandle = open(FileName, O_WRONLY | O_CREAT | O_TRUNC
 #if defined(__MSDOS__) || defined(_WIN32)
                           | O_BINARY
 #endif /* __MSDOS__ */
-                          , S_IREAD | S_IWRITE);
+                          , 0644 );
 
     if (FileHandle == -1) {
         _GifError = E_GIF_ERR_OPEN_FAILED;
