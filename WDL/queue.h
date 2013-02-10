@@ -215,7 +215,7 @@ public:
     if (m_pos >= olen) olen=m_pos=0;
     len *= sizeof(T);
     void *obuf=m_hb.Resize(olen+len,false);
-    if (!obuf) return 0;
+    if (!obuf||m_hb.GetSize()!=olen+len) return 0;
     if (buf) memcpy((char*)obuf+olen,buf,len);
     return (T*) ((char*)obuf+olen);
   }
