@@ -54,6 +54,7 @@ class WDL_HeapBuf
 #endif
     void *Get() const { return m_size?m_buf:NULL; }
     int GetSize() const { return m_size; }
+    void *GetAligned(int align) const {  return (void *)(((UINT_PTR)Get() + (align-1)) & ~(UINT_PTR)(align-1)); }
 
     void SetGranul(int granul) { m_granul = granul; }
 
@@ -306,6 +307,8 @@ template<class PTRTYPE> class WDL_TypedBuf
     int GetSize() const { return m_hb.GetSize()/sizeof(PTRTYPE); }
 
     PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
+
+    PTRTYPE *GetAligned(int align) const  { return (PTRTYPE *) m_hb.GetAligned(align); }
 
     PTRTYPE *Add(PTRTYPE val) 
     {

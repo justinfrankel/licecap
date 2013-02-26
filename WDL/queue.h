@@ -76,7 +76,7 @@ public:
     return p;
   }
     
-  void *Get()
+  void *Get() const
   {
     void *buf=m_hb.Get();
     if (buf && m_pos >= 0 && m_pos < m_hb.GetSize()) return (char *)buf+m_pos;
@@ -89,11 +89,11 @@ public:
     return m_hb.Get();
   }
 
-  int GetSize()
+  int GetSize() const
   {
     return m_hb.GetSize()-m_pos;
   }
-  int Available() { return GetSize(); }
+  int Available() const { return GetSize(); }
 
   void Clear()
   {
@@ -220,18 +220,18 @@ public:
     return (T*) ((char*)obuf+olen);
   }
 
-  T *Get()
+  T *Get() const
   {
     void *buf=m_hb.Get();
     if (buf && m_pos >= 0 && m_pos < m_hb.GetSize()) return (T*)((char *)buf+m_pos);
     return NULL;
   }
 
-  int GetSize()
+  int GetSize() const
   {
     return (m_hb.GetSize()-m_pos)/sizeof(T);
   }
-  int Available() { return GetSize(); }
+  int Available() const { return GetSize(); }
 
   void Clear()
   {
