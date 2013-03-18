@@ -193,7 +193,7 @@ static void onCompileNewLine(compileContext *ctx, int srcBytes, int destBytes)
 	}
 }
 
-static void *__newBlock(llBlock **start,int size, char wantMprotect);
+static void *__newBlock(llBlock **start,int size, int wantMprotect);
 
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
@@ -243,7 +243,7 @@ static void *newTmpBlock(compileContext *ctx, int size)
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
-static void *__newBlock_align(compileContext *ctx, int size, int align, char isForCode) 
+static void *__newBlock_align(compileContext *ctx, int size, int align, int isForCode) 
 {
   const int a1=align-1;
   char *p=(char*)__newBlock(
@@ -718,7 +718,7 @@ static void freeBlocks(llBlock **start)
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *__newBlock(llBlock **start, int size, char wantMprotect)
+static void *__newBlock(llBlock **start, int size, int wantMprotect)
 {
 #if !defined(EEL_DOESNT_NEED_EXEC_PERMS) && defined(_WIN32)
   DWORD ov;
