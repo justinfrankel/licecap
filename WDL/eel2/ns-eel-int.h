@@ -313,7 +313,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *sr
 
 
 
-#ifdef __ppc__
+#if defined(__ppc__) || defined(__arm__)
 
   #define EEL_F2int(x) ((int)(x))
 
