@@ -32,7 +32,7 @@ int main()
 
   printf("compile\n");
   char buf[1024];
-  strncpy(buf,"ret *= 7.0; ret+=1.01;",sizeof(buf)); 
+  gets(buf);
   
   
   // note that you shouldnt pass a readonly string directly, since it may need to 
