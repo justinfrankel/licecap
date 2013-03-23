@@ -357,19 +357,20 @@ public:
     }
 
   
+#if 0
     if (cs>=0)
     {
       if (str!=buf)
       {
-        lstrcpyn(buf,str,sizeof(buf)-128);
+        lstrcpyn(buf,str?str:"",sizeof(buf)-128);
         str=buf;
       }
 //      strcat(buf,cs>0 ? " checked" : " unchecked");
       
     }
+#endif
     
     if (str && *str) return [(id)SWELL_CStringToCFString(str) autorelease];
-
   }
   if ([attribute isEqual:NSAccessibilityWindowAttribute])
   {
