@@ -53,14 +53,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef NSEEL_EEL1_COMPAT_MODE
-
-#ifndef EEL_NO_CHANGE_FPFLAGS
-#define EEL_NO_CHANGE_FPFLAGS
-#endif
-
-#endif
-
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
 //#define LOG_OPT

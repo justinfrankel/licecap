@@ -180,36 +180,9 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 }
 
 
-
-// for gcc on x86 (msvc should already have _controlfp defined)
-#if !defined(_RC_CHOP) && !defined(EEL_NO_CHANGE_FPFLAGS)
-
-  #include <fpu_control.h>
-  #define _RC_CHOP _FPU_RC_ZERO
-  #define _MCW_RC _FPU_RC_ZERO
-  static unsigned int _controlfp(unsigned int val, unsigned int mask)
-  {
-     unsigned int ret;
-     _FPU_GETCW(ret);
-     if (mask)
-     {
-       ret&=~mask;
-       ret|=val;
-       _FPU_SETCW(ret);
-     }
-     return ret;
-  }
-
-#endif
-
-
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr) 
 {
   #ifdef _MSC_VER
-    #ifndef EEL_NO_CHANGE_FPFLAGS
-      unsigned int old_v=_controlfp(0,0); 
-      _controlfp(_RC_CHOP,_MCW_RC);
-    #endif
 
     __asm
     {
@@ -235,14 +208,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
       popad
     };
 
-    #ifndef EEL_NO_CHANGE_FPFLAGS
-      _controlfp(old_v,_MCW_RC);
-    #endif
   #else // gcc x86
-    #ifndef EEL_NO_CHANGE_FPFLAGS
-      unsigned int old_v=_controlfp(0,0); 
-      _controlfp(_RC_CHOP,_MCW_RC);
-    #endif
     __asm__(
           "pushl %%ebx\n"
           "movl %%ecx, %%ebx\n"
@@ -255,9 +221,6 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
           "popl %%ebx\n"
           ::
           "a" (cp), "c" (ramptr): "%edx","%esi","%edi");
-    #ifndef EEL_NO_CHANGE_FPFLAGS
-      _controlfp(old_v,_MCW_RC);
-    #endif
   #endif //gcc x86
 }
 
