@@ -4382,7 +4382,7 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
     {        
-      if (ctx->varTable_Names[wb][ti] && !stricmp(ctx->varTable_Names[wb][ti],name)) 
+      if (ctx->varTable_Names[wb][ti] && !strcasecmp(ctx->varTable_Names[wb][ti],name)) 
       {
         varNameHdr *h = ((varNameHdr *)ctx->varTable_Names[wb][ti])-1;
         return h->refcnt;
