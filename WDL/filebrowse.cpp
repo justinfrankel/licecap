@@ -155,6 +155,7 @@ bool WDL_ChooseFileForSave(HWND parent,
     Win7FileDialog fd(text, 1);
     if(fd.inited())
     {
+      fd.addOptions(FOS_DONTADDTORECENT);
       //vista+ file open dialog
       char olddir[2048];
       GetCurrentDirectory(sizeof(olddir),olddir);
