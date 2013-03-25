@@ -4377,6 +4377,30 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
   return nseel_int_register_var(ctx,var,1);
 }
 
+int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
+{
+  compileContext *ctx = (compileContext *)_ctx;
+  int wb;
+  if (!ctx) return -1;
+
+  for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+  {
+    int ti;
+    if (!ctx->varTable_Values[wb] || !ctx->varTable_Names[wb]) break;
+
+    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
+    {        
+      if (ctx->varTable_Names[wb][ti] && !stricmp(ctx->varTable_Names[wb][ti],name)) 
+      {
+        varNameHdr *h = ((varNameHdr *)ctx->varTable_Names[wb][ti])-1;
+        return h->refcnt;
+      }
+    }
+  }
+
+  return -1;
+}
+
 
 
 //------------------------------------------------------------------------------
