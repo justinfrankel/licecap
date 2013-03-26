@@ -182,13 +182,24 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr) 
 {
+  #ifndef NSEEL_EEL1_COMPAT_MODE
+    short oldsw, newsw;
+  #endif
   #ifdef _MSC_VER
 
     __asm
     {
+#ifndef NSEEL_EEL1_COMPAT_MODE
+      fnstcw [oldsw]
+      mov ax, [oldsw]
+      or ax, 0xC00
+      mov [newsw], ax
+      fldcw [newsw]
+#endif
+      
       mov eax, cp
       mov ebx, ramptr
-      
+
       pushad 
       mov ebp, esp
       and esp, -16
@@ -206,21 +217,38 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
       call eax
       mov esp, ebp
       popad
+#ifndef NSEEL_EEL1_COMPAT_MODE
+      fldcw [oldsw]
+#endif
     };
 
   #else // gcc x86
     __asm__(
+#ifndef NSEEL_EEL1_COMPAT_MODE
+      "fnstcw %2\n"
+      "movw %2, %%ax\n"
+      "orw $0xC00, %%ax\n"
+      "movw %%ax, %3\n"
+      "fldcw %3\n"
+#endif
           "pushl %%ebx\n"
           "movl %%ecx, %%ebx\n"
           "pushl %%ebp\n"
           "movl %%esp, %%ebp\n"
           "andl $-16, %%esp\n" // align stack to 16 bytes
           "subl $12, %%esp\n" // call will push 4 bytes on stack, align for that
-          "call *%%eax\n"
+          "call *%%edx\n"
           "leave\n"
           "popl %%ebx\n"
+#ifndef NSEEL_EEL1_COMPAT_MODE
+      "fldcw %2\n"
+#endif
           ::
-          "a" (cp), "c" (ramptr): "%edx","%esi","%edi");
+          "d" (cp), "c" (ramptr)
+#ifndef NSEEL_EEL1_COMPAT_MODE
+          , "g" (&oldsw), "g" (&newsw)
+#endif
+          : "%eax","%esi","%edi");
   #endif //gcc x86
 }
 

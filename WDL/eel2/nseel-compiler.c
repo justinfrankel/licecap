@@ -35,12 +35,6 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#ifndef _WIN64
-  #ifndef __ppc__
-    #include <float.h>
-  #endif
-#endif
-
 #ifdef __APPLE__
   #ifdef __LP64__
     #define EEL_USE_MPROTECT
