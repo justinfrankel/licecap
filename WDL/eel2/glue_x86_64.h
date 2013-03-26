@@ -180,7 +180,7 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 #define GLUE_INLINE_LOOPS
 
 static const unsigned char GLUE_LOOP_LOADCNT[]={
-        0xDF, 0x3E,           //fistp qword [rsi]
+        0xDD, 0x0E,           //fistTp qword [rsi]
   0x48, 0x8B, 0x0E,           // mov rcx, [rsi]
   0x48, 0x81, 0xf9, 1,0,0,0,  // cmp rcx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
