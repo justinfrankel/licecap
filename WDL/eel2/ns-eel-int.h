@@ -311,40 +311,6 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *sr
 #define min(x,y) ((x)<(y)?(x):(y))
 #endif
 
-
-
-#if defined(__ppc__) || defined(__arm__)
-
-  #define EEL_F2int(x) ((int)(x))
-
-#elif defined (_WIN64)
-
-  // todo: AMD64 version?
-  #define EEL_F2int(x) ((int)(x))
-
-#elif defined(_MSC_VER)
-
-static __inline int EEL_F2int(EEL_F d)
-{
-  int tmp;
-  __asm {
-    fld d
-    fistp tmp
-  }
-  return tmp;
-}
-
-#else
-
-static inline int EEL_F2int(EEL_F d)
-{
-	  int tmp;
-    __asm__ __volatile__ ("fistpl %0" : "=m" (tmp) : "t" (d) : "st") ;
-    return tmp;
-}
-
-#endif
-
 #ifdef __cplusplus
 }
 #endif

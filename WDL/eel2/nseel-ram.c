@@ -188,7 +188,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(void *blocks, EEL_F *which)
 {
   // blocks points to ram_state.blocks, so back it up past closefact and pad to needfree
   int *flag = (int *)((char *)blocks - sizeof(double) - 2*sizeof(int));
-	int d=EEL_F2int(*which);
+	int d=(int)(*which);
 	if (d < 0) d=0;
 	if (d < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) flag[0]=1+d;
 	return which;
@@ -201,9 +201,9 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(void *blocks, EEL_F *which)
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *src, EEL_F *lenptr)
 {
-	int dest_offs = EEL_F2int(*dest + 0.0001);
-	int src_offs = EEL_F2int(*src + 0.0001);
-  int len = EEL_F2int(*lenptr + 0.0001);
+  int dest_offs = (int)(*dest + 0.0001);
+  int src_offs = (int)(*src + 0.0001);
+  int len = (int)(*lenptr + 0.0001);
 
   // trim to front
   if (src_offs<0)
@@ -248,8 +248,8 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *sr
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F **blocks,EEL_F *dest, EEL_F *v, EEL_F *lenptr)
 {  
-	int offs = EEL_F2int(*dest + 0.0001);
-  int len = EEL_F2int(*lenptr + 0.0001);
+  int offs = (int)(*dest + 0.0001);
+  int len = (int)(*lenptr + 0.0001);
   EEL_F t;
   if (offs<0) 
   {

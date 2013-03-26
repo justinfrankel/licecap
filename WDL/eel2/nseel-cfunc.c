@@ -108,7 +108,6 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
 #else
   return (EEL_F) (genrand_int32()*(1.0/(double)0xFFFFFFFF)*x);
 #endif
-//  return (EEL_F)(rand()%EEL_F2int(x));
 }
 
 //---------------------------------------------------------------------------------------------------------------
