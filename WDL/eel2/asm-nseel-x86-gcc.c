@@ -1987,6 +1987,14 @@ void nseel_asm_stack_exch_end(void) {}
 void win64_callcode() 
 {
 	__asm__(
+#ifndef EEL_X64_NO_CHANGE_FPFLAGS
+		"subl $16, %rsp\n"
+		"fnstcw (%rsp)\n"
+		"mov (%rsp), %ax\n"
+		"or $0xC00, %ax\n"
+		"mov %ax, 4(%rsp)\n"
+		"fldcw 4(%rsp)\n"
+#endif
 		"push %rbx\n"
 		"push %rbp\n"
 		"push %r12\n"
@@ -1995,12 +2003,12 @@ void win64_callcode()
 		"push %r15\n"
 
 #ifdef AMD64ABI
-    "movll %rsi, %r12\n" // second parameter is ram-blocks pointer
+    		"movll %rsi, %r12\n" // second parameter is ram-blocks pointer
 		"call %rdi\n"
 #else
 		"push %rdi\n"
 		"push %rsi\n"
-    "movll %rdx, %r12\n" // second parameter is ram-blocks pointer
+    		"movll %rdx, %r12\n" // second parameter is ram-blocks pointer
 		"call %rcx\n"
 		"pop %rsi\n"
 		"pop %rdi\n"
@@ -2014,6 +2022,12 @@ void win64_callcode()
 		"pop %r12\n"
 		"pop %rbp\n"
 		"pop %rbx\n"
+
+#ifndef EEL_X64_NO_CHANGE_FPFLAGS
+		"fldcw (%rsp)\n"
+		"addl $16, %rsp\n"
+#endif
+
 		"ret\n"
 	);
 }
