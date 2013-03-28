@@ -683,6 +683,7 @@ typedef struct
 
   int (*SWELL_dllMain)(HINSTANCE, DWORD,LPVOID); //last parm=SWELLAPI_GetFunc
   BOOL (*dllMain)(HINSTANCE, DWORD, LPVOID);
+  void *lastSymbolRequested;
 } SWELL_HINSTANCE;
 
 

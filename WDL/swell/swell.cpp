@@ -747,12 +747,10 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
   SWELL_HINSTANCE *rec = s_loadedLibs.Get(bundleinst ? bundleinst : inst);
   if (!rec) 
   { 
-    rec = (SWELL_HINSTANCE *)malloc(sizeof(SWELL_HINSTANCE));
+    rec = (SWELL_HINSTANCE *)calloc(sizeof(SWELL_HINSTANCE),1);
     rec->instptr = inst;
     rec->bundleinstptr =  bundleinst;
     rec->refcnt = 1;
-    rec->SWELL_dllMain = NULL;
-    rec->dllMain = NULL;
     s_loadedLibs.Insert(bundleinst ? bundleinst : inst,rec);
   
     int (*SWELL_dllMain)(HINSTANCE, DWORD, LPVOID) = 0;
@@ -792,18 +790,20 @@ void *GetProcAddress(HINSTANCE hInst, const char *procName)
 
   SWELL_HINSTANCE *rec=(SWELL_HINSTANCE*)hInst;
 
+  void *ret = NULL;
 #ifdef __APPLE__
   if (rec->bundleinstptr)
   {
     CFStringRef str=(CFStringRef)SWELL_CStringToCFString(procName); 
-    void *ret = (void *)CFBundleGetFunctionPointerForName((CFBundleRef)rec->bundleinstptr, str);
+    ret = (void *)CFBundleGetFunctionPointerForName((CFBundleRef)rec->bundleinstptr, str);
+    if (ret) rec->lastSymbolRequested=ret;
     CFRelease(str);
     return ret;
   }
 #endif
-  if (rec->instptr)  return (void *)dlsym(rec->instptr, procName);
-  
-  return 0;
+  if (rec->instptr)  ret=(void *)dlsym(rec->instptr, procName);
+  if (ret) rec->lastSymbolRequested=ret;
+  return ret;
 }
 
 BOOL FreeLibrary(HINSTANCE hInst)
@@ -840,12 +840,13 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
 {
   *fn=0;
 
-  void *instptr = NULL, *bundleinstptr=NULL;
+  void *instptr = NULL, *bundleinstptr=NULL, *lastSymbolRequested=NULL;
   if (hInst)
   {
     SWELL_HINSTANCE *p = (SWELL_HINSTANCE*)hInst;
     instptr = p->instptr;
     bundleinstptr = p->bundleinstptr;
+    lastSymbolRequested=p->lastSymbolRequested;
   }
 #ifdef __APPLE__
   if (!instptr || bundleinstptr)
@@ -876,18 +877,14 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
   }
 #endif
 
-  if (instptr)
+  if (instptr && lastSymbolRequested)
   {
-    void *p = GetProcAddress(hInst,"SWELL_dllMain");
-    if (p)
+    Dl_info inf={0,};
+    dladdr(lastSymbolRequested,&inf);
+    if (inf.dli_fname)
     {
-      Dl_info inf={0,};
-      dladdr(p,&inf);
-      if (inf.dli_fname)
-      {
-        lstrcpyn(fn,inf.dli_fname,nSize);
-        return strlen(fn);
-      }
+      lstrcpyn(fn,inf.dli_fname,nSize);
+      return strlen(fn);
     }
   }
   return 0;
