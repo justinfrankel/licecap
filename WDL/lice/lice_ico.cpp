@@ -183,4 +183,4 @@ public:
 
 };
 
-static LICE_ICOLoader LICE_icoldr;
+LICE_ICOLoader LICE_icoldr;

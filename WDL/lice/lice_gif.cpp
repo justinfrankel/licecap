@@ -156,4 +156,4 @@ public:
 
 };
 
-static LICE_GIFLoader LICE_gifldr;
+LICE_GIFLoader LICE_gifldr;

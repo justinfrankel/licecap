@@ -105,4 +105,4 @@ public:
 
 };
 
-static LICE_PCXLoader LICE_pcxldr;
+LICE_PCXLoader LICE_pcxldr;

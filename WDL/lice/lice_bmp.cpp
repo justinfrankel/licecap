@@ -111,4 +111,4 @@ public:
 
 };
 
-static LICE_BMPLoader LICE_bmpldr;
+LICE_BMPLoader LICE_bmpldr;

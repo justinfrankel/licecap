@@ -361,4 +361,4 @@ public:
 
 };
 
-static LICE_PNGLoader LICE_pngldr;
+LICE_PNGLoader LICE_pngldr;

@@ -307,4 +307,4 @@ public:
 
 };
 
-static LICE_JPGLoader LICE_jgpldr;
+LICE_JPGLoader LICE_jgpldr;
