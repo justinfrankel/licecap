@@ -1411,6 +1411,10 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
     
   return NSDragOperationGeneric;
 }
+- (BOOL) wantsPeriodicDraggingUpdates
+{
+  return NO;
+}
 - (NSDragOperation)draggingUpdated:(id <NSDraggingInfo>)sender 
 {
   if (!m_supports_ddrop) return NSDragOperationNone;
