@@ -97,7 +97,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void SetIsButton(bool isbutton) { m_is_button=isbutton; }
     bool GetIsButton() { return m_is_button; }
 
-    void SetImmediate(bool immediate) { m_immediate=true; } // send message on mousedown, not mouseup
+    void SetImmediate(bool immediate) { m_immediate=immediate; } // send message on mousedown, not mouseup
 
     void SetBGCol1Callback(int msg) { m_bgcol1_msg=msg; }
 
