@@ -64,7 +64,13 @@ WDL_VirtualIconButton::~WDL_VirtualIconButton()
   }
 }
 
-void WDL_VirtualIconButton::SetTextLabel(const char *text, char align, LICE_IFont *font) 
+void WDL_VirtualIconButton::SetTextLabel(const char *text)
+{ 
+  m_textlbl.Set(text); 
+  if (!m_iconCfg || m_forcetext) RequestRedraw(NULL); 
+} 
+
+void WDL_VirtualIconButton::SetTextLabel(const char *text, int align, LICE_IFont *font) 
 { 
   if (font) m_textfont=font;
   m_textalign=align;

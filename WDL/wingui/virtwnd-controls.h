@@ -103,8 +103,9 @@ class WDL_VirtualIconButton : public WDL_VWnd
 
     void SetForceBorder(bool fb) { m_forceborder=fb; }
 
-    // only used if no icon config set
-    void SetTextLabel(const char *text, char align=0, LICE_IFont *font=NULL);
+    // only used if no icon config set, or if force is set
+    void SetTextLabel(const char *text); // no change of alignment etc
+    void SetTextLabel(const char *text, int align, LICE_IFont *font=NULL);
     const char* GetTextLabel() { return m_textlbl.Get(); }
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
     void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
