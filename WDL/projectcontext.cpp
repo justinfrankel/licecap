@@ -346,24 +346,6 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
   {
     int err=0;
 
-    int a=m_indent;
-    if (fmt[0] == '<') m_indent+=2;
-    else if (fmt[0] == '>') a=(m_indent-=2);
-    
-    if (a>0) 
-    {
-      m_bytesOut+=a;
-      char tb[128];
-      memset(tb,' ',a < sizeof(tb) ? a : sizeof(tb));
-      while (a>0) 
-      {
-        const int tl = a < sizeof(tb) ? a : sizeof(tb);
-        a-=tl;     
-        m_wr->Write(tb,tl);
-      }
-    }
-
-
     char tmp[8192];
     const char *use_buf;
     va_list va;
@@ -375,6 +357,7 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
       // special case "%s" passed, directly use it
       use_buf = va_arg(va,const char *);
       if (use_buf) l=strlen(use_buf);
+      else use_buf="";
     }
     else
     {
@@ -396,6 +379,25 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     }
 
     va_end(va);
+
+    int a=m_indent;
+    if (use_buf[0] == '<') m_indent+=2;
+    else if (use_buf[0] == '>') a=(m_indent-=2);
+    
+    if (a>0) 
+    {
+      m_bytesOut+=a;
+      char tb[128];
+      memset(tb,' ',a < sizeof(tb) ? a : sizeof(tb));
+      while (a>0) 
+      {
+        const int tl = a < sizeof(tb) ? a : sizeof(tb);
+        a-=tl;     
+        m_wr->Write(tb,tl);
+      }
+    }
+
+
     
     err |= m_wr->Write(use_buf,l) != l;
     err |= m_wr->Write("\r\n",2) != 2;
