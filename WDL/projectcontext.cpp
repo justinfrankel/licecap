@@ -364,7 +364,7 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
       tmp[0]=0;
       #if defined(_WIN32) && defined(_MSC_VER)
         l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-        if (l < 0 || l >= sizeof(buf)) 
+        if (l < 0 || l >= sizeof(tmp)) 
         {
           tmp[sizeof(tmp)-1] = 0;
           l = strlen(tmp);
