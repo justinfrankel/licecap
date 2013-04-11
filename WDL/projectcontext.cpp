@@ -571,9 +571,9 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
   const unsigned char *p=(const unsigned char *)ptr;
   while (len>0)
   {
-    char buf[80];
+    char buf[256];
     int thiss=len;
-    if (thiss > 40) thiss=40;
+    if (thiss > 96) thiss=96;
     pc_base64encode(p,buf,thiss);
 
     ctx->AddLine("%s",buf);
