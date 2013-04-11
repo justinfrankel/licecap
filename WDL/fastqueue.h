@@ -38,11 +38,12 @@
 class WDL_FastQueue
 {
 public:
-  WDL_FastQueue()
+  WDL_FastQueue(int bsize=65536-64, int maxemptieskeep=-1)
   {
     m_avail=0;
-    m_bsize=65536-64;
+    m_bsize=bsize;
     m_offs=0;
+    m_maxemptieskeep=maxemptieskeep;
   }
   ~WDL_FastQueue()
   {
@@ -52,7 +53,7 @@ public:
   
   void Add(const void *buf, int len) // buf can be NULL to add zeroes
   {
-    char *inptr=(char *)buf;
+    const char *inptr=(const char *)buf;
     while (len>0)
     {
       WDL_HeapBuf *qb=m_queue.Get(m_queue.GetSize()-1);
@@ -85,12 +86,20 @@ public:
     }
   }
 
-  void Clear()
+  void Clear(int limitmaxempties=-1)
   {
     int x=m_queue.GetSize();
+    if (limitmaxempties<0) limitmaxempties = m_maxemptieskeep;
     while (x > 0)
     {
-      m_empties.Add(m_queue.Get(--x));
+      if (limitmaxempties<0 || m_empties.GetSize()<limitmaxempties)
+      {
+        m_empties.Add(m_queue.Get(--x));
+      }
+      else
+      {
+        delete m_queue.Get(--x);
+      }
       m_queue.Delete(x);      
     }
     m_offs=0;
@@ -109,19 +118,27 @@ public:
       int sz=mq->GetSize();
       if (m_offs < sz) break;
       m_offs -= sz;
-      m_empties.Add(mq);
+
+      if (m_maxemptieskeep<0 || m_empties.GetSize()<m_maxemptieskeep)
+      {
+        m_empties.Add(mq);
+      }
+      else
+      {
+        delete mq;
+      }
       m_queue.Delete(0);
     }
     if (!mq||m_offs<0) m_offs=0;
   }
 
-  int Available() // bytes available
+  int Available() const // bytes available
   {
     return m_avail;
   }
 
 
-  int GetPtr(int offset, void **buf) // returns bytes available in this block
+  int GetPtr(int offset, void **buf) const // returns bytes available in this block
   {
     offset += m_offs;
 
@@ -158,7 +175,7 @@ public:
     return pos;
   }
 
-  int GetToBuf(int offs, void *buf, int len)
+  int GetToBuf(int offs, void *buf, int len) const
   {
     int pos=0;
     while (len > 0)
@@ -180,7 +197,7 @@ private:
   int m_offs;
   int m_avail;
   int m_bsize;
-  int __pad;
+  int m_maxemptieskeep;
 } WDL_FIXALIGN;
 
 
