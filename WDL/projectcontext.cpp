@@ -182,7 +182,7 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 
 
   int sz=m_heapbuf->GetSize();
-  if (!sz)
+  if (!sz && m_heapbuf->GetGranul() < 256*1024)
   {
     m_heapbuf->SetGranul(256*1024);
   }

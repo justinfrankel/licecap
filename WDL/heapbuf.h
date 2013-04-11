@@ -57,6 +57,7 @@ class WDL_HeapBuf
     void *GetAligned(int align) const {  return (void *)(((UINT_PTR)Get() + (align-1)) & ~(UINT_PTR)(align-1)); }
 
     void SetGranul(int granul) { m_granul = granul; }
+    int GetGranul() const { return m_granul; }
 
     void SetMinAllocSize(int mas) { m_mas=mas; }
 
