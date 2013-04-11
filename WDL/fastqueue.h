@@ -37,53 +37,51 @@
 
 class WDL_FastQueue
 {
+  struct fqBuf
+  {
+    int alloc_size;
+    int used;
+    char data[8];
+  };
 public:
   WDL_FastQueue(int bsize=65536-64, int maxemptieskeep=-1)
   {
     m_avail=0;
-    m_bsize=bsize;
+    m_bsize=bsize<32?32:bsize;
     m_offs=0;
     m_maxemptieskeep=maxemptieskeep;
   }
   ~WDL_FastQueue()
   {
-    m_queue.Empty(true);
-    m_empties.Empty(true);
+    m_queue.Empty(true,free);
+    m_empties.Empty(true,free);
   }
   
   void Add(const void *buf, int len) // buf can be NULL to add zeroes
   {
-    const char *inptr=(const char *)buf;
-    while (len>0)
+    if (len < 1) return;
+
+    fqBuf *qb=m_queue.Get(m_queue.GetSize()-1);
+    if (!qb || (qb->used + len) > qb->alloc_size || (qb->used + len) < 0)
     {
-      WDL_HeapBuf *qb=m_queue.Get(m_queue.GetSize()-1);
-      int os;
-      if (!qb || (os=qb->GetSize()) >= m_bsize)
+      const int esz=m_empties.GetSize()-1;
+      qb=m_empties.Get(esz);
+      m_empties.Delete(esz);
+      if (!qb)
       {
-        int esz=m_empties.GetSize()-1;
-
-        qb=m_empties.Get(esz);
-        if (qb) m_empties.Delete(esz);
-        else qb=new WDL_HeapBuf(4096 WDL_HEAPBUF_TRACEPARM("WDL_FastQueue"));
-
-        if (qb) m_queue.Add(qb);
-        os=0;
+        const int sz=len < m_bsize ? m_bsize : len;
+        qb=(fqBuf *)malloc(sz + sizeof(fqBuf) - sizeof(qb->data));
+        if (!qb) return;
+        qb->alloc_size = sz;
       }
-
-      if (!qb) break;
-
-      int addl=m_bsize-os;
-      if (addl>len) addl=len;
-      char *b=(char *)qb->Resize(os+addl,false)+os;
-      if (inptr)
-      {
-        memcpy(b,inptr,addl);
-        inptr+=addl;
-      }
-      else memset(b,0,addl);
-      len -= addl;
-      m_avail+=addl;
+      qb->used=0;
+      m_queue.Add(qb);
     }
+    if (buf) memcpy(qb->data + qb->used, buf, len);
+    else memset(qb->data + qb->used, 0, len);
+
+    qb->used += len;
+    m_avail+=len;
   }
 
   void Clear(int limitmaxempties=-1)
@@ -98,7 +96,7 @@ public:
       }
       else
       {
-        delete m_queue.Get(--x);
+        free(m_queue.Get(--x));
       }
       m_queue.Delete(x);      
     }
@@ -112,10 +110,10 @@ public:
     m_avail -= cnt;
     if (m_avail<0)m_avail=0;
 
-    WDL_HeapBuf *mq;
+    fqBuf *mq;
     while ((mq=m_queue.Get(0)))
     {
-      int sz=mq->GetSize();
+      const int sz=mq->used;
       if (m_offs < sz) break;
       m_offs -= sz;
 
@@ -125,7 +123,7 @@ public:
       }
       else
       {
-        delete mq;
+        free(mq);
       }
       m_queue.Delete(0);
     }
@@ -143,13 +141,13 @@ public:
     offset += m_offs;
 
     int x=0;
-    WDL_HeapBuf *mq;
+    fqBuf *mq;
     while ((mq=m_queue.Get(x)))
     {
-      int sz=mq->GetSize();
+      const int sz=mq->used;
       if (offset < sz)
       {
-        *buf = (char *)mq->Get() + offset;
+        *buf = (char *)mq->data + offset;
         return sz-offset;
       }
       x++;
@@ -193,7 +191,7 @@ public:
 
 private:
 
-  WDL_PtrList<WDL_HeapBuf> m_queue, m_empties;
+  WDL_PtrList<fqBuf> m_queue, m_empties;
   int m_offs;
   int m_avail;
   int m_bsize;
