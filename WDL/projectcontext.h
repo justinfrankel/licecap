@@ -6,6 +6,7 @@
 class WDL_String;
 class WDL_FastString;
 class WDL_HeapBuf;
+class WDL_FastQueue;
 
 #ifndef _REAPER_PLUGIN_PROJECTSTATECONTEXT_DEFINED_
 #define _WDL_PROJECTSTATECONTEXT_DEFINED_
@@ -28,8 +29,10 @@ public:
 
 ProjectStateContext *ProjectCreateFileRead(const char *fn);
 ProjectStateContext *ProjectCreateFileWrite(const char *fn);
-ProjectStateContext *ProjectCreateMemCtx(WDL_HeapBuf *hb); // read or write, be sure to delete it before accessing hb
-
+ProjectStateContext *ProjectCreateMemCtx(WDL_HeapBuf *hb); // read or write (ugh, deprecated), be sure to delete it before accessing hb
+ProjectStateContext *ProjectCreateMemCtx_Read(const WDL_HeapBuf *hb); // read only 
+ProjectStateContext *ProjectCreateMemCtx_Write(WDL_HeapBuf *hb); // write only, be sure to delete it before accessing hb
+ProjectStateContext *ProjectCreateMemWriteFastQueue(WDL_FastQueue *fq); // only write! no need to do anything at all before accessing (can clear/reuse as necessary)
 
 
 // helper functions
