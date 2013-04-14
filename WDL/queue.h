@@ -41,6 +41,7 @@ class WDL_Queue
 {
 public:
   WDL_Queue() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_Queue")), m_pos(0) { }
+  WDL_Queue(int hbgran) : m_hb(hbgran WDL_HEAPBUF_TRACEPARM("WDL_Queue")), m_pos(0) { }
   ~WDL_Queue() { }
 
   template <class T> void* AddT(T* buf)
