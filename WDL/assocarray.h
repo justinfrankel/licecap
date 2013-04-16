@@ -216,7 +216,7 @@ public:
     m_data.SetGranul(gran);
   }
 
-private:
+protected:
 
   struct KeyVal
   {
