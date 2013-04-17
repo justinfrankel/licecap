@@ -24,6 +24,7 @@ bool SWELL_owned_windows_levelincrease=false;
 #include "swell-internal.h"
 #include "../wdlstring.h"
 
+#define NSColorFromCol(a) [NSColor colorWithCalibratedRed:GetRValue(a)/255.0f green:GetGValue(a)/255.0f blue:GetBValue(a)/255.0f alpha:1.0f]
 extern int g_swell_terminating;
 
 static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -165,7 +166,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
           if (c)
           {
             d(hwnd,WM_CTLCOLORBTN,(WPARAM)c,(LPARAM)ch);
-            if (c->curtextcol) buttonFg=c->curtextcol;
+            if (c->curtextcol) buttonFg=NSColorFromCol(c->cur_text_color_int);
             else if (isUpdate) buttonFg = [NSColor textColor]; // todo some other col?              
             if (buttonFg) [buttonFg retain];
 
@@ -189,7 +190,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
               d(hwnd,WM_CTLCOLOREDIT,(WPARAM)c,(LPARAM)ch);
               if (c->curtextcol)
               {
-                editFg=c->curtextcol;
+                editFg=NSColorFromCol(c->cur_text_color_int);
                 editBg=[NSColor colorWithCalibratedRed:GetRValue(c->curbkcol)/255.0f green:GetGValue(c->curbkcol)/255.0f blue:GetBValue(c->curbkcol)/255.0f alpha:1.0f];
               }
               else if (isUpdate) 
@@ -215,7 +216,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
             if (c)
             {
               d(hwnd,WM_CTLCOLORSTATIC,(WPARAM)c,(LPARAM)ch);
-              if (c->curtextcol) staticFg=c->curtextcol;
+              if (c->curtextcol) staticFg=NSColorFromCol(c->cur_text_color_int);
               else if (isUpdate) 
               {
                 staticFg = [NSColor textColor]; 

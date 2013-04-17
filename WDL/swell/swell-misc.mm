@@ -136,6 +136,8 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
       [tsk release];
       tsk=0;
     }
+    @catch (id ex) {
+    }
   }
 
   [ex release];

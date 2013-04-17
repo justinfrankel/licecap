@@ -322,10 +322,8 @@ struct HTREEITEM__
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
 
 // parameterized attribute methods
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_3
 - (NSArray *)accessibilityParameterizedAttributeNames;
 - (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
-#endif
 
 // action methods
 - (NSArray *)accessibilityActionNames;
@@ -442,6 +440,12 @@ struct HTREEITEM__
 
 // GDI internals
 
+
+// 10.4 doesn't support CoreText, so allow ATSUI if targetting 10.4 SDK
+#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
+#define SWELL_ATSUI_TEXT_SUPPORT
+#endif
+
 struct HGDIOBJ__
 {
   int type;
@@ -453,11 +457,13 @@ struct HGDIOBJ__
   int wid;
   NSImage *bitmapptr;  
   
-  // used by font
-  // if using NSString to draw text
-  NSMutableDictionary *fontdict;
-  // if using ATSU to draw text (faster)
-  ATSUStyle font_style;
+  // if using CoreText to draw text
+  void *ct_FontRef;
+
+#ifdef SWELL_ATSUI_TEXT_SUPPORT
+  // if ATSUI used, meaning IsCoreTextSupported() returned false
+  ATSUStyle atsui_font_style;
+#endif
   
   float font_rotation;
 
@@ -472,7 +478,7 @@ struct HDC__ {
   HGDIOBJ__ *curbrush;
   HGDIOBJ__ *curfont;
   
-  NSColor *curtextcol; // text color as NSColor
+  CGColorRef curtextcol; // text color as CGColor
   int cur_text_color_int; // text color as int
   
   int curbkcol;

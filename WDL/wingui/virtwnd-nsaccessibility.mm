@@ -29,10 +29,8 @@ class VWndBridgeNS;
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
 
 // parameterized attribute methods
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_3
 - (NSArray *)accessibilityParameterizedAttributeNames;
 - (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
-#endif
 
 // action methods
 - (NSArray *)accessibilityActionNames;

@@ -27,15 +27,35 @@
 
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
+#import <CoreFoundation/CFDictionary.h>
 #import <objc/objc-runtime.h>
 #include "swell.h"
 #include "swell-internal.h"
 
 #include "../mutex.h"
 
-#ifndef __LP64__ 
-#define SWELL_ATSUI_TEXT_SUPPORT // faster, but unsupported on 64-bit. will fall back to the NSString drawing method
-#endif
+
+static bool IsCoreTextSupported()
+{
+  return CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
+         CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString;
+}
+
+static CTFontRef GetCoreTextDefaultFont()
+{
+  static CTFontRef deffr;
+  static bool ok;
+  if (!ok)
+  {
+    ok=true;
+    if (IsCoreTextSupported())
+    {
+      deffr=(CTFontRef) [[NSFont labelFontOfSize:10.0] retain]; 
+    }
+  }
+  return deffr;
+}
+  
 
 static NSString *CStringToNSString(const char *str)
 {
@@ -124,7 +144,7 @@ void SWELL_DeleteGfxContext(HDC ctx)
       CGContextRelease(ct->ctx);
       free(ct->ownedData);
     }
-    if (ct->curtextcol) [ct->curtextcol release];
+    if (ct->curtextcol) CFRelease(ct->curtextcol); 
     SWELL_GDP_CTX_DELETE(ct);
   }
 }
@@ -181,8 +201,13 @@ void DeleteObject(HGDIOBJ pen)
         if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
           if (p->wid<0) return;
         if (p->color) CGColorRelease(p->color);
-        if (p->fontdict) [p->fontdict release];
-        if (p->font_style) ATSUDisposeStyle(p->font_style);
+
+        if (p->ct_FontRef) CFRelease(p->ct_FontRef);
+
+#ifdef SWELL_ATSUI_TEXT_SUPPORT
+        if (p->atsui_font_style) ATSUDisposeStyle(p->atsui_font_style);
+#endif
+
         if (p->wid && p->bitmapptr) [p->bitmapptr release]; 
         GDP_OBJECT_DELETE(p);
       }
@@ -460,15 +485,27 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   font->type=TYPE_FONT;
   float fontwid=lfHeight;
   
-  
   if (!fontwid) fontwid=lfWidth;
   if (fontwid<0)fontwid=-fontwid;
   
   if (fontwid < 2 || fontwid > 8192) fontwid=10;
   
-  
   font->font_rotation = lfOrientation/10.0;
-  
+
+  if (IsCoreTextSupported())
+  {
+    char buf[1024];
+    lstrcpyn(buf,lfFaceName,900);
+    if (lfWeight >= FW_BOLD) strcat(buf," Bold");
+    if (lfItalic) strcat(buf," Italic");
+
+    NSString *str=CStringToNSString(buf); 
+    font->ct_FontRef = (void*)CTFontCreateWithName((CFStringRef)str,fontwid,NULL);
+    [str release];
+
+    // might want to make this conditional (i.e. only return font if created successfully), but I think we'd rather fallback to a system font than use ATSUI
+    return font;
+  }
   
 #ifdef SWELL_ATSUI_TEXT_SUPPORT
   ATSUFontID fontid=kATSUInvalidFontID;
@@ -478,67 +515,36 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     //    if (fontid==kATSUInvalidFontID) printf("looked up %s and got %d\n",lfFaceName,fontid);
   }
   
-  {
-    if (ATSUCreateStyle(&font->font_style) == noErr && font->font_style)
-    {    
-      Fixed fsize=Long2Fix(fontwid);
+  if (ATSUCreateStyle(&font->atsui_font_style) == noErr && font->atsui_font_style)
+  {    
+    Fixed fsize=Long2Fix(fontwid);
     
-      Boolean isBold=lfWeight >= FW_BOLD;
-      Boolean isItal=!!lfItalic;
-      Boolean isUnder=!!lfUnderline;
+    Boolean isBold=lfWeight >= FW_BOLD;
+    Boolean isItal=!!lfItalic;
+    Boolean isUnder=!!lfUnderline;
     
-      ATSUAttributeTag        theTags[] = { kATSUQDBoldfaceTag, kATSUQDItalicTag, kATSUQDUnderlineTag,kATSUSizeTag,kATSUFontTag };
-      ByteCount               theSizes[] = { sizeof(Boolean),sizeof(Boolean),sizeof(Boolean), sizeof(Fixed),sizeof(ATSUFontID)  };
-      ATSUAttributeValuePtr   theValues[] =  {&isBold, &isItal, &isUnder,  &fsize, &fontid  } ;
+    ATSUAttributeTag        theTags[] = { kATSUQDBoldfaceTag, kATSUQDItalicTag, kATSUQDUnderlineTag,kATSUSizeTag,kATSUFontTag };
+    ByteCount               theSizes[] = { sizeof(Boolean),sizeof(Boolean),sizeof(Boolean), sizeof(Fixed),sizeof(ATSUFontID)  };
+    ATSUAttributeValuePtr   theValues[] =  {&isBold, &isItal, &isUnder,  &fsize, &fontid  } ;
     
-      int attrcnt=sizeof(theTags)/sizeof(theTags[0]);
-      if (fontid == kATSUInvalidFontID) attrcnt--;    
+    int attrcnt=sizeof(theTags)/sizeof(theTags[0]);
+    if (fontid == kATSUInvalidFontID) attrcnt--;    
     
-      if (ATSUSetAttributes (font->font_style,                       
+    if (ATSUSetAttributes (font->atsui_font_style,                       
                        attrcnt,                       
                        theTags,                      
                        theSizes,                      
                        theValues)!=noErr)
-      {
-        ATSUDisposeStyle(font->font_style);
-        font->font_style=0;
-      }
+    {
+      ATSUDisposeStyle(font->atsui_font_style);
+      font->atsui_font_style=0;
     }
-    else
-      font->font_style=0;
   }
+  else
+    font->atsui_font_style=0;
   
 #endif
   
-  if (!font->font_style) // fallback to NSString stuff
-  { 
-    fontwid *= 0.95;
-        
-    NSString *str=CStringToNSString(lfFaceName);
-    NSFont *nsf=[NSFont fontWithName:str size:fontwid];
-    if (!nsf) nsf=[NSFont labelFontOfSize:fontwid];
-    if (!nsf) nsf=[NSFont systemFontOfSize:fontwid];
-    [str release];
-    
-    font->fontdict=[[NSMutableDictionary alloc] initWithCapacity:8];
-
-    if (nsf) [font->fontdict setObject:nsf forKey:NSFontAttributeName];
-    
-    if (lfItalic) // italic
-    {
-      [font->fontdict setObject:[NSNumber numberWithFloat:0.33] forKey:NSObliquenessAttributeName];
-    }
-    if (lfUnderline)
-    {
-      [font->fontdict setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-    }
-    int weight=lfWeight;
-    if (weight>=FW_BOLD)
-    {
-      float sc = min(fontwid,15.0)*0.55;
-      [font->fontdict setObject:[NSNumber numberWithFloat:-sc] forKey:NSStrokeWidthAttributeName];
-    }
-  }
   
   return font;
 }
@@ -558,18 +564,20 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmAveCharWidth = 10;
   }
   if (!HDC_VALID(ct)||!tm) return 0;
-  
+
+  bool curfont_valid=HGDIOBJ_VALID(ct->curfont,TYPE_FONT);
+
 #ifdef SWELL_ATSUI_TEXT_SUPPORT
-  if (HGDIOBJ_VALID(ct->curfont,TYPE_FONT) && ct->curfont->font_style)
+  if (curfont_valid && ct->curfont->atsui_font_style)
   {
     ATSUTextMeasurement ascent=Long2Fix(10);
     ATSUTextMeasurement descent=Long2Fix(3);
     ATSUTextMeasurement sz=Long2Fix(0);
     ATSUTextMeasurement width =Long2Fix(12);
-    ATSUGetAttribute(ct->curfont->font_style,  kATSUAscentTag, sizeof(ATSUTextMeasurement), &ascent,NULL);
-    ATSUGetAttribute(ct->curfont->font_style,  kATSUDescentTag, sizeof(ATSUTextMeasurement), &descent,NULL);
-    ATSUGetAttribute(ct->curfont->font_style,  kATSUSizeTag, sizeof(ATSUTextMeasurement), &sz,NULL);
-    ATSUGetAttribute(ct->curfont->font_style, kATSULineWidthTag, sizeof(ATSUTextMeasurement),&width,NULL);
+    ATSUGetAttribute(ct->curfont->atsui_font_style,  kATSUAscentTag, sizeof(ATSUTextMeasurement), &ascent,NULL);
+    ATSUGetAttribute(ct->curfont->atsui_font_style,  kATSUDescentTag, sizeof(ATSUTextMeasurement), &descent,NULL);
+    ATSUGetAttribute(ct->curfont->atsui_font_style,  kATSUSizeTag, sizeof(ATSUTextMeasurement), &sz,NULL);
+    ATSUGetAttribute(ct->curfont->atsui_font_style, kATSULineWidthTag, sizeof(ATSUTextMeasurement),&width,NULL);
     
     float asc=Fix2X(ascent);
     float desc=Fix2X(descent);
@@ -587,41 +595,24 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     return 1;
   }
 #endif
-  
-  
-  // fallback: NSString drawing
-  
-  NSFont *curfont=NULL;
-  
-  if (HGDIOBJ_VALID(ct->curfont,TYPE_FONT) && ct->curfont->fontdict)
-  {
-    curfont=[ct->curfont->fontdict objectForKey:NSFontAttributeName];
-  }
-  if (!curfont) 
-  {
-    curfont = [NSFont systemFontOfSize:10]; 
-  }
-  
-  
-  float asc=([curfont ascender]);
-  float desc=([curfont descender]);
-  //float leading=[curfont leading];
-  float ch=[curfont capHeight];
-  
-  NSRect br=[curfont boundingRectForFont];
- 
-  tm->tmAscent = (int)(asc + 0.5);
-  tm->tmDescent = (int)(-desc + 0.5);
-  tm->tmHeight=tm->tmAscent + tm->tmDescent;
-  tm->tmInternalLeading=(int)(asc - ch + 0.5); 
-  if (tm->tmInternalLeading<0) tm->tmInternalLeading=0;
 
-  //float widsc=1.0;
-//  if (![curfont isFixedPitch]) widsc = 0.75;
-  //tm->tmAveCharWidth = (int) ceil(br.size.width*widsc);
-  tm->tmAveCharWidth = (int) (ceil(asc-desc)*0.55); // (int)ceil(Fix2X(width));
+  CTFontRef fr = curfont_valid ? (CTFontRef)ct->curfont->ct_FontRef : NULL;
+  if (!fr)  fr=GetCoreTextDefaultFont();
+
+  if (fr)
+  {
+    tm->tmInternalLeading = CTFontGetLeading(fr);
+    tm->tmAscent = CTFontGetAscent(fr);
+    tm->tmDescent = CTFontGetDescent(fr);
+    tm->tmHeight = (tm->tmInternalLeading + tm->tmAscent + tm->tmDescent);
+    tm->tmAveCharWidth = tm->tmHeight*2/3; // todo
+
+    if (tm->tmHeight)  tm->tmHeight++;
+    
+    return 1;
+  }
+
   
-  //  tm->tmAscent += tm->tmDescent;
   return 1;
 }
 
@@ -654,12 +645,12 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
     ATSUAttributeValuePtr   theValues[] =  {&tcolor,  } ;
         
     // error check this? we can live with the wrong color maybe?
-    ATSUSetAttributes(font->font_style,  sizeof(theTags)/sizeof(theTags[0]), theTags, theSizes, theValues);
+    ATSUSetAttributes(font->atsui_font_style,  sizeof(theTags)/sizeof(theTags[0]), theTags, theSizes, theValues);
   }
   
   UniCharCount runLengths[1]={kATSUToTextEnd};
   ATSUTextLayout layout; 
-  if (ATSUCreateTextLayoutWithTextPtr(strbuf, kATSUFromTextBeginning, kATSUToTextEnd, strbuf_len, 1, runLengths, &font->font_style, &layout)!=noErr)
+  if (ATSUCreateTextLayoutWithTextPtr(strbuf, kATSUFromTextBeginning, kATSUToTextEnd, strbuf_len, 1, runLengths, &font->atsui_font_style, &layout)!=noErr)
   {
     *err=true;
     return 0;
@@ -784,141 +775,172 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   
   if (!str) return 0;
   
+  bool curfont_valid = HGDIOBJ_VALID(ct->curfont,TYPE_FONT);
 #ifdef SWELL_ATSUI_TEXT_SUPPORT
-  if (HGDIOBJ_VALID(ct->curfont,TYPE_FONT) && ct->curfont->font_style)
+  if (curfont_valid && ct->curfont->atsui_font_style)
   {
     bool err=false;
     int ret =  DrawTextATSUI(ctx,(CFStringRef)str,r,align,&err);
-    if (!err) 
-    {
-      [str release];
-      return ret;
-    }
+    [str release];
+    
+    if (!err) return ret;
+    return 0;
   }
 #endif  
   
-  // NSString, attributes based text drawing
-  
-  NSMutableDictionary *dict=NULL;
-  if (HGDIOBJ_VALID(ct->curfont,TYPE_FONT)) dict=ct->curfont->fontdict;  
-  if (!dict) 
+  CTFontRef fr = curfont_valid ? (CTFontRef)ct->curfont->ct_FontRef : NULL;
+  if (!fr)  fr=GetCoreTextDefaultFont();
+  if (fr)
   {
-    static NSMutableDictionary *dd;
-    if (!dd) 
-    {
-      dd=[NSMutableDictionary dictionaryWithObjectsAndKeys:[NSFont systemFontOfSize:10],NSFontAttributeName, NULL];
-      [dd retain];
-    }
-    dict=dd;
-    if (!dd) 
-    {
-      [str release];
-      return 0;
-    }
-  }
-  
-  if (ct->curbkmode==OPAQUE)
-  {
-    NSColor *bkcol=[NSColor colorWithCalibratedRed:GetRValue(ct->curbkcol)/255.0f green:GetGValue(ct->curbkcol)/255.0f blue:GetBValue(ct->curbkcol)/255.0f alpha:1.0f];
-    [dict setObject:bkcol forKey:NSBackgroundColorAttributeName];
-  }   
-  else
-  {
-    [dict removeObjectForKey:NSBackgroundColorAttributeName];
-  }
-  if (ct->curtextcol)
-    [dict setObject:ct->curtextcol forKey:NSForegroundColorAttributeName];
-  
-  
-  NSTextAlignment amode=((align&DT_RIGHT)?NSRightTextAlignment : (align&DT_CENTER) ? NSCenterTextAlignment : NSLeftTextAlignment);
-  NSLineBreakMode lbmode = ((align&DT_END_ELLIPSIS)? NSLineBreakByTruncatingTail:NSLineBreakByClipping);
-  
-  NSMutableParagraphStyle *parinfo = [dict objectForKey:NSParagraphStyleAttributeName];
-  if (!parinfo || [parinfo alignment] != amode || [parinfo lineBreakMode] != lbmode)
-  {
-    parinfo = [[NSMutableParagraphStyle alloc] init];
-    [parinfo setAlignment:amode];
-    [parinfo setLineBreakMode:lbmode];
-    [dict setObject:parinfo forKey:NSParagraphStyleAttributeName];
-    [parinfo release];
-  }
-
-  
-  
-  NSGraphicsContext *gc=NULL,*oldgc=NULL;
-  if (ct->ctx != [[NSGraphicsContext currentContext] graphicsPort])
-  {
-    gc=[NSGraphicsContext graphicsContextWithGraphicsPort:ct->ctx flipped:YES];
-    oldgc=[NSGraphicsContext currentContext];
-    [NSGraphicsContext setCurrentContext:gc];
-  }
-  
-  NSSize sz=[str sizeWithAttributes:dict];
-
-  TEXTMETRIC tm;
-  GetTextMetrics(ctx,&tm);
-  
-  int ret=ceil(sz.height);
-  if (align & DT_CALCRECT)
-  {
-    r->right=r->left+ceil(sz.width)*1.02;
-    r->bottom=r->top+ceil(sz.height)*1.02;
-  }
-  else
-  {
-    NSRect drawr=NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
-    if (align&DT_BOTTOM)
-    {
-      float dy=(drawr.size.height-sz.height);
-      drawr.origin.y += dy;
-      drawr.size.height -= dy;      
-    }
-    else if (align&DT_VCENTER)
-    {
-      float dy=((int)(drawr.size.height-sz.height ))/2;
-      drawr.origin.y += dy;
-      drawr.size.height -= dy*2.0;
-    }
-    else
-    {
-      drawr.size.height=sz.height;
-    }
-    drawr.origin.y+=tm.tmAscent;
+    // Initialize string, font, and context
+    CFStringRef keys[] = { kCTFontAttributeName,kCTForegroundColorAttributeName };
+    CFTypeRef values[] = { fr,ct->curtextcol };
     
-    if (align & DT_NOCLIP) // no clip, grow drawr if necessary (preserving alignment)
-    {
-      if (drawr.size.width < sz.width)
-      {
-        if (align&DT_RIGHT) drawr.origin.x -= (sz.width-drawr.size.width);
-        else if (align&DT_CENTER) drawr.origin.x -= (sz.width-drawr.size.width)/2;
-        drawr.size.width=sz.width;
-      }
-      if (drawr.size.height < sz.height)
-      {
-        if (align&DT_BOTTOM) drawr.origin.y -= (sz.height-drawr.size.height);
-        else if (align&DT_VCENTER) drawr.origin.y -= (sz.height-drawr.size.height)/2;
-        drawr.size.height=sz.height;
-      }
-    }
+    int nk= sizeof(keys) / sizeof(keys[0]);
+    if (!values[1]) nk--;
+    
+    CFDictionaryRef attributes = CFDictionaryCreate(kCFAllocatorDefault, (const void**)&keys, (const void**)&values, nk,
+                                &kCFTypeDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks);
+       
+    CFAttributedStringRef attrString =
+          CFAttributedStringCreate(kCFAllocatorDefault, (CFStringRef)str, attributes);
+    CFRelease(attributes);
+    [str release];
+
+
+    CTFrameRef frame = NULL;
+    CFArrayRef lines = NULL;
+    CTLineRef line = NULL;
+    CGFloat asc=0;
+    int line_w=0,line_h=0;
     if (has_ml)
     {
-      [str drawInRect:drawr withAttributes:dict];
+      CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString(attrString);
+      if (framesetter)
+      {
+        CGMutablePathRef path=CGPathCreateMutable();
+        CGPathAddRect(path,NULL,CGRectMake(0,0,100000,100000));
+        frame = CTFramesetterCreateFrame(framesetter,CFRangeMake(0,0),path,NULL);
+        CFRelease(framesetter);
+        CFRelease(path);
+      }
+      if (frame)
+      {
+        lines = CTFrameGetLines(frame);
+        int n=CFArrayGetCount(lines);
+        int x;
+        for(x=0;x<n;x++)
+        {
+          CTLineRef l = (CTLineRef)CFArrayGetValueAtIndex(lines,x);
+          if (l)
+          {
+            CGFloat asc=0,desc=0,lead=0;
+            int w = (int) floor(CTLineGetTypographicBounds(l,&asc,&desc,&lead)+0.5);
+            int h =(int) floor(asc+desc+lead+0.5);
+            line_h+=h;
+            if (line_w < w) line_w=w;
+          }
+        }
+      }
     }
     else
     {
-      [str drawWithRect:drawr options:NSStringDrawingUsesFontLeading attributes:dict];
+      line = CTLineCreateWithAttributedString(attrString);
+       
+      if (line)
+      {
+        CGFloat desc=0,lead=0;
+        line_w = (int) floor(CTLineGetTypographicBounds(line,&asc,&desc,&lead)+0.5);
+        line_h =(int) floor(asc+desc+lead+0.5);
+      }
     }
+    if (line_h) line_h++;
+    
+    if (align & DT_CALCRECT)
+    {
+      r->right = r->left+line_w;
+      r->bottom = r->top+line_h;
+      if (line) CFRelease(line);
+      if (frame) CFRelease(frame);
+      return line_h;
+    }
+
+    float xo=r->left,yo=r->top;
+    if (align & DT_RIGHT) xo += (r->right-r->left) - line_w;
+    else if (align & DT_CENTER) xo += (r->right-r->left)/2 - line_w/2;
+
+    if (align & DT_BOTTOM) yo += (r->bottom-r->top) - line_h;
+    else if (align & DT_VCENTER) yo += (r->bottom-r->top)/2 - line_h/2;
+
+    
+    CGContextSaveGState(ct->ctx);
+
+    CGAffineTransform f={1,0,0,-1,0,0};
+    CGContextSetTextMatrix(ct->ctx, f);
+
+    if (!(align & DT_NOCLIP))
+    {
+      CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));          
+    }
+    
+    CGColorRef bgc = NULL;
+    if (ct->curbkmode == OPAQUE)
+    {      
+      CGColorSpaceRef csr = CGColorSpaceCreateDeviceRGB();
+      float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
+      bgc = CGColorCreate(csr, col);
+      CGColorSpaceRelease(csr);
+    }
+
+    if (line) 
+    {
+      if (bgc)
+      {
+        CGContextSetFillColorWithColor(ct->ctx, bgc);
+        CGContextFillRect(ct->ctx, CGRectMake(xo,yo,line_w,line_h));
+      }
+      CGContextSetTextPosition(ct->ctx, xo, yo + asc);
+      CTLineDraw(line,ct->ctx);
+
+    }
+    if (lines)
+    {
+      int n=CFArrayGetCount(lines);
+      int x;
+      for(x=0;x<n;x++)
+      {
+        CTLineRef l = (CTLineRef)CFArrayGetValueAtIndex(lines,x);
+        if (l)
+        {
+          CGFloat asc=0,desc=0,lead=0;
+          float lw=CTLineGetTypographicBounds(l,&asc,&desc,&lead);
+
+          if (bgc)
+          {
+            CGContextSetFillColorWithColor(ct->ctx, bgc);
+            CGContextFillRect(ct->ctx, CGRectMake(xo,yo,lw,asc+desc+lead));
+          }
+          CGContextSetTextPosition(ct->ctx, xo, yo + asc);
+          CTLineDraw(l,ct->ctx);
+          
+          yo += floor(asc+desc+lead+0.5);          
+        }
+      }
+      
+    }
+    
+    CGContextRestoreGState(ct->ctx);
+    if (bgc) CGColorRelease(bgc);
+    if (line) CFRelease(line);
+    if (frame) CFRelease(frame);
+    
+    return line_h;
   }
   
-  if (gc)
-  {
-    [NSGraphicsContext setCurrentContext:oldgc];
-    //      [gc release];
-  }
   
   [str release];
-  
-  return ret;
+  return 0;  
 }
     
   
@@ -953,9 +975,8 @@ void SetTextColor(HDC ctx, int col)
   if (!HDC_VALID(ct)) return;
   ct->cur_text_color_int = col;
   
-  if (ct->curtextcol) [ct->curtextcol release];    
-  ct->curtextcol=[NSColor colorWithCalibratedRed:GetRValue(col)/255.0f green:GetGValue(col)/255.0f blue:GetBValue(col)/255.0f alpha:1.0f];
-  [ct->curtextcol retain];
+  if (ct->curtextcol) CFRelease(ct->curtextcol);
+  ct->curtextcol=CGColorCreateGenericRGB(GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,1.0);
 }
 
 

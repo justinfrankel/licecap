@@ -2969,20 +2969,24 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     {
       HGDIOBJ__* obj = (HGDIOBJ__*)wParam;
       if (obj && obj->type == TYPE_FONT)
-      {        
-#ifndef __LP64__
-        if (obj->font_style)
+      {
+        if (obj->ct_FontRef)
+        {
+          [self setFont:(NSFont *)obj->ct_FontRef];
+        }
+#ifdef SWELL_ATSUI_TEXT_SUPPORT
+        else if (obj->atsui_font_style)
         {
           ATSUFontID fontid = kATSUInvalidFontID;      
           Fixed fsize = 0;          
           Boolean isbold = NO;
           Boolean isital = NO;
           Boolean isunder = NO;          
-          if (ATSUGetAttribute(obj->font_style, kATSUFontTag, sizeof(ATSUFontID), &fontid, 0) == noErr &&
-              ATSUGetAttribute(obj->font_style, kATSUSizeTag, sizeof(Fixed), &fsize, 0) == noErr && fsize &&
-              ATSUGetAttribute(obj->font_style, kATSUQDBoldfaceTag, sizeof(Boolean), &isbold, 0) == noErr && 
-              ATSUGetAttribute(obj->font_style, kATSUQDItalicTag, sizeof(Boolean), &isital, 0) == noErr &&
-              ATSUGetAttribute(obj->font_style, kATSUQDUnderlineTag, sizeof(Boolean), &isunder, 0) == noErr)
+          if (ATSUGetAttribute(obj->atsui_font_style, kATSUFontTag, sizeof(ATSUFontID), &fontid, 0) == noErr &&
+              ATSUGetAttribute(obj->atsui_font_style, kATSUSizeTag, sizeof(Fixed), &fsize, 0) == noErr && fsize &&
+              ATSUGetAttribute(obj->atsui_font_style, kATSUQDBoldfaceTag, sizeof(Boolean), &isbold, 0) == noErr && 
+              ATSUGetAttribute(obj->atsui_font_style, kATSUQDItalicTag, sizeof(Boolean), &isital, 0) == noErr &&
+              ATSUGetAttribute(obj->atsui_font_style, kATSUQDUnderlineTag, sizeof(Boolean), &isunder, 0) == noErr)
           {
             char name[255];
             name[0]=0;
@@ -3007,13 +3011,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
             }
           }            
         }
-        else 
 #endif
-        if (obj->fontdict)
-        {        
-          NSFont* font = (NSFont*)[obj->fontdict objectForKey:NSFontAttributeName];
-          if (font) [self setFont:font];
-        }
       }
     }
     return 0;
