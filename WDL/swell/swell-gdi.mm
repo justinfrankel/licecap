@@ -870,6 +870,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       }
     }
     if (line_h) line_h++;
+
+    CFRelease(attrString);
     
     if (align & DT_CALCRECT)
     {
