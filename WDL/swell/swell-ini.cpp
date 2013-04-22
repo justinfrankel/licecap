@@ -36,6 +36,7 @@
 #include "../mutex.h"
 #include "../queue.h"
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/types.h>
 
 static void deleteStringKeyedArray(WDL_StringKeyedArray<char *> *p) {   delete p; }
@@ -136,7 +137,7 @@ static iniFileContext *GetFileContext(const char *name)
 //      printf("error opening %s\n",m_curfn);
       return ctx; // allow to proceed (empty file)
     }
-    flockfile(fp);
+    flock(fileno(fp),LOCK_SH);
     
     
     // parse .ini file
@@ -197,7 +198,7 @@ static iniFileContext *GetFileContext(const char *name)
     }
     if (cursec) cursec->Resort();
     ctx->m_curfn_time = getfileupdtime(fp);
-    funlockfile(fp);    
+    flock(fileno(fp),LOCK_UN);    
   }
   return ctx;
 }
@@ -209,7 +210,7 @@ static void WriteBackFile(iniFileContext *ctx)
   FILE *fp = ctx->m_curfp=fopen(ctx->m_curfn,"w");
   if (!ctx->m_curfp) return;
   
-  flockfile(fp);
+  flock(fileno(fp),LOCK_EX);
   
   int x;
   for (x = 0; ; x ++)
@@ -232,7 +233,7 @@ static void WriteBackFile(iniFileContext *ctx)
   
   fflush(fp);
   ctx->m_curfn_time = getfileupdtime(fp);
-  funlockfile(fp);
+  flock(fileno(fp),LOCK_UN);
   
 }
 
