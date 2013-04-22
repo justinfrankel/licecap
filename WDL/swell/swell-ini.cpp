@@ -206,9 +206,12 @@ static iniFileContext *GetFileContext(const char *name)
 static void WriteBackFile(iniFileContext *ctx)
 {
   if (!ctx||!ctx->m_curfn) return;
-  if (ctx->m_curfp) fclose(ctx->m_curfp);
-  FILE *fp = ctx->m_curfp=fopen(ctx->m_curfn,"w");
-  if (!ctx->m_curfp) return;
+  char newfn[1024];
+  lstrcpyn(newfn,ctx->m_curfn,sizeof(newfn)-8);
+  strcat(newfn,"-new");
+
+  FILE *fp = fopen(newfn,"w");
+  if (!fp) return;
   
   flock(fileno(fp),LOCK_EX);
   
@@ -232,9 +235,15 @@ static void WriteBackFile(iniFileContext *ctx)
   }  
   
   fflush(fp);
-  ctx->m_curfn_time = getfileupdtime(fp);
   flock(fileno(fp),LOCK_UN);
-  
+  fclose(fp);
+
+  if (!rename(newfn,ctx->m_curfn))
+  {
+    if (ctx->m_curfp) fclose(ctx->m_curfp);
+    ctx->m_curfp = fopen(ctx->m_curfn,"r");
+    ctx->m_curfn_time = getfileupdtime(ctx->m_curfp);
+  }
 }
 
 BOOL WritePrivateProfileSection(const char *appname, const char *strings, const char *fn)
