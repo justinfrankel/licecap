@@ -211,7 +211,20 @@ static void WriteBackFile(iniFileContext *ctx)
   if (!ctx||!ctx->m_curfn) return;
   char newfn[1024];
   lstrcpyn(newfn,ctx->m_curfn,sizeof(newfn)-8);
-  strcat(newfn,"-new");
+  {
+    char *p=newfn;
+    while (*p) p++;
+    while (p>newfn && p[-1] != '/') p--;
+    char lc = '.';
+    while (*p)
+    {
+      char c = *p;
+      *p++ = lc;
+      lc = c;
+    }
+    *p++ = lc;
+    strcpy(p,".new");
+  }
 
   FILE *fp = fopen(newfn,"w");
   if (!fp) return;
