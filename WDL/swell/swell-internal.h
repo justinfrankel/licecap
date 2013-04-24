@@ -443,7 +443,9 @@ struct HTREEITEM__
 
 // 10.4 doesn't support CoreText, so allow ATSUI if targetting 10.4 SDK
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
+#ifndef __LP64__
 #define SWELL_ATSUI_TEXT_SUPPORT
+#endif
 #endif
 
 struct HGDIOBJ__
