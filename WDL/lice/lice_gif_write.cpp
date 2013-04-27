@@ -91,7 +91,7 @@ int LICE_SetGIFColorMapFromOctree(void *ww, void *octree, int numcolors)
 }
 
 
-bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay)
+bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay, int nreps)
 {
   liceGifWriteRec *wr = (liceGifWriteRec*)handle;
   if (!wr) return false;
@@ -138,9 +138,10 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   gce[1]=(a)&255;
   gce[2]=(a)>>8;
 
-  if (isFirst && frame_delay)
+  if (isFirst && frame_delay && nreps!=1)
   {
-    unsigned char ext[]={0xB, 'N','E','T','S','C','A','P','E','2','.','0',3,1,0,0,};
+    int nr = nreps > 1 && nreps <= 65536 ? nreps-1 : 0;
+    unsigned char ext[]={0xB, 'N','E','T','S','C','A','P','E','2','.','0',3,1,(nr&0xff),(nr>>8)&0xff};
     EGifPutExtension(wr->f,0xFF, sizeof(ext),ext);
   }
 
@@ -255,12 +256,12 @@ void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transpar
 
   return wr;
 }
-void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha, int frame_delay, bool dither)
+void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha, int frame_delay, bool dither, int nreps)
 {
   if (!firstframe) return NULL;
 
   void *wr=LICE_WriteGIFBeginNoFrame(filename,firstframe->getWidth(),firstframe->getHeight(),transparent_alpha,dither);
-  if (wr) LICE_WriteGIFFrame(wr,firstframe,0,0,true,frame_delay);
+  if (wr) LICE_WriteGIFFrame(wr,firstframe,0,0,true,frame_delay,nreps);
 
   return wr;
 }

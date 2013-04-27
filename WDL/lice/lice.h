@@ -347,9 +347,9 @@ bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool
 bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alpha=0, bool dither=true); // if alpha<transparent_alpha then transparent. if transparent_alpha<0, then intra-frame checking is used
 
 // animated GIF API. use transparent_alpha=-1 to encode unchanged pixels as transparent
-void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true);
+void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true, int nreps=0); // nreps=0 for infinite
 void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha=0, bool dither=true);
-bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap=false, int frame_delay=0);
+bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap=false, int frame_delay=0, int nreps=0); // nreps only used on the first frame, 0=infinite
 bool LICE_WriteGIFEnd(void *handle);
 int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can use after LICE_WriteGIFBeginNoFrame and before LICE_WriteGIFFrame
 
