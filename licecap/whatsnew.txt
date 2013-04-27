@@ -1,4 +1,5 @@
-  + Support for choosing number of loop iterations for GIF files
+v1.23 - April 26 2013
+  + Support for choosing number of loop iterations of GIF files
   + Windows: use licecap.ini in same path as executable if it exists (portable mode)
 
 v1.22 - December 4 2012
