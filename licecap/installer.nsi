@@ -59,7 +59,7 @@ Section "Required files"
 
 
   File release\LICEcap.exe
-  File release\LICEcap_cli.exe
+;  File release\LICEcap_cli.exe
     
   ;Store installation folder
   WriteRegStr HKLM "Software\LICEcap" "" $INSTDIR
