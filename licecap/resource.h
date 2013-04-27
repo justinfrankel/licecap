@@ -23,6 +23,7 @@
 #define IDC_TIMELINE                    1012
 #define IDC_SSPAUSE                     1013
 #define IDC_DIMLBL                      1014
+#define IDC_LOOPCNT                     1014
 #define IDC_DIMLBL_1                    1015
 #define IDC_INSERT                      1016
 #define IDC_EDIT                        1017

@@ -47,6 +47,7 @@ HINSTANCE g_hInst;
 int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause
 
 
+int g_gif_loopcount=0;
 int g_max_fps=8;  
 
 char g_last_fn[2048];
@@ -447,7 +448,7 @@ void Capture_Finish(HWND hwndDlg)
 
       int del = (timeGetTime()-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay);
       if (del<1) del=1;
-      LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);      
+      LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del,g_gif_loopcount);      
     }
 
     LICE_WriteGIFEnd(g_cap_gif);
@@ -479,6 +480,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       sprintf(buf, "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
       SetDlgItemText(hwndDlg, IDC_TITLE, (g_title[0] ? g_title : "Title"));
+      SetDlgItemInt(hwndDlg, IDC_LOOPCNT, g_gif_loopcount,FALSE);      
       EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), (g_prefs&1));
@@ -500,6 +502,11 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       g_title[0]=0;
       GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title)-1);
       if (!strcmp(g_title, "Title")) g_title[0]=0;
+      {
+        BOOL t=FALSE;
+        int a=GetDlgItemInt(hwndDlg,IDC_LOOPCNT,&t,FALSE);
+        if (t) g_gif_loopcount=(a>0&&a<65536) ? a : 0;
+      }
     }
     return 0;
     case WM_COMMAND:
@@ -591,7 +598,7 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
 
   if (g_cap_gif) 
   {
-	  LICE_WriteGIFFrame(g_cap_gif, g_cap_bm, 0, 0, true, ms);                 
+	  LICE_WriteGIFFrame(g_cap_gif, g_cap_bm, 0, 0, true, ms,g_gif_loopcount);                 
 	  g_cap_gif_lastbm=NULL; // force bm refresh
   }
 
@@ -709,6 +716,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       ++g_reent;
 
+      g_gif_loopcount = GetPrivateProfileInt("licecap","gifloopcnt",g_gif_loopcount,g_ini_file.Get());
       g_max_fps = GetPrivateProfileInt("licecap", "maxfps", g_max_fps, g_ini_file.Get());
       SetDlgItemInt(hwndDlg,IDC_MAXFPS,g_max_fps,FALSE);
       --g_reent;
@@ -759,6 +767,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         WritePrivateProfileString("licecap","prefs",buf,g_ini_file.Get());
         sprintf(buf, "%d", g_titlems);
         WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
+        sprintf(buf, "%d", g_gif_loopcount);
+        WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
       }
       g_hwnd=NULL;
 #ifndef _WIN32
@@ -865,7 +875,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     }
 
                     LICE_SubBitmap bm(g_cap_gif_lastbm, g_cap_gif_lastbm_coords[0], g_cap_gif_lastbm_coords[1], g_cap_gif_lastbm_coords[2], g_cap_gif_lastbm_coords[3]);
-                    LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del);
+                    LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del,g_gif_loopcount);
 
                     if (newtime)
                     {
@@ -880,7 +890,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                       {
                         LICE_DrawText(g_cap_bm, timepos[0]+4, timepos[1]+4, timestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
                         LICE_SubBitmap tbm(g_cap_bm, timepos[0], timepos[1], timepos[2], timepos[3]);
-                        LICE_WriteGIFFrame(g_cap_gif, &tbm, timepos[0], timepos[1], true, 1);
+                        LICE_WriteGIFFrame(g_cap_gif, &tbm, timepos[0], timepos[1], true, 1,g_gif_loopcount);
                         LICE_FillRect(g_cap_bm, timepos[0], timepos[1], timepos[2], timepos[3], LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
                       }
                     }

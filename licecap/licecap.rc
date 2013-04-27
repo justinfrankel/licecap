@@ -45,10 +45,10 @@ BEGIN
     CONTROL         "",IDC_VIEWRECT,"Static",SS_BLACKFRAME,4,4,543,314
 END
 
-IDD_SAVEOPTS DIALOGEX 0, 0, 317, 56
+IDD_SAVEOPTS DIALOGEX 0, 0, 317, 74
 STYLE DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS
 EXSTYLE WS_EX_CONTROLPARENT
-FONT 8, "MS Sans Serif", 0, 0, 0x1
+FONT 8, "MS Sans Serif"
 BEGIN
     GROUPBOX        "Display in animation",IDC_STATIC,0,4,99,51
     CONTROL         "title frame:",IDC_TITLEUSE,"Button",BS_AUTOCHECKBOX | 
@@ -64,6 +64,8 @@ BEGIN
                     WS_TABSTOP,275,46,37,10
     CONTROL         "Control+Alt+P pauses recording",IDC_SSPAUSE,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,105,46,115,10
+    LTEXT           ".GIF repeat count (0=infinite):",IDC_STATIC,2,59,92,8
+    EDITTEXT        IDC_LOOPCNT,98,57,34,13,ES_AUTOHSCROLL
 END
 
 IDD_INSERT DIALOGEX 0, 0, 281, 122
@@ -102,7 +104,7 @@ BEGIN
     BEGIN
         RIGHTMARGIN, 313
         TOPMARGIN, 4
-        BOTTOMMARGIN, 55
+        BOTTOMMARGIN, 73
     END
 END
 #endif    // APSTUDIO_INVOKED
