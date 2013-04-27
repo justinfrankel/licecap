@@ -59,7 +59,7 @@
 /* Begin PBXBuildRule section */
 		33B2B31C13EB971F006B51F2 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
-			compilerSpec = com.intel.compilers.icc.11_0_0;
+			compilerSpec = com.intel.compilers.icc.11_1_0;
 			fileType = sourcecode.cpp;
 			isEditable = 1;
 			outputFiles = (
@@ -67,7 +67,7 @@
 		};
 		33B2B31D13EB971F006B51F2 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
-			compilerSpec = com.intel.compilers.icc.11_0_0;
+			compilerSpec = com.intel.compilers.icc.11_1_0;
 			fileType = sourcecode.c;
 			isEditable = 1;
 			outputFiles = (
