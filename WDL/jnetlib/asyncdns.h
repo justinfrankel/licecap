@@ -19,6 +19,8 @@
 #ifndef _ASYNCDNS_H_
 #define _ASYNCDNS_H_
 
+#include <time.h>
+
 #ifndef JNL_NO_DEFINE_INTERFACES
 class JNL_IAsyncDNS
 {
