@@ -475,6 +475,7 @@ bool LICECaptureDecompressor::DecompressBlock(int whdr, double percent)
 {
   if (m_compstream.avail_out) 
   {
+    unsigned char buf[16384];
     for (;;)
     {
       if (percent<1.0&&m_decompdata[whdr].GetSize())
@@ -482,7 +483,6 @@ bool LICECaptureDecompressor::DecompressBlock(int whdr, double percent)
         double p =  ((m_decompdata[whdr].GetSize()-m_compstream.avail_out)/(double)m_decompdata[whdr].GetSize());
         if (p>percent) break;
       }
-      unsigned char buf[16384];
       m_compstream.next_in = buf;
       m_compstream.avail_in = m_curhdr[whdr].cdata_left;
       if (m_compstream.avail_in > (int)sizeof(buf)) m_compstream.avail_in=(int)sizeof(buf);
@@ -498,6 +498,7 @@ bool LICECaptureDecompressor::DecompressBlock(int whdr, double percent)
       }   
       if (!m_compstream.avail_out && !m_compstream.avail_in) break;
     }
+    m_compstream.next_in = NULL;
   }
 
   return true;
