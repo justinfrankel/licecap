@@ -30,6 +30,7 @@
 #include "../mutex.h"
 #include "../ptrlist.h"
 #include "../queue.h"
+#include "../wdlcstring.h"
 
 #include "swell-dlggen.h"
 
@@ -1295,7 +1296,7 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   if (!hwnd) return false;
   
   // todo: sendmessage WM_GETTEXT etc? special casing for combo boxes etc
-  lstrcpyn(text,hwnd->m_title ? hwnd->m_title : "", textlen);
+  lstrcpyn_safe(text,hwnd->m_title ? hwnd->m_title : "", textlen);
   return true;
 }
 
@@ -2967,7 +2968,7 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
       {
         if (buf)
         {
-          lstrcpyn(buf,p,bufsz);
+          lstrcpyn_safe(buf,p,bufsz);
           rv=strlen(buf);
         }
         else rv=strlen(p);

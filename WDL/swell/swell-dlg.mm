@@ -23,6 +23,7 @@ bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
 #include "../wdlstring.h"
+#include "../wdlcstring.h"
 
 #define NSColorFromCol(a) [NSColor colorWithCalibratedRed:GetRValue(a)/255.0f green:GetGValue(a)/255.0f blue:GetBValue(a)/255.0f alpha:1.0f]
 extern int g_swell_terminating;
@@ -1338,7 +1339,7 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 
 - (const char *)onSwellGetText { return m_titlestr; }
--(void)onSwellSetText:(const char *)buf { lstrcpyn(m_titlestr,buf,sizeof(m_titlestr)); }
+-(void)onSwellSetText:(const char *)buf { lstrcpyn_safe(m_titlestr,buf,sizeof(m_titlestr)); }
 
 
 // source-side drag/drop, only does something if source called SWELL_InitiateDragDrop while handling mouseDown

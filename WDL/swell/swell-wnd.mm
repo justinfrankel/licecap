@@ -31,6 +31,7 @@
 #include "../mutex.h"
 #include "../ptrlist.h"
 #include "../queue.h"
+#include "../wdlcstring.h"
 
 #include "swell-dlggen.h"
 #include "swell-internal.h"
@@ -56,8 +57,6 @@ static void InvalidateSuperViews(NSView *view);
   InvalidateSuperViews(self); \
   }
 
-
-char* lstrcpyn(char* dest, const char* src, int l);
 
 int g_swell_want_nice_style = 1;
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
@@ -2304,7 +2303,7 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   if ([(id)poo respondsToSelector:@selector(onSwellGetText)])
   {  
     const char *p=(const char *)[(SWELL_hwndChild*)poo onSwellGetText];
-    lstrcpyn(text,p?p:"",textlen);
+    lstrcpyn_safe(text,p?p:"",textlen);
     return TRUE;
   }
   
@@ -4016,7 +4015,7 @@ bool ListView_GetItem(HWND h, LVITEM *item)
     if (item->mask & LVIF_TEXT) if (item->pszText && item->cchTextMax>0)
     {
       char *p=row->m_vals.Get(item->iSubItem);
-      lstrcpyn(item->pszText,p?p:"",item->cchTextMax);
+      lstrcpyn_safe(item->pszText,p?p:"",item->cchTextMax);
     }
       if (item->mask & LVIF_STATE)
       {
@@ -4938,7 +4937,7 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
       {
         if (buf)
         {
-          lstrcpyn(buf,p,bufsz);
+          lstrcpyn_safe(buf,p,bufsz);
           rv=strlen(buf);
         }
         else rv=strlen(p);
@@ -5430,7 +5429,7 @@ BOOL TreeView_GetItem(HWND hwnd, LPTVITEM pitem)
   pitem->lParam = ti->m_param;
   if ((pitem->mask&TVIF_TEXT)&&pitem->pszText&&pitem->cchTextMax>0)
   {
-    lstrcpyn(pitem->pszText,ti->m_value?ti->m_value:"",pitem->cchTextMax);
+    lstrcpyn_safe(pitem->pszText,ti->m_value?ti->m_value:"",pitem->cchTextMax);
   }
   pitem->state=0;
   

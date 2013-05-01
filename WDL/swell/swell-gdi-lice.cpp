@@ -31,6 +31,7 @@
 
 #include "../mutex.h"
 #include "../ptrlist.h"
+#include "../wdlcstring.h"
 
 #include "swell-gdi-internalpool.h"
 
@@ -220,7 +221,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
             int sl = strlen(ds.GetCurrentFN());
             if (sl > 4 && !stricmp(ds.GetCurrentFN() + sl - 4, ".ttf")  && (!bestmatch[0] || sl < strlen(bestmatch)))
             {
-              lstrcpyn(bestmatch,ds.GetCurrentFN(),sizeof(bestmatch));
+              lstrcpyn_safe(bestmatch,ds.GetCurrentFN(),sizeof(bestmatch));
             }
           }
         }

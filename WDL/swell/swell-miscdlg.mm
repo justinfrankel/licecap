@@ -28,6 +28,7 @@
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
+#include "../wdlcstring.h"
 #import <Cocoa/Cocoa.h>
 static NSMutableArray *extensionsFromList(const char *extlist)
 {
@@ -42,7 +43,7 @@ static NSMutableArray *extensionsFromList(const char *extlist)
 			if (!*extlist) break;
 			extlist++;
 			char tmp[32];
-			lstrcpyn(tmp,extlist,sizeof(tmp));
+			lstrcpyn_safe(tmp,extlist,sizeof(tmp));
 			if (strstr(tmp,";")) strstr(tmp,";")[0]=0;
 			if (tmp[0] && tmp[0]!='*')
 			{
@@ -94,7 +95,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 	if (initialfile && *initialfile)
 	{
 		char s[2048];
-		lstrcpyn(s,initialfile,sizeof(s));
+		lstrcpyn_safe(s,initialfile,sizeof(s));
 		char *p=s;
 		while (*p) p++;
 		while (p >= s && *p != '/') p--;
@@ -132,7 +133,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 		SWELL_CFStringToCString([panel filename],buf,(sizeof(buf)-1));
 		if (buf[0])
 		{
-			lstrcpyn(fn,buf,fnsize);
+			lstrcpyn_safe(fn,buf,fnsize);
 			return true;
 		}
 	}
@@ -223,7 +224,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 	if (initialfile && *initialfile)
 	{
 		char s[2048];
-		lstrcpyn(s,initialfile,sizeof(s));
+		lstrcpyn_safe(s,initialfile,sizeof(s));
 		char *p=s;
 		while (*p) p++;
 		while (p >= s && *p != '/') p--;
