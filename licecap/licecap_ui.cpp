@@ -21,15 +21,53 @@
 #include <stdio.h>
 #ifdef _WIN32
 #include <windows.h>
+#include <process.h>
 #include <multimon.h>
 #else
 #include "../WDL/swell/swell.h"
 #endif
+#include "../WDL/queue.h"
+#include "../WDL/mutex.h"
 
-#include "../WDL/lice/lice_lcf.h"
+
+#ifdef REAPER_LICECAP
+  #define NO_LCF_SUPPORT
+  #define VIDEO_ENCODER_SUPPORT
+  #include "../jmde/fx/lice_imported.h"
+  #include "../jmde/reaper_plugin.h"
+  #include "../jmde/video2/video_encoder.h"
+  bool WDL_ChooseFileForSave(HWND parent, const char *text, const char *initialdir, const char *initialfile, const char *extlist,const char *defext,bool preservecwd,char *fn, int fnsize,const char *dlgid=NULL, void *dlgProc=NULL, void *hi=NULL);
+
+  void *(*reaperAPI_getfunc)(const char *p);
+  int (*Audio_RegHardwareHook)(bool isAdd, audio_hook_register_t *reg); // return >0 on success
+  REAPER_Resample_Interface *(*Resampler_Create)();
+  void OnAudioBuffer(bool isPost, int len, double srate, struct audio_hook_register_t *reg); // called twice per frame, isPost being false then true
+
+  unsigned WINAPI audioEncodeThread(void *p);
+  
+  audio_hook_register_t s_audiohook = { OnAudioBuffer };
+  bool s_audiohook_reg;
+  double s_audiohook_timepos;
+  double s_audiohook_needsilence;
+  WDL_TypedQueue<ReaSample> s_audiohook_samples;
+  WDL_Mutex s_audiohook_samples_mutex;
+  HANDLE s_audiothread;
+  REAPER_Resample_Interface *s_rs;
+
+#else
+
+  #define LICE_CreateSysBitmap(w,h) new LICE_SysBitmap(w,h)
+  #define LICE_CreateMemBitmap(w,h) new LICE_MemBitmap(w,h)
+
+  #include "../WDL/lice/lice_lcf.h"
+  #include "../WDL/filebrowse.h"
+#endif
+
+
+
+
 #include "../WDL/wdltypes.h"
 #include "../WDL/wingui/wndsize.h"
-#include "../WDL/filebrowse.h"
 #include "../WDL/wdlstring.h"
 
 
@@ -226,9 +264,36 @@ DWORD g_cap_prerolluntil;
 DWORD g_skip_capture_until;
 DWORD g_last_frame_capture_time;
 
+#ifndef NO_LCF_SUPPORT
 LICECaptureCompressor *g_cap_lcf;
+#endif
+
+#ifdef VIDEO_ENCODER_SUPPORT
+VideoEncoder *g_cap_video;
+char g_cap_video_ext[32];
+double g_cap_video_lastt;
+
+void EncodeFrameToVideo(VideoEncoder *enc, LICE_IBitmap *bm, bool force=false)
+{
+  if (!enc||!bm) return;
+  const double pos=s_audiohook_timepos;
+  if (pos < g_cap_video_lastt + 0.03 && !force) return; // too soon
+
+  const char *ptr=(const char *)bm->getBits();
+  int rs = bm->getRowSpan()*4;
+  if (bm->isFlipped())
+  {
+    ptr += (bm->getHeight()-1)*rs;
+    rs=-rs;
+  }
+  g_cap_video_lastt=pos;
+  enc->encodeVideoFrame(ptr,'RGBA',rs,pos); // todo timing info
+}
+
+#endif
+
 void *g_cap_gif;
-LICE_MemBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until next frame, etc
+LICE_IBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until next frame, etc
 int g_cap_gif_lastbm_coords[4];
 int g_cap_gif_lastbm_accumdelay;
 
@@ -305,7 +370,7 @@ DWORD g_pause_time; // time of last pause
 DWORD g_insert_cnt=0; // number of frames inserted, purely for display
 int g_insert_ms=g_titlems;
 double g_insert_alpha=0.5f;
-LICE_SysBitmap *g_cap_bm_txt; 
+LICE_IBitmap *g_cap_bm_txt;  // is a LICE_SysBitmap
 
 void UpdateStatusText(HWND hwndDlg)
 {
@@ -341,7 +406,16 @@ void UpdateStatusText(HWND hwndDlg)
   }
   sprintf(buf,"%s%s",pbuf,dims);
 
+#ifndef NO_LCF_SUPPORT
   if (g_cap_lcf) strcat(buf, " LCF");
+#endif
+#ifdef VIDEO_ENCODER_SUPPORT
+  if (g_cap_video) 
+  {
+    strcat(buf, " ");
+    strcat(buf,g_cap_video_ext);
+  }
+#endif
   if (g_cap_gif) strcat(buf, " GIF");
   
   if (g_cap_state)
@@ -363,7 +437,14 @@ void UpdateStatusText(HWND hwndDlg)
 
 void UpdateCaption(HWND hwndDlg)
 {
-  if (!g_cap_state) SetWindowText(hwndDlg,"LICEcap " LICECAP_VERSION " [stopped]");
+  if (!g_cap_state) 
+  {
+#ifdef REAPER_LICECAP
+    SetWindowText(hwndDlg,"REAPER_LICEcap " LICECAP_VERSION " [stopped]");
+#else
+    SetWindowText(hwndDlg,"LICEcap " LICECAP_VERSION " [stopped]");
+#endif
+  }
   else
   {
     const char *p=g_last_fn;
@@ -436,9 +517,34 @@ void Capture_Finish(HWND hwndDlg)
 
   UpdateDimBoxes(hwndDlg);
 
+#ifndef NO_LCF_SUPPORT
   delete g_cap_lcf;
   g_cap_lcf=0;
+#endif
 
+#ifdef REAPER_LICECAP
+  if (s_audiohook_reg)
+  {
+    Audio_RegHardwareHook(false,&s_audiohook);
+    s_audiohook_reg=false;
+    // kill thread and clear buffers
+
+    if (s_audiothread)
+    {
+      WaitForSingleObject(s_audiothread,INFINITE);
+      CloseHandle(s_audiothread);
+      s_audiothread=0;
+    }
+
+    s_audiohook_samples.Clear();
+    s_audiohook_samples.Compact();
+  }
+#endif
+
+#ifdef VIDEO_ENCODER_SUPPORT
+  delete g_cap_video;
+  g_cap_video=0;
+#endif
   if (g_cap_gif)
   {
     if (g_cap_gif_lastbm)
@@ -553,12 +659,12 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
 		    tw /= 2;
 		    th /= 2;
 		  }
-		  tbm = new LICE_MemBitmap(tw, th); 
+		  tbm = LICE_CreateMemBitmap(tw, th); 
 		  LICE_Clear(tbm, 0);                      
 	  }
 	  else
 	  {
-		  tbm = new LICE_MemBitmap(tw, th); 
+		  tbm = LICE_CreateMemBitmap(tw, th); 
 		  LICE_Copy(tbm, g_cap_bm_txt);
       LICE_FillRect(tbm, 0,0,w,h, LICE_RGBA(0,0,0,255), bgAlpha, LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
 	  }
@@ -602,6 +708,26 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
 	  g_cap_gif_lastbm=NULL; // force bm refresh
   }
 
+#ifdef VIDEO_ENCODER_SUPPORT
+  if (g_cap_video)
+  {
+    int nf=100;
+    if (nf>ms) nf=ms;
+    EncodeFrameToVideo(g_cap_video,g_cap_bm,true);
+    s_audiohook_samples_mutex.Enter();
+    s_audiohook_needsilence += nf*0.001;
+    s_audiohook_timepos+=nf*0.001;
+    s_audiohook_samples_mutex.Leave();
+
+    EncodeFrameToVideo(g_cap_video,g_cap_bm,true);
+    s_audiohook_samples_mutex.Enter();
+    s_audiohook_needsilence += (ms-nf)*0.001;
+    s_audiohook_timepos+=(ms-nf)*0.001;
+    s_audiohook_samples_mutex.Leave();
+  }
+#endif
+
+#ifndef NO_LCF_SUPPORT
   if (g_cap_lcf) 
   {
 	  int del=0;
@@ -613,6 +739,7 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
 	  }
 	  g_cap_lcf->OnFrame(g_cap_bm, del); 
   }
+#endif
 }
 
 WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
@@ -682,6 +809,22 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut);
 #endif
 
 
+void SaveConfig(HWND hwndDlg)
+{
+  char buf[1024];
+  RECT r;
+  GetWindowRect(hwndDlg,&r);
+  sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
+  WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file.Get());
+  sprintf(buf, "%d", g_max_fps);
+  WritePrivateProfileString("licecap","maxfps",buf,g_ini_file.Get());
+  sprintf(buf, "%d", g_prefs);
+  WritePrivateProfileString("licecap","prefs",buf,g_ini_file.Get());
+  sprintf(buf, "%d", g_titlems);
+  WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
+  sprintf(buf, "%d", g_gif_loopcount);
+  WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
+}
 
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -755,21 +898,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     case WM_DESTROY:
 
       Capture_Finish(hwndDlg);
-      {
-        char buf[1024];
-        RECT r;
-        GetWindowRect(hwndDlg,&r);
-        sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
-        WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file.Get());
-        sprintf(buf, "%d", g_max_fps);
-        WritePrivateProfileString("licecap","maxfps",buf,g_ini_file.Get());
-        sprintf(buf, "%d", g_prefs);
-        WritePrivateProfileString("licecap","prefs",buf,g_ini_file.Get());
-        sprintf(buf, "%d", g_titlems);
-        WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
-        sprintf(buf, "%d", g_gif_loopcount);
-        WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
-      }
+
+      SaveConfig(hwndDlg);
+
+      g_wndsize.init(hwndDlg);
       g_hwnd=NULL;
 #ifndef _WIN32
       SWELL_PostQuitMessage(0);
@@ -825,7 +957,19 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 MakeTimeStr(g_last_sec_written, timestr, bw, bh, timepos);
                 LICE_FillRect(g_cap_bm, timepos[0], timepos[1], timepos[2], timepos[3], LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
               }
+#ifdef VIDEO_ENCODER_SUPPORT
+              if (g_cap_video)
+              {
+                if (dotime)
+                {
+                  LICE_DrawText(g_cap_bm, timepos[0]+4, timepos[1]+4, timestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+                }
 
+                EncodeFrameToVideo(g_cap_video,g_cap_bm);
+              }
+#endif
+
+#ifndef NO_LCF_SUPPORT
               if (g_cap_lcf)
               {
                 if (dotime)
@@ -841,6 +985,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 }
                 g_cap_lcf->OnFrame(g_cap_bm,del);
               }
+#endif
 
               if (g_cap_gif)
               {
@@ -856,7 +1001,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 {
                   if (!g_cap_gif_lastbm) 
                   {
-                    g_cap_gif_lastbm = new LICE_MemBitmap(bw, bh);
+                    g_cap_gif_lastbm = LICE_CreateMemBitmap(bw, bh);
                   }
                   else 
                   {
@@ -1053,7 +1198,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           {
             int w,h;
             GetViewRectSize(&w,&h);
-            g_cap_bm_txt = new LICE_SysBitmap(w,h);
+            g_cap_bm_txt = LICE_CreateSysBitmap(w,h);
             LICE_Copy(g_cap_bm_txt, g_cap_bm);
           }
           DialogBox(g_hInst,MAKEINTRESOURCE(IDD_INSERT),hwndDlg,InsertProc);
@@ -1064,15 +1209,55 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           if (!g_cap_state)
           {
             //g_title[0]=0;
+            const char *tab[][2]={
+              { "GIF files (*.gif)\0*.gif\0", ".gif" },
+            #ifndef NO_LCF_SUPPORT
+              { "LiceCap files (*.lcf)\0*.lcf\0", ".lcf" },
+            #endif
+            #ifdef VIDEO_ENCODER_SUPPORT
+              { "WEBM files (*.webm)\0*.webm\0", ".webm" },
+            #endif
+              {NULL,NULL},
+            };
 
-            const char *extlist="LiceCap files (*.lcf)\0*.lcf\0GIF files (*.gif)\0*.gif\0";
-            const char *extlist_giflast = "GIF files (*.gif)\0*.gif\0LiceCap files (*.lcf)\0*.lcf\0\0";
-            bool last_gif = strlen(g_last_fn)<4 || !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif");
-            const char* useextlist = (last_gif ? extlist_giflast : extlist);
-            const char* useext = (last_gif ? "gif" : "lcf");          
+            WDL_Queue qb;
+            int bm=0;
+            const int lfnlen=strlen(g_last_fn);
+            int x;
+            if (lfnlen >= 3) for (x=0;tab[x][0];x++)
+            {
+              const int tx1l = strlen(tab[x][1]);
+              if (lfnlen > tx1l && !stricmp(g_last_fn + lfnlen - tx1l, tab[x][1])) 
+              {
+                bm=x;
+                break;
+              }
+            }
+            for (x=bm;tab[x][0];x++)
+            {
+              const char *p=tab[x][0];
+              while (*p)
+              {
+                int l = strlen(p)+1;
+                qb.Add(p,l);
+                p+=l;
+              }
+            }
+            for (x=0;x<bm;x++)
+            {
+              const char *p=tab[x][0];
+              while (*p)
+              {
+                int l = strlen(p)+1;
+                qb.Add(p,l);
+                p+=l;
+              }
+            }
+
+            qb.Add("",1);
 
             if (WDL_ChooseFileForSave(hwndDlg, "Choose file for recording", NULL, g_last_fn,
-              useextlist, useext, false, g_last_fn, sizeof(g_last_fn),
+              (char*)qb.Get(), tab[bm][1] + 1, false, g_last_fn, sizeof(g_last_fn),
               MAKEINTRESOURCE(IDD_SAVEOPTS),(void*)SaveOptsProc, 
 #ifdef _WIN32
                                       g_hInst
@@ -1095,10 +1280,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               
               delete g_cap_bm;
 #ifdef _WIN32
-              g_cap_bm = new LICE_SysBitmap(w,h);
+              g_cap_bm = LICE_CreateSysBitmap(w,h);
 #else
               delete g_cap_bm_inv;
-              g_cap_bm_inv = new LICE_SysBitmap(w,h);
+              g_cap_bm_inv = LICE_CreateSysBitmap(w,h);
               g_cap_bm = new LICE_WrapperBitmap(g_cap_bm_inv->getBits(),g_cap_bm_inv->getWidth(),g_cap_bm_inv->getHeight(),g_cap_bm_inv->getRowSpan(),true);
 #endif
 
@@ -1108,12 +1293,65 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               {
                 g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,0,true);
               }
+#ifdef VIDEO_ENCODER_SUPPORT
+              if (strlen(g_last_fn)>5 && !stricmp(g_last_fn+strlen(g_last_fn)-5,".webm"))
+              {
+#ifdef REAPER_LICECAP
+                static VideoEncoder *(*video_createEncoder)();
+                if (!video_createEncoder)
+                  *(void **)&video_createEncoder = reaperAPI_getfunc("video_createEncoder");
+
+                if (video_createEncoder) g_cap_video = video_createEncoder();
+#endif
+
+                if (g_cap_video)
+                {
+                  if (!g_cap_video->open(g_last_fn,"webm", "vp8", "vorbis", 2000, w,h, 30, 128, 44100,2))
+                  {
+                    delete g_cap_video;
+                    g_cap_video=0;
+                  }
+                  else
+                  {
+                    strcpy(g_cap_video_ext,"WEBM");
+#ifdef REAPER_LICECAP
+                    s_audiohook_needsilence=0.0;
+                    g_cap_video_lastt=-1.0;
+                    s_audiohook_timepos=0.0;
+                    if (!s_audiohook_reg)
+                    {
+                      Audio_RegHardwareHook(true,&s_audiohook);
+                      s_audiohook_reg=true;
+                    }
+                    if (!s_audiothread)
+                    {
+                      // create thread
+                      unsigned id;
+                      s_audiothread = (HANDLE)_beginthreadex(NULL,0,audioEncodeThread,0,0,&id);
+                    }
+#endif
+
+                  }
+                }
+
+              }
+#endif
+
+#ifndef NO_LCF_SUPPORT
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".lcf"))
               {
                 g_cap_lcf = new LICECaptureCompressor(g_last_fn,w,h);
               }
+#endif
 
-              if (g_cap_gif || g_cap_lcf)
+              if (g_cap_gif 
+#ifndef NO_LCF_SUPPORT
+                || g_cap_lcf
+#endif
+#ifdef VIDEO_ENCODER_SUPPORT
+                || g_cap_video
+#endif
+                )
               {
 
                 if (g_dotitle)
@@ -1186,11 +1424,12 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     case WM_CLOSE:
       if (!g_cap_state)
       {
-#ifdef _WIN32
-        EndDialog(hwndDlg,0);
-#else
-        DestroyWindow(hwndDlg);
-#endif
+
+        #if defined(_WIN32) || defined(REAPER_LICECAP)
+                EndDialog(hwndDlg,0);
+        #else
+                DestroyWindow(hwndDlg);
+        #endif
       }
     break;
     case WM_GETMINMAXINFO:
@@ -1275,6 +1514,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
   return 0;
 }
 
+
+
+#ifndef REAPER_LICECAP
 
 #ifdef _WIN32
 
@@ -1397,8 +1639,237 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
   return 0;
 }
 
+#endif
+
+// end of standalone
+#endif //!REAPER_LICECAP
+
+#ifdef REAPER_LICECAP
+
+// reaper plugin
+
+static bool (*__WDL_ChooseFileForSave)(HWND parent, const char *text, const char *initialdir, const char *initialfile, const char *extlist, const char *defext, bool preservecwd, char *fn, int fnsize, const char *dlgid, void *dlgProc, void *hi);
+static void *(*__LICE_WriteGIFBeginNoFrame)(const char *filename, int w, int h, int transparent_alpha, bool dither);
+static bool (*__LICE_WriteGIFFrame)(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay, int nreps);
+static bool (*__LICE_WriteGIFEnd)(void *handle);
+
+
+unsigned WINAPI audioEncodeThread(void *p)
+{
+  WDL_TypedBuf<ReaSample> tmp;
+  while (s_audiohook_reg)
+  {
+    int ns=0;
+    if (s_audiohook_samples.Available())
+    {
+      s_audiohook_samples_mutex.Enter();
+      ns = s_audiohook_samples.Available();      
+      if (tmp.Resize(ns) && tmp.GetSize()==ns)
+      {
+        memcpy(tmp.Get(),s_audiohook_samples.Get(),ns*sizeof(ReaSample));
+        s_audiohook_samples.Advance(ns);
+        s_audiohook_samples.Compact();
+      }
+      else
+      {
+        ns=0;
+      }
+      s_audiohook_samples_mutex.Leave();
+    }
+    if (!ns) Sleep(1);
+    else
+    {
+      // encode block
+      if (g_cap_video)
+      {
+        ReaSample *s[2] = { tmp.Get(), tmp.Get()+1};
+        g_cap_video->encodeAudio(s,ns/2,0,2);
+      }
+    }
+  }
+  return 0;
+}
+
+
+void OnAudioBuffer(bool isPost, int len, double srate, struct audio_hook_register_t *reg) // called twice per frame, isPost being false then true
+{
+  if (isPost)
+  {
+    ReaSample *s1 = reg->GetBuffer(true,0);
+    ReaSample *s2 = reg->GetBuffer(true,1);
+    if (!s2) s2=s1;
+    if (s1)
+    {
+      s_audiohook_samples_mutex.Enter();
+      if (s_audiohook_needsilence>0.0)
+      {
+        int n = (int) (s_audiohook_needsilence * srate + 0.5);
+        if (n>0)
+        {
+          ReaSample *fo = s_audiohook_samples.Add(NULL,n*2);
+          if (fo) memset(fo,0,sizeof(*fo)*n*2);
+        }
+        s_audiohook_needsilence=0.0;
+      }
+
+      if (g_cap_state == 1 && !g_cap_prerolluntil && s_audiohook_samples.GetSize() < 44100*2 * 4)
+      {
+        s_audiohook_timepos += len/srate;
+
+        if (!s_rs)
+          s_rs=Resampler_Create();
+
+        if (s_rs)
+        {
+          s_rs->SetRates(srate,44100.0);
+          s_rs->Extended(RESAMPLE_EXT_SETFEEDMODE,(void*)(INT_PTR)1,0,0);
+          ReaSample *bptr=NULL;
+          int a=s_rs->ResamplePrepare(len,2,&bptr);
+          if (a>len) a=len;
+          if (bptr && a>0)
+          {
+            int x;
+            for(x=0;x<a;x++)
+            {
+              *bptr++ = *s1++;
+              *bptr++ = *s2++;
+            }
+
+            ReaSample *fo = s_audiohook_samples.Add(NULL,2*len);
+            if (fo)
+            {
+              int b=s_rs->ResampleOut(fo,a,len,2);
+              if (b < len)
+                s_audiohook_samples.Add(NULL,2*(b - len)); // back up
+            }
+          }
+        }
+      }
+      s_audiohook_samples_mutex.Leave();
+    }
+  }
+}
+
+void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither)
+{
+  if (!__LICE_WriteGIFBeginNoFrame || !__LICE_WriteGIFFrame || !__LICE_WriteGIFEnd)
+  {
+    *(void **)&__LICE_WriteGIFBeginNoFrame = reaperAPI_getfunc("LICE_WriteGIFBeginNoFrame");
+    *(void **)&__LICE_WriteGIFFrame = reaperAPI_getfunc("LICE_WriteGIFFrame");
+    *(void **)&__LICE_WriteGIFEnd = reaperAPI_getfunc("LICE_WriteGIFEnd");
+    if (!__LICE_WriteGIFBeginNoFrame || !__LICE_WriteGIFFrame || !__LICE_WriteGIFEnd)
+      return NULL;
+  }
+  return __LICE_WriteGIFBeginNoFrame(filename,w,h,transparent_alpha,dither);
+}
+
+bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay, int nreps)
+{
+  return __LICE_WriteGIFFrame(handle,frame,xpos,ypos,perImageColorMap,frame_delay,nreps);
+}
+
+bool LICE_WriteGIFEnd(void *handle)
+{
+  return __LICE_WriteGIFEnd(handle);
+}
+
+
+bool WDL_ChooseFileForSave(HWND parent, const char *text, const char *initialdir, const char *initialfile, const char *extlist, const char *defext, bool preservecwd, char *fn, int fnsize, const char *dlgid, void *dlgProc,  void *hi)
+{
+  if (__WDL_ChooseFileForSave)
+    return __WDL_ChooseFileForSave(parent,text,initialdir,initialfile,extlist,defext,preservecwd,fn,fnsize,dlgid,dlgProc,hi);
+  return false;
+}
+
+int g_command_id;
+
+static unsigned WINAPI uiThread(void *p)
+{
+  DialogBox(g_hInst,MAKEINTRESOURCE(IDD_DIALOG1),GetDesktopWindow(),liceCapMainProc);
+  return 0;
+}
+
+static bool hookCommandProc(int command, int flag)
+{
+  if (g_command_id && command == g_command_id)
+  {
+    if (!g_hwnd)
+    {
+      unsigned id;
+      HANDLE th=(HANDLE)_beginthreadex(NULL,0,uiThread,NULL,0,&id);
+      CloseHandle(th);
+      Sleep(100);
+    }
+    else
+      SetForegroundWindow(g_hwnd);
+    return true;
+  }
+  return false;
+}
+
+
+extern "C"
+{
+
+REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hInstance, reaper_plugin_info_t *rec)
+{
+  g_hInst=hInstance;
+  if (rec)
+  {
+    if (rec->caller_version != REAPER_PLUGIN_VERSION || !rec->GetFunc)
+      return 0;
+
+    IMPORT_LICE_RPLUG(rec);
+
+    const char *(*get_ini_file)();    
+    *(void **)&get_ini_file = rec->GetFunc("get_ini_file");
+    *(void **)&Audio_RegHardwareHook = rec->GetFunc("Audio_RegHardwareHook");
+    *(void **)&__WDL_ChooseFileForSave = rec->GetFunc("WDL_ChooseFileForSave");
+    *(void **)&Resampler_Create = rec->GetFunc("Resampler_Create");
+    
+    
+    if (!get_ini_file || !Audio_RegHardwareHook || !Resampler_Create || !__WDL_ChooseFileForSave || !VERIFY_LICE_IMPORTED()) return 0;
+
+    reaperAPI_getfunc = rec->GetFunc;
+    g_ini_file.Set(get_ini_file());
+    GetPrivateProfileString("licecap","lastfn","",g_last_fn,sizeof(g_last_fn),g_ini_file.Get());
+
+    g_command_id = rec->Register("command_id","reaper_licecap_window");
+    if (g_command_id)
+    {
+      static gaccel_register_t acc;
+      acc.accel.cmd = g_command_id;
+      acc.desc = "Show REAPER_LICEcap window";
+      rec->Register("gaccel",&acc);
+      rec->Register("hookcommand",(void*)hookCommandProc);
+    }
+
+    return 1;
+  }
+  return 0;
+}
+
+
+};
+
+
+#endif //REAPER_LICECAP
+
+
+
+
+
+
+
+#ifndef _WIN32
 
 #include "../WDL/swell/swell-dlggen.h"
 #include "licecap.rc_mac_dlg"
 
 #endif
+
+
+
+
+
+
