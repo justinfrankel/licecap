@@ -272,6 +272,7 @@ LICECaptureCompressor *g_cap_lcf;
 VideoEncoder *g_cap_video;
 char g_cap_video_ext[32];
 double g_cap_video_lastt;
+int g_cap_video_vbr=256, g_cap_video_abr=64;
 
 void EncodeFrameToVideo(VideoEncoder *enc, LICE_IBitmap *bm, bool force=false)
 {
@@ -570,6 +571,38 @@ void Capture_Finish(HWND hwndDlg)
   g_cap_bm=0;
 }
 
+WDL_DLGRET VideoOptionsProc(HWND hwndDlg, UINT Message, WPARAM wParam, LPARAM lParam)
+{
+  switch(Message)
+  {
+  case WM_INITDIALOG:
+    {
+      SetDlgItemInt(hwndDlg, IDC_EDIT1, g_cap_video_vbr, FALSE);
+      SetDlgItemInt(hwndDlg, IDC_EDIT2, g_cap_video_abr, FALSE);
+    }
+    break;
+  case WM_COMMAND:
+    switch(LOWORD(wParam))
+    {
+    case IDOK:
+    case IDCANCEL:
+      EndDialog(hwndDlg,0);
+    }
+    break;
+    case WM_DESTROY:
+    {
+      BOOL t = FALSE;
+      int a = GetDlgItemInt(hwndDlg, IDC_EDIT1, &t, FALSE);
+      if(t && a>0) g_cap_video_vbr = a;
+      t = FALSE;
+      a = GetDlgItemInt(hwndDlg, IDC_EDIT2, &t, FALSE);
+      if(t && a>0) g_cap_video_abr = a;
+    }
+    break;
+  }
+  return 0;
+}
+
 static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
@@ -586,10 +619,13 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       sprintf(buf, "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
       SetDlgItemText(hwndDlg, IDC_TITLE, (g_title[0] ? g_title : "Title"));
-      SetDlgItemInt(hwndDlg, IDC_LOOPCNT, g_gif_loopcount,FALSE);      
       EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_TITLE), (g_prefs&1));
+      SetDlgItemInt(hwndDlg, IDC_LOOPCNT, g_gif_loopcount,FALSE);
+#ifndef VIDEO_ENCODER_SUPPORT
+      ShowWindow(GetDlgItem(hwndDlg, IDC_BUTTON1), false);
+#endif
     }
     return 0;
     case WM_DESTROY:
@@ -635,6 +671,9 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
           }  
 #endif
         return 0;
+        case IDC_BUTTON1:
+          DialogBox(g_hInst,MAKEINTRESOURCE(IDD_OPTIONS),hwndDlg,VideoOptionsProc);
+        break;
       }
     return 0;
   }
@@ -802,7 +841,6 @@ WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-
 #ifndef _WIN32
 bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut);
 
@@ -824,6 +862,13 @@ void SaveConfig(HWND hwndDlg)
   WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
   sprintf(buf, "%d", g_gif_loopcount);
   WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
+#ifdef VIDEO_ENCODER_SUPPORT
+  sprintf(buf, "%d", g_cap_video_vbr);
+  WritePrivateProfileString("licecap","video_vbr",buf,g_ini_file.Get());
+  sprintf(buf, "%d", g_cap_video_abr);
+  WritePrivateProfileString("licecap","video_abr",buf,g_ini_file.Get());
+#endif
+
 }
 
 static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -841,6 +886,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       SWELL_SetWindowShadow(hwndDlg,false);
       SetNSWindowOpaque(hwndDlg,false);
 #endif
+
       g_wndsize.init(hwndDlg);
       g_wndsize.init_item(IDC_VIEWRECT,0,0,1,1);
       g_wndsize.init_item(IDC_MAXFPS_LBL,0,1,0,1);
@@ -893,6 +939,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file.Get());
       g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file.Get());
       g_title[0]=0;
+
+#ifdef VIDEO_ENCODER_SUPPORT
+      g_cap_video_vbr = GetPrivateProfileInt("licecap", "video_vbr", g_cap_video_vbr, g_ini_file.Get());
+      g_cap_video_abr = GetPrivateProfileInt("licecap", "video_abr", g_cap_video_abr, g_ini_file.Get());
+#endif
 
     return 1;
     case WM_DESTROY:
@@ -1306,7 +1357,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                 if (g_cap_video)
                 {
-                  if (!g_cap_video->open(g_last_fn,"webm", "vp8", "vorbis", 2000, w,h, 30, 128, 44100,2))
+                  if (!g_cap_video->open(g_last_fn,"webm", "vp8", "vorbis", g_cap_video_vbr, w,h, 30, g_cap_video_abr, 44100,2))
                   {
                     delete g_cap_video;
                     g_cap_video=0;
@@ -1845,6 +1896,18 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hI
     }
 
     return 1;
+  }
+  else
+  {
+    //unload
+    if(g_hwnd)
+    {
+      PostMessage(g_hwnd, WM_CLOSE, 0, 0);
+      DWORD t = GetTickCount();
+      while(g_hwnd && (GetTickCount()-t)<5000)
+        Sleep(100);
+    }
+
   }
   return 0;
 }
