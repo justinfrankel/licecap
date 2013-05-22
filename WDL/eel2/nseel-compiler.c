@@ -2905,25 +2905,22 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       ctx->l_stats[0]+=3;
       continue;
     }
-    if (expression[0] == '$')
+    if (expression[0] == '$' && toupper(expression[1]) == 'X')
     {
-      if (toupper(expression[1]) == 'X'||expression[1] == '~')
+      expression[0] = '0'; // change $xF00D to 0xF00D
+    }
+    else if (expression[0] == '$')
+    {
+      if (expression[1] == '~')
       {
-        char isBits = expression[1] == '~';
         char *p=expression+2;
-        unsigned int v=strtoul(expression+2,&p,isBits ? 10 : 16);
+        unsigned int v=strtoul(expression+2,&p,10);
         char tmp[256];
         expression=p;
 
-        if (isBits)
-        {
-          if (v>53) v=53;
-          sprintf(tmp,"%.1f",(double) ((((WDL_INT64)1) << v) - 1));
-        }
-        else
-        {
-          sprintf(tmp,"%u",v);
-        }
+        if (v>53) v=53;
+        sprintf(tmp,"%.1f",(double) ((((WDL_INT64)1) << v) - 1));
+
         memcpy(buf+len,tmp,strlen(tmp));
         len+=strlen(tmp);
         ctx->l_stats[0]+=strlen(tmp);
