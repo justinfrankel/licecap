@@ -154,7 +154,22 @@ static int xlateKey(int msg, int wParam, int lParam)
 	    case VK_F11: return KEY_F11;
 	    case VK_F12: return KEY_F12;
 #ifndef _WIN32
-      case VK_SUBTRACT: return (GetAsyncKeyState(VK_SHIFT)&0x8000)?'_':'-'; // numpad -
+            case VK_SUBTRACT: return '-'; // numpad -
+            case VK_ADD: return '+';
+            case VK_MULTIPLY: return '*';
+            case VK_DIVIDE: return '/';
+            case VK_DECIMAL: return '.';
+            case VK_NUMPAD0: return '0';
+            case VK_NUMPAD1: return '1';
+            case VK_NUMPAD2: return '2';
+            case VK_NUMPAD3: return '3';
+            case VK_NUMPAD4: return '4';
+            case VK_NUMPAD5: return '5';
+            case VK_NUMPAD6: return '6';
+            case VK_NUMPAD7: return '7';
+            case VK_NUMPAD8: return '8';
+            case VK_NUMPAD9: return '9';
+            case (32768|VK_RETURN): return VK_RETURN;
 #endif
     }
     
