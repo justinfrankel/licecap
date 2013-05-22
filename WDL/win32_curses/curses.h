@@ -55,7 +55,7 @@
 #define A_NORMAL 0
 #define A_BOLD 1
 #define COLOR_PAIR(x) ((x)<<NUM_ATTRBITS)
-#define COLOR_PAIRS 8
+#define COLOR_PAIRS 16
 #define NUM_ATTRBITS 1
 
 typedef struct win32CursesCtx
