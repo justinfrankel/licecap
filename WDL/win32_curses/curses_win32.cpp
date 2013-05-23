@@ -178,7 +178,7 @@ static int xlateKey(int msg, int wParam, int lParam)
           }
         }
     }
-	}
+  }
     
 #ifdef _WIN32 // todo : fix for nonwin32
   if (msg == WM_CHAR)
@@ -193,7 +193,7 @@ static int xlateKey(int msg, int wParam, int lParam)
     {
       if (wParam>='A' && wParam<='Z') 
       {
-        if ((GetAsyncKeyState(VK_MENU)&0x8000)) wParam -= 'A'-1;
+        if ((GetAsyncKeyState(VK_LWIN)&0x8000)) wParam -= 'A'-1;
         else
           wParam += 'a'-'A';
       }
