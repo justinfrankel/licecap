@@ -139,10 +139,6 @@ int *NSEEL_getstats()
 {
   return nseel_evallib_stats;
 }
-EEL_F *NSEEL_getglobalregs()
-{
-  return nseel_globalregs;
-}
 
 // this stuff almost works
 static int findByteOffsetInSource(compileContext *ctx, int byteoffs,int *destoffs)
@@ -4228,11 +4224,48 @@ void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
   }
 }
 
+nseel_globalVarItem *nseel_globalreg_list;
+
+static EEL_F *get_global_var(const char *gv, int addIfNotPresent)
+{
+  nseel_globalVarItem *p;
+  NSEEL_HOSTSTUB_EnterMutex(); 
+  p = nseel_globalreg_list;
+  while (p)
+  {
+    if (!stricmp(p->name,gv)) break;
+    p=p->_next;
+  }
+
+  if (!p && addIfNotPresent)
+  {
+    int gvl = strlen(gv);
+    p = (nseel_globalVarItem*)malloc(sizeof(nseel_globalVarItem) + gvl);
+    if (p)
+    {
+      p->data=0.0;
+      strcpy(p->name,gv);
+      p->_next = nseel_globalreg_list;
+      nseel_globalreg_list=p;
+    }
+  }
+  NSEEL_HOSTSTUB_LeaveMutex(); 
+  return p ? &p->data : NULL;
+}
+
+
+
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
 {
   int match_wb = -1, match_ti=-1;
   int wb;
   int ti=0;
+
+  if (!strncasecmp(name,"_global.",8) && name[8])
+  {
+    EEL_F *a=get_global_var(name+8,1);
+    if (a) return a;
+  }
   for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
   {
     char **plist=ctx->varTable_Names[wb];
@@ -4316,10 +4349,6 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
 }
 
 
-
-EEL_F nseel_globalregs[100];
-
-
 //------------------------------------------------------------------------------
 
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx)
@@ -4352,9 +4381,8 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
   
   if (!strncasecmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
   {
-    int x=atoi(var+3);
-    if (x < 0 || x > 99) x=0;
-    return nseel_globalregs + x;
+    EEL_F *a=get_global_var(var,1);
+    if (a) return a;
   }
   
   return nseel_int_register_var(ctx,var,1);
@@ -4395,9 +4423,10 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
   
   lstrcpyn_safe(tmp,sname,sizeof(tmp));
   
-  if (!strncasecmp(tmp,"reg",3) && strlen(tmp) == 5 && isdigit(tmp[3]) && isdigit(tmp[4]) && (i=atoi(tmp+3))>=0 && i<100)
+  if (!strncasecmp(tmp,"reg",3) && isdigit(tmp[3]) && isdigit(tmp[4]) && !tmp[5])
   {
-    return nseel_createCompiledValuePtr(ctx,nseel_globalregs+i);
+    EEL_F *a=get_global_var(tmp,1);
+    if (a) return nseel_createCompiledValuePtr(ctx,a);
   }
   
   // scan for parameters/local variables before user functions   
