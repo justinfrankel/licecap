@@ -186,7 +186,6 @@ static int xlateKey(int msg, int wParam, int lParam)
     if(wParam>=32) return wParam;
   }  
 #else
-  
   //osx/linux
   if (wParam >= 32)
   {
@@ -197,23 +196,6 @@ static int xlateKey(int msg, int wParam, int lParam)
         if ((GetAsyncKeyState(VK_MENU)&0x8000)) wParam -= 'A'-1;
         else
           wParam += 'a'-'A';
-      }
-    }
-    else
-    {
-      if (wParam=='-') wParam='_';
-      else if (wParam>='0' && wParam<='9')
-      {
-        if (wParam=='0') wParam = ')';
-        else if (wParam=='1') wParam = '!';
-        else if (wParam=='2') wParam = '@';
-        else if (wParam=='3') wParam = '#';
-        else if (wParam=='4') wParam = '$';
-        else if (wParam=='5') wParam = '%';
-        else if (wParam=='6') wParam = '^';
-        else if (wParam=='7') wParam = '&';
-        else if (wParam=='8') wParam = '*';
-        else if (wParam=='9') wParam = '(';
       }
     }
     return wParam;
