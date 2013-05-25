@@ -4233,7 +4233,7 @@ static EEL_F *get_global_var(const char *gv, int addIfNotPresent)
   p = nseel_globalreg_list;
   while (p)
   {
-    if (!stricmp(p->name,gv)) break;
+    if (!strcasecmp(p->name,gv)) break;
     p=p->_next;
   }
 
