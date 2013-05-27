@@ -4594,7 +4594,6 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
     char *p;
     return nseel_createCompiledValue(ctx,(EEL_F)strtoul(tmp+2,&p,16));
   }
-  if (strstr(tmp,".")) return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
-  return nseel_createCompiledValue(ctx,(EEL_F)atoi(tmp)); // todo: this could be atof()  too, eventually, but that might break things
+  return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }
 
