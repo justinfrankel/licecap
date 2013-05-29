@@ -154,7 +154,8 @@ static void staticPngReadFunc(png_structp png_ptr, png_bytep data, png_size_t le
   pngReadStruct *readStruct = (pngReadStruct *)png_get_io_ptr(png_ptr);
   memset(data, 0, length);
 
-  int l = min((int)length, readStruct->len);
+  int l = (int)length;
+  if (l > readStruct->len) l = readStruct->len;
   memcpy(data, readStruct->data, l);
   readStruct->data += l;
   readStruct->len -= l;

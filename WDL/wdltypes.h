@@ -73,5 +73,10 @@ typedef bool WDL_bool;
 #endif
 
 
+#ifndef max
+#define max(x,y) ((x)<(y)?(y):(x))
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
+
 
 #endif

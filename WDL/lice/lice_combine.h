@@ -1,11 +1,17 @@
 #ifndef _LICE_COMBINE_H_
 #define _LICE_COMBINE_H_
 
+
 #if defined(_MSC_VER)
 #pragma warning(disable:4244) // float-to-int
 #endif
 
 #define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
+
+#ifndef max
+#define max(x,y) ((x)<(y)?(y):(x))
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
 
 
 
