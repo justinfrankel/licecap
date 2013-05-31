@@ -84,10 +84,48 @@ static int MacKeyCodeToVK(int code)
 bool IsRightClickEmulateEnabled();
 
 
-int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
+
+static int charFromVcode(int keyCode) // used for getting the root char (^, `) from dead keys on other keyboards,
+                                       // only used when using MacKeyToWindowsKeyEx() with mode=1, for now 
+{
+  TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
+  CFDataRef uchr = (CFDataRef)TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+  const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(uchr);
+
+  if(keyboardLayout)
+  {
+    UInt32 deadKeyState = 0;
+    UniCharCount maxStringLength = 255;
+    UniCharCount actualStringLength = 0;
+    UniChar unicodeString[maxStringLength];
+
+    OSStatus status = UCKeyTranslate(keyboardLayout,
+                                     keyCode, kUCKeyActionDown, 0,
+                                     LMGetKbdType(), 0,
+                                     &deadKeyState,
+                                     maxStringLength,
+                                     &actualStringLength, unicodeString);
+
+    if (actualStringLength == 0 && deadKeyState)
+    {
+        status = UCKeyTranslate(keyboardLayout,
+                                         kVK_Space, kUCKeyActionDown, 0,
+                                         LMGetKbdType(), 0,
+                                         &deadKeyState,
+                                         maxStringLength,
+                                         &actualStringLength, unicodeString);   
+    }
+    if(actualStringLength > 0 && status == noErr) return unicodeString[0]; 
+  }
+  return 0;
+}
+
+int SWELL_MacKeyToWindowsKeyEx(void *nsevent, int *flags, int mode)
 {
   NSEvent *theEvent = (NSEvent *)nsevent;
-	int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
+  if (!theEvent) theEvent = [NSApp currentEvent];
+
+  int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
                                    //	if ([theEvent isARepeat]) return;
     
   int flag=0;
@@ -101,13 +139,20 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
   int code=MacKeyCodeToVK(rawcode);
   if (!code)
   {
-    NSString *str=[theEvent charactersIgnoringModifiers];
-//    if (!str || ![str length]) str=[theEvent characters];
+    NSString *str=NULL;
+    if (mode == 1) str=[theEvent characters];
+
+    if (!str || ![str length]) str=[theEvent charactersIgnoringModifiers];
 
     if (!str || ![str length]) 
     {
-      code = 1024+rawcode; // raw code
-      flag|=FVIRTKEY;
+      if (mode==1) code=charFromVcode(rawcode);
+
+      if (!code)
+      {
+        code = 1024+rawcode; // raw code
+        flag|=FVIRTKEY;
+      }
     }
     else
     {
@@ -127,6 +172,12 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
   
   if (flags) *flags=flag;
   return code;
+}
+
+int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
+{
+  if (!nsevent) return 0;
+  return SWELL_MacKeyToWindowsKeyEx(nsevent,flags,0);
 }
 
 int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
