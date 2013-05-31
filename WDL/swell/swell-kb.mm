@@ -88,14 +88,24 @@ bool IsRightClickEmulateEnabled();
 static int charFromVcode(int keyCode) // used for getting the root char (^, `) from dead keys on other keyboards,
                                        // only used when using MacKeyToWindowsKeyEx() with mode=1, for now 
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4
+  static char loaded;
+  static TISInputSourceRef (*_TISCopyCurrentKeyboardInputSource)( void);
+  static void* (*_TISGetInputSourceProperty) ( TISInputSourceRef inputSource, CFStringRef propertyKey);
 
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
-  if (!TISCopyCurrentKeyboardInputSource || !TISGetInputSourceProperty) return 0; 
-#endif
-
-  TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
-  CFDataRef uchr = (CFDataRef)TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+  if (!loaded)
+  {
+    loaded++;
+    CFBundleRef b = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.Carbon"));
+    if (b)
+    {
+      *(void **)&_TISGetInputSourceProperty = CFBundleGetFunctionPointerForName(b,CFSTR("TISGetInputSourceProperty"));
+      *(void **)&_TISCopyCurrentKeyboardInputSource = CFBundleGetFunctionPointerForName(b,CFSTR("TISCopyCurrentKeyboardInputSource"));
+    }
+  }
+  if (!_TISCopyCurrentKeyboardInputSource || !_TISGetInputSourceProperty) return 0;
+  
+  TISInputSourceRef currentKeyboard = _TISCopyCurrentKeyboardInputSource();
+  CFDataRef uchr = (CFDataRef)_TISGetInputSourceProperty(currentKeyboard, CFSTR("TISPropertyUnicodeKeyLayoutData"));
   const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(uchr);
 
   if(keyboardLayout)
@@ -123,7 +133,6 @@ static int charFromVcode(int keyCode) // used for getting the root char (^, `) f
     }
     if(actualStringLength > 0 && status == noErr) return unicodeString[0]; 
   }
-#endif
   return 0;
 }
 
