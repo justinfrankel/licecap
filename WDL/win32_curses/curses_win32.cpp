@@ -268,6 +268,14 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #ifdef WIN32_CONSOLE_KBQUEUE
   case WM_CHAR: case WM_KEYDOWN: 
 
+#ifdef __APPLE__
+        {
+          int f=0;
+          wParam = SWELL_MacKeyToWindowsKeyEx(NULL,&f,1);
+          lParam=f;
+        }
+#endif
+
     {
       int a=xlateKey(uMsg,wParam,lParam);
       if (a != ERR && ctx->m_kbq)
