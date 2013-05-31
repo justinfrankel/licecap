@@ -88,6 +88,12 @@ bool IsRightClickEmulateEnabled();
 static int charFromVcode(int keyCode) // used for getting the root char (^, `) from dead keys on other keyboards,
                                        // only used when using MacKeyToWindowsKeyEx() with mode=1, for now 
 {
+#if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4
+
+#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
+  if (!TISCopyCurrentKeyboardInputSource || !TISGetInputSourceProperty) return 0; 
+#endif
+
   TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
   CFDataRef uchr = (CFDataRef)TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
   const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(uchr);
@@ -117,6 +123,7 @@ static int charFromVcode(int keyCode) // used for getting the root char (^, `) f
     }
     if(actualStringLength > 0 && status == noErr) return unicodeString[0]; 
   }
+#endif
   return 0;
 }
 
