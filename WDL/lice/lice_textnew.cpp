@@ -166,8 +166,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   }
   else ent = m_lowchars+idx;
 
-  int bmsz=m_line_height;
-  if (bmsz<1) bmsz=1;
+  const int bmsz=max(m_line_height,1) * 2 + 8;
   if (s_tempbitmap.getWidth() < bmsz || s_tempbitmap.getHeight() < bmsz)
   {
     s_tempbitmap.resize(bmsz,bmsz);
@@ -206,6 +205,10 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     ::DrawText(s_tempbitmap.getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
   }
 
+  if (advance > s_tempbitmap.getWidth()) advance=s_tempbitmap.getWidth();
+  if (r.right > s_tempbitmap.getWidth()) r.right=s_tempbitmap.getWidth();
+  if (r.bottom > s_tempbitmap.getHeight()) r.bottom=s_tempbitmap.getHeight();
+
   if (oldFont) SelectObject(s_tempbitmap.getDC(),oldFont);
 
   if (r.right < 1 || r.bottom < 1) 
@@ -225,124 +228,133 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     int span=s_tempbitmap.getRowSpan();
 
     ent->base_offset=m_cachestore.GetSize()+1;
-    unsigned char *destbuf = m_cachestore.Resize(ent->base_offset-1+r.right*r.bottom) + ent->base_offset-1;
-    if (s_tempbitmap.isFlipped())
+    const int newsz = ent->base_offset-1+r.right*r.bottom;
+    unsigned char *destbuf = m_cachestore.Resize(newsz) + ent->base_offset-1;
+    if (m_cachestore.GetSize() != newsz)
     {
-      srcbuf += (s_tempbitmap.getHeight()-1)*span;
-      span=-span;
+      ent->base_offset=-1;
+      ent->advance=ent->width=ent->height=0;
     }
-    int x,y;
-    for(y=0;y<r.bottom;y++)
+    else
     {
-      if (flags&LICE_FONT_FLAG_FX_INVERT)
-        for (x=0;x<r.right;x++)
-          *destbuf++ = 255-((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
-      else
-        for (x=0;x<r.right;x++)
-          *destbuf++ = ((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
-
-      srcbuf += span;
-    }
-    destbuf -= r.right*r.bottom;
-
-    if (flags&LICE_FONT_FLAG_VERTICAL)
-    {
-      int a=r.bottom; r.bottom=r.right; r.right=a;
-
-      unsigned char *tmpbuf = (unsigned char *)s_tempbitmap.getBits();
-      memcpy(tmpbuf,destbuf,r.right*r.bottom);
-
-      int dptr=r.bottom;
-      int dtmpbuf=1;
-      if (!(flags&LICE_FONT_FLAG_VERTICAL_BOTTOMUP))
+      if (s_tempbitmap.isFlipped())
       {
-        tmpbuf += (r.right-1)*dptr;
-        dptr=-dptr;
+        srcbuf += (s_tempbitmap.getHeight()-1)*span;
+        span=-span;
       }
-      else
-      {
-        tmpbuf+=r.bottom-1;
-        dtmpbuf=-1;
-      }
-
+      int x,y;
       for(y=0;y<r.bottom;y++)
       {
-        unsigned char *ptr=tmpbuf;
-        tmpbuf+=dtmpbuf;
-        for(x=0;x<r.right;x++)
+        if (flags&LICE_FONT_FLAG_FX_INVERT)
+          for (x=0;x<r.right;x++)
+            *destbuf++ = 255-((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+        else
+          for (x=0;x<r.right;x++)
+            *destbuf++ = ((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+
+        srcbuf += span;
+      }
+      destbuf -= r.right*r.bottom;
+
+      if (flags&LICE_FONT_FLAG_VERTICAL)
+      {
+        int a=r.bottom; r.bottom=r.right; r.right=a;
+  
+        unsigned char *tmpbuf = (unsigned char *)s_tempbitmap.getBits();
+        memcpy(tmpbuf,destbuf,r.right*r.bottom);
+  
+        int dptr=r.bottom;
+        int dtmpbuf=1;
+        if (!(flags&LICE_FONT_FLAG_VERTICAL_BOTTOMUP))
         {
-          *destbuf++=*ptr;
-          ptr+=dptr;
+          tmpbuf += (r.right-1)*dptr;
+          dptr=-dptr;
         }
+        else
+        {
+          tmpbuf+=r.bottom-1;
+          dtmpbuf=-1;
+        }
+  
+        for(y=0;y<r.bottom;y++)
+        {
+          unsigned char *ptr=tmpbuf;
+          tmpbuf+=dtmpbuf;
+          for(x=0;x<r.right;x++)
+          {
+            *destbuf++=*ptr;
+            ptr+=dptr;
+          }
+        }
+        destbuf -= r.right*r.bottom;
       }
-      destbuf -= r.right*r.bottom;
-    }
-    if (flags&LICE_FONT_FLAG_FX_MONO)
-    {
-      for(y=0;y<r.bottom;y++) for (x=0;x<r.right;x++) 
+      if (flags&LICE_FONT_FLAG_FX_MONO)
       {
-        *destbuf = *destbuf>130 ? 255:0;
-        destbuf++;
-      }
-
-      destbuf -= r.right*r.bottom;
-    }
-    if (flags&(LICE_FONT_FLAG_FX_SHADOW|LICE_FONT_FLAG_FX_OUTLINE))
-    {
-      for(y=0;y<r.bottom;y++)
-        for (x=0;x<r.right;x++)
+        for(y=0;y<r.bottom;y++) for (x=0;x<r.right;x++) 
         {
           *destbuf = *destbuf>130 ? 255:0;
           destbuf++;
         }
-
-      destbuf -= r.right*r.bottom;
-      if (flags&LICE_FONT_FLAG_FX_SHADOW)
+  
+        destbuf -= r.right*r.bottom;
+      }
+      if (flags&(LICE_FONT_FLAG_FX_SHADOW|LICE_FONT_FLAG_FX_OUTLINE))
       {
         for(y=0;y<r.bottom;y++)
           for (x=0;x<r.right;x++)
           {
-            if (!*destbuf)
-            {
-              if (x>0)
-              {
-                if (destbuf[-1]==255) *destbuf=128;
-                else if (y>0 && destbuf[-r.right-1]==255) *destbuf=128;
-              }
-              if (y>0 && destbuf[-r.right]==255) *destbuf=128;
-            }
+            *destbuf = *destbuf>130 ? 255:0;
             destbuf++;
           }
-      }
-      else
-      {
-        for(y=0;y<r.bottom;y++)
-          for (x=0;x<r.right;x++)
-          {
-            if (!*destbuf)
+  
+        destbuf -= r.right*r.bottom;
+        if (flags&LICE_FONT_FLAG_FX_SHADOW)
+        {
+          for(y=0;y<r.bottom;y++)
+            for (x=0;x<r.right;x++)
             {
-              if (y>0 && destbuf[-r.right]==255) *destbuf=128;
-              else if (y<r.bottom-1 && destbuf[r.right]==255) *destbuf=128;
-              else if (x>0)
+              if (!*destbuf)
               {
-                if (destbuf[-1]==255) *destbuf=128;
+                if (x>0)
+                {
+                  if (destbuf[-1]==255) *destbuf=128;
+                  else if (y>0 && destbuf[-r.right-1]==255) *destbuf=128;
+                }
+                if (y>0 && destbuf[-r.right]==255) *destbuf=128;
+              }
+              destbuf++;
+            }
+        }
+        else
+        {
+          for(y=0;y<r.bottom;y++)
+            for (x=0;x<r.right;x++)
+            {
+              if (!*destbuf)
+              {
+                if (y>0 && destbuf[-r.right]==255) *destbuf=128;
+                else if (y<r.bottom-1 && destbuf[r.right]==255) *destbuf=128;
+                else if (x>0)
+                {
+                  if (destbuf[-1]==255) *destbuf=128;
       //          else if (y>0 && destbuf[-r.right-1]==255) *destbuf=128;
     //            else if (y<r.bottom-1 && destbuf[r.right-1]==255) *destbuf=128;
-              }
-
-              if (x<r.right-1)
-              {
-                if (destbuf[1]==255) *destbuf=128;
+                }
+  
+                if (x<r.right-1)
+                {
+                  if (destbuf[1]==255) *destbuf=128;
 //                else if (y>0 && destbuf[-r.right+1]==255) *destbuf=128;
   //              else if (y<r.bottom-1 && destbuf[r.right+1]==255) *destbuf=128;
+                }
               }
+              destbuf++;
             }
-            destbuf++;
-          }
+        }
       }
+      ent->width = r.right;
+      ent->height = r.bottom;
     }
-    ent->width = r.right;
-    ent->height = r.bottom;
   }
   if (needSort&&m_extracharlist.GetSize()>1) qsort(m_extracharlist.Get(),m_extracharlist.GetSize(),sizeof(charEnt),_charSortFunc);
 
