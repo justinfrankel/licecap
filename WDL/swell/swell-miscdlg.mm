@@ -313,40 +313,42 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
   int ret=0;
 
   NSString *tit=(NSString *)SWELL_CStringToCFString(caption?caption:""); 
+  NSString *text2=(NSString *)SWELL_CStringToCFString(text?text:"");
   
   if (type == MB_OK)
   {
-    NSRunAlertPanel(tit,@"%s",@"OK",@"",@"",text?text:"");
+    NSRunAlertPanel(tit,@"%@",@"OK",@"",@"",text2);
     ret=IDOK;
   }	
   else if (type == MB_OKCANCEL)
   {
-    ret=NSRunAlertPanel(tit,@"%s",@"OK",@"Cancel",@"",text?text:"");
+    ret=NSRunAlertPanel(tit,@"%@",@"OK",@"Cancel",@"",text2);
     if (ret) ret=IDOK;
     else ret=IDCANCEL;
   }
   else if (type == MB_YESNO)
   {
-    ret=NSRunAlertPanel(tit,@"%s",@"Yes",@"No",@"",text?text:"");
+    ret=NSRunAlertPanel(tit,@"%@",@"Yes",@"No",@"",text2);
   //  printf("ret=%d\n",ret);
     if (ret) ret=IDYES;
     else ret=IDNO;
   }
   else if (type == MB_RETRYCANCEL)
   {
-    ret=NSRunAlertPanel(tit,@"%s",@"Retry",@"Cancel",@"",text?text:"");
+    ret=NSRunAlertPanel(tit,@"%@",@"Retry",@"Cancel",@"",text2);
 //    printf("ret=%d\n",ret);
     if (ret) ret=IDRETRY;
     else ret=IDCANCEL;
   }
   else if (type == MB_YESNOCANCEL)
   {
-    ret=NSRunAlertPanel(tit,@"%s",@"Yes",@"Cancel",@"No",text?text:"");
+    ret=NSRunAlertPanel(tit,@"%@",@"Yes",@"Cancel",@"No",text2);
     if (ret == 1) ret=IDYES;
     else if (ret==-1) ret=IDNO;
     else ret=IDCANCEL;
   }
   
+  [text2 release];
   [tit release];
   
   return ret; 
