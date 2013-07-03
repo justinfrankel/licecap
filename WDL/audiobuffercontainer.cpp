@@ -450,7 +450,7 @@ void AudioBufferContainer::CopyFrom(AudioBufferContainer* rhs)
 }
 
 
-void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper)
+void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, int forceMinChanCnt)
 {
   if (mapper->IsStraightPassthrough())
   {
@@ -458,18 +458,19 @@ void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, 
     return;
   }
 
-  int nch = mapper->GetNChannels();
-  int npins = mapper->GetNPins();
-  int nframes = src->GetNFrames();
-  int fmt = src->GetFormat();
+  const int nch = mapper->GetNChannels();
+  const int npins = mapper->GetNPins();
+  const int nframes = src->GetNFrames();
+  const int fmt = src->GetFormat();
+  const int np = max(npins,forceMinChanCnt);
   
-  dest->Resize(npins, nframes, false);
+  dest->Resize(np, nframes, false);
   
   int c, p;
-  for (p = 0; p < npins; ++p)
+  for (p = 0; p < np; ++p)
   {
     bool pinused = false;  
-    for (c = 0; c < nch; ++c)
+    if (p < npins) for (c = 0; c < nch; ++c)
     {
       if (mapper->GetPin(p, c))
       {

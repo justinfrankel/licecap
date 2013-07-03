@@ -99,7 +99,7 @@ private:
 } WDL_FIXALIGN;
 
 
-void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper);
+void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, int forceMinChanCnt=0);
 void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, double wt_start=1.0, double wt_end=1.0);
 
 
