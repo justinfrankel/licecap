@@ -1482,7 +1482,8 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (msg == EM_GETSEL)
       {
         NSRange range={0,};
-        if ([[obj window] firstResponder] == obj)
+        NSResponder *rs = [[obj window] firstResponder];
+        if ([rs isKindOfClass:[NSView class]] && [rs isDescendantOf:obj])
         {
           NSText* text=[[obj window] fieldEditor:YES forObject:(NSTextField*)obj];  
           if (text) range=[text selectedRange];
@@ -1494,7 +1495,8 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       {        
         //        [(NSTextField*)obj selectText:obj]; // Force the window's text field editor onto this control
         // don't force it, just ignore EM_GETSEL/EM_SETSEL if not in focus
-        if ([[obj window] firstResponder] == obj)
+        NSResponder *rs = [[obj window] firstResponder];
+        if ([rs isKindOfClass:[NSView class]] && [rs isDescendantOf:obj])
         {
           NSText* text = [[obj window] fieldEditor:YES forObject:(NSTextField*)obj]; // then get it from the window 
           int sl = [[text string] length];
