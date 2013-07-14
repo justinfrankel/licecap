@@ -1066,10 +1066,6 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VARPTR) 
             {
               rn=ordered_parmptrs[x]->relname;
-              if (rn && !strcasecmp(rn,"this")) 
-              {
-                rn=namespacePathToThis && namespacePathToThis->namespacePathToThis ? namespacePathToThis->namespacePathToThis : "."; // special case: if "this", resolve to this
-              }
             }
             else if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VALUE_FROM_NAMESPACENAME)
             {
@@ -1625,7 +1621,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     
     combineNamespaceFields(nm,functionPrefix,op->relname,op->namespaceidx);
     
-    b = nseel_int_register_var(ctx,nm[0] ? nm : "this",0);
+    b = nseel_int_register_var(ctx,nm,0);
     if (!b) RET_MINUS1_FAIL("error registering var")
   }
   else
@@ -4480,16 +4476,19 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     if (a) return nseel_createCompiledValuePtr(ctx,a, NULL);
   }
 
-  if (!strncasecmp(tmp,"this.",5))
+  if (ctx->function_curName)
   {
-    rel_prefix_len=5;
-    rel_prefix_idx=-1;
-  } 
-  else if (!strcasecmp(tmp,"this"))
-  {
-    rel_prefix_len=4;
-    rel_prefix_idx=-1;
-  } 
+    if (!strncasecmp(tmp,"this.",5))
+    {
+      rel_prefix_len=5;
+      rel_prefix_idx=-1;
+    } 
+    else if (!strcasecmp(tmp,"this"))
+    {
+      rel_prefix_len=4;
+      rel_prefix_idx=-1;
+    } 
+  }
   
   // scan for parameters/local variables before user functions   
   if (!rel_prefix_len &&
