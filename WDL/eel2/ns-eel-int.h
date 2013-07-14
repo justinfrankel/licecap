@@ -55,13 +55,6 @@ enum {
 
   FUNCTYPE_FUNCTIONTYPEREC, // fn is a functionType *
   FUNCTYPE_EELFUNC, // fn is a _codeHandleFunctionRec *
-
-
-    // _codeHandleFunctionRec*, relname in opcode field is the namespace specifier 
-    // (i.e. if called via this.something.function(), "something".)
-    // note that calls to function() or some.function() are both normal FUNCTYPE_EELFUNC calls, as they can be resolved
-    // earlier in the process
-  FUNCTYPE_EELFUNC_THIS,  // fn is a _codeHandleFunctionRec * to base function, relname set
 };
 
 
@@ -105,9 +98,10 @@ typedef struct _codeHandleFunctionRec
   EEL_F **localstorage; 
 
   int isCommonFunction;
-  int usesThisPointer;
+  int usesNamespaces;
+  unsigned int parameterAsNamespaceMask;
 
-  char fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
+  char fname[NSEEL_MAX_FUNCSIG_NAME+1];
 } _codeHandleFunctionRec;  
   
 #define LLB_DSIZE (65536-64)
@@ -189,7 +183,7 @@ typedef struct _compileContext
   struct opcodeRec *directValueCache; // linked list using fn as next
 
   int isSharedFunctions;
-  int function_usesThisPointer;
+  int function_usesNamespaces;
   // [0] is parameter+local symbols (combined space)
   // [1] is symbols which get implied "this." if used
   int function_localTable_Size[2]; // for parameters only
@@ -239,16 +233,16 @@ typedef struct
 extern functionType *nseel_getFunctionFromTable(int idx);
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
-opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue);
+opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr);
 opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue);
 
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2);
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2);
 opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, void *fn);
-opcodeRec *nseel_createCompiledFunctionCallEELThis(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext);
+opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext, int namespaceidx);
 opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
-opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName);
+opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx);
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
