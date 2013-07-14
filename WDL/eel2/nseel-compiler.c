@@ -1069,13 +1069,12 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             }
             else if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VALUE_FROM_NAMESPACENAME)
             {
-              tmp[0]=0;
               combineNamespaceFields(tmp,namespacePathToThis,ordered_parmptrs[x]->relname,ordered_parmptrs[x]->namespaceidx);
               rn = tmp;
             }
           }
           
-          if (!rn) return 0;
+          if (!rn) return NULL;
           lstrcatn(nm,":",sizeof(nm));
 
           local_namespace.subParmInfo[x] = nm+strlen(nm);
@@ -1617,12 +1616,17 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
   EEL_F *b=NULL;
   if (op->opcodeType==OPCODETYPE_VALUE_FROM_NAMESPACENAME)
   {
-    char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
+    if (bufOut)
+    {
+      char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
     
-    combineNamespaceFields(nm,functionPrefix,op->relname,op->namespaceidx);
+      combineNamespaceFields(nm,functionPrefix,op->relname,op->namespaceidx);
+
+      if (!nm[0]) return -1;
     
-    b = nseel_int_register_var(ctx,nm,0);
-    if (!b) RET_MINUS1_FAIL("error registering var")
+      b = nseel_int_register_var(ctx,nm,0);
+      if (!b) RET_MINUS1_FAIL("error registering var")
+    }
   }
   else
   {
