@@ -1633,6 +1633,11 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     if (op->opcodeType != OPCODETYPE_DIRECTVALUE) allowCache=0;
 
     b=op->parms.dv.valuePtr;
+    if (!b && op->opcodeType == OPCODETYPE_VARPTR && op->relname[0]) 
+    {
+      op->parms.dv.valuePtr = b = nseel_int_register_var(ctx,op->relname,0);
+    }
+
     if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
     if (!b && allowCache)
     {
@@ -2704,6 +2709,11 @@ void dumpOp(compileContext *ctx, opcodeRec *op, int start)
           fprintf(g_debugfp,"dv %f",op->parms.dv.directValue);
         break;
         case OPCODETYPE_VARPTR:
+          if (op->relname[0])
+          {
+            fprintf(g_debugfp,"var %s",op->relname);
+          }
+          else
           {
             int wb; 
             for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
@@ -4639,8 +4649,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
   }
   else
   {
-    EEL_F *p=nseel_int_register_var(ctx,tmp,0);
-    if (p) return nseel_createCompiledValuePtr(ctx,p,tmp);
+    return nseel_createCompiledValuePtr(ctx,NULL,tmp);
   }
 
   return nseel_createCompiledValue(ctx,0.0);
