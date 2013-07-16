@@ -4565,51 +4565,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
   } // ctx->function_curName
  
 
-  // if in a function, the parameters/locals/instance values will be used rather than builtin functions.
-  // in this case, any number of things can happen: parse errors, change of logic of ?: (_if being overridden), etc.
-  // kinda neat, imo, hopefully nobody will get bitten by it.
-  
-  if (rel_prefix_idx < -1)
-  {
-    const char *nptr = sname;
-    int i;    
-
-#ifdef NSEEL_EEL1_COMPAT_MODE
-    if (!strcasecmp(nptr,"if")) nptr="_if";
-    else if (!strcasecmp(nptr,"bnot")) nptr="_not";
-    else if (!strcasecmp(nptr,"assign")) nptr="_set";
-    else if (!strcasecmp(nptr,"equal")) nptr="_equal";
-    else if (!strcasecmp(nptr,"below")) nptr="_below";
-    else if (!strcasecmp(nptr,"above")) nptr="_above";
-    else if (!strcasecmp(nptr,"megabuf")) nptr="_mem";
-    else if (!strcasecmp(nptr,"gmegabuf")) nptr="_gmem";
-#endif
-    
-    for (i=0;nseel_getFunctionFromTable(i);i++)
-    {
-      functionType *f=nseel_getFunctionFromTable(i);
-      if (!strcasecmp(f->name, nptr))
-      {
-        int np=f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK;
-        switch (np)
-        {
-          case 0:
-          case 1: *typeOfObject = FUNCTION1; break;
-          case 2: *typeOfObject = FUNCTION2; break;
-          case 3: *typeOfObject = FUNCTION3; break;
-          default: 
-#ifndef NSEEL_USE_OLD_PARSER
-            *typeOfObject = FUNCTIONX; // newly supported X-parameter functions
-#else
-            *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
-#endif
-            break;
-        }
-        return nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
-      }
-    }
-  }
-
+  // resolve user function names before builtin functions -- this allows the user to override default functions, or even _if(), _above(), etc
   {
     _codeHandleFunctionRec *best=NULL;
     int bestlen=0;
@@ -4654,9 +4610,51 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
       return nseel_createCompiledEELFunctionCall(ctx,best,ourcall, rel_prefix_idx);
     }    
   }
-  
+
   // instance variables
   if (rel_prefix_idx >= -1) return nseel_createCompiledValueFromNamespaceName(ctx,sname+rel_prefix_len,rel_prefix_idx);
+
+
+  // resolve built-in functions last
+  {
+    const char *nptr = sname;
+    int i;    
+
+#ifdef NSEEL_EEL1_COMPAT_MODE
+    if (!strcasecmp(nptr,"if")) nptr="_if";
+    else if (!strcasecmp(nptr,"bnot")) nptr="_not";
+    else if (!strcasecmp(nptr,"assign")) nptr="_set";
+    else if (!strcasecmp(nptr,"equal")) nptr="_equal";
+    else if (!strcasecmp(nptr,"below")) nptr="_below";
+    else if (!strcasecmp(nptr,"above")) nptr="_above";
+    else if (!strcasecmp(nptr,"megabuf")) nptr="_mem";
+    else if (!strcasecmp(nptr,"gmegabuf")) nptr="_gmem";
+#endif
+    
+    for (i=0;nseel_getFunctionFromTable(i);i++)
+    {
+      functionType *f=nseel_getFunctionFromTable(i);
+      if (!strcasecmp(f->name, nptr))
+      {
+        int np=f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK;
+        switch (np)
+        {
+          case 0:
+          case 1: *typeOfObject = FUNCTION1; break;
+          case 2: *typeOfObject = FUNCTION2; break;
+          case 3: *typeOfObject = FUNCTION3; break;
+          default: 
+#ifndef NSEEL_USE_OLD_PARSER
+            *typeOfObject = FUNCTIONX; // newly supported X-parameter functions
+#else
+            *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
+#endif
+            break;
+        }
+        return nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
+      }
+    }
+  }  
 
   return nseel_createCompiledValuePtr(ctx,NULL,sname);
 }
