@@ -3561,7 +3561,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
         int had_parms_locals=0;
         char *sp=p;
         int l;
-        while (isalnum(p[0]) || p[0] == '_') p++;
+        while (isalnum(p[0]) || p[0] == '_' || p[0] == '.') p++;
         l=min(p-sp, sizeof(is_fname)-1);
         memcpy(is_fname, sp, l);
         is_fname[l]=0;
@@ -4604,45 +4604,49 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
   } 
   
   {
-    _codeHandleFunctionRec *fr = NULL;
-    
-    const char *postName = tmp;
-    while (*postName) postName++;
-    while (postName >= tmp && *postName != '.') postName--;
-    if (++postName <= tmp) postName=0;
-    
-    if (!fr)
+    _codeHandleFunctionRec *best=NULL;
+    int bestlen=0;
+    const char *ourcall = tmp+rel_prefix_len;
+    const int ourcall_len = strlen(ourcall);
+    int pass;
+    for (pass=0;pass<2;pass++)
     {
-      fr = ctx->functions_local;
+      _codeHandleFunctionRec *fr = pass ? ctx->functions_common : ctx->functions_local;
+      // tmp is [namespace.[ns.]]function, find best match of function that matches the right end   
       while (fr)
       {
-        if (!strcasecmp(fr->fname,postName?postName:tmp)) break;
+        const char *thisfunc = fr->fname;
+        const int thisfunc_len = strlen(thisfunc);
+        if (thisfunc_len == ourcall_len && !strcasecmp(thisfunc,ourcall))
+        {
+          bestlen = ourcall_len;
+          best = fr;
+          break; // found exact match, finished
+        }
+
+        if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !strcasecmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
+        {
+          bestlen = ourcall_len;
+          best = fr;
+        }
         fr=fr->next;
       }
-    }
-    if (!fr)
-    {
-      fr = ctx->functions_common;
-      while (fr)
-      {
-        if (!strcasecmp(fr->fname,postName?postName:tmp)) break;
-        fr=fr->next;
-      }
+      if (fr) break; // found exact match, finished
     }
     
-    if (fr)
+    if (best)
     {
       *typeOfObject=
 #ifndef NSEEL_USE_OLD_PARSER
-        fr->num_params>3 ?FUNCTIONX :
+        best->num_params>3 ?FUNCTIONX :
 #endif       
-        fr->num_params>=3?FUNCTION3 : 
-        fr->num_params==2?FUNCTION2 : 
+        best->num_params>=3?FUNCTION3 : 
+        best->num_params==2?FUNCTION2 : 
                           FUNCTION1;
 
 
       if (rel_prefix_idx>=-1) ctx->function_usesNamespaces = 1;                          
-      return nseel_createCompiledEELFunctionCall(ctx,fr,tmp+rel_prefix_len, rel_prefix_idx);
+      return nseel_createCompiledEELFunctionCall(ctx,best,tmp+rel_prefix_len, rel_prefix_idx);
     }    
   }
   
