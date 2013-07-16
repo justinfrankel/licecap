@@ -59,7 +59,9 @@ enum {
 
   EEL_BC_BNOT,
   EEL_BC_EQUAL,
+  EEL_BC_EQUAL_EXACT,
   EEL_BC_NOTEQUAL,
+  EEL_BC_NOTEQUAL_EXACT,
   EEL_BC_ABOVE,
   EEL_BC_BELOWEQ,
 
@@ -301,6 +303,8 @@ BC_DECLASM(repeatwhile,NOP)
 
 BC_DECLASM(bnot,BNOT)
 BC_DECLASM(equal,EQUAL)
+BC_DECLASM(equal_exact,EQUAL_EXACT)
+BC_DECLASM(notequal_exact,NOTEQUAL_EXACT)
 BC_DECLASM(notequal,NOTEQUAL)
 BC_DECLASM(above,ABOVE)
 BC_DECLASM(beloweq,BELOWEQ)
@@ -391,6 +395,7 @@ BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 #define nseel_asm_repeatwhile_end EEL_BC_ENDOF(nseel_asm_repeatwhile)
 #define nseel_asm_bnot_end EEL_BC_ENDOF(nseel_asm_bnot)
 #define nseel_asm_equal_end EEL_BC_ENDOF(nseel_asm_equal)
+#define nseel_asm_equal_exact_end EEL_BC_ENDOF(nseel_asm_equal_exact)
 #define nseel_asm_notequal_end EEL_BC_ENDOF(nseel_asm_notequal)
 #define nseel_asm_above_end EEL_BC_ENDOF(nseel_asm_above)
 #define nseel_asm_beloweq_end EEL_BC_ENDOF(nseel_asm_beloweq)
@@ -668,8 +673,16 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
         p1 = fabs(fp_top - fp_top2) < NSEEL_CLOSEFACTOR ? EEL_BC_TRUE : NULL;
         fp_rewind(2);
       break;
+      case EEL_BC_EQUAL_EXACT:
+        p1 = fp_top == fp_top2 ? EEL_BC_TRUE : NULL;
+        fp_rewind(2);
+      break;
       case EEL_BC_NOTEQUAL:
         p1 = fabs(fp_top - fp_top2) >= NSEEL_CLOSEFACTOR ? EEL_BC_TRUE : NULL;
+        fp_rewind(2);
+      break;
+      case EEL_BC_NOTEQUAL_EXACT:
+        p1 = fp_top != fp_top2 ? EEL_BC_TRUE : NULL;
         fp_rewind(2);
       break;
       case EEL_BC_ABOVE:

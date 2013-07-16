@@ -1126,6 +1126,40 @@ void nseel_asm_equal(void)
 void nseel_asm_equal_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
+void nseel_asm_equal_exact(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fcompp\n"
+    "fstsw %ax\n" // for equal 256 and 1024 should be clear, 16384 should be set
+    "andl $17664, %eax\n"  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
+    "cmp $16384, %eax\n" 
+    "je 0f\n"
+    "subl %eax, %eax\n"
+    "0:\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_equal_exact_end(void) {}
+
+void nseel_asm_notequal_exact(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fcompp\n"
+    "fstsw %ax\n" // for equal 256 and 1024 should be clear, 16384 should be set
+    "andl $17664, %eax\n"  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
+    "cmp $16384, %eax\n" 
+    "je 0f\n"
+    "subl %eax, %eax\n"
+    "0:\n"
+    "xorl $16384, %eax\n" // flip the result
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_notequal_exact_end(void) {}
+//
+//---------------------------------------------------------------------------------------------------------------
 void nseel_asm_notequal(void)
 {
   __asm__(

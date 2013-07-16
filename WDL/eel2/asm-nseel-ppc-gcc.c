@@ -797,6 +797,41 @@ void nseel_asm_equal(void)
   );
 }
 void nseel_asm_equal_end(void) {}
+//---------------------------------------------------------------------------------------------------------------
+void nseel_asm_equal_exact(void)
+{
+  __asm__(
+    FUNCTION_MARKER
+    "lfd f2, 0(r14)\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
+    "bne cr7, 0f\n"
+    "addis r3, 0, 1\n"
+    "0:\n"
+    FUNCTION_MARKER
+    :: 
+  );
+}
+void nseel_asm_equal_exact_end(void) {}
+//
+//---------------------------------------------------------------------------------------------------------------
+void nseel_asm_notequal_exact(void)
+{
+  __asm__(
+    FUNCTION_MARKER
+    "lfd f2, 0(r14)\n"
+    "fcmpu cr7, f1, f2\n"
+    "addis r3, 0, 0\n"
+    "beq cr7, 0f\n"
+    "addis r3, 0, 1\n"
+    "0:\n"
+    FUNCTION_MARKER
+    :: 
+  );
+}
+void nseel_asm_notequal_exact_end(void) {}
+//
+//
 //
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_notequal(void)

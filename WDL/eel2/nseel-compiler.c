@@ -299,6 +299,8 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(repeat)
   DECL_ASMFUNC(repeatwhile)
   DECL_ASMFUNC(equal)
+  DECL_ASMFUNC(equal_exact)
+  DECL_ASMFUNC(notequal_exact)
   DECL_ASMFUNC(notequal)
   DECL_ASMFUNC(below)
   DECL_ASMFUNC(above)
@@ -481,7 +483,9 @@ static functionType fnTable1[] = {
   { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1), } ,
 
   { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
+  { "_equal_exact",  nseel_asm_equal_exact,nseel_asm_equal_exact_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
   { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
+  { "_noteq_exact",  nseel_asm_notequal_exact,nseel_asm_notequal_exact_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
 
 #ifdef GLUE_HAS_FXCH
   { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2) },
@@ -1453,7 +1457,9 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       min
       max
       _equal
+      _equal_exact
       _noteq
+      _noteq_exact
       _below
       _above
       _beleq
@@ -3089,7 +3095,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
 			static const struct 
 			{
-			  char op[2];
+			  char op[3];
 			  char lscan,rscan;
 			  char *func;
 			} preprocSymbols[] = 
@@ -3105,6 +3111,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'*','='}, 0, 3, "_mulop"},
 				{{'^','='}, 0, 3, "_powop"},
 
+				{{'=','=','='}, 1, 2, "_equal_exact" },
 				{{'=','='}, 1, 2, "_equal" },
 				{{'<','='}, 1, 2, "_beleq" },
 				{{'>','='}, 1, 2, "_aboeq" },
@@ -3112,6 +3119,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'>','>'}, 0, 6, "_shr" },
 				{{'<',0  }, 1, 2, "_below" },
 				{{'>',0  }, 1, 2, "_above" },
+				{{'!','=','='}, 1, 2, "_noteq_exact" },
 				{{'!','='}, 1, 2, "_noteq" },
 				{{'|','|'}, 1, 2, "_or" },
 				{{'&','&'}, 1, 2, "_and" },
@@ -3129,10 +3137,13 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
 
 			int n;
-			int ns=sizeof(preprocSymbols)/sizeof(preprocSymbols[0]);
+			const int ns=sizeof(preprocSymbols)/sizeof(preprocSymbols[0]);
 			for (n = 0; n < ns; n++)
 			{
-				if (c == preprocSymbols[n].op[0] && (!preprocSymbols[n].op[1] || expression[0] == preprocSymbols[n].op[1])) 
+				if (c == preprocSymbols[n].op[0] && 
+                                    (!preprocSymbols[n].op[1] || expression[0] == preprocSymbols[n].op[1]) &&
+                                    (!preprocSymbols[n].op[2] || expression[1] == preprocSymbols[n].op[2])
+                                    ) 
 				{
 					break;
 				}
@@ -3189,6 +3200,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 					l_ptr = strdup(l_ptr); // doesn't need to be preprocessed since it just was
         }
 				if (preprocSymbols[n].op[1]) expression++;
+				if (preprocSymbols[n].op[2]) expression++;
 
 				r_ptr=expression;
 				{ 
