@@ -1041,61 +1041,66 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
   // op->relname  is [whatever.]funcname
   if (fn->parameterAsNamespaceMask || fn->usesNamespaces)
   {
-    _codeHandleFunctionRec *fr = fn;
-    combineNamespaceFields(nm,namespacePathToThis,op->relname,op->namespaceidx);
-    lstrcpyn_safe(prefix_buf,nm,sizeof(prefix_buf));
-    local_namespace.namespacePathToThis = prefix_buf;
-    // nm is full path of function, prefix_buf will be the path not including function name (unless function name only)
+    if (wantCodeGenerated)
     {
       char *p = prefix_buf;
+      combineNamespaceFields(nm,namespacePathToThis,op->relname,op->namespaceidx);
+      lstrcpyn_safe(prefix_buf,nm,sizeof(prefix_buf));
+      local_namespace.namespacePathToThis = prefix_buf;
+      // nm is full path of function, prefix_buf will be the path not including function name (unless function name only)
       while (*p) p++;
       while (p >= prefix_buf && *p != '.') p--;
       if (p > prefix_buf) *p=0;
     }
-    if (fr->parameterAsNamespaceMask)
+    if (fn->parameterAsNamespaceMask)
     {
       int x;
-      for(x=0;x<MAX_SUB_NAMESPACES && x < fr->num_params;x++)
+      for(x=0;x<MAX_SUB_NAMESPACES && x < fn->num_params;x++)
       {
-        if (fr->parameterAsNamespaceMask & (((unsigned int)1)<<x))
+        if (fn->parameterAsNamespaceMask & (((unsigned int)1)<<x))
         {
-          const char *rn=NULL;
-          char tmp[NSEEL_MAX_VARIABLE_NAMELEN+1];
-          if (x < num_ordered_parmptrs && ordered_parmptrs[x]) 
+          if (wantCodeGenerated)
           {
-            if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VARPTR) 
+            const char *rn=NULL;
+            char tmp[NSEEL_MAX_VARIABLE_NAMELEN+1];
+            if (x < num_ordered_parmptrs && ordered_parmptrs[x]) 
             {
-              rn=ordered_parmptrs[x]->relname;
+              if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VARPTR) 
+              {
+                rn=ordered_parmptrs[x]->relname;
+              }
+              else if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VALUE_FROM_NAMESPACENAME)
+              {
+                combineNamespaceFields(tmp,namespacePathToThis,ordered_parmptrs[x]->relname,ordered_parmptrs[x]->namespaceidx);
+                rn = tmp;
+              }
             }
-            else if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VALUE_FROM_NAMESPACENAME)
-            {
-              combineNamespaceFields(tmp,namespacePathToThis,ordered_parmptrs[x]->relname,ordered_parmptrs[x]->namespaceidx);
-              rn = tmp;
-            }
-          }
           
-          if (!rn) return NULL;
-          lstrcatn(nm,":",sizeof(nm));
+            if (!rn) return NULL;
 
-          local_namespace.subParmInfo[x] = nm+strlen(nm);
-          lstrcatn(nm,rn,sizeof(nm));
-          
+            lstrcatn(nm,":",sizeof(nm));
+
+            local_namespace.subParmInfo[x] = nm+strlen(nm);
+            lstrcatn(nm,rn,sizeof(nm));
+          }         
           ordered_parmptrs[x] = NULL; // prevent caller from bothering generating parameters
-
         }
       }
     }
-    // find resolved function
-    // scan for function
-    fn = 0; // if this gets re-set, it will be the new function
-    while (fr && !fn)
+    if (wantCodeGenerated)
     {
-      if (!strcasecmp(fr->fname,nm)) fn = fr;
-      fr=fr->derivedCopies;
-    }
-    if (!fn) // generate copy of function
-    {
-      fn = eel_createFunctionNamespacedInstance(ctx,(_codeHandleFunctionRec*)op->fn,nm);
+      _codeHandleFunctionRec *fr = fn;
+      // find namespace-adjusted function (if generating code, otherwise assume size is the same)
+      fn = 0; // if this gets re-set, it will be the new function
+      while (fr && !fn)
+      {
+        if (!strcasecmp(fr->fname,nm)) fn = fr;
+        fr=fr->derivedCopies;
+      }
+      if (!fn) // generate copy of function
+      {
+        fn = eel_createFunctionNamespacedInstance(ctx,(_codeHandleFunctionRec*)op->fn,nm);
+      }
     }
   }
   if (!fn) return NULL;
@@ -1107,7 +1112,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
     fn->rvMode = RETURNVALUE_IGNORE;
     fn->canHaveDenormalOutput=0;
 
-    sz=compileOpcodes(ctx,fn->opcodes,NULL,128*1024*1024,&fn->tmpspace_req,&local_namespace,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
+    sz=compileOpcodes(ctx,fn->opcodes,NULL,128*1024*1024,&fn->tmpspace_req,wantCodeGenerated ? &local_namespace : NULL,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
 
     if (!wantCodeGenerated)
     {
