@@ -4480,93 +4480,100 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 //------------------------------------------------------------------------------
 opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname)
 {
-  char tmp[NSEEL_MAX_VARIABLE_NAMELEN*2];
-  int i;
   int rel_prefix_len=0;
   int rel_prefix_idx=-2;
 
   *typeOfObject = IDENTIFIER;
   
-  lstrcpyn_safe(tmp,sname,sizeof(tmp));
-
-  if (!strncasecmp(tmp,"reg",3) && isdigit(tmp[3]) && isdigit(tmp[4]) && !tmp[5])
+  if (!strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
   {
-    EEL_F *a=get_global_var(tmp,1);
+    EEL_F *a=get_global_var(sname,1);
     if (a) return nseel_createCompiledValuePtr(ctx,a, NULL);
   }
 
   if (ctx->function_curName)
   {
-    if (!strncasecmp(tmp,"this.",5))
+    if (!strncasecmp(sname,"this.",5))
     {
       rel_prefix_len=5;
       rel_prefix_idx=-1;
     } 
-    else if (!strcasecmp(tmp,"this"))
+    else if (!strcasecmp(sname,"this"))
     {
       rel_prefix_len=4;
       rel_prefix_idx=-1;
     } 
-  }
   
-  // scan for parameters/local variables before user functions   
-  if (!rel_prefix_len &&
-      ctx->function_localTable_Size[0] > 0 &&
-      ctx->function_localTable_Names[0] && 
-      ctx->function_localTable_ValuePtrs)
-  {
-    char **namelist = ctx->function_localTable_Names[0];
-    const int namelist_sz = ctx->function_localTable_Size[0];
-    for (i=0; i < namelist_sz; i++)
+    // scan for parameters/local variables before user functions   
+    if (rel_prefix_idx < -1 &&
+        ctx->function_localTable_Size[0] > 0 &&
+        ctx->function_localTable_Names[0] && 
+        ctx->function_localTable_ValuePtrs)
     {
-      const char *p = namelist[i];
-      if (p)
+      const char * const * const namelist = ctx->function_localTable_Names[0];
+      const int namelist_sz = ctx->function_localTable_Size[0];
+      int i;
+      for (i=0; i < namelist_sz; i++)
       {
-        if (!strncasecmp(p,tmp,NSEEL_MAX_VARIABLE_NAMELEN))
+        const char *p = namelist[i];
+        if (p)
         {
-          return nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
-        }
-        else 
-        {
-          const int plen = strlen(p);
-          if (plen > 1 && p[plen-1] == '*' && !strncasecmp(p,tmp,plen-1) && ((tmp[plen-1] == '.'&&tmp[plen]) || !tmp[plen-1]))
+          if (!strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
           {
-            rel_prefix_len=tmp[plen-1] ? plen : plen-1;
-            rel_prefix_idx=i;
+            return nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
+          }
+          else 
+          {
+            const int plen = strlen(p);
+            if (plen > 1 && p[plen-1] == '*' && !strncasecmp(p,sname,plen-1) && ((sname[plen-1] == '.'&&sname[plen]) || !sname[plen-1]))
+            {
+              rel_prefix_len=sname[plen-1] ? plen : plen-1;
+              rel_prefix_idx=i;
+              break;
+            }
+          }
+        }
+      }
+    } 
+    // if instance name set, translate sname or sname.* into "this.sname.*"
+    if (rel_prefix_idx < -1 &&
+        ctx->function_localTable_Size[1] > 0 && 
+        ctx->function_localTable_Names[1])
+    {
+      const char * const * const namelist = ctx->function_localTable_Names[1];
+      const int namelist_sz = ctx->function_localTable_Size[1];
+      int i;
+      for (i=0; i < namelist_sz; i++)
+      {
+        const char *p = namelist[i];
+        if (p && *p)
+        {
+          const int tl = strlen(p);     
+          if (!strncasecmp(p,sname,tl) && (sname[tl] == 0 || sname[tl] == '.'))
+          {
+            rel_prefix_len=0; // treat as though this. prefixes is present
+            rel_prefix_idx=-1;
             break;
           }
         }
       }
     }
-  }
-  
-  // if instance name set, translate tmp or tmp.* into "this.tmp.*"
-  if (!rel_prefix_len &&
-      ctx->function_localTable_Size[1] > 0 && 
-      ctx->function_localTable_Names[1])
-  {
-    char **namelist = ctx->function_localTable_Names[1];
-    for (i=0; i < ctx->function_localTable_Size[1]; i++)
+    if (rel_prefix_idx >= -1) 
     {
-      int tl = namelist[i] ? strlen(namelist[i]) : 0;
-      
-      if (tl && !strncasecmp(namelist[i],tmp,tl) && (tmp[tl] == 0 || tmp[tl] == '.'))
-      {
-        lstrcpyn_safe(tmp,"this.",sizeof(tmp));
-        lstrcatn(tmp, sname, sizeof(tmp)); // update tmp with "this.tokenname"
-
-        rel_prefix_len=5;
-        rel_prefix_idx=-1;
-        break;
-      }
+      ctx->function_usesNamespaces=1;
     }
-  }
+  } // ctx->function_curName
+ 
+
+  // if in a function, the parameters/locals/instance values will be used rather than builtin functions.
+  // in this case, any number of things can happen: parse errors, change of logic of ?: (_if being overridden), etc.
+  // kinda neat, imo, hopefully nobody will get bitten by it.
   
-  
-  if (!rel_prefix_len)
+  if (rel_prefix_idx < -1)
   {
-    const char *nptr = tmp;
-    
+    const char *nptr = sname;
+    int i;    
+
 #ifdef NSEEL_EEL1_COMPAT_MODE
     if (!strcasecmp(nptr,"if")) nptr="_if";
     else if (!strcasecmp(nptr,"bnot")) nptr="_not";
@@ -4601,18 +4608,18 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
         return nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
       }
     }
-  } 
-  
+  }
+
   {
     _codeHandleFunctionRec *best=NULL;
     int bestlen=0;
-    const char *ourcall = tmp+rel_prefix_len;
+    const char * const ourcall = sname+rel_prefix_len;
     const int ourcall_len = strlen(ourcall);
     int pass;
     for (pass=0;pass<2;pass++)
     {
       _codeHandleFunctionRec *fr = pass ? ctx->functions_common : ctx->functions_local;
-      // tmp is [namespace.[ns.]]function, find best match of function that matches the right end   
+      // sname is [namespace.[ns.]]function, find best match of function that matches the right end   
       while (fr)
       {
         const char *thisfunc = fr->fname;
@@ -4644,24 +4651,14 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
         best->num_params==2?FUNCTION2 : 
                           FUNCTION1;
 
-
-      if (rel_prefix_idx>=-1) ctx->function_usesNamespaces = 1;                          
-      return nseel_createCompiledEELFunctionCall(ctx,best,tmp+rel_prefix_len, rel_prefix_idx);
+      return nseel_createCompiledEELFunctionCall(ctx,best,ourcall, rel_prefix_idx);
     }    
   }
   
   // instance variables
-  if (rel_prefix_len)
-  {
-    ctx->function_usesNamespaces=1;
-    return nseel_createCompiledValueFromNamespaceName(ctx,tmp+rel_prefix_len,rel_prefix_idx);
-  }
-  else
-  {
-    return nseel_createCompiledValuePtr(ctx,NULL,tmp);
-  }
+  if (rel_prefix_idx >= -1) return nseel_createCompiledValueFromNamespaceName(ctx,sname+rel_prefix_len,rel_prefix_idx);
 
-  return nseel_createCompiledValue(ctx,0.0);
+  return nseel_createCompiledValuePtr(ctx,NULL,sname);
 }
 
 
