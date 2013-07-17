@@ -23,6 +23,7 @@ public:
   win32CursesCtx cursesCtx;
 
   int m_color_bottomline, m_color_statustext,  m_color_selection,  m_color_message; // COLOR_PAIR(x)
+  int m_top_margin, m_bottom_margin;
 
 
 protected:
@@ -54,14 +55,14 @@ protected:
   virtual int GetPreviousCommentStartEnd(int *line, int *col); // pass current line/col, updates with interesting point, returns nonzero if start (1 if /*, 2 if //)
 
   virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, bool *c_comment_state, int skipcnt);
-  virtual void draw_top_line();
+  virtual void draw_top_line() { }// within m_top_margin
   virtual void draw_bottom_line();
   virtual bool LineCanAffectOtherLines(const char *txt) // if multiline comment etc
   {
     return false;
   }
 
-  
+  int getVisibleLines() const { return LINES-m_bottom_margin-m_top_margin; }
   
   WDL_FastString m_filename;
   WDL_PtrList<WDL_FastString> m_text;
