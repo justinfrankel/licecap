@@ -1,14 +1,13 @@
 #ifndef _WDL_CURSESEDITOR_H_
 #define _WDL_CURSESEDITOR_H_
 
-#include "curses.h"
 #include "../wdlstring.h"
 #include "../ptrlist.h"
 
 class WDL_CursesEditor
 {
 public:
-  WDL_CursesEditor(HWND hwnd);
+  WDL_CursesEditor(void *cursesCtx);
   virtual ~WDL_CursesEditor();
   
   bool IsDirty() const { return m_clean_undopos != m_undoStack_pos; }
@@ -20,7 +19,7 @@ public:
   void RunEditor();
 
 
-  win32CursesCtx cursesCtx;
+  void *m_cursesCtx; // win32CursesCtx *
 
   int m_color_bottomline, m_color_statustext,  m_color_selection,  m_color_message; // COLOR_PAIR(x)
   int m_top_margin, m_bottom_margin;
@@ -62,7 +61,7 @@ protected:
     return false;
   }
 
-  int getVisibleLines() const { return LINES-m_bottom_margin-m_top_margin; }
+  int getVisibleLines() const;
   
   WDL_FastString m_filename;
   WDL_PtrList<WDL_FastString> m_text;
@@ -83,8 +82,9 @@ protected:
   char newfilename_str[256];
   WDL_FastString m_newfn;
 
-  static char search_string[256];
-  static int m_overwrite;
+  static char s_search_string[256];
+  static int s_overwrite;
+  static WDL_FastString s_fake_clipboard;
 
 
   class refcntString
