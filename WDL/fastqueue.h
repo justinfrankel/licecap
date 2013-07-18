@@ -62,11 +62,16 @@ public:
     if (len < 1) return;
 
     fqBuf *qb=m_queue.Get(m_queue.GetSize()-1);
-    if (!qb || (qb->used + len) > qb->alloc_size || (qb->used + len) < 0)
+    if (!qb || (qb->used + len) > qb->alloc_size)
     {
       const int esz=m_empties.GetSize()-1;
       qb=m_empties.Get(esz);
       m_empties.Delete(esz);
+      if (qb && qb->alloc_size < len) // spare buffer is not big enough, toss it
+      {
+        free(qb);
+        qb=NULL;
+      }
       if (!qb)
       {
         const int sz=len < m_bsize ? m_bsize : len;
