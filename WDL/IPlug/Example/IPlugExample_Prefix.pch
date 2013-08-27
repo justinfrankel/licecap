@@ -1,7 +1,0 @@
-//
-// Prefix header for all source files of the 'IPlugExample' target in the 'IPlugExample' project.
-//
-
-#ifdef __OBJC__
-    #import <Cocoa/Cocoa.h>
-#endif
