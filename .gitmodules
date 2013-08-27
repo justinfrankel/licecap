@@ -1,0 +1,3 @@
+[submodule "WDL"]
+	path = WDL
+	url = http://www-dev.cockos.com/wdl/WDL.git
