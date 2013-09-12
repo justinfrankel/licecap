@@ -852,7 +852,7 @@ void SaveConfig(HWND hwndDlg)
   char buf[1024];
   RECT r;
   GetWindowRect(hwndDlg,&r);
-  sprintf(buf,"%d %d %d %d\n",r.left,r.top,r.right,r.bottom);
+  sprintf(buf,"%d %d %d %d",r.left,r.top,r.right,r.bottom);
   WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file.Get());
   sprintf(buf, "%d", g_max_fps);
   WritePrivateProfileString("licecap","maxfps",buf,g_ini_file.Get());
