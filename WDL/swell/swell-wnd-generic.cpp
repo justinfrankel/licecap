@@ -30,6 +30,7 @@
 #include "../mutex.h"
 #include "../ptrlist.h"
 #include "../queue.h"
+#include "../wdlcstring.h"
 
 #include "swell-dlggen.h"
 
@@ -847,20 +848,20 @@ void ScreenToClient(HWND hwnd, POINT *p)
 #endif
          ) // top level window's m_position left/top should always be 0 anyway
   {
-    RECT tr=tmp->m_position;
-    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&tr);
+    NCCALCSIZE_PARAMS p = {{ tmp->m_position, }, };
+    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
 
-    x -= tr.left;
-    y -= tr.top;
+    x -= p.rgrc[0].left;
+    y -= p.rgrc[0].top;
     tmp = tmp->m_parent;
   }
 
   if (tmp)
   {
-    RECT tr=tmp->m_position;
-    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    x -= tr.left - tmp->m_position.left;
-    y -= tr.top - tmp->m_position.top;
+    NCCALCSIZE_PARAMS p = {{ tmp->m_position, }, };
+    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
+    x -= p.rgrc[0].left - tmp->m_position.left;
+    y -= p.rgrc[0].top - tmp->m_position.top;
   }
 
 #ifdef SWELL_TARGET_GDK
@@ -891,18 +892,18 @@ void ClientToScreen(HWND hwnd, POINT *p)
 #endif
          ) // top level window's m_position left/top should always be 0 anyway
   {
-    RECT tr=tmp->m_position;
-    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    x += tr.left;
-    y += tr.top;
+    NCCALCSIZE_PARAMS p={{tmp->m_position, }, };
+    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
+    x += p.rgrc[0].left;
+    y += p.rgrc[0].top;
     tmp = tmp->m_parent;
   }
   if (tmp) 
   {
-    RECT tr=tmp->m_position;
-    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    x += tr.left - tmp->m_position.left;
-    y += tr.top - tmp->m_position.top;
+    NCCALCSIZE_PARAMS p={{tmp->m_position, }, };
+    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
+    x += p.rgrc[0].left - tmp->m_position.left;
+    y += p.rgrc[0].top - tmp->m_position.top;
   }
 
 #ifdef SWELL_TARGET_GDK
@@ -981,10 +982,10 @@ void GetClientRect(HWND hwnd, RECT *r)
     r->bottom = hwnd->m_position.bottom - hwnd->m_position.top;
   }
 
-  RECT tr=*r;
+  NCCALCSIZE_PARAMS tr={{*r, },};
   SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&tr);
-  r->right = r->left + (tr.right-tr.left);
-  r->bottom=r->top + (tr.bottom-tr.top);
+  r->right = r->left + (tr.rgrc[0].right-tr.rgrc[0].left);
+  r->bottom=r->top + (tr.rgrc[0].bottom-tr.rgrc[0].top);
 }
 
 
@@ -1295,7 +1296,7 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   if (!hwnd) return false;
   
   // todo: sendmessage WM_GETTEXT etc? special casing for combo boxes etc
-  lstrcpyn(text,hwnd->m_title ? hwnd->m_title : "", textlen);
+  lstrcpyn_safe(text,hwnd->m_title ? hwnd->m_title : "", textlen);
   return true;
 }
 
@@ -2597,10 +2598,10 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
     HWND h2=h->m_children;
     RECT sr;
 
-    RECT tr=h->m_position;
+    NCCALCSIZE_PARAMS tr={{h->m_position,},};
     if (h->m_wndproc) h->m_wndproc(h,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    r.left += tr.left - h->m_position.left;
-    r.top += tr.top - h->m_position.top;
+    r.left += tr.rgrc[0].left - h->m_position.left;
+    r.top += tr.rgrc[0].top - h->m_position.top;
 
     while (h2)
     {
@@ -2683,18 +2684,19 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
   }
   while (hwnd && !hwnd->m_oswindow) 
   {
-    RECT tr=hwnd->m_position;
+    NCCALCSIZE_PARAMS tr={{ hwnd->m_position, },};
     if (hwnd->m_wndproc) hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    rect.x += tr.left;
-    rect.y += tr.top;
+    rect.x += tr.rgrc[0].left;
+    rect.y += tr.rgrc[0].top;
     hwnd=hwnd->m_parent;
   }
   if (hwnd && hwnd->m_oswindow) 
   {
     RECT tr={0,0,hwnd->m_position.right-hwnd->m_position.left,hwnd->m_position.bottom-hwnd->m_position.top};
-    if (hwnd->m_wndproc) hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    rect.x += tr.left;
-    rect.y += tr.top;
+    NCCALCSIZE_PARAMS p={{tr,},};
+    if (hwnd->m_wndproc) hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,0,(LPARAM)&p);
+    rect.x += p.rgrc[0].left;
+    rect.y += p.rgrc[0].top;
 
     gdk_window_invalidate_rect(hwnd->m_oswindow,hwnd!=hwndCall || r ? &rect : NULL,true);
   }
@@ -2891,6 +2893,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         GetWindowContentViewRect(hwnd,&r);
         if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+menubar_size) return HTMENU;
       }
+      // todo: WM_NCCALCSIZE etc
     return HTCLIENT;
     case WM_KEYDOWN:
     case WM_KEYUP: return 69;
@@ -2967,7 +2970,7 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
       {
         if (buf)
         {
-          lstrcpyn(buf,p,bufsz);
+          lstrcpyn_safe(buf,p,bufsz);
           rv=strlen(buf);
         }
         else rv=strlen(p);

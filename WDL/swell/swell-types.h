@@ -46,11 +46,6 @@ typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWO
 #define TRUE 1
 #endif
 
-#ifndef max
-#define max(x,y) ((x)<(y)?(y):(x))
-#define min(x,y) ((x)<(y)?(x):(y))
-#endif
-
 #ifndef S_OK
 #define S_OK 0
 #endif

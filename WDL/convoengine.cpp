@@ -560,7 +560,7 @@ int WDL_ConvolutionEngine::Avail(int want)
       {
         int srchistpos = histpos-i;
         if (srchistpos < 0) srchistpos += nblocks;
-        if (useSilentList[srchistpos]==2) mono_input_mode=false;
+        if (!useSilentList || useSilentList[srchistpos]==2) mono_input_mode=false;
       }
 
       if (nonzflag||!useSilentList) memset(optr+sz*2,0,sz*2*sizeof(WDL_FFT_REAL));

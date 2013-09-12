@@ -218,7 +218,7 @@ int nsv_Packeter::packet(nsv_OutBS &bs)
   int total_auxlen=0;
   int x;
   if (width >= (1<<16) || height >= (1<<16) || 
-      !framerate_idx || framerate_idx > 255 ||
+      !framerate_idx ||
       !is_type_valid(audfmt) || 
       !is_type_valid(vidfmt) ||
       video_len > NSV_MAX_VIDEO_LEN || 
@@ -295,9 +295,9 @@ void nsv_Unpacketer::reset(int full)
 int nsv_Unpacketer::unpacket(nsv_InBS &bs)
 {
   int gotframe=0;
-  unsigned int num_aux=0;
-  unsigned int vl=0;
-  unsigned int al=0;
+  int num_aux=0;
+  int vl=0;
+  int al=0;
    
   while (bs.avail()>=NSV_NONSYNC_HEADERLEN_BITS)
   {

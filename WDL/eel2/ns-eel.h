@@ -91,7 +91,6 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
 void NSEEL_quit();
 
 int *NSEEL_getstats(); // returns a pointer to 5 ints... source bytes, static code bytes, call code bytes, data bytes, number of code handles
-EEL_F *NSEEL_getglobalregs();
 
 typedef void *NSEEL_VMCTX;
 typedef void *NSEEL_CODEHANDLE;

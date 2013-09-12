@@ -156,10 +156,11 @@ void nseel_asm_invsqrt(void)
 #ifdef TARGET_X64
     "movl 0xfefefefe, %rax\n"
     "fmul" EEL_F_SUFFIX " (%rax)\n"
+    "movsxl (%esi), %rcx\n"
 #else
     "fmul" EEL_F_SUFFIX " (0xfefefefe)\n"
-#endif
     "movl (%esi), %ecx\n"
+#endif
     "sarl $1, %ecx\n"
     "subl %ecx, %edx\n"
     "movl %edx, (%esi)\n"

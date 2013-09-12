@@ -348,7 +348,7 @@ public:
         for (i = 0; i < pxon; ++i, px += span) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
         px += pxoff*span;
       }
-      for (i = 0; i < min(pxon, y2-y); px += span) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
+      for (i = 0; i < min(pxon, y2-y); ++i, px += span) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
     }
     else if (y1 == y2)
     {
@@ -358,7 +358,7 @@ public:
         for (i = 0; i < pxon; ++i, ++px) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
         px += pxoff;
       }
-      for (i = 0; i < min(pxon, x2-x); ++px) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
+      for (i = 0; i < min(pxon, x2-x); ++i, ++px) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
     }
   }
 

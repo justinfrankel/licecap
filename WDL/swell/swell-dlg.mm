@@ -23,6 +23,7 @@ bool SWELL_owned_windows_levelincrease=false;
 
 #include "swell-internal.h"
 #include "../wdlstring.h"
+#include "../wdlcstring.h"
 
 #define NSColorFromCol(a) [NSColor colorWithCalibratedRed:GetRValue(a)/255.0f green:GetGValue(a)/255.0f blue:GetBValue(a)/255.0f alpha:1.0f]
 extern int g_swell_terminating;
@@ -327,11 +328,14 @@ static SWELL_DialogResourceIndex *resById(SWELL_DialogResourceIndex *reshead, co
 
 static void DoPaintStuff(WNDPROC wndproc, HWND hwnd, HDC hdc, NSRect *modrect)
 {
-  RECT r,r2;
+  RECT r;
   GetWindowRect(hwnd,&r);
   if (r.top>r.bottom) { int tmp=r.top; r.top=r.bottom; r.bottom=tmp; }
-  r2=r;
-  wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&r);
+  NCCALCSIZE_PARAMS p={{r,},};
+  wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
+  RECT r2=r;
+  r=p.rgrc[0];
+
   wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
   modrect->origin.x += r.left-r2.left;
   modrect->origin.y += r.top-r2.top;
@@ -1338,7 +1342,7 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 
 - (const char *)onSwellGetText { return m_titlestr; }
--(void)onSwellSetText:(const char *)buf { lstrcpyn(m_titlestr,buf,sizeof(m_titlestr)); }
+-(void)onSwellSetText:(const char *)buf { lstrcpyn_safe(m_titlestr,buf,sizeof(m_titlestr)); }
 
 
 // source-side drag/drop, only does something if source called SWELL_InitiateDragDrop while handling mouseDown

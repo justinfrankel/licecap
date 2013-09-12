@@ -57,6 +57,7 @@ class WDL_HeapBuf
     void *GetAligned(int align) const {  return (void *)(((UINT_PTR)Get() + (align-1)) & ~(UINT_PTR)(align-1)); }
 
     void SetGranul(int granul) { m_granul = granul; }
+    int GetGranul() const { return m_granul; }
 
     void SetMinAllocSize(int mas) { m_mas=mas; }
 
@@ -312,10 +313,35 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Add(PTRTYPE val) 
     {
-      int sz=GetSize(); 
-      PTRTYPE *p=Resize(sz+1);
-      if (p && GetSize() == sz+1) { p[sz]=val; return p+sz; }
+      return Insert(val, GetSize());
+    }
+
+    PTRTYPE* Insert(PTRTYPE val, int idx)
+    {
+      int sz=GetSize();
+      if (idx >= 0 && idx <= sz)
+      {
+        PTRTYPE* p=Resize(sz+1);
+        if (p && GetSize() == sz+1)
+        {
+          memmove(p+idx+1, p+idx, (sz-idx)*sizeof(PTRTYPE));
+          p[idx]=val;
+          return p+idx;
+        }
+      }
       return 0;
+    }
+
+    PTRTYPE* Delete(int idx)
+    {
+      PTRTYPE* p=Get();
+      int sz=GetSize();
+      if (idx >= 0 && idx < sz)
+      {
+        memmove(p+idx, p+idx+1, (sz-idx-1)*sizeof(PTRTYPE));
+        return Resize(sz-1);
+      }
+      return p;
     }
 
     void SetGranul(int gran) { m_hb.SetGranul(gran); }

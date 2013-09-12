@@ -84,7 +84,6 @@ LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
   if (setjmp(jerr.setjmp_buffer)) 
   {
     jpeg_destroy_decompress(&cinfo);
-    DeleteObject(res);
     return 0;
   }
   jpeg_create_decompress(&cinfo);
@@ -114,7 +113,6 @@ LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
     {
       jpeg_finish_decompress(&cinfo);
       jpeg_destroy_decompress(&cinfo);
-      DeleteObject(res);
       return 0;
     }
   }
@@ -163,7 +161,6 @@ LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 
   jpeg_finish_decompress(&cinfo);
   jpeg_destroy_decompress(&cinfo);  // we created cinfo.src with some special alloc so I think it gets collected
-  DeleteObject(res);
 
   return bmp;
 

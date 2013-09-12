@@ -33,6 +33,7 @@
 
 #include "swell.h"
 #include "../assocarray.h"
+#include "../wdlcstring.h"
 #include "../mutex.h"
 #include "../queue.h"
 #include <sys/stat.h>
@@ -210,7 +211,7 @@ static void WriteBackFile(iniFileContext *ctx)
 {
   if (!ctx||!ctx->m_curfn) return;
   char newfn[1024];
-  lstrcpyn(newfn,ctx->m_curfn,sizeof(newfn)-8);
+  lstrcpyn_safe(newfn,ctx->m_curfn,sizeof(newfn)-8);
   {
     char *p=newfn;
     while (*p) p++;
@@ -286,7 +287,7 @@ BOOL WritePrivateProfileSection(const char *appname, const char *strings, const 
     while (*strings)
     {
       char buf[8192];
-      lstrcpyn(buf,strings,sizeof(buf));
+      lstrcpyn_safe(buf,strings,sizeof(buf));
       char *p = buf;
       while (*p && *p != '=') p++;
       if (*p)
@@ -459,13 +460,13 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
       const char *val = cursec->Get(keyname);
       if (val)
       {
-        lstrcpyn(ret,val,retsize);
+        lstrcpyn_safe(ret,val,retsize);
         return strlen(ret);
       }
     }
   }
 //  printf("def %s %s %s %s\n",appname,keyname,def,fn);
-  lstrcpyn(ret,def?def:"",retsize);
+  lstrcpyn_safe(ret,def?def:"",retsize);
   return strlen(ret);
 }
 

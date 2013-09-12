@@ -31,6 +31,7 @@
 #include "../mutex.h"
 #include "../ptrlist.h"
 #include "../queue.h"
+#include "../wdlcstring.h"
 
 #include "swell-dlggen.h"
 #include "swell-internal.h"
@@ -56,8 +57,6 @@ static void InvalidateSuperViews(NSView *view);
   InvalidateSuperViews(self); \
   }
 
-
-char* lstrcpyn(char* dest, const char* src, int l);
 
 int g_swell_want_nice_style = 1;
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
@@ -1483,7 +1482,8 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (msg == EM_GETSEL)
       {
         NSRange range={0,};
-        if ([[obj window] firstResponder] == obj)
+        NSResponder *rs = [[obj window] firstResponder];
+        if ([rs isKindOfClass:[NSView class]] && [rs isDescendantOf:obj])
         {
           NSText* text=[[obj window] fieldEditor:YES forObject:(NSTextField*)obj];  
           if (text) range=[text selectedRange];
@@ -1495,7 +1495,8 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       {        
         //        [(NSTextField*)obj selectText:obj]; // Force the window's text field editor onto this control
         // don't force it, just ignore EM_GETSEL/EM_SETSEL if not in focus
-        if ([[obj window] firstResponder] == obj)
+        NSResponder *rs = [[obj window] firstResponder];
+        if ([rs isKindOfClass:[NSView class]] && [rs isDescendantOf:obj])
         {
           NSText* text = [[obj window] fieldEditor:YES forObject:(NSTextField*)obj]; // then get it from the window 
           int sl = [[text string] length];
@@ -1815,10 +1816,10 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->bottom= (int)(b.origin.y+b.size.height+0.5);
 
   // todo this may need more attention
-  RECT tr=*r;
+  NCCALCSIZE_PARAMS tr={{*r,},};
   SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&tr);
-  r->right = r->left + (tr.right-tr.left);
-  r->bottom = r->top + (tr.bottom-tr.top);
+  r->right = r->left + (tr.rgrc[0].right-tr.rgrc[0].left);
+  r->bottom = r->top + (tr.rgrc[0].bottom-tr.rgrc[0].top);
   SWELL_END_TRY(;)
 }
 
@@ -2304,7 +2305,7 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   if ([(id)poo respondsToSelector:@selector(onSwellGetText)])
   {  
     const char *p=(const char *)[(SWELL_hwndChild*)poo onSwellGetText];
-    lstrcpyn(text,p?p:"",textlen);
+    lstrcpyn_safe(text,p?p:"",textlen);
     return TRUE;
   }
   
@@ -4016,7 +4017,7 @@ bool ListView_GetItem(HWND h, LVITEM *item)
     if (item->mask & LVIF_TEXT) if (item->pszText && item->cchTextMax>0)
     {
       char *p=row->m_vals.Get(item->iSubItem);
-      lstrcpyn(item->pszText,p?p:"",item->cchTextMax);
+      lstrcpyn_safe(item->pszText,p?p:"",item->cchTextMax);
     }
       if (item->mask & LVIF_STATE)
       {
@@ -4839,7 +4840,23 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
   else if (msg==WM_NCHITTEST) 
   {
-    return HTCLIENT;
+    int rv=HTCLIENT;
+    SWELL_BEGIN_TRY
+    RECT r;
+    GetWindowRect(hwnd,&r);
+    POINT pt={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+
+    if (r.top > r.bottom) 
+    { 
+      pt.y = r.bottom + (r.top - pt.y); // translate coordinate into flipped-window
+
+      int a=r.top; r.top=r.bottom; r.bottom=a; 
+    }
+    NCCALCSIZE_PARAMS p={{r,}};
+    SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
+    if (!PtInRect(&p.rgrc[0],pt)) rv=HTNOWHERE;
+    SWELL_END_TRY(;)
+    return rv;
   }
   else if (msg==WM_KEYDOWN || msg==WM_KEYUP) return 69;
   else if (msg == WM_DISPLAYCHANGE)
@@ -4938,7 +4955,7 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
       {
         if (buf)
         {
-          lstrcpyn(buf,p,bufsz);
+          lstrcpyn_safe(buf,p,bufsz);
           rv=strlen(buf);
         }
         else rv=strlen(p);
@@ -5430,7 +5447,7 @@ BOOL TreeView_GetItem(HWND hwnd, LPTVITEM pitem)
   pitem->lParam = ti->m_param;
   if ((pitem->mask&TVIF_TEXT)&&pitem->pszText&&pitem->cchTextMax>0)
   {
-    lstrcpyn(pitem->pszText,ti->m_value?ti->m_value:"",pitem->cchTextMax);
+    lstrcpyn_safe(pitem->pszText,ti->m_value?ti->m_value:"",pitem->cchTextMax);
   }
   pitem->state=0;
   

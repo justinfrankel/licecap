@@ -30,6 +30,7 @@
 #include "swell-internal.h"
 
 #include "../ptrlist.h"
+#include "../wdlcstring.h"
 
 HMENU__ *HMENU__::Duplicate()
 {
@@ -249,7 +250,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     mi->fType = item->fType;
     if (item->fType == MFT_STRING && mi->dwTypeData && mi->cch)
     {
-      lstrcpyn(mi->dwTypeData,item->dwTypeData?item->dwTypeData:"",mi->cch);
+      lstrcpyn_safe(mi->dwTypeData,item->dwTypeData?item->dwTypeData:"",mi->cch);
     }
   }
   

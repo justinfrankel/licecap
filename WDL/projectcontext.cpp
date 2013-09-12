@@ -15,6 +15,7 @@
 #include "filewrite.h"
 #include "heapbuf.h"
 #include "wdlstring.h"
+#include "fastqueue.h"
 #include "lineparse.h"
 
 
@@ -32,8 +33,9 @@ class ProjectStateContext_Mem : public ProjectStateContext
 {
 public:
 
-  ProjectStateContext_Mem(WDL_HeapBuf *hb) 
+  ProjectStateContext_Mem(WDL_HeapBuf *hb, int rwflags) 
   { 
+    m_rwflags=rwflags;
     m_heapbuf=hb; 
     m_pos=0; 
     m_tmpflag=0;
@@ -69,6 +71,7 @@ public:
   int m_pos;
   WDL_HeapBuf *m_heapbuf;
   int m_tmpflag;
+  int m_rwflags;
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
   int DecompressData()
@@ -129,28 +132,41 @@ public:
 
 void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 {
-  if (!m_heapbuf) return;
+  if (!m_heapbuf || !(m_rwflags&2)) return;
 
-  char buf[8192];
+  char tmp[8192];
+
+  const char *use_buf;
+  int l;
+
   va_list va;
   va_start(va,fmt);
 
-  buf[0]=0;
-#if defined(_WIN32) && defined(_MSC_VER)
-  int l = _vsnprintf(buf,sizeof(buf),fmt,va); // _vsnprintf() does not always null terminate
-  if (l < 0 || l >= sizeof(buf)) 
+  if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
-    buf[sizeof(buf)-1]=0;
-    l = strlen(buf);
+    use_buf = va_arg(va,const char *);
+    l=use_buf ? (strlen(use_buf)+1) : 0;
   }
-#else
-  // vsnprintf() on non-win32, always null terminates
-  int l = vsnprintf(buf,sizeof(buf),fmt,va);
-  if (l>sizeof(buf)-1) l=sizeof(buf)-1;
-#endif
+  else
+  {
+    tmp[0]=0;
+    #if defined(_WIN32) && defined(_MSC_VER)
+      l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
+      if (l < 0 || l >= sizeof(tmp)) 
+      {
+        tmp[sizeof(tmp)-1]=0;
+        l = strlen(tmp);
+      }
+    #else
+      // vsnprintf() on non-win32, always null terminates
+      l = vsnprintf(tmp,sizeof(tmp),fmt,va);
+      if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
+    #endif
+    use_buf = tmp;
+    l++; // include NULL term
+  }
   va_end(va);
 
-  l++; // include NULL term
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
   if (!m_usecomp)
@@ -161,7 +177,7 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 
   if (m_usecomp==1)
   {
-    m_compdatabuf.Add(buf,l);
+    m_compdatabuf.Add(use_buf,l);
     FlushComp(false);
     return;
   }
@@ -169,7 +185,7 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 
 
   int sz=m_heapbuf->GetSize();
-  if (!sz)
+  if (!sz && m_heapbuf->GetGranul() < 256*1024)
   {
     m_heapbuf->SetGranul(256*1024);
   }
@@ -183,12 +199,12 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
     m_heapbuf=0;
     return; 
   }
-  memcpy(p+sz,buf,l);
+  memcpy(p+sz,use_buf,l);
 }
 
 int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
 {
-  if (!m_heapbuf) return -1;
+  if (!m_heapbuf || !(m_rwflags&1)) return -1;
 
   buf[0]=0;
 
@@ -333,46 +349,60 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
   {
     int err=0;
 
+    char tmp[8192];
+    const char *use_buf;
+    va_list va;
+    va_start(va,fmt);
+    int l=0;
+
+    if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
+    {
+      // special case "%s" passed, directly use it
+      use_buf = va_arg(va,const char *);
+      if (use_buf) l=strlen(use_buf);
+      else use_buf="";
+    }
+    else
+    {
+      tmp[0]=0;
+      #if defined(_WIN32) && defined(_MSC_VER)
+        l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
+        if (l < 0 || l >= sizeof(tmp)) 
+        {
+          tmp[sizeof(tmp)-1] = 0;
+          l = strlen(tmp);
+        }
+     #else
+       // vsnprintf() on non-win32, always null terminates
+       l = vsnprintf(tmp,sizeof(tmp),fmt,va);
+       if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
+     #endif
+
+       use_buf = tmp;
+    }
+
+    va_end(va);
+
     int a=m_indent;
-    if (fmt[0] == '<') m_indent+=2;
-    else if (fmt[0] == '>') a=(m_indent-=2);
+    if (use_buf[0] == '<') m_indent+=2;
+    else if (use_buf[0] == '>') a=(m_indent-=2);
     
     if (a>0) 
     {
       m_bytesOut+=a;
-      char tb[32];
-      memset(tb,' ',sizeof(tb));
+      char tb[128];
+      memset(tb,' ',a < sizeof(tb) ? a : sizeof(tb));
       while (a>0) 
       {
-        int tl = a;
-        if (tl>32)tl=32;
+        const int tl = a < sizeof(tb) ? a : sizeof(tb);
         a-=tl;     
         m_wr->Write(tb,tl);
       }
     }
 
 
-    char buf[8192];
-    va_list va;
-    va_start(va,fmt);
-
-    buf[0]=0;
-  #if defined(_WIN32) && defined(_MSC_VER)
-    int l = _vsnprintf(buf,sizeof(buf),fmt,va); // _vsnprintf() does not always null terminate
-    if (l < 0 || l >= sizeof(buf)) 
-    {
-      buf[sizeof(buf)-1] = 0;
-      l = strlen(buf);
-    }
-  #else
-    // vsnprintf() on non-win32, always null terminates
-    int l = vsnprintf(buf,sizeof(buf),fmt,va);
-    if (l>sizeof(buf)-1) l=sizeof(buf)-1;
-  #endif
-
-    va_end(va);
     
-    err |= m_wr->Write(buf,l) != l;
+    err |= m_wr->Write(use_buf,l) != l;
     err |= m_wr->Write("\r\n",2) != 2;
     m_bytesOut += 2 + l;
 
@@ -406,7 +436,98 @@ ProjectStateContext *ProjectCreateFileWrite(const char *fn)
 
 ProjectStateContext *ProjectCreateMemCtx(WDL_HeapBuf *hb)
 {
-  return new ProjectStateContext_Mem(hb);
+  return new ProjectStateContext_Mem(hb,3);
+}
+
+ProjectStateContext *ProjectCreateMemCtx_Read(const WDL_HeapBuf *hb)
+{
+  return new ProjectStateContext_Mem((WDL_HeapBuf *)hb,1);
+}
+ProjectStateContext *ProjectCreateMemCtx_Write(WDL_HeapBuf *hb)
+{
+  return new ProjectStateContext_Mem(hb,2);
+}
+
+
+
+
+class ProjectStateContext_FastQueue : public ProjectStateContext
+{
+public:
+
+  ProjectStateContext_FastQueue(WDL_FastQueue *fq) 
+  { 
+    m_fq = fq;
+    m_tmpflag=0;
+  }
+
+  virtual ~ProjectStateContext_FastQueue() 
+  { 
+  };
+
+  virtual void WDL_VARARG_WARN(printf,2,3) AddLine(const char *fmt, ...);
+  virtual int GetLine(char *buf, int buflen) { return -1; }//unsup
+
+  virtual WDL_INT64 GetOutputSize() { return m_fq ? m_fq->Available() : 0; }
+
+  virtual int GetTempFlag() { return m_tmpflag; }
+  virtual void SetTempFlag(int flag) { m_tmpflag=flag; }
+  
+  WDL_FastQueue *m_fq;
+  int m_tmpflag;
+
+
+};
+
+void ProjectStateContext_FastQueue::AddLine(const char *fmt, ...)
+{
+  if (!m_fq) return;
+
+  char tmp[8192];
+
+  const char *use_buf;
+  int l;
+
+  va_list va;
+  va_start(va,fmt);
+
+  if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
+  {
+    use_buf = va_arg(va,const char *);
+    l=use_buf ? (strlen(use_buf)+1) : 0;
+  }
+  else
+  {
+    tmp[0]=0;
+    #if defined(_WIN32) && defined(_MSC_VER)
+      l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
+      if (l < 0 || l >= sizeof(tmp)) 
+      {
+        tmp[sizeof(tmp)-1]=0;
+        l = strlen(tmp);
+      }
+    #else
+      // vsnprintf() on non-win32, always null terminates
+      l = vsnprintf(tmp,sizeof(tmp),fmt,va);
+      if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
+    #endif
+    use_buf = tmp;
+    l++; // include NULL term
+  }
+  va_end(va);
+
+  m_fq->Add(use_buf,l);
+}
+
+
+
+
+
+
+
+ProjectStateContext *ProjectCreateMemWriteFastQueue(WDL_FastQueue *fq) // only write!
+{
+  return new ProjectStateContext_FastQueue(fq);
 }
 
 bool ProjectContext_GetNextLine(ProjectStateContext *ctx, LineParser *lpOut)
@@ -544,9 +665,9 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
   const unsigned char *p=(const unsigned char *)ptr;
   while (len>0)
   {
-    char buf[80];
+    char buf[256];
     int thiss=len;
-    if (thiss > 40) thiss=40;
+    if (thiss > 96) thiss=96;
     pc_base64encode(p,buf,thiss);
 
     ctx->AddLine("%s",buf);

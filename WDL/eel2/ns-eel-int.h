@@ -252,7 +252,14 @@ opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
-extern EEL_F nseel_globalregs[100];
+typedef struct nseel_globalVarItem
+{
+  EEL_F data;
+  struct nseel_globalVarItem *_next;
+  char name[1]; // varlen, does not include _global. prefix
+} nseel_globalVarItem;
+
+extern nseel_globalVarItem *nseel_globalreg_list;
 
 #ifdef NSEEL_USE_OLD_PARSER
   #define	VALUE	258

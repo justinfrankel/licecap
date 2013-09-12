@@ -83,6 +83,7 @@
   #include <windowsx.h>
   #include <commctrl.h>
   #include <tchar.h>
+  #pragma warning(disable:4244) // implicit cast int to float
 #else
   #include "../../swell/swell.h"
   #define __stdcall
@@ -165,6 +166,8 @@ typedef struct
   UINT uLastHitTestPortion;
   UINT uScrollTimerPortion;
 
+  UINT vscrollbarShrinkBottom,vscrollbarShrinkTop;
+  void *(*getDeadAreaBitmap)(int, HWND, RECT *,int);
 
 } SCROLLWND;
 
@@ -661,6 +664,83 @@ static COLORREF GetSBBackColor(HWND hwnd)
 	return CoolSB_GetSysColor(hwnd,COLOR_SCROLLBAR);
 }
 
+
+void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max)
+{
+  LICE_IBitmap* src=*m_scrollbar_bmp;
+  if (!src) return;
+
+  int x=r->left;
+  int y=r->top;
+  int w=r->right-r->left;
+  int h=r->bottom-r->top;
+
+  int range=h-17*2;
+  int thumb=range*page/max;
+  int tpos=(range*pos)/max;
+
+  if (m_scrollbar_hasPink) 
+  { 
+    LICE_ScaledBlit(dest, src, 
+                    x, y, w, m_sb_bkgvt, 
+                    170, 37, 17, m_sb_bkgvt, 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+    LICE_ScaledBlit(dest, src, 
+                    x, y+m_sb_bkgvt, w, h-m_sb_bkgvt-m_sb_bkgvb, 
+                    170, 37+m_sb_bkgvt, 17, 238-37-m_sb_bkgvt-m_sb_bkgvb, 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+    LICE_ScaledBlit(dest, src, x, y+h-m_sb_bkgvb, w, m_sb_bkgvb, 
+                    170, 238-m_sb_bkgvb, 17, m_sb_bkgvb,
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+
+    int th=(thumb-m_sb_thumbVV[0]-m_sb_thumbVV[2]-m_sb_thumbVV[4])/2;
+    if (th < 0) th=0;
+
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos, w, m_sb_thumbVV[0], 
+                    0, 91, 17, m_sb_thumbVV[0], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0], w, th, 
+                    0, 91+m_sb_thumbVV[0], 17, m_sb_thumbVV[1], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0]+th, w, m_sb_thumbVV[2], 
+                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1], 17, m_sb_thumbVV[2], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0]+th+m_sb_thumbVV[2], w, th, 
+                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1]+m_sb_thumbVV[2], 17, m_sb_thumbVV[3], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos+m_sb_thumbVV[0]+th+m_sb_thumbVV[2]+th, w, m_sb_thumbVV[4], 
+                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1]+m_sb_thumbVV[2]+m_sb_thumbVV[3], 17, m_sb_thumbVV[4], 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+  }
+  else
+  {
+    LICE_ScaledBlit(dest, src,
+                    x, y, w, h, 
+                    170, 34, 17, 238-34, 
+                    1.0f, LICE_BLIT_FILTER_BILINEAR);
+ 
+    LICE_ScaledBlit(dest, src,
+                    x, y+17+tpos, w, thumb, 
+                    0, 90, 17, 238-90, 1.0f, 
+                    LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
+  }
+
+  LICE_ScaledBlit(dest, src,
+                  x, y, w, w,
+                  116, 121, 17, 17, 
+                  1.0f, LICE_BLIT_FILTER_BILINEAR);
+  LICE_ScaledBlit(dest, src,
+                  x, y+h-w, w, w,
+                  116, 181, 17, 17, 
+                  1.0f, LICE_BLIT_FILTER_BILINEAR);
+}
+
+
 //
 //	Paint a checkered rectangle, with each alternate
 //	pixel being assigned a different colour
@@ -898,9 +978,9 @@ static BOOL GetHScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomBu
 static BOOL GetVScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomButtons)
 {
 	GET_WINDOW_RECT(hwnd, rect);
-	rect->top	 += sw->cyTopEdge;						//top window edge
+	rect->top	 += sw->cyTopEdge + sw->vscrollbarShrinkTop;						//top window edge
 	
-	rect->bottom -= sw->cyBottomEdge + 
+	rect->bottom -= sw->cyBottomEdge + sw->vscrollbarShrinkBottom + 
 					(sw->sbarHorz.fScrollVisible ?		//bottom window edge
 					GetScrollMetric(FALSE, SM_CYHORZSB) : 0);
 
@@ -1283,7 +1363,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 	si = &sb->scrollInfo;
 	siMaxMin = si->nMax - si->nMin;
 
-  int sbYoffs=0,sbXoffs=0;
+  int sbYoffs=-(int)sw->vscrollbarShrinkTop,sbXoffs=0;
 #ifdef _WIN32
     // this is a stupid fix for now . this needs a ton of overhauling
   {
@@ -1292,7 +1372,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
     ClientToScreen(hwnd,&p);
     GetWindowRect(hwnd,&r);
 
-    if (sb == &sw->sbarVert) sbYoffs =  r.top - p.y;
+    if (sb == &sw->sbarVert) sbYoffs =  r.top - p.y - sw->vscrollbarShrinkTop;
     if (sb == &sw->sbarHorz) sbXoffs =  r.left - p.x;
   }
 #endif
@@ -1914,13 +1994,11 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 
 	// DRAW THE DEAD AREA
 	// only do this if the horizontal and vertical bars are visible
-	if(sw->sbarHorz.fScrollVisible && sw->sbarVert.fScrollVisible)
-	{
+  if (sw->sbarVert.fScrollVisible && (sw->vscrollbarShrinkTop || sw->vscrollbarShrinkBottom || sw->sbarHorz.fScrollVisible))
+  {
+    int col=CoolSB_GetSysColor(hwnd,COLOR_3DFACE);
 		GET_WINDOW_RECT(hwnd, &rect);
 		OffsetRect(&rect, -winrect.left, -winrect.top);
-
-		rect.bottom -= sw->cyBottomEdge;
-		rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB);
 
 		if(sw->fLeftScrollbar)
 		{
@@ -1932,43 +2010,43 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 			rect.right -= sw->cxRightEdge;
 			rect.left = rect.right  - GetScrollMetric(TRUE, SM_CXVERTSB);
 		}
-		
-		{
-			//calculate the position of THIS window's dead area
-			//with the position of the PARENT window's client rectangle.
-			//if THIS window has been positioned such that its bottom-right
-			//corner sits in the parent's bottom-right corner, then we should
-			//show the sizing-grip.
-			//Otherwise, assume this window is not in the right place, and
-			//just draw a blank rectangle
-			RECT parent;
-			RECT rect2;
-			HWND hwndParent = GetParent(hwnd);
 
-			GetClientRect(hwndParent, &parent);
-			//MapWindowPoints(hwndParent, 0, (POINT *)&parent, 2);
-      ClientToScreen(hwndParent, (LPPOINT)&parent);
-      ClientToScreen(hwndParent, ((LPPOINT)&parent)+1);
-      if (parent.bottom<parent.top)
+    if (sw->vscrollbarShrinkTop)
+    {
+      RECT r2=rect;
+      r2.top += sw->cyTopEdge;
+	  	r2.bottom = r2.top + sw->vscrollbarShrinkTop;
+
+      LICE_IBitmap *bm=NULL;
+      if (sw->getDeadAreaBitmap) bm = (LICE_IBitmap *)sw->getDeadAreaBitmap(1,hwnd,&r2,col);
+      
+      if (bm)
       {
-        int a=parent.top;
-        parent.top=parent.bottom;
-        parent.bottom=a;
+        BitBlt(hdc,r2.left,r2.top,r2.right-r2.left,r2.bottom-r2.top,bm->getDC(),0,0,SRCCOPY);
       }
+      else
+      {
+  		  PaintRect(hdc, &r2, col);
+      }
+    }
 
-			//CopyRect(&rect2, &rect);
-      rect2 = rect;
-			OffsetRect(&rect2, winrect.left, winrect.top);
+    if (sw->sbarHorz.fScrollVisible||sw->vscrollbarShrinkBottom)
+    {
+		  rect.bottom -= sw->cyBottomEdge;
+		  rect.top  = rect.bottom - GetScrollMetric(FALSE, SM_CYHORZSB) - sw->vscrollbarShrinkBottom;
+      LICE_IBitmap *bm=NULL;
+      if (sw->getDeadAreaBitmap) bm = (LICE_IBitmap *)sw->getDeadAreaBitmap(0,hwnd,&rect,col);
 
-#if 0 // never seems to look right (adds an extra arrow)
-			if(!sw->fLeftScrollbar && parent.right == rect2.right+sw->cxRightEdge && parent.bottom == rect2.bottom+sw->cyBottomEdge
-			 || sw->fLeftScrollbar && parent.left  == rect2.left -sw->cxLeftEdge  && parent.bottom == rect2.bottom+sw->cyBottomEdge)
-				ownDrawFrameControl(hwnd,hdc, &rect, DFC_SCROLL, sw->fLeftScrollbar ? DFCS_SCROLLSIZEGRIPRIGHT : DFCS_SCROLLSIZEGRIP, 0 );
-			else
-#endif
-				PaintRect(hdc, &rect, CoolSB_GetSysColor(hwnd,COLOR_3DFACE));
-		}
-	}
+      if (bm)
+      {
+        BitBlt(hdc,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,bm->getDC(),0,0,SRCCOPY);
+      }
+      else
+      {
+    		PaintRect(hdc, &rect, col);
+      }
+    }
+  }
 
 	UNREFERENCED_PARAMETER(clip);
 
@@ -2004,19 +2082,6 @@ static LRESULT NCHitTest(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
     vrect.bottom += zbs*2+ZOOMBUTTON_RESIZER_SIZE(zbs);
   }
 	  
-#ifndef _WIN32
-  if (sw->sbarHorz.fScrollVisible || sw->sbarVert.fScrollVisible)
-  {
-    int sz=sw->sbarHorz.fScrollVisible ? hrect.bottom-hrect.top : vrect.right-vrect.left;
-    if (sz<0)sz=-sz;
-    RECT r;
-    GetWindowRect(hwnd,&r);
-    int bot = max(r.top,r.bottom);
-    int v= (bot-pt.y) + (r.right-pt.x);
-    if (v < sz*3/4) return HTNOWHERE;
-  }
-#endif
-
     
 	//Clicked in the horizontal scrollbar area
 	if(sw->sbarHorz.fScrollVisible && PtInRect(&hrect, pt))
@@ -2029,12 +2094,6 @@ static LRESULT NCHitTest(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 		return HTVSCROLL;
 	}
-#ifndef _WIN32
-  else if (sw->sbarHorz.fScrollVisible && sw->sbarVert.fScrollVisible && pt.y >= hrect.top && pt.y <= hrect.bottom && pt.x >= vrect.left && pt.x <= vrect.right)
-  {
-    return HTNOWHERE;
-  }
-#endif  
 	//clicked somewhere else
 	else
 	{
@@ -2435,8 +2494,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 	pt.x = x;
 	pt.y = y;
 
-
-  int sbYoffs=0,sbXoffs=0;
+  int sbYoffs=-(int)sw->vscrollbarShrinkTop,sbXoffs=0;
 #ifdef _WIN32
   // this is a stupid fix for now . this needs a ton of overhauling
   {
@@ -2445,7 +2503,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
     ClientToScreen(hwnd,&p);
     GetWindowRect(hwnd,&r);
 
-    if (sbar == &sw->sbarVert) sbYoffs =  r.top - p.y;
+    if (sbar == &sw->sbarVert) sbYoffs =  r.top - p.y - sw->vscrollbarShrinkTop;
     if (sbar == &sw->sbarHorz) sbXoffs =  r.left - p.x;
   }
 #endif
@@ -3272,6 +3330,19 @@ static void RedrawNonClient(HWND hwnd, BOOL fFrameChanged)
 #endif
 	}
 }
+
+void CoolSB_SetVScrollPad(HWND hwnd, UINT topamt, UINT botamt, void *(*getDeadAreaBitmap)(int which, HWND hwnd, RECT *r, int col))
+{
+	SCROLLWND *sw = GetScrollWndFromHwnd(hwnd);
+  if (sw && (botamt != sw->vscrollbarShrinkBottom||topamt != sw->vscrollbarShrinkTop||sw->getDeadAreaBitmap != getDeadAreaBitmap)) 
+  {
+    sw->getDeadAreaBitmap=getDeadAreaBitmap;
+    sw->vscrollbarShrinkBottom = botamt;
+    sw->vscrollbarShrinkTop = topamt;
+    RedrawNonClient(hwnd,FALSE);
+  }
+}
+
 
 //
 //	return the default minimum size of a scrollbar thumb

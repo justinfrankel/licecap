@@ -33,6 +33,7 @@
 #include "swell-internal.h"
 
 #include "../mutex.h"
+#include "../wdlcstring.h"
 
 
 static bool IsCoreTextSupported()
@@ -508,7 +509,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   if (IsCoreTextSupported())
   {
     char buf[1024];
-    lstrcpyn(buf,lfFaceName,900);
+    lstrcpyn_safe(buf,lfFaceName,900);
     if (lfWeight >= FW_BOLD) strcat(buf," Bold");
     if (lfItalic) strcat(buf," Italic");
 

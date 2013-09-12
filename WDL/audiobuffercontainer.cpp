@@ -229,11 +229,43 @@ void AudioBufferContainer::Resize(int nCh, int nFrames, bool preserveData)
     preserveData = false;
   }
 
-  int newsz = nCh*nFrames*(int)m_fmt;
+  const int newsz = nCh*nFrames*(int)m_fmt;
 
   if (preserveData && (nCh != m_nCh || nFrames != m_nFrames))
   {
     GetAllChannels(m_fmt, true);  // causes m_data to be interleaved
+
+    if (newsz > m_data.GetSize()) m_data.Resize(newsz);
+    if (nCh != m_nCh && m_data.GetSize() >= newsz)
+    {
+      char *out = (char *)m_data.Get();
+      const char *in = out;
+      const int in_adv = m_nCh * m_fmt, out_adv = nCh * m_fmt;
+      const int copysz = min(in_adv,out_adv);
+
+      int n = min(nFrames,m_nFrames);
+      if (out_adv < in_adv) // decreasing channel count, left to right
+      {
+        while (n--)
+        {
+          if (out!=in) memmove(out,in,copysz);
+          out+=out_adv;
+          in+=in_adv;
+        }
+      }
+      else // increasing channel count, copy right to left
+      {
+        out += n * out_adv;
+        in += n * in_adv;
+        while (n--)
+        {
+          out-=out_adv;
+          in-=in_adv;
+          if (out!=in) memmove(out,in,copysz);
+        }
+      }
+      // adjust interleaving
+    }
   }
   
   m_data.Resize(newsz);
@@ -418,7 +450,7 @@ void AudioBufferContainer::CopyFrom(AudioBufferContainer* rhs)
 }
 
 
-void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper)
+void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, int forceMinChanCnt)
 {
   if (mapper->IsStraightPassthrough())
   {
@@ -426,18 +458,19 @@ void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, 
     return;
   }
 
-  int nch = mapper->GetNChannels();
-  int npins = mapper->GetNPins();
-  int nframes = src->GetNFrames();
-  int fmt = src->GetFormat();
+  const int nch = mapper->GetNChannels();
+  const int npins = mapper->GetNPins();
+  const int nframes = src->GetNFrames();
+  const int fmt = src->GetFormat();
+  const int np = max(npins,forceMinChanCnt);
   
-  dest->Resize(npins, nframes, false);
+  dest->Resize(np, nframes, false);
   
   int c, p;
-  for (p = 0; p < npins; ++p)
+  for (p = 0; p < np; ++p)
   {
     bool pinused = false;  
-    for (c = 0; c < nch; ++c)
+    if (p < npins) for (c = 0; c < nch; ++c)
     {
       if (mapper->GetPin(p, c))
       {
