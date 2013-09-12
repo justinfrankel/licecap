@@ -571,6 +571,8 @@ void Capture_Finish(HWND hwndDlg)
   g_cap_bm=0;
 }
 
+#ifdef VIDEO_ENCODER_SUPPORT
+
 WDL_DLGRET VideoOptionsProc(HWND hwndDlg, UINT Message, WPARAM wParam, LPARAM lParam)
 {
   switch(Message)
@@ -602,6 +604,7 @@ WDL_DLGRET VideoOptionsProc(HWND hwndDlg, UINT Message, WPARAM wParam, LPARAM lP
   }
   return 0;
 }
+#endif
 
 static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -671,9 +674,11 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
           }  
 #endif
         return 0;
+#ifdef VIDEO_ENCODER_SUPPORT
         case IDC_BUTTON1:
           DialogBox(g_hInst,MAKEINTRESOURCE(IDD_OPTIONS),hwndDlg,VideoOptionsProc);
         break;
+#endif
       }
     return 0;
   }
