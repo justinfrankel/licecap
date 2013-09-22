@@ -152,8 +152,12 @@ static iniFileContext *GetFileContext(const char *name)
       if (!fgets_to_typedbuf(&_buf,fp)) break;
 
       char *buf = _buf.Get();
+      if (!ctx->m_sections.GetSize()) 
+      {
+        lcnt += strlen(buf);
+        if (lcnt > 256*1024) break; // dont bother reading more than 256kb if no section encountered
+      }
       char *p=buf;
-      if (lcnt++ == 8 && !ctx->m_sections.GetSize()) break; // dont bother reading more than 8 lines if no section encountered
 
       while (*p) p++;
 
