@@ -216,11 +216,11 @@ struct opcodeRec
  } parms;
   
  int namespaceidx;
- // allocate extra if using this field. used with:
+ 
  // OPCODETYPE_VALUE_FROM_NAMESPACENAME (relname is either empty or blah)
  // OPCODETYPE_VARPTR if it represents a global variable, will be nonempty
  // OPCODETYPE_FUNC* with fntype=FUNCTYPE_EELFUNC
- char relname[1]; 
+ const char *relname;
 };
 
 
@@ -245,9 +245,31 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
-static opcodeRec *newOpCode(compileContext *ctx)
+static opcodeRec *newOpCode(compileContext *ctx, const char *str)
 {
-  return (opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec),8, ctx->isSharedFunctions ? 0 : -1); 
+  const int strszfull = str ? strlen(str) : 0;
+  const int str_sz = min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
+
+  opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx,
+                         sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0),
+                         8, ctx->isSharedFunctions ? 0 : -1); 
+  if (rec)
+  {
+    if (str_sz > 0) 
+    {
+      char *p = (char *)(rec+1);
+      memcpy(p,str,str_sz);
+      p[str_sz]=0;
+
+      rec->relname = p;
+    }
+    else
+    {
+      rec->relname = "";
+    }
+  }
+
+  return rec;
 }
 
 #define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
@@ -767,7 +789,7 @@ static void *__newBlock(llBlock **start, int size, int wantMprotect)
 //---------------------------------------------------------------------------------------------------------------
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 {
-  opcodeRec *r=newOpCode(ctx);
+  opcodeRec *r=newOpCode(ctx,NULL);
   if (r)
   {
     r->opcodeType = OPCODETYPE_DIRECTVALUE;
@@ -779,39 +801,29 @@ opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 
 opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx)
 {
-  const int n1=strlen(relName);
-  const int n=min(NSEEL_MAX_VARIABLE_NAMELEN,n1);
-  opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+n,8, ctx->isSharedFunctions ? 0 : -1); 
+  opcodeRec *r=newOpCode(ctx,relName);
   if (!r) return 0;
   r->namespaceidx = thisctx;
   r->opcodeType=OPCODETYPE_VALUE_FROM_NAMESPACENAME;
-  memcpy(r->relname,relName,n);
-  r->relname[n]=0;
 
   return r;
 }
 
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr)
 {
-  const int relName_len=namestr ? strlen(namestr) : 0;
-  const int n=min(relName_len,NSEEL_MAX_VARIABLE_NAMELEN);
-
-  opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+n,8, ctx->isSharedFunctions ? 0 : -1); 
-
+  opcodeRec *r=newOpCode(ctx,namestr);
   if (!r) return 0;
 
   r->opcodeType = OPCODETYPE_VARPTR;
   r->parms.dv.valuePtr=addrValue;
   r->parms.dv.directValue=0.0;
-  if (n>0) memcpy(r->relname,namestr,n);
-  r->relname[n]=0;
 
   return r;
 }
 
 opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue)
 {
-  opcodeRec *r=newOpCode(ctx);
+  opcodeRec *r=newOpCode(ctx,NULL);
   if (r)
   {
     r->opcodeType = OPCODETYPE_VARPTRPTR;
@@ -823,10 +835,7 @@ opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValu
 
 opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleFunctionRec *fnp, const char *relName, int namespaceidx)
 {
-  const int relName_len=strlen(relName);
-  const int n=min(relName_len,NSEEL_MAX_VARIABLE_NAMELEN);
-
-  opcodeRec *r=(opcodeRec*)__newBlock_align(ctx,sizeof(opcodeRec)+n,8, ctx->isSharedFunctions ? 0 : -1); 
+  opcodeRec *r=newOpCode(ctx,relName);
   if (!r) return 0;
   r->fntype=FUNCTYPE_EELFUNC;
   r->fn = fnp;
@@ -835,15 +844,13 @@ opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleF
   else if (fnp->num_params == 3) r->opcodeType = OPCODETYPE_FUNC3;
   else if (fnp->num_params==2) r->opcodeType = OPCODETYPE_FUNC2;
   else r->opcodeType = OPCODETYPE_FUNC1;
-  memcpy(r->relname,relName,n);
-  r->relname[n]=0;
 
   return r;
 }
 
 opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype, void *fn)
 {
-  opcodeRec *r=newOpCode(ctx);
+  opcodeRec *r=newOpCode(ctx,NULL);
   if (!r) return 0;
   r->fntype=fntype;
   r->fn = fn;
@@ -871,7 +878,7 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *cod
 
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
 {
-  opcodeRec *r=code1 && code2 ? newOpCode(ctx) : NULL;
+  opcodeRec *r=code1 && code2 ? newOpCode(ctx,NULL) : NULL;
   if (r)
   {
     r->opcodeType = OPCODETYPE_MOREPARAMS;
@@ -884,7 +891,7 @@ opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code
 
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
-  opcodeRec *r=code1 && (np<2 || code2) ? newOpCode(ctx) : NULL;
+  opcodeRec *r=code1 && (np<2 || code2) ? newOpCode(ctx,NULL) : NULL;
   if (r)
   {
     r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
@@ -950,8 +957,9 @@ static void combineNamespaceFields(char *nm, const namespaceInformation *namespa
   const char *prefix = namespaceInfo ? 
                           thisctx<0 ? (thisctx == -1 ? namespaceInfo->namespacePathToThis : NULL) :  (thisctx < MAX_SUB_NAMESPACES ? namespaceInfo->subParmInfo[thisctx] : NULL)
                         : NULL;
-  int lfp = 0, lrn=strlen(relname);
+  int lfp = 0, lrn=relname ? strlen(relname) : 0;
   if (prefix) while (prefix[lfp] && prefix[lfp] != ':' && lfp < NSEEL_MAX_VARIABLE_NAMELEN) lfp++;
+  if (!relname) relname = "";
 
   while (*relname == '.') // if relname begins with ., then remove a chunk of context from prefix
   {
@@ -1042,7 +1050,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
   char prefix_buf[NSEEL_MAX_VARIABLE_NAMELEN+1], nm[NSEEL_MAX_FUNCSIG_NAME+1];
   if (!fn) return NULL;
 
-  // op->relname  is [whatever.]funcname
+  // op->relname ptr is [whatever.]funcname
   if (fn->parameterAsNamespaceMask || fn->usesNamespaces)
   {
     if (wantCodeGenerated)
@@ -1644,7 +1652,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     if (op->opcodeType != OPCODETYPE_DIRECTVALUE) allowCache=0;
 
     b=op->parms.dv.valuePtr;
-    if (!b && op->opcodeType == OPCODETYPE_VARPTR && op->relname[0]) 
+    if (!b && op->opcodeType == OPCODETYPE_VARPTR && op->relname && op->relname[0]) 
     {
       op->parms.dv.valuePtr = b = nseel_int_register_var(ctx,op->relname,0);
     }
@@ -2720,7 +2728,7 @@ void dumpOp(compileContext *ctx, opcodeRec *op, int start)
           fprintf(g_debugfp,"dv %f",op->parms.dv.directValue);
         break;
         case OPCODETYPE_VARPTR:
-          if (op->relname[0])
+          if (op->relname && op->relname[0])
           {
             fprintf(g_debugfp,"var %s",op->relname);
           }
