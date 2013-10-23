@@ -35,8 +35,7 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
   return 0;
 }
 
-
-static BOOL useNoMiddleManCocoa()
+static BOOL Is105Plus()
 {
   static char is105;
   if (!is105)
@@ -47,6 +46,8 @@ static BOOL useNoMiddleManCocoa()
   }
   return is105>0;
 }
+
+static BOOL useNoMiddleManCocoa() { return Is105Plus(); }
 
 void updateWindowCollection(NSWindow *w)
 {
@@ -3008,7 +3009,12 @@ void SWELL_SetViewGL(HWND h, bool wantGL)
     {
       if (wantGL) 
       {
-        NSOpenGLPixelFormatAttribute atr[] = {(NSOpenGLPixelFormatAttribute)0}; // todo: optionally add any attributes before the 0
+        NSOpenGLPixelFormatAttribute atr[] = { 
+            96/*NSOpenGLPFAAllowOfflineRenderers*/, // allows use of NSSupportsAutomaticGraphicsSwitching and no gpu-forcing
+            (NSOpenGLPixelFormatAttribute)0
+        }; // todo: optionally add any attributes before the 0
+        if (!Is105Plus()) atr[0]=0; // 10.4 can't use offline renderers and will fail trying
+
         NSOpenGLPixelFormat *fmt  = [[NSOpenGLPixelFormat alloc] initWithAttributes:atr];
         
         hc->m_glctx = [[NSOpenGLContext alloc] initWithFormat:fmt shareContext:nil];
