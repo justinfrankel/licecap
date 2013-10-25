@@ -33,6 +33,7 @@
 #include "swell-internal.h"
 
 #include "../mutex.h"
+#include "../assocarray.h"
 #include "../wdlcstring.h"
 
 
@@ -48,7 +49,8 @@ static bool IsCoreTextSupported()
   }
   
   return is105 > 0 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
-         CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString;
+         CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString && CTFontCopyPostScriptName
+         ;
 #else
   // targetting 10.5+, CT is always valid
   return true;
@@ -491,6 +493,41 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 }
 
 
+static WDL_Mutex s_fontnamecache_mutex;
+static WDL_StringKeyedArray<NSString *> s_fontnamecache;
+static NSString *SWELL_GetCachedFontName(const char *nm)
+{
+  NSString *ret = NULL;
+  if (nm && *nm)
+  {
+    s_fontnamecache_mutex.Enter();
+    ret = s_fontnamecache.Get(nm);
+    s_fontnamecache_mutex.Leave();
+    if (!ret)
+    {
+      ret = CStringToNSString(nm);
+      if (ret)
+      {
+        if (1) // CoreText only warns on 10.9+ if this isn't used, maybe we should only do it on 10.9+ ? need to test on 10.5/10.6 too
+        {
+          NSFont *font = [NSFont fontWithName:ret size:10];
+          NSString *nr = font ? (NSString *)CTFontCopyPostScriptName((CTFontRef)font) : NULL;
+          if (nr) 
+          {
+            [ret release];
+            ret = nr;
+          }
+        }
+
+        s_fontnamecache_mutex.Enter();
+        s_fontnamecache.Insert(nm,ret);
+        s_fontnamecache_mutex.Leave();
+      }
+    }
+  }
+  return ret ? ret : @"";
+}
+
 HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation, int lfWeight, char lfItalic, 
                  char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
                  char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
@@ -513,9 +550,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     if (lfWeight >= FW_BOLD) strcat(buf," Bold");
     if (lfItalic) strcat(buf," Italic");
 
-    NSString *str=CStringToNSString(buf); 
-    font->ct_FontRef = (void*)CTFontCreateWithName((CFStringRef)str,fontwid,NULL);
-    [str release];
+    font->ct_FontRef = (void*)CTFontCreateWithName((CFStringRef)SWELL_GetCachedFontName(buf),fontwid,NULL);
     if (!font->ct_FontRef) font->ct_FontRef = (void*)[[NSFont labelFontOfSize:fontwid] retain]; 
 
     // might want to make this conditional (i.e. only return font if created successfully), but I think we'd rather fallback to a system font than use ATSUI
