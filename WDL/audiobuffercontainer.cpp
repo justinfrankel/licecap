@@ -535,7 +535,7 @@ void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in,
                              ChannelPinMapper *pinmap, bool isInput) 
 {
 
-  if (pinmap->IsStraightPassthrough())
+  if (pinmap->IsStraightPassthrough() || !pinmap->GetNPins())
   {
     int x;
     char *op = (char *)buf_out;
