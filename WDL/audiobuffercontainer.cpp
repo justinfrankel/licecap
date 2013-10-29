@@ -117,7 +117,7 @@ bool ChannelPinMapper::LoadState(char* buf, int len)
   if (!pMagic || *pMagic != PINMAPPER_MAGIC) return false;
   int* pNCh = WDL_Queue__GetTFromLE(&chunk, (int*) 0);
   int* pNPins = WDL_Queue__GetTFromLE(&chunk, (int*) 0);
-  if (!pNCh || !pNPins || !(*pNCh) || !(*pNPins)) return false;
+  if (!pNCh || !pNPins) return false;
   SetNPins(*pNCh);
   SetNChannels(*pNCh);
   int maplen = *pNPins*sizeof(WDL_UINT64);
@@ -127,6 +127,7 @@ bool ChannelPinMapper::LoadState(char* buf, int len)
   int sz= m_nPins*sizeof(WDL_UINT64);
   if (sz>maplen) sz=maplen;
   memcpy(m_mapping, pMap, sz);
+
   return true;
 }
 
