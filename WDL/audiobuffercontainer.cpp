@@ -130,7 +130,7 @@ bool ChannelPinMapper::LoadState(char* buf, int len)
   return true;
 }
 
-template <class TDEST, class TSRC> void BufConvertT(TDEST* dest, TSRC* src, int nFrames, int destStride, int srcStride)
+template <class TDEST, class TSRC> void BufConvertT(TDEST* dest, const TSRC* src, int nFrames, int destStride, int srcStride)
 {
   int i;
   for (i = 0; i < nFrames; ++i)
@@ -182,7 +182,7 @@ template <class T> void BufMixT(T* dest, T* src, int nFrames, bool addToDest, do
 }
 
 // static 
-bool AudioBufferContainer::BufConvert(void* dest, void* src, int destFmt, int srcFmt, int nFrames, int destStride, int srcStride)
+bool AudioBufferContainer::BufConvert(void* dest, const void* src, int destFmt, int srcFmt, int nFrames, int destStride, int srcStride)
 {
   if (destFmt == FMT_32FP)
   {

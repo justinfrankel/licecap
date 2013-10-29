@@ -62,7 +62,7 @@ public:
     FMT_64FP=8
   };
 
-  static bool BufConvert(void* dest, void* src, int destFmt, int srcFmt, int nFrames, int destStride, int srcStride);
+  static bool BufConvert(void* dest, const void* src, int destFmt, int srcFmt, int nFrames, int destStride, int srcStride);
 
   int GetNChannels() { return m_nCh; }
   int GetNFrames() { return m_nFrames; }
