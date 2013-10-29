@@ -192,3 +192,40 @@ static bool HDC_VALID(HDC__ *ct)
   // insert breakpoints in these parts for debugging
   return ct && !ct->_infreelist;
 }
+
+#if !defined(SWELL_GDI_DEBUG) && defined(SWELL_CLEANUP_ON_UNLOAD)
+
+class _swellGdiUnloader
+{
+  public:
+  _swellGdiUnloader() { }
+  ~_swellGdiUnloader() 
+  {
+     {
+       HDC__ *p = m_ctxpool;
+       m_ctxpool = NULL;
+       while (p)
+       {
+         HDC__ *t = p;
+         p = p->_next;
+         free(t);
+       }
+     }
+     {
+       HGDIOBJ__ *p = m_objpool;
+       m_objpool = NULL;
+       while (p)
+       {
+         HGDIOBJ__ *t = p;
+         p = p->_next;
+         free(t);
+       }
+     }
+
+     delete m_ctxpool_mutex;
+     m_ctxpool_mutex=NULL;
+  }
+};
+
+_swellGdiUnloader __swell__swellGdiUnloader;
+#endif
