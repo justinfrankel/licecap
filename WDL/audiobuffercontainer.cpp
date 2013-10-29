@@ -526,3 +526,69 @@ void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, 
 
 
 
+
+
+// converts interleaved buffer to interleaved buffer, using min(len_in,len_out) and zeroing any extra samples
+// isInput means it reads from track channels and writes to plugin pins
+void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in, 
+                             double *buf_out, int len_out, int nch_out,
+                             ChannelPinMapper *pinmap, bool isInput) 
+{
+
+  if (pinmap->IsStraightPassthrough())
+  {
+    int x;
+    char *op = (char *)buf_out;
+    const char *ip = (const char *)buf;
+
+    const int ip_adv = nch_in * sizeof(double);
+
+    const int clen = min(nch_in, nch_out) * sizeof(double);
+    const int zlen = nch_out > nch_in ? (nch_out - nch_in) * sizeof(double) : 0;
+
+    const int cplen = min(len_in,len_out);
+
+    for (x=0;x<cplen;x++)
+    {
+      memcpy(op,ip,clen);
+      op += clen;
+      if (zlen) 
+      {
+        memset(op,0,zlen);
+        op += zlen;
+      }
+      ip += ip_adv;
+    }
+    if (x < len_out) memset(op, 0, (len_out-x)*sizeof(double)*nch_out);
+  }
+  else
+  {
+    memset(buf_out,0,len_out*nch_out*sizeof(double));
+
+    int x;
+    const int npins = min(pinmap->GetNPins(),isInput ? nch_out : nch_in);
+    const int nchan = isInput ? nch_in : nch_out;
+
+    int p;
+    for (p = 0; p < npins; p ++)
+    {
+      WDL_UINT64 map = pinmap->m_mapping[p];
+      for (x = 0; x < nchan && map; x ++)
+      {
+        if (map & 1)
+        {
+          int i=len_in;
+          const double *ip = buf + (isInput ? x : p);
+          double *op = buf_out + (isInput ? p : x);
+          while (i-- > 0) 
+          {
+            *op += *ip;
+            op += nch_out;
+            ip += nch_in;
+          }
+        }
+        map >>= 1;
+      }
+    }
+  }
+}

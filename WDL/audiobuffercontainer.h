@@ -47,6 +47,11 @@ private:
   int m_nCh, m_nPins;
 };
 
+// converts interleaved buffer to interleaved buffer, using min(len_in,len_out) and zeroing any extra samples
+// isInput means it reads from track channels and writes to plugin pins
+void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in, 
+                             double *buf_out, int len_out, int nch_out,
+                             ChannelPinMapper *pinmap, bool isInput);
 
 // use for float and double only ... ints will break it
 class AudioBufferContainer
