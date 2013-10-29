@@ -531,9 +531,10 @@ void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, 
 
 // converts interleaved buffer to interleaved buffer, using min(len_in,len_out) and zeroing any extra samples
 // isInput means it reads from track channels and writes to plugin pins
+// wantZeroExcessOutput=false means that untouched channels will be preserved in buf_out
 void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in, 
                              double *buf_out, int len_out, int nch_out,
-                             ChannelPinMapper *pinmap, bool isInput) 
+                             ChannelPinMapper *pinmap, bool isInput, bool wantZeroExcessOutput) 
 {
 
   if (pinmap->IsStraightPassthrough() || !pinmap->GetNPins())
@@ -555,37 +556,64 @@ void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in,
       op += clen;
       if (zlen) 
       {
-        memset(op,0,zlen);
+        if (wantZeroExcessOutput) memset(op,0,zlen);
         op += zlen;
       }
       ip += ip_adv;
     }
-    if (x < len_out) memset(op, 0, (len_out-x)*sizeof(double)*nch_out);
+    if (x < len_out && wantZeroExcessOutput) memset(op, 0, (len_out-x)*sizeof(double)*nch_out);
   }
   else
   {
-    memset(buf_out,0,len_out*nch_out*sizeof(double));
+    if (wantZeroExcessOutput) memset(buf_out,0,len_out*nch_out*sizeof(double));
 
-    int x;
     const int npins = min(pinmap->GetNPins(),isInput ? nch_out : nch_in);
     const int nchan = isInput ? nch_in : nch_out;
 
     int p;
+    WDL_UINT64 clearmask=0;
     for (p = 0; p < npins; p ++)
     {
       WDL_UINT64 map = pinmap->m_mapping[p];
+      int x;
       for (x = 0; x < nchan && map; x ++)
       {
         if (map & 1)
         {
           int i=len_in;
           const double *ip = buf + (isInput ? x : p);
-          double *op = buf_out + (isInput ? p : x);
-          while (i-- > 0) 
+          const int out_idx = (isInput ? p : x);
+
+          bool want_zero=false;
+          if (!wantZeroExcessOutput)
           {
-            *op += *ip;
-            op += nch_out;
-            ip += nch_in;
+            WDL_UINT64 m = ((WDL_UINT64)1)<<out_idx;
+            if (!(clearmask & m))
+            {
+              clearmask|=m;
+              want_zero=true;
+            }
+          }
+
+          double *op = buf_out + out_idx;
+
+          if (want_zero)
+          {
+            while (i-- > 0) 
+            {
+              *op = *ip;
+              op += nch_out;
+              ip += nch_in;
+            }
+          }
+          else
+          {
+            while (i-- > 0) 
+            {
+              *op += *ip;
+              op += nch_out;
+              ip += nch_in;
+            }
           }
         }
         map >>= 1;
