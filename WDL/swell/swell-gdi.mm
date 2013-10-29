@@ -494,7 +494,8 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 
 
 static WDL_Mutex s_fontnamecache_mutex;
-static WDL_StringKeyedArray<NSString *> s_fontnamecache;
+static void releaseString(NSString *s) { [s release]; }
+static WDL_StringKeyedArray<NSString *> s_fontnamecache(true,releaseString);
 static NSString *SWELL_GetCachedFontName(const char *nm)
 {
   NSString *ret = NULL;
@@ -508,7 +509,8 @@ static NSString *SWELL_GetCachedFontName(const char *nm)
       ret = CStringToNSString(nm);
       if (ret)
       {
-        if (1) // CoreText only warns on 10.9+ if this isn't used, maybe we should only do it on 10.9+ ? need to test on 10.5/10.6 too
+        // only do postscript name lookups on 10.9+
+        if (floor(NSFoundationVersionNumber) > 945.00) // NSFoundationVersionNumber10_8
         {
           NSFont *font = [NSFont fontWithName:ret size:10];
           NSString *nr = font ? (NSString *)CTFontCopyPostScriptName((CTFontRef)font) : NULL;
