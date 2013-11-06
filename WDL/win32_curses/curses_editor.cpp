@@ -1251,9 +1251,9 @@ int WDL_CursesEditor::onChar(int c)
       {
         preSaveUndoState();
 
-        bool hadCom = strstr(tl->Get(),"*/") || strstr(tl->Get(),"/*");
+        bool hadCom = LineCanAffectOtherLines(tl->Get());
         tl->DeleteSub(--m_curs_x,1);
-        if (!hadCom) hadCom = strstr(tl->Get(),"*/") || strstr(tl->Get(),"/*");
+        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get());
         draw(hadCom?-1:m_curs_y);
         saveUndoState();
         setCursor();
@@ -1358,12 +1358,12 @@ int WDL_CursesEditor::onChar(int c)
          char str[8]={c,};
         if (c == '\t') strcpy(str,TAB_STR);
     //    sprintf(str,"|%d|",c);
-        bool hadCom = strstr(ss->Get(),"*/") || strstr(ss->Get(),"/*");
+        bool hadCom = LineCanAffectOtherLines(ss->Get());
         if (s_overwrite) ss->DeleteSub(m_curs_x,strlen(str));
 
         ss->Insert(str,m_curs_x);
 
-        if (!hadCom) hadCom = strstr(ss->Get(),"*/") || strstr(ss->Get(),"/*");
+        if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get());
 
         m_curs_x += strlen(str);
         draw(hadCom ? -1 : m_curs_y);

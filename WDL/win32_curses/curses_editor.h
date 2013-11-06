@@ -29,7 +29,7 @@ protected:
   class editUndoRec;
 
   int init(const char *fn, const char *init_if_empty=0); 
-  void draw(int lineidx=-1);
+  virtual void draw(int lineidx=-1);
   void draw_message(const char *str);
   void draw_status_state();
   void setCursor(int isVscroll=0);
