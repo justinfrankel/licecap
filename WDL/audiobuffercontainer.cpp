@@ -63,7 +63,7 @@ bool ChannelPinMapper::TogglePin(int pinIdx, int chIdx)
   return on;
 }
 
-bool ChannelPinMapper::GetPin(int pinIdx, int chIdx)
+bool ChannelPinMapper::GetPin(int pinIdx, int chIdx) const
 {
   if (pinIdx >= 0 && pinIdx < CHANNELPINMAPPER_MAXPINS)
   {
@@ -73,7 +73,7 @@ bool ChannelPinMapper::GetPin(int pinIdx, int chIdx)
   return false;
 }
 
-bool ChannelPinMapper::PinHasMoreMappings(int pinIdx, int chIdx)
+bool ChannelPinMapper::PinHasMoreMappings(int pinIdx, int chIdx) const
 {
   if (pinIdx >= 0 && pinIdx < CHANNELPINMAPPER_MAXPINS)
   {
@@ -83,10 +83,10 @@ bool ChannelPinMapper::PinHasMoreMappings(int pinIdx, int chIdx)
   return false;
 }
 
-bool ChannelPinMapper::IsStraightPassthrough()
+bool ChannelPinMapper::IsStraightPassthrough() const
 {
   if (m_nCh != m_nPins) return false;
-  WDL_UINT64* pMap = m_mapping;
+  const WDL_UINT64* pMap = m_mapping;
   int i;
   for (i = 0; i < m_nPins; ++i, ++pMap) {
     if (*pMap != BITMASK64(i)) return false;
@@ -109,7 +109,7 @@ char* ChannelPinMapper::SaveStateNew(int* pLen)
   return (char*)m_cfgret.Get();
 }
 
-bool ChannelPinMapper::LoadState(char* buf, int len)
+bool ChannelPinMapper::LoadState(const char* buf, int len)
 {
   WDL_Queue chunk;
   chunk.Add(buf, len);
@@ -140,7 +140,7 @@ template <class TDEST, class TSRC> void BufConvertT(TDEST* dest, const TSRC* src
   }
 }
 
-template <class T> void BufMixT(T* dest, T* src, int nFrames, bool addToDest, double wt_start, double wt_end)
+template <class T> void BufMixT(T* dest, const T* src, int nFrames, bool addToDest, double wt_start, double wt_end)
 {
   int i;
   
@@ -299,7 +299,7 @@ void AudioBufferContainer::Reformat(int fmt, bool preserveData)
 }
 
 // src=NULL to memset(0)
-void* AudioBufferContainer::SetAllChannels(int fmt, void* src, int nCh, int nFrames)
+void* AudioBufferContainer::SetAllChannels(int fmt, const void* src, int nCh, int nFrames)
 {
   Reformat(fmt, false);
   Resize(nCh, nFrames, false);
@@ -321,7 +321,7 @@ void* AudioBufferContainer::SetAllChannels(int fmt, void* src, int nCh, int nFra
 }
 
 // src=NULL to memset(0)
-void* AudioBufferContainer::SetChannel(int fmt, void* src, int chIdx, int nFrames)
+void* AudioBufferContainer::SetChannel(int fmt, const void* src, int chIdx, int nFrames)
 {
   Reformat(fmt, true);
   if (nFrames > m_nFrames || chIdx >= m_nCh) 
@@ -346,7 +346,7 @@ void* AudioBufferContainer::SetChannel(int fmt, void* src, int chIdx, int nFrame
   return dest;
 }
 
-void* AudioBufferContainer::MixChannel(int fmt, void* src, int chIdx, int nFrames, bool addToDest, double wt_start, double wt_end)
+void* AudioBufferContainer::MixChannel(int fmt, const void* src, int chIdx, int nFrames, bool addToDest, double wt_start, double wt_end)
 {
   Reformat(fmt, true);
   if (nFrames > m_nFrames || chIdx >= m_nCh) 
@@ -432,7 +432,7 @@ void AudioBufferContainer::ReLeave(bool interleave, bool preserveData)
   m_interleaved = interleave;
 }
 
-void AudioBufferContainer::CopyFrom(AudioBufferContainer* rhs)
+void AudioBufferContainer::CopyFrom(const AudioBufferContainer* rhs)
 {
   int sz = rhs->m_data.GetSize();
   void* dest = m_data.Resize(sz);    
@@ -493,7 +493,7 @@ void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, 
   }
 }
 
-void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, double wt_start, double wt_end)
+void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, const ChannelPinMapper* mapper, double wt_start, double wt_end)
 {
   if (wt_start == 1.0 && wt_end == 1.0 && mapper->IsStraightPassthrough())
   {
@@ -534,7 +534,7 @@ void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, 
 // wantZeroExcessOutput=false means that untouched channels will be preserved in buf_out
 void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in, 
                              double *buf_out, int len_out, int nch_out,
-                             ChannelPinMapper *pinmap, bool isInput, bool wantZeroExcessOutput) 
+                             const ChannelPinMapper *pinmap, bool isInput, bool wantZeroExcessOutput) 
 {
 
   if (pinmap->IsStraightPassthrough() || !pinmap->GetNPins())
