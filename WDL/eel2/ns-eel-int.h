@@ -253,7 +253,7 @@ typedef struct nseel_globalVarItem
   char name[1]; // varlen, does not include _global. prefix
 } nseel_globalVarItem;
 
-extern nseel_globalVarItem *nseel_globalreg_list;
+extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, must use NSEEL_getglobalregs() for regxx values
 
 #ifdef NSEEL_USE_OLD_PARSER
   #define	VALUE	258

@@ -4309,9 +4309,21 @@ void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
 
 nseel_globalVarItem *nseel_globalreg_list;
 
+#ifdef NSEEL_EEL1_COMPAT_MODE
+static EEL_F __nseel_global_regs[100];
+double *NSEEL_getglobalregs() { return __nseel_global_regs; }
+#endif
+
 static EEL_F *get_global_var(const char *gv, int addIfNotPresent)
 {
   nseel_globalVarItem *p;
+#ifdef NSEEL_EEL1_COMPAT_MODE
+  if (!strncasecmp(gv,"reg",3) && gv[3]>='0' && gv[3] <= '9' && gv[4] >= '0' && gv[4] <= '9' && !gv[5])
+  {
+    return __nseel_global_regs + atoi(gv+3);
+  }
+#endif
+
   NSEEL_HOSTSTUB_EnterMutex(); 
   p = nseel_globalreg_list;
   while (p)

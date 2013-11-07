@@ -169,8 +169,6 @@ extern int NSEEL_RAM_memused_errors;
 #define NSEEL_SHARED_GRAM_SIZE (1<<20)
 
 
-
-
 // note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will need to regenerate things.
 
 // on osx:
@@ -199,6 +197,11 @@ extern int NSEEL_RAM_memused_errors;
 #ifdef EEL_TARGET_PORTABLE
 #define EEL_BC_TYPE int
 #endif
+
+#ifdef NSEEL_EEL1_COMPAT_MODE
+double *NSEEL_getglobalregs();
+#endif
+
 
 #ifdef __cplusplus
 }
