@@ -535,7 +535,12 @@ struct HDC__ {
 
 // 10.4 sdk just uses "float"
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
-typedef float CGFloat;
+  #ifdef __LP64__
+    typedef double CGFloat;
+  #else
+    typedef float CGFloat;
+#endif
+
 #endif
 
 
