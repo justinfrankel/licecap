@@ -53,7 +53,7 @@ void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
   NSData *data = [s dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
   if (!data)
   {
-    [s getCString:buf maxLength:buflen-1];
+    [s getCString:buf maxLength:buflen encoding:NSASCIIStringEncoding];
     return;
   }
   int len = [data length];
