@@ -775,7 +775,7 @@ int WDL_CursesEditor::onChar(int c)
     case 'V'-'A'+1:
       {
         // generate a m_clipboard using win32 clipboard data
-        WDL_PtrList<char> lines;
+        WDL_PtrList<const char> lines;
         WDL_String buf;
 #ifdef WDL_IS_FAKE_CURSES
         if (CURSES_INSTANCE)

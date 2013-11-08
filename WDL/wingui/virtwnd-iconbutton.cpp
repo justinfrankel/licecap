@@ -206,7 +206,6 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
 
 void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
-  HDC hdc=drawbm->getDC();
   int col;
 
   float alpha = (m_grayed ? 0.25f : 1.0f) * m_alpha;

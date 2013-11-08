@@ -302,7 +302,6 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
   LICE_IBitmap *bm_image=m_skininfo ? m_skininfo->thumbimage[isVert] : 0;
   int bm_w=16,bm_h=16,bm_w2=16,bm_h2=16;
   int imgoffset=0;
-  HBITMAP bm=0;
   bool wantKnob=false;
   if (bm_image)
   {

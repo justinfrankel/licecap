@@ -260,7 +260,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   if (!mod) return 0;
   
   HGDIOBJ__ *op=*mod;
-  if (!HGDIOBJ_VALID(op,p->type)) op=(HGDIOBJ__*)p->type;
+  if (!HGDIOBJ_VALID(op,p->type)) op=(HGDIOBJ__*)(INT_PTR)p->type;
   if (op != p) *mod=p;  
   return op;
 }

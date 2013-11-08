@@ -350,7 +350,6 @@ public:
       const char *p = m_br->vwnd->GetAccessDesc();
       if (p && *p)
       {
-        char buf[1024];
         sprintf(buf,"%.512s: %.512s",p,str);
         str=buf;
       }

@@ -328,7 +328,7 @@ static BOOL IsScrollbarActive(SCROLLBAR *sb)
 {
 	SCROLLINFO *si = &sb->scrollInfo;
 	if(((sb->fScrollFlags & ESB_DISABLE_BOTH) == ESB_DISABLE_BOTH) ||
-		!(sb->fScrollFlags & CSBS_THUMBALWAYS) && !IsScrollInfoActive(si))
+		(!(sb->fScrollFlags & CSBS_THUMBALWAYS) && !IsScrollInfoActive(si)))
 		return FALSE;
 	else
 		return TRUE;
@@ -846,12 +846,13 @@ static void DrawCheckedRect(LICE_IBitmap *bmOut, HDC hdc, RECT *rect, COLORREF f
     return;
   }
 
-	static WORD wCheckPat[8] = 
-	{ 
-		0xaaaa, 0x5555, 0xaaaa, 0x5555, 0xaaaa, 0x5555, 0xaaaa, 0x5555 
-	};
 
 #ifdef _WIN32
+	static WORD wCheckPat[8] =
+	{
+		0xaaaa, 0x5555, 0xaaaa, 0x5555, 0xaaaa, 0x5555, 0xaaaa, 0x5555
+	};
+
 	HBITMAP hbmp;
 	HBRUSH  hbr, hbrold;
 	COLORREF fgold, bgold;
@@ -1044,8 +1045,6 @@ static int CalcThumbSize(SCROLLBAR *sbar, const RECT *rect, int *pthumbsize, int
 	int startcoord;
 	int thumbpos = 0, thumbsize = 0;
 
-	int adjust=0;
-	static int count=0;
 
 	//work out the width (for a horizontal) or the height (for a vertical)
 	//of a standard scrollbar button
@@ -1854,11 +1853,11 @@ static void initLiceBmp()
   m_scrollbar_hasPink = getPink(0,35,0)>0;
   if(m_scrollbar_hasPink)
   {
-    LICE_IBitmap *bmp = *m_scrollbar_bmp;
+//    LICE_IBitmap *bmp = *m_scrollbar_bmp;
     memset(&m_sb_thumbHV, 0, sizeof(m_sb_thumbHV));
     memset(&m_sb_thumbVV, 0, sizeof(m_sb_thumbVV));
-    int w = bmp->getWidth();
-    int h = bmp->getHeight();
+//    int w = bmp->getWidth();
+ //   int h = bmp->getHeight();
     {
       int l = getPink(0,89,0);
       m_sb_thumbHV[0] = l;
@@ -1906,8 +1905,7 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 	HDC hdc;
 	HRGN hrgn;
 	RECT winrect, rect;
-	HRGN clip;
-	BOOL fUpdateAll = (wParam == 1);
+//	BOOL fUpdateAll = (wParam == 1);
 	UINT ret;
 
   if(!m_scrollbar_bmp)
@@ -1938,8 +1936,6 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 	sb = &sw->sbarHorz;
 	if(sb->fScrollVisible)
 	{
-		int hbarwidth = 0, leftright = 0;
-
 		//get the screen coordinates of the whole horizontal scrollbar area
     BOOL hasZoomButtons;
 		GetHScrollRect(sw, hwnd, &rect, &hasZoomButtons);
@@ -1960,8 +1956,6 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 	sb = &sw->sbarVert;
 	if(sb->fScrollVisible)
 	{
-		int vbarheight = 0, updown = 0;
-
 		//get the screen cooridinates of the whole horizontal scrollbar area
     BOOL hasZoomButtons;
 		GetVScrollRect(sw, hwnd, &rect,&hasZoomButtons);
@@ -2048,7 +2042,7 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
     }
   }
 
-	UNREFERENCED_PARAMETER(clip);
+//	UNREFERENCED_PARAMETER(clip);
 
   if(!hdcParam) ReleaseDC(hwnd, hdc);
 	return ret;
@@ -2375,7 +2369,6 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 	HDC hdc;
 	POINT pt;
 	RECT winrect;
-	UINT buttonIdx = 0;
 
   if (sw->uZoomTimerId) KillTimer(hwnd,sw->uZoomTimerId);
   sw->uZoomTimerId=0;
@@ -2669,10 +2662,8 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 	UINT thisportion;
 	HDC hdc;
 	static UINT lastportion = 0;
-	static UINT lastbutton = 0;
 	POINT pt;
 	RECT winrect;
-	UINT buttonIdx = 0;
 
 	if(sw->fThumbTracking == TRUE)
 	{
@@ -2771,7 +2762,7 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
         if(sw->uCurrentScrollbar == SB_VERT) offs = pt.y - nThumbMouseOffset;
         if(sw->uCurrentScrollPortion == HTSCROLL_RRESIZER) offs = -offs;
 
-        if((sw->uCurrentScrollbar == SB_VERT))
+        if(sw->uCurrentScrollbar == SB_VERT)
         {
           GetVScrollRect(sw, hwnd, &rect,NULL);
 		      RotateRect0(sb, &rect);
@@ -2818,7 +2809,6 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 
 		lastportion = thisportion;
-		lastbutton  = buttonIdx;
 
 		//must return zero here, because we might get cursor anomilies
 		//CallWindowProc(sw->oldproc, hwnd, WM_MOUSEMOVE, wParam, lParam);
@@ -2839,7 +2829,7 @@ static LRESULT NCCalcSize(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam
 	NCCALCSIZE_PARAMS *nccsp;
 	RECT *rect;
 	RECT oldrect;
-	BOOL fCalcValidRects = (wParam == TRUE);
+//	BOOL fCalcValidRects = (wParam == TRUE);
 	SCROLLBAR *sb;
 	UINT ret;
 
@@ -3121,7 +3111,6 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
 {
 	WNDPROC oldproc;
 	SCROLLWND *swnd = GetScrollWndFromHwnd(hwnd);
-	static int count;
 	
   switch(message)
 	{
@@ -3603,8 +3592,8 @@ int	WINAPI CoolSB_SetScrollInfo (HWND hwnd, int fnBar, LPSCROLLINFO lpsi, BOOL f
 	}
 	else
 	{
-		if(    mysi->nPage >  (UINT)mysi->nMax 
-			|| mysi->nPage == (UINT)mysi->nMax && mysi->nMax == 0
+		if(mysi->nPage >  (UINT)mysi->nMax
+			|| (mysi->nPage == (UINT)mysi->nMax && mysi->nMax == 0)
 			|| mysi->nMax  <= mysi->nMin)
 		{
 			if(sbar->fScrollVisible)
@@ -3738,7 +3727,6 @@ BOOL WINAPI CoolSB_ShowScrollBar (HWND hwnd, int wBar, BOOL fShow)
 //
 HRESULT WINAPI UninitializeCoolSB(HWND hwnd)
 {
-	int i = 0;
 	SCROLLWND *sw = GetScrollWndFromHwnd(hwnd);
 	if(!sw) return E_FAIL;
 

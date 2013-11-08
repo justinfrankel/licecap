@@ -5023,8 +5023,8 @@ bool OpenClipboard(HWND hwndDlg)
       {
         if ([s compare:(NSString *)m_clip_fmts.Get(y)]==NSOrderedSame)
         {
-          if (m_clip_curfmts.Find((char*)(y+1))<0)
-            m_clip_curfmts.Add((char*)(y+1));
+          if (m_clip_curfmts.Find((char*)(INT_PTR)(y+1))<0)
+            m_clip_curfmts.Add((char*)(INT_PTR)(y+1));
           break;
         }
       }

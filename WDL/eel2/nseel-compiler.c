@@ -2824,7 +2824,6 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
     if (!stub || bufOut_len < stubsize) RET_MINUS1_FAIL(stub?"booltofp size":"booltfp addr")
     if (bufOut) 
     {
-      unsigned char *p=bufOut;
       memcpy(bufOut,stub,stubsize);
       bufOut += stubsize;
     }
@@ -4542,7 +4541,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
         ctx->function_localTable_Names[0] && 
         ctx->function_localTable_ValuePtrs)
     {
-      const char * const * const namelist = ctx->function_localTable_Names[0];
+      char * const * const namelist = ctx->function_localTable_Names[0];
       const int namelist_sz = ctx->function_localTable_Size[0];
       int i;
       for (i=0; i < namelist_sz; i++)
@@ -4572,7 +4571,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
         ctx->function_localTable_Size[1] > 0 && 
         ctx->function_localTable_Names[1])
     {
-      const char * const * const namelist = ctx->function_localTable_Names[1];
+      char * const * const namelist = ctx->function_localTable_Names[1];
       const int namelist_sz = ctx->function_localTable_Size[1];
       int i;
       for (i=0; i < namelist_sz; i++)
