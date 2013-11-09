@@ -36,7 +36,9 @@
 #include <ctype.h>
 
 #ifdef __APPLE__
-  #ifdef __LP64__
+  #include <AvailabilityMacros.h>
+
+  #if defined(__LP64__) || defined(MAC_OS_X_VERSION_10_7) // using 10.7+ SDK, force mprotect use
     #define EEL_USE_MPROTECT
   #endif
 #endif
