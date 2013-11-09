@@ -390,6 +390,9 @@ struct HTREEITEM__
 
 
 @interface SWELL_hwndCarbonHost : SWELL_hwndChild
+#ifdef MAC_OS_X_VERSION_10_7
+<NSWindowDelegate>
+#endif
 {
 @public
   NSWindow *m_cwnd;
