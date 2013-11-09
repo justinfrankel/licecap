@@ -342,7 +342,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
+#ifdef __clang__
+    ffree st(0);
+#else
     fstp st(0);
+#endif
     mov dword ptr [esi], esp;
     fild dword ptr [esi];
 
@@ -904,7 +908,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-    fadd;
+#ifdef __clang__
+          faddp st(1);
+#else
+          fadd;
+#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -917,7 +925,7 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-  }
+          }
 }
 __declspec(naked) void nseel_asm_add_end(void) {}
 
@@ -1021,10 +1029,14 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef __GNUC__
-    fsubr; // gnuc has fsub/fsubr backwards, ack
+#ifdef __clang__
+    fsubrp st(1), st(0);
 #else
+  #ifdef __GNUC__
+    fsubr; // gnuc has fsub/fsubr backwards, ack
+  #else
     fsub;
+  #endif
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -1141,7 +1153,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-    fmul;
+#ifdef __clang__
+          fmulp st(1), st(0);
+#else
+          fmul;
+#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1223,10 +1239,14 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef __GNUC__
-    fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+#ifdef __clang__
+    fdivrp st(1);
 #else
+  #ifdef __GNUC__
+    fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+  #else
     fdiv;
+  #endif
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -1260,10 +1280,14 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     fld EEL_ASM_TYPE [edi];
-#ifndef __GNUC__
+#ifdef __clang__
+    fdivrp st(1);
+#else
+  #ifndef __GNUC__
     fxch; // gcc inline asm seems to have fdiv/fdivr backwards
-#endif
+  #endif
     fdiv;
+#endif
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
 
@@ -2301,7 +2325,12 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
+#ifdef __clang__
+    fsubp st(1);
+#else
     fsub;
+#endif
+
     fabs;
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
@@ -2423,7 +2452,12 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
+#ifdef __clang__
+    fsubp st(1);
+#else
     fsub;
+#endif
+
     fabs;
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]

@@ -184,7 +184,11 @@ void nseel_asm_dbg_getstackptr(void)
 {
   __asm__(
       FUNCTION_MARKER
+#ifdef __clang__
+    "ffree %st(0)\n"
+#else
     "fstpl %st(0)\n"
+#endif
     "movl %esp, (%esi)\n"
     "fildl (%esi)\n"
 
@@ -412,10 +416,14 @@ void nseel_asm_assign_fast_end(void) {}
 void nseel_asm_add(void)
 {
   __asm__(
-      FUNCTION_MARKER
-    "fadd\n"
-     FUNCTION_MARKER
-  );
+          FUNCTION_MARKER
+#ifdef __clang__
+          "faddp %st(1)\n"
+#else
+          "fadd\n"
+#endif
+          FUNCTION_MARKER
+          );
 }
 void nseel_asm_add_end(void) {}
 
@@ -463,10 +471,14 @@ void nseel_asm_sub(void)
 {
   __asm__(
       FUNCTION_MARKER
-#ifdef __GNUC__
-    "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+#ifdef __clang__
+    "fsubrp %st(0), %st(1)\n"
 #else
+  #ifdef __GNUC__
+    "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+  #else
     "fsub\n"
+  #endif
 #endif
      FUNCTION_MARKER
   );
@@ -516,7 +528,11 @@ void nseel_asm_mul(void)
 {
   __asm__(
       FUNCTION_MARKER
-    "fmul\n"
+#ifdef __clang__
+          "fmulp %st(0), %st(1)\n"
+#else
+          "fmul\n"
+#endif
      FUNCTION_MARKER
   );
 }
@@ -553,10 +569,14 @@ void nseel_asm_div(void)
 {
   __asm__(
       FUNCTION_MARKER
-#ifdef __GNUC__
-    "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+#ifdef __clang__
+    "fdivrp %st(1)\n"
 #else
+  #ifdef __GNUC__
+    "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+  #else
     "fdiv\n"
+  #endif
 #endif
     FUNCTION_MARKER
   );
@@ -568,10 +588,14 @@ void nseel_asm_div_op(void)
   __asm__(
       FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
-#ifndef __GNUC__
+#ifdef __clang__
+    "fdivrp %st(1)\n"
+#else
+  #ifndef __GNUC__
     "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+  #endif
+    "fdiv\n"
 #endif
-    "fdiv\n" 
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
 
@@ -1110,7 +1134,12 @@ void nseel_asm_equal(void)
 {
   __asm__(
       FUNCTION_MARKER
+#ifdef __clang__
+    "fsubp %st(1)\n"
+#else
     "fsub\n"
+#endif
+
     "fabs\n"
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
@@ -1164,7 +1193,12 @@ void nseel_asm_notequal(void)
 {
   __asm__(
       FUNCTION_MARKER
+#ifdef __clang__
+    "fsubp %st(1)\n"
+#else
     "fsub\n"
+#endif
+
     "fabs\n"
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
