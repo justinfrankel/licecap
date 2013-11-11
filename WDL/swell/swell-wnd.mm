@@ -361,7 +361,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   HTREEITEM__ *row=item ? ((HTREEITEM__*)[item getValue])->m_children.Get(index) : m_items ? m_items->Get(index) : 0;
 
-  return (id)row->m_dh;
+  return (id)(row ? row->m_dh : NULL);
 }
 
 - (id)outlineView:(NSOutlineView *)outlineView
@@ -2222,7 +2222,7 @@ bool IsEquivalentTextView(HWND h1, HWND h2)
   if (h1 == h2) return true;
   SWELL_BEGIN_TRY
   NSView* v1 = (NSView*)h1;
-  NSView* v2 = (NSView*)v2;
+  NSView* v2 = (NSView*)h2;
   if ([v1 isKindOfClass:[NSTextField class]] && [v2 isKindOfClass:[NSTextView class]])
   {
     NSView* t = v1;
@@ -3007,8 +3007,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
               if (font) 
               {
                 [self setFont:font];
-                [font release];
-              }              
+              }
             }
           }            
         }
@@ -5605,16 +5604,13 @@ void ListView_SetSelColors(HWND hwnd, int *colors, int ncolors) // this works fo
 {
   if (!hwnd) return;
   NSMutableArray *ar=[[NSMutableArray alloc] initWithCapacity:ncolors];
-  if (ncolors>0 && colors)
-  {   
-    ar = [[NSMutableArray alloc] initWithCapacity:ncolors];
-    while (ncolors-->0)
-    {
-      int color = *colors++;
-      [ar addObject:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f 
+  
+  while (ncolors-->0)
+  {
+    const int color = colors ? *colors++ : 0;
+    [ar addObject:[NSColor colorWithCalibratedRed:GetRValue(color)/255.0f
                                               green:GetGValue(color)/255.0f 
                                                blue:GetBValue(color)/255.0f alpha:1.0f]]; 
-    }
   }
 
   if ([(id)hwnd isKindOfClass:[SWELL_ListView class]]) 
