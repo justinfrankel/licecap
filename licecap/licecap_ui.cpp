@@ -1884,7 +1884,7 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hI
     *(void **)&Resampler_Create = rec->GetFunc("Resampler_Create");
     
     
-    if (!get_ini_file || !Audio_RegHardwareHook || !Resampler_Create || !__WDL_ChooseFileForSave || !VERIFY_LICE_IMPORTED()) return 0;
+    if (!get_ini_file || !Audio_RegHardwareHook || !Resampler_Create || !__WDL_ChooseFileForSave || !VERIFY_LICE_IMPORTED() || !__LICE_MeasureText || !__LICE_DrawText) return 0;
 
     reaperAPI_getfunc = rec->GetFunc;
     g_ini_file.Set(get_ini_file());
