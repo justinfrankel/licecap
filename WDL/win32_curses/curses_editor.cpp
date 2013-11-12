@@ -551,7 +551,6 @@ void WDL_CursesEditor::removeSelect()
           WDL_FastString *s=m_text.Get(x);
           if (s)
           {
-            const char *str=s->Get();
             int sx,ex;
             if (x == miny) sx=max(minx,0);
             else sx=0;
@@ -908,7 +907,6 @@ int WDL_CursesEditor::onChar(int c)
       }
       else if ((s=m_text.Get(m_curs_y)))
       {
-        const char *p=s->Get();
         if (m_curs_x < s->GetLength())
         {
           preSaveUndoState();

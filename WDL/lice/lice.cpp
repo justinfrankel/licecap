@@ -1255,14 +1255,12 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
     dstw=-dstw;
     dstx-=dstw;
     srcx+=srcw;  
-    srcw=-srcw;
   }
   if (dsth<0)
   {
     dsth=-dsth;
     dsty-=dsth;
     srcy+=srch;
-    srch=-srch;
   }
 
 

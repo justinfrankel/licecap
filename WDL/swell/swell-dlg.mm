@@ -920,10 +920,6 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   
   [self setHidden:YES];
   
-//  BOOL wasHid=[self isHidden];
-  //if (!wasHid) [self setHidden:YES];
-  
-  bool isChild=false;
   
   if ([parent isKindOfClass:[NSSavePanel class]]||[parent isKindOfClass:[NSOpenPanel class]])
   {
@@ -946,7 +942,6 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
   else
   {
-    isChild=[parent isKindOfClass:[NSView class]];
     [parent addSubview:self];
   }
   if (resstate) resstate->createFunc((HWND)self,resstate->windowTypeFlags);
