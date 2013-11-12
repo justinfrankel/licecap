@@ -189,19 +189,23 @@ class WDL_HeapBuf
         #else // WDL_HEAPBUF_DYNAMIC
           if (newsize!=m_size)
           {
-            // if we are not using m_smallbuf or we need to not use it
-            // and if if growing or resizing down
-            if (
-              (newsize > m_alloc || 
-               (resizedown && newsize < m_size && 
-                              newsize < m_alloc/2 && 
-                              newsize < m_alloc - (m_granul<<2)))) 
+            int resizedown_under = 0;
+            if (resizedown && newsize < m_size)
+            {
+              // shrinking buffer: only shrink if allocation decreases to min(alloc/2, alloc-granul*4) or 0
+              resizedown_under = m_alloc - (m_granul<<2);
+              if (resizedown_under > m_alloc/2) resizedown_under = m_alloc/2;
+              if (resizedown_under < 1) resizedown_under=1;
+            }
+  
+            if (newsize > m_alloc || newsize < resizedown_under)
             {
               int granul=newsize/2;
               int newalloc;
               if (granul < m_granul) granul=m_granul;
   
-              if (m_granul<4096) newalloc=newsize+granul;
+              if (newsize<1) newalloc=0;
+              else if (m_granul<4096) newalloc=newsize+granul;
               else
               {
                 granul &= ~4095;
@@ -214,13 +218,22 @@ class WDL_HeapBuf
 
               if (newalloc != m_alloc)
               {
+
                 #ifdef WDL_HEAPBUF_TRACE
                   char tmp[512];
                   wsprintf(tmp,"WDL_HeapBuf: type %s realloc(%d) from %d\n",m_tracetype,newalloc,m_alloc);
                   OutputDebugString(tmp);
                 #endif
-                void *nbuf= realloc(m_buf,newalloc);
-                if (!nbuf && newalloc) 
+                if (newalloc <= 0)
+                {
+                  free(m_buf);
+                  m_buf=0;
+                  m_alloc=0;
+                  m_size=0;
+                  return 0;
+                }
+                void *nbuf=realloc(m_buf,newalloc);
+                if (!nbuf)
                 {
                   if (!(nbuf=malloc(newalloc))) 
                   {
