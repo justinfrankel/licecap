@@ -847,7 +847,10 @@ int WDL_CursesEditor::onChar(int c)
                 while (*p == ' ' || *p == '\t') p++;
                 if (!*p && p > str->Get())
                 {
-                  while (*tstr == ' ' || *tstr == '\t') tstr++;
+                  if (lines.GetSize()>1)
+                  {
+                    while (*tstr == ' ' || *tstr == '\t') tstr++;
+                  }
                   indent_to_pos = m_curs_x;
                 }
 
