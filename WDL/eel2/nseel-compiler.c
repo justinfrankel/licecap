@@ -988,15 +988,33 @@ static void combineNamespaceFields(char *nm, const namespaceInformation *namespa
 static void *nseel_getBuiltinFunctionAddress(compileContext *ctx, 
       int fntype, void *fn, 
       NSEEL_PPPROC *pProc, void ***replList, 
-      void **endP, int *abiInfo, int preferredReturnValues)
+      void **endP, int *abiInfo, int preferredReturnValues, const EEL_F *hasConstParm1, const EEL_F *hasConstParm2)
 {
+  const EEL_F *firstConstParm = hasConstParm1 ? hasConstParm1 : hasConstParm2;
+
   switch (fntype)
   {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
-    case FN_ADD: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL; RF(add);
-    case FN_SUB: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL; RF(sub);
-    case FN_MULTIPLY: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); RF(mul);
-    case FN_DIVIDE: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2); RF(div);
+    case FN_ADD: 
+       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL;
+        // for x +- non-denormal-constant,  we can set BIF_CLEARDENORMAL
+       if (firstConstParm && fabs(*firstConstParm) > 1.0e-10) *abiInfo |= BIF_CLEARDENORMAL;
+    RF(add);
+    case FN_SUB: 
+       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL; 
+        // for x +- non-denormal-constant,  we can set BIF_CLEARDENORMAL
+       if (firstConstParm && fabs(*firstConstParm) > 1.0e-10) *abiInfo |= BIF_CLEARDENORMAL;
+    RF(sub);
+    case FN_MULTIPLY: 
+        *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); 
+         // for x*constant-greater-than-eq-1, we can set BIF_WONTMAKEDENORMAL
+        if (firstConstParm && fabs(*firstConstParm) >= 1.0) *abiInfo |= BIF_WONTMAKEDENORMAL;
+    RF(mul);
+    case FN_DIVIDE: 
+        *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2); 
+        // for x/constant-less-than-eq-1, we can set BIF_WONTMAKEDENORMAL
+        if (firstConstParm && fabs(*firstConstParm) <= 1.0) *abiInfo |= BIF_WONTMAKEDENORMAL;
+    RF(div);
 #ifndef EEL_TARGET_PORTABLE
     case FN_JOIN_STATEMENTS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(exec2); // shouldn't ever be used anyway, but scared to remove
 #endif
@@ -1027,6 +1045,12 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
         *pProc=p->pProc;
         *endP = p->func_e;
         *abiInfo = p->nParams & BIF_NPARAMS_MASK;
+        if (firstConstParm)
+        {
+          const char *name=p->name;
+          if (!strcmp(name,"min") && *firstConstParm < -1.0e-10) *abiInfo |= BIF_CLEARDENORMAL;
+          else if (!strcmp(name,"max") && *firstConstParm > 1.0e-10) *abiInfo |= BIF_CLEARDENORMAL;
+        }
         return p->afunc; 
       }
     break;
@@ -1740,7 +1764,13 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
   NSEEL_PPPROC preProc=0;
   void **repl=NULL;
-  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e,&cfunc_abiinfo,preferredReturnValues);
+  const int parm0_dv = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
+  const int parm1_dv = n_params > 1 && op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
+
+  void *func = nseel_getBuiltinFunctionAddress(ctx, op->fntype, op->fn, &preProc,&repl,&func_e,&cfunc_abiinfo,preferredReturnValues, 
+       parm0_dv ? &op->parms.parms[0]->parms.dv.directValue : NULL,
+       parm1_dv ? &op->parms.parms[1]->parms.dv.directValue : NULL
+       );
 
   if (!func) RET_MINUS1_FAIL("error getting funcaddr")
 
@@ -1753,7 +1783,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   *rvMode = RETURNVALUE_NORMAL;
 
-  if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+  if (parm0_dv) 
   {
     if (func == nseel_asm_stack_pop)
     {
