@@ -528,14 +528,14 @@ static functionType fnTable1[] = {
    { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sin} },
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&cos} },
    { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&tan}  },
-   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sqrt}, },
+   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&sqrt}, },
    { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log} },
    { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log10} },
 #else
    { "sin",   nseel_asm_sin,nseel_asm_sin_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
    { "cos",    nseel_asm_cos,nseel_asm_cos_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
    { "tan",    nseel_asm_tan,nseel_asm_tan_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
-   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
+   { "sqrt",   nseel_asm_sqrt,nseel_asm_sqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1)|BIF_WONTMAKEDENORMAL },
    { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), },
    { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), },
 #endif
@@ -569,10 +569,10 @@ static functionType fnTable1[] = {
    { "min",    nseel_asm_min,nseel_asm_min_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_FPSTACKUSE(3)|BIF_WONTMAKEDENORMAL },
    { "max",    nseel_asm_max,nseel_asm_max_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_FPSTACKUSE(3)|BIF_WONTMAKEDENORMAL },
    { "sign",   nseel_asm_sign,nseel_asm_sign_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL, },
-   { "rand",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&nseel_int_rand}, },
+   { "rand",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_CLEARDENORMAL, {&nseel_int_rand}, },
 
-   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&floor} },
-   { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&ceil} },
+   { "floor",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_CLEARDENORMAL, {&floor} },
+   { "ceil",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_CLEARDENORMAL, {&ceil} },
 
    { "invsqrt",   nseel_asm_invsqrt,nseel_asm_invsqrt_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), {GLUE_INVSQRT_NEEDREPL} },
 
