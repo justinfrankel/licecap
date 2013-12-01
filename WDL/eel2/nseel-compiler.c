@@ -493,6 +493,9 @@ static double eel1sigmoid(double x, double constraint)
 #define BIF_TWOPARMSONFPSTACK_LAZY (BIF_LAZYPARMORDERING|BIF_SECONDLASTPARMST|BIF_LASTPARMONSTACK)
 
 
+#ifndef GLUE_HAS_NATIVE_TRIGSQRTLOG
+static double sqrt_fabs(double a) { return sqrt(fabs(a)); }
+#endif
 
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f);
@@ -530,7 +533,7 @@ static functionType fnTable1[] = {
    { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&sin} },
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&cos} },
    { "tan",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&tan}  },
-   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&sqrt}, },
+   { "sqrt",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&sqrt_fabs}, },
    { "log",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log} },
    { "log10",  nseel_asm_1pdd,nseel_asm_1pdd_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&log10} },
 #else
@@ -1519,18 +1522,20 @@ start_over: // when an opcode changed substantially in optimization, goto here t
           int suc=1;
           EEL_F v = op->parms.parms[0]->parms.dv.directValue;
   #define DOF(x) if (!strcmp(pfn->name,#x)) v = x(v); else
+  #define DOF2(x,y) if (!strcmp(pfn->name,#x)) v = x(y); else
           DOF(sin)
           DOF(cos)
           DOF(tan)
           DOF(asin)
           DOF(acos)
           DOF(atan)
-          DOF(sqrt)
+          DOF2(sqrt, fabs(v))
           DOF(exp)
           DOF(log)
           DOF(log10)
           /*else*/ suc=0;
   #undef DOF
+  #undef DOF2
           if (suc)
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
