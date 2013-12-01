@@ -344,6 +344,8 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(div)
   DECL_ASMFUNC(mul_op)
   DECL_ASMFUNC(div_op)
+  DECL_ASMFUNC(mul_op_fast)
+  DECL_ASMFUNC(div_op_fast)
   DECL_ASMFUNC(mod)
   DECL_ASMFUNC(shl)
   DECL_ASMFUNC(shr)
@@ -2076,6 +2078,17 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     {
       func = nseel_asm_sub_op_fast;
       func_e = nseel_asm_sub_op_fast_end;
+    }
+    // or if mul/div by a fixed value of >= or <= 1.0
+    else if (func == (void *)nseel_asm_mul_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) >= 1.0)
+    {
+      func = nseel_asm_mul_op_fast;
+      func_e = nseel_asm_mul_op_fast_end;
+    }
+    else if (func == (void *)nseel_asm_div_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) <= 1.0)
+    {
+      func = nseel_asm_div_op_fast;
+      func_e = nseel_asm_div_op_fast_end;
     }
   }
 

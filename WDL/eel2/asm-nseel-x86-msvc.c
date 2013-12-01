@@ -1223,6 +1223,40 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_mul_op_end(void) {}
 
+__declspec(naked) void nseel_asm_mul_op_fast(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fmul EEL_ASM_TYPE [edi];
+    mov eax, edi;
+    fstp EEL_ASM_TYPE [edi];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_mul_op_fast_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_div(void)
 {
@@ -1321,6 +1355,49 @@ _emit 0x90;
   }
 }
 __declspec(naked) void nseel_asm_div_op_end(void) {}
+
+__declspec(naked) void nseel_asm_div_op_fast(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fld EEL_ASM_TYPE [edi];
+#ifdef __clang__
+    fdivrp st(1);
+#else
+  #ifndef __GNUC__
+    fxch; // gcc inline asm seems to have fdiv/fdivr backwards
+  #endif
+    fdiv;
+#endif
+    mov eax, edi;
+    fstp EEL_ASM_TYPE [edi];
+
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_mod(void)

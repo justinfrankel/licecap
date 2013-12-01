@@ -564,6 +564,18 @@ void nseel_asm_mul_op(void)
 }
 void nseel_asm_mul_op_end(void) {}
 
+void nseel_asm_mul_op_fast(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fmul" EEL_F_SUFFIX " (%edi)\n"
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_mul_op_fast_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_div(void)
 {
@@ -617,6 +629,27 @@ void nseel_asm_div_op(void)
   );
 }
 void nseel_asm_div_op_end(void) {}
+
+void nseel_asm_div_op_fast(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fld" EEL_F_SUFFIX " (%edi)\n"
+#ifdef __clang__
+    "fdivrp %st(1)\n"
+#else
+  #ifndef __GNUC__
+    "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+  #endif
+    "fdiv\n"
+#endif
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mod(void)

@@ -283,6 +283,19 @@ void nseel_asm_mul_op(void)
 }
 void nseel_asm_mul_op_end(void) {}
 
+void nseel_asm_mul_op_fast(void)
+{
+  __asm__(
+    FUNCTION_MARKER
+   "lfd f2, 0(r14)\n"
+   "fmul f1, f2, f1\n"
+   "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_mul_op_fast_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_div(void)
 {
@@ -307,6 +320,19 @@ void nseel_asm_div_op(void)
   );
 }
 void nseel_asm_div_op_end(void) {}
+
+void nseel_asm_div_op_fast(void)
+{
+  __asm__(
+    FUNCTION_MARKER
+   "lfd f2, 0(r14)\n"
+   "fdiv f1, f2, f1\n"
+   "mr r3, r14\n"
+   "stfd f1, 0(r14)\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mod(void)
