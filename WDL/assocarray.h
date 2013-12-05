@@ -11,6 +11,10 @@
 // WDL_AssocArrayImpl can be used on its own, and can contain structs for keys or values
 template <class KEY, class VAL> class WDL_AssocArrayImpl 
 {
+  WDL_AssocArrayImpl(const WDL_AssocArrayImpl &cp) { CopyContents(cp); }
+
+  WDL_AssocArrayImpl &operator=(const WDL_AssocArrayImpl &cp) { CopyContents(cp); return *this; }
+
 public:
 
   explicit WDL_AssocArrayImpl(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
@@ -215,6 +219,26 @@ public:
   {
     m_data.SetGranul(gran);
   }
+
+  void CopyContents(const WDL_AssocArrayImpl &cp)
+  {
+    m_data=cp.m_data;
+    m_keycmp = cp.m_keycmp;
+    m_keydup = cp.m_keydup; 
+    m_keydispose = m_keydup ? cp.m_keydispose : NULL;
+    m_valdispose = NULL; // avoid disposing of values twice, since we don't have a valdup, we can't have a fully valid copy
+    if (m_keydup)
+    {
+      int x;
+      const int n=m_data.GetSize();
+      for (x=0;x<n;x++)
+      {
+        KeyVal *kv=m_data.Get()+x;
+        if (kv->key) kv->key = m_keydup(kv->key);
+      }
+    }
+  }
+
 
 protected:
 
