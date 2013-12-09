@@ -601,7 +601,7 @@ void nseel_asm_div_op(void)
       FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
 #ifdef __clang__
-    "fdivrp %st(1)\n"
+    "fdivp %st(1)\n"
 #else
   #ifndef __GNUC__
     "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
@@ -636,7 +636,7 @@ void nseel_asm_div_op_fast(void)
       FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
 #ifdef __clang__
-    "fdivrp %st(1)\n"
+    "fdivp %st(1)\n"
 #else
   #ifndef __GNUC__
     "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
