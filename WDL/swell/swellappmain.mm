@@ -75,7 +75,7 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
         // perhaps it'd be good to have a flag on these to see if they want it .. i.e. SWELL_SetCarbonHostView_WantKeyFlgs()..
         while (f)
         {
-          if ((dest_view=[f delegate]) && [dest_view respondsToSelector:@selector(swellIsCarbonHostingView)] && [(SWELL_hwndCarbonHost*)dest_view swellIsCarbonHostingView])
+          if ((dest_view=(NSView *)[f delegate]) && [dest_view respondsToSelector:@selector(swellIsCarbonHostingView)] && [(SWELL_hwndCarbonHost*)dest_view swellIsCarbonHostingView])
           {
             focwnd = [dest_view window]; 
             break;
