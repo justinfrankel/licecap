@@ -1582,7 +1582,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
   g_ini_file.Set("licecap.ini");
 
   // if exepath\licecap.ini is present, use it
-  if (!g_ini_file.Get()[0])
   {
     char exepath[2048];
     exepath[0]=0;
