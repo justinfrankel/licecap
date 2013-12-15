@@ -69,7 +69,7 @@ class WDL_HeapBuf
     }
     WDL_HeapBuf &operator=(const WDL_HeapBuf &cp)
     {
-      CopyFrom(&cp,true);
+      CopyFrom(&cp,false);
       return *this;
     }
 
@@ -287,8 +287,8 @@ class WDL_HeapBuf
         }
         else // copy just the data + size
         {
-          int newsz=hb->GetSize();
-          Resize(newsz);
+          const int newsz=hb->GetSize();
+          Resize(newsz,true);
           if (GetSize()!=newsz) Resize(0);
           else memcpy(Get(),hb->Get(),newsz);
         }
