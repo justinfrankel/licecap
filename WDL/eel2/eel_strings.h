@@ -1,6 +1,10 @@
 #ifndef __EEL__STRINGS_H__
 #define __EEL__STRINGS_H__
 
+#include "ns-eel-int.h"
+#include "../wdlcstring.h"
+#include "../wdlstring.h"
+
 // required for context
 // #define EEL_STRING_GET_FOR_INDEX(x, wr) ((classname *)opaque)->GetStringForIndex(x, wr)
 // #define EEL_STRING_ADDTOTABLE(x)  ((classname *)opaque)->AddString(x.Get())
@@ -423,7 +427,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
               else
               {
                 char tmp[128];
-                lstrcpyn(tmp,msg,min(len+1,sizeof(tmp)));
+                lstrcpyn_safe(tmp,msg,min(len+1,sizeof(tmp)));
                 char *bl=(char*)msg;
                 if (fmt_char == 'u')
                   *varOut = (EEL_F)strtoul(tmp,&bl,10);

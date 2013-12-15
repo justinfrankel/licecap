@@ -2,7 +2,14 @@ CC=gcc
 CFLAGS=-O -g
 CXX=g++
 
-OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o
+OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o 
+
+OBJS2=
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+OBJS2 += asm-nseel-x64-macho.o
+endif
 
 default: test
 
@@ -11,11 +18,10 @@ nseel-cfunc.o:  asm*.c
 
 ifdef PORTABLE
   CFLAGS +=  -DEEL_TARGET_PORTABLE
-  OBJS += nseel-cfunc.o 
 endif
 CXXFLAGS=$(CFLAGS)
 
-test: test.o $(OBJS)
+test: test.o $(OBJS) $(OBJS2)
 	g++ -o $@ $^ $(CXXFLAGS)
 
 clean:
