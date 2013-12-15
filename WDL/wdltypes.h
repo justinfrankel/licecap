@@ -78,5 +78,14 @@ typedef bool WDL_bool;
 #define min(x,y) ((x)<(y)?(x):(y))
 #endif
 
+#ifndef _WIN32
+  #ifndef strnicmp 
+    #define strnicmp strncasecmp
+  #endif
+  #ifndef stricmp 
+    #define stricmp strcasecmp
+  #endif
+#endif
+
 
 #endif
