@@ -42,14 +42,14 @@ class sInst {
 
       int x;
       for (x=0;x<MAX_USER_STRINGS;x++) delete m_rw_strings[x];
-      m_strings.Empty(true,free);
+      m_strings.Empty(true);
     }
 
     NSEEL_VMCTX m_vm;
     NSEEL_CODEHANDLE m_code; // init, timer, message code, oscmsg code
 
     WDL_FastString *m_rw_strings[MAX_USER_STRINGS];
-    WDL_PtrList<char> m_strings;
+    WDL_PtrList<WDL_FastString> m_strings;
     WDL_StringKeyedArray<EEL_F *> m_namedvars;
 
     static int varEnumProc(const char *name, EEL_F *val, void *ctx)
@@ -69,13 +69,12 @@ class sInst {
     }
     EEL_F *GetVarForFormat(int formatidx) { return NULL; } // must use %{xyz}s syntax
 
-    int AddString(const char *str)
+    int AddString(const WDL_FastString &s)
     {
-      const int n = m_strings.GetSize();
-      int x;
-      for (x=0;x<n && strcmp(m_strings.Get(x),str);x++);
-      if (x==n) m_strings.Add(strdup(str));
-      return x+STRING_INDEX_BASE;
+      WDL_FastString *ns = new WDL_FastString;
+      *ns = s;
+      m_strings.Add(ns);
+      return m_strings.GetSize()-1+STRING_INDEX_BASE;
     }
 
     const char *GetStringForIndex(EEL_F val, WDL_FastString **isWriteableAs=NULL)
@@ -91,9 +90,9 @@ class sInst {
         return m_rw_strings[idx]?m_rw_strings[idx]->Get():"";
       }
 
-      if (isWriteableAs) *isWriteableAs=NULL;
-
-      return m_strings.Get(idx - STRING_INDEX_BASE);
+      WDL_FastString *s = m_strings.Get(idx - STRING_INDEX_BASE);
+      if (isWriteableAs) *isWriteableAs=s;
+      return s ? s->Get() : NULL;
     }
 
 
@@ -102,10 +101,10 @@ class sInst {
 #define EEL_STRING_GETNAMEDVAR(x,y) ((sInst*)(opaque))->GetNamedVar(x,y)
 #define EEL_STRING_GETFMTVAR(x) ((sInst*)(opaque))->GetVarForFormat(x)
 #define EEL_STRING_GET_FOR_INDEX(x, wr) ((sInst*)(opaque))->GetStringForIndex(x, wr)
-#define EEL_STRING_ADDTOTABLE(x)  ((sInst*)(opaque))->AddString(x.Get())
+#define EEL_STRING_ADDTOTABLE(x)  ((sInst*)(opaque))->AddString(x)
 
 #define EEL_STRING_DEBUGOUT writeToStandardError // no parameters, since it takes varargs
-#define EEL_STRING_STDOUT_WRITE(x) { printf("%s",x); fflush(stdout); }
+#define EEL_STRING_STDOUT_WRITE(x,len) { fwrite(x,len,1,stdout); fflush(stdout); }
 #include "eel_strings.h"
 
 sInst::sInst(const char *code)
