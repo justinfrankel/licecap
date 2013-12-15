@@ -63,6 +63,18 @@ class WDL_String
   #ifdef WDL_STRING_FASTSUB_DEFINED
     const char *Get() const { return m_hb.GetSize()?(char*)m_hb.Get():""; }
     int GetLength() const { int a = m_hb.GetSize(); return a>0?a-1:0; }
+
+    // for binary-safe manipulations
+    void SetRaw(const char *str, int len) { __doSet(0,str,len,0); }
+    void AppendRaw(const char *str, int len) { __doSet(GetLength(),str,len,0); }
+    void InsertRaw(const char *str, int position, int ilen)
+    {
+      const int srclen = GetLength();
+      if (position<0) position=0;
+      else if (position>srclen) position=srclen;
+      if (ilen>0) __doSet(position,str,ilen,srclen-position);
+    }
+
   #else
     char *Get() const
     {
@@ -152,7 +164,7 @@ class WDL_String
       if (maxlen>0) while (ilen < maxlen && str[ilen]) ilen++;
       else ilen=(int)strlen(str);
 
-      int srclen = GetLength();
+      const int srclen = GetLength();
       if (position<0) position=0;
       else if (position>srclen) position=srclen;
       if (ilen>0) __doSet(position,str,ilen,srclen-position);
@@ -164,7 +176,7 @@ class WDL_String
         int ilen = str->GetLength();
         if (maxlen>0 && maxlen<ilen) ilen=maxlen;
 
-        int srclen = m_hb.GetSize()>0 ? m_hb.GetSize()-1 : 0;
+        const int srclen = m_hb.GetSize()>0 ? m_hb.GetSize()-1 : 0;
         if (position<0) position=0;
         else if (position>srclen) position=srclen;
         if (ilen>0) __doSet(position,str->Get(),ilen,srclen-position);
