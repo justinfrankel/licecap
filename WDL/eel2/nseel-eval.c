@@ -37,6 +37,11 @@
     *output = 0;
     while ((rv=scctx->rdbuf[0]) && (rv== ' ' || rv=='\t' || rv == '\r' || rv == '\n')) scctx->rdbuf++;
 
+    if (!rv)
+    {
+      scctx->gotEndOfInput=1;
+    }
+
     if (rv)
     {
       char buf[NSEEL_MAX_VARIABLE_NAMELEN*2];

@@ -3326,6 +3326,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 						}
 						r_ptr++;
 					}
+                                        if (!*r_ptr) ctx->gotEndOfInput=1;
 					// expression -> r_ptr is our string (not including r_ptr)
 
 					{
@@ -3499,6 +3500,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   ctx->directValueCache=0;
   ctx->optimizeDisableFlags=0;
+  ctx->gotEndOfInput=0;
 
   if (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET)
   {
@@ -3797,7 +3799,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
      }
      ctx->inputbufferptr=NULL;
 #endif
-
    }
 #endif
            
@@ -3935,7 +3936,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       buf[x]=0;
 
       if (!ctx->last_error_string[0])
-        snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d '%s'",linenumber+lineoffs,buf);
+      {
+        if (ctx->gotEndOfInput)
+        {
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Unterminated expression, missing ) or ]");
+        }
+        else
+        {
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d '%s'",linenumber+lineoffs,buf);
+        }
+      }
 
       startpts=NULL;
       startpts_tail=NULL; 
@@ -4124,6 +4134,12 @@ void NSEEL_code_execute(NSEEL_CODEHANDLE code)
 
 }
 
+int NSEEL_code_geterror_flag(NSEEL_VMCTX ctx)
+{
+  compileContext *c=(compileContext *)ctx;
+  if (c) return (c->gotEndOfInput ? 1 : 0);
+  return 0;
+}
 
 char *NSEEL_code_getcodeerror(NSEEL_VMCTX ctx)
 {

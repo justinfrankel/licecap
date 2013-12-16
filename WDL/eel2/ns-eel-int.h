@@ -136,7 +136,7 @@ typedef struct _compileContext
   char   ***varTable_Names;
   int varTable_numBlocks;
 
-  int errVar;
+  int errVar,gotEndOfInput;
   opcodeRec *result;
   char last_error_string[256];
 
