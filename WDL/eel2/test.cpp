@@ -3,6 +3,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include "../wdltypes.h"
 #include "../ptrlist.h"
 #include "../wdlstring.h"
@@ -13,7 +16,7 @@
 // add argc/argv support
 // add time(), gets(), sleep()
 
-int g_verbose;
+int g_verbose, g_interactive;
 
 static void writeToStandardError(const char *fmt, ...)
 {
@@ -36,11 +39,18 @@ class sInst {
       FILE_HANDLE_INDEX_BASE=1000000
     };
 
-    sInst(const char *code);
+    sInst() 
+    {
+      memset(m_handles,0,sizeof(m_handles));
+      memset(m_rw_strings,0,sizeof(m_rw_strings));
+      m_vm = NSEEL_VM_alloc();
+      if (!m_vm) fprintf(stderr,"NSEEL_VM_alloc(): failed\n");
+      NSEEL_VM_SetCustomFuncThis(m_vm,this);
+    }
 
     ~sInst() 
-    { 
-      if (m_code) NSEEL_code_free(m_code);
+    {
+      m_code_freelist.Empty((void (*)(void *))NSEEL_code_free);
       if (m_vm) NSEEL_VM_free(m_vm);
 
       int x;
@@ -52,17 +62,19 @@ class sInst {
       }
       m_strings.Empty(true);
     }
+    int runcode(const char *code, bool showerr, bool canfree);
 
     NSEEL_VMCTX m_vm;
-    NSEEL_CODEHANDLE m_code; // init, timer, message code, oscmsg code
 
     WDL_FastString *m_rw_strings[MAX_USER_STRINGS];
     WDL_PtrList<WDL_FastString> m_strings;
     WDL_StringKeyedArray<EEL_F *> m_namedvars;
+    WDL_PtrList<void> m_code_freelist;
+    WDL_FastString m_pc;
 
     static int varEnumProc(const char *name, EEL_F *val, void *ctx)
     {
-      ((sInst *)ctx)->m_namedvars.AddUnsorted(name,val);
+      if (!((sInst *)ctx)->m_namedvars.Get(name)) ((sInst *)ctx)->m_namedvars.Insert(name,val);
       return 1;
     }
 
@@ -157,31 +169,33 @@ class sInst {
 
 #include "eel_files.h"
 
-sInst::sInst(const char *code)
-{ 
-  memset(m_handles,0,sizeof(m_handles));
-  memset(m_rw_strings,0,sizeof(m_rw_strings));
-  m_code = NULL;
-  m_vm = NSEEL_VM_alloc();
-  if (!m_vm) fprintf(stderr,"NSEEL_VM_alloc(): failed\n");
-  NSEEL_VM_SetCustomFuncThis(m_vm,this);
+int sInst::runcode(const char *code, bool showerr, bool canfree)
+{
   if (m_vm) 
   {
-    WDL_FastString pc;
-    eel_preprocess_strings(this,pc,code);
-    m_code = NSEEL_code_compile_ex(m_vm,pc.Get(),0,0);
+    m_pc.Set("");
+    eel_preprocess_strings(this,m_pc,code);
+    NSEEL_CODEHANDLE code = NSEEL_code_compile_ex(m_vm,m_pc.Get(),1,canfree ? 0 : NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
     char *err;
-    if (!m_code && (err=NSEEL_code_getcodeerror(m_vm)))
+    if (!code && (err=NSEEL_code_getcodeerror(m_vm)))
     {
-      fprintf(stderr,"NSEEL_code_compile: %s\n",err);
+      if (NSEEL_code_geterror_flag(m_vm)&1) return 1;
+      if (showerr) fprintf(stderr,"NSEEL_code_compile: %s\n",err);
+      return -1;
+    }
+    else
+    {
+      if (code)
+      {
+        NSEEL_VM_enumallvars(m_vm,varEnumProc, this);
+        NSEEL_code_execute(code);
+        if (canfree) NSEEL_code_free(code);
+        else m_code_freelist.Add((void*)code);
+      }
+      return 0;
     }
   }
-  if (m_code)
-  {
-    m_namedvars.DeleteAll();
-    NSEEL_VM_enumallvars(m_vm,varEnumProc, this);
-    m_namedvars.Resort();
-  }
+  return -1;
 }
     
 
@@ -196,14 +210,15 @@ int main(int argc, char **argv)
   while (argpos < argc && argv[argpos][0] == '-' && argv[argpos][1])
   {
     if (!strcmp(argv[argpos],"-v")) g_verbose++;
+    else if (!strcmp(argv[argpos],"-i")) g_interactive++;
     else
     {
-      printf("Usage: %s [-v] [scriptfile]\n",argv[0]);
+      printf("Usage: %s [-v] [-i | scriptfile | -]\n",argv[0]);
       return -1;
     }
     argpos++;
   }
-  if (argpos < argc)
+  if (argpos < argc && !g_interactive)
   {
     fp = strcmp(argv[argpos],"-") ? fopen(argv[argpos],"r") : stdin;
     if (!fp)
@@ -212,6 +227,15 @@ int main(int argc, char **argv)
       return -1;
     }
     argpos++;
+  }
+  else
+  {
+#ifndef _WIN32
+    if (!g_interactive && isatty(0)) 
+#else
+    if (1)
+#endif
+       g_interactive=1;
   }
 
   if (NSEEL_init())
@@ -222,40 +246,81 @@ int main(int argc, char **argv)
   EEL_string_register();
   EEL_file_register();
 
-  WDL_FastString code;
-  char line[4096];
-  for (;;)
-  {
-    line[0]=0;
-    fgets(line,sizeof(line),fp);
-    if (!line[0]) break;
-    code.Append(line);
-  }
-  if (fp != stdin) fclose(fp);
+  WDL_FastString code,t;
 
-  sInst inst(code.Get());
-  if (inst.m_code)
+  sInst inst;
   {
     const int argv_offs = 1<<22;
-    WDL_FastString fs,t;
-    fs.SetFormatted(64,"argc=0; argv=%d;\n",argv_offs);
+    code.SetFormatted(64,"argc=0; argv=%d;\n",argv_offs);
     int x;
     for (x=0;x<argc;x++)
     {
       if (x==0 || x >= argpos)
       {
         t.Set(argv[x]);
-        fs.AppendFormatted(64,"argv[argc]=%d; argc+=1;\n",inst.AddString(t));
+        code.AppendFormatted(64,"argv[argc]=%d; argc+=1;\n",inst.AddString(t));
       }
     }
-    NSEEL_CODEHANDLE code=NSEEL_code_compile(inst.m_vm,fs.Get(),0);
-    if (code)
-    {
-      NSEEL_code_execute(code);
-      NSEEL_code_free(code);
-    }
+    inst.runcode(code.Get(),true,true);
+  }
 
-    NSEEL_code_execute(inst.m_code);
+  if (g_interactive)
+  {
+    printf("EEL interactive mode, type quit to quit, abort to abort multiline entry\n");
+    EEL_F *resultVar = NSEEL_VM_regvar(inst.m_vm,"__result");
+    code.Set("");
+    char line[4096];
+    for (;;)
+    {
+      if (!code.Get()[0]) printf("EEL> ");
+      else printf("> ");
+      fflush(stdout);
+      line[0]=0;
+      fgets(line,sizeof(line),fp);
+      if (!line[0]) break;
+      code.Append(line);
+      while (line[0] && (
+               line[strlen(line)-1] == '\r' ||
+               line[strlen(line)-1] == '\n' ||
+               line[strlen(line)-1] == '\t' ||
+               line[strlen(line)-1] == ' '
+              )) line[strlen(line)-1]=0;
+
+      if (!strcmp(line,"quit")) break;
+      if (!strcmp(line,"abort")) code.Set("");
+
+      t.Set("__result = (");
+      t.Append(code.Get());
+      t.Append(");");
+      int res=inst.runcode(t.Get(),false,true);
+      if (!res)
+      {
+        if (resultVar) printf("=%g ",*resultVar);
+        code.Set("");
+      }
+      else
+      {
+        res=inst.runcode(code.Get(),true, false);
+        if (res<=0) code.Set("");
+        // res>0 means need more lines
+      }
+    }
+  }
+  else
+  {
+    code.Set("");
+    char line[4096];
+    for (;;)
+    {
+      line[0]=0;
+      fgets(line,sizeof(line),fp);
+      if (!line[0]) break;
+      code.Append(line);
+    }
+    if (fp != stdin) fclose(fp);
+
+    inst.runcode(code.Get(),true,true);
+    
   }
 
   return 0;
