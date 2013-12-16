@@ -951,7 +951,6 @@ static EEL_F NSEEL_CGEN_CALL _eel_strlen(void *opaque, EEL_F *fmt_index)
 
 static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
 {
-  // not yet binary safe
   if (opaque)
   {
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,NULL);
@@ -988,7 +987,6 @@ static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
 
 static EEL_F NSEEL_CGEN_CALL _eel_match(void *opaque, EEL_F *fmt_index, EEL_F *value_index)
 {
-  // not yet binary safe
   if (opaque)
   {
     EEL_STRING_STORAGECLASS *fmt_wr=NULL, *msg_wr=NULL;
@@ -1013,7 +1011,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, EEL_F *fmt_index, EEL_F *
   return 0.0;
 }
 
-void EEL_string_register()
+static void EEL_string_register()
 {
   NSEEL_addfunctionex("strlen",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strlen);
   NSEEL_addfunctionex("sprintf",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_sprintf);

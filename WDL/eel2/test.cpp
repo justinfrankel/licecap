@@ -13,9 +13,6 @@
 // add argc/argv support
 // add time(), gets(), sleep()
 
-// eel_files.h:
-// add fopen(), fgets(), fgetc(), fseek(), ftell(), and fclose() 
-
 int g_verbose;
 
 static void writeToStandardError(const char *fmt, ...)
@@ -31,7 +28,13 @@ static void writeToStandardError(const char *fmt, ...)
 
 class sInst {
   public:
-    enum { MAX_USER_STRINGS=16384, STRING_INDEX_BASE=90000 };
+    enum 
+    { 
+      MAX_USER_STRINGS=16384, 
+      STRING_INDEX_BASE=90000,
+      MAX_FILE_HANDLES=512,
+      FILE_HANDLE_INDEX_BASE=1000000
+    };
 
     sInst(const char *code);
 
@@ -42,6 +45,11 @@ class sInst {
 
       int x;
       for (x=0;x<MAX_USER_STRINGS;x++) delete m_rw_strings[x];
+      for (x=0;x<MAX_FILE_HANDLES;x++) 
+      {
+        if (m_handles[x]) fclose(m_handles[x]); 
+        m_handles[x]=0;
+      }
       m_strings.Empty(true);
     }
 
@@ -95,6 +103,42 @@ class sInst {
       return s ? s->Get() : NULL;
     }
 
+    FILE *m_handles[MAX_FILE_HANDLES];
+    EEL_F OpenFile(const char *fn, const char *mode)
+    {
+      if (!*fn || !*mode) return -1.0;
+      if (!strcmp(fn,"stdin")) return 0;
+      if (!strcmp(fn,"stdout")) return 1;
+      if (!strcmp(fn,"stderr")) return 2;
+
+      int x;
+      for (x=0;x<MAX_FILE_HANDLES && m_handles[x];x++);
+      if (x>= MAX_FILE_HANDLES) return -1.0;
+      FILE *fp = fopen(fn,mode);
+      if (!fp) return -1.0;
+      m_handles[x]=fp;
+      return x + FILE_HANDLE_INDEX_BASE;
+    }
+    EEL_F CloseFile(int fp_idx)
+    {
+      fp_idx-=FILE_HANDLE_INDEX_BASE;
+      if (fp_idx>=0 && fp_idx<MAX_FILE_HANDLES && m_handles[fp_idx])
+      {
+        fclose(m_handles[fp_idx]);
+        m_handles[fp_idx]=0;
+        return 0.0;
+      }
+      return -1.0;
+    }
+    FILE *GetFileFP(int fp_idx)
+    {
+      if (fp_idx==0) return stdin;
+      if (fp_idx==1) return stdout;
+      if (fp_idx==2) return stderr;
+      fp_idx-=FILE_HANDLE_INDEX_BASE;
+      if (fp_idx>=0 && fp_idx<MAX_FILE_HANDLES) return m_handles[fp_idx];
+      return NULL;
+    }
 
 };
 
@@ -107,8 +151,15 @@ class sInst {
 #define EEL_STRING_STDOUT_WRITE(x,len) { fwrite(x,len,1,stdout); fflush(stdout); }
 #include "eel_strings.h"
 
+#define EEL_FILE_OPEN(fn,mode) ((sInst*)opaque)->OpenFile(fn,mode)
+#define EEL_FILE_GETFP(fp) ((sInst*)opaque)->GetFileFP(fp)
+#define EEL_FILE_CLOSE(fpindex) ((sInst*)opaque)->CloseFile(fpindex)
+
+#include "eel_files.h"
+
 sInst::sInst(const char *code)
 { 
+  memset(m_handles,0,sizeof(m_handles));
   memset(m_rw_strings,0,sizeof(m_rw_strings));
   m_code = NULL;
   m_vm = NSEEL_VM_alloc();
@@ -169,6 +220,7 @@ int main(int argc, char **argv)
     return -1;
   }
   EEL_string_register();
+  EEL_file_register();
 
   WDL_FastString code;
   char line[4096];
