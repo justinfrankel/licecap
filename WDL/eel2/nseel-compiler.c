@@ -940,7 +940,12 @@ static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *re
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr)
 {
   int n;
-  _codeHandleFunctionRec *subfr = fr->isCommonFunction ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : newTmpBlock(ctx,sizeof(_codeHandleFunctionRec));
+  _codeHandleFunctionRec *subfr = 
+    fr->isCommonFunction ? 
+      ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : 
+      newCtxDataBlock(sizeof(_codeHandleFunctionRec),8) :  // if common function, but derived version is in non-common context, set ownership to VM rather than us
+    newTmpBlock(ctx,sizeof(_codeHandleFunctionRec));
+
   if (!subfr) return 0;
   // fr points to functionname()'s rec, nameptr to blah.functionname()
 
@@ -1151,6 +1156,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
   if (!fn->startptr && fn->opcodes && fn->startptr_size > 0)
   {
     int sz;
+
     fn->tmpspace_req=0;
     fn->rvMode = RETURNVALUE_IGNORE;
     fn->canHaveDenormalOutput=0;
@@ -1185,7 +1191,9 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       if (p)
       {
         fn->canHaveDenormalOutput=0;
+        if (fn->isCommonFunction) ctx->isGeneratingCommonFunction++;
         sz=compileOpcodes(ctx,fn->opcodes,(unsigned char*)p,sz,&fn->tmpspace_req,&local_namespace,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
+        if (fn->isCommonFunction) ctx->isGeneratingCommonFunction--;
         // recompile function with native context pointers
         if (sz>0)
         {
@@ -1200,7 +1208,9 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       fn->tmpspace_req=0;
       fn->fpStackUsage=0;
       fn->canHaveDenormalOutput=0;
+      if (fn->isCommonFunction) ctx->isGeneratingCommonFunction++;
       codeCall=compileCodeBlockWithRet(ctx,fn->opcodes,&fn->tmpspace_req,&local_namespace,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
+      if (fn->isCommonFunction) ctx->isGeneratingCommonFunction--;
       if (codeCall)
       {
         void *f=GLUE_realAddress(nseel_asm_fcall,nseel_asm_fcall_end,&sz);
@@ -1214,6 +1224,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       }
     }
   }
+
   if (fn->startptr)
   {
     if (computTableTop) *computTableTop += fn->tmpspace_req;
@@ -1704,7 +1715,11 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     if (!b)
     {
       ctx->l_stats[3]++;
-      b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+      if (ctx->isGeneratingCommonFunction)
+        b = newCtxDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+      else
+        b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+
       if (!b) RET_MINUS1_FAIL("error allocating data block")
 
       if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
@@ -2183,6 +2198,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   if (!func) RET_MINUS1_FAIL("eelfuncaddr")
 
   *fpStackUse += 1;
+
 
   if (cfp_numparams>0 && n_params != cfp_numparams)
   {
@@ -3566,6 +3582,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     }
   }
 
+  ctx->isGeneratingCommonFunction=0;
   ctx->isSharedFunctions = !!(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
   ctx->functions_local = NULL;
 
@@ -3742,7 +3759,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
         }
       }
     }
-    if (ctx->function_localTable_Size>0)
+    if (ctx->function_localTable_Size[0]>0)
     {
       ctx->function_localTable_ValuePtrs = 
           ctx->isSharedFunctions ? newDataBlock(ctx->function_localTable_Size[0] * sizeof(EEL_F *),8) : 
@@ -4073,6 +4090,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   ctx->directValueCache=0;
   ctx->functions_local = NULL;
   
+  ctx->isGeneratingCommonFunction=0;
   ctx->isSharedFunctions=0;
 
   freeBlocks(&ctx->tmpblocks_head);  // free blocks

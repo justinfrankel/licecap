@@ -183,6 +183,7 @@ typedef struct _compileContext
   struct opcodeRec *directValueCache; // linked list using fn as next
 
   int isSharedFunctions;
+  int isGeneratingCommonFunction;
   int function_usesNamespaces;
   // [0] is parameter+local symbols (combined space)
   // [1] is symbols which get implied "this." if used
