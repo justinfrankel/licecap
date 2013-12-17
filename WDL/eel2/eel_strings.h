@@ -1039,9 +1039,10 @@ static void EEL_string_register()
 
 }
 
-void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, const char *rdptr)
+void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, const char *rdptr, EEL_STRING_STORAGECLASS *newstr=NULL)
 {
-  EEL_STRING_STORAGECLASS newstr;
+  EEL_STRING_STORAGECLASS newstr_tmp;
+  if (!newstr) newstr=&newstr_tmp;
   // preprocess to get strings from "", and replace with an index of someconstant+m_strings.GetSize()
   int comment_state=0; 
   // states:
@@ -1069,7 +1070,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
         else if (tc == '"' || tc == '\'')
         {
           // scan tokens and replace with (idx) and padding
-          newstr.Set("");
+          newstr->Set("");
           const char *rdptr_start = rdptr;
 
           rdptr++; 
@@ -1079,10 +1080,10 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
             if (*rdptr == '\\') 
             {
               const char nc = rdptr[1];
-              if (nc == 'r' || nc == 'R') { newstr.Append("\r"); rdptr += 2; }
-              else if (nc == 'n' || nc == 'N') { newstr.Append("\n"); rdptr += 2; }
-              else if (nc == 't' || nc == 'T') { newstr.Append("\t"); rdptr += 2; }
-              else if (nc == '\'' || nc == '\"') { newstr.Append(&nc,1); rdptr+=2; }
+              if (nc == 'r' || nc == 'R') { newstr->Append("\r"); rdptr += 2; }
+              else if (nc == 'n' || nc == 'N') { newstr->Append("\n"); rdptr += 2; }
+              else if (nc == 't' || nc == 'T') { newstr->Append("\t"); rdptr += 2; }
+              else if (nc == '\'' || nc == '\"') { newstr->Append(&nc,1); rdptr+=2; }
               else if ((nc >= '0' && nc <= '9') || nc == 'x' || nc == 'X')
               {
                 int base = 8;
@@ -1100,12 +1101,12 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
                   rdptr++;
                   thisc=toupper(*rdptr);
                 }
-                newstr.AppendRaw((char*)&c,1);
+                newstr->AppendRaw((char*)&c,1);
               }
               else 
               {
                 const int n=rdptr[1] ? 2 :1;
-                newstr.Append(rdptr,n);
+                newstr->Append(rdptr,n);
                 rdptr+=n;
               }
             }
@@ -1117,7 +1118,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
                 // "" converts to ", '' to '
                 rdptr++;
               }
-              newstr.Append(rdptr++,1);
+              newstr->Append(rdptr++,1);
             }
           }
 
@@ -1126,12 +1127,12 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
           char t[128];
           if (tc == '\"') 
           {
-            snprintf(t,sizeof(t),"(%u",EEL_STRING_ADDTOTABLE(newstr));
+            snprintf(t,sizeof(t),"(%u",EEL_STRING_ADDTOTABLE(*newstr));
           }
           else
           {
             unsigned int val=0;
-            const unsigned char *p = (const unsigned char *)newstr.Get();
+            const unsigned char *p = (const unsigned char *)newstr->Get();
             while (*p)
             {
               val <<= 8;
