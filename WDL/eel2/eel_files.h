@@ -139,11 +139,12 @@ static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, EEL_F *fpp, EEL_F *fmt_i
     FILE *fp = EEL_FILE_GETFP((int)*fpp);
     if (!fp) return 0.0;
 
-    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,NULL);
+    EEL_STRING_STORAGECLASS *wr_src=NULL;
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
     if (fmt)
     {
       char buf[16384];
-      const int len = eel_format_strings(opaque,fmt,buf,sizeof(buf));
+      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()) : NULL, buf,sizeof(buf));
 
       if (len >= 0)
       {

@@ -172,12 +172,12 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
 
 }
 
-static int eel_format_strings(void *opaque, const char *fmt, char *buf, int buf_sz)
+int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char *buf, int buf_sz)
 {
   int rv=1;
   int fmt_parmpos = 0;
   char *op = buf;
-  while (*fmt && op < buf+buf_sz-128)
+  while ((fmt_end ? fmt < fmt_end : *fmt) && op < buf+buf_sz-128)
   {
     if (fmt[0] == '%' && fmt[1] == '%') 
     {
@@ -497,11 +497,12 @@ static EEL_F NSEEL_CGEN_CALL _eel_sprintf(void *opaque, EEL_F *strOut, EEL_F *fm
     }
     else
     {
-      const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,NULL);
+      EEL_STRING_STORAGECLASS *wr_src=NULL;
+      const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
       if (fmt)
       {
         char buf[16384];
-        const int fmt_len = eel_format_strings(opaque,fmt,buf,sizeof(buf));
+        const int fmt_len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf));
 
         if (fmt_len>=0)
         {
@@ -953,11 +954,12 @@ static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
 {
   if (opaque)
   {
-    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,NULL);
+    EEL_STRING_STORAGECLASS *wr_src=NULL;
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
     if (fmt)
     {
       char buf[16384];
-      const int len = eel_format_strings(opaque,fmt,buf,sizeof(buf));
+      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf));
 
       if (len >= 0)
       {
@@ -1083,6 +1085,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
               if (nc == 'r' || nc == 'R') { newstr->Append("\r"); rdptr += 2; }
               else if (nc == 'n' || nc == 'N') { newstr->Append("\n"); rdptr += 2; }
               else if (nc == 't' || nc == 'T') { newstr->Append("\t"); rdptr += 2; }
+              else if (nc == 'b' || nc == 'B') { newstr->Append("\b"); rdptr += 2; }
               else if (nc == '\'' || nc == '\"') { newstr->Append(&nc,1); rdptr+=2; }
               else if ((nc >= '0' && nc <= '9') || nc == 'x' || nc == 'X')
               {
