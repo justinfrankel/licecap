@@ -2991,6 +2991,8 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
   while (*expression)
   {
+    char c;
+
     if (len > alloc_len-64)
     {
       alloc_len = len+128;
@@ -3094,66 +3096,47 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       
     }
 
+    c=*expression++;
+
+    if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
+    if (isspace(c)) c=' ';
+
+    if (c == '(') semicnt++;
+    else if (c == ')') { semicnt--; if (semicnt < 0) semicnt=0; }
+    else if (c == ';' && semicnt > 0)
     {
-      char c=*expression++;
-
-      if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
-      if (isspace(c)) c=' ';
-
-      if (c == '(') semicnt++;
-      else if (c == ')') { semicnt--; if (semicnt < 0) semicnt=0; }
-      else if (c == ';' && semicnt > 0)
+      // convert ; to % if next nonwhitespace char is alnum, otherwise convert to space
+      int p=0;
+      int nc;
+      int commentstate=0;
+      while ((nc=expression[p]))
       {
-        // convert ; to % if next nonwhitespace char is alnum, otherwise convert to space
-        int p=0;
-        int nc;
-		int commentstate=0;
-        	while ((nc=expression[p]))
-		{
-			if (!commentstate && nc == '/')
-			{
-				if (expression[p+1] == '/') commentstate=1;
-				else if (expression[p+1] == '*') commentstate=2;
-			}
+	      if (!commentstate && nc == '/')
+	      {
+		      if (expression[p+1] == '/') commentstate=1;
+		      else if (expression[p+1] == '*') commentstate=2;
+	      }
 
-			if (commentstate == 1 && nc == '\n') commentstate=0;
-			else if (commentstate == 2 && nc == '*' && expression[p+1]=='/')
-			{
-				p++; // skip *
-				commentstate=0;
-			}
-			else if (!commentstate && !isspace(nc)) break;
+	      if (commentstate == 1 && nc == '\n') commentstate=0;
+	      else if (commentstate == 2 && nc == '*' && expression[p+1]=='/')
+	      {
+		      p++; // skip *
+		      commentstate=0;
+	      }
+	      else if (!commentstate && !isspace(nc)) break;
 
-			p++;
-		}
-		// fucko, we should look for even more chars, me thinks
-        if (nc && (isalnum(nc) 
-#if 1
-				|| nc == '(' || nc == '_' || nc == '!' || nc == '$' || nc == '-' || nc == '+' /* unary +, -, !, symbols, etc, mean new statement */
-#endif
-				)) c='%';
-        else c = ' '; // stray ;
+	      p++;
       }
-#if 0
-      else if (semicnt > 0 && c == ',')
-      {
-        int p=0;
-        int nc;
-        while ((nc=expression[p]) && isspace(nc)) p++;
-		if (nc == ',' || nc == ')') 
-		{
-			expression += p+1;
-			buf[len++]=',';
-			buf[len++]='0';
-			c=nc; // append this char
-		}
-      }
-#endif
+		  // it may be that we should look for more chars here -- the chars are 
+      // things that could start a new statement, i.e. everything except ) or ; basically
+      if (nc && (isalnum(nc) 
+				        || nc == '(' || nc == '_' || nc == '!' || nc == '$' || nc == '-' || nc == '+' /* unary +, -, !, symbols, etc, mean new statement */
+				        )) c='%'; // '%' is our legacy joiner (ugh)
+      else c = ' '; // excess ;
+    }
 	  // list of operators
-
-	  else if (!isspace(c) && !isalnum(c)) // check to see if this operator is ours
+    else if (!isspace(c) && !isalnum(c)) // check to see if this operator is ours
 	  {
-
 			static char *symbollists[]=
 			{
 				"", // stop at any control char that is not parenthed
@@ -3164,7 +3147,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
         "",  // rscan=5, only scans for a negative ] level
         "", // rscan=6, like rscan==0 but lower precedence -- stop at any non-^ control char that is not parenthed
 			};
-
 
 			static const struct 
 			{
@@ -3208,7 +3190,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
 			};
 
-
 			int n;
 			const int ns=sizeof(preprocSymbols)/sizeof(preprocSymbols[0]);
 			for (n = 0; n < ns; n++)
@@ -3223,7 +3204,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 			}
 			if (n < ns)
 			{
-
 				int lscan=preprocSymbols[n].lscan;
 				int rscan=preprocSymbols[n].rscan;
 
@@ -3342,7 +3322,11 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 						}
 						r_ptr++;
 					}
-                                        if (!*r_ptr) ctx->gotEndOfInput=1;
+          if (!*r_ptr) 
+          {
+            ctx->gotEndOfInput=1;
+          }
+
 					// expression -> r_ptr is our string (not including r_ptr)
 
 					{
@@ -3363,12 +3347,11 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{
 					int thisl = strlen(l_ptr?l_ptr:"") + strlen(r_ptr) + 32;
 
-	    			if (len+thisl > alloc_len-64)
-    				{
-      					alloc_len = len+thisl+128;
-      					buf=(char*)realloc(buf,alloc_len);
-    				}
-
+	    	  if (len+thisl > alloc_len-64)
+    			{
+      			alloc_len = len+thisl+128;
+      			buf=(char*)realloc(buf,alloc_len);
+    			}
 
           if (n == ns-3)
           {
@@ -3431,24 +3414,18 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 						len+=sprintf(buf+len,"%s(%s,%s",preprocSymbols[n].func,l_ptr?l_ptr:"",r_ptr);
 						ctx->l_stats[0]+=strlen(preprocSymbols[n].func)+2;
 					}
-
 				}
 
 				free(r_ptr);
 				free(l_ptr);
 
-
 				c = ')'; // close parenth below
-		  }
-	  }
+      } // preprocessable operator
+    } // !isspace() && !isalnum()
 
-//      if (c != ' ' || (len && buf[len-1] != ' ')) // don't bother adding multiple spaces
-      {
-      	buf[len++]=c;
-      	if (c != ' ') ctx->l_stats[0]++;
-      }
-    }
-  }
+    buf[len++]=c;
+    if (c != ' ') ctx->l_stats[0]++;
+  } // while (*expression)
   buf[len]=0;
 
   return buf;
@@ -3954,11 +3931,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
       if (!ctx->last_error_string[0])
       {
-        if (ctx->gotEndOfInput)
-        {
-          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Unterminated expression, missing ) or ]");
-        }
-        else
+//        if (ctx->gotEndOfInput)
+//        {
+//          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Unterminated expression, missing ) or ]");
+//        }
+//        else
         {
           snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d '%s'",linenumber+lineoffs,buf);
         }
