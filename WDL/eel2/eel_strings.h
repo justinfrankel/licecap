@@ -79,6 +79,10 @@ also recommended, for the PHP fans:
 #define EEL_STRING_STORAGECLASS WDL_FastString
 #endif
 
+#ifndef EEL_STRING_MUTEXLOCK_SCOPE
+#define EEL_STRING_MUTEXLOCK_SCOPE
+#endif
+
 static int eel_validate_format_specifier(const char *fmt_in, char *typeOut, 
                                          char *fmtOut, int fmtOut_sz, 
                                          char *varOut, int varOut_sz, 
@@ -487,6 +491,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_sprintf(void *opaque, EEL_F *strOut, EEL_F *fm
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -531,6 +536,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strncat(void *opaque, EEL_F *strOut, EEL_F *fm
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL, *wr_src=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -579,6 +585,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strcpyfrom(void *opaque, EEL_F *strOut, EEL_F 
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL, *wr_src=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -624,6 +631,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strncpy(void *opaque, EEL_F *strOut, EEL_F *fm
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL, *wr_src=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -693,6 +701,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strncmp(void *opaque, EEL_F *aa, EEL_F *bb, EE
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr_a=NULL,*wr_b=NULL;
     const char *a = EEL_STRING_GET_FOR_INDEX(*aa,&wr_a);
     const char *b = EEL_STRING_GET_FOR_INDEX(*bb,&wr_b);
@@ -717,6 +726,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strnicmp(void *opaque, EEL_F *aa, EEL_F *bb, E
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr_a=NULL,*wr_b=NULL;
     const char *a = EEL_STRING_GET_FOR_INDEX(*aa,&wr_a);
     const char *b = EEL_STRING_GET_FOR_INDEX(*bb,&wr_b);
@@ -763,6 +773,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strgetchar(void *opaque, EEL_F *strOut, EEL_F 
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr && !fmt)
@@ -794,6 +805,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strsetchar(void *opaque, EEL_F *strOut, EEL_F 
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -818,6 +830,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strinsert(void *opaque, EEL_F *strOut, EEL_F *
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL, *wr_src=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -880,6 +893,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strdelsub(void *opaque, EEL_F *strOut, EEL_F *
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -908,6 +922,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strsetlen(void *opaque, EEL_F *strOut, EEL_F *
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
     if (!wr)
@@ -939,6 +954,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strlen(void *opaque, EEL_F *fmt_index)
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr);
     if (wr) return (EEL_F) wr->GetLength();
@@ -954,6 +970,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr_src=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
     if (fmt)
@@ -991,6 +1008,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_match(void *opaque, EEL_F *fmt_index, EEL_F *v
 {
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *fmt_wr=NULL, *msg_wr=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&fmt_wr);
     const char *msg = EEL_STRING_GET_FOR_INDEX(*value_index,&msg_wr);
@@ -1001,9 +1019,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_match(void *opaque, EEL_F *fmt_index, EEL_F *v
 }
 static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, EEL_F *fmt_index, EEL_F *value_index)
 {
-  // not yet binary safe
   if (opaque)
   {
+    EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *fmt_wr=NULL, *msg_wr=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&fmt_wr);
     const char *msg = EEL_STRING_GET_FOR_INDEX(*value_index,&msg_wr);
@@ -1130,6 +1148,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
           char t[128];
           if (tc == '\"') 
           {
+            EEL_STRING_MUTEXLOCK_SCOPE
             snprintf(t,sizeof(t),"(%u",EEL_STRING_ADDTOTABLE(*newstr));
           }
           else
