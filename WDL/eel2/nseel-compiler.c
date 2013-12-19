@@ -3167,7 +3167,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
   int len=0;
   int alloc_len=strlen(expression)+1+64;
   char *buf=(char *)malloc(alloc_len);
-  int semicnt=0;
   // we need to call onCompileNewLine for each new line we get
  
   //onCompileNewLine(ctx, 
@@ -3284,46 +3283,13 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
     if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
     if (isspace(c)) c=' ';
 
-    if (c == '(') semicnt++;
-    else if (c == ')') { semicnt--; if (semicnt < 0) semicnt=0; }
-    else if (c == ';' && semicnt > 0)
-    {
-      // convert ; to % if next nonwhitespace char is alnum, otherwise convert to space
-      int p=0;
-      int nc;
-      int commentstate=0;
-      while ((nc=expression[p]))
-      {
-	      if (!commentstate && nc == '/')
-	      {
-		      if (expression[p+1] == '/') commentstate=1;
-		      else if (expression[p+1] == '*') commentstate=2;
-	      }
-
-	      if (commentstate == 1 && nc == '\n') commentstate=0;
-	      else if (commentstate == 2 && nc == '*' && expression[p+1]=='/')
-	      {
-		      p++; // skip *
-		      commentstate=0;
-	      }
-	      else if (!commentstate && !isspace(nc)) break;
-
-	      p++;
-      }
-		  // it may be that we should look for more chars here -- the chars are 
-      // things that could start a new statement, i.e. everything except ) or ; basically
-      if (nc && (isalnum(nc) 
-				        || nc == '(' || nc == '_' || nc == '!' || nc == '$' || nc == '-' || nc == '+' /* unary +, -, !, symbols, etc, mean new statement */
-				        )) c='%'; // '%' is our legacy joiner (ugh)
-      else c = ' '; // excess ;
-    }
 	  // list of operators
-    else if (!isspace(c) && !isalnum(c)) // check to see if this operator is ours
+    if (!isspace(c) && !isalnum(c)) // check to see if this operator is ours
 	  {
 			static char *symbollists[]=
 			{
 				"", // stop at any control char that is not parenthed
-				":(,;?%", 
+				":(,;?", 
 				",):?;", // or || or &&
 				",);", // jf> removed :? from this, for =
 				",);",
@@ -3791,8 +3757,38 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     if (!*expression) break;
     expr=expression;
 
-    while (*expression && *expression != ';') expression++;
-    if (*expression) *expression++ = 0;
+    // divide expression by semicolons at the top level
+    {
+      int pcnt=0,pcnt2=0; // [] not used, but no harm in checking them
+      while (*expression) 
+      {
+        if (*expression == '(') pcnt++;
+        else if (*expression == ')')  {  if (--pcnt<0) pcnt=0; }
+        else if (*expression == '[') pcnt2++;
+        else if (*expression == ']')  {  if (--pcnt2<0) pcnt2=0; }
+        else if (*expression == ';' && !pcnt && !pcnt2) 
+        {
+          break;
+        }
+
+        expression++;
+      }
+      if (*expression)
+      {
+        *expression++ = 0;
+      }
+      else 
+      {
+        // end of input!
+        if (pcnt > 0 || pcnt2 > 0) 
+        {
+          // parens still open! notify so we can improve our error messaging
+          ctx->gotEndOfInput|=4;
+        }
+      }
+
+      if (!*expr) continue; // empty semicolon at top level
+    }
 
     // parse   
 
@@ -4121,11 +4117,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
       if (!ctx->last_error_string[0])
       {
-//        if (ctx->gotEndOfInput)
-//        {
-//          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Unterminated expression, missing ) or ]");
-//        }
-//        else
+        if (ctx->gotEndOfInput&4)
+        {
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Unterminated expression, missing ) or ]");
+        }
+        else
         {
           snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d '%s'",linenumber+lineoffs,buf);
         }

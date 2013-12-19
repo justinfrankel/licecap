@@ -128,9 +128,13 @@ andor_expr:
 
 expression: 
 	andor_expr
-	| expression '%' andor_expr
+	| expression ';' andor_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,$1,$3);
+	}
+	| expression ';'
+	{
+	  $$ = $1;
 	}
 	;
 
