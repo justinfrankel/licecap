@@ -1149,7 +1149,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
           if (tc == '\"') 
           {
             EEL_STRING_MUTEXLOCK_SCOPE
-            snprintf(t,sizeof(t),"(%u",EEL_STRING_ADDTOTABLE(*newstr));
+            snprintf(t,sizeof(t)," %u",EEL_STRING_ADDTOTABLE(*newstr));
           }
           else
           {
@@ -1160,7 +1160,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
               val <<= 8;
               val += *p++;
             }
-            snprintf(t,sizeof(t),"(%u",val);
+            snprintf(t,sizeof(t)," %u",val);
           }
 
           procOut.Append(t);
@@ -1194,7 +1194,7 @@ void eel_preprocess_strings(void *opaque, EEL_STRING_STORAGECLASS &procOut, cons
             // pad with blanks
             while (pad_len-- > 0) procOut.Append(" ");
           }
-          procOut.Append(")");
+          procOut.Append(" ");
         }
         else
           procOut.Append(rdptr++,1);
