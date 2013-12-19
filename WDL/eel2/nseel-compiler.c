@@ -68,7 +68,10 @@
 #define RET_MINUS1_FAIL(x) return -1;
 #endif
 
-
+//#define EEL_DUMP_OPS
+#ifdef EEL_DUMP_OPS
+FILE *g_eel_dump_fp;
+#endif
 
 #ifdef EEL_VALIDATE_WORKTABLE_USE
   #define MIN_COMPUTABLE_SIZE 0
@@ -2335,6 +2338,111 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 void dumpOp(compileContext *ctx, opcodeRec *op, int start);
 #endif
 
+#ifdef EEL_DUMP_OPS
+void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt)
+{
+  const char *fname="";
+  fprintf(fp,"%*sOP TYPE %d", indent_amt, "",op->opcodeType);
+
+  if ((op->opcodeType == OPCODETYPE_FUNC1 || 
+      op->opcodeType == OPCODETYPE_FUNC2 || 
+      op->opcodeType == OPCODETYPE_FUNC3 || 
+      op->opcodeType == OPCODETYPE_FUNCX))
+  {
+    if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
+    {
+      functionType *fn_ptr = (functionType *)op->fn;
+      fname = fn_ptr->name;
+    }
+    else if (op->fntype == FUNCTYPE_EELFUNC)
+    {
+      fname = op->relname;
+    }
+    if (!fname) fname ="";
+  }
+
+  switch (op->opcodeType)
+  {
+    case OPCODETYPE_DIRECTVALUE:
+      fprintf(fp," DV=%f\n",op->parms.dv.directValue);
+    break;
+    case OPCODETYPE_VALUE_FROM_NAMESPACENAME: // this.* or namespace.* are encoded this way
+      fprintf(fp," NSN=%s(%d)\n",op->relname?op->relname : "(null)",op->namespaceidx);
+    break;
+    case OPCODETYPE_VARPTR:
+      {
+        const char *nm = op->relname;
+        if (!nm || !*nm)
+        {
+          int wb; 
+          for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+          {
+            char **plist=ctx->varTable_Names[wb];
+            if (!plist) break;
+  
+            if (op->parms.dv.valuePtr >= ctx->varTable_Values[wb] && op->parms.dv.valuePtr < ctx->varTable_Values[wb] + NSEEL_VARS_PER_BLOCK)
+            {
+              nm = plist[op->parms.dv.valuePtr - ctx->varTable_Values[wb]];
+              break;
+            }
+          }        
+        }
+        fprintf(fp," VP=%s\n", nm?nm : "(null)");
+      }
+    break;
+    case OPCODETYPE_VARPTRPTR:
+      fprintf(fp, " VPP?\n");
+    break;
+    case OPCODETYPE_FUNC1:
+      fprintf(fp," FUNC1 %d %s\n",op->fntype, fname);
+      if (op->parms.parms[0])
+        dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
+      else
+        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+    break;
+    case OPCODETYPE_MOREPARAMS:
+    case OPCODETYPE_FUNC2:
+      if (op->opcodeType == OPCODETYPE_MOREPARAMS)
+        fprintf(fp," MOREPARAMS\n");
+      else
+        fprintf(fp," FUNC2 %d %s\n",op->fntype, fname);
+      if (op->parms.parms[0])
+        dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
+      else
+        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+
+      if (op->parms.parms[1])
+        dumpOpcodeTree(ctx,fp,op->parms.parms[1],indent_amt+2);
+      else
+        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+    break;
+    case OPCODETYPE_FUNCX:
+    case OPCODETYPE_FUNC3:
+      if (op->opcodeType == OPCODETYPE_FUNCX)
+        fprintf(fp," FUNCX %d %s\n",op->fntype, fname);
+      else
+        fprintf(fp," FUNC3 %d %s\n",op->fntype, fname);
+      if (op->parms.parms[0])
+        dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
+      else
+        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+
+      if (op->parms.parms[1])
+        dumpOpcodeTree(ctx,fp,op->parms.parms[1],indent_amt+2);
+      else
+        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+
+      if (op->parms.parms[2])
+        dumpOpcodeTree(ctx,fp,op->parms.parms[2],indent_amt+2);
+      else
+        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+
+    break;
+  }
+}
+
+#endif
+
 #ifdef GLUE_MAX_JMPSIZE
 #define CHECK_SIZE_FORJMP(x,y) if ((x)<0 || (x)>=GLUE_MAX_JMPSIZE) goto y;
 #define RET_MINUS1_FAIL_FALLBACK(err,j) goto j;
@@ -3810,6 +3918,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       printf("%s\n",buf);
 #endif
 #endif
+
+#ifdef EEL_DUMP_OPS
+      // dump opcode trees for verification, before optimizing
+      if (g_eel_dump_fp)
+      {
+        fprintf(g_eel_dump_fp,"-- opcode chunk --\n");
+        dumpOpcodeTree(ctx,g_eel_dump_fp,start_opcode,2);        
+      }
+#endif
+
       if (!(ctx->optimizeDisableFlags&OPTFLAG_NO_OPTIMIZE)) optimizeOpcodes(ctx,start_opcode,is_fname[0] ? 1 : 0);
 #ifdef LOG_OPT
       sprintf(buf,"post opt sz=%d, stack depth=%d\n",compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL,NULL, RETURNVALUE_IGNORE,NULL,&sd,NULL),sd);
