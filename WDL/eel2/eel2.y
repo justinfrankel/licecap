@@ -79,10 +79,18 @@ unary_expr:
 	}
 	;
 
+pow_expr:
+        unary_expr
+        | pow_expr '^' unary_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_POW,2,$1,$3);
+        }
+        ;
+
 
 div_expr:
-	unary_expr
-	| div_expr '/' unary_expr
+	pow_expr
+	| div_expr '/' pow_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_DIVIDE,2,$1,$3);
 	}

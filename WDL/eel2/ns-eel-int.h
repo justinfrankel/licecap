@@ -50,6 +50,7 @@ enum {
   FN_OR,
   FN_UMINUS,
   FN_UPLUS,
+  FN_POW,
   FUNCTYPE_SIMPLEMAX,
 
 

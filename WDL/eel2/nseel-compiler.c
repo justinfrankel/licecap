@@ -1007,6 +1007,13 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
   switch (fntype)
   {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
+    case FN_POW: 
+      {
+        static void *replptrs[4]={&pow,};      
+        *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2);
+        *replList = replptrs;
+        RF(2pdd);
+      }
     case FN_ADD: 
        *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL;
         // for x +- non-denormal-constant,  we can set BIF_CLEARDENORMAL
@@ -1325,6 +1332,11 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           switch (op->fntype)
           {
+            case FN_POW:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
+              op->parms.dv.valuePtr=NULL;
+              goto start_over;
             case FN_DIVIDE:
               op->opcodeType = OPCODETYPE_DIRECTVALUE;
               op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue;
@@ -1486,7 +1498,29 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               }
             break;
           }
+        } // dv0 || dv1
+
+        if (op->fntype == FN_POW)
+        {
+          opcodeRec *first_parm = op->parms.parms[0];
+          if (first_parm->opcodeType == op->opcodeType && first_parm->fntype == FN_POW)
+          {
+            // since first_parm is a pow too, we can multiply the exponents.
+
+            // set our base to be the base of the inner pow
+            op->parms.parms[0] = first_parm->parms.parms[0];
+
+            // make the old extra pow be a multiply of the exponents
+            first_parm->fntype = FN_MULTIPLY;
+            first_parm->parms.parms[0] = op->parms.parms[1];
+
+            // put that as the exponent
+            op->parms.parms[1] = first_parm;
+
+            goto start_over;
+          }
         }
+
       }
       // FUNCTYPE_SIMPLE
     }   
@@ -1581,13 +1615,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             op->parms.dv.valuePtr=NULL;
             goto start_over;
           }
-          if (!strcmp(pfn->name,"pow")) 
-          {
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
           if (!strcmp(pfn->name,"atan2")) 
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
@@ -1626,26 +1653,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             goto start_over;
           }
           */
-        }
-        else if (!dv0 && !strcmp(pfn->name,"pow"))
-        {
-          opcodeRec *first_parm = op->parms.parms[0];
-          if (first_parm->opcodeType == op->opcodeType && first_parm->fn == op->fn && first_parm->fntype == op->fntype)
-          {            
-            // since first_parm is a pow too, we can multiply the exponents.
-
-            // set our base to be the base of the inner pow
-            op->parms.parms[0] = first_parm->parms.parms[0];
-
-            // make the old extra pow be a multiply of the exponents
-            first_parm->fntype = FN_MULTIPLY;
-            first_parm->parms.parms[0] = op->parms.parms[1];
-
-            // put that as the exponent
-            op->parms.parms[1] = first_parm;
-
-            goto start_over;
-          }
         }
       }
       else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
@@ -2472,7 +2479,12 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
       if (op->opcodeType == OPCODETYPE_MOREPARAMS)
         fprintf(fp," MOREPARAMS {\r\n");
       else
-        fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
+      {
+        if (op->fntype == FN_POW)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "pow");
+        else
+          fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
+      }
       if (op->parms.parms[0])
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
@@ -3330,7 +3342,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'=',0  }, 0, 3, "_set" },
 				{{'~',0},   0, 6, "_xor" },
 				{{'%',0},   0, 6, "_mod" },
-				{{'^',0},   0, 0, "pow" },
+//no longer need to preprocess pow(): {{'^',0},   0, 0, "pow" },
 
 
         {{'[',0  }, 0, 5, },
@@ -4900,7 +4912,14 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     else if (!strcasecmp(nptr,"above")) nptr="_above";
     else if (!strcasecmp(nptr,"megabuf")) nptr="_mem";
     else if (!strcasecmp(nptr,"gmegabuf")) nptr="_gmem";
+    else
 #endif
+    // convert legacy pow() to FN_POW
+    if (!strcasecmp("pow",nptr))
+    {
+      *typeOfObject = FUNCTION2;
+      return nseel_createCompiledFunctionCall(ctx,2,FN_POW,0);
+    }
     
     for (i=0;nseel_getFunctionFromTable(i);i++)
     {
