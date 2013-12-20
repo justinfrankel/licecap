@@ -77,6 +77,10 @@ unary_expr:
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_UMINUS,1,$2,0);
 	}
+	| '!' unary_expr
+	{
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_NOT,1,$2,0);
+	}
 	;
 
 pow_expr:

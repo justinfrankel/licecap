@@ -511,8 +511,6 @@ static functionType fnTable1[] = {
   { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
   { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
 
-  { "_not",   nseel_asm_bnot,nseel_asm_bnot_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1), } ,
-
   { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
   { "_equal_exact",  nseel_asm_equal_exact,nseel_asm_equal_exact_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
   { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
@@ -1043,6 +1041,8 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_UPLUS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(uplus);   // shouldn't ever be used anyway, but scared to remove
 #endif
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL; RF(uminus);
+    case FN_NOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnot);
+
 #undef RF
 
     case FUNCTYPE_FUNCTIONTYPEREC:
@@ -1311,6 +1311,11 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           switch (op->fntype)
           {
+            case FN_NOT:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 0.0 : 1.0;
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
             case FN_UMINUS:
               op->opcodeType = OPCODETYPE_DIRECTVALUE;
               op->parms.dv.directValue = - op->parms.parms[0]->parms.dv.directValue;
@@ -1580,8 +1585,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
           DOF(exp)
           DOF(log)
           DOF(log10)
-          /*else*/ if (!strcmp(pfn->name,"_not")) v= fabs(v)>=NSEEL_CLOSEFACTOR ? 0.0 : 1.0;
-          else suc=0;
+          /* else */ suc=0;
   #undef DOF
   #undef DOF2
           if (suc)
@@ -1665,11 +1669,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
             goto start_over;
           }
-
-          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && 
-              op->parms.parms[0]->fntype == FUNCTYPE_FUNCTIONTYPEREC && 
-              op->parms.parms[0]->fn && ((functionType *)op->parms.parms[0]->fn)->name &&
-              !strcmp(((functionType *)op->parms.parms[0]->fn)->name,"_not"))
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && op->parms.parms[0]->fntype == FN_NOT)
           {
             opcodeRec *tmp;
             // remove not
@@ -2467,7 +2467,10 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
       fprintf(fp, " VPP?\r\n");
     break;
     case OPCODETYPE_FUNC1:
-      fprintf(fp," FUNC1 %d %s {\r\n",op->fntype, fname);
+      if (op->fntype == FN_NOT)
+        fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_not");
+      else
+        fprintf(fp," FUNC1 %d %s {\r\n",op->fntype, fname);
       if (op->parms.parms[0])
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
@@ -3346,7 +3349,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
 
         {{'[',0  }, 0, 5, },
-				{{'!',0  },-1, 0, }, // this should also ignore any leading +-
 				{{'?',0  }, 1, 4, },
 
 			};
@@ -3514,7 +3516,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       			buf=(char*)realloc(buf,alloc_len);
     			}
 
-          if (n == ns-3)
+          if (n == ns-2)
           {
             char *lp = l_ptr;
             char *rp = r_ptr;
@@ -3540,12 +3542,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
             if (*expression == ']') expression++;
 
           }
-					else if (n == ns-2)
-					{
-						len+=sprintf(buf+len,"_not(%s",r_ptr);
-
-						ctx->l_stats[0]+=4;
-					}
 					else if (n == ns-1)// if (l_ptr,r_ptr1,r_ptr2)
 					{
 						char *rptr2=r_ptr;
@@ -4905,7 +4901,11 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
     if (!strcasecmp(nptr,"if")) nptr="_if";
-    else if (!strcasecmp(nptr,"bnot")) nptr="_not";
+    else if (!strcasecmp(nptr,"bnot")) 
+    {
+      *typeOfObject = FUNCTION1;
+      return nseel_createCompiledFunctionCall(ctx,1,FN_NOT,0);
+    }
     else if (!strcasecmp(nptr,"assign")) nptr="_set";
     else if (!strcasecmp(nptr,"equal")) nptr="_equal";
     else if (!strcasecmp(nptr,"below")) nptr="_below";
