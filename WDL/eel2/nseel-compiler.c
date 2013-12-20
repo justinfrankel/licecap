@@ -1320,8 +1320,8 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       }
       else if (op->opcodeType == OPCODETYPE_FUNC2)  // within FUNCTYPE_SIMPLE
       {
-        int dv0 = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
-        int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        const int dv0 = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        const int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
         if (dv0 && dv1)
         {
           switch (op->fntype)
@@ -1564,21 +1564,57 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       }
       else if (op->opcodeType==OPCODETYPE_FUNC2)  // within FUNCTYPE_FUNCTIONTYPEREC
       {
-        if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE &&
-            op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE)
+        const int dv0=op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        const int dv1=op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
+        if (dv0 && dv1)
         {
-          if (pfn->replptrs[0] == &pow || 
-              pfn->replptrs[0] == &atan2) 
+          if (!strcmp(pfn->name,"pow")) 
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = pfn->replptrs[0]==pow ? 
-              pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue) :
-              atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.directValue = pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+          if (!strcmp(pfn->name,"atan2")) 
+          {
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+          if (!strcmp(pfn->name,"_mod"))
+          {
+            int a = (int) op->parms.parms[1]->parms.dv.directValue;
+            if (a) a = (int) op->parms.parms[0]->parms.dv.directValue % a;
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = (EEL_F) a;
             op->parms.dv.valuePtr=NULL;
             goto start_over;
           }
         }
-        else if (pfn->replptrs[0] == &pow)
+        else if (dv1 && !strcmp(pfn->name,"_mod"))
+        {
+          const int a = (int) op->parms.parms[1]->parms.dv.directValue;
+          if (!a) 
+          {
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = 0.0;
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+          /*
+          else if (a > 0 && !(a & (a-1)))
+          {
+            // convert x%16 to x&15. we can't do this because if x<0 it will produce different results than mod (boo)
+            // could still optimize this case, just will involve writing more stub code
+            op->fntype = FN_AND;
+            op->parms.parms[1]->parms.dv.directValue = a-1;
+            op->parms.parms[1]->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+          */
+        }
+        else if (!dv0 && !strcmp(pfn->name,"pow"))
         {
           opcodeRec *first_parm = op->parms.parms[0];
           if (first_parm->opcodeType == op->opcodeType && first_parm->fn == op->fn && first_parm->fntype == op->fntype)
