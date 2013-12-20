@@ -53,7 +53,7 @@ enum {
   FUNCTYPE_SIMPLEMAX,
 
 
-  FUNCTYPE_FUNCTIONTYPEREC, // fn is a functionType *
+  FUNCTYPE_FUNCTIONTYPEREC=1000, // fn is a functionType *
   FUNCTYPE_EELFUNC, // fn is a _codeHandleFunctionRec *
 };
 
