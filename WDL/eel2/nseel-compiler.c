@@ -546,8 +546,6 @@ static functionType fnTable1[] = {
 #endif
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL, }, // if denormal flag set, we'll use assign which will take care of the denormal
-  { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL },
-  { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL },
 
   { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, // mulop/divop clear denormals manually
   { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL},
@@ -1044,6 +1042,12 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_XOR:
       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
     RF(xor);
+    case FN_SHR:
+      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(shr);
+    case FN_SHL:
+      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(shl);
 #ifndef EEL_TARGET_PORTABLE
     case FN_UPLUS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(uplus);   // shouldn't ever be used anyway, but scared to remove
 #endif
@@ -1366,6 +1370,16 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           switch (op->fntype)
           {
+            case FN_SHL:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) << ((int)op->parms.parms[1]->parms.dv.directValue);
+              op->parms.dv.valuePtr=NULL;
+              goto start_over;
+            case FN_SHR:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) >> ((int)op->parms.parms[1]->parms.dv.directValue);
+              op->parms.dv.valuePtr=NULL;
+              goto start_over;
             case FN_POW:
               op->opcodeType = OPCODETYPE_DIRECTVALUE;
               op->parms.dv.directValue = pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
@@ -1594,9 +1608,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       _divop (constant change to multiply)
       _and
       _or
-      _not
-      _shr
-      _shl
       abs
 
       maybe:
@@ -1660,20 +1671,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         const int dv1=op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
         if (dv0 && dv1)
         {
-          if (!strcmp(pfn->name,"_shl")) 
-          {
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) << ((int)op->parms.parms[1]->parms.dv.directValue);
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
-          if (!strcmp(pfn->name,"_shr")) 
-          {
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) >> ((int)op->parms.parms[1]->parms.dv.directValue);
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
           if (!strcmp(pfn->name,"atan2")) 
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
@@ -2518,6 +2515,10 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
           fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_mod");
         else if (op->fntype == FN_XOR)
           fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_xor");
+        else if (op->fntype == FN_SHL)
+          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_shl");
+        else if (op->fntype == FN_SHR)
+          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_shr");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -3341,8 +3342,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				",)]:?;", // or || or &&
 				",)];", // jf> removed :? from this, for =
 				",)];",
-        "",  // rscan=5, only scans for a negative ] level
-        "", // rscan=6, like rscan==0 but lower precedence -- stop at any non-^ control char that is not parenthed
 			};
 
 			static const struct 
@@ -3367,8 +3366,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'=','='}, 1, 2, "_equal" },
 				{{'<','='}, 1, 2, "_beleq" },
 				{{'>','='}, 1, 2, "_aboeq" },
-				{{'<','<'}, 0, 6, "_shl" },
-				{{'>','>'}, 0, 6, "_shr" },
 				{{'<',0  }, 1, 2, "_below" },
 				{{'>',0  }, 1, 2, "_above" },
 				{{'!','=','='}, 1, 2, "_noteq_exact" },
@@ -3393,10 +3390,20 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 					break;
 				}
 			}
+
+      // temporary until < and > are no longer preprocessed
+      if (!memcmp(expression-1,"<<",2)||!memcmp(expression-1,">>",2))
+      {
+        buf[len++]=expression[-1];
+        buf[len++]=expression[0];
+        expression++;
+        continue;
+      }
 			if (n < ns)
 			{
 				int lscan=preprocSymbols[n].lscan;
 				int rscan=preprocSymbols[n].rscan;
+
 
 	      // parse left side of =, scanning back for an unparenthed nonwhitespace nonalphanumeric nonparenth?
 	      // so megabuf(x+y)= would be fine, x=, but +x= would do +set(x,)
@@ -3492,12 +3499,11 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 								char *sc=scan;
 								if (*r_ptr == ';' || *r_ptr == ',') break;
 							
-								if (!rscan || rscan == 6)
+								if (!rscan)
 								{
 									if (*r_ptr == ':') break;
-									if (!isspace(*r_ptr) && !isalnum(*r_ptr) && *r_ptr != '_' && *r_ptr != '.' && 
-                      (rscan != 6  || *r_ptr != '^' || r_ptr[1] == '=') && hashadch) break;
-									if (isalnum(*r_ptr) || *r_ptr == '_')hashadch=1;
+									if (!isspace(*r_ptr) && !isalnum(*r_ptr) && *r_ptr != '_' && *r_ptr != '.' && hashadch) break;
+									if (isalnum(*r_ptr) || *r_ptr == '_') hashadch=1;
 								}								
 								else if (rscan == 2 &&
 									((r_ptr[0]=='|' && r_ptr[1] == '|')||

@@ -27,7 +27,7 @@
 
 %}
 
-%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX
+%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR
 
 
 %start program
@@ -159,6 +159,14 @@ andor_expr:
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_XOR,2,$1,$3);
 	}
+        | andor_expr TOKEN_SHL add_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_SHL,2,$1,$3);
+        }
+        | andor_expr TOKEN_SHR add_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_SHR,2,$1,$3);
+        }
 	;
 
 expression: 

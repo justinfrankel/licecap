@@ -69,6 +69,25 @@
         *output = nseel_translate(scctx,buf);
         rv=VALUE;
       }
+      else
+      {
+        if (rv == '<')
+        {
+          if (*scctx->rdbuf == '<')
+          {
+            scctx->rdbuf++;
+            rv=TOKEN_SHL;
+          }
+        }
+        else if (rv == '>')
+        {
+          if (*scctx->rdbuf == '>')
+          {
+            scctx->rdbuf++;
+            rv=TOKEN_SHR;
+          }
+        }
+      }
       toklen = scctx->rdbuf - ss;
     }
   

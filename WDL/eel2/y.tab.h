@@ -44,7 +44,9 @@
      FUNCTION1 = 260,
      FUNCTION2 = 261,
      FUNCTION3 = 262,
-     FUNCTIONX = 263
+     FUNCTIONX = 263,
+     TOKEN_SHL = 264,
+     TOKEN_SHR = 265
    };
 #endif
 /* Tokens.  */
@@ -54,6 +56,8 @@
 #define FUNCTION2 261
 #define FUNCTION3 262
 #define FUNCTIONX 263
+#define TOKEN_SHL 264
+#define TOKEN_SHR 265
 
 
 

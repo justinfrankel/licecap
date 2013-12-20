@@ -52,6 +52,8 @@ enum {
   FN_UPLUS,
   FN_NOT,
   FN_XOR,
+  FN_SHL,
+  FN_SHR,
   FN_MOD,
   FN_POW,
   FN_MEMORY,

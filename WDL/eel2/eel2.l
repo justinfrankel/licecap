@@ -63,6 +63,8 @@ static int g_fake_errno;
 [0-9]+\.?[0-9]*               PARSENUM;
 \.[0-9]+                      PARSENUM;
 0[xX][0-9a-fA-F]+             PARSENUM; 
+\<\<                          return TOKEN_SHL;
+\>\>                          return TOKEN_SHR;
 
 [a-zA-Z_][a-zA-Z0-9\._]*      do { int toktype=IDENTIFIER; *yylval = nseel_lookup(yyextra,&toktype, yytext); return toktype; } while (0);
 
