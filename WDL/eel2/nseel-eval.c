@@ -73,20 +73,70 @@
       {
         if (rv == '<')
         {
-          if (*scctx->rdbuf == '<')
+          const char nc=*scctx->rdbuf;
+          if (nc == '<')
           {
             scctx->rdbuf++;
             rv=TOKEN_SHL;
           }
+          else if (nc == '=')
+          {
+            scctx->rdbuf++;
+            rv=TOKEN_LTE;
+          }
         }
         else if (rv == '>')
         {
-          if (*scctx->rdbuf == '>')
+          const char nc=*scctx->rdbuf;
+          if (nc == '>')
           {
             scctx->rdbuf++;
             rv=TOKEN_SHR;
           }
+          else if (nc == '=')
+          {
+            scctx->rdbuf++;
+            rv=TOKEN_GTE;
+          }
         }
+        else if (rv == '=')
+        {
+          if (*scctx->rdbuf == '=')
+          {
+            scctx->rdbuf++;
+            if (*scctx->rdbuf == '=')
+            {
+              scctx->rdbuf++;
+              rv=TOKEN_EQ_EXACT;
+            }
+            else
+              rv=TOKEN_EQ;
+          }
+        }
+        else if (rv == '!')
+        {
+          if (*scctx->rdbuf == '=')
+          {
+            scctx->rdbuf++;
+            if (*scctx->rdbuf == '=')
+            {
+              scctx->rdbuf++;
+              rv=TOKEN_NE_EXACT;
+            }
+            else
+              rv=TOKEN_NE;
+          }
+        }
+        else if (rv == '&' && *scctx->rdbuf == '&')
+        {
+          scctx->rdbuf++;
+          rv = TOKEN_LOGICAL_AND;
+        }      
+        else if (rv == '|' && *scctx->rdbuf == '|')
+        {
+          scctx->rdbuf++;
+          rv = TOKEN_LOGICAL_OR;
+        }      
       }
       toklen = scctx->rdbuf - ss;
     }

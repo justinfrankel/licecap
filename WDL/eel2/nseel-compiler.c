@@ -502,31 +502,19 @@ static double sqrt_fabs(double a) { return sqrt(fabs(a)); }
 
 EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f);
 
-#define FNPTR_HAS_CONDITIONAL_EXEC(op) (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && (functionType*)op->fn >= fnTable1 && (functionType*)op->fn < fnTable1+5)
+#define FNPTR_HAS_CONDITIONAL_EXEC(op)  \
+  (op->fntype == FN_LOGICAL_AND || \
+   op->fntype == FN_LOGICAL_OR ||  \
+      (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && (functionType*)op->fn >= fnTable1 && (functionType*)op->fn < fnTable1+3))
+
+#define FNTABLE_OFFSET_IF 0
+#define FNTABLE_OFFSET_LOOP 1
+#define FNTABLE_OFFSET_WHILE 2
 
 static functionType fnTable1[] = {
   { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL, }, 
-  { "_and",   nseel_asm_band,nseel_asm_band_end,  2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
-  { "_or",    nseel_asm_bor,nseel_asm_bor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSBOOL } ,
   { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
   { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
-
-  { "_equal",  nseel_asm_equal,nseel_asm_equal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
-  { "_equal_exact",  nseel_asm_equal_exact,nseel_asm_equal_exact_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
-  { "_noteq",  nseel_asm_notequal,nseel_asm_notequal_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
-  { "_noteq_exact",  nseel_asm_notequal_exact,nseel_asm_notequal_exact_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2), {0} },
-
-#ifdef GLUE_HAS_FXCH
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2) },
-  { "_aboeq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2)  },
-  { "_below",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2)},
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2) },
-#else
-  { "_above",  nseel_asm_above,nseel_asm_above_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
-  { "_aboeq",  nseel_asm_aboveeq,nseel_asm_aboveeq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSBOOL },
-  { "_below",  nseel_asm_below,nseel_asm_below_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
-  { "_beleq",  nseel_asm_beloweq,nseel_asm_beloweq_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL },
-#endif
 
 
 #ifndef GLUE_HAS_NATIVE_TRIGSQRTLOG
@@ -1053,6 +1041,56 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
 #endif
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL; RF(uminus);
     case FN_NOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnot);
+
+    case FN_EQ:
+      *abiInfo = BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(equal);
+    case FN_EQ_EXACT:
+      *abiInfo=BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(equal_exact);
+    case FN_NE:
+      *abiInfo=BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(notequal);
+    case FN_NE_EXACT:
+      *abiInfo=BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(notequal_exact);
+
+    case FN_LOGICAL_AND:
+      *abiInfo = BIF_RETURNSBOOL;
+    RF(band);
+    case FN_LOGICAL_OR:
+      *abiInfo = BIF_RETURNSBOOL;
+    RF(bor);
+
+#ifdef GLUE_HAS_FXCH
+    case FN_GT:
+      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(above);
+    case FN_GTE:
+      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2);
+    RF(beloweq);
+    case FN_LT:
+      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2);
+    RF(above);
+    case FN_LTE:
+      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(beloweq);
+#else
+    case FN_GT:
+      *abiInfo = BIF_RETURNSBOOL;
+    RF(above);
+    case FN_GTE:
+      *abiInfo = BIF_RETURNSBOOL;
+    RF(aboveeq);
+    case FN_LT:
+      *abiInfo = BIF_RETURNSBOOL;
+    RF(below);
+    case FN_LTE:
+      *abiInfo = BIF_RETURNSBOOL;
+    RF(beloweq);
+#endif
+
+
 #undef RF
 #define RF(x) *endP = _asm_##x##_end; return (void*)_asm_##x
 
@@ -1613,14 +1651,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       maybe:
       min
       max
-      _equal
-      _equal_exact
-      _noteq
-      _noteq_exact
-      _below
-      _above
-      _beleq
-      _aboeq
 
 
       also, optimize should (recursively or maybe iteratively?) search transitive functions (mul/div) for more constant reduction possibilities
@@ -2512,13 +2542,33 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
         if (op->fntype == FN_POW)
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "pow");
         else if (op->fntype == FN_MOD)
-          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_mod");
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_mod");
         else if (op->fntype == FN_XOR)
-          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_xor");
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_xor");
         else if (op->fntype == FN_SHL)
-          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_shl");
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_shl");
         else if (op->fntype == FN_SHR)
-          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_shr");
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_shr");
+        else if (op->fntype == FN_LT)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_below");
+        else if (op->fntype == FN_GT)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_above");
+        else if (op->fntype == FN_LTE)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_beleq");
+        else if (op->fntype == FN_GTE)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_aboeq");
+        else if (op->fntype == FN_EQ)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_equal");
+        else if (op->fntype == FN_NE)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_noteq");
+        else if (op->fntype == FN_EQ_EXACT)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_equal_exact");
+        else if (op->fntype == FN_NE_EXACT)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_noteq_exact");
+        else if (op->fntype == FN_LOGICAL_AND)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_and");
+        else if (op->fntype == FN_LOGICAL_OR)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_or");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -2593,11 +2643,90 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #endif
   }
 
+  // special case: BAND/BOR
+  if (op->opcodeType == OPCODETYPE_FUNC2 && (op->fntype == FN_LOGICAL_AND || op->fntype == FN_LOGICAL_OR))
+  {
+    int fUse=0;
+    int parm_size,parm_size_pre;
+    int retType=RETURNVALUE_IGNORE;
+    if (preferredReturnValues != RETURNVALUE_IGNORE) retType = RETURNVALUE_BOOL;
+
+    *calledRvType = retType;
+    
+    parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse, NULL);
+    if (parm_size < 0) RET_MINUS1_FAIL("loop band/bor coc fail")
+    
+    if (fUse > *fpStackUse) *fpStackUse=fUse;
+
+
+    parm_size_pre=parm_size;
+
+    {
+      int sz2, fUse=0;
+      unsigned char *destbuf;
+      const int testsz=op->fntype == FN_LOGICAL_OR ? sizeof(GLUE_JMP_IF_P1_NZ) : sizeof(GLUE_JMP_IF_P1_Z);
+      if (bufOut_len < parm_size+testsz) RET_MINUS1_FAIL_FALLBACK("band/bor size fail",doNonInlinedAndOr_)
+
+      if (bufOut)  memcpy(bufOut+parm_size,op->fntype == FN_LOGICAL_OR ? GLUE_JMP_IF_P1_NZ : GLUE_JMP_IF_P1_Z,testsz); 
+      parm_size += testsz;
+      destbuf = bufOut + parm_size;
+
+      sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse, NULL);
+
+      CHECK_SIZE_FORJMP(sz2,doNonInlinedAndOr_)
+      if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
+
+      parm_size+=sz2;
+      if (bufOut) GLUE_JMP_SET_OFFSET(destbuf, (bufOut + parm_size) - destbuf);
+
+      if (fUse > *fpStackUse) *fpStackUse=fUse;
+      return rv_offset + parm_size;
+    }
+#ifdef GLUE_MAX_JMPSIZE
+    if (0) 
+    {
+      void *stub;
+      int stubsize;        
+      unsigned char *newblock2, *p;
+    
+      // encode as function call
+doNonInlinedAndOr_:
+      parm_size = parm_size_pre;
+
+      if (op->fntype == FN_LOGICAL_AND) 
+      {
+        stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
+      }
+      else 
+      {
+        stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
+      }
+    
+      if (bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL("band/bor len fail")
+    
+      if (bufOut)
+      {
+        fUse=0;
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, retType, NULL, &fUse, NULL);
+        if (!newblock2) RET_MINUS1_FAIL("band/bor ccbwr fail")
+
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
+    
+        p = bufOut + parm_size;
+        memcpy(p, stub, stubsize);
+    
+        p=EEL_GLUE_set_immediate(p,(INT_PTR)newblock2);
+      }
+      return rv_offset + parm_size + stubsize;
+    }
+#endif
+  }  
+
   if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
   {
     // special case: while
     functionType *fn_ptr = (functionType *)op->fn;
-    if (op->opcodeType == OPCODETYPE_FUNC1 && fn_ptr == fnTable1 + 4)
+    if (op->opcodeType == OPCODETYPE_FUNC1 && fn_ptr == fnTable1 + FNTABLE_OFFSET_WHILE)
     {
       *calledRvType = RETURNVALUE_BOOL;
 
@@ -2656,7 +2785,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     }
 
     // special case: loop
-    if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+3)
+    if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+FNTABLE_OFFSET_LOOP)
     {    
       int fUse;
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse, NULL);
@@ -2728,86 +2857,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #endif
     }
     
-    // special case: BAND/BOR
-    if (op->opcodeType == OPCODETYPE_FUNC2 && (fn_ptr == fnTable1+1 || fn_ptr == fnTable1+2))
-    {
-      int fUse=0;
-      int parm_size,parm_size_pre;
-      int retType=RETURNVALUE_IGNORE;
-      if (preferredReturnValues != RETURNVALUE_IGNORE) retType = RETURNVALUE_BOOL;
-
-      *calledRvType = retType;
-      
-      parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse, NULL);
-      if (parm_size < 0) RET_MINUS1_FAIL("loop band/bor coc fail")
-      
-      if (fUse > *fpStackUse) *fpStackUse=fUse;
-
-
-      parm_size_pre=parm_size;
-
-      {
-        int sz2, fUse=0;
-        unsigned char *destbuf;
-        const int testsz=(fn_ptr == fnTable1+2) ? sizeof(GLUE_JMP_IF_P1_NZ) : sizeof(GLUE_JMP_IF_P1_Z);
-        if (bufOut_len < parm_size+testsz) RET_MINUS1_FAIL_FALLBACK("band/bor size fail",doNonInlinedAndOr_)
-
-        if (bufOut)  memcpy(bufOut+parm_size,(fn_ptr == fnTable1+2) ? GLUE_JMP_IF_P1_NZ : GLUE_JMP_IF_P1_Z,testsz); 
-        parm_size += testsz;
-        destbuf = bufOut + parm_size;
-
-        sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse, NULL);
-
-        CHECK_SIZE_FORJMP(sz2,doNonInlinedAndOr_)
-        if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
-
-        parm_size+=sz2;
-        if (bufOut) GLUE_JMP_SET_OFFSET(destbuf, (bufOut + parm_size) - destbuf);
-
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
-        return rv_offset + parm_size;
-      }
-#ifdef GLUE_MAX_JMPSIZE
-      if (0) 
-      {
-        void *stub;
-        int stubsize;        
-        unsigned char *newblock2, *p;
-      
-        // encode as function call
-doNonInlinedAndOr_:
-        parm_size = parm_size_pre;
-
-        if (fn_ptr == fnTable1+1) 
-        {
-          stub = GLUE_realAddress(nseel_asm_band,nseel_asm_band_end,&stubsize);
-        }
-        else 
-        {
-          stub = GLUE_realAddress(nseel_asm_bor,nseel_asm_bor_end,&stubsize);
-        }
-      
-        if (bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL("band/bor len fail")
-      
-        if (bufOut)
-        {
-          fUse=0;
-          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, retType, NULL, &fUse, NULL);
-          if (!newblock2) RET_MINUS1_FAIL("band/bor ccbwr fail")
-
-          if (fUse > *fpStackUse) *fpStackUse=fUse;
-      
-          p = bufOut + parm_size;
-          memcpy(p, stub, stubsize);
-      
-          p=EEL_GLUE_set_immediate(p,(INT_PTR)newblock2);
-        }
-        return rv_offset + parm_size + stubsize;
-      }
-#endif
-    }  
-    
-    if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + 0) // special case: IF
+    if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + FNTABLE_OFFSET_IF) // special case: IF
     {
       int fUse=0;
       int parm_size_pre;
@@ -3362,16 +3412,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'*','='}, 0, 3, "_mulop"},
 				{{'^','='}, 0, 3, "_powop"},
 
-				{{'=','=','='}, 1, 2, "_equal_exact" },
-				{{'=','='}, 1, 2, "_equal" },
-				{{'<','='}, 1, 2, "_beleq" },
-				{{'>','='}, 1, 2, "_aboeq" },
-				{{'<',0  }, 1, 2, "_below" },
-				{{'>',0  }, 1, 2, "_above" },
-				{{'!','=','='}, 1, 2, "_noteq_exact" },
-				{{'!','='}, 1, 2, "_noteq" },
-				{{'|','|'}, 1, 2, "_or" },
-				{{'&','&'}, 1, 2, "_and" },
 				{{'=',0  }, 0, 3, "_set" },
 
 				{{'?',0  }, 1, 4, },
@@ -3380,6 +3420,20 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
 			int n;
 			const int ns=sizeof(preprocSymbols)/sizeof(preprocSymbols[0]);
+
+      if ((c == '<' || c == '>' || c == '=' || c == '!') && *expression == '=')
+      {
+        // temporarily passthrough >= <= != == !== and ===
+        int skipamt=2;
+        if ((c == '=' || c == '!') && expression[1] == '=') skipamt=3;
+
+        memcpy(buf+len,expression-1,skipamt);
+        len+=skipamt;
+
+        expression+=skipamt-1;
+        continue;
+      }
+
 			for (n = 0; n < ns; n++)
 			{
 				if (c == preprocSymbols[n].op[0] && 
@@ -3391,14 +3445,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				}
 			}
 
-      // temporary until < and > are no longer preprocessed
-      if (!memcmp(expression-1,"<<",2)||!memcmp(expression-1,">>",2))
-      {
-        buf[len++]=expression[-1];
-        buf[len++]=expression[0];
-        expression++;
-        continue;
-      }
 			if (n < ns)
 			{
 				int lscan=preprocSymbols[n].lscan;
@@ -4917,15 +4963,27 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
     if (!strcasecmp(nptr,"if")) nptr="_if";
+    else if (!strcasecmp(nptr,"assign")) nptr="_set";
+    else if (!strcasecmp(nptr,"equal")) 
+    {
+      *typeOfObject = FUNCTION2;
+      return nseel_createCompiledFunctionCall(ctx,2,FN_EQ,0);
+    }
+    else if (!strcasecmp(nptr,"below")) 
+    {
+      *typeOfObject = FUNCTION2;
+      return nseel_createCompiledFunctionCall(ctx,2,FN_LT,0);
+    }
+    else if (!strcasecmp(nptr,"above")) 
+    {
+      *typeOfObject = FUNCTION2;
+      return nseel_createCompiledFunctionCall(ctx,2,FN_GT,0);
+    }
     else if (!strcasecmp(nptr,"bnot")) 
     {
       *typeOfObject = FUNCTION1;
       return nseel_createCompiledFunctionCall(ctx,1,FN_NOT,0);
     }
-    else if (!strcasecmp(nptr,"assign")) nptr="_set";
-    else if (!strcasecmp(nptr,"equal")) nptr="_equal";
-    else if (!strcasecmp(nptr,"below")) nptr="_below";
-    else if (!strcasecmp(nptr,"above")) nptr="_above";
     else if (!strcasecmp(nptr,"megabuf")) 
     {
       *typeOfObject = FUNCTION1;

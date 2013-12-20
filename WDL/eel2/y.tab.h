@@ -46,7 +46,15 @@
      FUNCTION3 = 262,
      FUNCTIONX = 263,
      TOKEN_SHL = 264,
-     TOKEN_SHR = 265
+     TOKEN_SHR = 265,
+     TOKEN_LTE = 266,
+     TOKEN_GTE = 267,
+     TOKEN_EQ = 268,
+     TOKEN_EQ_EXACT = 269,
+     TOKEN_NE = 270,
+     TOKEN_NE_EXACT = 271,
+     TOKEN_LOGICAL_AND = 272,
+     TOKEN_LOGICAL_OR = 273
    };
 #endif
 /* Tokens.  */
@@ -58,6 +66,14 @@
 #define FUNCTIONX 263
 #define TOKEN_SHL 264
 #define TOKEN_SHR 265
+#define TOKEN_LTE 266
+#define TOKEN_GTE 267
+#define TOKEN_EQ 268
+#define TOKEN_EQ_EXACT 269
+#define TOKEN_NE 270
+#define TOKEN_NE_EXACT 271
+#define TOKEN_LOGICAL_AND 272
+#define TOKEN_LOGICAL_OR 273
 
 
 

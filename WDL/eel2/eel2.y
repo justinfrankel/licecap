@@ -27,7 +27,7 @@
 
 %}
 
-%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR
+%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
 
 
 %start program
@@ -169,9 +169,57 @@ andor_expr:
         }
 	;
 
+cmp_expr:
+        andor_expr
+        | cmp_expr '<' andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_LT,2,$1,$3);
+        }
+        | cmp_expr '>' andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_GT,2,$1,$3);
+        }
+        | cmp_expr TOKEN_LTE andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_LTE,2,$1,$3);
+        }
+        | cmp_expr TOKEN_GTE andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_GTE,2,$1,$3);
+        }
+        | cmp_expr TOKEN_EQ andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_EQ,2,$1,$3);
+        }
+        | cmp_expr TOKEN_EQ_EXACT andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_EQ_EXACT,2,$1,$3);
+        }
+        | cmp_expr TOKEN_NE andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_NE,2,$1,$3);
+        }
+        | cmp_expr TOKEN_NE_EXACT andor_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_NE_EXACT,2,$1,$3);
+        }
+        ;
+
+logical_and_or_expr:
+        cmp_expr
+        | logical_and_or_expr TOKEN_LOGICAL_AND cmp_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_LOGICAL_AND,2,$1,$3);
+        }
+        | logical_and_or_expr TOKEN_LOGICAL_OR cmp_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_LOGICAL_OR,2,$1,$3);
+        }
+        ;
+
 expression: 
-	andor_expr
-	| expression ';' andor_expr
+	logical_and_or_expr
+	| expression ';' logical_and_or_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,$1,$3);
 	}
