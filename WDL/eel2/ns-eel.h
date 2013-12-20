@@ -144,14 +144,6 @@ extern int NSEEL_RAM_memused_errors;
 
 // configuration:
 
-  // the old parser may have more quirks. 
-  // Changes in the new parser:
-  //   1) expressions such as a = (1+5;3); now work as expected (a is set to 3, rather than 4).
-  //   2) 0xHEXNUMBER is now allowed (old parser required $xHEXNUMBER
-  //   3) error notices (unsure which is more accurate)
-  //   4) new parser allows more than 3 parameter eel-functions (up to NSEEL_MAX_EELFUNC_PARAMETERS)
-
-  //#define NSEEL_USE_OLD_PARSER
 #define NSEEL_SUPER_MINIMAL_LEXER // smaller code that uses far less ram, but the flex version we'll keep around too in case we want to do fancier things someday
 
  // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc.

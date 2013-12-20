@@ -140,20 +140,6 @@ typedef struct _compileContext
   opcodeRec *result;
   char last_error_string[256];
 
-#ifdef NSEEL_USE_OLD_PARSER
-  int colCount;
-  YYSTYPE yylval;
-  int	yychar;			/*  the lookahead symbol		*/
-  int yynerrs;			/*  number of parse errors so far       */
-
-  char    *llsave[16];             /* Look ahead buffer            */
-  char    llbuf[NSEEL_MAX_VARIABLE_NAMELEN*2+128];             /* work buffer                          */
-  char    *llp1;//   = &llbuf[0];    /* pointer to next avail. in token      */
-  char    *llp2;//   = &llbuf[0];    /* pointer to end of lookahead          */
-  char    *llend;//  = &llbuf[0];    /* pointer to end of token              */
-  char    *llebuf;// = &llbuf[sizeof llbuf];
-  int     lleof;
-#else
   void *scanner;
   #ifdef NSEEL_SUPER_MINIMAL_LEXER
     char *rdbuf, *rdbuf_start;
@@ -161,7 +147,6 @@ typedef struct _compileContext
     const char *inputbufferptr;
     int errVar_l;
   #endif
-#endif
 
   llBlock *tmpblocks_head, // used while compiling, and freed after compiling
 
@@ -256,23 +241,7 @@ typedef struct nseel_globalVarItem
 
 extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, must use NSEEL_getglobalregs() for regxx values
 
-#ifdef NSEEL_USE_OLD_PARSER
-  #define	VALUE	258
-  #define	IDENTIFIER	259
-  #define	FUNCTION1	260
-  #define	FUNCTION2	261
-  #define	FUNCTION3	262
-  #define UMINUS  263
-  #define UPLUS   264
-
-  #define INTCONST 1
-  #define DBLCONST 2
-  #define HEXCONST 3
-  #define VARIABLE 4
-  #define OTHER    5
-#else
-  #include "y.tab.h"
-#endif
+#include "y.tab.h"
 
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
 int nseel_gettokenlen(compileContext *ctx, int maxlen);

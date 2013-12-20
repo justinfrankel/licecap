@@ -3762,11 +3762,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     ctx->function_localTable_ValuePtrs=0;
     ctx->function_usesNamespaces=0;
     ctx->function_curName=NULL;
-    
-#ifdef NSEEL_USE_OLD_PARSER
-    ctx->colCount=0;
-#endif
-    
+        
     // single out segment
     while (*expression == ';' || isspace(*expression)) expression++;
     if (!*expression) break;
@@ -3914,13 +3910,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
     ctx->errVar=0;
 
-#ifdef NSEEL_USE_OLD_PARSER
-    nseel_llinit(ctx);
-    if (!nseel_yyparse(ctx,expr) && !ctx->errVar)
-    {
-      start_opcode = ctx->result;
-    }
-#else
    {
      int nseelparse(compileContext* context);
 
@@ -3954,7 +3943,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
      ctx->inputbufferptr=NULL;
 #endif
    }
-#endif
            
     if (start_opcode)
     {
@@ -4384,7 +4372,6 @@ static void NSEEL_VM_freevars(NSEEL_VMCTX _ctx)
 NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 {
   compileContext *ctx=calloc(1,sizeof(compileContext));
-#ifndef NSEEL_USE_OLD_PARSER
 
   #ifdef NSEEL_SUPER_MINIMAL_LEXER
     ctx->scanner = ctx;
@@ -4401,8 +4388,6 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
       nseelset_extra(ctx,ctx->scanner);
     }
   #endif
-
-#endif
 
   if (ctx) ctx->ram_state.closefact = NSEEL_CLOSEFACTOR;
   return ctx;
@@ -4427,7 +4412,6 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
 
     free(ctx->compileLineRecs);
 
-#ifndef NSEEL_USE_OLD_PARSER
     #ifndef NSEEL_SUPER_MINIMAL_LEXER
       if (ctx->scanner)
       {
@@ -4436,7 +4420,6 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
       }
     #endif
     ctx->scanner=0;
-#endif
     free(ctx);
   }
 
@@ -4871,9 +4854,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     if (best)
     {
       *typeOfObject=
-#ifndef NSEEL_USE_OLD_PARSER
         best->num_params>3 ?FUNCTIONX :
-#endif       
         best->num_params>=3?FUNCTION3 : 
         best->num_params==2?FUNCTION2 : 
                           FUNCTION1;
@@ -4915,11 +4896,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
           case 2: *typeOfObject = FUNCTION2; break;
           case 3: *typeOfObject = FUNCTION3; break;
           default: 
-#ifndef NSEEL_USE_OLD_PARSER
             *typeOfObject = FUNCTIONX; // newly supported X-parameter functions
-#else
-            *typeOfObject = FUNCTION1;  // should never happen, unless the caller was silly
-#endif
             break;
         }
         return nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);

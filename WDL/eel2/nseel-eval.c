@@ -27,9 +27,7 @@
 #include "ns-eel-int.h"
 #include "../wdlcstring.h"
 
-#ifndef NSEEL_USE_OLD_PARSER
-
-  #ifdef NSEEL_SUPER_MINIMAL_LEXER
+#ifdef NSEEL_SUPER_MINIMAL_LEXER
 
   int nseellex(opcodeRec **output, YYLTYPE * yylloc_param, compileContext *scctx)
   {
@@ -137,15 +135,3 @@
     ctx->errVar_l = pos->first_line;
   }
 #endif // !NSEEL_SUPER_MINIMAL_LEXER
-
-#else
-
-//---------------------------------------------------------------------------
-int nseel_yyerror(compileContext *ctx)
-{
-  ctx->errVar = ctx->colCount;
-  return 0;
-}
-
-
-#endif
