@@ -70,7 +70,7 @@
 
 //#define EEL_DUMP_OPS
 #ifdef EEL_DUMP_OPS
-FILE *g_eel_dump_fp;
+FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 #endif
 
 #ifdef EEL_VALIDATE_WORKTABLE_USE
@@ -3936,6 +3936,15 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 #else
       printf("%s\n",buf);
 #endif
+#endif
+
+#ifdef EEL_DUMP_OPS
+      // dump opcode trees for verification, after optimizing
+      if (g_eel_dump_fp2)
+      {
+        fprintf(g_eel_dump_fp2,"-- POST-OPTIMIZED opcode chunk --\n");
+        dumpOpcodeTree(ctx,g_eel_dump_fp2,start_opcode,2);        
+      }
 #endif
 
 #ifdef DUMP_OPS_DURING_COMPILE
