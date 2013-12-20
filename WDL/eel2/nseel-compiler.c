@@ -1568,6 +1568,20 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         const int dv1=op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
         if (dv0 && dv1)
         {
+          if (!strcmp(pfn->name,"_shl")) 
+          {
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) << ((int)op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
+          if (!strcmp(pfn->name,"_shr")) 
+          {
+            op->opcodeType = OPCODETYPE_DIRECTVALUE;
+            op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) >> ((int)op->parms.parms[1]->parms.dv.directValue);
+            op->parms.dv.valuePtr=NULL;
+            goto start_over;
+          }
           if (!strcmp(pfn->name,"pow")) 
           {
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
