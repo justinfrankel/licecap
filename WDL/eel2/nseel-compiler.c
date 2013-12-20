@@ -582,8 +582,6 @@ static functionType fnTable1[] = {
 
    { "__dbg_getstackptr",   nseel_asm_dbg_getstackptr,nseel_asm_dbg_getstackptr_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1),  },
 
-  { "_xor",    nseel_asm_xor,nseel_asm_xor_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL } ,
-
 #ifdef NSEEL_EEL1_COMPAT_MODE
   { "sigmoid", nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK, {&eel1sigmoid}, },
 
@@ -1039,6 +1037,9 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
 #endif
     case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL; RF(and);
     case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL; RF(or);
+    case FN_XOR:
+      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(xor);
 #ifndef EEL_TARGET_PORTABLE
     case FN_UPLUS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(uplus);   // shouldn't ever be used anyway, but scared to remove
 #endif
@@ -1383,6 +1384,11 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
               op->parms.dv.valuePtr=NULL;
             goto start_over;
+            case FN_XOR:
+              op->opcodeType = OPCODETYPE_DIRECTVALUE;
+              op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) ^ ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
+              op->parms.dv.valuePtr=NULL;
+            goto start_over;
           }
         }
         else if (dv0 || dv1)
@@ -1391,6 +1397,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
           switch (op->fntype)
           {
             case FN_OR:
+            case FN_XOR:
               if (!(WDL_INT64)dvalue)
               {
                 // replace with or0
@@ -1564,7 +1571,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       _not
       _shr
       _shl
-      _xor
       abs
 
       maybe:
@@ -2479,6 +2485,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "pow");
         else if (op->fntype == FN_MOD)
           fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_mod");
+        else if (op->fntype == FN_XOR)
+          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_xor");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -3337,8 +3345,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'|','|'}, 1, 2, "_or" },
 				{{'&','&'}, 1, 2, "_and" },
 				{{'=',0  }, 0, 3, "_set" },
-				{{'~',0},   0, 6, "_xor" },
-//no longer need to preprocess pow(): {{'^',0},   0, 0, "pow" },
 
 
         {{'[',0  }, 0, 5, },

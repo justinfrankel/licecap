@@ -143,6 +143,10 @@ andor_expr:
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_OR,2,$1,$3);
 	}
+	| andor_expr '~' add_expr
+	{
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_XOR,2,$1,$3);
+	}
 	;
 
 expression: 
