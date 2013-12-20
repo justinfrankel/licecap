@@ -2461,48 +2461,51 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
       fprintf(fp, " VPP?\n");
     break;
     case OPCODETYPE_FUNC1:
-      fprintf(fp," FUNC1 %d %s\n",op->fntype, fname);
+      fprintf(fp," FUNC1 %d %s {\r\n",op->fntype, fname);
       if (op->parms.parms[0])
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
-        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+        fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
+      fprintf(fp,"%*}\r\n", indent_amt, "");
     break;
     case OPCODETYPE_MOREPARAMS:
     case OPCODETYPE_FUNC2:
       if (op->opcodeType == OPCODETYPE_MOREPARAMS)
-        fprintf(fp," MOREPARAMS\n");
+        fprintf(fp," MOREPARAMS {\r\n");
       else
-        fprintf(fp," FUNC2 %d %s\n",op->fntype, fname);
+        fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       if (op->parms.parms[0])
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
-        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+        fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
 
       if (op->parms.parms[1])
         dumpOpcodeTree(ctx,fp,op->parms.parms[1],indent_amt+2);
       else
-        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+        fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
+      fprintf(fp,"%*}\r\n", indent_amt, "");
     break;
     case OPCODETYPE_FUNCX:
     case OPCODETYPE_FUNC3:
       if (op->opcodeType == OPCODETYPE_FUNCX)
-        fprintf(fp," FUNCX %d %s\n",op->fntype, fname);
+        fprintf(fp," FUNCX %d %s {\r\n",op->fntype, fname);
       else
-        fprintf(fp," FUNC3 %d %s\n",op->fntype, fname);
+        fprintf(fp," FUNC3 %d %s {\r\n",op->fntype, fname);
       if (op->parms.parms[0])
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
-        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+        fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
 
       if (op->parms.parms[1])
         dumpOpcodeTree(ctx,fp,op->parms.parms[1],indent_amt+2);
       else
-        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+        fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
 
       if (op->parms.parms[2])
         dumpOpcodeTree(ctx,fp,op->parms.parms[2],indent_amt+2);
       else
-        fprintf(fp,"%*sINVALID PARM\n",indent_amt+2,"");
+        fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
+      fprintf(fp,"%*}\r\n", indent_amt, "");
 
     break;
   }
