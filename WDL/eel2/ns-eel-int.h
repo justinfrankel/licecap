@@ -51,6 +51,7 @@ enum {
   FN_UMINUS,
   FN_UPLUS,
   FN_NOT,
+  FN_MOD,
   FN_POW,
   FUNCTYPE_SIMPLEMAX,
 

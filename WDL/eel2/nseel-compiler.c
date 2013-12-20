@@ -546,7 +546,6 @@ static functionType fnTable1[] = {
 #endif
 
   { "_set",nseel_asm_assign,nseel_asm_assign_end,2|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL, }, // if denormal flag set, we'll use assign which will take care of the denormal
-  { "_mod",nseel_asm_mod,nseel_asm_mod_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL },
   { "_shr",nseel_asm_shr,nseel_asm_shr_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL },
   { "_shl",nseel_asm_shl,nseel_asm_shl_end,2 | NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL },
 
@@ -1032,6 +1031,9 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
         // for x/constant-less-than-eq-1, we can set BIF_WONTMAKEDENORMAL
         if (firstConstParm && fabs(*firstConstParm) <= 1.0) *abiInfo |= BIF_WONTMAKEDENORMAL;
     RF(div);
+    case FN_MOD:
+      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL;
+    RF(mod);
 #ifndef EEL_TARGET_PORTABLE
     case FN_JOIN_STATEMENTS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(exec2); // shouldn't ever be used anyway, but scared to remove
 #endif
@@ -1352,6 +1354,15 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue;
               op->parms.dv.valuePtr=NULL;
             goto start_over;
+            case FN_MOD:
+              {
+                int a = (int) op->parms.parms[1]->parms.dv.directValue;
+                if (a) a = (int) op->parms.parms[0]->parms.dv.directValue % a;
+                op->opcodeType = OPCODETYPE_DIRECTVALUE;
+                op->parms.dv.directValue = (EEL_F) a;
+                op->parms.dv.valuePtr=NULL;
+              }
+            goto start_over;
             case FN_ADD:
               op->opcodeType = OPCODETYPE_DIRECTVALUE;
               op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
@@ -1447,6 +1458,19 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 goto start_over;
               }
             break;
+            case FN_MOD:
+              if (dv1)
+              {
+                const int a = (int) op->parms.parms[1]->parms.dv.directValue;
+                if (!a) 
+                {
+                  op->opcodeType = OPCODETYPE_DIRECTVALUE;
+                  op->parms.dv.directValue = 0.0;
+                  op->parms.dv.valuePtr=NULL;
+                  goto start_over;
+                }
+              }
+            break;
             case FN_DIVIDE:
               if (dv1)
               {
@@ -1538,7 +1562,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       _and
       _or
       _not
-      _mod
       _shr
       _shl
       _xor
@@ -1626,37 +1649,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             op->parms.dv.valuePtr=NULL;
             goto start_over;
           }
-          if (!strcmp(pfn->name,"_mod"))
-          {
-            int a = (int) op->parms.parms[1]->parms.dv.directValue;
-            if (a) a = (int) op->parms.parms[0]->parms.dv.directValue % a;
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = (EEL_F) a;
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
-        }
-        else if (dv1 && !strcmp(pfn->name,"_mod"))
-        {
-          const int a = (int) op->parms.parms[1]->parms.dv.directValue;
-          if (!a) 
-          {
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = 0.0;
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
-          /*
-          else if (a > 0 && !(a & (a-1)))
-          {
-            // convert x%16 to x&15. we can't do this because if x<0 it will produce different results than mod (boo)
-            // could still optimize this case, just will involve writing more stub code
-            op->fntype = FN_AND;
-            op->parms.parms[1]->parms.dv.directValue = a-1;
-            op->parms.parms[1]->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
-          */
         }
       }
       else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
@@ -2485,6 +2477,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
       {
         if (op->fntype == FN_POW)
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "pow");
+        else if (op->fntype == FN_MOD)
+          fprintf(fp," FUNC2 %d %s\n",FUNCTYPE_FUNCTIONTYPEREC, "_mod");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -3344,7 +3338,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'&','&'}, 1, 2, "_and" },
 				{{'=',0  }, 0, 3, "_set" },
 				{{'~',0},   0, 6, "_xor" },
-				{{'%',0},   0, 6, "_mod" },
 //no longer need to preprocess pow(): {{'^',0},   0, 0, "pow" },
 
 

@@ -91,10 +91,17 @@ pow_expr:
         }
         ;
 
+mod_expr:
+        pow_expr
+        | mod_expr '%' pow_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_MOD,2,$1,$3);
+        }
+        ;
 
 div_expr:
-	pow_expr
-	| div_expr '/' pow_expr
+	mod_expr
+	| div_expr '/' mod_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_DIVIDE,2,$1,$3);
 	}
