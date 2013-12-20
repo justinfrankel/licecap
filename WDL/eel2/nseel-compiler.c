@@ -2466,7 +2466,7 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
         fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
-      fprintf(fp,"%*}\r\n", indent_amt, "");
+      fprintf(fp,"%*s}\r\n", indent_amt, "");
     break;
     case OPCODETYPE_MOREPARAMS:
     case OPCODETYPE_FUNC2:
@@ -2483,7 +2483,7 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
         dumpOpcodeTree(ctx,fp,op->parms.parms[1],indent_amt+2);
       else
         fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
-      fprintf(fp,"%*}\r\n", indent_amt, "");
+      fprintf(fp,"%*s}\r\n", indent_amt, "");
     break;
     case OPCODETYPE_FUNCX:
     case OPCODETYPE_FUNC3:
@@ -2505,7 +2505,7 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
         dumpOpcodeTree(ctx,fp,op->parms.parms[2],indent_amt+2);
       else
         fprintf(fp,"%*sINVALID PARM\r\n",indent_amt+2,"");
-      fprintf(fp,"%*}\r\n", indent_amt, "");
+      fprintf(fp,"%*s}\r\n", indent_amt, "");
 
     break;
   }
