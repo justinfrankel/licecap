@@ -1651,29 +1651,30 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       }
       else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
       {
-        if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+        if (!strcmp(pfn->name,"_if"))
         {
-          if (!strcmp(pfn->name,"_if"))
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
           {
             int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR;
             memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
             goto start_over;
           }
-        }
-        else if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && 
-                 op->parms.parms[0]->fntype == FUNCTYPE_FUNCTIONTYPEREC && 
-                 op->parms.parms[0]->fn && ((functionType *)op->parms.parms[0]->fn)->name &&
-                 !strcmp(((functionType *)op->parms.parms[0]->fn)->name,"_not"))
-        {
-          opcodeRec *tmp;
-          // remove not
-          op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
 
-          // swap parms1/2
-          tmp = op->parms.parms[1];
-          op->parms.parms[1] = op->parms.parms[2];
-          op->parms.parms[2] = tmp;
-          goto start_over;
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && 
+              op->parms.parms[0]->fntype == FUNCTYPE_FUNCTIONTYPEREC && 
+              op->parms.parms[0]->fn && ((functionType *)op->parms.parms[0]->fn)->name &&
+              !strcmp(((functionType *)op->parms.parms[0]->fn)->name,"_not"))
+          {
+            opcodeRec *tmp;
+            // remove not
+            op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+
+            // swap parms1/2
+            tmp = op->parms.parms[1];
+            op->parms.parms[1] = op->parms.parms[2];
+            op->parms.parms[2] = tmp;
+            goto start_over;
+          }
         }
       }
       // FUNCTYPE_FUNCTIONTYPEREC
