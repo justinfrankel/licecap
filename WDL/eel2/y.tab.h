@@ -54,7 +54,16 @@
      TOKEN_NE = 270,
      TOKEN_NE_EXACT = 271,
      TOKEN_LOGICAL_AND = 272,
-     TOKEN_LOGICAL_OR = 273
+     TOKEN_LOGICAL_OR = 273,
+     TOKEN_ADD_OP = 274,
+     TOKEN_SUB_OP = 275,
+     TOKEN_MOD_OP = 276,
+     TOKEN_OR_OP = 277,
+     TOKEN_AND_OP = 278,
+     TOKEN_XOR_OP = 279,
+     TOKEN_DIV_OP = 280,
+     TOKEN_MUL_OP = 281,
+     TOKEN_POW_OP = 282
    };
 #endif
 /* Tokens.  */
@@ -74,6 +83,15 @@
 #define TOKEN_NE_EXACT 271
 #define TOKEN_LOGICAL_AND 272
 #define TOKEN_LOGICAL_OR 273
+#define TOKEN_ADD_OP 274
+#define TOKEN_SUB_OP 275
+#define TOKEN_MOD_OP 276
+#define TOKEN_OR_OP 277
+#define TOKEN_AND_OP 278
+#define TOKEN_XOR_OP 279
+#define TOKEN_DIV_OP 280
+#define TOKEN_MUL_OP 281
+#define TOKEN_POW_OP 282
 
 
 

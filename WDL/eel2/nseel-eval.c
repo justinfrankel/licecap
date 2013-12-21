@@ -136,7 +136,22 @@
         {
           scctx->rdbuf++;
           rv = TOKEN_LOGICAL_OR;
-        }      
+        }
+        else if (rv != 0 && *scctx->rdbuf == '=')
+        {         
+          switch (rv)
+          {
+            case '+': rv=TOKEN_ADD_OP; scctx->rdbuf++; break;
+            case '-': rv=TOKEN_SUB_OP; scctx->rdbuf++; break;
+            case '%': rv=TOKEN_MOD_OP; scctx->rdbuf++; break;
+            case '|': rv=TOKEN_OR_OP;  scctx->rdbuf++; break;
+            case '&': rv=TOKEN_AND_OP; scctx->rdbuf++; break;
+            case '~': rv=TOKEN_XOR_OP; scctx->rdbuf++; break;
+            case '/': rv=TOKEN_DIV_OP; scctx->rdbuf++; break;
+            case '*': rv=TOKEN_MUL_OP; scctx->rdbuf++; break;
+            case '^': rv=TOKEN_POW_OP; scctx->rdbuf++; break;
+          }
+        }
       }
       toklen = scctx->rdbuf - ss;
     }

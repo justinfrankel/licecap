@@ -532,24 +532,11 @@ static functionType fnTable1[] = {
    { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), },
 #endif
 
-  { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, // mulop/divop clear denormals manually
-  { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL},
-
-  { "_orop",nseel_asm_or_op,nseel_asm_or_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL},  // these go to int so they clear denormals too
-  { "_andop",nseel_asm_and_op,nseel_asm_and_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
-  { "_xorop",nseel_asm_xor_op,nseel_asm_xor_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
-  { "_modop",nseel_asm_mod_op,nseel_asm_mod_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
-
-  { "_addop",nseel_asm_add_op,nseel_asm_add_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL},  // default versions of these clear denormals, but we can shortcut to non-denorm check versions if input is known non-denormal
-  { "_subop",nseel_asm_sub_op,nseel_asm_sub_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, 
-
 
    { "asin",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&asin}, },
    { "acos",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&acos}, },
    { "atan",   nseel_asm_1pdd,nseel_asm_1pdd_end,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&atan}, },
    { "atan2",  nseel_asm_2pdd,nseel_asm_2pdd_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK, {&atan2}, },
-   { "pow",    nseel_asm_2pdd,nseel_asm_2pdd_end,   2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK, {&pow}, },
-   { "_powop",    nseel_asm_2pdds,nseel_asm_2pdds_end,   2|BIF_LASTPARMONSTACK|BIF_CLEARDENORMAL, {&pow}, },
    { "exp",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&exp}, },
    { "abs",    nseel_asm_abs,nseel_asm_abs_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(0)|BIF_WONTMAKEDENORMAL },
    { "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) },
@@ -1006,17 +993,45 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       void **endP, int *abiInfo, int preferredReturnValues, const EEL_F *hasConstParm1, const EEL_F *hasConstParm2)
 {
   const EEL_F *firstConstParm = hasConstParm1 ? hasConstParm1 : hasConstParm2;
+  static void *pow_replptrs[4]={&pow,};      
 
   switch (fntype)
   {
 #define RF(x) *endP = nseel_asm_##x##_end; return (void*)nseel_asm_##x
+
+
+    case FN_MUL_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(mul_op);
+    case FN_DIV_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(div_op);
+    case FN_OR_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(or_op);
+    case FN_XOR_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(xor_op);
+    case FN_AND_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(and_op);
+    case FN_MOD_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(mod_op);
+    case FN_ADD_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(add_op);
+    case FN_SUB_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
+    RF(sub_op);
+    case FN_POW_OP:
+      *abiInfo=BIF_LASTPARMONSTACK|BIF_CLEARDENORMAL;
+      *replList = pow_replptrs;
+    RF(2pdds);
     case FN_POW: 
-      {
-        static void *replptrs[4]={&pow,};      
-        *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2);
-        *replList = replptrs;
-        RF(2pdd);
-      }
+      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2);
+      *replList = pow_replptrs;
+    RF(2pdd);
     case FN_ADD: 
        *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL;
         // for x +- non-denormal-constant,  we can set BIF_CLEARDENORMAL
@@ -2599,6 +2614,24 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_or");
         else if (op->fntype == FN_ASSIGN)
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_set");
+        else if (op->fntype == FN_ADD_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_addop");
+        else if (op->fntype == FN_SUB_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_subop");
+        else if (op->fntype == FN_MUL_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_mulop");
+        else if (op->fntype == FN_DIV_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_divop");
+        else if (op->fntype == FN_OR_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_orop");
+        else if (op->fntype == FN_AND_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_andop");
+        else if (op->fntype == FN_XOR_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_xorop");
+        else if (op->fntype == FN_MOD_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_modop");
+        else if (op->fntype == FN_POW_OP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_powop");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -3414,172 +3447,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
     if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
     if (isspace(c)) c=' ';
 
-	  // list of operators
-    if (!isspace(c) && !isalnum(c)) // check to see if this operator is ours
-	  {
-			static const struct 
-			{
-			  char op[2];
-			  char *func;
-			} preprocSymbols[] = 
-			{
-				{{'+','='},  "_addop" },
-				{{'-','='},  "_subop" },
-				{{'%','='},  "_modop" },
-				{{'|','='},  "_orop" },
-				{{'&','='},  "_andop"},
-				{{'~','='},  "_xorop" },
-
-				{{'/','='},  "_divop"},
-				{{'*','='},  "_mulop"},
-				{{'^','='},  "_powop"},
-
-			};
-
-			int n;
-			const int ns=sizeof(preprocSymbols)/sizeof(preprocSymbols[0]);
-
-			for (n = 0; n < ns; n++)
-			{
-				if (c == preprocSymbols[n].op[0] && (!preprocSymbols[n].op[1] || expression[0] == preprocSymbols[n].op[1])) 
-				{
-					break;
-				}
-			}
-
-			if (n < ns)
-			{
-	      // parse left side of =, scanning back for an unparenthed nonwhitespace nonalphanumeric nonparenth?
-	      // so megabuf(x+y)= would be fine, x=, but +x= would do +set(x,)
-       	char *l_ptr=0;
-				char *r_ptr=0;
-				{
-	       	int l_semicnt=0, l_semicnt2=0;
-					l_ptr=buf + len - 1;
-					while (l_ptr >= buf)
-					{
-						if (*l_ptr == ')') l_semicnt++;
-						else if (*l_ptr == '(')
-						{
-							l_semicnt--;
-							if (l_semicnt < 0) break;
-						}
-						else if (*l_ptr == ']') l_semicnt2++;
-						else if (*l_ptr == '[')
-						{
-							l_semicnt2--;
-							if (l_semicnt2 < 0) break;
-						}
-						else if (!l_semicnt && !l_semicnt2) 
-						{
-  						if (!isspace(*l_ptr) && !isalnum(*l_ptr) && *l_ptr != '_' && *l_ptr != '.') break;
-
-						}
-						l_ptr--;
-					}
-					buf[len]=0;
-
-					l_ptr++;
-
-					len = l_ptr - buf;
-
-					l_ptr = strdup(l_ptr); // doesn't need to be preprocessed since it just was
-        }
-				if (preprocSymbols[n].op[1]) expression++;
-				if (preprocSymbols[n].op[2]) expression++;
-
-				r_ptr=expression;
-				{ 
-					// scan forward to an uncommented,  unparenthed semicolon, comma, or ), or ]
-					int r_semicnt=0,r_semicnt2=0;
-					int r_qcnt=0;
-					const char *scan=",)];";
-					int commentstate=0;
-					int hashadch=0;
-					while (*r_ptr)
-					{
-						if (!commentstate && *r_ptr == '/')
-						{
-							if (r_ptr[1] == '/') commentstate=1;
-							else if (r_ptr[1] == '*') commentstate=2;
-						}
-						if (commentstate == 1 && *r_ptr == '\n') commentstate=0;
-						else if (commentstate == 2 && *r_ptr == '*' && r_ptr[1]=='/')
-						{
-							r_ptr++; // skip *
-							commentstate=0;
-						}
-						else if (!commentstate)
-						{
-              if (*r_ptr == '(') { hashadch=1; r_semicnt++; }
-              else if (*r_ptr == '[') { hashadch=1; r_semicnt2++; }
-							else if (*r_ptr == ')') 
-							{
-								r_semicnt--;
-								if (r_semicnt < 0 && r_semicnt2<=0) break;
-							}
-							else if (*r_ptr == ']') 
-							{
-								r_semicnt2--;
-								if (r_semicnt2 < 0 && r_semicnt<=0) break;
-							}
-							else if (!r_semicnt && !r_semicnt2)
-							{
-								char *sc=scan;
-								if (*r_ptr == ';' || *r_ptr == ',') break;
-							
-								if (*r_ptr == ':') r_qcnt--;
-								else if (*r_ptr == '?') r_qcnt++;
-
-								if (r_qcnt < 0) break;
-
-								while (*sc && *r_ptr != *sc) sc++;
-								if (*sc) break;
-							}
-						}
-						r_ptr++;
-					}
-          if (!*r_ptr) 
-          {
-            ctx->gotEndOfInput=1;
-          }
-
-					// expression -> r_ptr is our string (not including r_ptr)
-
-					{
-						char *orp=r_ptr;
-
-						char rps=*orp;
-						*orp=0; // temporarily terminate
-
-						r_ptr=preprocessCode(ctx,expression,src_offset_bytes + (expression-expression_start),dest_offset_bytes + len);
-						expression=orp;
-
-						*orp = rps; // fix termination(restore string)
-					}
-
-				}
-
-				if (r_ptr)
-				{
-					int thisl = strlen(l_ptr?l_ptr:"") + strlen(r_ptr) + 32;
-
-	    	  if (len+thisl > alloc_len-64)
-    			{
-      			alloc_len = len+thisl+128;
-      			buf=(char*)realloc(buf,alloc_len);
-    			}
-
-  				len+=sprintf(buf+len,"%s(%s,%s",preprocSymbols[n].func,l_ptr?l_ptr:"",r_ptr);
-					ctx->l_stats[0]+=strlen(preprocSymbols[n].func)+2;
-				}
-
-				free(r_ptr);
-				free(l_ptr);
-
-				c = ')'; // close parenth below
-      } // preprocessable operator
-    } // !isspace() && !isalnum()
 
     buf[len++]=c;
     if (c != ' ') ctx->l_stats[0]++;

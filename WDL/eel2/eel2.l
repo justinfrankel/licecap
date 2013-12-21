@@ -73,6 +73,15 @@ static int g_fake_errno;
 \!==                              return TOKEN_NE_EXACT;
 \&\&                              return TOKEN_LOGICAL_AND;
 \|\|                              return TOKEN_LOGICAL_OR;
+\+=                             return TOKEN_ADD_OP;
+-=                              return TOKEN_SUB_OP;
+%=                              return TOKEN_MOD_OP;
+\|=                             return TOKEN_OR_OP;
+\&=                             return TOKEN_AND_OP;
+\~=                             return TOKEN_XOR_OP;
+\/=                             return TOKEN_DIV_OP;
+\*=                             return TOKEN_MUL_OP;
+\^=                             return TOKEN_POW_OP;
 
 [a-zA-Z_][a-zA-Z0-9\._]*      do { int toktype=IDENTIFIER; *yylval = nseel_lookup(yyextra,&toktype, yytext); return toktype; } while (0);
 
