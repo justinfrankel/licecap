@@ -66,8 +66,12 @@ enum {
   FN_NE_EXACT,
   FN_LOGICAL_AND,
   FN_LOGICAL_OR,
+  FN_IF_ELSE,
   FN_MEMORY,
   FN_GMEMORY,
+  FN_NONCONST_BEGIN,
+  FN_ASSIGN=FN_NONCONST_BEGIN,
+
   FUNCTYPE_SIMPLEMAX,
 
 
@@ -243,6 +247,7 @@ opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValu
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2);
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2);
 opcodeRec *nseel_createMemoryAccess(compileContext *ctx, opcodeRec *code1, opcodeRec *code2);
+opcodeRec *nseel_createIfElse(compileContext *ctx, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, void *fn);
 opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext, int namespaceidx);
 opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);

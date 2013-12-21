@@ -505,14 +505,13 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f);
 #define FNPTR_HAS_CONDITIONAL_EXEC(op)  \
   (op->fntype == FN_LOGICAL_AND || \
    op->fntype == FN_LOGICAL_OR ||  \
-      (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && (functionType*)op->fn >= fnTable1 && (functionType*)op->fn < fnTable1+3))
+   op->fntype == FN_IF_ELSE || \
+      (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && (functionType*)op->fn >= fnTable1 && (functionType*)op->fn < fnTable1+FNTABLE_OFFSET_WHILE+1))
 
-#define FNTABLE_OFFSET_IF 0
-#define FNTABLE_OFFSET_LOOP 1
-#define FNTABLE_OFFSET_WHILE 2
+#define FNTABLE_OFFSET_LOOP 0
+#define FNTABLE_OFFSET_WHILE 1
 
 static functionType fnTable1[] = {
-  { "_if",     nseel_asm_if,nseel_asm_if_end,    3|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL, }, 
   { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
   { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
 
@@ -532,8 +531,6 @@ static functionType fnTable1[] = {
    { "log",    nseel_asm_log,nseel_asm_log_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), },
    { "log10",  nseel_asm_log10,nseel_asm_log10_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(3), },
 #endif
-
-  { "_set",nseel_asm_assign,nseel_asm_assign_end,2|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL, }, // if denormal flag set, we'll use assign which will take care of the denormal
 
   { "_mulop",nseel_asm_mul_op,nseel_asm_mul_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL}, // mulop/divop clear denormals manually
   { "_divop",nseel_asm_div_op,nseel_asm_div_op_end,2|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL},
@@ -870,6 +867,27 @@ opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code
   return r;
 }
 
+
+opcodeRec *nseel_createIfElse(compileContext *ctx, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
+{
+  opcodeRec *r=newOpCode(ctx,NULL);
+  if (r)
+  {
+    if (!code2) code2 = nseel_createCompiledValue(ctx,0.0);
+    if (!code3) code3 = nseel_createCompiledValue(ctx,0.0);
+    if (!code2||!code3) return NULL;
+
+    r->opcodeType = OPCODETYPE_FUNC3;
+    r->fntype = FN_IF_ELSE;
+    r->fn = 0;
+    r->parms.parms[0] = code1;
+    r->parms.parms[1] = code2;
+    r->parms.parms[2] = code3;
+  }
+  return r;
+}
+
+
 opcodeRec *nseel_createMemoryAccess(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
 {
   if (code1 && code1->opcodeType == OPCODETYPE_VARPTR && !stricmp(code1->relname,"gmem"))
@@ -1022,6 +1040,9 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_MOD:
       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL;
     RF(mod);
+    case FN_ASSIGN:
+      *abiInfo = BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL;
+    RF(assign);
 #ifndef EEL_TARGET_PORTABLE
     case FN_JOIN_STATEMENTS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(exec2); // shouldn't ever be used anyway, but scared to remove
 #endif
@@ -1054,7 +1075,9 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_NE_EXACT:
       *abiInfo=BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
     RF(notequal_exact);
-
+    case FN_IF_ELSE:
+      *abiInfo = BIF_WONTMAKEDENORMAL;
+    RF(if);
     case FN_LOGICAL_AND:
       *abiInfo = BIF_RETURNSBOOL;
     RF(band);
@@ -1364,6 +1387,10 @@ start_over: // when an opcode changed substantially in optimization, goto here t
       functionType  *pfn = (functionType *)op->fn;
       if (!pfn || !(pfn->nParams&NSEEL_NPARAMS_FLAG_CONST)) needsResult=1;
     }
+    else if (op->fntype >= FN_NONCONST_BEGIN && op->fntype < FUNCTYPE_SIMPLEMAX)
+    {
+      needsResult=1;
+    }
   }
 
   if (op->opcodeType>=OPCODETYPE_FUNC2) retv_parm[1] = optimizeOpcodes(ctx,op->parms.parms[1], needsResult);
@@ -1634,8 +1661,33 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             goto start_over;
           }
         }
-
       }
+      else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_SIMPLE
+      {
+        if (op->fntype == FN_IF_ELSE)
+        {
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
+          {
+            int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR;
+            memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
+            goto start_over;
+          }
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && op->parms.parms[0]->fntype == FN_NOT)
+          {
+            opcodeRec *tmp;
+            // remove not
+            op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+
+            // swap parms1/2
+            tmp = op->parms.parms[1];
+            op->parms.parms[1] = op->parms.parms[2];
+            op->parms.parms[2] = tmp;
+            goto start_over;
+          }
+        }
+      }
+      if (op->fntype >= FN_NONCONST_BEGIN && op->fntype < FUNCTYPE_SIMPLEMAX) retv|=1;
+
       // FUNCTYPE_SIMPLE
     }   
     else if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && op->fn)
@@ -1706,30 +1758,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             op->opcodeType = OPCODETYPE_DIRECTVALUE;
             op->parms.dv.directValue = atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
             op->parms.dv.valuePtr=NULL;
-            goto start_over;
-          }
-        }
-      }
-      else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_FUNCTIONTYPEREC
-      {
-        if (!strcmp(pfn->name,"_if"))
-        {
-          if (op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE)
-          {
-            int s = fabs(op->parms.parms[0]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR;
-            memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
-            goto start_over;
-          }
-          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && op->parms.parms[0]->fntype == FN_NOT)
-          {
-            opcodeRec *tmp;
-            // remove not
-            op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
-
-            // swap parms1/2
-            tmp = op->parms.parms[1];
-            op->parms.parms[1] = op->parms.parms[2];
-            op->parms.parms[2] = tmp;
             goto start_over;
           }
         }
@@ -2569,6 +2597,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_and");
         else if (op->fntype == FN_LOGICAL_OR)
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_or");
+        else if (op->fntype == FN_ASSIGN)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_set");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -2587,6 +2617,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
     case OPCODETYPE_FUNC3:
       if (op->opcodeType == OPCODETYPE_FUNCX)
         fprintf(fp," FUNCX %d %s {\r\n",op->fntype, fname);
+      else if (op->fntype == FN_IF_ELSE)
+        fprintf(fp," FUNC3 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_if");
       else
         fprintf(fp," FUNC3 %d %s {\r\n",op->fntype, fname);
       if (op->parms.parms[0])
@@ -2722,6 +2754,87 @@ doNonInlinedAndOr_:
 #endif
   }  
 
+  if (op->opcodeType == OPCODETYPE_FUNC3 && op->fntype == FN_IF_ELSE) // special case: IF
+  {
+    int fUse=0;
+    int parm_size_pre;
+    int use_rv = RETURNVALUE_IGNORE;
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse, NULL);
+    if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
+    if (fUse > *fpStackUse) *fpStackUse=fUse;
+
+    if (preferredReturnValues & RETURNVALUE_NORMAL) use_rv=RETURNVALUE_NORMAL;
+    else if (preferredReturnValues & RETURNVALUE_FPSTACK) use_rv=RETURNVALUE_FPSTACK;
+    else if (preferredReturnValues & RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
+    
+    *calledRvType = use_rv;
+    parm_size_pre = parm_size;
+
+    {
+      int csz,hasSecondHalf;
+      if (bufOut_len < parm_size + sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
+      if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
+      parm_size += sizeof(GLUE_JMP_IF_P1_Z);
+      csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
+      if (fUse > *fpStackUse) *fpStackUse=fUse;
+      hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
+
+      CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
+      if (csz<0) RET_MINUS1_FAIL("if coc fial")
+
+      if (bufOut) GLUE_JMP_SET_OFFSET(bufOut + parm_size, csz + (hasSecondHalf?sizeof(GLUE_JMP_NC):0));
+      parm_size+=csz;
+
+      if (hasSecondHalf)
+      {
+        if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL_FALLBACK("if len fail",doNonInlineIf_)
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
+        parm_size+=sizeof(GLUE_JMP_NC);
+
+        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse, canHaveDenormalOutput);
+
+        CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
+        if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
+
+        // update jump address
+        if (bufOut) GLUE_JMP_SET_OFFSET(bufOut + parm_size,csz); 
+        parm_size+=csz;       
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
+      }
+      return rv_offset + parm_size;
+    }
+#ifdef GLUE_MAX_JMPSIZE
+    if (0)
+    {
+      unsigned char *newblock2,*newblock3,*ptr;
+      void *stub;
+      int stubsize;
+doNonInlineIf_:
+      parm_size = parm_size_pre;
+      stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
+    
+      if (!stub || bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL(stub ? "if sz fail" : "if addr fail")
+    
+      if (bufOut)
+      {
+        fUse=0;
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput); 
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
+        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        if (!newblock2 || !newblock3) RET_MINUS1_FAIL("if subblock gen fail")
+    
+        ptr = bufOut + parm_size;
+        memcpy(ptr, stub, stubsize);
+         
+        ptr=EEL_GLUE_set_immediate(ptr,(INT_PTR)newblock2);
+        EEL_GLUE_set_immediate(ptr,(INT_PTR)newblock3);
+      }
+      return rv_offset + parm_size + stubsize;
+    }
+#endif
+  }
+
   if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
   {
     // special case: while
@@ -2853,87 +2966,6 @@ doNonInlinedAndOr_:
 
         return rv_offset + parm_size;
 
-      }
-#endif
-    }
-    
-    if (op->opcodeType == OPCODETYPE_FUNC3 && fn_ptr == fnTable1 + FNTABLE_OFFSET_IF) // special case: IF
-    {
-      int fUse=0;
-      int parm_size_pre;
-      int use_rv = RETURNVALUE_IGNORE;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse, NULL);
-      if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
-      if (fUse > *fpStackUse) *fpStackUse=fUse;
-
-      if (preferredReturnValues & RETURNVALUE_NORMAL) use_rv=RETURNVALUE_NORMAL;
-      else if (preferredReturnValues & RETURNVALUE_FPSTACK) use_rv=RETURNVALUE_FPSTACK;
-      else if (preferredReturnValues & RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
-      
-      *calledRvType = use_rv;
-      parm_size_pre = parm_size;
-
-      {
-        int csz,hasSecondHalf;
-        if (bufOut_len < parm_size + sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
-        if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
-        parm_size += sizeof(GLUE_JMP_IF_P1_Z);
-        csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
-        hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
-
-        CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
-        if (csz<0) RET_MINUS1_FAIL("if coc fial")
-
-        if (bufOut) GLUE_JMP_SET_OFFSET(bufOut + parm_size, csz + (hasSecondHalf?sizeof(GLUE_JMP_NC):0));
-        parm_size+=csz;
-
-        if (hasSecondHalf)
-        {
-          if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL_FALLBACK("if len fail",doNonInlineIf_)
-          if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
-          parm_size+=sizeof(GLUE_JMP_NC);
-
-          csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse, canHaveDenormalOutput);
-
-          CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
-          if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
-
-          // update jump address
-          if (bufOut) GLUE_JMP_SET_OFFSET(bufOut + parm_size,csz); 
-          parm_size+=csz;       
-          if (fUse > *fpStackUse) *fpStackUse=fUse;
-        }
-        return rv_offset + parm_size;
-      }
-#ifdef GLUE_MAX_JMPSIZE
-      if (0)
-      {
-        unsigned char *newblock2,*newblock3,*ptr;
-        void *stub;
-        int stubsize;
-doNonInlineIf_:
-        parm_size = parm_size_pre;
-        stub = GLUE_realAddress(nseel_asm_if,nseel_asm_if_end,&stubsize);
-      
-        if (!stub || bufOut_len < parm_size + stubsize) RET_MINUS1_FAIL(stub ? "if sz fail" : "if addr fail")
-      
-        if (bufOut)
-        {
-          fUse=0;
-          newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput); 
-          if (fUse > *fpStackUse) *fpStackUse=fUse;
-          newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
-          if (fUse > *fpStackUse) *fpStackUse=fUse;
-          if (!newblock2 || !newblock3) RET_MINUS1_FAIL("if subblock gen fail")
-      
-          ptr = bufOut + parm_size;
-          memcpy(ptr, stub, stubsize);
-           
-          ptr=EEL_GLUE_set_immediate(ptr,(INT_PTR)newblock2);
-          EEL_GLUE_set_immediate(ptr,(INT_PTR)newblock3);
-        }
-        return rv_offset + parm_size + stubsize;
       }
 #endif
     }    
@@ -3385,61 +3417,31 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 	  // list of operators
     if (!isspace(c) && !isalnum(c)) // check to see if this operator is ours
 	  {
-			static char *symbollists[]=
-			{
-				"", // stop at any control char that is not parenthed
-				":([,;?", 
-				",)]:?;", // or || or &&
-				",)];", // jf> removed :? from this, for =
-				",)];",
-			};
-
 			static const struct 
 			{
-			  char op[3];
-			  char lscan,rscan;
+			  char op[2];
 			  char *func;
 			} preprocSymbols[] = 
 			{
-				{{'+','='}, 0, 3, "_addop" },
-				{{'-','='}, 0, 3, "_subop" },
-				{{'%','='}, 0, 3, "_modop" },
-				{{'|','='}, 0, 3, "_orop" },
-				{{'&','='}, 0, 3, "_andop"},
-				{{'~','='}, 0, 3, "_xorop" },
+				{{'+','='},  "_addop" },
+				{{'-','='},  "_subop" },
+				{{'%','='},  "_modop" },
+				{{'|','='},  "_orop" },
+				{{'&','='},  "_andop"},
+				{{'~','='},  "_xorop" },
 
-				{{'/','='}, 0, 3, "_divop"},
-				{{'*','='}, 0, 3, "_mulop"},
-				{{'^','='}, 0, 3, "_powop"},
-
-				{{'=',0  }, 0, 3, "_set" },
-
-				{{'?',0  }, 1, 4, },
+				{{'/','='},  "_divop"},
+				{{'*','='},  "_mulop"},
+				{{'^','='},  "_powop"},
 
 			};
 
 			int n;
 			const int ns=sizeof(preprocSymbols)/sizeof(preprocSymbols[0]);
 
-      if ((c == '<' || c == '>' || c == '=' || c == '!') && *expression == '=')
-      {
-        // temporarily passthrough >= <= != == !== and ===
-        int skipamt=2;
-        if ((c == '=' || c == '!') && expression[1] == '=') skipamt=3;
-
-        memcpy(buf+len,expression-1,skipamt);
-        len+=skipamt;
-
-        expression+=skipamt-1;
-        continue;
-      }
-
 			for (n = 0; n < ns; n++)
 			{
-				if (c == preprocSymbols[n].op[0] && 
-                                    (!preprocSymbols[n].op[1] || expression[0] == preprocSymbols[n].op[1]) &&
-                                    (!preprocSymbols[n].op[2] || expression[1] == preprocSymbols[n].op[2])
-                                    ) 
+				if (c == preprocSymbols[n].op[0] && (!preprocSymbols[n].op[1] || expression[0] == preprocSymbols[n].op[1])) 
 				{
 					break;
 				}
@@ -3447,17 +3449,11 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 
 			if (n < ns)
 			{
-				int lscan=preprocSymbols[n].lscan;
-				int rscan=preprocSymbols[n].rscan;
-
-
 	      // parse left side of =, scanning back for an unparenthed nonwhitespace nonalphanumeric nonparenth?
 	      // so megabuf(x+y)= would be fine, x=, but +x= would do +set(x,)
        	char *l_ptr=0;
 				char *r_ptr=0;
-	      if (lscan >= 0)
 				{
-					char *scan=symbollists[lscan];
 	       	int l_semicnt=0, l_semicnt2=0;
 					l_ptr=buf + len - 1;
 					while (l_ptr >= buf)
@@ -3476,21 +3472,8 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 						}
 						else if (!l_semicnt && !l_semicnt2) 
 						{
-							if (!*scan)
-							{
-								if (!isspace(*l_ptr) && !isalnum(*l_ptr) && *l_ptr != '_' && *l_ptr != '.') break;
-							}
-							else
-							{
-								char *sc=scan;
-								if (lscan == 2 && ( // not currently used, even
-									(l_ptr[0]=='|' && l_ptr[1] == '|')||
-									(l_ptr[0]=='&' && l_ptr[1] == '&')
-									)
-								   ) break;
-								while (*sc && *l_ptr != *sc) sc++;
-								if (*sc) break;
-							}
+  						if (!isspace(*l_ptr) && !isalnum(*l_ptr) && *l_ptr != '_' && *l_ptr != '.') break;
+
 						}
 						l_ptr--;
 					}
@@ -3510,7 +3493,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 					// scan forward to an uncommented,  unparenthed semicolon, comma, or ), or ]
 					int r_semicnt=0,r_semicnt2=0;
 					int r_qcnt=0;
-					char *scan=symbollists[rscan];
+					const char *scan=",)];";
 					int commentstate=0;
 					int hashadch=0;
 					while (*r_ptr)
@@ -3545,25 +3528,10 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 								char *sc=scan;
 								if (*r_ptr == ';' || *r_ptr == ',') break;
 							
-								if (!rscan)
-								{
-									if (*r_ptr == ':') break;
-									if (!isspace(*r_ptr) && !isalnum(*r_ptr) && *r_ptr != '_' && *r_ptr != '.' && hashadch) break;
-									if (isalnum(*r_ptr) || *r_ptr == '_') hashadch=1;
-								}								
-								else if (rscan == 2 &&
-									((r_ptr[0]=='|' && r_ptr[1] == '|')||
-									(r_ptr[0]=='&' && r_ptr[1] == '&')
-									)
-								   ) break;
+								if (*r_ptr == ':') r_qcnt--;
+								else if (*r_ptr == '?') r_qcnt++;
 
-								else if (rscan == 3 || rscan == 4)
-								{
-									if (*r_ptr == ':') r_qcnt--;
-									else if (*r_ptr == '?') r_qcnt++;
-
-									if (r_qcnt < 3-rscan) break;
-								}
+								if (r_qcnt < 0) break;
 
 								while (*sc && *r_ptr != *sc) sc++;
 								if (*sc) break;
@@ -3602,37 +3570,8 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       			buf=(char*)realloc(buf,alloc_len);
     			}
 
-					if (n == ns-1)// if (l_ptr,r_ptr1,r_ptr2)
-					{
-						char *rptr2=r_ptr;
-						char *tmp=r_ptr;
-						int parcnt=0,parcnt2=0;
-						int qcnt=1;
-						while (*rptr2)
-						{
-							if (*rptr2 == '?') qcnt++;
-							else if (*rptr2 == ':') qcnt--;
-							else if (*rptr2 == '(') parcnt++;
-							else if (*rptr2 == ')') parcnt--;
-							else if (*rptr2 == '[') parcnt2++;
-							else if (*rptr2 == ']') parcnt2--;
-							if (parcnt < 0||parcnt2<0) break;
-							if (!parcnt && !parcnt2 && !qcnt && *rptr2 == ':') break;
-							rptr2++;
-						}
-						if (*rptr2) *rptr2++=0;
-						while (isspace(*rptr2)) rptr2++;
-
-						while (isspace(*tmp)) tmp++;
-
-						len+=sprintf(buf+len,"_if(%s,%s,%s",l_ptr,*tmp?tmp:"0",*rptr2?rptr2:"0");
-						ctx->l_stats[0]+=6;
-					}
-					else
-					{
-						len+=sprintf(buf+len,"%s(%s,%s",preprocSymbols[n].func,l_ptr?l_ptr:"",r_ptr);
-						ctx->l_stats[0]+=strlen(preprocSymbols[n].func)+2;
-					}
+  				len+=sprintf(buf+len,"%s(%s,%s",preprocSymbols[n].func,l_ptr?l_ptr:"",r_ptr);
+					ctx->l_stats[0]+=strlen(preprocSymbols[n].func)+2;
 				}
 
 				free(r_ptr);
@@ -4908,7 +4847,7 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
   } // ctx->function_curName
  
 
-  // resolve user function names before builtin functions -- this allows the user to override default functions, or even _if(), _above(), etc
+  // resolve user function names before builtin functions -- this allows the user to override default functions
   {
     _codeHandleFunctionRec *best=NULL;
     int bestlen=0;
@@ -4962,8 +4901,16 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     int i;    
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
-    if (!strcasecmp(nptr,"if")) nptr="_if";
-    else if (!strcasecmp(nptr,"assign")) nptr="_set";
+    if (!strcasecmp(nptr,"assign")) 
+    {
+      *typeOfObject = FUNCTION2;
+      return nseel_createCompiledFunctionCall(ctx,2,FN_ASSIGN,0);
+    }
+    else if (!strcasecmp(nptr,"if")) 
+    {
+      *typeOfObject = FUNCTION3;
+      return nseel_createCompiledFunctionCall(ctx,3,FN_IF_ELSE,0);
+    }
     else if (!strcasecmp(nptr,"equal")) 
     {
       *typeOfObject = FUNCTION2;

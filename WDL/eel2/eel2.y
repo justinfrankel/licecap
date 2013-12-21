@@ -27,7 +27,8 @@
 
 %}
 
-%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
+%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR 
+%token TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
 
 
 %start program
@@ -79,8 +80,17 @@ memory_access:
         }
         ;
 
-unary_expr:
+assignment:
 	memory_access
+        |
+        memory_access '=' if_else_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_ASSIGN,2,$1,$3);
+        }
+        ;
+
+unary_expr:
+        assignment
 	| '+' unary_expr
 	{
 	  $$ = $2;
@@ -217,9 +227,26 @@ logical_and_or_expr:
         }
         ;
 
+if_else_expr:
+        logical_and_or_expr
+        | logical_and_or_expr '?' if_else_expr ':' if_else_expr
+        {
+	  $$ = nseel_createIfElse(context, $1, $3, $5);
+        }
+        | logical_and_or_expr '?' ':' if_else_expr
+        {
+	  $$ = nseel_createIfElse(context, $1, 0, $4);
+        }
+        | logical_and_or_expr '?' if_else_expr
+        {
+	  $$ = nseel_createIfElse(context, $1, $3, 0);
+        }
+        ;
+
+
 expression: 
-	logical_and_or_expr
-	| expression ';' logical_and_or_expr
+	if_else_expr
+	| expression ';' if_else_expr
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,$1,$3);
 	}
