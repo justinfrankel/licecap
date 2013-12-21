@@ -62,7 +62,12 @@ static int g_fake_errno;
 
 [0-9]+\.?[0-9]*               PARSENUM;
 \.[0-9]+                      PARSENUM;
-0[xX][0-9a-fA-F]+             PARSENUM; 
+0[xX][0-9a-fA-F]*             PARSENUM; 
+\$[xX][0-9a-fA-F]*            PARSENUM;
+\$\~[0-9]*                    PARSENUM;
+\$[Ee]                        PARSENUM;
+\$[Pp][Ii]                    PARSENUM;
+\$[Pp][Hh][Ii]                PARSENUM;
 \<\<                          return TOKEN_SHL;
 \>\>                          return TOKEN_SHR;
 \<=                          return TOKEN_LTE;

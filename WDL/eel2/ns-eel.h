@@ -144,7 +144,8 @@ extern int NSEEL_RAM_memused_errors;
 
 // configuration:
 
-#define NSEEL_SUPER_MINIMAL_LEXER // smaller code that uses far less ram, but the flex version we'll keep around too in case we want to do fancier things someday
+#define NSEEL_SUPER_MINIMAL_LEXER // smaller, faster(?), handwritten lexer code that uses a lot less ram and produces less code, 
+                                  // disable this define for the flex version which is easier to maintain (though requires running flex eel2.l)
 
  // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc.
 

@@ -50,13 +50,55 @@
         rv=0;
         *output = nseel_lookup(scctx,&rv,buf);
       }
+      else if (rv == '$')
+      {
+        int ok=1;
+        switch (scctx->rdbuf[0])
+        {
+          case 'x':
+          case 'X':
+            scctx->rdbuf++;
+            while ((rv=scctx->rdbuf[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) scctx->rdbuf++;
+          break;
+          case '~':
+            scctx->rdbuf++;
+            while ((rv=scctx->rdbuf[0]) && (rv>='0' && rv<='9')) scctx->rdbuf++;
+          break;
+          case '\'':
+            if (scctx->rdbuf[1] && scctx->rdbuf[2] == '\'') scctx->rdbuf += 3;
+          break;
+          default:
+            if (toupper(scctx->rdbuf[0]) == 'P')
+            {
+              if (toupper(scctx->rdbuf[1]) == 'I') scctx->rdbuf+=2;
+              else if (toupper(scctx->rdbuf[1]) == 'H' && toupper(scctx->rdbuf[2]) == 'I') scctx->rdbuf+=3;
+              else ok=0;
+            }
+            else if (toupper(scctx->rdbuf[0]) == 'E')
+            {
+              scctx->rdbuf++;
+            }
+            else 
+            {
+              ok=0;
+            }
+          break;
+        }
+        if (ok)
+        {
+          l = scctx->rdbuf - ss + 1;
+          if (l > sizeof(buf)) l=sizeof(buf);
+          lstrcpyn_safe(buf,ss,l);
+          *output = nseel_translate(scctx,buf);
+          rv=VALUE;
+        }
+      }
       else if ((rv >= '0' && rv <= '9') || (rv == '.' && (scctx->rdbuf[0] >= '0' && scctx->rdbuf[0] <= '9')))
       {
         if (rv == '0' && (scctx->rdbuf[0] == 'x' || scctx->rdbuf[0] == 'X'))
         {
           scctx->rdbuf++;
           while ((rv=scctx->rdbuf[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) scctx->rdbuf++;
-          // this allows 0x, whereas the lex version will not parse that as a token
         }
         else
         {

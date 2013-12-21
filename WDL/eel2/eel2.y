@@ -54,6 +54,10 @@ value_thing:
 	{
   	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, 0, 0);
 	}
+	| FUNCTION1 '(' ')'
+	{
+  	  $$ = nseel_setCompiledFunctionCallParameters($1, nseel_createCompiledValue(context,0.0), 0, 0);
+	}
 	| FUNCTION2 '(' expression ',' expression ')'
 	{
   	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, 0);

@@ -3371,77 +3371,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       }
     }
     
-    if (expression[0] == '(' && expression[1]==')')
-    {
-      expression+=2;
-      memcpy(buf+len,"(0)",3);
-      len+=3;
-      ctx->l_stats[0]+=3;
-      continue;
-    }
-    if (expression[0] == '$' && toupper(expression[1]) == 'X')
-    {
-      expression[0] = '0'; // change $xF00D to 0xF00D
-    }
-    else if (expression[0] == '$')
-    {
-      if (expression[1] == '~')
-      {
-        char *p=expression+2;
-        unsigned int v=strtoul(expression+2,&p,10);
-        char tmp[256];
-        expression=p;
-
-        if (v>53) v=53;
-        sprintf(tmp,"%.1f",(double) ((((WDL_INT64)1) << v) - 1));
-
-        memcpy(buf+len,tmp,strlen(tmp));
-        len+=strlen(tmp);
-        ctx->l_stats[0]+=strlen(tmp);
-        continue;
-
-      }
-      if (expression[1]=='\'' && expression[2] && expression[3]=='\'')
-      {
-        char tmp[64];
-        sprintf(tmp,"%u",((unsigned char *)expression)[2]);
-        expression+=4;
-
-        memcpy(buf+len,tmp,strlen(tmp));
-        len+=strlen(tmp);
-        ctx->l_stats[0]+=strlen(tmp);
-        continue;
-      }
-      if (toupper(expression[1]) == 'P' && toupper(expression[2]) == 'I')
-      {
-        static char *str="3.141592653589793";
-        expression+=3;
-        memcpy(buf+len,str,17);
-        len+=17; //strlen(str);
-        ctx->l_stats[0]+=17;
-	      continue;
-      }
-      if (toupper(expression[1]) == 'E')
-      {
-        static char *str="2.71828183";
-        expression+=2;
-        memcpy(buf+len,str,10);
-        len+=10; //strlen(str);
-        ctx->l_stats[0]+=10;
-  	    continue;
-      }
-      if (toupper(expression[1]) == 'P' && toupper(expression[2]) == 'H' && toupper(expression[3]) == 'I')
-      {
-        static char *str="1.61803399";
-        expression+=4;
-        memcpy(buf+len,str,10);
-        len+=10; //strlen(str);
-        ctx->l_stats[0]+=10;
-	      continue;
-      }
-      
-    }
-
     c=*expression++;
 
     if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
@@ -4847,10 +4776,26 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
 //------------------------------------------------------------------------------
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
 {
-  if (tmp[0] == '0' && toupper(tmp[1])=='X')
+  if ((tmp[0] == '0' || tmp[0] == '$') && toupper(tmp[1])=='X')
   {
     char *p;
     return nseel_createCompiledValue(ctx,(EEL_F)strtoul(tmp+2,&p,16));
+  }
+  if (tmp[0] == '$')
+  {
+    if (tmp[1] == '~')
+    {
+      char *p=tmp+2;
+      unsigned int v=strtoul(tmp+2,&p,10);
+      if (v>53) v=53;
+      return nseel_createCompiledValue(ctx,(EEL_F)((((WDL_INT64)1) << v) - 1));
+    }
+    else if (!stricmp(tmp,"$E"))
+      return nseel_createCompiledValue(ctx,(EEL_F)2.71828183);
+    else if (!stricmp(tmp,"$PI"))
+      return nseel_createCompiledValue(ctx,(EEL_F)3.141592653589793);
+    else if (!stricmp(tmp,"$PHI"))
+      return nseel_createCompiledValue(ctx,(EEL_F)1.61803399);      
   }
   return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }
