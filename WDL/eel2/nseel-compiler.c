@@ -3323,81 +3323,6 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 }
 
 
-
-
-static char *preprocessCode(compileContext *ctx, char *expression, int src_offset_bytes, int dest_offset_bytes)
-{
-  char *expression_start=expression;
-  int len=0;
-  int alloc_len=strlen(expression)+1+64;
-  char *buf=(char *)malloc(alloc_len);
-  // we need to call onCompileNewLine for each new line we get
- 
-  //onCompileNewLine(ctx, 
-
-  while (*expression)
-  {
-    char c;
-
-    if (len > alloc_len-64)
-    {
-      alloc_len = len+128;
-      buf=(char*)realloc(buf,alloc_len);
-    }
-
-    if (expression[0] == '/')
-    {
-      if (expression[1] == '/')
-      {
-        expression+=2;
-        if (!strncasecmp(expression,"#eel-no-optimize:",17))
-        {
-          ctx->optimizeDisableFlags = atoi(expression+17);
-        }
-
-        while (expression[0] && expression[0] != '\n') expression++;
-	      continue;
-      }
-      else if (expression[1] == '*')
-      {
-        expression+=2;
-        while (expression[0] && (expression[0] != '*' || expression[1] != '/')) 
-	      {
-		      if (expression[0] == '\n') onCompileNewLine(ctx,expression+1-expression_start + src_offset_bytes,dest_offset_bytes+len);
-		      expression++;
-	      }
-        if (expression[0]) expression+=2; // at this point we KNOW expression[0]=* and expression[1]=/
-	      continue;
-      }
-    }
-    
-    c=*expression++;
-
-    if (c == '\n') onCompileNewLine(ctx,expression-expression_start + src_offset_bytes,len + dest_offset_bytes);
-    if (isspace(c)) c=' ';
-
-
-    buf[len++]=c;
-    if (c != ' ') ctx->l_stats[0]++;
-  } // while (*expression)
-  buf[len]=0;
-
-  return buf;
-}
-
-#ifdef PPROC_TEST
-
-int main(int argc, char* argv[])
-{
-	compileContext ctx={0};
-	char *p=preprocessCode(&ctx,argv[1]);
-	if (p)printf("%s\n",p);
-	free(p);
-	return 0;
-}
-
-#endif
-
 #if 0
 static void movestringover(char *str, int amount)
 {
@@ -3418,9 +3343,9 @@ static void movestringover(char *str, int amount)
 #endif
 
 //------------------------------------------------------------------------------
-NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, const char *__expression, int lineoffs)
+NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX _ctx, const char *_expression, int lineoffs)
 {
-  return NSEEL_code_compile_ex(_ctx,__expression,lineoffs,0);
+  return NSEEL_code_compile_ex(_ctx,_expression,lineoffs,0);
 }
 
 typedef struct topLevelCodeSegmentRec {
@@ -3430,11 +3355,10 @@ typedef struct topLevelCodeSegmentRec {
   int tmptable_use;
 } topLevelCodeSegmentRec;
 
-NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expression, int lineoffs, int compile_flags)
+NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression, int lineoffs, int compile_flags)
 {
-  char *_expression;
   compileContext *ctx = (compileContext *)_ctx;
-  char *expression,*expression_start;
+  const char *endptr;
   codeHandleType *handle;
   topLevelCodeSegmentRec *startpts_tail=NULL;
   topLevelCodeSegmentRec *startpts=NULL;
@@ -3482,36 +3406,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   
   ctx->last_error_string[0]=0;
 
-  if (!__expression || !*__expression) return 0;
-
-
-  _expression = strdup(__expression);
-  if (!_expression) return 0;
+  if (!_expression || !*_expression) return 0;
 
   oldCommonFunctionList = ctx->functions_common;
-  {
-    // do in place replace of "$'x'" to "56  " or whatnot
-    // we avoid changing the length of the string here, due to wanting to know where errors occur
-    char *p=_expression;
-    while (*p)
-    {
-      if (p[0] == '$' && p[1]=='\'' && p[2] && p[3]=='\'')
-      {
-        char tmp[64];
-        int a,tl;
-        sprintf(tmp,"%d",(int)((unsigned char *)p)[2]);
-        tl=strlen(tmp);
-        if (tl>3) tl=3;
-        for (a=0;a<tl;a++) p[a]=tmp[a];
-        for (;a<4;a++) p[a]=' ';
-        p+=4;
-      }
-      else
-      {
-        p++;
-      }
-    }
-  }
 
   ctx->isGeneratingCommonFunction=0;
   ctx->isSharedFunctions = !!(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
@@ -3530,7 +3427,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
   if (!handle) 
   {
-    free(_expression);
     return 0;
   }
 
@@ -3538,15 +3434,16 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
   memset(handle,0,sizeof(codeHandleType));
 
   ctx->tmpCodeHandle = handle;
-  expression_start=expression=preprocessCode(ctx,_expression,0,0);
+  endptr=_expression;
 
-  while (*expression)
+  while (*endptr)
   {
     int computTableTop = 0;
     int startptr_size=0;
     void *startptr=NULL;
     opcodeRec *start_opcode=NULL;
-    char *expr;
+    const char *expr=endptr;
+    
     int function_numparms=0;
     char is_fname[NSEEL_MAX_VARIABLE_NAMELEN+1];
     is_fname[0]=0;
@@ -3557,56 +3454,63 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     ctx->function_usesNamespaces=0;
     ctx->function_curName=NULL;
         
-    // single out segment
-    while (*expression == ';' || isspace(*expression)) expression++;
-    if (!*expression) break;
-    expr=expression;
 
-    // divide expression by semicolons at the top level
+    // single out top level segment
+    while (expr == endptr)
     {
-      int pcnt=0,pcnt2=0;
-      while (*expression) 
-      {
-        if (*expression == '(') pcnt++;
-        else if (*expression == ')')  {  if (--pcnt<0) pcnt=0; }
-        else if (*expression == '[') pcnt2++;
-        else if (*expression == ']')  {  if (--pcnt2<0) pcnt2=0; }
-        else if (*expression == ';' && !pcnt && !pcnt2) 
-        {
-          break;
-        }
+      int pcnt=0,pcnt2=0, cstate=0, hadSomething=0;
+      while (*endptr == ';' || isspace(*endptr)) endptr++;
+      expr=endptr;
+      if (!*expr) break;
 
-        expression++;
-      }
-      if (*expression)
+      while (*endptr) 
       {
-        *expression++ = 0;
-      }
-      else 
-      {
-        // end of input!
-        if (pcnt > 0 || pcnt2 > 0) 
+        const char tv = *endptr;
+        int adv_amt=1;
+        int had_cstate=cstate;
+        if (!cstate)
         {
-          // parens still open! notify so we can improve our error messaging
-          ctx->gotEndOfInput|=4;
-        }
-      }
+          if (tv && endptr[1] == '\'' && endptr > expr+1 && endptr[-1] == '\'' && endptr[-2] == '$') 
+          {
+            // ignore $'c'
+          }
+          else if (tv == ';' && !pcnt && !pcnt2) break;
+          else if (tv == '(') pcnt++;
+          else if (tv == ')')  {  if (--pcnt<0) pcnt=0; }
+          else if (tv == '[') pcnt2++;
+          else if (tv == ']')  {  if (--pcnt2<0) pcnt2=0; }
+          else if (tv == '/' && endptr[1] == '/') cstate=1;
+          else if (tv == '/' && endptr[1] == '*') { adv_amt++; cstate=2; }
 
-      if (!*expr) continue; // empty semicolon at top level
+          if (!hadSomething && !cstate && !isspace(tv) && tv != ';') hadSomething=1;
+        }
+        else if (tv == '*' && endptr[1] == '/' && cstate==2) { adv_amt++; cstate=0; }
+        else if (tv == '\r' || tv == '\n') cstate&=~1;
+
+        if (expr == endptr && (cstate || had_cstate || !hadSomething)) expr+=adv_amt;
+        endptr+=adv_amt;
+      }
+      if (!hadSomething) expr=endptr;
+      if (!*endptr && (pcnt > 0 || pcnt2 > 0))
+      {
+        // parens still open! notify so we can improve our error messaging
+        ctx->gotEndOfInput|=4;
+      }
     }
+    if (!*expr) break;
 
     // parse   
 
-    if (!strncasecmp(expr,"function",8) && isspace(expr[8]))
+    if (expr+8 < endptr && !strncasecmp(expr,"function",8) && isspace(expr[8]))
     {
-      char *p = expr+8;
-      while (isspace(p[0])) p++;
-      if (isalpha(p[0]) || p[0] == '_') 
+      const char *p = expr+8;
+      while (p < endptr && isspace(p[0])) p++;
+      if (p < endptr && (isalpha(p[0]) || p[0] == '_')) 
       {
         int had_parms_locals=0;
-        char *sp=p;
+        const char *sp=p;
         int l;
-        while (isalnum(p[0]) || p[0] == '_' || p[0] == '.') p++;
+        while (p < endptr && (isalnum(p[0]) || p[0] == '_' || p[0] == '.')) p++;
         l=min(p-sp, sizeof(is_fname)-1);
         memcpy(is_fname, sp, l);
         is_fname[l]=0;
@@ -3614,20 +3518,20 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
         expr = p;
 
-        while (*expr)
+        while (expr < endptr && *expr)
         {
           const char *tn;
           int tn_len;
           p=expr;
-          while (isspace(*p)) p++;
+          while (p < endptr && isspace(*p)) p++;
 
           tn = p;
-          while (*p && !isspace(*p) && *p != '(') p++;
+          while (p < endptr && *p && !isspace(*p) && *p != '(') p++;
           tn_len = p - tn;
 
-          while (isspace(*p)) p++;
+          while (p < endptr && isspace(*p)) p++;
         
-          if (*p == '(' && 
+          if (p < endptr && *p == '(' && 
               (
                 !tn_len ||
                 (tn_len == 5 && !strncasecmp(tn,"local",tn_len))  ||
@@ -3655,7 +3559,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
             p++;
 
             sp=p;
-            while (*p && *p != ')') 
+            while (p < endptr && *p && *p != ')') 
             {
               if (isspace(*p) || *p == ',')
               {
@@ -3666,7 +3570,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
               p++;
             }
             if (state) maxcnt++;
-            if (*p)
+            if (p < endptr && *p)
             {
               expr=p+1;
           
@@ -3690,7 +3594,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
                     sp=p;
                     while (p < expr-1 && (!isspace(*p) && *p != ',')) p++;
                     
-                    if (isalpha(*sp) || *sp == '_')
+                    if (sp < endptr && (isalpha(*sp) || *sp == '_'))
                     {
                       char *newstr;
                       int l = (p-sp);
@@ -3736,8 +3640,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
    {
      int nseelparse(compileContext* context);
-     const char *endptr=expr+strlen(expr);
-
 #ifdef NSEEL_SUPER_MINIMAL_LEXER
 
      ctx->rdbuf_start = ctx->rdbuf = expr;
@@ -3895,9 +3797,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
     if (!startptr) 
     { 
-      int byteoffs = expr - expression_start;
+      int byteoffs = expr - _expression;
       int destoffs,linenumber;
-      char buf[50], *p;
+      char buf[50];
+      const char *p;
       int x,le;
       
 #ifdef NSEEL_EEL1_COMPAT_MODE
@@ -4090,9 +3993,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
     }
   }
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
-
-  free(expression_start);
-  free(_expression);
 
   return (NSEEL_CODEHANDLE)handle;
 }
