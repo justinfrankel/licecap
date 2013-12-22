@@ -1029,7 +1029,7 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       *replList = pow_replptrs;
     RF(2pdds);
     case FN_POW: 
-      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2);
+      *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK;//BIF_FPSTACKUSE(2) might be safe, need to look at pow()'s implementation, but safer bet is to disallow fp stack caching for this expression
       *replList = pow_replptrs;
     RF(2pdd);
     case FN_ADD: 
