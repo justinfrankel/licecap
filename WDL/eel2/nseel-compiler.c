@@ -4788,7 +4788,7 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
   {
     if (tmp[1] == '~')
     {
-      char *p=tmp+2;
+      char *p=(char*)tmp+2;
       unsigned int v=strtoul(tmp+2,&p,10);
       if (v>53) v=53;
       return nseel_createCompiledValue(ctx,(EEL_F)((((WDL_INT64)1) << v) - 1));
@@ -4799,6 +4799,8 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
       return nseel_createCompiledValue(ctx,(EEL_F)3.141592653589793);
     else if (!stricmp(tmp,"$PHI"))
       return nseel_createCompiledValue(ctx,(EEL_F)1.61803399);      
+    else if (tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
+      return nseel_createCompiledValue(ctx,(EEL_F)tmp[2]);      
   }
   return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }
