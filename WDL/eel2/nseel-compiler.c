@@ -152,17 +152,11 @@ int *NSEEL_getstats()
   return nseel_evallib_stats;
 }
 
-// this stuff almost works
-static int findByteOffsetInSource(const char *exp, int byteoffs)
+static int findLineNumber(const char *exp, int byteoffs)
 {
-  int lc=1;
-  while (byteoffs-->0 && *exp)
-  {
-    if (*exp++ =='\n') lc++;
-  }
-
+  int lc=0;
+  while (byteoffs-->0 && *exp) if (*exp++ =='\n') lc++;
   return lc;
-  // count newlines before byteoffs
 }
 
 
@@ -3771,44 +3765,56 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
     }
 
     if (!startptr) 
-    { 
-      int byteoffs = ctx->errVar;
-      int linenumber;
-      char buf[128];
-      const char *p;
-      int x,le;
-      
+    {      
 #ifdef NSEEL_EEL1_COMPAT_MODE
-      if (!startptr) continue;
-#endif
+      continue;
 
-      linenumber=findByteOffsetInSource(_expression,byteoffs);
-      if (byteoffs < 0) byteoffs=0;
-
-      le=strlen(_expression);
-      if (byteoffs >= le) byteoffs=le;
-      p= _expression + byteoffs;
-      x=0;
-      while (x < sizeof(buf)-1)
-      {
-	      if (!*p) break;
-        if (x && (*p == '\r' || *p == '\n')) break;
-
-        if (!isspace(*p) || (x && !isspace(p[-1]))) buf[x++]=*p;
-        
-        p++;
-      }
-      buf[x]=0;
-
+#else
       if (!ctx->last_error_string[0])
       {
+        int byteoffs = ctx->errVar;
+        int linenumber;
+        int le=strlen(_expression);
+
+        if (byteoffs >= le) 
+        {
+          if (ctx->gotEndOfInput&4) byteoffs = expr-_expression;
+          else byteoffs=le;
+        }
+
+        if (byteoffs < 0) byteoffs=0;
+
+        linenumber=findLineNumber(_expression,byteoffs)+1;
+
         if (ctx->gotEndOfInput&4)
         {
-          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Unterminated expression, missing ) or ]");
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d: missing ) or ]",linenumber+lineoffs);
         }
         else
         {
-          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d '%s'",linenumber+lineoffs,buf);
+          const char *p = _expression + byteoffs;
+          int x=0, right_amt_nospace=0, left_amt_nospace=0;
+          while (x < 32 && p-x > _expression && p[-x] != '\r' && p[-x] != '\n') 
+          {
+            if (!isspace(p[-x])) left_amt_nospace=x;
+            x++;
+          }
+          x=0;
+          while (x < 60 && p[x] && p[x] != '\r' && p[x] != '\n') 
+          {
+            if (!isspace(p[x])) right_amt_nospace=x;
+            x++;
+          }
+
+          if (right_amt_nospace<1) right_amt_nospace=1;
+
+          // display left_amt >>>> right_amt_nospace
+          if (left_amt_nospace > 0)
+            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Line %d '%.*s <!> %.*s'",linenumber+lineoffs,
+              left_amt_nospace,p-left_amt_nospace,
+              right_amt_nospace,p);
+          else
+            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Line %d '%.*s'",linenumber+lineoffs,right_amt_nospace,p);
         }
       }
 
@@ -3816,6 +3822,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       startpts_tail=NULL; 
       had_err=1;
       break; 
+#endif
     }
     
     if (!is_fname[0]) // redundant check (if is_fname[0] is set and we succeeded, it should continue)
