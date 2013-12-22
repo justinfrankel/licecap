@@ -68,7 +68,6 @@
 #define RET_MINUS1_FAIL(x) return -1;
 #endif
 
-//#define EEL_DUMP_OPS
 #ifdef EEL_DUMP_OPS
 FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 #endif

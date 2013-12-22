@@ -162,6 +162,7 @@ extern int NSEEL_RAM_memused_errors;
 // when a VM ctx doesn't have a GRAM context set, make the global one this big
 #define NSEEL_SHARED_GRAM_SIZE (1<<20)
 
+//#define EEL_DUMP_OPS // used for testing frontend parser/logic changes
 
 // note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will need to regenerate things.
 
