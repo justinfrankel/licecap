@@ -2431,10 +2431,10 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
   switch (op->opcodeType)
   {
     case OPCODETYPE_DIRECTVALUE:
-      fprintf(fp," DV=%f\n",op->parms.dv.directValue);
+      fprintf(fp," DV=%f\r\n",op->parms.dv.directValue);
     break;
     case OPCODETYPE_VALUE_FROM_NAMESPACENAME: // this.* or namespace.* are encoded this way
-      fprintf(fp," NSN=%s(%d)\n",op->relname?op->relname : "(null)",op->namespaceidx);
+      fprintf(fp," NSN=%s(%d)\r\n",op->relname?op->relname : "(null)",op->namespaceidx);
     break;
     case OPCODETYPE_VARPTR:
       {
@@ -2454,11 +2454,11 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
             }
           }        
         }
-        fprintf(fp," VP=%s\n", nm?nm : "(null)");
+        fprintf(fp," VP=%s\r\n", nm?nm : "(null)");
       }
     break;
     case OPCODETYPE_VARPTRPTR:
-      fprintf(fp, " VPP?\n");
+      fprintf(fp, " VPP?\r\n");
     break;
     case OPCODETYPE_FUNC1:
       fprintf(fp," FUNC1 %d %s {\r\n",op->fntype, fname);
@@ -3039,7 +3039,13 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 #ifdef DUMP_OPS_DURING_COMPILE
   dumpOp(ctx,op,-1);
 #endif
-
+#ifdef EEL_DUMP_OPS
+      // dump opcode trees for verification, after optimizing
+      if (g_eel_dump_fp2)
+      {
+        fprintf(g_eel_dump_fp2,"-- compileOpcodes generated %d bytes of code!\r\n",codesz);
+      }
+#endif
   if (codesz < 0) return codesz;
 
 
@@ -3981,7 +3987,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       // dump opcode trees for verification, before optimizing
       if (g_eel_dump_fp)
       {
-        fprintf(g_eel_dump_fp,"-- opcode chunk --\n");
+        fprintf(g_eel_dump_fp,"-- opcode chunk --\r\n");
         dumpOpcodeTree(ctx,g_eel_dump_fp,start_opcode,2);        
       }
 #endif
@@ -4000,7 +4006,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
       // dump opcode trees for verification, after optimizing
       if (g_eel_dump_fp2)
       {
-        fprintf(g_eel_dump_fp2,"-- POST-OPTIMIZED opcode chunk --\n");
+        fprintf(g_eel_dump_fp2,"-- POST-OPTIMIZED opcode chunk --\r\n");
         dumpOpcodeTree(ctx,g_eel_dump_fp2,start_opcode,2);        
       }
 #endif
