@@ -31,174 +31,181 @@
 
   int nseellex(opcodeRec **output, YYLTYPE * yylloc_param, compileContext *scctx)
   {
-    int rv,toklen=0;
+    const char *rdptr = scctx->rdbuf;
+    const char *endptr = scctx->rdbuf_end;
+    int rv=0,toklen=0;
     *output = 0;
-    while ((rv=scctx->rdbuf[0]) && (rv== ' ' || rv=='\t' || rv == '\r' || rv == '\n')) scctx->rdbuf++;
 
-    if (rv)
+start_over:
+    while (rdptr < endptr && (!(rv=rdptr[0]) || rv== ' ' || rv=='\t' || rv == '\r' || rv == '\n')) rdptr++;
+    if (rdptr >= endptr) rv=0;
+
+    if (rv == '/' && rdptr < endptr-1)
     {
-      char buf[NSEEL_MAX_VARIABLE_NAMELEN*2];
+      if (rdptr[1] == '/')
+      {
+        rdptr+=2;
+        while (rdptr < endptr && *rdptr != '\n' && *rdptr != '\r') rdptr++;
+        goto start_over;
+      }
+      else if (rdptr[1] == '*')
+      {
+        rdptr+=2;
+        while (rdptr < endptr && (rdptr[0]  != '*' || rdptr >= endptr-1 || rdptr[1] != '/'))  rdptr++;
+        if (rdptr < endptr-1) rdptr+=2; // skip */
+        goto start_over;
+      }
+    }
+
+    if (rdptr < endptr)
+    {
       int l;
-      char *ss = scctx->rdbuf++;
+      char buf[NSEEL_MAX_VARIABLE_NAMELEN*2];
+      const char *ss = rdptr++;
       if (isalpha(rv) || rv == '_')
       {
-        while ((rv=scctx->rdbuf[0]) && (isalnum(rv) || rv == '_' || rv == '.')) scctx->rdbuf++;
-        l = scctx->rdbuf - ss + 1;
+        while (rdptr < endptr && (rv=rdptr[0]) && (isalnum(rv) || rv == '_' || rv == '.')) rdptr++;
+        l = rdptr - ss + 1;
         if (l > sizeof(buf)) l=sizeof(buf);
         lstrcpyn_safe(buf,ss,l);      
 
         rv=0;
         *output = nseel_lookup(scctx,&rv,buf);
       }
-      else if (rv == '$')
+      else if ((rv >= '0' && rv <= '9') || (rv == '.' && (rdptr < endptr && rdptr[0] >= '0' && rdptr[0] <= '9')))
       {
-        int ok=1;
-        switch (scctx->rdbuf[0])
+        if (rv == '0' && rdptr < endptr && (rdptr[0] == 'x' || rdptr[0] == 'X'))
         {
-          case 'x':
-          case 'X':
-            scctx->rdbuf++;
-            while ((rv=scctx->rdbuf[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) scctx->rdbuf++;
-          break;
-          case '~':
-            scctx->rdbuf++;
-            while ((rv=scctx->rdbuf[0]) && (rv>='0' && rv<='9')) scctx->rdbuf++;
-          break;
-          case '\'':
-            if (scctx->rdbuf[1] && scctx->rdbuf[2] == '\'') scctx->rdbuf += 3;
-          break;
-          default:
-            if (toupper(scctx->rdbuf[0]) == 'P')
-            {
-              if (toupper(scctx->rdbuf[1]) == 'I') scctx->rdbuf+=2;
-              else if (toupper(scctx->rdbuf[1]) == 'H' && toupper(scctx->rdbuf[2]) == 'I') scctx->rdbuf+=3;
-              else ok=0;
-            }
-            else if (toupper(scctx->rdbuf[0]) == 'E')
-            {
-              scctx->rdbuf++;
-            }
-            else 
-            {
-              ok=0;
-            }
-          break;
-        }
-        if (ok)
-        {
-          l = scctx->rdbuf - ss + 1;
-          if (l > sizeof(buf)) l=sizeof(buf);
-          lstrcpyn_safe(buf,ss,l);
-          *output = nseel_translate(scctx,buf);
-          rv=VALUE;
-        }
-      }
-      else if ((rv >= '0' && rv <= '9') || (rv == '.' && (scctx->rdbuf[0] >= '0' && scctx->rdbuf[0] <= '9')))
-      {
-        if (rv == '0' && (scctx->rdbuf[0] == 'x' || scctx->rdbuf[0] == 'X'))
-        {
-          scctx->rdbuf++;
-          while ((rv=scctx->rdbuf[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) scctx->rdbuf++;
+          rdptr++;
+          while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) rdptr++;
         }
         else
         {
           int pcnt=rv == '.';
-          while ((rv=scctx->rdbuf[0]) && ((rv>='0' && rv<='9') || (rv == '.' && !pcnt++))) scctx->rdbuf++;       
+          while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv == '.' && !pcnt++))) rdptr++;       
         }
-        l = scctx->rdbuf - ss + 1;
+        l = rdptr - ss + 1;
         if (l > sizeof(buf)) l=sizeof(buf);
         lstrcpyn_safe(buf,ss,l);
         *output = nseel_translate(scctx,buf);
         rv=VALUE;
       }
-      else
+      else if (rdptr < endptr)
       {
-        if (rv == '<')
+        if (rv == '$')
         {
-          const char nc=*scctx->rdbuf;
+          switch (rdptr[0])
+          {
+            case 'x':
+            case 'X':
+              rdptr++;
+              while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) rdptr++;
+            break;
+            case '~':
+              rdptr++;
+              while (rdptr < endptr && (rv=rdptr[0]) && (rv>='0' && rv<='9')) rdptr++;
+            break;
+            case '\'':
+              if (rdptr+2 < endptr && rdptr[1] && rdptr[2] == '\'') rdptr += 3;
+            break;
+            case 'e':
+            case 'E':
+              rdptr++;
+            break;
+            case 'p':
+            case 'P':
+              if (rdptr+1 < endptr && toupper(rdptr[1]) == 'I') rdptr+=2;
+              else if (rdptr+2 < endptr && toupper(rdptr[1]) == 'H' && toupper(rdptr[2]) == 'I') rdptr+=3;
+            break;
+          }
+          if (rdptr != ss+1)
+          {
+            l = rdptr - ss + 1;
+            if (l > sizeof(buf)) l=sizeof(buf);
+            lstrcpyn_safe(buf,ss,l);
+            *output = nseel_translate(scctx,buf);
+            rv=VALUE;
+          }
+        }
+        else if (rv == '<')
+        {
+          const char nc=*rdptr;
           if (nc == '<')
           {
-            scctx->rdbuf++;
+            rdptr++;
             rv=TOKEN_SHL;
           }
           else if (nc == '=')
           {
-            scctx->rdbuf++;
+            rdptr++;
             rv=TOKEN_LTE;
           }
         }
         else if (rv == '>')
         {
-          const char nc=*scctx->rdbuf;
+          const char nc=*rdptr;
           if (nc == '>')
           {
-            scctx->rdbuf++;
+            rdptr++;
             rv=TOKEN_SHR;
           }
           else if (nc == '=')
           {
-            scctx->rdbuf++;
+            rdptr++;
             rv=TOKEN_GTE;
           }
         }
-        else if (rv == '=')
+        else if (rv == '&' && *rdptr == '&')
         {
-          if (*scctx->rdbuf == '=')
-          {
-            scctx->rdbuf++;
-            if (*scctx->rdbuf == '=')
-            {
-              scctx->rdbuf++;
-              rv=TOKEN_EQ_EXACT;
-            }
-            else
-              rv=TOKEN_EQ;
-          }
-        }
-        else if (rv == '!')
-        {
-          if (*scctx->rdbuf == '=')
-          {
-            scctx->rdbuf++;
-            if (*scctx->rdbuf == '=')
-            {
-              scctx->rdbuf++;
-              rv=TOKEN_NE_EXACT;
-            }
-            else
-              rv=TOKEN_NE;
-          }
-        }
-        else if (rv == '&' && *scctx->rdbuf == '&')
-        {
-          scctx->rdbuf++;
+          rdptr++;
           rv = TOKEN_LOGICAL_AND;
         }      
-        else if (rv == '|' && *scctx->rdbuf == '|')
+        else if (rv == '|' && *rdptr == '|')
         {
-          scctx->rdbuf++;
+          rdptr++;
           rv = TOKEN_LOGICAL_OR;
         }
-        else if (rv != 0 && *scctx->rdbuf == '=')
+        else if (*rdptr == '=')
         {         
           switch (rv)
           {
-            case '+': rv=TOKEN_ADD_OP; scctx->rdbuf++; break;
-            case '-': rv=TOKEN_SUB_OP; scctx->rdbuf++; break;
-            case '%': rv=TOKEN_MOD_OP; scctx->rdbuf++; break;
-            case '|': rv=TOKEN_OR_OP;  scctx->rdbuf++; break;
-            case '&': rv=TOKEN_AND_OP; scctx->rdbuf++; break;
-            case '~': rv=TOKEN_XOR_OP; scctx->rdbuf++; break;
-            case '/': rv=TOKEN_DIV_OP; scctx->rdbuf++; break;
-            case '*': rv=TOKEN_MUL_OP; scctx->rdbuf++; break;
-            case '^': rv=TOKEN_POW_OP; scctx->rdbuf++; break;
+            case '+': rv=TOKEN_ADD_OP; rdptr++; break;
+            case '-': rv=TOKEN_SUB_OP; rdptr++; break;
+            case '%': rv=TOKEN_MOD_OP; rdptr++; break;
+            case '|': rv=TOKEN_OR_OP;  rdptr++; break;
+            case '&': rv=TOKEN_AND_OP; rdptr++; break;
+            case '~': rv=TOKEN_XOR_OP; rdptr++; break;
+            case '/': rv=TOKEN_DIV_OP; rdptr++; break;
+            case '*': rv=TOKEN_MUL_OP; rdptr++; break;
+            case '^': rv=TOKEN_POW_OP; rdptr++; break;
+            case '!':
+              rdptr++;
+              if (rdptr < endptr && *rdptr == '=')
+              {
+                rdptr++;
+                rv=TOKEN_NE_EXACT;
+              }
+              else
+                rv=TOKEN_NE;
+            break;
+            case '=':
+              rdptr++;
+              if (rdptr < endptr && *rdptr == '=')
+              {
+                rdptr++;
+                rv=TOKEN_EQ_EXACT;
+              }
+              else
+                rv=TOKEN_EQ;
+            break;
           }
         }
       }
-      toklen = scctx->rdbuf - ss;
+      toklen = rdptr - ss;
     }
-  
-    yylloc_param->first_column = scctx->rdbuf - scctx->rdbuf_start - toklen;
+
+    scctx->rdbuf = rdptr;
+    yylloc_param->first_column = rdptr - scctx->rdbuf_start - toklen;
     return rv;
   }
   void nseelerror(YYLTYPE *pos,compileContext *ctx, const char *str)
@@ -210,22 +217,25 @@
   int nseel_gets(compileContext *ctx, char *buf, size_t sz)
   {
     int n=0;
-    if (ctx->inputbufferptr) while (n < sz)
+    const char *endptr = ctx->rdbuf_end;
+    const char *rdptr = ctx->rdbuf;
+    if (!rdptr) return 0;
+    
+    while (n < sz && rdptr < endptr)
     {
-      char c=ctx->inputbufferptr[0];
-      if (!c) break;
-      if (c == '/' && ctx->inputbufferptr[1] == '*')
+      if (*rdptr == '/' && rdptr < endptr-1 && rdptr[1] == '*')
       {
-        ctx->inputbufferptr+=2; // skip /*
-
-        while (ctx->inputbufferptr[0] && (ctx->inputbufferptr[0]  != '*' || ctx->inputbufferptr[1] != '/'))  ctx->inputbufferptr++;
-        if (ctx->inputbufferptr[0]) ctx->inputbufferptr+=2; // skip */
-        continue;
+        // need to update line counts maybe?
+        rdptr+=2; // skip /*
+        while (rdptr < endptr && (rdptr[0]  != '*' || rdptr >= endptr-1 || rdptr[1] != '/'))  rdptr++;
+        if (rdptr < endptr-1) rdptr+=2; // skip */
       }
-
-      ctx->inputbufferptr++;
-      buf[n++] = c;
+      else
+      {
+        buf[n++] = *rdptr++;
+      }
     }
+    ctx->rdbuf=rdptr;
     return n;
 
   }

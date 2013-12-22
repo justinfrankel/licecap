@@ -173,10 +173,8 @@ typedef struct _compileContext
   char last_error_string[256];
 
   void *scanner;
-  #ifdef NSEEL_SUPER_MINIMAL_LEXER
-    char *rdbuf, *rdbuf_start;
-  #else
-    const char *inputbufferptr;
+  const char *rdbuf_start, *rdbuf, *rdbuf_end;
+  #ifndef NSEEL_SUPER_MINIMAL_LEXER
     int errVar_l;
   #endif
 

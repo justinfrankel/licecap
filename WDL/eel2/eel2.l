@@ -91,6 +91,7 @@ static int g_fake_errno;
 [a-zA-Z_][a-zA-Z0-9\._]*      do { int toktype=IDENTIFIER; *yylval = nseel_lookup(yyextra,&toktype, yytext); return toktype; } while (0);
 
 [ \t\r\n]+      /* whitespace */
+\/\/.*$         /* comment */
 
 .       return (int)yytext[0];
 

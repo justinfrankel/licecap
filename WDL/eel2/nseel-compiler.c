@@ -3736,20 +3736,23 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
    {
      int nseelparse(compileContext* context);
+     const char *endptr=expr+strlen(expr);
 
 #ifdef NSEEL_SUPER_MINIMAL_LEXER
+
      ctx->rdbuf_start = ctx->rdbuf = expr;
+     ctx->rdbuf_end = endptr;
      if (!nseelparse(ctx) && !ctx->errVar)
      {
        start_opcode = ctx->result;
      }
-     ctx->rdbuf = NULL;
 #else
 
      void nseelrestart (void *input_file ,void *yyscanner );
-
      nseelrestart(NULL,ctx->scanner);
-     ctx->inputbufferptr = expr;
+
+     ctx->rdbuf_start = ctx->rdbuf = expr;
+     ctx->rdbuf_end = endptr;
 
      if (!nseelparse(ctx) && !ctx->errVar)
      {
@@ -3758,14 +3761,14 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
      if (ctx->errVar && ctx->errVar_l>0)
      {
        const char *p=expr;
-       while (*p && ctx->errVar_l-->0)
+       while (p < endptr && ctx->errVar_l-->0)
        {
-         while (*p && *p != '\n') { p++; ctx->errVar++; }
-         if (*p) { ctx->errVar++; p++; }
+         while (p < endptr && *p != '\n') { p++; ctx->errVar++; }
+         if (p < endptr) { ctx->errVar++; p++; }
        }
      }
-     ctx->inputbufferptr=NULL;
 #endif
+     ctx->rdbuf = NULL;
    }
            
     if (start_opcode)
