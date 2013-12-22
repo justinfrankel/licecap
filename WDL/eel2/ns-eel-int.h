@@ -174,9 +174,6 @@ typedef struct _compileContext
 
   void *scanner;
   const char *rdbuf_start, *rdbuf, *rdbuf_end;
-  #ifndef NSEEL_SUPER_MINIMAL_LEXER
-    int errVar_l;
-  #endif
 
   llBlock *tmpblocks_head, // used while compiling, and freed after compiling
 
@@ -186,10 +183,6 @@ typedef struct _compileContext
           *pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
 
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
-
-  lineRecItem *compileLineRecs;
-  int compileLineRecs_size;
-  int compileLineRecs_alloc;
 
   _codeHandleFunctionRec *functions_local, *functions_common;
 

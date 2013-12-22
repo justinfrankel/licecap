@@ -3,11 +3,9 @@
 %option bison-bridge
 %option bison-locations
 %option noyywrap
-%option yylineno
 %option never-interactive
 %option batch
 %option nounput
-%option noinput
 
 %{
 #include <stdlib.h>
@@ -56,6 +54,8 @@ static int g_fake_errno;
 
 #define errno g_fake_errno
 
+static void comment(yyscan_t yyscanner);
+
 %}
 
 %%
@@ -68,6 +68,7 @@ static int g_fake_errno;
 \$[Ee]                        PARSENUM;
 \$[Pp][Ii]                    PARSENUM;
 \$[Pp][Hh][Ii]                PARSENUM;
+\$\'.\'                       PARSENUM;
 \<\<                          return TOKEN_SHL;
 \>\>                          return TOKEN_SHR;
 \<=                          return TOKEN_LTE;
@@ -92,7 +93,20 @@ static int g_fake_errno;
 
 [ \t\r\n]+      /* whitespace */
 \/\/.*$         /* comment */
+"/*"            { comment(yyscanner); }
 
 .       return (int)yytext[0];
 
 %%
+
+static void comment(yyscan_t yyscanner)
+{
+    int c,lc=0;
+
+    while (0 != (c = input(yyscanner)))
+    {
+        if (c == '/' && lc == '*') return;
+        lc = c;
+    }
+    // end of file, ignore for now
+}

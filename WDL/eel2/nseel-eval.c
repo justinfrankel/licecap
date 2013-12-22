@@ -221,20 +221,7 @@ start_over:
     const char *rdptr = ctx->rdbuf;
     if (!rdptr) return 0;
     
-    while (n < sz && rdptr < endptr)
-    {
-      if (*rdptr == '/' && rdptr < endptr-1 && rdptr[1] == '*')
-      {
-        // need to update line counts maybe?
-        rdptr+=2; // skip /*
-        while (rdptr < endptr && (rdptr[0]  != '*' || rdptr >= endptr-1 || rdptr[1] != '/'))  rdptr++;
-        if (rdptr < endptr-1) rdptr+=2; // skip */
-      }
-      else
-      {
-        buf[n++] = *rdptr++;
-      }
-    }
+    while (n < sz && rdptr < endptr) buf[n++] = *rdptr++;
     ctx->rdbuf=rdptr;
     return n;
 
@@ -268,6 +255,5 @@ start_over:
   void nseelerror(YYLTYPE *pos,compileContext *ctx, const char *str)
   {
     ctx->errVar=pos->first_column>0?pos->first_column:1;
-    ctx->errVar_l = pos->first_line;
   }
 #endif // !NSEEL_SUPER_MINIMAL_LEXER

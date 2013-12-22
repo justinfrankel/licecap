@@ -153,39 +153,19 @@ int *NSEEL_getstats()
 }
 
 // this stuff almost works
-static int findByteOffsetInSource(compileContext *ctx, int byteoffs,int *destoffs)
+static int findByteOffsetInSource(const char *exp, int byteoffs)
 {
-	int x;
-	if (!ctx->compileLineRecs || !ctx->compileLineRecs_size) return *destoffs=0;
-	if (byteoffs < ctx->compileLineRecs[0].destByteCount) 
-	{
-		*destoffs=0;
-		return 1;
-	}
-	for (x = 0; x < ctx->compileLineRecs_size-1; x ++)
-	{
-		if (byteoffs >= ctx->compileLineRecs[x].destByteCount &&
-		    byteoffs < ctx->compileLineRecs[x+1].destByteCount) break;
-	}
-	*destoffs=ctx->compileLineRecs[(x&&x==ctx->compileLineRecs_size-1)?x-1:x].srcByteCount;
+  int lc=1;
+  while (byteoffs-->0 && *exp)
+  {
+    if (*exp++ =='\n') lc++;
+  }
 
-	return x+2;
+  return lc;
+  // count newlines before byteoffs
 }
 
 
-static void onCompileNewLine(compileContext *ctx, int srcBytes, int destBytes)
-{
-	if (!ctx->compileLineRecs || ctx->compileLineRecs_size >= ctx->compileLineRecs_alloc)
-	{
-		ctx->compileLineRecs_alloc = ctx->compileLineRecs_size+1024;
-		ctx->compileLineRecs = (lineRecItem *)realloc(ctx->compileLineRecs,sizeof(lineRecItem)*ctx->compileLineRecs_alloc);
-	}
-	if (ctx->compileLineRecs)
-	{
-		ctx->compileLineRecs[ctx->compileLineRecs_size].srcByteCount=srcBytes;
-		ctx->compileLineRecs[ctx->compileLineRecs_size++].destByteCount=destBytes;
-	}
-}
 
 static void *__newBlock(llBlock **start,int size, int wantMprotect);
 
@@ -3418,10 +3398,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
   freeBlocks(&ctx->blocks_head);  // free blocks
   freeBlocks(&ctx->blocks_head_data);  // free blocks
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
-  free(ctx->compileLineRecs); 
-  ctx->compileLineRecs=0; 
-  ctx->compileLineRecs_size=0; 
-  ctx->compileLineRecs_alloc=0;
 
   handle = (codeHandleType*)newDataBlock(sizeof(codeHandleType),8);
 
@@ -3640,9 +3616,13 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
 
    {
      int nseelparse(compileContext* context);
+     void nseelrestart (void *input_file ,void *yyscanner );
+
+     ctx->rdbuf_start = _expression;
+
 #ifdef NSEEL_SUPER_MINIMAL_LEXER
 
-     ctx->rdbuf_start = ctx->rdbuf = expr;
+     ctx->rdbuf = expr;
      ctx->rdbuf_end = endptr;
      if (!nseelparse(ctx) && !ctx->errVar)
      {
@@ -3650,24 +3630,19 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
      }
 #else
 
-     void nseelrestart (void *input_file ,void *yyscanner );
      nseelrestart(NULL,ctx->scanner);
 
-     ctx->rdbuf_start = ctx->rdbuf = expr;
+     ctx->rdbuf = expr;
      ctx->rdbuf_end = endptr;
 
      if (!nseelparse(ctx) && !ctx->errVar)
      {
        start_opcode = ctx->result;
      }
-     if (ctx->errVar && ctx->errVar_l>0)
+     if (ctx->errVar)
      {
        const char *p=expr;
-       while (p < endptr && ctx->errVar_l-->0)
-       {
-         while (p < endptr && *p != '\n') { p++; ctx->errVar++; }
-         if (p < endptr) { ctx->errVar++; p++; }
-       }
+       ctx->errVar += expr-_expression;
      }
 #endif
      ctx->rdbuf = NULL;
@@ -3797,9 +3772,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
 
     if (!startptr) 
     { 
-      int byteoffs = expr - _expression;
-      int destoffs,linenumber;
-      char buf[50];
+      int byteoffs = ctx->errVar;
+      int linenumber;
+      char buf[128];
       const char *p;
       int x,le;
       
@@ -3807,13 +3782,12 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       if (!startptr) continue;
 #endif
 
-      if (ctx->errVar > 0) byteoffs += ctx->errVar;
-      linenumber=findByteOffsetInSource(ctx,byteoffs,&destoffs);
-      if (destoffs < 0) destoffs=0;
+      linenumber=findByteOffsetInSource(_expression,byteoffs);
+      if (byteoffs < 0) byteoffs=0;
 
       le=strlen(_expression);
-      if (destoffs >= le) destoffs=le;
-      p= _expression + destoffs;
+      if (byteoffs >= le) byteoffs=le;
+      p= _expression + byteoffs;
       x=0;
       while (x < sizeof(buf)-1)
       {
@@ -3866,10 +3840,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       }
     }
   }
-  free(ctx->compileLineRecs); 
-  ctx->compileLineRecs=0; 
-  ctx->compileLineRecs_size=0; 
-  ctx->compileLineRecs_alloc=0;
 
   memset(ctx->function_localTable_Size,0,sizeof(ctx->function_localTable_Size));
   memset(ctx->function_localTable_Names,0,sizeof(ctx->function_localTable_Names));
@@ -4136,8 +4106,6 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
     freeBlocks(&ctx->blocks_head);  // free blocks
     freeBlocks(&ctx->blocks_head_data);  // free blocks
 
-
-    free(ctx->compileLineRecs);
 
     #ifndef NSEEL_SUPER_MINIMAL_LEXER
       if (ctx->scanner)
