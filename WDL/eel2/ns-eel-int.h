@@ -94,13 +94,7 @@ enum {
 #define YYSTYPE opcodeRec *
 
 #define NSEEL_CLOSEFACTOR 0.00001
-
-typedef struct
-{
-	int srcByteCount;
-	int destByteCount;
-} lineRecItem;
-  
+ 
   
 typedef struct opcodeRec opcodeRec;
 
@@ -254,6 +248,7 @@ opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleF
 opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
 opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx);
+
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);
 
@@ -269,30 +264,7 @@ extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, 
 #include "y.tab.h"
 
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
-int nseel_gettokenlen(compileContext *ctx, int maxlen);
 opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname);
-int nseel_yyerror(compileContext *ctx);
-int nseel_yylex(compileContext *ctx, char **exp);
-int nseel_yyparse(compileContext *ctx, char *exp);
-void nseel_llinit(compileContext *ctx);
-int nseel_gettoken(compileContext *ctx, char *lltb, int lltbsiz);
-
-struct  lextab {
-        int     llendst;                /* Last state number            */
-        char    *lldefault;             /* Default state table          */
-        char    *llnext;                /* Next state table             */
-        char    *llcheck;               /* Check table                  */
-        int     *llbase;                /* Base table                   */
-        int     llnxtmax;               /* Last in next table           */
-        int     (*llmove)();            /* Move between states          */
-        char     *llfinal;               /* Final state descriptions     */
-        int     (*llactr)();            /* Action routine               */
-        int     *lllook;                /* Look ahead vector if != NULL */
-        char    *llign;                 /* Ignore char vec if != NULL   */
-        char    *llbrk;                 /* Break char vec if != NULL    */
-        char    *llill;                 /* Illegal char vec if != NULL  */
-};
-extern struct lextab nseel_lextab;
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAlloc(EEL_F **blocks, unsigned int w);
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w);
