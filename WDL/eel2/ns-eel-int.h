@@ -263,6 +263,9 @@ extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, 
 
 #include "y.tab.h"
 
+const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut);
+const char *nseel_skip_space_and_comments(const char *p, const char *endptr);
+
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
 opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname);
 

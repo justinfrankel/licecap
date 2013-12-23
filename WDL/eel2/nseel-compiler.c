@@ -3329,10 +3329,12 @@ typedef struct topLevelCodeSegmentRec {
   int tmptable_use;
 } topLevelCodeSegmentRec;
 
+
 NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression, int lineoffs, int compile_flags)
 {
   compileContext *ctx = (compileContext *)_ctx;
   const char *endptr;
+  const char *_expression_end;
   codeHandleType *handle;
   topLevelCodeSegmentRec *startpts_tail=NULL;
   topLevelCodeSegmentRec *startpts=NULL;
@@ -3382,6 +3384,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
 
   if (!_expression || !*_expression) return 0;
 
+  _expression_end = _expression + strlen(_expression);
+
   oldCommonFunctionList = ctx->functions_common;
 
   ctx->isGeneratingCommonFunction=0;
@@ -3426,167 +3430,131 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         
 
     // single out top level segment
-    while (expr == endptr)
     {
-      int pcnt=0,pcnt2=0, cstate=0, hadSomething=0;
-      while (*endptr == ';' || isspace(*endptr)) endptr++;
-      expr=endptr;
-      if (!*expr) break;
-
-      while (*endptr) 
+      int had_something = 0, pcnt=0, pcnt2=0;
+      for (;;)
       {
-        const char tv = *endptr;
-        int adv_amt=1;
-        int had_cstate=cstate;
-        if (!cstate)
+        int l;
+        const char *p=nseel_simple_tokenizer(&endptr,_expression_end,&l);
+        if (!p) 
         {
-          if (tv && endptr[1] == '\'' && endptr > expr+1 && endptr[-1] == '\'' && endptr[-2] == '$') 
-          {
-            // ignore $'c'
-          }
-          else if (tv == ';' && !pcnt && !pcnt2) break;
-          else if (tv == '(') pcnt++;
-          else if (tv == ')')  {  if (--pcnt<0) pcnt=0; }
-          else if (tv == '[') pcnt2++;
-          else if (tv == ']')  {  if (--pcnt2<0) pcnt2=0; }
-          else if (tv == '/' && endptr[1] == '/') cstate=1;
-          else if (tv == '/' && endptr[1] == '*') { adv_amt++; cstate=2; }
-
-          if (!hadSomething && !cstate && !isspace(tv) && tv != ';') hadSomething=1;
+          if (pcnt || pcnt2) ctx->gotEndOfInput|=4;
+          break;
         }
-        else if (tv == '*' && endptr[1] == '/' && cstate==2) { adv_amt++; cstate=0; }
-        else if (tv == '\r' || tv == '\n') cstate&=~1;
 
-        if (expr == endptr && (cstate || had_cstate || !hadSomething)) expr+=adv_amt;
-        endptr+=adv_amt;
+        if (*p == ';') 
+        {
+          if (had_something && !pcnt && !pcnt2) break;
+        }
+        else
+        {
+          if (!had_something) 
+          {
+            expr = p;
+            had_something = 1;
+          }
+
+          if (*p == '(') pcnt++;
+          else if (*p == ')')  {  if (--pcnt<0) pcnt=0; }
+          else if (*p == '[') pcnt2++;
+          else if (*p == ']')  {  if (--pcnt2<0) pcnt2=0; }
+        }
       }
-      if (!hadSomething) expr=endptr;
-      if (!*endptr && (pcnt > 0 || pcnt2 > 0))
-      {
-        // parens still open! notify so we can improve our error messaging
-        ctx->gotEndOfInput|=4;
-      }
+      if (!*expr || !had_something) break;
     }
-    if (!*expr) break;
 
     // parse   
 
-    if (expr+8 < endptr && !strncasecmp(expr,"function",8) && isspace(expr[8]))
     {
-      const char *p = expr+8;
-      while (p < endptr && isspace(p[0])) p++;
-      if (p < endptr && (isalpha(p[0]) || p[0] == '_')) 
+      int tmplen,funcname_len;
+      const char *p = expr;
+      const char *tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen);
+      const char *funcname = nseel_simple_tokenizer(&p,endptr,&funcname_len);
+      if (tok1 && funcname && tmplen == 8 && !strncasecmp(tok1,"function",8) && (isalpha(funcname[0]) || funcname[0] == '_'))
       {
         int had_parms_locals=0;
-        const char *sp=p;
-        int l;
-        while (p < endptr && (isalnum(p[0]) || p[0] == '_' || p[0] == '.')) p++;
-        l=min(p-sp, sizeof(is_fname)-1);
-        memcpy(is_fname, sp, l);
-        is_fname[l]=0;
+        if (funcname_len > sizeof(is_fname)-1) funcname_len=sizeof(is_fname)-1;
+        memcpy(is_fname, funcname, funcname_len);
+        is_fname[funcname_len]=0;
         ctx->function_curName = is_fname; // only assigned for the duration of the loop, cleared later //-V507
 
-        expr = p;
-
-        while (expr < endptr && *expr)
+        while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen)))
         {
-          const char *tn;
-          int tn_len;
-          p=expr;
-          while (p < endptr && isspace(*p)) p++;
+          int is_parms = 0, localTableContext = 0;
+          int maxcnt=0;
+          const char *sp_save;
 
-          tn = p;
-          while (p < endptr && *p && !isspace(*p) && *p != '(') p++;
-          tn_len = p - tn;
-
-          while (p < endptr && isspace(*p)) p++;
-        
-          if (p < endptr && *p == '(' && 
-              (
-                !tn_len ||
-                (tn_len == 5 && !strncasecmp(tn,"local",tn_len))  ||
-                (tn_len == 6 && !strncasecmp(tn,"static",tn_len))  ||
-                (tn_len == 8 && !strncasecmp(tn,"instance",tn_len))
-              )
-             )
+          if (tok1[0] == '(')
           {
-            int maxcnt=0,state=0;
-            int is_parms = 0;
-            int localTableContext = 0;
-
-            if (tn_len == 0) 
+            if (had_parms_locals) 
             {
-              if (had_parms_locals) break; // formal parameters must be before instance() static() or local(), otherwise it is assumed to be the body of the function
-              is_parms = 1;
+              expr = p-1; // begin compilation at this code!
+              break;
             }
-            else 
-            {
-              localTableContext = (tn_len == 8 && !strncasecmp(tn,"instance",tn_len)); //adding to "implied this" table
-            }
-            had_parms_locals=1;
+            is_parms = 1;
+          }
+          else
+          {
+            if (tmplen == 5 && !strncasecmp(tok1,"local",tmplen)) localTableContext=0;
+            else if (tmplen == 6 && !strncasecmp(tok1,"static",tmplen)) localTableContext=0;
+            else if (tmplen == 8 && !strncasecmp(tok1,"instance",tmplen)) localTableContext=1;
+            else break; // unknown token!
 
-            // skip past opening paren
-            p++;
+            tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen);
+            if (!tok1 || tok1[0] != '(') break;
+          }
+          had_parms_locals = 1;
 
-            sp=p;
-            while (p < endptr && *p && *p != ')') 
+
+          sp_save=p;
+
+          while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen)))
+          {
+            if (tok1[0] == ')') break;
+            if (isalpha(*tok1) || *tok1 == '_') maxcnt++;
+          }
+
+          if (tok1 && maxcnt > 0)
+          {
+            char **ot = ctx->function_localTable_Names[localTableContext];
+            const int osz = ctx->function_localTable_Size[localTableContext];            
+       
+            maxcnt += osz;
+
+            ctx->function_localTable_Names[localTableContext] = (char **)newTmpBlock(ctx,sizeof(char *) * maxcnt);
+
+            if (ctx->function_localTable_Names[localTableContext])
             {
-              if (isspace(*p) || *p == ',')
+              int i=osz;
+              if (osz && ot) memcpy(ctx->function_localTable_Names[localTableContext],ot,sizeof(char *) * osz);
+              p=sp_save;
+
+              while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen)))
               {
-                if (state) maxcnt++;
-                state=0;
-              }
-              else state=1;
-              p++;
-            }
-            if (state) maxcnt++;
-            if (p < endptr && *p)
-            {
-              expr=p+1;
-          
-              if (maxcnt > 0)
-              {
-                char **ot = ctx->function_localTable_Names[localTableContext];
-                int osz = ctx->function_localTable_Size[localTableContext];
-
-                maxcnt += osz;
-
-                ctx->function_localTable_Names[localTableContext] = (char **)newTmpBlock(ctx,sizeof(char *) * maxcnt);
-
-                if (ctx->function_localTable_Names[localTableContext])
+                if (tok1[0] == ')') break;
+                if (isalpha(*tok1) || *tok1 == '_') 
                 {
-                  int i=osz;
-                  if (osz && ot) memcpy(ctx->function_localTable_Names[localTableContext],ot,sizeof(char *) * osz);
-                  p=sp;
-                  while (p < expr-1 && i < maxcnt)
+                  char *newstr;
+                  int l = tmplen;
+                  if (*p == '*')  // xyz* for namespace
                   {
-                    while (p < expr && (isspace(*p) || *p == ',')) p++;
-                    sp=p;
-                    while (p < expr-1 && (!isspace(*p) && *p != ',')) p++;
-                    
-                    if (sp < endptr && (isalpha(*sp) || *sp == '_'))
-                    {
-                      char *newstr;
-                      int l = (p-sp);
-                      if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
-                      newstr = newTmpBlock(ctx,l+1);
-                      if (newstr)
-                      {
-                        memcpy(newstr,sp,l);
-                        newstr[l]=0;
-                        ctx->function_localTable_Names[localTableContext][i++] = newstr;
-                      }
-                    }
+                    p++;
+                    l++;
                   }
-
-                  ctx->function_localTable_Size[localTableContext]=i;
-
-                  if (is_parms) function_numparms = i;
+                  if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
+                  newstr = newTmpBlock(ctx,l+1);
+                  if (newstr)
+                  {
+                    memcpy(newstr,tok1,l);
+                    newstr[l]=0;
+                    ctx->function_localTable_Names[localTableContext][i++] = newstr;
+                  }
                 }
               }
+              ctx->function_localTable_Size[localTableContext]=i;
+              if (is_parms) function_numparms = i;
             }         
           }
-          else break;
         }
       }
     }
@@ -3774,12 +3742,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       {
         int byteoffs = ctx->errVar;
         int linenumber;
-        int le=strlen(_expression);
 
-        if (byteoffs >= le) 
+        if (_expression + byteoffs >= _expression_end) 
         {
           if (ctx->gotEndOfInput&4) byteoffs = expr-_expression;
-          else byteoffs=le;
+          else byteoffs=_expression_end-_expression;
         }
 
         if (byteoffs < 0) byteoffs=0;
