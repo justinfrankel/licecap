@@ -265,6 +265,7 @@ extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, 
 
 const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut);
 const char *nseel_skip_space_and_comments(const char *p, const char *endptr);
+int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, int rdptr_size, char delim_char); // returns length used, minus NUL char
 
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
 opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname);

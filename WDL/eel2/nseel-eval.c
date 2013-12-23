@@ -50,6 +50,78 @@ const char *nseel_skip_space_and_comments(const char *p, const char *endptr)
   }
 }
 
+// removes any escaped characters, also will convert pairs delim_char into single delim_chars
+int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, int rdptr_size, char delim_char) 
+{
+  int outpos = 0;
+  const char *rdptr_end = rdptr + rdptr_size;
+  while (rdptr < rdptr_end && outpos < outbuf_sz-1)
+  {
+    char thisc=*rdptr;
+    if (thisc == '\\' && rdptr < rdptr_end-1) 
+    {
+      const char nc = rdptr[1];
+      if (nc == 'r' || nc == 'R') { thisc = '\r'; }
+      else if (nc == 'n' || nc == 'N') { thisc = '\n'; }
+      else if (nc == 't' || nc == 'T') { thisc = '\t'; }
+      else if (nc == 'b' || nc == 'B') { thisc = '\b'; }
+      else if ((nc >= '0' && nc <= '9') || nc == 'x' || nc == 'X')
+      {
+        unsigned char c=0;
+        char base_shift = 3; 
+        char num_top = '7';
+
+        rdptr++; // skip backslash
+        if (nc > '9') // implies xX
+        {
+          base_shift = 4;
+          num_top = '9';
+          rdptr ++; // skip x
+        }
+
+        while (rdptr < rdptr_end)
+        {
+          char tc=*rdptr;
+          if (tc >= '0' && tc <= num_top) 
+          {
+            c = (c<<base_shift) + tc - '0';
+          }
+          else if (base_shift==4)
+          {
+            if (tc >= 'a' && tc <= 'f')
+            {
+              c = (c<<base_shift) + (tc - 'a' + 10);
+            }
+            else if (tc >= 'A' && tc <= 'F') 
+            {
+              c = (c<<base_shift) + (tc - 'A' + 10);
+            }
+            else break;
+          }
+          else break;
+
+          rdptr++;
+        }
+        outbuf[outpos++] = (char)c;
+        continue;
+      }
+      else  // \c where c is an unknown character drops the backslash -- works for \, ', ", etc
+      { 
+        thisc = nc; 
+      }
+      rdptr+=2; 
+    }
+    else 
+    {
+      if (thisc == delim_char) break; 
+      rdptr++;
+    }
+    outbuf[outpos++] = thisc;
+  }
+  outbuf[outpos]=0;
+  return outpos;
+}
+
 const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut)
 {
   const char *p = nseel_skip_space_and_comments(*ptr, endptr);
@@ -70,7 +142,19 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
   {
     p+=4;
   }
-  // can add quoted string support here, when the time comes
+#ifndef NSEEL_EEL1_COMPAT_MODE
+  else if (*p == '\'' || *p == '\"')
+  {    
+    const char delim = *p++;
+    while (p < endptr)
+    {
+      const char c = *p++;
+      if (p < endptr && c == '\\') p++;  // skip escaped characters
+      else if (c == delim) break;
+    }
+    if (p < endptr) p++; // include trailing ' or "
+  }
+#endif
   else 
   {  
     p++;
