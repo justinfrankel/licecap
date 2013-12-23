@@ -267,8 +267,8 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
 const char *nseel_skip_space_and_comments(const char *p, const char *endptr);
 int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, int rdptr_size, char delim_char); // returns length used, minus NUL char
 
-opcodeRec *nseel_translate(compileContext *ctx, const char *tmp);
-opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname);
+opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen); // tmplen<0 for nul-term
+int nseel_lookup(compileContext *ctx, opcodeRec **opOut, const char *sname);
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAlloc(EEL_F **blocks, unsigned int w);
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w);

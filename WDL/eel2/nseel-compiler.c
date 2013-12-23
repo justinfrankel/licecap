@@ -4401,17 +4401,20 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 
 
 //------------------------------------------------------------------------------
-opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *sname)
+int nseel_lookup(compileContext *ctx, opcodeRec **opOut, const char *sname)
 {
   int rel_prefix_len=0;
   int rel_prefix_idx=-2;
+  int i;    
 
-  *typeOfObject = IDENTIFIER;
-  
   if (!strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
   {
     EEL_F *a=get_global_var(sname,1);
-    if (a) return nseel_createCompiledValuePtr(ctx,a, NULL);
+    if (a) 
+    {
+      *opOut = nseel_createCompiledValuePtr(ctx,a, NULL);
+      return IDENTIFIER;
+    }
   }
 
   if (ctx->function_curName)
@@ -4435,7 +4438,6 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     {
       char * const * const namelist = ctx->function_localTable_Names[0];
       const int namelist_sz = ctx->function_localTable_Size[0];
-      int i;
       for (i=0; i < namelist_sz; i++)
       {
         const char *p = namelist[i];
@@ -4443,7 +4445,8 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
         {
           if (!strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
           {
-            return nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
+            *opOut = nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
+            return IDENTIFIER;
           }
           else 
           {
@@ -4465,7 +4468,6 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     {
       char * const * const namelist = ctx->function_localTable_Names[1];
       const int namelist_sz = ctx->function_localTable_Size[1];
-      int i;
       for (i=0; i < namelist_sz; i++)
       {
         const char *p = namelist[i];
@@ -4522,111 +4524,110 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     
     if (best)
     {
-      *typeOfObject=
-        best->num_params>3 ?FUNCTIONX :
-        best->num_params>=3?FUNCTION3 : 
-        best->num_params==2?FUNCTION2 : 
-                          FUNCTION1;
-
-      return nseel_createCompiledEELFunctionCall(ctx,best,ourcall, rel_prefix_idx);
+      *opOut = nseel_createCompiledEELFunctionCall(ctx,best,ourcall, rel_prefix_idx);
+      return best->num_params>3 ?FUNCTIONX :
+             best->num_params>=3?FUNCTION3 : 
+             best->num_params==2?FUNCTION2 : 
+                                 FUNCTION1;
     }    
   }
 
   // instance variables
-  if (rel_prefix_idx >= -1) return nseel_createCompiledValueFromNamespaceName(ctx,sname+rel_prefix_len,rel_prefix_idx);
+  if (rel_prefix_idx >= -1) 
+  {
+    *opOut = nseel_createCompiledValueFromNamespaceName(ctx,sname+rel_prefix_len,rel_prefix_idx);
+    return IDENTIFIER;
+  }
 
 
   // resolve built-in functions last
-  {
-    const char *nptr = sname;
-    int i;    
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
-    if (!strcasecmp(nptr,"assign")) 
+    if (!strcasecmp(sname,"assign")) 
     {
-      *typeOfObject = FUNCTION2;
-      return nseel_createCompiledFunctionCall(ctx,2,FN_ASSIGN,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_ASSIGN,0);
+      return FUNCTION2;
     }
-    else if (!strcasecmp(nptr,"if")) 
+    else if (!strcasecmp(sname,"if")) 
     {
-      *typeOfObject = FUNCTION3;
-      return nseel_createCompiledFunctionCall(ctx,3,FN_IF_ELSE,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,3,FN_IF_ELSE,0);
+      return FUNCTION3;
     }
-    else if (!strcasecmp(nptr,"equal")) 
+    else if (!strcasecmp(sname,"equal")) 
     {
-      *typeOfObject = FUNCTION2;
-      return nseel_createCompiledFunctionCall(ctx,2,FN_EQ,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_EQ,0);
+      return FUNCTION2;
     }
-    else if (!strcasecmp(nptr,"below")) 
+    else if (!strcasecmp(sname,"below")) 
     {
-      *typeOfObject = FUNCTION2;
-      return nseel_createCompiledFunctionCall(ctx,2,FN_LT,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_LT,0);
+      return FUNCTION2;
     }
-    else if (!strcasecmp(nptr,"above")) 
+    else if (!strcasecmp(sname,"above")) 
     {
-      *typeOfObject = FUNCTION2;
-      return nseel_createCompiledFunctionCall(ctx,2,FN_GT,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_GT,0);
+      return FUNCTION2;
     }
-    else if (!strcasecmp(nptr,"bnot")) 
+    else if (!strcasecmp(sname,"bnot")) 
     {
-      *typeOfObject = FUNCTION1;
-      return nseel_createCompiledFunctionCall(ctx,1,FN_NOT,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,1,FN_NOT,0);
+      return FUNCTION1;
     }
-    else if (!strcasecmp(nptr,"megabuf")) 
+    else if (!strcasecmp(sname,"megabuf")) 
     {
-      *typeOfObject = FUNCTION1;
-      return nseel_createCompiledFunctionCall(ctx,1,FN_MEMORY,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,1,FN_MEMORY,0);
+      return FUNCTION1;
     }
-    else if (!strcasecmp(nptr,"gmegabuf")) 
+    else if (!strcasecmp(sname,"gmegabuf")) 
     {
-      *typeOfObject = FUNCTION1;
-      return nseel_createCompiledFunctionCall(ctx,1,FN_GMEMORY,0);
+      *opOut = nseel_createCompiledFunctionCall(ctx,1,FN_GMEMORY,0);
+      return FUNCTION1;
     }
     else
 #endif
-    // convert legacy pow() to FN_POW
-    if (!strcasecmp("pow",nptr))
-    {
-      *typeOfObject = FUNCTION2;
-      return nseel_createCompiledFunctionCall(ctx,2,FN_POW,0);
-    }
+  // convert legacy pow() to FN_POW
+  if (!strcasecmp("pow",sname))
+  {
+    *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_POW,0);
+    return FUNCTION2;
+  }
     
-    for (i=0;nseel_getFunctionFromTable(i);i++)
+  for (i=0;nseel_getFunctionFromTable(i);i++)
+  {
+    functionType *f=nseel_getFunctionFromTable(i);
+    if (!strcasecmp(f->name, sname))
     {
-      functionType *f=nseel_getFunctionFromTable(i);
-      if (!strcasecmp(f->name, nptr))
+      const int np=f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK;
+      *opOut =  nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
+      switch (np)
       {
-        int np=f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK;
-        switch (np)
-        {
-          case 0:
-          case 1: *typeOfObject = FUNCTION1; break;
-          case 2: *typeOfObject = FUNCTION2; break;
-          case 3: *typeOfObject = FUNCTION3; break;
-          default: 
-            *typeOfObject = FUNCTIONX; // newly supported X-parameter functions
-            break;
-        }
-        return nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
+        case 0:
+        case 1: return FUNCTION1; 
+        case 2: return FUNCTION2; 
+        case 3: return FUNCTION3; 
+        default:  break;
       }
+      return FUNCTIONX;
     }
-  }  
+  }
 
-  return nseel_createCompiledValuePtr(ctx,NULL,sname);
+  *opOut = nseel_createCompiledValuePtr(ctx,NULL,sname);
+  return IDENTIFIER;
 }
 
 
 
 
 //------------------------------------------------------------------------------
-opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
+opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // tmplen < 0 = null term
 {
+  // this depends on the string being nul terminated eventually, tmplen is used more as a hint than anything else
   if ((tmp[0] == '0' || tmp[0] == '$') && toupper(tmp[1])=='X')
   {
     char *p;
     return nseel_createCompiledValue(ctx,(EEL_F)strtoul(tmp+2,&p,16));
   }
-  if (tmp[0] == '$')
+  else if (tmp[0] == '$')
   {
     if (tmp[1] == '~')
     {
@@ -4635,14 +4636,31 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp)
       if (v>53) v=53;
       return nseel_createCompiledValue(ctx,(EEL_F)((((WDL_INT64)1) << v) - 1));
     }
-    else if (!stricmp(tmp,"$E"))
+    else if (tmplen < 0 ? !stricmp(tmp,"$E") : (tmplen == 2 && !strnicmp(tmp,"$E",2)))
       return nseel_createCompiledValue(ctx,(EEL_F)2.71828183);
-    else if (!stricmp(tmp,"$PI"))
+    else if (tmplen < 0 ? !stricmp(tmp,"$PI") : (tmplen == 3 && !strnicmp(tmp,"$PI",3)))
       return nseel_createCompiledValue(ctx,(EEL_F)3.141592653589793);
-    else if (!stricmp(tmp,"$PHI"))
+    else if (tmplen < 0 ? !stricmp(tmp,"$PHI") : (tmplen == 4 && !strnicmp(tmp,"$PHI",4)))
       return nseel_createCompiledValue(ctx,(EEL_F)1.61803399);      
-    else if (tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
+    else if ((tmplen < 0 || tmplen == 4) && tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
       return nseel_createCompiledValue(ctx,(EEL_F)tmp[2]);      
+  }
+  else if (tmp[0] == '\'')
+  {
+    char b[9];
+    int x,sz;
+    unsigned int rv=0;
+
+    if (tmplen < 0) // nul terminated tmplen, calculate a workable length
+    {
+      const char *ep = tmp;
+      while (ep < tmp+32 && *ep) ep++; // faster than strlen(tmp) if tmp is large, we'll never need more than ~18 chars anyway
+      tmplen = ep-tmp;
+    }
+    
+    sz = nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'');
+    for (x=0;x<sz;x++) rv = (rv<<8) + ((unsigned char*)b)[x];
+    return nseel_createCompiledValue(ctx,(EEL_F)rv);
   }
   return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }

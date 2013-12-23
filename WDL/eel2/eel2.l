@@ -34,7 +34,7 @@
 
 int nseel_gets(compileContext *ctx, char *buf, size_t sz);
 
-#define PARSENUM *yylval = nseel_translate(yyextra,yytext); return VALUE;
+#define PARSENUM *yylval = nseel_translate(yyextra,yytext, -1); return VALUE;
 #define EEL_ACTION(x) return x;
 
 #ifdef stdin
@@ -89,7 +89,7 @@ static void comment(yyscan_t yyscanner);
 \*=                             return TOKEN_MUL_OP;
 \^=                             return TOKEN_POW_OP;
 
-[a-zA-Z_][a-zA-Z0-9\._]*      do { int toktype=IDENTIFIER; *yylval = nseel_lookup(yyextra,&toktype, yytext); return toktype; } while (0);
+[a-zA-Z_][a-zA-Z0-9\._]*        return nseel_lookup(yyextra,yylval, yytext); 
 
 [ \t\r\n]+      /* whitespace */
 \/\/.*$         /* comment */

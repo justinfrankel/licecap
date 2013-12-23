@@ -144,10 +144,11 @@ extern int NSEEL_RAM_memused_errors;
 
 // configuration:
 
-#define NSEEL_SUPER_MINIMAL_LEXER // smaller, faster(?), handwritten lexer code that uses a lot less ram and produces less code, 
-                                  // disable this define for the flex version which is easier to maintain (though requires running flex eel2.l)
+// use the handwritten lexer -- the flex (eel2.l generated) lexer mostly works, but doesn't support string parsing at the moment
+// this mode is faster and uses less ram than eel2.l anyway, so leave it on
+#define NSEEL_SUPER_MINIMAL_LEXER 
 
- // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc.
+ // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc. disables string support (strings were used as comments in eel1 etc)
 
 #define NSEEL_MAX_VARIABLE_NAMELEN 128  // define this to override the max variable length
 #define NSEEL_MAX_EELFUNC_PARAMETERS 40

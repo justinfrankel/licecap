@@ -152,7 +152,6 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
       if (p < endptr && c == '\\') p++;  // skip escaped characters
       else if (c == delim) break;
     }
-    if (p < endptr) p++; // include trailing ' or "
   }
 #endif
   else 
@@ -206,15 +205,14 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
         }
         if (rdptr != tok+1)
         {
-          char buf[NSEEL_MAX_VARIABLE_NAMELEN*2];
-          toklen = rdptr - tok;
-          if (toklen > sizeof(buf) - 1) toklen=sizeof(buf) - 1;
-          memcpy(buf,tok,toklen);
-          buf[toklen]=0;
-
           rv=VALUE;
-          *output = nseel_translate(scctx,buf);
+          *output = nseel_translate(scctx,tok,rdptr-tok);
         }
+      }
+      else if (rv == '\'')
+      {
+        rv = VALUE;
+        *output = nseel_translate(scctx, tok, toklen); 
       }
       else if (isalpha(rv) || rv == '_')
       {
@@ -223,8 +221,7 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
         if (toklen > sizeof(buf) - 1) toklen=sizeof(buf) - 1;
         memcpy(buf,tok,toklen);
         buf[toklen]=0;
-        rv=0;
-        *output = nseel_lookup(scctx,&rv,buf);
+        rv = nseel_lookup(scctx,output,buf);
       }
       else if ((rv >= '0' && rv <= '9') || (rv == '.' && (rdptr < endptr && rdptr[0] >= '0' && rdptr[0] <= '9')))
       {
@@ -239,12 +236,8 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
           int pcnt=rv == '.';
           while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv == '.' && !pcnt++))) rdptr++;       
         }
-        toklen = rdptr - tok;
-        if (toklen > sizeof(buf) - 1) toklen=sizeof(buf) - 1;
-        memcpy(buf,tok,toklen);
-        buf[toklen]=0;
         rv=VALUE;
-        *output = nseel_translate(scctx,buf);
+        *output = nseel_translate(scctx,tok,rdptr-tok);
       }
       else if (rv == '<')
       {
@@ -322,7 +315,7 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
     }
 
     scctx->rdbuf = rdptr;
-    yylloc_param->first_column = rdptr - scctx->rdbuf_start - toklen;
+    yylloc_param->first_column = tok - scctx->rdbuf_start;
     return rv;
   }
 
