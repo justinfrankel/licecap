@@ -594,15 +594,6 @@ static functionType fnTable1[] = {
 #endif // end EEL1 compat
 
 
-  {"_mem",_asm_megabuf,_asm_megabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL,{&__NSEEL_RAMAlloc}, 
-    #ifdef GLUE_MEM_NEEDS_PPROC
-      NSEEL_PProc_RAM,
-    #else
-      NULL
-    #endif
-  },
-
-  {"_gmem",_asm_gmegabuf,_asm_gmegabuf_end,1|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL,{&__NSEEL_RAMAllocGMEM},NSEEL_PProc_GRAM},
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
@@ -893,6 +884,19 @@ opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code
   return r;
 }
 
+opcodeRec *nseel_createMemoryAccess(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
+{
+  if (code1 && code1->opcodeType == OPCODETYPE_VARPTR && !stricmp(code1->relname,"gmem"))
+  {
+    return nseel_createSimpleCompiledFunction(ctx, FN_GMEMORY,1,code2?code2:nseel_createCompiledValue(ctx,0.0),0);
+  }
+  if (code2 && (code2->opcodeType != OPCODETYPE_DIRECTVALUE || code2->parms.dv.directValue != 0.0))
+  {
+    code1 = nseel_createSimpleCompiledFunction(ctx,FN_ADD,2,code1,code2);
+  }
+  return nseel_createSimpleCompiledFunction(ctx, FN_MEMORY,1,code1,0);
+}
+
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
   opcodeRec *r=code1 && (np<2 || code2) ? newOpCode(ctx,NULL) : NULL;
@@ -1045,7 +1049,29 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
 #endif
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL; RF(uminus);
     case FN_NOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnot);
+#undef RF
+#define RF(x) *endP = _asm_##x##_end; return (void*)_asm_##x
 
+    case FN_MEMORY:
+      {
+        static void *replptrs[4]={&__NSEEL_RAMAlloc,};      
+        *replList = replptrs;
+        *abiInfo = BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL;
+        #ifdef GLUE_MEM_NEEDS_PPROC
+          *pProc = NSEEL_PProc_RAM;
+        #endif
+        RF(megabuf);
+      }
+    break;
+    case FN_GMEMORY:
+      {
+        static void *replptrs[4]={&__NSEEL_RAMAllocGMEM,};      
+        *replList = replptrs;
+        *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL;
+        *pProc=NSEEL_PProc_GRAM;
+        RF(gmegabuf);
+      }
+    break;
 #undef RF
 
     case FUNCTYPE_FUNCTIONTYPEREC:
@@ -2467,8 +2493,13 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
     case OPCODETYPE_FUNC1:
       if (op->fntype == FN_NOT)
         fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_not");
+      else if (op->fntype == FN_MEMORY)
+        fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_mem");
+      else if (op->fntype == FN_GMEMORY)
+        fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_gmem");
       else
         fprintf(fp," FUNC1 %d %s {\r\n",op->fntype, fname);
+
       if (op->parms.parms[0])
         dumpOpcodeTree(ctx,fp,op->parms.parms[0],indent_amt+2);
       else
@@ -3306,10 +3337,10 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 			static char *symbollists[]=
 			{
 				"", // stop at any control char that is not parenthed
-				":(,;?", 
-				",):?;", // or || or &&
-				",);", // jf> removed :? from this, for =
-				",);",
+				":([,;?", 
+				",)]:?;", // or || or &&
+				",)];", // jf> removed :? from this, for =
+				",)];",
         "",  // rscan=5, only scans for a negative ] level
         "", // rscan=6, like rscan==0 but lower precedence -- stop at any non-^ control char that is not parenthed
 			};
@@ -3346,8 +3377,6 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 				{{'&','&'}, 1, 2, "_and" },
 				{{'=',0  }, 0, 3, "_set" },
 
-
-        {{'[',0  }, 0, 5, },
 				{{'?',0  }, 1, 4, },
 
 			};
@@ -3376,7 +3405,7 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 	      if (lscan >= 0)
 				{
 					char *scan=symbollists[lscan];
-	       	int l_semicnt=0;
+	       	int l_semicnt=0, l_semicnt2=0;
 					l_ptr=buf + len - 1;
 					while (l_ptr >= buf)
 					{
@@ -3386,7 +3415,13 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 							l_semicnt--;
 							if (l_semicnt < 0) break;
 						}
-						else if (!l_semicnt) 
+						else if (*l_ptr == ']') l_semicnt2++;
+						else if (*l_ptr == '[')
+						{
+							l_semicnt2--;
+							if (l_semicnt2 < 0) break;
+						}
+						else if (!l_semicnt && !l_semicnt2) 
 						{
 							if (!*scan)
 							{
@@ -3515,37 +3550,11 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
       			buf=(char*)realloc(buf,alloc_len);
     			}
 
-          if (n == ns-2)
-          {
-            char *lp = l_ptr;
-            char *rp = r_ptr;
-      	    while (lp && *lp && isspace(*lp)) lp++;
-      	    while (rp && *rp && isspace(*rp)) rp++;
-            if (lp && !strncasecmp(lp,"gmem",4) && (!lp[4] || isspace(lp[4])))
-            {
-              len+=sprintf(buf+len,"_gmem(%s",r_ptr && *r_ptr ? r_ptr : "0");
-              ctx->l_stats[0]+=strlen(l_ptr)+4;
-            }
-            else if (rp && *rp && strcmp(rp,"0"))
-            {
-  	          len+=sprintf(buf+len,"_mem((%s)+(%s)",lp,rp);
-              ctx->l_stats[0]+=strlen(lp)+strlen(rp)+8;
-            }
-            else 
-            {
-	            len+=sprintf(buf+len,"_mem(%s",lp);
-              ctx->l_stats[0]+=strlen(lp)+4;
-            }
-
-            // skip the ]
-            if (*expression == ']') expression++;
-
-          }
-					else if (n == ns-1)// if (l_ptr,r_ptr1,r_ptr2)
+					if (n == ns-1)// if (l_ptr,r_ptr1,r_ptr2)
 					{
 						char *rptr2=r_ptr;
 						char *tmp=r_ptr;
-						int parcnt=0;
+						int parcnt=0,parcnt2=0;
 						int qcnt=1;
 						while (*rptr2)
 						{
@@ -3553,8 +3562,10 @@ static char *preprocessCode(compileContext *ctx, char *expression, int src_offse
 							else if (*rptr2 == ':') qcnt--;
 							else if (*rptr2 == '(') parcnt++;
 							else if (*rptr2 == ')') parcnt--;
-							if (parcnt < 0) break;
-							if (!parcnt && !qcnt && *rptr2 == ':') break;
+							else if (*rptr2 == '[') parcnt2++;
+							else if (*rptr2 == ']') parcnt2--;
+							if (parcnt < 0||parcnt2<0) break;
+							if (!parcnt && !parcnt2 && !qcnt && *rptr2 == ':') break;
 							rptr2++;
 						}
 						if (*rptr2) *rptr2++=0;
@@ -3766,7 +3777,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *__expressio
 
     // divide expression by semicolons at the top level
     {
-      int pcnt=0,pcnt2=0; // [] not used, but no harm in checking them
+      int pcnt=0,pcnt2=0;
       while (*expression) 
       {
         if (*expression == '(') pcnt++;
@@ -4909,8 +4920,16 @@ opcodeRec *nseel_lookup(compileContext *ctx, int *typeOfObject, const char *snam
     else if (!strcasecmp(nptr,"equal")) nptr="_equal";
     else if (!strcasecmp(nptr,"below")) nptr="_below";
     else if (!strcasecmp(nptr,"above")) nptr="_above";
-    else if (!strcasecmp(nptr,"megabuf")) nptr="_mem";
-    else if (!strcasecmp(nptr,"gmegabuf")) nptr="_gmem";
+    else if (!strcasecmp(nptr,"megabuf")) 
+    {
+      *typeOfObject = FUNCTION1;
+      return nseel_createCompiledFunctionCall(ctx,1,FN_MEMORY,0);
+    }
+    else if (!strcasecmp(nptr,"gmegabuf")) 
+    {
+      *typeOfObject = FUNCTION1;
+      return nseel_createCompiledFunctionCall(ctx,1,FN_GMEMORY,0);
+    }
     else
 #endif
     // convert legacy pow() to FN_POW

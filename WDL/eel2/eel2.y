@@ -67,8 +67,20 @@ value_thing:
 	}
 	;
 
+memory_access:
+        value_thing
+        | memory_access '[' ']'
+        {
+	  $$ = nseel_createMemoryAccess(context,$1,0);
+        }
+        | memory_access '[' expression ']'
+        {
+	  $$ = nseel_createMemoryAccess(context,$1,$3);
+        }
+        ;
+
 unary_expr:
-	value_thing
+	memory_access
 	| '+' unary_expr
 	{
 	  $$ = $2;
