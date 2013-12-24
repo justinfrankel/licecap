@@ -194,6 +194,8 @@ typedef struct _compileContext
   EEL_F **function_localTable_ValuePtrs;
   const char *function_curName; // name of current function
 
+  EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list);
+
   codeHandleType *tmpCodeHandle;
   
   struct
@@ -248,6 +250,9 @@ opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleF
 opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
 opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx);
+
+struct eelStringSegmentRec *nseel_createStringSegmentRec(compileContext *ctx, const char *str, int len);
+opcodeRec *nseel_eelMakeOpcodeFromStringSegments(compileContext *ctx, struct eelStringSegmentRec *rec);
 
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg);
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr);

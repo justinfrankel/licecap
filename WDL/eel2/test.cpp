@@ -46,6 +46,8 @@ class sInst {
       m_vm = NSEEL_VM_alloc();
       if (!m_vm) fprintf(stderr,"NSEEL_VM_alloc(): failed\n");
       NSEEL_VM_SetCustomFuncThis(m_vm,this);
+      NSEEL_VM_SetStringFunc(m_vm, addStringCallback);
+
     }
 
     ~sInst() 
@@ -70,7 +72,6 @@ class sInst {
     WDL_PtrList<WDL_FastString> m_strings;
     WDL_StringKeyedArray<EEL_F *> m_namedvars;
     WDL_PtrList<void> m_code_freelist;
-    WDL_FastString m_pc;
 
     static int varEnumProc(const char *name, EEL_F *val, void *ctx)
     {
@@ -96,6 +97,20 @@ class sInst {
       m_strings.Add(ns);
       return m_strings.GetSize()-1+STRING_INDEX_BASE;
     }
+    static EEL_F addStringCallback(void *caller_this, struct eelStringSegmentRec *list)
+    {
+      WDL_FastString *ns = new WDL_FastString;
+      // could probably do a faster implementation using AddRaw() etc but this should also be OK
+      int sz=nseel_stringsegments_tobuf(NULL,0,list);
+      ns->SetLen(sz+32);
+      sz=nseel_stringsegments_tobuf((char *)ns->Get(),sz,list);
+      ns->SetLen(sz);
+
+      sInst *_this = (sInst *)caller_this;
+
+      _this->m_strings.Add(ns);
+      return _this->m_strings.GetSize()-1+STRING_INDEX_BASE;
+   }
 
     const char *GetStringForIndex(EEL_F val, WDL_FastString **isWriteableAs=NULL)
     {
@@ -157,7 +172,6 @@ class sInst {
 #define EEL_STRING_GETNAMEDVAR(x,y) ((sInst*)(opaque))->GetNamedVar(x,y)
 #define EEL_STRING_GETFMTVAR(x) ((sInst*)(opaque))->GetVarForFormat(x)
 #define EEL_STRING_GET_FOR_INDEX(x, wr) ((sInst*)(opaque))->GetStringForIndex(x, wr)
-#define EEL_STRING_ADDTOTABLE(x)  ((sInst*)(opaque))->AddString(x)
 
 #define EEL_STRING_DEBUGOUT writeToStandardError // no parameters, since it takes varargs
 #define EEL_STRING_STDOUT_WRITE(x,len) { fwrite(x,len,1,stdout); fflush(stdout); }
@@ -169,13 +183,11 @@ class sInst {
 
 #include "eel_files.h"
 
-int sInst::runcode(const char *code, bool showerr, bool canfree)
+int sInst::runcode(const char *codeptr, bool showerr, bool canfree)
 {
   if (m_vm) 
   {
-    m_pc.Set("");
-    eel_preprocess_strings(this,m_pc,code);
-    NSEEL_CODEHANDLE code = NSEEL_code_compile_ex(m_vm,m_pc.Get(),1,canfree ? 0 : NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
+    NSEEL_CODEHANDLE code = NSEEL_code_compile_ex(m_vm,codeptr,1,canfree ? 0 : NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
     char *err;
     if (!code && (err=NSEEL_code_getcodeerror(m_vm)))
     {

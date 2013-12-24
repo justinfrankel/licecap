@@ -30,6 +30,7 @@
 %token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR 
 %token TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
 %token TOKEN_ADD_OP TOKEN_SUB_OP TOKEN_MOD_OP TOKEN_OR_OP TOKEN_AND_OP TOKEN_XOR_OP TOKEN_DIV_OP TOKEN_MUL_OP TOKEN_POW_OP
+%token STRING_LITERAL
 
 %start program
 
@@ -42,6 +43,15 @@ more_params:
 	  $$ = nseel_createMoreParametersOpcode(context,$1,$3);
 	}
 	;
+
+string:
+        STRING_LITERAL
+        | STRING_LITERAL string
+        {
+          ((struct eelStringSegmentRec *)$1)->_next = (struct eelStringSegmentRec *)$2;
+          $$ = $1;
+        }
+        ;
 
 value_thing:
 	VALUE
@@ -70,6 +80,10 @@ value_thing:
 	{
   	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, $7);
 	}
+        | string
+        {
+          $$ = nseel_eelMakeOpcodeFromStringSegments(context,$1);
+        }
 	;
 
 memory_access:

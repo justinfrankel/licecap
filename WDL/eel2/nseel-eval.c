@@ -122,6 +122,25 @@ int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, 
   return outpos;
 }
 
+int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegmentRec *list) // call with NULL to calculate size, or non-null to generate to buffer (returning size used)
+{
+  int pos=0;
+  while (list)
+  {
+    if (!bufOut)
+    {
+      pos += list->str_len;
+    }
+    else if (list->str_len > 1) 
+    {
+      if (pos >= bufout_sz) break;
+      pos += nseel_filter_escaped_string(bufOut + pos, bufout_sz-pos,  list->str_start+1, list->str_len-1, list->str_start[0]); 
+    }
+    list = list->_next;
+  }
+  return pos;
+}
+
 const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut)
 {
   const char *p = nseel_skip_space_and_comments(*ptr, endptr);
@@ -209,11 +228,26 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
           *output = nseel_translate(scctx,tok,rdptr-tok);
         }
       }
+#ifndef NSEEL_EEL1_COMPAT_MODE
       else if (rv == '\'')
       {
-        rv = VALUE;
-        *output = nseel_translate(scctx, tok, toklen); 
+        if (toklen > 1 && tok[toklen-1] == '\'')
+        {
+          rv = VALUE;
+          *output = nseel_translate(scctx, tok, toklen); 
+        }
+        else scctx->gotEndOfInput|=8;
       }
+      else if (rv == '\"' && scctx->onString)
+      {
+        if (toklen > 1 && tok[toklen-1] == '\"')
+        {
+          rv = STRING_LITERAL;
+          *output = (opcodeRec *)nseel_createStringSegmentRec(scctx,tok,toklen);
+        }
+        else scctx->gotEndOfInput|=16;
+      }
+#endif
       else if (isalpha(rv) || rv == '_')
       {
         // toklen already valid

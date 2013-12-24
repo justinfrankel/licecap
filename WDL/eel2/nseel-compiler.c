@@ -814,6 +814,27 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *cod
   return fn;
 }
 
+struct eelStringSegmentRec *nseel_createStringSegmentRec(compileContext *ctx, const char *str, int len)
+{
+  struct eelStringSegmentRec *r = newTmpBlock(ctx,sizeof(struct eelStringSegmentRec));
+  if (r)
+  {
+    r->_next=0;
+    r->str_start=str;
+    r->str_len = len;
+  }
+  return r;
+}
+
+opcodeRec *nseel_eelMakeOpcodeFromStringSegments(compileContext *ctx, struct eelStringSegmentRec *rec)
+{
+  if (ctx && ctx->onString)
+  {
+    return nseel_createCompiledValue(ctx, ctx->onString(ctx->caller_this,rec));
+  }
+
+  return NULL;
+}
 
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
 {
@@ -4102,6 +4123,15 @@ int *NSEEL_code_getstats(NSEEL_CODEHANDLE code)
     return h->code_stats;
   }
   return 0;
+}
+
+void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list))
+{
+  if (ctx)
+  {
+    compileContext *c=(compileContext*)ctx;
+    c->onString = onString;
+  }
 }
 
 void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr)

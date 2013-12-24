@@ -1,5 +1,6 @@
 CC=gcc
-CFLAGS=-O -g
+CFLAGS=-O -g -I/Developer/SDKs/MacOSX10.6.sdk/usr/include/
+LFLAGS=-L/Developer/SDKs/MacOSX10.6.sdk/usr/lib
 CXX=g++
 
 OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o 
@@ -24,7 +25,7 @@ endif
 CXXFLAGS=$(CFLAGS)
 
 test: test.o $(OBJS) $(OBJS2)
-	g++ -o $@ $^ $(CXXFLAGS)
+	g++ -o $@ $^ $(CXXFLAGS) $(LFLAGS)
 
 clean:
 	-rm test.o $(OBJS)

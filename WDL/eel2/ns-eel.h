@@ -122,6 +122,17 @@ void NSEEL_VM_FreeGRAM(void **ufd); // frees a gmem context.
 void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr);
 
 
+struct eelStringSegmentRec {
+  struct eelStringSegmentRec *_next;
+  const char *str_start; // escaped characters, including opening/trailing characters
+  int str_len; 
+};
+void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list));
+
+// call with NULL to calculate size, or non-null to generate to buffer (returning size used -- will not null terminate, caller responsibility)
+int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegmentRec *list); 
+
+
 NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX ctx, const char *code, int lineoffs);
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS 1 // allows that code's functions to be used in other code (note you shouldn't destroy that codehandle without destroying others first if used)
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET 2 // resets common code functions
