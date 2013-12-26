@@ -30,7 +30,7 @@
 %token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR 
 %token TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
 %token TOKEN_ADD_OP TOKEN_SUB_OP TOKEN_MOD_OP TOKEN_OR_OP TOKEN_AND_OP TOKEN_XOR_OP TOKEN_DIV_OP TOKEN_MUL_OP TOKEN_POW_OP
-%token STRING_LITERAL
+%token STRING_LITERAL STRING_IDENTIFIER
 
 %start program
 
@@ -53,9 +53,10 @@ string:
         }
         ;
 
-value_thing:
-	VALUE
-	| IDENTIFIER
+assignable_value:
+	IDENTIFIER
+        /* used to have VALUE in here rather than rvalue, to allow 1=1 1+=2 etc, but silly to, 
+           though this breaks Vmorph, which does 1=1 for a nop, and Jonas DrumReaplacer, which does x = 0 = y */
 	| '(' expression ')'
 	{
 	  $$ = $2;
@@ -80,65 +81,76 @@ value_thing:
 	{
   	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, $7);
 	}
-        | string
-        {
-          $$ = nseel_eelMakeOpcodeFromStringSegments(context,(struct eelStringSegmentRec *)$1);
-        }
-	;
-
-memory_access:
-        value_thing
-        | memory_access '[' ']'
+        | rvalue '[' ']'
         {
 	  $$ = nseel_createMemoryAccess(context,$1,0);
         }
-        | memory_access '[' expression ']'
+        | rvalue '[' expression ']'
         {
 	  $$ = nseel_createMemoryAccess(context,$1,$3);
         }
         ;
 
+rvalue:
+	VALUE
+        | STRING_IDENTIFIER
+        | string
+        {
+          $$ = nseel_eelMakeOpcodeFromStringSegments(context,(struct eelStringSegmentRec *)$1);
+        }
+        | assignable_value
+        ;
+
+
 assignment:
-	memory_access
-        | memory_access '=' if_else_expr
+        rvalue
+        | assignable_value '=' if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_ASSIGN,2,$1,$3);
         }
-        | memory_access TOKEN_ADD_OP if_else_expr
+        | assignable_value TOKEN_ADD_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_ADD_OP,2,$1,$3);
         }
-        | memory_access TOKEN_SUB_OP if_else_expr
+        | assignable_value TOKEN_SUB_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_SUB_OP,2,$1,$3);
         }
-        | memory_access TOKEN_MOD_OP if_else_expr
+        | assignable_value TOKEN_MOD_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_MOD_OP,2,$1,$3);
         }
-        | memory_access TOKEN_OR_OP if_else_expr
+        | assignable_value TOKEN_OR_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_OR_OP,2,$1,$3);
         }
-        | memory_access TOKEN_AND_OP if_else_expr
+        | assignable_value TOKEN_AND_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_AND_OP,2,$1,$3);
         }
-        | memory_access TOKEN_XOR_OP if_else_expr
+        | assignable_value TOKEN_XOR_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_XOR_OP,2,$1,$3);
         }
-        | memory_access TOKEN_DIV_OP if_else_expr
+        | assignable_value TOKEN_DIV_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_DIV_OP,2,$1,$3);
         }
-        | memory_access TOKEN_MUL_OP if_else_expr
+        | assignable_value TOKEN_MUL_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_MUL_OP,2,$1,$3);
         }
-        | memory_access TOKEN_POW_OP if_else_expr
+        | assignable_value TOKEN_POW_OP if_else_expr
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_POW_OP,2,$1,$3);
+        }
+        | STRING_IDENTIFIER '=' if_else_expr
+        {
+          $$ = nseel_createFunctionByName(context,"strcpy",2,$1,$3,NULL); 
+        }
+        | STRING_IDENTIFIER TOKEN_ADD_OP if_else_expr
+        {
+          $$ = nseel_createFunctionByName(context,"strcat",2,$1,$3,NULL); 
         }
         ;
 

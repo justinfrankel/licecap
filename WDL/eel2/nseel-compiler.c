@@ -4650,6 +4650,27 @@ int nseel_lookup(compileContext *ctx, opcodeRec **opOut, const char *sname)
   return IDENTIFIER;
 }
 
+opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int np, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
+{
+  int i;
+  for (i=0;nseel_getFunctionFromTable(i);i++)
+  {
+    functionType *f=nseel_getFunctionFromTable(i);
+    if ((f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) == np && !strcasecmp(f->name, name))
+    {
+      opcodeRec *o =  nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
+      if (o)
+      {
+        o->parms.parms[0]=code1;
+        o->parms.parms[1]=code2;
+        o->parms.parms[2]=code3;
+      }
+      return o;
+    }
+  }
+  return NULL;
+}
+
 
 
 

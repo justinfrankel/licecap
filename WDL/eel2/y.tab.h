@@ -64,7 +64,8 @@
      TOKEN_DIV_OP = 280,
      TOKEN_MUL_OP = 281,
      TOKEN_POW_OP = 282,
-     STRING_LITERAL = 283
+     STRING_LITERAL = 283,
+     STRING_IDENTIFIER = 284
    };
 #endif
 /* Tokens.  */
@@ -94,6 +95,7 @@
 #define TOKEN_MUL_OP 281
 #define TOKEN_POW_OP 282
 #define STRING_LITERAL 283
+#define STRING_IDENTIFIER 284
 
 
 

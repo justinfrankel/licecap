@@ -231,7 +231,7 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
 #ifndef NSEEL_EEL1_COMPAT_MODE
       else if (rv == '#' && scctx->onNamedString)
       {
-        rv=VALUE;
+        rv=STRING_IDENTIFIER;
         *output = nseel_translate(scctx,tok,rdptr-tok);
       }
       else if (rv == '\'')

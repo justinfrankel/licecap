@@ -251,6 +251,7 @@ opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleF
 opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
 opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx);
+opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int np, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 
 struct eelStringSegmentRec *nseel_createStringSegmentRec(compileContext *ctx, const char *str, int len);
 opcodeRec *nseel_eelMakeOpcodeFromStringSegments(compileContext *ctx, struct eelStringSegmentRec *rec);
