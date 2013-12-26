@@ -3744,6 +3744,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
   
   memset(handle,0,sizeof(codeHandleType));
 
+  ctx->l_stats[0] += _expression_end - _expression;
   ctx->tmpCodeHandle = handle;
   endptr=_expression;
 
