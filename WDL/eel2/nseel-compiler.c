@@ -3773,7 +3773,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       for (;;)
       {
         int l;
-        const char *p=nseel_simple_tokenizer(&endptr,_expression_end,&l);
+        const char *p=nseel_simple_tokenizer(&endptr,_expression_end,&l,NULL);
         if (!p) 
         {
           if (pcnt || pcnt2) ctx->gotEndOfInput|=4;
@@ -3806,8 +3806,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
     {
       int tmplen,funcname_len;
       const char *p = expr;
-      const char *tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen);
-      const char *funcname = nseel_simple_tokenizer(&p,endptr,&funcname_len);
+      const char *tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL);
+      const char *funcname = nseel_simple_tokenizer(&p,endptr,&funcname_len,NULL);
       if (tok1 && funcname && tmplen == 8 && !strncasecmp(tok1,"function",8) && (isalpha(funcname[0]) || funcname[0] == '_'))
       {
         int had_parms_locals=0;
@@ -3816,7 +3816,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         is_fname[funcname_len]=0;
         ctx->function_curName = is_fname; // only assigned for the duration of the loop, cleared later //-V507
 
-        while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen)))
+        while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
         {
           int is_parms = 0, localTableContext = 0;
           int maxcnt=0;
@@ -3838,7 +3838,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
             else if (tmplen == 8 && !strncasecmp(tok1,"instance",tmplen)) localTableContext=1;
             else break; // unknown token!
 
-            tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen);
+            tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL);
             if (!tok1 || tok1[0] != '(') break;
           }
           had_parms_locals = 1;
@@ -3846,7 +3846,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
 
           sp_save=p;
 
-          while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen)))
+          while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
           {
             if (tok1[0] == ')') break;
             if (isalpha(*tok1) || *tok1 == '_') maxcnt++;
@@ -3867,7 +3867,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
               if (osz && ot) memcpy(ctx->function_localTable_Names[localTableContext],ot,sizeof(char *) * osz);
               p=sp_save;
 
-              while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen)))
+              while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
               {
                 if (tok1[0] == ')') break;
                 if (isalpha(*tok1) || *tok1 == '_') 
@@ -4807,6 +4807,7 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
       return nseel_createCompiledValue(ctx,(EEL_F)1.61803399);      
     else if ((tmplen < 0 || tmplen == 4) && tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
       return nseel_createCompiledValue(ctx,(EEL_F)tmp[2]);      
+    else return NULL;
   }
   else if (tmp[0] == '\'')
   {

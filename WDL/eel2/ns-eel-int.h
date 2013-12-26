@@ -277,8 +277,8 @@ extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, 
 
 #include "y.tab.h"
 
-const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut);
-const char *nseel_skip_space_and_comments(const char *p, const char *endptr);
+const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut, int *state);
+const char *nseel_skip_space_and_comments(const char *p, const char *endptr, int *state);
 int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, int rdptr_size, char delim_char); // returns length used, minus NUL char
 
 opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen); // tmplen<0 for nul-term

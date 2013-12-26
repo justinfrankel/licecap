@@ -28,8 +28,14 @@
 #include "../wdlcstring.h"
 
 
-const char *nseel_skip_space_and_comments(const char *p, const char *endptr)
+const char *nseel_skip_space_and_comments(const char *p, const char *endptr, int *state)
 {
+  if (state && *state)
+  {
+    if (*state != 1) return p; // string open, don't skip anything
+
+    goto in_comment;
+  }
   for (;;)
   {
     while (p < endptr && isspace(p[0])) p++;
@@ -41,8 +47,11 @@ const char *nseel_skip_space_and_comments(const char *p, const char *endptr)
     }
     else if (p[1] == '*')
     {
+      if (state) *state=1;
       p+=2;
+in_comment:
       while (p < endptr-1 && (p[0] != '*' || p[1] != '/')) p++;
+      if (state && p < endptr-1) *state=0;
       p+=2;
       if (p>=endptr) return endptr;
     }
@@ -141,10 +150,13 @@ int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegm
   return pos;
 }
 
-const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut)
+// state can be NULL, it will be set if finished with unterminated thing: 1 for multiline comment, ' or " for string
+const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut, int *state)
 {
-  const char *p = nseel_skip_space_and_comments(*ptr, endptr);
+  const char *p = nseel_skip_space_and_comments(*ptr, endptr,state);
   const char *rv = p;
+  char delim;
+
   if (p >= endptr) 
   {
     *ptr = endptr;
@@ -152,24 +164,39 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
     return NULL;
   }
 
-  if (isalpha(*p) || *p == '_' || *p == '#')
+#ifndef NSEEL_EEL1_COMPAT_MODE
+  if (state && (*state == '\'' || *state == '\"'))
   {
-    p++;
-    while (p < endptr && (isalnum(*p) || *p == '_' || *p == '.')) p++;
+    delim = (char)*state;
+    goto in_string;
   }
-  else if (*p == '$' && p+3 < endptr && p[1] == '\'' && p[3] == '\'')
+#endif
+  if (*p == '$' && p+3 < endptr && p[1] == '\'' && p[3] == '\'')
   {
     p+=4;
+  }
+  else if (isalnum(*p) || *p == '_' || *p == '#' || *p == '$')
+  {
+    if (*p == '$' && p < endptr-1 && p[1] == '~') p++;
+    p++;
+    while (p < endptr && (isalnum(*p) || *p == '_' || *p == '.')) p++;
   }
 #ifndef NSEEL_EEL1_COMPAT_MODE
   else if (*p == '\'' || *p == '\"')
   {    
-    const char delim = *p++;
+    delim = *p++;
+    if (state) *state=delim;
+in_string:
+
     while (p < endptr)
     {
       const char c = *p++;
       if (p < endptr && c == '\\') p++;  // skip escaped characters
-      else if (c == delim) break;
+      else if (c == delim) 
+      {
+        if (state) *state=0;
+        break;
+      }
     }
   }
 #endif
@@ -191,41 +218,17 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
     int rv=0,toklen=0;
     const char *rdptr = scctx->rdbuf;
     const char *endptr = scctx->rdbuf_end;
-    const char *tok = nseel_simple_tokenizer(&rdptr,endptr,&toklen);
+    const char *tok = nseel_simple_tokenizer(&rdptr,endptr,&toklen,NULL);
     *output = 0;
     if (tok)
     {
       rv = tok[0];
       if (rv == '$')
       {
-        if (rdptr < endptr) 
-        {
-          switch (rdptr[0])
-          {
-            case 'x':
-            case 'X':
-              rdptr++;
-              while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) rdptr++;
-            break;
-            case '~':
-              rdptr++;
-              while (rdptr < endptr && (rv=rdptr[0]) && (rv>='0' && rv<='9')) rdptr++;
-            break;
-            case 'e':
-            case 'E':
-              rdptr++;
-            break;
-            case 'p':
-            case 'P':
-              if (rdptr+1 < endptr && toupper(rdptr[1]) == 'I') rdptr+=2;
-              else if (rdptr+2 < endptr && toupper(rdptr[1]) == 'H' && toupper(rdptr[2]) == 'I') rdptr+=3;
-            break;
-          }
-        }
         if (rdptr != tok+1)
         {
-          rv=VALUE;
           *output = nseel_translate(scctx,tok,rdptr-tok);
+          if (*output) rv=VALUE;
         }
       }
 #ifndef NSEEL_EEL1_COMPAT_MODE
