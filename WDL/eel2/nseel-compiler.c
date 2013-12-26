@@ -1852,7 +1852,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
 
       if (!nm[0]) return -1;
     
-      b = nseel_int_register_var(ctx,nm,0);
+      b = nseel_int_register_var(ctx,nm,0,NULL);
       if (!b) RET_MINUS1_FAIL("error registering var")
     }
   }
@@ -1863,7 +1863,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     b=op->parms.dv.valuePtr;
     if (!b && op->opcodeType == OPCODETYPE_VARPTR && op->relname && op->relname[0]) 
     {
-      op->parms.dv.valuePtr = b = nseel_int_register_var(ctx,op->relname,0);
+      op->parms.dv.valuePtr = b = nseel_int_register_var(ctx,op->relname,0,NULL);
     }
 
     if (b && op->opcodeType == OPCODETYPE_VARPTRPTR) b = *(EEL_F **)b;
@@ -4125,12 +4125,15 @@ int *NSEEL_code_getstats(NSEEL_CODEHANDLE code)
   return 0;
 }
 
-void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list))
+void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, 
+    EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list),
+    EEL_F (*onNamedString)(void *caller_this, const char *name))
 {
   if (ctx)
   {
     compileContext *c=(compileContext*)ctx;
     c->onString = onString;
+    c->onNamedString = onNamedString;
   }
 }
 
@@ -4271,7 +4274,7 @@ static EEL_F *get_global_var(const char *gv, int addIfNotPresent)
 
 
 
-EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
+EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, const char **namePtrOut)
 {
   int match_wb = -1, match_ti=-1;
   int wb;
@@ -4302,6 +4305,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
         varNameHdr *v = ((varNameHdr*)plist[ti])-1;
         v->refcnt++;
         if (isReg) v->isreg=isReg;
+        if (namePtrOut) *namePtrOut = plist[ti];
         break;
       }
     }
@@ -4360,6 +4364,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg)
 
     ctx->varTable_Names[wb][ti] = b;
     ctx->varTable_Values[wb][ti]=0.0;
+    if (namePtrOut) *namePtrOut = b;
   }
   return ctx->varTable_Values[wb] + ti;
 }
@@ -4401,7 +4406,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
     if (a) return a;
   }
   
-  return nseel_int_register_var(ctx,var,1);
+  return nseel_int_register_var(ctx,var,1,NULL);
 }
 
 int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
@@ -4691,6 +4696,15 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
     sz = nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'');
     for (x=0;x<sz;x++) rv = (rv<<8) + ((unsigned char*)b)[x];
     return nseel_createCompiledValue(ctx,(EEL_F)rv);
+  }
+  else if (tmp[0] == '#')
+  {
+    char buf[512];
+    if (tmplen < 0) tmplen=strlen(tmp);
+    if (tmplen > sizeof(buf)) tmplen = sizeof(buf);
+    memcpy(buf,tmp+1,tmplen-1);
+    buf[tmplen-1]=0;
+    if (ctx->onNamedString) return nseel_createCompiledValue(ctx,ctx->onNamedString(ctx->caller_this,buf));
   }
   return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }

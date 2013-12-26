@@ -127,7 +127,9 @@ struct eelStringSegmentRec {
   const char *str_start; // escaped characters, including opening/trailing characters
   int str_len; 
 };
-void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list));
+void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, 
+    EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list),
+    EEL_F (*onNamedString)(void *caller_this, const char *name));
 
 // call with NULL to calculate size, or non-null to generate to buffer (returning size used -- will not null terminate, caller responsibility)
 int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegmentRec *list); 

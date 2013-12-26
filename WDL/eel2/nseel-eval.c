@@ -152,7 +152,7 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
     return NULL;
   }
 
-  if (isalpha(*p) || *p == '_')
+  if (isalpha(*p) || *p == '_' || *p == '#')
   {
     p++;
     while (p < endptr && (isalnum(*p) || *p == '_' || *p == '.')) p++;
@@ -229,6 +229,11 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
         }
       }
 #ifndef NSEEL_EEL1_COMPAT_MODE
+      else if (rv == '#' && scctx->onNamedString)
+      {
+        rv=VALUE;
+        *output = nseel_translate(scctx,tok,rdptr-tok);
+      }
       else if (rv == '\'')
       {
         if (toklen > 1 && tok[toklen-1] == '\'')
@@ -259,7 +264,6 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
       }
       else if ((rv >= '0' && rv <= '9') || (rv == '.' && (rdptr < endptr && rdptr[0] >= '0' && rdptr[0] <= '9')))
       {
-        char buf[NSEEL_MAX_VARIABLE_NAMELEN*2];
         if (rv == '0' && rdptr < endptr && (rdptr[0] == 'x' || rdptr[0] == 'X'))
         {
           rdptr++;

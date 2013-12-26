@@ -29,106 +29,23 @@ static void writeToStandardError(const char *fmt, ...)
 }
 
 
+class eel_string_context_state;
 class sInst {
   public:
     enum 
     { 
-      MAX_USER_STRINGS=16384, 
-      STRING_INDEX_BASE=90000,
       MAX_FILE_HANDLES=512,
       FILE_HANDLE_INDEX_BASE=1000000
     };
 
-    sInst() 
-    {
-      memset(m_handles,0,sizeof(m_handles));
-      memset(m_rw_strings,0,sizeof(m_rw_strings));
-      m_vm = NSEEL_VM_alloc();
-      if (!m_vm) fprintf(stderr,"NSEEL_VM_alloc(): failed\n");
-      NSEEL_VM_SetCustomFuncThis(m_vm,this);
-      NSEEL_VM_SetStringFunc(m_vm, addStringCallback);
+    sInst();
+    ~sInst();
 
-    }
-
-    ~sInst() 
-    {
-      m_code_freelist.Empty((void (*)(void *))NSEEL_code_free);
-      if (m_vm) NSEEL_VM_free(m_vm);
-
-      int x;
-      for (x=0;x<MAX_USER_STRINGS;x++) delete m_rw_strings[x];
-      for (x=0;x<MAX_FILE_HANDLES;x++) 
-      {
-        if (m_handles[x]) fclose(m_handles[x]); 
-        m_handles[x]=0;
-      }
-      m_strings.Empty(true);
-    }
     int runcode(const char *code, bool showerr, bool canfree);
 
     NSEEL_VMCTX m_vm;
 
-    WDL_FastString *m_rw_strings[MAX_USER_STRINGS];
-    WDL_PtrList<WDL_FastString> m_strings;
-    WDL_StringKeyedArray<EEL_F *> m_namedvars;
     WDL_PtrList<void> m_code_freelist;
-
-    static int varEnumProc(const char *name, EEL_F *val, void *ctx)
-    {
-      if (!((sInst *)ctx)->m_namedvars.Get(name)) ((sInst *)ctx)->m_namedvars.Insert(name,val);
-      return 1;
-    }
-
-    EEL_F *GetNamedVar(const char *s, bool createIfNotExists)
-    {
-      if (!*s) return NULL;
-      EEL_F *r = m_namedvars.Get(s);
-      if (r || !createIfNotExists) return r;
-      r=NSEEL_VM_regvar(m_vm,s);
-      if (r) m_namedvars.Insert(s,r);
-      return r;
-    }
-    EEL_F *GetVarForFormat(int formatidx) { return NULL; } // must use %{xyz}s syntax
-
-    int AddString(const WDL_FastString &s)
-    {
-      WDL_FastString *ns = new WDL_FastString;
-      *ns = s;
-      m_strings.Add(ns);
-      return m_strings.GetSize()-1+STRING_INDEX_BASE;
-    }
-    static EEL_F addStringCallback(void *caller_this, struct eelStringSegmentRec *list)
-    {
-      WDL_FastString *ns = new WDL_FastString;
-      // could probably do a faster implementation using AddRaw() etc but this should also be OK
-      int sz=nseel_stringsegments_tobuf(NULL,0,list);
-      ns->SetLen(sz+32);
-      sz=nseel_stringsegments_tobuf((char *)ns->Get(),sz,list);
-      ns->SetLen(sz);
-
-      sInst *_this = (sInst *)caller_this;
-
-      _this->m_strings.Add(ns);
-      return _this->m_strings.GetSize()-1+STRING_INDEX_BASE;
-   }
-
-    const char *GetStringForIndex(EEL_F val, WDL_FastString **isWriteableAs=NULL)
-    {
-      int idx = (int) (val+0.5);
-      if (idx>=0 && idx < MAX_USER_STRINGS)
-      {
-        if (isWriteableAs)
-        {
-          if (!m_rw_strings[idx]) m_rw_strings[idx] = new WDL_FastString;
-          *isWriteableAs = m_rw_strings[idx];
-        }
-        return m_rw_strings[idx]?m_rw_strings[idx]->Get():"";
-      }
-
-      WDL_FastString *s = m_strings.Get(idx - STRING_INDEX_BASE);
-      if (isWriteableAs) *isWriteableAs=s;
-      return s ? s->Get() : NULL;
-    }
 
     FILE *m_handles[MAX_FILE_HANDLES];
     EEL_F OpenFile(const char *fn, const char *mode)
@@ -167,12 +84,13 @@ class sInst {
       return NULL;
     }
 
+    eel_string_context_state *m_string_context;
 };
 
-#define EEL_STRING_GETNAMEDVAR(x,y) ((sInst*)(opaque))->GetNamedVar(x,y)
-#define EEL_STRING_GETFMTVAR(x) ((sInst*)(opaque))->GetVarForFormat(x)
-#define EEL_STRING_GET_FOR_INDEX(x, wr) ((sInst*)(opaque))->GetStringForIndex(x, wr)
+//#define EEL_STRINGS_MUTABLE_LITERALS
+//#define EEL_STRING_WANT_MUTEX
 
+#define EEL_STRING_GET_CONTEXT_POINTER(opaque) (((sInst *)opaque)->m_string_context)
 #define EEL_STRING_DEBUGOUT writeToStandardError // no parameters, since it takes varargs
 #define EEL_STRING_STDOUT_WRITE(x,len) { fwrite(x,len,1,stdout); fflush(stdout); }
 #include "eel_strings.h"
@@ -183,11 +101,38 @@ class sInst {
 
 #include "eel_files.h"
 
+sInst::sInst()
+{
+  memset(m_handles,0,sizeof(m_handles));
+  m_vm = NSEEL_VM_alloc();
+  if (!m_vm) fprintf(stderr,"NSEEL_VM_alloc(): failed\n");
+  NSEEL_VM_SetCustomFuncThis(m_vm,this);
+
+  m_string_context = new eel_string_context_state;
+  eel_string_initvm(m_vm);
+}
+
+sInst::~sInst() 
+{
+  m_code_freelist.Empty((void (*)(void *))NSEEL_code_free);
+  if (m_vm) NSEEL_VM_free(m_vm);
+
+  int x;
+  for (x=0;x<MAX_FILE_HANDLES;x++) 
+  {
+    if (m_handles[x]) fclose(m_handles[x]); 
+    m_handles[x]=0;
+  }
+  delete m_string_context;
+}
+
 int sInst::runcode(const char *codeptr, bool showerr, bool canfree)
 {
   if (m_vm) 
   {
     NSEEL_CODEHANDLE code = NSEEL_code_compile_ex(m_vm,codeptr,1,canfree ? 0 : NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
+    if (code) m_string_context->update_named_vars(m_vm);
+
     char *err;
     if (!code && (err=NSEEL_code_getcodeerror(m_vm)))
     {
@@ -199,7 +144,6 @@ int sInst::runcode(const char *codeptr, bool showerr, bool canfree)
     {
       if (code)
       {
-        NSEEL_VM_enumallvars(m_vm,varEnumProc, this);
         NSEEL_code_execute(code);
         if (canfree) NSEEL_code_free(code);
         else m_code_freelist.Add((void*)code);
@@ -265,12 +209,11 @@ int main(int argc, char **argv)
     const int argv_offs = 1<<22;
     code.SetFormatted(64,"argc=0; argv=%d;\n",argv_offs);
     int x;
-    for (x=0;x<argc;x++)
+    for (x=argpos;x<argc;x++)
     {
       if (x==0 || x >= argpos)
       {
-        t.Set(argv[x]);
-        code.AppendFormatted(64,"argv[argc]=%d; argc+=1;\n",inst.AddString(t));
+        code.AppendFormatted(64,"argv[argc]=%d; argc+=1;\n",inst.m_string_context->AddString(new WDL_FastString(argv[x])));
       }
     }
     inst.runcode(code.Get(),true,true);

@@ -1613,7 +1613,7 @@ yyreduce:
   case 14:
 #line 84 "eel2.y"
     {
-          (yyval) = nseel_eelMakeOpcodeFromStringSegments(context,(yyvsp[(1) - (1)]));
+          (yyval) = nseel_eelMakeOpcodeFromStringSegments(context,(struct eelStringSegmentRec *)(yyvsp[(1) - (1)]));
         }
     break;
 

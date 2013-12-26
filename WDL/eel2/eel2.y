@@ -82,7 +82,7 @@ value_thing:
 	}
         | string
         {
-          $$ = nseel_eelMakeOpcodeFromStringSegments(context,$1);
+          $$ = nseel_eelMakeOpcodeFromStringSegments(context,(struct eelStringSegmentRec *)$1);
         }
 	;
 

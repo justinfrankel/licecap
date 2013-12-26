@@ -6,9 +6,7 @@
 #include "../wdlstring.h"
 
 // required for context
-// #define EEL_STRING_GET_FOR_INDEX(x, wr) ((classname *)opaque)->GetStringForIndex(x, wr)
-// optional - #define EEL_STRING_GETFMTVAR(x) ((classname *)opaque)->GetVarForFormat(x)
-// optional - #define EEL_STRING_GETNAMEDVAR(x,createOK) ((classname *)opaque)->GetNamedVar(x,createOK)
+// #define EEL_STRING_GET_CONTEXT_POINTER(opaque) (((sInst *)opaque)->m_eel_string_state)
 
 
 /*
@@ -65,22 +63,253 @@ also recommended, for the PHP fans:
 
   */
 
+// define this to allow modifying literal strings via code, i.e. foobar = strcat("foo","bar");
+// disabled by default, so literals can be pooled/reused/etc
+// #define EEL_STRINGS_MUTABLE_LITERALS
 
 #ifndef EEL_STRING_MAXUSERSTRING_LENGTH_HINT
 #define EEL_STRING_MAXUSERSTRING_LENGTH_HINT 16384
 #endif
 
 #ifndef EEL_STRING_MAX_USER_STRINGS
+// strings 0...x-1
 #define EEL_STRING_MAX_USER_STRINGS 1024
 #endif
 
-#ifndef EEL_STRING_STORAGECLASS 
+#ifndef EEL_STRING_LITERAL_BASE
+// strings defined by "xyz"
+#define EEL_STRING_LITERAL_BASE 10000
+#endif
+
+// base for named mutable strings (#xyz)
+#ifndef EEL_STRING_NAMED_BASE 
+#define EEL_STRING_NAMED_BASE  90000
+#endif
+
+// base for unnamed mutable strings (#)
+#ifndef EEL_STRING_UNNAMED_BASE 
+#define EEL_STRING_UNNAMED_BASE  190000
+#endif
+
+// define EEL_STRING_MUTEXLOCK_SCOPE for custom, otherwise EEL_STRING_WANT_MUTEX for builtin locking
+#ifndef EEL_STRING_MUTEXLOCK_SCOPE
+  #ifdef EEL_STRING_WANT_MUTEX
+     #include "../mutex.h"
+     #define EEL_STRING_MUTEXLOCK_SCOPE WDL_MutexLock __lock(&(EEL_STRING_GET_CONTEXT_POINTER(opaque)->m_mutex));
+  #else
+    #define EEL_STRING_MUTEXLOCK_SCOPE
+  #endif
+#endif
+
+// allow overriding behavior
+#ifndef EEL_STRING_GET_FOR_INDEX
+#define EEL_STRING_GET_FOR_INDEX(x, wr) (EEL_STRING_GET_CONTEXT_POINTER(opaque)->GetStringForIndex(x, wr))
+#endif
+
+#ifndef EEL_STRING_GETFMTVAR
+#define EEL_STRING_GETFMTVAR(x) (EEL_STRING_GET_CONTEXT_POINTER(opaque)->GetVarForFormat(x))
+#endif
+
+#ifndef EEL_STRING_GETNAMEDVAR
+#define EEL_STRING_GETNAMEDVAR(x,createOK,altOut) (EEL_STRING_GET_CONTEXT_POINTER(opaque)->GetNamedVar(x,createOK,altOut))
+#endif
+
+
+
+
+
+#ifndef EEL_STRING_STORAGECLASS
 #define EEL_STRING_STORAGECLASS WDL_FastString
 #endif
 
-#ifndef EEL_STRING_MUTEXLOCK_SCOPE
-#define EEL_STRING_MUTEXLOCK_SCOPE
+
+
+class eel_string_context_state
+{
+  public:
+    static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
+
+    eel_string_context_state()  : m_varname_cache(cmpistr), m_named_strings_names(false)
+    {
+      m_vm=0;
+      memset(m_user_strings,0,sizeof(m_user_strings));
+    }
+    ~eel_string_context_state()
+    {
+      clear_state(true);
+    }
+
+    void clear_state(bool full)
+    {
+      if (full)
+      {
+        int x;
+        for (x=0;x<EEL_STRING_MAX_USER_STRINGS;x++) 
+        {
+          delete m_user_strings[x];
+          m_user_strings[x]=0;
+        }
+        m_named_strings_names.DeleteAll();
+        m_named_strings.Empty(true);
+      }
+      if (full) m_literal_strings.Empty(true);
+      m_varname_cache.DeleteAll();
+      m_unnamed_strings.Empty(true);
+    }
+
+    void update_named_vars(NSEEL_VMCTX vm) // call after compiling any code, or freeing code, etc
+    {
+      m_vm = vm;
+      m_varname_cache.DeleteAll();
+      if (vm) NSEEL_VM_enumallvars(vm,varEnumProc, this);
+      m_varname_cache.Resort();
+    }
+
+    EEL_F *GetVarForFormat(int formatidx) 
+    { 
+      return NULL;  // must use %{xyz}s syntax -- override to change defaults
+    }
+
+    // if named variables are used, must call update_named_vars(vm) to set context/generate list
+    EEL_F *GetNamedVar(const char *s, bool createIfNotExists, EEL_F *altOut)
+    {
+      if (!s || !*s) return NULL;
+
+      if (s[0] == '#')
+      {
+        if (!s[1] || !altOut) return NULL;
+
+        int idx = m_named_strings_names.Get(s+1);
+        if (!idx && createIfNotExists)
+        {
+          idx = m_named_strings.GetSize() + EEL_STRING_NAMED_BASE;
+          m_named_strings.Add(new EEL_STRING_STORAGECLASS);
+          m_named_strings_names.Insert(s+1,idx);
+        }
+        if (!idx) return NULL;
+
+        *altOut = (EEL_F) idx;
+        return altOut;
+      }
+
+      EEL_F *r = m_varname_cache.Get(s);
+      if (r || !createIfNotExists || !m_vm) return r;
+
+      const char *p=NULL;
+      r=nseel_int_register_var((compileContext*)m_vm,s,0,&p);
+      if (r&&p) m_varname_cache.Insert(p,r);
+      return r;
+    }
+
+    const char *GetStringForIndex(EEL_F val, EEL_STRING_STORAGECLASS **isWriteableAs=NULL)
+    {
+      int idx = (int) (val+0.5);
+      if (idx>=0 && idx < EEL_STRING_MAX_USER_STRINGS)
+      {
+        if (isWriteableAs)
+        {
+          if (!m_user_strings[idx]) m_user_strings[idx] = new EEL_STRING_STORAGECLASS;
+          *isWriteableAs = m_user_strings[idx];
+        }
+        return m_user_strings[idx]?m_user_strings[idx]->Get():"";
+      }
+      EEL_STRING_STORAGECLASS *s;
+      s = m_unnamed_strings.Get(idx - EEL_STRING_UNNAMED_BASE);
+      if (!s) s= m_named_strings.Get(idx - EEL_STRING_NAMED_BASE);
+
+      if (s)
+      {
+        // mutable string
+        if (isWriteableAs) *isWriteableAs=s;
+      }
+      else
+      {
+        s = m_literal_strings.Get(idx - EEL_STRING_LITERAL_BASE);
+        #ifdef EEL_STRINGS_MUTABLE_LITERALS
+          if (isWriteableAs) *isWriteableAs=s;
+        #else
+          if (isWriteableAs) *isWriteableAs=NULL;
+        #endif
+      }
+      return s ? s->Get() : NULL;
+    }
+
+    WDL_PtrList<EEL_STRING_STORAGECLASS> m_literal_strings; // "this kind", normally immutable
+    WDL_PtrList<EEL_STRING_STORAGECLASS> m_unnamed_strings; // #
+    WDL_PtrList<EEL_STRING_STORAGECLASS> m_named_strings;  // #xyz by index, but stringkeyed below for names
+    WDL_StringKeyedArray<int> m_named_strings_names; // #xyz->index
+
+    EEL_STRING_STORAGECLASS *m_user_strings[EEL_STRING_MAX_USER_STRINGS]; // indices 0-1023 (etc)
+    WDL_AssocArray<const char *, EEL_F *> m_varname_cache; // cached pointers when using %{xyz}s, %{#xyz}s bypasses
+
+    NSEEL_VMCTX m_vm;
+#ifdef EEL_STRING_WANT_MUTEX
+    WDL_Mutex m_mutex;
 #endif
+
+    static EEL_F addNamedStringCallback(void *opaque, const char *name)
+    {
+      eel_string_context_state *_this = EEL_STRING_GET_CONTEXT_POINTER(opaque);
+
+      EEL_STRING_MUTEXLOCK_SCOPE
+      if (!name || !name[0])
+      {
+        _this->m_unnamed_strings.Add(new EEL_STRING_STORAGECLASS);
+        return (EEL_F) (_this->m_unnamed_strings.GetSize()-1 + EEL_STRING_UNNAMED_BASE);
+      }
+
+      int a = _this->m_named_strings_names.Get(name);
+      if (a) return (EEL_F)a;
+
+      a = _this->m_named_strings.GetSize() + EEL_STRING_NAMED_BASE;
+      _this->m_named_strings.Add(new EEL_STRING_STORAGECLASS);
+      _this->m_named_strings_names.Insert(name,a);
+
+      return (EEL_F)a;
+    }
+
+    static EEL_F addStringCallback(void *opaque, struct eelStringSegmentRec *list)
+    {
+      eel_string_context_state *_this = EEL_STRING_GET_CONTEXT_POINTER(opaque);
+
+      EEL_STRING_STORAGECLASS *ns = new EEL_STRING_STORAGECLASS;
+      // could probably do a faster implementation using AddRaw() etc but this should also be OK
+      int sz=nseel_stringsegments_tobuf(NULL,0,list);
+      ns->SetLen(sz+32);
+      sz=nseel_stringsegments_tobuf((char *)ns->Get(),sz,list);
+      ns->SetLen(sz);
+      EEL_STRING_MUTEXLOCK_SCOPE
+      return (EEL_F)_this->AddString(ns);
+   }
+   int AddString(EEL_STRING_STORAGECLASS *ns)
+   {
+     const int l = ns->GetLength();
+#ifdef EEL_STRINGS_MUTABLE_LITERALS
+     m_literal_strings.Add(ns);
+     return m_literal_strings.GetSize()-1+EEL_STRING_LITERAL_BASE;
+#else
+     const int sz=m_literal_strings.GetSize();
+     int x;
+     for (x=0;x<sz;x++)
+     {
+       EEL_STRING_STORAGECLASS *s = m_literal_strings.Get(x);
+       if (ns->GetLength() == l && !strcmp(s->Get(),ns->Get())) break;
+     }
+     if (x<sz) delete ns;
+     else m_literal_strings.Add(ns);
+     return x+EEL_STRING_LITERAL_BASE;
+#endif
+   }
+
+   static int varEnumProc(const char *name, EEL_F *val, void *ctx)
+   {
+     ((eel_string_context_state *)ctx)->m_varname_cache.AddUnsorted(name,val);
+     return 1;
+   }
+
+};
+
+
 
 static int eel_validate_format_specifier(const char *fmt_in, char *typeOut, 
                                          char *fmtOut, int fmtOut_sz, 
@@ -151,7 +380,7 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
         if ((*fmt >= 'a' && *fmt <= 'z') ||
             (*fmt >= 'A' && *fmt <= 'Z') ||
             (*fmt >= '0' && *fmt <= '9') ||
-            *fmt == '_' || *fmt == '.')
+            *fmt == '_' || *fmt == '.' || *fmt == '#')
         {
           if (varOut_sz < 2) return 0;
           *varOut++ = *fmt++;
@@ -177,7 +406,6 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
 
 int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char *buf, int buf_sz)
 {
-  int rv=1;
   int fmt_parmpos = 0;
   char *op = buf;
   while ((fmt_end ? fmt < fmt_end : *fmt) && op < buf+buf_sz-128)
@@ -200,11 +428,12 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
         return -1;
       }
 
+      EEL_F vv=0.0;
       const EEL_F *varptr = NULL;
       if (varname_used)
       {
 #ifdef EEL_STRING_GETNAMEDVAR
-        if (varname[0]) varptr=EEL_STRING_GETNAMEDVAR(varname,0);
+        if (varname[0]) varptr=EEL_STRING_GETNAMEDVAR(varname,0,&vv);
 #endif
       }
       else
@@ -213,11 +442,11 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
         varptr = EEL_STRING_GETFMTVAR(fmt_parmpos++);
 #endif
       }
-      const double v = varptr ? (double)*varptr : 0.0;
+      double v = varptr ? (double)*varptr : 0.0;
 
       if (ct == 's' || ct=='S')
       {
-        WDL_FastString *wr=NULL;
+        EEL_STRING_STORAGECLASS *wr=NULL;
         const char *str = EEL_STRING_GET_FOR_INDEX(v,&wr);
         const int maxl=(buf+buf_sz - 2 - op);
         if (wr && !fs[2]) // %s or %S -- todo: implement padding modes for binary compat too?
@@ -233,17 +462,26 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
           snprintf(op,maxl,fs,str ? str : "");
         }
       }
-      else if (ct == 'x' || ct == 'X' || ct == 'd' || ct == 'u')
-      {
-        snprintf(op,64,fs,(int) (v));
-      }
-      else if (ct == 'c')
-      {
-        *op++=(char) (int)v;
-        *op=0;
-      }
       else
-        snprintf(op,64,fs,v);
+      {
+        if (varptr == &vv) // passed %{#str}d etc, convert to float
+        {
+          const char *str = EEL_STRING_GET_FOR_INDEX(v,NULL);
+          v = str ? atof(str) : 0.0;
+        }
+
+        if (ct == 'x' || ct == 'X' || ct == 'd' || ct == 'u')
+        {
+          snprintf(op,64,fs,(int) (v));
+        }
+        else if (ct == 'c')
+        {
+          *op++=(char) (int)v;
+          *op=0;
+        }
+        else
+          snprintf(op,64,fs,v);
+      }
 
       while (*op) op++;
 
@@ -349,6 +587,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
           else if (fmt_char == 'c')
           {
             EEL_F *varOut = NULL;
+            EEL_F vv=0.0;
             if (!dest_varname) 
             {
 #ifdef EEL_STRING_GETFMTVAR
@@ -362,13 +601,25 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
               int idx=0;
               while (dest_varname < fmt_endptr && *dest_varname && *dest_varname != '}' && idx<sizeof(tmp)-1) tmp[idx++] = *dest_varname++;
               tmp[idx]=0;
-              if (idx>0) varOut = EEL_STRING_GETNAMEDVAR(tmp,1);
+              if (idx>0) varOut = EEL_STRING_GETNAMEDVAR(tmp,1,&vv);
 #endif
             }
             if (msg >= msg_endptr) return 0; // out of chars
 
-            const unsigned char c =  *(unsigned char *)msg++;
-            if (varOut) *varOut = (EEL_F)c;
+            if (varOut) 
+            {
+              if (varOut == &vv) // %{#foo}c
+              {
+                EEL_STRING_STORAGECLASS *wr=NULL;
+                EEL_STRING_GET_FOR_INDEX(vv, &wr);
+                if (wr) wr->Set(msg,1);
+              }
+              else
+              {
+                *varOut = (EEL_F)*(unsigned char *)msg;
+              }
+            }
+            msg++;
           }
           else 
           {
@@ -409,6 +660,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
             while (len >= fmt_minlen && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr)) len--;
             if (len < fmt_minlen) return 0;
 
+            EEL_F vv=0.0;
             EEL_F *varOut = NULL;
             if (!dest_varname) 
             {
@@ -423,7 +675,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
               int idx=0;
               while (dest_varname < fmt_endptr && *dest_varname  && *dest_varname != '}' && idx<sizeof(tmp)-1) tmp[idx++] = *dest_varname++;
               tmp[idx]=0;
-              if (idx>0) varOut = EEL_STRING_GETNAMEDVAR(tmp,1);
+              if (idx>0) varOut = EEL_STRING_GETNAMEDVAR(tmp,1,&vv);
 #endif
             }
             if (varOut)
@@ -462,13 +714,22 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
               {
                 char tmp[128];
                 lstrcpyn_safe(tmp,msg,min(len+1,sizeof(tmp)));
-                char *bl=(char*)msg;
-                if (fmt_char == 'u')
-                  *varOut = (EEL_F)strtoul(tmp,&bl,10);
-                else if (fmt_char == 'x' || fmt_char == 'X')
-                  *varOut = (EEL_F)strtoul(msg,&bl,16);
+                if (varOut == &vv) 
+                {
+                  EEL_STRING_STORAGECLASS *wr=NULL;
+                  EEL_STRING_GET_FOR_INDEX(vv, &wr);
+                  if (wr) wr->Set(tmp);
+                }
                 else
-                  *varOut = (EEL_F)atof(tmp);
+                {
+                  char *bl=(char*)msg;
+                  if (fmt_char == 'u')
+                    *varOut = (EEL_F)strtoul(tmp,&bl,10);
+                  else if (fmt_char == 'x' || fmt_char == 'X')
+                    *varOut = (EEL_F)strtoul(msg,&bl,16);
+                  else
+                    *varOut = (EEL_F)atof(tmp);
+                }
               }
             }
             return 1;
@@ -1057,7 +1318,10 @@ static void EEL_string_register()
   NSEEL_addfunctionex("matchi",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_matchi);
 
 }
-
+static void eel_string_initvm(NSEEL_VMCTX vm)
+{
+  NSEEL_VM_SetStringFunc(vm, eel_string_context_state::addStringCallback, eel_string_context_state::addNamedStringCallback);
+}
 
 #endif
 
