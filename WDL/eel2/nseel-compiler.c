@@ -794,6 +794,8 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   int rel_prefix_len=0;
   int rel_prefix_idx=-2;
   int i;    
+  char match_parmcnt[4]={-1,-1,-1,-1}; // [3] is guess
+  char match_parmcnt_pos=0;
   char *sname = (char *)rec->relname;
 
   if (rec->opcodeType != OPCODETYPE_VARPTR || !sname || !sname[0]) return NULL;
@@ -916,23 +918,32 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       while (fr)
       {
         int this_np = fr->num_params;
+        const char *thisfunc = fr->fname;
+        const int thisfunc_len = strlen(thisfunc);
         if (this_np < 1) this_np=1;
-        if (this_np == parmcnt)
+        if (thisfunc_len == ourcall_len && !strcasecmp(thisfunc,ourcall))
         {
-          const char *thisfunc = fr->fname;
-          const int thisfunc_len = strlen(thisfunc);
-          if (thisfunc_len == ourcall_len && !strcasecmp(thisfunc,ourcall))
+          if (this_np == parmcnt)
           {
             bestlen = ourcall_len;
             best = fr;
             break; // found exact match, finished
           }
+          else
+          {
+            if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = fr->num_params;
+          }
+        }
 
-          if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !strcasecmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
+        if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !strcasecmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
+        {
+          if (this_np == parmcnt) 
           {
             bestlen = ourcall_len;
             best = fr;
           }
+          else
+            if (match_parmcnt[3]<0) match_parmcnt[3]=fr->num_params;
         }
         fr=fr->next;
       }
@@ -959,81 +970,138 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   }
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
-    if (!strcasecmp(sname,"assign") && parmcnt == 2) 
+    if (!strcasecmp(sname,"assign")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC2;
-      rec->fntype = FN_ASSIGN;
-      return rec;
+      if (parmcnt == 2)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC2;
+        rec->fntype = FN_ASSIGN;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"if") && parmcnt == 3) 
+    else if (!strcasecmp(sname,"if")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC3;
-      rec->fntype = FN_IF_ELSE;
-      return rec;
+      if (parmcnt == 3)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC3;
+        rec->fntype = FN_IF_ELSE;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 3;
     }
-    else if (!strcasecmp(sname,"equal") && parmcnt == 2) 
+    else if (!strcasecmp(sname,"equal")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC2;
-      rec->fntype = FN_EQ;
-      return rec;
+      if (parmcnt == 2)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC2;
+        rec->fntype = FN_EQ;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"below") && parmcnt == 2) 
+    else if (!strcasecmp(sname,"below")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC2;
-      rec->fntype = FN_LT;
-      return rec;
+      if (parmcnt == 2)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC2;
+        rec->fntype = FN_LT;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"above") && parmcnt == 2) 
+    else if (!strcasecmp(sname,"above")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC2;
-      rec->fntype = FN_GT;
-      return rec;
+      if (parmcnt == 2)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC2;
+        rec->fntype = FN_GT;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"bnot") && parmcnt == 1) 
+    else if (!strcasecmp(sname,"bnot")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC1;
-      rec->fntype = FN_NOT;
-      return rec;
+      if (parmcnt == 1)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC1;
+        rec->fntype = FN_NOT;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 1;
     }
-    else if (!strcasecmp(sname,"megabuf") && parmcnt == 1) 
+    else if (!strcasecmp(sname,"megabuf")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC1;
-      rec->fntype = FN_MEMORY;
-      return rec;
+      if (parmcnt == 1)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC1;
+        rec->fntype = FN_MEMORY;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 1;
     }
-    else if (!strcasecmp(sname,"gmegabuf") && parmcnt == 1) 
+    else if (!strcasecmp(sname,"gmegabuf")) 
     {
-      rec->opcodeType = OPCODETYPE_FUNC1;
-      rec->fntype = FN_GMEMORY;
-      return rec;
+      if (parmcnt == 1)
+      {
+        rec->opcodeType = OPCODETYPE_FUNC1;
+        rec->fntype = FN_GMEMORY;
+        return rec;
+      }
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 1;
     }
     else
 #endif
   // convert legacy pow() to FN_POW
-  if (!strcasecmp("pow",sname) && parmcnt == 2)
+  if (!strcasecmp("pow",sname))
   {
-    rec->opcodeType = OPCODETYPE_FUNC2;
-    rec->fntype = FN_POW;
-    return rec;
+    if (parmcnt == 2)
+    {
+      rec->opcodeType = OPCODETYPE_FUNC2;
+      rec->fntype = FN_POW;
+      return rec;
+    }
+    if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
   }
     
   for (i=0;nseel_getFunctionFromTable(i);i++)
   {
     functionType *f=nseel_getFunctionFromTable(i);
-    if (!strcasecmp(f->name, sname) && parmcnt == (f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) )
+    if (!strcasecmp(f->name, sname))
     {
-      rec->fntype = FUNCTYPE_FUNCTIONTYPEREC;
-      rec->fn = (void *)f;
-      switch (parmcnt)
+      if (parmcnt == (f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK))
       {
-        case 0:
-        case 1: rec->opcodeType = OPCODETYPE_FUNC1; break;
-        case 2: rec->opcodeType = OPCODETYPE_FUNC2; break;
-        case 3: rec->opcodeType = OPCODETYPE_FUNC3; break;
-        default: rec->opcodeType = OPCODETYPE_FUNCX; break;
+        rec->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+        rec->fn = (void *)f;
+        switch (parmcnt)
+        {
+          case 0:
+          case 1: rec->opcodeType = OPCODETYPE_FUNC1; break;
+          case 2: rec->opcodeType = OPCODETYPE_FUNC2; break;
+          case 3: rec->opcodeType = OPCODETYPE_FUNC3; break;
+          default: rec->opcodeType = OPCODETYPE_FUNCX; break;
+        }
+        return rec;
       }
-      return rec;
+      if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = (f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK);
     }
+  }
+  if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
+  if (match_parmcnt[3] >= 0)
+  {
+    if (match_parmcnt_pos<3) match_parmcnt[match_parmcnt_pos] = match_parmcnt[3];
+    match_parmcnt_pos++;
+  }
+
+  if (!match_parmcnt_pos)
+    snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"'%.30s' undefined",sname);
+  else
+  {
+    int x;
+    snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"'%.30s' needs ",sname);
+    for (x = 0; x < match_parmcnt_pos; x++)
+      snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"%s%d",x==0?"" : x == match_parmcnt_pos-1?" or ":",",match_parmcnt[x]);
+    lstrcatn(ctx->last_error_string," parms",sizeof(ctx->last_error_string));
   }
   return NULL;
 }
@@ -4007,10 +4075,14 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       continue;
 
 #else
-      if (!ctx->last_error_string[0])
+      //if (!ctx->last_error_string[0])
       {
         int byteoffs = ctx->errVar;
         int linenumber;
+        char cur_err[sizeof(ctx->last_error_string)];
+        lstrcpyn_safe(cur_err,ctx->last_error_string,sizeof(cur_err));
+        if (cur_err[0]) lstrcatn(cur_err,": ",sizeof(cur_err));
+        else lstrcpyn_safe(cur_err,"syntax error: ",sizeof(cur_err));
 
         if (_expression + byteoffs >= _expression_end) 
         {
@@ -4024,7 +4096,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
 
         if (ctx->gotEndOfInput&4)
         {
-          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Around line %d: missing ) or ]",linenumber+lineoffs);
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %smissing ) or ]",linenumber+lineoffs,cur_err);
         }
         else
         {
@@ -4046,11 +4118,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
 
           // display left_amt >>>> right_amt_nospace
           if (left_amt_nospace > 0)
-            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Line %d '%.*s <!> %.*s'",linenumber+lineoffs,
+            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %s'%.*s <!> %.*s'",linenumber+lineoffs,cur_err,
               left_amt_nospace,p-left_amt_nospace,
               right_amt_nospace,p);
           else
-            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Line %d '%.*s'",linenumber+lineoffs,right_amt_nospace,p);
+            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %s'%.*s'",linenumber+lineoffs,cur_err,right_amt_nospace,p);
         }
       }
 
