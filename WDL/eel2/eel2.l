@@ -90,7 +90,7 @@ static void comment(yyscan_t yyscanner);
 \*=                             return TOKEN_MUL_OP;
 \^=                             return TOKEN_POW_OP;
 
-[a-zA-Z_][a-zA-Z0-9\._]*        return nseel_lookup(yyextra,yylval, yytext); 
+[a-zA-Z_][a-zA-Z0-9\._]*        &yylval = nseel_createCompiledValuePtr((compileContext *)yyextra, NULL, yytext); return IDENTIFIER; 
 
 [ \t\r\n]+      /* whitespace */
 \/\/.*$         /* comment */

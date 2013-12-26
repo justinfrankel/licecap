@@ -25,9 +25,12 @@
 #define scanner context->scanner
 #define YY_(x) ("")
 
+  /* todo: better error messages, such as "function not found" or "function parameter count incorrect" */
+#define ON_FAILED_CODE yyerror (&yyloc, context, "");
+
 %}
 
-%token VALUE IDENTIFIER FUNCTION1 FUNCTION2 FUNCTION3 FUNCTIONX TOKEN_SHL TOKEN_SHR 
+%token VALUE IDENTIFIER TOKEN_SHL TOKEN_SHR 
 %token TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
 %token TOKEN_ADD_OP TOKEN_SUB_OP TOKEN_MOD_OP TOKEN_OR_OP TOKEN_AND_OP TOKEN_XOR_OP TOKEN_DIV_OP TOKEN_MUL_OP TOKEN_POW_OP
 %token STRING_LITERAL STRING_IDENTIFIER
@@ -55,31 +58,30 @@ string:
 
 assignable_value:
 	IDENTIFIER
-        /* used to have VALUE in here rather than rvalue, to allow 1=1 1+=2 etc, but silly to, 
-           though this breaks Vmorph, which does 1=1 for a nop, and Jonas DrumReaplacer, which does x = 0 = y */
+        {
+          $$ = nseel_resolve_named_symbol(context, $1, -1); /* convert from purely named to namespace-relative, etc */
+        }
+        /* we used to have VALUE in here rather than rvalue, to allow 1=1 1+=2 etc, but silly to, 
+           though this breaks Vmorph, which does 1=1 for a nop, and Jonas DrumReaplacer, which does x = 0 = y = 0 */
 	| '(' expression ')'
 	{
 	  $$ = $2;
 	}
-	| FUNCTION1 '(' expression ')'
+	| IDENTIFIER '(' expression ')'
 	{
-  	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, 0, 0);
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, 0, 0))) { ON_FAILED_CODE YYERROR; }
 	}
-	| FUNCTION1 '(' ')'
+	| IDENTIFIER '(' ')'
 	{
-  	  $$ = nseel_setCompiledFunctionCallParameters($1, nseel_createCompiledValue(context,0.0), 0, 0);
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, nseel_createCompiledValue(context,0.0), 0, 0))) { ON_FAILED_CODE YYERROR; }
 	}
-	| FUNCTION2 '(' expression ',' expression ')'
+	| IDENTIFIER '(' expression ',' expression ')'
 	{
-  	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, 0);
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, $5, 0))) { ON_FAILED_CODE YYERROR; }
 	}
-	| FUNCTION3 '(' expression ',' expression ',' expression ')' 
+	| IDENTIFIER '(' expression ',' expression ',' more_params ')' 
 	{
-  	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, $7);
-	}
-	| FUNCTIONX '(' expression ',' expression ',' more_params ')' 
-	{
-  	  $$ = nseel_setCompiledFunctionCallParameters($1, $3, $5, $7);
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, $5, $7))) { ON_FAILED_CODE YYERROR; }
 	}
         | rvalue '[' ']'
         {

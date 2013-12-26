@@ -260,7 +260,8 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
         if (toklen > sizeof(buf) - 1) toklen=sizeof(buf) - 1;
         memcpy(buf,tok,toklen);
         buf[toklen]=0;
-        rv = nseel_lookup(scctx,output,buf);
+        *output = nseel_createCompiledValuePtr(scctx, NULL, buf); 
+        rv = IDENTIFIER; 
       }
       else if ((rv >= '0' && rv <= '9') || (rv == '.' && (rdptr < endptr && rdptr[0] >= '0' && rdptr[0] <= '9')))
       {

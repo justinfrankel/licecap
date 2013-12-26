@@ -160,6 +160,7 @@ static int findLineNumber(const char *exp, int byteoffs)
 }
 
 
+static EEL_F *get_global_var(const char *gv, int addIfNotPresent);
 
 static void *__newBlock(llBlock **start,int size, int wantMprotect);
 
@@ -772,21 +773,6 @@ opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValu
   return r;
 }
 
-opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleFunctionRec *fnp, const char *relName, int namespaceidx)
-{
-  opcodeRec *r=newOpCode(ctx,relName);
-  if (!r) return 0;
-  r->fntype=FUNCTYPE_EELFUNC;
-  r->fn = fnp;
-  r->namespaceidx = namespaceidx;
-  if (fnp->num_params > 3) r->opcodeType = OPCODETYPE_FUNCX;
-  else if (fnp->num_params == 3) r->opcodeType = OPCODETYPE_FUNC3;
-  else if (fnp->num_params==2) r->opcodeType = OPCODETYPE_FUNC2;
-  else r->opcodeType = OPCODETYPE_FUNC1;
-
-  return r;
-}
-
 opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype, void *fn)
 {
   opcodeRec *r=newOpCode(ctx,NULL);
@@ -802,17 +788,281 @@ opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fnt
   return r;
 }
 
-opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
+opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt)
 {
-  if (fn)
+  const int isFunctionMode = parmcnt >= 0;
+  int rel_prefix_len=0;
+  int rel_prefix_idx=-2;
+  int i;    
+  char *sname = (char *)rec->relname;
+
+  if (rec->opcodeType != OPCODETYPE_VARPTR || !sname || !sname[0]) return NULL;
+
+  if (!isFunctionMode && !strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
   {
-    opcodeRec *r = fn;
-    r->parms.parms[0] = code1;
-    r->parms.parms[1] = code2;
-    r->parms.parms[2] = code3;
+    EEL_F *a=get_global_var(sname,1);
+    if (a) 
+    {
+      rec->parms.dv.valuePtr = a;
+      sname[0]=0; // for dump_ops compat really, but this shouldn't be needed anyway
+    }
+    return rec;
   }
-  return fn;
+
+  if (ctx->function_curName)
+  {
+    if (!strncasecmp(sname,"this.",5))
+    {
+      rel_prefix_len=5;
+      rel_prefix_idx=-1;
+    } 
+    else if (!strcasecmp(sname,"this"))
+    {
+      rel_prefix_len=4;
+      rel_prefix_idx=-1;
+    } 
+  
+    // scan for parameters/local variables before user functions   
+    if (rel_prefix_idx < -1 &&
+        ctx->function_localTable_Size[0] > 0 &&
+        ctx->function_localTable_Names[0] && 
+        ctx->function_localTable_ValuePtrs)
+    {
+      char * const * const namelist = ctx->function_localTable_Names[0];
+      const int namelist_sz = ctx->function_localTable_Size[0];
+      for (i=0; i < namelist_sz; i++)
+      {
+        const char *p = namelist[i];
+        if (p)
+        {
+          if (!isFunctionMode && !strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
+          {
+            rec->opcodeType = OPCODETYPE_VARPTRPTR;
+            rec->parms.dv.valuePtr=(EEL_F *)(ctx->function_localTable_ValuePtrs+i);
+            rec->parms.dv.directValue=0.0;
+            return rec;
+          }
+          else 
+          {
+            const int plen = strlen(p);
+            if (plen > 1 && p[plen-1] == '*' && !strncasecmp(p,sname,plen-1) && ((sname[plen-1] == '.'&&sname[plen]) || !sname[plen-1]))
+            {
+              rel_prefix_len=sname[plen-1] ? plen : plen-1;
+              rel_prefix_idx=i;
+              break;
+            }
+          }
+        }
+      }
+    }
+    // if instance name set, translate sname or sname.* into "this.sname.*"
+    if (rel_prefix_idx < -1 &&
+        ctx->function_localTable_Size[1] > 0 && 
+        ctx->function_localTable_Names[1])
+    {
+      char * const * const namelist = ctx->function_localTable_Names[1];
+      const int namelist_sz = ctx->function_localTable_Size[1];
+      for (i=0; i < namelist_sz; i++)
+      {
+        const char *p = namelist[i];
+        if (p && *p)
+        {
+          const int tl = strlen(p);     
+          if (!strncasecmp(p,sname,tl) && (sname[tl] == 0 || sname[tl] == '.'))
+          {
+            rel_prefix_len=0; // treat as though this. prefixes is present
+            rel_prefix_idx=-1;
+            break;
+          }
+        }
+      }
+    }
+    if (rel_prefix_idx >= -1) 
+    {
+      ctx->function_usesNamespaces=1;
+    }
+  } // ctx->function_curName
+
+  if (!isFunctionMode)
+  {
+    // instance variables
+    if (rel_prefix_idx >= -1) 
+    {
+      rec->opcodeType = OPCODETYPE_VALUE_FROM_NAMESPACENAME;
+      rec->namespaceidx = rel_prefix_idx;
+      if (rel_prefix_len > 0) 
+      {
+        memmove(sname, sname+rel_prefix_len, strlen(sname + rel_prefix_len) + 1);
+      }
+    }
+    // or worst case, variable (if not in function mode)
+    return rec;
+  }
+ 
+  
+  ////////// function mode
+  //
+  // resolve user function names before builtin functions -- this allows the user to override default functions
+  {
+    _codeHandleFunctionRec *best=NULL;
+    int bestlen=0;
+    const char * const ourcall = sname+rel_prefix_len;
+    const int ourcall_len = strlen(ourcall);
+    int pass;
+    for (pass=0;pass<2;pass++)
+    {
+      _codeHandleFunctionRec *fr = pass ? ctx->functions_common : ctx->functions_local;
+      // sname is [namespace.[ns.]]function, find best match of function that matches the right end   
+      while (fr)
+      {
+        int this_np = fr->num_params;
+        if (this_np < 1) this_np=1;
+        if (this_np == parmcnt)
+        {
+          const char *thisfunc = fr->fname;
+          const int thisfunc_len = strlen(thisfunc);
+          if (thisfunc_len == ourcall_len && !strcasecmp(thisfunc,ourcall))
+          {
+            bestlen = ourcall_len;
+            best = fr;
+            break; // found exact match, finished
+          }
+
+          if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !strcasecmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
+          {
+            bestlen = ourcall_len;
+            best = fr;
+          }
+        }
+        fr=fr->next;
+      }
+      if (fr) break; // found exact match, finished
+    }
+    
+    if (best)
+    {
+      switch (parmcnt)
+      {
+        case 0:
+        case 1: rec->opcodeType = OPCODETYPE_FUNC1; break;
+        case 2: rec->opcodeType = OPCODETYPE_FUNC2; break;
+        case 3: rec->opcodeType = OPCODETYPE_FUNC3; break;
+        default: rec->opcodeType = OPCODETYPE_FUNCX; break;
+      }
+
+      if (ourcall != rec->relname) memmove((char *)rec->relname, ourcall, strlen(ourcall)+1);
+      rec->namespaceidx = rel_prefix_idx;
+      rec->fntype = FUNCTYPE_EELFUNC;
+      rec->fn = best;
+      return rec;
+    }    
+  }
+
+#ifdef NSEEL_EEL1_COMPAT_MODE
+    if (!strcasecmp(sname,"assign") && parmcnt == 2) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC2;
+      rec->fntype = FN_ASSIGN;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"if") && parmcnt == 3) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC3;
+      rec->fntype = FN_IF_ELSE;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"equal") && parmcnt == 2) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC2;
+      rec->fntype = FN_EQ;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"below") && parmcnt == 2) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC2;
+      rec->fntype = FN_LT;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"above") && parmcnt == 2) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC2;
+      rec->fntype = FN_GT;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"bnot") && parmcnt == 1) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC1;
+      rec->fntype = FN_NOT;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"megabuf") && parmcnt == 1) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC1;
+      rec->fntype = FN_MEMORY;
+      return rec;
+    }
+    else if (!strcasecmp(sname,"gmegabuf") && parmcnt == 1) 
+    {
+      rec->opcodeType = OPCODETYPE_FUNC1;
+      rec->fntype = FN_GMEMORY;
+      return rec;
+    }
+    else
+#endif
+  // convert legacy pow() to FN_POW
+  if (!strcasecmp("pow",sname) && parmcnt == 2)
+  {
+    rec->opcodeType = OPCODETYPE_FUNC2;
+    rec->fntype = FN_POW;
+    return rec;
+  }
+    
+  for (i=0;nseel_getFunctionFromTable(i);i++)
+  {
+    functionType *f=nseel_getFunctionFromTable(i);
+    if (!strcasecmp(f->name, sname) && parmcnt == (f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) )
+    {
+      rec->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+      rec->fn = (void *)f;
+      switch (parmcnt)
+      {
+        case 0:
+        case 1: rec->opcodeType = OPCODETYPE_FUNC1; break;
+        case 2: rec->opcodeType = OPCODETYPE_FUNC2; break;
+        case 3: rec->opcodeType = OPCODETYPE_FUNC3; break;
+        default: rec->opcodeType = OPCODETYPE_FUNCX; break;
+      }
+      return rec;
+    }
+  }
+  return NULL;
 }
+
+opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
+{
+  int np=0,x;
+  if (!fn || fn->opcodeType != OPCODETYPE_VARPTR || !fn->relname || !fn->relname[0]) 
+  {
+    return NULL;
+  }
+  fn->parms.parms[0] = code1;
+  fn->parms.parms[1] = code2;
+  fn->parms.parms[2] = code3;
+
+  for (x=0;x<3;x++)
+  {
+    opcodeRec *prni=fn->parms.parms[x];
+    while (prni && np < NSEEL_MAX_EELFUNC_PARAMETERS)
+    {
+      const int isMP = prni->opcodeType == OPCODETYPE_MOREPARAMS;
+      np++;
+      if (!isMP) break;
+      prni = prni->parms.parms[1];
+    }
+  }
+  return nseel_resolve_named_symbol(ctx, fn, np<1 ? 1 : np);
+}
+
 
 struct eelStringSegmentRec *nseel_createStringSegmentRec(compileContext *ctx, const char *str, int len)
 {
@@ -852,7 +1102,7 @@ opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code
 
 opcodeRec *nseel_createIfElse(compileContext *ctx, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
 {
-  opcodeRec *r=newOpCode(ctx,NULL);
+  opcodeRec *r=code1 ? newOpCode(ctx,NULL) : NULL;
   if (r)
   {
     if (!code2) code2 = nseel_createCompiledValue(ctx,0.0);
@@ -2367,8 +2617,6 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
 
   if (cfp_numparams>0 && n_params != cfp_numparams)
   {
-    _codeHandleFunctionRec *fn = (_codeHandleFunctionRec*)op->fn;
-    snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"Function '%s' takes %d parameters, passed %d\n",fn->fname,cfp_numparams,n_params);
     RET_MINUS1_FAIL("eelfuncnp")
   }
 
@@ -4238,7 +4486,7 @@ static EEL_F __nseel_global_regs[100];
 double *NSEEL_getglobalregs() { return __nseel_global_regs; }
 #endif
 
-static EEL_F *get_global_var(const char *gv, int addIfNotPresent)
+EEL_F *get_global_var(const char *gv, int addIfNotPresent)
 {
   nseel_globalVarItem *p;
 #ifdef NSEEL_EEL1_COMPAT_MODE
@@ -4435,220 +4683,6 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 
 
 
-//------------------------------------------------------------------------------
-int nseel_lookup(compileContext *ctx, opcodeRec **opOut, const char *sname)
-{
-  int rel_prefix_len=0;
-  int rel_prefix_idx=-2;
-  int i;    
-
-  if (!strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
-  {
-    EEL_F *a=get_global_var(sname,1);
-    if (a) 
-    {
-      *opOut = nseel_createCompiledValuePtr(ctx,a, NULL);
-      return IDENTIFIER;
-    }
-  }
-
-  if (ctx->function_curName)
-  {
-    if (!strncasecmp(sname,"this.",5))
-    {
-      rel_prefix_len=5;
-      rel_prefix_idx=-1;
-    } 
-    else if (!strcasecmp(sname,"this"))
-    {
-      rel_prefix_len=4;
-      rel_prefix_idx=-1;
-    } 
-  
-    // scan for parameters/local variables before user functions   
-    if (rel_prefix_idx < -1 &&
-        ctx->function_localTable_Size[0] > 0 &&
-        ctx->function_localTable_Names[0] && 
-        ctx->function_localTable_ValuePtrs)
-    {
-      char * const * const namelist = ctx->function_localTable_Names[0];
-      const int namelist_sz = ctx->function_localTable_Size[0];
-      for (i=0; i < namelist_sz; i++)
-      {
-        const char *p = namelist[i];
-        if (p)
-        {
-          if (!strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
-          {
-            *opOut = nseel_createCompiledValuePtrPtr(ctx, ctx->function_localTable_ValuePtrs+i);
-            return IDENTIFIER;
-          }
-          else 
-          {
-            const int plen = strlen(p);
-            if (plen > 1 && p[plen-1] == '*' && !strncasecmp(p,sname,plen-1) && ((sname[plen-1] == '.'&&sname[plen]) || !sname[plen-1]))
-            {
-              rel_prefix_len=sname[plen-1] ? plen : plen-1;
-              rel_prefix_idx=i;
-              break;
-            }
-          }
-        }
-      }
-    } 
-    // if instance name set, translate sname or sname.* into "this.sname.*"
-    if (rel_prefix_idx < -1 &&
-        ctx->function_localTable_Size[1] > 0 && 
-        ctx->function_localTable_Names[1])
-    {
-      char * const * const namelist = ctx->function_localTable_Names[1];
-      const int namelist_sz = ctx->function_localTable_Size[1];
-      for (i=0; i < namelist_sz; i++)
-      {
-        const char *p = namelist[i];
-        if (p && *p)
-        {
-          const int tl = strlen(p);     
-          if (!strncasecmp(p,sname,tl) && (sname[tl] == 0 || sname[tl] == '.'))
-          {
-            rel_prefix_len=0; // treat as though this. prefixes is present
-            rel_prefix_idx=-1;
-            break;
-          }
-        }
-      }
-    }
-    if (rel_prefix_idx >= -1) 
-    {
-      ctx->function_usesNamespaces=1;
-    }
-  } // ctx->function_curName
- 
-
-  // resolve user function names before builtin functions -- this allows the user to override default functions
-  {
-    _codeHandleFunctionRec *best=NULL;
-    int bestlen=0;
-    const char * const ourcall = sname+rel_prefix_len;
-    const int ourcall_len = strlen(ourcall);
-    int pass;
-    for (pass=0;pass<2;pass++)
-    {
-      _codeHandleFunctionRec *fr = pass ? ctx->functions_common : ctx->functions_local;
-      // sname is [namespace.[ns.]]function, find best match of function that matches the right end   
-      while (fr)
-      {
-        const char *thisfunc = fr->fname;
-        const int thisfunc_len = strlen(thisfunc);
-        if (thisfunc_len == ourcall_len && !strcasecmp(thisfunc,ourcall))
-        {
-          bestlen = ourcall_len;
-          best = fr;
-          break; // found exact match, finished
-        }
-
-        if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !strcasecmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
-        {
-          bestlen = ourcall_len;
-          best = fr;
-        }
-        fr=fr->next;
-      }
-      if (fr) break; // found exact match, finished
-    }
-    
-    if (best)
-    {
-      *opOut = nseel_createCompiledEELFunctionCall(ctx,best,ourcall, rel_prefix_idx);
-      return best->num_params>3 ?FUNCTIONX :
-             best->num_params>=3?FUNCTION3 : 
-             best->num_params==2?FUNCTION2 : 
-                                 FUNCTION1;
-    }    
-  }
-
-  // instance variables
-  if (rel_prefix_idx >= -1) 
-  {
-    *opOut = nseel_createCompiledValueFromNamespaceName(ctx,sname+rel_prefix_len,rel_prefix_idx);
-    return IDENTIFIER;
-  }
-
-
-  // resolve built-in functions last
-
-#ifdef NSEEL_EEL1_COMPAT_MODE
-    if (!strcasecmp(sname,"assign")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_ASSIGN,0);
-      return FUNCTION2;
-    }
-    else if (!strcasecmp(sname,"if")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,3,FN_IF_ELSE,0);
-      return FUNCTION3;
-    }
-    else if (!strcasecmp(sname,"equal")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_EQ,0);
-      return FUNCTION2;
-    }
-    else if (!strcasecmp(sname,"below")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_LT,0);
-      return FUNCTION2;
-    }
-    else if (!strcasecmp(sname,"above")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_GT,0);
-      return FUNCTION2;
-    }
-    else if (!strcasecmp(sname,"bnot")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,1,FN_NOT,0);
-      return FUNCTION1;
-    }
-    else if (!strcasecmp(sname,"megabuf")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,1,FN_MEMORY,0);
-      return FUNCTION1;
-    }
-    else if (!strcasecmp(sname,"gmegabuf")) 
-    {
-      *opOut = nseel_createCompiledFunctionCall(ctx,1,FN_GMEMORY,0);
-      return FUNCTION1;
-    }
-    else
-#endif
-  // convert legacy pow() to FN_POW
-  if (!strcasecmp("pow",sname))
-  {
-    *opOut = nseel_createCompiledFunctionCall(ctx,2,FN_POW,0);
-    return FUNCTION2;
-  }
-    
-  for (i=0;nseel_getFunctionFromTable(i);i++)
-  {
-    functionType *f=nseel_getFunctionFromTable(i);
-    if (!strcasecmp(f->name, sname))
-    {
-      const int np=f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK;
-      *opOut =  nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
-      switch (np)
-      {
-        case 0:
-        case 1: return FUNCTION1; 
-        case 2: return FUNCTION2; 
-        case 3: return FUNCTION3; 
-        default:  break;
-      }
-      return FUNCTIONX;
-    }
-  }
-
-  *opOut = nseel_createCompiledValuePtr(ctx,NULL,sname);
-  return IDENTIFIER;
-}
 
 opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int np, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
 {

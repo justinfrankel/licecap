@@ -247,11 +247,18 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 opcodeRec *nseel_createMemoryAccess(compileContext *ctx, opcodeRec *code1, opcodeRec *code2);
 opcodeRec *nseel_createIfElse(compileContext *ctx, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
 opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int ftype, void *fn);
-opcodeRec *nseel_createCompiledEELFunctionCall(compileContext *ctx, _codeHandleFunctionRec *fn, const char *thistext, int namespaceidx);
-opcodeRec *nseel_setCompiledFunctionCallParameters(opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
-
 opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx);
 opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int np, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
+
+// converts a generic identifier (VARPTR) opcode into either an actual variable reference (parmcnt = -1),
+// or if parmcnt >= 0, to a function call (see nseel_setCompiledFunctionCallParameters())
+opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt); 
+
+// sets parameters and calculates parameter count for opcode, and calls nseel_resolve_named_symbol() with the right
+// parameter count
+opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
+
+
 
 struct eelStringSegmentRec *nseel_createStringSegmentRec(compileContext *ctx, const char *str, int len);
 opcodeRec *nseel_eelMakeOpcodeFromStringSegments(compileContext *ctx, struct eelStringSegmentRec *rec);
