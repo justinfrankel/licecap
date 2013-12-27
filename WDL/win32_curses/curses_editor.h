@@ -44,15 +44,15 @@ protected:
   void indentSelect(int amt);
   void removeSelect();
   void getselectregion(int &minx, int &miny, int &maxx, int &maxy);
-  void doDrawString(int y, int x, int line_n, const char *p, int ml, bool *c_comment_state, int skipcnt);
+  void doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt);
 
   void saveUndoState();
   void preSaveUndoState(); // updates coordinates of edit to last rec
   void loadUndoState(editUndoRec *rec);
 
-  virtual int GetPreviousCommentStartEnd(int *line, int *col); // pass current line/col, updates with interesting point, returns nonzero if start (1 if /*, 2 if //)
+  virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
-  virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, bool *c_comment_state, int skipcnt);
+  virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
   virtual void draw_top_line() { }// within m_top_margin
   virtual void draw_bottom_line();
   virtual bool LineCanAffectOtherLines(const char *txt) // if multiline comment etc

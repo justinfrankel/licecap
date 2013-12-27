@@ -324,7 +324,7 @@ void WDL_CursesEditor::draw_message(const char *str)
 }
 
 
-void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, bool *c_comment_state, int skipcnt)
+void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt)
 {
   move(y,x);
   attrset(A_NORMAL);
@@ -356,7 +356,7 @@ void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &max
     }
 }
 
-void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int ml, bool *c_comment_state, int skipcnt)
+void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt)
 {
   if (skipcnt < 0) skipcnt=0;
   mvaddnstr_highlight(y,x,p,ml + skipcnt,c_comment_state, skipcnt);
@@ -401,9 +401,8 @@ void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int
   }
 }
 
-int WDL_CursesEditor::GetPreviousCommentStartEnd(int *line, int *col) // pass current line/col, updates with previous interesting point, returns true if start of comment, or false if end of previous comment
+int WDL_CursesEditor::GetCommentStateForLineStart(int line) // pass current line/col, updates with previous interesting point, returns true if start of comment, or false if end of previous comment
 {
-  *line = *col = 0;
   return 0;
 }
 
@@ -413,8 +412,7 @@ void WDL_CursesEditor::draw(int lineidx)
 
   if (lineidx >= 0)
   {
-    int li=lineidx-1,ci=0x100000;
-    bool comment_state = (1 == GetPreviousCommentStartEnd(&li,&ci));
+    int comment_state = GetCommentStateForLineStart(lineidx);
     WDL_FastString *s=m_text.Get(lineidx);
     if (s && lineidx >= m_offs_y && lineidx < m_offs_y+getVisibleLines())
     {
@@ -431,8 +429,7 @@ void WDL_CursesEditor::draw(int lineidx)
   move(m_top_margin,0);
   clrtoeol();
 
-  int pcl=m_offs_y,pcc=0;
-  bool comment_state = (1 == GetPreviousCommentStartEnd(&pcl, &pcc));
+  int comment_state = GetCommentStateForLineStart(m_offs_y);
   const int VISIBLE_LINES = getVisibleLines();
   for(int i=0;i<VISIBLE_LINES;i++)
   { 
