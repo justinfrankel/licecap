@@ -28,30 +28,21 @@
 #include "../wdlcstring.h"
 
 
-const char *nseel_skip_space_and_comments(const char *p, const char *endptr, int *state)
+static const char *nseel_skip_space_and_comments(const char *p, const char *endptr)
 {
-  if (state && *state)
-  {
-    if (*state != 1) return p; // string open, don't skip anything
-
-    goto in_comment;
-  }
   for (;;)
   {
     while (p < endptr && isspace(p[0])) p++;
     if (p >= endptr-1 || *p != '/') return p;
 
-    if (p[1]=='/') 
+    if (p[1]=='/')
     {
       while (p < endptr && *p != '\r' && *p != '\n') p++;
     }
     else if (p[1] == '*')
     {
-      if (state) *state=1;
       p+=2;
-in_comment:
       while (p < endptr-1 && (p[0] != '*' || p[1] != '/')) p++;
-      if (state && p < endptr-1) *state=0;
       p+=2;
       if (p>=endptr) return endptr;
     }
@@ -150,12 +141,35 @@ int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegm
   return pos;
 }
 
+
+
 // state can be NULL, it will be set if finished with unterminated thing: 1 for multiline comment, ' or " for string
 const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut, int *state)
 {
-  const char *p = nseel_skip_space_and_comments(*ptr, endptr,state);
+  const char *p = *ptr;
   const char *rv = p;
   char delim;
+
+  if (state) // if state set, returns comments as tokens
+  {
+    if (*state == 1) goto in_comment;
+
+    #ifndef NSEEL_EEL1_COMPAT_MODE
+      if (*state == '\'' || *state == '\"')
+      {
+        delim = (char)*state;
+        goto in_string;
+      }
+    #endif
+
+    // skip any whitespace
+    while (p < endptr && isspace(p[0])) p++;
+  }
+  else
+  {
+    // state not passed, skip comments (do not return them as tokens)
+    p = nseel_skip_space_and_comments(p,endptr);
+  }
 
   if (p >= endptr) 
   {
@@ -164,16 +178,35 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
     return NULL;
   }
 
-#ifndef NSEEL_EEL1_COMPAT_MODE
-  if (state && (*state == '\'' || *state == '\"'))
-  {
-    delim = (char)*state;
-    goto in_string;
-  }
-#endif
+  rv=p;
+
   if (*p == '$' && p+3 < endptr && p[1] == '\'' && p[3] == '\'')
   {
     p+=4;
+  }
+  else if (state && *p == '/' && p < endptr-1 && (p[1] == '/' || p[1] == '*'))
+  {
+    if (p[1] == '/')
+    {
+      while (p < endptr && *p != '\r' && *p != '\n') p++; // advance to end of line
+    }
+    else
+    {
+      if (state) *state=1;
+      p+=2;
+in_comment:
+      while (p < endptr)
+      {
+        const char c = *p++;
+        if (c == '*' && p < endptr && *p == '/')
+        {
+          p++;
+          if (state) *state=0;
+          break;
+        }
+      }
+
+    }
   }
   else if (isalnum(*p) || *p == '_' || *p == '#' || *p == '$')
   {
@@ -206,7 +239,7 @@ in_string:
   }
   *ptr = p;
   *lenOut = p - rv;
-  return rv;
+  return p>rv ? rv : NULL;
 }
 
 
