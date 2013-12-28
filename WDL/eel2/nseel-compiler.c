@@ -3770,10 +3770,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
     // single out top level segment
     {
       int had_something = 0, pcnt=0, pcnt2=0;
+      int state=0;
       for (;;)
       {
         int l;
-        const char *p=nseel_simple_tokenizer(&endptr,_expression_end,&l,NULL);
+        const char *p=nseel_simple_tokenizer(&endptr,_expression_end,&l,&state);
         if (!p) 
         {
           if (pcnt || pcnt2) ctx->gotEndOfInput|=4;
@@ -3783,6 +3784,11 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         if (*p == ';') 
         {
           if (had_something && !pcnt && !pcnt2) break;
+        }
+        else if (*p == '/' && l > 1 && (p[1] == '/' || p[1] == '*')) 
+        {
+          if (l > 19 && !strncasecmp(p,"//#eel-no-optimize:",19))
+            ctx->optimizeDisableFlags = atoi(p+19);
         }
         else
         {
