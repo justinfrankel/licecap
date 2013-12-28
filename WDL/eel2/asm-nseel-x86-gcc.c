@@ -2093,7 +2093,7 @@ void win64_callcode()
 		"subl $16, %rsp\n"
 		"fnstcw (%rsp)\n"
 		"mov (%rsp), %ax\n"
-		"or $0xC00, %ax\n"
+		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
 		"mov %ax, 4(%rsp)\n"
 		"fldcw 4(%rsp)\n"
 #endif

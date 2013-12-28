@@ -192,7 +192,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
 #ifndef NSEEL_EEL1_COMPAT_MODE
       fnstcw [oldsw]
       mov ax, [oldsw]
-      or ax, 0xC00
+      or ax, 0xE3F  // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
       mov [newsw], ax
       fldcw [newsw]
 #endif
@@ -227,7 +227,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
 #ifndef NSEEL_EEL1_COMPAT_MODE
       "fnstcw %2\n"
       "movw %2, %%ax\n"
-      "orw $0xC00, %%ax\n"
+      "orw $0xE3F, %%ax\n" // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
       "movw %%ax, %3\n"
       "fldcw %3\n"
 #endif
