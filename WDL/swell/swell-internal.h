@@ -390,6 +390,9 @@ struct HTREEITEM__
 
 
 @interface SWELL_hwndCarbonHost : SWELL_hwndChild
+#ifdef MAC_OS_X_VERSION_10_7
+<NSWindowDelegate>
+#endif
 {
 @public
   NSWindow *m_cwnd;
@@ -535,7 +538,12 @@ struct HDC__ {
 
 // 10.4 sdk just uses "float"
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
-typedef float CGFloat;
+  #ifdef __LP64__
+    typedef double CGFloat;
+  #else
+    typedef float CGFloat;
+#endif
+
 #endif
 
 

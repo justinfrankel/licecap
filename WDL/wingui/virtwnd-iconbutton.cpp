@@ -206,7 +206,6 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
 
 void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
-  HDC hdc=drawbm->getDC();
   int col;
 
   float alpha = (m_grayed ? 0.25f : 1.0f) * m_alpha;
@@ -624,8 +623,8 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
     {
       RECT tr=r;
       tr.left=tr.right-(tr.bottom-tr.top);
-      int col2=GSC(COLOR_BTNFACE);
-      col2 = LICE_RGBA_FROMNATIVE(col2,255);
+      //int col2=GSC(COLOR_BTNFACE);
+    //  col2 = LICE_RGBA_FROMNATIVE(col2,255);
 
       LICE_FillRect(drawbm,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,col,1.0f,LICE_BLIT_MODE_COPY);
     }
@@ -700,9 +699,9 @@ WDL_VirtualStaticText::~WDL_VirtualStaticText()
 
 void WDL_VirtualStaticText::SetText(const char *text) 
 { 
-  if (strcmp(m_text.Get(),text))
+  if (strcmp(m_text.Get(),text?text:""))
   {
-    m_text.Set(text); 
+    m_text.Set(text?text:"");
     if (m_font) RequestRedraw(NULL); 
   }
 }

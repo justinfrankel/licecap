@@ -34,6 +34,7 @@
 
 //ncurses WIN32 wrapper functions
 
+#define WDL_IS_FAKE_CURSES
 
 #define addnstr(str,n) __addnstr(CURSES_INSTANCE,str,n)
 #define addstr(str) __addnstr(CURSES_INSTANCE,str,-1)

@@ -184,7 +184,11 @@ void nseel_asm_dbg_getstackptr(void)
 {
   __asm__(
       FUNCTION_MARKER
+#ifdef __clang__
+    "ffree %st(0)\n"
+#else
     "fstpl %st(0)\n"
+#endif
     "movl %esp, (%esi)\n"
     "fildl (%esi)\n"
 
@@ -412,10 +416,14 @@ void nseel_asm_assign_fast_end(void) {}
 void nseel_asm_add(void)
 {
   __asm__(
-      FUNCTION_MARKER
-    "fadd\n"
-     FUNCTION_MARKER
-  );
+          FUNCTION_MARKER
+#ifdef __clang__
+          "faddp %st(1)\n"
+#else
+          "fadd\n"
+#endif
+          FUNCTION_MARKER
+          );
 }
 void nseel_asm_add_end(void) {}
 
@@ -463,10 +471,14 @@ void nseel_asm_sub(void)
 {
   __asm__(
       FUNCTION_MARKER
-#ifdef __GNUC__
-    "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+#ifdef __clang__
+    "fsubrp %st(0), %st(1)\n"
 #else
+  #ifdef __GNUC__
+    "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+  #else
     "fsub\n"
+  #endif
 #endif
      FUNCTION_MARKER
   );
@@ -516,7 +528,11 @@ void nseel_asm_mul(void)
 {
   __asm__(
       FUNCTION_MARKER
-    "fmul\n"
+#ifdef __clang__
+          "fmulp %st(0), %st(1)\n"
+#else
+          "fmul\n"
+#endif
      FUNCTION_MARKER
   );
 }
@@ -548,15 +564,31 @@ void nseel_asm_mul_op(void)
 }
 void nseel_asm_mul_op_end(void) {}
 
+void nseel_asm_mul_op_fast(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fmul" EEL_F_SUFFIX " (%edi)\n"
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_mul_op_fast_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_div(void)
 {
   __asm__(
       FUNCTION_MARKER
-#ifdef __GNUC__
-    "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+#ifdef __clang__
+    "fdivrp %st(1)\n"
 #else
+  #ifdef __GNUC__
+    "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+  #else
     "fdiv\n"
+  #endif
 #endif
     FUNCTION_MARKER
   );
@@ -568,10 +600,14 @@ void nseel_asm_div_op(void)
   __asm__(
       FUNCTION_MARKER
     "fld" EEL_F_SUFFIX " (%edi)\n"
-#ifndef __GNUC__
+#ifdef __clang__
+    "fdivp %st(1)\n"
+#else
+  #ifndef __GNUC__
     "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+  #endif
+    "fdiv\n"
 #endif
-    "fdiv\n" 
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
 
@@ -593,6 +629,27 @@ void nseel_asm_div_op(void)
   );
 }
 void nseel_asm_div_op_end(void) {}
+
+void nseel_asm_div_op_fast(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fld" EEL_F_SUFFIX " (%edi)\n"
+#ifdef __clang__
+    "fdivp %st(1)\n"
+#else
+  #ifndef __GNUC__
+    "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+  #endif
+    "fdiv\n"
+#endif
+    "movl %edi, %eax\n"
+    "fstp" EEL_F_SUFFIX " (%edi)\n"
+
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mod(void)
@@ -1110,7 +1167,12 @@ void nseel_asm_equal(void)
 {
   __asm__(
       FUNCTION_MARKER
+#ifdef __clang__
+    "fsubp %st(1)\n"
+#else
     "fsub\n"
+#endif
+
     "fabs\n"
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
@@ -1126,11 +1188,50 @@ void nseel_asm_equal(void)
 void nseel_asm_equal_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
+void nseel_asm_equal_exact(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fcompp\n"
+    "fstsw %ax\n" // for equal 256 and 1024 should be clear, 16384 should be set
+    "andl $17664, %eax\n"  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
+    "cmp $16384, %eax\n" 
+    "je 0f\n"
+    "subl %eax, %eax\n"
+    "0:\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_equal_exact_end(void) {}
+
+void nseel_asm_notequal_exact(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fcompp\n"
+    "fstsw %ax\n" // for equal 256 and 1024 should be clear, 16384 should be set
+    "andl $17664, %eax\n"  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
+    "cmp $16384, %eax\n" 
+    "je 0f\n"
+    "subl %eax, %eax\n"
+    "0:\n"
+    "xorl $16384, %eax\n" // flip the result
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_notequal_exact_end(void) {}
+//
+//---------------------------------------------------------------------------------------------------------------
 void nseel_asm_notequal(void)
 {
   __asm__(
       FUNCTION_MARKER
+#ifdef __clang__
+    "fsubp %st(1)\n"
+#else
     "fsub\n"
+#endif
+
     "fabs\n"
 #ifdef TARGET_X64
     "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]

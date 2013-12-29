@@ -264,6 +264,7 @@ _emit 0x90;
 #ifdef TARGET_X64
     mov rax, 0xfefefefe;
     fmul EEL_ASM_TYPE [rax];
+    movsx rcx, dword ptr [esi];
 #else
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fmul qword ptr [0xfefefefe]
@@ -280,8 +281,8 @@ _emit 0xFE;
 _emit 0xFE;
 _emit 0xFE;
 #endif
-#endif
     mov ecx, dword ptr [esi];
+#endif
     sar ecx, 1;
     sub edx, ecx;
     mov dword ptr [esi], edx;
@@ -341,7 +342,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
+#ifdef __clang__
+    ffree st(0);
+#else
     fstp st(0);
+#endif
     mov dword ptr [esi], esp;
     fild dword ptr [esi];
 
@@ -903,7 +908,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-    fadd;
+#ifdef __clang__
+          faddp st(1);
+#else
+          fadd;
+#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -916,7 +925,7 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-  }
+          }
 }
 __declspec(naked) void nseel_asm_add_end(void) {}
 
@@ -1020,10 +1029,14 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef __GNUC__
-    fsubr; // gnuc has fsub/fsubr backwards, ack
+#ifdef __clang__
+    fsubrp st(1), st(0);
 #else
+  #ifdef __GNUC__
+    fsubr; // gnuc has fsub/fsubr backwards, ack
+  #else
     fsub;
+  #endif
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -1140,7 +1153,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-    fmul;
+#ifdef __clang__
+          fmulp st(1), st(0);
+#else
+          fmul;
+#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -1206,6 +1223,40 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_mul_op_end(void) {}
 
+__declspec(naked) void nseel_asm_mul_op_fast(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fmul EEL_ASM_TYPE [edi];
+    mov eax, edi;
+    fstp EEL_ASM_TYPE [edi];
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_mul_op_fast_end(void) {}
+
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_div(void)
 {
@@ -1222,10 +1273,14 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef __GNUC__
-    fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+#ifdef __clang__
+    fdivrp st(1);
 #else
+  #ifdef __GNUC__
+    fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+  #else
     fdiv;
+  #endif
 #endif
 _emit 0x89;
 _emit 0x90;
@@ -1259,10 +1314,14 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     fld EEL_ASM_TYPE [edi];
-#ifndef __GNUC__
+#ifdef __clang__
+    fdivrp st(1);
+#else
+  #ifndef __GNUC__
     fxch; // gcc inline asm seems to have fdiv/fdivr backwards
-#endif
+  #endif
     fdiv;
+#endif
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
 
@@ -1296,6 +1355,49 @@ _emit 0x90;
   }
 }
 __declspec(naked) void nseel_asm_div_op_end(void) {}
+
+__declspec(naked) void nseel_asm_div_op_fast(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fld EEL_ASM_TYPE [edi];
+#ifdef __clang__
+    fdivrp st(1);
+#else
+  #ifndef __GNUC__
+    fxch; // gcc inline asm seems to have fdiv/fdivr backwards
+  #endif
+    fdiv;
+#endif
+    mov eax, edi;
+    fstp EEL_ASM_TYPE [edi];
+
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_mod(void)
@@ -2300,7 +2402,12 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
+#ifdef __clang__
+    fsubp st(1);
+#else
     fsub;
+#endif
+
     fabs;
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
@@ -2327,6 +2434,86 @@ _emit 0x90;
 __declspec(naked) void nseel_asm_equal_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
+__declspec(naked) void nseel_asm_equal_exact(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fcompp;
+    fstsw ax; // for equal 256 and 1024 should be clear, 16384 should be set
+    and eax, 17664;  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
+    cmp eax, 16384;
+    je label_22;
+    sub eax, eax;
+label_22:
+    
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_equal_exact_end(void) {}
+
+__declspec(naked) void nseel_asm_notequal_exact(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fcompp;
+    fstsw ax; // for equal 256 and 1024 should be clear, 16384 should be set
+    and eax, 17664;  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
+    cmp eax, 16384;
+    je label_23;
+    sub eax, eax;
+label_23:
+    
+    xor eax, 16384; // flip the result
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_notequal_exact_end(void) {}
+//
+//---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_notequal(void)
 {
   __asm {
@@ -2342,7 +2529,12 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
+#ifdef __clang__
+    fsubp st(1);
+#else
     fsub;
+#endif
+
     fabs;
 #ifdef TARGET_X64
     fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
@@ -2457,13 +2649,13 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jz label_22;
+    jz label_24;
     fld1;
-    jmp label_23;
-label_22:
+    jmp label_25;
+label_24:
     
     fldz;
-label_23:
+label_25:
     
 _emit 0x89;
 _emit 0x90;
@@ -2543,9 +2735,9 @@ _emit 0x90;
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jz label_24;
+    jz label_26;
     mov eax, edi;
-label_24:
+label_26:
     
 _emit 0x89;
 _emit 0x90;
@@ -2585,9 +2777,9 @@ _emit 0x90;
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jnz label_25;
+    jnz label_27;
     mov eax, edi;
-label_25:
+label_27:
     
 _emit 0x89;
 _emit 0x90;
@@ -2625,9 +2817,9 @@ _emit 0x90;
     fcom;
     fstsw ax;
     test eax, 256;
-    jz label_26;
+    jz label_28;
     fxch;
-label_26:
+label_28:
     
     fstp st(0);
 _emit 0x89;
@@ -2665,9 +2857,9 @@ _emit 0x90;
     fcom;
     fstsw ax;
     test eax, 256;
-    jnz label_27;
+    jnz label_29;
     fxch;
-label_27:
+label_29:
     
     fstp st(0);
 _emit 0x89;
@@ -3124,14 +3316,14 @@ _emit 0x90;
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
     cmp rdx, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));      //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_28;
+    jae label_30;
       mov rax, rdx;
       shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
       and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
       mov rax, qword ptr [r12+rax];
       test rax, rax;
-      jnz label_29;
-label_28:
+      jnz label_31;
+label_30:
     
       mov rax, 0xfefefefe;
       mov rdi, r12; // set first parm to ctx
@@ -3139,13 +3331,13 @@ label_28:
       mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
       call rax;
       mov rsi, r15; // restore rsi
-      jmp label_30;
-label_29:
+      jmp label_32;
+label_31:
     
       and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
       add rax, rdx;
-label_30:
+label_32:
     
 
 #else
@@ -3157,14 +3349,14 @@ label_30:
     // check if (%rsi) is in range...
     mov edi, dword ptr [rsi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));       //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_31;
+    jae label_33;
       mov rax, rdi;
       shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
       and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
       mov rax, qword ptr [r12+rax];
       test rax, rax;
-      jnz label_32;
-label_31:
+      jnz label_34;
+label_33:
     
       mov rax, 0xfefefefe; // function ptr
       mov rcx, r12; // set first parm to ctx
@@ -3172,13 +3364,13 @@ label_31:
       sub rsp, X64_EXTRA_STACK_SPACE;
       call rax;
       add rsp, X64_EXTRA_STACK_SPACE;
-      jmp label_33;
-label_32:
+      jmp label_35;
+label_34:
     
       and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
       add rax, rdi;
-label_33:
+label_35:
     
 #endif
 
@@ -3202,15 +3394,15 @@ _emit 0x90;
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));     //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_34;
+    jae label_36;
 
       mov eax, edi;
       shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
       and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
       mov eax, dword ptr [ebx+eax];
       test eax, eax;
-      jnz label_35;
-label_34:
+      jnz label_37;
+label_36:
     
       sub esp, 8; // keep stack aligned
       mov ecx, 0xfefefefe;
@@ -3218,13 +3410,13 @@ label_34:
       push ebx; // push context pointer
       call ecx;
       add esp, 16;
-      jmp label_36;
-label_35:
+      jmp label_38;
+label_37:
     
       and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl edi, 3;      // 3 is log2(sizeof(EEL_F))
       add eax, edi;
-label_36:
+label_38:
     
 _emit 0x89;
 _emit 0x90;
@@ -3897,6 +4089,14 @@ __declspec(naked) void nseel_asm_stack_exch_end(void) {}
 __declspec(naked) void win64_callcode()
 {
 	__asm {
+#ifndef EEL_X64_NO_CHANGE_FPFLAGS
+		sub rsp, 16;
+		fnstcw [rsp];
+		mov ax, [rsp];
+		or ax, 0xC00;
+		mov [rsp+4], ax;
+		fldcw [rsp+4];
+#endif
 		push rbx;
 		push rbp;
 		push r12;
@@ -3905,12 +4105,12 @@ __declspec(naked) void win64_callcode()
 		push r15;
 
 #ifdef AMD64ABI
-    mov r12, rsi; // second parameter is ram-blocks pointer
+    		mov r12, rsi; // second parameter is ram-blocks pointer
 		call rdi;
 #else
 		push rdi;
 		push rsi;
-    mov r12, rdx; // second parameter is ram-blocks pointer
+    		mov r12, rdx; // second parameter is ram-blocks pointer
 		call rcx;
 		pop rsi;
 		pop rdi;
@@ -3924,6 +4124,12 @@ __declspec(naked) void win64_callcode()
 		pop r12;
 		pop rbp;
 		pop rbx;
+
+#ifndef EEL_X64_NO_CHANGE_FPFLAGS
+		fldcw [rsp];
+		add rsp, 16;
+#endif
+
 		ret;
 	}
 }

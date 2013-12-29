@@ -1092,5 +1092,9 @@ SWELL_API_DEFINE(BOOL,SWELL_IsButton,(HWND))
 SWELL_API_DEFINE(BOOL,SWELL_IsStaticText,(HWND))
 SWELL_API_DEFINE(void,SWELL_GetDesiredControlSize,(HWND hwnd, RECT *r))
 
+#ifdef __APPLE__
+SWELL_API_DEFINE(void,SWELL_DisableAppNap,(int disable))
+#endif
+
 
 #endif // _WDL_SWELL_H_API_DEFINED_

@@ -22,22 +22,22 @@ public:
   // or ...
   void Init(WDL_UINT64* pMapping, int nPins);
 
-  int GetNPins() { return m_nPins; }
-  int GetNChannels() { return m_nCh; }
+  int GetNPins() const { return m_nPins; }
+  int GetNChannels() const { return m_nCh; }
 
   void ClearPin(int pinIdx);
   void SetPin(int pinIdx, int chIdx, bool on);
   bool TogglePin(int pinIdx, int chIdx);
 
   // true if this pin is mapped to this channel
-  bool GetPin(int pinIdx, int chIdx);
+  bool GetPin(int pinIdx, int chIdx) const;
   // true if this pin is to any higher channel
-  bool PinHasMoreMappings(int pinIdx, int chIdx);
+  bool PinHasMoreMappings(int pinIdx, int chIdx) const;
   // true if this mapper is a straight 1:1 passthrough
-  bool IsStraightPassthrough();
+  bool IsStraightPassthrough() const;
 
   char* SaveStateNew(int* pLen); // owned
-  bool LoadState(char* buf, int len);
+  bool LoadState(const char* buf, int len);
 
   WDL_UINT64 m_mapping[CHANNELPINMAPPER_MAXPINS];
 
@@ -47,6 +47,12 @@ private:
   int m_nCh, m_nPins;
 };
 
+// converts interleaved buffer to interleaved buffer, using min(len_in,len_out) and zeroing any extra samples
+// isInput means it reads from track channels and writes to plugin pins
+// wantZeroExcessOutput=false means that untouched channels will be preserved in buf_out
+void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in, 
+                             double *buf_out, int len_out, int nch_out,
+                             const ChannelPinMapper *pinmap, bool isInput, bool wantZeroExcessOutput);
 
 // use for float and double only ... ints will break it
 class AudioBufferContainer
@@ -62,28 +68,28 @@ public:
     FMT_64FP=8
   };
 
-  static bool BufConvert(void* dest, void* src, int destFmt, int srcFmt, int nFrames, int destStride, int srcStride);
+  static bool BufConvert(void* dest, const void* src, int destFmt, int srcFmt, int nFrames, int destStride, int srcStride);
 
-  int GetNChannels() { return m_nCh; }
-  int GetNFrames() { return m_nFrames; }
-  int GetFormat() { return m_fmt; }
+  int GetNChannels() const { return m_nCh; }
+  int GetNFrames() const { return m_nFrames; }
+  int GetFormat() const { return m_fmt; }
     
   void Resize(int nCh, int nFrames, bool preserveData);  
   // call Reformat(GetFormat(), false) to discard current data (for efficient repopulating)
   void Reformat(int fmt, bool preserveData); 
     
   // src=NULL to memset(0)
-  void* SetAllChannels(int fmt, void* src, int nCh, int nFrames);
+  void* SetAllChannels(int fmt, const void* src, int nCh, int nFrames);
   
   // src=NULL to memset(0)
-  void* SetChannel(int fmt, void* src, int chIdx, int nFrames);
+  void* SetChannel(int fmt, const void* src, int chIdx, int nFrames);
   
-  void* MixChannel(int fmt, void* src, int chIdx, int nFrames, bool addToDest, double wt_start, double wt_end);
+  void* MixChannel(int fmt, const void* src, int chIdx, int nFrames, bool addToDest, double wt_start, double wt_end);
   
   void* GetAllChannels(int fmt, bool preserveData);
   void* GetChannel(int fmt, int chIdx, bool preserveData);
   
-  void CopyFrom(AudioBufferContainer* rhs);
+  void CopyFrom(const AudioBufferContainer* rhs);
   
 private:
 
@@ -99,8 +105,8 @@ private:
 } WDL_FIXALIGN;
 
 
-void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, int forceMinChanCnt=0);
-void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, ChannelPinMapper* mapper, double wt_start=1.0, double wt_end=1.0);
+void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, const ChannelPinMapper* mapper, int forceMinChanCnt=0);
+void SetChannelsFromPins(AudioBufferContainer* dest, AudioBufferContainer* src, const ChannelPinMapper* mapper, double wt_start=1.0, double wt_end=1.0);
 
 
 #endif

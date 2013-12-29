@@ -73,7 +73,6 @@ void WDL_VirtualListBox::CalcLayout(int num_items, int *nrows, int *ncols, int *
 
   if (m_maxcolwidth>0)
   {
-    int oc = *ncols;
     if (m_mincolwidth<=0 || (m_position.right-m_position.left) <= m_maxcolwidth * *ncols)
       *ncols = (m_position.right-m_position.left) / m_maxcolwidth; // round down
   }
