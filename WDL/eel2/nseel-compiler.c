@@ -3786,6 +3786,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
     ctx->function_usesNamespaces=0;
     ctx->function_curName=NULL;
         
+    ctx->errVar=0;
 
     // single out top level segment
     {
@@ -3875,7 +3876,33 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
           while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
           {
             if (tok1[0] == ')') break;
-            if (isalpha(*tok1) || *tok1 == '_' || *tok1 == '#') maxcnt++;
+            if (*tok1 == '#' && localTableContext!=1) 
+            {
+              ctx->errVar = tok1 - _expression;
+              lstrcpyn_safe(ctx->last_error_string,"#string can only be in instance()",sizeof(ctx->last_error_string));
+              goto had_error;
+            }
+
+            if (isalpha(*tok1) || *tok1 == '_' || *tok1 == '#') 
+            {
+              maxcnt++;
+              if (p < endptr && *p == '*')
+              {
+                if (!is_parms)
+                {
+                  ctx->errVar = p - _expression;
+                  lstrcpyn_safe(ctx->last_error_string,"namespace* can only be used in parameters",sizeof(ctx->last_error_string));
+                  goto had_error;
+                }
+                p++;
+              }
+            }
+            else if (*tok1 != ',')
+            {
+              ctx->errVar = tok1 - _expression;
+              lstrcpyn_safe(ctx->last_error_string,"unknown character in function parameters",sizeof(ctx->last_error_string));
+              goto had_error;
+            }
           }
 
           if (tok1 && maxcnt > 0)
@@ -3937,8 +3964,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         memset(ctx->function_localTable_ValuePtrs,0,sizeof(EEL_F *) * ctx->function_localTable_Size[0]); // force values to be allocated
       }
     }
-
-    ctx->errVar=0;
 
    {
      int nseelparse(compileContext* context);
@@ -4097,7 +4122,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
     }
 
     if (!startptr) 
-    {      
+    {  
+had_error:
 #ifdef NSEEL_EEL1_COMPAT_MODE
       continue;
 
