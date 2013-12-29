@@ -334,6 +334,7 @@ void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, 
     p++;
     ml--;
   }
+  if (ml > 0) clrtoeol();
 }
 
 void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &maxy) // gets select region
@@ -360,7 +361,6 @@ void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int
 {
   if (skipcnt < 0) skipcnt=0;
   mvaddnstr_highlight(y,x,p,ml + skipcnt,c_comment_state, skipcnt);
-  clrtoeol();
 
   if (m_selecting)
   {
@@ -416,7 +416,7 @@ void WDL_CursesEditor::draw(int lineidx)
     WDL_FastString *s=m_text.Get(lineidx);
     if (s && lineidx >= m_offs_y && lineidx < m_offs_y+getVisibleLines())
     {
-      doDrawString(lineidx-m_offs_y+m_top_margin,0,lineidx,s->Get(),COLS-1,&comment_state, min(s->GetLength(),m_offs_x));
+      doDrawString(lineidx-m_offs_y+m_top_margin,0,lineidx,s->Get(),COLS,&comment_state, min(s->GetLength(),m_offs_x));
     }
     return;
   }
@@ -443,7 +443,7 @@ void WDL_CursesEditor::draw(int lineidx)
       continue;
     }
 
-    doDrawString(i+m_top_margin,0,ln,s->Get(),COLS-1,&comment_state,min(m_offs_x,s->GetLength()));
+    doDrawString(i+m_top_margin,0,ln,s->Get(),COLS,&comment_state,min(m_offs_x,s->GetLength()));
   }
   
 //  move(LINES-2,0);
