@@ -911,9 +911,9 @@ int WDL_CursesEditor::onChar(int c)
         {
           preSaveUndoState();
 
-          bool hadCom = LineCanAffectOtherLines(s->Get()); 
+          bool hadCom = LineCanAffectOtherLines(s->Get(),m_curs_x,1); 
           s->DeleteSub(m_curs_x,1);
-          if (!hadCom) hadCom = LineCanAffectOtherLines(s->Get());
+          if (!hadCom) hadCom = LineCanAffectOtherLines(s->Get(),-1,-1);
           draw(hadCom ? -1 : m_curs_y);
           saveUndoState();
           setCursor();
@@ -1249,9 +1249,9 @@ int WDL_CursesEditor::onChar(int c)
       {
         preSaveUndoState();
 
-        bool hadCom = LineCanAffectOtherLines(tl->Get());
+        bool hadCom = LineCanAffectOtherLines(tl->Get(), m_curs_x-1,1);
         tl->DeleteSub(--m_curs_x,1);
-        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get());
+        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get(),-1,-1);
         draw(hadCom?-1:m_curs_y);
         saveUndoState();
         setCursor();
@@ -1353,17 +1353,20 @@ int WDL_CursesEditor::onChar(int c)
       WDL_FastString *ss;
       if ((ss=m_text.Get(m_curs_y)))
       {
-         char str[8]={c,};
-        if (c == '\t') strcpy(str,TAB_STR);
-    //    sprintf(str,"|%d|",c);
-        bool hadCom = LineCanAffectOtherLines(ss->Get());
-        if (s_overwrite) ss->DeleteSub(m_curs_x,strlen(str));
+        char str[8]={c,};
+        int slen = 1;
+        if (c == '\t') { strcpy(str,TAB_STR); slen=strlen(TAB_STR); }
 
+        bool hadCom = LineCanAffectOtherLines(ss->Get(),-1,-1);
+        if (s_overwrite)
+        {
+          if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get(),m_curs_x,slen);
+          ss->DeleteSub(m_curs_x,slen);
+        }
         ss->Insert(str,m_curs_x);
+        if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get(),m_curs_x,slen);
 
-        if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get());
-
-        m_curs_x += strlen(str);
+        m_curs_x += slen;
         draw(hadCom ? -1 : m_curs_y);
       }
       saveUndoState();

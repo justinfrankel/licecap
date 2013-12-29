@@ -55,7 +55,7 @@ protected:
   virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
   virtual void draw_top_line() { }// within m_top_margin
   virtual void draw_bottom_line();
-  virtual bool LineCanAffectOtherLines(const char *txt) // if multiline comment etc
+  virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
   {
     return false;
   }
