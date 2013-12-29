@@ -1,3 +1,8 @@
+v1.24 - December 29, 2013
+  + Windows: removed ancient command line version from installer (still buildable from source)
+  + Windows: use licecap.ini in same path as executable if it exists (portable mode) -- fixed, didn't work in 1.23
+  + Internal changes for coming webm support
+
 v1.23 - April 26 2013
   + Support for choosing number of loop iterations of GIF files
   + Windows: use licecap.ini in same path as executable if it exists (portable mode)
