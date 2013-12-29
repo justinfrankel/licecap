@@ -797,10 +797,12 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   char match_parmcnt[4]={-1,-1,-1,-1}; // [3] is guess
   char match_parmcnt_pos=0;
   char *sname = (char *)rec->relname;
+  int is_string_prefix = parmcnt < 0 && sname[0] == '#';
+  if (sname) sname += is_string_prefix;
 
   if (rec->opcodeType != OPCODETYPE_VARPTR || !sname || !sname[0]) return NULL;
 
-  if (!isFunctionMode && !strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
+  if (!isFunctionMode && !is_string_prefix && !strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
   {
     EEL_F *a=get_global_var(sname,1);
     if (a) 
@@ -837,7 +839,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         const char *p = namelist[i];
         if (p)
         {
-          if (!isFunctionMode && !strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
+          if (!isFunctionMode && !is_string_prefix && !strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
           {
             rec->opcodeType = OPCODETYPE_VARPTRPTR;
             rec->parms.dv.valuePtr=(EEL_F *)(ctx->function_localTable_ValuePtrs+i);
@@ -864,13 +866,14 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     {
       char * const * const namelist = ctx->function_localTable_Names[1];
       const int namelist_sz = ctx->function_localTable_Size[1];
+      const char *full_sname = rec->relname; // include # in checks
       for (i=0; i < namelist_sz; i++)
       {
         const char *p = namelist[i];
         if (p && *p)
         {
           const int tl = strlen(p);     
-          if (!strncasecmp(p,sname,tl) && (sname[tl] == 0 || sname[tl] == '.'))
+          if (!strncasecmp(p,full_sname,tl) && (full_sname[tl] == 0 || full_sname[tl] == '.'))
           {
             rel_prefix_len=0; // treat as though this. prefixes is present
             rel_prefix_idx=-1;
@@ -894,6 +897,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       rec->namespaceidx = rel_prefix_idx;
       if (rel_prefix_len > 0) 
       {
+        if (is_string_prefix) sname[-1] = '#';
         memmove(sname, sname+rel_prefix_len, strlen(sname + rel_prefix_len) + 1);
       }
     }
@@ -1550,7 +1554,9 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
               }
               else if (ordered_parmptrs[x]->opcodeType == OPCODETYPE_VALUE_FROM_NAMESPACENAME)
               {
-                combineNamespaceFields(tmp,namespacePathToThis,ordered_parmptrs[x]->relname,ordered_parmptrs[x]->namespaceidx);
+                const char *p=ordered_parmptrs[x]->relname;
+                if (*p == '#') p++;
+                combineNamespaceFields(tmp,namespacePathToThis,p,ordered_parmptrs[x]->namespaceidx);
                 rn = tmp;
               }
             }
@@ -2165,13 +2171,27 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
     if (bufOut)
     {
       char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
-    
-      combineNamespaceFields(nm,functionPrefix,op->relname,op->namespaceidx);
-
+      const char *p = op->relname;
+      combineNamespaceFields(nm,functionPrefix,p+(*p == '#'),op->namespaceidx);
       if (!nm[0]) return -1;
-    
-      b = nseel_int_register_var(ctx,nm,0,NULL);
-      if (!b) RET_MINUS1_FAIL("error registering var")
+      if (*p == '#') 
+      {
+        if (ctx->isGeneratingCommonFunction)
+          b = newCtxDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+        else
+          b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+
+        if (!b) RET_MINUS1_FAIL("error creating storage for str")
+
+        if (!ctx->onNamedString) return -1; // should never happen, will not generate OPCODETYPE_VALUE_FROM_NAMESPACENAME with # prefix if !onNamedString
+
+        *b = ctx->onNamedString(ctx->caller_this,nm);
+      }
+      else
+      {
+        b = nseel_int_register_var(ctx,nm,0,NULL);
+        if (!b) RET_MINUS1_FAIL("error registering var")
+      }
     }
   }
   else
@@ -3855,7 +3875,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
           while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
           {
             if (tok1[0] == ')') break;
-            if (isalpha(*tok1) || *tok1 == '_') maxcnt++;
+            if (isalpha(*tok1) || *tok1 == '_' || *tok1 == '#') maxcnt++;
           }
 
           if (tok1 && maxcnt > 0)
@@ -3876,7 +3896,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
               while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
               {
                 if (tok1[0] == ')') break;
-                if (isalpha(*tok1) || *tok1 == '_') 
+                if (isalpha(*tok1) || *tok1 == '_' || *tok1 == '#') 
                 {
                   char *newstr;
                   int l = tmplen;
@@ -4836,10 +4856,29 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
   {
     char buf[512];
     if (tmplen < 0) tmplen=strlen(tmp);
-    if (tmplen > sizeof(buf)) tmplen = sizeof(buf);
-    memcpy(buf,tmp+1,tmplen-1);
-    buf[tmplen-1]=0;
-    if (ctx->onNamedString) return nseel_createCompiledValue(ctx,ctx->onNamedString(ctx->caller_this,buf));
+    if (tmplen > sizeof(buf)-1) tmplen = sizeof(buf)-1;
+    memcpy(buf,tmp,tmplen);
+    buf[tmplen]=0;
+    if (ctx->onNamedString) 
+    {
+      if (buf[1]&&ctx->function_curName)
+      {
+        opcodeRec *r = nseel_resolve_named_symbol(ctx,nseel_createCompiledValuePtr(ctx,NULL,buf),-1);
+        if (r)
+        {
+          if (r->opcodeType!=OPCODETYPE_VALUE_FROM_NAMESPACENAME) 
+          {
+            r->opcodeType = OPCODETYPE_DIRECTVALUE;
+            r->parms.dv.directValue = ctx->onNamedString(ctx->caller_this,buf+1);
+            r->parms.dv.valuePtr=NULL;
+          }
+          return r;
+        }
+      }
+
+      // if not namespaced symbol, return directly
+      return nseel_createCompiledValue(ctx,ctx->onNamedString(ctx->caller_this,buf+1));
+    }
   }
   return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }
