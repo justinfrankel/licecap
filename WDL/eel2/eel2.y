@@ -34,7 +34,7 @@
 %token TOKEN_LTE TOKEN_GTE TOKEN_EQ TOKEN_EQ_EXACT TOKEN_NE TOKEN_NE_EXACT TOKEN_LOGICAL_AND TOKEN_LOGICAL_OR
 %token TOKEN_ADD_OP TOKEN_SUB_OP TOKEN_MOD_OP TOKEN_OR_OP TOKEN_AND_OP TOKEN_XOR_OP TOKEN_DIV_OP TOKEN_MUL_OP TOKEN_POW_OP
 %token STRING_LITERAL STRING_IDENTIFIER
-%expect 89
+%expect 75
 %start program
 
 %%
@@ -186,6 +186,14 @@ mod_expr:
         {
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_MOD,2,$1,$3);
         }
+        | mod_expr TOKEN_SHL pow_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_SHL,2,$1,$3);
+        }
+        | mod_expr TOKEN_SHR pow_expr
+        {
+	  $$ = nseel_createSimpleCompiledFunction(context,FN_SHR,2,$1,$3);
+        }
         ;
 
 div_expr:
@@ -236,14 +244,6 @@ andor_expr:
 	{
 	  $$ = nseel_createSimpleCompiledFunction(context,FN_XOR,2,$1,$3);
 	}
-        | andor_expr TOKEN_SHL add_expr
-        {
-	  $$ = nseel_createSimpleCompiledFunction(context,FN_SHL,2,$1,$3);
-        }
-        | andor_expr TOKEN_SHR add_expr
-        {
-	  $$ = nseel_createSimpleCompiledFunction(context,FN_SHR,2,$1,$3);
-        }
 	;
 
 cmp_expr:
