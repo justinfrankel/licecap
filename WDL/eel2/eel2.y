@@ -25,9 +25,6 @@
 #define scanner context->scanner
 #define YY_(x) ("")
 
-  /* todo: better error messages, such as "function not found" or "function parameter count incorrect" */
-#define ON_FAILED_CODE yyerror (&yyloc, context, "");
-
 %}
 
 %token VALUE IDENTIFIER TOKEN_SHL TOKEN_SHR 
@@ -59,7 +56,7 @@ string:
 assignable_value:
 	IDENTIFIER
         {
-          $$ = nseel_resolve_named_symbol(context, $1, -1); /* convert from purely named to namespace-relative, etc */
+          $$ = nseel_resolve_named_symbol(context, $1, -1, NULL); /* convert from purely named to namespace-relative, etc */
         }
         /* we used to have VALUE in here rather than rvalue, to allow 1=1 1+=2 etc, but silly to, 
            though this breaks Vmorph, which does 1=1 for a nop, and Jonas DrumReaplacer, which does x = 0 = y = 0 */
@@ -67,21 +64,60 @@ assignable_value:
 	{
 	  $$ = $2;
 	}
+	| IDENTIFIER '(' expression ')' '(' expression ')'
+	{
+          int err;
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, 0, 0, $6, &err))) 
+          { 
+            if (err == -1) yyerror(&yylsp[-2], context, "");
+            else if (err == 0) yyerror(&yylsp[-6], context, "");
+            else yyerror(&yylsp[-3], context, ""); // parameter count wrong
+
+            YYERROR; 
+          }
+	}
 	| IDENTIFIER '(' expression ')'
 	{
-  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, 0, 0))) { ON_FAILED_CODE YYERROR; }
+          int err;
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, 0, 0, 0, &err))) 
+          { 
+            if (err == 0) yyerror(&yylsp[-3], context, "");
+            else yyerror(&yylsp[0], context, ""); // parameter count wrong
+            YYERROR; 
+          }
 	}
 	| IDENTIFIER '(' ')'
 	{
-  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, nseel_createCompiledValue(context,0.0), 0, 0))) { ON_FAILED_CODE YYERROR; }
+          int err;
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, nseel_createCompiledValue(context,0.0), 0, 0, 0,&err))) 
+          { 
+            if (err == 0) yyerror(&yylsp[-2], context, ""); // function not found
+            else yyerror(&yylsp[0], context, ""); // parameter count wrong
+            YYERROR; 
+          }
 	}
 	| IDENTIFIER '(' expression ',' expression ')'
 	{
-  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, $5, 0))) { ON_FAILED_CODE YYERROR; }
+          int err;
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, $5, 0, 0,&err))) 
+          { 
+            if (err == 0) yyerror(&yylsp[-5], context, "");
+            else if (err == 2) yyerror(&yylsp[0], context, ""); // needs more than 2 parameters
+            else yyerror(&yylsp[-2], context, ""); // less than 2
+            YYERROR; 
+          }
 	}
 	| IDENTIFIER '(' expression ',' expression ',' more_params ')' 
 	{
-  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, $5, $7))) { ON_FAILED_CODE YYERROR; }
+          int err;
+  	  if (!($$ = nseel_setCompiledFunctionCallParameters(context,$1, $3, $5, $7, 0, &err))) 
+          { 
+            if (err == 0) yyerror(&yylsp[-7], context, "");
+            else if (err==2) yyerror(&yylsp[0], context, ""); // needs more parameters
+            else if (err==4) yyerror(&yylsp[-4], context, ""); // needs single parameter
+            else yyerror(&yylsp[-2], context, ""); // less parm
+            YYERROR; 
+          }
 	}
         | rvalue '[' ']'
         {

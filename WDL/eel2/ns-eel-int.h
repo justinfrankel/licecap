@@ -252,11 +252,17 @@ opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int
 
 // converts a generic identifier (VARPTR) opcode into either an actual variable reference (parmcnt = -1),
 // or if parmcnt >= 0, to a function call (see nseel_setCompiledFunctionCallParameters())
-opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt); 
+opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt, int *errOut); 
 
 // sets parameters and calculates parameter count for opcode, and calls nseel_resolve_named_symbol() with the right
 // parameter count
-opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3);
+opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3, opcodeRec *postCode, int *errOut); 
+// errOut will be set if return NULL:
+// -1 if postCode set when not wanted (i.e. not while())
+// 0 if func not found, 
+// 1 if function requires 2+ parameters but was given more
+// 2 if function needs more parameters
+// 4 if function requires 1 parameter but was given more
 
 
 

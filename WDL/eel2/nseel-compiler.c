@@ -788,7 +788,7 @@ opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fnt
   return r;
 }
 
-opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt)
+opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt, int *errOut)
 {
   const int isFunctionMode = parmcnt >= 0;
   int rel_prefix_len=0;
@@ -905,6 +905,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     return rec;
   }
  
+  if (errOut) *errOut = 0;
   
   ////////// function mode
   //
@@ -1107,11 +1108,13 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"%s%d",x==0?"" : x == match_parmcnt_pos-1?" or ":",",match_parmcnt[x]);
     lstrcatn(ctx->last_error_string," parms",sizeof(ctx->last_error_string));
   }
+  if (errOut) *errOut = match_parmcnt_pos > 0 ? parmcnt<match_parmcnt[0]?2:(match_parmcnt[0] < 2 ? 4:1) : 0;
   return NULL;
 }
 
-opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
+opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRec *fn, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3, opcodeRec *postCode, int *errOut)
 {
+  opcodeRec *r;
   int np=0,x;
   if (!fn || fn->opcodeType != OPCODETYPE_VARPTR || !fn->relname || !fn->relname[0]) 
   {
@@ -1132,7 +1135,31 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRe
       prni = prni->parms.parms[1];
     }
   }
-  return nseel_resolve_named_symbol(ctx, fn, np<1 ? 1 : np);
+  r = nseel_resolve_named_symbol(ctx, fn, np<1 ? 1 : np ,errOut);
+  if (postCode && r)
+  {
+    if (code1 && 
+        r->opcodeType == OPCODETYPE_FUNC1 && 
+        r->fntype == FUNCTYPE_FUNCTIONTYPEREC && 
+        (functionType *)r->fn == fnTable1 + FNTABLE_OFFSET_WHILE)
+    {
+      // change while(x) (postcode) to be 
+      // while ((x) ? (postcode;1) : 0);
+      
+      r->parms.parms[0] = 
+        nseel_createIfElse(ctx,r->parms.parms[0],
+                               nseel_createSimpleCompiledFunction(ctx,FN_JOIN_STATEMENTS,2,postCode,nseel_createCompiledValue(ctx,1.0f)),
+                               NULL); // NULL defaults to 0.0
+        
+    }
+    else
+    {
+      snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"syntax error following function");
+      *errOut = -1;
+      return NULL;
+    }
+  }
+  return r;
 }
 
 
@@ -4889,7 +4916,7 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
     {
       if (buf[1]&&ctx->function_curName)
       {
-        opcodeRec *r = nseel_resolve_named_symbol(ctx,nseel_createCompiledValuePtr(ctx,NULL,buf),-1);
+        opcodeRec *r = nseel_resolve_named_symbol(ctx,nseel_createCompiledValuePtr(ctx,NULL,buf),-1, NULL);
         if (r)
         {
           if (r->opcodeType!=OPCODETYPE_VALUE_FROM_NAMESPACENAME) 
