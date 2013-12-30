@@ -636,6 +636,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
             }
             else if (fmt_char == 'f')
             {
+              if (msg[len] == '-') len++;
               while (msg[len] >= '0' && msg[len] <= '9') len++;
               if (msg[len] == '.') 
               { 
@@ -645,6 +646,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
             }
             else if (fmt_char == 'd' || fmt_char == 'u')
             {
+              if (fmt_char == 'd' && msg[len] == '-') len++;
               while (msg[len] >= '0' && msg[len] <= '9') len++;
             }
             else 
