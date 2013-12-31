@@ -58,23 +58,17 @@
 #define COLOR_PAIRS 16
 #define NUM_ATTRBITS 1
 
+#define WIN32_CURSES_CURSOR_TYPE_VERTBAR 0
+#define WIN32_CURSES_CURSOR_TYPE_HORZBAR 1
+#define WIN32_CURSES_CURSOR_TYPE_BLOCK 2
+
 typedef struct win32CursesCtx
 {
   HWND m_hwnd;
   int lines, cols;
 
-  int m_cursor_x;
-  int m_cursor_y;
-
-  int m_kb_queue[64];
-
-  char m_cur_attr, m_cur_erase_attr;
-  unsigned char m_kb_queue_valid,m_kb_queue_pos;
-
-  char m_need_fontcalc;
-  char want_getch_runmsgpump; // set to 1 to cause getch() to run the message pump, 2 to cause it to be blocking (waiting for keychar)
-  char m_intimer;
-  char m_need_redraw;
+  int m_cursor_x, m_cursor_y;
+  int cursor_state_lx,cursor_state_ly; // used to detect changes and reset cursor_state
 
   unsigned char *m_framebuffer;
   HFONT mOurFont;
@@ -83,14 +77,21 @@ typedef struct win32CursesCtx
 
   int colortab[COLOR_PAIRS << NUM_ATTRBITS][2];
 
-  int m_cursor_state; // blinky
-  int m_cursor_state_lx,m_cursor_state_ly; // used to detect changes and reset m_cursor_state
+  int m_kb_queue[64];
+  unsigned char m_kb_queue_valid;
+  unsigned char m_kb_queue_pos;
+
+  char need_redraw; // &2 = need font calculation, &1 = need redraw
+  char cursor_state; // blinky cycle
+
+  char m_cur_attr;
+  char m_cur_erase_attr;
 
   // callbacks/config available for user
+  char want_getch_runmsgpump; // set to 1 to cause getch() to run the message pump, 2 to cause it to be blocking (waiting for keychar)
+  char cursor_type; // set to WIN32_CURSES_CURSOR_TYPE_VERTBAR etc
 
-  void (*ui_run)(struct win32CursesCtx *ctx);
   void *user_data;
-
   LRESULT (*onMouseMessage)(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 } win32CursesCtx;
 
