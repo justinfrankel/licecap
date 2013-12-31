@@ -6,6 +6,9 @@
 #endif
 #define CURSES_INSTANCE ___ERRROR_____
 
+#include "../wdltypes.h"
+
+
 #include "curses.h"
 
 #include <ctype.h>
@@ -289,10 +292,14 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #endif
 
     {
-      int a=xlateKey(uMsg,wParam,lParam);
-      if (a != ERR && ctx->m_kbq)
+      const int a=xlateKey(uMsg,wParam,lParam);
+      if (a != ERR)
       {
-        ctx->m_kbq->Add(&a,sizeof(int));
+        const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
+        if (ctx->m_kb_queue_valid<qsize)
+        {
+          ctx->m_kb_queue[(ctx->m_kb_queue_pos + ctx->m_kb_queue_valid++) & (qsize-1)] = a;
+        }
       }
     }
   case WM_KEYUP:
@@ -541,7 +548,7 @@ static void doFontCalc(win32CursesCtx *ctx, HDC hdcIn)
 
   if (!hdc) return;
    
-  ctx->m_need_fontcalc=false;
+  ctx->m_need_fontcalc=0;
   HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
   TEXTMETRIC tm;
   GetTextMetrics(hdc,&tm);
@@ -589,7 +596,7 @@ static void reInitializeContext(win32CursesCtx *ctx)
 #endif
                         "Courier New");
 
-  ctx->m_need_fontcalc=true;
+  ctx->m_need_fontcalc=1;
   ctx->m_font_w=8;
   ctx->m_font_h=8;
   doFontCalc(ctx,NULL);
@@ -609,11 +616,10 @@ void __endwin(win32CursesCtx *ctx)
   {
     if (ctx->m_hwnd)
       curses_setWindowContext(ctx->m_hwnd,0);
+    ctx->m_kb_queue_valid=0;
     ctx->m_hwnd=0;
     free(ctx->m_framebuffer);
     ctx->m_framebuffer=0;
-    delete ctx->m_kbq;
-    ctx->m_kbq=0;
     if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
     ctx->mOurFont=0;
   }
@@ -645,7 +651,7 @@ int curses_getch(win32CursesCtx *ctx)
     MSG msg;
     if (ctx->want_getch_runmsgpump>1)
     {
-      while(!(ctx->m_kbq && ctx->m_kbq->Available()>=(int)sizeof(int)) && GetMessage(&msg,NULL,0,0))
+      while(!ctx->m_kb_queue_valid && GetMessage(&msg,NULL,0,0))
       {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -659,11 +665,12 @@ int curses_getch(win32CursesCtx *ctx)
   }
 #endif
 
-  if (ctx->m_kbq && ctx->m_kbq->Available()>=(int)sizeof(int))
+  if (ctx->m_kb_queue_valid)
   {
-    int a=*(int *) ctx->m_kbq->Get();
-    ctx->m_kbq->Advance(sizeof(int));
-    ctx->m_kbq->Compact();
+    const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
+    const int a = ctx->m_kb_queue[ctx->m_kb_queue_pos & (qsize-1)];
+    ctx->m_kb_queue_pos++;
+    ctx->m_kb_queue_valid--;
     return a;
   }
 #endif
@@ -684,8 +691,7 @@ void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx)
   if (ctx)
   {
     ctx->m_hwnd=hwnd;
-    delete ctx->m_kbq;
-    ctx->m_kbq=new WDL_Queue;
+    ctx->m_kb_queue_valid=0;
 
     free(ctx->m_framebuffer);
     ctx->m_framebuffer=0;

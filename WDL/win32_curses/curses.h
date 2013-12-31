@@ -14,7 +14,6 @@
   #else
   #include "../swell/swell.h"
   #endif
-  #include "../queue.h"
 
 /*
 ** this implements a tiny subset of curses on win32.
@@ -66,16 +65,21 @@ typedef struct win32CursesCtx
 
   int m_cursor_x;
   int m_cursor_y;
+
+  int m_kb_queue[64];
+
   char m_cur_attr, m_cur_erase_attr;
+  unsigned char m_kb_queue_valid,m_kb_queue_pos;
+
+  char m_need_fontcalc;
+  char want_getch_runmsgpump; // set to 1 to cause getch() to run the message pump, 2 to cause it to be blocking (waiting for keychar)
+  char m_intimer;
+  char m_need_redraw;
+
   unsigned char *m_framebuffer;
   HFONT mOurFont;
   
-  bool m_need_fontcalc;
   int m_font_w, m_font_h;
-  int m_need_redraw;
-
-  WDL_Queue *m_kbq;
-  int m_intimer;
 
   int colortab[COLOR_PAIRS << NUM_ATTRBITS][2];
 
@@ -83,7 +87,6 @@ typedef struct win32CursesCtx
   int m_cursor_state_lx,m_cursor_state_ly; // used to detect changes and reset m_cursor_state
 
   // callbacks/config available for user
-  int want_getch_runmsgpump; // set to 1 to cause getch() to run the message pump, 2 to cause it to be blocking (waiting for keychar)
 
   void (*ui_run)(struct win32CursesCtx *ctx);
   void *user_data;
