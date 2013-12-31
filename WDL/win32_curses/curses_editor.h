@@ -78,9 +78,6 @@ protected:
   int m_want_x;
 
 
-  char newfilename_str[256];
-  WDL_FastString m_newfn;
-
   static char s_search_string[256];
   static int s_overwrite;
   static WDL_FastString s_fake_clipboard;
