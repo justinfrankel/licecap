@@ -26,6 +26,8 @@ static void doFontCalc(win32CursesCtx*, HDC);
 
 static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey)
 {
+  if (!ctx) return;
+
   doFontCalc(ctx,NULL);
 
   RECT r;
@@ -38,6 +40,8 @@ static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey
 
 void __addnstr(win32CursesCtx *ctx, const char *str,int n)
 {
+  if (!ctx) return;
+
   if (ctx->m_cursor_x<0)
   {
     int skip = -ctx->m_cursor_x;
@@ -72,6 +76,8 @@ void __addnstr(win32CursesCtx *ctx, const char *str,int n)
 
 void __clrtoeol(win32CursesCtx *ctx)
 {
+  if (!ctx) return;
+
   if (ctx->m_cursor_x<0)ctx->m_cursor_x=0;
   int n = ctx->cols - ctx->m_cursor_x;
   if (!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines || n < 1) return;
@@ -88,6 +94,8 @@ void __clrtoeol(win32CursesCtx *ctx)
 
 void __curses_erase(win32CursesCtx *ctx)
 {
+  if (!ctx) return;
+
   ctx->m_cur_attr=0;
   ctx->m_cur_erase_attr=0;
   if (ctx->m_framebuffer) memset(ctx->m_framebuffer,0,ctx->cols*ctx->lines*2);
@@ -98,6 +106,8 @@ void __curses_erase(win32CursesCtx *ctx)
 
 void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
 {
+  if (!ctx) return;
+
   m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
   ctx->m_cursor_x=y;
   ctx->m_cursor_y=x;
@@ -107,7 +117,7 @@ void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
 
 void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
 {
-  if (pair < 0 || pair >= COLOR_PAIRS) return;
+  if (!ctx || pair < 0 || pair >= COLOR_PAIRS) return;
 
   pair=COLOR_PAIR(pair);
 
@@ -223,7 +233,9 @@ static int xlateKey(int msg, int wParam, int lParam)
 
 static void m_reinit_framebuffer(win32CursesCtx *ctx)
 {
-  doFontCalc(ctx,NULL);
+  if (!ctx) return;
+
+    doFontCalc(ctx,NULL);
     RECT r;
 
     GetClientRect(ctx->m_hwnd,&r);
@@ -260,7 +272,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   }
 #endif
 
-  if (ctx)switch (uMsg)
+  if (ctx) switch (uMsg)
   {
 	case WM_DESTROY:
 		ctx->m_hwnd=0;
@@ -543,6 +555,8 @@ static void doFontCalc(win32CursesCtx *ctx, HDC hdcIn)
 
 static void reInitializeContext(win32CursesCtx *ctx)
 {
+  if (!ctx) return;
+
   if (!ctx->mOurFont) ctx->mOurFont = CreateFont(
 #ifdef _WIN32
                                                  16,
@@ -591,22 +605,24 @@ void __initscr(win32CursesCtx *ctx)
 
 void __endwin(win32CursesCtx *ctx)
 {
-  if (ctx->m_hwnd)
-    curses_setWindowContext(ctx->m_hwnd,0);
-  ctx->m_hwnd=0;
-  free(ctx->m_framebuffer);
-  ctx->m_framebuffer=0;
-  delete ctx->m_kbq;
-  ctx->m_kbq=0;
-  if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
-  ctx->mOurFont=0;
-
+  if (ctx)
+  {
+    if (ctx->m_hwnd)
+      curses_setWindowContext(ctx->m_hwnd,0);
+    ctx->m_hwnd=0;
+    free(ctx->m_framebuffer);
+    ctx->m_framebuffer=0;
+    delete ctx->m_kbq;
+    ctx->m_kbq=0;
+    if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
+    ctx->mOurFont=0;
+  }
 }
 
 
 int curses_getch(win32CursesCtx *ctx)
 {
-  if (!ctx->m_hwnd) return ERR;
+  if (!ctx || !ctx->m_hwnd) return ERR;
 
  
 #ifndef WIN32_CONSOLE_KBQUEUE
@@ -730,6 +746,7 @@ HWND curses_ControlCreator(HWND parent, const char *cname, int idx, const char *
 
 HWND curses_CreateWindow(HINSTANCE hInstance, win32CursesCtx *ctx, const char *title)
 {
+  if (!ctx) return NULL;
 #ifdef _WIN32
  ctx->m_hwnd = CreateWindowEx(0,WIN32CURSES_CLASS_NAME, title,WS_CAPTION|WS_MAXIMIZEBOX|WS_MINIMIZEBOX|WS_SIZEBOX|WS_SYSMENU,
 					CW_USEDEFAULT,CW_USEDEFAULT,640,480,
