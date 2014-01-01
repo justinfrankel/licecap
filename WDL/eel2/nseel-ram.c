@@ -85,14 +85,12 @@ void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our fre
 	}
 }
 
-
-
+EEL_F nseel_ramalloc_onfail;
 
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
 {
   static EEL_F * volatile  gmembuf;
-  static EEL_F fail;
   if (blocks) 
   {
     EEL_F **pblocks=*blocks;
@@ -108,7 +106,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
         pblocks = *blocks = (EEL_F **)calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS);
         if (!pblocks) {
           if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
-          return &fail;
+          return &nseel_ramalloc_onfail;
         }
       }
     }
@@ -138,7 +136,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
       }
     }
     if (is_locked) NSEEL_HOSTSTUB_LeaveMutex();
-    return &fail;
+    return &nseel_ramalloc_onfail;
   }
 
   if (!gmembuf)
@@ -146,16 +144,15 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
     NSEEL_HOSTSTUB_EnterMutex(); 
     if (!gmembuf) gmembuf=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
     NSEEL_HOSTSTUB_LeaveMutex();
-    if (!gmembuf) return &fail;
+    if (!gmembuf) return &nseel_ramalloc_onfail;
   }
 
   return gmembuf+(((unsigned int)w)&((NSEEL_SHARED_GRAM_SIZE)-1));
 }
 
+
 EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
 {
-  static EEL_F fail;
-
 //  fprintf(stderr,"got request at %d, %d\n",w/NSEEL_RAM_ITEMSPERBLOCK, w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   if (w < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK)
   {
@@ -180,7 +177,7 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
     if (p) return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   }
 //  fprintf(stderr,"ret 0\n");
-  return &fail;
+  return &nseel_ramalloc_onfail;
 }
 
 
@@ -236,7 +233,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *sr
 
     srcptr = __NSEEL_RAMAlloc(blocks,src_offs);
     destptr = __NSEEL_RAMAlloc(blocks,dest_offs);
-    if (!srcptr || !destptr) break;
+    if (!srcptr || !destptr || srcptr==&nseel_ramalloc_onfail || destptr==&nseel_ramalloc_onfail) break;
 
     memmove(destptr,srcptr,sizeof(EEL_F)*copy_len);
     src_offs+=copy_len;
@@ -270,7 +267,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F **blocks,EEL_F *dest, EEL_F *v,
   {
     int lcnt;
     EEL_F *ptr=__NSEEL_RAMAlloc(blocks,offs);
-    if (!ptr) break;
+    if (!ptr || ptr==&nseel_ramalloc_onfail) break;
 
     lcnt=NSEEL_RAM_ITEMSPERBLOCK-(offs&(NSEEL_RAM_ITEMSPERBLOCK-1));
     if (lcnt > len) lcnt=len;

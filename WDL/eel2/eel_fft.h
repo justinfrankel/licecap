@@ -88,7 +88,7 @@ static EEL_F * fft_func(int dir, EEL_F **blocks, EEL_F *start, EEL_F *length)
 	}
 
 	ptr=__NSEEL_RAMAlloc(blocks,offs);
-	if (!ptr)
+	if (!ptr || ptr==&nseel_ramalloc_onfail)
 	{ 
 		return start; 
 	}
@@ -131,9 +131,9 @@ static EEL_F * NSEEL_CGEN_CALL eel_convolve_c(EEL_F **blocks,EEL_F *dest, EEL_F 
   if ((src_offs&(NSEEL_RAM_ITEMSPERBLOCK-1)) + len > NSEEL_RAM_ITEMSPERBLOCK) return dest;
 
   srcptr = __NSEEL_RAMAlloc(blocks,src_offs);
-  if (!srcptr) return dest;
+  if (!srcptr || srcptr==&nseel_ramalloc_onfail) return dest;
   destptr = __NSEEL_RAMAlloc(blocks,dest_offs);
-  if (!destptr) return dest;
+  if (!destptr || destptr==&nseel_ramalloc_onfail) return dest;
 
 
   WDL_fft_complexmul((WDL_FFT_COMPLEX*)destptr,(WDL_FFT_COMPLEX*)srcptr,(len/2)&~1);
