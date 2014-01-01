@@ -14,12 +14,13 @@
 #define EEL_FFT_MAXBITLEN 15
 #endif
 
+//#define EEL_SUPER_FAST_FFT_REORDERING // quite a bit faster (50-100%) than "normal", but uses a 256kb lookup
+//#define EEL_SLOW_FFT_REORDERING // 20%-80% slower than normal, alloca() use, no reason to ever use this
 
-#ifndef EEL_SLOW_FFT_REORDERING
-
+#ifdef EEL_SUPER_FAST_FFT_REORDERING
 static int *fft_reorder_table_for_bitsize(int bitsz)
 {
-  static int s_tab[ (2 << EEL_FFT_MAXBITLEN) + 24*(EEL_FFT_MAXBITLEN-EEL_FFT_MINBITLEN+1) ];
+  static int s_tab[ (2 << EEL_FFT_MAXBITLEN) + 24*(EEL_FFT_MAXBITLEN-EEL_FFT_MINBITLEN+1) ]; // big 256kb table, ugh
   if (bitsz<=EEL_FFT_MINBITLEN) return s_tab;
   return s_tab + (1<<bitsz) + (bitsz-EEL_FFT_MINBITLEN) * 24;
 }
@@ -37,11 +38,11 @@ static void fft_make_reorder_table(int bitsz, int *tab)
     if (!flag[x] && (fx=WDL_fft_permute(fft_sz,x))!=x)
     {
       flag[x]=1;
-      *tab++ = x*2;
+      *tab++ = x;
       do
       {
         flag[fx]=1;
-        *tab++ = fx*2;
+        *tab++ = fx;
         fx = WDL_fft_permute(fft_sz, fx);
       }
       while (fx != x);
@@ -52,7 +53,7 @@ static void fft_make_reorder_table(int bitsz, int *tab)
   *tab++ = 0; // doublenull terminated
 }
 
-static void fft_reorder_buffer(int bitsz, EEL_F *data, int fwd)
+static void fft_reorder_buffer(int bitsz, WDL_FFT_COMPLEX *data, int fwd)
 {
   const int *tab=fft_reorder_table_for_bitsize(bitsz);
   if (!fwd)
@@ -60,22 +61,17 @@ static void fft_reorder_buffer(int bitsz, EEL_F *data, int fwd)
     while (*tab)
     {
       const int sidx=*tab++;
-      EEL_F a=data[sidx];
-      EEL_F b=data[sidx+1];
+      WDL_FFT_COMPLEX a=data[sidx];
       for (;;)
       {
-        EEL_F ta,tb;
+        WDL_FFT_COMPLEX ta;
         const int idx=*tab++;
         if (!idx) break;
         ta=data[idx];
-        tb=data[idx+1];
         data[idx]=a;
-        data[idx+1]=b;
         a=ta;
-        b=tb;
       }
       data[sidx] = a;
-      data[sidx+1] = b;
     }
   }
   else
@@ -84,28 +80,135 @@ static void fft_reorder_buffer(int bitsz, EEL_F *data, int fwd)
     {
       const int sidx=*tab++;
       int lidx = sidx;
-      const EEL_F sta=data[lidx];
-      const EEL_F stb=data[lidx+1];
+      const WDL_FFT_COMPLEX sta=data[lidx];
       for (;;)
       {
         const int idx=*tab++;
         if (!idx) break;
 
         data[lidx]=data[idx];
-        data[lidx+1]=data[idx+1];
         lidx=idx;
       }
       data[lidx] = sta;
-      data[lidx+1] = stb;
+    }
+  }
+  return 1;
+}
+#else
+#ifndef EEL_SLOW_FFT_REORDERING
+ // moderate speed mode, minus the big 256k table
+
+static void fft_reorder_buffer(int bitsz, WDL_FFT_COMPLEX *data, int fwd)
+{
+  // this is a good compromise, quite a bit faster than out of place reordering, but no separate 256kb lookup required
+  /*
+  these generated via:
+      static void fft_make_reorder_table(int bitsz)
+      {
+        int fft_sz=1<<bitsz,x;
+        char flag[65536]={0,};
+        printf("static const int tab%d[]={ ",fft_sz);
+        for (x=0;x<fft_sz;x++)
+        {
+          int fx;
+          if (!flag[x] && (fx=WDL_fft_permute(fft_sz,x))!=x)
+          {
+            printf("%d, ",x);
+            do { flag[fx]=1; fx = WDL_fft_permute(fft_sz, fx); } while (fx != x);
+          }
+          flag[x]=1;
+        }
+        printf(" 0 };\n");
+      }
+      */
+
+  static const int tab4_8_32[]={ 1,  0 };
+  static const int tab16[]={ 1, 3,  0 };
+  static const int tab64[]={ 1, 3, 9,  0 };
+  static const int tab128[]={ 1, 3, 4, 9, 14,  0 };
+  static const int tab256[]={ 1, 3, 6, 12, 13, 14, 19,  0 };
+  static const int tab512[]={ 1, 4, 7, 9, 18, 50, 115,  0 };
+  static const int tab1024[]={ 1, 3, 4, 25, 26, 77, 79,  0 };
+  static const int tab2048[]={ 1, 58, 59, 106, 135, 206, 210, 212,  0 };
+  static const int tab4096[]={ 1, 3, 12, 25, 54, 221, 313, 431, 453,  0 };
+  static const int tab8192[]={ 1, 12, 18, 26, 30, 100, 101, 106, 113, 144, 150, 237, 244, 247, 386, 468, 513, 1210, 4839, 0 };
+  static const int tab16384[]={ 1, 3, 6, 24, 1219,  0 };
+  static const int tab32768[]={ 1, 3, 4, 7, 13, 18, 31, 64, 113, 145, 203, 246, 594, 956, 1871, 2439, 4959, 19175,  0 };
+  const int *tab;
+
+  switch (bitsz)
+  {
+    case 1: return; // no reorder necessary
+    case 2:
+    case 3:
+    case 5: tab = tab4_8_32; break;
+    case 4: tab=tab16; break;
+    case 6: tab=tab64; break;
+    case 7: tab=tab128; break;
+    case 8: tab=tab256; break;
+    case 9: tab=tab512; break;
+    case 10: tab=tab1024; break;
+    case 11: tab=tab2048; break;
+    case 12: tab=tab4096; break;
+    case 13: tab=tab8192; break;
+    case 14: tab=tab16384; break;
+    case 15: tab=tab32768; break;
+    default: return; // no reorder possible
+  }
+
+  const int fft_sz=1<<bitsz;
+  const int *tb2 = WDL_fft_permute_tab(fft_sz);
+  if (!tb2) return; // ugh
+
+  if (!fwd)
+  {
+    while (*tab)
+    {
+      const int sidx=*tab++;
+      WDL_FFT_COMPLEX a=data[sidx];
+      int idx=sidx;
+      for (;;)
+      {
+        WDL_FFT_COMPLEX ta;
+        idx=tb2[idx];
+        if (idx==sidx) break;
+        ta=data[idx];
+        data[idx]=a;
+        a=ta;
+      }
+      data[sidx] = a;
+    }
+  }
+  else
+  {
+    while (*tab)
+    {
+      const int sidx=*tab++;
+      int lidx = sidx;
+      const WDL_FFT_COMPLEX sta=data[lidx];
+      for (;;)
+      {
+        const int idx=tb2[lidx];
+        if (idx==sidx) break;
+
+        data[lidx]=data[idx];
+        lidx=idx;
+      }
+      data[lidx] = sta;
     }
   }
 }
 
+#endif // not fast ,not slow, just right
+
 #endif
+
+//#define TIMING
+//#include "../timing.h"
 
 // 0=fw, 1=iv, 2=fwreal, 3=ireal, 4=permutec, 6=permuter
 // low bit: is inverse
-// second bit: is real
+// second bit: was isreal, but no longer used
 // third bit: is permute
 static void FFT(int sizebits, EEL_F *data, int dir)
 {
@@ -113,13 +216,14 @@ static void FFT(int sizebits, EEL_F *data, int dir)
 
   if (dir >= 4 && dir < 8)
   {
-    int x;
     if (dir == 4 || dir == 5)
     {
-#ifndef EEL_SLOW_FFT_REORDERING
-      // this in-place reordering is about 2x as fast, probably because of both cache effects as well as alloca() being used
-      fft_reorder_buffer(sizebits,data,dir==4);
+      //timingEnter(0);
+#if defined(EEL_SUPER_FAST_FFT_REORDERING) || !defined(EEL_SLOW_FFT_REORDERING)
+      fft_reorder_buffer(sizebits,(WDL_FFT_COMPLEX*)data,dir==4);
 #else
+      // old blech
+      int x;
       EEL_F *tmp=(EEL_F*)alloca(sizeof(EEL_F)*flen*2);
     	const int flen2=flen+flen;
 	    // reorder entries, now
@@ -145,6 +249,7 @@ static void FFT(int sizebits, EEL_F *data, int dir)
         }
       }
 #endif
+      //timingLeave(0);
     }
   }
 	else if (dir >= 0 && dir < 2)
@@ -238,7 +343,7 @@ static EEL_F * NSEEL_CGEN_CALL eel_convolve_c(EEL_F **blocks,EEL_F *dest, EEL_F 
 static void EEL_fft_register()
 {
   WDL_fft_init();
-#ifndef EEL_SLOW_FFT_REORDERING
+#if defined(EEL_SUPER_FAST_FFT_REORDERING)
   if (!fft_reorder_table_for_bitsize(EEL_FFT_MINBITLEN)[0])
   {
     int x;
