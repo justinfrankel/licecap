@@ -1293,7 +1293,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, EEL_F *fmt_index, EEL_F *
   return 0.0;
 }
 
-static void EEL_string_register()
+void EEL_string_register()
 {
   NSEEL_addfunctionex("strlen",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strlen);
   NSEEL_addfunctionex("sprintf",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_sprintf);
@@ -1320,7 +1320,7 @@ static void EEL_string_register()
   NSEEL_addfunctionex("matchi",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_matchi);
 
 }
-static void eel_string_initvm(NSEEL_VMCTX vm)
+void eel_string_initvm(NSEEL_VMCTX vm)
 {
   NSEEL_VM_SetStringFunc(vm, eel_string_context_state::addStringCallback, eel_string_context_state::addNamedStringCallback);
 }

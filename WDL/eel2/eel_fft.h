@@ -3,7 +3,7 @@
 
 #include "../fft.h"
 #if WDL_FFT_REALSIZE != EEL_F_SIZE
-#error EEL_FFT_REALSIZE -- EEL_F_SIZE size mismatch
+#error WDL_FFT_REALSIZE -- EEL_F_SIZE size mismatch
 #endif
 
 #ifndef EEL_FFT_MINBITLEN
@@ -340,7 +340,7 @@ static EEL_F * NSEEL_CGEN_CALL eel_convolve_c(EEL_F **blocks,EEL_F *dest, EEL_F 
   return dest;
 }
 
-static void EEL_fft_register()
+void EEL_fft_register()
 {
   WDL_fft_init();
 #if defined(EEL_SUPER_FAST_FFT_REORDERING)
