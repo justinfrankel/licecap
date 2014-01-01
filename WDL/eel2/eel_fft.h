@@ -3,7 +3,7 @@
 
 #include "../fft.h"
 #if WDL_FFT_REALSIZE != EEL_F_SIZE
-#error EEL_FFT_MAXBITLEN -- EEL_F_SIZE size mismatch
+#error EEL_FFT_REALSIZE -- EEL_F_SIZE size mismatch
 #endif
 
 #ifndef EEL_FFT_MINBITLEN
@@ -145,7 +145,8 @@ static EEL_F * NSEEL_CGEN_CALL eel_convolve_c(EEL_F **blocks,EEL_F *dest, EEL_F 
 
 static void EEL_fft_register()
 {
-	NSEEL_addfunctionex("convolve_c",3,(char *)_asm_generic3parm,(char *)_asm_generic3parm_end-(char *)_asm_generic3parm,NSEEL_PProc_RAM,(void*)&eel_convolve_c);
+  WDL_fft_init();
+  NSEEL_addfunctionex("convolve_c",3,(char *)_asm_generic3parm,(char *)_asm_generic3parm_end-(char *)_asm_generic3parm,NSEEL_PProc_RAM,(void*)&eel_convolve_c);
 
   NSEEL_addfunctionex("fft",2,(char *)_asm_generic2parm,(char *)_asm_generic2parm_end-(char *)_asm_generic2parm,NSEEL_PProc_RAM,(void*)eel_fft);
   NSEEL_addfunctionex("ifft",2,(char *)_asm_generic2parm,(char *)_asm_generic2parm_end-(char *)_asm_generic2parm,NSEEL_PProc_RAM,(void*)eel_ifft);

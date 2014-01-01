@@ -101,6 +101,8 @@ class sInst {
 
 #include "eel_files.h"
 
+#include "eel_fft.h"
+
 sInst::sInst()
 {
   memset(m_handles,0,sizeof(m_handles));
@@ -201,6 +203,7 @@ int main(int argc, char **argv)
   }
   EEL_string_register();
   EEL_file_register();
+  EEL_fft_register();
 
   WDL_FastString code,t;
 

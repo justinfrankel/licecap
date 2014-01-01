@@ -1,9 +1,9 @@
 CC=gcc
-CFLAGS=-O -g -I/Developer/SDKs/MacOSX10.6.sdk/usr/include/
+CFLAGS=-O -g -I/Developer/SDKs/MacOSX10.6.sdk/usr/include/ -DWDL_FFT_REALSIZE=8
 LFLAGS=-L/Developer/SDKs/MacOSX10.6.sdk/usr/lib
 CXX=g++
 
-OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o 
+OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o  ../fft.o
 
 OBJS2=
 
