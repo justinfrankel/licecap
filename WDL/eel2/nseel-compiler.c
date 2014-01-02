@@ -224,7 +224,7 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
-static opcodeRec *newOpCode(compileContext *ctx, const char *str)
+static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 {
   const int strszfull = str ? strlen(str) : 0;
   const int str_sz = min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
@@ -234,6 +234,9 @@ static opcodeRec *newOpCode(compileContext *ctx, const char *str)
                          8, ctx->isSharedFunctions ? 0 : -1); 
   if (rec)
   {
+    memset(rec,0,sizeof(*rec));
+    rec->opcodeType = opType;
+
     if (str_sz > 0) 
     {
       char *p = (char *)(rec+1);
@@ -729,64 +732,24 @@ static void *__newBlock(llBlock **start, int size, int wantMprotect)
 //---------------------------------------------------------------------------------------------------------------
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value)
 {
-  opcodeRec *r=newOpCode(ctx,NULL);
+  opcodeRec *r=newOpCode(ctx,NULL,OPCODETYPE_DIRECTVALUE);
   if (r)
   {
-    r->opcodeType = OPCODETYPE_DIRECTVALUE;
     r->parms.dv.directValue = value; 
-    r->parms.dv.valuePtr = NULL;
   }
-  return r;
-}
-
-opcodeRec *nseel_createCompiledValueFromNamespaceName(compileContext *ctx, const char *relName, int thisctx)
-{
-  opcodeRec *r=newOpCode(ctx,relName);
-  if (!r) return 0;
-  r->namespaceidx = thisctx;
-  r->opcodeType=OPCODETYPE_VALUE_FROM_NAMESPACENAME;
-
   return r;
 }
 
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr)
 {
-  opcodeRec *r=newOpCode(ctx,namestr);
+  opcodeRec *r=newOpCode(ctx,namestr,OPCODETYPE_VARPTR);
   if (!r) return 0;
 
-  r->opcodeType = OPCODETYPE_VARPTR;
   r->parms.dv.valuePtr=addrValue;
-  r->parms.dv.directValue=0.0;
 
   return r;
 }
 
-opcodeRec *nseel_createCompiledValuePtrPtr(compileContext *ctx, EEL_F **addrValue)
-{
-  opcodeRec *r=newOpCode(ctx,NULL);
-  if (r)
-  {
-    r->opcodeType = OPCODETYPE_VARPTRPTR;
-    r->parms.dv.valuePtr=(EEL_F *)addrValue;
-    r->parms.dv.directValue=0.0;
-  }
-  return r;
-}
-
-opcodeRec *nseel_createCompiledFunctionCall(compileContext *ctx, int np, int fntype, void *fn)
-{
-  opcodeRec *r=newOpCode(ctx,NULL);
-  if (!r) return 0;
-  r->fntype=fntype;
-  r->fn = fn;
-
-  if (np > 3) r->opcodeType = OPCODETYPE_FUNCX;
-  else if (np == 3) r->opcodeType = OPCODETYPE_FUNC3;
-  else if (np==2) r->opcodeType = OPCODETYPE_FUNC2;
-  else r->opcodeType = OPCODETYPE_FUNC1;
-
-  return r;
-}
 
 opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt, int *errOut)
 {
@@ -1187,13 +1150,11 @@ opcodeRec *nseel_eelMakeOpcodeFromStringSegments(compileContext *ctx, struct eel
 
 opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code1, opcodeRec *code2)
 {
-  opcodeRec *r=code1 && code2 ? newOpCode(ctx,NULL) : NULL;
+  opcodeRec *r=code1 && code2 ? newOpCode(ctx,NULL,OPCODETYPE_MOREPARAMS) : NULL;
   if (r)
   {
-    r->opcodeType = OPCODETYPE_MOREPARAMS;
     r->parms.parms[0] = code1;
     r->parms.parms[1] = code2;
-    r->parms.parms[2] = 0;
   }
   return r;
 }
@@ -1201,16 +1162,14 @@ opcodeRec *nseel_createMoreParametersOpcode(compileContext *ctx, opcodeRec *code
 
 opcodeRec *nseel_createIfElse(compileContext *ctx, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
 {
-  opcodeRec *r=code1 ? newOpCode(ctx,NULL) : NULL;
+  opcodeRec *r=code1 ? newOpCode(ctx,NULL,OPCODETYPE_FUNC3) : NULL;
   if (r)
   {
     if (!code2) code2 = nseel_createCompiledValue(ctx,0.0);
     if (!code3) code3 = nseel_createCompiledValue(ctx,0.0);
     if (!code2||!code3) return NULL;
 
-    r->opcodeType = OPCODETYPE_FUNC3;
     r->fntype = FN_IF_ELSE;
-    r->fn = 0;
     r->parms.parms[0] = code1;
     r->parms.parms[1] = code2;
     r->parms.parms[2] = code3;
@@ -1234,25 +1193,26 @@ opcodeRec *nseel_createMemoryAccess(compileContext *ctx, opcodeRec *code1, opcod
 
 opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int np, opcodeRec *code1, opcodeRec *code2)
 {
-  opcodeRec *r=code1 && (np<2 || code2) ? newOpCode(ctx,NULL) : NULL;
+  opcodeRec *r=code1 && (np<2 || code2) ? newOpCode(ctx,NULL,np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1) : NULL;
   if (r)
   {
-    r->opcodeType = np>=2 ? OPCODETYPE_FUNC2:OPCODETYPE_FUNC1;
     r->fntype = fn;
-    r->fn = fn == FN_JOIN_STATEMENTS ? r : NULL; // for joins, fn is temporarily used for tail pointers
-    if (code1 && fn == FN_JOIN_STATEMENTS && code1->opcodeType == OPCODETYPE_FUNC2 && code1->fntype == fn)
-    {
-      opcodeRec *t = (opcodeRec *)code1->fn;
-      // keep joins in the form of dosomething->morestuff. 
-      // in this instance, code1 is previous stuff to do, code2 is new stuff to do
-      r->parms.parms[0] = t->parms.parms[1];
-      r->parms.parms[1] = code2;
-
-      code1->fn = (t->parms.parms[1] = r);
-      return code1;
-    }
     r->parms.parms[0] = code1;
     r->parms.parms[1] = code2;
+    if (fn == FN_JOIN_STATEMENTS)
+    {
+      r->fn = r; // for joins, fn is temporarily used for tail pointers
+      if (code1 && code1->opcodeType == OPCODETYPE_FUNC2 && code1->fntype == fn)
+      {
+        opcodeRec *t = (opcodeRec *)code1->fn;
+        // keep joins in the form of dosomething->morestuff. 
+        // in this instance, code1 is previous stuff to do, code2 is new stuff to do
+        r->parms.parms[0] = t->parms.parms[1];
+
+        code1->fn = (t->parms.parms[1] = r);
+        return code1;
+      }
+    }
   }
   return r;  
 }
@@ -4844,9 +4804,11 @@ opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int
     functionType *f=nseel_getFunctionFromTable(i);
     if ((f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) == np && !strcasecmp(f->name, name))
     {
-      opcodeRec *o =  nseel_createCompiledFunctionCall(ctx,np,FUNCTYPE_FUNCTIONTYPEREC,(void *) f);
-      if (o)
+      opcodeRec *o=newOpCode(ctx,NULL, np==3?OPCODETYPE_FUNC3:np==2?OPCODETYPE_FUNC2:OPCODETYPE_FUNC1);
+      if (o) 
       {
+        o->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+        o->fn = f;
         o->parms.parms[0]=code1;
         o->parms.parms[1]=code2;
         o->parms.parms[2]=code3;
