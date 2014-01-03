@@ -64,7 +64,7 @@ public:
     else
     {
       KeyVal* kv = m_data.Resize(m_data.GetSize()+1)+i;
-      memmove(kv+1, kv, (m_data.GetSize()-i-1)*sizeof(KeyVal));
+      memmove(kv+1, kv, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
       if (m_keydup) key = m_keydup(key);
       kv->key = key;
       kv->val = val;
@@ -81,7 +81,7 @@ public:
       KeyVal* kv = m_data.Get()+i;
       if (m_keydispose) m_keydispose(kv->key);
       if (m_valdispose) m_valdispose(kv->val);
-      memmove(kv, kv+1, (m_data.GetSize()-i-1)*sizeof(KeyVal));
+      memmove(kv, kv+1, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
       m_data.Resize(m_data.GetSize()-1);
     }
   }
@@ -93,7 +93,7 @@ public:
       KeyVal* kv = m_data.Get()+idx;
       if (m_keydispose) m_keydispose(kv->key);
       if (m_valdispose) m_valdispose(kv->val);
-      memmove(kv, kv+1, (m_data.GetSize()-idx-1)*sizeof(KeyVal));
+      memmove(kv, kv+1, (m_data.GetSize()-idx-1)*(unsigned int)sizeof(KeyVal));
       m_data.Resize(m_data.GetSize()-1);
     }
   }

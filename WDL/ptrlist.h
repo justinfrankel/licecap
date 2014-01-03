@@ -49,7 +49,7 @@ template<class PTRTYPE> class WDL_PtrList
 
     PTRTYPE **GetList() const { return (PTRTYPE**)m_hb.Get(); }
     PTRTYPE *Get(INT_PTR index) const { if (GetList() && index >= 0 && index < (INT_PTR)GetSize()) return GetList()[index]; return NULL; }
-    int GetSize(void) const { return m_hb.GetSize()/sizeof(PTRTYPE *); }  
+    int GetSize(void) const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE *); }  
 
     int Find(PTRTYPE *p) const
     {
@@ -65,7 +65,7 @@ template<class PTRTYPE> class WDL_PtrList
     PTRTYPE *Add(PTRTYPE *item)
     {
       int s=GetSize();
-      m_hb.Resize((s+1)*sizeof(PTRTYPE*),false);
+      m_hb.Resize((s+1)*(unsigned int)sizeof(PTRTYPE*),false);
       return Set(s,item);
     }
 
@@ -78,7 +78,7 @@ template<class PTRTYPE> class WDL_PtrList
     PTRTYPE *Insert(int index, PTRTYPE *item)
     {
       int s=GetSize();
-      m_hb.Resize((s+1)*sizeof(PTRTYPE*),false);
+      m_hb.Resize((s+1)*(unsigned int)sizeof(PTRTYPE*),false);
 
       if (index<0) index=0;
       else if (index > s) index=s;
@@ -106,8 +106,8 @@ template<class PTRTYPE> class WDL_PtrList
       int size=GetSize();
       if (list && index >= 0 && index < size)
       {
-        if (index < --size) memmove(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
-        m_hb.Resize(size * sizeof(PTRTYPE*),false);
+        if (index < --size) memmove(list+index,list+index+1,(unsigned int)sizeof(PTRTYPE *)*(size-index));
+        m_hb.Resize(size * (unsigned int)sizeof(PTRTYPE*),false);
       }
     }
     void Delete(int index, bool wantDelete, void (*delfunc)(void *)=NULL)
@@ -121,8 +121,8 @@ template<class PTRTYPE> class WDL_PtrList
           if (delfunc) delfunc(Get(index));
           else delete Get(index);
         }
-        if (index < --size) memmove(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
-        m_hb.Resize(size * sizeof(PTRTYPE*),false);
+        if (index < --size) memmove(list+index,list+index+1,(unsigned int)sizeof(PTRTYPE *)*(size-index));
+        m_hb.Resize(size * (unsigned int)sizeof(PTRTYPE*),false);
       }
     }
     void Delete(int index, void (*delfunc)(PTRTYPE *))
@@ -132,8 +132,8 @@ template<class PTRTYPE> class WDL_PtrList
       if (list && index >= 0 && index < size)
       {
         if (delfunc) delfunc(Get(index));
-        if (index < --size) memmove(list+index,list+index+1,sizeof(PTRTYPE *)*(size-index));
-        m_hb.Resize(size * sizeof(PTRTYPE*),false);
+        if (index < --size) memmove(list+index,list+index+1,(unsigned int)sizeof(PTRTYPE *)*(size-index));
+        m_hb.Resize(size * (unsigned int)sizeof(PTRTYPE*),false);
       }
     }
     void Empty()
@@ -153,7 +153,7 @@ template<class PTRTYPE> class WDL_PtrList
             if (delfunc) delfunc(p);
             else delete p;
           }
-          m_hb.Resize(x*sizeof(PTRTYPE *),false);
+          m_hb.Resize(x*(unsigned int)sizeof(PTRTYPE *),false);
         }
       }
       m_hb.Resize(0,false);
@@ -165,7 +165,7 @@ template<class PTRTYPE> class WDL_PtrList
       {
         PTRTYPE* p = Get(x);
         if (delfunc && p) delfunc(p);
-        m_hb.Resize(x*sizeof(PTRTYPE *),false);
+        m_hb.Resize(x*(unsigned int)sizeof(PTRTYPE *),false);
       }
     }
     void EmptySafe(bool wantDelete=false,void (*delfunc)(void *)=NULL)

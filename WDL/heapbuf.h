@@ -318,9 +318,9 @@ template<class PTRTYPE> class WDL_TypedBuf
 {
   public:
     PTRTYPE *Get() const { return (PTRTYPE *) m_hb.Get(); }
-    int GetSize() const { return m_hb.GetSize()/sizeof(PTRTYPE); }
+    int GetSize() const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE); }
 
-    PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
+    PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*(unsigned int)sizeof(PTRTYPE),resizedown); }
 
     PTRTYPE *GetAligned(int align) const  { return (PTRTYPE *) m_hb.GetAligned(align); }
 
@@ -337,7 +337,7 @@ template<class PTRTYPE> class WDL_TypedBuf
         PTRTYPE* p=Resize(sz+1);
         if (p && GetSize() == sz+1)
         {
-          memmove(p+idx+1, p+idx, (sz-idx)*sizeof(PTRTYPE));
+          memmove(p+idx+1, p+idx, (sz-idx)*(unsigned int)sizeof(PTRTYPE));
           p[idx]=val;
           return p+idx;
         }
@@ -351,7 +351,7 @@ template<class PTRTYPE> class WDL_TypedBuf
       int sz=GetSize();
       if (idx >= 0 && idx < sz)
       {
-        memmove(p+idx, p+idx+1, (sz-idx-1)*sizeof(PTRTYPE));
+        memmove(p+idx, p+idx+1, (sz-idx-1)*(unsigned int)sizeof(PTRTYPE));
         return Resize(sz-1);
       }
       return p;
