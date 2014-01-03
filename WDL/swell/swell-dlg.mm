@@ -2408,7 +2408,7 @@ void SWELL_CarbonWndHost_SetWantAllKeys(void* carbonhost, bool want)
     //CFRetain(wndref);
 
     m_cwnd = [[NSWindow alloc] initWithWindowRef:wndref];  
-    [m_cwnd setDelegate:self];    
+    [m_cwnd setDelegate:(id)self];
     
     ShowWindow(wndref);
     
