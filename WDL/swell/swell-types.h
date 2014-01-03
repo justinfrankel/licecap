@@ -61,15 +61,22 @@ typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWO
 #define GetBValue(x) ((x)&0xff)
 
 // basic platform compat defines
+#ifndef stricmp
 #define stricmp(x,y) strcasecmp(x,y)
+#endif
+#ifndef strnicmp
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
+#endif
 
 #define DeleteFile(x) (!unlink(x))
 #define MoveFile(x,y) (!rename(x,y))
 #define GetCurrentDirectory(sz,buf) (!getcwd(buf,sz))
 #define SetCurrentDirectory(buf) (!chdir(buf))
 #define CreateDirectory(x,y) (!mkdir((x),0755))
+
+#ifndef wsprintf
 #define wsprintf sprintf
+#endif
 
 #ifndef LOWORD
 #define MAKEWORD(a, b)      ((unsigned short)(((BYTE)(a)) | ((WORD)((BYTE)(b))) << 8))
