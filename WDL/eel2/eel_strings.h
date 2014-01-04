@@ -333,7 +333,7 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
     if (fmtOut_sz < 2) return 0;
 
     if (c == 'f'|| c=='e' || c=='E' || c=='g' || c=='G' || c == 'd' || c == 'u' || 
-        c == 'x' || c == 'X' || c == 'c' || c =='s' || c=='S') 
+        c == 'x' || c == 'X' || c == 'c' || c =='s' || c=='S' || c=='i') 
     {
       *typeOut = c;
       fmtOut[0] = c;
@@ -352,7 +352,7 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
       if (state&(64|32|16|8|4)) break;
       state |= 8;
     }
-    else if (c == '-') 
+    else if (c == '-' || c == ' ') 
     {
       *fmtOut++ = c; fmtOut_sz--;
       if (state&(64|32|16|8|4)) break;
@@ -470,7 +470,7 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
           v = str ? atof(str) : 0.0;
         }
 
-        if (ct == 'x' || ct == 'X' || ct == 'd' || ct == 'u')
+        if (ct == 'x' || ct == 'X' || ct == 'd' || ct == 'u' || ct=='i')
         {
           snprintf(op,64,fs,(int) (v));
         }
@@ -644,9 +644,9 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
                 while (msg[len] >= '0' && msg[len] <= '9') len++;
               }
             }
-            else if (fmt_char == 'd' || fmt_char == 'u')
+            else if (fmt_char == 'd' || fmt_char == 'u' || fmt_char == 'i')
             {
-              if (fmt_char == 'd' && msg[len] == '-') len++;
+              if (fmt_char != 'u' && msg[len] == '-') len++;
               while (msg[len] >= '0' && msg[len] <= '9') len++;
             }
             else 
