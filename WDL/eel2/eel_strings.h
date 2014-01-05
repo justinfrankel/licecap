@@ -340,29 +340,23 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
       fmtOut[1] = 0;
       return (int) (fmt - fmt_in);
     }
-    else if (c == '.') 
+    else if (c == '.')
     {
       *fmtOut++ = c; fmtOut_sz--;
-      if (state&(2|64)) break;
+      if (state&(2)) break;
       state |= 2;
     }
     else if (c == '+') 
     {
       *fmtOut++ = c; fmtOut_sz--;
-      if (state&(64|32|16|8|4)) break;
+      if (state&(32|16|8|4)) break;
       state |= 8;
     }
     else if (c == '-' || c == ' ') 
     {
       *fmtOut++ = c; fmtOut_sz--;
-      if (state&(64|32|16|8|4)) break;
+      if (state&(32|16|8|4)) break;
       state |= 16;
-    }
-    else if (c == ' ') 
-    {
-      *fmtOut++ = c; fmtOut_sz--;
-      if (state&(64|32|16|8|4)) break;
-      state |= 32;
     }
     else if (c >= '0' && c <= '9') 
     {
@@ -401,7 +395,6 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
     }
   }
   return 0;
-
 }
 
 int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char *buf, int buf_sz)
