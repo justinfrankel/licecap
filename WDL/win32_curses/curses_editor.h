@@ -23,7 +23,9 @@ public:
   int m_color_bottomline, m_color_statustext,  m_color_selection,  m_color_message; // COLOR_PAIR(x)
   int m_top_margin, m_bottom_margin;
 
+  const char *GetFileName() { return m_filename.Get(); }
 
+  void setCursor(int isVscroll=0);
 protected:
   class refcntString;
   class editUndoRec;
@@ -32,8 +34,7 @@ protected:
   virtual void draw(int lineidx=-1);
   void draw_message(const char *str);
   void draw_status_state();
-  void setCursor(int isVscroll=0);
-  LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+  virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   {
     if (user_data) return ((WDL_CursesEditor*)user_data)->onMouseMessage(hwnd,uMsg,wParam,lParam);

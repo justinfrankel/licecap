@@ -323,6 +323,9 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   case WM_CAPTURECHANGED:
   case WM_MOUSEMOVE:
   case WM_MOUSEWHEEL:
+  case WM_LBUTTONDBLCLK:
+  case WM_RBUTTONDBLCLK:
+  case WM_MBUTTONDBLCLK:
     if (ctx && ctx->onMouseMessage) return ctx->onMouseMessage(ctx->user_data,hwnd,uMsg,wParam,lParam);
   return 0;
 #ifdef _WIN32
@@ -679,7 +682,7 @@ void curses_registerChildClass(HINSTANCE hInstance)
 #ifdef _WIN32
   if (!m_regcnt++)
   {
-	  WNDCLASS wc={0,};	
+	  WNDCLASS wc={CS_DBLCLKS,};	
 	  wc.lpfnWndProc = cursesWindowProc;
     wc.hInstance = hInstance;	
 	  wc.hCursor = LoadCursor(NULL,IDC_ARROW);

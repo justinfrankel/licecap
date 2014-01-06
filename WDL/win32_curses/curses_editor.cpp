@@ -1489,9 +1489,11 @@ void WDL_CursesEditor::RunEditor()
   int x;
   for(x=0;x<16;x++)
   {
+    if (!CURSES_INSTANCE) break;
+
     int thischar = getch();
     if (thischar==ERR) break;
 
-    onChar(thischar);
+    if (onChar(thischar)) break;
   }
 }
