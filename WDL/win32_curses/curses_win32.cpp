@@ -199,6 +199,8 @@ static int xlateKey(int msg, int wParam, int lParam)
             wParam += 1-'A';
             return wParam;
           }
+          if ((wParam&~0x80) == '[') return 27;
+          if ((wParam&~0x80) == ']') return 29;
         }
     }
   }
