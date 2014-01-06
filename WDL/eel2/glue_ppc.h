@@ -252,6 +252,34 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   return fn;
 }
 
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 4
+  static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
+  {
+    // limited to 32k offset
+    *(unsigned int *)b = 0x90610000 + (offs&0xffff);
+  }
+
+  #define GLUE_MOVE_PX_STACKPTR_SIZE 4
+  static void GLUE_MOVE_PX_STACKPTR_GEN(void *b, int wv)
+  {
+    static const unsigned int tab[3] =
+    {
+      0x7c230b78, // mr r3, r1
+      0x7c2e0b78, // mr r14, r1
+      0x7c2f0b78, // mr r15, r1
+    };    
+    * (unsigned int *)b = tab[wv];
+  }
+
+  #define GLUE_MOVE_STACK_SIZE 4
+  static void GLUE_MOVE_STACK(void *b, int amt)
+  {
+    // this should be updated to allow for more than 32k moves, but no real need
+    ((unsigned int *)b)[0] = 0x38210000 + (amt&0xffff); // addi r1,r1, amt
+  }
+
+
+
 // end of ppc
 
 #endif

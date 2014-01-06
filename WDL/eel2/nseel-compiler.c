@@ -1423,16 +1423,16 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     RF(beloweq);
 #else
     case FN_GT:
-      *abiInfo = BIF_RETURNSBOOL;
+      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
     RF(above);
     case FN_GTE:
-      *abiInfo = BIF_RETURNSBOOL;
+      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
     RF(aboveeq);
     case FN_LT:
-      *abiInfo = BIF_RETURNSBOOL;
+      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
     RF(below);
     case FN_LTE:
-      *abiInfo = BIF_RETURNSBOOL;
+      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
     RF(beloweq);
 #endif
 
