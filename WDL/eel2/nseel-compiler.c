@@ -441,18 +441,21 @@ static double eel1sigmoid(double x, double constraint)
 
 #define FUNCTIONTYPE_PARAMETERCOUNTMASK 0xff
 
-#define BIF_NPARAMS_MASK       0x7fff00
-#define BIF_RETURNSONSTACK     0x000100
-#define BIF_LASTPARMONSTACK    0x000200
-#define BIF_RETURNSBOOL        0x000400 // this value is used in ns-eel.h in some macros, be sure to update it there if you change it here
-#define BIF_LASTPARM_ASBOOL    0x000800
-#define BIF_WONTMAKEDENORMAL   0x100000
-#define BIF_CLEARDENORMAL      0x200000
+#define BIF_NPARAMS_MASK       0x7ffff00
+#define BIF_RETURNSONSTACK     0x0000100
+#define BIF_LASTPARMONSTACK    0x0000200
+#define BIF_RETURNSBOOL        0x0000400 // this value is used in ns-eel.h in some macros, be sure to update it there if you change it here
+#define BIF_LASTPARM_ASBOOL    0x0000800
+//                             0x00?0000 -- taken by FP stack
+#define BIF_TAKES_VARPARM      0x0400000 // also in ns-eel.h
+#define BIF_TAKES_VARPARM_EX   0x0C00000 // also in ns-eel.h -- this is like varparm but check count exactly
+#define BIF_WONTMAKEDENORMAL   0x0100000
+#define BIF_CLEARDENORMAL      0x0200000
 
 #if defined(GLUE_HAS_FXCH) && GLUE_MAX_FPSTACK_SIZE > 0
-  #define BIF_SECONDLASTPARMST 0x001000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
-  #define BIF_LAZYPARMORDERING 0x002000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
-  #define BIF_REVERSEFPORDER   0x004000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
+  #define BIF_SECONDLASTPARMST 0x0001000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
+  #define BIF_LAZYPARMORDERING 0x0002000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
+  #define BIF_REVERSEFPORDER   0x0004000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
 
   #ifndef BIF_FPSTACKUSE
     #define BIF_FPSTACKUSE(x) (((x)>=0&&(x)<8) ? ((7-(x))<<16):0)
@@ -1037,7 +1040,8 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     functionType *f=nseel_getFunctionFromTable(i);
     if (!strcasecmp(f->name, sname))
     {
-      if (parmcnt == (f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK))
+      const int pc_needed=(f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK);
+      if ((f->nParams&BIF_TAKES_VARPARM_EX)==BIF_TAKES_VARPARM ? (parmcnt >= pc_needed) : (parmcnt == pc_needed))
       {
         rec->fntype = FUNCTYPE_FUNCTIONTYPEREC;
         rec->fn = (void *)f;
@@ -2266,16 +2270,18 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
                                      int *rvMode, int *fpStackUsage, int preferredReturnValues, int *canHaveDenormalOutput)
 {
   // builtin function generation
+  int func_size=0;
   int cfunc_abiinfo=0;
   int local_fpstack_use=0; // how many items we have pushed onto the fp stack
   int parm_size=0;
-  int need_fxch=0;
-  int pn;
-  int last_nt_parm=-1, last_nt_parm_type;
+  int restore_stack_amt=0;
+
   void *func_e=NULL;
-  int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
   NSEEL_PPPROC preProc=0;
   void **repl=NULL;
+
+  int n_params= 1 + op->opcodeType - OPCODETYPE_FUNC1;
+
   const int parm0_dv = op->parms.parms[0]->opcodeType == OPCODETYPE_DIRECTVALUE;
   const int parm1_dv = n_params > 1 && op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
 
@@ -2286,353 +2292,461 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (!func) RET_MINUS1_FAIL("error getting funcaddr")
 
-  if (op->opcodeType == OPCODETYPE_FUNCX)
-  {
-    // this is not yet supported (calling conventions will need to be sorted, among other things)
-    RET_MINUS1_FAIL("funcx not supported for native functions")
-  }
   *fpStackUsage=BIF_GETFPSTACKUSE(cfunc_abiinfo);
-
   *rvMode = RETURNVALUE_NORMAL;
 
-  if (parm0_dv) 
+  if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
-    if (func == nseel_asm_stack_pop)
+    int x;
+    // this mode is less efficient in that it creates a list of pointers on the stack to pass to the function
+    // but it is more flexible and works for >3 parameters.
+    if (op->opcodeType == OPCODETYPE_FUNCX)
     {
-      int func_size=0;
-      func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
-      if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on popfast size":"failed on popfast addr")
-
-      if (bufOut) 
+      n_params=0;
+      for (x=0;x<3;x++)
       {
-        memcpy(bufOut,func,func_size);
-        NSEEL_PProc_Stack(bufOut,func_size,ctx);
+        opcodeRec *prni=op->parms.parms[x];
+        while (prni)
+        {
+          const int isMP = prni->opcodeType == OPCODETYPE_MOREPARAMS;
+          n_params++;
+          if (!isMP) break;
+          prni = prni->parms.parms[1];
+        }
       }
-      return func_size;            
     }
-    else if (func == nseel_asm_stack_peek)
+
+    restore_stack_amt = (sizeof(void *) * n_params + 15)&~15;
+
+    if (restore_stack_amt)
     {
-      int f = (int) op->parms.parms[0]->parms.dv.directValue;
-      if (!f)
+      if (bufOut_len < parm_size+GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
+      if (bufOut) GLUE_MOVE_STACK(bufOut+parm_size, - restore_stack_amt); 
+      parm_size += GLUE_MOVE_STACK_SIZE;
+    }
+
+    if (op->opcodeType == OPCODETYPE_FUNCX)
+    {     
+      n_params=0;
+      for (x=0;x<3;x++)
       {
-        int func_size=0;
-        func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
-        if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on peek size":"failed on peek addr")
+        opcodeRec *prni=op->parms.parms[x];
+        while (prni)
+        {
+          const int isMP = prni->opcodeType == OPCODETYPE_MOREPARAMS;
+          opcodeRec *r = isMP ? prni->parms.parms[0] : prni;
+          if (r)
+          {
+            int canHaveDenorm=0;
+            int rvt=RETURNVALUE_NORMAL;
+            int subfpstackuse=0;
+                
+            int lsz = compileOpcodes(ctx,r,bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
+            if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
+
+            if (lsz<0) RET_MINUS1_FAIL("call coc for varparmX failed")
+            if (rvt != RETURNVALUE_NORMAL) RET_MINUS1_FAIL("call coc for varparmX gave bad type back");
+
+            parm_size += lsz;            
+
+            if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("call coc for varparmX size");
+            if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, n_params*sizeof(void *));
+            parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+
+            if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
+          }
+          else RET_MINUS1_FAIL("zero parameter varparmX")
+
+          n_params++;
+
+          if (!isMP) break;
+          prni = prni->parms.parms[1];
+        }
+      }
+    }
+    else for (x=0;x<n_params;x++)
+    {
+      opcodeRec *r = op->parms.parms[x];
+      if (r)
+      {
+        int canHaveDenorm=0;
+        int subfpstackuse=0;
+        int rvt=RETURNVALUE_NORMAL;
+               
+        int lsz = compileOpcodes(ctx,r,bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
+        if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
+
+        if (lsz<0) RET_MINUS1_FAIL("call coc for varparm123 failed")
+        if (rvt != RETURNVALUE_NORMAL) RET_MINUS1_FAIL("call coc for varparm123 gave bad type back");
+
+        parm_size += lsz;
+
+        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("call coc for varparm123 size");
+        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, x*sizeof(void *));
+        parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+
+        if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
+      }
+      else RET_MINUS1_FAIL("zero parameter for varparm123");
+    }
+
+    if (bufOut_len < parm_size+GLUE_MOV_PX_DIRECTVALUE_SIZE+GLUE_MOVE_PX_STACKPTR_SIZE) RET_MINUS1_FAIL("insufficient size for varparm p1")
+    if (bufOut) GLUE_MOV_PX_DIRECTVALUE_GEN(bufOut+parm_size, (INT_PTR)n_params,1);
+    parm_size+=GLUE_MOV_PX_DIRECTVALUE_SIZE;
+    if (bufOut) GLUE_MOVE_PX_STACKPTR_GEN(bufOut+parm_size, 0);
+    parm_size+=GLUE_MOVE_PX_STACKPTR_SIZE;
+    
+  }
+  else // not varparm
+  {
+    int pn;
+    int need_fxch=0;
+    int last_nt_parm=-1, last_nt_parm_type;
+    
+    if (op->opcodeType == OPCODETYPE_FUNCX)
+    {
+      // this is not yet supported (calling conventions will need to be sorted, among other things)
+      RET_MINUS1_FAIL("funcx for native functions requires BIF_TAKES_VARPARM or BIF_TAKES_VARPARM_EX")
+    }
+
+    if (parm0_dv) 
+    {
+      if (func == nseel_asm_stack_pop)
+      {
+        func = GLUE_realAddress(nseel_asm_stack_pop_fast,nseel_asm_stack_pop_fast_end,&func_size);
+        if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on popfast size":"failed on popfast addr")
 
         if (bufOut) 
         {
           memcpy(bufOut,func,func_size);
-          NSEEL_PProc_Stack_PeekTop(bufOut,func_size,ctx);
+          NSEEL_PProc_Stack(bufOut,func_size,ctx);
         }
-        return func_size;
+        return func_size;            
       }
-      else
+      else if (func == nseel_asm_stack_peek)
       {
-        int func_size=0;
-        func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
-        if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on peekint size":"failed on peekint addr")
-
-        if (bufOut)
+        int f = (int) op->parms.parms[0]->parms.dv.directValue;
+        if (!f)
         {
-          memcpy(bufOut,func,func_size);
-          NSEEL_PProc_Stack_PeekInt(bufOut,func_size,ctx,f*sizeof(EEL_F));
-        }
-        return func_size;
-      }
-    }
-  }
-  // end of built-in function specific special casing
-
-
-  // first pass, calculate any non-trivial parameters
-  for (pn=0; pn < n_params; pn++)
-  { 
-    if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
-    {
-      int canHaveDenorm=0;
-      int subfpstackuse=0;
-      int lsz=0; 
-      int rvt=RETURNVALUE_NORMAL;
-      int may_need_fppush=-1;
-      if (last_nt_parm>=0)
-      {
-        if (last_nt_parm_type==RETURNVALUE_FPSTACK)
-        {          
-          may_need_fppush= parm_size;
-        }
-        else
-        {
-          // push last result
-          if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) RET_MINUS1_FAIL("failed on size, pushp1")
-          if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
-          parm_size += sizeof(GLUE_PUSH_P1);
-        }
-      }         
-
-      if (pn == n_params - 1)
-      {
-        if (cfunc_abiinfo&BIF_LASTPARMONSTACK) rvt=RETURNVALUE_FPSTACK;
-        else if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL) rvt=RETURNVALUE_BOOL;
-        else if (func == nseel_asm_assign) rvt=RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL;
-      }
-      else if (pn == n_params -2 && (cfunc_abiinfo&BIF_SECONDLASTPARMST))
-      {
-        rvt=RETURNVALUE_FPSTACK;
-      }
-
-      lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
-
-      if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
-
-      if (lsz<0) RET_MINUS1_FAIL("call coc failed")
-
-      parm_size += lsz;            
-
-      if (may_need_fppush>=0)
-      {
-        if (local_fpstack_use+subfpstackuse >= (GLUE_MAX_FPSTACK_SIZE-1) || (ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
-        {
-          if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) 
-            RET_MINUS1_FAIL("failed on size, popfpstacktostack")
+          func = GLUE_realAddress(nseel_asm_stack_peek_top,nseel_asm_stack_peek_top_end,&func_size);
+          if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on peek size":"failed on peek addr")
 
           if (bufOut) 
           {
-            memmove(bufOut + may_need_fppush + sizeof(GLUE_POP_FPSTACK_TOSTACK), bufOut + may_need_fppush, parm_size - may_need_fppush);
-            memcpy(bufOut + may_need_fppush, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
-
+            memcpy(bufOut,func,func_size);
+            NSEEL_PProc_Stack_PeekTop(bufOut,func_size,ctx);
           }
-          parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
+          return func_size;
         }
         else
         {
-          local_fpstack_use++;
+          func = GLUE_realAddress(nseel_asm_stack_peek_int,nseel_asm_stack_peek_int_end,&func_size);
+          if (!func || bufOut_len < func_size) RET_MINUS1_FAIL(func?"failed on peekint size":"failed on peekint addr")
+
+          if (bufOut)
+          {
+            memcpy(bufOut,func,func_size);
+            NSEEL_PProc_Stack_PeekInt(bufOut,func_size,ctx,f*sizeof(EEL_F));
+          }
+          return func_size;
         }
       }
+    }
+    // end of built-in function specific special casing
 
-      if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
 
-      last_nt_parm = pn;
-      last_nt_parm_type = rvt;
-
-      if (pn == n_params - 1 && func == nseel_asm_assign)
+    // first pass, calculate any non-trivial parameters
+    for (pn=0; pn < n_params; pn++)
+    { 
+      if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
       {
-        if (!(ctx->optimizeDisableFlags & OPTFLAG_FULL_DENORMAL_CHECKS) && 
-            (!canHaveDenorm || (ctx->optimizeDisableFlags & OPTFLAG_NO_DENORMAL_CHECKS)))
+        int canHaveDenorm=0;
+        int subfpstackuse=0;
+        int lsz=0; 
+        int rvt=RETURNVALUE_NORMAL;
+        int may_need_fppush=-1;
+        if (last_nt_parm>=0)
         {
-          if (rvt == RETURNVALUE_FPSTACK)
-          {
-            cfunc_abiinfo |= BIF_LASTPARMONSTACK;
-            func = nseel_asm_assign_fast_fromfp;
-            func_e = nseel_asm_assign_fast_fromfp_end;
+          if (last_nt_parm_type==RETURNVALUE_FPSTACK)
+          {          
+            may_need_fppush= parm_size;
           }
           else
           {
-            func = nseel_asm_assign_fast;
-            func_e = nseel_asm_assign_fast_end;
+            // push last result
+            if (bufOut_len < parm_size + (int)sizeof(GLUE_PUSH_P1)) RET_MINUS1_FAIL("failed on size, pushp1")
+            if (bufOut) memcpy(bufOut + parm_size, &GLUE_PUSH_P1, sizeof(GLUE_PUSH_P1));
+            parm_size += sizeof(GLUE_PUSH_P1);
           }
-        }
-        else
+        }         
+
+        if (pn == n_params - 1)
         {
-          if (rvt == RETURNVALUE_FPSTACK)
+          if (cfunc_abiinfo&BIF_LASTPARMONSTACK) rvt=RETURNVALUE_FPSTACK;
+          else if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL) rvt=RETURNVALUE_BOOL;
+          else if (func == nseel_asm_assign) rvt=RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL;
+        }
+        else if (pn == n_params -2 && (cfunc_abiinfo&BIF_SECONDLASTPARMST))
+        {
+          rvt=RETURNVALUE_FPSTACK;
+        }
+
+        lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
+
+        if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
+
+        if (lsz<0) RET_MINUS1_FAIL("call coc failed")
+
+        parm_size += lsz;            
+
+        if (may_need_fppush>=0)
+        {
+          if (local_fpstack_use+subfpstackuse >= (GLUE_MAX_FPSTACK_SIZE-1) || (ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
           {
-            cfunc_abiinfo |= BIF_LASTPARMONSTACK;
-            func = nseel_asm_assign_fromfp;
-            func_e = nseel_asm_assign_fromfp_end;
+            if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) 
+              RET_MINUS1_FAIL("failed on size, popfpstacktostack")
+
+            if (bufOut) 
+            {
+              memmove(bufOut + may_need_fppush + sizeof(GLUE_POP_FPSTACK_TOSTACK), bufOut + may_need_fppush, parm_size - may_need_fppush);
+              memcpy(bufOut + may_need_fppush, &GLUE_POP_FPSTACK_TOSTACK, sizeof(GLUE_POP_FPSTACK_TOSTACK));
+
+            }
+            parm_size += sizeof(GLUE_POP_FPSTACK_TOSTACK);
+          }
+          else
+          {
+            local_fpstack_use++;
           }
         }
-        
-      }
-    }
-  }
 
-  pn = last_nt_parm;
-  
-  if (pn >= 0) // if the last thing executed doesn't go to the last parameter, move it there
-  {
-    if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
-    {
-      // do nothing, things are in the right place
-    }
-    else if (pn != n_params-1)
-    {
-      // generate mov p1->pX
-      if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) RET_MINUS1_FAIL("size, pxfromp1")
-      if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
-      parm_size += GLUE_SET_PX_FROM_P1_SIZE;
-    }
-  }
+        if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
 
-  // pop any pushed parameters
-  while (--pn >= 0)
-  { 
-    if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
-    {
-      if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
-      {
-        if (!local_fpstack_use)
+        last_nt_parm = pn;
+        last_nt_parm_type = rvt;
+
+        if (pn == n_params - 1 && func == nseel_asm_assign)
         {
-          if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
-          if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
-          parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
-          need_fxch = 1;
-        }
-        else
-        {
-          local_fpstack_use--;
-        }
-      }
-      else
-      {
-        if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) RET_MINUS1_FAIL("size, poppx")
-        if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
-        parm_size += GLUE_POP_PX_SIZE;
-      }
-    }
-  }
-
-  // finally, set trivial pointers
-  for (pn=0; pn < n_params; pn++)
-  { 
-    if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
-    {
-      if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
-      {
-        int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
-                                RETURNVALUE_FPSTACK,NULL,NULL,canHaveDenormalOutput);
-        if (a<0) RET_MINUS1_FAIL("coc call here 2")
-        parm_size+=a;
-        need_fxch = 1;
-      }
-      else if (pn == n_params-1)  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
-      {
-        int rvt=0, a;
-        int wantFpStack = func == nseel_asm_assign;
-#ifdef GLUE_PREFER_NONFP_DV_ASSIGNS // x86-64, and maybe others, prefer to avoid the fp stack for a simple copy
-        if (wantFpStack &&
-            (op->parms.parms[pn]->opcodeType != OPCODETYPE_DIRECTVALUE ||
-            (op->parms.parms[pn]->parms.dv.directValue != 1.0 && op->parms.parms[pn]->parms.dv.directValue != 0.0)))
-        {
-          wantFpStack=0;
-        }
-#endif
-
-        a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
-          (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
-          (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
-          wantFpStack ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
-          RETURNVALUE_NORMAL,&rvt, NULL,canHaveDenormalOutput);
-        
-        if (a<0) RET_MINUS1_FAIL("coc call here 3")
-        parm_size+=a;
-        need_fxch = 0;
-
-        if (func == nseel_asm_assign)
-        {
-          if (rvt == RETURNVALUE_FPSTACK)
-          {           
-            if (!(ctx->optimizeDisableFlags & OPTFLAG_FULL_DENORMAL_CHECKS))
+          if (!(ctx->optimizeDisableFlags & OPTFLAG_FULL_DENORMAL_CHECKS) && 
+              (!canHaveDenorm || (ctx->optimizeDisableFlags & OPTFLAG_NO_DENORMAL_CHECKS)))
+          {
+            if (rvt == RETURNVALUE_FPSTACK)
             {
+              cfunc_abiinfo |= BIF_LASTPARMONSTACK;
               func = nseel_asm_assign_fast_fromfp;
               func_e = nseel_asm_assign_fast_fromfp_end;
             }
             else
             {
+              func = nseel_asm_assign_fast;
+              func_e = nseel_asm_assign_fast_end;
+            }
+          }
+          else
+          {
+            if (rvt == RETURNVALUE_FPSTACK)
+            {
+              cfunc_abiinfo |= BIF_LASTPARMONSTACK;
               func = nseel_asm_assign_fromfp;
               func_e = nseel_asm_assign_fromfp_end;
             }
           }
-          else if (!(ctx->optimizeDisableFlags & OPTFLAG_FULL_DENORMAL_CHECKS))
+        
+        }
+      }
+    }
+
+    pn = last_nt_parm;
+  
+    if (pn >= 0) // if the last thing executed doesn't go to the last parameter, move it there
+    {
+      if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
+      {
+        // do nothing, things are in the right place
+      }
+      else if (pn != n_params-1)
+      {
+        // generate mov p1->pX
+        if (bufOut_len < parm_size + GLUE_SET_PX_FROM_P1_SIZE) RET_MINUS1_FAIL("size, pxfromp1")
+        if (bufOut) GLUE_SET_PX_FROM_P1(bufOut + parm_size,n_params - 1 - pn);
+        parm_size += GLUE_SET_PX_FROM_P1_SIZE;
+      }
+    }
+
+    // pop any pushed parameters
+    while (--pn >= 0)
+    { 
+      if (!OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
+      {
+        if ((cfunc_abiinfo&BIF_SECONDLASTPARMST) && pn == n_params-2)
+        {
+          if (!local_fpstack_use)
           {
-             // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
-            func = nseel_asm_assign_fast;
-            func_e = nseel_asm_assign_fast_end;
+            if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
+            if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
+            parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
+            need_fxch = 1;
+          }
+          else
+          {
+            local_fpstack_use--;
           }
         }
-      }
-      else
-      {
-        if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) RET_MINUS1_FAIL("size, pxdvsz")
-        if (bufOut) 
+        else
         {
-          if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis, 0/*nocaching, function gets pointer*/)<0) RET_MINUS1_FAIL("gvtr")
+          if (bufOut_len < parm_size + GLUE_POP_PX_SIZE) RET_MINUS1_FAIL("size, poppx")
+          if (bufOut) GLUE_POP_PX(bufOut + parm_size,n_params - 1 - pn);
+          parm_size += GLUE_POP_PX_SIZE;
         }
-        parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
       }
     }
-  }
 
-#ifdef GLUE_HAS_FXCH
-  if ((cfunc_abiinfo&(BIF_SECONDLASTPARMST)) && !(cfunc_abiinfo&(BIF_LAZYPARMORDERING))&&
-      ((!!need_fxch)^!!(cfunc_abiinfo&BIF_REVERSEFPORDER)) 
-      )
-  {
-    // emit fxch
-    if (bufOut_len < sizeof(GLUE_FXCH)) RET_MINUS1_FAIL("len,fxch")
-    if (bufOut) 
+    // finally, set trivial pointers
+    for (pn=0; pn < n_params; pn++)
     { 
-      memcpy(bufOut+parm_size,GLUE_FXCH,sizeof(GLUE_FXCH));
-    }
-    parm_size+=sizeof(GLUE_FXCH);
-  }
-#endif
-  
-  if (!*canHaveDenormalOutput)
-  {
-    // if add_op or sub_op, and non-denormal input, safe to omit denormal checks
-    if (func == (void*)nseel_asm_add_op)
-    {
-      func = nseel_asm_add_op_fast;
-      func_e = nseel_asm_add_op_fast_end;
-    }
-    else if (func == (void*)nseel_asm_sub_op)
-    {
-      func = nseel_asm_sub_op_fast;
-      func_e = nseel_asm_sub_op_fast_end;
-    }
-    // or if mul/div by a fixed value of >= or <= 1.0
-    else if (func == (void *)nseel_asm_mul_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) >= 1.0)
-    {
-      func = nseel_asm_mul_op_fast;
-      func_e = nseel_asm_mul_op_fast_end;
-    }
-    else if (func == (void *)nseel_asm_div_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) <= 1.0)
-    {
-      func = nseel_asm_div_op_fast;
-      func_e = nseel_asm_div_op_fast_end;
-    }
-  }
+      if (OPCODE_IS_TRIVIAL(op->parms.parms[pn]))
+      {
+        if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
+        {
+          int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
+                                  RETURNVALUE_FPSTACK,NULL,NULL,canHaveDenormalOutput);
+          if (a<0) RET_MINUS1_FAIL("coc call here 2")
+          parm_size+=a;
+          need_fxch = 1;
+        }
+        else if (pn == n_params-1)  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
+        {
+          int rvt=0, a;
+          int wantFpStack = func == nseel_asm_assign;
+  #ifdef GLUE_PREFER_NONFP_DV_ASSIGNS // x86-64, and maybe others, prefer to avoid the fp stack for a simple copy
+          if (wantFpStack &&
+              (op->parms.parms[pn]->opcodeType != OPCODETYPE_DIRECTVALUE ||
+              (op->parms.parms[pn]->parms.dv.directValue != 1.0 && op->parms.parms[pn]->parms.dv.directValue != 0.0)))
+          {
+            wantFpStack=0;
+          }
+  #endif
 
+          a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
+            (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
+            (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
+            wantFpStack ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
+            RETURNVALUE_NORMAL,&rvt, NULL,canHaveDenormalOutput);
+        
+          if (a<0) RET_MINUS1_FAIL("coc call here 3")
+          parm_size+=a;
+          need_fxch = 0;
+
+          if (func == nseel_asm_assign)
+          {
+            if (rvt == RETURNVALUE_FPSTACK)
+            {           
+              if (!(ctx->optimizeDisableFlags & OPTFLAG_FULL_DENORMAL_CHECKS))
+              {
+                func = nseel_asm_assign_fast_fromfp;
+                func_e = nseel_asm_assign_fast_fromfp_end;
+              }
+              else
+              {
+                func = nseel_asm_assign_fromfp;
+                func_e = nseel_asm_assign_fromfp_end;
+              }
+            }
+            else if (!(ctx->optimizeDisableFlags & OPTFLAG_FULL_DENORMAL_CHECKS))
+            {
+               // assigning a value (from a variable or other non-computer), can use a fast assign (no denormal/result checking)
+              func = nseel_asm_assign_fast;
+              func_e = nseel_asm_assign_fast_end;
+            }
+          }
+        }
+        else
+        {
+          if (bufOut_len < parm_size + GLUE_MOV_PX_DIRECTVALUE_SIZE) RET_MINUS1_FAIL("size, pxdvsz")
+          if (bufOut) 
+          {
+            if (generateValueToReg(ctx,op->parms.parms[pn],bufOut + parm_size,n_params - 1 - pn,namespacePathToThis, 0/*nocaching, function gets pointer*/)<0) RET_MINUS1_FAIL("gvtr")
+          }
+          parm_size += GLUE_MOV_PX_DIRECTVALUE_SIZE;
+        }
+      }
+    }
+
+  #ifdef GLUE_HAS_FXCH
+    if ((cfunc_abiinfo&(BIF_SECONDLASTPARMST)) && !(cfunc_abiinfo&(BIF_LAZYPARMORDERING))&&
+        ((!!need_fxch)^!!(cfunc_abiinfo&BIF_REVERSEFPORDER)) 
+        )
+    {
+      // emit fxch
+      if (bufOut_len < sizeof(GLUE_FXCH)) RET_MINUS1_FAIL("len,fxch")
+      if (bufOut) 
+      { 
+        memcpy(bufOut+parm_size,GLUE_FXCH,sizeof(GLUE_FXCH));
+      }
+      parm_size+=sizeof(GLUE_FXCH);
+    }
+  #endif
+  
+    if (!*canHaveDenormalOutput)
+    {
+      // if add_op or sub_op, and non-denormal input, safe to omit denormal checks
+      if (func == (void*)nseel_asm_add_op)
+      {
+        func = nseel_asm_add_op_fast;
+        func_e = nseel_asm_add_op_fast_end;
+      }
+      else if (func == (void*)nseel_asm_sub_op)
+      {
+        func = nseel_asm_sub_op_fast;
+        func_e = nseel_asm_sub_op_fast_end;
+      }
+      // or if mul/div by a fixed value of >= or <= 1.0
+      else if (func == (void *)nseel_asm_mul_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) >= 1.0)
+      {
+        func = nseel_asm_mul_op_fast;
+        func_e = nseel_asm_mul_op_fast_end;
+      }
+      else if (func == (void *)nseel_asm_div_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) <= 1.0)
+      {
+        func = nseel_asm_div_op_fast;
+        func_e = nseel_asm_div_op_fast_end;
+      }
+    }
+  } // not varparm
 
   if (cfunc_abiinfo & (BIF_CLEARDENORMAL | BIF_RETURNSBOOL) ) *canHaveDenormalOutput=0;
   else if (!(cfunc_abiinfo & BIF_WONTMAKEDENORMAL)) *canHaveDenormalOutput=1;
 
+  func = GLUE_realAddress(func,func_e,&func_size);
+  if (!func) RET_MINUS1_FAIL("failrealladdrfunc")
+                   
+  if (bufOut_len < parm_size + func_size) RET_MINUS1_FAIL("funcsz")
+
+  if (bufOut)
   {
-    int func_size=0;
-    func = GLUE_realAddress(func,func_e,&func_size);
-    if (!func) RET_MINUS1_FAIL("failrealladdrfunc")
-                     
-    if (bufOut_len < parm_size + func_size) RET_MINUS1_FAIL("funcsz")
-  
-    if (bufOut)
+    unsigned char *p=bufOut + parm_size;
+    memcpy(p, func, func_size);
+    if (preProc) p=preProc(p,func_size,ctx);
+    if (repl)
     {
-      unsigned char *p=bufOut + parm_size;
-      memcpy(p, func, func_size);
-      if (preProc) p=preProc(p,func_size,ctx);
-      if (repl)
-      {
-        if (repl[0]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[0]);
-        if (repl[1]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[1]);
-        if (repl[2]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[2]);
-        if (repl[3]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[3]);
-      }
+      if (repl[0]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[0]);
+      if (repl[1]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[1]);
+      if (repl[2]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[2]);
+      if (repl[3]) p=EEL_GLUE_set_immediate(p,(INT_PTR)repl[3]);
     }
-
-    if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
-    else if (cfunc_abiinfo&BIF_RETURNSBOOL) *rvMode=RETURNVALUE_BOOL;
-
-    return parm_size + func_size;
   }
-  // end of builtin function generation
+
+  if (restore_stack_amt)
+  {
+    if (bufOut_len < parm_size + func_size + GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
+    if (bufOut) GLUE_MOVE_STACK(bufOut + parm_size + func_size, restore_stack_amt); 
+    parm_size += GLUE_MOVE_STACK_SIZE;
+  }
+
+  if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
+  else if (cfunc_abiinfo&BIF_RETURNSBOOL) *rvMode=RETURNVALUE_BOOL;
+
+  return parm_size + func_size;
 }
 
 static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const namespaceInformation *namespacePathToThis, 

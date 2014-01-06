@@ -35,14 +35,53 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 
   const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax (pointer); push rax (alignment)
 
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 8
+  static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
+  {
+    ((unsigned char *)b)[0] = 0x48; // mov [rsp+offs], rax
+    ((unsigned char *)b)[1] = 0x89; 
+    ((unsigned char *)b)[2] = 0x84;
+    ((unsigned char *)b)[3] = 0x24;
+    *(int *)((unsigned char *)b+4) = offs;
+  }
+
+  #define GLUE_MOVE_PX_STACKPTR_SIZE 3
+  static void GLUE_MOVE_PX_STACKPTR_GEN(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_MOVE_PX_STACKPTR_SIZE]=
+    {
+      { 0x48, 0x89, 0xe0 }, // mov rax, rsp
+      { 0x48, 0x89, 0xe7 }, // mov rdi, rsp
+      { 0x48, 0x89, 0xe1 }, // mov rcx, rsp
+    };    
+    memcpy(b,tab[wv],GLUE_MOVE_PX_STACKPTR_SIZE);
+  }
+
+  #define GLUE_MOVE_STACK_SIZE 7
+  static void GLUE_MOVE_STACK(void *b, int amt)
+  {
+    ((unsigned char *)b)[0] = 0x48;
+    ((unsigned char *)b)[1] = 0x81;
+    if (amt < 0)
+    {
+      ((unsigned char *)b)[2] = 0xEC;
+      *(int *)((char*)b+3) = -amt; // sub rsp, -amt32
+    }
+    else
+    {
+      ((unsigned char *)b)[2] = 0xc4;
+      *(int *)((char*)b+3) = amt; // add rsp, amt32
+    }
+  }
+
   #define GLUE_POP_PX_SIZE 2
   static void GLUE_POP_PX(void *b, int wv)
   {
     static const unsigned char tab[3][GLUE_POP_PX_SIZE]=
     {
-      {0x58,/*pop eax*/  0x58}, // pop alignment, then pop pointer
-      {0x5F,/*pop edi*/  0x5F}, 
-      {0x59,/*pop ecx*/  0x59}, 
+      {0x58,/*pop rax*/  0x58}, // pop alignment, then pop pointer
+      {0x5F,/*pop rdi*/  0x5F}, 
+      {0x59,/*pop rcx*/  0x59}, 
     };    
     memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
   }

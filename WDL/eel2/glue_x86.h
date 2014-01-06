@@ -94,7 +94,45 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     *(INT_PTR *)b = v; 
   }
   const static unsigned char  GLUE_PUSH_P1[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
-  
+
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 7
+  static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
+  {
+    ((unsigned char *)b)[0] = 0x89; // mov [esp+offs], eax
+    ((unsigned char *)b)[1] = 0x84;
+    ((unsigned char *)b)[2] = 0x24;
+    *(int *)((unsigned char *)b+3) = offs;
+  }
+
+  #define GLUE_MOVE_PX_STACKPTR_SIZE 2
+  static void GLUE_MOVE_PX_STACKPTR_GEN(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_MOVE_PX_STACKPTR_SIZE]=
+    {
+      { 0x89, 0xe0 }, // mov eax, esp
+      { 0x89, 0xe7 }, // mov edi, esp
+      { 0x89, 0xe1 }, // mov ecx, esp
+    };    
+    memcpy(b,tab[wv],GLUE_MOVE_PX_STACKPTR_SIZE);
+  }
+
+  #define GLUE_MOVE_STACK_SIZE 6
+  static void GLUE_MOVE_STACK(void *b, int amt)
+  {
+    ((unsigned char *)b)[0] = 0x81;
+    if (amt <0)
+    {
+      ((unsigned char *)b)[1] = 0xEC;
+      *(int *)((char*)b+2) = -amt; // sub esp, -amt
+    }
+    else
+    {
+      ((unsigned char *)b)[1] = 0xc4;
+      *(int *)((char*)b+2) = amt; // add esp, amt
+    }
+  }
+
+
   #define GLUE_POP_PX_SIZE 4
   static void GLUE_POP_PX(void *b, int wv)
   {

@@ -70,15 +70,23 @@ int NSEEL_init(); // returns 0 on success. clears any added functions as well
 
 // adds a function that returns a value (EEL_F)
 #define NSEEL_addfunc_retval(name,np,pproc,fptr) \
-    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd##_end-(char *)_asm_generic##np##parm_retd,(void*)(pproc),(void*)(fptr))
+    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd_end-(char *)_asm_generic##np##parm_retd,pproc,(void*)(fptr))
 
 // adds a function that returns a pointer (EEL_F*)
 #define NSEEL_addfunc_retptr(name,np,pproc,fptr) \
-    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm,(char *)_asm_generic##np##parm##_end-(char *)_asm_generic##np##parm,(void*)(pproc),(void*)(fptr))
+    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm,(char *)_asm_generic##np##parm_end-(char *)_asm_generic##np##parm,pproc,(void*)(fptr))
 
 // adds a void or bool function
 #define NSEEL_addfunc_retbool(name,np,pproc,fptr) \
-  NSEEL_addfunctionex(name,(np)|(/*BIF_RETURNSBOOL*/0x00400),(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd##_end-(char *)_asm_generic##np##parm_retd,(void*)(pproc),(void*)(fptr))
+  NSEEL_addfunctionex(name,(np)|(/*BIF_RETURNSBOOL*/0x00400),(char *)_asm_generic##np##parm,(char *)_asm_generic##np##parm##_end-(char *)_asm_generic##np##parm,pproc,(void*)(fptr))
+
+// adds a function that takes min_np or more parameters (func sig needs to be EEL_F func(void *ctx, INT_PTR np, EEL_F **parms)
+#define NSEEL_addfunc_varparm(name, min_np, pproc, fptr) \
+    NSEEL_addfunctionex(name,min_np|(/*BIF_TAKES_VARPARM*/0x0400000),(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,pproc,(void*)(fptr))
+
+// adds a function that takes np parameters via func: sig needs to be EEL_F func(void *ctx, INT_PTR np, EEL_F **parms)
+#define NSEEL_addfunc_exparms(name, np, pproc, fptr) \
+    NSEEL_addfunctionex(name,np|(/*BIF_TAKES_VARPARM_EX*/0x0C00000),(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,pproc,(void*)(fptr))
 
 
 #define NSEEL_addfunction(name,nparms,code,len) NSEEL_addfunctionex((name),(nparms),(code),(len),0,0)
