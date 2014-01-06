@@ -8,6 +8,7 @@
 
 static EEL_F NSEEL_CGEN_CALL _eel_fopen(void *opaque, EEL_F *fn_index, EEL_F *mode_index)
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   const char *fn = EEL_STRING_GET_FOR_INDEX(*fn_index,NULL);
   const char *mode = EEL_STRING_GET_FOR_INDEX(*mode_index,NULL);
   if (!fn || !mode) return -1;
@@ -16,6 +17,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fopen(void *opaque, EEL_F *fn_index, EEL_F *mo
 static EEL_F NSEEL_CGEN_CALL _eel_fclose(void *opaque, EEL_F *fpp) { return EEL_FILE_CLOSE((int)*fpp); }
 static EEL_F NSEEL_CGEN_CALL _eel_fgetc(void *opaque, EEL_F *fpp) 
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return (EEL_F)fgetc(fp);
   return -1.0;
@@ -23,12 +25,14 @@ static EEL_F NSEEL_CGEN_CALL _eel_fgetc(void *opaque, EEL_F *fpp)
 
 static EEL_F NSEEL_CGEN_CALL _eel_ftell(void *opaque, EEL_F *fpp) 
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return (EEL_F)ftell(fp);
   return -1.0;
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fflush(void *opaque, EEL_F *fpp) 
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) { fflush(fp); return 0.0; }
   return -1.0;
@@ -36,18 +40,21 @@ static EEL_F NSEEL_CGEN_CALL _eel_fflush(void *opaque, EEL_F *fpp)
 
 static EEL_F NSEEL_CGEN_CALL _eel_feof(void *opaque, EEL_F *fpp) 
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return feof(fp) ? 1.0 : 0.0;
   return -1.0;
 }
-static EEL_F NSEEL_CGEN_CALL _eel_fseek(void *opaque, EEL_F *fpp, EEL_F *wh, EEL_F *offset) 
+static EEL_F NSEEL_CGEN_CALL _eel_fseek(void *opaque, EEL_F *fpp, EEL_F *offset, EEL_F *wh) 
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
-  if (fp) return fseek(fp,*wh<0 ? SEEK_SET : *wh > 0 ? SEEK_END : SEEK_CUR, (int) *offset);
+  if (fp) return fseek(fp, (int) *offset, *wh<0 ? SEEK_SET : *wh > 0 ? SEEK_END : SEEK_CUR);
   return -1.0;
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fgets(void *opaque, EEL_F *fpp, EEL_F *strOut)
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   EEL_STRING_STORAGECLASS *wr=NULL;
   EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
 
@@ -78,6 +85,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fread(void *opaque, EEL_F *fpp, EEL_F *strOut,
   int use_len = (int) *flen;
   if (use_len < 1) return 0.0;
 
+  EEL_STRING_MUTEXLOCK_SCOPE
   EEL_STRING_STORAGECLASS *wr=NULL;
   EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
   if (!wr)
@@ -110,6 +118,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fread(void *opaque, EEL_F *fpp, EEL_F *strOut,
 
 static EEL_F NSEEL_CGEN_CALL _eel_fwrite(void *opaque, EEL_F *fpp, EEL_F *strOut, EEL_F *flen)
 {
+  EEL_STRING_MUTEXLOCK_SCOPE
   int use_len = (int) *flen;
 
   EEL_STRING_STORAGECLASS *wr=NULL;
@@ -132,19 +141,20 @@ static EEL_F NSEEL_CGEN_CALL _eel_fwrite(void *opaque, EEL_F *fpp, EEL_F *strOut
   return (EEL_F) fwrite(str,1,use_len,fp);
 }
 
-static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, EEL_F *fpp, EEL_F *fmt_index)
+static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, INT_PTR nparam, EEL_F **parm)
 {
-  if (opaque)
+  if (opaque && nparam > 1)
   {
-    FILE *fp = EEL_FILE_GETFP((int)*fpp);
+    EEL_STRING_MUTEXLOCK_SCOPE
+    FILE *fp = EEL_FILE_GETFP((int)*(parm[0]));
     if (!fp) return 0.0;
 
     EEL_STRING_STORAGECLASS *wr_src=NULL;
-    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parm[1]),&wr_src);
     if (fmt)
     {
       char buf[16384];
-      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()) : NULL, buf,sizeof(buf));
+      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()) : NULL, buf,sizeof(buf),nparam-2,parm+2);
 
       if (len >= 0)
       {
@@ -160,7 +170,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, EEL_F *fpp, EEL_F *fmt_i
     else
     {
 #ifdef EEL_STRING_DEBUGOUT
-      EEL_STRING_DEBUGOUT("fprintf: bad format specifier passed %f",*fmt_index);
+      EEL_STRING_DEBUGOUT("fprintf: bad format specifier passed %f",*(parm[1]));
 #endif
     }
   }
@@ -176,7 +186,7 @@ void EEL_file_register()
   NSEEL_addfunctionex("fgetc",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fgetc);
 
   NSEEL_addfunctionex("fwrite",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fwrite);
-  NSEEL_addfunctionex("fprintf",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fprintf);
+  NSEEL_addfunc_varparm("fprintf",2,NSEEL_PProc_THIS,(void *)&_eel_fprintf);
 
   NSEEL_addfunctionex("fseek",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fseek);
   NSEEL_addfunctionex("ftell",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_ftell);

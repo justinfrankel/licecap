@@ -397,7 +397,7 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
   return 0;
 }
 
-int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char *buf, int buf_sz)
+int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char *buf, int buf_sz, int num_fmt_parms, EEL_F **fmt_parms)
 {
   int fmt_parmpos = 0;
   char *op = buf;
@@ -431,9 +431,11 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
       }
       else
       {
+        if (fmt_parmpos < num_fmt_parms) varptr = fmt_parms[fmt_parmpos];
 #ifdef EEL_STRING_GETFMTVAR
-        varptr = EEL_STRING_GETFMTVAR(fmt_parmpos++);
+        if (!varptr) varptr = EEL_STRING_GETFMTVAR(fmt_parmpos);
 #endif
+        fmt_parmpos++;
       }
       double v = varptr ? (double)*varptr : 0.0;
 
@@ -492,7 +494,7 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
 
 
 
-static int eel_string_match(void *opaque, const char *fmt, const char *msg, int match_fmt_pos, int ignorecase, const char *fmt_endptr, const char *msg_endptr)
+static int eel_string_match(void *opaque, const char *fmt, const char *msg, int match_fmt_pos, int ignorecase, const char *fmt_endptr, const char *msg_endptr, int num_fmt_parms, EEL_F **fmt_parms)
 {
   // check for match, updating EEL_STRING_GETFMTVAR(*) as necessary
   // %d=12345
@@ -527,14 +529,14 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
           // *? or +? are lazy matches
           fmt++;
 
-          while (msg<msg_endptr && !eel_string_match(opaque,fmt, msg,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr)) msg++;
+          while (msg<msg_endptr && !eel_string_match(opaque,fmt, msg,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) msg++;
           return msg<msg_endptr;
         }
         else
         {
           // greedy match
           int len = msg_endptr-msg;
-          while (len >= 0 && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr)) len--;
+          while (len >= 0 && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) len--;
           return len >= 0;
         }
       break;
@@ -583,9 +585,11 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
             EEL_F vv=0.0;
             if (!dest_varname) 
             {
+              if (match_fmt_pos < num_fmt_parms) varOut = fmt_parms[match_fmt_pos];
 #ifdef EEL_STRING_GETFMTVAR
-              varOut = EEL_STRING_GETFMTVAR(match_fmt_pos++);
+              if (!varOut) varOut = EEL_STRING_GETFMTVAR(match_fmt_pos);
 #endif
+              match_fmt_pos++;
             }
             else
             {
@@ -652,15 +656,16 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
 
             if (!dest_varname) match_fmt_pos++;
 
-            while (len >= fmt_minlen && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr)) len--;
+            while (len >= fmt_minlen && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) len--;
             if (len < fmt_minlen) return 0;
 
             EEL_F vv=0.0;
             EEL_F *varOut = NULL;
             if (!dest_varname) 
             {
+              if (match_fmt_pos>0 && match_fmt_pos-1 < num_fmt_parms) varOut = fmt_parms[match_fmt_pos-1];
 #ifdef EEL_STRING_GETFMTVAR
-              varOut = EEL_STRING_GETFMTVAR(match_fmt_pos-1);
+              if (!varOut) varOut = EEL_STRING_GETFMTVAR(match_fmt_pos-1);
 #endif
             }
             else
@@ -742,27 +747,29 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
 
 
 
-static EEL_F NSEEL_CGEN_CALL _eel_sprintf(void *opaque, EEL_F *strOut, EEL_F *fmt_index)
+static EEL_F NSEEL_CGEN_CALL _eel_sprintf(void *opaque, INT_PTR num_param, EEL_F **parms)
 {
+  if (num_param<2) return 0.0;
+
   if (opaque)
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
-    EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
+    EEL_STRING_GET_FOR_INDEX(*(parms[0]), &wr);
     if (!wr)
     {
 #ifdef EEL_STRING_DEBUGOUT
-      EEL_STRING_DEBUGOUT("sprintf: bad destination specifier passed %f",*strOut);
+      EEL_STRING_DEBUGOUT("sprintf: bad destination specifier passed %f",*(parms[0]));
 #endif
     }
     else
     {
       EEL_STRING_STORAGECLASS *wr_src=NULL;
-      const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
+      const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parms[1]),&wr_src);
       if (fmt)
       {
         char buf[16384];
-        const int fmt_len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf));
+        const int fmt_len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf), num_param-2, parms+2);
 
         if (fmt_len>=0)
         {
@@ -778,12 +785,12 @@ static EEL_F NSEEL_CGEN_CALL _eel_sprintf(void *opaque, EEL_F *strOut, EEL_F *fm
       else
       {
 #ifdef EEL_STRING_DEBUGOUT
-        EEL_STRING_DEBUGOUT("sprintf: bad format specifier passed %f",*fmt_index);
+        EEL_STRING_DEBUGOUT("sprintf: bad format specifier passed %f",*(parms[1]));
 #endif
       }
     }
   }
-  return *strOut;
+  return *(parms[0]);
 }
 
 
@@ -1221,17 +1228,17 @@ static EEL_F NSEEL_CGEN_CALL _eel_strlen(void *opaque, EEL_F *fmt_index)
 
 
 
-static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
+static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, INT_PTR num_param, EEL_F **parms)
 {
-  if (opaque)
+  if (num_param>0 && opaque)
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr_src=NULL;
-    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parms[0]),&wr_src);
     if (fmt)
     {
       char buf[16384];
-      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf));
+      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf), num_param-1, parms+1);
 
       if (len >= 0)
       {
@@ -1250,7 +1257,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
     else
     {
 #ifdef EEL_STRING_DEBUGOUT
-      EEL_STRING_DEBUGOUT("printf: bad format specifier passed %f",*fmt_index);
+      EEL_STRING_DEBUGOUT("printf: bad format specifier passed %f",*(parms[0]));
 #endif
     }
   }
@@ -1259,29 +1266,29 @@ static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, EEL_F *fmt_index)
 
 
 
-static EEL_F NSEEL_CGEN_CALL _eel_match(void *opaque, EEL_F *fmt_index, EEL_F *value_index)
+static EEL_F NSEEL_CGEN_CALL _eel_match(void *opaque, INT_PTR num_parms, EEL_F **parms)
 {
-  if (opaque)
+  if (opaque && num_parms >= 2)
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *fmt_wr=NULL, *msg_wr=NULL;
-    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&fmt_wr);
-    const char *msg = EEL_STRING_GET_FOR_INDEX(*value_index,&msg_wr);
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parms[0]),&fmt_wr);
+    const char *msg = EEL_STRING_GET_FOR_INDEX(*(parms[1]),&msg_wr);
 
-    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,0, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg))) ? 1.0 : 0.0;
+    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,0, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg)),num_parms-2,parms+2) ? 1.0 : 0.0;
   }
   return 0.0;
 }
-static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, EEL_F *fmt_index, EEL_F *value_index)
+static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, INT_PTR num_parms, EEL_F **parms)
 {
-  if (opaque)
+  if (opaque && num_parms >= 2)
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *fmt_wr=NULL, *msg_wr=NULL;
-    const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&fmt_wr);
-    const char *msg = EEL_STRING_GET_FOR_INDEX(*value_index,&msg_wr);
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parms[0]),&fmt_wr);
+    const char *msg = EEL_STRING_GET_FOR_INDEX(*(parms[1]),&msg_wr);
 
-    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,1, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg))) ? 1.0 : 0.0;
+    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,1, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg)),num_parms-2,parms+2) ? 1.0 : 0.0;
   }
   return 0.0;
 }
@@ -1289,7 +1296,6 @@ static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, EEL_F *fmt_index, EEL_F *
 void EEL_string_register()
 {
   NSEEL_addfunctionex("strlen",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strlen);
-  NSEEL_addfunctionex("sprintf",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_sprintf);
 
   NSEEL_addfunctionex("strcat",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strcat);
   NSEEL_addfunctionex("strcpy",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strcpy);
@@ -1307,10 +1313,11 @@ void EEL_string_register()
   NSEEL_addfunctionex("str_insert",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strinsert);
   NSEEL_addfunctionex("str_delsub",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strdelsub);
 
-  NSEEL_addfunctionex("printf",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_printf);
+  NSEEL_addfunc_varparm("sprintf",2,NSEEL_PProc_THIS,(void *)&_eel_sprintf);
+  NSEEL_addfunc_varparm("printf",1,NSEEL_PProc_THIS,(void *)&_eel_printf);
 
-  NSEEL_addfunctionex("match",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_match);
-  NSEEL_addfunctionex("matchi",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_matchi);
+  NSEEL_addfunc_varparm("match",2,NSEEL_PProc_THIS,(void *)&_eel_match);
+  NSEEL_addfunc_varparm("matchi",2,NSEEL_PProc_THIS,(void *)&_eel_matchi);
 
 }
 void eel_string_initvm(NSEEL_VMCTX vm)
