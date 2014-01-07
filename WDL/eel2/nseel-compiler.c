@@ -2297,6 +2297,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
+    const int max_params=256; // on x86-64, this means at most 2k of stack use, which should still be safe (going close to 4k would be less safe)
     int x;
     // this mode is less efficient in that it creates a list of pointers on the stack to pass to the function
     // but it is more flexible and works for >3 parameters.
@@ -2310,7 +2311,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         {
           const int isMP = prni->opcodeType == OPCODETYPE_MOREPARAMS;
           n_params++;
-          if (!isMP) break;
+          if (!isMP||n_params>=max_params) break;
           prni = prni->parms.parms[1];
         }
       }
@@ -2359,7 +2360,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
           n_params++;
 
-          if (!isMP) break;
+          if (!isMP||n_params>=max_params) break;
           prni = prni->parms.parms[1];
         }
       }
