@@ -34,6 +34,7 @@
    strncpy(str, srcstr, maxlen);         -- replaces str with srcstr, up to maxlen (-1 for unlimited)
    strncat(str, srcstr, maxlen);         -- appends up to maxlen of srcstr to str (-1 for unlimited)
    strcpy_from(str,srcstr, offset);      -- copies srcstr to str, but starts reading srcstr at offset offset
+   strcpy_substr(str, srcstr, offs, ml)  -- php-style (start at offs, offs<0 means from end, ml for maxlen, ml<0 = reduce length by this amt)
    str_getchar(str, offset);             -- returns value at offset offset
    str_setchar(str, offset, value);      -- sets value at offset offset
    str_setlen(str, len);                 -- sets length of string (if increasing, will be space-padded)
@@ -42,21 +43,6 @@
 
   [1]: note: printf/sprintf are NOT binary safe when using %s with modifiers (such as %100s etc) -- the source string being formatted
              will terminate at the first NULL character
-
-also recommended, for the PHP fans:
-
-  m_builtin_code = NSEEL_code_compile_ex(m_vm,
-
-   "function strcpy_substr(dest, src, offset, maxlen) ("
-   "  offset < 0 ? offset=strlen(src)+offset;"
-   "  maxlen < 0 ? maxlen = strlen(src) - offset + maxlen;"
-   "  strcpy_from(dest, src, offset);"
-   "  maxlen > 0 && strlen(dest) > maxlen ? str_setlen(dest,maxlen);"
-   ");\n"
-
-
-  ,0,NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS
-
   );
 
 
@@ -843,49 +829,66 @@ static EEL_F NSEEL_CGEN_CALL _eel_strncat(void *opaque, EEL_F *strOut, EEL_F *fm
   return *strOut;
 }
 
-static EEL_F NSEEL_CGEN_CALL _eel_strcpyfrom(void *opaque, EEL_F *strOut, EEL_F *fmt_index, EEL_F *offs)
+static EEL_F NSEEL_CGEN_CALL _eel_strcpysubstr(void *opaque, INT_PTR nparm, EEL_F **parms) //EEL_F *strOut, EEL_F *fmt_index, EEL_F *offs
 {
-  if (opaque)
+  if (opaque && nparm>=3)
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL, *wr_src=NULL;
-    EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
+    EEL_STRING_GET_FOR_INDEX(parms[0][0], &wr);
     if (!wr)
     {
 #ifdef EEL_STRING_DEBUGOUT
-      EEL_STRING_DEBUGOUT("strcpy_from: bad destination specifier passed %f",*strOut);
+      EEL_STRING_DEBUGOUT("strcpy_substr: bad destination specifier passed %f",parms[0][0]);
 #endif
     }
     else
     {
-      const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
-      if (fmt||wr_src)
+      const char *fmt = EEL_STRING_GET_FOR_INDEX(parms[1][0],&wr_src);
+      if (fmt)
       {
         const int fmt_len  = wr_src ? wr_src->GetLength() : (int) strlen(fmt);
-        int o = (int) *offs;
-        if (o < 0) o=0;
-        if (o >= fmt_len) wr->Set("");
+        int maxlen, o = (int) parms[2][0];
+        if (o < 0) 
+        {
+          o = fmt_len + o;
+          if (o < 0) o=0;
+        }
+        maxlen = fmt_len - o;
+        if (nparm >= 4)
+        {
+          const int a = (int) parms[3][0];
+          if (a<0) maxlen += a;
+          else if (a<maxlen) maxlen=a;
+        }
+
+        if (maxlen < 1 || o >= fmt_len) 
+        {
+          wr->Set("");
+        }
         else 
         {
-          if (wr_src) 
+          if (wr_src==wr) 
           {
-            if (wr_src == wr)  
-              wr->DeleteSub(0,o);
-            else
-              wr->SetRaw(wr_src->Get() + o, fmt_len - o);
+            wr->DeleteSub(0,o);
+            if (wr->GetLength() > maxlen) wr->SetLen(maxlen);
           }
-          else wr->Set(fmt+o);
+          else 
+          {
+            wr->SetRaw(fmt+o,maxlen);
+          }
         }
       }
       else
       {
 #ifdef EEL_STRING_DEBUGOUT
-        EEL_STRING_DEBUGOUT("strcpy_from: bad format specifier passed %f",*fmt_index);
+        EEL_STRING_DEBUGOUT("strcpy_substr: bad format specifier passed %f",parms[1][0]);
 #endif
       }
     }
+    return parms[0][0];
   }
-  return *strOut;
+  return 0.0;
 }
 
 
@@ -905,7 +908,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strncpy(void *opaque, EEL_F *strOut, EEL_F *fm
     else
     {
       const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
-      if (fmt||wr_src)
+      if (fmt)
       {
         int ml=-1;
         if (maxlen && *maxlen >= 0) ml = (int)*maxlen;
@@ -916,7 +919,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strncpy(void *opaque, EEL_F *strOut, EEL_F *fm
           return *strOut; 
         }
 
-        if (wr_src) wr->SetRaw(wr_src->Get(), ml>0 && ml < wr_src->GetLength() ? ml : wr_src->GetLength());
+        if (wr_src) wr->SetRaw(fmt, ml>0 && ml < wr_src->GetLength() ? ml : wr_src->GetLength());
         else wr->Set(fmt,ml);
       }
       else
@@ -1038,26 +1041,16 @@ static EEL_F NSEEL_CGEN_CALL _eel_strgetchar(void *opaque, EEL_F *strOut, EEL_F 
     EEL_STRING_MUTEXLOCK_SCOPE
     EEL_STRING_STORAGECLASS *wr=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
-    if (!wr && !fmt)
+    if (!fmt)
     {
 #ifdef EEL_STRING_DEBUGOUT
-      EEL_STRING_DEBUGOUT("str_getchar: bad destination specifier passed %f",*strOut);
+      EEL_STRING_DEBUGOUT("str_getchar: bad specifier passed %f",*strOut);
 #endif
     }
     else
     {
-      int l = (int) *idx;
-      if (l >= 0)
-      {
-        if (wr)
-        {
-          if (l < wr->GetLength()) return ((unsigned char *)wr->Get())[l];
-        }
-        else
-        {
-          if (l < (int)strlen(fmt)) return ((unsigned char *)fmt)[l];
-        }
-      }
+      const int l = (int) *idx;
+      if (l>=0 && l < (wr?wr->GetLength():(int)strlen(fmt))) return ((unsigned char *)fmt)[l];
     }
   }
   return 0;
@@ -1104,7 +1097,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_strinsert(void *opaque, EEL_F *strOut, EEL_F *
     else
     {
       const char *fmt = EEL_STRING_GET_FOR_INDEX(*fmt_index,&wr_src);
-      if (fmt||wr_src)
+      if (fmt)
       {
         EEL_STRING_STORAGECLASS tmp;
         if (wr_src == wr) *(wr_src=&tmp) = *wr; // insert from copy
@@ -1308,7 +1301,9 @@ void EEL_string_register()
   NSEEL_addfunctionex("strnicmp",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strnicmp);
   NSEEL_addfunctionex("str_getchar",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strgetchar);
   NSEEL_addfunctionex("str_setlen",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strsetlen);
-  NSEEL_addfunctionex("strcpy_from",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strcpyfrom);
+  NSEEL_addfunc_exparms("strcpy_from",3,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr); // alias
+  NSEEL_addfunc_exparms("strcpy_substr",3,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr); // only allow 3 or 4 parms
+  NSEEL_addfunc_exparms("strcpy_substr",4,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr);
   NSEEL_addfunctionex("str_setchar",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strsetchar);
   NSEEL_addfunctionex("str_insert",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strinsert);
   NSEEL_addfunctionex("str_delsub",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strdelsub);
