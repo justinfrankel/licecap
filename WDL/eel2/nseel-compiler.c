@@ -52,7 +52,6 @@
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
 //#define LOG_OPT
-//#define EEL_PPC_NOFREECODE
 //#define EEL_PRINT_FAILS
 //#define EEL_VALIDATE_WORKTABLE_USE
 //#define EEL_VALIDATE_FSTUBS
@@ -4504,9 +4503,20 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
     nseel_evallib_stats[2]-=h->code_stats[2];
     nseel_evallib_stats[3]-=h->code_stats[3];
     nseel_evallib_stats[4]--;
-    
-#ifdef EEL_PPC_NOFREECODE
-  #pragma warn leaky-code mode, not freeing code, will leak, fixme!!!
+
+#if defined(__ppc__) && defined(__APPLE__)
+    {
+      FILE *fp = fopen("/var/db/receipts/com.apple.pkg.Rosetta.plist","r");
+      if (fp) 
+      {
+        fclose(fp);
+        // on PPC, but rosetta installed, do not free h->blocks, as rosetta won't detect changes to these pages
+      }
+      else
+      {
+        freeBlocks(&h->blocks);
+      }
+    }
 #else
   freeBlocks(&h->blocks);
 #endif
