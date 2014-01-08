@@ -105,6 +105,8 @@ class sInst {
 
 #include "eel_mdct.h"
 
+#include "eel_misc.h"
+
 sInst::sInst()
 {
   memset(m_handles,0,sizeof(m_handles));
@@ -163,10 +165,12 @@ int sInst::runcode(const char *codeptr, bool showerr, bool canfree)
 void NSEEL_HOSTSTUB_EnterMutex() { }
 void NSEEL_HOSTSTUB_LeaveMutex() { }
 
+
 int main(int argc, char **argv)
 {
   FILE *fp = stdin;
   int argpos = 1;
+  const char *scriptfn = argv[0];
   while (argpos < argc && argv[argpos][0] == '-' && argv[argpos][1])
   {
     if (!strcmp(argv[argpos],"-v")) g_verbose++;
@@ -180,7 +184,7 @@ int main(int argc, char **argv)
   }
   if (argpos < argc && !g_interactive)
   {
-    fp = strcmp(argv[argpos],"-") ? fopen(argv[argpos],"r") : stdin;
+    fp = strcmp(argv[argpos],"-") ? fopen(scriptfn = argv[argpos],"r") : stdin;
     if (!fp)
     {
       printf("Error opening %s\n",argv[argpos]);
@@ -207,6 +211,7 @@ int main(int argc, char **argv)
   EEL_file_register();
   EEL_fft_register();
   EEL_mdct_register();
+  EEL_misc_register();
 
   WDL_FastString code,t;
 
@@ -215,12 +220,10 @@ int main(int argc, char **argv)
     const int argv_offs = 1<<22;
     code.SetFormatted(64,"argc=0; argv=%d;\n",argv_offs);
     int x;
-    for (x=argpos;x<argc;x++)
+    for (x=argpos-1;x<argc;x++)
     {
-      if (x==0 || x >= argpos)
-      {
-        code.AppendFormatted(64,"argv[argc]=%d; argc+=1;\n",inst.m_string_context->AddString(new WDL_FastString(argv[x])));
-      }
+      code.AppendFormatted(64,"argv[argc]=%d; argc+=1;\n",
+          inst.m_string_context->AddString(new WDL_FastString(x<argpos ? scriptfn : argv[x])));
     }
     inst.runcode(code.Get(),true,true);
   }
