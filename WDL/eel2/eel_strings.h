@@ -24,6 +24,7 @@
           // %-10s means 1-10 chars
           // %3-5s means 3-5 chars. 
           // %0-5s means 0-5 chars. 
+          // %S (uppercase) indicates lazy match (%D, %F, %X, etc)
 
    strcpy(str, srcstr);                  -- replaces str with srcstr
    strcat(str, srcstr);                  -- appends srcstr to str 
@@ -558,7 +559,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
             fmt++; // skip '}'
           }
 
-          const char fmt_char = *fmt++;
+          char fmt_char = *fmt++;
           if (!fmt_char) return 0; // malformed
 
           if (fmt_char == '*' || 
@@ -610,11 +611,14 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
           else 
           {
             int len=0;
+            int lazy=0;
+            if (fmt_char>='A'&&fmt_char<='Z') { lazy=1; fmt_char += 'a' - 'A'; }
+
             if (fmt_char == 's')
             {
               len = msg_endptr-msg;
             }
-            else if (fmt_char == 'x' || fmt_char == 'X')
+            else if (fmt_char == 'x')
             {
               while ((msg[len] >= '0' && msg[len] <= '9') ||
                      (msg[len] >= 'A' && msg[len] <= 'F') ||
@@ -645,8 +649,18 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
 
             if (!dest_varname) match_fmt_pos++;
 
-            while (len >= fmt_minlen && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) len--;
-            if (len < fmt_minlen) return 0;
+            if (lazy)
+            {
+              if (fmt_maxlen<1 || fmt_maxlen>len) fmt_maxlen=len;
+              len=fmt_minlen;
+              while (len <= fmt_maxlen && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) len++;
+              if (len > fmt_maxlen) return 0;
+            }
+            else
+            {
+              while (len >= fmt_minlen && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) len--;
+              if (len < fmt_minlen) return 0;
+            }
 
             EEL_F vv=0.0;
             EEL_F *varOut = NULL;
@@ -714,7 +728,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
                   char *bl=(char*)msg;
                   if (fmt_char == 'u')
                     *varOut = (EEL_F)strtoul(tmp,&bl,10);
-                  else if (fmt_char == 'x' || fmt_char == 'X')
+                  else if (fmt_char == 'x')
                     *varOut = (EEL_F)strtoul(msg,&bl,16);
                   else
                     *varOut = (EEL_F)atof(tmp);
