@@ -352,7 +352,7 @@ template<class PTRTYPE> class WDL_TypedBuf
       if (idx >= 0 && idx < sz)
       {
         memmove(p+idx, p+idx+1, (sz-idx-1)*(unsigned int)sizeof(PTRTYPE));
-        return Resize(sz-1);
+        return Resize(sz-1,false);
       }
       return p;
     }
