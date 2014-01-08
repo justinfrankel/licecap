@@ -35,8 +35,11 @@
    strncat(str, srcstr, maxlen);         -- appends up to maxlen of srcstr to str (-1 for unlimited)
    strcpy_from(str,srcstr, offset);      -- copies srcstr to str, but starts reading srcstr at offset offset
    strcpy_substr(str, srcstr, offs, ml)  -- php-style (start at offs, offs<0 means from end, ml for maxlen, ml<0 = reduce length by this amt)
-   str_getchar(str, offset);             -- returns value at offset offset
-   str_setchar(str, offset, value);      -- sets value at offset offset
+   str_getchar(str, offset[, type]);     -- returns value at offset offset, type can be omitted or 0 or 'c', 's', 'S', 'i', 'I', 'f', 'F', 'd', 'D', 'uc', 'us', 'US', 'ui', 'UI'
+                                         -- negative offset is offset from end of string
+   str_setchar(str, offset, val[, type]); - sets value at offset offset, type optional. offset must be [0,length], if length it can lengthen string, if >length then call fails
+                                         -- negative offset is offset from end of string
+
    str_setlen(str, len);                 -- sets length of string (if increasing, will be space-padded)
    str_delsub(str, pos, len);            -- deletes len chars at pos
    str_insert(str, srcstr, pos);         -- inserts srcstr at pos
@@ -1049,11 +1052,191 @@ static EEL_F NSEEL_CGEN_CALL _eel_strgetchar(void *opaque, EEL_F *strOut, EEL_F 
     }
     else
     {
-      const int l = (int) *idx;
-      if (l>=0 && l < (wr?wr->GetLength():(int)strlen(fmt))) return ((unsigned char *)fmt)[l];
+      const int wl=(wr?wr->GetLength():(int)strlen(fmt));
+      int l = (int) *idx;
+      if (*idx < 0.0) l+=wl;
+      if (l>=0 && l < wl) return ((unsigned char *)fmt)[l];
     }
   }
   return 0;
+}
+
+#define EEL_GETCHAR_FLAG_ENDIANSWAP 0x10
+#define EEL_GETCHAR_FLAG_UNSIGNED 0x20
+#define EEL_GETCHAR_FLAG_FLOAT 0x40
+static int eel_getchar_flag(int type)
+{
+#ifdef __ppc__
+  int ret=EEL_GETCHAR_FLAG_ENDIANSWAP; // default to LE
+#else
+  int ret=0;
+#endif
+
+  if (toupper((type>>8)&0xff) == 'U') ret|=EEL_GETCHAR_FLAG_UNSIGNED;
+  else if (type>255 && toupper(type&0xff) == 'U') { ret|=EEL_GETCHAR_FLAG_UNSIGNED; type>>=8; }
+  type&=0xff;
+
+  if (isupper(type)) ret^=EEL_GETCHAR_FLAG_ENDIANSWAP;
+  else type += 'A'-'a';
+
+  switch (type)
+  {
+    case 'F': return ret|4|EEL_GETCHAR_FLAG_FLOAT;
+    case 'D': return ret|8|EEL_GETCHAR_FLAG_FLOAT;
+    case 'S': return ret|2;
+    case 'I': return ret|4;
+  }
+
+  return ret|1;
+}
+
+static void eel_setchar_do(int flag, char *dest, EEL_F val)
+{
+  union
+  {
+    char buf[8];
+    float asFloat;
+    double asDouble;
+    int asInt;
+    short asShort;
+    char asChar;
+    unsigned int asUInt;
+    unsigned short asUShort;
+    unsigned char asUChar;
+  } a;
+  const int type_sz=flag&0xf;
+
+  if (flag & EEL_GETCHAR_FLAG_FLOAT)
+  {
+    if (type_sz==8) a.asDouble=val;
+    else a.asFloat=(float)val;
+  }
+  else if (flag & EEL_GETCHAR_FLAG_UNSIGNED)
+  {
+    if (type_sz==4) a.asUInt=(unsigned int)val;
+    else if (type_sz==2) a.asUShort=(unsigned short)val;
+    else a.asUChar=(unsigned char)val;
+  }
+  else if (type_sz==4) a.asInt=(int)val;
+  else if (type_sz==2) a.asShort=(short)val;
+  else a.asChar=(char)val;
+
+  if (flag & EEL_GETCHAR_FLAG_ENDIANSWAP)
+  {
+    dest += type_sz;
+    int x;
+    for(x=0;x<type_sz;x++) *--dest=a.buf[x];
+  }
+  else
+    memcpy(dest,a.buf,type_sz);
+
+}
+
+
+static EEL_F eel_getchar_do(int flag, const char *src)
+{
+  union
+  {
+    char buf[8];
+    float asFloat;
+    double asDouble;
+    int asInt;
+    short asShort;
+    char asChar;
+    unsigned int asUInt;
+    unsigned short asUShort;
+    unsigned char asUChar;
+  } a;
+  const int type_sz=flag&0xf;
+
+  if (flag & EEL_GETCHAR_FLAG_ENDIANSWAP)
+  {
+    src += type_sz;
+    int x;
+    for(x=0;x<type_sz;x++) a.buf[x]=*--src;
+  }
+  else
+    memcpy(a.buf,src,type_sz);
+
+  if (flag & EEL_GETCHAR_FLAG_FLOAT)
+  {
+    if (type_sz==8) return a.asDouble;
+    return a.asFloat;
+  }
+  if (flag & EEL_GETCHAR_FLAG_UNSIGNED)
+  {
+    if (type_sz==4) return a.asUInt;
+    if (type_sz==2) return a.asUShort;
+    return a.asUChar;
+  }
+  if (type_sz==4) return a.asInt;
+  if (type_sz==2) return a.asShort;
+  return a.asChar;
+}
+
+static EEL_F NSEEL_CGEN_CALL _eel_strgetchar2(void *opaque, INT_PTR np, EEL_F **parms)
+{
+  if (opaque && np>=3)
+  {
+    EEL_STRING_MUTEXLOCK_SCOPE
+    EEL_STRING_STORAGECLASS *wr=NULL;
+    const char *fmt = EEL_STRING_GET_FOR_INDEX(parms[0][0], &wr);
+    if (!fmt)
+    {
+#ifdef EEL_STRING_DEBUGOUT
+      EEL_STRING_DEBUGOUT("str_getchar: bad specifier passed %f",parms[0][0]);
+#endif
+    }
+    else
+    {
+      const int wl=(wr?wr->GetLength():(int)strlen(fmt));
+      const int flags=eel_getchar_flag((int) parms[2][0]);
+      int l = (int) parms[1][0];
+      if (parms[1][0] < 0.0) l+=wl;
+
+      if (l>=0 && l <= wl-(flags&0xf)) 
+      {
+        return eel_getchar_do(flags,fmt+l);
+      }
+    }
+  }
+  return 0;
+}
+
+static EEL_F NSEEL_CGEN_CALL _eel_strsetchar2(void *opaque, INT_PTR np, EEL_F **parms)
+{
+  if (opaque && np>=4)
+  {
+    EEL_STRING_MUTEXLOCK_SCOPE
+    EEL_STRING_STORAGECLASS *wr=NULL;
+    EEL_STRING_GET_FOR_INDEX(parms[0][0], &wr);
+    if (!wr)
+    {
+#ifdef EEL_STRING_DEBUGOUT
+      EEL_STRING_DEBUGOUT("str_setchar: bad destination specifier passed %f",parms[0][0]);
+#endif
+    }
+    else
+    {
+      const int wl=wr->GetLength();
+
+      int l = (int) parms[1][0];
+      if (parms[1][0] < 0.0) l+=wl;
+      if (l>=0 && l <= wl) 
+      {
+        const int flags=eel_getchar_flag((int) parms[3][0]);
+        if (l==wl) 
+        {
+          char buf[32];
+          eel_setchar_do(flags,buf,parms[2][0]);
+          wr->AppendRaw(buf,flags&0xf);
+        }
+        else
+          eel_setchar_do(flags,(char*)wr->Get()+l,parms[2][0]);
+      }
+    }
+  }
+  return parms[0][0];
 }
 
 static EEL_F NSEEL_CGEN_CALL _eel_strsetchar(void *opaque, EEL_F *strOut, EEL_F *idx, EEL_F *val)
@@ -1071,10 +1254,18 @@ static EEL_F NSEEL_CGEN_CALL _eel_strsetchar(void *opaque, EEL_F *strOut, EEL_F 
     }
     else
     {
-      const int l = (int) *idx;
-      if (l >= 0 && l < wr->GetLength()) 
+      const int wl=wr->GetLength();
+      int l = (int) *idx;
+      if (*idx < 0.0) l+=wl;
+      if (l>=0 && l <= wl) 
       {
-        ((unsigned char *)wr->Get())[l]=((int)*val)&255; // allow putting nulls in string, strlen() will still get the full size
+        const unsigned char v=((int)*val)&255;
+        if (l==wl) 
+        {
+          wr->AppendRaw((const char*)&v,1);
+        }
+        else
+          ((unsigned char *)wr->Get())[l]=v; // allow putting nulls in string, strlen() will still get the full size
       }
     }
   }
@@ -1299,12 +1490,16 @@ void EEL_string_register()
   NSEEL_addfunctionex("strncpy",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strncpy);
   NSEEL_addfunctionex("strncmp",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strncmp);
   NSEEL_addfunctionex("strnicmp",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strnicmp);
-  NSEEL_addfunctionex("str_getchar",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strgetchar);
   NSEEL_addfunctionex("str_setlen",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strsetlen);
   NSEEL_addfunc_exparms("strcpy_from",3,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr); // alias
   NSEEL_addfunc_exparms("strcpy_substr",3,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr); // only allow 3 or 4 parms
   NSEEL_addfunc_exparms("strcpy_substr",4,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr);
+  
+  NSEEL_addfunctionex("str_getchar",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strgetchar);
   NSEEL_addfunctionex("str_setchar",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strsetchar);
+  NSEEL_addfunc_exparms("str_getchar",3,NSEEL_PProc_THIS,(void *)&_eel_strgetchar2);
+  NSEEL_addfunc_exparms("str_setchar",4,NSEEL_PProc_THIS,(void *)&_eel_strsetchar2);
+
   NSEEL_addfunctionex("str_insert",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strinsert);
   NSEEL_addfunctionex("str_delsub",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strdelsub);
 
