@@ -163,9 +163,10 @@ static EEL_F *get_global_var(const char *gv, int addIfNotPresent);
 
 static void *__newBlock(llBlock **start,int size, int wantMprotect);
 
-#define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
+#define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTR)
 enum {
   OPCODETYPE_DIRECTVALUE=0,
+  OPCODETYPE_DIRECTVALUE_TEMPSTRING, // like directvalue, but will generate a new tempstring value on generate
   OPCODETYPE_VALUE_FROM_NAMESPACENAME, // this.* or namespace.* are encoded this way
   OPCODETYPE_VARPTR,
   OPCODETYPE_VARPTRPTR,
@@ -2158,35 +2159,38 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
   EEL_F *b=NULL;
   if (op->opcodeType==OPCODETYPE_VALUE_FROM_NAMESPACENAME)
   {
-    if (bufOut)
+    char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
+    const char *p = op->relname;
+    combineNamespaceFields(nm,functionPrefix,p+(*p == '#'),op->namespaceidx);
+    if (!nm[0]) return -1;
+    if (*p == '#') 
     {
-      char nm[NSEEL_MAX_VARIABLE_NAMELEN+1];
-      const char *p = op->relname;
-      combineNamespaceFields(nm,functionPrefix,p+(*p == '#'),op->namespaceidx);
-      if (!nm[0]) return -1;
-      if (*p == '#') 
-      {
-        if (ctx->isGeneratingCommonFunction)
-          b = newCtxDataBlock(sizeof(EEL_F),sizeof(EEL_F));
-        else
-          b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
-
-        if (!b) RET_MINUS1_FAIL("error creating storage for str")
-
-        if (!ctx->onNamedString) return -1; // should never happen, will not generate OPCODETYPE_VALUE_FROM_NAMESPACENAME with # prefix if !onNamedString
-
-        *b = ctx->onNamedString(ctx->caller_this,nm);
-      }
+      if (ctx->isGeneratingCommonFunction)
+        b = newCtxDataBlock(sizeof(EEL_F),sizeof(EEL_F));
       else
-      {
-        b = nseel_int_register_var(ctx,nm,0,NULL);
-        if (!b) RET_MINUS1_FAIL("error registering var")
-      }
+        b = newDataBlock(sizeof(EEL_F),sizeof(EEL_F));
+
+      if (!b) RET_MINUS1_FAIL("error creating storage for str")
+
+      if (!ctx->onNamedString) return -1; // should never happen, will not generate OPCODETYPE_VALUE_FROM_NAMESPACENAME with # prefix if !onNamedString
+
+      *b = ctx->onNamedString(ctx->caller_this,nm);
+    }
+    else
+    {
+      b = nseel_int_register_var(ctx,nm,0,NULL);
+      if (!b) RET_MINUS1_FAIL("error registering var")
     }
   }
   else
   {
     if (op->opcodeType != OPCODETYPE_DIRECTVALUE) allowCache=0;
+
+    if (op->opcodeType==OPCODETYPE_DIRECTVALUE_TEMPSTRING && ctx->onNamedString)
+    {
+      op->parms.dv.directValue = ctx->onNamedString(ctx->caller_this,"");
+      op->parms.dv.valuePtr = NULL;
+    }
 
     b=op->parms.dv.valuePtr;
     if (!b && op->opcodeType == OPCODETYPE_VARPTR && op->relname && op->relname[0]) 
@@ -3473,7 +3477,7 @@ doNonInlineIf_:
 #endif
         }
         // fall through
-
+    case OPCODETYPE_DIRECTVALUE_TEMPSTRING:
     case OPCODETYPE_VALUE_FROM_NAMESPACENAME:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
@@ -5017,6 +5021,12 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
       }
 
       // if not namespaced symbol, return directly
+      if (!buf[1])
+      {
+        opcodeRec *r=newOpCode(ctx,NULL,OPCODETYPE_DIRECTVALUE_TEMPSTRING);
+        if (r) r->parms.dv.directValue = -10000.0;
+        return r;
+      }
       return nseel_createCompiledValue(ctx,ctx->onNamedString(ctx->caller_this,buf+1));
     }
   }
