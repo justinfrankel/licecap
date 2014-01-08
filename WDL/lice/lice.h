@@ -388,6 +388,10 @@ void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
                     int dstx, int dsty, int dstw, int dsth,
                     float *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
                     float alpha, int mode);
+void LICE_TransformBlit2(LICE_IBitmap *dest, LICE_IBitmap *src,  
+                    int dstx, int dsty, int dstw, int dsth,
+                    double *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
+                    float alpha, int mode);
 
 // if cliptosourcerect is false, then areas outside the source rect can get in (otherwise they are not drawn)
 void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src, 
