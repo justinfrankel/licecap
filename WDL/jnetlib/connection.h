@@ -57,6 +57,7 @@
 #define _CONNECTION_H_
 
 #include "asyncdns.h"
+#include "netinc.h"
 
 #define JNL_CONNECTION_AUTODNS ((JNL_IAsyncDNS*)-1)
 
@@ -67,8 +68,8 @@ class JNL_IConnection
 {
   public:
     virtual ~JNL_IConnection() { }
-    virtual void connect(char *hostname, int port)=0;
-    virtual void connect(int sock, struct sockaddr_in *loc=NULL)=0; // used by the listen object, usually not needed by users.
+    virtual void connect(const char *hostname, int port)=0;
+    virtual void connect(SOCKET sock, struct sockaddr_in *loc=NULL)=0; // used by the listen object, usually not needed by users.
 
     virtual void run(int max_send_bytes=-1, int max_recv_bytes=-1, int *bytes_sent=NULL, int *bytes_rcvd=NULL)=0;
     virtual int  get_state()=0;
@@ -124,8 +125,8 @@ class JNL_Connection JNL_Connection_PARENTDEF
     JNL_Connection(JNL_IAsyncDNS *dns=JNL_CONNECTION_AUTODNS, int sendbufsize=8192, int recvbufsize=8192);
     ~JNL_Connection();
 
-    void connect(char *hostname, int port);
-    void connect(int sock, struct sockaddr_in *loc=NULL); // used by the listen object, usually not needed by users.
+    void connect(const char *hostname, int port);
+    void connect(SOCKET sock, struct sockaddr_in *loc=NULL); // used by the listen object, usually not needed by users.
 
     void run(int max_send_bytes=-1, int max_recv_bytes=-1, int *bytes_sent=NULL, int *bytes_rcvd=NULL);
     int  get_state() { return m_state; }
@@ -157,7 +158,7 @@ class JNL_Connection JNL_Connection_PARENTDEF
     void set_interface(int useInterface); // call before connect if needed
 
   protected:
-    int  m_socket;
+    SOCKET m_socket;
     short m_remote_port;
     char *m_recv_buffer;
     char *m_send_buffer;
