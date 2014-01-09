@@ -1241,9 +1241,18 @@ static EEL_F NSEEL_CGEN_CALL _eel_strsetchar2(void *opaque, INT_PTR np, EEL_F **
         const int flags=eel_getchar_flag((int) parms[3][0]);
         if (l==wl) 
         {
-          char buf[32];
-          eel_setchar_do(flags,buf,parms[2][0]);
-          wr->AppendRaw(buf,flags&0xf);
+          if (wl > EEL_STRING_MAXUSERSTRING_LENGTH_HINT)
+          {
+#ifdef EEL_STRING_DEBUGOUT
+            EEL_STRING_DEBUGOUT("str_setchar: will not grow string since it is already %d bytes",wl);
+#endif
+          }
+          else
+          {
+            char buf[32];
+            eel_setchar_do(flags,buf,parms[2][0]);
+            wr->AppendRaw(buf,flags&0xf);
+          }
         }
         else
           eel_setchar_do(flags,(char*)wr->Get()+l,parms[2][0]);
@@ -1276,7 +1285,14 @@ static EEL_F NSEEL_CGEN_CALL _eel_strsetchar(void *opaque, EEL_F *strOut, EEL_F 
         const unsigned char v=((int)*val)&255;
         if (l==wl) 
         {
-          wr->AppendRaw((const char*)&v,1);
+          if (wl > EEL_STRING_MAXUSERSTRING_LENGTH_HINT)
+          {
+#ifdef EEL_STRING_DEBUGOUT
+            EEL_STRING_DEBUGOUT("str_setchar: will not grow string since it is already %d bytes",wl);
+#endif
+          }
+          else
+            wr->AppendRaw((const char*)&v,1);
         }
         else
           ((unsigned char *)wr->Get())[l]=v; // allow putting nulls in string, strlen() will still get the full size
