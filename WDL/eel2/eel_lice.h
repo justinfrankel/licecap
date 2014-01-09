@@ -895,15 +895,17 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
             TEXTMETRIC tm;
             tm.tmHeight = sz;
 
+            if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer=__LICE_CreateBitmap(0,64,64);
+
             if (m_framebuffer && LICE_FUNCTION_VALID(LICE__GetDC))
             {
               HGDIOBJ oldFont = 0;
               HDC hdc=LICE__GetDC(m_framebuffer);
               if (hdc)
               {
-                if (hf) oldFont = SelectObject(hdc,hf);
+                oldFont = SelectObject(hdc,hf);
                 GetTextMetrics(hdc,&tm);
-                if (oldFont) SelectObject(hdc,oldFont);
+                SelectObject(hdc,oldFont);
               }
             }
 
@@ -1261,13 +1263,15 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
 
 int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 {
-  if (!m_framebuffer) 
-  {
-    if (LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer=__LICE_CreateBitmap(1,0,0);
-  }
-  if (!m_framebuffer||!LICE_FUNCTION_VALID(LICE__GetHeight) ||!LICE_FUNCTION_VALID(LICE__GetWidth)) return -1;
-
   int dr=0;
+  if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) 
+  {
+    m_framebuffer=__LICE_CreateBitmap(1,r.right-r.left,r.bottom-r.top);
+    dr=1;
+  }
+
+  if (!m_framebuffer || !LICE_FUNCTION_VALID(LICE__GetHeight) || !LICE_FUNCTION_VALID(LICE__GetWidth)) return -1;
+
   if (r.right-r.left != LICE__GetWidth(m_framebuffer) ||
       r.bottom-r.top != LICE__GetHeight(m_framebuffer))
   {
