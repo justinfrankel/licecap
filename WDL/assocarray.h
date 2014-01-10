@@ -239,6 +239,15 @@ public:
     }
   }
 
+  void CopyContentsAsReference(const WDL_AssocArrayImpl &cp)
+  {
+    DeleteAll(true);
+    m_keydup = NULL;  // this no longer can own any data
+    m_keydispose = NULL;
+    m_valdispose = NULL; 
+
+    m_data=cp.m_data;
+  }
 
 protected:
 
@@ -320,6 +329,59 @@ private:
 
 public:
   static void freecharptr(char *p) { free(p); }
+};
+
+
+// sorts text as text, sorts anything that looks like a number as a number
+template <class VAL> class WDL_LogicalSortStringKeyedArray : public WDL_StringKeyedArray<VAL>
+{
+public:
+
+  explicit WDL_LogicalSortStringKeyedArray(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_StringKeyedArray<VAL>(caseSensitive, valdispose) 
+  {
+    WDL_StringKeyedArray<VAL>::m_keycmp = caseSensitive?cmpstr:cmpistr; // override
+  }
+  
+  ~WDL_LogicalSortStringKeyedArray() { }
+
+private:
+
+  static int cmpstr(const char **a, const char **b) { return _cmpstr(*a, *b, true); }
+  static int cmpistr(const char **a, const char **b) { return _cmpstr(*a, *b, false); }
+
+  static int _cmpstr(const char *s1, const char *s2, bool case_sensitive)
+  {
+    for (;;)
+    {
+      char c1=*s1++, c2=*s2++;
+      if (c1 > '0' && c1 <= '9' && c2 > '0' && c2 <= '9') 
+      {             
+        int d=c1-c2,s1d; // maybe not ideal, 030 will sort after 20, but that could also be useful... 
+        // alternatively we could calculate the full length of each number not counting leadings 0s and use that, but
+        // then the string comparison would end up comparing at different offsets too. this is good enough for now 
+        // IMO
+        while ((s1d=isdigit(*s1)) && isdigit(*s2))
+        {
+          if (!d) d=*s1-*s2;
+          s1++;
+          s2++;
+        }
+        if (s1d) return 1; // s1 is longer than s2, so larger
+        if (isdigit(*s2)) return -1; // s2 is longer than s1, larger
+        if (d) return d; // same length, but check to see which is greater
+      }
+      else
+      {
+        if (!case_sensitive)
+        {
+          if (c1 >= 'a' && c1 <= 'z') c1 += 'A'-'a';
+          if (c2 >= 'a' && c2 <= 'z') c2 += 'A'-'a';
+        }
+        if (!c1 || c1 != c2) return c1-c2;             
+      }
+    }
+    return 0; 
+  }
 };
 
 
