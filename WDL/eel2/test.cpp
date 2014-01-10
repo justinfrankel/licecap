@@ -30,6 +30,8 @@ static void writeToStandardError(const char *fmt, ...)
 
 
 class eel_string_context_state;
+class eel_net_state;
+
 class sInst {
   public:
     enum 
@@ -85,6 +87,7 @@ class sInst {
     }
 
     eel_string_context_state *m_string_context;
+    eel_net_state *m_net_state;
 };
 
 //#define EEL_STRINGS_MUTABLE_LITERALS
@@ -99,6 +102,8 @@ class sInst {
 #define EEL_FILE_GETFP(fp) ((sInst*)opaque)->GetFileFP(fp)
 #define EEL_FILE_CLOSE(fpindex) ((sInst*)opaque)->CloseFile(fpindex)
 
+#define EEL_NET_GET_CONTEXT(opaque) (((sInst *)opaque)->m_net_state)
+
 #include "eel_files.h"
 
 #include "eel_fft.h"
@@ -106,6 +111,8 @@ class sInst {
 #include "eel_mdct.h"
 
 #include "eel_misc.h"
+
+#include "eel_net.h"
 
 sInst::sInst()
 {
@@ -116,6 +123,7 @@ sInst::sInst()
 
   m_string_context = new eel_string_context_state;
   eel_string_initvm(m_vm);
+  m_net_state = new eel_net_state(512,NULL);
 }
 
 sInst::~sInst() 
@@ -130,6 +138,7 @@ sInst::~sInst()
     m_handles[x]=0;
   }
   delete m_string_context;
+  delete m_net_state;
 }
 
 int sInst::runcode(const char *codeptr, bool showerr, bool canfree)
@@ -212,6 +221,8 @@ int main(int argc, char **argv)
   EEL_fft_register();
   EEL_mdct_register();
   EEL_misc_register();
+  EEL_tcp_register();
+  EEL_tcp_initsocketlib();
 
   WDL_FastString code,t;
 
