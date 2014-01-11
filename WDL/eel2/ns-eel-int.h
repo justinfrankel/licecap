@@ -177,6 +177,7 @@ typedef struct _compileContext
           *pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
 
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
+  int has_used_global_vars;
 
   _codeHandleFunctionRec *functions_local, *functions_common;
 

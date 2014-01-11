@@ -159,7 +159,9 @@ static int findLineNumber(const char *exp, int byteoffs)
 }
 
 
-static EEL_F *get_global_var(const char *gv, int addIfNotPresent);
+static int nseel_vms_referencing_globallist_cnt;
+nseel_globalVarItem *nseel_globalreg_list;
+static EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent);
 
 static void *__newBlock(llBlock **start,int size, int wantMprotect);
 
@@ -770,7 +772,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
 
   if (!isFunctionMode && !is_string_prefix && !strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
   {
-    EEL_F *a=get_global_var(sname,1);
+    EEL_F *a=get_global_var(ctx,sname,1);
     if (a) 
     {
       rec->parms.dv.valuePtr = a;
@@ -4570,7 +4572,10 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
     }
   #endif
 
-  if (ctx) ctx->ram_state.closefact = NSEEL_CLOSEFACTOR;
+  if (ctx) 
+  {
+    ctx->ram_state.closefact = NSEEL_CLOSEFACTOR;
+  }
   return ctx;
 }
 
@@ -4599,6 +4604,25 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
       }
     #endif
     ctx->scanner=0;
+    if (ctx->has_used_global_vars)
+    {
+      nseel_globalVarItem *p = NULL;
+      NSEEL_HOSTSTUB_EnterMutex();
+      if (--nseel_vms_referencing_globallist_cnt == 0)
+      {
+        // clear and free globals
+        p = nseel_globalreg_list;
+        nseel_globalreg_list=0;
+      }
+      NSEEL_HOSTSTUB_LeaveMutex();
+
+      while (p)
+      {
+        nseel_globalVarItem *op = p;
+        p=p->_next;
+        free(op);
+      }
+    }
     free(ctx);
   }
 
@@ -4720,14 +4744,13 @@ void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
   }
 }
 
-nseel_globalVarItem *nseel_globalreg_list;
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
 static EEL_F __nseel_global_regs[100];
 double *NSEEL_getglobalregs() { return __nseel_global_regs; }
 #endif
 
-EEL_F *get_global_var(const char *gv, int addIfNotPresent)
+EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent)
 {
   nseel_globalVarItem *p;
 #ifdef NSEEL_EEL1_COMPAT_MODE
@@ -4738,6 +4761,12 @@ EEL_F *get_global_var(const char *gv, int addIfNotPresent)
 #endif
 
   NSEEL_HOSTSTUB_EnterMutex(); 
+  if (!ctx->has_used_global_vars)
+  {
+    ctx->has_used_global_vars++;
+    nseel_vms_referencing_globallist_cnt++;
+  }
+
   p = nseel_globalreg_list;
   while (p)
   {
@@ -4771,7 +4800,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
 
   if (!strncasecmp(name,"_global.",8) && name[8])
   {
-    EEL_F *a=get_global_var(name+8,1);
+    EEL_F *a=get_global_var(ctx,name+8,1);
     if (a) return a;
   }
   for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
@@ -4891,7 +4920,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
   
   if (!strncasecmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
   {
-    EEL_F *a=get_global_var(var,1);
+    EEL_F *a=get_global_var(ctx,var,1);
     if (a) return a;
   }
   
