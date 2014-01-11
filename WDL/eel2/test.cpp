@@ -93,6 +93,9 @@ class sInst {
 //#define EEL_STRINGS_MUTABLE_LITERALS
 //#define EEL_STRING_WANT_MUTEX
 
+#define EEL_STRING_MAX_USER_STRINGS 32768
+#define EEL_STRING_LITERAL_BASE 2000000
+
 #define EEL_STRING_GET_CONTEXT_POINTER(opaque) (((sInst *)opaque)->m_string_context)
 #define EEL_STRING_DEBUGOUT writeToStandardError // no parameters, since it takes varargs
 #define EEL_STRING_STDOUT_WRITE(x,len) { fwrite(x,len,1,stdout); fflush(stdout); }
@@ -123,7 +126,7 @@ sInst::sInst()
 
   m_string_context = new eel_string_context_state;
   eel_string_initvm(m_vm);
-  m_net_state = new eel_net_state(512,NULL);
+  m_net_state = new eel_net_state(4096,NULL);
 }
 
 sInst::~sInst() 
