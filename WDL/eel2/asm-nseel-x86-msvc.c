@@ -1315,7 +1315,7 @@ _emit 0x90;
 _emit 0x90;
     fld EEL_ASM_TYPE [edi];
 #ifdef __clang__
-    fdivrp st(1);
+    fdivp st(1);
 #else
   #ifndef __GNUC__
     fxch; // gcc inline asm seems to have fdiv/fdivr backwards
@@ -1373,7 +1373,7 @@ _emit 0x90;
 _emit 0x90;
     fld EEL_ASM_TYPE [edi];
 #ifdef __clang__
-    fdivrp st(1);
+    fdivp st(1);
 #else
   #ifndef __GNUC__
     fxch; // gcc inline asm seems to have fdiv/fdivr backwards
@@ -4093,7 +4093,7 @@ __declspec(naked) void win64_callcode()
 		sub rsp, 16;
 		fnstcw [rsp];
 		mov ax, [rsp];
-		or ax, 0xC00;
+		or ax, 0xE3F; // 53 or 64 bit precision, trunc, and masking all exceptions
 		mov [rsp+4], ax;
 		fldcw [rsp+4];
 #endif
