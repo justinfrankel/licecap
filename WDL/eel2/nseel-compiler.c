@@ -165,7 +165,7 @@ static EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPr
 
 static void *__newBlock(llBlock **start,int size, int wantMprotect);
 
-#define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTR)
+#define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
   OPCODETYPE_DIRECTVALUE=0,
   OPCODETYPE_DIRECTVALUE_TEMPSTRING, // like directvalue, but will generate a new tempstring value on generate
@@ -2947,7 +2947,10 @@ void dumpOp(compileContext *ctx, opcodeRec *op, int start);
 void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt)
 {
   const char *fname="";
-  fprintf(fp,"%*sOP TYPE %d", indent_amt, "",op->opcodeType);
+  fprintf(fp,"%*sOP TYPE %d", indent_amt, "",
+         op->opcodeType==OPCODETYPE_DIRECTVALUE_TEMPSTRING ? 10000 : // remap around OPCODETYPE_DIRECTVALUE_TEMPSTRING
+         op->opcodeType > OPCODETYPE_DIRECTVALUE_TEMPSTRING ? op->opcodeType - 1 : 
+         op->opcodeType);
 
   if ((op->opcodeType == OPCODETYPE_FUNC1 || 
       op->opcodeType == OPCODETYPE_FUNC2 || 
