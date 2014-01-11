@@ -86,11 +86,11 @@ void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our fre
 }
 
 EEL_F nseel_ramalloc_onfail;
+EEL_F * volatile  nseel_gmembuf_default;
 
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
 {
-  static EEL_F * volatile  gmembuf;
   if (blocks) 
   {
     EEL_F **pblocks=*blocks;
@@ -139,15 +139,15 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
     return &nseel_ramalloc_onfail;
   }
 
-  if (!gmembuf)
+  if (!nseel_gmembuf_default)
   {
     NSEEL_HOSTSTUB_EnterMutex(); 
-    if (!gmembuf) gmembuf=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
+    if (!nseel_gmembuf_default) nseel_gmembuf_default=(EEL_F*)calloc(sizeof(EEL_F),NSEEL_SHARED_GRAM_SIZE);
     NSEEL_HOSTSTUB_LeaveMutex();
-    if (!gmembuf) return &nseel_ramalloc_onfail;
+    if (!nseel_gmembuf_default) return &nseel_ramalloc_onfail;
   }
 
-  return gmembuf+(((unsigned int)w)&((NSEEL_SHARED_GRAM_SIZE)-1));
+  return nseel_gmembuf_default+(((unsigned int)w)&((NSEEL_SHARED_GRAM_SIZE)-1));
 }
 
 
