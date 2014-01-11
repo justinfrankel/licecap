@@ -1,6 +1,7 @@
 #ifndef _EEL_LICE_H_
 #define _EEL_LICE_H_
 
+
 void eel_lice_register();
 
 #ifdef DYNAMIC_LICE
@@ -253,12 +254,28 @@ public:
   LICE_pixel getCurColor();
   int getCurMode();
   int getCurModeForBlit(bool isFBsrc);
+
+
+#ifdef EEL_LICE_WANT_STANDALONE
+  HWND hwnd_standalone;
+  int hwnd_standalone_kb_state[32]; // pressed keys, if any
+
+  int m_kb_queue[64];
+  unsigned char m_kb_queue_valid;
+  unsigned char m_kb_queue_pos;
+
+#endif
 };
 
 #ifndef EEL_LICE_API_ONLY
 
 eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int font_slots)
 {
+#ifdef EEL_LICE_WANT_STANDALONE
+  hwnd_standalone=NULL;
+  memset(hwnd_standalone_kb_state,0,sizeof(hwnd_standalone_kb_state));
+  m_kb_queue_valid=0;
+#endif
   m_user_ctx=ctx;
   m_vmref= vm;
   m_gfx_font_active=-1;
@@ -293,6 +310,9 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
 }
 eel_lice_state::~eel_lice_state()
 {
+#ifdef EEL_LICE_WANT_STANDALONE
+  if (hwnd_standalone) DestroyWindow(hwnd_standalone);
+#endif
   if (LICE_FUNCTION_VALID(LICE__Destroy)) 
   {
     LICE__Destroy(m_framebuffer_extra);
@@ -1201,7 +1221,7 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F ch, int formatmode, int nfm
   else if (formatmode==1)
   {
     extern int eel_format_strings(void *, const char *s, const char *ep, char *, int, int, EEL_F **);
-    s_len = eel_format_strings(this,s,fs?(s+fs->GetLength()):NULL,buf,sizeof(buf),nfmtparms,fmtparms);
+    s_len = eel_format_strings(opaque,s,fs?(s+fs->GetLength()):NULL,buf,sizeof(buf),nfmtparms,fmtparms);
     if (s_len<1) return;
     s=buf;
   }
@@ -1343,6 +1363,346 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_blit",4,NSEEL_PProc_THIS,(void *)&_gfx_blit2);
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,(void *)&_gfx_setfont);
 }
+
+#ifdef EEL_LICE_WANT_STANDALONE
+
+#ifdef _WIN32
+static HINSTANCE eel_lice_hinstance;
+static const char *eel_lice_standalone_classname;
+#endif
+
+HWND eel_lice_standalone_owner;
+
+static EEL_F * NSEEL_CGEN_CALL _gfx_quit(void *opaque, EEL_F *n)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx)
+  {
+    if (ctx->hwnd_standalone) DestroyWindow(ctx->hwnd_standalone);
+    ctx->hwnd_standalone=0;
+  }
+  return n;
+  
+}
+
+static EEL_F NSEEL_CGEN_CALL _gfx_getchar(void *opaque, EEL_F *p)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx)
+  {
+    if (*p > 2.0)
+    {
+      int x;
+      const int n = sizeof(ctx->hwnd_standalone_kb_state) / sizeof(ctx->hwnd_standalone_kb_state[0]);
+      int *st = ctx->hwnd_standalone_kb_state;
+      int a = (int)*p;
+      for (x=0;x<n && st[x] != a;x++);
+      return x<n ? 1.0 : 0.0;
+    }
+
+
+    if (ctx->m_kb_queue_valid)
+    {
+      const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
+      const int a = ctx->m_kb_queue[ctx->m_kb_queue_pos & (qsize-1)];
+      ctx->m_kb_queue_pos++;
+      ctx->m_kb_queue_valid--;
+      return a;
+    }
+  }
+  return 0.0;
+}
+
+static int eel_lice_mb_constant(const char *str)
+{
+  int a=0;
+  while (*str) a = (a<<8) + *str++;
+  return a;
+}
+
+static int eel_lice_key_xlate(int msg, int wParam, int lParam)
+{
+#define EEL_MB_C2(a) (((a[0])<<8)+(a[1]))
+#define EEL_MB_C3(a) (((a[0])<<16)+((a[1])<<8)+(a[2]))
+#define EEL_MB_C4(a) (((a[0])<<24)+((a[1])<<16)+((a[2])<<8)+(a[3]))
+  if (msg == WM_KEYDOWN)
+  {
+#ifndef _WIN32
+    if (lParam & FVIRTKEY)
+#endif
+    switch (wParam)
+	  {
+	    case VK_HOME: return EEL_MB_C4("home");
+	    case VK_UP: return EEL_MB_C2("up");
+	    case VK_PRIOR: return EEL_MB_C4("pgup");
+	    case VK_LEFT: return EEL_MB_C4("left");
+	    case VK_RIGHT: return EEL_MB_C4("rght");
+	    case VK_END: return EEL_MB_C3("end");
+	    case VK_DOWN: return EEL_MB_C4("down");
+	    case VK_NEXT: return EEL_MB_C4("pgdn");
+	    case VK_INSERT: return EEL_MB_C3("ins");
+	    case VK_DELETE: return EEL_MB_C3("del");
+	    case VK_F1: return EEL_MB_C2("f1");
+	    case VK_F2: return EEL_MB_C2("f2");
+	    case VK_F3: return EEL_MB_C2("f3");
+	    case VK_F4: return EEL_MB_C2("f4");
+	    case VK_F5: return EEL_MB_C2("f5");
+	    case VK_F6: return EEL_MB_C2("f6");
+      case VK_F7: return EEL_MB_C2("f7");
+	    case VK_F8: return EEL_MB_C2("f8");
+	    case VK_F9: return EEL_MB_C2("f9");
+	    case VK_F10: return EEL_MB_C3("f10");
+	    case VK_F11: return EEL_MB_C3("f11");
+	    case VK_F12: return EEL_MB_C3("f12");
+#ifndef _WIN32
+            case VK_SUBTRACT: return '-'; // numpad -
+            case VK_ADD: return '+';
+            case VK_MULTIPLY: return '*';
+            case VK_DIVIDE: return '/';
+            case VK_DECIMAL: return '.';
+            case VK_NUMPAD0: return '0';
+            case VK_NUMPAD1: return '1';
+            case VK_NUMPAD2: return '2';
+            case VK_NUMPAD3: return '3';
+            case VK_NUMPAD4: return '4';
+            case VK_NUMPAD5: return '5';
+            case VK_NUMPAD6: return '6';
+            case VK_NUMPAD7: return '7';
+            case VK_NUMPAD8: return '8';
+            case VK_NUMPAD9: return '9';
+            case (32768|VK_RETURN): return VK_RETURN;
+#endif
+    }
+    
+    switch (wParam)
+    {
+      case VK_RETURN: case VK_BACK: case VK_TAB: case VK_ESCAPE: return wParam;
+      case VK_CONTROL: break;
+    
+      default:
+        if(GetAsyncKeyState(VK_CONTROL)&0x8000)
+        {
+          if (wParam>='a' && wParam<='z') 
+          {
+            wParam += 1-'a';
+            return wParam;
+          }
+          if (wParam>='A' && wParam<='Z') 
+          {
+            wParam += 1-'A';
+            return wParam;
+          }
+          if ((wParam&~0x80) == '[') return 27;
+          if ((wParam&~0x80) == ']') return 29;
+        }
+    }
+  }
+    
+#ifdef _WIN32 // todo : fix for nonwin32
+  if (msg == WM_CHAR)
+  {
+    if(wParam>=32) return wParam;
+  }  
+#else
+  //osx/linux
+  if (wParam >= 32)
+  {
+    if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
+    {
+      if (wParam>='A' && wParam<='Z') 
+      {
+        if ((GetAsyncKeyState(VK_LWIN)&0x8000)) wParam -= 'A'-1;
+        else
+          wParam += 'a'-'A';
+      }
+    }
+    return wParam;
+  }
+      
+#endif
+  return 0;
+}
+
+static LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
+{
+#ifdef EEL_LICE_GET_CONTEXT_INIT
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT_INIT(opaque); 
+#else
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque); 
+#endif
+  if (ctx)
+  {
+    bool wantShow=false;
+    if (!ctx->hwnd_standalone)
+    {
+#ifdef EEL_LICE_STANDALONE_PARENT
+      HWND par = EEL_LICE_STANDALONE_PARENT(opaque);
+#elif defined(_WIN32)
+      HWND par=GetDesktopWindow();
+#else
+      HWND par=NULL;
+#endif
+
+#ifdef _WIN32
+      CreateWindowEx(0,eel_lice_standalone_classname,"",WS_OVERLAPPED|WS_THICKFRAME|WS_SYSMENU,CW_USEDEFAULT,CW_USEDEFAULT,100,100,par,NULL,eel_lice_hinstance,ctx);
+#else
+      SWELL_CreateDialog(NULL,(const char *)(INT_PTR)0x400007,NULL,(DLGPROC)eel_lice_wndproc,(LPARAM)ctx);
+#endif
+      // resize client
+
+      if (ctx->hwnd_standalone)
+      {
+        int sug_w = np > 1 ? (int)parms[1][0] : 640;
+        int sug_h = np > 2 ? (int)parms[2][0] : 480;
+        
+        if (sug_w < 16) sug_w=16;
+        else if (sug_w > 2048) sug_w=2048;
+        if (sug_h < 16) sug_h=16;
+        else if (sug_h > 1600) sug_w=1600;
+
+        RECT r1,r2;
+        GetWindowRect(ctx->hwnd_standalone,&r1);
+        GetClientRect(ctx->hwnd_standalone,&r2);
+        sug_w += (r1.right-r1.left) - r2.right;
+        sug_h += abs(r1.bottom-r1.top) - r2.bottom;
+
+        SetWindowPos(ctx->hwnd_standalone,NULL,0,0,sug_w,sug_h,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+
+        wantShow=true;
+      }
+    }
+    if (np>0)
+    {
+      EEL_STRING_MUTEXLOCK_SCOPE
+      const char *title=EEL_STRING_GET_FOR_INDEX(parms[0][0],NULL);
+      if (title&&*title) SetWindowText(ctx->hwnd_standalone,title);
+    }
+
+    if (wantShow)
+      ShowWindow(ctx->hwnd_standalone,SW_SHOW);
+
+    return !!ctx->hwnd_standalone;
+  }
+  return 0;  
+}
+
+LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+    case WM_CREATE: 
+      {
+#ifdef _WIN32
+        LPCREATESTRUCT lpcs= (LPCREATESTRUCT )lParam;
+        eel_lice_state *ctx=(eel_lice_state*)lpcs->lpCreateParams;
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)lpcs->lpCreateParams);
+#else
+        eel_lice_state *ctx=(eel_lice_state*)lParam;
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
+#endif
+        ctx->m_kb_queue_valid=0;
+        ctx->hwnd_standalone=hwnd;
+      }
+    return 0;
+    case WM_DESTROY:
+      {
+        eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (ctx) ctx->hwnd_standalone=NULL;
+      }
+    return 0;
+    case WM_ACTIVATE:
+      {
+        eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (ctx) memset(&ctx->hwnd_standalone_kb_state,0,sizeof(ctx->hwnd_standalone_kb_state));
+      }
+    break;
+    case WM_KEYDOWN:
+    case WM_KEYUP:
+    case WM_CHAR:
+      {
+        eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+
+        int a=eel_lice_key_xlate(uMsg==WM_KEYUP?WM_KEYDOWN:uMsg,wParam,lParam);
+
+        if (a)
+        {
+          const int n = sizeof(ctx->hwnd_standalone_kb_state) / sizeof(ctx->hwnd_standalone_kb_state[0]);
+          int *st = ctx->hwnd_standalone_kb_state;
+          int zp=n-1,x;
+          for (x=0;x<n && st[x] != a;x++) if (x < zp && !st[x]) zp=x;
+
+          if (uMsg==WM_KEYUP)
+          {
+            if (x<n) st[x]=0;
+          }
+          else if (x==n) // key not already down
+          {
+            st[zp]=a;
+          }
+        }
+
+        if (a && uMsg != WM_KEYUP)
+        {
+          // add to queue
+          const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
+          if (ctx->m_kb_queue_valid>=qsize) // queue full, dump an old event!
+          {
+            ctx->m_kb_queue_valid--;
+            ctx->m_kb_queue_pos++;
+          }
+          ctx->m_kb_queue[(ctx->m_kb_queue_pos + ctx->m_kb_queue_valid++) & (qsize-1)] = a;
+        }
+
+      }
+    return 0;
+
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          if (ctx && ctx->m_framebuffer && 
+              LICE_FUNCTION_VALID(LICE__GetDC) && LICE_FUNCTION_VALID(LICE__GetWidth) && LICE_FUNCTION_VALID(LICE__GetHeight))
+          {
+            int w = LICE__GetWidth(ctx->m_framebuffer);
+            int h = LICE__GetHeight(ctx->m_framebuffer);
+            BitBlt(ps.hdc,0,0,w,h,LICE__GetDC(ctx->m_framebuffer),0,0,SRCCOPY);
+          }
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+  }
+
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
+
+
+
+void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HWND hwndPar, HICON icon)
+{
+#ifdef _WIN32
+  eel_lice_hinstance=hInstance;
+  eel_lice_standalone_classname=classname && *classname ? classname : "EEL_LICE_gfx_standalone";
+  WNDCLASS wc={CS_DBLCLKS,eel_lice_wndproc,0,0,hInstance,icon,LoadCursor(NULL,IDC_ARROW), NULL, NULL,eel_lice_standalone_classname};
+  RegisterClass(&wc);
+#endif
+
+  // gfx_init(title[, w,h, flags])
+  NSEEL_addfunc_varparm("gfx_init",1,NSEEL_PProc_THIS,(void *)&_gfx_init); 
+
+  // add gfx_getchar([chk])
+  NSEEL_addfunctionex("gfx_quit",1,(char *)_asm_generic1parm,(char *)_asm_generic1parm_end-(char *)_asm_generic1parm,NSEEL_PProc_THIS,(void *)&_gfx_quit);
+
+  NSEEL_addfunctionex("gfx_getchar",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_gfx_getchar);
+
+}
+
+
+#endif
 
 #endif//!EEL_LICE_API_ONLY
 
