@@ -1942,25 +1942,31 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
   }
 #endif
 
-  int ia= (int)(alpha*256.0f);
+  const int ia= (int)(alpha*256.0f);
 
   int src_x = 0, src_y = 0, src_w = glyph_w, src_h = glyph_h;
+  if (x <= -src_w || y <= -src_h) return;
+  
   if (x < 0) {
     src_x -= x;
     src_w += x;
     x = 0;
-  }
-  if (x+src_w >= dest->getWidth()) {
-    src_w = dest->getWidth()-x;
   }
   if (y < 0) {
     src_y -= y;
     src_h += y;
     y = 0;
   }
-  if (y+src_h >= dest->getHeight()) {
+  if (x >= dest->getWidth() || y >= dest->getHeight()) return;
+
+  if (y > dest->getHeight()-src_h) {
     src_h = dest->getHeight()-y;
   }
+  if (x > dest->getWidth()-src_w) {
+    src_w = dest->getWidth()-x;
+  }
+  
+  if (src_w < 1 || src_h < 1) return;
 
 
   LICE_pixel* destpx = dest->getBits();
