@@ -935,6 +935,27 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
 
       if (ourcall != rec->relname) memmove((char *)rec->relname, ourcall, strlen(ourcall)+1);
+
+      if (ctx->function_curName && rel_prefix_idx<0)
+      {
+        // if no namespace specified, and this.commonprefix.func() called, remove common prefixes and set prefixidx to be this
+        const char *p=ctx->function_curName;
+        int dc=0;
+        while (*p) if (*p++ == '.') dc++;
+        if (dc)
+        {
+          p--; // don't allow ending or leading dots to influence
+          while (--p > ctx->function_curName)
+          {
+            if (*p == '.' && !strnicmp(rec->relname,ctx->function_curName,p+1-ctx->function_curName))
+            {
+              memmove((char *)rec->relname, p+1, strlen(p+1)+1);
+              rel_prefix_idx=-1; 
+              break;
+            }
+          }
+        }
+      }
       rec->namespaceidx = rel_prefix_idx;
       rec->fntype = FUNCTYPE_EELFUNC;
       rec->fn = best;
