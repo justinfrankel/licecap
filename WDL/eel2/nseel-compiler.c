@@ -898,7 +898,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         {
           if (this_np == parmcnt)
           {
-            bestlen = ourcall_len;
+            bestlen = thisfunc_len;
             best = fr;
             break; // found exact match, finished
           }
@@ -912,7 +912,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         {
           if (this_np == parmcnt) 
           {
-            bestlen = ourcall_len;
+            bestlen = thisfunc_len;
             best = fr;
           }
           else
