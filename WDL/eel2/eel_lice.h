@@ -250,6 +250,7 @@ public:
   void gfx_drawstr(void *opaque, EEL_F str, int formatmode, int nfmtparms, EEL_F **fmtparms); // formatmode=1 for format, 2 for purely measure no format
   EEL_F gfx_loadimg(void *opaque, int img, EEL_F loadFrom);
   EEL_F gfx_setfont(void *opaque, int np, EEL_F **parms);
+  EEL_F gfx_getfont(void *opaque, int np, EEL_F **parms);
 
   LICE_pixel getCurColor();
   int getCurMode();
@@ -520,6 +521,13 @@ static EEL_F NSEEL_CGEN_CALL _gfx_setfont(void *opaque, INT_PTR np, EEL_F **parm
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) return ctx->gfx_setfont(opaque,np,parms);
+  return 0.0;
+}
+
+static EEL_F NSEEL_CGEN_CALL _gfx_getfont(void *opaque, INT_PTR np, EEL_F **parms)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) return ctx->m_gfx_font_active+1;
   return 0.0;
 }
 
@@ -1368,6 +1376,7 @@ void eel_lice_register()
   NSEEL_addfunctionex("gfx_blitext",3,(char *)_asm_generic3parm,(char *)_asm_generic3parm_end-(char *)_asm_generic3parm,NSEEL_PProc_THIS,(void *)&_gfx_blitext);
   NSEEL_addfunc_varparm("gfx_blit",4,NSEEL_PProc_THIS,(void *)&_gfx_blit2);
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,(void *)&_gfx_setfont);
+  NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,(void *)&_gfx_getfont);
 }
 
 #ifdef EEL_LICE_WANT_STANDALONE
