@@ -1331,6 +1331,12 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 
   *m_gfx_dest = -1.0; // m_framebuffer
   *m_gfx_a= 1.0; // default to full alpha every call
+  int fh;
+  if (m_gfx_font_active>=0&&m_gfx_font_active<m_gfx_fonts.GetSize() && (fh=m_gfx_fonts.Get()[m_gfx_font_active].use_fonth)>0)
+    *m_gfx_texth=fh;
+  else 
+    *m_gfx_texth = 8;
+  
   return dr;
 
 }
