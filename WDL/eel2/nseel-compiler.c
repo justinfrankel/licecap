@@ -951,6 +951,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
             {
               memmove((char *)rec->relname, p+1, strlen(p+1)+1);
               rel_prefix_idx=-1; 
+              ctx->function_usesNamespaces=1;
               break;
             }
           }
