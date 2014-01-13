@@ -933,26 +933,31 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         case 3: rec->opcodeType = OPCODETYPE_FUNC3; break;
         default: rec->opcodeType = OPCODETYPE_FUNCX; break;
       }
-
       if (ourcall != rec->relname) memmove((char *)rec->relname, ourcall, strlen(ourcall)+1);
 
       if (ctx->function_curName && rel_prefix_idx<0)
       {
         // if no namespace specified, and this.commonprefix.func() called, remove common prefixes and set prefixidx to be this
         const char *p=ctx->function_curName;
-        int dc=0;
-        while (*p) if (*p++ == '.') dc++;
-        if (dc)
+        if (*p) p++;
+        while (*p && *p != '.')  p++;
+        if (*p && p[1]) // we have a dot!
         {
-          p--; // don't allow ending or leading dots to influence
-          while (--p > ctx->function_curName)
-          {
-            if (*p == '.' && !strnicmp(rec->relname,ctx->function_curName,p+1-ctx->function_curName))
+          while (p[1]) p++; // go to last char of string, which doesn't allow possible trailing dot to be checked
+
+          while (--p > ctx->function_curName) // do not check possible leading dot
+          {            
+            if (*p == '.')
             {
-              memmove((char *)rec->relname, p+1, strlen(p+1)+1);
-              rel_prefix_idx=-1; 
-              ctx->function_usesNamespaces=1;
-              break;
+              const int cmplen = p+1-ctx->function_curName;
+              if (!strnicmp(rec->relname,ctx->function_curName,cmplen) && rec->relname[cmplen])
+              {
+                const char *src=rec->relname + cmplen;
+                memmove((char *)rec->relname, src, strlen(src)+1);
+                rel_prefix_idx=-1; 
+                ctx->function_usesNamespaces=1;
+                break;
+              }
             }
           }
         }
