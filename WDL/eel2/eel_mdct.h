@@ -379,9 +379,9 @@ static void megabuf_mdct_apply_window(void *init, EEL_F *inbuf, EEL_F *outbuf)
 
   w = p->window;
   cnt = p->n / 2;
-  while (cnt--) *outbuf++ = *inbuf++ **w++;
+  while (cnt--) *outbuf++ = *inbuf++ * *w++;
   cnt = p->n / 2;
-  while (cnt--) *outbuf++ = *inbuf++ **--w;
+  while (cnt--) *outbuf++ = *inbuf++ * *--w;
 }
 
 
@@ -740,7 +740,7 @@ static EEL_F * NSEEL_CGEN_CALL mdct_func(int dir, EEL_F **blocks, EEL_F *start, 
 
     if (mdct_ctxs[bidx])
     {
-      EEL_F buf[sizeof(EEL_F) << EEL_DCT_MAXBITLEN];
+      EEL_F buf[1 << EEL_DCT_MAXBITLEN];
       if (dir < 0)
       {
         megabuf_mdct_backward(mdct_ctxs[bidx], ptr, buf);
