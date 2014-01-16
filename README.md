@@ -29,9 +29,9 @@ LICEcap is GPL free software, each download package includes the source.
 ## Requirements ##
 
 * For Windows: Windows XP/Vista/7 (might work with reduced functionality on other versions)
-* For OSX: OS 10.4%2B (10.6%2B for full feature support), PPC or Intel (note: OS X support is still preliminary, some features are not supported)
+* For OSX: OS 10.4+ (10.6+ for full feature support), PPC or Intel (note: OS X support is still preliminary, some features are not supported)
 * A reasonably fast CPU
-* A healthy amount of RAM (1GB%2B, especially when encoding to LCF)
+* A healthy amount of RAM (1GB+, especially when encoding to LCF)
 
 ## Author and Original Source
 This project was created by [Cockos Interactive](http://www.cockos.com), and is available on the web at the [official homepage](http://www.cockos.com/licecap/).
