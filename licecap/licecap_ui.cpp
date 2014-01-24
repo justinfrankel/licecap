@@ -884,7 +884,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     case WM_INITDIALOG:
       g_hwnd=hwndDlg;
 #ifdef _WIN32
-      SetClassLong(hwndDlg,GCL_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
+      SetClassLongPtr(hwndDlg,GCLP_HICON,(LPARAM)LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(IDI_ICON1)));
 #elif defined(__APPLE__)
       extern void SWELL_SetWindowShadow(HWND, bool);
       void SetNSWindowOpaque(HWND, bool);
