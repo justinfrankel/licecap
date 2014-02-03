@@ -166,7 +166,13 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
         FD_SET(m_socket,&f[2]);
         struct timeval tv;
         memset(&tv,0,sizeof(tv));
-        if (select(m_socket+1,&f[0],&f[1],&f[2],&tv)==-1)
+        if (select(
+#ifdef _WIN32
+          0
+#else
+          m_socket+1
+#endif
+          ,&f[0],&f[1],&f[2],&tv)==-1)
         {
           m_errorstr="connecting to host (calling select())";
           m_state=STATE_ERROR;
@@ -350,7 +356,7 @@ int JNL_Connection::send(const void *_data, int length)
 
 int JNL_Connection::send_string(const char *line)
 {
-  return send(line,strlen(line));
+  return send(line,(int)strlen(line));
 }
 
 int JNL_Connection::recv_bytes_available(void)

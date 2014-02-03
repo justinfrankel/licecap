@@ -14,11 +14,14 @@
 #include <windows.h>
 #include <stdio.h>
 #include <time.h>
-#define strcasecmp(x,y) stricmp(x,y)
 #define ERRNO (WSAGetLastError())
 #define SET_SOCK_BLOCK(s,block) { unsigned long __i=block?0:1; ioctlsocket(s,FIONBIO,&__i); }
-#define EWOULDBLOCK WSAEWOULDBLOCK
-#define EINPROGRESS WSAEWOULDBLOCK
+#ifndef EWOULDBLOCK
+  #define EWOULDBLOCK WSAEWOULDBLOCK
+#endif
+#ifndef EINPROGRESS
+  #define EINPROGRESS WSAEWOULDBLOCK
+#endif
 typedef int socklen_t;
 
 #else
@@ -58,10 +61,6 @@ typedef int SOCKET;
 #endif
 #ifndef strnicmp
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
-#endif
-
-#ifndef wsprintf
-#define wsprintf sprintf
 #endif
 
 #endif // !_WIN32

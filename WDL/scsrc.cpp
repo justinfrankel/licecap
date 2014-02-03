@@ -527,7 +527,7 @@ int WDL_ShoutcastSource::RunStuff()
   return ret;
 }
 
-static void AddTextField(WDL_String *s, const char *name, const char *value)
+static void AddTextField(WDL_FastString *s, const char *name, const char *value)
 {
     s->AppendFormatted(4096,"--" POST_DIV_STRING "\r\n"
                           "Content-Disposition: form-data; name=\"%s\"\r\n"
@@ -631,7 +631,7 @@ void WDL_ShoutcastSource::PostModeConnect()
   if (csize<16384) csize=16384;
 
 
-  WDL_String tmp;
+  WDL_FastString tmp;
   tmp.SetFormatted(4096,"POST /%s HTTP/1.1\r\n"
                         "Connection: %s\r\n"
                         "Host: %s\r\n"
@@ -646,7 +646,7 @@ void WDL_ShoutcastSource::PostModeConnect()
                         csize);
   m_sendcon->send_string(tmp.Get());
 
-  m_post_bytesleft = csize - strlen(END_POST_BYTES);
+  m_post_bytesleft = csize - (int)strlen(END_POST_BYTES);
 
   tmp.Set("");
 
@@ -695,6 +695,6 @@ void WDL_ShoutcastSource::PostModeConnect()
   tmp.Append("\r\n");
 
   m_sendcon->send_string(tmp.Get());
-  m_post_bytesleft -= strlen(tmp.Get());
+  m_post_bytesleft -= tmp.GetLength();
 
 }

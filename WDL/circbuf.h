@@ -73,7 +73,7 @@ public:
     int put = l;
     int l2;
     if (!m_size) return 0;
-    l2 = m_endbuf - m_head;
+    l2 = (int) (m_endbuf - m_head);
     if (l2 <= l) 
     {
       memcpy(m_head, p, l2);
@@ -102,7 +102,7 @@ public:
     got = l;
     if (m_tail+l >= m_endbuf) 
     {
-      int l1 = m_endbuf - m_tail;
+      int l1 = (int) (m_endbuf - m_tail);
       l -= l1;
       memcpy(p, m_tail, l1);
       m_tail = (char *)m_hb.Get();

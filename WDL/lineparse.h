@@ -290,10 +290,10 @@ class LineParser
       return 0;
     }
 
-    char * WDL_LINEPARSE_PREFIX tmpbufalloc(int sz)
+    char * WDL_LINEPARSE_PREFIX tmpbufalloc(size_t sz)
     {
       if (sz<1)sz=1;
-      if (sz+m_tmpbuf_used <= (int)sizeof(m_tmpbuf))
+      if (sz+m_tmpbuf_used <= sizeof(m_tmpbuf))
       {
          m_tmpbuf_used+=sz;
          return m_tmpbuf + m_tmpbuf_used - sz;
@@ -315,15 +315,15 @@ class LineParser
 #ifdef WDL_LINEPARSE_INTF_ONLY
     void freetokens();
     int doline(const char *line, int ignore_escaping);
-    char *tmpbufalloc(int sz);
+    char *tmpbufalloc(size_t sz);
     void tmpbuffree(char *p);
 #endif
 
+    size_t m_tmpbuf_used;
+    char **m_tokens;
     int m_eat;
     int m_nt;
-    int m_tmpbuf_used;
     bool m_bCommentBlock;
-    char **m_tokens;
     char m_tmpbuf[2048];
 };
 #endif//!WDL_LINEPARSE_IMPL_ONLY

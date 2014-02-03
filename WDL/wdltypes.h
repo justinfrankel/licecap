@@ -80,10 +80,10 @@ typedef bool WDL_bool;
 
 #ifndef _WIN32
   #ifndef strnicmp 
-    #define strnicmp strncasecmp
+    #define strnicmp(x,y,z) strncasecmp(x,y,z)
   #endif
   #ifndef stricmp 
-    #define stricmp strcasecmp
+    #define stricmp(x,y) strcasecmp(x,y)
   #endif
 #endif
 

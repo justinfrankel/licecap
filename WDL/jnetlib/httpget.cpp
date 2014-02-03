@@ -180,14 +180,14 @@ void JNL_HTTPGet::connect(const char *url, int ver, const char *requestmethod)
 
   if (!m_http_proxyhost || !m_http_proxyhost[0])
   {
-    wsprintf(str,"%s %s HTTP/1.%d\r\n",requestmethod,m_http_request,ver%10);
+    sprintf(str,"%s %s HTTP/1.%d\r\n",requestmethod,m_http_request,ver%10);
   }
   else
   {
-    wsprintf(str,"%s %s HTTP/1.%d\r\n",requestmethod, m_http_url,ver%10);
+    sprintf(str,"%s %s HTTP/1.%d\r\n",requestmethod, m_http_url,ver%10);
   }
 
-  wsprintf(str+strlen(str),"Host:%s\r\n",m_http_host);
+  sprintf(str+strlen(str),"Host:%s\r\n",m_http_host);
 
   if (m_http_lpinfo&&m_http_lpinfo[0])
   {

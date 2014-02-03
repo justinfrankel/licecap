@@ -883,7 +883,7 @@ LameEncoder::~LameEncoder()
     if (m_vbrfile.Get()[0] && lame_get_lametag_frame)
     {
       unsigned char buf[16384];
-      int a=lame_get_lametag_frame(m_lamestate,buf,sizeof(buf));
+      size_t a=lame_get_lametag_frame(m_lamestate,buf,sizeof(buf));
       if (a>0 && a<=sizeof(buf))
       {
         FILE *fp=NULL;

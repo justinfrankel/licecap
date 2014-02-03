@@ -124,7 +124,7 @@ int JNL_AsyncDNS::resolve(const char *hostname, unsigned int *addr)
 
   for (x = 0; x < m_cache_size; x ++)
   {
-    if (!strcasecmp(m_cache[x].hostname,hostname) && m_cache[x].mode==0)
+    if (!stricmp(m_cache[x].hostname,hostname) && m_cache[x].mode==0)
     {
       m_cache[x].last_used=time(NULL);
       if (m_cache[x].resolved)
