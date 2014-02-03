@@ -727,6 +727,10 @@ SOURCE=.\lice_ico.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\lice_image.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\lice_jpg.cpp
 
 !IF  "$(CFG)" == "lice - Win32 Release"
