@@ -2164,13 +2164,15 @@ HWND SWELL_CreateModelessFrameForWindow(HWND childW, HWND ownerW, unsigned int w
 HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent, DLGPROC dlgproc, LPARAM param)
 {
   unsigned int forceStyles=0;
+  bool forceNonChild=false;
   if ((((INT_PTR)resid)&~0xf)==0x400000)
   {
-    int a = (int)(INT_PTR)resid;
+    const int a = ((int)(INT_PTR)resid)&0xf;
     forceStyles = NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask;
     if (a&1) forceStyles|=NSResizableWindowMask;
     if (a&2) forceStyles&=~NSMiniaturizableWindowMask;
     if (a&4) forceStyles&=~NSClosableWindowMask;
+    if (a) forceNonChild=true;
     resid=NULL;
   }
   SWELL_DialogResourceIndex *p=resById(reshead,resid);
@@ -2185,7 +2187,7 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
                  )) parview=(NSView *)parent;
   else if (parent && [(id)parent isKindOfClass:[NSWindow class]])  parview=(NSView *)[(id)parent contentView];
   
-  if ((!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)) && parview)
+  if ((!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)) && parview && (p || !forceNonChild))
   {
     SWELL_hwndChild *ch=[[SWELL_hwndChild alloc] initChild:p Parent:parview dlgProc:dlgproc Param:param];       // create a new child view class
     ch->m_create_windowflags=(NSTitledWindowMask|NSMiniaturizableWindowMask|NSClosableWindowMask|NSResizableWindowMask);
