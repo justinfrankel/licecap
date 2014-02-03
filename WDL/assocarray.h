@@ -320,17 +320,28 @@ public:
   
   ~WDL_StringKeyedArray() { }
 
-private:
+  static const char *dupstr(const char *s) { return strdup(s);  } // these might not be necessary but depending on the libc maybe...
+  static int cmpstr(const char **s1, const char **s2) { return strcmp(*s1, *s2); }
+  static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
+  static void freestr(const char* s) { free((void*)s); }
+  static void freecharptr(char *p) { free(p); }
+};
+
+
+template <class VAL> class WDL_StringKeyedArray2 : public WDL_AssocArrayImpl<const char *, VAL>
+{
+public:
+
+  explicit WDL_StringKeyedArray2(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_AssocArrayImpl<const char*, VAL>(caseSensitive?cmpstr:cmpistr, dupstr, freestr, valdispose) {}
+  
+  ~WDL_StringKeyedArray2() { }
 
   static const char *dupstr(const char *s) { return strdup(s);  } // these might not be necessary but depending on the libc maybe...
   static int cmpstr(const char **s1, const char **s2) { return strcmp(*s1, *s2); }
   static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
   static void freestr(const char* s) { free((void*)s); }
-
-public:
   static void freecharptr(char *p) { free(p); }
 };
-
 
 // sorts text as text, sorts anything that looks like a number as a number
 template <class VAL> class WDL_LogicalSortStringKeyedArray : public WDL_StringKeyedArray<VAL>
@@ -395,7 +406,7 @@ public:
 
 private:
   
-  static int cmpptr(INT_PTR* a, INT_PTR* b) { return *a-*b; }
+  static int cmpptr(INT_PTR* a, INT_PTR* b) { const INT_PTR d = *a - *b; return d<0?-1:(d!=0); }
 };
 
 
