@@ -49,8 +49,7 @@ void __addnstr(win32CursesCtx *ctx, const char *str,int n)
       n -= skip;
       if (n<0)n=0;
     }
-    int slen = strlen(str);
-    str += min(slen,skip);    
+    while (skip > 0 && *str) str++, skip--;
   }
 
   int sx=ctx->m_cursor_x;
@@ -130,7 +129,7 @@ void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
 
 }
 
-static int xlateKey(int msg, int wParam, int lParam)
+static LRESULT xlateKey(int msg, WPARAM wParam, LPARAM lParam)
 {
   if (msg == WM_KEYDOWN)
   {
@@ -288,7 +287,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #endif
 
     {
-      const int a=xlateKey(uMsg,wParam,lParam);
+      const int a=(int)xlateKey(uMsg,wParam,lParam);
       if (a != ERR)
       {
         const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
