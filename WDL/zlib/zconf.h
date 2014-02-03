@@ -1,5 +1,5 @@
 /* zconf.h -- configuration of the zlib compression library
- * Copyright (C) 1995-2011 Jean-loup Gailly.
+ * Copyright (C) 1995-2013 Jean-loup Gailly.
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
@@ -21,6 +21,7 @@
 #  define _dist_code            z__dist_code
 #  define _length_code          z__length_code
 #  define _tr_align             z__tr_align
+#  define _tr_flush_bits        z__tr_flush_bits
 #  define _tr_flush_block       z__tr_flush_block
 #  define _tr_init              z__tr_init
 #  define _tr_stored_block      z__tr_stored_block
@@ -65,7 +66,6 @@
 #    define gzdopen               z_gzdopen
 #    define gzeof                 z_gzeof
 #    define gzerror               z_gzerror
-#    define gzflags               z_gzflags
 #    define gzflush               z_gzflush
 #    define gzgetc                z_gzgetc
 #    define gzgetc_               z_gzgetc_
@@ -74,7 +74,11 @@
 #    define gzoffset64            z_gzoffset64
 #    define gzopen                z_gzopen
 #    define gzopen64              z_gzopen64
+#    ifdef _WIN32
+#      define gzopen_w              z_gzopen_w
+#    endif
 #    define gzprintf              z_gzprintf
+#    define gzvprintf             z_gzvprintf
 #    define gzputc                z_gzputc
 #    define gzputs                z_gzputs
 #    define gzread                z_gzread
@@ -101,6 +105,7 @@
 #  define inflateReset          z_inflateReset
 #  define inflateReset2         z_inflateReset2
 #  define inflateSetDictionary  z_inflateSetDictionary
+#  define inflateGetDictionary  z_inflateGetDictionary
 #  define inflateSync           z_inflateSync
 #  define inflateSyncPoint      z_inflateSyncPoint
 #  define inflateUndermine      z_inflateUndermine
@@ -127,9 +132,9 @@
 #  define free_func             z_free_func
 #  ifndef Z_SOLO
 #    define gzFile                z_gzFile
-#    define gz_header             z_gz_header
-#    define gz_headerp            z_gz_headerp
 #  endif
+#  define gz_header             z_gz_header
+#  define gz_headerp            z_gz_headerp
 #  define in_func               z_in_func
 #  define intf                  z_intf
 #  define out_func              z_out_func
@@ -142,9 +147,7 @@
 #  define voidpf                z_voidpf
 
 /* all zlib structs in zlib.h and zconf.h */
-#  ifndef Z_SOLO
-#    define gz_header_s           z_gz_header_s
-#  endif
+#  define gz_header_s           z_gz_header_s
 #  define internal_state        z_internal_state
 
 #endif
@@ -388,6 +391,23 @@ typedef uLong FAR uLongf;
    typedef Byte       *voidp;
 #endif
 
+#if !defined(Z_U4) && !defined(Z_SOLO) && defined(STDC)
+#  include <limits.h>
+#  if (UINT_MAX == 0xffffffffUL)
+#    define Z_U4 unsigned
+#  elif (ULONG_MAX == 0xffffffffUL)
+#    define Z_U4 unsigned long
+#  elif (USHRT_MAX == 0xffffffffUL)
+#    define Z_U4 unsigned short
+#  endif
+#endif
+
+#ifdef Z_U4
+   typedef Z_U4 z_crc_t;
+#else
+   typedef unsigned long z_crc_t;
+#endif
+
 #ifdef HAVE_UNISTD_H    /* may be set to #if 1 by ./configure */
 #  define Z_HAVE_UNISTD_H
 #endif
@@ -402,28 +422,53 @@ typedef uLong FAR uLongf;
 #  endif
 #endif
 
+#if defined(STDC) || defined(Z_HAVE_STDARG_H)
+#  ifndef Z_SOLO
+#    include <stdarg.h>         /* for va_list */
+#  endif
+#endif
+
+#ifdef _WIN32
+#  ifndef Z_SOLO
+#    include <stddef.h>         /* for wchar_t */
+#  endif
+#endif
+
 /* a little trick to accommodate both "#define _LARGEFILE64_SOURCE" and
  * "#define _LARGEFILE64_SOURCE 1" as requesting 64-bit operations, (even
  * though the former does not conform to the LFS document), but considering
  * both "#undef _LARGEFILE64_SOURCE" and "#define _LARGEFILE64_SOURCE 0" as
  * equivalently requesting no 64-bit operations
  */
-#if -_LARGEFILE64_SOURCE - -1 == 1
+#if defined(_LARGEFILE64_SOURCE) && -_LARGEFILE64_SOURCE - -1 == 1
 #  undef _LARGEFILE64_SOURCE
 #endif
 
-#if defined(_LARGEFILE64_SOURCE) && _LFS64_LARGEFILE-0
-#  define Z_LARGE
+#if defined(__WATCOMC__) && !defined(Z_HAVE_UNISTD_H)
+#  define Z_HAVE_UNISTD_H
+#endif
+#ifndef Z_SOLO
+#  if defined(Z_HAVE_UNISTD_H) || defined(_LARGEFILE64_SOURCE)
+#    include <unistd.h>         /* for SEEK_*, off_t, and _LFS64_LARGEFILE */
+#    ifdef VMS
+#      include <unixio.h>       /* for off_t */
+#    endif
+#    ifndef z_off_t
+#      define z_off_t off_t
+#    endif
+#  endif
 #endif
 
-#if (defined(Z_HAVE_UNISTD_H) || defined(Z_LARGE)) && !defined(Z_SOLO)
-#  include <unistd.h>       /* for SEEK_* and off_t */
-#  ifdef VMS
-#    include <unixio.h>     /* for off_t */
-#  endif
-#  ifndef z_off_t
-#    define z_off_t off_t
-#  endif
+#if defined(_LFS64_LARGEFILE) && _LFS64_LARGEFILE-0
+#  define Z_LFS64
+#endif
+
+#if defined(_LARGEFILE64_SOURCE) && defined(Z_LFS64)
+#  define Z_LARGE64
+#endif
+
+#if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS-0 == 64 && defined(Z_LFS64)
+#  define Z_WANT64
 #endif
 
 #if !defined(SEEK_SET) && !defined(Z_SOLO)
@@ -436,14 +481,14 @@ typedef uLong FAR uLongf;
 #  define z_off_t long
 #endif
 
-#if !defined(_WIN32) && (defined(_LARGEFILE64_SOURCE) && _LFS64_LARGEFILE-0)
+#if !defined(_WIN32) && defined(Z_LARGE64)
 #  define z_off64_t off64_t
 #else
-#  if defined(_WIN32)
+#  if defined(_WIN32) && !defined(__GNUC__) && !defined(Z_SOLO)
 #    define z_off64_t __int64
 #  else
-#  define z_off64_t z_off_t
-#endif
+#    define z_off64_t z_off_t
+#  endif
 #endif
 
 /* MVS linker does not support external names larger than 8 bytes */
