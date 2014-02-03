@@ -26,6 +26,9 @@ public:
   const char *GetFileName() { return m_filename.Get(); }
 
   void setCursor(int isVscroll=0);
+
+  int m_indent_size;
+  int m_max_undo_states;
 protected:
   class refcntString;
   class editUndoRec;
