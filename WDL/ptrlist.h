@@ -51,7 +51,7 @@ template<class PTRTYPE> class WDL_PtrList
     PTRTYPE *Get(INT_PTR index) const { if (GetList() && index >= 0 && index < (INT_PTR)GetSize()) return GetList()[index]; return NULL; }
     int GetSize(void) const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE *); }  
 
-    int Find(PTRTYPE *p) const
+    int Find(const PTRTYPE *p) const
     {
       if (p)
       {
@@ -88,7 +88,7 @@ template<class PTRTYPE> class WDL_PtrList
       for (x = s; x > index; x --) list[x]=list[x-1];
       return (list[x] = item);
     }
-    int FindSorted(PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
+    int FindSorted(const PTRTYPE *p, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
     {
       bool m;
       int i = LowerBound(p,&m,compar);
@@ -136,6 +136,10 @@ template<class PTRTYPE> class WDL_PtrList
         m_hb.Resize(size * (unsigned int)sizeof(PTRTYPE*),false);
       }
     }
+    void DeletePtr(const PTRTYPE *p) { Delete(Find(p)); }
+    void DeletePtr(const PTRTYPE *p, bool wantDelete, void (*delfunc)(void *)=NULL) { Delete(Find(p),wantDelete,delfunc); }
+    void DeletePtr(const PTRTYPE *p, void (*delfunc)(PTRTYPE *)) { Delete(Find(p),delfunc); }
+
     void Empty()
     {
       m_hb.Resize(0,false);
@@ -181,7 +185,7 @@ template<class PTRTYPE> class WDL_PtrList
       }
     }
 
-    int LowerBound(PTRTYPE *key, bool* ismatch, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
+    int LowerBound(const PTRTYPE *key, bool* ismatch, int (*compar)(const PTRTYPE **a, const PTRTYPE **b)) const
     {
       int a = 0;
       int c = GetSize();
