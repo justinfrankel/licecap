@@ -61,11 +61,11 @@ static EEL_F NSEEL_CGEN_CALL atomic_get(void *opaque, EEL_F *a)
 
 static void EEL_atomic_register()
 {
-  NSEEL_addfunctionex("atomic_setifequal",3,(char*)_asm_generic3parm_retd, (char*)_asm_generic3parm_retd_end - (char*)_asm_generic3parm_retd, NSEEL_PProc_THIS, (void *)atomic_setifeq);
-  NSEEL_addfunctionex("atomic_exch",2,(char*)_asm_generic2parm_retd, (char*)_asm_generic2parm_retd_end - (char*)_asm_generic2parm_retd, NSEEL_PProc_THIS, (void *)atomic_exch);
-  NSEEL_addfunctionex("atomic_add",2,(char*)_asm_generic2parm_retd, (char*)_asm_generic2parm_retd_end - (char*)_asm_generic2parm_retd, NSEEL_PProc_THIS, (void *)atomic_add);
-  NSEEL_addfunctionex("atomic_set",2,(char*)_asm_generic2parm_retd, (char*)_asm_generic2parm_retd_end - (char*)_asm_generic2parm_retd, NSEEL_PProc_THIS, (void *)atomic_set);
-  NSEEL_addfunctionex("atomic_get",1,(char*)_asm_generic1parm_retd, (char*)_asm_generic1parm_retd_end - (char*)_asm_generic1parm_retd, NSEEL_PProc_THIS, (void *)atomic_get);
+  NSEEL_addfunc_retval("atomic_setifequal",3, NSEEL_PProc_THIS, &atomic_setifeq);
+  NSEEL_addfunc_retval("atomic_exch",2, NSEEL_PProc_THIS, &atomic_exch);
+  NSEEL_addfunc_retval("atomic_add",2, NSEEL_PProc_THIS, &atomic_add);
+  NSEEL_addfunc_retval("atomic_set",2, NSEEL_PProc_THIS, &atomic_set);
+  NSEEL_addfunc_retval("atomic_get",1, NSEEL_PProc_THIS, &atomic_get);
 }
 
 #endif

@@ -1033,7 +1033,11 @@ _emit 0x90;
     fsubrp st(1), st(0);
 #else
   #ifdef __GNUC__
-    fsubr; // gnuc has fsub/fsubr backwards, ack
+    #ifdef __INTEL_COMPILER
+      fsub;
+    #else
+      fsubr; // gnuc has fsub/fsubr backwards, ack
+    #endif
   #else
     fsub;
   #endif
@@ -1277,7 +1281,11 @@ _emit 0x90;
     fdivrp st(1);
 #else
   #ifdef __GNUC__
-    fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+    #ifdef __INTEL_COMPILER
+      fdiv;
+    #else
+      fdivr; // gcc inline asm seems to have fdiv/fdivr backwards
+    #endif
   #else
     fdiv;
   #endif
@@ -1318,9 +1326,14 @@ _emit 0x90;
     fdivp st(1);
 #else
   #ifndef __GNUC__
-    fxch; // gcc inline asm seems to have fdiv/fdivr backwards
+    fdivr;
+  #else
+    #ifdef __INTEL_COMPILER
+      fdivp st(1);
+    #else
+      fdiv;
+    #endif
   #endif
-    fdiv;
 #endif
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -1376,9 +1389,14 @@ _emit 0x90;
     fdivp st(1);
 #else
   #ifndef __GNUC__
-    fxch; // gcc inline asm seems to have fdiv/fdivr backwards
+    fdivr;
+  #else
+    #ifdef __INTEL_COMPILER
+      fdivp st(1);
+    #else
+      fdiv;
+    #endif
   #endif
-    fdiv;
 #endif
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -2060,137 +2078,6 @@ _emit 0x90;
 __declspec(naked) void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_if(void) // not currently used on x86/x86-64
-{
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-#ifdef TARGET_X64
-    sub rsp, 8;
-    test eax, eax;
-    jz label_12;
-    mov rax, 0xfefefefe;
-    call eax;
-    jmp label_13;
-label_12:
-    
-    mov rax, 0xfefefefe;
-    call eax;
-label_13:
-    
-    add rsp, 8;
-#else
-    sub esp, 12;
-    test eax, eax;
-    jz label_14;
-    mov eax, 0xfefefefe;
-    call eax;
-    jmp label_15;
-label_14:
-    
-    mov eax, 0xfefefefe;
-    call eax;
-label_15:
-    
-    add esp, 12;
-#endif
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-
-  }
-}
-__declspec(naked) void nseel_asm_if_end(void) {}
-
-//---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_repeat(void)
-{
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-#ifdef TARGET_X64
-    fistp qword ptr [rsi];
-    mov rcx, qword ptr [rsi];
-#else
-    fistp dword ptr [esi];
-    mov ecx, dword ptr [esi];
-#endif
-    cmp ecx, 1;
-    jl label_16;
-    cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-    jl label_17;
-    mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-label_17:
-
-      mov edx, 0xfefefefe;
-#ifdef TARGET_X64
-      sub esp, 8; /* keep stack aligned to 16 byte */
-#else
-      sub esp, 4; /* keep stack aligned to 16 byte */
-#endif
-      push esi; // revert back to last temp workspace
-      push ecx;
-
-      call edx;
-
-      pop ecx;
-      pop esi;
-#ifdef TARGET_X64
-      add esp, 8; /* keep stack aligned to 16 byte */
-#else
-      add esp, 4; /* keep stack aligned to 16 byte */
-#endif
-    dec ecx;
-    jnz label_17;
-label_16:
-
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-
-  }
-}
-__declspec(naked) void nseel_asm_repeat_end(void) {}
-
-//---------------------------------------------------------------------------------------------------------------
 __declspec(naked) void nseel_asm_fcall(void)
 {
   __asm {
@@ -2232,64 +2119,6 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_fcall_end(void) {}
 
-__declspec(naked) void nseel_asm_repeatwhile(void)
-{
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
-label_18:
-
-      mov edx, 0xfefefefe;
-
-#ifdef TARGET_X64
-      sub esp, 8; /* keep stack aligned -- required on x86 and x64*/
-#else
-      sub esp, 4; /* keep stack aligned -- required on x86 and x64*/
-#endif
-      push esi; // revert back to last temp workspace
-      push ecx;
-      call edx;
-      pop ecx;
-      pop esi;
-#ifdef TARGET_X64
-      add esp, 8; /* keep stack aligned -- required on x86 and x64 */
-#else
-      add esp, 4; /* keep stack aligned -- required on x86 and x64 */
-#endif
-	  test eax, eax;
-	  jz label_19;
-    dec ecx;
-    jnz label_18;
-label_19:
-	
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-}
-__declspec(naked) void nseel_asm_repeatwhile_end(void) {}
-
-
 __declspec(naked) void nseel_asm_band(void)
 {
   __asm {
@@ -2306,7 +2135,7 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jz label_20;
+    jz label_12;
 
      mov ecx, 0xfefefefe;
 #ifdef TARGET_X64
@@ -2320,7 +2149,7 @@ _emit 0x90;
 #else
         add esp, 12;
 #endif
-label_20:
+label_12:
     
 _emit 0x89;
 _emit 0x90;
@@ -2354,7 +2183,7 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jnz label_21;
+    jnz label_13;
 
     mov ecx, 0xfefefefe;
 #ifdef TARGET_X64
@@ -2368,7 +2197,7 @@ _emit 0x90;
 #else
     add esp, 12;
 #endif
-label_21:
+label_13:
     
 _emit 0x89;
 _emit 0x90;
@@ -2453,9 +2282,9 @@ _emit 0x90;
     fstsw ax; // for equal 256 and 1024 should be clear, 16384 should be set
     and eax, 17664;  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
     cmp eax, 16384;
-    je label_22;
+    je label_14;
     sub eax, eax;
-label_22:
+label_14:
     
 _emit 0x89;
 _emit 0x90;
@@ -2492,9 +2321,9 @@ _emit 0x90;
     fstsw ax; // for equal 256 and 1024 should be clear, 16384 should be set
     and eax, 17664;  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
     cmp eax, 16384;
-    je label_23;
+    je label_15;
     sub eax, eax;
-label_23:
+label_15:
     
     xor eax, 16384; // flip the result
 _emit 0x89;
@@ -2649,13 +2478,13 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jz label_24;
+    jz label_16;
     fld1;
-    jmp label_25;
-label_24:
+    jmp label_17;
+label_16:
     
     fldz;
-label_25:
+label_17:
     
 _emit 0x89;
 _emit 0x90;
@@ -2735,9 +2564,9 @@ _emit 0x90;
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jz label_26;
+    jz label_18;
     mov eax, edi;
-label_26:
+label_18:
     
 _emit 0x89;
 _emit 0x90;
@@ -2777,9 +2606,9 @@ _emit 0x90;
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jnz label_27;
+    jnz label_19;
     mov eax, edi;
-label_27:
+label_19:
     
 _emit 0x89;
 _emit 0x90;
@@ -2817,9 +2646,9 @@ _emit 0x90;
     fcom;
     fstsw ax;
     test eax, 256;
-    jz label_28;
+    jz label_20;
     fxch;
-label_28:
+label_20:
     
     fstp st(0);
 _emit 0x89;
@@ -2857,9 +2686,9 @@ _emit 0x90;
     fcom;
     fstsw ax;
     test eax, 256;
-    jnz label_29;
+    jnz label_21;
     fxch;
-label_29:
+label_21:
     
     fstp st(0);
 _emit 0x89;
@@ -3316,14 +3145,14 @@ _emit 0x90;
     // check if (%rsi) is in range, and buffer available, otherwise call function
     mov edx, dword ptr [rsi];
     cmp rdx, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));      //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_30;
+    jae label_22;
       mov rax, rdx;
       shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
       and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
       mov rax, qword ptr [r12+rax];
       test rax, rax;
-      jnz label_31;
-label_30:
+      jnz label_23;
+label_22:
     
       mov rax, 0xfefefefe;
       mov rdi, r12; // set first parm to ctx
@@ -3331,13 +3160,13 @@ label_30:
       mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
       call rax;
       mov rsi, r15; // restore rsi
-      jmp label_32;
-label_31:
+      jmp label_24;
+label_23:
     
       and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
       add rax, rdx;
-label_32:
+label_24:
     
 
 #else
@@ -3349,14 +3178,14 @@ label_32:
     // check if (%rsi) is in range...
     mov edi, dword ptr [rsi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));       //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_33;
+    jae label_25;
       mov rax, rdi;
       shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
       and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
       mov rax, qword ptr [r12+rax];
       test rax, rax;
-      jnz label_34;
-label_33:
+      jnz label_26;
+label_25:
     
       mov rax, 0xfefefefe; // function ptr
       mov rcx, r12; // set first parm to ctx
@@ -3364,13 +3193,13 @@ label_33:
       sub rsp, X64_EXTRA_STACK_SPACE;
       call rax;
       add rsp, X64_EXTRA_STACK_SPACE;
-      jmp label_35;
-label_34:
+      jmp label_27;
+label_26:
     
       and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
       add rax, rdi;
-label_35:
+label_27:
     
 #endif
 
@@ -3394,15 +3223,15 @@ _emit 0x90;
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));     //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_36;
+    jae label_28;
 
       mov eax, edi;
       shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
       and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
       mov eax, dword ptr [ebx+eax];
       test eax, eax;
-      jnz label_37;
-label_36:
+      jnz label_29;
+label_28:
     
       sub esp, 8; // keep stack aligned
       mov ecx, 0xfefefefe;
@@ -3410,13 +3239,13 @@ label_36:
       push ebx; // push context pointer
       call ecx;
       add esp, 16;
-      jmp label_38;
-label_37:
+      jmp label_30;
+label_29:
     
       and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl edi, 3;      // 3 is log2(sizeof(EEL_F))
       add eax, edi;
-label_38:
+label_30:
     
 _emit 0x89;
 _emit 0x90;

@@ -323,7 +323,7 @@ static int eel_validate_format_specifier(const char *fmt_in, char *typeOut,
     if (fmtOut_sz < 2) return 0;
 
     if (c == 'f'|| c=='e' || c=='E' || c=='g' || c=='G' || c == 'd' || c == 'u' || 
-        c == 'x' || c == 'X' || c == 'c' || c =='s' || c=='S' || c=='i') 
+        c == 'x' || c == 'X' || c == 'c' || c == 'C' || c =='s' || c=='S' || c=='i') 
     {
       *typeOut = c;
       fmtOut[0] = c;
@@ -462,6 +462,21 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
         else if (ct == 'c')
         {
           *op++=(char) (int)v;
+          *op=0;
+        }
+        else if (ct == 'C')
+        {
+          const unsigned int iv = (unsigned int) v;
+          int bs = 0;
+          if (iv &      0xff000000) bs=24;
+          else if (iv & 0x00ff0000) bs=16;
+          else if (iv & 0x0000ff00) bs=8;
+          while (bs>=0)
+          {
+            const char c=(char) (iv>>bs);
+            *op++=c?c:' ';
+            bs-=8;
+          }
           *op=0;
         }
         else
@@ -1509,41 +1524,130 @@ static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, INT_PTR num_parms, EEL_F 
 
 void EEL_string_register()
 {
-  NSEEL_addfunctionex("strlen",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strlen);
+  NSEEL_addfunc_retval("strlen",1,NSEEL_PProc_THIS,&_eel_strlen);
 
-  NSEEL_addfunctionex("strcat",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strcat);
-  NSEEL_addfunctionex("strcpy",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strcpy);
-  NSEEL_addfunctionex("strcmp",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strcmp);
-  NSEEL_addfunctionex("stricmp",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_stricmp);
+  NSEEL_addfunc_retval("strcat",2,NSEEL_PProc_THIS,&_eel_strcat);
+  NSEEL_addfunc_retval("strcpy",2,NSEEL_PProc_THIS,&_eel_strcpy);
+  NSEEL_addfunc_retval("strcmp",2,NSEEL_PProc_THIS,&_eel_strcmp);
+  NSEEL_addfunc_retval("stricmp",2,NSEEL_PProc_THIS,&_eel_stricmp);
 
-  NSEEL_addfunctionex("strncat",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strncat);
-  NSEEL_addfunctionex("strncpy",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strncpy);
-  NSEEL_addfunctionex("strncmp",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strncmp);
-  NSEEL_addfunctionex("strnicmp",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strnicmp);
-  NSEEL_addfunctionex("str_setlen",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strsetlen);
-  NSEEL_addfunc_exparms("strcpy_from",3,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr); // alias
-  NSEEL_addfunc_exparms("strcpy_substr",3,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr); // only allow 3 or 4 parms
-  NSEEL_addfunc_exparms("strcpy_substr",4,NSEEL_PProc_THIS,(void *)&_eel_strcpysubstr);
+  NSEEL_addfunc_retval("strncat",3,NSEEL_PProc_THIS,&_eel_strncat);
+  NSEEL_addfunc_retval("strncpy",3,NSEEL_PProc_THIS,&_eel_strncpy);
+  NSEEL_addfunc_retval("strncmp",3,NSEEL_PProc_THIS,&_eel_strncmp);
+  NSEEL_addfunc_retval("strnicmp",3,NSEEL_PProc_THIS,&_eel_strnicmp);
+  NSEEL_addfunc_retval("str_setlen",2,NSEEL_PProc_THIS,&_eel_strsetlen);
+  NSEEL_addfunc_exparms("strcpy_from",3,NSEEL_PProc_THIS,&_eel_strcpysubstr); // alias
+  NSEEL_addfunc_exparms("strcpy_substr",3,NSEEL_PProc_THIS,&_eel_strcpysubstr); // only allow 3 or 4 parms
+  NSEEL_addfunc_exparms("strcpy_substr",4,NSEEL_PProc_THIS,&_eel_strcpysubstr);
   
-  NSEEL_addfunctionex("str_getchar",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strgetchar);
-  NSEEL_addfunctionex("str_setchar",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strsetchar);
-  NSEEL_addfunc_exparms("str_getchar",3,NSEEL_PProc_THIS,(void *)&_eel_strgetchar2);
-  NSEEL_addfunc_exparms("str_setchar",4,NSEEL_PProc_THIS,(void *)&_eel_strsetchar2);
+  NSEEL_addfunc_retval("str_getchar",2,NSEEL_PProc_THIS,&_eel_strgetchar);
+  NSEEL_addfunc_retval("str_setchar",3,NSEEL_PProc_THIS,&_eel_strsetchar);
+  NSEEL_addfunc_exparms("str_getchar",3,NSEEL_PProc_THIS,&_eel_strgetchar2);
+  NSEEL_addfunc_exparms("str_setchar",4,NSEEL_PProc_THIS,&_eel_strsetchar2);
 
-  NSEEL_addfunctionex("str_insert",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strinsert);
-  NSEEL_addfunctionex("str_delsub",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_strdelsub);
+  NSEEL_addfunc_retval("str_insert",3,NSEEL_PProc_THIS,&_eel_strinsert);
+  NSEEL_addfunc_retval("str_delsub",3,NSEEL_PProc_THIS,&_eel_strdelsub);
 
-  NSEEL_addfunc_varparm("sprintf",2,NSEEL_PProc_THIS,(void *)&_eel_sprintf);
-  NSEEL_addfunc_varparm("printf",1,NSEEL_PProc_THIS,(void *)&_eel_printf);
+  NSEEL_addfunc_varparm("sprintf",2,NSEEL_PProc_THIS,&_eel_sprintf);
+  NSEEL_addfunc_varparm("printf",1,NSEEL_PProc_THIS,&_eel_printf);
 
-  NSEEL_addfunc_varparm("match",2,NSEEL_PProc_THIS,(void *)&_eel_match);
-  NSEEL_addfunc_varparm("matchi",2,NSEEL_PProc_THIS,(void *)&_eel_matchi);
+  NSEEL_addfunc_varparm("match",2,NSEEL_PProc_THIS,&_eel_match);
+  NSEEL_addfunc_varparm("matchi",2,NSEEL_PProc_THIS,&_eel_matchi);
 
 }
 void eel_string_initvm(NSEEL_VMCTX vm)
 {
   NSEEL_VM_SetStringFunc(vm, eel_string_context_state::addStringCallback, eel_string_context_state::addNamedStringCallback);
 }
+
+#ifdef EEL_WANT_DOCUMENTATION
+static const char *eel_strings_function_reference =
+#ifdef EEL_STRING_STDOUT_WRITE
+"printf\t\"format\"[, ...]\tOutput formatted string to system-specific destination, see sprintf() for more information\0"
+#endif
+"sprintf\t#dest,\"format\"[, ...]\tFormats a string and stores it in #dest. Format specifiers begin with %, and may include:\3\n"
+  "\4 %% = %\n"
+  "\4 %s = string from parameter\n"
+  "\4 %d = parameter as integer\n"
+  "\4 %i = parameter as integer\n"
+  "\4 %u = parameter as unsigned integer\n"
+  "\4 %x = parameter as hex (lowercase) integer\n"
+  "\4 %X = parameter as hex (uppercase) integer\n"
+  "\4 %c = parameter as character\n"
+  "\4 %f = parameter as floating point\n"
+  "\4 %e = parameter as floating point (scientific notation, lowercase)\n"
+  "\4 %E = parameter as floating point (scientific notation, uppercase)\n"
+  "\4 %g = parameter as floating point (shortest representation, lowercase)\n"
+  "\4 %G = parameter as floating point (shortest representation, uppercase)\n"
+  "\2\n"
+  "Many standard C printf() modifiers can be used, including:\3\n"
+  "\4 %.10s = string, but only print up to 10 characters\n"
+  "\4 %-10s = string, left justified to 10 characters\n"
+  "\4 %10s = string, right justified to 10 characters\n"
+  "\4 %+f = floating point, always show sign\n"
+  "\4 %.4f = floating point, minimum of 4 digits after decimal point\n"
+  "\4 %10d = integer, minimum of 10 digits (space padded)\n"
+  "\4 %010f = integer, minimum of 10 digits (zero padded)\n"
+  "\2\n"
+  "Values for format specifiers can be specified as additional parameters to sprintf, or within {} in the format specifier (such as %{varname}d, in that case a global variable is always used).\0"
+
+  "matchi\t\"needle\",\"haystack\"[, ...]\tCase-insensitive version of match().\0"
+  "match\t\"needle\",\"haystack\"[, ...]\tSearches for the first parameter in the second parameter, using a simplified regular expression syntax.\3\n"
+    "\4* = match 0 or more characters\n"
+    "\4*? = match 0 or more characters, lazy\n"
+    "\4+ = match 1 or more characters\n"
+    "\4+? = match 1 or more characters, lazy\n"
+    "\4? = match one character\n"
+    "\2\n"
+    "You can also use format specifiers to match certain types of data, and optionally put that into a variable:\3\n"
+    "\4%s means 1 or more chars\n"
+    "\4%0s means 0 or more chars\n"
+    "\4%5s means exactly 5 chars\n"
+    "\4%5-s means 5 or more chars\n"
+    "\4%-10s means 1-10 chars\n"
+    "\4%3-5s means 3-5 chars\n"
+    "\4%0-5s means 0-5 chars\n"
+    "\4%x, %d, %u, and %f are available for use similarly\n"
+    "\4%c can be used, but can't take any length modifiers\n"
+    "\4Use uppercase (%S, %D, etc) for lazy matching\n"
+    "\2\n"
+    "See also sprintf() for other notes, including specifying direct variable references via {}.\0"
+
+  "strlen\t\"str\"\tReturns the length of the string passed as a parameter\0"
+  "strcpy\t#str,\"srcstr\"\tCopies the contents of srcstr to #str, and returns #str\0"
+  "strcat\t#str,\"srcstr\"\tAppends srcstr to #str, and returns #str\0"
+  "strcmp\t\"str\",\"str2\"\tCompares strings, returning 0 if equal\0"
+  "stricmp\t\"str\",\"str2\"\tCompares strings ignoring case, returning 0 if equal\0"
+  "strncmp\t\"str\",\"str2\",maxlen\tCompares strings giving up after maxlen characters, returning 0 if equal\0"
+  "strnicmp\t\"str\",\"str2\",maxlen\tCompares strings giving up after maxlen characters, ignoring case, returning 0 if equal\0"
+  "strncpy\t#str,\"srcstr\",maxlen\tCopies srcstr to #str, stopping after maxlen characters. Returns #str.\0"
+  "strncat\t#str,\"srcstr\",maxlen\tAppends srcstr to #str, stopping after maxlen characters of srcstr. Returns #str.\0"
+  "strcpy_from\t#str,\"srcstr\",offset\tCopies srcstr to #str, but starts reading srcstr at offset offset\0"
+  "strcpy_substr\t#str,\"srcstr\",offs,ml)\tPHP-style (start at offs, offs<0 means from end, ml for maxlen, ml<0 = reduce length by this amt)\0"
+  "str_getchar\t\"str\",offset[,type]\tReturns the data at byte-offset offset of str. If offset is negative, position is relative to end of string."
+    "type defaults to signed char, but can be specified to read raw binary data in other formats (note the single quotes, these are single/multi-byte characters):\3\n"
+    "\4'c' - signed char\n"
+    "\4'cu' - unsigned char\n"
+    "\4's' - signed short\n"
+    "\4'S' - signed short, big endian\n"
+    "\4'su' - unsigned short\n"
+    "\4'Su' - unsigned short, big endian\n"
+    "\4'i' - signed int\n"
+    "\4'I' - signed int, big endian\n"
+    "\4'iu' - unsigned int\n"
+    "\4'Iu' - unsigned int, big endian\n"
+    "\4'f' - float\n"
+    "\4'F' - float, big endian\n"
+    "\4'd' - double\n"
+    "\4'D' - double, big endian\n"
+    "\2\0"
+  "str_setchar\t#str,offset,val[,type])\tSets value at offset offset, type optional. offset may be negative to refer to offset relative to end of string, or between 0 and length, inclusive, and if set to length it will lengthen string. See str_getchar() for more information on types.\0"
+   "str_setlen\t#str,len\tSets length of #str (if increasing, will be space-padded), and returns #str.\0"
+   "str_delsub\t#str,pos,len\tDeletes len characters at offset pos from #str, and returns #str.\0"
+   "str_insert\t#str,\"srcstr\",pos\tInserts srcstr into #str at offset pos. Returns #str\0"
+;
+#endif
+
 
 #endif
 

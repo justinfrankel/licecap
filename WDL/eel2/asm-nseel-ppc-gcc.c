@@ -697,6 +697,7 @@ void nseel_asm_if_end(void) {}
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_repeat(void)
 {
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
   __asm__(
     FUNCTION_MARKER
    "fctiwz f1, f1\n"
@@ -735,11 +736,46 @@ void nseel_asm_repeat(void)
     FUNCTION_MARKER
     ::"g" (NSEEL_LOOPFUNC_SUPPORT_MAXLEN)
   );
+#else
+  __asm__(
+    FUNCTION_MARKER
+   "fctiwz f1, f1\n"
+   "stfd f1, -8(r1)\n"
+   "lwz r5, -4(r1)\n" // r5 has count now
+   "cmpwi cr0, r5, 0\n"
+   "ble cr0, 1f\n" // skip the loop
+
+   "stwu r16, -16(r1)\n" // set up the stack for the loop, save r16
+
+"0:\n"
+   "addis r6, 0, 0xdead\n"
+   "ori r6, r6, 0xbeef\n"
+
+   "addi r5, r5, -1\n"
+   "stw r5, 4(r1)\n"
+
+   "mtctr r6\n"
+   "bctrl\n"
+
+   "lwz r16, 0(r1)\n"
+   "lwz r5, 4(r1)\n"
+
+   "cmpwi cr0, r5, 0\n"
+   "bgt cr0, 0b\n"
+
+   "addi r1, r1, 16\n" // restore old stack
+
+   "1:\n"
+    FUNCTION_MARKER
+    ::
+  );
+#endif
 }
 void nseel_asm_repeat_end(void) {}
 
 void nseel_asm_repeatwhile(void)
 {
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
   __asm__(
     FUNCTION_MARKER
    "stwu r16, -16(r1)\n" // save r16 to stack, update stack
@@ -769,6 +805,27 @@ void nseel_asm_repeatwhile(void)
     FUNCTION_MARKER
     ::"g" (NSEEL_LOOPFUNC_SUPPORT_MAXLEN)
   );
+#else
+  __asm__(
+    FUNCTION_MARKER
+   "stwu r16, -16(r1)\n" // save r16 to stack, update stack
+"0:\n"
+     "addis r6, 0, 0xdead\n"
+     "ori r6, r6, 0xbeef\n"
+
+     "mtctr r6\n"
+     "bctrl\n"
+
+     "lwz r16, 0(r1)\n" // restore r16
+
+     "cmpwi cr7, r3, 0\n" // check return value
+     "bne cr7, 0b\n"
+   "addi r1, r1, 16\n" // restore stack
+    FUNCTION_MARKER
+    ::
+  );
+
+#endif
 }
 void nseel_asm_repeatwhile_end(void) {}
 

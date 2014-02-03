@@ -475,7 +475,11 @@ void nseel_asm_sub(void)
     "fsubrp %st(0), %st(1)\n"
 #else
   #ifdef __GNUC__
-    "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+    #ifdef __INTEL_COMPILER
+      "fsub\n"
+    #else
+      "fsubr\n" // gnuc has fsub/fsubr backwards, ack
+    #endif
   #else
     "fsub\n"
   #endif
@@ -585,7 +589,11 @@ void nseel_asm_div(void)
     "fdivrp %st(1)\n"
 #else
   #ifdef __GNUC__
-    "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+    #ifdef __INTEL_COMPILER
+      "fdiv\n" 
+    #else
+      "fdivr\n" // gcc inline asm seems to have fdiv/fdivr backwards
+    #endif
   #else
     "fdiv\n"
   #endif
@@ -604,9 +612,14 @@ void nseel_asm_div_op(void)
     "fdivp %st(1)\n"
 #else
   #ifndef __GNUC__
-    "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+    "fdivr\n"
+  #else
+    #ifdef __INTEL_COMPILER
+      "fdivp %st(1)\n"
+    #else
+      "fdiv\n"
+    #endif
   #endif
-    "fdiv\n"
 #endif
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -639,9 +652,14 @@ void nseel_asm_div_op_fast(void)
     "fdivp %st(1)\n"
 #else
   #ifndef __GNUC__
-    "fxch\n" // gcc inline asm seems to have fdiv/fdivr backwards
+    "fdivr\n"
+  #else 
+    #ifdef __INTEL_COMPILER
+      "fdivp %st(1)\n"
+    #else
+      "fdiv\n"
+    #endif
   #endif
-    "fdiv\n"
 #endif
     "movl %edi, %eax\n"
     "fstp" EEL_F_SUFFIX " (%edi)\n"
@@ -978,87 +996,6 @@ void nseel_asm_bnot(void)
 void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-void nseel_asm_if(void) // not currently used on x86/x86-64
-{
-  __asm__(
-      FUNCTION_MARKER
-#ifdef TARGET_X64
-    "subl $8, %rsp\n"
-    "testl %eax, %eax\n"
-    "jz 0f\n"
-    "movll $0xfefefefe, %rax\n"
-    "call *%eax\n"
-    "jmp 1f\n"
-    "0:\n"
-    "movll $0xfefefefe, %rax\n"
-    "call *%eax\n"
-    "1:\n"
-    "addl $8, %rsp\n"
-#else
-    "subl $12, %esp\n"
-    "testl %eax, %eax\n"
-    "jz 0f\n"
-    "movl $0xfefefefe, %eax\n"
-    "call *%eax\n"
-    "jmp 1f\n"
-    "0:\n"
-    "movl $0xfefefefe, %eax\n"
-    "call *%eax\n"
-    "1:\n"
-    "addl $12, %esp\n"
-#endif
-    FUNCTION_MARKER
-
-  );
-}
-void nseel_asm_if_end(void) {}
-
-//---------------------------------------------------------------------------------------------------------------
-void nseel_asm_repeat(void)
-{
-  __asm__(
-      FUNCTION_MARKER
-#ifdef TARGET_X64
-    "fistpll (%rsi)\n"
-    "movll (%rsi), %rcx\n"
-#else
-    "fistpl (%esi)\n"
-    "movl (%esi), %ecx\n"
-#endif 
-    "cmpl $1, %ecx\n"
-    "jl 1f\n"
-    "cmpl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"
-    "jl 0f\n"
-    "movl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"
-"0:\n"
-      "movl $0xfefefefe, %edx\n"
-#ifdef TARGET_X64
-      "subl $8, %esp\n" /* keep stack aligned to 16 byte */
-#else
-      "subl $4, %esp\n" /* keep stack aligned to 16 byte */
-#endif
-      "pushl %esi\n" // revert back to last temp workspace
-      "pushl %ecx\n"
-      
-      "call *%edx\n"
-
-      "popl %ecx\n"
-      "popl %esi\n"
-#ifdef TARGET_X64
-      "addl $8, %esp\n" /* keep stack aligned to 16 byte */
-#else
-      "addl $4, %esp\n" /* keep stack aligned to 16 byte */
-#endif
-    "decl %ecx\n"
-    "jnz 0b\n"
-"1:\n"
-    FUNCTION_MARKER
-
-  );
-}
-void nseel_asm_repeat_end(void) {}
-
-//---------------------------------------------------------------------------------------------------------------
 void nseel_asm_fcall(void)
 {
   __asm__(
@@ -1077,40 +1014,6 @@ void nseel_asm_fcall(void)
   );
 }
 void nseel_asm_fcall_end(void) {}
-
-void nseel_asm_repeatwhile(void)
-{
-  __asm__(
-      FUNCTION_MARKER
-    "movl $" NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR ", %ecx\n"
-"0:\n"
-      "movl $0xfefefefe, %edx\n"
-
-#ifdef TARGET_X64
-      "subl $8, %esp\n" /* keep stack aligned -- required on x86 and x64*/ 
-#else
-      "subl $4, %esp\n" /* keep stack aligned -- required on x86 and x64*/ 
-#endif
-      "pushl %esi\n" // revert back to last temp workspace
-      "pushl %ecx\n"
-      "call *%edx\n"
-      "popl %ecx\n"
-      "popl %esi\n"
-#ifdef TARGET_X64
-      "addl $8, %esp\n" /* keep stack aligned -- required on x86 and x64 */ 
-#else
-      "addl $4, %esp\n" /* keep stack aligned -- required on x86 and x64 */ 
-#endif
-	  "testl %eax, %eax\n"
-	  "jz 0f\n"
-    "decl %ecx\n"
-    "jnz 0b\n"
-	"0:\n"
-      FUNCTION_MARKER
-  );
-}
-void nseel_asm_repeatwhile_end(void) {}
-
 
 void nseel_asm_band(void)
 {

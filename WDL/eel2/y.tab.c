@@ -508,14 +508,14 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,    40,    40,    41,    48,    49,    57,    63,    67,    79,
-      89,    99,   110,   122,   126,   133,   134,   135,   139,   144,
-     145,   149,   153,   157,   161,   165,   169,   173,   177,   181,
-     185,   189,   196,   197,   201,   205,   212,   213,   220,   221,
-     225,   229,   236,   237,   245,   246,   254,   255,   262,   263,
-     270,   271,   275,   279,   286,   287,   291,   295,   299,   303,
-     307,   311,   315,   322,   323,   327,   334,   335,   339,   343,
-     351,   352,   356,   364
+       0,    40,    40,    41,    48,    49,    57,    67,    71,    83,
+      93,   103,   114,   126,   130,   137,   138,   139,   143,   148,
+     149,   153,   157,   161,   165,   169,   173,   177,   181,   185,
+     189,   193,   200,   201,   205,   209,   216,   217,   224,   225,
+     229,   233,   240,   241,   249,   250,   258,   259,   266,   267,
+     274,   275,   279,   283,   290,   291,   295,   299,   303,   307,
+     311,   315,   319,   326,   327,   331,   338,   339,   343,   347,
+     355,   356,   360,   368
 };
 #endif
 
@@ -1558,19 +1558,23 @@ yyreduce:
   case 6:
 #line 58 "eel2.y"
     {
-          (yyval) = nseel_resolve_named_symbol(context, (yyvsp[(1) - (1)]), -1, NULL); /* convert from purely named to namespace-relative, etc */
+          if (!((yyval) = nseel_resolve_named_symbol(context, (yyvsp[(1) - (1)]), -1, NULL))) /* convert from purely named to namespace-relative, etc */
+          {
+            yyerror(&yyloc, context, ""); 
+            YYERROR;
+          }
         }
     break;
 
   case 7:
-#line 64 "eel2.y"
+#line 68 "eel2.y"
     {
 	  (yyval) = (yyvsp[(2) - (3)]);
 	}
     break;
 
   case 8:
-#line 68 "eel2.y"
+#line 72 "eel2.y"
     {
           int err;
   	  if (!((yyval) = nseel_setCompiledFunctionCallParameters(context,(yyvsp[(1) - (7)]), (yyvsp[(3) - (7)]), 0, 0, (yyvsp[(6) - (7)]), &err))) 
@@ -1585,7 +1589,7 @@ yyreduce:
     break;
 
   case 9:
-#line 80 "eel2.y"
+#line 84 "eel2.y"
     {
           int err;
   	  if (!((yyval) = nseel_setCompiledFunctionCallParameters(context,(yyvsp[(1) - (4)]), (yyvsp[(3) - (4)]), 0, 0, 0, &err))) 
@@ -1598,7 +1602,7 @@ yyreduce:
     break;
 
   case 10:
-#line 90 "eel2.y"
+#line 94 "eel2.y"
     {
           int err;
   	  if (!((yyval) = nseel_setCompiledFunctionCallParameters(context,(yyvsp[(1) - (3)]), nseel_createCompiledValue(context,0.0), 0, 0, 0,&err))) 
@@ -1611,7 +1615,7 @@ yyreduce:
     break;
 
   case 11:
-#line 100 "eel2.y"
+#line 104 "eel2.y"
     {
           int err;
   	  if (!((yyval) = nseel_setCompiledFunctionCallParameters(context,(yyvsp[(1) - (6)]), (yyvsp[(3) - (6)]), (yyvsp[(5) - (6)]), 0, 0,&err))) 
@@ -1625,7 +1629,7 @@ yyreduce:
     break;
 
   case 12:
-#line 111 "eel2.y"
+#line 115 "eel2.y"
     {
           int err;
   	  if (!((yyval) = nseel_setCompiledFunctionCallParameters(context,(yyvsp[(1) - (8)]), (yyvsp[(3) - (8)]), (yyvsp[(5) - (8)]), (yyvsp[(7) - (8)]), 0, &err))) 
@@ -1640,315 +1644,315 @@ yyreduce:
     break;
 
   case 13:
-#line 123 "eel2.y"
+#line 127 "eel2.y"
     {
 	  (yyval) = nseel_createMemoryAccess(context,(yyvsp[(1) - (3)]),0);
         }
     break;
 
   case 14:
-#line 127 "eel2.y"
+#line 131 "eel2.y"
     {
 	  (yyval) = nseel_createMemoryAccess(context,(yyvsp[(1) - (4)]),(yyvsp[(3) - (4)]));
         }
     break;
 
   case 17:
-#line 136 "eel2.y"
+#line 140 "eel2.y"
     {
           (yyval) = nseel_eelMakeOpcodeFromStringSegments(context,(struct eelStringSegmentRec *)(yyvsp[(1) - (1)]));
         }
     break;
 
   case 20:
-#line 146 "eel2.y"
+#line 150 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_ASSIGN,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 21:
-#line 150 "eel2.y"
+#line 154 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_ADD_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 22:
-#line 154 "eel2.y"
+#line 158 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_SUB_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 23:
-#line 158 "eel2.y"
+#line 162 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_MOD_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 24:
-#line 162 "eel2.y"
+#line 166 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_OR_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 25:
-#line 166 "eel2.y"
+#line 170 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_AND_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 26:
-#line 170 "eel2.y"
+#line 174 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_XOR_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 27:
-#line 174 "eel2.y"
+#line 178 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_DIV_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 28:
-#line 178 "eel2.y"
+#line 182 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_MUL_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 29:
-#line 182 "eel2.y"
+#line 186 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_POW_OP,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 30:
-#line 186 "eel2.y"
+#line 190 "eel2.y"
     {
           (yyval) = nseel_createFunctionByName(context,"strcpy",2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]),NULL); 
         }
     break;
 
   case 31:
-#line 190 "eel2.y"
+#line 194 "eel2.y"
     {
           (yyval) = nseel_createFunctionByName(context,"strcat",2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]),NULL); 
         }
     break;
 
   case 33:
-#line 198 "eel2.y"
+#line 202 "eel2.y"
     {
 	  (yyval) = (yyvsp[(2) - (2)]);
 	}
     break;
 
   case 34:
-#line 202 "eel2.y"
+#line 206 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_UMINUS,1,(yyvsp[(2) - (2)]),0);
 	}
     break;
 
   case 35:
-#line 206 "eel2.y"
+#line 210 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_NOT,1,(yyvsp[(2) - (2)]),0);
 	}
     break;
 
   case 37:
-#line 214 "eel2.y"
+#line 218 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_POW,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 39:
-#line 222 "eel2.y"
+#line 226 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_MOD,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 40:
-#line 226 "eel2.y"
+#line 230 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_SHL,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 41:
-#line 230 "eel2.y"
+#line 234 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_SHR,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 43:
-#line 238 "eel2.y"
+#line 242 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_DIVIDE,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 45:
-#line 247 "eel2.y"
+#line 251 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_MULTIPLY,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 47:
-#line 256 "eel2.y"
+#line 260 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_SUB,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 49:
-#line 264 "eel2.y"
+#line 268 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_ADD,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 51:
-#line 272 "eel2.y"
+#line 276 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_AND,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 52:
-#line 276 "eel2.y"
+#line 280 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_OR,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 53:
-#line 280 "eel2.y"
+#line 284 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_XOR,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 55:
-#line 288 "eel2.y"
+#line 292 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_LT,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 56:
-#line 292 "eel2.y"
+#line 296 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_GT,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 57:
-#line 296 "eel2.y"
+#line 300 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_LTE,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 58:
-#line 300 "eel2.y"
+#line 304 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_GTE,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 59:
-#line 304 "eel2.y"
+#line 308 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_EQ,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 60:
-#line 308 "eel2.y"
+#line 312 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_EQ_EXACT,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 61:
-#line 312 "eel2.y"
+#line 316 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_NE,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 62:
-#line 316 "eel2.y"
+#line 320 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_NE_EXACT,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 64:
-#line 324 "eel2.y"
+#line 328 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_LOGICAL_AND,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 65:
-#line 328 "eel2.y"
+#line 332 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_LOGICAL_OR,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
         }
     break;
 
   case 67:
-#line 336 "eel2.y"
+#line 340 "eel2.y"
     {
 	  (yyval) = nseel_createIfElse(context, (yyvsp[(1) - (5)]), (yyvsp[(3) - (5)]), (yyvsp[(5) - (5)]));
         }
     break;
 
   case 68:
-#line 340 "eel2.y"
+#line 344 "eel2.y"
     {
 	  (yyval) = nseel_createIfElse(context, (yyvsp[(1) - (4)]), 0, (yyvsp[(4) - (4)]));
         }
     break;
 
   case 69:
-#line 344 "eel2.y"
+#line 348 "eel2.y"
     {
 	  (yyval) = nseel_createIfElse(context, (yyvsp[(1) - (3)]), (yyvsp[(3) - (3)]), 0);
         }
     break;
 
   case 71:
-#line 353 "eel2.y"
+#line 357 "eel2.y"
     {
 	  (yyval) = nseel_createSimpleCompiledFunction(context,FN_JOIN_STATEMENTS,2,(yyvsp[(1) - (3)]),(yyvsp[(3) - (3)]));
 	}
     break;
 
   case 72:
-#line 357 "eel2.y"
+#line 361 "eel2.y"
     {
 	  (yyval) = (yyvsp[(1) - (2)]);
 	}
     break;
 
   case 73:
-#line 365 "eel2.y"
+#line 369 "eel2.y"
     { 
                 int a = (yylsp[(1) - (1)]).first_line;
                 context->result = (yyvsp[(1) - (1)]);
@@ -1957,7 +1961,7 @@ yyreduce:
 
 
 /* Line 1267 of yacc.c.  */
-#line 1961 "y.tab.c"
+#line 1965 "y.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -2177,6 +2181,6 @@ yyreturn:
 }
 
 
-#line 372 "eel2.y"
+#line 376 "eel2.y"
 
 

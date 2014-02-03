@@ -770,7 +770,16 @@ static EEL_F * NSEEL_CGEN_CALL  megabuf_imdct(EEL_F **blocks, EEL_F *start, EEL_
 
 void EEL_mdct_register()
 {
-  NSEEL_addfunctionex("mdct", 2, (char *)_asm_generic2parm, (char *)_asm_generic2parm_end - (char *)_asm_generic2parm, NSEEL_PProc_RAM, (void*)megabuf_mdct);
-  NSEEL_addfunctionex("imdct", 2, (char *)_asm_generic2parm, (char *)_asm_generic2parm_end - (char *)_asm_generic2parm, NSEEL_PProc_RAM, (void*)megabuf_imdct);
+  NSEEL_addfunc_retptr("mdct", 2, NSEEL_PProc_RAM, &megabuf_mdct);
+  NSEEL_addfunc_retptr("imdct", 2, NSEEL_PProc_RAM, &megabuf_imdct);
 }
+
+#ifdef EEL_WANT_DOCUMENTATION
+static const char *eel_mdct_function_reference =
+"mdct\tbuffer,length\tPerforms a windowed modified DCT, taking length inputs and producing length/2 outputs. buffer must not cross a 65,536 item boundary, and length must be 64, 128, 256, 512, 2048 or 4096.\0"
+"imdct\tbuffer,length\tPerforms a windowed inverse modified DCT, taking length/2 inputs and producing length outputs. buffer must not cross a 65,536 item boundary, and length must be 64, 128, 256, 512, 2048 or 4096.\0"
+;
+#endif
+
+
 #endif

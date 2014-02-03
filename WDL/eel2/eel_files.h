@@ -11,7 +11,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fopen(void *opaque, EEL_F *fn_index, EEL_F *mo
   EEL_STRING_MUTEXLOCK_SCOPE
   const char *fn = EEL_STRING_GET_FOR_INDEX(*fn_index,NULL);
   const char *mode = EEL_STRING_GET_FOR_INDEX(*mode_index,NULL);
-  if (!fn || !mode) return -1;
+  if (!fn || !mode) return 0;
   return (EEL_F) EEL_FILE_OPEN(fn,mode);
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fclose(void *opaque, EEL_F *fpp) { return EEL_FILE_CLOSE((int)*fpp); }
@@ -130,8 +130,15 @@ static EEL_F NSEEL_CGEN_CALL _eel_fwrite(void *opaque, EEL_F *fpp, EEL_F *strOut
 #endif
     return -1.0;
   }
-  if (use_len < 1 && wr) use_len = wr->GetLength();
-  if (wr && use_len > wr->GetLength()) use_len = wr->GetLength();
+  if (!wr)
+  {
+    const int ssl = (int)strlen(str);
+    if (use_len < 1 || use_len > ssl) use_len = ssl;
+  }
+  else 
+  {
+    if (use_len < 1 || use_len > wr->GetLength()) use_len = wr->GetLength();
+  }
 
   if (use_len < 1) return 0.0;
 
@@ -179,20 +186,37 @@ static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, INT_PTR nparam, EEL_F **
 
 void EEL_file_register()
 {
-  NSEEL_addfunctionex("fopen",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fopen);
+  NSEEL_addfunc_retval("fopen",2,NSEEL_PProc_THIS,&_eel_fopen);
 
-  NSEEL_addfunctionex("fread",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fread);
-  NSEEL_addfunctionex("fgets",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fgets);
-  NSEEL_addfunctionex("fgetc",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fgetc);
+  NSEEL_addfunc_retval("fread",3,NSEEL_PProc_THIS,&_eel_fread);
+  NSEEL_addfunc_retval("fgets",2,NSEEL_PProc_THIS,&_eel_fgets);
+  NSEEL_addfunc_retval("fgetc",1,NSEEL_PProc_THIS,&_eel_fgetc);
 
-  NSEEL_addfunctionex("fwrite",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fwrite);
-  NSEEL_addfunc_varparm("fprintf",2,NSEEL_PProc_THIS,(void *)&_eel_fprintf);
+  NSEEL_addfunc_retval("fwrite",3,NSEEL_PProc_THIS,&_eel_fwrite);
+  NSEEL_addfunc_varparm("fprintf",2,NSEEL_PProc_THIS,&_eel_fprintf);
 
-  NSEEL_addfunctionex("fseek",3,(char *)_asm_generic3parm_retd,(char *)_asm_generic3parm_retd_end-(char *)_asm_generic3parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fseek);
-  NSEEL_addfunctionex("ftell",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_ftell);
-  NSEEL_addfunctionex("feof",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_feof);
-  NSEEL_addfunctionex("fflush",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fflush);
-  NSEEL_addfunctionex("fclose",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_fclose);
+  NSEEL_addfunc_retval("fseek",3,NSEEL_PProc_THIS,&_eel_fseek);
+  NSEEL_addfunc_retval("ftell",1,NSEEL_PProc_THIS,&_eel_ftell);
+  NSEEL_addfunc_retval("feof",1,NSEEL_PProc_THIS,&_eel_feof);
+  NSEEL_addfunc_retval("fflush",1,NSEEL_PProc_THIS,&_eel_fflush);
+  NSEEL_addfunc_retval("fclose",1,NSEEL_PProc_THIS,&_eel_fclose);
 }
+
+#ifdef EEL_WANT_DOCUMENTATION
+static const char *eel_file_function_reference =
+"fopen\t\"fn\",\"mode\"\tOpens a file \"fn\" with mode \"mode\". For read, use \"r\" or \"rb\", write \"w\" or \"wb\". Returns a positive integer on success.\0"
+"fclose\tfp\tCloses a file previously opened with fopen().\0"
+"fread\tfp,#str,length\tReads from file fp into #str, up to length bytes. Returns actual length read, or negative if error.\0"
+"fgets\tfp,#str\tReads a line from file fp into #str. Returns length of #str read.\0"
+"fgetc\tfp\tReads a character from file fp, returns -1 if EOF.\0"
+"fwrite\tfp,#str,len\tWrites up to len characters of #str to file fp. If len is less than 1, the full contents of #str will be written. Returns the number of bytes written to file.\0"
+"fprintf\tfp,\"format\"[,...]\tFormats a string and writes it to file fp. For more information on format specifiers, see sprintf(). Returns bytes written to file.\0"
+"fseek\tfp,offset,whence\tSeeks file fp, offset bytes from whence reference. Whence negative specifies start of file, positive whence specifies end of file, and zero whence specifies current file position.\0"
+"ftell\tfp\tRetunrs the current file position.\0"
+"feof\tfp\tReturns nonzero if the file fp is at the end of file.\0"
+"fflush\tfp\tIf file fp is open for writing, flushes out any buffered data to disk.\0"
+;
+#endif
+
 
 #endif

@@ -68,10 +68,17 @@ class eel_net_state
     int __run(connection_state *cs);
     int do_send(EEL_F h, const char *src, int len);
     int do_recv(EEL_F h, char *buf, int maxlen);
+  #ifdef _WIN32
+    bool m_had_socketlib_init;
+  #endif
 };
 
 eel_net_state::eel_net_state(int max_con, JNL_IAsyncDNS *dns)
 {
+  #ifdef _WIN32
+    m_had_socketlib_init=false;
+  #endif
+
   m_cons.Resize(max_con);
   int x;
   for (x=0;x<m_cons.GetSize();x++)
@@ -105,6 +112,14 @@ eel_net_state::~eel_net_state()
 EEL_F eel_net_state::onConnect(char *hostNameOwned, int port, int block)
 {
   int x;
+#ifdef _WIN32
+  if (!m_had_socketlib_init)
+  {
+    m_had_socketlib_init=1;
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(1, 1), &wsaData);
+  }
+#endif
   for(x=0;x<m_cons.GetSize();x++)
   {
     connection_state *s=m_cons.Get()+x;
@@ -153,6 +168,14 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
 {
   const int port = (int) handle;
   if (port < 1 || port > 65535) return 0.0;
+#ifdef _WIN32
+  if (!m_had_socketlib_init)
+  {
+    m_had_socketlib_init=1;
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(1, 1), &wsaData);
+  }
+#endif
   SOCKET *s = m_listens.GetPtr(port);
   if (mode<0)
   {
@@ -442,27 +465,30 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_listen_end(void *opaque, EEL_F *handle)
   return 0;
 }
 
-void EEL_tcp_initsocketlib() // call per thread
-{
-#ifdef _WIN32
-  WSADATA wsaData;
-  WSAStartup(MAKEWORD(1, 1), &wsaData);
-#endif
-}
 
 void EEL_tcp_register()
 {
-  NSEEL_addfunc_varparm("tcp_listen",1,NSEEL_PProc_THIS,(void *)&_eel_tcp_listen);
-  NSEEL_addfunctionex("tcp_listen_end",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_tcp_listen_end);
+  NSEEL_addfunc_varparm("tcp_listen",1,NSEEL_PProc_THIS,&_eel_tcp_listen);
+  NSEEL_addfunc_retval("tcp_listen_end",1,NSEEL_PProc_THIS,&_eel_tcp_listen_end);
 
-  NSEEL_addfunc_varparm("tcp_connect",2,NSEEL_PProc_THIS,(void *)&_eel_tcp_connect);
-  NSEEL_addfunc_varparm("tcp_send",2,NSEEL_PProc_THIS,(void *)&_eel_tcp_send);
-  NSEEL_addfunc_varparm("tcp_recv",2,NSEEL_PProc_THIS,(void *)&_eel_tcp_recv);
+  NSEEL_addfunc_varparm("tcp_connect",2,NSEEL_PProc_THIS,&_eel_tcp_connect);
+  NSEEL_addfunc_varparm("tcp_send",2,NSEEL_PProc_THIS,&_eel_tcp_send);
+  NSEEL_addfunc_varparm("tcp_recv",2,NSEEL_PProc_THIS,&_eel_tcp_recv);
 
-  NSEEL_addfunctionex("tcp_set_block",2,(char *)_asm_generic2parm_retd,(char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd,NSEEL_PProc_THIS,(void *)&_eel_tcp_set_block);
-  NSEEL_addfunctionex("tcp_close",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_tcp_close);
-
-
+  NSEEL_addfunc_retval("tcp_set_block",2,NSEEL_PProc_THIS,&_eel_tcp_set_block);
+  NSEEL_addfunc_retval("tcp_close",1,NSEEL_PProc_THIS,&_eel_tcp_close);
 }
+
+#ifdef EEL_WANT_DOCUMENTATION
+const char *eel_net_function_reference = 
+  "tcp_listen\tport[,\"interface\",#ip_out]\tListens on port specified. Returns less than 0 if could not listen, 0 if no new connection available, or greater than 0 (as a TCP connection ID) if a new connection was made. If a connection made and #ip_out specified, it will be set to the remote IP. interface can be empty for all interfaces, otherwise an interface IP as a string.\0"
+  "tcp_listen_end\tport\tEnds listening on port specified.\0"
+  "tcp_connect\t\"address\",port[,block]\tCreate a new TCP connection to address:port. If block is specified and 0, connection will be made nonblocking. Returns TCP connection ID greater than 0 on success.\0"
+  "tcp_send\tconnection,\"str\"[,len]\tSends a string to connection. Returns -1 on error, 0 if connection is non-blocking and would block, otherwise returns length sent. If len is specified and not less than 1, only the first len bytes of the string parameter will be sent.\0"
+  "tcp_recv\tconnection,#str[,maxlen]\tReceives data from a connection to #str. If maxlen is specified, no more than maxlen bytes will be received. If non-blocking, 0 will be returned if would block. Returns less than 0 if error.\0"
+  "tcp_set_block\tconnection,block\tSets whether a connection blocks.\0"
+  "tcp_close\tconnection\tCloses a TCP connection created by tcp_listen() or tcp_connect().\0"
+;
+#endif
 
 #endif

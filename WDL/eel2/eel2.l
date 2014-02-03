@@ -34,7 +34,7 @@
 
 int nseel_gets(compileContext *ctx, char *buf, size_t sz);
 
-#define PARSENUM *yylval = nseel_translate(yyextra,yytext, -1); return VALUE;
+#define PARSENUM *yylval = nseel_translate(yyextra,yytext, 0); return VALUE;
 #define EEL_ACTION(x) return x;
 
 #ifdef stdin
@@ -69,7 +69,7 @@ static void comment(yyscan_t yyscanner);
 \$[Pp][Ii]                    PARSENUM;
 \$[Pp][Hh][Ii]                PARSENUM;
 \$\'.\'                       PARSENUM;
-\#[a-zA-Z0-9\._]*             *yylval = nseel_translate(yyextra,yytext, -1); return STRING_IDENTIFIER;
+\#[a-zA-Z0-9\._]*             *yylval = nseel_translate(yyextra,yytext, 0); return STRING_IDENTIFIER;
 \<\<                          return TOKEN_SHL;
 \>\>                          return TOKEN_SHR;
 \<=                          return TOKEN_LTE;

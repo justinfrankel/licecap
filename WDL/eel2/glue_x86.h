@@ -310,11 +310,22 @@ static const unsigned char GLUE_LOOP_LOADCNT[]={
         0x81, 0xf9, 1,0,0,0,  // cmp ecx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
 };
+
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
+#define GLUE_LOOP_CLAMPCNT_SIZE sizeof(GLUE_LOOP_CLAMPCNT)
 static const unsigned char GLUE_LOOP_CLAMPCNT[]={
         0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
         0x0F, 0x8C, 5,0,0,0,  // JL over-the-mov
         0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
 };
+#else
+
+#define GLUE_LOOP_CLAMPCNT_SIZE 0
+#define GLUE_LOOP_CLAMPCNT NULL
+
+#endif
+
+#define GLUE_LOOP_BEGIN_SIZE sizeof(GLUE_LOOP_BEGIN)
 static const unsigned char GLUE_LOOP_BEGIN[]={ 
   0x56, //push esi
   0x51, // push ecx
@@ -329,6 +340,8 @@ static const unsigned char GLUE_LOOP_END[]={
 };
 
 
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
+#define GLUE_WHILE_SETUP_SIZE sizeof(GLUE_WHILE_SETUP)
 static const unsigned char GLUE_WHILE_SETUP[]={
         0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // mov ecx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
 };
@@ -346,6 +359,24 @@ static const unsigned char GLUE_WHILE_END[]={
   0x49, // dec ecx
   0x0f, 0x84, 0,0,0,0,  // jz endpt
 };
+
+
+#else
+
+#define GLUE_WHILE_SETUP_SIZE  0
+#define GLUE_WHILE_SETUP NULL
+#define GLUE_WHILE_END_NOJUMP
+static const unsigned char GLUE_WHILE_BEGIN[]={ 
+  0x56, //push esi
+  0x81, 0xEC, 12, 0,0,0, // sub esp, 12
+};
+static const unsigned char GLUE_WHILE_END[]={ 
+  0x81, 0xC4, 12, 0,0,0, // add esp, 12
+  0x5E, // pop esi
+};
+
+#endif
+
 static const unsigned char GLUE_WHILE_CHECK_RV[] = {
   0x85, 0xC0, // test eax, eax
   0x0F, 0x85, 0,0,0,0 // jnz  looppt

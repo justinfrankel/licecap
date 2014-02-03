@@ -82,6 +82,9 @@ enum {
   FN_MUL_OP,
   FN_POW_OP,
 
+  FN_WHILE,
+  FN_LOOP,
+
   FUNCTYPE_SIMPLEMAX,
 
 
@@ -158,6 +161,8 @@ typedef struct {
 
 typedef struct _compileContext
 {
+  eel_function_table *registered_func_tab;
+
   EEL_F **varTable_Values;
   char   ***varTable_Names;
   int varTable_numBlocks;
@@ -188,10 +193,12 @@ typedef struct _compileContext
   int isSharedFunctions;
   int isGeneratingCommonFunction;
   int function_usesNamespaces;
+  int function_globalFlag; // set if restrict globals to function_localTable_Names[2]
   // [0] is parameter+local symbols (combined space)
   // [1] is symbols which get implied "this." if used
-  int function_localTable_Size[2]; // for parameters only
-  char **function_localTable_Names[2]; // lists of pointers
+  // [2] is globals permitted
+  int function_localTable_Size[3]; // for parameters only
+  char **function_localTable_Names[3]; // lists of pointers
   EEL_F **function_localTable_ValuePtrs;
   const char *function_curName; // name of current function
 
@@ -221,7 +228,7 @@ compileContext;
 #define NSEEL_VARS_PER_BLOCK 64
 
 #define NSEEL_NPARAMS_FLAG_CONST 0x80000
-typedef struct {
+typedef struct functionType {
       const char *name;
       void *afunc;
       void *func_e;
@@ -237,7 +244,8 @@ typedef struct
   char isreg;
 } varNameHdr;
 
-extern functionType *nseel_getFunctionFromTable(int idx);
+functionType *nseel_getFunctionFromTable(int idx);
+functionType *nseel_getFunctionFromTableEx(compileContext *ctx, int idx);
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr);
@@ -283,9 +291,9 @@ extern nseel_globalVarItem *nseel_globalreg_list; // if NSEEL_EEL1_COMPAT_MODE, 
 
 // nseel_simple_tokenizer will return comments as tokens if state is non-NULL
 const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *lenOut, int *state);
-int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, int rdptr_size, char delim_char); // returns length used, minus NUL char
+int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, size_t rdptr_size, char delim_char); // returns length used, minus NUL char
 
-opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen); // tmplen<0 for nul-term
+opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen); // tmplen=0 for nul-term
 int nseel_lookup(compileContext *ctx, opcodeRec **opOut, const char *sname);
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAlloc(EEL_F **blocks, unsigned int w);

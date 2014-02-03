@@ -54,10 +54,15 @@ enum {
   EEL_BC_SET_P1_Z,
   EEL_BC_SET_P1_NZ,
 
+
   EEL_BC_LOOP_LOADCNT,
   EEL_BC_LOOP_END,
 
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
   EEL_BC_WHILE_SETUP,
+#endif
+
+  EEL_BC_WHILE_BEGIN,
   EEL_BC_WHILE_END,
   EEL_BC_WHILE_CHECK_RV,
 
@@ -162,13 +167,26 @@ BC_DECL(POP_FPSTACK_TO_WTP)
 BC_DECL(SET_P1_Z)
 BC_DECL(SET_P1_NZ)
 BC_DECL_JMP(LOOP_LOADCNT)
-BC_DECL_JMP(LOOP_END)
-static const EEL_BC_TYPE GLUE_LOOP_CLAMPCNT[1]={EEL_BC_NOP};
-static const EEL_BC_TYPE GLUE_LOOP_BEGIN[1]={EEL_BC_NOP};
-static const EEL_BC_TYPE GLUE_WHILE_BEGIN[1]={EEL_BC_NOP};
 
-BC_DECL(WHILE_SETUP)
-BC_DECL_JMP(WHILE_END)
+BC_DECL_JMP(LOOP_END)
+
+#define GLUE_LOOP_BEGIN_SIZE 0
+#define GLUE_LOOP_BEGIN NULL
+#define GLUE_LOOP_CLAMPCNT_SIZE 0
+#define GLUE_LOOP_CLAMPCNT NULL
+
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
+  BC_DECL(WHILE_SETUP)
+  #define GLUE_WHILE_SETUP_SIZE sizeof(GLUE_WHILE_SETUP)
+  BC_DECL_JMP(WHILE_END)
+#else
+  #define GLUE_WHILE_SETUP_SIZE 0
+  #define GLUE_WHILE_SETUP NULL
+  #define GLUE_WHILE_END_NOJUMP
+  BC_DECL(WHILE_END)
+#endif
+
+BC_DECL(WHILE_BEGIN);
 BC_DECL_JMP(WHILE_CHECK_RV)  
 
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE (sizeof(EEL_BC_TYPE) + sizeof(INT_PTR))
@@ -328,11 +346,8 @@ static unsigned char GLUE_POP_STACK_TO_FPSTACK[1] = { 0 }; // todo
 #define EEL_BC_ENDOF(x) (((char*)(x))+sizeof(x))
 #define BC_DECLASM(x,y) static EEL_BC_TYPE nseel_asm_##x[1]={EEL_BC_##y};
 
-BC_DECLASM(if,NOP)
 BC_DECLASM(band,NOP)
 BC_DECLASM(bor,NOP)
-BC_DECLASM(repeat,NOP)
-BC_DECLASM(repeatwhile,NOP)
 
 BC_DECLASM(bnot,BNOT)
 BC_DECLASM(equal,EQUAL)
@@ -423,11 +438,8 @@ BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 
 #define nseel_asm_fcall_end EEL_BC_ENDOF(nseel_asm_fcall)
 
-#define nseel_asm_if_end EEL_BC_ENDOF(nseel_asm_if)
 #define nseel_asm_band_end EEL_BC_ENDOF(nseel_asm_band)
 #define nseel_asm_bor_end EEL_BC_ENDOF(nseel_asm_bor)
-#define nseel_asm_repeat_end EEL_BC_ENDOF(nseel_asm_repeat)
-#define nseel_asm_repeatwhile_end EEL_BC_ENDOF(nseel_asm_repeatwhile)
 #define nseel_asm_bnot_end EEL_BC_ENDOF(nseel_asm_bnot)
 #define nseel_asm_equal_end EEL_BC_ENDOF(nseel_asm_equal)
 #define nseel_asm_equal_exact_end EEL_BC_ENDOF(nseel_asm_equal_exact)
@@ -669,32 +681,40 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
         else
         {
           iptr += sizeof(GLUE_JMP_TYPE);
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
           if ((*(int *)stackptr) > NSEEL_LOOPFUNC_SUPPORT_MAXLEN) (*(int *)stackptr) = NSEEL_LOOPFUNC_SUPPORT_MAXLEN;
+#endif
           EEL_BC_STACK_PUSH(void *, wtp);
         }
       break;
       case EEL_BC_LOOP_END:
+        wtp = *(void **) (stackptr);
         if (--(*(int *)(stackptr+EEL_BC_STACK_POP_SIZE)) <= 0)
         {
-          EEL_BC_STACK_POP();
-          EEL_BC_STACK_POP();
+          stackptr += EEL_BC_STACK_POP_SIZE*2;
           iptr += sizeof(GLUE_JMP_TYPE);
         }
         else
         {
-          wtp = *(void **) (stackptr);
           iptr += sizeof(GLUE_JMP_TYPE)+*(GLUE_JMP_TYPE *)iptr; // back to the start!
         }
       break;
 
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
       case EEL_BC_WHILE_SETUP:
         EEL_BC_STACK_PUSH(int,NSEEL_LOOPFUNC_SUPPORT_MAXLEN);
+      break;
+#endif
+      case EEL_BC_WHILE_BEGIN:
         EEL_BC_STACK_PUSH(void *, wtp);
       break;
       case EEL_BC_WHILE_END:
-        if (--(*(int *)(stackptr+EEL_BC_STACK_POP_SIZE)) <= 0)
+        wtp = *(EEL_F **) stackptr;
+        EEL_BC_STACK_POP();
+
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
+        if (--(*(int *)stackptr) <= 0)
         {
-          EEL_BC_STACK_POP();
           EEL_BC_STACK_POP();
           iptr += sizeof(GLUE_JMP_TYPE)+*(GLUE_JMP_TYPE *)iptr; // endpt
         }
@@ -702,18 +722,19 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
         {
           iptr += sizeof(GLUE_JMP_TYPE);
         }
+#endif
       break;
       case EEL_BC_WHILE_CHECK_RV:
         if (p1)
         {
           iptr += sizeof(GLUE_JMP_TYPE)+*(GLUE_JMP_TYPE *)iptr; // loop
-          wtp = *(void **) stackptr;
         }
         else
         {
           // done
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
           EEL_BC_STACK_POP();
-          EEL_BC_STACK_POP();
+#endif
           iptr += sizeof(GLUE_JMP_TYPE);
         }
       break; 

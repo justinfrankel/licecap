@@ -51,7 +51,7 @@ static const char *nseel_skip_space_and_comments(const char *p, const char *endp
 }
 
 // removes any escaped characters, also will convert pairs delim_char into single delim_chars
-int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, int rdptr_size, char delim_char) 
+int nseel_filter_escaped_string(char *outbuf, int outbuf_sz, const char *rdptr, size_t rdptr_size, char delim_char) 
 {
   int outpos = 0;
   const char *rdptr_end = rdptr + rdptr_size;
@@ -238,7 +238,7 @@ in_string:
     p++;
   }
   *ptr = p;
-  *lenOut = p - rv;
+  *lenOut = (int) (p - rv);
   return p>rv ? rv : NULL;
 }
 
@@ -267,15 +267,15 @@ in_string:
 #ifndef NSEEL_EEL1_COMPAT_MODE
       else if (rv == '#' && scctx->onNamedString)
       {
-        rv=STRING_IDENTIFIER;
         *output = nseel_translate(scctx,tok,rdptr-tok);
+        if (*output) rv=STRING_IDENTIFIER;
       }
       else if (rv == '\'')
       {
         if (toklen > 1 && tok[toklen-1] == '\'')
         {
-          rv = VALUE;
           *output = nseel_translate(scctx, tok, toklen); 
+          if (*output) rv = VALUE;
         }
         else scctx->gotEndOfInput|=8;
       }
@@ -283,8 +283,8 @@ in_string:
       {
         if (toklen > 1 && tok[toklen-1] == '\"')
         {
-          rv = STRING_LITERAL;
           *output = (opcodeRec *)nseel_createStringSegmentRec(scctx,tok,toklen);
+          if (*output) rv = STRING_LITERAL;
         }
         else scctx->gotEndOfInput|=16;
       }
@@ -297,7 +297,7 @@ in_string:
         memcpy(buf,tok,toklen);
         buf[toklen]=0;
         *output = nseel_createCompiledValuePtr(scctx, NULL, buf); 
-        rv = IDENTIFIER; 
+        if (*output) rv = IDENTIFIER; 
       }
       else if ((rv >= '0' && rv <= '9') || (rv == '.' && (rdptr < endptr && rdptr[0] >= '0' && rdptr[0] <= '9')))
       {
@@ -311,8 +311,8 @@ in_string:
           int pcnt=rv == '.';
           while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv == '.' && !pcnt++))) rdptr++;       
         }
-        rv=VALUE;
         *output = nseel_translate(scctx,tok,rdptr-tok);
+        if (*output) rv=VALUE;
       }
       else if (rv == '<')
       {
@@ -390,7 +390,7 @@ in_string:
     }
 
     scctx->rdbuf = rdptr;
-    yylloc_param->first_column = tok - scctx->rdbuf_start;
+    yylloc_param->first_column = (int)(tok - scctx->rdbuf_start);
     return rv;
   }
 

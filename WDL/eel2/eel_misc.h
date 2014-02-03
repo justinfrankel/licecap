@@ -9,6 +9,7 @@
 #endif
 // some generic EEL functions for things like time
 
+#ifndef EEL_MISC_NO_SLEEP
 static EEL_F NSEEL_CGEN_CALL _eel_sleep(void *opaque, EEL_F *amt)
 {
   if (*amt >= 0.0) 
@@ -23,6 +24,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_sleep(void *opaque, EEL_F *amt)
   }
   return 0.0;
 }
+#endif
 
 static EEL_F * NSEEL_CGEN_CALL _eel_time(void *opaque, EEL_F *v)
 {
@@ -49,13 +51,24 @@ static EEL_F * NSEEL_CGEN_CALL _eel_time_precise(void *opaque, EEL_F *v)
 
 void EEL_misc_register()
 {
-  NSEEL_addfunctionex("sleep",1,(char *)_asm_generic1parm_retd,(char *)_asm_generic1parm_retd_end-(char *)_asm_generic1parm_retd,NSEEL_PProc_THIS,(void *)&_eel_sleep);
-  NSEEL_addfunctionex("time",1,(char *)_asm_generic1parm,(char *)_asm_generic1parm_end-(char *)_asm_generic1parm,NSEEL_PProc_THIS,(void *)&_eel_time);
-  NSEEL_addfunctionex("time_precise",1,(char *)_asm_generic1parm,(char *)_asm_generic1parm_end-(char *)_asm_generic1parm,NSEEL_PProc_THIS,(void *)&_eel_time_precise);
-
+#ifndef EEL_MISC_NO_SLEEP
+  NSEEL_addfunc_retval("sleep",1,NSEEL_PProc_THIS,&_eel_sleep);
+#endif
+  NSEEL_addfunc_retptr("time",1,NSEEL_PProc_THIS,&_eel_time);
+  NSEEL_addfunc_retptr("time_precise",1,NSEEL_PProc_THIS,&_eel_time_precise);
 }
 
-
+#ifdef EEL_WANT_DOCUMENTATION
+static const char *eel_misc_function_reference =
+#ifndef EEL_MISC_NO_SLEEP
+  "sleep\tms\tYields the CPU for the millisecond count specified, calling Sleep() on Windows or usleep() on other platforms.\0"
+#endif
+  "time\t[&val]\tSets the parameter (or a temporary buffer if omitted) to the number of seconds since January 1, 1970, and returns a reference to that value. "
+  "The granularity of the value returned is 1 second.\0"
+  "time_precise\t[&val]\tSets the parameter (or a temporary buffer if omitted) to a system-local timestamp in seconds, and returns a reference to that value. "
+  "The granularity of the value returned is system defined (but generally significantly smaller than one second).\0"
+;
+#endif
 
 
 #endif

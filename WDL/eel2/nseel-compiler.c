@@ -228,11 +228,11 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
 
 static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 {
-  const int strszfull = str ? strlen(str) : 0;
-  const int str_sz = min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
+  const size_t strszfull = str ? strlen(str) : 0;
+  const size_t str_sz = min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
 
   opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx,
-                         sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0),
+                         (int) (sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0)),
                          8, ctx->isSharedFunctions ? 0 : -1); 
   if (rec)
   {
@@ -446,11 +446,11 @@ static double eel1sigmoid(double x, double constraint)
 #define BIF_NPARAMS_MASK       0x7ffff00
 #define BIF_RETURNSONSTACK     0x0000100
 #define BIF_LASTPARMONSTACK    0x0000200
-#define BIF_RETURNSBOOL        0x0000400 // this value is used in ns-eel.h in some macros, be sure to update it there if you change it here
+#define BIF_RETURNSBOOL        0x0000400
 #define BIF_LASTPARM_ASBOOL    0x0000800
-//                             0x00?0000 -- taken by FP stack
-#define BIF_TAKES_VARPARM      0x0400000 // also in ns-eel.h
-#define BIF_TAKES_VARPARM_EX   0x0C00000 // also in ns-eel.h -- this is like varparm but check count exactly
+//                             0x00?0000 -- taken by FP stack flags
+#define BIF_TAKES_VARPARM      0x0400000
+#define BIF_TAKES_VARPARM_EX   0x0C00000 // this is like varparm but check count exactly
 #define BIF_WONTMAKEDENORMAL   0x0100000
 #define BIF_CLEARDENORMAL      0x0200000
 
@@ -489,16 +489,10 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f);
   (op->fntype == FN_LOGICAL_AND || \
    op->fntype == FN_LOGICAL_OR ||  \
    op->fntype == FN_IF_ELSE || \
-      (op->fntype == FUNCTYPE_FUNCTIONTYPEREC && (functionType*)op->fn >= fnTable1 && (functionType*)op->fn < fnTable1+FNTABLE_OFFSET_WHILE+1))
-
-#define FNTABLE_OFFSET_LOOP 0
-#define FNTABLE_OFFSET_WHILE 1
+   op->fntype == FN_WHILE || \
+   op->fntype == FN_LOOP)
 
 static functionType fnTable1[] = {
-  { "loop", nseel_asm_repeat,nseel_asm_repeat_end, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
-  { "while", nseel_asm_repeatwhile,nseel_asm_repeatwhile_end, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL },
-
-
 #ifndef GLUE_HAS_NATIVE_TRIGSQRTLOG
    { "sin",   nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL, {&sin} },
    { "cos",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_CLEARDENORMAL, {&cos} },
@@ -557,21 +551,25 @@ static functionType fnTable1[] = {
   {"stack_exch",nseel_asm_stack_exch,nseel_asm_stack_exch_end,1|BIF_FPSTACKUSE(1), {0,},NSEEL_PProc_Stack_PeekTop},
 };
 
-static functionType *fnTableUser;
-static int fnTableUser_size;
+static eel_function_table default_user_funcs;
 
-functionType *nseel_getFunctionFromTable(int idx)
+functionType *nseel_getFunctionFromTableEx(compileContext *ctx, int idx)
 {
+  eel_function_table *tab = ctx && ctx->registered_func_tab ? ctx->registered_func_tab : &default_user_funcs;
+
   if (idx<0) return 0;
   if (idx>=sizeof(fnTable1)/sizeof(fnTable1[0]))
   {
     idx -= sizeof(fnTable1)/sizeof(fnTable1[0]);
-    if (!fnTableUser || idx >= fnTableUser_size) return 0;
-    return fnTableUser+idx;
+    if (!tab->list || idx >= tab->list_size) return 0;
+    return tab->list+idx;
   }
   return fnTable1+idx;
 }
-
+functionType *nseel_getFunctionFromTable(int idx)
+{
+  return nseel_getFunctionFromTableEx(NULL, idx);
+}
 int NSEEL_init() // returns 0 on success
 {
 
@@ -606,13 +604,45 @@ int NSEEL_init() // returns 0 on success
   return 0;
 }
 
-void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, NSEEL_PPPROC pproc, void *fptr, void *fptr2)
+void NSEEL_quit()
 {
-  if (!fnTableUser || !(fnTableUser_size&7))
-  {
-    fnTableUser=(functionType *)realloc(fnTableUser,(fnTableUser_size+8)*sizeof(functionType));
+  free(default_user_funcs.list);
+  default_user_funcs.list = NULL;
+  default_user_funcs.list_size = 0;
+}
+
+void NSEEL_addfunc_varparm_ex(const char *name, int min_np, int want_exact, NSEEL_PPPROC pproc, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination)
+{
+  const int sz = (int) ((char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd);
+  NSEEL_addfunctionex2(name,min_np|(want_exact?BIF_TAKES_VARPARM_EX:BIF_TAKES_VARPARM),(char *)_asm_generic2parm_retd,sz,pproc,fptr,NULL,destination);
+}
+void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPROC pproc, void *fptr, eel_function_table *destination) // ret_type=-1 for bool, 1 for value, 0 for ptr
+{
+  char *stub=NULL;
+  int stubsz=0;
+#define DOSTUB(np) { \
+    stub = (char *)(ret_type == 1 ? &_asm_generic##np##parm_retd : &_asm_generic##np##parm); \
+    stubsz = (int) ((ret_type == 1 ? (char*)&_asm_generic##np##parm_retd_end : (char *)&_asm_generic##np##parm_end) - stub); \
   }
-  if (fnTableUser)
+
+  if (np == 1) DOSTUB(1)
+  else if (np == 2) DOSTUB(2)
+  else if (np == 3) DOSTUB(3)
+#undef DOSTUB
+
+  if (stub) NSEEL_addfunctionex2(name,np|(ret_type == -1 ? BIF_RETURNSBOOL:0), stub, stubsz, pproc,fptr,NULL,destination);
+}
+
+void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, NSEEL_PPPROC pproc, void *fptr, void *fptr2, eel_function_table *destination)
+{
+  functionType *r;
+  if (!destination) destination = &default_user_funcs;
+
+  if (!destination->list || !(destination->list_size & 15))
+  {
+    destination->list = (functionType *)realloc(destination->list, (destination->list_size + 16)*sizeof(functionType));
+  }
+  if (destination->list)
   {
 
 #ifdef EEL_VALIDATE_FSTUBS
@@ -640,7 +670,8 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
     }
 #endif
 
-    memset(&fnTableUser[fnTableUser_size],0,sizeof(functionType));
+    r = &destination->list[destination->list_size++];
+    memset(r, 0, sizeof(functionType));
 
     if (!(nparms & BIF_RETURNSBOOL)) 
     {
@@ -651,23 +682,16 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
         nparms |= BIF_RETURNSONSTACK;
       }
     }
-    fnTableUser[fnTableUser_size].nParams = nparms;
-    fnTableUser[fnTableUser_size].name = name;
-    fnTableUser[fnTableUser_size].afunc = code_startaddr;
-    fnTableUser[fnTableUser_size].func_e = code_startaddr + code_len;
-    fnTableUser[fnTableUser_size].pProc = pproc;
-    fnTableUser[fnTableUser_size].replptrs[0]=fptr;
-    fnTableUser[fnTableUser_size].replptrs[1]=fptr2;
-    fnTableUser_size++;
+    r->nParams = nparms;
+    r->name = name;
+    r->afunc = code_startaddr;
+    r->func_e = code_startaddr + code_len;
+    r->pProc = pproc;
+    r->replptrs[0] = fptr;
+    r->replptrs[1] = fptr2;
   }
 }
 
-void NSEEL_quit()
-{
-  free(fnTableUser);
-  fnTableUser_size=0;
-  fnTableUser=0;
-}
 
 //---------------------------------------------------------------------------------------------------------------
 static void freeBlocks(llBlock **start)
@@ -755,6 +779,34 @@ opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, c
   return r;
 }
 
+static int validate_varname_for_function(compileContext *ctx, const char *name)
+{
+  if (!ctx->function_curName || !ctx->function_globalFlag) return 1;
+
+  if (ctx->function_localTable_Size[2] > 0 && ctx->function_localTable_Names[2])
+  {
+    char * const * const namelist = ctx->function_localTable_Names[2];
+    const int namelist_sz = ctx->function_localTable_Size[2];
+    int i;
+    const size_t name_len = strlen(name);
+
+    for (i=0;i<namelist_sz;i++) 
+    {
+      const char *nmchk=namelist[i];
+      const size_t l = strlen(nmchk);
+      if (l > 1 && nmchk[l-1] == '*')
+      {
+        if (name_len >= l && !strnicmp(nmchk,name,l-1) && name[l-1]=='.')  return 1;
+      }
+      else
+      {
+        if (name_len == l && !stricmp(nmchk,name)) return 1;
+      }
+    }
+  }
+
+  return 0;
+}
 
 opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int parmcnt, int *errOut)
 {
@@ -766,11 +818,14 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   char match_parmcnt_pos=0;
   char *sname = (char *)rec->relname;
   int is_string_prefix = parmcnt < 0 && sname[0] == '#';
+
+  if (errOut) *errOut = 0;
+
   if (sname) sname += is_string_prefix;
 
   if (rec->opcodeType != OPCODETYPE_VARPTR || !sname || !sname[0]) return NULL;
 
-  if (!isFunctionMode && !is_string_prefix && !strncasecmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
+  if (!isFunctionMode && !is_string_prefix && !strnicmp(sname,"reg",3) && isdigit(sname[3]) && isdigit(sname[4]) && !sname[5])
   {
     EEL_F *a=get_global_var(ctx,sname,1);
     if (a) 
@@ -783,12 +838,12 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
 
   if (ctx->function_curName)
   {
-    if (!strncasecmp(sname,"this.",5))
+    if (!strnicmp(sname,"this.",5))
     {
       rel_prefix_len=5;
       rel_prefix_idx=-1;
     } 
-    else if (!strcasecmp(sname,"this"))
+    else if (!stricmp(sname,"this"))
     {
       rel_prefix_len=4;
       rel_prefix_idx=-1;
@@ -807,7 +862,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         const char *p = namelist[i];
         if (p)
         {
-          if (!isFunctionMode && !is_string_prefix && !strncasecmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
+          if (!isFunctionMode && !is_string_prefix && !strnicmp(p,sname,NSEEL_MAX_VARIABLE_NAMELEN))
           {
             rec->opcodeType = OPCODETYPE_VARPTRPTR;
             rec->parms.dv.valuePtr=(EEL_F *)(ctx->function_localTable_ValuePtrs+i);
@@ -816,10 +871,10 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
           }
           else 
           {
-            const int plen = strlen(p);
-            if (plen > 1 && p[plen-1] == '*' && !strncasecmp(p,sname,plen-1) && ((sname[plen-1] == '.'&&sname[plen]) || !sname[plen-1]))
+            const size_t plen = strlen(p);
+            if (plen > 1 && p[plen-1] == '*' && !strnicmp(p,sname,plen-1) && ((sname[plen-1] == '.'&&sname[plen]) || !sname[plen-1]))
             {
-              rel_prefix_len=sname[plen-1] ? plen : plen-1;
+              rel_prefix_len=(int) (sname[plen-1] ? plen : plen-1);
               rel_prefix_idx=i;
               break;
             }
@@ -840,8 +895,8 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         const char *p = namelist[i];
         if (p && *p)
         {
-          const int tl = strlen(p);     
-          if (!strncasecmp(p,full_sname,tl) && (full_sname[tl] == 0 || full_sname[tl] == '.'))
+          const size_t tl = strlen(p);     
+          if (!strnicmp(p,full_sname,tl) && (full_sname[tl] == 0 || full_sname[tl] == '.'))
           {
             rel_prefix_len=0; // treat as though this. prefixes is present
             rel_prefix_idx=-1;
@@ -869,20 +924,44 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         memmove(sname, sname+rel_prefix_len, strlen(sname + rel_prefix_len) + 1);
       }
     }
-    // or worst case, variable (if not in function mode)
+    else 
+    {
+      // no namespace index, so it must be a global
+      if (!validate_varname_for_function(ctx,rec->relname)) 
+      {
+        if (errOut) *errOut = 1;
+        if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
+        snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"global '%s' inaccessible",rec->relname);
+        return NULL;
+      }
+    }
+  
     return rec;
   }
  
-  if (errOut) *errOut = 0;
-  
   ////////// function mode
+  // first off, while() and loop() are special and can't be overridden
+  //
+  if (parmcnt == 1 && !stricmp("while",sname))
+  {
+    rec->opcodeType = OPCODETYPE_FUNC1;
+    rec->fntype = FN_WHILE;
+    return rec;
+  }
+  if (parmcnt == 2 && !stricmp("loop",sname))
+  {
+    rec->opcodeType = OPCODETYPE_FUNC2;
+    rec->fntype = FN_LOOP;
+    return rec;
+  }
+  
   //
   // resolve user function names before builtin functions -- this allows the user to override default functions
   {
     _codeHandleFunctionRec *best=NULL;
-    int bestlen=0;
+    size_t bestlen=0;
     const char * const ourcall = sname+rel_prefix_len;
-    const int ourcall_len = strlen(ourcall);
+    const size_t ourcall_len = strlen(ourcall);
     int pass;
     for (pass=0;pass<2;pass++)
     {
@@ -892,9 +971,9 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       {
         int this_np = fr->num_params;
         const char *thisfunc = fr->fname;
-        const int thisfunc_len = strlen(thisfunc);
+        const size_t thisfunc_len = strlen(thisfunc);
         if (this_np < 1) this_np=1;
-        if (thisfunc_len == ourcall_len && !strcasecmp(thisfunc,ourcall))
+        if (thisfunc_len == ourcall_len && !stricmp(thisfunc,ourcall))
         {
           if (this_np == parmcnt)
           {
@@ -908,7 +987,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
           }
         }
 
-        if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !strcasecmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
+        if (thisfunc_len > bestlen && thisfunc_len < ourcall_len && ourcall[ourcall_len - thisfunc_len - 1] == '.' && !stricmp(thisfunc,ourcall + ourcall_len - thisfunc_len))
         {
           if (this_np == parmcnt) 
           {
@@ -949,7 +1028,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
           {            
             if (*p == '.')
             {
-              const int cmplen = p+1-ctx->function_curName;
+              const size_t cmplen = p+1-ctx->function_curName;
               if (!strnicmp(rec->relname,ctx->function_curName,cmplen) && rec->relname[cmplen])
               {
                 const char *src=rec->relname + cmplen;
@@ -962,6 +1041,16 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
           }
         }
       }
+
+      if (ctx->function_curName && rel_prefix_idx < -1 && 
+          strchr(rec->relname,'.') && !validate_varname_for_function(ctx,rec->relname))
+      {
+        if (errOut) *errOut = 1;
+        if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
+        snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"namespaced function '%s' inaccessible",rec->relname);
+        return NULL;
+      }
+
       rec->namespaceidx = rel_prefix_idx;
       rec->fntype = FUNCTYPE_EELFUNC;
       rec->fn = best;
@@ -970,7 +1059,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   }
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
-    if (!strcasecmp(sname,"assign")) 
+    if (!stricmp(sname,"assign")) 
     {
       if (parmcnt == 2)
       {
@@ -980,7 +1069,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"if")) 
+    else if (!stricmp(sname,"if")) 
     {
       if (parmcnt == 3)
       {
@@ -990,7 +1079,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 3;
     }
-    else if (!strcasecmp(sname,"equal")) 
+    else if (!stricmp(sname,"equal")) 
     {
       if (parmcnt == 2)
       {
@@ -1000,7 +1089,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"below")) 
+    else if (!stricmp(sname,"below")) 
     {
       if (parmcnt == 2)
       {
@@ -1010,7 +1099,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"above")) 
+    else if (!stricmp(sname,"above")) 
     {
       if (parmcnt == 2)
       {
@@ -1020,7 +1109,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
     }
-    else if (!strcasecmp(sname,"bnot")) 
+    else if (!stricmp(sname,"bnot")) 
     {
       if (parmcnt == 1)
       {
@@ -1030,7 +1119,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 1;
     }
-    else if (!strcasecmp(sname,"megabuf")) 
+    else if (!stricmp(sname,"megabuf")) 
     {
       if (parmcnt == 1)
       {
@@ -1040,7 +1129,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 1;
     }
-    else if (!strcasecmp(sname,"gmegabuf")) 
+    else if (!stricmp(sname,"gmegabuf")) 
     {
       if (parmcnt == 1)
       {
@@ -1053,7 +1142,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     else
 #endif
   // convert legacy pow() to FN_POW
-  if (!strcasecmp("pow",sname))
+  if (!stricmp("pow",sname))
   {
     if (parmcnt == 2)
     {
@@ -1064,10 +1153,10 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
   }
     
-  for (i=0;nseel_getFunctionFromTable(i);i++)
+  for (i=0;nseel_getFunctionFromTableEx(ctx,i);i++)
   {
-    functionType *f=nseel_getFunctionFromTable(i);
-    if (!strcasecmp(f->name, sname))
+    functionType *f=nseel_getFunctionFromTableEx(ctx,i);
+    if (!stricmp(f->name, sname))
     {
       const int pc_needed=(f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK);
       if ((f->nParams&BIF_TAKES_VARPARM_EX)==BIF_TAKES_VARPARM ? (parmcnt >= pc_needed) : (parmcnt == pc_needed))
@@ -1134,10 +1223,7 @@ opcodeRec *nseel_setCompiledFunctionCallParameters(compileContext *ctx, opcodeRe
   r = nseel_resolve_named_symbol(ctx, fn, np<1 ? 1 : np ,errOut);
   if (postCode && r)
   {
-    if (code1 && 
-        r->opcodeType == OPCODETYPE_FUNC1 && 
-        r->fntype == FUNCTYPE_FUNCTIONTYPEREC && 
-        (functionType *)r->fn == fnTable1 + FNTABLE_OFFSET_WHILE)
+    if (code1 && r->opcodeType == OPCODETYPE_FUNC1 && r->fntype == FN_WHILE)
     {
       // change while(x) (postcode) to be 
       // while ((x) ? (postcode;1) : 0);
@@ -1268,7 +1354,7 @@ static unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *re
 
 _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx, _codeHandleFunctionRec *fr, const char *nameptr)
 {
-  int n;
+  size_t n;
   _codeHandleFunctionRec *subfr = 
     fr->isCommonFunction ? 
       ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : 
@@ -1298,7 +1384,7 @@ static void combineNamespaceFields(char *nm, const namespaceInformation *namespa
   const char *prefix = namespaceInfo ? 
                           thisctx<0 ? (thisctx == -1 ? namespaceInfo->namespacePathToThis : NULL) :  (thisctx < MAX_SUB_NAMESPACES ? namespaceInfo->subParmInfo[thisctx] : NULL)
                         : NULL;
-  int lfp = 0, lrn=relname ? strlen(relname) : 0;
+  int lfp = 0, lrn=relname ? (int)strlen(relname) : 0;
   if (prefix) while (prefix[lfp] && prefix[lfp] != ':' && lfp < NSEEL_MAX_VARIABLE_NAMELEN) lfp++;
   if (!relname) relname = "";
 
@@ -1427,9 +1513,6 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_NE_EXACT:
       *abiInfo=BIF_TWOPARMSONFPSTACK_LAZY|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
     RF(notequal_exact);
-    case FN_IF_ELSE:
-      *abiInfo = BIF_WONTMAKEDENORMAL;
-    RF(if);
     case FN_LOGICAL_AND:
       *abiInfo = BIF_RETURNSBOOL;
     RF(band);
@@ -1604,7 +1687,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       fn = 0; // if this gets re-set, it will be the new function
       while (fr && !fn)
       {
-        if (!strcasecmp(fr->fname,nm)) fn = fr;
+        if (!stricmp(fr->fname,nm)) fn = fr;
         fr=fr->derivedCopies;
       }
       if (!fn) // generate copy of function
@@ -2834,7 +2917,7 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
                                       &func_e, &func_raw,                                              
                                       !!bufOut,namespacePathToThis,rvMode,fpStackUse,canHaveDenormalOutput, parmptrs, n_params);
 
-  if (func_raw) func_size = (char*)func_e  - (char*)func;
+  if (func_raw) func_size = (int) ((char*)func_e  - (char*)func);
   else if (func) func = GLUE_realAddress(func,func_e,&func_size);
   
   if (!func) RET_MINUS1_FAIL("eelfuncaddr")
@@ -3040,6 +3123,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
         fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_mem");
       else if (op->fntype == FN_GMEMORY)
         fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_gmem");
+      else if (op->fntype == FN_WHILE)
+        fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "while");
       else
         fprintf(fp," FUNC1 %d %s {\r\n",op->fntype, fname);
 
@@ -3105,6 +3190,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_modop");
         else if (op->fntype == FN_POW_OP)
           fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_powop");
+        else if (op->fntype == FN_LOOP)
+          fprintf(fp," FUNC2 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "loop");
         else
           fprintf(fp," FUNC2 %d %s {\r\n",op->fntype, fname);
       }
@@ -3341,11 +3428,9 @@ doNonInlineIf_:
 #endif
   }
 
-  if (op->fntype == FUNCTYPE_FUNCTIONTYPEREC)
   {
     // special case: while
-    functionType *fn_ptr = (functionType *)op->fn;
-    if (op->opcodeType == OPCODETYPE_FUNC1 && fn_ptr == fnTable1 + FNTABLE_OFFSET_WHILE)
+    if (op->opcodeType == OPCODETYPE_FUNC1 && op->fntype == FN_WHILE)
     {
       *calledRvType = RETURNVALUE_BOOL;
 
@@ -3371,11 +3456,16 @@ doNonInlineIf_:
       }
 #else
       {
-        unsigned char *looppt, *jzoutpt;
+#ifndef GLUE_WHILE_END_NOJUMP
+        unsigned char *jzoutpt;
+#endif
+        unsigned char *looppt;
         int parm_size=0,subsz;
-        if (bufOut_len < parm_size + sizeof(GLUE_WHILE_SETUP) + sizeof(GLUE_WHILE_BEGIN)) RET_MINUS1_FAIL("while size fail 1")
-        if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_SETUP,sizeof(GLUE_WHILE_SETUP));
-        parm_size+=sizeof(GLUE_WHILE_SETUP);
+        if (bufOut_len < parm_size + GLUE_WHILE_SETUP_SIZE + sizeof(GLUE_WHILE_BEGIN)) RET_MINUS1_FAIL("while size fail 1")
+
+        if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_SETUP,GLUE_WHILE_SETUP_SIZE);
+        parm_size+=GLUE_WHILE_SETUP_SIZE;
+
         looppt = bufOut + parm_size;
         if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_BEGIN,sizeof(GLUE_WHILE_BEGIN));
         parm_size+=sizeof(GLUE_WHILE_BEGIN);
@@ -3388,14 +3478,18 @@ doNonInlineIf_:
         parm_size+=subsz;
         if (bufOut) memcpy(bufOut + parm_size, GLUE_WHILE_END, sizeof(GLUE_WHILE_END));
         parm_size+=sizeof(GLUE_WHILE_END);
+#ifndef GLUE_WHILE_END_NOJUMP
         jzoutpt = bufOut + parm_size;
+#endif
 
         if (bufOut) memcpy(bufOut + parm_size, GLUE_WHILE_CHECK_RV, sizeof(GLUE_WHILE_CHECK_RV));
         parm_size+=sizeof(GLUE_WHILE_CHECK_RV);
         if (bufOut) 
         {
           GLUE_JMP_SET_OFFSET(bufOut + parm_size,(looppt - (bufOut+parm_size)) );
+#ifndef GLUE_WHILE_END_NOJUMP
           GLUE_JMP_SET_OFFSET(jzoutpt, (bufOut + parm_size) - jzoutpt);
+#endif
         }
         return rv_offset+parm_size;
       }
@@ -3404,8 +3498,8 @@ doNonInlineIf_:
     }
 
     // special case: loop
-    if (op->opcodeType == OPCODETYPE_FUNC2 && fn_ptr == fnTable1+FNTABLE_OFFSET_LOOP)
-    {    
+    if (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_LOOP)
+    {
       int fUse;
       int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse, NULL);
       if (parm_size < 0) RET_MINUS1_FAIL("loop coc fail")
@@ -3437,7 +3531,8 @@ doNonInlineIf_:
         int subsz;
         int fUse=0;
         unsigned char *skipptr1,*loopdest;
-        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + sizeof(GLUE_LOOP_CLAMPCNT) + sizeof(GLUE_LOOP_BEGIN)) RET_MINUS1_FAIL("loop size fail")
+
+        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + GLUE_LOOP_CLAMPCNT_SIZE + GLUE_LOOP_BEGIN_SIZE) RET_MINUS1_FAIL("loop size fail")
 
         // store, convert to int, compare against 1, if less than, skip to end
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_LOADCNT,sizeof(GLUE_LOOP_LOADCNT));
@@ -3445,13 +3540,14 @@ doNonInlineIf_:
         skipptr1 = bufOut+parm_size; 
 
         // compare aginst max loop length, jump to loop start if not above it
-        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_CLAMPCNT,sizeof(GLUE_LOOP_CLAMPCNT));
-        parm_size += sizeof(GLUE_LOOP_CLAMPCNT);
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_CLAMPCNT,GLUE_LOOP_CLAMPCNT_SIZE);
+        parm_size += GLUE_LOOP_CLAMPCNT_SIZE;
 
         // loop code:
         loopdest = bufOut + parm_size;
-        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_BEGIN,sizeof(GLUE_LOOP_BEGIN));
-        parm_size += sizeof(GLUE_LOOP_BEGIN);
+
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_BEGIN,GLUE_LOOP_BEGIN_SIZE);
+        parm_size += GLUE_LOOP_BEGIN_SIZE;
 
         subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse, NULL);
         if (subsz<0) RET_MINUS1_FAIL("loop coc fail")
@@ -3475,7 +3571,7 @@ doNonInlineIf_:
       }
 #endif
     }    
-  }   
+  }
  
   switch (op->opcodeType)
   {
@@ -3906,7 +4002,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
   
   memset(handle,0,sizeof(codeHandleType));
 
-  ctx->l_stats[0] += _expression_end - _expression;
+  ctx->l_stats[0] += (int)(_expression_end - _expression);
   ctx->tmpCodeHandle = handle;
   endptr=_expression;
 
@@ -3927,6 +4023,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
     ctx->function_localTable_ValuePtrs=0;
     ctx->function_usesNamespaces=0;
     ctx->function_curName=NULL;
+    ctx->function_globalFlag=0;
         
     ctx->errVar=0;
 
@@ -3950,7 +4047,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         }
         else if (*p == '/' && l > 1 && (p[1] == '/' || p[1] == '*')) 
         {
-          if (l > 19 && !strncasecmp(p,"//#eel-no-optimize:",19))
+          if (l > 19 && !strnicmp(p,"//#eel-no-optimize:",19))
             ctx->optimizeDisableFlags = atoi(p+19);
         }
         else
@@ -3977,7 +4074,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       const char *p = expr;
       const char *tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL);
       const char *funcname = nseel_simple_tokenizer(&p,endptr,&funcname_len,NULL);
-      if (tok1 && funcname && tmplen == 8 && !strncasecmp(tok1,"function",8) && (isalpha(funcname[0]) || funcname[0] == '_'))
+      if (tok1 && funcname && tmplen == 8 && !strnicmp(tok1,"function",8) && (isalpha(funcname[0]) || funcname[0] == '_'))
       {
         int had_parms_locals=0;
         if (funcname_len > sizeof(is_fname)-1) funcname_len=sizeof(is_fname)-1;
@@ -4002,9 +4099,15 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
           }
           else
           {
-            if (tmplen == 5 && !strncasecmp(tok1,"local",tmplen)) localTableContext=0;
-            else if (tmplen == 6 && !strncasecmp(tok1,"static",tmplen)) localTableContext=0;
-            else if (tmplen == 8 && !strncasecmp(tok1,"instance",tmplen)) localTableContext=1;
+            if (tmplen == 5 && !strnicmp(tok1,"local",tmplen)) localTableContext=0;
+            else if (tmplen == 6 && !strnicmp(tok1,"static",tmplen)) localTableContext=0;
+            else if (tmplen == 8 && !strnicmp(tok1,"instance",tmplen)) localTableContext=1;
+            else if ((tmplen == 7 && !strnicmp(tok1,"globals",tmplen))  ||
+                     (tmplen == 6 && !strnicmp(tok1,"global",tmplen)))
+            {
+              ctx->function_globalFlag = 1;
+              localTableContext=2;
+            }
             else break; // unknown token!
 
             tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL);
@@ -4018,10 +4121,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
           while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
           {
             if (tok1[0] == ')') break;
-            if (*tok1 == '#' && localTableContext!=1) 
+            if (*tok1 == '#' && localTableContext!=1 && localTableContext!=2) 
             {
-              ctx->errVar = tok1 - _expression;
-              lstrcpyn_safe(ctx->last_error_string,"#string can only be in instance()",sizeof(ctx->last_error_string));
+              ctx->errVar = (int) (tok1 - _expression);
+              lstrcpyn_safe(ctx->last_error_string,"#string can only be in instance() or globals()",sizeof(ctx->last_error_string));
               goto had_error;
             }
 
@@ -4030,10 +4133,10 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
               maxcnt++;
               if (p < endptr && *p == '*')
               {
-                if (!is_parms)
+                if (!is_parms && localTableContext!=2)
                 {
-                  ctx->errVar = p - _expression;
-                  lstrcpyn_safe(ctx->last_error_string,"namespace* can only be used in parameters",sizeof(ctx->last_error_string));
+                  ctx->errVar = (int) (p - _expression);
+                  lstrcpyn_safe(ctx->last_error_string,"namespace* can only be used in parameters or globals()",sizeof(ctx->last_error_string));
                   goto had_error;
                 }
                 p++;
@@ -4041,7 +4144,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
             }
             else if (*tok1 != ',')
             {
-              ctx->errVar = tok1 - _expression;
+              ctx->errVar = (int)(tok1 - _expression);
               lstrcpyn_safe(ctx->last_error_string,"unknown character in function parameters",sizeof(ctx->last_error_string));
               goto had_error;
             }
@@ -4281,8 +4384,8 @@ had_error:
 
         if (_expression + byteoffs >= _expression_end) 
         {
-          if (ctx->gotEndOfInput&4) byteoffs = expr-_expression;
-          else byteoffs=_expression_end-_expression;
+          if (ctx->gotEndOfInput&4) byteoffs = (int)(expr-_expression);
+          else byteoffs=(int)(_expression_end-_expression);
         }
 
         if (byteoffs < 0) byteoffs=0;
@@ -4356,6 +4459,7 @@ had_error:
   ctx->function_localTable_ValuePtrs=0;
   ctx->function_usesNamespaces=0;
   ctx->function_curName=NULL;
+  ctx->function_globalFlag=0;
 
   ctx->tmpCodeHandle = NULL;
     
@@ -4426,7 +4530,7 @@ had_error:
       #endif
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
       ctx->l_stats[1]=size;
-      handle->code_size = writeptr - (unsigned char *)handle->code;
+      handle->code_size = (int) (writeptr - (unsigned char *)handle->code);
     }
     
     handle->blocks = ctx->blocks_head;
@@ -4613,7 +4717,14 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
   }
   return ctx;
 }
-
+void NSEEL_VM_SetFunctionTable(NSEEL_VMCTX _ctx, eel_function_table *tab)
+{
+  if (_ctx)
+  {
+    compileContext *ctx = (compileContext *)_ctx;
+    ctx->registered_func_tab = tab;
+  }
+}
 void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its code have been freed, as well
 {
 
@@ -4789,7 +4900,7 @@ EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent)
 {
   nseel_globalVarItem *p;
 #ifdef NSEEL_EEL1_COMPAT_MODE
-  if (!strncasecmp(gv,"reg",3) && gv[3]>='0' && gv[3] <= '9' && gv[4] >= '0' && gv[4] <= '9' && !gv[5])
+  if (!strnicmp(gv,"reg",3) && gv[3]>='0' && gv[3] <= '9' && gv[4] >= '0' && gv[4] <= '9' && !gv[5])
   {
     return __nseel_global_regs + atoi(gv+3);
   }
@@ -4805,13 +4916,13 @@ EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent)
   p = nseel_globalreg_list;
   while (p)
   {
-    if (!strcasecmp(p->name,gv)) break;
+    if (!stricmp(p->name,gv)) break;
     p=p->_next;
   }
 
   if (!p && addIfNotPresent)
   {
-    int gvl = strlen(gv);
+    size_t gvl = strlen(gv);
     p = (nseel_globalVarItem*)malloc(sizeof(nseel_globalVarItem) + gvl);
     if (p)
     {
@@ -4833,7 +4944,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
   int wb;
   int ti=0;
 
-  if (!strncasecmp(name,"_global.",8) && name[8])
+  if (!strnicmp(name,"_global.",8) && name[8])
   {
     EEL_F *a=get_global_var(ctx,name+8,1);
     if (a) return a;
@@ -4853,7 +4964,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
           match_ti=ti;
         }
       }
-      else if (!strncasecmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN))
+      else if (!strnicmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN))
       {
         varNameHdr *v = ((varNameHdr*)plist[ti])-1;
         v->refcnt++;
@@ -4900,11 +5011,11 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
 
   if (!ctx->varTable_Names[wb][ti])
   {
-    int l = strlen(name);
+    size_t l = strlen(name);
     char *b;
     varNameHdr *vh;
     if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
-    b=newCtxDataBlock( sizeof(varNameHdr) + l+1,1);
+    b=newCtxDataBlock( (int) (sizeof(varNameHdr) + l+1),1);
     if (!b) return NULL; // malloc fail
     vh=(varNameHdr *)b;
     vh->refcnt=1;
@@ -4953,7 +5064,7 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
   compileContext *ctx = (compileContext *)_ctx;
   if (!ctx) return 0;
   
-  if (!strncasecmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
+  if (!strnicmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
   {
     EEL_F *a=get_global_var(ctx,var,1);
     if (a) return a;
@@ -4975,7 +5086,7 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 
     for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
     {        
-      if (ctx->varTable_Names[wb][ti] && !strcasecmp(ctx->varTable_Names[wb][ti],name)) 
+      if (ctx->varTable_Names[wb][ti] && !stricmp(ctx->varTable_Names[wb][ti],name)) 
       {
         varNameHdr *h = ((varNameHdr *)ctx->varTable_Names[wb][ti])-1;
         return h->refcnt;
@@ -4992,10 +5103,10 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int np, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
 {
   int i;
-  for (i=0;nseel_getFunctionFromTable(i);i++)
+  for (i=0;nseel_getFunctionFromTableEx(ctx,i);i++)
   {
-    functionType *f=nseel_getFunctionFromTable(i);
-    if ((f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) == np && !strcasecmp(f->name, name))
+    functionType *f=nseel_getFunctionFromTableEx(ctx,i);
+    if ((f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) == np && !stricmp(f->name, name))
     {
       opcodeRec *o=newOpCode(ctx,NULL, np==3?OPCODETYPE_FUNC3:np==2?OPCODETYPE_FUNC2:OPCODETYPE_FUNC1);
       if (o) 
@@ -5016,7 +5127,7 @@ opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int
 
 
 //------------------------------------------------------------------------------
-opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // tmplen < 0 = null term
+opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) // tmplen 0 = null term
 {
   // this depends on the string being nul terminated eventually, tmplen is used more as a hint than anything else
   if ((tmp[0] == '0' || tmp[0] == '$') && toupper(tmp[1])=='X')
@@ -5033,45 +5144,45 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
       if (v>53) v=53;
       return nseel_createCompiledValue(ctx,(EEL_F)((((WDL_INT64)1) << v) - 1));
     }
-    else if (tmplen < 0 ? !stricmp(tmp,"$E") : (tmplen == 2 && !strnicmp(tmp,"$E",2)))
+    else if (!tmplen ? !stricmp(tmp,"$E") : (tmplen == 2 && !strnicmp(tmp,"$E",2)))
       return nseel_createCompiledValue(ctx,(EEL_F)2.71828183);
-    else if (tmplen < 0 ? !stricmp(tmp,"$PI") : (tmplen == 3 && !strnicmp(tmp,"$PI",3)))
+    else if (!tmplen ? !stricmp(tmp, "$PI") : (tmplen == 3 && !strnicmp(tmp, "$PI", 3)))
       return nseel_createCompiledValue(ctx,(EEL_F)3.141592653589793);
-    else if (tmplen < 0 ? !stricmp(tmp,"$PHI") : (tmplen == 4 && !strnicmp(tmp,"$PHI",4)))
+    else if (!tmplen ? !stricmp(tmp, "$PHI") : (tmplen == 4 && !strnicmp(tmp, "$PHI", 4)))
       return nseel_createCompiledValue(ctx,(EEL_F)1.61803399);      
-    else if ((tmplen < 0 || tmplen == 4) && tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
+    else if ((!tmplen || tmplen == 4) && tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
       return nseel_createCompiledValue(ctx,(EEL_F)tmp[2]);      
     else return NULL;
   }
   else if (tmp[0] == '\'')
   {
-    char b[9];
+    char b[64];
     int x,sz;
     unsigned int rv=0;
 
-    if (tmplen < 0) // nul terminated tmplen, calculate a workable length
+    if (!tmplen) // nul terminated tmplen, calculate a workable length
     {
-      const char *ep = tmp;
-      while (ep < tmp+32 && *ep) ep++; // faster than strlen(tmp) if tmp is large, we'll never need more than ~18 chars anyway
-      tmplen = ep-tmp;
+      // faster than strlen(tmp) if tmp is large, we'll never need more than ~18 chars anyway
+      while (tmplen < 32 && tmp[tmplen]) tmplen++;
     }
     
-    sz = nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'');
+    if (tmplen>0) sz = nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'');
+
     for (x=0;x<sz;x++) rv = (rv<<8) + ((unsigned char*)b)[x];
     return nseel_createCompiledValue(ctx,(EEL_F)rv);
   }
   else if (tmp[0] == '#')
   {
     char buf[512];
-    if (tmplen < 0) tmplen=strlen(tmp);
-    if (tmplen > sizeof(buf)-1) tmplen = sizeof(buf)-1;
+    if (!tmplen) while (tmplen < sizeof(buf)-1 && tmp[tmplen]) tmplen++;
     memcpy(buf,tmp,tmplen);
     buf[tmplen]=0;
     if (ctx->onNamedString) 
     {
       if (buf[1]&&ctx->function_curName)
       {
-        opcodeRec *r = nseel_resolve_named_symbol(ctx,nseel_createCompiledValuePtr(ctx,NULL,buf),-1, NULL);
+        int err=0;
+        opcodeRec *r = nseel_resolve_named_symbol(ctx,nseel_createCompiledValuePtr(ctx,NULL,buf),-1, &err);
         if (r)
         {
           if (r->opcodeType!=OPCODETYPE_VALUE_FROM_NAMESPACENAME) 
@@ -5082,6 +5193,7 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, int tmplen) // 
           }
           return r;
         }
+        if (err) return NULL;
       }
 
       // if not namespaced symbol, return directly

@@ -56,7 +56,11 @@ string:
 assignable_value:
 	IDENTIFIER
         {
-          $$ = nseel_resolve_named_symbol(context, $1, -1, NULL); /* convert from purely named to namespace-relative, etc */
+          if (!($$ = nseel_resolve_named_symbol(context, $1, -1, NULL))) /* convert from purely named to namespace-relative, etc */
+          {
+            yyerror(&yyloc, context, ""); 
+            YYERROR;
+          }
         }
         /* we used to have VALUE in here rather than rvalue, to allow 1=1 1+=2 etc, but silly to, 
            though this breaks Vmorph, which does 1=1 for a nop, and Jonas DrumReaplacer, which does x = 0 = y = 0 */
