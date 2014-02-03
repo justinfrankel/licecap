@@ -814,7 +814,7 @@ SWELL_API_DEFINE(BOOL, SWELL_SetCursorPos, (int X, int Y))
 ** Gets screen information, for the screen that contains sourcerect. if wantWork is set
 ** it excluses the menu bar etc.
 */
-SWELL_API_DEFINE(void, SWELL_GetViewPort,(RECT *r, RECT *sourcerect, bool wantWork))
+SWELL_API_DEFINE(void, SWELL_GetViewPort,(RECT *r, const RECT *sourcerect, bool wantWork))
 
 /*
 ** Clipboard API emulation

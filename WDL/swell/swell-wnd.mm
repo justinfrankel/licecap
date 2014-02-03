@@ -1637,7 +1637,7 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
   SWELL_END_TRY(;)
 }
 
-void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork)
+void SWELL_GetViewPort(RECT *r, const RECT *sourcerect, bool wantWork)
 {
   SWELL_BEGIN_TRY
 

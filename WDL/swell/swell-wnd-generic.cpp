@@ -811,7 +811,7 @@ HWND GetFocus()
 }
 
 
-void SWELL_GetViewPort(RECT *r, RECT *sourcerect, bool wantWork)
+void SWELL_GetViewPort(RECT *r, const RECT *sourcerect, bool wantWork)
 {
 #ifdef SWELL_TARGET_GDK
   if (swell_initwindowsys())
