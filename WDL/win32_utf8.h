@@ -33,7 +33,7 @@ WDL_WIN32_UTF8_IMPL HINSTANCE LoadLibraryUTF8(LPCTSTR path);
 
 WDL_WIN32_UTF8_IMPL HANDLE CreateFileUTF8(LPCTSTR lpFileName,DWORD dwDesiredAccess,DWORD dwShareMode,LPSECURITY_ATTRIBUTES lpSecurityAttributes,DWORD dwCreationDisposition,DWORD dwFlagsAndAttributes,HANDLE hTemplateFile);
 
-WDL_WIN32_UTF8_IMPL int DragQueryFileUTF8(HDROP hDrop, int idx, char *buf, int bufsz);
+WDL_WIN32_UTF8_IMPL UINT DragQueryFileUTF8(HDROP hDrop, UINT idx, char *buf, UINT bufsz);
 
 WDL_WIN32_UTF8_IMPL int DrawTextUTF8(HDC hdc, LPCTSTR str, int nc, LPRECT lpRect, UINT format);
 
