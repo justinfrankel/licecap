@@ -142,7 +142,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     bool m_forcetext;
     int m_forcetext_color;
 
-    WDL_String m_textlbl;
+    WDL_FastString m_textlbl;
     LICE_IFont *m_textfont,*m_textfontv;
 };
 
@@ -188,7 +188,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     bool m_wantsingle;
     bool m_wantabbr;
     LICE_IFont *m_font,*m_vfont;
-    WDL_String m_text;
+    WDL_FastString m_text;
     bool m_didvert; // true if text was drawn vertically on the last paint
     int m_didalign; // the actual alignment used on the last paint
 };

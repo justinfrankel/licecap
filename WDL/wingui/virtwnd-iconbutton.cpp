@@ -876,6 +876,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         else dtflags |= DT_CENTER;
       }
       const char* txt=m_text.Get();
+      const int len = m_text.GetLength();
 
       int abbrx=0;
       char abbrbuf[64];
@@ -883,7 +884,6 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
       if (m_wantabbr)
       {
-        int len=strlen(txt);
         if (len && isdigit(txt[len-1]))
         {
           RECT tr = { 0, 0, 0, 0 };
@@ -957,7 +957,7 @@ int WDL_VirtualStaticText::GetCharFromCoord(int xpos, int ypos)
   if (!font) return -1;
   
   const char* str = m_text.Get();
-  int len = strlen(str);
+  const int len = m_text.GetLength();
   if (!len) return -1;
 
   // for align left/right, we could DT_CALCRECT with 1 char, then 2, etc, but that won't work for align center
