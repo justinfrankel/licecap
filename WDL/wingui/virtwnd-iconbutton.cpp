@@ -789,14 +789,14 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
           r.left,r.top,
             r.right-r.left,
             r.bottom-r.top,
-            sc+rv*sc2 + (1.0-amt),
-            sc+gv*sc2 + (1.0-amt),
-            sc+bv*sc2 + (1.0-amt),
-            1,
+            sc+rv*sc2 + (1.0f-amt),
+            sc+gv*sc2 + (1.0f-amt),
+            sc+bv*sc2 + (1.0f-amt),
+            1.0f,
             (rv-avg)*sc3+sc4,
             (gv-avg)*sc3+sc4,
             (bv-avg)*sc3+sc4,
-            0);
+            0.0f);
     }
   }
   else 

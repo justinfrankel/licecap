@@ -17,7 +17,7 @@
 static BSTR SysAllocStringUTF8(const char *str)
 {
   WCHAR tmp[1024];
-  int slen = strlen(str)+1;
+  const int slen = (int)strlen(str)+1;
   WCHAR *wstr = slen < 1000 ? tmp : (WCHAR*)malloc(2*slen+32);
 
   wstr[0]=0;

@@ -48,7 +48,7 @@ extern int WDL_STYLE_GetSliderDynamicCenterPos();
 
 // functions for handling knob drawing in non-vwnds
 extern WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knoblist, int nknoblist,int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs);
-extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh, double alpha=1.0f);
+extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh, float alpha=1.0f);
 
 
 /* recommended defaults for the above:
