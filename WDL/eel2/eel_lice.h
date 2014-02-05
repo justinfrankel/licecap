@@ -964,6 +964,9 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
         EEL_STRING_MUTEXLOCK_SCOPE
       
         const char *face=EEL_STRING_GET_FOR_INDEX(parms[1][0],NULL);
+        #ifdef EEL_STRING_DEBUGOUT
+          if (!face) EEL_STRING_DEBUGOUT("gfx_setfont: invalid string identifier %f",parms[1][0]);
+        #endif
         if (!face || !*face) face="Arial";
 
         {
@@ -1032,6 +1035,9 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
     }
     // try to init this font
   }
+  #ifdef EEL_STRING_DEBUGOUT
+  if (a >= m_gfx_fonts.GetSize()) EEL_STRING_DEBUGOUT("gfx_setfont: invalid font %d specified",a);
+  #endif
 
   if (a<0||a>=m_gfx_fonts.GetSize()||!m_gfx_fonts.Get()[a].font)
   {
@@ -1298,6 +1304,9 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F ch, int formatmode, int nfm
 
   WDL_FastString *fs=NULL;
   const char *s=EEL_STRING_GET_FOR_INDEX(ch,&fs);
+  #ifdef EEL_STRING_DEBUGOUT
+    if (!s) EEL_STRING_DEBUGOUT("gfx_%s: invalid string identifier %f",formatmode==1?"printf":formatmode==2?"measurestr":"drawstr",ch);
+  #endif
   char buf[4096];
   int s_len=0;
   if (!s) 
@@ -1766,6 +1775,9 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
     {
       EEL_STRING_MUTEXLOCK_SCOPE
       const char *title=EEL_STRING_GET_FOR_INDEX(parms[0][0],NULL);
+      #ifdef EEL_STRING_DEBUGOUT
+        if (!title) EEL_STRING_DEBUGOUT("gfx_init: invalid string identifier %f",parms[0][0]);
+      #endif
       if (title&&*title) SetWindowText(ctx->hwnd_standalone,title);
     }
 
