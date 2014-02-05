@@ -5168,6 +5168,14 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
     
     if (tmplen>0) sz = nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'');
 
+    
+    if (sz > 4) 
+    {
+      if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
+      snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"multi-byte character '%.5s...' too long",b);
+      return NULL; // do not allow 'xyzxy', limit to 4 bytes
+    }
+
     for (x=0;x<sz;x++) rv = (rv<<8) + ((unsigned char*)b)[x];
     return nseel_createCompiledValue(ctx,(EEL_F)rv);
   }
