@@ -285,6 +285,7 @@ public:
   unsigned char m_kb_queue_pos;
 
 #endif
+  bool m_has_had_getch; // set on first gfx_getchar(), makes mouse_cap updated with modifiers even when no mouse click is down
 };
 
 
@@ -330,6 +331,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
 
   if (m_gfx_texth) *m_gfx_texth=8;
 
+  m_has_had_getch=0;
 }
 eel_lice_state::~eel_lice_state()
 {
@@ -1422,7 +1424,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=2;
     if (GetAsyncKeyState(VK_MBUTTON)&0x8000) vflags|=64;
   }
-  if (hasCap||GetFocus()==hwnd)
+  if (hasCap||(m_has_had_getch && GetFocus()==hwnd))
   {
     if (GetAsyncKeyState(VK_CONTROL)&0x8000) vflags|=4;
     if (GetAsyncKeyState(VK_SHIFT)&0x8000) vflags|=8;
@@ -1537,6 +1539,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getchar(void *opaque, EEL_F *p)
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx)
   {
+    ctx->m_has_had_getch=true;
     if (*p >= 2.0)
     {
       int x;
