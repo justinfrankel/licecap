@@ -144,10 +144,10 @@ class eelScriptInst {
     virtual char *evalCacheGet(const char *str, NSEEL_CODEHANDLE *ch);
     virtual void evalCacheDispose(char *key, NSEEL_CODEHANDLE ch);
     WDL_Queue m_defer_eval, m_atexit_eval;
-    void runCodeQ(WDL_Queue *q);
+    void runCodeQ(WDL_Queue *q, const char *fname);
     void runAtExitCode()
     {
-      runCodeQ(&m_atexit_eval);
+      runCodeQ(&m_atexit_eval,"atexit");
       m_atexit_eval.Clear(); // make sure nothing gets added in atexit(), in case the user called runAtExitCode before destroying
     }
 #endif
@@ -597,7 +597,7 @@ bool eelScriptInst::has_deferred()
 }
 
 #ifndef EELSCRIPT_NO_EVAL
-void eelScriptInst::runCodeQ(WDL_Queue *q)
+void eelScriptInst::runCodeQ(WDL_Queue *q, const char *callername)
 {
   const int endptr = q->Available();
   int offs = 0;
@@ -616,6 +616,11 @@ void eelScriptInst::runCodeQ(WDL_Queue *q)
     if (!ch)
     {
       free(sv);
+#ifdef EEL_STRING_DEBUGOUT
+      const char *err = NSEEL_code_getcodeerror(m_vm);
+      void *opaque = (void *)this;
+      if (err) EEL_STRING_DEBUGOUT("%s: error in code: %s",callername,err);
+#endif
     }
     else
     {
@@ -632,7 +637,7 @@ bool eelScriptInst::run_deferred()
 #ifndef EELSCRIPT_NO_EVAL
   if (!m_defer_eval.Available()||!m_vm) return false;
 
-  runCodeQ(&m_defer_eval);
+  runCodeQ(&m_defer_eval,"defer");
   m_defer_eval.Compact();
   return m_defer_eval.Available()>0;
 #else
