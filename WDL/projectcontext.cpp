@@ -145,27 +145,29 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
     use_buf = va_arg(va,const char *);
-    l=use_buf ? (strlen(use_buf)+1) : 0;
+    l=use_buf ? ((int)strlen(use_buf)+1) : 0;
   }
   else
   {
     tmp[0]=0;
     #if defined(_WIN32) && defined(_MSC_VER)
       l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-      if (l < 0 || l >= sizeof(tmp)) 
+      if (l < 0 || l >= (int)sizeof(tmp))
       {
-        tmp[sizeof(tmp)-1]=0;
-        l = strlen(tmp);
+        tmp[sizeof(tmp)-1] = 0;
+        l = (int)strlen(tmp);
       }
     #else
       // vsnprintf() on non-win32, always null terminates
       l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-      if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
+      if (l > (int)sizeof(tmp)-1) l = (int)sizeof(tmp)-1;
     #endif
     use_buf = tmp;
     l++; // include NULL term
   }
   va_end(va);
+
+  if (l < 1) return;
 
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
@@ -177,20 +179,20 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 
   if (m_usecomp==1)
   {
-    m_compdatabuf.Add(use_buf,l);
+    m_compdatabuf.Add(use_buf,(int)l);
     FlushComp(false);
     return;
   }
 #endif
 
 
-  int sz=m_heapbuf->GetSize();
+  const int sz=m_heapbuf->GetSize();
   if (!sz && m_heapbuf->GetGranul() < 256*1024)
   {
     m_heapbuf->SetGranul(256*1024);
   }
 
-  int newsz = sz + l;
+  const int newsz = sz + l;
   char *p = (char *)m_heapbuf->Resize(newsz);
   if (m_heapbuf->GetSize() != newsz)
   {
@@ -353,35 +355,36 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     const char *use_buf;
     va_list va;
     va_start(va,fmt);
-    int l=0;
+    int l;
 
     if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
     {
       // special case "%s" passed, directly use it
       use_buf = va_arg(va,const char *);
-      if (use_buf) l=strlen(use_buf);
-      else use_buf="";
+      l=use_buf ? (int)strlen(use_buf) : -1;
     }
     else
     {
       tmp[0]=0;
       #if defined(_WIN32) && defined(_MSC_VER)
         l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-        if (l < 0 || l >= sizeof(tmp)) 
+        if (l < 0 || l >= (int)sizeof(tmp)) 
         {
           tmp[sizeof(tmp)-1] = 0;
-          l = strlen(tmp);
+          l = (int)strlen(tmp);
         }
      #else
        // vsnprintf() on non-win32, always null terminates
        l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-       if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
+       if (l > (int)sizeof(tmp)-1) l=(int)sizeof(tmp)-1;
      #endif
 
        use_buf = tmp;
     }
 
     va_end(va);
+    if (l < 0) return;
+
 
     int a=m_indent;
     if (use_buf[0] == '<') m_indent+=2;
@@ -391,17 +394,15 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     {
       m_bytesOut+=a;
       char tb[128];
-      memset(tb,' ',a < sizeof(tb) ? a : sizeof(tb));
+      memset(tb,' ',a < (int)sizeof(tb) ? a : (int)sizeof(tb));
       while (a>0) 
       {
-        const int tl = a < sizeof(tb) ? a : sizeof(tb);
+        const int tl = a < (int)sizeof(tb) ? a : (int)sizeof(tb);
         a-=tl;     
         m_wr->Write(tb,tl);
       }
     }
 
-
-    
     err |= m_wr->Write(use_buf,l) != l;
     err |= m_wr->Write("\r\n",2) != 2;
     m_bytesOut += 2 + l;
@@ -483,40 +484,33 @@ void ProjectStateContext_FastQueue::AddLine(const char *fmt, ...)
 {
   if (!m_fq) return;
 
-  char tmp[8192];
-
-  const char *use_buf;
-  int l;
-
   va_list va;
   va_start(va,fmt);
 
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
-    use_buf = va_arg(va,const char *);
-    l=use_buf ? (strlen(use_buf)+1) : 0;
+    const char *p = va_arg(va,const char *);
+    if (p) m_fq->Add(p, (int) strlen(p) + 1);
   }
   else
   {
-    tmp[0]=0;
+    char tmp[8192];
+    tmp[0] = 0;
     #if defined(_WIN32) && defined(_MSC_VER)
-      l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-      if (l < 0 || l >= sizeof(tmp)) 
+      int l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
+      if (l < 0 || l >= (int)sizeof(tmp)) 
       {
         tmp[sizeof(tmp)-1]=0;
-        l = strlen(tmp);
+        l = (int)strlen(tmp);
       }
     #else
       // vsnprintf() on non-win32, always null terminates
-      l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-      if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
+      int l = vsnprintf(tmp,sizeof(tmp),fmt,va);
+      if (l > (int)sizeof(tmp)-1) l = (int)sizeof(tmp)-1;
     #endif
-    use_buf = tmp;
-    l++; // include NULL term
+    if (l>=0) m_fq->Add(tmp, l+1);
   }
   va_end(va);
-
-  m_fq->Add(use_buf,l);
 }
 
 
@@ -603,11 +597,8 @@ static void pc_base64encode(const unsigned char *in, char *out, int len)
 
 static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
 {
-  unsigned char *olddest=dest;
-
-  int accum=0;
-  int nbits=0;
-  while (*src)
+  int accum=0, nbits=0, wpos=0;
+  while (*src && wpos < destsize)
   {
     int x=0;
     char c=*src++;
@@ -618,19 +609,16 @@ static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
     else if (c == '/') x=63;
     else break;
 
-    accum <<= 6;
-    accum |= x;
+    accum = (accum << 6) | x;
     nbits += 6;   
 
-    while (nbits >= 8)
+    while (nbits >= 8 && wpos < destsize)
     {
-      if (--destsize<0) break;
       nbits-=8;
-      *dest++ = (char)((accum>>nbits)&0xff);
+      dest[wpos++] = (char)((accum>>nbits)&0xff);
     }
-
   }
-  return dest-olddest;
+  return wpos;
 }
 
 
