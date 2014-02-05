@@ -60,14 +60,14 @@ class eel_net_state
     JNL_IAsyncDNS *m_dns;
 
     EEL_F onConnect(char *hostNameOwned, int port, int block);
-    EEL_F onClose(EEL_F handle);
-    EEL_F set_block(EEL_F handle, bool block);
+    EEL_F onClose(void *opaque, EEL_F handle);
+    EEL_F set_block(void *opaque, EEL_F handle, bool block);
     EEL_F onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr, EEL_F *ipOut);
 
     int __run_connect(connection_state *cs, unsigned int ip);
     int __run(connection_state *cs);
-    int do_send(EEL_F h, const char *src, int len);
-    int do_recv(EEL_F h, char *buf, int maxlen);
+    int do_send(void *opaque, EEL_F h, const char *src, int len);
+    int do_recv(void *opaque, EEL_F h, char *buf, int maxlen);
   #ifdef _WIN32
     bool m_had_socketlib_init;
   #endif
@@ -167,7 +167,13 @@ EEL_F eel_net_state::onConnect(char *hostNameOwned, int port, int block)
 EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr, EEL_F *ipOut)
 {
   const int port = (int) handle;
-  if (port < 1 || port > 65535) return 0.0;
+  if (port < 1 || port > 65535) 
+  {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("tcp_listen(%d): invalid port specified, will never succeed",port);
+#endif
+    return 0.0;
+  }
 #ifdef _WIN32
   if (!m_had_socketlib_init)
   {
@@ -194,7 +200,11 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
     {
       EEL_STRING_MUTEXLOCK_SCOPE
       const char *fn = EEL_STRING_GET_FOR_INDEX(*ifStr,NULL);
+#ifdef EEL_STRING_DEBUGOUT
+      if (!fn) EEL_STRING_DEBUGOUT("tcp_listen(%d): bad string identifier %f for second parameter (interface)",port,*ifStr);
+#endif
       if (fn && *fn) sin.sin_addr.s_addr=inet_addr(fn);
+      
     }
     if (!sin.sin_addr.s_addr || sin.sin_addr.s_addr==INADDR_NONE) sin.sin_addr.s_addr = INADDR_ANY;
     sin.sin_family = AF_INET;
@@ -209,6 +219,10 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
         sock=INVALID_SOCKET;
       }
     }
+#ifdef EEL_STRING_DEBUGOUT
+    //if (sock == INVALID_SOCKET) EEL_STRING_DEBUGOUT("tcp_listen(%d): failed listening on port",port);
+    // we report -1 to the caller, no need to error message
+#endif
     m_listens.Insert(port,sock);
     s = m_listens.GetPtr(port);
   }
@@ -243,6 +257,12 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
         {
           const unsigned int a = ntohl(saddr.sin_addr.s_addr);
           ws->SetFormatted(128,"%d.%d.%d.%d",(a>>24)&0xff,(a>>16)&0xff,(a>>8)&0xff,a&0xff);
+        }
+        else
+        {
+#ifdef EEL_STRING_DEBUGOUT
+          EEL_STRING_DEBUGOUT("tcp_listen(%d): bad string identifier %f for third parameter (IP-out)",port,*ipOut);
+#endif
         }
       }
       return x + CONNECTION_ID_BASE;
@@ -297,12 +317,16 @@ int eel_net_state::__run(connection_state *cs)
   return 0;
 }
 
-int eel_net_state::do_recv(EEL_F h, char *buf, int maxlen)
+int eel_net_state::do_recv(void *opaque, EEL_F h, char *buf, int maxlen)
 {
-  int idx=(int)h-CONNECTION_ID_BASE;
+  const int idx=(int)h-CONNECTION_ID_BASE;
   if (idx>=0 && idx<m_cons.GetSize())
   {
     connection_state *s=m_cons.Get()+idx;
+#ifdef EEL_STRING_DEBUGOUT
+    if (s->sock == INVALID_SOCKET && !s->hostname) 
+      EEL_STRING_DEBUGOUT("tcp_recv: connection identifier %f is not open",h);
+#endif
     if (__run(s) || s->sock == INVALID_SOCKET) return s->state == STATE_ERR ? -1 : 0;
 
     if (maxlen == 0) return 0;
@@ -314,24 +338,37 @@ int eel_net_state::do_recv(EEL_F h, char *buf, int maxlen)
 
     return rv;
   }
+#ifdef EEL_STRING_DEBUGOUT
+  EEL_STRING_DEBUGOUT("tcp_recv: connection identifier %f is out of range",h);
+#endif
   return -1;
 }
 
-int eel_net_state::do_send(EEL_F h, const char *src, int len)
+int eel_net_state::do_send(void *opaque, EEL_F h, const char *src, int len)
 {
-  int idx=(int)h-CONNECTION_ID_BASE;
+  const int idx=(int)h-CONNECTION_ID_BASE;
   if (idx>=0 && idx<m_cons.GetSize())
   {
     connection_state *s=m_cons.Get()+idx;
+#ifdef EEL_STRING_DEBUGOUT
+    if (s->sock == INVALID_SOCKET && !s->hostname) 
+      EEL_STRING_DEBUGOUT("tcp_send: connection identifier %f is not open",h);
+#endif
     if (__run(s) || s->sock == INVALID_SOCKET) return s->state == STATE_ERR ? -1 : 0;
     const int rv=send(s->sock,src,len,0);
     if (rv < 0 && !s->blockmode && (ERRNO == EWOULDBLOCK || ERRNO==ENOTCONN)) return 0;
     return rv;
   }
+  else
+  {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("tcp_send: connection identifier %f out of range",h);
+#endif
+  }
   return -1;
 }
 
-EEL_F eel_net_state::set_block(EEL_F handle, bool block)
+EEL_F eel_net_state::set_block(void *opaque, EEL_F handle, bool block)
 {
   int idx=(int)handle-CONNECTION_ID_BASE;
   if (idx>=0 && idx<m_cons.GetSize())
@@ -340,19 +377,35 @@ EEL_F eel_net_state::set_block(EEL_F handle, bool block)
     if (s->blockmode != block)
     {
       s->blockmode=block;
-      if (s->sock != INVALID_SOCKET) SET_SOCK_BLOCK(s->sock,(block?1:0));
+      if (s->sock != INVALID_SOCKET) 
+      {
+        SET_SOCK_BLOCK(s->sock,(block?1:0));
+      }
+      else
+      {
+#ifdef EEL_STRING_DEBUGOUT
+        if (!s->hostname) EEL_STRING_DEBUGOUT("tcp_set_block: connection identifier %f is not open",handle);
+#endif
+      }
       return 1;
     }
+  }
+  else
+  {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("tcp_set_block: connection identifier %f out of range",handle);
+#endif
   }
   return 0;
 }
 
-EEL_F eel_net_state::onClose(EEL_F handle)
+EEL_F eel_net_state::onClose(void *opaque, EEL_F handle)
 {
   int idx=(int)handle-CONNECTION_ID_BASE;
   if (idx>=0 && idx<m_cons.GetSize())
   {
     connection_state *s=m_cons.Get()+idx;
+    const bool hadhn = !!s->hostname;
     free(s->hostname);
     s->hostname = NULL;
     s->state = STATE_ERR;
@@ -363,6 +416,18 @@ EEL_F eel_net_state::onClose(EEL_F handle)
       s->sock = INVALID_SOCKET;
       return 1.0;
     }
+    else if (!hadhn)
+    {
+#ifdef EEL_STRING_DEBUGOUT
+      EEL_STRING_DEBUGOUT("tcp_close: connection identifier %f is not open",handle);
+#endif
+    }
+  }
+  else
+  {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("tcp_close: connection identifier %f is out of range",handle);
+#endif
   }
   return 0.0;
 }
@@ -378,6 +443,12 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_connect(void *opaque, INT_PTR np, EEL_F **
       EEL_STRING_MUTEXLOCK_SCOPE
       const char *fn = EEL_STRING_GET_FOR_INDEX(parms[0][0],NULL);
       if (fn) dest=strdup(fn);
+      else
+      {
+#ifdef EEL_STRING_DEBUGOUT
+         EEL_STRING_DEBUGOUT("tcp_connect(): host string identifier %f invalid",parms[0][0]);
+#endif
+      }
     }
     if (dest) return ctx->onConnect(dest, (int) (parms[1][0]+0.5), np < 3 || parms[2][0] >= 0.5);
   }
@@ -387,14 +458,14 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_connect(void *opaque, INT_PTR np, EEL_F **
 static EEL_F NSEEL_CGEN_CALL _eel_tcp_set_block(void *opaque, EEL_F *handle, EEL_F *bl)
 {
   eel_net_state *ctx;
-  if (NULL != (ctx=EEL_NET_GET_CONTEXT(opaque))) return ctx->set_block(*handle, *bl >= 0.5);
+  if (NULL != (ctx=EEL_NET_GET_CONTEXT(opaque))) return ctx->set_block(opaque,*handle, *bl >= 0.5);
   return 0;
 }
 
 static EEL_F NSEEL_CGEN_CALL _eel_tcp_close(void *opaque, EEL_F *handle)
 {
   eel_net_state *ctx;
-  if (NULL != (ctx=EEL_NET_GET_CONTEXT(opaque))) return ctx->onClose(*handle);
+  if (NULL != (ctx=EEL_NET_GET_CONTEXT(opaque))) return ctx->onClose(opaque,*handle);
   return 0;
 }
 
@@ -407,7 +478,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_recv(void *opaque, INT_PTR np, EEL_F **par
     int ml = np > 2 ? (int)parms[2][0] : 4096;
     if (ml < 0 || ml > EEL_STRING_MAXUSERSTRING_LENGTH_HINT) ml = EEL_STRING_MAXUSERSTRING_LENGTH_HINT;
 
-    ml=ctx->do_recv(parms[0][0],buf,ml);
+    ml=ctx->do_recv(opaque,parms[0][0],buf,ml);
 
     {
       EEL_STRING_MUTEXLOCK_SCOPE
@@ -445,7 +516,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_send(void *opaque, INT_PTR np, EEL_F **par
       }
       if (l > 0) memcpy(buf,fn,l);
     }
-    if (l>0) return ctx->do_send(parms[0][0],buf,l);
+    if (l>0) return ctx->do_send(opaque,parms[0][0],buf,l);
     return 0;
   }
   return -1;
