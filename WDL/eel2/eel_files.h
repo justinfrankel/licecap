@@ -14,12 +14,22 @@ static EEL_F NSEEL_CGEN_CALL _eel_fopen(void *opaque, EEL_F *fn_index, EEL_F *mo
   if (!fn || !mode) return 0;
   return (EEL_F) EEL_FILE_OPEN(fn,mode);
 }
-static EEL_F NSEEL_CGEN_CALL _eel_fclose(void *opaque, EEL_F *fpp) { return EEL_FILE_CLOSE((int)*fpp); }
+static EEL_F NSEEL_CGEN_CALL _eel_fclose(void *opaque, EEL_F *fpp) 
+{ 
+  EEL_F ret=EEL_FILE_CLOSE((int)*fpp); 
+#ifdef EEL_STRING_DEBUGOUT
+  if (ret < 0) EEL_STRING_DEBUGOUT("fclose(): file handle %f not valid",*fpp);
+#endif
+  return ret;
+}
 static EEL_F NSEEL_CGEN_CALL _eel_fgetc(void *opaque, EEL_F *fpp) 
 {
   EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return (EEL_F)fgetc(fp);
+#ifdef EEL_STRING_DEBUGOUT
+  EEL_STRING_DEBUGOUT("fgetc(): file handle %f not valid",*fpp);
+#endif
   return -1.0;
 }
 
@@ -28,6 +38,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_ftell(void *opaque, EEL_F *fpp)
   EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return (EEL_F)ftell(fp);
+#ifdef EEL_STRING_DEBUGOUT
+  EEL_STRING_DEBUGOUT("ftell(): file handle %f not valid",*fpp);
+#endif
   return -1.0;
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fflush(void *opaque, EEL_F *fpp) 
@@ -35,6 +48,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_fflush(void *opaque, EEL_F *fpp)
   EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) { fflush(fp); return 0.0; }
+#ifdef EEL_STRING_DEBUGOUT
+  EEL_STRING_DEBUGOUT("fflush(): file handle %f not valid",*fpp);
+#endif
   return -1.0;
 }
 
@@ -43,6 +59,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_feof(void *opaque, EEL_F *fpp)
   EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return feof(fp) ? 1.0 : 0.0;
+#ifdef EEL_STRING_DEBUGOUT
+  EEL_STRING_DEBUGOUT("feof(): file handle %f not valid",*fpp);
+#endif
   return -1.0;
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fseek(void *opaque, EEL_F *fpp, EEL_F *offset, EEL_F *wh) 
@@ -50,6 +69,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_fseek(void *opaque, EEL_F *fpp, EEL_F *offset,
   EEL_STRING_MUTEXLOCK_SCOPE
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (fp) return fseek(fp, (int) *offset, *wh<0 ? SEEK_SET : *wh > 0 ? SEEK_END : SEEK_CUR);
+#ifdef EEL_STRING_DEBUGOUT
+  EEL_STRING_DEBUGOUT("fseek(): file handle %f not valid",*fpp);
+#endif
   return -1.0;
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fgets(void *opaque, EEL_F *fpp, EEL_F *strOut)
@@ -61,6 +83,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_fgets(void *opaque, EEL_F *fpp, EEL_F *strOut)
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (!fp)
   {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("fgets(): file handle %f not valid",*fpp);
+#endif
     if (wr) wr->Set("");
     return 0.0;
   }
@@ -99,6 +124,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_fread(void *opaque, EEL_F *fpp, EEL_F *strOut,
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (!fp)
   {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("fread(): file handle %f not valid",*fpp);
+#endif
     if (wr) wr->Set("");
     return 0.0;
   }
@@ -143,7 +171,13 @@ static EEL_F NSEEL_CGEN_CALL _eel_fwrite(void *opaque, EEL_F *fpp, EEL_F *strOut
   if (use_len < 1) return 0.0;
 
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
-  if (!fp) return 0.0;
+  if (!fp) 
+  {
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("fwrite(): file handle %f not valid",*fpp);
+#endif
+    return 0.0;
+  } 
 
   return (EEL_F) fwrite(str,1,use_len,fp);
 }
@@ -154,7 +188,13 @@ static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, INT_PTR nparam, EEL_F **
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     FILE *fp = EEL_FILE_GETFP((int)*(parm[0]));
-    if (!fp) return 0.0;
+    if (!fp) 
+    {
+#ifdef EEL_STRING_DEBUGOUT
+      EEL_STRING_DEBUGOUT("fprintf(): file handle %f not valid",parm[0][0]);
+#endif
+      return 0.0;
+    }
 
     EEL_STRING_STORAGECLASS *wr_src=NULL;
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parm[1]),&wr_src);
