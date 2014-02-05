@@ -114,12 +114,8 @@ bool WDL_ChooseDirectory(HWND parent, const char *text, const char *initialdir, 
 
 static const char *stristr(const char* a, const char* b)
 {
-  int i;
-  int len = strlen(b);
-  int n = strlen(a)-len;
-  for (i = 0; i <= n; ++i)
-    if (!strnicmp(a+i, b, len)) 
-      return a+i;
+  const size_t n = strlen(a), len = strlen(b);
+  for (size_t i = 0; i+len <= n; ++i) if (!strnicmp(a+i, b, len)) return a+i;
   return NULL;
 }
 
