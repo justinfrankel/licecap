@@ -216,7 +216,7 @@ public:
   int m_gfx_font_active; // -1 for default, otherwise index into gfx_fonts (NOTE: this differs from the exposed API, which defines 0 as default, 1-n)
   LICE_IFont *GetActiveFont() { return m_gfx_font_active>=0&&m_gfx_font_active<m_gfx_fonts.GetSize() && m_gfx_fonts.Get()[m_gfx_font_active].use_fonth ? m_gfx_fonts.Get()[m_gfx_font_active].font : NULL; }
 
-  LICE_IBitmap *GetImageForIndex(EEL_F idx) 
+  LICE_IBitmap *GetImageForIndex(EEL_F idx, const char *callername) 
   { 
     if (idx>-2.0)
     {
@@ -225,6 +225,9 @@ public:
       const int a = (int)idx;
       if (a >= 0 && a < m_gfx_images.GetSize()) return m_gfx_images.Get()[a];
     }
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("%s: image index %f specified out of range",callername,idx);
+#endif
     return NULL;
   };
 
@@ -642,7 +645,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_setimgdim(void *opaque, EEL_F *img, EEL_F *w, 
 
 void eel_lice_state::gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_lineto");
   if (!dest) return;
 
   int x1=(int)floor(xpos),y1=(int)floor(ypos),x2=(int)floor(*m_gfx_x), y2=(int)floor(*m_gfx_y);
@@ -660,7 +663,7 @@ void eel_lice_state::gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag)
 
 void eel_lice_state::gfx_circle(float x, float y, float r, bool fill, bool aaflag)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_circle");
   if (!dest) return;
 
   if (LICE_FUNCTION_VALID(LICE_Circle) && LICE_FUNCTION_VALID(LICE_FillCircle))
@@ -675,7 +678,7 @@ void eel_lice_state::gfx_circle(float x, float y, float r, bool fill, bool aafla
 
 void eel_lice_state::gfx_rectto(EEL_F xpos, EEL_F ypos)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_rectto");
   if (!dest) return;
 
   float x1=xpos,y1=ypos,x2=*m_gfx_x, y2=*m_gfx_y;
@@ -695,7 +698,7 @@ void eel_lice_state::gfx_rectto(EEL_F xpos, EEL_F ypos)
 
 void eel_lice_state::gfx_line(int np, EEL_F **parms)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_line");
   if (!dest) return;
 
   int x1=(int)floor(parms[0][0]),y1=(int)floor(parms[1][0]),x2=(int)floor(parms[2][0]), y2=(int)floor(parms[3][0]);
@@ -711,7 +714,7 @@ void eel_lice_state::gfx_line(int np, EEL_F **parms)
 
 void eel_lice_state::gfx_rect(int np, EEL_F **parms)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_rect");
   if (!dest) return;
 
   int x1=(int)floor(parms[0][0]),y1=(int)floor(parms[1][0]),w=(int)floor(parms[2][0]), h=(int)floor(parms[3][0]);
@@ -726,7 +729,7 @@ void eel_lice_state::gfx_rect(int np, EEL_F **parms)
 
 void eel_lice_state::gfx_roundrect(int np, EEL_F **parms)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_roundrect");
   if (!dest) return;
 
   const bool aa = np <= 5 || parms[5][0]>0.5;
@@ -740,7 +743,7 @@ void eel_lice_state::gfx_roundrect(int np, EEL_F **parms)
 
 void eel_lice_state::gfx_arc(int np, EEL_F **parms)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_arc");
   if (!dest) return;
 
   const bool aa = np <= 5 || parms[5][0]>0.5;
@@ -754,7 +757,7 @@ void eel_lice_state::gfx_arc(int np, EEL_F **parms)
 
 void eel_lice_state::gfx_grad_or_muladd_rect(int whichmode, int np, EEL_F **parms)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,whichmode==0?"gfx_gradrect":"gfx_muladdrect");
   if (!dest) return;
 
   const int x1=(int)floor(parms[0][0]),y1=(int)floor(parms[1][0]),w=(int)floor(parms[2][0]), h=(int)floor(parms[3][0]);
@@ -784,7 +787,7 @@ void eel_lice_state::gfx_grad_or_muladd_rect(int whichmode, int np, EEL_F **parm
 
 void eel_lice_state::gfx_setpixel(EEL_F r, EEL_F g, EEL_F b)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_setpixel");
   if (!dest) return;
 
   int red=(int) (r*255.0);
@@ -810,7 +813,7 @@ void eel_lice_state::gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h)
 #endif
     ) return;
 
-  LICE_IBitmap *bm=GetImageForIndex(img); 
+  LICE_IBitmap *bm=GetImageForIndex(img,"gfx_getimgdim"); 
   if (bm)
   {
     *w=LICE__GetWidth(bm);
@@ -882,7 +885,7 @@ EEL_F eel_lice_state::gfx_setimgdim(int img, EEL_F *w, EEL_F *h)
 
 void eel_lice_state::gfx_blurto(EEL_F x, EEL_F y)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_blurto");
   if (!dest
 #ifdef DYNAMIC_LICE
     ||!LICE_Blur
@@ -912,7 +915,7 @@ static bool CoordsSrcDestOverlap(EEL_F *coords)
 
 void eel_lice_state::gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_F *tab)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_transformblit");
 
   if (!dest
 #ifdef DYNAMIC_LICE
@@ -920,7 +923,7 @@ void eel_lice_state::gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_
 #endif 
     ) return;
 
-  LICE_IBitmap *bm=GetImageForIndex(parms[0][0]); 
+  LICE_IBitmap *bm=GetImageForIndex(parms[0][0],"gfx_transformblit:src"); 
   if (!bm) return;
 
   const int bmw=LICE__GetWidth(bm);
@@ -1050,7 +1053,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
 
 void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_blitext2");
 
   if (!dest
 #ifdef DYNAMIC_LICE
@@ -1058,7 +1061,7 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
 #endif 
     ) return;
 
-  LICE_IBitmap *bm=GetImageForIndex(parms[0][0]); 
+  LICE_IBitmap *bm=GetImageForIndex(parms[0][0],"gfx_blitext2:src"); 
   if (!bm) return;
 
   const int bmw=LICE__GetWidth(bm);
@@ -1127,7 +1130,7 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
 
 void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_blitext");
 
   if (!dest
 #ifdef DYNAMIC_LICE
@@ -1135,7 +1138,7 @@ void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
 #endif 
     ) return;
 
-  LICE_IBitmap *bm=GetImageForIndex(img); 
+  LICE_IBitmap *bm=GetImageForIndex(img,"gfx_blitext:src");
   if (!bm) return;
   
   const bool isFromFB = bm == m_framebuffer;
@@ -1171,14 +1174,14 @@ void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
 
 void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_blit");
   if (!dest
 #ifdef DYNAMIC_LICE
     ||!LICE_ScaledBlit || !LICE_RotatedBlit||!LICE__GetWidth||!LICE__GetHeight
 #endif
     ) return;
 
-  LICE_IBitmap *bm=GetImageForIndex(img);
+  LICE_IBitmap *bm=GetImageForIndex(img,"gfx_blit:src");
   
   if (!bm) return;
   
@@ -1201,7 +1204,7 @@ void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
 
 void eel_lice_state::gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_getpixel");
   if (!dest) return;
 
   int ret=LICE_FUNCTION_VALID(LICE_GetPixel)?LICE_GetPixel(dest,(int)*m_gfx_x, (int)*m_gfx_y):0;
@@ -1293,7 +1296,7 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
 
 void eel_lice_state::gfx_drawstr(void *opaque, EEL_F ch, int formatmode, int nfmtparms, EEL_F **fmtparms)// formatmode=1 for format, 2 for purely measure no format
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,formatmode==1?"gfx_printf":formatmode==2?"gfx_measurestr":"gfx_drawstr");
   if (!dest) return;
 
 #ifdef DYNAMIC_LICE
@@ -1344,7 +1347,7 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F ch, int formatmode, int nfm
 
 void eel_lice_state::gfx_drawchar(EEL_F ch)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_drawchar");
   if (!dest) return;
 
   int a=(int)(ch+0.5);
@@ -1361,7 +1364,7 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
 
 void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
 {
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest);
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_drawnumber");
   if (!dest) return;
 
   char buf[512];
