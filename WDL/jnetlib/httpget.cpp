@@ -148,7 +148,7 @@ void JNL_HTTPGet::connect(const char *url, int ver, const char *requestmethod)
     return;
   }
 
-  int sendbufferlen=0;
+  size_t sendbufferlen=0;
 
   if (!m_http_proxyhost || !m_http_proxyhost[0])
   {
@@ -207,7 +207,7 @@ void JNL_HTTPGet::connect(const char *url, int ver, const char *requestmethod)
 
   int a=m_recvbufsize;
   if (a < 4096) a=4096;
-  m_con=new JNL_Connection(m_dns,strlen(str)+4,a);
+  m_con=new JNL_Connection(m_dns,(int)strlen(str)+4,a);
   if (m_con)
   {
     if (!m_http_proxyhost || !m_http_proxyhost[0])
@@ -379,7 +379,7 @@ run_again:
       if (!buf[0]) { m_http_state=3; break; }
       if (!m_recvheaders)
       {
-        m_recvheaders_size=strlen(buf)+1;
+        m_recvheaders_size=(int)strlen(buf)+1;
         m_recvheaders=(char*)malloc(m_recvheaders_size+1);
         if (m_recvheaders)
         {
@@ -390,7 +390,7 @@ run_again:
       else
       {
         int oldsize=m_recvheaders_size;
-        m_recvheaders_size+=strlen(buf)+1;
+        m_recvheaders_size+=(int)strlen(buf)+1;
         char *n=(char*)malloc(m_recvheaders_size+1);
         if (n)
         {
