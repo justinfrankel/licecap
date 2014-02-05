@@ -225,7 +225,20 @@ static EEL_F NSEEL_CGEN_CALL _eel_defer(void *opaque, EEL_F *s)
       inst->m_defer_eval.Add(str,strlen(str)+1);
       return 1.0;
     }
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("defer(): too much defer() code already added, ignoring");
+#endif
   }
+#ifdef EEL_STRING_DEBUGOUT
+  else if (!str)
+  {
+    EEL_STRING_DEBUGOUT("defer(): invalid string identifier specified %f",*s);
+  }
+  else if (*s < EEL_STRING_MAX_USER_STRINGS)
+  {
+    EEL_STRING_DEBUGOUT("defer(): user string identifier %f specified but not allowed",*s);
+  }
+#endif
   return 0.0;
 }
 static EEL_F NSEEL_CGEN_CALL _eel_atexit(void *opaque, EEL_F *s)
@@ -240,7 +253,20 @@ static EEL_F NSEEL_CGEN_CALL _eel_atexit(void *opaque, EEL_F *s)
       inst->m_atexit_eval.Add(str,strlen(str)+1);
       return 1.0;
     }
+#ifdef EEL_STRING_DEBUGOUT
+    EEL_STRING_DEBUGOUT("atexit(): too much atexit() code already added, ignoring");
+#endif
   }
+#ifdef EEL_STRING_DEBUGOUT
+  else if (!str)
+  {
+    EEL_STRING_DEBUGOUT("atexit(): invalid string identifier specified %f",*s);
+  }
+  else if (*s < EEL_STRING_MAX_USER_STRINGS)
+  {
+    EEL_STRING_DEBUGOUT("atexit(): user string identifier %f specified but not allowed",*s);
+  }
+#endif
   return 0.0;
 }
 #endif

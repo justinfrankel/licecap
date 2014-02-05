@@ -18,6 +18,12 @@ static EEL_F NSEEL_CGEN_CALL _eel_eval(void *opaque, EEL_F *s)
   {
     EEL_STRING_MUTEXLOCK_SCOPE
     const char *str=EEL_STRING_GET_FOR_INDEX(*s,NULL);
+#ifdef EEL_STRING_DEBUGOUT
+    if (!str)
+    {
+      EEL_STRING_DEBUGOUT("eval() passed invalid string handle %f",*s);
+    }
+#endif
     if (str && *str) 
     {
       sv=EEL_EVAL_GET_CACHED(str,ch);
@@ -32,6 +38,13 @@ static EEL_F NSEEL_CGEN_CALL _eel_eval(void *opaque, EEL_F *s)
       NSEEL_code_execute(ch);
       EEL_EVAL_SET_CACHED(sv,ch);
       return 1.0;
+    }
+    else
+    { 
+#ifdef EEL_STRING_DEBUGOUT
+      const char *err=NSEEL_code_getcodeerror(r);
+      if (err) EEL_STRING_DEBUGOUT("eval() error: %s",err);
+#endif
     }
     free(sv);
   }
