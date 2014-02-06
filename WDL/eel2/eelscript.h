@@ -68,6 +68,7 @@ class eelScriptInst {
     eelScriptInst();
     virtual ~eelScriptInst();
 
+    NSEEL_CODEHANDLE compile_code(const char *code, const char **err);
     int runcode(const char *code, int showerr, const char *showerrfn, bool canfree, bool ignoreEndOfInputChk, bool doExec);
     int loadfile(const char *fn, const char *callerfn, bool allowstdin);
 
@@ -339,6 +340,24 @@ bool eelScriptInst::GetFilenameForParameter(EEL_F idx, WDL_FastString *fs, int i
   if (!fmt) return false;
   fs->Set(fmt);
   return translateFilename(fs,iswrite?"w":"r");
+}
+
+NSEEL_CODEHANDLE eelScriptInst::compile_code(const char *code, const char **err)
+{
+  if (!m_vm)
+  {
+    *err = "EEL VM not initialized";
+    return NULL;
+  }
+  NSEEL_CODEHANDLE ch = NSEEL_code_compile_ex(m_vm, code, 0, NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
+  if (ch)
+  {
+    m_string_context->update_named_vars(m_vm);
+    m_code_freelist.Add((void*)ch);
+    return ch;
+  }
+  *err = NSEEL_code_getcodeerror(m_vm);
+  return NULL;
 }
 
 int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerrfn, bool canfree, bool ignoreEndOfInputChk, bool doExec)
