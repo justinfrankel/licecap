@@ -152,9 +152,10 @@ typedef struct
 
   UINT uScrollTimerMsg;
   
-  UINT uMouseOverId;
-  UINT uScrollTimerId;
-  UINT uZoomTimerId, uZoomTimerMode;
+  UINT_PTR uMouseOverId;
+  UINT_PTR uScrollTimerId;
+  UINT_PTR uZoomTimerId;
+  UINT uZoomTimerMode;
 
   RECT MouseOverRect;
   BOOL MouseOverRect_hasZoomButtons;
