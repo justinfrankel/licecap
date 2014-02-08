@@ -180,6 +180,19 @@ static int swell_gdkConvertKey(int key)
   //gdk key to VK_ conversion
   switch(key)
   {
+#if SWELL_TARGET_GDK == 2
+  case GDK_Home: key = VK_HOME; break;
+  case GDK_End: key = VK_END; break;
+  case GDK_Up: key = VK_UP; break;
+  case GDK_Down: key = VK_DOWN; break;
+  case GDK_Left: key = VK_LEFT; break;
+  case GDK_Right: key = VK_RIGHT; break;
+  case GDK_Page_Up: key = VK_PRIOR; break;
+  case GDK_Page_Down: key = VK_NEXT; break;
+  case GDK_Insert: key = VK_INSERT; break;
+  case GDK_Delete: key = VK_DELETE; break;
+  case GDK_Escape: key = VK_ESCAPE; break;
+#else
   case GDK_KEY_Home: key = VK_HOME; break;
   case GDK_KEY_End: key = VK_END; break;
   case GDK_KEY_Up: key = VK_UP; break;
@@ -191,6 +204,7 @@ static int swell_gdkConvertKey(int key)
   case GDK_KEY_Insert: key = VK_INSERT; break;
   case GDK_KEY_Delete: key = VK_DELETE; break;
   case GDK_KEY_Escape: key = VK_ESCAPE; break;
+#endif
   }
   return key;
 }
@@ -280,8 +294,16 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
             // don't use GetClientRect(),since we're getting it pre-NCCALCSIZE etc
 
+#if SWELL_TARGET_GDK==2
+            { 
+              gint w=0,h=0; 
+              gdk_drawable_get_size(hwnd->m_oswindow,&w,&h);
+              cr.right = w; cr.bottom = h;
+            }
+#else
             cr.right = gdk_window_get_width(hwnd->m_oswindow);
             cr.bottom = gdk_window_get_height(hwnd->m_oswindow);
+#endif
             cr.left=cr.top=0;
 
             r.left = exp->area.x; 
@@ -951,8 +973,12 @@ void GetWindowContentViewRect(HWND hwnd, RECT *r)
   {
     gint w=0,h=0,px=0,py=0;
     gdk_window_get_position(hwnd->m_oswindow,&px,&py);
+#if SWELL_TARGET_GDK==2
+    gdk_drawable_get_size(hwnd->m_oswindow,&w,&h);
+#else
     w = gdk_window_get_width(hwnd->m_oswindow);
     h = gdk_window_get_height(hwnd->m_oswindow);
+#endif
     r->left=px;
     r->top=py;
     r->right = px+w;
@@ -971,8 +997,15 @@ void GetClientRect(HWND hwnd, RECT *r)
 #ifdef SWELL_TARGET_GDK
   if (hwnd->m_oswindow)
   {
+#if SWELL_TARGET_GDK==2
+    gint w=0, h=0;
+    gdk_drawable_get_size(hwnd->m_oswindow,&w,&h);
+    r->right = w;
+    r->bottom = h;
+#else
     r->right = gdk_window_get_width(hwnd->m_oswindow);
     r->bottom = gdk_window_get_height(hwnd->m_oswindow);
+#endif
     
   }
   else
@@ -3362,6 +3395,7 @@ void ListView_SetSelColors(HWND hwnd, int *colors, int ncolors)
 }
 int ListView_GetTopIndex(HWND h)
 {
+  return 0;
 }
 BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
 {
