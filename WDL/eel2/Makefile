@@ -3,15 +3,20 @@ CFLAGS=-O -g -DWDL_FFT_REALSIZE=8
 LFLAGS=
 CXX=g++
 
-ifdef force32
-CFLAGS += -arch i386
-endif
 
 OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o  ../fft.o
 
 OBJS2=
 
 UNAME_S := $(shell uname -s)
+
+ifdef force32
+# only usable on darwin at the moment
+CFLAGS += -arch i386
+ARCH = i686
+else
+ARCH := $(shell uname -m)
+endif
 
 default: loose_eel
 
@@ -42,16 +47,22 @@ endif
 %.o : %.mm
 	$(CXX) $(CXXFLAGS) -c -o $@ $^
 
+asm-nseel-x64.o: a2x64.php asm-nseel-x86-gcc.c
+	php a2x64.php elf64
 
 ifdef PORTABLE
   CFLAGS +=  -DEEL_TARGET_PORTABLE
 else
   ifeq ($(UNAME_S),Darwin)
-    ifndef force32
+    ifeq ($(ARCH),x86_64)
       OBJS2 += asm-nseel-x64-macho.o
     endif
   endif
-
+  ifeq ($(UNAME_S),Linux)
+    ifeq ($(ARCH),x86_64)
+      OBJS2 += asm-nseel-x64.o
+    endif
+  endif
 endif
 CXXFLAGS=$(CFLAGS)
 

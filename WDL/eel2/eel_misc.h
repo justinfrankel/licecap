@@ -4,9 +4,8 @@
 
 #ifndef _WIN32
 #include <sys/time.h>
-#else
-#include <time.h>
 #endif
+#include <time.h>
 // some generic EEL functions for things like time
 
 #ifndef EEL_MISC_NO_SLEEP
