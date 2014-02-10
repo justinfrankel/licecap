@@ -65,8 +65,9 @@ class WDL_String
     void WDL_VARARG_WARN(printf,3,4) AppendFormatted(int maxlen, const char *fmt, ...);
   #endif
 
-  #ifdef WDL_STRING_FASTSUB_DEFINED
     const char *Get() const { return m_hb.GetSize()?(char*)m_hb.Get():""; }
+
+  #ifdef WDL_STRING_FASTSUB_DEFINED
     int GetLength() const { int a = m_hb.GetSize(); return a>0?a-1:0; }
 
     // for binary-safe manipulations
@@ -81,7 +82,7 @@ class WDL_String
     }
 
   #else
-    char *Get() const
+    char *Get()
     {
       if (m_hb.GetSize()) return (char *)m_hb.Get();
       static char c; c=0; return &c; // don't return "", in case it gets written to.
