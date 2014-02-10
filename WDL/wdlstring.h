@@ -193,8 +193,9 @@ class WDL_String
     void WDL_STRING_FUNCPREFIX SetLen(int length, bool resizeDown WDL_STRING_DEFPARM(false))
     {                       
       #ifdef WDL_STRING_FASTSUB_DEFINED
-        int osz = m_hb.GetSize()?m_hb.GetSize()-1:0;
+      const int osz = m_hb.GetSize()>0?m_hb.GetSize()-1:0;
       #endif
+      if (length < 0) length=0;
       char *b=(char*)m_hb.Resize(length+1,resizeDown);
       if (m_hb.GetSize()==length+1) 
       {
