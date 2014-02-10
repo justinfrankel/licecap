@@ -28,6 +28,7 @@
 #endif
 #include "../WDL/queue.h"
 #include "../WDL/mutex.h"
+#include "../WDL/wdlcstring.h"
 
 
 #ifdef REAPER_LICECAP
@@ -448,10 +449,7 @@ void UpdateCaption(HWND hwndDlg)
   }
   else
   {
-    const char *p=g_last_fn;
-    while (*p) p++;
-    while (p >= g_last_fn && *p != '\\' && *p != '/') p--;
-    p++;
+    const char *p=WDL_get_filepart(g_last_fn);
     char buf[256];
     char pbuf[64];
     pbuf[0]=0;
@@ -460,11 +458,11 @@ void UpdateCaption(HWND hwndDlg)
       DWORD now=timeGetTime();
       if (now < g_cap_prerolluntil)
       {
-        sprintf(pbuf,"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
+        snprintf(pbuf,sizeof(pbuf),"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
       }
       else g_cap_prerolluntil=0;
     }
-    sprintf(buf,"%s%.100s - LICEcap%s",pbuf,p,pbuf[0]?"":g_cap_state==1?" [recording]":" [paused]");
+    snprintf(buf,sizeof(buf),"%s%.100s - LICEcap%s",pbuf,p,pbuf[0]?"":g_cap_state==1?" [recording]":" [paused]");
     SetWindowText(hwndDlg,buf);
   }
 }
@@ -1641,7 +1639,8 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
         GetModuleFileName(NULL,exepath,sizeof(exepath));
         char *p=exepath;
         while (*p) p++;
-        while (p > exepath && *p != '/') p--; *p=0;
+        while (p > exepath && *p != '/') p--; 
+        *p=0;
       
         g_ini_file.Set(exepath);
         g_ini_file.Append("/licecap.ini");
