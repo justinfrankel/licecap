@@ -54,6 +54,11 @@ class WDL_String
     void Insert(const WDL_String *str, int position, int maxlen=0);
     void SetLen(int length, bool resizeDown=false);
     void Ellipsize(int minlen, int maxlen);
+    const char *get_filepart() const; // returns whole string if no dir chars
+    const char *get_fileext() const; // returns ".ext" or end of string "" if no extension
+    bool remove_fileext(); // returns true if extension was removed
+    char remove_filepart(bool keepTrailingSlash=false); // returns dir character used, or zero if string emptied
+    int remove_trailing_dirchars(); // returns trailing dirchar count removed, will not convert "/" into ""
 
     void SetAppendFormattedArgs(bool append, int maxlen, const char* fmt, va_list arglist);
     void WDL_VARARG_WARN(printf,3,4) SetFormatted(int maxlen, const char *fmt, ...);
@@ -256,7 +261,71 @@ class WDL_String
         }
       }
     }
+    const char * WDL_STRING_FUNCPREFIX get_filepart() const // returns whole string if no dir chars
+    {
+      const char *p = Get() + GetLength() - 1;
+      while (p >= Get() && !WDL_IS_DIRCHAR(*p)) --p;
+      return p + 1;
+    }
+    const char * WDL_STRING_FUNCPREFIX get_fileext() const // returns ".ext" or end of string "" if no extension
+    {
+      const char *p = Get() + GetLength() - 1;
+      while (p >= Get() && !WDL_IS_DIRCHAR(*p))
+      {
+        if (*p == '.') return p;
+        --p;
+      }
+      return Get() + GetLength();
+    }
+    bool WDL_STRING_FUNCPREFIX remove_fileext() // returns true if extension was removed
+    {
+      int pos = GetLength() - 1;
+      while (pos >= 0)
+      {
+        char c = Get()[pos];
+        if (WDL_IS_DIRCHAR(c)) break;
+        if (c == '.')
+        {
+          SetLen(pos);
+          return true;
+        }
+        --pos;
+      }
+      return false;
+    }
 
+    char WDL_STRING_FUNCPREFIX remove_filepart(bool keepTrailingSlash WDL_STRING_DEFPARM(false)) // returns directory character used, or 0 if string emptied
+    {
+      char rv=0;
+      int pos = GetLength();
+      while (pos > 0)
+      {
+        char c = Get()[pos];
+        if (WDL_IS_DIRCHAR(c)) 
+        {
+          rv=c;
+          if (keepTrailingSlash) ++pos;
+          break;
+        }
+        --pos;
+      }
+      SetLen(pos);
+      return rv;
+    }
+
+    int WDL_STRING_FUNCPREFIX remove_trailing_dirchars() // returns trailing dirchar count removed
+    {
+      int cnt = 0;
+      const int l = GetLength();
+      while (cnt < l-1)
+      {
+        char c = Get()[l - cnt -1];
+        if (!WDL_IS_DIRCHAR(c)) break;
+        ++cnt;
+      }
+      if (cnt > 0) SetLen(l - cnt);
+      return cnt;
+    }
 #ifndef WDL_STRING_IMPL_ONLY
   private:
 #endif
