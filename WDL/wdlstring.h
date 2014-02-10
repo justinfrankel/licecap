@@ -332,14 +332,29 @@ class WDL_String
 #endif
     void WDL_STRING_FUNCPREFIX __doSet(int offs, const char *str, int len, int trailkeep)
     {   
-      if (len>0 || (!trailkeep && !offs && m_hb.GetSize()>1)) // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
+      // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
+      if ((len>0 || (len==0 && !trailkeep && !offs && m_hb.GetSize()>1)) && offs >= 0) 
       {
-        char *newbuf=(char*)m_hb.Resize(offs+len+trailkeep+1,false);
-        if (m_hb.GetSize()==offs+len+trailkeep+1) 
+        const int oldsz = m_hb.GetSize();
+        const int newsz=offs+len+trailkeep+1;
+        if (oldsz < newsz) 
         {
+          const char *oldb = (const char *)m_hb.Get();
+          const char *newb = (const char *)m_hb.Resize(newsz,false); // resize up if necessary
+
+          // in case str overlaps with input, keep it valid
+          if (newb != oldb && str >= oldb && str < oldb+oldsz) str = newb + (str - oldb);
+        }
+
+        if (m_hb.GetSize() >= newsz)
+        {
+          char *newbuf = (char *)m_hb.Get();
           if (trailkeep>0) memmove(newbuf+offs+len,newbuf+offs,trailkeep);
-          memcpy(newbuf+offs,str,len);
-          newbuf[offs+len+trailkeep]=0;
+          memmove(newbuf+offs,str,len);
+          newbuf[newsz-1]=0;
+
+          // resize down if necessary
+          if (newsz < oldsz) m_hb.Resize(newsz,false);
         }
       }
     }
