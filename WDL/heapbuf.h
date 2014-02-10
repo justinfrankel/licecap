@@ -116,6 +116,7 @@ class WDL_HeapBuf
       void *Resize(int newsize, bool resizedown=true)
     #endif
       {
+        if (newsize<0) newsize=0;
         #ifdef DEBUG_TIGHT_ALLOC // horribly slow, do not use for release builds
           if (newsize == m_size) return m_buf;
 
