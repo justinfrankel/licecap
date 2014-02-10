@@ -92,5 +92,21 @@ typedef bool WDL_bool;
   #endif
 #endif
 
+#ifdef WDL_BACKSLASHES_ARE_ORDINARY
+#define WDL_IS_DIRCHAR(x) ((x) == '/')
+#else
+// for multi-platform applications it seems better to treat backslashes as directory separators even if it
+// isn't supported by the underying system (for resolving filenames, etc)
+#define WDL_IS_DIRCHAR(x) ((x) == '\\' || (x) == '/')
+#endif
+
+#if defined(_WIN32) && !defined(WDL_BACKSLASHES_ARE_ORDINARY)
+#define WDL_DIRCHAR '\\'
+#define WDL_DIRCHAR_STR "\\"
+#else
+#define WDL_DIRCHAR '/'
+#define WDL_DIRCHAR_STR "/"
+#endif
+
 
 #endif
