@@ -162,12 +162,11 @@ class JNL_FilePageGenerator : public IPageGenerator
 class JNL_StringPageGenerator : public IPageGenerator
 {
   public:
-    JNL_StringPageGenerator() { m_pos=0; m_len=-1; }
+    JNL_StringPageGenerator() { m_pos=0; }
     virtual ~JNL_StringPageGenerator() { }
     virtual int GetData(char *buf, int size) 
     { 
-      if (m_len<0) m_len=strlen(str.Get());
-      if (size > m_len - m_pos) size=m_len-m_pos;
+      if (size > str.GetLength() - m_pos) size=str.GetLength()-m_pos;
       if (size>0) 
       {
         memcpy(buf,str.Get()+m_pos,size);
@@ -176,10 +175,9 @@ class JNL_StringPageGenerator : public IPageGenerator
       return size; 
     }
 
-    WDL_String str; // set this before sending it off
+    WDL_FastString str; // set this before sending it off
 
   private:
-    int m_len;
     int m_pos;
 };
 
