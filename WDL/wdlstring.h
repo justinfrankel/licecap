@@ -112,28 +112,34 @@ class WDL_String
     void WDL_STRING_FUNCPREFIX Set(const char *str, int maxlen WDL_STRING_DEFPARM(0))
     {
       int s=0;
-      if (maxlen>0) while (s < maxlen && str[s]) s++;
-      else s=(int)strlen(str);   
+      if (str)
+      {
+        if (maxlen>0) while (s < maxlen && str[s]) s++;
+        else s=(int)strlen(str);   
+      }
       __doSet(0,str,s,0);
     }
 
     void WDL_STRING_FUNCPREFIX Set(const WDL_String *str, int maxlen WDL_STRING_DEFPARM(0))
     {
       #ifdef WDL_STRING_FASTSUB_DEFINED
-        int s = str->GetLength();
+        int s = str ? str->GetLength() : 0;
         if (maxlen>0 && maxlen<s) s=maxlen;
 
-        __doSet(0,str->Get(),s,0);
+        __doSet(0,str?str->Get():NULL,s,0);
       #else
-        Set(str->Get(), maxlen); // might be faster: "partial" strlen
+        Set(str?str->Get():NULL, maxlen); // might be faster: "partial" strlen
       #endif
     }
 
     void WDL_STRING_FUNCPREFIX Append(const char *str, int maxlen WDL_STRING_DEFPARM(0))
     {
       int s=0;
-      if (maxlen>0) while (s < maxlen && str[s]) s++;
-      else s=(int)strlen(str);
+      if (str)
+      {
+        if (maxlen>0) while (s < maxlen && str[s]) s++;
+        else s=(int)strlen(str);
+      }
 
       __doSet(GetLength(),str,s,0);
     }
@@ -141,12 +147,12 @@ class WDL_String
     void WDL_STRING_FUNCPREFIX Append(const WDL_String *str, int maxlen WDL_STRING_DEFPARM(0))
     {
       #ifdef WDL_STRING_FASTSUB_DEFINED
-        int s = str->GetLength();
+        int s = str ? str->GetLength() : 0;
         if (maxlen>0 && maxlen<s) s=maxlen;
 
-        __doSet(GetLength(),str->Get(),s,0);
+        __doSet(GetLength(),str?str->Get():NULL,s,0);
       #else
-        Append(str->Get(), maxlen); // might be faster: "partial" strlen
+        Append(str?str->Get():NULL, maxlen); // might be faster: "partial" strlen
       #endif
     }
 
@@ -167,8 +173,11 @@ class WDL_String
     void WDL_STRING_FUNCPREFIX Insert(const char *str, int position, int maxlen WDL_STRING_DEFPARM(0))
     {
       int ilen=0;
-      if (maxlen>0) while (ilen < maxlen && str[ilen]) ilen++;
-      else ilen=(int)strlen(str);
+      if (str)
+      {
+        if (maxlen>0) while (ilen < maxlen && str[ilen]) ilen++;
+        else ilen=(int)strlen(str);
+      }
 
       const int srclen = GetLength();
       if (position<0) position=0;
@@ -179,7 +188,7 @@ class WDL_String
     void WDL_STRING_FUNCPREFIX Insert(const WDL_String *str, int position, int maxlen WDL_STRING_DEFPARM(0))
     {
       #ifdef WDL_STRING_FASTSUB_DEFINED
-        int ilen = str->GetLength();
+        int ilen = str ? str->GetLength() : 0;
         if (maxlen>0 && maxlen<ilen) ilen=maxlen;
 
         const int srclen = m_hb.GetSize()>0 ? m_hb.GetSize()-1 : 0;
@@ -187,7 +196,7 @@ class WDL_String
         else if (position>srclen) position=srclen;
         if (ilen>0) __doSet(position,str->Get(),ilen,srclen-position);
       #else
-        Insert(str->Get(), position, maxlen); // might be faster: "partial" strlen
+        Insert(str?str->Get():NULL, position, maxlen); // might be faster: "partial" strlen
       #endif
     }
 
@@ -344,14 +353,14 @@ class WDL_String
           const char *newb = (const char *)m_hb.Resize(newsz,false); // resize up if necessary
 
           // in case str overlaps with input, keep it valid
-          if (newb != oldb && str >= oldb && str < oldb+oldsz) str = newb + (str - oldb);
+          if (str && newb != oldb && str >= oldb && str < oldb+oldsz) str = newb + (str - oldb);
         }
 
         if (m_hb.GetSize() >= newsz)
         {
           char *newbuf = (char *)m_hb.Get();
           if (trailkeep>0) memmove(newbuf+offs+len,newbuf+offs,trailkeep);
-          memmove(newbuf+offs,str,len);
+          if (str) memmove(newbuf+offs,str,len);
           newbuf[newsz-1]=0;
 
           // resize down if necessary
