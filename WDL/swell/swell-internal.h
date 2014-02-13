@@ -316,19 +316,19 @@ struct HTREEITEM__
 // NSAccessibility
 
 // attribute methods
-- (NSArray *)accessibilityAttributeNames;
+//- (NSArray *)accessibilityAttributeNames;
 - (id)accessibilityAttributeValue:(NSString *)attribute;
-- (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute;
-- (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
+//- (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute;
+//- (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
 
 // parameterized attribute methods
-- (NSArray *)accessibilityParameterizedAttributeNames;
-- (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
+//- (NSArray *)accessibilityParameterizedAttributeNames;
+//- (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
 
 // action methods
-- (NSArray *)accessibilityActionNames;
-- (NSString *)accessibilityActionDescription:(NSString *)action;
-- (void)accessibilityPerformAction:(NSString *)action;
+//- (NSArray *)accessibilityActionNames;
+//- (NSString *)accessibilityActionDescription:(NSString *)action;
+//- (void)accessibilityPerformAction:(NSString *)action;
 
 // Return YES if the UIElement doesn't show up to the outside world - i.e. its parent should return the UIElement's children as its own - cutting the UIElement out. E.g. NSControls are ignored when they are single-celled.
 - (BOOL)accessibilityIsIgnored;
