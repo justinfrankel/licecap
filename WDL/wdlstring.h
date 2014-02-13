@@ -343,7 +343,16 @@ class WDL_String
     void WDL_STRING_FUNCPREFIX __doSet(int offs, const char *str, int len, int trailkeep)
     {   
       // if non-empty, or (empty and allocated and Set() rather than append/insert), then allow update, otherwise do nothing
-      if ((len>0 || (len==0 && !trailkeep && !offs && m_hb.GetSize()>1)) && offs >= 0) 
+      if (len==0 && !trailkeep && !offs)
+      {
+        #ifdef WDL_STRING_FREE_ON_CLEAR
+          m_hb.Resize(0,true);
+        #else
+          char *p = (char *)m_hb.Resize(1,false);
+          if (p) *p=0;
+        #endif
+      }
+      else if (len>0 && offs >= 0) 
       {
         const int oldsz = m_hb.GetSize();
         const int newsz=offs+len+trailkeep+1;
