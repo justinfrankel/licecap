@@ -1017,7 +1017,7 @@ int WDL_ImpulseBuffer::SetLength(int samples)
       if (impulses[x].GetSize()!=samples) // validate length!
       {
         // ERROR! FREE ALL!
-        for(x=0;x<m_nch;x++) impulses[x].Resize(0);
+        for(x=0;x<WDL_CONVO_MAX_IMPULSE_NCH;x++) impulses[x].Resize(0);
         return 0;
       }
     }
@@ -1036,32 +1036,21 @@ void WDL_ImpulseBuffer::SetNumChannels(int usench)
 
   if (usench > m_nch)
   {
-    int len = GetLength();
+    const int old_nch = m_nch;
+    m_nch = usench;
+    const int len = SetLength(GetLength());
+
     int x,ax=0;
-    for(x=m_nch;x<usench;x++) 
+    if (len>0) for(x=old_nch;x<usench;x++) 
     {
-      WDL_FFT_REAL *ptr=impulses[x].Resize(len,false);
-
-      int tlen = impulses[x].GetSize();
-      if (ax<x) 
-      {
-        if (tlen > impulses[ax].GetSize()) tlen = impulses[ax].GetSize();
-        if (tlen > 0)
-          memcpy(ptr,impulses[ax].Get(),tlen*sizeof(WDL_FFT_REAL)); // duplicate channels
-      }
-      else if (tlen > 0) 
-      {
-        memset(ptr,0,tlen*sizeof(WDL_FFT_REAL));
-      }
-
-      if (++ax>=m_nch)ax=0;
+      memcpy(impulses[x].Get(),impulses[ax].Get(),len*sizeof(WDL_FFT_REAL)); // duplicate channels
+      if (++ax>=old_nch) ax=0;
     }
-    m_nch=usench;
   }
   else if (usench<m_nch)
   {
     m_nch=usench;
     int x;
-    for(x=m_nch;x<WDL_CONVO_MAX_IMPULSE_NCH;x++) impulses[x].Resize(0,false);
+    for(x=usench;x<WDL_CONVO_MAX_IMPULSE_NCH;x++) impulses[x].Resize(0,false);
   }
 }
