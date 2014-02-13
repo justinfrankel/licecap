@@ -1041,10 +1041,20 @@ void WDL_ImpulseBuffer::SetNumChannels(int usench)
     for(x=m_nch;x<usench;x++) 
     {
       WDL_FFT_REAL *ptr=impulses[x].Resize(len,false);
-      if (ax<x) memcpy(ptr,impulses[ax].Get(),len*sizeof(WDL_FFT_REAL)); // duplicate channels
-      else memset(ptr,0,len*sizeof(WDL_FFT_REAL));
 
-      if (++ax==m_nch)ax=0;
+      int tlen = impulses[x].GetSize();
+      if (ax<x) 
+      {
+        if (tlen > impulses[ax].GetSize()) tlen = impulses[ax].GetSize();
+        if (tlen > 0)
+          memcpy(ptr,impulses[ax].Get(),tlen*sizeof(WDL_FFT_REAL)); // duplicate channels
+      }
+      else if (tlen > 0) 
+      {
+        memset(ptr,0,tlen*sizeof(WDL_FFT_REAL));
+      }
+
+      if (++ax>=m_nch)ax=0;
     }
     m_nch=usench;
   }
