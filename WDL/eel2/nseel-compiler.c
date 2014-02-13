@@ -5181,8 +5181,9 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
   }
   else if (tmp[0] == '#')
   {
-    char buf[512];
+    char buf[2048];
     if (!tmplen) while (tmplen < sizeof(buf)-1 && tmp[tmplen]) tmplen++;
+    else if (tmplen > sizeof(buf)-1) tmplen = sizeof(buf)-1;
     memcpy(buf,tmp,tmplen);
     buf[tmplen]=0;
     if (ctx->onNamedString) 
