@@ -13,8 +13,13 @@ typedef unsigned long long WDL_UINT64;
 
 #endif
 
-#define WDL_UINT64_CONST(x) ((WDL_UINT64)(x))
-#define WDL_INT64_CONST(x) ((WDL_INT64)(x))
+#ifdef _MSC_VER
+  #define WDL_UINT64_CONST(x) (x##ui64)
+  #define WDL_INT64_CONST(x) (x##i64)
+#else
+  #define WDL_UINT64_CONST(x) (x##ULL)
+  #define WDL_INT64_CONST(x) (x##LL)
+#endif
 
 
 #if !defined(_MSC_VER) ||  _MSC_VER > 1200
