@@ -15,3 +15,4 @@ static WDL_UINT64 WDL_FNV64(WDL_UINT64 h, const unsigned char* data, int sz)
   }
   return h;
 }
+#endif
