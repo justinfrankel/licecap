@@ -43,8 +43,6 @@
 #define SUPPORT_BLADE_MODE
 
 /// the blade mode is only use on 32-bit windows and is completely obsolete (libmp3lame.dll API is preferable and better)
-static int s_blade_mode = 0;
-
 #pragma pack(push)
 #pragma pack(1)
 
@@ -356,11 +354,11 @@ static void *tryLoadDLL2(void *dll)
       #ifdef SUPPORT_BLADE_MODE
       // try getting blade API
 
-		  *((void**)&bladeAPI.beInitStream) = (void *) GetProcAddress(dll, "beInitStream");
-		  *((void**)&bladeAPI.beCloseStream) = (void *) GetProcAddress(dll, "beCloseStream");
-		  *((void**)&bladeAPI.beEncodeChunkFloatS16NI) = (void *) GetProcAddress(dll, "beEncodeChunkFloatS16NI");
-		  *((void**)&bladeAPI.beDeinitStream)	= (void *) GetProcAddress(dll, "beDeinitStream");
-		  *((void**)&bladeAPI.beVersion) = (void *) GetProcAddress(dll, "beVersion");
+      *((void**)&bladeAPI.beInitStream) = (void *) GetProcAddress(dll, "beInitStream");
+      *((void**)&bladeAPI.beCloseStream) = (void *) GetProcAddress(dll, "beCloseStream");
+      *((void**)&bladeAPI.beEncodeChunkFloatS16NI) = (void *) GetProcAddress(dll, "beEncodeChunkFloatS16NI");
+      *((void**)&bladeAPI.beDeinitStream = (void *) GetProcAddress(dll, "beDeinitStream");
+      *((void**)&bladeAPI.beVersion) = (void *) GetProcAddress(dll, "beVersion");
       *((void**)&bladeAPI.beWriteInfoTag) = (void*) GetProcAddress(dll, "beWriteInfoTag");
       if (bladeAPI.beInitStream && 
           bladeAPI.beCloseStream &&
@@ -369,7 +367,6 @@ static void *tryLoadDLL2(void *dll)
           bladeAPI.beVersion)
       {
         LAME_DEBUG_LOADING("got blade mode");
-        s_blade_mode = 1;
         return dll;
       }
       memset(&bladeAPI, 0, sizeof(bladeAPI));
@@ -538,11 +535,11 @@ static void *tryLoadDLL(const char *extrapath)
 #endif
 
 
-void LameEncoder::InitDLL(const char *extrapath)
+void LameEncoder::InitDLL(const char *extrapath, bool forceRetry)
 {
   static int a;
   static void *dll;
-  if (!dll&& (a<100 || extrapath)) // try a bunch of times before giving up
+  if (!dll && (a<100 || extrapath || forceRetry)) // try a bunch of times before giving up
   {
     a++;
     #ifdef _WIN32
@@ -563,45 +560,54 @@ void LameEncoder::InitDLL(const char *extrapath)
   }
 }
 
-bool LameEncoder::CheckDLL() // returns true if dll is present
+int LameEncoder::CheckDLL() // returns 1 for lame API, 2 for Blade, 0 for none
 {
   InitDLL();
-#ifdef SUPPORT_BLADE_MODE
-  if (s_blade_mode) 
+  if (!lame.close||
+      !lame.init||
+      !lame.set_in_samplerate||
+      !lame.set_num_channels||
+      !lame.set_out_samplerate||
+      !lame.set_quality||
+      !lame.set_mode||
+      !lame.set_brate||
+      !lame.init_params||
+      !lame.get_framesize||
+      !lame.encode_buffer_float||
+      !lame.encode_flush) 
   {
-    if (!bladeAPI.beInitStream||
-        !bladeAPI.beCloseStream||
-        !bladeAPI.beEncodeChunkFloatS16NI||
-        !bladeAPI.beDeinitStream||
-        !bladeAPI.beVersion) return false;
-    return true;
+    #ifdef SUPPORT_BLADE_MODE
+      if (bladeAPI.beInitStream&&
+          bladeAPI.beCloseStream&&
+          bladeAPI.beEncodeChunkFloatS16NI&&
+          bladeAPI.beDeinitStream&&
+          bladeAPI.beVersion) return 2;
+    #endif
+    return 0;
   }
-#endif
 
-  if (!lame.close||!lame.init||!lame.set_in_samplerate||!lame.set_num_channels||!lame.set_out_samplerate||!lame.set_quality||!lame.set_mode
-      ||!lame.set_brate||!lame.init_params||!lame.get_framesize||!lame.encode_buffer_float||!lame.encode_flush) return false;
+  return 1;
 
-  return true;
 }
 
 LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int quality, int vbrmethod, int vbrquality, int vbrmax, int abr)
 {
-  errorstat=0;
-  InitDLL();
   m_lamestate=0;
+  m_encmode = CheckDLL();
 
-  if (!CheckDLL())
+  if (!m_encmode)
   {
     errorstat=1;
     return;
   }
+
+  errorstat=0;
   m_nch=nch;
+  m_encoder_nch = stereomode == 3 ? 1 : m_nch;
 
 #ifdef SUPPORT_BLADE_MODE
-  if (s_blade_mode)
+  if (m_encmode==2)
   {
-    m_encoder_nch = stereomode == BE_MP3_MODE_MONO ? 1 : nch;
-
     BE_CONFIG beConfig;
     memset(&beConfig,0,sizeof(beConfig));
 	  beConfig.dwConfig = BE_CONFIG_LAME;
@@ -663,8 +669,6 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
     return;
   }
 
-  m_encoder_nch = stereomode == 3 ? 1 : m_nch;
-
   lame.set_in_samplerate(m_lamestate, srate);
   lame.set_num_channels(m_lamestate,m_encoder_nch);
   int outrate=srate;
@@ -701,10 +705,8 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
   }
   lame.init_params(m_lamestate);
   in_size_samples=lame.get_framesize(m_lamestate);
-  int out_size_bytes=65536;
 
-  outtmp.Resize(out_size_bytes);
-
+  outtmp.Resize(65536);
 }
 
 void LameEncoder::Encode(float *in, int in_spls, int spacing)
@@ -767,7 +769,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
 
     int dwo;
 #ifdef SUPPORT_BLADE_MODE
-    if (s_blade_mode)
+    if (m_encmode==2)
     {
       DWORD outa=0;
       if (bladeAPI.beEncodeChunkFloatS16NI(m_lamestate, a, (float*)spltmp[0].Get(), (float*)spltmp[m_encoder_nch > 1].Get(), 
@@ -791,7 +793,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
   if (in_spls<1)
   {
 #ifdef SUPPORT_BLADE_MODE
-    if (s_blade_mode)
+    if (m_encmode==2)
     {
       DWORD dwo=0;
       if (bladeAPI.beDeinitStream(m_lamestate, (unsigned char *)outtmp.Get(), &dwo) == BE_ERR_SUCCESSFUL && dwo>0)
@@ -836,7 +838,7 @@ static BOOL HasUTF8(const char *_str)
 LameEncoder::~LameEncoder()
 {
 #ifdef SUPPORT_BLADE_MODE
-  if (s_blade_mode && m_lamestate)
+  if (m_encmode==2 && m_lamestate)
   {
     if (m_vbrfile.Get()[0] && bladeAPI.beWriteInfoTag)
     {

@@ -51,8 +51,8 @@ class LameEncoder
       spltmp[1].Compact();
     }
 
-    static bool CheckDLL(); // returns true if dll is present
-    static void InitDLL(const char *extrapath=NULL); // call with extrapath != NULL if you want to try loading from another path
+    static int CheckDLL(); // returns >0 if DLL present, 1 for lame, 2 for old bladeenc
+    static void InitDLL(const char *extrapath=NULL, bool forceRetry=false); // call with extrapath != NULL if you want to try loading from another path
 
     void SetVBRFilename(const char *fn)
     {
@@ -62,13 +62,15 @@ class LameEncoder
     int GetNumChannels() { return m_encoder_nch; }
     
   private:
-    int m_nch,m_encoder_nch;
+    void *m_lamestate;
     WDL_Queue spltmp[2];
     WDL_HeapBuf outtmp;
     WDL_String m_vbrfile;
     int errorstat;
     int in_size_samples;
-    void *m_lamestate;
+    int m_encmode; // 1 for LAME, 2 for blade
+    int m_nch,m_encoder_nch;
+
 };
 
 #endif
