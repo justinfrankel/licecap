@@ -539,7 +539,10 @@ void LameEncoder::InitDLL(const char *extrapath, bool forceRetry)
 {
   static int a;
   static void *dll;
-  if (!dll && (a<100 || extrapath || forceRetry)) // try a bunch of times before giving up
+  if (dll) return;
+
+  if (forceRetry) a=0;
+  if (a<100) // try a bunch of times before giving up
   {
     a++;
     #ifdef _WIN32
