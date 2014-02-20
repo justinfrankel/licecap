@@ -107,13 +107,21 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
 
 HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent, DLGPROC dlgproc, LPARAM param)
 {
+  int forceStyles=0; // 1=resizable, 2=no minimize, 4=no close
+  bool forceNonChild=false;
+  if ((((INT_PTR)resid)&~0xf)==0x400000)
+  {
+    forceStyles = (int) (((INT_PTR)resid)&0xf);
+    if (forceStyles) forceNonChild=true;
+    resid=0;
+  }
   SWELL_DialogResourceIndex *p=resById(reshead,resid);
   if (!p&&resid) return 0;
   
   RECT r={0,0,p?p->width : 300, p?p->height : 200};
   HWND owner=NULL;
 
-  if ((!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)) && parent) 
+  if (!forceNonChild && parent && (!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)))
   {
   } 
   else 
@@ -123,9 +131,10 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   }
 
   HWND__ *h = new HWND__(parent,0,&r,NULL,false,NULL,NULL);
-  if (p && !(p->windowTypeFlags&SWELL_DLG_WS_CHILD))
+  if (forceNonChild || (p && !(p->windowTypeFlags&SWELL_DLG_WS_CHILD)))
   {
-    if (p->windowTypeFlags&SWELL_DLG_WS_RESIZABLE) h->m_style |= WS_THICKFRAME|WS_CAPTION;
+    if ((forceStyles&1) || (p && (p->windowTypeFlags&SWELL_DLG_WS_RESIZABLE))) 
+      h->m_style |= WS_THICKFRAME|WS_CAPTION;
     else h->m_style |= WS_CAPTION;
   }
   else if (!p && !parent) h->m_style |= WS_CAPTION;

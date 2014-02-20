@@ -453,6 +453,10 @@ void swell_runOSevents()
     }
   }
 }
+void SWELL_RunEvents()
+{
+  swell_runOSevents();
+}
 
 #else
 void SWELL_initargs(int *argc, char ***argv)
