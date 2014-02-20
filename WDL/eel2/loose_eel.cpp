@@ -144,3 +144,10 @@ int main(int argc, char **argv)
 
   return 0;
 }
+
+#ifndef _WIN32
+INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
+{
+  return 0;
+}
+#endif

@@ -440,7 +440,7 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
           if (l > maxl) l=maxl;
           memcpy(op,wr->Get(),l);
           op += l;
-          *op=NULL;
+          *op=0;
         }
         else
         {

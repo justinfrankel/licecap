@@ -1521,7 +1521,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
 	      TranslateMessage(&msg);
 	      DispatchMessage(&msg);
       }
-#elif defined(__APPLE__)
+#else
       void SWELL_RunEvents();
       SWELL_RunEvents();
 #endif
