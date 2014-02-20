@@ -71,10 +71,12 @@ typedef bool WDL_bool;
   #define WDL_FIXALIGN  __attribute__ ((aligned (8)))
 // usage: void func(int a, const char *fmt, ...) WDL_VARARG_WARN(printf,2,3); // note: if member function, this pointer is counted as well, so as member function that would be 3,4
   #define WDL_VARARG_WARN(x,n,s) __attribute__ ((format (x,n,s)))
+  #define WDL_STATICFUNC_UNUSED __attribute__((unused))
 
 #else
   #define WDL_FIXALIGN 
   #define WDL_VARARG_WARN(x,n,s)
+  #define WDL_STATICFUNC_UNUSED
 #endif
 
 

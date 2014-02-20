@@ -37,7 +37,7 @@ C string manipulation utilities -- [v]snprintf for Win32, also snprintf_append, 
   #endif
   #define _WDL_CSTRING_PREFIX 
 #else
-  #define _WDL_CSTRING_PREFIX static
+  #define _WDL_CSTRING_PREFIX static WDL_STATICFUNC_UNUSED
 #endif
 
 
