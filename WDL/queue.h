@@ -206,7 +206,7 @@ private:
 template <class T> class WDL_TypedQueue
 {
 public:
-  WDL_TypedQueue() : m_pos(0), m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_TypedQueue")) { }
+  WDL_TypedQueue() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_TypedQueue")), m_pos(0) { }
   ~WDL_TypedQueue() { }
 
   T *Add(const T *buf, int len)
