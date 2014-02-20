@@ -300,7 +300,7 @@ static struct {
   int (*set_VBR_min_bitrate_kbps)(lame_t, int);
   int (*set_VBR_max_bitrate_kbps)(lame_t, int);
   size_t (*get_lametag_frame)(lame_t, unsigned char *, size_t);
-
+  const char *(*get_lame_version)();
 } lame;
 
 #if 1
@@ -309,12 +309,16 @@ static struct {
 #define LAME_DEBUG_LOADING(x) OutputDebugString(x)
 #endif
 
-#ifdef _WIN32
-static HINSTANCE tryLoadDLL2(HINSTANCE dll, const char *name)
-#else
-static void *tryLoadDLL2(void *dll)
-#endif
+static char s_last_dll_file[128];
+
+static HINSTANCE tryLoadDLL2(const char *name)
 {
+#ifdef _WIN32
+  HINSTANCE dll = LoadLibrary(name);
+#else
+  void *dll=dlopen(name,RTLD_NOW|RTLD_LOCAL);
+#endif
+
   if (!dll) return NULL;
 
   LAME_DEBUG_LOADING("trying to load");
@@ -322,44 +326,50 @@ static void *tryLoadDLL2(void *dll)
   int errcnt = 0;
   #ifdef _WIN32
     #define GETITEM(x) if (NULL == (*(void **)&lame.x = GetProcAddress((HINSTANCE)dll,"lame_" #x))) errcnt++;
+    #define GETITEM_NP(x) if (NULL == (*(void **)&lame.x = GetProcAddress((HINSTANCE)dll, #x))) errcnt++;
   #else
     #define GETITEM(x) if (NULL == (*(void **)&lame.x = dlsym(dll,"lame_" #x))) errcnt++;
+    #define GETITEM_NP(x) if (NULL == (*(void **)&lame.x = dlsym(dll,#x))) errcnt++;
   #endif
-    GETITEM(close)
-    GETITEM(init)
-    GETITEM(set_in_samplerate)
-    GETITEM(set_num_channels)
-    GETITEM(set_out_samplerate)
-    GETITEM(set_quality)
-    GETITEM(set_mode)
-    GETITEM(set_brate)
-    GETITEM(init_params)
-    GETITEM(get_framesize)
-    GETITEM(encode_buffer_float)
-    GETITEM(encode_flush)
+  GETITEM(close)
+  GETITEM(init)
+  GETITEM(set_in_samplerate)
+  GETITEM(set_num_channels)
+  GETITEM(set_out_samplerate)
+  GETITEM(set_quality)
+  GETITEM(set_mode)
+  GETITEM(set_brate)
+  GETITEM(init_params)
+  GETITEM(get_framesize)
+  GETITEM(encode_buffer_float)
+  GETITEM(encode_flush)
 
-    const int errcnt2 = errcnt;
-    GETITEM(set_VBR)
-    GETITEM(set_VBR_q)
-    GETITEM(set_VBR_mean_bitrate_kbps)
-    GETITEM(set_VBR_min_bitrate_kbps)
-    GETITEM(set_VBR_max_bitrate_kbps)
-    GETITEM(get_lametag_frame)
+  int errcnt2 = errcnt;
+  GETITEM(set_VBR)
+  GETITEM(set_VBR_q)
+  GETITEM(set_VBR_mean_bitrate_kbps)
+  GETITEM(set_VBR_min_bitrate_kbps)
+  GETITEM(set_VBR_max_bitrate_kbps)
+  GETITEM(get_lametag_frame)
+  GETITEM_NP(get_lame_version)
   #undef GETITEM   
-    if (errcnt2)
-    {
-      memset(&lame, 0, sizeof(lame));
-      LAME_DEBUG_LOADING("trying blade mode");
+  #undef GETITEM_NP
+  if (errcnt2)
+  {
+    memset(&lame, 0, sizeof(lame));
 
-      #ifdef SUPPORT_BLADE_MODE
-      // try getting blade API
+    LAME_DEBUG_LOADING("trying blade mode");
 
+    #ifdef SUPPORT_BLADE_MODE
+    // try getting blade API
       *((void**)&bladeAPI.beInitStream) = (void *) GetProcAddress(dll, "beInitStream");
       *((void**)&bladeAPI.beCloseStream) = (void *) GetProcAddress(dll, "beCloseStream");
       *((void**)&bladeAPI.beEncodeChunkFloatS16NI) = (void *) GetProcAddress(dll, "beEncodeChunkFloatS16NI");
       *((void**)&bladeAPI.beDeinitStream) = (void *) GetProcAddress(dll, "beDeinitStream");
       *((void**)&bladeAPI.beVersion) = (void *) GetProcAddress(dll, "beVersion");
       *((void**)&bladeAPI.beWriteInfoTag) = (void*) GetProcAddress(dll, "beWriteInfoTag");
+      
+      
       if (bladeAPI.beInitStream && 
           bladeAPI.beCloseStream &&
           bladeAPI.beEncodeChunkFloatS16NI &&
@@ -367,11 +377,15 @@ static void *tryLoadDLL2(void *dll)
           bladeAPI.beVersion)
       {
         LAME_DEBUG_LOADING("got blade mode");
-        return dll;
+        errcnt2 = 0;
       }
-      memset(&bladeAPI, 0, sizeof(bladeAPI));
-      #endif
-      
+      else
+      {
+        memset(&bladeAPI, 0, sizeof(bladeAPI));
+      }
+    #endif
+    if (errcnt2)
+    {
 #ifdef _WIN32
       FreeLibrary(dll);
 #else
@@ -379,20 +393,31 @@ static void *tryLoadDLL2(void *dll)
 #endif
       return NULL;
     }
-    else
-    {
-      LAME_DEBUG_LOADING("loaded normal mode");
-    }
+  }
+
+  LAME_DEBUG_LOADING("loaded normal mode");
+
+  lstrcpyn(s_last_dll_file, name, sizeof(s_last_dll_file));
+#ifdef _WIN32
+  if (!strstr(name,"\\"))
+    GetModuleFileName(dll,s_last_dll_file, (DWORD)sizeof(s_last_dll_file));
+#else
+  if (!strstr(name,"/"))
+  {
+    Dl_info inf={0,};
+    dladdr(lame.init,&inf);
+    if (inf.dli_fname)
+      lstrcpyn(s_last_dll_file,inf.dli_fname,nSize);
+  }
+#endif
 
   return dll;
 }
 
 
 #ifdef _WIN32
-static void *tryLoadDLL(const char *extrapath, const char *dllname)
+static bool tryLoadDLL(const char *extrapath, const char *dllname)
 {
-  HINSTANCE dll = NULL;
-
   char me[1024];
 
   if (extrapath)
@@ -400,8 +425,7 @@ static void *tryLoadDLL(const char *extrapath, const char *dllname)
     lstrcpyn_safe(me,extrapath,sizeof(me)-64);
     lstrcatn(me,"\\",sizeof(me));
     lstrcatn(me,dllname,sizeof(me));
-    dll=LoadLibrary(me);
-    if (tryLoadDLL2(dll,me)) return dll;
+    if (tryLoadDLL2(me)) return true;
   }
 
   GetModuleFileName(NULL,me,sizeof(me)-64);
@@ -412,38 +436,28 @@ static void *tryLoadDLL(const char *extrapath, const char *dllname)
 
   strcpy(++p,dllname);
 
-  dll=LoadLibrary(me);
-  if (tryLoadDLL2(dll,me)) return dll;
+  if (tryLoadDLL2(me) || tryLoadDLL2(dllname)) return true;
   
-  dll=LoadLibrary(dllname);
-  if (tryLoadDLL2(dll,dllname)) return dll;
-  
-  return NULL;
+  return false;
 }
 #elif defined(__APPLE__)
-static void *tryLoadDLL(const char *extrapath)
+static bool tryLoadDLL(const char *extrapath)
 {
-  void *dll;
   char me[1024];
 
   if (extrapath)
   {
     lstrcpyn_safe(me,extrapath,sizeof(me)-64);
     lstrcatn(me,"/libmp3lame.dylib",sizeof(me));
-    dll = dlopen(me, RTLD_NOW|RTLD_LOCAL);    
-    if (tryLoadDLL2(dll)) return dll;
+    if (tryLoadDLL2(me)) return true;
   }
-  dll = dlopen("/Library/Application Support/libmp3lame.dylib", RTLD_NOW|RTLD_LOCAL);    
-  if (tryLoadDLL2(dll)) return dll;
 
-  dll=dlopen("/usr/local/lib/libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
-  dll=dlopen("/usr/lib/libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
-  dll=dlopen("libmp3lame.dylib",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
+  if (tryLoadDLL2("/Library/Application Support/libmp3lame.dylib") ||
+      tryLoadDLL2("/usr/local/lib/libmp3lame.dylib") ||
+      tryLoadDLL2("/usr/lib/libmp3lame.dylib") ||
+      tryLoadDLL2("libmp3lame.dylib")) return true;
 
-  dll = NULL;
+  bool ok=false;
   CFBundleRef bund=CFBundleGetMainBundle();
   if (bund) 
   {
@@ -459,57 +473,42 @@ static void *tryLoadDLL(const char *extrapath)
         if (p>=buf)
         {
           strcat(buf,"/Contents/Plugins/libmp3lame.dylib");
-          dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
-          dll = tryLoadDLL2(dll);
+          ok = tryLoadDLL2(buf);
 
-          if (!dll)
+          if (!ok)
           {
             strcpy(p,"/libmp3lame.dylib");
-            dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
-            dll = tryLoadDLL2(dll);
+            ok = tryLoadDLL2(buf);
           }
-          if (!dll)
+          if (!ok)
           {
             strcpy(p,"/Plugins/libmp3lame.dylib");
-            if (!dll) dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
-            dll = tryLoadDLL2(dll);
+            ok = tryLoadDLL2(buf);
           }
         }          
       }
       CFRelease(url);
     }
   }
-  return dll;
+  return ok;
 }
 #else // generic posix
-static void *tryLoadDLL(const char *extrapath)
+static bool tryLoadDLL(const char *extrapath)
 {
-  void *dll;
-
   if (extrapath)
   {
     char me[1024];
     lstrcpyn_safe(me,extrapath,sizeof(me)-64);
     lstrcatn(me,"/libmp3lame.so",sizeof(me));
-    dll = dlopen(me, RTLD_NOW|RTLD_LOCAL);    
-    if (tryLoadDLL2(dll)) return dll;
+    if (tryLoadDLL2(me)) return true;
   }
-  dll=dlopen("/usr/local/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
+  if (tryLoadDLL2("/usr/local/lib/libmp3lame.so")||
+      tryLoadDLL2("/usr/lib/libmp3lame.so")||
+      tryLoadDLL2("libmp3lame.so")||
+      tryLoadDLL2("/usr/local/lib/libmp3lame.so.0")||
+      tryLoadDLL2("/usr/lib/libmp3lame.so.0")||
+      tryLoadDLL2("libmp3lame.so.0")) return true;
 
-  dll=dlopen("/usr/lib/libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
-  dll=dlopen("libmp3lame.so",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
-
-  dll=dlopen("/usr/local/lib/libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
-
-  dll=dlopen("/usr/lib/libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
-
-  dll=dlopen("libmp3lame.so.0",RTLD_NOW|RTLD_LOCAL);
-  if (tryLoadDLL2(dll)) return dll;
   char tmp[64];
   sprintf(tmp,"/proc/%d/exe",getpid());
   char buf[1024];
@@ -522,15 +521,13 @@ static void *tryLoadDLL(const char *extrapath)
     if (p>buf)
     {
       strcpy(p,"/Plugins/libmp3lame.so");
-      dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
-      if (tryLoadDLL2(dll)) return dll;
+      if (tryLoadDLL2(buf)) return true;
 
       strcpy(p,"/libmp3lame.so");
-      dll=dlopen(buf,RTLD_NOW|RTLD_LOCAL);
-      if (tryLoadDLL2(dll)) return dll;
+      if (tryLoadDLL2(buf)) return true;
     }
   }
-  return NULL;
+  return false;
 }
 #endif
 
@@ -538,29 +535,51 @@ static void *tryLoadDLL(const char *extrapath)
 void LameEncoder::InitDLL(const char *extrapath, bool forceRetry)
 {
   static int a;
-  static void *dll;
-  if (dll) return;
+  if (a<0) return;
 
   if (forceRetry) a=0;
-  if (a<100) // try a bunch of times before giving up
-  {
-    a++;
-    #ifdef _WIN32
-      #ifdef _WIN64
-        dll=tryLoadDLL(extrapath, "libmp3lame64.dll");
-        if (!dll) dll=tryLoadDLL(extrapath, "libmp3lame.dll");
-        if (!dll) dll=tryLoadDLL(extrapath, "lame_enc.dll");
-        if (!dll) dll=tryLoadDLL(extrapath, "lame_enc64.dll");
-      #else
-        dll=tryLoadDLL(extrapath, "libmp3lame.dll");
-        if (!dll) dll=tryLoadDLL(extrapath, "lame_enc.dll");
-      #endif
-    #elif defined(__APPLE__)
-      dll=tryLoadDLL(extrapath);
+  else if (a > 30) return; // give up
+
+  a++;
+  
+  #ifdef _WIN32
+    #ifdef _WIN64
+      if (tryLoadDLL(extrapath, "libmp3lame64.dll")||
+          tryLoadDLL(extrapath, "libmp3lame.dll")||
+          tryLoadDLL(extrapath, "lame_enc64.dll")||
+          tryLoadDLL(extrapath, "lame_enc.dll")) a = -1;
     #else
-      dll=tryLoadDLL(extrapath);
-    #endif     
+      if (tryLoadDLL(extrapath, "libmp3lame.dll") ||
+          tryLoadDLL(extrapath, "lame_enc.dll")) a = -1;
+    #endif
+  #else
+    if (tryLoadDLL(extrapath)) a=-1;
+  #endif     
+}
+
+const char *LameEncoder::GetLibName() { return s_last_dll_file; }
+
+const char *LameEncoder::GetInfo()
+{
+  static char buf[128];
+  int ver = CheckDLL();
+  if (!ver) return NULL;
+#ifdef SUPPORT_BLADE_MODE
+  if (ver == 2)
+  {
+    BE_VERSION ver={0,};
+    if (bladeAPI.beVersion) bladeAPI.beVersion(&ver);
+    snprintf(buf, sizeof(buf), "LAME/BladeAPI %d.%d", ver.byMajorVersion, ver.byMinorVersion);
+    return buf;
   }
+#endif
+  const char *p = lame.get_lame_version ? lame.get_lame_version() : NULL;
+  if (p && *p)
+  {
+    snprintf(buf, sizeof(buf), "LAME %s", p);
+    return buf;
+  }
+  return "LAME ?.??";
 }
 
 int LameEncoder::CheckDLL() // returns 1 for lame API, 2 for Blade, 0 for none

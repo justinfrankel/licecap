@@ -51,6 +51,8 @@ class LameEncoder
       spltmp[1].Compact();
     }
 
+    static const char *GetInfo();
+    static const char *GetLibName();
     static int CheckDLL(); // returns >0 if DLL present, 1 for lame, 2 for old bladeenc
     static void InitDLL(const char *extrapath=NULL, bool forceRetry=false); // call with extrapath != NULL if you want to try loading from another path
 
