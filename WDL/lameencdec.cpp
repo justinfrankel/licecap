@@ -311,7 +311,7 @@ static struct {
 
 static char s_last_dll_file[128];
 
-static HINSTANCE tryLoadDLL2(const char *name)
+static bool tryLoadDLL2(const char *name)
 {
 #ifdef _WIN32
   HINSTANCE dll = LoadLibrary(name);
@@ -319,7 +319,7 @@ static HINSTANCE tryLoadDLL2(const char *name)
   void *dll=dlopen(name,RTLD_NOW|RTLD_LOCAL);
 #endif
 
-  if (!dll) return NULL;
+  if (!dll) return false;
 
   LAME_DEBUG_LOADING("trying to load");
   LAME_DEBUG_LOADING(name);
@@ -391,27 +391,27 @@ static HINSTANCE tryLoadDLL2(const char *name)
 #else
       dlclose(dll);
 #endif
-      return NULL;
+      return false;
     }
   }
 
   LAME_DEBUG_LOADING("loaded normal mode");
 
-  lstrcpyn(s_last_dll_file, name, sizeof(s_last_dll_file));
+  lstrcpyn_safe(s_last_dll_file, name, sizeof(s_last_dll_file));
 #ifdef _WIN32
-  if (!strstr(name,"\\"))
-    GetModuleFileName(dll,s_last_dll_file, (DWORD)sizeof(s_last_dll_file));
+//  if (!strstr(name,"\\"))
+  GetModuleFileName(dll,s_last_dll_file, (DWORD)sizeof(s_last_dll_file));
 #else
-  if (!strstr(name,"/"))
+//  if (!strstr(name,"/"))
   {
     Dl_info inf={0,};
-    dladdr(lame.init,&inf);
+    dladdr((void*)lame.init,&inf);
     if (inf.dli_fname)
-      lstrcpyn(s_last_dll_file,inf.dli_fname,nSize);
+      lstrcpyn_safe(s_last_dll_file,inf.dli_fname,sizeof(s_last_dll_file));
   }
 #endif
 
-  return dll;
+  return true;
 }
 
 
