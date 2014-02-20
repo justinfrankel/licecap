@@ -77,8 +77,8 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
 
 
 //not threadsafe ----
-static LICE_SysBitmap s_tempbitmap; // keep a sysbitmap around for rendering fonts
-static LICE_SysBitmap s_nativerender_tempbitmap; 
+static LICE_SysBitmap *s_tempbitmap; // keep a sysbitmap around for rendering fonts
+static LICE_SysBitmap *s_nativerender_tempbitmap; 
 static int s_tempbitmap_refcnt;
 
 
@@ -111,8 +111,10 @@ LICE_CachedFont::~LICE_CachedFont()
   }
   if (!--s_tempbitmap_refcnt)
   {
-    s_tempbitmap.resize(0,0);
-    s_nativerender_tempbitmap.resize(0,0);
+    delete s_tempbitmap;
+    s_tempbitmap=0;
+    delete s_nativerender_tempbitmap;
+    s_nativerender_tempbitmap=0;
   }
 }
 
@@ -127,19 +129,21 @@ void LICE_CachedFont::SetFromHFont(HFONT font, int flags)
   m_font=font;
   if (font)
   {
-    if (s_tempbitmap.getWidth() < 256 || s_tempbitmap.getHeight() < 256)
+    if (!s_tempbitmap) s_tempbitmap=new LICE_SysBitmap;
+
+    if (s_tempbitmap->getWidth() < 256 || s_tempbitmap->getHeight() < 256)
     {
-      s_tempbitmap.resize(256,256);
-      ::SetTextColor(s_tempbitmap.getDC(),RGB(255,255,255));
-      ::SetBkMode(s_tempbitmap.getDC(),OPAQUE);
-      ::SetBkColor(s_tempbitmap.getDC(),RGB(0,0,0));
+      s_tempbitmap->resize(256,256);
+      ::SetTextColor(s_tempbitmap->getDC(),RGB(255,255,255));
+      ::SetBkMode(s_tempbitmap->getDC(),OPAQUE);
+      ::SetBkColor(s_tempbitmap->getDC(),RGB(0,0,0));
     }
 
     TEXTMETRIC tm;
     HGDIOBJ oldFont = 0;
-    if (font) oldFont = SelectObject(s_tempbitmap.getDC(),font);
-    GetTextMetrics(s_tempbitmap.getDC(),&tm);
-    if (oldFont) SelectObject(s_tempbitmap.getDC(),oldFont);
+    if (font) oldFont = SelectObject(s_tempbitmap->getDC(),font);
+    GetTextMetrics(s_tempbitmap->getDC(),&tm);
+    if (oldFont) SelectObject(s_tempbitmap->getDC(),oldFont);
 
     m_line_height = tm.tmHeight;
   }
@@ -184,16 +188,19 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   else ent = m_lowchars+idx;
 
   const int bmsz=max(m_line_height,1) * 2 + 8;
-  if (s_tempbitmap.getWidth() < bmsz || s_tempbitmap.getHeight() < bmsz)
+
+  if (!s_tempbitmap) s_tempbitmap=new LICE_SysBitmap;
+
+  if (s_tempbitmap->getWidth() < bmsz || s_tempbitmap->getHeight() < bmsz)
   {
-    s_tempbitmap.resize(bmsz,bmsz);
-    ::SetTextColor(s_tempbitmap.getDC(),RGB(255,255,255));
-    ::SetBkMode(s_tempbitmap.getDC(),OPAQUE);
-    ::SetBkColor(s_tempbitmap.getDC(),RGB(0,0,0));
+    s_tempbitmap->resize(bmsz,bmsz);
+    ::SetTextColor(s_tempbitmap->getDC(),RGB(255,255,255));
+    ::SetBkMode(s_tempbitmap->getDC(),OPAQUE);
+    ::SetBkColor(s_tempbitmap->getDC(),RGB(0,0,0));
   }
 
   HGDIOBJ oldFont=0;
-  if (m_font) oldFont = SelectObject(s_tempbitmap.getDC(),m_font);
+  if (m_font) oldFont = SelectObject(s_tempbitmap->getDC(),m_font);
   RECT r={0,0,0,0,};
   int advance;
   const int extra_wid_pad = 2+(m_line_height>=16 ? m_line_height/16 : 0); // overrender right side by this amount, and check to see if it was drawn to
@@ -202,11 +209,11 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   if (__1ifNT2if98==1) 
   {
     WCHAR tmpstr[2]={(WCHAR)idx,0};
-    ::DrawTextW(s_tempbitmap.getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
     advance=r.right;
     r.right += extra_wid_pad;
-    LICE_FillRect(&s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
-    ::DrawTextW(s_tempbitmap.getDC(),tmpstr,1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
+    LICE_FillRect(s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
+    ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
   }
   else
 #endif
@@ -216,18 +223,18 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
 #ifndef _WIN32
     if (idx>=128) utf8makechar(tmpstr,idx);
 #endif
-    ::DrawText(s_tempbitmap.getDC(),tmpstr,-1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
     advance=r.right;
     r.right += extra_wid_pad;
-    LICE_FillRect(&s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
-    ::DrawText(s_tempbitmap.getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    LICE_FillRect(s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
+    ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
   }
 
-  if (advance > s_tempbitmap.getWidth()) advance=s_tempbitmap.getWidth();
-  if (r.right > s_tempbitmap.getWidth()) r.right=s_tempbitmap.getWidth();
-  if (r.bottom > s_tempbitmap.getHeight()) r.bottom=s_tempbitmap.getHeight();
+  if (advance > s_tempbitmap->getWidth()) advance=s_tempbitmap->getWidth();
+  if (r.right > s_tempbitmap->getWidth()) r.right=s_tempbitmap->getWidth();
+  if (r.bottom > s_tempbitmap->getHeight()) r.bottom=s_tempbitmap->getHeight();
 
-  if (oldFont) SelectObject(s_tempbitmap.getDC(),oldFont);
+  if (oldFont) SelectObject(s_tempbitmap->getDC(),oldFont);
 
   if (advance < 1 || r.bottom < 1) 
   {
@@ -240,10 +247,10 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     int flags=m_flags;
     if (flags&LICE_FONT_FLAG_FX_BLUR)
     {
-      LICE_Blur(&s_tempbitmap,&s_tempbitmap,0,0,0,0,r.right,r.bottom);
+      LICE_Blur(s_tempbitmap,s_tempbitmap,0,0,0,0,r.right,r.bottom);
     }
-    LICE_pixel *srcbuf = s_tempbitmap.getBits();
-    int span=s_tempbitmap.getRowSpan();
+    LICE_pixel *srcbuf = s_tempbitmap->getBits();
+    int span=s_tempbitmap->getRowSpan();
 
     ent->base_offset=m_cachestore.GetSize()+1;
     int newsz = ent->base_offset-1+r.right*r.bottom;
@@ -255,9 +262,9 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     }
     else
     {
-      if (s_tempbitmap.isFlipped())
+      if (s_tempbitmap->isFlipped())
       {
-        srcbuf += (s_tempbitmap.getHeight()-1)*span;
+        srcbuf += (s_tempbitmap->getHeight()-1)*span;
         span=-span;
       }
       int x,y;
@@ -307,7 +314,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
       {
         int a=r.bottom; r.bottom=r.right; r.right=a;
   
-        unsigned char *tmpbuf = (unsigned char *)s_tempbitmap.getBits();
+        unsigned char *tmpbuf = (unsigned char *)s_tempbitmap->getBits();
         memcpy(tmpbuf,destbuf,r.right*r.bottom);
   
         int dptr=r.bottom;
@@ -727,9 +734,12 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
       isTmp=true;
 
-      if (s_nativerender_tempbitmap.getWidth() < 4 || s_nativerender_tempbitmap.getHeight() < 4) s_nativerender_tempbitmap.resize(4,4);
+      if (!s_nativerender_tempbitmap)
+        s_nativerender_tempbitmap = new LICE_SysBitmap;
 
-      hdc = s_nativerender_tempbitmap.getDC();
+      if (s_nativerender_tempbitmap->getWidth() < 4 || s_nativerender_tempbitmap->getHeight() < 4) s_nativerender_tempbitmap->resize(4,4);
+
+      hdc = s_nativerender_tempbitmap->getDC();
       if (!hdc) goto finish_up_native_render;
 
       oldfont = SelectObject(hdc, m_font);
@@ -787,16 +797,16 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
       dtFlags &= ~(DT_BOTTOM|DT_RIGHT|DT_CENTER|DT_VCENTER|DT_NOCLIP);
 
-      if (tmp_rect.right-tmp_rect.left > s_nativerender_tempbitmap.getWidth() || 
-          tmp_rect.bottom-tmp_rect.top > s_nativerender_tempbitmap.getHeight())
+      if (tmp_rect.right-tmp_rect.left > s_nativerender_tempbitmap->getWidth() || 
+          tmp_rect.bottom-tmp_rect.top > s_nativerender_tempbitmap->getHeight())
       {
         SelectObject(hdc,oldfont);
-        s_nativerender_tempbitmap.resize(tmp_rect.right-tmp_rect.left, tmp_rect.bottom-tmp_rect.top);
-        hdc = s_nativerender_tempbitmap.getDC();
+        s_nativerender_tempbitmap->resize(tmp_rect.right-tmp_rect.left, tmp_rect.bottom-tmp_rect.top);
+        hdc = s_nativerender_tempbitmap->getDC();
         oldfont = SelectObject(hdc, m_font);
       }
 
-      LICE_Blit(&s_nativerender_tempbitmap, bm, 0, 0, &tmp_rect, 1.0f, LICE_BLIT_MODE_COPY);
+      LICE_Blit(s_nativerender_tempbitmap, bm, 0, 0, &tmp_rect, 1.0f, LICE_BLIT_MODE_COPY);
 
       dt_rect.right=tmp_rect.right;
       dt_rect.bottom=tmp_rect.bottom;
@@ -818,7 +828,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
       ::DrawText(hdc,str,strcnt,&dt_rect,dtFlags|DT_NOPREFIX);
 
     if (isTmp) 
-      LICE_Blit(bm, &s_nativerender_tempbitmap,  tmp_rect.left, tmp_rect.top, 
+      LICE_Blit(bm, s_nativerender_tempbitmap,  tmp_rect.left, tmp_rect.top, 
                 0,0, tmp_rect.right-tmp_rect.left, tmp_rect.bottom-tmp_rect.top, 
                 m_alpha, // this is a slight improvement over the non-tempbuffer version, but might not be necessary...
                 LICE_BLIT_MODE_COPY);
