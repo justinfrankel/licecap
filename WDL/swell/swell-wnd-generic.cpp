@@ -2198,12 +2198,299 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h, i
   return SWELL_MakeControl(name,idx,"Button",BS_AUTOCHECKBOX|flags,x,y,w,h,0);
 }
 
+struct listViewState
+{
+  listViewState(bool ownerData, bool isMultiSel)
+  {
+    m_selitem=-1;
+    m_is_multisel = isMultiSel;
+    m_owner_data_size = ownerData ? 0 : -1;
+    m_last_row_height = 0;
+  } 
+  ~listViewState()
+  { 
+    m_data.Empty(true);
+  }
+  WDL_PtrList<SWELL_ListView_Row> m_data;
+  
+  int GetNumItems() const { return m_owner_data_size>=0 ? m_owner_data_size : m_data.GetSize(); }
+  bool IsOwnerData() const { return m_owner_data_size>=0; }
+
+  int m_owner_data_size; // -1 if m_data valid, otherwise size
+  int m_last_row_height;
+  int m_selitem; // for single sel
+
+  bool m_is_multisel;
+};
+
+static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  listViewState *lvs = (listViewState *)hwnd->m_private_data;
+  switch (msg)
+  {
+    case WM_LBUTTONDOWN:
+      SetCapture(hwnd);
+      if (lvs && lvs->m_last_row_height>0)
+      {
+        const int hit = GET_Y_LPARAM(lParam) / lvs->m_last_row_height;
+        if (!lvs->m_is_multisel)
+        {
+          if (hit >= 0 && hit < lvs->GetNumItems()) lvs->m_selitem = hit;
+          else lvs->m_selitem = -1;
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+        else if (lvs->IsOwnerData())
+        {
+        }
+        else
+        {
+          int x;
+          for(x=0;x<lvs->m_data.GetSize();x++)
+          {
+            SWELL_ListView_Row *r = lvs->m_data.Get(x);
+            if (r) r->m_tmp &= ~1;
+          }
+          SWELL_ListView_Row *row = lvs->m_data.Get(hit);
+          if (row) row->m_tmp|=1;
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+    return 0;
+    case WM_MOUSEMOVE:
+    return 0;
+    case WM_LBUTTONUP:
+      if (GetCapture()==hwnd)
+      {
+        ReleaseCapture(); // WM_CAPTURECHANGED will take care of the invalidate
+      }
+    return 0;
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+          HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+          FillRect(ps.hdc,&r,br);
+          DeleteObject(br);
+          br=CreateSolidBrush(RGB(0,0,255));
+          if (lvs) 
+          {
+            const bool owner_data = lvs->IsOwnerData();
+            const int n = owner_data ? lvs->m_owner_data_size : lvs->m_data.GetSize();
+            TEXTMETRIC tm; 
+            GetTextMetrics(ps.hdc,&tm);
+            SetBkMode(ps.hdc,TRANSPARENT);
+            SetTextColor(ps.hdc,RGB(0,0,0));
+            const int row_height = tm.tmHeight;
+            lvs->m_last_row_height = row_height;
+            int x;
+            int ypos = r.top;
+            for (x = 0; x < n && ypos < r.bottom; x ++)
+            {
+              const char *str = NULL;
+              int sel=0;
+              if (owner_data)
+              {
+              }
+              else
+              {
+                SWELL_ListView_Row *row = lvs->m_data.Get(x);
+                if (row) 
+                {
+                  str = row->m_vals.Get(0);
+                  sel = row->m_tmp&1;
+                }
+              }
+              if (!lvs->m_is_multisel) sel = x == lvs->m_selitem;
+
+              RECT tr={r.left,ypos,r.right,ypos + row_height};
+              if (sel)
+              {
+                FillRect(ps.hdc,&tr,br);
+              }
+              // todo: multiple columns too
+              if (str) 
+              {
+                DrawText(ps.hdc,str,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+              }
+             
+              ypos += row_height;
+            }
+          }
+          DeleteObject(br);
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+    case WM_DESTROY:
+      hwnd->m_private_data = 0;
+      delete lvs;
+    return 0;
+    case LB_ADDSTRING:
+      if (lvs && !lvs->IsOwnerData())
+      {
+         // todo: optional sort
+        int rv=lvs->m_data.GetSize();
+        SWELL_ListView_Row *row=new SWELL_ListView_Row;
+        row->m_vals.Add(strdup((const char *)lParam));
+        lvs->m_data.Add(row); 
+        InvalidateRect(hwnd,NULL,FALSE);
+        return rv;
+      }
+    return LB_ERR;
+     
+    case LB_INSERTSTRING:
+      if (lvs && !lvs->IsOwnerData())
+      {
+        int idx =  (int) wParam;
+        if (idx<0 || idx>lvs->m_data.GetSize()) idx=lvs->m_data.GetSize();
+        SWELL_ListView_Row *row=new SWELL_ListView_Row;
+        row->m_vals.Add(strdup((const char *)lParam));
+        lvs->m_data.Insert(idx,row); 
+        InvalidateRect(hwnd,NULL,FALSE);
+        return idx;
+      }
+    return LB_ERR;
+    case LB_DELETESTRING:
+      if (lvs && !lvs->IsOwnerData())
+      {
+        int idx =  (int) wParam;
+        if (idx<0 || idx>lvs->m_data.GetSize()) return LB_ERR;
+        lvs->m_data.Delete(idx);
+        InvalidateRect(hwnd,NULL,FALSE);
+        return lvs->m_data.GetSize();
+      }
+    return LB_ERR;
+    case LB_GETTEXT:
+      if (!lParam) return LB_ERR;
+      *(char *)lParam = 0;
+      if (lvs && !lvs->IsOwnerData())
+      {
+        SWELL_ListView_Row *row = lvs->m_data.Get(wParam);
+        if (row && row->m_vals.Get(0))
+        {
+          strcpy((char *)lParam, row->m_vals.Get(0));
+          return (LRESULT)strlen(row->m_vals.Get(0));
+        }
+      }
+    return LB_ERR;
+    case LB_RESETCONTENT:
+      if (lvs && !lvs->IsOwnerData())
+      {
+        lvs->m_data.Empty(true,free);
+      }
+      InvalidateRect(hwnd,NULL,FALSE);
+    return 0;
+    case LB_SETSEL:
+      if (lvs && lvs->m_is_multisel)
+      {
+        if (lvs->IsOwnerData())
+        {
+        }
+        else
+        {
+          if ((int)lParam == -1)
+          {
+            int x;
+            const int n=lvs->m_data.GetSize();
+            for(x=0;x<n;x++) 
+            {
+              SWELL_ListView_Row *row=lvs->m_data.Get(x);
+              if (row) row->m_tmp = (row->m_tmp&~1) | (wParam?1:0);
+            }
+          }
+          else
+          {
+            SWELL_ListView_Row *row=lvs->m_data.Get((int)lParam);
+            if (!row) return LB_ERR;
+            row->m_tmp = (row->m_tmp&~1) | (wParam?1:0);
+            return 0;
+          }
+        }
+      }
+    return LB_ERR;
+    case LB_SETCURSEL:
+      if (lvs && !lvs->IsOwnerData() && !lvs->m_is_multisel)
+      {
+        lvs->m_selitem = (int)wParam;
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return LB_ERR;
+    case LB_GETSEL:
+      if (lvs && lvs->m_is_multisel)
+      {
+        if (lvs->IsOwnerData())
+        {
+        }
+        else
+        {
+          SWELL_ListView_Row *row=lvs->m_data.Get((int)wParam);
+          if (!row) return LB_ERR;
+          return row->m_tmp&1;
+        }
+      }
+    return LB_ERR;
+    case LB_GETCURSEL:
+      if (lvs)
+      {
+        return (LRESULT)lvs->m_selitem;
+      }
+    return LB_ERR;
+    case LB_GETCOUNT:
+      if (lvs) return lvs->GetNumItems();
+    return LB_ERR;
+    case LB_GETSELCOUNT:
+      if (lvs && lvs->m_is_multisel)
+      {
+        int cnt=0;
+        if (lvs->IsOwnerData())
+        {
+        }
+        else
+        {
+          int x;
+          const int n=lvs->m_data.GetSize();
+          for(x=0;x<n;x++) 
+          {
+            SWELL_ListView_Row *row=lvs->m_data.Get(x);
+            if (row && (row->m_tmp&1)) cnt++;
+          }
+        }
+        return cnt;
+      }
+    return LB_ERR;
+    case LB_GETITEMDATA:
+      if (lvs && !lvs->IsOwnerData())
+      {
+        SWELL_ListView_Row *row = lvs->m_data.Get(wParam);
+        return row ? row->m_param : LB_ERR;
+      }
+    return LB_ERR;
+    case LB_SETITEMDATA:
+      if (lvs && !lvs->IsOwnerData())
+      {
+        SWELL_ListView_Row *row = lvs->m_data.Get(wParam);
+        if (row) row->m_param = lParam;
+        return row ? 0 : LB_ERR;
+      }
+    return LB_ERR;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+
+
+
 HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
 {
   RECT tr=MakeCoords(x,y,w,h,true);
-  HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(styles&SWELL_NOT_WS_VISIBLE));
+  HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(styles&SWELL_NOT_WS_VISIBLE), listViewWindowProc);
   hwnd->m_style |= WS_CHILD;
   hwnd->m_classname = "ListBox";
+  hwnd->m_private_data = (INT_PTR) new listViewState(false, !!(styles & LBS_EXTENDEDSEL));
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   if (m_doautoright) UpdateAutoCoords(tr);
   return hwnd;
@@ -2265,6 +2552,7 @@ void SWELL_UnregisterCustomControlCreator(SWELL_ControlCreatorProc proc)
 }
 
 
+
 HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle)
 {
   if (m_ccprocs)
@@ -2295,9 +2583,14 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysListView32")||!stricmp(classname, "SysListView32_LB"))
   {
     RECT tr=MakeCoords(x,y,w,h,false);
-    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE));
+    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), listViewWindowProc);
     hwnd->m_style |= WS_CHILD;
     hwnd->m_classname = "SysListView32";
+    if (!stricmp(classname, "SysListView32"))
+      hwnd->m_private_data = (INT_PTR) new listViewState(!!(style & LVS_OWNERDATA), !(style & LVS_SINGLESEL));
+    else
+      hwnd->m_private_data = (INT_PTR) new listViewState(false,false);
+
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
   }

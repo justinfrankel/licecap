@@ -152,16 +152,6 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 }
 
 
-SWELL_ListView_Row::SWELL_ListView_Row()
-{
-  m_imageidx=0;
-  m_param=0;
-}
-SWELL_ListView_Row::~SWELL_ListView_Row()
-{
-  m_vals.Empty(true,free);
-}
-
 HTREEITEM__::HTREEITEM__()
 {
   m_param=0;

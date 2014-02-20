@@ -3,6 +3,19 @@
 
 #include "../ptrlist.h"
 
+class SWELL_ListView_Row
+{
+public:
+  SWELL_ListView_Row() : m_param(0), m_imageidx(0), m_tmp(0) { }
+  ~SWELL_ListView_Row() { m_vals.Empty(true,free); }
+  WDL_PtrList<char> m_vals;
+
+  LPARAM m_param;
+  int m_imageidx;
+  int m_tmp; // Cocoa uses this temporarily, generic uses it as a mask (1= selected)
+};
+
+
 #ifdef SWELL_TARGET_OSX
 
 #if 0
@@ -98,18 +111,6 @@ typedef struct WindowPropRec
   struct WindowPropRec *_next;
 } WindowPropRec;
 
-
-class SWELL_ListView_Row
-{
-public:
-  SWELL_ListView_Row();
-  ~SWELL_ListView_Row();
-  WDL_PtrList<char> m_vals;
-  LPARAM m_param;
-  int m_imageidx;
-  
-  int m_tmp;
-};
 
 
 struct HTREEITEM__
