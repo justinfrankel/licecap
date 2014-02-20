@@ -357,7 +357,7 @@ static void *tryLoadDLL2(void *dll)
       *((void**)&bladeAPI.beInitStream) = (void *) GetProcAddress(dll, "beInitStream");
       *((void**)&bladeAPI.beCloseStream) = (void *) GetProcAddress(dll, "beCloseStream");
       *((void**)&bladeAPI.beEncodeChunkFloatS16NI) = (void *) GetProcAddress(dll, "beEncodeChunkFloatS16NI");
-      *((void**)&bladeAPI.beDeinitStream = (void *) GetProcAddress(dll, "beDeinitStream");
+      *((void**)&bladeAPI.beDeinitStream) = (void *) GetProcAddress(dll, "beDeinitStream");
       *((void**)&bladeAPI.beVersion) = (void *) GetProcAddress(dll, "beVersion");
       *((void**)&bladeAPI.beWriteInfoTag) = (void*) GetProcAddress(dll, "beWriteInfoTag");
       if (bladeAPI.beInitStream && 
