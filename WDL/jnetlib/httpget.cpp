@@ -285,24 +285,25 @@ const char *JNL_HTTPGet::getallheaders()
 
 const char *JNL_HTTPGet::getheader(const char *headername)
 {
-  char *ret=NULL;
-  if (strlen(headername)<1||!m_recvheaders) return NULL;
-  char *buf=(char*)malloc(strlen(headername)+2);
-  strcpy(buf,headername);
-  if (buf[strlen(buf)-1]!=':') strcat(buf,":");
-  char *p=m_recvheaders;
+  if (!headername || !m_recvheaders) return NULL;
+
+  size_t headername_len = strlen(headername);
+  if (headername_len<1) return NULL;
+
+  if (headername[headername_len - 1] == ':') headername_len--;
+
+  const char *p=m_recvheaders;
   while (*p)
   {
-    if (!strnicmp(buf,p,strlen(buf)))
+    if (!strnicmp(headername,p,headername_len) && p[headername_len] == ':')
     {
-      ret=p+strlen(buf);
-      while (*ret == ' ') ret++;
-      break;
+      p += headername_len + 1;
+      while (*p == ' ') p++;
+      return p;
     }
     p+=strlen(p)+1;
   }
-  free(buf);
-  return ret;
+  return NULL;
 }
 
 int JNL_HTTPGet::run()
