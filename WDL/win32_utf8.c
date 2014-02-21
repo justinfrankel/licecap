@@ -58,7 +58,8 @@ BOOL WDL_HasUTF8(const char *_str)
 
 int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
 {
-  if (lpString && nMaxCount>0 && GetVersion()< 0x80000000)
+  if (!lpString) return 0;
+  if (nMaxCount>0 && GetVersion()< 0x80000000)
   {
     int alloc_size=nMaxCount;
 
@@ -182,6 +183,8 @@ WCHAR *WDL_UTF8ToWC(const char *buf, BOOL doublenull, int minsize, DWORD *sizeou
     if (sz < minsize) sz=minsize;
 
     pout = (WCHAR *) malloc(sizeof(WCHAR)*(sz+4));
+    if (!pout) return NULL;
+
     ret=pout;
     p = (const char *)buf;
     while (*p)
@@ -211,11 +214,12 @@ WCHAR *WDL_UTF8ToWC(const char *buf, BOOL doublenull, int minsize, DWORD *sizeou
 
     {
       WCHAR *outbuf = (WCHAR *)malloc(sizeof(WCHAR)*(size+128));
-      int a;
+      if (!outbuf) return NULL;
+
       *outbuf=0;
       if (srclen>1)
       {
-        a=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,buf,srclen,outbuf, size);
+        int a=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,buf,srclen,outbuf, size);
         if (!a)
         {
           outbuf[0]=0;
@@ -251,7 +255,7 @@ static BOOL GetOpenSaveFileNameUTF8(LPOPENFILENAME lpofn, BOOL save)
   ret=save ? GetSaveFileNameW(&tmp) : GetOpenFileNameW(&tmp);
 
   // free, convert output
-  if (ret)
+  if (ret && lpofn->lpstrFile && tmp.lpstrFile)
   {
     if ((tmp.Flags & OFN_ALLOWMULTISELECT) && tmp.lpstrFile[wcslen(tmp.lpstrFile)+1])
     {
@@ -509,7 +513,8 @@ BOOL InsertMenuUTF8(HMENU hMenu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewIte
 
 BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii)
 {
-  if (lpmii && (lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
+  if (!lpmii) return FALSE;
+  if ((lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
   {
     BOOL rv;
     MENUITEMINFOW tmp = *(MENUITEMINFOW*)lpmii;
@@ -530,7 +535,8 @@ BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINF
 }
 BOOL SetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii)
 {
-  if (lpmii && (lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
+  if (!lpmii) return FALSE;
+  if ((lpmii->fMask & MIIM_TYPE) && (lpmii->fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING && lpmii->dwTypeData && WDL_HasUTF8(lpmii->dwTypeData) && GetVersion()<0x80000000)
   {
     BOOL rv;
     MENUITEMINFOW tmp = *(MENUITEMINFOW*)lpmii;
@@ -551,7 +557,8 @@ BOOL SetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMIN
 
 BOOL GetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii)
 {
-  if (lpmii && (lpmii->fMask & MIIM_TYPE) && lpmii->dwTypeData && lpmii->cch && GetVersion()<0x80000000)
+  if (!lpmii) return FALSE;
+  if ((lpmii->fMask & MIIM_TYPE) && lpmii->dwTypeData && lpmii->cch && GetVersion()<0x80000000)
   {
     MENUITEMINFOW tmp = *(MENUITEMINFOW*)lpmii;
     WIDETOMB_ALLOC(wbuf,lpmii->cch);
@@ -663,7 +670,7 @@ HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpPa
     WCHAR *p2=lpFile ? WDL_UTF8ToWC(lpFile,0,0,&sz) : NULL;
     WCHAR *p3=lpParm ? WDL_UTF8ToWC(lpParm,0,0,&sz) : NULL;
     WCHAR *p4=lpDir ? WDL_UTF8ToWC(lpDir,0,0,&sz) : NULL;
-    HINSTANCE rv= ShellExecuteW(hwnd,p1,p2,p3,p4,nShowCmd);
+    HINSTANCE rv= p2 ? ShellExecuteW(hwnd,p1,p2,p3,p4,nShowCmd) : NULL;
     free(p1);
     free(p2);
     free(p3);
