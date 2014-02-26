@@ -905,7 +905,7 @@ svgtiny_color_lookup (register const char *str, register unsigned int len)
 int LICE_RGBA_from_SVG(const char* s,int len)  // returns LICE_pixel
 {
   int r = 0, g = 0, b = 0;
-  double rf = 0.0, gf = 0.0, bf = 0.0;
+  float rf = 0.0f, gf = 0.0f, bf = 0.0f;
   const struct svgtiny_named_color* c = 0;
 
 #ifdef _WIN32
