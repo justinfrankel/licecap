@@ -400,13 +400,13 @@ void UpdateStatusText(HWND hwndDlg)
   DWORD now=timeGetTime();
   if (g_cap_state==1 && g_cap_prerolluntil)
   {
-    if (now < g_cap_prerolluntil) sprintf(pbuf,"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
+    if (now < g_cap_prerolluntil) snprintf(pbuf,sizeof(pbuf),"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
   }
   else if (g_cap_state == 2) 
   {
     strcpy(pbuf,"Paused - ");
   }
-  sprintf(buf,"%s%s",pbuf,dims);
+  snprintf(buf,sizeof(buf),"%s%s",pbuf,dims);
 
 #ifndef NO_LCF_SUPPORT
   if (g_cap_lcf) strcat(buf, " LCF");
@@ -414,19 +414,19 @@ void UpdateStatusText(HWND hwndDlg)
 #ifdef VIDEO_ENCODER_SUPPORT
   if (g_cap_video) 
   {
-    strcat(buf, " ");
-    strcat(buf,g_cap_video_ext);
+    lstrcatn(buf, " ",sizeof(buf));
+    lstrcatn(buf,g_cap_video_ext,sizeof(buf));
   }
 #endif
-  if (g_cap_gif) strcat(buf, " GIF");
+  if (g_cap_gif) lstrcatn(buf, " GIF", sizeof(buf));
   
   if (g_cap_state)
   {
-    sprintf(buf+strlen(buf), " %d:%02d", g_ms_written/60000, (g_ms_written/1000)%60);
+    snprintf_append(buf,sizeof(buf), " %d:%02d", g_ms_written/60000, (g_ms_written/1000)%60);
   }
   if (g_cap_state && g_frate_valid)
   {   
-    sprintf(buf+strlen(buf)," @ %.1ffps" ,g_frate_avg);
+    snprintf_append(buf,sizeof(buf)," @ %.1ffps" ,g_frate_avg);
   }
 
   GetDlgItemText(hwndDlg,IDC_STATUS,oldtext,sizeof(oldtext));
@@ -617,7 +617,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (g_prefs&8) CheckDlgButton(hwndDlg, IDC_TIMELINE, BST_CHECKED);
       if (g_prefs&16) CheckDlgButton(hwndDlg, IDC_SSPAUSE, BST_CHECKED);
       char buf[256];
-      sprintf(buf, "%.1f", (double)g_titlems/1000.0);
+      snprintf(buf, sizeof(buf), "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
       SetDlgItemText(hwndDlg, IDC_TITLE, (g_title[0] ? g_title : "Title"));
       EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
@@ -793,9 +793,9 @@ WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
         char buf[256];
         sprintf(buf,"Insert (%d)",g_insert_cnt);
         SetDlgItemText(hwnd,IDOK,buf);
-        sprintf(buf, "%.1f", (double)g_insert_ms/1000.0);
+        snprintf(buf, sizeof(buf), "%.1f", (double)g_insert_ms/1000.0);
         SetDlgItemText(hwnd, IDC_MS, buf);
-        sprintf(buf, "%.1f", g_insert_alpha);
+        snprintf(buf, sizeof(buf), "%.1f", g_insert_alpha);
         SetDlgItemText(hwnd, IDC_ALPHA, buf);
         SetFocus(GetDlgItem(hwnd,IDC_EDIT));
 		  }
