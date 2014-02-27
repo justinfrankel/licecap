@@ -4636,7 +4636,7 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
         if (p[x] != 0x3a)
         {
           char buf[512];
-          sprintf(buf,"worktable overrun at byte %d (wts=%d), value = %f\n",x,h->workTable_size, *(EEL_F*)(p+(x&~(sizeof(EEL_F)-1))));
+          snprintf(buf,sizeof(buf),"worktable overrun at byte %d (wts=%d), value = %f\n",x,h->workTable_size, *(EEL_F*)(p+(x&~(sizeof(EEL_F)-1))));
           OutputDebugString(buf);
           break;
         }
