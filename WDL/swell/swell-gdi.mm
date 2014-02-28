@@ -1066,15 +1066,17 @@ HICON CreateIconIndirect(ICONINFO* iconinfo)
 
 HICON LoadNamedImage(const char *name, bool alphaFromMask)
 {
-  int needfree=0;
   NSImage *img=0;
   NSString *str=CStringToNSString(name); 
   if (strstr(name,"/"))
   {
     img=[[NSImage alloc] initWithContentsOfFile:str];
-    if (img) needfree=1;
   }
-  if (!img) img=[NSImage imageNamed:str];
+  if (!img) 
+  {
+    img=[NSImage imageNamed:str];
+    if (img) [img retain];
+  }
   [str release];
   if (!img) 
   {
@@ -1111,14 +1113,13 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
     }
     [newImage unlockFocus];
     
-    if (needfree) [img release];
-    needfree=1;
+    [img release];
     img=newImage;    
   }
   
   HGDIOBJ__ *i=GDP_OBJECT_NEW();
   i->type=TYPE_BITMAP;
-  i->wid=needfree;
+  i->wid=1;
   i->bitmapptr = img;
   return i;
 }
