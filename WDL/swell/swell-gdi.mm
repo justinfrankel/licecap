@@ -1083,38 +1083,55 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
     return 0;
   }
     
+  [img setFlipped:YES];
   if (alphaFromMask)
   {
-    NSSize sz=[img size];
-    NSImage *newImage=[[NSImage alloc] initWithSize:sz];
-    [newImage lockFocus];
-    
-    [img setFlipped:YES];
-    [img drawInRect:NSMakeRect(0,0,sz.width,sz.height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
-    int y;
-    CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
-    for (y=0; y< sz.height; y ++)
+    const NSSize sz=[img size];
+    const int w = (int)sz.width, h=(int)sz.height;
+    HDC hdc;
+    if (w>0 && h>0 && NULL != (hdc=SWELL_CreateMemContext(NULL,w,h)))
     {
-      int x;
-      for (x = 0; x < sz.width; x ++)
+      [NSGraphicsContext saveGraphicsState];
+      NSGraphicsContext *gc=[NSGraphicsContext graphicsContextWithGraphicsPort:((struct HDC__*)hdc)->ctx flipped:NO];
+      [NSGraphicsContext setCurrentContext:gc];
+      [img drawInRect:NSMakeRect(0,0,w,h) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1.0];
+      [NSGraphicsContext restoreGraphicsState];
+
+      NSImage *newImage=[[NSImage alloc] initWithData:[img TIFFRepresentation]];
+      [newImage setFlipped:YES];
+
+      const int *fb = (const int *)SWELL_GetCtxFrameBuffer(hdc);
+      int y,rcnt=0;
+      [newImage lockFocus];
+      CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
+      for (y=0; y < h; y ++)
       {
-        NSColor *col=NSReadPixel(NSMakePoint(x,y));
-        if (col && [col numberOfComponents]<=4)
+        int x;
+        for (x = 0; x < w; x++)
         {
-          CGFloat comp[4];
-          [col getComponents:comp]; // this relies on the format being RGB
-          if (comp[0] == 1.0 && comp[1] == 0.0 && comp[2] == 1.0 && comp[3]==1.0)
-            //fabs(comp[0]-1.0) < 0.0001 && fabs(comp[1]-.0) < 0.0001 && fabs(comp[2]-1.0) < 0.0001)
+#ifdef __ppc__
+          if ((*fb++ & 0xffffff) == 0xff00ff)
+#else
+          if ((*fb++ & 0xffffff00) == 0xff00ff00)
+#endif
           {
             CGContextClearRect(myContext,CGRectMake(x,y,1,1));
+            rcnt++;
           }
         }
       }
+      [newImage unlockFocus];
+
+      SWELL_DeleteGfxContext(hdc);
+
+      if (rcnt)
+      {
+        [img release];
+        img=newImage;    
+      }
+      else
+        [newImage release];
     }
-    [newImage unlockFocus];
-    
-    [img release];
-    img=newImage;    
   }
   
   HGDIOBJ__ *i=GDP_OBJECT_NEW();
@@ -1138,7 +1155,7 @@ void DrawImageInRect(HDC ctx, HICON img, RECT *r)
   NSRect rr=NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
   [nsi setFlipped:YES];
   [nsi drawInRect:rr fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
-  [nsi setFlipped:NO];
+  [nsi setFlipped:NO]; // todo: restore old flippedness?
   [NSGraphicsContext restoreGraphicsState];
 //  [gc release];
 }
