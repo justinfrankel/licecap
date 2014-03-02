@@ -100,9 +100,9 @@ static EEL_F NSEEL_CGEN_CALL _eel_fgets(void *opaque, EEL_F *fpp, EEL_F *strOut)
   else
   {
 #ifdef EEL_STRING_DEBUGOUT
-    EEL_STRING_DEBUGOUT("fgets: bad destination specifier passed %f, throwing away %d bytes",*strOut, strlen(buf));
+    EEL_STRING_DEBUGOUT("fgets: bad destination specifier passed %f, throwing away %d bytes",*strOut, (int)strlen(buf));
 #endif
-    return strlen(buf);
+    return (int)strlen(buf);
   }
 }
 static EEL_F NSEEL_CGEN_CALL _eel_fread(void *opaque, EEL_F *fpp, EEL_F *strOut, EEL_F *flen)
@@ -139,7 +139,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fread(void *opaque, EEL_F *fpp, EEL_F *strOut,
 #endif
     return -1.0;
   }
-  use_len = fread((char *)wr->Get(),1,use_len,fp);
+  use_len = (int)fread((char *)wr->Get(),1,use_len,fp);
   wr->SetLen(use_len > 0 ? use_len : 0, true);
   return (EEL_F) use_len;
 }
@@ -201,7 +201,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fprintf(void *opaque, INT_PTR nparam, EEL_F **
     if (fmt)
     {
       char buf[16384];
-      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()) : NULL, buf,sizeof(buf),nparam-2,parm+2);
+      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()) : NULL, buf,(int)sizeof(buf),(int)nparam-2,parm+2);
 
       if (len >= 0)
       {

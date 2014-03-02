@@ -433,7 +433,7 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
       {
         EEL_STRING_STORAGECLASS *wr=NULL;
         const char *str = EEL_STRING_GET_FOR_INDEX(v,&wr);
-        const int maxl=(buf+buf_sz - 2 - op);
+        const int maxl=(int) (buf+buf_sz - 2 - op);
         if (wr && !fs[2]) // %s or %S -- todo: implement padding modes for binary compat too?
         {
           int l = wr->GetLength();
@@ -494,7 +494,7 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
 
   }
   *op=0;
-  return op - buf;
+  return (int) (op - buf);
 }
 
 
@@ -540,7 +540,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
         else
         {
           // greedy match
-          int len = msg_endptr-msg;
+          int len = (int) (msg_endptr-msg);
           while (len >= 0 && !eel_string_match(opaque,fmt, msg+len,match_fmt_pos,ignorecase,fmt_endptr, msg_endptr,num_fmt_parms,fmt_parms)) len--;
           return len >= 0;
         }
@@ -631,7 +631,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
 
             if (fmt_char == 's')
             {
-              len = msg_endptr-msg;
+              len = (int) (msg_endptr-msg);
             }
             else if (fmt_char == 'x')
             {
@@ -787,7 +787,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_sprintf(void *opaque, INT_PTR num_param, EEL_F
       if (fmt)
       {
         char buf[16384];
-        const int fmt_len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf), num_param-2, parms+2);
+        const int fmt_len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,(int)sizeof(buf), (int)num_param-2, parms+2);
 
         if (fmt_len>=0)
         {
@@ -1467,7 +1467,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_printf(void *opaque, INT_PTR num_param, EEL_F 
     if (fmt)
     {
       char buf[16384];
-      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,sizeof(buf), num_param-1, parms+1);
+      const int len = eel_format_strings(opaque,fmt,wr_src?(fmt+wr_src->GetLength()):NULL,buf,(int)sizeof(buf), (int)num_param-1, parms+1);
 
       if (len >= 0)
       {
@@ -1504,7 +1504,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_match(void *opaque, INT_PTR num_parms, EEL_F *
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parms[0]),&fmt_wr);
     const char *msg = EEL_STRING_GET_FOR_INDEX(*(parms[1]),&msg_wr);
 
-    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,0, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg)),num_parms-2,parms+2) ? 1.0 : 0.0;
+    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,0, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg)),(int)num_parms-2,parms+2) ? 1.0 : 0.0;
   }
   return 0.0;
 }
@@ -1517,7 +1517,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_matchi(void *opaque, INT_PTR num_parms, EEL_F 
     const char *fmt = EEL_STRING_GET_FOR_INDEX(*(parms[0]),&fmt_wr);
     const char *msg = EEL_STRING_GET_FOR_INDEX(*(parms[1]),&msg_wr);
 
-    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,1, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg)),num_parms-2,parms+2) ? 1.0 : 0.0;
+    if (fmt && msg) return eel_string_match(opaque,fmt,msg,0,1, fmt + (fmt_wr?fmt_wr->GetLength():strlen(fmt)), msg + (msg_wr?msg_wr->GetLength():strlen(msg)),(int)num_parms-2,parms+2) ? 1.0 : 0.0;
   }
   return 0.0;
 }

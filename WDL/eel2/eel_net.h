@@ -150,7 +150,7 @@ EEL_F eel_net_state::onConnect(char *hostNameOwned, int port, int block)
 
         s->state = STATE_RESOLVING;
         s->hostname = hostNameOwned;
-        s->blockmode = block;
+        s->blockmode = !!block;
         s->port = port;
         if (hostNameOwned || __run_connect(s,ip)) return x + CONNECTION_ID_BASE;
 
@@ -507,7 +507,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_send(void *opaque, INT_PTR np, EEL_F **par
       EEL_STRING_MUTEXLOCK_SCOPE
       WDL_FastString *ws=NULL;
       const char *fn = EEL_STRING_GET_FOR_INDEX(parms[1][0],&ws);
-      l = ws ? ws->GetLength() : strlen(fn);
+      l = ws ? ws->GetLength() : (int) strlen(fn);
       if (np > 2)
       {
         int al=(int)parms[2][0];
