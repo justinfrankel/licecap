@@ -42,7 +42,8 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
   }
   if (value > 2147483647.0)
   {
-    sprintf(bufOut, "%e", value);
+    if (value >= 1.0e40) sprintf(bufOut, "%e", value);
+    else sprintf(bufOut, "%.*f", min(prec_digits,8), value);
     while (*bufOut) bufOut++;
     return bufOut;
   }
