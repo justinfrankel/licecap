@@ -277,7 +277,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
           for (;x<r.right;x++)
           {
             unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
-            if (v) max_x=x;
+            if (v) max_x=x+1;
             *destbuf++ = 255-v;
           }
         }
@@ -287,7 +287,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
           for (;x<r.right;x++)
           {
             unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
-            if (v) max_x=x;
+            if (v) max_x=x+1;
             *destbuf++ = v;
           }
         }
@@ -295,7 +295,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
       }
       destbuf -= r.right*r.bottom;
 
-      if (max_x < r.right - 1) // only resize down if more than 1px
+      if (max_x < r.right)
       {
         const unsigned char *rdptr=destbuf;
         // trim down destbuf
