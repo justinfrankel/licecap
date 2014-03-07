@@ -102,7 +102,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
       double dfrac2 = (dfrac - frac) * prec_scale2;
       frac2 = (unsigned int) (dfrac2 + 0.5);
 
-      const int prec_scale2_small = min(prec_scale2/1024,100);
+      const int prec_scale2_small = min(prec_scale2/1024,10);
 
       if (frac2 <= prec_scale2_small) frac2=0;
       else if (frac2 >= prec_scale2 - prec_scale2_small - 1) frac2=prec_scale2;
@@ -117,7 +117,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
     {
       frac = (unsigned int) (dfrac + 0.5);
       frac2 = 0;
-      const int prec_scale_small = min(prec_scale/1024,100);
+      const int prec_scale_small = min(prec_scale/1024,10);
       if (frac <= prec_scale_small) frac=0;
       else if (frac>=prec_scale-prec_scale_small - 1) frac=prec_scale;
     }
