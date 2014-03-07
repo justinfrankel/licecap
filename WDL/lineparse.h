@@ -121,19 +121,21 @@ class LineParser
         if (success) *success=0;
         return 0.0;
       }
-      char *t=m_tokens[token];
+      const char *t=m_tokens[token];
       if (success)
         *success=*t?1:0;
 
+      // todo: detect d or f prefix for double/float base64 encodings
       char buf[512];
-      char *ot=buf;
-      while (*t&&(ot-buf)<500) 
+      int ot = 0;
+      while (*t&&ot<(int)sizeof(buf)-1) 
       {
         char c=*t++;
-        if (success && (c < '0' || c > '9')&&c != '.'&&c!=',') *success=0;
-        *ot++=c==','?'.':c;
+        if (c == ',') c = '.';
+        else if (success && (c < '0' || c > '9') && c != '.') *success=0;
+        buf[ot++]=c;
       }
-      *ot=0;
+      buf[ot] = 0;
       return atof(buf);
     }
 
