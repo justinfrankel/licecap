@@ -647,6 +647,7 @@ public:
     m_bytesOut=0;
     m_errcnt=false; 
     m_tmpflag=0;
+    rdbuf_pos = rdbuf_valid = 0;
   }
   virtual ~ProjectStateContext_File(){ delete m_rd; delete m_wr; };
 
@@ -664,41 +665,44 @@ public:
 
   WDL_FileRead *m_rd;
   WDL_FileWrite *m_wr;
+
+  char rdbuf[4096];
+  int rdbuf_pos, rdbuf_valid;
+
   int m_indent;
   int m_tmpflag;
   bool m_errcnt;
+
 };
 
 int ProjectStateContext_File::GetLine(char *buf, int buflen)
 {
   if (!m_rd||buflen<2) return -1;
 
-  buf[0]=0;
-  for (;;)
+  int i=0;
+  while (i<buflen-1)
   {
-    buf[0]=0;
-    int i=0;
-    while (i<buflen-1)
+    if (rdbuf_pos>=rdbuf_valid)
     {
-      if (!m_rd->Read(buf+i,1)) { if (!i) return -1; break; }
-
-      if (buf[i] == '\r' || buf[i] == '\n')  
-      {
-        if (!i) continue; // skip over leading newlines
-        break;
-      }
-
-      if (!i && (buf[0] == ' ' || buf[0] == '\t')) continue; // skip leading blanks
-
-      i++;
+      rdbuf_pos = 0;
+      rdbuf_valid = m_rd->Read(rdbuf, sizeof(rdbuf));
+      if (rdbuf_valid<1) break;
     }
-    if (i<1) continue;
+    const char c = rdbuf[rdbuf_pos++];
 
-    buf[i]=0;
-
-    if (buf[0]) return 0;
+    if (!i)
+    {
+      if (c != '\r' && c != '\n' && c != ' ' && c != '\t')
+        buf[i++] = c;
+    }
+    else
+    {
+      if (c == '\r' || c == '\n') break;
+      buf[i++] = c;
+    }
   }
-  return -1;
+  buf[i]=0;
+  return buf[0] ? 0 : -1;
 }
 
 void ProjectStateContext_File::AddLine(const char *fmt, ...)
