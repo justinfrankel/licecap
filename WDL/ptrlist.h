@@ -55,9 +55,20 @@ template<class PTRTYPE> class WDL_PtrList
     {
       if (p)
       {
-        int x;     
         PTRTYPE **list=(PTRTYPE **)m_hb.Get();
-        for (x = 0; x < GetSize(); x ++) if (list[x] == p) return x;
+        int x;     
+        const int n = GetSize();
+        for (x = 0; x < n; x ++) if (list[x] == p) return x;
+      }
+      return -1;
+    }
+    int FindR(const PTRTYPE *p) const
+    {
+      if (p)
+      {
+        PTRTYPE **list=(PTRTYPE **)m_hb.Get();
+        int x = GetSize();
+        while (--x >= 0) if (list[x] == p) return x;
       }
       return -1;
     }
