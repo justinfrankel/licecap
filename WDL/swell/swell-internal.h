@@ -444,12 +444,23 @@ struct HTREEITEM__
 
 // GDI internals
 
+#ifndef __AVAILABILITYMACROS__
+#error  __AVAILABILITYMACROS__ not defined, include AvailabilityMacros.h!
+#endif
 
 // 10.4 doesn't support CoreText, so allow ATSUI if targetting 10.4 SDK
+#ifndef MAC_OS_X_VERSION_10_5
+  // 10.4 SDK
+  #define SWELL_NO_CORETEXT
+  #define SWELL_ATSUI_TEXT_SUPPORT
+#else
+
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
 #ifndef __LP64__
 #define SWELL_ATSUI_TEXT_SUPPORT
 #endif
+#endif
+
 #endif
 
 struct HGDIOBJ__

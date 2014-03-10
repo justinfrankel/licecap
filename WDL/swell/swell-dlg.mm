@@ -3007,10 +3007,10 @@ void SWELL_SetViewGL(HWND h, bool wantGL)
       if (wantGL) 
       {
         NSOpenGLPixelFormatAttribute atr[] = { 
-            96/*NSOpenGLPFAAllowOfflineRenderers*/, // allows use of NSSupportsAutomaticGraphicsSwitching and no gpu-forcing
+            (NSOpenGLPixelFormatAttribute)96/*NSOpenGLPFAAllowOfflineRenderers*/, // allows use of NSSupportsAutomaticGraphicsSwitching and no gpu-forcing
             (NSOpenGLPixelFormatAttribute)0
         }; // todo: optionally add any attributes before the 0
-        if (!Is105Plus()) atr[0]=0; // 10.4 can't use offline renderers and will fail trying
+        if (!Is105Plus()) atr[0]=(NSOpenGLPixelFormatAttribute)0; // 10.4 can't use offline renderers and will fail trying
 
         NSOpenGLPixelFormat *fmt  = [[NSOpenGLPixelFormat alloc] initWithAttributes:atr];
         

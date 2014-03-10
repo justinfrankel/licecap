@@ -83,7 +83,7 @@ static int MacKeyCodeToVK(int code)
 
 bool IsRightClickEmulateEnabled();
 
-
+#ifdef MAC_OS_X_VERSION_10_5
 
 static int charFromVcode(int keyCode) // used for getting the root char (^, `) from dead keys on other keyboards,
                                        // only used when using MacKeyToWindowsKeyEx() with mode=1, for now 
@@ -135,6 +135,7 @@ static int charFromVcode(int keyCode) // used for getting the root char (^, `) f
   }
   return 0;
 }
+#endif
 
 int SWELL_MacKeyToWindowsKeyEx(void *nsevent, int *flags, int mode)
 {
@@ -162,8 +163,9 @@ int SWELL_MacKeyToWindowsKeyEx(void *nsevent, int *flags, int mode)
 
     if (!str || ![str length]) 
     {
+    #ifdef MAC_OS_X_VERSION_10_5
       if (mode==1) code=charFromVcode(rawcode);
-
+    #endif
       if (!code)
       {
         code = 1024+rawcode; // raw code

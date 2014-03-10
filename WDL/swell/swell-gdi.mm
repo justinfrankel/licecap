@@ -37,6 +37,7 @@
 #include "../wdlcstring.h"
 
 
+#ifndef SWELL_NO_CORETEXT
 static bool IsCoreTextSupported()
 {
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
@@ -71,6 +72,7 @@ static CTFontRef GetCoreTextDefaultFont()
   }
   return deffr;
 }
+#endif // !SWELL_NO_CORETEXT
   
 
 static NSString *CStringToNSString(const char *str)
@@ -519,6 +521,7 @@ static NSString *SWELL_GetCachedFontName(const char *nm)
       ret = CStringToNSString(nm);
       if (ret)
       {
+#ifndef SWELL_NO_CORETEXT
         // only do postscript name lookups on 10.9+
         if (floor(NSFoundationVersionNumber) > 945.00) // NSFoundationVersionNumber10_8
         {
@@ -530,6 +533,7 @@ static NSString *SWELL_GetCachedFontName(const char *nm)
             ret = nr;
           }
         }
+#endif
 
         s_fontnamecache_mutex.Enter();
         s_fontnamecache.Insert(nm,ret);
@@ -555,6 +559,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   
   font->font_rotation = lfOrientation/10.0;
 
+#ifndef SWELL_NO_CORETEXT
   if (IsCoreTextSupported())
   {
     char buf[1024];
@@ -568,6 +573,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     // might want to make this conditional (i.e. only return font if created successfully), but I think we'd rather fallback to a system font than use ATSUI
     return font;
   }
+#endif
   
 #ifdef SWELL_ATSUI_TEXT_SUPPORT
   ATSUFontID fontid=kATSUInvalidFontID;
@@ -658,6 +664,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   }
 #endif
 
+#ifndef SWELL_NO_CORETEXT
   CTFontRef fr = curfont_valid ? (CTFontRef)ct->curfont->ct_FontRef : NULL;
   if (!fr)  fr=GetCoreTextDefaultFont();
 
@@ -673,6 +680,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     
     return 1;
   }
+#endif
 
   
   return 1;
@@ -850,6 +858,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   }
 #endif  
   
+#ifndef SWELL_NO_CORETEXT
   CTFontRef fr = curfont_valid ? (CTFontRef)ct->curfont->ct_FontRef : NULL;
   if (!fr)  fr=GetCoreTextDefaultFont();
   if (fr)
@@ -1001,6 +1010,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     
     return line_h;
   }
+#endif
   
   
   [str release];
