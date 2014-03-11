@@ -30,6 +30,7 @@ void ChannelPinMapper::Init(WDL_UINT64* pMapping, int nPins)
   if (nPins<0) nPins=0;
   else if (nPins>CHANNELPINMAPPER_MAXPINS) nPins=CHANNELPINMAPPER_MAXPINS;
   memcpy(m_mapping, pMapping, nPins*sizeof(WDL_UINT64));
+  memset(m_mapping+nPins, 0, (CHANNELPINMAPPER_MAXPINS-nPins)*sizeof(WDL_UINT64));
   m_nPins = m_nCh = nPins;
 }
 
