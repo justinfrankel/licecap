@@ -66,7 +66,7 @@ void updateWindowCollection(NSWindow *w)
 }
 
 static void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc);
-static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv);
+static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview);
 
 static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event);
 static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent *theEvent)
@@ -1112,7 +1112,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   
   static WDL_PtrList<void> ndlist;
   int ndlist_oldsz=ndlist.GetSize();
-  swellRenderOptimizely(twoPassMode?1:3,self,hdc,false,&ndlist,rlist,rlistcnt,0,0,true);
+  swellRenderOptimizely(twoPassMode?1:3,self,hdc,false,&ndlist,rlist,rlistcnt,0,0,true,self);
     
   while (ndlist.GetSize()>ndlist_oldsz+1)
   {
@@ -1147,7 +1147,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
   
   
-  if (twoPassMode) swellRenderOptimizely(2,self,hdc,false,&ndlist,rlist,rlistcnt,0,0,true);
+  if (twoPassMode) swellRenderOptimizely(2,self,hdc,false,&ndlist,rlist,rlistcnt,0,0,true,self);
   SWELL_DeleteGfxContext(hdc);
   [self unlockFocus];
   [self setNeedsDisplay:NO];
@@ -3123,12 +3123,36 @@ void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc)
   
 }
 
-void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv)
+void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview)
 {
   if (view->m_isdirty&1) doforce=true;
   NSArray *sv = [view subviews];
   if (doforce&&(passflags & ([sv count]?1:2)))
-    DrawSwellViewRectImpl(view,[view bounds], hdc);
+  {
+    NSRect drawr = [view bounds];
+    if (rlistcnt > 0)
+    {
+      int x;
+      NSRect vr = rlist[0];
+      if (rlistcnt > 1)
+      {
+        for(x=1;x<rlistcnt;x++) vr = NSUnionRect(rlist[x],vr);
+
+        if (view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr fromView:view];
+        drawr = NSIntersectionRect(drawr, vr);
+        if (view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr toView:view];
+      }
+      else if (view != rlist_coordview) 
+      {
+        drawr = NSIntersectionRect(drawr, [rlist_coordview convertRect:vr toView:view]);
+      }
+      else
+      {
+        drawr = NSIntersectionRect(drawr, vr);
+      }
+    }
+    DrawSwellViewRectImpl(view,drawr, hdc);
+  }
   
   if (sv)
   {
@@ -3151,7 +3175,7 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
             CGContextSaveGState(hdc->ctx);
             CGContextClipToRect(hdc->ctx,CGRectMake(fr.origin.x,fr.origin.y,fr.size.width,fr.size.height));
             CGContextTranslateCTM(hdc->ctx, fr.origin.x,fr.origin.y);            
-            swellRenderOptimizely(passflags,(SWELL_hwndChild*)v,hdc,doforce,needdraws,rlist,rlistcnt,draw_xlate_x-(int)fr.origin.x,draw_xlate_y-(int)fr.origin.y,false);
+            swellRenderOptimizely(passflags,(SWELL_hwndChild*)v,hdc,doforce,needdraws,rlist,rlistcnt,draw_xlate_x-(int)fr.origin.x,draw_xlate_y-(int)fr.origin.y,false,rlist_coordview);
             CGContextRestoreGState(hdc->ctx);
             if (passflags&2) [v setNeedsDisplay:NO];
             bgbr_valid=false; // code in swellRenderOptimizely() may trigger WM_CTLCOLORDLG which may invalidate our brush, so clear the cached value here
