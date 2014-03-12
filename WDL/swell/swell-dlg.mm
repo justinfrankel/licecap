@@ -3135,13 +3135,9 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
       if (view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr fromView:view];
 
       int x;
-      NSRect update_rect = NSMakeRect(0,0,0,0);
-      for(x=0;x<rlistcnt;x++) 
-      {
-        const NSRect ar = NSIntersectionRect(drawr, rlist[x]);
-        if (ar.size.width > 0.0) update_rect = NSUnionRect(update_rect,ar);
-      }
-      drawr = update_rect; 
+      NSRect update_rect = rlist[0];
+      for(x=1;x<rlistcnt;x++) update_rect = NSUnionRect(update_rect,rlist[x]);
+      drawr = NSIntersectionRect(drawr, update_rect);
 
       if (drawr.size.width > 0.0 && 
           drawr.size.height > 0.0 &&
