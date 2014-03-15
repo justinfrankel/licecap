@@ -257,7 +257,7 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       break;
       case 'c':
       {
-        char v = va_arg(va,char);
+        int v = va_arg(va,int);
         outbuf[wroffs++] = v&0xff;
         outbuf_size--;
       }
