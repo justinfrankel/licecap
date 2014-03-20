@@ -52,6 +52,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str); // 0 on
 void cfg_encode_textblock(ProjectStateContext *ctx, const char *text);
 
 void makeEscapedConfigString(const char *in, WDL_String *out);
+void makeEscapedConfigString(const char *in, WDL_FastString *out);
 
 
 class ProjectStateContext_GenericRead : public ProjectStateContext

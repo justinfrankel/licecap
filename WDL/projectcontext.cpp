@@ -1088,11 +1088,9 @@ void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
   }
 }
 
-
-void makeEscapedConfigString(const char *in, WDL_String *out)
+static int makeEscapedConfigString_calcflags(const char *p)
 {
   int flags=0;
-  const char *p=in;
   while (*p && flags!=7)
   {
     char c=*p++;
@@ -1100,6 +1098,12 @@ void makeEscapedConfigString(const char *in, WDL_String *out)
     else if (c=='\'') flags|=2;
     else if (c=='`') flags|=4;
   }
+  return flags;
+}
+
+void makeEscapedConfigString(const char *in, WDL_String *out)
+{
+  int flags=makeEscapedConfigString_calcflags(in);
   if (flags!=7)
   {
     const char *src=(flags&1)?((flags&2)?"`":"'"):"\"";
@@ -1113,6 +1117,31 @@ void makeEscapedConfigString(const char *in, WDL_String *out)
     out->Append(in);
     out->Append("`");
     char *p=out->Get()+1;
+    while (*p && p[1])
+    {
+      if (*p == '`') *p='\'';
+      p++;
+    }
+  }
+}
+
+void makeEscapedConfigString(const char *in, WDL_FastString *out)
+{
+  int flags = makeEscapedConfigString_calcflags(in);
+
+  if (flags!=7)
+  {
+    const char *src=(flags&1)?((flags&2)?"`":"'"):"\"";
+    out->Set(src);
+    out->Append(in);
+    out->Append(src);
+  }
+  else  // ick, change ` into '
+  {
+    out->Set("`");
+    out->Append(in);
+    out->Append("`");
+    char *p=(char *)out->Get()+1;
     while (*p && p[1])
     {
       if (*p == '`') *p='\'';
