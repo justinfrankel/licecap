@@ -41,6 +41,8 @@ class LineParser;
 bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx); // returns TRUE if got valid >, otherwise it means eof...
 bool ProjectContext_GetNextLine(ProjectStateContext *ctx, LineParser *lpOut); // true if lpOut is valid
 
+char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_digits); // returns pointer to end of encoded string. prec_digits 0..18.
+int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt, va_list va); // returns bytes used
 
 int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb); // 0 on success, doesnt clear hb
 void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len);

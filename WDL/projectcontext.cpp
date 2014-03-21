@@ -28,6 +28,374 @@
 
 #endif
 
+#include "denormal.h"
+
+
+char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_digits)
+{
+  value = denormal_filter_double2(value);
+
+  if (value<0.0)
+  {
+    value=-value;
+    *bufOut++ = '-';
+  }
+  if (value > 2147483647.0)
+  {
+    sprintf(bufOut, "%e", value);
+    while (*bufOut) bufOut++;
+    return bufOut;
+  }
+
+  unsigned int value_i, frac, frac2;
+  int prec_digits2 = 0;
+
+  if (prec_digits>0)
+  {
+    static const unsigned int scales[9] = 
+    { 
+      10,
+      100,
+      1000,
+      10000,
+      100000,
+      1000000,
+      10000000,
+      100000000,
+      1000000000
+    };
+
+    value_i = (unsigned int)value;
+    const int value_digits = 
+       value_i >= 10000 ? (
+         value_i >= 1000000 ?
+           (value_i >= 100000000 ? 
+            (value_i >= 1000000000 ? 10 : 9) : 
+             (value_i >= 10000000 ? 8 : 7)) :
+            (value_i >= 100000 ? 6 : 5)
+       )
+       :
+       (
+         value_i >= 100 ?
+           (value_i >= 1000 ? 4 : 3) :
+           (value_i >= 10 ? 2 : 1)
+       );
+
+           // double precision is limited to about 17 decimal digits of meaningful values
+    if (prec_digits + value_digits > 17) prec_digits = 17-value_digits;
+
+    if (prec_digits > 9) 
+    {
+      prec_digits2 = prec_digits - 9;
+      prec_digits = 9;
+      if (prec_digits2 > 9) prec_digits2 = 9;
+    }
+
+    const unsigned int prec_scale = scales[prec_digits-1];
+    const double dfrac = (value - value_i) * prec_scale;
+    if (prec_digits2 > 0)
+    {
+      const unsigned int prec_scale2 = scales[prec_digits2-1];
+      frac = (unsigned int) dfrac;
+
+      double dfrac2 = (dfrac - frac) * prec_scale2;
+      frac2 = (unsigned int) (dfrac2 + 0.5);
+
+      const int prec_scale2_small = min(prec_scale2/1024,100);
+
+      if (frac2 <= prec_scale2_small) frac2=0;
+      else if (frac2 >= prec_scale2 - prec_scale2_small - 1) frac2=prec_scale2;
+
+      if (frac2 >= prec_scale2) 
+      {
+        frac2 -= prec_scale2;
+        frac++;
+      }
+    }
+    else
+    {
+      frac = (unsigned int) (dfrac + 0.5);
+      frac2 = 0;
+      const int prec_scale_small = min(prec_scale/1024,100);
+      if (frac <= prec_scale_small) frac=0;
+      else if (frac>=prec_scale-prec_scale_small - 1) frac=prec_scale;
+    }
+
+    if (frac >= prec_scale) // round up to next integer
+    {
+      frac -= prec_scale;
+      value_i++;
+    }
+  }
+  else // round to int
+  {
+    value_i = (unsigned int)(value+0.5);
+    frac2 = frac = 0;
+  }
+
+  char digs[32];
+
+  if (value_i)
+  {
+    int tmp=value_i;
+    int x = 0;
+    do {
+      const int a = (tmp%10);
+      tmp/=10;
+      digs[x++]='0' + a;
+    } while (tmp);
+
+    while (x>0) *bufOut++ = digs[--x];
+  }
+  else
+  {
+    *bufOut++ = '0';
+  }
+
+
+  if (frac || frac2)
+  {
+    int x = 0;
+    int tmp=frac;
+    int dleft = prec_digits;
+    *bufOut++='.';
+
+    if (frac) do
+    {   
+      const int a = (tmp%10);
+      tmp /= 10;
+      if (x || a || frac2) digs[x++] = '0'+a;
+    } while (dleft-- > 0 && tmp);
+
+    while (dleft-->0) *bufOut++ = '0';
+    while (x>0) *bufOut++ = digs[--x];
+    // x is 0
+
+    if (frac2)
+    {
+      tmp=frac2;
+      dleft = prec_digits2;
+      do
+      {   
+        const int a = (tmp%10);
+        tmp /= 10;
+        if (x || a) digs[x++] = '0'+a;
+      } while (dleft-- > 0 && tmp);
+
+      while (dleft-->0) *bufOut++ = '0';
+      while (x>0) *bufOut++ = digs[--x];
+    }
+  }
+
+  *bufOut = 0;
+  return bufOut;
+}
+
+int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt, va_list va)
+{
+  int wroffs=0;
+
+  while (*fmt && outbuf_size > 1)
+  {
+    char c = *fmt++;
+    if (c != '%') 
+    {
+      outbuf[wroffs++] = c;
+      outbuf_size--;
+      continue;
+    }
+
+    if (*fmt == '%')
+    {
+      outbuf[wroffs++] = '%';
+      outbuf_size--;
+      fmt++;
+      continue;
+    }
+
+
+    const char *ofmt = fmt-1;
+    bool want_abort=false;
+
+    int has_prec=0;
+    int prec=0;
+    if (*fmt == '.')
+    {
+      has_prec=1;
+      fmt++;
+      while (*fmt >= '0' && *fmt <= '9') prec = prec*10 + (*fmt++-'0');
+      if (*fmt != 'f' || prec < 0 || prec>20)
+      {
+        want_abort=true;
+      }
+    }
+    else if (*fmt == '0')
+    {
+      has_prec=2;
+      fmt++;
+      while (*fmt >= '0' && *fmt <= '9') prec = prec*10 + (*fmt++-'0');
+      if (*fmt != 'x' && *fmt != 'X' && *fmt != 'd' && *fmt != 'u')
+      {
+        want_abort=true;
+      }
+    }
+
+    c = *fmt++;
+    if (!want_abort) switch (c)
+    {
+      case 's':
+      {
+        const char *str=va_arg(va,const char *);
+        lstrcpyn_safe(outbuf+wroffs,str?str:"(null)",outbuf_size);
+        while (outbuf[wroffs])
+        {
+          wroffs++;
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'c':
+      {
+        char v = va_arg(va,char);
+        outbuf[wroffs++] = v&0xff;
+        outbuf_size--;
+      }
+      break;
+      case 'd':
+      {
+        int v = va_arg(va,int);
+        if (v<0)
+        {
+          outbuf[wroffs++] = '-';
+          outbuf_size--;
+          v=-v; // this won't handle -2147483648 right, todo special case?
+        }
+
+        char tab[32];
+        int x=0;
+        do
+        {
+          tab[x++] = v%10;
+          v/=10;
+        }
+        while (v);
+        if (has_prec == 2) while (x<prec) { tab[x++] = 0; }
+
+        while (--x >= 0 && outbuf_size>1)
+        {
+          outbuf[wroffs++] = '0' + tab[x];
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'u':
+      {
+        unsigned int v = va_arg(va,unsigned int);
+
+        char tab[32];
+        int x=0;
+        do
+        {
+          tab[x++] = v%10;
+          v/=10;
+        }
+        while (v);
+        if (has_prec == 2) while (x<prec) { tab[x++] = 0; }
+
+        while (--x >= 0 && outbuf_size>1)
+        {
+          outbuf[wroffs++] = '0' + tab[x];
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'x':
+      case 'X':
+      {
+        const char base = (c - 'x') + 'a';
+        unsigned int v = va_arg(va,unsigned int);
+
+        char tab[32];
+        int x=0;
+        do
+        {
+          tab[x++] = v&0xf;
+          v>>=4;
+        }
+        while (v);
+      
+        if (has_prec == 2) while (x<prec) { tab[x++] = 0; }
+
+        while (--x >= 0 && outbuf_size>1)
+        {
+          if (tab[x] < 10)
+            outbuf[wroffs++] = '0' + tab[x];
+          else 
+            outbuf[wroffs++] = base + tab[x] - 10;
+
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'f':
+      {
+        double v = va_arg(va,double);
+        if (outbuf_size<64)
+        {
+          char tmp[64];
+          projectcontext_fastDoubleToString(v,tmp,has_prec?prec:6);
+          lstrcpyn_safe(outbuf+wroffs,tmp,outbuf_size);
+          while (outbuf[wroffs])
+          {
+            wroffs++;
+            outbuf_size--;
+          }
+        }
+        else
+        {
+          const char *p=projectcontext_fastDoubleToString(v,outbuf+wroffs,has_prec?prec:6);
+          int amt = (p-(outbuf+wroffs));
+          wroffs += amt;
+          outbuf_size-=amt;
+        }
+      }
+      break;
+      default:
+        want_abort=true;
+      break;
+    }   
+    if (want_abort)
+    {
+#if defined(_WIN32) && defined(_DEBUG)
+      OutputDebugString("ProjectContextFormatString(): falling back to stock vsnprintf because of:");
+      OutputDebugString(ofmt);
+#endif
+      fmt=ofmt;
+      break;
+    }
+  }
+
+  outbuf += wroffs;
+  outbuf[0] = 0;
+  if (outbuf_size<2||!*fmt)
+    return wroffs;
+
+#if defined(_WIN32) && defined(_MSC_VER)
+  const int l = _vsnprintf(outbuf,outbuf_size,fmt,va); // _vsnprintf() does not always null terminate
+  if (l < 0 || l >= (int)outbuf_size)
+  {
+    outbuf[outbuf_size-1] = 0;
+    return wroffs + (int)strlen(outbuf);
+  }
+#else
+  // vsnprintf() on non-win32, always null terminates
+  const int l = vsnprintf(outbuf,outbuf_size,fmt,va);
+  if (l >= (int)outbuf_size-1) return wroffs + (int)outbuf_size-1;
+#endif
+  return wroffs+l;
+}
+
+
 
 class ProjectStateContext_Mem : public ProjectStateContext
 {
@@ -149,21 +517,8 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   }
   else
   {
-    tmp[0]=0;
-    #if defined(_WIN32) && defined(_MSC_VER)
-      l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-      if (l < 0 || l >= (int)sizeof(tmp))
-      {
-        tmp[sizeof(tmp)-1] = 0;
-        l = (int)strlen(tmp);
-      }
-    #else
-      // vsnprintf() on non-win32, always null terminates
-      l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-      if (l > (int)sizeof(tmp)-1) l = (int)sizeof(tmp)-1;
-    #endif
+    l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va) + 1;
     use_buf = tmp;
-    l++; // include NULL term
   }
   va_end(va);
 
@@ -365,21 +720,8 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     }
     else
     {
-      tmp[0]=0;
-      #if defined(_WIN32) && defined(_MSC_VER)
-        l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-        if (l < 0 || l >= (int)sizeof(tmp)) 
-        {
-          tmp[sizeof(tmp)-1] = 0;
-          l = (int)strlen(tmp);
-        }
-     #else
-       // vsnprintf() on non-win32, always null terminates
-       l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-       if (l > (int)sizeof(tmp)-1) l=(int)sizeof(tmp)-1;
-     #endif
-
-       use_buf = tmp;
+      l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va);
+      use_buf = tmp;
     }
 
     va_end(va);
@@ -495,20 +837,8 @@ void ProjectStateContext_FastQueue::AddLine(const char *fmt, ...)
   else
   {
     char tmp[8192];
-    tmp[0] = 0;
-    #if defined(_WIN32) && defined(_MSC_VER)
-      int l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-      if (l < 0 || l >= (int)sizeof(tmp)) 
-      {
-        tmp[sizeof(tmp)-1]=0;
-        l = (int)strlen(tmp);
-      }
-    #else
-      // vsnprintf() on non-win32, always null terminates
-      int l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-      if (l > (int)sizeof(tmp)-1) l = (int)sizeof(tmp)-1;
-    #endif
-    if (l>=0) m_fq->Add(tmp, l+1);
+    const int l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va);
+    if (l>0) m_fq->Add(tmp, l+1);
   }
   va_end(va);
 }
