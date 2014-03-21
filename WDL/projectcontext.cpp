@@ -246,9 +246,10 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
     {
       case '@':
       case 'p':
+      case 's':
       {
         const char *str=va_arg(va,const char *);
-        const char qc = outbuf_size >= 3 ? getConfigStringQuoteChar(str) : ' ';
+        const char qc = outbuf_size >= 3 && c != 's' ? getConfigStringQuoteChar(str) : ' ';
         
         if (qc != ' ')
         {
@@ -258,9 +259,9 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
         
         if (str) while (outbuf_size > 1 && *str)
         {
-          char c = *str++;
-          if (!qc && c == '`') c = '\'';
-          outbuf[wroffs++] = c;
+          char v = *str++;
+          if (!qc && v == '`') v = '\'';
+          outbuf[wroffs++] = v;
           outbuf_size--;
         }
 
@@ -268,16 +269,6 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
         {
           outbuf[wroffs++] = qc ? qc : '`';
           // outbuf_size already decreased above
-        }
-      }
-      break;
-      case 's':
-      {
-        const char *str=va_arg(va,const char *);
-        if (str) while (outbuf_size > 1 && *str)
-        {
-          outbuf[wroffs++] = *str++;
-          outbuf_size--;
         }
       }
       break;
@@ -371,17 +362,17 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
         {
           char tmp[64];
           projectcontext_fastDoubleToString(v,tmp,has_prec?prec:6);
-          lstrcpyn_safe(outbuf+wroffs,tmp,outbuf_size);
-          while (outbuf[wroffs])
+          const char *str = tmp;
+          while (outbuf_size > 1 && *str)
           {
-            wroffs++;
+            outbuf[wroffs++] = *str++;
             outbuf_size--;
           }
         }
         else
         {
           const char *p=projectcontext_fastDoubleToString(v,outbuf+wroffs,has_prec?prec:6);
-          int amt = (p-(outbuf+wroffs));
+          int amt = (int) (p-(outbuf+wroffs));
           wroffs += amt;
           outbuf_size-=amt;
         }
