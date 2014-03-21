@@ -51,6 +51,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str); // 0 on suc
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str); // 0 on success, appends to str
 void cfg_encode_textblock(ProjectStateContext *ctx, const char *text);
 
+char getConfigStringQuoteChar(const char *in); // returns 0 if no quote char available!
 void makeEscapedConfigString(const char *in, WDL_String *out);
 void makeEscapedConfigString(const char *in, WDL_FastString *out);
 
