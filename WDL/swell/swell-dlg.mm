@@ -3132,26 +3132,25 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
     NSRect drawr = [view bounds];
     if (rlistcnt > 0)
     {
-      int x;
-      NSRect vr = rlist[0];
-      if (rlistcnt > 1)
-      {
-        for(x=1;x<rlistcnt;x++) vr = NSUnionRect(rlist[x],vr);
+      if (view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr fromView:view];
 
-        if (view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr fromView:view];
-        drawr = NSIntersectionRect(drawr, vr);
-        if (view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr toView:view];
-      }
-      else if (view != rlist_coordview) 
+      int x;
+      NSRect update_rect = NSMakeRect(0,0,0,0);
+      for(x=0;x<rlistcnt;x++) 
       {
-        drawr = NSIntersectionRect(drawr, [rlist_coordview convertRect:vr toView:view]);
+        const NSRect ar = NSIntersectionRect(drawr, rlist[x]);
+        if (ar.size.width > 0.0) update_rect = NSUnionRect(update_rect,ar);
       }
-      else
-      {
-        drawr = NSIntersectionRect(drawr, vr);
-      }
+      drawr = update_rect; 
+
+      if (drawr.size.width > 0.0 && 
+          drawr.size.height > 0.0 &&
+          view != rlist_coordview) drawr = [rlist_coordview convertRect:drawr toView:view];
+
+      // if drawr is empty, might be good to update it back to bounds? if something stops painting right that would be a good thing to check
     }
-    DrawSwellViewRectImpl(view,drawr, hdc);
+    if (drawr.size.width > 0.0 && drawr.size.height > 0.0)
+      DrawSwellViewRectImpl(view,drawr, hdc);
   }
   
   if (sv)
