@@ -244,13 +244,39 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
     c = *fmt++;
     if (!want_abort) switch (c)
     {
+      case '@':
+      case 'p':
+      {
+        const char *str=va_arg(va,const char *);
+        const char qc = outbuf_size >= 3 ? getConfigStringQuoteChar(str) : ' ';
+        
+        if (qc != ' ')
+        {
+          outbuf[wroffs++] = qc ? qc : '`';
+          outbuf_size-=2; // will add trailing quote below
+        }
+        
+        if (str) while (outbuf_size > 1 && *str)
+        {
+          char c = *str++;
+          if (!qc && c == '`') c = '\'';
+          outbuf[wroffs++] = c;
+          outbuf_size--;
+        }
+
+        if (qc != ' ')
+        {
+          outbuf[wroffs++] = qc ? qc : '`';
+          // outbuf_size already decreased above
+        }
+      }
+      break;
       case 's':
       {
         const char *str=va_arg(va,const char *);
-        lstrcpyn_safe(outbuf+wroffs,str?str:"(null)",outbuf_size);
-        while (outbuf[wroffs])
+        if (str) while (outbuf_size > 1 && *str)
         {
-          wroffs++;
+          outbuf[wroffs++] = *str++;
           outbuf_size--;
         }
       }
@@ -1102,7 +1128,9 @@ char getConfigStringQuoteChar(const char *p)
     else if (c=='`') flags|=4;
     else if (c == ' ' || c == '\t') flags |= 8;
   }
+#ifndef PROJECTCONTEXT_USE_QUOTES_WHEN_NO_SPACES
   if (!(flags & 8) && fc != '"' && fc != '\'' && fc != '`' && fc != '#' && fc != ';') return ' ';
+#endif
 
   if (!(flags & 1)) return '"';
   if (!(flags & 2)) return '\'';
