@@ -1937,6 +1937,25 @@ void SetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int cx, int cy, int f
   SWELL_END_TRY(;)  
 }
 
+BOOL EnumWindows(BOOL (*proc)(HWND, LPARAM), LPARAM lp)
+{
+  NSArray *ch=[NSApp windows];
+  [ch retain];
+  int x;
+  const int n=[ch count];
+  for(x=0;x<n; x ++)
+  {
+    NSWindow *w = [ch objectAtIndex:x];
+    if (!proc((HWND)[w contentView],lp)) 
+    {
+      [ch release];
+      return FALSE;
+    }
+  }
+  [ch release];
+  return TRUE;
+}
+
 
 HWND GetWindow(HWND hwnd, int what)
 {

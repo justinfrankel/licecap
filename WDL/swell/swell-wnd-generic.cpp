@@ -1116,6 +1116,10 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 }
 
 
+BOOL EnumWindows(BOOL (*proc)(HWND, LPARAM), LPARAM lp)
+{
+    return FALSE;
+}
 
 HWND GetWindow(HWND hwnd, int what)
 {

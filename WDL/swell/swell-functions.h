@@ -280,6 +280,8 @@ SWELL_API_DEFINE(HWND, SetParent,(HWND hwnd, HWND newPar))
 */
 SWELL_API_DEFINE(HWND, GetWindow,(HWND hwnd, int what))
 
+SWELL_API_DEFINE(BOOL, EnumWindows, (BOOL (*proc)(HWND, LPARAM), LPARAM lp))
+
 SWELL_API_DEFINE(HWND,FindWindowEx,(HWND par, HWND lastw, const char *classname, const char *title))
 
 
