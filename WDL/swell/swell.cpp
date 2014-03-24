@@ -590,7 +590,7 @@ BOOL WinSetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
 }
 
 
-int WinIntersectRect(RECT *out, RECT *in1, RECT *in2)
+int WinIntersectRect(RECT *out, const RECT *in1, const RECT *in2)
 {
   memset(out,0,sizeof(RECT));
   if (in1->right <= in1->left) return false;
@@ -606,7 +606,7 @@ int WinIntersectRect(RECT *out, RECT *in1, RECT *in2)
   
   return out->right>out->left && out->bottom>out->top;
 }
-void WinUnionRect(RECT *out, RECT *in1, RECT *in2)
+void WinUnionRect(RECT *out, const RECT *in1, const RECT *in2)
 {
   out->left = min(in1->left,in2->left);
   out->top = min(in1->top,in2->top);
