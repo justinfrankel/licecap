@@ -407,46 +407,37 @@ static void __DrawCircleClipped(LICE_IBitmap* dest, float cx, float cy, float ra
 }
 
 
-static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, float rad, float anglo, float anghi,
+static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, float rad, double anglo, double anghi,
   LICE_pixel color, int ialpha, bool aa, int mode)
 {
   // -2PI <= anglo <= anghi <= 2PI
+  anglo += 2.0*_PI;
+  anghi += 2.0*_PI;
 
-  if (anglo < -_PI && anghi > -_PI)
-  {   
-    __DrawArc(w,h,dest, cx, cy, rad, anglo, -_PI, color, ialpha, aa,mode);
-    anglo=-_PI;
-  }
-     
-  if (anglo < 0.0f && anghi > 0.0f)
-  {   
-    __DrawArc(w,h,dest, cx, cy, rad, anglo+2.0f*_PI, 2.0f*_PI, color, ialpha, aa,mode);
-    anglo=0.0f;
-  }
-  
-  if (anglo < _PI && anghi > _PI)
+  // 0 <= anglo <= anghi <= 4PI
+
+  double next_ang = anglo - fmod(anglo,0.5*_PI);
+
+  while (anglo < anghi)
   {
-    __DrawArc(w,h,dest, cx, cy, rad, anglo, _PI, color, ialpha, aa,mode);
-    anglo=_PI;
-  }
+    next_ang += 0.5*_PI;
+    if (next_ang > anghi) next_ang = anghi;
 
-  int ylo = (int) (cy-rad*cos(anglo)+0.5);
-  int yhi = (int) (cy-rad*cos(anghi)+0.5);
+    int ylo = (int) (cy-rad*cos(anglo)+0.5);
+    int xlo = (int) (cx+rad*sin(anglo)+0.5);
+
+    int yhi = (int) (cy-rad*cos(next_ang)+0.5);
+    int xhi = (int) (cx+rad*sin(next_ang)+0.5);
     
-  if (yhi < ylo) { int tmp = ylo; ylo = yhi; yhi=tmp; }
-  
-  int clip[4]={0,max(0, ylo),w,min(h, yhi+1)};
+    if (yhi < ylo) { int tmp = ylo; ylo = yhi; yhi=tmp; }  
+    if (xhi < xlo) { int tmp = xlo; xlo = xhi; xhi=tmp; }
 
-  if (anglo < -_PI || (anglo >= 0.0f && anglo < _PI))
-  {
-    if (cx>0) clip[0]=cx;
-  }
-  else
-  {
-    if (cx<w) clip[2]=cx;
-  }
+    anglo = next_ang;
 
-  __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
+    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi+1),min(h, yhi+1)};
+
+    __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
+  }
 }
 
 void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, 
