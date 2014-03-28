@@ -1805,6 +1805,10 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           {
             xp = r.right/2 - tw/2;
           }
+          else if (hwnd->m_style & SS_RIGHT)
+          {
+            xp = r.right - tw;
+          }
           if (xp<8)xp=8;
           if (xp+tw > r.right-8) tw=r.right-8-xp;
 

@@ -3404,7 +3404,9 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     }
     
     if ((style&SS_TYPEMASK) == SS_LEFTNOWORDWRAP) [[obj cell] setWraps:NO];
-    if ((style&SS_TYPEMASK) == SS_CENTER) [[obj cell] setAlignment:NSCenterTextAlignment];
+    else if ((style&SS_TYPEMASK) == SS_CENTER) [[obj cell] setAlignment:NSCenterTextAlignment];
+    else if ((style&SS_TYPEMASK) == SS_RIGHT) [[obj cell] setAlignment:NSRightTextAlignment];
+
     [obj setTag:idx];
     [obj setFrame:MakeCoords(x,y,w,h,true)];
     if (style&SWELL_NOT_WS_VISIBLE) [obj setHidden:YES];
