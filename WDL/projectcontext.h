@@ -2,7 +2,6 @@
 #define _PROJECTCONTEXT_H_
 
 #include "wdltypes.h"
-#include "wdlcstring.h"
 
 class WDL_String;
 class WDL_FastString;
@@ -73,10 +72,25 @@ class ProjectStateContext_GenericRead : public ProjectStateContext
     virtual void WDL_VARARG_WARN(printf,2,3) AddLine(const char *fmt, ...) { }
     virtual int GetLine(char *buf, int buflen) // returns -1 on eof  
     {
-      while (m_ptr < m_endptr && (!*m_ptr || *m_ptr == '\t' || *m_ptr == '\r' || *m_ptr == '\n' || *m_ptr == ' ')) m_ptr++;
-      if (m_ptr >= m_endptr) return -1;
-      lstrcpyn_safe(buf,m_ptr,buflen);
-      m_ptr += strlen(m_ptr)+1;
+      const char *p = m_ptr;
+      const char *ep = m_endptr;
+
+      while (p < ep && (!*p || *p == '\t' || *p == '\r' || *p == '\n' || *p == ' ')) p++;
+      if (p >= ep)
+      {
+        m_ptr=p;
+        return -1;
+      }
+
+      if (buflen > 0)
+      {
+        while (--buflen > 0 && *p) *buf++ = *p++;
+        *buf=0;
+      }
+
+      while (*p) p++;
+      m_ptr=p+1; // skip NUL
+
       return 0;
     }
     virtual int GetTempFlag() { return m_tmpflag; }
