@@ -15,7 +15,7 @@ public:
   virtual int onChar(int c);
   virtual void onRightClick() { }
 
-  int updateFile(); // saves file on disk
+  virtual int updateFile(); // saves file on disk
   void RunEditor(); // called from timer/main loop when on simulated curses -- if on a real console just call onChar(getch())
 
   void *m_cursesCtx; // win32CursesCtx *
