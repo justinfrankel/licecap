@@ -95,6 +95,13 @@ void MultiTab_Editor::draw_top_line()
   }
   clrtoeol();
 }
+
+void MultiTab_Editor::draw(int lineidx)
+{
+  m_top_margin = GetTabCount()>1 ? 2 : 1;
+  WDL_CursesEditor::draw(lineidx);
+}
+
 int MultiTab_Editor::onChar(int c)
 {
   if (!m_state && c =='W'-'A'+1)

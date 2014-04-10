@@ -32,6 +32,8 @@ public:
   MultiTab_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx) {  m_top_margin=1;  }
   virtual ~MultiTab_Editor() { }
 
+  virtual void draw(int lineidx=-1);
+
   virtual void draw_top_line();
   virtual int onChar(int c);
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

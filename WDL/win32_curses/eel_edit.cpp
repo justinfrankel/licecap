@@ -116,13 +116,6 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
   return A_NORMAL;
 }
 
-void EEL_Editor::draw(int lineidx)
-{
-  m_top_margin = GetTabCount()>1 ? 2 : 1;
-  WDL_CursesEditor::draw(lineidx);
-}
-
-
 static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len)
 {
   const char *fmt = fmt_in+1;

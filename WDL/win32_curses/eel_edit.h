@@ -20,8 +20,6 @@ public:
   virtual void onRightClick();
   virtual void draw_bottom_line();
 
-  virtual void draw(int lineidx=-1);
-
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
   virtual int overrideSyntaxDrawingForLine(int *ml, int *skipcnt, const char **p, int *c_comment_state, int *last_attr) { return 0; }
