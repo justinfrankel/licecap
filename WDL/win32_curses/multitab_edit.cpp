@@ -1,15 +1,18 @@
 #ifndef CURSES_INSTANCE
 #define CURSES_INSTANCE ((win32CursesCtx *)m_cursesCtx)
 #endif
-#include "multitab_edit.h"
 
-#include "../win32_curses/curses.h"
-#include "../win32_utf8.h"
+#include "curses.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include "../swell/swell.h"
 #endif
+#include <stdlib.h>
+#include <string.h>
+#include "multitab_edit.h"
+
+#include "../win32_utf8.h"
 #include "../wdlcstring.h"
 
 #define UI_STATE_SAVE_AS_NEW 11

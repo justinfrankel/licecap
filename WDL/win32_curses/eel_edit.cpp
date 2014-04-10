@@ -1,15 +1,17 @@
-#ifndef CURSES_INSTANCE
-#define CURSES_INSTANCE ((win32CursesCtx *)m_cursesCtx)
-#endif
-#include "eel_edit.h"
-#include "../win32_curses/curses.h"
-#include "../win32_utf8.h"
-#include "../wdlcstring.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include "../swell/swell.h"
 #endif
+#include <stdlib.h>
+#include <string.h>
+#ifndef CURSES_INSTANCE
+#define CURSES_INSTANCE ((win32CursesCtx *)m_cursesCtx)
+#endif
+#include "curses.h"
+#include "eel_edit.h"
+#include "../win32_utf8.h"
+#include "../wdlcstring.h"
 #include "../eel2/ns-eel-int.h"
 
 EEL_Editor::EEL_Editor(void *cursesCtx, const char *filename) : MultiTab_Editor(cursesCtx)

@@ -1,3 +1,10 @@
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include "../swell/swell.h"
+#endif
+#include <stdlib.h>
+#include <string.h>
 #ifndef CURSES_INSTANCE
 #define CURSES_INSTANCE ((win32CursesCtx*)m_cursesCtx)
 #endif
