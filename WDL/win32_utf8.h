@@ -51,6 +51,8 @@ WDL_WIN32_UTF8_IMPL BOOL GetMenuItemInfoUTF8(HMENU hMenu, UINT uItem,BOOL fByPos
 WDL_WIN32_UTF8_IMPL int statUTF8(const char *filename, struct stat *buffer);
 WDL_WIN32_UTF8_IMPL FILE *fopenUTF8(const char *filename, const char *mode);
 
+WDL_WIN32_UTF8_IMPL int GetKeyNameTextUTF8(LONG lParam, LPTSTR lpString, int nMaxCount);
+
 
 WDL_WIN32_UTF8_IMPL WCHAR *WDL_UTF8ToWC(const char *buf, BOOL doublenull, int minsize, DWORD *sizeout); 
 

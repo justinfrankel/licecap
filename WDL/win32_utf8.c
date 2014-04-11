@@ -660,6 +660,27 @@ LPSTR GetCommandParametersUTF8()
   return NULL;
 }
 
+int GetKeyNameTextUTF8(LONG lParam, LPTSTR lpString, int nMaxCount)
+{
+  if (!lpString) return 0;
+  if (nMaxCount>0 && GetVersion()< 0x80000000)
+  {
+    WIDETOMB_ALLOC(wbuf, nMaxCount);
+    if (wbuf)
+    {
+      GetKeyNameTextW(lParam,wbuf,(int) (wbuf_size/sizeof(WCHAR)));
+
+      if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        lpString[nMaxCount-1]=0;
+      WIDETOMB_FREE(wbuf);
+
+      return (int)strlen(lpString);
+    }
+  }
+  return GetKeyNameTextA(lParam,lpString,nMaxCount);
+}
+
+
 
 HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd)
 {
