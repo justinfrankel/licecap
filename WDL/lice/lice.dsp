@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /YX /FD /c
+# ADD CPP /nologo /MT /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -87,8 +87,8 @@ LIB32=link.exe -lib
 # PROP Output_Dir "Release_Profile"
 # PROP Intermediate_Dir "Release_Profile"
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /Zi /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /FR /FD /c
+# ADD BASE CPP /nologo /MT /W3 /GX /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /YX /FD /c
+# ADD CPP /nologo /MT /W3 /GX /Zi /O2 /I "../zlib" /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /D "PNG_USE_PNGVCRD" /D "PNG_LIBPNG_SPECIALBUILD" /D "__MMX__" /D "PNG_HAVE_MMX_COMBINE_ROW" /D "PNG_HAVE_MMX_READ_INTERLACE" /D "PNG_HAVE_MMX_READ_FILTER_ROW" /D "PNG_WRITE_SUPPORTED" /FR /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
@@ -466,7 +466,7 @@ SOURCE=..\giflib\dgif_lib.c
 
 !IF  "$(CFG)" == "lice - Win32 Release"
 
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
@@ -474,8 +474,8 @@ SOURCE=..\giflib\dgif_lib.c
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
 
-# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD BASE CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -486,7 +486,7 @@ SOURCE=..\giflib\egif_lib.c
 
 !IF  "$(CFG)" == "lice - Win32 Release"
 
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
@@ -494,8 +494,8 @@ SOURCE=..\giflib\egif_lib.c
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
 
-# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD BASE CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -506,7 +506,7 @@ SOURCE=..\giflib\gif_hash.c
 
 !IF  "$(CFG)" == "lice - Win32 Release"
 
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
@@ -514,8 +514,8 @@ SOURCE=..\giflib\gif_hash.c
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
 
-# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD BASE CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
@@ -538,7 +538,7 @@ SOURCE=..\giflib\gifalloc.c
 
 !IF  "$(CFG)" == "lice - Win32 Release"
 
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Debug"
 
@@ -546,8 +546,8 @@ SOURCE=..\giflib\gifalloc.c
 
 !ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
 
-# ADD BASE CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
-# ADD CPP /MD /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD BASE CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
+# ADD CPP /MT /I "../giflib" /D "HAVE_CONFIG_H"
 
 !ENDIF 
 
