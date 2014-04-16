@@ -418,23 +418,31 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
 
   double next_ang = anglo - fmod(anglo,0.5*_PI);
 
+  int ly = (int)(cy - rad*cos(anglo) + 0.5);
+  int lx = (int)(cx + rad*sin(anglo) + 0.5);
+
   while (anglo < anghi)
   {
     next_ang += 0.5*_PI;
     if (next_ang > anghi) next_ang = anghi;
 
-    int ylo = (int) (cy-rad*cos(anglo)+0.5);
-    int xlo = (int) (cx+rad*sin(anglo)+0.5);
-
     int yhi = (int) (cy-rad*cos(next_ang)+0.5);
     int xhi = (int) (cx+rad*sin(next_ang)+0.5);
+    int ylo = ly;
+    int xlo = lx;
+
+    ly = yhi;
+    lx = xhi;
     
     if (yhi < ylo) { int tmp = ylo; ylo = yhi; yhi=tmp; }  
     if (xhi < xlo) { int tmp = xlo; xlo = xhi; xhi=tmp; }
 
     anglo = next_ang;
 
-    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi+1),min(h, yhi+1)};
+    if (xhi != cx) xhi++;
+    if (yhi != cy) yhi++;
+
+    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi),min(h, yhi)};
 
     __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
   }
