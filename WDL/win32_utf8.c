@@ -314,6 +314,51 @@ BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn)
 }
 
 
+// can't test if pidl has utf8, no test on pszPath either as it is the output param
+// 4096 sizing: assumes WDL_ChooseDirectory is used
+BOOL SHGetPathFromIDListUTF8(PCIDLIST_ABSOLUTE pidl, LPSTR pszPath)
+{
+  if (pszPath && GetVersion() < 0x80000000)
+  {
+    WIDETOMB_ALLOC(wfn,4096);
+    BOOL b = FALSE;
+    if (SHGetPathFromIDListW(pidl,wfn))
+    {
+      b = WideCharToMultiByte(CP_UTF8,0,wfn,-1,pszPath,4096,NULL,NULL) > 0;
+    }
+    MBTOWIDE_FREE(wfn);
+    return b;
+  }
+  return SHGetPathFromIDListA(pidl,pszPath);
+}
+
+LPITEMIDLIST SHBrowseForFolderUTF8(BROWSEINFO* bi)
+{
+  if (bi && (WDL_HasUTF8(bi->pszDisplayName) || WDL_HasUTF8(bi->lpszTitle)) && GetVersion() < 0x80000000)
+  {
+    WIDETOMB_ALLOC(wfn,4096);
+    if (wfn)
+    {
+      if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,bi->pszDisplayName,-1,wfn,4096))
+      {
+        MBTOWIDE(wtxt,bi->lpszTitle);
+        if (wtxt_ok)
+        {
+          BROWSEINFOW biw ={ bi->hwndOwner,bi->pidlRoot,wfn,wtxt,bi->ulFlags,bi->lpfn,(LPARAM)wfn,bi->iImage };
+          LPITEMIDLIST idlist = SHBrowseForFolderW(&biw);
+          MBTOWIDE_FREE(wfn);
+          MBTOWIDE_FREE(wtxt);
+          return idlist;
+        }
+        MBTOWIDE_FREE(wtxt);
+      }
+      MBTOWIDE_FREE(wfn);
+    }
+  }
+  return SHBrowseForFolderA(bi);
+}
+
+
 BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
 {
   if (WDL_HasUTF8(path) && GetVersion()< 0x80000000)
