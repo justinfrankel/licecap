@@ -1,5 +1,7 @@
+#if defined(_WIN32) && !defined(WDL_WIN32_UTF8_NO_UI_IMPL)
 #include <shlobj.h>
 #include <commctrl.h>
+#endif
 
 #include "win32_utf8.h"
 #include "wdltypes.h"
@@ -233,6 +235,7 @@ WCHAR *WDL_UTF8ToWC(const char *buf, BOOL doublenull, int minsize, DWORD *sizeou
   }
 }
 
+#ifndef WDL_WIN32_UTF8_NO_UI_IMPL
 static BOOL GetOpenSaveFileNameUTF8(LPOPENFILENAME lpofn, BOOL save)
 {
 
@@ -372,6 +375,8 @@ int WDL_UTF8_SendBFFM_SETSEL(HWND hwnd, const char *str)
   }
   return (int) SendMessage(hwnd, BFFM_SETSELECTIONA, 1, (LPARAM)str);
 }
+
+#endif
 
 BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
 {
@@ -760,7 +765,7 @@ HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpPa
   return ShellExecuteA(hwnd,lpOp,lpFile,lpParm,lpDir,nShowCmd);
 }
 
-#if defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)
+#if (defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)) && !defined(WDL_WIN32_UTF8_NO_UI_IMPL)
 
 
 #define WDL_UTF8_OLDPROCPROP "WDLUTF8OldProc"
