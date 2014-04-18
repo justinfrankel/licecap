@@ -408,20 +408,20 @@ DWORD GetPrivateProfileSection(const char *appname, char *strout, DWORD strout_l
        
 #define WRSTR(v) \
         l= strlen(v); \
-        if (l > strout_len - szOut - 2) l = strout_len - 2 - szOut; \
+        if (l > (int)strout_len - szOut - 2) l = (int)strout_len - 2 - szOut; \
         if (l>0) { memcpy(strout+szOut,v,l); szOut+=l; }
         
         WRSTR(kv)
         WRSTR("=")
 #undef WRSTR
 
-        lstrcpyn_trimmed(strout+szOut, val, strout_len - szOut - 2);
+        lstrcpyn_trimmed(strout+szOut, val, (int)strout_len - szOut - 2);
         szOut += strlen(strout+szOut);
 
         l=1;
-        if (l > strout_len - szOut - 1) l = strout_len - 1 - szOut;
+        if (l > (int)strout_len - szOut - 1) l = (int)strout_len - 1 - szOut;
         if (l>0) { memset(strout+szOut,0,l); szOut+=l; }
-        if (szOut >= strout_len-1)
+        if (szOut >= (int)strout_len-1)
         {
           strout[strout_len-1]=0;
           return strout_len-2;
