@@ -163,8 +163,8 @@ typedef unsigned int ULONG;
 typedef short SHORT;
 typedef int *LPINT;
 typedef char CHAR;
-typedef char *LPSTR;
-typedef const char *LPCSTR;
+typedef char *LPSTR, *LPTSTR;
+typedef const char *LPCSTR, *LPCTSTR;
 
 #define __int64 long long // define rather than typedef, for unsigned __int64 support
 
