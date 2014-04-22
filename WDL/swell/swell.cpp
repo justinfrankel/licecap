@@ -906,4 +906,30 @@ void SWELL_GenerateGUID(void *g)
 #endif
 
 
+void GetTempPath(int bufsz, char *buf)
+{
+  if (bufsz<2)
+  {
+    if (bufsz>0) *buf=0;
+    return;
+  }
+
+#ifdef __APPLE__
+  const char *p = getenv("TMPDIR");
+#else
+  const char *p = getenv("TEMP");
+#endif
+  if (!p || !*p) p="/tmp/";
+  lstrcpyn(buf, p, bufsz);
+
+  size_t len = strlen(buf);
+  if (!len || buf[len-1] != '/')
+  {
+    if (len > bufsz-2) len = bufsz-2;
+
+    buf[len] = '/';
+    buf[len+1]=0;
+  }
+}
+
 #endif

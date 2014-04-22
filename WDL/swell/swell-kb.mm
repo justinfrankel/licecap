@@ -438,10 +438,8 @@ static NSImage *swell_imageFromCursorString(const char *name, POINT *hotSpot)
       static char tempfn[512];
       if (!tempfn[0])
       {
-        const char *p = getenv("TMPDIR");
-        if  (!p || !*p) p="/tmp";
-        sprintf(tempfn,"%.200s%sswellcur%x%x.ico",
-            p,*p && p[strlen(p)-1] != '/' ? "/" : "", timeGetTime(),(int)getpid());
+        GetTempPath(256,tempfn);
+        snprintf(tempfn+strlen(tempfn),256,"swellcur%x%x.ico", timeGetTime(),(int)getpid());
       }
       
       FILE *outfp = fopen(tempfn,"wb");
