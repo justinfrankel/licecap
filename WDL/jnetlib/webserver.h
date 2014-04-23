@@ -1,6 +1,6 @@
 /*
 ** JNetLib
-** Copyright (C) 2008 Cockos Inc
+** Copyright (C) 2008-2014 Cockos Inc
 ** Copyright (C) 2003 Nullsoft, Inc.
 ** Author: Justin Frankel
 ** File: webserver.h - Generic simple webserver baseclass
@@ -74,6 +74,7 @@
 
 #include "httpserv.h"
 #include "../wdlcstring.h"
+#include "../ptrlist.h"
 
 class IPageGenerator
 {
@@ -83,10 +84,6 @@ public:
   virtual int GetData(char *buf, int size)=0; // return < 0 when done (or 0 if IsNonBlocking() is 1)
 };
 
-
-
-class WS_ItemList;
-class WS_conInst;
 
 class WebServerBaseClass
 {
@@ -129,6 +126,27 @@ public:
 
 
 private:
+
+  class WS_conInst
+  {
+  public:
+    WS_conInst(JNL_IConnection *c, int which_port) : m_serv(c), m_pagegen(NULL), m_port(which_port)
+    {
+      time(&m_connect_time);
+    }
+    ~WS_conInst()
+    {
+      delete m_pagegen;
+    }
+
+    // these will be used by WebServerBaseClass::onConnection yay
+    JNL_HTTPServ m_serv;
+    IPageGenerator *m_pagegen;
+
+    int m_port; // port this came in on
+    time_t m_connect_time;
+  };
+
   int run_connection(WS_conInst *con);
 
   int m_timeout_s;
@@ -136,9 +154,9 @@ private:
 
   JNL_AsyncDNS m_dns;
 
-  WS_ItemList *m_listeners;
+  WDL_PtrList<JNL_IListen> m_listeners;
+  WDL_PtrList<WS_conInst> m_connections;
   int m_listener_rot;
-  WS_ItemList *m_connections;
 };
 
 
