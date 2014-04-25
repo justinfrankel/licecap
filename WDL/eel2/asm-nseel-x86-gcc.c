@@ -1989,7 +1989,7 @@ void nseel_asm_stack_exch(void)
 void nseel_asm_stack_exch_end(void) {}
 
 #ifdef TARGET_X64
-void win64_callcode() 
+void eel_callcode64() 
 {
 	__asm__(
 #ifndef EEL_X64_NO_CHANGE_FPFLAGS
@@ -2033,6 +2033,38 @@ void win64_callcode()
 		"addl $16, %rsp\n"
 #endif
 
+		"ret\n"
+	);
+}
+
+void eel_setfp_round()
+{
+	__asm__(
+#ifndef EEL_X64_NO_CHANGE_FPFLAGS
+		"subl $16, %rsp\n"
+		"fnstcw (%rsp)\n"
+		"mov (%rsp), %ax\n"
+		"and $0xF3FF, %ax\n" // set round to nearest
+		"mov %ax, 4(%rsp)\n"
+		"fldcw 4(%rsp)\n"
+		"addl $16, %rsp\n"
+#endif
+		"ret\n"
+	);
+}
+
+void eel_setfp_trunc()
+{
+	__asm__(
+#ifndef EEL_X64_NO_CHANGE_FPFLAGS
+		"subl $16, %rsp\n"
+		"fnstcw (%rsp)\n"
+		"mov (%rsp), %ax\n"
+		"or $0xC00, %ax\n" // set to truncate
+		"mov %ax, 4(%rsp)\n"
+		"fldcw 4(%rsp)\n"
+		"addl $16, %rsp\n"
+#endif
 		"ret\n"
 	);
 }

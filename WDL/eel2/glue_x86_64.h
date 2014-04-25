@@ -202,8 +202,8 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 2+sizeof(void *);
 }
 
-extern void win64_callcode(INT_PTR code, INT_PTR ram_tab);
-#define GLUE_CALL_CODE(bp, cp, rt) win64_callcode(cp, rt)
+extern void eel_callcode64(INT_PTR code, INT_PTR ram_tab);
+#define GLUE_CALL_CODE(bp, cp, rt) eel_callcode64(cp, rt)
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {
