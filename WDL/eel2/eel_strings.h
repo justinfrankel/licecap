@@ -1178,6 +1178,7 @@ static EEL_F eel_getchar_do(int flag, const char *src)
   } a;
   const int type_sz=flag&0xf;
 
+  memset(&a, 0, sizeof(a));
   if (flag & EEL_GETCHAR_FLAG_ENDIANSWAP)
   {
     src += type_sz;

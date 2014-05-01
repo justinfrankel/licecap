@@ -2703,7 +2703,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         {
           if (!local_fpstack_use)
           {
-            if (bufOut_len < parm_size + sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
+            if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
             if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
             parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
             need_fxch = 1;
@@ -3365,7 +3365,7 @@ doNonInlinedAndOr_:
 
     {
       int csz,hasSecondHalf;
-      if (bufOut_len < parm_size + sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
+      if (bufOut_len < parm_size + (int)sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
       if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
       parm_size += sizeof(GLUE_JMP_IF_P1_Z);
       csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
@@ -3380,7 +3380,7 @@ doNonInlinedAndOr_:
 
       if (hasSecondHalf)
       {
-        if (bufOut_len < parm_size + sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL_FALLBACK("if len fail",doNonInlineIf_)
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_JMP_NC)) RET_MINUS1_FAIL_FALLBACK("if len fail",doNonInlineIf_)
         if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
         parm_size+=sizeof(GLUE_JMP_NC);
 
@@ -3461,7 +3461,7 @@ doNonInlineIf_:
 #endif
         unsigned char *looppt;
         int parm_size=0,subsz;
-        if (bufOut_len < parm_size + GLUE_WHILE_SETUP_SIZE + sizeof(GLUE_WHILE_BEGIN)) RET_MINUS1_FAIL("while size fail 1")
+        if (bufOut_len < parm_size + (int)(GLUE_WHILE_SETUP_SIZE + sizeof(GLUE_WHILE_BEGIN))) RET_MINUS1_FAIL("while size fail 1")
 
         if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_SETUP,GLUE_WHILE_SETUP_SIZE);
         parm_size+=GLUE_WHILE_SETUP_SIZE;
@@ -3473,7 +3473,7 @@ doNonInlineIf_:
         subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse, NULL);
         if (subsz<0) RET_MINUS1_FAIL("while coc fail")
 
-        if (bufOut_len < parm_size + sizeof(GLUE_WHILE_END) + sizeof(GLUE_WHILE_CHECK_RV)) RET_MINUS1_FAIL("which size fial 2")
+        if (bufOut_len < parm_size + (int)(sizeof(GLUE_WHILE_END) + sizeof(GLUE_WHILE_CHECK_RV))) RET_MINUS1_FAIL("which size fial 2")
 
         parm_size+=subsz;
         if (bufOut) memcpy(bufOut + parm_size, GLUE_WHILE_END, sizeof(GLUE_WHILE_END));
@@ -3532,7 +3532,7 @@ doNonInlineIf_:
         int fUse=0;
         unsigned char *skipptr1,*loopdest;
 
-        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_LOADCNT) + GLUE_LOOP_CLAMPCNT_SIZE + GLUE_LOOP_BEGIN_SIZE) RET_MINUS1_FAIL("loop size fail")
+        if (bufOut_len < parm_size + (int)(sizeof(GLUE_LOOP_LOADCNT) + GLUE_LOOP_CLAMPCNT_SIZE + GLUE_LOOP_BEGIN_SIZE)) RET_MINUS1_FAIL("loop size fail")
 
         // store, convert to int, compare against 1, if less than, skip to end
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_LOADCNT,sizeof(GLUE_LOOP_LOADCNT));
@@ -3555,7 +3555,7 @@ doNonInlineIf_:
 
         parm_size += subsz;
 
-        if (bufOut_len < parm_size + sizeof(GLUE_LOOP_END)) RET_MINUS1_FAIL("loop size fail 2")
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_LOOP_END)) RET_MINUS1_FAIL("loop size fail 2")
 
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_END,sizeof(GLUE_LOOP_END));
         parm_size += sizeof(GLUE_LOOP_END);
@@ -4696,7 +4696,7 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
   compileContext *ctx=calloc(1,sizeof(compileContext));
 
   #ifdef NSEEL_SUPER_MINIMAL_LEXER
-    ctx->scanner = ctx;
+    if (ctx) ctx->scanner = ctx;
   #else
     if (ctx)
     {
