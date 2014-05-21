@@ -2365,7 +2365,7 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 //
 static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
-	RECT rect;
+	RECT rect={0,};
 	//UINT thisportion;
 	HDC hdc;
 	POINT pt;
