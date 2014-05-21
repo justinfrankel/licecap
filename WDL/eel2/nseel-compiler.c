@@ -5166,9 +5166,8 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
       while (tmplen < 32 && tmp[tmplen]) tmplen++;
     }
     
-    if (tmplen>0) sz = nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'');
-
-    
+    sz = tmplen > 0 ? nseel_filter_escaped_string(b,sizeof(b),tmp+1, tmplen - 1, '\'') : 0;
+        
     if (sz > 4) 
     {
       if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
