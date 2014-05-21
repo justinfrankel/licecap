@@ -233,7 +233,9 @@ static void AdjustThumbImageSize(int wndw, int wndh, WDL_VirtualSlider_SkinConfi
 
 void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
 {
-  if (a&&a->thumbimage[0])
+  if (!a) return;
+
+  if (a->thumbimage[0])
   {
     int w=a->thumbimage[0]->getWidth();
     int h=a->thumbimage[0]->getHeight();
@@ -243,7 +245,7 @@ void WDL_VirtualSlider_PreprocessSkinConfig(WDL_VirtualSlider_SkinConfig *a)
     for (x = w-1; x > a->thumbimage_lt[0]+1 && LICE_GetPixel(a->thumbimage[0],x,h-1)==LICE_RGBA(255,0,255,255); x --);
     a->thumbimage_rb[0] = x;
   }
-  if (a&&a->thumbimage[1])
+  if (a->thumbimage[1])
   {
     int w=a->thumbimage[1]->getWidth();
     int h=a->thumbimage[1]->getHeight();
