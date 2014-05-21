@@ -5188,7 +5188,7 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
     buf[tmplen]=0;
     if (ctx->onNamedString) 
     {
-      if (buf[1]&&ctx->function_curName)
+      if (tmplen>0 && buf[1]&&ctx->function_curName)
       {
         int err=0;
         opcodeRec *r = nseel_resolve_named_symbol(ctx,nseel_createCompiledValuePtr(ctx,NULL,buf),-1, &err);
