@@ -271,13 +271,12 @@ char *WDL_ChooseFileForOpen(HWND parent,
 #ifdef _WIN32
 
 #ifdef WDL_FILEBROWSE_WIN7VISTAMODE
-  if (!allowmul) // todo : check impl of multiple select, too?
   {
     Win7FileDialog fd(text);
     if(fd.inited())
     {
       //vista+ file open dialog
-      fd.addOptions(FOS_FILEMUSTEXIST);
+      fd.addOptions(FOS_FILEMUSTEXIST|(allowmul?FOS_ALLOWMULTISELECT:0));
       fd.setFilterList(extlist);
       if (defext) 
       {
@@ -317,15 +316,51 @@ char *WDL_ChooseFileForOpen(HWND parent,
 
       if(fd.show(parent))
       {
+        char *ret=NULL;
         char temp[4096];
         temp[0]=0;
+
         //ifileopendialog saves the last folder automatically
-        fd.getResult(temp, sizeof(temp)-1);
+        if (!allowmul)
+        {
+          fd.getResult(temp, sizeof(temp)-1);
+          ret= temp[0] ? strdup(temp) : NULL;
+        }
+        else
+        {
+          char* p=NULL;
+          int totallen=0, cnt=fd.getResultCount();
+          if (cnt>1)
+          {
+            // sets an empty path to allow selecting files with different parent paths 
+            // (when selecting files among search results for ex.)
+            ret = strdup("");
+            totallen=1;
+          }
 
-
+          int i;
+          for (i=0; i<cnt; i++)
+          {
+            int len = fd.getResult(i, temp, sizeof(temp)-1);
+            p = len ? (char*)realloc(ret, totallen + len + ((i==cnt-1)?1:0)) : NULL;
+            if (p)
+            {
+              ret=p;
+              memcpy(ret+totallen, temp, len);
+              totallen+=len;
+            }
+            else
+            {
+              free(ret);
+              ret=NULL;
+              break;
+            }
+          }
+          if (ret) p[totallen]=0;
+        }
 
         if (preservecwd) SetCurrentDirectory(olddir);
-        return temp[0] ? strdup(temp) : NULL;
+        return ret;
       }
 
       if (preservecwd) SetCurrentDirectory(olddir);

@@ -2189,7 +2189,8 @@ public:
 
   int getState(DWORD id);
   void getResult(char *fn, int maxlen);
-  int getResult(int i, char *fn, int maxlen);
+  int getResult(int i, char *fn, int maxlen); // returns the number of written bytes, including ending null-character
+  int getResultCount();
 
 private:
   IFileDialogPtr m_fod;

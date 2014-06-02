@@ -192,7 +192,7 @@ void Win7FileDialog::getResult(char *fn, int maxlen)
   }
 
 #if defined(WDL_NO_SUPPORT_UTF8)
-  wcstombs(fn, res, maxlen);
+    if (wcstombs(fn,res,maxlen) == (size_t)-1) fn[0]=0;
 #else
   int len = WideCharToMultiByte(CP_UTF8,0,res,-1,fn,maxlen-1,NULL,NULL); 
   fn[len] = 0;
@@ -203,12 +203,48 @@ void Win7FileDialog::getResult(char *fn, int maxlen)
 
 int Win7FileDialog::getResult(int i, char *fn, int maxlen)
 {
-  //FIXME
-#if 0
   IShellItemArrayPtr sia;
-  m_fod->GetResults(&sia);
+  ((IFileOpenDialogPtr)m_fod)->GetResults(&sia); // good enough: only makes sense with IFileOpenDialog
+  if (sia == NULL)
+  {
+    fn[0] = 0;
+    return 0;
+  }
+
+  IShellItemPtr item;
+  if (!sia->GetItemAt(i, &item))
+  {
+    WCHAR *res = NULL;
+    item->GetDisplayName(SIGDN_FILESYSPATH, &res);
+    if(!res)
+    {
+      fn[0] = 0;
+      return 0;
+    }
+
+    int len=0;
+#if defined(WDL_NO_SUPPORT_UTF8)
+    size_t l = wcstombs(fn, res, maxlen);
+    if (l==(size_t)-1) fn[0]=0;
+    else len=l+1;
+#else
+    len = WideCharToMultiByte(CP_UTF8,0,res,-1,fn,maxlen-1,NULL,NULL);
 #endif
+
+    CoTaskMemFree(res);
+    return len;
+  }
   return 0;
+}
+
+int Win7FileDialog::getResultCount()
+{
+  IShellItemArrayPtr sia;
+  ((IFileOpenDialogPtr)m_fod)->GetResults(&sia); // good enough: only makes sense with IFileOpenDialog
+  if (sia == NULL) return 0;
+
+  DWORD cnt;
+  return !sia->GetCount(&cnt) ? cnt : 0;
 }
 
 int Win7FileDialog::getState(DWORD id)
