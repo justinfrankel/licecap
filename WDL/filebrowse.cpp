@@ -246,7 +246,7 @@ bool WDL_ChooseFileForSave(HWND parent,
 }
 
 
-char *WDL_ChooseFileForOpen(HWND parent,
+char *WDL_ChooseFileForOpen2(HWND parent,
                                         const char *text, 
                                         const char *initialdir,  
                                         const char *initialfile, 
@@ -254,7 +254,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
                                         const char *defext,
 
                                         bool preservecwd,
-                                        bool allowmul, 
+                                        int allowmul, 
 
                                         const char *dlgid, 
                                         void *dlgProc, 
@@ -271,6 +271,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
 #ifdef _WIN32
 
 #ifdef WDL_FILEBROWSE_WIN7VISTAMODE
+  if (allowmul!=1)
   {
     Win7FileDialog fd(text);
     if(fd.inited())
@@ -332,7 +333,7 @@ char *WDL_ChooseFileForOpen(HWND parent,
           int totallen=0, cnt=fd.getResultCount();
           if (cnt>1)
           {
-            // sets an empty path to allow selecting files with different parent paths 
+            // sets an empty path as 1st returned string for multipath support
             // (when selecting files among search results for ex.)
             ret = strdup("");
             totallen=1;
@@ -407,4 +408,32 @@ char *WDL_ChooseFileForOpen(HWND parent,
 
   return ret;
 #endif
+}
+
+char *WDL_ChooseFileForOpen(HWND parent,
+                                        const char *text, 
+                                        const char *initialdir,
+                                        const char *initialfile,
+                                        const char *extlist,
+                                        const char *defext,
+
+                                        bool preservecwd,
+                                        bool allowmul,
+
+                                        const char *dlgid, 
+                                        void *dlgProc, 
+#ifdef _WIN32
+                                        HINSTANCE hInstance
+#else
+                                        struct SWELL_DialogResourceIndex *reshead
+#endif
+                                        )
+{
+  return WDL_ChooseFileForOpen2(parent,text, initialdir,initialfile,extlist,defext,preservecwd,allowmul?1:0,dlgid,dlgProc,
+#ifdef _WIN32
+                                        hInstance
+#else
+                                        reshead
+#endif
+                                        );
 }
