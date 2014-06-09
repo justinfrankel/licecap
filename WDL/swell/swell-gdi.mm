@@ -93,7 +93,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
   
   if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
   
-  CGFloat cols[4]={GetRValue(col)/255.0,GetGValue(col)/255.0,GetBValue(col)/255.0,alpha};
+  CGFloat cols[4]={GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,alpha};
   CGColorRef color=CGColorCreate(cspace,cols);
   return color;
 }
@@ -709,11 +709,16 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
   }
   
   {
-    RGBColor tcolor={GetRValue(ct->cur_text_color_int)*256,GetGValue(ct->cur_text_color_int)*256,GetBValue(ct->cur_text_color_int)*256};
     ATSUAttributeTag        theTags[] = { kATSUColorTag,   };
     ByteCount               theSizes[] = { sizeof(RGBColor),  };
+
+    RGBColor tcolor;
     ATSUAttributeValuePtr   theValues[] =  {&tcolor,  } ;
-        
+    
+    tcolor.red = GetRValue(ct->cur_text_color_int)*256;
+    tcolor.green = GetGValue(ct->cur_text_color_int)*256;
+    tcolor.blue = GetBValue(ct->cur_text_color_int)*256;
+    
     // error check this? we can live with the wrong color maybe?
     ATSUSetAttributes(font->atsui_font_style,  sizeof(theTags)/sizeof(theTags[0]), theTags, theSizes, theValues);
   }

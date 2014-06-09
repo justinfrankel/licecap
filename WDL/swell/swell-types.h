@@ -653,7 +653,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define GWL_WNDPROC         (-4)
 #define DWL_DLGPROC         (-8)
 
-#define SWELL_NOT_WS_VISIBLE 0x80000000L
+#define SWELL_NOT_WS_VISIBLE ((int)0x80000000)
 #define WS_CHILDWINDOW (WS_CHILD)
 #define WS_CHILD      0x40000000L
 #define WS_DISABLED   0x08000000L

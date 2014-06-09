@@ -141,7 +141,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   if (isFirst && frame_delay && nreps!=1)
   {
     int nr = nreps > 1 && nreps <= 65536 ? nreps-1 : 0;
-    unsigned char ext[]={0xB, 'N','E','T','S','C','A','P','E','2','.','0',3,1,(nr&0xff),(nr>>8)&0xff};
+    unsigned char ext[]={0xB, 'N','E','T','S','C','A','P','E','2','.','0',3,1,(unsigned char) (nr&0xff), (unsigned char) ((nr>>8)&0xff)};
     EGifPutExtension(wr->f,0xFF, sizeof(ext),ext);
   }
 

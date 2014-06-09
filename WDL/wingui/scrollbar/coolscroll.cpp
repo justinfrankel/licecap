@@ -161,7 +161,7 @@ typedef struct
   BOOL MouseOverRect_hasZoomButtons;
 
   UINT uCurrentScrollbar;
-  UINT uCurrentScrollPortion;
+  int uCurrentScrollPortion;
   UINT uMouseOverScrollbar;
   UINT uHitTestPortion;
   UINT uLastHitTestPortion;

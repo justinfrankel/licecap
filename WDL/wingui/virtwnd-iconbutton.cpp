@@ -544,7 +544,7 @@ static void GenSubMenu(HMENU menu, int *x, WDL_PtrList<char> *items, int curitem
   int pos=0;
   while (*x < items->GetSize())
   {
-    MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING, 0,1000+*x,NULL,NULL,NULL,0};
+    MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING, 0,1000u + *x,NULL,NULL,NULL,0};
     mi.dwTypeData = (char *)items->Get(*x);
     mi.fState = curitem == *x ?MFS_CHECKED:0;
 

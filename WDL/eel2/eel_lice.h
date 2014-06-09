@@ -1358,7 +1358,7 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
   int a=(int)(ch+0.5);
   if (a == '\r' || a=='\n') a=' ';
 
-  char buf[2]={a,0};
+  char buf[2]={(char)a,0};
   *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
                          GetActiveFont(),buf,1,
                          getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);

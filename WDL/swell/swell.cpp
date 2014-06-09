@@ -219,7 +219,9 @@ DWORD WaitForAnySocketObject(int numObjs, HANDLE *objs, DWORD msTO) // only supp
   if (max_s>0)
   {
 again:
-    struct timeval tv={msTO/1000,(msTO%1000)*1000};
+    struct timeval tv;
+    tv.tv_sec = msTO/1000;
+    tv.tv_usec = (msTO%1000)*1000;
     if (select(max_s+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0) for (x = 0; x < numObjs; x ++)
     {
       SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
@@ -286,7 +288,9 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
           FD_ZERO(&s);
 again:
           FD_SET(se->socket[0],&s);
-          struct timeval tv={msTO/1000,(msTO%1000)*1000};
+          struct timeval tv;
+          tv.tv_sec = msTO/1000;
+          tv.tv_usec = (msTO%1000)*1000;
           if (select(se->socket[0]+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0 && FD_ISSET(se->socket[0],&s)) 
           {
             if (se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT && se->autoReset)
@@ -316,7 +320,9 @@ again:
         else
         {
           // timed wait
-          struct timespec ts={msTO/1000, (msTO%1000)*1000000};      
+          struct timespec ts;
+          ts.tv_sec = msTO/1000;
+          ts.tv_nsec = (msTO%1000)*1000000;
           while (!evt->isSignal) 
           {
 #ifdef SWELL_TARGET_OSX

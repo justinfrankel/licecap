@@ -81,7 +81,10 @@ int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp)
     LICE_pixel* px = bmp->getBits()+y*bmp->getRowSpan();
     for (x = 0; x < bmp->getWidth(); ++x)
     {    
-      unsigned char rgb[3] = { LICE_GETR(px[x]), LICE_GETG(px[x]), LICE_GETB(px[x]) };
+      unsigned char rgb[3];
+      rgb[0]=LICE_GETR(px[x]);
+      rgb[1]=LICE_GETG(px[x]);
+      rgb[2]=LICE_GETB(px[x]);
       AddColorToTree(tree, rgb);      
       if (tree->leafcount > tree->maxcolors) PruneTree(tree);
     }
@@ -98,7 +101,10 @@ int LICE_FindInOctree(void* octree, LICE_pixel color)
 
   if (!tree->palette) CollectLeaves(tree);
   
-  unsigned char rgb[3] = { LICE_GETR(color), LICE_GETG(color), LICE_GETB(color) };
+  unsigned char rgb[3];
+  rgb[0] = LICE_GETR(color);
+  rgb[1] = LICE_GETG(color);
+  rgb[2] = LICE_GETB(color);
   return FindColorInTree(tree, rgb);
 }
 
@@ -123,17 +129,18 @@ void LICE_TestPalette(LICE_IBitmap* bmp, LICE_pixel* palette, int numcolors)
   { 
     LICE_pixel* px = bmp->getBits()+y*bmp->getRowSpan();
     for (x = 0; x < bmp->getWidth(); ++x)
-    {          
-      unsigned char rgb[3] = { LICE_GETR(px[x]), LICE_GETG(px[x]), LICE_GETB(px[x]) };
+    {
+      const LICE_pixel col = px[x];
+      const int rgb[3] = { (int)LICE_GETR(col), (int)LICE_GETG(col), (int)LICE_GETB(col) };
 
       int minerr;
       int bestcol=-1;
       int i;
       for (i = 0; i < numcolors; ++i)
       {
-        LICE_pixel palcol = palette[i];
-        int rerr[3] = { rgb[0]-LICE_GETR(palcol), rgb[1]-LICE_GETG(palcol), rgb[2]-LICE_GETB(palcol) };
-        int err = rerr[0]*rerr[0]+rerr[1]*rerr[1]+rerr[2]*rerr[2];
+        const LICE_pixel palcol = palette[i];
+        const int rerr[3] = { rgb[0]-(int)LICE_GETR(palcol), rgb[1]-(int)LICE_GETG(palcol), rgb[2]-(int)LICE_GETB(palcol) };
+        const int err = rerr[0]*rerr[0]+rerr[1]*rerr[1]+rerr[2]*rerr[2];
         if (bestcol < 0 || err < minerr)
         {
           bestcol=i;

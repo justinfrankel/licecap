@@ -616,7 +616,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     else
     {
       SWELL_ListView* v = (SWELL_ListView*)sender;
-      NMLISTVIEW nmlv={{(HWND)sender,[(NSControl*)sender tag], NM_DBLCLK}, [v clickedRow], [sender clickedColumn], };
+      NMLISTVIEW nmlv={{(HWND)sender,(UINT_PTR)[(NSControl*)sender tag], NM_DBLCLK}, (int) [v clickedRow], (int) [sender clickedColumn], };
       SWELL_ListView_Row *row=v->m_items->Get(nmlv.iItem);
       if (row)
        nmlv.lParam = row->m_param;
@@ -625,7 +625,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
   else
   {   
-    NMCLICK nm={{(HWND)sender,[(NSControl*)sender tag],NM_DBLCLK}, }; 
+    NMCLICK nm={{(HWND)sender,(UINT_PTR)[(NSControl*)sender tag],NM_DBLCLK}, };
     m_wndproc((HWND)self,WM_NOTIFY,[(NSControl*)sender tag],(LPARAM)&nm);
   }
 }
@@ -633,7 +633,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification
 {
   NSOutlineView *sender=[notification object];
-  NMTREEVIEW nmhdr={{(HWND)sender,(int)[sender tag],TVN_SELCHANGED},0,};  // todo: better treeview notifications
+  NMTREEVIEW nmhdr={{(HWND)sender,(UINT_PTR)[sender tag],TVN_SELCHANGED},0,};  // todo: better treeview notifications
   if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_NOTIFY,(int)[sender tag],(LPARAM)&nmhdr);
 }
 - (void)tableViewSelectionDidChange:(NSNotification *)aNotification
@@ -645,7 +645,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       }
       else
       {
-        NMLISTVIEW nmhdr={{(HWND)sender,(int)[sender tag],LVN_ITEMCHANGED},(int)[sender selectedRow],0}; 
+        NMLISTVIEW nmhdr={{(HWND)sender,(UINT_PTR)[sender tag],LVN_ITEMCHANGED},(int)[sender selectedRow],0};
         if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_NOTIFY,(int)[sender tag],(LPARAM)&nmhdr);
         
       }
@@ -661,7 +661,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   {
     int col=((SWELL_ListView *)tableView)->m_cols->Find(tableColumn);
 
-    NMLISTVIEW hdr={{(HWND)tableView,[tableView tag],LVN_COLUMNCLICK},-1,col};
+    NMLISTVIEW hdr={{(HWND)tableView,(UINT_PTR)[tableView tag],LVN_COLUMNCLICK},-1,col};
     if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_NOTIFY,[tableView tag], (LPARAM) &hdr);
   }
 }
@@ -2732,7 +2732,7 @@ HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, RECT* r, bool wantc
   ClientToScreen(viewpar, (POINT*)&wndr);
   ClientToScreen(viewpar, (POINT*)&wndr+1);
   //Rect r2 = { wndr.top, wndr.left, wndr.bottom, wndr.right };
-  Rect r2 = { wndr.bottom, wndr.left, wndr.top, wndr.right };
+  Rect r2 = { (short)wndr.bottom, (short)wndr.left, (short)wndr.top, (short)wndr.right };
   SWELL_hwndCarbonHost *w = [[SWELL_hwndCarbonHost alloc] initCarbonChild:(NSView*)viewpar rect:&r2 composit:wantcomp];
   if (w) *wref = [w->m_cwnd windowRef];
   return (HWND)w;

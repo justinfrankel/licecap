@@ -282,7 +282,7 @@ static NSCursor* MakeCursorFromData(unsigned char* data, int hotspot_x, int hots
       if (img)
       {
         [img addRepresentation:bmp];  
-        NSPoint hs = { hotspot_x, hotspot_y };
+        NSPoint hs = NSMakePoint(hotspot_x, hotspot_y);
         c = [[NSCursor alloc] initWithImage:img hotSpot:hs];
         [img release];
       }   

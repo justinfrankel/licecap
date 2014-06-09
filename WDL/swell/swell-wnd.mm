@@ -207,8 +207,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   if (m_dest)
   {
-    NMHDR nm={(HWND)self,[self tag],TCN_SELCHANGE};
-    SendMessage((HWND)m_dest,WM_NOTIFY,[self tag],(LPARAM)&nm);
+    NMHDR nm={(HWND)self,(UINT_PTR)[self tag],TCN_SELCHANGE};
+    SendMessage((HWND)m_dest,WM_NOTIFY,nm.idFrom,(LPARAM)&nm);
   }
 }
 @end
@@ -379,8 +379,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   else 
   {
     
-    NMCLICK nmlv={{(HWND)self,[self tag], NM_CLICK},};
-    SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
+    NMCLICK nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK},};
+    SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv);
     
     m_fakerightmouse=0;
     [super mouseDown:theEvent];
@@ -400,8 +400,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 {
   bool wantContext=true;
 
-  NMCLICK nmlv={{(HWND)self,[self tag], NM_RCLICK},};
-  if (SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv)) wantContext=false;
+  NMCLICK nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_RCLICK},};
+  if (SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv)) wantContext=false;
   
   if (wantContext)
   {
@@ -591,7 +591,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     HWND tgt=(HWND)[self target];
 
     char buf[1024];
-    NMLVDISPINFO nm={{(HWND)self, [self tag], LVN_GETDISPINFO}};
+    NMLVDISPINFO nm={{(HWND)self, (UINT_PTR)[self tag], LVN_GETDISPINFO}};
     nm.item.mask=LVIF_TEXT;
     if (m_status_imagelist_type==LVSIL_STATE) nm.item.mask |= LVIF_STATE;
     else if (m_status_imagelist_type == LVSIL_SMALL) nm.item.mask |= LVIF_IMAGE;
@@ -601,7 +601,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     nm.item.pszText=buf;
     nm.item.cchTextMax=sizeof(buf)-1;
     buf[0]=0;
-    SendMessage(tgt,WM_NOTIFY,[self tag],(LPARAM)&nm);
+    SendMessage(tgt,WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
     
     if (m_status_imagelist_type == LVSIL_STATE) image_idx=(nm.item.state>>16)&0xff;
     else if (m_status_imagelist_type == LVSIL_SMALL) image_idx = nm.item.iImage + 1;
@@ -669,11 +669,11 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     m_start_item_clickmode=0;
     if (m_start_item >=0 && (m_fastClickMask&(1<<m_start_subitem)))
     {
-      NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, m_start_item, m_start_subitem, 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
+      NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK}, m_start_item, m_start_subitem, 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
       SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
       if (row)
         nmlv.lParam = row->m_param;
-      SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
+      SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv);
       m_start_item_clickmode=4;
     }
     else
@@ -699,8 +699,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
         {
           [self selectRowIndexes:[NSIndexSet indexSetWithIndex:m_start_item] byExtendingSelection:!!(GetAsyncKeyState(VK_CONTROL)&0x8000)];
         }
-        NMLISTVIEW hdr={{(HWND)self,[self tag],LVN_BEGINDRAG},m_start_item,m_start_subitem,0,};
-        SendMessage((HWND)[self target],WM_NOTIFY,[self tag], (LPARAM) &hdr);
+        NMLISTVIEW hdr={{(HWND)self,(UINT_PTR)[self tag],LVN_BEGINDRAG},m_start_item,m_start_subitem,0,};
+        SendMessage((HWND)[self target],WM_NOTIFY,hdr.hdr.idFrom, (LPARAM) &hdr);
         m_start_item_clickmode |= 2;
       }
     }
@@ -748,10 +748,10 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     NSPoint pt=[theEvent locationInWindow];
     pt=[self convertPoint:pt fromView:nil];    
     int col = [self columnAtPoint:pt];
-    NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_CLICK}, [self rowAtPoint:pt], col, 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
+    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK}, (int)[self rowAtPoint:pt], col, 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
     SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
     if (row) nmlv.lParam = row->m_param;
-    SendMessage((HWND)[self target],WM_NOTIFY,[self tag],(LPARAM)&nmlv);
+    SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv);
   }  
 }
 
@@ -773,7 +773,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       [self selectRowIndexes:rows byExtendingSelection:NO];
     }       
     
-    NMLISTVIEW nmlv={{(HWND)self,[self tag], NM_RCLICK}, [self rowAtPoint:pt], [self columnAtPoint:pt], 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
+    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_RCLICK}, (int)[self rowAtPoint:pt], (int)[self columnAtPoint:pt], 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
     if (SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv)) wantContext=false;
   }
   if (wantContext)
@@ -812,7 +812,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
         }
         if (msg==LB_ADDSTRING) wParam=cnt;
         else if (wParam > cnt) wParam=cnt;
-        LVITEM lvi={LVIF_TEXT,wParam,0,0,0,(char *)lParam};
+        LVITEM lvi={LVIF_TEXT,(int)wParam,0,0,0,(char *)lParam};
         ListView_InsertItem(hwnd,&lvi);
       }
       return wParam;
@@ -908,7 +908,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     RECT r={(int)(cellFrame.origin.x+0.5),(int)(cellFrame.origin.y+0.5)};
     r.right=r.left+(int)(cellFrame.size.width+0.5);
     r.bottom=r.top+(int)(cellFrame.size.height+0.5);
-    DRAWITEMSTRUCT dis={ODT_BUTTON,[ctl tag],0,0,0,(HWND)ctl,hdc,{0,},0};
+    DRAWITEMSTRUCT dis={ODT_BUTTON,(UINT)[ctl tag],0,0,0,(HWND)ctl,hdc,{0,},0};
     dis.rcItem = r;
     SendMessage(notWnd,WM_DRAWITEM,dis.CtlID,(LPARAM)&dis);
   
@@ -929,7 +929,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   if (!m_ownctl) { [super drawInteriorWithFrame:cellFrame inView:controlView]; return; }
   
   int itemidx=m_lastidx;
-  int itemData=0; // todo: get itemData
+  LPARAM itemData=0;
   SWELL_ListView_Row *row=m_ownctl->m_items->Get(itemidx);
   if (row) itemData=row->m_param;
 
@@ -940,7 +940,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     RECT r={(int)(cellFrame.origin.x+0.5),(int)(cellFrame.origin.y+0.5)};
     r.right=r.left+(int)(cellFrame.size.width+0.5);
     r.bottom=r.top+(int)(cellFrame.size.height+0.5);
-    DRAWITEMSTRUCT dis={ODT_LISTBOX,[m_ownctl tag],itemidx,0,0,(HWND)m_ownctl,hdc,{0,},itemData};
+    DRAWITEMSTRUCT dis={ODT_LISTBOX,(UINT)[m_ownctl tag],(UINT)itemidx,0,0,(HWND)m_ownctl,hdc,{0,},(DWORD_PTR)itemData};
     dis.rcItem = r;
     SendMessage(notWnd,WM_DRAWITEM,dis.CtlID,(LPARAM)&dis);
   
@@ -4049,11 +4049,11 @@ bool ListView_GetItem(HWND h, LVITEM *item)
 
   return true;
 }
-int ListView_GetItemState(HWND h, int ipos, int mask)
+int ListView_GetItemState(HWND h, int ipos, UINT mask)
 {
   if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
   SWELL_ListView *tv=(SWELL_ListView*)h;
-  int flag=0;
+  UINT flag=0;
   if (tv->m_lbMode || !(tv->style & LVS_OWNERDATA))
   {
     if (!tv->m_items) return 0;
@@ -4074,7 +4074,7 @@ int ListView_GetItemState(HWND h, int ipos, int mask)
   return flag;  
 }
 
-bool ListView_SetItemState(HWND h, int ipos, int state, int statemask)
+bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 {
   int doref=0;
   if (!h || ![(id)h isKindOfClass:[SWELL_ListView class]]) return false;
@@ -4143,8 +4143,8 @@ bool ListView_SetItemState(HWND h, int ipos, int state, int statemask)
       if (!__rent)
       {
         __rent=1;
-        NMLISTVIEW nm={{(HWND)h,[tv tag],LVN_ITEMCHANGED},ipos,0,state,};
-        SendMessage(GetParent(h),WM_NOTIFY,[tv tag],(LPARAM)&nm);      
+        NMLISTVIEW nm={{(HWND)h,(UINT_PTR)[tv tag],LVN_ITEMCHANGED},ipos,0,state,};
+        SendMessage(GetParent(h),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
         __rent=0;
       }
     }
@@ -4384,7 +4384,7 @@ int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
   
   if (!pinf->flags)
   {
-    NSPoint pt = { pinf->pt.x, pinf->pt.y };
+    NSPoint pt = NSMakePoint( pinf->pt.x, pinf->pt.y );
     pinf->iItem=[(NSTableView *)h rowAtPoint:pt];
     if (pinf->iItem >= 0)
     {
@@ -4410,7 +4410,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
 {
   int row = ListView_HitTest(h, pinf);
 
-  NSPoint pt={pinf->pt.x,pinf->pt.y};
+  NSPoint pt=NSMakePoint(pinf->pt.x,pinf->pt.y);
   if (row < 0 && pt.y < 0)
   { // Fake the point in the client area of the listview to get the column # (like win32)
     pt.y = 0;
@@ -4682,7 +4682,7 @@ HWND WindowFromPoint(POINT p)
   }
   
   if (!bestwnd) return 0;
-  NSPoint pt={p.x,p.y};
+  NSPoint pt=NSMakePoint(p.x,p.y);
   NSPoint lpt=[bestwnd convertScreenToBase:pt];
   NSView *v=[[bestwnd contentView] hitTest:lpt];
   if (v) return (HWND)v;
@@ -5442,8 +5442,8 @@ void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
   if (!__rent)
   {
     __rent=1;
-    NMTREEVIEW nm={{(HWND)hwnd,[(SWELL_TreeView*)hwnd tag],TVN_SELCHANGED},};
-    SendMessage(GetParent(hwnd),WM_NOTIFY,[(SWELL_TreeView*)hwnd tag],(LPARAM)&nm);      
+    NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)[(SWELL_TreeView*)hwnd tag],TVN_SELCHANGED},};
+    SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
     __rent=0;
   }
 }
@@ -5505,8 +5505,8 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
         if (!__rent)
         {
           __rent=1;
-          NMTREEVIEW nm={{(HWND)hwnd,[(SWELL_TreeView*)hwnd tag],TVN_SELCHANGED},};
-          SendMessage(GetParent(hwnd),WM_NOTIFY,[(SWELL_TreeView*)hwnd tag],(LPARAM)&nm);      
+          NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)[(SWELL_TreeView*)hwnd tag],TVN_SELCHANGED},};
+          SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
           __rent=0;
         }
         
