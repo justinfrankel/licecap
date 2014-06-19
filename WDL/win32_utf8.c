@@ -1,11 +1,12 @@
+#include <shlobj.h>
+#include <commctrl.h>
+
 #include "win32_utf8.h"
 #include "wdltypes.h"
 
 #ifdef _WIN32
 
 #if !defined(WDL_NO_SUPPORT_UTF8)
-
-#include <commctrl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -313,51 +314,64 @@ BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn)
   return GetSaveFileNameA(lpofn);
 }
 
-
-// can't test if pidl has utf8, no test on pszPath either as it is the output param
-// 4096 sizing: assumes WDL_ChooseDirectory is used
-BOOL SHGetPathFromIDListUTF8(PCIDLIST_ABSOLUTE pidl, LPSTR pszPath)
+BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST *pidl, LPSTR pszPath, int pszPathLen)
 {
   if (pszPath && GetVersion() < 0x80000000)
   {
-    WIDETOMB_ALLOC(wfn,4096);
-    BOOL b = FALSE;
-    if (SHGetPathFromIDListW(pidl,wfn))
+    const int alloc_sz = pszPathLen < 4096 ? 4096 : pszPathLen;
+    WIDETOMB_ALLOC(wfn,alloc_sz);
+    if (wfn)
     {
-      b = WideCharToMultiByte(CP_UTF8,0,wfn,-1,pszPath,4096,NULL,NULL) > 0;
+      BOOL b = FALSE;
+      if (SHGetPathFromIDListW(pidl,wfn))
+      {
+        b = WideCharToMultiByte(CP_UTF8,0,wfn,-1,pszPath,pszPathLen,NULL,NULL) > 0;
+      }
+      WIDETOMB_FREE(wfn);
+      return b;
     }
-    MBTOWIDE_FREE(wfn);
-    return b;
   }
   return SHGetPathFromIDListA(pidl,pszPath);
 }
 
-LPITEMIDLIST SHBrowseForFolderUTF8(BROWSEINFO* bi)
+struct _ITEMIDLIST *SHBrowseForFolderUTF8(struct _browseinfoA *bi)
 {
   if (bi && (WDL_HasUTF8(bi->pszDisplayName) || WDL_HasUTF8(bi->lpszTitle)) && GetVersion() < 0x80000000)
   {
-    WIDETOMB_ALLOC(wfn,4096);
-    if (wfn)
+    MBTOWIDE(wfn,bi->pszDisplayName);
+    if (wfn_ok)
     {
-      if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,bi->pszDisplayName,-1,wfn,4096))
+      MBTOWIDE(wtxt,bi->lpszTitle);
+      if (wtxt_ok)
       {
-        MBTOWIDE(wtxt,bi->lpszTitle);
-        if (wtxt_ok)
-        {
-          BROWSEINFOW biw ={ bi->hwndOwner,bi->pidlRoot,wfn,wtxt,bi->ulFlags,bi->lpfn,(LPARAM)wfn,bi->iImage };
-          LPITEMIDLIST idlist = SHBrowseForFolderW(&biw);
-          MBTOWIDE_FREE(wfn);
-          MBTOWIDE_FREE(wtxt);
-          return idlist;
-        }
+        BROWSEINFOW biw ={ bi->hwndOwner,bi->pidlRoot,wfn,wtxt,bi->ulFlags,bi->lpfn,(LPARAM)bi->lParam,bi->iImage };
+        LPITEMIDLIST idlist = SHBrowseForFolderW(&biw);
+        MBTOWIDE_FREE(wfn);
         MBTOWIDE_FREE(wtxt);
+        return (struct _ITEMIDLIST *) idlist;
       }
-      MBTOWIDE_FREE(wfn);
+      MBTOWIDE_FREE(wtxt);
     }
+    MBTOWIDE_FREE(wfn);
   }
-  return SHBrowseForFolderA(bi);
+  return (struct _ITEMIDLIST *)SHBrowseForFolderA(bi);
 }
 
+int WDL_UTF8_SendBFFM_SETSEL(HWND hwnd, const char *str)
+{
+  if (GetVersion()<0x80000000 && WDL_HasUTF8(str))
+  {
+    MBTOWIDE(wc, str);
+    if (wc_ok)
+    {
+      int r=(int)SendMessage(hwnd, BFFM_SETSELECTIONW, 1, (LPARAM)wc);
+      MBTOWIDE_FREE(wc);
+      return r;
+    }
+    MBTOWIDE_FREE(wc);
+  }
+  return (int) SendMessage(hwnd, BFFM_SETSELECTIONA, 1, (LPARAM)str);
+}
 
 BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
 {

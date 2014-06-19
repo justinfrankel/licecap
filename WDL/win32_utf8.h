@@ -15,7 +15,6 @@ extern "C" {
 #include <windows.h>
 #include <sys/stat.h>
 #include <stdio.h>
-#include <shlobj.h>
 
 WDL_WIN32_UTF8_IMPL BOOL SetWindowTextUTF8(HWND hwnd, LPCTSTR str);
 WDL_WIN32_UTF8_IMPL BOOL SetDlgItemTextUTF8(HWND hDlg, int nIDDlgItem, LPCTSTR lpString);
@@ -41,8 +40,9 @@ WDL_WIN32_UTF8_IMPL int DrawTextUTF8(HDC hdc, LPCTSTR str, int nc, LPRECT lpRect
 WDL_WIN32_UTF8_IMPL BOOL GetOpenFileNameUTF8(LPOPENFILENAME lpofn);
 WDL_WIN32_UTF8_IMPL BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn);
 
-WDL_WIN32_UTF8_IMPL BOOL SHGetPathFromIDListUTF8(PCIDLIST_ABSOLUTE pidl,LPSTR pszPath);
-WDL_WIN32_UTF8_IMPL LPITEMIDLIST SHBrowseForFolderUTF8(BROWSEINFO* bi);
+WDL_WIN32_UTF8_IMPL BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST *pidl, LPSTR pszPath, int pszPathLen);
+WDL_WIN32_UTF8_IMPL struct _ITEMIDLIST *SHBrowseForFolderUTF8(struct _browseinfoA *browseInfoA);
+WDL_WIN32_UTF8_IMPL int WDL_UTF8_SendBFFM_SETSEL(HWND hwnd, const char *str); // sends BFFM_SETSELECTIONA or BFFM_SETSELECTIONW
 
 WDL_WIN32_UTF8_IMPL HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd);
 
@@ -110,16 +110,6 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #undef GetSaveFileName
 #endif
 #define GetSaveFileName GetSaveFileNameUTF8
-
-#ifdef SHBrowseForFolder
-#undef SHBrowseForFolder
-#endif
-#define SHBrowseForFolder SHBrowseForFolderUTF8
-
-#ifdef SHGetPathFromIDList
-#undef SHGetPathFromIDList
-#endif
-#define SHGetPathFromIDList SHGetPathFromIDListUTF8
 
 #ifdef ShellExecute
 #undef ShellExecute
