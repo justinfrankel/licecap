@@ -1345,7 +1345,8 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   
   
   CGContextSaveGState(output);
-  CGContextScaleCTM(output,1.0,-1.0);  
+  CGContextScaleCTM(output,1.0,-1.0);
+  CGContextSetInterpolationQuality(output,kCGInterpolationNone);
   CGContextDrawImage(output,CGRectMake(x,-desth-y,destw,desth),subimg ? subimg : img);    
   CGContextRestoreGState(output);
   
