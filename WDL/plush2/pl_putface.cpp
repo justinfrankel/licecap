@@ -257,7 +257,7 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
     {
       __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
         ypos < texheight - 1 ? (rd+tex_rowspan*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture+xpos),
-        xpos  < texwidth - 1 ? 1 : 1-texwidth,
+        xpos < texwidth - 1 ? 4 : 4-texwidth*4,
         iUL&65535,iVL&65535);
     }
     else
@@ -280,7 +280,7 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
     {
       __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
         ypos < texheight_2 - 1 ? (rd+tex_rowspan_2*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture2+xpos),
-        xpos  < texwidth_2 - 1 ? 1 : 1-texwidth_2,
+        xpos < texwidth_2 - 1 ? 4 : 4-texwidth_2*4,
         iUL_2&65535,iVL_2&65535);
     }
     else
@@ -331,7 +331,7 @@ static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
 
       __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
         ypos < texheight - 1 ? (rd+tex_rowspan*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture+xpos),
-        xpos  < texwidth - 1 ? 1 : 1-texwidth,
+        xpos < texwidth - 1 ? 4 : 4-texwidth*4,
         iUL&65535,iVL&65535);
     }
     else
