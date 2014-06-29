@@ -245,20 +245,20 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
 
   int r,g,b,a;
 
-  int xpos=iUL>>16;            
-  int ypos=iVL>>16;
-  LICE_pixel_chan *rd = (LICE_pixel_chan*)(texture + xpos+ypos*tex_rowspan);
-
 #if defined(PLUSH_NO_TEXTURE)
   if (texture)
 #endif
   {
+    const int xpos=(iUL>>14)&~3;
+    const int ypos=iVL>>16;
+    const LICE_pixel_chan *rd = ((LICE_pixel_chan*)texture) + xpos+ypos*tex_rowspan;
+
     if (bilinear)
     {
       __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
-        ypos < texheight - 1 ? (rd+tex_rowspan*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture+xpos),
-        xpos < texwidth - 1 ? 4 : 4-texwidth*4,
-        iUL&65535,iVL&65535);
+        ypos < texheight - 1 ? rd+tex_rowspan : ((LICE_pixel_chan *)texture)+xpos,
+        xpos < texwidth - 4 ? 4 : 4-texwidth,
+          iUL&65535,iVL&65535);
     }
     else
     {
@@ -272,15 +272,15 @@ static void inline TextureMakePixel2(LICE_pixel_chan *gmemptr,
   if (texture2)
 #endif
   {
-    xpos=iUL_2>>16;            
-    ypos=iVL_2>>16;
-    rd = (LICE_pixel_chan*)(texture2 + xpos+ypos*tex_rowspan_2);
+    const int xpos=(iUL_2>>14)&~3;
+    const int ypos=iVL_2>>16;
+    const LICE_pixel_chan *rd = ((LICE_pixel_chan*)texture2) + xpos+ypos*tex_rowspan_2;
 
     if (bilinear2)
     {
       __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
-        ypos < texheight_2 - 1 ? (rd+tex_rowspan_2*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture2+xpos),
-        xpos < texwidth_2 - 1 ? 4 : 4-texwidth_2*4,
+        ypos < texheight_2 - 1 ? rd+tex_rowspan_2 : ((LICE_pixel_chan *)texture2)+xpos,
+        xpos < texwidth_2 - 4 ? 4 : 4-texwidth_2,
         iUL_2&65535,iVL_2&65535);
     }
     else
@@ -322,16 +322,16 @@ static void inline TextureMakePixel(LICE_pixel_chan *gmemptr,
 #endif
   {
     int r,g,b,a;
-    int xpos=iUL>>16;            
-    int ypos=iVL>>16;
-    LICE_pixel_chan *rd = (LICE_pixel_chan*)(texture + xpos+ypos*tex_rowspan);
+    const int xpos=(iUL>>14)&~3;            
+    const int ypos=iVL>>16;
+    const LICE_pixel_chan *rd = ((LICE_pixel_chan*)texture) + xpos+ypos*tex_rowspan;
 
     if (bilinear)
     {
 
       __LICE_BilinearFilterI_2(&r,&g,&b,&a,rd,          
-        ypos < texheight - 1 ? (rd+tex_rowspan*sizeof(LICE_pixel)) : (LICE_pixel_chan *)(texture+xpos),
-        xpos < texwidth - 1 ? 4 : 4-texwidth*4,
+        ypos < texheight - 1 ? rd+tex_rowspan : ((LICE_pixel_chan *)texture)+xpos,
+        xpos < texwidth - 4 ? 4 : 4-texwidth,
         iUL&65535,iVL&65535);
     }
     else
