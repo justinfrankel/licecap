@@ -387,6 +387,9 @@ static void DoPaint(HWND hwndDlg)
     case 17:
       {
         static pl_Obj *obj=NULL,*obj2=NULL;
+        static LICE_IBitmap *framebuffer2;
+        if (!framebuffer2) framebuffer2=new LICE_MemBitmap;
+        LICE_Copy(framebuffer2,framebuffer);
         if (!obj)
         {
           pl_Mat *mat = new pl_Mat;
@@ -414,6 +417,9 @@ static void DoPaint(HWND hwndDlg)
           mat2->SolidOpacity=0.4;
           mat2->BackfaceCull=false;
           mat2->BackfaceIllumination=1.0;
+          mat2->Texture2=framebuffer2;
+          mat2->Tex2MapIdx=-1;
+          mat2->Tex2Opacity=0.75;
 
           mat->Texture=bmp;
           LICE_TexGen_Marble(mat->Texture = new LICE_MemBitmap(r.right,r.bottom),NULL,0.3,0.4,0.0,1.0f);
@@ -444,7 +450,9 @@ static void DoPaint(HWND hwndDlg)
             no->Xa += 50.35*x;
             no->Ya -= 30.13*x;
           }
-          obj2=plMakeBox(130,130,130,mat2);
+          obj2=plMakeSphere(58,20,20,mat2);
+          obj2->Zp -= 30.0;
+          obj->Zp += 30.0;
 
           /*pl_Obj *o = plRead3DSObj("c:\\temp\\suzanne.3ds",mat);
           if (o)
