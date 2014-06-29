@@ -162,10 +162,6 @@ SOURCE=..\libpng\pngset.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\libpng\pngtest.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\libpng\pngtrans.c
 # End Source File
 # Begin Source File
