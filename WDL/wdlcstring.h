@@ -88,6 +88,7 @@ extern "C" {
     void WDL_VARARG_WARN(printf,3,4) WDL_snprintf(char *o, size_t count, const char *format, ...);
   #endif
 
+  int WDL_strcmp_logical(const char *s1, const char *s2, int case_sensitive);
 #else
 
 
@@ -224,6 +225,40 @@ extern "C" {
     {
       while (*o) { if (--count < 1) return; o++; }
       vsnprintf(o,count,format,va);
+    }
+  }
+
+  _WDL_CSTRING_PREFIX int WDL_strcmp_logical(const char *s1, const char *s2, int case_sensitive)
+  {
+    // also exists as WDL_LogicalSortStringKeyedArray::_cmpstr()
+    for (;;)
+    {
+      char c1=*s1++, c2=*s2++;
+      if (c1 > '0' && c1 <= '9' && c2 > '0' && c2 <= '9') 
+      {             
+        int d=c1-c2,s1d; // maybe not ideal, 030 will sort after 20, but that could also be useful... 
+        // alternatively we could calculate the full length of each number not counting leadings 0s and use that, but
+        // then the string comparison would end up comparing at different offsets too. this is good enough for now 
+        // IMO
+        while ((s1d=isdigit(*s1)) && isdigit(*s2))
+        {
+          if (!d) d=*s1-*s2;
+          s1++;
+          s2++;
+        }
+        if (s1d) return 1; // s1 is longer than s2, so larger
+        if (isdigit(*s2)) return -1; // s2 is longer than s1, larger
+        if (d) return d; // same length, but check to see which is greater
+      }
+      else
+      {
+        if (!case_sensitive)
+        {
+          if (c1 >= 'a' && c1 <= 'z') c1 += 'A'-'a';
+          if (c2 >= 'a' && c2 <= 'z') c2 += 'A'-'a';
+        }
+        if (!c1 || c1 != c2) return c1-c2;             
+      }
     }
   }
 

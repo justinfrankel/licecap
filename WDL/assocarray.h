@@ -362,6 +362,7 @@ private:
 
   static int _cmpstr(const char *s1, const char *s2, bool case_sensitive)
   {
+    // this also exists as WDL_strcmp_logical in wdlcstring.h
     for (;;)
     {
       char c1=*s1++, c2=*s2++;
