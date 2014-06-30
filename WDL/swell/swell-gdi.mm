@@ -1281,8 +1281,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   if (desth == preclip_h) desth=h;
   else if (h != preclip_h) desth = (h*desth)/preclip_h;
   
-  CGImageRef img = NULL, subimg = NULL;
-  NSBitmapImageRep *rep = NULL;
+  CGImageRef img = NULL;
   
   static char is105;
   if (!is105)
@@ -1291,16 +1290,60 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
     Gestalt(gestaltSystemVersion,&v);
     is105 = v>=0x1050 ? 1 : -1;    
   }
+  NSBitmapImageRep *rep = NULL;
   
-  bool want_subimage=false;
+  bool dblmode = false;
   
-  bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
+  const bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
   
+  CGContextRef output = (CGContextRef)dest->ctx;
+  CGRect outputr = CGRectMake(x,-desth-y,destw,desth);
+  
+  unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
+  p += (xin + sw*yin)*4;
+
+#if 0
+  CGRect scr = CGContextConvertRectToDeviceSpace(output,outputr);
+  if (fabs(scr.size.height*0.5 - outputr.size.height) < 1.0)
+  {
+    static WDL_TypedBuf<int> tmp;
+    const int newspan = (w*2+3)&~3;
+    
+    if (tmp.ResizeOK(newspan*h*2,false))
+    {
+      int *op = tmp.Get();
+      int *ip = (int *)p;
+      int y = h;
+      while (y-->0)
+      {
+        int x=w;
+        int *rd = ip;
+        int *wr = op;
+        
+        while (x-->0)
+        {
+          wr[0] = wr[1] =
+          wr[newspan] = wr[newspan+1] =
+          *rd++;
+          wr+=2;
+        }
+        ip += sw;
+        op += newspan*2;
+      }
+      sw = newspan;
+      w *= 2;
+      h *= 2;
+      p = (unsigned char *)tmp.Get();
+      dblmode = true;
+    }
+  }
+#endif
+
   if (is105>0)
   {
     // [NSBitmapImageRep CGImage] is not available pre-10.5
-    unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
-    p += (xin + sw*yin)*4;
+    // note: on 10.9 retina at least, the CGImageCreate route is just as fast. need to test on 10.5/10.6 more.
+    
     rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&p pixelsWide:w pixelsHigh:h
                                                bitsPerSample:8 samplesPerPixel:(3+use_alphachannel) hasAlpha:use_alphachannel isPlanar:FALSE
                                               colorSpaceName:NSDeviceRGBColorSpace bitmapFormat:(NSBitmapFormat)((use_alphachannel ? NSAlphaNonpremultipliedBitmapFormat : 0) |NSAlphaFirstBitmapFormat) bytesPerRow:sw*4 bitsPerPixel:32];
@@ -1309,49 +1352,48 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   }
   else
   {
-    if (1) // this seems to be WAY better on 10.4 than the alternative (below)
+    static CGColorSpaceRef cs;
+    if (!cs)
     {
-      static CGColorSpaceRef cs;
+#if 0
+      // this might make things 10-20% faster, but needs more testing too
+      CMProfileRef systemMonitorProfile = NULL;
+      CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
+      if(noErr == getProfileErr)
+      {
+        cs = CGColorSpaceCreateWithPlatformColorSpace( systemMonitorProfile);
+        CMCloseProfile(systemMonitorProfile);
+      }
+#endif
       if (!cs) cs = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-      unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
-      p += (xin + sw*yin)*4;
-      
-      CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
-      img = CGImageCreate(w,h,8,32,4*sw,cs,use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,provider,NULL,NO,kCGRenderingIntentDefault);
-      //    CGColorSpaceRelease(cs);
-      CGDataProviderRelease(provider);
     }
-    else 
-    {
-      // causes lots of kernel messages, so avoid if possible, also doesnt support alpha bleh
-      img = CGBitmapContextCreateImage(src->ctx);
-      want_subimage = true;
-    }
+    
+    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
+    img = CGImageCreate(w,h,8,32,4*sw,cs,use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,provider,NULL,NO,kCGRenderingIntentDefault);
+    CGDataProviderRelease(provider);
   }
   
-  if (!img) return;
-  
-  if (want_subimage && (w != sw || h != sh))
+
+  if (img)
   {
-    subimg = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,w,h));
-    if (!subimg) 
+    CGContextSaveGState(output);
+    CGContextScaleCTM(output,1.0,-1.0);
+    if (dblmode)
     {
-      CGImageRelease(img);
-      return;
+      CGContextScaleCTM(output,0.5,0.5);
+      outputr.origin.x *= 2.0;
+      outputr.origin.y *= 2.0;
+      outputr.size.width *= 2.0;
+      outputr.size.height *= 2.0;
     }
+  
+    CGContextSetInterpolationQuality(output,kCGInterpolationNone);
+    CGContextDrawImage(output,outputr,img);
+    CGContextRestoreGState(output);
+  
+    CGImageRelease(img);
   }
   
-  CGContextRef output = (CGContextRef)dest->ctx; 
-  
-  
-  CGContextSaveGState(output);
-  CGContextScaleCTM(output,1.0,-1.0);
-  CGContextSetInterpolationQuality(output,kCGInterpolationNone);
-  CGContextDrawImage(output,CGRectMake(x,-desth-y,destw,desth),subimg ? subimg : img);    
-  CGContextRestoreGState(output);
-  
-  if (subimg) CGImageRelease(subimg);
-  CGImageRelease(img);   
   if (rep) [rep release];
   
 }
