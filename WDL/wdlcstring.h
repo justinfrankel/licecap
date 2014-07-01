@@ -28,6 +28,7 @@ C string manipulation utilities -- [v]snprintf for Win32, also snprintf_append, 
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "wdltypes.h"
 
