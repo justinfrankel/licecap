@@ -73,7 +73,7 @@ LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_IBitmap *framebuffer;
-static int m_effect = NUM_EFFECTS-1;
+static int m_effect = 17;
 static int m_doeff = 0;
 
 static LICE_IBitmap* tmpbmp = 0;
@@ -952,6 +952,8 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 #ifdef _WIN32
     bmp = LICE_LoadPNGFromResource(g_hInstance, IDC_PNG1);
     icon = LICE_LoadIconFromResource(g_hInstance, IDI_MAIN, 0);
+#else
+    SendMessage(hwndDlg,WM_SIZE,0,0);
 #endif     
     
     SetTimer(hwndDlg,1,3,NULL);

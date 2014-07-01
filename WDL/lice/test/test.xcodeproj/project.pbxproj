@@ -77,7 +77,6 @@
 		33343CFF0CE4DCFB00FF8CE6 /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CE60CE4DCFB00FF8CE6 /* compress.c */; };
 		33343D000CE4DCFB00FF8CE6 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CE70CE4DCFB00FF8CE6 /* crc32.c */; };
 		33343D010CE4DCFB00FF8CE6 /* deflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CE90CE4DCFB00FF8CE6 /* deflate.c */; };
-		33343D030CE4DCFB00FF8CE6 /* gzio.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CEC0CE4DCFB00FF8CE6 /* gzio.c */; };
 		33343D040CE4DCFB00FF8CE6 /* infback.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CED0CE4DCFB00FF8CE6 /* infback.c */; };
 		33343D050CE4DCFB00FF8CE6 /* inffast.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CEE0CE4DCFB00FF8CE6 /* inffast.c */; };
 		33343D060CE4DCFB00FF8CE6 /* inflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CF10CE4DCFB00FF8CE6 /* inflate.c */; };
@@ -235,7 +234,6 @@
 		33343CE80CE4DCFB00FF8CE6 /* crc32.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = crc32.h; path = ../../zlib/crc32.h; sourceTree = SOURCE_ROOT; };
 		33343CE90CE4DCFB00FF8CE6 /* deflate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = deflate.c; path = ../../zlib/deflate.c; sourceTree = SOURCE_ROOT; };
 		33343CEA0CE4DCFB00FF8CE6 /* deflate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = deflate.h; path = ../../zlib/deflate.h; sourceTree = SOURCE_ROOT; };
-		33343CEC0CE4DCFB00FF8CE6 /* gzio.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = gzio.c; path = ../../zlib/gzio.c; sourceTree = SOURCE_ROOT; };
 		33343CED0CE4DCFB00FF8CE6 /* infback.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = infback.c; path = ../../zlib/infback.c; sourceTree = SOURCE_ROOT; };
 		33343CEE0CE4DCFB00FF8CE6 /* inffast.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inffast.c; path = ../../zlib/inffast.c; sourceTree = SOURCE_ROOT; };
 		33343CEF0CE4DCFB00FF8CE6 /* inffast.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = inffast.h; path = ../../zlib/inffast.h; sourceTree = SOURCE_ROOT; };
@@ -488,7 +486,6 @@
 				33343CE80CE4DCFB00FF8CE6 /* crc32.h */,
 				33343CE90CE4DCFB00FF8CE6 /* deflate.c */,
 				33343CEA0CE4DCFB00FF8CE6 /* deflate.h */,
-				33343CEC0CE4DCFB00FF8CE6 /* gzio.c */,
 				33343CED0CE4DCFB00FF8CE6 /* infback.c */,
 				33343CEE0CE4DCFB00FF8CE6 /* inffast.c */,
 				33343CEF0CE4DCFB00FF8CE6 /* inffast.h */,
@@ -648,6 +645,8 @@
 /* Begin PBXProject section */
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "test" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -755,7 +754,6 @@
 				33343CFF0CE4DCFB00FF8CE6 /* compress.c in Sources */,
 				33343D000CE4DCFB00FF8CE6 /* crc32.c in Sources */,
 				33343D010CE4DCFB00FF8CE6 /* deflate.c in Sources */,
-				33343D030CE4DCFB00FF8CE6 /* gzio.c in Sources */,
 				33343D040CE4DCFB00FF8CE6 /* infback.c in Sources */,
 				33343D050CE4DCFB00FF8CE6 /* inffast.c in Sources */,
 				33343D060CE4DCFB00FF8CE6 /* inflate.c in Sources */,
@@ -834,6 +832,7 @@
 		C01FCF4B08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -850,10 +849,7 @@
 		C01FCF4C08A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
@@ -866,28 +862,24 @@
 		C01FCF4F08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				GCC_PREPROCESSOR_DEFINITIONS = PNG_WRITE_SUPPORTED;
-				GCC_VERSION = 4.0;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = macosx10.6;
 			};
 			name = Debug;
 		};
 		C01FCF5008A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				GCC_PREPROCESSOR_DEFINITIONS = PNG_WRITE_SUPPORTED;
-				GCC_VERSION = 4.0;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = macosx10.6;
 			};
 			name = Release;
 		};
