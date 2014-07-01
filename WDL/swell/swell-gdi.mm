@@ -1365,7 +1365,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
         CMCloseProfile(systemMonitorProfile);
       }
 #endif
-      if (!cs) cs = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+      if (!cs) cs = CGColorSpaceCreateDeviceRGB();
     }
     
     CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
