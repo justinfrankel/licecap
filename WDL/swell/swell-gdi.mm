@@ -1292,6 +1292,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   p += (xin + sw*yin)*4;
 
   
+#ifdef SWELL_SUPPORT_OPENGL_BLIT
   if (dest->GLgfxctx)
   {
     NSOpenGLContext *glCtx = (NSOpenGLContext*) dest->GLgfxctx;
@@ -1334,6 +1335,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
     if (glCtx != cCtx) [cCtx makeCurrentContext];
     return;
   }
+#endif
   
   
 #if 0
