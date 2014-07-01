@@ -1281,17 +1281,6 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   if (desth == preclip_h) desth=h;
   else if (h != preclip_h) desth = (h*desth)/preclip_h;
   
-  CGImageRef img = NULL;
-  
-  static char is105;
-  if (!is105)
-  {
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    is105 = v>=0x1050 ? 1 : -1;    
-  }
-  NSBitmapImageRep *rep = NULL;
-  
   bool dblmode = false;
   
   const bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
@@ -1339,41 +1328,28 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   }
 #endif
 
-  if (is105>0)
-  {
-    // [NSBitmapImageRep CGImage] is not available pre-10.5
-    // note: on 10.9 retina at least, the CGImageCreate route is just as fast. need to test on 10.5/10.6 more.
-    
-    rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&p pixelsWide:w pixelsHigh:h
-                                               bitsPerSample:8 samplesPerPixel:(3+use_alphachannel) hasAlpha:use_alphachannel isPlanar:FALSE
-                                              colorSpaceName:NSDeviceRGBColorSpace bitmapFormat:(NSBitmapFormat)((use_alphachannel ? NSAlphaNonpremultipliedBitmapFormat : 0) |NSAlphaFirstBitmapFormat) bytesPerRow:sw*4 bitsPerPixel:32];
-    img=(CGImageRef)objc_msgSend(rep,@selector(CGImage));
-    if (img) CGImageRetain(img);
-  }
-  else
-  {
-    static CGColorSpaceRef cs;
-    if (!cs)
-    {
+  static CGColorSpaceRef cs;
 #if 0
-      // this might make things 10-20% faster, but needs more testing too
-      CMProfileRef systemMonitorProfile = NULL;
-      CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
-      if(noErr == getProfileErr)
-      {
-        cs = CGColorSpaceCreateWithPlatformColorSpace( systemMonitorProfile);
-        CMCloseProfile(systemMonitorProfile);
-      }
-#endif
-      if (!cs) cs = CGColorSpaceCreateDeviceRGB();
+  if (!cs)
+  {
+    // this might make things slightly faster, but needs more testing (and the first call is slower)
+    CMProfileRef systemMonitorProfile = NULL;
+    CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
+    if(noErr == getProfileErr)
+    {
+      cs = CGColorSpaceCreateWithPlatformColorSpace( systemMonitorProfile);
+      CMCloseProfile(systemMonitorProfile);
     }
-    
-    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
-    img = CGImageCreate(w,h,8,32,4*sw,cs,use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,provider,NULL,NO,kCGRenderingIntentDefault);
-    CGDataProviderRelease(provider);
   }
+#endif
+  if (!cs) cs = CGColorSpaceCreateDeviceRGB();
+    
+  CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
+  CGImageRef img = CGImageCreate(w,h,8,32,4*sw,cs,
+      use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,
+      provider,NULL,NO,kCGRenderingIntentDefault);
+  CGDataProviderRelease(provider);
   
-
   if (img)
   {
     CGContextSaveGState(output);
@@ -1393,8 +1369,6 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   
     CGImageRelease(img);
   }
-  
-  if (rep) [rep release];
   
 }
 
