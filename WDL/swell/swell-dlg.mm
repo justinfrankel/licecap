@@ -3039,21 +3039,27 @@ void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc)
     return;
   }    
   view->m_paintctx_hdc=hdc;
-  if (view->m_paintctx_hdc && view->m_glctx)
+  if (view->m_paintctx_hdc)
   {
     view->m_paintctx_hdc->GLgfxctx = view->m_glctx;
-    
-    [view->m_glctx setView:view];
-    [view->m_glctx makeCurrentContext];
-    [view->m_glctx update];
+    if (view->m_glctx)
+    {
+      [view->m_glctx setView:view];
+      [view->m_glctx makeCurrentContext];
+      [view->m_glctx update];
+    }
   }
   view->m_paintctx_rect=rect;
   view->m_paintctx_used=false;
   DoPaintStuff(view->m_wndproc,(HWND)view,view->m_paintctx_hdc,&view->m_paintctx_rect);
   
-  if (view->m_paintctx_hdc && view->m_glctx && [NSOpenGLContext currentContext] == view->m_glctx)
+  if (view->m_paintctx_hdc)
   {
-    [NSOpenGLContext clearCurrentContext]; 
+    if (view->m_glctx && [NSOpenGLContext currentContext] == view->m_glctx)
+    {
+      [NSOpenGLContext clearCurrentContext]; 
+    }
+    view->m_paintctx_hdc->GLgfxctx = NULL;
   }
   view->m_paintctx_hdc=0;
   if (!view->m_paintctx_used) {
