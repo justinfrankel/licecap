@@ -11,6 +11,26 @@
 #include <math.h>
 #include <stdio.h>
 
+#include <sys/time.h>
+static double gettm()
+{
+#ifndef _WIN32
+  struct timeval tm={0,};
+    gettimeofday(&tm,NULL);
+   return (double)tm.tv_sec + (double)tm.tv_usec/1000000;
+#else
+  LARGE_INTEGER freq;
+  QueryPerformanceFrequency(&freq);
+
+  LARGE_INTEGER now;
+  QueryPerformanceCounter(&now);
+  return (double)now.QuadPart / (double)freq.QuadPart;
+#endif
+}
+
+char g_status[1024];
+
+
 #include "../lice_text.h"
 
 #include "../lice_glbitmap.h"
@@ -73,7 +93,7 @@ LICE_IBitmap *jpg;
 LICE_IBitmap *bmp;
 LICE_IBitmap *icon;
 LICE_IBitmap *framebuffer;
-static int m_effect = 17;
+static int m_effect = 11;
 static int m_doeff = 0;
 
 static LICE_IBitmap* tmpbmp = 0;
@@ -82,11 +102,8 @@ static DWORD m_start_time, m_frame_cnt;
 bool m_cap;
 
 
-static void DoPaint(HWND hwndDlg)
+static void DoPaint(HWND hwndDlg, HDC dc)
 {
-  PAINTSTRUCT ps;
-  
-  HDC dc = BeginPaint(hwndDlg, &ps);
   RECT r;
   GetClientRect(hwndDlg, &r);
   
@@ -728,18 +745,18 @@ static void DoPaint(HWND hwndDlg)
 
       LICE_pixel goodCol=LICE_RGBA(192,0,192,64);
       LICE_Clear(framebuffer,goodCol);
-      int subx=30,suby=30,subw=300,subh=300;
+      int subx=30,suby=30,subw=framebuffer->getWidth()-60,subh=framebuffer->getHeight()-60;
       LICE_SubBitmap bm(framebuffer,subx,suby,subw,subh);
       LICE_Clear(&bm,LICE_RGBA(80,80,80,255));
 
       int n;
       int w = framebuffer->getWidth(), h = framebuffer->getHeight();      
-      for(n=0;n<10000;n++)
+      for(n=0;n<1000;n++)
       {
         LICE_FLine(&bm, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, rand()%(w*3/2)-w/4, rand()%(h*3/2)-h/4, LICE_RGBA(rand()%255,rand()%255,rand()%255,255));
       }
       int y;
-      for(y=0;y<h;y++)
+      if (0) for(y=0;y<h;y++)
       {
         int x;
         for(x=0;x<w;x++)
@@ -871,22 +888,25 @@ static void DoPaint(HWND hwndDlg)
   
   double sec=(GetTickCount()-m_start_time)*0.001;
   //if (sec>0.0001)
-  if (false)
+  if (g_status[0])
   {
-    char buf[512];
-    sprintf(buf,"%dx%d @ %.2ffps",framebuffer->getWidth(),framebuffer->getHeight(),m_frame_cnt / (double)sec);
-    LICE_DrawText(framebuffer,1,1,buf,LICE_RGBA(0,0,0,0),1,LICE_BLIT_MODE_COPY);
-    LICE_DrawText(framebuffer,0,0,buf,LICE_RGBA(255,255,255,0),1,LICE_BLIT_MODE_COPY);
+    LICE_DrawText(framebuffer,1,1,g_status,LICE_RGBA(0,0,0,0),1,LICE_BLIT_MODE_COPY);
+    LICE_DrawText(framebuffer,0,0,g_status,LICE_RGBA(255,255,255,0),1,LICE_BLIT_MODE_COPY);
   }
   
   m_doeff = 0;
   
-#ifndef _WIN32
-  SWELL_SyncCtxFrameBuffer(framebuffer->getDC()); // flush required on OS X
-#endif
+  double t1=gettm();
+  
   BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
   //      bmp->blitToDC(dc, NULL, 0, 0);
 
+  static double ac,stt;
+  t1 = gettm()-t1;
+  ac+=t1;
+  static int cnt;
+  if (!cnt++) stt=gettm();
+  sprintf(g_status,"blit = %f, %f %dx%d @ %ffps\n",t1,ac/cnt,framebuffer->getWidth(),framebuffer->getHeight(),cnt/(gettm()-stt));
 
 #if 0
   if (GetAsyncKeyState(VK_SHIFT)&0x8000)
@@ -897,8 +917,6 @@ static void DoPaint(HWND hwndDlg)
     LICE_WriteJPG("/tmp/blah.jpg",framebuffer);
   }
 #endif
-
-  EndPaint(hwndDlg, &ps);
 }
 
 
@@ -907,7 +925,11 @@ LRESULT WINAPI testRenderDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPAR
 {
   if (uMsg==WM_PAINT)
   {
-    DoPaint(hwndDlg);
+    PAINTSTRUCT ps;
+    
+    HDC dc = BeginPaint(hwndDlg, &ps);
+    DoPaint(hwndDlg,dc);
+    EndPaint(hwndDlg, &ps);
     return 0;
   }
   if (uMsg == WM_LBUTTONDOWN)
@@ -953,10 +975,11 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     bmp = LICE_LoadPNGFromResource(g_hInstance, IDC_PNG1);
     icon = LICE_LoadIconFromResource(g_hInstance, IDI_MAIN, 0);
 #else
+//      SWELL_SetViewGL(GetDlgItem(hwndDlg,IDC_RECT),true);
     SendMessage(hwndDlg,WM_SIZE,0,0);
 #endif     
     
-    SetTimer(hwndDlg,1,3,NULL);
+    SetTimer(hwndDlg,1,1000/60,NULL);
     {
       int x;
       for (x = 0; x < NUM_EFFECTS; x ++)
@@ -984,7 +1007,14 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     InvalidateRect(hwndDlg,NULL,FALSE);
     return 0;
   case WM_PAINT:
-    DoPaint(hwndDlg);
+    {
+      PAINTSTRUCT ps;
+      
+      HDC dc = BeginPaint(hwndDlg, &ps);
+
+      DoPaint(hwndDlg,dc);
+      EndPaint(hwndDlg,&ps);
+    }
     break;
 #else
   case WM_SIZE:
@@ -996,7 +1026,17 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
   }
   return 0;
   case WM_TIMER:
+#if 1
     InvalidateRect(GetDlgItem(hwndDlg,IDC_RECT),NULL,FALSE);
+#else
+    {
+      HWND h = GetDlgItem(hwndDlg,IDC_RECT);
+      HDC dc = GetWindowDC(h);
+      DoPaint(hwndDlg,dc);
+      ReleaseDC(h,dc);
+      SWELL_FlushWindow(h);
+    }
+#endif
   return 0;
 #endif
   case WM_COMMAND:
