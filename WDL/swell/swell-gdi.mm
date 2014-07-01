@@ -1291,6 +1291,51 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
   p += (xin + sw*yin)*4;
 
+  
+  if (dest->GLgfxctx)
+  {
+    NSOpenGLContext *glCtx = (NSOpenGLContext*) dest->GLgfxctx;
+    NSOpenGLContext *cCtx = [NSOpenGLContext currentContext];
+    if (glCtx != cCtx)
+    {
+      [glCtx makeCurrentContext];
+    }
+    
+    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_TEXTURE_RECTANGLE_EXT);
+    
+    GLuint texid=0;
+    glGenTextures(1, &texid);
+    glBindTexture(GL_TEXTURE_RECTANGLE_EXT, texid);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, sw);
+    glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER,  GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_RECTANGLE_EXT,0,GL_RGBA8,w,h,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8, p);
+    
+    glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(x,[[glCtx view] bounds].size.height-h-y,w,h);
+    glBegin(GL_QUADS);
+    
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(-1,1);
+    
+    glTexCoord2f(0.0f, h);
+    glVertex2f(-1,-1);
+    
+    glTexCoord2f(w,h);
+    glVertex2f(1,-1);
+    
+    glTexCoord2f(w, 0.0f);
+    glVertex2f(1,1);
+    glEnd();
+    
+    glDeleteTextures(1,&texid);
+    glFlush();
+
+    if (glCtx != cCtx) [cCtx makeCurrentContext];
+    return;
+  }
+  
+  
 #if 0
   CGRect scr = CGContextConvertRectToDeviceSpace(output,outputr);
   if (fabs(scr.size.height*0.5 - outputr.size.height) < 1.0)
