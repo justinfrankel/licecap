@@ -1281,8 +1281,6 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   if (desth == preclip_h) desth=h;
   else if (h != preclip_h) desth = (h*desth)/preclip_h;
   
-  bool dblmode = false;
-  
   const bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
   
   CGContextRef output = (CGContextRef)dest->ctx;
@@ -1338,60 +1336,89 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
 #endif
   
   
-#if 0
-  CGRect scr = CGContextConvertRectToDeviceSpace(output,outputr);
-  if (fabs(scr.size.height*0.5 - outputr.size.height) < 1.0)
+  // this is only faster when using the native color profile, it seems
+  unsigned char *retina_buf = NULL;
+  if (destw == w && desth == h && w*h > 4096 &&
+      CGContextConvertSizeToDeviceSpace(output, CGSizeMake(1,1)).width > 1.9)
   {
-    static WDL_TypedBuf<int> tmp;
     const int newspan = (w*2+3)&~3;
+#ifdef __LP64__
+    const int newspanhalf=newspan/2;
+#endif
     
-    if (tmp.ResizeOK(newspan*h*2,false))
+    if (NULL != (retina_buf = (unsigned char *)malloc(sizeof(unsigned int) * newspan*h*2)))
     {
-      int *op = tmp.Get();
-      int *ip = (int *)p;
+      const unsigned int *ip = (const unsigned int *)p;
+
+      unsigned int *op = (unsigned int *)retina_buf;
       int y = h;
       while (y-->0)
       {
-        int x=w;
-        int *rd = ip;
-        int *wr = op;
+        const unsigned int *rd = ip;
         
+        int x=w/2;
+#ifdef __LP64__
+        uint64_t *wr = (uint64_t*)op;
         while (x-->0)
         {
-          wr[0] = wr[1] =
-          wr[newspan] = wr[newspan+1] =
-          *rd++;
+          const unsigned int rd1=rd[0],rd2=rd[1];
+          wr[0] = wr[newspanhalf] = rd1 + ((uint64_t)rd1 << 32);
+          wr[1] = wr[newspanhalf+1] = rd2 + ((uint64_t)rd2 << 32);
+          
+          rd+=2;
           wr+=2;
         }
+        if (w&1)
+        {
+          __int64 rd1=rd[0];
+          rd1|=rd1<<32;
+          wr[0]=wr[newspanhalf] = rd1;
+        }
+#else
+        unsigned int *wr = op;
+        while (x-->0)
+        {
+          unsigned int *nwr = wr+newspan;
+          wr[0] = wr[1] = nwr[0] = nwr[1] = rd[0];
+          wr[2] = wr[3] = nwr[2] = nwr[3] = rd[1];
+          rd+=2;
+          wr+=4;
+        }
+        if (w&1)
+        {
+          wr[0] = wr[1] = wr[newspan] = wr[newspan+1] = *rd;
+        }
+#endif
+        
         ip += sw;
         op += newspan*2;
       }
       sw = newspan;
       w *= 2;
       h *= 2;
-      p = (unsigned char *)tmp.Get();
-      dblmode = true;
     }
   }
-#endif
 
   static CGColorSpaceRef cs;
-#if 0
   if (!cs)
   {
-    // this might make things slightly faster, but needs more testing (and the first call is slower)
-    CMProfileRef systemMonitorProfile = NULL;
-    CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
-    if(noErr == getProfileErr)
+    // use monitor profile for 10.7+
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    if (v >= 0x1070)
     {
-      cs = CGColorSpaceCreateWithPlatformColorSpace( systemMonitorProfile);
-      CMCloseProfile(systemMonitorProfile);
+      CMProfileRef systemMonitorProfile = NULL;
+      CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
+      if(noErr == getProfileErr)
+      {
+        cs = CGColorSpaceCreateWithPlatformColorSpace(systemMonitorProfile);
+        CMCloseProfile(systemMonitorProfile);
+      }
     }
   }
-#endif
   if (!cs) cs = CGColorSpaceCreateDeviceRGB();
-    
-  CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
+  
+  CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,retina_buf ? retina_buf : p,4*sw*h,NULL);
   CGImageRef img = CGImageCreate(w,h,8,32,4*sw,cs,
       use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,
       provider,NULL,NO,kCGRenderingIntentDefault);
@@ -1401,14 +1428,6 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   {
     CGContextSaveGState(output);
     CGContextScaleCTM(output,1.0,-1.0);
-    if (dblmode)
-    {
-      CGContextScaleCTM(output,0.5,0.5);
-      outputr.origin.x *= 2.0;
-      outputr.origin.y *= 2.0;
-      outputr.size.width *= 2.0;
-      outputr.size.height *= 2.0;
-    }
   
     CGContextSetInterpolationQuality(output,kCGInterpolationNone);
     CGContextDrawImage(output,outputr,img);
@@ -1416,7 +1435,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   
     CGImageRelease(img);
   }
-  
+  free(retina_buf);
 }
 
 void SWELL_PushClipRegion(HDC ctx)
