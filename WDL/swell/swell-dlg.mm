@@ -35,29 +35,22 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
   return 0;
 }
 
-static BOOL Is105Plus()
+int SWELL_GetOSXVersion()
 {
-  static char is105;
-  if (!is105)
+  static SInt32 v;
+  if (!v)
   {
-    SInt32 v=0x1040;
+    v=0x1040;
     Gestalt(gestaltSystemVersion,&v);
-    is105 = v>=0x1050 ? 1 : -1;    
   }
-  return is105>0;
+  return v;
 }
 
-static BOOL useNoMiddleManCocoa() { return Is105Plus(); }
+static BOOL useNoMiddleManCocoa() { return SWELL_GetOSXVersion() >= 0x1050; }
 
 void updateWindowCollection(NSWindow *w)
 {
-  static SInt32 ver;
-  if (!ver)
-  {
-    Gestalt(gestaltSystemVersion,&ver);
-    if (!ver) ver=0x1040;
-  }
-  if (ver>=0x1060)
+  if (SWELL_GetOSXVersion()>=0x1060)
   {
     const int NSWindowCollectionBehaviorParticipatesInCycle = 1 << 5;
     const int  NSWindowCollectionBehaviorManaged = 1 << 2;
@@ -3010,7 +3003,7 @@ void SWELL_SetViewGL(HWND h, bool wantGL)
             (NSOpenGLPixelFormatAttribute)96/*NSOpenGLPFAAllowOfflineRenderers*/, // allows use of NSSupportsAutomaticGraphicsSwitching and no gpu-forcing
             (NSOpenGLPixelFormatAttribute)0
         }; // todo: optionally add any attributes before the 0
-        if (!Is105Plus()) atr[0]=(NSOpenGLPixelFormatAttribute)0; // 10.4 can't use offline renderers and will fail trying
+        if (SWELL_GetOSXVersion() < 0x1050) atr[0]=(NSOpenGLPixelFormatAttribute)0; // 10.4 can't use offline renderers and will fail trying
 
         NSOpenGLPixelFormat *fmt  = [[NSOpenGLPixelFormat alloc] initWithAttributes:atr];
         

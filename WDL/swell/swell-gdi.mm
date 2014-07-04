@@ -37,19 +37,13 @@
 #include "../wdlcstring.h"
 
 
+extern int SWELL_GetOSXVersion();
+
 #ifndef SWELL_NO_CORETEXT
 static bool IsCoreTextSupported()
 {
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
-  static char is105;
-  if (!is105)
-  {
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    is105 = v>=0x1050 ? 1 : -1;    
-  }
-  
-  return is105 > 0 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
+  return SWELL_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString && CTFontCopyPostScriptName
          ;
 #else
@@ -92,9 +86,7 @@ CGColorSpaceRef __GetDisplayColorSpace()
   if (!cs)
   {
     // use monitor profile for 10.7+
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    if (v >= 0x1070)
+    if (SWELL_GetOSXVersion() >= 0x1070)
     {
       CMProfileRef systemMonitorProfile = NULL;
       CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
@@ -122,15 +114,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 
 int SWELL_IsRetinaHWND(HWND hwnd)
 {
-  static char is107;
-  if (!is107)
-  {
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    is107 = v>=0x1070 ? 1 : -1;    
-  }
-
-  if (!hwnd || is107 <= 0) return 0;
+  if (!hwnd || SWELL_GetOSXVersion() < 0x1070) return 0;
 
   NSWindow *w=NULL;
   if ([(id)hwnd isKindOfClass:[NSView class]]) w = [(NSView *)hwnd window];
