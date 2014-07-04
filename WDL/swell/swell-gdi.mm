@@ -36,6 +36,9 @@
 #include "../assocarray.h"
 #include "../wdlcstring.h"
 
+#ifdef __SSE__
+#include <xmmintrin.h>
+#endif
 
 extern int SWELL_GetOSXVersion();
 
@@ -1269,6 +1272,101 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   StretchBlt(hdcOut,x,y,w,h,hdcIn,xin,yin,w,h,mode);
 }
 
+#ifndef __ppc__
+static void SWELL_fastDoubleUpImage(unsigned int *op, const unsigned int *ip, int w, int h, int sw, int newspan)
+{
+  int y = h;
+  while (y-->0)
+  {
+    const unsigned int *rd = ip;
+    unsigned int *wr = op;
+    int remaining = w;
+
+#ifdef __SSE__
+    if (remaining >= 4)
+    {
+      // with SSE is about 2x faster than without
+      if (((INT_PTR)rd & 7))
+      {
+        // input isn't 8 byte aligned, must use unaligned reads
+        int x = remaining/4;
+        while (x-->0)
+        {
+          __m128 m =  _mm_loadu_ps((const float *)rd);
+          __m128 p1 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(1,1,0,0));
+          __m128 p2 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(3,3,2,2));
+          
+          unsigned int *wr2 = wr+newspan;
+          rd+=4;
+          
+          _mm_store_ps((float*)wr,p1);
+          _mm_store_ps((float*)wr2,p1);
+          
+          _mm_store_ps((float*)wr + 4,p2);
+          _mm_store_ps((float*)wr2 + 4,p2);
+          
+          wr += 8;
+        }
+      }
+      else
+      {
+        // if rd is 8 byte aligned, we can do SSE without unaligned reads
+        
+        // but if it is not 16 byte aligned, we need to preprocess a pair of pixels
+        // (advancing rd by 8 bytes, and wr by 16)
+      
+        if ((INT_PTR)rd & 15)
+        {
+          unsigned int *nwr = wr+newspan;
+          wr[0] = wr[1] = nwr[0] = nwr[1] = rd[0];
+          wr[2] = wr[3] = nwr[2] = nwr[3] = rd[1];
+          wr+=4;
+          rd+=2;
+          remaining-=2;
+        }
+        
+        int x = remaining/4;
+        while (x-->0)
+        {
+          __m128 m =  _mm_load_ps((const float *)rd);
+          __m128 p1 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(1,1,0,0));
+          __m128 p2 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(3,3,2,2));
+
+          unsigned int *wr2 = wr+newspan;
+          rd+=4;
+          
+          _mm_store_ps((float*)wr,p1);
+          _mm_store_ps((float*)wr2,p1);
+          
+          _mm_store_ps((float*)wr + 4,p2);
+          _mm_store_ps((float*)wr2 + 4,p2);
+
+          wr += 8;
+        }
+      }
+      remaining &= 3;
+    }
+#endif //__SSE__
+
+    int x = remaining/2;
+    while (x-->0)
+    {
+      unsigned int *nwr = wr+newspan;
+      wr[0] = wr[1] = nwr[0] = nwr[1] = rd[0];
+      wr[2] = wr[3] = nwr[2] = nwr[3] = rd[1];
+      rd+=2;
+      wr+=4;
+    }
+    if (remaining&1)
+    {
+      wr[0] = wr[1] = wr[newspan] = wr[newspan+1] = *rd;
+    }
+    ip += sw;
+    op += newspan*2;
+  }
+}
+#endif
+
 void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int xin, int yin, int w, int h, int mode)
 {
   if (!hdcOut || !hdcIn||w<1||h<1) return;
@@ -1363,67 +1461,29 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   
   
   // this is only faster when using the native color profile, it seems
+  WDL_HeapBuf *retina_hb = NULL;
   unsigned char *retina_buf = NULL;
-  if (destw == w && desth == h && w*h > 4096 &&
+#ifndef __ppc__
+  if (destw == w && desth == h && 
       CGContextConvertSizeToDeviceSpace(output, CGSizeMake(1,1)).width > 1.9)
   {
     const int newspan = (w*2+3)&~3;
-#ifdef __LP64__
-    const int newspanhalf=newspan/2;
-#endif
-    
-    if (NULL != (retina_buf = (unsigned char *)malloc(sizeof(unsigned int) * newspan*h*2)))
+    retina_hb = SWELL_GDP_GetTmpBuf();
+    if (retina_hb && retina_hb->ResizeOK(sizeof(unsigned int) * newspan*h*2 + 32,false))
     {
-      const unsigned int *ip = (const unsigned int *)p;
+      retina_buf = (unsigned char *)retina_hb->Get();
+      const UINT_PTR align = (UINT_PTR)retina_buf & 31;
+      if (align) retina_buf += 32-align;
 
-      unsigned int *op = (unsigned int *)retina_buf;
-      int y = h;
-      while (y-->0)
-      {
-        const unsigned int *rd = ip;
-        
-        int x=w/2;
-#ifdef __LP64__
-        uint64_t *wr = (uint64_t*)op;
-        while (x-->0)
-        {
-          const unsigned int rd1=rd[0],rd2=rd[1];
-          wr[0] = wr[newspanhalf] = rd1 + ((uint64_t)rd1 << 32);
-          wr[1] = wr[newspanhalf+1] = rd2 + ((uint64_t)rd2 << 32);
-          
-          rd+=2;
-          wr+=2;
-        }
-        if (w&1)
-        {
-          __int64 rd1=rd[0];
-          rd1|=rd1<<32;
-          wr[0]=wr[newspanhalf] = rd1;
-        }
-#else
-        unsigned int *wr = op;
-        while (x-->0)
-        {
-          unsigned int *nwr = wr+newspan;
-          wr[0] = wr[1] = nwr[0] = nwr[1] = rd[0];
-          wr[2] = wr[3] = nwr[2] = nwr[3] = rd[1];
-          rd+=2;
-          wr+=4;
-        }
-        if (w&1)
-        {
-          wr[0] = wr[1] = wr[newspan] = wr[newspan+1] = *rd;
-        }
-#endif
-        
-        ip += sw;
-        op += newspan*2;
-      }
+      SWELL_fastDoubleUpImage((unsigned int *)retina_buf, 
+                        (const unsigned int *)p,w,h,sw,newspan);
+
       sw = newspan;
       w *= 2;
       h *= 2;
     }
   }
+#endif
 
   
   CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,retina_buf ? retina_buf : p,4*sw*h,NULL);
@@ -1443,7 +1503,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   
     CGImageRelease(img);
   }
-  free(retina_buf);
+  SWELL_GDP_DisposeTmpBuf(retina_hb);
 }
 
 void SWELL_PushClipRegion(HDC ctx)
