@@ -86,7 +86,6 @@ static NSString *CStringToNSString(const char *str)
   return ret;
 }
 
-
 CGColorSpaceRef __GetDisplayColorSpace()
 {
   static CGColorSpaceRef cs;
@@ -120,6 +119,40 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 
 
 #include "swell-gdi-internalpool.h"
+
+int SWELL_IsRetinaHWND(HWND hwnd)
+{
+  static char is107;
+  if (!is107)
+  {
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    is107 = v>=0x1070 ? 1 : -1;    
+  }
+
+  if (!hwnd || is107 <= 0) return 0;
+
+  NSWindow *w=NULL;
+  if ([(id)hwnd isKindOfClass:[NSView class]]) w = [(NSView *)hwnd window];
+  else if ([(id)hwnd isKindOfClass:[NSWindow class]]) w = (NSWindow *)hwnd;
+
+  if (w)
+  {
+    NSRect r=NSMakeRect(0,0,1,1);
+    NSRect (*tmp)(id receiver, SEL operation, NSRect) = (NSRect (*)(id, SEL, NSRect))objc_msgSend_stret;
+    NSRect str = tmp(w,sel_getUid("convertRectToBacking:"),r);
+
+    if (str.size.width > 1.9) return 1;
+  }
+  return 0;
+}
+
+int SWELL_IsRetinaDC(HDC hdc)
+{
+  HDC__ *src=(HDC__*)hdc;
+  if (!src || !HDC_VALID(src) || !src->ctx) return 0;
+  return CGContextConvertSizeToDeviceSpace((CGContextRef)src->ctx, CGSizeMake(1,1)).width > 1.9 ? 1 : 0;
+}
 
 
 HDC SWELL_CreateGfxContext(void *c)
