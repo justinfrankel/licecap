@@ -818,8 +818,7 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
   if (ct->curbkmode == OPAQUE)
   {      
     CGRect bgr = CGRectMake(l, t, w, h);
-    float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
-    CGColorRef bgc = CGColorCreate(__GetDisplayColorSpace(), col);
+    CGColorRef bgc = CreateColor(ct->curbkcol);
     CGContextSetFillColorWithColor(ct->ctx, bgc);
     CGContextFillRect(ct->ctx, bgr);
     CGColorRelease(bgc);	
@@ -981,8 +980,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     CGColorRef bgc = NULL;
     if (ct->curbkmode == OPAQUE)
     {      
-      CGFloat col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
-      bgc = CGColorCreate(__GetDisplayColorSpace(), col);
+      bgc = CreateColor(ct->curbkcol);
     }
 
     if (line) 
@@ -1070,8 +1068,7 @@ void SetTextColor(HDC ctx, int col)
   
   if (ct->curtextcol) CFRelease(ct->curtextcol);
 
-  CGFloat ccol[] = { GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,1.0 };
-  ct->curtextcol = CGColorCreate(__GetDisplayColorSpace(), ccol);
+  ct->curtextcol = CreateColor(col);
 }
 
 
