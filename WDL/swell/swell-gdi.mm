@@ -87,14 +87,34 @@ static NSString *CStringToNSString(const char *str)
 }
 
 
+CGColorSpaceRef __GetDisplayColorSpace()
+{
+  static CGColorSpaceRef cs;
+  if (!cs)
+  {
+    // use monitor profile for 10.7+
+    SInt32 v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+    if (v >= 0x1070)
+    {
+      CMProfileRef systemMonitorProfile = NULL;
+      CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
+      if(noErr == getProfileErr)
+      {
+        cs = CGColorSpaceCreateWithPlatformColorSpace(systemMonitorProfile);
+        CMCloseProfile(systemMonitorProfile);
+      }
+    }
+  }
+  if (!cs) 
+    cs = CGColorSpaceCreateDeviceRGB();
+  return cs;
+}
+
 static CGColorRef CreateColor(int col, float alpha=1.0f)
 {
-  static CGColorSpaceRef cspace;
-  
-  if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
-  
   CGFloat cols[4]={GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,alpha};
-  CGColorRef color=CGColorCreate(cspace,cols);
+  CGColorRef color=CGColorCreate(__GetDisplayColorSpace(),cols);
   return color;
 }
 
@@ -129,9 +149,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   void *buf=calloc(w*4*h+ALIGN_EXTRA,1);
   if (!buf) return 0;
-  CGColorSpaceRef cs=CGColorSpaceCreateDeviceRGB();
-  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4,cs, kCGImageAlphaNoneSkipFirst);
-  CGColorSpaceRelease(cs);
+  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4,__GetDisplayColorSpace(), kCGImageAlphaNoneSkipFirst);
   if (!c)
   {
     free(buf);
@@ -800,10 +818,8 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
   if (ct->curbkmode == OPAQUE)
   {      
     CGRect bgr = CGRectMake(l, t, w, h);
-    static CGColorSpaceRef csr;
-    if (!csr) csr = CGColorSpaceCreateDeviceRGB();
     float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
-    CGColorRef bgc = CGColorCreate(csr, col);
+    CGColorRef bgc = CGColorCreate(__GetDisplayColorSpace(), col);
     CGContextSetFillColorWithColor(ct->ctx, bgc);
     CGContextFillRect(ct->ctx, bgr);
     CGColorRelease(bgc);	
@@ -965,10 +981,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     CGColorRef bgc = NULL;
     if (ct->curbkmode == OPAQUE)
     {      
-      CGColorSpaceRef csr = CGColorSpaceCreateDeviceRGB();
       CGFloat col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
-      bgc = CGColorCreate(csr, col);
-      CGColorSpaceRelease(csr);
+      bgc = CGColorCreate(__GetDisplayColorSpace(), col);
     }
 
     if (line) 
@@ -1056,10 +1070,8 @@ void SetTextColor(HDC ctx, int col)
   
   if (ct->curtextcol) CFRelease(ct->curtextcol);
 
-  static CGColorSpaceRef csr;
-  if (!csr) csr = CGColorSpaceCreateDeviceRGB();
   CGFloat ccol[] = { GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,1.0 };
-  ct->curtextcol = csr ? CGColorCreate(csr, ccol) : NULL;
+  ct->curtextcol = CGColorCreate(__GetDisplayColorSpace(), ccol);
 }
 
 
@@ -1399,27 +1411,9 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
     }
   }
 
-  static CGColorSpaceRef cs;
-  if (!cs)
-  {
-    // use monitor profile for 10.7+
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    if (v >= 0x1070)
-    {
-      CMProfileRef systemMonitorProfile = NULL;
-      CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
-      if(noErr == getProfileErr)
-      {
-        cs = CGColorSpaceCreateWithPlatformColorSpace(systemMonitorProfile);
-        CMCloseProfile(systemMonitorProfile);
-      }
-    }
-  }
-  if (!cs) cs = CGColorSpaceCreateDeviceRGB();
   
   CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,retina_buf ? retina_buf : p,4*sw*h,NULL);
-  CGImageRef img = CGImageCreate(w,h,8,32,4*sw,cs,
+  CGImageRef img = CGImageCreate(w,h,8,32,4*sw,__GetDisplayColorSpace(),
       use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,
       provider,NULL,NO,kCGRenderingIntentDefault);
   CGDataProviderRelease(provider);
