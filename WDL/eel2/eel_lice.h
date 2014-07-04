@@ -236,6 +236,7 @@ public:
   // R, G, B, A, w, h, x, y, mode(1=add,0=copy)
   EEL_F *m_gfx_r, *m_gfx_g, *m_gfx_b, *m_gfx_w, *m_gfx_h, *m_gfx_a, *m_gfx_x, *m_gfx_y, *m_gfx_mode, *m_gfx_clear, *m_gfx_texth,*m_gfx_dest;
   EEL_F *m_mouse_x, *m_mouse_y, *m_mouse_cap, *m_mouse_wheel, *m_mouse_hwheel;
+  EEL_F *m_gfx_ext_retina;
 
   NSEEL_VMCTX m_vmref;
   void *m_user_ctx;
@@ -319,6 +320,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   m_gfx_clear = NSEEL_VM_regvar(vm,"gfx_clear");
   m_gfx_texth = NSEEL_VM_regvar(vm,"gfx_texth");
   m_gfx_dest = NSEEL_VM_regvar(vm,"gfx_dest");
+  m_gfx_ext_retina = NSEEL_VM_regvar(vm,"gfx_ext_retina");
 
   m_mouse_x = NSEEL_VM_regvar(vm,"mouse_x");
   m_mouse_y = NSEEL_VM_regvar(vm,"mouse_y");
@@ -1387,23 +1389,45 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
 
 int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 {
+  int use_w = r.right - r.left;
+  int use_h = r.bottom - r.top;
+
+  POINT pt;
+  GetCursorPos(&pt);
+  ScreenToClient(hwnd,&pt);
+  *m_mouse_x=pt.x-r.left;
+  *m_mouse_y=pt.y-r.top;
+  if (*m_gfx_ext_retina > 0.0)
+  {
+#ifdef __APPLE__
+    *m_gfx_ext_retina = SWELL_IsRetinaHWND(hwnd) ? 2.0 : 1.0;
+    if (*m_gfx_ext_retina > 1.0)
+    {
+      *m_mouse_x *= 2.0;
+      *m_mouse_y *= 2.0;
+      use_w*=2;
+      use_h*=2;
+    }
+#else
+    *m_gfx_ext_retina = 1.0;
+#endif
+  }
   int dr=0;
   if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) 
   {
-    m_framebuffer=__LICE_CreateBitmap(1,r.right-r.left,r.bottom-r.top);
+    m_framebuffer=__LICE_CreateBitmap(1,use_w,use_h);
     dr=1;
   }
 
   if (!m_framebuffer || !LICE_FUNCTION_VALID(LICE__GetHeight) || !LICE_FUNCTION_VALID(LICE__GetWidth)) return -1;
 
-  if (r.right-r.left != LICE__GetWidth(m_framebuffer) ||
-      r.bottom-r.top != LICE__GetHeight(m_framebuffer))
+  if (use_w != LICE__GetWidth(m_framebuffer) || use_h != LICE__GetHeight(m_framebuffer))
   {
-    LICE__resize(m_framebuffer,r.right-r.left,r.bottom-r.top);
+    LICE__resize(m_framebuffer,use_w,use_h);
     dr=1;
   }
-  *m_gfx_w = r.right-r.left;
-  *m_gfx_h = r.bottom-r.top;
+  *m_gfx_w = use_w;
+  *m_gfx_h = use_h;
   
   if (*m_gfx_clear > -1.0)
   {
@@ -1414,12 +1438,8 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     if (LICE_FUNCTION_VALID(LICE_Clear)) LICE_Clear(m_framebuffer,LICE_RGBA(r,g,b,0));
   }
 
-  POINT pt;
-  GetCursorPos(&pt);
-  ScreenToClient(hwnd,&pt);
-  *m_mouse_x=pt.x-r.left;
-  *m_mouse_y=pt.y-r.top;
   int vflags=0;
+
   const bool hasCap=GetCapture()==hwnd;
   if (hasCap)
   {
@@ -1856,7 +1876,7 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         if (ctx) memset(&ctx->hwnd_standalone_kb_state,0,sizeof(ctx->hwnd_standalone_kb_state));
       }
     break;
-		case WM_MOUSEHWHEEL:   
+    case WM_MOUSEHWHEEL:   
     case WM_MOUSEWHEEL:
       {
         eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
@@ -1961,7 +1981,14 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
           {
             int w = LICE__GetWidth(ctx->m_framebuffer);
             int h = LICE__GetHeight(ctx->m_framebuffer);
-            BitBlt(ps.hdc,0,0,w,h,LICE__GetDC(ctx->m_framebuffer),0,0,SRCCOPY);
+#ifdef __APPLE__
+            if (*ctx->m_gfx_ext_retina > 1.0)
+            {
+              StretchBlt(ps.hdc,0,0,w/2,h/2,LICE__GetDC(ctx->m_framebuffer),0,0,w,h,SRCCOPY);
+            }
+            else
+#endif
+              BitBlt(ps.hdc,0,0,w,h,LICE__GetDC(ctx->m_framebuffer),0,0,SRCCOPY);
           }
           if (ctx) ctx->m_framebuffer_refstate=0;
           EndPaint(hwnd,&ps);
