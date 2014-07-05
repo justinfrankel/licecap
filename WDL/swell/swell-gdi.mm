@@ -42,6 +42,10 @@
 
 extern int SWELL_GetOSXVersion();
 
+#ifdef __AVX__
+#include <immintrin.h>
+#endif
+
 #ifndef SWELL_NO_CORETEXT
 static bool IsCoreTextSupported()
 {
@@ -1282,6 +1286,36 @@ static void SWELL_fastDoubleUpImage(unsigned int *op, const unsigned int *ip, in
     unsigned int *wr = op;
     int remaining = w;
 
+#if 0 // def __AVX__
+    // this isn't really any faster than SSE anyway
+    if (remaining >= 8)
+    {
+      if (!((INT_PTR)rd & 31))
+      {
+        int x = remaining/8;
+        while (x-->0)
+        {
+          const __m256 m =  _mm256_load_ps((const float *)rd);
+          rd+=8;
+          
+          const __m256 p1 = _mm256_permutevar_ps(_mm256_permute2f128_ps(m,m,0),_mm256_set_epi32(3,3,2,2,1,1,0,0));
+          const __m256 p2 = _mm256_permutevar_ps(_mm256_permute2f128_ps(m,m,1|(1<<4)),_mm256_set_epi32(3,3,2,2,1,1,0,0));
+          
+          unsigned int *wr2 = wr+newspan;
+          _mm256_store_ps((float*)wr,p1);
+          _mm256_store_ps((float*)wr2,p1);
+        
+          _mm256_store_ps((float*)wr + 8,p2);
+          _mm256_store_ps((float*)wr2 + 8,p2);
+          
+          wr += 16;
+        }
+        remaining &= 7;
+        
+      }
+    }
+#endif
+    
 #ifdef __SSE__
     if (remaining >= 4)
     {
