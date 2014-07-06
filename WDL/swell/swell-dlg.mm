@@ -35,16 +35,8 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
   return 0;
 }
 
-int SWELL_GetOSXVersion()
-{
-  static SInt32 v;
-  if (!v)
-  {
-    v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-  }
-  return v;
-}
+
+extern int SWELL_GetOSXVersion();
 
 static BOOL useNoMiddleManCocoa() { return SWELL_GetOSXVersion() >= 0x1050; }
 

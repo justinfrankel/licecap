@@ -44,7 +44,16 @@
 #include <OpenGL/gl.h>
 #endif
 
-extern int SWELL_GetOSXVersion();
+int SWELL_GetOSXVersion()
+{
+  static SInt32 v;
+  if (!v)
+  {
+    v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+  }
+  return v;
+}
 
 #ifdef __AVX__
 #include <immintrin.h>
