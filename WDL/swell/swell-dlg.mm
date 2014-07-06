@@ -1193,6 +1193,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (void)scrollWheel:(NSEvent *)theEvent
 {
   if (!m_enabled) return;
+  // todo: use scrollingDeltaX/scrollingDeltaY etc on 10.7+ ?
   if ([theEvent deltaY] != 0.0f)
   {
     SWELL_SendMouseMessage(self,WM_MOUSEWHEEL,theEvent);
