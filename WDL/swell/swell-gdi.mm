@@ -40,6 +40,10 @@
 #include <xmmintrin.h>
 #endif
 
+#ifdef SWELL_SUPPORT_OPENGL_BLIT
+#include <OpenGL/gl.h>
+#endif
+
 extern int SWELL_GetOSXVersion();
 
 #ifdef __AVX__
