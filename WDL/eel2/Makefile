@@ -10,12 +10,15 @@ OBJS2=
 
 UNAME_S := $(shell uname -s)
 
-ifdef force32
-# only usable on darwin at the moment
-CFLAGS += -arch i386
-ARCH = i686
+ifeq ($(UNAME_S),Darwin)
+  ifdef ARCH
+    CFLAGS += -arch $(ARCH)
+  else
+    ARCH = i686
+    CFLAGS += -arch i386
+  endif
 else
-ARCH := $(shell uname -m)
+  ARCH := $(shell uname -m)
 endif
 
 default: loose_eel
