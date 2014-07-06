@@ -59,7 +59,7 @@ static WDL_VideoDecode *m_decoder;
 
 #define NUM_EFFECTS 25
 
-char *effect_names[NUM_EFFECTS] =
+const char *effect_names[NUM_EFFECTS] =
 {
   "Rotated + Scaled blit",
   "Simple alpha blit",
@@ -266,22 +266,22 @@ static void DoPaint(HWND hwndDlg, HDC dc)
       bool aa = true;
       float maxsegmentpx = 0.0f;
 
-      x0 = w*rand()/RAND_MAX;
-      y0 = h*rand()/RAND_MAX;
-      x1 = w*rand()/RAND_MAX;
-      y1 = h*rand()/RAND_MAX;
-      x2 = w*rand()/RAND_MAX;
-      y2 = h*rand()/RAND_MAX;
+      x0 = w*(double)rand()/RAND_MAX;
+      y0 = h*(double)rand()/RAND_MAX;
+      x1 = w*(double)rand()/RAND_MAX;
+      y1 = h*(double)rand()/RAND_MAX;
+      x2 = w*(double)rand()/RAND_MAX;
+      y2 = h*(double)rand()/RAND_MAX;
       LICE_DrawQBezier(framebuffer, x0, y0, x1, y1, x2, y2, LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY, aa, maxsegmentpx);
 
-      x0 = w*rand()/RAND_MAX;
-      y0 = h*rand()/RAND_MAX;
-      x1 = w*rand()/RAND_MAX;
-      y1 = h*rand()/RAND_MAX;
-      x2 = w*rand()/RAND_MAX;
-      y2 = h*rand()/RAND_MAX;
-      x3 = w*rand()/RAND_MAX;
-      y3 = h*rand()/RAND_MAX;
+      x0 = w*(double)rand()/RAND_MAX;
+      y0 = h*(double)rand()/RAND_MAX;
+      x1 = w*(double)rand()/RAND_MAX;
+      y1 = h*(double)rand()/RAND_MAX;
+      x2 = w*(double)rand()/RAND_MAX;
+      y2 = h*(double)rand()/RAND_MAX;
+      x3 = w*(double)rand()/RAND_MAX;
+      y3 = h*(double)rand()/RAND_MAX;
       LICE_DrawCBezier(framebuffer, x0, y0, x1, y1, x2, y2, x3, y3, LICE_RGBA(0,255,0,255), 1.0f, LICE_BLIT_MODE_COPY, aa, maxsegmentpx);
     }
     break;
@@ -733,7 +733,7 @@ static void DoPaint(HWND hwndDlg, HDC dc)
     {
       int x;
       static double a;
-      double sc=sin(a)*0.024;
+      double sc=sin(a)*0.24;
       a+=0.03;
       for (x = 0; x < 10000; x ++)
         LICE_PutPixel(framebuffer,rand()%framebuffer->getWidth(),rand()%framebuffer->getHeight(),LICE_RGBA(255,255,255,255),sc,LICE_BLIT_MODE_ADD);
@@ -975,7 +975,11 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     bmp = LICE_LoadPNGFromResource(g_hInstance, IDC_PNG1);
     icon = LICE_LoadIconFromResource(g_hInstance, IDI_MAIN, 0);
 #else
-//      SWELL_SetViewGL(GetDlgItem(hwndDlg,IDC_RECT),true);
+    bmp = LICE_LoadPNGFromNamedResource("image.png");
+
+      
+    // uncomment if you want to try GL blits:
+    //   SWELL_SetViewGL(GetDlgItem(hwndDlg,IDC_RECT),true);
     SendMessage(hwndDlg,WM_SIZE,0,0);
 #endif     
     
