@@ -2295,7 +2295,7 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
   [lbl release];
   return rv;
   SWELL_END_TRY(;)
-  return NULL;
+  return FALSE;
 }
 
 BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
