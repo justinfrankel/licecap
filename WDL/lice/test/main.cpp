@@ -11,7 +11,10 @@
 #include <math.h>
 #include <stdio.h>
 
+#ifndef _WIN32
 #include <sys/time.h>
+#endif
+
 static double gettm()
 {
 #ifndef _WIN32
@@ -121,15 +124,18 @@ static void DoPaint(HWND hwndDlg, HDC dc)
   int x=rand()%(r.right+300)-150;
   int y=rand()%(r.bottom+300)-150;
 
+  static int frame_cnt;
   static int s_preveff = -1;
   if (m_effect != s_preveff)
   {
+    frame_cnt=0;
     s_preveff = m_effect;
     LICE_Clear(framebuffer, 0);
   }
 
   static MTRand s_rng;
-  
+  double t2=gettm();
+
   switch(m_effect)
   {
     case 23:
@@ -883,6 +889,7 @@ static void DoPaint(HWND hwndDlg, HDC dc)
   {
     LICE_ScaledBlit(framebuffer,jpg,0,0,framebuffer->getWidth(),framebuffer->getHeight(),0,0,jpg->getWidth(),jpg->getHeight(),0.5,LICE_BLIT_MODE_COPY);
   }
+  t2 = gettm()-t2;
   
   m_frame_cnt++;
   
@@ -900,13 +907,18 @@ static void DoPaint(HWND hwndDlg, HDC dc)
   
   BitBlt(dc,r.left,r.top,framebuffer->getWidth(),framebuffer->getHeight(),framebuffer->getDC(),0,0,SRCCOPY);
   //      bmp->blitToDC(dc, NULL, 0, 0);
-
-  static double ac,stt;
   t1 = gettm()-t1;
+
+  static double ac,stt,ac2;
+
+  if (!frame_cnt++)
+  {
+    ac=ac2=0;
+    stt=gettm();
+  }
   ac+=t1;
-  static int cnt;
-  if (!cnt++) stt=gettm();
-  sprintf(g_status,"blit = %f, %f %dx%d @ %ffps\n",t1,ac/cnt,framebuffer->getWidth(),framebuffer->getHeight(),cnt/(gettm()-stt));
+  ac2+=t2;
+  sprintf(g_status,"blit = %f/%f, %f/%f %dx%d @ %ffps\n",t1,t2,ac/frame_cnt,ac2/frame_cnt,framebuffer->getWidth(),framebuffer->getHeight(),frame_cnt/(gettm()-stt));
 
 #if 0
   if (GetAsyncKeyState(VK_SHIFT)&0x8000)
@@ -983,7 +995,7 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     SendMessage(hwndDlg,WM_SIZE,0,0);
 #endif     
     
-    SetTimer(hwndDlg,1,1000/60,NULL);
+    SetTimer(hwndDlg,1,1,NULL);
     {
       int x;
       for (x = 0; x < NUM_EFFECTS; x ++)
