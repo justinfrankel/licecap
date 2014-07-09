@@ -432,7 +432,7 @@ bool LICECaptureDecompressor::ReadHdr(int whdr) // todo: eventually make this re
   m_tmp.Clear();
   int hdr_sz = (4*9);
   if (m_file->Read(m_tmp.Add(NULL,hdr_sz),hdr_sz)!=hdr_sz) return false;
-  int ver;
+  int ver=0;
   m_tmp.GetTFromLE(&ver);
   if (ver !=LCF_VERSION) return false;
   m_tmp.GetTFromLE(&m_curhdr[whdr].bpp);
@@ -440,12 +440,12 @@ bool LICECaptureDecompressor::ReadHdr(int whdr) // todo: eventually make this re
   m_tmp.GetTFromLE(&m_curhdr[whdr].h);
   m_tmp.GetTFromLE(&m_curhdr[whdr].bsize_w);
   m_tmp.GetTFromLE(&m_curhdr[whdr].bsize_h);
-  int nf;
+  int nf=0;
   m_tmp.GetTFromLE(&nf);
-  int csize;
+  int csize=0;
   m_tmp.GetTFromLE(&csize);
 
-  int dsize;
+  int dsize=0;
   m_tmp.GetTFromLE(&dsize);
   
   if (nf<1 || nf > 1024) return false;
@@ -633,8 +633,6 @@ LICE_IBitmap *LICECaptureDecompressor::GetCurrentFrame()
         {
           int wid  = totw-xpos;
           if (wid>hdr->bsize_w) wid=hdr->bsize_w;
-
-          int sz1=wid*hei;
 
           unsigned short *rdptr = (unsigned short *)*sliceptr;
 
