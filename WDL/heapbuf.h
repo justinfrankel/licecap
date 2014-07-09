@@ -61,7 +61,7 @@ class WDL_HeapBuf
 
     void SetMinAllocSize(int mas) { m_mas=mas; }
 
-    bool ResizeOK(int newsize, bool resizedown = true) { (void)Resize(newsize, resizedown); return GetSize() == newsize; }
+    void *ResizeOK(int newsize, bool resizedown = true) { void *p=Resize(newsize, resizedown); return GetSize() == newsize ? p : NULL; }
     
     WDL_HeapBuf(const WDL_HeapBuf &cp)
     {
@@ -323,7 +323,7 @@ template<class PTRTYPE> class WDL_TypedBuf
     int GetSize() const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE); }
 
     PTRTYPE *Resize(int newsize, bool resizedown = true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
-    bool ResizeOK(int newsize, bool resizedown = true) { return m_hb.ResizeOK(newsize*sizeof(PTRTYPE), resizedown);  }
+    PTRTYPE *ResizeOK(int newsize, bool resizedown = true) { return (PTRTYPE *)m_hb.ResizeOK(newsize*sizeof(PTRTYPE), resizedown);  }
 
     PTRTYPE *GetAligned(int align) const  { return (PTRTYPE *) m_hb.GetAligned(align); }
 
