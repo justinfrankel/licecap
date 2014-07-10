@@ -65,26 +65,27 @@ class WDL_Mutex {
 
 #ifdef _WIN32
       InitializeCriticalSection(&m_cs);
-#else
-#ifdef WDL_MAC_USE_CARBON_CRITSEC
+#elif defined( WDL_MAC_USE_CARBON_CRITSEC)
       MPCreateCriticalRegion(&m_cr);
+#elif defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER)
+      const pthread_mutex_t tmp = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
+      m_mutex = tmp;
 #else
-      m_ownerthread=0;
-      m_lockcnt=0;
-      pthread_mutex_init(&m_mutex,NULL);
-#endif
+      pthread_mutexattr_t attr;
+      pthread_mutexattr_init(&attr);
+      pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE);
+      pthread_mutex_init(&m_mutex,&attr);
+      pthread_mutexattr_destroy(&attr);
 #endif
     }
     ~WDL_Mutex()
     {
 #ifdef _WIN32
       DeleteCriticalSection(&m_cs);
-#else
-#ifdef WDL_MAC_USE_CARBON_CRITSEC
+#elif defined(WDL_MAC_USE_CARBON_CRITSEC)
       MPDeleteCriticalRegion(m_cr);
 #else
       pthread_mutex_destroy(&m_mutex);
-#endif
 #endif
     }
 
@@ -96,19 +97,10 @@ class WDL_Mutex {
 
 #ifdef _WIN32
       EnterCriticalSection(&m_cs);
-#else
-#ifdef WDL_MAC_USE_CARBON_CRITSEC
+#elif defined(WDL_MAC_USE_CARBON_CRITSEC)
       MPEnterCriticalRegion(m_cr,kDurationForever);
 #else
-      pthread_t tt=pthread_self();
-      if (m_ownerthread==tt) m_lockcnt++;
-      else
-      {
-        pthread_mutex_lock(&m_mutex);
-        m_ownerthread=tt;
-        m_lockcnt=0;
-      }
-#endif
+      pthread_mutex_lock(&m_mutex);
 #endif
     }
 
@@ -117,18 +109,13 @@ class WDL_Mutex {
 #ifdef _DEBUG
       _debug_cnt--;
 #endif
+
 #ifdef _WIN32
       LeaveCriticalSection(&m_cs);
-#else
-#ifdef WDL_MAC_USE_CARBON_CRITSEC
+#elif defined(WDL_MAC_USE_CARBON_CRITSEC)
       MPExitCriticalRegion(m_cr);
 #else
-      if (--m_lockcnt < 0)
-      {
-        m_ownerthread=0;
-        pthread_mutex_unlock(&m_mutex);
-      }
-#endif
+      pthread_mutex_unlock(&m_mutex);
 #endif
     }
 
@@ -139,14 +126,10 @@ class WDL_Mutex {
   private:
 #ifdef _WIN32
   CRITICAL_SECTION m_cs;
-#else
-#ifdef WDL_MAC_USE_CARBON_CRITSEC
+#elif defined(WDL_MAC_USE_CARBON_CRITSEC)
   MPCriticalRegionID m_cr;
 #else
   pthread_mutex_t m_mutex;
-  pthread_t m_ownerthread;
-  int m_lockcnt;
-#endif
 #endif
 
 } WDL_FIXALIGN;
