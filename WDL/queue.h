@@ -217,7 +217,7 @@ public:
   {
     int olen=m_hb.GetSize();
     if (m_pos >= olen) olen=m_pos=0;
-    len *= sizeof(T);
+    len *= (int)sizeof(T);
 
     char *newbuf=(char*)m_hb.ResizeOK(olen+len,false);
     if (newbuf)
@@ -236,7 +236,7 @@ public:
 
   int GetSize() const
   {
-    return (m_hb.GetSize()-m_pos)/sizeof(T);
+    return m_pos < m_hb.GetSize() ? (m_hb.GetSize()-m_pos)/sizeof(T) : 0;
   }
   int Available() const { return GetSize(); }
 
@@ -248,7 +248,7 @@ public:
 
   void Advance(int cnt) 
   { 
-    m_pos+=cnt*sizeof(T); 
+    m_pos+=cnt*(int)sizeof(T); 
     if (m_pos<0)m_pos=0;
     else if (m_pos > m_hb.GetSize()) m_pos=m_hb.GetSize();
   }
