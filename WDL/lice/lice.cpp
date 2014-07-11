@@ -245,11 +245,7 @@ template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
                           int src_span, int dest_span)
     {
       LICE_pixel* destpx = (LICE_pixel*) dest;
-      int destpxspan = dest_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
-
-      //LICE_pixel* srcpx = (LICE_pixel*) src;
-      //int srcpxspan = src_span*sizeof(LICE_pixel_chan)/sizeof(LICE_pixel);
-      // todo cast inptr back to LICE_pixel
+      int destpxspan = dest_span*(int)sizeof(LICE_pixel_chan)/(int)sizeof(LICE_pixel);
 
       while (h--)
       {
@@ -408,7 +404,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
               int sc=0;
               int fy=filtsz;
               int ypos=cury+filt_start;
-              const LICE_pixel_chan *rdptr  = inptr + (offs + filt_start)*sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
+              const LICE_pixel_chan *rdptr  = inptr + (offs + filt_start)*(int) (sizeof(LICE_pixel)/sizeof(LICE_pixel_chan));
               const int *scaletab = filter;
               while (fy--)
               {
@@ -942,7 +938,7 @@ void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
   LICE_pixel turdbuf[2048];
   if (src==dest)
   {
-    if (w <= sizeof(turdbuf)/sizeof(turdbuf[0])/2) tmpbuf=turdbuf;
+    if (w <= (int) (sizeof(turdbuf)/sizeof(turdbuf[0])/2)) tmpbuf=turdbuf;
     else tmpbuf=(LICE_pixel*)malloc(w*2*sizeof(LICE_pixel));
   }
 
