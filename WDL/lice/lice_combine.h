@@ -20,14 +20,14 @@
 #define LICE_PIXEL_EIGHTH(x) (((x)>>3)&0x1F1F1F1F)
 
 
-static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int xfrac, int yfrac)
+static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int xfrac, unsigned int yfrac)
 {
-  const int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  const int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
-  const int f2=xfrac-f4; // xfrac*(1.0-yfrac);
-  const int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  const unsigned int f4=(xfrac*yfrac)>>16;
+  const unsigned int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  const unsigned int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  const unsigned int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   #define DOCHAN(output, inchan) \
-    (output)=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)/65536;
+    (output)=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)>>16;
   DOCHAN(*r,LICE_PIXEL_R)
   DOCHAN(*g,LICE_PIXEL_G)
   DOCHAN(*b,LICE_PIXEL_B)
@@ -35,14 +35,14 @@ static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, const 
   #undef DOCHAN
 }
 
-static inline void __LICE_BilinearFilterIPixOut(LICE_pixel_chan *out, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int xfrac, int yfrac)
+static inline void __LICE_BilinearFilterIPixOut(LICE_pixel_chan *out, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int xfrac, unsigned int yfrac)
 {
-  const int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  const int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
-  const int f2=xfrac-f4; // xfrac*(1.0-yfrac);
-  const int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  const unsigned int f4=(xfrac*yfrac)>>16;
+  const unsigned int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  const unsigned int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  const unsigned int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   #define DOCHAN(inchan) \
-    (out[inchan])=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)/65536;
+    (out[inchan])=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)>>16;
   DOCHAN(LICE_PIXEL_R)
   DOCHAN(LICE_PIXEL_G)
   DOCHAN(LICE_PIXEL_B)
@@ -51,34 +51,34 @@ static inline void __LICE_BilinearFilterIPixOut(LICE_pixel_chan *out, const LICE
 }
 
 
-static inline void __LICE_BilinearFilterI_2(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int npoffs, int xfrac, int yfrac)
+static inline void __LICE_BilinearFilterI_2(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int npoffs, unsigned int xfrac, unsigned int yfrac)
 {
-  const int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  const int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
-  const int f2=xfrac-f4; // xfrac*(1.0-yfrac);
-  const int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
-  *r=(pin[LICE_PIXEL_R]*f1 + pin[npoffs+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[npoffs+LICE_PIXEL_R]*f4)/65536;
-  *g=(pin[LICE_PIXEL_G]*f1 + pin[npoffs+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[npoffs+LICE_PIXEL_G]*f4)/65536;
-  *b=(pin[LICE_PIXEL_B]*f1 + pin[npoffs+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[npoffs+LICE_PIXEL_B]*f4)/65536;
-  *a=(pin[LICE_PIXEL_A]*f1 + pin[npoffs+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[npoffs+LICE_PIXEL_A]*f4)/65536;
+  const unsigned int f4=(xfrac*yfrac)>>16;
+  const unsigned int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  const unsigned int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  const unsigned int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  *r=(pin[LICE_PIXEL_R]*f1 + pin[npoffs+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[npoffs+LICE_PIXEL_R]*f4)>>16;
+  *g=(pin[LICE_PIXEL_G]*f1 + pin[npoffs+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[npoffs+LICE_PIXEL_G]*f4)>>16;
+  *b=(pin[LICE_PIXEL_B]*f1 + pin[npoffs+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[npoffs+LICE_PIXEL_B]*f4)>>16;
+  *a=(pin[LICE_PIXEL_A]*f1 + pin[npoffs+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[npoffs+LICE_PIXEL_A]*f4)>>16;
 }
 
 
-static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int frac)
+static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int frac)
 {
-  const int f=65536-frac;
-  *r=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)/65536;
-  *g=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)/65536;
-  *b=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)/65536;
-  *a=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)/65536;
+  const unsigned int f=65536-frac;
+  *r=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)>>16;
+  *g=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)>>16;
+  *b=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)>>16;
+  *a=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)>>16;
 }
-static inline void __LICE_LinearFilterIPixOut(LICE_pixel_chan *out, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int frac)
+static inline void __LICE_LinearFilterIPixOut(LICE_pixel_chan *out, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int frac)
 {
-  const int f=65536-frac;
-  out[LICE_PIXEL_R]=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)/65536;
-  out[LICE_PIXEL_G]=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)/65536;
-  out[LICE_PIXEL_B]=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)/65536;
-  out[LICE_PIXEL_A]=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)/65536;
+  const unsigned int f=65536-frac;
+  out[LICE_PIXEL_R]=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)>>16;
+  out[LICE_PIXEL_G]=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)>>16;
+  out[LICE_PIXEL_B]=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)>>16;
+  out[LICE_PIXEL_A]=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)>>16;
 }
 
 static void inline _LICE_MakePixelClamp(LICE_pixel_chan *out, int r, int g, int b, int a)
