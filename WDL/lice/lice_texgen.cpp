@@ -9,7 +9,7 @@
 #include "lice.h"
 #include <math.h>
 
-void LICE_TexGen_Marble(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float intensity)
+void LICE_TexGen_Marble(LICE_IBitmap *dest, const RECT *rect, float rv, float gv, float bv, float intensity)
 {
   int span=dest->getRowSpan();
   int w = dest->getWidth();
@@ -211,7 +211,7 @@ float noise(float x, float y)
 }
 #endif
 
-void LICE_TexGen_Noise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float intensity, int mode, int smooth)
+void LICE_TexGen_Noise(LICE_IBitmap *dest, const RECT *rect, float rv, float gv, float bv, float intensity, int mode, int smooth)
 {
   initNoise();
 
@@ -286,7 +286,7 @@ static float turbulence(int x, int y, float size, float isize)
   return(128.0f * value * initialSize);
 }
 
-void LICE_TexGen_CircNoise(LICE_IBitmap *dest, RECT *rect, float rv, float gv, float bv, float nrings, float power, int size)
+void LICE_TexGen_CircNoise(LICE_IBitmap *dest, const RECT *rect, float rv, float gv, float bv, float nrings, float power, int size)
 {
   initNoise();
 

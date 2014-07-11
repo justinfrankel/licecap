@@ -763,7 +763,7 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
   LICE_Blit(dest,src,dstx,dsty,&r,alpha,mode);
 }
 
-void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, RECT *srcrect, float alpha, int mode)
+void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, const RECT *srcrect, float alpha, int mode)
 {
   if (!dest || !src || !alpha) return;
 
@@ -1744,7 +1744,7 @@ template<class T> class LICE_TransformBlit_class
   public:
   static void blit(LICE_IBitmap *dest, LICE_IBitmap *src,  
                     int dstx, int dsty, int dstw, int dsth,
-                    T *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
+                    const T *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
                     float alpha, int mode)
 {
   if (!dest || !src || dstw<1 || dsth<1 || div_w<2 || div_h<2) return;
@@ -1754,7 +1754,7 @@ template<class T> class LICE_TransformBlit_class
   double dxpos=dstw/(float)(div_w-1);
   double dypos=dsth/(float)(div_h-1);
   int y;
-  T *curpoints=srcpoints;
+  const T *curpoints=srcpoints;
   for (y = 0; y < div_h-1; y ++)
   {
     int nypos=(int)(ypos+=dypos);
@@ -1808,14 +1808,14 @@ template<class T> class LICE_TransformBlit_class
 
 void LICE_TransformBlit(LICE_IBitmap *dest, LICE_IBitmap *src,  
                     int dstx, int dsty, int dstw, int dsth,
-                    float *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
+                    const float *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
                     float alpha, int mode)
 {
   LICE_TransformBlit_class<float>::blit(dest,src,dstx,dsty,dstw,dsth,srcpoints,div_w,div_h,alpha,mode);
 }
 void LICE_TransformBlit2(LICE_IBitmap *dest, LICE_IBitmap *src,  
                     int dstx, int dsty, int dstw, int dsth,
-                    double *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
+                    const double *srcpoints, int div_w, int div_h, // srcpoints coords should be div_w*div_h*2 long, and be in source image coordinates
                     float alpha, int mode)
 {
   LICE_TransformBlit_class<double>::blit(dest,src,dstx,dsty,dstw,dsth,srcpoints,div_w,div_h,alpha,mode);
@@ -1908,22 +1908,22 @@ void LICE_SimpleFill(LICE_IBitmap *dest, int x, int y, LICE_pixel newcolor,
   }
 }
 
-// stupid ass VS6 instantiates this wrong as a template function, needs to be a template class
+// VS6 instantiates this wrong as a template function, needs to be a template class
 template <class COMBFUNC> class GlyphDrawImpl
 {
 public:
   static void DrawGlyph(const LICE_pixel_chan* srcalpha, LICE_pixel* destpx, int src_w, int src_h, LICE_pixel color,  int span, int src_span, int aa)
   {
-
-    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+    const int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
 
     int xi, yi;
     for (yi = 0; yi < src_h; ++yi, srcalpha += src_span, destpx += span) {
       const LICE_pixel_chan* tsrc = srcalpha;
       LICE_pixel* tdest = destpx;
       for (xi = 0; xi < src_w; ++xi, ++tsrc, ++tdest) {
-        if (*tsrc) {  // glyphs should be expected to have a lot of "holes"
-          COMBFUNC::doPix((LICE_pixel_chan*) tdest, r, g, b, a, *tsrc*aa/256);
+        const LICE_pixel_chan v = *tsrc;
+        if (v) {  // glyphs should be expected to have a lot of "holes"
+          COMBFUNC::doPix((LICE_pixel_chan*) tdest, r, g, b, a, v*aa/256);
         }
       }
     }
@@ -2009,6 +2009,9 @@ void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
     const LICE_pixel *sp2 = srcptr+src_span;
     LICE_pixel *dp = destptr;
     int x=w/2;
+
+    // this is begging for SSE intrinsics, but we never use this function so leave it as-is :)
+
       // perhaps we should use more precision rather than chopping each src pixel to 6 bits, but oh well
     while (x--) // unroll 2px at a time, about 5% faster on core2 and ICC
     {
