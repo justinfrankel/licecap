@@ -286,10 +286,10 @@ public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   {
     _LICE_MakePixelNoClamp(dest,
-      (dest[LICE_PIXEL_R]+r)/2,
-      (dest[LICE_PIXEL_G]+g)/2,
-      (dest[LICE_PIXEL_B]+b)/2,
-      (dest[LICE_PIXEL_A]+a)/2);
+      (dest[LICE_PIXEL_R]+r)>>1,
+      (dest[LICE_PIXEL_G]+g)>>1,
+      (dest[LICE_PIXEL_B]+b)>>1,
+      (dest[LICE_PIXEL_A]+a)>>1);
   }
 };
 
@@ -308,10 +308,10 @@ public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   {
     _LICE_MakePixelClamp(dest,
-      (dest[LICE_PIXEL_R]+r)/2,
-      (dest[LICE_PIXEL_G]+g)/2,
-      (dest[LICE_PIXEL_B]+b)/2,
-      (dest[LICE_PIXEL_A]+a)/2);
+      (dest[LICE_PIXEL_R]+r)>>1,
+      (dest[LICE_PIXEL_G]+g)>>1,
+      (dest[LICE_PIXEL_B]+b)>>1,
+      (dest[LICE_PIXEL_A]+a)>>1);
   }
 
 };
@@ -560,10 +560,10 @@ public:
 
     const int da=(256-alpha)*256;
     _LICE_MakePixelNoClamp(dest,
-      (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
-      (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
-      (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
-      (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+      (dest[LICE_PIXEL_R]*(da + (r*alpha)))>>16,
+      (dest[LICE_PIXEL_G]*(da + (g*alpha)))>>16,
+      (dest[LICE_PIXEL_B]*(da + (b*alpha)))>>16,
+      (dest[LICE_PIXEL_A]*(da + (a*alpha)))>>16);
 
   }
 };
@@ -576,10 +576,10 @@ public:
 
     const int da=(256-alpha)*256;
     _LICE_MakePixelClamp(dest,
-      (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
-      (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
-      (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
-      (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+      (dest[LICE_PIXEL_R]*(da + (r*alpha)))>>16,
+      (dest[LICE_PIXEL_G]*(da + (g*alpha)))>>16,
+      (dest[LICE_PIXEL_B]*(da + (b*alpha)))>>16,
+      (dest[LICE_PIXEL_A]*(da + (a*alpha)))>>16);
 
   }
 };
@@ -593,10 +593,10 @@ public:
       const int ualpha=(alpha*(a+1))/256;
       const int da=(256-ualpha)*256;
       _LICE_MakePixelNoClamp(dest,
-        (dest[LICE_PIXEL_R]*(da + (r*ualpha)))/65536,
-        (dest[LICE_PIXEL_G]*(da + (g*ualpha)))/65536,
-        (dest[LICE_PIXEL_B]*(da + (b*ualpha)))/65536,
-        (dest[LICE_PIXEL_A]*(da + (a*ualpha)))/65536);
+        (dest[LICE_PIXEL_R]*(da + (r*ualpha)))>>16,
+        (dest[LICE_PIXEL_G]*(da + (g*ualpha)))>>16,
+        (dest[LICE_PIXEL_B]*(da + (b*ualpha)))>>16,
+        (dest[LICE_PIXEL_A]*(da + (a*ualpha)))>>16);
 
     }
   }
@@ -611,10 +611,10 @@ public:
       const int ualpha=(alpha*(a+1))/256;
       const int da=(256-ualpha)*256;
       _LICE_MakePixelClamp(dest,
-        (dest[LICE_PIXEL_R]*(da + (r*ualpha)))/65536,
-        (dest[LICE_PIXEL_G]*(da + (g*ualpha)))/65536,
-        (dest[LICE_PIXEL_B]*(da + (b*ualpha)))/65536,
-        (dest[LICE_PIXEL_A]*(da + (a*ualpha)))/65536);
+        (dest[LICE_PIXEL_R]*(da + (r*ualpha)))>>16,
+        (dest[LICE_PIXEL_G]*(da + (g*ualpha)))>>16,
+        (dest[LICE_PIXEL_B]*(da + (b*ualpha)))>>16,
+        (dest[LICE_PIXEL_A]*(da + (a*ualpha)))>>16);
 
     }
   }
@@ -659,10 +659,10 @@ public:
     // can produce slightly diff (+-1) results from above due to rounding
     const int da=(256-alpha)*128;
     const int srcr = r*alpha+da, srcg = g*alpha+da, srcb = b*alpha+da, srca = a*alpha + da;
-    destr = ( destr*( (destr*(32768-srcr))/256 + srcr ) )/32768;
-    destg = ( destg*( (destg*(32768-srcg))/256 + srcg ) )/32768;
-    destb = ( destb*( (destb*(32768-srcb))/256 + srcb ) )/32768;
-    desta = ( desta*( (desta*(32768-srca))/256 + srca ) )/32768;
+    destr = ( destr*( (destr*(32768-srcr))/256 + srcr ) ) >> 15;
+    destg = ( destg*( (destg*(32768-srcg))/256 + srcg ) ) >> 15;
+    destb = ( destb*( (destb*(32768-srcb))/256 + srcb ) ) >> 15;
+    desta = ( desta*( (desta*(32768-srca))/256 + srca ) ) >> 15;
 
 #endif
 
