@@ -192,7 +192,7 @@ bool WDL_ChooseFileForSave(HWND parent,
           fd.setFilename(temp + strlen(temp) + 1);
         }
         else
-          fd.setFilename(temp);
+          fd.setFilename(*temp ? temp : initialfile);
       }
       fd.setTemplate(hInstance, dlgid, (LPOFNHOOKPROC)dlgProc);
       
