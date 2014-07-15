@@ -102,23 +102,67 @@ UINT GetDlgItemTextUTF8(HWND hDlg, int nIDDlgItem, LPTSTR lpString, int nMaxCoun
 BOOL SetDlgItemTextUTF8(HWND hDlg, int nIDDlgItem, LPCTSTR lpString)
 {
   HWND h = GetDlgItem(hDlg,nIDDlgItem);
-  if (h) return SetWindowTextUTF8(h,lpString);
-  return FALSE;
+  if (!h) return FALSE;
+
+  if (WDL_HasUTF8(lpString) && GetVersion()< 0x80000000)
+  {
+    MBTOWIDE(wbuf,lpString);
+    if (wbuf_ok)
+    {
+      BOOL rv = SetWindowTextW(h, wbuf);
+      MBTOWIDE_FREE(wbuf);
+      return rv;
+    }
+
+    MBTOWIDE_FREE(wbuf);
+  }
+
+  return SetWindowTextA(h, lpString);
+
+}
+
+static LRESULT WINAPI __forceUnicodeWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  if (uMsg == WM_SETTEXT && lParam)
+  {
+    MBTOWIDE(wbuf,(const char *)lParam);
+    if (wbuf_ok)
+    {
+      LRESULT rv = DefWindowProcW(hwnd, uMsg, wParam, (LPARAM)wbuf);
+      MBTOWIDE_FREE(wbuf);
+      return rv;
+    }
+    MBTOWIDE_FREE(wbuf);
+  }
+  return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
 BOOL SetWindowTextUTF8(HWND hwnd, LPCTSTR str)
 {
   if (WDL_HasUTF8(str) && GetVersion()< 0x80000000)
   {
-    MBTOWIDE(wbuf,str);
-    if (wbuf_ok)
+    DWORD pid;
+    if (GetWindowThreadProcessId(hwnd,&pid) == GetCurrentThreadId() && 
+        pid == GetCurrentProcessId() && 
+        !(GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD))
     {
-      BOOL rv=SetWindowTextW(hwnd,wbuf);
-      MBTOWIDE_FREE(wbuf);
+      LPARAM tmp = SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LPARAM)__forceUnicodeWndProc);
+      BOOL rv = SetWindowTextA(hwnd, str);
+      SetWindowLongPtr(hwnd, GWLP_WNDPROC, tmp);
       return rv;
     }
+    else
+    {
+      MBTOWIDE(wbuf,str);
+      if (wbuf_ok)
+      {
+        BOOL rv = SetWindowTextW(hwnd, wbuf);
+        MBTOWIDE_FREE(wbuf);
+        return rv;
+      }
 
-    MBTOWIDE_FREE(wbuf);
+      MBTOWIDE_FREE(wbuf);
+    }
   }
 
   return SetWindowTextA(hwnd,str);
