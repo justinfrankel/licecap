@@ -253,7 +253,7 @@ template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
 
       while (h--)
       {
-        int cury = icury/65536;
+        int cury = icury >> 16;
         if (cury >= 0 && cury < clipbottom)
         {
           int curx=icurx;
@@ -262,7 +262,7 @@ template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
           int n=w;
           while (n--)
           {
-            int offs=curx/65536;
+            int offs=curx >> 16;
             if (offs>=0 && offs<clipright)
             {
               COMBFUNC::doPixFAST(pout,((LICE_pixel *)inptr)[offs]);
@@ -392,7 +392,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
 
       while (h--)
       {
-        int cury = icury/65536;
+        int cury = icury >> 16;
         int curx=icurx;          
         int n=w;
         if (cury >= 0 && cury < clipbottom)
@@ -401,7 +401,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
           LICE_pixel_chan *pout=dest;
           while (n--)
           {
-            int offs=curx/65536;            
+            int offs=curx >> 16;
             if (offs>=0 && offs<clipright)
             {
               int r=0,g=0,b=0,a=0;
@@ -467,7 +467,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
       {
         while (h--)
         {
-          int cury = icury/65536;
+          int cury = icury >> 16;
           int yfrac=icury&65535;
           int curx=icurx;          
           const LICE_pixel_chan *inptr=src + cury * src_span;
@@ -477,7 +477,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
           {
             while (n--)
             {
-              int offs=curx/65536;
+              int offs=curx >> 16;
               const LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
               if (offs>=0 && offs<clipright-1)
               {
@@ -500,7 +500,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
           {
             while (n--)
             {
-              int offs=curx/65536;
+              int offs=curx >> 16;
               const LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
               if (offs>=0 && offs<clipright-1)
               {
@@ -525,7 +525,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
       {
         while (h--)
         {
-          int cury = icury/65536;
+          int cury = icury >> 16;
           if (cury >= 0 && cury < clipbottom)
           {
             int curx=icurx;
@@ -534,7 +534,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
             int n=w;
             while (n--)
             {
-              int offs=curx/65536;
+              int offs=curx >> 16;
               if (offs>=0 && offs<clipright)
               {
                 const LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
@@ -589,8 +589,8 @@ class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
           int n=w;
           while (n--)
           {
-            int cury = thisy/65536;
-            int curx = thisx/65536;
+            int cury = thisy >> 16;
+            int curx = thisx >> 16;
             if (cury >= src_top && cury < src_bottom-1)
             {
               if (curx >= src_left && curx < src_right-1)
@@ -652,8 +652,8 @@ class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
           int n=w;
           while (n--)
           {
-            int cury = thisy/65536;
-            int curx = thisx/65536;
+            int cury = thisy >> 16;
+            int curx = thisx >> 16;
             if (cury >= src_top && cury < src_bottom && curx >= src_left && curx < src_right)
             {
 
