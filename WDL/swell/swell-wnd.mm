@@ -5700,12 +5700,46 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
       const char *fn = (content1 && *content1) ? content1 : content2;
       NSWorkspace *wk = [NSWorkspace sharedWorkspace];
       if (!wk) return FALSE;
-      NSString *fnstr=(NSString *)SWELL_CStringToCFString(fn);
-      BOOL ret;
-      
-      if (strlen(fn)>4 && !stricmp(fn+strlen(fn)-4,".app")) ret=[wk launchApplication:fnstr];
-      else ret=[wk openFile:fnstr];
-      
+      NSString *fnstr = nil;
+      BOOL ret = FALSE;
+    
+      if (fn && !strnicmp(fn, "/select,\"", 9))
+      {
+        char* tmp = strdup(fn+9);
+        if (*tmp && tmp[strlen(tmp)-1]=='\"') tmp[strlen(tmp)-1]='\0';
+        if (*tmp)
+        {
+          if ([wk respondsToSelector:@selector(activateFileViewerSelectingURLs:)]) // 10.6+
+          {
+            fnstr=(NSString *)SWELL_CStringToCFString(tmp);
+            NSURL *url = [NSURL fileURLWithPath:fnstr isDirectory:false];
+            if (url)
+            {
+              [wk activateFileViewerSelectingURLs:[NSArray arrayWithObjects:url, nil]]; // NSArray (and NSURL) autoreleased
+              ret=TRUE;
+            }
+          }
+          else
+          {
+            if (WDL_remove_filepart(tmp))
+            {
+              fnstr=(NSString *)SWELL_CStringToCFString(tmp);
+              ret=[wk openFile:fnstr];
+            }
+          }
+        }
+        free(tmp);
+      }
+      else if (strlen(fn)>4 && !stricmp(fn+strlen(fn)-4,".app"))
+      {
+        fnstr=(NSString *)SWELL_CStringToCFString(fn);
+        ret=[wk launchApplication:fnstr];
+      }
+      else
+      {
+        fnstr=(NSString *)SWELL_CStringToCFString(fn);
+        ret=[wk openFile:fnstr];
+      }
       [fnstr release];
       return ret;
   }
