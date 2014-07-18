@@ -60,7 +60,7 @@ LICE_MemBitmap::LICE_MemBitmap(int w, int h, unsigned int linealign)
   m_height=0;
   m_linealign = linealign > 1 ? ((linealign & ~(linealign-1))-1) : 0; // force to be contiguous bits
   if (m_linealign>16) m_linealign=16;
-  if (w||h) resize(w,h);
+  if (w>0&&h>0) resize(w,h);
 }
 
 LICE_MemBitmap::~LICE_MemBitmap() { free(m_fb); }
@@ -78,7 +78,7 @@ bool LICE_MemBitmap::resize(int w, int h)
 #endif
     int sz=(((m_width=w)+m_linealign)&~m_linealign)*(m_height=h)*sizeof(LICE_pixel);
 
-    if (sz<=0) { free(m_fb); m_fb=0; m_allocsize=0; }
+    if (sz<=0||w<1||h<1) { free(m_fb); m_fb=0; m_allocsize=0; }
     else if (!m_fb) m_fb=(LICE_pixel*)malloc((m_allocsize=sz) + LICE_MEMBITMAP_ALIGNAMT);
     else 
     {
@@ -175,7 +175,7 @@ bool LICE_SysBitmap::resize(int w, int h)
   m_bits=0;
 
 
-  if (!w || !h) return false;
+  if (w<1 || h<1) return false;
 
   BITMAPINFO pbmInfo = {0,};
   pbmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -193,7 +193,7 @@ bool LICE_SysBitmap::resize(int w, int h)
   m_dc=0;
   m_bits=0;
 
-  if (!w || !h) return false;
+  if (w<1 || h<1) return false;
 
   m_dc=SWELL_CreateMemContext(0,w,h);
   if (!m_dc) { m_width=m_height=0; m_bits=0; }
