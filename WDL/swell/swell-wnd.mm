@@ -4733,9 +4733,9 @@ static void InvalidateSuperViews(NSView *view)
   }
 }
            
-void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
+BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
-  if (!hwnd) return;
+  if (!hwnd) return FALSE;
   id view=(id)hwnd;
   if ([view isKindOfClass:[NSWindow class]]) view=[view contentView];
   if ([view isKindOfClass:[NSView class]]) 
@@ -4768,6 +4768,7 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
     else [sv setNeedsDisplay:YES];
     
   }
+  return TRUE;
 }
 
 static HWND m_fakeCapture;

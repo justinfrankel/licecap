@@ -322,7 +322,7 @@ SWELL_API_DEFINE(int, SWELL_SetWindowLevel, (HWND hwnd, int newlevel))
 ** InvalidateRect()
 ** Notes: eraseBk is ignored, probably not threadsafe! hwnd can be NSWindow or NSView
 */
-SWELL_API_DEFINE(void,InvalidateRect,(HWND hwnd, RECT *r, int eraseBk))
+SWELL_API_DEFINE(BOOL,InvalidateRect,(HWND hwnd, const RECT *r, int eraseBk))
 
 /*
 ** UpdateWindow()
