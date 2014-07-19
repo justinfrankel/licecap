@@ -187,6 +187,33 @@ class WDL_SharedMutex
 #endif
     }
 
+    void SharedToExclusive() // assumes a SINGLE shared lock by this thread!
+    { 
+      m_mutex.Enter(); 
+#ifdef _WIN32
+      while (m_sharedcnt>1) Sleep(1);
+#else
+      while (m_sharedcnt>1) usleep(100);		
+#endif
+      UnlockShared();
+    }
+  
+    void ExclusiveToShared() // assumes exclusive locked returns with shared locked
+    {
+      // already have exclusive lock
+#ifdef _WIN32
+      InterlockedIncrement(&m_sharedcnt);
+#elif defined (__APPLE__)
+      OSAtomicIncrement32(&m_sharedcnt);
+#else
+      m_cntmutex.Enter();
+      m_sharedcnt++;
+      m_cntmutex.Leave();
+#endif
+      
+      m_mutex.Leave();
+    }
+
   private:
     WDL_Mutex m_mutex;
 #ifdef _WIN32
