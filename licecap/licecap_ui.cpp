@@ -865,6 +865,9 @@ void SaveConfig(HWND hwndDlg)
   WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
   sprintf(buf, "%d", g_gif_loopcount);
   WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
+  
+  WritePrivateProfileString("licecap","title",g_title,g_ini_file.Get());
+
 #ifdef VIDEO_ENCODER_SUPPORT
   sprintf(buf, "%d", g_cap_video_vbr);
   WritePrivateProfileString("licecap","video_vbr",buf,g_ini_file.Get());
@@ -941,7 +944,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file.Get());
       g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file.Get());
-      g_title[0]=0;
+      GetPrivateProfileString("licecap","title","",g_title,sizeof(g_title),g_ini_file.Get());
 
 #ifdef VIDEO_ENCODER_SUPPORT
       g_cap_video_vbr = GetPrivateProfileInt("licecap", "video_vbr", g_cap_video_vbr, g_ini_file.Get());
