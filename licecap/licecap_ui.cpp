@@ -83,7 +83,7 @@ HINSTANCE g_hInst;
 #define MIN_SIZE_Y 120
 
 
-int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause
+int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause, &32=transparency-fu
 
 
 int g_gif_loopcount=0;
@@ -616,6 +616,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (g_prefs&4) CheckDlgButton(hwndDlg, IDC_MOUSECAP, BST_CHECKED);
       if (g_prefs&8) CheckDlgButton(hwndDlg, IDC_TIMELINE, BST_CHECKED);
       if (g_prefs&16) CheckDlgButton(hwndDlg, IDC_SSPAUSE, BST_CHECKED);
+      if (g_prefs&32) CheckDlgButton(hwndDlg, IDC_CHECK1, BST_CHECKED);
       char buf[256];
       snprintf(buf, sizeof(buf), "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
@@ -637,6 +638,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (IsDlgButtonChecked(hwndDlg, IDC_MOUSECAP)) g_prefs |= 4;
       if (IsDlgButtonChecked(hwndDlg, IDC_TIMELINE)) g_prefs |= 8;
       if (IsDlgButtonChecked(hwndDlg, IDC_SSPAUSE)) g_prefs |= 16;
+      if (IsDlgButtonChecked(hwndDlg, IDC_CHECK1)) g_prefs |= 32;
       char buf[256];
       buf[0]=0;
       GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf)-1);
@@ -645,6 +647,7 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       g_title[0]=0;
       GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title)-1);
       if (!strcmp(g_title, "Title")) g_title[0]=0;
+
       {
         BOOL t=FALSE;
         int a=GetDlgItemInt(hwndDlg,IDC_LOOPCNT,&t,FALSE);
@@ -1348,7 +1351,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
-                g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,0,true);
+                g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,(g_prefs&32) ? -1 : 0,true);
               }
 #ifdef VIDEO_ENCODER_SUPPORT
               if (strlen(g_last_fn)>5 && !stricmp(g_last_fn+strlen(g_last_fn)-5,".webm"))
