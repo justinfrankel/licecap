@@ -1,17 +1,20 @@
 /* zutil.c -- target dependent utility functions for the compression library
- * Copyright (C) 1995-2005, 2010, 2011 Jean-loup Gailly.
+ * Copyright (C) 1995-2005, 2010, 2011, 2012 Jean-loup Gailly.
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
 /* @(#) $Id$ */
 
 #include "zutil.h"
+#ifndef Z_SOLO
+#  include "gzguts.h"
+#endif
 
 #ifndef NO_DUMMY_DECL
 struct internal_state      {int dummy;}; /* for buggy compilers */
 #endif
 
-const char * const z_errmsg[10] = {
+z_const char * const z_errmsg[10] = {
 "need dictionary",     /* Z_NEED_DICT       2  */
 "stream end",          /* Z_STREAM_END      1  */
 "",                    /* Z_OK              0  */
@@ -23,7 +26,6 @@ const char * const z_errmsg[10] = {
 "incompatible version",/* Z_VERSION_ERROR (-6) */
 ""};
 
-#if 0
 
 const char * ZEXPORT zlibVersion()
 {
@@ -86,13 +88,32 @@ uLong ZEXPORT zlibCompileFlags()
 #ifdef FASTEST
     flags += 1L << 21;
 #endif
-#ifdef Z_SOLO
-    return flags;
+#if defined(STDC) || defined(Z_HAVE_STDARG_H)
+#  ifdef NO_vsnprintf
+    flags += 1L << 25;
+#    ifdef HAS_vsprintf_void
+    flags += 1L << 26;
+#    endif
+#  else
+#    ifdef HAS_vsnprintf_void
+    flags += 1L << 26;
+#    endif
+#  endif
 #else
-    return flags + gzflags();
+    flags += 1L << 24;
+#  ifdef NO_snprintf
+    flags += 1L << 25;
+#    ifdef HAS_sprintf_void
+    flags += 1L << 26;
+#    endif
+#  else
+#    ifdef HAS_snprintf_void
+    flags += 1L << 26;
+#    endif
+#  endif
 #endif
+    return flags;
 }
-#endif
 
 #ifdef DEBUG
 

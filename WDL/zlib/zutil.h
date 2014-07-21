@@ -1,5 +1,5 @@
 /* zutil.h -- internal interface and configuration of the compression library
- * Copyright (C) 1995-2011 Jean-loup Gailly.
+ * Copyright (C) 1995-2013 Jean-loup Gailly.
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
@@ -13,7 +13,7 @@
 #ifndef ZUTIL_H
 #define ZUTIL_H
 
-#if ((__GNUC__-0) * 10 + __GNUC_MINOR__-0 >= 33) && !defined(NO_VIZ)
+#ifdef HAVE_HIDDEN
 #  define ZLIB_INTERNAL __attribute__((visibility ("hidden")))
 #else
 #  define ZLIB_INTERNAL
@@ -44,13 +44,13 @@ typedef unsigned short ush;
 typedef ush FAR ushf;
 typedef unsigned long  ulg;
 
-extern const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
+extern z_const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
 /* (size given to avoid silly warnings with Visual C++) */
 
 #define ERR_MSG(err) z_errmsg[Z_NEED_DICT-(err)]
 
 #define ERR_RETURN(strm,err) \
-  return (strm->msg = (char*)ERR_MSG(err), (err))
+  return (strm->msg = ERR_MSG(err), (err))
 /* To be used only when the state is known to be valid */
 
         /* common constants */
@@ -168,7 +168,8 @@ extern const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
 #endif
 
 /* provide prototypes for these when building zlib without LFS */
-#if !defined(_WIN32) && (!defined(_LARGEFILE64_SOURCE) || _LFS64_LARGEFILE-0 == 0)
+#if !defined(_WIN32) && \
+    (!defined(_LARGEFILE64_SOURCE) || _LFS64_LARGEFILE-0 == 0)
     ZEXTERN uLong ZEXPORT adler32_combine64 OF((uLong, uLong, z_off_t));
     ZEXTERN uLong ZEXPORT crc32_combine64 OF((uLong, uLong, z_off_t));
 #endif
@@ -244,5 +245,9 @@ extern const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
            (*((strm)->zalloc))((strm)->opaque, (items), (size))
 #define ZFREE(strm, addr)  (*((strm)->zfree))((strm)->opaque, (voidpf)(addr))
 #define TRY_FREE(s, p) {if (p) ZFREE(s, p);}
+
+/* Reverse the bytes in a 32-bit value */
+#define ZSWAP32(q) ((((q) >> 24) & 0xff) + (((q) >> 8) & 0xff00) + \
+                    (((q) & 0xff00) << 8) + (((q) & 0xff) << 24))
 
 #endif /* ZUTIL_H */

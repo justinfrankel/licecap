@@ -28,6 +28,392 @@
 
 #endif
 
+#include "denormal.h"
+
+
+char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_digits)
+{
+  value = denormal_filter_double2(value);
+
+  if (value<0.0)
+  {
+    value=-value;
+    *bufOut++ = '-';
+  }
+  if (value > 2147483647.0)
+  {
+    if (value >= 1.0e40) sprintf(bufOut, "%e", value);
+    else sprintf(bufOut, "%.*f", min(prec_digits,8), value);
+    while (*bufOut) bufOut++;
+    return bufOut;
+  }
+
+  unsigned int value_i, frac, frac2;
+  int prec_digits2 = 0;
+
+  if (prec_digits>0)
+  {
+    static const unsigned int scales[9] = 
+    { 
+      10,
+      100,
+      1000,
+      10000,
+      100000,
+      1000000,
+      10000000,
+      100000000,
+      1000000000
+    };
+
+    value_i = (unsigned int)value;
+    const int value_digits = 
+       value_i >= 10000 ? (
+         value_i >= 1000000 ?
+           (value_i >= 100000000 ? 
+            (value_i >= 1000000000 ? 10 : 9) : 
+             (value_i >= 10000000 ? 8 : 7)) :
+            (value_i >= 100000 ? 6 : 5)
+       )
+       :
+       (
+         value_i >= 100 ?
+           (value_i >= 1000 ? 4 : 3) :
+           (value_i >= 10 ? 2 : 1)
+       );
+
+           // double precision is limited to about 17 decimal digits of meaningful values
+    if (prec_digits + value_digits > 17) prec_digits = 17-value_digits;
+
+    if (prec_digits > 9) 
+    {
+      prec_digits2 = prec_digits - 9;
+      prec_digits = 9;
+      if (prec_digits2 > 9) prec_digits2 = 9;
+    }
+
+    const unsigned int prec_scale = scales[prec_digits-1];
+    const double dfrac = (value - value_i) * prec_scale;
+    if (prec_digits2 > 0)
+    {
+      const unsigned int prec_scale2 = scales[prec_digits2-1];
+      frac = (unsigned int) dfrac;
+
+      double dfrac2 = (dfrac - frac) * prec_scale2;
+      frac2 = (unsigned int) (dfrac2 + 0.5);
+
+      const int prec_scale2_small = min(prec_scale2/1024,10);
+
+      if (frac2 <= prec_scale2_small) frac2=0;
+      else if (frac2 >= prec_scale2 - prec_scale2_small - 1) frac2=prec_scale2;
+
+      if (frac2 >= prec_scale2) 
+      {
+        frac2 -= prec_scale2;
+        frac++;
+      }
+    }
+    else
+    {
+      frac = (unsigned int) (dfrac + 0.5);
+      frac2 = 0;
+      const int prec_scale_small = min(prec_scale/1024,10);
+      if (frac <= prec_scale_small) frac=0;
+      else if (frac>=prec_scale-prec_scale_small - 1) frac=prec_scale;
+    }
+
+    if (frac >= prec_scale) // round up to next integer
+    {
+      frac -= prec_scale;
+      value_i++;
+    }
+  }
+  else // round to int
+  {
+    value_i = (unsigned int)(value+0.5);
+    frac2 = frac = 0;
+  }
+
+  char digs[32];
+
+  if (value_i)
+  {
+    int tmp=value_i;
+    int x = 0;
+    do {
+      const int a = (tmp%10);
+      tmp/=10;
+      digs[x++]='0' + a;
+    } while (tmp);
+
+    while (x>0) *bufOut++ = digs[--x];
+  }
+  else
+  {
+    *bufOut++ = '0';
+  }
+
+
+  if (frac || frac2)
+  {
+    int x = 0;
+    int tmp=frac;
+    int dleft = prec_digits;
+    *bufOut++='.';
+
+    if (frac) do
+    {   
+      const int a = (tmp%10);
+      tmp /= 10;
+      if (x || a || frac2) digs[x++] = '0'+a;
+    } while (dleft-- > 0 && tmp);
+
+    while (dleft-->0) *bufOut++ = '0';
+    while (x>0) *bufOut++ = digs[--x];
+    // x is 0
+
+    if (frac2)
+    {
+      tmp=frac2;
+      dleft = prec_digits2;
+      do
+      {   
+        const int a = (tmp%10);
+        tmp /= 10;
+        if (x || a) digs[x++] = '0'+a;
+      } while (dleft-- > 0 && tmp);
+
+      while (dleft-->0) *bufOut++ = '0';
+      while (x>0) *bufOut++ = digs[--x];
+    }
+  }
+
+  *bufOut = 0;
+  return bufOut;
+}
+
+int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt, va_list va)
+{
+  int wroffs=0;
+
+  while (*fmt && outbuf_size > 1)
+  {
+    char c = *fmt++;
+    if (c != '%') 
+    {
+      outbuf[wroffs++] = c;
+      outbuf_size--;
+      continue;
+    }
+
+    if (*fmt == '%')
+    {
+      outbuf[wroffs++] = '%';
+      outbuf_size--;
+      fmt++;
+      continue;
+    }
+
+
+    const char *ofmt = fmt-1;
+    bool want_abort=false;
+
+    int has_prec=0;
+    int prec=0;
+    if (*fmt == '.')
+    {
+      has_prec=1;
+      fmt++;
+      while (*fmt >= '0' && *fmt <= '9') prec = prec*10 + (*fmt++-'0');
+      if (*fmt != 'f' || prec < 0 || prec>20)
+      {
+        want_abort=true;
+      }
+    }
+    else if (*fmt == '0')
+    {
+      has_prec=2;
+      fmt++;
+      while (*fmt >= '0' && *fmt <= '9') prec = prec*10 + (*fmt++-'0');
+      if (*fmt != 'x' && *fmt != 'X' && *fmt != 'd' && *fmt != 'u')
+      {
+        want_abort=true;
+      }
+    }
+
+    c = *fmt++;
+    if (!want_abort) switch (c)
+    {
+      case '@':
+      case 'p':
+      case 's':
+      {
+        const char *str=va_arg(va,const char *);
+        const char qc = outbuf_size >= 3 && c != 's' ? getConfigStringQuoteChar(str) : ' ';
+        
+        if (qc != ' ')
+        {
+          outbuf[wroffs++] = qc ? qc : '`';
+          outbuf_size-=2; // will add trailing quote below
+        }
+        
+        if (str) while (outbuf_size > 1 && *str)
+        {
+          char v = *str++;
+          if (!qc && v == '`') v = '\'';
+          outbuf[wroffs++] = v;
+          outbuf_size--;
+        }
+
+        if (qc != ' ')
+        {
+          outbuf[wroffs++] = qc ? qc : '`';
+          // outbuf_size already decreased above
+        }
+      }
+      break;
+      case 'c':
+      {
+        int v = va_arg(va,int);
+        outbuf[wroffs++] = v&0xff;
+        outbuf_size--;
+      }
+      break;
+      case 'd':
+      {
+        int v = va_arg(va,int);
+        if (v<0)
+        {
+          outbuf[wroffs++] = '-';
+          outbuf_size--;
+          v=-v; // this won't handle -2147483648 right, todo special case?
+        }
+
+        char tab[32];
+        int x=0;
+        do
+        {
+          tab[x++] = v%10;
+          v/=10;
+        }
+        while (v);
+        if (has_prec == 2) while (x<prec) { tab[x++] = 0; }
+
+        while (--x >= 0 && outbuf_size>1)
+        {
+          outbuf[wroffs++] = '0' + tab[x];
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'u':
+      {
+        unsigned int v = va_arg(va,unsigned int);
+
+        char tab[32];
+        int x=0;
+        do
+        {
+          tab[x++] = v%10;
+          v/=10;
+        }
+        while (v);
+        if (has_prec == 2) while (x<prec) { tab[x++] = 0; }
+
+        while (--x >= 0 && outbuf_size>1)
+        {
+          outbuf[wroffs++] = '0' + tab[x];
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'x':
+      case 'X':
+      {
+        const char base = (c - 'x') + 'a';
+        unsigned int v = va_arg(va,unsigned int);
+
+        char tab[32];
+        int x=0;
+        do
+        {
+          tab[x++] = v&0xf;
+          v>>=4;
+        }
+        while (v);
+      
+        if (has_prec == 2) while (x<prec) { tab[x++] = 0; }
+
+        while (--x >= 0 && outbuf_size>1)
+        {
+          if (tab[x] < 10)
+            outbuf[wroffs++] = '0' + tab[x];
+          else 
+            outbuf[wroffs++] = base + tab[x] - 10;
+
+          outbuf_size--;
+        }
+      }
+      break;
+      case 'f':
+      {
+        double v = va_arg(va,double);
+        if (outbuf_size<64)
+        {
+          char tmp[64];
+          projectcontext_fastDoubleToString(v,tmp,has_prec?prec:6);
+          const char *str = tmp;
+          while (outbuf_size > 1 && *str)
+          {
+            outbuf[wroffs++] = *str++;
+            outbuf_size--;
+          }
+        }
+        else
+        {
+          const char *p=projectcontext_fastDoubleToString(v,outbuf+wroffs,has_prec?prec:6);
+          int amt = (int) (p-(outbuf+wroffs));
+          wroffs += amt;
+          outbuf_size-=amt;
+        }
+      }
+      break;
+      default:
+        want_abort=true;
+      break;
+    }   
+    if (want_abort)
+    {
+#if defined(_WIN32) && defined(_DEBUG)
+      OutputDebugString("ProjectContextFormatString(): falling back to stock vsnprintf because of:");
+      OutputDebugString(ofmt);
+#endif
+      fmt=ofmt;
+      break;
+    }
+  }
+
+  outbuf += wroffs;
+  outbuf[0] = 0;
+  if (outbuf_size<2||!*fmt)
+    return wroffs;
+
+#if defined(_WIN32) && defined(_MSC_VER)
+  const int l = _vsnprintf(outbuf,outbuf_size,fmt,va); // _vsnprintf() does not always null terminate
+  if (l < 0 || l >= (int)outbuf_size)
+  {
+    outbuf[outbuf_size-1] = 0;
+    return wroffs + (int)strlen(outbuf);
+  }
+#else
+  // vsnprintf() on non-win32, always null terminates
+  const int l = vsnprintf(outbuf,outbuf_size,fmt,va);
+  if (l >= (int)outbuf_size-1) return wroffs + (int)outbuf_size-1;
+#endif
+  return wroffs+l;
+}
+
+
 
 class ProjectStateContext_Mem : public ProjectStateContext
 {
@@ -145,27 +531,16 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
     use_buf = va_arg(va,const char *);
-    l=use_buf ? (strlen(use_buf)+1) : 0;
+    l=use_buf ? ((int)strlen(use_buf)+1) : 0;
   }
   else
   {
-    tmp[0]=0;
-    #if defined(_WIN32) && defined(_MSC_VER)
-      l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-      if (l < 0 || l >= sizeof(tmp)) 
-      {
-        tmp[sizeof(tmp)-1]=0;
-        l = strlen(tmp);
-      }
-    #else
-      // vsnprintf() on non-win32, always null terminates
-      l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-      if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
-    #endif
+    l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va) + 1;
     use_buf = tmp;
-    l++; // include NULL term
   }
   va_end(va);
+
+  if (l < 1) return;
 
 
 #ifdef WDL_MEMPROJECTCONTEXT_USE_ZLIB
@@ -177,20 +552,20 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 
   if (m_usecomp==1)
   {
-    m_compdatabuf.Add(use_buf,l);
+    m_compdatabuf.Add(use_buf,(int)l);
     FlushComp(false);
     return;
   }
 #endif
 
 
-  int sz=m_heapbuf->GetSize();
+  const int sz=m_heapbuf->GetSize();
   if (!sz && m_heapbuf->GetGranul() < 256*1024)
   {
     m_heapbuf->SetGranul(256*1024);
   }
 
-  int newsz = sz + l;
+  const int newsz = sz + l;
   char *p = (char *)m_heapbuf->Resize(newsz);
   if (m_heapbuf->GetSize() != newsz)
   {
@@ -289,6 +664,7 @@ public:
     m_bytesOut=0;
     m_errcnt=false; 
     m_tmpflag=0;
+    rdbuf_pos = rdbuf_valid = 0;
   }
   virtual ~ProjectStateContext_File(){ delete m_rd; delete m_wr; };
 
@@ -306,41 +682,44 @@ public:
 
   WDL_FileRead *m_rd;
   WDL_FileWrite *m_wr;
+
+  char rdbuf[4096];
+  int rdbuf_pos, rdbuf_valid;
+
   int m_indent;
   int m_tmpflag;
   bool m_errcnt;
+
 };
 
 int ProjectStateContext_File::GetLine(char *buf, int buflen)
 {
   if (!m_rd||buflen<2) return -1;
 
-  buf[0]=0;
-  for (;;)
+  int i=0;
+  while (i<buflen-1)
   {
-    buf[0]=0;
-    int i=0;
-    while (i<buflen-1)
+    if (rdbuf_pos>=rdbuf_valid)
     {
-      if (!m_rd->Read(buf+i,1)) { if (!i) return -1; break; }
-
-      if (buf[i] == '\r' || buf[i] == '\n')  
-      {
-        if (!i) continue; // skip over leading newlines
-        break;
-      }
-
-      if (!i && (buf[0] == ' ' || buf[0] == '\t')) continue; // skip leading blanks
-
-      i++;
+      rdbuf_pos = 0;
+      rdbuf_valid = m_rd->Read(rdbuf, sizeof(rdbuf));
+      if (rdbuf_valid<1) break;
     }
-    if (i<1) continue;
+    const char c = rdbuf[rdbuf_pos++];
 
-    buf[i]=0;
-
-    if (buf[0]) return 0;
+    if (!i)
+    {
+      if (c != '\r' && c != '\n' && c != ' ' && c != '\t')
+        buf[i++] = c;
+    }
+    else
+    {
+      if (c == '\r' || c == '\n') break;
+      buf[i++] = c;
+    }
   }
-  return -1;
+  buf[i]=0;
+  return buf[0] ? 0 : -1;
 }
 
 void ProjectStateContext_File::AddLine(const char *fmt, ...)
@@ -353,35 +732,23 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     const char *use_buf;
     va_list va;
     va_start(va,fmt);
-    int l=0;
+    int l;
 
     if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
     {
       // special case "%s" passed, directly use it
       use_buf = va_arg(va,const char *);
-      if (use_buf) l=strlen(use_buf);
-      else use_buf="";
+      l=use_buf ? (int)strlen(use_buf) : -1;
     }
     else
     {
-      tmp[0]=0;
-      #if defined(_WIN32) && defined(_MSC_VER)
-        l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-        if (l < 0 || l >= sizeof(tmp)) 
-        {
-          tmp[sizeof(tmp)-1] = 0;
-          l = strlen(tmp);
-        }
-     #else
-       // vsnprintf() on non-win32, always null terminates
-       l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-       if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
-     #endif
-
-       use_buf = tmp;
+      l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va);
+      use_buf = tmp;
     }
 
     va_end(va);
+    if (l < 0) return;
+
 
     int a=m_indent;
     if (use_buf[0] == '<') m_indent+=2;
@@ -391,17 +758,15 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     {
       m_bytesOut+=a;
       char tb[128];
-      memset(tb,' ',a < sizeof(tb) ? a : sizeof(tb));
+      memset(tb,' ',a < (int)sizeof(tb) ? a : (int)sizeof(tb));
       while (a>0) 
       {
-        const int tl = a < sizeof(tb) ? a : sizeof(tb);
+        const int tl = a < (int)sizeof(tb) ? a : (int)sizeof(tb);
         a-=tl;     
         m_wr->Write(tb,tl);
       }
     }
 
-
-    
     err |= m_wr->Write(use_buf,l) != l;
     err |= m_wr->Write("\r\n",2) != 2;
     m_bytesOut += 2 + l;
@@ -483,40 +848,21 @@ void ProjectStateContext_FastQueue::AddLine(const char *fmt, ...)
 {
   if (!m_fq) return;
 
-  char tmp[8192];
-
-  const char *use_buf;
-  int l;
-
   va_list va;
   va_start(va,fmt);
 
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
-    use_buf = va_arg(va,const char *);
-    l=use_buf ? (strlen(use_buf)+1) : 0;
+    const char *p = va_arg(va,const char *);
+    if (p) m_fq->Add(p, (int) strlen(p) + 1);
   }
   else
   {
-    tmp[0]=0;
-    #if defined(_WIN32) && defined(_MSC_VER)
-      l = _vsnprintf(tmp,sizeof(tmp),fmt,va); // _vsnprintf() does not always null terminate
-      if (l < 0 || l >= sizeof(tmp)) 
-      {
-        tmp[sizeof(tmp)-1]=0;
-        l = strlen(tmp);
-      }
-    #else
-      // vsnprintf() on non-win32, always null terminates
-      l = vsnprintf(tmp,sizeof(tmp),fmt,va);
-      if (l>sizeof(tmp)-1) l=sizeof(tmp)-1;
-    #endif
-    use_buf = tmp;
-    l++; // include NULL term
+    char tmp[8192];
+    const int l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va);
+    if (l>0) m_fq->Add(tmp, l+1);
   }
   va_end(va);
-
-  m_fq->Add(use_buf,l);
 }
 
 
@@ -603,11 +949,8 @@ static void pc_base64encode(const unsigned char *in, char *out, int len)
 
 static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
 {
-  unsigned char *olddest=dest;
-
-  int accum=0;
-  int nbits=0;
-  while (*src)
+  int accum=0, nbits=0, wpos=0;
+  while (*src && wpos < destsize)
   {
     int x=0;
     char c=*src++;
@@ -618,19 +961,16 @@ static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
     else if (c == '/') x=63;
     else break;
 
-    accum <<= 6;
-    accum |= x;
+    accum = (accum << 6) | x;
     nbits += 6;   
 
-    while (nbits >= 8)
+    while (nbits >= 8 && wpos < destsize)
     {
-      if (--destsize<0) break;
       nbits-=8;
-      *dest++ = (char)((accum>>nbits)&0xff);
+      dest[wpos++] = (char)((accum>>nbits)&0xff);
     }
-
   }
-  return dest-olddest;
+  return wpos;
 }
 
 
@@ -765,24 +1105,46 @@ void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
   }
 }
 
-
-void makeEscapedConfigString(const char *in, WDL_String *out)
+char getConfigStringQuoteChar(const char *p)
 {
+  if (!p || !*p) return '"';
+
+  char fc = *p;
   int flags=0;
-  const char *p=in;
-  while (*p && flags!=7)
+  while (*p && flags!=15)
   {
     char c=*p++;
     if (c=='"') flags|=1;
     else if (c=='\'') flags|=2;
     else if (c=='`') flags|=4;
+    else if (c == ' ' || c == '\t') flags |= 8;
   }
-  if (flags!=7)
+#ifndef PROJECTCONTEXT_USE_QUOTES_WHEN_NO_SPACES
+  if (!(flags & 8) && fc != '"' && fc != '\'' && fc != '`' && fc != '#' && fc != ';') return ' ';
+#endif
+
+  if (!(flags & 1)) return '"';
+  if (!(flags & 2)) return '\'';
+  if (!(flags & 4)) return '`';
+  return 0;
+}
+
+void makeEscapedConfigString(const char *in, WDL_String *out)
+{
+  char c;
+  if (!in || !*in) out->Set("\"\"");
+  else if ((c = getConfigStringQuoteChar(in)))
   {
-    const char *src=(flags&1)?((flags&2)?"`":"'"):"\"";
-    out->Set(src);
-    out->Append(in);
-    out->Append(src);
+    if (c == ' ') 
+    {
+      out->Set(in);
+    }
+    else
+    {
+      out->Set(&c,1);
+      out->Append(in);
+      out->Append(&c,1);
+    }
   }
   else  // ick, change ` into '
   {
@@ -790,6 +1152,37 @@ void makeEscapedConfigString(const char *in, WDL_String *out)
     out->Append(in);
     out->Append("`");
     char *p=out->Get()+1;
+    while (*p && p[1])
+    {
+      if (*p == '`') *p='\'';
+      p++;
+    }
+  }
+}
+
+void makeEscapedConfigString(const char *in, WDL_FastString *out)
+{
+  char c;
+  if (!in || !*in) out->Set("\"\"");
+  else if ((c = getConfigStringQuoteChar(in)))
+  {
+    if (c == ' ') 
+    {
+      out->Set(in);
+    }
+    else
+    {
+      out->Set(&c,1);
+      out->Append(in);
+      out->Append(&c,1);
+    }
+  }
+  else  // ick, change ` into '
+  {
+    out->Set("`");
+    out->Append(in);
+    out->Append("`");
+    char *p=(char *)out->Get()+1;
     while (*p && p[1])
     {
       if (*p == '`') *p='\'';

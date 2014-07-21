@@ -63,7 +63,7 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
   
 	if (etype==NSKeyDown||etype==NSKeyUp)
 	{
-    int msgtype = etype==NSKeyDown ? WM_KEYDOWN : WM_KEYUP;
+    const UINT msgtype = etype==NSKeyDown ? WM_KEYDOWN : WM_KEYUP;
     int flag,code=SWELL_MacKeyToWindowsKey(anEvent,&flag);
     
     if (focwnd)

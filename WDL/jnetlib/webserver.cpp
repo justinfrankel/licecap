@@ -13,93 +13,15 @@
 #include "jnetlib.h"
 #include "webserver.h"
 
-class WS_ItemList 
-{
-  public:
-    WS_ItemList() { m_size=0; m_list=0; }
-    ~WS_ItemList() { ::free(m_list); }
-
-    void *Add(void *i);
-    void *Get(int w);
-    void Del(int idx);
-    int GetSize(void) { return m_size; }
-  protected:
-    void **m_list;
-    int m_size;
-};
-
-class WS_conInst
-{
-public:
-  WS_conInst(JNL_IConnection *c, int which_port);
-  ~WS_conInst();
-
-  // these will be used by WebServerBaseClass::onConnection yay
-  JNL_HTTPServ m_serv;
-  IPageGenerator *m_pagegen;
-
-
-  int m_port; // port this came in on
-  time_t m_connect_time;
-};
-
-
-
-void *WS_ItemList::Add(void *i)
-{
-  if (!m_list || !(m_size&31))
-  {
-    m_list=(void**)::realloc(m_list,sizeof(void*)*(m_size+32));
-  }
-  m_list[m_size++]=i;
-  return i;
-}
-void *WS_ItemList::Get(int w) { if (w >= 0 && w < m_size) return m_list[w]; return NULL; }
-
-void WS_ItemList::Del(int idx)
-{
-  if (m_list && idx >= 0 && idx < m_size)
-  {
-    m_size--;
-    if (idx != m_size) ::memcpy(m_list+idx,m_list+idx+1,sizeof(void *)*(m_size-idx));
-    if (!(m_size&31)&&m_size) // resize down
-    {
-      m_list=(void**)::realloc(m_list,sizeof(void*)*m_size);
-    }
-  }
-}
-
-
-WS_conInst::WS_conInst(JNL_IConnection *c, int which_port) : m_serv(c), m_port(which_port)
-{
-  m_pagegen=0;
-  time(&m_connect_time);
-}
-
-WS_conInst::~WS_conInst()
-{
-  delete m_pagegen;
-}
 
 WebServerBaseClass::~WebServerBaseClass()
 {
-  int x;
-  for (x = 0; x < m_connections->GetSize(); x ++)
-  {
-    delete (WS_conInst *)m_connections->Get(x);
-  }
-  delete m_connections;
-  for (x = 0; x < m_listeners->GetSize(); x ++)
-  {
-    delete (JNL_Listen *)m_listeners->Get(x);
-  }
-  delete m_listeners;
+  m_connections.Empty(true);
+  m_listeners.Empty(true);
 }
 
 WebServerBaseClass::WebServerBaseClass()
 {
-  m_connections=new WS_ItemList;
-  m_listeners=new WS_ItemList;
   m_listener_rot=0;
   m_timeout_s=30;
   m_max_con=100;
@@ -120,8 +42,8 @@ int WebServerBaseClass::addListenPort(int port, unsigned int which_interface)
 {
   removeListenPort(port);
 
-  JNL_Listen *p=new JNL_Listen(port,which_interface);
-  m_listeners->Add((void *)p);
+  JNL_IListen *p=new JNL_Listen(port,which_interface);
+  m_listeners.Add(p);
   if (p->is_error()) return -1;
   return 0;
 }
@@ -129,13 +51,12 @@ int WebServerBaseClass::addListenPort(int port, unsigned int which_interface)
 void WebServerBaseClass::removeListenPort(int port)
 {
   int x;
-  for (x = 0; x < m_listeners->GetSize(); x ++)
+  for (x = 0; x < m_listeners.GetSize(); x ++)
   {
-    JNL_Listen *p=(JNL_Listen *)m_listeners->Get(x);
+    JNL_IListen *p=m_listeners.Get(x);
     if (p->port()==port)
     {
-      delete p;
-      m_listeners->Del(x);
+      m_listeners.Delete(x,true);
       break;
     }
   }
@@ -143,17 +64,12 @@ void WebServerBaseClass::removeListenPort(int port)
 
 void WebServerBaseClass::removeListenIdx(int idx)
 {
-  if (idx >= 0 && idx < m_listeners->GetSize())
-  {
-    JNL_Listen *p=(JNL_Listen *)m_listeners->Get(idx);
-    delete p;
-    m_listeners->Del(idx);
-  }
+  m_listeners.Delete(idx,true);
 }
 
 int WebServerBaseClass::getListenPort(int idx, int *err)
 {
-  JNL_Listen *p=(JNL_Listen *)m_listeners->Get(idx);
+  JNL_IListen *p=m_listeners.Get(idx);
   if (p)
   {
     if (err) *err=p->is_error();
@@ -164,15 +80,15 @@ int WebServerBaseClass::getListenPort(int idx, int *err)
 
 void WebServerBaseClass::attachConnection(JNL_IConnection *con, int port)
 {
-  m_connections->Add((void*)new WS_conInst(con,port));
+  m_connections.Add(new WS_conInst(con,port));
 }
 
 void WebServerBaseClass::run(void)
 {
   int nl;
-  if (m_connections->GetSize() < m_max_con && (nl=m_listeners->GetSize()))
+  if (m_connections.GetSize() < m_max_con && (nl=m_listeners.GetSize()))
   {
-    JNL_Listen *l=(JNL_Listen *)m_listeners->Get(m_listener_rot++ % nl);
+    JNL_IListen *l=m_listeners.Get(m_listener_rot++ % nl);
     JNL_IConnection *c=l->get_connect();
     if (c)
     {
@@ -183,9 +99,9 @@ void WebServerBaseClass::run(void)
     }
   }
   int x;
-  for (x = 0; x < m_connections->GetSize(); x ++)
+  for (x = 0; x < m_connections.GetSize(); x ++)
   {
-    WS_conInst *ci = (WS_conInst *)m_connections->Get(x);
+    WS_conInst *ci = m_connections.Get(x);
     int rv = run_connection(ci);
 
     if (rv<0)
@@ -201,8 +117,7 @@ void WebServerBaseClass::run(void)
 
     if (rv)
     {
-      delete ci;
-      m_connections->Del(x--);
+      m_connections.Delete(x--,true);
     }
   }
 }
@@ -237,7 +152,7 @@ int WebServerBaseClass::run_connection(WS_conInst *con)
     int l=con->m_serv.bytes_cansend();
     if (l > 0)
     {
-      if (l > sizeof(buf))l=sizeof(buf);
+      if (l > (int)sizeof(buf)) l=(int)sizeof(buf);
       l=con->m_pagegen->GetData(buf,l);
       if (l < (con->m_pagegen->IsNonBlocking() ? 0 : 1)) // if nonblocking, this is l < 0, otherwise it's l<1
       {

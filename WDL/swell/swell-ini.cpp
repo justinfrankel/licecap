@@ -357,6 +357,31 @@ BOOL WritePrivateProfileString(const char *appname, const char *keyname, const c
   return TRUE;
 }
 
+static void lstrcpyn_trimmed(char* dest, const char* src, int len)
+{
+  if (len<1) return;
+  // Mimic Win32 behavior of stripping quotes and whitespace
+  while (*src==' ' || *src=='\t') ++src; // Strip beginning whitespace
+
+  const char *end = src;
+  if (*end) while (end[1]) end++;
+
+  while (end >= src && (*end==' ' || *end=='\t')) --end; // Strip end whitespace
+
+  if (end > src && ((*src=='\"' && *end=='\"') || (*src=='\'' && *end=='\'')))
+  {	
+    // Strip initial set of "" or ''
+    ++src; 
+    --end;
+  }
+
+  int newlen = (int) (end-src+2);
+  if (newlen < 1) newlen = 1;
+  else if (newlen > len) newlen = len;
+
+  lstrcpyn_safe(dest, src, newlen);
+}	
+
 DWORD GetPrivateProfileSection(const char *appname, char *strout, DWORD strout_len, const char *fn)
 {
   WDL_MutexLock lock(&m_mutex);
@@ -383,19 +408,20 @@ DWORD GetPrivateProfileSection(const char *appname, char *strout, DWORD strout_l
        
 #define WRSTR(v) \
         l= strlen(v); \
-        if (l > strout_len - szOut - 2) l = strout_len - 2 - szOut; \
+        if (l > (int)strout_len - szOut - 2) l = (int)strout_len - 2 - szOut; \
         if (l>0) { memcpy(strout+szOut,v,l); szOut+=l; }
         
         WRSTR(kv)
         WRSTR("=")
-        WRSTR(val)
-        
 #undef WRSTR
 
+        lstrcpyn_trimmed(strout+szOut, val, (int)strout_len - szOut - 2);
+        szOut += strlen(strout+szOut);
+
         l=1;
-        if (l > strout_len - szOut - 1) l = strout_len - 1 - szOut;
+        if (l > (int)strout_len - szOut - 1) l = (int)strout_len - 1 - szOut;
         if (l>0) { memset(strout+szOut,0,l); szOut+=l; }
-        if (szOut >= strout_len-1)
+        if (szOut >= (int)strout_len-1)
         {
           strout[strout_len-1]=0;
           return strout_len-2;
@@ -464,7 +490,7 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
       const char *val = cursec->Get(keyname);
       if (val)
       {
-        lstrcpyn_safe(ret,val,retsize);
+        lstrcpyn_trimmed(ret,val,retsize);
         return strlen(ret);
       }
     }

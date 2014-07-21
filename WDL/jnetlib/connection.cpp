@@ -29,7 +29,7 @@ JNL_Connection::JNL_Connection(JNL_IAsyncDNS *dns, int sendbufsize, int recvbufs
   m_send_buffer_len=sendbufsize;
   m_recv_buffer=(char*)malloc(m_recv_buffer_len);
   m_send_buffer=(char*)malloc(m_send_buffer_len);
-  m_socket=-1;
+  m_socket=INVALID_SOCKET;
   memset(m_recv_buffer,0,recvbufsize);
   memset(m_send_buffer,0,sendbufsize);
   m_remote_port=0;
@@ -42,7 +42,7 @@ JNL_Connection::JNL_Connection(JNL_IAsyncDNS *dns, int sendbufsize, int recvbufs
   memset(m_saddr,0,sizeof(struct sockaddr_in));
 }
 
-void JNL_Connection::connect(int s, struct sockaddr_in *loc)
+void JNL_Connection::connect(SOCKET s, struct sockaddr_in *loc)
 {
   close(1);
   m_socket=s;
@@ -50,7 +50,7 @@ void JNL_Connection::connect(int s, struct sockaddr_in *loc)
   m_dns=NULL;
   if (loc) *m_saddr=*loc;
   else memset(m_saddr,0,sizeof(struct sockaddr_in));
-  if (m_socket != -1)
+  if (m_socket != INVALID_SOCKET)
   {
     SET_SOCK_BLOCK(m_socket,0);
     m_state=STATE_CONNECTED;
@@ -62,12 +62,12 @@ void JNL_Connection::connect(int s, struct sockaddr_in *loc)
   }
 }
 
-void JNL_Connection::connect(char *hostname, int port)
+void JNL_Connection::connect(const char *hostname, int port)
 {
   close(1);
   m_remote_port=(short)port;
   m_socket=::socket(AF_INET,SOCK_STREAM,0);
-  if (m_socket==-1)
+  if (m_socket==INVALID_SOCKET)
   {
     m_errorstr="creating socket";
     m_state=STATE_ERROR;
@@ -102,11 +102,11 @@ void JNL_Connection::connect(char *hostname, int port)
 
 JNL_Connection::~JNL_Connection()
 {
-  if (m_socket >= 0)
+  if (m_socket != INVALID_SOCKET)
   {
     ::shutdown(m_socket, SHUT_RDWR);
     ::closesocket(m_socket);
-    m_socket=-1;
+    m_socket=INVALID_SOCKET;
   }
   free(m_recv_buffer);
   free(m_send_buffer);
@@ -166,7 +166,13 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
         FD_SET(m_socket,&f[2]);
         struct timeval tv;
         memset(&tv,0,sizeof(tv));
-        if (select(m_socket+1,&f[0],&f[1],&f[2],&tv)==-1)
+        if (select(
+#ifdef _WIN32
+          0
+#else
+          m_socket+1
+#endif
+          ,&f[0],&f[1],&f[2],&tv)==-1)
         {
           m_errorstr="connecting to host (calling select())";
           m_state=STATE_ERROR;
@@ -289,12 +295,12 @@ void JNL_Connection::close(int quick)
   if (quick || m_state == STATE_RESOLVING || m_state == STATE_CONNECTING)
   {
     m_state=STATE_CLOSED;
-    if (m_socket >= 0)
+    if (m_socket != INVALID_SOCKET)
     {
       ::shutdown(m_socket, SHUT_RDWR);
       ::closesocket(m_socket);
     }
-    m_socket=-1;
+    m_socket=INVALID_SOCKET;
     memset(m_recv_buffer,0,m_recv_buffer_len);
     memset(m_send_buffer,0,m_send_buffer_len);
     m_remote_port=0;
@@ -350,7 +356,7 @@ int JNL_Connection::send(const void *_data, int length)
 
 int JNL_Connection::send_string(const char *line)
 {
-  return send(line,strlen(line));
+  return send(line,(int)strlen(line));
 }
 
 int JNL_Connection::recv_bytes_available(void)
@@ -460,7 +466,7 @@ void JNL_Connection::set_interface(int useInterface) // call before connect if n
 
 unsigned int JNL_Connection::get_interface(void)
 {
-  if (m_socket==-1) return 0;
+  if (m_socket==INVALID_SOCKET) return 0;
   struct sockaddr_in sin;
   memset(&sin,0,sizeof(sin));
   socklen_t len=16;

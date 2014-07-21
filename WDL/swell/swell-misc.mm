@@ -203,6 +203,19 @@ void SWELL_QuitAutoRelease(void *p)
     [(NSAutoreleasePool*)p release];
 }
 
+void SWELL_RunEvents()
+{
+  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+  int x=100;
+  while (x-- > 0)
+  {
+    NSEvent *event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate dateWithTimeIntervalSinceNow:0.001] inMode:NSDefaultRunLoopMode dequeue:YES];
+    if (!event) break;
+    [NSApp sendEvent:event];
+  }
+  [pool release];
+}
+
 // timer stuff
 typedef struct TimerInfoRec
 {

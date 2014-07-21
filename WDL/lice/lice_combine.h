@@ -20,31 +20,14 @@
 #define LICE_PIXEL_EIGHTH(x) (((x)>>3)&0x1F1F1F1F)
 
 
-
-#if defined(_MSC_VER) && !defined(_WIN64)
-static inline int __LICE_TOINT(double x) // don't use this _everywhere_ since it doesnt round the same as (int)
+static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int xfrac, unsigned int yfrac)
 {
-  int tmp;
-  __asm
-  {
-    fld x
-    fistp tmp
-  };
-  return tmp;
-}
-#else
-#define __LICE_TOINT(x) ((int)(x))
-#endif
-
-
-static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int xfrac, int yfrac)
-{
-  int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
-  int f2=xfrac-f4; // xfrac*(1.0-yfrac);
-  int f1=65536-yfrac-f2; // (1.0-xfrac)*(1.0-yfrac);
+  const unsigned int f4=(xfrac*yfrac)>>16;
+  const unsigned int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  const unsigned int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  const unsigned int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   #define DOCHAN(output, inchan) \
-    (output)=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)/65536;
+    (output)=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)>>16;
   DOCHAN(*r,LICE_PIXEL_R)
   DOCHAN(*g,LICE_PIXEL_G)
   DOCHAN(*b,LICE_PIXEL_B)
@@ -52,14 +35,14 @@ static inline void __LICE_BilinearFilterI(int *r, int *g, int *b, int *a, LICE_p
   #undef DOCHAN
 }
 
-static inline void __LICE_BilinearFilterIPixOut(LICE_pixel_chan *out, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int xfrac, int yfrac)
+static inline void __LICE_BilinearFilterIPixOut(LICE_pixel_chan *out, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int xfrac, unsigned int yfrac)
 {
-  int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
-  int f2=xfrac-f4; // xfrac*(1.0-yfrac);
-  int f1=65536-yfrac-f2; // (1.0-xfrac)*(1.0-yfrac);
+  const unsigned int f4=(xfrac*yfrac)>>16;
+  const unsigned int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  const unsigned int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  const unsigned int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
   #define DOCHAN(inchan) \
-    (out[inchan])=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)/65536;
+    (out[inchan])=(pin[(inchan)]*f1 + pin[4+(inchan)]*f2 + pinnext[(inchan)]*f3 + pinnext[4+(inchan)]*f4)>>16;
   DOCHAN(LICE_PIXEL_R)
   DOCHAN(LICE_PIXEL_G)
   DOCHAN(LICE_PIXEL_B)
@@ -68,35 +51,34 @@ static inline void __LICE_BilinearFilterIPixOut(LICE_pixel_chan *out, LICE_pixel
 }
 
 
-static inline void __LICE_BilinearFilterI_2(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int npoffs, int xfrac, int yfrac)
+static inline void __LICE_BilinearFilterI_2(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, int npoffs, unsigned int xfrac, unsigned int yfrac)
 {
-  int f4=((unsigned int)xfrac*(unsigned int)yfrac)/65536;
-  int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
-  int f2=xfrac-f4; // xfrac*(1.0-yfrac);
-  int f1=65536-yfrac-f2; // (1.0-xfrac)*(1.0-yfrac);
-  npoffs*=4;
-  *r=(pin[LICE_PIXEL_R]*f1 + pin[npoffs+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[npoffs+LICE_PIXEL_R]*f4)/65536;
-  *g=(pin[LICE_PIXEL_G]*f1 + pin[npoffs+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[npoffs+LICE_PIXEL_G]*f4)/65536;
-  *b=(pin[LICE_PIXEL_B]*f1 + pin[npoffs+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[npoffs+LICE_PIXEL_B]*f4)/65536;
-  *a=(pin[LICE_PIXEL_A]*f1 + pin[npoffs+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[npoffs+LICE_PIXEL_A]*f4)/65536;
+  const unsigned int f4=(xfrac*yfrac)>>16;
+  const unsigned int f3=yfrac-f4; // (1.0-xfrac)*yfrac;
+  const unsigned int f2=xfrac-f4; // xfrac*(1.0-yfrac);
+  const unsigned int f1=65536-yfrac-xfrac+f4; // (1.0-xfrac)*(1.0-yfrac);
+  *r=(pin[LICE_PIXEL_R]*f1 + pin[npoffs+LICE_PIXEL_R]*f2 + pinnext[LICE_PIXEL_R]*f3 + pinnext[npoffs+LICE_PIXEL_R]*f4)>>16;
+  *g=(pin[LICE_PIXEL_G]*f1 + pin[npoffs+LICE_PIXEL_G]*f2 + pinnext[LICE_PIXEL_G]*f3 + pinnext[npoffs+LICE_PIXEL_G]*f4)>>16;
+  *b=(pin[LICE_PIXEL_B]*f1 + pin[npoffs+LICE_PIXEL_B]*f2 + pinnext[LICE_PIXEL_B]*f3 + pinnext[npoffs+LICE_PIXEL_B]*f4)>>16;
+  *a=(pin[LICE_PIXEL_A]*f1 + pin[npoffs+LICE_PIXEL_A]*f2 + pinnext[LICE_PIXEL_A]*f3 + pinnext[npoffs+LICE_PIXEL_A]*f4)>>16;
 }
 
 
-static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int frac)
+static inline void __LICE_LinearFilterI(int *r, int *g, int *b, int *a, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int frac)
 {
-  int f=65536-frac;
-  *r=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)/65536;
-  *g=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)/65536;
-  *b=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)/65536;
-  *a=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)/65536;
+  const unsigned int f=65536-frac;
+  *r=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)>>16;
+  *g=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)>>16;
+  *b=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)>>16;
+  *a=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)>>16;
 }
-static inline void __LICE_LinearFilterIPixOut(LICE_pixel_chan *out, LICE_pixel_chan *pin, LICE_pixel_chan *pinnext, int frac)
+static inline void __LICE_LinearFilterIPixOut(LICE_pixel_chan *out, const LICE_pixel_chan *pin, const LICE_pixel_chan *pinnext, unsigned int frac)
 {
-  int f=65536-frac;
-  out[LICE_PIXEL_R]=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)/65536;
-  out[LICE_PIXEL_G]=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)/65536;
-  out[LICE_PIXEL_B]=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)/65536;
-  out[LICE_PIXEL_A]=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)/65536;
+  const unsigned int f=65536-frac;
+  out[LICE_PIXEL_R]=(pin[LICE_PIXEL_R]*f + pinnext[LICE_PIXEL_R]*frac)>>16;
+  out[LICE_PIXEL_G]=(pin[LICE_PIXEL_G]*f + pinnext[LICE_PIXEL_G]*frac)>>16;
+  out[LICE_PIXEL_B]=(pin[LICE_PIXEL_B]*f + pinnext[LICE_PIXEL_B]*frac)>>16;
+  out[LICE_PIXEL_A]=(pin[LICE_PIXEL_A]*f + pinnext[LICE_PIXEL_A]*frac)>>16;
 }
 
 static void inline _LICE_MakePixelClamp(LICE_pixel_chan *out, int r, int g, int b, int a)
@@ -304,10 +286,10 @@ public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   {
     _LICE_MakePixelNoClamp(dest,
-      (dest[LICE_PIXEL_R]+r)/2,
-      (dest[LICE_PIXEL_G]+g)/2,
-      (dest[LICE_PIXEL_B]+b)/2,
-      (dest[LICE_PIXEL_A]+a)/2);
+      (dest[LICE_PIXEL_R]+r)>>1,
+      (dest[LICE_PIXEL_G]+g)>>1,
+      (dest[LICE_PIXEL_B]+b)>>1,
+      (dest[LICE_PIXEL_A]+a)>>1);
   }
 };
 
@@ -326,10 +308,10 @@ public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   {
     _LICE_MakePixelClamp(dest,
-      (dest[LICE_PIXEL_R]+r)/2,
-      (dest[LICE_PIXEL_G]+g)/2,
-      (dest[LICE_PIXEL_B]+b)/2,
-      (dest[LICE_PIXEL_A]+a)/2);
+      (dest[LICE_PIXEL_R]+r)>>1,
+      (dest[LICE_PIXEL_G]+g)>>1,
+      (dest[LICE_PIXEL_B]+b)>>1,
+      (dest[LICE_PIXEL_A]+a)>>1);
   }
 
 };
@@ -369,7 +351,7 @@ class _LICE_CombinePixelsCopyNoClamp
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   {
-    int sc=(256-alpha);
+    const int sc=(256-alpha);
 
     // don't check alpha=0 here, since the caller should (since alpha is usually used for static alphas)
     _LICE_MakePixelNoClamp(dest,
@@ -385,7 +367,7 @@ class _LICE_CombinePixelsCopyClamp
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   {
-    int sc=(256-alpha);
+    const int sc=(256-alpha);
 
     // don't check alpha=0 here, since the caller should (since alpha is usually used for static alphas)
     _LICE_MakePixelClamp(dest,
@@ -403,8 +385,8 @@ public:
   {
     if (a)
     {
-      int sc2=(alpha*(a+1))/256;
-      int sc = 256 - sc2;
+      const int sc2=(alpha*(a+1))/256;
+      const int sc = 256 - sc2;
 
       _LICE_MakePixelNoClamp(dest,
         r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
@@ -422,8 +404,8 @@ public:
   {
     if (a)
     {
-      int sc2=(alpha*(a+1))/256;
-      int sc = 256 - sc2;
+      const int sc2=(alpha*(a+1))/256;
+      const int sc = 256 - sc2;
 
       _LICE_MakePixelClamp(dest,
         r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
@@ -446,7 +428,7 @@ public:
       }
       else
       {
-        int sc=(255-a);
+        const int sc=(255-a);
 
         _LICE_MakePixelNoClamp(dest,
             r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
@@ -470,7 +452,7 @@ public:
       }
       else
       {
-        int sc=(255-a);
+        const int sc=(255-a);
 
         _LICE_MakePixelClamp(dest,
            r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
@@ -528,10 +510,10 @@ class _LICE_CombinePixelsColorDodge
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   { 
-      int src_r = 256-r*alpha/256;
-      int src_g = 256-g*alpha/256;
-      int src_b = 256-b*alpha/256;
-      int src_a = 256-a*alpha/256;
+      const int src_r = 256-r*alpha/256;
+      const int src_g = 256-g*alpha/256;
+      const int src_b = 256-b*alpha/256;
+      const int src_a = 256-a*alpha/256;
 
       _LICE_MakePixelClamp(dest,
         src_r > 1 ? 256*dest[LICE_PIXEL_R] / src_r : 256*dest[LICE_PIXEL_R],
@@ -546,11 +528,12 @@ class _LICE_CombinePixelsColorDodgeSourceAlpha
 public:
   static inline void doPix(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha)
   { 
-      alpha=(alpha*(a+1))/256;
-      int src_r = 256-r*alpha/256;
-      int src_g = 256-g*alpha/256;
-      int src_b = 256-b*alpha/256;
-      int src_a = 256-a*alpha/256;
+      const int ualpha=(alpha*(a+1))/256;
+    
+      const int src_r = 256-r*ualpha/256;
+      const int src_g = 256-g*ualpha/256;
+      const int src_b = 256-b*ualpha/256;
+      const int src_a = 256-a*ualpha/256;
 
       _LICE_MakePixelClamp(dest,
         src_r > 1 ? 256*dest[LICE_PIXEL_R] / src_r : 256*dest[LICE_PIXEL_R],
@@ -575,12 +558,12 @@ public:
   { 
     // we could check alpha=0 here, but the caller should (since alpha is usually used for static alphas)
 
-    int da=(256-alpha)*256;
+    const int da=(256-alpha)*256;
     _LICE_MakePixelNoClamp(dest,
-      (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
-      (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
-      (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
-      (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+      (dest[LICE_PIXEL_R]*(da + (r*alpha)))>>16,
+      (dest[LICE_PIXEL_G]*(da + (g*alpha)))>>16,
+      (dest[LICE_PIXEL_B]*(da + (b*alpha)))>>16,
+      (dest[LICE_PIXEL_A]*(da + (a*alpha)))>>16);
 
   }
 };
@@ -591,12 +574,12 @@ public:
   { 
     // we could check alpha=0 here, but the caller should (since alpha is usually used for static alphas)
 
-    int da=(256-alpha)*256;
+    const int da=(256-alpha)*256;
     _LICE_MakePixelClamp(dest,
-      (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
-      (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
-      (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
-      (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+      (dest[LICE_PIXEL_R]*(da + (r*alpha)))>>16,
+      (dest[LICE_PIXEL_G]*(da + (g*alpha)))>>16,
+      (dest[LICE_PIXEL_B]*(da + (b*alpha)))>>16,
+      (dest[LICE_PIXEL_A]*(da + (a*alpha)))>>16);
 
   }
 };
@@ -607,13 +590,13 @@ public:
   { 
     if (a)
     {
-      alpha=(alpha*(a+1))/256;
-      int da=(256-alpha)*256;
+      const int ualpha=(alpha*(a+1))/256;
+      const int da=(256-ualpha)*256;
       _LICE_MakePixelNoClamp(dest,
-        (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
-        (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
-        (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
-        (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+        (dest[LICE_PIXEL_R]*(da + (r*ualpha)))>>16,
+        (dest[LICE_PIXEL_G]*(da + (g*ualpha)))>>16,
+        (dest[LICE_PIXEL_B]*(da + (b*ualpha)))>>16,
+        (dest[LICE_PIXEL_A]*(da + (a*ualpha)))>>16);
 
     }
   }
@@ -625,13 +608,13 @@ public:
   { 
     if (a)
     {
-      alpha=(alpha*(a+1))/256;
-      int da=(256-alpha)*256;
+      const int ualpha=(alpha*(a+1))/256;
+      const int da=(256-ualpha)*256;
       _LICE_MakePixelClamp(dest,
-        (dest[LICE_PIXEL_R]*(da + (r*alpha)))/65536,
-        (dest[LICE_PIXEL_G]*(da + (g*alpha)))/65536,
-        (dest[LICE_PIXEL_B]*(da + (b*alpha)))/65536,
-        (dest[LICE_PIXEL_A]*(da + (a*alpha)))/65536);
+        (dest[LICE_PIXEL_R]*(da + (r*ualpha)))>>16,
+        (dest[LICE_PIXEL_G]*(da + (g*ualpha)))>>16,
+        (dest[LICE_PIXEL_B]*(da + (b*ualpha)))>>16,
+        (dest[LICE_PIXEL_A]*(da + (a*ualpha)))>>16);
 
     }
   }
@@ -674,12 +657,12 @@ public:
     desta = (desta*sa+(256-desta)*ma)/256;
 #else 
     // can produce slightly diff (+-1) results from above due to rounding
-    int da=(256-alpha)*128; 
-    int srcr = r*alpha+da, srcg = g*alpha+da, srcb = b*alpha+da, srca = a*alpha + da;
-    destr = ( destr*( (destr*(32768-srcr))/256 + srcr ) )/32768;
-    destg = ( destg*( (destg*(32768-srcg))/256 + srcg ) )/32768;
-    destb = ( destb*( (destb*(32768-srcb))/256 + srcb ) )/32768;
-    desta = ( desta*( (desta*(32768-srca))/256 + srca ) )/32768;
+    const int da=(256-alpha)*128;
+    const int srcr = r*alpha+da, srcg = g*alpha+da, srcb = b*alpha+da, srca = a*alpha + da;
+    destr = ( destr*( (destr*(32768-srcr))/256 + srcr ) ) >> 15;
+    destg = ( destg*( (destg*(32768-srcg))/256 + srcg ) ) >> 15;
+    destb = ( destb*( (destb*(32768-srcb))/256 + srcb ) ) >> 15;
+    desta = ( desta*( (desta*(32768-srca))/256 + srca ) ) >> 15;
 
 #endif
 

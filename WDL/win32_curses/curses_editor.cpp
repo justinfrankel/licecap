@@ -1,3 +1,10 @@
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include "../swell/swell.h"
+#endif
+#include <stdlib.h>
+#include <string.h>
 #ifndef CURSES_INSTANCE
 #define CURSES_INSTANCE ((win32CursesCtx*)m_cursesCtx)
 #endif
@@ -8,7 +15,6 @@
 #include "curses.h"
 
 #define VALIDATE_TEXT_CHAR(thischar) ((isspace(thischar) || isgraph(thischar)) && (thischar) < 256)
-#define TAB_STR "  "
 
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
@@ -21,6 +27,8 @@ char WDL_CursesEditor::s_search_string[256];
 
 WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
 { 
+  m_max_undo_states = 500;
+  m_indent_size=2;
   m_cursesCtx = cursesCtx;
 
   m_color_bottomline = COLOR_PAIR(1);
@@ -230,7 +238,7 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
     {
       *np=0;
       str->Append(p);
-      str->Append(TAB_STR);
+      { int x; for(x=0;x<m_indent_size;x++) str->Append(" "); }
       p=np+1;
     }
     if (p) str->Append(p);
@@ -324,7 +332,7 @@ void WDL_CursesEditor::draw_message(const char *str)
 }
 
 
-void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, bool *c_comment_state, int skipcnt)
+void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt)
 {
   move(y,x);
   attrset(A_NORMAL);
@@ -334,6 +342,7 @@ void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, 
     p++;
     ml--;
   }
+  if (ml > 0) clrtoeol();
 }
 
 void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &maxy) // gets select region
@@ -356,11 +365,10 @@ void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &max
     }
 }
 
-void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int ml, bool *c_comment_state, int skipcnt)
+void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt)
 {
   if (skipcnt < 0) skipcnt=0;
   mvaddnstr_highlight(y,x,p,ml + skipcnt,c_comment_state, skipcnt);
-  clrtoeol();
 
   if (m_selecting)
   {
@@ -401,9 +409,8 @@ void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int
   }
 }
 
-int WDL_CursesEditor::GetPreviousCommentStartEnd(int *line, int *col) // pass current line/col, updates with previous interesting point, returns true if start of comment, or false if end of previous comment
+int WDL_CursesEditor::GetCommentStateForLineStart(int line) // pass current line/col, updates with previous interesting point, returns true if start of comment, or false if end of previous comment
 {
-  *line = *col = 0;
   return 0;
 }
 
@@ -413,12 +420,11 @@ void WDL_CursesEditor::draw(int lineidx)
 
   if (lineidx >= 0)
   {
-    int li=lineidx-1,ci=0x100000;
-    bool comment_state = (1 == GetPreviousCommentStartEnd(&li,&ci));
+    int comment_state = GetCommentStateForLineStart(lineidx);
     WDL_FastString *s=m_text.Get(lineidx);
     if (s && lineidx >= m_offs_y && lineidx < m_offs_y+getVisibleLines())
     {
-      doDrawString(lineidx-m_offs_y+m_top_margin,0,lineidx,s->Get(),COLS-1,&comment_state, min(s->GetLength(),m_offs_x));
+      doDrawString(lineidx-m_offs_y+m_top_margin,0,lineidx,s->Get(),COLS,&comment_state, min(s->GetLength(),m_offs_x));
     }
     return;
   }
@@ -431,8 +437,7 @@ void WDL_CursesEditor::draw(int lineidx)
   move(m_top_margin,0);
   clrtoeol();
 
-  int pcl=m_offs_y,pcc=0;
-  bool comment_state = (1 == GetPreviousCommentStartEnd(&pcl, &pcc));
+  int comment_state = GetCommentStateForLineStart(m_offs_y);
   const int VISIBLE_LINES = getVisibleLines();
   for(int i=0;i<VISIBLE_LINES;i++)
   { 
@@ -446,7 +451,7 @@ void WDL_CursesEditor::draw(int lineidx)
       continue;
     }
 
-    doDrawString(i+m_top_margin,0,ln,s->Get(),COLS-1,&comment_state,min(m_offs_x,s->GetLength()));
+    doDrawString(i+m_top_margin,0,ln,s->Get(),COLS,&comment_state,min(m_offs_x,s->GetLength()));
   }
   
 //  move(LINES-2,0);
@@ -579,6 +584,11 @@ void WDL_CursesEditor::removeSelect()
 
       }
       m_selecting=0;
+      if (m_curs_y >= m_text.GetSize())
+      {
+        m_curs_y = m_text.GetSize();
+        m_text.Add(new WDL_FastString);
+      }
     }
 
 }
@@ -613,8 +623,8 @@ void WDL_CursesEditor::runSearch()
 
        if (tl && (p=tl->Get()))
        {
-         int linelen = tl->GetLength();
-         for (; startx < linelen-srchlen; startx++)
+         const int linelen = tl->GetLength();
+         for (; startx <= linelen-srchlen; startx++)
            if (!strnicmp(p+startx,s_search_string,srchlen)) 
            {
              m_curs_y=line;
@@ -638,8 +648,8 @@ void WDL_CursesEditor::runSearch()
 
          if (tl && (p=tl->Get()))
          {
-           int linelen = tl->GetLength();
-           for (; startx < linelen-srchlen; startx++)
+           const int linelen = tl->GetLength();
+           for (; startx <= linelen-srchlen; startx++)
              if (!strnicmp(p+startx,s_search_string,srchlen)) 
              {
                m_curs_y=line;
@@ -914,9 +924,9 @@ int WDL_CursesEditor::onChar(int c)
         {
           preSaveUndoState();
 
-          bool hadCom = LineCanAffectOtherLines(s->Get()); 
+          bool hadCom = LineCanAffectOtherLines(s->Get(),m_curs_x,1); 
           s->DeleteSub(m_curs_x,1);
-          if (!hadCom) hadCom = LineCanAffectOtherLines(s->Get());
+          if (!hadCom) hadCom = LineCanAffectOtherLines(s->Get(),-1,-1);
           draw(hadCom ? -1 : m_curs_y);
           saveUndoState();
           setCursor();
@@ -1252,9 +1262,9 @@ int WDL_CursesEditor::onChar(int c)
       {
         preSaveUndoState();
 
-        bool hadCom = LineCanAffectOtherLines(tl->Get());
+        bool hadCom = LineCanAffectOtherLines(tl->Get(), m_curs_x-1,1);
         tl->DeleteSub(--m_curs_x,1);
-        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get());
+        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get(),-1,-1);
         draw(hadCom?-1:m_curs_y);
         saveUndoState();
         setCursor();
@@ -1263,7 +1273,15 @@ int WDL_CursesEditor::onChar(int c)
     else // append current line to previous line
     {
       WDL_FastString *fl=m_text.Get(m_curs_y-1), *tl=m_text.Get(m_curs_y);
-      if (fl && tl)
+      if (!tl) 
+      {
+        m_curs_y--;
+        if (fl) m_curs_x=fl->GetLength();
+        draw();
+        saveUndoState();
+        setCursor();
+      }
+      else if (fl)
       {
         preSaveUndoState();
         m_curs_x=fl->GetLength();
@@ -1285,6 +1303,11 @@ int WDL_CursesEditor::onChar(int c)
     preSaveUndoState();
 
     if (m_selecting) { removeSelect(); draw(); setCursor(); }
+    if (m_curs_y >= m_text.GetSize())
+    {
+      m_curs_y=m_text.GetSize();
+      m_text.Add(new WDL_FastString);
+    }
     if (s_overwrite)
     {
       WDL_FastString *s = m_text.Get(m_curs_y);
@@ -1337,7 +1360,7 @@ int WDL_CursesEditor::onChar(int c)
       preSaveUndoState();
 
       bool isRev = !!(GetAsyncKeyState(VK_SHIFT)&0x8000);
-      indentSelect(isRev?-2:2);
+      indentSelect(isRev?-m_indent_size:m_indent_size);
       // indent selection:
       draw();
       setCursor();
@@ -1356,17 +1379,32 @@ int WDL_CursesEditor::onChar(int c)
       WDL_FastString *ss;
       if ((ss=m_text.Get(m_curs_y)))
       {
-         char str[8]={c,};
-        if (c == '\t') strcpy(str,TAB_STR);
-    //    sprintf(str,"|%d|",c);
-        bool hadCom = LineCanAffectOtherLines(ss->Get());
-        if (s_overwrite) ss->DeleteSub(m_curs_x,strlen(str));
+        char str[64];
+        int slen ;
+        if (c == '\t') 
+        {
+          slen = min(m_indent_size,64);
+          if (slen<1) slen=1;
+          int x; 
+          for(x=0;x<slen;x++) str[x]=' ';
+        }
+        else
+        {
+          str[0]=c;
+          slen = 1;
+        }
 
-        ss->Insert(str,m_curs_x);
 
-        if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get());
+        bool hadCom = LineCanAffectOtherLines(ss->Get(),-1,-1);
+        if (s_overwrite)
+        {
+          if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get(),m_curs_x,slen);
+          ss->DeleteSub(m_curs_x,slen);
+        }
+        ss->Insert(str,m_curs_x,slen);
+        if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get(),m_curs_x,slen);
 
-        m_curs_x += strlen(str);
+        m_curs_x += slen;
         draw(hadCom ? -1 : m_curs_y);
       }
       saveUndoState();
@@ -1396,10 +1434,12 @@ void WDL_CursesEditor::saveUndoState()
   rec->m_curs_x=m_curs_x;
   rec->m_curs_y=m_curs_y;
 
-  editUndoRec *lrec[3];
+  editUndoRec *lrec[5];
   lrec[0] = m_undoStack.Get(m_undoStack_pos);
   lrec[1] = m_undoStack.Get(m_undoStack_pos+1);
   lrec[2] = m_undoStack.Get(m_undoStack_pos-1);
+  lrec[3] = m_undoStack.Get(m_undoStack_pos-2);
+  lrec[4] = m_undoStack.Get(m_undoStack_pos-3);
 
   int x;
   for (x = 0; x < m_text.GetSize(); x ++)
@@ -1413,12 +1453,12 @@ void WDL_CursesEditor::saveUndoState()
     {
       const char *cs=s?s->Get():"";
       int w;
-      for(w=0;w<3 && !ns;w++)
+      for(w=0;w<5 && !ns;w++)
       {
         if (lrec[w])
         {
           int y;
-          for (y=0; y<7; y ++)
+          for (y=0; y<15; y ++)
           {
             refcntString *a = lrec[w]->m_htext.Get(x + ((y&1) ? -(y+1)/2 : y/2));
             if (a && a->getStrLen() == s_len && !strcmp(a->getStr(),cs))
@@ -1449,9 +1489,9 @@ void WDL_CursesEditor::saveUndoState()
   if (m_clean_undopos > m_undoStack_pos) 
     m_clean_undopos=-1;
   
-  if (m_undoStack.GetSize() > 200) // only keep 100-200 copies around
+  if (m_undoStack.GetSize() > m_max_undo_states) 
   {
-    for (x = 1; x < m_undoStack.GetSize(); x += 2)
+    for (x = 1; x < m_undoStack.GetSize()/2; x += 2)
     {
       if (x != m_clean_undopos)// don't delete our preferred special (last saved) one
       {
@@ -1489,9 +1529,11 @@ void WDL_CursesEditor::RunEditor()
   int x;
   for(x=0;x<16;x++)
   {
+    if (!CURSES_INSTANCE) break;
+
     int thischar = getch();
     if (thischar==ERR) break;
 
-    onChar(thischar);
+    if (onChar(thischar)) break;
   }
 }

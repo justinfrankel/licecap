@@ -61,15 +61,22 @@ typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWO
 #define GetBValue(x) ((x)&0xff)
 
 // basic platform compat defines
+#ifndef stricmp
 #define stricmp(x,y) strcasecmp(x,y)
+#endif
+#ifndef strnicmp
 #define strnicmp(x,y,z) strncasecmp(x,y,z)
+#endif
 
 #define DeleteFile(x) (!unlink(x))
 #define MoveFile(x,y) (!rename(x,y))
 #define GetCurrentDirectory(sz,buf) (!getcwd(buf,sz))
 #define SetCurrentDirectory(buf) (!chdir(buf))
 #define CreateDirectory(x,y) (!mkdir((x),0755))
+
+#ifndef wsprintf
 #define wsprintf sprintf
+#endif
 
 #ifndef LOWORD
 #define MAKEWORD(a, b)      ((unsigned short)(((BYTE)(a)) | ((WORD)((BYTE)(b))) << 8))
@@ -156,8 +163,8 @@ typedef unsigned int ULONG;
 typedef short SHORT;
 typedef int *LPINT;
 typedef char CHAR;
-typedef char *LPSTR;
-typedef const char *LPCSTR;
+typedef char *LPSTR, *LPTSTR;
+typedef const char *LPCSTR, *LPCTSTR;
 
 #define __int64 long long // define rather than typedef, for unsigned __int64 support
 
@@ -646,7 +653,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define GWL_WNDPROC         (-4)
 #define DWL_DLGPROC         (-8)
 
-#define SWELL_NOT_WS_VISIBLE 0x80000000L
+#define SWELL_NOT_WS_VISIBLE ((int)0x80000000)
 #define WS_CHILDWINDOW (WS_CHILD)
 #define WS_CHILD      0x40000000L
 #define WS_DISABLED   0x08000000L

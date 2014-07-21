@@ -141,7 +141,6 @@ while (($line = fgets($in)))
           $parms=preg_replace("/\\((.*)\\)/",$suffixstr . "[$1]",$parms);
 
 
-          $parms=str_replace("NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR","NSEEL_LOOPFUNC_SUPPORT_MAXLEN", $parms);
           $parms=str_replace("EEL_F_SUFFIX","EEL_ASM_TYPE", $parms);
           $parms=str_replace("EEL_F_SSTR","EEL_F_SIZE", $parms);
 

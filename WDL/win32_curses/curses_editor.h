@@ -15,7 +15,7 @@ public:
   virtual int onChar(int c);
   virtual void onRightClick() { }
 
-  int updateFile(); // saves file on disk
+  virtual int updateFile(); // saves file on disk
   void RunEditor(); // called from timer/main loop when on simulated curses -- if on a real console just call onChar(getch())
 
   void *m_cursesCtx; // win32CursesCtx *
@@ -23,7 +23,12 @@ public:
   int m_color_bottomline, m_color_statustext,  m_color_selection,  m_color_message; // COLOR_PAIR(x)
   int m_top_margin, m_bottom_margin;
 
+  const char *GetFileName() { return m_filename.Get(); }
 
+  void setCursor(int isVscroll=0);
+
+  int m_indent_size;
+  int m_max_undo_states;
 protected:
   class refcntString;
   class editUndoRec;
@@ -32,8 +37,7 @@ protected:
   virtual void draw(int lineidx=-1);
   void draw_message(const char *str);
   void draw_status_state();
-  void setCursor(int isVscroll=0);
-  LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+  virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   {
     if (user_data) return ((WDL_CursesEditor*)user_data)->onMouseMessage(hwnd,uMsg,wParam,lParam);
@@ -44,18 +48,18 @@ protected:
   void indentSelect(int amt);
   void removeSelect();
   void getselectregion(int &minx, int &miny, int &maxx, int &maxy);
-  void doDrawString(int y, int x, int line_n, const char *p, int ml, bool *c_comment_state, int skipcnt);
+  void doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt);
 
   void saveUndoState();
   void preSaveUndoState(); // updates coordinates of edit to last rec
   void loadUndoState(editUndoRec *rec);
 
-  virtual int GetPreviousCommentStartEnd(int *line, int *col); // pass current line/col, updates with interesting point, returns nonzero if start (1 if /*, 2 if //)
+  virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
-  virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, bool *c_comment_state, int skipcnt);
+  virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
   virtual void draw_top_line() { }// within m_top_margin
   virtual void draw_bottom_line();
-  virtual bool LineCanAffectOtherLines(const char *txt) // if multiline comment etc
+  virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
   {
     return false;
   }
@@ -77,9 +81,6 @@ protected:
   int m_curs_x, m_curs_y;
   int m_want_x;
 
-
-  char newfilename_str[256];
-  WDL_FastString m_newfn;
 
   static char s_search_string[256];
   static int s_overwrite;

@@ -29,11 +29,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef _MSC_VER
-#define strcasecmp stricmp
-#define strncasecmp strnicmp
-#endif
-
 #ifndef EEL_F_SIZE
 #define EEL_F_SIZE 8
 #endif
@@ -44,6 +39,12 @@
 typedef float EEL_F;
 #else
 typedef double EEL_F WDL_FIXALIGN;
+#endif
+
+#ifdef _MSC_VER
+#define NSEEL_CGEN_CALL __cdecl
+#else
+#define NSEEL_CGEN_CALL 
 #endif
 
 
@@ -64,32 +65,53 @@ void NSEEL_HOSTSTUB_EnterMutex();
 void NSEEL_HOSTSTUB_LeaveMutex();
 
 
-int NSEEL_init(); // returns 0 on success. clears any added functions as well
-
+int NSEEL_init(); // returns nonzero on failure (only if EEL_VALIDATE_FSTUBS defined), otherwise the same as NSEEL_quit(), and completely optional
+void NSEEL_quit(); // clears any added functions
 
 
 // adds a function that returns a value (EEL_F)
 #define NSEEL_addfunc_retval(name,np,pproc,fptr) \
-    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd##_end-(char *)_asm_generic##np##parm_retd,(void*)(pproc),(void*)(fptr))
+  NSEEL_addfunc_ret_type(name,np,1,pproc,(void *)(fptr),NSEEL_ADDFUNC_DESTINATION)  
 
 // adds a function that returns a pointer (EEL_F*)
 #define NSEEL_addfunc_retptr(name,np,pproc,fptr) \
-    NSEEL_addfunctionex(name,np,(char *)_asm_generic##np##parm,(char *)_asm_generic##np##parm##_end-(char *)_asm_generic##np##parm,(void*)(pproc),(void*)(fptr))
+  NSEEL_addfunc_ret_type(name,np,0,pproc,(void *)(fptr),NSEEL_ADDFUNC_DESTINATION)  
 
 // adds a void or bool function
 #define NSEEL_addfunc_retbool(name,np,pproc,fptr) \
-  NSEEL_addfunctionex(name,(np)|(/*BIF_RETURNSBOOL*/0x00400),(char *)_asm_generic##np##parm_retd,(char *)_asm_generic##np##parm_retd##_end-(char *)_asm_generic##np##parm_retd,(void*)(pproc),(void*)(fptr))
+  NSEEL_addfunc_ret_type(name,np,-1,pproc,(void *)(fptr),NSEEL_ADDFUNC_DESTINATION)  
+
+// adds a function that takes min_np or more parameters (func sig needs to be EEL_F func(void *ctx, INT_PTR np, EEL_F **parms)
+#define NSEEL_addfunc_varparm(name, min_np, pproc, fptr) \
+  NSEEL_addfunc_varparm_ex(name,min_np,0,pproc,fptr,NSEEL_ADDFUNC_DESTINATION)
+
+// adds a function that takes np parameters via func: sig needs to be EEL_F func(void *ctx, INT_PTR np, EEL_F **parms)
+#define NSEEL_addfunc_exparms(name, np, pproc, fptr) \
+  NSEEL_addfunc_varparm_ex(name,np,1,pproc,fptr,NSEEL_ADDFUNC_DESTINATION)
 
 
+// deprecated
 #define NSEEL_addfunction(name,nparms,code,len) NSEEL_addfunctionex((name),(nparms),(code),(len),0,0)
-#define NSEEL_addfunctionex(name,nparms,code,len,pproc,fptr) NSEEL_addfunctionex2((name),(nparms),(code),(len),(pproc),(fptr),0)
+#define NSEEL_addfunctionex(name,nparms,code,len,pproc,fptr) NSEEL_addfunctionex2((name),(nparms),(code),(len),(pproc),(fptr),0, NSEEL_ADDFUNC_DESTINATION)
+
+#ifndef NSEEL_ADDFUNC_DESTINATION
+#define NSEEL_ADDFUNC_DESTINATION (NULL)
+#endif
+
+struct functionType;
+
+typedef struct
+{
+  struct functionType *list;
+  int list_size;
+} eel_function_table;
 
 struct _compileContext;
 typedef void *(*NSEEL_PPPROC)(void *data, int data_size, struct _compileContext *userfunc_data);
+void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, NSEEL_PPPROC pproc, void *fptr, void *fptr2, eel_function_table *destination);
 
-void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, NSEEL_PPPROC pproc, void *fptr, void *fptr2);
-
-void NSEEL_quit();
+void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPROC pproc, void *fptr, eel_function_table *destination); // ret_type=-1 for bool, 1 for value, 0 for ptr
+void NSEEL_addfunc_varparm_ex(const char *name, int min_np, int want_exact, NSEEL_PPPROC pproc, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination);
 
 int *NSEEL_getstats(); // returns a pointer to 5 ints... source bytes, static code bytes, call code bytes, data bytes, number of code handles
 
@@ -98,6 +120,8 @@ typedef void *NSEEL_CODEHANDLE;
 
 NSEEL_VMCTX NSEEL_VM_alloc(); // return a handle
 void NSEEL_VM_free(NSEEL_VMCTX ctx); // free when done with a VM and ALL of its code have been freed, as well
+
+void NSEEL_VM_SetFunctionTable(NSEEL_VMCTX, eel_function_table *tab); // use NULL to use default (global) table
 
 void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx);
 void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx);
@@ -122,6 +146,19 @@ void NSEEL_VM_FreeGRAM(void **ufd); // frees a gmem context.
 void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr);
 
 
+struct eelStringSegmentRec {
+  struct eelStringSegmentRec *_next;
+  const char *str_start; // escaped characters, including opening/trailing characters
+  int str_len; 
+};
+void NSEEL_VM_SetStringFunc(NSEEL_VMCTX ctx, 
+    EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list),
+    EEL_F (*onNamedString)(void *caller_this, const char *name));
+
+// call with NULL to calculate size, or non-null to generate to buffer (returning size used -- will not null terminate, caller responsibility)
+int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegmentRec *list); 
+
+
 NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX ctx, const char *code, int lineoffs);
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS 1 // allows that code's functions to be used in other code (note you shouldn't destroy that codehandle without destroying others first if used)
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET 2 // resets common code functions
@@ -144,32 +181,27 @@ extern int NSEEL_RAM_memused_errors;
 
 // configuration:
 
-  // the old parser may have more quirks. 
-  // Changes in the new parser:
-  //   1) expressions such as a = (1+5;3); now work as expected (a is set to 3, rather than 4).
-  //   2) 0xHEXNUMBER is now allowed (old parser required $xHEXNUMBER
-  //   3) error notices (unsure which is more accurate)
-  //   4) new parser allows more than 3 parameter eel-functions (up to NSEEL_MAX_EELFUNC_PARAMETERS)
+// use the handwritten lexer -- the flex (eel2.l generated) lexer mostly works, but doesn't support string parsing at the moment
+// this mode is faster and uses less ram than eel2.l anyway, so leave it on
+#define NSEEL_SUPER_MINIMAL_LEXER 
 
-  //#define NSEEL_USE_OLD_PARSER
-#define NSEEL_SUPER_MINIMAL_LEXER // smaller code that uses far less ram, but the flex version we'll keep around too in case we want to do fancier things someday
-
- // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc.
+ // #define NSEEL_EEL1_COMPAT_MODE // supports old behaviors (continue after failed compile), old functions _bnot etc. disables string support (strings were used as comments in eel1 etc)
 
 #define NSEEL_MAX_VARIABLE_NAMELEN 128  // define this to override the max variable length
 #define NSEEL_MAX_EELFUNC_PARAMETERS 40
 #define NSEEL_MAX_FUNCSIG_NAME 2048 // longer than variable maxlen, due to multiple namespaces
 
-// maximum loop length
-#define NSEEL_LOOPFUNC_SUPPORT_MAXLEN 1048576 // scary, we can do a million entries. probably will never want to, though.
-#define NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR "1048576"
-
+// maximum loop length (0 for unlimited)
+#ifndef NSEEL_LOOPFUNC_SUPPORT_MAXLEN
+#define NSEEL_LOOPFUNC_SUPPORT_MAXLEN 1048576 
+#endif
 
 #define NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE 2048
 
 // when a VM ctx doesn't have a GRAM context set, make the global one this big
 #define NSEEL_SHARED_GRAM_SIZE (1<<20)
 
+//#define EEL_DUMP_OPS // used for testing frontend parser/logic changes
 
 // note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will need to regenerate things.
 
@@ -203,6 +235,10 @@ extern int NSEEL_RAM_memused_errors;
 #ifdef NSEEL_EEL1_COMPAT_MODE
 double *NSEEL_getglobalregs();
 #endif
+
+void eel_setfp_round(); // use to set fp to rounding mode (normal) -- only really use this when being called from EEL
+void eel_setfp_trunc(); // use to restore fp to trunc mode -- only really use this when being called from EEL
+
 
 
 #ifdef __cplusplus

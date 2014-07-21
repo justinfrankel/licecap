@@ -2,7 +2,7 @@
 #define _NSEEL_GLUE_X86_64_H_
 
 #define GLUE_MAX_FPSTACK_SIZE 8
-#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (offset))
+#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (int) (offset))
 
 #define GLUE_PREFER_NONFP_DV_ASSIGNS
 
@@ -35,14 +35,53 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 
   const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax (pointer); push rax (alignment)
 
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 8
+  static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
+  {
+    ((unsigned char *)b)[0] = 0x48; // mov [rsp+offs], rax
+    ((unsigned char *)b)[1] = 0x89; 
+    ((unsigned char *)b)[2] = 0x84;
+    ((unsigned char *)b)[3] = 0x24;
+    *(int *)((unsigned char *)b+4) = offs;
+  }
+
+  #define GLUE_MOVE_PX_STACKPTR_SIZE 3
+  static void GLUE_MOVE_PX_STACKPTR_GEN(void *b, int wv)
+  {
+    static const unsigned char tab[3][GLUE_MOVE_PX_STACKPTR_SIZE]=
+    {
+      { 0x48, 0x89, 0xe0 }, // mov rax, rsp
+      { 0x48, 0x89, 0xe7 }, // mov rdi, rsp
+      { 0x48, 0x89, 0xe1 }, // mov rcx, rsp
+    };    
+    memcpy(b,tab[wv],GLUE_MOVE_PX_STACKPTR_SIZE);
+  }
+
+  #define GLUE_MOVE_STACK_SIZE 7
+  static void GLUE_MOVE_STACK(void *b, int amt)
+  {
+    ((unsigned char *)b)[0] = 0x48;
+    ((unsigned char *)b)[1] = 0x81;
+    if (amt < 0)
+    {
+      ((unsigned char *)b)[2] = 0xEC;
+      *(int *)((char*)b+3) = -amt; // sub rsp, -amt32
+    }
+    else
+    {
+      ((unsigned char *)b)[2] = 0xc4;
+      *(int *)((char*)b+3) = amt; // add rsp, amt32
+    }
+  }
+
   #define GLUE_POP_PX_SIZE 2
   static void GLUE_POP_PX(void *b, int wv)
   {
     static const unsigned char tab[3][GLUE_POP_PX_SIZE]=
     {
-      {0x58,/*pop eax*/  0x58}, // pop alignment, then pop pointer
-      {0x5F,/*pop edi*/  0x5F}, 
-      {0x59,/*pop ecx*/  0x59}, 
+      {0x58,/*pop rax*/  0x58}, // pop alignment, then pop pointer
+      {0x5F,/*pop rdi*/  0x5F}, 
+      {0x59,/*pop rcx*/  0x59}, 
     };    
     memcpy(b,tab[wv],GLUE_POP_PX_SIZE);
   }
@@ -163,8 +202,8 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 2+sizeof(void *);
 }
 
-extern void win64_callcode(INT_PTR code, INT_PTR ram_tab);
-#define GLUE_CALL_CODE(bp, cp, rt) win64_callcode(cp, rt)
+extern void eel_callcode64(INT_PTR code, INT_PTR ram_tab);
+#define GLUE_CALL_CODE(bp, cp, rt) eel_callcode64(cp, rt)
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {
@@ -185,11 +224,20 @@ static const unsigned char GLUE_LOOP_LOADCNT[]={
   0x48, 0x81, 0xf9, 1,0,0,0,  // cmp rcx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
 };
+
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
+#define GLUE_LOOP_CLAMPCNT_SIZE sizeof(GLUE_LOOP_CLAMPCNT)
 static const unsigned char GLUE_LOOP_CLAMPCNT[]={
   0x48, 0x81, 0xf9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), // cmp rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
         0x0F, 0x8C, 10,0,0,0,  // JL over-the-mov
   0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
 };
+#else
+#define GLUE_LOOP_CLAMPCNT_SIZE 0
+#define GLUE_LOOP_CLAMPCNT NULL
+#endif
+
+#define GLUE_LOOP_BEGIN_SIZE sizeof(GLUE_LOOP_BEGIN)
 static const unsigned char GLUE_LOOP_BEGIN[]={ 
   0x56, //push rsi
   0x51, // push rcx
@@ -203,9 +251,12 @@ static const unsigned char GLUE_LOOP_END[]={
 
 
 
+#if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
 static const unsigned char GLUE_WHILE_SETUP[]={
   0x48, 0xB9, INT_TO_LECHARS(NSEEL_LOOPFUNC_SUPPORT_MAXLEN), 0,0,0,0, // mov rcx, NSEEL_LOOPFUNC_SUPPORT_MAXLEN
 };
+#define GLUE_WHILE_SETUP_SIZE sizeof(GLUE_WHILE_SETUP)
+
 static const unsigned char GLUE_WHILE_BEGIN[]={ 
   0x56, //push rsi
   0x51, // push rcx
@@ -217,6 +268,25 @@ static const unsigned char GLUE_WHILE_END[]={
   0xff, 0xc9, // dec rcx
   0x0f, 0x84,  0,0,0,0, // jz endpt
 };
+
+
+#else
+#define GLUE_WHILE_SETUP NULL
+#define GLUE_WHILE_SETUP_SIZE 0
+#define GLUE_WHILE_END_NOJUMP
+
+static const unsigned char GLUE_WHILE_BEGIN[]={ 
+  0x56, //push rsi
+  0x51, // push rcx
+};
+static const unsigned char GLUE_WHILE_END[]={ 
+  0x59, //pop rcx
+  0x5E, // pop rsi
+};
+
+#endif
+
+
 static const unsigned char GLUE_WHILE_CHECK_RV[] = {
   0x85, 0xC0, // test eax, eax
   0x0F, 0x85, 0,0,0,0 // jnz  looppt
@@ -252,7 +322,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   fn = p;
 
   while (memcmp(p,sig,sizeof(sig))) p++;
-  *size = p - (unsigned char *)fn;
+  *size = (int) (p - (unsigned char *)fn);
   return fn;
 }
 

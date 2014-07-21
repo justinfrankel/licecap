@@ -49,7 +49,7 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan,
   if (!(GetVersion()&0x80000000)) tmp.Set("Global\\WDL_SHM_");
   else tmp.Set("WDL_SHM_");
   tmp.Append(uniquestring);
-  int tmp_l = strlen(tmp.Get());
+  const size_t tmp_l = strlen(tmp.Get());
 
   tmp.Append(".m");
   HANDLE mutex = CreateMutex(NULL,FALSE,tmp.Get());

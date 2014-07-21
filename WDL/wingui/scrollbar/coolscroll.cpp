@@ -152,15 +152,16 @@ typedef struct
 
   UINT uScrollTimerMsg;
   
-  UINT uMouseOverId;
-  UINT uScrollTimerId;
-  UINT uZoomTimerId, uZoomTimerMode;
+  UINT_PTR uMouseOverId;
+  UINT_PTR uScrollTimerId;
+  UINT_PTR uZoomTimerId;
+  UINT uZoomTimerMode;
 
   RECT MouseOverRect;
   BOOL MouseOverRect_hasZoomButtons;
 
   UINT uCurrentScrollbar;
-  UINT uCurrentScrollPortion;
+  int uCurrentScrollPortion;
   UINT uMouseOverScrollbar;
   UINT uHitTestPortion;
   UINT uLastHitTestPortion;
@@ -2364,7 +2365,7 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 //
 static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
-	RECT rect;
+	RECT rect={0,};
 	//UINT thisportion;
 	HDC hdc;
 	POINT pt;

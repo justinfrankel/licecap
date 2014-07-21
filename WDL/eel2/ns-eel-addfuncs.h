@@ -74,12 +74,6 @@ void _asm_generic1parm_retd_end(void);
 #define EEL_F_SUFFIX "l"
 #endif
 
-#ifdef _MSC_VER
-#define NSEEL_CGEN_CALL __cdecl
-#else
-#define NSEEL_CGEN_CALL 
-#endif
-
 #ifdef __cplusplus
 };
 

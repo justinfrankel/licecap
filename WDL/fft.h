@@ -65,6 +65,7 @@ extern void WDL_real_fft(WDL_FFT_REAL *, int len, int isInverse);
 #endif
 
 int WDL_fft_permute(int fftsize, int idx);
+int *WDL_fft_permute_tab(int fftsize);
 
 #ifdef __cplusplus
 };

@@ -1118,8 +1118,13 @@ static void idx_perm_calc(int offs, int n)
 
 int WDL_fft_permute(int fftsize, int idx)
 {
-  return _idxperm[fftsize+idx-16];
+  return _idxperm[fftsize+idx-2];
 }
+int *WDL_fft_permute_tab(int fftsize)
+{
+  return _idxperm + fftsize - 2;
+}
+
 
 #endif
 
@@ -1148,7 +1153,7 @@ void WDL_fft_init()
 
 #ifndef WDL_FFT_NO_PERMUTE
 	  offs = 0;
-	  for (i = 16; i <= 32768; i *= 2) 
+	  for (i = 2; i <= 32768; i *= 2) 
     {
 		  idx_perm_calc(offs, i);
 		  offs += i;

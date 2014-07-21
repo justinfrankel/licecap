@@ -1,10 +1,12 @@
 #ifdef _WIN32
 #include <windows.h>
-#include <conio.h>
 #else
 #include "../swell/swell.h"
 #endif
 #define CURSES_INSTANCE ___ERRROR_____
+
+#include "../wdltypes.h"
+
 
 #include "curses.h"
 
@@ -15,17 +17,14 @@
 #define CURSOR_BLINK_TIMER 2
 #define CURSOR_BLINK_TIMER_ZEROEVERY 3
 
-#ifndef WIN32_CURSES_CURSORTYPE
-#define WIN32_CURSES_CURSORTYPE 1 // 1 for vertical bar, 2 for horz bar, 0 for block
-#endif
 #define WIN32CURSES_CLASS_NAME "WDLCursesWindow"
-
-#define WIN32_CONSOLE_KBQUEUE
 
 static void doFontCalc(win32CursesCtx*, HDC);
 
 static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey)
 {
+  if (!ctx) return;
+
   doFontCalc(ctx,NULL);
 
   RECT r;
@@ -38,6 +37,8 @@ static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey
 
 void __addnstr(win32CursesCtx *ctx, const char *str,int n)
 {
+  if (!ctx) return;
+
   if (ctx->m_cursor_x<0)
   {
     int skip = -ctx->m_cursor_x;
@@ -47,8 +48,7 @@ void __addnstr(win32CursesCtx *ctx, const char *str,int n)
       n -= skip;
       if (n<0)n=0;
     }
-    int slen = strlen(str);
-    str += min(slen,skip);    
+    while (skip > 0 && *str) str++, skip--;
   }
 
   int sx=ctx->m_cursor_x;
@@ -72,6 +72,8 @@ void __addnstr(win32CursesCtx *ctx, const char *str,int n)
 
 void __clrtoeol(win32CursesCtx *ctx)
 {
+  if (!ctx) return;
+
   if (ctx->m_cursor_x<0)ctx->m_cursor_x=0;
   int n = ctx->cols - ctx->m_cursor_x;
   if (!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines || n < 1) return;
@@ -88,6 +90,8 @@ void __clrtoeol(win32CursesCtx *ctx)
 
 void __curses_erase(win32CursesCtx *ctx)
 {
+  if (!ctx) return;
+
   ctx->m_cur_attr=0;
   ctx->m_cur_erase_attr=0;
   if (ctx->m_framebuffer) memset(ctx->m_framebuffer,0,ctx->cols*ctx->lines*2);
@@ -98,6 +102,8 @@ void __curses_erase(win32CursesCtx *ctx)
 
 void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
 {
+  if (!ctx) return;
+
   m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
   ctx->m_cursor_x=y;
   ctx->m_cursor_y=x;
@@ -107,7 +113,7 @@ void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
 
 void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
 {
-  if (pair < 0 || pair >= COLOR_PAIRS) return;
+  if (!ctx || pair < 0 || pair >= COLOR_PAIRS) return;
 
   pair=COLOR_PAIR(pair);
 
@@ -122,7 +128,7 @@ void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
 
 }
 
-static int xlateKey(int msg, int wParam, int lParam)
+static LRESULT xlateKey(int msg, WPARAM wParam, LPARAM lParam)
 {
   if (msg == WM_KEYDOWN)
   {
@@ -191,6 +197,8 @@ static int xlateKey(int msg, int wParam, int lParam)
             wParam += 1-'A';
             return wParam;
           }
+          if ((wParam&~0x80) == '[') return 27;
+          if ((wParam&~0x80) == ']') return 29;
         }
     }
   }
@@ -223,7 +231,9 @@ static int xlateKey(int msg, int wParam, int lParam)
 
 static void m_reinit_framebuffer(win32CursesCtx *ctx)
 {
-  doFontCalc(ctx,NULL);
+  if (!ctx) return;
+
+    doFontCalc(ctx,NULL);
     RECT r;
 
     GetClientRect(ctx->m_hwnd,&r);
@@ -260,12 +270,11 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   }
 #endif
 
-  if (ctx)switch (uMsg)
+  if (ctx) switch (uMsg)
   {
 	case WM_DESTROY:
 		ctx->m_hwnd=0;
 	return 0;
-#ifdef WIN32_CONSOLE_KBQUEUE
   case WM_CHAR: case WM_KEYDOWN: 
 
 #ifdef __APPLE__
@@ -277,15 +286,21 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 #endif
 
     {
-      int a=xlateKey(uMsg,wParam,lParam);
-      if (a != ERR && ctx->m_kbq)
+      const int a=(int)xlateKey(uMsg,wParam,lParam);
+      if (a != ERR)
       {
-        ctx->m_kbq->Add(&a,sizeof(int));
+        const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
+        if (ctx->m_kb_queue_valid>=qsize) // queue full, dump an old event!
+        {
+          ctx->m_kb_queue_valid--;
+          ctx->m_kb_queue_pos++;
+        }
+
+        ctx->m_kb_queue[(ctx->m_kb_queue_pos + ctx->m_kb_queue_valid++) & (qsize-1)] = a;
       }
     }
   case WM_KEYUP:
   return 0;
-#endif
 	case WM_GETMINMAXINFO:
 	      {
 	        LPMINMAXINFO p=(LPMINMAXINFO)lParam;
@@ -297,7 +312,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		if (wParam != SIZE_MINIMIZED)
 		{
 			m_reinit_framebuffer(ctx);
-			ctx->m_need_redraw=1;
+			ctx->need_redraw|=1;
 		}
 	return 0;
   case WM_RBUTTONDOWN:
@@ -308,6 +323,9 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   case WM_CAPTURECHANGED:
   case WM_MOUSEMOVE:
   case WM_MOUSEWHEEL:
+  case WM_LBUTTONDBLCLK:
+  case WM_RBUTTONDBLCLK:
+  case WM_MBUTTONDBLCLK:
     if (ctx && ctx->onMouseMessage) return ctx->onMouseMessage(ctx->user_data,hwnd,uMsg,wParam,lParam);
   return 0;
 #ifdef _WIN32
@@ -321,34 +339,20 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   case WM_TIMER:
     if (wParam==CURSOR_BLINK_TIMER && ctx)
     {
-      int la = ctx->m_cursor_state;
-      ctx->m_cursor_state= (ctx->m_cursor_state+1)%CURSOR_BLINK_TIMER_ZEROEVERY;
+      const char la = ctx->cursor_state;
+      ctx->cursor_state= (ctx->cursor_state+1)%CURSOR_BLINK_TIMER_ZEROEVERY;
       
-      if (!!ctx->m_cursor_state != !!la)
+      if (!!ctx->cursor_state != !!la)
         __move(ctx,ctx->m_cursor_y,ctx->m_cursor_x,1);// refresh cursor
     }
-#ifdef WIN32_CONSOLE_KBQUEUE
-    if (wParam == 1)
-    {
-      if (!ctx->m_intimer)
-      {
-        ctx->m_intimer=1;
-        if (ctx->ui_run) ctx->ui_run(ctx);
-        ctx->m_intimer=0;
-      }
-    }
-#endif
   return 0;
     case WM_CREATE:
 
       // this only is called on osx or from standalone, it seems, since on win32 ctx isnt set up yet
       ctx->m_hwnd=hwnd;
-      #ifdef WIN32_CONSOLE_KBQUEUE
-         SetTimer(hwnd,1,33,NULL);
-      #endif
       #ifndef _WIN32
 	      m_reinit_framebuffer(ctx);
-	      ctx->m_need_redraw=1;
+	      ctx->need_redraw|=1;
       #endif
       SetTimer(hwnd,CURSOR_BLINK_TIMER,CURSOR_BLINK_TIMER_MS,NULL);
     return 0;
@@ -396,13 +400,12 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             HBRUSH bgbrushes[COLOR_PAIRS << NUM_ATTRBITS];
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) bgbrushes[y] = CreateSolidBrush(ctx->colortab[y][1]);
 
-            int cstate=ctx->m_cursor_state;
-            if (ctx->m_cursor_y != ctx->m_cursor_state_ly ||
-                ctx->m_cursor_x != ctx->m_cursor_state_lx)
+            char cstate=ctx->cursor_state;
+            if (ctx->m_cursor_y != ctx->cursor_state_ly || ctx->m_cursor_x != ctx->cursor_state_lx)
             {
-              ctx->m_cursor_state_lx=ctx->m_cursor_x;
-              ctx->m_cursor_state_ly=ctx->m_cursor_y;
-              ctx->m_cursor_state=0;
+              ctx->cursor_state_lx=ctx->m_cursor_x;
+              ctx->cursor_state_ly=ctx->m_cursor_y;
+              ctx->cursor_state=0;
               cstate=1;
             }
                     
@@ -436,15 +439,13 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
                 if (x>=r.right) break;
 
-#if WIN32_CURSES_CURSORTYPE == 0
-						    if (isCursor)
+						    if (isCursor && ctx->cursor_type == WIN32_CURSES_CURSOR_TYPE_BLOCK)
 						    {
 						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][1]);
 						      SetBkColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
                   lattr = -1;
 						    }
 				        else 
-#endif // WIN32_CURSES_CURSORTYPE == 0
                 if (attr != lattr)
 				        {
 						      SetTextColor(hdc,ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
@@ -460,34 +461,32 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                   #else
                     RECT tr={xpos,ypos,xpos+32,ypos+32};
                     HBRUSH br=bgbrushes[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)];
-#if WIN32_CURSES_CURSORTYPE == 0
-                    if (isCursor)
+                    if (isCursor && ctx->cursor_type == WIN32_CURSES_CURSOR_TYPE_BLOCK)
                     {
                       br = CreateSolidBrush(ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
                       FillRect(hdc,&tr,br);
                       DeleteObject(br);
                     }
                     else
-#endif
                     {
                       FillRect(hdc,&tr,br);
                     }
                     char tmp[2]={c,0};
                     DrawText(hdc,isprint(c) && !isspace(c) ?tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
                   #endif
-#if WIN32_CURSES_CURSORTYPE > 0
-                  if (isCursor)
+
+                  if (isCursor && ctx->cursor_type != WIN32_CURSES_CURSOR_TYPE_BLOCK)
                   {
-                    #if WIN32_CURSES_CURSORTYPE == 1
-                      RECT r={xpos,ypos,xpos+2,ypos+ctx->m_font_h};
-                    #elif WIN32_CURSES_CURSORTYPE == 2
-                      RECT r={xpos,ypos+ctx->m_font_h-2,xpos+ctx->m_font_w,ypos+ctx->m_font_h};
-                    #endif
+                    RECT r={xpos,ypos,xpos+2,ypos+ctx->m_font_h};
+                    if (ctx->cursor_type == WIN32_CURSES_CURSOR_TYPE_HORZBAR)
+                    {
+                      RECT tr={xpos,ypos+ctx->m_font_h-2,xpos+ctx->m_font_w,ypos+ctx->m_font_h};
+                      r=tr;
+                    }
                     HBRUSH br=CreateSolidBrush(ctx->colortab[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)][0]);
                     FillRect(hdc,&r,br);
                     DeleteObject(br);
                   }
-#endif
                 }
                 else 
                 {
@@ -522,14 +521,15 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
 static void doFontCalc(win32CursesCtx *ctx, HDC hdcIn)
 {
-  if (!ctx || !ctx->m_hwnd || !ctx->m_need_fontcalc) return;
+  if (!ctx || !ctx->m_hwnd || !(ctx->need_redraw&2)) return;
 
   HDC hdc = hdcIn;
   if (!hdc) hdc = GetDC(ctx->m_hwnd);
 
   if (!hdc) return;
    
-  ctx->m_need_fontcalc=false;
+  ctx->need_redraw&=~2;
+
   HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
   TEXTMETRIC tm;
   GetTextMetrics(hdc,&tm);
@@ -543,6 +543,8 @@ static void doFontCalc(win32CursesCtx *ctx, HDC hdcIn)
 
 static void reInitializeContext(win32CursesCtx *ctx)
 {
+  if (!ctx) return;
+
   if (!ctx->mOurFont) ctx->mOurFont = CreateFont(
 #ifdef _WIN32
                                                  16,
@@ -575,7 +577,7 @@ static void reInitializeContext(win32CursesCtx *ctx)
 #endif
                         "Courier New");
 
-  ctx->m_need_fontcalc=true;
+  ctx->need_redraw|=2;
   ctx->m_font_w=8;
   ctx->m_font_h=8;
   doFontCalc(ctx,NULL);
@@ -591,37 +593,23 @@ void __initscr(win32CursesCtx *ctx)
 
 void __endwin(win32CursesCtx *ctx)
 {
-  if (ctx->m_hwnd)
-    curses_setWindowContext(ctx->m_hwnd,0);
-  ctx->m_hwnd=0;
-  free(ctx->m_framebuffer);
-  ctx->m_framebuffer=0;
-  delete ctx->m_kbq;
-  ctx->m_kbq=0;
-  if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
-  ctx->mOurFont=0;
-
+  if (ctx)
+  {
+    if (ctx->m_hwnd)
+      curses_setWindowContext(ctx->m_hwnd,0);
+    ctx->m_kb_queue_valid=0;
+    ctx->m_hwnd=0;
+    free(ctx->m_framebuffer);
+    ctx->m_framebuffer=0;
+    if (ctx->mOurFont) DeleteObject(ctx->mOurFont);
+    ctx->mOurFont=0;
+  }
 }
 
 
 int curses_getch(win32CursesCtx *ctx)
 {
-  if (!ctx->m_hwnd) return ERR;
-
- 
-#ifndef WIN32_CONSOLE_KBQUEUE
-  // if we're suppose to run the message pump ourselves (optional!)
-  MSG msg;
-  while(PeekMessage(&msg,NULL,0,0,PM_REMOVE))
-  {
-    TranslateMessage(&msg);
-    int a=xlateKey(msg.message,msg.wParam,msg.lParam);
-    if (a != ERR) return a;
-
-    DispatchMessage(&msg);
-
-  }
-#else
+  if (!ctx || !ctx->m_hwnd) return ERR;
 
 #ifdef _WIN32
   if (ctx->want_getch_runmsgpump>0)
@@ -629,7 +617,7 @@ int curses_getch(win32CursesCtx *ctx)
     MSG msg;
     if (ctx->want_getch_runmsgpump>1)
     {
-      while(!(ctx->m_kbq && ctx->m_kbq->Available()>=(int)sizeof(int)) && GetMessage(&msg,NULL,0,0))
+      while(!ctx->m_kb_queue_valid && GetMessage(&msg,NULL,0,0))
       {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -643,18 +631,18 @@ int curses_getch(win32CursesCtx *ctx)
   }
 #endif
 
-  if (ctx->m_kbq && ctx->m_kbq->Available()>=(int)sizeof(int))
+  if (ctx->m_kb_queue_valid)
   {
-    int a=*(int *) ctx->m_kbq->Get();
-    ctx->m_kbq->Advance(sizeof(int));
-    ctx->m_kbq->Compact();
+    const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
+    const int a = ctx->m_kb_queue[ctx->m_kb_queue_pos & (qsize-1)];
+    ctx->m_kb_queue_pos++;
+    ctx->m_kb_queue_valid--;
     return a;
   }
-#endif
   
-  if (ctx->m_need_redraw)
+  if (ctx->need_redraw&1)
   {
-    ctx->m_need_redraw=0;
+    ctx->need_redraw&=~1;
     InvalidateRect(ctx->m_hwnd,NULL,FALSE);
     return 'L'-'A'+1;
   }
@@ -668,8 +656,7 @@ void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx)
   if (ctx)
   {
     ctx->m_hwnd=hwnd;
-    delete ctx->m_kbq;
-    ctx->m_kbq=new WDL_Queue;
+    ctx->m_kb_queue_valid=0;
 
     free(ctx->m_framebuffer);
     ctx->m_framebuffer=0;
@@ -695,7 +682,7 @@ void curses_registerChildClass(HINSTANCE hInstance)
 #ifdef _WIN32
   if (!m_regcnt++)
   {
-	  WNDCLASS wc={0,};	
+	  WNDCLASS wc={CS_DBLCLKS,};	
 	  wc.lpfnWndProc = cursesWindowProc;
     wc.hInstance = hInstance;	
 	  wc.hCursor = LoadCursor(NULL,IDC_ARROW);
@@ -730,6 +717,7 @@ HWND curses_ControlCreator(HWND parent, const char *cname, int idx, const char *
 
 HWND curses_CreateWindow(HINSTANCE hInstance, win32CursesCtx *ctx, const char *title)
 {
+  if (!ctx) return NULL;
 #ifdef _WIN32
  ctx->m_hwnd = CreateWindowEx(0,WIN32CURSES_CLASS_NAME, title,WS_CAPTION|WS_MAXIMIZEBOX|WS_MINIMIZEBOX|WS_SIZEBOX|WS_SYSMENU,
 					CW_USEDEFAULT,CW_USEDEFAULT,640,480,

@@ -30,7 +30,7 @@ static int __boolval(const char *p, int defval)
 
 static LICE_pixel __colorval(const char *p, LICE_pixel def)
 {
-  int lp = strlen(p);
+  const size_t lp = strlen(p);
   if (lp == 3)
   {
     int r = chartohex(p[0]);
@@ -198,7 +198,7 @@ private:
 
 #define DECL_OPT(type, cfunc) \
   static type getoption_##type(LineParser *lp, int startidx, const char *name, type def) { \
-    int namelen = strlen(name); \
+    const size_t namelen = strlen(name); \
     for(;startidx<lp->getnumtokens();startidx++) { \
       const char *p=lp->gettoken_str(startidx); \
       if (!strnicmp(name,p,namelen) && p[namelen]=='=') return cfunc(p+namelen+1,def); \

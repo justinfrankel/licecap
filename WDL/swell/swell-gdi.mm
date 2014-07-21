@@ -36,19 +36,34 @@
 #include "../assocarray.h"
 #include "../wdlcstring.h"
 
+#ifdef __SSE__
+#include <xmmintrin.h>
+#endif
 
+#ifdef SWELL_SUPPORT_OPENGL_BLIT
+#include <OpenGL/gl.h>
+#endif
+
+int SWELL_GetOSXVersion()
+{
+  static SInt32 v;
+  if (!v)
+  {
+    v=0x1040;
+    Gestalt(gestaltSystemVersion,&v);
+  }
+  return v;
+}
+
+#ifdef __AVX__
+#include <immintrin.h>
+#endif
+
+#ifndef SWELL_NO_CORETEXT
 static bool IsCoreTextSupported()
 {
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
-  static char is105;
-  if (!is105)
-  {
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    is105 = v>=0x1050 ? 1 : -1;    
-  }
-  
-  return is105 > 0 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
+  return SWELL_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString && CTFontCopyPostScriptName
          ;
 #else
@@ -71,6 +86,7 @@ static CTFontRef GetCoreTextDefaultFont()
   }
   return deffr;
 }
+#endif // !SWELL_NO_CORETEXT
   
 
 static NSString *CStringToNSString(const char *str)
@@ -84,20 +100,63 @@ static NSString *CStringToNSString(const char *str)
   return ret;
 }
 
+CGColorSpaceRef __GetDisplayColorSpace()
+{
+  static CGColorSpaceRef cs;
+  if (!cs)
+  {
+    // use monitor profile for 10.7+
+    if (SWELL_GetOSXVersion() >= 0x1070)
+    {
+      CMProfileRef systemMonitorProfile = NULL;
+      CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
+      if(noErr == getProfileErr)
+      {
+        cs = CGColorSpaceCreateWithPlatformColorSpace(systemMonitorProfile);
+        CMCloseProfile(systemMonitorProfile);
+      }
+    }
+  }
+  if (!cs) 
+    cs = CGColorSpaceCreateDeviceRGB();
+  return cs;
+}
 
 static CGColorRef CreateColor(int col, float alpha=1.0f)
 {
-  static CGColorSpaceRef cspace;
-  
-  if (!cspace) cspace=CGColorSpaceCreateDeviceRGB();
-  
-  CGFloat cols[4]={GetRValue(col)/255.0,GetGValue(col)/255.0,GetBValue(col)/255.0,alpha};
-  CGColorRef color=CGColorCreate(cspace,cols);
+  CGFloat cols[4]={GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,alpha};
+  CGColorRef color=CGColorCreate(__GetDisplayColorSpace(),cols);
   return color;
 }
 
 
 #include "swell-gdi-internalpool.h"
+
+int SWELL_IsRetinaHWND(HWND hwnd)
+{
+  if (!hwnd || SWELL_GetOSXVersion() < 0x1070) return 0;
+
+  NSWindow *w=NULL;
+  if ([(id)hwnd isKindOfClass:[NSView class]]) w = [(NSView *)hwnd window];
+  else if ([(id)hwnd isKindOfClass:[NSWindow class]]) w = (NSWindow *)hwnd;
+
+  if (w)
+  {
+    NSRect r=NSMakeRect(0,0,1,1);
+    NSRect (*tmp)(id receiver, SEL operation, NSRect) = (NSRect (*)(id, SEL, NSRect))objc_msgSend_stret;
+    NSRect str = tmp(w,sel_getUid("convertRectToBacking:"),r);
+
+    if (str.size.width > 1.9) return 1;
+  }
+  return 0;
+}
+
+int SWELL_IsRetinaDC(HDC hdc)
+{
+  HDC__ *src=(HDC__*)hdc;
+  if (!src || !HDC_VALID(src) || !src->ctx) return 0;
+  return CGContextConvertSizeToDeviceSpace((CGContextRef)src->ctx, CGSizeMake(1,1)).width > 1.9 ? 1 : 0;
+}
 
 
 HDC SWELL_CreateGfxContext(void *c)
@@ -127,9 +186,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   void *buf=calloc(w*4*h+ALIGN_EXTRA,1);
   if (!buf) return 0;
-  CGColorSpaceRef cs=CGColorSpaceCreateDeviceRGB();
-  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4,cs, kCGImageAlphaNoneSkipFirst);
-  CGColorSpaceRelease(cs);
+  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4,__GetDisplayColorSpace(), kCGImageAlphaNoneSkipFirst);
   if (!c)
   {
     free(buf);
@@ -519,6 +576,7 @@ static NSString *SWELL_GetCachedFontName(const char *nm)
       ret = CStringToNSString(nm);
       if (ret)
       {
+#ifndef SWELL_NO_CORETEXT
         // only do postscript name lookups on 10.9+
         if (floor(NSFoundationVersionNumber) > 945.00) // NSFoundationVersionNumber10_8
         {
@@ -530,6 +588,7 @@ static NSString *SWELL_GetCachedFontName(const char *nm)
             ret = nr;
           }
         }
+#endif
 
         s_fontnamecache_mutex.Enter();
         s_fontnamecache.Insert(nm,ret);
@@ -555,6 +614,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   
   font->font_rotation = lfOrientation/10.0;
 
+#ifndef SWELL_NO_CORETEXT
   if (IsCoreTextSupported())
   {
     char buf[1024];
@@ -568,6 +628,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     // might want to make this conditional (i.e. only return font if created successfully), but I think we'd rather fallback to a system font than use ATSUI
     return font;
   }
+#endif
   
 #ifdef SWELL_ATSUI_TEXT_SUPPORT
   ATSUFontID fontid=kATSUInvalidFontID;
@@ -658,6 +719,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   }
 #endif
 
+#ifndef SWELL_NO_CORETEXT
   CTFontRef fr = curfont_valid ? (CTFontRef)ct->curfont->ct_FontRef : NULL;
   if (!fr)  fr=GetCoreTextDefaultFont();
 
@@ -673,6 +735,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     
     return 1;
   }
+#endif
 
   
   return 1;
@@ -701,11 +764,16 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
   }
   
   {
-    RGBColor tcolor={GetRValue(ct->cur_text_color_int)*256,GetGValue(ct->cur_text_color_int)*256,GetBValue(ct->cur_text_color_int)*256};
     ATSUAttributeTag        theTags[] = { kATSUColorTag,   };
     ByteCount               theSizes[] = { sizeof(RGBColor),  };
+
+    RGBColor tcolor;
     ATSUAttributeValuePtr   theValues[] =  {&tcolor,  } ;
-        
+    
+    tcolor.red = GetRValue(ct->cur_text_color_int)*256;
+    tcolor.green = GetGValue(ct->cur_text_color_int)*256;
+    tcolor.blue = GetBValue(ct->cur_text_color_int)*256;
+    
     // error check this? we can live with the wrong color maybe?
     ATSUSetAttributes(font->atsui_font_style,  sizeof(theTags)/sizeof(theTags[0]), theTags, theSizes, theValues);
   }
@@ -787,10 +855,7 @@ static int DrawTextATSUI(HDC ctx, CFStringRef strin, RECT *r, int align, bool *e
   if (ct->curbkmode == OPAQUE)
   {      
     CGRect bgr = CGRectMake(l, t, w, h);
-    static CGColorSpaceRef csr;
-    if (!csr) csr = CGColorSpaceCreateDeviceRGB();
-    float col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
-    CGColorRef bgc = CGColorCreate(csr, col);
+    CGColorRef bgc = CreateColor(ct->curbkcol);
     CGContextSetFillColorWithColor(ct->ctx, bgc);
     CGContextFillRect(ct->ctx, bgr);
     CGColorRelease(bgc);	
@@ -850,6 +915,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   }
 #endif  
   
+#ifndef SWELL_NO_CORETEXT
   CTFontRef fr = curfont_valid ? (CTFontRef)ct->curfont->ct_FontRef : NULL;
   if (!fr)  fr=GetCoreTextDefaultFont();
   if (fr)
@@ -951,10 +1017,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     CGColorRef bgc = NULL;
     if (ct->curbkmode == OPAQUE)
     {      
-      CGColorSpaceRef csr = CGColorSpaceCreateDeviceRGB();
-      CGFloat col[] = { (float)GetRValue(ct->curbkcol)/255.0f,  (float)GetGValue(ct->curbkcol)/255.0f, (float)GetBValue(ct->curbkcol)/255.0f, 1.0f };
-      bgc = CGColorCreate(csr, col);
-      CGColorSpaceRelease(csr);
+      bgc = CreateColor(ct->curbkcol);
     }
 
     if (line) 
@@ -1001,6 +1064,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     
     return line_h;
   }
+#endif
   
   
   [str release];
@@ -1041,10 +1105,7 @@ void SetTextColor(HDC ctx, int col)
   
   if (ct->curtextcol) CFRelease(ct->curtextcol);
 
-  static CGColorSpaceRef csr;
-  if (!csr) csr = CGColorSpaceCreateDeviceRGB();
-  CGFloat ccol[] = { GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,1.0 };
-  ct->curtextcol = csr ? CGColorCreate(csr, ccol) : NULL;
+  ct->curtextcol = CreateColor(col);
 }
 
 
@@ -1066,59 +1127,77 @@ HICON CreateIconIndirect(ICONINFO* iconinfo)
 
 HICON LoadNamedImage(const char *name, bool alphaFromMask)
 {
-  int needfree=0;
   NSImage *img=0;
   NSString *str=CStringToNSString(name); 
   if (strstr(name,"/"))
   {
     img=[[NSImage alloc] initWithContentsOfFile:str];
-    if (img) needfree=1;
   }
-  if (!img) img=[NSImage imageNamed:str];
+  if (!img) 
+  {
+    img=[NSImage imageNamed:str];
+    if (img) [img retain];
+  }
   [str release];
   if (!img) 
   {
     return 0;
   }
     
+  [img setFlipped:YES];
   if (alphaFromMask)
   {
-    NSSize sz=[img size];
-    NSImage *newImage=[[NSImage alloc] initWithSize:sz];
-    [newImage lockFocus];
-    
-    [img setFlipped:YES];
-    [img drawInRect:NSMakeRect(0,0,sz.width,sz.height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
-    int y;
-    CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
-    for (y=0; y< sz.height; y ++)
+    const NSSize sz=[img size];
+    const int w = (int)sz.width, h=(int)sz.height;
+    HDC hdc;
+    if (w>0 && h>0 && NULL != (hdc=SWELL_CreateMemContext(NULL,w,h)))
     {
-      int x;
-      for (x = 0; x < sz.width; x ++)
+      [NSGraphicsContext saveGraphicsState];
+      NSGraphicsContext *gc=[NSGraphicsContext graphicsContextWithGraphicsPort:((struct HDC__*)hdc)->ctx flipped:NO];
+      [NSGraphicsContext setCurrentContext:gc];
+      [img drawInRect:NSMakeRect(0,0,w,h) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1.0];
+      [NSGraphicsContext restoreGraphicsState];
+
+      NSImage *newImage=[[NSImage alloc] initWithData:[img TIFFRepresentation]];
+      [newImage setFlipped:YES];
+
+      const int *fb = (const int *)SWELL_GetCtxFrameBuffer(hdc);
+      int y,rcnt=0;
+      [newImage lockFocus];
+      CGContextRef myContext = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
+      for (y=0; y < h; y ++)
       {
-        NSColor *col=NSReadPixel(NSMakePoint(x,y));
-        if (col && [col numberOfComponents]<=4)
+        int x;
+        for (x = 0; x < w; x++)
         {
-          CGFloat comp[4];
-          [col getComponents:comp]; // this relies on the format being RGB
-          if (comp[0] == 1.0 && comp[1] == 0.0 && comp[2] == 1.0 && comp[3]==1.0)
-            //fabs(comp[0]-1.0) < 0.0001 && fabs(comp[1]-.0) < 0.0001 && fabs(comp[2]-1.0) < 0.0001)
+#ifdef __ppc__
+          if ((*fb++ & 0xffffff) == 0xff00ff)
+#else
+          if ((*fb++ & 0xffffff00) == 0xff00ff00)
+#endif
           {
             CGContextClearRect(myContext,CGRectMake(x,y,1,1));
+            rcnt++;
           }
         }
       }
+      [newImage unlockFocus];
+
+      SWELL_DeleteGfxContext(hdc);
+
+      if (rcnt)
+      {
+        [img release];
+        img=newImage;    
+      }
+      else
+        [newImage release];
     }
-    [newImage unlockFocus];
-    
-    if (needfree) [img release];
-    needfree=1;
-    img=newImage;    
   }
   
   HGDIOBJ__ *i=GDP_OBJECT_NEW();
   i->type=TYPE_BITMAP;
-  i->wid=needfree;
+  i->wid=1;
   i->bitmapptr = img;
   return i;
 }
@@ -1137,7 +1216,7 @@ void DrawImageInRect(HDC ctx, HICON img, RECT *r)
   NSRect rr=NSMakeRect(r->left,r->top,r->right-r->left,r->bottom-r->top);
   [nsi setFlipped:YES];
   [nsi drawInRect:rr fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
-  [nsi setFlipped:NO];
+  [nsi setFlipped:NO]; // todo: restore old flippedness?
   [NSGraphicsContext restoreGraphicsState];
 //  [gc release];
 }
@@ -1210,6 +1289,131 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   StretchBlt(hdcOut,x,y,w,h,hdcIn,xin,yin,w,h,mode);
 }
 
+#ifndef __ppc__
+static void SWELL_fastDoubleUpImage(unsigned int *op, const unsigned int *ip, int w, int h, int sw, int newspan)
+{
+  int y = h;
+  while (y-->0)
+  {
+    const unsigned int *rd = ip;
+    unsigned int *wr = op;
+    int remaining = w;
+
+#if 0 // def __AVX__
+    // this isn't really any faster than SSE anyway
+    if (remaining >= 8)
+    {
+      if (!((INT_PTR)rd & 31))
+      {
+        int x = remaining/8;
+        while (x-->0)
+        {
+          const __m256 m =  _mm256_load_ps((const float *)rd);
+          rd+=8;
+          
+          const __m256 p1 = _mm256_permutevar_ps(_mm256_permute2f128_ps(m,m,0),_mm256_set_epi32(3,3,2,2,1,1,0,0));
+          const __m256 p2 = _mm256_permutevar_ps(_mm256_permute2f128_ps(m,m,1|(1<<4)),_mm256_set_epi32(3,3,2,2,1,1,0,0));
+          
+          unsigned int *wr2 = wr+newspan;
+          _mm256_store_ps((float*)wr,p1);
+          _mm256_store_ps((float*)wr2,p1);
+        
+          _mm256_store_ps((float*)wr + 8,p2);
+          _mm256_store_ps((float*)wr2 + 8,p2);
+          
+          wr += 16;
+        }
+        remaining &= 7;
+        
+      }
+    }
+#endif
+    
+#ifdef __SSE__
+    if (remaining >= 4)
+    {
+      // with SSE is about 2x faster than without
+      if (((INT_PTR)rd & 7))
+      {
+        // input isn't 8 byte aligned, must use unaligned reads
+        int x = remaining/4;
+        while (x-->0)
+        {
+          __m128 m =  _mm_loadu_ps((const float *)rd);
+          __m128 p1 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(1,1,0,0));
+          __m128 p2 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(3,3,2,2));
+          
+          unsigned int *wr2 = wr+newspan;
+          rd+=4;
+          
+          _mm_store_ps((float*)wr,p1);
+          _mm_store_ps((float*)wr2,p1);
+          
+          _mm_store_ps((float*)wr + 4,p2);
+          _mm_store_ps((float*)wr2 + 4,p2);
+          
+          wr += 8;
+        }
+      }
+      else
+      {
+        // if rd is 8 byte aligned, we can do SSE without unaligned reads
+        
+        // but if it is not 16 byte aligned, we need to preprocess a pair of pixels
+        // (advancing rd by 8 bytes, and wr by 16)
+      
+        if ((INT_PTR)rd & 15)
+        {
+          unsigned int *nwr = wr+newspan;
+          wr[0] = wr[1] = nwr[0] = nwr[1] = rd[0];
+          wr[2] = wr[3] = nwr[2] = nwr[3] = rd[1];
+          wr+=4;
+          rd+=2;
+          remaining-=2;
+        }
+        
+        int x = remaining/4;
+        while (x-->0)
+        {
+          __m128 m =  _mm_load_ps((const float *)rd);
+          __m128 p1 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(1,1,0,0));
+          __m128 p2 = _mm_shuffle_ps(m,m,_MM_SHUFFLE(3,3,2,2));
+
+          unsigned int *wr2 = wr+newspan;
+          rd+=4;
+          
+          _mm_store_ps((float*)wr,p1);
+          _mm_store_ps((float*)wr2,p1);
+          
+          _mm_store_ps((float*)wr + 4,p2);
+          _mm_store_ps((float*)wr2 + 4,p2);
+
+          wr += 8;
+        }
+      }
+      remaining &= 3;
+    }
+#endif //__SSE__
+
+    int x = remaining/2;
+    while (x-->0)
+    {
+      unsigned int *nwr = wr+newspan;
+      wr[0] = wr[1] = nwr[0] = nwr[1] = rd[0];
+      wr[2] = wr[3] = nwr[2] = nwr[3] = rd[1];
+      rd+=2;
+      wr+=4;
+    }
+    if (remaining&1)
+    {
+      wr[0] = wr[1] = wr[newspan] = wr[newspan+1] = *rd;
+    }
+    ip += sw;
+    op += newspan*2;
+  }
+}
+#endif
+
 void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int xin, int yin, int w, int h, int mode)
 {
   if (!hdcOut || !hdcIn||w<1||h<1) return;
@@ -1248,78 +1452,105 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   if (desth == preclip_h) desth=h;
   else if (h != preclip_h) desth = (h*desth)/preclip_h;
   
-  CGImageRef img = NULL, subimg = NULL;
-  NSBitmapImageRep *rep = NULL;
+  const bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
   
-  static char is105;
-  if (!is105)
+  CGContextRef output = (CGContextRef)dest->ctx;
+  CGRect outputr = CGRectMake(x,-desth-y,destw,desth);
+  
+  unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
+  p += (xin + sw*yin)*4;
+
+  
+#ifdef SWELL_SUPPORT_OPENGL_BLIT
+  if (dest->GLgfxctx)
   {
-    SInt32 v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
-    is105 = v>=0x1050 ? 1 : -1;    
-  }
-  
-  bool want_subimage=false;
-  
-  bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
-  
-  if (is105>0)
-  {
-    // [NSBitmapImageRep CGImage] is not available pre-10.5
-    unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
-    p += (xin + sw*yin)*4;
-    rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&p pixelsWide:w pixelsHigh:h
-                                               bitsPerSample:8 samplesPerPixel:(3+use_alphachannel) hasAlpha:use_alphachannel isPlanar:FALSE
-                                              colorSpaceName:NSDeviceRGBColorSpace bitmapFormat:(NSBitmapFormat)((use_alphachannel ? NSAlphaNonpremultipliedBitmapFormat : 0) |NSAlphaFirstBitmapFormat) bytesPerRow:sw*4 bitsPerPixel:32];
-    img=(CGImageRef)objc_msgSend(rep,@selector(CGImage));
-    if (img) CGImageRetain(img);
-  }
-  else
-  {
-    if (1) // this seems to be WAY better on 10.4 than the alternative (below)
+    NSOpenGLContext *glCtx = (NSOpenGLContext*) dest->GLgfxctx;
+    NSOpenGLContext *cCtx = [NSOpenGLContext currentContext];
+    if (glCtx != cCtx)
     {
-      static CGColorSpaceRef cs;
-      if (!cs) cs = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-      unsigned char *p = (unsigned char *)ALIGN_FBUF(src->ownedData);
-      p += (xin + sw*yin)*4;
-      
-      CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,p,4*sw*h,NULL);
-      img = CGImageCreate(w,h,8,32,4*sw,cs,use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,provider,NULL,NO,kCGRenderingIntentDefault);
-      //    CGColorSpaceRelease(cs);
-      CGDataProviderRelease(provider);
+      [glCtx makeCurrentContext];
     }
-    else 
-    {
-      // causes lots of kernel messages, so avoid if possible, also doesnt support alpha bleh
-      img = CGBitmapContextCreateImage(src->ctx);
-      want_subimage = true;
-    }
+    
+    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_TEXTURE_RECTANGLE_EXT);
+    
+    GLuint texid=0;
+    glGenTextures(1, &texid);
+    glBindTexture(GL_TEXTURE_RECTANGLE_EXT, texid);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, sw);
+    glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER,  GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_RECTANGLE_EXT,0,GL_RGBA8,w,h,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8, p);
+    
+    glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(x,[[glCtx view] bounds].size.height-h-y,w,h);
+    glBegin(GL_QUADS);
+    
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(-1,1);
+    
+    glTexCoord2f(0.0f, h);
+    glVertex2f(-1,-1);
+    
+    glTexCoord2f(w,h);
+    glVertex2f(1,-1);
+    
+    glTexCoord2f(w, 0.0f);
+    glVertex2f(1,1);
+    glEnd();
+    
+    glDeleteTextures(1,&texid);
+    glFlush();
+
+    if (glCtx != cCtx) [cCtx makeCurrentContext];
+    return;
   }
+#endif
   
-  if (!img) return;
   
-  if (want_subimage && (w != sw || h != sh))
+  // this is only faster when using the native color profile, it seems
+  WDL_HeapBuf *retina_hb = NULL;
+  unsigned char *retina_buf = NULL;
+#ifndef __ppc__
+  if (destw == w && desth == h && 
+      CGContextConvertSizeToDeviceSpace(output, CGSizeMake(1,1)).width > 1.9)
   {
-    subimg = CGImageCreateWithImageInRect(img,CGRectMake(xin,yin,w,h));
-    if (!subimg) 
+    const int newspan = (w*2+3)&~3;
+    retina_hb = SWELL_GDP_GetTmpBuf();
+    if (retina_hb && retina_hb->ResizeOK(sizeof(unsigned int) * newspan*h*2 + 32,false))
     {
-      CGImageRelease(img);
-      return;
+      retina_buf = (unsigned char *)retina_hb->Get();
+      const UINT_PTR align = (UINT_PTR)retina_buf & 31;
+      if (align) retina_buf += 32-align;
+
+      SWELL_fastDoubleUpImage((unsigned int *)retina_buf, 
+                        (const unsigned int *)p,w,h,sw,newspan);
+
+      sw = newspan;
+      w *= 2;
+      h *= 2;
     }
   }
+#endif
+
   
-  CGContextRef output = (CGContextRef)dest->ctx; 
+  CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,retina_buf ? retina_buf : p,4*sw*h,NULL);
+  CGImageRef img = CGImageCreate(w,h,8,32,4*sw,__GetDisplayColorSpace(),
+      use_alphachannel?kCGImageAlphaFirst:kCGImageAlphaNoneSkipFirst,
+      provider,NULL,NO,kCGRenderingIntentDefault);
+  CGDataProviderRelease(provider);
   
+  if (img)
+  {
+    CGContextSaveGState(output);
+    CGContextScaleCTM(output,1.0,-1.0);
   
-  CGContextSaveGState(output);
-  CGContextScaleCTM(output,1.0,-1.0);  
-  CGContextDrawImage(output,CGRectMake(x,-desth-y,destw,desth),subimg ? subimg : img);    
-  CGContextRestoreGState(output);
+    CGContextSetInterpolationQuality(output,kCGInterpolationNone);
+    CGContextDrawImage(output,outputr,img);
+    CGContextRestoreGState(output);
   
-  if (subimg) CGImageRelease(subimg);
-  CGImageRelease(img);   
-  if (rep) [rep release];
-  
+    CGImageRelease(img);
+  }
+  SWELL_GDP_DisposeTmpBuf(retina_hb);
 }
 
 void SWELL_PushClipRegion(HDC ctx)

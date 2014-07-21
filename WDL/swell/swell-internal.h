@@ -3,6 +3,19 @@
 
 #include "../ptrlist.h"
 
+class SWELL_ListView_Row
+{
+public:
+  SWELL_ListView_Row() : m_param(0), m_imageidx(0), m_tmp(0) { }
+  ~SWELL_ListView_Row() { m_vals.Empty(true,free); }
+  WDL_PtrList<char> m_vals;
+
+  LPARAM m_param;
+  int m_imageidx;
+  int m_tmp; // Cocoa uses this temporarily, generic uses it as a mask (1= selected)
+};
+
+
 #ifdef SWELL_TARGET_OSX
 
 #if 0
@@ -98,18 +111,6 @@ typedef struct WindowPropRec
   struct WindowPropRec *_next;
 } WindowPropRec;
 
-
-class SWELL_ListView_Row
-{
-public:
-  SWELL_ListView_Row();
-  ~SWELL_ListView_Row();
-  WDL_PtrList<char> m_vals;
-  LPARAM m_param;
-  int m_imageidx;
-  
-  int m_tmp;
-};
 
 
 struct HTREEITEM__
@@ -316,19 +317,19 @@ struct HTREEITEM__
 // NSAccessibility
 
 // attribute methods
-- (NSArray *)accessibilityAttributeNames;
+//- (NSArray *)accessibilityAttributeNames;
 - (id)accessibilityAttributeValue:(NSString *)attribute;
-- (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute;
-- (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
+//- (BOOL)accessibilityIsAttributeSettable:(NSString *)attribute;
+//- (void)accessibilitySetValue:(id)value forAttribute:(NSString *)attribute;
 
 // parameterized attribute methods
-- (NSArray *)accessibilityParameterizedAttributeNames;
-- (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
+//- (NSArray *)accessibilityParameterizedAttributeNames;
+//- (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter;
 
 // action methods
-- (NSArray *)accessibilityActionNames;
-- (NSString *)accessibilityActionDescription:(NSString *)action;
-- (void)accessibilityPerformAction:(NSString *)action;
+//- (NSArray *)accessibilityActionNames;
+//- (NSString *)accessibilityActionDescription:(NSString *)action;
+//- (void)accessibilityPerformAction:(NSString *)action;
 
 // Return YES if the UIElement doesn't show up to the outside world - i.e. its parent should return the UIElement's children as its own - cutting the UIElement out. E.g. NSControls are ignored when they are single-celled.
 - (BOOL)accessibilityIsIgnored;
@@ -443,12 +444,23 @@ struct HTREEITEM__
 
 // GDI internals
 
+#ifndef __AVAILABILITYMACROS__
+#error  __AVAILABILITYMACROS__ not defined, include AvailabilityMacros.h!
+#endif
 
 // 10.4 doesn't support CoreText, so allow ATSUI if targetting 10.4 SDK
+#ifndef MAC_OS_X_VERSION_10_5
+  // 10.4 SDK
+  #define SWELL_NO_CORETEXT
+  #define SWELL_ATSUI_TEXT_SUPPORT
+#else
+
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
 #ifndef __LP64__
 #define SWELL_ATSUI_TEXT_SUPPORT
 #endif
+#endif
+
 #endif
 
 struct HGDIOBJ__
