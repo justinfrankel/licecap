@@ -3028,11 +3028,24 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   return 0;
 }
 
+- (BOOL)becomeFirstResponder;
+{
+  BOOL didBecomeFirstResponder = [super becomeFirstResponder];
+  if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
+  return didBecomeFirstResponder;
+}
 @end
 
 
 @implementation SWELL_TextField
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
+- (BOOL)becomeFirstResponder;
+{
+  BOOL didBecomeFirstResponder = [super becomeFirstResponder];
+  if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
+  return didBecomeFirstResponder;
+}
 @end
 
 
@@ -5855,6 +5868,12 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 -(LONG)getSwellStyle { return m_style; }
 -(id)init { self = [super init]; if (self) { m_ids=new WDL_PtrList<char>; }  return self; }
 -(void)dealloc { delete m_ids; [super dealloc];  }
+- (BOOL)becomeFirstResponder;
+{
+  BOOL didBecomeFirstResponder = [super becomeFirstResponder];
+  if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
+  return didBecomeFirstResponder;
+}
 @end
 
 

@@ -880,6 +880,8 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define MFS_ENABLED MF_ENABLED
 #define MFS_UNCHECKED MF_UNCHECKED
 
+#define EN_SETFOCUS         0x0100
+#define EN_KILLFOCUS        0x0200
 #define EN_CHANGE           0x0300
 #define STN_CLICKED         0
 #define STN_DBLCLK          1
