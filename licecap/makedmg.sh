@@ -2,6 +2,7 @@
 
 <?
 
+$sign_by = isset($argv[1]) ? $argv[1] : "";
 $src_build_dir = "Release";
 
 function copy_text_replace_line($infn, $outfn, $srctext, $desttext)
@@ -77,6 +78,12 @@ if ($fp)
 }
 
 system("cp whatsnew.txt $workdir/LICEcap");
+
+if ($sign_by != "") 
+{
+  echo "signing code as $sign_by\n";
+  system("codesign -s \"$sign_by\" $workdir/LICEcap/LICEcap.app");
+}
 
 /*
 
