@@ -1,3 +1,8 @@
+v1.25beta - July 20, 2014
+  + GIF: support writing .gifs with transparency per-frame, for smaller file sizes (limited old-IE compat)
+  + Added option to automatically stop after X seconds (X can be 0 for a static screenshot)
+  + Title configuration is stored across sessions
+
 v1.24 - December 29, 2013
   + Windows: removed ancient command line version from installer (still buildable from source)
   + Windows: use licecap.ini in same path as executable if it exists (portable mode) -- fixed, didn't work in 1.23

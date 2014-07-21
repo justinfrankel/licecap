@@ -45,7 +45,7 @@ BEGIN
     CONTROL         "",IDC_VIEWRECT,"Static",SS_BLACKFRAME,4,4,543,314
 END
 
-IDD_SAVEOPTS DIALOGEX 0, 0, 317, 88
+IDD_SAVEOPTS DIALOGEX 0, 0, 317, 93
 STYLE DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS
 EXSTYLE WS_EX_CONTROLPARENT
 FONT 8, "MS Sans Serif"
@@ -62,14 +62,17 @@ BEGIN
     EDITTEXT        IDC_TITLE,105,8,208,36,ES_MULTILINE | ES_WANTRETURN
     CONTROL         "Big font",IDC_BIGFONT,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,275,46,37,10
-    PUSHBUTTON      "WEBM options...",IDC_BUTTON1,238,59,75,14
+    PUSHBUTTON      "WEBM options...",IDC_BUTTON1,238,77,75,14
     CONTROL         "Control+Alt+P pauses recording",IDC_SSPAUSE,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,105,46,115,10
     LTEXT           ".GIF repeat count (0=infinite):",IDC_STATIC,0,63,92,8
-    EDITTEXT        IDC_LOOPCNT,93,60,34,13,ES_AUTOHSCROLL
-    CONTROL         "Use .GIF transparency (smaller files, incompatible with old IE versions)",
-                    IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,2,75,
-                    234,10
+    EDITTEXT        IDC_LOOPCNT,94,61,34,13,ES_AUTOHSCROLL
+    CONTROL         "Use .GIF transparency for smaller files",IDC_CHECK1,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,132,62,134,10
+    CONTROL         "Automatically stop after",IDC_CHECK2,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,2,78,87,10
+    EDITTEXT        IDC_STOPAFTER_SEC,92,77,26,13,ES_AUTOHSCROLL
+    LTEXT           "seconds",IDC_STOPAFTER_SEC_LBL,120,79,28,8
 END
 
 IDD_INSERT DIALOGEX 0, 0, 281, 122
@@ -123,7 +126,7 @@ BEGIN
     BEGIN
         RIGHTMARGIN, 313
         TOPMARGIN, 4
-        BOTTOMMARGIN, 87
+        BOTTOMMARGIN, 92
     END
 
     IDD_OPTIONS, DIALOG

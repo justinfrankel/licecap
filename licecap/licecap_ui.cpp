@@ -84,6 +84,7 @@ HINSTANCE g_hInst;
 
 
 int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause, &32=transparency-fu
+int g_stop_after_msec;
 
 
 int g_gif_loopcount=0;
@@ -617,9 +618,23 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (g_prefs&8) CheckDlgButton(hwndDlg, IDC_TIMELINE, BST_CHECKED);
       if (g_prefs&16) CheckDlgButton(hwndDlg, IDC_SSPAUSE, BST_CHECKED);
       if (g_prefs&32) CheckDlgButton(hwndDlg, IDC_CHECK1, BST_CHECKED);
+      
+
+      if (g_prefs&64) 
+      {
+        CheckDlgButton(hwndDlg, IDC_CHECK2, BST_CHECKED);
+      }
+      else
+      {
+        EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC_LBL),0);
+        EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC),0);
+      }
       char buf[256];
       snprintf(buf, sizeof(buf), "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
+      snprintf(buf, sizeof(buf), "%.1f", (double)g_stop_after_msec/1000.0);
+      SetDlgItemText(hwndDlg, IDC_STOPAFTER_SEC, buf);
+
       SetDlgItemText(hwndDlg, IDC_TITLE, (g_title[0] ? g_title : "Title"));
       EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
       EnableWindow(GetDlgItem(hwndDlg, IDC_BIGFONT), (g_prefs&1));
@@ -639,13 +654,16 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (IsDlgButtonChecked(hwndDlg, IDC_TIMELINE)) g_prefs |= 8;
       if (IsDlgButtonChecked(hwndDlg, IDC_SSPAUSE)) g_prefs |= 16;
       if (IsDlgButtonChecked(hwndDlg, IDC_CHECK1)) g_prefs |= 32;
+      if (IsDlgButtonChecked(hwndDlg, IDC_CHECK2)) g_prefs |= 64;
+
       char buf[256];
-      buf[0]=0;
-      GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf)-1);
-      double titlesec = atof(buf);
-      g_titlems = (int)(titlesec*1000.0);
-      g_title[0]=0;
-      GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title)-1);
+      GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf));
+      g_titlems = (int)(atof(buf)*1000.0);
+
+      GetDlgItemText(hwndDlg, IDC_STOPAFTER_SEC, buf, sizeof(buf));
+      g_stop_after_msec=(int) (atof(buf)*1000.0);
+
+      GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title));
       if (!strcmp(g_title, "Title")) g_title[0]=0;
 
       {
@@ -653,11 +671,19 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
         int a=GetDlgItemInt(hwndDlg,IDC_LOOPCNT,&t,FALSE);
         if (t) g_gif_loopcount=(a>0&&a<65536) ? a : 0;
       }
+
     }
     return 0;
     case WM_COMMAND:
       switch (LOWORD(wParam))
       {
+        case IDC_CHECK2:
+          {
+            int use = !!IsDlgButtonChecked(hwndDlg, IDC_CHECK2);
+            EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC_LBL),use);
+            EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC),use);
+          }
+        break;
         case IDC_TITLEUSE:
         {
           bool use = !!IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE);
@@ -812,16 +838,14 @@ WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
         case IDC_ALPHA:
         {
 				  char buf[256];
-				  buf[0]=0;
-				  GetDlgItemText(hwnd, IDC_ALPHA, buf, sizeof(buf)-1);
+				  GetDlgItemText(hwnd, IDC_ALPHA, buf, sizeof(buf));
 				  g_insert_alpha = min(1.0f, atof(buf));
         }
         break;
         case IDC_MS:
 				{
 				  char buf[256];
-				  buf[0]=0;
-				  GetDlgItemText(hwnd, IDC_MS, buf, sizeof(buf)-1);
+				  GetDlgItemText(hwnd, IDC_MS, buf, sizeof(buf));
 				  g_insert_ms = (int)(atof(buf)*1000.0);
         }
         break;
@@ -868,7 +892,11 @@ void SaveConfig(HWND hwndDlg)
   WritePrivateProfileString("licecap","titlems",buf,g_ini_file.Get());
   sprintf(buf, "%d", g_gif_loopcount);
   WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
+  sprintf(buf, "%d", g_stop_after_msec);
+  WritePrivateProfileString("licecap","stopafter",buf,g_ini_file.Get());
   
+  
+
   WritePrivateProfileString("licecap","title",g_title,g_ini_file.Get());
 
 #ifdef VIDEO_ENCODER_SUPPORT
@@ -947,6 +975,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file.Get());
       g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file.Get());
+      g_stop_after_msec = GetPrivateProfileInt("licecap", "stopafter", g_stop_after_msec, g_ini_file.Get());
+
       GetPrivateProfileString("licecap","title","",g_title,sizeof(g_title),g_ini_file.Get());
 
 #ifdef VIDEO_ENCODER_SUPPORT
@@ -972,6 +1002,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       if (wParam==1)
       {     
         DWORD now=timeGetTime();
+        bool need_stop=false;
 
         if (g_cap_state==1 && g_cap_bm && now >= g_cap_prerolluntil && now >= g_skip_capture_until)
         {
@@ -1122,6 +1153,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               }
 
               g_last_frame_capture_time = now;
+
+              if (g_prefs&64) 
+              {
+                if (g_ms_written > g_stop_after_msec)
+                {
+                  need_stop=true;
+                }
+              }
             }
           }
         }
@@ -1145,6 +1184,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           last_status_t=now;
           UpdateStatusText(hwndDlg);
         }
+        if (need_stop)
+          SendMessage(hwndDlg,WM_COMMAND,IDC_STOP,0);
 
       }
     break;
