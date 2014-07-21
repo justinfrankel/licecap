@@ -36,8 +36,8 @@ int LICE_BuildPalette(LICE_IBitmap* bmp, LICE_pixel* palette, int maxcolors)
 }
 
 
-static void AddColorToTree(OTree*, unsigned char rgb[]);
-static int FindColorInTree(OTree*, unsigned char rgb[]);
+static void AddColorToTree(OTree*, const LICE_pixel_chan *rgb);
+static int FindColorInTree(OTree*, const LICE_pixel_chan *rgb);
 static int PruneTree(OTree*);
 static void DeleteNode(OTree*, ONode*);
 static int CollectLeaves(OTree*);
@@ -67,7 +67,7 @@ void LICE_DestroyOctree(void* octree)
 int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp)
 {
   OTree* tree = (OTree*)octree;
-  if (!tree) return 0;
+  if (!tree || !bmp) return 0;
 
   if (tree->palette) 
   {
@@ -75,18 +75,107 @@ int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp)
     tree->palette=0;
   }
 
-  int x, y;
-  for (y = 0; y < bmp->getHeight(); ++y)
+  int y;
+  const int h=bmp->getHeight();
+  const int w=bmp->getWidth();
+  const int rowspan = bmp->getRowSpan();
+  const LICE_pixel *bits = bmp->getBits();
+  for (y = 0; y < h; ++y)
   {
-    LICE_pixel* px = bmp->getBits()+y*bmp->getRowSpan();
-    for (x = 0; x < bmp->getWidth(); ++x)
+    const LICE_pixel *px = bits+y*rowspan;
+    int x=w;
+    while (x--)
     {    
-      unsigned char rgb[3];
-      rgb[0]=LICE_GETR(px[x]);
-      rgb[1]=LICE_GETG(px[x]);
-      rgb[2]=LICE_GETB(px[x]);
-      AddColorToTree(tree, rgb);      
+      AddColorToTree(tree, (const LICE_pixel_chan*)px);      
       if (tree->leafcount > tree->maxcolors) PruneTree(tree);
+      px++;
+    }
+  }
+
+  return tree->leafcount;
+}
+
+int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha)
+{
+  OTree* tree = (OTree*)octree;
+  if (!tree || !bmp) return 0;
+
+  if (tree->palette) 
+  {
+    free(tree->palette);
+    tree->palette=0;
+  }
+
+  int y;
+  const int h=bmp->getHeight();
+  const int w=bmp->getWidth();
+  const int rowspan = bmp->getRowSpan();
+  const LICE_pixel *bits = bmp->getBits();
+  for (y = 0; y < h; ++y)
+  {
+    const LICE_pixel *px = bits+y*rowspan;
+    int x=w;
+    while (x--)
+    {    
+      if (px[LICE_PIXEL_A] >= minalpha)
+      {
+        AddColorToTree(tree, (const LICE_pixel_chan*)px);      
+        if (tree->leafcount > tree->maxcolors) PruneTree(tree);
+      }
+      px++;
+    }
+  }
+
+  return tree->leafcount;
+}
+
+
+int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp)
+{
+  OTree* tree = (OTree*)octree;
+  if (!tree || !bmp || !refbmp) return 0;
+
+  if (tree->palette) 
+  {
+    free(tree->palette);
+    tree->palette=0;
+  }
+
+  int y;
+  const int h=min(bmp->getHeight(),refbmp->getHeight());
+  const int w=min(bmp->getWidth(),refbmp->getWidth());
+  
+  int rowspan = bmp->getRowSpan();
+  int rowspan2 = refbmp->getRowSpan();
+  const LICE_pixel *bits = bmp->getBits();
+  const LICE_pixel *bits2 = refbmp->getBits();
+
+  if (bmp->isFlipped())
+  {
+    bits += rowspan * (bmp->getHeight()-1);
+    rowspan = -rowspan;
+  }
+
+  if (refbmp->isFlipped())
+  {
+    bits2 += rowspan2 * (refbmp->getHeight()-1);
+    rowspan2 = -rowspan2;
+  }
+
+  for (y = 0; y < h; ++y)
+  {
+    const LICE_pixel * px = bits+y*rowspan;
+    const LICE_pixel * px2 = bits2+y*rowspan2;
+    int x=w;
+    while (x--)
+    {    
+      if ((*px ^ *px2) & LICE_RGBA(255,255,255,0))
+      {
+        AddColorToTree(tree, (const LICE_pixel_chan *)px);
+        if (tree->leafcount > tree->maxcolors) PruneTree(tree);
+      }
+      px++;
+      px2++;
     }
   }
 
@@ -101,11 +190,7 @@ int LICE_FindInOctree(void* octree, LICE_pixel color)
 
   if (!tree->palette) CollectLeaves(tree);
   
-  unsigned char rgb[3];
-  rgb[0] = LICE_GETR(color);
-  rgb[1] = LICE_GETG(color);
-  rgb[2] = LICE_GETB(color);
-  return FindColorInTree(tree, rgb);
+  return FindColorInTree(tree, (const LICE_pixel_chan *)&color);
 }
 
 
@@ -153,16 +238,19 @@ void LICE_TestPalette(LICE_IBitmap* bmp, LICE_pixel* palette, int numcolors)
 }
 
 
-void AddColorToTree(OTree* tree, unsigned char rgb[3])
+void AddColorToTree(OTree* tree, const LICE_pixel_chan *rgb)
 {
   ONode* p = tree->trunk;
   p->colorcount++;
 
   int i;
+  const unsigned char r = rgb[LICE_PIXEL_R];
+  const unsigned char g = rgb[LICE_PIXEL_G];
+  const unsigned char b = rgb[LICE_PIXEL_B];
   for (i = OCTREE_DEPTH-1; i >= 0; --i)
   {
-    int j = i+8-OCTREE_DEPTH;
-    unsigned char idx = (((rgb[0]>>(j-2))&4))|(((rgb[1]>>(j-1))&2))|((rgb[2]>>j)&1);
+    const int j = i+8-OCTREE_DEPTH;
+    const unsigned char idx = (((r>>(j-2))&4))|(((g>>(j-1))&2))|((b>>j)&1);
 
     ONode* np = p->children[idx];
     bool isleaf = false;
@@ -189,9 +277,9 @@ void AddColorToTree(OTree* tree, unsigned char rgb[3])
       memset(np, 0, sizeof(ONode));    
     }
 
-    np->sumrgb[0] += rgb[0];
-    np->sumrgb[1] += rgb[1];
-    np->sumrgb[2] += rgb[2];
+    np->sumrgb[0] += r;
+    np->sumrgb[1] += g;
+    np->sumrgb[2] += b;
     np->colorcount++;
 
     if (isleaf) return;
@@ -203,17 +291,20 @@ void AddColorToTree(OTree* tree, unsigned char rgb[3])
   tree->leafcount++;
 }
 
-int FindColorInTree(OTree* tree, unsigned char rgb[3])
+int FindColorInTree(OTree* tree, const LICE_pixel_chan *rgb)
 {
   ONode* p = tree->trunk;
 
   int i;
+  const unsigned char r=rgb[LICE_PIXEL_R];
+  const unsigned char g=rgb[LICE_PIXEL_G];
+  const unsigned char b=rgb[LICE_PIXEL_B];
   for (i = OCTREE_DEPTH-1; i >= 0; --i)
   { 
     if (!p->childflag) break;
 
-    int j = i+8-OCTREE_DEPTH;
-    unsigned char idx = (((rgb[0]>>(j-2))&4))|(((rgb[1]>>(j-1))&2))|((rgb[2]>>j)&1);
+    const int j = i+8-OCTREE_DEPTH;
+    const unsigned char idx = (((r>>(j-2))&4))|(((g>>(j-1))&2))|((b>>j)&1);
 
     ONode* np = p->children[idx];
     if (!np) break; 

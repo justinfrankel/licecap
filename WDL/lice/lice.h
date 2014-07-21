@@ -535,6 +535,8 @@ void LICE_DestroyLVG(void *lvg);
 void* LICE_CreateOctree(int maxcolors);
 void LICE_DestroyOctree(void* octree);
 int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp);
+int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha);
+int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp);
 int LICE_FindInOctree(void* octree, LICE_pixel color);
 int LICE_ExtractOctreePalette(void* octree, LICE_pixel* palette);
 
