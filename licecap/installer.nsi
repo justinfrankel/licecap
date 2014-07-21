@@ -88,43 +88,43 @@ Section "Start Menu Shortcuts"
 
 SectionEnd
 
-Section "LICEcap Source Code"
-  SetOutPath $INSTDIR\Source
-  File requires_wdl.txt
-
-  SetOutPath $INSTDIR\Source\licecap
-  File installer.nsi
-  File license.txt
-  File licecap.dsw
-  File licecap_cli.dsp
-  File licecap_gui.dsp
-  File icon1.ico
-  File licecap.rc
-  File resource.h
-  File licecap_version.h
-  File licecap_cli.cpp
-  File licecap_ui.cpp
-  File requires_wdl.txt
-  File whatsnew.txt
-  
-  File licecap.icns
-  File capturewindow.mm
-
-  File licecap-Info.plist
-  File main.m
-  File licecap_Prefix.pch
-  File makedmg.sh
-  File pkg-dmg
-  File stage_DS_Store
-  File background.png
-
-  File /r English.lproj
-
-  SetOutPath $INSTDIR\Source\licecap\licecap.xcodeproj
-  File licecap.xcodeproj\project.pbxproj
-
-SectionEnd
-
+;Section "LICEcap Source Code"
+;  SetOutPath $INSTDIR\Source
+;  File requires_wdl.txt
+;
+;  SetOutPath $INSTDIR\Source\licecap
+;  File installer.nsi
+;  File license.txt
+;  File licecap.dsw
+;  File licecap_cli.dsp
+;  File licecap_gui.dsp
+;  File icon1.ico
+;  File licecap.rc
+;  File resource.h
+;  File licecap_version.h
+;  File licecap_cli.cpp
+;  File licecap_ui.cpp
+;  File requires_wdl.txt
+;  File whatsnew.txt
+;  
+;  File licecap.icns
+;  File capturewindow.mm
+;
+;  File licecap-Info.plist
+;  File main.m
+;  File licecap_Prefix.pch
+;  File makedmg.sh
+;  File pkg-dmg
+;  File stage_DS_Store
+;  File background.png
+;
+;  File /r English.lproj
+;
+;  SetOutPath $INSTDIR\Source\licecap\licecap.xcodeproj
+;  File licecap.xcodeproj\project.pbxproj
+;
+;SectionEnd
+;
 
 
 ;--------------------------------

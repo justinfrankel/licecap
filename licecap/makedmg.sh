@@ -78,6 +78,8 @@ if ($fp)
 
 system("cp whatsnew.txt $workdir/LICEcap");
 
+/*
+
 $tmp = "$workdir/LICEcap/Source";
 system("mkdir $tmp");
 system("cp requires_wdl.txt $tmp/");
@@ -93,6 +95,8 @@ system("cp English.lproj/* $tmp/English.lproj/");
 
 system("mkdir $tmp/licecap.xcodeproj");
 system("cp licecap.xcodeproj/project.pbxproj $tmp/licecap.xcoderoj/");
+
+*/
 
 
 system("perl ./pkg-dmg --format UDBZ --target ./build/licecap$ver.dmg --source $workdir/LICEcap --license ./license-cleaned.txt --copy stage_DS_Store:/.DS_Store --symlink /Applications:/Applications --mkdir .background --copy background.png:.background --volname LICECAP_INSTALL --icon licecap.icns");
