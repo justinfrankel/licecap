@@ -149,6 +149,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     EGifPutExtension(wr->f, 0xF9, sizeof(gce), gce);
 
 
+  const bool ta=wr->transalpha>0;
   if (perImageColorMap && !wr->has_global_cmap)
   {
     int ccnt = wr->cmap->ColorCount;
@@ -156,7 +157,13 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     void* octree = LICE_CreateOctree(ccnt);
     if (octree) 
     {
-      LICE_BuildOctree(octree, frame);
+      if ((!isFirst || frame_delay) && wr->transalpha<0 && wr->prevframe)
+        LICE_BuildOctreeForDiff(octree,frame,wr->prevframe);
+      else if (ta)
+        LICE_BuildOctreeForAlpha(octree, frame,1);
+      else
+        LICE_BuildOctree(octree, frame);
+
         // sets has_global_cmap (clear below)
       LICE_SetGIFColorMapFromOctree(wr, octree, ccnt);
       LICE_DestroyOctree(octree);
@@ -168,7 +175,6 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
 
   GifPixelType *linebuf = wr->linebuf;
   int y;
-  int ta=wr->transalpha>0;
 
   if ((!isFirst || frame_delay) && wr->transalpha<0)
   {
@@ -192,8 +198,8 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
       int x;
       for(x=0;x<usew;x++)
       {
-        LICE_pixel p = *in++;
-        if (ignFr || p != *in2)
+        const LICE_pixel p = *in++;
+        if (ignFr || ((p^*in2)&LICE_RGBA(255,255,255,0)))
         {
           linebuf[x] = QuantPixel(p,wr);
         }
@@ -210,21 +216,30 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     LICE_Blit(&tmp,frame,0,0,0,0,usew,useh,1.0f,LICE_BLIT_MODE_COPY);
     
   }
+  else if (ta)
+  {
+    for(y=0;y<useh;y++)
+    {
+      int rdy=y;
+      if (frame->isFlipped()) rdy = frame->getHeight()-1-y;
+      LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
+      int x;
+      for(x=0;x<usew;x++)
+      {
+        const LICE_pixel p = *in++;
+        if (!LICE_GETA(p)) linebuf[x]=255;
+        else linebuf[x] = QuantPixel(p,wr);
+      }
+      EGifPutLine(wr->f, linebuf, usew);
+    }
+  }
   else for(y=0;y<useh;y++)
   {
     int rdy=y;
     if (frame->isFlipped()) rdy = frame->getHeight()-1-y;
     LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
     int x;
-    for(x=0;x<usew;x++)
-    {
-      LICE_pixel p = *in++;
-      GifPixelType val = QuantPixel(p,wr);
-      if (ta && LICE_GETA(p) < ta)
-        linebuf[x]=255;
-      else
-        linebuf[x] = val;
-    }
+    for(x=0;x<usew;x++) linebuf[x] = QuantPixel(*in++,wr);
     EGifPutLine(wr->f, linebuf, usew);
   }
 
