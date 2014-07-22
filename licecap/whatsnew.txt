@@ -1,3 +1,7 @@
+v1.25beta2 - July 22, 2014
+  + OSX: improved window position detection
+  + GIF: optimizations to update logic
+
 v1.25beta - July 20, 2014
   + GIF: support writing .gifs with transparency per-frame, for smaller file sizes (limited old-IE compat)
   + Added option to automatically stop after X seconds (X can be 0 for a static screenshot)
