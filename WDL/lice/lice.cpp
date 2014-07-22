@@ -2042,6 +2042,11 @@ void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
 
 int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
 {
+  return LICE_BitmapCmpEx(a,b,LICE_RGBA(255,255,255,255),coordsOut);
+}
+
+int LICE_BitmapCmpEx(LICE_IBitmap* a, LICE_IBitmap* b, LICE_pixel mask, int *coordsOut)
+{
   if (!a || !b) {
     if (!a && b) return -1;
     if (a && !b) return 1;
@@ -2072,13 +2077,24 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
   int y;
   if (!coordsOut)
   {
-    for (y=0; y < ah; y ++)
-    {
-      int a = memcmp(px1,px2,aw*sizeof(LICE_pixel));
-      if (a) return a;
-      px1+=span1;
-      px2+=span2;
-    }
+    if (mask == LICE_RGBA(255,255,255,255))
+      for (y=0; y < ah; y ++)
+      {
+        int a = memcmp(px1,px2,aw*sizeof(LICE_pixel));
+        if (a) return a;
+        px1+=span1;
+        px2+=span2;
+      }
+    else
+      for (y=0; y < ah; y ++)
+      {
+        const LICE_pixel *ptr1 = px1, *ptr2 = px2;
+        int x=aw;
+        while (x--)
+          if ((*ptr1++ ^ *ptr2++) & mask) return true;
+        px1+=span1;
+        px2+=span2;
+      }
   }
   else
   {
@@ -2088,7 +2104,7 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
     for (y=0; y < ah; y ++)
     {
       // check left side
-      for (x=0;x<aw && px1[x]==px2[x];x++);
+      for (x=0;x<aw && !((px1[x]^px2[x])&mask);x++);
       if (x < aw) break;
 
       px1+=span1;
@@ -2103,7 +2119,7 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
     int miny=y;
     int minx=x;
     // scan right edge of top differing row
-    for (x=aw-1;x>minx && px1[x]==px2[x];x--);
+    for (x=aw-1;x>minx && !((px1[x]^px2[x])&mask);x--);
     int maxx=x;
 
     // find last row that differs
@@ -2113,7 +2129,7 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
     {
       int x;
       // check left side
-      for (x=0;x<aw && px1[x]==px2[x];x++);
+      for (x=0;x<aw && !((px1[x]^px2[x])&mask);x++);
       if (x < aw) break;
       px1-=span1;
       px2-=span2;
@@ -2124,7 +2140,7 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
     {
       if (x < minx) minx=x;
       // scan right edge of bottom row that differs
-      for (x=aw-1;x>maxx && px1[x]==px2[x];x--);
+      for (x=aw-1;x>maxx && !((px1[x]^px2[x])&mask);x--);
       maxx=x;
     }
 
@@ -2135,9 +2151,9 @@ int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut)
     for (y=miny+1;y<maxy && (minx>0 || maxx<aw-1);y++) 
     {
       int x;
-      for (x=0;x<minx && px1[x]==px2[x];x++);
+      for (x=0;x<minx && !((px1[x]^px2[x])&mask);x++);
       minx=x;
-      for (x=aw-1;x>maxx && px1[x]==px2[x];x--);
+      for (x=aw-1;x>maxx && !((px1[x]^px2[x])&mask);x--);
       maxx=x;
 
       px1+=span1;
