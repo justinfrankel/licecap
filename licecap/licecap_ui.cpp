@@ -306,6 +306,33 @@ void my_getViewport(RECT *r, RECT *sr, bool wantWork)
 #endif
 }
 
+void union_diffs(int a[4], const int b[4]) 
+{
+  if (a[2] < 1 || a[3] < 1) 
+  {
+    memcpy(a, b, 4*sizeof(int));
+  }
+  else if (b[2] > 0 && b[3] > 0)
+  {
+    a[2] += a[0]; // a2/3 are right/bottom
+    a[3] += a[1];
+
+    if (a[0] > b[0]) a[0] = b[0]; // left/top edges
+    if (a[1] > b[1]) a[1] = b[1];
+
+    if (a[2] < b[0] + b[2]) a[2] = b[0] + b[2]; // adjust right/bottom edges
+    if (a[3] < b[1] + b[3]) a[3] = b[1] + b[3];
+    
+
+    a[2] -= a[0]; // a2/3 back to width/height
+    a[3] -= a[1];
+  }
+  else
+  {
+    // do nothing, a is valid b is not
+  }
+}
+
 void EnsureNotCompletelyOffscreen(RECT *r)
 {
   RECT scr;
@@ -1178,21 +1205,16 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 {
                   g_cap_gif->frame_finish();
 
-                  if (frame_time_in_seconds != g_cap_gif_lastsec_written)
+                  if (dotime && frame_time_in_seconds != g_cap_gif_lastsec_written)
                   {
                     int pos[4];
                     draw_timedisp(NULL,frame_time_in_seconds,pos,bw,bh);
-                    const int x=min(pos[0],old_time_coords[0]);
-                    const int y=min(pos[1],old_time_coords[1]);
-                    const int w=max(pos[0]+pos[2],old_time_coords[0]+old_time_coords[2])-x;
-                    const int h=max(pos[1]+pos[3],old_time_coords[1]+old_time_coords[3])-y;
 
-                    // if time display changing and intersects update rectangle, include it in with the update
+                    union_diffs(pos, old_time_coords);
 
-                    if (diffs[0]+diffs[2] >= x && diffs[1]+diffs[3] >= y)
+                    if (diffs[0]+diffs[2] >= pos[0] && diffs[1]+diffs[3] >= pos[1])
                     {
-                      diffs[2] = max(x+w,diffs[0]+diffs[2])-diffs[0]; // increase size
-                      diffs[3] = max(y+h,diffs[1]+diffs[3])-diffs[1];
+                      union_diffs(diffs, pos); // add pos into diffs for display update
 
                       draw_timedisp(g_cap_bm,frame_time_in_seconds,pos,bw,bh);
                       g_cap_gif_lastsec_written = frame_time_in_seconds;
@@ -1202,21 +1224,17 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                   g_cap_gif->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
                 }
 
-                if (frame_time_in_seconds != g_cap_gif_lastsec_written)
+                if (dotime && frame_time_in_seconds != g_cap_gif_lastsec_written)
                 {
                   // time changed and wasn't previously included, so include as a dedicated frame
                   g_cap_gif->frame_finish();
 
                   int pos[4];
                   draw_timedisp(g_cap_bm,frame_time_in_seconds,pos,bw,bh);
+                  union_diffs(pos, old_time_coords);
+
                   g_cap_gif_lastsec_written = frame_time_in_seconds;
-
-                  const int x=min(pos[0],old_time_coords[0]);
-                  const int y=min(pos[1],old_time_coords[1]);
-                  const int w=max(pos[0]+pos[2],old_time_coords[0]+old_time_coords[2])-x;
-                  const int h=max(pos[1]+pos[3],old_time_coords[1]+old_time_coords[3])-y;
-
-                  g_cap_gif->frame_new(g_cap_bm,x,y,w,h);
+                  g_cap_gif->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
                 }
               }
 
