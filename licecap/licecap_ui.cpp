@@ -83,6 +83,89 @@ HINSTANCE g_hInst;
 #define MIN_SIZE_Y 120
 
 
+
+class gif_encoder
+{
+
+  LICE_IBitmap *lastbm; // set if a new frame is in progress
+  void *ctx; 
+
+  int lastbm_coords[4]; // coordinates of previous frame which need to be updated, [2], [3] will always be >0 if in progress
+  int lastbm_accumdelay; // delay of previous frame which is latent
+  int loopcnt;
+public:
+
+
+  gif_encoder(void *gifctx, int use_loopcnt)
+  {
+    lastbm = NULL;
+    memset(lastbm_coords,0,sizeof(lastbm_coords));
+    lastbm_accumdelay = 0;
+    ctx=gifctx;
+    loopcnt=use_loopcnt;
+  }
+  ~gif_encoder()
+  {
+    frame_finish();
+    LICE_WriteGIFEnd(ctx);
+    delete lastbm;
+  }
+  
+  
+  bool frame_compare(LICE_IBitmap *bm, int diffs[4])
+  {
+    diffs[0]=diffs[1]=0;
+    diffs[2]=bm->getWidth();
+    diffs[3]=bm->getHeight();
+    return !lastbm || LICE_BitmapCmp(lastbm, bm, diffs);
+  }
+  
+  void frame_finish()
+  {
+    if (ctx && lastbm && lastbm_coords[2] > 0 && lastbm_coords[3] > 0)
+    {
+      LICE_SubBitmap bm(lastbm, lastbm_coords[0],lastbm_coords[1], lastbm_coords[2],lastbm_coords[3]);
+      
+      int del = lastbm_accumdelay;
+      if (del<1) del=1;
+      LICE_WriteGIFFrame(ctx,&bm,lastbm_coords[0],lastbm_coords[1],true,del,loopcnt);
+    }
+    lastbm_accumdelay=0;
+    lastbm_coords[2]=lastbm_coords[3]=0;
+  }
+  
+  void frame_advancetime(int amt)
+  {
+    lastbm_accumdelay+=amt;
+  }
+  
+  void frame_new(LICE_IBitmap *ref, int x, int y, int w, int h)
+  {
+    if (w > 0 && h > 0)
+    {
+      frame_finish();
+    
+      lastbm_coords[0]=x;
+      lastbm_coords[1]=y;
+      lastbm_coords[2]=w;
+      lastbm_coords[3]=h;
+    
+      if (!lastbm) lastbm = LICE_CreateMemBitmap(ref->getWidth(), ref->getHeight());
+      LICE_Blit(lastbm, ref, x, y, x,y, w,h, 1.0f, LICE_BLIT_MODE_COPY);
+    }
+  }
+  
+  void clear_history() // forces next frame to be a fully new frame
+  {
+    frame_finish();
+    delete lastbm;
+    lastbm=NULL;
+  }
+  LICE_IBitmap *prev_bitmap() { return lastbm; }
+};
+
+
+
 int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause, &32=transparency-fu
 int g_stop_after_msec;
 
@@ -159,6 +242,19 @@ void MakeTimeStr(int sec, char* buf, int w, int h, int* timepos)
   timepos[3] += 8;
   timepos[0] = w-timepos[2];
   timepos[1] = h-timepos[3];
+}
+
+void draw_timedisp(LICE_IBitmap *bm, int sec, int timeposout[4], int bw, int bh)
+{
+  char timestr[256];
+  int timepos[4]; // x,y,w,h
+  MakeTimeStr(sec, timestr, bw, bh, timepos);
+  if (bm)
+  {
+    LICE_FillRect(bm, timepos[0], timepos[1], timepos[2], timepos[3], LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
+    LICE_DrawText(bm, timepos[0]+4, timepos[1]+4, timestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
+  }
+  if (timeposout) memcpy(timeposout,timepos,sizeof(timepos));
 }
 
 
@@ -300,15 +396,14 @@ void EncodeFrameToVideo(VideoEncoder *enc, LICE_IBitmap *bm, bool force=false)
 
 #endif
 
-void *g_cap_gif;
-LICE_IBitmap *g_cap_gif_lastbm; // used for gif, so we can know time until next frame, etc
-int g_cap_gif_lastbm_coords[4];
-int g_cap_gif_lastbm_accumdelay;
+gif_encoder *g_cap_gif;
+int g_cap_gif_lastsec_written;
+
+
 
 int g_titlems=1750;
 char g_title[4096];
 bool g_dotitle;
-int g_last_sec_written;
 
 LICE_IBitmap *g_cap_bm,*g_cap_bm_inv;
 
@@ -552,24 +647,9 @@ void Capture_Finish(HWND hwndDlg)
 #endif
   if (g_cap_gif)
   {
-    if (g_cap_gif_lastbm)
-    {
-      LICE_SubBitmap bm(g_cap_gif_lastbm, g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],
-        g_cap_gif_lastbm_coords[2],g_cap_gif_lastbm_coords[3]);
-
-      int del = (timeGetTime()-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay);
-      if (del<1) del=1;
-      LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del,g_gif_loopcount);      
-    }
-
-    LICE_WriteGIFEnd(g_cap_gif);
+    delete g_cap_gif;
     g_cap_gif=0;
   }
-
-  delete g_cap_gif_lastbm;
-  g_cap_gif_lastbm=0;
-
-  g_cap_gif_lastbm_accumdelay=0;
 
   delete g_cap_bm;
   g_cap_bm=0;
@@ -727,30 +807,30 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
     int tw=w;
     int th=h;   
 
-	  LICE_IBitmap* tbm = g_cap_bm;
+    LICE_IBitmap* tbm = g_cap_bm;
     if (isTitle)
-  	{
-		  if (g_prefs&2) 
-		  {
-		    tw /= 2;
-		    th /= 2;
-		  }
-		  tbm = LICE_CreateMemBitmap(tw, th); 
-		  LICE_Clear(tbm, 0);                      
-	  }
-	  else
-	  {
-		  tbm = LICE_CreateMemBitmap(tw, th); 
-		  LICE_Copy(tbm, g_cap_bm_txt);
+    {
+      if (g_prefs&2) 
+      {
+        tw /= 2;
+        th /= 2;
+      }
+      tbm = LICE_CreateMemBitmap(tw, th); 
+      LICE_Clear(tbm, 0);                      
+    }
+    else
+    {
+      tbm = LICE_CreateMemBitmap(tw, th); 
+      LICE_Copy(tbm, g_cap_bm_txt);
       LICE_FillRect(tbm, 0,0,w,h, LICE_RGBA(0,0,0,255), bgAlpha, LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
-	  }
+    }
     /*
 	    LICE_DrawRect(tbm,30,30,150,150,LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
 	    LICE_DrawRect(tbm,31,31,148,148,LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
 	    LICE_DrawRect(tbm,32,32,146,146,LICE_RGBA(255,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
     */
-	  char buf[4096];
-    lstrcpyn(buf, str,sizeof(buf));                    
+    char buf[4096];
+    lstrcpyn_safe(buf, str,sizeof(buf));                    
 
     int numlines=1;
     char* p = strstr(buf, "\n");
@@ -771,17 +851,19 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
       p += strlen(p)+1;
     }
 
-	  if (tbm != g_cap_bm)
+    if (tbm != g_cap_bm)
     {
       LICE_ScaledBlit(g_cap_bm, tbm, 0, 0, w, h, 0, 0, tw, th, 1.0f, LICE_BLIT_MODE_COPY);
       delete tbm;
     }
   }
 
-  if (g_cap_gif) 
+  if (g_cap_gif)
   {
-	  LICE_WriteGIFFrame(g_cap_gif, g_cap_bm, 0, 0, true, ms,g_gif_loopcount);                 
-	  g_cap_gif_lastbm=NULL; // force bm refresh
+    g_cap_gif->frame_finish(); 
+    g_cap_gif->frame_new(g_cap_bm,0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight());
+    g_cap_gif->frame_advancetime(ms);
+    g_cap_gif_lastsec_written=-1;
   }
 
 #ifdef VIDEO_ENCODER_SUPPORT
@@ -806,14 +888,14 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
 #ifndef NO_LCF_SUPPORT
   if (g_cap_lcf) 
   {
-	  int del=0;
-	  g_cap_lcf->OnFrame(g_cap_bm, del); 
-	  if (!isTitle)
-	  {
+    int del=0;
+    g_cap_lcf->OnFrame(g_cap_bm, del); 
+    if (!isTitle)
+    {
       del = g_pause_time-g_last_frame_capture_time;
       del += ms;
-	  }
-	  g_cap_lcf->OnFrame(g_cap_bm, del); 
+    }
+    g_cap_lcf->OnFrame(g_cap_bm, del); 
   }
 #endif
 }
@@ -1054,38 +1136,22 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               void DoMouseCursor(LICE_IBitmap *,int,int);
               DoMouseCursor(g_cap_bm_inv?g_cap_bm_inv:g_cap_bm,-(r2.left+1),-(r2.bottom+1));                        
 #endif
+              const bool dotime = !!(g_prefs&8);
 
-
-              bool dotime = !!(g_prefs&8);
-              bool newtime = false;
-              char timestr[256];
-              int timepos[4]; // x,y,w,h
-              if (dotime)
-              {
-                newtime = (g_ms_written/1000 != g_last_sec_written);
-                if (newtime) g_last_sec_written = g_ms_written/1000;
-                MakeTimeStr(g_last_sec_written, timestr, bw, bh, timepos);
-                LICE_FillRect(g_cap_bm, timepos[0], timepos[1], timepos[2], timepos[3], LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
-              }
+              const int frame_time_in_seconds = g_ms_written/1000;
+              
 #ifdef VIDEO_ENCODER_SUPPORT
               if (g_cap_video)
               {
-                if (dotime)
-                {
-                  LICE_DrawText(g_cap_bm, timepos[0]+4, timepos[1]+4, timestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-                }
+                if (dotime) draw_timedisp(g_cap_bm,frame_time_in_seconds,NULL,bw,bh);
 
                 EncodeFrameToVideo(g_cap_video,g_cap_bm);
               }
 #endif
-
 #ifndef NO_LCF_SUPPORT
               if (g_cap_lcf)
               {
-                if (dotime)
-                {
-                  LICE_DrawText(g_cap_bm, timepos[0]+4, timepos[1]+4, timestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-                }
+                if (dotime) draw_timedisp(g_cap_bm,frame_time_in_seconds,NULL,bw,bh);
 
                 int del = now-g_last_frame_capture_time;
                 if (g_dotitle)
@@ -1099,62 +1165,58 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (g_cap_gif)
               {
-                int diffs[4] = { 0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight() };  // x,y,w,h
+                // draw old time display for frame_compare(), so that it finds the portion other than the time display that changes
+                int old_time_coords[4]={0,};
+                if (dotime && g_cap_gif_lastsec_written>=0)
+                  draw_timedisp(g_cap_bm,g_cap_gif_lastsec_written,old_time_coords,bw,bh);
             
-                bool wantframe = !g_cap_gif_lastbm || LICE_BitmapCmp(g_cap_gif_lastbm, g_cap_bm, diffs);
+                g_cap_gif->frame_advancetime(now-g_last_frame_capture_time);
 
-                if (!wantframe && !newtime)
+                int diffs[4];
+                
+                if (g_cap_gif->frame_compare(g_cap_bm,diffs))
                 {
-                  g_cap_gif_lastbm_accumdelay+=now-g_last_frame_capture_time;
+                  g_cap_gif->frame_finish();
+
+                  if (frame_time_in_seconds != g_cap_gif_lastsec_written)
+                  {
+                    int pos[4];
+                    draw_timedisp(NULL,frame_time_in_seconds,pos,bw,bh);
+                    const int x=min(pos[0],old_time_coords[0]);
+                    const int y=min(pos[1],old_time_coords[1]);
+                    const int w=max(pos[0]+pos[2],old_time_coords[0]+old_time_coords[2])-x;
+                    const int h=max(pos[1]+pos[3],old_time_coords[1]+old_time_coords[3])-y;
+
+                    // if time display changing and intersects update rectangle, include it in with the update
+
+                    if (diffs[0]+diffs[2] >= x && diffs[1]+diffs[3] >= y)
+                    {
+                      diffs[2] = max(x+w,diffs[0]+diffs[2])-diffs[0]; // increase size
+                      diffs[3] = max(y+h,diffs[1]+diffs[3])-diffs[1];
+
+                      draw_timedisp(g_cap_bm,frame_time_in_seconds,pos,bw,bh);
+                      g_cap_gif_lastsec_written = frame_time_in_seconds;
+                    }
+                  }
+
+                  g_cap_gif->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
                 }
-                else 
+
+                if (frame_time_in_seconds != g_cap_gif_lastsec_written)
                 {
-                  if (!g_cap_gif_lastbm) 
-                  {
-                    g_cap_gif_lastbm = LICE_CreateMemBitmap(bw, bh);
-                  }
-                  else 
-                  {
-                    int del = now-g_last_frame_capture_time+g_cap_gif_lastbm_accumdelay;
-                    if (del<1) del=1;
-                              
-                    if (dotime &&
-                      g_cap_gif_lastbm_coords[0]+g_cap_gif_lastbm_coords[2] > timepos[0] &&
-                      g_cap_gif_lastbm_coords[1]+g_cap_gif_lastbm_coords[3] > timepos[1])                   
-                    {
-                      char prevtimestr[256];
-                      int prevtimepos[4]; 
-                      int sec = (g_ms_written-del)/1000;
-                      MakeTimeStr(sec, prevtimestr, bw, bh, prevtimepos);
-                      LICE_DrawText(g_cap_gif_lastbm, prevtimepos[0]+4, prevtimepos[1]+4, prevtimestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);                    
-                    }
+                  // time changed and wasn't previously included, so include as a dedicated frame
+                  g_cap_gif->frame_finish();
 
-                    LICE_SubBitmap bm(g_cap_gif_lastbm, g_cap_gif_lastbm_coords[0], g_cap_gif_lastbm_coords[1], g_cap_gif_lastbm_coords[2], g_cap_gif_lastbm_coords[3]);
-                    LICE_WriteGIFFrame(g_cap_gif,&bm,g_cap_gif_lastbm_coords[0],g_cap_gif_lastbm_coords[1],true,del,g_gif_loopcount);
+                  int pos[4];
+                  draw_timedisp(g_cap_bm,frame_time_in_seconds,pos,bw,bh);
+                  g_cap_gif_lastsec_written = frame_time_in_seconds;
 
-                    if (newtime)
-                    {
-                      if (!wantframe)
-                      {
-                        memcpy(diffs, timepos, sizeof(diffs));
-                      }
-                      else if (diffs[0] > timepos[0] ||
-                        diffs[1] > timepos[1] ||
-                        diffs[0]+diffs[2] < timepos[0]+timepos[2] ||
-                        diffs[1]+diffs[3] < timepos[1]+timepos[3])
-                      {
-                        LICE_DrawText(g_cap_bm, timepos[0]+4, timepos[1]+4, timestr, LICE_RGBA(255,255,255,255), 1.0f, LICE_BLIT_MODE_COPY);
-                        LICE_SubBitmap tbm(g_cap_bm, timepos[0], timepos[1], timepos[2], timepos[3]);
-                        LICE_WriteGIFFrame(g_cap_gif, &tbm, timepos[0], timepos[1], true, 1,g_gif_loopcount);
-                        LICE_FillRect(g_cap_bm, timepos[0], timepos[1], timepos[2], timepos[3], LICE_RGBA(0,0,0,255), 1.0f, LICE_BLIT_MODE_COPY);
-                      }
-                    }
+                  const int x=min(pos[0],old_time_coords[0]);
+                  const int y=min(pos[1],old_time_coords[1]);
+                  const int w=max(pos[0]+pos[2],old_time_coords[0]+old_time_coords[2])-x;
+                  const int h=max(pos[1]+pos[3],old_time_coords[1]+old_time_coords[3])-y;
 
-                    g_cap_gif_lastbm_accumdelay=0;
-                  }
-
-                  memcpy(g_cap_gif_lastbm_coords,diffs,sizeof(diffs));
-                  LICE_Blit(g_cap_gif_lastbm, g_cap_bm, diffs[0], diffs[1], diffs[0], diffs[1], diffs[2], diffs[3], 1.0f, LICE_BLIT_MODE_COPY);
+                  g_cap_gif->frame_new(g_cap_bm,x,y,w,h);
                 }
               }
 
@@ -1322,6 +1384,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             LICE_Copy(g_cap_bm_txt, g_cap_bm);
           }
           DialogBox(g_hInst,MAKEINTRESOURCE(IDD_INSERT),hwndDlg,InsertProc);
+          g_last_frame_capture_time=timeGetTime();
         break;
 
         case IDC_REC:
@@ -1411,7 +1474,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
-                g_cap_gif = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,(g_prefs&32) ? -1 : 0,true);
+                void *ctx = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,(g_prefs&32) ? -1 : 0,true);
+                if (ctx) g_cap_gif = new gif_encoder(ctx,g_gif_loopcount);
+                g_cap_gif_lastsec_written = -1;
               }
 #ifdef VIDEO_ENCODER_SUPPORT
               if (strlen(g_last_fn)>5 && !stricmp(g_last_fn+strlen(g_last_fn)-5,".webm"))
@@ -1464,7 +1529,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               }
 #endif
 
-              if (g_cap_gif 
+              if (g_cap_gif
 #ifndef NO_LCF_SUPPORT
                 || g_cap_lcf
 #endif
@@ -1512,9 +1577,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                 g_frate_valid=false;
                 g_frate_avg=0.0;
-                g_cap_gif_lastbm_accumdelay=0;
                 g_ms_written = 0;
-                g_last_sec_written=-1;
 
                 g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
                 g_cap_state=1;
