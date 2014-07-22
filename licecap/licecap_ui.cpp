@@ -144,6 +144,11 @@ void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
 }
 #endif
 
+#ifdef __APPLE__
+  bool GetAsyncNSWindowRect(HWND hwnd, RECT *r);
+  POINT s_async_offset;
+  bool s_has_async_offset;
+#endif
 
 void MakeTimeStr(int sec, char* buf, int w, int h, int* timepos)
 {
@@ -1028,8 +1033,22 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 #else
             int bw = g_cap_bm->getWidth();
             int bh = g_cap_bm->getHeight();
-            RECT r2;
-            GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
+            RECT r2,r3;
+            HWND sub = GetDlgItem(hwndDlg,IDC_VIEWRECT);
+            GetWindowRect(sub,&r2);
+#ifdef __APPLE__
+            if (s_has_async_offset && GetAsyncNSWindowRect(hwndDlg,&r3))
+            {
+              const int w = r2.right-r2.left;
+              const int h = r2.bottom-r2.top;
+              r2.left = r3.left + s_async_offset.x;
+              r2.top = r3.top + s_async_offset.y;
+
+              r2.bottom = r2.top + h;
+              r2.right = r2.left + w;
+            }
+#endif
+
             if (GetScreenData(r2.left,min(r2.top,r2.bottom),g_cap_bm_inv?g_cap_bm_inv:g_cap_bm))
             {
               void DoMouseCursor(LICE_IBitmap *,int,int);
@@ -1471,6 +1490,21 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                   g_capwnd_levelsave=SWELL_SetWindowLevel(hwndDlg,1000);
                 }
                 SWELL_SetWindowResizeable(hwndDlg,false);
+
+#ifdef __APPLE__
+                {
+                  s_has_async_offset=false;
+
+                  RECT r,r2;
+                  if (GetAsyncNSWindowRect(hwndDlg,&r))
+                  {
+                    GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
+                    s_async_offset.x = r2.left - r.left;
+                    s_async_offset.y = r2.top - r.top;
+                    s_has_async_offset = true;
+                  }
+                }
+#endif
 #endif
 
                 SetDlgItemText(hwndDlg,IDC_REC,"[pause]");
