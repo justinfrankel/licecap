@@ -117,7 +117,7 @@ public:
     diffs[0]=diffs[1]=0;
     diffs[2]=bm->getWidth();
     diffs[3]=bm->getHeight();
-    return !lastbm || LICE_BitmapCmp(lastbm, bm, diffs);
+    return !lastbm || LICE_BitmapCmpEx(lastbm, bm, LICE_RGBA(255,255,255,0),diffs);
   }
   
   void frame_finish()
