@@ -162,7 +162,7 @@ int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha)
 }
 
 
-int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp)
+int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp, LICE_pixel mask)
 {
   OTree* tree = (OTree*)octree;
   if (!tree || !bmp || !refbmp) return 0;
@@ -198,7 +198,7 @@ int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbm
     int x=w;
     while (x--)
     {    
-      if ((*px ^ *px2) & LICE_RGBA(255,255,255,0))
+      if ((*px ^ *px2) & mask)
       {
         AddColorToTree(tree, (const LICE_pixel_chan *)px);
         if (tree->leafcount > tree->maxcolors) PruneTree(tree);
