@@ -160,7 +160,10 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     if (octree) 
     {
       if ((!isFirst || frame_delay) && wr->transalpha<0 && wr->prevframe)
-        pixcnt=LICE_BuildOctreeForDiff(octree,frame,wr->prevframe);
+      {
+        LICE_SubBitmap tmpprev(wr->prevframe, xpos, ypos, usew, useh);
+        pixcnt=LICE_BuildOctreeForDiff(octree,frame,&tmpprev);
+      }
       else if (wr->transalpha>0)
         pixcnt=LICE_BuildOctreeForAlpha(octree, frame,1);
       else
