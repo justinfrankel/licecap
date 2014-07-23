@@ -230,31 +230,43 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
 
     LICE_SubBitmap tmp(wr->prevframe,xpos,ypos,usew,useh);
 
+    LICE_pixel last_pixel_rgb=0;
+    GifPixelType last_pixel_idx=transparent_pix;
+    const LICE_pixel mask = LICE_RGBA(255, 255, 255, 0);
+
     for(y=0;y<useh;y++)
     {
       int rdy=y,rdy2=y;
       if (frame->isFlipped()) rdy = frame->getHeight()-1-y;
       if (tmp.isFlipped()) rdy2 = tmp.getHeight()-1-y;
-      LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
-      LICE_pixel *in2 = tmp.getBits() + rdy2*tmp.getRowSpan();
+      const LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
+      const LICE_pixel *in2 = tmp.getBits() + rdy2*tmp.getRowSpan();
       int x;
+
+      // optimize solids by reusing the same value if previous rgb was the same, also avoid switching between
+      // from color to transparent if the color hasn't changed
       if (use_octree) for(x=0;x<usew;x++)
       {
-        const LICE_pixel p = *in++;
-        if (ignFr || ((p^*in2)&LICE_RGBA(255,255,255,0))) linebuf[x] = LICE_FindInOctree(use_octree,p);
-        else linebuf[x]=transparent_pix;
-        in2++;
+        const LICE_pixel p = in[x]&mask;
+        if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+        {
+          if (ignFr || p != (in2[x]&mask)) last_pixel_idx = LICE_FindInOctree(use_octree,last_pixel_rgb = p);
+          else last_pixel_idx = transparent_pix;
+        }
+        linebuf[x] = last_pixel_idx;
       }
       else for(x=0;x<usew;x++)
       {
-        const LICE_pixel p = *in++;
-        if (ignFr || ((p^*in2)&LICE_RGBA(255,255,255,0))) linebuf[x] = QuantPixel(p,wr);
-        else linebuf[x]=transparent_pix;
-        in2++;
+        const LICE_pixel p = in[x]&mask;
+        if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+        {
+          if (ignFr || p != (in2[x]&mask)) last_pixel_idx = QuantPixel(last_pixel_rgb = p,wr);
+          else last_pixel_idx = transparent_pix;
+        }
+        linebuf[x] = last_pixel_idx;
       }
       EGifPutLine(wr->f, linebuf, usew);
     }
-
 
     LICE_Blit(&tmp,frame,0,0,0,0,usew,useh,1.0f,LICE_BLIT_MODE_COPY);
     
@@ -265,17 +277,17 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     {
       int rdy=y;
       if (frame->isFlipped()) rdy = frame->getHeight()-1-y;
-      LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
+      const LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
       int x;
       if (use_octree) for(x=0;x<usew;x++)
       {
-        const LICE_pixel p = *in++;
+        const LICE_pixel p = in[x];
         if (!LICE_GETA(p)) linebuf[x]=transparent_pix;
         else linebuf[x] = LICE_FindInOctree(use_octree,p);
       }
       else for(x=0;x<usew;x++)
       {
-        const LICE_pixel p = *in++;
+        const LICE_pixel p = in[x];
         if (!LICE_GETA(p)) linebuf[x]=transparent_pix;
         else linebuf[x] = QuantPixel(p,wr);
       }
@@ -286,10 +298,10 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   {
     int rdy=y;
     if (frame->isFlipped()) rdy = frame->getHeight()-1-y;
-    LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
+    const LICE_pixel *in = frame->getBits() + rdy*frame->getRowSpan();
     int x;
-    if (use_octree) for(x=0;x<usew;x++) linebuf[x] = LICE_FindInOctree(use_octree,*in++);
-    else for(x=0;x<usew;x++) linebuf[x] = QuantPixel(*in++,wr);
+    if (use_octree) for(x=0;x<usew;x++) linebuf[x] = LICE_FindInOctree(use_octree,in[x]);
+    else for(x=0;x<usew;x++) linebuf[x] = QuantPixel(in[x],wr);
     EGifPutLine(wr->f, linebuf, usew);
   }
 
