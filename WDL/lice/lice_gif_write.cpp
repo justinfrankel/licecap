@@ -68,7 +68,6 @@ int LICE_SetGIFColorMapFromOctree(void *ww, void *octree, int numcolors)
   }
 
   // map palette to 16 bit
-  GifColorType *ct = cmap->Colors;
   unsigned char r,g,b;
   for(r=0;r<32;r++)  
   {
@@ -104,15 +103,19 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
 
     if (!perImageColorMap && !wr->has_global_cmap)
     {
-      int ccnt = wr->cmap->ColorCount;
-      if (wr->transalpha && ccnt>255) ccnt=255;
+      const int ccnt = 256 - (wr->transalpha?1:0);
       void* octree = LICE_CreateOctree(ccnt);
       if (octree) 
       {
         LICE_BuildOctree(octree, frame);
         // sets has_global_cmap
-        LICE_SetGIFColorMapFromOctree(wr, octree, ccnt);
+        int pcnt = LICE_SetGIFColorMapFromOctree(wr, octree, ccnt);
         LICE_DestroyOctree(octree);
+        if (pcnt < 256 && wr->transalpha) pcnt++;
+        int nb = 1;
+        while (nb < 8 && (1<<nb) < pcnt) nb++;
+        wr->cmap->ColorCount = 1<<nb;
+        wr->cmap->BitsPerPixel=nb;
       }
     }
 
@@ -125,11 +128,38 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   if (ypos+useh > wr->h) useh = wr->h-ypos;
   if (usew<1||useh<1) return false;
 
+
+  if (perImageColorMap && !wr->has_global_cmap)
+  {
+    const int ccnt = 256 - (wr->transalpha?1:0);
+    void* octree = LICE_CreateOctree(ccnt);
+    if (octree) 
+    {
+      if ((!isFirst || frame_delay) && wr->transalpha<0 && wr->prevframe)
+        LICE_BuildOctreeForDiff(octree,frame,wr->prevframe);
+      else if (wr->transalpha>0)
+        LICE_BuildOctreeForAlpha(octree, frame,1);
+      else
+        LICE_BuildOctree(octree, frame);
+
+        // sets has_global_cmap (clear below)
+      int pcnt = LICE_SetGIFColorMapFromOctree(wr, octree, ccnt);
+      LICE_DestroyOctree(octree);
+      wr->has_global_cmap=false;
+      if (pcnt < 256 && wr->transalpha) pcnt++;
+      int nb = 1;
+      while (nb < 8 && (1<<nb) < pcnt) nb++;
+      wr->cmap->ColorCount = 1<<nb;
+      wr->cmap->BitsPerPixel=nb;
+    }
+  }
+
+  const unsigned char transparent_pix = wr->cmap->ColorCount-1;
   unsigned char gce[4] = { 0, };
   if (wr->transalpha)
   {
     gce[0] |= 1;
-    gce[3] = 255;
+    gce[3] = transparent_pix;
   }
 
   int a = frame_delay/10;
@@ -148,28 +178,6 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   if (gce[0]||gce[1]||gce[2])
     EGifPutExtension(wr->f, 0xF9, sizeof(gce), gce);
 
-
-  const bool ta=wr->transalpha>0;
-  if (perImageColorMap && !wr->has_global_cmap)
-  {
-    int ccnt = wr->cmap->ColorCount;
-    if (wr->transalpha && ccnt>255) ccnt=255;
-    void* octree = LICE_CreateOctree(ccnt);
-    if (octree) 
-    {
-      if ((!isFirst || frame_delay) && wr->transalpha<0 && wr->prevframe)
-        LICE_BuildOctreeForDiff(octree,frame,wr->prevframe);
-      else if (ta)
-        LICE_BuildOctreeForAlpha(octree, frame,1);
-      else
-        LICE_BuildOctree(octree, frame);
-
-        // sets has_global_cmap (clear below)
-      LICE_SetGIFColorMapFromOctree(wr, octree, ccnt);
-      LICE_DestroyOctree(octree);
-      wr->has_global_cmap=false;
-    }
-  }
 
   EGifPutImageDesc(wr->f, xpos, ypos, usew,useh, 0, wr->has_global_cmap ? NULL : wr->cmap); 
 
@@ -205,7 +213,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
         }
         else 
         {
-          linebuf[x]=255;
+          linebuf[x]=transparent_pix;
         }
         in2++;
       }
@@ -216,7 +224,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     LICE_Blit(&tmp,frame,0,0,0,0,usew,useh,1.0f,LICE_BLIT_MODE_COPY);
     
   }
-  else if (ta)
+  else if (wr->transalpha>0)
   {
     for(y=0;y<useh;y++)
     {
@@ -227,7 +235,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
       for(x=0;x<usew;x++)
       {
         const LICE_pixel p = *in++;
-        if (!LICE_GETA(p)) linebuf[x]=255;
+        if (!LICE_GETA(p)) linebuf[x]=transparent_pix;
         else linebuf[x] = QuantPixel(p,wr);
       }
       EGifPutLine(wr->f, linebuf, usew);
