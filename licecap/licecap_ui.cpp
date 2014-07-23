@@ -31,6 +31,8 @@
 #include "../WDL/wdlcstring.h"
 
 
+//#define TEST_MULTIPLE_MODES
+
 #ifdef REAPER_LICECAP
   #define NO_LCF_SUPPORT
   #define VIDEO_ENCODER_SUPPORT
@@ -93,16 +95,19 @@ class gif_encoder
   int lastbm_coords[4]; // coordinates of previous frame which need to be updated, [2], [3] will always be >0 if in progress
   int lastbm_accumdelay; // delay of previous frame which is latent
   int loopcnt;
+  LICE_pixel trans_mask;
+
 public:
 
 
-  gif_encoder(void *gifctx, int use_loopcnt)
+  gif_encoder(void *gifctx, int use_loopcnt, int trans_chan_mask=0xff)
   {
     lastbm = NULL;
     memset(lastbm_coords,0,sizeof(lastbm_coords));
     lastbm_accumdelay = 0;
     ctx=gifctx;
     loopcnt=use_loopcnt;
+    trans_mask = LICE_RGBA(trans_chan_mask,trans_chan_mask,trans_chan_mask,0);
   }
   ~gif_encoder()
   {
@@ -117,7 +122,7 @@ public:
     diffs[0]=diffs[1]=0;
     diffs[2]=bm->getWidth();
     diffs[3]=bm->getHeight();
-    return !lastbm || LICE_BitmapCmpEx(lastbm, bm, LICE_RGBA(255,255,255,0),diffs);
+    return !lastbm || LICE_BitmapCmpEx(lastbm, bm, trans_mask,diffs);
   }
   
   void frame_finish()
@@ -424,6 +429,9 @@ void EncodeFrameToVideo(VideoEncoder *enc, LICE_IBitmap *bm, bool force=false)
 #endif
 
 gif_encoder *g_cap_gif;
+#ifdef TEST_MULTIPLE_MODES
+gif_encoder  *g_cap_gif2,*g_cap_gif3; // only used if TEST_MULTIPLE_MODES defined
+#endif
 int g_cap_gif_lastsec_written;
 
 
@@ -678,6 +686,13 @@ void Capture_Finish(HWND hwndDlg)
     g_cap_gif=0;
   }
 
+#ifdef TEST_MULTIPLE_MODES
+  delete g_cap_gif2;
+  g_cap_gif2 = 0;
+  delete g_cap_gif3;
+  g_cap_gif3 = 0;
+#endif
+
   delete g_cap_bm;
   g_cap_bm=0;
 }
@@ -884,6 +899,21 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
       delete tbm;
     }
   }
+
+#ifdef TEST_MULTIPLE_MODES
+  if (g_cap_gif2)
+  {
+    g_cap_gif2->frame_finish(); 
+    g_cap_gif2->frame_new(g_cap_bm,0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight());
+    g_cap_gif2->frame_advancetime(ms);
+  }
+  if (g_cap_gif3)
+  {
+    g_cap_gif3->frame_finish(); 
+    g_cap_gif3->frame_new(g_cap_bm,0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight());
+    g_cap_gif3->frame_advancetime(ms);
+  }
+#endif
 
   if (g_cap_gif)
   {
@@ -1198,12 +1228,20 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                   draw_timedisp(g_cap_bm,g_cap_gif_lastsec_written,old_time_coords,bw,bh);
             
                 g_cap_gif->frame_advancetime(now-g_last_frame_capture_time);
+#ifdef TEST_MULTIPLE_MODES
+                if (g_cap_gif2) g_cap_gif2->frame_advancetime(now-g_last_frame_capture_time);
+                if (g_cap_gif3) g_cap_gif3->frame_advancetime(now-g_last_frame_capture_time);
+#endif
 
                 int diffs[4];
                 
                 if (g_cap_gif->frame_compare(g_cap_bm,diffs))
                 {
                   g_cap_gif->frame_finish();
+#ifdef TEST_MULTIPLE_MODES
+                  if (g_cap_gif2) g_cap_gif2->frame_finish();
+                  if (g_cap_gif3) g_cap_gif3->frame_finish();
+#endif
 
                   if (dotime && frame_time_in_seconds != g_cap_gif_lastsec_written)
                   {
@@ -1222,12 +1260,20 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                   }
 
                   g_cap_gif->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
+#ifdef TEST_MULTIPLE_MODES
+                  if (g_cap_gif2) g_cap_gif2->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
+                  if (g_cap_gif3) g_cap_gif3->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
+#endif
                 }
 
                 if (dotime && frame_time_in_seconds != g_cap_gif_lastsec_written)
                 {
                   // time changed and wasn't previously included, so include as a dedicated frame
                   g_cap_gif->frame_finish();
+#ifdef TEST_MULTIPLE_MODES
+                  if (g_cap_gif2) g_cap_gif2->frame_finish();
+                  if (g_cap_gif3) g_cap_gif3->frame_finish();
+#endif
 
                   int pos[4];
                   draw_timedisp(g_cap_bm,frame_time_in_seconds,pos,bw,bh);
@@ -1235,6 +1281,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                   g_cap_gif_lastsec_written = frame_time_in_seconds;
                   g_cap_gif->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
+#ifdef TEST_MULTIPLE_MODES
+                  if (g_cap_gif2) g_cap_gif2->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
+                  if (g_cap_gif3) g_cap_gif3->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
+#endif
                 }
               }
 
@@ -1492,9 +1542,21 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
-                void *ctx = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,(g_prefs&32) ? -1 : 0,true);
-                if (ctx) g_cap_gif = new gif_encoder(ctx,g_gif_loopcount);
+                void *ctx = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,(g_prefs&32) ? (-1)&~7 : 0,true);
+                if (ctx) g_cap_gif = new gif_encoder(ctx,g_gif_loopcount,0xf8);
                 g_cap_gif_lastsec_written = -1;
+
+#ifdef TEST_MULTIPLE_MODES
+                char tmp[1024];
+                sprintf(tmp,"%s.trans-nostats.gif",g_last_fn);
+                ctx = LICE_WriteGIFBeginNoFrame(tmp,w,h,(-1)&~(7|0x100),true);
+                if (ctx) g_cap_gif2 = new gif_encoder(ctx,g_gif_loopcount,0xf8);
+
+                sprintf(tmp,"%s.trans-0.gif",g_last_fn);
+                ctx = LICE_WriteGIFBeginNoFrame(tmp,w,h,0,true);
+                if (ctx) g_cap_gif3 = new gif_encoder(ctx,g_gif_loopcount,0xf8);
+#endif
+
               }
 #ifdef VIDEO_ENCODER_SUPPORT
               if (strlen(g_last_fn)>5 && !stricmp(g_last_fn+strlen(g_last_fn)-5,".webm"))
