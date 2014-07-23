@@ -1,4 +1,4 @@
-v1.25beta2 - July 22, 2014
+v1.25beta2 - July 23, 2014
   + OSX: improved window position detection
   + GIF: optimizations to update/palette generation logic, smaller results
 
