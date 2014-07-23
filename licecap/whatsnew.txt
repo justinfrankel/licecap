@@ -1,6 +1,6 @@
 v1.25beta2 - July 22, 2014
   + OSX: improved window position detection
-  + GIF: optimizations to update logic
+  + GIF: optimizations to update/palette generation logic, smaller results
 
 v1.25beta - July 20, 2014
   + GIF: support writing .gifs with transparency per-frame, for smaller file sizes (limited old-IE compat)
