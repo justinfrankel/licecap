@@ -535,6 +535,7 @@ void LICE_DestroyLVG(void *lvg);
 
 void* LICE_CreateOctree(int maxcolors);
 void LICE_DestroyOctree(void* octree);
+void LICE_ResetOctree(void *octree, int maxcolors); // resets back to stock, but with spares (to avoid mallocs)
 int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp);
 int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha);
 int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp);
