@@ -506,6 +506,7 @@ void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixe
 
 // bitmap compare-by-value function
 int LICE_BitmapCmp(LICE_IBitmap* a, LICE_IBitmap* b, int *coordsOut=NULL);
+int LICE_BitmapCmpEx(LICE_IBitmap* a, LICE_IBitmap* b, LICE_pixel mask, int *coordsOut=NULL);
 
 // colorspace functions
 void LICE_RGB2HSV(int r, int g, int b, int* h, int* s, int* v); // rgb, sv: [0,256), h: [0,384)
@@ -534,9 +535,10 @@ void LICE_DestroyLVG(void *lvg);
 
 void* LICE_CreateOctree(int maxcolors);
 void LICE_DestroyOctree(void* octree);
+void LICE_ResetOctree(void *octree, int maxcolors); // resets back to stock, but with spares (to avoid mallocs)
 int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp);
 int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha);
-int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp);
+int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp, LICE_pixel mask=LICE_RGBA(255,255,255,0));
 int LICE_FindInOctree(void* octree, LICE_pixel color);
 int LICE_ExtractOctreePalette(void* octree, LICE_pixel* palette);
 

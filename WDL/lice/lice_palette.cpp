@@ -21,7 +21,9 @@ struct OTree
   int leafcount;  
   ONode* trunk;
   ONode* branches[OCTREE_DEPTH];  // linked lists of branches for each level of the tree
+  ONode* spares;
   LICE_pixel* palette;  // populated at the end
+  bool palette_valid;
 };
 
 
@@ -39,7 +41,7 @@ int LICE_BuildPalette(LICE_IBitmap* bmp, LICE_pixel* palette, int maxcolors)
 static void AddColorToTree(OTree*, const LICE_pixel_chan *rgb);
 static int FindColorInTree(OTree*, const LICE_pixel_chan *rgb);
 static int PruneTree(OTree*);
-static void DeleteNode(OTree*, ONode*);
+static void DeleteNode(OTree*, ONode*, ONode **delete_to);
 static int CollectLeaves(OTree*);
 static int CollectNodeLeaves(ONode* node, LICE_pixel* palette, int colorcount);
 
@@ -51,14 +53,50 @@ void* LICE_CreateOctree(int maxcolors)
   tree->maxcolors = maxcolors;
   tree->trunk = new ONode;
   memset(tree->trunk, 0, sizeof(ONode));
+  tree->spares = NULL;
   return tree;
 }
 
 
+void LICE_ResetOctree(void *octree, int maxc)
+{
+  OTree* tree = (OTree*)octree;
+  if (!tree) return;
+
+  if (maxc > tree->maxcolors)
+  {
+    free(tree->palette);
+    tree->palette=0;
+  }
+
+  DeleteNode(tree, tree->trunk, &tree->spares);
+  tree->leafcount = 0;
+  tree->maxcolors = maxc;
+  tree->palette_valid=false;
+  memset(tree->branches,0,sizeof(tree->branches));
+
+  tree->trunk=tree->spares;
+  if (tree->trunk) tree->spares = tree->trunk->next;
+  else tree->trunk = new ONode;
+
+  memset(tree->trunk, 0, sizeof(ONode));
+}
+
 void LICE_DestroyOctree(void* octree)
 {
   OTree* tree = (OTree*)octree;
-  DeleteNode(tree, tree->trunk);
+  if (!tree) return;
+
+  DeleteNode(tree, tree->trunk, NULL);
+
+  ONode *p = tree->spares;
+  while (p)
+  {
+    ONode *del = p;
+    p = p->next;
+
+    delete del;
+  }
   free(tree->palette);
   delete tree;
 }
@@ -69,11 +107,7 @@ int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp)
   OTree* tree = (OTree*)octree;
   if (!tree || !bmp) return 0;
 
-  if (tree->palette) 
-  {
-    free(tree->palette);
-    tree->palette=0;
-  }
+  tree->palette_valid = false;
 
   int y;
   const int h=bmp->getHeight();
@@ -100,17 +134,14 @@ int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha)
   OTree* tree = (OTree*)octree;
   if (!tree || !bmp) return 0;
 
-  if (tree->palette) 
-  {
-    free(tree->palette);
-    tree->palette=0;
-  }
+  tree->palette_valid = false;
 
   int y;
   const int h=bmp->getHeight();
   const int w=bmp->getWidth();
   const int rowspan = bmp->getRowSpan();
   const LICE_pixel *bits = bmp->getBits();
+  int pxcnt=0;
   for (y = 0; y < h; ++y)
   {
     const LICE_pixel *px = bits+y*rowspan;
@@ -121,25 +152,22 @@ int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha)
       {
         AddColorToTree(tree, (const LICE_pixel_chan*)px);      
         if (tree->leafcount > tree->maxcolors) PruneTree(tree);
+        pxcnt++;
       }
       px++;
     }
   }
 
-  return tree->leafcount;
+  return pxcnt;
 }
 
 
-int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp)
+int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp, LICE_pixel mask)
 {
   OTree* tree = (OTree*)octree;
   if (!tree || !bmp || !refbmp) return 0;
 
-  if (tree->palette) 
-  {
-    free(tree->palette);
-    tree->palette=0;
-  }
+  tree->palette_valid=false;
 
   int y;
   const int h=min(bmp->getHeight(),refbmp->getHeight());
@@ -162,6 +190,7 @@ int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbm
     rowspan2 = -rowspan2;
   }
 
+  int pxcnt=0;
   for (y = 0; y < h; ++y)
   {
     const LICE_pixel * px = bits+y*rowspan;
@@ -169,17 +198,18 @@ int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbm
     int x=w;
     while (x--)
     {    
-      if ((*px ^ *px2) & LICE_RGBA(255,255,255,0))
+      if ((*px ^ *px2) & mask)
       {
         AddColorToTree(tree, (const LICE_pixel_chan *)px);
         if (tree->leafcount > tree->maxcolors) PruneTree(tree);
+        pxcnt++;
       }
       px++;
       px2++;
     }
   }
 
-  return tree->leafcount;
+  return pxcnt;
 }
 
 
@@ -188,7 +218,7 @@ int LICE_FindInOctree(void* octree, LICE_pixel color)
   OTree* tree = (OTree*)octree;
   if (!tree) return 0;
 
-  if (!tree->palette) CollectLeaves(tree);
+  if (!tree->palette_valid) CollectLeaves(tree);
   
   return FindColorInTree(tree, (const LICE_pixel_chan *)&color);
 }
@@ -199,9 +229,10 @@ int LICE_ExtractOctreePalette(void* octree, LICE_pixel* palette)
   OTree* tree = (OTree*)octree;
   if (!tree || !palette) return 0;
 
-  if (!tree->palette) CollectLeaves(tree);
+  if (!tree->palette_valid) CollectLeaves(tree);
 
-  memcpy(palette, tree->palette, tree->maxcolors*sizeof(LICE_pixel));
+  if (tree->palette) memcpy(palette, tree->palette, tree->maxcolors*sizeof(LICE_pixel));
+
   return tree->leafcount;
 }
 
@@ -273,7 +304,11 @@ void AddColorToTree(OTree* tree, const LICE_pixel_chan *rgb)
       }
       // else multiple branch, which we don't care about
 
-      np = p->children[idx] = new ONode;
+      np=tree->spares;
+      if (np) tree->spares = np->next;
+      else np = new ONode;
+
+      p->children[idx] = np;
       memset(np, 0, sizeof(ONode));    
     }
 
@@ -338,7 +373,7 @@ int PruneTree(OTree* tree)
     {
       if (branch->children[i])
       {
-        DeleteNode(tree, branch->children[i]);
+        DeleteNode(tree, branch->children[i],&tree->spares);
         branch->children[i]=0;
       }
     }
@@ -351,11 +386,13 @@ int PruneTree(OTree* tree)
 
 int CollectLeaves(OTree* tree)
 {
-  if (tree->palette) free(tree->palette);
-  tree->palette = (LICE_pixel*)malloc(tree->maxcolors*sizeof(LICE_pixel));
+  if (!tree->palette) tree->palette = (LICE_pixel*)malloc(tree->maxcolors*sizeof(LICE_pixel));
+
+  if (!tree->palette) return 0;
 
   int sz = CollectNodeLeaves(tree->trunk, tree->palette, 0);
   memset(tree->palette+sz, 0, (tree->maxcolors-sz)*sizeof(LICE_pixel));
+  tree->palette_valid = true;
 
   return sz;
 }
@@ -398,7 +435,7 @@ int CollectNodeLeaves(ONode* p, LICE_pixel* palette, int colorcount)
 }
 
 
-void DeleteNode(OTree* tree, ONode* p)
+void DeleteNode(OTree* tree, ONode* p, ONode **delete_to)
 {
   if (!p->childflag)
   {
@@ -406,7 +443,7 @@ void DeleteNode(OTree* tree, ONode* p)
   }
   else if (p->childflag > 0)
   {
-    DeleteNode(tree, p->children[p->childflag-1]);
+    DeleteNode(tree, p->children[p->childflag-1],delete_to);
   }
   else
   {
@@ -415,11 +452,19 @@ void DeleteNode(OTree* tree, ONode* p)
     {
       if (p->children[i])
       {       
-        DeleteNode(tree, p->children[i]);     
+        DeleteNode(tree, p->children[i],delete_to);     
       }
     } 
   }
 
-  delete p;
+  if (delete_to) 
+  {
+    p->next = *delete_to;
+    *delete_to = p;
+  }
+  else
+  {
+    delete p;
+  }
 }
 
