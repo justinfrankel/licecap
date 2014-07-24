@@ -31,7 +31,7 @@
 #include "../WDL/wdlcstring.h"
 
 
-//#define TEST_MULTIPLE_MODES
+#define TEST_MULTIPLE_MODES
 
 #ifdef REAPER_LICECAP
   #define NO_LCF_SUPPORT
