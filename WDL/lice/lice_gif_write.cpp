@@ -21,6 +21,7 @@ struct liceGifWriteRec
   GifPixelType *linebuf;
   LICE_IBitmap *prevframe; // used when multiframe, transalpha<0
   void *last_octree;
+  LICE_pixel last_palette[256];
   unsigned char from15to8bit[32][32][32];//r,g,b
 
   int transalpha;
@@ -40,7 +41,7 @@ static inline GifPixelType QuantPixel(LICE_pixel p, liceGifWriteRec *wr)
 static int generate_palette_from_octree(void *ww, void *octree, int numcolors)
 {
   liceGifWriteRec  *wr = (liceGifWriteRec *)ww;
-  if (!octree||!ww) return 0;
+  if (!octree||!ww||numcolors>256) return 0;
 
   ColorMapObject *cmap = wr->cmap;
   
@@ -48,11 +49,8 @@ static int generate_palette_from_octree(void *ww, void *octree, int numcolors)
 
   // store palette
   {
-    LICE_pixel* palette=0;
-    LICE_pixel tpalette[256];
-    if (numcolors <= 256) palette = tpalette;
-    else palette = (LICE_pixel*)malloc(numcolors*sizeof(LICE_pixel));
-    
+    LICE_pixel* palette=wr->last_palette;
+
     palette_sz = LICE_ExtractOctreePalette(octree, palette);
 
     int i;
@@ -66,8 +64,6 @@ static int generate_palette_from_octree(void *ww, void *octree, int numcolors)
     {
       cmap->Colors[i].Red = cmap->Colors[i].Green = cmap->Colors[i].Blue = 0;   
     }
-  
-    if (palette != tpalette) free(palette);
   }
 
   wr->has_from15to8bit = false;
@@ -153,6 +149,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
 
   const int trans_chan_mask = wr->transalpha&0xff; // -1 means 0xff by default, user can change this accordingly
   const LICE_pixel trans_mask = LICE_RGBA(trans_chan_mask,trans_chan_mask,trans_chan_mask,0);
+  const bool advanced_trans_stats = !!(wr->transalpha&0x100);
 
   if (perImageColorMap && !wr->has_global_cmap)
   {
@@ -165,7 +162,8 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
       if ((!isFirst || frame_delay) && wr->transalpha<0 && wr->prevframe)
       {
         LICE_SubBitmap tmpprev(wr->prevframe, xpos, ypos, usew, useh);
-        pixcnt=LICE_BuildOctreeForDiff(octree,frame,&tmpprev,trans_mask);
+        int pc=LICE_BuildOctreeForDiff(octree,frame,&tmpprev,trans_mask);
+        if (!advanced_trans_stats) pixcnt = pc;
       }
       else if (wr->transalpha>0)
         pixcnt=LICE_BuildOctreeForAlpha(octree, frame,wr->transalpha&0xff);
@@ -236,6 +234,10 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     LICE_pixel last_pixel_rgb=0;
     GifPixelType last_pixel_idx=transparent_pix;
 
+    int pix_stats[256];
+    if (advanced_trans_stats) memset(pix_stats,0,sizeof(pix_stats));
+    pix_stats[transparent_pix] = -8;
+
     for(y=0;y<useh;y++)
     {
       int rdy=y,rdy2=y;
@@ -245,28 +247,75 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
       const LICE_pixel *in2 = tmp.getBits() + rdy2*tmp.getRowSpan();
       int x;
 
-      // optimize solids by reusing the same value if previous rgb was the same, also avoid switching between
-      // from color to transparent if the color hasn't changed
-      if (use_octree) for(x=0;x<usew;x++)
+      if (advanced_trans_stats)
       {
-        const LICE_pixel p = in[x]&trans_mask;
-        if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+        if (use_octree) for(x=0;x<usew;x++)
         {
-          if (ignFr || p != (in2[x]&trans_mask)) last_pixel_idx = LICE_FindInOctree(use_octree,last_pixel_rgb = p);
-          else last_pixel_idx = transparent_pix;
+          const LICE_pixel p = in[x]&trans_mask;
+          if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+          {
+            if (ignFr || p != (in2[x]&trans_mask)) last_pixel_idx = LICE_FindInOctree(use_octree,p);
+            else 
+            {
+              const GifPixelType np = LICE_FindInOctree(use_octree,p);
+              if (p != (wr->last_palette[np]&trans_mask) || pix_stats[transparent_pix] > pix_stats[np])
+                last_pixel_idx = transparent_pix;
+              else 
+                last_pixel_idx = np;
+            }
+          }
+          linebuf[x] = last_pixel_idx;
+          pix_stats[last_pixel_idx]++;
+          last_pixel_rgb = p;
         }
-        linebuf[x] = last_pixel_idx;
+        else for(x=0;x<usew;x++)
+        {
+          const LICE_pixel p = in[x]&trans_mask;
+          if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+          {
+            if (ignFr || p != (in2[x]&trans_mask)) last_pixel_idx = QuantPixel(p,wr);
+            else 
+            {
+              const GifPixelType np = QuantPixel(p,wr);
+
+              if (p != (wr->last_palette[np]&trans_mask) || pix_stats[transparent_pix] > pix_stats[np])
+                last_pixel_idx = transparent_pix;
+              else 
+                last_pixel_idx = np;
+            }
+          }
+          linebuf[x] = last_pixel_idx;
+          pix_stats[last_pixel_idx]++;
+          last_pixel_rgb = p;
+        }
       }
-      else for(x=0;x<usew;x++)
+      else
       {
-        const LICE_pixel p = in[x]&trans_mask;
-        if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+        // optimize solids by reusing the same value if previous rgb was the same, also avoid switching between
+        // from color to transparent if the color hasn't changed
+        if (use_octree) for(x=0;x<usew;x++)
         {
-          if (ignFr || p != (in2[x]&trans_mask)) last_pixel_idx = QuantPixel(last_pixel_rgb = p,wr);
-          else last_pixel_idx = transparent_pix;
+          const LICE_pixel p = in[x]&trans_mask;
+          if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+          {
+            if (ignFr || p != (in2[x]&trans_mask)) last_pixel_idx = LICE_FindInOctree(use_octree,last_pixel_rgb = p);
+            else last_pixel_idx = transparent_pix;
+          }
+          linebuf[x] = last_pixel_idx;
         }
-        linebuf[x] = last_pixel_idx;
+        else for(x=0;x<usew;x++)
+        {
+          const LICE_pixel p = in[x]&trans_mask;
+          if (last_pixel_idx == transparent_pix || last_pixel_rgb!=p)
+          {
+            if (ignFr || p != (in2[x]&trans_mask)) last_pixel_idx = QuantPixel(last_pixel_rgb = p,wr);
+            else last_pixel_idx = transparent_pix;
+          }
+          linebuf[x] = last_pixel_idx;
+        }
       }
+
+
       EGifPutLine(wr->f, linebuf, usew);
     }
 
