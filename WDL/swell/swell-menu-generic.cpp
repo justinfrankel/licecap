@@ -628,5 +628,6 @@ int SWELL_GenerateMenuFromList(HMENU hMenu, const void *_list, int listsz)
     list+=cnt;
     listsz -= cnt;
   }
+  return list + 1 - (SWELL_MenuGen_Entry *)_list;
 }
 #endif

@@ -2991,9 +2991,9 @@ void UpdateWindow(HWND hwnd)
   }
 }
 
-void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
+BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
-  if (!hwnd) return;
+  if (!hwnd) return FALSE;
   HWND hwndCall=hwnd;
 #ifdef SWELL_LICE_GDI
   {
@@ -3039,6 +3039,7 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
     gdk_window_invalidate_rect(hwnd->m_oswindow,hwnd!=hwndCall || r ? &rect : NULL,true);
   }
 #endif
+  return TRUE;
 }
 
 
