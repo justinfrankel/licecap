@@ -690,25 +690,32 @@ void LICE_GradRect(LICE_IBitmap *dest, int dstx, int dsty, int dstw, int dsth,
   // dont scale alpha
 
   // clip to output
-  if (dstx < 0) { ir-=dstx*drdx; ig-=dstx*dgdx; ib-=dstx*dbdx; ia-=dstx*dadx; dstw+=dstx; dstx=0; }
+  if (dstx < 0) 
+  { 
+    ir-=dstx*drdx; ig-=dstx*dgdx; ib-=dstx*dbdx; ia-=dstx*dadx; 
+    dstw+=dstx; 
+    dstx=0; 
+  }
   if (dsty < 0) 
   {
     ir -= dsty*drdy; ig-=dsty*dgdy; ib -= dsty*dbdy; ia -= dsty*dady;
     dsth += dsty; 
     dsty=0; 
   }  
-  if (dstx+dstw > dest->getWidth()) dstw =(dest->getWidth()-dstx);
-  if (dsty+dsth > dest->getHeight()) dsth = (dest->getHeight()-dsty);
-
-  if (dstw<1 || dsth<1) return;
 
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
-  if (!pdest) return;
+
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+
+  if (!pdest || !dest_span || dstw < 1 || dsth < 1 || dstx >= destbm_w || dsty >= destbm_h) return;
+
+  if (dstw > destbm_w-dstx) dstw = destbm_w-dstx;
+  if (dsth > destbm_h-dsty) dsth = destbm_h-dsty;
  
   if (dest->isFlipped())
   {
-    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    pdest += (destbm_h-dsty - 1)*dest_span;
     dest_span=-dest_span;
   }
   else
@@ -776,8 +783,12 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, const 
   // clip to output
   if (dstx < 0) { sr.left -= dstx; dstx=0; }
   if (dsty < 0) { sr.top -= dsty; dsty=0; }  
-  if (dstx+sr.right-sr.left > dest->getWidth()) sr.right = sr.left + (dest->getWidth()-dstx);
-  if (dsty+sr.bottom-sr.top > dest->getHeight()) sr.bottom = sr.top + (dest->getHeight()-dsty);
+
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (sr.right <= sr.left || sr.bottom <= sr.top || dstx >= destbm_w || dsty >= destbm_h) return;
+
+  if (sr.right > sr.left + (destbm_w-dstx)) sr.right = sr.left + (destbm_w-dstx);
+  if (sr.bottom > sr.top + (destbm_h-dsty)) sr.bottom = sr.top + (destbm_h-dsty);
 
   // ignore blits that are 0
   if (sr.right <= sr.left || sr.bottom <= sr.top) return;
@@ -810,7 +821,7 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, const 
 
   if (dest->isFlipped())
   {
-    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    pdest += (destbm_h-dsty - 1)*dest_span;
     dest_span=-dest_span;
   }
   else pdest += dsty*dest_span;
@@ -902,9 +913,13 @@ void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
 
   // clip to output
   if (dstx < 0) { sr.left -= dstx; dstx=0; }
-  if (dsty < 0) { sr.top -= dsty; dsty=0; }  
-  if (dstx+sr.right-sr.left > dest->getWidth()) sr.right = sr.left + (dest->getWidth()-dstx);
-  if (dsty+sr.bottom-sr.top > dest->getHeight()) sr.bottom = sr.top + (dest->getHeight()-dsty);
+  if (dsty < 0) { sr.top -= dsty; dsty=0; }
+
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (sr.right <= sr.left || sr.bottom <= sr.top || dstx >= destbm_w || dsty >= destbm_h) return;
+
+  if (sr.right > sr.left + (destbm_w-dstx)) sr.right = sr.left + (destbm_w-dstx);
+  if (sr.bottom > sr.top + (destbm_h-dsty)) sr.bottom = sr.top + (destbm_h-dsty);
 
   // ignore blits that are smaller than 2x2
   if (sr.right <= sr.left+1 || sr.bottom <= sr.top+1) return;
@@ -925,7 +940,7 @@ void LICE_Blur(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int sr
 
   if (dest->isFlipped())
   {
-    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    pdest += (destbm_h-dsty - 1)*dest_span;
     dest_span=-dest_span;
   }
   else pdest += dsty*dest_span;
@@ -1060,10 +1075,12 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (dstx < 0) { srcx -= (float) (dstx*xadvance); dstw+=dstx; dstx=0; }
   if (dsty < 0) { srcy -= (float) (dsty*yadvance); dsth+=dsty; dsty=0; }  
-  if (dstx+dstw > dest->getWidth()) dstw=dest->getWidth()-dstx;
-  if (dsty+dsth > dest->getHeight()) dsth=dest->getHeight()-dsty;
+  
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (dstw < 1 || dsth < 1 || dstx >= destbm_w || dsty >= destbm_h) return;
 
-  if (dstw<1 || dsth<1) return; // check before the below calcs since they arent necessary / will fuck up if these area small
+  if (dstw > destbm_w-dstx) dstw=destbm_w-dstx;
+  if (dsth > destbm_h-dsty) dsth=destbm_h-dsty;
 
   int idx=(int)(xadvance*65536.0);
   int idy=(int)(yadvance*65536.0);
@@ -1133,7 +1150,7 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (dest->isFlipped())
   {
-    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    pdest += (destbm_h-dsty - 1)*dest_span;
     dest_span=-dest_span;
   }
   else pdest += dsty*dest_span;
@@ -1274,10 +1291,12 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
     dsth+=dsty; 
     dsty=0; 
   }  
-  if (dstx+dstw > dest->getWidth()) dstw=dest->getWidth()-dstx;
-  if (dsty+dsth > dest->getHeight()) dsth=dest->getHeight()-dsty;
 
-  if (dstw<1 || dsth<1) return;
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (dstw < 1 || dsth < 1 || dstx >= destbm_w || dsty >= destbm_h) return;
+
+  if (dstw > destbm_w-dstx) dstw=destbm_w-dstx;
+  if (dsth > destbm_h-dsty) dsth=destbm_h-dsty;
 
 
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
@@ -1295,7 +1314,7 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (dest->isFlipped())
   {
-    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    pdest += (destbm_h-dsty - 1)*dest_span;
     dest_span=-dest_span;
   }
   else pdest += dsty*dest_span;
@@ -1394,10 +1413,12 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
     dsth+=dsty; 
     dsty=0; 
   }  
-  if (dstx+dstw > dest->getWidth()) dstw=dest->getWidth()-dstx;
-  if (dsty+dsth > dest->getHeight()) dsth=dest->getHeight()-dsty;
 
-  if (dstw<1 || dsth<1) return;
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (dstw < 1 || dsth < 1 || dstx >= destbm_w || dsty >= destbm_h) return;
+
+  if (dstw > destbm_w-dstx) dstw=destbm_w-dstx;
+  if (dsth > destbm_h-dsty) dsth=destbm_h-dsty;
 
 
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
@@ -1415,7 +1436,7 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (dest->isFlipped())
   {
-    pdest += (dest->getHeight()-dsty - 1)*dest_span;
+    pdest += (destbm_h-dsty - 1)*dest_span;
     dest_span=-dest_span;
   }
   else pdest += dsty*dest_span;
@@ -1464,9 +1485,9 @@ void LICE_Clear(LICE_IBitmap *dest, LICE_pixel color)
 
   LICE_pixel *p=dest->getBits();
   int h=dest->getHeight();
-  int w=dest->getWidth();
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
+  const int w=dest->getWidth();
+  const int sp=dest->getRowSpan();
+  if (!p || w<1 || h<1 || !sp) return;
 
   while (h-->0)
   {
@@ -1484,21 +1505,26 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
                           float radd, float gadd, float badd, float aadd)
 {
   if (!dest) return;
-  LICE_pixel *p=dest->getBits();
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
 
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
+  LICE_pixel *p=dest->getBits();
+  const int sp=dest->getRowSpan();
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (!p || !sp || w<1 || h < 1 || x >= destbm_w || y >= destbm_h) return;
+
+  if (w>destbm_w-x) w=destbm_w-x;
+  if (h>destbm_h-y) h=destbm_h-y;
 
   if (dest->isFlipped())
   {
-    p+=(dest->getHeight() - y - h)*sp;
+    p+=(destbm_h - y - h)*sp;
   }
-  else p+=sp*y;
+  else 
+  {
+    p+=sp*y;
+  }
 
   p += x;
 
@@ -1529,21 +1555,26 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
 void LICE_ProcessRect(LICE_IBitmap *dest, int x, int y, int w, int h, void (*procFunc)(LICE_pixel *p, void *parm), void *parm)
 {
   if (!dest||!procFunc) return;
-  LICE_pixel *p=dest->getBits();
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
+  
+  LICE_pixel *p=dest->getBits();
+  const int sp=dest->getRowSpan();
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (!p || !sp || w<1 || h < 1 || x >= destbm_w || y >= destbm_h) return;
 
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
+  if (w>destbm_w-x) w=destbm_w-x;
+  if (h>destbm_h-y) h=destbm_h-y;
 
   if (dest->isFlipped())
   {
-    p+=(dest->getHeight() - y - h)*sp;
+    p+=(destbm_h - y - h)*sp;
   }
-  else p+=sp*y;
+  else 
+  {
+    p+=sp*y;
+  }
 
   p += x;
 
@@ -1551,7 +1582,7 @@ void LICE_ProcessRect(LICE_IBitmap *dest, int x, int y, int w, int h, void (*pro
   {
     LICE_pixel *pout=p;
     int n=w;
-    while (n--) procFunc(pout++,parm);
+    while (n-->0) procFunc(pout++,parm);
     p+=sp;
   }
 
@@ -1571,25 +1602,30 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
 #endif
 
   if (mode & LICE_BLIT_USE_ALPHA) alpha *= LICE_GETA(color)/255.0f;
+
   LICE_pixel *p=dest->getBits();
+  const int sp=dest->getRowSpan();
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (!alpha || !p || !sp || w<1 || h < 1 || x >= destbm_w || y >= destbm_h) return;
 
-  int sp=dest->getRowSpan();
-  if (!alpha || !p || w<1 || h<1 || sp<1) return;
-
+  if (w>destbm_w-x) w=destbm_w-x;
+  if (h>destbm_h-y) h=destbm_h-y;
+  
   if (dest->isFlipped())
   {
-    p+=(dest->getHeight() - y - h)*sp;
+    p+=(destbm_h - y - h)*sp;
   }
-  else p+=sp*y;
+  else 
+  {
+    p+=sp*y;
+  }
 
   p += x;
 
-  int ia=(int)(alpha*256.0);
+  const int ia=(int)(alpha*256.0);
   // copy, alpha=1, alpha=0.5, 0.25, 0.75 optimizations
   if ((mode&LICE_BLIT_MODE_MASK)==LICE_BLIT_MODE_COPY)
   {
@@ -1641,15 +1677,17 @@ void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel m
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
-  if (x+w>dest->getWidth()) w=dest->getWidth()-x;
-  if (y+h>dest->getHeight()) h=dest->getHeight()-y;
 
-  int sp=dest->getRowSpan();
-  if (!p || w<1 || h<1 || sp<1) return;
+  const int sp=dest->getRowSpan();
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (!p || !sp || w<1 || h < 1 || x >= destbm_w || y >= destbm_h) return;
 
+  if (w>destbm_w-x) w=destbm_w-x;
+  if (h>destbm_h-y) h=destbm_h-y;
+  
   if (dest->isFlipped())
   {
-    p+=(dest->getHeight() - y - h)*sp;
+    p+=(destbm_h - y - h)*sp;
   }
   else p+=sp*y;
 
@@ -1953,14 +1991,12 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
     src_h += y;
     y = 0;
   }
-  if (x >= dest->getWidth() || y >= dest->getHeight()) return;
 
-  if (y > dest->getHeight()-src_h) {
-    src_h = dest->getHeight()-y;
-  }
-  if (x > dest->getWidth()-src_w) {
-    src_w = dest->getWidth()-x;
-  }
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (src_w < 0 || src_h < 0 || x >= destbm_w || y >= destbm_h) return;
+
+  if (src_h > destbm_h-y) src_h = destbm_h-y;
+  if (src_w > destbm_w-x) src_w = destbm_w-x;
   
   if (src_w < 1 || src_h < 1) return;
 
@@ -1968,7 +2004,7 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
   LICE_pixel* destpx = dest->getBits();
   int span = dest->getRowSpan();
   if (dest->isFlipped()) {
-    destpx += (dest->getHeight()-y-1)*span+x;
+    destpx += (destbm_h-y-1)*span+x;
     span = -span;
   }
   else {
