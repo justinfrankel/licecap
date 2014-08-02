@@ -57,14 +57,14 @@ void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float dH, 
     h += y;
     y = 0;
   }
-  if (x+w > src->getWidth()) {
-    w = src->getWidth()-x;
-  }
-  if (y+h > src->getHeight()) {
-    h = src->getHeight()-y;
-  }
 
-  int span = src->getRowSpan();
+  const int span = src->getRowSpan();
+  const int destbm_w = src->getWidth(), destbm_h = src->getHeight();
+  if (span < 1 || w < 1 || h < 1 || x >= destbm_w || y >= destbm_h) return;
+
+  if (w > destbm_w - x) w = destbm_w - x;
+  if (h > destbm_h - y) h = destbm_h - y;
+  
   LICE_pixel* px = src->getBits()+y*span+x;  
 
   int dHi = (int)(dH*384.0f);

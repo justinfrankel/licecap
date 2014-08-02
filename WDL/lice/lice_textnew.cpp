@@ -508,8 +508,11 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
 {
   charEnt *ch = findChar(c);
 
-  if (!ch || xpos+ch->width <= clipR->left || xpos >= clipR->right || 
-      ypos+ch->height <= clipR->top || ypos >= clipR->bottom) return false;
+  if (!ch || 
+      xpos >= clipR->right || 
+      ypos >= clipR->bottom ||
+      xpos+ch->width <= clipR->left || 
+      ypos+ch->height <= clipR->top) return false;
 
   unsigned char *gsrc = m_cachestore.Get() + ch->base_offset-1;
   int src_span = ch->width;
@@ -547,9 +550,10 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
   
   pout += xpos + ypos * dest_span;
 
-  if (xpos+width >= clipR->right) width = clipR->right-xpos;
+  if (width >= clipR->right-xpos) width = clipR->right-xpos;
+  if (height >= clipR->bottom-ypos) height = clipR->bottom-ypos;
 
-  if (ypos+height >= clipR->bottom) height = clipR->bottom-ypos;
+  if (width < 1 || height < 1) return false; // this could be an assert, it is guaranteed by the xpos/ypos checks at the top of this function
 
   int mode=m_comb&~LICE_BLIT_USE_ALPHA;
   float alpha=m_alpha;
