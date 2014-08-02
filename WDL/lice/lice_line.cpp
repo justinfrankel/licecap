@@ -219,7 +219,7 @@ static unsigned char AA_GAMMA_CORRECT[256] =
 
 static void GetAAPxWeight(int err, int alpha, int* wt, int* iwt)
 {
-  int i = err/256;
+  int i = err>>8;
   int w = 255-i;
 
 #if DO_AA_GAMMA_CORRECT
@@ -227,15 +227,15 @@ static void GetAAPxWeight(int err, int alpha, int* wt, int* iwt)
   i = AA_GAMMA_CORRECT[i];
 #endif
 
-  w = alpha*w/256; 
-  i = alpha*i/256;
+  w = (alpha*w) >> 8;
+  i = (alpha*i) >> 8;
   *wt = w;
   *iwt = i;
 }
 
 static void GetAAPxWeightFAST(int err, int* wt, int* iwt)
 {
-  int i = err/256;
+  int i = err>>8;
   int w = 255-i;
 
 #if DO_AA_GAMMA_CORRECT
@@ -1244,15 +1244,15 @@ public:
       b += db;
       if (a >= 65536)
       {
-        int na = a/65536;
-        a %= 65536;
+        int na = a>>16;
+        a &= 65535;
         if (astep<0)na=-na;
         xa += na;
       }
       if (b >= 65536)
       {
-        int nb = b/65536;
-        b %= 65536;
+        int nb = b>>16;
+        b &= 65535;
         if (bstep<0)nb=-nb;
         xb += nb;
       }
@@ -1302,15 +1302,15 @@ public:
       b += db;
       if (a >= 65536)
       {
-        int na = a/65536;
-        a %= 65536;
+        int na = a>>16;
+        a &= 65535;
         if (astep<0)na=-na;
         xa += na;
       }
       if (b >= 65536)
       {
-        int nb = b/65536;
-        b %= 65536;
+        int nb = b>>16;
+        b &= 65535;
         if (bstep<0)nb=-nb;
         xb += nb;
       }
@@ -1407,15 +1407,15 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     y1=0;
     if (a >= 65536)
     {
-      int na = a/65536;
-      a %= 65536;
+      int na = a>>16;
+      a &= 65535;
       if (astep<0)na=-na;
       x1a += na;
     }
     if (b >= 65536)
     {
-      int nb = b/65536;
-      b %= 65536;
+      int nb = b>>16;
+      b &= 65535;
       if (bstep<0)nb=-nb;
       x1b += nb;
     }
