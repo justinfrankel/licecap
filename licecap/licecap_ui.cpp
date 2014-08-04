@@ -1927,7 +1927,7 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
 // reaper plugin
 
 static bool (*__WDL_ChooseFileForSave)(HWND parent, const char *text, const char *initialdir, const char *initialfile, const char *extlist, const char *defext, bool preservecwd, char *fn, int fnsize, const char *dlgid, void *dlgProc, void *hi);
-static void *(*__LICE_WriteGIFBeginNoFrame)(const char *filename, int w, int h, int transparent_alpha, bool dither);
+static void *(*__LICE_WriteGIFBeginNoFrame)(const char *filename, int w, int h, int transparent_alpha, bool dither, bool is_append);
 static bool (*__LICE_WriteGIFFrame)(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay, int nreps);
 static bool (*__LICE_WriteGIFEnd)(void *handle);
 
@@ -2028,17 +2028,17 @@ void OnAudioBuffer(bool isPost, int len, double srate, struct audio_hook_registe
   }
 }
 
-void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither)
+void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither, bool is_append)
 {
   if (!__LICE_WriteGIFBeginNoFrame || !__LICE_WriteGIFFrame || !__LICE_WriteGIFEnd)
   {
-    *(void **)&__LICE_WriteGIFBeginNoFrame = reaperAPI_getfunc("LICE_WriteGIFBeginNoFrame");
+    *(void **)&__LICE_WriteGIFBeginNoFrame = reaperAPI_getfunc("LICE_WriteGIFBeginNoFrame2");
     *(void **)&__LICE_WriteGIFFrame = reaperAPI_getfunc("LICE_WriteGIFFrame");
     *(void **)&__LICE_WriteGIFEnd = reaperAPI_getfunc("LICE_WriteGIFEnd");
     if (!__LICE_WriteGIFBeginNoFrame || !__LICE_WriteGIFFrame || !__LICE_WriteGIFEnd)
       return NULL;
   }
-  return __LICE_WriteGIFBeginNoFrame(filename,w,h,transparent_alpha,dither);
+  return __LICE_WriteGIFBeginNoFrame(filename,w,h,transparent_alpha,dither,is_append);
 }
 
 bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay, int nreps)
