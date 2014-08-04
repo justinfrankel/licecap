@@ -6,6 +6,7 @@
 */
 
 #include "lice.h"
+#include <stdio.h>
 
 extern "C" {
 
@@ -13,31 +14,44 @@ extern "C" {
 int _GifError;
 };
 
+static int readfunc_fh(GifFileType *fh, GifByteType *buf, int sz) { return (int)fread(buf, 1, sz, (FILE *)fh->UserData); }
 
 LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes)
 {
-  GifFileType *fp=DGifOpenFileName(filename);
+  FILE *fpp = NULL;
+#ifdef _WIN32
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      fpp = _wfopen(wf,L"rb");
+  }
+#endif
+
+  if (!fpp) fpp = fopen(filename,"rb");
+  if(!fpp) return 0;
+
+  GifFileType *fp=DGifOpen(fpp, readfunc_fh);
   if (!fp)
+  {
+    fclose(fpp);
     return 0;
-
-
+  }
+  
   GifRecordType RecordType;
   GifByteType *Extension;
   int ExtCode;
   do 
   {
-	  if (DGifGetRecordType(fp, &RecordType) == GIF_ERROR) 
-    {
-      DGifCloseFile(fp);
-      return 0;
-	  }
+    if (DGifGetRecordType(fp, &RecordType) == GIF_ERROR) break;
+
   	switch (RecordType) 
     {
 	    case IMAGE_DESC_RECORD_TYPE:
 		    if (DGifGetImageDesc(fp) == GIF_ERROR) 
         {
-          DGifCloseFile(fp);
-          return 0;
+          RecordType = TERMINATE_RECORD_TYPE;
+          break;
   		  }
 
         // todo: support transparency
@@ -51,8 +65,8 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
             bmp->resize(width,height);
             if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
             {
-              DGifCloseFile(fp);
-              return 0;
+              RecordType = TERMINATE_RECORD_TYPE;
+              break;
             }
           }
           else bmp=new LICE_MemBitmap(width,height);
@@ -93,23 +107,26 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
 
           free(linebuf);
           DGifCloseFile(fp);
+          fclose(fpp);
           return bmp;
         }
   		break;
 	    case EXTENSION_RECORD_TYPE:
     		if (DGifGetExtension(fp, &ExtCode, &Extension) == GIF_ERROR) 
         {
-          DGifCloseFile(fp);
-          return 0;
+          RecordType = TERMINATE_RECORD_TYPE;
         }
-    		while (Extension != NULL) 
+        else
         {
-		      if (DGifGetExtensionNext(fp, &Extension) == GIF_ERROR) 
+    		  while (Extension != NULL) 
           {
-            DGifCloseFile(fp);
-            return 0;
-  		    }
-		    }
+		        if (DGifGetExtensionNext(fp, &Extension) == GIF_ERROR) 
+            {
+              RecordType = TERMINATE_RECORD_TYPE;
+              break;
+  		      }
+		      }
+        }
       break;
 	    case TERMINATE_RECORD_TYPE:
   		break;
@@ -120,6 +137,7 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
   while (RecordType != TERMINATE_RECORD_TYPE);
 
   DGifCloseFile(fp);
+  fclose(fpp);
   return 0;
 
 }

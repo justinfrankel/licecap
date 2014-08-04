@@ -7,6 +7,8 @@
 
 #include "lice.h"
 
+#include <stdio.h>
+
 extern "C" {
 
 #include "../giflib/gif_lib.h"
@@ -17,6 +19,7 @@ extern "C" {
 struct liceGifWriteRec
 {
   GifFileType *f;
+  FILE *fp;
   ColorMapObject *cmap;
   GifPixelType *linebuf;
   LICE_IBitmap *prevframe; // used when multiframe, transalpha<0
@@ -360,16 +363,38 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   return true;
 }
 
+static int writefunc_fh(GifFileType *fh, const GifByteType *buf, int sz) {  return (int)fwrite(buf, 1, sz, (FILE *)fh->UserData); }
+
 void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither)
 {
 
+  FILE *fp=NULL;
+#ifdef _WIN32
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      fp = _wfopen(wf,L"wb");
+  }
+#endif
+  if (!fp) fp = fopen(filename,"wb");
+
+  if (fp == NULL) return NULL;
+
+
   EGifSetGifVersion("89a");
 
-  GifFileType *f = EGifOpenFileName(filename,0);
-  if (!f) return NULL;
+  
+  GifFileType *f = EGifOpen(fp,writefunc_fh);
+  if (!f) 
+  {
+    fclose(fp);
+    return NULL;
+  }
 
   liceGifWriteRec *wr = (liceGifWriteRec*)calloc(sizeof(liceGifWriteRec),1);
   wr->f = f;
+  wr->fp = fp;
   wr->dither = dither;
   wr->w=w;
   wr->h=h;
@@ -411,6 +436,7 @@ bool LICE_WriteGIFEnd(void *handle)
   if (wr->last_octree) LICE_DestroyOctree(wr->last_octree);
 
   delete wr->prevframe;
+  fclose(wr->fp);
 
   free(wr);
 
