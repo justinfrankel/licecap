@@ -23,41 +23,45 @@ static void applyGifFrameToBitmap(LICE_IBitmap *bmp, GifFileType *fp, int transp
   GifPixelType _linebuf[2048];
   GifPixelType *linebuf=width > 2048 ? (GifPixelType*)malloc(width*sizeof(GifPixelType)) : _linebuf;
   int y;
-  y=0;
-  if (fp->Image.ColorMap && fp->Image.ColorMap->Colors) for (;y<256 && y < fp->Image.ColorMap->ColorCount;y++)
-  {
-    GifColorType *ct=fp->Image.ColorMap->Colors+y;
-    cmap[y]=LICE_RGBA(ct->Red,ct->Green,ct->Blue,255);
-  }
 
-  if (fp->SColorMap && fp->SColorMap->Colors) for (;y<256 && y < fp->SColorMap->ColorCount;y++)
+  if (bmp)
   {
-    GifColorType *ct=fp->SColorMap->Colors+y;
-    cmap[y]=LICE_RGBA(ct->Red,ct->Green,ct->Blue,255);
-  }
-  for (;y<256;y++) cmap[y]=0;
-
-  if (clear)
-  {
-    LICE_pixel col = 0;
-
-    if (fp->SColorMap && fp->SColorMap->Colors && fp->SBackGroundColor >= 0 && fp->SBackGroundColor < fp->SColorMap->ColorCount)
+    y=0;
+    if (fp->Image.ColorMap && fp->Image.ColorMap->Colors) for (;y<256 && y < fp->Image.ColorMap->ColorCount;y++)
     {
-      GifColorType *ct=fp->SColorMap->Colors+fp->SBackGroundColor;
-      col = LICE_RGBA(ct->Red,ct->Green,ct->Blue,0);
+      GifColorType *ct=fp->Image.ColorMap->Colors+y;
+      cmap[y]=LICE_RGBA(ct->Red,ct->Green,ct->Blue,255);
     }
-    else if (fp->SBackGroundColor>=0 && fp->SBackGroundColor<256)
+
+    if (fp->SColorMap && fp->SColorMap->Colors) for (;y<256 && y < fp->SColorMap->ColorCount;y++)
     {
-      col = cmap[fp->SBackGroundColor] & LICE_RGBA(255,255,255,0);
+      GifColorType *ct=fp->SColorMap->Colors+y;
+      cmap[y]=LICE_RGBA(ct->Red,ct->Green,ct->Blue,255);
     }
-    LICE_Clear(bmp,col);
+    for (;y<256;y++) cmap[y]=0;
+
+    if (clear)
+    {
+      LICE_pixel col = 0;
+
+      if (fp->SColorMap && fp->SColorMap->Colors && fp->SBackGroundColor >= 0 && fp->SBackGroundColor < fp->SColorMap->ColorCount)
+      {
+        GifColorType *ct=fp->SColorMap->Colors+fp->SBackGroundColor;
+        col = LICE_RGBA(ct->Red,ct->Green,ct->Blue,0);
+      }
+      else if (fp->SBackGroundColor>=0 && fp->SBackGroundColor<256)
+      {
+        col = cmap[fp->SBackGroundColor] & LICE_RGBA(255,255,255,0);
+      }
+      LICE_Clear(bmp,col);
+    }
   }
 
-  const int bmp_h = bmp->getHeight();
-  const int bmp_w = bmp->getWidth();
-  LICE_pixel *bmp_ptr = bmp->getBits();
-  int bmp_span = bmp->getRowSpan();
-  if (bmp->isFlipped())
+  const int bmp_h = bmp ? bmp->getHeight() : 0;
+  const int bmp_w = bmp ? bmp->getWidth() : 0;
+  LICE_pixel *bmp_ptr = bmp ? bmp->getBits() : NULL;
+  int bmp_span = bmp ? bmp->getRowSpan() : 0;
+  if (bmp && bmp->isFlipped() )
   {
     bmp_ptr += (bmp_h-1)*bmp_span;
     bmp_span = -bmp_span;
@@ -318,3 +322,143 @@ public:
 };
 
 LICE_GIFLoader LICE_gifldr;
+
+
+
+
+
+struct lice_gif_read_ctx
+{
+  FILE *fp;
+  GifFileType *gif;
+  int msecpos;
+  int state;
+  int ipos;
+};
+
+
+void *LICE_GIF_LoadEx(const char *filename)
+{
+  FILE *fpp = NULL;
+#ifdef _WIN32
+  if (GetVersion()<0x80000000)
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      fpp = _wfopen(wf,L"rb");
+  }
+#endif
+
+  if (!fpp) fpp = fopen(filename,"rb");
+  if(!fpp) return 0;
+
+  GifFileType *gif=DGifOpen(fpp, readfunc_fh);
+  if (!gif)
+  {
+    fclose(fpp);
+    return 0;
+  }
+
+  lice_gif_read_ctx *ret = (lice_gif_read_ctx*)calloc(sizeof(lice_gif_read_ctx), 1);
+  if (!ret)
+  {
+    DGifCloseFile(gif);
+    fclose(fpp);
+    return NULL;
+  }
+  ret->fp = fpp;
+  ret->gif = gif;
+  ret->msecpos = 0;
+  ret->state = 0;
+  ret->ipos = ftell(fpp);
+
+  return ret;
+}
+
+
+void LICE_GIF_Close(void *handle)
+{
+  lice_gif_read_ctx *h = (lice_gif_read_ctx*)handle;
+  if (h)
+  {
+    DGifCloseFile(h->gif);
+    fclose(h->fp);
+    free(h);
+  }
+}
+void LICE_GIF_Rewind(void *handle)
+{
+  lice_gif_read_ctx *h = (lice_gif_read_ctx*)handle;
+  if (h)
+  {
+    h->state = 0;
+    h->msecpos = 0;
+    fseek(h->fp, h->ipos, SEEK_SET);
+    // todo: flush giflib too
+  }
+}
+
+int LICE_GIF_UpdateFrame(void *handle, LICE_IBitmap *bm) 
+{
+  lice_gif_read_ctx *h = (lice_gif_read_ctx*)handle;
+  if (!h||h->state<0) return -2;
+  GifFileType *fp = h->gif;
+
+  if (bm)
+  {
+    bm->resize(fp->SWidth, fp->SHeight);
+    if (bm->getWidth() != (int)fp->SWidth || bm->getHeight() != (int)fp->SHeight) return -3;
+  }
+
+  int has_delay = 0;
+  int transparent_pix = -1;
+  GifRecordType RecordType;
+  GifByteType *Extension;
+  int ExtCode;
+  do
+  {
+    if (DGifGetRecordType(fp, &RecordType) == GIF_ERROR) return h->state = -5;
+    switch (RecordType)
+    {
+      case IMAGE_DESC_RECORD_TYPE:
+        if (DGifGetImageDesc(fp) == GIF_ERROR)  return h->state = -4;
+
+        applyGifFrameToBitmap(bm,fp,transparent_pix,!h->state);
+        h->state += 1;
+        h->msecpos += has_delay*10;
+      return has_delay*10;
+
+      case EXTENSION_RECORD_TYPE:
+        if (DGifGetExtension(fp, &ExtCode, &Extension) == GIF_ERROR) 
+        {
+          return h->state = -9;
+        }
+        else
+        {
+          while (Extension != NULL) 
+          {
+            if (ExtCode == 0xF9 && *Extension >= 4)
+            {
+              transparent_pix = -1;
+              if (Extension[1]&1)
+              {
+                transparent_pix = Extension[4];
+              }
+              has_delay = ((int)Extension[3] << 8) + Extension[2];
+            }
+
+            if (DGifGetExtensionNext(fp, &Extension) == GIF_ERROR) return h->state = -8;
+          }
+        }
+      break;
+      case TERMINATE_RECORD_TYPE:
+      break;
+      default: /* Should be traps by DGifGetRecordType. */
+      break;
+    }
+  }
+  while (RecordType != TERMINATE_RECORD_TYPE);
+
+  return h->state = -10;
+}
+

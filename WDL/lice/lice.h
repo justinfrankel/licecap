@@ -350,6 +350,14 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
 bool LICE_WriteGIFEnd(void *handle);
 int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can use after LICE_WriteGIFBeginNoFrame and before LICE_WriteGIFFrame
 
+// animated GIF reading
+void *LICE_GIF_LoadEx(const char *filename);
+void LICE_GIF_Close(void *handle);
+void LICE_GIF_Rewind(void *handle);
+int LICE_GIF_UpdateFrame(void *handle, LICE_IBitmap *bm); // returns duration in msec (0 or more), or <0 if no more frames. bm will be modified/resized with new frame data
+
+
+
 // basic primitives
 void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode);
 LICE_pixel LICE_GetPixel(LICE_IBitmap *bm, int x, int y);
