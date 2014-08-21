@@ -73,6 +73,9 @@ public:
    m_qual=parm;
  }
 
+#ifdef WDL_SIMPLEPITCHSHIFT_EXTRA_INTERFACE
+ WDL_SIMPLEPITCHSHIFT_EXTRA_INTERFACE
+#endif
 
 private:
   void PitchShiftBlock(WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *inputs, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *outputs, int nch, int length, double pitch, int bsize, int olsize, double srate);
