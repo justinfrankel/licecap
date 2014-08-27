@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual C++ Express 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IPlugExample", "Example\IPlugExample.vcproj", "{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IPlug", "IPlug.vcproj", "{D744660A-89B6-4EA7-A085-BF92ABE4540F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lice", "lice.vcproj", "{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+		Tracer|Win32 = Tracer|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}.Debug|Win32.Build.0 = Debug|Win32
+		{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}.Release|Win32.ActiveCfg = Release|Win32
+		{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}.Release|Win32.Build.0 = Release|Win32
+		{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}.Tracer|Win32.ActiveCfg = Tracer|Win32
+		{D25032DF-715D-4AA1-A62C-31BC6CE4A4D6}.Tracer|Win32.Build.0 = Tracer|Win32
+		{D744660A-89B6-4EA7-A085-BF92ABE4540F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D744660A-89B6-4EA7-A085-BF92ABE4540F}.Debug|Win32.Build.0 = Debug|Win32
+		{D744660A-89B6-4EA7-A085-BF92ABE4540F}.Release|Win32.ActiveCfg = Release|Win32
+		{D744660A-89B6-4EA7-A085-BF92ABE4540F}.Release|Win32.Build.0 = Release|Win32
+		{D744660A-89B6-4EA7-A085-BF92ABE4540F}.Tracer|Win32.ActiveCfg = Tracer|Win32
+		{D744660A-89B6-4EA7-A085-BF92ABE4540F}.Tracer|Win32.Build.0 = Tracer|Win32
+		{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}.Debug|Win32.ActiveCfg = Debug|Win32
+		{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}.Debug|Win32.Build.0 = Debug|Win32
+		{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}.Release|Win32.ActiveCfg = Release|Win32
+		{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}.Release|Win32.Build.0 = Release|Win32
+		{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}.Tracer|Win32.ActiveCfg = Release|Win32
+		{141B3F4B-4BA7-472F-A213-EC4D1C06A8FC}.Tracer|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
