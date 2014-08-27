@@ -205,7 +205,6 @@ while (($line = fgets($in)))
           $parms=preg_replace("/\\((.*)\\)/",$suffixstr . "[$1]",$parms);
 
 
-          $parms=str_replace("NSEEL_LOOPFUNC_SUPPORT_MAXLEN_STR","10000000", $parms);
           $parms=str_replace("EEL_F_SUFFIX","qword", $parms);
           $parms=str_replace("EEL_F_SSTR","8", $parms);
 

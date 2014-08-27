@@ -86,7 +86,7 @@ class SWELL_MenuGenHelper
 #define INACTIVE 2
 #define POPUP }, { SWELL_MENUGEN_POPUP_PREFIX
 #define MENUITEM }, { 
-#define SEPARATOR NULL, -1
+#define SEPARATOR NULL, 0xffff
 #define BEGIN
 #define END }, { SWELL_MENUGEN_ENDPOPUP
                              

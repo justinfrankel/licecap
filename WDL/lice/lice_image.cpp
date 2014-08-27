@@ -66,7 +66,7 @@ char *LICE_GetImageExtensionList(bool wantAllSup, bool wantAllFiles)
           {
             if (cnt++)
               if (grow_buf(&buf,&bufsz,&wrpos,";",1))  { free(buf); return NULL; } // fail
-            if (grow_buf(&buf,&bufsz,&wrpos,p,strlen(p)+1))  { free(buf); return NULL; } // fail
+            if (grow_buf(&buf,&bufsz,&wrpos,p,(int)strlen(p)+1))  { free(buf); return NULL; } // fail
             wrpos--;
           }
           while (*p) p++;
@@ -92,13 +92,12 @@ char *LICE_GetImageExtensionList(bool wantAllSup, bool wantAllFiles)
     const char *rd = hdr->get_extlist();
     if (rd && *rd)
     {
-      const char *p=rd;
-      while (p[0] || p[1]) p++; // doublenull terminated list
+      int len = 0;
+      while (rd[len] || rd[len+1]) len++; // doublenull terminated list
 
-      int len = p + 2 - rd; 
-      if (len>2)
+      if (len)
       {
-        if (grow_buf(&buf,&bufsz,&wrpos,rd,len)) return buf; // fail
+        if (grow_buf(&buf, &bufsz, &wrpos, rd, len+2)) return buf; // fail
         wrpos--; // remove doublenull on next round
       }
     }
@@ -121,7 +120,7 @@ bool LICE_ImageIsSupported(const char *filename)
   while (extension>=filename && *extension != '/' && *extension != '.' && *extension != '\\') extension--;
   if (extension<filename || *extension != '.') return false;
 
-  int extlen = strlen(extension);
+  const size_t extlen = strlen(extension);
 
   _LICE_ImageLoader_rec *hdr = LICE_ImageLoader_list;
   while (hdr)

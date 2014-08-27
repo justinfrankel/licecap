@@ -1,3 +1,17 @@
+v1.25beta2 - July 23, 2014
+  + OSX: improved window position detection
+  + GIF: optimizations to update/palette generation logic, smaller results
+
+v1.25beta - July 20, 2014
+  + GIF: support writing .gifs with transparency per-frame, for smaller file sizes (limited old-IE compat)
+  + Added option to automatically stop after X seconds (X can be 0 for a static screenshot)
+  + Title configuration is stored across sessions
+
+v1.24 - December 29, 2013
+  + Windows: removed ancient command line version from installer (still buildable from source)
+  + Windows: use licecap.ini in same path as executable if it exists (portable mode) -- fixed, didn't work in 1.23
+  + Internal changes for coming webm support
+
 v1.23 - April 26 2013
   + Support for choosing number of loop iterations of GIF files
   + Windows: use licecap.ini in same path as executable if it exists (portable mode)

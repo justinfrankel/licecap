@@ -11,6 +11,10 @@
 // WDL_AssocArrayImpl can be used on its own, and can contain structs for keys or values
 template <class KEY, class VAL> class WDL_AssocArrayImpl 
 {
+  WDL_AssocArrayImpl(const WDL_AssocArrayImpl &cp) { CopyContents(cp); }
+
+  WDL_AssocArrayImpl &operator=(const WDL_AssocArrayImpl &cp) { CopyContents(cp); return *this; }
+
 public:
 
   explicit WDL_AssocArrayImpl(int (*keycmp)(KEY *k1, KEY *k2), KEY (*keydup)(KEY)=0, void (*keydispose)(KEY)=0, void (*valdispose)(VAL)=0)
@@ -60,7 +64,7 @@ public:
     else
     {
       KeyVal* kv = m_data.Resize(m_data.GetSize()+1)+i;
-      memmove(kv+1, kv, (m_data.GetSize()-i-1)*sizeof(KeyVal));
+      memmove(kv+1, kv, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
       if (m_keydup) key = m_keydup(key);
       kv->key = key;
       kv->val = val;
@@ -77,7 +81,7 @@ public:
       KeyVal* kv = m_data.Get()+i;
       if (m_keydispose) m_keydispose(kv->key);
       if (m_valdispose) m_valdispose(kv->val);
-      memmove(kv, kv+1, (m_data.GetSize()-i-1)*sizeof(KeyVal));
+      memmove(kv, kv+1, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
       m_data.Resize(m_data.GetSize()-1);
     }
   }
@@ -89,7 +93,7 @@ public:
       KeyVal* kv = m_data.Get()+idx;
       if (m_keydispose) m_keydispose(kv->key);
       if (m_valdispose) m_valdispose(kv->val);
-      memmove(kv, kv+1, (m_data.GetSize()-idx-1)*sizeof(KeyVal));
+      memmove(kv, kv+1, (m_data.GetSize()-idx-1)*(unsigned int)sizeof(KeyVal));
       m_data.Resize(m_data.GetSize()-1);
     }
   }
@@ -216,7 +220,36 @@ public:
     m_data.SetGranul(gran);
   }
 
-private:
+  void CopyContents(const WDL_AssocArrayImpl &cp)
+  {
+    m_data=cp.m_data;
+    m_keycmp = cp.m_keycmp;
+    m_keydup = cp.m_keydup; 
+    m_keydispose = m_keydup ? cp.m_keydispose : NULL;
+    m_valdispose = NULL; // avoid disposing of values twice, since we don't have a valdup, we can't have a fully valid copy
+    if (m_keydup)
+    {
+      int x;
+      const int n=m_data.GetSize();
+      for (x=0;x<n;x++)
+      {
+        KeyVal *kv=m_data.Get()+x;
+        if (kv->key) kv->key = m_keydup(kv->key);
+      }
+    }
+  }
+
+  void CopyContentsAsReference(const WDL_AssocArrayImpl &cp)
+  {
+    DeleteAll(true);
+    m_keydup = NULL;  // this no longer can own any data
+    m_keydispose = NULL;
+    m_valdispose = NULL; 
+
+    m_data=cp.m_data;
+  }
+
+protected:
 
   struct KeyVal
   {
@@ -287,15 +320,80 @@ public:
   
   ~WDL_StringKeyedArray() { }
 
-private:
+  static const char *dupstr(const char *s) { return strdup(s);  } // these might not be necessary but depending on the libc maybe...
+  static int cmpstr(const char **s1, const char **s2) { return strcmp(*s1, *s2); }
+  static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
+  static void freestr(const char* s) { free((void*)s); }
+  static void freecharptr(char *p) { free(p); }
+};
+
+
+template <class VAL> class WDL_StringKeyedArray2 : public WDL_AssocArrayImpl<const char *, VAL>
+{
+public:
+
+  explicit WDL_StringKeyedArray2(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_AssocArrayImpl<const char*, VAL>(caseSensitive?cmpstr:cmpistr, dupstr, freestr, valdispose) {}
+  
+  ~WDL_StringKeyedArray2() { }
 
   static const char *dupstr(const char *s) { return strdup(s);  } // these might not be necessary but depending on the libc maybe...
   static int cmpstr(const char **s1, const char **s2) { return strcmp(*s1, *s2); }
   static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
   static void freestr(const char* s) { free((void*)s); }
-
-public:
   static void freecharptr(char *p) { free(p); }
+};
+
+// sorts text as text, sorts anything that looks like a number as a number
+template <class VAL> class WDL_LogicalSortStringKeyedArray : public WDL_StringKeyedArray<VAL>
+{
+public:
+
+  explicit WDL_LogicalSortStringKeyedArray(bool caseSensitive=true, void (*valdispose)(VAL)=0) : WDL_StringKeyedArray<VAL>(caseSensitive, valdispose) 
+  {
+    WDL_StringKeyedArray<VAL>::m_keycmp = caseSensitive?cmpstr:cmpistr; // override
+  }
+  
+  ~WDL_LogicalSortStringKeyedArray() { }
+
+private:
+
+  static int cmpstr(const char **a, const char **b) { return _cmpstr(*a, *b, true); }
+  static int cmpistr(const char **a, const char **b) { return _cmpstr(*a, *b, false); }
+
+  static int _cmpstr(const char *s1, const char *s2, bool case_sensitive)
+  {
+    // this also exists as WDL_strcmp_logical in wdlcstring.h
+    for (;;)
+    {
+      char c1=*s1++, c2=*s2++;
+      if (c1 > '0' && c1 <= '9' && c2 > '0' && c2 <= '9') 
+      {             
+        int d=c1-c2,s1d; // maybe not ideal, 030 will sort after 20, but that could also be useful... 
+        // alternatively we could calculate the full length of each number not counting leadings 0s and use that, but
+        // then the string comparison would end up comparing at different offsets too. this is good enough for now 
+        // IMO
+        while ((s1d=isdigit(*s1)) && isdigit(*s2))
+        {
+          if (!d) d=*s1-*s2;
+          s1++;
+          s2++;
+        }
+        if (s1d) return 1; // s1 is longer than s2, so larger
+        if (isdigit(*s2)) return -1; // s2 is longer than s1, larger
+        if (d) return d; // same length, but check to see which is greater
+      }
+      else
+      {
+        if (!case_sensitive)
+        {
+          if (c1 >= 'a' && c1 <= 'z') c1 += 'A'-'a';
+          if (c2 >= 'a' && c2 <= 'z') c2 += 'A'-'a';
+        }
+        if (!c1 || c1 != c2) return c1-c2;             
+      }
+    }
+    return 0; 
+  }
 };
 
 
@@ -309,7 +407,7 @@ public:
 
 private:
   
-  static int cmpptr(INT_PTR* a, INT_PTR* b) { return *a-*b; }
+  static int cmpptr(INT_PTR* a, INT_PTR* b) { const INT_PTR d = *a - *b; return d<0?-1:(d!=0); }
 };
 
 

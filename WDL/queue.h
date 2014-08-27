@@ -54,11 +54,12 @@ public:
     int olen=m_hb.GetSize();
     if (m_pos >= olen) m_pos=olen=0; // if queue is empty then autoreset it
 
-    void *obuf=m_hb.Resize(olen+len,false);
-    if (m_hb.GetSize() != olen+len) return NULL;
-
-    char* newbuf = (char*) obuf + olen;
-    if (buf) memcpy(newbuf,buf,len);
+    char *newbuf=(char *)m_hb.ResizeOK(olen+len,false);
+    if (newbuf)
+    {
+      newbuf += olen;
+      if (buf) memcpy(newbuf,buf,len);
+    }
     return newbuf; 
   }
 
@@ -78,8 +79,7 @@ public:
     
   void *Get() const
   {
-    void *buf=m_hb.Get();
-    if (buf && m_pos >= 0 && m_pos < m_hb.GetSize()) return (char *)buf+m_pos;
+    if (m_pos >= 0 && m_pos < m_hb.GetSize()) return (char *)m_hb.Get()+m_pos;
     return NULL;
   }
   
@@ -113,13 +113,17 @@ public:
     int olen=m_hb.GetSize();
     if (m_pos > (force ? 0 : olen/2))
     {
-      if (m_pos < olen)
+      olen -= m_pos;
+      if (olen > 0)
       {
-        void *a=m_hb.Get();
-        if (a) memmove(a,(char*)a+m_pos,olen-m_pos);
-        m_hb.Resize(olen-m_pos,allocdown);
+        char *a=(char*)m_hb.Get();
+        memmove(a,a+m_pos,olen);
       }
-      else m_hb.Resize(0,allocdown);
+      else 
+      {
+        olen = 0;
+      }
+      m_hb.Resize(olen,allocdown);
       m_pos=0;
     }
   }
@@ -206,30 +210,33 @@ private:
 template <class T> class WDL_TypedQueue
 {
 public:
-  WDL_TypedQueue() : m_pos(0), m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_TypedQueue")) { }
+  WDL_TypedQueue() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_TypedQueue")), m_pos(0) { }
   ~WDL_TypedQueue() { }
 
   T *Add(const T *buf, int len)
   {
     int olen=m_hb.GetSize();
     if (m_pos >= olen) olen=m_pos=0;
-    len *= sizeof(T);
-    void *obuf=m_hb.Resize(olen+len,false);
-    if (!obuf||m_hb.GetSize()!=olen+len) return 0;
-    if (buf) memcpy((char*)obuf+olen,buf,len);
-    return (T*) ((char*)obuf+olen);
+    len *= (int)sizeof(T);
+
+    char *newbuf=(char*)m_hb.ResizeOK(olen+len,false);
+    if (newbuf)
+    {
+      newbuf += olen;
+      if (buf) memcpy(newbuf,buf,len);
+    }
+    return (T*) newbuf;
   }
 
   T *Get() const
   {
-    void *buf=m_hb.Get();
-    if (buf && m_pos >= 0 && m_pos < m_hb.GetSize()) return (T*)((char *)buf+m_pos);
+    if (m_pos >= 0 && m_pos < m_hb.GetSize()) return (T*)((char *)m_hb.Get()+m_pos);
     return NULL;
   }
 
   int GetSize() const
   {
-    return (m_hb.GetSize()-m_pos)/sizeof(T);
+    return m_pos < m_hb.GetSize() ? (m_hb.GetSize()-m_pos)/sizeof(T) : 0;
   }
   int Available() const { return GetSize(); }
 
@@ -241,7 +248,7 @@ public:
 
   void Advance(int cnt) 
   { 
-    m_pos+=cnt*sizeof(T); 
+    m_pos+=cnt*(int)sizeof(T); 
     if (m_pos<0)m_pos=0;
     else if (m_pos > m_hb.GetSize()) m_pos=m_hb.GetSize();
   }
@@ -251,13 +258,17 @@ public:
     int olen=m_hb.GetSize();
     if (m_pos > (force ? 0 : olen/2))
     {
-      if (m_pos < olen)
+      olen -= m_pos;
+      if (olen > 0)
       {
-        void *a=m_hb.Get();
-        if (a) memmove(a,(char*)a+m_pos,olen-m_pos);
-        m_hb.Resize(olen-m_pos,allocdown);
+        char *a=(char*)m_hb.Get();
+        memmove(a,a+m_pos,olen);
       }
-      else m_hb.Resize(0,allocdown);
+      else
+      {
+        olen = 0;
+      }
+      m_hb.Resize(olen,allocdown);
       m_pos=0;
     }
   }

@@ -356,8 +356,6 @@ public:
 
   int RunReads()
   {
-    int retval=0;
-
     while (m_pending.GetSize())
     {
       WDL_FileRead__ReadEnt *ent=m_pending.Get(0);
@@ -370,56 +368,37 @@ public:
     }
 
 
-    int x=m_empties.GetSize();
-
-    if (x>0)
+    if (m_empties.GetSize()>0)
     {
-      int cnt=0;
       if (m_async_readpos < m_file_position)  m_async_readpos = m_file_position;
 
       if (m_async==1) m_async_readpos &= ~((WDL_FILEREAD_POSTYPE) WDL_UNBUF_ALIGN-1);
 
-      while (x>0)
+      if (m_async_readpos >= m_fsize) return 0;
+
+      const int rdidx=m_empties.GetSize()-1;
+      WDL_FileRead__ReadEnt *t=m_empties.Get(rdidx);
+
+      ResetEvent(t->m_ol.hEvent);
+
+      *(WDL_FILEREAD_POSTYPE *)&t->m_ol.Offset = m_async_readpos;
+
+      m_async_readpos += m_async_bufsize;
+      DWORD dw;
+      if (ReadFile(m_fh,t->m_buf,m_async_bufsize,&dw,&t->m_ol))
       {
-
-        if (m_async_readpos >= m_fsize) break;
-
-        WDL_FileRead__ReadEnt *t=m_empties.Get(--x);
-
-        ResetEvent(t->m_ol.hEvent);
-
-        *(WDL_FILEREAD_POSTYPE *)&t->m_ol.Offset = m_async_readpos;
-
-        m_async_readpos += m_async_bufsize;
-        DWORD dw;
-        if (ReadFile(m_fh,t->m_buf,m_async_bufsize,&dw,&t->m_ol))
-        {
-          if (!dw) 
-          {
-            retval++;
-            break;
-          }
-
-          m_empties.Delete(x);
-          t->m_size=dw;
-          m_pending.Add(t);
-        }
-        else
-        {
-          if (GetLastError() != ERROR_IO_PENDING) 
-          {
-            retval++;
-            break;
-          }
-          t->m_size=0;
-          m_empties.Delete(x);
-          m_pending.Add(t);
-        }
-        //if (cnt++>1)
-        break;
+        if (!dw) return 1;
       }
+      else
+      {
+        if (GetLastError() != ERROR_IO_PENDING) return 1;
+        dw=0;
+      }
+      t->m_size=dw;
+      m_empties.Delete(rdidx);
+      m_pending.Add(t);
     }
-    return retval;
+    return 0;
   }
 
   int AsyncRead(char *buf, int maxlen)

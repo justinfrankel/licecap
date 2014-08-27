@@ -59,7 +59,7 @@
 /* Begin PBXBuildRule section */
 		33B2B31C13EB971F006B51F2 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
-			compilerSpec = com.intel.compilers.icc.11_0_0;
+			compilerSpec = com.intel.compilers.icc.11_1_0;
 			fileType = sourcecode.cpp;
 			isEditable = 1;
 			outputFiles = (
@@ -67,7 +67,7 @@
 		};
 		33B2B31D13EB971F006B51F2 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
-			compilerSpec = com.intel.compilers.icc.11_0_0;
+			compilerSpec = com.intel.compilers.icc.11_1_0;
 			fileType = sourcecode.c;
 			isEditable = 1;
 			outputFiles = (
@@ -518,12 +518,13 @@
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_VERSION = 4.0;
+				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
 				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
-				SDKROOT = macosx10.4;
+				SDKROOT = macosx10.6;
 			};
 			name = Debug;
 		};
@@ -532,7 +533,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_VERSION = 4.0;
+				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;

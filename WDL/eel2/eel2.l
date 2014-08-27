@@ -3,11 +3,9 @@
 %option bison-bridge
 %option bison-locations
 %option noyywrap
-%option yylineno
 %option never-interactive
 %option batch
 %option nounput
-%option noinput
 
 %{
 #include <stdlib.h>
@@ -36,7 +34,7 @@
 
 int nseel_gets(compileContext *ctx, char *buf, size_t sz);
 
-#define PARSENUM *yylval = nseel_translate(yyextra,yytext); return VALUE;
+#define PARSENUM *yylval = nseel_translate(yyextra,yytext, 0); return VALUE;
 #define EEL_ACTION(x) return x;
 
 #ifdef stdin
@@ -56,18 +54,60 @@ static int g_fake_errno;
 
 #define errno g_fake_errno
 
+static void comment(yyscan_t yyscanner);
+
 %}
 
 %%
 
 [0-9]+\.?[0-9]*               PARSENUM;
 \.[0-9]+                      PARSENUM;
-0[xX][0-9a-fA-F]+             PARSENUM; 
+0[xX][0-9a-fA-F]*             PARSENUM; 
+\$[xX][0-9a-fA-F]*            PARSENUM;
+\$\~[0-9]*                    PARSENUM;
+\$[Ee]                        PARSENUM;
+\$[Pp][Ii]                    PARSENUM;
+\$[Pp][Hh][Ii]                PARSENUM;
+\$\'.\'                       PARSENUM;
+\#[a-zA-Z0-9\._]*             *yylval = nseel_translate(yyextra,yytext, 0); return STRING_IDENTIFIER;
+\<\<                          return TOKEN_SHL;
+\>\>                          return TOKEN_SHR;
+\<=                          return TOKEN_LTE;
+\>=                          return TOKEN_GTE;
+==                              return TOKEN_EQ;
+===                              return TOKEN_EQ_EXACT;
+\!=                              return TOKEN_NE;
+\!==                              return TOKEN_NE_EXACT;
+\&\&                              return TOKEN_LOGICAL_AND;
+\|\|                              return TOKEN_LOGICAL_OR;
+\+=                             return TOKEN_ADD_OP;
+-=                              return TOKEN_SUB_OP;
+%=                              return TOKEN_MOD_OP;
+\|=                             return TOKEN_OR_OP;
+\&=                             return TOKEN_AND_OP;
+\~=                             return TOKEN_XOR_OP;
+\/=                             return TOKEN_DIV_OP;
+\*=                             return TOKEN_MUL_OP;
+\^=                             return TOKEN_POW_OP;
 
-[a-zA-Z_][a-zA-Z0-9\._]*      do { int toktype=IDENTIFIER; *yylval = nseel_lookup(yyextra,&toktype, yytext); return toktype; } while (0);
+[a-zA-Z_][a-zA-Z0-9\._]*        &yylval = nseel_createCompiledValuePtr((compileContext *)yyextra, NULL, yytext); return IDENTIFIER; 
 
 [ \t\r\n]+      /* whitespace */
+\/\/.*$         /* comment */
+"/*"            { comment(yyscanner); }
 
 .       return (int)yytext[0];
 
 %%
+
+static void comment(yyscan_t yyscanner)
+{
+    int c,lc=0;
+
+    while (0 != (c = input(yyscanner)))
+    {
+        if (c == '/' && lc == '*') return;
+        lc = c;
+    }
+    // end of file, ignore for now
+}

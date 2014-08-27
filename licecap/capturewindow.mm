@@ -294,7 +294,7 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
     return GetScreenDataGL(xpos,ypos,bmOut);
   }
   
-	CGImageRef r=CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,CGDisplayPixelsHigh(CGMainDisplayID()) - ypos - use_h,use_w,use_h));
+  CGImageRef r=CGDisplayCreateImageForRect(kCGDirectMainDisplay,CGRectMake(xpos,CGDisplayPixelsHigh(CGMainDisplayID()) - ypos - use_h,use_w,use_h));
   if (!r) 
   {
     hasNewFailed=true;
@@ -363,3 +363,32 @@ void SWELL_SetWindowResizeable(HWND h, bool allow)
     if (a != oa) [(tmpNSWindow*)w setStyleMask:a];
   }
 }
+
+extern "C" {
+  extern int _CGSDefaultConnection()  __attribute__((weak_import));
+  extern CGError CGSGetScreenRectForWindow(int cid, int wid, CGRect *outRect)  __attribute__((weak_import));
+};
+
+bool GetAsyncNSWindowRect(HWND hwnd, RECT *r)
+{
+  if (!_CGSDefaultConnection || !CGSGetScreenRectForWindow) return false;
+
+  int idx;
+  if ([(id)hwnd isKindOfClass:[NSView class]]) idx = [[(NSView *)hwnd window] windowNumber];
+  else if ([(id)hwnd isKindOfClass:[NSWindow class]]) idx = [(NSWindow *)hwnd windowNumber];
+  else return false;
+
+
+  CGRect rr;
+  CGSGetScreenRectForWindow(_CGSDefaultConnection(),idx,&rr);
+
+  int scrh=CGDisplayPixelsHigh(CGMainDisplayID());
+
+  r->left = (int)rr.origin.x;
+  r->top = scrh - (int)rr.origin.y;
+  r->right = (int)rr.origin.x + rr.size.width;
+  r->bottom = scrh - ((int)rr.origin.y + rr.size.height);
+  return true;
+
+}
+

@@ -19,6 +19,8 @@
 #ifndef _ASYNCDNS_H_
 #define _ASYNCDNS_H_
 
+#include <time.h>
+
 #ifndef JNL_NO_DEFINE_INTERFACES
 class JNL_IAsyncDNS
 {
@@ -48,7 +50,7 @@ public:
 private:
   typedef struct 
   {
-    int last_used; // timestamp.
+    time_t last_used; // timestamp.
     char resolved;
     char mode; // 1=reverse
     char hostname[256];

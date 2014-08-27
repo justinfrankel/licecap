@@ -73,7 +73,6 @@ void WDL_VirtualListBox::CalcLayout(int num_items, int *nrows, int *ncols, int *
 
   if (m_maxcolwidth>0)
   {
-    int oc = *ncols;
     if (m_mincolwidth<=0 || (m_position.right-m_position.left) <= m_maxcolwidth * *ncols)
       *ncols = (m_position.right-m_position.left) / m_maxcolwidth; // round down
   }
@@ -185,8 +184,8 @@ static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int dr
   {
     LICE_ScaledBlit(drawbm,bkbm->bgimage,
       drawx,drawy,draww,drawh,
-      drawsrcx,bkbmstate*hh,
-      drawsrcw,hh,alpha,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
+      (float)drawsrcx,bkbmstate*(float)hh,
+      (float)drawsrcw,(float)hh,alpha,LICE_BLIT_USE_ALPHA|LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR);
   }
 }
 

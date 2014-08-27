@@ -31,6 +31,7 @@
 
 #include "../mutex.h"
 #include "../ptrlist.h"
+#include "../wdlcstring.h"
 
 #include "swell-gdi-internalpool.h"
 
@@ -220,7 +221,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
             int sl = strlen(ds.GetCurrentFN());
             if (sl > 4 && !stricmp(ds.GetCurrentFN() + sl - 4, ".ttf")  && (!bestmatch[0] || sl < strlen(bestmatch)))
             {
-              lstrcpyn(bestmatch,ds.GetCurrentFN(),sizeof(bestmatch));
+              lstrcpyn_safe(bestmatch,ds.GetCurrentFN(),sizeof(bestmatch));
             }
           }
         }
@@ -981,10 +982,12 @@ HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
   {
     if ((calcsize_on_first || h!=starth)  && h->m_wndproc)
     {
-      RECT r,r2;
+      RECT r;
       GetWindowContentViewRect(h,&r);
-      r2=r;
-      h->m_wndproc(h,WM_NCCALCSIZE,FALSE,(LPARAM)&r);
+      NCCALCSIZE_PARAMS p={{r,},};
+      h->m_wndproc(h,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
+      RECT r2=r;
+      r=p.rgrc[0];
 
       // todo: handle left edges and adjust postions/etc accordingly
       if (h==starth)  // if initial window, adjust rects to client area (this implies calcsize_on_first being false)
@@ -1103,11 +1106,13 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
     LICE_SubBitmap tmpsub(NULL,0,0,0,0);
     if (hwnd->m_wndproc) // this happens after m_paintctx is set -- that way GetWindowDC()/GetDC()/ReleaseDC() know to not actually update the screen
     {
-      RECT r,r2;
+      RECT r;
       GetWindowContentViewRect(hwnd,&r);
       r.right-=r.left; r.bottom-=r.top; r.left=r.top=0;
-      r2=r;
-      hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&r);
+      NCCALCSIZE_PARAMS p={{r,},};
+      hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
+      RECT r2=r;
+      r = p.rgrc[0];
       if (forceref) hwnd->m_wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
 
       if (r.left!=r2.left) {} // todo: adjust drawing offsets, clip rects, accordingly

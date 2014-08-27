@@ -57,10 +57,12 @@ class WDL_HeapBuf
     void *GetAligned(int align) const {  return (void *)(((UINT_PTR)Get() + (align-1)) & ~(UINT_PTR)(align-1)); }
 
     void SetGranul(int granul) { m_granul = granul; }
+    int GetGranul() const { return m_granul; }
 
     void SetMinAllocSize(int mas) { m_mas=mas; }
 
-
+    void *ResizeOK(int newsize, bool resizedown = true) { void *p=Resize(newsize, resizedown); return GetSize() == newsize ? p : NULL; }
+    
     WDL_HeapBuf(const WDL_HeapBuf &cp)
     {
       m_buf=0;
@@ -68,7 +70,7 @@ class WDL_HeapBuf
     }
     WDL_HeapBuf &operator=(const WDL_HeapBuf &cp)
     {
-      CopyFrom(&cp,true);
+      CopyFrom(&cp,false);
       return *this;
     }
 
@@ -115,6 +117,7 @@ class WDL_HeapBuf
       void *Resize(int newsize, bool resizedown=true)
     #endif
       {
+        if (newsize<0) newsize=0;
         #ifdef DEBUG_TIGHT_ALLOC // horribly slow, do not use for release builds
           if (newsize == m_size) return m_buf;
 
@@ -188,19 +191,23 @@ class WDL_HeapBuf
         #else // WDL_HEAPBUF_DYNAMIC
           if (newsize!=m_size)
           {
-            // if we are not using m_smallbuf or we need to not use it
-            // and if if growing or resizing down
-            if (
-              (newsize > m_alloc || 
-               (resizedown && newsize < m_size && 
-                              newsize < m_alloc/2 && 
-                              newsize < m_alloc - (m_granul<<2)))) 
+            int resizedown_under = 0;
+            if (resizedown && newsize < m_size)
+            {
+              // shrinking buffer: only shrink if allocation decreases to min(alloc/2, alloc-granul*4) or 0
+              resizedown_under = m_alloc - (m_granul<<2);
+              if (resizedown_under > m_alloc/2) resizedown_under = m_alloc/2;
+              if (resizedown_under < 1) resizedown_under=1;
+            }
+  
+            if (newsize > m_alloc || newsize < resizedown_under)
             {
               int granul=newsize/2;
               int newalloc;
               if (granul < m_granul) granul=m_granul;
   
-              if (m_granul<4096) newalloc=newsize+granul;
+              if (newsize<1) newalloc=0;
+              else if (m_granul<4096) newalloc=newsize+granul;
               else
               {
                 granul &= ~4095;
@@ -213,13 +220,22 @@ class WDL_HeapBuf
 
               if (newalloc != m_alloc)
               {
+
                 #ifdef WDL_HEAPBUF_TRACE
                   char tmp[512];
                   wsprintf(tmp,"WDL_HeapBuf: type %s realloc(%d) from %d\n",m_tracetype,newalloc,m_alloc);
                   OutputDebugString(tmp);
                 #endif
-                void *nbuf= realloc(m_buf,newalloc);
-                if (!nbuf && newalloc) 
+                if (newalloc <= 0)
+                {
+                  free(m_buf);
+                  m_buf=0;
+                  m_alloc=0;
+                  m_size=0;
+                  return 0;
+                }
+                void *nbuf=realloc(m_buf,newalloc);
+                if (!nbuf)
                 {
                   if (!(nbuf=malloc(newalloc))) 
                   {
@@ -273,8 +289,8 @@ class WDL_HeapBuf
         }
         else // copy just the data + size
         {
-          int newsz=hb->GetSize();
-          Resize(newsz);
+          const int newsz=hb->GetSize();
+          Resize(newsz,true);
           if (GetSize()!=newsz) Resize(0);
           else memcpy(Get(),hb->Get(),newsz);
         }
@@ -304,18 +320,43 @@ template<class PTRTYPE> class WDL_TypedBuf
 {
   public:
     PTRTYPE *Get() const { return (PTRTYPE *) m_hb.Get(); }
-    int GetSize() const { return m_hb.GetSize()/sizeof(PTRTYPE); }
+    int GetSize() const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE); }
 
-    PTRTYPE *Resize(int newsize, bool resizedown=true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
+    PTRTYPE *Resize(int newsize, bool resizedown = true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
+    PTRTYPE *ResizeOK(int newsize, bool resizedown = true) { return (PTRTYPE *)m_hb.ResizeOK(newsize*sizeof(PTRTYPE), resizedown);  }
 
     PTRTYPE *GetAligned(int align) const  { return (PTRTYPE *) m_hb.GetAligned(align); }
 
     PTRTYPE *Add(PTRTYPE val) 
     {
-      int sz=GetSize(); 
-      PTRTYPE *p=Resize(sz+1);
-      if (p && GetSize() == sz+1) { p[sz]=val; return p+sz; }
+      return Insert(val, GetSize());
+    }
+
+    PTRTYPE* Insert(PTRTYPE val, int idx)
+    {
+      int sz=GetSize();
+      if (idx >= 0 && idx <= sz)
+      {
+        PTRTYPE* p=Resize(sz+1);
+        if (p && GetSize() == sz+1)
+        {
+          memmove(p+idx+1, p+idx, (sz-idx)*(unsigned int)sizeof(PTRTYPE));
+          p[idx]=val;
+          return p+idx;
+        }
+      }
       return 0;
+    }
+
+    void Delete(int idx)
+    {
+      PTRTYPE* p=Get();
+      int sz=GetSize();
+      if (idx >= 0 && idx < sz)
+      {
+        memmove(p+idx, p+idx+1, (sz-idx-1)*sizeof(PTRTYPE));
+        Resize(sz-1,false);
+      }
     }
 
     void SetGranul(int gran) { m_hb.SetGranul(gran); }

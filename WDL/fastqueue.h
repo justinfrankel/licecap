@@ -37,60 +37,72 @@
 
 class WDL_FastQueue
 {
+  struct fqBuf
+  {
+    int alloc_size;
+    int used;
+    char data[8];
+  };
 public:
-  WDL_FastQueue()
+  WDL_FastQueue(int bsize=65536-64, int maxemptieskeep=-1)
   {
     m_avail=0;
-    m_bsize=65536-64;
+    m_bsize=bsize<32?32:bsize;
     m_offs=0;
+    m_maxemptieskeep=maxemptieskeep;
   }
   ~WDL_FastQueue()
   {
-    m_queue.Empty(true);
-    m_empties.Empty(true);
+    m_queue.Empty(true,free);
+    m_empties.Empty(true,free);
   }
   
   void Add(const void *buf, int len) // buf can be NULL to add zeroes
   {
-    char *inptr=(char *)buf;
-    while (len>0)
+    if (len < 1) return;
+
+    fqBuf *qb=m_queue.Get(m_queue.GetSize()-1);
+    if (!qb || (qb->used + len) > qb->alloc_size)
     {
-      WDL_HeapBuf *qb=m_queue.Get(m_queue.GetSize()-1);
-      int os;
-      if (!qb || (os=qb->GetSize()) >= m_bsize)
+      const int esz=m_empties.GetSize()-1;
+      qb=m_empties.Get(esz);
+      m_empties.Delete(esz);
+      if (qb && qb->alloc_size < len) // spare buffer is not big enough, toss it
       {
-        int esz=m_empties.GetSize()-1;
-
-        qb=m_empties.Get(esz);
-        if (qb) m_empties.Delete(esz);
-        else qb=new WDL_HeapBuf(4096 WDL_HEAPBUF_TRACEPARM("WDL_FastQueue"));
-
-        if (qb) m_queue.Add(qb);
-        os=0;
+        free(qb);
+        qb=NULL;
       }
-
-      if (!qb) break;
-
-      int addl=m_bsize-os;
-      if (addl>len) addl=len;
-      char *b=(char *)qb->Resize(os+addl,false)+os;
-      if (inptr)
+      if (!qb)
       {
-        memcpy(b,inptr,addl);
-        inptr+=addl;
+        const int sz=len < m_bsize ? m_bsize : len;
+        qb=(fqBuf *)malloc(sz + sizeof(fqBuf) - sizeof(qb->data));
+        if (!qb) return;
+        qb->alloc_size = sz;
       }
-      else memset(b,0,addl);
-      len -= addl;
-      m_avail+=addl;
+      qb->used=0;
+      m_queue.Add(qb);
     }
+    if (buf) memcpy(qb->data + qb->used, buf, len);
+    else memset(qb->data + qb->used, 0, len);
+
+    qb->used += len;
+    m_avail+=len;
   }
 
-  void Clear()
+  void Clear(int limitmaxempties=-1)
   {
     int x=m_queue.GetSize();
+    if (limitmaxempties<0) limitmaxempties = m_maxemptieskeep;
     while (x > 0)
     {
-      m_empties.Add(m_queue.Get(--x));
+      if (limitmaxempties<0 || m_empties.GetSize()<limitmaxempties)
+      {
+        m_empties.Add(m_queue.Get(--x));
+      }
+      else
+      {
+        free(m_queue.Get(--x));
+      }
       m_queue.Delete(x);      
     }
     m_offs=0;
@@ -103,36 +115,44 @@ public:
     m_avail -= cnt;
     if (m_avail<0)m_avail=0;
 
-    WDL_HeapBuf *mq;
+    fqBuf *mq;
     while ((mq=m_queue.Get(0)))
     {
-      int sz=mq->GetSize();
+      const int sz=mq->used;
       if (m_offs < sz) break;
       m_offs -= sz;
-      m_empties.Add(mq);
+
+      if (m_maxemptieskeep<0 || m_empties.GetSize()<m_maxemptieskeep)
+      {
+        m_empties.Add(mq);
+      }
+      else
+      {
+        free(mq);
+      }
       m_queue.Delete(0);
     }
     if (!mq||m_offs<0) m_offs=0;
   }
 
-  int Available() // bytes available
+  int Available() const // bytes available
   {
     return m_avail;
   }
 
 
-  int GetPtr(int offset, void **buf) // returns bytes available in this block
+  int GetPtr(int offset, void **buf) const // returns bytes available in this block
   {
     offset += m_offs;
 
     int x=0;
-    WDL_HeapBuf *mq;
+    fqBuf *mq;
     while ((mq=m_queue.Get(x)))
     {
-      int sz=mq->GetSize();
+      const int sz=mq->used;
       if (offset < sz)
       {
-        *buf = (char *)mq->Get() + offset;
+        *buf = (char *)mq->data + offset;
         return sz-offset;
       }
       x++;
@@ -158,7 +178,7 @@ public:
     return pos;
   }
 
-  int GetToBuf(int offs, void *buf, int len)
+  int GetToBuf(int offs, void *buf, int len) const
   {
     int pos=0;
     while (len > 0)
@@ -176,11 +196,11 @@ public:
 
 private:
 
-  WDL_PtrList<WDL_HeapBuf> m_queue, m_empties;
+  WDL_PtrList<fqBuf> m_queue, m_empties;
   int m_offs;
   int m_avail;
   int m_bsize;
-  int __pad;
+  int m_maxemptieskeep;
 } WDL_FIXALIGN;
 
 

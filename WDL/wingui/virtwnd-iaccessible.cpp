@@ -17,8 +17,9 @@
 static BSTR SysAllocStringUTF8(const char *str)
 {
   WCHAR tmp[1024];
-  int slen = strlen(str)+1;
+  const int slen = (int)strlen(str)+1;
   WCHAR *wstr = slen < 1000 ? tmp : (WCHAR*)malloc(2*slen+32);
+  if (!wstr) return NULL;
 
   wstr[0]=0;
   int a=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,str,slen,wstr, slen<1000?1024:slen+16);
@@ -282,16 +283,19 @@ public:
       if (p && *p && txt && *txt)
       {
         char buf[1024];
-        sprintf(buf,"%.500s %.500s",p,txt);
+        snprintf(buf,sizeof(buf),"%.500s %.500s",p,txt);
         *pszOut= SysAllocStringUTF8(buf);
+        if (!*pszOut) return E_OUTOFMEMORY;
       }
       else if (txt && *txt)
       {
         *pszOut= SysAllocStringUTF8(txt);
+        if (!*pszOut) return E_OUTOFMEMORY;
       }
       else if (p && *p)
       {
         *pszOut = SysAllocStringUTF8(p);
+        if (!*pszOut) return E_OUTOFMEMORY;
       }
     }
     else if (ISVWNDLIST(m_br.vwnd))
@@ -320,7 +324,10 @@ public:
 
 //          OutputDebugString(buf);
         if (buf[0])
+        {
           *pszOut = SysAllocStringUTF8(buf);
+          if (!*pszOut) return E_OUTOFMEMORY;
+        }
       }
     }
     return S_OK;
@@ -362,6 +369,7 @@ public:
       if (buf[0])
       {
         *pszOut = SysAllocStringUTF8(buf);
+        if (!*pszOut) return E_OUTOFMEMORY;
         return S_OK;
       }
       return S_FALSE;
@@ -375,6 +383,7 @@ public:
         if (txt)
         {
           *pszOut = SysAllocStringUTF8(txt);
+          if (!*pszOut) return E_OUTOFMEMORY;
           return S_OK;
         }
       }

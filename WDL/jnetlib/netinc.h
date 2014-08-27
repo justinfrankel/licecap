@@ -14,11 +14,14 @@
 #include <windows.h>
 #include <stdio.h>
 #include <time.h>
-#define strcasecmp(x,y) stricmp(x,y)
 #define ERRNO (WSAGetLastError())
 #define SET_SOCK_BLOCK(s,block) { unsigned long __i=block?0:1; ioctlsocket(s,FIONBIO,&__i); }
-#define EWOULDBLOCK WSAEWOULDBLOCK
-#define EINPROGRESS WSAEWOULDBLOCK
+#ifndef EWOULDBLOCK
+  #define EWOULDBLOCK WSAEWOULDBLOCK
+#endif
+#ifndef EINPROGRESS
+  #define EINPROGRESS WSAEWOULDBLOCK
+#endif
 typedef int socklen_t;
 
 #else
@@ -46,16 +49,18 @@ typedef int socklen_t;
 #include <errno.h>
 #include <string.h>
 
+
 #define ERRNO errno
 #define closesocket(s) close(s)
 #define SET_SOCK_BLOCK(s,block) { int __flags; if ((__flags = fcntl(s, F_GETFL, 0)) != -1) { if (!block) __flags |= O_NONBLOCK; else __flags &= ~O_NONBLOCK; fcntl(s, F_SETFL, __flags);  } }
+typedef int SOCKET;
+#define INVALID_SOCKET (-1)
 
+#ifndef stricmp
 #define stricmp(x,y) strcasecmp(x,y)
-#define strnicmp(x,y,z) strncasecmp(x,y,z)  
-#define wsprintf sprintf
-
-#ifdef MACOSX
-typedef int socklen_t;
+#endif
+#ifndef strnicmp
+#define strnicmp(x,y,z) strncasecmp(x,y,z)
 #endif
 
 #endif // !_WIN32

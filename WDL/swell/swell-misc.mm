@@ -53,7 +53,7 @@ void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
   NSData *data = [s dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
   if (!data)
   {
-    [s getCString:buf maxLength:buflen-1];
+    [s getCString:buf maxLength:buflen encoding:NSASCIIStringEncoding];
     return;
   }
   int len = [data length];
@@ -201,6 +201,19 @@ void SWELL_QuitAutoRelease(void *p)
 {
   if (p)
     [(NSAutoreleasePool*)p release];
+}
+
+void SWELL_RunEvents()
+{
+  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+  int x=100;
+  while (x-- > 0)
+  {
+    NSEvent *event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate dateWithTimeIntervalSinceNow:0.001] inMode:NSDefaultRunLoopMode dequeue:YES];
+    if (!event) break;
+    [NSApp sendEvent:event];
+  }
+  [pool release];
 }
 
 // timer stuff
@@ -561,6 +574,80 @@ void SWELL_EnableRightClickEmulate(BOOL enable)
 {
   s_rightclickemulate=enable;
 }
+
+int g_swell_terminating;
+void SWELL_PostQuitMessage(void *sender)
+{
+  g_swell_terminating=true;
+
+  [NSApp terminate:(id)sender];
+}
+
+
+#ifndef MAC_OS_X_VERSION_10_9
+typedef uint64_t NSActivityOptions;
+enum
+{
+  NSActivityIdleDisplaySleepDisabled = (1ULL << 40),
+  NSActivityIdleSystemSleepDisabled = (1ULL << 20),
+  NSActivitySuddenTerminationDisabled = (1ULL << 14),
+  NSActivityAutomaticTerminationDisabled = (1ULL << 15),
+  NSActivityUserInitiated = (0x00FFFFFFULL | NSActivityIdleSystemSleepDisabled),
+  NSActivityUserInitiatedAllowingIdleSystemSleep = (NSActivityUserInitiated & ~NSActivityIdleSystemSleepDisabled),
+  NSActivityBackground = 0x000000FFULL,
+  NSActivityLatencyCritical = 0xFF00000000ULL,
+};
+
+
+@interface NSProcessInfo (reaperhostadditions)
+- (id<NSObject>)beginActivityWithOptions:(NSActivityOptions)options reason:(NSString *)reason;
+- (void)endActivity:(id<NSObject>)activity;
+
+@end
+
+#endif
+
+void SWELL_DisableAppNap(int disable)
+{
+  if (!g_swell_terminating && floor(NSFoundationVersionNumber) > 945.00) // 10.9+
+  {
+    static int cnt;
+    static id obj;
+
+    cnt += disable;
+
+    @try
+    {
+      if (cnt > 0)
+      {
+        if (!obj)
+        {
+          const NSActivityOptions  v = NSActivityLatencyCritical |  NSActivityIdleSystemSleepDisabled;
+
+          // beginActivityWithOptions returns an autoreleased object
+          obj = [[NSProcessInfo processInfo] beginActivityWithOptions:v reason:@"SWELL_DisableAppNap"];
+          if (obj) [obj retain];
+        }
+      }
+      else
+      {
+        id a = obj;
+        if (a)
+        {
+          // in case we crash somehow, dont' want obj sticking around pointing to a stale object
+          obj = NULL;
+          [[NSProcessInfo processInfo] endActivity:a];
+          [a release]; // apparently releasing this is enough, without the endActivity call, but the docs are quite vague
+        }
+      }
+    }
+    @catch (NSException *exception) {
+    }
+    @catch (id ex) {
+    }
+  }
+}
+
 
 
 #endif

@@ -61,7 +61,7 @@ HRESULT WINAPI UninitializeCoolSB(HWND hwnd); // call in WM_DESTROY -- not stric
 BOOL WINAPI CoolSB_SetMinThumbSize(HWND hwnd, UINT wBar, UINT size);
 BOOL WINAPI CoolSB_IsThumbTracking(HWND hwnd);
 BOOL WINAPI CoolSB_IsCoolScrollEnabled(HWND hwnd);
-
+void CoolSB_SetVScrollPad(HWND hwnd, UINT topamt, UINT botamt, void *(*getDeadAreaBitmap)(int which, HWND hwnd, RECT *, int defcol));
 //
 BOOL WINAPI CoolSB_GetScrollInfo(HWND hwnd, int fnBar, LPSCROLLINFO lpsi);
 int	 WINAPI CoolSB_GetScrollPos(HWND hwnd, int nBar);

@@ -83,11 +83,66 @@ static int MacKeyCodeToVK(int code)
 
 bool IsRightClickEmulateEnabled();
 
+#ifdef MAC_OS_X_VERSION_10_5
 
-int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
+static int charFromVcode(int keyCode) // used for getting the root char (^, `) from dead keys on other keyboards,
+                                       // only used when using MacKeyToWindowsKeyEx() with mode=1, for now 
+{
+  static char loaded;
+  static TISInputSourceRef (*_TISCopyCurrentKeyboardInputSource)( void);
+  static void* (*_TISGetInputSourceProperty) ( TISInputSourceRef inputSource, CFStringRef propertyKey);
+
+  if (!loaded)
+  {
+    loaded++;
+    CFBundleRef b = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.Carbon"));
+    if (b)
+    {
+      *(void **)&_TISGetInputSourceProperty = CFBundleGetFunctionPointerForName(b,CFSTR("TISGetInputSourceProperty"));
+      *(void **)&_TISCopyCurrentKeyboardInputSource = CFBundleGetFunctionPointerForName(b,CFSTR("TISCopyCurrentKeyboardInputSource"));
+    }
+  }
+  if (!_TISCopyCurrentKeyboardInputSource || !_TISGetInputSourceProperty) return 0;
+  
+  TISInputSourceRef currentKeyboard = _TISCopyCurrentKeyboardInputSource();
+  CFDataRef uchr = (CFDataRef)_TISGetInputSourceProperty(currentKeyboard, CFSTR("TISPropertyUnicodeKeyLayoutData"));
+  const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout*)CFDataGetBytePtr(uchr);
+
+  if(keyboardLayout)
+  {
+    UInt32 deadKeyState = 0;
+    UniCharCount maxStringLength = 255;
+    UniCharCount actualStringLength = 0;
+    UniChar unicodeString[maxStringLength];
+
+    OSStatus status = UCKeyTranslate(keyboardLayout,
+                                     keyCode, kUCKeyActionDown, 0,
+                                     LMGetKbdType(), 0,
+                                     &deadKeyState,
+                                     maxStringLength,
+                                     &actualStringLength, unicodeString);
+
+    if (actualStringLength == 0 && deadKeyState)
+    {
+        status = UCKeyTranslate(keyboardLayout,
+                                         kVK_Space, kUCKeyActionDown, 0,
+                                         LMGetKbdType(), 0,
+                                         &deadKeyState,
+                                         maxStringLength,
+                                         &actualStringLength, unicodeString);   
+    }
+    if(actualStringLength > 0 && status == noErr) return unicodeString[0]; 
+  }
+  return 0;
+}
+#endif
+
+int SWELL_MacKeyToWindowsKeyEx(void *nsevent, int *flags, int mode)
 {
   NSEvent *theEvent = (NSEvent *)nsevent;
-	int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
+  if (!theEvent) theEvent = [NSApp currentEvent];
+
+  int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
                                    //	if ([theEvent isARepeat]) return;
     
   int flag=0;
@@ -101,13 +156,21 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
   int code=MacKeyCodeToVK(rawcode);
   if (!code)
   {
-    NSString *str=[theEvent charactersIgnoringModifiers];
-//    if (!str || ![str length]) str=[theEvent characters];
+    NSString *str=NULL;
+    if (mode == 1) str=[theEvent characters];
+
+    if (!str || ![str length]) str=[theEvent charactersIgnoringModifiers];
 
     if (!str || ![str length]) 
     {
-      code = 1024+rawcode; // raw code
-      flag|=FVIRTKEY;
+    #ifdef MAC_OS_X_VERSION_10_5
+      if (mode==1) code=charFromVcode(rawcode);
+    #endif
+      if (!code)
+      {
+        code = 1024+rawcode; // raw code
+        flag|=FVIRTKEY;
+      }
     }
     else
     {
@@ -127,6 +190,12 @@ int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
   
   if (flags) *flags=flag;
   return code;
+}
+
+int SWELL_MacKeyToWindowsKey(void *nsevent, int *flags)
+{
+  if (!nsevent) return 0;
+  return SWELL_MacKeyToWindowsKeyEx(nsevent,flags,0);
 }
 
 int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
@@ -213,7 +282,7 @@ static NSCursor* MakeCursorFromData(unsigned char* data, int hotspot_x, int hots
       if (img)
       {
         [img addRepresentation:bmp];  
-        NSPoint hs = { hotspot_x, hotspot_y };
+        NSPoint hs = NSMakePoint(hotspot_x, hotspot_y);
         c = [[NSCursor alloc] initWithImage:img hotSpot:hs];
         [img release];
       }   
@@ -369,9 +438,8 @@ static NSImage *swell_imageFromCursorString(const char *name, POINT *hotSpot)
       static char tempfn[512];
       if (!tempfn[0])
       {
-        const char *p = getenv("TEMP");
-        if  (!p || !*p) p="/tmp";
-        sprintf(tempfn,"%.200s/swellcur%x%x.ico",p,timeGetTime(),(int)getpid());
+        GetTempPath(256,tempfn);
+        snprintf(tempfn+strlen(tempfn),256,"swellcur%x%x.ico", timeGetTime(),(int)getpid());
       }
       
       FILE *outfp = fopen(tempfn,"wb");

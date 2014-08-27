@@ -219,7 +219,9 @@ DWORD WaitForAnySocketObject(int numObjs, HANDLE *objs, DWORD msTO) // only supp
   if (max_s>0)
   {
 again:
-    struct timeval tv={msTO/1000,(msTO%1000)*1000};
+    struct timeval tv;
+    tv.tv_sec = msTO/1000;
+    tv.tv_usec = (msTO%1000)*1000;
     if (select(max_s+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0) for (x = 0; x < numObjs; x ++)
     {
       SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
@@ -286,7 +288,9 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
           FD_ZERO(&s);
 again:
           FD_SET(se->socket[0],&s);
-          struct timeval tv={msTO/1000,(msTO%1000)*1000};
+          struct timeval tv;
+          tv.tv_sec = msTO/1000;
+          tv.tv_usec = (msTO%1000)*1000;
           if (select(se->socket[0]+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0 && FD_ISSET(se->socket[0],&s)) 
           {
             if (se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT && se->autoReset)
@@ -316,7 +320,9 @@ again:
         else
         {
           // timed wait
-          struct timespec ts={msTO/1000, (msTO%1000)*1000000};      
+          struct timespec ts;
+          ts.tv_sec = msTO/1000;
+          ts.tv_nsec = (msTO%1000)*1000000;
           while (!evt->isSignal) 
           {
 #ifdef SWELL_TARGET_OSX
@@ -590,7 +596,7 @@ BOOL WinSetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
 }
 
 
-int WinIntersectRect(RECT *out, RECT *in1, RECT *in2)
+int WinIntersectRect(RECT *out, const RECT *in1, const RECT *in2)
 {
   memset(out,0,sizeof(RECT));
   if (in1->right <= in1->left) return false;
@@ -606,7 +612,7 @@ int WinIntersectRect(RECT *out, RECT *in1, RECT *in2)
   
   return out->right>out->left && out->bottom>out->top;
 }
-void WinUnionRect(RECT *out, RECT *in1, RECT *in2)
+void WinUnionRect(RECT *out, const RECT *in1, const RECT *in2)
 {
   out->left = min(in1->left,in2->left);
   out->top = min(in1->top,in2->top);
@@ -905,5 +911,31 @@ void SWELL_GenerateGUID(void *g)
 
 #endif
 
+
+void GetTempPath(int bufsz, char *buf)
+{
+  if (bufsz<2)
+  {
+    if (bufsz>0) *buf=0;
+    return;
+  }
+
+#ifdef __APPLE__
+  const char *p = getenv("TMPDIR");
+#else
+  const char *p = getenv("TEMP");
+#endif
+  if (!p || !*p) p="/tmp/";
+  lstrcpyn(buf, p, bufsz);
+
+  size_t len = strlen(buf);
+  if (!len || buf[len-1] != '/')
+  {
+    if (len > bufsz-2) len = bufsz-2;
+
+    buf[len] = '/';
+    buf[len+1]=0;
+  }
+}
 
 #endif

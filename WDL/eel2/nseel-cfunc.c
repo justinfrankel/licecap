@@ -123,11 +123,45 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
       //nasm
     #else
       #include "asm-nseel-x86-msvc.c"
+
+      #include <float.h>
+      void eel_setfp_round() { _controlfp(_RC_NEAR,_MCW_RC); }
+      void eel_setfp_trunc() { _controlfp(_RC_CHOP,_MCW_RC); }
     #endif
   #elif !defined(__LP64__)
     #define FUNCTION_MARKER "\n.byte 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90\n"
     #include "asm-nseel-x86-gcc.c"
+    void eel_setfp_round()
+    {
+	__asm__(
+		"subl $16, %esp\n"
+		"fnstcw (%esp)\n"
+		"mov (%esp), %ax\n"
+		"and $0xF3FF, %ax\n" // set round to nearest
+		"mov %ax, 4(%esp)\n"
+		"fldcw 4(%esp)\n"
+		"addl $16, %esp\n"
+	);
+    }
+    void eel_setfp_trunc()
+    {
+	__asm__(
+		"subl $16, %esp\n"
+		"fnstcw (%esp)\n"
+		"mov (%esp), %ax\n"
+		"or $0xC00, %ax\n" // set to truncate
+		"mov %ax, 4(%esp)\n"
+		"fldcw 4(%esp)\n"
+		"addl $16, %esp\n"
+	);
+   }
   #endif
 #endif
 
+#endif
+
+#if defined(__ppc__) || defined(EEL_TARGET_PORTABLE)
+  // blank stubs for PPC, portable modes
+  void eel_setfp_round() { }
+  void eel_setfp_trunc() { }
 #endif

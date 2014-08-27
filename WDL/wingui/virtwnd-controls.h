@@ -48,7 +48,7 @@ extern int WDL_STYLE_GetSliderDynamicCenterPos();
 
 // functions for handling knob drawing in non-vwnds
 extern WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knoblist, int nknoblist,int *vieww, int *viewh, int *ksw, int *ksh, int *ks_offs);
-extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh, double alpha=1.0f);
+extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh, float alpha=1.0f);
 
 
 /* recommended defaults for the above:
@@ -142,7 +142,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     bool m_forcetext;
     int m_forcetext_color;
 
-    WDL_String m_textlbl;
+    WDL_FastString m_textlbl;
     LICE_IFont *m_textfont,*m_textfontv;
 };
 
@@ -188,7 +188,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     bool m_wantsingle;
     bool m_wantabbr;
     LICE_IFont *m_font,*m_vfont;
-    WDL_String m_text;
+    WDL_FastString m_text;
     bool m_didvert; // true if text was drawn vertically on the last paint
     int m_didalign; // the actual alignment used on the last paint
 };

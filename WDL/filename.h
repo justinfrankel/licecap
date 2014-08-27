@@ -27,7 +27,7 @@
 #include <stdarg.h>
 
 
-char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
+static char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
 {
   if (p == '?'  || 
       p == '*'  ||
@@ -49,7 +49,7 @@ char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
 }
 
 
-void WDL_filename_filterstr(char *buf, char repl='_', bool filterSlashes=true)
+static void WDL_filename_filterstr(char *buf, char repl='_', bool filterSlashes=true)
 {
   char *rd = buf;
   while (*rd)

@@ -29,6 +29,7 @@
 
 #ifdef _WIN32
 #define WDL_WIN32_UTF8_IMPL static
+#define WDL_WIN32_UTF8_NO_UI_IMPL
 #include "../win32_utf8.c"
 #endif
 
@@ -206,7 +207,6 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
 
 void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
 { 
-  HDC hdc=drawbm->getDC();
   int col;
 
   float alpha = (m_grayed ? 0.25f : 1.0f) * m_alpha;
@@ -439,6 +439,11 @@ void WDL_VirtualIconButton::OnMouseMove(int xpos, int ypos)
     {
       parhit = parhit->VirtWndFromPoint(m_position.left+xpos,m_position.top+ypos,0);
     }
+    else if (!parhit)
+    {
+      // special case if no parent
+      if (xpos >= 0 && xpos < m_position.right-m_position.left && ypos >= 0 && ypos < m_position.bottom-m_position.top) parhit=this;      
+    }
     
     if (parhit == this)
     {
@@ -539,7 +544,7 @@ static void GenSubMenu(HMENU menu, int *x, WDL_PtrList<char> *items, int curitem
   int pos=0;
   while (*x < items->GetSize())
   {
-    MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING, 0,1000+*x,NULL,NULL,NULL,0};
+    MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING, 0,1000u + *x,NULL,NULL,NULL,0};
     mi.dwTypeData = (char *)items->Get(*x);
     mi.fState = curitem == *x ?MFS_CHECKED:0;
 
@@ -619,8 +624,8 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
     {
       RECT tr=r;
       tr.left=tr.right-(tr.bottom-tr.top);
-      int col2=GSC(COLOR_BTNFACE);
-      col2 = LICE_RGBA_FROMNATIVE(col2,255);
+      //int col2=GSC(COLOR_BTNFACE);
+    //  col2 = LICE_RGBA_FROMNATIVE(col2,255);
 
       LICE_FillRect(drawbm,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,col,1.0f,LICE_BLIT_MODE_COPY);
     }
@@ -695,9 +700,9 @@ WDL_VirtualStaticText::~WDL_VirtualStaticText()
 
 void WDL_VirtualStaticText::SetText(const char *text) 
 { 
-  if (strcmp(m_text.Get(),text))
+  if (strcmp(m_text.Get(),text?text:""))
   {
-    m_text.Set(text); 
+    m_text.Set(text?text:"");
     if (m_font) RequestRedraw(NULL); 
   }
 }
@@ -785,14 +790,14 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
           r.left,r.top,
             r.right-r.left,
             r.bottom-r.top,
-            sc+rv*sc2 + (1.0-amt),
-            sc+gv*sc2 + (1.0-amt),
-            sc+bv*sc2 + (1.0-amt),
-            1,
+            sc+rv*sc2 + (1.0f-amt),
+            sc+gv*sc2 + (1.0f-amt),
+            sc+bv*sc2 + (1.0f-amt),
+            1.0f,
             (rv-avg)*sc3+sc4,
             (gv-avg)*sc3+sc4,
             (bv-avg)*sc3+sc4,
-            0);
+            0.0f);
     }
   }
   else 
@@ -872,6 +877,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
         else dtflags |= DT_CENTER;
       }
       const char* txt=m_text.Get();
+      const int len = m_text.GetLength();
 
       int abbrx=0;
       char abbrbuf[64];
@@ -879,7 +885,6 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
       if (m_wantabbr)
       {
-        int len=strlen(txt);
         if (len && isdigit(txt[len-1]))
         {
           RECT tr = { 0, 0, 0, 0 };
@@ -953,7 +958,7 @@ int WDL_VirtualStaticText::GetCharFromCoord(int xpos, int ypos)
   if (!font) return -1;
   
   const char* str = m_text.Get();
-  int len = strlen(str);
+  const int len = m_text.GetLength();
   if (!len) return -1;
 
   // for align left/right, we could DT_CALCRECT with 1 char, then 2, etc, but that won't work for align center

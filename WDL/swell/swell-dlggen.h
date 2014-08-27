@@ -105,6 +105,7 @@ struct SWELL_DlgResourceEntry
          
 #define SS_LEFT 0
 #define SS_CENTER 0x1L                                                                     
+#define SS_RIGHT 0x2L
 #define SS_BLACKRECT 0x4L
 #define SS_BLACKFRAME (SS_BLACKRECT)
 #define SS_LEFTNOWORDWRAP 0xCL

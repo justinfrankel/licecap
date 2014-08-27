@@ -2,6 +2,7 @@
 
 <?
 
+$sign_by = isset($argv[1]) ? $argv[1] : "";
 $src_build_dir = "Release";
 
 function copy_text_replace_line($infn, $outfn, $srctext, $desttext)
@@ -78,6 +79,14 @@ if ($fp)
 
 system("cp whatsnew.txt $workdir/LICEcap");
 
+if ($sign_by != "") 
+{
+  echo "signing code as $sign_by\n";
+  system("codesign -s \"$sign_by\" $workdir/LICEcap/LICEcap.app");
+}
+
+/*
+
 $tmp = "$workdir/LICEcap/Source";
 system("mkdir $tmp");
 system("cp requires_wdl.txt $tmp/");
@@ -93,6 +102,8 @@ system("cp English.lproj/* $tmp/English.lproj/");
 
 system("mkdir $tmp/licecap.xcodeproj");
 system("cp licecap.xcodeproj/project.pbxproj $tmp/licecap.xcoderoj/");
+
+*/
 
 
 system("perl ./pkg-dmg --format UDBZ --target ./build/licecap$ver.dmg --source $workdir/LICEcap --license ./license-cleaned.txt --copy stage_DS_Store:/.DS_Store --symlink /Applications:/Applications --mkdir .background --copy background.png:.background --volname LICECAP_INSTALL --icon licecap.icns");

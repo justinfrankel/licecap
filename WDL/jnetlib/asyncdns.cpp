@@ -20,7 +20,8 @@ JNL_AsyncDNS::JNL_AsyncDNS(int max_cache_entries)
   m_thread=0;
   m_cache_size=max_cache_entries;
   m_cache=(cache_entry *)::malloc(sizeof(cache_entry)*m_cache_size);
-  memset(m_cache,0,sizeof(cache_entry)*m_cache_size);
+  if (m_cache) memset(m_cache,0,sizeof(cache_entry)*m_cache_size);
+  else m_cache_size = 0;
 }
 
 JNL_AsyncDNS::~JNL_AsyncDNS()
@@ -124,7 +125,7 @@ int JNL_AsyncDNS::resolve(const char *hostname, unsigned int *addr)
 
   for (x = 0; x < m_cache_size; x ++)
   {
-    if (!strcasecmp(m_cache[x].hostname,hostname) && m_cache[x].mode==0)
+    if (!stricmp(m_cache[x].hostname,hostname) && m_cache[x].mode==0)
     {
       m_cache[x].last_used=time(NULL);
       if (m_cache[x].resolved)

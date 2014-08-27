@@ -469,11 +469,6 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     return 0;
   }
   
-  if ((mi->fMask & MIIM_SUBMENU) && mi->hSubMenu) // do this before MIIM_TYPE so we title the submenu properly
-  {  
-    [m setSubmenu:(NSMenu*)mi->hSubMenu forItem:item];
-    [((NSMenu*)mi->hSubMenu) release]; // let the parent menu free it
-  } 
   if (mi->fMask & MIIM_TYPE)
   {
     if (mi->fType == MFT_STRING && mi->dwTypeData)
@@ -483,11 +478,30 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
       NSString *label=(NSString *)SWELL_CStringToCFString(buf); 
       
       [item setTitle:label];
-      if ([item hasSubmenu] && [item submenu]) [[item submenu] setTitle:label];
+
+      if ([item hasSubmenu])
+      {
+        NSMenu *subm=[item submenu];
+        if (subm) [subm setTitle:label];
+      }
       
       [label release];      
     }
   }
+  if (mi->fMask & MIIM_SUBMENU) 
+  {
+    NSMenu *oldMenu = [item hasSubmenu] ? [item submenu] : NULL;
+    NSMenu *newMenu = (NSMenu*)mi->hSubMenu;
+    if (oldMenu != newMenu)
+    {
+      if (oldMenu) [oldMenu retain]; // we do not destroy the old menu, caller responsibility
+
+      if (newMenu) [newMenu setTitle:[item title]];
+      [m setSubmenu:newMenu forItem:item];
+      if (newMenu) [newMenu release]; // let the parent menu free it
+    }
+  }
+
   if (mi->fMask & MIIM_STATE)
   {
     [item setState:((mi->fState&MFS_CHECKED)?NSOnState:NSOffState)];
@@ -571,20 +585,17 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
   if(mi->fMask & MIIM_SUBMENU)
   {
-    if ([item hasSubmenu])
-    {
-      mi->hSubMenu = (HMENU)[item submenu];
-    }
+    mi->hSubMenu = (HMENU) ([item hasSubmenu] ? [item submenu] : NULL);
   }
   
   return 1;
   
 }
 
-void SWELL_InsertMenu(HMENU menu, int pos, int flag, UINT_PTR idx, const char *str)
+void SWELL_InsertMenu(HMENU menu, int pos, unsigned int flag, UINT_PTR idx, const char *str)
 {
   MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    (flag & ~MF_BYPOSITION),(flag&MF_POPUP) ? 0 : (int)idx,NULL,NULL,NULL,0,(char *)str};
+    (flag & ~MF_BYPOSITION),(flag&MF_POPUP) ? 0 : (unsigned int)idx,NULL,NULL,NULL,0,(char *)str};
   
   if (flag&MF_POPUP) 
   {
@@ -816,10 +827,10 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 
 
 
-void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, int flags)
+void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, unsigned int flags)
 {
   MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    (flags)?MFS_GRAYED:0,idx,NULL,NULL,NULL,0,(char *)name};
+    (unsigned int) ((flags)?MFS_GRAYED:0),(unsigned int)idx,NULL,NULL,NULL,0,(char *)name};
   if (!name)
   {
     mi.fType = MFT_SEPARATOR;

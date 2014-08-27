@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3331EC5A1963208E0092583E /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3331EC591963208E0092583E /* OpenGL.framework */; };
 		33343C070CE4DB5D00FF8CE6 /* swell-dlg.mm in Sources */ = {isa = PBXBuildFile; fileRef = 33343C060CE4DB5D00FF8CE6 /* swell-dlg.mm */; };
 		33343C130CE4DB7000FF8CE6 /* swell-gdi.mm in Sources */ = {isa = PBXBuildFile; fileRef = 33343C0A0CE4DB7000FF8CE6 /* swell-gdi.mm */; };
 		33343C140CE4DB7000FF8CE6 /* swell-ini.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33343C0B0CE4DB7000FF8CE6 /* swell-ini.cpp */; };
@@ -77,7 +78,6 @@
 		33343CFF0CE4DCFB00FF8CE6 /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CE60CE4DCFB00FF8CE6 /* compress.c */; };
 		33343D000CE4DCFB00FF8CE6 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CE70CE4DCFB00FF8CE6 /* crc32.c */; };
 		33343D010CE4DCFB00FF8CE6 /* deflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CE90CE4DCFB00FF8CE6 /* deflate.c */; };
-		33343D030CE4DCFB00FF8CE6 /* gzio.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CEC0CE4DCFB00FF8CE6 /* gzio.c */; };
 		33343D040CE4DCFB00FF8CE6 /* infback.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CED0CE4DCFB00FF8CE6 /* infback.c */; };
 		33343D050CE4DCFB00FF8CE6 /* inffast.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CEE0CE4DCFB00FF8CE6 /* inffast.c */; };
 		33343D060CE4DCFB00FF8CE6 /* inflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 33343CF10CE4DCFB00FF8CE6 /* inflate.c */; };
@@ -128,6 +128,7 @@
 		33BD26CE0ECF7830000A367A /* lice_png_write.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C60ECF7830000A367A /* lice_png_write.cpp */; };
 		33BD26CF0ECF7830000A367A /* lice_textnew.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C80ECF7830000A367A /* lice_textnew.cpp */; };
 		33BD26DF0ECF78C3000A367A /* fly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26DE0ECF78C3000A367A /* fly.cpp */; };
+		33DF417F1969C743006C7E88 /* image.png in Resources */ = {isa = PBXBuildFile; fileRef = 33DF417E1969C743006C7E88 /* image.png */; };
 		33E075650CE4DDD3005DDE14 /* Controller.mm in Sources */ = {isa = PBXBuildFile; fileRef = 33E075640CE4DDD3005DDE14 /* Controller.mm */; };
 		8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
 		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
@@ -143,6 +144,7 @@
 		29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		3331EC591963208E0092583E /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		33343C060CE4DB5D00FF8CE6 /* swell-dlg.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-dlg.mm"; path = "../../swell/swell-dlg.mm"; sourceTree = SOURCE_ROOT; };
 		33343C080CE4DB7000FF8CE6 /* swell-dlggen.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = "swell-dlggen.h"; path = "../../swell/swell-dlggen.h"; sourceTree = SOURCE_ROOT; };
 		33343C0A0CE4DB7000FF8CE6 /* swell-gdi.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-gdi.mm"; path = "../../swell/swell-gdi.mm"; sourceTree = SOURCE_ROOT; };
@@ -235,7 +237,6 @@
 		33343CE80CE4DCFB00FF8CE6 /* crc32.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = crc32.h; path = ../../zlib/crc32.h; sourceTree = SOURCE_ROOT; };
 		33343CE90CE4DCFB00FF8CE6 /* deflate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = deflate.c; path = ../../zlib/deflate.c; sourceTree = SOURCE_ROOT; };
 		33343CEA0CE4DCFB00FF8CE6 /* deflate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = deflate.h; path = ../../zlib/deflate.h; sourceTree = SOURCE_ROOT; };
-		33343CEC0CE4DCFB00FF8CE6 /* gzio.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = gzio.c; path = ../../zlib/gzio.c; sourceTree = SOURCE_ROOT; };
 		33343CED0CE4DCFB00FF8CE6 /* infback.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = infback.c; path = ../../zlib/infback.c; sourceTree = SOURCE_ROOT; };
 		33343CEE0CE4DCFB00FF8CE6 /* inffast.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inffast.c; path = ../../zlib/inffast.c; sourceTree = SOURCE_ROOT; };
 		33343CEF0CE4DCFB00FF8CE6 /* inffast.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = inffast.h; path = ../../zlib/inffast.h; sourceTree = SOURCE_ROOT; };
@@ -304,6 +305,7 @@
 		33BD26C70ECF7830000A367A /* lice_text.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lice_text.h; path = ../lice_text.h; sourceTree = SOURCE_ROOT; };
 		33BD26C80ECF7830000A367A /* lice_textnew.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_textnew.cpp; path = ../lice_textnew.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26DE0ECF78C3000A367A /* fly.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = fly.cpp; sourceTree = "<group>"; };
+		33DF417E1969C743006C7E88 /* image.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = image.png; sourceTree = "<group>"; };
 		33E075630CE4DDD3005DDE14 /* Controller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Controller.h; sourceTree = "<group>"; };
 		33E075640CE4DDD3005DDE14 /* Controller.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = Controller.mm; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -315,6 +317,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3331EC5A1963208E0092583E /* OpenGL.framework in Frameworks */,
 				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
 				334560580CE4E727004D76AE /* Carbon.framework in Frameworks */,
 			);
@@ -386,6 +389,7 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				33DF417E1969C743006C7E88 /* image.png */,
 				8D1107310486CEB800E47090 /* Info.plist */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
@@ -396,6 +400,7 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				3331EC591963208E0092583E /* OpenGL.framework */,
 				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
 				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
 			);
@@ -488,7 +493,6 @@
 				33343CE80CE4DCFB00FF8CE6 /* crc32.h */,
 				33343CE90CE4DCFB00FF8CE6 /* deflate.c */,
 				33343CEA0CE4DCFB00FF8CE6 /* deflate.h */,
-				33343CEC0CE4DCFB00FF8CE6 /* gzio.c */,
 				33343CED0CE4DCFB00FF8CE6 /* infback.c */,
 				33343CEE0CE4DCFB00FF8CE6 /* inffast.c */,
 				33343CEF0CE4DCFB00FF8CE6 /* inffast.h */,
@@ -650,7 +654,6 @@
 			isa = PBXProject;
 			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "test" */;
 			compatibilityVersion = "Xcode 2.4";
-			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -674,6 +677,7 @@
 			files = (
 				8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */,
 				8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */,
+				33DF417F1969C743006C7E88 /* image.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -755,7 +759,6 @@
 				33343CFF0CE4DCFB00FF8CE6 /* compress.c in Sources */,
 				33343D000CE4DCFB00FF8CE6 /* crc32.c in Sources */,
 				33343D010CE4DCFB00FF8CE6 /* deflate.c in Sources */,
-				33343D030CE4DCFB00FF8CE6 /* gzio.c in Sources */,
 				33343D040CE4DCFB00FF8CE6 /* infback.c in Sources */,
 				33343D050CE4DCFB00FF8CE6 /* inffast.c in Sources */,
 				33343D060CE4DCFB00FF8CE6 /* inflate.c in Sources */,
@@ -834,11 +837,13 @@
 		C01FCF4B08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = SWELL_SUPPORT_OPENGL_BLIT;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				PRODUCT_NAME = test;
@@ -850,12 +855,10 @@
 		C01FCF4C08A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = SWELL_SUPPORT_OPENGL_BLIT;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				PRODUCT_NAME = test;
@@ -866,28 +869,24 @@
 		C01FCF4F08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				GCC_PREPROCESSOR_DEFINITIONS = PNG_WRITE_SUPPORTED;
-				GCC_VERSION = 4.0;
+				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 			};
 			name = Debug;
 		};
 		C01FCF5008A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				GCC_PREPROCESSOR_DEFINITIONS = PNG_WRITE_SUPPORTED;
-				GCC_VERSION = 4.0;
+				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 			};
 			name = Release;
 		};

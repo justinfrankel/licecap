@@ -98,7 +98,7 @@ void doFlyEffect(LICE_IBitmap *fb, HWND hwnd)
   {
     mouse_x = p.x-lpos.x;
     mouse_y = p.y-lpos.y;
-    if (GetAsyncKeyState(VK_RBUTTON)&0x8000) mouse_b|=2;
+    if (GetAsyncKeyState(VK_LBUTTON)&0x8000) mouse_b|=2;
 
     RECT r;
     GetWindowRect(hwnd,&r);

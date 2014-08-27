@@ -50,10 +50,12 @@ PLTexTri
     }
     tex_w=tex->getWidth();
     tex_h=tex->getHeight();  
+    tex_rowspan *= 4;
   }
   pl_sInt32 MappingU_Max=tex_w<<16,  MappingV_Max=tex_h<<16;
   texscales[0]*=MappingU_Max;
   texscales[1]*=MappingV_Max;
+  tex_w *= 4;
 
 #ifdef PL_PF_MULTITEX
 
@@ -82,11 +84,13 @@ PLTexTri
       texture_2 += tex_rowspan_2*(tex2->getHeight()-1);
       tex_rowspan_2=-tex_rowspan_2;
     }
+    tex_rowspan_2 *= 4;
   }
   MappingU_Max_2=tex_w_2<<16;
   MappingV_Max_2=tex_h_2<<16;
   texscales[2]*=MappingU_Max_2;
   texscales[3]*=MappingV_Max_2;
+  tex_w_2 *= 4;
 #endif
 
 
