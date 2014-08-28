@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>LICEcap</string>
+	<string>licecap</string>
 	<key>CFBundleIconFile</key>
 	<string>licecap</string>
 	<key>CFBundleIdentifier</key>
