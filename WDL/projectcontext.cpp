@@ -1020,7 +1020,7 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false, did_firstline=false;
+  bool comment_state=false, did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
@@ -1051,7 +1051,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false, did_firstline=false;
+  bool comment_state=false, did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
