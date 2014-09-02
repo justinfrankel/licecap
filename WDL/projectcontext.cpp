@@ -1020,7 +1020,7 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false;
+  bool comment_state=false, did_firstline=false;
   for (;;)
   {
     char linebuf[4096];
@@ -1039,7 +1039,8 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
       while (*p == ' ' || *p == '\t') p++;
       if (*p == '|')
       {
-        str->Append("\r\n");
+        if (!did_firstline) did_firstline=true;
+        else str->Append("\r\n");
         str->Append(++p);
       }
     }
@@ -1050,7 +1051,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false;
+  bool comment_state=false, did_firstline=false;
   for (;;)
   {
     char linebuf[4096];
@@ -1069,7 +1070,8 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
       while (*p == ' ' || *p == '\t') p++;
       if (*p == '|')
       {
-        str->Append("\r\n");
+        if (!did_firstline) did_firstline=true;
+        else str->Append("\r\n");
         str->Append(++p);
       }
     }
