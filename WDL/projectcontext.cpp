@@ -1039,7 +1039,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
       while (*p == ' ' || *p == '\t') p++;
       if (*p == '|')
       {
-        if (str->Get()[0]) str->Append("\r\n");
+        str->Append("\r\n");
         str->Append(++p);
       }
     }
@@ -1069,7 +1069,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
       while (*p == ' ' || *p == '\t') p++;
       if (*p == '|')
       {
-        if (str->Get()[0]) str->Append("\r\n");
+        str->Append("\r\n");
         str->Append(++p);
       }
     }
