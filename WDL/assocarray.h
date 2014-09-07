@@ -50,7 +50,7 @@ public:
     return ismatch;
   }
 
-  void Insert(KEY key, VAL val, KEY *keyPtrOut=NULL) 
+  int Insert(KEY key, VAL val)
   {
     bool ismatch = false;
     int i = LowerBound(key, &ismatch);
@@ -59,7 +59,6 @@ public:
       KeyVal* kv = m_data.Get()+i;
       if (m_valdispose) m_valdispose(kv->val);
       kv->val = val;
-      if (keyPtrOut) *keyPtrOut = kv->key;
     }
     else
     {
@@ -67,9 +66,9 @@ public:
       memmove(kv+1, kv, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
       if (m_keydup) key = m_keydup(key);
       kv->key = key;
-      kv->val = val;
-      if (keyPtrOut) *keyPtrOut = key;
+      kv->val = val;      
     }
+    return i;
   }
 
   void Delete(KEY key) 
