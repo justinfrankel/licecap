@@ -101,7 +101,7 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
       lstrcpyn_safe(buf,tokStart,len+1);
       int tl;
       const char *ep = tokStart+len;
-      const char *nexttok=nseel_simple_tokenizer(&ep, ep+strlen(ep), &tl, NULL);
+      const char *nexttok=sh_tokenize(&ep, ep+strlen(ep), &tl, NULL);
       if (nexttok && nexttok[0] == '(')
       {
         if (!s_declaredFuncs.Get(buf)) return SYNTAX_ERROR;
@@ -116,7 +116,7 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
   return A_NORMAL;
 }
 
-static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len)
+int EEL_Editor::parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len)
 {
   const char *fmt = fmt_in+1;
   *var_offs = 0;
@@ -167,9 +167,9 @@ static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_le
 }
 
 
-void EEL_Editor::draw_string(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr, bool dispAsString)
+void EEL_Editor::draw_string(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr, int comment_string_state)
 {
-  if (amt > 0 && dispAsString)
+  if (amt > 0 && comment_string_state=='"')
   {
     while (amt > 0 && *str)
     {
@@ -307,8 +307,8 @@ void EEL_Editor::draw_string_internal(int *ml, int *skipcnt, const char *str, in
 }
 
 
-static WDL_TypedBuf<char> s_draw_parentokenstack;
-static bool s_draw_parenttokenstack_pop(char c)
+WDL_TypedBuf<char> EEL_Editor::s_draw_parentokenstack;
+bool EEL_Editor::sh_draw_parenttokenstack_pop(char c)
 {
   int sz = s_draw_parentokenstack.GetSize();
   while (--sz >= 0)
@@ -337,7 +337,7 @@ static bool s_draw_parenttokenstack_pop(char c)
 
   return true;
 }
-static bool s_draw_parentokenstack_update(const char *tok, int toklen)
+bool EEL_Editor::sh_draw_parentokenstack_update(const char *tok, int toklen)
 {
   if (toklen == 1)
   {
@@ -349,9 +349,9 @@ static bool s_draw_parentokenstack_update(const char *tok, int toklen)
       case '?':
         s_draw_parentokenstack.Add(*tok);
       break;
-      case ':': return s_draw_parenttokenstack_pop('?');
-      case ')': return s_draw_parenttokenstack_pop('(');
-      case ']': return s_draw_parenttokenstack_pop('[');
+      case ':': return sh_draw_parenttokenstack_pop('?');
+      case ')': return sh_draw_parenttokenstack_pop('(');
+      case ']': return sh_draw_parenttokenstack_pop('[');
     }
   }
   return false;
@@ -398,7 +398,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
   const char *lp = p;
   int toklen=0;
   int last_comment_state=*c_comment_state;
-  while (NULL != (tok = nseel_simple_tokenizer(&p,endptr,&toklen,c_comment_state)) || lp < endptr)
+  while (NULL != (tok = sh_tokenize(&p,endptr,&toklen,c_comment_state)) || lp < endptr)
   {
     if (last_comment_state>0) // if in a multi-line string or comment
     {
@@ -514,7 +514,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
       while (*h && *h != tok[0]) h++;
       if (*h)
       {
-        if (*c_comment_state != STATE_BEFORE_CODE && s_draw_parentokenstack_update(tok,toklen))
+        if (*c_comment_state != STATE_BEFORE_CODE && sh_draw_parentokenstack_update(tok,toklen))
           attr = SYNTAX_ERROR;
         else
           attr = SYNTAX_HIGHLIGHT1;
@@ -585,7 +585,7 @@ int EEL_Editor::GetCommentStateForLineStart(int line)
         const char *tok;
         int toklen;
         p+=4;
-        while (NULL != (tok = nseel_simple_tokenizer(&p,endp,&toklen,NULL)))
+        while (NULL != (tok = sh_tokenize(&p,endp,&toklen,NULL)))
         {
           if (isalpha(tok[0]) || tok[0] == '_' || tok[0] == '#')
           {
@@ -634,14 +634,19 @@ int EEL_Editor::GetCommentStateForLineStart(int line)
       const char *endp = p+ll;
       int toklen;
       const char *tok;
-      while (NULL != (tok=nseel_simple_tokenizer(&p,endp,&toklen,&state))) // eat all tokens, updating state
+      while (NULL != (tok=sh_tokenize(&p,endp,&toklen,&state))) // eat all tokens, updating state
       {
         sh_func_ontoken(tok,toklen);
-        s_draw_parentokenstack_update(tok,toklen);
+        sh_draw_parentokenstack_update(tok,toklen);
       }
     }
   }
   return state;
+}
+
+const char *EEL_Editor::sh_tokenize(const char **ptr, const char *endptr, int *lenOut, int *state)
+{
+  return nseel_simple_tokenizer(ptr, endptr, lenOut, state);
 }
 
 
@@ -769,7 +774,7 @@ static void eel_sh_generate_token_list(const WDL_PtrList<WDL_FastString> *lines,
     const char *tok;
     int last_state=state;
     int toklen;
-    while (NULL != (tok=nseel_simple_tokenizer(&p,endp,&toklen,&state))||last_state)
+    while (NULL != (tok=editor->sh_tokenize(&p,endp,&toklen,&state))||last_state)
     {
       if (last_state == '\'' || last_state == '"' || last_state==1)
       {

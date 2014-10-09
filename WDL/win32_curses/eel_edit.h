@@ -30,10 +30,17 @@ public:
 
   virtual int is_code_start_line(const char *p) { return 0; } // pass NULL to see if code-start-lines are even used
 
-  void draw_string_internal(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr);
-  void draw_string_urlchk(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr);
-  void draw_string(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr, bool dispAsString=false);
+  virtual void draw_string_internal(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr);
+  virtual void draw_string_urlchk(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr);
+  virtual void draw_string(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr, int comment_string_state=0);
 
+  virtual bool sh_draw_parenttokenstack_pop(char c);
+  virtual bool sh_draw_parentokenstack_update(const char *tok, int toklen);
+  virtual const char *sh_tokenize(const char **ptr, const char *endptr, int *lenOut, int *state);
+
+  // static helpers
+  static WDL_TypedBuf<char> s_draw_parentokenstack;
+  static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);
 };
 
 #endif
