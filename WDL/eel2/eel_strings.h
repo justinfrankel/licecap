@@ -239,7 +239,9 @@ class eel_string_context_state
 
     static EEL_F addNamedStringCallback(void *opaque, const char *name)
     {
+      if (!opaque) return -1.0;
       eel_string_context_state *_this = EEL_STRING_GET_CONTEXT_POINTER(opaque);
+      if (!_this) return -1.0;
 
       EEL_STRING_MUTEXLOCK_SCOPE
       if (!name || !name[0])
@@ -260,7 +262,10 @@ class eel_string_context_state
 
     static EEL_F addStringCallback(void *opaque, struct eelStringSegmentRec *list)
     {
+      if (!opaque) return -1.0;
+
       eel_string_context_state *_this = EEL_STRING_GET_CONTEXT_POINTER(opaque);
+      if (!_this) return -1.0;
 
       EEL_STRING_STORAGECLASS *ns = new EEL_STRING_STORAGECLASS;
       // could probably do a faster implementation using AddRaw() etc but this should also be OK
