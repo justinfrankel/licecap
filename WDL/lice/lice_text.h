@@ -74,10 +74,9 @@ class LICE_CachedFont : public LICE_IFont
 
     void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
 
+  protected:
+
     virtual bool DrawGlyph(LICE_IBitmap *bm, unsigned short c, int xpos, int ypos, RECT *clipR);
-
-  private:
-
     int DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags); // cause swell defines DrawText to SWELL_DrawText etc
 
     bool RenderGlyph(unsigned short idx);
