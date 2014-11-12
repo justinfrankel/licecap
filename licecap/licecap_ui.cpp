@@ -409,21 +409,62 @@ char g_cap_video_ext[32];
 double g_cap_video_lastt;
 int g_cap_video_vbr=256, g_cap_video_abr=64;
 
+class videoFrameWrap : public IVideoFrame
+{
+public:
+  videoFrameWrap(LICE_IBitmap *bmp)  {
+    m_refcnt = 1;
+    m_w = bmp->getWidth();
+    m_h = bmp->getHeight();
+    m_bits = (char *)malloc(32 + m_w*m_h * 4);
+
+    char *bits = get_bits(); // aligned copy
+    if (bits)
+    {
+      const char *ptr = (const char *)bmp->getBits();
+      int rs = bmp->getRowSpan() * 4;
+      if (bmp->isFlipped())
+      {
+        ptr += (bmp->getHeight() - 1)*rs;
+        rs = -rs;
+      }
+      int y;
+      for (y = 0; y < m_h; y++)
+      {
+        memcpy(bits, ptr, m_w * 4);
+        ptr += rs;
+        bits += m_w * 4;
+      }
+    }
+  }
+  ~videoFrameWrap() { free(m_bits);  }
+  int m_w, m_h;
+
+  char *m_bits;
+  int m_refcnt;
+
+  virtual void AddRef() { m_refcnt++; };
+  virtual void Release() { if (!--m_refcnt) delete this; };
+  virtual char *get_bits() { return (char*)((((INT_PTR)m_bits) + 31)&~31); }
+  virtual int get_w() { return m_w;  }
+  virtual int get_h() { return m_h;  }
+  virtual int get_fmt() { return 'RGBA'; }
+  virtual int get_rowspan() { return m_w * 4; }
+  virtual void resize_img(int wantw, int wanth, int wantfmt) {}
+};
+
+
 void EncodeFrameToVideo(VideoEncoder *enc, LICE_IBitmap *bm, bool force=false)
 {
   if (!enc||!bm) return;
   const double pos=s_audiohook_timepos;
   if (pos < g_cap_video_lastt + 0.03 && !force) return; // too soon
 
-  const char *ptr=(const char *)bm->getBits();
-  int rs = bm->getRowSpan()*4;
-  if (bm->isFlipped())
-  {
-    ptr += (bm->getHeight()-1)*rs;
-    rs=-rs;
-  }
+  videoFrameWrap *wr = new videoFrameWrap(bm);
+
   g_cap_video_lastt=pos;
-  enc->encodeVideoFrame(ptr,'RGBA',rs,pos); // todo timing info
+  enc->encodeVideoFrame(wr,pos);
+  wr->Release();
 }
 
 #endif
@@ -1562,16 +1603,16 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               if (strlen(g_last_fn)>5 && !stricmp(g_last_fn+strlen(g_last_fn)-5,".webm"))
               {
 #ifdef REAPER_LICECAP
-                static VideoEncoder *(*video_createEncoder)();
-                if (!video_createEncoder)
-                  *(void **)&video_createEncoder = reaperAPI_getfunc("video_createEncoder");
+                static VideoEncoder *(*video_createEncoder2)(const char *);
+                if (!video_createEncoder2)
+                  *(void **)&video_createEncoder2 = reaperAPI_getfunc("video_createEncoder2");
 
-                if (video_createEncoder) g_cap_video = video_createEncoder();
+                if (video_createEncoder2) g_cap_video = video_createEncoder2("WEBM");
 #endif
 
                 if (g_cap_video)
                 {
-                  if (!g_cap_video->open(g_last_fn,"webm", "vp8", "vorbis", g_cap_video_vbr, w,h, 30, g_cap_video_abr, 44100,2))
+                  if (!g_cap_video->open(g_last_fn,"webm", "vp8", "vorbis", g_cap_video_vbr, 100, w,h, 30, g_cap_video_abr, 44100,2))
                   {
                     delete g_cap_video;
                     g_cap_video=0;
@@ -1961,7 +2002,7 @@ unsigned WINAPI audioEncodeThread(void *p)
       if (g_cap_video)
       {
         ReaSample *s[2] = { tmp.Get(), tmp.Get()+1};
-        g_cap_video->encodeAudio(s,ns/2,0,2);
+        g_cap_video->encodeAudio(s,ns/2,2,0,2);
       }
     }
   }
