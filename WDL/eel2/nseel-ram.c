@@ -356,3 +356,15 @@ void NSEEL_VM_FreeGRAM(void **ufd)
     ufd[0]=0;
   }
 }
+
+EEL_F *NSEEL_VM_getramptr(NSEEL_VMCTX ctx, unsigned int offs, int *validCount)
+{
+  EEL_F **blocks = ctx ? ((compileContext*)ctx)->ram_state.blocks : 0;
+  if (!blocks) return NULL;
+
+  EEL_F *d=__NSEEL_RAMAlloc(blocks,offs);
+  if (!d || d == &nseel_ramalloc_onfail) return NULL;
+  if (validCount) *validCount = NSEEL_RAM_ITEMSPERBLOCK - (offs%NSEEL_RAM_ITEMSPERBLOCK);
+
+  return d;
+}
