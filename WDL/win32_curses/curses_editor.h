@@ -29,12 +29,14 @@ public:
 
   int m_indent_size;
   int m_max_undo_states;
+
+  virtual int init(const char *fn, const char *init_if_empty=0); 
+  virtual void draw(int lineidx=-1);
+
 protected:
   class refcntString;
   class editUndoRec;
 
-  virtual int init(const char *fn, const char *init_if_empty=0); 
-  virtual void draw(int lineidx=-1);
   void draw_message(const char *str);
   void draw_status_state();
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

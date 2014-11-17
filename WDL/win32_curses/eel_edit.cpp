@@ -14,7 +14,7 @@
 #include "../wdlcstring.h"
 #include "../eel2/ns-eel-int.h"
 
-EEL_Editor::EEL_Editor(void *cursesCtx, const char *filename) : MultiTab_Editor(cursesCtx)
+EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx)
 {
   init_pair(3, RGB(0,255,255),COLOR_BLACK); // highlight for known words
   init_pair(4, RGB(0,255,0),COLOR_BLACK); // numbers
@@ -29,10 +29,6 @@ EEL_Editor::EEL_Editor(void *cursesCtx, const char *filename) : MultiTab_Editor(
   init_pair(10, RGB(255,192,192), COLOR_BLACK); // string
   init_pair(11, RGB(192,255,128), COLOR_BLACK); // stringvar
 #endif
-
-  init(filename);
-
-  draw();
 }
 
 EEL_Editor::~EEL_Editor()

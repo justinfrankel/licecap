@@ -7,7 +7,7 @@
 class EEL_Editor : public MultiTab_Editor
 {
 public:
-  EEL_Editor(void *cursesCtx, const char *filename);
+  EEL_Editor(void *cursesCtx);
   virtual ~EEL_Editor();
 
   virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
