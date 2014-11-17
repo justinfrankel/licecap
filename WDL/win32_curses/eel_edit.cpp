@@ -14,7 +14,7 @@
 #include "../wdlcstring.h"
 #include "../eel2/ns-eel-int.h"
 
-EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx)
+EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx), m_has_peek(true)
 {
   init_pair(3, RGB(0,255,255),COLOR_BLACK); // highlight for known words
   init_pair(4, RGB(0,255,0),COLOR_BLACK); // numbers
@@ -957,6 +957,8 @@ void EEL_Editor::doParenMatching()
 
 void EEL_Editor::doWatchInfo(int c)
 {
+  if (!m_has_peek) return;
+
     // determine the word we are on, check its value in the effect
   char sstr[512];
   lstrcpyn_safe(sstr,"Use this on a valid symbol name", sizeof(sstr));
@@ -1087,8 +1089,11 @@ void EEL_Editor::draw_bottom_line()
 #define DO(x,y) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); addstr(y);}
     DO("S","ave ");
     DO("F","ind ");
-    DO("","pee");
-    DO("K ","");
+    if (m_has_peek)
+    {
+      DO("","pee");
+      DO("K ","");
+    }
     DO("","ma");
     DO("T","");
     DO("","ch");

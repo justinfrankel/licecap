@@ -38,6 +38,8 @@ public:
   virtual bool sh_draw_parentokenstack_update(const char *tok, int toklen);
   virtual const char *sh_tokenize(const char **ptr, const char *endptr, int *lenOut, int *state);
 
+  bool m_has_peek;
+
   // static helpers
   static WDL_TypedBuf<char> s_draw_parentokenstack;
   static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);

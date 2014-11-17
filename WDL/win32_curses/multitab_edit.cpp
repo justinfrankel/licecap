@@ -98,7 +98,7 @@ void MultiTab_Editor::draw_top_line()
 
 void MultiTab_Editor::draw(int lineidx)
 {
-  m_top_margin = GetTabCount()>1 ? 2 : 1;
+  if (m_top_margin != 0) m_top_margin = GetTabCount()>1 ? 2 : 1;
   WDL_CursesEditor::draw(lineidx);
 }
 
