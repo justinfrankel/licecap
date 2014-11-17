@@ -419,7 +419,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
               for (;; x ++, xpos+=ctx->m_font_w, p += 2)
               {
-                char c=' ',attr=0; 
+                unsigned char c=' ',attr=0; 
                 
                 if (x < r.right)
                 {
