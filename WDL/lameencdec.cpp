@@ -26,6 +26,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <shlobj.h>
 #else
 #include <unistd.h>
 #endif
@@ -552,6 +553,35 @@ void LameEncoder::InitDLL(const char *extrapath, bool forceRetry)
       if (tryLoadDLL(extrapath, "libmp3lame.dll") ||
           tryLoadDLL(extrapath, "lame_enc.dll")) a = -1;
     #endif
+
+      else
+      {
+        char path[1024];
+        path[0]=0;
+        if (!SHGetSpecialFolderPath(NULL,path,0x26/*CSIDL_PROGRAM_FILES*/,FALSE)) path[0]=0;
+
+        if (path[0])
+        {
+          lstrcatn(path,"\\HandBrake\\HB.dll",sizeof(path));
+          if (tryLoadDLL2(path)) a=-1;
+        }
+#ifdef _WIN64
+        // handbrake sometimes installs the 64-bit build in Program Files (x86), installer not wow64 aware
+        if (a>=0)
+        {
+          path[0]=0;
+          if (!SHGetSpecialFolderPath(NULL,path,0x2a/*CSIDL_PROGRAM_FILESX86*/,FALSE)) path[0]=0;
+
+          if (path[0])
+          {
+            lstrcatn(path,"\\HandBrake\\HB.dll",sizeof(path));
+            if (tryLoadDLL2(path)) a=-1;
+          }
+        }
+#endif
+
+
+      }
   #else
     if (tryLoadDLL(extrapath)) a=-1;
   #endif     
