@@ -124,8 +124,11 @@ static int readfunc_fh(GifFileType *fh, GifByteType *buf, int sz) { return (int)
 LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes)
 {
   FILE *fpp = NULL;
-#ifdef _WIN32
+
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
@@ -340,8 +343,10 @@ struct lice_gif_read_ctx
 void *LICE_GIF_LoadEx(const char *filename)
 {
   FILE *fpp = NULL;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
@@ -350,7 +355,7 @@ void *LICE_GIF_LoadEx(const char *filename)
 #endif
 
   if (!fpp) fpp = fopen(filename,"rb");
-  if(!fpp) return 0;
+  if (!fpp) return 0;
 
   GifFileType *gif=DGifOpen(fpp, readfunc_fh);
   if (!gif)

@@ -371,8 +371,10 @@ static int writefunc_fh(GifFileType *fh, const GifByteType *buf, int sz) {  retu
 void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither, bool is_append)
 {
   FILE *fp=NULL;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))

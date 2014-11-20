@@ -135,7 +135,12 @@ public:
 #ifdef WDL_WIN32_NATIVE_READ
 
     m_mmap_fmap=0;
-    bool isNT = GetVersion()<0x80000000;
+
+    #ifdef WDL_SUPPORT_WIN9X
+    const bool isNT = GetVersion()<0x80000000;
+    #else
+    const bool isNT = true;
+    #endif
     m_async = isNT ? allow_async : 0;
 
     int flags=FILE_ATTRIBUTE_NORMAL;

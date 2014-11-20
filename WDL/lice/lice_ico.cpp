@@ -117,12 +117,16 @@ LICE_IBitmap *LICE_LoadIcon(const char *filename, int reqiconsz, LICE_IBitmap *b
   HICON icon = NULL;
 #ifdef _WIN32
   
+#ifndef WDL_NO_SUPPORT_UTF8
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
       icon = (HICON)LoadImageW(NULL,wf,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
   }
+#endif
 
   if (!icon) icon = (HICON)LoadImage(NULL,filename,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
 

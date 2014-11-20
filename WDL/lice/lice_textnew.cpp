@@ -10,7 +10,7 @@
 #include "lice_combine.h"
 #include "lice_extended.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && defined(WDL_SUPPORT_WIN9X)
 static char __1ifNT2if98=0; // 2 for iswin98
 #endif
 
@@ -167,7 +167,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   charEnt *ent;
   if (idx>=128)
   {
-#ifdef _WIN32
+#if defined(_WIN32) && defined(WDL_SUPPORT_WIN9X)
     if (!__1ifNT2if98) __1ifNT2if98 = GetVersion()<0x80000000 ? 1 : 2;
 
     if (__1ifNT2if98==2) return false;
@@ -206,7 +206,9 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   const int extra_wid_pad = 2+(m_line_height>=16 ? m_line_height/16 : 0); // overrender right side by this amount, and check to see if it was drawn to
 
 #ifdef _WIN32
+#if defined(WDL_SUPPORT_WIN9X)
   if (__1ifNT2if98==1) 
+#endif
   {
     WCHAR tmpstr[2]={(WCHAR)idx,0};
     ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
@@ -215,8 +217,12 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     LICE_FillRect(s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
     ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
   }
+  #if defined(WDL_SUPPORT_WIN9X)
   else
+  #endif
 #endif
+
+#if !defined(_WIN32) || defined(WDL_SUPPORT_WIN9X)
   {
     
     char tmpstr[6]={(char)idx,0};
@@ -229,6 +235,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
     LICE_FillRect(s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
     ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
   }
+#endif
 
   if (advance > s_tempbitmap->getWidth()) advance=s_tempbitmap->getWidth();
   if (r.right > s_tempbitmap->getWidth()) r.right=s_tempbitmap->getWidth();
@@ -697,13 +704,16 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
       (m_line_height >= USE_NATIVE_RENDERING_FOR_FONTS_HIGHER_THAN) ) 
   {
 
-    // on Win2000+, use wide versions if needed for UTF
 #ifdef _WIN32
     WCHAR wtmpbuf[1024];
     WCHAR *wtmp=NULL;
-    static int win9x;
-    if (!win9x) win9x = GetVersion() < 0x80000000 ? -1 : 1; //>0 if win9x
-    if (win9x<0 && LICE_Text_HasUTF8(str))
+    #ifdef WDL_SUPPORT_WIN9X
+      static int win9x;
+      if (!win9x) win9x = GetVersion() < 0x80000000 ? -1 : 1; //>0 if win9x
+      if (win9x<0 && LICE_Text_HasUTF8(str))
+    #else
+      if (LICE_Text_HasUTF8(str))
+    #endif
     {
       int req = MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,str,strcnt,NULL,0);
       if (req < 1000) 
