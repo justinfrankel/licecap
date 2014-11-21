@@ -155,12 +155,13 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
 
   if (bgcolor<0) bgcolor=m_GSC?m_GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE);
 
+  int needfill=1;
+
+#ifdef WDL_VWND_WANTBGGRADIENT_SUPPORT
   double gradslope=m_gradslope;
   double gradstart=m_gradstart;
   bool wantGrad=m_wantg>0;
   if (m_wantg<0) wantGrad=WDL_STYLE_GetBackgroundGradient(&gradstart,&gradslope);
-
-  int needfill=1;
 
   if (wantGrad && gradslope >= 0.01)
   {
@@ -231,7 +232,7 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
     }
   }
 
-
+#endif//WDL_VWND_WANTBGGRADIENT_SUPPORT
 
   if (needfill)
   {
