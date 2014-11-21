@@ -241,7 +241,7 @@ template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
 
 
     static void scaleBlitFAST(LICE_pixel_chan *dest, const LICE_pixel_chan *src, int w, int h, 
-                          int icurx, int icury, int idx, int idy, int clipright, int clipbottom,     
+                          int icurx, int icury, int idx, int idy, unsigned int clipright, unsigned int clipbottom,     
                           int src_span, int dest_span)
     {
       LICE_pixel* destpx = (LICE_pixel*) dest;
@@ -249,8 +249,8 @@ template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
 
       while (h--)
       {
-        int cury = icury >> 16;
-        if (cury >= 0 && cury < clipbottom)
+        const unsigned int cury = icury >> 16;
+        if (cury < clipbottom)
         {
           int curx=icurx;
           const LICE_pixel_chan *inptr=src + cury * src_span;
@@ -258,8 +258,8 @@ template<class COMBFUNC> class _LICE_Template_Blit0 // these always templated
           int n=w;
           while (n--)
           {
-            int offs=curx >> 16;
-            if (offs>=0 && offs<clipright)
+            const unsigned int offs=curx >> 16;
+            if (offs<clipright)
             {
               COMBFUNC::doPixFAST(pout,((LICE_pixel *)inptr)[offs]);
             }
@@ -450,7 +450,7 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
       }
     }
     static void scaleBlit(LICE_pixel_chan *dest, const LICE_pixel_chan *src, int w, int h, 
-                          int icurx, int icury, int idx, int idy, int clipright, int clipbottom,     
+                          int icurx, int icury, int idx, int idy, unsigned int clipright, unsigned int clipbottom,     
                           int src_span, int dest_span, int ia, int filtermode
 #ifdef LICE_FAVOR_SIZE
                           , LICE_COMBINEFUNC combFunc
@@ -463,19 +463,19 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
       {
         while (h--)
         {
-          int cury = icury >> 16;
-          int yfrac=icury&65535;
+          const unsigned int cury = icury >> 16;
+          const int yfrac=icury&65535;
           int curx=icurx;          
           const LICE_pixel_chan *inptr=src + cury * src_span;
           LICE_pixel_chan *pout=dest;
           int n=w;
-          if (cury >= 0 && cury < clipbottom-1)
+          if (cury < clipbottom-1)
           {
             while (n--)
             {
-              int offs=curx >> 16;
+              const unsigned int offs=curx >> 16;
               const LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
-              if (offs>=0 && offs<clipright-1)
+              if (offs<clipright-1)
               {
                 int r,g,b,a;
                 __LICE_BilinearFilterI(&r,&g,&b,&a,pin,pin+src_span,curx&0xffff,yfrac);
@@ -496,9 +496,9 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
           {
             while (n--)
             {
-              int offs=curx >> 16;
+              const unsigned int offs=curx >> 16;
               const LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
-              if (offs>=0 && offs<clipright-1)
+              if (offs<clipright-1)
               {
                 int r,g,b,a;
                 __LICE_LinearFilterI(&r,&g,&b,&a,pin,pin+sizeof(LICE_pixel)/sizeof(LICE_pixel_chan),curx&0xffff);
@@ -521,8 +521,8 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
       {
         while (h--)
         {
-          int cury = icury >> 16;
-          if (cury >= 0 && cury < clipbottom)
+          const unsigned int cury = icury >> 16;
+          if (cury < clipbottom)
           {
             int curx=icurx;
             const LICE_pixel_chan *inptr=src + cury * src_span;
@@ -530,8 +530,8 @@ class _LICE_Template_Blit2 // these controlled by LICE_FAVOR_SIZE
             int n=w;
             while (n--)
             {
-              int offs=curx >> 16;
-              if (offs>=0 && offs<clipright)
+              const unsigned int offs=curx >> 16;
+              if (offs<clipright)
               {
                 const LICE_pixel_chan *pin = inptr + offs*sizeof(LICE_pixel);
 
