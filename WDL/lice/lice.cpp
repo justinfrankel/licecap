@@ -568,7 +568,7 @@ class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
     static void deltaBlit(LICE_pixel_chan *dest, const LICE_pixel_chan *src, int w, int h, 
                           int isrcx, int isrcy, int idsdx, int idtdx, int idsdy, int idtdy,
                           int idsdxdy, int idtdxdy,
-                          int src_left, int src_top, int src_right, int src_bottom,
+                          unsigned int src_right, unsigned int src_bottom,
                           int src_span, int dest_span, int ia, int filtermode
 #ifndef LICE_FAVOR_SPEED
                           , LICE_COMBINEFUNC combFunc
@@ -585,11 +585,11 @@ class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
           int n=w;
           while (n--)
           {
-            int cury = thisy >> 16;
-            int curx = thisx >> 16;
-            if (cury >= src_top && cury < src_bottom-1)
+            const unsigned int cury = thisy >> 16;
+            const unsigned int curx = thisx >> 16;
+            if (cury < src_bottom-1)
             {
-              if (curx >= src_left && curx < src_right-1)
+              if (curx < src_right-1)
               {
                 const LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
                 int r,g,b,a;
@@ -610,7 +610,7 @@ class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
             }
             else if (cury==src_bottom-1)
             {
-              if (curx>=src_left && curx<src_right-1)
+              if (curx<src_right-1)
               {
                 const LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
@@ -648,11 +648,10 @@ class _LICE_Template_Blit3 // stuff controlled by LICE_FAVOR_SPEED
           int n=w;
           while (n--)
           {
-            int cury = thisy >> 16;
-            int curx = thisx >> 16;
-            if (cury >= src_top && cury < src_bottom && curx >= src_left && curx < src_right)
+            const unsigned int cury = thisy >> 16;
+            const unsigned int curx = thisx >> 16;
+            if (cury < src_bottom && curx < src_right)
             {
-
               const LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
               DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],ia);
@@ -690,7 +689,7 @@ class _LICE_Template_Blit4 // stuff controlled by LICE_FAVOR_SPEED
     static void deltaBlitAlpha(LICE_pixel_chan *dest, const LICE_pixel_chan *src, int w, int h, 
                           int isrcx, int isrcy, int idsdx, int idtdx, int idsdy, int idtdy,
                           int idsdxdy, int idtdxdy,
-                          int src_left, int src_top, int src_right, int src_bottom,
+                          unsigned int src_right, unsigned int src_bottom,
                           int src_span, int dest_span, int ia, int idadx, int idady, int idadxdy, int filtermode
 #ifndef LICE_FAVOR_SPEED
                           , LICE_COMBINEFUNC combFunc
@@ -708,11 +707,11 @@ class _LICE_Template_Blit4 // stuff controlled by LICE_FAVOR_SPEED
           int n=w;
           while (n--)
           {
-            int cury = thisy >> 16;
-            int curx = thisx >> 16;
-            if (cury >= src_top && cury < src_bottom-1)
+            const unsigned int cury = thisy >> 16;
+            const unsigned int curx = thisx >> 16;
+            if (cury < src_bottom-1)
             {
-              if (curx >= src_left && curx < src_right-1)
+              if (curx < src_right-1)
               {
                 const LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
                 int r,g,b,a;
@@ -733,7 +732,7 @@ class _LICE_Template_Blit4 // stuff controlled by LICE_FAVOR_SPEED
             }
             else if (cury==src_bottom-1)
             {
-              if (curx>=src_left && curx<src_right-1)
+              if (curx<src_right-1)
               {
                 const LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
@@ -775,11 +774,10 @@ class _LICE_Template_Blit4 // stuff controlled by LICE_FAVOR_SPEED
           int n=w;
           while (n--)
           {
-            int cury = thisy >> 16;
-            int curx = thisx >> 16;
-            if (cury >= src_top && cury < src_bottom && curx >= src_left && curx < src_right)
+            const unsigned int cury = thisy >> 16;
+            const unsigned int curx = thisx >> 16;
+            if (cury < src_bottom && curx < src_right)
             {
-
               const LICE_pixel_chan *pin = src + cury * src_span + curx*sizeof(LICE_pixel);
 
               DOPIX(pout,pin[LICE_PIXEL_R],pin[LICE_PIXEL_G],pin[LICE_PIXEL_B],pin[LICE_PIXEL_A],thisa>>8);
@@ -1457,6 +1455,12 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
 
+  sr -= sl;
+  sb -= st;
+  if (sr < 1 || sb < 1) return;
+
+  psrc += src_span * st + sl * sizeof(LICE_pixel);
+
   int ia=(int)(alpha*256.0);
   int isrcx=(int)(srcx*65536.0);
   int isrcy=(int)(srcy*65536.0);
@@ -1471,13 +1475,13 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_COMBINEFUNC blitfunc=NULL;
   #define __LICE__ACTION(comb) blitfunc = comb::doPix;
 #else
-  #define __LICE__ACTION(comb) _LICE_Template_Blit3<comb>::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
+  #define __LICE__ACTION(comb) _LICE_Template_Blit3<comb>::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
 #endif
       __LICE_ACTION_SRCALPHA(mode,ia,false);
   #undef __LICE__ACTION
 
 #ifndef LICE_FAVOR_SPEED
-  if (blitfunc) _LICE_Template_Blit3::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
+  if (blitfunc) _LICE_Template_Blit3::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
 #endif
 
 }
@@ -1572,6 +1576,12 @@ void LICE_DeltaBlitAlpha(LICE_IBitmap *dest, LICE_IBitmap *src,
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
 
+  sr -= sl;
+  sb -= st;
+  if (sr < 1 || sb < 1) return;
+
+  psrc += src_span * st + sl * sizeof(LICE_pixel);
+
   int ia=(int)(alpha*65536.0);
   int isrcx=(int)(srcx*65536.0);
   int isrcy=(int)(srcy*65536.0);
@@ -1590,13 +1600,13 @@ void LICE_DeltaBlitAlpha(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_COMBINEFUNC blitfunc=NULL;
   #define __LICE__ACTION(comb) blitfunc = comb::doPix;
 #else
-  #define __LICE__ACTION(comb) _LICE_Template_Blit4<comb>::deltaBlitAlpha(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sl,st,sr,sb,src_span,dest_span,ia,idadx,idady,idadxdy,mode&LICE_BLIT_FILTER_MASK)
+  #define __LICE__ACTION(comb) _LICE_Template_Blit4<comb>::deltaBlitAlpha(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sr,sb,src_span,dest_span,ia,idadx,idady,idadxdy,mode&LICE_BLIT_FILTER_MASK)
 #endif
       __LICE_ACTION_NOSRCALPHA(mode,256,true);
   #undef __LICE__ACTION
 
 #ifndef LICE_FAVOR_SPEED
-  if (blitfunc) _LICE_Template_Blit4::deltaBlitAlpha(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sl,st,sr,sb,src_span,dest_span,ia,idadx,idady,idadxdy,mode&LICE_BLIT_FILTER_MASK,blitfunc);
+  if (blitfunc) _LICE_Template_Blit4::deltaBlitAlpha(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,idsdxdy,idtdxdy,sr,sb,src_span,dest_span,ia,idadx,idady,idadxdy,mode&LICE_BLIT_FILTER_MASK,blitfunc);
 #endif
 
 }
@@ -1699,6 +1709,12 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int st=(int)(src_top);
   int sb=(int)(src_bottom);
 
+  sr -= sl;
+  sb -= st;
+  if (sr < 1 || sb < 1) return;
+
+  psrc += src_span * st + sl * sizeof(LICE_pixel);
+
   int ia=(int)(alpha*256.0);
   int isrcx=(int)(srcx*65536.0);
   int isrcy=(int)(srcy*65536.0);
@@ -1711,13 +1727,13 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_COMBINEFUNC blitfunc=NULL;
   #define __LICE__ACTION(comb) blitfunc = comb::doPix;
 #else
-  #define __LICE__ACTION(comb) _LICE_Template_Blit3<comb>::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,0,0,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
+  #define __LICE__ACTION(comb) _LICE_Template_Blit3<comb>::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,0,0,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK)
 #endif
       __LICE_ACTION_SRCALPHA(mode,ia,false);
   #undef __LICE__ACTION
 
 #ifndef LICE_FAVOR_SPEED
-  if (blitfunc) _LICE_Template_Blit3::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,0,0,sl,st,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
+  if (blitfunc) _LICE_Template_Blit3::deltaBlit(pdest,psrc,dstw,dsth,isrcx,isrcy,idsdx,idtdx,idsdy,idtdy,0,0,sr,sb,src_span,dest_span,ia,mode&LICE_BLIT_FILTER_MASK,blitfunc);
 #endif
 }
 
