@@ -663,6 +663,16 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
 }
 
+#ifdef MAC_OS_X_VERSION_10_8
+// for radio button with the OSX 10.8+ SDK, see comment in SWELL_MakeControl
+-(void) onSwellCommand0:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand2:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand3:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand4:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand5:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand6:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand7:(id)sender { [self onSwellCommand:sender]; }
+#endif
 -(void) onSwellCommand:(id)sender
 {
   if (!m_wndproc || m_hashaddestroy) return;

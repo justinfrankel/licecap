@@ -2820,11 +2820,13 @@ static float m_parent_h;
 static bool m_doautoright;
 static NSRect m_lastdoauto;
 static bool m_sizetofits;
+static int m_make_radiogroupcnt;
 
 #define ACTIONTARGET (m_make_owner)
 
 void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit)
 {
+  m_make_radiogroupcnt=0;
   m_sizetofits=dosizetofit;
   m_lastdoauto.origin.x = 0;
   m_lastdoauto.origin.y = -100;
@@ -3467,6 +3469,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     SWELL_Button *button=[[SWELL_Button alloc] init];
     [button setTag:idx];
     NSRect fr=MakeCoords(x,y,w,h,true);
+    SEL actionSel = @selector(onSwellCommand:);
     if ((style & 0xf) == BS_AUTO3STATE)
     {
       [button setButtonType:NSSwitchButton];
@@ -3479,6 +3482,33 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     }
     else if ((style & 0xf) == BS_AUTORADIOBUTTON)
     {
+#ifdef MAC_OS_X_VERSION_10_8
+      // Compiling with the OSX 10.8+ SDK and running on 10.8+ causes radio buttons with a common action selector to
+      // be treated as a group. This works around that. if you need more than 8 groups (seriously?!), add the extra 
+      // functions in swell-dlg.mm and in the switch below
+      {
+        NSView *v;
+        NSArray *sv;
+        if ((style & WS_GROUP) ||
+              !(sv = [m_make_owner subviews]) || 
+              ![sv count] ||
+              !(v = [sv lastObject]) ||
+              ![v isKindOfClass:[SWELL_Button class]] ||
+              ([(SWELL_Button *)v swellGetRadioFlags]&2)) m_make_radiogroupcnt++;
+      }
+      switch (m_make_radiogroupcnt & 7)
+      {
+        case 0: actionSel = @selector(onSwellCommand0:); break;
+        case 1: break; // default
+        case 2: actionSel = @selector(onSwellCommand2:); break;
+        case 3: actionSel = @selector(onSwellCommand3:); break;
+        case 4: actionSel = @selector(onSwellCommand4:); break;
+        case 5: actionSel = @selector(onSwellCommand5:); break;
+        case 6: actionSel = @selector(onSwellCommand6:); break;
+        case 7: actionSel = @selector(onSwellCommand7:); break;
+      }
+#endif
+     
       [button setButtonType:NSRadioButton];
       [button swellSetRadioFlags:(style & WS_GROUP)?3:1];
     }
@@ -3500,7 +3530,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     NSString *labelstr=(NSString *)SWELL_CStringToCFString_FilterPrefix(cname);
     [button setTitle:labelstr];
     [button setTarget:ACTIONTARGET];
-    [button setAction:@selector(onSwellCommand:)];
+    [button setAction:actionSel];
     if (style&BS_LEFTTEXT) [button setImagePosition:NSImageRight];
     if (style&SWELL_NOT_WS_VISIBLE) [button setHidden:YES];
     [m_make_owner addSubview:button];
