@@ -14,7 +14,7 @@
 #include "../wdlcstring.h"
 #include "curses.h"
 
-#define VALIDATE_TEXT_CHAR(thischar) ((isspace(thischar) || isgraph(thischar)) && (thischar) < 256)
+#define VALIDATE_TEXT_CHAR(thischar) ((thischar) >= 0 && (thischar) < 256 && (isspace(thischar) || isgraph(thischar)))
 
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
@@ -682,10 +682,12 @@ void WDL_CursesEditor::runSearch()
 
 static int categorizeCharForWordNess(int c)
 {
-  if (isspace(c)) return 0;
-  if (isalnum(c) || c == '_') return 1;
-  if (c==';') return 2; // I prefer this, since semicolons are somewhat special
-
+  if (c >= 0 && c < 256)
+  {
+    if (isspace(c)) return 0;
+    if (isalnum(c) || c == '_') return 1;
+    if (c == ';') return 2; // I prefer this, since semicolons are somewhat special
+  }
   return 3;
 }
 
