@@ -356,10 +356,16 @@ bool EEL_Editor::sh_draw_parentokenstack_update(const char *tok, int toklen)
 
 void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt)
 {
-  int last_attr=A_NORMAL;
+  int last_attr = A_NORMAL;
   attrset(last_attr);
-  move(y,x);
+  move(y, x);
+  bool rv = do_draw_line(p, ml, c_comment_state, skipcnt, last_attr);
+  attrset(A_NORMAL);
+  if (rv) clrtoeol();
+}
 
+bool EEL_Editor::do_draw_line(const char *p, int ml, int *c_comment_state, int skipcnt, int last_attr)
+{
   if (is_code_start_line(p)) 
   {
     *c_comment_state=0;
@@ -382,9 +388,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
   {
     draw_string(&ml,&skipcnt,p,strlen(p),&last_attr,ignoreSyntaxState==100 ? SYNTAX_ERROR : 
         ignoreSyntaxState==2 ? SYNTAX_COMMENT : A_NORMAL);
-    attrset(A_NORMAL);
-    if (ml>0) clrtoeol();
-    return;
+    return ml>0;
   }
 
 
@@ -399,7 +403,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
     if (last_comment_state>0) // if in a multi-line string or comment
     {
       // draw empty space between lp and p as a string. in this case, tok/toklen includes our string, so we quickly finish after
-      draw_string(&ml,&skipcnt,lp,p-lp,&last_attr, last_comment_state==1 ? SYNTAX_COMMENT:SYNTAX_STRING, last_comment_state=='\"');
+      draw_string(&ml,&skipcnt,lp,p-lp,&last_attr, last_comment_state==1 ? SYNTAX_COMMENT:SYNTAX_STRING, last_comment_state);
       last_comment_state=0;
       lp = p;
       continue;
@@ -420,7 +424,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
     int attr = A_NORMAL;
     int err_left=0;
     int err_right=0;
-    bool is_current_string=false;
+    int start_of_tok = 0;
 
     if (tok[0] == '/' && toklen > 1 && (tok[1] == '*' || tok[1] == '/'))
     {
@@ -481,7 +485,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
     }
     else if (tok[0] == '\'' || tok[0] == '\"')
     {
-      is_current_string = tok[0] == '\"';
+      start_of_tok = tok[0];
       attr = SYNTAX_STRING;
     }
     else if (tok[0] == '$')
@@ -530,7 +534,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
     }
     if (err_right > toklen) err_right=toklen;
 
-    draw_string(&ml,&skipcnt,tok,toklen-err_right,&last_attr,attr, is_current_string);
+    draw_string(&ml, &skipcnt, tok, toklen - err_right, &last_attr, attr, start_of_tok);
 
     if (err_right > 0)
       draw_string(&ml,&skipcnt,tok+toklen-err_right,err_right,&last_attr,SYNTAX_ERROR);
@@ -541,8 +545,7 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
       break;
     }
   }
-  attrset(A_NORMAL);
-  if (ml>0) clrtoeol();
+  return ml > 0;
 }
 
 int EEL_Editor::GetCommentStateForLineStart(int line)
