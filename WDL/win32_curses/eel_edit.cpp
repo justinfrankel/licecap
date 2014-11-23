@@ -359,12 +359,16 @@ void EEL_Editor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c
   int last_attr = A_NORMAL;
   attrset(last_attr);
   move(y, x);
-  bool rv = do_draw_line(p, ml, c_comment_state, skipcnt, last_attr);
-  attrset(A_NORMAL);
-  if (rv) clrtoeol();
+  int rv = do_draw_line(p, ml, c_comment_state, skipcnt, last_attr);
+  attrset(rv< 0 ? SYNTAX_ERROR : A_NORMAL);
+  if (rv)
+  {
+    clrtoeol();
+    if (rv < 0) attrset(A_NORMAL);
+  }
 }
 
-bool EEL_Editor::do_draw_line(const char *p, int ml, int *c_comment_state, int skipcnt, int last_attr)
+int EEL_Editor::do_draw_line(const char *p, int ml, int *c_comment_state, int skipcnt, int last_attr)
 {
   if (is_code_start_line(p)) 
   {

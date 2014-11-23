@@ -11,7 +11,7 @@ public:
   virtual ~EEL_Editor();
 
   virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
-  virtual bool do_draw_line(const char *p, int ml, int *c_comment_state, int skipcnt, int last_attr);
+  virtual int do_draw_line(const char *p, int ml, int *c_comment_state, int skipcnt, int last_attr);
   virtual int GetCommentStateForLineStart(int line); 
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen); // if multiline comment etc
   virtual void doWatchInfo(int c);
