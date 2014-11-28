@@ -464,6 +464,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_transformblit(void *opaque, INT_PTR np, EEL_F 
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) 
   {
+#ifndef EEL_LICE_NO_RAM
     EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
     if (!blocks || np < 8) return 0.0;
 
@@ -484,6 +485,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_transformblit(void *opaque, INT_PTR np, EEL_F 
     if (end != d+sz-1) return 0.0; // buffer not contiguous
 
     ctx->gfx_transformblit(parms,divw,divh,d);
+#endif
   }
   return 0.0;
 }
@@ -591,6 +593,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_blitext(void *opaque, EEL_F *img, EEL_F *coo
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) 
   {
+#ifndef EEL_LICE_NO_RAM
     EEL_F fc = *coordidx;
     if (fc < -0.5 || fc >= NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) return img;
     int a=(int)fc;
@@ -608,6 +611,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_blitext(void *opaque, EEL_F *img, EEL_F *coo
     }
     // read megabuf
     ctx->gfx_blitext(*img,buf,*rotate);
+#endif
   }
   return img;
 }
@@ -1473,7 +1477,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 
 }
 
-
+#ifndef EEL_LICE_NO_REGISTER
 void eel_lice_register()
 {
   NSEEL_addfunc_retptr("gfx_lineto",3,NSEEL_PProc_THIS,&_gfx_lineto);
@@ -1505,6 +1509,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,&_gfx_setfont);
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
 }
+#endif
 
 #ifdef EEL_LICE_WANT_STANDALONE
 
@@ -2016,6 +2021,7 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
   RegisterClass(&wc);
 #endif
 
+#ifndef EEL_LICE_NO_REGISTER
   // gfx_init(title[, w,h, flags])
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
   NSEEL_addfunc_varparm("gfx_init",1,NSEEL_PProc_THIS,&_gfx_init); 
@@ -2027,6 +2033,7 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
 #endif
 
   NSEEL_addfunc_retval("gfx_getchar",1,NSEEL_PProc_THIS,&_gfx_getchar);
+#endif
 }
 
 
