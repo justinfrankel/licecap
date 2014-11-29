@@ -263,7 +263,7 @@ public:
   void gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_F *tab); // parms[0]=src, 1-4=x,y,w,h
   void gfx_circle(float x, float y, float r, bool fill, bool aaflag);
  
-  void gfx_drawstr(void *opaque, EEL_F str, int formatmode, int nfmtparms, EEL_F **fmtparms); // formatmode=1 for format, 2 for purely measure no format
+  void gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int formatmode); // formatmode=1 for format, 2 for purely measure no format
   EEL_F gfx_loadimg(void *opaque, int img, EEL_F loadFrom);
   EEL_F gfx_setfont(void *opaque, int np, EEL_F **parms);
   EEL_F gfx_getfont(void *opaque, int np, EEL_F **parms);
@@ -520,7 +520,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_measurestr(void *opaque, EEL_F *str, EEL_F *
   if (ctx) 
   {
     EEL_F *p[2]={xOut,yOut};
-    ctx->gfx_drawstr(opaque,*str,2,2,p);
+    ctx->gfx_drawstr(opaque,&str,1,2);
   }
   return str;
 }
@@ -528,7 +528,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_measurestr(void *opaque, EEL_F *str, EEL_F *
 static EEL_F * NSEEL_CGEN_CALL _gfx_drawstr(void *opaque, EEL_F *n)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_drawstr(opaque,*n,0,0,NULL);
+  if (ctx) ctx->gfx_drawstr(opaque,&n,1,0);
   return n;
 }
 static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **parms)
@@ -537,7 +537,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **p
   if (ctx && nparms>0) 
   {
     EEL_F v= **parms;
-    ctx->gfx_drawstr(opaque,v,1,(int)nparms-1,parms+1);
+    ctx->gfx_drawstr(opaque,parms,nparms,1);
     return v;
   }
   return 0.0;
@@ -1310,8 +1310,10 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
   }
 }
 
-void eel_lice_state::gfx_drawstr(void *opaque, EEL_F ch, int formatmode, int nfmtparms, EEL_F **fmtparms)// formatmode=1 for format, 2 for purely measure no format
+void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int formatmode)// formatmode=1 for format, 2 for purely measure no format
 {
+  int nfmtparms = nparms-1;
+  EEL_F **fmtparms = parms+1;
   LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,formatmode==1?"gfx_printf":formatmode==2?"gfx_measurestr":"gfx_drawstr");
   if (!dest) return;
 
@@ -1322,9 +1324,9 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F ch, int formatmode, int nfm
   EEL_STRING_MUTEXLOCK_SCOPE
 
   WDL_FastString *fs=NULL;
-  const char *s=EEL_STRING_GET_FOR_INDEX(ch,&fs);
+  const char *s=EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
   #ifdef EEL_STRING_DEBUGOUT
-    if (!s) EEL_STRING_DEBUGOUT("gfx_%s: invalid string identifier %f",formatmode==1?"printf":formatmode==2?"measurestr":"drawstr",ch);
+    if (!s) EEL_STRING_DEBUGOUT("gfx_%s: invalid string identifier %f",formatmode==1?"printf":formatmode==2?"measurestr":"drawstr",parms[0][0]);
   #endif
   char buf[4096];
   int s_len=0;
