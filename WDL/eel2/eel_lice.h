@@ -249,6 +249,7 @@ public:
   void gfx_rect(int np, EEL_F **parms);
   void gfx_roundrect(int np, EEL_F **parms);
   void gfx_arc(int np, EEL_F **parms);
+  void gfx_set(int np, EEL_F **parms);
   void gfx_grad_or_muladd_rect(int mode, int np, EEL_F **parms);
   void gfx_setpixel(EEL_F r, EEL_F g, EEL_F b);
   void gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b);
@@ -436,6 +437,12 @@ static EEL_F NSEEL_CGEN_CALL _gfx_arc(void *opaque, INT_PTR np, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) ctx->gfx_arc((int)np,parms);
+  return 0.0;
+}
+static EEL_F NSEEL_CGEN_CALL _gfx_set(void *opaque, INT_PTR np, EEL_F **parms)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) ctx->gfx_set((int)np,parms);
   return 0.0;
 }
 static EEL_F NSEEL_CGEN_CALL _gfx_gradrect(void *opaque, INT_PTR np, EEL_F **parms)
@@ -1227,6 +1234,16 @@ void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
   SetImageDirty(dest);
 }
 
+void eel_lice_state::gfx_set(int np, EEL_F **parms)
+{
+  if (np < 1) return;
+  if (m_gfx_r) *m_gfx_r = parms[0][0];
+  if (m_gfx_g) *m_gfx_g = np > 1 ? parms[1][0] : parms[0][0];
+  if (m_gfx_b) *m_gfx_b = np > 2 ? parms[2][0] : parms[0][0];
+  if (m_gfx_a) *m_gfx_a = np > 3 ? parms[3][0] : 1.0;
+  if (m_gfx_mode) *m_gfx_mode = np > 4 ? parms[4][0] : 0;
+  if (np > 5 && m_gfx_dest) *m_gfx_dest = parms[5][0];
+}
 
 void eel_lice_state::gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b)
 {
@@ -1520,6 +1537,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_blit",4,NSEEL_PProc_THIS,&_gfx_blit2);
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,&_gfx_setfont);
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
+  NSEEL_addfunc_varparm("gfx_set",1,NSEEL_PProc_THIS,&_gfx_set);
 }
 #endif
 
@@ -2203,6 +2221,7 @@ static const char *eel_lice_function_reference =
   "gfx_circle\tx,y,r[,fill,antialias]\tDraws a circle, optionally filling/antialiasing. \0"
   "gfx_roundrect\tx,y,w,h,radius[,antialias]\tDraws a rectangle with rounded corners. \0"
   "gfx_arc\tx,y,r,ang1,ang2[,antialias]\tDraws an arc of the circle centered at x,y, with ang1/ang2 being specified in radians.\0"
+  "gfx_set\tr[,g,b,a,mode,dest]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode, sets gfx_dest if final parameter specified\0"
 
 ;
 #ifdef EELSCRIPT_LICE_MAX_IMAGES
