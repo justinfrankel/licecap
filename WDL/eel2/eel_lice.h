@@ -465,15 +465,19 @@ static EEL_F NSEEL_CGEN_CALL _gfx_transformblit(void *opaque, INT_PTR np, EEL_F 
   if (ctx) 
   {
 #ifndef EEL_LICE_NO_RAM
-    EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
-    if (!blocks || np < 8) return 0.0;
-
     const int divw = (int) (parms[5][0]+0.5);
     const int divh = (int) (parms[6][0]+0.5);
     if (divw < 1 || divh < 1) return 0.0;
+    const int sz = divw*divh*2;
+
+#ifdef EEL_LICE_RAMFUNC
+    EEL_F *d = EEL_LICE_RAMFUNC(opaque,7,sz);
+    if (!d) return 0.0;
+#else
+    EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
+    if (!blocks || np < 8) return 0.0;
 
     const int addr1= (int) (parms[7][0]+0.5);
-    const int sz = divw*divh*2;
     EEL_F *d=__NSEEL_RAMAlloc(blocks,addr1);
     if (sz>NSEEL_RAM_ITEMSPERBLOCK)
     {
@@ -483,6 +487,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_transformblit(void *opaque, INT_PTR np, EEL_F 
     }
     EEL_F *end=__NSEEL_RAMAlloc(blocks,addr1+sz-1);
     if (end != d+sz-1) return 0.0; // buffer not contiguous
+#endif
 
     ctx->gfx_transformblit(parms,divw,divh,d);
 #endif
@@ -594,6 +599,10 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_blitext(void *opaque, EEL_F *img, EEL_F *coo
   if (ctx) 
   {
 #ifndef EEL_LICE_NO_RAM
+#ifdef EEL_LICE_RAMFUNC
+    EEL_F *buf = EEL_LICE_RAMFUNC(opaque,1,10);
+    if (!buf) return img;
+#else
     EEL_F fc = *coordidx;
     if (fc < -0.5 || fc >= NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) return img;
     int a=(int)fc;
@@ -609,6 +618,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_blitext(void *opaque, EEL_F *img, EEL_F *coo
       if (!d || d==&nseel_ramalloc_onfail) return img;
       buf[x]=*d;
     }
+#endif
     // read megabuf
     ctx->gfx_blitext(*img,buf,*rotate);
 #endif
