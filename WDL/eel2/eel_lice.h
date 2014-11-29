@@ -2017,10 +2017,15 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HWND hwndPar, HICON icon)
 {
 #ifdef _WIN32
-  eel_lice_hinstance=hInstance;
-  eel_lice_standalone_classname=classname && *classname ? classname : "EEL_LICE_gfx_standalone";
-  WNDCLASS wc={CS_DBLCLKS,eel_lice_wndproc,0,0,hInstance,icon,LoadCursor(NULL,IDC_ARROW), NULL, NULL,eel_lice_standalone_classname};
-  RegisterClass(&wc);
+  static bool reg;
+  if (!reg)
+  {
+    eel_lice_hinstance=hInstance;
+    eel_lice_standalone_classname=classname && *classname ? classname : "EEL_LICE_gfx_standalone";
+    WNDCLASS wc={CS_DBLCLKS,eel_lice_wndproc,0,0,hInstance,icon,LoadCursor(NULL,IDC_ARROW), NULL, NULL,eel_lice_standalone_classname};
+    RegisterClass(&wc);
+    reg = true;
+  }
 #endif
 
 #ifndef EEL_LICE_NO_REGISTER
