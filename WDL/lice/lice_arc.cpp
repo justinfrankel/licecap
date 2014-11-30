@@ -252,7 +252,7 @@ public:
     {
       DrawClippedVertLine(dest, cx0, cy0-y, cy0-1, clip, r, g, b, a, ai, doclip);
       DrawClippedVertLine(dest, cx0, cy0+1, cy0+y, clip, r, g, b, a, ai, doclip);
-      DrawClippedHorzLine(dest, cy0, cx0-y, cx+y, clip, r, g, b, a, ai, doclip);
+      DrawClippedHorzLine(dest, cy0, cx0-y, cx0+y, clip, r, g, b, a, ai, doclip);
     }
     else
     {
