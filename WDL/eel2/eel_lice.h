@@ -183,6 +183,31 @@ static LICE_IBitmap *__LICE_CreateBitmap(int mode, int w, int h)
 #endif
 
 
+static int eel_lice_makeutf8char(char *buf, int a)
+{
+  if (a < 128)
+  {
+    if (a < 0) a=0;
+    buf[0]=(char)a;
+    buf[1]=0;
+    return 1;
+  }
+  else if (a < 2048) 
+  {
+    buf[0]=0xC0|(a>>6);
+    buf[1]=0x80|(a&0x3F);
+    buf[2]=0;
+    return 2;
+  }
+  else
+  {
+    buf[0]=0xE0|(a>>12);
+    buf[1]=0x80|((a>>6)&0x3F);
+    buf[2]=0x80|(a&0x3F);
+    buf[3]=0;
+    return 3;
+  }
+}
 
 
 class eel_lice_state
@@ -264,7 +289,7 @@ public:
   void gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_F *tab); // parms[0]=src, 1-4=x,y,w,h
   void gfx_circle(float x, float y, float r, bool fill, bool aaflag);
  
-  void gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int formatmode); // formatmode=1 for format, 2 for purely measure no format
+  void gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int formatmode); // formatmode=1 for format, 2 for purely measure no format, 3 for measure char
   EEL_F gfx_loadimg(void *opaque, int img, EEL_F loadFrom);
   EEL_F gfx_setfont(void *opaque, int np, EEL_F **parms);
   EEL_F gfx_getfont(void *opaque, int np, EEL_F **parms);
@@ -533,6 +558,16 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_measurestr(void *opaque, EEL_F *str, EEL_F *
   {
     EEL_F *p[3]={str,xOut,yOut};
     ctx->gfx_drawstr(opaque,p,3,2);
+  }
+  return str;
+}
+static EEL_F * NSEEL_CGEN_CALL _gfx_measurechar(void *opaque, EEL_F *str, EEL_F *xOut, EEL_F *yOut)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) 
+  {
+    EEL_F *p[3]={str,xOut,yOut};
+    ctx->gfx_drawstr(opaque,p,3,3);
   }
   return str;
 }
@@ -1341,7 +1376,11 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int fo
 {
   int nfmtparms = nparms-1;
   EEL_F **fmtparms = parms+1;
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,formatmode==1?"gfx_printf":formatmode==2?"gfx_measurestr":"gfx_drawstr");
+  const char *funcname =  formatmode==1?"gfx_printf":
+                          formatmode==2?"gfx_measurestr":
+                          formatmode==3?"gfx_measurechar" : "gfx_drawstr";
+
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,funcname);
   if (!dest) return;
 
 #ifdef DYNAMIC_LICE
@@ -1351,32 +1390,42 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int fo
   EEL_STRING_MUTEXLOCK_SCOPE
 
   WDL_FastString *fs=NULL;
-  const char *s=EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
-  #ifdef EEL_STRING_DEBUGOUT
-    if (!s) EEL_STRING_DEBUGOUT("gfx_%s: invalid string identifier %f",formatmode==1?"printf":formatmode==2?"measurestr":"drawstr",parms[0][0]);
-  #endif
   char buf[4096];
   int s_len=0;
-  if (!s) 
+
+  const char *s;
+  if (formatmode==3) 
   {
-    s="<bad string>";
-    s_len = 12;
-  }
-  else if (formatmode==1)
-  {
-    extern int eel_format_strings(void *, const char *s, const char *ep, char *, int, int, EEL_F **);
-    s_len = eel_format_strings(opaque,s,fs?(s+fs->GetLength()):NULL,buf,sizeof(buf),nfmtparms,fmtparms);
-    if (s_len<1) return;
+    s_len = eel_lice_makeutf8char(buf,(int) parms[0][0]);
     s=buf;
   }
-  else
+  else 
   {
-    s_len = fs?fs->GetLength():(int)strlen(s);
+    s=EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
+    #ifdef EEL_STRING_DEBUGOUT
+      if (!s) EEL_STRING_DEBUGOUT("gfx_%s: invalid string identifier %f",funcname,parms[0][0]);
+    #endif
+    if (!s) 
+    {
+      s="<bad string>";
+      s_len = 12;
+    }
+    else if (formatmode==1)
+    {
+      extern int eel_format_strings(void *, const char *s, const char *ep, char *, int, int, EEL_F **);
+      s_len = eel_format_strings(opaque,s,fs?(s+fs->GetLength()):NULL,buf,sizeof(buf),nfmtparms,fmtparms);
+      if (s_len<1) return;
+      s=buf;
+    }
+    else 
+    {
+      s_len = fs?fs->GetLength():(int)strlen(s);
+    }
   }
 
   if (s_len)
   {
-    if (formatmode==2)
+    if (formatmode>=2)
     {
       if (nfmtparms==2)
         __drawTextWithFont(dest,0,0,GetActiveFont(),s,s_len,getCurColor(),getCurMode(),(float) *m_gfx_a,NULL, fmtparms);
@@ -1396,31 +1445,13 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
   if (!dest) return;
 
   int a=(int)(ch+0.5);
-  if (a < 0) a=0;
   if (a == '\r' || a=='\n') a=' ';
 
   char buf[32];
-  if (a < 128)
-  {
-    buf[0]=(char)a;
-    buf[1]=0;
-  }
-  else if (a < 2048) 
-  {
-    buf[0]=0xC0|(a>>6);
-    buf[1]=0x80|(a&0x3F);
-    buf[2]=0;
-  }
-  else
-  {
-    buf[0]=0xE0|(a>>12);
-    buf[1]=0x80|((a>>6)&0x3F);
-    buf[2]=0x80|(a&0x3F);
-    buf[3]=0;
-  }
+  const int buflen = eel_lice_makeutf8char(buf,a);
 
   *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
-                         GetActiveFont(),buf,strlen(buf),
+                         GetActiveFont(),buf,buflen,
                          getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);
 
   SetImageDirty(dest);
@@ -1546,6 +1577,7 @@ void eel_lice_register()
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
   NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
   NSEEL_addfunc_retptr("gfx_measurestr",3,NSEEL_PProc_THIS,&_gfx_measurestr);
+  NSEEL_addfunc_retptr("gfx_measurechar",3,NSEEL_PProc_THIS,&_gfx_measurechar);
   NSEEL_addfunc_varparm("gfx_printf",1,NSEEL_PProc_THIS,&_gfx_printf);
   NSEEL_addfunc_retptr("gfx_setpixel",3,NSEEL_PProc_THIS,&_gfx_setpixel);
   NSEEL_addfunc_retptr("gfx_getpixel",3,NSEEL_PProc_THIS,&_gfx_getpixel);
@@ -2218,6 +2250,7 @@ static const char *eel_lice_function_reference =
   "gfx_drawchar\tchar\tDraws the character (can be a numeric ASCII code as well), to gfx_x, gfx_y, and moves gfx_x over by the size of the character.\0"
   "gfx_drawstr\t\"str\"\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\0"
   "gfx_measurestr\t\"str\",&w,&h\tMeasures the drawing dimensions of a string with the current font (as set by gfx_setfont). \0"
+  "gfx_measurechar\tcharacter,&w,&h\tMeasures the drawing dimensions of a character with the current font (as set by gfx_setfont). \0"
   "gfx_setfont\tidx[,\"fontface\", sz, flags]\tCan select a font and optionally configure it. idx=0 for default bitmapped font, no configuration is possible for this font. idx=1..16 for a configurable font, specify fontface such as \"Arial\", sz of 8-100, and optionally specify flags, which is a multibyte character, which can include 'i' for italics, 'u' for underline, or 'b' for bold. These flags may or may not be supported depending on the font and OS. After calling gfx_setfont(), gfx_texth may be updated to reflect the new average line height.\0"
   "gfx_getfont\t\tReturns current font index.\0"
   "gfx_printf\t\"format\"[, ...]\tFormats and draws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y accordingly (the latter only if the formatted string contains newline). For more information on format strings, see sprintf()\0"
