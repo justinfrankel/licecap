@@ -531,8 +531,8 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_measurestr(void *opaque, EEL_F *str, EEL_F *
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) 
   {
-    EEL_F *p[2]={xOut,yOut};
-    ctx->gfx_drawstr(opaque,&str,1,2);
+    EEL_F *p[3]={str,xOut,yOut};
+    ctx->gfx_drawstr(opaque,p,3,2);
   }
   return str;
 }
