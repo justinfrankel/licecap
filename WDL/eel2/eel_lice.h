@@ -1396,11 +1396,31 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
   if (!dest) return;
 
   int a=(int)(ch+0.5);
+  if (a < 0) a=0;
   if (a == '\r' || a=='\n') a=' ';
 
-  char buf[2]={(char)a,0};
+  char buf[32];
+  if (a < 128)
+  {
+    buf[0]=(char)a;
+    buf[1]=0;
+  }
+  else if (a < 2048) 
+  {
+    buf[0]=0xC0|(a>>6);
+    buf[1]=0x80|(a&0x3F);
+    buf[2]=0;
+  }
+  else
+  {
+    buf[0]=0xE0|(a>>12);
+    buf[1]=0x80|((a>>6)&0x3F);
+    buf[2]=0x80|(a&0x3F);
+    buf[3]=0;
+  }
+
   *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
-                         GetActiveFont(),buf,1,
+                         GetActiveFont(),buf,strlen(buf),
                          getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);
 
   SetImageDirty(dest);
