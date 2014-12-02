@@ -993,6 +993,7 @@ SWELL_API_DEFINE(void, SetBkMode,(HDC ctx, int col))
 SWELL_API_DEFINE(void, RoundRect,(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd))
 SWELL_API_DEFINE(void, PolyPolyline,(HDC ctx, POINT *pts, DWORD *cnts, int nseg))
 SWELL_API_DEFINE(BOOL, GetTextMetrics,(HDC ctx, TEXTMETRIC *tm))
+SWELL_API_DEFINE(int, GetTextFace,(HDC ctx, int nCount, LPTSTR lpFaceName))
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
 #endif
