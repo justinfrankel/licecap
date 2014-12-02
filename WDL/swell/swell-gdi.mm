@@ -699,9 +699,6 @@ int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
 
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
-  char buf[128];
-  GetTextFace(ctx, 128, buf);
-  
   HDC__ *ct=(HDC__ *)ctx;
   if (tm) // give some sane defaults
   {
