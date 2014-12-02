@@ -232,6 +232,7 @@ public:
   struct gfxFontStruct {
     LICE_IFont *font;
     char last_fontname[128];
+    char actual_fontname[128];
     int last_fontsize;
     int last_fontflag;
 
@@ -620,7 +621,13 @@ static EEL_F NSEEL_CGEN_CALL _gfx_setfont(void *opaque, INT_PTR np, EEL_F **parm
 static EEL_F NSEEL_CGEN_CALL _gfx_getfont(void *opaque, INT_PTR np, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) return ctx->m_gfx_font_active+1;
+  if (ctx) 
+  {
+    int idx=ctx->m_gfx_font_active+1;
+    eel_lice_state::gfxFontStruct* f=ctx->m_gfx_fonts.Get()+idx;
+    OutputDebugString(f->actual_fontname);
+    return idx;
+  }
   return 0.0;
 }
 
@@ -1019,6 +1026,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
       
       bool doCreate=false;
       int fontflag=0;
+      s->actual_fontname[0]=0;
 
       {
         EEL_STRING_MUTEXLOCK_SCOPE
@@ -1080,6 +1088,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
               {
                 oldFont = SelectObject(hdc,hf);
                 GetTextMetrics(hdc,&tm);
+                GetTextFace(hdc, sizeof(s->actual_fontname), s->actual_fontname);
                 SelectObject(hdc,oldFont);
               }
             }
