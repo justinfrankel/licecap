@@ -623,9 +623,20 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getfont(void *opaque, INT_PTR np, EEL_F **parm
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) 
   {
-    int idx=ctx->m_gfx_font_active+1;
-    eel_lice_state::gfxFontStruct* f=ctx->m_gfx_fonts.Get()+idx;
-    OutputDebugString(f->actual_fontname);
+    const int idx=ctx->m_gfx_font_active;
+    if (idx>=0 && idx < ctx->m_gfx_fonts.GetSize())
+    {
+      eel_lice_state::gfxFontStruct* f=ctx->m_gfx_fonts.Get()+idx;
+
+      EEL_STRING_MUTEXLOCK_SCOPE
+    
+#ifdef NOT_EEL_STRING_UPDATE_STRING
+      NOT_EEL_STRING_UPDATE_STRING(parms[0][0],f->actual_fontname);
+#else
+      WDL_FastString *fs=NULL;
+      EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
+#endif
+    }
     return idx;
   }
   return 0.0;
@@ -1026,7 +1037,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
       
       bool doCreate=false;
       int fontflag=0;
-      s->actual_fontname[0]=0;
+      if (!s->font) s->actual_fontname[0]=0;
 
       {
         EEL_STRING_MUTEXLOCK_SCOPE
@@ -1065,6 +1076,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
 
       if (doCreate)
       {
+        s->actual_fontname[0]=0;
         if (!s->font) s->font=LICE_CreateFont();
         if (s->font)
         {
@@ -2261,7 +2273,7 @@ static const char *eel_lice_function_reference =
   "gfx_measurestr\t\"str\",&w,&h\tMeasures the drawing dimensions of a string with the current font (as set by gfx_setfont). \0"
   "gfx_measurechar\tcharacter,&w,&h\tMeasures the drawing dimensions of a character with the current font (as set by gfx_setfont). \0"
   "gfx_setfont\tidx[,\"fontface\", sz, flags]\tCan select a font and optionally configure it. idx=0 for default bitmapped font, no configuration is possible for this font. idx=1..16 for a configurable font, specify fontface such as \"Arial\", sz of 8-100, and optionally specify flags, which is a multibyte character, which can include 'i' for italics, 'u' for underline, or 'b' for bold. These flags may or may not be supported depending on the font and OS. After calling gfx_setfont(), gfx_texth may be updated to reflect the new average line height.\0"
-  "gfx_getfont\t\tReturns current font index.\0"
+  "gfx_getfont\t[#str]\tReturns current font index. If a string is passed, it will receive the actual font face used by this font, if available.\0"
   "gfx_printf\t\"format\"[, ...]\tFormats and draws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y accordingly (the latter only if the formatted string contains newline). For more information on format strings, see sprintf()\0"
   "gfx_blurto\tx,y\tBlurs the region of the screen between gfx_x,gfx_y and x,y, and updates gfx_x,gfx_y to x,y.\0"
   "gfx_blit\tsource,scale,rotation\tIf three parameters are specified, copies the entirity of the source bitmap to gfx_x,gfx_y using current opacity and copy mode (set with gfx_a, gfx_mode). You can specify scale (1.0 is unscaled) and rotation (0.0 is not rotated, angles are in radians).\nFor the \"source\" parameter specify -1 to use the main framebuffer as source, or an image index (see gfx_loadimg()).\0"
