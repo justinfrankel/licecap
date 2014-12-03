@@ -95,6 +95,8 @@ typedef struct win32CursesCtx
   char want_getch_runmsgpump; // set to 1 to cause getch() to run the message pump, 2 to cause it to be blocking (waiting for keychar)
   char cursor_type; // set to WIN32_CURSES_CURSOR_TYPE_VERTBAR etc
 
+  void (*do_update)(win32CursesCtx *ctx); // called on resize/etc, to avoid flicker. NULL will use default behavior
+
   void *user_data;
   LRESULT (*onMouseMessage)(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 } win32CursesCtx;

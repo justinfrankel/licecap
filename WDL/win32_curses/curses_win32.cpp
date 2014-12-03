@@ -263,8 +263,9 @@ static void m_reinit_framebuffer(win32CursesCtx *ctx)
     if (ctx->cols<1) ctx->cols=1;
     ctx->m_cursor_x=0;
     ctx->m_cursor_y=0;
-    ctx->m_framebuffer=(unsigned char *)realloc(ctx->m_framebuffer,2*ctx->lines*ctx->cols);
-    if (ctx->m_framebuffer) memset(ctx->m_framebuffer,0,2*ctx->lines*ctx->cols);
+    free(ctx->m_framebuffer);
+    ctx->m_framebuffer=(unsigned char *)malloc(2*ctx->lines*ctx->cols);
+    if (ctx->m_framebuffer) memset(ctx->m_framebuffer, 0,2*ctx->lines*ctx->cols);
 }
 #ifndef WM_MOUSEWHEEL
 #define WM_MOUSEWHEEL 0x20A
@@ -331,7 +332,8 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		if (wParam != SIZE_MINIMIZED)
 		{
 			m_reinit_framebuffer(ctx);
-			ctx->need_redraw|=1;
+      if (ctx->do_update) ctx->do_update(ctx);
+			else ctx->need_redraw|=1;
 		}
 	return 0;
   case WM_RBUTTONDOWN:
@@ -376,7 +378,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
       SetTimer(hwnd,CURSOR_BLINK_TIMER,CURSOR_BLINK_TIMER_MS,NULL);
     return 0;
     case WM_ERASEBKGND:
-    return 0;
+    return 1;
     case WM_PAINT:
       {
         {

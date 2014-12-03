@@ -26,7 +26,15 @@ char WDL_CursesEditor::s_search_string[256];
 #define WM_MOUSEWHEEL 0x20A
 #endif
 
-
+static void __curses_onresize(win32CursesCtx *ctx)
+{
+  WDL_CursesEditor *p = (WDL_CursesEditor *)ctx->user_data;
+  if (p)
+  {
+    p->draw();
+    p->setCursor();
+  }
+}
 WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
 { 
   m_max_undo_states = 500;
@@ -59,6 +67,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
     CURSES_INSTANCE->user_data = this;
     CURSES_INSTANCE->onMouseMessage = _onMouseMessage;
     CURSES_INSTANCE->want_scrollbar=1;
+    CURSES_INSTANCE->do_update = __curses_onresize;
   }
 #endif
 
