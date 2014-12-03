@@ -530,11 +530,11 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
             int ex=ctx->cols*ctx->m_font_w;
             int ey=ctx->lines*ctx->m_font_h;
-            if (right_scroll_margin > 0&& updr.right >= ex-right_scroll_margin*ctx->m_font_w)
+            if (right_scroll_margin > 0 && updr.right >= ex-right_scroll_margin*ctx->m_font_w)
             {
               HBRUSH sb1=CreateSolidBrush(RGB(128,128,128));
               HBRUSH sb2=CreateSolidBrush(RGB(96, 96, 96));
-              RECT tr = { ex-right_scroll_margin*ctx->m_font_w, updr.top, ex, min(ctx->scroll_y,updr.bottom) };
+              RECT tr = { ex-right_scroll_margin*ctx->m_font_w, updr.top, updr.right, min(ctx->scroll_y,updr.bottom) };
               if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
               tr.top=max(updr.top,ctx->scroll_y);
               tr.bottom=min(updr.bottom,ctx->scroll_y+ctx->scroll_h);
@@ -546,11 +546,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
               DeleteObject(sb2);
             }
 
-            if (updr.right > ex)
-            {
-              RECT tr = { max(ex,updr.left), updr.top, updr.right, updr.bottom };
-              FillRect(hdc, &tr, bgbrushes[0]);
-            }
             if (updr.bottom > ey)
             {
               RECT tr= { updr.left, max(ey,updr.top), updr.right, updr.bottom };
