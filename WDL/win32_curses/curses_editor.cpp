@@ -66,7 +66,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   {
     CURSES_INSTANCE->user_data = this;
     CURSES_INSTANCE->onMouseMessage = _onMouseMessage;
-    CURSES_INSTANCE->want_scrollbar=1;
+    CURSES_INSTANCE->want_scrollbar=1; // 1 char wide, can also do 2
     CURSES_INSTANCE->do_update = __curses_onresize;
   }
 #endif
@@ -178,7 +178,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
         if ((uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
             && CURSES_INSTANCE->scroll_h && 
-            mousex > (CURSES_INSTANCE->cols-3)*CURSES_INSTANCE->m_font_w)
+            mousex > (CURSES_INSTANCE->cols-CURSES_INSTANCE->want_scrollbar)*CURSES_INSTANCE->m_font_w)
         {
           const int prevoffs=m_offs_y;
           if (mousey < CURSES_INSTANCE->scroll_y)
@@ -338,7 +338,7 @@ void WDL_CursesEditor::draw_status_state()
  
     int l = (int)strlen(statusstr);
     if (l > 28) l=28;
-    mvaddnstr(LINES-1,COLS-l-4,statusstr,l);
+    mvaddnstr(LINES-1,COLS-l-1-CURSES_INSTANCE->want_scrollbar,statusstr,l);
     clrtoeol();
 
     attrset(0);

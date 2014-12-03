@@ -386,7 +386,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           HDC hdc=BeginPaint(hwnd,&ps);
           if (hdc)
           {
-            if (ctx->want_scrollbar)
+            if (ctx->want_scrollbar>0)
             {
               ctx->scroll_y=0;
               ctx->scroll_h=0;
@@ -427,7 +427,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      if (r.bottom > ctx->lines) r.bottom=ctx->lines;
 			      if (r.left < 0) r.left=0;
 
-            const int right_scroll_margin = ctx->want_scrollbar && ctx->scroll_h>0 ? 2 : 0;
+            const int right_scroll_margin = ctx->scroll_h>0 && ctx->want_scrollbar > 0? ctx->want_scrollbar : 0;
 			      if (r.right > ctx->cols-right_scroll_margin) r.right=ctx->cols-right_scroll_margin;
 
             HBRUSH bgbrushes[COLOR_PAIRS << NUM_ATTRBITS];
