@@ -98,7 +98,15 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           m_offs_y=CURSES_INSTANCE->tot_y*(mousey-m_scrollcap_yoffs)/(CURSES_INSTANCE->lines*CURSES_INSTANCE->m_font_h);
           if (m_offs_y < 0) m_offs_y=0;
           else if (m_offs_y > CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4) m_offs_y=CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4;
-          if (m_offs_y != prevoffs) draw();
+          if (m_offs_y != prevoffs) 
+          {
+            draw();
+            draw_status_state();
+            const int line = m_curs_y-m_offs_y, col = m_curs_x-m_offs_x;
+            if (col >=0 && col < COLS &&
+                line >= 0 && line < LINES - m_bottom_margin-m_top_margin)
+                    move(line+1,col);
+          }
           return 0;
         }
 
@@ -163,25 +171,32 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
             && CURSES_INSTANCE->scroll_h && 
             mousex > (CURSES_INSTANCE->cols-3)*CURSES_INSTANCE->m_font_w)
         {
+          const int prevoffs=m_offs_y;
           if (mousey < CURSES_INSTANCE->scroll_y)
           {
-            int prevoffs=m_offs_y;
             m_offs_y -= CURSES_INSTANCE->lines;
             if (m_offs_y < 0) m_offs_y=0;
-            if (m_offs_y != prevoffs) draw();
           }
           else if (mousey > CURSES_INSTANCE->scroll_y+CURSES_INSTANCE->scroll_h)
           {
             int prevoffs=m_offs_y;
             m_offs_y += CURSES_INSTANCE->lines;
             if (m_offs_y > CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4) m_offs_y=CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4;
-            if (m_offs_y != prevoffs) draw();
           }
           else
           {
             SetCapture(hwnd);
             m_scrollcap=true;
             m_scrollcap_yoffs=mousey-CURSES_INSTANCE->scroll_y;
+          }
+          if (m_offs_y != prevoffs) 
+          {
+            draw();
+            draw_status_state();
+            const int line = m_curs_y-m_offs_y, col = m_curs_x-m_offs_x;
+            if (col >=0 && col < COLS &&
+                line >= 0 && line < LINES - m_bottom_margin-m_top_margin)
+                    move(line+1,col);
           }
           return 0;
         }
@@ -312,7 +327,9 @@ void WDL_CursesEditor::draw_status_state()
     attrset(m_color_statustext);
     bkgdset(m_color_statustext);
  
-    mvaddstr(LINES-1,COLS-28,statusstr);
+    int l = (int)strlen(statusstr);
+    if (l > 28) l=28;
+    mvaddnstr(LINES-1,COLS-l-4,statusstr,l);
     clrtoeol();
 
     attrset(0);
