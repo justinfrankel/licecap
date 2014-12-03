@@ -14,7 +14,9 @@
 #include "../wdlcstring.h"
 #include "curses.h"
 
+#ifndef VALIDATE_TEXT_CHAR
 #define VALIDATE_TEXT_CHAR(thischar) ((thischar) >= 0 && (thischar) < 256 && (isspace(thischar) || isgraph(thischar)))
+#endif
 
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
@@ -148,6 +150,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         }
       }
     break;
+    case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
     case WM_LBUTTONDOWN:
       if (CURSES_INSTANCE->m_font_w && CURSES_INSTANCE->m_font_h)
@@ -155,8 +158,9 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         int mousex=(short)LOWORD(lParam);
         int mousey=(short)HIWORD(lParam);
 
-        if (uMsg == WM_LBUTTONDOWN && CURSES_INSTANCE->scroll_h && 
-          mousex > (CURSES_INSTANCE->cols-3)*CURSES_INSTANCE->m_font_w)
+        if ((uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK)
+            && CURSES_INSTANCE->scroll_h && 
+            mousex > (CURSES_INSTANCE->cols-3)*CURSES_INSTANCE->m_font_w)
         {
           if (mousey < CURSES_INSTANCE->scroll_y)
           {
@@ -181,6 +185,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           return 0;
         }
 
+        if (uMsg == WM_LBUTTONDBLCLK) break;
         if (uMsg == WM_LBUTTONDOWN) m_selecting=0;
 
         m_curs_x = m_offs_x +  mousex/ CURSES_INSTANCE->m_font_w;
