@@ -85,7 +85,7 @@ typedef struct win32CursesCtx
   unsigned char m_kb_queue_valid;
   unsigned char m_kb_queue_pos;
 
-  char need_redraw; // &2 = need font calculation, &1 = need redraw
+  char need_redraw; // &2 = need font calculation, &1 = need redraw, &4=full paint pending, no need to keep invalidating
   char cursor_state; // blinky cycle
 
   char m_cur_attr;
@@ -117,6 +117,7 @@ void __clrtoeol(win32CursesCtx *inst);
 void __initscr(win32CursesCtx *inst);
 void __endwin(win32CursesCtx *inst);
 void __curses_erase(win32CursesCtx *inst);
+void __curses_invalidatefull(win32CursesCtx *inst, bool finish); // use around a block with a lot of drawing to prevent excessive invalidaterects
 
 int curses_getch(win32CursesCtx *inst);
 

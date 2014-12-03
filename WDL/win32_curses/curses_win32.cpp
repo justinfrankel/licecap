@@ -27,12 +27,31 @@ static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey
 
   doFontCalc(ctx,NULL);
 
+  if (!ctx->m_hwnd || (ctx->need_redraw&4)) return;
+
   RECT r;
   r.left=sx*ctx->m_font_w;
   r.top=sy*ctx->m_font_h;
   r.right=ex*ctx->m_font_w;
   r.bottom=ey*ctx->m_font_h;
-  if (ctx->m_hwnd) InvalidateRect(ctx->m_hwnd,&r,FALSE);
+  InvalidateRect(ctx->m_hwnd,&r,FALSE);
+}
+
+void __curses_invalidatefull(win32CursesCtx *inst, bool finish)
+{
+  if (inst && inst->m_hwnd)
+  {
+    if (finish)
+    {
+      if (inst->need_redraw&4)
+      {
+        inst->need_redraw&=~4;
+        InvalidateRect(inst->m_hwnd,NULL,FALSE);
+      }
+    }
+    else
+      inst->need_redraw|=4;
+  }
 }
 
 void __addnstr(win32CursesCtx *ctx, const char *str,int n)
@@ -360,15 +379,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
     return 0;
     case WM_PAINT:
       {
-        RECT r;
-#ifdef _WIN32
-        bool upd=true;
-        if (!ctx->scroll_h && ctx->tot_y <= ctx->lines) upd=GetUpdateRect(hwnd, &r, FALSE);
-        else GetClientRect(hwnd, &r);
-        if (upd)
-#else
-        GetClientRect(hwnd, &r);
-#endif
         {
           PAINTSTRUCT ps;
           HDC hdc=BeginPaint(hwnd,&ps);
@@ -387,6 +397,8 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 if (ctx->scroll_y > ey-ctx->scroll_h) ctx->scroll_y=ey-ctx->scroll_h;
               }
             }
+
+            RECT r = ps.rcPaint;
             doFontCalc(ctx,ps.hdc);
             
             HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);

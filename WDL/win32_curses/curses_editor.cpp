@@ -504,6 +504,8 @@ void WDL_CursesEditor::draw(int lineidx)
     return;
   }
 
+  __curses_invalidatefull((win32CursesCtx*)m_cursesCtx,false);
+
   draw_top_line();
 
   attrset(A_NORMAL);
@@ -547,6 +549,7 @@ void WDL_CursesEditor::draw(int lineidx)
     attrset(0);
     bkgdset(0);
   }
+  __curses_invalidatefull((win32CursesCtx*)m_cursesCtx,true);
 }
 
 void WDL_CursesEditor::draw_bottom_line()
