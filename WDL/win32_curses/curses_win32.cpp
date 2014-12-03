@@ -361,11 +361,14 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
     case WM_PAINT:
       {
         RECT r;
-//#ifdef _WIN32
-//        if (GetUpdateRect(hwnd,&r,FALSE))
-//#else
-          GetClientRect(hwnd,&r);
-//#endif
+#ifdef _WIN32
+        bool upd=true;
+        if (!ctx->scroll_h && ctx->tot_y <= ctx->lines) upd=GetUpdateRect(hwnd, &r, FALSE);
+        else GetClientRect(hwnd, &r);
+        if (upd)
+#else
+        GetClientRect(hwnd, &r);
+#endif
         {
           PAINTSTRUCT ps;
           HDC hdc=BeginPaint(hwnd,&ps);
