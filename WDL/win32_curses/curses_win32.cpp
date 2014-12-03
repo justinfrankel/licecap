@@ -374,6 +374,19 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           HDC hdc=BeginPaint(hwnd,&ps);
           if (hdc)
           {
+            if (ctx->want_scrollbar)
+            {
+              ctx->scroll_y=0;
+              ctx->scroll_h=0;
+              if (ctx->tot_y > ctx->lines)
+              {
+                int ey=ctx->lines*ctx->m_font_h;
+                ctx->scroll_h=ey*ctx->lines/ctx->tot_y;
+                if (ctx->scroll_h < 24) ctx->scroll_h=24;
+                ctx->scroll_y=ey*ctx->offs_y/ctx->tot_y;
+                if (ctx->scroll_y > ey-ctx->scroll_h) ctx->scroll_y=ey-ctx->scroll_h;
+              }
+            }
             doFontCalc(ctx,ps.hdc);
             
             HGDIOBJ oldf=SelectObject(hdc,ctx->mOurFont);
@@ -392,20 +405,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      r.right += ctx->m_font_w-1;
 			      r.right /= ctx->m_font_w;
           
-            if (ctx->want_scrollbar)
-            {
-              ctx->scroll_y=0;
-              ctx->scroll_h=0;
-              if (ctx->tot_y > ctx->lines)
-              {
-                int ey=ctx->lines*ctx->m_font_h;
-                ctx->scroll_h=(ey-updr.top)*ctx->lines/ctx->tot_y;
-                if (ctx->scroll_h < 24) ctx->scroll_h=24;
-                ctx->scroll_y=(ey-updr.top)*ctx->offs_y/ctx->tot_y;
-                if (ctx->scroll_y > ey-ctx->scroll_h) ctx->scroll_y=ey-ctx->scroll_h;
-              }
-              if (ctx->scroll_h) r.right -= 3;
-            }
             
 			      ypos = r.top * ctx->m_font_h;
 			      ptr += 2*(r.top * ctx->cols);
@@ -413,7 +412,9 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      if (r.top < 0) r.top=0;
 			      if (r.bottom > ctx->lines) r.bottom=ctx->lines;
 			      if (r.left < 0) r.left=0;
-			      if (r.right > ctx->cols) r.right=ctx->cols;
+
+            const int right_scroll_margin = ctx->want_scrollbar && ctx->scroll_h>0 ? 2 : 0;
+			      if (r.right > ctx->cols-right_scroll_margin) r.right=ctx->cols-right_scroll_margin;
 
             HBRUSH bgbrushes[COLOR_PAIRS << NUM_ATTRBITS];
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) bgbrushes[y] = CreateSolidBrush(ctx->colortab[y][1]);
@@ -513,34 +514,33 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
               }
             }
 
-            if (ctx->want_scrollbar)
+            int ex=ctx->cols*ctx->m_font_w;
+            int ey=ctx->lines*ctx->m_font_h;
+            if (right_scroll_margin > 0&& updr.right >= ex-right_scroll_margin*ctx->m_font_w)
             {
-              int ex=r.right*ctx->m_font_w;
-              int ey=r.bottom*ctx->m_font_h;
-              if (ctx->scroll_h)
-              {
-                HBRUSH sb1=CreateSolidBrush(RGB(128,128,128));
-                HBRUSH sb2=CreateSolidBrush(RGB(96, 96, 96));
-                RECT tr = { ex, updr.top, ex+2*ctx->m_font_w, ctx->scroll_y };
-                FillRect(hdc, &tr, sb1);
-                tr.top=ctx->scroll_y;
-                tr.bottom=ctx->scroll_y+ctx->scroll_h;
-                FillRect(hdc, &tr, sb2);
-                tr.top=ctx->scroll_y+ctx->scroll_h;
-                tr.bottom=ey;
-                FillRect(hdc, &tr, sb1);
-                DeleteObject(sb1);
-                DeleteObject(sb2);
-                ex += 2*ctx->m_font_w;
-              }
-              {
-                RECT tr = { ex, updr.top, updr.right, updr.bottom };
-                FillRect(hdc, &tr, bgbrushes[0]);
-              }
-              {
-                RECT tr= { updr.left, ey, updr.right, updr.bottom };
-                FillRect(hdc, &tr, bgbrushes[0]);
-              }
+              HBRUSH sb1=CreateSolidBrush(RGB(128,128,128));
+              HBRUSH sb2=CreateSolidBrush(RGB(96, 96, 96));
+              RECT tr = { ex-right_scroll_margin*ctx->m_font_w, updr.top, ex, min(ctx->scroll_y,updr.bottom) };
+              if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
+              tr.top=max(updr.top,ctx->scroll_y);
+              tr.bottom=min(updr.bottom,ctx->scroll_y+ctx->scroll_h);
+              if (tr.bottom > tr.top) FillRect(hdc, &tr, sb2);
+              tr.top=max(updr.top,ctx->scroll_y+ctx->scroll_h);
+              tr.bottom=updr.bottom;
+              if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
+              DeleteObject(sb1);
+              DeleteObject(sb2);
+            }
+
+            if (updr.right > ex)
+            {
+              RECT tr = { max(ex,updr.left), updr.top, updr.right, updr.bottom };
+              FillRect(hdc, &tr, bgbrushes[0]);
+            }
+            if (updr.bottom > ey)
+            {
+              RECT tr= { updr.left, max(ey,updr.top), updr.right, updr.bottom };
+              FillRect(hdc, &tr, bgbrushes[0]);
             }
 
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) DeleteObject(bgbrushes[y]);
