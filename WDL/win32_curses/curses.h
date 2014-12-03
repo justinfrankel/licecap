@@ -67,6 +67,9 @@ typedef struct win32CursesCtx
   HWND m_hwnd;
   int lines, cols;
 
+  int offs_y, tot_y;
+  int scroll_y, scroll_h;
+
   int m_cursor_x, m_cursor_y;
   int cursor_state_lx,cursor_state_ly; // used to detect changes and reset cursor_state
 
@@ -101,7 +104,6 @@ void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx);
 void curses_unregisterChildClass(HINSTANCE hInstance);
 void curses_registerChildClass(HINSTANCE hInstance);
 HWND curses_CreateWindow(HINSTANCE hInstance, win32CursesCtx *ctx, const char *title);
-
 
 
 void __addnstr(win32CursesCtx *inst, const char *str,int n);

@@ -83,6 +83,8 @@ protected:
   int m_curs_x, m_curs_y;
   int m_want_x;
 
+  bool m_scrollcap;
+  int m_scrollcap_yoffs;
 
   static char s_search_string[256];
   static int s_overwrite;

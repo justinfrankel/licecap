@@ -48,6 +48,8 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   m_undoStack_pos=-1;
   m_clean_undopos=0;
 
+  m_scrollcap=false;
+  m_scrollcap_yoffs=0;
 
 #ifdef WDL_IS_FAKE_CURSES
   if (m_cursesCtx)
@@ -86,6 +88,17 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     case WM_MOUSEMOVE:
       if (GetCapture()==hwnd && CURSES_INSTANCE->m_font_w && CURSES_INSTANCE->m_font_h)
       {
+        if (m_scrollcap)
+        {
+          int prevoffs=m_offs_y;
+          int mousey=(short)HIWORD(lParam);
+          m_offs_y=CURSES_INSTANCE->tot_y*(mousey-m_scrollcap_yoffs)/(CURSES_INSTANCE->lines*CURSES_INSTANCE->m_font_h);
+          if (m_offs_y < 0) m_offs_y=0;
+          else if (m_offs_y > CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4) m_offs_y=CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4;
+          if (m_offs_y != prevoffs) draw();
+          return 0;
+        }
+
         int x = ((short)LOWORD(lParam)) / CURSES_INSTANCE->m_font_w + m_offs_x;
         int y = ((short)HIWORD(lParam)) / CURSES_INSTANCE->m_font_h + m_offs_y - m_top_margin;
         if (!m_selecting && (x != m_curs_x || y != m_curs_y)) 
@@ -139,9 +152,39 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     case WM_LBUTTONDOWN:
       if (CURSES_INSTANCE->m_font_w && CURSES_INSTANCE->m_font_h)
       {
+        int mousex=(short)LOWORD(lParam);
+        int mousey=(short)HIWORD(lParam);
+
+        if (uMsg == WM_LBUTTONDOWN && CURSES_INSTANCE->scroll_h && 
+          mousex > (CURSES_INSTANCE->cols-3)*CURSES_INSTANCE->m_font_w)
+        {
+          if (mousey < CURSES_INSTANCE->scroll_y)
+          {
+            int prevoffs=m_offs_y;
+            m_offs_y -= CURSES_INSTANCE->lines;
+            if (m_offs_y < 0) m_offs_y=0;
+            if (m_offs_y != prevoffs) draw();
+          }
+          else if (mousey > CURSES_INSTANCE->scroll_y+CURSES_INSTANCE->scroll_h)
+          {
+            int prevoffs=m_offs_y;
+            m_offs_y += CURSES_INSTANCE->lines;
+            if (m_offs_y > CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4) m_offs_y=CURSES_INSTANCE->tot_y-CURSES_INSTANCE->lines+4;
+            if (m_offs_y != prevoffs) draw();
+          }
+          else
+          {
+            SetCapture(hwnd);
+            m_scrollcap=true;
+            m_scrollcap_yoffs=mousey-CURSES_INSTANCE->scroll_y;
+          }
+          return 0;
+        }
+
         if (uMsg == WM_LBUTTONDOWN) m_selecting=0;
-        m_curs_x = m_offs_x + LOWORD(lParam) / CURSES_INSTANCE->m_font_w;
-        int a = HIWORD(lParam)/CURSES_INSTANCE->m_font_h - m_top_margin;
+
+        m_curs_x = m_offs_x +  mousex/ CURSES_INSTANCE->m_font_w;
+        int a = mousey/CURSES_INSTANCE->m_font_h - m_top_margin;
         if (a>=getVisibleLines()) a=getVisibleLines()-1;
         if (a<0)a=0;
         m_curs_y = m_offs_y + a;
@@ -171,6 +214,8 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
     return 0;
     case WM_LBUTTONUP:
       ReleaseCapture();
+      m_scrollcap=false;
+      m_scrollcap_yoffs=0;
     return 0;
 
     case WM_MOUSEWHEEL:
@@ -181,7 +226,6 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       draw();
       if (m_curs_y >= m_offs_y && m_curs_y < m_offs_y + getVisibleLines()) setCursor();
       else draw_status_state();
-
     break;
   }
   return 0;
@@ -416,6 +460,14 @@ int WDL_CursesEditor::GetCommentStateForLineStart(int line) // pass current line
 
 void WDL_CursesEditor::draw(int lineidx)
 {
+#ifdef WDL_IS_FAKE_CURSES
+  if (m_cursesCtx)
+  {
+    CURSES_INSTANCE->offs_y=m_offs_y;
+    CURSES_INSTANCE->tot_y=m_text.GetSize();
+  }
+#endif
+
   attrset(A_NORMAL);
 
   if (lineidx >= 0)
