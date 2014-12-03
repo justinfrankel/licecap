@@ -58,6 +58,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   {
     CURSES_INSTANCE->user_data = this;
     CURSES_INSTANCE->onMouseMessage = _onMouseMessage;
+    CURSES_INSTANCE->want_scrollbar=1;
   }
 #endif
 

@@ -67,6 +67,7 @@ typedef struct win32CursesCtx
   HWND m_hwnd;
   int lines, cols;
 
+  int want_scrollbar;
   int offs_y, tot_y;
   int scroll_y, scroll_h;
 
