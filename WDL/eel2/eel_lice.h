@@ -1412,32 +1412,28 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
   if (!p || !p[0]) return 0.0;
 
-  // make sure user knows what they are doing
-  const char* q=p;
-  while (*q)
-  {
-    q += strlen(q)+1;
-    if (!*q) return 0;
-    q += strlen(q)+1;
-    if (q-p > 512) return 0;
-  }
-
   HMENU hm=CreatePopupMenu();
   int pos=0;
 
-  while (*p)
-  {
-    const char* p1=p;
-    p += strlen(p)+1;
-    const char* p2=p;
-    p += strlen(p)+1;
-    InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, atoi(p1), p2);
+  char buf[1024];
+  const char* sep=strchr(p, '|');  
+  while (sep)
+  {   
+    int len=sep-p;
+    int destlen=min(len, sizeof(buf)-1);
+    lstrcpyn(buf, p, destlen+1);
+    buf[destlen]=0;
+    p=sep+1;
+    sep=strchr(p, '|');
+
+    InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, pos, buf);
+    if (!sep && *p) InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, pos, p);
   }
 
   int ret=0;
   if (pos)
   {
-    POINT p = { *m_gfx_x, *m_gfx_y };
+    POINT p = { (short)*m_gfx_x, (short)*m_gfx_y };
     ClientToScreen(hwnd_standalone, &p);
     ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, p.x, p.y, 0, hwnd_standalone, NULL);
   }
