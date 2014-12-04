@@ -299,11 +299,12 @@ public:
   int getCurMode();
   int getCurModeForBlit(bool isFBsrc);
 
-
 #ifdef EEL_LICE_WANT_STANDALONE
   HWND create_wnd(HWND par, int isChild);
   HWND hwnd_standalone;
   int hwnd_standalone_kb_state[32]; // pressed keys, if any
+
+  EEL_F gfx_showmenu(void* opaque, EEL_F** parms, int nparms);
 
   int m_kb_queue[64];
   unsigned char m_kb_queue_valid;
@@ -592,6 +593,14 @@ static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **p
   }
   return 0.0;
 }
+
+static EEL_F NSEEL_CGEN_CALL _gfx_showmenu(void* opaque, EEL_F* str)
+{
+  eel_lice_state* ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) return ctx->gfx_showmenu(opaque, &str, 1);
+  return 0.0;
+}
+
 static EEL_F * NSEEL_CGEN_CALL _gfx_setpixel(void *opaque, EEL_F *r, EEL_F *g, EEL_F *b)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
@@ -1395,6 +1404,48 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
   }
 }
 
+EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
+{
+  if (!hwnd_standalone) return 0;
+
+  WDL_FastString* fs=NULL;
+  const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
+  if (!p || !p[0]) return 0.0;
+
+  // make sure user knows what they are doing
+  const char* q=p;
+  while (*q)
+  {
+    q += strlen(q)+1;
+    if (!*q) return 0;
+    q += strlen(q)+1;
+    if (q-p > 512) return 0;
+  }
+
+  HMENU hm=CreatePopupMenu();
+  int pos=0;
+
+  while (*p)
+  {
+    const char* p1=p;
+    p += strlen(p)+1;
+    const char* p2=p;
+    p += strlen(p)+1;
+    InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, atoi(p1), p2);
+  }
+
+  int ret=0;
+  if (pos)
+  {
+    POINT p = { *m_gfx_x, *m_gfx_y };
+    ClientToScreen(hwnd_standalone, &p);
+    ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, p.x, p.y, 0, hwnd_standalone, NULL);
+  }
+  DestroyMenu(hm);
+  return (EEL_F)ret;
+}
+
+
 void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int formatmode)// formatmode=1 for format, 2 for purely measure no format
 {
   int nfmtparms = nparms-1;
@@ -1594,6 +1645,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_roundrect",5,NSEEL_PProc_THIS,&_gfx_roundrect);
   NSEEL_addfunc_varparm("gfx_arc",5,NSEEL_PProc_THIS,&_gfx_arc);
   NSEEL_addfunc_retptr("gfx_blurto",2,NSEEL_PProc_THIS,&_gfx_blurto);
+  NSEEL_addfunc_retval("gfx_showmenu",1,NSEEL_PProc_THIS,&_gfx_showmenu);
   NSEEL_addfunc_retptr("gfx_drawnumber",2,NSEEL_PProc_THIS,&_gfx_drawnumber);
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
   NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
