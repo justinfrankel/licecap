@@ -310,6 +310,7 @@ public:
   unsigned char m_kb_queue_pos;
 
 #endif
+  bool m_has_cap; // to avoid reporting capture on nonclient mousedown
   bool m_has_had_getch; // set on first gfx_getchar(), makes mouse_cap updated with modifiers even when no mouse click is down
 };
 
@@ -357,7 +358,8 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
 
   if (m_gfx_texth) *m_gfx_texth=8;
 
-  m_has_had_getch=0;
+  m_has_cap=false;
+  m_has_had_getch=false;
 }
 eel_lice_state::~eel_lice_state()
 {
@@ -1550,14 +1552,13 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 
   int vflags=0;
 
-  const bool hasCap=GetCapture()==hwnd;
-  if (hasCap)
+  if (m_has_cap)
   {
     if (GetAsyncKeyState(VK_LBUTTON)&0x8000) vflags|=1;
     if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=2;
     if (GetAsyncKeyState(VK_MBUTTON)&0x8000) vflags|=64;
   }
-  if (hasCap||(m_has_had_getch && GetFocus()==hwnd))
+  if (m_has_cap || (m_has_had_getch && GetFocus()==hwnd))
   {
     if (GetAsyncKeyState(VK_CONTROL)&0x8000) vflags|=4;
     if (GetAsyncKeyState(VK_SHIFT)&0x8000) vflags|=8;
@@ -1575,7 +1576,6 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     *m_gfx_texth = 8;
   
   return dr;
-
 }
 
 #ifndef EEL_LICE_NO_REGISTER
@@ -2063,13 +2063,27 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_RBUTTONDOWN:
     case WM_MBUTTONDOWN:
     case WM_LBUTTONDOWN:
-      SetFocus(hwnd);
-      SetCapture(hwnd);
+    {
+      POINT p = { (short)LOWORD(lParam), (short)HIWORD(lParam) };
+      RECT r;
+      GetClientRect(hwnd, &r);
+      if (p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom)
+      {
+        SetFocus(hwnd);
+        SetCapture(hwnd);
+        eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        if (ctx) ctx->m_has_cap=true;
+      }
+    }
     return 1;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
     case WM_MBUTTONUP:
+    {
       ReleaseCapture();
+      eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+      if (ctx) ctx->m_has_cap=false;
+    }
     return 1;
 #ifdef _WIN32
     case WM_GETDLGCODE:
