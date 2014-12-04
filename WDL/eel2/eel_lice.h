@@ -2127,8 +2127,9 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
     case WM_MBUTTONUP:
+    case WM_CAPTURECHANGED:
     {
-      ReleaseCapture();
+      if (uMsg != WM_CAPTURECHANGED) ReleaseCapture();
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
       if (ctx) ctx->m_has_cap=false;
     }
