@@ -1408,6 +1408,10 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0;
 
+  static bool _reent;
+  if (_reent) return 0.0;
+  _reent=true;
+
   WDL_FastString* fs=NULL;
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
   if (!p || !p[0]) return 0.0;
@@ -1438,6 +1442,8 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
     ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, p.x, p.y, 0, hwnd_standalone, NULL);
   }
   DestroyMenu(hm);
+
+  _reent=false;
   return (EEL_F)ret;
 }
 
