@@ -895,19 +895,23 @@ bool ProjectContext_GetNextLine(ProjectStateContext *ctx, LineParser *lpOut)
 }
 
 
-bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx)
+bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx, ProjectStateContext *ctxOut)
 {
   int child_count=1;
   if (ctx) for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
+    const char *sp = linebuf;
+    while (*sp == ' ' || *sp == '\t') sp++;
 
-    bool comment_state=false;
-    LineParser lp(comment_state);
-    if (lp.parse(linebuf)||lp.getnumtokens()<=0) continue;
-    if (lp.gettoken_str(0)[0] == '>')  if (--child_count < 1) return true;
-    if (lp.gettoken_str(0)[0] == '<') child_count++;
+    const char *p = sp;    
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
+    if (p[0] == '>')  if (--child_count < 1) return true;
+
+    if (ctxOut) ctxOut->AddLine("%s",sp);
+
+    if (p[0] == '<') child_count++;
   }
 
   return false;
