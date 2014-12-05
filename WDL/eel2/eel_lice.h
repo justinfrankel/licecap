@@ -1404,46 +1404,70 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
   }
 }
 
+static HMENU PopulateMenuFromStr(const char** str, int* startid)
+{
+  HMENU hm=CreatePopupMenu();
+  int pos=0;
+  int id=*startid;
+
+  char buf[1024];
+  const char* p=*str;
+  const char* sep=strchr(p, '|');
+  while (sep || *p)
+  {
+    int len = (sep ? sep-p : strlen(p));
+    int destlen=min(len, sizeof(buf)-1);
+    lstrcpyn(buf, p, destlen+1);
+    p += len;
+    if (sep) sep=strchr(++p, '|');
+
+    const char* q=buf;
+    HMENU subm=NULL;
+    bool done=false;
+    int flags=MF_BYPOSITION|MF_STRING;
+    while (strspn(q, ">#!<"))
+    {
+      if (*q == '>' && !subm)
+      {
+        subm=PopulateMenuFromStr(&p, &id);
+        sep=strchr(p, '|');
+      }
+      if (*q == '#') flags |= MF_GRAYED;
+      if (*q == '!') flags |= MF_CHECKED;
+      if (*q == '<') done=true;
+      ++q;
+    }
+    if (!hm) hm=CreatePopupMenu();
+    if (subm) flags |= MF_POPUP;
+    if (*q) InsertMenu(hm, pos++, flags, (subm ? (INT_PTR)subm : (INT_PTR)id++), q);
+    else InsertMenu(hm, pos++, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    if (done) break;
+  }
+
+  *str=p;
+  *startid=id;
+  return hm;
+}
+
 EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0;
-
-  static bool _reent;
-  if (_reent) return 0.0;
-  _reent=true;
 
   WDL_FastString* fs=NULL;
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
   if (!p || !p[0]) return 0.0;
 
-  HMENU hm=CreatePopupMenu();
-  int pos=0;
-
-  char buf[1024];
-  const char* sep=strchr(p, '|');  
-  while (sep)
-  {   
-    int len=sep-p;
-    int destlen=min(len, sizeof(buf)-1);
-    lstrcpyn(buf, p, destlen+1);
-    buf[destlen]=0;
-    p=sep+1;
-    sep=strchr(p, '|');
-
-    InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, pos, buf);
-    if (!sep && *p) InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, pos, p);
-  }
+  int id=1;
+  HMENU hm=PopulateMenuFromStr(&p, &id);
 
   int ret=0;
-  if (pos)
+  if (hm)
   {
-    POINT p = { (short)*m_gfx_x, (short)*m_gfx_y };
-    ClientToScreen(hwnd_standalone, &p);
-    ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, p.x, p.y, 0, hwnd_standalone, NULL);
+    POINT pt = { (short)*m_gfx_x, (short)*m_gfx_y };
+    ClientToScreen(hwnd_standalone, &pt);
+    ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, pt.x, pt.y, 0, hwnd_standalone, NULL);
+    DestroyMenu(hm);
   }
-  DestroyMenu(hm);
-
-  _reent=false;
   return (EEL_F)ret;
 }
 
