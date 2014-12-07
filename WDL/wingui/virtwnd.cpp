@@ -146,9 +146,6 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
       if (!m_bgbmtintUnderMode)
         tintRect(bmOut,clipr,xoffs,yoffs,false);
 
-      m_bgbm=0;
-      m_bgbmtintUnderMode = false;
-      m_bgbmtintcolor = -1;
       return;
     }
   }
@@ -350,6 +347,9 @@ static BOOL CALLBACK enumProc(HWND hwnd,LPARAM lParam)
 
 void WDL_VWnd_Painter::PaintEnd()
 {
+  m_bgbm=0;
+  m_bgbmtintUnderMode = false;
+  m_bgbmtintcolor = -1;
   if (!m_cur_hwnd) return;
   if (m_bm)
   {
