@@ -348,6 +348,33 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   case WM_MBUTTONDBLCLK:
     if (ctx && ctx->onMouseMessage) return ctx->onMouseMessage(ctx->user_data,hwnd,uMsg,wParam,lParam);
   return 0;
+
+  case WM_SETCURSOR:
+    if (ctx->m_font_w && ctx->m_font_h)
+    {
+      POINT p;
+      GetCursorPos(&p);
+      ScreenToClient(hwnd, &p);
+      p.x /= ctx->m_font_w;
+      p.y /= ctx->m_font_h;
+
+      const int topmarg=1; // these may not actually be constant...
+      const int bottmarg=1;
+      int paney[2] = { 1, ctx->div_y+2 };
+      int paneh[2] = { ctx->div_y, ctx->lines-ctx->div_y-3 };
+      int scrollw[2] = { ctx->cols-ctx->drew_scrollbar[0], ctx->cols-ctx->drew_scrollbar[1] };
+      bool has_panes=(ctx->div_y < ctx->lines-topmarg-bottmarg-1);
+
+      int div=1+ctx->div_y;
+      int bott=ctx->lines-1;
+      if (has_panes && p.y >= ctx->div_y+1 && p.y < ctx->div_y+2) SetCursor(LoadCursor(NULL, IDC_SIZENS));
+      else if (p.y < 1 || p.y >= ctx->lines-1) SetCursor(LoadCursor(NULL, IDC_ARROW));
+      else if (p.y >= paney[0] && p.y < paney[0]+paneh[0] && p.x >= scrollw[0]) SetCursor(LoadCursor(NULL, IDC_ARROW));
+      else if (p.y >= paney[1] && p.y < paney[1]+paneh[1] && p.x >= scrollw[1]) SetCursor(LoadCursor(NULL, IDC_ARROW));
+      else SetCursor(LoadCursor(NULL, IDC_IBEAM));   
+    return TRUE;     
+  }
+
 #ifdef _WIN32
   case WM_GETDLGCODE:
     if (GetParent(hwnd))
@@ -385,17 +412,36 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           HDC hdc=BeginPaint(hwnd,&ps);
           if (hdc)
           {
-            if (ctx->want_scrollbar>0)
+            const int topmarg=1; // these may not actually be constant...
+            const int bottmarg=1;
+            int paney[2] = { 1, ctx->div_y+topmarg+1 };
+            int paneh[2] = { ctx->div_y, ctx->lines-ctx->div_y-topmarg-bottmarg-1 };
+            bool has_panes=(ctx->div_y < ctx->lines-topmarg-bottmarg-1);
+            if (!has_panes) paneh[0]++;
+
+            ctx->drew_scrollbar[0]=ctx->drew_scrollbar[1]=0;
+            if (ctx->want_scrollbar > 0)
             {
-              ctx->scroll_y=0;
-              ctx->scroll_h=0;
-              if (ctx->tot_y > ctx->lines)
+              RECT cr;
+              GetClientRect(hwnd, &cr);
+              double cf=(double)cr.right/(double)ctx->m_font_w-(double)ctx->cols;
+              int ws=ctx->want_scrollbar;
+              if (cf < 0.5) ++ws;
+
+              int i;
+              for (i=0; i < 2; ++i)
               {
-                int ey=ctx->lines*ctx->m_font_h;
-                ctx->scroll_h=ey*ctx->lines/ctx->tot_y;
-                if (ctx->scroll_h < 24) ctx->scroll_h=24;
-                ctx->scroll_y=ey*ctx->offs_y/ctx->tot_y;
-                if (ctx->scroll_y > ey-ctx->scroll_h) ctx->scroll_y=ey-ctx->scroll_h;
+                ctx->scroll_y[i]=ctx->scroll_h[i]=0;
+                if (paneh[i] > 0 && ctx->tot_y > paneh[i])
+                {
+                  ctx->drew_scrollbar[i]=ws;
+                  int ey=paneh[i]*ctx->m_font_h;
+                  ctx->scroll_h[i]=ey*paneh[i]/ctx->tot_y;
+                  if (ctx->scroll_h[i] < ctx->m_font_h) ctx->scroll_h[i]=ctx->m_font_h;
+                  ctx->scroll_y[i]=(ey-ctx->scroll_h[i])*ctx->offs_y[i]/(ctx->tot_y-paneh[i]);
+                  if (ctx->scroll_y[i] < 0) ctx->scroll_y[i]=0;
+                  if (ctx->scroll_y[i] > ey-ctx->scroll_h[i]) ctx->scroll_y[i]=ey-ctx->scroll_h[i];
+                }
               }
             }
 
@@ -417,7 +463,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      r.bottom /= ctx->m_font_h;
 			      r.right += ctx->m_font_w-1;
 			      r.right /= ctx->m_font_w;
-          
             
 			      ypos = r.top * ctx->m_font_h;
 			      ptr += 2*(r.top * ctx->cols);
@@ -425,9 +470,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      if (r.top < 0) r.top=0;
 			      if (r.bottom > ctx->lines) r.bottom=ctx->lines;
 			      if (r.left < 0) r.left=0;
-
-            const int right_scroll_margin = ctx->scroll_h>0 && ctx->want_scrollbar > 0? ctx->want_scrollbar : 0;
-			      if (r.right > ctx->cols-right_scroll_margin) r.right=ctx->cols-right_scroll_margin;
 
             HBRUSH bgbrushes[COLOR_PAIRS << NUM_ATTRBITS];
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) bgbrushes[y] = CreateSolidBrush(ctx->colortab[y][1]);
@@ -449,11 +491,25 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
               int defer_blanks=0;
 
+              int right=r.right;              
+              if (y >= paney[0] && y < paney[0]+paneh[0])
+              {
+                right=min(right, ctx->cols-ctx->drew_scrollbar[0]);
+              }
+              else if (y >= paney[1] && y < paney[1]+paneh[1]) 
+              {
+                right=min(right,  ctx->cols-ctx->drew_scrollbar[1]);
+              }
+              else
+              {
+                --right;
+              }
+              
               for (;; x ++, xpos+=ctx->m_font_w, p += 2)
               {
                 unsigned char c=' ',attr=0; 
                 
-                if (x < r.right)
+                if (x < right)
                 {
                   c=p[0];
                   attr=p[1];
@@ -462,14 +518,14 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 bool isCursor = cstate && y == ctx->m_cursor_y && x == ctx->m_cursor_x;
                 bool isNotBlank = (isprint(c) && !isspace(c));
 
-                if (defer_blanks > 0 && (isNotBlank || isCursor || attr != lattr || x>=r.right))
+                if (defer_blanks > 0 && (isNotBlank || isCursor || attr != lattr || x>=right))
                 {
                   RECT tr={xpos - defer_blanks*ctx->m_font_w,ypos,xpos,ypos+ctx->m_font_h};
                   FillRect(hdc,&tr,bgbrushes[lattr&((COLOR_PAIRS << NUM_ATTRBITS)-1)]);
                   defer_blanks=0;
                 }
 
-                if (x>=r.right) break;
+                if (x>=right) break;
 
 						    if (isCursor && ctx->cursor_type == WIN32_CURSES_CURSOR_TYPE_BLOCK)
 						    {
@@ -529,26 +585,67 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
             int ex=ctx->cols*ctx->m_font_w;
             int ey=ctx->lines*ctx->m_font_h;
-            if (right_scroll_margin > 0 && updr.right >= ex-right_scroll_margin*ctx->m_font_w)
-            {
+
+            int anyscrollw=max(ctx->drew_scrollbar[0], ctx->drew_scrollbar[1]);
+            if (anyscrollw && updr.right >= ex-anyscrollw*ctx->m_font_w)
+            {              
               HBRUSH sb1=CreateSolidBrush(RGB(128,128,128));
               HBRUSH sb2=CreateSolidBrush(RGB(96, 96, 96));
-              RECT tr = { ex-right_scroll_margin*ctx->m_font_w, updr.top, updr.right, min(ctx->scroll_y,updr.bottom) };
-              if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
-              tr.top=max(updr.top,ctx->scroll_y);
-              tr.bottom=min(updr.bottom,ctx->scroll_y+ctx->scroll_h);
-              if (tr.bottom > tr.top) FillRect(hdc, &tr, sb2);
-              tr.top=max(updr.top,ctx->scroll_y+ctx->scroll_h);
-              tr.bottom=updr.bottom;
-              if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
+              int i;
+              for (i=0; i < 2; ++i)
+              {
+                if (ctx->drew_scrollbar[i])
+                {
+                  int scrolly=paney[i]*ctx->m_font_h+ctx->scroll_y[i];
+                  int scrollh=ctx->scroll_h[i];
+                  RECT tr = { ex-ctx->drew_scrollbar[i]*ctx->m_font_w, paney[i]*ctx->m_font_h, updr.right, min(scrolly, updr.bottom) };
+                  if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
+                  tr.top=max(updr.top, scrolly);
+                  tr.bottom=min(updr.bottom, scrolly+scrollh);
+                  if (tr.bottom > tr.top) FillRect(hdc, &tr, sb2);
+                  tr.top=max(updr.top,scrolly+scrollh);
+                  tr.bottom=(paney[i]+paneh[i])*ctx->m_font_h;
+                  if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
+                }
+              }
               DeleteObject(sb1);
               DeleteObject(sb2);
+            }
+      
+            ex -= ctx->m_font_w;
+            if (updr.right >= ex)
+            {
+              if (updr.top <= ctx->m_font_h)
+              {
+                RECT tr = { ex, updr.top, updr.right, ctx->m_font_h };
+                FillRect(hdc, &tr, bgbrushes[12]);
+              }
+              if (!ctx->drew_scrollbar[0] && updr.bottom > paney[0]*ctx->m_font_h && updr.top < (paney[0]+paneh[0])*ctx->m_font_h)
+              {
+                RECT tr = { ex, paney[0]*ctx->m_font_h, updr.right, (paney[0]+paneh[0])*ctx->m_font_h };
+                FillRect(hdc, &tr, bgbrushes[0]);
+              }
+              if (has_panes && updr.bottom > (paney[0]+paneh[0])*ctx->m_font_h && updr.top < paney[1]*ctx->m_font_h)
+              {
+                RECT tr = { ex, (paney[0]+paneh[0])*ctx->m_font_h, updr.right, paney[1]*ctx->m_font_h };
+                FillRect(hdc, &tr, bgbrushes[2]);
+              }
+              if (!ctx->drew_scrollbar[1] && updr.bottom > paney[1]*ctx->m_font_h && updr.top < (paney[1]+paneh[1])*ctx->m_font_h)
+              {
+                RECT tr = { ex, paney[1]*ctx->m_font_h, updr.right, (paney[1]+paneh[1])*ctx->m_font_h };
+                FillRect(hdc, &tr, bgbrushes[0]);
+              }
+              if (updr.bottom > ey-ctx->m_font_h)
+              {
+                RECT tr = { ex, ey-ctx->m_font_h, updr.right, ey };
+                FillRect(hdc, &tr, bgbrushes[2]);
+              }
             }
 
             if (updr.bottom > ey)
             {
               RECT tr= { updr.left, max(ey,updr.top), updr.right, updr.bottom };
-              FillRect(hdc, &tr, bgbrushes[0]);
+              FillRect(hdc, &tr, bgbrushes[2]);
             }
 
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) DeleteObject(bgbrushes[y]);

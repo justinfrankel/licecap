@@ -80,12 +80,18 @@ protected:
   int m_selecting;
   int m_select_x1,m_select_y1,m_select_x2,m_select_y2;
 
-  int m_offs_x, m_offs_y;
+  int m_offs_x;
   int m_curs_x, m_curs_y;
-  int m_want_x;
+  int m_want_x; // to restore active column when vscrolling
 
-  bool m_scrollcap;
+  int m_scrollcap; // 1=top, 2=bottom, 3=divider
   int m_scrollcap_yoffs;
+  
+  int m_curpane;
+  double m_pane_div;
+  int m_paneoffs_y[2]; 
+
+  int GetPaneDims(int* paney, int* paneh);
 
   static char s_search_string[256];
   static int s_overwrite;
@@ -129,8 +135,11 @@ protected:
 
     WDL_PtrList<refcntString> m_htext;
 
-    int m_offs_x, m_offs_y;
+    int m_offs_x;
     int m_curs_x, m_curs_y;
+    int m_curpane;
+    double m_pane_div;
+    int m_paneoffs_y[2];
   };
 };
 #endif

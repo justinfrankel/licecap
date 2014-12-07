@@ -68,8 +68,10 @@ typedef struct win32CursesCtx
   int lines, cols;
 
   int want_scrollbar;
-  int offs_y, tot_y;
-  int scroll_y, scroll_h;
+  int drew_scrollbar[2];
+  int offs_y[2];  
+  int div_y, tot_y;
+  int scroll_y[2], scroll_h[2];
 
   int m_cursor_x, m_cursor_y;
   int cursor_state_lx,cursor_state_ly; // used to detect changes and reset cursor_state

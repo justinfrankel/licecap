@@ -1153,7 +1153,7 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
       {
         const int y = ((short)HIWORD(lParam)) / CURSES_INSTANCE->m_font_h - m_top_margin;
         const int x = ((short)LOWORD(lParam)) / CURSES_INSTANCE->m_font_w + m_offs_x;
-        WDL_FastString *fs=m_text.Get(y + m_offs_y);
+        WDL_FastString *fs=m_text.Get(y + m_paneoffs_y[m_curpane]);
         if (fs && y >= 0)
         {
           if (!strncmp(fs->Get(),"import",6) && isspace(fs->Get()[6]))
