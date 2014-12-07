@@ -119,13 +119,13 @@ void __curses_erase(win32CursesCtx *ctx)
   m_InvalidateArea(ctx,0,0,ctx->cols,ctx->lines);
 }
 
-void __move(win32CursesCtx *ctx, int x, int y, int noupdest)
+void __move(win32CursesCtx *ctx, int y, int x, int noupdest)
 {
   if (!ctx) return;
 
   m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
-  ctx->m_cursor_x=y;
-  ctx->m_cursor_y=x;
+  ctx->m_cursor_x=x;
+  ctx->m_cursor_y=y;
   if (!noupdest) m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 

@@ -39,10 +39,10 @@
 #define addstr(str) __addnstr(CURSES_INSTANCE,str,-1)
 #define addch(c) __addch(CURSES_INSTANCE,c)
 
-#define mvaddstr(x,y,str) __mvaddnstr(CURSES_INSTANCE,x,y,str,-1)
-#define mvaddnstr(x,y,str,n) __mvaddnstr(CURSES_INSTANCE,x,y,str,n)
+#define mvaddstr(y,x,str) __mvaddnstr(CURSES_INSTANCE,y,x,str,-1)
+#define mvaddnstr(y,x,str,n) __mvaddnstr(CURSES_INSTANCE,y,x,str,n)
 #define clrtoeol() __clrtoeol(CURSES_INSTANCE)
-#define move(x,y) __move(CURSES_INSTANCE, x,y, 0)
+#define move(y,x) __move(CURSES_INSTANCE,y,x,0)
 #define attrset(a) (CURSES_INSTANCE)->m_cur_attr=(a)
 #define bkgdset(a) (CURSES_INSTANCE)->m_cur_erase_attr=(a)
 #define initscr() __initscr(CURSES_INSTANCE)
@@ -110,7 +110,7 @@ HWND curses_CreateWindow(HINSTANCE hInstance, win32CursesCtx *ctx, const char *t
 
 
 void __addnstr(win32CursesCtx *inst, const char *str,int n);
-void __move(win32CursesCtx *inst, int x, int y, int noupdest);
+void __move(win32CursesCtx *inst, int y, int x, int noupdest);
 static inline void __addch(win32CursesCtx *inst, char c) { __addnstr(inst,&c,1); }
 static inline void __mvaddnstr(win32CursesCtx *inst, int x, int y, const char *str, int n) { __move(inst,x,y,1); __addnstr(inst,str,n); }
 
