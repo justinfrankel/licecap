@@ -61,7 +61,7 @@ public:
   {
   }
 
-  DATATYPE *Get(const char *filename)
+  DATATYPE *Get(const char *filename, bool createIfExists=true)
   {
     WDL_MutexLock lock(&mutex);
 
@@ -71,6 +71,7 @@ public:
       t->WDL_POOLLIST_refcnt++;
       return t;
     }
+    if (!createIfExists) return NULL;
 
     t = new DATATYPE(strdup(filename));
     t->WDL_POOLLIST_refcnt=1;
