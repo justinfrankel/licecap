@@ -780,7 +780,7 @@ void WDL_CursesEditor::runSearch()
      {
        draw();
        char buf[512];
-       snprintf(buf,sizeof(buf),"Found %s'%s'",wrapflag?"(wrapped) ":"",s_search_string);
+       snprintf(buf,sizeof(buf),"Found %s'%s'  Ctrl+G:next",wrapflag?"(wrapped) ":"",s_search_string);
        draw_message(buf);
        setCursor();
        return;
@@ -868,7 +868,7 @@ int WDL_CursesEditor::onChar(int c)
            loadUndoState(m_undoStack.Get(m_undoStack_pos));
            draw();
            char buf[512];
-           snprintf(buf,sizeof(buf),"Undid action -- %d items in undo buffer",m_undoStack_pos);
+           snprintf(buf,sizeof(buf),"Undid action - %d items in undo buffer",m_undoStack_pos);
            draw_message(buf);
            setCursor();
         }
@@ -884,7 +884,7 @@ int WDL_CursesEditor::onChar(int c)
         loadUndoState(m_undoStack.Get(m_undoStack_pos));
         draw();
         char buf[512];
-        snprintf(buf,sizeof(buf),"Redid action -- %d items in redo buffer",m_undoStack.GetSize()-m_undoStack_pos-1);
+        snprintf(buf,sizeof(buf),"Redid action - %d items in redo buffer",m_undoStack.GetSize()-m_undoStack_pos-1);
         draw_message(buf);
         setCursor();
       }
