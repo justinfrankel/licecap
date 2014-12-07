@@ -4,6 +4,7 @@
 #include "../wdlstring.h"
 #include "../ptrlist.h"
 
+
 class WDL_CursesEditor
 {
 public:
@@ -89,7 +90,6 @@ protected:
   static char s_search_string[256];
   static int s_overwrite;
   static WDL_FastString s_fake_clipboard;
-
 
   class refcntString
   {

@@ -144,7 +144,6 @@ void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
   if (fcolor & 0xff0000) fcolor|=0xff0000;
   ctx->colortab[pair|A_BOLD][0]=fcolor;
   ctx->colortab[pair|A_BOLD][1]=bcolor;
-
 }
 
 static LRESULT xlateKey(int msg, WPARAM wParam, LPARAM lParam)

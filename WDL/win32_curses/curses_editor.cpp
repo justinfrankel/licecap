@@ -18,6 +18,7 @@
 #define VALIDATE_TEXT_CHAR(thischar) ((thischar) >= 0 && (thischar) < 256 && (isspace(thischar) || isgraph(thischar)))
 #endif
 
+
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
 char WDL_CursesEditor::s_search_string[256];
@@ -490,12 +491,20 @@ int WDL_CursesEditor::GetCommentStateForLineStart(int line) // pass current line
   return 0;
 }
 
+
 void WDL_CursesEditor::draw(int lineidx)
 {
+  const int VISIBLE_LINES = getVisibleLines();
+
+  int paney[2], paneh[2];
+  const int pane_divy=GetPaneDims(paney, paneh);
+
 #ifdef WDL_IS_FAKE_CURSES
   if (m_cursesCtx)
   {
-    CURSES_INSTANCE->offs_y=m_offs_y;
+    CURSES_INSTANCE->offs_y[0]=m_paneoffs_y[0];
+    CURSES_INSTANCE->offs_y[1]=m_paneoffs_y[1];
+    CURSES_INSTANCE->div_y=pane_divy;
     CURSES_INSTANCE->tot_y=m_text.GetSize();
   }
 #endif
@@ -506,9 +515,18 @@ void WDL_CursesEditor::draw(int lineidx)
   {
     int comment_state = GetCommentStateForLineStart(lineidx);
     WDL_FastString *s=m_text.Get(lineidx);
-    if (s && lineidx >= m_offs_y && lineidx < m_offs_y+getVisibleLines())
+    if (s)
     {
-      doDrawString(lineidx-m_offs_y+m_top_margin,0,lineidx,s->Get(),COLS,&comment_state, min(s->GetLength(),m_offs_x));
+      int y=lineidx-m_paneoffs_y[0];
+      if (y >= 0 && y < paneh[0])
+      {
+        doDrawString(paney[0]+y, 0, lineidx, s->Get(), COLS, &comment_state, min(s->GetLength(), m_offs_x));
+      } 
+      y=lineidx-m_paneoffs_y[1];
+      if (y >= 0 && y < paneh[1])
+      {
+        doDrawString(paney[1]+y, 0, lineidx, s->Get(), COLS, &comment_state, min(s->GetLength(), m_offs_x));
+      }
     }
     return;
   }

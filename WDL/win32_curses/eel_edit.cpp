@@ -1066,29 +1066,6 @@ void EEL_Editor::doWatchInfo(int c)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void EEL_Editor::draw_bottom_line()
 {
   mvaddstr(LINES-1,0,"Ctrl+(");
