@@ -556,7 +556,14 @@ void WDL_CursesEditor::draw_message(const char *str)
   {
     attrset(0);
     bkgdset(0);
-  }
+  }   
+
+  int paney[2], paneh[2];
+  const int pane_divy=GetPaneDims(paney, paneh);
+
+  const int col=m_curs_x-m_offs_x;
+  int line=m_curs_y+paney[m_curpane]-m_paneoffs_y[m_curpane];
+  if (line >= paney[m_curpane] && line < paney[m_curpane]+paneh[m_curpane]) move(line, col);
 }
 
 
@@ -937,20 +944,20 @@ void WDL_CursesEditor::runSearch()
      if (found)
      {
        draw();
+       setCursor();
        char buf[512];
        snprintf(buf,sizeof(buf),"Found %s'%s'  Ctrl+G:next",wrapflag?"(wrapped) ":"",s_search_string);
        draw_message(buf);
-       setCursor();
        return;
      }
    }
 
    draw();
+   setCursor();
    char buf[512];
    if (s_search_string[0]) snprintf(buf,sizeof(buf),"String '%s' not found",s_search_string);
    else lstrcpyn_safe(buf,"No search string",sizeof(buf));
    draw_message(buf);
-   setCursor();
 }
 
 static int categorizeCharForWordNess(int c)
@@ -977,8 +984,8 @@ int WDL_CursesEditor::onChar(int c)
        case 27: 
          m_state=0; 
          draw();
-         draw_message("Find cancelled.");
          setCursor();
+         draw_message("Find cancelled.");
        break;
        case KEY_BACKSPACE: if (s_search_string[0]) s_search_string[strlen(s_search_string)-1]=0; m_state=-4; break;
        default: 
@@ -1068,10 +1075,10 @@ int WDL_CursesEditor::onChar(int c)
            m_undoStack_pos--;
            loadUndoState(m_undoStack.Get(m_undoStack_pos));
            draw();
+           setCursor();
            char buf[512];
            snprintf(buf,sizeof(buf),"Undid action - %d items in undo buffer",m_undoStack_pos);
            draw_message(buf);
-           setCursor();
         }
         else draw_message("Can't Undo");
 
@@ -1084,10 +1091,10 @@ int WDL_CursesEditor::onChar(int c)
         m_undoStack_pos++;
         loadUndoState(m_undoStack.Get(m_undoStack_pos));
         draw();
+        setCursor();
         char buf[512];
         snprintf(buf,sizeof(buf),"Redid action - %d items in redo buffer",m_undoStack.GetSize()-m_undoStack_pos-1);
         draw_message(buf);
-        setCursor();
       }
       else draw_message("Can't Redo");  
     break;
@@ -1212,14 +1219,14 @@ int WDL_CursesEditor::onChar(int c)
            }
          }
          draw();
+         setCursor();
          draw_message("Pasted");
          saveUndoState();
-         setCursor();
        }
        else 
        {
-         draw_message("Clipboard empty");
          setCursor();
+         draw_message("Clipboard empty");
        }
      }
   break;
@@ -1357,8 +1364,8 @@ int WDL_CursesEditor::onChar(int c)
       else status="No selection";
 
       draw();
-      draw_message(status);
       setCursor();
+      draw_message(status);
     }
   break;
   case 'A'-'A'+1:
