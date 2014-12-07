@@ -79,6 +79,15 @@ typedef bool WDL_bool;
   #define WDL_STATICFUNC_UNUSED
 #endif
 
+#ifndef WDL_WANT_NEW_EXCEPTIONS
+#if defined(__cplusplus)
+#include <new>
+#define WDL_NEW (std::nothrow)
+#endif
+#else
+#define WDL_NEW
+#endif
+
 
 #ifndef max
 #define max(x,y) ((x)<(y)?(y):(x))
