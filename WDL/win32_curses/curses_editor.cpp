@@ -907,8 +907,10 @@ void WDL_CursesEditor::runSearch()
          for (; startx <= linelen-srchlen; startx++)
            if (!strnicmp(p+startx,s_search_string,srchlen)) 
            {
-             m_curs_y=line;
-             m_curs_x=startx;
+             m_select_y1=m_select_y2=m_curs_y=line;
+             m_select_x1=m_curs_x=startx;
+             m_select_x2=startx+srchlen;
+             m_selecting=1;
              found=1;
              break;
            }
@@ -932,8 +934,10 @@ void WDL_CursesEditor::runSearch()
            for (; startx <= linelen-srchlen; startx++)
              if (!strnicmp(p+startx,s_search_string,srchlen)) 
              {
-               m_curs_y=line;
-               m_curs_x=startx;
+               m_select_y1=m_select_y2=m_curs_y=line;
+               m_select_x1=m_curs_x=startx;
+               m_select_x2=startx+srchlen;
+               m_selecting=1;
                found=1;
                break;
              }
@@ -1569,6 +1573,7 @@ int WDL_CursesEditor::onChar(int c)
   case KEY_HOME:
     {
       m_curs_x=0;
+      if (GetAsyncKeyState(VK_CONTROL)&0x8000) m_curs_y=0;
       if (m_selecting) { setCursor(); m_select_x2=m_curs_x; m_select_y2=m_curs_y; draw(); }
       setCursor();
     }
@@ -1576,6 +1581,7 @@ int WDL_CursesEditor::onChar(int c)
   case KEY_END:
     {
       if (m_text.Get(m_curs_y)) m_curs_x=m_text.Get(m_curs_y)->GetLength();
+      if (GetAsyncKeyState(VK_CONTROL)&0x8000) m_curs_y=m_text.GetSize();
       if (m_selecting) { setCursor(); m_select_x2=m_curs_x; m_select_y2=m_curs_y; draw(); }
       setCursor();
     }
