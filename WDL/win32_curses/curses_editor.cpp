@@ -116,6 +116,8 @@ int WDL_CursesEditor::getVisibleLines() const { return LINES-m_bottom_margin-m_t
 
 LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  static int s_mousedown[2];
+
   switch (uMsg)
   {
     case WM_CAPTURECHANGED:
@@ -182,15 +184,15 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           return 0;
         }
 
-        int x=cx+m_offs_x;
-        int y=cy+m_paneoffs_y[m_curpane]-paney[m_curpane];
-        if (!m_selecting && (x != m_curs_x || y != m_curs_y))
+        if (!m_selecting && (cx != s_mousedown[0] || cy != s_mousedown[1]))
         {
           m_select_x2=m_select_x1=m_curs_x;
           m_select_y2=m_select_y1=m_curs_y;
           m_selecting=1;
         }
 
+        int x=cx+m_offs_x;
+        int y=cy+m_paneoffs_y[m_curpane]-paney[m_curpane];
         if (m_selecting && (m_select_x2!=x || m_select_y2 != y))
         {
           if (y < m_paneoffs_y[m_curpane] && m_paneoffs_y[m_curpane] > 0)
@@ -251,6 +253,9 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       if (cx < 0) cx=0;
       if (cy > LINES) cy=LINES;
       if (cy < 0) cy=0;
+
+      s_mousedown[0]=cx;
+      s_mousedown[1]=cy;
 
       int paney[2], paneh[2];
       const int pane_divy=GetPaneDims(paney, paneh);
