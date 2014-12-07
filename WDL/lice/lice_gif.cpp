@@ -171,7 +171,7 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
           break;
         }
 
-        if (!bmp) bmp=new LICE_MemBitmap;
+        if (!bmp) bmp=new WDL_NEW LICE_MemBitmap;
 
         if (!had_image || (nframes && need_new_frame))
         {
@@ -191,9 +191,9 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
           }
           else
           {
-            bmp->resize(fp->SWidth,fp->SHeight);
+            if (bmp) bmp->resize(fp->SWidth,fp->SHeight);
 
-            if (bmp->getWidth() != (int)fp->SWidth || bmp->getHeight() != (int)fp->SHeight)
+            if (!bmp || bmp->getWidth() != (int)fp->SWidth || bmp->getHeight() != (int)fp->SHeight)
             {
               RecordType = TERMINATE_RECORD_TYPE;
               break;

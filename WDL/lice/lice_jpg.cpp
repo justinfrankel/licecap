@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "lice.h"
 #include <setjmp.h>
+#include "../wdltypes.h"
 
 extern "C" {
 #include "../jpeglib/jpeglib.h"
@@ -106,17 +107,17 @@ LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap 
 
   buffer = (*cinfo.mem->alloc_sarray) ((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
 
-  if (bmp)
+  LICE_IBitmap *delbmp = NULL;
+  if (bmp) bmp->resize(cinfo.output_width,cinfo.output_height);
+  else delbmp = bmp = new WDL_NEW LICE_MemBitmap(cinfo.output_width,cinfo.output_height);
+
+  if (!bmp || bmp->getWidth() != (int)cinfo.output_width || bmp->getHeight() != (int)cinfo.output_height) 
   {
-    bmp->resize(cinfo.output_width,cinfo.output_height);
-    if (bmp->getWidth() != (int)cinfo.output_width || bmp->getHeight() != (int)cinfo.output_height) 
-    {
-      jpeg_finish_decompress(&cinfo);
-      jpeg_destroy_decompress(&cinfo);
-      return 0;
-    }
+    jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
+    delete delbmp;
+    return 0;
   }
-  else bmp=new LICE_MemBitmap(cinfo.output_width,cinfo.output_height);
 
   LICE_pixel *bmpptr = bmp->getBits();
   int dbmpptr=bmp->getRowSpan();
@@ -215,18 +216,19 @@ LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp)
   buffer = (*cinfo.mem->alloc_sarray)
 		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
 
-  if (bmp)
+
+  LICE_IBitmap *delbmp = NULL;
+  if (bmp) bmp->resize(cinfo.output_width,cinfo.output_height);
+  else delbmp = bmp = new WDL_NEW LICE_MemBitmap(cinfo.output_width,cinfo.output_height);
+
+  if (!bmp || bmp->getWidth() != (int)cinfo.output_width || bmp->getHeight() != (int)cinfo.output_height)
   {
-    bmp->resize(cinfo.output_width,cinfo.output_height);
-    if (bmp->getWidth() != (int)cinfo.output_width || bmp->getHeight() != (int)cinfo.output_height) 
-    {
-      jpeg_finish_decompress(&cinfo);
-      jpeg_destroy_decompress(&cinfo);
-      fclose(fp);
-      return 0;
-    }
+    jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
+    fclose(fp);
+    delete delbmp;
+    return 0;
   }
-  else bmp=new LICE_MemBitmap(cinfo.output_width,cinfo.output_height);
 
   LICE_pixel *bmpptr = bmp->getBits();
   int dbmpptr=bmp->getRowSpan();

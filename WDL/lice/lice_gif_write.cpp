@@ -9,6 +9,8 @@
 
 #include <stdio.h>
 
+#include "../wdltypes.h"
+
 extern "C" {
 
 #include "../giflib/gif_lib.h"
@@ -229,7 +231,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     if (!wr->prevframe)
     {
       ignFr=true;
-      wr->prevframe = new LICE_MemBitmap(wr->w,wr->h);
+      wr->prevframe = new WDL_NEW LICE_MemBitmap(wr->w,wr->h);
       LICE_Clear(wr->prevframe,0);
     }
 

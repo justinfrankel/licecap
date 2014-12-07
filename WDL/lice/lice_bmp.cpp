@@ -6,6 +6,7 @@
 */
 
 #include "lice.h"
+#include "../wdltypes.h"
 #ifndef _WIN32
 #include "../swell/swell.h"
 #endif
@@ -24,7 +25,7 @@ static LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
   BitBlt(sysbitmap.getDC(),0,0,bm.bmWidth,bm.bmHeight,hdc,0,0,SRCCOPY);
   GdiFlush();
 
-  if (!bmp) bmp=new LICE_MemBitmap(bm.bmWidth,bm.bmHeight);
+  if (!bmp) bmp=new WDL_NEW LICE_MemBitmap(bm.bmWidth,bm.bmHeight);
   LICE_Copy(bmp,&sysbitmap);
 
   SelectObject(hdc,oldBM);
@@ -33,11 +34,11 @@ static LICE_IBitmap *hbmToBit(HBITMAP hbm, LICE_IBitmap *bmp)
   LICE_Clear(&sysbitmap,0);
   RECT r={0,0,bm.bmWidth,bm.bmHeight};
   DrawImageInRect(sysbitmap.getDC(),hbm,&r);
-  if (!bmp) bmp=new LICE_MemBitmap(bm.bmWidth,bm.bmHeight);
+  if (!bmp) bmp=new WDL_NEW LICE_MemBitmap(bm.bmWidth,bm.bmHeight);
   LICE_Copy(bmp,&sysbitmap);
   #endif
 
-  LICE_FillRect(bmp,0,0,bmp->getWidth(),bmp->getHeight(),LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_ADD);
+  if (bmp) LICE_FillRect(bmp,0,0,bmp->getWidth(),bmp->getHeight(),LICE_RGBA(0,0,0,255),1.0f,LICE_BLIT_MODE_ADD);
 
   return bmp;
 }
