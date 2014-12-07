@@ -1068,29 +1068,19 @@ void EEL_Editor::doWatchInfo(int c)
 
 void EEL_Editor::draw_bottom_line()
 {
-  mvaddstr(LINES-1,0,"Ctrl+(");
-
-#define DO(x,y) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); addstr(y);}
-    DO("S","ave ");
-    DO("F","ind ");
-    if (m_has_peek)
-    {
-      DO("","pee");
-      DO("K ","");
-    }
-    DO("","ma");
-    DO("T","");
-    DO("","ch");
-
-    if (GetTabCount()>1)
-    {
-      DO("", " | tab: ");
-      DO("[], F?", "=switch ");
-      DO("W", "=close");
-    }
-
-#undef DO
-    addstr(")");
+#define BOLD(x) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); }
+  BOLD(" S"); addstr("ave");
+  if (m_has_peek)
+  {
+    addstr(" pee"); BOLD("K");
+  }
+  if (GetTabCount()>1)
+  {
+    addstr(" | tab: ");
+    BOLD("[], F?"); addstr("=switch ");
+    BOLD("W"); addstr("=close");
+  }
+#undef BOLD
 }
 
 

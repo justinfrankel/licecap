@@ -557,42 +557,52 @@ void WDL_CursesEditor::draw(int lineidx)
 
     doDrawString(i+m_top_margin,0,ln,s->Get(),COLS,&comment_state,min(m_offs_x,s->GetLength()));
   }
-  
-//  move(LINES-2,0);
-//  clrtoeol();
+
+  attrset(m_color_bottomline);
+  bkgdset(m_color_bottomline);
+
   if (m_bottom_margin>0)
   {
-    attrset(m_color_bottomline);
-    bkgdset(m_color_bottomline);
+    move(LINES-1, 0);
+#define BOLD(x) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); }
     if (m_selecting) 
     {
-      mvaddstr(LINES-1,0,"SELECTING - ESC-cancel, " "Ctrl+C,X,V, etc");
+      mvaddstr(LINES-1,0,"SELECTING  ESC:cancel Ctrl+(");
+      BOLD("C"); addstr("opy ");
+      BOLD("X"); addstr(":cut ");
+      BOLD("V"); addstr(":paste)");
     }
     else 
     {
+      mvaddstr(LINES-1, 0, "Ctrl+(");
+
+      if (m_pane_div <= 0.0 || m_pane_div >= 1.0) 
+      {
+        BOLD("P"); addstr("ane ");
+      }
+      else
+      {
+        BOLD("O"); addstr("therpane ");
+        addstr("no"); BOLD("P"); addstr("anes ");
+      }
+      BOLD("F"); addstr("ind ");
+      addstr("ma"); BOLD("T"); addstr("ch");
       draw_bottom_line();
+      addstr(")");
     }
+#undef BOLD
     clrtoeol();
-    attrset(0);
-    bkgdset(0);
   }
+
+  attrset(0);
+  bkgdset(0);
+
   __curses_invalidatefull((win32CursesCtx*)m_cursesCtx,true);
 }
 
 void WDL_CursesEditor::draw_bottom_line()
 {
-  if (m_bottom_margin>0)
-  {
-    mvaddstr(LINES-1,0,"Ctrl+(");
-
-  #define DO(x,y) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); addstr(y);}
-      DO("F","ind ");
-      DO("","ma");
-      DO("T","");
-      DO("","ch");
-  #undef DO
-      addstr(")");
-  }
+  // implementers add key commands here
 }
 
 int WDL_CursesEditor::updateFile()
