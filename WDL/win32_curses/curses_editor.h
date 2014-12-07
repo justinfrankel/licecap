@@ -40,12 +40,20 @@ protected:
 
   void draw_message(const char *str);
   void draw_status_state();
+
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   {
     if (user_data) return ((WDL_CursesEditor*)user_data)->onMouseMessage(hwnd,uMsg,wParam,lParam);
     return 0;
   }
+
+  virtual void highlight_line(int line);
+  static void _highlight_line(void* user_data, int line)
+  {
+    if (user_data) ((WDL_CursesEditor*)user_data)->highlight_line(line);
+  }
+  
   void runSearch();
 
   void indentSelect(int amt);

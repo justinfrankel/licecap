@@ -100,6 +100,7 @@ typedef struct win32CursesCtx
   void (*do_update)(win32CursesCtx *ctx); // called on resize/etc, to avoid flicker. NULL will use default behavior
 
   void *user_data;
+  void (*highlight_line)(void* user_data, int line);
   LRESULT (*onMouseMessage)(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 } win32CursesCtx;
 

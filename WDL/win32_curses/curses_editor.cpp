@@ -71,6 +71,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   if (m_cursesCtx)
   {
     CURSES_INSTANCE->user_data = this;
+    CURSES_INSTANCE->highlight_line=_highlight_line;
     CURSES_INSTANCE->onMouseMessage = _onMouseMessage;
     CURSES_INSTANCE->want_scrollbar=1; // 1 or 2 chars wide
     CURSES_INSTANCE->do_update = __curses_onresize;
@@ -885,6 +886,27 @@ static WDL_FastString *newIndentedFastString(const char *tstr, int indent_to_pos
   s->Append(tstr);
   return s;
 
+}
+
+void WDL_CursesEditor::highlight_line(int line)
+{ 
+  if (line >= 0 && line < m_text.GetSize())
+  {
+    m_curs_x=0;
+    m_curs_y=line;
+
+    WDL_FastString* s=m_text.Get(line);
+    if (s && s->GetLength())
+    {
+      m_select_x1=0;
+      m_select_x2=s->GetLength();
+      m_select_y1=m_select_y2=m_curs_y;
+      m_selecting=1;
+      draw();
+    }
+
+    setCursor();
+  }
 }
 
 void WDL_CursesEditor::runSearch()
