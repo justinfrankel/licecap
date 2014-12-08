@@ -615,32 +615,36 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             ex -= ctx->m_font_w;
             if (updr.right >= ex)
             {
-              if (updr.top <= ctx->m_font_h*topmarg)
-              {
-                // todo: get the framebuffer attribute from each line and draw that color
-                RECT tr = { ex, updr.top, updr.right, ctx->m_font_h*topmarg };
-                FillRect(hdc, &tr, bgbrushes[12]);
-              }
+              // draw the scrollbars if they haven't been already drawn
               if (!ctx->drew_scrollbar[0] && updr.bottom > paney[0]*ctx->m_font_h && updr.top < (paney[0]+paneh[0])*ctx->m_font_h)
               {
                 RECT tr = { ex, paney[0]*ctx->m_font_h, updr.right, (paney[0]+paneh[0])*ctx->m_font_h };
                 FillRect(hdc, &tr, bgbrushes[0]);
-              }
-              if (has_panes && updr.bottom > (paney[0]+paneh[0])*ctx->m_font_h && updr.top < paney[1]*ctx->m_font_h)
-              {
-                RECT tr = { ex, (paney[0]+paneh[0])*ctx->m_font_h, updr.right, paney[1]*ctx->m_font_h };
-                FillRect(hdc, &tr, bgbrushes[2]);
               }
               if (!ctx->drew_scrollbar[1] && updr.bottom > paney[1]*ctx->m_font_h && updr.top < (paney[1]+paneh[1])*ctx->m_font_h)
               {
                 RECT tr = { ex, paney[1]*ctx->m_font_h, updr.right, (paney[1]+paneh[1])*ctx->m_font_h };
                 FillRect(hdc, &tr, bgbrushes[0]);
               }
-              if (updr.bottom > ey-ctx->m_font_h*bottmarg)
+
+              // draw line endings of special areas
+
+              const int div1a = has_panes ? (paney[0]+paneh[0]) : 0;
+              const int div1b = has_panes ? paney[1] : 0;
+
+              int y;
+              const int bm1 = ctx->lines-bottmarg;
+              const int fonth = ctx->m_font_h;
+              for (y = r.top; y < r.bottom; y ++)
               {
-                // todo: get the framebuffer attribute from each line and draw that color
-                RECT tr = { ex, ey-ctx->m_font_h*bottmarg, updr.right, ey };
-                FillRect(hdc, &tr, bgbrushes[2]);
+                if (y < topmarg || y>=bm1 || (y<div1b && y >= div1a))
+                {
+                  const int attr = ctx->m_framebuffer ? ctx->m_framebuffer[2*(y+1) * ctx->cols - 1] : 0; // last attribute of line
+
+                  const int yp = y * fonth;
+                  const RECT tr = { max(ex,updr.left), max(yp,updr.top), updr.right, min(yp+fonth,updr.bottom) };
+                  FillRect(hdc, &tr, bgbrushes[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)]);
+                }
               }
             }
 
