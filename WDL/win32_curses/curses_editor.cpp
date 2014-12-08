@@ -255,6 +255,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       if (cy > LINES) cy=LINES;
       if (cy < 0) cy=0;
 
+      m_state=0; // any click clears the state
       s_mousedown[0]=cx;
       s_mousedown[1]=cy;
 
