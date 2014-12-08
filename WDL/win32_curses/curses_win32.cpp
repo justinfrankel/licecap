@@ -642,7 +642,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                   const int attr = ctx->m_framebuffer ? ctx->m_framebuffer[2*(y+1) * ctx->cols - 1] : 0; // last attribute of line
 
                   const int yp = y * fonth;
-                  const RECT tr = { max(ex,updr.left), max(yp,updr.top), updr.right, min(yp+fonth,updr.bottom) };
+                  RECT tr = { max(ex,updr.left), max(yp,updr.top), updr.right, min(yp+fonth,updr.bottom) };
                   FillRect(hdc, &tr, bgbrushes[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)]);
                 }
               }
