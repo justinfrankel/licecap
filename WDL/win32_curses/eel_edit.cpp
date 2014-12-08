@@ -950,10 +950,9 @@ void EEL_Editor::doParenMatching()
       m_curs_y=new_y;
       m_want_x=-1;
       draw();
-      draw_message("");
       setCursor(1);
     }
-    else
+    else if (errmsg[0])
     {
       draw_message(errmsg);
       setCursor(0);
