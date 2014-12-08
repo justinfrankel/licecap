@@ -68,6 +68,7 @@ typedef struct win32CursesCtx
   int lines, cols;
 
   int want_scrollbar;
+  int scrollbar_topmargin,scrollbar_botmargin;
   int drew_scrollbar[2];
   int offs_y[2];  
   int div_y, tot_y;

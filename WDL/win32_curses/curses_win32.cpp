@@ -358,12 +358,12 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
       p.x /= ctx->m_font_w;
       p.y /= ctx->m_font_h;
 
-      const int topmarg=1; // these may not actually be constant...
-      const int bottmarg=1;
-      int paney[2] = { 1, ctx->div_y+2 };
-      int paneh[2] = { ctx->div_y, ctx->lines-ctx->div_y-3 };
-      int scrollw[2] = { ctx->cols-ctx->drew_scrollbar[0], ctx->cols-ctx->drew_scrollbar[1] };
+      const int topmarg=ctx->scrollbar_topmargin;
+      const int bottmarg=ctx->scrollbar_botmargin;
+      int paney[2] = { topmarg, ctx->div_y+topmarg+1 };
+      int paneh[2] = { ctx->div_y, ctx->lines-ctx->div_y-topmarg-bottmarg-1 };
       bool has_panes=(ctx->div_y < ctx->lines-topmarg-bottmarg-1);
+      int scrollw[2] = { ctx->cols-ctx->drew_scrollbar[0], ctx->cols-ctx->drew_scrollbar[1] };
 
       int div=1+ctx->div_y;
       int bott=ctx->lines-1;
@@ -412,9 +412,9 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           HDC hdc=BeginPaint(hwnd,&ps);
           if (hdc)
           {
-            const int topmarg=1; // these may not actually be constant...
-            const int bottmarg=1;
-            int paney[2] = { 1, ctx->div_y+topmarg+1 };
+            const int topmarg=ctx->scrollbar_topmargin;
+            const int bottmarg=ctx->scrollbar_botmargin;
+            int paney[2] = { topmarg, ctx->div_y+topmarg+1 };
             int paneh[2] = { ctx->div_y, ctx->lines-ctx->div_y-topmarg-bottmarg-1 };
             bool has_panes=(ctx->div_y < ctx->lines-topmarg-bottmarg-1);
             if (!has_panes) paneh[0]++;
@@ -615,9 +615,10 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             ex -= ctx->m_font_w;
             if (updr.right >= ex)
             {
-              if (updr.top <= ctx->m_font_h)
+              if (updr.top <= ctx->m_font_h*topmarg)
               {
-                RECT tr = { ex, updr.top, updr.right, ctx->m_font_h };
+                // todo: get the framebuffer attribute from each line and draw that color
+                RECT tr = { ex, updr.top, updr.right, ctx->m_font_h*topmarg };
                 FillRect(hdc, &tr, bgbrushes[12]);
               }
               if (!ctx->drew_scrollbar[0] && updr.bottom > paney[0]*ctx->m_font_h && updr.top < (paney[0]+paneh[0])*ctx->m_font_h)
@@ -635,9 +636,10 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 RECT tr = { ex, paney[1]*ctx->m_font_h, updr.right, (paney[1]+paneh[1])*ctx->m_font_h };
                 FillRect(hdc, &tr, bgbrushes[0]);
               }
-              if (updr.bottom > ey-ctx->m_font_h)
+              if (updr.bottom > ey-ctx->m_font_h*bottmarg)
               {
-                RECT tr = { ex, ey-ctx->m_font_h, updr.right, ey };
+                // todo: get the framebuffer attribute from each line and draw that color
+                RECT tr = { ex, ey-ctx->m_font_h*bottmarg, updr.right, ey };
                 FillRect(hdc, &tr, bgbrushes[2]);
               }
             }

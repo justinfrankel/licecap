@@ -666,6 +666,9 @@ void WDL_CursesEditor::draw(int lineidx)
     CURSES_INSTANCE->offs_y[1]=m_paneoffs_y[1];
     CURSES_INSTANCE->div_y=pane_divy;
     CURSES_INSTANCE->tot_y=m_text.GetSize();
+
+    CURSES_INSTANCE->scrollbar_topmargin = m_top_margin;
+    CURSES_INSTANCE->scrollbar_botmargin = m_bottom_margin;
   }
 #endif
 
