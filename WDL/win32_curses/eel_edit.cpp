@@ -1061,7 +1061,7 @@ void EEL_Editor::doWatchInfo(int c)
   }
   if (curChar && Watch_OnContextHelp(&curChar,&curChar,c,sstr,sizeof(sstr))) return;
 
-  draw_message(sstr);
+  if (sstr[0]) draw_message(sstr);
   setCursor();
 }
 
