@@ -85,7 +85,7 @@ BOOL GetFileTime(int filedes, FILETIME *lpCreationTime, FILETIME *lpLastAccessTi
   return 1;
 }
 
-BOOL SWELL_PtInRect(RECT *r, POINT p)
+BOOL SWELL_PtInRect(const RECT *r, POINT p)
 {
   if (!r) return FALSE;
   int tp=r->top;

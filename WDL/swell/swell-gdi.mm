@@ -324,7 +324,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
 
 
 
-void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
+void SWELL_FillRect(HDC ctx, const RECT *r, HBRUSH br)
 {
   HDC__ *c=(HDC__ *)ctx;
   HGDIOBJ__ *b=(HGDIOBJ__*) br;
@@ -1202,7 +1202,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
   return i;
 }
 
-void DrawImageInRect(HDC ctx, HICON img, RECT *r)
+void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
 {
   HGDIOBJ__ *i = (HGDIOBJ__ *)img;
   HDC__ *ct=(HDC__*)ctx;
@@ -1559,7 +1559,7 @@ void SWELL_PushClipRegion(HDC ctx)
   if (HDC_VALID(ct) && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
-void SWELL_SetClipRegion(HDC ctx, RECT *r)
+void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
   HDC__ *ct=(HDC__ *)ctx;
   if (HDC_VALID(ct) && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
@@ -1678,7 +1678,7 @@ void ReleaseDC(HWND h, HDC hdc)
   }
 }
 
-void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
+void SWELL_FillDialogBackground(HDC hdc, const RECT *r, int level)
 {
   CGContextRef ctx=(CGContextRef)SWELL_GetCtxGC(hdc);
   if (ctx)
