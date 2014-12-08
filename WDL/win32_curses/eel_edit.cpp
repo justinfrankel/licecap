@@ -1100,7 +1100,7 @@ int EEL_Editor::onChar(int c)
      setCursor();
   return 0;
 
-  case 'O'-'A'+1:
+  case 'I'-'A'+1:
     if (!m_selecting)
     {
       WDL_FastString *txtstr=m_text.Get(m_curs_y);
@@ -1158,7 +1158,7 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         {
           if (!strncmp(fs->Get(),"import",6) && isspace(fs->Get()[6]))
           {
-            onChar('O'-'A'+1); // open
+            onChar('I'-'A'+1); // open imported file
             return 1;
           }
         }
