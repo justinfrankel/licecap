@@ -590,6 +590,7 @@ int eelScriptInst::init()
 #ifndef EELSCRIPT_NO_EVAL
   EEL_eval_register();
   NSEEL_addfunc_retval("defer",1,NSEEL_PProc_THIS,&_eel_defer);
+  NSEEL_addfunc_retval("runloop", 1, NSEEL_PProc_THIS, &_eel_defer);
   NSEEL_addfunc_retval("atexit",1,NSEEL_PProc_THIS,&_eel_atexit);
 #endif
 #ifndef EELSCRIPT_NO_NET
@@ -676,8 +677,13 @@ void EELScript_GenerateFunctionList(WDL_PtrList<const char> *fs)
   p = eel_misc_function_reference;
   while (*p) { fs->Add(p); p += strlen(p) + 1; }
 #ifndef EELSCRIPT_NO_EVAL
-  fs->Add("defer\t\"code\"\tAdds code to be executed at some point after the current script execution finishes.");
-  fs->Add("atexit\t\"code\"\tAdds code to be executed when the script finishes or is ended by the user.");
+  fs->Add("atexit\t\"code\"\t"
+    "Adds code to be executed when the script finishes or is ended by the user. Typically used to clean up after the user terminates defer() or runloop() code.");
+  fs->Add("defer\t\"code\"\t"
+    "Identical to runloop(). Adds code to be called back by REAPER. Used to create persistent ReaScripts that continue to run and respond to input, while the user does other tasks.");
+  fs->Add("runloop\t\"code\"\t"
+    "Identical to defer(). Adds code to be called back by REAPER. Used to create persistent ReaScripts that continue to run and respond to input, while the user does other tasks.");
+
   p = eel_eval_function_reference;
   while (*p) { fs->Add(p); p += strlen(p) + 1; }
 #endif
