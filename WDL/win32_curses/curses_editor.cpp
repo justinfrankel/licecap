@@ -1770,6 +1770,7 @@ int WDL_CursesEditor::onChar(int c)
         if (!hadCom) hadCom = LineCanAffectOtherLines(ss->Get(),m_curs_x,slen);
 
         m_curs_x += slen;
+
         draw(hadCom ? -1 : m_curs_y);
       }
       saveUndoState();
