@@ -71,7 +71,6 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   if (m_cursesCtx)
   {
     CURSES_INSTANCE->user_data = this;
-    CURSES_INSTANCE->highlight_line=_highlight_line;
     CURSES_INSTANCE->onMouseMessage = _onMouseMessage;
     CURSES_INSTANCE->want_scrollbar=1; // 1 or 2 chars wide
     CURSES_INSTANCE->do_update = __curses_onresize;
