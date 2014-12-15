@@ -1429,6 +1429,25 @@ int WDL_CursesEditor::onChar(int c)
     attrset(m_color_message);
     bkgdset(m_color_message);
     mvaddstr(LINES-1,0,"Find string (ESC to cancel): ");
+    if (m_selecting && m_select_y1==m_select_y2)
+    {
+      WDL_FastString* s=m_text.Get(m_select_y1);
+      if (s)
+      {
+        const char* p=s->Get();
+        int xlo=min(m_select_x1, m_select_x2);
+        int xhi=max(m_select_x1, m_select_x2);
+        int i;
+        for (i=xlo; i < xhi; ++i)
+        {
+          if (!isalnum(p[i]) && p[i] != '_') break;
+        }
+        if (i == xhi && xhi > xlo && xhi-xlo < sizeof(s_search_string))
+        {
+          lstrcpyn(s_search_string, p+xlo, xhi-xlo+1);
+        }
+      }
+    }
     addstr(s_search_string);
     clrtoeol();
     attrset(0);
