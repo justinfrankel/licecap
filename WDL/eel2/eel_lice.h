@@ -42,6 +42,7 @@ EEL_LICE_FUNCDEF void (*__LICE_ScaledBlit)(LICE_IBitmap *dest, LICE_IBitmap *src
                      float srcx, float srcy, float srcw, float srch, float alpha, int mode);
 EEL_LICE_FUNCDEF void (*__LICE_Circle)(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa);
 EEL_LICE_FUNCDEF void (*__LICE_FillCircle)(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa);
+EEL_LICE_FUNCDEF void (*__LICE_FillTriangle)(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha, int mode);
 EEL_LICE_FUNCDEF void (*__LICE_RoundRect)(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float h, int cornerradius, LICE_pixel col, float alpha, int mode, bool aa);
 EEL_LICE_FUNCDEF void (*__LICE_Arc)(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, float maxAngle, LICE_pixel color, float alpha, int mode, bool aa);
 
@@ -96,6 +97,7 @@ EEL_LICE_FUNCDEF void (*__LICE_DeltaBlit)(LICE_IBitmap *dest, LICE_IBitmap *src,
 #define LICE_DeltaBlit __LICE_DeltaBlit
 #define LICE_Circle __LICE_Circle
 #define LICE_FillCircle __LICE_FillCircle
+#define LICE_FillTriagle __LICE_FillTriangle
 #define LICE_RoundRect __LICE_RoundRect
 #define LICE_Arc __LICE_Arc
 
@@ -289,7 +291,7 @@ public:
   void gfx_blitext2(int np, EEL_F **parms, int mode); // 0=blit, 1=deltablit
   void gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_F *tab); // parms[0]=src, 1-4=x,y,w,h
   void gfx_circle(float x, float y, float r, bool fill, bool aaflag);
- 
+  void gfx_triangle(EEL_F x1, EEL_F y1, EEL_F x2, EEL_F y2, EEL_F x3, EEL_F y3);
   void gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int formatmode); // formatmode=1 for format, 2 for purely measure no format, 3 for measure char
   EEL_F gfx_loadimg(void *opaque, int img, EEL_F loadFrom);
   EEL_F gfx_setfont(void *opaque, int np, EEL_F **parms);
@@ -541,6 +543,13 @@ static EEL_F NSEEL_CGEN_CALL _gfx_circle(void *opaque, INT_PTR np, EEL_F **parms
   return 0.0;
 }
 
+static EEL_F NSEEL_CGEN_CALL _gfx_triangle(void* opaque, INT_PTR np, EEL_F **parms)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) ctx->gfx_triangle(parms[0][0], parms[1][0], parms[2][0], parms[3][0], parms[4][0], parms[5][0]);
+  return 0.0;
+}
+
 static EEL_F * NSEEL_CGEN_CALL _gfx_drawnumber(void *opaque, EEL_F *n, EEL_F *nd)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
@@ -759,6 +768,15 @@ void eel_lice_state::gfx_circle(float x, float y, float r, bool fill, bool aafla
     else
       LICE_Circle(dest, x, y, r, getCurColor(), (float) *m_gfx_a, getCurMode(), aaflag);
     SetImageDirty(dest);
+  }
+}
+
+void eel_lice_state::gfx_triangle(EEL_F x1, EEL_F y1, EEL_F x2, EEL_F y2, EEL_F x3, EEL_F y3)
+{
+  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest, "gfx_triangle");
+  if (LICE_FUNCTION_VALID(LICE_FillTriangle))
+  {
+    LICE_FillTriangle(dest, x1, y1, x2, y2, x3, y3, getCurColor(), (float)*m_gfx_a, getCurMode());
   }
 }
 
@@ -1668,6 +1686,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_deltablit",9,NSEEL_PProc_THIS,&_gfx_deltablit);
   NSEEL_addfunc_exparms("gfx_transformblit",8,NSEEL_PProc_THIS,&_gfx_transformblit);
   NSEEL_addfunc_varparm("gfx_circle",3,NSEEL_PProc_THIS,&_gfx_circle);
+  NSEEL_addfunc_varparm("gfx_triangle", 6, NSEEL_PProc_THIS, &_gfx_triangle);
   NSEEL_addfunc_varparm("gfx_roundrect",5,NSEEL_PProc_THIS,&_gfx_roundrect);
   NSEEL_addfunc_varparm("gfx_arc",5,NSEEL_PProc_THIS,&_gfx_arc);
   NSEEL_addfunc_retptr("gfx_blurto",2,NSEEL_PProc_THIS,&_gfx_blurto);
@@ -2271,6 +2290,7 @@ static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
   *(void **)&LICE_ScaledBlit = getFunc("LICE_ScaledBlit");
   *(void **)&LICE_Circle = getFunc("LICE_Circle");
   *(void **)&LICE_FillCircle = getFunc("LICE_FillCircle");
+  *(void**)&LICE_FillTriangle=getFunc("LICE_FillTriangle");
   *(void **)&LICE_RoundRect = getFunc("LICE_RoundRect");
   *(void **)&LICE_Arc = getFunc("LICE_Arc");
 
@@ -2396,6 +2416,7 @@ static const char *eel_lice_function_reference =
       "65536 item boundary). Each pair in the table represents a S,T coordinate in the source image, and the table is treated as "
       "a left-right, top-bottom list of texture coordinates, which will then be rendered to the destination.\0"
   "gfx_circle\tx,y,r[,fill,antialias]\tDraws a circle, optionally filling/antialiasing. \0"
+  "gfx_triangle\tx1,y1,x2,y2,x3,y3\tDraws a filled triangle. \0"
   "gfx_roundrect\tx,y,w,h,radius[,antialias]\tDraws a rectangle with rounded corners. \0"
   "gfx_arc\tx,y,r,ang1,ang2[,antialias]\tDraws an arc of the circle centered at x,y, with ang1/ang2 being specified in radians.\0"
   "gfx_set\tr[,g,b,a,mode,dest]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode, sets gfx_dest if final parameter specified\0"
