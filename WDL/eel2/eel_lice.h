@@ -657,6 +657,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getfont(void *opaque, INT_PTR np, EEL_F **parm
 #else
       WDL_FastString *fs=NULL;
       EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
+      if (fs) fs->Set(f->actual_fontname);
 #endif
     }
     return idx;
