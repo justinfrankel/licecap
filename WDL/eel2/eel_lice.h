@@ -785,14 +785,16 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
     }
     else
     {
-      int x[512], y[512];
-      int i;
-      for (i=0; i < min(np,sizeof(x)); i += 2)
+      const int maxpt = 512;
+      const int n = min(np/2, maxpt);
+      int i, rdi=0;
+      int x[maxpt], y[maxpt];
+      for (i=0; i < n; i++)
       {
-        x[i/2]=(int)parms[i][0];
-        y[i/2]=(int)parms[i+1][0];
+        x[i]=(int)parms[rdi++][0];
+        y[i]=(int)parms[rdi++][0];
       }
-      LICE_FillConvexPolygon(dest, x, y, np/2, getCurColor(), (float)*m_gfx_a, getCurMode());
+      LICE_FillConvexPolygon(dest, x, y, n, getCurColor(), (float)*m_gfx_a, getCurMode());
     }
   }
 }
