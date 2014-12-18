@@ -14,7 +14,7 @@ public:
   bool IsDirty() const { return m_clean_undopos != m_undoStack_pos; }
 
   virtual int onChar(int c);
-  virtual void onRightClick() { }
+  virtual void onRightClick(HWND hwnd) { } 
 
   virtual int updateFile(); // saves file on disk
   void RunEditor(); // called from timer/main loop when on simulated curses -- if on a real console just call onChar(getch())
@@ -26,7 +26,7 @@ public:
 
   const char *GetFileName() { return m_filename.Get(); }
 
-  virtual void setCursor(int isVscroll=0);
+  virtual void setCursor(int isVscroll=0, double ycenter=-1.0);
 
   int m_indent_size;
   int m_max_undo_states;

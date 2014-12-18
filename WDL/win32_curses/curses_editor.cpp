@@ -355,7 +355,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       }
       else
       {
-        onRightClick();
+        onRightClick(hwnd);
       }
     }
     return 0;
@@ -497,7 +497,7 @@ void WDL_CursesEditor::draw_status_state()
   if (line >= paney[m_curpane] && line < paney[m_curpane]+paneh[m_curpane]) move(line, col);
 }
 
-void WDL_CursesEditor::setCursor(int isVscroll)
+void WDL_CursesEditor::setCursor(int isVscroll, double ycenter)
 {
   int maxx=m_text.Get(m_curs_y) ? m_text.Get(m_curs_y)->GetLength() : 0;
 
@@ -520,18 +520,33 @@ void WDL_CursesEditor::setCursor(int isVscroll)
 
   int paney[2], paneh[2];
   GetPaneDims(paney, paneh);
-  int y=m_curs_y-m_paneoffs_y[m_curpane];
-  if (y < 0) 
+  int y;
+  if (ycenter >= 0.0 && ycenter < 1.0)
   {
-    m_paneoffs_y[m_curpane] += y;
-    y=0;
+    y=(int)((double)paneh[m_curpane]*ycenter);
+    m_paneoffs_y[m_curpane]=m_curs_y-y;
+    if (m_paneoffs_y[m_curpane] < 0)
+    {
+      y += m_paneoffs_y[m_curpane];
+      m_paneoffs_y[m_curpane]=0;
+    }
     redraw=1;
   }
-  else if (y >= paneh[m_curpane]) 
+  else
   {
-    m_paneoffs_y[m_curpane] += y-paneh[m_curpane]+1;
-    y=paneh[m_curpane]-1;
-    redraw=1;
+    int y=m_curs_y-m_paneoffs_y[m_curpane];
+    if (y < 0) 
+    {
+      m_paneoffs_y[m_curpane] += y;
+      y=0;
+      redraw=1;
+    }
+    else if (y >= paneh[m_curpane]) 
+    {
+      m_paneoffs_y[m_curpane] += y-paneh[m_curpane]+1;
+      y=paneh[m_curpane]-1;
+      redraw=1;
+    }
   }
 
   if (redraw) draw();
