@@ -36,6 +36,7 @@ EEL_LICE_FUNCDEF void (*__LICE_MeasureText)(const char *string, int *w, int *h);
 EEL_LICE_FUNCDEF void (*__LICE_PutPixel)(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha, int mode);
 EEL_LICE_FUNCDEF LICE_pixel (*__LICE_GetPixel)(LICE_IBitmap *bm, int x, int y);
 EEL_LICE_FUNCDEF void (*__LICE_FillRect)(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode);
+EEL_LICE_FUNCDEF void (*__LICE_DrawRect)(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode);
 EEL_LICE_FUNCDEF LICE_IBitmap *(*__LICE_LoadImage)(const char* filename, LICE_IBitmap* bmp, bool tryIgnoreExtension);
 EEL_LICE_FUNCDEF void (*__LICE_Blur)(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int srcx, int srcy, int srcw, int srch); // src and dest can overlap, however it may look fudgy if they do
 EEL_LICE_FUNCDEF void (*__LICE_ScaledBlit)(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, int dstw, int dsth, 
@@ -84,6 +85,7 @@ EEL_LICE_FUNCDEF void (*__LICE_DeltaBlit)(LICE_IBitmap *dest, LICE_IBitmap *src,
 #define LICE_Line __LICE_Line
 #define LICE_ClipLine __LICE_ClipLine
 #define LICE_FillRect __LICE_FillRect
+#define LICE_DrawRect __LICE_DrawRect
 #define LICE_PutPixel __LICE_PutPixel
 #define LICE_GetPixel __LICE_GetPixel
 #define LICE_DrawText __LICE_DrawText
@@ -841,12 +843,13 @@ void eel_lice_state::gfx_rect(int np, EEL_F **parms)
   LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_rect");
   if (!dest) return;
 
-  int x1=(int)floor(parms[0][0]),y1=(int)floor(parms[1][0]),w=(int)floor(parms[2][0]), h=(int)floor(parms[3][0]);
+  int x1=(int)floor(parms[0][0]),y1=(int)floor(parms[1][0]),w=(int)floor(parms[2][0]),h=(int)floor(parms[3][0]);  
+  int filled=(np < 5 || parms[4][0] > 0.5);
 
-  if (LICE_FUNCTION_VALID(LICE_FillRect) && w>0 && h>0)
+  if (LICE_FUNCTION_VALID(LICE_FillRect) && LICE_FUNCTION_VALID(LICE_DrawRect) && w>0 && h>0)
   {
-    LICE_FillRect(dest,x1,y1,w,h,getCurColor(),(float)*m_gfx_a,getCurMode());
-
+    if (filled) LICE_FillRect(dest,x1,y1,w,h,getCurColor(),(float)*m_gfx_a,getCurMode());
+    else LICE_DrawRect(dest, x1, y1, w, h, getCurColor(), (float)*m_gfx_a, getCurMode());
     SetImageDirty(dest);
   }
 }
@@ -1699,7 +1702,7 @@ void eel_lice_register()
   NSEEL_addfunc_retptr("gfx_lineto",3,NSEEL_PProc_THIS,&_gfx_lineto);
   NSEEL_addfunc_retptr("gfx_lineto",2,NSEEL_PProc_THIS,&_gfx_lineto2);
   NSEEL_addfunc_retptr("gfx_rectto",2,NSEEL_PProc_THIS,&_gfx_rectto);
-  NSEEL_addfunc_exparms("gfx_rect",4,NSEEL_PProc_THIS,&_gfx_rect);
+  NSEEL_addfunc_varparm("gfx_rect",4,NSEEL_PProc_THIS,&_gfx_rect);
   NSEEL_addfunc_varparm("gfx_line",4,NSEEL_PProc_THIS,&_gfx_line); // 5th param is optionally AA
   NSEEL_addfunc_varparm("gfx_gradrect",8,NSEEL_PProc_THIS,&_gfx_gradrect);
   NSEEL_addfunc_varparm("gfx_muladdrect",7,NSEEL_PProc_THIS,&_gfx_muladdrect);
@@ -2294,6 +2297,7 @@ static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
   *(void **)&LICE_Line = getFunc("LICE_LineInt");
   *(void **)&LICE_ClipLine = getFunc("LICE_ClipLine");
   *(void **)&LICE_FillRect = getFunc("LICE_FillRect");
+  *(void **)&LICE_DrawRect = getFunc("LICE_DrawRect");
   *(void **)&LICE_PutPixel = getFunc("LICE_PutPixel");
   *(void **)&LICE_GetPixel = getFunc("LICE_GetPixel");
   *(void **)&LICE_DrawText = getFunc("LICE_DrawText");
@@ -2407,7 +2411,7 @@ static const char *eel_lice_function_reference =
   "gfx_lineto\tx,y[,aa]\tDraws a line from gfx_x,gfx_y to x,y. If aa is 0.5 or greater, then antialiasing is used. Updates gfx_x and gfx_y to x,y.\0"
   "gfx_line\tx,y,x2,y2[,aa]\tDraws a line from x,y to x2,y2, and if aa is not specified or 0.5 or greater, it will be antialiased. \0"
   "gfx_rectto\tx,y\tFills a rectangle from gfx_x,gfx_y to x,y. Updates gfx_x,gfx_y to x,y. \0"
-  "gfx_rect\tx,y,w,h\tFills a rectangle at x,y, w,h pixels in dimension. \0"
+  "gfx_rect\tx,y,w,h[,filled]\tFills a rectangle at x,y, w,h pixels in dimension, filled by default. \0"
   "gfx_setpixel\tr,g,b\tWrites a pixel of r,g,b to gfx_x,gfx_y.\0"
   "gfx_getpixel\tr,g,b\tGets the value of the pixel at gfx_x,gfx_y into r,g,b. \0"
   "gfx_drawnumber\tn,ndigits\tDraws the number n with ndigits of precision to gfx_x, gfx_y, and updates gfx_x to the right side of the drawing. The text height is gfx_texth.\0"
