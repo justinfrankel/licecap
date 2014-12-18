@@ -353,7 +353,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       {
         SetCapture(hwnd);
       }
-      else
+      else if (uMsg == WM_RBUTTONDOWN)
       {
         onRightClick(hwnd);
       }
@@ -534,7 +534,7 @@ void WDL_CursesEditor::setCursor(int isVscroll, double ycenter)
   }
   else
   {
-    int y=m_curs_y-m_paneoffs_y[m_curpane];
+    y=m_curs_y-m_paneoffs_y[m_curpane];
     if (y < 0) 
     {
       m_paneoffs_y[m_curpane] += y;
