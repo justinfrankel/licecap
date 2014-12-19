@@ -74,6 +74,7 @@ int  WINAPI CoolSB_SetScrollRange	(HWND hwnd, int nBar, int nMinPos, int nMaxPos
 BOOL WINAPI CoolSB_ShowScrollBar	(HWND hwnd, int wBar, BOOL fShow);
 
 BOOL WINAPI CoolSB_SetResizingThumb(HWND hwnd, BOOL active);
+BOOL WINAPI CoolSB_SetThemeIndex(HWND hwnd, int idx);
 void CoolSB_SetScale(float scale); // sets scale to use for scrollbars (does not refresh, though -- set this at startup/etc)
 void CoolSB_OnColorThemeChange(); // refreshes all
 

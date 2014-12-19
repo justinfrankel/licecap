@@ -170,6 +170,7 @@ typedef struct
   UINT vscrollbarShrinkBottom,vscrollbarShrinkTop;
   void *(*getDeadAreaBitmap)(int, HWND, RECT *,int);
 
+  int whichTheme;
 } SCROLLWND;
 
 
@@ -248,14 +249,26 @@ typedef struct
 
 static int g_coolsb_imageVersion; // liceBkgnd_ver, liceThumb_ver
 
-static LICE_IBitmap **m_scrollbar_bmp = NULL;
-static int m_scrollbar_hasPink;
-static int m_sb_thumbHV[5], m_sb_thumbVV[5]; // 
-static int m_sb_bkghl, m_sb_bkghr;
-static int m_sb_bkgvt, m_sb_bkgvb;
+struct wdlscrollbar_themestate
+{
+  LICE_IBitmap **bmp;
+  int hasPink;
+  int thumbHV[5], thumbVV[5]; // 
+  int bkghl, bkghr;
+  int bkgvt, bkgvb;
+};
 
+#ifndef MAX_SCROLLBAR_THEMES
+#define MAX_SCROLLBAR_THEMES 8
+#endif
+static wdlscrollbar_themestate s_scrollbar_theme[MAX_SCROLLBAR_THEMES];
 
-
+static wdlscrollbar_themestate *GetThemeForScrollWnd(const SCROLLWND *sw)
+{
+  if (!sw || sw->whichTheme < 0 || sw->whichTheme >= MAX_SCROLLBAR_THEMES)
+    return &s_scrollbar_theme[0];
+  return &s_scrollbar_theme[sw->whichTheme];
+}
 
 //
 //	Special thumb-tracking variables
@@ -462,10 +475,10 @@ static LRESULT CallWindowProcStyleMod(SCROLLWND *sw, HWND hwnd, UINT msg, WPARAM
   return ret;
 }
 
-static BOOL ownDrawFrameControl(HWND hwnd, HDC hdc, LPRECT lprc, UINT uType, UINT uState, int mouseOver)
+static BOOL ownDrawFrameControl(HWND hwnd, HDC hdc, LPRECT lprc, UINT uType, UINT uState, int mouseOver, const wdlscrollbar_themestate *theme)
 {
   LICE_IBitmap *bmp;
-  if(m_scrollbar_bmp && (bmp = *m_scrollbar_bmp))
+  if(theme->bmp && (bmp = *theme->bmp))
   {
     static LICE_SysBitmap tmpbmp;
     int w = lprc->right-lprc->left;
@@ -578,7 +591,7 @@ static BOOL ownDrawFrameControl(HWND hwnd, HDC hdc, LPRECT lprc, UINT uType, UIN
 //
 //	Draw a standard scrollbar arrow
 //
-static int DrawScrollArrow(HWND hwnd, SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT arrow, BOOL fMouseDown, BOOL fMouseOver)
+static int DrawScrollArrow(HWND hwnd, SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT arrow, BOOL fMouseDown, BOOL fMouseOver, const wdlscrollbar_themestate *theme)
 {
 	UINT ret;
 	UINT flags = arrow;
@@ -593,7 +606,7 @@ static int DrawScrollArrow(HWND hwnd, SCROLLBAR *sbar, HDC hdc, RECT *rect, UINT
 	if(fMouseDown) flags |= (DFCS_FLAT | DFCS_PUSHED);
 
 
-	ret = ownDrawFrameControl(hwnd,hdc, rect, DFC_SCROLL, flags, fMouseOver);
+	ret = ownDrawFrameControl(hwnd,hdc, rect, DFC_SCROLL, flags, fMouseOver, theme);
 
 	return ret;
 }
@@ -668,7 +681,8 @@ static COLORREF GetSBBackColor(HWND hwnd)
 
 void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max)
 {
-  LICE_IBitmap* src=*m_scrollbar_bmp;
+  const wdlscrollbar_themestate *theme = &s_scrollbar_theme[0];
+  LICE_IBitmap* src=*theme->bmp;
   if (!src) return;
 
   int x=r->left;
@@ -680,42 +694,42 @@ void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max
   int thumb=range*page/max;
   int tpos=(range*pos)/max;
 
-  if (m_scrollbar_hasPink) 
+  if (theme->hasPink) 
   { 
     LICE_ScaledBlit(dest, src, 
-                    x, y, w, m_sb_bkgvt, 
-                    170, 37, 17, m_sb_bkgvt, 
+                    x, y, w, theme->bkgvt, 
+                    170, 37, 17, theme->bkgvt, 
                     1.0f, LICE_BLIT_FILTER_BILINEAR);
     LICE_ScaledBlit(dest, src, 
-                    x, y+m_sb_bkgvt, w, h-m_sb_bkgvt-m_sb_bkgvb, 
-                    170, 37+m_sb_bkgvt, 17, 238-37-m_sb_bkgvt-m_sb_bkgvb, 
+                    x, y+theme->bkgvt, w, h-theme->bkgvt-theme->bkgvb, 
+                    170, 37+theme->bkgvt, 17, 238-37-theme->bkgvt-theme->bkgvb, 
                     1.0f, LICE_BLIT_FILTER_BILINEAR);
-    LICE_ScaledBlit(dest, src, x, y+h-m_sb_bkgvb, w, m_sb_bkgvb, 
-                    170, 238-m_sb_bkgvb, 17, m_sb_bkgvb,
+    LICE_ScaledBlit(dest, src, x, y+h-theme->bkgvb, w, theme->bkgvb, 
+                    170, 238-theme->bkgvb, 17, theme->bkgvb,
                     1.0f, LICE_BLIT_FILTER_BILINEAR);
 
-    int th=(thumb-m_sb_thumbVV[0]-m_sb_thumbVV[2]-m_sb_thumbVV[4])/2;
+    int th=(thumb-theme->thumbVV[0]-theme->thumbVV[2]-theme->thumbVV[4])/2;
     if (th < 0) th=0;
 
     LICE_ScaledBlit(dest, src,
-                    x, y+17+tpos, w, m_sb_thumbVV[0], 
-                    0, 91, 17, m_sb_thumbVV[0], 
+                    x, y+17+tpos, w, theme->thumbVV[0], 
+                    0, 91, 17, theme->thumbVV[0], 
                     1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
     LICE_ScaledBlit(dest, src,
-                    x, y+17+tpos+m_sb_thumbVV[0], w, th, 
-                    0, 91+m_sb_thumbVV[0], 17, m_sb_thumbVV[1], 
+                    x, y+17+tpos+theme->thumbVV[0], w, th, 
+                    0, 91+theme->thumbVV[0], 17, theme->thumbVV[1], 
                     1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
     LICE_ScaledBlit(dest, src,
-                    x, y+17+tpos+m_sb_thumbVV[0]+th, w, m_sb_thumbVV[2], 
-                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1], 17, m_sb_thumbVV[2], 
+                    x, y+17+tpos+theme->thumbVV[0]+th, w, theme->thumbVV[2], 
+                    0, 91+theme->thumbVV[0]+theme->thumbVV[1], 17, theme->thumbVV[2], 
                     1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
     LICE_ScaledBlit(dest, src,
-                    x, y+17+tpos+m_sb_thumbVV[0]+th+m_sb_thumbVV[2], w, th, 
-                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1]+m_sb_thumbVV[2], 17, m_sb_thumbVV[3], 
+                    x, y+17+tpos+theme->thumbVV[0]+th+theme->thumbVV[2], w, th, 
+                    0, 91+theme->thumbVV[0]+theme->thumbVV[1]+theme->thumbVV[2], 17, theme->thumbVV[3], 
                     1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
     LICE_ScaledBlit(dest, src,
-                    x, y+17+tpos+m_sb_thumbVV[0]+th+m_sb_thumbVV[2]+th, w, m_sb_thumbVV[4], 
-                    0, 91+m_sb_thumbVV[0]+m_sb_thumbVV[1]+m_sb_thumbVV[2]+m_sb_thumbVV[3], 17, m_sb_thumbVV[4], 
+                    x, y+17+tpos+theme->thumbVV[0]+th+theme->thumbVV[2]+th, w, theme->thumbVV[4], 
+                    0, 91+theme->thumbVV[0]+theme->thumbVV[1]+theme->thumbVV[2]+theme->thumbVV[3], 17, theme->thumbVV[4], 
                     1.0f, LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
   }
   else
@@ -746,12 +760,12 @@ void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max
 //	Paint a checkered rectangle, with each alternate
 //	pixel being assigned a different colour
 //
-static void DrawCheckedRect(LICE_IBitmap *bmOut, HDC hdc, RECT *rect, COLORREF fg, COLORREF bg, SCROLLBAR *sb, const RECT *wndrect, int on, int offsx=0, int offsy=0)
+static void DrawCheckedRect(const wdlscrollbar_themestate *theme, LICE_IBitmap *bmOut, HDC hdc, RECT *rect, COLORREF fg, COLORREF bg, SCROLLBAR *sb, const RECT *wndrect, int on, int offsx=0, int offsy=0)
 {
   int isvert = sb->nBarType==SB_VERT;
 
   LICE_IBitmap *bmp;
-  if(m_scrollbar_bmp && (bmp = *m_scrollbar_bmp))
+  if(theme->bmp && (bmp = *theme->bmp))
   {
     int w = rect->right-rect->left;
     int h = rect->bottom-rect->top;
@@ -775,20 +789,20 @@ static void DrawCheckedRect(LICE_IBitmap *bmOut, HDC hdc, RECT *rect, COLORREF f
       if(!isvert)
       {
         int desth = nh/2;
-        if(m_scrollbar_hasPink)
+        if(theme->hasPink)
         {
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, 0, m_sb_bkghl, desth, 
-                                     0, 0, m_sb_bkghl, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, m_sb_bkghl, 0, ww-m_sb_bkghl-m_sb_bkghr, desth,
-                                     m_sb_bkghl, 0, 204-m_sb_bkghl-m_sb_bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, ww-m_sb_bkghr, 0, m_sb_bkghr, desth, 
-                                     204-m_sb_bkghr, 0, m_sb_bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, desth, m_sb_bkghl, desth, 
-                                     0, 17, m_sb_bkghl, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, m_sb_bkghl, desth, ww-m_sb_bkghl-m_sb_bkghr, desth, 
-                                     m_sb_bkghl, 17, 204-m_sb_bkghl-m_sb_bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, ww-m_sb_bkghr, desth, m_sb_bkghr, desth, 204-m_sb_bkghr, 
-                                     17, m_sb_bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, 0, theme->bkghl, desth, 
+                                     0, 0, theme->bkghl, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, theme->bkghl, 0, ww-theme->bkghl-theme->bkghr, desth,
+                                     theme->bkghl, 0, 204-theme->bkghl-theme->bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, ww-theme->bkghr, 0, theme->bkghr, desth, 
+                                     204-theme->bkghr, 0, theme->bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, desth, theme->bkghl, desth, 
+                                     0, 17, theme->bkghl, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, theme->bkghl, desth, ww-theme->bkghl-theme->bkghr, desth, 
+                                     theme->bkghl, 17, 204-theme->bkghl-theme->bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, ww-theme->bkghr, desth, theme->bkghr, desth, 204-theme->bkghr, 
+                                     17, theme->bkghr, 17, 1.0f, LICE_BLIT_FILTER_BILINEAR);
         }
         else
         {
@@ -800,21 +814,21 @@ static void DrawCheckedRect(LICE_IBitmap *bmOut, HDC hdc, RECT *rect, COLORREF f
       {
         int destw = nw/2;
         int starty = 34;
-        if(m_scrollbar_hasPink) 
+        if(theme->hasPink) 
         {
           starty = 37;
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, 0, destw, m_sb_bkgvt, 
-                                     170, starty, 17, m_sb_bkgvt, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, m_sb_bkgvt, destw, wh-m_sb_bkgvt-m_sb_bkgvb, 
-                                     170, starty+m_sb_bkgvt, 17, 238-starty-m_sb_bkgvt-m_sb_bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, wh-m_sb_bkgvb, destw, m_sb_bkgvb, 
-                                     170, 238-m_sb_bkgvb, 17, m_sb_bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, destw, 0, destw, m_sb_bkgvt, 
-                                     187, starty, 17, m_sb_bkgvt, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, destw, m_sb_bkgvt, destw, wh-m_sb_bkgvt-m_sb_bkgvb, 
-                                     187, starty+m_sb_bkgvt, 17, 238-starty-m_sb_bkgvt-m_sb_bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
-          LICE_ScaledBlit(sb->liceBkgnd, bmp, destw, wh-m_sb_bkgvb, destw, m_sb_bkgvb, 
-                                     187, 238-m_sb_bkgvb, 17, m_sb_bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, 0, destw, theme->bkgvt, 
+                                     170, starty, 17, theme->bkgvt, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, theme->bkgvt, destw, wh-theme->bkgvt-theme->bkgvb, 
+                                     170, starty+theme->bkgvt, 17, 238-starty-theme->bkgvt-theme->bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, 0, wh-theme->bkgvb, destw, theme->bkgvb, 
+                                     170, 238-theme->bkgvb, 17, theme->bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, destw, 0, destw, theme->bkgvt, 
+                                     187, starty, 17, theme->bkgvt, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, destw, theme->bkgvt, destw, wh-theme->bkgvt-theme->bkgvb, 
+                                     187, starty+theme->bkgvt, 17, 238-starty-theme->bkgvt-theme->bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
+          LICE_ScaledBlit(sb->liceBkgnd, bmp, destw, wh-theme->bkgvb, destw, theme->bkgvb, 
+                                     187, 238-theme->bkgvb, 17, theme->bkgvb, 1.0f, LICE_BLIT_FILTER_BILINEAR);
         }
         else
         {
@@ -1207,16 +1221,16 @@ static UINT GetVertScrollPortion(SCROLLBAR *sb, HWND hwnd, RECT *rect, int x, in
 
 
 
-static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, const RECT *wndrect, SCROLLBAR *sb)
+static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, const RECT *wndrect, SCROLLBAR *sb, const wdlscrollbar_themestate *theme)
 {
   LICE_IBitmap *bmp;
-  if(m_scrollbar_bmp && (bmp = *m_scrollbar_bmp))
+  if(theme->bmp && (bmp = *theme->bmp))
   {
     int w = r.right-r.left;
     int h = r.bottom-r.top;
     int startx = 0;
     int starty = 187;
-    if(m_scrollbar_hasPink) starty = 37;
+    if(theme->hasPink) starty = 37;
     if(!vert)
     {
       static LICE_SysBitmap tmpbmp;
@@ -1226,15 +1240,15 @@ static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, c
       //draw background first so alpha channel thumbs work
       {
         RECT bgr = {0,0,w,h};
-        DrawCheckedRect(&tmpbmp,tmpbmp.getDC(), &bgr, 0, 0, sb, wndrect, 0, r.left);
+        DrawCheckedRect(theme,&tmpbmp,tmpbmp.getDC(), &bgr, 0, 0, sb, wndrect, 0, r.left);
       }
 
       int st = (fBarHot?1:0) + (pressed?2:0);
       int neww = w;
       int part1 = 16, part2 = 10, part3 = 14, part4 = 10, part5 = 16;
-      if(m_scrollbar_hasPink)
+      if(theme->hasPink)
       {
-        part1 = m_sb_thumbHV[0]; part2 = m_sb_thumbHV[1]; part3 = m_sb_thumbHV[2]; part4 = m_sb_thumbHV[3]; part5 = m_sb_thumbHV[4];
+        part1 = theme->thumbHV[0]; part2 = theme->thumbHV[1]; part3 = theme->thumbHV[2]; part4 = theme->thumbHV[3]; part5 = theme->thumbHV[4];
       }
 
       double sc = h==16||h==17 ? 1.0 : h / 17.0;
@@ -1273,21 +1287,21 @@ static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, c
       if (w>tmpbmp.getWidth() || h>tmpbmp.getHeight())
         tmpbmp.resize(max(w,tmpbmp.getWidth()), max(h,tmpbmp.getHeight()));
       starty = 116;
-      if(m_scrollbar_hasPink) starty = 91;
+      if(theme->hasPink) starty = 91;
 
       //draw background first so alpha channel thumbs work
       {
         RECT bgr = {0,0,w,h};
-        DrawCheckedRect(&tmpbmp,tmpbmp.getDC(), &bgr, 0, 0, sb, wndrect, 0, 0, r.top);
+        DrawCheckedRect(theme,&tmpbmp,tmpbmp.getDC(), &bgr, 0, 0, sb, wndrect, 0, 0, r.top);
       }
 
       int st = (fBarHot?1:0) + (pressed?2:0);
 
       int newh = h;
       int part1 = 8, part2 = 16, part3 = 18, part4 = 16, part5 = 8;
-      if(m_scrollbar_hasPink)
+      if(theme->hasPink)
       {
-        part1 = m_sb_thumbVV[0]; part2 = m_sb_thumbVV[1]; part3 = m_sb_thumbVV[2]; part4 = m_sb_thumbVV[3]; part5 = m_sb_thumbVV[4];
+        part1 = theme->thumbVV[0]; part2 = theme->thumbVV[1]; part3 = theme->thumbVV[2]; part4 = theme->thumbVV[3]; part5 = theme->thumbVV[4];
       }
 
       double sc = w==16||w==17 ? 1.0 : w / 17.0;
@@ -1332,7 +1346,7 @@ static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, c
 //  specified portion in an active state or not.
 //
 //
-static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *rect, UINT uDrawFlags, BOOL hasZoomButtons)
+static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *rect, UINT uDrawFlags, BOOL hasZoomButtons, const wdlscrollbar_themestate *theme)
 {
 	SCROLLINFO *si;
 	RECT ctrl, thumb;
@@ -1425,7 +1439,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
 		RotateRect0(sb, &ctrl);
 
-  	DrawScrollArrow(hwnd,sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL);
+  	DrawScrollArrow(hwnd,sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL, theme);
 
 		RotateRect0(sb, &ctrl);
 
@@ -1440,9 +1454,9 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 			RotateRect0(sb, &sbm);
 			
 			if(uDrawFlags == HTSCROLL_PAGELEFT)
-				DrawCheckedRect(NULL,hdc, &sbm, crInverse1, crInverse2, sb, rect, 1,sbXoffs,sbYoffs);
+				DrawCheckedRect(theme,NULL,hdc, &sbm, crInverse1, crInverse2, sb, rect, 1,sbXoffs,sbYoffs);
 			else
-				DrawCheckedRect(NULL,hdc, &sbm, crCheck1, crCheck2, sb, rect, 0,sbXoffs,sbYoffs);
+				DrawCheckedRect(theme,NULL,hdc, &sbm, crCheck1, crCheck2, sb, rect, 0,sbXoffs,sbYoffs);
 
 			RotateRect0(sb, &sbm);			
 			
@@ -1452,9 +1466,9 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 			
 			RotateRect0(sb, &sbm);
 			if(uDrawFlags == HTSCROLL_PAGERIGHT)
-				DrawCheckedRect(NULL,hdc, &sbm, crInverse1, crInverse2, sb, rect, 1,sbXoffs,sbYoffs);
+				DrawCheckedRect(theme,NULL,hdc, &sbm, crInverse1, crInverse2, sb, rect, 1,sbXoffs,sbYoffs);
 			else
-				DrawCheckedRect(NULL,hdc, &sbm, crCheck1, crCheck2, sb, rect, 0,sbXoffs,sbYoffs);
+				DrawCheckedRect(theme,NULL,hdc, &sbm, crCheck1, crCheck2, sb, rect, 0,sbXoffs,sbYoffs);
 			RotateRect0(sb, &sbm);
 			
 			//Draw the THUMB finally
@@ -1462,9 +1476,9 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
 			RotateRect0(sb, &thumb);			
 
-      if(m_scrollbar_bmp && *m_scrollbar_bmp)
+      if(theme->bmp && *theme->bmp)
       {
-        drawSkinThumb(hdc, thumb, sw->uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb);
+        drawSkinThumb(hdc, thumb, sw->uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb,theme);
       }
       else
       {
@@ -1565,7 +1579,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 			{
 				RotateRect0(sb, &ctrl);
 	
-  			DrawCheckedRect(NULL,hdc, &ctrl, crCheck1, crCheck2, sb, rect, 0, sbXoffs,sbYoffs);
+  			DrawCheckedRect(theme,NULL,hdc, &ctrl, crCheck1, crCheck2, sb, rect, 0, sbXoffs,sbYoffs);
 				
 				RotateRect0(sb, &ctrl);
 			}
@@ -1579,7 +1593,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
     RotateRect0(sb, &ctrl);
     RotateRect0(sb, &r2);
 
-		DrawScrollArrow(hwnd,sb, hdc, &r2, uRightButFlags, fMouseDownR, fMouseOverR);
+		DrawScrollArrow(hwnd,sb, hdc, &r2, uRightButFlags, fMouseDownR, fMouseOverR,theme);
 
     if(sw->resizingHthumb && hasZoomButtons)
     {
@@ -1589,9 +1603,9 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
       if(sb->nBarType == SB_HORZ)
       {
         int zbs = GetZoomButtonSize(FALSE);
-        if(m_scrollbar_bmp && *m_scrollbar_bmp)
+        if(theme->bmp && *theme->bmp)
         {
-          LICE_IBitmap *bmp = *m_scrollbar_bmp;
+          LICE_IBitmap *bmp = *theme->bmp;
           static LICE_SysBitmap tmpbmp;
 
           int w = zbs;
@@ -1667,9 +1681,9 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
       else
       {
         int zbs = GetZoomButtonSize(TRUE);
-        if(m_scrollbar_bmp && *m_scrollbar_bmp)
+        if(theme->bmp && *theme->bmp)
         {
-          LICE_IBitmap *bmp = *m_scrollbar_bmp;
+          LICE_IBitmap *bmp = *theme->bmp;
           static LICE_SysBitmap tmpbmp;
           int w = ctrl.right - ctrl.left;
           int h = zbs;
@@ -1751,14 +1765,14 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 		SetRect(&ctrl, rect->left, rect->top, rect->left + butwidth, rect->bottom);
 
 		RotateRect0(sb, &ctrl);
-		DrawScrollArrow(hwnd,sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL);
+		DrawScrollArrow(hwnd,sb, hdc, &ctrl, uLeftButFlags, fMouseDownL, fMouseOverL,theme);
 		RotateRect0(sb, &ctrl);
 
 		//RIGHT ARROW
 		OffsetRect(&ctrl, scrollwidth - butwidth, 0);
 		
 		RotateRect0(sb, &ctrl);
-		DrawScrollArrow(hwnd,sb, hdc, &ctrl, uRightButFlags, fMouseDownR, fMouseOverR);		
+		DrawScrollArrow(hwnd,sb, hdc, &ctrl, uRightButFlags, fMouseDownR, fMouseOverR,theme);		
 		RotateRect0(sb, &ctrl);
 
 		//if there is a gap between the buttons, fill it with a solid color
@@ -1769,7 +1783,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 			ctrl.right -= butwidth;
 			RotateRect0(sb, &ctrl);
 			
-  		DrawCheckedRect(NULL,hdc, &ctrl, crCheck1, crCheck2, sb, rect, 0, sbXoffs, sbYoffs);
+  		DrawCheckedRect(theme,NULL,hdc, &ctrl, crCheck1, crCheck2, sb, rect, 0, sbXoffs, sbYoffs);
 
 			RotateRect0(sb, &ctrl);
 		}
@@ -1783,14 +1797,14 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 //	Draw a vertical scrollbar using the horizontal draw routine, but
 //	with the coordinates adjusted accordingly
 //
-static LRESULT NCDrawVScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *rect, UINT uDrawFlags, BOOL hasZoomButtons)
+static LRESULT NCDrawVScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *rect, UINT uDrawFlags, BOOL hasZoomButtons, const wdlscrollbar_themestate *theme)
 {
 	LRESULT ret;
 	RECT rc;
 
 	rc = *rect;
 	RotateRect(&rc);
-	ret = NCDrawHScrollbar(sb, hwnd, hdc, &rc, uDrawFlags,hasZoomButtons);
+	ret = NCDrawHScrollbar(sb, hwnd, hdc, &rc, uDrawFlags,hasZoomButtons,theme);
 	RotateRect(&rc);
 	
 	return ret;
@@ -1799,25 +1813,25 @@ static LRESULT NCDrawVScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 //
 //	Generic wrapper function for the scrollbar drawing
 //
-static LRESULT NCDrawScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *rect, UINT uDrawFlags, BOOL hasZoomButtons)
+static LRESULT NCDrawScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *rect, UINT uDrawFlags, BOOL hasZoomButtons, const wdlscrollbar_themestate *theme)
 {
 	if(sb->nBarType == SB_HORZ)
-		return NCDrawHScrollbar(sb, hwnd, hdc, rect, uDrawFlags,hasZoomButtons);
+		return NCDrawHScrollbar(sb, hwnd, hdc, rect, uDrawFlags,hasZoomButtons,theme);
 	else
-		return NCDrawVScrollbar(sb, hwnd, hdc, rect, uDrawFlags,hasZoomButtons);
+		return NCDrawVScrollbar(sb, hwnd, hdc, rect, uDrawFlags,hasZoomButtons,theme);
 }
 
 
 
-static int getPink(int x, int y, int vert, int np=0, int add=1)
+static int getPink(const wdlscrollbar_themestate *ts, int x, int y, int vert, int np=0, int add=1)
 {
-  LICE_IBitmap *bmp;
-  if(!m_scrollbar_bmp || !(bmp = *m_scrollbar_bmp)) return 0;
+  LICE_IBitmap *bmp = ts->bmp ? *ts->bmp : NULL;
+  if(!bmp) return 0;
 
-  int w = bmp->getWidth();
-  int h = bmp->getHeight();
-  int rs=bmp->getRowSpan();
-  LICE_pixel *p = bmp->getBits();
+  const int w = bmp->getWidth();
+  const int h = bmp->getHeight();
+  const int rs=bmp->getRowSpan();
+  const LICE_pixel *p = bmp->getBits();
   if(x < 0 || y < 0 || x>=w || y>=h) return 0;
   p += rs * y + x;
   if(!vert)
@@ -1846,56 +1860,56 @@ static int getPink(int x, int y, int vert, int np=0, int add=1)
   return l;
 }
 
-static void initLiceBmp()
+static void initLiceBmp(wdlscrollbar_themestate *ts, LICE_IBitmap **bmpIn)
 {
-  m_scrollbar_bmp = (LICE_IBitmap **)GetIconThemePointer("scrollbar");
-  if(!m_scrollbar_bmp) return;
+  ts->bmp = bmpIn;
+  if(!bmpIn) return;
 
-  m_scrollbar_hasPink = getPink(0,35,0)>0;
-  if(m_scrollbar_hasPink)
+  ts->hasPink = getPink(ts,0,35,0)>0;
+  if(ts->hasPink)
   {
-//    LICE_IBitmap *bmp = *m_scrollbar_bmp;
-    memset(&m_sb_thumbHV, 0, sizeof(m_sb_thumbHV));
-    memset(&m_sb_thumbVV, 0, sizeof(m_sb_thumbVV));
+//    LICE_IBitmap *bmp = *ts->bmp;
+    memset(&ts->thumbHV, 0, sizeof(ts->thumbHV));
+    memset(&ts->thumbVV, 0, sizeof(ts->thumbVV));
 //    int w = bmp->getWidth();
  //   int h = bmp->getHeight();
     {
-      int l = getPink(0,89,0);
-      m_sb_thumbHV[0] = l;
+      int l = getPink(ts,0,89,0);
+      ts->thumbHV[0] = l;
       int x = l;
-      l = getPink(x, 89, 0, 1);
-      m_sb_thumbHV[1] = l;
+      l = getPink(ts,x, 89, 0, 1);
+      ts->thumbHV[1] = l;
       x += l;
-      l = getPink(x, 89, 0);
-      m_sb_thumbHV[2] = l;
+      l = getPink(ts,x, 89, 0);
+      ts->thumbHV[2] = l;
       x += l;
-      l = getPink(x, 89, 0, 1);
-      m_sb_thumbHV[3] = l;
+      l = getPink(ts,x, 89, 0, 1);
+      ts->thumbHV[3] = l;
       x += l;
-      l = getPink(x, 89, 0);
-      m_sb_thumbHV[4] = l;
+      l = getPink(ts,x, 89, 0);
+      ts->thumbHV[4] = l;
 
       int y = 91;
-      l = getPink(52, y, 1);
-      m_sb_thumbVV[0] = l;
+      l = getPink(ts,52, y, 1);
+      ts->thumbVV[0] = l;
       y += l;
-      l = getPink(52, y, 1, 1);
-      m_sb_thumbVV[1] = l;
+      l = getPink(ts,52, y, 1, 1);
+      ts->thumbVV[1] = l;
       y += l;
-      l = getPink(52, y, 1);
-      m_sb_thumbVV[2] = l;
+      l = getPink(ts,52, y, 1);
+      ts->thumbVV[2] = l;
       y += l;
-      l = getPink(52, y, 1, 1);
-      m_sb_thumbVV[3] = l;
+      l = getPink(ts,52, y, 1, 1);
+      ts->thumbVV[3] = l;
       y += l;
-      l = getPink(52, y, 1);
-      m_sb_thumbVV[4] = l;
+      l = getPink(ts,52, y, 1);
+      ts->thumbVV[4] = l;
 
-      m_sb_bkghl = getPink(0, 35, 0);
-      m_sb_bkghr = getPink(203, 35, 0, 0, -1);
+      ts->bkghl = getPink(ts,0, 35, 0);
+      ts->bkghr = getPink(ts,203, 35, 0, 0, -1);
 
-      m_sb_bkgvt = getPink(168, 37, 1);
-      m_sb_bkgvb = getPink(168, 237, 1, 0, -1);
+      ts->bkgvt = getPink(ts,168, 37, 1);
+      ts->bkgvb = getPink(ts,168, 237, 1, 0, -1);
     }
   }
 }
@@ -1909,9 +1923,13 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 //	BOOL fUpdateAll = (wParam == 1);
 	UINT ret;
 
-  if(!m_scrollbar_bmp)
+  wdlscrollbar_themestate *theme = GetThemeForScrollWnd(sw);
+  if(!theme->bmp)
   {
-    initLiceBmp();
+    char tmp[512];
+    if (!sw->whichTheme) strcpy(tmp,"scrollbar");
+    else wsprintf(tmp,"scrollbar_%d",sw->whichTheme+1);
+    initLiceBmp(theme,(LICE_IBitmap **)GetIconThemePointer(tmp));
   }
   
 	GET_WINDOW_RECT(hwnd, &winrect);
@@ -1946,9 +1964,9 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 
 
 		if(sw->uCurrentScrollbar == SB_HORZ)
-			NCDrawHScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion,hasZoomButtons);
+			NCDrawHScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion,hasZoomButtons,theme);
 		else
-			NCDrawHScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NONE,hasZoomButtons);
+			NCDrawHScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NONE,hasZoomButtons,theme);
 	}
 
 	//
@@ -1967,10 +1985,10 @@ static LRESULT NCPaint(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam, H
 
 		if(sw->uCurrentScrollbar == SB_VERT)
     {
-			NCDrawVScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion,hasZoomButtons);
+			NCDrawVScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion,hasZoomButtons,theme);
 		}
     else
-			NCDrawVScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NONE,hasZoomButtons);
+			NCDrawVScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NONE,hasZoomButtons,theme);
 	}
 
 	//Call the default window procedure for WM_NCPAINT, with the
@@ -2194,6 +2212,8 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 	// we can now share the same code for vertical
 	// and horizontal scrollbars
 	//
+  const wdlscrollbar_themestate *theme = GetThemeForScrollWnd(sw);
+
 	switch(sw->uCurrentScrollPortion)
 	{
 	//inserted buttons to the left/right
@@ -2282,7 +2302,7 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 		OffsetRect(&rect, -winrect.left, -winrect.top);
 		hdc = GetWindowDC(hwnd);
 			
-		NCDrawScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion,hasZoomButtons);
+		NCDrawScrollbar(sb, hwnd, hdc, &rect, sw->uScrollTimerPortion,hasZoomButtons,theme);
 		ReleaseDC(hwnd, hdc);
 
 		//Post the scroll message!!!!
@@ -2333,7 +2353,7 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
       GET_WINDOW_RECT(hwnd, &winrect);
       OffsetRect(&rect, -winrect.left, -winrect.top);
       hdc = GetWindowDC(hwnd);
-      NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_ZOOMIN,hasZoomButtons);
+      NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_ZOOMIN,hasZoomButtons,theme);
       ReleaseDC(hwnd, hdc);
     }
     break;
@@ -2347,7 +2367,7 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
       GET_WINDOW_RECT(hwnd, &winrect);
       OffsetRect(&rect, -winrect.left, -winrect.top);
       hdc = GetWindowDC(hwnd);
-      NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_ZOOMOUT,hasZoomButtons);
+      NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_ZOOMOUT,hasZoomButtons,theme);
       ReleaseDC(hwnd, hdc);
     }
     break;
@@ -2437,7 +2457,7 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 			hdc = GetWindowDC(hwnd);
 			
 			//draw whichever scrollbar sb is
-			NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NORMAL,hasZoomButtons);
+			NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NORMAL,hasZoomButtons,GetThemeForScrollWnd(sw));
 
 			ReleaseDC(hwnd, hdc);
 			break;
@@ -2470,7 +2490,7 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 //	This function is called whenever the mouse is moved and 
 //  we are dragging the scrollbar thumb about.
 //
-static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
+static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y, const wdlscrollbar_themestate *theme)
 {
 	POINT pt;
 	RECT rc, winrect, rc2;
@@ -2534,7 +2554,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 	SetRect(&rc2, rc.left, rc.top, thumbpos, rc.bottom);
 	RotateRect0(sbar, &rc2);
 
-	DrawCheckedRect(NULL,hdc, &rc2, crCheck1, crCheck2, sbar, &rcThumbBounds, 0,sbXoffs, sbYoffs );
+	DrawCheckedRect(theme,NULL,hdc, &rc2, crCheck1, crCheck2, sbar, &rcThumbBounds, 0,sbXoffs, sbYoffs );
 	
 	RotateRect0(sbar, &rc2);
 
@@ -2543,7 +2563,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 	
 	RotateRect0(sbar, &rc2);
 	
-	DrawCheckedRect(NULL,hdc, &rc2, crCheck1, crCheck2, sbar, &rcThumbBounds, 0, sbXoffs, sbYoffs );
+	DrawCheckedRect(theme,NULL,hdc, &rc2, crCheck1, crCheck2, sbar, &rcThumbBounds, 0, sbXoffs, sbYoffs );
   
 	RotateRect0(sbar, &rc2);
 	
@@ -2552,9 +2572,9 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 	
 	RotateRect0(sbar, &rc2);
 
-  if(m_scrollbar_bmp && *m_scrollbar_bmp)
+  if(theme->bmp && *theme->bmp)
   {
-    drawSkinThumb(hdc, rc2, 0, 1, sbar->nBarType == SB_VERT, &rcThumbBounds, sbar);
+    drawSkinThumb(hdc, rc2, 0, 1, sbar->nBarType == SB_VERT, &rcThumbBounds, sbar,theme);
   }
   else
   {
@@ -2643,11 +2663,11 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y)
 //
 //	remember to rotate the thumb bounds rectangle!!
 //
-static LRESULT ThumbTrackVert(SCROLLBAR *sb, HWND hwnd, int x, int y)
+static LRESULT ThumbTrackVert(SCROLLBAR *sb, HWND hwnd, int x, int y, const wdlscrollbar_themestate *theme)
 {
 	//sw->swapcoords = TRUE;
 	RotateRect(&rcThumbBounds);
-	ThumbTrackHorz(sb, hwnd, y, x);
+	ThumbTrackHorz(sb, hwnd, y, x,theme);
 	RotateRect(&rcThumbBounds);
 	//sw->swapcoords = FALSE;
 
@@ -2675,11 +2695,11 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
     OSX_REMAP_SCREENY(hwnd,&y);
 
 		if(sw->uCurrentScrollbar == SB_HORZ)
-			return ThumbTrackHorz(&sw->sbarHorz, hwnd, x,y);
+			return ThumbTrackHorz(&sw->sbarHorz, hwnd, x,y,GetThemeForScrollWnd(sw));
 
 
 		else if(sw->uCurrentScrollbar == SB_VERT)
-			return ThumbTrackVert(&sw->sbarVert, hwnd, x,y);
+			return ThumbTrackVert(&sw->sbarVert, hwnd, x,y,GetThemeForScrollWnd(sw));
 	}
 
 	if(sw->uCurrentScrollPortion == HTSCROLL_NONE)
@@ -2717,6 +2737,8 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 		//thisportion = GetPortion(sb, hwnd, &rect, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 		thisportion = GetPortion(sb, hwnd, &rect, pt.x, pt.y,hasZoomButtons);
 		
+    const wdlscrollbar_themestate *theme = GetThemeForScrollWnd(sw);
+
 		//we need to do different things depending on if the
 		//user is activating the scrollbar itself, or one of
 		//the inserted buttons
@@ -2740,7 +2762,7 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 				sw->uScrollTimerPortion = HTSCROLL_NONE;
 
 				if(lastportion != thisportion)
-					NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NORMAL,hasZoomButtons);
+					NCDrawScrollbar(sb, hwnd, hdc, &rect, HTSCROLL_NORMAL,hasZoomButtons,theme);
 			}
 			//otherwise, draw the button in its depressed / clicked state
 			else
@@ -2748,7 +2770,7 @@ static LRESULT MouseMove(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 				sw->uScrollTimerPortion = sw->uCurrentScrollPortion;
 
 				if(lastportion != thisportion)
-					NCDrawScrollbar(sb, hwnd, hdc, &rect, thisportion,hasZoomButtons);
+					NCDrawScrollbar(sb, hwnd, hdc, &rect, thisportion,hasZoomButtons,theme);
 			}
 
 			ReleaseDC(hwnd, hdc);
@@ -3039,7 +3061,7 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 				OffsetRect(&rect, -winrect.left, -winrect.top);
 
 				hdc = GetWindowDC(hwnd);
-				NCDrawScrollbar(sbar, hwnd, hdc, &rect, HTSCROLL_NONE,hasZoomButtons);
+				NCDrawScrollbar(sbar, hwnd, hdc, &rect, HTSCROLL_NONE,hasZoomButtons,GetThemeForScrollWnd(swnd));
 				ReleaseDC(hwnd, hdc);
 			}
 			
@@ -3221,7 +3243,8 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
 
 void CoolSB_OnColorThemeChange()
 {
-  m_scrollbar_bmp = NULL;
+  int x;
+  for (x=0;x<MAX_SCROLLBAR_THEMES;x++) s_scrollbar_theme[x].bmp = NULL;
   g_coolsb_imageVersion++;
 }
 
@@ -3796,6 +3819,17 @@ BOOL WINAPI CoolSB_SetResizingThumb(HWND hwnd, BOOL active)
 		return FALSE;
 
   swnd->resizingHthumb = active;
+
+  return TRUE;
+}
+BOOL WINAPI CoolSB_SetThemeIndex(HWND hwnd, int idx)
+{
+	SCROLLWND *swnd;
+
+	if(!(swnd = GetScrollWndFromHwnd(hwnd)))
+		return FALSE;
+
+  swnd->whichTheme = idx;
 
   return TRUE;
 }
