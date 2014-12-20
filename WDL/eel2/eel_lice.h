@@ -1989,6 +1989,23 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
 #endif
 }
 
+#ifdef EEL_LICE_WANTDOCK
+static EEL_F NSEEL_CGEN_CALL _gfx_dock(void *opaque, EEL_F *n)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx)
+  {
+    if (*n >= 0.0 && ctx->hwnd_standalone) EEL_LICE_WANTDOCK(ctx,(int)*n);
+
+#ifdef EEL_LICE_ISDOCKED
+    return EEL_LICE_ISDOCKED(ctx); 
+#endif
+  }
+  return 0.0;
+}
+
+#endif //EEL_LICE_WANTDOCK
+
 
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
 
@@ -1997,7 +2014,10 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_quit(void *opaque, EEL_F *n)
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx)
   {
-    if (ctx->hwnd_standalone) DestroyWindow(ctx->hwnd_standalone);
+    if (ctx->hwnd_standalone) 
+    {
+      DestroyWindow(ctx->hwnd_standalone);
+    }
     ctx->hwnd_standalone=0;
   }
   return n; 
@@ -2052,6 +2072,9 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
         SetWindowPos(ctx->hwnd_standalone,NULL,0,0,sug_w,sug_h,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
 
         wantShow=true;
+        #ifdef EEL_LICE_WANTDOCK
+          if (np > 3) EEL_LICE_WANTDOCK(ctx,parms[3][0]);
+        #endif
         #ifdef EEL_LICE_WANT_STANDALONE_UPDATE
           {
             RECT r;
@@ -2128,7 +2151,13 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_DESTROY:
       {
         eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (ctx) ctx->hwnd_standalone=NULL;
+        if (ctx) 
+        {
+#ifdef EEL_LICE_WANTDOCK
+          EEL_LICE_WANTDOCK(ctx,0);
+#endif
+          ctx->hwnd_standalone=NULL;
+        }
       }
     return 0;
     case WM_ACTIVATE:
@@ -2311,6 +2340,9 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
   NSEEL_addfunc_varparm("gfx_init",1,NSEEL_PProc_THIS,&_gfx_init); 
   NSEEL_addfunc_retptr("gfx_quit",1,NSEEL_PProc_THIS,&_gfx_quit);
 #endif
+#ifdef EEL_LICE_WANTDOCK
+  NSEEL_addfunc_retval("gfx_dock",1,NSEEL_PProc_THIS,&_gfx_dock);
+#endif
 
 #ifdef EEL_LICE_WANT_STANDALONE_UPDATE
   NSEEL_addfunc_retptr("gfx_update",1,NSEEL_PProc_THIS,&_gfx_update);
@@ -2389,13 +2421,20 @@ static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
 static const char *eel_lice_function_reference =
 #ifdef EEL_LICE_WANT_STANDALONE
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
+#ifdef EEL_LICE_WANTDOCK
+  "gfx_init\t\"name\"[,width,height,dockstate]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+#else
   "gfx_init\t\"name\"[,width,height]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+#endif
   "Once the graphics window is open, gfx_update() should be called periodically. \0"
   "gfx_quit\t\tCloses the graphics window.\0"
 #endif
 #ifdef EEL_LICE_WANT_STANDALONE_UPDATE
   "gfx_update\t\tUpdates the graphics display, if opened\0"
 #endif
+#endif
+#ifdef EEL_LICE_WANTDOCK
+  "gfx_dock\tv\tCall with v=-1 to query docked state, otherwise v>=0 to set docked state. State is &1 if docked, second byte is docker index (or last docker index if undocked).\0"
 #endif
   "gfx_aaaaa\t\t"
   "The following global variables are special and will be used by the graphics system:\n\n\3"
