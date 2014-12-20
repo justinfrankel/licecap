@@ -82,19 +82,13 @@
   #include <windows.h>
   #include <windowsx.h>
   #include <commctrl.h>
-  #include <tchar.h>
   #pragma warning(disable:4244) // implicit cast int to float
 #else
   #include "../../swell/swell.h"
-  #define __stdcall
-  typedef char TCHAR;
-  #ifndef SWP_FRAMECHANGED
-    #define SWP_FRAMECHANGED  0
-  #endif
 #endif
 
 #include "../../lice/lice.h"
-#include "../../ptrlist.h"
+#include "../../wdltypes.h"
 
 #include "coolscroll.h"
 
@@ -297,7 +291,7 @@ static SCROLLWND *GetScrollWndFromHwnd(HWND hwnd);
 //
 //	swap the rectangle's x coords with its y coords
 //
-static void __stdcall RotateRect(RECT *rect)
+static void RotateRect(RECT *rect)
 {
 	int temp;
 	temp = rect->left;
@@ -312,7 +306,7 @@ static void __stdcall RotateRect(RECT *rect)
 //
 //	swap the coords if the scrollbar is a SB_VERT
 //
-static void __stdcall RotateRect0(SCROLLBAR *sb, RECT *rect)
+static void RotateRect0(SCROLLBAR *sb, RECT *rect)
 {
 	if(sb->nBarType == SB_VERT)
 		RotateRect(rect);
@@ -906,7 +900,7 @@ static void PaintRect(HDC hdc, RECT *rect, COLORREF color)
 {
 #ifdef _WIN32
 	COLORREF oldcol = SetBkColor(hdc, color);
-	ExtTextOut(hdc, 0, 0, ETO_OPAQUE, rect, _T(""), 0, 0);
+	ExtTextOut(hdc, 0, 0, ETO_OPAQUE, rect, "", 0, 0);
 	SetBkColor(hdc, oldcol);
 #else
   HBRUSH br=CreateSolidBrush(color);
@@ -3288,7 +3282,7 @@ static BOOL ShowScrollBar(HWND hwnd, int nBar, BOOL vis)
 
 #endif
 
-static TCHAR szPropStr[] = _T("CoolSBSubclassPtr");
+static const char *szPropStr = "CoolSBSubclassPtr";
 
 SCROLLWND *GetScrollWndFromHwnd(HWND hwnd)
 {
