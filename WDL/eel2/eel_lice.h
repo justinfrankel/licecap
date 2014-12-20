@@ -310,11 +310,15 @@ public:
   HWND hwnd_standalone;
   int hwnd_standalone_kb_state[32]; // pressed keys, if any
 
+  // these have to be **parms because of the hack for getting string from parm index
   EEL_F gfx_showmenu(void* opaque, EEL_F** parms, int nparms);
+  EEL_F gfx_setcursor(void* opaque, EEL_F** parms, int nparms);
 
   int m_kb_queue[64];
   unsigned char m_kb_queue_valid;
   unsigned char m_kb_queue_pos;
+  int m_cursor_resid;
+  char m_cursor_name[128];
 
 #endif
   bool m_has_cap; // to avoid reporting capture on nonclient mousedown
@@ -330,6 +334,8 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   hwnd_standalone=NULL;
   memset(hwnd_standalone_kb_state,0,sizeof(hwnd_standalone_kb_state));
   m_kb_queue_valid=0;
+  m_cursor_resid=0;
+  m_cursor_name[0]=0;
 #endif
   m_user_ctx=ctx;
   m_vmref= vm;
@@ -611,6 +617,14 @@ static EEL_F NSEEL_CGEN_CALL _gfx_showmenu(void* opaque, EEL_F* str)
 {
   eel_lice_state* ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) return ctx->gfx_showmenu(opaque, &str, 1);
+  return 0.0;
+}
+
+static EEL_F NSEEL_CGEN_CALL _gfx_setcursor(void* opaque, EEL_F* resid, EEL_F* str)
+{
+  eel_lice_state* ctx=EEL_LICE_GET_CONTEXT(opaque);
+  EEL_F* parms[2]={resid,str};
+  if (ctx) return ctx->gfx_setcursor(opaque, parms, 2);
   return 0.0;
 }
 
@@ -1492,7 +1506,7 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
 
 EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
-  if (!hwnd_standalone) return 0;
+  if (!hwnd_standalone) return 0.0;
 
   WDL_FastString* fs=NULL;
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
@@ -1510,6 +1524,19 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
     DestroyMenu(hm);
   }
   return (EEL_F)ret;
+}
+
+EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
+{
+  if (!hwnd_standalone) return 0.0;
+
+  WDL_FastString* fs=NULL;
+  const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], &fs);
+
+  m_cursor_resid=(int)parms[0][0];
+  m_cursor_name[0]=0;
+  if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
+  return 1.0;
 }
 
 
@@ -1714,6 +1741,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_arc",5,NSEEL_PProc_THIS,&_gfx_arc);
   NSEEL_addfunc_retptr("gfx_blurto",2,NSEEL_PProc_THIS,&_gfx_blurto);
   NSEEL_addfunc_retval("gfx_showmenu",1,NSEEL_PProc_THIS,&_gfx_showmenu);
+  NSEEL_addfunc_retval("gfx_setcursor",2, NSEEL_PProc_THIS, &_gfx_setcursor);
   NSEEL_addfunc_retptr("gfx_drawnumber",2,NSEEL_PProc_THIS,&_gfx_drawnumber);
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
   NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
@@ -2109,6 +2137,17 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         if (ctx) memset(&ctx->hwnd_standalone_kb_state,0,sizeof(ctx->hwnd_standalone_kb_state));
       }
     break;
+    case WM_SETCURSOR:
+    {
+      eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+      if (ctx && ctx->m_cursor_resid > 0)
+      {
+        if (!ctx->m_cursor_name[0]) SetCursor(LoadCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid)));
+        else SetCursor(LoadThemeCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
+        return 1;
+      }
+    }
+    break;
     case WM_MOUSEHWHEEL:   
     case WM_MOUSEWHEEL:
       {
@@ -2406,8 +2445,9 @@ static const char *eel_lice_function_reference =
     "< : last item in the current submenu\n\n"
     "An empty field will appear as a separator in the menu. "
     "gfx_showmenu returns 0 if the user selected nothing from the menu, 1 if the first field is selected, etc.\nExample:\n\n"
-    "gfx_showmenu(\"first item, followed by separator||!second item, checked|>third item which spawns a submenu|#first item in submenu, grayed out|<second and last item in submenu|fourth item in top menu\")"
-    "\2\0"
+    "gfx_showmenu(\"first item, followed by separator||!second item, checked|>third item which spawns a submenu|#first item in submenu, grayed out|<second and last item in submenu|fourth item in top menu\")\0"  
+  
+  "gfx_setcursor\tresource_id,custom_cursor_name\tSets the mouse cursor. resource_id is a value like 32512 (for an arrow cursor), custom_cursor_name is a string like \"arrow\" (for the REAPER custom arrow cursor).\0"
   "gfx_lineto\tx,y[,aa]\tDraws a line from gfx_x,gfx_y to x,y. If aa is 0.5 or greater, then antialiasing is used. Updates gfx_x and gfx_y to x,y.\0"
   "gfx_line\tx,y,x2,y2[,aa]\tDraws a line from x,y to x2,y2, and if aa is not specified or 0.5 or greater, it will be antialiased. \0"
   "gfx_rectto\tx,y\tFills a rectangle from gfx_x,gfx_y to x,y. Updates gfx_x,gfx_y to x,y. \0"
