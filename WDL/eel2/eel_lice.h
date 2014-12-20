@@ -2143,7 +2143,9 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       if (ctx && ctx->m_cursor_resid > 0)
       {
         if (!ctx->m_cursor_name[0]) SetCursor(LoadCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid)));
-        else SetCursor(LoadThemeCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
+#ifdef EEL_LICE_LOADTHEMECURSOR
+        else SetCursor(EEL_LICE_LOADTHEMECURSOR(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
+#endif
         return 1;
       }
     }
