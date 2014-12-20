@@ -244,11 +244,6 @@ typedef struct
 #define COOLSB_TIMERINTERVAL3	20			//mouse hover time
 #define COOLSB_TIMERINTERVAL4	150			//holding the zoom buttons
 
-
-
-
-static int g_coolsb_imageVersion; // liceBkgnd_ver, liceThumb_ver
-
 struct wdlscrollbar_themestate
 {
   LICE_IBitmap **bmp;
@@ -256,6 +251,7 @@ struct wdlscrollbar_themestate
   int thumbHV[5], thumbVV[5]; // 
   int bkghl, bkghr;
   int bkgvt, bkgvb;
+  int imageVersion; // liceBkgnd_ver, liceThumb_ver
 };
 
 #ifndef MAX_SCROLLBAR_THEMES
@@ -781,9 +777,9 @@ static void DrawCheckedRect(const wdlscrollbar_themestate *theme, LICE_IBitmap *
     if(!isvert) nh *= 2;
     else nw *= 2;
 
-    if(!sb->liceBkgnd || sb->liceBkgnd->getWidth()!=nw || sb->liceBkgnd->getHeight()!=nh || sb->liceBkgnd_ver!=g_coolsb_imageVersion)
+    if(!sb->liceBkgnd || sb->liceBkgnd->getWidth()!=nw || sb->liceBkgnd->getHeight()!=nh || sb->liceBkgnd_ver!=theme->imageVersion)
     {
-      sb->liceBkgnd_ver=g_coolsb_imageVersion;
+      sb->liceBkgnd_ver=theme->imageVersion;
       if(!sb->liceBkgnd) sb->liceBkgnd = new LICE_SysBitmap;
       sb->liceBkgnd->resize(nw, nh);
       if(!isvert)
@@ -1259,9 +1255,9 @@ static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, c
       int tl = part1_s+part3_s+part5_s;
       if(w<tl) w = tl;
 
-      if(!sb->liceThumb || sb->liceThumb->getWidth()!=w || sb->liceThumb->getHeight()!=h || sb->liceThumbState!=st || sb->liceThumb_ver!=g_coolsb_imageVersion)
+      if(!sb->liceThumb || sb->liceThumb->getWidth()!=w || sb->liceThumb->getHeight()!=h || sb->liceThumbState!=st || sb->liceThumb_ver!=theme->imageVersion)
       {
-        sb->liceThumb_ver=g_coolsb_imageVersion;
+        sb->liceThumb_ver=theme->imageVersion;
         if(!sb->liceThumb) sb->liceThumb = new LICE_SysBitmap;
         sb->liceThumb->resize(w, h);
         sb->liceThumbState = st;
@@ -1312,9 +1308,9 @@ static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, c
       int tl = part1_s+part3_s+part5_s;
       if(h<tl) h = tl;
 
-      if(!sb->liceThumb || sb->liceThumb->getWidth()!=w || sb->liceThumb->getHeight()!=h || sb->liceThumbState!=st || sb->liceThumb_ver!=g_coolsb_imageVersion)
+      if(!sb->liceThumb || sb->liceThumb->getWidth()!=w || sb->liceThumb->getHeight()!=h || sb->liceThumbState!=st || sb->liceThumb_ver!=theme->imageVersion)
       {
-        sb->liceThumb_ver = g_coolsb_imageVersion;
+        sb->liceThumb_ver = theme->imageVersion;
         if(!sb->liceThumb) sb->liceThumb = new LICE_SysBitmap;
         sb->liceThumb->resize(w, h);
 
@@ -3244,8 +3240,11 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
 void CoolSB_OnColorThemeChange()
 {
   int x;
-  for (x=0;x<MAX_SCROLLBAR_THEMES;x++) s_scrollbar_theme[x].bmp = NULL;
-  g_coolsb_imageVersion++;
+  for (x=0;x<MAX_SCROLLBAR_THEMES;x++) 
+  {
+    s_scrollbar_theme[x].bmp = NULL;
+    s_scrollbar_theme[x].imageVersion++;
+  }
 }
 
 
