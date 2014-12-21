@@ -2197,9 +2197,9 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         int pos=0;
 
         int flag=((EEL_LICE_ISDOCKED(ctx)&1) ? MF_CHECKED : 0);
-        snprintf(buf, sizeof(buf)-1, __LOCALIZE_VERFMT("Dock %s window in Docker"), title);
+        snprintf(buf, sizeof(buf), "Dock %s window in Docker", title);
         InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING|flag, ID_DOCKWINDOW, buf);
-        snprintf(buf, sizeof(buf)-1, __LOCALIZE_VERFMT("Close %s window"), title);
+        snprintf(buf, sizeof(buf), "Close %s window", title);
         InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, IDCANCEL, buf);
         
         POINT pt;
