@@ -2179,6 +2179,49 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       }
     }
     break;
+#ifdef EEL_LICE_WANTDOCK
+    case WM_CONTEXTMENU:
+    {
+      eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+      if (ctx)
+      {
+        char title[512], buf[1024];
+        GetWindowText(hwnd, title, sizeof(title)-1);
+        if (!title[0]) strcpy(title, "ReaScript");
+
+        HMENU hm=CreatePopupMenu();
+        int pos=0;
+
+        int flag=(EEL_LICE_ISDOCKED(ctx) ? MF_CHECKED : 0);
+        snprintf(buf, sizeof(buf)-1, __LOCALIZE_VERFMT("Dock %s window in Docker"), title);
+        InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING|flag, ID_DOCKWINDOW, buf);
+        snprintf(buf, sizeof(buf)-1, __LOCALIZE_VERFMT("Close %s window"), title);
+        InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING, IDCANCEL, buf);
+        
+        POINT pt;
+        GetCursorPos(&pt);
+        TrackPopupMenu(hm, 0, pt.x, pt.y, 0, hwnd, NULL);
+        DestroyMenu(hm);
+      }
+    }
+    return 0;
+#endif
+    case WM_COMMAND:
+      switch (LOWORD(wParam))
+      {
+#ifdef EEL_LICE_WANTDOCK
+        case ID_DOCKWINDOW:
+        {
+          eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+          if (ctx) EEL_LICE_WANTDOCK(ctx, !EEL_LICE_ISDOCKED(ctx));
+        }
+        return 0;
+#endif
+        case IDCANCEL:
+          DestroyWindow(hwnd);
+        return 0;
+      }
+    break;
     case WM_MOUSEHWHEEL:   
     case WM_MOUSEWHEEL:
       {
