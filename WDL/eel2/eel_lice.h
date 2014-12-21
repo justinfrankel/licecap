@@ -1990,6 +1990,10 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
 }
 
 #ifdef EEL_LICE_WANTDOCK
+#ifndef ID_DOCKWINDOW
+#define ID_DOCKWINDOW 40269
+#endif
+
 static EEL_F NSEEL_CGEN_CALL _gfx_dock(void *opaque, EEL_F *n)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
@@ -2192,7 +2196,7 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         HMENU hm=CreatePopupMenu();
         int pos=0;
 
-        int flag=(EEL_LICE_ISDOCKED(ctx) ? MF_CHECKED : 0);
+        int flag=((EEL_LICE_ISDOCKED(ctx)&1) ? MF_CHECKED : 0);
         snprintf(buf, sizeof(buf)-1, __LOCALIZE_VERFMT("Dock %s window in Docker"), title);
         InsertMenu(hm, pos++, MF_BYPOSITION|MF_STRING|flag, ID_DOCKWINDOW, buf);
         snprintf(buf, sizeof(buf)-1, __LOCALIZE_VERFMT("Close %s window"), title);
@@ -2213,7 +2217,7 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         case ID_DOCKWINDOW:
         {
           eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-          if (ctx) EEL_LICE_WANTDOCK(ctx, !EEL_LICE_ISDOCKED(ctx));
+          if (ctx) EEL_LICE_WANTDOCK(ctx, EEL_LICE_ISDOCKED(ctx)^1);
         }
         return 0;
 #endif
