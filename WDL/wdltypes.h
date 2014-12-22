@@ -79,7 +79,7 @@ typedef bool WDL_bool;
   #define WDL_STATICFUNC_UNUSED
 #endif
 
-#ifdef WDL_WANT_NOTHROW // isn't yet supported everywhere we want it to be
+#ifndef WDL_WANT_NEW_EXCEPTIONS
 #if defined(__cplusplus)
 #include <new>
 #define WDL_NEW (std::nothrow)
