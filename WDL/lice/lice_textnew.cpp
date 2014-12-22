@@ -689,7 +689,8 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
   // if using line-spacing adjustments (m_lsadj), don't allow native rendering 
   // todo: split rendering up into invidual lines and DrawText calls
-  if (((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !forceWantAlpha &&!LICE_Text_IsWine() && 
+#ifndef LICE_TEXT_NONATIVE
+  if (!bm || !bm->Extended('YUVx',NULL)) if (((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !forceWantAlpha &&!LICE_Text_IsWine() &&
       !(dtFlags & LICE_DT_USEFGALPHA) &&
       !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags) &&
       (!m_lsadj || (dtFlags&DT_SINGLELINE))) || 
@@ -845,6 +846,7 @@ finish_up_native_render:
 #endif
     return ret;
   }
+#endif
 
 
   if (dtFlags & DT_CALCRECT)
