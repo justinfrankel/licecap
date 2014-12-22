@@ -1,11 +1,8 @@
-v1.25beta3 - July 23, 2014
-  + More GIF fixes, optimizations to transparent mode
-
-v1.25beta2 - July 23, 2014
+v1.25 - December 21, 2014
   + OSX: improved window position detection
+  + OSX: 10.9+ signed .app file (if we remember)
+  + More GIF fixes, optimizations to transparent mode
   + GIF: optimizations to update/palette generation logic, smaller results
-
-v1.25beta - July 20, 2014
   + GIF: support writing .gifs with transparency per-frame, for smaller file sizes (limited old-IE compat)
   + Added option to automatically stop after X seconds (X can be 0 for a static screenshot)
   + Title configuration is stored across sessions
