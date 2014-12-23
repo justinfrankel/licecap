@@ -798,7 +798,8 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
     np &= ~1;
     if (np == 6)
     {        
-      LICE_FillTriangle(dest, parms[0][0], parms[1][0], parms[2][0], parms[3][0], parms[4][0], parms[5][0], getCurColor(), (float)*m_gfx_a, getCurMode());
+      LICE_FillTriangle(dest, (int)parms[0][0], (int)parms[1][0], (int)parms[2][0], (int)parms[3][0], 
+        (int)parms[4][0], (int)parms[5][0], getCurColor(), (float)*m_gfx_a, getCurMode());
     }
     else
     {
@@ -2179,7 +2180,7 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 #ifdef EEL_LICE_LOADTHEMECURSOR
         else SetCursor(EEL_LICE_LOADTHEMECURSOR(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
 #endif
-        return 1;
+        return TRUE;
       }
     }
     break;
