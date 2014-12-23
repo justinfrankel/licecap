@@ -863,7 +863,7 @@ void eel_lice_state::gfx_rect(int np, EEL_F **parms)
   if (LICE_FUNCTION_VALID(LICE_FillRect) && LICE_FUNCTION_VALID(LICE_DrawRect) && w>0 && h>0)
   {
     if (filled) LICE_FillRect(dest,x1,y1,w,h,getCurColor(),(float)*m_gfx_a,getCurMode());
-    else LICE_DrawRect(dest, x1, y1, w, h, getCurColor(), (float)*m_gfx_a, getCurMode());
+    else LICE_DrawRect(dest, x1, y1, w-1, h-1, getCurColor(), (float)*m_gfx_a, getCurMode());
     SetImageDirty(dest);
   }
 }
