@@ -500,10 +500,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
               {
                 right=min(right,  ctx->cols-ctx->drew_scrollbar[1]);
               }
-              else
-              {
-                --right;
-              }
               
               for (;; x ++, xpos+=ctx->m_font_w, p += 2)
               {
