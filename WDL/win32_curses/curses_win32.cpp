@@ -464,12 +464,14 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 			      r.right += ctx->m_font_w-1;
 			      r.right /= ctx->m_font_w;
             
-			      ypos = r.top * ctx->m_font_h;
-			      ptr += 2*(r.top * ctx->cols);
-
 			      if (r.top < 0) r.top=0;
 			      if (r.bottom > ctx->lines) r.bottom=ctx->lines;
 			      if (r.left < 0) r.left=0;
+                              if (r.right > ctx->cols) r.right=ctx->cols;
+
+			      ypos = r.top * ctx->m_font_h;
+			      ptr += 2*(r.top * ctx->cols);
+
 
             HBRUSH bgbrushes[COLOR_PAIRS << NUM_ATTRBITS];
             for(y=0;y<sizeof(bgbrushes)/sizeof(bgbrushes[0]);y++) bgbrushes[y] = CreateSolidBrush(ctx->colortab[y][1]);
