@@ -2176,11 +2176,19 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
       if (ctx && ctx->m_cursor_resid > 0)
       {
-        if (!ctx->m_cursor_name[0]) SetCursor(LoadCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid)));
+        POINT p;
+        GetCursorPos(&p);
+        ScreenToClient(hwnd, &p);
+        RECT r;
+        GetClientRect(hwnd, &r);
+        if (p.x >= 0 && p.x < r.right && p.y >= 0 && p.y < r.bottom)
+        {
+          if (!ctx->m_cursor_name[0]) SetCursor(LoadCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid)));
 #ifdef EEL_LICE_LOADTHEMECURSOR
-        else SetCursor(EEL_LICE_LOADTHEMECURSOR(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
+          else SetCursor(EEL_LICE_LOADTHEMECURSOR(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
 #endif
-        return TRUE;
+          return TRUE;
+        }
       }
     }
     break;
