@@ -694,11 +694,7 @@ static void reInitializeContext(win32CursesCtx *ctx)
 #ifdef _WIN32
                                                  16,
 #else
-#ifdef __LP64__
                                                 14,
-#else
-                                                 13,
-#endif
 #endif
                         0, // width
                         0, // escapement
