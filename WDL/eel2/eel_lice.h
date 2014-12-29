@@ -318,7 +318,9 @@ public:
   unsigned char m_kb_queue_valid;
   unsigned char m_kb_queue_pos;
   int m_cursor_resid;
+#ifdef EEL_LICE_LOADTHEMECURSOR
   char m_cursor_name[128];
+#endif
 
 #endif
   bool m_has_cap; // to avoid reporting capture on nonclient mousedown
@@ -335,7 +337,9 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   memset(hwnd_standalone_kb_state,0,sizeof(hwnd_standalone_kb_state));
   m_kb_queue_valid=0;
   m_cursor_resid=0;
+#ifdef EEL_LICE_LOADTHEMECURSOR
   m_cursor_name[0]=0;
+#endif
 #endif
   m_user_ctx=ctx;
   m_vmref= vm;
@@ -613,18 +617,17 @@ static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **p
   return 0.0;
 }
 
-static EEL_F NSEEL_CGEN_CALL _gfx_showmenu(void* opaque, EEL_F* str)
+static EEL_F NSEEL_CGEN_CALL _gfx_showmenu(void* opaque, INT_PTR nparms, EEL_F **parms)
 {
   eel_lice_state* ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) return ctx->gfx_showmenu(opaque, &str, 1);
+  if (ctx) return ctx->gfx_showmenu(opaque, parms, (int)nparms);
   return 0.0;
 }
 
-static EEL_F NSEEL_CGEN_CALL _gfx_setcursor(void* opaque, EEL_F* resid, EEL_F* str)
+static EEL_F NSEEL_CGEN_CALL _gfx_setcursor(void* opaque,  INT_PTR nparms, EEL_F **parms)
 {
   eel_lice_state* ctx=EEL_LICE_GET_CONTEXT(opaque);
-  EEL_F* parms[2]={resid,str};
-  if (ctx) return ctx->gfx_setcursor(opaque, parms, 2);
+  if (ctx) return ctx->gfx_setcursor(opaque, parms, (int)nparms);
   return 0.0;
 }
 
@@ -1531,12 +1534,17 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0.0;
 
-  WDL_FastString* fs=NULL;
-  const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], &fs);
-
   m_cursor_resid=(int)parms[0][0];
+
+#ifdef EEL_LICE_LOADTHEMECURSOR
   m_cursor_name[0]=0;
-  if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
+  if (nparms > 1)
+  {
+    WDL_FastString* fs=NULL;
+    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], &fs);
+    if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
+  }
+#endif
   return 1.0;
 }
 
@@ -1741,8 +1749,8 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_roundrect",5,NSEEL_PProc_THIS,&_gfx_roundrect);
   NSEEL_addfunc_varparm("gfx_arc",5,NSEEL_PProc_THIS,&_gfx_arc);
   NSEEL_addfunc_retptr("gfx_blurto",2,NSEEL_PProc_THIS,&_gfx_blurto);
-  NSEEL_addfunc_retval("gfx_showmenu",1,NSEEL_PProc_THIS,&_gfx_showmenu);
-  NSEEL_addfunc_retval("gfx_setcursor",2, NSEEL_PProc_THIS, &_gfx_setcursor);
+  NSEEL_addfunc_exparms("gfx_showmenu",1,NSEEL_PProc_THIS,&_gfx_showmenu);
+  NSEEL_addfunc_varparm("gfx_setcursor",1, NSEEL_PProc_THIS, &_gfx_setcursor);
   NSEEL_addfunc_retptr("gfx_drawnumber",2,NSEEL_PProc_THIS,&_gfx_drawnumber);
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
   NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
@@ -2183,10 +2191,12 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         GetClientRect(hwnd, &r);
         if (p.x >= 0 && p.x < r.right && p.y >= 0 && p.y < r.bottom)
         {
-          if (!ctx->m_cursor_name[0]) SetCursor(LoadCursor(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid)));
 #ifdef EEL_LICE_LOADTHEMECURSOR
-          else SetCursor(EEL_LICE_LOADTHEMECURSOR(g_hInst, MAKEINTRESOURCE(ctx->m_cursor_resid), ctx->m_cursor_name));
+          if (ctx->m_cursor_name[0]) 
+            SetCursor(EEL_LICE_LOADTHEMECURSOR(ctx->m_cursor_resid, ctx->m_cursor_name));
+          else
 #endif
+            SetCursor(LoadCursor(NULL, MAKEINTRESOURCE(ctx->m_cursor_resid)));
           return TRUE;
         }
       }
@@ -2544,7 +2554,11 @@ static const char *eel_lice_function_reference =
     "gfx_showmenu returns 0 if the user selected nothing from the menu, 1 if the first field is selected, etc.\nExample:\n\n"
     "gfx_showmenu(\"first item, followed by separator||!second item, checked|>third item which spawns a submenu|#first item in submenu, grayed out|<second and last item in submenu|fourth item in top menu\")\0"  
   
-  "gfx_setcursor\tresource_id,custom_cursor_name\tSets the mouse cursor. resource_id is a value like 32512 (for an arrow cursor), custom_cursor_name is a string like \"arrow\" (for the REAPER custom arrow cursor).\0"
+#ifdef EEL_LICE_LOADTHEMECURSOR
+  "gfx_setcursor\tresource_id,custom_cursor_name\tSets the mouse cursor. resource_id is a value like 32512 (for an arrow cursor), custom_cursor_name is a string description (such as \"arrow\") that will be override the resource_id, if available. In either case resource_id should be nonzero.\0"
+#else
+  "gfx_setcursor\tresource_id\tSets the mouse cursor. resource_id is a value like 32512 (for an arrow cursor).\0"
+#endif
   "gfx_lineto\tx,y[,aa]\tDraws a line from gfx_x,gfx_y to x,y. If aa is 0.5 or greater, then antialiasing is used. Updates gfx_x and gfx_y to x,y.\0"
   "gfx_line\tx,y,x2,y2[,aa]\tDraws a line from x,y to x2,y2, and if aa is not specified or 0.5 or greater, it will be antialiased. \0"
   "gfx_rectto\tx,y\tFills a rectangle from gfx_x,gfx_y to x,y. Updates gfx_x,gfx_y to x,y. \0"
