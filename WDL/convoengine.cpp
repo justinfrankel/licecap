@@ -531,7 +531,7 @@ int WDL_ConvolutionEngine::Avail(int want)
           WDL_FFT_REAL f = optr[i*2]=denormal_filter_aggressive(optr[sz+i]);
           if (!nonzflag && (f<-CONVOENGINE_SILENCE_THRESH || f>CONVOENGINE_SILENCE_THRESH)) nonzflag=true;
           f=optr[i*2+1]=denormal_filter_aggressive(workbuf2[i]);
-          if (!nonzflag && (f<CONVOENGINE_SILENCE_THRESH || f>CONVOENGINE_SILENCE_THRESH)) nonzflag=true;
+          if (!nonzflag && (f<-CONVOENGINE_SILENCE_THRESH || f>CONVOENGINE_SILENCE_THRESH)) nonzflag=true;
         }
       }
       else
