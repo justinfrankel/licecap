@@ -1082,10 +1082,13 @@ void EEL_Editor::draw_bottom_line()
 #undef BOLD
 }
 
+#define CTRL_KEY_DOWN (GetAsyncKeyState(VK_CONTROL)&0x8000)
+#define SHIFT_KEY_DOWN (GetAsyncKeyState(VK_SHIFT)&0x8000)
+#define ALT_KEY_DOWN (GetAsyncKeyState(VK_MENU)&0x8000)
 
 int EEL_Editor::onChar(int c)
 {
-  if (!m_state) switch(c)
+  if (!m_state && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN) switch (c)
   {
   case KEY_F1:
   case 'K'-'A'+1:
@@ -1126,9 +1129,7 @@ int EEL_Editor::onChar(int c)
   return 0;
   case KEY_F4:
   case 'T'-'A'+1:
-
     doParenMatching();
-
   return 0;
   }
 

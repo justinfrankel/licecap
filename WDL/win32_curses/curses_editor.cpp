@@ -1015,6 +1015,10 @@ static int categorizeCharForWordNess(int c)
   return 3;
 }
 
+#define CTRL_KEY_DOWN (GetAsyncKeyState(VK_CONTROL)&0x8000)
+#define SHIFT_KEY_DOWN (GetAsyncKeyState(VK_SHIFT)&0x8000)
+#define ALT_KEY_DOWN (GetAsyncKeyState(VK_MENU)&0x8000)
+
 int WDL_CursesEditor::onChar(int c)
 {
   if (m_state == -3 || m_state == -4)
@@ -1054,7 +1058,7 @@ int WDL_CursesEditor::onChar(int c)
   }
   if (c==KEY_DOWN || c==KEY_UP || c==KEY_PPAGE||c==KEY_NPAGE || c==KEY_RIGHT||c==KEY_LEFT||c==KEY_HOME||c==KEY_END)
   {
-    if (GetAsyncKeyState(VK_SHIFT)&0x8000)      
+    if (SHIFT_KEY_DOWN)      
     {
       if (!m_selecting)
       {
@@ -1068,8 +1072,8 @@ int WDL_CursesEditor::onChar(int c)
   switch(c)
   {
     case 'O'-'A'+1:
-     if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
-     {
+      if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
+      {
         if (m_pane_div <= 0.0 || m_pane_div >= 1.0)
         {
           onChar('P'-'A'+1);
@@ -1088,7 +1092,7 @@ int WDL_CursesEditor::onChar(int c)
       }
     break;
     case 'P'-'A'+1:
-      if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
+      if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
       {
         if (m_pane_div <= 0.0 || m_pane_div >= 1.0) 
         {
@@ -1112,7 +1116,7 @@ int WDL_CursesEditor::onChar(int c)
     
     case 407:
     case 'Z'-'A'+1:
-      if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
+      if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
       {
         if (m_undoStack_pos > 0)
         {
@@ -1124,26 +1128,34 @@ int WDL_CursesEditor::onChar(int c)
            snprintf(buf,sizeof(buf),"Undid action - %d items in undo buffer",m_undoStack_pos);
            draw_message(buf);
         }
-        else draw_message("Can't Undo");
-
+        else 
+        {
+          draw_message("Can't Undo");
+        }   
         break;
       }
-      // fall through
+    // fall through
     case 'Y'-'A'+1:
-      if (m_undoStack_pos < m_undoStack.GetSize()-1)
+      if ((c == 'Z'-'A'+1 || !SHIFT_KEY_DOWN) && !ALT_KEY_DOWN)
       {
-        m_undoStack_pos++;
-        loadUndoState(m_undoStack.Get(m_undoStack_pos));
-        draw();
-        setCursor();
-        char buf[512];
-        snprintf(buf,sizeof(buf),"Redid action - %d items in redo buffer",m_undoStack.GetSize()-m_undoStack_pos-1);
-        draw_message(buf);
+        if (m_undoStack_pos < m_undoStack.GetSize()-1)
+        {
+          m_undoStack_pos++;
+          loadUndoState(m_undoStack.Get(m_undoStack_pos));
+          draw();
+          setCursor();
+          char buf[512];
+          snprintf(buf,sizeof(buf),"Redid action - %d items in redo buffer",m_undoStack.GetSize()-m_undoStack_pos-1);
+          draw_message(buf);
+        }
+        else 
+        {
+          draw_message("Can't Redo");  
+        }
       }
-      else draw_message("Can't Redo");  
     break;
     case KEY_IC:
-      if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
+      if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
       {
         s_overwrite=!s_overwrite;
         setCursor();
@@ -1151,6 +1163,7 @@ int WDL_CursesEditor::onChar(int c)
       }
       // fqll through
     case 'V'-'A'+1:
+      if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
       {
         // generate a m_clipboard using win32 clipboard data
         WDL_PtrList<const char> lines;
@@ -1276,7 +1289,7 @@ int WDL_CursesEditor::onChar(int c)
   break;
 
   case KEY_DC:
-    if (!(GetAsyncKeyState(VK_SHIFT)&0x8000))
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
       WDL_FastString *s;
       if (m_selecting)
@@ -1323,7 +1336,7 @@ int WDL_CursesEditor::onChar(int c)
     }
   case 'C'-'A'+1:
   case 'X'-'A'+1:
-    if (m_selecting)
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && m_selecting)
     {
       if (c!= 'C'-'A'+1) m_selecting=0;
       int miny,maxy,minx,maxx;
@@ -1413,65 +1426,72 @@ int WDL_CursesEditor::onChar(int c)
     }
   break;
   case 'A'-'A'+1:
-    m_selecting=1;
-    m_select_x1=0;
-    m_select_y1=0;
-    m_select_y2=m_text.GetSize()-1;
-    m_select_x2=0;
-    if (m_text.Get(m_select_y2))
-      m_select_x2=m_text.Get(m_select_y2)->GetLength();
-    draw();
-    setCursor();
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
+    {
+      m_selecting=1;
+      m_select_x1=0;
+      m_select_y1=0;
+      m_select_y2=m_text.GetSize()-1;
+      m_select_x2=0;
+      if (m_text.Get(m_select_y2))
+        m_select_x2=m_text.Get(m_select_y2)->GetLength();
+      draw();
+      setCursor();
+    }
   break;
   case 27:
-    if (m_selecting)
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && m_selecting)
     {
       m_selecting=0;
       draw();
       setCursor();
       break;
     }
-  return 0;
+  break;
   case KEY_F3:
   case 'G'-'A'+1:
-    if (s_search_string[0])
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && s_search_string[0])
     {
       runSearch();
       return 0;
     }
+  // fall through
   case 'F'-'A'+1:
-    draw_message("");
-    attrset(m_color_message);
-    bkgdset(m_color_message);
-    mvaddstr(LINES-1,0,"Find string (ESC to cancel): ");
-    if (m_selecting && m_select_y1==m_select_y2)
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
-      WDL_FastString* s=m_text.Get(m_select_y1);
-      if (s)
+      draw_message("");
+      attrset(m_color_message);
+      bkgdset(m_color_message);
+      mvaddstr(LINES-1,0,"Find string (ESC to cancel): ");
+      if (m_selecting && m_select_y1==m_select_y2)
       {
-        const char* p=s->Get();
-        int xlo=min(m_select_x1, m_select_x2);
-        int xhi=max(m_select_x1, m_select_x2);
-        int i;
-        for (i=xlo; i < xhi; ++i)
+        WDL_FastString* s=m_text.Get(m_select_y1);
+        if (s)
         {
-          if (!isalnum(p[i]) && p[i] != '_') break;
-        }
-        if (i == xhi && xhi > xlo && xhi-xlo < sizeof(s_search_string))
-        {
-          lstrcpyn(s_search_string, p+xlo, xhi-xlo+1);
+          const char* p=s->Get();
+          int xlo=min(m_select_x1, m_select_x2);
+          int xhi=max(m_select_x1, m_select_x2);
+          int i;
+          for (i=xlo; i < xhi; ++i)
+          {
+            if (!isalnum(p[i]) && p[i] != '_') break;
+          }
+          if (i == xhi && xhi > xlo && xhi-xlo < sizeof(s_search_string))
+          {
+            lstrcpyn(s_search_string, p+xlo, xhi-xlo+1);
+          }
         }
       }
+      addstr(s_search_string);
+      clrtoeol();
+      attrset(0);
+      bkgdset(0);
+      m_state=-3; // find, initial (m_state=4 when we've typed something)
     }
-    addstr(s_search_string);
-    clrtoeol();
-    attrset(0);
-    bkgdset(0);
-    m_state=-3; // find, initial (m_state=4 when we've typed something)
-  return 0;
+  break;
   case KEY_DOWN:
     {
-      if (GetAsyncKeyState(VK_CONTROL)&0x8000)      
+      if (CTRL_KEY_DOWN)
       {
         int paney[2], paneh[2];
         GetPaneDims(paney, paneh);
@@ -1495,7 +1515,7 @@ int WDL_CursesEditor::onChar(int c)
   break;
   case KEY_UP:
     {
-      if (GetAsyncKeyState(VK_CONTROL)&0x8000)      
+      if (CTRL_KEY_DOWN)
       {
         if (m_paneoffs_y[m_curpane] > 0)
         {
@@ -1562,7 +1582,7 @@ int WDL_CursesEditor::onChar(int c)
       }
       else
       {
-        if (GetAsyncKeyState(VK_CONTROL)&0x8000)      
+        if (CTRL_KEY_DOWN)
         {
           WDL_FastString *s = m_text.Get(m_curs_y);
           if (!s||m_curs_x >= s->GetLength()) break;
@@ -1603,7 +1623,7 @@ int WDL_CursesEditor::onChar(int c)
 
       if(m_curs_x>0 && doMove) 
       {
-        if (GetAsyncKeyState(VK_CONTROL)&0x8000)      
+        if (CTRL_KEY_DOWN)
         {
           WDL_FastString *s = m_text.Get(m_curs_y);
           if (!s) break;
@@ -1632,7 +1652,7 @@ int WDL_CursesEditor::onChar(int c)
   case KEY_HOME:
     {
       m_curs_x=0;
-      if (GetAsyncKeyState(VK_CONTROL)&0x8000) m_curs_y=0;
+      if (CTRL_KEY_DOWN) m_curs_y=0;
       if (m_selecting) { setCursor(); m_select_x2=m_curs_x; m_select_y2=m_curs_y; draw(); }
       setCursor();
     }
@@ -1640,7 +1660,7 @@ int WDL_CursesEditor::onChar(int c)
   case KEY_END:
     {
       if (m_text.Get(m_curs_y)) m_curs_x=m_text.Get(m_curs_y)->GetLength();
-      if (GetAsyncKeyState(VK_CONTROL)&0x8000) m_curs_y=m_text.GetSize();
+      if (CTRL_KEY_DOWN) m_curs_y=m_text.GetSize();
       if (m_selecting) { setCursor(); m_select_x2=m_curs_x; m_select_y2=m_curs_y; draw(); }
       setCursor();
     }
@@ -1694,8 +1714,11 @@ int WDL_CursesEditor::onChar(int c)
     }
   break;
   case 'L'-'A'+1:
-    draw();
-    setCursor();
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
+    {
+      draw();
+      setCursor();
+    }
   break;
   case 13: //KEY_ENTER:
     //insert newline
