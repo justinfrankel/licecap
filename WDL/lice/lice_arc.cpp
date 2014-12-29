@@ -442,7 +442,7 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
     if (xhi != cx) xhi++;
     if (yhi != cy) yhi++;
 
-    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi),min(h, yhi)};
+    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi+1),min(h, yhi+1)};
 
     __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
   }
