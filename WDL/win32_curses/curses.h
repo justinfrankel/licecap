@@ -79,6 +79,7 @@ typedef struct win32CursesCtx
 
   unsigned char *m_framebuffer;
   HFONT mOurFont;
+  int *fontsize_ptr;
   
   int m_font_w, m_font_h;
 

@@ -20,6 +20,7 @@
 #define WIN32CURSES_CLASS_NAME "WDLCursesWindow"
 
 static void doFontCalc(win32CursesCtx*, HDC);
+static void reInitializeContext(win32CursesCtx *ctx);
 
 static void m_InvalidateArea(win32CursesCtx *ctx, int sx, int sy, int ex, int ey)
 {
@@ -346,6 +347,25 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   case WM_LBUTTONDBLCLK:
   case WM_RBUTTONDBLCLK:
   case WM_MBUTTONDBLCLK:
+    if (ctx && ctx->fontsize_ptr && uMsg == WM_MOUSEWHEEL && (GetAsyncKeyState(VK_CONTROL)&0x8000))
+    {
+      int a = (int)(short)HIWORD(wParam);
+      if (a<0 && *ctx->fontsize_ptr > 4) (*ctx->fontsize_ptr)--;
+      else if (a>=0 && *ctx->fontsize_ptr < 64) (*ctx->fontsize_ptr)++;
+      else return 1;
+
+      if (ctx->mOurFont) 
+      {
+        DeleteObject(ctx->mOurFont);
+        ctx->mOurFont=NULL;
+      }
+      reInitializeContext(ctx);
+      m_reinit_framebuffer(ctx);
+      if (ctx->do_update) ctx->do_update(ctx);
+      else ctx->need_redraw|=1;
+
+      return 1;
+    }
     if (ctx && ctx->onMouseMessage) return ctx->onMouseMessage(ctx->user_data,hwnd,uMsg,wParam,lParam);
   return 0;
 
@@ -686,11 +706,12 @@ static void doFontCalc(win32CursesCtx *ctx, HDC hdcIn)
 
 }
 
-static void reInitializeContext(win32CursesCtx *ctx)
+void reInitializeContext(win32CursesCtx *ctx)
 {
   if (!ctx) return;
 
   if (!ctx->mOurFont) ctx->mOurFont = CreateFont(
+      ctx->fontsize_ptr ? *ctx->fontsize_ptr :
 #ifdef _WIN32
                                                  16,
 #else
