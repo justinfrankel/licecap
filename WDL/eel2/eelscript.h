@@ -680,9 +680,9 @@ void EELScript_GenerateFunctionList(WDL_PtrList<const char> *fs)
   fs->Add("atexit\t\"code\"\t"
     "Adds code to be executed when the script finishes or is ended by the user. Typically used to clean up after the user terminates defer() or runloop() code.");
   fs->Add("defer\t\"code\"\t"
-    "Identical to runloop(). Adds code to be called back by REAPER. Used to create persistent ReaScripts that continue to run and respond to input, while the user does other tasks.");
+    "Identical to runloop(). Adds code to be called back by REAPER. Used to create persistent ReaScripts that continue to run and respond to input, while the user does other tasks.\nNote that no undo point will be automatically created when the script finishes, unless you create it explicitly.");
   fs->Add("runloop\t\"code\"\t"
-    "Identical to defer(). Adds code to be called back by REAPER. Used to create persistent ReaScripts that continue to run and respond to input, while the user does other tasks.");
+    "Identical to defer(). Adds code to be called back by REAPER. Used to create persistent ReaScripts that continue to run and respond to input, while the user does other tasks.\nNote that no undo point will be automatically created when the script finishes, unless you create it explicitly.");
 
   p = eel_eval_function_reference;
   while (*p) { fs->Add(p); p += strlen(p) + 1; }
