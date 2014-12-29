@@ -565,7 +565,8 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                     int txpos = xpos;
                     TextOut(hdc,txpos,ypos,isNotBlank ? p : " ",1);
                   #else
-                    RECT tr={xpos,ypos,xpos+32,ypos+32};
+                    const int max_charw = ctx->m_font_w, max_charh = ctx->m_font_h;
+                    RECT tr={xpos,ypos,xpos+max_charw, ypos+max_charh};
                     HBRUSH br=bgbrushes[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)];
                     if (isCursor && ctx->cursor_type == WIN32_CURSES_CURSOR_TYPE_BLOCK)
                     {
@@ -578,7 +579,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                       FillRect(hdc,&tr,br);
                     }
                     char tmp[2]={c,0};
-                    DrawText(hdc,isprint(c) && !isspace(c) ?tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
+                    DrawText(hdc,c < 128 && isprint(c) && !isspace(c) ?tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
                   #endif
 
                   if (isCursor && ctx->cursor_type != WIN32_CURSES_CURSOR_TYPE_BLOCK)
