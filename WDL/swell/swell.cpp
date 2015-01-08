@@ -719,30 +719,16 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     
     if (bundleinst)
     {
-      CFURLRef executableURL = CFBundleCopyExecutableURL((CFBundleRef)bundleinst);
-      char path[PATH_MAX];
-      path[0]=0;
-      if (executableURL) 
+      if (!CFBundleLoadExecutable((CFBundleRef)bundleinst))
       {
-        if (!CFURLGetFileSystemRepresentation(executableURL, true, (UInt8*)path, sizeof(path))) path[0]=0;
-        CFRelease(executableURL);
-      }        
-      
-      if (path[0]) 
-      {
-
-        inst=dlopen(path,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
-        if (!inst)
-        {
-          CFRelease(bundleinst);
-          return 0;
-        }
+        CFRelease((CFBundleRef)bundleinst);
+        bundleinst=NULL;
       }
     }      
   }
 #endif
 
-  if (!inst && !bundleinst)
+  if (!bundleinst)
   {
     inst=dlopen(fn,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
     if (!inst) return 0;
@@ -830,16 +816,25 @@ BOOL FreeLibrary(HINSTANCE hInst)
       rec->SWELL_dllMain(rec,DLL_PROCESS_DETACH,NULL);
       if (rec->dllMain) rec->dllMain(rec,DLL_PROCESS_DETACH,NULL);
     }
-
   }
 
 #ifdef __APPLE__
-  if (rec->bundleinstptr) CFRelease((CFBundleRef)rec->bundleinstptr); 
+  if (rec->bundleinstptr)
+  {
+    CFRelease((CFBundleRef)rec->bundleinstptr);
+  }
 #endif
   if (rec->instptr) dlclose(rec->instptr); 
   
   if (dofree) free(rec);
   return TRUE;
+}
+
+void* SWELL_GetBundle(HINSTANCE hInst)
+{
+  SWELL_HINSTANCE* rec=(SWELL_HINSTANCE*)hInst;
+  if (rec) return rec->bundleinstptr;
+  return NULL;
 }
 
 DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)

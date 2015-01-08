@@ -887,6 +887,8 @@ SWELL_API_DEFINE(HINSTANCE,LoadLibrary,(const char *fileName))
 SWELL_API_DEFINE(void *,GetProcAddress,(HINSTANCE hInst, const char *procName))
 SWELL_API_DEFINE(BOOL,FreeLibrary,(HINSTANCE hInst))
 
+SWELL_API_DEFINE(void*,SWELL_GetBundle,(HINSTANCE hInst))
+
 /*
 ** GDI functions.
 ** Everything should be all hunky dory, your windows may get WM_PAINT, call 
