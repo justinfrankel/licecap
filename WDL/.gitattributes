@@ -1,0 +1,9 @@
+*        -text
+*.c      text=auto
+*.cpp    text=auto
+*.cc     text=auto
+*.h      text=auto
+*.hpp    text=auto
+*.m      text=auto
+*.mm     text=auto
+*.sh     text=lf
