@@ -6,4 +6,13 @@
 *.hpp    text=auto
 *.m      text=auto
 *.mm     text=auto
-*.sh     text=lf
+*.sh     text eol=lf
+
+*.dsp               text eol=crlf
+*.dsw               text eol=crlf
+*.sln               text eol=crlf
+*.vcxproj           text eol=crlf
+*.vcxproj.filters   text eol=crlf
+*.pbxproj           text eol=lf
+
+Makefile            text eol=lf
