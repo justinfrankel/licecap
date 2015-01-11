@@ -6,13 +6,18 @@
 *.hpp    text=auto
 *.m      text=auto
 *.mm     text=auto
-*.sh     text eol=lf
+
+*.eel    text=auto
+*.php    text=auto
+*.txt    text=auto
+*.bat    text=auto
 
 *.dsp               text eol=crlf
 *.dsw               text eol=crlf
 *.sln               text eol=crlf
 *.vcxproj           text eol=crlf
 *.vcxproj.filters   text eol=crlf
-*.pbxproj           text eol=lf
 
+*.sh                text eol=lf
+*.pbxproj           text eol=lf
 Makefile            text eol=lf
