@@ -688,7 +688,7 @@ int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
     const char* p=[(NSString*)name UTF8String];
     if (p)
     {
-      lstrcpyn(lpFaceName, p, nCount);
+      lstrcpyn_safe(lpFaceName, p, nCount);
       return strlen(lpFaceName);
     }
   }
