@@ -1286,8 +1286,8 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   else pdest += dsty*dest_span;
   pdest+=dstx*sizeof(LICE_pixel);
 
-  int clip_r=(int)(srcx+max(srcw,0)+0.999999);
-  int clip_b=(int)(srcy+max(srch,0)+0.999999);
+  int clip_r=(int)(srcx+lice_max(srcw,0)+0.999999);
+  int clip_b=(int)(srcy+lice_max(srch,0)+0.999999);
   if (clip_r>src->getWidth()) clip_r=src->getWidth();
   if (clip_b>src->getHeight()) clip_b=src->getHeight();
 
@@ -1310,7 +1310,7 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   {
     if (xadvance>=1.7 && yadvance >=1.7 && (mode&LICE_BLIT_FILTER_MASK)==LICE_BLIT_FILTER_BILINEAR)
     {
-      int msc = max(idx,idy);
+      int msc = lice_max(idx,idy);
       const int filtsz=msc>(3<<16) ? 5 : 3;
       const int filt_start = - (filtsz/2);
 

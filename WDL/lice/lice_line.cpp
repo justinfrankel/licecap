@@ -350,7 +350,7 @@ public:
         for (i = 0; i < pxon; ++i, px += span) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
         px += pxoff*span;
       }
-      for (i = 0; i < min(pxon, y2-y); ++i, px += span) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
+      for (i = 0; i < lice_min(pxon, y2-y); ++i, px += span) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
     }
     else if (y1 == y2)
     {
@@ -360,7 +360,7 @@ public:
         for (i = 0; i < pxon; ++i, ++px) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
         px += pxoff;
       }
-      for (i = 0; i < min(pxon, x2-x); ++i, ++px) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
+      for (i = 0; i < lice_min(pxon, x2-x); ++i, ++px) DOPIX((LICE_pixel_chan*) px, r, g, b, a, aw)
     }
   }
 
@@ -887,8 +887,8 @@ static void DoBezierFillSegment(LICE_IBitmap* dest, int x1, int y1, int x2, int 
   if (x2 < x1) return;
   if (x2 == x1)
   {
-    int ylo = min(y1,yfill);
-    int yhi = max(y2,yfill);
+    int ylo = lice_min(y1,yfill);
+    int yhi = lice_max(y2,yfill);
     if (yhi != yfill) --yhi;
     LICE_Line(dest, x1, ylo, x1, yhi, color, alpha, mode, false);
     return;
@@ -918,8 +918,8 @@ static void DoBezierFillSegmentX(LICE_IBitmap* dest, int x1, int y1, int x2, int
   if (y2 < y1) return;
   if (y2 == y1)
   {
-    int xlo = min(x1,xfill);
-    int xhi = max(x2,xfill);
+    int xlo = lice_min(x1,xfill);
+    int xhi = lice_max(x2,xfill);
     if (xhi != xfill) --xhi;
     LICE_Line(dest, xlo, y1, xhi, y1, color, alpha, mode, false);
     return;
@@ -1230,8 +1230,8 @@ public:
 
     while (y-->0)
     {
-      int x1=max(xa,0);
-      int x2=min(xb,wid);
+      int x1=lice_max(xa,0);
+      int x2=lice_min(xb,wid);
       LICE_pixel* xpx = px + x1;
       int cnt=x2-x1;
       while (cnt-->0)
@@ -1288,8 +1288,8 @@ public:
  
     while (y-->0)
     {
-      int x1=max(xa,0);
-      int x2=min(xb,wid);
+      int x1=lice_max(xa,0);
+      int x2=lice_min(xb,wid);
       LICE_pixel* xpx = px + x1;
       int cnt=x2-x1;
       while (cnt-->0)
@@ -1432,7 +1432,7 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   if (!dxady && !dxbdy)
   {
     if (x1a<0)x1a=0;
-    x1b = min(x1b,wid)-x1a;    
+    x1b = lice_min(x1b,wid)-x1a;    
     px+=x1a;
     if (x1b<1) return;
   }
@@ -1573,7 +1573,7 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
     int y_a2 = _Y(a2);
     int y_b2 = _Y(b2);
 
-    int y2 = min(y_a2, y_b2);   
+    int y2 = lice_min(y_a2, y_b2);   
     int x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y1);
     int x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y1);
     int x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y2);

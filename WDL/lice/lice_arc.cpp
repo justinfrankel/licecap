@@ -200,8 +200,8 @@ public:
     if (doclip) 
     {
       if (y < clip[1] || y >= clip[3]) return;
-      xlo = max(xlo, clip[0]);
-      xhi = min(xhi, clip[2]-1);
+      xlo = lice_max(xlo, clip[0]);
+      xhi = lice_min(xhi, clip[2]-1);
     }
     LICE_pixel* px = dest->getBits()+y*dest->getRowSpan()+xlo;
     while (xlo <= xhi) 
@@ -218,8 +218,8 @@ public:
     if (doclip) 
     {
       if (x < clip[0] || x >= clip[2]) return;
-      ylo = max(ylo, clip[1]);
-      yhi = min(yhi, clip[3]-1);
+      ylo = lice_max(ylo, clip[1]);
+      yhi = lice_min(yhi, clip[3]-1);
     }
     int span=dest->getRowSpan();
     LICE_pixel* px = dest->getBits()+ylo*span+x;
@@ -442,7 +442,7 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
     if (xhi != cx) xhi++;
     if (yhi != cy) yhi++;
 
-    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi+1),min(h, yhi+1)};
+    const int clip[4]={lice_max(xlo,0),lice_max(0, ylo),lice_min(w,xhi+1),lice_min(h, yhi+1)};
 
     __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
   }

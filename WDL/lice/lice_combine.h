@@ -8,12 +8,6 @@
 
 #define __LICE_BOUND(x,lo,hi) ((x)<(lo)?(lo):((x)>(hi)?(hi):(x)))
 
-#ifndef max
-#define max(x,y) ((x)<(y)?(y):(x))
-#define min(x,y) ((x)<(y)?(x):(y))
-#endif
-
-
 
 #define LICE_PIXEL_HALF(x) (((x)>>1)&0x7F7F7F7F)
 #define LICE_PIXEL_QUARTER(x) (((x)>>2)&0x3F3F3F3F)
@@ -187,14 +181,14 @@ static inline void __LICE_HSV2RGB(int h, int s, int v, int* r, int* g, int* b)
     {
       maxrgb=g;
       degoffs=128;
-      df = maxrgb - min(b,r);
+      df = maxrgb - lice_min(b,r);
       d=b-r;
     }
     else // blue max
     {
       maxrgb=b;
       degoffs=256;
-      df = maxrgb - min(g,r);
+      df = maxrgb - lice_min(g,r);
       d=r-g;
     }
   }
@@ -221,7 +215,7 @@ static inline void __LICE_HSV2RGB(int h, int s, int v, int* r, int* g, int* b)
     {
       maxrgb=b;
       degoffs=256;
-      df = maxrgb - min(g,r);
+      df = maxrgb - lice_min(g,r);
       d=r-g;
     }
   }
@@ -392,7 +386,7 @@ public:
         r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
         g + ((dest[LICE_PIXEL_G]-g)*sc)/256,
         b + ((dest[LICE_PIXEL_B]-b)*sc)/256,
-        min(255,sc2 + dest[LICE_PIXEL_A]));
+        lice_min(255,sc2 + dest[LICE_PIXEL_A]));
     }
   }
 };
@@ -434,7 +428,7 @@ public:
             r + ((dest[LICE_PIXEL_R]-r)*sc)/256,
             g + ((dest[LICE_PIXEL_G]-g)*sc)/256,
             b + ((dest[LICE_PIXEL_B]-b)*sc)/256,
-            min(255,a + dest[LICE_PIXEL_A]));  
+            lice_min(255,a + dest[LICE_PIXEL_A]));  
       }
     }
   }

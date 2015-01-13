@@ -187,7 +187,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   }
   else ent = m_lowchars+idx;
 
-  const int bmsz=max(m_line_height,1) * 2 + 8;
+  const int bmsz=lice_max(m_line_height,1) * 2 + 8;
 
   if (!s_tempbitmap) s_tempbitmap=new LICE_SysBitmap;
 

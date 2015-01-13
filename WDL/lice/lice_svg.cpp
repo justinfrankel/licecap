@@ -361,7 +361,7 @@ bool LICE_SVGState::ParseFont(TiXmlElement* xmlelem)
       {
         double xsz = sz, ysz = sz;
         SVGMScale(m_ctm, &xsz, &ysz);
-        sz = max(xsz, ysz);
+        sz = lice_max(xsz, ysz);
         m_logfont.lfHeight = -abs((int)sz);
         m_fontdirty = true;
       }

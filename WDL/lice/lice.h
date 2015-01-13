@@ -301,6 +301,11 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 
 #define LICE_BLIT_USE_ALPHA 0x10000 // use source's alpha channel
 
+#ifndef lice_max
+#define lice_max(x,y) ((x)<(y)?(y):(x))
+#define lice_min(x,y) ((x)<(y)?(x):(y))
+#endif
+
 
 // Reaper exports most LICE functions, so the function declarations below
 // will collide with reaper_plugin.h

@@ -170,8 +170,8 @@ int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbm
   tree->palette_valid=false;
 
   int y;
-  const int h=min(bmp->getHeight(),refbmp->getHeight());
-  const int w=min(bmp->getWidth(),refbmp->getWidth());
+  const int h=lice_min(bmp->getHeight(),refbmp->getHeight());
+  const int w=lice_min(bmp->getWidth(),refbmp->getWidth());
   
   int rowspan = bmp->getRowSpan();
   int rowspan2 = refbmp->getRowSpan();
