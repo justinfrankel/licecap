@@ -283,7 +283,7 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
     if (!hwnd) timerid = rec->timerid = (UINT_PTR)rec;
     
     SWELL_TimerFuncTarget *t = [[SWELL_TimerFuncTarget alloc] initWithId:timerid hwnd:hwnd callback:tProc];
-    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(max(rate,1)*0.001) target:t selector:@selector(SWELL_Timer:) 
+    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(wdl_max(rate,1)*0.001) target:t selector:@selector(SWELL_Timer:)
                                                 userInfo:t repeats:YES];
     [t release];
     
@@ -291,7 +291,7 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   else
   {
     SWELL_DataHold *t=[[SWELL_DataHold alloc] initWithVal:(void *)timerid];
-    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(max(rate,1)*0.001) target:(id)hwnd selector:@selector(SWELL_Timer:) 
+    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(wdl_max(rate,1)*0.001) target:(id)hwnd selector:@selector(SWELL_Timer:)
                                                 userInfo:t repeats:YES];
     
     [t release];
