@@ -27,10 +27,6 @@
 
 #include "denormal.h"
 
-#ifndef min
-#define min(x,y) ((x)<(y)?(x):(y))
-#endif
-
 #ifndef PI
 #define PI 3.1415926535897932384626433832795
 #endif
@@ -383,8 +379,8 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
     }
   }
 
-  m_samples_in_rsinbuf += min(nsamples_in,m_last_requested); // prevent the user from corrupting the internal state
-
+  // prevent the caller from corrupting the internal state
+  m_samples_in_rsinbuf += nsamples_in < m_last_requested ? nsamples_in : m_last_requested; 
 
   int rsinbuf_availtemp = m_samples_in_rsinbuf;
 
