@@ -101,7 +101,7 @@ public:
     
     v -= m_srcbuf_valid;
 
-    return max(v,0);
+    return wdl_max(v,0);
   }
 
   void AddInput(void *buf, int len, short *parm_cotab=NULL)

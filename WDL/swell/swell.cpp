@@ -605,19 +605,19 @@ int WinIntersectRect(RECT *out, const RECT *in1, const RECT *in2)
   if (in2->bottom <= in2->top) return false;
   
   // left is maximum of minimum of right edges and max of left edges
-  out->left = max(in1->left,in2->left);
-  out->right = min(in1->right,in2->right);
-  out->top=max(in1->top,in2->top);
-  out->bottom = min(in1->bottom,in2->bottom);
+  out->left = wdl_max(in1->left,in2->left);
+  out->right = wdl_min(in1->right,in2->right);
+  out->top=wdl_max(in1->top,in2->top);
+  out->bottom = wdl_min(in1->bottom,in2->bottom);
   
   return out->right>out->left && out->bottom>out->top;
 }
 void WinUnionRect(RECT *out, const RECT *in1, const RECT *in2)
 {
-  out->left = min(in1->left,in2->left);
-  out->top = min(in1->top,in2->top);
-  out->right=max(in1->right,in2->right);
-  out->bottom=max(in1->bottom,in2->bottom);
+  out->left = wdl_min(in1->left,in2->left);
+  out->top = wdl_min(in1->top,in2->top);
+  out->right=wdl_max(in1->right,in2->right);
+  out->bottom=wdl_max(in1->bottom,in2->bottom);
 }
 
 

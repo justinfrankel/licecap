@@ -335,7 +335,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
     if (wantKnob)
     {
-      int sz= min(vieww,viewh);
+      int sz= wdl_min(vieww,viewh);
       origin_x += (vieww-sz)/2;
       origin_y += (viewh-sz)/2;
       vieww = viewh = sz;       
@@ -1092,7 +1092,7 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
     const int viewh=m_position.bottom-m_position.top;
     const int vieww=m_position.right-m_position.left;
     {
-      int sz= min(vieww,viewh);
+      int sz= wdl_min(vieww,viewh);
       int ox = m_position.left + (vieww-sz)/2;
       int oy = m_position.top + (viewh-sz)/2;
 

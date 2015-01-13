@@ -186,14 +186,14 @@ void EEL_Editor::draw_string(int *ml, int *skipcnt, const char *str, int amt, in
 
       if (str_scan > str) 
       {
-        const int sz=min(str_scan-str,amt);
+        const int sz=wdl_min(str_scan-str,amt);
         draw_string_urlchk(ml,skipcnt,str,sz,attr,newAttr);
         str += sz;
         amt -= sz;
       }
 
       {
-        const int sz=(varlen>0) ? min(varpos,amt) : min(l,amt);
+        const int sz=(varlen>0) ? wdl_min(varpos,amt) : wdl_min(l,amt);
         if (sz>0) 
         {
           draw_string_internal(ml,skipcnt,str,sz,attr,SYNTAX_HIGHLIGHT2);
@@ -204,7 +204,7 @@ void EEL_Editor::draw_string(int *ml, int *skipcnt, const char *str, int amt, in
 
       if (varlen>0) 
       {
-        int sz = min(varlen,amt);
+        int sz = wdl_min(varlen,amt);
         if (sz>0)
         {
           draw_string_internal(ml,skipcnt,str,sz,attr,*str == '#' ? SYNTAX_STRINGVAR : SYNTAX_HIGHLIGHT1);
@@ -212,7 +212,7 @@ void EEL_Editor::draw_string(int *ml, int *skipcnt, const char *str, int amt, in
           str += sz;
         }
 
-        sz = min(l - varpos - varlen, amt);
+        sz = wdl_min(l - varpos - varlen, amt);
         if (sz>0)
         {
           draw_string_internal(ml,skipcnt,str,sz,attr,SYNTAX_HIGHLIGHT2);
@@ -251,13 +251,13 @@ void EEL_Editor::draw_string_urlchk(int *ml, int *skipcnt, const char *str, int 
       
       if (str_scan > str)
       {
-        const int sz=min(str_scan-str,amt);
+        const int sz=wdl_min(str_scan-str,amt);
         draw_string_internal(ml,skipcnt,str,sz,attr,newAttr);
         str += sz;
         amt -= sz;
       }
       
-      const int sz=min(l,amt);
+      const int sz=wdl_min(l,amt);
       if (sz>0)
       {
         draw_string_internal(ml,skipcnt,str,sz,attr,SYNTAX_HIGHLIGHT1);
@@ -1031,7 +1031,7 @@ void EEL_Editor::doWatchInfo(int c)
             int tmp=s->GetLength();
             if (sx > tmp) sx=tmp;
       
-            if (x == maxy) ex=min(maxx,tmp);
+            if (x == maxy) ex=wdl_min(maxx,tmp);
             else ex=tmp;
       
             if (code.GetLength()) code.Append("\r\n");

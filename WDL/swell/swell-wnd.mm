@@ -1494,7 +1494,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           else if (lParam == -1) lParam = sl;        
           if (wParam>sl) wParam=sl;
           if (lParam>sl) lParam=sl;      
-          if (text) [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+          if (text) [text setSelectedRange:NSMakeRange(wParam, wdl_max(lParam-wParam,0))]; // and set the range
         }
       }
       else if (msg == EM_SETPASSWORDCHAR)
@@ -2965,7 +2965,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       
       if (wParam>sl)wParam=sl;
       if (lParam>sl)lParam=sl;
-      [self setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))];
+      [self setSelectedRange:NSMakeRange(wParam, wdl_max(lParam-wParam,0))];
     }
     return 0;
     
@@ -3334,7 +3334,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     if (isLB || !(style & LVS_REPORT))
     {
       LVCOLUMN lvc={0,};
-      lvc.cx=(int)ceil(max(tr.size.width,300.0));
+      lvc.cx=(int)ceil(wdl_max(tr.size.width,300.0));
       lvc.pszText=(char*)"";
       ListView_InsertColumn((HWND)obj,0,&lvc);
       if (isLB && (style & LBS_OWNERDRAWFIXED))
@@ -3391,7 +3391,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
       [col setDataCell:cell];
       [cell release];
 
-      [col setWidth:(int)ceil(max(tr.size.width,300.0))];
+      [col setWidth:(int)ceil(wdl_max(tr.size.width,300.0))];
       [col setEditable:NO];
       [[col dataCell] setWraps:NO];     
       [obj addTableColumn:col];

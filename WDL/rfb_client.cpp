@@ -124,7 +124,7 @@ int WDL_RFB_Client::Run()
 
               unsigned char buf[8];
               memset(buf,0,sizeof(buf));
-              memcpy(buf,m_password.Get(),min(strlen(m_password.Get()),8));
+              memcpy(buf,m_password.Get(),wdl_min(strlen(m_password.Get()),8));
               WDL_DES des;
               des.SetKey(buf,true);
               des.Process8(challenge);
@@ -263,7 +263,7 @@ int WDL_RFB_Client::Run()
 
         if (m_skipdata>0)
         {
-          int a= min(m_msg_buf.Available(),m_skipdata);
+          int a= wdl_min(m_msg_buf.Available(),m_skipdata);
           m_msg_buf.Advance(a);
           m_skipdata-=a;
         }

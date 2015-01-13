@@ -283,7 +283,7 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
       
       if (m_bm->getWidth()<wnd_w || m_bm->getHeight() < wnd_h)
       {
-        m_bm->resize(max(m_bm->getWidth(),wnd_w),max(m_bm->getHeight(),wnd_h));
+        m_bm->resize(wdl_max(m_bm->getWidth(),wnd_w),wdl_max(m_bm->getHeight(),wnd_h));
       }
 
       if (!limitBGrect || (limitBGrect->left <1 && limitBGrect->top < 1 && limitBGrect->right >= fwnd_w && limitBGrect->bottom >= fwnd_h))
@@ -306,11 +306,11 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
           int x=limitBGrect->left - m_paint_xorig;
           int y=limitBGrect->top - m_paint_yorig;
           LICE_SubBitmap bm(m_bm,x,y,w,h);
-          tr.left -= max(x,0);
-          tr.right -= max(x,0);
-          tr.bottom -= max(y,0);
-          tr.top -= max(y,0);
-          DoPaintBackground(&bm,bgcolor,&tr, w,h,-m_paint_xorig + min(x,0), -m_paint_yorig + min(y,0));
+          tr.left -= wdl_max(x,0);
+          tr.right -= wdl_max(x,0);
+          tr.bottom -= wdl_max(y,0);
+          tr.top -= wdl_max(y,0);
+          DoPaintBackground(&bm,bgcolor,&tr, w,h,-m_paint_xorig + wdl_min(x,0), -m_paint_yorig + wdl_min(y,0));
         }
       }
     }
@@ -434,10 +434,10 @@ void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coor
   if (!bitmap || !coords || !bitmap->bgimage || !m_bm) return;
 
   const RECT rr = {
-    max(coords->left, m_ps.rcPaint.left),
-    max(coords->top, m_ps.rcPaint.top),
-    min(coords->right, m_ps.rcPaint.right),
-    min(coords->bottom, m_ps.rcPaint.bottom)
+    wdl_max(coords->left, m_ps.rcPaint.left),
+    wdl_max(coords->top, m_ps.rcPaint.top),
+    wdl_min(coords->right, m_ps.rcPaint.right),
+    wdl_min(coords->bottom, m_ps.rcPaint.bottom)
   };
 
   if (allowTint && m_bgbmtintUnderMode)
@@ -1463,13 +1463,13 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
   if (left_margin+right_margin>destw) 
   { 
     int w=left_margin+right_margin;
-    left_margin = destw*left_margin/max(w,1);
+    left_margin = destw*left_margin/wdl_max(w,1);
     right_margin=destw-left_margin; 
   }
   if (top_margin+bottom_margin>desth) 
   { 
     int h=(top_margin+bottom_margin);
-    top_margin=desth*top_margin/max(h,1);
+    top_margin=desth*top_margin/wdl_max(h,1);
     bottom_margin=desth-top_margin; 
   }
 
@@ -1613,13 +1613,13 @@ int WDL_VirtualWnd_ScaledBG_GetPix(WDL_VirtualWnd_BGCfg *src,
     if (left_margin+right_margin>destw) 
     { 
       int w=left_margin+right_margin;
-      left_margin = destw*left_margin/max(w,1);
+      left_margin = destw*left_margin/wdl_max(w,1);
       right_margin=destw-left_margin; 
     }
     if (top_margin+bottom_margin>desth) 
     { 
       int h=(top_margin+bottom_margin);
-      top_margin=desth*top_margin/max(h,1);
+      top_margin=desth*top_margin/wdl_max(h,1);
       bottom_margin=desth-top_margin; 
     }
 

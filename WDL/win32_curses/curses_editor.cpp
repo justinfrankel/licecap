@@ -611,7 +611,7 @@ void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &max
     else
     {
       miny=maxy=m_select_y1;
-      minx=min(m_select_x1,m_select_x2);
+      minx=wdl_min(m_select_x1,m_select_x2);
       maxx=max(m_select_x1,m_select_x2);
     }
 }
@@ -697,12 +697,12 @@ void WDL_CursesEditor::draw(int lineidx)
       int y=lineidx-m_paneoffs_y[0];
       if (y >= 0 && y < paneh[0])
       {
-        doDrawString(paney[0]+y, 0, lineidx, s->Get(), COLS, &comment_state, min(s->GetLength(), m_offs_x));
+        doDrawString(paney[0]+y, 0, lineidx, s->Get(), COLS, &comment_state, wdl_min(s->GetLength(), m_offs_x));
       } 
       y=lineidx-m_paneoffs_y[1];
       if (y >= 0 && y < paneh[1])
       {
-        doDrawString(paney[1]+y, 0, lineidx, s->Get(), COLS, &comment_state, min(s->GetLength(), m_offs_x));
+        doDrawString(paney[1]+y, 0, lineidx, s->Get(), COLS, &comment_state, wdl_min(s->GetLength(), m_offs_x));
       }
     }
     return;
@@ -737,7 +737,7 @@ void WDL_CursesEditor::draw(int lineidx)
       }
       else
       {
-        doDrawString(y,0,ln,s->Get(),COLS,&comment_state,min(m_offs_x,s->GetLength()));
+        doDrawString(y,0,ln,s->Get(),COLS,&comment_state,wdl_min(m_offs_x,s->GetLength()));
       }
     }
   }
@@ -822,7 +822,7 @@ void WDL_CursesEditor::indentSelect(int amt)
           {
             int a;
             for(a=0;a<amt;a+=16)
-              s->Insert("                  ",0,min(amt-a,16));
+              s->Insert("                  ",0,wdl_min(amt-a,16));
           }
           else if (amt<0)
           {
@@ -862,7 +862,7 @@ void WDL_CursesEditor::removeSelect()
             int tmp=s->GetLength();
             if (sx > tmp) sx=tmp;
       
-            if (x == maxy) ex=min(maxx,tmp);
+            if (x == maxy) ex=wdl_min(maxx,tmp);
             else ex=tmp;
       
             if (sx == 0 && ex == tmp) // remove entire line
@@ -962,7 +962,7 @@ void WDL_CursesEditor::runSearch()
      if (!found && (m_curs_y>0 || m_curs_x > 0))
      {
        wrapflag=1;
-       numlines = min(m_curs_y+1,numlines);
+       numlines = wdl_min(m_curs_y+1,numlines);
        for (line = 0; line < numlines && !found; line ++)
        {
          WDL_FastString *tl = m_text.Get(line);
@@ -1365,7 +1365,7 @@ int WDL_CursesEditor::onChar(int c)
             int tmp=s->GetLength();
             if (sx > tmp) sx=tmp;
       
-            if (x == maxy) ex=min(maxx,tmp);
+            if (x == maxy) ex=wdl_min(maxx,tmp);
             else ex=tmp;
       
             bytescopied += ex-sx + (x!=maxy);
@@ -1469,7 +1469,7 @@ int WDL_CursesEditor::onChar(int c)
         if (s)
         {
           const char* p=s->Get();
-          int xlo=min(m_select_x1, m_select_x2);
+          int xlo=wdl_min(m_select_x1, m_select_x2);
           int xhi=max(m_select_x1, m_select_x2);
           int i;
           for (i=xlo; i < xhi; ++i)
@@ -1805,7 +1805,7 @@ int WDL_CursesEditor::onChar(int c)
         int slen ;
         if (c == '\t') 
         {
-          slen = min(m_indent_size,64);
+          slen = wdl_min(m_indent_size,64);
           if (slen<1) slen=1;
           int x; 
           for(x=0;x<slen;x++) str[x]=' ';

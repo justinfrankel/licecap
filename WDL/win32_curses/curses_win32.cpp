@@ -516,11 +516,11 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
               int right=r.right;              
               if (y >= paney[0] && y < paney[0]+paneh[0])
               {
-                right=min(right, ctx->cols-ctx->drew_scrollbar[0]);
+                right=wdl_min(right, ctx->cols-ctx->drew_scrollbar[0]);
               }
               else if (y >= paney[1] && y < paney[1]+paneh[1]) 
               {
-                right=min(right,  ctx->cols-ctx->drew_scrollbar[1]);
+                right=wdl_min(right,  ctx->cols-ctx->drew_scrollbar[1]);
               }
               
               for (;; x ++, xpos+=ctx->m_font_w, p += 2)
@@ -605,7 +605,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             int ex=ctx->cols*ctx->m_font_w;
             int ey=ctx->lines*ctx->m_font_h;
 
-            int anyscrollw=max(ctx->drew_scrollbar[0], ctx->drew_scrollbar[1]);
+            int anyscrollw=wdl_max(ctx->drew_scrollbar[0], ctx->drew_scrollbar[1]);
             if (anyscrollw && updr.right >= ex-anyscrollw*ctx->m_font_w)
             {              
               HBRUSH sb1=CreateSolidBrush(RGB(128,128,128));
@@ -617,12 +617,12 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 {
                   int scrolly=paney[i]*ctx->m_font_h+ctx->scroll_y[i];
                   int scrollh=ctx->scroll_h[i];
-                  RECT tr = { ex-ctx->drew_scrollbar[i]*ctx->m_font_w, paney[i]*ctx->m_font_h, updr.right, min(scrolly, updr.bottom) };
+                  RECT tr = { ex-ctx->drew_scrollbar[i]*ctx->m_font_w, paney[i]*ctx->m_font_h, updr.right, wdl_min(scrolly, updr.bottom) };
                   if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
-                  tr.top=max(updr.top, scrolly);
-                  tr.bottom=min(updr.bottom, scrolly+scrollh);
+                  tr.top=wdl_max(updr.top, scrolly);
+                  tr.bottom=wdl_min(updr.bottom, scrolly+scrollh);
                   if (tr.bottom > tr.top) FillRect(hdc, &tr, sb2);
-                  tr.top=max(updr.top,scrolly+scrollh);
+                  tr.top=wdl_max(updr.top,scrolly+scrollh);
                   tr.bottom=(paney[i]+paneh[i])*ctx->m_font_h;
                   if (tr.bottom > tr.top) FillRect(hdc, &tr, sb1);
                 }
@@ -661,7 +661,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                   const int attr = ctx->m_framebuffer ? ctx->m_framebuffer[2*(y+1) * ctx->cols - 1] : 0; // last attribute of line
 
                   const int yp = y * fonth;
-                  RECT tr = { max(ex,updr.left), max(yp,updr.top), updr.right, min(yp+fonth,updr.bottom) };
+                  RECT tr = { wdl_max(ex,updr.left), wdl_max(yp,updr.top), updr.right, wdl_min(yp+fonth,updr.bottom) };
                   FillRect(hdc, &tr, bgbrushes[attr&((COLOR_PAIRS << NUM_ATTRBITS)-1)]);
                 }
               }
@@ -669,7 +669,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
             if (updr.bottom > ey)
             {
-              RECT tr= { updr.left, max(ey,updr.top), updr.right, updr.bottom };
+              RECT tr= { updr.left, wdl_max(ey,updr.top), updr.right, updr.bottom };
               FillRect(hdc, &tr, bgbrushes[2]);
             }
 

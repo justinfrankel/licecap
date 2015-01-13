@@ -264,7 +264,7 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan, // first created must be 
   if (m_sockbufsize<16384) m_sockbufsize=16384;
   else if (m_sockbufsize>1024*1024) m_sockbufsize=1024*1024;
 
-  m_rdbufsize = min(m_sockbufsize,65536);
+  m_rdbufsize = wdl_min(m_sockbufsize,65536);
   m_rdbuf = (char *)malloc(m_rdbufsize);
 
   static bool hasSigHandler;

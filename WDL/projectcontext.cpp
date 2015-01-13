@@ -43,7 +43,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
   if (value > 2147483647.0)
   {
     if (value >= 1.0e40) sprintf(bufOut, "%e", value);
-    else sprintf(bufOut, "%.*f", min(prec_digits,8), value);
+    else sprintf(bufOut, "%.*f", wdl_min(prec_digits,8), value);
     while (*bufOut) bufOut++;
     return bufOut;
   }
@@ -102,7 +102,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
       double dfrac2 = (dfrac - frac) * prec_scale2;
       frac2 = (unsigned int) (dfrac2 + 0.5);
 
-      const int prec_scale2_small = min(prec_scale2/1024,10);
+      const int prec_scale2_small = wdl_min(prec_scale2/1024,10);
 
       if (frac2 <= prec_scale2_small) frac2=0;
       else if (frac2 >= prec_scale2 - prec_scale2_small - 1) frac2=prec_scale2;
@@ -117,7 +117,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
     {
       frac = (unsigned int) (dfrac + 0.5);
       frac2 = 0;
-      const int prec_scale_small = min(prec_scale/1024,10);
+      const int prec_scale_small = wdl_min(prec_scale/1024,10);
       if (frac <= prec_scale_small) frac=0;
       else if (frac>=prec_scale-prec_scale_small - 1) frac=prec_scale;
     }
@@ -492,7 +492,7 @@ public:
      
       int osz = m_heapbuf->GetSize();
 
-      int newsz=osz + max(m_compstream.avail_in,8192) + 256;
+      int newsz=osz + wdl_max(m_compstream.avail_in,8192) + 256;
       m_compstream.next_out = (unsigned char *)m_heapbuf->Resize(newsz, false) + osz;
       if (m_heapbuf->GetSize()!=newsz) return; // ERROR
       m_compstream.avail_out = newsz-osz;
@@ -616,7 +616,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
 
     if (buflen > 0 && buf)
     {
-      int l = min(buflen-1,x);
+      int l = wdl_min(buflen-1,x);
       memcpy(buf,m_compdatabuf.Get(),l);
       buf[l]=0;
     }

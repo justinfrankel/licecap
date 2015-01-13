@@ -243,9 +243,9 @@ void AudioBufferContainer::Resize(int nCh, int nFrames, bool preserveData)
       char *out = (char *)m_data.Get();
       const char *in = out;
       const int in_adv = m_nCh * m_fmt, out_adv = nCh * m_fmt;
-      const int copysz = min(in_adv,out_adv);
+      const int copysz = wdl_min(in_adv,out_adv);
 
-      int n = min(nFrames,m_nFrames);
+      int n = wdl_min(nFrames,m_nFrames);
       if (out_adv < in_adv) // decreasing channel count, left to right
       {
         while (n--)
@@ -464,7 +464,7 @@ void SetPinsFromChannels(AudioBufferContainer* dest, AudioBufferContainer* src, 
   const int npins = mapper->GetNPins();
   const int nframes = src->GetNFrames();
   const int fmt = src->GetFormat();
-  const int np = max(npins,forceMinChanCnt);
+  const int np = wdl_max(npins,forceMinChanCnt);
   
   dest->Resize(np, nframes, false);
   
@@ -546,10 +546,10 @@ void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in,
 
     const int ip_adv = nch_in * sizeof(double);
 
-    const int clen = min(nch_in, nch_out) * sizeof(double);
+    const int clen = wdl_min(nch_in, nch_out) * sizeof(double);
     const int zlen = nch_out > nch_in ? (nch_out - nch_in) * sizeof(double) : 0;
 
-    const int cplen = min(len_in,len_out);
+    const int cplen = wdl_min(len_in,len_out);
 
     for (x=0;x<cplen;x++)
     {
@@ -568,7 +568,7 @@ void PinMapperConvertBuffers(const double *buf, int len_in, int nch_in,
   {
     if (wantZeroExcessOutput) memset(buf_out,0,len_out*nch_out*sizeof(double));
 
-    const int npins = min(pinmap->GetNPins(),isInput ? nch_out : nch_in);
+    const int npins = wdl_min(pinmap->GetNPins(),isInput ? nch_out : nch_in);
     const int nchan = isInput ? nch_in : nch_out;
 
     int p;
