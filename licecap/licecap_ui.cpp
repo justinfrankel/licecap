@@ -1024,7 +1024,7 @@ WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
         {
 				  char buf[256];
 				  GetDlgItemText(hwnd, IDC_ALPHA, buf, sizeof(buf));
-				  g_insert_alpha = min(1.0f, atof(buf));
+				  g_insert_alpha = wdl_min(1.0f, atof(buf));
         }
         break;
         case IDC_MS:
@@ -1067,7 +1067,7 @@ void SaveConfig(HWND hwndDlg)
   char buf[1024];
   RECT r;
   GetWindowRect(hwndDlg,&r);
-  sprintf(buf,"%d %d %d %d",r.left,r.top,r.right,r.bottom);
+  sprintf(buf,"%d %d %d %d",(int)r.left,(int)r.top,(int)r.right,(int)r.bottom);
   WritePrivateProfileString("licecap","wnd_r",buf,g_ini_file.Get());
   sprintf(buf, "%d", g_max_fps);
   WritePrivateProfileString("licecap","maxfps",buf,g_ini_file.Get());
@@ -1191,7 +1191,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
         if (g_cap_state==1 && g_cap_bm && now >= g_cap_prerolluntil && now >= g_skip_capture_until)
         {
-          if (now >= g_last_frame_capture_time + (1000/(max(g_max_fps,1))))
+          if (now >= g_last_frame_capture_time + (1000/(wdl_max(g_max_fps,1))))
           {
             g_ms_written += now-g_last_frame_capture_time;
 
@@ -1229,7 +1229,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             }
 #endif
 
-            if (GetScreenData(r2.left,min(r2.top,r2.bottom),g_cap_bm_inv?g_cap_bm_inv:g_cap_bm))
+            if (GetScreenData(r2.left,wdl_min(r2.top,r2.bottom),g_cap_bm_inv?g_cap_bm_inv:g_cap_bm))
             {
               void DoMouseCursor(LICE_IBitmap *,int,int);
               DoMouseCursor(g_cap_bm_inv?g_cap_bm_inv:g_cap_bm,-(r2.left+1),-(r2.bottom+1));                        
