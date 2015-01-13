@@ -736,7 +736,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
               else
               {
                 char tmp[128];
-                lstrcpyn_safe(tmp,msg,min(len+1,sizeof(tmp)));
+                lstrcpyn_safe(tmp,msg,wdl_min(len+1,sizeof(tmp)));
                 if (varOut == &vv) 
                 {
                   EEL_STRING_STORAGECLASS *wr=NULL;

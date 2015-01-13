@@ -229,7 +229,7 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
 static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 {
   const size_t strszfull = str ? strlen(str) : 0;
-  const size_t str_sz = min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
+  const size_t str_sz = wdl_min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
 
   opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx,
                          (int) (sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0)),
@@ -3898,7 +3898,7 @@ static void movestringover(char *str, int amount)
   char tmp[1024+8];
 
   int l=(int)strlen(str);
-  l=min(1024-amount-1,l);
+  l=wdl_min(1024-amount-1,l);
 
   memcpy(tmp,str,l+1);
 

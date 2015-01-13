@@ -807,7 +807,7 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
     else
     {
       const int maxpt = 512;
-      const int n = min(np/2, maxpt);
+      const int n = wdl_min(np/2, maxpt);
       int i, rdi=0;
       int x[maxpt], y[maxpt];
       for (i=0; i < n; i++)
@@ -1175,7 +1175,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
               }
             }
 
-            s->use_fonth=max(tm.tmHeight,1);
+            s->use_fonth=wdl_max(tm.tmHeight,1);
             LICE__SetFromHFont(s->font,hf,512 | (fontflag&(511-15)));//LICE_FONT_FLAG_OWNS_HFONT);
           }
         }
@@ -1475,7 +1475,7 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
   while (sep || *p)
   {
     int len = (sep ? sep-p : strlen(p));
-    int destlen=min(len, sizeof(buf)-1);
+    int destlen=wdl_min(len, sizeof(buf)-1);
     lstrcpyn(buf, p, destlen+1);
     p += len;
     if (sep) sep=strchr(++p, '|');

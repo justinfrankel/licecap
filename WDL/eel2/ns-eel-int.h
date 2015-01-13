@@ -305,14 +305,9 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *sr
 extern EEL_F nseel_ramalloc_onfail; // address returned by __NSEEL_RAMAlloc et al on failure
 extern EEL_F * volatile  nseel_gmembuf_default; // can free/zero this on DLL unload if needed
 
-
-#ifndef max
-#define max(x,y) ((x)<(y)?(y):(x))
-#define min(x,y) ((x)<(y)?(x):(y))
-#endif
-
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif//__NS_EELINT_H__
