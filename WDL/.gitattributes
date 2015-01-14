@@ -10,8 +10,9 @@
 *.eel    text=auto
 *.php    text=auto
 *.txt    text=auto
-*.bat    text=crlf
-*.cmd    text=crlf
+
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
 
 *.dsp               text eol=crlf
 *.dsw               text eol=crlf
