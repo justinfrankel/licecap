@@ -3630,6 +3630,11 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
   if (!hwnd) return;
 }
 
+void TreeView_DeleteAllItems(HWND hwnd)
+{
+  if (!hwnd) return;
+}
+
 void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
   if (!hwnd) return;

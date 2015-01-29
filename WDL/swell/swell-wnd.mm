@@ -5475,6 +5475,15 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
   }
 }
 
+void TreeView_DeleteAllItems(HWND hwnd)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
+  SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
+  
+  if (tv->m_items) tv->m_items->Empty(true);
+  [tv reloadData];
+}
+
 void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
