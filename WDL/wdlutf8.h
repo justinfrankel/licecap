@@ -126,4 +126,36 @@ static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
   return p-(unsigned char *)dest;
 }
 
+static int WDL_MakeUTFChar(char* dest, int c, int destlen)
+{
+  if (c < 128 && destlen >= 2)
+  {
+    if (c < 0) c=0;
+    dest[0]=(char)c;
+    dest[1]=0;
+    return 1;
+  }
+  else if (c < 2048 && destlen >= 3)
+  {
+    dest[0]=0xC0|(c>>6);
+    dest[1]=0x80|(c&0x3F);
+    dest[2]=0;
+    return 2;
+  }
+  else if (destlen >= 4)
+  {
+    dest[0]=0xE0|(c>>12);
+    dest[1]=0x80|((c>>6)&0x3F);
+    dest[2]=0x80|(c&0x3F);
+    dest[3]=0;
+    return 3;
+  }
+  else if (destlen >= 1)
+  {
+    dest[0]='_';
+    return 1;
+  }
+  return 0;
+}
+
 #endif

@@ -123,6 +123,7 @@ EEL_LICE_FUNCDEF int (*LICE__DrawText)(LICE_IFont* ifont, LICE_IBitmap *bm, cons
 
 #include "../lice/lice.h"
 #include "../lice/lice_text.h"
+
 #define LICE_FUNCTION_VALID(x) (sizeof(int) > 0)
 
 static HDC LICE__GetDC(LICE_IBitmap *bm)
@@ -188,32 +189,7 @@ static LICE_IBitmap *__LICE_CreateBitmap(int mode, int w, int h)
 
 #endif
 
-
-static int eel_lice_makeutf8char(char *buf, int a)
-{
-  if (a < 128)
-  {
-    if (a < 0) a=0;
-    buf[0]=(char)a;
-    buf[1]=0;
-    return 1;
-  }
-  else if (a < 2048) 
-  {
-    buf[0]=0xC0|(a>>6);
-    buf[1]=0x80|(a&0x3F);
-    buf[2]=0;
-    return 2;
-  }
-  else
-  {
-    buf[0]=0xE0|(a>>12);
-    buf[1]=0x80|((a>>6)&0x3F);
-    buf[2]=0x80|(a&0x3F);
-    buf[3]=0;
-    return 3;
-  }
-}
+#include "../wdlutf8.h"
 
 
 class eel_lice_state
@@ -1573,7 +1549,7 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int fo
   const char *s;
   if (formatmode==3) 
   {
-    s_len = eel_lice_makeutf8char(buf,(int) parms[0][0]);
+    s_len = WDL_MakeUTFChar(buf, (int)parms[0][0], sizeof(buf));
     s=buf;
   }
   else 
@@ -1625,7 +1601,7 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
   if (a == '\r' || a=='\n') a=' ';
 
   char buf[32];
-  const int buflen = eel_lice_makeutf8char(buf,a);
+  const int buflen = WDL_MakeUTFChar(buf, a, sizeof(buf));
 
   *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
                          GetActiveFont(),buf,buflen,
