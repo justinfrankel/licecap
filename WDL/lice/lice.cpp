@@ -2059,7 +2059,7 @@ template<class T> class LICE_TransformBlit_class
   const T *curpoints=srcpoints;
   for (y = 0; y < div_h-1; y ++)
   {
-    int nypos=(int)(ypos+=dypos);
+    int nypos=(int)((ypos+=dypos) + 0.5);
     int x;
     double xpos=dstx;
     int cxpos=dstx;
@@ -2069,7 +2069,7 @@ template<class T> class LICE_TransformBlit_class
       double iy=1.0/(double)(nypos-cypos);
       for (x = 0; x < div_w-1; x ++)
       {
-        int nxpos=(int) (xpos+=dxpos);
+        int nxpos=(int) ((xpos+=dxpos) + 0.5);
         if (nxpos != cxpos)
         {
           int offs=x*2;
@@ -2126,7 +2126,7 @@ template<class T> class LICE_TransformBlitAlpha_class
   const T *curpoints=srcpoints;
   for (y = 0; y < div_h-1; y ++)
   {
-    int nypos=(int)(ypos+=dypos);
+    int nypos=(int)((ypos+=dypos)+0.5);
     int x;
     double xpos=dstx;
     int cxpos=dstx;
@@ -2136,7 +2136,7 @@ template<class T> class LICE_TransformBlitAlpha_class
       double iy=1.0/(double)(nypos-cypos);
       for (x = 0; x < div_w-1; x ++)
       {
-        int nxpos=(int) (xpos+=dxpos);
+        int nxpos=(int) ((xpos+=dxpos)+0.5);
         if (nxpos != cxpos)
         {
           int offs=x*3;
