@@ -6161,6 +6161,17 @@ BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
       NSView *v = [ar objectAtIndex:x];
       if (v)
       {
+        if ([v isKindOfClass:[NSScrollView class]])
+        {
+          NSView *sv=[(NSScrollView *)v documentView];
+          if (sv) v=sv;
+        }
+        if ([v isKindOfClass:[NSClipView class]]) 
+        {
+          NSView *sv = [(NSClipView *)v documentView];
+          if (sv) v=sv;
+        }
+
         if (!cwEnumFunc((HWND)v,lParam) || !EnumChildWindows((HWND)v,cwEnumFunc,lParam)) 
         {
           [ar release];
