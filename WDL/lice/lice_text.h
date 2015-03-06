@@ -47,6 +47,7 @@ class LICE_IFont
 
     virtual LICE_pixel GetTextColor()=0;
     virtual HFONT GetHFont()=0;
+    virtual int GetLineHeight()=0;
 };
 
 
@@ -71,6 +72,8 @@ class LICE_CachedFont : public LICE_IFont
 
     virtual LICE_pixel GetTextColor() { return m_fg; }
     virtual HFONT GetHFont() { return m_font; }
+    virtual int GetLineHeight() { return m_line_height; }
+
 
     void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
 
