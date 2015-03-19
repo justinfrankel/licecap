@@ -1215,7 +1215,7 @@ static UINT GetVertScrollPortion(SCROLLBAR *sb, HWND hwnd, RECT *rect, int x, in
 
 
 
-static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, const RECT *wndrect, SCROLLBAR *sb, const wdlscrollbar_themestate *theme)
+static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, const RECT *wndrect, SCROLLBAR *sb, SCROLLWND *sw, const wdlscrollbar_themestate *theme)
 {
   LICE_IBitmap *bmp;
   if(theme->bmp && (bmp = *theme->bmp))
@@ -1286,7 +1286,7 @@ static void drawSkinThumb(HDC hdc, RECT r, int fBarHot, int pressed, int vert, c
       //draw background first so alpha channel thumbs work
       {
         RECT bgr = {0,0,w,h};
-        DrawCheckedRect(theme,&tmpbmp,tmpbmp.getDC(), &bgr, 0, 0, sb, wndrect, 0, 0, r.top);
+        DrawCheckedRect(theme,&tmpbmp,tmpbmp.getDC(), &bgr, 0, 0, sb, wndrect, 0, 0, r.top - sw->vscrollbarShrinkTop);
       }
 
       int st = (fBarHot?1:0) + (pressed?2:0);
@@ -1472,7 +1472,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
       if(theme->bmp && *theme->bmp)
       {
-        drawSkinThumb(hdc, thumb, sw->uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb,theme);
+        drawSkinThumb(hdc, thumb, sw->uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb,sw,theme);
       }
       else
       {
@@ -2568,7 +2568,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y, const wd
 
   if(theme->bmp && *theme->bmp)
   {
-    drawSkinThumb(hdc, rc2, 0, 1, sbar->nBarType == SB_VERT, &rcThumbBounds, sbar,theme);
+    drawSkinThumb(hdc, rc2, 0, 1, sbar->nBarType == SB_VERT, &rcThumbBounds, sbar,sw,theme);
   }
   else
   {
@@ -3827,6 +3827,10 @@ BOOL WINAPI CoolSB_SetThemeIndex(HWND hwnd, int idx)
 		return FALSE;
 
   swnd->whichTheme = idx;
+  swnd->sbarHorz.liceBkgnd_ver += 0x800;
+  swnd->sbarVert.liceBkgnd_ver += 0x800;
+  swnd->sbarHorz.liceThumb_ver += 0x800;
+  swnd->sbarVert.liceThumb_ver += 0x800;
 
   return TRUE;
 }
