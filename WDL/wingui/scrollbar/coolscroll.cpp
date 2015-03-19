@@ -669,9 +669,9 @@ static COLORREF GetSBBackColor(HWND hwnd)
 }
 
 
-void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max)
+void DrawAdHocVScrollbarEx(LICE_IBitmap* dest, RECT* r, int pos, int page, int max, int wtheme)
 {
-  const wdlscrollbar_themestate *theme = &s_scrollbar_theme[0];
+  const wdlscrollbar_themestate *theme = &s_scrollbar_theme[wtheme < 0 || wtheme >= MAX_SCROLLBAR_THEMES ? 0 : wtheme];
   LICE_IBitmap* src=*theme->bmp;
   if (!src) return;
 
@@ -743,6 +743,10 @@ void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max
                   x, y+h-w, w, w,
                   116, 181, 17, 17, 
                   1.0f, LICE_BLIT_FILTER_BILINEAR);
+}
+void DrawAdHocVScrollbar(LICE_IBitmap* dest, RECT* r, int pos, int page, int max)
+{
+  DrawAdHocVScrollbarEx(dest,r,pos,page,max,0);
 }
 
 
