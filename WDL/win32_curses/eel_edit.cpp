@@ -1137,7 +1137,7 @@ int EEL_Editor::onChar(int c)
 }
 
 
-void EEL_Editor::onRightClick()
+void EEL_Editor::onRightClick(HWND hwnd)
 {
   doWatchInfo(0);
 }

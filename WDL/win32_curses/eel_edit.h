@@ -18,7 +18,7 @@ public:
   virtual void doParenMatching();
 
   virtual int onChar(int c);
-  virtual void onRightClick();
+  virtual void onRightClick(HWND hwnd);
   virtual void draw_bottom_line();
 
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
