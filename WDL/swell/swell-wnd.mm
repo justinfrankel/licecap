@@ -3803,9 +3803,6 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [col setEditable:NO];
   // [col setResizingMask:2];  // user resizable, this seems to be the default
   
-  if (!lvc->cx && [col respondsToSelector:@selector(setHidden:)]) [(SWELL_TableColumnExtensions*)col setHidden:YES];
-  else [col setWidth:lvc->cx];
-  
   if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
   else if (lvc->fmt == LVCFMT_RIGHT) [[col headerCell] setAlignment:NSRightTextAlignment];
   
@@ -3837,6 +3834,8 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [v addTableColumn:col];
   v->m_cols->Add(col);
   [col release];
+
+  ListView_SetColumnWidth(h,pos,lvc->cx);
   SWELL_END_TRY(;)
 }
 
