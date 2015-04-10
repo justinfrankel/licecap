@@ -3835,7 +3835,10 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   v->m_cols->Add(col);
   [col release];
 
-  ListView_SetColumnWidth(h,pos,lvc->cx);
+  if (lvc->mask&LVCF_WIDTH)
+  {
+    ListView_SetColumnWidth(h,pos,lvc->cx);
+  }
   SWELL_END_TRY(;)
 }
 
