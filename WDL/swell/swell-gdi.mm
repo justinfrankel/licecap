@@ -1844,10 +1844,9 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 
 int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_6
   if (SWELL_GetOSXVersion() < 0x1060)  return 0;
   static bool l;
-  static bool (*_CTFontManagerRegisterFontsForURL)( CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef *error );
+  static bool (*_CTFontManagerRegisterFontsForURL)( CFURLRef fontURL, uint32_t scope, CFErrorRef *error );
   if (!l)
   {
     CFBundleRef b = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.CoreText"));
@@ -1861,10 +1860,6 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
   
   if (!_CTFontManagerRegisterFontsForURL) return 0;
   
-#else
-#define _CTFontManagerRegisterFontsForURL CTFontManagerRegisterFontsForURL
-#endif
-
   CFStringRef s=(CFStringRef)SWELL_CStringToCFString(str); 
 
   CFURLRef r=CFURLCreateWithFileSystemPath(NULL,s,kCFURLPOSIXPathStyle,true);
