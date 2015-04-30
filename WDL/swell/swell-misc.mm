@@ -649,5 +649,23 @@ void SWELL_DisableAppNap(int disable)
 }
 
 
+int SWELL_GetOSXVersion()
+{
+  static SInt32 v;
+  if (!v)
+  {
+    if (NSAppKitVersionNumber >= 1266.0) 
+    {
+      v=0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
+    }
+    else 
+    {
+      SInt32 a = 0x1040;
+      Gestalt(gestaltSystemVersion,&a);
+      v=a;
+    }
+  }
+  return v;
+}
 
 #endif

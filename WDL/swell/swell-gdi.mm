@@ -44,7 +44,8 @@
 #include <OpenGL/gl.h>
 #endif
 
-int SWELL_GetOSXVersion()
+// reimplement here so that swell-gdi isn't dependent on swell-misc, and vice-versa
+static int SWELL_GDI_GetOSXVersion()
 {
   static SInt32 v;
   if (!v)
@@ -71,7 +72,7 @@ int SWELL_GetOSXVersion()
 static bool IsCoreTextSupported()
 {
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
-  return SWELL_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
+  return SWELL_GDI_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString && CTFontCopyPostScriptName
          ;
 #else
@@ -114,7 +115,7 @@ CGColorSpaceRef __GetDisplayColorSpace()
   if (!cs)
   {
     // use monitor profile for 10.7+
-    if (SWELL_GetOSXVersion() >= 0x1070)
+    if (SWELL_GDI_GetOSXVersion() >= 0x1070)
     {
       CMProfileRef systemMonitorProfile = NULL;
       CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
@@ -142,7 +143,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 
 int SWELL_IsRetinaHWND(HWND hwnd)
 {
-  if (!hwnd || SWELL_GetOSXVersion() < 0x1070) return 0;
+  if (!hwnd || SWELL_GDI_GetOSXVersion() < 0x1070) return 0;
 
   NSWindow *w=NULL;
   if ([(id)hwnd isKindOfClass:[NSView class]]) w = [(NSView *)hwnd window];
