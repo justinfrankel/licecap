@@ -835,6 +835,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
         if (wParam<ListView_GetItemCount(hwnd))
         {
           [self selectRowIndexes:[NSIndexSet indexSetWithIndex:wParam] byExtendingSelection:NO];        
+          [self scrollRowToVisible:wParam];
         }
         else
         {
