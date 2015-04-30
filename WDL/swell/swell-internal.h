@@ -179,6 +179,7 @@ struct HTREEITEM__
   int m_start_item;
   int m_start_subitem;
   int m_start_item_clickmode;
+
   int m_lbMode;
   WDL_PtrList<SWELL_ListView_Row> *m_items;
   WDL_PtrList<NSTableColumn> *m_cols;
@@ -187,6 +188,10 @@ struct HTREEITEM__
   int m_fastClickMask;	
   NSColor *m_fgColor;
   NSMutableArray *m_selColors;
+
+  // these are for the new yosemite mouse handling code
+  int m_last_plainly_clicked_item, m_last_shift_clicked_item;
+
 }
 -(LONG)getSwellStyle;
 -(void)setSwellStyle:(LONG)st;
