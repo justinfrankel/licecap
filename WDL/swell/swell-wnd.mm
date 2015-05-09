@@ -4075,8 +4075,8 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
 {
   if (flags==LVNI_FOCUSED||flags==LVNI_SELECTED)
   {
-    if (!h) return 0;
-    if (![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
+    if (!h) return -1;
+    if (![(id)h isKindOfClass:[SWELL_ListView class]]) return -1;
     
     SWELL_ListView *tv=(SWELL_ListView*)h;
     
