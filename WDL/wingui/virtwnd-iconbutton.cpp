@@ -379,11 +379,29 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       int f = DT_SINGLELINE|DT_NOPREFIX;
       if (isVert)
       {
-        f |= DT_CENTER | (m_textalign<0?DT_TOP:m_textalign>0?DT_BOTTOM:DT_VCENTER);
+        if (m_textalign == 0)
+        {
+          RECT mr={0,};
+          font->DrawText(drawbm,m_textlbl.Get(),-1,&mr,f|DT_CALCRECT);
+          f |= (mr.bottom < r2.bottom-r2.top) ? DT_VCENTER : DT_TOP;
+        }
+        else
+          f |= m_textalign<0?DT_TOP:DT_BOTTOM;
+
+        f |= DT_CENTER;
       }
       else
       {
-        f |= DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER);
+        if (m_textalign == 0)
+        {
+          RECT mr={0,};
+          font->DrawText(drawbm,m_textlbl.Get(),-1,&mr,f|DT_CALCRECT);
+          f |= (mr.right < r2.right-r2.left) ? DT_CENTER : DT_LEFT;
+        }
+        else
+          f |= m_textalign<0?DT_LEFT:DT_RIGHT;
+
+        f |= DT_VCENTER;
       }
       font->DrawText(drawbm,m_textlbl.Get(),-1,&r2,f);
     }
