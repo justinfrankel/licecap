@@ -639,7 +639,14 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
       tr.left+=2;
       tr.right-=16;
       m_font->SetTextColor(tcol);
-      m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      if (m_align == 0)
+      {
+        RECT r2={0,};
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_CALCRECT|DT_NOPREFIX);
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(r2.right < tr.right-tr.left ? DT_CENTER : DT_LEFT)|DT_NOPREFIX);
+      }
+      else
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:DT_RIGHT)|DT_NOPREFIX);
     }
 
 
