@@ -2793,14 +2793,14 @@ bool ListView_GetItem(HWND h, LVITEM *item)
 
   return true;
 }
-int ListView_GetItemState(HWND h, int ipos, int mask)
+int ListView_GetItemState(HWND h, int ipos, UINT mask)
 {
   if (!h) return 0;
   int flag=0;
   return flag;
 }
 
-bool ListView_SetItemState(HWND h, int ipos, int state, int statemask)
+bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 {
   int doref=0;
   if (!h) return false;

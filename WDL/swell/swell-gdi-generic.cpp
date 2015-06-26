@@ -124,6 +124,12 @@ HFONT CreateFontIndirect(LOGFONT *lf)
                     lf->lfQuality, lf->lfPitchAndFamily, lf->lfFaceName);
 }
 
+int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
+{
+  if (lpFaceName) lpFaceName[0]=0;
+  return 0;
+}
+
 void DeleteObject(HGDIOBJ pen)
 {
   if (HGDIOBJ_VALID(pen))
