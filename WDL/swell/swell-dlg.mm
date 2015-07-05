@@ -36,8 +36,6 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 
-extern int SWELL_GetOSXVersion();
-
 static BOOL useNoMiddleManCocoa() { return SWELL_GetOSXVersion() >= 0x1050; }
 
 void updateWindowCollection(NSWindow *w)

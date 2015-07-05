@@ -1110,6 +1110,7 @@ SWELL_API_DEFINE(void,SWELL_GetDesiredControlSize,(HWND hwnd, RECT *r))
 
 #ifdef __APPLE__
 SWELL_API_DEFINE(void,SWELL_DisableAppNap,(int disable))
+SWELL_API_DEFINE(int,SWELL_GetOSXVersion,())
 #endif
 
 

@@ -36,8 +36,6 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
-extern int SWELL_GetOSXVersion();
-
 static bool SWELL_NeedModernListViewHacks()
 {
 #ifdef __LP64__
