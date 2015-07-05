@@ -683,8 +683,6 @@ void EELScript_GenerateFunctionList(WDL_PtrList<const char> *fs)
     "Adds code which will be executed some small amount of time after the current code finishes. Identical to runloop()");
   fs->Add("runloop\t\"code\"\t"
     "Adds code which will be executed some small amount of time after the current code finishes. Identical to defer()");
-  fs->Add("extension_api\t\"function_name\"[,...]\t"
-    "Used to call functions exported by extension plugins. The first parameter must be the exported function name, then its own parameters (as if the function was called directly).");
 
   p = eel_eval_function_reference;
   while (*p) { fs->Add(p); p += strlen(p) + 1; }
