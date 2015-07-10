@@ -2655,8 +2655,8 @@ int SWELL_CB_GetCurSel(HWND hwnd, int idx)
 
 void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
 {
-  if (item>=0 && item<SWELL_CB_GetNumItems(hwnd,idx))
-    [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
+  if (item >= SWELL_CB_GetNumItems(hwnd,idx)) item=-1;
+  [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
 }
 
 int SWELL_CB_GetNumItems(HWND hwnd, int idx)
