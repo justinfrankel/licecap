@@ -793,6 +793,7 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
       }
       LICE_FillConvexPolygon(dest, x, y, n, getCurColor(), (float)*m_gfx_a, getCurMode());
     }
+    SetImageDirty(dest);
   }
 }
 
