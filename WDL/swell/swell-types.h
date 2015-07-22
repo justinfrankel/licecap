@@ -34,6 +34,9 @@
 #include <dlfcn.h>
 #include <ctype.h>
 
+#if defined(__cplusplus)
+#include <cstddef>
+#endif
 
 #include <stdint.h>
 typedef intptr_t INT_PTR, *PINT_PTR, LONG_PTR, *PLONG_PTR;
@@ -106,6 +109,10 @@ typedef uintptr_t UINT_PTR, *PUINT_PTR, ULONG_PTR, *PULONG_PTR, DWORD_PTR, *PDWO
 #define MAX_PATH 1024
 
 
+#if !defined(max) && !defined(WDL_NO_DEFINE_MINMAX)
+#define max(x,y) ((x)<(y)?(y):(x))
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
 
 // SWELLAPP stuff (swellappmain.mm)
 #ifdef __cplusplus
