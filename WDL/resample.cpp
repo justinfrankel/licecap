@@ -278,7 +278,7 @@ void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
       int x;
       for (x = -hsz; x < hsz+m_lp_oversize; x ++) 
       {
-        double val = 0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(6*windowpos); // blackman-harris
+        double val = 0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos); // blackman-harris
         if (x) val *= sin(sincpos) / sincpos;
 
         windowpos+=dwindowpos;
