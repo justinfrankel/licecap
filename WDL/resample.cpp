@@ -91,83 +91,88 @@ private:
 };
 
 
-void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, int nch, WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz)
 {
-  int oversize=m_lp_oversize;
+  const int oversize=m_lp_oversize;
   int x;
   fracpos *= oversize;
   int ifpos=(int)fracpos;
-  filter += oversize-1-ifpos;
+  filter += (oversize-ifpos) * filtsz;
   fracpos -= ifpos;
 
   for (x = 0; x < nch; x ++)
   {
     double sum=0.0,sum2=0.0;
-    WDL_SincFilterSample *fptr=filter;
-    WDL_ResampleSample *iptr=inptr+x;
+    const WDL_SincFilterSample *fptr2=filter;
+    const WDL_SincFilterSample *fptr=fptr2 - filtsz;
+    const WDL_ResampleSample *iptr=inptr+x;
     int i=filtsz;
     while (i--)
     {
       sum += fptr[0]*iptr[0]; 
-      sum2 += fptr[1]*iptr[0]; 
+      sum2 += fptr2[0]*iptr[0]; 
       iptr+=nch;
-      fptr += oversize;
+      fptr++;
+      fptr2++;
     }
     outptr[x]=sum*fracpos + sum2*(1.0-fracpos);
   }
 
 }
 
-void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
 {
-  int oversize=m_lp_oversize;
+  const int oversize=m_lp_oversize;
   fracpos *= oversize;
   int ifpos=(int)fracpos;
-  filter += oversize-1-ifpos;
   fracpos -= ifpos;
 
   double sum=0.0,sum2=0.0;
-  WDL_SincFilterSample *fptr=filter;
-  WDL_ResampleSample *iptr=inptr;
+  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+  const WDL_SincFilterSample *fptr=fptr2 - filtsz;
+  const WDL_ResampleSample *iptr=inptr;
   int i=filtsz;
   while (i--)
   {
     sum += fptr[0]*iptr[0]; 
-    sum2 += fptr[1]*iptr[0];
+    sum2 += fptr2[0]*iptr[0];
     iptr++;
-    fptr += oversize;
+    fptr++;
+    fptr2++;
   }
   outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
 
 }
 
-void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
 {
   int oversize=m_lp_oversize;
   fracpos *= oversize;
   int ifpos=(int)fracpos;
-  filter += oversize-1-ifpos;
   fracpos -= ifpos;
+
+  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+  const WDL_SincFilterSample *fptr=fptr2 - filtsz;
 
   double sum=0.0;
   double sum2=0.0;
   double sumb=0.0;
   double sum2b=0.0;
-  WDL_SincFilterSample *fptr=filter;
-  WDL_ResampleSample *iptr=inptr;
+  const WDL_ResampleSample *iptr=inptr;
   int i=filtsz/2;
   while (i--)
   {
     sum += fptr[0]*iptr[0];
     sum2 += fptr[0]*iptr[1];
-    sumb += fptr[1]*iptr[0];
-    sum2b += fptr[1]*iptr[1];
-    sum += fptr[oversize]*iptr[2];
-    sum2 += fptr[oversize]*iptr[3];
-    sumb += fptr[oversize+1]*iptr[2];
-    sum2b += fptr[oversize+1]*iptr[3];
+    sumb += fptr2[0]*iptr[0];
+    sum2b += fptr2[0]*iptr[1];
+    sum += fptr[1]*iptr[2];
+    sum2 += fptr[1]*iptr[3];
+    sumb += fptr2[1]*iptr[2];
+    sum2b += fptr2[1]*iptr[3];
     iptr+=4;
-    fptr += oversize*2;
+    fptr+=2;
+    fptr2+=2;
   }
   outptr[0]=sum*fracpos + sumb*(1.0-fracpos);
   outptr[1]=sum2*fracpos + sum2b*(1.0-fracpos);
@@ -261,34 +266,56 @@ void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
     m_filter_ratio=filtpos;
 
     // build lowpass filter
-    int allocsize = (wantsize+1)*m_lp_oversize;
+    const int allocsize = wantsize*(m_lp_oversize+1);
     WDL_SincFilterSample *cfout=m_filter_coeffs.Resize(allocsize);
     if (m_filter_coeffs.GetSize()==allocsize)
     {
       m_filter_coeffs_size=wantsize;
 
-      int sz=wantsize*m_lp_oversize;
-      int hsz=sz/2;
+      const int sz=wantsize*m_lp_oversize;
+      const int hsz=sz/2;
+
       double filtpower=0.0;
       double windowpos = 0.0;
-      double dwindowpos = 2.0 * PI/(double)(sz);
-      double dsincpos  = PI / m_lp_oversize * filtpos; // filtpos is outrate/inrate, i.e. 0.5 is going to half rate
+      const double dwindowpos = 2.0 * PI/(double)(sz);
+      const double dsincpos  = PI / m_lp_oversize * filtpos; // filtpos is outrate/inrate, i.e. 0.5 is going to half rate
       double sincpos = dsincpos * (double)(-hsz);
     
+      // filter is oversize+1 chunks of wantsize, representing a slice of the kernel
+        // [0] is X
+        // ...
+        // [wantsize-1] 
+        // [wantsize] is X+1/oversize
+        // ...
+        // [wantsize + wantsize-1]
+        // final chunk is the same as the first chunk, but offset by a single sample
       int x;
-      for (x = -hsz; x < hsz+m_lp_oversize; x ++) 
+      for (x = 0; x <= sz; x ++) 
       {
         double val = 0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos); // blackman-harris
-        if (x) val *= sin(sincpos) / sincpos;
+        if (x!=hsz) val *= sin(sincpos) / sincpos;
 
         windowpos+=dwindowpos;
         sincpos += dsincpos;
 
-        cfout[hsz+x] = (WDL_SincFilterSample)val;
-        if (x < hsz) filtpower += val;
+        if (x==sz) 
+        {
+          cfout[sz+wantsize-1] = val;
+        }
+        else
+        {
+          filtpower+=val;
+
+          const int bank = (x%m_lp_oversize), slot = (x/m_lp_oversize);
+          const int idx = bank * wantsize + slot;
+        
+          cfout[idx] = (WDL_SincFilterSample)val;
+        }
       }
+      memcpy(cfout + sz, cfout+1,sizeof(*cfout) * (wantsize-1));
+
       filtpower = m_lp_oversize/filtpower;
-      for (x = 0; x < sz+m_lp_oversize; x ++) 
+      for (x = 0; x < allocsize; x ++) 
       {
         cfout[x] = (WDL_SincFilterSample) (cfout[x]*filtpower);
       }
