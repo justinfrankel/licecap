@@ -255,8 +255,8 @@ void WDL_Resampler::SetRates(double rate_in, double rate_out)
 
 void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
 {
-  int wantsize=m_sincsize;
-  int wantinterp=m_sincoversize;
+  const int wantsize=m_sincsize;
+  const int wantinterp=m_sincoversize;
 
   if (m_filter_ratio!=filtpos || 
       m_filter_coeffs_size != wantsize ||
@@ -272,49 +272,43 @@ void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
     {
       m_filter_coeffs_size=wantsize;
 
-      const int sz=wantsize*m_lp_oversize;
-      const int hsz=sz/2;
+      const double dwindowpos = 2.0 * PI/(double)wantsize;
+      const double dsincpos  = PI * filtpos; // filtpos is outrate/inrate, i.e. 0.5 is going to half rate
+      const int hwantsize=wantsize/2;
 
       double filtpower=0.0;
-      double windowpos = 0.0;
-      const double dwindowpos = 2.0 * PI/(double)(sz);
-      const double dsincpos  = PI / m_lp_oversize * filtpos; // filtpos is outrate/inrate, i.e. 0.5 is going to half rate
-      double sincpos = dsincpos * (double)(-hsz);
-    
-      // filter is oversize+1 chunks of wantsize, representing a slice of the kernel
-        // [0] is X
-        // ...
-        // [wantsize-1] 
-        // [wantsize] is X+1/oversize
-        // ...
-        // [wantsize + wantsize-1]
-        // final chunk is the same as the first chunk, but offset by a single sample
-      int x;
-      for (x = 0; x <= sz; x ++) 
+      WDL_SincFilterSample *ptrout = cfout;
+      int slice;
+      for (slice=0;slice<=wantinterp;slice++)
       {
-        double val = 0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos); // blackman-harris
-        if (x!=hsz) val *= sin(sincpos) / sincpos;
+        const double frac = slice / (double)wantinterp;
+        const int center_x = slice == 0 ? hwantsize : slice == wantinterp ? hwantsize-1 : -1;
 
-        windowpos+=dwindowpos;
-        sincpos += dsincpos;
+        int x;
+        for (x=0;x<wantsize;x++)
+        {          
+          if (x==center_x) 
+          {
+            // we know this will be 1.0
+            *ptrout++ = 1.0;
+          }
+          else
+          {
+            const double xfrac = frac + x;
+            const double windowpos = dwindowpos * xfrac;
+            const double sincpos = dsincpos * (xfrac - hwantsize);
 
-        if (x==sz) 
-        {
-          cfout[sz+wantsize-1] = val;
-        }
-        else
-        {
-          filtpower+=val;
+            // blackman-harris * sinc
+            const double val = (0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos)) * sin(sincpos) / sincpos; 
+            if (slice<wantinterp) filtpower+=val;        
+            *ptrout++ = (WDL_SincFilterSample)val;
+          }
 
-          const int bank = (x%m_lp_oversize), slot = (x/m_lp_oversize);
-          const int idx = bank * wantsize + slot;
-        
-          cfout[idx] = (WDL_SincFilterSample)val;
         }
       }
-      memcpy(cfout + sz, cfout+1,sizeof(*cfout) * (wantsize-1));
 
-      filtpower = m_lp_oversize/filtpower;
+      filtpower = wantinterp/(filtpower+1.0);
+      int x;
       for (x = 0; x < allocsize; x ++) 
       {
         cfout[x] = (WDL_SincFilterSample) (cfout[x]*filtpower);
