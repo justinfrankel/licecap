@@ -156,7 +156,11 @@ int WebServerBaseClass::run_connection(WS_conInst *con)
       l=con->m_pagegen->GetData(buf,l);
       if (l < (con->m_pagegen->IsNonBlocking() ? 0 : 1)) // if nonblocking, this is l < 0, otherwise it's l<1
       {
-        if (con->m_serv.canKeepAlive()) return -1;
+        if (con->m_serv.canKeepAlive()) 
+        {
+          con->m_serv.write_bytes("",0);
+          return -1;
+        }
         return !con->m_serv.bytes_inqueue();
       }
       if (l>0)

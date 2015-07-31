@@ -41,7 +41,7 @@ class JNL_IHTTPServ
     ////////// sending data ///////////////
     virtual int bytes_inqueue()=0;
     virtual int bytes_cansend()=0;
-    virtual void write_bytes(char *bytes, int length)=0;
+    virtual void write_bytes(const char *bytes, int length)=0;
 
     virtual void close(int quick)=0;
 
@@ -83,8 +83,8 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
 
     ////////// sending data ///////////////
     int bytes_inqueue() { if (m_state == 3 || m_state == -1 || m_state ==4) return m_con->send_bytes_in_queue(); else return 0; }
-    int bytes_cansend() { if (m_state == 3) return m_con->send_bytes_available(); else return 0; }
-    void write_bytes(char *bytes, int length) { m_con->send(bytes,length); }
+    int bytes_cansend() { if (m_state == 3) return m_con->send_bytes_available() - (m_usechunk?16:0); else return 0; }
+    void write_bytes(const char *bytes, int length);
 
     void close(int quick) { m_con->close(quick); m_state=4; }
 
@@ -98,7 +98,7 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
 
     int m_reply_ready;
     int m_state;
-    bool m_keepalive;
+    bool m_keepalive, m_usechunk;
 
     char *m_errstr;
     char *m_reply_headers;
