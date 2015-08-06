@@ -1810,6 +1810,13 @@ int WDL_CursesEditor::onChar(int c)
           int x; 
           for(x=0;x<slen;x++) str[x]=' ';
         }
+#ifdef __APPLE__
+        else if (c == 'n' && !SHIFT_KEY_DOWN && ALT_KEY_DOWN) 
+        {
+          str[0]='~';
+          slen = 1;
+        }
+#endif
         else
         {
           str[0]=c;
