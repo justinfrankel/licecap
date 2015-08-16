@@ -94,12 +94,13 @@ private:
 void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz)
 {
   const int oversize=m_lp_oversize;
-  int x;
+
   fracpos *= oversize;
-  int ifpos=(int)fracpos;
+  const int ifpos=(int)fracpos;
   filter += (oversize-ifpos) * filtsz;
   fracpos -= ifpos;
 
+  int x;
   for (x = 0; x < nch; x ++)
   {
     double sum=0.0,sum2=0.0;
@@ -124,31 +125,32 @@ void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_Res
 {
   const int oversize=m_lp_oversize;
   fracpos *= oversize;
-  int ifpos=(int)fracpos;
+  const int ifpos=(int)fracpos;
   fracpos -= ifpos;
 
   double sum=0.0,sum2=0.0;
   const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
   const WDL_SincFilterSample *fptr=fptr2 - filtsz;
   const WDL_ResampleSample *iptr=inptr;
-  int i=filtsz;
+  int i=filtsz/2;
   while (i--)
   {
     sum += fptr[0]*iptr[0]; 
     sum2 += fptr2[0]*iptr[0];
-    iptr++;
-    fptr++;
-    fptr2++;
+    sum += fptr[1]*iptr[1]; 
+    sum2 += fptr2[1]*iptr[1];
+    iptr+=2;
+    fptr+=2;
+    fptr2+=2;
   }
   outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
-
 }
 
 void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
 {
-  int oversize=m_lp_oversize;
+  const int oversize=m_lp_oversize;
   fracpos *= oversize;
-  int ifpos=(int)fracpos;
+  const int ifpos=(int)fracpos;
   fracpos -= ifpos;
 
   const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
@@ -219,8 +221,8 @@ void WDL_Resampler::Reset(double fracpos)
 
 void WDL_Resampler::SetMode(bool interp, int filtercnt, bool sinc, int sinc_size, int sinc_interpsize)
 {
-  m_sincsize = sinc && sinc_size>= 4 ? sinc_size > 8192 ? 8192 : sinc_size : 0;
-  m_sincoversize = m_sincsize  ? (sinc_interpsize<= 1 ? 1 : sinc_interpsize>=4096 ? 4096 : sinc_interpsize) : 1;
+  m_sincsize = sinc && sinc_size>= 4 ? sinc_size > 8192 ? 8192 : (sinc_size&~1) : 0;
+  m_sincoversize = m_sincsize  ? (sinc_interpsize<= 1 ? 1 : sinc_interpsize>=8192 ? 8192 : sinc_interpsize) : 1;
 
   m_filtercnt = m_sincsize ? 0 : (filtercnt<=0?0 : filtercnt >= WDL_RESAMPLE_MAX_FILTERS ? WDL_RESAMPLE_MAX_FILTERS : filtercnt);
   m_interp=interp && !m_sincsize;
