@@ -107,14 +107,16 @@ void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_Resa
     const WDL_SincFilterSample *fptr2=filter;
     const WDL_SincFilterSample *fptr=fptr2 - filtsz;
     const WDL_ResampleSample *iptr=inptr+x;
-    int i=filtsz;
+    int i=filtsz/2;
     while (i--)
     {
       sum += fptr[0]*iptr[0]; 
       sum2 += fptr2[0]*iptr[0]; 
-      iptr+=nch;
-      fptr++;
-      fptr2++;
+      sum += fptr[1]*iptr[nch]; 
+      sum2 += fptr2[1]*iptr[nch]; 
+      iptr+=nch*2;
+      fptr+=2;
+      fptr2+=2;
     }
     outptr[x]=sum*fracpos + sum2*(1.0-fracpos);
   }
