@@ -700,11 +700,24 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     [item setTag:mi->wID];
   }
   
-  NSMenuItem *fi=[m itemAtIndex:0];
-  if (fi && fi != item)
+  int i;
+  ni = [m numberOfItems];
+  // try to find a valid action/target
+  for (i = 0; i < ni; i ++)
   {
-    if ([fi action]) [item setAction:[fi action]]; 
-    if ([fi target]) [item setTarget:[fi target]]; 
+    NSMenuItem *fi=[m itemAtIndex:i];
+    if (fi && fi != item)
+    {
+      SEL act = [fi action];
+      id tgt = [fi target];
+      if (act || tgt)
+      {
+        if (act) [item setAction:act];
+        if (tgt) [item setTarget:tgt];
+        break;
+      }
+    }
+    if (i == 5 && ni > 14) i = ni-6; // only look at first and last 6 items or so
   }
 }
 

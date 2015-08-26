@@ -43,7 +43,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
   if (value > 2147483647.0)
   {
     if (value >= 1.0e40) sprintf(bufOut, "%e", value);
-    else sprintf(bufOut, "%.*f", min(prec_digits,8), value);
+    else sprintf(bufOut, "%.*f", wdl_min(prec_digits,8), value);
     while (*bufOut) bufOut++;
     return bufOut;
   }
@@ -102,7 +102,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
       double dfrac2 = (dfrac - frac) * prec_scale2;
       frac2 = (unsigned int) (dfrac2 + 0.5);
 
-      const int prec_scale2_small = min(prec_scale2/1024,10);
+      const int prec_scale2_small = wdl_min(prec_scale2/1024,10);
 
       if (frac2 <= prec_scale2_small) frac2=0;
       else if (frac2 >= prec_scale2 - prec_scale2_small - 1) frac2=prec_scale2;
@@ -117,7 +117,7 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
     {
       frac = (unsigned int) (dfrac + 0.5);
       frac2 = 0;
-      const int prec_scale_small = min(prec_scale/1024,10);
+      const int prec_scale_small = wdl_min(prec_scale/1024,10);
       if (frac <= prec_scale_small) frac=0;
       else if (frac>=prec_scale-prec_scale_small - 1) frac=prec_scale;
     }
@@ -492,7 +492,7 @@ public:
      
       int osz = m_heapbuf->GetSize();
 
-      int newsz=osz + max(m_compstream.avail_in,8192) + 256;
+      int newsz=osz + wdl_max(m_compstream.avail_in,8192) + 256;
       m_compstream.next_out = (unsigned char *)m_heapbuf->Resize(newsz, false) + osz;
       if (m_heapbuf->GetSize()!=newsz) return; // ERROR
       m_compstream.avail_out = newsz-osz;
@@ -616,7 +616,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
 
     if (buflen > 0 && buf)
     {
-      int l = min(buflen-1,x);
+      int l = wdl_min(buflen-1,x);
       memcpy(buf,m_compdatabuf.Get(),l);
       buf[l]=0;
     }
@@ -895,19 +895,23 @@ bool ProjectContext_GetNextLine(ProjectStateContext *ctx, LineParser *lpOut)
 }
 
 
-bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx)
+bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx, ProjectStateContext *ctxOut)
 {
   int child_count=1;
   if (ctx) for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
+    const char *sp = linebuf;
+    while (*sp == ' ' || *sp == '\t') sp++;
 
-    bool comment_state=false;
-    LineParser lp(comment_state);
-    if (lp.parse(linebuf)||lp.getnumtokens()<=0) continue;
-    if (lp.gettoken_str(0)[0] == '>')  if (--child_count < 1) return true;
-    if (lp.gettoken_str(0)[0] == '<') child_count++;
+    const char *p = sp;    
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
+    if (p[0] == '>')  if (--child_count < 1) return true;
+
+    if (ctxOut) ctxOut->AddLine("%s",sp);
+
+    if (p[0] == '<') child_count++;
   }
 
   return false;
@@ -1020,7 +1024,7 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false;
+  bool comment_state=false, did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
@@ -1039,7 +1043,8 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
       while (*p == ' ' || *p == '\t') p++;
       if (*p == '|')
       {
-        if (str->Get()[0]) str->Append("\r\n");
+        if (!did_firstline) did_firstline=true;
+        else str->Append("\r\n");
         str->Append(++p);
       }
     }
@@ -1050,7 +1055,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false;
+  bool comment_state=false, did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
@@ -1069,7 +1074,8 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
       while (*p == ' ' || *p == '\t') p++;
       if (*p == '|')
       {
-        if (str->Get()[0]) str->Append("\r\n");
+        if (!did_firstline) did_firstline=true;
+        else str->Append("\r\n");
         str->Append(++p);
       }
     }

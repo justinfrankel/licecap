@@ -9,6 +9,7 @@
 */
 
 #include "lice.h"
+#include "../wdltypes.h"
 #ifndef _WIN32
 #include "../swell/swell.h"
 #endif
@@ -75,11 +76,11 @@ static LICE_IBitmap *icoToBitmap(HICON icon, LICE_IBitmap *bmpOut)
   }
 #endif
 
-  if (!bmpOut) bmpOut = new LICE_MemBitmap(icon_w,icon_h);
+  if (!bmpOut) bmpOut = new WDL_NEW LICE_MemBitmap(icon_w,icon_h);
   else bmpOut->resize(icon_w,icon_h);
 
   int y; // since we have the image drawn on white and on black, we can calculate the alpha channel...
-  for(y=0;y<icon_h;y++)
+  if (bmpOut) for(y=0;y<icon_h;y++)
   {
     int x;
     for(x=0;x<icon_w;x++)
@@ -116,12 +117,16 @@ LICE_IBitmap *LICE_LoadIcon(const char *filename, int reqiconsz, LICE_IBitmap *b
   HICON icon = NULL;
 #ifdef _WIN32
   
+#ifndef WDL_NO_SUPPORT_UTF8
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
       icon = (HICON)LoadImageW(NULL,wf,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
   }
+#endif
 
   if (!icon) icon = (HICON)LoadImage(NULL,filename,IMAGE_ICON,reqiconsz,reqiconsz,LR_LOADFROMFILE);
 

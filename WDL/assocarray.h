@@ -50,7 +50,7 @@ public:
     return ismatch;
   }
 
-  void Insert(KEY key, VAL val, KEY *keyPtrOut=NULL) 
+  int Insert(KEY key, VAL val)
   {
     bool ismatch = false;
     int i = LowerBound(key, &ismatch);
@@ -59,7 +59,6 @@ public:
       KeyVal* kv = m_data.Get()+i;
       if (m_valdispose) m_valdispose(kv->val);
       kv->val = val;
-      if (keyPtrOut) *keyPtrOut = kv->key;
     }
     else
     {
@@ -67,9 +66,9 @@ public:
       memmove(kv+1, kv, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
       if (m_keydup) key = m_keydup(key);
       kv->key = key;
-      kv->val = val;
-      if (keyPtrOut) *keyPtrOut = key;
+      kv->val = val;      
     }
+    return i;
   }
 
   void Delete(KEY key) 
@@ -81,20 +80,18 @@ public:
       KeyVal* kv = m_data.Get()+i;
       if (m_keydispose) m_keydispose(kv->key);
       if (m_valdispose) m_valdispose(kv->val);
-      memmove(kv, kv+1, (m_data.GetSize()-i-1)*(unsigned int)sizeof(KeyVal));
-      m_data.Resize(m_data.GetSize()-1);
+      m_data.Delete(i);
     }
   }
 
   void DeleteByIndex(int idx)
   {
-    if (idx>=0&&idx<GetSize())
+    if (idx >= 0 && idx < m_data.GetSize())
     {
       KeyVal* kv = m_data.Get()+idx;
       if (m_keydispose) m_keydispose(kv->key);
       if (m_valdispose) m_valdispose(kv->val);
-      memmove(kv, kv+1, (m_data.GetSize()-idx-1)*(unsigned int)sizeof(KeyVal));
-      m_data.Resize(m_data.GetSize()-1);
+      m_data.Delete(idx);
     }
   }
 
@@ -151,6 +148,18 @@ public:
       if (m_keydup) newkey = m_keydup(newkey);
       kv->key = newkey;
       Resort();
+    }
+  }
+
+  void ChangeKeyByIndex(int idx, KEY newkey, bool needsort)
+  {
+    if (idx >= 0 && idx < m_data.GetSize())
+    {
+      KeyVal* kv = m_data.Get()+idx;
+      if (m_keydispose) m_keydispose(kv->key);
+      if (m_keydup) newkey = m_keydup(newkey);
+      kv->key = newkey;
+      if (needsort) Resort();
     }
   }
 

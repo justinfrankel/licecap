@@ -1287,27 +1287,27 @@ void LICE_DrawChar(LICE_IBitmap *bm, int x, int y, char c,
   if (c<1 || !bm || !(fb=bm->getBits()))return;
   unsigned char *font = LICE_deffont + ((c-1)*LICE_FONT_HEIGHT);
   int len = LICE_FONT_HEIGHT;
+  int smask=128;
+  int xlen=8;
+
   if (y < 0) 
   {
     font -= y;
     len += y;
     y = 0;
   }
-  if (y+LICE_FONT_HEIGHT >= bm->getHeight())  len = bm->getHeight()-y;
-  if (len<1) return;
-
-  int smask=128;
-  int xlen=8;
   if (x<0)
   {
     smask >>= -x;
     xlen+=x;
     x=0;
   }
-  int ml=bm->getWidth()-x;
-  if (xlen>ml)xlen=ml;
 
-  if (ml<1) return;
+  const int bm_w = bm->getWidth(), bm_h = bm->getHeight();
+  if (xlen < 1 || len < 1 || x >= bm_w || y >= bm_h) return;
+  
+  if (xlen > bm_w - x) xlen = bm_w - x;
+  if (len > bm_h - y)  len = bm_h - y;
 
   int rs=bm->getRowSpan();
   if (bm->isFlipped())

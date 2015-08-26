@@ -229,7 +229,7 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
 static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 {
   const size_t strszfull = str ? strlen(str) : 0;
-  const size_t str_sz = min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
+  const size_t str_sz = wdl_min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
 
   opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx,
                          (int) (sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0)),
@@ -640,7 +640,9 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
 
   if (!destination->list || !(destination->list_size & 15))
   {
-    destination->list = (functionType *)realloc(destination->list, (destination->list_size + 16)*sizeof(functionType));
+    void *nv = realloc(destination->list, (destination->list_size + 16)*sizeof(functionType));
+    if (!nv) return;
+    destination->list = (functionType *)nv;
   }
   if (destination->list)
   {
@@ -3898,7 +3900,7 @@ static void movestringover(char *str, int amount)
   char tmp[1024+8];
 
   int l=(int)strlen(str);
-  l=min(1024-amount-1,l);
+  l=wdl_min(1024-amount-1,l);
 
   memcpy(tmp,str,l+1);
 
@@ -4988,10 +4990,13 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
     // add new block
     if (!(ctx->varTable_numBlocks&(NSEEL_VARS_MALLOC_CHUNKSIZE-1)) || !ctx->varTable_Values || !ctx->varTable_Names )
     {
-      ctx->varTable_Values = (EEL_F **)realloc(ctx->varTable_Values,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(EEL_F *));
-      ctx->varTable_Names = (char ***)realloc(ctx->varTable_Names,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(char **));
+      void *nv = realloc(ctx->varTable_Values,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(EEL_F *));
+      if (!nv) return NULL;
+      ctx->varTable_Values = (EEL_F **)nv;
 
-      if (!ctx->varTable_Names || !ctx->varTable_Values) return NULL;
+      nv = realloc(ctx->varTable_Names,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(char **));
+      if (!nv) return NULL;
+      ctx->varTable_Names = (char ***)nv;
     }
     ctx->varTable_numBlocks++;
 

@@ -2793,14 +2793,14 @@ bool ListView_GetItem(HWND h, LVITEM *item)
 
   return true;
 }
-int ListView_GetItemState(HWND h, int ipos, int mask)
+int ListView_GetItemState(HWND h, int ipos, UINT mask)
 {
   if (!h) return 0;
   int flag=0;
   return flag;
 }
 
-bool ListView_SetItemState(HWND h, int ipos, int state, int statemask)
+bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 {
   int doref=0;
   if (!h) return false;
@@ -2991,9 +2991,9 @@ void UpdateWindow(HWND hwnd)
   }
 }
 
-void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
+BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
-  if (!hwnd) return;
+  if (!hwnd) return FALSE;
   HWND hwndCall=hwnd;
 #ifdef SWELL_LICE_GDI
   {
@@ -3039,6 +3039,7 @@ void InvalidateRect(HWND hwnd, RECT *r, int eraseBk)
     gdk_window_invalidate_rect(hwnd->m_oswindow,hwnd!=hwndCall || r ? &rect : NULL,true);
   }
 #endif
+  return TRUE;
 }
 
 
@@ -3625,6 +3626,11 @@ HTREEITEM TreeView_GetSelection(HWND hwnd)
 }
 
 void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
+{
+  if (!hwnd) return;
+}
+
+void TreeView_DeleteAllItems(HWND hwnd)
 {
   if (!hwnd) return;
 }

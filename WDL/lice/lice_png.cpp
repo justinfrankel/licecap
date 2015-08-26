@@ -7,6 +7,7 @@
 
 #include "lice.h"
 
+#include "../wdltypes.h"
 
 #include <stdio.h>
 #include "../libpng/png.h"
@@ -19,8 +20,10 @@
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
 {
   FILE *fp = NULL;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
@@ -29,7 +32,7 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
 #endif
 
   if (!fp) fp = fopen(filename,"rb");
-  if(!fp) return 0;
+  if (!fp) return 0;
 
   png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL); 
   if(!png_ptr) 
@@ -90,18 +93,18 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
   else
     png_set_filler(png_ptr, 0xff, PNG_FILLER_BEFORE);
 
-  //get the bits
-  if (bmp)
+  LICE_IBitmap *delbmp = NULL;
+
+  if (bmp) bmp->resize(width,height);
+  else delbmp = bmp = new WDL_NEW LICE_MemBitmap(width,height);
+
+  if (!bmp || bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
   {
-    bmp->resize(width,height);
-    if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
-    {
-      png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
-      fclose(fp);
-      return 0;
-    }
+    delete delbmp;
+    png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+    fclose(fp);
+    return 0;
   }
-  else bmp=new LICE_MemBitmap(width,height);
 
   unsigned char **row_pointers=(unsigned char **)malloc(height*sizeof(unsigned char *));;
   LICE_pixel *bmpptr = bmp->getBits();
@@ -264,17 +267,16 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
   else
     png_set_filler(png_ptr, 0xff, PNG_FILLER_BEFORE);
 
-  //get the bits
-  if (bmp)
+  LICE_IBitmap *delbmp = NULL;
+  
+  if (bmp) bmp->resize(width,height);
+  else delbmp = bmp = new WDL_NEW LICE_MemBitmap(width,height);
+  if (!bmp || bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
   {
-    bmp->resize(width,height);
-    if (bmp->getWidth() != (int)width || bmp->getHeight() != (int)height) 
-    {
-      png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
-      return 0;
-    }
+    delete delbmp;
+    png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+    return 0;
   }
-  else bmp=new LICE_MemBitmap(width,height);
 
   unsigned char **row_pointers=(unsigned char **)malloc(height*sizeof(unsigned char *));;
   LICE_pixel *bmpptr = bmp->getBits();

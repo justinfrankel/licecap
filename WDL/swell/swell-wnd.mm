@@ -36,7 +36,15 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
-extern int SWELL_GetOSXVersion();
+static bool SWELL_NeedModernListViewHacks()
+{
+#ifdef __LP64__
+  return false;
+#else
+  // only needed on 32 bit yosemite as of 10.10.3, but who knows when it will be necessary elsewhere
+  return SWELL_GetOSXVersion() >= 0x10a0;
+#endif
+}
 
 static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -480,6 +488,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
     m_fakerightmouse=false;
     m_lbMode=0;
     m_fastClickMask=0;
+    m_last_shift_clicked_item = m_last_plainly_clicked_item=-1;
     m_start_item=-1;
     m_start_subitem=-1;
     m_start_item_clickmode=0; // 0=clicked item, 1=clicked image, &2=sent drag message, &4=quickclick mode
@@ -656,6 +665,11 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   }
   else 
   {
+    if ([theEvent clickCount]>1 && SWELL_NeedModernListViewHacks())
+    {
+      [super mouseDown:theEvent];
+      return;
+    }
     m_leftmousemovecnt=0;
     m_fakerightmouse=0;
     
@@ -718,28 +732,94 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 -(void)mouseUp:(NSEvent *)theEvent
 {
-  if (m_fakerightmouse||([theEvent modifierFlags] & NSControlKeyMask))
+  if ((m_fakerightmouse||([theEvent modifierFlags] & NSControlKeyMask)) && IsRightClickEmulateEnabled())
   {
     [self rightMouseUp:theEvent];
   }
-  else if (!(m_start_item_clickmode&1))
+  else 
   {
-    if (m_leftmousemovecnt>=0 && m_leftmousemovecnt<4 && !(m_start_item_clickmode&4))
+    if ([theEvent clickCount]>1 && SWELL_NeedModernListViewHacks())
     {
-      if (m_lbMode && ![self allowsMultipleSelection]) // listboxes --- allow clicking to reset the selection
-      {
-        [self deselectAll:self];
-      }
-      [super mouseDown:theEvent];
       [super mouseUp:theEvent];
+      return;
     }
-    else if (m_leftmousemovecnt>=4)
+    if (!(m_start_item_clickmode&1))
     {
-      HWND tgt=(HWND)[self target];
-      POINT p;
-      GetCursorPos(&p);
-      ScreenToClient(tgt,&p);      
-      SendMessage(tgt,WM_LBUTTONUP,0,(p.x&0xffff) + (((int)p.y)<<16));      
+      if (m_leftmousemovecnt>=0 && m_leftmousemovecnt<4 && !(m_start_item_clickmode&4))
+      {
+        const bool msel = [self allowsMultipleSelection];
+        if (m_lbMode && !msel) // listboxes --- allow clicking to reset the selection
+        {
+          [self deselectAll:self];
+        }
+
+        if (SWELL_NeedModernListViewHacks())
+        {
+          if (m_start_item>=0)
+          {
+            NSMutableIndexSet *m = [[NSMutableIndexSet alloc] init];
+            if (GetAsyncKeyState(VK_CONTROL)&0x8000)
+            {
+              [m addIndexes:[self selectedRowIndexes]];
+              if ([m containsIndex:m_start_item]) [m removeIndex:m_start_item];
+              else 
+              {
+                if (!msel) [m removeAllIndexes];
+                [m addIndex:m_start_item];
+              }
+              m_last_plainly_clicked_item = m_start_item;
+            }
+            else if (msel && (GetAsyncKeyState(VK_SHIFT)&0x8000))
+            {
+              [m addIndexes:[self selectedRowIndexes]];
+              const int n = ListView_GetItemCount((HWND)self);
+              if (m_last_plainly_clicked_item<0 || m_last_plainly_clicked_item>=n)
+                m_last_plainly_clicked_item=m_start_item;
+  
+              if (m_last_shift_clicked_item>=0 && 
+                  m_last_shift_clicked_item<n && 
+                  m_last_plainly_clicked_item != m_last_shift_clicked_item)
+              {
+                int a1 = m_last_shift_clicked_item;
+                int a2 = m_last_plainly_clicked_item;
+                if (a2<a1) { int tmp=a1; a1=a2; a2=tmp; }
+                [m removeIndexesInRange:NSMakeRange(a1,a2-a1 + 1)];
+              }
+              
+              int a1 = m_start_item;
+              int a2 = m_last_plainly_clicked_item;
+              if (a2<a1) { int tmp=a1; a1=a2; a2=tmp; }
+              [m addIndexesInRange:NSMakeRange(a1,a2-a1 + 1)];
+
+              m_last_shift_clicked_item = m_start_item;
+            }
+            else
+            {
+              m_last_plainly_clicked_item = m_start_item;
+              [m addIndex:m_start_item];
+            }
+  
+            [self selectRowIndexes:m byExtendingSelection:NO];
+  
+            [m release];
+  
+          }
+          else [self deselectAll:self];
+        }
+        else
+        {
+          [super mouseDown:theEvent];
+          [super mouseUp:theEvent];
+        }
+      }
+      else if (m_leftmousemovecnt>=4)
+      {
+        HWND tgt=(HWND)[self target];
+        POINT p;
+        GetCursorPos(&p);
+        ScreenToClient(tgt,&p);      
+        SendMessage(tgt,WM_LBUTTONUP,0,(p.x&0xffff) + (((int)p.y)<<16));      
+      }
     }
   }
   
@@ -835,6 +915,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
         if (wParam<ListView_GetItemCount(hwnd))
         {
           [self selectRowIndexes:[NSIndexSet indexSetWithIndex:wParam] byExtendingSelection:NO];        
+          [self scrollRowToVisible:wParam];
         }
         else
         {
@@ -1494,7 +1575,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           else if (lParam == -1) lParam = sl;        
           if (wParam>sl) wParam=sl;
           if (lParam>sl) lParam=sl;      
-          if (text) [text setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))]; // and set the range
+          if (text) [text setSelectedRange:NSMakeRange(wParam, wdl_max(lParam-wParam,0))]; // and set the range
         }
       }
       else if (msg == EM_SETPASSWORDCHAR)
@@ -2574,8 +2655,8 @@ int SWELL_CB_GetCurSel(HWND hwnd, int idx)
 
 void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
 {
-  if (item>=0 && item<SWELL_CB_GetNumItems(hwnd,idx))
-    [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
+  if (item >= SWELL_CB_GetNumItems(hwnd,idx)) item=-1;
+  [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
 }
 
 int SWELL_CB_GetNumItems(HWND hwnd, int idx)
@@ -2820,11 +2901,13 @@ static float m_parent_h;
 static bool m_doautoright;
 static NSRect m_lastdoauto;
 static bool m_sizetofits;
+static int m_make_radiogroupcnt;
 
 #define ACTIONTARGET (m_make_owner)
 
 void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit)
 {
+  m_make_radiogroupcnt=0;
   m_sizetofits=dosizetofit;
   m_lastdoauto.origin.x = 0;
   m_lastdoauto.origin.y = -100;
@@ -2963,7 +3046,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       
       if (wParam>sl)wParam=sl;
       if (lParam>sl)lParam=sl;
-      [self setSelectedRange:NSMakeRange(wParam, max(lParam-wParam,0))];
+      [self setSelectedRange:NSMakeRange(wParam, wdl_max(lParam-wParam,0))];
     }
     return 0;
     
@@ -3028,11 +3111,24 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   return 0;
 }
 
+- (BOOL)becomeFirstResponder;
+{
+  BOOL didBecomeFirstResponder = [super becomeFirstResponder];
+  if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
+  return didBecomeFirstResponder;
+}
 @end
 
 
 @implementation SWELL_TextField
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+
+- (BOOL)becomeFirstResponder;
+{
+  BOOL didBecomeFirstResponder = [super becomeFirstResponder];
+  if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
+  return didBecomeFirstResponder;
+}
 @end
 
 
@@ -3319,7 +3415,8 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     if (isLB || !(style & LVS_REPORT))
     {
       LVCOLUMN lvc={0,};
-      lvc.cx=(int)ceil(max(tr.size.width,300.0));
+      lvc.mask=LVCF_TEXT|LVCF_WIDTH;
+      lvc.cx=(int)ceil(wdl_max(tr.size.width,300.0));
       lvc.pszText=(char*)"";
       ListView_InsertColumn((HWND)obj,0,&lvc);
       if (isLB && (style & LBS_OWNERDRAWFIXED))
@@ -3376,7 +3473,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
       [col setDataCell:cell];
       [cell release];
 
-      [col setWidth:(int)ceil(max(tr.size.width,300.0))];
+      [col setWidth:(int)ceil(wdl_max(tr.size.width,300.0))];
       [col setEditable:NO];
       [[col dataCell] setWraps:NO];     
       [obj addTableColumn:col];
@@ -3454,6 +3551,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     SWELL_Button *button=[[SWELL_Button alloc] init];
     [button setTag:idx];
     NSRect fr=MakeCoords(x,y,w,h,true);
+    SEL actionSel = @selector(onSwellCommand:);
     if ((style & 0xf) == BS_AUTO3STATE)
     {
       [button setButtonType:NSSwitchButton];
@@ -3466,6 +3564,33 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     }
     else if ((style & 0xf) == BS_AUTORADIOBUTTON)
     {
+#ifdef MAC_OS_X_VERSION_10_8
+      // Compiling with the OSX 10.8+ SDK and running on 10.8+ causes radio buttons with a common action selector to
+      // be treated as a group. This works around that. if you need more than 8 groups (seriously?!), add the extra 
+      // functions in swell-dlg.mm and in the switch below
+      {
+        NSView *v;
+        NSArray *sv;
+        if ((style & WS_GROUP) ||
+              !(sv = [m_make_owner subviews]) || 
+              ![sv count] ||
+              !(v = [sv lastObject]) ||
+              ![v isKindOfClass:[SWELL_Button class]] ||
+              ([(SWELL_Button *)v swellGetRadioFlags]&2)) m_make_radiogroupcnt++;
+      }
+      switch (m_make_radiogroupcnt & 7)
+      {
+        case 0: actionSel = @selector(onSwellCommand0:); break;
+        case 1: break; // default
+        case 2: actionSel = @selector(onSwellCommand2:); break;
+        case 3: actionSel = @selector(onSwellCommand3:); break;
+        case 4: actionSel = @selector(onSwellCommand4:); break;
+        case 5: actionSel = @selector(onSwellCommand5:); break;
+        case 6: actionSel = @selector(onSwellCommand6:); break;
+        case 7: actionSel = @selector(onSwellCommand7:); break;
+      }
+#endif
+     
       [button setButtonType:NSRadioButton];
       [button swellSetRadioFlags:(style & WS_GROUP)?3:1];
     }
@@ -3487,7 +3612,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     NSString *labelstr=(NSString *)SWELL_CStringToCFString_FilterPrefix(cname);
     [button setTitle:labelstr];
     [button setTarget:ACTIONTARGET];
-    [button setAction:@selector(onSwellCommand:)];
+    [button setAction:actionSel];
     if (style&BS_LEFTTEXT) [button setImagePosition:NSImageRight];
     if (style&SWELL_NOT_WS_VISIBLE) [button setHidden:YES];
     [m_make_owner addSubview:button];
@@ -3760,9 +3885,6 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [col setEditable:NO];
   // [col setResizingMask:2];  // user resizable, this seems to be the default
   
-  if (!lvc->cx && [col respondsToSelector:@selector(setHidden:)]) [(SWELL_TableColumnExtensions*)col setHidden:YES];
-  else [col setWidth:lvc->cx];
-  
   if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
   else if (lvc->fmt == LVCFMT_RIGHT) [[col headerCell] setAlignment:NSRightTextAlignment];
   
@@ -3794,6 +3916,11 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   [v addTableColumn:col];
   v->m_cols->Add(col);
   [col release];
+
+  if (lvc->mask&LVCF_WIDTH)
+  {
+    ListView_SetColumnWidth(h,pos,lvc->cx);
+  }
   SWELL_END_TRY(;)
 }
 
@@ -3948,8 +4075,8 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
 {
   if (flags==LVNI_FOCUSED||flags==LVNI_SELECTED)
   {
-    if (!h) return 0;
-    if (![(id)h isKindOfClass:[SWELL_ListView class]]) return 0;
+    if (!h) return -1;
+    if (![(id)h isKindOfClass:[SWELL_ListView class]]) return -1;
     
     SWELL_ListView *tv=(SWELL_ListView*)h;
     
@@ -5432,6 +5559,15 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
   }
 }
 
+void TreeView_DeleteAllItems(HWND hwnd)
+{
+  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
+  SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
+  
+  if (tv->m_items) tv->m_items->Empty(true);
+  [tv reloadData];
+}
+
 void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]]) return;
@@ -5700,12 +5836,46 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
       const char *fn = (content1 && *content1) ? content1 : content2;
       NSWorkspace *wk = [NSWorkspace sharedWorkspace];
       if (!wk) return FALSE;
-      NSString *fnstr=(NSString *)SWELL_CStringToCFString(fn);
-      BOOL ret;
-      
-      if (strlen(fn)>4 && !stricmp(fn+strlen(fn)-4,".app")) ret=[wk launchApplication:fnstr];
-      else ret=[wk openFile:fnstr];
-      
+      NSString *fnstr = nil;
+      BOOL ret = FALSE;
+    
+      if (fn && !strnicmp(fn, "/select,\"", 9))
+      {
+        char* tmp = strdup(fn+9);
+        if (*tmp && tmp[strlen(tmp)-1]=='\"') tmp[strlen(tmp)-1]='\0';
+        if (*tmp)
+        {
+          if ([wk respondsToSelector:@selector(activateFileViewerSelectingURLs:)]) // 10.6+
+          {
+            fnstr=(NSString *)SWELL_CStringToCFString(tmp);
+            NSURL *url = [NSURL fileURLWithPath:fnstr isDirectory:false];
+            if (url)
+            {
+              [wk activateFileViewerSelectingURLs:[NSArray arrayWithObjects:url, nil]]; // NSArray (and NSURL) autoreleased
+              ret=TRUE;
+            }
+          }
+          else
+          {
+            if (WDL_remove_filepart(tmp))
+            {
+              fnstr=(NSString *)SWELL_CStringToCFString(tmp);
+              ret=[wk openFile:fnstr];
+            }
+          }
+        }
+        free(tmp);
+      }
+      else if (strlen(fn)>4 && !stricmp(fn+strlen(fn)-4,".app"))
+      {
+        fnstr=(NSString *)SWELL_CStringToCFString(fn);
+        ret=[wk launchApplication:fnstr];
+      }
+      else
+      {
+        fnstr=(NSString *)SWELL_CStringToCFString(fn);
+        ret=[wk openFile:fnstr];
+      }
       [fnstr release];
       return ret;
   }
@@ -5821,6 +5991,12 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 -(LONG)getSwellStyle { return m_style; }
 -(id)init { self = [super init]; if (self) { m_ids=new WDL_PtrList<char>; }  return self; }
 -(void)dealloc { delete m_ids; [super dealloc];  }
+- (BOOL)becomeFirstResponder;
+{
+  BOOL didBecomeFirstResponder = [super becomeFirstResponder];
+  if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
+  return didBecomeFirstResponder;
+}
 @end
 
 
@@ -6069,6 +6245,17 @@ BOOL EnumChildWindows(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam)
       NSView *v = [ar objectAtIndex:x];
       if (v)
       {
+        if ([v isKindOfClass:[NSScrollView class]])
+        {
+          NSView *sv=[(NSScrollView *)v documentView];
+          if (sv) v=sv;
+        }
+        if ([v isKindOfClass:[NSClipView class]]) 
+        {
+          NSView *sv = [(NSClipView *)v documentView];
+          if (sv) v=sv;
+        }
+
         if (!cwEnumFunc((HWND)v,lParam) || !EnumChildWindows((HWND)v,cwEnumFunc,lParam)) 
         {
           [ar release];

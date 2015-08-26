@@ -379,11 +379,29 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       int f = DT_SINGLELINE|DT_NOPREFIX;
       if (isVert)
       {
-        f |= DT_CENTER | (m_textalign<0?DT_TOP:m_textalign>0?DT_BOTTOM:DT_VCENTER);
+        if (m_textalign == 0)
+        {
+          RECT mr={0,};
+          font->DrawText(drawbm,m_textlbl.Get(),-1,&mr,f|DT_CALCRECT);
+          f |= (mr.bottom < r2.bottom-r2.top) ? DT_VCENTER : DT_TOP;
+        }
+        else
+          f |= m_textalign<0?DT_TOP:DT_BOTTOM;
+
+        f |= DT_CENTER;
       }
       else
       {
-        f |= DT_VCENTER|(m_textalign<0?DT_LEFT:m_textalign>0?DT_RIGHT:DT_CENTER);
+        if (m_textalign == 0)
+        {
+          RECT mr={0,};
+          font->DrawText(drawbm,m_textlbl.Get(),-1,&mr,f|DT_CALCRECT);
+          f |= (mr.right < r2.right-r2.left) ? DT_CENTER : DT_LEFT;
+        }
+        else
+          f |= m_textalign<0?DT_LEFT:DT_RIGHT;
+
+        f |= DT_VCENTER;
       }
       font->DrawText(drawbm,m_textlbl.Get(),-1,&r2,f);
     }
@@ -639,7 +657,14 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
       tr.left+=2;
       tr.right-=16;
       m_font->SetTextColor(tcol);
-      m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+      if (m_align == 0)
+      {
+        RECT r2={0,};
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_CALCRECT|DT_NOPREFIX);
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(r2.right < tr.right-tr.left ? DT_CENTER : DT_LEFT)|DT_NOPREFIX);
+      }
+      else
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(m_align<0?DT_LEFT:DT_RIGHT)|DT_NOPREFIX);
     }
 
 

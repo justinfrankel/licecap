@@ -35,8 +35,10 @@ bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality, bool fo
   if (!bmp || !filename) return false;
 
   FILE *fp=NULL;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  #ifdef WDL_SUPPORT_WIN9X
   if (GetVersion()<0x80000000)
+  #endif
   {
     WCHAR wf[2048];
     if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))

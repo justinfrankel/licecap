@@ -27,7 +27,8 @@
 
 JNL_HTTPServ::JNL_HTTPServ(JNL_IConnection *con)
 {
-  m_keepalive=true;
+  m_usechunk = false;
+  m_keepalive = true;
   m_con=con;
   m_state=0;
   m_reply_headers=0;
@@ -47,6 +48,18 @@ JNL_HTTPServ::~JNL_HTTPServ()
   free(m_reply_headers);
   free(m_errstr);
   delete m_con;
+}
+
+void JNL_HTTPServ::write_bytes(const char *bytes, int length) 
+{ 
+  if (m_usechunk)
+  {
+    char buf[32];
+    sprintf(buf,"%x\r\n",length);
+    m_con->send_string(buf);
+  }
+  m_con->send(bytes,length); 
+  if (m_usechunk) m_con->send_string("\r\n");
 }
 
 int JNL_HTTPServ::run()
@@ -82,7 +95,7 @@ run_again:
       }
       else
       {
-        if (buf[strlen(buf)-1]=='0') m_keepalive=false; // old http 1.0
+        if (buf[strlen(buf)-1]=='0') m_keepalive = false; // old http 1.0
         m_state=1;
         cnt=0;
         if (buf >= m_recv_request) buf[0]=buf[1]=0;
@@ -118,7 +131,7 @@ run_again:
       {
         const char *p=buf+11;
         while (*p && strnicmp(p,"close",5)) p++;
-        if (*p) m_keepalive=false;
+        if (*p) m_keepalive = false;
       }
       
       if (!m_recvheaders)
@@ -155,6 +168,24 @@ run_again:
       m_con->send_string((char*)(m_reply_string?m_reply_string:"HTTP/1.1 200 OK"));
       m_con->send_string("\r\n");
       if (m_reply_headers) m_con->send_string(m_reply_headers);
+      if (m_keepalive) 
+      {
+        const char *p = m_reply_headers;
+        bool had_cl=false,had_con=false;
+        while (p && (!had_cl || !had_con))
+        {
+          if (!strnicmp(p,"Content-Length:",15)) had_cl=true;
+          else if (!strnicmp(p,"Connection:",11)) had_con=true;
+          p = strstr(p,"\r\n");
+          if (p) p+=2;
+        }
+        if (!had_con) m_con->send_string("Connection: keep-alive\r\n");
+        if (!had_cl) 
+        {
+          m_usechunk = true;
+          m_con->send_string("Transfer-Encoding: chunked\r\n");
+        }
+      }
       m_con->send_string("\r\n");
       m_state=3;
     }
@@ -231,7 +262,6 @@ void JNL_HTTPServ::set_reply_size(int sz) // if set, size will also add keep-ali
     char buf[512];
     sprintf(buf,"Content-length: %d",sz);
     set_reply_header(buf);
-    if (m_keepalive) set_reply_header("Connection: keep-alive");
   }
 }
 void JNL_HTTPServ::set_reply_header(const char *header) // "Connection: close" for example

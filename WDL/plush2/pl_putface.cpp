@@ -171,9 +171,9 @@ static void inline TextureMakePixelSolidCombine(int &red, int &green, int &blue,
       alpha = solidalpha;
     break;
     case LICE_BLIT_MODE_ADD: 
-      red = gmemptr[LICE_PIXEL_R] + ((CL[0]>>8)*solidalpha)>>16;
-      green = gmemptr[LICE_PIXEL_G] + ((CL[1]>>8)*solidalpha)>>16;
-      blue = gmemptr[LICE_PIXEL_B] + ((CL[2]>>8)*solidalpha)>>16;
+      red = gmemptr[LICE_PIXEL_R] +   (((CL[0]>>8)*solidalpha)>>16);
+      green = gmemptr[LICE_PIXEL_G] + (((CL[1]>>8)*solidalpha)>>16);
+      blue = gmemptr[LICE_PIXEL_B] +  (((CL[2]>>8)*solidalpha)>>16);
       alpha = gmemptr[LICE_PIXEL_A] + solidalpha;
     break;
     case LICE_BLIT_MODE_DODGE:

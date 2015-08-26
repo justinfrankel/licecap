@@ -4,6 +4,7 @@
 #include "../wdlstring.h"
 #include "../ptrlist.h"
 
+
 class WDL_CursesEditor
 {
 public:
@@ -13,7 +14,7 @@ public:
   bool IsDirty() const { return m_clean_undopos != m_undoStack_pos; }
 
   virtual int onChar(int c);
-  virtual void onRightClick() { }
+  virtual void onRightClick(HWND hwnd) { } 
 
   virtual int updateFile(); // saves file on disk
   void RunEditor(); // called from timer/main loop when on simulated curses -- if on a real console just call onChar(getch())
@@ -25,24 +26,30 @@ public:
 
   const char *GetFileName() { return m_filename.Get(); }
 
-  void setCursor(int isVscroll=0);
+  virtual void setCursor(int isVscroll=0, double ycenter=-1.0);
 
   int m_indent_size;
   int m_max_undo_states;
+
+  virtual int init(const char *fn, const char *init_if_empty=0); 
+  virtual void draw(int lineidx=-1);
+
+  virtual void highlight_line(int line);
+
 protected:
   class refcntString;
   class editUndoRec;
 
-  int init(const char *fn, const char *init_if_empty=0); 
-  virtual void draw(int lineidx=-1);
   void draw_message(const char *str);
   void draw_status_state();
+
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   {
     if (user_data) return ((WDL_CursesEditor*)user_data)->onMouseMessage(hwnd,uMsg,wParam,lParam);
     return 0;
   }
+  
   void runSearch();
 
   void indentSelect(int amt);
@@ -77,15 +84,22 @@ protected:
   int m_selecting;
   int m_select_x1,m_select_y1,m_select_x2,m_select_y2;
 
-  int m_offs_x, m_offs_y;
+  int m_offs_x;
   int m_curs_x, m_curs_y;
-  int m_want_x;
+  int m_want_x; // to restore active column when vscrolling
 
+  int m_scrollcap; // 1=top, 2=bottom, 3=divider
+  int m_scrollcap_yoffs;
+  
+  int m_curpane;
+  double m_pane_div;
+  int m_paneoffs_y[2]; 
+
+  int GetPaneDims(int* paney, int* paneh);
 
   static char s_search_string[256];
   static int s_overwrite;
   static WDL_FastString s_fake_clipboard;
-
 
   class refcntString
   {
@@ -125,8 +139,11 @@ protected:
 
     WDL_PtrList<refcntString> m_htext;
 
-    int m_offs_x, m_offs_y;
+    int m_offs_x;
     int m_curs_x, m_curs_y;
+    int m_curpane;
+    double m_pane_div;
+    int m_paneoffs_y[2];
   };
 };
 #endif

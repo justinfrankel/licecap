@@ -27,10 +27,6 @@
 
 #include "denormal.h"
 
-#ifndef min
-#define min(x,y) ((x)<(y)?(x):(y))
-#endif
-
 #ifndef PI
 #define PI 3.1415926535897932384626433832795
 #endif
@@ -95,83 +91,92 @@ private:
 };
 
 
-void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, int nch, WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz)
 {
-  int oversize=m_lp_oversize;
-  int x;
+  const int oversize=m_lp_oversize;
+
   fracpos *= oversize;
-  int ifpos=(int)fracpos;
-  filter += oversize-1-ifpos;
+  const int ifpos=(int)fracpos;
+  filter += (oversize-ifpos) * filtsz;
   fracpos -= ifpos;
 
+  int x;
   for (x = 0; x < nch; x ++)
   {
     double sum=0.0,sum2=0.0;
-    WDL_SincFilterSample *fptr=filter;
-    WDL_ResampleSample *iptr=inptr+x;
-    int i=filtsz;
+    const WDL_SincFilterSample *fptr2=filter;
+    const WDL_SincFilterSample *fptr=fptr2 - filtsz;
+    const WDL_ResampleSample *iptr=inptr+x;
+    int i=filtsz/2;
     while (i--)
     {
       sum += fptr[0]*iptr[0]; 
-      sum2 += fptr[1]*iptr[0]; 
-      iptr+=nch;
-      fptr += oversize;
+      sum2 += fptr2[0]*iptr[0]; 
+      sum += fptr[1]*iptr[nch]; 
+      sum2 += fptr2[1]*iptr[nch]; 
+      iptr+=nch*2;
+      fptr+=2;
+      fptr2+=2;
     }
     outptr[x]=sum*fracpos + sum2*(1.0-fracpos);
   }
 
 }
 
-void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
 {
-  int oversize=m_lp_oversize;
+  const int oversize=m_lp_oversize;
   fracpos *= oversize;
-  int ifpos=(int)fracpos;
-  filter += oversize-1-ifpos;
+  const int ifpos=(int)fracpos;
   fracpos -= ifpos;
 
   double sum=0.0,sum2=0.0;
-  WDL_SincFilterSample *fptr=filter;
-  WDL_ResampleSample *iptr=inptr;
-  int i=filtsz;
+  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+  const WDL_SincFilterSample *fptr=fptr2 - filtsz;
+  const WDL_ResampleSample *iptr=inptr;
+  int i=filtsz/2;
   while (i--)
   {
     sum += fptr[0]*iptr[0]; 
-    sum2 += fptr[1]*iptr[0];
-    iptr++;
-    fptr += oversize;
+    sum2 += fptr2[0]*iptr[0];
+    sum += fptr[1]*iptr[1]; 
+    sum2 += fptr2[1]*iptr[1];
+    iptr+=2;
+    fptr+=2;
+    fptr2+=2;
   }
   outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
-
 }
 
-void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
 {
-  int oversize=m_lp_oversize;
+  const int oversize=m_lp_oversize;
   fracpos *= oversize;
-  int ifpos=(int)fracpos;
-  filter += oversize-1-ifpos;
+  const int ifpos=(int)fracpos;
   fracpos -= ifpos;
+
+  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+  const WDL_SincFilterSample *fptr=fptr2 - filtsz;
 
   double sum=0.0;
   double sum2=0.0;
   double sumb=0.0;
   double sum2b=0.0;
-  WDL_SincFilterSample *fptr=filter;
-  WDL_ResampleSample *iptr=inptr;
+  const WDL_ResampleSample *iptr=inptr;
   int i=filtsz/2;
   while (i--)
   {
     sum += fptr[0]*iptr[0];
     sum2 += fptr[0]*iptr[1];
-    sumb += fptr[1]*iptr[0];
-    sum2b += fptr[1]*iptr[1];
-    sum += fptr[oversize]*iptr[2];
-    sum2 += fptr[oversize]*iptr[3];
-    sumb += fptr[oversize+1]*iptr[2];
-    sum2b += fptr[oversize+1]*iptr[3];
+    sumb += fptr2[0]*iptr[0];
+    sum2b += fptr2[0]*iptr[1];
+    sum += fptr[1]*iptr[2];
+    sum2 += fptr[1]*iptr[3];
+    sumb += fptr2[1]*iptr[2];
+    sum2b += fptr2[1]*iptr[3];
     iptr+=4;
-    fptr += oversize*2;
+    fptr+=2;
+    fptr2+=2;
   }
   outptr[0]=sum*fracpos + sumb*(1.0-fracpos);
   outptr[1]=sum2*fracpos + sum2b*(1.0-fracpos);
@@ -218,8 +223,8 @@ void WDL_Resampler::Reset(double fracpos)
 
 void WDL_Resampler::SetMode(bool interp, int filtercnt, bool sinc, int sinc_size, int sinc_interpsize)
 {
-  m_sincsize = sinc && sinc_size>= 4 ? sinc_size > 8192 ? 8192 : sinc_size : 0;
-  m_sincoversize = m_sincsize  ? (sinc_interpsize<= 1 ? 1 : sinc_interpsize>=4096 ? 4096 : sinc_interpsize) : 1;
+  m_sincsize = sinc && sinc_size>= 4 ? sinc_size > 8192 ? 8192 : (sinc_size&~1) : 0;
+  m_sincoversize = m_sincsize  ? (sinc_interpsize<= 1 ? 1 : sinc_interpsize>=8192 ? 8192 : sinc_interpsize) : 1;
 
   m_filtercnt = m_sincsize ? 0 : (filtercnt<=0?0 : filtercnt >= WDL_RESAMPLE_MAX_FILTERS ? WDL_RESAMPLE_MAX_FILTERS : filtercnt);
   m_interp=interp && !m_sincsize;
@@ -254,8 +259,8 @@ void WDL_Resampler::SetRates(double rate_in, double rate_out)
 
 void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
 {
-  int wantsize=m_sincsize;
-  int wantinterp=m_sincoversize;
+  const int wantsize=m_sincsize;
+  const int wantinterp=m_sincoversize;
 
   if (m_filter_ratio!=filtpos || 
       m_filter_coeffs_size != wantsize ||
@@ -265,34 +270,50 @@ void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
     m_filter_ratio=filtpos;
 
     // build lowpass filter
-    int allocsize = (wantsize+1)*m_lp_oversize;
+    const int allocsize = wantsize*(m_lp_oversize+1);
     WDL_SincFilterSample *cfout=m_filter_coeffs.Resize(allocsize);
     if (m_filter_coeffs.GetSize()==allocsize)
     {
       m_filter_coeffs_size=wantsize;
 
-      int sz=wantsize*m_lp_oversize;
-      int hsz=sz/2;
+      const double dwindowpos = 2.0 * PI/(double)wantsize;
+      const double dsincpos  = PI * filtpos; // filtpos is outrate/inrate, i.e. 0.5 is going to half rate
+      const int hwantsize=wantsize/2;
+
       double filtpower=0.0;
-      double windowpos = 0.0;
-      double dwindowpos = 2.0 * PI/(double)(sz);
-      double dsincpos  = PI / m_lp_oversize * filtpos; // filtpos is outrate/inrate, i.e. 0.5 is going to half rate
-      double sincpos = dsincpos * (double)(-hsz);
-    
-      int x;
-      for (x = -hsz; x < hsz+m_lp_oversize; x ++) 
+      WDL_SincFilterSample *ptrout = cfout;
+      int slice;
+      for (slice=0;slice<=wantinterp;slice++)
       {
-        double val = 0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(6*windowpos); // blackman-harris
-        if (x) val *= sin(sincpos) / sincpos;
+        const double frac = slice / (double)wantinterp;
+        const int center_x = slice == 0 ? hwantsize : slice == wantinterp ? hwantsize-1 : -1;
 
-        windowpos+=dwindowpos;
-        sincpos += dsincpos;
+        int x;
+        for (x=0;x<wantsize;x++)
+        {          
+          if (x==center_x) 
+          {
+            // we know this will be 1.0
+            *ptrout++ = 1.0;
+          }
+          else
+          {
+            const double xfrac = frac + x;
+            const double windowpos = dwindowpos * xfrac;
+            const double sincpos = dsincpos * (xfrac - hwantsize);
 
-        cfout[hsz+x] = (WDL_SincFilterSample)val;
-        if (x < hsz) filtpower += val;
+            // blackman-harris * sinc
+            const double val = (0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos)) * sin(sincpos) / sincpos; 
+            if (slice<wantinterp) filtpower+=val;        
+            *ptrout++ = (WDL_SincFilterSample)val;
+          }
+
+        }
       }
-      filtpower = m_lp_oversize/filtpower;
-      for (x = 0; x < sz+m_lp_oversize; x ++) 
+
+      filtpower = wantinterp/(filtpower+1.0);
+      int x;
+      for (x = 0; x < allocsize; x ++) 
       {
         cfout[x] = (WDL_SincFilterSample) (cfout[x]*filtpower);
       }
@@ -383,8 +404,8 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
     }
   }
 
-  m_samples_in_rsinbuf += min(nsamples_in,m_last_requested); // prevent the user from corrupting the internal state
-
+  // prevent the caller from corrupting the internal state
+  m_samples_in_rsinbuf += nsamples_in < m_last_requested ? nsamples_in : m_last_requested; 
 
   int rsinbuf_availtemp = m_samples_in_rsinbuf;
 

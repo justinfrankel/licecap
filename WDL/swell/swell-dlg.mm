@@ -36,8 +36,6 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 
-extern int SWELL_GetOSXVersion();
-
 static BOOL useNoMiddleManCocoa() { return SWELL_GetOSXVersion() >= 0x1050; }
 
 void updateWindowCollection(NSWindow *w)
@@ -573,7 +571,12 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   id sender=[aNotification object];
   int code=EN_CHANGE;
   if ([sender isKindOfClass:[NSComboBox class]]) return;
-  if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+  if (m_wndproc&&!m_hashaddestroy)
+  {
+    m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+    code=EN_KILLFOCUS;
+    m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+  }
 }
 
 - (void)controlTextDidChange:(NSNotification *)aNotification
@@ -582,6 +585,13 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   int code=EN_CHANGE;
   if ([sender isKindOfClass:[NSComboBox class]]) code=CBN_EDITCHANGE;
   if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+}
+
+- (void)controlTextDidEndEditing:(NSNotification *)aNotification
+{
+  id sender=[aNotification object];
+  int code=EN_KILLFOCUS;
+  if (m_wndproc && !m_hashaddestroy) m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
 }
 
 - (void)menuNeedsUpdate:(NSMenu *)menu
@@ -651,6 +661,16 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
 }
 
+#ifdef MAC_OS_X_VERSION_10_8
+// for radio button with the OSX 10.8+ SDK, see comment in SWELL_MakeControl
+-(void) onSwellCommand0:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand2:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand3:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand4:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand5:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand6:(id)sender { [self onSwellCommand:sender]; }
+-(void) onSwellCommand7:(id)sender { [self onSwellCommand:sender]; }
+#endif
 -(void) onSwellCommand:(id)sender
 {
   if (!m_wndproc || m_hashaddestroy) return;

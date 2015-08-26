@@ -98,13 +98,17 @@ void MultiTab_Editor::draw_top_line()
 
 void MultiTab_Editor::draw(int lineidx)
 {
-  m_top_margin = GetTabCount()>1 ? 2 : 1;
+  if (m_top_margin != 0) m_top_margin = GetTabCount()>1 ? 2 : 1;
   WDL_CursesEditor::draw(lineidx);
 }
 
+#define CTRL_KEY_DOWN (GetAsyncKeyState(VK_CONTROL)&0x8000)
+#define SHIFT_KEY_DOWN (GetAsyncKeyState(VK_SHIFT)&0x8000)
+#define ALT_KEY_DOWN (GetAsyncKeyState(VK_MENU)&0x8000)
+
 int MultiTab_Editor::onChar(int c)
 {
-  if (!m_state && c =='W'-'A'+1)
+  if (!m_state && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
   {
     if (GetTab(0) == this) return 0; // first in list = do nothing
 
@@ -183,7 +187,7 @@ int MultiTab_Editor::onChar(int c)
     return 0;
   }
 
-  if ((c==27 || c==29 || (c >= KEY_F1 && c<=KEY_F10)) && (GetAsyncKeyState(VK_CONTROL)&0x8000))
+  if ((c==27 || c==29 || (c >= KEY_F1 && c<=KEY_F10)) && CTRL_KEY_DOWN)
   {
     int idx=c-KEY_F1;
     bool rel=true;
@@ -289,7 +293,7 @@ LRESULT MultiTab_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPA
       {
         const int y = ((short)HIWORD(lParam)) / CURSES_INSTANCE->m_font_h - m_top_margin;
         const int x = ((short)LOWORD(lParam)) / CURSES_INSTANCE->m_font_w + m_offs_x;
-        WDL_FastString *fs=m_text.Get(y + m_offs_y);
+        WDL_FastString *fs=m_text.Get(y + m_paneoffs_y[m_curpane]);
         if (fs && y >= 0)
         {
           const char *url=fs->Get();

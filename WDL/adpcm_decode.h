@@ -101,7 +101,7 @@ public:
     
     v -= m_srcbuf_valid;
 
-    return max(v,0);
+    return wdl_max(v,0);
   }
 
   void AddInput(void *buf, int len, short *parm_cotab=NULL)
@@ -109,7 +109,9 @@ public:
     unsigned char *rdbuf = (unsigned char *)buf;
     if (m_srcbuf_valid)
     {
-      int v=min(len,m_blockalign-m_srcbuf_valid);
+      int v=m_blockalign-m_srcbuf_valid;
+      if (v>len) v=len;
+      
       memcpy(m_srcbuf+m_srcbuf_valid,rdbuf,v);
       len-=v;
       rdbuf+=v;

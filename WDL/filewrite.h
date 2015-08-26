@@ -140,7 +140,11 @@ public:
     }
 
 #ifdef WDL_WIN32_NATIVE_WRITE
-    bool isNT = (GetVersion()<0x80000000);
+    #ifdef WDL_SUPPORT_WIN9X
+    const bool isNT = (GetVersion()<0x80000000);
+    #else
+    const bool isNT = true;
+    #endif
     m_async = allow_async && isNT;
 #ifdef WIN32_ASYNC_NOBUF_WRITE
     bufsize = (bufsize+4095)&~4095;

@@ -145,6 +145,7 @@ void NSEEL_VM_SetGRAM(NSEEL_VMCTX ctx, void **gram);
 void NSEEL_VM_FreeGRAM(void **ufd); // frees a gmem context.
 void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr);
 
+EEL_F *NSEEL_VM_getramptr(NSEEL_VMCTX ctx, unsigned int offs, int *validCount);
 
 struct eelStringSegmentRec {
   struct eelStringSegmentRec *_next;

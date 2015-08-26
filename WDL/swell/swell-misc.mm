@@ -283,7 +283,7 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
     if (!hwnd) timerid = rec->timerid = (UINT_PTR)rec;
     
     SWELL_TimerFuncTarget *t = [[SWELL_TimerFuncTarget alloc] initWithId:timerid hwnd:hwnd callback:tProc];
-    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(max(rate,1)*0.001) target:t selector:@selector(SWELL_Timer:) 
+    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(wdl_max(rate,1)*0.001) target:t selector:@selector(SWELL_Timer:)
                                                 userInfo:t repeats:YES];
     [t release];
     
@@ -291,7 +291,7 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   else
   {
     SWELL_DataHold *t=[[SWELL_DataHold alloc] initWithVal:(void *)timerid];
-    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(max(rate,1)*0.001) target:(id)hwnd selector:@selector(SWELL_Timer:) 
+    rec->timer = [NSTimer scheduledTimerWithTimeInterval:(wdl_max(rate,1)*0.001) target:(id)hwnd selector:@selector(SWELL_Timer:)
                                                 userInfo:t repeats:YES];
     
     [t release];
@@ -649,5 +649,23 @@ void SWELL_DisableAppNap(int disable)
 }
 
 
+int SWELL_GetOSXVersion()
+{
+  static SInt32 v;
+  if (!v)
+  {
+    if (NSAppKitVersionNumber >= 1266.0) 
+    {
+      v=0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
+    }
+    else 
+    {
+      SInt32 a = 0x1040;
+      Gestalt(gestaltSystemVersion,&a);
+      v=a;
+    }
+  }
+  return v;
+}
 
 #endif

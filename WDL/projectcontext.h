@@ -37,7 +37,10 @@ ProjectStateContext *ProjectCreateMemWriteFastQueue(WDL_FastQueue *fq); // only 
 
 // helper functions
 class LineParser;
-bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx); // returns TRUE if got valid >, otherwise it means eof...
+bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx,
+                                    ProjectStateContext *ctxOut=NULL); // returns TRUE if got valid >, otherwise it means eof... 
+                                                                       // writes to ctxOut if specified, will not write final >
+
 bool ProjectContext_GetNextLine(ProjectStateContext *ctx, LineParser *lpOut); // true if lpOut is valid
 
 char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_digits); // returns pointer to end of encoded string. prec_digits 0..18.

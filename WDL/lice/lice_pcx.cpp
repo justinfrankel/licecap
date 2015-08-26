@@ -6,7 +6,7 @@
 */
 
 #include "lice.h"
-
+#include "../wdltypes.h"
 
 #include <stdio.h>
 
@@ -37,7 +37,13 @@ LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *_bmp)
 
   LICE_IBitmap *usebmp = NULL;
   if (_bmp) (usebmp=_bmp)->resize(ex-sx+1,ey-sy+1);
-  else usebmp = new LICE_MemBitmap(ex-sx+1,ey-sy+1);
+  else usebmp = new WDL_NEW LICE_MemBitmap(ex-sx+1,ey-sy+1);
+  if (!usebmp || usebmp->getWidth() != (ex-sx+1) || usebmp->getHeight() != (ey-sy+1)) 
+  {
+    if (usebmp != _bmp) delete usebmp;
+    fclose(fp);
+    return NULL;
+  }
 
   fseek(fp,128,SEEK_SET);
 
@@ -70,6 +76,7 @@ LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *_bmp)
     } 
     pout+=rowspan;
   }
+  fclose(fp);
 
   return usebmp;
 }

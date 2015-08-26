@@ -262,6 +262,12 @@ HFONT CreateFontIndirect(LOGFONT *lf)
                     lf->lfQuality, lf->lfPitchAndFamily, lf->lfFaceName);
 }
 
+int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
+{
+  if (lpFaceName) lpFaceName[0]=0;
+  return 0;
+}
+
 void DeleteObject(HGDIOBJ pen)
 {
   if (HGDIOBJ_VALID(pen))
@@ -356,7 +362,7 @@ static void swell_DirtyContext(HDC__ *out, int x1, int y1, int x2, int y2)
 }
 
 
-void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
+void SWELL_FillRect(HDC ctx, const RECT *r, HBRUSH br)
 {
   HDC__ *c=(HDC__ *)ctx;
   HGDIOBJ__ *b=(HGDIOBJ__ *) br;
@@ -448,7 +454,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   }
   if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0)
   {
-//    CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+//    CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
  //   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
   }
 //  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush && c->curbrush->wid>=0 ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
@@ -472,7 +478,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||np<3) return;
   
-//  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
 //  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
 //  CGContextBeginPath(c->ctx);
@@ -499,7 +505,7 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
 //  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
 //  CGContextBeginPath(c->ctx);
@@ -521,7 +527,7 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||nseg<1) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
 //  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
 //  CGContextBeginPath(c->ctx);
@@ -722,12 +728,12 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   int bgmode = ct->curbkmode;
 
 
-  int clip_x1=max(use_r.left,0), clip_y1 = max(use_r.top,0);
+  int clip_x1=wdl_max(use_r.left,0), clip_y1 = wdl_max(use_r.top,0);
   int clip_w=0, clip_h=0;
   if (surface)
   {
-    clip_w = min(use_r.right,surface->getWidth())-clip_x1;
-    clip_h = min(use_r.bottom,surface->getHeight())-clip_y1;
+    clip_w = wdl_min(use_r.right,surface->getWidth())-clip_x1;
+    clip_h = wdl_min(use_r.bottom,surface->getHeight())-clip_y1;
     if (clip_w<0)clip_w=0;
     if (clip_h<0)clip_h=0;
   }
@@ -836,7 +842,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
   return 0; // todo
 }
 
-void DrawImageInRect(HDC ctx, HICON img, RECT *r)
+void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
 {
   // todo
 }
@@ -919,7 +925,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
 {
 }
 
-void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
+void SWELL_FillDialogBackground(HDC hdc, const RECT *r, int level)
 {
 }
 
@@ -939,7 +945,7 @@ void SWELL_PushClipRegion(HDC ctx)
 //  if (ct && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
-void SWELL_SetClipRegion(HDC ctx, RECT *r)
+void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
   HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));

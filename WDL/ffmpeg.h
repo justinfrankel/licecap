@@ -273,7 +273,7 @@ public:
       url_open_dyn_buf(&m_ctx->pb); //sets up next dynamic buffer for ffmpeg
     }
 
-    int s = min(size, m_queue.GetSize());
+    int s = wdl_min(size, m_queue.GetSize());
     if(s)
     {
       memcpy(p, m_queue.Get(), s);

@@ -44,13 +44,22 @@
 #include <OpenGL/gl.h>
 #endif
 
-int SWELL_GetOSXVersion()
+// reimplement here so that swell-gdi isn't dependent on swell-misc, and vice-versa
+static int SWELL_GDI_GetOSXVersion()
 {
   static SInt32 v;
   if (!v)
   {
-    v=0x1040;
-    Gestalt(gestaltSystemVersion,&v);
+    if (NSAppKitVersionNumber >= 1266.0) 
+    {
+      v=0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
+    }
+    else 
+    {
+      SInt32 a = 0x1040;
+      Gestalt(gestaltSystemVersion,&a);
+      v=a;
+    }
   }
   return v;
 }
@@ -63,7 +72,7 @@ int SWELL_GetOSXVersion()
 static bool IsCoreTextSupported()
 {
 #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
-  return SWELL_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
+  return SWELL_GDI_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString && CTFontCopyPostScriptName
          ;
 #else
@@ -106,7 +115,7 @@ CGColorSpaceRef __GetDisplayColorSpace()
   if (!cs)
   {
     // use monitor profile for 10.7+
-    if (SWELL_GetOSXVersion() >= 0x1070)
+    if (SWELL_GDI_GetOSXVersion() >= 0x1070)
     {
       CMProfileRef systemMonitorProfile = NULL;
       CMError getProfileErr = CMGetSystemProfile(&systemMonitorProfile);
@@ -134,7 +143,7 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 
 int SWELL_IsRetinaHWND(HWND hwnd)
 {
-  if (!hwnd || SWELL_GetOSXVersion() < 0x1070) return 0;
+  if (!hwnd || SWELL_GDI_GetOSXVersion() < 0x1070) return 0;
 
   NSWindow *w=NULL;
   if ([(id)hwnd isKindOfClass:[NSView class]]) w = [(NSView *)hwnd window];
@@ -324,7 +333,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
 
 
 
-void SWELL_FillRect(HDC ctx, RECT *r, HBRUSH br)
+void SWELL_FillRect(HDC ctx, const RECT *r, HBRUSH br)
 {
   HDC__ *c=(HDC__ *)ctx;
   HGDIOBJ__ *b=(HGDIOBJ__*) br;
@@ -373,7 +382,7 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
   if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
   {
     CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-    CGContextStrokeEllipseInRect(c->ctx, rect); //, (float)max(1,c->curpen->wid));
+    CGContextStrokeEllipseInRect(c->ctx, rect); //, (float)wdl_max(1,c->curpen->wid));
   }
 }
 
@@ -392,7 +401,7 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
   {
     CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-    CGContextStrokeRectWithWidth(c->ctx, rect, (float)max(1,c->curpen->wid));
+    CGContextStrokeRectWithWidth(c->ctx, rect, (float)wdl_max(1,c->curpen->wid));
   }
 }
 
@@ -438,7 +447,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   }
   if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0)
   {
-    CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+    CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
     CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
   }
   CGContextDrawPath(c->ctx,HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0 && HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid>=0 ?  kCGPathFillStroke : HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
@@ -462,7 +471,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||np<3) return;
   
-  CGContextSetLineWidth(c->ctx,(float)max(c->curpen->wid,1));
+  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
   CGContextBeginPath(c->ctx);
@@ -487,7 +496,7 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0) return;
 
-  float w = (float)max(c->curpen->wid,1);
+  float w = (float)wdl_max(c->curpen->wid,1);
   CGContextSetLineWidth(c->ctx,w);
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
@@ -506,7 +515,7 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||nseg<1) return;
 
-  float w = (float)max(c->curpen->wid,1);
+  float w = (float)wdl_max(c->curpen->wid,1);
   CGContextSetLineWidth(c->ctx,w);
   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
 	
@@ -672,11 +681,33 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   return font;
 }
 
-
+int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
+{
+  HDC__ *ct=(HDC__*)ctx;
+  if (!HDC_VALID(ct) || !nCount || !lpFaceName) return 0;
+  
+#ifndef SWELL_NO_CORETEXT
+  CTFontRef fr=NULL;
+  if (HGDIOBJ_VALID(ct->curfont,TYPE_FONT)) fr=(CTFontRef)ct->curfont->ct_FontRef;
+  if (!fr)  fr=GetCoreTextDefaultFont();
+  
+  if (fr)
+  {
+    CFStringRef name=CTFontCopyDisplayName(fr);
+    const char* p=[(NSString*)name UTF8String];
+    if (p)
+    {
+      lstrcpyn_safe(lpFaceName, p, nCount);
+      return strlen(lpFaceName);
+    }
+  }
+#endif
+  
+  return 0;
+}
 
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
-  
   HDC__ *ct=(HDC__ *)ctx;
   if (tm) // give some sane defaults
   {
@@ -1202,7 +1233,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
   return i;
 }
 
-void DrawImageInRect(HDC ctx, HICON img, RECT *r)
+void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
 {
   HGDIOBJ__ *i = (HGDIOBJ__ *)img;
   HDC__ *ct=(HDC__*)ctx;
@@ -1559,7 +1590,7 @@ void SWELL_PushClipRegion(HDC ctx)
   if (HDC_VALID(ct) && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
-void SWELL_SetClipRegion(HDC ctx, RECT *r)
+void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
   HDC__ *ct=(HDC__ *)ctx;
   if (HDC_VALID(ct) && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
@@ -1678,7 +1709,7 @@ void ReleaseDC(HWND h, HDC hdc)
   }
 }
 
-void SWELL_FillDialogBackground(HDC hdc, RECT *r, int level)
+void SWELL_FillDialogBackground(HDC hdc, const RECT *r, int level)
 {
   CGContextRef ctx=(CGContextRef)SWELL_GetCtxGC(hdc);
   if (ctx)

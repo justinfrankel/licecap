@@ -266,7 +266,11 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
           if (!has_dfwp)
           {
             has_dfwp=1;
-            if (!only && GetVersion() < 0x80000000) hdwndpos=BeginDeferWindowPos(m_list.GetSize() - x);
+            if (!only 
+#ifdef WDL_SUPPORT_WIN9X
+            && GetVersion() < 0x80000000
+#endif
+            ) hdwndpos=BeginDeferWindowPos(m_list.GetSize() - x);
           }
 
 

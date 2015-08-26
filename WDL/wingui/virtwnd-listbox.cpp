@@ -296,7 +296,14 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
             {
               m_font->SetTextColor(rev?bgc:color);
               m_font->SetCombineMode(LICE_BLIT_MODE_COPY, alpha); // maybe gray text only if !bkbm->bgimage
-              m_font->DrawText(drawbm,buf,-1,&thisr,DT_VCENTER|(m_align<0?DT_LEFT:m_align>0?DT_RIGHT:DT_CENTER)|DT_NOPREFIX);
+              if (m_align == 0)
+              {
+                RECT r2={0,};
+                m_font->DrawText(drawbm,buf,-1,&r2,DT_CALCRECT|DT_NOPREFIX);
+                m_font->DrawText(drawbm,buf,-1,&thisr,DT_VCENTER|((r2.right <= thisr.right-thisr.left) ? DT_CENTER : DT_LEFT)|DT_NOPREFIX);
+              }
+              else
+                m_font->DrawText(drawbm,buf,-1,&thisr,DT_VCENTER|(m_align<0?DT_LEFT:DT_RIGHT)|DT_NOPREFIX);
             }
           }
         }
@@ -652,23 +659,32 @@ void WDL_VirtualListBox::OnMouseUp(int xpos, int ypos)
 {
   if (m_grayed) return;
 
+  int cmd=0;
+  INT_PTR p1, p2;
   int hit=IndexFromPt(xpos,ypos);
   if (m_cap_state>=0x1000 && m_cap_state<0x1008 && hit==m_cap_startitem) 
   {
     if (m_clickmsg)
     {
-      SendCommand(m_clickmsg,(INT_PTR)this,hit,this);
+      cmd=m_clickmsg;
+      p1=(INT_PTR)this;
+      p2=hit;
     }
   }
   else if (m_cap_state>=0x1008)
   {
     // send a message saying drag & drop occurred
     if (m_dropmsg)
-      SendCommand(m_dropmsg,(INT_PTR)this,m_cap_startitem,this);
+    {
+      cmd=m_dropmsg;
+      p1=(INT_PTR)this;
+      p2=m_cap_startitem;
+    }
   }
 
   m_cap_state=0;
   RequestRedraw(NULL);
+  if (cmd) SendCommand(cmd,p1,p2,this);
 }
 
 bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)

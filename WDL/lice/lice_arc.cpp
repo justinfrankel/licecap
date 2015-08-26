@@ -200,8 +200,8 @@ public:
     if (doclip) 
     {
       if (y < clip[1] || y >= clip[3]) return;
-      xlo = max(xlo, clip[0]);
-      xhi = min(xhi, clip[2]-1);
+      xlo = lice_max(xlo, clip[0]);
+      xhi = lice_min(xhi, clip[2]-1);
     }
     LICE_pixel* px = dest->getBits()+y*dest->getRowSpan()+xlo;
     while (xlo <= xhi) 
@@ -218,8 +218,8 @@ public:
     if (doclip) 
     {
       if (x < clip[0] || x >= clip[2]) return;
-      ylo = max(ylo, clip[1]);
-      yhi = min(yhi, clip[3]-1);
+      ylo = lice_max(ylo, clip[1]);
+      yhi = lice_min(yhi, clip[3]-1);
     }
     int span=dest->getRowSpan();
     LICE_pixel* px = dest->getBits()+ylo*span+x;
@@ -252,7 +252,7 @@ public:
     {
       DrawClippedVertLine(dest, cx0, cy0-y, cy0-1, clip, r, g, b, a, ai, doclip);
       DrawClippedVertLine(dest, cx0, cy0+1, cy0+y, clip, r, g, b, a, ai, doclip);
-      DrawClippedHorzLine(dest, cy0, cx0-y, cx+y, clip, r, g, b, a, ai, doclip);
+      DrawClippedHorzLine(dest, cy0, cx0-y, cx0+y, clip, r, g, b, a, ai, doclip);
     }
     else
     {
@@ -442,7 +442,7 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
     if (xhi != cx) xhi++;
     if (yhi != cy) yhi++;
 
-    const int clip[4]={max(xlo,0),max(0, ylo),min(w,xhi),min(h, yhi)};
+    const int clip[4]={lice_max(xlo,0),lice_max(0, ylo),lice_min(w,xhi+1),lice_min(h, yhi+1)};
 
     __DrawCircleClipped(dest,cx,cy,rad,color,ialpha,aa,false,mode,clip,true);
   }
@@ -495,18 +495,22 @@ void LICE_Arc(LICE_IBitmap* dest, float cx, float cy, float r, float minAngle, f
 void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
   if (!dest) return;
+
+  const int w = dest->getWidth(), h = dest->getHeight();
+  const int clip[4] = { 0, 0, w, h };
+  if (w < 1 || h <1 || r<0 || 
+      (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
+      (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
+    ) return;
+
   if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa)) return;  
 
-  if (dest->isFlipped()) cy=dest->getHeight()-1-cy;
+  if (dest->isFlipped()) cy=h-1-cy;
 
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
 
-  const int w = dest->getWidth(), h = dest->getHeight();
-  const int clip[4] = { 0, 0, w, h };
-  if (w < 1 || h <1 || r<0) return;
-
-  bool doclip = (cx-r-2 < 0 || cy-r-2 < 0 || cx+r+2 >= w || cy+r+2 >= h);
+  const bool doclip = !(cx-r-2 >= 0 && cy-r-2 >= 0 && cx+r+2 < w && cy+r+2 < h);
 
   __DrawCircleClipped(dest,cx,cy,r,color,ia,aa,false,mode,clip,doclip);
 }
@@ -519,11 +523,14 @@ void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel
   const int ia = (int) (alpha*256.0f);
   if (!ia) return;
   const int w = dest->getWidth(), h = dest->getHeight();
-  if (w < 1 || h < 1 || r < 0.0) return;
+  if (w < 1 || h < 1 || r < 0.0 || 
+      (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
+      (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
+      ) return;
 
   const int clip[4] = { 0, 0, w, h };
 
-  bool doclip = (cx-r-2 < 0 || cy-r-2 < 0 || cx+r+2 >= w || cy+r+2 >= h);
+  const bool doclip = !(cx-r-2 >= 0 && cy-r-2 >= 0 && cx+r+2 < w && cy+r+2 < h);
   __DrawCircleClipped(dest,cx,cy,r,color,ia,aa,true,mode,clip,doclip);
 }
 

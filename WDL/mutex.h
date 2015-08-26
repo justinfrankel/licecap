@@ -47,13 +47,10 @@
 #include <pthread.h>
 #endif
 
-#ifdef __APPLE__
-#include <libkern/OSAtomic.h>
-#endif
-
 #endif
 
 #include "wdltypes.h"
+#include "wdlatomic.h"
 
 class WDL_Mutex {
   public:
@@ -162,29 +159,12 @@ class WDL_SharedMutex
     void LockShared() 
     { 
       m_mutex.Enter();
-#ifdef _WIN32
-      InterlockedIncrement(&m_sharedcnt);
-#elif defined (__APPLE__)
-      OSAtomicIncrement32(&m_sharedcnt);
-#else
-      m_cntmutex.Enter();
-      m_sharedcnt++;
-      m_cntmutex.Leave();
-#endif
-
+      wdl_atomic_incr(&m_sharedcnt);
       m_mutex.Leave();
     }
     void UnlockShared()
     {
-#ifdef _WIN32
-      InterlockedDecrement(&m_sharedcnt);
-#elif defined(__APPLE__)
-      OSAtomicDecrement32(&m_sharedcnt);
-#else
-      m_cntmutex.Enter();
-      m_sharedcnt--;
-      m_cntmutex.Leave();
-#endif
+      wdl_atomic_decr(&m_sharedcnt);
     }
 
     void SharedToExclusive() // assumes a SINGLE shared lock by this thread!
@@ -201,29 +181,13 @@ class WDL_SharedMutex
     void ExclusiveToShared() // assumes exclusive locked returns with shared locked
     {
       // already have exclusive lock
-#ifdef _WIN32
-      InterlockedIncrement(&m_sharedcnt);
-#elif defined (__APPLE__)
-      OSAtomicIncrement32(&m_sharedcnt);
-#else
-      m_cntmutex.Enter();
-      m_sharedcnt++;
-      m_cntmutex.Leave();
-#endif
-      
+      wdl_atomic_incr(&m_sharedcnt);
       m_mutex.Leave();
     }
 
   private:
     WDL_Mutex m_mutex;
-#ifdef _WIN32
-    LONG m_sharedcnt;
-#elif defined(__APPLE__)
-    int32_t m_sharedcnt;
-#else
-    WDL_Mutex m_cntmutex;
     int m_sharedcnt;
-#endif
 } WDL_FIXALIGN;
 
 

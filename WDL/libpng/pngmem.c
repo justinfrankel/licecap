@@ -1,8 +1,8 @@
 
 /* pngmem.c - stub functions for memory allocation
  *
- * Last changed in libpng 1.6.8 [December 19, 2013]
- * Copyright (c) 1998-2013 Glenn Randers-Pehrson
+ * Last changed in libpng 1.6.15 [November 20, 2014]
+ * Copyright (c) 1998-2014 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
  *
@@ -41,7 +41,7 @@ png_destroy_png_struct(png_structrp png_ptr)
 }
 
 /* Allocate memory.  For reasonable files, size should never exceed
- * 64K.  However, zlib may allocate more then 64K if you don't tell
+ * 64K.  However, zlib may allocate more than 64K if you don't tell
  * it not to.  See zconf.h and png.h for more information.  zlib does
  * need to allocate exactly 64K, so whatever you call here must
  * have the ability to do that.
@@ -199,7 +199,7 @@ png_malloc_default,(png_const_structrp png_ptr, png_alloc_size_t size),
 
    return ret;
 }
-#endif /* PNG_USER_MEM_SUPPORTED */
+#endif /* USER_MEM */
 
 /* This function was added at libpng version 1.2.3.  The png_malloc_warn()
  * function will issue a png_warning and return NULL instead of issuing a
@@ -244,7 +244,7 @@ png_free_default,(png_const_structrp png_ptr, png_voidp ptr),PNG_DEPRECATED)
 {
    if (png_ptr == NULL || ptr == NULL)
       return;
-#endif /* PNG_USER_MEM_SUPPORTED */
+#endif /* USER_MEM */
 
    free(ptr);
 }
@@ -277,5 +277,5 @@ png_get_mem_ptr(png_const_structrp png_ptr)
 
    return png_ptr->mem_ptr;
 }
-#endif /* PNG_USER_MEM_SUPPORTED */
-#endif /* PNG_READ_SUPPORTED || PNG_WRITE_SUPPORTED */
+#endif /* USER_MEM */
+#endif /* READ || WRITE */

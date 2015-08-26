@@ -85,9 +85,9 @@ public:
 
 private:
   void BuildLowPass(double filtpos);
-  void inline SincSample(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, int nch, WDL_SincFilterSample *filter, int filtsz);
-  void inline SincSample1(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, WDL_SincFilterSample *filter, int filtsz);
-  void inline SincSample2(WDL_ResampleSample *outptr, WDL_ResampleSample *inptr, double fracpos, WDL_SincFilterSample *filter, int filtsz);
+  void inline SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz);
+  void inline SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz);
+  void inline SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz);
 
   double m_sratein WDL_FIXALIGN;
   double m_srateout;

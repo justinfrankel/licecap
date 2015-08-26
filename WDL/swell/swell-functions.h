@@ -133,11 +133,12 @@ SWELL_API_DEFINE(void, SWELL_CFStringToCString, (const void *str, char *buf, int
 #undef PtInRect
 #endif
 #define PtInRect(r,p) SWELL_PtInRect(r,p)
-SWELL_API_DEFINE(BOOL, SWELL_PtInRect,(RECT *r, POINT p))
+SWELL_API_DEFINE(BOOL, SWELL_PtInRect,(const RECT *r, POINT p))
 
 /*
 ** ShellExecute(): 
-** NOTE: currently action is ignored, and it only works on content1 being a URL beginning with http://.
+** NOTE: currently action is ignored, and it only works on content1 being an app, an URL beginning with http://,
+**       "notepad.exe" (content2=file to open), or "explorer.exe" (content2=folder to open, or content2=/select,"file_to_reveal_if_10.6+")
 ** TODO: finish implementation
 */
 SWELL_API_DEFINE(BOOL, ShellExecute,(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah))
@@ -506,6 +507,7 @@ SWELL_API_DEFINE(HTREEITEM, TreeView_InsertItem, (HWND hwnd, TV_INSERTSTRUCT *in
 SWELL_API_DEFINE(BOOL, TreeView_Expand,(HWND hwnd, HTREEITEM item, UINT flag))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetSelection,(HWND hwnd))
 SWELL_API_DEFINE(void, TreeView_DeleteItem,(HWND hwnd, HTREEITEM item))
+SWELL_API_DEFINE(void, TreeView_DeleteAllItems,(HWND hwnd))
 SWELL_API_DEFINE(void, TreeView_SelectItem,(HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(BOOL, TreeView_GetItem,(HWND hwnd, LPTVITEM pitem))
 SWELL_API_DEFINE(BOOL, TreeView_SetItem,(HWND hwnd, LPTVITEM pitem))
@@ -886,6 +888,8 @@ SWELL_API_DEFINE(HINSTANCE,LoadLibrary,(const char *fileName))
 SWELL_API_DEFINE(void *,GetProcAddress,(HINSTANCE hInst, const char *procName))
 SWELL_API_DEFINE(BOOL,FreeLibrary,(HINSTANCE hInst))
 
+SWELL_API_DEFINE(void*,SWELL_GetBundle,(HINSTANCE hInst))
+
 /*
 ** GDI functions.
 ** Everything should be all hunky dory, your windows may get WM_PAINT, call 
@@ -927,7 +931,7 @@ SWELL_API_DEFINE(void *, SWELL_GetCtxFrameBuffer,(HDC ctx))
 ** Some utility functions for pushing, setting, and popping the clip region. 
 */
 SWELL_API_DEFINE(void, SWELL_PushClipRegion,(HDC ctx))
-SWELL_API_DEFINE(void, SWELL_SetClipRegion,(HDC ctx, RECT *r))
+SWELL_API_DEFINE(void, SWELL_SetClipRegion,(HDC ctx, const RECT *r))
 SWELL_API_DEFINE(void, SWELL_PopClipRegion,(HDC ctx))
 
 
@@ -975,7 +979,7 @@ SWELL_API_DEFINE(void, DeleteObject,(HGDIOBJ))
 #define SetPixel SWELL_SetPixel
 #define Polygon(a,b,c) SWELL_Polygon(a,b,c)
 
-SWELL_API_DEFINE(void, SWELL_FillRect,(HDC ctx, RECT *r, HBRUSH br))
+SWELL_API_DEFINE(void, SWELL_FillRect,(HDC ctx, const RECT *r, HBRUSH br))
 SWELL_API_DEFINE(void, Rectangle,(HDC ctx, int l, int t, int r, int b))
 SWELL_API_DEFINE(void, Ellipse,(HDC ctx, int l, int t, int r, int b))
 SWELL_API_DEFINE(void, SWELL_Polygon,(HDC ctx, POINT *pts, int npts))
@@ -992,13 +996,14 @@ SWELL_API_DEFINE(void, SetBkMode,(HDC ctx, int col))
 SWELL_API_DEFINE(void, RoundRect,(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd))
 SWELL_API_DEFINE(void, PolyPolyline,(HDC ctx, POINT *pts, DWORD *cnts, int nseg))
 SWELL_API_DEFINE(BOOL, GetTextMetrics,(HDC ctx, TEXTMETRIC *tm))
+SWELL_API_DEFINE(int, GetTextFace,(HDC ctx, int nCount, LPTSTR lpFaceName))
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void *, GetNSImageFromHICON,(HICON))
 #endif
 SWELL_API_DEFINE(BOOL, GetObject, (HICON icon, int bmsz, void *_bm))
 SWELL_API_DEFINE(HICON, CreateIconIndirect, (ICONINFO* iconinfo))
 SWELL_API_DEFINE(HICON, LoadNamedImage,(const char *name, bool alphaFromMask))
-SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, RECT *r))
+SWELL_API_DEFINE(void, DrawImageInRect,(HDC ctx, HICON img, const RECT *r))
 SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int mode))
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
@@ -1024,7 +1029,7 @@ SWELL_API_DEFINE(void, ReleaseDC,(HWND, HDC))
 SWELL_API_DEFINE(void, SWELL_FlushWindow,(HWND))
 #endif
             
-SWELL_API_DEFINE(void, SWELL_FillDialogBackground,(HDC hdc, RECT *r, int level))
+SWELL_API_DEFINE(void, SWELL_FillDialogBackground,(HDC hdc, const RECT *r, int level))
 
 SWELL_API_DEFINE(HGDIOBJ,SWELL_CloneGDIObject,(HGDIOBJ a))
 
@@ -1080,6 +1085,7 @@ SWELL_API_DEFINE(void,SWELL_Internal_PostMessage_Init,())
 
 SWELL_API_DEFINE(HCURSOR,SWELL_LoadCursorFromFile,(const char *fn))
 SWELL_API_DEFINE(void,SWELL_SetWindowWantRaiseAmt,(HWND h, int  amt))
+SWELL_API_DEFINE(int,SWELL_GetWindowWantRaiseAmt,(HWND))
 
 SWELL_API_DEFINE(void,SWELL_SetListViewFastClickMask,(HWND hList, int mask))
 
@@ -1105,6 +1111,7 @@ SWELL_API_DEFINE(void,SWELL_GetDesiredControlSize,(HWND hwnd, RECT *r))
 
 #ifdef __APPLE__
 SWELL_API_DEFINE(void,SWELL_DisableAppNap,(int disable))
+SWELL_API_DEFINE(int,SWELL_GetOSXVersion,())
 #endif
 
 

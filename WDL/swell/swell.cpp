@@ -85,7 +85,7 @@ BOOL GetFileTime(int filedes, FILETIME *lpCreationTime, FILETIME *lpLastAccessTi
   return 1;
 }
 
-BOOL SWELL_PtInRect(RECT *r, POINT p)
+BOOL SWELL_PtInRect(const RECT *r, POINT p)
 {
   if (!r) return FALSE;
   int tp=r->top;
@@ -605,19 +605,19 @@ int WinIntersectRect(RECT *out, const RECT *in1, const RECT *in2)
   if (in2->bottom <= in2->top) return false;
   
   // left is maximum of minimum of right edges and max of left edges
-  out->left = max(in1->left,in2->left);
-  out->right = min(in1->right,in2->right);
-  out->top=max(in1->top,in2->top);
-  out->bottom = min(in1->bottom,in2->bottom);
+  out->left = wdl_max(in1->left,in2->left);
+  out->right = wdl_min(in1->right,in2->right);
+  out->top=wdl_max(in1->top,in2->top);
+  out->bottom = wdl_min(in1->bottom,in2->bottom);
   
   return out->right>out->left && out->bottom>out->top;
 }
 void WinUnionRect(RECT *out, const RECT *in1, const RECT *in2)
 {
-  out->left = min(in1->left,in2->left);
-  out->top = min(in1->top,in2->top);
-  out->right=max(in1->right,in2->right);
-  out->bottom=max(in1->bottom,in2->bottom);
+  out->left = wdl_min(in1->left,in2->left);
+  out->top = wdl_min(in1->top,in2->top);
+  out->right=wdl_max(in1->right,in2->right);
+  out->bottom=wdl_max(in1->bottom,in2->bottom);
 }
 
 
@@ -719,30 +719,16 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     
     if (bundleinst)
     {
-      CFURLRef executableURL = CFBundleCopyExecutableURL((CFBundleRef)bundleinst);
-      char path[PATH_MAX];
-      path[0]=0;
-      if (executableURL) 
+      if (!CFBundleLoadExecutable((CFBundleRef)bundleinst))
       {
-        if (!CFURLGetFileSystemRepresentation(executableURL, true, (UInt8*)path, sizeof(path))) path[0]=0;
-        CFRelease(executableURL);
-      }        
-      
-      if (path[0]) 
-      {
-
-        inst=dlopen(path,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
-        if (!inst)
-        {
-          CFRelease(bundleinst);
-          return 0;
-        }
+        CFRelease((CFBundleRef)bundleinst);
+        bundleinst=NULL;
       }
     }      
   }
 #endif
 
-  if (!inst && !bundleinst)
+  if (!bundleinst)
   {
     inst=dlopen(fn,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
     if (!inst) return 0;
@@ -830,16 +816,25 @@ BOOL FreeLibrary(HINSTANCE hInst)
       rec->SWELL_dllMain(rec,DLL_PROCESS_DETACH,NULL);
       if (rec->dllMain) rec->dllMain(rec,DLL_PROCESS_DETACH,NULL);
     }
-
   }
 
 #ifdef __APPLE__
-  if (rec->bundleinstptr) CFRelease((CFBundleRef)rec->bundleinstptr); 
+  if (rec->bundleinstptr)
+  {
+    CFRelease((CFBundleRef)rec->bundleinstptr);
+  }
 #endif
   if (rec->instptr) dlclose(rec->instptr); 
   
   if (dofree) free(rec);
   return TRUE;
+}
+
+void* SWELL_GetBundle(HINSTANCE hInst)
+{
+  SWELL_HINSTANCE* rec=(SWELL_HINSTANCE*)hInst;
+  if (rec) return rec->bundleinstptr;
+  return NULL;
 }
 
 DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)

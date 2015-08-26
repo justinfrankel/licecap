@@ -7,6 +7,10 @@
 
 #include "lice.h"
 
+#include <stdio.h>
+
+#include "../wdltypes.h"
+
 extern "C" {
 
 #include "../giflib/gif_lib.h"
@@ -17,6 +21,7 @@ extern "C" {
 struct liceGifWriteRec
 {
   GifFileType *f;
+  FILE *fp;
   ColorMapObject *cmap;
   GifPixelType *linebuf;
   LICE_IBitmap *prevframe; // used when multiframe, transalpha<0
@@ -26,6 +31,7 @@ struct liceGifWriteRec
 
   int transalpha;
   int w,h;
+  bool append;
   bool dither;
   bool has_had_frame;
   bool has_global_cmap; 
@@ -136,7 +142,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
       }
     }
 
-    EGifPutScreenDesc(wr->f,wr->w,wr->h,8,0,wr->has_global_cmap ? wr->cmap : 0);
+    if (!wr->append) EGifPutScreenDesc(wr->f,wr->w,wr->h,8,0,wr->has_global_cmap ? wr->cmap : 0);
 
   }
 
@@ -201,7 +207,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   gce[1]=(a)&255;
   gce[2]=(a)>>8;
 
-  if (isFirst && frame_delay && nreps!=1)
+  if (isFirst && frame_delay && nreps!=1 && !wr->append)
   {
     int nr = nreps > 1 && nreps <= 65536 ? nreps-1 : 0;
     unsigned char ext[]={0xB, 'N','E','T','S','C','A','P','E','2','.','0',3,1,(unsigned char) (nr&0xff), (unsigned char) ((nr>>8)&0xff)};
@@ -225,7 +231,7 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
     if (!wr->prevframe)
     {
       ignFr=true;
-      wr->prevframe = new LICE_MemBitmap(wr->w,wr->h);
+      wr->prevframe = new WDL_NEW LICE_MemBitmap(wr->w,wr->h);
       LICE_Clear(wr->prevframe,0);
     }
 
@@ -360,16 +366,45 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   return true;
 }
 
-void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither)
+static int writefunc_fh(GifFileType *fh, const GifByteType *buf, int sz) {  return (int)fwrite(buf, 1, sz, (FILE *)fh->UserData); }
+
+void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither, bool is_append)
 {
+  FILE *fp=NULL;
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+  #ifdef WDL_SUPPORT_WIN9X
+  if (GetVersion()<0x80000000)
+  #endif
+  {
+    WCHAR wf[2048];
+    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
+      fp = _wfopen(wf,is_append ? L"r+b" : L"wb");
+  }
+#endif
+  if (!fp) fp = fopen(filename,is_append ? "r+b" : "wb");
+
+  if (fp == NULL) return NULL;
+
 
   EGifSetGifVersion("89a");
 
-  GifFileType *f = EGifOpenFileName(filename,0);
-  if (!f) return NULL;
+  
+  GifFileType *f = EGifOpen(fp,writefunc_fh);
+  if (!f) 
+  {
+    fclose(fp);
+    return NULL;
+  }
+
+  if (is_append)
+  {
+    fseek(fp, -1, SEEK_END);
+  }
 
   liceGifWriteRec *wr = (liceGifWriteRec*)calloc(sizeof(liceGifWriteRec),1);
   wr->f = f;
+  wr->fp = fp;
+  wr->append = is_append;
   wr->dither = dither;
   wr->w=w;
   wr->h=h;
@@ -411,6 +446,7 @@ bool LICE_WriteGIFEnd(void *handle)
   if (wr->last_octree) LICE_DestroyOctree(wr->last_octree);
 
   delete wr->prevframe;
+  fclose(wr->fp);
 
   free(wr);
 

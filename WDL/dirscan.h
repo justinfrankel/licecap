@@ -98,7 +98,11 @@ class WDL_DirScan
 #ifdef _WIN32
     #ifndef WDL_NO_SUPPORT_UTF8
       m_h=INVALID_HANDLE_VALUE;
+      #ifdef WDL_SUPPORT_WIN9X
       m_wcmode = GetVersion()< 0x80000000;
+      #else
+      m_wcmode = true;
+      #endif
 
       if (m_wcmode)
       {
