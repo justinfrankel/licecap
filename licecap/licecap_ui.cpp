@@ -192,6 +192,18 @@ typedef struct {
 
 #ifdef _WIN32
 
+static void __LogicalToPhysicalPointForPerMonitorDPI(HWND hwnd, POINT *pt)
+{
+  static BOOL (WINAPI *ltppfpmd)(HWND hwnd, LPPOINT lpPoint);
+  static bool tried;
+  if (!tried)
+  {
+    *(void **)&ltppfpmd = GetProcAddress(GetModuleHandle("USER32"),"LogicalToPhysicalPointForPerMonitorDPI");
+    tried=true;
+  }
+  if (ltppfpmd) ltppfpmd(hwnd,pt);
+}
+
 void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
 {
   // XP+ only
@@ -214,6 +226,8 @@ void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
     {
       ICONINFO inf={0,};
       GetIconInfo(ci.hCursor,&inf);
+
+      __LogicalToPhysicalPointForPerMonitorDPI(g_hwnd,&ci.ptScreenPos);
 
       int mousex = ci.ptScreenPos.x+xoffs;
       int mousey = ci.ptScreenPos.y+yoffs;
@@ -498,8 +512,14 @@ static void GetViewRectSize(int *w, int *h)
 {
   RECT r={0,0,320,240};
   GetWindowRect(GetDlgItem(g_hwnd,IDC_VIEWRECT),&r);
+#ifdef _WIN32
+  __LogicalToPhysicalPointForPerMonitorDPI(g_hwnd,(LPPOINT)&r);
+  __LogicalToPhysicalPointForPerMonitorDPI(g_hwnd,((LPPOINT)&r)+1);
+#endif
   if (w) *w=r.right-r.left - 2;
   if (h) *h=abs(r.bottom-r.top) - 2;
+
+  
 }
 
 void UpdateDimBoxes(HWND hwndDlg)
@@ -1205,6 +1225,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
               int bw = g_cap_bm->getWidth();
               int bh = g_cap_bm->getHeight();
+
+              __LogicalToPhysicalPointForPerMonitorDPI(g_hwnd,(LPPOINT)&r);
               
               LICE_Clear(g_cap_bm,0);
               BitBlt(g_cap_bm->getDC(),0,0,bw,bh,hdc,r.left+1,r.top+1,SRCCOPY);
