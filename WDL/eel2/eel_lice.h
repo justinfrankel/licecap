@@ -772,16 +772,20 @@ void eel_lice_state::gfx_circle(float x, float y, float r, bool fill, bool aafla
 void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
 {
   LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest, "gfx_triangle");
-  if (LICE_FUNCTION_VALID(LICE_FillTriangle) && LICE_FUNCTION_VALID(LICE_FillConvexPolygon) && np >= 6)
+  if (np >= 6)
   {
     np &= ~1;
     if (np == 6)
     {        
+      if (!LICE_FUNCTION_VALID(LICE_FillTriangle)) return;
+
       LICE_FillTriangle(dest, (int)parms[0][0], (int)parms[1][0], (int)parms[2][0], (int)parms[3][0], 
-        (int)parms[4][0], (int)parms[5][0], getCurColor(), (float)*m_gfx_a, getCurMode());
+          (int)parms[4][0], (int)parms[5][0], getCurColor(), (float)*m_gfx_a, getCurMode());
     }
     else
     {
+      if (!LICE_FUNCTION_VALID(LICE_FillConvexPolygon)) return;
+
       const int maxpt = 512;
       const int n = wdl_min(np/2, maxpt);
       int i, rdi=0;
@@ -791,6 +795,7 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
         x[i]=(int)parms[rdi++][0];
         y[i]=(int)parms[rdi++][0];
       }
+
       LICE_FillConvexPolygon(dest, x, y, n, getCurColor(), (float)*m_gfx_a, getCurMode());
     }
     SetImageDirty(dest);
@@ -2430,7 +2435,8 @@ static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
   *(void **)&LICE_ScaledBlit = getFunc("LICE_ScaledBlit");
   *(void **)&LICE_Circle = getFunc("LICE_Circle");
   *(void **)&LICE_FillCircle = getFunc("LICE_FillCircle");
-  *(void**)&LICE_FillTriangle=getFunc("LICE_FillTriangle");
+  *(void **)&LICE_FillTriangle=getFunc("LICE_FillTriangle");
+  *(void **)&LICE_FillConvexPolygon=getFunc("LICE_FillConvexPolygon");  
   *(void **)&LICE_RoundRect = getFunc("LICE_RoundRect");
   *(void **)&LICE_Arc = getFunc("LICE_Arc");
 
