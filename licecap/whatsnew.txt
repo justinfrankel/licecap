@@ -1,3 +1,6 @@
+v1.26 - August 26 2015
+  + Windows 8.1+ high-DPI fix, thanks to Betsegaw Tadele / https://github.com/betsegaw
+
 v1.25 - December 21, 2014
   + OSX: improved window position detection
   + OSX: 10.9+ signed .app file (if we remember)
