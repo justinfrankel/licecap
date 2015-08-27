@@ -4630,21 +4630,27 @@ bool ListView_Scroll(HWND h, int xscroll, int yscroll)
   if ([tv isKindOfClass:[SWELL_ListView class]]) colidx = [(SWELL_ListView*)tv getColumnPos:colidx];
 
   NSRect ir = [tv frameOfCellAtColumn:colidx row:rowidx];
-  if (ir.size.width) xscroll /= ir.size.width;
-  else xscroll = 0;
-  if (ir.size.height) yscroll /= ir.size.height;
-  else yscroll = 0;
+
+  if (yscroll)
+  {
+    if (ir.size.height) rowidx += yscroll / ir.size.height;
+
+    if (rowidx < 0) rowidx=0;
+    else if (rowidx >= [tv numberOfRows]) rowidx = [tv numberOfRows]-1;
+    [tv scrollRowToVisible:rowidx];
+  }
+  
+  if (xscroll)
+  {
+    if (ir.size.width) colidx += xscroll / ir.size.width;
    
-  rowidx += yscroll;
-  if (rowidx < 0) rowidx=0;
-  else if (rowidx >= [tv numberOfRows]) rowidx = [tv numberOfRows]-1;
+    if (colidx < 0) colidx=0;
+    else if (colidx >= [tv numberOfColumns]) colidx = [tv numberOfColumns]-1;
+
+    // scrollColumnToVisible takes display order, which we have here
+    [tv scrollColumnToVisible:colidx];
+  }
   
-  colidx += xscroll;
-  if (colidx < 0) colidx=0;
-  else if (colidx >= [tv numberOfColumns]) colidx = [tv numberOfColumns]-1;
-  
-  [tv scrollRowToVisible:rowidx];
-  [tv scrollColumnToVisible:colidx];
   
   return true;
 }
