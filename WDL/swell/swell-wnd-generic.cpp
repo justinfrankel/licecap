@@ -692,6 +692,7 @@ static void swell_removeWindowFromNonChildren(HWND__ *hwnd)
     if (hwnd->m_parent && hwnd->m_parent->m_children == hwnd) hwnd->m_parent->m_children = hwnd->m_next;
     if (hwnd->m_owner && hwnd->m_owner->m_owned == hwnd) hwnd->m_owner->m_owned = hwnd->m_next;
     if (hwnd == SWELL_topwindows) SWELL_topwindows = hwnd->m_next;
+    if (hwnd->m_parent && !hwnd->m_parent->m_hashaddestroy) InvalidateRect(hwnd->m_parent,NULL,FALSE);
   }
 }
 
