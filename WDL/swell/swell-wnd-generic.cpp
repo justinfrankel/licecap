@@ -2266,6 +2266,56 @@ struct listViewState
   int m_last_row_height;
   int m_selitem; // for single sel
 
+  WDL_TypedBuf<unsigned int> m_owner_multisel_state;
+
+  bool get_sel(int idx)
+  {
+    if (m_owner_data_size<0)
+    {
+      SWELL_ListView_Row *p = m_data.Get(idx);
+      return p && (p->m_tmp&1);
+    }
+    const unsigned int mask = 1<<(idx&31);
+    const int szn = (idx+31)/32;
+    const unsigned int *p=m_owner_multisel_state.Get();
+    return p && idx>=0 && szn < m_owner_multisel_state.GetSize() && (p[szn]&mask);
+  }
+  void set_sel(int idx, bool v)
+  {
+    if (m_owner_data_size<0)
+    {
+      SWELL_ListView_Row *p = m_data.Get(idx);
+      if (p) p->m_tmp = (v ? (p->m_tmp|1) : (p->m_tmp&~1));
+    }
+    else 
+    {
+      if (idx>=0 && idx < m_owner_data_size)
+      {
+        const int szn = (idx+31)/32;
+        const int oldsz=m_owner_multisel_state.GetSize();
+        unsigned int *p = m_owner_multisel_state.Get();
+        if (oldsz<szn) 
+        {
+          p = m_owner_multisel_state.ResizeOK(szn,false);
+          if (p) memset(p+oldsz,0,(szn-oldsz)*sizeof(*p));
+        }
+        const unsigned int mask = 1<<(idx&31);
+        if (p) p[szn] = v ? (p[szn]|mask) : (p[szn]&~mask);
+      }
+    }
+  }
+  void clear_sel()
+  {
+    if (m_owner_data_size<0)
+    {
+      int x;
+      const int n=m_data.GetSize();
+      for (x=0;x<n;x++) m_data.Get(x)->m_tmp&=~1;
+    }
+    else m_owner_multisel_state.Resize(0,false);
+  }
+  
+
   bool m_is_multisel;
 };
 
@@ -2285,19 +2335,14 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           else lvs->m_selitem = -1;
           InvalidateRect(hwnd,NULL,FALSE);
         }
-        else if (lvs->IsOwnerData())
+        else 
         {
-        }
-        else
-        {
-          int x;
-          for(x=0;x<lvs->m_data.GetSize();x++)
-          {
-            SWELL_ListView_Row *r = lvs->m_data.Get(x);
-            if (r) r->m_tmp &= ~1;
-          }
-          SWELL_ListView_Row *row = lvs->m_data.Get(hit);
-          if (row) row->m_tmp|=1;
+          if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) lvs->clear_sel();
+          lvs->set_sel(hit,true);
+
+          NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
+          SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+
           InvalidateRect(hwnd,NULL,FALSE);
         }
       }
@@ -2336,9 +2381,14 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             for (x = 0; x < n && ypos < r.bottom; x ++)
             {
               const char *str = NULL;
+              char buf[4096];
               int sel=0;
               if (owner_data)
               {
+                NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, x,0, 0,0, buf, sizeof(buf) }};
+                buf[0]=0;
+                SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+                str=buf;
               }
               else
               {
@@ -2346,10 +2396,10 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
                 if (row) 
                 {
                   str = row->m_vals.Get(0);
-                  sel = row->m_tmp&1;
                 }
               }
               if (!lvs->m_is_multisel) sel = x == lvs->m_selitem;
+              else sel = lvs->get_sel(x);
 
               RECT tr={r.left,ypos,r.right,ypos + row_height};
               if (sel)
@@ -2798,50 +2848,96 @@ void ListView_GetItemText(HWND hwnd, int item, int subitem, char *text, int text
 
 int ListView_InsertItem(HWND h, const LVITEM *item)
 {
-  if (!h || !item || item->iSubItem) return 0;
-  
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || lvs->IsOwnerData() || !item || item->iSubItem) return 0;
+
+  int idx =  (int) item->iItem;
+  if (idx<0 || idx>lvs->m_data.GetSize()) idx=lvs->m_data.GetSize();
+  SWELL_ListView_Row *row=new SWELL_ListView_Row;
+  row->m_vals.Add((item->mask&LVIF_TEXT) && item->pszText ? strdup(item->pszText) : NULL);
+  row->m_param = (item->mask&LVIF_PARAM) ? item->lParam : 0;
+  row->m_tmp = ((item->mask & LVIF_STATE) && (item->state & LVIS_SELECTED)) ? 1:0;
+  lvs->m_data.Insert(idx,row); 
+  InvalidateRect(h,NULL,FALSE);
+  return idx;
 }
 
 void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt)
 {
-  if (!h || cpos < 0 || cpos >= 32) return;
-  
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || lvs->IsOwnerData() || cpos < 0 || cpos >= 32) return;
+  SWELL_ListView_Row *row=lvs->m_data.Get(ipos);
+  if (!row) return;
+  while (row->m_vals.GetSize()<=cpos) row->m_vals.Add(NULL);
+  free(row->m_vals.Get(cpos));
+  row->m_vals.Set(cpos,txt?strdup(txt):NULL);
+  InvalidateRect(h,NULL,FALSE);
 }
 
 int ListView_GetNextItem(HWND h, int istart, int flags)
 {
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return -1;
   return -1;
 }
 
 bool ListView_SetItem(HWND h, LVITEM *item)
 {
-  if (!item) return false;
-  if (!h) return false;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || lvs->IsOwnerData() || !item) return false;
+  SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
+  if (!row) return false;
+  while (row->m_vals.GetSize()<=item->iSubItem) row->m_vals.Add(NULL);
+  if (item->mask&LVIF_TEXT) 
+  {
+    free(row->m_vals.Get(item->iSubItem));
+    row->m_vals.Set(item->iSubItem,item->pszText?strdup(item->pszText):NULL);
+  }
+  if (item->mask & LVIF_PARAM) 
+  {
+    row->m_param = item->lParam;
+  }
+  if (item->mask & LVIF_STATE)
+  {
+    if (item->state & LVIS_SELECTED) row->m_tmp |= 1;
+    else row->m_tmp &= ~1;
+  }
+
+  InvalidateRect(h,NULL,FALSE);
 
   return true;
 }
 
 bool ListView_GetItem(HWND h, LVITEM *item)
 {
-  if (!item) return false;
-  if ((item->mask&LVIF_TEXT)&&item->pszText && item->cchTextMax > 0) item->pszText[0]=0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || lvs->IsOwnerData() || !item) return false;
+  SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
+  if (!row) return false;
+  if ((item->mask&LVIF_TEXT)&&item->pszText && item->cchTextMax > 0) 
+  {
+    const char *v=row->m_vals.Get(item->iSubItem);
+    lstrcpyn_safe(item->pszText, v?v:"",item->cchTextMax);
+  }
+  if (item->mask & LVIF_PARAM) item->lParam = row->m_param;
+  if (item->mask & LVIF_STATE) item->state = (row->m_tmp&1) ? LVIS_SELECTED : 0;
   item->state=0;
-  if (!h) return false;
 
   return true;
 }
 int ListView_GetItemState(HWND h, int ipos, UINT mask)
 {
-  if (!h) return 0;
-  int flag=0;
-  return flag;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return 0;
+  return (lvs->get_sel(ipos) ? LVIS_SELECTED : 0 )& mask;
 }
 
 bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 {
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return false;
+
   int doref=0;
-  if (!h) return false;
   static int _is_doing_all;
   
   if (ipos == -1)
@@ -2855,6 +2951,8 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
     ListView_RedrawItems(h,0,n-1);
     return true;
   }
+
+  if (statemask & LVIS_SELECTED) lvs->set_sel(ipos,!!(state&LVIS_SELECTED));
 
   if (!_is_doing_all)
   {
@@ -2878,35 +2976,50 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 void ListView_RedrawItems(HWND h, int startitem, int enditem)
 {
   if (!h) return;
+  InvalidateRect(h,NULL,FALSE);
 }
 
 void ListView_DeleteItem(HWND h, int ipos)
 {
-  if (!h) return;
-  
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || lvs->IsOwnerData()) return;
+  lvs->m_data.Delete(ipos,true);
+  InvalidateRect(h,NULL,FALSE);
 }
 
 void ListView_DeleteAllItems(HWND h)
 {
-  if (!h) return;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || lvs->IsOwnerData()) return;
+  lvs->m_data.Empty(true);
+  InvalidateRect(h,NULL,FALSE);
 }
 
 int ListView_GetSelectedCount(HWND h)
 {
-  if (!h) return 0;
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return 0;
+  const int n = lvs->GetNumItems();
+  int sum=0,x;
+  for (x=0;x<n;x++) if (lvs->get_sel(x)) sum++;
+  return sum;
 }
 
 int ListView_GetItemCount(HWND h)
 {
-  if (!h) return 0;
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return 0;
+  return lvs->GetNumItems();
 }
 
 int ListView_GetSelectionMark(HWND h)
 {
-  if (!h) return 0;
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return 0;
+  const int n = lvs->GetNumItems();
+  int x;
+  for (x=0;x<n;x++) if (lvs->get_sel(x)) return x;
+  return -1;
 }
 int SWELL_GetListViewHeaderHeight(HWND h)
 {
@@ -2929,12 +3042,15 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
 
 void ListView_SetItemCount(HWND h, int cnt)
 {
-  if (!h) return;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->IsOwnerData()) return;
+  lvs->m_owner_data_size = cnt > 0 ? cnt : 0;
 }
 
 void ListView_EnsureVisible(HWND h, int i, BOOL pok)
 {
-  if (!h) return;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return;
 }
 bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
 {
