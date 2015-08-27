@@ -576,6 +576,8 @@ struct HDC__ {
 
 #ifndef SWELL_TARGET_OSX 
 
+#include "../wdlstring.h"
+
 #ifdef SWELL_LICE_GDI
 #include "../lice/lice.h"
 #endif
@@ -602,7 +604,7 @@ struct HWND__
 #ifdef SWELL_TARGET_GDK
   GdkWindow *m_oswindow;
 #endif
-  char *m_title;
+  WDL_FastString m_title;
 
   HWND__ *m_children, *m_parent, *m_next, *m_prev;
   HWND__ *m_owner, *m_owned;

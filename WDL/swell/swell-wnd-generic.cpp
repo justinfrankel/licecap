@@ -98,7 +98,7 @@ static void swell_setOSwindowtext(HWND hwnd)
 {
   if (hwnd && hwnd->m_oswindow)
   {
-    gdk_window_set_title(hwnd->m_oswindow, hwnd->m_title ? hwnd->m_title : (char*)"");
+    gdk_window_set_title(hwnd->m_oswindow, (char*)hwnd->m_title.Get());
   }
 }
 static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
@@ -469,7 +469,7 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 #define swell_destroyOSwindow(x)
 #define swell_manageOSwindow(x,y)
 #define swell_runOSevents()
-#define swell_setOSwindowtext(x) { if (x) printf("SWELL: swt '%s'\n",(x)->m_title ? (x)->m_title : ""); }
+#define swell_setOSwindowtext(x) { if (x) printf("SWELL: swt '%s'\n",(x)->m_title.Get()); }
 #endif
 
 HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, WNDPROC wndproc, DLGPROC dlgproc)
@@ -505,7 +505,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      m_backingstore=0;
 #endif
 
-     m_title=label ? strdup(label) : NULL;
+     if (label) m_title.Set(label);
      SetParent(this, par);
 
 }
@@ -709,9 +709,6 @@ static void RecurseDestroyWindow(HWND hwnd)
   if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=NULL;
 
   swell_destroyOSwindow(hwnd);
-
-  free(hwnd->m_title);
-  hwnd->m_title=0;
 
   if (hwnd->m_menu) DestroyMenu(hwnd->m_menu);
   hwnd->m_menu=0;
@@ -1316,14 +1313,9 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
   if (!text) text="";
  
 
-  if (strcmp(hwnd->m_title ? hwnd->m_title : "", text))
+  if (strcmp(hwnd->m_title.Get(), text))
   {
-    if (*text && hwnd->m_title && strlen(hwnd->m_title)>=strlen(text)) strcpy(hwnd->m_title,text);
-    else 
-    {
-      free(hwnd->m_title);
-      hwnd->m_title = text[0] ? strdup(text) : NULL;
-    }
+    hwnd->m_title.Set(text);
     SendMessage(hwnd,WM_SETTEXT,0,(LPARAM)text);
     swell_setOSwindowtext(hwnd);
   } 
@@ -1337,7 +1329,7 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
   if (!hwnd) return false;
   
   // todo: sendmessage WM_GETTEXT etc? special casing for combo boxes etc
-  lstrcpyn_safe(text,hwnd->m_title ? hwnd->m_title : "", textlen);
+  lstrcpyn_safe(text,hwnd->m_title.Get(), textlen);
   return true;
 }
 
@@ -1794,7 +1786,7 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           GetClientRect(hwnd,&r); 
           int col = GetSysColor(COLOR_BTNTEXT);
 
-          const char *buf = hwnd->m_title;
+          const char *buf = hwnd->m_title.Get();
           int th=20;
           int tw=0;
           int xp=0;
@@ -1874,7 +1866,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           DeleteObject(br);
           SetTextColor(ps.hdc,RGB(0,0,0)); // todo edit colors
           SetBkMode(ps.hdc,TRANSPARENT);
-          const char *buf = hwnd->m_title;
+          const char *buf = hwnd->m_title.Get();
           if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
           EndPaint(hwnd,&ps);
         }
@@ -1901,7 +1893,7 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
           SetBkMode(ps.hdc,TRANSPARENT);
-          const char *buf = hwnd->m_title;
+          const char *buf = hwnd->m_title.Get();
           if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,((hwnd->m_style & SS_CENTER) ? DT_CENTER:0)|DT_VCENTER);
           EndPaint(hwnd,&ps);
         }
