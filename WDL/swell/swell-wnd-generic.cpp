@@ -192,6 +192,10 @@ static int swell_gdkConvertKey(int key)
   case GDK_Insert: key = VK_INSERT; break;
   case GDK_Delete: key = VK_DELETE; break;
   case GDK_Escape: key = VK_ESCAPE; break;
+  case GDK_BackSpace: key = VK_BACK; break;
+  case GDK_Return: key = VK_RETURN; break;
+  case GDK_ISO_Left_Tab:
+  case GDK_Tab: key = VK_TAB; break;
 #else
   case GDK_KEY_Home: key = VK_HOME; break;
   case GDK_KEY_End: key = VK_END; break;
@@ -204,6 +208,10 @@ static int swell_gdkConvertKey(int key)
   case GDK_KEY_Insert: key = VK_INSERT; break;
   case GDK_KEY_Delete: key = VK_DELETE; break;
   case GDK_KEY_Escape: key = VK_ESCAPE; break;
+  case GDK_KEY_BackSpace: key = VK_BACK; break;
+  case GDK_KEY_Return: key = VK_RETURN; break;
+  case GDK_KEY_ISO_Left_Tab:
+  case GDK_KEY_Tab: key = VK_TAB; break;
 #endif
   }
   return key;
@@ -371,7 +379,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (k->state&GDK_MOD1_MASK) modifiers|=FALT;
 
             int kv = swell_gdkConvertKey(k->keyval);
-            kv=toupper(kv);
 
             HWND foc = GetFocus();
             if (foc && IsChild(hwnd,foc)) hwnd=foc;
@@ -1383,6 +1390,8 @@ void ShowWindow(HWND hwnd, int cmd)
   else if (cmd==SW_HIDE) hwnd->m_visible=false;
 
   swell_manageOSwindow(hwnd,cmd==SW_SHOW);
+  if (cmd == SW_SHOW) SWELL_g_focuswnd = hwnd;
+
   InvalidateRect(hwnd,NULL,FALSE);
 
 }
@@ -1854,6 +1863,40 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 {
   switch (msg)
   {
+    case WM_RBUTTONDOWN:
+    case WM_LBUTTONDOWN:
+      SetFocus(hwnd);
+      InvalidateRect(hwnd,NULL,FALSE);
+    return 0;
+    case WM_KEYDOWN:
+      if (lParam & (FCONTROL|FALT)) return 0;
+
+      if (wParam < 32)
+      {
+        if (wParam == VK_BACK)
+        { 
+          if (hwnd->m_title.GetLength())
+            hwnd->m_title.SetLen(hwnd->m_title.GetLength()-1); // todo: UTF-8
+        }
+        else if (wParam == VK_RETURN)
+        {
+        }
+      }
+      else if (wParam >= 128)
+      {
+        // todo: UTF-8, other filtering
+      }
+      else
+      {
+        char b[3]={(char)wParam,};
+         
+        hwnd->m_title.Append(b);
+      }
+      SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+      InvalidateRect(hwnd,NULL,FALSE);
+    return 0;
+    case WM_KEYUP:
+    return 0;
     case WM_PAINT:
       { 
         PAINTSTRUCT ps;
@@ -1868,6 +1911,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title.Get();
           if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
+          // todo: cursor drawing
           EndPaint(hwnd,&ps);
         }
       }
