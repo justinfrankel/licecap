@@ -2340,8 +2340,11 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) lvs->clear_sel();
           lvs->set_sel(hit,true);
 
-          NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
-          SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+          if (hit >=0 && hit < lvs->GetNumItems()) 
+          {
+            NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
+            SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+          }
 
           InvalidateRect(hwnd,NULL,FALSE);
         }
@@ -2383,21 +2386,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               const char *str = NULL;
               char buf[4096];
               int sel=0;
-              if (owner_data)
-              {
-                NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, x,0, 0,0, buf, sizeof(buf) }};
-                buf[0]=0;
-                SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
-                str=buf;
-              }
-              else
-              {
-                SWELL_ListView_Row *row = lvs->m_data.Get(x);
-                if (row) 
-                {
-                  str = row->m_vals.Get(0);
-                }
-              }
+
               if (!lvs->m_is_multisel) sel = x == lvs->m_selitem;
               else sel = lvs->get_sel(x);
 
@@ -2406,12 +2395,32 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               {
                 FillRect(ps.hdc,&tr,br);
               }
-              // todo: multiple columns too
-              if (str) 
+
+              SWELL_ListView_Row *row = lvs->m_data.Get(x);
+              int nc = owner_data ? 4/*todo*/ : row ? row->m_vals.GetSize() : 1,col;
+              for (col = 0; col < nc; col ++)
               {
-                DrawText(ps.hdc,str,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
-              }
-             
+                // todo: multiple columns too
+                if (owner_data)
+                {
+                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, x,col, 0,0, buf, sizeof(buf) }};
+                  buf[0]=0;
+                  SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+                  str=buf;
+                }
+                else
+                {
+                  if (row) str = row->m_vals.Get(col);
+                }
+  
+                if (str) 
+                {
+                  RECT ar=tr;
+                  ar.left += (col*(tr.right-tr.left))/nc;
+                  ar.right = ar.left + (tr.right-tr.left)/nc;
+                  DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+                }
+              }        
               ypos += row_height;
             }
           }
@@ -2878,6 +2887,13 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return -1;
+  if (flags&LVNI_SELECTED)
+  {
+    const int n = lvs->GetNumItems();
+    int x;
+    for (x=istart+1; x < n; x ++) if (lvs->get_sel(x)) return x;
+    for (x=0;x<=istart; x++) if (lvs->get_sel(x)) return x;
+  }
   return -1;
 }
 
