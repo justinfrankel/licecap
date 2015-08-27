@@ -356,7 +356,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
         break;
         case GDK_WINDOW_STATE: /// GdkEventWindowState for min/max
-          printf("minmax\n");
+          //printf("minmax\n");
         break;
         case GDK_GRAB_BROKEN:
           {
@@ -2246,10 +2246,11 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h, i
 
 struct listViewState
 {
-  listViewState(bool ownerData, bool isMultiSel)
+  listViewState(bool ownerData, bool isMultiSel, bool isListBox)
   {
     m_selitem=-1;
     m_is_multisel = isMultiSel;
+    m_is_listbox = isListBox;
     m_owner_data_size = ownerData ? 0 : -1;
     m_last_row_height = 0;
   } 
@@ -2276,7 +2277,7 @@ struct listViewState
       return p && (p->m_tmp&1);
     }
     const unsigned int mask = 1<<(idx&31);
-    const int szn = (idx+31)/32;
+    const int szn = idx/32;
     const unsigned int *p=m_owner_multisel_state.Get();
     return p && idx>=0 && szn < m_owner_multisel_state.GetSize() && (p[szn]&mask);
   }
@@ -2291,13 +2292,13 @@ struct listViewState
     {
       if (idx>=0 && idx < m_owner_data_size)
       {
-        const int szn = (idx+31)/32;
+        const int szn = idx/32;
         const int oldsz=m_owner_multisel_state.GetSize();
         unsigned int *p = m_owner_multisel_state.Get();
-        if (oldsz<szn) 
+        if (oldsz<szn+1) 
         {
-          p = m_owner_multisel_state.ResizeOK(szn,false);
-          if (p) memset(p+oldsz,0,(szn-oldsz)*sizeof(*p));
+          p = m_owner_multisel_state.ResizeOK(szn+1,false);
+          if (p) memset(p+oldsz,0,(szn+1-oldsz)*sizeof(*p));
         }
         const unsigned int mask = 1<<(idx&31);
         if (p) p[szn] = v ? (p[szn]|mask) : (p[szn]&~mask);
@@ -2316,7 +2317,7 @@ struct listViewState
   }
   
 
-  bool m_is_multisel;
+  bool m_is_multisel, m_is_listbox;
 };
 
 static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -2324,6 +2325,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   listViewState *lvs = (listViewState *)hwnd->m_private_data;
   switch (msg)
   {
+    case WM_LBUTTONDBLCLK:
     case WM_LBUTTONDOWN:
       SetCapture(hwnd);
       if (lvs && lvs->m_last_row_height>0)
@@ -2333,6 +2335,16 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         {
           if (hit >= 0 && hit < lvs->GetNumItems()) lvs->m_selitem = hit;
           else lvs->m_selitem = -1;
+
+          if (lvs->m_is_listbox)
+          {
+            SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+          }
+          else
+          {
+            NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : LVN_ITEMCHANGED},lvs->m_selitem,0,LVIS_SELECTED,};
+            SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+          }
           InvalidateRect(hwnd,NULL,FALSE);
         }
         else 
@@ -2342,8 +2354,15 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
           if (hit >=0 && hit < lvs->GetNumItems()) 
           {
-            NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
-            SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            if (lvs->m_is_listbox)
+            {
+              SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+            }
+            else
+            {
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            }
           }
 
           InvalidateRect(hwnd,NULL,FALSE);
@@ -2595,7 +2614,7 @@ HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(styles&SWELL_NOT_WS_VISIBLE), listViewWindowProc);
   hwnd->m_style |= WS_CHILD;
   hwnd->m_classname = "ListBox";
-  hwnd->m_private_data = (INT_PTR) new listViewState(false, !!(styles & LBS_EXTENDEDSEL));
+  hwnd->m_private_data = (INT_PTR) new listViewState(false, !!(styles & LBS_EXTENDEDSEL), true);
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   if (m_doautoright) UpdateAutoCoords(tr);
   return hwnd;
@@ -2692,9 +2711,9 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     hwnd->m_style |= WS_CHILD;
     hwnd->m_classname = "SysListView32";
     if (!stricmp(classname, "SysListView32"))
-      hwnd->m_private_data = (INT_PTR) new listViewState(!!(style & LVS_OWNERDATA), !(style & LVS_SINGLESEL));
+      hwnd->m_private_data = (INT_PTR) new listViewState(!!(style & LVS_OWNERDATA), !(style & LVS_SINGLESEL), false);
     else
-      hwnd->m_private_data = (INT_PTR) new listViewState(false,false);
+      hwnd->m_private_data = (INT_PTR) new listViewState(false,false, true);
 
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
