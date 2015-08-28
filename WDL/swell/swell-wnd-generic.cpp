@@ -2244,6 +2244,12 @@ HWND SWELL_MakeCheckBox(const char *name, int idx, int x, int y, int w, int h, i
   return SWELL_MakeControl(name,idx,"Button",BS_AUTOCHECKBOX|flags,x,y,w,h,0);
 }
 
+struct SWELL_ListView_Col
+{
+  char *name;
+  int xwid;
+};
+
 struct listViewState
 {
   listViewState(bool ownerData, bool isMultiSel, bool isListBox)
@@ -2257,8 +2263,11 @@ struct listViewState
   ~listViewState()
   { 
     m_data.Empty(true);
+    const int n=m_cols.GetSize();
+    for (int x=0;x<n;x++) free(m_cols.Get()[x].name);
   }
   WDL_PtrList<SWELL_ListView_Row> m_data;
+  WDL_TypedBuf<SWELL_ListView_Col> m_cols;
   
   int GetNumItems() const { return m_owner_data_size>=0 ? m_owner_data_size : m_data.GetSize(); }
   bool IsOwnerData() const { return m_owner_data_size>=0; }
@@ -2337,8 +2346,13 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       SetCapture(hwnd);
       if (lvs && lvs->m_last_row_height>0)
       {
-        const int hit = GET_Y_LPARAM(lParam) / lvs->m_last_row_height;
-        if (!lvs->m_is_multisel)
+        const int ypos = GET_Y_LPARAM(lParam) - (lvs->m_cols.GetSize() ? lvs->m_last_row_height + 2 : 0);
+        const int hit = ypos >= 0 ? (ypos / lvs->m_last_row_height) : -1;
+        if (hit < 0)
+        {
+          // column click handling
+        }
+        else if (!lvs->m_is_multisel)
         {
           if (hit >= 0 && hit < lvs->GetNumItems()) lvs->m_selitem = hit;
           else lvs->m_selitem = -1;
@@ -2401,12 +2415,38 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             const int n = owner_data ? lvs->m_owner_data_size : lvs->m_data.GetSize();
             TEXTMETRIC tm; 
             GetTextMetrics(ps.hdc,&tm);
-            SetBkMode(ps.hdc,TRANSPARENT);
-            SetTextColor(ps.hdc,RGB(0,0,0));
             const int row_height = tm.tmHeight;
-            lvs->m_last_row_height = row_height;
-            int x;
             int ypos = r.top;
+
+            lvs->m_last_row_height = row_height;
+            SetBkMode(ps.hdc,TRANSPARENT);
+            const int ncols = lvs->m_cols.GetSize();
+            const int nc = wdl_max(ncols,1);
+            SWELL_ListView_Col *cols = lvs->m_cols.Get();
+            if (ncols > 0)
+            {
+              HBRUSH br = CreateSolidBrush(RGB(192,192,192));
+              int x,xpos=0;
+              SetTextColor(ps.hdc,RGB(0,0,0));
+              for (x=0; x < ncols; x ++)
+              {
+                RECT tr={xpos,ypos,0,ypos + row_height};
+                xpos += cols[x].xwid;
+                tr.right = xpos - 2;
+               
+                if (tr.right > tr.left) 
+                {
+                  FillRect(ps.hdc,&tr,br);
+                  if (cols[x].name) 
+                    DrawText(ps.hdc,cols[x].name,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+                }
+              }
+              ypos += row_height + 2;
+              DeleteObject(br);
+            }
+
+            SetTextColor(ps.hdc,RGB(0,0,0));
+            int x;
             for (x = 0; x < n && ypos < r.bottom; x ++)
             {
               const char *str = NULL;
@@ -2423,7 +2463,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               }
 
               SWELL_ListView_Row *row = lvs->m_data.Get(x);
-              int nc = owner_data ? 4/*todo*/ : row ? row->m_vals.GetSize() : 1,col;
+              int col,xpos=0;
               for (col = 0; col < nc; col ++)
               {
                 // todo: multiple columns too
@@ -2442,8 +2482,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
                 if (str) 
                 {
                   RECT ar=tr;
-                  ar.left += (col*(tr.right-tr.left))/nc;
-                  ar.right = ar.left + (tr.right-tr.left)/nc;
+                  if (ncols > 0)
+                  {
+                    ar.left += xpos;
+                    ar.right = ar.left + cols[col].xwid;
+                    xpos += cols[col].xwid;
+                  }
                   DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
                 }
               }        
@@ -2860,19 +2904,37 @@ void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which)
 
 int ListView_GetColumnWidth(HWND h, int pos)
 {
-  if (!h) return 0;
-//  if (!v->m_cols || pos < 0 || pos >= v->m_cols->GetSize()) return 0;
-  
-//  return (int) floor(0.5+[col width]);
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return 0;
+  if (pos < 0 || pos >= lvs->m_cols.GetSize()) return 0;
+
+  return lvs->m_cols.Get()[pos].xwid;
 }
 
 void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
 {
-  if (!h || !lvc) return;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvc) return;
+  SWELL_ListView_Col col = { 0, 100 };
+  if (lvc->mask & LVCF_WIDTH) col.xwid = lvc->cx;
+  if (lvc->mask & LVCF_TEXT) col.name = lvc->pszText ? strdup(lvc->pszText) : NULL;
+  if (pos<0)pos=0;
+  else if (pos>lvs->m_cols.GetSize()) pos=lvs->m_cols.GetSize();
+  lvs->m_cols.Insert(col,pos);
 }
+
 void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
 {
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvc) return;
+  SWELL_ListView_Col *col = pos>=0&&pos < lvs->m_cols.GetSize() ? lvs->m_cols.Get()+pos : NULL;
+  if (!col) return;
+  if (lvc->mask & LVCF_WIDTH) col->xwid = lvc->cx;
+  if (lvc->mask & LVCF_TEXT) 
+  {
+    free(col->name);
+    col->name = lvc->pszText ? strdup(lvc->pszText) : NULL;
+  }
 }
 
 void ListView_GetItemText(HWND hwnd, int item, int subitem, char *text, int textmax)
@@ -3906,6 +3968,7 @@ int ListView_GetTopIndex(HWND h)
 }
 BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
 {
+  return FALSE;
 }
 BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
 {
