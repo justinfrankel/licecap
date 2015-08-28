@@ -181,40 +181,64 @@ static int swell_gdkConvertKey(int key)
   switch(key)
   {
 #if SWELL_TARGET_GDK == 2
-  case GDK_Home: key = VK_HOME; break;
-  case GDK_End: key = VK_END; break;
-  case GDK_Up: key = VK_UP; break;
-  case GDK_Down: key = VK_DOWN; break;
-  case GDK_Left: key = VK_LEFT; break;
-  case GDK_Right: key = VK_RIGHT; break;
-  case GDK_Page_Up: key = VK_PRIOR; break;
-  case GDK_Page_Down: key = VK_NEXT; break;
-  case GDK_Insert: key = VK_INSERT; break;
-  case GDK_Delete: key = VK_DELETE; break;
-  case GDK_Escape: key = VK_ESCAPE; break;
-  case GDK_BackSpace: key = VK_BACK; break;
-  case GDK_Return: key = VK_RETURN; break;
+  case GDK_Home: return VK_HOME;
+  case GDK_End: return VK_END;
+  case GDK_Up: return VK_UP;
+  case GDK_Down: return VK_DOWN;
+  case GDK_Left: return VK_LEFT;
+  case GDK_Right: return VK_RIGHT;
+  case GDK_Page_Up: return VK_PRIOR;
+  case GDK_Page_Down: return VK_NEXT;
+  case GDK_Insert: return VK_INSERT;
+  case GDK_Delete: return VK_DELETE;
+  case GDK_Escape: return VK_ESCAPE;
+  case GDK_BackSpace: return VK_BACK;
+  case GDK_Return: return VK_RETURN;
   case GDK_ISO_Left_Tab:
-  case GDK_Tab: key = VK_TAB; break;
+  case GDK_Tab: return VK_TAB;
+  case GDK_F1: return VK_F1;
+  case GDK_F2: return VK_F2;
+  case GDK_F3: return VK_F3;
+  case GDK_F4: return VK_F4;
+  case GDK_F5: return VK_F5;
+  case GDK_F6: return VK_F6;
+  case GDK_F7: return VK_F7;
+  case GDK_F8: return VK_F8;
+  case GDK_F9: return VK_F9;
+  case GDK_F10: return VK_F10;
+  case GDK_F11: return VK_F11;
+  case GDK_F12: return VK_F12;
 #else
-  case GDK_KEY_Home: key = VK_HOME; break;
-  case GDK_KEY_End: key = VK_END; break;
-  case GDK_KEY_Up: key = VK_UP; break;
-  case GDK_KEY_Down: key = VK_DOWN; break;
-  case GDK_KEY_Left: key = VK_LEFT; break;
-  case GDK_KEY_Right: key = VK_RIGHT; break;
-  case GDK_KEY_Page_Up: key = VK_PRIOR; break;
-  case GDK_KEY_Page_Down: key = VK_NEXT; break;
-  case GDK_KEY_Insert: key = VK_INSERT; break;
-  case GDK_KEY_Delete: key = VK_DELETE; break;
-  case GDK_KEY_Escape: key = VK_ESCAPE; break;
-  case GDK_KEY_BackSpace: key = VK_BACK; break;
-  case GDK_KEY_Return: key = VK_RETURN; break;
+  case GDK_KEY_Home: return VK_HOME;
+  case GDK_KEY_End: return VK_END;
+  case GDK_KEY_Up: return VK_UP;
+  case GDK_KEY_Down: return VK_DOWN;
+  case GDK_KEY_Left: return VK_LEFT;
+  case GDK_KEY_Right: return VK_RIGHT;
+  case GDK_KEY_Page_Up: return VK_PRIOR;
+  case GDK_KEY_Page_Down: return VK_NEXT;
+  case GDK_KEY_Insert: return VK_INSERT;
+  case GDK_KEY_Delete: return VK_DELETE;
+  case GDK_KEY_Escape: return VK_ESCAPE;
+  case GDK_KEY_BackSpace: return VK_BACK;
+  case GDK_KEY_Return: return VK_RETURN;
   case GDK_KEY_ISO_Left_Tab:
-  case GDK_KEY_Tab: key = VK_TAB; break;
+  case GDK_KEY_Tab: return VK_TAB;
+  case GDK_KEY_F1: return VK_F1;
+  case GDK_KEY_F2: return VK_F2;
+  case GDK_KEY_F3: return VK_F3;
+  case GDK_KEY_F4: return VK_F4;
+  case GDK_KEY_F5: return VK_F5;
+  case GDK_KEY_F6: return VK_F6;
+  case GDK_KEY_F7: return VK_F7;
+  case GDK_KEY_F8: return VK_F8;
+  case GDK_KEY_F9: return VK_F9;
+  case GDK_KEY_F10: return VK_F10;
+  case GDK_KEY_F11: return VK_F11;
+  case GDK_KEY_F12: return VK_F12;
 #endif
   }
-  return key;
+  return 0;
 }
 
 static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -373,16 +397,25 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           { // todo: pass through app-specific default processing before sending to child window
             GdkEventKey *k = (GdkEventKey *)evt;
             //printf("key%s: %d %s\n", evt->type == GDK_KEY_PRESS ? "down" : "up", k->keyval, k->string);
-            int modifiers = FVIRTKEY;
-            if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
+            int modifiers = 0;
             if (k->state&GDK_CONTROL_MASK) modifiers|=FCONTROL;
             if (k->state&GDK_MOD1_MASK) modifiers|=FALT;
+            if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
 
             int kv = swell_gdkConvertKey(k->keyval);
+            if (kv) 
+            {
+              modifiers |= FVIRTKEY;
+            }
+            else 
+            {
+              kv = k->keyval; // ASCII!
+            }
 
             HWND foc = GetFocus();
             if (foc && IsChild(hwnd,foc)) hwnd=foc;
-            MSG msg = { hwnd, evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP, kv, modifiers, };
+            MSG msg = { hwnd, evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP, 
+                              kv, modifiers, };
             if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)
               SendMessage(msg.hwnd, msg.message, msg.wParam, msg.lParam);
           }
@@ -1888,7 +1921,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
       {
         // todo: UTF-8, other filtering
       }
-      else
+      else if (!(lParam & FVIRTKEY))
       {
         char b[3]={(char)wParam,};
          
