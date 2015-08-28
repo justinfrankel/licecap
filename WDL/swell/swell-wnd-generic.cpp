@@ -159,21 +159,99 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 //  if (wantVis && isVis && wantfocus && hwnd && hwnd->m_oswindow) gdk_window_raise(hwnd->m_oswindow);
 }
 
+#ifdef SWELL_LICE_GDI
+class LICE_CairoBitmap : public LICE_IBitmap
+{
+  public:
+    LICE_CairoBitmap() 
+    {
+      m_fb = NULL; 
+      m_allocsize = m_width = m_height = m_span = 0;
+      m_surf = NULL;
+    }
+    virtual ~LICE_CairoBitmap() 
+    { 
+      if (m_surf) cairo_surface_destroy(m_surf);
+      free(m_fb);
+    }
+
+    // LICE_IBitmap interface
+    virtual LICE_pixel *getBits() 
+    { 
+      const UINT_PTR extra=LICE_MEMBITMAP_ALIGNAMT;
+      return (LICE_pixel *) (((UINT_PTR)m_fb + extra)&~extra);
+    }
+
+    virtual int getWidth() { return m_width; }
+    virtual int getHeight() { return m_height; }
+    virtual int getRowSpan() { return m_span; }
+    virtual bool resize(int w, int h)
+    {
+      if (w<0) w=0; 
+      if (h<0) h=0;
+      if (w == m_width && h == m_height) return false;
+
+      if (m_surf) cairo_surface_destroy(m_surf);
+      m_surf = NULL;
+
+      m_span = w ? cairo_format_stride_for_width(CAIRO_FORMAT_RGB24,w)/4 : 0;
+      const int sz = h * m_span * 4 + LICE_MEMBITMAP_ALIGNAMT;
+      if (!m_fb || m_allocsize < sz || sz < m_allocsize/4)
+      {
+        const int newalloc = m_allocsize<sz ? (sz*3)/2 : sz;
+        void *p = realloc(m_fb,newalloc);
+        if (!p) return false;
+
+        m_fb = (LICE_pixel *)p;
+        m_allocsize = newalloc;
+      }
+
+      m_width=w && h ? w :0;
+      m_height=w && h ? h : 0;
+      return true;
+    }
+    virtual INT_PTR Extended(int id, void* data) 
+    { 
+      if (id == 0xca140) 
+      {
+        if (data) 
+        {
+          // in case we want to release surface
+          return 0;
+        }
+
+        if (!m_surf) 
+          m_surf = cairo_image_surface_create_for_data((guchar*)getBits(), CAIRO_FORMAT_RGB24, 
+                                                       getWidth(),getHeight(), getRowSpan()*4);
+        return (INT_PTR)m_surf;
+      }
+      return 0; 
+    }
+
+private:
+  LICE_pixel *m_fb;
+  int m_width, m_height, m_span;
+  int m_allocsize;
+  cairo_surface_t *m_surf;
+};
+#endif
+
 void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 {
 #ifdef SWELL_LICE_GDI
   if (hwnd && hwnd->m_backingstore && hwnd->m_oswindow)
   {
-    LICE_SubBitmap tmpbm(hwnd->m_backingstore,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
+    LICE_IBitmap *bm = hwnd->m_backingstore;
+    LICE_SubBitmap tmpbm(bm,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
     cairo_t * crc = gdk_cairo_create (hwnd->m_oswindow);
-    cairo_surface_t *temp_surface = cairo_image_surface_create_for_data((guchar*)tmpbm.getBits(), CAIRO_FORMAT_RGB24, tmpbm.getWidth(),tmpbm.getHeight(), tmpbm.getRowSpan()*4);
+    cairo_surface_t *temp_surface = (cairo_surface_t*)bm->Extended(0xca140,NULL);
     cairo_reset_clip(crc);
     cairo_rectangle(crc, rect->left, rect->top, rect->right-rect->left, rect->bottom-rect->top);
     cairo_clip(crc);
-    cairo_set_source_surface(crc, temp_surface, rect->left, rect->top);
+    if (temp_surface) cairo_set_source_surface(crc, temp_surface, 0,0);
     cairo_paint(crc);
-    cairo_surface_destroy(temp_surface);
     cairo_destroy(crc);
+    if (temp_surface) bm->Extended(0xca140,temp_surface); // release
   }
 #endif
 }
@@ -345,8 +423,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             r.top=exp->area.y; 
             r.bottom=r.top+exp->area.height; 
             r.right=r.left+exp->area.width;
-            if (!hwnd->m_backingstore)
-              hwnd->m_backingstore = new LICE_MemBitmap;
+
+            if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_CairoBitmap;
+            // if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_MemBitmap;
 
             bool forceref = hwnd->m_backingstore->resize(cr.right-cr.left,cr.bottom-cr.top);
             if (forceref) r = cr;
@@ -358,14 +437,15 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int bmout_ypos, bool forceref);
               SWELL_internalLICEpaint(hwnd, &tmpbm, r.left, r.top, forceref);
               cairo_t *crc = gdk_cairo_create (exp->window);
-              cairo_surface_t *temp_surface = cairo_image_surface_create_for_data((guchar*)tmpbm.getBits(), CAIRO_FORMAT_RGB24, tmpbm.getWidth(),tmpbm.getHeight(), tmpbm.getRowSpan()*4);
+              LICE_IBitmap *bm = hwnd->m_backingstore;
+              cairo_surface_t *temp_surface = (cairo_surface_t*)bm->Extended(0xca140,NULL);
               cairo_reset_clip(crc);
               cairo_rectangle(crc, r.left, r.top, r.right-r.left, r.bottom-r.top);
               cairo_clip(crc);
-              cairo_set_source_surface(crc, temp_surface, r.left, r.top);
+              if (temp_surface) cairo_set_source_surface(crc, temp_surface, 0,0);
               cairo_paint(crc);
-              cairo_surface_destroy(temp_surface);
               cairo_destroy(crc);
+              if (temp_surface) bm->Extended(0xca140,temp_surface); // release
             }
 #endif
           }
