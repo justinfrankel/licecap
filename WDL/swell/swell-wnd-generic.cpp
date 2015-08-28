@@ -2271,6 +2271,7 @@ struct listViewState
 
   bool get_sel(int idx)
   {
+    if (!m_is_multisel) return idx>=0 && idx == m_selitem;
     if (m_owner_data_size<0)
     {
       SWELL_ListView_Row *p = m_data.Get(idx);
@@ -2283,7 +2284,12 @@ struct listViewState
   }
   void set_sel(int idx, bool v)
   {
-    if (m_owner_data_size<0)
+    if (!m_is_multisel) 
+    { 
+      if (v) m_selitem = idx;
+      else if (m_selitem == idx) m_selitem = -1;
+    }
+    else if (m_owner_data_size<0)
     {
       SWELL_ListView_Row *p = m_data.Get(idx);
       if (p) p->m_tmp = (v ? (p->m_tmp|1) : (p->m_tmp&~1));
@@ -2307,7 +2313,8 @@ struct listViewState
   }
   void clear_sel()
   {
-    if (m_owner_data_size<0)
+    if (!m_is_multisel) m_selitem = -1;
+    else if (m_owner_data_size<0)
     {
       int x;
       const int n=m_data.GetSize();
