@@ -167,6 +167,9 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
     LICE_SubBitmap tmpbm(hwnd->m_backingstore,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
     cairo_t * crc = gdk_cairo_create (hwnd->m_oswindow);
     cairo_surface_t *temp_surface = cairo_image_surface_create_for_data((guchar*)tmpbm.getBits(), CAIRO_FORMAT_RGB24, tmpbm.getWidth(),tmpbm.getHeight(), tmpbm.getRowSpan()*4);
+    cairo_reset_clip(crc);
+    cairo_rectangle(crc, rect->left, rect->top, rect->right-rect->left, rect->bottom-rect->top);
+    cairo_clip(crc);
     cairo_set_source_surface(crc, temp_surface, rect->left, rect->top);
     cairo_paint(crc);
     cairo_surface_destroy(temp_surface);
@@ -356,7 +359,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               SWELL_internalLICEpaint(hwnd, &tmpbm, r.left, r.top, forceref);
               cairo_t *crc = gdk_cairo_create (exp->window);
               cairo_surface_t *temp_surface = cairo_image_surface_create_for_data((guchar*)tmpbm.getBits(), CAIRO_FORMAT_RGB24, tmpbm.getWidth(),tmpbm.getHeight(), tmpbm.getRowSpan()*4);
-//              cairo_surface_t *sub_surface = cairo_surface_create_for_rectangle(hwnd->m_backingstore, 0, 0, cr.right, cr.bottom);
+              cairo_reset_clip(crc);
+              cairo_rectangle(crc, r.left, r.top, r.right-r.left, r.bottom-r.top);
+              cairo_clip(crc);
               cairo_set_source_surface(crc, temp_surface, r.left, r.top);
               cairo_paint(crc);
               cairo_surface_destroy(temp_surface);
