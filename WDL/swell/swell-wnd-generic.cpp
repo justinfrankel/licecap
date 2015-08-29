@@ -597,11 +597,16 @@ void swell_runOSevents()
 //    if (!loop) loop = g_main_loop_new(NULL,TRUE);
     gdk_window_process_all_updates();
 
-    GdkEvent *evt;
-    while (gdk_events_pending() && (evt = gdk_event_get()))
+#if SWELL_TARGET_GDK == 3
+    while (g_main_context_iteration(g_main_context_default(),FALSE))
+#endif
     {
-      swell_gdkEventHandler(evt,(gpointer)1);
-      gdk_event_free(evt);
+      GdkEvent *evt;
+      while (gdk_events_pending() && (evt = gdk_event_get()))
+      {
+        swell_gdkEventHandler(evt,(gpointer)1);
+        gdk_event_free(evt);
+      }
     }
   }
 }
