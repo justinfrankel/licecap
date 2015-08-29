@@ -609,7 +609,7 @@ struct HWND__
   HWND__ *m_children, *m_parent, *m_next, *m_prev;
   HWND__ *m_owner, *m_owned;
   RECT m_position;
-  int m_id;
+  UINT m_id;
   int m_style, m_exstyle;
   INT_PTR m_userdata;
   WNDPROC m_wndproc;

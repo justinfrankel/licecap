@@ -351,7 +351,7 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return -1;
   }
 
-  LRESULT htc;
+  LRESULT htc=0;
   if (msg != WM_MOUSEWHEEL && !GetCapture())
   {
     DWORD p=GetMessagePos(); 
@@ -1429,12 +1429,12 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
   BOOL rv=FALSE;
 
   // don't allow removing all global timers
-  if (timerid!=-1 || hwnd) 
+  if (timerid!=(UINT_PTR)-1 || hwnd) 
   {
     TimerInfoRec *rec = m_timer_list, *lrec=NULL;
     while (rec)
     {
-      if (rec->hwnd == hwnd && (timerid==-1 || rec->timerid == timerid))
+      if (rec->hwnd == hwnd && (timerid==(UINT_PTR)-1 || rec->timerid == timerid))
       {
         TimerInfoRec *nrec = rec->_next;
         
@@ -1445,7 +1445,7 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
         free(rec);
 
         rv=TRUE;
-        if (timerid!=-1) break;
+        if (timerid!=(UINT_PTR)-1) break;
         
         rec=nrec;
       }
@@ -2160,14 +2160,14 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           }
           else
           {
-            if (wParam > s->items.GetSize()) wParam=s->items.GetSize();
+            if (wParam > (WPARAM)s->items.GetSize()) wParam=(WPARAM)s->items.GetSize();
             s->items.Insert(wParam,new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
             return wParam;
           }
         return 0;
 
         case CB_DELETESTRING:
-          if (wParam >= s->items.GetSize()) return CB_ERR;
+          if (wParam >= (WPARAM)s->items.GetSize()) return CB_ERR;
           s->items.Delete(wParam,true);
         return s->items.GetSize();
 
@@ -2175,7 +2175,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         case CB_GETCURSEL: return s->selidx >=0 && s->selidx < s->items.GetSize() ? s->selidx : -1;
 
         case CB_GETLBTEXT: 
-          if (wParam < s->items.GetSize()) 
+          if (wParam < (WPARAM)s->items.GetSize()) 
           {
             if (lParam)
             {
@@ -2191,7 +2191,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           s->items.Empty(true);
         return 0;
         case CB_SETCURSEL:
-          if ((int) wParam == -1 || wParam >= s->items.GetSize())
+          if (wParam >= (WPARAM)s->items.GetSize())
           {
             if (s->selidx!=-1)
             {
@@ -2202,22 +2202,22 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           }
           else
           {
-            if (s->selidx != wParam)
+            if (s->selidx != (int)wParam)
             {
-              s->selidx=wParam;
+              s->selidx=(int)wParam;
               char *ptr=s->items.Get(wParam)->desc;
               SetWindowText(hwnd,ptr);
               InvalidateRect(hwnd,NULL,FALSE);
             }
           }
         case CB_GETITEMDATA:
-          if (wParam < s->items.GetSize()) 
+          if (wParam < (WPARAM)s->items.GetSize()) 
           {
             return s->items.Get(wParam)->parm;
           }
         return CB_ERR;
         case CB_SETITEMDATA:
-          if (wParam < s->items.GetSize()) 
+          if (wParam < (WPARAM)s->items.GetSize()) 
           {
             s->items.Get(wParam)->parm=lParam;
             return 0;
@@ -3216,7 +3216,7 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
       {
         int tag=0; // todo
         __rent=1;
-        NMLISTVIEW nm={{(HWND)h,tag,LVN_ITEMCHANGED},ipos,0,state,};
+        NMLISTVIEW nm={{(HWND)h,(unsigned short)tag,LVN_ITEMCHANGED},ipos,0,state,};
         SendMessage(GetParent(h),WM_NOTIFY,tag,(LPARAM)&nm);      
         __rent=0;
       }
