@@ -243,6 +243,10 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
   {
     LICE_IBitmap *bm = hwnd->m_backingstore;
     LICE_SubBitmap tmpbm(bm,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
+
+    GdkRectangle rrr={rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top};
+    gdk_window_begin_paint_rect(hwnd->m_oswindow, &rrr);
+
     cairo_t * crc = gdk_cairo_create (hwnd->m_oswindow);
     cairo_surface_t *temp_surface = (cairo_surface_t*)bm->Extended(0xca140,NULL);
     cairo_reset_clip(crc);
@@ -251,7 +255,11 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
     if (temp_surface) cairo_set_source_surface(crc, temp_surface, 0,0);
     cairo_paint(crc);
     cairo_destroy(crc);
+
+    gdk_window_end_paint(hwnd->m_oswindow);
+
     if (temp_surface) bm->Extended(0xca140,temp_surface); // release
+
   }
 #endif
 }
@@ -436,6 +444,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             {
               void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int bmout_ypos, bool forceref);
               SWELL_internalLICEpaint(hwnd, &tmpbm, r.left, r.top, forceref);
+
+              GdkRectangle rrr={r.left,r.top,r.right-r.left,r.bottom-r.top};
+              gdk_window_begin_paint_rect(exp->window, &rrr);
+
               cairo_t *crc = gdk_cairo_create (exp->window);
               LICE_IBitmap *bm = hwnd->m_backingstore;
               cairo_surface_t *temp_surface = (cairo_surface_t*)bm->Extended(0xca140,NULL);
@@ -446,6 +458,8 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               cairo_paint(crc);
               cairo_destroy(crc);
               if (temp_surface) bm->Extended(0xca140,temp_surface); // release
+
+              gdk_window_end_paint(exp->window);
             }
 #endif
           }
