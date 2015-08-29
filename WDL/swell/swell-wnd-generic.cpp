@@ -2427,7 +2427,7 @@ struct listViewState
 
   int m_owner_data_size; // -1 if m_data valid, otherwise size
   int m_last_row_height;
-  int m_selitem; // for single sel
+  int m_selitem; // for single sel, or used for focus for multisel
 
   WDL_TypedBuf<unsigned int> m_owner_multisel_state;
 
@@ -2525,6 +2525,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         {
           if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) lvs->clear_sel();
           lvs->set_sel(hit,true);
+          lvs->m_selitem = hit;
 
           if (hit >=0 && hit < lvs->GetNumItems()) 
           {
@@ -3128,12 +3129,18 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return -1;
-  if (flags&LVNI_SELECTED)
+  const int n = lvs->GetNumItems();
+  int x;
+  if (istart < 0) istart=-1;
+  for (x=istart+1; x < n; x ++) 
   {
-    const int n = lvs->GetNumItems();
-    int x;
-    for (x=istart+1; x < n; x ++) if (lvs->get_sel(x)) return x;
-    for (x=0;x<=istart; x++) if (lvs->get_sel(x)) return x;
+    if (flags&LVNI_SELECTED) if (lvs->get_sel(x)) return x;
+    if (flags&LVNI_FOCUSED) if (lvs->m_selitem==x) return x;
+  }
+  for (x=0;x<=istart; x++) 
+  {
+    if (flags&LVNI_SELECTED) if (lvs->get_sel(x)) return x;
+    if (flags&LVNI_FOCUSED) if (lvs->m_selitem==x) return x;
   }
   return -1;
 }
@@ -3186,7 +3193,10 @@ int ListView_GetItemState(HWND h, int ipos, UINT mask)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return 0;
-  return (lvs->get_sel(ipos) ? LVIS_SELECTED : 0 )& mask;
+  int ret  = 0;
+  if (mask & LVIS_SELECTED) ret |= (lvs->get_sel(ipos) ? LVIS_SELECTED : 0 );
+  if ((mask & LVIS_FOCUSED) && lvs->m_selitem == ipos) ret |= LVIS_FOCUSED;
+  return ret;
 }
 
 bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
@@ -3210,6 +3220,10 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
   }
 
   if (statemask & LVIS_SELECTED) lvs->set_sel(ipos,!!(state&LVIS_SELECTED));
+  if (statemask & LVIS_FOCUSED)
+  {
+    if (state&LVIS_FOCUSED) lvs->m_selitem = ipos;
+  }
 
   if (!_is_doing_all)
   {
