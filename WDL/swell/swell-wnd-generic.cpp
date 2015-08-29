@@ -38,6 +38,8 @@ int g_swell_want_nice_style = 1; //unused but here for compat
 
 HWND__ *SWELL_topwindows;
 
+static GdkEvent *s_cur_evt;
+
 
 static HWND s_captured_window;
 HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
@@ -147,7 +149,15 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             gdk_window_set_override_redirect(hwnd->m_oswindow,true);
           }
           else if (/*hwnd == DialogBoxIsActive() || */ !(hwnd->m_style&WS_THICKFRAME))
-            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG); // this is a better default behavior
+          {
+            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
+            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE));
+          }
+          else
+          {
+            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_NORMAL);
+            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
+          }
 
           gdk_window_show(hwnd->m_oswindow);
         }
@@ -383,6 +393,8 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
+  GdkEvent *oldEvt = s_cur_evt;
+  s_cur_evt = evt;
     {
       HWND hwnd = NULL;
       if (((GdkEventAny*)evt)->window) gdk_window_get_user_data(((GdkEventAny*)evt)->window,(gpointer*)&hwnd);
@@ -574,6 +586,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
       }
 
     }
+  s_cur_evt = oldEvt;
 }
 
 void swell_runOSevents()
@@ -4209,7 +4222,16 @@ void GetCursorPos(POINT *pt)
   pt->y=0;
 #ifdef SWELL_TARGET_GDK
   if (SWELL_gdk_active>0)
+  {
+#if SWELL_TARGET_GDK == 3
+    GdkDevice *dev=NULL;
+    if (s_cur_evt) dev = gdk_event_get_device(s_cur_evt);
+    if (!dev) dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default()));
+    if (dev) gdk_device_get_position(dev,NULL,&pt->x,&pt->y);
+#else
     gdk_display_get_pointer(gdk_display_get_default(),NULL,&pt->x,&pt->y,NULL);
+#endif
+  }
 #endif
 }
 
@@ -4221,7 +4243,14 @@ WORD GetAsyncKeyState(int key)
     GdkModifierType mod=(GdkModifierType)0;
     HWND h = GetFocus();
     while (h && !h->m_oswindow) h = h->m_parent;
+#if SWELL_TARGET_GDK == 3
+    GdkDevice *dev=NULL;
+    if (s_cur_evt) dev = gdk_event_get_device(s_cur_evt);
+    if (!dev) dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default()));
+    if (dev) gdk_window_get_device_position(h?  h->m_oswindow : gdk_get_default_root_window(),dev, NULL, NULL,&mod);
+#else
     gdk_window_get_pointer(h?  h->m_oswindow : gdk_get_default_root_window(),NULL,NULL,&mod);
+#endif
  
     if (key == VK_LBUTTON) return (mod&GDK_BUTTON1_MASK)?0x8000:0;
     if (key == VK_MBUTTON) return (mod&GDK_BUTTON2_MASK)?0x8000:0;
