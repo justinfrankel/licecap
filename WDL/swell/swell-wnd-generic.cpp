@@ -2069,8 +2069,12 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           RECT r; 
           GetClientRect(hwnd,&r); 
 
+          SetBkColor(ps.hdc,GetSysColor(COLOR_WINDOW));
+          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
+          if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
           SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
-          SetBkMode(ps.hdc,TRANSPARENT);
+          SetBkMode(ps.hdc,hbrush ? TRANSPARENT : OPAQUE);
+          if (hbrush) FillRect(ps.hdc,&r,hbrush);
           const char *buf = hwnd->m_title.Get();
           if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,((hwnd->m_style & SS_CENTER) ? DT_CENTER:0)|DT_VCENTER);
           EndPaint(hwnd,&ps);
