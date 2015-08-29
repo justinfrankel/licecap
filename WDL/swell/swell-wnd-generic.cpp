@@ -4229,14 +4229,14 @@ void GetCursorPos(POINT *pt)
 #ifdef SWELL_TARGET_GDK
   if (SWELL_gdk_active>0)
   {
-#if SWELL_TARGET_GDK == 3
-    GdkDevice *dev=NULL;
-    if (s_cur_evt) dev = gdk_event_get_device(s_cur_evt);
-    if (!dev) dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default()));
-    if (dev) gdk_device_get_position(dev,NULL,&pt->x,&pt->y);
-#else
+//#if SWELL_TARGET_GDK == 3
+//    GdkDevice *dev=NULL;
+//    if (s_cur_evt) dev = gdk_event_get_device(s_cur_evt);
+//    if (!dev) dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default()));
+//    if (dev) gdk_device_get_position(dev,NULL,&pt->x,&pt->y);
+//#else
     gdk_display_get_pointer(gdk_display_get_default(),NULL,&pt->x,&pt->y,NULL);
-#endif
+//#endif
   }
 #endif
 }
@@ -4249,14 +4249,14 @@ WORD GetAsyncKeyState(int key)
     GdkModifierType mod=(GdkModifierType)0;
     HWND h = GetFocus();
     while (h && !h->m_oswindow) h = h->m_parent;
-#if SWELL_TARGET_GDK == 3
-    GdkDevice *dev=NULL;
-    if (s_cur_evt) dev = gdk_event_get_device(s_cur_evt);
-    if (!dev) dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default()));
-    if (dev) gdk_window_get_device_position(h?  h->m_oswindow : gdk_get_default_root_window(),dev, NULL, NULL,&mod);
-#else
+//#if SWELL_TARGET_GDK == 3
+//    GdkDevice *dev=NULL;
+//    if (s_cur_evt) dev = gdk_event_get_device(s_cur_evt);
+//    if (!dev) dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default()));
+//    if (dev) gdk_window_get_device_position(h?  h->m_oswindow : gdk_get_default_root_window(),dev, NULL, NULL,&mod);
+//#else
     gdk_window_get_pointer(h?  h->m_oswindow : gdk_get_default_root_window(),NULL,NULL,&mod);
-#endif
+//#endif
  
     if (key == VK_LBUTTON) return (mod&GDK_BUTTON1_MASK)?0x8000:0;
     if (key == VK_MBUTTON) return (mod&GDK_BUTTON2_MASK)?0x8000:0;
