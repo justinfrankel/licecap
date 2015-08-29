@@ -38,15 +38,13 @@ int g_swell_want_nice_style = 1; //unused but here for compat
 
 HWND__ *SWELL_topwindows;
 
-static GdkEvent *s_cur_evt;
-
-
 static HWND s_captured_window;
 HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
 static DWORD s_lastMessagePos;
 
 #ifdef SWELL_TARGET_GDK
 
+static GdkEvent *s_cur_evt;
 static GdkWindow *SWELL_g_focus_oswindow;
 static int SWELL_gdk_active;
 
@@ -1021,7 +1019,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   
   int x=p->x,y=p->y;
 
-  HWND tmp=hwnd, ltmp=0;
+  HWND tmp=hwnd;
   while (tmp 
 #ifdef SWELL_TARGET_GDK
             && !tmp->m_oswindow
@@ -1065,7 +1063,7 @@ void ClientToScreen(HWND hwnd, POINT *p)
   
   int x=p->x,y=p->y;
 
-  HWND tmp=hwnd,ltmp=0;
+  HWND tmp=hwnd;
   while (tmp 
 #ifdef SWELL_TARGET_GDK
          && !tmp->m_oswindow
@@ -1352,7 +1350,6 @@ void SWELL_RunMessageLoop()
 
   DWORD now = GetTickCount();
   WDL_MutexLock lock(&m_timermutex);
-  int x;
   TimerInfoRec *rec = m_timer_list;
   while (rec)
   {
@@ -2424,6 +2421,11 @@ struct listViewState
   
   int GetNumItems() const { return m_owner_data_size>=0 ? m_owner_data_size : m_data.GetSize(); }
   bool IsOwnerData() const { return m_owner_data_size>=0; }
+  bool HasColumnHeaders(HWND hwnd) const
+  { 
+     if (m_is_listbox || !m_cols.GetSize()) return false;
+     return !(hwnd->m_style & LVS_NOCOLUMNHEADER) && (hwnd->m_style & LVS_REPORT);
+  }
 
   int m_owner_data_size; // -1 if m_data valid, otherwise size
   int m_last_row_height;
@@ -2499,7 +2501,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       SetCapture(hwnd);
       if (lvs && lvs->m_last_row_height>0)
       {
-        const int ypos = GET_Y_LPARAM(lParam) - (lvs->m_cols.GetSize() ? lvs->m_last_row_height + 2 : 0);
+        const int ypos = GET_Y_LPARAM(lParam) - (lvs->HasColumnHeaders(hwnd) ? lvs->m_last_row_height + 2 : 0);
         const int hit = ypos >= 0 ? (ypos / lvs->m_last_row_height) : -1;
         if (hit < 0)
         {
@@ -2577,7 +2579,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             const int ncols = lvs->m_cols.GetSize();
             const int nc = wdl_max(ncols,1);
             SWELL_ListView_Col *cols = lvs->m_cols.Get();
-            if (ncols > 0)
+            if (lvs->HasColumnHeaders(hwnd))
             {
               HBRUSH br = CreateSolidBrush(RGB(192,192,192));
               int x,xpos=0;
@@ -2687,8 +2689,8 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       if (lvs && !lvs->IsOwnerData())
       {
         int idx =  (int) wParam;
-        if (idx<0 || idx>lvs->m_data.GetSize()) return LB_ERR;
-        lvs->m_data.Delete(idx);
+        if (idx<0 || idx>=lvs->m_data.GetSize()) return LB_ERR;
+        lvs->m_data.Delete(idx,true);
         InvalidateRect(hwnd,NULL,FALSE);
         return lvs->m_data.GetSize();
       }
@@ -2817,7 +2819,7 @@ HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
 {
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(styles&SWELL_NOT_WS_VISIBLE), listViewWindowProc);
-  hwnd->m_style |= WS_CHILD;
+  hwnd->m_style = WS_CHILD;
   hwnd->m_classname = "ListBox";
   hwnd->m_private_data = (INT_PTR) new listViewState(false, !!(styles & LBS_EXTENDEDSEL), true);
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
@@ -2913,7 +2915,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), listViewWindowProc);
-    hwnd->m_style |= WS_CHILD;
+    hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "SysListView32";
     if (!stricmp(classname, "SysListView32"))
       hwnd->m_private_data = (INT_PTR) new listViewState(!!(style & LVS_OWNERDATA), !(style & LVS_SINGLESEL), false);
@@ -3148,23 +3150,31 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
 bool ListView_SetItem(HWND h, LVITEM *item)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
-  if (!lvs || lvs->IsOwnerData() || !item) return false;
-  SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
-  if (!row) return false;
-  while (row->m_vals.GetSize()<=item->iSubItem) row->m_vals.Add(NULL);
-  if (item->mask&LVIF_TEXT) 
+  if (!lvs || !item) return false;
+
+  const bool ownerData = lvs->IsOwnerData();
+  if (!ownerData)
   {
-    free(row->m_vals.Get(item->iSubItem));
-    row->m_vals.Set(item->iSubItem,item->pszText?strdup(item->pszText):NULL);
+    SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
+    if (!row) return false;
+    while (row->m_vals.GetSize()<=item->iSubItem) row->m_vals.Add(NULL);
+    if (item->mask&LVIF_TEXT) 
+    {
+      free(row->m_vals.Get(item->iSubItem));
+      row->m_vals.Set(item->iSubItem,item->pszText?strdup(item->pszText):NULL);
+    }
+    if (item->mask & LVIF_PARAM) 
+    {
+      row->m_param = item->lParam;
+    }
   }
-  if (item->mask & LVIF_PARAM) 
+  else 
   {
-    row->m_param = item->lParam;
+    if (item->iItem < 0 || item->iItem >= lvs->GetNumItems()) return false;
   }
   if (item->mask & LVIF_STATE)
   {
-    if (item->state & LVIS_SELECTED) row->m_tmp |= 1;
-    else row->m_tmp &= ~1;
+    ListView_SetItemState(h,item->iItem,item->state,item->stateMask);
   }
 
   InvalidateRect(h,NULL,FALSE);
@@ -3175,17 +3185,28 @@ bool ListView_SetItem(HWND h, LVITEM *item)
 bool ListView_GetItem(HWND h, LVITEM *item)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
-  if (!lvs || lvs->IsOwnerData() || !item) return false;
-  SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
-  if (!row) return false;
-  if ((item->mask&LVIF_TEXT)&&item->pszText && item->cchTextMax > 0) 
+  if (!lvs || !item) return false;
+  if (!lvs->IsOwnerData())
   {
-    const char *v=row->m_vals.Get(item->iSubItem);
-    lstrcpyn_safe(item->pszText, v?v:"",item->cchTextMax);
+    SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
+    if (!row) return false;
+    if ((item->mask&LVIF_TEXT)&&item->pszText && item->cchTextMax > 0) 
+    {
+      const char *v=row->m_vals.Get(item->iSubItem);
+      lstrcpyn_safe(item->pszText, v?v:"",item->cchTextMax);
+    }
+    if (item->mask & LVIF_PARAM) item->lParam = row->m_param;
   }
-  if (item->mask & LVIF_PARAM) item->lParam = row->m_param;
-  if (item->mask & LVIF_STATE) item->state = (row->m_tmp&1) ? LVIS_SELECTED : 0;
-  item->state=0;
+  else 
+  {
+    if (item->iItem < 0 || item->iItem >= lvs->GetNumItems()) return false;
+  }
+
+  if (item->mask & LVIF_STATE) 
+  {
+    item->state = lvs->get_sel(item->iItem) ? LVIS_SELECTED : 0;
+    if (lvs->m_selitem == item->iItem) item->state |= LVIS_FOCUSED;
+  }
 
   return true;
 }
@@ -3227,20 +3248,15 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 
   if (!_is_doing_all)
   {
-    if (0) // didsel)
+    static int __rent;
+    if (!__rent)
     {
-      static int __rent;
-      if (!__rent)
-      {
-        int tag=0; // todo
-        __rent=1;
-        NMLISTVIEW nm={{(HWND)h,(unsigned short)tag,LVN_ITEMCHANGED},ipos,0,state,};
-        SendMessage(GetParent(h),WM_NOTIFY,tag,(LPARAM)&nm);      
-        __rent=0;
-      }
+      __rent++;
+      NMLISTVIEW nm={{(HWND)h,(unsigned short)h->m_id,LVN_ITEMCHANGED},ipos,0,state,};
+      SendMessage(GetParent(h),WM_NOTIFY,h->m_id,(LPARAM)&nm);      
+      __rent--;
     }
-    if (doref)
-      ListView_RedrawItems(h,ipos,ipos);
+    if (doref) ListView_RedrawItems(h,ipos,ipos);
   }
   return true;
 }
@@ -3294,21 +3310,83 @@ int ListView_GetSelectionMark(HWND h)
 }
 int SWELL_GetListViewHeaderHeight(HWND h)
 {
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->HasColumnHeaders(h)) return 0;
+  return lvs->m_last_row_height;
 }
 
-void ListView_SetColumnWidth(HWND h, int colpos, int wid)
+void ListView_SetColumnWidth(HWND h, int pos, int wid)
 {
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return;
+  SWELL_ListView_Col *col = pos>=0&&pos < lvs->m_cols.GetSize() ? lvs->m_cols.Get()+pos : NULL;
+  if (col) 
+  {
+    col->xwid = wid;
+    InvalidateRect(h,NULL,FALSE);
+  }
 }
 
 int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
 {
-  if (!h) return -1;
-  return -1;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !pinf) return -1;
+
+  pinf->flags=0;
+  pinf->iItem=-1;
+
+  int x=pinf->pt.x;
+  int y=pinf->pt.y;
+
+  RECT r;
+  GetClientRect(h,&r);
+
+  if (x < 0) pinf->flags |= LVHT_TOLEFT;
+  if (x >= r.right) pinf->flags |= LVHT_TORIGHT;
+  if (y < 0) pinf->flags |= LVHT_ABOVE;
+  if (y >= r.bottom) pinf->flags |= LVHT_BELOW;
+
+  if (!pinf->flags && lvs->m_last_row_height)
+  {
+    const int ypos = y - (lvs->HasColumnHeaders(h) ? lvs->m_last_row_height + 2 : 0);
+    const int hit = ypos >= 0 ? (ypos / lvs->m_last_row_height) : -1;
+    if (hit < 0) pinf->flags |= LVHT_ABOVE;
+    pinf->iItem=hit;
+    if (pinf->iItem >= 0)
+    {
+      if (0) //tv->m_status_imagelist && pt.x <= [tv rowHeight])
+      {
+        pinf->flags=LVHT_ONITEMSTATEICON;
+      }
+      else 
+      {
+        pinf->flags=LVHT_ONITEMLABEL;
+      }
+    }
+    else 
+    {
+      pinf->flags=LVHT_NOWHERE;
+    }
+  }
+
+  return pinf->iItem;
 }
 int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
 {
-  return -1;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !pinf) return -1;
+
+  const int row = ListView_HitTest(h, pinf);
+  int x,xpos=0,idx=0;
+  const int n=lvs->m_cols.GetSize();
+  for (x=0;x<n;x++)
+  {
+    const int xwid = lvs->m_cols.Get()[x].xwid;
+    if (pinf->pt.x >= xpos && pinf->pt.x < xpos+xwid) { idx = x; break; }
+    xpos += xwid;
+  }
+  pinf->iSubItem = idx;
+  return row;
 }
 
 void ListView_SetItemCount(HWND h, int cnt)
