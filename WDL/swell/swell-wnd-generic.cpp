@@ -24,6 +24,8 @@
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
+
+#define SWELL_INTERNAL_HTREEITEM_IMPL
 #include "swell-internal.h"
 
 #include <math.h>
@@ -2812,6 +2814,162 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+struct treeViewState 
+{
+  treeViewState() 
+  { 
+    m_sel=NULL;
+    m_last_row_height=0;
+  }
+  ~treeViewState() 
+  {
+    m_items.Empty(true);
+  }
+  bool findItem(HTREEITEM item, HTREEITEM *parOut, int *idxOut)
+  {
+    int x;
+    const int n=m_items.GetSize();
+    for (x=0; x < n; x ++)
+    {
+      HTREEITEM a = m_items.Get(x);
+      if (a == item) 
+      {
+        if (parOut) *parOut = NULL;
+        if (idxOut) *idxOut = x;
+        return true;
+      }
+      if (a && a->FindItem(item,parOut,idxOut)) return true;
+    }
+
+    return false;
+  }
+
+  void doDrawItem(HTREEITEM item, HDC hdc, RECT *rect) // draws any subitems too, updates rect->top
+  {
+#ifdef SWELL_LICE_GDI
+    if (!item) return;
+
+    const int ob = rect->bottom;
+    rect->bottom = rect->top + m_last_row_height;
+    if (rect->right > rect->left)
+    {
+      if (item == m_sel) 
+      {
+        HBRUSH br=CreateSolidBrush(RGB(0,0,255));
+        FillRect(hdc,rect,br);
+        DeleteObject(br);
+      }
+
+      DrawText(hdc,item->m_value ? item->m_value : "",-1,rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+    }
+    rect->top = rect->bottom;
+    rect->bottom = ob;
+
+    if ((item->m_state & TVIS_EXPANDED) && item->m_haschildren && item->m_children.GetSize())
+    {
+      int x;
+      const int n = item->m_children.GetSize();
+      for (x=0;x<n && rect->top < rect->bottom;x++)
+      {
+        rect->left += m_last_row_height;
+        doDrawItem(item->m_children.Get(x),hdc,rect);
+        rect->left -= m_last_row_height;
+      }
+ 
+    } 
+#endif
+  }
+  HTREEITEM hitTestItem(HTREEITEM item, int *y) 
+  {
+    *y -= m_last_row_height;
+    if (*y < 0) return item;
+    if ((item->m_state & TVIS_EXPANDED) && item->m_haschildren && item->m_children.GetSize())
+    {
+      int x;
+      const int n = item->m_children.GetSize();
+      for (x=0;x<n;x++)
+      {
+        HTREEITEM t=hitTestItem(item->m_children.Get(x),y);
+        if (t) return t;
+      }
+    } 
+    return NULL;
+  }
+
+  WDL_PtrList<HTREEITEM__> m_items;
+  HTREEITEM m_sel;
+  int m_last_row_height;
+};
+
+static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  treeViewState *tvs = (treeViewState *)hwnd->m_private_data;
+  switch (msg)
+  {
+    case WM_LBUTTONDOWN:
+      if (tvs && tvs->m_last_row_height) 
+      {
+        int x;
+        const int n = tvs->m_items.GetSize();
+        int y = GET_Y_LPARAM(lParam);
+        for (x = 0; x < n; x ++)
+        {
+          HTREEITEM hit = tvs->hitTestItem(tvs->m_items.Get(x),&y);
+          if (hit) 
+          {
+            if (tvs->m_sel != hit)
+            {
+              tvs->m_sel = hit;
+              InvalidateRect(hwnd,NULL,FALSE);
+              NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+            }
+            break;
+          }
+        }
+      }
+    return 0;
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+          HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+          FillRect(ps.hdc,&r,br);
+          DeleteObject(br);
+          if (tvs)
+          {
+            SetTextColor(ps.hdc,RGB(0,0,0));
+
+            TEXTMETRIC tm; 
+            GetTextMetrics(ps.hdc,&tm);
+            const int row_height = tm.tmHeight;
+            tvs->m_last_row_height = row_height;
+
+            SetBkMode(ps.hdc,TRANSPARENT);
+
+            int x;
+            const int n = tvs->m_items.GetSize();
+            for (x = 0; x < n && r.top < r.bottom; x ++)
+            {
+              tvs->doDrawItem(tvs->m_items.Get(x),ps.hdc,&r);
+            }
+          }
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+    case WM_DESTROY:
+      hwnd->m_private_data = 0;
+      delete tvs;
+    return 0;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 
 
 
@@ -2928,9 +3086,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysTreeView32"))
   {
     RECT tr=MakeCoords(x,y,w,h,false);
-    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE));
+    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), treeViewWindowProc);
     hwnd->m_style |= WS_CHILD;
     hwnd->m_classname = "SysTreeView32";
+    hwnd->m_private_data = (INT_PTR) new treeViewState;
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
   }
@@ -4107,54 +4266,157 @@ HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title
 
 HTREEITEM TreeView_InsertItem(HWND hwnd, TV_INSERTSTRUCT *ins)
 {
-  if (!hwnd || !ins) return 0;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs || !ins) return NULL;
+
+  HTREEITEM__ *par=NULL;
+  int inspos=0;
   
-  return NULL;
+  if (ins->hParent && ins->hParent != TVI_ROOT && ins->hParent != TVI_FIRST && ins->hParent != TVI_LAST && ins->hParent != TVI_SORT)
+  {
+    if (tvs->findItem(ins->hParent,&par,&inspos))
+    {
+      par = ins->hParent; 
+    }
+    else return 0;
+  }
+  
+  if (ins->hInsertAfter == TVI_FIRST) inspos=0;
+  else if (ins->hInsertAfter == TVI_LAST || ins->hInsertAfter == TVI_SORT || !ins->hInsertAfter) inspos=par ? par->m_children.GetSize() : tvs->m_items.GetSize();
+  else inspos = par ? par->m_children.Find(ins->hInsertAfter)+1 : tvs->m_items.Find(ins->hInsertAfter)+1;
+  
+  HTREEITEM__ *item=new HTREEITEM__;
+  if (ins->item.mask & TVIF_CHILDREN) item->m_haschildren = !!ins->item.cChildren;
+  if (ins->item.mask & TVIF_PARAM) item->m_param = ins->item.lParam;
+  if (ins->item.mask & TVIF_TEXT) item->m_value = strdup(ins->item.pszText);
+  if (!par)
+  {
+    tvs->m_items.Insert(inspos,item);
+  }
+  else par->m_children.Insert(inspos,item);
+  
+  InvalidateRect(hwnd,NULL,FALSE);
+  return item;
 }
 
 BOOL TreeView_Expand(HWND hwnd, HTREEITEM item, UINT flag)
 {
-  if (!hwnd || !item) return false;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs || !tvs->findItem(item,NULL,NULL)) return FALSE;
+ 
+  const int os = item->m_state;
+  if (flag == TVE_EXPAND) item->m_state |= TVIS_EXPANDED;
+  else if (flag == TVE_COLLAPSE) item->m_state &= ~TVIS_EXPANDED;
+  else if (flag == TVE_TOGGLE) item->m_state ^= TVIS_EXPANDED;
   
+  if (item->m_state != os) InvalidateRect(hwnd,NULL,FALSE);
   return TRUE;
-  
 }
 
 HTREEITEM TreeView_GetSelection(HWND hwnd)
 { 
-  if (!hwnd) return NULL;
-  
-  return NULL;
-  
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs || !tvs->m_sel || !tvs->findItem(tvs->m_sel,NULL,NULL)) return NULL;
+  return tvs->m_sel;
 }
 
 void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
 {
-  if (!hwnd) return;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs) return;
+  HTREEITEM par=NULL;
+  int idx=0;
+  if (!tvs->findItem(item,&par,&idx)) return;
+
+  if (tvs->m_sel && (item == tvs->m_sel || item->FindItem(tvs->m_sel,NULL,NULL))) tvs->m_sel=NULL;
+
+  if (par) par->m_children.Delete(idx,true);
+  else tvs->m_items.Delete(idx,true);
+  InvalidateRect(hwnd,NULL,FALSE);
 }
 
 void TreeView_DeleteAllItems(HWND hwnd)
 {
-  if (!hwnd) return;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs) return;
+  tvs->m_items.Empty(true);
+  tvs->m_sel=NULL;
+  InvalidateRect(hwnd,NULL,FALSE);
 }
 
 void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
-  if (!hwnd) return;
-  
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs) return;
+
+  if (tvs->m_sel == item || (item && !tvs->findItem(item,NULL,NULL))) return;
+
+  tvs->m_sel = item;
+
+  static int __rent;
+  if (!__rent)
+  {
+    __rent++;
+    NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
+    SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+    __rent--;
+  }
+  InvalidateRect(hwnd,NULL,FALSE);
 }
 
 BOOL TreeView_GetItem(HWND hwnd, LPTVITEM pitem)
 {
-  if (!hwnd || !pitem || !(pitem->mask & TVIF_HANDLE) || !(pitem->hItem)) return FALSE;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs || !pitem || !(pitem->mask & TVIF_HANDLE) || !(pitem->hItem)) return FALSE;
+  
+  HTREEITEM ti = pitem->hItem;
+  pitem->cChildren = ti->m_haschildren ? 1:0;
+  pitem->lParam = ti->m_param;
+  if ((pitem->mask&TVIF_TEXT)&&pitem->pszText&&pitem->cchTextMax>0)
+  {
+    lstrcpyn_safe(pitem->pszText,ti->m_value?ti->m_value:"",pitem->cchTextMax);
+  }
+  pitem->state=(ti == tvs->m_sel ? TVIS_SELECTED : 0) | (ti->m_state & TVIS_EXPANDED);
   
   return TRUE;
 }
 
 BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
 {
-  if (!hwnd || !pitem || !(pitem->mask & TVIF_HANDLE) || !(pitem->hItem)) return FALSE;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs || !pitem || !(pitem->mask & TVIF_HANDLE) || !(pitem->hItem)) return FALSE;
+
+  if (!tvs->findItem(pitem->hItem,NULL,NULL)) return FALSE;
   
+  HTREEITEM__ *ti = (HTREEITEM__*)pitem->hItem;
+  
+  if (pitem->mask & TVIF_CHILDREN) ti->m_haschildren = pitem->cChildren?1:0;
+  if (pitem->mask & TVIF_PARAM)  ti->m_param =  pitem->lParam;
+  
+  if ((pitem->mask&TVIF_TEXT)&&pitem->pszText)
+  {
+    free(ti->m_value);
+    ti->m_value=strdup(pitem->pszText);
+    InvalidateRect(hwnd, 0, FALSE);
+  }
+ 
+  ti->m_state = (ti->m_state & ~pitem->stateMask) | (pitem->state & pitem->stateMask &~ TVIS_SELECTED);
+
+  if (pitem->stateMask & pitem->state & TVIS_SELECTED)
+  {
+    tvs->m_sel = ti;
+    static int __rent;
+    if (!__rent)
+    {
+      __rent++;
+      NMTREEVIEW nm={{hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
+      SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+      __rent--;
+    }
+  }
+
+  InvalidateRect(hwnd,NULL,FALSE);
+    
   return TRUE;
 }
 
@@ -4167,25 +4429,34 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
 
 HTREEITEM TreeView_GetRoot(HWND hwnd)
 {
-  if (!hwnd) return NULL;
-  return NULL;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs) return NULL;
+  return tvs->m_items.Get(0);
 }
 
 HTREEITEM TreeView_GetChild(HWND hwnd, HTREEITEM item)
 {
-  if (!hwnd) return NULL;
-  return NULL;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs) return NULL;
+  return item && item != TVI_ROOT ? item->m_children.Get(0) : tvs->m_items.Get(0);
 }
+
 HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
 {
-  if (!hwnd) return NULL;
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
   
-  return NULL;
+  HTREEITEM par=NULL;
+  int idx=0;
+  if (!tvs || !tvs->findItem(item,&par,&idx)) return NULL;
+
+  if (par) return par->m_children.Get(idx+1);
+  return tvs->m_items.Get(idx+1);
 }
 BOOL TreeView_SetIndent(HWND hwnd, int indent)
 {
   return FALSE;
 }
+
 void TreeView_SetBkColor(HWND hwnd, int color)
 {
 }

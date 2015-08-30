@@ -34,6 +34,8 @@
 #include "../wdlcstring.h"
 
 #include "swell-dlggen.h"
+
+#define SWELL_INTERNAL_HTREEITEM_IMPL
 #include "swell-internal.h"
 
 static bool SWELL_NeedModernListViewHacks()
@@ -159,38 +161,6 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 	return 0;
 }
 
-
-HTREEITEM__::HTREEITEM__()
-{
-  m_param=0;
-  m_value=0;
-  m_haschildren=false;
-  m_dh = [[SWELL_DataHold alloc] initWithVal:this];
-}
-HTREEITEM__::~HTREEITEM__()
-{
-  free(m_value);
-  m_children.Empty(true);
-  [m_dh release];
-}
-
-
-bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
-{
-  int a=m_children.Find((HTREEITEM__*)it);
-  if (a>=0)
-  {
-    *parOut=this;
-    *idxOut=a;
-    return true;
-  }
-  int x;
-  for (x = 0; x < m_children.GetSize(); x ++)
-  {
-    if (m_children.Get(x)->FindItem(it,parOut,idxOut)) return true;
-  }
-  return false;
-}
 
 @implementation SWELL_TabView
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL
