@@ -5718,6 +5718,7 @@ HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
     {
       return par->m_children.Get(idx+1);
     }    
+    if (tv->m_items) return tv->m_items->Get(idx+1);
   }
   return 0;
 }
