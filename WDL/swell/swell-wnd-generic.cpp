@@ -909,12 +909,15 @@ bool IsWindowEnabled(HWND hwnd)
 void EnableWindow(HWND hwnd, int enable)
 {
   if (!hwnd) return;
+  if (!!hwnd->m_enabled == !!enable) return;
+
   hwnd->m_enabled=!!enable;
 #ifdef SWELL_TARGET_GDK
   if (hwnd->m_oswindow) gdk_window_set_accept_focus(hwnd->m_oswindow,!!enable);
 #endif
 
   if (!enable && SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd = 0;
+  InvalidateRect(hwnd,NULL,FALSE);
 }
 
 
@@ -1798,14 +1801,14 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           GetClientRect(hwnd,&r); 
           bool pressed = GetCapture()==hwnd;
 
-          SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+          SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT): RGB(128,128,128));
           SetBkMode(ps.hdc,TRANSPARENT);
 
           int f=DT_VCENTER;
           int sf = (hwnd->m_style & 0xf);
           if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
           {
-            const int chksz = 16;
+            const int chksz = 12;
             RECT tr={r.left,(r.top+r.bottom)/2-chksz/2,r.left+chksz};
             tr.bottom = tr.top+chksz;
 
@@ -2072,6 +2075,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           SetTextColor(ps.hdc,RGB(0,0,0)); // todo edit colors
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title.Get();
+          r.left+=2; r.right-=2;
           if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
           // todo: cursor drawing
           EndPaint(hwnd,&ps);
@@ -2112,6 +2116,12 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     case WM_SETTEXT:
        InvalidateRect(hwnd,NULL,TRUE);
     break;
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
+       if (hwnd->m_style & SS_NOTIFY)
+         SendMessage(GetParent(hwnd),WM_COMMAND,
+              ((msg==WM_LBUTTONDOWN?STN_CLICKED:STN_DBLCLK)<<16)|(hwnd->m_id&0xffff),0);
+    return 1;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -2327,7 +2337,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           GetClientRect(hwnd,&r); 
           bool pressed = GetCapture()==hwnd;
 
-          SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+          SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT): RGB(128,128,128));
           SetBkMode(ps.hdc,TRANSPARENT);
 
           int f=DT_VCENTER;
@@ -2379,6 +2389,8 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           char buf[512];
           buf[0]=0;
           GetWindowText(hwnd,buf,sizeof(buf));
+          r.left+=3;
+          r.right-=3;
           if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
 
           EndPaint(hwnd,&ps);
@@ -2424,7 +2436,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 {  
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),editWindowProc);
-  hwnd->m_style |= WS_CHILD;
+  hwnd->m_style = WS_CHILD | (flags & ~SWELL_NOT_WS_VISIBLE);
   hwnd->m_classname = "Edit";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   if (m_doautoright) UpdateAutoCoords(tr);
@@ -2607,7 +2619,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           HBRUSH br = CreateSolidBrush(RGB(255,255,255));
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
-          br=CreateSolidBrush(RGB(0,0,255));
+          br=CreateSolidBrush(RGB(128,128,255));
           if (lvs) 
           {
             const bool owner_data = lvs->IsOwnerData();
@@ -2896,7 +2908,7 @@ struct treeViewState
     {
       if (item == m_sel) 
       {
-        HBRUSH br=CreateSolidBrush(RGB(0,0,255));
+        HBRUSH br=CreateSolidBrush(RGB(128,128,255));
         FillRect(hdc,rect,br);
         DeleteObject(br);
       }
@@ -3104,7 +3116,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE));
-    hwnd->m_style |= WS_CHILD;
+    hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "SysTabControl32";
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); 
@@ -3128,7 +3140,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), treeViewWindowProc);
-    hwnd->m_style |= WS_CHILD;
+    hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "SysTreeView32";
     hwnd->m_private_data = (INT_PTR) new treeViewState;
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
@@ -3138,7 +3150,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE));
-    hwnd->m_style |= WS_CHILD;
+    hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "msctls_progress32";
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
@@ -3151,7 +3163,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE),labelWindowProc);
-    hwnd->m_style |= WS_CHILD;
+    hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "static";
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     if (m_doautoright) UpdateAutoCoords(tr);
@@ -3168,7 +3180,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,true);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE));
-    hwnd->m_style |= WS_CHILD;
+    hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = !stricmp(classname,"REAPERhfader") ? "REAPERhfader" : "msctls_trackbar32";
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
@@ -3178,7 +3190,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
 
 HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 {
-  if (h>18)h=18;
+  if (h>13)h=13;
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),comboWindowProc);
   hwnd->m_private_data = (INT_PTR) new __SWELL_ComboBoxInternalState;
@@ -3193,7 +3205,7 @@ HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, i
 {
   RECT tr=MakeCoords(x,y,w,h,false);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,name, !(style&SWELL_NOT_WS_VISIBLE),groupWindowProc);
-  hwnd->m_style |= WS_CHILD;
+  hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
   hwnd->m_classname = "groupbox";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); 

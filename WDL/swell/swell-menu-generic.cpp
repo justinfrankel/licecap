@@ -332,7 +332,7 @@ static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  const int itemheight = 12, lcol=12, rcol=12, mcol=10;
+  const int itemheight = 12, lcol=12, rcol=12, mcol=10, top_margin=4;
   switch (uMsg)
   {
     case WM_CREATE:
@@ -345,7 +345,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HDC hdc = GetDC(hwnd);
         HMENU__ *menu = (HMENU__*)lParam;
-        int ht = menu->items.GetSize()*itemheight, wid=100,wid2=0;
+        int ht = menu->items.GetSize()*itemheight + top_margin, wid=100,wid2=0;
         int xpos=m_trackingPt.x;
         int ypos=m_trackingPt.y;
         int x;
@@ -368,7 +368,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         }
         wid+=lcol+rcol + (wid2?wid2+mcol:0);
         ReleaseDC(hwnd,hdc);
-        RECT tr={xpos,ypos,xpos+wid,ypos+ht},vp;
+        RECT tr={xpos,ypos,xpos+wid+4,ypos+ht+4},vp;
         SWELL_GetViewPort(&vp,&tr,true);
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
         if (tr.right > vp.right) { tr.left += vp.right-tr.right; tr.right=vp.right; }
@@ -400,7 +400,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           for (x=0; x < menu->items.GetSize(); x++)
           {
             MENUITEMINFO *inf = menu->items.Get(x);
-            RECT r={lcol,x*itemheight,cr.right,(x+1)*itemheight};
+            RECT r={lcol,top_margin + x*itemheight,cr.right,top_margin + (x+1)*itemheight};
             bool dis = !!(inf->fState & MF_GRAYED);
             SetTextColor(ps.hdc,cols[dis]);
             if (inf->fType == MFT_STRING && inf->dwTypeData)
@@ -420,7 +420,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if (inf->hSubMenu) 
             {
-               RECT r2=r; r2.left = r2.right - rcol;
+               RECT r2=r; r2.left = r2.right - rcol; r2.right -= 4;
                DrawText(ps.hdc,">",-1,&r2,DT_VCENTER|DT_RIGHT|DT_SINGLELINE);
             }
             if (inf->fState&MF_CHECKED)
@@ -472,7 +472,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         GetClientRect(hwnd,&r);
         if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
         {
-          int which = GET_Y_LPARAM(lParam)/itemheight;
+          int which = (GET_Y_LPARAM(lParam) - top_margin)/itemheight;
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           MENUITEMINFO *inf = menu->items.Get(which);
           if (inf) 
@@ -485,7 +485,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               if (next) DestroyWindow(next); 
 
               m_trackingPt.x=r.right;
-              m_trackingPt.y=r.top + which*itemheight;
+              m_trackingPt.y=r.top + top_margin + which*itemheight;
               ClientToScreen(hwnd,&m_trackingPt);
               HWND hh;
               submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL),WM_CREATE,0,(LPARAM)inf->hSubMenu);
