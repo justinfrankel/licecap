@@ -2009,6 +2009,38 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  if (lParam & (FCONTROL|FALT)) return 0;
+
+  if (wParam < 32)
+  {
+    if (wParam == VK_BACK)
+    { 
+      if (hwnd->m_title.GetLength())
+        hwnd->m_title.SetLen(hwnd->m_title.GetLength()-1); // todo: UTF-8
+      else
+        return 0;
+    }
+    else if (wParam == VK_RETURN)
+    {
+      return 0;
+    }
+  }
+  else if (wParam >= 128)
+  {
+    // todo: UTF-8, other filtering
+    return 0;
+  }
+  else if (!(lParam & FVIRTKEY))
+  {
+    char b[3]={(char)wParam,};
+     
+    hwnd->m_title.Append(b);
+  }
+  return 1;
+}
+
 static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
@@ -2019,31 +2051,11 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
       InvalidateRect(hwnd,NULL,FALSE);
     return 0;
     case WM_KEYDOWN:
-      if (lParam & (FCONTROL|FALT)) return 0;
-
-      if (wParam < 32)
+      if (OnEditKeyDown(hwnd,msg,wParam,lParam))
       {
-        if (wParam == VK_BACK)
-        { 
-          if (hwnd->m_title.GetLength())
-            hwnd->m_title.SetLen(hwnd->m_title.GetLength()-1); // todo: UTF-8
-        }
-        else if (wParam == VK_RETURN)
-        {
-        }
+        SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+        InvalidateRect(hwnd,NULL,FALSE);
       }
-      else if (wParam >= 128)
-      {
-        // todo: UTF-8, other filtering
-      }
-      else if (!(lParam & FVIRTKEY))
-      {
-        char b[3]={(char)wParam,};
-         
-        hwnd->m_title.Append(b);
-      }
-      SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
-      InvalidateRect(hwnd,NULL,FALSE);
     return 0;
     case WM_KEYUP:
     return 0;
@@ -2125,15 +2137,10 @@ class __SWELL_ComboBoxInternalState
 
 static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  static const char *stateName = "__SWELL_COMBOBOXSTATE";
+  static const int buttonwid = 16; // used in edit combobox
+  __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)hwnd->m_private_data;
   if (msg >= CB_ADDSTRING && msg <= CB_INITSTORAGE)
   {
-    __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)GetProp(hwnd,stateName);
-    if (!s)
-    {
-      s = new __SWELL_ComboBoxInternalState;
-      SetProp(hwnd,stateName,(HANDLE)s);
-    }
     if (s)
     {
       switch (msg)
@@ -2231,6 +2238,20 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
         case CB_FINDSTRINGEXACT:
         case CB_FINDSTRING:
+          {
+            int x;
+            int a = (int)wParam;
+            a++;
+            for (x=a;x<s->items.GetSize();x++) 
+              if (msg == CB_FINDSTRING ? 
+                  !stricmp(s->items.Get(x)->desc,(char *)lParam)  :
+                  !strcmp(s->items.Get(x)->desc,(char *)lParam)) return x;
+
+            for (x=0;x<a;x++)
+              if (msg == CB_FINDSTRING ? 
+                  !stricmp(s->items.Get(x)->desc,(char *)lParam)  :
+                  !strcmp(s->items.Get(x)->desc,(char *)lParam)) return x;
+          }
         return CB_ERR;
       }
     }
@@ -2240,17 +2261,20 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   {
     case WM_DESTROY:
       {
-        __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)GetProp(hwnd,stateName);
-        if (s)
-        {
-          SetProp(hwnd,stateName,NULL);
-          delete s;
-        }
+       hwnd->m_private_data=0;
+       delete s;
       }
     break;
 
     case WM_LBUTTONDOWN:
-      SetCapture(hwnd);
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        if ((hwnd->m_style & CBS_DROPDOWNLIST) == CBS_DROPDOWNLIST || GET_X_LPARAM(lParam) >= r.right-buttonwid)
+          SetCapture(hwnd);
+        else
+          SetFocus(hwnd);
+      }
       InvalidateRect(hwnd,NULL,FALSE);
     return 0;
     case WM_MOUSEMOVE:
@@ -2259,7 +2283,6 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       if (GetCapture()==hwnd)
       {
         ReleaseCapture(); 
-        __SWELL_ComboBoxInternalState *s = (__SWELL_ComboBoxInternalState*)GetProp(hwnd,stateName);
         if (s && s->items.GetSize())
         {
           int x;
@@ -2284,6 +2307,16 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           }
         }
       }
+    return 0;
+    case WM_KEYDOWN:
+      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam))
+      {
+        if (s) s->selidx=-1; // lookup from text?
+        SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
+    case WM_KEYUP:
     return 0;
     case WM_PAINT:
       { 
@@ -2313,6 +2346,14 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             LineTo(ps.hdc,r.right-1,r.bottom-1);
             LineTo(ps.hdc,r.left,r.bottom-1);
 
+            if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
+            { 
+              HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+              RECT tr=r; 
+              tr.left+=2; tr.top+=2; tr.bottom-=2; tr.right -= buttonwid+2;
+              FillRect(ps.hdc,&tr,br);
+              DeleteObject(br);
+            }
 
             const int dw = 8;
             const int dh = 4;
@@ -3140,7 +3181,8 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
   if (h>18)h=18;
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),comboWindowProc);
-  hwnd->m_style |= WS_CHILD;
+  hwnd->m_private_data = (INT_PTR) new __SWELL_ComboBoxInternalState;
+  hwnd->m_style = (flags & ~SWELL_NOT_WS_VISIBLE)|WS_CHILD;
   hwnd->m_classname = "combobox";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   if (m_doautoright) UpdateAutoCoords(tr);
