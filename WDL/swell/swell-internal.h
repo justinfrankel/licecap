@@ -590,6 +590,8 @@ struct HTREEITEM__
 #endif
 #include "../assocarray.h"
 
+#define SWELL_INTERNAL_MENUBAR_SIZE 12
+
 LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 struct HWND__

@@ -3784,7 +3784,6 @@ BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
 
 LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  const int menubar_size=12; // big for testing
   const int menubar_xspacing=5;
   switch (msg)
   {
@@ -3792,7 +3791,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (!hwnd->m_parent && hwnd->m_menu)
       {
         RECT *r = (RECT*)lParam;
-        r->top += menubar_size;
+        r->top += SWELL_INTERNAL_MENUBAR_SIZE;
       }
     break;
     case WM_NCPAINT:
@@ -3805,7 +3804,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           GetWindowContentViewRect(hwnd,&r);
           r.right -= r.left; r.left=0;
           r.bottom -= r.top; r.top=0;
-          if (r.bottom>menubar_size) r.bottom=menubar_size;
+          if (r.bottom>SWELL_INTERNAL_MENUBAR_SIZE) r.bottom=SWELL_INTERNAL_MENUBAR_SIZE;
 
           HBRUSH br=CreateSolidBrush(GetSysColor(COLOR_3DFACE));
           FillRect(dc,&r,br);
@@ -3854,7 +3853,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       {
         RECT r;
         GetWindowContentViewRect(hwnd,&r);
-        if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+menubar_size) 
+        if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+SWELL_INTERNAL_MENUBAR_SIZE) 
         {
           HDC dc = GetWindowDC(hwnd);
 
@@ -3869,11 +3868,11 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               RECT cr=r; cr.left=cr.right=xpos;
               DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
 
-              if (GET_X_LPARAM(lParam) >=cr.left && GET_X_LPARAM(lParam)<=cr.right)
+              if (GET_X_LPARAM(lParam) >=cr.left && GET_X_LPARAM(lParam)<cr.right + menubar_xspacing)
               {
                 if (!dis)
                 {
-                  if (inf->hSubMenu) TrackPopupMenu(inf->hSubMenu,0,xpos,r.top+menubar_size,0,hwnd,NULL);
+                  if (inf->hSubMenu) TrackPopupMenu(inf->hSubMenu,0,xpos,r.top+SWELL_INTERNAL_MENUBAR_SIZE,0,hwnd,NULL);
                   else if (inf->wID) SendMessage(hwnd,WM_COMMAND,inf->wID,0);
                 }
                 break;
@@ -3892,7 +3891,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       {
         RECT r;
         GetWindowContentViewRect(hwnd,&r);
-        if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+menubar_size) return HTMENU;
+        if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+SWELL_INTERNAL_MENUBAR_SIZE) return HTMENU;
       }
       // todo: WM_NCCALCSIZE etc
     return HTCLIENT;

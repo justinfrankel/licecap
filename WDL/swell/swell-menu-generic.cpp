@@ -325,6 +325,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
 }
 
 static POINT m_trackingPt;
+static int m_trackingMouseFlag;
 static int m_trackingFlags,m_trackingRet;
 static HWND m_trackingPar;
 static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
@@ -444,7 +445,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         if (h!=hwnd)
         {
           int a = h ? m_trackingMenus.Find(h) : -1;
-          if (a<0 || a < m_trackingMenus.Find(hwnd)) DestroyWindow(hwnd); 
+          if (a<0 || a < m_trackingMenus.Find(hwnd)) 
+          {
+            if (m_trackingMouseFlag && m_trackingMenus.Get(0))
+            {
+              SetFocus(m_trackingMenus.Get(0));
+              m_trackingMouseFlag=0;
+            }
+            else DestroyWindow(hwnd); 
+          }
         }
       }
     break;
@@ -503,12 +512,18 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   m_trackingRet=-1;
   m_trackingPt.x=xpos;
   m_trackingPt.y=ypos;
+  m_trackingMouseFlag = 0;
+  if (GetAsyncKeyState(VK_LBUTTON)) m_trackingMouseFlag |= 1;
+  if (GetAsyncKeyState(VK_RBUTTON)) m_trackingMouseFlag |= 2;
+  if (GetAsyncKeyState(VK_MBUTTON)) m_trackingMouseFlag |= 4;
 
 //  HWND oldFoc = GetFocus();
  // bool oldFoc_child = oldFoc && (IsChild(hwnd,oldFoc) || oldFoc == hwnd || oldFoc==GetParent(hwnd));
 
-  HWND hh;
-  submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL),WM_CREATE,0,(LPARAM)hMenu);
+  HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL);
+
+  submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);
+
   SetProp(hh,"SWELL_MenuOwner",(HANDLE)hwnd);
 
   while (m_trackingRet<0 && m_trackingMenus.GetSize())
@@ -583,7 +598,24 @@ HMENU SWELL_DuplicateMenu(HMENU menu)
 BOOL  SetMenu(HWND hwnd, HMENU menu)
 {
   if (!hwnd) return 0;
+  HMENU oldmenu = hwnd->m_menu;
+
   hwnd->m_menu = menu;
+  
+  if (!hwnd->m_parent && !!hwnd->m_menu != !!oldmenu)
+  {
+    WNDPROC oldwc = hwnd->m_wndproc;
+    hwnd->m_wndproc = DefWindowProc;
+    RECT r;
+    GetWindowRect(hwnd,&r);
+
+    if (oldmenu) r.bottom -= SWELL_INTERNAL_MENUBAR_SIZE; // hack: we should WM_NCCALCSIZE before and after, really
+    else r.bottom += SWELL_INTERNAL_MENUBAR_SIZE;
+
+    SetWindowPos(hwnd,NULL,0,0,r.right-r.left,r.bottom-r.top,SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE);
+    hwnd->m_wndproc = oldwc;
+    // resize
+  }
 
   return TRUE;
 }
