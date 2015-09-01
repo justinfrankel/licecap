@@ -3023,6 +3023,123 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+struct tabControlState
+{
+  tabControlState() { m_curtab=0; }
+  ~tabControlState() { m_tabs.Empty(true,free); }
+  int m_curtab;
+  WDL_PtrList<char> m_tabs;
+};
+static const int TABCONTROL_HEIGHT = 20;
+
+static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  const int xdiv = 6,xpad=4;
+
+  tabControlState *s = (tabControlState *)hwnd->m_private_data;
+  switch (msg)
+  {
+    case WM_DESTROY:
+      hwnd->m_private_data = 0;
+      delete s;
+    return 0;  
+    case WM_LBUTTONUP:
+      if (GET_Y_LPARAM(lParam) < TABCONTROL_HEIGHT)
+      {
+        return 1;
+      }
+    break;
+    case WM_LBUTTONDOWN:
+      if (GET_Y_LPARAM(lParam) < TABCONTROL_HEIGHT)
+      {
+        int xp=GET_X_LPARAM(lParam),tab;
+        HDC dc = GetDC(hwnd);
+        for (tab = 0; tab < s->m_tabs.GetSize(); tab ++)
+        {
+          const char *buf = s->m_tabs.Get(tab);
+          RECT tr={0,};
+          DrawText(dc,buf,-1,&tr,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
+          xp -= tr.right - tr.left + 2*xpad + xdiv;
+          if (xp < 0)
+          {
+            if (s->m_curtab != tab)
+            {
+              s->m_curtab = tab;
+              InvalidateRect(hwnd,NULL,FALSE);
+              NMHDR nm={hwnd,(UINT_PTR)hwnd->m_id,TCN_SELCHANGE};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,nm.idFrom,(LPARAM)&nm);
+            }
+            break;
+          }
+        }
+ 
+        ReleaseDC(hwnd,dc);
+        return 1;
+      }
+    break;
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+
+          int tab;
+          int xp=0;
+          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DHILIGHT));
+          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
+          int col = GetSysColor(COLOR_BTNTEXT);
+
+          SetBkMode(ps.hdc,TRANSPARENT);
+          SetTextColor(ps.hdc,col);
+          HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
+          const int th = TABCONTROL_HEIGHT;
+          int lx=0;
+          for (tab = 0; tab < s->m_tabs.GetSize() && xp < r.right; tab ++)
+          {
+            const char *buf = s->m_tabs.Get(tab);
+            RECT tr={0,};
+            DrawText(ps.hdc,buf,-1,&tr,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
+            int tw=tr.right-tr.left + 2*xpad;
+
+            const int olx=lx;
+            lx=xp + tw+xdiv;
+ 
+            MoveToEx(ps.hdc,xp,th,NULL);
+            LineTo(ps.hdc,xp,0);
+            LineTo(ps.hdc,xp+tw,0);
+            SelectObject(ps.hdc,pen2);
+            LineTo(ps.hdc,xp+tw,th);
+
+            MoveToEx(ps.hdc, tab == s->m_curtab ? lx-xdiv : olx,th-1,NULL);
+            LineTo(ps.hdc,lx,th-1);
+
+            SelectObject(ps.hdc,pen);
+
+            tr.left = xp+xpad;
+            tr.top=0;
+            tr.right = xp+tw-xpad;
+            tr.bottom = th;
+
+            DrawText(ps.hdc,buf,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+            xp = lx;
+          }
+          SelectObject(ps.hdc,pen2);
+          MoveToEx(ps.hdc,lx,th-1,NULL);
+          LineTo(ps.hdc,r.right,th-1);
+
+          SelectObject(ps.hdc,oldPen);
+
+          EndPaint(hwnd,&ps);
+          DeleteObject(pen);
+          DeleteObject(pen2);
+        }
+      }
+      return 0;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
 
 
 
@@ -3115,9 +3232,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   if (!stricmp(classname,"SysTabControl32"))
   {
     RECT tr=MakeCoords(x,y,w,h,false);
-    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE));
+    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), tabControlWindowProc);
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "SysTabControl32";
+    hwnd->m_private_data = (INT_PTR) new tabControlState;
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); 
     return hwnd;
@@ -3215,46 +3333,62 @@ HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, i
 
 int TabCtrl_GetItemCount(HWND hwnd)
 {
-   if (!hwnd) return 0;
-   // todo
-   return 0;
+   tabControlState *s = hwnd ? (tabControlState*) hwnd->m_private_data : NULL;
+   return s ? s->m_tabs.GetSize() : 0;
 }
 
 BOOL TabCtrl_AdjustRect(HWND hwnd, BOOL fLarger, RECT *r)
 {
   if (!r || !hwnd) return FALSE;
+ 
+  r->top += TABCONTROL_HEIGHT;
   
-  // todo
-  return FALSE;
+  return TRUE;
 }
 
 
 BOOL TabCtrl_DeleteItem(HWND hwnd, int idx)
 {
-  if (!hwnd) return 0;
-  // todo
-  return 0;
+  tabControlState *s = hwnd ? (tabControlState*) hwnd->m_private_data : NULL;
+  if (!s || !s->m_tabs.Get(idx)) return FALSE;
+  
+  s->m_tabs.Delete(idx,true);
+  if (s->m_curtab>0) s->m_curtab--;
+  InvalidateRect(hwnd,NULL,FALSE);
+  // todo: send notification?
+
+  return TRUE;
 }
 
 int TabCtrl_InsertItem(HWND hwnd, int idx, TCITEM *item)
 {
-  if (!item || !hwnd) return -1;
+  tabControlState *s = hwnd ? (tabControlState*) hwnd->m_private_data : NULL;
+  if (!item || !s) return -1;
   if (!(item->mask & TCIF_TEXT) || !item->pszText) return -1;
 
-  return 0; // todo idx
+  s->m_tabs.Insert(idx, strdup(item->pszText));
+
+  InvalidateRect(hwnd,NULL,FALSE);
+  // todo: send notification if s->m_tabs.GetSize()==1 ?
+
+  return TRUE;
 }
 
 int TabCtrl_SetCurSel(HWND hwnd, int idx)
 {
-  if (!hwnd) return -1;
-  // todo
-  return 0; 
+  tabControlState *s = hwnd ? (tabControlState*) hwnd->m_private_data : NULL;
+  if (!s || !s->m_tabs.Get(idx)) return -1;
+  const int lt =s->m_curtab;
+  s->m_curtab = idx;
+  InvalidateRect(hwnd,NULL,FALSE);
+  
+  return lt; 
 }
 
 int TabCtrl_GetCurSel(HWND hwnd)
 {
-  if (!hwnd) return 0;
-  return 0; // todo
+  tabControlState *s = hwnd ? (tabControlState*) hwnd->m_private_data : NULL;
+  return s ? s->m_curtab : -1;
 }
 
 void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask)
