@@ -2012,7 +2012,7 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool allowEnter)
 {
   if (lParam & (FCONTROL|FALT)) return 0;
 
@@ -2027,6 +2027,12 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     else if (wParam == VK_RETURN)
     {
+      if (allowEnter) 
+      { 
+        hwnd->m_title.Append("\n");
+        return 1;
+      }
+
       return 0;
     }
   }
@@ -2054,7 +2060,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
       InvalidateRect(hwnd,NULL,FALSE);
     return 0;
     case WM_KEYDOWN:
-      if (OnEditKeyDown(hwnd,msg,wParam,lParam))
+      if (OnEditKeyDown(hwnd,msg,wParam,lParam, !!(hwnd->m_style&ES_WANTRETURN)))
       {
         SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
         InvalidateRect(hwnd,NULL,FALSE);
@@ -2076,7 +2082,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title.Get();
           r.left+=2; r.right-=2;
-          if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
+          if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,(hwnd->m_style & ES_MULTILINE) ? (DT_TOP) : (DT_VCENTER));
           // todo: cursor drawing
           EndPaint(hwnd,&ps);
         }
@@ -2319,7 +2325,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       }
     return 0;
     case WM_KEYDOWN:
-      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam))
+      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam,false))
       {
         if (s) s->selidx=-1; // lookup from text?
         SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
