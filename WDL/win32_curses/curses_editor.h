@@ -11,7 +11,8 @@ public:
   WDL_CursesEditor(void *cursesCtx);
   virtual ~WDL_CursesEditor();
   
-  bool IsDirty() const { return m_clean_undopos != m_undoStack_pos; }
+  bool IsDirty() const { return (m_clean_undopos != m_undoStack_pos || !m_filelastmod); }
+  void SetDirty() { m_filelastmod = 0; } // called when the file has been modified externally
 
   virtual int onChar(int c);
   virtual void onRightClick(HWND hwnd) { } 
@@ -25,6 +26,7 @@ public:
   int m_top_margin, m_bottom_margin;
 
   const char *GetFileName() { return m_filename.Get(); }
+  time_t GetLastModTime() const { return m_filelastmod; } // returns 0 when the file has been modified externally
 
   virtual void setCursor(int isVscroll=0, double ycenter=-1.0);
 
@@ -32,6 +34,7 @@ public:
   int m_max_undo_states;
 
   virtual int init(const char *fn, const char *init_if_empty=0); 
+  virtual int reinit(const char *fn); 
   virtual void draw(int lineidx=-1);
 
   virtual void highlight_line(int line);
@@ -39,6 +42,8 @@ public:
 protected:
   class refcntString;
   class editUndoRec;
+
+  void loadLines(FILE* fh);
 
   void draw_message(const char *str);
   void draw_status_state();
@@ -61,6 +66,8 @@ protected:
   void preSaveUndoState(); // updates coordinates of edit to last rec
   void loadUndoState(editUndoRec *rec);
 
+  void updateLastModTime();
+
   virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
   virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
@@ -74,6 +81,7 @@ protected:
   int getVisibleLines() const;
   
   WDL_FastString m_filename;
+  time_t m_filelastmod;
   WDL_PtrList<WDL_FastString> m_text;
   WDL_PtrList<editUndoRec> m_undoStack;
   int m_undoStack_pos;

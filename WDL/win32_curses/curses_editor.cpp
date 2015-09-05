@@ -66,6 +66,8 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   m_curpane=0;
   m_scrollcap=0;
   m_scrollcap_yoffs=0;
+  
+  m_filelastmod=time(NULL);
 
 #ifdef WDL_IS_FAKE_CURSES
   if (m_cursesCtx)
@@ -430,7 +432,36 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
       return 1;
     }
   }
-  while(!feof(fh))
+  
+  loadLines(fh);
+  fclose(fh);
+  updateLastModTime();
+
+  saveUndoState();
+  m_clean_undopos=m_undoStack_pos;  
+  return 0;  
+}
+
+int WDL_CursesEditor::reinit(const char *fn)
+{
+  FILE *fh=fopenUTF8(fn,"rt");
+  if (fh)
+  {
+    m_filename.Set(fn);
+    m_text.Empty(true);
+    preSaveUndoState();  
+    loadLines(fh);
+    fclose(fh);
+    updateLastModTime();
+    saveUndoState();
+    return 0;
+  }
+  return 1;
+}
+
+void WDL_CursesEditor::loadLines(FILE *fh)
+{
+  if (fh) while(!feof(fh))
   {
     char line[4096];
     line[0]=0;
@@ -455,11 +486,6 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
     if (p) str->Append(p);
     m_text.Add(str);
   }
-  fclose(fh);
-  saveUndoState();
-  m_clean_undopos=m_undoStack_pos;
-
-  return 0;
 }
 
 void WDL_CursesEditor::draw_status_state()
@@ -799,9 +825,23 @@ int WDL_CursesEditor::updateFile()
     if (m_text.Get(x)) fprintf(fp,"%s\n",m_text.Get(x)->Get());
   }
   fclose(fp);
+  updateLastModTime();
   sync();
   m_clean_undopos = m_undoStack_pos;
   return 0;
+}
+
+void WDL_CursesEditor::updateLastModTime()
+{
+  struct stat srcstat;
+  if (!statUTF8(m_filename.Get(),&srcstat))
+  {
+#ifndef __APPLE__
+    m_filelastmod = srcstat.st_mtime;
+#else
+    m_filelastmod = srcstat.st_mtimespec.tv_sec;
+#endif
+  }
 }
 
 void WDL_CursesEditor::indentSelect(int amt)
