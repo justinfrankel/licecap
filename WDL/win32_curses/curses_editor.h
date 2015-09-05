@@ -34,7 +34,7 @@ public:
   int m_max_undo_states;
 
   virtual int init(const char *fn, const char *init_if_empty=0); 
-  virtual int reinit(const char *fn); 
+  virtual int reinit(const char *fn, bool wantundo=false); 
   virtual void draw(int lineidx=-1);
 
   virtual void highlight_line(int line);

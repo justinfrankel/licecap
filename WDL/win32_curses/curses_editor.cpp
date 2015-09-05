@@ -442,18 +442,32 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
   return 0;  
 }
 
-int WDL_CursesEditor::reinit(const char *fn)
+int WDL_CursesEditor::reinit(const char *fn, bool wantundo)
 {
   FILE *fh=fopenUTF8(fn,"rt");
   if (fh)
   {
     m_filename.Set(fn);
     m_text.Empty(true);
-    preSaveUndoState();  
+    if (wantundo)
+    {
+      preSaveUndoState();
+    }
+    else
+    {
+      m_undoStack.Empty(true);
+      m_undoStack_pos=-1;
+    }
+
     loadLines(fh);
     fclose(fh);
     updateLastModTime();
+
     saveUndoState();
+    if (!wantundo)
+    {
+      m_clean_undopos=m_undoStack_pos;
+    }
     return 0;
   }
   return 1;
