@@ -856,6 +856,10 @@ void WDL_CursesEditor::updateLastModTime()
     m_filelastmod = srcstat.st_mtimespec.tv_sec;
 #endif
   }
+  else
+  {
+    m_filelastmod = time(NULL);
+  }
 }
 
 void WDL_CursesEditor::indentSelect(int amt)
