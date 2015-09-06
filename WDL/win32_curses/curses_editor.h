@@ -11,8 +11,8 @@ public:
   WDL_CursesEditor(void *cursesCtx);
   virtual ~WDL_CursesEditor();
   
-  bool IsDirty() const { return (m_clean_undopos != m_undoStack_pos || !m_filelastmod); }
-  void SetDirty() { m_filelastmod = 0; } // called when the file has been modified externally
+  bool IsDirty() const { return m_clean_undopos != m_undoStack_pos; }
+  void SetDirty() { m_clean_undopos = -1; }
 
   virtual int onChar(int c);
   virtual void onRightClick(HWND hwnd) { } 
@@ -26,7 +26,8 @@ public:
   int m_top_margin, m_bottom_margin;
 
   const char *GetFileName() { return m_filename.Get(); }
-  time_t GetLastModTime() const { return m_filelastmod; } // returns 0 when the file has been modified externally
+  time_t GetLastModTime() const { return m_filelastmod; } // returns file mod time of last save or load, or 0 if unknown
+  void SetLastModTime(time_t v) { m_filelastmod=v; } // in case caller wants to manually set this value
 
   virtual void setCursor(int isVscroll=0, double ycenter=-1.0);
 
@@ -34,7 +35,7 @@ public:
   int m_max_undo_states;
 
   virtual int init(const char *fn, const char *init_if_empty=0); 
-  virtual int reinit(const char *fn, bool wantundo=false); 
+  virtual int reload_file(bool clearUndo=false);
   virtual void draw(int lineidx=-1);
 
   virtual void highlight_line(int line);
@@ -81,7 +82,7 @@ protected:
   int getVisibleLines() const;
   
   WDL_FastString m_filename;
-  time_t m_filelastmod;
+  time_t m_filelastmod; // last written-to or read-from modification time, or 0 if unknown
   WDL_PtrList<WDL_FastString> m_text;
   WDL_PtrList<editUndoRec> m_undoStack;
   int m_undoStack_pos;

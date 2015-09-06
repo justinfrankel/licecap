@@ -67,7 +67,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   m_scrollcap=0;
   m_scrollcap_yoffs=0;
   
-  m_filelastmod=time(NULL);
+  m_filelastmod=0;
 
 #ifdef WDL_IS_FAKE_CURSES
   if (m_cursesCtx)
@@ -435,21 +435,16 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
   
   loadLines(fh);
   fclose(fh);
-  updateLastModTime();
 
-  saveUndoState();
-  m_clean_undopos=m_undoStack_pos;  
   return 0;  
 }
 
-int WDL_CursesEditor::reinit(const char *fn, bool wantundo)
+int WDL_CursesEditor::reload_file(bool clearundo)
 {
-  FILE *fh=fopenUTF8(fn,"rt");
+  FILE *fh=fopenUTF8(m_filename.Get(),"rt");
   if (fh)
   {
-    m_filename.Set(fn);
-    m_text.Empty(true);
-    if (wantundo)
+    if (!clearundo)
     {
       preSaveUndoState();
     }
@@ -459,15 +454,10 @@ int WDL_CursesEditor::reinit(const char *fn, bool wantundo)
       m_undoStack_pos=-1;
     }
 
+    m_text.Empty(true);
     loadLines(fh);
     fclose(fh);
-    updateLastModTime();
 
-    saveUndoState();
-    if (!wantundo)
-    {
-      m_clean_undopos=m_undoStack_pos;
-    }
     return 0;
   }
   return 1;
@@ -475,7 +465,7 @@ int WDL_CursesEditor::reinit(const char *fn, bool wantundo)
 
 void WDL_CursesEditor::loadLines(FILE *fh)
 {
-  if (fh) while(!feof(fh))
+  for (;;)
   {
     char line[4096];
     line[0]=0;
@@ -494,12 +484,16 @@ void WDL_CursesEditor::loadLines(FILE *fh)
     {
       *np=0;
       str->Append(p);
-      { int x; for(x=0;x<m_indent_size;x++) str->Append(" "); }
+      int x; 
+      for(x=0;x<m_indent_size;x++) str->Append(" ");
       p=np+1;
     }
     if (p) str->Append(p);
     m_text.Add(str);
   }
+  saveUndoState();
+  m_clean_undopos=m_undoStack_pos;
+  updateLastModTime();
 }
 
 void WDL_CursesEditor::draw_status_state()
@@ -839,16 +833,18 @@ int WDL_CursesEditor::updateFile()
     if (m_text.Get(x)) fprintf(fp,"%s\n",m_text.Get(x)->Get());
   }
   fclose(fp);
-  updateLastModTime();
   sync();
+
+  updateLastModTime();
   m_clean_undopos = m_undoStack_pos;
+
   return 0;
 }
 
 void WDL_CursesEditor::updateLastModTime()
 {
   struct stat srcstat;
-  if (!statUTF8(m_filename.Get(),&srcstat))
+  if (!statUTF8(m_filename.Get(), &srcstat))
   {
 #ifndef __APPLE__
     m_filelastmod = srcstat.st_mtime;
@@ -858,7 +854,7 @@ void WDL_CursesEditor::updateLastModTime()
   }
   else
   {
-    m_filelastmod = time(NULL);
+    m_filelastmod = 0;
   }
 }
 
