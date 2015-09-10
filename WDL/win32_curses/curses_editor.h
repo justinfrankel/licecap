@@ -3,7 +3,7 @@
 
 #include "../wdlstring.h"
 #include "../ptrlist.h"
-
+#include <time.h>
 
 class WDL_CursesEditor
 {
