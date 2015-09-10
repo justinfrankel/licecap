@@ -114,6 +114,9 @@ T LICE_Bezier_GetY_Norm(T ctrl_x2, T ctrl_y2, T x)
     return x;
   }
 
+
+/*
+  // this causes ICC 11.0 to produce bad results on OSX/386
   double b = (double) (2 * ctrl_x2);
   double a = 1.0 - b;
   double c = (double) -x;
@@ -122,6 +125,14 @@ T LICE_Bezier_GetY_Norm(T ctrl_x2, T ctrl_y2, T x)
   b = 2.0 * (1.0 - t) * t;
   c = t * t;
   return (T) (b * (double) ctrl_y2 + c);
+
+  // the simplified math below works properly
+*/
+
+
+  const double t = (-ctrl_x2 + sqrt(ctrl_x2 * (ctrl_x2 - 2.0*x) + x)) / (1.0-2.0*ctrl_x2);
+
+  return (T) (((2.0 * (1.0-t)) * ctrl_y2 + t)*t);
 }
 
 // Finds the cardinal bezier control points surrounding x2.  
