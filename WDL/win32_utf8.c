@@ -74,12 +74,22 @@ BOOL WDL_HasUTF8(const char *_str)
 #define IS_NOT_WIN9X_AND
 #endif
 
+static ATOM s_combobox_atom;
+#define WDL_UTF8_OLDPROCPROP "WDLUTF8OldProc"
+
 int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
 {
   if (!lpString) return 0;
   if (nMaxCount>0 AND_IS_NOT_WIN9X)
   {
     int alloc_size=nMaxCount;
+
+    // if a hooked combo box, and has an edit child, ask it directly
+    if (s_combobox_atom && s_combobox_atom == GetClassWord(hWnd,GCW_ATOM) && GetProp(hWnd,WDL_UTF8_OLDPROCPROP))
+    {
+      HWND h2=FindWindowEx(hWnd,NULL,"Edit",NULL);
+      if (h2) hWnd=h2;
+    }
 
     // prevent large values of nMaxCount from allocating memory unless the underlying text is big too
     if (alloc_size > 512)  
@@ -830,9 +840,6 @@ HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpPa
 
 #if (defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)) && !defined(WDL_WIN32_UTF8_NO_UI_IMPL)
 
-
-#define WDL_UTF8_OLDPROCPROP "WDLUTF8OldProc"
-
 static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   WNDPROC oldproc = (WNDPROC)GetProp(hwnd,WDL_UTF8_OLDPROCPROP);
@@ -902,6 +909,8 @@ void WDL_UTF8_HookComboBox(HWND h)
     GetProp(h,WDL_UTF8_OLDPROCPROP)) return;
   SetProp(h,WDL_UTF8_OLDPROCPROP "W",(HANDLE)GetWindowLongPtrW(h,GWLP_WNDPROC));
   SetProp(h,WDL_UTF8_OLDPROCPROP,(HANDLE)SetWindowLongPtr(h,GWLP_WNDPROC,(INT_PTR)cb_newProc));
+
+  if (!s_combobox_atom) s_combobox_atom = (ATOM)GetClassWord(h,GCW_ATOM);
 }
 
 void WDL_UTF8_HookListBox(HWND h)
