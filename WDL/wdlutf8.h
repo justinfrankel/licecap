@@ -37,9 +37,10 @@ misrepresented as being the original software.
 
 static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
 {
-  if (!dest || !src || destlenbytes < 1) return 0;
   const unsigned char *p = (const unsigned char *)src;
   WDL_WCHAR *w = dest, *dest_endp = dest+(size_t)destlenbytes/sizeof(WDL_WCHAR)-1;
+  if (!dest || !src || destlenbytes < 1) return 0;
+
   for (; *p && w < dest_endp; ++w)
   {
     if (*p < 0x80)
@@ -96,10 +97,10 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
 
 static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
 {
-  if (!dest || !src || destlenbytes < 1) return 0;
   unsigned char *p = (unsigned char *)dest;
   unsigned char *dest_endp = p + destlenbytes - 1;
   const WDL_WCHAR* w = src;
+  if (!dest || !src || destlenbytes < 1) return 0;
   for (w=src; *w && p < dest_endp; ++w)
   {
     if (*w < 0x80) 
@@ -156,6 +157,31 @@ static int WDL_MakeUTFChar(char* dest, int c, int destlen)
     return 1;
   }
   return 0;
+}
+
+// returns >0 if UTF-8, -1 if 8-bit chars occur that are not UTF-8, or 0 if ASCII
+static int WDL_DetectUTF8(const char *_str)
+{
+  const unsigned char *str = (const unsigned char *)_str;
+  int hasUTF=0;
+
+  if (str) while (*str)
+  {
+    unsigned char c = *str++;
+    if (c<0x80) { } // allow 7 bit ascii straight through
+    else if (c < 0xC2 || c > 0xF7) return -1; // treat overlongs or other values in this range as indicators of non-utf8ness
+    else
+    {
+      hasUTF=1;
+      if (str[0] < 0x80 || str[0] > 0xBF) return -1;
+      else if (c < 0xE0) str++;
+      else if (str[1] < 0x80 || str[1] > 0xBF) return -1;
+      else if (c < 0xF0) str+=2;
+      else if (str[2] < 0x80 || str[2] > 0xBF) return -1;
+      else str+=3;
+    }
+  }
+  return hasUTF;
 }
 
 #endif

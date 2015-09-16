@@ -5,6 +5,7 @@
 
 #include "win32_utf8.h"
 #include "wdltypes.h"
+#include "wdlutf8.h"
 
 #ifdef _WIN32
 
@@ -37,26 +38,7 @@ extern "C" {
 
 BOOL WDL_HasUTF8(const char *_str)
 {
-  const unsigned char *str = (const unsigned char *)_str;
-  BOOL hasUTF=FALSE;
-  
-  if (str) while (*str) 
-  {
-    unsigned char c = *str++;
-    if (c<0x80) { } // allow 7 bit ascii straight through
-    else if (c < 0xC2 || c > 0xF7) return FALSE; // treat overlongs or other values in this range as indicators of non-utf8ness
-    else 
-    {
-      hasUTF=TRUE;
-      if (str[0] < 0x80 || str[0] > 0xBF) return FALSE;
-      else if (c < 0xE0) str++; 
-      else if (str[1] < 0x80 || str[1] > 0xBF) return FALSE;
-      else if (c < 0xF0) str+=2;
-      else if (str[2] < 0x80 || str[2] > 0xBF) return FALSE;
-      else str+=3;
-    }
-  }
-  return hasUTF;
+  return WDL_DetectUTF8(_str) > 0;
 }
 
 #ifdef AND_IS_NOT_WIN9X
