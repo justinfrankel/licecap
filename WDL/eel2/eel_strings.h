@@ -119,7 +119,7 @@ class eel_string_context_state
   public:
     static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
 
-    eel_string_context_state()  : m_varname_cache(cmpistr), m_named_strings_names(false)
+    eel_string_context_state()  : m_named_strings_names(false), m_varname_cache(cmpistr)
     {
       m_vm=0;
       memset(m_user_strings,0,sizeof(m_user_strings));
