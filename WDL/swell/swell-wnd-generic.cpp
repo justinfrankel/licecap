@@ -365,6 +365,8 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     if (htc!=HTCLIENT) 
     { 
       if (msg==WM_MOUSEMOVE) return hwnd->m_wndproc(hwnd,WM_NCMOUSEMOVE,htc,p); 
+//      if (msg==WM_MOUSEWHEEL) return hwnd->m_wndproc(hwnd,WM_NCMOUSEWHEEL,htc,p); 
+//      if (msg==WM_MOUSEHWHEEL) return hwnd->m_wndproc(hwnd,WM_NCMOUSEHWHEEL,htc,p); 
       if (msg==WM_LBUTTONUP) return hwnd->m_wndproc(hwnd,WM_NCLBUTTONUP,htc,p); 
       if (msg==WM_LBUTTONDOWN) return hwnd->m_wndproc(hwnd,WM_NCLBUTTONDOWN,htc,p); 
       if (msg==WM_LBUTTONDBLCLK) return hwnd->m_wndproc(hwnd,WM_NCLBUTTONDBLCLK,htc,p); 
@@ -535,20 +537,38 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             GdkEventMotion *m = (GdkEventMotion *)evt;
             s_lastMessagePos = MAKELONG(((int)m->x_root&0xffff),((int)m->y_root&0xffff));
-//            printf("motion %d %d %d %d\n", (int)m->x, (int)m->y, (int)m->x_root, (int)m->y_root); 
             POINT p={m->x, m->y};
             HWND hwnd2 = GetCapture();
             if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-//char buf[1024];
-//GetWindowText(hwnd2,buf,sizeof(buf));
- //           printf("%x %s\n", hwnd2,buf);
             POINT p2={m->x_root, m->y_root};
             ScreenToClient(hwnd2, &p2);
-            //printf("%d %d\n", p2.x, p2.y);
             if (hwnd2) hwnd2->Retain();
             SendMouseMessage(hwnd2, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
             if (hwnd2) hwnd2->Release();
             gdk_event_request_motions(m);
+          }
+        break;
+        case GDK_SCROLL:
+          {
+            GdkEventScroll *b = (GdkEventScroll *)evt;
+            s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
+            POINT p={b->x, b->y};
+            HWND hwnd2 = GetCapture();
+            if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
+            POINT p2={b->x_root, b->y_root};
+            // p2 is screen coordinates for WM_MOUSEWHEEL
+
+            int msg=(b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_DOWN) ? WM_MOUSEWHEEL :
+                    (b->direction == GDK_SCROLL_LEFT || b->direction == GDK_SCROLL_RIGHT) ? WM_MOUSEHWHEEL : 0;
+            
+            if (msg) 
+            {
+              int v = (b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_LEFT) ? 120 : -120;
+ 
+              if (hwnd2) hwnd2->Retain();
+              SendMouseMessage(hwnd2, msg, (v<<16), MAKELPARAM(p2.x, p2.y));
+              if (hwnd2) hwnd2->Release();
+            }
           }
         break;
         case GDK_BUTTON_PRESS:
@@ -557,14 +577,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             GdkEventButton *b = (GdkEventButton *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
-//            printf("button %d %d %d %d %d\n", evt->type, (int)b->x, (int)b->y, (int)b->x_root, (int)b->y_root); 
             POINT p={b->x, b->y};
             HWND hwnd2 = GetCapture();
             if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-//            printf("%x\n", hwnd2);
             POINT p2={b->x_root, b->y_root};
             ScreenToClient(hwnd2, &p2);
-            //printf("%d %d\n", p2.x, p2.y);
+
             int msg=WM_LBUTTONDOWN;
             if (b->button==2) msg=WM_MBUTTONDOWN;
             else if (b->button==3) msg=WM_RBUTTONDOWN;
@@ -575,6 +593,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
             if(evt->type == GDK_BUTTON_RELEASE) msg++; // move from down to up
             else if(evt->type == GDK_2BUTTON_PRESS) msg+=2; // move from down to up
+
             if (hwnd2) hwnd2->Retain();
             SendMouseMessage(hwnd2, msg, 0, MAKELPARAM(p2.x, p2.y));
             if (hwnd2) hwnd2->Release();
@@ -4051,6 +4070,13 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwndDest,(p.x&0xffff)|(p.y<<16));
       }
     return 1;
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL:
+      {
+        HWND par = GetParent(hwnd);
+        if (par) return SendMessage(par,msg,wParam,lParam); // forward to parent
+      }
+    break;
 //    case WM_NCLBUTTONDOWN:
     case WM_NCLBUTTONUP:
       if (!hwnd->m_parent && hwnd->m_menu)
