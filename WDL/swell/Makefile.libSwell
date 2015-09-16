@@ -5,7 +5,7 @@
 
 ARCH := $(shell uname -m)
 
-CFLAGS = -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall
+CFLAGS = -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function
 
 ifdef DEBUG
 CFLAGS += -O0 -g 
