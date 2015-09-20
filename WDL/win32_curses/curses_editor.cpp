@@ -867,6 +867,14 @@ void WDL_CursesEditor::indentSelect(int amt)
     getselectregion(minx,miny,maxx,maxy);
     if (maxy >= miny)
     {
+      m_select_x1 = 0;
+      m_select_y1 = miny;
+      m_select_y2 = maxy;
+      if (m_curs_y >= miny && m_curs_y <=maxy)
+      {
+        m_curs_x += amt;
+        if (m_curs_x<0)m_curs_x=0;
+      }
       for (x = miny; x <= maxy; x ++)
       {
         WDL_FastString *s=m_text.Get(x);
@@ -885,6 +893,7 @@ void WDL_CursesEditor::indentSelect(int amt)
             s->DeleteSub(0,a);
           }
         }
+        if (x==maxy) m_select_x2 = s ? s->GetLength() : 0;
       }
     }
   }
