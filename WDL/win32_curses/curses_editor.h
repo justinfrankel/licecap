@@ -63,9 +63,9 @@ protected:
   void getselectregion(int &minx, int &miny, int &maxx, int &maxy);
   void doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt);
 
-  void saveUndoState();
-  void preSaveUndoState(); // updates coordinates of edit to last rec
-  void loadUndoState(editUndoRec *rec);
+  void saveUndoState(); // updates rec[0]/rec[1], rec[0] is view after edit (rec[1] will be view after following edit)
+  void preSaveUndoState(); // updates coordinates of edit to last rec[1]
+  void loadUndoState(editUndoRec *rec, int idx); // idx=0 on redo, 1=on undo
 
   void updateLastModTime();
 
@@ -148,11 +148,12 @@ protected:
 
     WDL_PtrList<refcntString> m_htext;
 
-    int m_offs_x;
-    int m_curs_x, m_curs_y;
-    int m_curpane;
-    double m_pane_div;
-    int m_paneoffs_y[2];
+    int m_offs_x[2];
+    int m_curs_x[2], m_curs_y[2];
+
+    int m_curpane[2];
+    double m_pane_div[2];
+    int m_paneoffs_y[2][2];
   };
 };
 #endif

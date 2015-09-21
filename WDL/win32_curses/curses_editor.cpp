@@ -1184,7 +1184,7 @@ int WDL_CursesEditor::onChar(int c)
         if (m_undoStack_pos > 0)
         {
            m_undoStack_pos--;
-           loadUndoState(m_undoStack.Get(m_undoStack_pos));
+           loadUndoState(m_undoStack.Get(m_undoStack_pos),1);
            draw();
            setCursor();
            char buf[512];
@@ -1204,7 +1204,7 @@ int WDL_CursesEditor::onChar(int c)
         if (m_undoStack_pos < m_undoStack.GetSize()-1)
         {
           m_undoStack_pos++;
-          loadUndoState(m_undoStack.Get(m_undoStack_pos));
+          loadUndoState(m_undoStack.Get(m_undoStack_pos),0);
           draw();
           setCursor();
           char buf[512];
@@ -1913,25 +1913,25 @@ void WDL_CursesEditor::preSaveUndoState()
   editUndoRec *rec= m_undoStack.Get(m_undoStack_pos);
   if (rec)
   {
-    rec->m_offs_x=m_offs_x;
-    rec->m_curs_x=m_curs_x;
-    rec->m_curs_y=m_curs_y;
-    rec->m_curpane=m_curpane;
-    rec->m_pane_div=m_pane_div;
-    rec->m_paneoffs_y[0]=m_paneoffs_y[0];
-    rec->m_paneoffs_y[1]=m_paneoffs_y[1];
+    rec->m_offs_x[1]=m_offs_x;
+    rec->m_curs_x[1]=m_curs_x;
+    rec->m_curs_y[1]=m_curs_y;
+    rec->m_curpane[1]=m_curpane;
+    rec->m_pane_div[1]=m_pane_div;
+    rec->m_paneoffs_y[1][0]=m_paneoffs_y[0];
+    rec->m_paneoffs_y[1][1]=m_paneoffs_y[1];
   }
 }
 void WDL_CursesEditor::saveUndoState() 
 {
   editUndoRec *rec=new editUndoRec;
-  rec->m_offs_x=m_offs_x;
-  rec->m_curs_x=m_curs_x;
-  rec->m_curs_y=m_curs_y;
-  rec->m_curpane=m_curpane;
-  rec->m_pane_div=m_pane_div;
-  rec->m_paneoffs_y[0]=m_paneoffs_y[0];
-  rec->m_paneoffs_y[1]=m_paneoffs_y[1];
+  rec->m_offs_x[1]=rec->m_offs_x[0]=m_offs_x;
+  rec->m_curs_x[1]=rec->m_curs_x[0]=m_curs_x;
+  rec->m_curs_y[1]=rec->m_curs_y[0]=m_curs_y;
+  rec->m_curpane[1]=rec->m_curpane[0]=m_curpane;
+  rec->m_pane_div[1]=rec->m_pane_div[0]=m_pane_div;
+  rec->m_paneoffs_y[1][0]=rec->m_paneoffs_y[0][0]=m_paneoffs_y[0];
+  rec->m_paneoffs_y[1][1]=rec->m_paneoffs_y[0][1]=m_paneoffs_y[1];
 
   editUndoRec *lrec[5];
   lrec[0] = m_undoStack.Get(m_undoStack_pos);
@@ -2006,7 +2006,7 @@ void WDL_CursesEditor::saveUndoState()
   m_undoStack.Add(rec);
 }
 
-void WDL_CursesEditor::loadUndoState(editUndoRec *rec)
+void WDL_CursesEditor::loadUndoState(editUndoRec *rec, int idx)
 {
   int x;
   m_text.Empty(true);
@@ -2016,14 +2016,14 @@ void WDL_CursesEditor::loadUndoState(editUndoRec *rec)
     m_text.Add(new WDL_FastString(s?s->getStr():""));
   }
 
-  m_offs_x=rec->m_offs_x;
-  m_curs_x=rec->m_curs_x;
-  m_curs_y=rec->m_curs_y;
+  m_offs_x=rec->m_offs_x[idx];
+  m_curs_x=rec->m_curs_x[idx];
+  m_curs_y=rec->m_curs_y[idx];
 
-  m_curpane=rec->m_curpane;
-  m_pane_div=rec->m_pane_div;
-  m_paneoffs_y[0]=rec->m_paneoffs_y[0];
-  m_paneoffs_y[1]=rec->m_paneoffs_y[1];
+  m_curpane=rec->m_curpane[idx];
+  m_pane_div=rec->m_pane_div[idx];
+  m_paneoffs_y[0]=rec->m_paneoffs_y[idx][0];
+  m_paneoffs_y[1]=rec->m_paneoffs_y[idx][1];
 }
 
 
