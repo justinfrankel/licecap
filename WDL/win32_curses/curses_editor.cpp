@@ -1295,7 +1295,7 @@ int WDL_CursesEditor::onChar(int c)
         {
           removeSelect();
           // insert lines at m_curs_y,m_curs_x
-          if (m_curs_y >= m_text.GetSize()) m_curs_y=m_text.GetSize()-1;
+          if (m_curs_y > m_text.GetSize()) m_curs_y=m_text.GetSize();
           if (m_curs_y < 0) m_curs_y=0;
 
           preSaveUndoState();
