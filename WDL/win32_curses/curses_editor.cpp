@@ -1230,7 +1230,7 @@ int WDL_CursesEditor::onChar(int c)
       {
         // generate a m_clipboard using win32 clipboard data
         WDL_PtrList<const char> lines;
-        WDL_String buf;
+        WDL_FastString buf;
 #ifdef WDL_IS_FAKE_CURSES
         if (CURSES_INSTANCE)
         {
@@ -1253,7 +1253,27 @@ int WDL_CursesEditor::onChar(int c)
 
         if (buf.Get() && buf.Get()[0])
         {
-          char *src=buf.Get();
+          int x;
+          char s[32];
+          // replace any \t with spaces
+          int insert_sz=m_indent_size - 1;
+          if (insert_sz<0) insert_sz=0;
+          else if (insert_sz>32) insert_sz=32;
+
+          memset(s,' ',insert_sz);
+          for(x=0;x<buf.GetLength();x++)
+          {
+            char *p = (char *)buf.Get();
+            if (p[x] == '\t')
+            {
+              p[x] = ' ';
+              buf.Insert(s,x+1,insert_sz);
+              x+=insert_sz;
+            }
+          }
+
+          // parse lines
+          char *src=(char*)buf.Get();
           while (*src)
           {
             char *seek=src;
