@@ -2061,6 +2061,7 @@ void WDL_CursesEditor::loadUndoState(editUndoRec *rec, int idx)
   m_pane_div=rec->m_pane_div[idx];
   m_paneoffs_y[0]=rec->m_paneoffs_y[idx][0];
   m_paneoffs_y[1]=rec->m_paneoffs_y[idx][1];
+  m_selecting=false;
 }
 
 
