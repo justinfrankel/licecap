@@ -38,6 +38,7 @@ static void __curses_onresize(win32CursesCtx *ctx)
 }
 WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
 { 
+  m_newline_mode=0;
   m_max_undo_states = 500;
   m_indent_size=2;
   m_cursesCtx = cursesCtx;
@@ -411,13 +412,13 @@ WDL_CursesEditor::~WDL_CursesEditor()
 int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
 {
   m_filename.Set(fn);
-  FILE *fh=fopenUTF8(fn,"rt");
+  FILE *fh=fopenUTF8(fn,"r");
 
   if (!fh) 
   {
     if (init_if_empty)
     {
-      fh=fopenUTF8(fn,"w+t");
+      fh=fopenUTF8(fn,"w+");
       if (fh)
       {
         fwrite(init_if_empty,1,strlen(init_if_empty),fh);
@@ -441,7 +442,7 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
 
 int WDL_CursesEditor::reload_file(bool clearundo)
 {
-  FILE *fh=fopenUTF8(m_filename.Get(),"rt");
+  FILE *fh=fopenUTF8(m_filename.Get(),"r");
   if (fh)
   {
     if (!clearundo)
@@ -465,6 +466,7 @@ int WDL_CursesEditor::reload_file(bool clearundo)
 
 void WDL_CursesEditor::loadLines(FILE *fh)
 {
+  int crcnt = 0;
   for (;;)
   {
     char line[4096];
@@ -473,8 +475,11 @@ void WDL_CursesEditor::loadLines(FILE *fh)
     if (!line[0]) break;
 
     int l=strlen(line);
+
     while(l>0 && (line[l-1]=='\r' || line[l-1]=='\n'))
     {
+      if (line[l-1] == '\r') crcnt++;
+
       line[l-1]=0;
       l--;
     }
@@ -491,6 +496,8 @@ void WDL_CursesEditor::loadLines(FILE *fh)
     if (p) str->Append(p);
     m_text.Add(str);
   }
+  m_newline_mode=crcnt > m_text.GetSize()/2; // more than half of lines have crlf, then use crlf
+
   saveUndoState();
   m_clean_undopos=m_undoStack_pos;
   updateLastModTime();
@@ -825,12 +832,16 @@ void WDL_CursesEditor::draw_bottom_line()
 
 int WDL_CursesEditor::updateFile()
 {
-  FILE *fp=fopenUTF8(m_filename.Get(),"wt");
+  FILE *fp=fopenUTF8(m_filename.Get(),"w");
   if (!fp) return 1;
   int x;
   for (x = 0; x < m_text.GetSize(); x ++)
   {
-    if (m_text.Get(x)) fprintf(fp,"%s\n",m_text.Get(x)->Get());
+    if (m_text.Get(x)) 
+    {
+      if (m_newline_mode==1) fprintf(fp,"%s\r\n",m_text.Get(x)->Get());
+      else fprintf(fp,"%s\n",m_text.Get(x)->Get());
+    }
   }
   fclose(fp);
   sync();

@@ -83,6 +83,7 @@ protected:
   
   WDL_FastString m_filename;
   time_t m_filelastmod; // last written-to or read-from modification time, or 0 if unknown
+  int m_newline_mode; // detected from input. 0 = \n, 1=\r\n
   WDL_PtrList<WDL_FastString> m_text;
   WDL_PtrList<editUndoRec> m_undoStack;
   int m_undoStack_pos;
