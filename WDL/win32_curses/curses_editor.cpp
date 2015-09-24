@@ -412,13 +412,13 @@ WDL_CursesEditor::~WDL_CursesEditor()
 int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
 {
   m_filename.Set(fn);
-  FILE *fh=fopenUTF8(fn,"r");
+  FILE *fh=fopenUTF8(fn,"rb");
 
   if (!fh) 
   {
     if (init_if_empty)
     {
-      fh=fopenUTF8(fn,"w+");
+      fh=fopenUTF8(fn,"w+b");
       if (fh)
       {
         fwrite(init_if_empty,1,strlen(init_if_empty),fh);
@@ -442,7 +442,7 @@ int WDL_CursesEditor::init(const char *fn, const char *init_if_empty)
 
 int WDL_CursesEditor::reload_file(bool clearundo)
 {
-  FILE *fh=fopenUTF8(m_filename.Get(),"r");
+  FILE *fh=fopenUTF8(m_filename.Get(),"rb");
   if (fh)
   {
     if (!clearundo)
@@ -832,7 +832,7 @@ void WDL_CursesEditor::draw_bottom_line()
 
 int WDL_CursesEditor::updateFile()
 {
-  FILE *fp=fopenUTF8(m_filename.Get(),"w");
+  FILE *fp=fopenUTF8(m_filename.Get(),"wb");
   if (!fp) return 1;
   int x;
   for (x = 0; x < m_text.GetSize(); x ++)
