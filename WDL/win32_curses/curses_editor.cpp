@@ -339,7 +339,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           int x2=m_curs_x+1;
           const char* p=s->Get();
           while (x1 > 0 && (isalnum(p[x1-1]) || p[x1-1] == '_')) --x1;
-          while (x2 < s->GetLength()-1 && (isalnum(p[x2]) || p[x2] == '_')) ++x2;
+          while (x2 < s->GetLength() && (isalnum(p[x2]) || p[x2] == '_')) ++x2;
           if (x2 > x1)
           {
             m_select_x1=x1;
