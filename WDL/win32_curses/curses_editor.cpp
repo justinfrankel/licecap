@@ -1979,6 +1979,10 @@ int WDL_CursesEditor::onChar(int c)
         {
           slen = wdl_min(m_indent_size,64);
           if (slen<1) slen=1;
+          
+          const int partial = m_curs_x % slen;
+          if (partial) slen -= partial;
+
           int x; 
           for(x=0;x<slen;x++) str[x]=' ';
         }
