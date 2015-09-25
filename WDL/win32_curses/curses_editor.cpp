@@ -946,6 +946,22 @@ void WDL_CursesEditor::indentSelect(int amt)
         m_curs_x += amt;
         if (m_curs_x<0)m_curs_x=0;
       }
+      if (amt<0)
+      {
+        int minspc=-amt;
+        for (x = miny; x <= maxy; x ++)
+        {
+          WDL_FastString *s=m_text.Get(x);
+          if (s)
+          {
+            int a=0;
+            while (a<minspc && s->Get()[a]== ' ') a++;
+            minspc = a;
+          }
+        }
+        if (minspc>0 && minspc < -amt) amt = -minspc;
+      }
+
       for (x = miny; x <= maxy; x ++)
       {
         WDL_FastString *s=m_text.Get(x);
