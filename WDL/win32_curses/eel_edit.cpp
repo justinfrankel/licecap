@@ -559,7 +559,7 @@ int EEL_Editor::GetCommentStateForLineStart(int line)
   s_declaredFuncs.DeleteAll();
   s_declaredVars.DeleteAll();
 #endif
-  m_indent_size=2;
+  if (m_write_leading_tabs<=0) m_indent_size=2;
   const bool uses_code_start_lines = !!is_code_start_line(NULL);
 
   int state=0;
