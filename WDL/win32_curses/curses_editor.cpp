@@ -464,6 +464,28 @@ int WDL_CursesEditor::reload_file(bool clearundo)
   return 1;
 }
 
+static void ReplaceTabs(WDL_FastString *str, int tabsz)
+{
+  int x;
+  char s[128];
+  // replace any \t with spaces
+  int insert_sz=tabsz - 1;
+  if (insert_sz<0) insert_sz=0;
+  else if (insert_sz>128) insert_sz=128;
+
+  memset(s,' ',insert_sz);
+  for(x=0;x<str->GetLength();x++)
+  {
+    char *p = (char *)str->Get();
+    if (p[x] == '\t')
+    {
+      p[x] = ' ';
+      str->Insert(s,x+1,insert_sz);
+      x+=insert_sz;
+    }
+  }
+}
+
 void WDL_CursesEditor::loadLines(FILE *fh)
 {
   int crcnt = 0;
@@ -483,17 +505,10 @@ void WDL_CursesEditor::loadLines(FILE *fh)
       line[l-1]=0;
       l--;
     }
-    WDL_FastString *str=new WDL_FastString;
-    char *p=line,*np;
-    while ((np=strstr(p,"\t"))) // this should be optional, perhaps
-    {
-      *np=0;
-      str->Append(p);
-      int x; 
-      for(x=0;x<m_indent_size;x++) str->Append(" ");
-      p=np+1;
-    }
-    if (p) str->Append(p);
+    WDL_FastString *str=new WDL_FastString(line);
+
+    ReplaceTabs(str,m_indent_size);
+
     m_text.Add(str);
   }
   m_newline_mode=crcnt > m_text.GetSize()/2; // more than half of lines have crlf, then use crlf
@@ -1269,26 +1284,8 @@ int WDL_CursesEditor::onChar(int c)
 
         if (buf.Get() && buf.Get()[0])
         {
-          int x;
-          char s[32];
-          // replace any \t with spaces
-          int insert_sz=m_indent_size - 1;
-          if (insert_sz<0) insert_sz=0;
-          else if (insert_sz>32) insert_sz=32;
+          ReplaceTabs(&buf,m_indent_size);
 
-          memset(s,' ',insert_sz);
-          for(x=0;x<buf.GetLength();x++)
-          {
-            char *p = (char *)buf.Get();
-            if (p[x] == '\t')
-            {
-              p[x] = ' ';
-              buf.Insert(s,x+1,insert_sz);
-              x+=insert_sz;
-            }
-          }
-
-          // parse lines
           char *src=(char*)buf.Get();
           while (*src)
           {
