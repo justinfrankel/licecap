@@ -941,11 +941,15 @@ void WDL_CursesEditor::indentSelect(int amt)
       m_select_x1 = 0;
       m_select_y1 = miny;
       m_select_y2 = maxy;
+      m_select_x2 = maxx;
+      if (maxx<1 && maxy>miny) maxy--; // exclude empty final line
+
       if (m_curs_y >= miny && m_curs_y <=maxy)
       {
         m_curs_x += amt;
         if (m_curs_x<0)m_curs_x=0;
       }
+
       if (amt<0)
       {
         int minspc=-amt;
@@ -980,7 +984,7 @@ void WDL_CursesEditor::indentSelect(int amt)
             s->DeleteSub(0,a);
           }
         }
-        if (x==maxy) m_select_x2 = s ? s->GetLength() : 0;
+        if (x==m_select_y2) m_select_x2 = s ? s->GetLength() : 0;
       }
     }
   }
