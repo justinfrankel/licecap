@@ -1873,8 +1873,19 @@ int WDL_CursesEditor::onChar(int c)
       {
         preSaveUndoState();
 
-        bool hadCom = LineCanAffectOtherLines(tl->Get(), m_curs_x-1,1);
-        tl->DeleteSub(--m_curs_x,1);
+        int del_sz=1;
+        if (m_indent_size > 0 && !(m_curs_x % m_indent_size))
+        {
+          const char *p = tl->Get();
+          int i=0;
+          while (i<m_curs_x && p[i]== ' ') i++;
+          if (i == m_curs_x && m_curs_x>=m_indent_size)
+          {
+            del_sz=m_indent_size;
+          }
+        }
+        bool hadCom = LineCanAffectOtherLines(tl->Get(), m_curs_x-del_sz,del_sz);
+        tl->DeleteSub(m_curs_x-=del_sz,del_sz);
         if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get(),-1,-1);
         draw(hadCom?-1:m_curs_y);
         saveUndoState();
