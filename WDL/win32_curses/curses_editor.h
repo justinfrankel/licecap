@@ -84,6 +84,11 @@ protected:
   WDL_FastString m_filename;
   time_t m_filelastmod; // last written-to or read-from modification time, or 0 if unknown
   int m_newline_mode; // detected from input. 0 = \n, 1=\r\n
+
+  // auto-detected on input, set to >0 (usually m_indent_size) if all leading whitespace was tabs (some fuzzy logic too)
+  // this is a workaround until we retrofit real tab (and UTF-8) support
+  int m_write_leading_tabs; 
+
   WDL_PtrList<WDL_FastString> m_text;
   WDL_PtrList<editUndoRec> m_undoStack;
   int m_undoStack_pos;

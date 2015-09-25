@@ -39,6 +39,7 @@ static void __curses_onresize(win32CursesCtx *ctx)
 WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
 { 
   m_newline_mode=0;
+  m_write_leading_tabs=0;
   m_max_undo_states = 500;
   m_indent_size=2;
   m_cursesCtx = cursesCtx;
@@ -489,6 +490,8 @@ static void ReplaceTabs(WDL_FastString *str, int tabsz)
 void WDL_CursesEditor::loadLines(FILE *fh)
 {
   int crcnt = 0;
+  int tabstate = 0;
+  int tab_cnv_size=5;
   for (;;)
   {
     char line[4096];
@@ -505,11 +508,36 @@ void WDL_CursesEditor::loadLines(FILE *fh)
       line[l-1]=0;
       l--;
     }
-    WDL_FastString *str=new WDL_FastString(line);
+    m_text.Add(new WDL_FastString(line));
 
-    ReplaceTabs(str,m_indent_size);
+    if (tabstate>=0)
+    {
+      const char *p = line;
+      if (*p == '\t' && !tabstate) tabstate=1; 
+      while (*p == '\t') p++;
 
-    m_text.Add(str);
+      int spacecnt=0;
+      while (*p == ' ') { p++; spacecnt++; }
+      if (*p == '\t' || spacecnt>7) tabstate=-1; // tab after space, or more than 7 spaces = dont try to preserve tabs
+      else if (spacecnt+1 > tab_cnv_size) tab_cnv_size = spacecnt+1;
+    }
+  }
+  if (tabstate>0)
+  {
+    m_indent_size=tab_cnv_size;
+    m_write_leading_tabs=tab_cnv_size;
+  }
+  else
+  {
+    m_write_leading_tabs=0;
+  }
+
+  int x;
+  for (x=0;x<m_text.GetSize();x++)
+  {
+    WDL_FastString *s = m_text.Get(x);
+    if (s)
+      ReplaceTabs(s,m_indent_size);
   }
   m_newline_mode=crcnt > m_text.GetSize()/2; // more than half of lines have crlf, then use crlf
 
@@ -845,6 +873,18 @@ void WDL_CursesEditor::draw_bottom_line()
   // implementers add key commands here
 }
 
+static const char *countLeadingTabs(const char *p, int *ntabs, int tabsz)
+{
+  if (tabsz>0) while (*p)
+  {
+    int i;
+    for (i=0;i<tabsz;i++) if (p[i]!=' ') return p;
+    p+=tabsz;
+    (*ntabs) += 1;
+  }
+  return p;
+}
+
 int WDL_CursesEditor::updateFile()
 {
   FILE *fp=fopenUTF8(m_filename.Get(),"wb");
@@ -852,10 +892,15 @@ int WDL_CursesEditor::updateFile()
   int x;
   for (x = 0; x < m_text.GetSize(); x ++)
   {
-    if (m_text.Get(x)) 
+    WDL_FastString *s = m_text.Get(x);
+    if (s)
     {
-      if (m_newline_mode==1) fprintf(fp,"%s\r\n",m_text.Get(x)->Get());
-      else fprintf(fp,"%s\n",m_text.Get(x)->Get());
+      int tabcnt=0;
+      const char *p = countLeadingTabs(s->Get(),&tabcnt,m_write_leading_tabs);
+      while (tabcnt-->0) fputc('\t',fp);
+      fwrite(p,1,strlen(p),fp);
+      if (m_newline_mode==1) fputc('\r',fp);
+      fputc('\n',fp);
     }
   }
   fclose(fp);
@@ -1478,7 +1523,26 @@ int WDL_CursesEditor::onChar(int c)
       
             bytescopied += ex-sx + (x!=maxy);
             if (s_fake_clipboard.Get() && s_fake_clipboard.Get()[0]) s_fake_clipboard.Append("\r\n");
+
+            const int oldlen = s_fake_clipboard.GetLength();
             s_fake_clipboard.Append(ex-sx?str+sx:"",ex-sx);
+            if (m_write_leading_tabs>0 && sx==0 && oldlen < s_fake_clipboard.GetLength())
+            {
+              const char *p = s_fake_clipboard.Get() + oldlen;
+              int nt=0;
+              const char *sp = countLeadingTabs(p,&nt,m_write_leading_tabs);
+              if (nt && sp > p)
+              {
+                s_fake_clipboard.DeleteSub(oldlen,(int)(sp-p));
+                while (nt>0) 
+                {
+                  int c = nt;
+                  if (c > 8) c=8;
+                  nt -= c;
+                  s_fake_clipboard.Insert("\t\t\t\t\t\t\t\t",oldlen,c);
+                }
+              }
+            }
 
             if (c != 'C'-'A'+1)
             {
