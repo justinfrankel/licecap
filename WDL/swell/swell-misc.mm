@@ -656,7 +656,10 @@ int SWELL_GetOSXVersion()
   {
     if (NSAppKitVersionNumber >= 1266.0) 
     {
-      v=0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
+      if (NSAppKitVersionNumber >= 1404.0)
+        v = 0x10b0;
+      else
+        v = 0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
     }
     else 
     {
