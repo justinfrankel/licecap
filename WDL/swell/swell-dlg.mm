@@ -120,6 +120,12 @@ static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event)
   [slf retain];
   LRESULT res=SWELL_SendMouseMessageImpl((SWELL_hwndChild*)slf,msg,event);
   [slf release];
+
+  if (msg == WM_MOUSEMOVE && SWELL_GetOSXVersion()==0x10b0)  // OSX 10.11.0 doesnt run timers when mouse dragging etc.
+    // hopefully this can be removed for NSAppKitVersionNumber!=1404.0 (10.11.1?)
+  {
+    CFRunLoopRunInMode((CFStringRef)NSDefaultRunLoopMode,0.0,NO);
+  }
   return res;
 }
 
