@@ -241,14 +241,14 @@ extern "C" {
         // alternatively we could calculate the full length of each number not counting leadings 0s and use that, but
         // then the string comparison would end up comparing at different offsets too. this is good enough for now 
         // IMO
-        while ((s1d=isdigit(*s1)) && isdigit(*s2))
+        while ((s1d=isdigit((unsigned char)*s1)) && isdigit((unsigned char)*s2))
         {
           if (!d) d=*s1-*s2;
           s1++;
           s2++;
         }
         if (s1d) return 1; // s1 is longer than s2, so larger
-        if (isdigit(*s2)) return -1; // s2 is longer than s1, larger
+        if (isdigit((unsigned char)*s2)) return -1; // s2 is longer than s1, larger
         if (d) return d; // same length, but check to see which is greater
       }
       else
