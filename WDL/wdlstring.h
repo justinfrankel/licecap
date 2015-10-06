@@ -52,7 +52,7 @@ class WDL_String
     void DeleteSub(int position, int len);
     void Insert(const char *str, int position, int maxlen=0);
     void Insert(const WDL_String *str, int position, int maxlen=0);
-    void SetLen(int length, bool resizeDown=false);
+    bool SetLen(int length, bool resizeDown=false); // returns true on success
     void Ellipsize(int minlen, int maxlen);
     const char *get_filepart() const; // returns whole string if no dir chars
     const char *get_fileext() const; // returns ".ext" or end of string "" if no extension
@@ -158,10 +158,9 @@ class WDL_String
 
     void WDL_STRING_FUNCPREFIX DeleteSub(int position, int len)
     {
-      char *p=(char *)m_hb.Get();
-      if (!m_hb.GetSize() || !*p) return;
       int l=m_hb.GetSize()-1;
-      if (position < 0 || position >= l) return;
+      char *p=(char *)m_hb.Get();
+      if (l<0 || !*p || position < 0 || position >= l) return;
       if (position+len > l) len=l-position;
       if (len>0)
       {
@@ -200,27 +199,33 @@ class WDL_String
       #endif
     }
 
-    void WDL_STRING_FUNCPREFIX SetLen(int length, bool resizeDown WDL_STRING_DEFPARM(false))
+    bool WDL_STRING_FUNCPREFIX SetLen(int length, bool resizeDown WDL_STRING_DEFPARM(false))
     {                       
       #ifdef WDL_STRING_FASTSUB_DEFINED
-      const int osz = m_hb.GetSize()>0?m_hb.GetSize()-1:0;
+      int osz = m_hb.GetSize()-1;
+      if (osz<0)osz=0;
       #endif
       if (length < 0) length=0;
-      char *b=(char*)m_hb.Resize(length+1,resizeDown);
-      if (m_hb.GetSize()==length+1) 
+      char *b=(char*)m_hb.ResizeOK(length+1,resizeDown);
+      if (b) 
       {
         #ifdef WDL_STRING_FASTSUB_DEFINED
           if (length > osz) memset(b+osz,' ',length-osz);
         #endif
         b[length]=0;
+        return true;
       }
+      return false;
     }
 
     void WDL_STRING_FUNCPREFIX SetAppendFormattedArgs(bool append, int maxlen, const char* fmt, va_list arglist) 
     {
       int offs = append ? GetLength() : 0;
-      char* b= (char*) m_hb.Resize(offs+maxlen+1,false)+offs;
-      if (m_hb.GetSize() != offs+maxlen+1) return;
+      char *b= (char*) m_hb.ResizeOK(offs+maxlen+1,false);
+      
+      if (!b) return;
+
+      b+=offs;
 
       #ifdef _WIN32
         int written = _vsnprintf(b, maxlen+1, fmt, arglist);
@@ -274,26 +279,30 @@ class WDL_String
     }
     const char * WDL_STRING_FUNCPREFIX get_filepart() const // returns whole string if no dir chars
     {
-      const char *p = Get() + GetLength() - 1;
-      while (p >= Get() && !WDL_IS_DIRCHAR(*p)) --p;
+      const char *s = Get();
+      const char *p = s + GetLength() - 1;
+      while (p >= s && !WDL_IS_DIRCHAR(*p)) --p;
       return p + 1;
     }
     const char * WDL_STRING_FUNCPREFIX get_fileext() const // returns ".ext" or end of string "" if no extension
     {
-      const char *p = Get() + GetLength() - 1;
-      while (p >= Get() && !WDL_IS_DIRCHAR(*p))
+      const char *s = Get();
+      const char *endp = s + GetLength();
+      const char *p = endp - 1;
+      while (p >= s && !WDL_IS_DIRCHAR(*p))
       {
         if (*p == '.') return p;
         --p;
       }
-      return Get() + GetLength();
+      return endp;
     }
     bool WDL_STRING_FUNCPREFIX remove_fileext() // returns true if extension was removed
     {
+      const char *str = Get();
       int pos = GetLength() - 1;
       while (pos >= 0)
       {
-        char c = Get()[pos];
+        char c = str[pos];
         if (WDL_IS_DIRCHAR(c)) break;
         if (c == '.')
         {
@@ -308,10 +317,11 @@ class WDL_String
     char WDL_STRING_FUNCPREFIX remove_filepart(bool keepTrailingSlash WDL_STRING_DEFPARM(false)) // returns directory character used, or 0 if string emptied
     {
       char rv=0;
-      int pos = GetLength();
+      const char *str = Get();
+      int pos = GetLength() - 1;
       while (pos > 0)
       {
-        char c = Get()[pos];
+        char c = str[pos];
         if (WDL_IS_DIRCHAR(c)) 
         {
           rv=c;
@@ -327,14 +337,15 @@ class WDL_String
     int WDL_STRING_FUNCPREFIX remove_trailing_dirchars() // returns trailing dirchar count removed
     {
       int cnt = 0;
-      const int l = GetLength();
-      while (cnt < l-1)
+      const char *str = Get();
+      const int l = GetLength()-1;
+      while (cnt < l)
       {
-        char c = Get()[l - cnt -1];
+        char c = str[l - cnt];
         if (!WDL_IS_DIRCHAR(c)) break;
         ++cnt;
       }
-      if (cnt > 0) SetLen(l - cnt);
+      if (cnt > 0) SetLen(l + 1 - cnt);
       return cnt;
     }
 #ifndef WDL_STRING_IMPL_ONLY
