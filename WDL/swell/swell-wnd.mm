@@ -873,9 +873,25 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       case LB_GETTEXT:
         if (lParam)
         {
-          ListView_GetItemText(hwnd,wParam,0,(char *)lParam,4096);
+          SWELL_ListView_Row *row=self->m_items ? self->m_items->Get(wParam) : NULL;
+          *(char *)lParam = 0;
+          if (row && row->m_vals.Get(0))
+          {
+            strcpy((char *)lParam, row->m_vals.Get(0));
+            return (LRESULT)strlen(row->m_vals.Get(0));
+          }
         }
-      return 0;
+      return LB_ERR;
+      case LB_GETTEXTLEN:
+        {
+          SWELL_ListView_Row *row=self->m_items ? self->m_items->Get(wParam) : NULL;
+          if (row) 
+          {
+            const char *p=row->m_vals.Get(0);
+            return p?strlen(p):0;
+          }
+        }
+      return LB_ERR;
       case LB_GETSEL:
         return !!(ListView_GetItemState(hwnd,wParam,LVIS_SELECTED)&LVIS_SELECTED);
       case LB_GETCURSEL:
@@ -1493,7 +1509,8 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           case CB_DELETESTRING: SWELL_CB_DeleteString(hwnd,0,wParam); return 1;
           case CB_GETCOUNT: return SWELL_CB_GetNumItems(hwnd,0);
           case CB_GETCURSEL: return SWELL_CB_GetCurSel(hwnd,0);
-          case CB_GETLBTEXT: return SWELL_CB_GetItemText(hwnd,0,wParam,(char *)lParam, 1024);  
+          case CB_GETLBTEXT: return SWELL_CB_GetItemText(hwnd,0,wParam,(char *)lParam, 1<<20);
+          case CB_GETLBTEXTLEN: return SWELL_CB_GetItemText(hwnd,0,wParam,NULL,0);
           case CB_INSERTSTRING: return SWELL_CB_InsertString(hwnd,0,wParam,(char *)lParam);
           case CB_RESETCONTENT: SWELL_CB_Empty(hwnd,0); return 0;
           case CB_SETCURSEL: SWELL_CB_SetCurSel(hwnd,0,wParam); return 0;
@@ -2528,18 +2545,19 @@ int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
 {
   NSComboBox *p=(NSComboBox *)GetDlgItem(hwnd,idx);
 
-  *buf=0;
-  if (!p) return 0;
+  if (buf) *buf=0;
+  if (!p) return CB_ERR;
   int ni=[p numberOfItems];
-  if (item < 0 || item >= ni) return 0;
+  if (item < 0 || item >= ni) return CB_ERR;
   
   if ([p isKindOfClass:[NSComboBox class]])
   {
     NSString *s=[p itemObjectValueAtIndex:item];
     if (s)
     {
+      if (!buf) return [s lengthOfBytesUsingEncoding:NSUTF8StringEncoding] + 64;
+
       SWELL_CFStringToCString(s,buf,bufsz);
-//      [s getCString:buf maxLength:bufsz];
       return 1;
     }
   }
@@ -2551,13 +2569,14 @@ int SWELL_CB_GetItemText(HWND hwnd, int idx, int item, char *buf, int bufsz)
       NSString *s=[i title];
       if (s)
       {
+        if (!buf) return [s lengthOfBytesUsingEncoding:NSUTF8StringEncoding] + 64;
+
         SWELL_CFStringToCString(s,buf,bufsz);
-//        [s getCString:buf maxLength:bufsz];
         return 1;
       }
     }
   }
-  return 0;
+  return CB_ERR;
 }
 
 

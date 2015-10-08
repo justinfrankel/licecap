@@ -2200,16 +2200,16 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         case CB_GETCOUNT: return s->items.GetSize();
         case CB_GETCURSEL: return s->selidx >=0 && s->selidx < s->items.GetSize() ? s->selidx : -1;
 
+        case CB_GETLBTEXTLEN: 
         case CB_GETLBTEXT: 
           if (wParam < (WPARAM)s->items.GetSize()) 
           {
-            if (lParam)
-            {
-              char *ptr=s->items.Get(wParam)->desc;
-              int l = strlen(ptr);
-              memcpy((char *)lParam,ptr,l+1);
-              return l;
-            }
+            __SWELL_ComboBoxInternalState_rec *rec = s->items.Get(wParam);
+            if (!rec) return CB_ERR;
+            const char *ptr=rec->desc;
+            int l = ptr ? strlen(ptr) : 0;
+            if (msg == CB_GETLBTEXT && lParam) memcpy((char *)lParam,ptr?ptr:"",l+1);
+            return l;
           }
         return CB_ERR;
         case CB_RESETCONTENT:
@@ -2768,6 +2768,16 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           return (LRESULT)strlen(row->m_vals.Get(0));
         }
       }
+    return LB_ERR;
+    case LB_GETTEXTLEN:
+        {
+          SWELL_ListView_Row *row=lvs->m_data.Get(wParam);
+          if (row) 
+          {
+            const char *p=row->m_vals.Get(0);
+            return p?strlen(p):0;
+          }
+        }
     return LB_ERR;
     case LB_RESETCONTENT:
       if (lvs && !lvs->IsOwnerData())
