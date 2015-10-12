@@ -62,7 +62,6 @@ static int MacKeyCodeToVK(int code)
     case 101: return VK_F9;
     case 109: return VK_F10;
     case 103: return VK_F11;
-    case 105: return VK_SNAPSHOT;
     case 111: return VK_F12;
     case 114: return VK_INSERT;
     case 115: return VK_HOME;
