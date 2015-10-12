@@ -33,8 +33,8 @@
 
 static int MacKeyCodeToVK(int code)
 {
-	switch (code)
-	{
+  switch (code)
+  {
     case 51: return VK_BACK;
     case 65: return VK_DECIMAL;
     case 67: return VK_MULTIPLY;
@@ -65,20 +65,24 @@ static int MacKeyCodeToVK(int code)
     case 105: return VK_SNAPSHOT;
     case 111: return VK_F12;
     case 114: return VK_INSERT;
-		case 115: return VK_HOME;
+    case 115: return VK_HOME;
     case 117: return VK_DELETE;
-		case 116: return VK_PRIOR;
+    case 116: return VK_PRIOR;
     case 118: return VK_F4;
-		case 119: return VK_END;
+    case 119: return VK_END;
     case 120: return VK_F2;
-		case 121: return VK_NEXT;
+    case 121: return VK_NEXT;
     case 122: return VK_F1;
-		case 123: return VK_LEFT;
-		case 124: return VK_RIGHT;
-		case 125: return VK_DOWN;
-		case 126: return VK_UP;
-	}
-	return 0;
+    case 123: return VK_LEFT;
+    case 124: return VK_RIGHT;
+    case 125: return VK_DOWN;
+    case 126: return VK_UP;
+    case 0x69: return VK_F13;
+    case 0x6B: return VK_F14;
+    case 0x71: return VK_F15;
+    case 0x6A: return VK_F16;
+  }
+  return 0;
 }
 
 bool IsRightClickEmulateEnabled();

@@ -250,7 +250,7 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
     
     if (code>='A' && code<='Z') suppressShift=true;
   }
-  else if (code >= VK_F1 && code <= VK_F12)
+  else if (code >= VK_F1 && code <= VK_F24)
   {
     arrowKey = NSF1FunctionKey + code - VK_F1;
   }
