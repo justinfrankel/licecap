@@ -299,7 +299,7 @@ public:
 #endif
 
 #endif
-  bool m_has_cap; // to avoid reporting capture on nonclient mousedown
+  int m_has_cap; // high 16 bits are current capture state, low 16 bits are temporary flags from mousedown
   bool m_has_had_getch; // set on first gfx_getchar(), makes mouse_cap updated with modifiers even when no mouse click is down
 };
 
@@ -351,7 +351,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
 
   if (m_gfx_texth) *m_gfx_texth=8;
 
-  m_has_cap=false;
+  m_has_cap=0;
   m_has_had_getch=false;
 }
 eel_lice_state::~eel_lice_state()
@@ -1690,6 +1690,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 
   if (m_has_cap)
   {
+    vflags|=m_has_cap&0xffff;
     if (GetAsyncKeyState(VK_LBUTTON)&0x8000) vflags|=1;
     if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=2;
     if (GetAsyncKeyState(VK_MBUTTON)&0x8000) vflags|=64;
@@ -1701,6 +1702,8 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     if (GetAsyncKeyState(VK_MENU)&0x8000) vflags|=16;
     if (GetAsyncKeyState(VK_LWIN)&0x8000) vflags|=32;
   }
+  m_has_cap &= 0xf0000;
+
   *m_mouse_cap=(EEL_F)vflags;
 
   *m_gfx_dest = -1.0; // m_framebuffer
@@ -2308,9 +2311,22 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       if (p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom)
       {
         SetFocus(hwnd);
-        SetCapture(hwnd);
         eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-        if (ctx) ctx->m_has_cap=true;
+        if (ctx) 
+        {
+          SetCapture(hwnd);
+          int f = 0;
+          if (uMsg == WM_LBUTTONDBLCLK || uMsg == WM_LBUTTONDOWN) f=0x10001;
+          else if (uMsg == WM_RBUTTONDBLCLK || uMsg == WM_RBUTTONDOWN) f=0x20002;
+          else if (uMsg == WM_MBUTTONDBLCLK || uMsg == WM_MBUTTONDOWN) f=0x40040;
+
+          if (GetAsyncKeyState(VK_CONTROL)&0x8000) f|=4;
+          if (GetAsyncKeyState(VK_SHIFT)&0x8000) f|=8;
+          if (GetAsyncKeyState(VK_MENU)&0x8000) f|=16;
+          if (GetAsyncKeyState(VK_LWIN)&0x8000) f|=32;
+
+          ctx->m_has_cap|=f;
+        }
       }
     }
     return 1;
@@ -2319,9 +2335,19 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_MBUTTONUP:
     case WM_CAPTURECHANGED:
     {
-      if (uMsg != WM_CAPTURECHANGED) ReleaseCapture();
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (ctx) ctx->m_has_cap=false;
+      if (ctx) 
+      {
+        if (uMsg == WM_CAPTURECHANGED) ctx->m_has_cap &= 0xffff;
+        else 
+        {
+          if (uMsg == WM_LBUTTONUP) ctx->m_has_cap &= ~0x10000;
+          else if (uMsg == WM_RBUTTONUP) ctx->m_has_cap &= ~0x20000;
+          else if (uMsg == WM_MBUTTONUP) ctx->m_has_cap &= ~0x40000;
+
+          if (!(ctx->m_has_cap & 0xf0000)) ReleaseCapture();
+        }
+      }
     }
     return 1;
 #ifdef _WIN32
