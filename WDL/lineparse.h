@@ -45,7 +45,7 @@ class LineParser
     int parse(const char *line) { return parse_ex(line,false); } // <0 on error, old style (;# starting tokens means comment to EOL)
 
     #ifdef WDL_LINEPARSE_INTF_ONLY
-      int parse_ex(const char *line, bool withcomments = true); // <0 on error, withcomments = true means don't treat #; as comments
+      int parse_ex(const char *line, bool withcomments = true, bool backtickquote = true); // <0 on error, withcomments = true means don't treat #; as comments
 
       double gettoken_float(int token, int *success=NULL) const;
       int gettoken_int(int token, int *success=NULL) const;
@@ -85,16 +85,16 @@ class LineParser
      #define WDL_LINEPARSE_DEFPARM(x) =(x)
    #endif
 
-    int WDL_LINEPARSE_PREFIX parse_ex(const char *line, bool withcomments WDL_LINEPARSE_DEFPARM(true))
+    int WDL_LINEPARSE_PREFIX parse_ex(const char *line, bool withcomments WDL_LINEPARSE_DEFPARM(true), bool backtickquote WDL_LINEPARSE_DEFPARM(true))
     {
       freetokens();
-      int n=doline(line, withcomments);
+      int n=doline(line, withcomments,backtickquote);
       if (n) { m_nt=0; return n; }
       if (m_nt) 
       {
         m_tokens=(char**)tmpbufalloc(sizeof(char*)*m_nt);
         if (m_tokens) memset(m_tokens,0,m_nt * sizeof(char*));
-        n=doline(line, withcomments);
+        n=doline(line, withcomments,backtickquote);
         if (n) 
         {
           freetokens();
@@ -234,7 +234,7 @@ class LineParser
       m_nt=0;
     }
 
-    int WDL_LINEPARSE_PREFIX doline(const char *line, bool withcomments)
+    int WDL_LINEPARSE_PREFIX doline(const char *line, bool withcomments, bool backtickquote)
     {
       m_nt=0;
       while (*line == ' ' || *line == '\t') line++;
@@ -244,7 +244,7 @@ class LineParser
         if (!withcomments && (*line == ';' || *line == '#')) break;
         if (*line == '\"') lstate=1;
         else if (*line == '\'') lstate=2;
-        else if (*line == '`') lstate=4;
+        else if (*line == '`' && backtickquote) lstate=4;
         if (lstate) line++;
         int nc=0;
         const char *p = line;
@@ -302,7 +302,7 @@ class LineParser
 
 #ifdef WDL_LINEPARSE_INTF_ONLY
     void freetokens();
-    int doline(const char *line, bool withcomments);
+    int doline(const char *line, bool withcomments, bool backtickquote);
     char *tmpbufalloc(size_t sz);
     void tmpbuffree(char *p);
 #endif
