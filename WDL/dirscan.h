@@ -68,30 +68,31 @@ class WDL_DirScan
 #endif
      ) // returns 0 if success
     {
-      size_t l=strlen(dirname);
+      WDL_FastString scanstr(dirname);
+      const int l = scanstr.GetLength();
       if (l < 1) return -1;
 
-      WDL_String scanstr(dirname);
 #ifdef _WIN32
       if (!isExactSpec) 
-#endif
-	 if (dirname[l-1] == '\\' || dirname[l-1] == '/')  scanstr.SetLen((int)l-1);
-   
-   m_leading_path.Set(scanstr.Get());
-
-#ifdef _WIN32
-      if (!isExactSpec) scanstr.Append("\\*");
+      {
+        if (dirname[l-1] == '\\' || dirname[l-1] == '/') scanstr.SetLen(l-1);
+        m_leading_path = scanstr;
+        scanstr.Append("\\*");
+      }
       else
       {
-        // remove trailing stuff from m_leading_path
-        char *p=m_leading_path.Get();
-        while (*p) p++;
-        while (p > m_leading_path.Get() && *p != '/' && *p != '\\') p--;
-        if (p > m_leading_path.Get()) *p=0;
+        m_leading_path = scanstr;
+
+        // remove trailing wildcards and directory separator from m_leading_path
+        const char *sp = m_leading_path.Get();
+        int idx = m_leading_path.GetLength() - 1;
+        while (idx > 0 && sp[idx] != '/' && sp[idx] != '\\') idx--;
+        if (idx > 0) m_leading_path.SetLen(idx);
       }
 #else
-   if (l && !scanstr.Get()[0])
-     scanstr.Set("/"); // fix for scanning /
+    	 if (dirname[l-1] == '\\' || dirname[l-1] == '/') scanstr.SetLen(l-1);
+      m_leading_path = scanstr;
+      if (!scanstr.GetLength()) scanstr.Set("/"); // fix for scanning /
 #endif
 
       Close();
@@ -244,7 +245,7 @@ class WDL_DirScan
     DIR *m_h;
     struct dirent *m_ent;
 #endif
-    WDL_String m_leading_path;
+    WDL_FastString m_leading_path;
 } WDL_FIXALIGN;
 
 #endif
