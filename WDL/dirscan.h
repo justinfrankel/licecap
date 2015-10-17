@@ -159,7 +159,7 @@ class WDL_DirScan
     }
 
 #ifdef _WIN32
-    char *GetCurrentFN() 
+    const char *GetCurrentFN() 
     { 
 #ifndef WDL_NO_SUPPORT_UTF8
       if (m_wcmode)
@@ -172,9 +172,9 @@ class WDL_DirScan
       return ((WIN32_FIND_DATA *)&m_fd)->cFileName; 
     }
 #else
-    char *GetCurrentFN() const { return m_ent?m_ent->d_name : (char *)""; }
+    const char *GetCurrentFN() const { return m_ent?m_ent->d_name : ""; }
 #endif
-    void GetCurrentFullFN(WDL_String *str)
+    template<class T> void GetCurrentFullFN(T *str)
     { 
       str->Set(m_leading_path.Get()); 
 #ifdef _WIN32
