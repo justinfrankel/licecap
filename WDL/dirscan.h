@@ -207,10 +207,10 @@ class WDL_DirScan
   
   void GetCurrentLastWriteTime(FILETIME *ft)
   { 
-    WDL_String tmp;
-    GetCurrentFullFN(&tmp);
+    char tmp[2048];
+    snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),GetCurrentFN());
     struct stat st={0,};
-    stat(tmp.Get(),&st);
+    stat(tmp,&st);
     unsigned long long a=(unsigned long long)st.st_mtime; // seconds since january 1st, 1970
     a+=((unsigned long long)(60*60*24*(365*4+1)/4))*(unsigned long long)(1970-1601); // this is approximate
     a*=1000*10000; // seconds to 1/10th microseconds (100 nanoseconds)
@@ -219,10 +219,10 @@ class WDL_DirScan
   }
   DWORD GetCurrentFileSize(DWORD *HighWord=NULL)
   { 
-    WDL_String tmp;
-    GetCurrentFullFN(&tmp);
+    char tmp[2048];
+    snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),GetCurrentFN());
     struct stat st={0,};
-    stat(tmp.Get(),&st);
+    stat(tmp,&st);
     
     if (HighWord) *HighWord = (DWORD)(st.st_size>>32); 
     return (DWORD)(st.st_size&0xffffffff); 
