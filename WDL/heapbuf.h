@@ -319,7 +319,14 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Add(PTRTYPE val) 
     {
-      return Insert(val, GetSize());
+      int sz=GetSize();
+      PTRTYPE* p=ResizeOK(sz+1,false);
+      if (p)
+      {
+        p[sz]=val;
+        return p+sz;
+      }
+      return NULL;
     }
 
     PTRTYPE* Insert(PTRTYPE val, int idx)
@@ -327,21 +334,21 @@ template<class PTRTYPE> class WDL_TypedBuf
       int sz=GetSize();
       if (idx >= 0 && idx <= sz)
       {
-        PTRTYPE* p=Resize(sz+1);
-        if (p && GetSize() == sz+1)
+        PTRTYPE* p=ResizeOK(sz+1,false);
+        if (p)
         {
-          memmove(p+idx+1, p+idx, (sz-idx)*(unsigned int)sizeof(PTRTYPE));
+          memmove(p+idx+1, p+idx, (sz-idx)*sizeof(PTRTYPE));
           p[idx]=val;
           return p+idx;
         }
       }
-      return 0;
+      return NULL;
     }
 
     void Delete(int idx)
     {
       PTRTYPE* p=Get();
-      int sz=GetSize();
+      const int sz=GetSize();
       if (idx >= 0 && idx < sz)
       {
         memmove(p+idx, p+idx+1, (sz-idx-1)*sizeof(PTRTYPE));
@@ -354,8 +361,9 @@ template<class PTRTYPE> class WDL_TypedBuf
     int Find(PTRTYPE val) const
     {
       PTRTYPE* p=Get();
+      const int sz=GetSize();
       int i;
-      for (i=0; i < GetSize(); ++i) if (p[i] == val) return i;
+      for (i=0; i < sz; ++i) if (p[i] == val) return i;
       return -1;
     }
 
