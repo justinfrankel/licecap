@@ -48,7 +48,13 @@ template<class PTRTYPE> class WDL_PtrList
     }
 
     PTRTYPE **GetList() const { return (PTRTYPE**)m_hb.Get(); }
-    PTRTYPE *Get(INT_PTR index) const { if (GetList() && index >= 0 && index < (INT_PTR)GetSize()) return GetList()[index]; return NULL; }
+    PTRTYPE *Get(INT_PTR index) const 
+    { 
+      PTRTYPE **list = (PTRTYPE**)m_hb.Get(); 
+      if (list && index >= 0 && index < (INT_PTR)(m_hb.GetSize()/sizeof(PTRTYPE *))) return list[index]; 
+      return NULL; 
+    }
+
     int GetSize(void) const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE *); }  
 
     int Find(const PTRTYPE *p) const
@@ -75,27 +81,34 @@ template<class PTRTYPE> class WDL_PtrList
 
     PTRTYPE *Add(PTRTYPE *item)
     {
-      int s=GetSize();
-      m_hb.Resize((s+1)*(unsigned int)sizeof(PTRTYPE*),false);
-      return Set(s,item);
+      const int s=GetSize();
+      PTRTYPE **list=(PTRTYPE **)m_hb.ResizeOK((s+1)*(unsigned int)sizeof(PTRTYPE*),false);
+      if (list)
+      {
+        list[s]=item;
+        return item;
+      }
+      return NULL;
     }
 
     PTRTYPE *Set(int index, PTRTYPE *item) 
     { 
-      if (index >= 0 && index < GetSize() && GetList()) return GetList()[index]=item;
+      PTRTYPE **list=(PTRTYPE **)m_hb.Get();
+      if (list && index >= 0 && index < GetSize()) return list[index]=item;
       return NULL;
     }
 
     PTRTYPE *Insert(int index, PTRTYPE *item)
     {
       int s=GetSize();
-      m_hb.Resize((s+1)*(unsigned int)sizeof(PTRTYPE*),false);
+      PTRTYPE **list = (PTRTYPE **)m_hb.ResizeOK((s+1)*(unsigned int)sizeof(PTRTYPE*),false);
+
+      if (!list) return item;
 
       if (index<0) index=0;
       else if (index > s) index=s;
-      
+    
       int x;
-      PTRTYPE **list = GetList();
       for (x = s; x > index; x --) list[x]=list[x-1];
       return (list[x] = item);
     }
@@ -200,10 +213,11 @@ template<class PTRTYPE> class WDL_PtrList
     {
       int a = 0;
       int c = GetSize();
+      PTRTYPE **list=GetList();
       while (a != c)
       {
         int b = (a+c)/2;
-        int cmp = compar((const PTRTYPE **)&key, (const PTRTYPE **)(GetList()+b));
+        int cmp = compar((const PTRTYPE **)&key, (const PTRTYPE **)(list+b));
         if (cmp > 0) a = b+1;
         else if (cmp < 0) c = b;
         else
