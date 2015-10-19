@@ -544,6 +544,7 @@ static functionType fnTable1[] = {
   {"freembuf",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemFree},NSEEL_PProc_RAM},
   {"memcpy",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemCpy},NSEEL_PProc_RAM},
   {"memset",_asm_generic3parm,_asm_generic3parm_end,3,{&__NSEEL_RAM_MemSet},NSEEL_PProc_RAM},
+  {"__memtop",_asm_generic1parm,_asm_generic1parm_end,1,{&__NSEEL_RAM_MemTop},NSEEL_PProc_RAM},
 
   {"stack_push",nseel_asm_stack_push,nseel_asm_stack_push_end,1|BIF_FPSTACKUSE(0),{0,},NSEEL_PProc_Stack},
   {"stack_pop",nseel_asm_stack_pop,nseel_asm_stack_pop_end,1|BIF_FPSTACKUSE(1),{0,},NSEEL_PProc_Stack},

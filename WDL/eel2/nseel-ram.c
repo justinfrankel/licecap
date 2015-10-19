@@ -173,6 +173,14 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(void *blocks, EEL_F *which)
 	return which;
 }
 
+EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemTop(void *blocks, EEL_F *which)
+{
+  // blocks points to ram_state.blocks, so back it up past closefact to maxblocks
+  const int *flag = (int *)((char *)blocks - sizeof(double) - sizeof(int));
+  *which = flag[0]*NSEEL_RAM_ITEMSPERBLOCK;
+  return which;
+}
+
 
 
 
