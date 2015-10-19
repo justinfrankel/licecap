@@ -4715,10 +4715,26 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 
   if (ctx) 
   {
+    ctx->ram_state.maxblocks = NSEEL_RAM_BLOCKS_DEFAULTMAX;
     ctx->ram_state.closefact = NSEEL_CLOSEFACTOR;
   }
   return ctx;
 }
+
+int NSEEL_VM_setramsize(NSEEL_VMCTX _ctx, int maxent)
+{
+  compileContext *ctx = (compileContext *)_ctx;
+  if (!ctx) return 0;
+  if (maxent > 0)
+  {
+    maxent = (maxent + NSEEL_RAM_ITEMSPERBLOCK - 1)/NSEEL_RAM_ITEMSPERBLOCK;
+    if (maxent > NSEEL_RAM_BLOCKS) maxent = NSEEL_RAM_BLOCKS;
+    ctx->ram_state.maxblocks = maxent;
+  }
+  
+  return ctx->ram_state.maxblocks * NSEEL_RAM_ITEMSPERBLOCK;
+}
+
 void NSEEL_VM_SetFunctionTable(NSEEL_VMCTX _ctx, eel_function_table *tab)
 {
   if (_ctx)

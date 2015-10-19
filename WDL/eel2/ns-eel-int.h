@@ -210,7 +210,7 @@ typedef struct _compileContext
   struct
   {
     int needfree;
-    int __pad;
+    int maxblocks;
     double closefact;
     EEL_F *blocks[NSEEL_RAM_BLOCKS];
   } ram_state

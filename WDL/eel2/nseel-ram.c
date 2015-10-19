@@ -140,7 +140,7 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
   {
     unsigned int whichblock = w/NSEEL_RAM_ITEMSPERBLOCK;
     EEL_F *p=pblocks[whichblock];
-    if (!p)
+    if (!p && whichblock < ((int *)pblocks)[-3]) // pblocks -1/-2 are closefact, -3 is maxblocks
     {
       NSEEL_HOSTSTUB_EnterMutex();
 
@@ -165,11 +165,11 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(void *blocks, EEL_F *which)
 {
-  // blocks points to ram_state.blocks, so back it up past closefact and pad to needfree
+  // blocks points to ram_state.blocks, so back it up past closefact and maxblocks to needfree
   int *flag = (int *)((char *)blocks - sizeof(double) - 2*sizeof(int));
 	int d=(int)(*which);
 	if (d < 0) d=0;
-	if (d < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) flag[0]=1+d;
+	if (d < flag[1]*NSEEL_RAM_ITEMSPERBLOCK) flag[0]=1+d;
 	return which;
 }
 
