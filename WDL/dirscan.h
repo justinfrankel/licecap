@@ -212,8 +212,8 @@ class WDL_DirScan
     struct stat st={0,};
     stat(tmp,&st);
     unsigned long long a=(unsigned long long)st.st_mtime; // seconds since january 1st, 1970
-    a+=((unsigned long long)(60*60*24*(365*4+1)/4))*(unsigned long long)(1970-1601); // this is approximate
-    a*=1000*10000; // seconds to 1/10th microseconds (100 nanoseconds)
+    a+=11644473600ull; // 1601->1970
+    a*=10000000; // seconds to 1/10th microseconds (100 nanoseconds)
     ft->dwLowDateTime=a & 0xffffffff;
     ft->dwHighDateTime=a>>32;
   }
