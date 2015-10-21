@@ -779,7 +779,7 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
 
 ProjectStateContext *ProjectCreateFileRead(const char *fn)
 {
-  WDL_FileRead *rd = new WDL_FileRead(fn);
+  WDL_FileRead *rd = new WDL_FileRead(fn,0,65536,1);
   if (!rd || !rd->IsOpen())
   {
     delete rd;
