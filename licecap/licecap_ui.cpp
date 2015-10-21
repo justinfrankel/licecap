@@ -1782,31 +1782,6 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       }
     break;
-
-    case WM_LBUTTONDOWN:
-      SetCapture(hwndDlg);
-      GetCursorPos(&s_last_mouse);
-    break;
-    case WM_MOUSEMOVE:
-      if (GetCapture()==hwndDlg)
-      {
-        POINT p;
-        GetCursorPos(&p);
-        int dx= p.x - s_last_mouse.x;
-        int dy= p.y - s_last_mouse.y;
-        if (dx||dy)
-        {
-          s_last_mouse=p;
-          RECT r;
-          GetWindowRect(hwndDlg,&r);
-          SetWindowPos(hwndDlg,NULL,r.left+dx,r.top+dy,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
-        }
-      }
-    break;
-    case WM_LBUTTONUP:
-      ReleaseCapture();
-    break;
-
     case WM_MOVE:
       //g_skip_capture_until = timeGetTime()+30;
     break;
@@ -1819,8 +1794,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
        
 
 #ifdef _WIN32
-				RECT r,r2;
-				GetWindowRect(hwndDlg,&r);
+        RECT r,r2;
+        GetWindowRect(hwndDlg,&r);
         GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r2);
 
         r.right-=r.left;
@@ -1841,16 +1816,32 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         HRGN rgn3=CreateRectRgn(0,0,0,0);
         CombineRgn(rgn3,rgn,rgn2,RGN_DIFF);
 
-			  DeleteObject(rgn);
-		    DeleteObject(rgn2);
+        DeleteObject(rgn);
+        DeleteObject(rgn2);
         SetWindowRgn(hwndDlg,rgn3,TRUE);
 #endif
         UpdateDimBoxes(hwndDlg);
 
         InvalidateRect(hwndDlg,NULL,TRUE);
-        
+
       }
     break;
+#if _WIN32
+    case WM_NCHITTEST: /* allow dragging the dialog without mouse capture */
+        {
+            POINT pt;
+            RECT rc;
+            GetCursorPos(&pt);
+            GetClientRect(hwndDlg, &rc);
+            ScreenToClient(hwndDlg, &pt);
+            if (PtInRect(&rc, pt))
+            {
+                SetWindowLong(hwndDlg, DWL_MSGRESULT, HTCAPTION);
+                return 1;
+            }
+        }
+        break;
+#endif
   }
   return 0;
 }
