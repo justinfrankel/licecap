@@ -1010,21 +1010,21 @@ static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
 int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success, doesnt clear hb
 {
   int child_count=1;
-  bool comment_state=false;
   for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
 
-    LineParser lp(comment_state);
-    if (lp.parse(linebuf)||lp.getnumtokens()<=0) continue;
+    const char *p = linebuf;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
 
-    if (lp.gettoken_str(0)[0] == '<') child_count++;
-    else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; }
-    else if (child_count == 1)
+    if (p[0] == '<') child_count++;
+    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
+    else if (child_count == 1 && p[0])
     {     
       unsigned char buf[8192];
-      int buf_l=pc_base64decode(lp.gettoken_str(0),buf,sizeof(buf));
+      int buf_l=pc_base64decode(p,buf,sizeof(buf));
       int os=hb->GetSize();
       hb->Resize(os+buf_l);
       memcpy((char *)hb->Get()+os,buf,buf_l);
@@ -1053,29 +1053,24 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false, did_firstline=!!str->Get()[0];
+  bool did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
 
-    if (!linebuf[0]) continue;
-    LineParser lp(comment_state);
-    if (!lp.parse(linebuf)&&lp.getnumtokens()>0) 
-    {
-      if (lp.gettoken_str(0)[0] == '<') { child_count++; continue; }
-      else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; continue; }
-    }
-    if (child_count == 1)
+    const char *p = linebuf;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
+
+    if (!p[0]) continue;
+    else if (p[0] == '<') child_count++; 
+    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
+    else if (child_count == 1 && p[0] == '|')
     {     
-      char *p=linebuf;
-      while (*p == ' ' || *p == '\t') p++;
-      if (*p == '|')
-      {
-        if (!did_firstline) did_firstline=true;
-        else str->Append("\r\n");
-        str->Append(++p);
-      }
+      if (!did_firstline) did_firstline=true;
+      else str->Append("\r\n");
+      str->Append(++p);
     }
   }
   return -1;  
@@ -1084,32 +1079,28 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false, did_firstline=!!str->Get()[0];
+  bool did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
 
-    if (!linebuf[0]) continue;
-    LineParser lp(comment_state);
-    if (!lp.parse(linebuf)&&lp.getnumtokens()>0) 
-    {
-      if (lp.gettoken_str(0)[0] == '<') { child_count++; continue; }
-      else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; continue; }
-    }
-    if (child_count == 1)
+    const char *p = linebuf;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
+
+    if (!p[0]) continue;
+    else if (p[0] == '<') child_count++; 
+    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
+    else if (child_count == 1 && p[0] == '|')
     {     
-      char *p=linebuf;
-      while (*p == ' ' || *p == '\t') p++;
-      if (*p == '|')
-      {
-        if (!did_firstline) did_firstline=true;
-        else str->Append("\r\n");
-        str->Append(++p);
-      }
+      if (!did_firstline) did_firstline=true;
+      else str->Append("\r\n");
+      str->Append(++p);
     }
   }
   return -1;  
+
 }
 
 
