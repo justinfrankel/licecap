@@ -1213,39 +1213,43 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
   {
     if (hwnd->m_parent && zorder != hwnd)
     {
-      HWND tmp = hwnd->m_parent->m_children;
+      HWND par = hwnd->m_parent;
+      HWND tmp = par->m_children;
       while (tmp && tmp != hwnd) tmp=tmp->m_next;
       if (tmp) // we are in the list, so we can do a reorder
       {
         // take hwnd out of list
         if (hwnd->m_prev) hwnd->m_prev->m_next = hwnd->m_next;
-        else hwnd->m_parent->m_children = hwnd->m_next;
+        else par->m_children = hwnd->m_next;
         if (hwnd->m_next) hwnd->m_next->m_prev = hwnd->m_prev;
         hwnd->m_next=hwnd->m_prev=NULL;// leave hwnd->m_parent valid since it wont change
 
         // add back in
-        tmp = hwnd->m_parent->m_children;
+        tmp = par->m_children;
         if (zorder == HWND_TOP || !tmp || tmp == zorder) // no children, topmost, or zorder is at top already
         {
           if (tmp) tmp->m_prev=hwnd;
           hwnd->m_next = tmp;
-          hwnd->m_parent->m_children = hwnd;
+          par->m_children = hwnd;
         }
         else if (zorder == HWND_BOTTOM) 
         {
+addToBottom:
           while (tmp && tmp->m_next) tmp=tmp->m_next;
           tmp->m_next=hwnd; 
           hwnd->m_prev=tmp;
         }
         else
         {
-          HWND ltmp=NULL;
-          while (tmp && tmp != zorder) tmp=(ltmp=tmp)->m_next;
+          while (tmp && tmp != zorder) tmp=tmp->m_next;
+          if (!tmp) goto addToBottom;
 
-          hwnd->m_next = ltmp->m_next;
-          hwnd->m_prev = ltmp;
-          if (ltmp->m_next) ltmp->m_next->m_prev = hwnd;
-          ltmp->m_next = hwnd;
+          HWND next = zorder->m_next;
+          hwnd->m_next = next;
+          if (next) next->m_prev = hwnd;
+
+          zorder->m_next = hwnd;
+          hwnd->m_prev = zorder;
         }
         reposflag|=4;
       }
