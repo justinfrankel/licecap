@@ -31,6 +31,8 @@
 #include "swell-internal.h"
 #include "swell-dlggen.h"
 
+#include "../wdlcstring.h"
+
 static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
 static struct SWELL_DialogResourceIndex *BFSF_Templ_reshead;
@@ -41,23 +43,224 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
   BFSF_Templ_dlgproc=dlgProc;
 }
 
+struct BrowseFile_State
+{
+  const char *caption;
+  const char *initialdir;
+  const char *initialfile;
+  const char *extlist;
+
+  enum { SAVE=0,OPEN, OPENMULTI, OPENDIR } mode;
+  char *fnout; // if NULL this will be malloced by the window
+  int fnout_sz;
+};
+
+static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+    case WM_CREATE:
+      if (lParam)  // swell-specific
+      {
+        SetWindowLong(hwnd,GWL_WNDPROC,(LPARAM)SwellDialogDefaultWindowProc);
+        SetWindowLong(hwnd,DWL_DLGPROC,(LPARAM)swellFileSelectProc);
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
+        BrowseFile_State *parms = (BrowseFile_State *)lParam;
+        if (parms->caption) SetWindowText(hwnd,parms->caption);
+
+        SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
+
+        SWELL_MakeButton(0,
+              parms->mode == BrowseFile_State::OPENDIR ? "Choose directory" :
+              parms->mode == BrowseFile_State::SAVE ? "Save" : "Open",
+              IDOK,0,0,0,0, 0);
+
+        SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
+        HWND edit = SWELL_MakeEditField(0x100, 0,0,0,0,  0);
+        if (edit)
+        {
+          if (parms->initialfile && *parms->initialfile) SetWindowText(edit,parms->initialfile);
+          else if (parms->initialdir && *parms->initialdir) 
+          {
+            char buf[1024];
+            lstrcpyn_safe(buf,parms->initialdir,sizeof(buf) - 1);
+            if (parms->mode != BrowseFile_State::OPENDIR && buf[0] && buf[strlen(buf)-1]!='/') lstrcatn(buf,"/",sizeof(buf));
+            SetWindowText(edit,buf);
+          }
+        }
+        SWELL_MakeLabel(-1,parms->mode == BrowseFile_State::OPENDIR ? "Directory: " : "File:",0x101, 0,0,0,0, 0); 
+        
+        if (BFSF_Templ_dlgid && BFSF_Templ_dlgproc)
+        {
+          HWND dlg = SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, hwnd, BFSF_Templ_dlgproc, 0);
+          if (dlg) SetWindowLong(dlg,GWL_ID,0x102);
+          BFSF_Templ_dlgproc=0;
+          BFSF_Templ_dlgid=0;
+        }
+
+        SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+        SetWindowPos(hwnd,NULL,0,0,600, 400, SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+      }
+    break;
+    case WM_GETMINMAXINFO:
+      {
+        LPMINMAXINFO p=(LPMINMAXINFO)lParam;
+        p->ptMinTrackSize.x = 300;
+        p->ptMinTrackSize.y = 300;
+      }
+    break;
+    case WM_SIZE:
+      {
+        BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        // reposition controls
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int buth = 24, cancelbutw = 50, okbutw = parms->mode == BrowseFile_State::OPENDIR ? 120 : 50;
+        const int xborder = 4, yborder=8;
+        const int fnh = 20, fnlblw = parms->mode == BrowseFile_State::OPENDIR ? 70 : 50;
+
+        int ypos = r.bottom - 4 - buth;
+        int xpos = r.right;
+        SetWindowPos(GetDlgItem(hwnd,IDCANCEL), NULL, xpos -= cancelbutw + xborder, ypos, cancelbutw,buth, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, xpos -= okbutw + xborder, ypos, okbutw,buth, SWP_NOZORDER|SWP_NOACTIVATE);
+
+        HWND emb = GetDlgItem(hwnd,0x102);
+        if (emb)
+        {
+          RECT sr;
+          GetClientRect(emb,&sr);
+          if (ypos > r.bottom-4-sr.bottom) ypos = r.bottom-4-sr.bottom;
+          SetWindowPos(emb,NULL, xborder,ypos, xpos - xborder*2, sr.bottom, SWP_NOZORDER|SWP_NOACTIVATE);
+          ShowWindow(emb,SW_SHOWNA);
+        }
+ 
+
+        SetWindowPos(GetDlgItem(hwnd,0x100), NULL, xborder*2 + fnlblw, ypos -= fnh + yborder, r.right-fnlblw-xborder*3, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,0x101), NULL, xborder, ypos, fnlblw, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
+  
+      }
+    break;
+    case WM_COMMAND:
+      switch (LOWORD(wParam))
+      {
+        case IDCANCEL: EndDialog(hwnd,0); return 0;
+        case IDOK: 
+          {
+            char buf[1024],msg[2048];
+            GetDlgItemText(hwnd,0x100,buf,sizeof(buf));
+            BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            switch (parms->mode)
+            {
+              case BrowseFile_State::SAVE:
+                 if (!buf[0]) 
+                 {
+                   MessageBox(hwnd,"No file specified","Error",MB_OK);
+                   return 0;
+                 }
+                 else  
+                 {
+                   struct stat st={0,};
+                   DIR *dir = opendir(buf);
+                   if (dir)
+                   {
+                     closedir(dir);
+                     snprintf(msg,sizeof(msg),"Path is a directory:\r\n\r\n%s",buf);
+                     MessageBox(hwnd,msg,"Invalid file",MB_OK);
+                     return 0;
+                   }
+                   if (!stat(buf,&st))
+                   {
+                     snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%s\r\n\r\nOverwrite?",buf);
+                     if (MessageBox(hwnd,msg,"Overwrite file?",MB_OKCANCEL)==IDCANCEL) return 0;
+                   }
+                 }
+              break;
+              case BrowseFile_State::OPENDIR:
+                 if (!buf[0]) 
+                 { 
+                   MessageBox(hwnd,"No directory specified","Error",MB_OK);
+                   return 0;
+                 } 
+                 else
+                 {
+                   DIR *dir = opendir(buf);
+                   if (!dir) 
+                   {
+                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%s\r\n\r\nCreate?",buf);
+                     if (MessageBox(hwnd,msg,"Create directory?",MB_OKCANCEL)==IDCANCEL) return 0;
+                     CreateDirectory(buf,NULL);
+                     dir=opendir(buf);
+                     if (!dir) { MessageBox(hwnd,"Error creating directory","Error",MB_OK); return 0; }
+                   }
+                   if (dir) closedir(dir);
+                 }
+              break;
+              default:
+                 if (!buf[0]) 
+                 {
+                   MessageBox(hwnd,"No file specified","Error",MB_OK);
+                   return 0;
+                 }
+                 else  
+                 {
+                   struct stat st={0,};
+                   DIR *dir = opendir(buf);
+                   if (dir)
+                   {
+                     closedir(dir);
+                     snprintf(msg,sizeof(msg),"Path is a directory:\r\n\r\n%s",buf);
+                     MessageBox(hwnd,msg,"Invalid file",MB_OK);
+                     return 0;
+                   }
+                   if (stat(buf,&st))
+                   {
+                     snprintf(msg,sizeof(msg),"File does not exist:\r\n\r\n%s",buf);
+                     MessageBox(hwnd,msg,"File not found",MB_OK);
+                     return 0;
+                   }
+                 }
+              break;
+            }
+            if (parms->fnout) 
+            {
+              lstrcpyn_safe(parms->fnout,buf,parms->fnout_sz);
+            }
+            else
+            {
+              size_t l = strlen(buf);
+              parms->fnout = (char*)calloc(l+2,1);
+              memcpy(parms->fnout,buf,l);
+            }
+          }
+          EndDialog(hwnd,1);
+        return 0;
+      }
+    break;
+  }
+  return 0;
+}
+
 // return true
 bool BrowseForSaveFile(const char *text, const char *initialdir, const char *initialfile, const char *extlist,
                        char *fn, int fnsize)
 {
-  return false;
+  BrowseFile_State state = { text, initialdir, initialfile, extlist, BrowseFile_State::SAVE, fn, fnsize };
+  return !!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state);
 }
 
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
 {
-  return false;
+  BrowseFile_State state = { text, initialdir, initialdir, NULL, BrowseFile_State::OPENDIR, fn, fnsize };
+  return !!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state);
 }
 
 
 char *BrowseForFiles(const char *text, const char *initialdir, 
                      const char *initialfile, bool allowmul, const char *extlist)
 {
-  return NULL;
+  BrowseFile_State state = { text, initialdir, initialfile, extlist, 
+           allowmul ? BrowseFile_State::OPENMULTI : BrowseFile_State::OPEN, NULL, 0 };
+  return DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state) ? state.fnout : NULL;
 }
 
 
