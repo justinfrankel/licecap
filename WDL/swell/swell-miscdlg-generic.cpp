@@ -63,6 +63,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 
 static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  const int button_spacing = 8;
   switch (uMsg)
   {
     case WM_CREATE:
@@ -86,22 +87,21 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
         RECT labsize = {0,0,300,20};
-        HWND lab = SWELL_MakeLabel(-1,parms[0] ? (const char *)parms[0] : "", 0, 0,0,10,10,SS_CENTER); //we'll resize this manually
+        HWND lab = SWELL_MakeLabel(-1,parms[0] ? (const char *)parms[0] : "", 0x100, 0,0,10,10,SS_CENTER); //we'll resize this manually
         HDC dc=GetDC(lab); 
         if (lab && parms[0])
         {
-          DrawText(dc,(const char *)parms[0],-1,&labsize,DT_CALCRECT);// if dc isnt valid yet, try anyway
+          DrawText(dc,(const char *)parms[0],-1,&labsize,DT_CALCRECT|DT_NOPREFIX);// if dc isnt valid yet, try anyway
         }
         labsize.top += 10;
         labsize.bottom += 18;
 
         int x;
-        const int button_spacing = 8;
         int button_height=0, button_total_w=0;;
         for (x = 0; x < nbuttons; x ++)
         {
           RECT r={0,0,35,12};
-          DrawText(dc,buttons[x],-1,&r,DT_CALCRECT|DT_SINGLELINE);
+          DrawText(dc,buttons[x],-1,&r,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
           button_sizes[x] = r.right-r.left + 8;
           button_total_w += button_sizes[x] + (x ? button_spacing : 0);
           if (r.bottom-r.top+10 > button_height) button_height = r.bottom-r.top+10;
@@ -118,8 +118,39 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         if (dc) ReleaseDC(lab,dc);
         SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
-        if (lab) SetWindowPos(lab,NULL,0,0,labsize.right,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
-        SetWindowPos(hwnd,NULL,0,0,labsize.right,labsize.bottom + button_height + 8,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        SetWindowPos(hwnd,NULL,0,0,labsize.right + 16,labsize.bottom + button_height + 8,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        if (lab) SetWindowPos(lab,NULL,8,0,labsize.right,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
+      }
+    break;
+    case WM_SIZE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        HWND h = GetWindow(hwnd,GW_CHILD);
+        int n = 100;
+        int w[8];
+        HWND tab[8],lbl=NULL;
+        int tabsz=0, bxwid=0, button_height=0;
+        while (h && n--) {
+          int idx = GetWindowLong(h,GWL_ID);
+          if (idx == IDCANCEL || idx == IDOK || idx == IDNO || idx == IDYES) 
+          { 
+            RECT tr;
+            GetClientRect(h,&tr);
+            tab[tabsz] = h;
+            w[tabsz++] = tr.right - tr.left;
+            button_height = tr.bottom-tr.top;
+            bxwid += tr.right-tr.left;
+          } else if (idx==0x100) lbl=h;
+          h = GetWindow(h,GW_HWNDNEXT);
+        }
+        if (lbl) SetWindowPos(h,NULL,8,0,r.right,r.bottom - 8 - button_height,  SWP_NOZORDER|SWP_NOACTIVATE);
+        int xo = r.right/2 - (bxwid + (tabsz-1)*button_spacing)/2,x;
+        for (x=0; x < tabsz; x++)
+        {
+          SetWindowPos(tab[x],NULL,xo,r.bottom - button_height - 8, 0,0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
+          xo += w[x] + button_spacing;
+        }
       }
     break;
     case WM_COMMAND:
