@@ -4423,7 +4423,7 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
   {
     int pos=[lv getColumnPos:i];
     int dest=arr[i];
-    [lv moveColumn:pos toColumn:dest];
+    if (dest>=0 && dest<cnt) [lv moveColumn:pos toColumn:dest];
   }
 
   return TRUE;
