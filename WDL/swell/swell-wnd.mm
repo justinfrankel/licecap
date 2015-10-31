@@ -3363,6 +3363,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     [obj setFrame:MakeCoords(x,y,w,h,false)];
     if (style&SWELL_NOT_WS_VISIBLE) [obj setHidden:YES];
     [m_make_owner addSubview:obj];
+    SetAllowNoMiddleManRendering((HWND)m_make_owner,FALSE);
     [obj release];
     return (HWND)obj;
   }
