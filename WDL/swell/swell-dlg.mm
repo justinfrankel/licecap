@@ -251,17 +251,20 @@ static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     {
       if (!d(hwnd,WM_ERASEBKGND,0,0))
       {
-        bool nommc=useNoMiddleManCocoa();
+        const bool nommc=useNoMiddleManCocoa();
         NSView *cv = [[(NSView *)hwnd window] contentView];
-        bool isop = [(NSView *)hwnd isOpaque] || (nommc && [cv isOpaque]);
+        const bool hwndIsOpaque = [(NSView *)hwnd isOpaque];
+        const bool isop = hwndIsOpaque || (nommc && [cv isOpaque]);
         if (isop || cv == (NSView *)hwnd)
         {
           PAINTSTRUCT ps;
           if (BeginPaint(hwnd,&ps))
           {
             RECT r=ps.rcPaint;          
-            if (!nommc && !(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
+            if (!nommc && !hwndIsOpaque && !(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
             {
+              // for non-middleman mode, if we are not opaque and not directly invalidated:
+              // if no transparent children overlap this rect, disable background fill
               NSArray *ar = [(NSView *)hwnd subviews];
               int x,n=[ar count];
               for (x=0;x<n;x++)
