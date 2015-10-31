@@ -6122,6 +6122,13 @@ int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
   return 0;
 }
 
+void SetAllowNoMiddleManRendering(HWND h, bool allow)
+{
+  if (!h || ![(id)h isKindOfClass:[SWELL_hwndChild class]]) return;
+  SWELL_hwndChild* v = (SWELL_hwndChild*)h;
+  v->m_allow_nomiddleman = allow;
+}
+
 void SetOpaque(HWND h, bool opaque)
 {
   if (!h || ![(id)h isKindOfClass:[SWELL_hwndChild class]]) return;

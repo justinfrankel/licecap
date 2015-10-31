@@ -1010,6 +1010,7 @@ SWELL_API_DEFINE(int, GetSysColor,(int idx))
 SWELL_API_DEFINE(HBITMAP, CreateBitmap,(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits))
 
 SWELL_API_DEFINE(void, SetOpaque, (HWND h, bool isopaque))
+SWELL_API_DEFINE(void, SetAllowNoMiddleManRendering, (HWND h, bool allow)) // defaults to allow, use this to disable
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_IsRetinaDC, (HDC hdc)) // returns 1 if DC is a retina DC (2x res possible)
 SWELL_API_DEFINE(int, SWELL_IsRetinaHWND, (HWND h)) // returns 1 if HWND is a retina HWND

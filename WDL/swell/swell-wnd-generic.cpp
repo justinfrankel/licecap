@@ -4781,6 +4781,9 @@ int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
 void SetOpaque(HWND h, bool opaque)
 {
 }
+void SetAllowNoMiddleManRendering(HWND h, bool allow)
+{
+}
 int SWELL_GetDefaultButtonID(HWND hwndDlg, bool onlyIfEnabled)
 {
   return 0;

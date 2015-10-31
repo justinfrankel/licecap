@@ -898,6 +898,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if (!(self = [super initWithFrame:contentRect])) return self;
 
   memset(m_access_cacheptrs,0,sizeof(m_access_cacheptrs));
+  m_allow_nomiddleman=1;
   m_isdirty=3;
   m_glctx=NULL;
   m_enabled=TRUE;
@@ -1096,7 +1097,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   // 10.5+ has some nice property where it goes up the hierarchy
   
 //  NSLog(@"r:%@ vr:%d v=%p tv=%p self=%p %p\n",NSStringFromRect(rect),vr,v,v2,self, [[self window] contentView]);
-  if (!useNoMiddleManCocoa() || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor])
+  if (!useNoMiddleManCocoa() || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor] || !m_allow_nomiddleman)
   {
     [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
     return;
@@ -3177,7 +3178,7 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
         
         if (doforce||(isSwellChild && ((SWELL_hwndChild*)v)->m_isdirty)|| [v needsDisplay])
         {
-          if (isSwellChild)
+          if (isSwellChild && ((SWELL_hwndChild *)v)->m_allow_nomiddleman)
           {
             NSRect fr = [v frame];
             CGContextSaveGState(hdc->ctx);

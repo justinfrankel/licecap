@@ -269,6 +269,7 @@ typedef struct WindowPropRec
   unsigned int m_create_windowflags;
   NSOpenGLContext *m_glctx;
   char m_isdirty; // &1=self needs redraw, &2=children may need redraw
+  char m_allow_nomiddleman;
   id m_lastTopLevelOwner; // save a copy of the owner, if any
   id m_access_cacheptrs[6];
 }
