@@ -255,30 +255,18 @@ static LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
         NSView *cv = [[(NSView *)hwnd window] contentView];
         const bool hwndIsOpaque = [(NSView *)hwnd isOpaque];
         const bool isop = hwndIsOpaque || (nommc && [cv isOpaque]);
-        if (isop || cv == (NSView *)hwnd)
+        const bool hwndIsCV = cv == (NSView *)hwnd;
+        if (isop || hwndIsCV)
         {
           PAINTSTRUCT ps;
-          if (BeginPaint(hwnd,&ps))
+          if (!nommc && !hwndIsOpaque && !hwndIsCV && !(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
+          {
+            // if not no-middleman, not opaque, not content view, and not directly invalidated
+            // then don't bother background drawing
+          }
+          else if (BeginPaint(hwnd,&ps))
           {
             RECT r=ps.rcPaint;          
-            if (!nommc && !hwndIsOpaque && !(((SWELL_hwndChild*)hwnd)->m_isdirty&1))
-            {
-              // for non-middleman mode, if we are not opaque and not directly invalidated:
-              // if no transparent children overlap this rect, disable background fill
-              NSArray *ar = [(NSView *)hwnd subviews];
-              int x,n=[ar count];
-              for (x=0;x<n;x++)
-              {
-                NSView *v = [ar objectAtIndex:x];
-                if (![v isOpaque])
-                {
-                  NSRect f = [v frame];
-                  if (NSIntersectsRect(f,NSMakeRect(r.left,r.top,r.right-r.left,r.bottom-r.top))) break;
-                }
-              }     
-              if (x>=n) r.right=r.left; // disable drawing
-            }
-            
             if (r.right > r.left && r.bottom > r.top)
             {
               HBRUSH hbrush = (HBRUSH) d(hwnd,WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
