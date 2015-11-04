@@ -799,8 +799,6 @@ int GetKeyNameTextUTF8(LONG lParam, LPTSTR lpString, int nMaxCount)
   return GetKeyNameTextA(lParam,lpString,nMaxCount);
 }
 
-
-
 HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd)
 {
   if (IS_NOT_WIN9X_AND (WDL_HasUTF8(lpOp)||WDL_HasUTF8(lpFile)||WDL_HasUTF8(lpParm)||WDL_HasUTF8(lpDir)))
@@ -819,6 +817,59 @@ HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpPa
   }
   return ShellExecuteA(hwnd,lpOp,lpFile,lpParm,lpDir,nShowCmd);
 }
+
+BOOL GetUserNameUTF8(LPTSTR lpString, LPDWORD nMaxCount)
+{
+  if (IS_NOT_WIN9X_AND lpString && nMaxCount)
+  {
+    WIDETOMB_ALLOC(wtmp,*nMaxCount);
+    if (wtmp)
+    {
+      DWORD sz=(DWORD)(wtmp_size/sizeof(WCHAR));
+      BOOL r = GetUserNameW(wtmp, &sz);
+      if (r && (!*nMaxCount || (!WideCharToMultiByte(CP_UTF8,0,wtmp,-1,lpString,*nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)))
+      {
+        if (*nMaxCount>0) lpString[*nMaxCount-1]=0;
+        *nMaxCount=wcslen(wtmp)+1;
+        r=FALSE;
+      }
+      else
+      {
+        *nMaxCount=sz;
+      }
+      WIDETOMB_FREE(wtmp);
+      return r;
+    }
+  }
+  return GetUserNameA(lpString, nMaxCount);
+}
+
+BOOL GetComputerNameUTF8(LPTSTR lpString, LPDWORD nMaxCount)
+{
+  if (IS_NOT_WIN9X_AND lpString && nMaxCount)
+  {
+    WIDETOMB_ALLOC(wtmp,*nMaxCount);
+    if (wtmp)
+    {
+      DWORD sz=(DWORD)(wtmp_size/sizeof(WCHAR));
+      BOOL r = GetComputerNameW(wtmp, &sz);
+      if (r && (!*nMaxCount || (!WideCharToMultiByte(CP_UTF8,0,wtmp,-1,lpString,*nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)))
+      {
+        if (*nMaxCount>0) lpString[*nMaxCount-1]=0;
+        *nMaxCount=wcslen(wtmp)+1;
+        r=FALSE;
+      }
+      else
+      {
+        *nMaxCount=sz;
+      }
+      WIDETOMB_FREE(wtmp);
+      return r;
+    }
+  }
+  return GetComputerNameA(lpString, nMaxCount);
+}
+
 
 #if (defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)) && !defined(WDL_WIN32_UTF8_NO_UI_IMPL)
 

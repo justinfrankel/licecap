@@ -46,6 +46,9 @@ WDL_WIN32_UTF8_IMPL int WDL_UTF8_SendBFFM_SETSEL(HWND hwnd, const char *str); //
 
 WDL_WIN32_UTF8_IMPL HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd);
 
+WDL_WIN32_UTF8_IMPL BOOL GetUserNameUTF8(LPTSTR lpString, LPDWORD nMaxCount);
+WDL_WIN32_UTF8_IMPL BOOL GetComputerNameUTF8(LPTSTR lpString, LPDWORD nMaxCount);
+
 WDL_WIN32_UTF8_IMPL BOOL InsertMenuUTF8(HMENU hMenu, UINT uPosition, UINT uFlags, UINT_PTR uIDNewItem, LPCTSTR str);
 WDL_WIN32_UTF8_IMPL BOOL InsertMenuItemUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMINFO lpmii);
 WDL_WIN32_UTF8_IMPL BOOL SetMenuItemInfoUTF8(HMENU hMenu, UINT uItem, BOOL fByPosition,LPMENUITEMINFO lpmii);
@@ -116,6 +119,15 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #endif
 #define ShellExecute ShellExecuteUTF8
 
+#ifdef GetUserName
+#undef GetUserName
+#endif
+#define GetUserName GetUserNameUTF8
+
+#ifdef GetComputerName
+#undef GetComputerName
+#endif
+#define GetComputerName GetComputerNameUTF8
 
 #ifdef CreateDirectory
 #undef CreateDirectory
