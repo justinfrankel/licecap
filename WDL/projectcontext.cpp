@@ -664,7 +664,7 @@ public:
     m_bytesOut=0;
     m_errcnt=false; 
     m_tmpflag=0;
-    rdbuf_pos = rdbuf_valid = 0;
+    _rdbuf_pos = _rdbuf_valid = 0;
   }
   virtual ~ProjectStateContext_File(){ delete m_rd; delete m_wr; };
 
@@ -684,7 +684,7 @@ public:
   WDL_FileWrite *m_wr;
 
   char rdbuf[4096];
-  int rdbuf_pos, rdbuf_valid;
+  int _rdbuf_pos, _rdbuf_valid;
 
   int m_indent;
   int m_tmpflag;
@@ -694,32 +694,61 @@ public:
 
 int ProjectStateContext_File::GetLine(char *buf, int buflen)
 {
-  if (!m_rd||buflen<2) return -1;
+  if (!m_rd||buflen<3) return -1;
 
-  int i=0;
-  while (i<buflen-1)
+  int rdpos = _rdbuf_pos;
+  int rdvalid = _rdbuf_valid;
+  buflen -= 2;
+
+  for (;;)
   {
-    if (rdbuf_pos>=rdbuf_valid)
+    while (rdpos < rdvalid)
     {
-      rdbuf_pos = 0;
-      rdbuf_valid = m_rd->Read(rdbuf, sizeof(rdbuf));
-      if (rdbuf_valid<1) break;
-    }
-    const char c = rdbuf[rdbuf_pos++];
+      char c=rdbuf[rdpos++];
+      switch (c)
+      {
+        case ' ': case '\r': case '\n': case '\t': break;
+        default:
+          *buf++=c;
 
-    if (!i)
-    {
-      if (c != '\r' && c != '\n' && c != ' ' && c != '\t')
-        buf[i++] = c;
+          do
+          {
+            int mxl = rdvalid - rdpos;
+            if (mxl > buflen) mxl=buflen;
+            while (mxl-->0)
+            {
+              char c2 = rdbuf[rdpos++];
+              if (c2=='\r' || c2=='\n') goto finished;
+
+              *buf++ = c2;
+              buflen--;
+            }
+            if (rdpos>=rdvalid)
+            {
+              rdpos = 0;
+              rdvalid = m_rd->Read(rdbuf, sizeof(rdbuf));
+              if (rdvalid<1) break;
+            }
+          }
+          while (buflen > 0);
+
+        finished:
+          _rdbuf_pos=rdpos;
+          _rdbuf_valid=rdvalid;
+
+          *buf=0;
+        return 0;
+      }
     }
-    else
+
+    rdpos = 0;
+    rdvalid = m_rd->Read(rdbuf, sizeof(rdbuf));
+    if (rdvalid<1)
     {
-      if (c == '\r' || c == '\n') break;
-      buf[i++] = c;
+      buf[0]=0;
+      return -1;
     }
   }
-  buf[i]=0;
-  return buf[0] ? 0 : -1;
 }
 
 void ProjectStateContext_File::AddLine(const char *fmt, ...)
