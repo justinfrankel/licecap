@@ -1102,7 +1102,7 @@ int EEL_Editor::onChar(int c)
      setCursor();
   return 0;
 
-  case 'I'-'A'+1:
+  case 'R'-'A'+1:
     if (!m_selecting)
     {
       WDL_FastString *txtstr=m_text.Get(m_curs_y);
