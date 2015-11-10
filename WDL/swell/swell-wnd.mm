@@ -4626,6 +4626,9 @@ bool ListView_Scroll(HWND h, int xscroll, int yscroll)
   if (colidx < 0) colidx=0;
   else if (colidx >= [tv numberOfColumns]) colidx = [tv numberOfColumns]-1;
 
+  // colidx is our column index, NOT the display order, convert
+  if ([tv isKindOfClass:[SWELL_ListView class]]) colidx = [(SWELL_ListView*)tv getColumnPos:colidx];
+
   NSRect ir = [tv frameOfCellAtColumn:colidx row:rowidx];
   if (ir.size.width) xscroll /= ir.size.width;
   else xscroll = 0;
