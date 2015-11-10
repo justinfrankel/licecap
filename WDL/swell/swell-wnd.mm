@@ -2625,8 +2625,23 @@ int SWELL_CB_GetCurSel(HWND hwnd, int idx)
 
 void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
 {
-  if (item >= SWELL_CB_GetNumItems(hwnd,idx)) item=-1;
-  [(NSComboBox *)GetDlgItem(hwnd,idx) selectItemAtIndex:item];
+  NSComboBox *cb = (NSComboBox *)GetDlgItem(hwnd,idx);
+  if (!cb) return;
+
+  if (item < 0 || item >= [cb numberOfItems])
+  {
+    // combo boxes can be NSComboBox or NSPopupButton, NSComboBox needs
+    // a different deselect method (selectItemAtIndex:-1 throws an exception)
+    if ([cb isKindOfClass:[NSComboBox class]])
+    {
+      const int sel = [cb indexOfSelectedItem];
+      if (sel>=0) [cb deselectItemAtIndex:sel];
+    }
+    else if ([cb isKindOfClass:[NSPopUpButton class]])
+      [(NSPopUpButton*)cb selectItemAtIndex:-1];
+  }
+  else
+    [cb selectItemAtIndex:item];
 }
 
 int SWELL_CB_GetNumItems(HWND hwnd, int idx)
