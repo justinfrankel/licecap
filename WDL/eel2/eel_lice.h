@@ -2310,11 +2310,11 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       GetClientRect(hwnd, &r);
       if (p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom)
       {
-        SetFocus(hwnd);
+        if (GetCapture()!=hwnd) SetFocus(hwnd);
         eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (ctx) 
         {
-          SetCapture(hwnd);
+          if (GetCapture()!=hwnd) SetCapture(hwnd);
           int f = 0;
           if (uMsg == WM_LBUTTONDBLCLK || uMsg == WM_LBUTTONDOWN) f=0x10001;
           else if (uMsg == WM_RBUTTONDBLCLK || uMsg == WM_RBUTTONDOWN) f=0x20002;
@@ -2338,14 +2338,20 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
       if (ctx) 
       {
-        if (uMsg == WM_CAPTURECHANGED) ctx->m_has_cap &= 0xffff;
+        if (uMsg == WM_CAPTURECHANGED) 
+        {
+          ctx->m_has_cap &= 0xffff;
+        }
         else 
         {
           if (uMsg == WM_LBUTTONUP) ctx->m_has_cap &= ~0x10000;
           else if (uMsg == WM_RBUTTONUP) ctx->m_has_cap &= ~0x20000;
           else if (uMsg == WM_MBUTTONUP) ctx->m_has_cap &= ~0x40000;
 
-          if (!(ctx->m_has_cap & 0xf0000)) ReleaseCapture();
+          if (!(ctx->m_has_cap & 0xf0000)) 
+          {
+            ReleaseCapture();
+          }
         }
       }
     }
