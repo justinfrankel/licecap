@@ -1303,15 +1303,14 @@ HWND GetWindow(HWND hwnd, int what)
   
   if (what == GW_CHILD) return hwnd->m_children;
   if (what == GW_OWNER) return hwnd->m_owner;
-  // next/prev, first/last are swapped internally
-  if (what == GW_HWNDNEXT) return hwnd->m_prev;
-  if (what == GW_HWNDPREV) return hwnd->m_next;
-  if (what == GW_HWNDLAST) 
+  if (what == GW_HWNDNEXT) return hwnd->m_next;
+  if (what == GW_HWNDPREV) return hwnd->m_prev;
+  if (what == GW_HWNDFIRST) 
   { 
     while (hwnd->m_prev) hwnd = hwnd->m_prev;
     return hwnd;
   }
-  if (what == GW_HWNDFIRST) 
+  if (what == GW_HWNDLAST) 
   { 
     while (hwnd->m_next) hwnd = hwnd->m_next;
     return hwnd;
