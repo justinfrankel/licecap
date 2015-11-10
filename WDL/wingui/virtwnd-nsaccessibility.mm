@@ -532,11 +532,11 @@ public:
     }
     else if ([action isEqual:NSAccessibilityDecrementAction])
     {
-      m_br->vwnd->OnMouseWheel(0,0,-1);
+      m_br->vwnd->OnMouseWheel(-100,-100,-1);
     }
     else if ([action isEqual:NSAccessibilityIncrementAction])
     {
-      m_br->vwnd->OnMouseWheel(0,0,1);
+      m_br->vwnd->OnMouseWheel(-100,-100,1);
     }
     //NSLog(@"accessibilityPerformAction: %@ %s %p\n",action,type,m_br->vwnd);
   }  
