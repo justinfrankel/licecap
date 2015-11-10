@@ -4624,8 +4624,14 @@ int ListView_GetTopIndex(HWND h)
   NSScrollView* sv = [tv enclosingScrollView];
   if (!sv) return -1;  
   
-  NSRect tvr = [sv documentVisibleRect];
-  NSPoint pt = { 0, tvr.origin.y };  
+  NSPoint pt = { 0, 0 };
+  NSView *hdr = [tv headerView];
+  if (hdr && ![hdr isHidden])
+  {
+    NSRect fr=[hdr frame];
+    if (fr.size.height > 0.0) pt.y = fr.origin.y + fr.size.height;
+  }
+  pt.y += [sv documentVisibleRect].origin.y;
   return [tv rowAtPoint:pt];      
 }
 
