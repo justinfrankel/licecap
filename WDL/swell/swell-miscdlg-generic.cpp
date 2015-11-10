@@ -32,6 +32,7 @@
 #include "swell-dlggen.h"
 
 #include "../wdlcstring.h"
+#include <dirent.h>
 
 static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
