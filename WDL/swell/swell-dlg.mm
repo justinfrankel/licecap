@@ -2362,7 +2362,7 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
 void SWELL_CarbonWndHost_SetWantAllKeys(void* carbonhost, bool want)
 {
   SWELL_hwndCarbonHost* h = (SWELL_hwndCarbonHost*)carbonhost;
-  if (h) h->m_wantallkeys = want;
+  if (h && [h isKindOfClass:[SWELL_hwndCarbonHost class]]) h->m_wantallkeys = want;
 }
 
 #endif // __LP
