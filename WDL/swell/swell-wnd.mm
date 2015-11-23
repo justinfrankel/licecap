@@ -2680,7 +2680,7 @@ void SWELL_CB_SetItemData(HWND hwnd, int idx, int item, LONG_PTR data)
   if ([cb isKindOfClass:[NSPopUpButton class]])
   {
     if (item < 0 || item >= [cb numberOfItems]) return;
-    NSMenuItem *it=[cb itemAtIndex:item];
+    NSMenuItem *it=[(NSPopUpButton*)cb itemAtIndex:item];
     if (!it) return;
   
     SWELL_DataHold *p=[[SWELL_DataHold alloc] initWithVal:(void *)data];  
@@ -2701,7 +2701,7 @@ LONG_PTR SWELL_CB_GetItemData(HWND hwnd, int idx, int item)
   if ([cb isKindOfClass:[NSPopUpButton class]])
   {
     if (item < 0 || item >= [cb numberOfItems]) return 0;
-    NSMenuItem *it=[cb itemAtIndex:item];
+    NSMenuItem *it=[(NSPopUpButton*)cb itemAtIndex:item];
     if (!it) return 0;
     id p= [it representedObject];
     if (!p || ![p isKindOfClass:[SWELL_DataHold class]]) return 0;
