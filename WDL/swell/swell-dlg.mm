@@ -2371,7 +2371,7 @@ void SWELL_CarbonWndHost_SetWantAllKeys(void* carbonhost, bool want)
 
 - (id)initCarbonChild:(NSView *)parent rect:(Rect*)r composit:(bool)wantComp
 {
-  if (!(self = [super initChild:nil Parent:parent dlgProc:nil Param:nil])) return self;
+  if (!(self = [super initChild:nil Parent:parent dlgProc:nil Param:0])) return self;
 
   m_wantallkeys=false;
   
