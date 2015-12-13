@@ -251,7 +251,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   if (status)
   {
 //    [controlView lockFocus];
-    [status drawInRect:NSMakeRect(cellFrame.origin.x,cellFrame.origin.y,cellFrame.size.height,cellFrame.size.height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+    int w=min(cellFrame.size.width, cellFrame.size.height);
+    [status drawInRect:NSMakeRect(cellFrame.origin.x,cellFrame.origin.y,w,cellFrame.size.height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
  //   [controlView unlockFocus];
   }
   cellFrame.origin.x += cellFrame.size.height + 2.0;
