@@ -93,7 +93,7 @@ void LICECaptureCompressor::OnFrame(LICE_IBitmap *fr, int delta_t_ms)
       for(i=0;i<list_size; i++)
       {
         unsigned short *rd = list[i]->data + rdoffs;
-        if (i&&repeat_cnt<256)
+        if (i&&repeat_cnt<255)
         {
           unsigned short *rd1=rd;
           unsigned short *rd2=list[i-1]->data+rdoffs;
