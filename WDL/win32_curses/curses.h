@@ -15,6 +15,9 @@
   #include "../swell/swell.h"
   #endif
 
+#include "../wdltypes.h"
+
+
 /*
 ** this implements a tiny subset of curses on win32.
 ** It creates a window (Resizeable by user), and gives you a callback to run 
