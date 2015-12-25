@@ -2723,11 +2723,19 @@ HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaVie
     return 0;
   }
   
-  [(NSView*)parent addSubview:view];
+  [view retain];
+
   NSRect bounds = [view bounds];
   r->left = r->top = 0;
   r->right = bounds.size.width;
   r->bottom = bounds.size.height;
+
+  [((NSView*)parent) setAutoresizesSubviews:NO];
+  SetWindowPos((HWND)parent,NULL, 0,0, r->right,r->bottom, SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+
+  [(NSView*)parent addSubview:view];
+
+  [view release];
   [viewfactory release];
 
   return (HWND)view;
