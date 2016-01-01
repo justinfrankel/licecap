@@ -61,7 +61,7 @@ protected:
   void indentSelect(int amt);
   void removeSelect();
   void getselectregion(int &minx, int &miny, int &maxx, int &maxy);
-  void doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt);
+  void doDrawString(int y, int line_n, const char *p, int *c_comment_state);
 
   void saveUndoState(); // updates rec[0]/rec[1], rec[0] is view after edit (rec[1] will be view after following edit)
   void preSaveUndoState(); // updates coordinates of edit to last rec[1]
@@ -71,7 +71,7 @@ protected:
 
   virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
-  virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
+  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state);
   virtual void draw_top_line() { }// within m_top_margin
   virtual void draw_bottom_line();
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc

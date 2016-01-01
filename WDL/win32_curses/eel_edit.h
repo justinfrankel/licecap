@@ -10,8 +10,8 @@ public:
   EEL_Editor(void *cursesCtx);
   virtual ~EEL_Editor();
 
-  virtual void mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt);
-  virtual int do_draw_line(const char *p, int ml, int *c_comment_state, int skipcnt, int last_attr);
+  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state);
+  virtual int do_draw_line(const char *p, int *c_comment_state, int last_attr);
   virtual int GetCommentStateForLineStart(int line); 
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen); // if multiline comment etc
   virtual void doWatchInfo(int c);
@@ -23,7 +23,7 @@ public:
 
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-  virtual int overrideSyntaxDrawingForLine(int *ml, int *skipcnt, const char **p, int *c_comment_state, int *last_attr) { return 0; }
+  virtual int overrideSyntaxDrawingForLine(int *skipcnt, const char **p, int *c_comment_state, int *last_attr) { return 0; }
   virtual int namedTokenHighlight(const char *tokStart, int len, int state);
 
   virtual void Watch_Code(const char *code, char *sstr, size_t sstr_size);
@@ -31,9 +31,9 @@ public:
 
   virtual int is_code_start_line(const char *p) { return 0; } // pass NULL to see if code-start-lines are even used
 
-  virtual void draw_string_internal(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr);
-  virtual void draw_string_urlchk(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr);
-  virtual void draw_string(int *ml, int *skipcnt, const char *str, int amt, int *attr, int newAttr, int comment_string_state=0);
+  virtual void draw_string_internal(int *skipcnt, const char *str, int amt, int *attr, int newAttr);
+  virtual void draw_string_urlchk(int *skipcnt, const char *str, int amt, int *attr, int newAttr);
+  virtual void draw_string(int *skipcnt, const char *str, int amt, int *attr, int newAttr, int comment_string_state=0);
 
   virtual bool sh_draw_parenttokenstack_pop(char c);
   virtual bool sh_draw_parentokenstack_update(const char *tok, int toklen);

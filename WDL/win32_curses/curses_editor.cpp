@@ -667,17 +667,13 @@ void WDL_CursesEditor::draw_message(const char *str)
 }
 
 
-void WDL_CursesEditor::mvaddnstr_highlight(int y, int x, const char *p, int ml, int *c_comment_state, int skipcnt)
+void WDL_CursesEditor::draw_line_highlight(int y, const char *p, int *c_comment_state)
 {
-  move(y,x);
+  int skipcnt = m_offs_x;
+  while (skipcnt-- > 0 && *p) p++;
   attrset(A_NORMAL);
-  while (ml > 0 && *p)
-  {
-    if (--skipcnt < 0) addch(*p);
-    p++;
-    ml--;
-  }
-  if (ml > 0) clrtoeol();
+  mvaddstr(y,0,p);
+  clrtoeol();
 }
 
 void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &maxy) // gets select region
@@ -700,10 +696,9 @@ void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &max
     }
 }
 
-void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int ml, int *c_comment_state, int skipcnt)
+void WDL_CursesEditor::doDrawString(int y, int line_n, const char *p, int *c_comment_state)
 {
-  if (skipcnt < 0) skipcnt=0;
-  mvaddnstr_highlight(y,x,p,ml + skipcnt,c_comment_state, skipcnt);
+  draw_line_highlight(y,p,c_comment_state);
 
   if (m_selecting)
   {
@@ -712,32 +707,30 @@ void WDL_CursesEditor::doDrawString(int y, int x, int line_n, const char *p, int
    
     if (line_n >= miny && line_n <= maxy && (miny != maxy || minx < maxx))
     {
-      minx-=skipcnt;
-      maxx-=skipcnt;
+      minx-=m_offs_x;
+      maxx-=m_offs_x;
+
+      const int cols = COLS;
 
       if (line_n > miny) minx=0;
-      if (line_n < maxy) maxx=ml;
+      if (line_n < maxy) maxx=cols;
 
       if (minx<0)minx=0;
-      if (minx > ml) minx=ml;
-      if (maxx > ml) maxx=ml;
+      if (minx > cols) minx=cols;
+      if (maxx > cols) maxx=cols;
 
       if (maxx > minx)
       {
-        int a = skipcnt + minx;
-        while (a-- > 0 && *p) p++;
-
-        a=strlen(p);
-        if (a > maxx-minx) a= maxx-minx;
-
         attrset(m_color_selection);
-        mvaddnstr(y,x+minx, p, a);
+        int a = m_offs_x + minx;
+        while (a-- > 0 && *p) p++;
+        mvaddnstr(y,minx, p, maxx-minx);
         attrset(A_NORMAL);
       }
-      else if (maxx==minx && !*p && ml>0)
+      else if (maxx==minx && !*p)
       {
         attrset(m_color_selection);
-        mvaddstr(y,x+minx," ");
+        mvaddstr(y,minx," ");
         attrset(A_NORMAL);
       }
     }
@@ -781,12 +774,12 @@ void WDL_CursesEditor::draw(int lineidx)
       int y=lineidx-m_paneoffs_y[0];
       if (y >= 0 && y < paneh[0])
       {
-        doDrawString(paney[0]+y, 0, lineidx, s->Get(), COLS, &comment_state, wdl_min(s->GetLength(), m_offs_x));
+        doDrawString(paney[0]+y, lineidx, s->Get(), &comment_state);
       } 
       y=lineidx-m_paneoffs_y[1];
       if (y >= 0 && y < paneh[1])
       {
-        doDrawString(paney[1]+y, 0, lineidx, s->Get(), COLS, &comment_state, wdl_min(s->GetLength(), m_offs_x));
+        doDrawString(paney[1]+y, lineidx, s->Get(), &comment_state);
       }
     }
     return;
@@ -821,7 +814,7 @@ void WDL_CursesEditor::draw(int lineidx)
       }
       else
       {
-        doDrawString(y,0,ln,s->Get(),COLS,&comment_state,wdl_min(m_offs_x,s->GetLength()));
+        doDrawString(y,ln,s->Get(),&comment_state);
       }
     }
   }
