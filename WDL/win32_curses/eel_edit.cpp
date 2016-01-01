@@ -401,6 +401,10 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
   int last_comment_state=*c_comment_state;
   while (NULL != (tok = sh_tokenize(&p,endptr,&toklen,c_comment_state)) || lp < endptr)
   {
+    if (tok && *tok < 0 && toklen == 1)
+    {
+      while (tok[toklen] < 0) {p++; toklen++; } // utf-8 skip
+    }
     if (last_comment_state>0) // if in a multi-line string or comment
     {
       // draw empty space between lp and p as a string. in this case, tok/toklen includes our string, so we quickly finish after
@@ -521,7 +525,10 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
           attr = SYNTAX_HIGHLIGHT1;
       }
       else 
+      {
         err_left=1;
+        if (tok[0] < 0) while (err_left < toklen && tok[err_left]<0) err_left++; // utf-8 skip
+      }
     }
 
     if (ignoreSyntaxState) err_left = err_right = 0;
