@@ -204,9 +204,10 @@ static int WDL_MakeUTFChar(char* dest, int c, int destlen)
     dest[3]=0;
     return 3;
   }
-  else if (destlen >= 1)
+  else if (destlen >= 2)
   {
     dest[0]='_';
+    dest[1]=0;
     return 1;
   }
   return 0;
