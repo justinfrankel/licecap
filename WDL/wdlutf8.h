@@ -35,6 +35,59 @@ misrepresented as being the original software.
   #endif
 #endif
 
+
+// returns size, sets bytesUsed. If invalid UTF-8, returns first character (as unsigned). to check for error, use (value < 128 && bytesUsed==1)
+static int WDL_ParseUTF8Char(const char *rd, int *cOut) 
+{
+  const unsigned char *p = (const unsigned char *)rd;
+  const unsigned char b0 = *p;
+  unsigned char b1,b2,b3;
+
+  if (cOut) *cOut = b0;
+
+  if (b0 < 0x80) 
+  {
+    return 1;
+  }
+  b1=p[1];
+  if (!(b1&0x80) || b1 > 0xBF)  return 1;
+
+  if (b0 < 0xE0)
+  {
+    if (cOut) *cOut = ((b0&0x1F)<<6)|(b1&0x3F);
+    return 2;
+  }
+
+  b2 = p[2];
+  if (!(b2&0x80) || b2 > 0xBF) return 1;
+
+  if (b0 < 0xF0)
+  {
+    if (cOut) *cOut = ((b0&0x0F)<<12)|((b1&0x3F)<<6)|(b1&0x3f);
+    return 3;
+  }
+
+  b3 = p[3];
+  if (!(b3&0x80) || b3 > 0xBF) return 1;
+
+  if (*p < 0xF8)
+  {
+    if (cOut) *cOut = '_';
+    return 4;
+  }
+  if (!(p[4]&0x80) || p[4] > 0xBF) return 1;
+
+  if (*p < 0xFC) 
+  {
+    if (cOut) *cOut = '_';
+    return 5;
+  }
+  if (!(p[5]&0x80) || p[5] > 0xBF) return 1;
+  if (cOut) *cOut = '_';
+  return 6;
+}
+
+
 static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
 {
   const unsigned char *p = (const unsigned char *)src;
@@ -183,5 +236,32 @@ static int WDL_DetectUTF8(const char *_str)
   }
   return hasUTF;
 }
+
+
+static int WDL_utf8_charpos_to_bytepos(const char *str, int charpos)
+{
+  int bpos = 0;
+  while (charpos-- > 0 && str[bpos])
+  {
+    bpos += WDL_ParseUTF8Char(str+bpos,NULL);
+  }
+  return bpos;
+}
+static int WDL_utf8_bytepos_to_charpos(const char *str, int bytepos)
+{
+  int bpos = 0, cpos=0;
+  while (bpos < bytepos && str[bpos])
+  {
+    bpos += WDL_ParseUTF8Char(str+bpos,NULL);
+    cpos++;
+  }
+  return cpos;
+}
+
+static int WDL_utf8_get_charlen(const char *rd)
+{
+  return WDL_utf8_charpos_to_bytepos(rd, 0x7fffffff);
+}
+
 
 #endif
