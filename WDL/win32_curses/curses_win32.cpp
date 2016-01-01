@@ -55,7 +55,52 @@ void __curses_invalidatefull(win32CursesCtx *inst, bool finish)
   }
 }
 
-template<class T> static void __addnstr_impl(win32CursesCtx *ctx, T *str,int n)
+void __addnstr(win32CursesCtx *ctx, const char *str,int n)
+{
+  if (!ctx) return;
+
+  if (ctx->m_cursor_x<0)
+  {
+    int skip = -ctx->m_cursor_x;
+    ctx->m_cursor_x=0;
+
+    while (skip > 0 && n != 0 && *str) 
+    {
+      int sz;
+      WDL_ParseUTF8Char(str,&sz);
+      if (n > 0 && (n-=sz)<0) n = 0;
+
+      str+=sz;
+      skip--;
+    }
+  }
+
+  int sx=ctx->m_cursor_x;
+  int sy=ctx->m_cursor_y;
+  if (n==0||!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines) return;
+  win32CursesFB *p=ctx->m_framebuffer + (ctx->m_cursor_x + ctx->m_cursor_y*ctx->cols);
+
+  const unsigned char attr = ctx->m_cur_attr;
+  while (n && *str)
+  {
+    int c,sz=wdl_utf8_parsechar(str,&c);
+    p->c=(wchar_t)c;
+    p->attr=attr;
+    p++;
+    str+=sz;
+    if (n > 0 && (n-=sz)<0) n = 0;
+
+	  if (++ctx->m_cursor_x >= ctx->cols) 
+	  { 
+		  ctx->m_cursor_y++; 
+		  ctx->m_cursor_x=0; 
+		  if (ctx->m_cursor_y >= ctx->lines) { ctx->m_cursor_y=ctx->lines-1; ctx->m_cursor_x=ctx->cols-1; break; }
+	  }
+  }
+  m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? ctx->cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+}
+
+void __addnstr_w(win32CursesCtx *ctx, const wchar_t *str,int n)
 {
   if (!ctx) return;
 
@@ -90,15 +135,6 @@ template<class T> static void __addnstr_impl(win32CursesCtx *ctx, T *str,int n)
 	  }
   }
   m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? ctx->cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
-}
-
-void __addnstr(win32CursesCtx *ctx, const char *str,int n)
-{
-  __addnstr_impl<const unsigned char>(ctx,(const unsigned char *)str,n);
-}
-void __addnstr_w(win32CursesCtx *ctx, const wchar_t *str,int n)
-{
-  __addnstr_impl<const wchar_t>(ctx,str,n);
 }
 
 void __clrtoeol(win32CursesCtx *ctx)
