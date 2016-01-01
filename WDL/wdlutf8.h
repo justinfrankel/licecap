@@ -88,61 +88,17 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
 }
 
 
+// invalid UTF-8 are now treated as ANSI characters for this function
 static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
 {
-  const unsigned char *p = (const unsigned char *)src;
   WDL_WCHAR *w = dest, *dest_endp = dest+(size_t)destlenbytes/sizeof(WDL_WCHAR)-1;
-  if (!dest || !src || destlenbytes < 1) return 0;
+  if (!dest || destlenbytes < 1) return 0;
 
-  for (; *p && w < dest_endp; ++w)
+  if (src) for (; *src && w < dest_endp; ++w)
   {
-    if (*p < 0x80)
-    {
-      *w=*p++;
-    }
-    else 
-    {
-      if (!(p[1]&0x80) || p[1] > 0xBF) break;
-
-      if (*p < 0xE0)
-      {
-        *w = (*p++&0x1F)<<6;
-        *w |= (*p++&0x3F);
-      }
-      else
-      {
-        if (!(p[2]&0x80) || p[2] > 0xBF) break;
-        if (*p < 0xF0)
-        {
-          *w = (*p++&0x0F)<<12;
-          *w |= (*p++&0x3F)<<6;
-          *w |= (*p++&0x3F);
-        }
-        else 
-        {
-          if (!(p[3]&0x80) || p[3] > 0xBF) break;
-
-          *w='_';
-          if (*p < 0xF8)
-          {
-            p += 4;
-          }
-          else 
-          {
-            if (!(p[4]&0x80) || p[4] > 0xBF) break;
-            if (*p < 0xFC) 
-            {
-              p += 5;
-            }
-            else 
-            {
-              if (!(p[5]&0x80) || p[5] > 0xBF) break;
-              p += 6;
-            }
-          }
-        }
-      }
-    }
+    int c,sz=wdl_utf8_parsechar(src,&c);
+    *w++ = c;
+    src+=sz;
   }
   *w=0; 
   return w-dest;
