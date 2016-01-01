@@ -259,10 +259,6 @@ static int WDL_utf8_bytepos_to_charpos(const char *str, int bytepos)
   return cpos;
 }
 
-static int WDL_utf8_get_charlen(const char *rd)
-{
-  return WDL_utf8_charpos_to_bytepos(rd, 0x7fffffff);
-}
-
+#define WDL_utf8_get_charlen(rd) WDL_utf8_bytepos_to_charpos((rd), 0x7fffffff)
 
 #endif
