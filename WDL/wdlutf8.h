@@ -49,7 +49,7 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
     }
     else 
     {
-      if (!p[1]) break;
+      if (!(p[1]&0x80) || p[1] > 0xBF) break;
 
       if (*p < 0xE0)
       {
@@ -58,7 +58,7 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
       }
       else
       {
-        if (!p[2]) break;
+        if (!(p[2]&0x80) || p[2] > 0xBF) break;
         if (*p < 0xF0)
         {
           *w = (*p++&0x0F)<<12;
@@ -67,7 +67,7 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
         }
         else 
         {
-          if (!p[3]) break;
+          if (!(p[3]&0x80) || p[3] > 0xBF) break;
 
           *w='_';
           if (*p < 0xF8)
@@ -76,14 +76,14 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
           }
           else 
           {
-            if (!p[4]) break;
+            if (!(p[4]&0x80) || p[4] > 0xBF) break;
             if (*p < 0xFC) 
             {
               p += 5;
             }
             else 
             {
-              if (!p[5]) break;
+              if (!(p[5]&0x80) || p[5] > 0xBF) break;
               p += 6;
             }
           }
