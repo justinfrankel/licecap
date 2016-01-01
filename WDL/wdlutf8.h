@@ -37,7 +37,7 @@ misrepresented as being the original software.
 
 
 // returns size, sets bytesUsed. If invalid UTF-8, returns first character (as unsigned). to check for error, use (value < 128 && bytesUsed==1)
-static int WDL_ParseUTF8Char(const char *rd, int *cOut) 
+static int wdl_utf8_parsechar(const char *rd, int *cOut) 
 {
   const unsigned char *p = (const unsigned char *)rd;
   const unsigned char b0 = *p;
@@ -244,7 +244,7 @@ static int WDL_utf8_charpos_to_bytepos(const char *str, int charpos)
   int bpos = 0;
   while (charpos-- > 0 && str[bpos])
   {
-    bpos += WDL_ParseUTF8Char(str+bpos,NULL);
+    bpos += wdl_utf8_parsechar(str+bpos,NULL);
   }
   return bpos;
 }
@@ -253,7 +253,7 @@ static int WDL_utf8_bytepos_to_charpos(const char *str, int bytepos)
   int bpos = 0, cpos=0;
   while (bpos < bytepos && str[bpos])
   {
-    bpos += WDL_ParseUTF8Char(str+bpos,NULL);
+    bpos += wdl_utf8_parsechar(str+bpos,NULL);
     cpos++;
   }
   return cpos;
