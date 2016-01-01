@@ -104,38 +104,6 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
   return w-dest;
 }
 
-static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
-{
-  unsigned char *p = (unsigned char *)dest;
-  unsigned char *dest_endp = p + destlenbytes - 1;
-  const WDL_WCHAR* w = src;
-  if (!dest || !src || destlenbytes < 1) return 0;
-  for (w=src; *w && p < dest_endp; ++w)
-  {
-    if (*w < 0x80) 
-    {
-      *p++=(*w&0xff);
-    }
-    else if (*w < 0x800 && p < dest_endp-1)
-    {
-      *p++=0xC0|((*w>>6)&0x1F);
-      *p++=0x80|(*w&0x3F);
-    }
-    else if (p < dest_endp-2)
-    {
-      *p++=0xE0|((*w>>12)&0x0F);
-      *p++=0x80|((*w>>6)&0x3F);
-      *p++=0x80|(*w&0x3F);
-    }
-    else
-    {
-      *p++='_';
-    }
-  }
-  *p=0;
-  return p-(unsigned char *)dest;
-}
-
 static int WDL_MakeUTFChar(char* dest, int c, int destlen)
 {
   if (c < 128 && destlen >= 2)
@@ -167,6 +135,19 @@ static int WDL_MakeUTFChar(char* dest, int c, int destlen)
     return 1;
   }
   return 0;
+}
+
+static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
+{
+  char *p = dest, *dest_endp = dest + destlenbytes - 1;
+  if (!dest || destlenbytes < 1) return 0;
+
+  if (src) while (*src && p < dest_endp)
+  {
+    p += WDL_MakeUTFChar(p,*src++,dest_endp-p);
+  }
+  *p=0;
+  return p-dest;
 }
 
 // returns >0 if UTF-8, -1 if 8-bit chars occur that are not UTF-8, or 0 if ASCII
