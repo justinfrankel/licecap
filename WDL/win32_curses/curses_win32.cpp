@@ -57,28 +57,11 @@ void __curses_invalidatefull(win32CursesCtx *inst, bool finish)
 
 void __addnstr(win32CursesCtx *ctx, const char *str,int n)
 {
-  if (!ctx) return;
+  if (!ctx||n==0) return;
 
-  if (ctx->m_cursor_x<0)
-  {
-    int skip = -ctx->m_cursor_x;
-    ctx->m_cursor_x=0;
-
-    while (skip > 0 && n != 0 && *str) 
-    {
-      int sz;
-      WDL_ParseUTF8Char(str,&sz);
-      if (n > 0 && (n-=sz)<0) n = 0;
-
-      str+=sz;
-      skip--;
-    }
-  }
-
-  int sx=ctx->m_cursor_x;
-  int sy=ctx->m_cursor_y;
-  if (n==0||!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines) return;
-  win32CursesFB *p=ctx->m_framebuffer + (ctx->m_cursor_x + ctx->m_cursor_y*ctx->cols);
+  const int sx=ctx->m_cursor_x, sy=ctx->m_cursor_y, cols=ctx->cols;
+  if (!ctx->m_framebuffer || sy < 0 || sy >= ctx->lines || sx < 0 || sx >= cols) return;
+  win32CursesFB *p=ctx->m_framebuffer + (sx + sy*cols);
 
   const unsigned char attr = ctx->m_cur_attr;
   while (n && *str)
@@ -90,36 +73,18 @@ void __addnstr(win32CursesCtx *ctx, const char *str,int n)
     str+=sz;
     if (n > 0 && (n-=sz)<0) n = 0;
 
-	  if (++ctx->m_cursor_x >= ctx->cols) 
-	  { 
-		  ctx->m_cursor_y++; 
-		  ctx->m_cursor_x=0; 
-		  if (ctx->m_cursor_y >= ctx->lines) { ctx->m_cursor_y=ctx->lines-1; ctx->m_cursor_x=ctx->cols-1; break; }
-	  }
+	  if (++ctx->m_cursor_x >= cols) break;
   }
-  m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? ctx->cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+  m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 
 void __addnstr_w(win32CursesCtx *ctx, const wchar_t *str,int n)
 {
-  if (!ctx) return;
+  if (!ctx||n==0) return;
 
-  if (ctx->m_cursor_x<0)
-  {
-    int skip = -ctx->m_cursor_x;
-    ctx->m_cursor_x=0;
-    if (n>=0) 
-    {
-      n -= skip;
-      if (n<0)n=0;
-    }
-    while (skip > 0 && *str) str++, skip--;
-  }
-
-  int sx=ctx->m_cursor_x;
-  int sy=ctx->m_cursor_y;
-  if (n==0||!ctx->m_framebuffer || ctx->m_cursor_y < 0 || ctx->m_cursor_y >= ctx->lines) return;
-  win32CursesFB *p=ctx->m_framebuffer + (ctx->m_cursor_x + ctx->m_cursor_y*ctx->cols);
+  const int sx=ctx->m_cursor_x, sy=ctx->m_cursor_y, cols=ctx->cols;
+  if (!ctx->m_framebuffer || sy < 0 || sy >= ctx->lines || sx < 0 || sx >= cols) return;
+  win32CursesFB *p=ctx->m_framebuffer + (sx + sy*cols);
 
   const unsigned char attr = ctx->m_cur_attr;
   while (n-- && *str)
@@ -127,14 +92,9 @@ void __addnstr_w(win32CursesCtx *ctx, const wchar_t *str,int n)
     p->c=*str++;
     p->attr=attr;
     p++;
-	  if (++ctx->m_cursor_x >= ctx->cols) 
-	  { 
-		  ctx->m_cursor_y++; 
-		  ctx->m_cursor_x=0; 
-		  if (ctx->m_cursor_y >= ctx->lines) { ctx->m_cursor_y=ctx->lines-1; ctx->m_cursor_x=ctx->cols-1; break; }
-	  }
+	  if (++ctx->m_cursor_x >= cols)  break;
   }
-  m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? ctx->cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
+  m_InvalidateArea(ctx,sx,sy,sy < ctx->m_cursor_y ? cols : ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 
 void __clrtoeol(win32CursesCtx *ctx)
@@ -172,8 +132,8 @@ void __move(win32CursesCtx *ctx, int y, int x, int noupdest)
   if (!ctx) return;
 
   m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
-  ctx->m_cursor_x=x;
-  ctx->m_cursor_y=y;
+  ctx->m_cursor_x=wdl_max(x,0);
+  ctx->m_cursor_y=wdl_max(y,0);
   if (!noupdest) m_InvalidateArea(ctx,ctx->m_cursor_x,ctx->m_cursor_y,ctx->m_cursor_x+1,ctx->m_cursor_y+1);
 }
 
