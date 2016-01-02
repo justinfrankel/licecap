@@ -1711,6 +1711,8 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   sr -= sl;
   sb -= st;
+  srcx -= sl;
+  srcy -= st;
   if (sr < 1 || sb < 1) return;
 
   psrc += src_span * st + sl * sizeof(LICE_pixel);
