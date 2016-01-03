@@ -156,9 +156,10 @@ public:
   virtual int getWidth() { return m_width; }
   virtual int getHeight() { return m_height; }
   virtual int getRowSpan() { return (m_width+m_linealign)&~m_linealign; }
-  virtual bool resize(int w, int h); // returns TRUE if a resize occurred
+  virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
 
 private:
+  bool __resize(int w, int h);
   LICE_pixel *m_fb;
   int m_width, m_height;
   int m_allocsize;
@@ -176,13 +177,14 @@ public:
   virtual int getWidth() { return m_width; }
   virtual int getHeight() { return m_height; }
   virtual int getRowSpan() { return m_allocw; }; 
-  virtual bool resize(int w, int h); // returns TRUE if a resize occurred
+  virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
 
   // sysbitmap specific calls
   virtual HDC getDC() { return m_dc; }
 
 
 private:
+  bool __resize(int w, int h);
   int m_width, m_height;
 
   HDC m_dc;
@@ -232,11 +234,13 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       if(x<0)x=0; 
       if(y<0)y=0;
       m_x=x;m_y=y;
-      resize(w,h);
+      __resize(w,h);
     }
     virtual ~LICE_SubBitmap() { }
 
-    virtual bool resize(int w, int h)
+    virtual bool resize(int w, int h) { return __resize(w,h); }
+
+    bool __resize(int w, int h)
     {
       m_w=0;m_h=0;
       if (m_parent && m_x >= 0 && m_y >= 0 && m_x < m_parent->getWidth() && m_y < m_parent->getHeight())

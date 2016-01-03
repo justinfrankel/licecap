@@ -60,12 +60,12 @@ LICE_MemBitmap::LICE_MemBitmap(int w, int h, unsigned int linealign)
   m_height=0;
   m_linealign = linealign > 1 ? ((linealign & ~(linealign-1))-1) : 0; // force to be contiguous bits
   if (m_linealign>16) m_linealign=16;
-  if (w>0&&h>0) resize(w,h);
+  if (w>0&&h>0) __resize(w,h);
 }
 
 LICE_MemBitmap::~LICE_MemBitmap() { free(m_fb); }
 
-bool LICE_MemBitmap::resize(int w, int h)
+bool LICE_MemBitmap::__resize(int w, int h)
 {
   if (w!=m_width||h!=m_height)
   {
@@ -116,7 +116,7 @@ LICE_SysBitmap::LICE_SysBitmap(int w, int h)
   m_bits=0;
   m_width=m_height=0;
 
-  resize(w,h);
+  __resize(w,h);
 }
 
 
@@ -132,7 +132,7 @@ LICE_SysBitmap::~LICE_SysBitmap()
 #endif
 }
 
-bool LICE_SysBitmap::resize(int w, int h)
+bool LICE_SysBitmap::__resize(int w, int h)
 {
 #ifdef _WIN32
   if (!m_dc) { m_width=m_height=0; m_bits=0; return false; }
