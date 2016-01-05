@@ -106,7 +106,10 @@ class LineParserInt // version which does not have any temporary space for buffe
         
         switch (*line)
         {
-          case ';': case '#': if (!ignore_commentchars) return 0; // we're done!
+          case ';': 
+          case '#': 
+            if (!ignore_commentchars) return 0; // we're done!
+          break;
           case '"':  line++; lstate=1; break;
           case '\'': line++; lstate=2; break;
           case '`':  if (backtickquote) { line++; lstate=3; } break;
