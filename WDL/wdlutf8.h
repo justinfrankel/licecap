@@ -105,35 +105,63 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
 
 static int WDL_MakeUTFChar(char* dest, int c, int destlen)
 {
-  if (c < 128 && destlen >= 2)
+  if (c < 0x80)
   {
-    if (c < 0) c=0;
-    dest[0]=(char)c;
-    dest[1]=0;
-    return 1;
-  }
-  else if (c < 2048 && destlen >= 3)
+    if (destlen >= 2)
+    {
+      if (c < 0) c=0;
+      dest[0]=(char)c;
+      dest[1]=0;
+      return 1;
+    }
+  }  
+  else if (c < 0x800)
   {
-    dest[0]=0xC0|(c>>6);
-    dest[1]=0x80|(c&0x3F);
-    dest[2]=0;
-    return 2;
+    if (destlen >= 3)
+    {
+      dest[0]=0xC0|(c>>6);
+      dest[1]=0x80|(c&0x3F);
+      dest[2]=0;
+      return 2;
+    }
   }
-  else if (destlen >= 4)
+  else if (c < 0x10000)
   {
-    dest[0]=0xE0|(c>>12);
-    dest[1]=0x80|((c>>6)&0x3F);
-    dest[2]=0x80|(c&0x3F);
-    dest[3]=0;
-    return 3;
+    if (destlen >= 4)
+    {
+      dest[0]=0xE0|(c>>12);
+      dest[1]=0x80|((c>>6)&0x3F);
+      dest[2]=0x80|(c&0x3F);
+      dest[3]=0;
+      return 3;
+    }
   }
-  else if (destlen >= 2)
+  else if (c < 0x200000)
+  {
+    if (destlen >= 5)
+    {
+      dest[0]=0xF0|(c>>18);
+      dest[1]=0x80|((c>>12)&0x3F);
+      dest[2]=0x80|((c>>6)&0x3F);
+      dest[3]=0x80|(c&0x3F);
+      dest[4]=0;
+      return 4;
+    }
+  }
+
+  // UTF-8 does not actually support 5-6 byte sequences as of 2003 (RFC-3629)
+  // skip them and return _
+
+  if (destlen >= 2)
   {
     dest[0]='_';
     dest[1]=0;
     return 1;
   }
+
+  if (destlen == 1) dest[0]=0;
   return 0;
+
 }
 
 static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
