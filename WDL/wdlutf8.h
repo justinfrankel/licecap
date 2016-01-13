@@ -36,7 +36,7 @@ misrepresented as being the original software.
 #endif
 
 
-// returns size, sets bytesUsed. If invalid UTF-8, returns first character (as unsigned). to check for error, use (value < 128 && bytesUsed==1)
+// returns size, sets bytesUsed. If invalid UTF-8, returns first character (as unsigned)
 static int wdl_utf8_parsechar(const char *rd, int *cOut) 
 {
   const unsigned char *p = (const unsigned char *)rd;
@@ -44,13 +44,11 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
   unsigned char b1,b2,b3;
 
   if (cOut) *cOut = b0;
-
   if (b0 < 0x80) 
   {
     return 1;
   }
-  b1=p[1];
-  if (!(b1&0x80) || b1 > 0xBF)  return 1;
+  if (((b1=p[1])&0xC0) != 0x80) return 1;
 
   if (b0 < 0xE0)
   {
@@ -58,8 +56,7 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
     return 2;
   }
 
-  b2 = p[2];
-  if (!(b2&0x80) || b2 > 0xBF) return 1;
+  if (((b2=p[2])&0xC0) != 0x80) return 1;
 
   if (b0 < 0xF0)
   {
@@ -67,22 +64,24 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
     return 3;
   }
 
-  b3 = p[3];
-  if (!(b3&0x80) || b3 > 0xBF) return 1;
+  if (((b3=p[3])&0xC0) != 0x80) return 1;
 
-  if (*p < 0xF8)
+  if (b0 < 0xF8)
   {
-    if (cOut) *cOut = '_';
+    if (cOut) *cOut = ((b0&7)<<18)|((b1&0x3F)<<12)|((b2&0x3F)<<6)|(b3&0x3F);
     return 4;
   }
-  if (!(p[4]&0x80) || p[4] > 0xBF) return 1;
 
-  if (*p < 0xFC) 
+  // UTF-8 does not actually support 5-6 byte sequences as of 2003 (RFC-3629)
+  // skip them and return _
+  if ((p[4]&0xC0) != 0x80) return 1;
+  if (b0 < 0xFC) 
   {
     if (cOut) *cOut = '_';
     return 5;
   }
-  if (!(p[5]&0x80) || p[5] > 0xBF) return 1;
+
+  if ((p[5]&0xC0) != 0x80) return 1;
   if (cOut) *cOut = '_';
   return 6;
 }
