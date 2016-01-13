@@ -87,6 +87,49 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
 }
 
 
+// makes a character, returns length. does NOT nul terminate.
+// returns 0 if insufficient space, -1 if out of range value
+static int wdl_utf8_makechar(int c, char *dest, int dest_len)
+{
+  if (c < 0) return -1; // out of range character
+
+  if (c < 0x80)
+  {
+    if (dest_len<1) return 0;
+    dest[0]=(char)c;
+    return 1;
+  }  
+  if (c < 0x800)
+  {
+    if (dest_len < 2) return 0;
+
+    dest[0]=0xC0|(c>>6);
+    dest[1]=0x80|(c&0x3F);
+    return 2;
+  }
+  if (c < 0x10000)
+  {
+    if (dest_len < 3) return 0;
+
+    dest[0]=0xE0|(c>>12);
+    dest[1]=0x80|((c>>6)&0x3F);
+    dest[2]=0x80|(c&0x3F);
+    return 3;
+  }
+  if (c < 0x200000)
+  {
+    if (dest_len < 4) return 0;
+    dest[0]=0xF0|(c>>18);
+    dest[1]=0x80|((c>>12)&0x3F);
+    dest[2]=0x80|((c>>6)&0x3F);
+    dest[3]=0x80|(c&0x3F);
+    return 4;
+  }
+
+  return -1;
+}
+
+
 // invalid UTF-8 are now treated as ANSI characters for this function
 static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
 {
@@ -103,65 +146,28 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
   return w-dest;
 }
 
+
+// like wdl_utf8_makechar, except nul terminates and handles errors differently (returns _ and 1 on errors)
+// negative values for character are treated as 0.
 static int WDL_MakeUTFChar(char* dest, int c, int destlen)
 {
-  if (c < 0x80)
+  if (destlen < 2)
   {
-    if (destlen >= 2)
+    if (destlen == 1) dest[0]=0;
+    return 0;
+  }
+  else
+  {
+    const int v = wdl_utf8_makechar(c>0?c:0,dest,destlen-1);
+    if (v < 1) // implies either insufficient space or out of range character
     {
-      if (c < 0) c=0;
-      dest[0]=(char)c;
+      dest[0]='_';
       dest[1]=0;
       return 1;
     }
-  }  
-  else if (c < 0x800)
-  {
-    if (destlen >= 3)
-    {
-      dest[0]=0xC0|(c>>6);
-      dest[1]=0x80|(c&0x3F);
-      dest[2]=0;
-      return 2;
-    }
+    dest[v]=0;
+    return v;
   }
-  else if (c < 0x10000)
-  {
-    if (destlen >= 4)
-    {
-      dest[0]=0xE0|(c>>12);
-      dest[1]=0x80|((c>>6)&0x3F);
-      dest[2]=0x80|(c&0x3F);
-      dest[3]=0;
-      return 3;
-    }
-  }
-  else if (c < 0x200000)
-  {
-    if (destlen >= 5)
-    {
-      dest[0]=0xF0|(c>>18);
-      dest[1]=0x80|((c>>12)&0x3F);
-      dest[2]=0x80|((c>>6)&0x3F);
-      dest[3]=0x80|(c&0x3F);
-      dest[4]=0;
-      return 4;
-    }
-  }
-
-  // UTF-8 does not actually support 5-6 byte sequences as of 2003 (RFC-3629)
-  // skip them and return _
-
-  if (destlen >= 2)
-  {
-    dest[0]='_';
-    dest[1]=0;
-    return 1;
-  }
-
-  if (destlen == 1) dest[0]=0;
-  return 0;
-
 }
 
 static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
@@ -171,7 +177,12 @@ static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
 
   if (src) while (*src && p < dest_endp)
   {
-    p += WDL_MakeUTFChar(p,*src++,dest_endp-p);
+    const int v = wdl_utf8_makechar(*src++,p,dest_endp-p);
+    if (v > 0)
+    {
+      p += v;
+    }
+    else if (v == 0) break; // out of space
   }
   *p=0;
   return p-dest;
