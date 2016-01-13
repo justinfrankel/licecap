@@ -1359,9 +1359,10 @@ int WDL_CursesEditor::onChar(int c)
 #ifdef WDL_IS_FAKE_CURSES
         if (CURSES_INSTANCE)
         {
+          HANDLE h;
           OpenClipboard(CURSES_INSTANCE->m_hwnd);
 #ifdef CF_UNICODETEXT
-          HANDLE h=GetClipboardData(CF_UNICODETEXT);
+          h=GetClipboardData(CF_UNICODETEXT);
           if (h)
           {
             wchar_t *t=(wchar_t *)GlobalLock(h);
