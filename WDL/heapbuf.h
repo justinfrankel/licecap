@@ -319,7 +319,7 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Add(PTRTYPE val) 
     {
-      int sz=GetSize();
+      const int sz=GetSize();
       PTRTYPE* p=ResizeOK(sz+1,false);
       if (p)
       {
@@ -328,10 +328,39 @@ template<class PTRTYPE> class WDL_TypedBuf
       }
       return NULL;
     }
-
+    PTRTYPE *Add(const PTRTYPE *buf, int bufsz) 
+    {
+      if (bufsz>0)
+      {
+        const int sz=GetSize();
+        PTRTYPE* p=ResizeOK(sz+bufsz,false);
+        if (p)
+        {
+          p+=sz;
+          if (buf) memcpy(p,buf,bufsz*sizeof(PTRTYPE));
+          else memset(p,0,bufsz*sizeof(PTRTYPE));
+          return p;
+        }
+      }
+      return NULL;
+    }
+    PTRTYPE *Set(const PTRTYPE *buf, int bufsz) 
+    {
+      if (bufsz>=0)
+      {
+        PTRTYPE* p=ResizeOK(bufsz,false);
+        if (p)
+        {
+          if (buf) memcpy(p,buf,bufsz*sizeof(PTRTYPE));
+          else memset(p,0,bufsz*sizeof(PTRTYPE));
+          return p;
+        }
+      }
+      return NULL;
+    }
     PTRTYPE* Insert(PTRTYPE val, int idx)
     {
-      int sz=GetSize();
+      const int sz=GetSize();
       if (idx >= 0 && idx <= sz)
       {
         PTRTYPE* p=ResizeOK(sz+1,false);
@@ -360,7 +389,7 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     int Find(PTRTYPE val) const
     {
-      PTRTYPE* p=Get();
+      const PTRTYPE* p=Get();
       const int sz=GetSize();
       int i;
       for (i=0; i < sz; ++i) if (p[i] == val) return i;
@@ -375,6 +404,9 @@ template<class PTRTYPE> class WDL_TypedBuf
     ~WDL_TypedBuf()
     {
     }
+
+    WDL_HeapBuf *GetHeapBuf() { return &m_hb; }
+    const WDL_HeapBuf *GetHeapBuf() const { return &m_hb; }
 
   private:
     WDL_HeapBuf m_hb;
