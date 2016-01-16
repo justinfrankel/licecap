@@ -565,9 +565,8 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
     m_heapbuf->SetGranul(256*1024);
   }
 
-  const int newsz = sz + l;
-  char *p = (char *)m_heapbuf->Resize(newsz);
-  if (m_heapbuf->GetSize() != newsz)
+  char *p = (char *)m_heapbuf->ResizeOK(sz+l);
+  if (!p) 
   {
     // ERROR, resize to 0 and return
     m_heapbuf->Resize(0);
@@ -1023,11 +1022,14 @@ int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success
     else if (p[0] == '>') { if (child_count-- == 1) return 0; }
     else if (child_count == 1 && p[0])
     {     
-      unsigned char buf[8192];
-      int buf_l=pc_base64decode(p,buf,sizeof(buf));
-      int os=hb->GetSize();
-      hb->Resize(os+buf_l);
-      memcpy((char *)hb->Get()+os,buf,buf_l);
+      unsigned char buf[3200];
+      const int buf_l=pc_base64decode(p,buf,sizeof(buf));
+      if (buf_l)
+      {
+        const int os=hb->GetSize();
+        char *dest = (char*)hb->ResizeOK(os+buf_l);
+        if (dest) memcpy(dest+os,buf,buf_l);
+      }
     }
   }
   return -1;  
