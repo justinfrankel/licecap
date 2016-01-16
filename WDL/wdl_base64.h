@@ -8,61 +8,82 @@
 static const char wdl_base64_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 WDL_BASE64_FUNCDECL void wdl_base64encode(const unsigned char *in, char *out, int len)
 {
-  char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  int shift = 0;
-  int accum = 0;
-
-  while (len>0)
+  while (len >= 6)
   {
-    len--;
-    accum <<= 8;
-    shift += 8;
-    accum |= *in++;
-    while ( shift >= 6 )
+    const int accum = (in[0] << 16) + (in[1] << 8) + in[2];
+    const int accum2 = (in[3] << 16) + (in[4] << 8) + in[5];
+    out[0] = wdl_base64_alphabet[(accum >> 18) & 0x3F];
+    out[1] = wdl_base64_alphabet[(accum >> 12) & 0x3F];
+    out[2] = wdl_base64_alphabet[(accum >> 6) & 0x3F];
+    out[3] = wdl_base64_alphabet[accum & 0x3F];
+    out[4] = wdl_base64_alphabet[(accum2 >> 18) & 0x3F];
+    out[5] = wdl_base64_alphabet[(accum2 >> 12) & 0x3F];
+    out[6] = wdl_base64_alphabet[(accum2 >> 6) & 0x3F];
+    out[7] = wdl_base64_alphabet[accum2 & 0x3F];
+    out+=8;
+    in+=6;
+    len-=6;
+  }
+
+  if (len >= 3)
+  {
+    const int accum = (in[0]<<16)|(in[1]<<8)|in[2];
+    out[0] = wdl_base64_alphabet[(accum >> 18) & 0x3F];
+    out[1] = wdl_base64_alphabet[(accum >> 12) & 0x3F];
+    out[2] = wdl_base64_alphabet[(accum >> 6) & 0x3F];
+    out[3] = wdl_base64_alphabet[accum & 0x3F];    
+    in+=3;
+    len-=3;
+    out+=4;
+  }
+
+  if (len>0)
+  {
+    if (len == 2)
     {
-      shift -= 6;
-      *out++ = alphabet[(accum >> shift) & 0x3F];
+      const int accum = (in[0] << 8) | in[1];
+      out[0] = wdl_base64_alphabet[(accum >> 10) & 0x3F];
+      out[1] = wdl_base64_alphabet[(accum >> 4) & 0x3F];
+      out[2] = wdl_base64_alphabet[(accum & 0xF)<<2];
     }
-  }
-  if (shift == 4)
-  {
-    *out++ = alphabet[(accum & 0xF)<<2];
-    *out++='=';  
-  }
-  else if (shift == 2)
-  {
-    *out++ = alphabet[(accum & 0x3)<<4];
-    *out++='=';  
-    *out++='=';  
+    else
+    {
+      const int accum = in[0];
+      out[0] = wdl_base64_alphabet[(accum >> 2) & 0x3F];
+      out[1] = wdl_base64_alphabet[(accum & 0x3)<<4];
+      out[2]='=';  
+    }
+    out[3]='=';  
+    out+=4;
   }
 
-  *out++=0;
+  out[0]=0;
 }
 
 WDL_BASE64_FUNCDECL int wdl_base64decode(const char *src, unsigned char *dest, int destsize)
 {
-  int accum=0, nbits=0, wpos=0;
-  while (*src && wpos < destsize)
-  {
-    int x=0;
-    char c=*src++;
-    if (c >= 'A' && c <= 'Z') x=c-'A';
-    else if (c >= 'a' && c <= 'z') x=c-'a' + 26;
-    else if (c >= '0' && c <= '9') x=c-'0' + 52;
-    else if (c == '+') x=62;
-    else if (c == '/') x=63;
-    else break;
+  static unsigned char tab[256];
+  int accum=0, nbits=0, wpos=0, x;
 
-    accum = (accum << 6) | x;
+  if (!tab['/']) for(x=0;x<64;x++) tab[wdl_base64_alphabet[x]]=x+1;
+  if (destsize <= 0) return 0;
+
+  for (;;)
+  {
+    const int v=(int)tab[*(unsigned char *)src++];
+    if (!v) return wpos;
+
+    accum = (accum << 6) | (v-1);
     nbits += 6;   
 
-    while (nbits >= 8 && wpos < destsize)
+    while (nbits >= 8)
     {
       nbits-=8;
-      dest[wpos++] = (char)((accum>>nbits)&0xff);
+      dest[wpos] = (accum>>nbits)&0xff;
+      if (++wpos >= destsize) return wpos;
     }
   }
-  return wpos;
 }
+
 
 #endif
