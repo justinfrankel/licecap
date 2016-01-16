@@ -979,8 +979,124 @@ int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success
 
 void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 {
+  if (!ctx || len < 1) return;
+
   const unsigned char *p=(const unsigned char *)ptr;
-  while (len>0)
+  if (len > 128 && len < (1<<30))
+  {
+    // we could (probably should) use dynamic_cast<> here, but as we span modules this
+    // raises all kinds of questions (especially with VC having the option to disable RTTI).
+    // for now, we assume that the first void * in an object is the vtable pointer. with 
+    // testing, of course.
+    WDL_FastQueue *fq = NULL;
+    WDL_HeapBuf *hb = NULL;
+#ifndef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+    static const ProjectStateContext_Mem hb_def(NULL,0);
+#endif
+    static const ProjectStateContext_FastQueue fq_def(NULL);
+    if (*(void **)ctx == *(void **)&fq_def)
+    {
+      fq=((ProjectStateContext_FastQueue*)ctx)->m_fq;
+    }
+#ifndef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+    else if (*(void **)ctx == *(void **)&hb_def)
+    {
+      hb=((ProjectStateContext_Mem*)ctx)->m_heapbuf;
+    }
+#endif
+
+    if (fq||hb)
+    {
+      const int linelen8 = 280/8;
+
+      const int enc_len = ((len+2)/3)*4; // every 3 characters end up as 4
+      const int lines = (enc_len + linelen8*8 - 1) / (linelen8*8);
+
+      char *wr = NULL;
+      if (fq) 
+      {
+        wr = (char*)fq->Add(WDL_FASTQUEUE_ADD_NOZEROBUF,enc_len + lines);
+      }
+      else if (hb)
+      {
+        const int oldsz=hb->GetSize();
+        wr=(char*)hb->ResizeOK(oldsz + enc_len + lines,false);
+        if (wr) wr+=oldsz;
+      }
+
+      if (wr)
+      {
+        #ifdef _DEBUG
+        char * const wr_end=wr + enc_len + lines;
+        #endif
+
+        int lpos = 0;
+
+        while (len >= 6)
+        {
+          const int accum = (p[0] << 16) + (p[1] << 8) + p[2];
+          const int accum2 = (p[3] << 16) + (p[4] << 8) + p[5];
+          wr[0] = wdl_base64_alphabet[(accum >> 18) & 0x3F];
+          wr[1] = wdl_base64_alphabet[(accum >> 12) & 0x3F];
+          wr[2] = wdl_base64_alphabet[(accum >> 6) & 0x3F];
+          wr[3] = wdl_base64_alphabet[accum & 0x3F];
+          wr[4] = wdl_base64_alphabet[(accum2 >> 18) & 0x3F];
+          wr[5] = wdl_base64_alphabet[(accum2 >> 12) & 0x3F];
+          wr[6] = wdl_base64_alphabet[(accum2 >> 6) & 0x3F];
+          wr[7] = wdl_base64_alphabet[accum2 & 0x3F];
+          wr+=8;
+          p+=6;
+          len-=6;
+
+          if (++lpos >= linelen8) { *wr++= 0; lpos=0; }
+        }
+
+        if (len >= 3)
+        {
+          const int accum = (p[0] << 16) + (p[1] << 8) + p[2];
+          wr[0] = wdl_base64_alphabet[(accum >> 18) & 0x3F];
+          wr[1] = wdl_base64_alphabet[(accum >> 12) & 0x3F];
+          wr[2] = wdl_base64_alphabet[(accum >> 6) & 0x3F];
+          wr[3] = wdl_base64_alphabet[accum & 0x3F];
+          wr+=4;
+          p+=3;
+          len-=3;
+        }
+
+        if (len>0)
+        {
+          if (len == 2)
+          {
+            const int accum = (p[0] << 8) | p[1];
+            wr[0] = wdl_base64_alphabet[(accum >> 10) & 0x3F];
+            wr[1] = wdl_base64_alphabet[(accum >> 4) & 0x3F];
+            wr[2] = wdl_base64_alphabet[(accum & 0xF)<<2];
+          }
+          else
+          {
+            const int accum = p[0];
+            wr[0] = wdl_base64_alphabet[(accum >> 2) & 0x3F];
+            wr[1] = wdl_base64_alphabet[(accum & 0x3)<<4];
+            wr[2] = '=';
+          }
+          wr[3] = '=';
+          wr+=4;
+        }
+        *wr++=0;
+
+        #ifdef _DEBUG
+          #ifdef _WIN32
+              if (wr != wr_end) OutputDebugString("cfg_encode_binary: block mode size mismatch!\n");
+          #else
+              if (wr != wr_end) printf("cfg_encode_binary: block mode size mismatch!\n");
+          #endif
+        #endif
+        return;
+      }
+    }
+  }
+  
+  do
   {
     char buf[256];
     int thiss=len;
@@ -991,6 +1107,8 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
     p+=thiss;
     len-=thiss;
   }
+  while (len>0);
+  
 }
 
 
