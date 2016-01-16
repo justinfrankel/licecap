@@ -946,65 +946,7 @@ bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx, ProjectStateContex
 }
 
 
-static void pc_base64encode(const unsigned char *in, char *out, int len)
-{
-  char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  int shift = 0;
-  int accum = 0;
-
-  while (len>0)
-  {
-    len--;
-    accum <<= 8;
-    shift += 8;
-    accum |= *in++;
-    while ( shift >= 6 )
-    {
-      shift -= 6;
-      *out++ = alphabet[(accum >> shift) & 0x3F];
-    }
-  }
-  if (shift == 4)
-  {
-    *out++ = alphabet[(accum & 0xF)<<2];
-    *out++='=';  
-  }
-  else if (shift == 2)
-  {
-    *out++ = alphabet[(accum & 0x3)<<4];
-    *out++='=';  
-    *out++='=';  
-  }
-
-  *out++=0;
-}
-
-static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
-{
-  int accum=0, nbits=0, wpos=0;
-  while (*src && wpos < destsize)
-  {
-    int x=0;
-    char c=*src++;
-    if (c >= 'A' && c <= 'Z') x=c-'A';
-    else if (c >= 'a' && c <= 'z') x=c-'a' + 26;
-    else if (c >= '0' && c <= '9') x=c-'0' + 52;
-    else if (c == '+') x=62;
-    else if (c == '/') x=63;
-    else break;
-
-    accum = (accum << 6) | x;
-    nbits += 6;   
-
-    while (nbits >= 8 && wpos < destsize)
-    {
-      nbits-=8;
-      dest[wpos++] = (char)((accum>>nbits)&0xff);
-    }
-  }
-  return wpos;
-}
-
+#include "wdl_base64.h"
 
 int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success, doesnt clear hb
 {
@@ -1023,7 +965,7 @@ int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success
     else if (child_count == 1 && p[0])
     {     
       unsigned char buf[3200];
-      const int buf_l=pc_base64decode(p,buf,sizeof(buf));
+      const int buf_l=wdl_base64decode(p,buf,sizeof(buf));
       if (buf_l)
       {
         const int os=hb->GetSize();
@@ -1043,7 +985,7 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
     char buf[256];
     int thiss=len;
     if (thiss > 96) thiss=96;
-    pc_base64encode(p,buf,thiss);
+    wdl_base64encode(p,buf,thiss);
 
     ctx->AddLine("%s",buf);
     p+=thiss;
