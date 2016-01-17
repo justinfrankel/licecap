@@ -20,7 +20,7 @@ public:
   void SetNPins(int nPins);
   void SetNChannels(int nCh);
   // or ...
-  void Init(WDL_UINT64* pMapping, int nPins);
+  void Init(const WDL_UINT64* pMapping, int nPins);
 
   int GetNPins() const { return m_nPins; }
   int GetNChannels() const { return m_nCh; }
