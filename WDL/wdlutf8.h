@@ -136,7 +136,7 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
   WDL_WCHAR *w = dest, *dest_endp = dest+(size_t)destlenbytes/sizeof(WDL_WCHAR)-1;
   if (!dest || destlenbytes < 1) return 0;
 
-  if (src) for (; *src && w < dest_endp; ++w)
+  if (src) for (; *src && w < dest_endp; )
   {
     int c,sz=wdl_utf8_parsechar(src,&c);
     *w++ = c;
