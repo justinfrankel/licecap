@@ -1645,28 +1645,14 @@ int WDL_CursesEditor::onChar(int c)
         if (CURSES_INSTANCE)
         {
 #ifdef CF_UNICODETEXT
-          const char *rd = s_fake_clipboard.Get();
-          int nc=0;
-          while (*rd)
-          {
-            rd += wdl_utf8_parsechar(rd,NULL);
-            nc++;
-          }
-          const int l=nc*sizeof(wchar_t)+1;
+          const int l=(WDL_utf8_get_charlen(s_fake_clipboard.Get())+1)*sizeof(wchar_t);
           HANDLE h=GlobalAlloc(GMEM_MOVEABLE,l);
           wchar_t *t=(wchar_t*)GlobalLock(h);
           if (t)
           {
-            rd = s_fake_clipboard.Get();
-            while (*rd)
-            {
-              int c=0;
-              rd += wdl_utf8_parsechar(rd,&c);
-              *t++ = c;
-            }
-            *t=0;
+            WDL_MBtoWideStr(t,s_fake_clipboard.Get(),l);
+            GlobalUnlock(h);
           }
-          GlobalUnlock(h);
           OpenClipboard(CURSES_INSTANCE->m_hwnd);
           EmptyClipboard();
           SetClipboardData(CF_UNICODETEXT,h);
@@ -1674,8 +1660,11 @@ int WDL_CursesEditor::onChar(int c)
           int l=s_fake_clipboard.GetLength()+1;
           HANDLE h=GlobalAlloc(GMEM_MOVEABLE,l);
           void *t=GlobalLock(h);
-          memcpy(t,s_fake_clipboard.Get(),l);
-          GlobalUnlock(h);
+          if (t)
+          {
+            memcpy(t,s_fake_clipboard.Get(),l);
+            GlobalUnlock(h);
+          }
           OpenClipboard(CURSES_INSTANCE->m_hwnd);
           EmptyClipboard();
           SetClipboardData(CF_TEXT,h);
