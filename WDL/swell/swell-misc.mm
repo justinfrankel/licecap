@@ -110,7 +110,7 @@ DWORD SWELL_WaitForNSTask(void *p, DWORD msTO)
   return [a isRunning] ? WAIT_TIMEOUT : WAIT_OBJECT_0;
 }
 
-HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
+HANDLE SWELL_CreateProcessIO(const char *exe, int nparams, const char **params, bool redirectIO)
 {
   NSString *ex = (NSString *)SWELL_CStringToCFString(exe);
   NSMutableArray *ar = [[NSMutableArray alloc] initWithCapacity:nparams];
@@ -126,7 +126,16 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
   NSTask *tsk = NULL;
   
   @try {
-    tsk = [NSTask launchedTaskWithLaunchPath:ex arguments:ar];
+    tsk = [[NSTask alloc] init];
+    [tsk setLaunchPath:ex];
+    [tsk setArguments:ar];
+    if (redirectIO)
+    {
+      [tsk setStandardInput:[NSPipe pipe]];
+      [tsk setStandardOutput:[NSPipe pipe]];
+      [tsk setStandardError:[NSPipe pipe]];
+    }
+    [tsk launch];
   }
   @catch (NSException *exception) { 
     [tsk release];
@@ -145,6 +154,91 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
   buf->hdr.count=1;
   buf->task = tsk;
   return buf;
+}
+
+HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
+{
+  return SWELL_CreateProcessIO(exe,nparams,params,false);
+}
+
+
+int SWELL_GetProcessExitCode(HANDLE hand)
+{
+  int rv=0;
+  SWELL_InternalObjectHeader_NSTask *hdr=(SWELL_InternalObjectHeader_NSTask*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return -1;
+  @try {
+    if ([(NSTask *)hdr->task isRunning]) rv=-3;
+    else rv = [(NSTask *)hdr->task terminationStatus];
+  }
+  @catch (id ex) { 
+    rv=-2;
+  }
+  return rv;
+}
+
+int SWELL_TerminateProcess(HANDLE hand)
+{
+  int rv=0;
+  SWELL_InternalObjectHeader_NSTask *hdr=(SWELL_InternalObjectHeader_NSTask*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return -1;
+  @try
+  {
+    [(NSTask *)hdr->task terminate];
+  }
+  @catch (id ex) {
+    rv=-2;
+  }
+  return rv;
+}
+int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *buf, int bufsz)
+{
+  SWELL_InternalObjectHeader_NSTask *hdr=(SWELL_InternalObjectHeader_NSTask*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return 0;
+  NSTask *tsk = (NSTask*)hdr->task;
+  NSPipe *pipe = NULL;
+  switch (w)
+  {
+    case 0: pipe = [tsk standardInput]; break;
+    case 1: pipe = [tsk standardOutput]; break;
+    case 2: pipe = [tsk standardError]; break;
+  }
+  if (!pipe || ![pipe isKindOfClass:[NSPipe class]]) return 0;
+
+  NSFileHandle *fh = w!=0 ? [pipe fileHandleForReading] : [pipe fileHandleForWriting];
+  if (!fh) return 0;
+  if (w==0)
+  {
+    if (bufsz>0)
+    {
+      NSData *d = [NSData dataWithBytes:buf length:bufsz];
+      @try
+      {
+        if (d) [fh writeData:d];
+        else bufsz=0;
+      }
+      @catch (id ex) { bufsz=0; }
+
+      return bufsz;
+    }
+  }
+  else 
+  {
+    NSData *d = NULL;
+    @try
+    {
+      d = [fh readDataOfLength:(bufsz < 1 ? 32768 : bufsz)];
+    }
+    @catch (id ex) { }
+
+    if (!d || bufsz < 1) return d ? [d length] : 0;
+    int l = [d length];
+    if (l > bufsz) l = bufsz;
+    [d getBytes:buf length:l];
+    return l;
+  }
+
+  return 0;
 }
 
 
