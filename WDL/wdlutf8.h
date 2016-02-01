@@ -52,6 +52,7 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
 
   if (b0 < 0xE0)
   {
+    if (!(b0&0x1E)) return 1; // detect overlong
     if (cOut) *cOut = ((b0&0x1F)<<6)|(b1&0x3F);
     return 2;
   }
@@ -60,6 +61,8 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
 
   if (b0 < 0xF0)
   {
+    if (!(b0&0xF) && !(b1&0x20)) return 1; // detect overlong
+
     if (cOut) *cOut = ((b0&0x0F)<<12)|((b1&0x3F)<<6)|(b2&0x3f);
     return 3;
   }
@@ -68,6 +71,8 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
 
   if (b0 < 0xF8)
   {
+    if (!(b0&0x7) && !(b1&0x30)) return 1; // detect overlong
+
     if (cOut) *cOut = ((b0&7)<<18)|((b1&0x3F)<<12)|((b2&0x3F)<<6)|(b3&0x3F);
     return 4;
   }
