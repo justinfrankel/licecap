@@ -82,10 +82,12 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 
+char g_swell_nomiddleman_cocoa_override=0; // -1 to disable, 1 to force
+
 static BOOL useNoMiddleManCocoa() 
 { 
   const int v = SWELL_GetOSXVersion();
-  return v >= 0x1050 && v < 0x10a0; // no middleman on 10.4, or 10.10+
+  return v >= 0x1050 && (g_swell_nomiddleman_cocoa_override ? (g_swell_nomiddleman_cocoa_override>0) : v < 0x10a0);
 }
 
 void updateWindowCollection(NSWindow *w)
