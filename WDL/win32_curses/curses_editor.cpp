@@ -1188,6 +1188,75 @@ static int categorizeCharForWordNess(int c)
 #define SHIFT_KEY_DOWN (GetAsyncKeyState(VK_SHIFT)&0x8000)
 #define ALT_KEY_DOWN (GetAsyncKeyState(VK_MENU)&0x8000)
 
+
+void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<const char> &lines)
+{
+#ifdef WDL_IS_FAKE_CURSES
+  if (CURSES_INSTANCE)
+  {
+    HANDLE h;
+    OpenClipboard(CURSES_INSTANCE->m_hwnd);
+#ifdef CF_UNICODETEXT
+    h=GetClipboardData(CF_UNICODETEXT);
+    if (h)
+    {
+      wchar_t *t=(wchar_t *)GlobalLock(h);
+      int s=GlobalSize(h)/2;
+      while (s-- > 0)
+      {
+        char b[32];
+        WDL_MakeUTFChar(b,*t++,sizeof(b));
+        buf.Append(b);
+      }
+
+      GlobalUnlock(t);
+    }
+
+#endif
+    if (!buf.GetLength())
+    {
+      h=GetClipboardData(CF_TEXT);
+      if (h)
+      {
+        char *t=(char *)GlobalLock(h);
+        int s=GlobalSize(h);
+        buf.Set(t,s);
+        GlobalUnlock(t);
+      }
+    }
+    CloseClipboard();
+  }
+  else
+#endif
+  {
+    buf.Set(s_fake_clipboard.Get());
+  }
+
+  if (buf.Get() && buf.Get()[0])
+  {
+    ReplaceTabs(&buf,m_indent_size);
+
+    char *src=(char*)buf.Get();
+    while (*src)
+    {
+      char *seek=src;
+      while (*seek && *seek != '\r' && *seek != '\n') seek++;
+      char hadclr=*seek;
+      if (*seek) *seek++=0;
+      lines.Add(src);
+
+      if (hadclr == '\r' && *seek == '\n') seek++;
+
+      if (hadclr && !*seek)
+      {
+        lines.Add("");
+      }
+      src=seek;
+    }
+  }
+}
+
+
 int WDL_CursesEditor::onChar(int c)
 {
   if (m_state == -3 || m_state == -4)
@@ -1220,6 +1289,25 @@ int WDL_CursesEditor::onChar(int c)
            }
          }
          m_state=-4; 
+       break;
+       case KEY_IC:
+         if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN) break;
+       case 'V'-'A'+1:
+
+         {
+           WDL_PtrList<const char> lines;
+           WDL_FastString buf;
+           getLinesFromClipboard(buf,lines);
+           if (lines.Get(0))
+           {
+             if (m_state==-3) 
+             {
+               s_search_string[0]=0;
+               m_state=-4;
+             }
+             lstrcatn(s_search_string,lines.Get(0),sizeof(s_search_string));
+           }
+         }
        break;
        default: 
          if (VALIDATE_TEXT_CHAR(c)) 
@@ -1349,76 +1437,15 @@ int WDL_CursesEditor::onChar(int c)
         setCursor();
         break;
       }
-      // fqll through
+      // fall through
     case 'V'-'A'+1:
       if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
       {
         // generate a m_clipboard using win32 clipboard data
         WDL_PtrList<const char> lines;
         WDL_FastString buf;
-#ifdef WDL_IS_FAKE_CURSES
-        if (CURSES_INSTANCE)
-        {
-          HANDLE h;
-          OpenClipboard(CURSES_INSTANCE->m_hwnd);
-#ifdef CF_UNICODETEXT
-          h=GetClipboardData(CF_UNICODETEXT);
-          if (h)
-          {
-            wchar_t *t=(wchar_t *)GlobalLock(h);
-            int s=GlobalSize(h)/2;
-            while (s-- > 0)
-            {
-              char b[32];
-              WDL_MakeUTFChar(b,*t++,sizeof(b));
-              buf.Append(b);
-            }
+        getLinesFromClipboard(buf,lines);
 
-            GlobalUnlock(t);
-          }
-
-#endif
-          if (!buf.GetLength())
-          {
-            h=GetClipboardData(CF_TEXT);
-            if (h)
-            {
-              char *t=(char *)GlobalLock(h);
-              int s=GlobalSize(h);
-              buf.Set(t,s);
-              GlobalUnlock(t);
-            }
-          }
-          CloseClipboard();
-        }
-        else
-#endif
-        {
-          buf.Set(s_fake_clipboard.Get());
-        }
-
-        if (buf.Get() && buf.Get()[0])
-        {
-          ReplaceTabs(&buf,m_indent_size);
-
-          char *src=(char*)buf.Get();
-          while (*src)
-          {
-            char *seek=src;
-            while (*seek && *seek != '\r' && *seek != '\n') seek++;
-            char hadclr=*seek;
-            if (*seek) *seek++=0;
-            lines.Add(src);
-
-            if (hadclr == '\r' && *seek == '\n') seek++;
-
-            if (hadclr && !*seek)
-            {
-              lines.Add("");
-            }
-            src=seek;
-          }
-        }
         if (lines.GetSize())
         {
           removeSelect();

@@ -45,6 +45,7 @@ protected:
   class editUndoRec;
 
   void loadLines(FILE* fh);
+  void getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<const char> &lines);
 
   void draw_message(const char *str);
   void draw_status_state();
