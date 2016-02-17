@@ -63,31 +63,20 @@ T LICE_Bezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_y1, T ctrl_y2, T ctrl
     return ctrl_y3;
   }
 
-  double a = (double) ctrl_x1 - (double) (2 * ctrl_x2) + (double) ctrl_x3;
-  double b,c,t;
+  double t, a = (double) ctrl_x1 - (double) (2 * ctrl_x2) + (double) ctrl_x3;
   if (a == 0.0)
   { 
-    if (ctrl_x1 == ctrl_x3) 
-    {
-      if (pt) *pt = 0.0;
-      return ctrl_y1;
-    }
-    t=(x-ctrl_x1)/(ctrl_x3-ctrl_x1);
+    t=(ctrl_x1 == ctrl_x3) ? 0.0 : (x-ctrl_x1)/(ctrl_x3-ctrl_x1);
   }
   else
   {
-    b = (double) (2 * (ctrl_x2 - ctrl_x1));
-    c = (double) (ctrl_x1 - x);
-    t = (-b + sqrt(b * b - 4.0 * a * c)) / (2.0 * a);
+    t = (double) (ctrl_x2 - ctrl_x1);
+    t = (-t + sqrt(t * t - a * (ctrl_x1 - x))) / a;
   }
-  double it = 1.0 - t;
-
-  a = it * it;
-  b = 2.0 * it * t;
-  c = t * t;
+  const double it = 1.0 - t;
 
   if (pt) *pt = t;
-  return (T) (a * (double) ctrl_y1 + b * (double) ctrl_y2 + c * (double) ctrl_y3);
+  return (T) (it * it * (double) ctrl_y1 + t * (2.0*it*(double)ctrl_y2 + t * (double) ctrl_y3));
 }
 
 // Special case for x = y = [0,1]
