@@ -1865,6 +1865,27 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             case FN_UPLUS:  RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue);
           }
         }
+        else if (op->fntype == FN_NOT && op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC2)
+        {
+          int repl_type = -1;
+          switch (op->parms.parms[0]->fntype)
+          {
+            case FN_EQ: repl_type = FN_NE; break;
+            case FN_NE: repl_type = FN_EQ; break;
+            case FN_EQ_EXACT: repl_type = FN_NE_EXACT; break;
+            case FN_NE_EXACT: repl_type = FN_EQ_EXACT; break;
+            case FN_LT:  repl_type = FN_GTE; break;
+            case FN_LTE: repl_type = FN_GT; break;
+            case FN_GT:  repl_type = FN_LTE; break;
+            case FN_GTE: repl_type = FN_LT; break;
+          }
+          if (repl_type != -1)
+          {
+            memcpy(op,op->parms.parms[0],sizeof(*op));
+            op->fntype = repl_type;
+            goto start_over;
+          }
+        }
       }
       else if (op->opcodeType == OPCODETYPE_FUNC2)  // within FUNCTYPE_SIMPLE
       {
