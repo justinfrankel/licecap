@@ -1872,6 +1872,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         const int dv1 = op->parms.parms[1]->opcodeType == OPCODETYPE_DIRECTVALUE;
         if (dv0 && dv1)
         {
+          int reval = -1;
           switch (op->fntype)
           {
             case FN_MOD:
@@ -1892,7 +1893,20 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             case FN_AND:      RESTART_DIRECTVALUE((double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue)));
             case FN_OR:       RESTART_DIRECTVALUE((double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue)));
             case FN_XOR:      RESTART_DIRECTVALUE((double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) ^ ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue)));
+
+            case FN_EQ:       reval = fabs(op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue) < NSEEL_CLOSEFACTOR; break;
+            case FN_NE:       reval = fabs(op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR; break;
+            case FN_EQ_EXACT: reval = op->parms.parms[0]->parms.dv.directValue == op->parms.parms[1]->parms.dv.directValue; break;
+            case FN_NE_EXACT: reval = op->parms.parms[0]->parms.dv.directValue != op->parms.parms[1]->parms.dv.directValue; break;
+            case FN_LT:       reval = op->parms.parms[0]->parms.dv.directValue < op->parms.parms[1]->parms.dv.directValue; break;
+            case FN_LTE:      reval = op->parms.parms[0]->parms.dv.directValue <= op->parms.parms[1]->parms.dv.directValue; break;
+            case FN_GT:       reval = op->parms.parms[0]->parms.dv.directValue > op->parms.parms[1]->parms.dv.directValue; break;
+            case FN_GTE:      reval = op->parms.parms[0]->parms.dv.directValue >= op->parms.parms[1]->parms.dv.directValue; break;
+            case FN_LOGICAL_AND: reval = fabs(op->parms.parms[0]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR && fabs(op->parms.parms[1]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR; break;
+            case FN_LOGICAL_OR:  reval = fabs(op->parms.parms[0]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR || fabs(op->parms.parms[1]->parms.dv.directValue) >= NSEEL_CLOSEFACTOR; break;
           }
+          
+          if (reval >= 0) RESTART_DIRECTVALUE((EEL_F) reval);
         }
         else if (dv0 || dv1)
         {
