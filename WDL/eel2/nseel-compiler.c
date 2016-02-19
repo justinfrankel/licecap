@@ -2211,6 +2211,36 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         // general optimization of two parameters
         switch (op->fntype)
         {
+          case FN_MULTIPLY:
+          {
+            opcodeRec *first_parm = op->parms.parms[0],*second_parm = op->parms.parms[1];
+
+            if (second_parm->opcodeType == first_parm->opcodeType) 
+            {
+              switch(first_parm->opcodeType)
+              {
+                case OPCODETYPE_VALUE_FROM_NAMESPACENAME:
+                  if (first_parm->namespaceidx != second_parm->namespaceidx) break;
+                  // fall through
+                case OPCODETYPE_VARPTR:
+                  if (first_parm->relname && second_parm->relname && !stricmp(second_parm->relname,first_parm->relname)) second_parm=NULL;
+                break;
+                case OPCODETYPE_VARPTRPTR:
+                  if (first_parm->parms.dv.valuePtr && first_parm->parms.dv.valuePtr==second_parm->parms.dv.valuePtr) second_parm=NULL;
+                break;
+
+              }
+              if (!second_parm) // switch from x*x to sqr(x)
+              {
+                static functionType sqrcpy={ "sqr",    nseel_asm_sqr,nseel_asm_sqr_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) };
+                op->opcodeType = OPCODETYPE_FUNC1;
+                op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+                op->fn = &sqrcpy;
+                goto start_over;
+              }
+            }
+          }
+          break;
           case FN_POW:
             {
               opcodeRec *first_parm = op->parms.parms[0];
