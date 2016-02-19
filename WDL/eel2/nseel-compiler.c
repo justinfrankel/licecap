@@ -1811,6 +1811,12 @@ static char optimizeOpcodes(compileContext *ctx, opcodeRec *op, int needsResult)
       op = op->parms.parms[1];
     }
   }
+goto start_over;
+
+#define RESTART_DIRECTVALUE(X) { op->parms.dv.directValue = (X); goto start_over_directvalue; }
+start_over_directvalue:
+  op->opcodeType = OPCODETYPE_DIRECTVALUE;
+  op->parms.dv.valuePtr=NULL;
   
 start_over: // when an opcode changed substantially in optimization, goto here to reprocess it
 
@@ -1854,21 +1860,9 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           switch (op->fntype)
           {
-            case FN_NOT:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 0.0 : 1.0;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_UMINUS:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = - op->parms.parms[0]->parms.dv.directValue;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_UPLUS:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
+            case FN_NOT:    RESTART_DIRECTVALUE(fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 0.0 : 1.0);
+            case FN_UMINUS: RESTART_DIRECTVALUE(- op->parms.parms[0]->parms.dv.directValue);
+            case FN_UPLUS:  RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue);
           }
         }
       }
@@ -1880,65 +1874,24 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           switch (op->fntype)
           {
-            case FN_SHL:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) << ((int)op->parms.parms[1]->parms.dv.directValue);
-              op->parms.dv.valuePtr=NULL;
-              goto start_over;
-            case FN_SHR:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = ((int)op->parms.parms[0]->parms.dv.directValue) >> ((int)op->parms.parms[1]->parms.dv.directValue);
-              op->parms.dv.valuePtr=NULL;
-              goto start_over;
-            case FN_POW:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
-              op->parms.dv.valuePtr=NULL;
-              goto start_over;
-            case FN_DIVIDE:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_MULTIPLY:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
             case FN_MOD:
               {
                 int a = (int) op->parms.parms[1]->parms.dv.directValue;
                 if (a) a = (int) op->parms.parms[0]->parms.dv.directValue % a;
-                op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                op->parms.dv.directValue = (EEL_F) a;
-                op->parms.dv.valuePtr=NULL;
+                RESTART_DIRECTVALUE((EEL_F)a);
               }
-            goto start_over;
-            case FN_ADD:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_SUB:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue;
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_AND:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_OR:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
-            case FN_XOR:
-              op->opcodeType = OPCODETYPE_DIRECTVALUE;
-              op->parms.dv.directValue = (double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) ^ ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue));
-              op->parms.dv.valuePtr=NULL;
-            goto start_over;
+            break;
+            case FN_SHL:      RESTART_DIRECTVALUE(((int)op->parms.parms[0]->parms.dv.directValue) << ((int)op->parms.parms[1]->parms.dv.directValue));
+            case FN_SHR:      RESTART_DIRECTVALUE(((int)op->parms.parms[0]->parms.dv.directValue) >> ((int)op->parms.parms[1]->parms.dv.directValue));
+            case FN_POW:      RESTART_DIRECTVALUE(pow(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue));
+            case FN_DIVIDE:   RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue / op->parms.parms[1]->parms.dv.directValue);
+            case FN_MULTIPLY: RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue * op->parms.parms[1]->parms.dv.directValue);
+
+            case FN_ADD:      RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue + op->parms.parms[1]->parms.dv.directValue);
+            case FN_SUB:      RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue - op->parms.parms[1]->parms.dv.directValue);
+            case FN_AND:      RESTART_DIRECTVALUE((double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) & ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue)));
+            case FN_OR:       RESTART_DIRECTVALUE((double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) | ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue)));
+            case FN_XOR:      RESTART_DIRECTVALUE((double) (((WDL_INT64)op->parms.parms[0]->parms.dv.directValue) ^ ((WDL_INT64)op->parms.parms[1]->parms.dv.directValue)));
           }
         }
         else if (dv0 || dv1)
@@ -2021,10 +1974,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 const int a = (int) op->parms.parms[1]->parms.dv.directValue;
                 if (!a) 
                 {
-                  op->opcodeType = OPCODETYPE_DIRECTVALUE;
-                  op->parms.dv.directValue = 0.0;
-                  op->parms.dv.valuePtr=NULL;
-                  goto start_over;
+                  RESTART_DIRECTVALUE(0.0);
                 }
               }
             break;
@@ -2183,10 +2133,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
   #undef DOF2
           if (suc)
           {
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = v;
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
+            RESTART_DIRECTVALUE(v);
           }
 
 
@@ -2200,10 +2147,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           if (!strcmp(pfn->name,"atan2")) 
           {
-            op->opcodeType = OPCODETYPE_DIRECTVALUE;
-            op->parms.dv.directValue = atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue);
-            op->parms.dv.valuePtr=NULL;
-            goto start_over;
+            RESTART_DIRECTVALUE(atan2(op->parms.parms[0]->parms.dv.directValue, op->parms.parms[1]->parms.dv.directValue));
           }
         }
       }
