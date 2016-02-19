@@ -279,6 +279,7 @@ void _asm_gmegabuf_end(void);
 
   DECL_ASMFUNC(booltofp)
   DECL_ASMFUNC(fptobool)
+  DECL_ASMFUNC(fptobool_rev)
   DECL_ASMFUNC(sin)
   DECL_ASMFUNC(cos)
   DECL_ASMFUNC(tan)
@@ -1347,6 +1348,7 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 #define RETURNVALUE_NORMAL 1 // pointer
 #define RETURNVALUE_FPSTACK 2
 #define RETURNVALUE_BOOL 4 // P1 is nonzero if true
+#define RETURNVALUE_BOOL_REVERSED 8 // P1 is zero if true
 
 
 
@@ -2748,7 +2750,8 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           }
         }         
 
-        if (pn == n_params - 1)
+        if (func == nseel_asm_bnot) rvt=RETURNVALUE_BOOL_REVERSED|RETURNVALUE_BOOL;
+        else if (pn == n_params - 1)
         {
           if (cfunc_abiinfo&BIF_LASTPARMONSTACK) rvt=RETURNVALUE_FPSTACK;
           else if (cfunc_abiinfo&BIF_LASTPARM_ASBOOL) rvt=RETURNVALUE_BOOL;
@@ -2761,9 +2764,22 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
         lsz = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
 
-        if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
-
         if (lsz<0) RET_MINUS1_FAIL("call coc failed")
+
+        if (func == nseel_asm_bnot && rvt==RETURNVALUE_BOOL_REVERSED)
+        {
+          // remove bnot, compileOpcodes() used fptobool_rev
+#ifndef EEL_TARGET_PORTABLE
+          func = nseel_asm_uplus;
+          func_e = nseel_asm_uplus_end;
+#else
+          func = nseel_asm_bnotnot;
+          func_e = nseel_asm_bnotnot_end;
+#endif
+          rvt = RETURNVALUE_BOOL;
+        }
+
+        if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
 
         parm_size += lsz;            
 
@@ -2894,14 +2910,29 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
             wantFpStack=0;
           }
   #endif
-
           a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
-            (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
-            (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
-            wantFpStack ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
-            RETURNVALUE_NORMAL,&rvt, NULL,canHaveDenormalOutput);
-        
+            func == nseel_asm_bnot ? (RETURNVALUE_BOOL_REVERSED|RETURNVALUE_BOOL) :
+              (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
+              (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
+              wantFpStack ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
+              RETURNVALUE_NORMAL,       
+            &rvt, NULL,canHaveDenormalOutput);
+           
           if (a<0) RET_MINUS1_FAIL("coc call here 3")
+
+          if (func == nseel_asm_bnot && rvt == RETURNVALUE_BOOL_REVERSED)
+          {
+            // remove bnot, compileOpcodes() used fptobool_rev
+#ifndef EEL_TARGET_PORTABLE
+            func = nseel_asm_uplus;
+            func_e = nseel_asm_uplus_end;
+#else
+            func = nseel_asm_bnotnot;
+            func_e = nseel_asm_bnotnot_end;
+#endif
+            rvt = RETURNVALUE_BOOL;
+          }
+
           parm_size+=a;
           need_fxch = 0;
 
@@ -4002,10 +4033,23 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 
   if (code_returns == RETURNVALUE_FPSTACK)
   {
-    if (supportedReturnValues & RETURNVALUE_BOOL)
+    if (supportedReturnValues & (RETURNVALUE_BOOL|RETURNVALUE_BOOL_REVERSED))
     {
       int stubsize;
-      void *stub = GLUE_realAddress(nseel_asm_fptobool,nseel_asm_fptobool_end,&stubsize);
+      void *stub;
+      
+      if (supportedReturnValues & RETURNVALUE_BOOL_REVERSED)
+      {
+        if (rvType) *rvType = RETURNVALUE_BOOL_REVERSED;
+        stub = GLUE_realAddress(nseel_asm_fptobool_rev,nseel_asm_fptobool_rev_end,&stubsize);
+      }
+      else
+      {
+        if (rvType) *rvType = RETURNVALUE_BOOL;
+        stub = GLUE_realAddress(nseel_asm_fptobool,nseel_asm_fptobool_end,&stubsize);
+      }
+
+
       if (!stub || bufOut_len < stubsize) RET_MINUS1_FAIL(stub?"fptobool size":"fptobool addr")
       if (bufOut) 
       {
@@ -4014,8 +4058,6 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
       }
       codesz+=stubsize;
       bufOut_len -= stubsize;
-
-      if (rvType) *rvType = RETURNVALUE_BOOL;
     }
     else if (supportedReturnValues & RETURNVALUE_NORMAL)
     {

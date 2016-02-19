@@ -2542,6 +2542,44 @@ _emit 0x90;
 }
 __declspec(naked) void nseel_asm_fptobool_end(void) {}
 
+__declspec(naked) void nseel_asm_fptobool_rev(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+    fabs;
+#ifdef TARGET_X64
+    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
+#else
+    fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
+#endif
+    fstsw ax;
+    and eax, 256;
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+  }
+}
+__declspec(naked) void nseel_asm_fptobool_rev_end(void) {}
 
 __declspec(naked) void nseel_asm_min(void)
 {

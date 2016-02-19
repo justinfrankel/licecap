@@ -1212,6 +1212,22 @@ void nseel_asm_fptobool(void)
 }
 void nseel_asm_fptobool_end(void) {}
 
+void nseel_asm_fptobool_rev(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+    "fabs\n"
+#ifdef TARGET_X64
+    "fcomp" EEL_F_SUFFIX " -8(%r12)\n" //[g_closefact]
+#else
+    "fcomp" EEL_F_SUFFIX " -8(%ebx)\n" //[g_closefact]
+#endif
+    "fstsw %ax\n"
+    "andl $256, %eax\n"
+    FUNCTION_MARKER
+  );
+}
+void nseel_asm_fptobool_rev_end(void) {}
 
 void nseel_asm_min(void)
 {
