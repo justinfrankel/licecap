@@ -2355,19 +2355,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
               goto start_over;
             }
-
-            if (op->parms.parms[0]->fntype == FN_NOT)
-            {
-              opcodeRec *tmp;
-              // remove not
-              op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
-
-              // swap parms1/2
-              tmp = op->parms.parms[1];
-              op->parms.parms[1] = op->parms.parms[2];
-              op->parms.parms[2] = tmp;
-              goto start_over;
-            }
           }
         }
       }
@@ -3620,7 +3607,8 @@ doNonInlinedAndOr_:
     int fUse=0;
     int parm_size_pre;
     int use_rv = RETURNVALUE_IGNORE;
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse, NULL);
+    int rvMode=0;
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL|RETURNVALUE_BOOL_REVERSED, &rvMode,&fUse, NULL);
     if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
     if (fUse > *fpStackUse) *fpStackUse=fUse;
 
@@ -3633,9 +3621,18 @@ doNonInlinedAndOr_:
 
     {
       int csz,hasSecondHalf;
-      if (bufOut_len < parm_size + (int)sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
-      if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
-      parm_size += sizeof(GLUE_JMP_IF_P1_Z);
+      if (rvMode & RETURNVALUE_BOOL_REVERSED)
+      {
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_JMP_IF_P1_NZ)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_NZ,sizeof(GLUE_JMP_IF_P1_NZ));
+        parm_size += sizeof(GLUE_JMP_IF_P1_NZ);
+      }
+      else
+      {
+        if (bufOut_len < parm_size + (int)sizeof(GLUE_JMP_IF_P1_Z)) RET_MINUS1_FAIL_FALLBACK("if size fail",doNonInlineIf_)
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
+        parm_size += sizeof(GLUE_JMP_IF_P1_Z);
+      }
       csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
       if (fUse > *fpStackUse) *fpStackUse=fUse;
       hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
