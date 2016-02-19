@@ -51,6 +51,7 @@ enum {
   FN_UMINUS,
   FN_UPLUS,
   FN_NOT,
+  FN_NOTNOT,
   FN_XOR,
   FN_SHL,
   FN_SHR,

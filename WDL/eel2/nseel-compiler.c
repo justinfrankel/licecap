@@ -103,6 +103,7 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 
   */
 
+
 #ifdef EEL_TARGET_PORTABLE
 
 #define EEL_DOESNT_NEED_EXEC_PERMS
@@ -300,6 +301,7 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(band)
   DECL_ASMFUNC(bor)
   DECL_ASMFUNC(bnot)
+  DECL_ASMFUNC(bnotnot)
   DECL_ASMFUNC(if)
   DECL_ASMFUNC(fcall)
   DECL_ASMFUNC(repeat)
@@ -1500,6 +1502,9 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     RF(shl);
 #ifndef EEL_TARGET_PORTABLE
     case FN_UPLUS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(uplus);   // shouldn't ever be used anyway, but scared to remove
+    case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(uplus);
+#else
+    case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnotnot);
 #endif
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL; RF(uminus);
     case FN_NOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnot);
@@ -1860,30 +1865,50 @@ start_over: // when an opcode changed substantially in optimization, goto here t
         {
           switch (op->fntype)
           {
+            case FN_NOTNOT: RESTART_DIRECTVALUE(fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 1.0 : 0.0);
             case FN_NOT:    RESTART_DIRECTVALUE(fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 0.0 : 1.0);
             case FN_UMINUS: RESTART_DIRECTVALUE(- op->parms.parms[0]->parms.dv.directValue);
             case FN_UPLUS:  RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue);
           }
         }
-        else if (op->fntype == FN_NOT && op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC2)
+        else if (op->fntype == FN_NOT || op->fntype == FN_NOTNOT)
         {
-          int repl_type = -1;
-          switch (op->parms.parms[0]->fntype)
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1)
           {
-            case FN_EQ: repl_type = FN_NE; break;
-            case FN_NE: repl_type = FN_EQ; break;
-            case FN_EQ_EXACT: repl_type = FN_NE_EXACT; break;
-            case FN_NE_EXACT: repl_type = FN_EQ_EXACT; break;
-            case FN_LT:  repl_type = FN_GTE; break;
-            case FN_LTE: repl_type = FN_GT; break;
-            case FN_GT:  repl_type = FN_LTE; break;
-            case FN_GTE: repl_type = FN_LT; break;
+            switch (op->parms.parms[0]->fntype)
+            {
+              case FN_UPLUS:
+              case FN_UMINUS:
+              case FN_NOTNOT: // ignore any NOTNOTs UMINUS or UPLUS, they would have no effect anyway
+                op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+              goto start_over;
+
+              case FN_NOT:
+                op->fntype = op->fntype==FN_NOT ? FN_NOTNOT : FN_NOT; // switch between FN_NOT and FN_NOTNOT
+                op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+              goto start_over;
+            }
           }
-          if (repl_type != -1)
+          else if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC2)
           {
-            memcpy(op,op->parms.parms[0],sizeof(*op));
-            op->fntype = repl_type;
-            goto start_over;
+            int repl_type = -1;
+            switch (op->parms.parms[0]->fntype)
+            {
+              case FN_EQ: repl_type = FN_NE; break;
+              case FN_NE: repl_type = FN_EQ; break;
+              case FN_EQ_EXACT: repl_type = FN_NE_EXACT; break;
+              case FN_NE_EXACT: repl_type = FN_EQ_EXACT; break;
+              case FN_LT:  repl_type = FN_GTE; break;
+              case FN_LTE: repl_type = FN_GT; break;
+              case FN_GT:  repl_type = FN_LTE; break;
+              case FN_GTE: repl_type = FN_LT; break;
+            }
+            if (repl_type != -1)
+            {
+              memcpy(op,op->parms.parms[0],sizeof(*op));
+              if (op->fntype == FN_NOT) op->fntype = repl_type;
+              goto start_over;
+            }
           }
         }
       }
@@ -2068,6 +2093,26 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 goto start_over;
               }
             break;
+            case FN_EQ:
+              if (dvalue == 0.0)
+              {
+                // convert x == 0.0 to !x
+                op->opcodeType=OPCODETYPE_FUNC1;
+                op->fntype = FN_NOT;
+                if (dv0) op->parms.parms[0]=op->parms.parms[1];
+                goto start_over;
+              }
+            break;
+            case FN_NE:
+              if (dvalue == 0.0)
+              {
+                // convert x != 0.0 to !!
+                op->opcodeType=OPCODETYPE_FUNC1;
+                op->fntype = FN_NOTNOT;
+                if (dv0) op->parms.parms[0]=op->parms.parms[1];
+                goto start_over;
+              }
+            break;
             case FN_LOGICAL_AND:
               if (dv0)
               {
@@ -2161,25 +2206,45 @@ start_over: // when an opcode changed substantially in optimization, goto here t
           }
         } // dv0 || dv1
 
-        if (op->fntype == FN_POW)
+        // general optimization of two parameters
+        switch (op->fntype)
         {
-          opcodeRec *first_parm = op->parms.parms[0];
-          if (first_parm->opcodeType == op->opcodeType && first_parm->fntype == FN_POW)
-          {
-            // since first_parm is a pow too, we can multiply the exponents.
+          case FN_POW:
+            {
+              opcodeRec *first_parm = op->parms.parms[0];
+              if (first_parm->opcodeType == op->opcodeType && first_parm->fntype == FN_POW)
+              {
+                // since first_parm is a pow too, we can multiply the exponents.
 
-            // set our base to be the base of the inner pow
-            op->parms.parms[0] = first_parm->parms.parms[0];
+                // set our base to be the base of the inner pow
+                op->parms.parms[0] = first_parm->parms.parms[0];
 
-            // make the old extra pow be a multiply of the exponents
-            first_parm->fntype = FN_MULTIPLY;
-            first_parm->parms.parms[0] = op->parms.parms[1];
+                // make the old extra pow be a multiply of the exponents
+                first_parm->fntype = FN_MULTIPLY;
+                first_parm->parms.parms[0] = op->parms.parms[1];
 
-            // put that as the exponent
-            op->parms.parms[1] = first_parm;
+                // put that as the exponent
+                op->parms.parms[1] = first_parm;
 
-            goto start_over;
-          }
+                goto start_over;
+              }
+            }
+          break;
+          case FN_LOGICAL_AND:
+          case FN_LOGICAL_OR:
+            if (op->parms.parms[0]->fntype == FN_NOTNOT)
+            {
+              // remove notnot, unnecessary for input to &&/|| operators
+              op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+              goto start_over;
+            }
+            if (op->parms.parms[1]->fntype == FN_NOTNOT)
+            {
+              // remove notnot, unnecessary for input to &&/|| operators
+              op->parms.parms[1] = op->parms.parms[1]->parms.parms[0];
+              goto start_over;
+            }        
+          break;
         }
       }
       else if (op->opcodeType==OPCODETYPE_FUNC3)  // within FUNCTYPE_SIMPLE
@@ -2192,17 +2257,27 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             memcpy(op,op->parms.parms[s ? 1 : 2],sizeof(opcodeRec));
             goto start_over;
           }
-          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1 && op->parms.parms[0]->fntype == FN_NOT)
+          if (op->parms.parms[0]->opcodeType == OPCODETYPE_FUNC1)
           {
-            opcodeRec *tmp;
-            // remove not
-            op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+            if (op->parms.parms[0]->fntype == FN_NOTNOT)
+            {
+              // remove notnot, unnecessary for input to ? operator
+              op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+              goto start_over;
+            }
 
-            // swap parms1/2
-            tmp = op->parms.parms[1];
-            op->parms.parms[1] = op->parms.parms[2];
-            op->parms.parms[2] = tmp;
-            goto start_over;
+            if (op->parms.parms[0]->fntype == FN_NOT)
+            {
+              opcodeRec *tmp;
+              // remove not
+              op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
+
+              // swap parms1/2
+              tmp = op->parms.parms[1];
+              op->parms.parms[1] = op->parms.parms[2];
+              op->parms.parms[2] = tmp;
+              goto start_over;
+            }
           }
         }
       }
@@ -3191,6 +3266,8 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
     case OPCODETYPE_FUNC1:
       if (op->fntype == FN_NOT)
         fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_not");
+      else if (op->fntype == FN_NOTNOT)
+        fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_notnot");
       else if (op->fntype == FN_MEMORY)
         fprintf(fp," FUNC1 %d %s {\r\n",FUNCTYPE_FUNCTIONTYPEREC, "_mem");
       else if (op->fntype == FN_GMEMORY)
