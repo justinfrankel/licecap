@@ -2068,6 +2068,96 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 goto start_over;
               }
             break;
+            case FN_LOGICAL_AND:
+              if (dv0)
+              {
+                // dvalue && expr
+                if (fabs(dvalue) < NSEEL_CLOSEFACTOR)
+                {
+                  // 0 && expr, replace with 0
+                  RESTART_DIRECTVALUE(0.0);
+                }
+                else
+                {
+                  // 1 && expr, replace with 0 != expr
+                  op->fntype = FN_NE;
+                  op->parms.parms[0]->parms.dv.valuePtr=NULL;
+                  op->parms.parms[0]->parms.dv.directValue = 0.0;
+                }
+              }
+              else
+              {
+                // expr && dvalue
+                if (fabs(dvalue) < NSEEL_CLOSEFACTOR)
+                {
+                  // expr && 0
+                  if (!retv_parm[0]) 
+                  {
+                    // expr has no consequence, drop it
+                    RESTART_DIRECTVALUE(0.0);
+                  }
+                  else
+                  {
+                    // replace with (expr; 0)
+                    op->fntype = FN_JOIN_STATEMENTS;
+                    op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                    op->parms.parms[1]->parms.dv.directValue = 0.0;
+                  }
+                }
+                else
+                {
+                  // expr && 1, replace with expr != 0
+                  op->fntype = FN_NE;
+                  op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                  op->parms.parms[1]->parms.dv.directValue = 0.0;
+                }
+              }
+            goto start_over;
+            case FN_LOGICAL_OR:
+              if (dv0)
+              {
+                // dvalue || expr
+                if (fabs(dvalue) >= NSEEL_CLOSEFACTOR)
+                {
+                  // 1 || expr, replace with 1
+                  RESTART_DIRECTVALUE(1.0);
+                }
+                else
+                {
+                  // 0 || expr, replace with 0 != expr
+                  op->fntype = FN_NE;
+                  op->parms.parms[0]->parms.dv.valuePtr=NULL;
+                  op->parms.parms[0]->parms.dv.directValue = 0.0;
+                }
+              }
+              else
+              {
+                // expr || dvalue
+                if (fabs(dvalue) >= NSEEL_CLOSEFACTOR)
+                {
+                  // expr || 1
+                  if (!retv_parm[0]) 
+                  {
+                    // expr has no consequence, drop it and return 1
+                    RESTART_DIRECTVALUE(1.0);
+                  }
+                  else
+                  {
+                    // replace with (expr; 1)
+                    op->fntype = FN_JOIN_STATEMENTS;
+                    op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                    op->parms.parms[1]->parms.dv.directValue = 1.0;
+                  }
+                }
+                else
+                {
+                  // expr || 0, replace with expr != 0
+                  op->fntype = FN_NE;
+                  op->parms.parms[1]->parms.dv.valuePtr=NULL;
+                  op->parms.parms[1]->parms.dv.directValue = 0.0;
+                }
+              }
+            goto start_over;
           }
         } // dv0 || dv1
 
