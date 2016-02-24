@@ -181,6 +181,18 @@ public:
     }
 
     *ppdispParent = NULL;
+
+    if (__CreateStdAccessibleObject)
+    {
+      HWND realparent = m_br.vwnd->GetRealParent();
+      if (realparent)
+      {
+        HRESULT res = __CreateStdAccessibleObject(realparent,OBJID_WINDOW,IID_IAccessible,(void**)ppdispParent); // should this be OBJID_CLIENT?
+        if (SUCCEEDED(res))
+          return S_OK;
+      }
+    }
+
     return S_FALSE;
   }
 #define ISVWNDLIST(x) ((x)&&!strcmp((x)->GetType(),"vwnd_listbox"))
