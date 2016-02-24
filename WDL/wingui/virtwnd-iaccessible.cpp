@@ -700,6 +700,71 @@ public:
 
   STDMETHOD(accNavigate)(THIS_ long navDir, VARIANT varStart, VARIANT * pvarEndUpAt) 
   {
+    if (!pvarEndUpAt) return E_INVALIDARG;
+
+    if (!m_br.vwnd || varStart.vt != VT_I4) 
+    {
+      return DISP_E_MEMBERNOTFOUND;
+    }
+    WDL_VWnd *vw = varStart.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varStart.lVal-1);
+    if (!vw) return DISP_E_MEMBERNOTFOUND;
+
+    if (navDir == NAVDIR_FIRSTCHILD || navDir == NAVDIR_LASTCHILD)
+    {
+      const int n = vw->GetNumChildren();
+      if (!n) return S_FALSE;
+      pvarEndUpAt->vt = VT_I4;
+      pvarEndUpAt->lVal = navDir == NAVDIR_FIRSTCHILD ? 1 : n;
+      return S_OK;
+    }
+
+    if (navDir == NAVDIR_NEXT || navDir == NAVDIR_PREVIOUS)
+    {
+      if (varStart.lVal != CHILDID_SELF)
+      {
+        const int n = m_br.vwnd->GetNumChildren();
+        int x = varStart.lVal - 1;
+        if (navDir == NAVDIR_NEXT)
+        {
+          if (++x >= n) return S_FALSE;
+        }
+        else
+        {
+          if (--x<0) return S_FALSE;
+        }
+        pvarEndUpAt->vt = VT_I4;
+        pvarEndUpAt->lVal = 1 + x;
+        return S_OK;
+      }
+
+
+      // passed CHILDID_SELF, need to scan to find index
+      WDL_VWnd *par = vw->GetParent();
+      if (par)
+      {
+        const int n = par->GetNumChildren();
+        int x;
+        for (x=0;x < n;x++) 
+        {
+          WDL_VWnd *c = par->EnumChildren(x);
+          if (c == vw) 
+          {
+            if (navDir == NAVDIR_NEXT) x++;
+            else x--;
+
+            WDL_VWnd *hit = par->EnumChildren(x);
+            if (!hit) break;
+
+            pvarEndUpAt->vt = VT_I4;
+            pvarEndUpAt->lVal = 1 + x;
+
+            return S_OK;
+          }
+        }
+      }
+      return S_FALSE;
+    }
+
     return DISP_E_MEMBERNOTFOUND;
   }
   STDMETHOD(accHitTest)(THIS_ long xLeft, long yTop, VARIANT * pvarChildAtPoint) 
