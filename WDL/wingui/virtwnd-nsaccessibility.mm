@@ -133,7 +133,7 @@ public:
 - (NSArray *)accessibilityAttributeNames
 {
   if (m_cached_attrnames) return m_cached_attrnames;
-  NSString *s[32];
+  NSString *s[64];
   int sidx=0;
   const char *type = NULL;
   if (m_br->vwnd)
@@ -179,7 +179,11 @@ public:
       hasState = ((WDL_VirtualIconButton*)m_br->vwnd)->GetCheckState()>=0;
     }
     else if (!strcmp(type,"vwnd_combobox")) hasState=true;
-    else if (!strcmp(type,"vwnd_slider")) hasState=true;
+    else if (!strcmp(type,"vwnd_slider")) 
+    {
+      s[sidx++] = NSAccessibilityValueDescriptionAttribute;
+      hasState=true;
+    }
 
     if (hasState)
     {
@@ -197,6 +201,7 @@ public:
 
 - (id)accessibilityAttributeValue:(NSString *)attribute
 {
+  char buf[2048];
   if (!m_br->vwnd) return nil;
   const char *type = m_br->vwnd->GetType();
   if (!type) type="";
@@ -343,7 +348,6 @@ public:
       str = b->GetTextLabel();
       cs = b->GetCheckState();
     }
-    char buf[2048];
     if (!str || !*str) str= m_br->vwnd->GetAccessDesc();
     else
     {
@@ -380,6 +384,18 @@ public:
     }
   }
   int s;
+  if ([attribute isEqual:NSAccessibilityValueDescriptionAttribute])
+  {
+    if (!strcmp(type,"vwnd_slider"))
+    {
+      WDL_VirtualSlider *slid = (WDL_VirtualSlider *)m_br->vwnd;
+      buf[0]=0;
+      if (slid->GetAccessValueDesc(buf,sizeof(buf)) && buf[0])
+      {
+        return [(id)SWELL_CStringToCFString(buf) autorelease];
+      }
+    }
+  }
   if ((s=!![attribute isEqual:NSAccessibilityMaxValueAttribute]) ||
        (s=[attribute isEqual:NSAccessibilityValueAttribute]?2:0) || 
         [attribute isEqual:NSAccessibilityMinValueAttribute])

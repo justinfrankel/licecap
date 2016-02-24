@@ -25,6 +25,7 @@
 
 #include <math.h>
 #include "virtwnd-controls.h"
+#include "../wdlcstring.h"
 #include "../lice/lice.h"
 
 void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_BGCfg *knobimage, int ksw, int ksh, int ks_offs, int dx, int dy, int dw, int dh, float alpha)
@@ -1006,6 +1007,27 @@ int WDL_VirtualSlider::GetSliderPosition()
   if (m_pos < m_minr) return m_minr; 
   if (m_pos > m_maxr) return m_maxr; 
   return m_pos; 
+}
+
+bool WDL_VirtualSlider::GetAccessValueDesc(char *buf, int bufsz)
+{
+  if (m_valueText.GetLength())
+  {
+    lstrcpyn_safe(buf,m_valueText.Get(),bufsz);
+    return true;
+  }
+  if (m_minr > m_maxr)
+  {
+    snprintf(buf,bufsz,"%d%%",((m_pos-m_minr)*100) / (m_maxr-m_minr));
+    return true;
+  }
+  return false;
+}
+
+
+void WDL_VirtualSlider::SetAccessValueDesc(const char *str)
+{
+  m_valueText.Set(str?str:"");
 }
 
 void WDL_VirtualSlider::SetSliderPosition(int pos) 

@@ -137,6 +137,9 @@ public:
   virtual bool IsDescendent(WDL_VWnd *w);
 
   virtual void OnCaptureLost();
+
+  virtual bool GetAccessValueDesc(char *buf, int bufsz) { return false; } // allow control to format value string
+
 protected:
   WDL_VWnd *m_parent;
   WDL_VWnd_IAccessibleBridge *m__iaccess;

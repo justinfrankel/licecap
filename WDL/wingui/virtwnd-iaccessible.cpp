@@ -352,6 +352,18 @@ public:
     {
       return E_INVALIDARG;
     }
+    WDL_VWnd *vw = varChild.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varChild.lVal-1);
+    if (vw)
+    {
+      char buf[1024];
+      buf[0]=0;
+      if (vw->GetAccessValueDesc(buf,sizeof(buf)) && buf[0])
+      {
+        *pszValue = SysAllocStringUTF8(buf);
+        if (!*pszValue) return E_OUTOFMEMORY;
+        return S_OK;
+      }
+    }
     return DISP_E_MEMBERNOTFOUND;
   }
   STDMETHOD(get_accDescription)(THIS_ VARIANT varChild, BSTR FAR* pszOut)

@@ -273,7 +273,11 @@ class WDL_VirtualSlider : public WDL_VWnd
     void SetFGColors(int knobcol, int zlcol) { m_knob_color=knobcol; m_zl_color = zlcol; }
     void SetKnobBias(int knobbias, int knobextrasize=0) { m_knobbias=knobbias; m_knob_lineextrasize=knobextrasize; } // 1=force knob, -1=prevent knob
 
+    void SetAccessValueDesc(const char *str);
+    virtual bool GetAccessValueDesc(char *buf, int bufsz);
+
   protected:
+    WDL_FastString m_valueText;
     WDL_VirtualSlider_SkinConfig *m_skininfo;
     WDL_VirtualWnd_BGCfg *m_knobbg[2];
     WDL_VirtualWnd_BGCfg *m_knobstacks;
