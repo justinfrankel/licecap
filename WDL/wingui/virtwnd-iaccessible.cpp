@@ -376,26 +376,6 @@ public:
     WDL_VWnd *vw = varChild.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varChild.lVal-1);
     if (vw) 
     {
-      char buf[1024];
-      buf[0]=0;
-      WDL_VWnd *p = vw->GetParent();
-      if (0)  // disabled for now
-        while (p && strlen(buf)<800)
-      {
-        const char *txt= p->GetAccessDesc();
-        if (txt && *txt) 
-        {
-          if (buf[0]) strcat(buf," ");
-          lstrcpyn_safe(buf+strlen(buf),txt,200);
-        }
-        p=p->GetParent();
-      }
-      if (buf[0])
-      {
-        *pszOut = SysAllocStringUTF8(buf);
-        if (!*pszOut) return E_OUTOFMEMORY;
-        return S_OK;
-      }
       return S_FALSE;
     }
     else if (ISVWNDLIST(m_br.vwnd))
@@ -711,8 +691,14 @@ public:
 
     if (navDir == NAVDIR_FIRSTCHILD || navDir == NAVDIR_LASTCHILD)
     {
-      const int n = vw->GetNumChildren();
-      if (!n) return S_FALSE;
+      int n = vw->GetNumChildren();
+      if (ISVWNDLIST(vw))
+      {
+        WDL_VirtualListBox *list=(WDL_VirtualListBox*)m_br.vwnd;
+        if (list->m_GetItemInfo) n = list->m_GetItemInfo(list,-1,NULL,0,NULL,NULL);
+      }
+
+      if (n<1) return S_FALSE;
       pvarEndUpAt->vt = VT_I4;
       pvarEndUpAt->lVal = navDir == NAVDIR_FIRSTCHILD ? 1 : n;
       return S_OK;
@@ -722,7 +708,12 @@ public:
     {
       if (varStart.lVal != CHILDID_SELF)
       {
-        const int n = m_br.vwnd->GetNumChildren();
+        int n = m_br.vwnd->GetNumChildren();
+        if (ISVWNDLIST(m_br.vwnd))
+        {
+          WDL_VirtualListBox *list=(WDL_VirtualListBox*)m_br.vwnd;
+          if (list->m_GetItemInfo) n = list->m_GetItemInfo(list,-1,NULL,0,NULL,NULL);
+        }
         int x = varStart.lVal - 1;
         if (navDir == NAVDIR_NEXT)
         {
