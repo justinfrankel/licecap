@@ -927,6 +927,15 @@ LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, W
   return 0;
 }
 
+void WDL_Accessibility_NotifyChanged(WDL_VWnd *vwnd)
+{
+  if (vwnd)
+  {
+    HWND hwnd = vwnd->GetRealParent();
+    if (hwnd)
+      NotifyWinEvent(EVENT_OBJECT_VALUECHANGE,hwnd,OBJID_WINDOW,CHILDID_SELF); // todo: handle vwnd hierarchy?
+  }
+}
 
 #else
 
@@ -936,6 +945,13 @@ LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, W
 #include "../swell/swell.h"
 #endif 
 
+#include "virtwnd.h"
+
+
+void WDL_Accessibility_NotifyChanged(WDL_VWnd *vwnd)
+{
+  // todo
+}
 
 #ifdef __APPLE__
 
@@ -943,8 +959,6 @@ LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, W
 
 #else
 
-
-class WDL_VWnd;
 LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, WPARAM wParam, LPARAM lParam)
 {
   return 0;
