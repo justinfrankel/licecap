@@ -162,6 +162,7 @@ WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knob
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
+  m_accessDescCopy=0;
   m_knob_lineextrasize=0;
   m_knobbias=0;
   m_zl_color = m_knob_color=0;
@@ -184,6 +185,7 @@ WDL_VirtualSlider::WDL_VirtualSlider()
 
 WDL_VirtualSlider::~WDL_VirtualSlider()
 {
+  free(m_accessDescCopy);
 }
 
 bool WDL_VirtualSlider::GetIsVert()
@@ -1024,7 +1026,23 @@ bool WDL_VirtualSlider::GetAccessValueDesc(char *buf, int bufsz)
   return false;
 }
 
+void WDL_VirtualSlider::SetAccessDescCopy(const char *str)
+{
+  char *op = m_accessDescCopy;  
+  if (str && *str)
+  {
+    if (op && !strcmp(op,str)) return;
 
+    m_accessDescCopy = strdup(str);
+    SetAccessDesc(m_accessDescCopy);
+  }
+  else
+  {
+    SetAccessDesc("");
+    m_accessDescCopy=NULL;
+  }
+  free(op);
+}
 void WDL_VirtualSlider::SetAccessValueDesc(const char *str)
 {
   m_valueText.Set(str?str:"");
