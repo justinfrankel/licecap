@@ -787,13 +787,16 @@ int GetKeyNameTextUTF8(LONG lParam, LPTSTR lpString, int nMaxCount)
     WIDETOMB_ALLOC(wbuf, nMaxCount);
     if (wbuf)
     {
-      GetKeyNameTextW(lParam,wbuf,(int) (wbuf_size/sizeof(WCHAR)));
+      const int v = GetKeyNameTextW(lParam,wbuf,(int) (wbuf_size/sizeof(WCHAR)));
 
-      if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
-        lpString[nMaxCount-1]=0;
+      if (v)
+      {
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+          lpString[nMaxCount-1]=0;
+      }
       WIDETOMB_FREE(wbuf);
 
-      return (int)strlen(lpString);
+      return v ? (int)strlen(lpString) : 0;
     }
   }
   return GetKeyNameTextA(lParam,lpString,nMaxCount);
