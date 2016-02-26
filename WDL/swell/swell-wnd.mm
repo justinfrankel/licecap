@@ -2618,12 +2618,14 @@ int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str)
     NSMenu *menu = [(NSPopUpButton *)p menu];
     if (menu)
     {
+      const bool needclearsel = [p indexOfSelectedItem] < 0;
       if (isAppend && [p respondsToSelector:@selector(getSwellStyle)] && (((int)[(SWELL_PopUpButton*)p getSwellStyle]) & CBS_SORT))
       {
         pos=arr_bsearch_mod(label,[menu itemArray],_nsMenuSearchProc);
       }
       NSMenuItem *item=[menu insertItemWithTitle:label action:NULL keyEquivalent:@"" atIndex:pos];
       [item setEnabled:YES];      
+      if (needclearsel) [(NSPopUpButton *)p selectItemAtIndex:-1];
     }
   }
   [label release];
