@@ -681,7 +681,7 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
     }
     beConfig.format.LHV1.dwMpegVersion = (beConfig.format.LHV1.dwReSampleRate < 32000 ? MPEG2 : MPEG1);
 
-    beConfig.format.LHV1.nPreset=quality;
+    beConfig.format.LHV1.nPreset= quality <= 0 ? LQP_VERYHIGH_QUALITY : quality <= 2 ? LQP_HIGH_QUALITY : quality <= 6 ? LQP_NORMAL_QUALITY : LQP_LOW_QUALITY;
 
     beConfig.format.LHV1.bNoRes	= 0;//1;
 

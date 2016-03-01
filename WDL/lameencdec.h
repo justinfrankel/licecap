@@ -34,7 +34,7 @@ class LameEncoder
 {
   public:
 
-    LameEncoder(int srate, int nch, int bitrate, int stereomode = 1, int quality = 0, int vbrmethod = -1, int vbrquality = 2, int vbrmax = 320, int abr = 128);
+    LameEncoder(int srate, int nch, int bitrate, int stereomode = 1, int quality = 2, int vbrmethod = -1, int vbrquality = 2, int vbrmax = 320, int abr = 128);
     ~LameEncoder();
 
     int Status() { return errorstat; } // 1=no dll, 2=error
