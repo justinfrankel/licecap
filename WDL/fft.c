@@ -1072,17 +1072,25 @@ static void u32768(register WDL_FFT_COMPLEX *a)
 }
 
 
-static void __fft_gen(WDL_FFT_COMPLEX *buf, int sz, int isfull)
+static void __fft_gen(WDL_FFT_COMPLEX *buf, const WDL_FFT_COMPLEX *buf2, int sz, int isfull)
 {
   int x;
-  double div=PI*0.25/(sz+1.0);
+  double div=PI*0.25/(sz+1);
 
   if (isfull) div*=2.0;
 
   for (x = 0; x < sz; x ++)
   {
-    buf[x].re = (WDL_FFT_REAL) cos((x+1)*div);
-    buf[x].im = (WDL_FFT_REAL) sin((x+1)*div);
+    if (!(x & 1) || !buf2)
+    {
+      buf[x].re = (WDL_FFT_REAL) cos((x+1)*div);
+      buf[x].im = (WDL_FFT_REAL) sin((x+1)*div);
+    }
+    else
+    {
+      buf[x].re = buf2[x >> 1].re;
+      buf[x].im = buf2[x >> 1].im;
+    }
   }
 }
 
@@ -1136,19 +1144,19 @@ void WDL_fft_init()
     int i, offs;
   	ffttabinit=1;
 
-#define fft_gen(x,y) __fft_gen(x,sizeof(x)/sizeof(x[0]),y)
-    fft_gen(d16,1);
-    fft_gen(d32,1);
-    fft_gen(d64,1);
-    fft_gen(d128,1);
-    fft_gen(d256,1);
-    fft_gen(d512,1);
-    fft_gen(d1024,0);
-    fft_gen(d2048,0);
-    fft_gen(d4096,0);
-    fft_gen(d8192,0);
-    fft_gen(d16384,0);
-    fft_gen(d32768,0);
+#define fft_gen(x,y,z) __fft_gen(x,y,sizeof(x)/sizeof(x[0]),z)
+    fft_gen(d16,0,1);
+    fft_gen(d32,d16,1);
+    fft_gen(d64,d32,1);
+    fft_gen(d128,d64,1);
+    fft_gen(d256,d128,1);
+    fft_gen(d512,d256,1);
+    fft_gen(d1024,d512,0);
+    fft_gen(d2048,d1024,0);
+    fft_gen(d4096,d2048,0);
+    fft_gen(d8192,d4096,0);
+    fft_gen(d16384,d8192,0);
+    fft_gen(d32768,d16384,0);
 #undef fft_gen
 
 #ifndef WDL_FFT_NO_PERMUTE
