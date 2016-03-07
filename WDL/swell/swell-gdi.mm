@@ -1842,6 +1842,24 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
   return offset;
 }
 
+int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
+{
+  if (!image || !list) return -1;
+  WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
+  
+  HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;
+  if (!HGDIOBJ_VALID(imgsrc,TYPE_BITMAP)) return -1;
+  
+  HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  icon->type=TYPE_BITMAP;
+  icon->wid=1;
+  icon->bitmapptr = [imgsrc->bitmapptr copy]; // caller still owns the image
+  image = (HICON) icon;
+  
+  l->Add(image);
+  return l->GetSize();
+}
+
 int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
   if (SWELL_GetOSXVersion() < 0x1060)  return 0;
