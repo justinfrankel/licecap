@@ -1853,7 +1853,9 @@ int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
   HGDIOBJ__* icon=GDP_OBJECT_NEW();
   icon->type=TYPE_BITMAP;
   icon->wid=1;
-  icon->bitmapptr = [imgsrc->bitmapptr copy]; // caller still owns the image
+  NSImage *nsimg = [imgsrc->bitmapptr copy]; // caller still owns the image
+  [nsimg setFlipped:YES];
+  icon->bitmapptr = nsimg;
   image = (HICON) icon;
   
   l->Add(image);
