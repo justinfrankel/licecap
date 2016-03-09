@@ -294,6 +294,7 @@ LICECaptureCompressor::~LICECaptureCompressor()
 
 LICECaptureDecompressor::LICECaptureDecompressor(const char *fn, bool want_seekable) : m_workbm(0,0,1)
 {
+  m_bytes_read=0;
   m_file_length_ms=0;
   m_rd_which=0;
   m_frameidx=0;
@@ -439,6 +440,7 @@ bool LICECaptureDecompressor::ReadHdr(int whdr) // todo: eventually make this re
   m_tmp.Clear();
   int hdr_sz = (4*9);
   if (m_file->Read(m_tmp.Add(NULL,hdr_sz),hdr_sz)!=hdr_sz) return false;
+  m_bytes_read+=hdr_sz;
   int ver=0;
   m_tmp.GetTFromLE(&ver);
   if (ver !=LCF_VERSION) return false;
@@ -462,6 +464,7 @@ bool LICECaptureDecompressor::ReadHdr(int whdr) // todo: eventually make this re
   if (m_frame_deltas[whdr].GetSize()!=nf) return false;
 
   if (m_file->Read(m_frame_deltas[whdr].Get(),nf*4)!=nf*4) return false;
+  m_bytes_read+=nf*4;
   int x;
   for(x=0;x<nf;x++)
   {
@@ -495,6 +498,7 @@ bool LICECaptureDecompressor::DecompressBlock(int whdr, double percent)
       if (m_compstream.avail_in > (int)sizeof(buf)) m_compstream.avail_in=(int)sizeof(buf);
 
       m_compstream.avail_in = m_file->Read(buf,m_compstream.avail_in);
+      m_bytes_read+=m_compstream.avail_in;
       m_curhdr[whdr].cdata_left -= m_compstream.avail_in;
 
       int e = inflate(&m_compstream,0);
