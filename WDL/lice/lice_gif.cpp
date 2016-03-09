@@ -402,6 +402,16 @@ void LICE_GIF_Rewind(void *handle)
     // todo: flush giflib too
   }
 }
+unsigned int LICE_GIF_GetFilePos(void *handle)
+{
+  lice_gif_read_ctx *h = (lice_gif_read_ctx*)handle;
+  if (h && h->fp)
+  {
+    return ftell(h->fp);
+  }
+
+  return 0;
+}
 
 int LICE_GIF_UpdateFrame(void *handle, LICE_IBitmap *bm) 
 {

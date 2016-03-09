@@ -109,6 +109,15 @@ int LICE_SetGIFColorMapFromOctree(void *ww, void *octree, int numcolors)
   return rv;
 }
 
+unsigned int LICE_WriteGIFGetSize(void *handle)
+{
+  if (handle)
+  {
+    liceGifWriteRec *wr = (liceGifWriteRec*)handle;
+    if (wr->fp) return ftell(wr->fp);
+  }
+  return 0;
+}
 
 bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap, int frame_delay, int nreps)
 {

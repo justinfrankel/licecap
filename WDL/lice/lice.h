@@ -356,6 +356,7 @@ bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alph
 void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true, int nreps=0); // nreps=0 for infinite
 void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha=0, bool dither=true, bool is_append=false);
 bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap=false, int frame_delay=0, int nreps=0); // nreps only used on the first frame, 0=infinite
+unsigned int LICE_WriteGIFGetSize(void *handle); // gets current output size
 bool LICE_WriteGIFEnd(void *handle);
 int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can use after LICE_WriteGIFBeginNoFrame and before LICE_WriteGIFFrame
 
@@ -363,6 +364,7 @@ int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can
 void *LICE_GIF_LoadEx(const char *filename);
 void LICE_GIF_Close(void *handle);
 void LICE_GIF_Rewind(void *handle);
+unsigned int LICE_GIF_GetFilePos(void *handle); // gets current read position
 int LICE_GIF_UpdateFrame(void *handle, LICE_IBitmap *bm); // returns duration in msec (0 or more), or <0 if no more frames. bm will be modified/resized with new frame data
 
 
