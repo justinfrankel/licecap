@@ -268,8 +268,15 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       return parentptr; 
     }
 
+    enum { 
+        LICE_GET_SUBBITMAP_VERSION = 0x51b7000, 
+        LICE_SUBBITMAP_VERSION = 0x1000  // if we change any of this struct, then we *must* increment this version.
+    }; 
+
     virtual INT_PTR Extended(int id, void* data)
     {
+      if (id == LICE_GET_SUBBITMAP_VERSION) return LICE_SUBBITMAP_VERSION;
+
       if (!m_parent) return 0;
       return m_parent->Extended(id, data);
     }
@@ -282,7 +289,6 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 
     int m_w,m_h,m_x,m_y;
     LICE_IBitmap *m_parent;
-    //LICE_pixel *m_parentptr;
 };
 
 
