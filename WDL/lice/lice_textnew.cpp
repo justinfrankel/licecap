@@ -837,7 +837,11 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
       if (tmp_rect.bottom <= tmp_rect.top || tmp_rect.right <= tmp_rect.left)  goto finish_up_native_render;
 
-      dtFlags &= ~(DT_BOTTOM|DT_RIGHT|DT_CENTER|DT_VCENTER|DT_NOCLIP);
+      dtFlags &= ~(DT_BOTTOM|DT_RIGHT|DT_CENTER|DT_VCENTER);
+
+      int left_overrender = 2+(m_line_height>=16 ? m_line_height/16 : 0);
+      if (left_overrender>tmp_rect.left) left_overrender=tmp_rect.left;      
+      tmp_rect.left -= left_overrender;
 
       if (tmp_rect.right-tmp_rect.left > s_nativerender_tempbitmap->getWidth() || 
           tmp_rect.bottom-tmp_rect.top > s_nativerender_tempbitmap->getHeight())
@@ -850,6 +854,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
       LICE_Blit(s_nativerender_tempbitmap, bm, 0, 0, &tmp_rect, 1.0f, LICE_BLIT_MODE_COPY);
 
+      dt_rect.left += left_overrender;
       dt_rect.right=tmp_rect.right;
       dt_rect.bottom=tmp_rect.bottom;
     }
