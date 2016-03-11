@@ -203,7 +203,9 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   if (m_font) oldFont = SelectObject(s_tempbitmap->getDC(),m_font);
   RECT r={0,0,0,0,};
   int advance;
-  const int extra_wid_pad = 2+(m_line_height>=16 ? m_line_height/16 : 0); // overrender right side by this amount, and check to see if it was drawn to
+  const int right_extra_pad = 2+(m_line_height>=16 ? m_line_height/16 : 0); // overrender right side by this amount, and check to see if it was drawn to
+
+  const int left_extra_pad = right_extra_pad; // overrender on left side too
 
 #ifdef _WIN32
 #if defined(WDL_SUPPORT_WIN9X)
@@ -211,10 +213,11 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
 #endif
   {
     WCHAR tmpstr[2]={(WCHAR)idx,0};
-    ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
     advance=r.right;
-    r.right += extra_wid_pad;
+    r.right += right_extra_pad+left_extra_pad;
     LICE_FillRect(s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
+    r.left+=left_extra_pad;
     ::DrawTextW(s_tempbitmap->getDC(),tmpstr,1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
   }
   #if defined(WDL_SUPPORT_WIN9X)
@@ -229,11 +232,12 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
 #ifndef _WIN32
     if (idx>=128) utf8makechar(tmpstr,idx);
 #endif
-    ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_CALCRECT|DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
     advance=r.right;
-    r.right += extra_wid_pad;
+    r.right += right_extra_pad+left_extra_pad;
     LICE_FillRect(s_tempbitmap,0,0,r.right,r.bottom,0,1.0f,LICE_BLIT_MODE_COPY);
-    ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX);
+    r.left += left_extra_pad;
+    ::DrawText(s_tempbitmap->getDC(),tmpstr,-1,&r,DT_SINGLELINE|DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
   }
 #endif
 
@@ -246,7 +250,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
   if (advance < 1 || r.bottom < 1) 
   {
     ent->base_offset=-1;
-    ent->advance=ent->width=ent->height=0;
+    ent->left_extra=ent->advance=ent->width=ent->height=0;
   }
   else
   {
@@ -275,25 +279,39 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
         span=-span;
       }
       int x,y;
-      int max_x=advance;
+      int min_x=left_extra_pad;
+      int max_x=advance + min_x;
+
       for(y=0;y<r.bottom;y++)
       {
         if (flags&LICE_FONT_FLAG_FX_INVERT)
         {
-          for (x=0;x<max_x;x++) *destbuf++ = 255-((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+          for (x=0;x<min_x;x++)
+          {
+            const unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+            *destbuf++ = 255-v;
+            if (v) min_x=x;
+          }
+          for (;x<max_x;x++) *destbuf++ = 255-((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
           for (;x<r.right;x++)
           {
-            unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+            const unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
             if (v) max_x=x+1;
             *destbuf++ = 255-v;
           }
         }
         else
         {
-          for (x=0;x<max_x;x++) *destbuf++ = ((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+          for (x=0;x<min_x;x++)
+          {
+            const unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+            *destbuf++ = v;
+            if (v) min_x=x;
+          }
+          for (;x<max_x;x++) *destbuf++ = ((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
           for (;x<r.right;x++)
           {
-            unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
+            const unsigned char v=((unsigned char*)(srcbuf+x))[LICE_PIXEL_R];
             if (v) max_x=x+1;
             *destbuf++ = v;
           }
@@ -302,17 +320,18 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
       }
       destbuf -= r.right*r.bottom;
 
-      if (max_x < r.right)
+      if (max_x < r.right || min_x > 0)
       {
-        const unsigned char *rdptr=destbuf;
+        const int neww = max_x-min_x;
+        const unsigned char *rdptr=destbuf + min_x;
         // trim down destbuf
         for (y=0;y<r.bottom;y++)
         {
-          if (destbuf != rdptr) memmove(destbuf,rdptr,max_x);
-          destbuf+=max_x;
+          if (destbuf != rdptr) memmove(destbuf,rdptr,neww);
+          destbuf+=neww;
           rdptr += r.right;
         }
-        r.right = max_x;
+        r.right = neww;
         newsz = ent->base_offset-1+r.right*r.bottom;
         destbuf = m_cachestore.Resize(newsz,false) + ent->base_offset-1;
       }
@@ -413,6 +432,7 @@ bool LICE_CachedFont::RenderGlyph(unsigned short idx) // return TRUE if ok
             }
         }
       }
+      ent->left_extra=left_extra_pad-min_x;
       ent->width = r.right;
       ent->height = r.bottom;
     }
@@ -515,8 +535,21 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
 {
   charEnt *ch = findChar(c);
 
-  if (!ch || 
-      xpos >= clipR->right || 
+  if (!ch) return false;
+
+  if (m_flags&LICE_FONT_FLAG_VERTICAL) 
+  {
+    if ((m_flags&(LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP)) == (LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP))
+      ypos -= ch->left_extra;
+    else
+      ypos += ch->left_extra;
+  }
+  else
+  {
+    xpos -= ch->left_extra;
+  }
+
+  if (xpos >= clipR->right || 
       ypos >= clipR->bottom ||
       xpos+ch->width <= clipR->left || 
       ypos+ch->height <= clipR->top) return false;
@@ -975,7 +1008,7 @@ finish_up_native_render:
         {
           if (m_flags&LICE_FONT_FLAG_VERTICAL) 
           {
-            const int yext = ypos + ent->height;
+            const int yext = ypos + ent->height - ent->left_extra;
             ypos += ent->advance;
             if (xpos+ent->width>max_xpos) max_xpos=xpos+ent->width;
             if (ypos>max_ypos) max_ypos=ypos;
@@ -983,7 +1016,7 @@ finish_up_native_render:
           }
           else
           {
-            const int xext = xpos + ent->width;
+            const int xext = xpos + ent->width - ent->left_extra;
             xpos += ent->advance;
             if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
             if (xpos>max_xpos) max_xpos=xpos;

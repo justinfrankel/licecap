@@ -97,6 +97,7 @@ class LICE_CachedFont : public LICE_IFont
       int width, height;
       int advance;
       int charid; // used by m_extracharlist
+      int left_extra;
     };
     charEnt *findChar(unsigned short c);
 
