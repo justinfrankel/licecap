@@ -743,10 +743,37 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     bool isTmp=false;
     RECT tmp_rect={0,};
 
+#ifdef _WIN32
+    HRGN rgn=NULL;
+#endif
+    RECT nr_subbitmap_clip = {0,};
+    bool nr_subbitmap_clip_use=false;
+    if (!hdc && bm)
+    {
+      LICE_IBitmap *bmt = bm;
+      while (bmt->Extended(LICE_SubBitmap::LICE_GET_SUBBITMAP_VERSION,NULL) == (INT_PTR)LICE_SubBitmap::LICE_SUBBITMAP_VERSION)
+      {
+        LICE_SubBitmap *sb = (LICE_SubBitmap *)bmt;
+        nr_subbitmap_clip.left += sb->m_x;
+        nr_subbitmap_clip.top += sb->m_y;
+        bmt = sb->m_parent;
+        if (!bmt) break; // ran out of parents
+
+        hdc=bmt->getDC();
+        if (hdc)
+        {
+          nr_subbitmap_clip.right = nr_subbitmap_clip.left + ((LICE_SubBitmap*)bm)->m_w;
+          nr_subbitmap_clip.bottom = nr_subbitmap_clip.top + ((LICE_SubBitmap*)bm)->m_h;
+          nr_subbitmap_clip_use=!(dtFlags & DT_CALCRECT);
+          bm = bmt;
+          break;
+        }
+      }
+    }
+
     if (!hdc)
     {
       // use temp buffer -- we could optionally enable this if non-1 alpha was desired, though this only works for BLIT_MODE_COPY anyway (since it will end up compositing the whole rectangle, ugh)
-
       isTmp=true;
 
       if (!s_nativerender_tempbitmap)
@@ -836,11 +863,41 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     ::SetBkMode(hdc,m_bgmode);
     if (m_bgmode==OPAQUE) ::SetBkColor(hdc,RGB(LICE_GETR(m_bg),LICE_GETG(m_bg),LICE_GETB(m_bg)));
 
+    if (nr_subbitmap_clip_use)
+    {
+#ifdef _WIN32
+      rgn=CreateRectRgn(0,0,0,0);
+      if (!GetClipRgn(hdc,rgn))
+      {
+        DeleteObject(rgn);
+        rgn=NULL;
+      }
+      IntersectClipRect(hdc,nr_subbitmap_clip.left,nr_subbitmap_clip.top,nr_subbitmap_clip.right,nr_subbitmap_clip.bottom);
+#else
+      SWELL_PushClipRegion(hdc);
+      SWELL_SetClipRegion(hdc,&nr_subbitmap_clip);
+#endif
+      dt_rect.left += nr_subbitmap_clip.left;
+      dt_rect.top += nr_subbitmap_clip.top;
+      dt_rect.right += nr_subbitmap_clip.left;
+      dt_rect.bottom += nr_subbitmap_clip.top;
+    }
+
     ret = 
 #ifdef _WIN32
       wtmp ? ::DrawTextW(hdc,wtmp,-1,&dt_rect,dtFlags|DT_NOPREFIX) : 
 #endif
       ::DrawText(hdc,str,strcnt,&dt_rect,dtFlags|DT_NOPREFIX);
+
+    if (nr_subbitmap_clip_use)
+    {
+#ifdef _WIN32
+      SelectClipRgn(hdc,rgn); // if rgn is NULL, clears region
+      if (rgn) DeleteObject(rgn);
+#else
+      SWELL_PopClipRegion(hdc);
+#endif
+    }
 
     if (isTmp) 
       LICE_Blit(bm, s_nativerender_tempbitmap,  tmp_rect.left, tmp_rect.top, 
