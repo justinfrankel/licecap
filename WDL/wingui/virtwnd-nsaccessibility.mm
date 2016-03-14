@@ -179,10 +179,17 @@ public:
       hasState = ((WDL_VirtualIconButton*)m_br->vwnd)->GetCheckState()>=0;
     }
     else if (!strcmp(type,"vwnd_combobox")) hasState=true;
-    else if (!strcmp(type,"vwnd_slider")) 
+    else if (!strcmp(type,"vwnd_slider"))
     {
+      // eventually we could remove this check and just query GetAccessValueDesc() directly
+      // (but for now do not, because some controls may be plug-in created and not have the 
+      // updated base class)
       s[sidx++] = NSAccessibilityValueDescriptionAttribute;
       hasState=true;
+    }
+    else if (!strcmp(type,"vwnd_tabctrl_proxy"))
+    {
+      s[sidx++] = NSAccessibilityTabsAttribute;
     }
 
     if (hasState)
@@ -210,6 +217,11 @@ public:
   
   int a = [attribute isEqual:NSAccessibilityChildrenAttribute]?1:0;
   if (!a) a= [attribute isEqual:NSAccessibilityVisibleChildrenAttribute]?2:0;
+  if (!a && !strcmp(type,"vwnd_tabctrl_proxy") && [attribute isEqual:NSAccessibilityTabsAttribute])
+  {
+    a=1;
+  }
+
   if (a) // if 2, only add visible items
   {
     int nc = m_br->vwnd->GetNumChildren();
@@ -303,6 +315,8 @@ public:
       if (!strcmp(type,"vwnd_statictext")) str = "text";
       else if (!strcmp(type,"vwnd_slider")) str = "slider";
       else if (!strcmp(type,"vwnd_combobox")) str = "selection box";
+      else if (!strcmp(type,"vwnd_tabctrl_proxy")) str = "tab list";
+      else if (!strcmp(type,"vwnd_tabctrl_child")) str = "tab";
       else if (!strcmp(type,"vwnd_iconbutton"))
       {
         WDL_VirtualIconButton *b = (WDL_VirtualIconButton *)m_br->vwnd;
@@ -318,6 +332,7 @@ public:
   {
     if (!strcmp(type,"vwnd_statictext")) return NSAccessibilityButtonRole; // fail: seems to need 10.5+ to deliver text? NSAccessibilityStaticTextRole;
     if (!strcmp(type,"vwnd_slider")) return NSAccessibilitySliderRole;
+    if (!strcmp(type,"vwnd_tabctrl_proxy")) return NSAccessibilityTabGroupRole; // bleh easiest way to get this to work
     if (!strcmp(type,"vwnd_combobox")) return NSAccessibilityPopUpButtonRole;
     if (!strcmp(type,"vwnd_iconbutton"))
     {
@@ -386,11 +401,11 @@ public:
   int s;
   if ([attribute isEqual:NSAccessibilityValueDescriptionAttribute])
   {
-    if (!strcmp(type,"vwnd_slider"))
+    if (!strcmp(type,"vwnd_slider")) // eventually we can remove this check
     {
-      WDL_VirtualSlider *slid = (WDL_VirtualSlider *)m_br->vwnd;
+      WDL_VWnd *w = (WDL_VWnd *)m_br->vwnd;
       buf[0]=0;
-      if (slid->GetAccessValueDesc(buf,sizeof(buf)) && buf[0])
+      if (w->GetAccessValueDesc(buf,sizeof(buf)) && buf[0])
       {
         return [(id)SWELL_CStringToCFString(buf) autorelease];
       }
@@ -493,10 +508,11 @@ public:
   {
     if (!strcmp(type,"vwnd_combobox") ||
         !strcmp(type,"vwnd_iconbutton") ||
+        !strcmp(type,"vwnd_tabctrl_child") ||
         !strcmp(type,"vwnd_statictext") 
         ) s[sidx++] =  NSAccessibilityPressAction;
     
-    if (!strcmp(type,"vwnd_slider")) 
+    if (!strcmp(type,"vwnd_slider"))
     {
       s[sidx++] = NSAccessibilityDecrementAction;
       s[sidx++] = NSAccessibilityIncrementAction;
@@ -520,6 +536,7 @@ public:
       if (!strcmp(type,"vwnd_combobox")) return @"Choose item";
       if (!strcmp(type,"vwnd_iconbutton")) return @"Press button";
       if (!strcmp(type,"vwnd_statictext")) return @"Doubleclick text";
+      if (!strcmp(type,"vwnd_tabctrl_child")) return @"Select tab";
     }
     else if (!strcmp(type,"vwnd_slider")) 
     {

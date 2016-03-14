@@ -230,6 +230,5 @@ void WDL_VWnd_regHelperClass(const char *classname, void *icon=NULL, void *icons
 
 // in virtwnd-iaccessible.cpp
 LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, WPARAM wParam, LPARAM lParam);
-void WDL_Accessibility_NotifyChanged(WDL_VWnd *);
 
 #endif

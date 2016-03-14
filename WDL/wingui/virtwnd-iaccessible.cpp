@@ -42,6 +42,40 @@ public:
   ~VWndBridge() { }
   virtual void Release() {  vwnd=0; }
 
+  virtual void OnFocused()
+  {
+    DoNotify(EVENT_OBJECT_FOCUS);
+  }
+  virtual void OnStateChange() 
+  {
+    DoNotify(EVENT_OBJECT_VALUECHANGE);
+  }
+  void DoNotify(int mode)
+  {
+    if (vwnd)
+    {
+      HWND hwnd = vwnd->GetRealParent();
+      if (hwnd)
+      {
+        int idx = CHILDID_SELF;
+        WDL_VWnd *lpar = vwnd, *par = NULL;
+        // todo: better handle hierarchy?
+        if (lpar) while ((par=lpar->GetParent()))
+        {
+          if (!par->GetParent()) break;
+          lpar=par;
+        }
+        if (par)
+        {
+          for (idx=0; idx < par->GetNumChildren(); idx++) if (par->EnumChildren(idx)==lpar) break;
+          if (idx >= par->GetNumChildren()) idx = CHILDID_SELF;
+          else idx++;
+        }
+        NotifyWinEvent(mode,hwnd,OBJID_CLIENT,idx); 
+      }
+    }
+  }
+
   CVWndAccessible *par;
   WDL_VWnd *vwnd;
 
@@ -353,7 +387,7 @@ public:
       return E_INVALIDARG;
     }
     WDL_VWnd *vw = varChild.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varChild.lVal-1);
-    if (vw)
+    if (vw && !strcmp(vw->GetType(),"vwnd_slider"))
     {
       char buf[1024];
       buf[0]=0;
@@ -453,6 +487,8 @@ public:
       else if (!strcmp(type,"vwnd_statictext"))  pvarRole->lVal = ROLE_SYSTEM_STATICTEXT;
       else if (!strcmp(type,"vwnd_combobox"))  pvarRole->lVal = ROLE_SYSTEM_COMBOBOX;
       else if (!strcmp(type,"vwnd_slider"))  pvarRole->lVal = ROLE_SYSTEM_SLIDER;
+      else if (!strcmp(type,"vwnd_tabctrl_proxy"))  pvarRole->lVal = ROLE_SYSTEM_PAGETABLIST;
+      else if (!strcmp(type,"vwnd_tabctrl_child"))  pvarRole->lVal = ROLE_SYSTEM_PAGETAB;
       else if (!strcmp(type,"vwnd_listbox"))  pvarRole->lVal = ROLE_SYSTEM_LIST;
       else pvarRole->lVal=ROLE_SYSTEM_CLIENT;
     }
@@ -595,10 +631,24 @@ public:
     }
     WDL_VWnd *vw = varChild.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varChild.lVal-1);
 
-    if (!vw) 
+    if (!vw) return E_INVALIDARG;
+
+    const char *type = vw->GetType();
+    if (type)
     {
-      return E_INVALIDARG;
+      const char *str=NULL;
+      if (!strcmp(type,"vwnd_combobox")) str = "Activate";
+      else if (!strcmp(type,"vwnd_iconbutton")) str="Click";
+      else if (!strcmp(type,"vwnd_tabctrl_child")) str="Select";
+      else if (!strcmp(type,"vwnd_statictext")) str="Click";
+      if (str)
+      {
+        *pszDefaultAction = SysAllocStringUTF8(str);
+        if (!*pszDefaultAction) return E_OUTOFMEMORY;
+        return S_OK;
+      }
     }
+
     return S_FALSE;
   }
 
@@ -840,7 +890,33 @@ public:
   }
   STDMETHOD(accDoDefaultAction)(THIS_ VARIANT varChild) 
   {
-    return DISP_E_MEMBERNOTFOUND;
+    if (!m_br.vwnd || varChild.vt != VT_I4) 
+    {
+      return E_INVALIDARG;
+    }
+    WDL_VWnd *vw = varChild.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varChild.lVal-1);
+
+    if (!vw) return E_INVALIDARG;
+
+    const char *type = vw->GetType();
+    if (type)
+    {
+      if (!strcmp(type,"vwnd_combobox") ||
+          !strcmp(type,"vwnd_iconbutton") ||
+          !strcmp(type,"vwnd_tabctrl_child"))
+      {
+        vw->OnMouseDown(0,0);
+        vw->OnMouseUp(0,0);      
+        return S_OK;
+      }
+      else if (!strcmp(type,"vwnd_statictext"))
+      {
+        vw->OnMouseDblClick(0,0);
+        return S_OK;
+      }
+    }
+
+    return S_FALSE;
   }
 
     STDMETHOD(put_accName)(THIS_ VARIANT varChild, BSTR szName) 
@@ -927,16 +1003,6 @@ LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, W
   return 0;
 }
 
-void WDL_Accessibility_NotifyChanged(WDL_VWnd *vwnd)
-{
-  if (vwnd)
-  {
-    HWND hwnd = vwnd->GetRealParent();
-    if (hwnd)
-      NotifyWinEvent(EVENT_OBJECT_VALUECHANGE,hwnd,OBJID_WINDOW,CHILDID_SELF); // todo: handle vwnd hierarchy?
-  }
-}
-
 #else
 
 #ifdef _WIN32
@@ -946,12 +1012,6 @@ void WDL_Accessibility_NotifyChanged(WDL_VWnd *vwnd)
 #endif 
 
 #include "virtwnd.h"
-
-
-void WDL_Accessibility_NotifyChanged(WDL_VWnd *vwnd)
-{
-  // todo
-}
 
 #ifdef __APPLE__
 

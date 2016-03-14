@@ -1051,7 +1051,12 @@ void WDL_VirtualSlider::SetAccessDescCopy(const char *str)
 }
 void WDL_VirtualSlider::SetAccessValueDesc(const char *str)
 {
-  m_valueText.Set(str?str:"");
+  if (!str) str="";
+  if (strcmp(m_valueText.Get(),str))
+  {
+    m_valueText.Set(str);
+    if (m__iaccess) m__iaccess->OnStateChange();
+  }
 }
 
 void WDL_VirtualSlider::SetSliderPosition(int pos) 
