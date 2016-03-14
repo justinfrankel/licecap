@@ -703,7 +703,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
             if (r->left+rext > r->right) r->right = r->left+rext;
             xpos += g->metrics.horiAdvance/64;
 
-            int bext = r->top + ypos + ascent + (g->metrics.height - g->metrics.horiBearingY)/64;
+            int bext = r->top + ypos + lineh; // ascent + (g->metrics.height - g->metrics.horiBearingY)/64;
             if (bext > r->bottom) r->bottom = bext;
             continue;
           }
@@ -803,7 +803,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           if (rext<=xpos) rext=xpos + g->metrics.horiAdvance/64;
           if (rext > max_xpos) max_xpos=rext;
           xpos += g->metrics.horiAdvance/64;
-          int bext = ypos + lineh +  (g->metrics.height - g->metrics.horiBearingY)/64;
+          int bext = ypos + lineh; // +  (g->metrics.height - g->metrics.horiBearingY)/64;
           if (ysize < bext) ysize=bext;
           needr=false;
         }
