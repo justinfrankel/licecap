@@ -181,6 +181,7 @@ HGDIOBJ GetStockObject(int wh)
   return 0;
 }
 
+static WDL_PtrList<char> s_registered_fonts;
 
 #define FONTSCALE 0.9
 HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation, int lfWeight, char lfItalic, 
@@ -201,8 +202,26 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     char tmp[1024];
     char bestmatch[512];
     bestmatch[0]=0;
-    snprintf(tmp,sizeof(tmp),"%s/%s.ttf",leadpath,lfFaceName);
-    FT_New_Face(s_freetype,tmp,0,&face);
+    int x;
+    for (x=0;x < s_registered_fonts.GetSize(); x ++)
+    {
+      const char *fn = s_registered_fonts.Get(x);
+      if (fn)
+      {
+        const char *fnpart = WDL_get_filepart(fn);
+        if (!strnicmp(fnpart,lfFaceName,strlen(lfFaceName)))
+        {
+          FT_New_Face(s_freetype,fn,0,&face);
+          if (face) break;
+        }
+      }
+    }
+
+    if (!face)
+    {
+      snprintf(tmp,sizeof(tmp),"%s/%s.ttf",leadpath,lfFaceName);
+      FT_New_Face(s_freetype,tmp,0,&face);
+    }
     if (!face)
     {
       WDL_DirScan ds;
@@ -1309,6 +1328,14 @@ int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
 
 int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
+  if (str && *str)
+  {
+    int x; 
+    for (x=0;x<s_registered_fonts.GetSize();x++)
+      if (!strcmp(str,s_registered_fonts.Get(x))) return 0;
+    s_registered_fonts.Add(strdup(str));
+    return 1;
+  } 
   return 0;
 }
 
