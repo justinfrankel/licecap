@@ -393,7 +393,7 @@ void SWELL_FillRect(HDC ctx, const RECT *r, HBRUSH br)
       r->left+c->surface_offs.x,
       r->top+c->surface_offs.y,
       r->right-r->left,r->bottom-r->top,b->color,1.0f,LICE_BLIT_MODE_COPY);
-
+  swell_DirtyContext(ctx,r->left,r->top,r->right,r->bottom);
 }
 
 void RoundRect(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd)
@@ -437,6 +437,8 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   if (!HDC_VALID(c)) return;
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
+
+  swell_DirtyContext(ctx,l,t,r,b);
   
   l += c->surface_offs.x;
   t += c->surface_offs.y;
@@ -477,6 +479,7 @@ void Polygon(HDC ctx, POINT *pts, int npts)
  //   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
   }
 //  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush && c->curbrush->wid>=0 ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
+  //swell_DirtyContext(ctx,l,t,r,b);
 }
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
@@ -533,12 +536,20 @@ void SWELL_LineTo(HDC ctx, int x, int y)
 
   int dx=c->surface_offs.x;
   int dy=c->surface_offs.y;
-  LICE_Line(c->surface,x+dx,y+dy,(int)c->lastpos_x+dx,(int)c->lastpos_y+dy,c->curpen->color,1.0f,LICE_BLIT_MODE_COPY,false);
+  int lx = (int)c->lastpos_x, ly = (int) c->lastpos_y;
+  LICE_Line(c->surface,x+dx,y+dy,lx+dx,ly+dy,c->curpen->color,1.0f,LICE_BLIT_MODE_COPY,false);
+
   
 //  CGContextAddLineToPoint(c->ctx,fx,fy);
   c->lastpos_x=fx;
   c->lastpos_y=fy;
+
+  if (lx<x) { int a=x; x=lx; lx=a; }
+  if (ly<y) { int a=y; y=ly; ly=a; }
+
+  swell_DirtyContext(ctx, x-1,y-1,lx+1,ly+1);
 //  CGContextStrokePath(c->ctx);
+ 
 }
 
 void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
