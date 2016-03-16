@@ -467,31 +467,27 @@ public:
     }
 
     pvarRole->vt = VT_I4;
-    if (vw->GetNumChildren()) pvarRole->lVal =  ROLE_SYSTEM_GROUPING;
-    else
-    {
+    const char *type = vw->GetType();
 
-      const char *type = vw->GetType();
-    
-      if (!strcmp(type,"vwnd_iconbutton")) 
+    if (!strcmp(type,"vwnd_iconbutton")) 
+    {
+      WDL_VirtualIconButton *vb = (WDL_VirtualIconButton*)vw;
+      if (vb->GetIsButton())
       {
-        WDL_VirtualIconButton *vb = (WDL_VirtualIconButton*)vw;
-        if (vb->GetIsButton())
-        {
-          if (vb->GetCheckState()>=0) pvarRole->lVal = ROLE_SYSTEM_CHECKBUTTON;
-          else pvarRole->lVal = ROLE_SYSTEM_PUSHBUTTON;
-        }
-        else
-          pvarRole->lVal = ROLE_SYSTEM_STATICTEXT;       
+        if (vb->GetCheckState()>=0) pvarRole->lVal = ROLE_SYSTEM_CHECKBUTTON;
+        else pvarRole->lVal = ROLE_SYSTEM_PUSHBUTTON;
       }
-      else if (!strcmp(type,"vwnd_statictext"))  pvarRole->lVal = ROLE_SYSTEM_STATICTEXT;
-      else if (!strcmp(type,"vwnd_combobox"))  pvarRole->lVal = ROLE_SYSTEM_COMBOBOX;
-      else if (!strcmp(type,"vwnd_slider"))  pvarRole->lVal = ROLE_SYSTEM_SLIDER;
-      else if (!strcmp(type,"vwnd_tabctrl_proxy"))  pvarRole->lVal = ROLE_SYSTEM_PAGETABLIST;
-      else if (!strcmp(type,"vwnd_tabctrl_child"))  pvarRole->lVal = ROLE_SYSTEM_PAGETAB;
-      else if (!strcmp(type,"vwnd_listbox"))  pvarRole->lVal = ROLE_SYSTEM_LIST;
-      else pvarRole->lVal=ROLE_SYSTEM_CLIENT;
+      else
+        pvarRole->lVal = ROLE_SYSTEM_STATICTEXT;       
     }
+    else if (!strcmp(type,"vwnd_statictext"))  pvarRole->lVal = ROLE_SYSTEM_STATICTEXT;
+    else if (!strcmp(type,"vwnd_combobox"))  pvarRole->lVal = ROLE_SYSTEM_COMBOBOX;
+    else if (!strcmp(type,"vwnd_slider"))  pvarRole->lVal = ROLE_SYSTEM_SLIDER;
+    else if (!strcmp(type,"vwnd_tabctrl_proxy"))  pvarRole->lVal = ROLE_SYSTEM_PAGETABLIST;
+    else if (!strcmp(type,"vwnd_tabctrl_child"))  pvarRole->lVal = ROLE_SYSTEM_PAGETAB;
+    else if (!strcmp(type,"vwnd_listbox"))  pvarRole->lVal = ROLE_SYSTEM_LIST;
+    else if (vw->GetNumChildren()) pvarRole->lVal =  ROLE_SYSTEM_GROUPING;
+    else pvarRole->lVal=ROLE_SYSTEM_CLIENT;
 
     return S_OK;
   }
