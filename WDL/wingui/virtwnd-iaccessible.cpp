@@ -732,8 +732,11 @@ public:
     {
       return DISP_E_MEMBERNOTFOUND;
     }
+    pvarEndUpAt->vt = VT_I4;
+    pvarEndUpAt->lVal = VT_EMPTY;
+
     WDL_VWnd *vw = varStart.lVal == CHILDID_SELF ? m_br.vwnd : m_br.vwnd->EnumChildren(varStart.lVal-1);
-    if (!vw) return DISP_E_MEMBERNOTFOUND;
+    if (!vw) return S_FALSE;
 
     if (navDir == NAVDIR_FIRSTCHILD || navDir == NAVDIR_LASTCHILD)
     {
@@ -741,7 +744,7 @@ public:
       if (ISVWNDLIST(vw))
       {
         WDL_VirtualListBox *list=(WDL_VirtualListBox*)m_br.vwnd;
-        if (list->m_GetItemInfo) n = list->m_GetItemInfo(list,-1,NULL,0,NULL,NULL);
+        if (list->m_GetItemInfo) n += list->m_GetItemInfo(list,-1,NULL,0,NULL,NULL);
       }
 
       if (n<1) return S_FALSE;
@@ -758,7 +761,7 @@ public:
         if (ISVWNDLIST(m_br.vwnd))
         {
           WDL_VirtualListBox *list=(WDL_VirtualListBox*)m_br.vwnd;
-          if (list->m_GetItemInfo) n = list->m_GetItemInfo(list,-1,NULL,0,NULL,NULL);
+          if (list->m_GetItemInfo) n += list->m_GetItemInfo(list,-1,NULL,0,NULL,NULL);
         }
         int x = varStart.lVal - 1;
         if (navDir == NAVDIR_NEXT)
@@ -773,7 +776,6 @@ public:
         pvarEndUpAt->lVal = 1 + x;
         return S_OK;
       }
-
 
       // passed CHILDID_SELF, need to scan to find index
       WDL_VWnd *par = vw->GetParent();
@@ -792,9 +794,17 @@ public:
             WDL_VWnd *hit = par->EnumChildren(x);
             if (!hit) break;
 
-            pvarEndUpAt->vt = VT_I4;
-            pvarEndUpAt->lVal = 1 + x;
-
+            IAccessible *pac = GetVWndIAccessible(hit);
+            if (pac)
+            {
+              pvarEndUpAt->vt = VT_DISPATCH;
+              pvarEndUpAt->pdispVal = (IDispatch *)pac;
+            }
+            else
+            {
+              pvarEndUpAt->vt = VT_I4;
+              pvarEndUpAt->lVal = 1 + x;
+            }
             return S_OK;
           }
         }
@@ -802,7 +812,7 @@ public:
       return S_FALSE;
     }
 
-    return DISP_E_MEMBERNOTFOUND;
+    return E_INVALIDARG;
   }
   STDMETHOD(accHitTest)(THIS_ long xLeft, long yTop, VARIANT * pvarChildAtPoint) 
   {
