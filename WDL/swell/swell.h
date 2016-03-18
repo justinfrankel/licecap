@@ -141,7 +141,7 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 #endif
 
-#if !defined(SWELL_AUTORELEASE_HELPER_DEFINED) && defined(__cplusplus) && defined(SWELL_API_DEFINE)
+#if !defined(SWELL_AUTORELEASE_HELPER_DEFINED) && defined(__cplusplus) && (!defined(__APPLE__) || defined(SWELL_API_DEFINE))
 #define SWELL_AUTORELEASE_HELPER_DEFINED
 
 class SWELL_AutoReleaseHelper  // no-op on non-apple
