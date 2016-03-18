@@ -141,6 +141,39 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 #endif
 
+#if !defined(SWELL_AUTORELEASE_HELPER_DEFINED) && defined(__cplusplus) && defined(SWELL_API_DEFINE)
+#define SWELL_AUTORELEASE_HELPER_DEFINED
+
+class SWELL_AutoReleaseHelper  // no-op on non-apple
+{
+#ifdef __APPLE__
+    void *m_arp;
+#endif
+  public:
+    SWELL_AutoReleaseHelper() 
+    {
+#ifdef __APPLE__
+      m_arp = SWELL_InitAutoRelease();
+#endif
+    }
+    ~SWELL_AutoReleaseHelper() 
+    { 
+#ifdef __APPLE__
+      release(); 
+#endif
+    }
+
+    void release()
+    {
+#ifdef __APPLE__
+      if (m_arp) { SWELL_QuitAutoRelease(m_arp); m_arp=NULL; }
+#endif
+    }
+
+};
+
+#endif
+
 #if defined(_WIN32) && !defined(LoadLibraryGlobals)
 #define LoadLibraryGlobals(a,b) LoadLibrary(a)
 #endif
