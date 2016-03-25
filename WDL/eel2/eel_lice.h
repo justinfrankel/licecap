@@ -2137,6 +2137,35 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
   }
   return 0;  
 }
+
+static EEL_F NSEEL_CGEN_CALL _gfx_screentoclient(void *opaque, EEL_F *x, EEL_F *y)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx && ctx->hwnd_standalone)
+  {
+    POINT pt={(int) *x, (int) *y};
+    ScreenToClient(ctx->hwnd_standalone,&pt);
+    *x = pt.x; 
+    *y = pt.y;
+    return 1.0;
+  }
+  return 0.0;
+}
+
+static EEL_F NSEEL_CGEN_CALL _gfx_clienttoscreen(void *opaque, EEL_F *x, EEL_F *y)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx && ctx->hwnd_standalone)
+  {
+    POINT pt={(int) *x, (int) *y};
+    ClientToScreen(ctx->hwnd_standalone,&pt);
+    *x = pt.x; 
+    *y = pt.y;
+    return 1.0;
+  }
+  return 0.0;
+}
+
 #endif // !EEL_LICE_STANDALONE_NOINITQUIT
 
 
@@ -2481,6 +2510,10 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
   NSEEL_addfunc_varparm("gfx_init",1,NSEEL_PProc_THIS,&_gfx_init); 
   NSEEL_addfunc_retptr("gfx_quit",1,NSEEL_PProc_THIS,&_gfx_quit);
+
+  NSEEL_addfunc_retval("gfx_screentoclient",2,NSEEL_PProc_THIS,&_gfx_screentoclient);
+  NSEEL_addfunc_retval("gfx_clienttoscreen",2,NSEEL_PProc_THIS,&_gfx_clienttoscreen);
+
 #endif
 #ifdef EEL_LICE_WANTDOCK
   NSEEL_addfunc_varparm("gfx_dock",1,NSEEL_PProc_THIS,&_gfx_dock);
@@ -2673,6 +2706,12 @@ static const char *eel_lice_function_reference =
   "gfx_arc\tx,y,r,ang1,ang2[,antialias]\tDraws an arc of the circle centered at x,y, with ang1/ang2 being specified in radians.\0"
   "gfx_set\tr[,g,b,a,mode,dest]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode, sets gfx_dest if final parameter specified\0"
 
+#ifdef EEL_LICE_WANT_STANDALONE
+#ifndef EEL_LICE_STANDALONE_NOINITQUIT
+  "gfx_clienttoscreen\tx,y\tConverts client coordinates x,y to screen coordinates.\0"
+  "gfx_screentoclient\tx,y\tConverts screen coordinates x,y to client coordinates.\0"
+#endif
+#endif
 ;
 #ifdef EELSCRIPT_LICE_MAX_IMAGES
 #undef MKSTR2
