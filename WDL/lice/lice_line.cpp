@@ -25,7 +25,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
   int x1 = *pX1, y1 = *pY1, x2 = *pX2, y2 = *pY2;
   int e1 = OffscreenTest(x1, y1, nX, nY); 
   int e2 = OffscreenTest(x2, y2, nX, nY);
-  
+  int timeout = 32;
   bool accept = false, done = false;
   do
   {
@@ -70,7 +70,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
       }
     }
   }
-  while (!done);
+  while (!done && timeout--);
 
   *pX1 = x1;
   *pY1 = y1;
