@@ -2610,7 +2610,7 @@ static const char *eel_lice_function_reference =
 #endif
 #endif
 #ifdef EEL_LICE_WANTDOCK
-  "gfx_dock\tv[,wx,wy,ww,wh]\tCall with v=-1 to query docked state, otherwise v>=0 to set docked state. State is &1 if docked, second byte is docker index (or last docker index if undocked). If wx-wh specified, they will be filled with (or returned as additional values in Lua) the undocked window position/size\0"
+  "gfx_dock\tv[,wx,wy,ww,wh]\tCall with v=-1 to query docked state, otherwise v>=0 to set docked state. State is &1 if docked, second byte is docker index (or last docker index if undocked). If wx-wh are specified, they will be filled with the undocked window position/size\0"
 #endif
   "gfx_aaaaa\t\t"
   "The following global variables are special and will be used by the graphics system:\n\n\3"
