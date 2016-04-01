@@ -107,7 +107,7 @@ int MulDiv(int a, int b, int c)
 
 unsigned int  _controlfp(unsigned int flag, unsigned int mask)
 {
-#if !defined(__ppc__) && !defined(__LP64__)
+#if !defined(__ppc__) && !defined(__LP64__) && !defined(__arm__)
   unsigned short ret;
   mask &= _MCW_RC; // don't let the caller set anything other than round control for now
   __asm__ __volatile__("fnstcw %0\n\t":"=m"(ret));

@@ -21,6 +21,10 @@ else
   ARCH := $(shell uname -m)
 endif
 
+ifneq ($(filter arm%,$(ARCH)),)
+  CFLAGS += -fsigned-char
+endif
+
 default: loose_eel
 
 nseel-compiler.o: glue*.h ns-eel*.h

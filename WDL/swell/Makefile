@@ -5,7 +5,13 @@
 
 ARCH := $(shell uname -m)
 
-CFLAGS = -pipe -malign-double -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function
+CFLAGS = -pipe -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function
+
+ifneq ($(filter arm%,$(ARCH)),)
+  CFLAGS += -fsigned-char 
+else
+  CFLAGS += -malign-double 
+endif
 
 ifdef DEBUG
 CFLAGS += -O0 -g 
