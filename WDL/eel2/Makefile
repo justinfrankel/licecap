@@ -63,6 +63,7 @@ ifndef NO_GFX
 
     OBJS += ../swell/swell-wnd-generic.o ../swell/swell-gdi-lice.o ../swell/swell.o ../swell/swell-misc-generic.o ../swell/swell-dlg-generic.o ../swell/swell-menu-generic.o ../swell/swell-kb-generic.o
 
+    LFLAGS += -ldl
   endif
 
 endif
