@@ -625,8 +625,8 @@ void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPRO
   char *stub=NULL;
   int stubsz=0;
 #define DOSTUB(np) { \
-    stub = (char *)(ret_type == 1 ? &_asm_generic##np##parm_retd : &_asm_generic##np##parm); \
-    stubsz = (int) ((ret_type == 1 ? (char*)&_asm_generic##np##parm_retd_end : (char *)&_asm_generic##np##parm_end) - stub); \
+    stub = (ret_type == 1 ? (char*)_asm_generic##np##parm_retd : (char*)_asm_generic##np##parm); \
+    stubsz = (int) ((ret_type == 1 ? (char*)_asm_generic##np##parm_retd_end : (char *)_asm_generic##np##parm_end) - stub); \
   }
 
   if (np == 1) DOSTUB(1)
@@ -4913,7 +4913,11 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
         {
           char buf[512];
           snprintf(buf,sizeof(buf),"worktable overrun at byte %d (wts=%d), value = %f\n",x,h->workTable_size, *(EEL_F*)(p+(x&~(sizeof(EEL_F)-1))));
+#ifdef _WIN32
           OutputDebugString(buf);
+#else
+          printf("%s",buf);
+#endif
           break;
         }
     }

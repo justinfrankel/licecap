@@ -405,8 +405,9 @@ BC_DECLASM(booltofp,BOOLTOFP)
 BC_DECLASM(fptobool,FPTOBOOL)
 
 #define BC_DECLASM_N(x,y,n) static EEL_BC_TYPE nseel_asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
+#define BC_DECLASM_N2(x,y,n) static EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
 
-#define BC_DECLASM_N_EXPORT(x,y,n) EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, }; EEL_BC_TYPE _asm_##x##_end[1]={1,};
+#define BC_DECLASM_N_EXPORT(x,y,n) EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, }; const void *const _asm_##x##_end = EEL_BC_ENDOF(_asm_##x);
 
 BC_DECLASM_N(stack_push,USERSTACK_PUSH,3)
 BC_DECLASM_N(stack_pop,USERSTACK_POP,3)
@@ -424,8 +425,11 @@ BC_DECLASM_N(1pdd,CFUNC_1PDD,1)
 BC_DECLASM_N(2pdd,CFUNC_2PDD,1)
 BC_DECLASM_N(2pdds,CFUNC_2PDDS,1)
 
-BC_DECLASM_N_EXPORT(megabuf,MEGABUF,0)
-BC_DECLASM_N_EXPORT(gmegabuf,GMEGABUF,2)
+BC_DECLASM_N2(megabuf,MEGABUF,0)
+BC_DECLASM_N2(gmegabuf,GMEGABUF,2)
+#define _asm_megabuf_end EEL_BC_ENDOF(_asm_megabuf)
+#define _asm_gmegabuf_end EEL_BC_ENDOF(_asm_gmegabuf)
+
 BC_DECLASM_N_EXPORT(generic1parm,GENERIC1PARM,2)
 BC_DECLASM_N_EXPORT(generic2parm,GENERIC2PARM,2)
 BC_DECLASM_N_EXPORT(generic3parm,GENERIC3PARM,2)
@@ -433,6 +437,13 @@ BC_DECLASM_N_EXPORT(generic1parm_retd,GENERIC1PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic2parm_retd,GENERIC2PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 
+
+#define _asm_generic1parm_end EEL_BC_ENDOF(_asm_generic1parm)
+#define _asm_generic2parm_end EEL_BC_ENDOF(_asm_generic2parm)
+#define _asm_generic3parm_end EEL_BC_ENDOF(_asm_generic3parm)
+#define _asm_generic1parm_retd_end EEL_BC_ENDOF(_asm_generic1parm_retd)
+#define _asm_generic2parm_retd_end EEL_BC_ENDOF(_asm_generic2parm_retd)
+#define _asm_generic3parm_retd_end EEL_BC_ENDOF(_asm_generic3parm_retd)
 
 #define nseel_asm_1pdd_end EEL_BC_ENDOF(nseel_asm_1pdd)
 #define nseel_asm_2pdd_end EEL_BC_ENDOF(nseel_asm_2pdd)
