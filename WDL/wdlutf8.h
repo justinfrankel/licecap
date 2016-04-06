@@ -63,7 +63,7 @@ static int wdl_utf8_parsechar(const char *rd, int *cOut)
 
   if (b0 < 0xF0)
   {
-    if (cOut) *cOut = ((b0&0x0F)<<12)|((b1&0x3F)<<6)|(b1&0x3f);
+    if (cOut) *cOut = ((b0&0x0F)<<12)|((b1&0x3F)<<6)|(b2&0x3f);
     return 3;
   }
 
