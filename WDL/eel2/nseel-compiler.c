@@ -2030,10 +2030,68 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 goto start_over;
               }
             break;
+            case FN_POW:
+              if (dv1)
+              {
+                // x^0 = 1
+                if (fabs(dvalue) < 1e-30)
+                {
+                  RESTART_DIRECTVALUE(1.0);
+                }
+                // x^1 = x
+                if (fabs(dvalue-1.0) < 1e-30)
+                {
+                  memcpy(op,op->parms.parms[0],sizeof(*op));
+                  goto start_over;
+                }
+              }
+              else if (dv0)
+              {
+                // pow(constant, x) = exp((x) * ln(constant)), if constant>0
+                opcodeRec *parm0 = op->parms.parms[0];
+                if (dvalue > 0.0)
+                {
+                  static functionType expcpy={ "exp",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&exp}, };
+
+                  // 1^x = 1
+                  if (fabs(dvalue-1.0) < 1e-30)
+                  {
+                    RESTART_DIRECTVALUE(1.0);
+                  }
+
+                  dvalue=log(dvalue);
+
+                  if (fabs(dvalue-1.0) < 1e-9)
+                  {
+                    // caller wanted e^x
+                    op->parms.parms[0]=op->parms.parms[1];
+                  }
+                  else
+                  {
+                    // it would be nice to replace 10^x with exp(log(10)*x) or 2^x with exp(log(2),x), but 
+                    // doing so breaks rounding. we could maybe only allow 10^x, which is used for dB conversion,
+                    // but for now we should just force the programmer do it exp(log(10)*x) themselves.
+                    break;
+
+                    /* 
+                    parm0->opcodeType = OPCODETYPE_FUNC2;
+                    parm0->fntype = FN_MULTIPLY;
+                    parm0->parms.parms[0] = nseel_createCompiledValue(ctx,dvalue);
+                    parm0->parms.parms[1] = op->parms.parms[1];
+                    */
+                  }
+
+                  op->opcodeType = OPCODETYPE_FUNC1;
+                  op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+                  op->fn = &expcpy;
+                  goto start_over;
+                }
+              }
+            break;
             case FN_MOD:
               if (dv1)
               {
-                const int a = (int) op->parms.parms[1]->parms.dv.directValue;
+                const int a = (int) dvalue;
                 if (!a) 
                 {
                   RESTART_DIRECTVALUE(0.0);
@@ -2051,14 +2109,14 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 else
                 {
                   // change to a multiply
-                  if (op->parms.parms[1]->parms.dv.directValue == 0.0)
+                  if (dvalue == 0.0)
                   {
                     op->fntype = FN_MULTIPLY;
                     goto start_over;
                   }
                   else
                   {
-                    double d = 1.0/op->parms.parms[1]->parms.dv.directValue;
+                    double d = 1.0/dvalue;
 
                     WDL_DenormalDoubleAccess *p = (WDL_DenormalDoubleAccess*)&d;
                     // allow conversion to multiply if reciprocal is exact
