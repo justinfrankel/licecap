@@ -788,6 +788,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
 
 int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND hwnd, const RECT *r)
 {
+  ReleaseCapture(); // match win32 -- TrackPopupMenu() ends any captures
   if (hMenu)
   {
     NSMenu *m=(NSMenu *)hMenu;
