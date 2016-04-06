@@ -523,6 +523,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             else 
             {
               kv = k->keyval; // ASCII!
+              if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsehwere 
             }
 
             HWND foc = GetFocus();
