@@ -331,7 +331,7 @@ class WDL_VirtualListBox : public WDL_VWnd
 
     void SetDroppedMessage(int msg) { m_dropmsg=msg; }
     void SetClickedMessage(int msg) { m_clickmsg=msg; }
-    void SetDragBeginMessage(int msg) { m_dragbeginmsg=msg; }
+    void SetDragMessage(int msg) { m_dragmsg=msg; }
     int IndexFromPt(int x, int y);
     bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
 
@@ -354,7 +354,7 @@ class WDL_VirtualListBox : public WDL_VWnd
   
     int m_cap_state;
     int m_cap_startitem;
-    int m_clickmsg,m_dropmsg,m_dragbeginmsg;
+    int m_clickmsg,m_dropmsg,m_dragmsg;
     int m_viewoffs;
     int m_align;
     int m_margin_r, m_margin_l;

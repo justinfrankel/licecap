@@ -43,7 +43,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_font=0;
   m_clickmsg=0;
   m_dropmsg=0;
-  m_dragbeginmsg=0;
+  m_dragmsg=0;
   m_grayed=false;
 }
 
@@ -620,11 +620,11 @@ void WDL_VirtualListBox::OnMouseMove(int xpos, int ypos)
   if (m_cap_state>=0x1000)
   {
     m_cap_state++;
-    if (m_cap_state==0x1008)
+    if (m_cap_state>=0x1008)
     {
-      if (m_dragbeginmsg)
+      if (m_dragmsg)
       {
-        SendCommand(m_dragbeginmsg,(INT_PTR)this,m_cap_startitem,this);
+        SendCommand(m_dragmsg,(INT_PTR)this,m_cap_startitem,this);
       }
     }
   }
