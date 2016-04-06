@@ -201,7 +201,7 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
     char c = *fmt++;
     if (c != '%') 
     {
-      outbuf[wroffs++] = c;
+      outbuf[wroffs++] = c != '\n' ? c : ' ';
       outbuf_size--;
       continue;
     }
@@ -261,7 +261,7 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
         {
           char v = *str++;
           if (!qc && v == '`') v = '\'';
-          outbuf[wroffs++] = v;
+          outbuf[wroffs++] = v != '\n' ? v : ' ';
           outbuf_size--;
         }
 
@@ -274,8 +274,8 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       break;
       case 'c':
       {
-        int v = va_arg(va,int);
-        outbuf[wroffs++] = v&0xff;
+        int v = (va_arg(va,int)) & 0xff;
+        outbuf[wroffs++] = v != '\n' ? v : ' ';
         outbuf_size--;
       }
       break;
@@ -399,17 +399,22 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
     return wroffs;
 
 #if defined(_WIN32) && defined(_MSC_VER)
-  const int l = _vsnprintf(outbuf,outbuf_size,fmt,va); // _vsnprintf() does not always null terminate
-  if (l < 0 || l >= (int)outbuf_size)
-  {
-    outbuf[outbuf_size-1] = 0;
-    return wroffs + (int)strlen(outbuf);
-  }
+   // _vsnprintf() does not always null terminate (see below)
+  _vsnprintf(outbuf,outbuf_size,fmt,va);
 #else
   // vsnprintf() on non-win32, always null terminates
-  const int l = vsnprintf(outbuf,outbuf_size,fmt,va);
-  if (l >= (int)outbuf_size-1) return wroffs + (int)outbuf_size-1;
+  vsnprintf(outbuf,outbuf_size,fmt,va);
 #endif
+
+  int l;
+  outbuf_size--;
+  for (l = 0; l < outbuf_size && outbuf[l]; l ++) if (outbuf[l] == '\n') outbuf[l] = ' ';  
+
+#if defined(_WIN32) && defined(_MSC_VER)
+   // nul terminate for _vsnprintf()
+  outbuf[l]=0;
+#endif
+
   return wroffs+l;
 }
 
@@ -516,6 +521,27 @@ public:
 
 };
 
+// returns length, modifies ptr to point to tmp if newline needed to be filtered
+static int filter_newline_buf(const char **ptr, char *tmp, int tmpsz)
+{
+  const char *use_buf = *ptr;
+  if (!use_buf) return -1;
+
+  int l;
+  for (l=0; use_buf[l] && use_buf[l] != '\n'; l++);
+
+  if (!use_buf[l]) return l;
+
+  lstrcpyn_safe(tmp,use_buf,tmpsz);
+  *ptr=tmp;
+
+  if (l >= tmpsz) return tmpsz-1;
+
+  for (;tmp[l]; l++) if (tmp[l] == '\n') tmp[l] = ' '; // replace any newlines with spaces
+  return l;
+}
+
+
 void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 {
   if (!m_heapbuf || !(m_rwflags&2)) return;
@@ -531,7 +557,7 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
     use_buf = va_arg(va,const char *);
-    l=use_buf ? ((int)strlen(use_buf)+1) : 0;
+    l = filter_newline_buf(&use_buf,tmp,(int)sizeof(tmp)) + 1;
   }
   else
   {
@@ -769,7 +795,7 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     {
       // special case "%s" passed, directly use it
       use_buf = va_arg(va,const char *);
-      l=use_buf ? (int)strlen(use_buf) : -1;
+      l = filter_newline_buf(&use_buf,tmp,(int)sizeof(tmp));
     }
     else
     {
@@ -882,14 +908,15 @@ void ProjectStateContext_FastQueue::AddLine(const char *fmt, ...)
   va_list va;
   va_start(va,fmt);
 
+  char tmp[8192];
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
-    const char *p = va_arg(va,const char *);
-    if (p) m_fq->Add(p, (int) strlen(p) + 1);
+    const char *use_buf = va_arg(va,const char *);
+    const int l = filter_newline_buf(&use_buf,tmp,(int)sizeof(tmp));
+    if (use_buf) m_fq->Add(use_buf, l + 1);
   }
   else
   {
-    char tmp[8192];
     const int l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va);
     if (l>0) m_fq->Add(tmp, l+1);
   }
