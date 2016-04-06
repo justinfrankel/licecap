@@ -1351,16 +1351,14 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 }
 
 
-/*
 - (BOOL)becomeFirstResponder 
 {
-  if (!m_enabled) return NO;
-  HWND foc=GetFocus();
-  if (![super becomeFirstResponder]) return NO;
-  [self onSwellMessage:WM_ACTIVATE p1:WA_ACTIVE p2:(LPARAM)foc];
+  if (!m_enabled || ![super becomeFirstResponder]) return NO;
+  SendMessage((HWND)self, WM_MOUSEACTIVATE, 0, 0);
   return YES;
 }
 
+/*
 - (BOOL)resignFirstResponder
 {
   HWND foc=GetFocus();
@@ -1372,15 +1370,7 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 - (BOOL)acceptsFirstResponder 
 {
-  if (m_enabled)
-  {
-    if (GetFocus() != (HWND)self)
-    {
-      SendMessage((HWND)self, WM_MOUSEACTIVATE, 0, 0);
-    }
-    return YES;
-  }
-  return NO;
+  return m_enabled?YES:NO;
 }
 
 -(void)swellSetExtendedStyle:(LONG)st
