@@ -14,6 +14,7 @@
 #include "../wdlcstring.h"
 #include "../eel2/ns-eel-int.h"
 
+
 EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx), m_has_peek(true)
 {
   init_pair(3, RGB(0,255,255),COLOR_BLACK); // highlight for known words
@@ -944,12 +945,16 @@ void EEL_Editor::doParenMatching()
   const char *errmsg = "";
   if (NULL != (curstr=m_text.Get(m_curs_y)))
   {
-    if (m_curs_x >= curstr->GetLength()) m_curs_x=curstr->GetLength()-1;
-    if (m_curs_x<0) m_curs_x=0;
+    int bytex = WDL_utf8_charpos_to_bytepos(curstr->Get(),m_curs_x);
+    if (bytex >= curstr->GetLength()) bytex=curstr->GetLength()-1;
+    if (bytex<0) bytex = 0;
 
     int new_x,new_y;
-    if (eel_sh_get_matching_pos_for_pos(&m_text, m_curs_x,m_curs_y,&new_x,&new_y,&errmsg,this))
+    if (eel_sh_get_matching_pos_for_pos(&m_text, bytex,m_curs_y,&new_x,&new_y,&errmsg,this))
     {
+      curstr = m_text.Get(new_y);
+      if (curstr) new_x = WDL_utf8_bytepos_to_charpos(curstr->Get(),new_x);
+
       m_curs_x=new_x;
       m_curs_y=new_y;
       m_want_x=-1;
@@ -977,7 +982,8 @@ void EEL_Editor::doWatchInfo(int c)
   if (t)
   {
     const char *p=t->Get();
-    if (m_curs_x >= 0 && m_curs_x < t->GetLength()) curChar = p[m_curs_x];
+    const int bytex = WDL_utf8_charpos_to_bytepos(p,m_curs_x);
+    if (bytex >= 0 && bytex < t->GetLength()) curChar = p[bytex];
     if (c != KEY_F1 && (m_selecting || 
              curChar == '(' || 
              curChar == '[' ||
@@ -990,7 +996,7 @@ void EEL_Editor::doWatchInfo(int c)
       bool ok = false;
       if (!m_selecting)
       {
-        if (eel_sh_get_matching_pos_for_pos(&m_text,minx=m_curs_x,miny=m_curs_y,&maxx, &maxy,NULL,this))
+        if (eel_sh_get_matching_pos_for_pos(&m_text,minx=bytex,miny=m_curs_y,&maxx, &maxy,NULL,this))
         {
           if (maxy==miny)
           {
@@ -1018,6 +1024,11 @@ void EEL_Editor::doWatchInfo(int c)
       {
         ok=true; 
         getselectregion(minx,miny,maxx,maxy); 
+        WDL_FastString *s;
+        s = m_text.Get(miny);
+        if (s) minx = WDL_utf8_charpos_to_bytepos(s->Get(),minx);
+        s = m_text.Get(maxy);
+        if (s) maxx = WDL_utf8_charpos_to_bytepos(s->Get(),maxx);
       }
 
       if (ok)
@@ -1052,8 +1063,9 @@ void EEL_Editor::doWatchInfo(int c)
     }
     else if (curChar && (isalnum(curChar) || curChar == '_' || curChar == '.' || curChar == '#')) 
     {
-      const char *lp=p+m_curs_x;
-      const char *rp=p+m_curs_x+1;
+      const int bytex = WDL_utf8_charpos_to_bytepos(p,m_curs_x);
+      const char *lp=p+bytex;
+      const char *rp=lp + WDL_utf8_charpos_to_bytepos(lp,1);
       while (lp >= p && (isalnum(*lp) || *lp == '_' || *lp == '.')) lp--;
       if (lp < p || *lp != '#') lp++;
       while (*rp && (isalnum(*rp) || *rp == '_' || *rp == '.')) rp++;
