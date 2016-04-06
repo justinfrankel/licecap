@@ -230,6 +230,8 @@ template<class PTRTYPE> class WDL_PtrList
       return a;
     }
 
+    void Compact() { m_hb.Resize(m_hb.GetSize(),true); }
+
   private:
     WDL_HeapBuf m_hb;
 
