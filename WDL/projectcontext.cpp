@@ -638,7 +638,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
   if (avail <= 0) return -1;
   
   int x;
-  for (x = 0; x < avail && p[x] && p[x] != '\r' && p[x] != '\n'; x ++);
+  for (x = 0; x < avail && p[x] && p[x] != '\n'; x ++);
   m_pos += x+1;
 
   if (buflen > 0&&buf)
@@ -646,6 +646,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
     int l = buflen-1;
     if (l>x) l=x;
     memcpy(buf,p,l);
+    if (l>0 && buf[l-1]=='\r') l--;
     buf[l]=0;
   }
   return 0;
@@ -695,6 +696,7 @@ int ProjectStateContext_File::GetLine(char *buf, int buflen)
 {
   if (!m_rd||buflen<3) return -1;
 
+  char * const buf_orig=buf;
   int rdpos = _rdbuf_pos;
   int rdvalid = _rdbuf_valid;
   buflen -= 2;
@@ -717,7 +719,7 @@ int ProjectStateContext_File::GetLine(char *buf, int buflen)
             while (mxl-->0)
             {
               char c2 = rdbuf[rdpos++];
-              if (c2=='\r' || c2=='\n') goto finished;
+              if (c2=='\n') goto finished;
 
               *buf++ = c2;
               buflen--;
@@ -735,6 +737,7 @@ int ProjectStateContext_File::GetLine(char *buf, int buflen)
           _rdbuf_pos=rdpos;
           _rdbuf_valid=rdvalid;
 
+          if (buf > buf_orig && buf[-1] == '\r') buf--;
           *buf=0;
         return 0;
       }
