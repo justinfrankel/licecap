@@ -182,7 +182,7 @@ typedef struct WindowPropRec
 -(void)setSwellStyle:(LONG)st;
 -(int)getSwellNotificationMode;
 -(void)setSwellNotificationMode:(int)lbMode;
--(int)columnAtPoint:(NSPoint)pt;
+-(NSInteger)columnAtPoint:(NSPoint)pt;
 -(int)getColumnPos:(int)idx; // get current position of column that was originally at idx
 -(int)getColumnIdx:(int)pos; // get original index of column that is currently at position
 @end

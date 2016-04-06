@@ -549,10 +549,10 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
   return idx;
 }
 
--(int)columnAtPoint:(NSPoint)pt
+-(NSInteger)columnAtPoint:(NSPoint)pt
 {
-  int pos=[super columnAtPoint:pt];
-  return [self getColumnIdx:pos];
+  int pos=(int)[super columnAtPoint:pt];
+  return (NSInteger) [self getColumnIdx:pos];
 }
 
 
