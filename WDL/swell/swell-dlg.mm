@@ -8,6 +8,52 @@
 #include <AudioUnit/AudioUnit.h>
 #include <AudioUnit/AUCocoaUIView.h>
 
+#define NSRECTSET_RECT NSRect
+
+@interface NSRectSet : NSObject
+{
+  struct CGRect _bounds;
+  struct CGRect *_rects;
+  unsigned long long _count;
+}
+
++ (id)emptyRectSet;
++ (void)initialize;
+- (void)strokeExactInterior;
+- (void)fillExactInterior;
+- (void)stroke;
+- (void)fill;
+- (void)setClip;
+- (void)addClip;
+- (void)convertFromAncestor:(id)arg1 toView:(id)arg2 clipTo:(NSRECTSET_RECT)arg3;
+- (void)intersectWithRect:(NSRECTSET_RECT)arg1;
+- (void)subtractRect:(NSRECTSET_RECT)arg1;
+- (void)setEmpty;
+- (unsigned long long)count;
+- (const NSRECTSET_RECT *)rects;
+- (NSRECTSET_RECT)bounds;
+- (BOOL)isEmpty;
+- (id)description;
+- (id)copyWithZone:(struct _NSZone *)arg1;
+- (void)dealloc;
+- (id)initWithCopyOfRects:(const NSRECTSET_RECT *)arg1 count:(unsigned long long)arg2 bounds:(NSRECTSET_RECT)arg3;
+- (id)initWithRegion:(id)arg1;
+- (id)initWithRect:(NSRECTSET_RECT)arg1;
+- (id)init;
+
+@end
+
+@interface _NSDisplayOperationStack : NSObject
+{
+}
++ (_NSDisplayOperationStack *) currentThreadDisplayOperationStack;
+- (void) setRectSetBeingDrawn:(NSRectSet *)rs forView:(NSView *)v;
+@end
+
+
+#undef NSRECTSET_RECT 
+
+
 #ifndef SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN
 #define SWELL_CUT_OUT_COMPOSITING_MIDDLEMAN 1 // 2 gives more performance, not correctly drawn window frames (try NSThemeFrame stuff? bleh)
 #endif
@@ -107,7 +153,7 @@ static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent
     GetCursorPos(&p);
     return slf->m_wndproc((HWND)slf,msg,l,(p.x&0xffff) + (p.y<<16));
   }
-  
+
   LRESULT ret=slf->m_wndproc((HWND)slf,msg,l,(xpos&0xffff) + (ypos<<16));
   
   if (msg==WM_LBUTTONUP || msg==WM_RBUTTONUP || msg==WM_MOUSEMOVE || msg==WM_MBUTTONUP) {
@@ -1125,24 +1171,27 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     
     NSRect b = [v bounds];
     
+    NSRectSet *rs = nil;
+
     if (rlistcnt && !(flag&1))
     {
-      int x;
-      for(x=0;x<rlistcnt;x++)
-      {
-        NSRect r = rlist[x];
-        r.origin.x--;
-        r.origin.y--;
-        r.size.width+=2;
-        r.size.height+=2;
-        r=[self convertRect:r toView:v];
-        r=NSIntersectionRect(r,b);
-        if (r.size.width>0 && r.size.height>0)
-          [v displayRectIgnoringOpacity:r];
-      }
+      rs = [[NSRectSet alloc] initWithCopyOfRects:rlist count:rlistcnt bounds:[self bounds]];
+      [rs convertFromAncestor:self toView:v clipTo:b];
     }
     else
-      [v displayRectIgnoringOpacity:b];
+    {
+      rs = [[NSRectSet alloc] initWithRect:b];
+    }
+
+    if (![rs isEmpty]) 
+    {
+      [[_NSDisplayOperationStack currentThreadDisplayOperationStack] setRectSetBeingDrawn:rs forView:v];
+      NSRect a=[rs bounds];
+//      [v displayRectIgnoringOpacity:a];
+      [v _recursiveDisplayRectIfNeededIgnoringOpacity:a isVisibleRect:TRUE rectIsVisibleRectForView:v topView:v2];
+    }
+
+    [rs release];
     [v setNeedsDisplay:NO];
     [v release];
   }
@@ -3212,13 +3261,7 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
               int ri;
               for(ri=0;ri<rlistcnt;ri++)
               {
-                NSRect r=rlist[ri];
-                r.origin.x--;
-                r.origin.y--;
-                r.size.width+=2;
-                r.size.height+=2;
-                
-                NSRect ff = NSIntersectionRect(fr,r);
+                NSRect ff = NSIntersectionRect(fr,rlist[ri]);
                 if (ff.size.width>0 && ff.size.height>0)
                 {
                   RECT r={(int)ff.origin.x,(int)ff.origin.y,(int)(ff.origin.x+ff.size.width),(int)(ff.origin.y+ff.size.height)};                    
