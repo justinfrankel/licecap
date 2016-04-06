@@ -125,6 +125,7 @@ enum {
   EEL_BC_FCALL,
   EEL_BC_BOOLTOFP,
   EEL_BC_FPTOBOOL,
+  EEL_BC_FPTOBOOL_REV,
 
   EEL_BC_CFUNC_1PDD,
   EEL_BC_CFUNC_2PDD,
@@ -403,6 +404,7 @@ BC_DECLASM(dbg_getstackptr,DBG_GETSTACKPTR)
 
 BC_DECLASM(booltofp,BOOLTOFP)
 BC_DECLASM(fptobool,FPTOBOOL)
+BC_DECLASM(fptobool_rev,FPTOBOOL_REV)
 
 #define BC_DECLASM_N(x,y,n) static EEL_BC_TYPE nseel_asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
 #define BC_DECLASM_N2(x,y,n) static EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
@@ -508,6 +510,7 @@ BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 
 #define nseel_asm_booltofp_end EEL_BC_ENDOF(nseel_asm_booltofp)
 #define nseel_asm_fptobool_end EEL_BC_ENDOF(nseel_asm_fptobool)
+#define nseel_asm_fptobool_rev_end EEL_BC_ENDOF(nseel_asm_fptobool_rev)
 
 #define nseel_asm_stack_push_end EEL_BC_ENDOF(nseel_asm_stack_push)
 #define nseel_asm_stack_pop_end EEL_BC_ENDOF(nseel_asm_stack_pop)
@@ -943,6 +946,9 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
       case EEL_BC_FPTOBOOL:
         p1 = fabs(fp_pop()) >= NSEEL_CLOSEFACTOR ? EEL_BC_TRUE : NULL;
+      break;
+      case EEL_BC_FPTOBOOL_REV:
+        p1 = fabs(fp_pop()) < NSEEL_CLOSEFACTOR ? EEL_BC_TRUE : NULL;
       break;
 
       case EEL_BC_CFUNC_1PDD:
