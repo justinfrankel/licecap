@@ -1360,13 +1360,33 @@ int WDL_CursesEditor::onChar(int c)
         if (CURSES_INSTANCE)
         {
           OpenClipboard(CURSES_INSTANCE->m_hwnd);
-          HANDLE h=GetClipboardData(CF_TEXT);
+#ifdef CF_UNICODETEXT
+          HANDLE h=GetClipboardData(CF_UNICODETEXT);
           if (h)
           {
-            char *t=(char *)GlobalLock(h);
-            int s=GlobalSize(h);
-            buf.Set(t,s);
-            GlobalUnlock(t);        
+            wchar_t *t=(wchar_t *)GlobalLock(h);
+            int s=GlobalSize(h)/2;
+            while (s-- > 0)
+            {
+              char b[32];
+              WDL_MakeUTFChar(b,*t++,sizeof(b));
+              buf.Append(b);
+            }
+
+            GlobalUnlock(t);
+          }
+
+#endif
+          if (!buf.GetLength())
+          {
+            h=GetClipboardData(CF_TEXT);
+            if (h)
+            {
+              char *t=(char *)GlobalLock(h);
+              int s=GlobalSize(h);
+              buf.Set(t,s);
+              GlobalUnlock(t);
+            }
           }
           CloseClipboard();
         }
@@ -1623,6 +1643,33 @@ int WDL_CursesEditor::onChar(int c)
 #ifdef WDL_IS_FAKE_CURSES
         if (CURSES_INSTANCE)
         {
+#ifdef CF_UNICODETEXT
+          const char *rd = s_fake_clipboard.Get();
+          int nc=0;
+          while (*rd)
+          {
+            rd += wdl_utf8_parsechar(rd,NULL);
+            nc++;
+          }
+          const int l=nc*sizeof(wchar_t)+1;
+          HANDLE h=GlobalAlloc(GMEM_MOVEABLE,l);
+          wchar_t *t=(wchar_t*)GlobalLock(h);
+          if (t)
+          {
+            rd = s_fake_clipboard.Get();
+            while (*rd)
+            {
+              int c=0;
+              rd += wdl_utf8_parsechar(rd,&c);
+              *t++ = c;
+            }
+            *t=0;
+          }
+          GlobalUnlock(h);
+          OpenClipboard(CURSES_INSTANCE->m_hwnd);
+          EmptyClipboard();
+          SetClipboardData(CF_UNICODETEXT,h);
+#else
           int l=s_fake_clipboard.GetLength()+1;
           HANDLE h=GlobalAlloc(GMEM_MOVEABLE,l);
           void *t=GlobalLock(h);
@@ -1631,6 +1678,7 @@ int WDL_CursesEditor::onChar(int c)
           OpenClipboard(CURSES_INSTANCE->m_hwnd);
           EmptyClipboard();
           SetClipboardData(CF_TEXT,h);
+#endif
           CloseClipboard();
         }
 #endif
