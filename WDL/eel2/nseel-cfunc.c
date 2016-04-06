@@ -117,6 +117,8 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
 
 #ifdef __ppc__
 #include "asm-nseel-ppc-gcc.c"
+#elif defined(__arm__)
+#include "asm-nseel-arm-gcc.c"
 #else
   #ifdef _MSC_VER
     #ifdef _WIN64
@@ -181,7 +183,7 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
 
 #endif
 
-#if defined(__ppc__) || defined(EEL_TARGET_PORTABLE)
+#if defined(__ppc__) || defined(__arm__) || defined(EEL_TARGET_PORTABLE)
   // blank stubs for PPC, portable modes
   void eel_setfp_round() { }
   void eel_setfp_trunc() { }

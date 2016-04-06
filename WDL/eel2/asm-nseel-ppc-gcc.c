@@ -1507,5 +1507,5 @@ void nseel_asm_fptobool_rev(void)
     :: 
           );
 }
-void nseel_asm_fptobool_end(void){ }
+void nseel_asm_fptobool_rev_end(void){ }
 

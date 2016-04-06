@@ -22,7 +22,7 @@ else
 endif
 
 ifneq ($(filter arm%,$(ARCH)),)
-  CFLAGS += -fsigned-char
+  CFLAGS += -fsigned-char -mfpu=vfp -march=armv6t2
 endif
 
 default: loose_eel

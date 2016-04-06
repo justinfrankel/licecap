@@ -43,6 +43,10 @@
   #endif
 #endif
 
+#if defined(__arm__) && !defined(EEL_USE_MPROTECT) && !defined(EEL_TARGET_PORTABLE)
+#define EEL_USE_MPROTECT
+#endif
+
 #ifdef EEL_USE_MPROTECT
 #include <sys/mman.h>
 #include <stdint.h>
@@ -112,6 +116,10 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 #elif defined(__ppc__)
 
 #include "glue_ppc.h"
+
+#elif defined(__arm__)
+
+#include "glue_arm.h"
 
 #elif defined(_WIN64) || defined(__LP64__)
 
