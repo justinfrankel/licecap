@@ -603,7 +603,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmAscent = face->size->metrics.ascender/64;
     tm->tmDescent = face->size->metrics.descender/64;
     tm->tmHeight = face->size->metrics.height/64;
-    tm->tmAveCharWidth = face->size->metrics.max_advance/64;
+    tm->tmAveCharWidth = face->size->metrics.height / 96;
     tm->tmInternalLeading=0;
   }
 #endif
