@@ -1690,9 +1690,13 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
 
   if (m_has_cap)
   {
+    bool swap = false;
+#ifdef _WIN32
+    swap = GetSystemMetrics(SM_SWAPBUTTON);
+#endif
     vflags|=m_has_cap&0xffff;
-    if (GetAsyncKeyState(VK_LBUTTON)&0x8000) vflags|=1;
-    if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=2;
+    if (GetAsyncKeyState(VK_LBUTTON)&0x8000) vflags|=swap?2:1;
+    if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=swap?1:2;
     if (GetAsyncKeyState(VK_MBUTTON)&0x8000) vflags|=64;
   }
   if (m_has_cap || (m_has_had_getch && GetFocus()==hwnd))
