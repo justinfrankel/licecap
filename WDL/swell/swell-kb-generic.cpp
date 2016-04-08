@@ -34,7 +34,7 @@ int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 }
 
 
-SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
+static SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 
 HCURSOR SWELL_LoadCursor(const char *_idx)
 {
@@ -142,6 +142,18 @@ HCURSOR SWELL_LoadCursorFromFile(const char *fn)
 #endif
 
   return NULL;
+}
+
+void SWELL_Register_Cursor_Resource(const char *idx, const char *name, int hotspot_x, int hotspot_y)
+{
+  SWELL_CursorResourceIndex *ri = (SWELL_CursorResourceIndex*)malloc(sizeof(SWELL_CursorResourceIndex));
+  ri->hotspot.x = hotspot_x;
+  ri->hotspot.y = hotspot_y;
+  ri->resname=name;
+  ri->cachedCursor=0;
+  ri->resid = idx;
+  ri->_next = SWELL_curmodule_cursorresource_head;
+  SWELL_curmodule_cursorresource_head = ri;
 }
 
 #endif

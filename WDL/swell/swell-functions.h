@@ -1122,5 +1122,7 @@ SWELL_API_DEFINE(void,SWELL_DisableAppNap,(int disable))
 SWELL_API_DEFINE(int,SWELL_GetOSXVersion,())
 #endif
 
+SWELL_API_DEFINE(void,SWELL_Register_Cursor_Resource,(const char *idx, const char *name, int hotspot_x, int hotspot_y))
+
 
 #endif // _WDL_SWELL_H_API_DEFINED_

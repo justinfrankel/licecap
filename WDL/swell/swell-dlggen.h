@@ -232,21 +232,6 @@ static inline HWND __SWELL_MakeGroupBox(const char *name, int idx, int x, int y,
   return SWELL_MakeGroupBox(name,idx,x,y,w,h,style);
 }
 
-static void SWELL_Register_Cursor_Resource(const char *idx, const char *name, int hotspot_x, int hotspot_y)
-{
-  extern SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
-  
-  SWELL_CursorResourceIndex *ri = (SWELL_CursorResourceIndex*)malloc(sizeof(SWELL_CursorResourceIndex));
-  ri->hotspot.x = hotspot_x;
-  ri->hotspot.y = hotspot_y;
-  ri->resname=name;
-  ri->cachedCursor=0;
-  ri->resid = idx;
-  ri->_next = SWELL_curmodule_cursorresource_head;
-  SWELL_curmodule_cursorresource_head = ri;
-}
-
-
 class SWELL_DialogRegHelper { 
   public:
      SWELL_DialogResourceIndex m_rec;

@@ -8,7 +8,6 @@
 
 // only include this file in projects that are linked to swell.dylib
 
-struct SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 struct SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head;
 struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 
