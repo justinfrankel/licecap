@@ -28,11 +28,26 @@
 #include "swell-dlggen.h"
 #include "swell-internal.h"
 
+#include "../wdlcstring.h"
+
 int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 {
   return 0;
 }
 
+static void getHotSpotForFile(const char *fn, POINT *pt)
+{
+  FILE *fp = fopen(fn,"rb");
+  if (!fp) return;
+  unsigned char buf[32];
+  if (fread(buf,1,6,fp)==6 && !buf[0] && !buf[1] && buf[2] == 2 && buf[3] == 0 && buf[4] == 1 && buf[5] == 0)
+  {
+    fread(buf,1,16,fp);
+    pt->x = buf[4]|(buf[5]<<8);
+    pt->y = buf[6]|(buf[7]<<8);
+  }
+  fclose(fp);
+}
 
 static SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 
@@ -60,8 +75,17 @@ HCURSOR SWELL_LoadCursor(const char *_idx)
       {
         if (p->cachedCursor) return p->cachedCursor;
         // todo: load from p->resname, into p->cachedCursor, p->hotspot
-      
-
+        char buf[1024];
+        GetModuleFileName(NULL,buf,sizeof(buf));
+        WDL_remove_filepart(buf);
+        snprintf_append(buf,sizeof(buf),"/Resources/%s.cur",p->resname);
+        GdkPixbuf *pb = gdk_pixbuf_new_from_file(buf,NULL);
+        if (pb) 
+        {
+          getHotSpotForFile(buf,&p->hotspot);
+          GdkCursor *curs = gdk_cursor_new_from_pixbuf(gdk_display_get_default(),pb,p->hotspot.x,p->hotspot.y);
+          return (p->cachedCursor = (HCURSOR) curs);
+        }
       }
       p=p->_next;
     }
@@ -138,7 +162,15 @@ BOOL SWELL_SetCursorPos(int X, int Y)
 HCURSOR SWELL_LoadCursorFromFile(const char *fn)
 {
 #ifdef SWELL_TARGET_GDK
-  // todo
+  GdkPixbuf *pb = gdk_pixbuf_new_from_file(fn,NULL);
+  if (pb) 
+  {
+    POINT hs = {0,};
+    getHotSpotForFile(fn,&hs);
+    GdkCursor *curs = gdk_cursor_new_from_pixbuf(gdk_display_get_default(),pb,hs.x,hs.y);
+    g_object_unref(pb);
+    return (HCURSOR) curs;
+  }
 #endif
 
   return NULL;
