@@ -26,6 +26,7 @@
 
 #include "swell.h"
 #include "swell-dlggen.h"
+#include "swell-internal.h"
 
 int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 {
@@ -37,6 +38,39 @@ SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 
 HCURSOR SWELL_LoadCursor(const char *_idx)
 {
+#ifdef SWELL_TARGET_GDK
+
+  GdkCursorType def = GDK_LEFT_PTR;
+  if (_idx == IDC_NO) def = GDK_PIRATE;
+  else if (_idx == IDC_SIZENWSE) def = GDK_BOTTOM_LEFT_CORNER;
+  else if (_idx == IDC_SIZENESW) def = GDK_BOTTOM_RIGHT_CORNER;
+  else if (_idx == IDC_SIZEALL) def = GDK_FLEUR;
+  else if (_idx == IDC_SIZEWE) def =  GDK_RIGHT_SIDE;
+  else if (_idx == IDC_SIZENS) def = GDK_TOP_SIDE;
+  else if (_idx == IDC_ARROW) def = GDK_LEFT_PTR;
+  else if (_idx == IDC_HAND) def = GDK_HAND1;
+  else if (_idx == IDC_UPARROW) def = GDK_CENTER_PTR;
+  else if (_idx == IDC_IBEAM) def = GDK_XTERM;
+  else 
+  {
+    SWELL_CursorResourceIndex *p = SWELL_curmodule_cursorresource_head;
+    while (p)
+    {
+      if (p->resid == _idx)
+      {
+        if (p->cachedCursor) return p->cachedCursor;
+        // todo: load from p->resname, into p->cachedCursor, p->hotspot
+      
+
+      }
+      p=p->_next;
+    }
+  }
+
+  HCURSOR hc= (HCURSOR)gdk_cursor_new_for_display(gdk_display_get_default(),def);
+
+  return hc;
+#endif
   return NULL;
 }
 
@@ -44,8 +78,16 @@ static HCURSOR m_last_setcursor;
 
 void SWELL_SetCursor(HCURSOR curs)
 {
+  if (m_last_setcursor == curs) return;
+
   m_last_setcursor=curs;
-  // todo
+#ifdef SWELL_TARGET_GDK
+  extern GdkWindow *SWELL_g_focus_oswindow;
+  if (SWELL_g_focus_oswindow) 
+  {
+    gdk_window_set_cursor(SWELL_g_focus_oswindow,(GdkCursor *)curs);
+  }
+#endif
 }
 
 HCURSOR SWELL_GetCursor()
@@ -67,12 +109,21 @@ bool SWELL_IsCursorVisible()
 }
 int SWELL_ShowCursor(BOOL bShow)
 {
+  static HCURSOR last_cursor;
   m_curvis_cnt += (bShow?1:-1);
   if (m_curvis_cnt==-1 && !bShow) 
   {
+#ifdef SWELL_TARGET_GDK
+    last_cursor = GetCursor();
+    SetCursor((HCURSOR)gdk_cursor_new_for_display(gdk_display_get_default(),GDK_BLANK_CURSOR));
+#endif
+
   }
   if (m_curvis_cnt==0 && bShow) 
   {
+#ifdef SWELL_TARGET_GDK
+    SetCursor(last_cursor);
+#endif
   }
   return m_curvis_cnt;
 }
@@ -86,6 +137,10 @@ BOOL SWELL_SetCursorPos(int X, int Y)
 
 HCURSOR SWELL_LoadCursorFromFile(const char *fn)
 {
+#ifdef SWELL_TARGET_GDK
+  // todo
+#endif
+
   return NULL;
 }
 

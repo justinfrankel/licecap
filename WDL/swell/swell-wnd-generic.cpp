@@ -47,8 +47,8 @@ static DWORD s_lastMessagePos;
 #ifdef SWELL_TARGET_GDK
 
 static GdkEvent *s_cur_evt;
-static GdkWindow *SWELL_g_focus_oswindow;
 static int SWELL_gdk_active;
+GdkWindow *SWELL_g_focus_oswindow;
 
 HWND ChildWindowFromPoint(HWND h, POINT p);
 bool IsWindowEnabled(HWND hwnd);
@@ -386,7 +386,7 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   {
     if (!GetCapture() && (hwnd->m_hashaddestroy || !hwnd->m_wndproc || !hwnd->m_wndproc(hwnd,WM_SETCURSOR,(WPARAM)hwnd,htc | (msg<<16))))    
     {
-       // todo: set default cursor
+      SetCursor(SWELL_LoadCursor(IDC_ARROW));
     }
   }
 
