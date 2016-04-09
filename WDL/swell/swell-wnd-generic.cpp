@@ -34,6 +34,7 @@
 #include "../assocarray.h"
 #include "../queue.h"
 #include "../wdlcstring.h"
+#include "../wdlutf8.h"
 
 #include "swell-dlggen.h"
 
@@ -2045,7 +2046,10 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
     if (wParam == VK_BACK)
     { 
       if (hwnd->m_title.GetLength())
-        hwnd->m_title.SetLen(hwnd->m_title.GetLength()-1); // todo: UTF-8
+      {
+        const int cl = WDL_utf8_get_charlen(hwnd->m_title.Get());
+        hwnd->m_title.SetLen(WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),cl - 1));
+      }
       else
         return 0;
     }
@@ -2060,15 +2064,10 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
       return 0;
     }
   }
-  else if (wParam >= 128)
-  {
-    // todo: UTF-8, other filtering
-    return 0;
-  }
   else if (!(lParam & FVIRTKEY))
   {
-    char b[3]={(char)wParam,};
-     
+    char b[8];
+    WDL_MakeUTFChar(b,wParam,sizeof(b));
     hwnd->m_title.Append(b);
   }
   return 1;
@@ -2088,8 +2087,9 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
       {
         SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
         InvalidateRect(hwnd,NULL,FALSE);
+        return 0;
       }
-    return 0;
+    break;
     case WM_KEYUP:
     return 0;
     case WM_PAINT:
@@ -2354,8 +2354,9 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         if (s) s->selidx=-1; // lookup from text?
         SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
         InvalidateRect(hwnd,NULL,FALSE);
+        return 0;
       }
-    return 0;
+    break;
     case WM_KEYUP:
     return 0;
     case WM_PAINT:
@@ -4001,6 +4002,21 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     
    
     if (r) return r; 
+
+    if (uMsg == WM_KEYDOWN && !hwnd->m_parent)
+    {
+      if (wParam == VK_ESCAPE)
+      {
+        if (IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
+          SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
+        return 0;
+      }
+      else if (wParam == VK_RETURN)
+      {
+        SendMessage(hwnd,WM_COMMAND,IDOK/*todo: get default*/,0);
+        return 0;
+      }
+    }
   }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
@@ -4075,13 +4091,6 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwndDest,(p.x&0xffff)|(p.y<<16));
       }
     return 1;
-    case WM_MOUSEWHEEL:
-    case WM_MOUSEHWHEEL:
-      {
-        HWND par = GetParent(hwnd);
-        if (par) return SendMessage(par,msg,wParam,lParam); // forward to parent
-      }
-    break;
 //    case WM_NCLBUTTONDOWN:
     case WM_NCLBUTTONUP:
       if (!hwnd->m_parent && hwnd->m_menu)
@@ -4131,8 +4140,12 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       // todo: WM_NCCALCSIZE etc
     return HTCLIENT;
     case WM_KEYDOWN:
-    case WM_KEYUP: return 69;
+    case WM_KEYUP: 
+        return hwnd->m_parent ? SendMessage(hwnd->m_parent,msg,wParam,lParam) : 69;
+
     case WM_CONTEXTMENU:
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL:
         return hwnd->m_parent ? SendMessage(hwnd->m_parent,msg,wParam,lParam) : 0;
     case WM_GETFONT:
 #ifdef SWELL_FREETYPE
