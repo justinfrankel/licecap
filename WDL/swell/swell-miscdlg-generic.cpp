@@ -32,6 +32,7 @@
 #include "swell-dlggen.h"
 
 #include "../wdlcstring.h"
+#include "../assocarray.h"
 #include <dirent.h>
 
 static const char *BFSF_Templ_dlgid;
@@ -44,20 +45,100 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
   BFSF_Templ_dlgproc=dlgProc;
 }
 
-struct BrowseFile_State
+class BrowseFile_State
 {
+public:
+  enum modeEnum { SAVE=0,OPEN, OPENMULTI, OPENDIR };
+
+  BrowseFile_State(const char *_cap, const char *_idir, const char *_ifile, const char *_el, modeEnum _mode, char *_fnout, int _fnout_sz) :
+    caption(_cap), initialdir(_idir), initialfile(_ifile), extlist(_el), mode(_mode), fnout(_fnout), fnout_sz(_fnout_sz), viewlist(true)
+  {
+  }
+  ~BrowseFile_State()
+  {
+  }
+
   const char *caption;
   const char *initialdir;
   const char *initialfile;
   const char *extlist;
 
-  enum { SAVE=0,OPEN, OPENMULTI, OPENDIR } mode;
+  modeEnum mode;
   char *fnout; // if NULL this will be malloced by the window
   int fnout_sz;
+
+  struct rec {
+    WDL_INT64 size;
+    time_t date;
+  };
+
+  WDL_StringKeyedArray2<rec> viewlist; // first byte of string will define type -- 1 = directory, 2= file
+
+
+  void scan_path(const char *path, const char *filterlist, bool dir_only)
+  {
+    viewlist.DeleteAll();
+    DIR *dir = opendir(path);
+    if (!dir) return;
+    char tmp[2048];
+    struct dirent *ent;
+    while (NULL != (ent = readdir(dir)))
+    {
+      if (ent->d_name[0] == '.') continue;
+      if (dir_only ? (ent->d_type & DT_DIR) : 1)
+      {
+        if (filterlist && *filterlist && !(ent->d_type & DT_DIR))
+        {
+          const char *f = filterlist;
+          while (*f)
+          {
+            const char *nf = f;
+            while (*nf && *nf != ';') nf++;
+            if (*f != '*')
+            {
+              const char *nw = f;
+              while (nw < nf && *nw != '*') nw++;
+
+              if ((nw!=nf || strlen(ent->d_name) == nw-f) && !strncasecmp(ent->d_name,f,nw-f)) 
+              {
+                // matched leading text
+                if (nw == nf) break;
+                f = nw;
+              }
+            }
+
+            if (*f == '*')
+            {
+              f++;
+              if (!*f || *f == ';' || (*f == '.' && f[1] == '*')) break;
+              size_t l = strlen(ent->d_name);
+              if (l > nf-f && !strncasecmp(ent->d_name + l - (nf-f), f,nf-f)) break;
+            }
+            f = nf;
+            while (*f == ';') f++;
+          }
+          if (!*f) continue; // did not match
+        }
+        snprintf(tmp,sizeof(tmp),"%s/%s",path,ent->d_name);
+        struct stat st={0,};
+        stat(tmp,&st);
+      
+        rec r = { st.st_size, st.st_mtime } ;
+        tmp[0] = (ent->d_type&DT_DIR)?1:2;
+        lstrcpyn_safe(tmp+1,ent->d_name,sizeof(tmp)-1);
+        viewlist.AddUnsorted(tmp,r);
+      }
+    }
+    viewlist.Resort();
+
+    closedir(dir);
+  }
 };
 
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  const int maxPathLen = 2048;
+  const char *multiple_files = "(multiple files)";
   switch (uMsg)
   {
     case WM_CREATE:
@@ -78,17 +159,38 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
         HWND edit = SWELL_MakeEditField(0x100, 0,0,0,0,  0);
-        if (edit)
+        HWND dir = SWELL_MakeCombo(0x103, 0,0,0,0, CBS_DROPDOWNLIST);
+
+        HWND list = SWELL_MakeControl("",0x104,"SysListView32",LVS_REPORT|LVS_SHOWSELALWAYS|
+              (parms->mode == BrowseFile_State::OPENMULTI ? 0 : LVS_SINGLESEL)|
+              LVS_OWNERDATA|WS_BORDER|WS_TABSTOP,0,0,0,0,0);
+        if (list)
         {
-          if (parms->initialfile && *parms->initialfile) SetWindowText(edit,parms->initialfile);
-          else if (parms->initialdir && *parms->initialdir) 
-          {
-            char buf[1024];
-            lstrcpyn_safe(buf,parms->initialdir,sizeof(buf) - 1);
-            if (parms->mode != BrowseFile_State::OPENDIR && buf[0] && buf[strlen(buf)-1]!='/') lstrcatn(buf,"/",sizeof(buf));
-            SetWindowText(edit,buf);
-          }
+          LVCOLUMN c={LVCF_TEXT|LVCF_WIDTH, 0, 280, (char*)"Filename" };
+          ListView_InsertColumn(list,0,&c);
+          c.cx = 120;
+          c.pszText = (char*) "Size";
+          ListView_InsertColumn(list,1,&c);
+          c.cx = 140;
+          c.pszText = (char*) "Date";
+          ListView_InsertColumn(list,2,&c);
         }
+        HWND extlist = (parms->extlist && *parms->extlist) ? SWELL_MakeCombo(0x105, 0,0,0,0, CBS_DROPDOWNLIST) : NULL;
+        if (extlist)
+        {
+          const char *p = parms->extlist;
+          while (*p)
+          {
+            const char *rd=p;
+            p += strlen(p)+1;
+            if (!*p) break;
+            int a = SendMessage(extlist,CB_ADDSTRING,0,(LPARAM)rd);
+            SendMessage(extlist,CB_SETITEMDATA,a,(LPARAM)p);
+            p += strlen(p)+1;
+          }
+          SendMessage(extlist,CB_SETCURSEL,0,0);
+        }
+
         SWELL_MakeLabel(-1,parms->mode == BrowseFile_State::OPENDIR ? "Directory: " : "File:",0x101, 0,0,0,0, 0); 
         
         if (BFSF_Templ_dlgid && BFSF_Templ_dlgproc)
@@ -100,7 +202,74 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         }
 
         SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+
+        if (edit && dir)
+        {
+          char buf[maxPathLen];
+          const char *filepart = "";
+          if (parms->initialfile && *parms->initialfile) 
+          { 
+            lstrcpyn_safe(buf,parms->initialfile,sizeof(buf));
+            char *p = (char *)WDL_get_filepart(buf);
+            if (p > buf) { p[-1]=0; filepart = p; }
+          }
+          else if (parms->initialdir && *parms->initialdir) 
+          {
+            lstrcpyn_safe(buf,parms->initialdir,sizeof(buf));
+          }
+          else getcwd(buf,sizeof(buf));
+
+          SetWindowText(edit,filepart);
+          SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
+        }
+
         SetWindowPos(hwnd,NULL,0,0,600, 400, SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+      }
+    break;
+    case WM_USER+100:
+      switch (wParam)
+      {
+        case 0x103: // update directory combo box -- destroys buffer pointed to by lParam
+          if (lParam)
+          {
+            char *path = (char*)lParam;
+            HWND combo=GetDlgItem(hwnd,0x103);
+            SendMessage(combo,CB_RESETCONTENT,0,0);
+            WDL_remove_trailing_dirchars(path);
+            while (path[0]) 
+            {
+              SendMessage(combo,CB_ADDSTRING,0,(LPARAM)path);
+              WDL_remove_filepart(path);
+              WDL_remove_trailing_dirchars(path);
+            }
+            SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"/");
+            SendMessage(combo,CB_SETCURSEL,0,0);
+          } 
+        break;
+        case 1:
+        {
+          BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          if (parms)
+          {
+            char buf[maxPathLen];
+            const char *filt = NULL;
+            buf[0]=0;
+            int a = (int) SendDlgItemMessage(hwnd,0x105,CB_GETCURSEL,0,0);
+            if (a>=0) filt = (const char *)SendDlgItemMessage(hwnd,0x105,CB_GETITEMDATA,a,0);
+
+            a = (int) SendDlgItemMessage(hwnd,0x103,CB_GETCURSEL,0,0);
+            if (a>=0) SendDlgItemMessage(hwnd,0x103,CB_GETLBTEXT,a,(LPARAM)buf);
+
+            if (buf[0]) parms->scan_path(buf, filt, parms->mode == BrowseFile_State::OPENDIR);
+            else parms->viewlist.DeleteAll();
+            HWND list = GetDlgItem(hwnd,0x104);
+            ListView_SetItemCount(list, 0); // clear selection
+            ListView_SetItemCount(list, parms->viewlist.GetSize());
+            ListView_RedrawItems(list,0, parms->viewlist.GetSize());
+          }
+        }
+        break;
       }
     break;
     case WM_GETMINMAXINFO:
@@ -134,30 +303,126 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           SetWindowPos(emb,NULL, xborder,ypos, xpos - xborder*2, sr.bottom, SWP_NOZORDER|SWP_NOACTIVATE);
           ShowWindow(emb,SW_SHOWNA);
         }
- 
+
 
         SetWindowPos(GetDlgItem(hwnd,0x100), NULL, xborder*2 + fnlblw, ypos -= fnh + yborder, r.right-fnlblw-xborder*3, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
         SetWindowPos(GetDlgItem(hwnd,0x101), NULL, xborder, ypos, fnlblw, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,0x103), NULL, xborder, 0, r.right-xborder*2, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
   
+        HWND filt = GetDlgItem(hwnd,0x105);
+        if (filt)
+        {
+          SetWindowPos(filt, NULL, xborder, ypos -= fnh + yborder, r.right-xborder*2, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
+        }
+        SetWindowPos(GetDlgItem(hwnd,0x104), NULL, xborder, fnh+yborder, r.right-xborder*2, ypos - (fnh+yborder) - yborder, SWP_NOZORDER|SWP_NOACTIVATE);
       }
     break;
     case WM_COMMAND:
       switch (LOWORD(wParam))
       {
+        case 0x105:
+          if (HIWORD(wParam) == CBN_SELCHANGE)
+          {
+            SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+          }
+        return 0;
+        case 0x103:
+          if (HIWORD(wParam) == CBN_SELCHANGE)
+          {
+            SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+          }
+        return 0;
         case IDCANCEL: EndDialog(hwnd,0); return 0;
         case IDOK: 
           {
-            char buf[1024],msg[2048];
-            GetDlgItemText(hwnd,0x100,buf,sizeof(buf));
+            char buf[maxPathLen], msg[2048];
+            buf[0]=0;
+
+            int a = (int) SendDlgItemMessage(hwnd,0x103,CB_GETCURSEL,0,0);
+            if (a>=0)
+            {
+              SendDlgItemMessage(hwnd,0x103,CB_GETLBTEXT,a,(LPARAM)buf);
+              size_t buflen = strlen(buf);
+              if (!buflen) strcpy(buf,"/");
+              else
+              {
+                if (buflen > sizeof(buf)-2) buflen = sizeof(buf)-2;
+                if (buf[buflen-1]!='/') { buf[buflen++] = '/'; buf[buflen]=0; }
+              }
+            }
+            GetDlgItemText(hwnd,0x100,msg,sizeof(msg));
+
             BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            int cnt;
+            if (parms->mode == BrowseFile_State::OPENMULTI && (cnt=ListView_GetSelectedCount(GetDlgItem(hwnd,0x104)))>1 && (!*msg || !strcmp(msg,multiple_files)))
+            {
+              HWND list = GetDlgItem(hwnd,0x104);
+              WDL_TypedBuf<char> fs;
+              fs.Set(buf,strlen(buf)+1);
+              int a = ListView_GetNextItem(list,-1,LVNI_SELECTED);
+              while (a != -1 && fs.GetSize() < 4096*4096 && cnt--)
+              {
+                const char *fn = NULL;
+                struct BrowseFile_State::rec *rec = parms->viewlist.EnumeratePtr(a,&fn);
+                if (!rec) break;
+
+                if (*fn) fn++; // skip type ident
+                fs.Add(fn,strlen(fn)+1);
+                a = ListView_GetNextItem(list,a,LVNI_SELECTED);
+              }
+              fs.Add("",1);
+
+              parms->fnout = (char*)malloc(fs.GetSize());
+              if (parms->fnout) memcpy(parms->fnout,fs.Get(),fs.GetSize());
+
+              EndDialog(hwnd,1);
+              return 0;
+            }
+            else 
+            {
+              if (msg[0] == '.' && (msg[1] == '.' || msg[1] == 0))
+              {
+                if (msg[1] == '.') SendDlgItemMessage(hwnd,0x103,CB_SETCURSEL,a+1,0);
+                SetDlgItemText(hwnd,0x100,"");
+                SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+                return 0;
+              }
+              else if (msg[0] == '/') lstrcpyn_safe(buf,msg,sizeof(buf));
+              else lstrcatn(buf,msg,sizeof(buf));
+            }
+
             switch (parms->mode)
             {
-              case BrowseFile_State::SAVE:
-                 if (!buf[0]) 
+              case BrowseFile_State::OPENDIR:
+                 if (!buf[0]) return 0;
+                 else if (msg[0])
                  {
-                   MessageBox(hwnd,"No file specified","Error",MB_OK);
+                   // navigate to directory if filepart set
+                   DIR *dir = opendir(buf);
+                   if (!dir) 
+                   {
+                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%s\r\n\r\nCreate?",buf);
+                     if (MessageBox(hwnd,msg,"Create directory?",MB_OKCANCEL)==IDCANCEL) return 0;
+                     CreateDirectory(buf,NULL);
+                     dir=opendir(buf);
+                   }
+                   if (!dir) { MessageBox(hwnd,"Error creating directory","Error",MB_OK); return 0; }
+                   closedir(dir);
+                   SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
+                   SetDlgItemText(hwnd,0x100,"");
+                   SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+
                    return 0;
                  }
+                 else
+                 {
+                   DIR *dir = opendir(buf);
+                   if (!dir) return 0;
+                   closedir(dir);
+                 }
+              break;
+              case BrowseFile_State::SAVE:
+                 if (!buf[0]) return 0;
                  else  
                  {
                    struct stat st={0,};
@@ -165,8 +430,9 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                    if (dir)
                    {
                      closedir(dir);
-                     snprintf(msg,sizeof(msg),"Path is a directory:\r\n\r\n%s",buf);
-                     MessageBox(hwnd,msg,"Invalid file",MB_OK);
+                     SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
+                     SetDlgItemText(hwnd,0x100,"");
+                     SendMessage(hwnd,WM_USER+100,1,0); // refresh list
                      return 0;
                    }
                    if (!stat(buf,&st))
@@ -176,32 +442,8 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                    }
                  }
               break;
-              case BrowseFile_State::OPENDIR:
-                 if (!buf[0]) 
-                 { 
-                   MessageBox(hwnd,"No directory specified","Error",MB_OK);
-                   return 0;
-                 } 
-                 else
-                 {
-                   DIR *dir = opendir(buf);
-                   if (!dir) 
-                   {
-                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%s\r\n\r\nCreate?",buf);
-                     if (MessageBox(hwnd,msg,"Create directory?",MB_OKCANCEL)==IDCANCEL) return 0;
-                     CreateDirectory(buf,NULL);
-                     dir=opendir(buf);
-                     if (!dir) { MessageBox(hwnd,"Error creating directory","Error",MB_OK); return 0; }
-                   }
-                   if (dir) closedir(dir);
-                 }
-              break;
               default:
-                 if (!buf[0]) 
-                 {
-                   MessageBox(hwnd,"No file specified","Error",MB_OK);
-                   return 0;
-                 }
+                 if (!buf[0]) return 0;
                  else  
                  {
                    struct stat st={0,};
@@ -209,8 +451,9 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                    if (dir)
                    {
                      closedir(dir);
-                     snprintf(msg,sizeof(msg),"Path is a directory:\r\n\r\n%s",buf);
-                     MessageBox(hwnd,msg,"Invalid file",MB_OK);
+                     SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
+                     SetDlgItemText(hwnd,0x100,"");
+                     SendMessage(hwnd,WM_USER+100,1,0); // refresh list
                      return 0;
                    }
                    if (stat(buf,&st))
@@ -237,6 +480,96 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         return 0;
       }
     break;
+    case WM_NOTIFY:
+      {
+        LPNMHDR l=(LPNMHDR)lParam;
+        if (l->code == LVN_GETDISPINFO)
+        {
+          BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          NMLVDISPINFO *lpdi = (NMLVDISPINFO*) lParam;
+          const int idx=lpdi->item.iItem;
+          if (l->idFrom == 0x104 && parms && idx >=0 && idx < parms->viewlist.GetSize())
+          {
+            const char *fn = NULL;
+            struct BrowseFile_State::rec *rec = parms->viewlist.EnumeratePtr(idx,&fn);
+            if (rec && fn)
+            {
+              if (lpdi->item.mask&LVIF_TEXT) 
+              {
+                switch (lpdi->item.iSubItem)
+                {
+                  case 0:
+                    if (fn[0]) lstrcpyn_safe(lpdi->item.pszText,fn+1,lpdi->item.cchTextMax);
+                  break;
+                  case 1:
+                    if (fn[0] == 1) 
+                    {
+                      lstrcpyn_safe(lpdi->item.pszText,"<DIR>",lpdi->item.cchTextMax);
+                    }
+                    else
+                    {
+                      static const char *tab[]={ "bytes","KB","MB","GB" };
+                      int lf=0;
+                      WDL_INT64 s=rec->size;
+                      if (s<1024)
+                      {
+                        snprintf(lpdi->item.pszText,lpdi->item.cchTextMax,"%d %s  ",(int)s,tab[0]);
+                        break;
+                      }
+                      
+                      int w = 1;
+                      do {  w++; lf = (int)(s&1023); s/=1024; } while (s >= 1024 && w<4);
+                      snprintf(lpdi->item.pszText,lpdi->item.cchTextMax,"%d.%d %s  ",(int)s,(int)((lf*10.0)/1024.0+0.5),tab[w-1]);
+                    }
+                  break;
+                  case 2:
+                    if (rec->date > 0 && rec->date < WDL_INT64_CONST(0x793406fff))
+                    {
+                      struct tm *a=localtime(&rec->date);
+                      if (a)
+                      {
+                        char str[512];
+                        strftime(str,sizeof(str),"%c",a);
+                        lstrcpyn(lpdi->item.pszText, str,lpdi->item.cchTextMax);
+                      }
+                    }
+                  break;
+                }
+              }
+            }
+          }
+        }
+        else if (l->code == LVN_ODFINDITEM)
+        {
+        }
+        else if (l->code == LVN_ITEMCHANGED)
+        {
+          const int selidx = ListView_GetNextItem(l->hwndFrom, -1, LVNI_SELECTED);
+          if (selidx>=0)
+          {
+            BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            if (parms && parms->mode == BrowseFile_State::OPENMULTI && ListView_GetSelectedCount(l->hwndFrom)>1)
+            {
+              SetDlgItemText(hwnd,0x100,multiple_files);
+            }
+            else
+            {
+              const char *fn = NULL;
+              struct BrowseFile_State::rec *rec = parms ? parms->viewlist.EnumeratePtr(selidx,&fn) : NULL;
+              if (rec)
+              {
+                if (fn && fn[0]) SetDlgItemText(hwnd,0x100,fn+1);
+              }
+            }
+          }
+        }
+        else if (l->code == NM_DBLCLK)
+        {
+          SendMessage(hwnd,WM_COMMAND,IDOK,0);
+        }
+
+      }
+    break;
   }
   return 0;
 }
@@ -245,13 +578,13 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 bool BrowseForSaveFile(const char *text, const char *initialdir, const char *initialfile, const char *extlist,
                        char *fn, int fnsize)
 {
-  BrowseFile_State state = { text, initialdir, initialfile, extlist, BrowseFile_State::SAVE, fn, fnsize };
+  BrowseFile_State state( text, initialdir, initialfile, extlist, BrowseFile_State::SAVE, fn, fnsize );
   return !!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state);
 }
 
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
 {
-  BrowseFile_State state = { text, initialdir, initialdir, NULL, BrowseFile_State::OPENDIR, fn, fnsize };
+  BrowseFile_State state( text, initialdir, initialdir, NULL, BrowseFile_State::OPENDIR, fn, fnsize );
   return !!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state);
 }
 
@@ -259,8 +592,8 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 char *BrowseForFiles(const char *text, const char *initialdir, 
                      const char *initialfile, bool allowmul, const char *extlist)
 {
-  BrowseFile_State state = { text, initialdir, initialfile, extlist, 
-           allowmul ? BrowseFile_State::OPENMULTI : BrowseFile_State::OPEN, NULL, 0 };
+  BrowseFile_State state( text, initialdir, initialfile, extlist, 
+           allowmul ? BrowseFile_State::OPENMULTI : BrowseFile_State::OPEN, NULL, 0 );
   return DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state) ? state.fnout : NULL;
 }
 
