@@ -488,8 +488,8 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               m_trackingPt.y=r.top + top_margin + which*itemheight;
               ClientToScreen(hwnd,&m_trackingPt);
               HWND hh;
-              submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL),WM_CREATE,0,(LPARAM)inf->hSubMenu);
-              SetProp(hh,"SWELL_MenuOwner",GetProp(hh,"SWELL_MenuOwner"));
+              submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd),WM_CREATE,0,(LPARAM)inf->hSubMenu);
+              SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
             }
             else if (inf->wID) m_trackingRet = inf->wID;
           }
@@ -520,7 +520,9 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 //  HWND oldFoc = GetFocus();
  // bool oldFoc_child = oldFoc && (IsChild(hwnd,oldFoc) || oldFoc == hwnd || oldFoc==GetParent(hwnd));
 
-  HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL);
+  if (hwnd) hwnd->Retain();
+
+  HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
 
   submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);
 
@@ -547,6 +549,8 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   if (!(flags&TPM_NONOTIFY) && m_trackingRet>0) 
     SendMessage(hwnd,WM_COMMAND,m_trackingRet,0);
   
+  if (hwnd) hwnd->Release();
+
   return m_trackingRet>0?m_trackingRet:0;
 }
 

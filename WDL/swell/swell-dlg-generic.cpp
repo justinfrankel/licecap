@@ -130,7 +130,7 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
     parent = NULL; // top level window
   }
 
-  HWND__ *h = new HWND__(parent,0,&r,NULL,false,NULL,NULL);
+  HWND__ *h = new HWND__(parent,0,&r,NULL,false,NULL,NULL, owner);
   if (forceNonChild || (p && !(p->windowTypeFlags&SWELL_DLG_WS_CHILD)))
   {
     if ((forceStyles&1) || (p && (p->windowTypeFlags&SWELL_DLG_WS_RESIZABLE))) 

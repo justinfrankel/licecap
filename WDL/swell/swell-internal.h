@@ -597,7 +597,7 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
 struct HWND__
 {
-  HWND__(HWND par, int wID=0, RECT *wndr=NULL, const char *label=NULL, bool visible=false, WNDPROC wndproc=NULL, DLGPROC dlgproc=NULL);
+  HWND__(HWND par, int wID=0, RECT *wndr=NULL, const char *label=NULL, bool visible=false, WNDPROC wndproc=NULL, DLGPROC dlgproc=NULL, HWND ownerWindow=NULL);
   ~HWND__(); // DO NOT USE!!! We would make this private but it breaks PtrList using it on gcc. 
 
   // using this API prevents the HWND from being valid -- it'll still get its resources destroyed via DestroyWindow() though.
@@ -617,7 +617,7 @@ struct HWND__
   WDL_FastString m_title;
 
   HWND__ *m_children, *m_parent, *m_next, *m_prev;
-  HWND__ *m_owner, *m_owned;
+  HWND__ *m_owner, *m_owned, *m_owned_next, *m_owned_prev;
   RECT m_position;
   UINT m_id;
   int m_style, m_exstyle;
@@ -628,7 +628,7 @@ struct HWND__
   INT_PTR m_private_data; // used by internal controls
 
   bool m_visible;
-  bool m_hashaddestroy;
+  char m_hashaddestroy; // 1 in destroy, 2 full destroy
   bool m_enabled;
   bool m_wantfocus;
 

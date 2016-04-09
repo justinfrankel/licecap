@@ -650,7 +650,7 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 #define swell_setOSwindowtext(x) { if (x) printf("SWELL: swt '%s'\n",(x)->m_title.Get()); }
 #endif
 
-HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, WNDPROC wndproc, DLGPROC dlgproc)
+HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, WNDPROC wndproc, DLGPROC dlgproc, HWND ownerWindow)
 {
   m_refcnt=1;
   m_private_data=0;
@@ -662,13 +662,13 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      m_style=0;
      m_exstyle=0;
      m_id=wID;
-     m_owned=m_owner=0;
-     m_children=m_parent=m_next=m_prev=0; 
+     m_owned=m_owner=m_owned_next=m_owned_prev=NULL;
+     m_children=m_parent=m_next=m_prev=NULL;
      if (wndr) m_position = *wndr;
      else memset(&m_position,0,sizeof(m_position));
      memset(&m_extra,0,sizeof(m_extra));
      m_visible=visible;
-     m_hashaddestroy=false;
+     m_hashaddestroy=0;
      m_enabled=true;
      m_wantfocus=true;
      m_menu=NULL;
@@ -684,8 +684,15 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
 #endif
 
      if (label) m_title.Set(label);
+     
      SetParent(this, par);
-
+     if (!par && ownerWindow)
+     {
+       m_owned_next = ownerWindow->m_owned;
+       m_owner = ownerWindow;
+       ownerWindow->m_owned = this;
+       if (m_owned_next) m_owned_next->m_prev = this;
+     }
 }
 
 HWND__::~HWND__()
@@ -696,7 +703,11 @@ HWND__::~HWND__()
 
 HWND GetParent(HWND hwnd)
 {  
-  return hwnd ? hwnd->m_parent : NULL;
+  if (hwnd)
+  {
+    return hwnd->m_parent ? hwnd->m_parent : hwnd->m_owner;
+  }
+  return NULL;
 }
 
 HWND GetDlgItem(HWND hwnd, int idx)
@@ -821,11 +832,13 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
   if (msg == WM_DESTROY)
   {
-    if (hwnd->m_hashaddestroy) return 0;// todo: allow certain messages to pass?
-    hwnd->m_hashaddestroy=true;
+    if (hwnd->m_hashaddestroy) return 0;
+    hwnd->m_hashaddestroy=1;
+
     if (GetCapture()==hwnd) ReleaseCapture(); 
     SWELL_MessageQueue_Clear(hwnd);
   }
+  else if (hwnd->m_hashaddestroy == 2) return 0;
   else if (msg==WM_CAPTURECHANGED && hwnd->m_hashaddestroy) return 0;
     
   int ret = wp ? wp(hwnd,msg,wParam,lParam) : 0;
@@ -846,25 +859,50 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     while (tmp)
     {
       SendMessage(tmp,WM_DESTROY,0,0);
-      tmp=tmp->m_next;
+      tmp=tmp->m_owned_next;
     }
     KillTimer(hwnd,-1);
-    if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=0;
+    if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=hwnd->m_parent ? hwnd->m_parent : hwnd->m_owner;
+#ifdef SWELL_TARGET_GDK
+    if (SWELL_g_focus_oswindow && SWELL_g_focus_oswindow == hwnd->m_oswindow)
+    {
+      SWELL_g_focus_oswindow = NULL;
+
+      HWND h = hwnd->m_owner;
+      while (h)
+      {
+        if (h->m_oswindow)
+        {
+          SWELL_g_focus_oswindow = h->m_oswindow;
+          break;
+        }
+        h = h->m_parent ? h->m_parent : h->m_owner;
+      }
+    }
+#endif
+    hwnd->m_hashaddestroy=2;
   }
   return ret;
 }
 
-static void swell_removeWindowFromNonChildren(HWND__ *hwnd)
+static void swell_removeWindowFromParentOrTop(HWND__ *hwnd, bool removeFromOwner)
 {
+  HWND par = hwnd->m_parent;
   if (hwnd->m_next) hwnd->m_next->m_prev = hwnd->m_prev;
   if (hwnd->m_prev) hwnd->m_prev->m_next = hwnd->m_next;
-  else
+  if (par && par->m_children == hwnd) par->m_children = hwnd->m_next;
+  if (hwnd == SWELL_topwindows) SWELL_topwindows = hwnd->m_next;
+  hwnd->m_next = hwnd->m_prev = hwnd->m_parent = NULL;
+
+  if (removeFromOwner)
   {
-    if (hwnd->m_parent && hwnd->m_parent->m_children == hwnd) hwnd->m_parent->m_children = hwnd->m_next;
-    if (hwnd->m_owner && hwnd->m_owner->m_owned == hwnd) hwnd->m_owner->m_owned = hwnd->m_next;
-    if (hwnd == SWELL_topwindows) SWELL_topwindows = hwnd->m_next;
-    if (hwnd->m_parent && !hwnd->m_parent->m_hashaddestroy) InvalidateRect(hwnd->m_parent,NULL,FALSE);
+    if (hwnd->m_owned_next) hwnd->m_owned_next->m_owned_prev = hwnd->m_owned_prev;
+    if (hwnd->m_owned_prev) hwnd->m_owned_prev->m_owned_next = hwnd->m_owned_next;
+    if (hwnd->m_owner && hwnd->m_owner->m_owned == hwnd) hwnd->m_owner->m_owned = hwnd->m_owned_next;
+    hwnd->m_owned_next = hwnd->m_owned_prev = hwnd->m_owner = NULL;
   }
+
+  if (par && !par->m_hashaddestroy) InvalidateRect(par,NULL,FALSE);
 }
 
 static void RecurseDestroyWindow(HWND hwnd)
@@ -880,7 +918,7 @@ static void RecurseDestroyWindow(HWND hwnd)
   while (tmp)
   {
     HWND old = tmp;
-    tmp=tmp->m_next;
+    tmp=tmp->m_owned_next;
     RecurseDestroyWindow(old);
   }
 
@@ -897,7 +935,13 @@ static void RecurseDestroyWindow(HWND hwnd)
   hwnd->m_backingstore=0;
 #endif
 
+  // remove from parent/global lists
+  swell_removeWindowFromParentOrTop(hwnd, true);
+
   hwnd->m_wndproc=NULL;
+
+  SWELL_MessageQueue_Clear(hwnd);
+  KillTimer(hwnd,-1);
   hwnd->Release();
 }
 
@@ -910,11 +954,9 @@ void DestroyWindow(HWND hwnd)
   // broadcast WM_DESTROY
   SendMessage(hwnd,WM_DESTROY,0,0);
 
-  // remove from parent/global lists
-  swell_removeWindowFromNonChildren(hwnd);
-
   // safe to delete this window and all children directly
   RecurseDestroyWindow(hwnd);
+
 }
 
 
@@ -1329,13 +1371,8 @@ HWND SetParent(HWND hwnd, HWND newPar)
 {
   if (!hwnd) return NULL;
 
-  swell_removeWindowFromNonChildren(hwnd);
-
   HWND oldPar = hwnd->m_parent;
-  hwnd->m_prev=0;
-  hwnd->m_next=0;
-  hwnd->m_parent = NULL;
-  hwnd->m_owner = NULL; // todo
+  swell_removeWindowFromParentOrTop(hwnd, newPar != NULL);
 
   if (newPar)
   {
@@ -2333,11 +2370,13 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               x == s->selidx?MFS_CHECKED:0,100+x,NULL,NULL,NULL,0,s->items.Get(x)->desc};
             InsertMenuItem(menu,x,TRUE,&mi);
           }
+
+          hwnd->Retain();
           RECT r;
           GetWindowRect(hwnd,&r);
           int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,r.left,r.bottom,0,hwnd,0);
           DestroyMenu(menu);
-          if (a>=100 && a < s->items.GetSize()+100)
+          if (hwnd->m_private_data && a>=100 && a < s->items.GetSize()+100)
           {
             s->selidx = a-100;
             char *ptr=s->items.Get(s->selidx)->desc;
@@ -2345,6 +2384,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             InvalidateRect(hwnd,NULL,FALSE);
             SendMessage(GetParent(hwnd),WM_COMMAND,(GetWindowLong(hwnd,GWL_ID)&0xffff) | (CBN_SELCHANGE<<16),(LPARAM)hwnd);
           }
+          hwnd->Release();
         }
       }
     return 0;
