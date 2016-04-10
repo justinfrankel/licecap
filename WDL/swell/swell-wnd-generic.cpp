@@ -31,6 +31,7 @@
 #include <math.h>
 #include "../mutex.h"
 #include "../ptrlist.h"
+#include "../assocarray.h"
 #include "../queue.h"
 #include "../wdlcstring.h"
 
@@ -4220,42 +4221,51 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
 
 
 
-static WDL_PtrList<void> m_clip_recs;
+static WDL_IntKeyedArray<HANDLE> m_clip_recs(GlobalFree);
 //static WDL_PtrList<NSString> m_clip_fmts;
 static WDL_PtrList<char> m_clip_curfmts;
-bool OpenClipboard(HWND hwndDlg)
-{
-  m_clip_curfmts.Empty();
-  return true;
-}
-
-void CloseClipboard() // frees any remaining items in clipboard
-{
-  m_clip_recs.Empty(true,GlobalFree);
-}
+bool OpenClipboard(HWND hwndDlg) { return true; }
+void CloseClipboard() { }
 
 UINT EnumClipboardFormats(UINT lastfmt)
 {
-  return 0;
+  int x=0;
+  for (;;)
+  {
+    int fmt=0;
+    if (!m_clip_recs.Enumerate(x++,&fmt)) return 0;
+    if (lastfmt == 0) return fmt;
+
+    if (fmt == lastfmt) return m_clip_recs.Enumerate(x++,&fmt) ? fmt : 0;
+  }
 }
 
 HANDLE GetClipboardData(UINT type)
 {
-  return 0;
+  return m_clip_recs.Get(type);
 }
 
 
 void EmptyClipboard()
 {
+  m_clip_recs.DeleteAll();
 }
 
 void SetClipboardData(UINT type, HANDLE h)
 {
+  if (h) m_clip_recs.Insert(type,h);
+  else m_clip_recs.Delete(type);
 }
 
 UINT RegisterClipboardFormat(const char *desc)
 {
-  return 0;
+  if (!desc || !*desc) return 0;
+  int x;
+  const int n = m_clip_curfmts.GetSize();
+  for(x=0;x<n;x++) 
+    if (!strcmp(m_clip_curfmts.Get(x),desc)) return x + 1;
+  m_clip_curfmts.Add(strdup(desc));
+  return n+1;
 }
 
 
