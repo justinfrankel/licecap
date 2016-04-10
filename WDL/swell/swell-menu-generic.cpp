@@ -402,7 +402,16 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             MENUITEMINFO *inf = menu->items.Get(x);
             RECT r={lcol,top_margin + x*itemheight,cr.right,top_margin + (x+1)*itemheight};
             bool dis = !!(inf->fState & MF_GRAYED);
-            SetTextColor(ps.hdc,cols[dis]);
+            if (x == menu->sel_vis)
+            {
+              HBRUSH br=CreateSolidBrush(cols[dis]);
+              RECT r2=r;
+              r2.left=0;
+              FillRect(ps.hdc,&r2,br);
+              DeleteObject(br);
+              SetTextColor(ps.hdc,GetSysColor(COLOR_3DFACE));
+            }
+            else SetTextColor(ps.hdc,cols[dis]);
             if (inf->fType == MFT_STRING && inf->dwTypeData)
             {
               const char *pt2 = strstr(inf->dwTypeData,"\t");
@@ -457,6 +466,44 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         }
       }
     break;
+    case WM_KEYUP:
+    return 1;
+    case WM_KEYDOWN:
+      if (wParam == VK_ESCAPE || (wParam == VK_LEFT && m_trackingMenus.GetSize()>1))
+      {
+        HWND l = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)-1);
+        if (l) SetFocus(l);
+        else DestroyWindow(hwnd);
+      }
+      else if (wParam == VK_RETURN || wParam == VK_RIGHT)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (wParam == VK_RIGHT)
+        {
+          MENUITEMINFO *inf = menu->items.Get(menu->sel_vis);
+          if (!inf || !inf->hSubMenu) return 1;
+        }
+        SendMessage(hwnd,WM_USER+100,1,menu->sel_vis);
+      }
+      else if (wParam == VK_UP)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (menu->sel_vis > 0)
+        {
+          menu->sel_vis--;
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+      else if (wParam == VK_DOWN)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (menu->sel_vis < menu->items.GetSize()-1)
+        {
+          menu->sel_vis++;
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+    return 1;
     case WM_DESTROY:
       {
         int a = m_trackingMenus.Find(hwnd);
@@ -465,6 +512,50 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         RemoveProp(hwnd,"SWELL_MenuOwner");
       }
     break;
+    case WM_USER+100:
+      if (wParam == 1)
+      {
+        // open item lParam
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        const int which = (int) lParam;
+        MENUITEMINFO *inf = menu->items.Get(which);
+        if (inf) 
+        {
+          if (inf->fState&MF_GRAYED){ }
+          else if (inf->hSubMenu)
+          {
+            int a = m_trackingMenus.Find(hwnd);
+            HWND next = m_trackingMenus.Get(a+1);
+            if (next) DestroyWindow(next); 
+
+            RECT r;
+            GetClientRect(hwnd,&r);
+            m_trackingPt.x=r.right;
+            m_trackingPt.y=r.top + top_margin + which*itemheight;
+            ClientToScreen(hwnd,&m_trackingPt);
+            HWND hh;
+            inf->hSubMenu->sel_vis=-1;
+            submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd),WM_CREATE,0,(LPARAM)inf->hSubMenu);
+            SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
+          }
+          else if (inf->wID) m_trackingRet = inf->wID;
+        }
+      }
+    return 0;
+    case WM_MOUSEMOVE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        const int oldsel = menu->sel_vis;
+        if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
+        {
+          menu->sel_vis = (GET_Y_LPARAM(lParam) - top_margin)/itemheight;
+        }
+        else menu->sel_vis = -1;
+        if (oldsel != menu->sel_vis) InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
       {
@@ -473,31 +564,12 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
         {
           int which = (GET_Y_LPARAM(lParam) - top_margin)/itemheight;
-          HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-          MENUITEMINFO *inf = menu->items.Get(which);
-          if (inf) 
-          {
-            if (inf->fState&MF_GRAYED){ }
-            else if (inf->hSubMenu)
-            {
-              int a = m_trackingMenus.Find(hwnd);
-              HWND next = m_trackingMenus.Get(a+1);
-              if (next) DestroyWindow(next); 
-
-              m_trackingPt.x=r.right;
-              m_trackingPt.y=r.top + top_margin + which*itemheight;
-              ClientToScreen(hwnd,&m_trackingPt);
-              HWND hh;
-              submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd),WM_CREATE,0,(LPARAM)inf->hSubMenu);
-              SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
-            }
-            else if (inf->wID) m_trackingRet = inf->wID;
-          }
-          else DestroyWindow(hwnd);
+          SendMessage(hwnd,WM_USER+100,1,which);
+          return 0;
         }
         else DestroyWindow(hwnd);
       }
-    break;
+    return 0;
   }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
@@ -522,6 +594,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 
   if (hwnd) hwnd->Retain();
 
+  hMenu->sel_vis=-1;
   HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
 
   submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);

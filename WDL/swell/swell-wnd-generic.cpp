@@ -395,6 +395,8 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   return ret;
 }
 
+HWND GetFocusIncludeMenus();
+
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -528,8 +530,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsehwere 
             }
 
-            HWND foc = GetFocus();
+            HWND foc = GetFocusIncludeMenus();
             if (foc && IsChild(hwnd,foc)) hwnd=foc;
+            else if (foc && foc->m_oswindow && !(foc->m_style&WS_CAPTION)) hwnd=foc; // for menus, event sent to other window due to gdk_window_set_override_redirect()
+
             MSG msg = { hwnd, evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP, 
                               kv, modifiers, };
             if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)

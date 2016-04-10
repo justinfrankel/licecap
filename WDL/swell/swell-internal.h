@@ -651,10 +651,11 @@ struct HWND__
 
 struct HMENU__
 {
-  HMENU__() { }
+  HMENU__() { sel_vis = -1; }
   ~HMENU__() { items.Empty(true,freeMenuItem); }
 
   WDL_PtrList<MENUITEMINFO> items;
+  int sel_vis; // for mouse/keyboard nav
 
   HMENU__ *Duplicate();
   static void freeMenuItem(void *p);
