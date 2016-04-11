@@ -2203,22 +2203,19 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           }
 
         case CB_INSERTSTRING:
-          if ((int)wParam == -1)
-          {
-            s->items.Add(new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
-            return s->items.GetSize() - 1;
-          }
-          else
-          {
-            if (wParam > (WPARAM)s->items.GetSize()) wParam=(WPARAM)s->items.GetSize();
-            s->items.Insert(wParam,new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
-            return wParam;
-          }
-        return 0;
+          if (wParam > (WPARAM)s->items.GetSize()) wParam=(WPARAM)s->items.GetSize();
+          s->items.Insert(wParam,new __SWELL_ComboBoxInternalState_rec((const char *)lParam));
+          if (s->selidx >= (int)wParam) s->selidx++;
+        return wParam;
 
         case CB_DELETESTRING:
           if (wParam >= (WPARAM)s->items.GetSize()) return CB_ERR;
+
           s->items.Delete(wParam,true);
+
+          if (wParam == s->selidx || s->selidx >= s->items.GetSize()) { s->selidx=-1; InvalidateRect(hwnd,NULL,FALSE); }
+          else if ((int)wParam < s->selidx) s->selidx--;
+
         return s->items.GetSize();
 
         case CB_GETCOUNT: return s->items.GetSize();
@@ -2249,6 +2246,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               SetWindowText(hwnd,"");
               InvalidateRect(hwnd,NULL,FALSE);
             }
+            return CB_ERR;
           }
           else
           {
@@ -2260,6 +2258,8 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               InvalidateRect(hwnd,NULL,FALSE);
             }
           }
+        return s->selidx;
+
         case CB_GETITEMDATA:
           if (wParam < (WPARAM)s->items.GetSize()) 
           {
