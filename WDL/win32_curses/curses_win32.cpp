@@ -392,8 +392,6 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
       bool has_panes=(ctx->div_y < ctx->lines-topmarg-bottmarg-1);
       int scrollw[2] = { ctx->cols-ctx->drew_scrollbar[0], ctx->cols-ctx->drew_scrollbar[1] };
 
-      int div=1+ctx->div_y;
-      int bott=ctx->lines-1;
       if (has_panes && p.y >= ctx->div_y+1 && p.y < ctx->div_y+2) SetCursor(LoadCursor(NULL, IDC_SIZENS));
       else if (p.y < 1 || p.y >= ctx->lines-1) SetCursor(LoadCursor(NULL, IDC_ARROW));
       else if (p.y >= paney[0] && p.y < paney[0]+paneh[0] && p.x >= scrollw[0]) SetCursor(LoadCursor(NULL, IDC_ARROW));

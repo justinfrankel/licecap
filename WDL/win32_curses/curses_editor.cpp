@@ -388,7 +388,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         p.y /= CURSES_INSTANCE->m_font_h;
 
         int paney[2], paneh[2];
-        int pane_divy=GetPaneDims(paney, paneh);
+        GetPaneDims(paney, paneh);
         int pane=-1;
         if (p.y >= paney[0] && p.y < paney[0]+paneh[0]) pane=0;
         else if (p.y >= paney[1] && p.y < paney[1]+paneh[1]) pane=1;
@@ -682,7 +682,7 @@ void WDL_CursesEditor::draw_message(const char *str)
   }   
 
   int paney[2], paneh[2];
-  const int pane_divy=GetPaneDims(paney, paneh);
+  GetPaneDims(paney, paneh);
 
   const int col=m_curs_x-m_offs_x;
   int line=m_curs_y+paney[m_curpane]-m_paneoffs_y[m_curpane];
@@ -765,8 +765,6 @@ int WDL_CursesEditor::GetCommentStateForLineStart(int line) // pass current line
 
 void WDL_CursesEditor::draw(int lineidx)
 {
-  const int VISIBLE_LINES = getVisibleLines();
-
   int paney[2], paneh[2];
   const int pane_divy=GetPaneDims(paney, paneh);
 
@@ -1385,7 +1383,7 @@ int WDL_CursesEditor::onChar(int c)
         draw_status_state();
 
         int paney[2], paneh[2];
-        const int pane_divy=GetPaneDims(paney, paneh);
+        GetPaneDims(paney, paneh);
         setCursor();
       }
     break;
