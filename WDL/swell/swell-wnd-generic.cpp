@@ -105,71 +105,6 @@ static void swell_setOSwindowtext(HWND hwnd)
     gdk_window_set_title(hwnd->m_oswindow, (char*)hwnd->m_title.Get());
   }
 }
-static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
-{
-  if (!hwnd) return;
-
-  bool isVis = !!hwnd->m_oswindow;
-  bool wantVis = !hwnd->m_parent && hwnd->m_visible;
-
-  if (isVis != wantVis)
-  {
-    if (!wantVis) swell_destroyOSwindow(hwnd);
-    else 
-    {
-      if (swell_initwindowsys())
-      {
-        HWND owner = NULL; // hwnd->m_owner;
-// parent windows dont seem to work the way we'd want, yet, in gdk...
-/*        while (owner && !owner->m_oswindow)
-        {
-          if (owner->m_parent)  owner = owner->m_parent;
-          else if (owner->m_owner) owner = owner->m_owner;
-        }
-*/
- 
-        RECT r = hwnd->m_position;
-        GdkWindowAttr attr={0,};
-        attr.title = "";
-        attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
-        attr.x = r.left;
-        attr.y = r.top;
-        attr.width = r.right-r.left;
-        attr.height = r.bottom-r.top;
-        attr.wclass = GDK_INPUT_OUTPUT;
-        attr.window_type = GDK_WINDOW_TOPLEVEL;
-        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y);
- 
-        if (hwnd->m_oswindow) 
-        {
-          gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
-          gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
-          if (!wantfocus) gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
-          HWND DialogBoxIsActive();
-          if (!(hwnd->m_style & WS_CAPTION)) 
-          {
-            gdk_window_set_override_redirect(hwnd->m_oswindow,true);
-          }
-          else if (/*hwnd == DialogBoxIsActive() || */ !(hwnd->m_style&WS_THICKFRAME))
-          {
-            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
-            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE));
-          }
-          else
-          {
-            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_NORMAL);
-            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
-          }
-
-          gdk_window_show(hwnd->m_oswindow);
-        }
-      }
-    }
-  }
-  if (wantVis) swell_setOSwindowtext(hwnd);
-
-//  if (wantVis && isVis && wantfocus && hwnd && hwnd->m_oswindow) gdk_window_raise(hwnd->m_oswindow);
-}
 
 #ifdef SWELL_LICE_GDI
 class LICE_CairoBitmap : public LICE_IBitmap
@@ -247,6 +182,76 @@ private:
   cairo_surface_t *m_surf;
 };
 #endif
+
+static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
+{
+  if (!hwnd) return;
+
+  bool isVis = !!hwnd->m_oswindow;
+  bool wantVis = !hwnd->m_parent && hwnd->m_visible;
+
+  if (isVis != wantVis)
+  {
+    if (!wantVis) swell_destroyOSwindow(hwnd);
+    else 
+    {
+      if (swell_initwindowsys())
+      {
+        HWND owner = NULL; // hwnd->m_owner;
+// parent windows dont seem to work the way we'd want, yet, in gdk...
+/*        while (owner && !owner->m_oswindow)
+        {
+          if (owner->m_parent)  owner = owner->m_parent;
+          else if (owner->m_owner) owner = owner->m_owner;
+        }
+*/
+ 
+        RECT r = hwnd->m_position;
+        GdkWindowAttr attr={0,};
+        attr.title = "";
+        attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
+        attr.x = r.left;
+        attr.y = r.top;
+        attr.width = r.right-r.left;
+        attr.height = r.bottom-r.top;
+        attr.wclass = GDK_INPUT_OUTPUT;
+        attr.window_type = GDK_WINDOW_TOPLEVEL;
+        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y);
+ 
+        if (hwnd->m_oswindow) 
+        {
+          gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
+          gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
+          if (!wantfocus) gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
+          HWND DialogBoxIsActive();
+          if (!(hwnd->m_style & WS_CAPTION)) 
+          {
+            gdk_window_set_override_redirect(hwnd->m_oswindow,true);
+          }
+          else if (/*hwnd == DialogBoxIsActive() || */ !(hwnd->m_style&WS_THICKFRAME))
+          {
+            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
+            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE));
+          }
+          else
+          {
+            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_NORMAL);
+            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
+          }
+
+#ifdef SWELL_LICE_GDI
+          if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_CairoBitmap;
+#endif
+          gdk_window_show(hwnd->m_oswindow);
+        }
+      }
+    }
+  }
+  if (wantVis) swell_setOSwindowtext(hwnd);
+
+//  if (wantVis && isVis && wantfocus && hwnd && hwnd->m_oswindow) gdk_window_raise(hwnd->m_oswindow);
+}
+
 
 void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 {
