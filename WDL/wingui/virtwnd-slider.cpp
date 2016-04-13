@@ -1015,12 +1015,18 @@ bool WDL_VirtualSlider::GetAccessValueDesc(char *buf, int bufsz)
 {
   if (m_valueText.GetLength())
   {
+    if (!strcmp(m_valueText.Get(),"#"))
+    {
+      snprintf(buf,bufsz,"%d",m_pos);
+      return true;
+    }
+
     lstrcpyn_safe(buf,m_valueText.Get(),bufsz);
     return true;
   }
   if (m_minr > m_maxr)
   {
-    snprintf(buf,bufsz,"%d%%",((m_pos-m_minr)*100) / (m_maxr-m_minr));
+    snprintf(buf,bufsz,"%.1f%%",((m_pos-m_minr)*100.0) / (m_maxr-m_minr));
     return true;
   }
   return false;
