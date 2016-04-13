@@ -15,6 +15,7 @@
 #include "filewrite.h"
 #include "heapbuf.h"
 #include "wdlstring.h"
+#include "wdlcstring.h"
 #include "fastqueue.h"
 #include "lineparse.h"
 
