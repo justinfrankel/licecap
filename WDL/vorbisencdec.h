@@ -358,7 +358,7 @@ public:
     {
       inlen >>= m_ds;
       float **buffer=vorbis_analysis_buffer(&vd,inlen);
-      int i,i2=0;
+      int i=0,i2=0;
       
       if (m_nch==1)
       {
