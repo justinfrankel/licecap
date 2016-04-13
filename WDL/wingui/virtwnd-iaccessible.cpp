@@ -117,15 +117,15 @@ public:
   {
     if (IsEqualIID(riid, IID_IUnknown))
     {
-      *ppObj = this;
+      *ppObj = (IUnknown*)this;
     }
     else if (IsEqualIID(riid, IID_IAccessible))
     {
-      *ppObj = this;
+      *ppObj = (IAccessible*)this;
     }
     else if (IsEqualIID(riid, IID_IDispatch))
     {
-      *ppObj = this;
+      *ppObj = (IDispatch*)this;
     }
     else
     {
@@ -170,11 +170,11 @@ public:
   STDMETHOD(GetTypeInfoCount)(unsigned int FAR* pctinfo )
   {
     *pctinfo=0;
-    return NOERROR;
+    return E_NOTIMPL;
   }
   STDMETHOD(GetTypeInfo)(unsigned int iTInfo, LCID lcid, ITypeInfo FAR* FAR* ppTInfo)
   {
-    return S_OK;
+    return E_NOTIMPL;
   }
   STDMETHOD( GetIDsOfNames)( 
     REFIID riid, 
@@ -185,7 +185,7 @@ public:
   )
   {
     *rgDispId=0;
-    return E_OUTOFMEMORY;
+    return E_NOTIMPL;
   }
 
   STDMETHOD(Invoke)( 
@@ -199,7 +199,7 @@ public:
     unsigned int FAR* puArgErr 
   )
   {
-    return DISP_E_BADPARAMCOUNT;
+    return E_NOTIMPL;
   }
 
   // IAccessible
