@@ -133,6 +133,7 @@ HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
   HGDIOBJ__ *pen=GDP_OBJECT_NEW();
   pen->type=TYPE_PEN;
   pen->wid=wid<0?0:wid;
+  pen->alpha = alpha;
   pen->color=LICE_RGBA_FROMNATIVE(col);
   return pen;
 }
@@ -141,6 +142,7 @@ HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
   HGDIOBJ__ *brush=GDP_OBJECT_NEW();
   brush->type=TYPE_BRUSH;
   brush->color=LICE_RGBA_FROMNATIVE(col);
+  brush->alpha = alpha;
   brush->wid=0; 
   return brush;
 }
@@ -260,6 +262,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     font = GDP_OBJECT_NEW();
     font->type=TYPE_FONT;
     font->fontface = face;
+    font->alpha = 1.0f;
     ////unsure here
     if (lfWidth<0) lfWidth=-lfWidth;
     if (lfHeight<0) lfHeight=-lfHeight;
@@ -392,7 +395,7 @@ void SWELL_FillRect(HDC ctx, const RECT *r, HBRUSH br)
   LICE_FillRect(c->surface,
       r->left+c->surface_offs.x,
       r->top+c->surface_offs.y,
-      r->right-r->left,r->bottom-r->top,b->color,1.0f,LICE_BLIT_MODE_COPY);
+      r->right-r->left,r->bottom-r->top,b->color,b->alpha,LICE_BLIT_MODE_COPY);
   swell_DirtyContext(ctx,r->left,r->top,r->right,r->bottom);
 }
 
@@ -447,11 +450,11 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
 
   if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
-    LICE_FillRect(c->surface,l,t,r-l,b-t,c->curbrush->color,1.0f,LICE_BLIT_MODE_COPY);
+    LICE_FillRect(c->surface,l,t,r-l,b-t,c->curbrush->color,c->curbrush->alpha,LICE_BLIT_MODE_COPY);
   }
   if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
   {
-    LICE_DrawRect(c->surface,l,t,r-l,b-t,c->curpen->color,1.0f,LICE_BLIT_MODE_COPY);
+    LICE_DrawRect(c->surface,l,t,r-l,b-t,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY);
   }
 }
 
@@ -537,8 +540,7 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   int dx=c->surface_offs.x;
   int dy=c->surface_offs.y;
   int lx = (int)c->lastpos_x, ly = (int) c->lastpos_y;
-  LICE_Line(c->surface,x+dx,y+dy,lx+dx,ly+dy,c->curpen->color,1.0f,LICE_BLIT_MODE_COPY,false);
-
+  LICE_Line(c->surface,x+dx,y+dy,lx+dx,ly+dy,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,false);
   
 //  CGContextAddLineToPoint(c->ctx,fx,fy);
   c->lastpos_x=fx;
@@ -953,10 +955,22 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
 
 void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode)
 {
+  HDC__ *in = (HDC__ *)hdcIn;
+  HDC__ *out = (HDC__ *)hdcOut;
+  if (!HDC_VALID(out) || !HDC_VALID(in)) return;
+  if (!in->surface || !out->surface) return;
+  LICE_ScaledBlit(out->surface,in->surface,
+            x+out->surface_offs.x,y+out->surface_offs.y,w,h,
+            xin+in->surface_offs.x,yin+in->surface_offs.y,srcw,srch,
+            1.0f,LICE_BLIT_MODE_COPY);
+  swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
 void SWELL_FillDialogBackground(HDC hdc, const RECT *r, int level)
 {
+  HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+  FillRect(hdc,r,br);
+  DeleteObject(br);
 }
 
 HGDIOBJ SWELL_CloneGDIObject(HGDIOBJ a)
@@ -1299,6 +1313,7 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 
   HGDIOBJ__* icon=GDP_OBJECT_NEW();
   icon->type=TYPE_BITMAP;
+  icon->alpha = 1.0f;
   icon->wid=1;
   // todo: copy underlying image
 
@@ -1349,7 +1364,6 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
   } 
   return 0;
 }
-
 
 #endif
 

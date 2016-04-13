@@ -671,6 +671,8 @@ struct HGDIOBJ__
   int color;
   int wid;
 
+  float alpha;
+
   struct HGDIOBJ__ *_next;
   bool _infreelist;
 #ifdef SWELL_FREETYPE
