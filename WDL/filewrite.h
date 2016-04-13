@@ -276,7 +276,7 @@ public:
    {
      if (m_bufspace.GetSize() > 0 && m_bufspace_used>0)
      {
-       int v=pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
+       int v=(int)pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
        if (v>0) m_file_position+=v;
        if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
        m_bufspace_used=0;
@@ -398,7 +398,7 @@ public:
        }
        if (m_bufspace_used >= m_bufspace.GetSize())
        {
-         int v=pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
+         int v=(int)pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
          if (v>0) m_file_position+=v;
          m_bufspace_used=0;
        }
@@ -407,7 +407,7 @@ public:
    }
    else
    {
-     int v=pwrite(m_filedes,buf,len,m_file_position);
+     int v=(int)pwrite(m_filedes,buf,len,m_file_position);
      if (v>0) m_file_position+=v;
      if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
      return v;
@@ -594,7 +594,7 @@ public:
     if (m_filedes < 0) return true;
     if (m_bufspace.GetSize() > 0 && m_bufspace_used>0)
     {
-      int v=pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
+      int v=(int)pwrite(m_filedes,m_bufspace.Get(),m_bufspace_used,m_file_position);
       if (v>0) m_file_position+=v;
       if (m_file_position > m_file_max_position) m_file_max_position=m_file_position;
       m_bufspace_used=0;

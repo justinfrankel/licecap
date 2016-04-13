@@ -441,10 +441,10 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
         const int maxl=(int) (buf+buf_sz - 2 - op);
         if (wr && !fs[2]) // %s or %S -- todo: implement padding modes for binary compat too?
         {
-          int l = wr->GetLength();
-          if (l > maxl) l=maxl;
-          memcpy(op,wr->Get(),l);
-          op += l;
+          int wl = wr->GetLength();
+          if (wl > maxl) wl=maxl;
+          memcpy(op,wr->Get(),wl);
+          op += wl;
           *op=0;
         }
         else

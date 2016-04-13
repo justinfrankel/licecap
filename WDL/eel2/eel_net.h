@@ -331,7 +331,7 @@ int eel_net_state::do_recv(void *opaque, EEL_F h, char *buf, int maxlen)
 
     if (maxlen == 0) return 0;
 
-    const int rv=recv(s->sock,buf,maxlen,0);
+    const int rv=(int)recv(s->sock,buf,maxlen,0);
     if (rv < 0 && !s->blockmode && (ERRNO == EWOULDBLOCK||ERRNO==ENOTCONN)) return 0;
 
     if (!rv) return -1; // TCP, 0=connection terminated
@@ -355,7 +355,7 @@ int eel_net_state::do_send(void *opaque, EEL_F h, const char *src, int len)
       EEL_STRING_DEBUGOUT("tcp_send: connection identifier %f is not open",h);
 #endif
     if (__run(s) || s->sock == INVALID_SOCKET) return s->state == STATE_ERR ? -1 : 0;
-    const int rv=send(s->sock,src,len,0);
+    const int rv=(int)send(s->sock,src,len,0);
     if (rv < 0 && !s->blockmode && (ERRNO == EWOULDBLOCK || ERRNO==ENOTCONN)) return 0;
     return rv;
   }

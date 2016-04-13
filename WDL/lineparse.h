@@ -117,7 +117,6 @@ class LineParserInt // version which does not have any temporary space for buffe
 
         const char *basep = line;
 
-        char thischar;
         if (!lstate) while ((thischar=*line) && thischar != ' ' && thischar != '\t') line++;
         else while ((thischar=*line) && thischar != tab[lstate]) line++;
 
@@ -191,7 +190,7 @@ class LineParserInt // version which does not have any temporary space for buffe
       }
       char *tmp;
       int l;
-      if (tok[0] == '-') l=strtol(tok,&tmp,0);
+      if (tok[0] == '-') l=(int)strtol(tok,&tmp,0);
       else l=(int)strtoul(tok,&tmp,0);
       if (success) *success=! (int)(*tmp);
       return l;

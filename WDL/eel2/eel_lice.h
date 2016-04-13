@@ -544,7 +544,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_circle(void *opaque, INT_PTR np, EEL_F **parms
 static EEL_F NSEEL_CGEN_CALL _gfx_triangle(void* opaque, INT_PTR np, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_triangle(parms, np);
+  if (ctx) ctx->gfx_triangle(parms, (int)np);
   return 0.0;
 }
 
@@ -595,7 +595,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **p
   if (ctx && nparms>0) 
   {
     EEL_F v= **parms;
-    ctx->gfx_drawstr(opaque,parms,nparms,1);
+    ctx->gfx_drawstr(opaque,parms,(int)nparms,1);
     return v;
   }
   return 0.0;
@@ -1464,7 +1464,7 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
   const char* sep=strchr(p, '|');
   while (sep || *p)
   {
-    int len = (sep ? sep-p : strlen(p));
+    int len = (int)(sep ? sep-p : strlen(p));
     int destlen=wdl_min(len, sizeof(buf)-1);
     lstrcpyn(buf, p, destlen+1);
     p += len;
@@ -1687,11 +1687,8 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
   
   if (*m_gfx_clear > -1.0)
   {
-    int a=(int)*m_gfx_clear;
-    int r=a&0xff;
-    int g=(a>>8)&0xff;
-    int b=(a>>16)&0xff;
-    if (LICE_FUNCTION_VALID(LICE_Clear)) LICE_Clear(m_framebuffer,LICE_RGBA(r,g,b,0));
+    const int a=(int)*m_gfx_clear;
+    if (LICE_FUNCTION_VALID(LICE_Clear)) LICE_Clear(m_framebuffer,LICE_RGBA((a&0xff),((a>>8)&0xff),((a>>16)&0xff),0));
   }
 
   int vflags=0;

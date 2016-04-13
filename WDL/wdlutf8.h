@@ -148,7 +148,7 @@ static int WDL_MBtoWideStr(WDL_WCHAR *dest, const char *src, int destlenbytes)
     src+=sz;
   }
   *w=0; 
-  return w-dest;
+  return (int)(w-dest);
 }
 
 
@@ -182,7 +182,7 @@ static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
 
   if (src) while (*src && p < dest_endp)
   {
-    const int v = wdl_utf8_makechar(*src++,p,dest_endp-p);
+    const int v = wdl_utf8_makechar(*src++,p,(int)(dest_endp-p));
     if (v > 0)
     {
       p += v;
@@ -190,7 +190,7 @@ static int WDL_WideToMBStr(char *dest, const WDL_WCHAR *src, int destlenbytes)
     else if (v == 0) break; // out of space
   }
   *p=0;
-  return p-dest;
+  return (int)(p-dest);
 }
 
 // returns >0 if UTF-8, -1 if 8-bit chars occur that are not UTF-8, or 0 if ASCII

@@ -56,8 +56,8 @@ class XS1024Rand {
        if (bufsz > (int) sizeof(st)) bufsz = (int) sizeof(st);
        if (buf)
        {
-         const unsigned char *p = (const unsigned char *)buf;
-         while (bufsz-->0) *wr++ += *p++;
+         const unsigned char *rd = (const unsigned char *)buf;
+         while (bufsz-->0) *wr++ += *rd++;
        }
      }
 };
