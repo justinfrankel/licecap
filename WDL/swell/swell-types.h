@@ -1349,6 +1349,8 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 #define INFINITE            0xFFFFFFFF
 
 
+#define FR_PRIVATE 1 // AddFontResourceEx()
+
 typedef struct _ICONINFO
 {
   BOOL fIcon;

@@ -676,6 +676,10 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 }
 
 
+int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
+{
+  return 0;
+}
 
 
 #endif
