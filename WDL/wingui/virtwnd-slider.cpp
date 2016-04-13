@@ -1024,7 +1024,7 @@ bool WDL_VirtualSlider::GetAccessValueDesc(char *buf, int bufsz)
     lstrcpyn_safe(buf,m_valueText.Get(),bufsz);
     return true;
   }
-  if (m_minr > m_maxr)
+  if (m_maxr > m_minr)
   {
     snprintf(buf,bufsz,"%.1f%%",((m_pos-m_minr)*100.0) / (m_maxr-m_minr));
     return true;
