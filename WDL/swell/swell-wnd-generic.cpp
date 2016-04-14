@@ -2148,7 +2148,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           HBRUSH br = CreateSolidBrush(RGB(255,255,255)); // todo edit colors
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
-          SetTextColor(ps.hdc,RGB(0,0,0)); // todo edit colors
+          SetTextColor(ps.hdc,hwnd->m_enabled?RGB(0,0,0):RGB(192,192,192)); // todo edit colors
           SetBkMode(ps.hdc,TRANSPARENT);
           const char *buf = hwnd->m_title.Get();
           r.left+=2; r.right-=2;
