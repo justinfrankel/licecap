@@ -82,6 +82,7 @@ extern "C" {
   char *WDL_remove_fileext(char *str); // returns pointer to "ext" if ".ext" was removed (zero-d dot), or NULL
   char WDL_remove_filepart(char *str); // returns dir character that was zeroed, or 0 if new string is empty
   int WDL_remove_trailing_dirchars(char *str); // returns trailing dirchar count removed, will not convert "/" into ""
+  size_t WDL_remove_trailing_crlf(char *str); // returns new length
 
 
   #if defined(_WIN32) && defined(_MSC_VER)
@@ -206,6 +207,15 @@ extern "C" {
     }
     *p = 0;
     return cnt;
+  }
+
+  _WDL_CSTRING_PREFIX size_t WDL_remove_trailing_crlf(char *str) // returns new length
+  {
+    char *p=str;
+    while (*p) p++;
+    while (p > str && (p[-1] == '\r' || p[-1] == '\n')) p--;
+    *p = 0;
+    return p-str;
   }
 
   _WDL_CSTRING_PREFIX void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, int count, const char *format, ...)
