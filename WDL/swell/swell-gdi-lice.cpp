@@ -1021,7 +1021,7 @@ struct swell_gdpLocalContext
 
 HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
 {
-  if (!h) return NULL;
+  if (!h || !IsWindowVisible(h)) return NULL;
 
   int xoffs=0,yoffs=0;
   int wndw = h->m_position.right-h->m_position.left;
