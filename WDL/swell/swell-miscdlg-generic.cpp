@@ -579,7 +579,19 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
                        char *fn, int fnsize)
 {
   BrowseFile_State state( text, initialdir, initialfile, extlist, BrowseFile_State::SAVE, fn, fnsize );
-  return !!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state);
+  if (!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state)) return false;
+  if (fn && fnsize > 0 && extlist && *extlist && WDL_get_fileext(fn)[0] != '.')
+  {
+    const char *erd = extlist+strlen(extlist)+1;
+    if (*erd == '*' && erd[1] == '.') // add default extension
+    {
+      const char *a = (erd+=1);
+      while (*erd && *erd != ';') erd++;
+      if (erd > a+1) snprintf_append(fn,fnsize,"%.*s",(int)(erd-a),a);
+    }
+  }
+
+  return true;
 }
 
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
