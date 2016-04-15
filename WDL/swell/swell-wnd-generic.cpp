@@ -2180,7 +2180,7 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           SetBkColor(ps.hdc,GetSysColor(COLOR_WINDOW));
           HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
           if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
-          SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+          SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT) : RGB(128,128,128));
           SetBkMode(ps.hdc,hbrush ? TRANSPARENT : OPAQUE);
           if (hbrush) FillRect(ps.hdc,&r,hbrush);
           const char *buf = hwnd->m_title.Get();
