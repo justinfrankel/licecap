@@ -1823,10 +1823,24 @@ static HWND swell_makeButton(HWND owner, int idx, RECT *tr, const char *label, b
 
 
 #ifndef SWELL_ENABLE_VIRTWND_CONTROLS
+struct buttonWindowState
+{
+  buttonWindowState() { bitmap=0; bitmap_mode=0; state=0; }
+  ~buttonWindowState() { /* if (bitmap) DeleteObject(bitmap);  */ }
+
+  HICON bitmap;
+  int bitmap_mode;
+  int state;
+};
+
 static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
   {
+    case WM_DESTROY:
+      delete (buttonWindowState *)hwnd->m_private_data;
+      hwnd->m_private_data=0;
+    break;
     case WM_LBUTTONDOWN:
       SetCapture(hwnd);
       SendMessage(hwnd,WM_USER+100,0,0); // invalidate
@@ -1836,6 +1850,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     case WM_LBUTTONUP:
       if (GetCapture()==hwnd)
       {
+        buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
         ReleaseCapture(); // WM_CAPTURECHANGED will take care of the invalidate
         RECT r;
         GetClientRect(hwnd,&r);
@@ -1845,15 +1860,15 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           int sf = (hwnd->m_style & 0xf);
           if (sf == BS_AUTO3STATE)
           {
-            int a = hwnd->m_private_data&3;
+            int a = s->state&3;
             if (a==0) a=1;
             else if (a==1) a=2;
             else a=0;
-            hwnd->m_private_data = (a) | (hwnd->m_private_data&~3);
+            s->state = (a) | (s->state&~3);
           }    
           else if (sf == BS_AUTOCHECKBOX)
           {
-            hwnd->m_private_data = (!(hwnd->m_private_data&3)) | (hwnd->m_private_data&~3);
+            s->state = (!(s->state&3)) | (s->state&~3);
           }
           else if (sf == BS_AUTORADIOBUTTON)
           {
@@ -1868,6 +1883,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         PAINTSTRUCT ps;
         if (BeginPaint(hwnd,&ps))
         {
+          buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
           RECT r; 
           GetClientRect(hwnd,&r); 
           bool pressed = GetCapture()==hwnd;
@@ -1887,7 +1903,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
             if (sf == BS_AUTOCHECKBOX || sf == BS_AUTO3STATE)
             {
-              int st = (int)(hwnd->m_private_data&3);
+              int st = (int)(s->state&3);
               if (st==3||(st==2 && (hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)) st=1;
               
               HBRUSH br = CreateSolidBrush(st==2?RGB(192,192,192):RGB(255,255,255));
@@ -1947,14 +1963,28 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             {
               r.left+=2;
               r.top+=2;
+              if (s->bitmap) { r.right+=2; r.bottom+=2; }
             }
           }
 
-
-          char buf[512];
-          buf[0]=0;
-          GetWindowText(hwnd,buf,sizeof(buf));
-          if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
+          if (s->bitmap)
+          {
+            BITMAP inf={0,};
+            GetObject(s->bitmap,sizeof(BITMAP),&inf);
+            RECT cr;
+            cr.left = (r.right+r.left - inf.bmWidth)/2;
+            cr.top = (r.bottom+r.top - inf.bmHeight)/2;
+            cr.right = cr.left+inf.bmWidth;
+            cr.bottom = cr.top+inf.bmHeight;
+            DrawImageInRect(ps.hdc,s->bitmap,&cr);
+          }
+          else
+          {
+            char buf[512];
+            buf[0]=0;
+            GetWindowText(hwnd,buf,sizeof(buf));
+            if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
+          }
 
 
           EndPaint(hwnd,&ps);
@@ -1964,16 +1994,36 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     case BM_GETCHECK:
       if (hwnd)
       {
-        return (hwnd->m_private_data&3)==2 ? 1 : (hwnd->m_private_data&3); 
+        buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
+        return (s->state&3)==2 ? 1 : (s->state&3); 
+      }
+    return 0;
+    case BM_GETIMAGE:
+      if (wParam != IMAGE_BITMAP && wParam != IMAGE_ICON) return 0; // ignore unknown types
+      {
+        buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
+        return (LRESULT) s->bitmap;
+      }
+    return 0;
+    case BM_SETIMAGE:
+      if (wParam == IMAGE_BITMAP || wParam == IMAGE_ICON)
+      {
+        buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
+        LRESULT res = (LRESULT)s->bitmap;
+        s->bitmap = (HICON)lParam;
+        s->bitmap_mode = wParam;
+        InvalidateRect(hwnd,NULL,FALSE);
+        return res;
       }
     return 0;
     case BM_SETCHECK:
       if (hwnd)
       {
+        buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
         int check = (int)wParam;
-        INT_PTR op = hwnd->m_private_data;
-        hwnd->m_private_data=(check > 2 || check<0 ? 1 : (check&3)) | (hwnd->m_private_data&~3);
-        if (hwnd->m_private_data == op) break; 
+        INT_PTR op = s->state;
+        s->state=(check > 2 || check<0 ? 1 : (check&3)) | (s->state&~3);
+        if (s->state == op) break; 
       }
       else
       {
@@ -1999,6 +2049,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 static HWND swell_makeButton(HWND owner, int idx, RECT *tr, const char *label, bool vis, int style)
 {
   HWND hwnd = new HWND__(owner,idx,tr,label,vis,buttonWindowProc);
+  hwnd->m_private_data = (INT_PTR) new buttonWindowState;
   hwnd->m_classname = "Button";
   hwnd->m_style = style|WS_CHILD;
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
