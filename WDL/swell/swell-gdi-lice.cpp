@@ -1323,7 +1323,25 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
 
 HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits)
 {
-  return NULL;
+  if (width < 1 || height < 1 || numplanes != 1 || bitsperpixel != 32 || !bits) return NULL;
+  LICE_MemBitmap *bm = new LICE_MemBitmap(width,height);
+  if (!bm->getBits()) { delete bm; return NULL; }
+  int y;
+  LICE_pixel *wr = bm->getBits();
+  for (y=0;y<height; y++)
+  {
+    memcpy(wr,bits,width*4);
+    bits += width*4;
+    wr += bm->getRowSpan();
+  }
+  
+  
+
+  HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  icon->type=TYPE_BITMAP;
+  icon->wid=1;
+  icon->typedata = (void*)bm;
+  return icon;
 }
 
 HICON CreateIconIndirect(ICONINFO* iconinfo)
