@@ -2597,6 +2597,8 @@ struct listViewState
     m_last_row_height = 0;
     m_scroll_x=m_scroll_y=0;
     m_capmode=0;
+    m_status_imagelist = NULL;
+    m_status_imagelist_type = 0;
   } 
   ~listViewState()
   { 
@@ -2691,20 +2693,43 @@ struct listViewState
     }
     return false;
   }
-  void clear_sel()
+  bool clear_sel()
   {
-    if (!m_is_multisel) m_selitem = -1;
-    else if (m_owner_data_size<0)
+    if (!m_is_multisel) 
     {
-      int x;
-      const int n=m_data.GetSize();
-      for (x=0;x<n;x++) m_data.Get(x)->m_tmp&=~1;
+      if (m_selitem != -1) { m_selitem = -1; return true; }
+      return false;
     }
-    else m_owner_multisel_state.Resize(0,false);
+
+    if (m_owner_data_size<0)
+    {
+      bool rv=false;
+      const int n=m_data.GetSize();
+      for (int x=0;x<n;x++) 
+      {
+        int *a = &m_data.Get(x)->m_tmp;
+        if (*a&1)
+        {
+          *a&=~1;
+          rv=true;
+        }
+      }
+      return rv;
+    }
+
+    bool rv=false;
+    int n = m_owner_multisel_state.GetSize();
+    if (n > m_owner_data_size) n=m_owner_data_size;
+    for(int x=0;x<n;x++) if (m_owner_multisel_state.Get()[x]) { rv=true; break; }
+
+    m_owner_multisel_state.Resize(0,false);
+    return rv;
   }
   
 
   bool m_is_multisel, m_is_listbox;
+  WDL_PtrList<HGDIOBJ__> *m_status_imagelist;
+  int m_status_imagelist_type;
 };
 
 static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -2768,57 +2793,64 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         const int hit = ypos >= 0 ? ((ypos+lvs->m_scroll_y) / row_height) : -1;
         if (hit < 0)
         {
-          // column click handling
+          // todo: column click handling
+          return 1;
         }
-        else if (!lvs->m_is_multisel)
+
+        if (!lvs->m_is_multisel)
         {
+          const int oldsel = lvs->m_selitem;
           if (hit >= 0 && hit < n) lvs->m_selitem = hit;
           else lvs->m_selitem = -1;
 
           if (lvs->m_is_listbox)
           {
-            SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+            if (oldsel != lvs->m_selitem) SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
           }
           else
           {
-            NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : LVN_ITEMCHANGED},lvs->m_selitem,0,LVIS_SELECTED,};
+            NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,0,0,};
             SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            if (oldsel != lvs->m_selitem) 
+            {
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},lvs->m_selitem,0,LVIS_SELECTED,};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            }
           }
           InvalidateRect(hwnd,NULL,FALSE);
         }
         else 
         {
-          if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) lvs->clear_sel();
-          if (lvs->m_is_multisel) 
+          bool changed = false;
+          if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) changed |= lvs->clear_sel();
+          if ((GetAsyncKeyState(VK_SHIFT)&0x8000) && lvs->m_selitem >= 0)
           {
-            if ((GetAsyncKeyState(VK_SHIFT)&0x8000) && lvs->m_selitem >= 0)
-            {
-              int a=lvs->m_selitem;
-              int b = hit;
-              if (a>b) { b=a; a=hit; }
-              while (a<=b) lvs->set_sel(a++,true);
-            }
-            else
-            {
-              lvs->m_selitem = hit;
-              lvs->set_sel(hit,!lvs->get_sel(hit));
-            }
+            int a=lvs->m_selitem;
+            int b = hit;
+            if (a>b) { b=a; a=hit; }
+            while (a<=b) changed |= lvs->set_sel(a++,true);
           }
           else
           {
             lvs->m_selitem = hit;
+            changed |= lvs->set_sel(hit,!lvs->get_sel(hit));
           }
 
           if (hit >=0 && hit < n) 
           {
             if (lvs->m_is_listbox)
             {
-              SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+              if (changed) SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
             }
             else
             {
-              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,0,LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+              if (changed)
+              {
+                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
+                SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+              }
             }
           }
 
@@ -2871,17 +2903,17 @@ forceMouseMove:
         PAINTSTRUCT ps;
         if (BeginPaint(hwnd,&ps))
         {
-          RECT r; 
-          GetClientRect(hwnd,&r); 
+          RECT cr; 
+          GetClientRect(hwnd,&cr); 
           HBRUSH br = CreateSolidBrush(RGB(255,255,255));
-          FillRect(ps.hdc,&r,br);
+          FillRect(ps.hdc,&cr,br);
           DeleteObject(br);
           br=CreateSolidBrush(RGB(128,128,255));
           if (lvs) 
           {
             TEXTMETRIC tm; 
             GetTextMetrics(ps.hdc,&tm);
-            const int row_height = tm.tmHeight;
+            const int row_height = tm.tmHeight + 4;
             lvs->m_last_row_height = row_height;
             lvs->sanitizeScroll(hwnd);
 
@@ -2897,12 +2929,14 @@ forceMouseMove:
 
             SetTextColor(ps.hdc,RGB(0,0,0));
             int x;
-            for (x = 0; x < n && ypos < r.bottom; x ++)
+            const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+
+            for (x = 0; x < n && ypos < cr.bottom; x ++)
             {
               const char *str = NULL;
               char buf[4096];
 
-              RECT tr={r.left,ypos,r.right,ypos + row_height};
+              RECT tr={cr.left,ypos,cr.right,ypos + row_height};
               if (tr.bottom < hdr_size) 
               {
                 ypos += row_height;
@@ -2916,58 +2950,114 @@ forceMouseMove:
 
               SWELL_ListView_Row *row = lvs->m_data.Get(x);
               int col,xpos=0;
-              for (col = 0; col < nc; col ++)
+              for (col = 0; col < nc && xpos < cr.right; col ++)
               {
-                // todo: multiple columns too
+                int image_idx = 0;
                 if (owner_data)
                 {
-                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, x,col, 0,0, buf, sizeof(buf) }};
+                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, x,col, 0,0, buf, sizeof(buf), -1 }};
+                  if (!col && has_image)
+                  {
+                    if (lvs->m_status_imagelist_type == LVSIL_STATE) nm.item.mask |= LVIF_STATE;
+                    else if (lvs->m_status_imagelist_type == LVSIL_SMALL) nm.item.mask |= LVIF_IMAGE;
+
+                  }
                   buf[0]=0;
                   SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
                   str=buf;
+                  if (!col && has_image)
+                  {
+                    if (lvs->m_status_imagelist_type == LVSIL_STATE) image_idx=(nm.item.state>>16)&0xff;
+                    else if (lvs->m_status_imagelist_type == LVSIL_SMALL) image_idx = nm.item.iImage + 1;
+                  }
                 }
                 else
                 {
+                  if (!col && has_image) image_idx = row->m_imageidx;
                   if (row) str = row->m_vals.Get(col);
+                }
+
+                RECT ar;
+                if (!col && has_image)
+                {
+                  if (has_image && image_idx>0) 
+                  {
+                    HICON icon = lvs->m_status_imagelist->Get(image_idx-1);      
+                    if (icon)
+                    {
+                      ar=tr;
+                      ar.left += xpos;
+                      ar.right = ar.left + row_height;
+                      DrawImageInRect(ps.hdc,icon,&ar);
+                    }
+                  }
+
+                  xpos += row_height;
                 }
   
                 if (str) 
                 {
-                  RECT ar=tr;
+                  ar=tr;
                   if (ncols > 0)
                   {
                     ar.left += xpos;
-                    ar.right = ar.left + cols[col].xwid;
+                    ar.right = ar.left + cols[col].xwid - 3;
                     xpos += cols[col].xwid;
                   }
-                  DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+                  if (ar.right > ar.left)
+                    DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
                 }
               }        
               ypos += row_height;
             }
             if (hdr_size)
             {
-              HBRUSH br = CreateSolidBrush(RGB(192,192,192));
-              int x,xpos=0, ypos=0;
-              SetTextColor(ps.hdc,RGB(0,0,0));
+              HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+              HBRUSH br2 = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
+              HBRUSH br3 = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+              int x,xpos=(has_image ? row_height : 0), ypos=0;
+              SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+              if (xpos>0) 
+              {
+                RECT tr={0,ypos,xpos,ypos+hdr_size-2 };
+                FillRect(ps.hdc,&tr,br);
+              }
               for (x=0; x < ncols; x ++)
               {
                 RECT tr={xpos,ypos,0,ypos + hdr_size - 2 };
                 xpos += cols[x].xwid;
-                tr.right = xpos - 2;
+                tr.right = xpos;
                
                 if (tr.right > tr.left) 
                 {
-                  FillRect(ps.hdc,&tr,br);
+                  RECT a=tr;
+                  a.right=a.left+1; FillRect(ps.hdc,&a,br2); a=tr;
+                  a.bottom=a.top+1; FillRect(ps.hdc,&a,br2); a=tr;
+                  a.left=a.right-1; FillRect(ps.hdc,&a,br3); a=tr;
+                  a.top=a.bottom-1; FillRect(ps.hdc,&a,br3); a=tr;
+
+                  a.left++; a.top++; a.right--; a.bottom--;
+                  FillRect(ps.hdc,&a,br);
                   if (cols[x].name) 
+                  {
+                    tr.left += wdl_min((tr.right-tr.left)/4,4);
                     DrawText(ps.hdc,cols[x].name,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+                  }
                 }
+                if (xpos >= cr.right) break;
+              }
+              if (xpos < cr.right)
+              {
+                RECT tr={xpos,ypos,cr.right,ypos+hdr_size-2 };
+                FillRect(ps.hdc,&tr,br);
               }
               DeleteObject(br);
+              DeleteObject(br2);
+              DeleteObject(br3);
             }
-            if (n * row_height > r.bottom - hdr_size)
+            if (n * row_height > cr.bottom - hdr_size)
             {
-              const int wh = (r.bottom-hdr_size);
+              const int wh = (cr.bottom-hdr_size);
               const double isz = wh / (double) (n * row_height);
               int thumbsz = (int) (wh * isz + 0.5);
               int thumbpos = (int) (lvs->m_scroll_y * isz + 0.5);
@@ -2976,7 +3066,7 @@ forceMouseMove:
 
               HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
               HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
-              RECT fr = { r.right-row_height, hdr_size, r.right,hdr_size+thumbpos};
+              RECT fr = { cr.right-row_height, hdr_size, cr.right,hdr_size+thumbpos};
               if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
 
               fr.top = fr.bottom;
@@ -2984,7 +3074,7 @@ forceMouseMove:
               if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br);
 
               fr.top = fr.bottom;
-              fr.bottom = r.bottom;
+              fr.bottom = cr.bottom;
               if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
 
               DeleteObject(br);
@@ -3697,8 +3787,10 @@ void SWELL_SetListViewFastClickMask(HWND hList, int mask)
 
 void ListView_SetImageList(HWND h, HIMAGELIST imagelist, int which)
 {
-  if (!h || !imagelist || which != LVSIL_STATE) return;
-  
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return;
+  lvs->m_status_imagelist= (WDL_PtrList<HGDIOBJ__> *)imagelist;
+  lvs->m_status_imagelist_type = which;
 }
 
 int ListView_GetColumnWidth(HWND h, int pos)
@@ -3753,6 +3845,7 @@ int ListView_InsertItem(HWND h, const LVITEM *item)
   row->m_vals.Add((item->mask&LVIF_TEXT) && item->pszText ? strdup(item->pszText) : NULL);
   row->m_param = (item->mask&LVIF_PARAM) ? item->lParam : 0;
   row->m_tmp = ((item->mask & LVIF_STATE) && (item->state & LVIS_SELECTED)) ? 1:0;
+  if ((item->mask&LVIF_STATE) && (item->stateMask & (0xff<<16))) row->m_imageidx=(item->state>>16)&0xff;
   lvs->m_data.Insert(idx,row); 
   InvalidateRect(h,NULL,FALSE);
   return idx;
@@ -3809,6 +3902,10 @@ bool ListView_SetItem(HWND h, LVITEM *item)
     if (item->mask & LVIF_PARAM) 
     {
       row->m_param = item->lParam;
+    }
+    if (item->mask&LVIF_IMAGE)
+    {
+      row->m_imageidx=item->iImage+1;
     }
   }
   else 
@@ -3893,6 +3990,16 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
         changed=true;
         lvs->m_selitem = ipos;
       }
+    }
+  }
+  if ((statemask & (0xff<<16)) && lvs->m_status_imagelist_type == LVSIL_STATE) 
+  {
+    SWELL_ListView_Row *row = lvs->m_data.Get(ipos);
+    if (row)
+    {
+      const int idx= row->m_imageidx;
+      row->m_imageidx=(state>>16)&0xff;
+      if (!changed && idx != row->m_imageidx) ListView_RedrawItems(h,ipos,ipos);
     }
   }
 
@@ -4003,7 +4110,7 @@ int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
     pinf->iItem=hit;
     if (pinf->iItem >= 0)
     {
-      if (0) //tv->m_status_imagelist && pt.x <= [tv rowHeight])
+      if (lvs->m_status_imagelist && x < lvs->m_last_row_height)
       {
         pinf->flags=LVHT_ONITEMSTATEICON;
       }
@@ -4028,6 +4135,8 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   const int row = ListView_HitTest(h, pinf);
   int x,xpos=0,idx=0;
   const int n=lvs->m_cols.GetSize();
+  const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+  if (has_image) xpos += lvs->m_last_row_height;
   for (x=0;x<n;x++)
   {
     const int xwid = lvs->m_cols.Get()[x].xwid;

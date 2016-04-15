@@ -957,7 +957,7 @@ void DrawImageInRect(HDC hdcOut, HICON in, const RECT *r)
   LICE_ScaledBlit(out->surface,src,
             x+out->surface_offs.x,y+out->surface_offs.y,w,h,
             0,0, src->getWidth(),src->getHeight(),
-            1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+            1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
   swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
