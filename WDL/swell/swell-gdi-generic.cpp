@@ -183,7 +183,6 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   
     if (p->type == TYPE_FONT)
     {
-//      CGContextSelectFont(c->ctx,p->fontface,(float)p->wid,kCGEncodingMacRoman);
     }
   }
   return op;

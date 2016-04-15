@@ -261,7 +261,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   {
     font = GDP_OBJECT_NEW();
     font->type=TYPE_FONT;
-    font->fontface = face;
+    font->typedata = face;
     font->alpha = 1.0f;
     ////unsure here
     if (lfWidth<0) lfWidth=-lfWidth;
@@ -302,16 +302,21 @@ void DeleteObject(HGDIOBJ pen)
         if (p->type == TYPE_FONT)
         {
 #ifdef SWELL_FREETYPE
-          if (p->fontface)
+          if (p->typedata)
           {
-            FT_Done_Face((FT_Face)p->fontface);
-            p->fontface = 0;
+            FT_Done_Face((FT_Face)p->typedata);
+            p->typedata = 0;
           }
 #endif
         }
         else if (p->type == TYPE_PEN || p->type == TYPE_BRUSH)
         {
           if (p->wid<0) return;
+        }
+        else if (p->type == TYPE_BITMAP)
+        { 
+          if (p->wid>0) delete (LICE_IBitmap *)p->typedata;
+          p->typedata = NULL;
         }
   
         GDP_OBJECT_DELETE(p);
@@ -629,9 +634,9 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 
 #ifdef SWELL_FREETYPE
   HGDIOBJ__  *font  = HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
-  if (font && font->fontface)
+  if (font && font->typedata)
   {
-    FT_Face face=(FT_Face) font->fontface;
+    FT_Face face=(FT_Face) font->typedata;
     tm->tmAscent = face->size->metrics.ascender/64;
     tm->tmDescent = face->size->metrics.descender/64;
     tm->tmHeight = face->size->metrics.height/64;
@@ -658,9 +663,9 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   int ascent=0;
   font  = HDC_VALID(ct) && HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
   FT_Face face = NULL;
-  if (font && font->fontface) 
+  if (font && font->typedata) 
   {
-    face=(FT_Face)font->fontface;
+    face=(FT_Face)font->typedata;
     lineh = face->size->metrics.height/64;
     ascent = face->size->metrics.ascender/64;
     charw = face->size->metrics.max_advance/64;
@@ -871,12 +876,89 @@ void SetTextColor(HDC ctx, int col)
 
 HICON LoadNamedImage(const char *name, bool alphaFromMask)
 {
+#ifdef SWELL_TARGET_GDK
+  char buf[1024];
+  GdkPixbuf *pb = NULL;
+  if (strstr(name,"/")) 
+  {
+    lstrcpyn_safe(buf,name,sizeof(buf));
+    pb = gdk_pixbuf_new_from_file(buf,NULL);
+  }
+  else
+  {
+    GetModuleFileName(NULL,buf,sizeof(buf));
+    WDL_remove_filepart(buf);
+    snprintf_append(buf,sizeof(buf),"/Resources/%s.ico",name);
+    pb = gdk_pixbuf_new_from_file(buf,NULL);
+    if (!pb)
+    {
+      WDL_remove_fileext(buf);
+      lstrcatn(buf,".bmp",sizeof(buf));
+      pb = gdk_pixbuf_new_from_file(buf,NULL);
+    }
+  }
+  if (pb)
+  {
+    HGDIOBJ__ *ret=NULL;
+    const int w = gdk_pixbuf_get_width(pb), h = gdk_pixbuf_get_height(pb);
+    const int bpc = gdk_pixbuf_get_bits_per_sample(pb), chan = gdk_pixbuf_get_n_channels(pb);
+    const int alpha = gdk_pixbuf_get_has_alpha(pb);
+    const guchar *rd = gdk_pixbuf_get_pixels(pb);
+    if (bpc == 8 && (chan == 4 || chan == 3) && w > 0 && h>0 && rd)
+    {
+      LICE_MemBitmap *bm = new LICE_MemBitmap(w,h);
+      LICE_pixel_chan *wr = (LICE_pixel_chan*)bm->getBits();
+      if (wr)
+      {
+        const int rdadv = gdk_pixbuf_get_rowstride(pb);
+        const int wradv = bm->getRowSpan()*4;
+        const unsigned char alphamod = !alpha ? 255 : 0;
+        int y;
+        for (y=0;y <h; y++)
+        {
+          int x;
+          for (x=0;x<w;x++)
+          {
+            wr[LICE_PIXEL_R] = rd[0];
+            wr[LICE_PIXEL_G] = rd[1];
+            wr[LICE_PIXEL_B] = rd[2];
+            wr[LICE_PIXEL_A] = chan==4 ? (rd[LICE_PIXEL_A] | alphamod) : 255;
+            wr+=4; rd+=chan;
+          }
+          wr+=wradv-w*4;
+          rd+=rdadv-w*chan;
+        }
+        ret=GDP_OBJECT_NEW();
+        ret->type=TYPE_BITMAP;
+        ret->alpha = 1.0f;
+        ret->wid=1;
+        ret->typedata = bm;
+      }
+      else delete wr;
+    }
+else
+printf("failed: %d %d %d %d %d\n",w,h,bpc,chan,alpha);
+    g_object_unref(pb);
+    return ret;
+  }
+  
+
+#endif
   return 0; // todo
 }
 
-void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
+void DrawImageInRect(HDC hdcOut, HICON in, const RECT *r)
 {
-  // todo
+  HDC__ *out = (HDC__ *)hdcOut;
+  if (!HDC_VALID(out) || !HGDIOBJ_VALID(in,TYPE_BITMAP) || !out->surface || !in->typedata) return;
+
+  const int x = r->left, y=r->top, w=r->right-x, h=r->bottom-y;
+  LICE_IBitmap *src=(LICE_IBitmap *)in->typedata;
+  LICE_ScaledBlit(out->surface,src,
+            x+out->surface_offs.x,y+out->surface_offs.y,w,h,
+            0,0, src->getWidth(),src->getHeight(),
+            1.0f,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);
+  swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
 
@@ -886,16 +968,12 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
   if (bmsz != sizeof(BITMAP)) return false;
   BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
-  if (!HGDIOBJ_VALID(i,TYPE_BITMAP)) return false;
+  if (!HGDIOBJ_VALID(i,TYPE_BITMAP) || !i->typedata) return false;
 
-  return false;
-/*
-  NSImage *img = i->bitmapptr;
-  if (!img) return false;
-  bm->bmWidth = (int) ([img size].width+0.5);
-  bm->bmHeight = (int) ([img size].height+0.5);
+  bm->bmWidth = ((LICE_IBitmap *)i->typedata)->getWidth();
+  bm->bmHeight = ((LICE_IBitmap *)i->typedata)->getHeight();
+
   return true;
-*/
 }
 
 
@@ -1253,14 +1331,18 @@ HICON CreateIconIndirect(ICONINFO* iconinfo)
   if (!iconinfo || !iconinfo->fIcon) return 0;  
   HGDIOBJ__* i=iconinfo->hbmColor;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP) ) return 0;
-/*
-  if (!i->bitmapptr) return 0;
+
+  if (!i->typedata) return 0;
+
+  LICE_MemBitmap *bm = new LICE_MemBitmap;
+  LICE_Copy(bm,(LICE_IBitmap*)i->typedata);
+
   HGDIOBJ__* icon=GDP_OBJECT_NEW();
   icon->type=TYPE_BITMAP;
   icon->wid=1;
-  return icon;   
-*/
-  return NULL;
+  icon->typedata = (void*)bm;
+
+  return icon;
 }
 
 HIMAGELIST ImageList_CreateEx()
@@ -1312,10 +1394,13 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
   if (!HGDIOBJ_VALID(imgsrc,TYPE_BITMAP)) return -1;
 
   HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  LICE_MemBitmap *bm = new LICE_MemBitmap;
+  LICE_Copy(bm,(LICE_IBitmap*)imgsrc->typedata);
+
   icon->type=TYPE_BITMAP;
   icon->alpha = 1.0f;
   icon->wid=1;
-  // todo: copy underlying image
+  icon->typedata = (void*)bm;
 
   image = (HICON) icon;
 
@@ -1342,9 +1427,12 @@ int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
   if (!HGDIOBJ_VALID(imgsrc,TYPE_BITMAP)) return -1;
   
   HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  LICE_MemBitmap *bm = new LICE_MemBitmap;
+  LICE_Copy(bm,(LICE_IBitmap*)imgsrc->typedata);
+
   icon->type=TYPE_BITMAP;
   icon->wid=1;
-  // todo: copy underlying image
+  icon->typedata = (void*)bm;
 
   image = (HICON) icon;
   

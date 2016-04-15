@@ -675,10 +675,7 @@ struct HGDIOBJ__
 
   struct HGDIOBJ__ *_next;
   bool _infreelist;
-#ifdef SWELL_FREETYPE
-  void *fontface; // FT_Face
-#endif
-
+  void *typedata; // font: FT_Face, bitmap: LICE_IBitmap
 };
 
 
