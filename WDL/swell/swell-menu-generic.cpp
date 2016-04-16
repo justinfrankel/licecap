@@ -42,11 +42,7 @@ HMENU__ *HMENU__::Duplicate()
     MENUITEMINFO *inf = (MENUITEMINFO*)calloc(sizeof(MENUITEMINFO),1);
 
     *inf = *s;
-    if (inf->dwTypeData) 
-    {
-      // todo handle bitmap types
-      inf->dwTypeData=strdup(inf->dwTypeData);
-    }
+    if (inf->dwTypeData && inf->fType == MFT_STRING) inf->dwTypeData=strdup(inf->dwTypeData);
     if (inf->hSubMenu) inf->hSubMenu = inf->hSubMenu->Duplicate();
 
     p->items.Add(inf);
@@ -59,7 +55,7 @@ void HMENU__::freeMenuItem(void *p)
   MENUITEMINFO *inf = (MENUITEMINFO *)p;
   if (!inf) return;
   delete inf->hSubMenu;
-  free(inf->dwTypeData); // todo handle bitmap types
+  if (inf->fType == MFT_STRING) free(inf->dwTypeData);
   free(inf);
 }
 
@@ -87,8 +83,8 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
   MENUITEMINFO *item = hMenu ? ((flag & MF_BYPOSITION) ? hMenu->items.Get(idx) : GetMenuItemByID(hMenu,idx)) : NULL;
   if (!item) return false;
 
+  if (item->fType == MFT_STRING) free(item->dwTypeData);
   item->fType = MFT_STRING;
-  free(item->dwTypeData); // todo handle bitmap types
   item->dwTypeData=strdup(text?text:"");
   
   return true;
@@ -169,6 +165,7 @@ int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
   if (!hMenu) return -1;
   MENUITEMINFO *inf = (MENUITEMINFO*)calloc(1,sizeof(MENUITEMINFO));
   inf->wID = tagid;
+  inf->fType = MFT_STRING;
   inf->dwTypeData = strdup(name?name:"");
   hMenu->items.Insert(pos,inf);
   return 0;
@@ -223,12 +220,11 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   } 
   if (mi->fMask & MIIM_TYPE)
   {
-    free(item->dwTypeData); // todo handle bitmap types
+    if (item->fType == MFT_STRING) free(item->dwTypeData);
     item->dwTypeData=0;
-    if (mi->fType == MFT_STRING && mi->dwTypeData)
-    {
-      item->dwTypeData = strdup( mi->dwTypeData );
-    }
+
+    if (mi->fType == MFT_STRING && mi->dwTypeData) item->dwTypeData = strdup( mi->dwTypeData );
+    else if (mi->fType == MFT_BITMAP) item->dwTypeData = mi->dwTypeData;
     item->fType = mi->fType;
   }
 
@@ -252,6 +248,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     {
       lstrcpyn_safe(mi->dwTypeData,item->dwTypeData?item->dwTypeData:"",mi->cch);
     }
+    else if (item->fType == MFT_BITMAP) mi->dwTypeData = item->dwTypeData;
   }
   
   if (mi->fMask & MIIM_DATA) mi->dwItemData = item->dwItemData;
@@ -281,6 +278,12 @@ void SWELL_InsertMenu(HMENU menu, int pos, unsigned int flag, UINT_PTR idx, cons
     mi.fType=MFT_SEPARATOR;
     mi.fState &= ~MF_SEPARATOR;
   }
+
+  if (flag&MF_BITMAP)
+  {
+    mi.fType=MFT_BITMAP;
+    mi.fState &= ~MF_BITMAP;
+  }
     
   InsertMenuItem(menu,pos,(flag&MF_BYPOSITION) ?  TRUE : FALSE, &mi);
 }
@@ -305,7 +308,8 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     inf->dwTypeData = strdup(mi->dwTypeData?mi->dwTypeData:"");
   }
   else if (mi->fType == MFT_BITMAP)
-  { // todo handle bitmap types
+  {
+    inf->dwTypeData = mi->dwTypeData;
   }
   else if (mi->fType == MFT_SEPARATOR)
   {
@@ -332,7 +336,8 @@ static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  const int itemheight = 12, lcol=12, rcol=12, mcol=10, top_margin=4;
+  const int lcol=12, rcol=12, mcol=10, top_margin=4;
+  const int separator_ht = 8, text_ht_pad = 4, bitmap_ht_pad = 4;
   switch (uMsg)
   {
     case WM_CREATE:
@@ -345,19 +350,23 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HDC hdc = GetDC(hwnd);
         HMENU__ *menu = (HMENU__*)lParam;
-        int ht = menu->items.GetSize()*itemheight + top_margin, wid=100,wid2=0;
+        int ht = 0, wid=100,wid2=0;
         int xpos=m_trackingPt.x;
         int ypos=m_trackingPt.y;
         int x;
         for (x=0; x < menu->items.GetSize(); x++)
         {
           MENUITEMINFO *inf = menu->items.Get(x);
-          if (inf->fType == MFT_STRING && inf->dwTypeData)
+          if (inf->fType == MFT_STRING)
           {
             RECT r={0,};
-            const char *pt2 = strstr(inf->dwTypeData,"\t");
-            DrawText(hdc,inf->dwTypeData,pt2 ? pt2-inf->dwTypeData : -1,&r,DT_CALCRECT|DT_SINGLELINE);
+            const char *str = inf->dwTypeData;
+            if (!str) str="";
+            const char *pt2 = strstr(str,"\t");
+            DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
             if (r.right > wid) wid=r.right;
+            ht += r.bottom + text_ht_pad;
+
             if (pt2)
             { 
               r.right=r.left;
@@ -365,10 +374,23 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               if (r.right > wid2) wid2=r.right;
             }
           }
+          else if (inf->fType == MFT_BITMAP)
+          {
+            BITMAP bm={16,16};
+            if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+            if (bm.bmWidth > wid) wid = bm.bmWidth;
+
+            ht += bm.bmHeight + bitmap_ht_pad;
+          }
+          else
+          {
+            // treat as separator
+            ht += separator_ht;
+          }
         }
         wid+=lcol+rcol + (wid2?wid2+mcol:0);
         ReleaseDC(hwnd,hdc);
-        RECT tr={xpos,ypos,xpos+wid+4,ypos+ht+4},vp;
+        RECT tr={xpos,ypos,xpos+wid+4,ypos+ht+top_margin * 2},vp;
         SWELL_GetViewPort(&vp,&tr,true);
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
         if (tr.right > vp.right) { tr.left += vp.right-tr.right; tr.right=vp.right; }
@@ -397,12 +419,40 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           int cols[2]={ GetSysColor(COLOR_BTNTEXT),GetSysColor(COLOR_3DHILIGHT)};
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int x;
+          int ypos = top_margin;
           for (x=0; x < menu->items.GetSize(); x++)
           {
             MENUITEMINFO *inf = menu->items.Get(x);
-            RECT r={lcol,top_margin + x*itemheight,cr.right,top_margin + (x+1)*itemheight};
+            RECT r={lcol,ypos,cr.right, };
             bool dis = !!(inf->fState & MF_GRAYED);
-            if (x == menu->sel_vis)
+            BITMAP bm={16,16};
+
+            if (inf->fType == MFT_STRING)
+            {
+              const char *str = inf->dwTypeData;
+              if (!str) str=" ";
+              RECT mr={0,};
+              DrawText(ps.hdc,str,-1,&mr,DT_CALCRECT|DT_SINGLELINE);
+
+              ypos += mr.bottom + text_ht_pad;
+              r.bottom = ypos;
+            }
+            else if (inf->fType == MFT_BITMAP)
+            {
+              if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+
+              ypos += bm.bmHeight + bitmap_ht_pad;
+              r.bottom = ypos;
+
+            }
+            else
+            {
+              dis=true;
+              ypos += separator_ht;
+              r.bottom = ypos;
+            }
+
+            if (x == menu->sel_vis && !dis)
             {
               HBRUSH br=CreateSolidBrush(cols[dis]);
               RECT r2=r;
@@ -412,19 +462,37 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               SetTextColor(ps.hdc,GetSysColor(COLOR_3DFACE));
             }
             else SetTextColor(ps.hdc,cols[dis]);
-            if (inf->fType == MFT_STRING && inf->dwTypeData)
+
+            if (inf->fType == MFT_STRING)
             {
-              const char *pt2 = strstr(inf->dwTypeData,"\t");
-              DrawText(ps.hdc,inf->dwTypeData,pt2 ? pt2-inf->dwTypeData : -1,&r,DT_VCENTER|DT_SINGLELINE);
-              if (pt2)
+              const char *str = inf->dwTypeData;
+              if (!str) str="";
+              const char *pt2 = strstr(str,"\t");
+
+              if (*str) 
               {
-                RECT tr=r; tr.right-=rcol;
-                DrawText(ps.hdc,pt2+1,-1,&tr,DT_VCENTER|DT_SINGLELINE|DT_RIGHT);
+                DrawText(ps.hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_VCENTER|DT_SINGLELINE);
+                if (pt2)
+                {
+                  RECT tr=r; tr.right-=rcol;
+                  DrawText(ps.hdc,pt2+1,-1,&tr,DT_VCENTER|DT_SINGLELINE|DT_RIGHT);
+                }
+              }
+            }
+            else if (inf->fType == MFT_BITMAP)
+            {
+              if (inf->dwTypeData)
+              {
+                RECT tr = r;
+                tr.top += bitmap_ht_pad/2;
+                tr.right = tr.left + bm.bmWidth;
+                tr.bottom = tr.top + bm.bmHeight;
+                DrawImageInRect(ps.hdc,(HBITMAP)inf->dwTypeData,&tr);
               }
             }
             else 
             {
-              MoveToEx(ps.hdc,r.left - lcol/2,(r.top+r.bottom)/2,NULL);
+              MoveToEx(ps.hdc,r.left,(r.top+r.bottom)/2,NULL);
               LineTo(ps.hdc,r.right - rcol*3/2,(r.top+r.bottom)/2);
             }
             if (inf->hSubMenu) 
@@ -513,12 +581,58 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       }
     break;
     case WM_USER+100:
-      if (wParam == 1)
+      if (wParam == 1 || wParam == 2 || wParam == 3)
       {
-        // open item lParam
+        int which = (int) lParam;
+        int item_ypos = which;
+
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        const int which = (int) lParam;
+
+        int ht = 0;
+        int x;
+        HDC hdc=GetDC(hwnd);
+        if (wParam > 1) which = -1;
+        else item_ypos = 0;
+        for (x=0; x < menu->items.GetSize(); x++)
+        {
+          if (wParam == 1 && which == x) { item_ypos = ht; break; }
+          MENUITEMINFO *inf = menu->items.Get(x);
+          int lastht = ht;
+          if (inf->fType == MFT_STRING)
+          {
+            RECT r={0,};
+            const char *str = inf->dwTypeData;
+            if (!str) str="";
+            const char *pt2 = strstr(str,"\t");
+            DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
+            ht += r.bottom + text_ht_pad;
+          }
+          else if (inf->fType == MFT_BITMAP)
+          {
+            BITMAP bm={16,16};
+            if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+            ht += bm.bmHeight + bitmap_ht_pad;
+          }
+          else
+          {
+            ht += separator_ht;
+          }
+          if (wParam > 1 && item_ypos < ht) 
+          { 
+            item_ypos = lastht; 
+            which = x; 
+            break; 
+          }
+        }
+        ReleaseDC(hwnd,hdc);
+        if (wParam == 3)
+        {
+          menu->sel_vis = which;
+          return 0;
+        }
+
         MENUITEMINFO *inf = menu->items.Get(which);
+
         if (inf) 
         {
           if (inf->fState&MF_GRAYED){ }
@@ -531,7 +645,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             RECT r;
             GetClientRect(hwnd,&r);
             m_trackingPt.x=r.right;
-            m_trackingPt.y=r.top + top_margin + which*itemheight;
+            m_trackingPt.y=item_ypos;
             ClientToScreen(hwnd,&m_trackingPt);
             HWND hh;
             inf->hSubMenu->sel_vis=-1;
@@ -550,7 +664,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         const int oldsel = menu->sel_vis;
         if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
         {
-          menu->sel_vis = (GET_Y_LPARAM(lParam) - top_margin)/itemheight;
+          SendMessage(hwnd,WM_USER+100,3,GET_Y_LPARAM(lParam));
         }
         else menu->sel_vis = -1;
         if (oldsel != menu->sel_vis) InvalidateRect(hwnd,NULL,FALSE);
@@ -563,8 +677,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         GetClientRect(hwnd,&r);
         if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
         {
-          int which = (GET_Y_LPARAM(lParam) - top_margin)/itemheight;
-          SendMessage(hwnd,WM_USER+100,1,which);
+          SendMessage(hwnd,WM_USER+100,2,GET_Y_LPARAM(lParam));
           return 0;
         }
         else DestroyWindow(hwnd);
