@@ -155,8 +155,12 @@ int SWELL_ShowCursor(BOOL bShow)
 
 BOOL SWELL_SetCursorPos(int X, int Y)
 {  
-
+#ifdef SWELL_TARGET_GDK
+  gdk_display_warp_pointer(gdk_display_get_default(),gdk_screen_get_default(),X,Y);
+  return true;
+#else
   return false;
+#endif
 }
 
 HCURSOR SWELL_LoadCursorFromFile(const char *fn)
