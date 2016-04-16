@@ -2735,6 +2735,7 @@ struct listViewState
 static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   listViewState *lvs = (listViewState *)hwnd->m_private_data;
+  static POINT s_clickpt;
   switch (msg)
   {
     case WM_MOUSEWHEEL:
@@ -2761,8 +2762,11 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     case WM_LBUTTONDBLCLK:
     case WM_LBUTTONDOWN:
       SetCapture(hwnd);
+
       if (lvs && lvs->m_last_row_height>0)
       {
+        s_clickpt.x = GET_X_LPARAM(lParam);
+        s_clickpt.y = GET_Y_LPARAM(lParam);
         RECT r;
         GetClientRect(hwnd,&r);
         const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
@@ -2809,6 +2813,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           }
           else
           {
+            if (hit >= 0) lvs->m_capmode = (hit&0xffff)|(2<<16);
             NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,0,0,};
             SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             if (oldsel != lvs->m_selitem) 
@@ -2844,6 +2849,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             }
             else
             {
+              lvs->m_capmode = (hit&0xffff)|(2<<16);
               NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,0,LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
               if (changed)
@@ -2864,6 +2870,18 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 forceMouseMove:
         switch (HIWORD(lvs->m_capmode))
         {
+          case 2:
+            if (!lvs->m_is_listbox)
+            {
+              const int dx = GET_X_LPARAM(lParam) - s_clickpt.x, dy = GET_Y_LPARAM(lParam) - s_clickpt.y;
+              if (dx*dx+dy*dy > 32)
+              {
+                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_BEGINDRAG},lvs->m_capmode&0xffff,};
+                lvs->m_capmode=0;
+                SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+              }
+            }
+          break;
           case 1:
             {
               int yv = (short)LOWORD(lvs->m_capmode);
