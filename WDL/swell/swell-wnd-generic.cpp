@@ -2143,57 +2143,283 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool allowEnter)
+struct __SWELL_editControlState
+{
+  __SWELL_editControlState() { cursor_timer=0; cursor_state=0; sel1=sel2=-1; cursor_pos=0;}
+  ~__SWELL_editControlState()  {}
+
+  int cursor_pos, sel1,sel2;
+  int cursor_state;
+  int cursor_timer;
+};
+
+static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool isMultiLine, __SWELL_editControlState *es)
 {
   if (lParam & (FCONTROL|FALT)) return 0;
 
-  if (wParam < 32)
-  {
-    if (wParam == VK_BACK)
-    { 
-      if (hwnd->m_title.GetLength())
-      {
-        const int cl = WDL_utf8_get_charlen(hwnd->m_title.Get());
-        hwnd->m_title.SetLen(WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),cl - 1));
-      }
-      else
-        return 0;
-    }
-    else if (wParam == VK_RETURN)
-    {
-      if (allowEnter) 
-      { 
-        hwnd->m_title.Append("\n");
-        return 1;
-      }
-
-      return 0;
-    }
-  }
-  else if (!(lParam & FVIRTKEY))
+  if (wParam >= 32 && !(lParam & FVIRTKEY))
   {
     char b[8];
     WDL_MakeUTFChar(b,wParam,sizeof(b));
-    hwnd->m_title.Append(b);
+    int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
+    hwnd->m_title.Insert(b,bytepos);
+    es->cursor_pos++;
+    return 7;
   }
-  return 1;
+
+  if (es && (lParam & FVIRTKEY)) switch (wParam)
+  {
+    case VK_UP:
+    case VK_HOME:
+      if (isMultiLine)
+      {
+        const char *buf=hwnd->m_title.Get();
+        int p = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
+        while (p >= 0 && buf[p] != '\n') p--;
+        if (wParam == VK_UP)
+        {
+          if (p>=0) p--;
+          while (p >= 0 && buf[p] != '\n') p--;
+          // todo: advance to same X position pixels (ouch)
+        }
+        es->cursor_pos = WDL_utf8_bytepos_to_charpos(buf,p+1);
+        return 3;
+      }
+      else if (es->cursor_pos > 0) { es->cursor_pos=0; return 3; }
+    return 1;
+    case VK_END:
+    case VK_DOWN:
+      if (isMultiLine)
+      {
+        const char *buf=hwnd->m_title.Get();
+        int p = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
+        while (buf[p] && buf[p] != '\r' && buf[p] != '\n') p++;
+        if (wParam == VK_DOWN)
+        {
+          if (buf[p] == '\r') p++;
+          if (buf[p] == '\n') p++;
+          // todo: advance to same X position pixels (ouch)
+        }
+        es->cursor_pos = WDL_utf8_bytepos_to_charpos(buf,p);
+        return 3;
+      }
+      else
+      {
+        int l = WDL_utf8_get_charlen(hwnd->m_title.Get());
+        if (es->cursor_pos != l) { es->cursor_pos=l; return 3; }
+      }
+    return 1;
+    case VK_LEFT:
+      if (es->cursor_pos > 0) 
+      { 
+        es->cursor_pos--;
+
+        const char *buf=hwnd->m_title.Get();
+        const int p = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
+        if (es->cursor_pos > 0 && p > 0 && buf[p] == '\n' && buf[p-1] == '\r') es->cursor_pos--; 
+
+        return 3; 
+      }
+    return 1;
+    case VK_RIGHT:
+      if (es->cursor_pos < WDL_utf8_get_charlen(hwnd->m_title.Get())) 
+      { 
+        const char *buf=hwnd->m_title.Get();
+        const int p = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
+
+        if (buf[p] == '\r' && buf[p+1] == '\n') es->cursor_pos+=2; 
+        else es->cursor_pos++; 
+
+        return 3; 
+      }
+    return 1;
+    case VK_DELETE:
+      if (hwnd->m_title.GetLength())
+      {
+        const int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
+        if (bytepos < hwnd->m_title.GetLength())
+        {
+          const char *rd = hwnd->m_title.Get()+bytepos;
+          hwnd->m_title.DeleteSub(bytepos, rd[0] == '\r' && rd[1] == '\n' ? 2 : wdl_utf8_parsechar(rd,NULL));
+          return 7; 
+        }
+      }
+    return 1;
+
+    case VK_BACK:
+      if (hwnd->m_title.GetLength() && es->cursor_pos > 0)
+      {
+        es->cursor_pos--;
+        const char *buf = hwnd->m_title.Get();
+        int bytepos = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
+        if (bytepos > 0 && buf[bytepos] == '\n' && buf[bytepos-1] == '\r') hwnd->m_title.DeleteSub(bytepos-1, 2);
+        else hwnd->m_title.DeleteSub(bytepos, wdl_utf8_parsechar(hwnd->m_title.Get()+bytepos,NULL));
+        return 7; 
+      }
+    return 1;
+    case VK_RETURN:
+      if (isMultiLine)
+      {
+        int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
+        hwnd->m_title.Insert("\r\n",bytepos);
+        es->cursor_pos+=2; // skip \r and \n
+        return 7;
+      }
+    return 0;
+    default:
+    return 0;
+  }
+  return 0;
+}
+
+static int editControlPaintLine(HDC hdc, const char *str, int str_len, int cursor_pos, int sel1, int sel2, const RECT *r, int dtflags)
+{
+  if (sel1 >= 0)
+  {
+    if (sel1==sel2)
+    {
+      sel2 = sel1 = WDL_utf8_charpos_to_bytepos(str,sel1);
+    }
+    else
+    {
+      sel1 = WDL_utf8_charpos_to_bytepos(str,sel1);
+      sel2 = WDL_utf8_charpos_to_bytepos(str,sel2);
+    }
+  }
+
+  if (sel1 >=0 && sel1 != sel2)
+  {
+    // w selection
+  }
+  int ret;
+  if (str_len == 0)
+    ret = DrawText(hdc," ",1,(RECT*)r,dtflags|DT_SINGLELINE|DT_NOPREFIX);
+  else
+    ret = DrawText(hdc,str,str_len,(RECT*)r,dtflags|DT_SINGLELINE|DT_NOPREFIX);
+
+  if (cursor_pos > 0) cursor_pos = WDL_utf8_charpos_to_bytepos(str, cursor_pos);
+  if (cursor_pos >= 0 && cursor_pos <= str_len)
+  {
+    RECT mr={0,};
+    if (cursor_pos>0) DrawText(hdc,str,cursor_pos,&mr,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
+
+    int oc = GetTextColor(hdc);
+    SetTextColor(hdc,RGB(0,128,255));
+    mr.left = r->left + mr.right - 1;
+    mr.right = mr.left+1;
+    mr.top = r->top;
+    mr.bottom = r->bottom;
+    DrawText(hdc,"|",1,&mr,dtflags|DT_SINGLELINE|DT_NOPREFIX|DT_NOCLIP);
+    SetTextColor(hdc,oc);
+  }
+
+  return ret;
+}
+
+static int editHitTestLine(HDC hdc, const char *str, int str_len, int xpos, int ypos, int *yadvOut)
+{
+  RECT mr={0,};
+  DrawText(hdc,str_len == 0 ? " " : str,wdl_max(str_len,1),&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+  if (yadvOut) *yadvOut = mr.bottom;
+  if (ypos >= wdl_max(mr.bottom,2)) return -1;
+
+  if (xpos >= mr.right) return str_len;
+  if (xpos < 1) return 0;
+
+  // could bsearch, but meh
+  int lc=0, x = wdl_utf8_parsechar(str,NULL);
+  while (x < str_len)
+  {
+    memset(&mr,0,sizeof(mr));
+    DrawText(hdc,str,x,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+    if (xpos < mr.right) break;
+    lc=x;
+    x += wdl_utf8_parsechar(str+x,NULL);
+  }
+  return lc;
+}
+
+static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, int ypos)
+{
+  if (singleline_len < 0)
+  {
+    const char *buf = str;
+    int bytepos = 0;
+    for (;;)
+    {
+      const char *np = buf;
+      while (*np && *np != '\r' && *np != '\n') np++;
+      int lb = (int)(np-buf);
+
+      int yadv=0;
+      int a = editHitTestLine(hdc,buf,lb, xpos,ypos, &yadv);
+      if (a>=0)
+        return bytepos + a;
+
+      ypos -= yadv;
+
+      if (!*buf || !*np) break;
+
+      if (*np == '\r') np++;
+      if (*np == '\n') np++;
+      bytepos += (int) (np-buf);
+      buf=np;
+    }
+    return bytepos;
+  }
+  else
+  {
+    int a = editHitTestLine(hdc,str,singleline_len,xpos,1,NULL);
+    if (a < 0) return singleline_len;
+    return a;
+
+  }
 }
 
 static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+  __SWELL_editControlState *es = (__SWELL_editControlState*)hwnd->m_private_data;
   switch (msg)
   {
-    case WM_RBUTTONDOWN:
+    case WM_DESTROY:
+      delete es;
+      hwnd->m_private_data=0;
+    return 0;
     case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+      es->cursor_state=1; // next invalidate draws blinky
+
+      // todo: if selection active and not focused, do not mouse hit test
+      if (msg == WM_LBUTTONDOWN) 
+      {
+        const bool multiline = (hwnd->m_style & ES_MULTILINE) != 0;
+        int xo=2;
+        int yo = multiline ? 2 : 0;
+        HDC hdc=GetDC(hwnd);
+        es->cursor_pos = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),editHitTest(hdc,hwnd->m_title.Get(),multiline?-1:hwnd->m_title.GetLength(),GET_X_LPARAM(lParam)-xo,GET_Y_LPARAM(lParam)-yo));
+        ReleaseDC(hwnd,hdc);
+
+      }
       SetFocus(hwnd);
+
       InvalidateRect(hwnd,NULL,FALSE);
     return 0;
-    case WM_KEYDOWN:
-      if (OnEditKeyDown(hwnd,msg,wParam,lParam, !!(hwnd->m_style&ES_WANTRETURN)))
+    case WM_TIMER:
+      if (es && wParam == 100)
       {
-        SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
-        InvalidateRect(hwnd,NULL,FALSE);
-        return 0;
+        if (++es->cursor_state >= 8) es->cursor_state=0;
+        if (GetFocusIncludeMenus()!=hwnd || es->cursor_state<2) InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
+    case WM_KEYDOWN:
+      {
+        int f = OnEditKeyDown(hwnd,msg,wParam,lParam, !!(hwnd->m_style&ES_WANTRETURN),es);
+        if (f)
+        {
+          if (f&4) SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+          if (f&2) InvalidateRect(hwnd,NULL,FALSE);
+          return 0;
+        }
       }
     break;
     case WM_KEYUP:
@@ -2201,6 +2427,20 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     case WM_PAINT:
       { 
         PAINTSTRUCT ps;
+
+        const bool focused = GetFocusIncludeMenus()==hwnd;
+        if (es)
+        {
+          if (focused)
+          {
+            if (!es->cursor_timer) { SetTimer(hwnd,100,100,NULL); es->cursor_timer=1; }
+          }
+          else
+          {
+            if (es->cursor_timer) { KillTimer(hwnd,100); es->cursor_timer=0; }
+          }
+        }
+
         if (BeginPaint(hwnd,&ps))
         {
           RECT r; 
@@ -2210,17 +2450,65 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           DeleteObject(br);
           SetTextColor(ps.hdc,hwnd->m_enabled?RGB(0,0,0):RGB(192,192,192)); // todo edit colors
           SetBkMode(ps.hdc,TRANSPARENT);
-          const char *buf = hwnd->m_title.Get();
           r.left+=2; r.right-=2;
-          if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,(hwnd->m_style & ES_MULTILINE) ? (DT_TOP) : (DT_VCENTER));
-          // todo: cursor drawing
+
+          int cursor_pos = -1;
+          if (focused && es->cursor_state)
+          {
+            cursor_pos = es->cursor_pos;
+            if (cursor_pos < 0) cursor_pos=0;
+            else if (cursor_pos > hwnd->m_title.GetLength()) cursor_pos = hwnd->m_title.GetLength();
+          }
+
+          const bool multiline = (hwnd->m_style & ES_MULTILINE) != 0;
+          if (multiline)
+          {
+            r.top+=2;
+            const char *buf = hwnd->m_title.Get();
+            int bytepos = 0;
+            for (;;)
+            {
+              const char *np = buf;
+              while (*np && *np != '\r' && *np != '\n') np++;
+              int lb = (int)(np-buf);
+
+              if (!*buf && cursor_pos != bytepos) break;
+
+              r.top += editControlPaintLine(ps.hdc,buf,lb,
+                   (cursor_pos >= bytepos && cursor_pos <= bytepos + lb) ? cursor_pos - bytepos : -1, 
+                   es->sel1 - bytepos,
+                   es->sel2 - bytepos, 
+                   &r, DT_TOP);
+
+              if (!*buf || !*np) break;
+
+              if (*np == '\r') np++;
+              if (*np == '\n') np++;
+              bytepos += (int) (np-buf);
+              buf=np;
+            }
+          }
+          else
+          {
+            editControlPaintLine(ps.hdc, hwnd->m_title.Get(), hwnd->m_title.GetLength(), cursor_pos, es->sel1, es->sel2, &r, DT_VCENTER);
+          }
+
           EndPaint(hwnd,&ps);
         }
       }
     return 0;
     case WM_SETTEXT:
+      if (es) es->cursor_pos = WDL_utf8_get_charlen(hwnd->m_title.Get());
       InvalidateRect(hwnd,NULL,FALSE);
     break;
+    case EM_SETSEL:
+      if (es) 
+      {
+        es->sel1 = (int)wParam;
+        es->sel2 = (int)lParam;
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -2279,6 +2567,7 @@ class __SWELL_ComboBoxInternalState
 
     int selidx;
     WDL_PtrList_DeleteOnDestroy<__SWELL_ComboBoxInternalState_rec> items;
+    __SWELL_editControlState editstate;
 };
 
 static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -2411,15 +2700,31 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
        delete s;
       }
     break;
+    case WM_TIMER:
+      if (wParam == 100)
+      {
+        if (++s->editstate.cursor_state >= 8) s->editstate.cursor_state=0;
+        if (GetFocusIncludeMenus()!=hwnd || s->editstate.cursor_state<2) InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
 
     case WM_LBUTTONDOWN:
       {
         RECT r;
         GetClientRect(hwnd,&r);
         if ((hwnd->m_style & CBS_DROPDOWNLIST) == CBS_DROPDOWNLIST || GET_X_LPARAM(lParam) >= r.right-buttonwid)
+        {
           SetCapture(hwnd);
+        }
         else
+        {
+          int xo=3;
+          HDC hdc=GetDC(hwnd);
+          s->editstate.cursor_pos = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),editHitTest(hdc,hwnd->m_title.Get(),hwnd->m_title.GetLength(),GET_X_LPARAM(lParam)-xo,GET_Y_LPARAM(lParam)));
+          ReleaseDC(hwnd,hdc);
+
           SetFocus(hwnd);
+        }
       }
       InvalidateRect(hwnd,NULL,FALSE);
     return 0;
@@ -2458,7 +2763,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       }
     return 0;
     case WM_KEYDOWN:
-      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam,false))
+      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam,false,&s->editstate))
       {
         if (s) s->selidx=-1; // lookup from text?
         SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
@@ -2480,66 +2785,91 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT): RGB(128,128,128));
           SetBkMode(ps.hdc,TRANSPARENT);
 
-          int f=DT_VCENTER;
+          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+          FillRect(ps.hdc,&r,br);
+          DeleteObject(br);
+
+          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+          MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
+          LineTo(ps.hdc,r.left,r.top);
+          LineTo(ps.hdc,r.right-1,r.top);
+          SelectObject(ps.hdc,pen2);
+          LineTo(ps.hdc,r.right-1,r.bottom-1);
+          LineTo(ps.hdc,r.left,r.bottom-1);
+
+          int cursor_pos = -1;
+          if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
           {
-            HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-            FillRect(ps.hdc,&r,br);
-            DeleteObject(br);
-
-            HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
-            HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
-            HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-            MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
-            LineTo(ps.hdc,r.left,r.top);
-            LineTo(ps.hdc,r.right-1,r.top);
-            SelectObject(ps.hdc,pen2);
-            LineTo(ps.hdc,r.right-1,r.bottom-1);
-            LineTo(ps.hdc,r.left,r.bottom-1);
-
-            if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
-            { 
-              HBRUSH br = CreateSolidBrush(RGB(255,255,255));
-              RECT tr=r; 
-              tr.left+=2; tr.top+=2; tr.bottom-=2; tr.right -= buttonwid+2;
-              FillRect(ps.hdc,&tr,br);
-              DeleteObject(br);
+            const bool focused = GetFocusIncludeMenus()==hwnd;
+            if (focused)
+            {
+              if (!s->editstate.cursor_timer) { SetTimer(hwnd,100,100,NULL); s->editstate.cursor_timer=1; }
+            }
+            else
+            {
+              if (s->editstate.cursor_timer) { KillTimer(hwnd,100); s->editstate.cursor_timer=0; }
             }
 
-            const int dw = 8;
-            const int dh = 4;
-            const int cx = r.right-dw/2-4;
-            const int cy = (r.bottom+r.top)/2;
-            MoveToEx(ps.hdc,cx-dw/2,cy-dh/2,NULL);
-            LineTo(ps.hdc,cx,cy+dh/2);
-            LineTo(ps.hdc,cx+dw/2,cy-dh/2);
+            HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+            RECT tr=r; 
+            tr.left+=2; tr.top+=2; tr.bottom-=2; tr.right -= buttonwid+2;
+            FillRect(ps.hdc,&tr,br);
+            DeleteObject(br);
 
-
-            SelectObject(ps.hdc,oldpen);
-            DeleteObject(pen);
-            DeleteObject(pen2);
-
-           
-            if (pressed) 
+            if (focused && s->editstate.cursor_state)
             {
-              r.left+=2;
-              r.top+=2;
+              cursor_pos = s->editstate.cursor_pos;
+              if (cursor_pos < 0) cursor_pos=0;
+              else if (cursor_pos > hwnd->m_title.GetLength()) cursor_pos = hwnd->m_title.GetLength();
             }
           }
 
-          char buf[512];
-          buf[0]=0;
-          GetWindowText(hwnd,buf,sizeof(buf));
+          const int dw = 8;
+          const int dh = 4;
+          const int cx = r.right-dw/2-4;
+          const int cy = (r.bottom+r.top)/2;
+          MoveToEx(ps.hdc,cx-dw/2,cy-dh/2,NULL);
+          LineTo(ps.hdc,cx,cy+dh/2);
+          LineTo(ps.hdc,cx+dw/2,cy-dh/2);
+
+
+          SelectObject(ps.hdc,oldpen);
+          DeleteObject(pen);
+          DeleteObject(pen2);
+
+         
+          if (pressed) 
+          {
+            r.left+=2;
+            r.top+=2;
+          }
+
           r.left+=3;
           r.right-=3;
-          if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
+
+          if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
+          {
+            r.right -= buttonwid+2;
+            editControlPaintLine(ps.hdc, hwnd->m_title.Get(), hwnd->m_title.GetLength(), cursor_pos, s->editstate.sel1, s->editstate.sel2, &r, DT_VCENTER);
+          }
+          else
+          {
+            char buf[512];
+            buf[0]=0;
+            GetWindowText(hwnd,buf,sizeof(buf));
+            if (buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
+          }
 
           EndPaint(hwnd,&ps);
         }
       }
     return 0;
 
-    case WM_CAPTURECHANGED:
     case WM_SETTEXT:
+      s->editstate.cursor_pos = WDL_utf8_get_charlen(hwnd->m_title.Get());
+    case WM_CAPTURECHANGED:
       InvalidateRect(hwnd,NULL,FALSE);
     break;
   }
@@ -2576,6 +2906,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
 {  
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),editWindowProc);
+  hwnd->m_private_data = (INT_PTR) new __SWELL_editControlState;
   hwnd->m_style = WS_CHILD | (flags & ~SWELL_NOT_WS_VISIBLE);
   hwnd->m_classname = "Edit";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
