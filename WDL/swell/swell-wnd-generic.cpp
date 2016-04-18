@@ -1280,30 +1280,22 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 
         // add back in
         tmp = par->m_children;
-        if (zorder == HWND_TOP || !tmp || tmp == zorder) // no children, topmost, or zorder is at top already
+        if (zorder == HWND_TOP || !tmp) // insert at front of list
         {
           if (tmp) tmp->m_prev=hwnd;
           hwnd->m_next = tmp;
           par->m_children = hwnd;
         }
-        else if (zorder == HWND_BOTTOM) 
-        {
-addToBottom:
-          while (tmp && tmp->m_next) tmp=tmp->m_next;
-          tmp->m_next=hwnd; 
-          hwnd->m_prev=tmp;
-        }
         else
         {
-          while (tmp && tmp != zorder) tmp=tmp->m_next;
-          if (!tmp) goto addToBottom;
+          // zorder could be HWND_BOTTOM here
+          while (tmp && tmp != zorder && tmp->m_next) tmp=tmp->m_next;
 
-          HWND next = zorder->m_next;
-          hwnd->m_next = next;
-          if (next) next->m_prev = hwnd;
-
-          zorder->m_next = hwnd;
-          hwnd->m_prev = zorder;
+          // tmp is either zorder or the last item in the list
+          hwnd->m_next = tmp->m_next;
+          tmp->m_next = hwnd;
+          if (hwnd->m_next) hwnd->m_next->m_prev = hwnd;
+          hwnd->m_prev = tmp;
         }
         reposflag|=4;
       }
