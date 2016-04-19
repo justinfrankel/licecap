@@ -1850,6 +1850,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
       hwnd->m_private_data=0;
     break;
     case WM_LBUTTONDOWN:
+      SetFocus(hwnd);
       SetCapture(hwnd);
       SendMessage(hwnd,WM_USER+100,0,0); // invalidate
     return 0;
@@ -2769,6 +2770,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     return 1;
     case WM_LBUTTONDBLCLK:
     case WM_LBUTTONDOWN:
+      SetFocus(hwnd);
       SetCapture(hwnd);
 
       if (lvs && lvs->m_last_row_height>0)
@@ -3372,6 +3374,7 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   switch (msg)
   {
     case WM_LBUTTONDOWN:
+      SetFocus(hwnd);
       if (tvs && tvs->m_last_row_height) 
       {
         int x;
