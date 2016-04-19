@@ -695,7 +695,7 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         }
         if (lbl) SetWindowPos(h,NULL,8,0,r.right,r.bottom - 8 - button_height,  SWP_NOZORDER|SWP_NOACTIVATE);
         int xo = r.right/2 - (bxwid + (tabsz-1)*button_spacing)/2,x;
-        for (x=0; x < tabsz; x++)
+        for (x=tabsz-1; x >=0; x--)
         {
           SetWindowPos(tab[x],NULL,xo,r.bottom - button_height - 8, 0,0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
           xo += w[x] + button_spacing;
