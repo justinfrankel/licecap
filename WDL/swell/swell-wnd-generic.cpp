@@ -861,16 +861,17 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     HWND tmp=hwnd->m_children;
     while (tmp)
     {
-      SendMessage(tmp,WM_DESTROY,0,0);
+      HWND old = tmp;
       tmp=tmp->m_next;
+      SendMessage(old,WM_DESTROY,0,0);
     }
     tmp=hwnd->m_owned_list;
     while (tmp)
     {
-      SendMessage(tmp,WM_DESTROY,0,0);
+      HWND old = tmp;
       tmp=tmp->m_owned_next;
+      SendMessage(old,WM_DESTROY,0,0);
     }
-    KillTimer(hwnd,-1);
     if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=hwnd->m_parent ? hwnd->m_parent : hwnd->m_owner;
 #ifdef SWELL_TARGET_GDK
     if (SWELL_g_focus_oswindow && SWELL_g_focus_oswindow == hwnd->m_oswindow)
@@ -889,7 +890,9 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       }
     }
 #endif
+    hwnd->m_wndproc=NULL;
     hwnd->m_hashaddestroy=2;
+    KillTimer(hwnd,-1);
   }
   return ret;
 }
@@ -917,10 +920,15 @@ static void swell_removeWindowFromParentOrTop(HWND__ *hwnd, bool removeFromOwner
 static void RecurseDestroyWindow(HWND hwnd)
 {
   HWND tmp=hwnd->m_children;
+  hwnd->m_children=NULL;
+
   while (tmp)
   {
     HWND old = tmp;
     tmp=tmp->m_next;
+    if (tmp) tmp->m_prev = NULL;
+
+    old->m_prev = old->m_next = NULL;
     RecurseDestroyWindow(old);
   }
   tmp=hwnd->m_owned_list;
@@ -930,6 +938,9 @@ static void RecurseDestroyWindow(HWND hwnd)
   {
     HWND old = tmp;
     tmp=tmp->m_owned_next;
+    if (tmp) tmp->m_owned_prev = NULL;
+
+    old->m_owned_prev = old->m_owned_next = NULL;
     RecurseDestroyWindow(old);
   }
 
@@ -1375,7 +1386,8 @@ HWND SetParent(HWND hwnd, HWND newPar)
   if (!hwnd) return NULL;
 
   HWND oldPar = hwnd->m_parent;
-  swell_removeWindowFromParentOrTop(hwnd, newPar != NULL);
+
+  swell_removeWindowFromParentOrTop(hwnd, newPar != NULL && newPar != oldPar);
 
   if (newPar)
   {
@@ -1454,6 +1466,8 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   if (!hwnd && !tProc) return 0; // must have either callback or hwnd
   
   if (hwnd && !timerid) return 0;
+
+  if (hwnd && hwnd->m_hashaddestroy) return 0;
 
   WDL_MutexLock lock(&m_timermutex);
   TimerInfoRec *rec=NULL;
