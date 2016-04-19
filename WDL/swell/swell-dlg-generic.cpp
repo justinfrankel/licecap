@@ -39,22 +39,32 @@ static WDL_PtrList<modalDlgRet> s_modalDialogs;
 
 HWND DialogBoxIsActive()
 {
-  return s_modalDialogs.GetSize() ? s_modalDialogs.Get(s_modalDialogs.GetSize()-1)->hwnd : NULL;
+  int a = s_modalDialogs.GetSize();
+  while (a-- > 0)
+  {
+    modalDlgRet *r = s_modalDialogs.Get(a);
+    if (r && !r->has_ret && r->hwnd) return r->hwnd; 
+  }
+  return NULL;
 }
 
 void EndDialog(HWND wnd, int ret)
 {   
   if (!wnd) return;
   
-  int x;
-  for (x = 0; x < s_modalDialogs.GetSize(); x ++)
-    if (s_modalDialogs.Get(x)->hwnd == wnd)  
+  int a = s_modalDialogs.GetSize();
+  while (a-->0)
+  {
+    modalDlgRet *r = s_modalDialogs.Get(a);
+    if (r && r->hwnd == wnd)  
     {
-      s_modalDialogs.Get(x)->has_ret=true;
-      s_modalDialogs.Get(x)->ret = ret;
+      r->ret = ret;
+      if (r->has_ret) return;
+
+      r->has_ret=true;
     }
+  }
   DestroyWindow(wnd);
-  // todo
 }
 
 int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent,  DLGPROC dlgproc, LPARAM param)
@@ -92,7 +102,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
       Sleep(10);
     }
     ret=r.ret;
-    s_modalDialogs.Delete(s_modalDialogs.Find(&r));
+    s_modalDialogs.DeletePtr(&r);
 
     a = SWELL_topwindows;
     while (a)
