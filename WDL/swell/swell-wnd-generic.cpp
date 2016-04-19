@@ -700,7 +700,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
        m_owned_next = ownerWindow->m_owned;
        m_owner = ownerWindow;
        ownerWindow->m_owned = this;
-       if (m_owned_next) m_owned_next->m_prev = this;
+       if (m_owned_next) m_owned_next->m_owned_prev = this;
      }
 }
 
