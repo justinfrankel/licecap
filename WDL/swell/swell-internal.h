@@ -617,7 +617,7 @@ struct HWND__
   WDL_FastString m_title;
 
   HWND__ *m_children, *m_parent, *m_next, *m_prev;
-  HWND__ *m_owner, *m_owned, *m_owned_next, *m_owned_prev;
+  HWND__ *m_owner, *m_owned_list, *m_owned_next, *m_owned_prev;
   RECT m_position;
   UINT m_id;
   int m_style, m_exstyle;

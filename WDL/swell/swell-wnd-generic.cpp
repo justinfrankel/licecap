@@ -671,7 +671,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      m_style=0;
      m_exstyle=0;
      m_id=wID;
-     m_owned=m_owner=m_owned_next=m_owned_prev=NULL;
+     m_owned_list=m_owner=m_owned_next=m_owned_prev=NULL;
      m_children=m_parent=m_next=m_prev=NULL;
      if (wndr) m_position = *wndr;
      else memset(&m_position,0,sizeof(m_position));
@@ -697,10 +697,10 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      SetParent(this, par);
      if (!par && ownerWindow)
      {
-       m_owned_next = ownerWindow->m_owned;
-       m_owner = ownerWindow;
-       ownerWindow->m_owned = this;
+       m_owned_next = ownerWindow->m_owned_list;
+       ownerWindow->m_owned_list = this;
        if (m_owned_next) m_owned_next->m_owned_prev = this;
+       m_owner = ownerWindow;
      }
 }
 
@@ -864,7 +864,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       SendMessage(tmp,WM_DESTROY,0,0);
       tmp=tmp->m_next;
     }
-    tmp=hwnd->m_owned;
+    tmp=hwnd->m_owned_list;
     while (tmp)
     {
       SendMessage(tmp,WM_DESTROY,0,0);
@@ -907,7 +907,7 @@ static void swell_removeWindowFromParentOrTop(HWND__ *hwnd, bool removeFromOwner
   {
     if (hwnd->m_owned_next) hwnd->m_owned_next->m_owned_prev = hwnd->m_owned_prev;
     if (hwnd->m_owned_prev) hwnd->m_owned_prev->m_owned_next = hwnd->m_owned_next;
-    if (hwnd->m_owner && hwnd->m_owner->m_owned == hwnd) hwnd->m_owner->m_owned = hwnd->m_owned_next;
+    if (hwnd->m_owner && hwnd->m_owner->m_owned_list == hwnd) hwnd->m_owner->m_owned_list = hwnd->m_owned_next;
     hwnd->m_owned_next = hwnd->m_owned_prev = hwnd->m_owner = NULL;
   }
 
@@ -923,7 +923,9 @@ static void RecurseDestroyWindow(HWND hwnd)
     tmp=tmp->m_next;
     RecurseDestroyWindow(old);
   }
-  tmp=hwnd->m_owned;
+  tmp=hwnd->m_owned_list;
+  hwnd->m_owned_list = NULL;
+
   while (tmp)
   {
     HWND old = tmp;
