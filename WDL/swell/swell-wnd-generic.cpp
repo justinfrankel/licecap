@@ -4730,28 +4730,35 @@ void SWELL_MessageQueue_Flush()
   if (!m_pmq_mutex) return;
   
   m_pmq_mutex->Enter();
-  PMQ_rec *p=m_pmq, *startofchain=m_pmq;
-  m_pmq=m_pmq_tail=0;
+  int max_amt = m_pmq_size;
+  PMQ_rec *p=m_pmq;
+  if (p)
+  {
+    m_pmq = p->next;
+    if (m_pmq_tail == p) m_pmq_tail=NULL;
+    m_pmq_size--;
+  }
   m_pmq_mutex->Leave();
   
-  int cnt=0;
-  // process out queue
+  // process out up to max_amt of queue
   while (p)
   {
-    // process this message
     SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
 
-    cnt ++;
-    if (!p->next) // add the chain back to empties
+    m_pmq_mutex->Enter();
+    // move this message to empty list
+    p->next=m_pmq_empty;
+    m_pmq_empty = p;
+
+    // get next queued message (if within limits)
+    p = (--max_amt > 0) ? m_pmq : NULL;
+    if (p)
     {
-      m_pmq_mutex->Enter();
-      m_pmq_size-=cnt;
-      p->next=m_pmq_empty;
-      m_pmq_empty=startofchain;
-      m_pmq_mutex->Leave();
-      break;
+      m_pmq = p->next;
+      if (m_pmq_tail == p) m_pmq_tail=NULL;
+      m_pmq_size--;
     }
-    p=p->next;
+    m_pmq_mutex->Leave();
   }
 }
 
@@ -4785,7 +4792,7 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd)
 
 BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  if (!hwnd||!m_pmq_mutex) return FALSE;
+  if (!hwnd||hwnd->m_hashaddestroy||!m_pmq_mutex) return FALSE;
 
   BOOL ret=FALSE;
   m_pmq_mutex->Enter();
