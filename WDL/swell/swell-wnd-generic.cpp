@@ -242,6 +242,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 #ifdef SWELL_LICE_GDI
           if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_CairoBitmap;
 #endif
+          if (hwnd->m_owner)
+          {
+            gdk_window_set_keep_above(hwnd->m_oswindow,true);
+          }
           gdk_window_show(hwnd->m_oswindow);
         }
       }
@@ -420,7 +424,30 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
       if (evt->type == GDK_FOCUS_CHANGE)
       {
         GdkEventFocus *fc = (GdkEventFocus *)evt;
-        if (fc->in) SWELL_g_focus_oswindow = hwnd ? fc->window : NULL;
+        const bool last_focus = !!SWELL_g_focus_oswindow;
+        if (fc->in) 
+        {
+          SWELL_g_focus_oswindow = hwnd ? fc->window : NULL;
+        }
+        else
+        {
+          if (SWELL_g_focus_oswindow == fc->window) SWELL_g_focus_oswindow = NULL;
+        }
+
+        if (last_focus != !!SWELL_g_focus_oswindow)
+        {
+          // keep-above any owned windows while one of our windows has focus
+          HWND h = SWELL_topwindows; 
+          while (h)
+          {
+            if (h->m_oswindow && h->m_owner)
+            {
+              gdk_window_set_keep_above(h->m_oswindow,!!SWELL_g_focus_oswindow);
+            }
+            h=h->m_next;
+          }
+        }
+
       }
 
       if (hwnd) switch (evt->type)
