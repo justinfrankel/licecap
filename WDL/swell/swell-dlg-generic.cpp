@@ -74,6 +74,10 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
   {
     if (!p||(p->windowTypeFlags&SWELL_DLG_WS_CHILD)) return -1;
   }
+  else if (parent)
+  {
+    resid = (const char *)(INT_PTR)(0x400002); // force non-child, force no minimize box
+  }
 
 
   int ret=-1;

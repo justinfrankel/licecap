@@ -718,8 +718,8 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 {
   printf("MessageBox: %s %s\n",text,caption);
-  const void *parms[3]= {text,caption,(void*)(INT_PTR)type} ;
-  return DialogBoxParam(NULL,NULL,NULL,swellMessageBoxProc,(LPARAM)parms);
+  const void *parms[4]= {text,caption,(void*)(INT_PTR)type} ;
+  return DialogBoxParam(NULL,NULL,hwndParent,swellMessageBoxProc,(LPARAM)parms);
 
 #if 0
   int ret=0;
