@@ -991,8 +991,6 @@ static void RecurseDestroyWindow(HWND hwnd)
   // remove from parent/global lists
   swell_removeWindowFromParentOrTop(hwnd, true);
 
-  hwnd->m_wndproc=NULL;
-
   SWELL_MessageQueue_Clear(hwnd);
   KillTimer(hwnd,-1);
   hwnd->Release();
