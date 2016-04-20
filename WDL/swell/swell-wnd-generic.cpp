@@ -356,9 +356,13 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   if (!hwnd || !hwnd->m_wndproc) return -1;
   if (!IsWindowEnabled(hwnd)) 
   {
-    HWND DialogBoxIsActive();
-    HWND h = DialogBoxIsActive();
-    if (h) SetForegroundWindow(h);
+    if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN ||
+        msg == WM_LBUTTONDBLCLK || msg == WM_RBUTTONDBLCLK || msg == WM_MBUTTONDBLCLK)
+    {
+      HWND DialogBoxIsActive();
+      HWND h = DialogBoxIsActive();
+      if (h) SetForegroundWindow(h);
+    }
     return -1;
   }
 
