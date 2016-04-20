@@ -737,6 +737,8 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
 
 HWND__::~HWND__()
 {
+  if (m_wndproc)
+    m_wndproc(this,WM_NCDESTROY,0,0);
 }
 
 
