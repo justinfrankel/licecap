@@ -1915,8 +1915,9 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             }
             if (repl_type != -1)
             {
+              const int oldtype = op->fntype;
               memcpy(op,op->parms.parms[0],sizeof(*op));
-              if (op->fntype == FN_NOT) op->fntype = repl_type;
+              if (oldtype == FN_NOT) op->fntype = repl_type;
               goto start_over;
             }
           }
