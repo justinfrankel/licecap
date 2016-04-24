@@ -522,7 +522,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
     }
 
     // if string ends and format is not on a wildcard, early-out to 0
-    if (msg>=msg_endptr && *fmt != '*') return 0;
+    if (msg>=msg_endptr && *fmt != '*' && *fmt != '%') return 0;
 
     switch (*fmt)
     {
