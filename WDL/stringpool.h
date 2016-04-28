@@ -89,4 +89,4 @@ private:
 };
 
 
-#endif _WDL_STRINGPOOL_H_
+#endif //_WDL_STRINGPOOL_H_
