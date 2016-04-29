@@ -4,6 +4,7 @@
 # etc
 
 ARCH := $(shell uname -m)
+ARCHSTR := $(ARCH)-$(shell lsb_release -i -s | tr '[:upper:]' '[:lower:]')-$(shell lsb_release -c -s | tr '[:upper:]' '[:lower:]')
 
 CFLAGS = -pipe -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function
 
@@ -69,3 +70,10 @@ test: $(OBJS) test.o
 clean: 
 	-rm $(OBJS) libSwell.so
 
+dist-xz:
+	-make NOGDK=1 clean
+	make NOGDK=1
+	tar cvJf libSwell-$(ARCHSTR)-headless.tar.xz libSwell.so
+	-make clean
+	make
+	tar cvJf libSwell-$(ARCHSTR)-gtk3.tar.xz libSwell.so
