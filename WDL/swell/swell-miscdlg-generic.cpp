@@ -34,6 +34,7 @@
 #include "../wdlcstring.h"
 #include "../assocarray.h"
 #include <dirent.h>
+#include <time.h>
 
 static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
