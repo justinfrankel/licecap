@@ -86,9 +86,22 @@ public:
     while (NULL != (ent = readdir(dir)))
     {
       if (ent->d_name[0] == '.') continue;
-      if (dir_only ? (ent->d_type & DT_DIR) : 1)
+      bool is_dir = (ent->d_type == DT_DIR);
+
+      if (ent->d_type == DT_LNK)
       {
-        if (filterlist && *filterlist && !(ent->d_type & DT_DIR))
+        snprintf(tmp,sizeof(tmp),"%s/%s",path,ent->d_name);
+        char *rp = realpath(tmp,NULL);
+        if (rp)
+        {
+          DIR *d = opendir(rp);
+          if (d) { is_dir = true; closedir(d); }
+          free(rp);
+        }
+      }
+      if (!dir_only || is_dir)
+      {
+        if (filterlist && *filterlist && !is_dir)
         {
           const char *f = filterlist;
           while (*f)
@@ -125,7 +138,7 @@ public:
         stat(tmp,&st);
       
         rec r = { st.st_size, st.st_mtime } ;
-        tmp[0] = (ent->d_type&DT_DIR)?1:2;
+        tmp[0] = is_dir?1:2;
         lstrcpyn_safe(tmp+1,ent->d_name,sizeof(tmp)-1);
         viewlist.AddUnsorted(tmp,r);
       }
