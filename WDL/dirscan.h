@@ -190,7 +190,27 @@ class WDL_DirScan
 #ifdef _WIN32
        return !!(m_fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY); 
 #else
-       return m_ent && (m_ent->d_type & DT_DIR);
+#ifndef __APPLE__
+       // we could enable this on OSX, need to check to make sure realpath(x,NULL) is supported on 10.5+
+       if (m_ent && m_ent->d_type == DT_LNK)
+       {
+         char tmp[2048];
+         snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
+         char *rp = realpath(tmp,NULL);
+         if (rp)
+         {
+           DIR *d = opendir(rp);
+           free(rp);
+
+           if (d)
+           {
+             closedir(d);
+             return 1;
+           }
+         }
+       }
+#endif
+       return m_ent && (m_ent->d_type == DT_DIR);
 #endif
     }
 
