@@ -87,7 +87,87 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
   return 1;  
 }
 
+static WDL_PtrList<char> s_freetype_fontlist;
+static WDL_PtrList<char> s_freetype_regfonts;
 
+static void ScanFontDirectory(const char *path, int maxrec=3)
+{
+  WDL_DirScan ds;
+  WDL_FastString fs;
+  if (!ds.First(path)) do
+  { 
+    if (ds.GetCurrentFN()[0] != '.')
+    {
+      if (ds.GetCurrentIsDirectory())
+      {
+        if (maxrec>0) 
+        {
+          ds.GetCurrentFullFN(&fs);
+          ScanFontDirectory(fs.Get(),maxrec-1);
+        }
+      }
+      else
+      {
+        const char *ext = WDL_get_fileext(ds.GetCurrentFN());
+        if (!stricmp(ext,".ttf") || !stricmp(ext,".otf"))
+        {
+          ds.GetCurrentFullFN(&fs);
+          s_freetype_fontlist.Add(strdup(fs.Get()));
+        }
+      }
+    }
+  } while (!ds.Next());
+}
+
+static int sortByFilePart(const char **a, const char **b)
+{
+  return stricmp(WDL_get_filepart(*a),WDL_get_filepart(*b));
+}
+
+static FT_Face MatchFont(const char *lfFaceName)
+{
+  const int fn_len = strlen(lfFaceName), ntab=2;
+  WDL_PtrList<char> *tab[ntab]= { &s_freetype_regfonts, &s_freetype_fontlist };
+  int pos[2], x;
+  bool match;
+  for (x=0;x<ntab;x++) pos[x] = tab[x]->LowerBound(lfFaceName,&match,sortByFilePart);
+
+  for (;;)
+  {
+    int best_slot = -1, best_len = 0;
+    const char *best_fn=NULL;
+    for (x=0;x<ntab;x++)
+    {
+      if (pos[x] >= 0)
+      {
+        const char *fn = tab[x]->Get(pos[x]);
+        if (!fn) pos[x]=-1;
+        else
+        {
+          const char *fnp = WDL_get_filepart(fn);
+          if (strnicmp(fnp,lfFaceName,fn_len)) pos[x]=-1;
+          else
+          {
+            const char *ext = WDL_get_fileext(fnp);
+            const int len = (ext-fnp);
+            if (best_slot < 0 || len < best_len)
+            {
+              best_len=len;
+              best_slot = x;
+              best_fn = fn;
+            }
+          }
+        }
+      }
+    }
+    if (best_fn == NULL) return NULL;
+    pos[best_slot]++;
+    FT_Face face=NULL;
+    //printf("trying '%s' for '%s'\n",best_fn,lfFaceName);
+    FT_New_Face(s_freetype,best_fn,0,&face);
+    if (face) return face;
+  }
+}
 
 #endif
 
@@ -183,8 +263,6 @@ HGDIOBJ GetStockObject(int wh)
   return 0;
 }
 
-static WDL_PtrList<char> s_registered_fonts;
-
 #define FONTSCALE 0.9
 HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation, int lfWeight, char lfItalic, 
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
@@ -193,68 +271,26 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   HGDIOBJ__ *font=NULL;
 #ifdef SWELL_FREETYPE
   FT_Face face=NULL;
-  if (!s_freetype_failed && !s_freetype) s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
+  if (!s_freetype_failed && !s_freetype) 
+  {
+    s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
+    if (s_freetype)
+    {
+      ScanFontDirectory("/usr/share/fonts/truetype");
+      ScanFontDirectory("/usr/share/fonts/opentype");
+      ScanFontDirectory("/usr/share/fonts/TTF");
+      ScanFontDirectory("/usr/share/fonts/OTF");
+      qsort(s_freetype_fontlist.GetList(),s_freetype_fontlist.GetSize(),sizeof(const char *),(int (*)(const void *,const void*))sortByFilePart);
+    }
+  }
   if (s_freetype)
   {
     if (!lfFaceName || !*lfFaceName) lfFaceName = "Arial";
 
-    int fn_len = strlen(lfFaceName);
+    if (!face) face = MatchFont(lfFaceName);
+    if (!face) face = MatchFont("FreeSans");
+    if (!face) face = MatchFont("DejaVuSans");
 
-    const char *leadpath = "/usr/share/fonts/truetype/msttcorefonts"; // todo: scan subdirs?
-    char tmp[1024];
-    char bestmatch[512];
-    bestmatch[0]=0;
-    int x;
-    for (x=0;x < s_registered_fonts.GetSize(); x ++)
-    {
-      const char *fn = s_registered_fonts.Get(x);
-      if (fn)
-      {
-        const char *fnpart = WDL_get_filepart(fn);
-        if (!strnicmp(fnpart,lfFaceName,strlen(lfFaceName)))
-        {
-          FT_New_Face(s_freetype,fn,0,&face);
-          if (face) break;
-        }
-      }
-    }
-
-    if (!face)
-    {
-      snprintf(tmp,sizeof(tmp),"%s/%s.ttf",leadpath,lfFaceName);
-      FT_New_Face(s_freetype,tmp,0,&face);
-    }
-    if (!face)
-    {
-      WDL_DirScan ds;
-      if (!ds.First(leadpath)) do
-      { 
-        if (!strnicmp(ds.GetCurrentFN(),lfFaceName,fn_len))
-        {
-          if (!stricmp(ds.GetCurrentFN()+fn_len,".ttf"))
-          {
-            snprintf(tmp,sizeof(tmp),"%s/%s",leadpath,ds.GetCurrentFN());
-            FT_New_Face(s_freetype,tmp,0,&face);
-          }
-          else 
-          {
-            // todo look for italic/bold/etc too
-            int sl = strlen(ds.GetCurrentFN());
-            if (sl > 4 && !stricmp(ds.GetCurrentFN() + sl - 4, ".ttf")  && (!bestmatch[0] || sl < strlen(bestmatch)))
-            {
-              lstrcpyn_safe(bestmatch,ds.GetCurrentFN(),sizeof(bestmatch));
-            }
-          }
-        }
-      } while (!face && !ds.Next());
-      if (!face && bestmatch[0])
-      {
-        snprintf(tmp,sizeof(tmp),"%s/%s",leadpath,bestmatch);
-        FT_New_Face(s_freetype,tmp,0,&face);
-      }
-    }
-    if (!face) FT_New_Face(s_freetype,"/usr/share/fonts/truetype/freefont/FreeSans.ttf",0,&face);
-    if (!face) FT_New_Face(s_freetype,"/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf",0,&face);
   }
   
   if (face)
@@ -1462,10 +1498,8 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
   if (str && *str)
   {
-    int x; 
-    for (x=0;x<s_registered_fonts.GetSize();x++)
-      if (!strcmp(str,s_registered_fonts.Get(x))) return 0;
-    s_registered_fonts.Add(strdup(str));
+    if (s_freetype_regfonts.FindSorted(str,sortByFilePart)>=0) return 0;
+    s_freetype_regfonts.InsertSorted(strdup(str), sortByFilePart);
     return 1;
   } 
   return 0;
