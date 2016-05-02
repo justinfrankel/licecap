@@ -5424,6 +5424,7 @@ int GetSystemMetrics(int p)
 BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT *lpClipRect)
 {
   if (!hwnd || (!xamt && !yamt)) return FALSE;
+  InvalidateRect(hwnd,NULL,FALSE);
   
   // move child windows only
   hwnd = hwnd->m_children;
