@@ -3682,6 +3682,7 @@ struct treeViewState
   { 
     m_sel=NULL;
     m_last_row_height=0;
+    m_scroll_x=m_scroll_y=m_capmode=0;
   }
   ~treeViewState() 
   {
@@ -3757,10 +3758,43 @@ struct treeViewState
     } 
     return NULL;
   }
+  int CalculateItemHeight(HTREEITEM__ *item)
+  {
+    int h = 0;
+    if ((item->m_state & TVIS_EXPANDED) && item->m_haschildren && item->m_children.GetSize())
+    {
+      const int n = item->m_children.GetSize();
+      for (int x=0;x<n;x++) h += CalculateItemHeight(item->m_children.Get(x));
+    }
+    return h + m_last_row_height;
+  }
+  int calculateContentsHeight()
+  {
+    int y = 0;
+    const int n = m_items.GetSize();
+    for (int x=0;x<n;x++) y += CalculateItemHeight(m_items.Get(x));
+    return y;
+  }
+
+  int sanitizeScroll(HWND h)
+  {
+    RECT r;
+    GetClientRect(h,&r);
+    if (m_last_row_height > 0)
+    {
+      const int vh = calculateContentsHeight();
+      if (m_scroll_y < 0 || vh <= r.bottom) m_scroll_y=0;
+      else if (m_scroll_y > vh - r.bottom) m_scroll_y = vh - r.bottom;
+      return vh;
+    }
+    return 0;
+  }
 
   WDL_PtrList<HTREEITEM__> m_items;
   HTREEITEM m_sel;
   int m_last_row_height;
+  int m_scroll_x,m_scroll_y,m_capmode;
+
 };
 
 static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -3768,14 +3802,52 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   treeViewState *tvs = (treeViewState *)hwnd->m_private_data;
   switch (msg)
   {
+    case WM_MOUSEWHEEL:
+      {
+        const int amt = ((short)HIWORD(wParam))/40;
+        if (amt && tvs)
+        {
+          const int oldscroll = tvs->m_scroll_y;
+          tvs->m_scroll_y -= amt*tvs->m_last_row_height;
+          tvs->sanitizeScroll(hwnd);
+          if (tvs->m_scroll_y != oldscroll)
+            InvalidateRect(hwnd,NULL,FALSE);
+
+        }
+      }
+    return 1;
     case WM_LBUTTONDOWN:
       SetFocus(hwnd);
-      if (tvs && tvs->m_last_row_height) 
+      SetCapture(hwnd);
+      if (tvs)
       {
+        tvs->m_capmode=0;
+        RECT cr;
+        GetClientRect(hwnd,&cr);
+        int total_h;
+        if (GET_X_LPARAM(lParam) >= cr.right-tvs->m_last_row_height && (total_h=tvs->sanitizeScroll(hwnd)) > cr.bottom)
+        {
+          int ypos = GET_Y_LPARAM(lParam);
+          int yp = ypos;
+          const int wh = cr.bottom;
+          const double isz = wh / (double) total_h;
+          int thumbsz = (int) (wh * isz + 0.5);
+          int thumbpos = (int) (tvs->m_scroll_y * isz + 0.5);
+          if (thumbsz < 4) thumbsz=4;
+          if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+
+          if (ypos < thumbpos) yp = thumbpos; // jump on first mouse move
+          else if (ypos > thumbpos+thumbsz) yp = thumbpos + thumbsz;
+
+          tvs->m_capmode = (1<<16) | (yp&0xffff); 
+          if (ypos < thumbpos || ypos > thumbpos+thumbsz) goto forceMouseMove;
+          return 0;
+        }
+
         int x;
         const int n = tvs->m_items.GetSize();
-        int y = GET_Y_LPARAM(lParam);
-        for (x = 0; x < n; x ++)
+        int y = GET_Y_LPARAM(lParam) + tvs->m_scroll_y;
+        if (tvs->m_last_row_height) for (x = 0; x < n; x ++)
         {
           HTREEITEM hit = tvs->hitTestItem(tvs->m_items.Get(x),&y);
           if (hit) 
@@ -3792,6 +3864,46 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         }
       }
     return 0;
+    case WM_MOUSEMOVE:
+      if (GetCapture()==hwnd && tvs)
+      {
+forceMouseMove:
+        switch (HIWORD(tvs->m_capmode))
+        {
+          case 1:
+            {
+              int yv = (short)LOWORD(tvs->m_capmode);
+              int amt = GET_Y_LPARAM(lParam) - yv;
+
+              if (amt)
+              {
+                RECT r;
+                GetClientRect(hwnd,&r);
+
+                const int viewsz = r.bottom;
+                const double totalsz=tvs->calculateContentsHeight();
+                amt = (int)floor(amt * totalsz / (double)viewsz + 0.5);
+              
+                const int oldscroll = tvs->m_scroll_y;
+                tvs->m_scroll_y += amt;
+                tvs->sanitizeScroll(hwnd);
+                if (tvs->m_scroll_y != oldscroll)
+                {
+                  tvs->m_capmode = (GET_Y_LPARAM(lParam)&0xffff) | (1<<16);
+                  InvalidateRect(hwnd,NULL,FALSE);
+                }
+              }
+            }
+          break;
+        }
+      }
+    return 1;
+    case WM_LBUTTONUP:
+      if (GetCapture() == hwnd)
+      {
+        ReleaseCapture();
+      }
+    return 1;
     case WM_PAINT:
       { 
         PAINTSTRUCT ps;
@@ -3804,20 +3916,50 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           DeleteObject(br);
           if (tvs)
           {
+            RECT cr=r;
             SetTextColor(ps.hdc,RGB(0,0,0));
 
             TEXTMETRIC tm; 
             GetTextMetrics(ps.hdc,&tm);
             const int row_height = tm.tmHeight;
             tvs->m_last_row_height = row_height;
+            const int total_h = tvs->sanitizeScroll(hwnd);
 
             SetBkMode(ps.hdc,TRANSPARENT);
 
             int x;
             const int n = tvs->m_items.GetSize();
+            r.top -= tvs->m_scroll_y;
+
             for (x = 0; x < n && r.top < r.bottom; x ++)
             {
               tvs->doDrawItem(tvs->m_items.Get(x),ps.hdc,&r);
+            }
+
+            if (total_h > cr.bottom)
+            {
+              const int wh = (cr.bottom);
+              const double isz = wh / (double) total_h;
+              int thumbsz = (int) (wh * isz + 0.5);
+              int thumbpos = (int) (tvs->m_scroll_y * isz + 0.5);
+              if (thumbsz < 4) thumbsz=4;
+              if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+
+              HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
+              HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
+              RECT fr = { cr.right-row_height, 0, cr.right,thumbpos};
+              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
+
+              fr.top = fr.bottom;
+              fr.bottom = fr.top + thumbsz;
+              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br);
+
+              fr.top = fr.bottom;
+              fr.bottom = cr.bottom;
+              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
+
+              DeleteObject(br);
+              DeleteObject(br2);
             }
           }
 
