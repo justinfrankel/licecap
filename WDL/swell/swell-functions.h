@@ -1101,6 +1101,7 @@ SWELL_API_DEFINE(void,GetTempPath,(int sz, char *buf))
 #ifndef __APPLE__
 SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))
 SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
+SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, RECT*))
 #endif
 
 #ifdef __APPLE__

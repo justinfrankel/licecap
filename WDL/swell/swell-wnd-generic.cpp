@@ -5903,4 +5903,14 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
   }
 }
 
+
+HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
+{
+  *wref = NULL;
+#ifdef SWELL_TARGET_GDK
+
+#endif
+  return NULL;
+}
+
 #endif
