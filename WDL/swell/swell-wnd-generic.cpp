@@ -2577,6 +2577,63 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+static LRESULT WINAPI progressWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  switch (msg)
+  {
+    case PBM_DELTAPOS:
+      if (hwnd->m_private_data) *(int *)hwnd->m_private_data += (int) wParam; // todo: unsigned-ness conversion? unclear
+      InvalidateRect(hwnd,NULL,FALSE);
+    break;
+    case PBM_SETPOS:
+      if (hwnd->m_private_data) *(int *)hwnd->m_private_data = (int) wParam;
+      InvalidateRect(hwnd,NULL,FALSE);
+    break;
+    case PBM_SETRANGE:
+      if (hwnd->m_private_data) ((int *)hwnd->m_private_data)[1] = (int) lParam;
+      InvalidateRect(hwnd,NULL,FALSE);
+    break;
+    case WM_DESTROY:
+      free((int *)hwnd->m_private_data);
+      hwnd->m_private_data=0;
+    break;
+    case WM_PAINT:
+      { 
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+
+          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
+          if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
+          if (hbrush) FillRect(ps.hdc,&r,hbrush);
+
+          if (hwnd->m_private_data)
+          {
+            int pos = *(int *)hwnd->m_private_data;
+            const int range = ((int *)hwnd->m_private_data)[1];
+            const int low = LOWORD(range), high=HIWORD(range);
+            if (pos > low && high > low)
+            {
+              if (pos > high) pos=high;
+              int dx = ((pos-low)*r.right)/(high-low);
+              r.right = dx;
+              HBRUSH br = CreateSolidBrush(RGB(0,128,255));
+              FillRect(ps.hdc,&r,br);
+              DeleteObject(br);
+            }
+          }
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    break;
+  }
+
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
@@ -4219,9 +4276,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "msctls_progress32"))
   {
     RECT tr=MakeCoords(x,y,w,h,false);
-    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE));
+    HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), progressWindowProc);
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "msctls_progress32";
+    hwnd->m_private_data = (INT_PTR) calloc(2,sizeof(int)); // pos, range
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
   }
