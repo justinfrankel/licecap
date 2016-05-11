@@ -2634,6 +2634,185 @@ static LRESULT WINAPI progressWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  const int track_h = 10;
+  static int s_cap_offs;
+  switch (msg)
+  {
+    case WM_CREATE:
+      {
+        int *p = (int *)hwnd->m_private_data;
+        if (p)
+        {
+          p[1] = (1000<<16);
+          p[2] = -1;
+        }
+      }
+    break;
+    case TBM_SETPOS:
+      if (hwnd->m_private_data) *(int *)hwnd->m_private_data = (int) lParam;
+      if (wParam) InvalidateRect(hwnd,NULL,FALSE);
+    break;
+    case TBM_GETPOS:
+      if (hwnd->m_private_data) return *(int *)hwnd->m_private_data;
+    return 0;
+    case TBM_SETRANGE:
+      if (hwnd->m_private_data) ((int *)hwnd->m_private_data)[1] = (int) lParam;
+      if (wParam) InvalidateRect(hwnd,NULL,FALSE);
+    break;
+    case TBM_SETTIC:
+      if (hwnd->m_private_data) ((int *)hwnd->m_private_data)[2] = (int) lParam;
+    break;
+    case WM_DESTROY:
+      free((int *)hwnd->m_private_data);
+      hwnd->m_private_data=0;
+    break;
+    case WM_LBUTTONDBLCLK:
+      if (hwnd->m_private_data) 
+      {
+        int *state = (int *)hwnd->m_private_data;
+        const int range = state[1];
+        const int low = LOWORD(range), high=HIWORD(range);
+        const int to_val = state[2] >= low && state[2] <= high ? state[2] : (low+high)/2;
+        if (state[0] != to_val)
+        {
+          state[0] = to_val;
+          InvalidateRect(hwnd,NULL,FALSE);
+          SendMessage(hwnd->m_parent,WM_HSCROLL,SB_ENDSCROLL,(LPARAM)hwnd);
+        }
+      }
+    return 1;
+    case WM_LBUTTONDOWN:
+      SetFocus(hwnd);
+      SetCapture(hwnd);
+
+      if (hwnd->m_private_data)
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int rad = min((r.bottom-r.top)/2-1,track_h);
+        int *state = (int *)hwnd->m_private_data;
+        const int range = state[1];
+        const int low = LOWORD(range), high=HIWORD(range);
+        const int dx = ((state[2]-low)*(r.right-2*rad))/(high-low) + rad;
+        s_cap_offs=0;
+
+        if (GET_X_LPARAM(lParam) >= dx-rad && GET_X_LPARAM(lParam)<=dx-rad)
+        {
+          s_cap_offs = GET_X_LPARAM(lParam)-dx;
+          return 1;
+        }
+        // missed knob, so treat as a move
+      }
+
+    case WM_MOUSEMOVE:
+      if (GetCapture()==hwnd && hwnd->m_private_data)
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int rad = min((r.bottom-r.top)/2-1,track_h);
+        int *state = (int *)hwnd->m_private_data;
+        const int range = state[1];
+        const int low = LOWORD(range), high=HIWORD(range);
+        int xpos = GET_X_LPARAM(lParam) - s_cap_offs;
+        int use_range = (r.right-2*rad);
+        if (use_range > 0)
+        {
+          int newval = low + (xpos - rad) * (high-low) / use_range;
+          if (newval < low) newval=low;
+          else if (newval > high) newval=high;
+          if (newval != state[0])
+          {
+            state[0]=newval;
+            InvalidateRect(hwnd,NULL,FALSE);
+            SendMessage(hwnd->m_parent,WM_HSCROLL,0,(LPARAM)hwnd);
+          }
+        }
+      }
+    return 1;
+    case WM_LBUTTONUP:
+      if (GetCapture()==hwnd)
+      {
+        ReleaseCapture();
+        SendMessage(hwnd->m_parent,WM_HSCROLL,SB_ENDSCROLL,(LPARAM)hwnd);
+      }
+    return 1;
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r; 
+          GetClientRect(hwnd,&r); 
+
+          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
+          if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
+          else
+          {
+            if (hbrush) FillRect(ps.hdc,&r,hbrush);
+            else
+            {
+              SWELL_FillDialogBackground(ps.hdc,&r,3);
+            }
+          }
+
+          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
+          const int rad = min((r.bottom-r.top)/2-1,track_h);
+
+          RECT sr = r;
+          sr.left += rad;
+          sr.right -= rad;
+          sr.top = (r.top+r.bottom)/2 - rad/2;
+          sr.bottom = sr.top + rad;
+          FillRect(ps.hdc,&sr,br);
+          DeleteObject(br);
+
+          sr.top = (r.top+r.bottom)/2 - rad;
+          sr.bottom = sr.top + rad*2;
+
+          if (hwnd->m_private_data)
+          {
+            const int *state = (const int *)hwnd->m_private_data;
+            const int range = state[1];
+            const int low = LOWORD(range), high=HIWORD(range);
+            if (high > low)
+            {
+              if (state[2] >= low && state[2] <= high)
+              {
+                const int dx = ((state[2]-low)*(r.right-2*rad))/(high-low) + rad;
+                HBRUSH markbr = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+                RECT tr = sr;
+                tr.left = dx;
+                tr.right = dx+1;
+                FillRect(ps.hdc,&tr,markbr);
+                DeleteObject(markbr);
+              }
+              int pos = state[0];
+              if (pos < low) pos=low;
+              else if (pos > high) pos = high;
+
+              const int dx = ((pos-low)*(r.right-2*rad))/(high-low) + rad;
+
+              HBRUSH cbr = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+              HGDIOBJ oldbr = SelectObject(ps.hdc,cbr);
+              HGDIOBJ oldpen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+              Ellipse(ps.hdc, dx-rad, sr.top,  dx+rad, sr.bottom);
+              SelectObject(ps.hdc,oldbr);
+              SelectObject(ps.hdc,oldpen);
+              DeleteObject(cbr);
+            }
+          }
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    break;
+  }
+
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   switch (msg)
@@ -4307,9 +4486,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname,"REAPERhfader")||!stricmp(classname,"msctls_trackbar32"))
   {
     RECT tr=MakeCoords(x,y,w,h,true);
-    HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE));
+    HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE),trackbarWindowProc);
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = !stricmp(classname,"REAPERhfader") ? "REAPERhfader" : "msctls_trackbar32";
+    hwnd->m_private_data = (INT_PTR) calloc(3,sizeof(int)); // pos, range, tic
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
   }
