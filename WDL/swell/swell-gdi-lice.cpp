@@ -465,13 +465,24 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)) return;
   
-  //CGRect rect=CGRectMake(l,t,r-l,b-t);
+  swell_DirtyContext(ctx,l,t,r,b);
   
-  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >=0)
+  l += c->surface_offs.x;
+  t += c->surface_offs.y;
+  r += c->surface_offs.x;
+  b += c->surface_offs.y;
+
+  int rad = min(r-l, b-t)/2; // todo: actual ellipse, for now just circles
+
+  bool wantPen = HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0;
+  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
+    int use_rad = wantPen ? rad-1 : rad;
+    if (use_rad > 0) LICE_FillCircle(c->surface,l+use_rad,t+use_rad,use_rad,c->curbrush->color,c->curbrush->alpha,LICE_BLIT_MODE_COPY,!wantPen);
   }
-  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
+  if (wantPen)
   {
+    LICE_Circle(c->surface,l+rad,t+rad,rad,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,true);
   }
 }
 
