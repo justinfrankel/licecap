@@ -507,14 +507,53 @@ class wdl_xml_parser {
 class wdl_xml_fileread : public wdl_xml_parser {
   FILE *m_fp;
   char m_buf[1024];
+  int m_charset;
 
   virtual int moredata(const char **dataptr) 
   { 
     *dataptr = m_buf;
-    return m_fp ? (int) fread(m_buf,1,sizeof(m_buf),m_fp) : 0;
+    const int cs = m_charset;
+    if (m_fp) switch (cs)
+    {
+      case 0:
+        return (int) fread(m_buf,1,sizeof(m_buf),m_fp);
+      case 1:
+      case 2:
+        {
+          unsigned char tmp[128];
+          const int l = (int) fread(tmp,1,sizeof(tmp),m_fp);
+          int rd=0, wpos=0;
+          while (rd+1 < l)
+          {
+            const int amt=wdl_utf8_makechar(cs==1 ? ((tmp[rd]<<8)|tmp[rd+1]) : (tmp[rd]|(tmp[rd+1]<<8)), 
+                m_buf+wpos,
+                (int)sizeof(m_buf)-wpos);
+            if (amt>0) wpos += amt;
+
+            rd+=2;
+          }
+          return wpos;
+        }
+    }
+    return 0;
   }
 public:
-  wdl_xml_fileread(FILE *fp) : wdl_xml_parser(NULL,0) { m_fp=fp; }
+  wdl_xml_fileread(FILE *fp) : wdl_xml_parser(NULL,0) 
+  { 
+    m_fp=fp; 
+    m_charset=0; // default to utf-8
+    if (fp)
+    {
+      unsigned char bom[2];
+      if (fread(bom,1,2,fp)==2)
+      {
+        if (bom[0] == 0xEF && bom[1] == 0xBB && fgetc(fp) == 0xBF) m_charset=0;
+        else if (bom[0] == 0xFE && bom[1] == 0xFF) m_charset=1; // utf-16 BE
+        else if (bom[0] == 0xFF && bom[1] == 0xFE) m_charset=2; // utf-16 LE
+        else fseek(fp,0,SEEK_SET); // rewind
+      }
+    }
+  }
   virtual ~wdl_xml_fileread() { if (m_fp) fclose(m_fp); }
 };
 
