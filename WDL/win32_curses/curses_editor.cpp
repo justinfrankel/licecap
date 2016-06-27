@@ -1203,6 +1203,7 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
       while (s-- > 0)
       {
         char b[32];
+        if (!*t) break;
         WDL_MakeUTFChar(b,*t++,sizeof(b));
         buf.Append(b);
       }
