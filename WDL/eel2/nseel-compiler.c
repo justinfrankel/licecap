@@ -1935,7 +1935,11 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             case FN_MOD:
               {
                 int a = (int) op->parms.parms[1]->parms.dv.directValue;
-                if (a) a = (int) op->parms.parms[0]->parms.dv.directValue % a;
+                if (a) 
+                {
+                  a = (int) op->parms.parms[0]->parms.dv.directValue % a;
+                  if (a<0) a=-a;
+                }
                 RESTART_DIRECTVALUE((EEL_F)a);
               }
             break;
