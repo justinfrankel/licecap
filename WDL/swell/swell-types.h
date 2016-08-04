@@ -810,6 +810,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define BS_AUTO3STATE      0x00000006L
 #define BS_AUTORADIOBUTTON 0x00000009L
 #define BS_OWNERDRAW       0x0000000BL
+#define BS_BITMAP          0x00000080L
 
 
 

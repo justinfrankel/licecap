@@ -54,6 +54,7 @@ struct HTREEITEM__;
 #define SWELL_ListViewCell __SWELL_PREFIX_CLASSNAME(_listviewcell)
 #define SWELL_ODListViewCell __SWELL_PREFIX_CLASSNAME(_ODlistviewcell)
 #define SWELL_ODButtonCell __SWELL_PREFIX_CLASSNAME(_ODbuttoncell)
+#define SWELL_ImageButtonCell __SWELL_PREFIX_CLASSNAME(_imgbuttoncell)
 
 #define SWELL_FocusRectWnd __SWELL_PREFIX_CLASSNAME(_drawfocusrectwnd)
 
@@ -185,6 +186,12 @@ typedef struct WindowPropRec
 -(NSInteger)columnAtPoint:(NSPoint)pt;
 -(int)getColumnPos:(int)idx; // get current position of column that was originally at idx
 -(int)getColumnIdx:(int)pos; // get original index of column that is currently at position
+@end
+
+@interface SWELL_ImageButtonCell : NSButtonCell
+{
+}
+- (NSRect)drawTitle:(NSAttributedString *)title withFrame:(NSRect)frame inView:(NSView *)controlView;
 @end
 
 @interface SWELL_ODButtonCell : NSButtonCell

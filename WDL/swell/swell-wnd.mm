@@ -953,6 +953,12 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 @end
 
+@implementation SWELL_ImageButtonCell
+- (NSRect)drawTitle:(NSAttributedString *)title withFrame:(NSRect)frame inView:(NSView *)controlView
+{
+  return NSMakeRect(0,0,0,0);
+}
+@end
 
 @implementation SWELL_ODButtonCell
 - (BOOL)isTransparent
@@ -2981,6 +2987,12 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   UINT_PTR a=(UINT_PTR)label;
   if (a < 65536) label = "ICONTEMP";
   SWELL_Button *button=[[SWELL_Button alloc] init];
+  if (flags & BS_BITMAP)
+  {
+    SWELL_ImageButtonCell * cell = [[SWELL_ImageButtonCell alloc] init];
+    [button setCell:cell];
+    [cell release];
+  }
   
   if (m_transform.size.width < minwidfontadjust)
   {
@@ -3611,6 +3623,12 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     }
     else // normal button
     {
+      if (style & BS_BITMAP)
+      {
+        SWELL_ImageButtonCell * cell = [[SWELL_ImageButtonCell alloc] init];
+        [button setCell:cell];
+        [cell release];
+      }
 //      fr.size.width+=8;
     }
     
