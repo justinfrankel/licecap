@@ -2820,6 +2820,15 @@ void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
 #endif
 }
 
+void SWELL_SetWindowFlip(HWND hwnd, bool flip)
+{
+  SWELL_hwndChild * hc = (SWELL_hwndChild*)hwnd;
+  if (hc && [hc isKindOfClass:[SWELL_hwndChild class]])
+  {
+    hc->m_flip = flip;
+  }
+}
+
 
 @interface NSButton (TextColor)
 
