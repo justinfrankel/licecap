@@ -1074,7 +1074,7 @@ bool WDL_VirtualStaticText::OnMouseDblClick(int xpos, int ypos)
 
 bool WDL_VirtualIconButton::WantsPaintOver()
 {
-  return m_is_button && m_iconCfg && m_iconCfg->image && m_iconCfg->olimage;
+  return /*m_is_button && */m_iconCfg && m_iconCfg->image && m_iconCfg->olimage;
 }
 
 void WDL_VirtualIconButton::GetPositionPaintOverExtent(RECT *r)
