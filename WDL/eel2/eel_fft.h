@@ -360,11 +360,11 @@ void EEL_fft_register()
 static const char *eel_fft_function_reference =
 "convolve_c\t\0"
 "fft\tbuffer,size\tPerforms a FFT on the data in the local memory buffer at the offset specified by the first parameter. The size of the FFT is specified "
-                  "by the second parameter, which must be 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if "
+                  "by the second parameter, which must be 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if "
                   "you plan to use them in-order, call fft_permute(idx, size) before and fft_ipermute(idx,size) after your in-order use. Your inputs or "
                   "outputs will need to be scaled down by 1/size, if used.\n"
                   "Note that fft()/ifft() require real / imaginary input pairs, so a 256 point FFT actually works with 512 items.\n"
-                  "Note that fft()/ifft() must NOT cross a 65, 536 item boundary, so be sure to specify the offset accordingly.\0"
+                  "Note that fft()/ifft() must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.\0"
 "ifft\tbuffer,size\tPerform an inverse FFT. For more information see fft().\0"
 "fft_permute\tbuffer,size\tPermute the output of fft() to have bands in-order. See fft() for more information.\0"
 "fft_ipermute\tbuffer,size\tPermute the input for ifft(), taking bands from in-order to the order ifft() requires. See fft() for more information.\0"
