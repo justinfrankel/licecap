@@ -84,10 +84,12 @@ int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
       WIDETOMB_ALLOC(wbuf, alloc_size);
       if (wbuf)
       {
-        GetWindowTextW(hWnd,wbuf,(int) (wbuf_size/sizeof(WCHAR)));
-
-        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
-          lpString[nMaxCount-1]=0;
+        lpString[0]=0;
+        if (GetWindowTextW(hWnd,wbuf,(int) (wbuf_size/sizeof(WCHAR))))
+        {
+          if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL))
+            lpString[nMaxCount-1]=0;
+        }
 
         WIDETOMB_FREE(wbuf);
 
@@ -207,7 +209,7 @@ UINT DragQueryFileUTF8(HDROP hDrop, UINT idx, char *buf, UINT bufsz)
       UINT rv=DragQueryFileW(hDrop,idx,wbuf,(int)(wbuf_size/sizeof(WCHAR)));
       if (rv)
       {
-        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,buf,bufsz,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,buf,bufsz,NULL,NULL))
           buf[bufsz-1]=0;
       }
       WIDETOMB_FREE(wbuf);
@@ -567,8 +569,7 @@ DWORD GetCurrentDirectoryUTF8(DWORD nBufferLength, LPTSTR lpBuffer)
 
     WCHAR wbuf[WDL_UTF8_MAXFNLEN];
     wbuf[0]=0;
-    GetCurrentDirectoryW(WDL_UTF8_MAXFNLEN,wbuf);
-    if (wbuf[0])
+    if (GetCurrentDirectoryW(WDL_UTF8_MAXFNLEN,wbuf) && wbuf[0])
     {
       int rv=WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpBuffer,nBufferLength,NULL,NULL);
       if (rv) return rv;
@@ -694,7 +695,7 @@ BOOL GetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMIN
 
       if (rv && (tmp.fType&(MFT_SEPARATOR|MFT_STRING|MFT_BITMAP)) == MFT_STRING)
       {
-        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpmii->dwTypeData,lpmii->cch,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpmii->dwTypeData,lpmii->cch,NULL,NULL))
         {
           lpmii->dwTypeData[lpmii->cch-1]=0;
         }
@@ -791,7 +792,8 @@ int GetKeyNameTextUTF8(LONG lParam, LPTSTR lpString, int nMaxCount)
 
       if (v)
       {
-        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        lpString[0]=0;
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpString,nMaxCount,NULL,NULL))
           lpString[nMaxCount-1]=0;
       }
       WIDETOMB_FREE(wbuf);
@@ -1037,7 +1039,7 @@ static LRESULT WINAPI tv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         pItem->pszText = (char *)wbuf;
         rv=CallWindowProc(oldproc,hwnd,TVM_GETITEMW,wParam,lParam);
 
-        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,obuf,oldsz,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,obuf,oldsz,NULL,NULL))
           obuf[oldsz-1]=0;
 
         pItem->cchTextMax=oldsz;
@@ -1118,7 +1120,7 @@ static LRESULT WINAPI lv_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         pItem->pszText = (char *)wbuf;
         rv=CallWindowProc(oldproc,hwnd,msg==LVM_GETITEMTEXTA ? LVM_GETITEMTEXTW : LVM_GETITEMW,wParam,lParam);
 
-        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,obuf,oldsz,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        if (!WideCharToMultiByte(CP_UTF8,0,wbuf,-1,obuf,oldsz,NULL,NULL))
           obuf[oldsz-1]=0;
 
         pItem->cchTextMax=oldsz;
@@ -1184,7 +1186,7 @@ void WDL_UTF8_ListViewConvertDispInfoToW(void *_di)
       }
       else
       {
-        if (!MultiByteToWideChar(CP_ACP,MB_ERR_INVALID_CHARS,tmp,-1,(LPWSTR)di->item.pszText,di->item.cchTextMax) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)
+        if (!MultiByteToWideChar(CP_ACP,MB_ERR_INVALID_CHARS,tmp,-1,(LPWSTR)di->item.pszText,di->item.cchTextMax))
           ((WCHAR *)di->item.pszText)[di->item.cchTextMax-1] = 0;
       }
     }   
