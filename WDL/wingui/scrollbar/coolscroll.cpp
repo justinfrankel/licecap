@@ -2638,7 +2638,10 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y, const wd
 	siMaxMin = si->nMax - si->nMin;
 
 	if(siMaxMin > 0)
+  {
 		pos = MulDiv(thumbpos-rc.left, siMaxMin-si->nPage + 1, rc.right-rc.left-nThumbSize);
+    /*this +1 should probably not be here, todo someday remove, allows thumb tracking messages to exceed expected bounds*/
+  }
 	else
 		pos = thumbpos - rc.left;
 
