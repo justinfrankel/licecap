@@ -230,29 +230,28 @@ static void FFT(int sizebits, EEL_F *data, int dir)
 
       if (dir == 4)
       {
- 	      for (x = 0; x < flen2; x += 2)
-   	    {
-   	      int y=WDL_fft_permute(flen,x/2)*2;
+        for (x = 0; x < flen2; x += 2)
+        {
+          int y=WDL_fft_permute(flen,x/2)*2;
           data[x]=tmp[y];
-   	      data[x+1]=tmp[y+1];
+          data[x+1]=tmp[y+1];
         }
-
       }
       else
       {
- 	      for (x = 0; x < flen2; x += 2)
-   	    {
-   	      int y=WDL_fft_permute(flen,x/2)*2;
+        for (x = 0; x < flen2; x += 2)
+        {
+          int y=WDL_fft_permute(flen,x/2)*2;
           data[y]=tmp[x];
-   	      data[y+1]=tmp[x+1];
-        }
-      }
+          data[y+1]=tmp[x+1];
+         }
+       }
 #endif
       //timingLeave(0);
     }
   }
-	else if (dir >= 0 && dir < 2)
-	{
+  else if (dir >= 0 && dir < 2)
+  {
     WDL_fft((WDL_FFT_COMPLEX*)data,1<<sizebits,dir&1);
 	}
 }
