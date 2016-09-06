@@ -253,7 +253,11 @@ static void FFT(int sizebits, EEL_F *data, int dir)
   else if (dir >= 0 && dir < 2)
   {
     WDL_fft((WDL_FFT_COMPLEX*)data,1<<sizebits,dir&1);
-	}
+  }
+  else if (dir >= 2 && dir < 4)
+  {
+    WDL_real_fft((WDL_FFT_REAL*)data,1<<sizebits,dir&1);
+  }
 }
 
 
@@ -305,6 +309,16 @@ static EEL_F * NSEEL_CGEN_CALL  eel_ifft(EEL_F **blocks, EEL_F *start, EEL_F *le
   return fft_func(1,blocks,start,length);
 }
 
+static EEL_F * NSEEL_CGEN_CALL  eel_fft_real(EEL_F **blocks, EEL_F *start, EEL_F *length)
+{
+  return fft_func(2,blocks,start,length);
+}
+
+static EEL_F * NSEEL_CGEN_CALL  eel_ifft_real(EEL_F **blocks, EEL_F *start, EEL_F *length)
+{
+  return fft_func(3,blocks,start,length);
+}
+
 static EEL_F * NSEEL_CGEN_CALL  eel_fft_permute(EEL_F **blocks, EEL_F *start, EEL_F *length)
 {
   return fft_func(4,blocks,start,length);
@@ -351,6 +365,8 @@ void EEL_fft_register()
   NSEEL_addfunc_retptr("convolve_c",3,NSEEL_PProc_RAM,&eel_convolve_c);
   NSEEL_addfunc_retptr("fft",2,NSEEL_PProc_RAM,&eel_fft);
   NSEEL_addfunc_retptr("ifft",2,NSEEL_PProc_RAM,&eel_ifft);
+  NSEEL_addfunc_retptr("fft_real",2,NSEEL_PProc_RAM,&eel_fft_real);
+  NSEEL_addfunc_retptr("ifft_real",2,NSEEL_PProc_RAM,&eel_ifft_real);
   NSEEL_addfunc_retptr("fft_permute",2,NSEEL_PProc_RAM,&eel_fft_permute);
   NSEEL_addfunc_retptr("fft_ipermute",2,NSEEL_PProc_RAM,&eel_ifft_permute);
 }
@@ -365,6 +381,8 @@ static const char *eel_fft_function_reference =
                   "Note that fft()/ifft() require real / imaginary input pairs, so a 256 point FFT actually works with 512 items.\n"
                   "Note that fft()/ifft() must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.\0"
 "ifft\tbuffer,size\tPerform an inverse FFT. For more information see fft().\0"
+"fft_real\tbuffer,size\tPerforms an FFT, but takes size input samples and produces size/2 complex output pairs. Usually used along with fft_permute(size/2). Inputs/outputs will need to be scaled by 0.5/size.\0"
+"ifft_real\tbuffer,size\tPerforms an inverse FFT, but takes size/2 complex input pairs and produces size real output values. Usually used along with fft_ipermute(size/2).\0"
 "fft_permute\tbuffer,size\tPermute the output of fft() to have bands in-order. See fft() for more information.\0"
 "fft_ipermute\tbuffer,size\tPermute the input for ifft(), taking bands from in-order to the order ifft() requires. See fft() for more information.\0"
 ;
