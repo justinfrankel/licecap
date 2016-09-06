@@ -1196,7 +1196,7 @@ static inline void v2(register WDL_FFT_REAL *a)
   a[1] = t2;
 }
 
-void two_for_one(WDL_FFT_REAL* buf, const WDL_FFT_COMPLEX *d, int len, int isInverse)
+static void two_for_one(WDL_FFT_REAL* buf, const WDL_FFT_COMPLEX *d, int len, int isInverse)
 {
   unsigned int half = (unsigned)len >> 1, quart = half >> 1, eighth = quart >> 1;
   int* permute = WDL_fft_permute_tab(half);
