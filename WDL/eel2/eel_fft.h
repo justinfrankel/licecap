@@ -357,10 +357,10 @@ void EEL_fft_register()
 
 #ifdef EEL_WANT_DOCUMENTATION
 static const char *eel_fft_function_reference =
-"convolve_c\t\0"
+"convolve_c\tdest,src,size\tMultiplies each of size complex pairs in dest by the complex pairs in src. Often used for convolution.\0"
 "fft\tbuffer,size\tPerforms a FFT on the data in the local memory buffer at the offset specified by the first parameter. The size of the FFT is specified "
                   "by the second parameter, which must be 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if "
-                  "you plan to use them in-order, call fft_permute(idx, size) before and fft_ipermute(idx,size) after your in-order use. Your inputs or "
+                  "you plan to use them in-order, call fft_permute(buffer, size) before and fft_ipermute(buffer,size) after your in-order use. Your inputs or "
                   "outputs will need to be scaled down by 1/size, if used.\n"
                   "Note that fft()/ifft() require real / imaginary input pairs, so a 256 point FFT actually works with 512 items.\n"
                   "Note that fft()/ifft() must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.\0"
