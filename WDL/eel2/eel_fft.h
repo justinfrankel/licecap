@@ -14,15 +14,19 @@
 #define EEL_FFT_MAXBITLEN 15
 #endif
 
+#ifndef EEL_FFT_MINBITLEN_REORDER
+#define EEL_FFT_MINBITLEN_REORDER (EEL_FFT_MINBITLEN-1)
+#endif
+
 //#define EEL_SUPER_FAST_FFT_REORDERING // quite a bit faster (50-100%) than "normal", but uses a 256kb lookup
 //#define EEL_SLOW_FFT_REORDERING // 20%-80% slower than normal, alloca() use, no reason to ever use this
 
 #ifdef EEL_SUPER_FAST_FFT_REORDERING
 static int *fft_reorder_table_for_bitsize(int bitsz)
 {
-  static int s_tab[ (2 << EEL_FFT_MAXBITLEN) + 24*(EEL_FFT_MAXBITLEN-EEL_FFT_MINBITLEN+1) ]; // big 256kb table, ugh
-  if (bitsz<=EEL_FFT_MINBITLEN) return s_tab;
-  return s_tab + (1<<bitsz) + (bitsz-EEL_FFT_MINBITLEN) * 24;
+  static int s_tab[ (2 << EEL_FFT_MAXBITLEN) + 24*(EEL_FFT_MAXBITLEN-EEL_FFT_MINBITLEN_REORDER+1) ]; // big 256kb table, ugh
+  if (bitsz<=EEL_FFT_MINBITLEN_REORDER) return s_tab;
+  return s_tab + (1<<bitsz) + (bitsz-EEL_FFT_MINBITLEN_REORDER) * 24;
 }
 static void fft_make_reorder_table(int bitsz, int *tab)
 {
@@ -275,7 +279,7 @@ static EEL_F * fft_func(int dir, EEL_F **blocks, EEL_F *start, EEL_F *length)
 		bitl++;
 		l>>=1;
 	}
-	if (bitl < EEL_FFT_MINBITLEN)  // smallest FFT is 16 item
+	if (bitl < ((dir&4) ? EEL_FFT_MINBITLEN_REORDER : EEL_FFT_MINBITLEN))  // smallest FFT is 16 item, smallest reorder is 8 item
 	{ 
 		return start; 
 	}
@@ -356,10 +360,10 @@ void EEL_fft_register()
 {
   WDL_fft_init();
 #if defined(EEL_SUPER_FAST_FFT_REORDERING)
-  if (!fft_reorder_table_for_bitsize(EEL_FFT_MINBITLEN)[0])
+  if (!fft_reorder_table_for_bitsize(EEL_FFT_MINBITLEN_REORDER)[0])
   {
     int x;
-    for (x=EEL_FFT_MINBITLEN;x<=EEL_FFT_MAXBITLEN;x++) fft_make_reorder_table(x,fft_reorder_table_for_bitsize(x));
+    for (x=EEL_FFT_MINBITLEN_REORDER;x<=EEL_FFT_MAXBITLEN;x++) fft_make_reorder_table(x,fft_reorder_table_for_bitsize(x));
   }
 #endif
   NSEEL_addfunc_retptr("convolve_c",3,NSEEL_PProc_RAM,&eel_convolve_c);
