@@ -920,7 +920,7 @@ static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         if (rv>=0)
         {
           *(char *)lParam=0;
-          rv=WideCharToMultiByte(CP_UTF8,0,tmp,-1,(char *)lParam,((int)l+1)*3 + 32,NULL,NULL);
+          rv=WideCharToMultiByte(CP_UTF8,0,tmp,-1,(char *)lParam,((int)l)*4 + 32,NULL,NULL);
           if (rv>0) rv--;
         }
         WIDETOMB_FREE(tmp);
@@ -929,10 +929,10 @@ static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
       }
     }
   }
-  else if (msg == CB_GETLBTEXTLEN || msg == LB_GETTEXT)
+  else if (msg == CB_GETLBTEXTLEN || msg == LB_GETTEXTLEN)
   {
     WNDPROC oldprocW = (WNDPROC)GetProp(hwnd,WDL_UTF8_OLDPROCPROP "W");
-    return CallWindowProcW(oldprocW ? oldprocW : oldproc,hwnd,msg,wParam,lParam) * 3 + 32; // make sure caller allocates a lot extra
+    return CallWindowProcW(oldprocW ? oldprocW : oldproc,hwnd,msg,wParam,lParam) * 4 + 32; // make sure caller allocates a lot extra
   }
 
   return CallWindowProc(oldproc,hwnd,msg,wParam,lParam);
