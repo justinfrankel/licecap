@@ -609,14 +609,15 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
       //SetFocus(h);
     }
     
+    WDL_VWND_DCHK(a);
+
     int ret=TrackPopupMenu(menu,TPM_LEFTALIGN|TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,NULL);
 
-    if (ret>=1000)
+    if (ret>=1000 && a.isOK())
     {
       m_curitem=ret-1000;
       RequestRedraw(NULL);
     // track menu
-      WDL_VWND_DCHK(a);
       SendCommand(WM_COMMAND,GetID() | (CBN_SELCHANGE<<16),0,this);
       if (a.isOK() && m__iaccess) m__iaccess->OnStateChange();
     }
