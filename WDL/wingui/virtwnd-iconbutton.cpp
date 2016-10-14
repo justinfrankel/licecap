@@ -613,6 +613,8 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
 
     int ret=TrackPopupMenu(menu,TPM_LEFTALIGN|TPM_TOPALIGN|TPM_RETURNCMD|TPM_NONOTIFY,p.x,p.y,0,h,NULL);
 
+    DestroyMenu(menu);
+
     if (ret>=1000 && a.isOK())
     {
       m_curitem=ret-1000;
