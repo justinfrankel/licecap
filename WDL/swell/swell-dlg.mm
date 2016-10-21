@@ -609,6 +609,13 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
 }
 
+- (void)comboBoxWillDismiss:(NSNotification *)notification
+{
+  id sender=[notification object];
+  int code=CBN_CLOSEUP;
+  if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+}
+
 - (void)textDidEndEditing:(NSNotification *)aNotification
 {
   id sender=[aNotification object];

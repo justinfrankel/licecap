@@ -986,6 +986,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define CBN_SELCHANGE       1
 #define CBN_EDITCHANGE      5
 #define CBN_DROPDOWN        7
+#define CBN_CLOSEUP         8
 #define CB_ERR (-1)
 
 #define EM_GETSEL               0xF0B0
