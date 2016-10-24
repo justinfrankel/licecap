@@ -256,7 +256,7 @@ typedef struct WindowPropRec
 @interface SWELL_hwndChild : NSView // <NSDraggingSource>
 {
 @public
-  BOOL m_enabled;
+  int m_enabled; // -1 if preventing focus
   DLGPROC m_dlgproc;
   WNDPROC m_wndproc;
   LONG_PTR m_userdata;

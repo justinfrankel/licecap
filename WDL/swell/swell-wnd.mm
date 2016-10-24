@@ -1656,7 +1656,10 @@ void EnableWindow(HWND hwnd, int enable)
     
   if (bla && [bla respondsToSelector:@selector(setEnabled:)])
   {
-    [bla setEnabled:(enable?YES:NO)];
+    if (enable == -1000 && [bla respondsToSelector:@selector(setEnabledSwellNoFocus)])
+      [bla setEnabledSwellNoFocus];
+    else
+      [bla setEnabled:(enable?YES:NO)];
     if ([bla isKindOfClass:[SWELL_TextField class]])
     {
       NSTextField* txt = (NSTextField*)bla;
