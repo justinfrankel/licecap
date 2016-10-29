@@ -70,6 +70,78 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
   BFSF_Templ_dlgproc=dlgProc;
 }
 
+static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  const int wndh = 22, lblw = 50, combow = 250;
+  char buf[1024];
+  switch (uMsg)
+  {
+    case WM_CREATE:
+      SetOpaque(hwnd,FALSE);
+      SetWindowPos(hwnd,NULL,0,0,lblw + 4 + combow + 4,wndh,SWP_NOMOVE|SWP_NOZORDER);
+      SWELL_MakeSetCurParms(1,1,0,0,hwnd,true,false);
+      SWELL_MakeLabel(1,"File type:",1001,0,2,lblw,wndh,0);
+      SWELL_MakeCombo(1000, lblw + 4,0, combow, wndh,3/*CBS_DROPDOWNLIST*/);
+      SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+      {
+        const char *extlist = ((const char **)lParam)[0];
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)extlist);
+        const char *initial_file = ((const char **)lParam)[1];
+
+        if (initial_file) initial_file=WDL_get_fileext(initial_file);
+        int def_sel = -1;
+
+        HWND combo = GetDlgItem(hwnd,1000);
+        while (*extlist)
+        {
+          const char *next = extlist + strlen(extlist)+1;
+          if (!*next) break;
+
+          if (strcmp(next,"*.*") && !strstr(next,";"))
+          {
+            int a = SendMessage(combo,CB_ADDSTRING,0,(LPARAM)extlist);
+            SendMessage(combo,CB_SETITEMDATA,a,(LPARAM)next);
+            if (def_sel < 0 && initial_file)
+            {
+              const char *ext = WDL_get_fileext(next);
+              if (!strcmp(ext,initial_file)) def_sel = a;
+            }
+          }
+
+          extlist = next + strlen(next)+1;
+          if (!*extlist) break;
+        }
+        SendMessage(combo,CB_SETCURSEL,def_sel>=0?def_sel:0,0);
+        SendMessage(hwnd,WM_COMMAND,(CBN_SELCHANGE<<16) | 1000,0);
+      }
+    return 0;
+    case WM_COMMAND:
+      if (LOWORD(wParam) == 1000 && HIWORD(wParam) == CBN_SELCHANGE)
+      {
+        int a = (int)SendDlgItemMessage(hwnd,1000,CB_GETCURSEL,0,0);
+        if (a>=0)
+        {
+          const char *extlist = (const char *)SendDlgItemMessage(hwnd,1000,CB_GETITEMDATA,a,0);
+          if (extlist)
+          {
+            memset(buf,0,sizeof(buf));
+            buf[0]='a';
+            lstrcpyn_safe(buf+2,extlist,sizeof(buf)-4);
+            NSArray *fileTypes = extensionsFromList(buf);
+            if ([fileTypes count]>0) 
+            {
+              NSSavePanel *par = (NSSavePanel*)[(NSView *)hwnd window];
+              if ([par isKindOfClass:[NSSavePanel class]]) [(NSSavePanel *)par setAllowedFileTypes:fileTypes];
+            }
+            [fileTypes release];
+          }
+        }
+      }
+    return 0;
+  }
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
+
 // return true
 bool BrowseForSaveFile(const char *text, const char *initialdir, const char *initialfile, const char *extlist,
                        char *fn, int fnsize)
@@ -81,16 +153,42 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 
   [panel setTitle:title];
   [panel setAccessoryView:nil];
+  HWND av_parent = (HWND)panel;
+
+  if ([fileTypes count]>1)
+  {
+    const char *ar[2]={extlist,initialfile};
+    av_parent = SWELL_CreateDialog(NULL,0,av_parent,fileTypeChooseProc,(LPARAM)ar);
+    if (!av_parent) av_parent = (HWND)panel;
+  }
+
   HWND oh=NULL;
   if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
   {
-    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, (HWND)panel, BFSF_Templ_dlgproc, 0);
+    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, av_parent, BFSF_Templ_dlgproc, 0);
     BFSF_Templ_dlgproc=0;
     BFSF_Templ_dlgid=0;
   }
-	
-  [panel setAllowedFileTypes:fileTypes];
-	
+  if (av_parent != (HWND)panel) 
+  {
+    if (oh) 
+    { 
+      RECT r1,r2;
+      GetClientRect(oh,&r1);
+      GetClientRect(av_parent,&r2);
+
+      SetWindowPos(oh,NULL,0,r2.bottom,0,0,SWP_NOZORDER|SWP_NOSIZE);
+      if (r2.right < r1.right) r2.right=r1.right;
+      SetWindowPos(av_parent,NULL,0,0,r2.right,r2.bottom+r1.bottom,SWP_NOZORDER|SWP_NOMOVE);
+      ShowWindow(oh,SW_SHOWNA);
+    }
+    oh = av_parent;
+  }
+  else
+  {
+    [panel setAllowedFileTypes:fileTypes];
+  }
+
   if (initialfile && *initialfile)
   {
     char s[2048];
