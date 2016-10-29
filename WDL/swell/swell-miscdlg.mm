@@ -124,6 +124,8 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   [panel setAccessoryView:nil];
 	[title release];
 	[fileTypes release];
+        [idir release];
+        [ifn release];
 	
 	if (result == NSOKButton)
 	{
