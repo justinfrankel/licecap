@@ -30,7 +30,7 @@
 #include "swell.h"
 #include "../wdlcstring.h"
 #import <Cocoa/Cocoa.h>
-static NSMutableArray *extensionsFromList(const char *extlist)
+static NSMutableArray *extensionsFromList(const char *extlist, const char *def_ext=NULL)
 {
 	NSMutableArray *fileTypes = [[NSMutableArray alloc] initWithCapacity:30];
 	while (*extlist)
@@ -48,7 +48,13 @@ static NSMutableArray *extensionsFromList(const char *extlist)
 			if (tmp[0] && tmp[0]!='*')
 			{
 				NSString *s=(NSString *)SWELL_CStringToCFString(tmp);
-				[fileTypes addObject:s];
+                                const int tmp_len = strlen(tmp);
+                                if (def_ext && *def_ext &&
+                                    !strnicmp(def_ext,tmp,tmp_len) &&
+                                    (!def_ext[tmp_len] || def_ext[tmp_len] == ';'))
+                                  [fileTypes insertObject:s atIndex:0];
+                                else
+  				  [fileTypes addObject:s];
 				[s release];
 			}
 			while (*extlist && *extlist != ';') extlist++;
@@ -73,7 +79,6 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
 static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   const int wndh = 22, lblw = 50, combow = 250;
-  char buf[1024];
   switch (uMsg)
   {
     case WM_CREATE:
@@ -89,6 +94,8 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         const char *initial_file = ((const char **)lParam)[1];
 
         if (initial_file) initial_file=WDL_get_fileext(initial_file);
+        const int initial_file_len = initial_file  && *initial_file ? strlen(++initial_file) : 0;
+
         int def_sel = -1;
 
         HWND combo = GetDlgItem(hwnd,1000);
@@ -97,15 +104,32 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           const char *next = extlist + strlen(extlist)+1;
           if (!*next) break;
 
-          if (strcmp(next,"*.*") && !strstr(next,";"))
+          if (strcmp(next,"*.*"))
           {
             int a = SendMessage(combo,CB_ADDSTRING,0,(LPARAM)extlist);
-            SendMessage(combo,CB_SETITEMDATA,a,(LPARAM)next);
-            if (def_sel < 0 && initial_file)
+
+            // userdata for each item is pointer to un-terminated extension.
+            const char *p = next;
+            while (*p && *p != '.') p++;
+            if (*p) p++;
+            const char *bestp = p;
+
+            // scan extension list for matching initial file, use that (and set default)
+            if (def_sel < 0 && initial_file) while (*p)
             {
-              const char *ext = WDL_get_fileext(next);
-              if (!strcmp(ext,initial_file)) def_sel = a;
+              if (!strnicmp(p,initial_file,initial_file_len) && (p[initial_file_len] == ';' || !p[initial_file_len])) 
+              {
+                bestp = p;
+                def_sel = a;
+                break;
+              }
+              else
+              {
+                while (*p && *p != '.') p++;
+                if (*p) p++;
+              }
             }
+            SendMessage(combo,CB_SETITEMDATA,a,(LPARAM)bestp);
           }
 
           extlist = next + strlen(next)+1;
@@ -121,13 +145,11 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         int a = (int)SendDlgItemMessage(hwnd,1000,CB_GETCURSEL,0,0);
         if (a>=0)
         {
-          const char *extlist = (const char *)SendDlgItemMessage(hwnd,1000,CB_GETITEMDATA,a,0);
+          const char *extlist = (const char *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           if (extlist)
           {
-            memset(buf,0,sizeof(buf));
-            buf[0]='a';
-            lstrcpyn_safe(buf+2,extlist,sizeof(buf)-4);
-            NSArray *fileTypes = extensionsFromList(buf);
+            NSArray *fileTypes = extensionsFromList(extlist,
+                (const char *)SendDlgItemMessage(hwnd,1000,CB_GETITEMDATA,a,0));
             if ([fileTypes count]>0) 
             {
               NSSavePanel *par = (NSSavePanel*)[(NSView *)hwnd window];
