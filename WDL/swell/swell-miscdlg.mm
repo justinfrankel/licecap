@@ -136,7 +136,6 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           if (!*extlist) break;
         }
         SendMessage(combo,CB_SETCURSEL,def_sel>=0?def_sel:0,0);
-        SendMessage(hwnd,WM_COMMAND,(CBN_SELCHANGE<<16) | 1000,0);
       }
     return 0;
     case WM_COMMAND:
@@ -180,7 +179,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   if ([fileTypes count]>1)
   {
     const char *ar[2]={extlist,initialfile};
-    av_parent = SWELL_CreateDialog(NULL,0,av_parent,fileTypeChooseProc,(LPARAM)ar);
+    av_parent = SWELL_CreateDialog(NULL,0,NULL,fileTypeChooseProc,(LPARAM)ar);
     if (!av_parent) av_parent = (HWND)panel;
   }
 
@@ -206,10 +205,9 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
     }
     oh = av_parent;
 
-    [(id)av_parent retain];
-    [panel setAccessoryView:nil];
     [panel setAccessoryView:(NSView *)av_parent]; // we resized our accessory view
-    [(id)av_parent release];
+    SendMessage(av_parent,WM_COMMAND,(CBN_SELCHANGE<<16) | 1000,0);
+    [(NSView *)av_parent setHidden:NO];
   }
   else
   {
