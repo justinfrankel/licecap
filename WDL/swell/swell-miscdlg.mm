@@ -205,6 +205,11 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
       ShowWindow(oh,SW_SHOWNA);
     }
     oh = av_parent;
+
+    [(id)av_parent retain];
+    [panel setAccessoryView:nil];
+    [panel setAccessoryView:(NSView *)av_parent]; // we resized our accessory view
+    [(id)av_parent release];
   }
   else
   {
