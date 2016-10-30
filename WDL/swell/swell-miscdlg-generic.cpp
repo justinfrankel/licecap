@@ -221,7 +221,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           char buf[maxPathLen];
           const char *filepart = "";
-          if (parms->initialfile && *parms->initialfile) 
+          if (parms->initialfile && *parms->initialfile && *parms->initialfile != '.') 
           { 
             lstrcpyn_safe(buf,parms->initialfile,sizeof(buf));
             char *p = (char *)WDL_get_filepart(buf);

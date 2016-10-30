@@ -226,7 +226,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
     [panel setAllowedFileTypes:fileTypes];
   }
 
-  if (initialfile && *initialfile)
+  if (initialfile && *initialfile && *initialfile != '.')
   {
     char s[2048];
     lstrcpyn_safe(s,initialfile,sizeof(s));
