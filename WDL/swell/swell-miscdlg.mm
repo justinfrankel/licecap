@@ -78,12 +78,12 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
 
 static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  const int wndh = 22, lblw = 50, combow = 250;
+  const int wndh = 22, lblw = 80, combow = 250, def_wid = lblw + 4 + combow + 4;
   switch (uMsg)
   {
     case WM_CREATE:
       SetOpaque(hwnd,FALSE);
-      SetWindowPos(hwnd,NULL,0,0,lblw + 4 + combow + 4,wndh,SWP_NOMOVE|SWP_NOZORDER);
+      SetWindowPos(hwnd,NULL,0,0,def_wid,wndh,SWP_NOMOVE|SWP_NOZORDER);
       SWELL_MakeSetCurParms(1,1,0,0,hwnd,true,false);
       SWELL_MakeLabel(1,"File type:",1001,0,2,lblw,wndh,0);
       SWELL_MakeCombo(1000, lblw + 4,0, combow, wndh,3/*CBS_DROPDOWNLIST*/);
@@ -136,6 +136,16 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           if (!*extlist) break;
         }
         SendMessage(combo,CB_SETCURSEL,def_sel>=0?def_sel:0,0);
+      }
+    return 0;
+    case WM_SIZE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int xpos = r.right / 2 - def_wid/2;
+        SetWindowPos(GetDlgItem(hwnd,1001),NULL, xpos,2,0,0,SWP_NOZORDER|SWP_NOSIZE);
+        SetWindowPos(GetDlgItem(hwnd,1000),NULL, xpos + lblw + 4,0,0,0,SWP_NOZORDER|SWP_NOSIZE);
+
       }
     return 0;
     case WM_COMMAND:
