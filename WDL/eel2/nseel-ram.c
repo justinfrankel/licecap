@@ -313,8 +313,9 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F **blocks,EEL_F *dest, EEL_F *v,
 
 static int __getset_values(EEL_F **blocks, int isset, int len, EEL_F **parms)
 {
+  int offs, lout=0;
   if (len < 2) return 0;
-  int offs = (int)(parms[0][0] + 0.0001);
+  offs = (int)(parms[0][0] + 0.0001);
 
   len--;
   parms++;
@@ -329,7 +330,6 @@ static int __getset_values(EEL_F **blocks, int isset, int len, EEL_F **parms)
 
   if (offs+len > NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) len = NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - offs;
 
-  int lout=0;
   while (len > 0)
   {
     int lcnt;

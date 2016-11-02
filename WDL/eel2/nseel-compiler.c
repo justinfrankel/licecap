@@ -2684,18 +2684,24 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
     if (restore_stack_amt)
     {
-      int offs = restore_stack_amt - 4080;
-      if (bufOut_len < parm_size+GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
-      if (bufOut) GLUE_MOVE_STACK(bufOut+parm_size, - restore_stack_amt); 
-      parm_size += GLUE_MOVE_STACK_SIZE;
-
-      // ensure any large stack is in memory
-      while (offs >= 0)
+      int offs = restore_stack_amt;
+      while (offs > 0)
       {
-        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("insufficient size for varparm stackchk")
-        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut+parm_size,offs);
-        parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
-        offs -= 4096;
+        int amt = offs;
+        if (amt > 4096) amt=4096;
+
+        if (bufOut_len < parm_size+GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
+        if (bufOut) GLUE_MOVE_STACK(bufOut+parm_size, - amt);
+        parm_size += GLUE_MOVE_STACK_SIZE;
+        offs -= amt;
+
+        if (offs>0) // make sure this page is in memory
+        {
+          if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) 
+            RET_MINUS1_FAIL("insufficient size for varparm stackchk")
+          if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut+parm_size,0);
+          parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+        }
       }
     }
 
