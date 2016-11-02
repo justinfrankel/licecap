@@ -2656,7 +2656,11 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
-    const int max_params=32768; // sanity check. we actually check the stack manually
+#if defined(__arm__) || defined(__ppc__)
+    const int max_params=4096; // 32kb max offset addressing for stack, so 4096*4 = 16384, should be safe
+#else
+    const int max_params=32768; // sanity check, the stack is free to grow on x86/x86-64
+#endif
     int x;
     // this mode is less efficient in that it creates a list of pointers on the stack to pass to the function
     // but it is more flexible and works for >3 parameters.
