@@ -2656,7 +2656,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
-    const int max_params=256; // on x86-64, this means at most 2k of stack use, which should still be safe (going close to 4k would be less safe)
+    const int max_params=32768; // sanity check. we actually check the stack manually
     int x;
     // this mode is less efficient in that it creates a list of pointers on the stack to pass to the function
     // but it is more flexible and works for >3 parameters.
@@ -2680,9 +2680,19 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
     if (restore_stack_amt)
     {
+      int offs = restore_stack_amt - 4080;
       if (bufOut_len < parm_size+GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
       if (bufOut) GLUE_MOVE_STACK(bufOut+parm_size, - restore_stack_amt); 
       parm_size += GLUE_MOVE_STACK_SIZE;
+
+      // ensure any large stack is in memory
+      while (offs >= 0)
+      {
+        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("insufficient size for varparm stackchk")
+        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut+parm_size,offs);
+        parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+        offs -= 4096;
+      }
     }
 
     if (op->opcodeType == OPCODETYPE_FUNCX)
