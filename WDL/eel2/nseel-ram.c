@@ -311,6 +311,53 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F **blocks,EEL_F *dest, EEL_F *v,
 }
 
 
+static int __getset_values(EEL_F **blocks, int isset, int len, EEL_F **parms)
+{
+  if (len < 2) return 0;
+  int offs = (int)(parms[0][0] + 0.0001);
+
+  len--;
+  parms++;
+
+  if (offs<0) 
+  {
+    len += offs;
+    parms -= offs;
+    offs=0;
+  }
+  if (offs >= NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) return 0;
+
+  if (offs+len > NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) len = NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - offs;
+
+  int lout=0;
+  while (len > 0)
+  {
+    int lcnt;
+    EEL_F *ptr=__NSEEL_RAMAlloc(blocks,offs);
+    if (ptr==&nseel_ramalloc_onfail) break;
+
+    lcnt=NSEEL_RAM_ITEMSPERBLOCK-(offs&(NSEEL_RAM_ITEMSPERBLOCK-1));
+    if (lcnt > len) lcnt=len;
+
+    len -= lcnt;
+    offs += lcnt;
+
+    if (isset) while (lcnt--) *ptr++=parms[lout++][0];
+    else while (lcnt--) parms[lout++][0] = *ptr++;
+  }
+  return lout;
+}
+
+EEL_F NSEEL_CGEN_CALL __NSEEL_RAM_Mem_SetValues(EEL_F **blocks, INT_PTR np, EEL_F **parms)
+{
+  return __getset_values(blocks,1,(int)np,parms);
+}
+
+EEL_F NSEEL_CGEN_CALL __NSEEL_RAM_Mem_GetValues(EEL_F **blocks, INT_PTR np, EEL_F **parms)
+{
+  return __getset_values(blocks,0,(int)np,parms);
+}
+
 void NSEEL_VM_SetGRAM(NSEEL_VMCTX ctx, void **gram)
 {
   if (ctx)
