@@ -3340,6 +3340,8 @@ static void RedrawNonClient(HWND hwnd, BOOL fFrameChanged)
 #ifdef _WIN32
 		SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
 			| SWP_FRAMECHANGED | SWP_DRAWFRAME);
+#else
+                InvalidateRect(hwnd,NULL,FALSE);
 #endif
 	}
 }
