@@ -30,6 +30,10 @@
 
 #ifdef _WIN32
 #include <malloc.h>
+#ifdef _MSC_VER
+#define inline __inline
+#endif
+
 #endif
 
 unsigned int NSEEL_RAM_limitmem=0;
@@ -311,41 +315,60 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemSet(EEL_F **blocks,EEL_F *dest, EEL_F *v,
 }
 
 
-static int __getset_values(EEL_F **blocks, int isset, int len, EEL_F **parms)
+static inline int __getset_values(EEL_F **blocks, int isset, int len, EEL_F **parms)
 {
   int offs, lout=0;
-  if (len < 2) return 0;
-  offs = (int)(parms[0][0] + 0.0001);
+  unsigned int pageidx, sub_offs;
+  if (--len < 1) return 0;
+  offs = (int)(parms++[0][0] + 0.0001);
 
-  len--;
-  parms++;
-
-  if (offs<0) 
+  if (offs<=0) 
   {
     len += offs;
     parms -= offs;
     offs=0;
+    pageidx=sub_offs=0;
+    if (len<1) return 0;
   }
-  if (offs >= NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) return 0;
-
-  if (offs+len > NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK) len = NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK - offs;
-
-  while (len > 0)
+  else
   {
-    int lcnt;
-    EEL_F *ptr=__NSEEL_RAMAlloc(blocks,offs);
-    if (ptr==&nseel_ramalloc_onfail) break;
-
-    lcnt=NSEEL_RAM_ITEMSPERBLOCK-(offs&(NSEEL_RAM_ITEMSPERBLOCK-1));
-    if (lcnt > len) lcnt=len;
-
-    len -= lcnt;
-    offs += lcnt;
-
-    if (isset) while (lcnt--) *ptr++=parms[lout++][0];
-    else while (lcnt--) parms[lout++][0] = *ptr++;
+    sub_offs = ((unsigned int)offs) & (NSEEL_RAM_ITEMSPERBLOCK-1);
+    pageidx = ((unsigned int)offs)>>NSEEL_RAM_ITEMSPERBLOCK_LOG2;
+    if (pageidx>=NSEEL_RAM_BLOCKS) return 0;
   }
-  return lout;
+
+  for (;;)
+  {
+    int lcnt=NSEEL_RAM_ITEMSPERBLOCK-sub_offs;
+    EEL_F *ptr=blocks[pageidx];
+    if (!ptr)
+    {
+      ptr = __NSEEL_RAMAlloc(blocks,offs + lout);
+      if (ptr==&nseel_ramalloc_onfail) return lout;
+    }
+    else
+    {
+      ptr += sub_offs;
+    }
+
+    if (lcnt >= len) 
+    { 
+      // this page satisfies the request (normal behavior)
+      lout += len;
+      if (isset) while (len--) *ptr++=parms++[0][0];
+      else while (len--) parms++[0][0] = *ptr++;
+      return lout;
+    }
+
+    // crossing a page boundary
+    len -= lcnt;
+    lout += lcnt;
+    if (isset) while (lcnt--) *ptr++=parms++[0][0];
+    else while (lcnt--) parms++[0][0] = *ptr++;
+
+    if (len <= 0 || ++pageidx >= NSEEL_RAM_BLOCKS) return lout;
+    sub_offs=0;
+  }
 }
 
 EEL_F NSEEL_CGEN_CALL __NSEEL_RAM_Mem_SetValues(EEL_F **blocks, INT_PTR np, EEL_F **parms)
