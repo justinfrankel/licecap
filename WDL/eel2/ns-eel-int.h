@@ -49,7 +49,6 @@ enum {
   FN_AND,
   FN_OR,
   FN_UMINUS,
-  FN_UPLUS,
   FN_NOT,
   FN_NOTNOT,
   FN_XOR,

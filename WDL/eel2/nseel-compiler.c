@@ -1513,7 +1513,6 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
     RF(shl);
 #ifndef EEL_TARGET_PORTABLE
-    case FN_UPLUS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(uplus);   // shouldn't ever be used anyway, but scared to remove
     case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(uplus);
 #else
     case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnotnot);
@@ -1880,7 +1879,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
             case FN_NOTNOT: RESTART_DIRECTVALUE(fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 1.0 : 0.0);
             case FN_NOT:    RESTART_DIRECTVALUE(fabs(op->parms.parms[0]->parms.dv.directValue)>=NSEEL_CLOSEFACTOR ? 0.0 : 1.0);
             case FN_UMINUS: RESTART_DIRECTVALUE(- op->parms.parms[0]->parms.dv.directValue);
-            case FN_UPLUS:  RESTART_DIRECTVALUE(op->parms.parms[0]->parms.dv.directValue);
           }
         }
         else if (op->fntype == FN_NOT || op->fntype == FN_NOTNOT)
@@ -1889,7 +1887,6 @@ start_over: // when an opcode changed substantially in optimization, goto here t
           {
             switch (op->parms.parms[0]->fntype)
             {
-              case FN_UPLUS:
               case FN_UMINUS:
               case FN_NOTNOT: // ignore any NOTNOTs UMINUS or UPLUS, they would have no effect anyway
                 op->parms.parms[0] = op->parms.parms[0]->parms.parms[0];
