@@ -2360,6 +2360,7 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
     // todo if there is a way to find out that the window's NSTextField is already assigned 
     // to another field, restore the assignment afterwards
     [(NSText*)obj setString:lbl];
+    [obj setNeedsDisplay:YES]; // required on Sierra, it seems -- if the parent is hidden (e.g. DialogBox() + WM_INITDIALOG), the view is not drawn
   }
   else if ([obj isKindOfClass:[NSBox class]])
   {
