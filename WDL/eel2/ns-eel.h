@@ -129,6 +129,7 @@ void NSEEL_VM_remove_all_nonreg_vars(NSEEL_VMCTX _ctx);
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx); // return false from func to stop
 
 EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variable (before compilation)
+EEL_F *NSEEL_VM_getvar(NSEEL_VMCTX ctx, const char *name); // get a variable (if registered or created by code)
 int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name); // returns -1 if not registered, or >=0
 
 void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx); // clears and frees all (VM) RAM used

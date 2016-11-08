@@ -5274,7 +5274,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
 
   if (!strnicmp(name,"_global.",8) && name[8])
   {
-    EEL_F *a=get_global_var(ctx,name+8,1);
+    EEL_F *a=get_global_var(ctx,name+8,isReg >= 0);
     if (a) return a;
   }
   for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
@@ -5295,6 +5295,12 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
       else if (!strnicmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN))
       {
         varNameHdr *v = ((varNameHdr*)plist[ti])-1;
+        if (isReg < 0)
+        {
+          EEL_F *p; 
+          return (ctx->varTable_Values && NULL != (p = ctx->varTable_Values[wb])) ? p + ti : NULL;
+        }
+
         v->refcnt++;
         if (isReg) v->isreg=isReg;
         if (namePtrOut) *namePtrOut = plist[ti];
@@ -5303,6 +5309,7 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
     }
     if (ti < NSEEL_VARS_PER_BLOCK) break;
   }
+  if (isReg < 0) return NULL;
 
   if (wb == ctx->varTable_numBlocks && match_wb >=0 && match_ti >= 0)
   {
@@ -5402,6 +5409,20 @@ EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX _ctx, const char *var)
   }
   
   return nseel_int_register_var(ctx,var,1,NULL);
+}
+
+EEL_F *NSEEL_VM_getvar(NSEEL_VMCTX _ctx, const char *var)
+{
+  compileContext *ctx = (compileContext *)_ctx;
+  if (!ctx) return 0;
+  
+  if (!strnicmp(var,"reg",3) && strlen(var) == 5 && isdigit(var[3]) && isdigit(var[4]))
+  {
+    EEL_F *a=get_global_var(ctx,var,0);
+    if (a) return a;
+  }
+  
+  return nseel_int_register_var(ctx,var,-1,NULL);
 }
 
 int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
