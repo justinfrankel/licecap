@@ -354,7 +354,9 @@ void _asm_gmegabuf_end(void);
   DECL_ASMFUNC(uminus)
   DECL_ASMFUNC(invsqrt)
   DECL_ASMFUNC(dbg_getstackptr)
+#ifdef NSEEL_EEL1_COMPAT_MODE
   DECL_ASMFUNC(exec2)
+#endif
 
   DECL_ASMFUNC(stack_push)
   DECL_ASMFUNC(stack_pop)
@@ -1507,9 +1509,6 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_ASSIGN:
       *abiInfo = BIF_FPSTACKUSE(1)|BIF_CLEARDENORMAL;
     RF(assign);
-#ifndef EEL_TARGET_PORTABLE
-    case FN_JOIN_STATEMENTS: *abiInfo = BIF_WONTMAKEDENORMAL; RF(exec2); // shouldn't ever be used anyway, but scared to remove
-#endif
     case FN_AND: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL; RF(and);
     case FN_OR: *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL; RF(or);
     case FN_XOR:
