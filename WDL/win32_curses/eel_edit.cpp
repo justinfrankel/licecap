@@ -1104,7 +1104,7 @@ void EEL_Editor::draw_bottom_line()
 
 int EEL_Editor::onChar(int c)
 {
-  if (!m_state && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN) switch (c)
+  if (!m_state && (c == 'K'-'A'+1 || !SHIFT_KEY_DOWN) && !ALT_KEY_DOWN) switch (c)
   {
   case KEY_F1:
   case 'K'-'A'+1:
