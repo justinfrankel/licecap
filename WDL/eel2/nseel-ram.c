@@ -443,3 +443,22 @@ EEL_F *NSEEL_VM_getramptr(NSEEL_VMCTX ctx, unsigned int offs, int *validCount)
 
   return d;
 }
+
+EEL_F *NSEEL_VM_getramptr_noalloc(NSEEL_VMCTX ctx, unsigned int offs, int *validCount)
+{
+  EEL_F *d;
+  compileContext *cc = (compileContext *)ctx;
+
+  if (!cc || !cc->ram_state.blocks || 
+      offs < 0 || offs >= NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS ||
+      NULL == (d = cc->ram_state.blocks[offs/NSEEL_RAM_ITEMSPERBLOCK])
+      ) 
+  {
+    if (validCount) *validCount = 0;
+    return NULL;
+  }
+
+  offs %= NSEEL_RAM_ITEMSPERBLOCK;
+  if (validCount) *validCount = NSEEL_RAM_ITEMSPERBLOCK - offs;
+  return d + offs;
+}
