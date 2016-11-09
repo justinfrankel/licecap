@@ -1109,6 +1109,7 @@ int EEL_Editor::onChar(int c)
   if (!m_state && (c == 'K'-'A'+1 || !SHIFT_KEY_DOWN) && !ALT_KEY_DOWN) switch (c)
   {
   case KEY_F1:
+    if (CTRL_KEY_DOWN) break;
   case 'K'-'A'+1:
     doWatchInfo(c);
   return 0;

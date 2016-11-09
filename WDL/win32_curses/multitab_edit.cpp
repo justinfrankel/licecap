@@ -236,7 +236,6 @@ void MultiTab_Editor::OpenFileInTab(const char *fnp)
 
   if (!fp) 
   {
-    s.Set("");
     fp = tryToFindOrCreateFile(fnp,&s);
   }
 
