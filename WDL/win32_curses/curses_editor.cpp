@@ -666,6 +666,8 @@ void WDL_CursesEditor::setCursor(int isVscroll, double ycenter)
 
 void WDL_CursesEditor::draw_message(const char *str)
 {
+  if (!CURSES_INSTANCE) return;
+  
   int l=strlen(str);
   if (l > COLS-2) l=COLS-2;
   if (str[0]) 
