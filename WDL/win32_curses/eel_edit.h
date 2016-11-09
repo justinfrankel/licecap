@@ -26,9 +26,6 @@ public:
   virtual int overrideSyntaxDrawingForLine(int *skipcnt, const char **p, int *c_comment_state, int *last_attr) { return 0; }
   virtual int namedTokenHighlight(const char *tokStart, int len, int state);
 
-  virtual void Watch_Code(const char *code, char *sstr, size_t sstr_size);
-  virtual bool Watch_OnContextHelp(const char *lp, const char *rp, int c, char *sstr, size_t sstr_size);
-
   virtual int is_code_start_line(const char *p) { return 0; } // pass NULL to see if code-start-lines are even used
 
   virtual void draw_string_internal(int *skipcnt, const char *str, int amt, int *attr, int newAttr);
