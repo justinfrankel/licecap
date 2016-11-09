@@ -406,6 +406,7 @@ FILE *eelscript_resolvePath(WDL_FastString &usefn, const char *fn, const char *c
 {
     // resolve path relative to current
     int x;
+    bool had_abs=false;
     for (x=0;x<2; x ++)
     {
 #ifdef _WIN32
@@ -415,6 +416,7 @@ FILE *eelscript_resolvePath(WDL_FastString &usefn, const char *fn, const char *c
 #endif
       {
         usefn.Set(fn);
+        had_abs=true;
       }
       else
       {
@@ -464,6 +466,7 @@ FILE *eelscript_resolvePath(WDL_FastString &usefn, const char *fn, const char *c
       FILE *fp = fopen(usefn.Get(),"r");
       if (fp) return fp;
     }
+    if (had_abs) usefn.Set(fn);
     return NULL;
 }
 
