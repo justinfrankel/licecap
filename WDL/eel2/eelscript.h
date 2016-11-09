@@ -402,33 +402,8 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
 }
 
 
-int eelScriptInst::loadfile(const char *fn, const char *callerfn, bool allowstdin)
+FILE *eelscript_resolvePath(WDL_FastString &usefn, const char *fn, const char *callerfn)
 {
-  WDL_FastString usefn;
-  FILE *fp = NULL;
-  if (!strcmp(fn,"-"))
-  {
-    if (callerfn)
-    {
-#ifdef EEL_STRING_DEBUGOUT
-      void *opaque = (void *)this;
-      EEL_STRING_DEBUGOUT("@import: can't import \"-\" (stdin)");
-#endif
-      return -1;
-    }
-    if (allowstdin)
-    {
-      fp = stdin;
-      fn = "(stdin)";
-    }
-  }
-  else if (!callerfn) 
-  {
-    fp = fopen(fn,"r");
-    if (fp) m_loaded_fnlist.Insert(fn,true);
-  }
-  else
-  {
     // resolve path relative to current
     int x;
     for (x=0;x<2; x ++)
@@ -486,18 +461,49 @@ int eelScriptInst::loadfile(const char *fn, const char *callerfn, bool allowstdi
         }
       }
 
-      fp = fopen(usefn.Get(),"r");
-      if (fp) 
+      FILE *fp = fopen(usefn.Get(),"r");
+      if (fp) return fp;
+    }
+    return NULL;
+}
+
+int eelScriptInst::loadfile(const char *fn, const char *callerfn, bool allowstdin)
+{
+  WDL_FastString usefn;
+  FILE *fp = NULL;
+  if (!strcmp(fn,"-"))
+  {
+    if (callerfn)
+    {
+#ifdef EEL_STRING_DEBUGOUT
+      void *opaque = (void *)this;
+      EEL_STRING_DEBUGOUT("@import: can't import \"-\" (stdin)");
+#endif
+      return -1;
+    }
+    if (allowstdin)
+    {
+      fp = stdin;
+      fn = "(stdin)";
+    }
+  }
+  else if (!callerfn) 
+  {
+    fp = fopen(fn,"r");
+    if (fp) m_loaded_fnlist.Insert(fn,true);
+  }
+  else
+  {
+    fp = eelscript_resolvePath(usefn,fn,callerfn);
+    if (fp)
+    {
+      if (m_loaded_fnlist.Get(usefn.Get())) 
       {
-        if (m_loaded_fnlist.Get(usefn.Get())) 
-        {
-          fclose(fp);
-          return 0; // already imported
-        }
-        m_loaded_fnlist.Insert(usefn.Get(),true);
-        fn = usefn.Get();
-        break;
+        fclose(fp);
+        return 0;
       }
+      m_loaded_fnlist.Insert(usefn.Get(),true);
+      fn = usefn.Get();
     }
   }
 
