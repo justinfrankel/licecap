@@ -15,8 +15,9 @@
 #include "../eel2/ns-eel-int.h"
 
 
-EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx), m_has_peek(true)
+EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx)
 {
+  m_added_funclist=NULL;
   init_pair(3, RGB(0,255,255),COLOR_BLACK); // highlight for known words
   init_pair(4, RGB(0,255,0),COLOR_BLACK); // numbers
   init_pair(5, RGB(96,128,192),COLOR_BLACK); // comments
@@ -80,10 +81,19 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
   if (len == 17 && !strnicmp(tokStart,"__denormal_likely",17)) return SYNTAX_FUNC;
   if (len == 19 && !strnicmp(tokStart,"__denormal_unlikely",19)) return SYNTAX_FUNC;
 
-  int x;
+  if (m_added_funclist)
+  {
+    char buf[512];
+    lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
+    char **r=m_added_funclist->GetPtr(buf);
+    if (r) return SYNTAX_FUNC;
+  }
+
+  NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
+  int x; 
   for(x=0;;x++)
   {
-    functionType *f = nseel_getFunctionFromTable(x);
+    functionType *f = nseel_getFunctionFromTableEx((compileContext*)vm,x);
     if (!f) break;
     if (f && !strnicmp(tokStart,f->name,len) && (int)strlen(f->name) == len)
     {
@@ -974,6 +984,294 @@ void EEL_Editor::doParenMatching()
 
 void EEL_Editor::doWatchInfo(int c)
 {
+    // determine the word we are on, check its value in the effect
+  char sstr[512], buf[512];
+  lstrcpyn_safe(sstr,"Use this on a valid symbol name", sizeof(sstr));
+  WDL_FastString *t=m_text.Get(m_curs_y);
+  char curChar=0;
+  if (t)
+  {
+    const char *p=t->Get();
+    const int bytex = WDL_utf8_charpos_to_bytepos(p,m_curs_x);
+    if (bytex >= 0 && bytex < t->GetLength()) curChar = p[bytex];
+    if (c != KEY_F1 && (m_selecting || 
+             curChar == '(' || 
+             curChar == '[' ||
+             curChar == ')' ||
+             curChar == ']'
+             ))
+    {
+      WDL_FastString code;
+      int miny,maxy,minx,maxx;
+      bool ok = false;
+      if (!m_selecting)
+      {
+        if (eel_sh_get_matching_pos_for_pos(&m_text,minx=m_curs_x,miny=m_curs_y,&maxx, &maxy,NULL,this))
+        {
+          if (maxy==miny)
+          {
+            if (maxx < minx)
+            {
+              int tmp = minx;
+              minx=maxx;
+              maxx=tmp;
+            }
+          }
+          else if (maxy < miny)
+          {
+            int tmp=maxy;
+            maxy=miny;
+            miny=tmp;
+            tmp = minx;
+            minx=maxx;
+            maxx=tmp;
+          }
+          ok = true;
+          minx++; // skip leading (
+        }
+      }
+      else
+      {
+        ok=true; 
+        getselectregion(minx,miny,maxx,maxy); 
+        WDL_FastString *s;
+        s = m_text.Get(miny);
+        if (s) minx = WDL_utf8_charpos_to_bytepos(s->Get(),minx);
+        s = m_text.Get(maxy);
+        if (s) maxx = WDL_utf8_charpos_to_bytepos(s->Get(),maxx);
+      }
+
+      if (ok)
+      {
+        int x;
+        for (x = miny; x <= maxy; x ++)
+        {
+          WDL_FastString *s=m_text.Get(x);
+          if (s) 
+          {
+            const char *str=s->Get();
+            int sx,ex;
+            if (x == miny) sx=max(minx,0);
+            else sx=0;
+            int tmp=s->GetLength();
+            if (sx > tmp) sx=tmp;
+      
+            if (x == maxy) ex=min(maxx,tmp);
+            else ex=tmp;
+      
+            if (code.GetLength()) code.Append("\r\n");
+            code.Append(ex-sx?str+sx:"",ex-sx);
+          }
+        }
+      }
+      if (code.Get()[0])
+      {
+        if (m_selecting && (GetAsyncKeyState(VK_SHIFT)&0x8000))
+        {
+          peek_lock();
+          NSEEL_CODEHANDLE ch;
+          NSEEL_VMCTX vm = peek_get_VM();
+
+          if (vm && (ch = NSEEL_code_compile_ex(vm,code.Get(),1,0)))
+          {
+            codeHandleType *p = (codeHandleType*)ch;
+            code.Ellipsize(3,20);
+            const char *errstr = "failed writing to";
+            if (p->code)
+            {
+              buf[0]=0;
+              GetTempPath(sizeof(buf)-64,buf);
+              lstrcatn(buf,"jsfx-out",sizeof(buf));
+              FILE *fp = fopen(buf,"wb");
+              if (fp)
+              {
+                errstr="wrote to";
+                fwrite(p->code,1,p->code_size,fp);
+                fclose(fp);
+              }
+            }
+            snprintf(sstr,sizeof(sstr),"Expression '%s' compiled to %d bytes, %s temp/jsfx-out",code.Get(),p->code_size, errstr);
+            NSEEL_code_free(ch);
+          }
+          else
+          {
+            code.Ellipsize(3,20);
+            snprintf(sstr,sizeof(sstr),"Expression '%s' could not compile",code.Get());
+          }
+          peek_unlock();
+        }
+        else
+        {
+          WDL_FastString code2;
+          code2.Set("__debug_watch_value = (((((");
+          code2.Append(code.Get());
+          code2.Append(")))));");
+      
+          peek_lock();
+
+          NSEEL_VMCTX vm = peek_get_VM();
+
+          EEL_F *vptr=NULL;
+          double v=0.0;
+          const char *err="Invalid context";
+          if (vm)
+          {
+            NSEEL_CODEHANDLE ch = NSEEL_code_compile_ex(vm,code2.Get(),1,0);
+            if (!ch) err = "Error parsing";
+            else
+            {
+              NSEEL_code_execute(ch);
+              NSEEL_code_free(ch);
+              vptr = NSEEL_VM_getvar(vm,"__debug_watch_value");
+              if (vptr) v = *vptr;
+            }
+          }
+
+          peek_unlock();
+
+          {
+            // remove whitespace from code for display
+            int x;
+            bool lb=true;
+            for (x=0;x<code.GetLength();x++)
+            {
+              if (isspace(code.Get()[x]))
+              {
+                if (lb) code.DeleteSub(x--,1);
+                lb=true;
+              }
+              else
+              {
+                lb=false;
+              }
+            }
+            if (lb && code.GetLength()>0) code.SetLen(code.GetLength()-1);
+          }
+
+          code.Ellipsize(3,20);
+          if (vptr)
+          {
+            snprintf(sstr,sizeof(sstr),"Expression '%s' evaluates to %.14f",code.Get(),v);
+          }
+          else
+          {
+            snprintf(sstr,sizeof(sstr),"Error evaluating '%s': %s",code.Get(),err?err:"Unknown error");
+          }
+        }
+      }
+      // compile+execute code within () as debug_watch_value = ( code )
+      // show value (or err msg)
+    }
+    else if (curChar && (isalnum(curChar) || curChar == '_' || curChar == '.' || curChar == '#')) 
+    {
+      const int bytex = WDL_utf8_charpos_to_bytepos(p,m_curs_x);
+      const char *lp=p+bytex;
+      const char *rp=lp + WDL_utf8_charpos_to_bytepos(lp,1);
+      while (lp >= p && (isalnum(*lp) || *lp == '_' || *lp == '.')) lp--;
+      if (lp < p || *lp != '#') lp++;
+      while (*rp && (isalnum(*rp) || *rp == '_' || *rp == '.')) rp++;
+
+      if (*lp == '#' && rp > lp+1)
+      {
+        WDL_FastString n;
+        lp++;
+        n.Set(lp,rp-lp);
+        int idx;
+        if ((idx=peek_get_named_string_value(n.Get(),buf,sizeof(buf)))>=0) snprintf(sstr,sizeof(sstr),"#%s(%d)=%s",n.Get(),idx,buf);
+        else snprintf(sstr,sizeof(sstr),"#%s not found",n.Get());
+      }
+      else if ((isalpha(*lp) || *lp == '_') && rp > lp)
+      {
+        WDL_FastString n;
+        n.Set(lp,rp-lp);
+
+        if (c==KEY_F1)
+        {
+          on_help(n.Get(),0);
+          return;
+        }
+
+        functionType *f=0;
+        if (m_added_funclist) 
+        {
+          const char *kp=NULL;
+          char **r=m_added_funclist->GetPtr(n.Get(),&kp);
+          if (r) 
+          {
+            f = (functionType*) (INT_PTR)0x100;
+            lstrcpyn_safe(sstr,*r,sizeof(sstr));
+          }
+        }
+
+        if (!f)
+        {
+          peek_lock();
+          NSEEL_VMCTX vm = peek_get_VM();
+          for (int i = 0; (f=nseel_getFunctionFromTableEx((compileContext*)vm,i)); i++)
+          {
+            if (!stricmp(f->name,n.Get()))
+            {
+              snprintf(sstr,sizeof(sstr),"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
+              break;
+            }
+          }
+          peek_unlock();
+        }
+        if (!f) 
+        {
+          peek_lock();
+          NSEEL_VMCTX vm = peek_get_VM();
+          EEL_F *vptr=NSEEL_VM_getvar(vm,n.Get());
+          double v=0.0;
+          if (vptr) v=*vptr;
+          peek_unlock();
+
+          if (vptr) 
+          {
+            int good_len=-1;
+            snprintf(sstr,sizeof(sstr),"%s=%.14f",n.Get(),v);
+
+            if (vm && v > -1.0 && v < NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS)
+            {
+              const unsigned int w = (unsigned int) (v+NSEEL_CLOSEFACTOR);
+              EEL_F *dv = NSEEL_VM_getramptr_noalloc(vm,w,NULL);
+              if (dv)
+              {
+                snprintf_append(sstr,sizeof(sstr)," [0x%06x]=%.14f",w,*dv);
+                good_len=-2;
+              }
+              else
+              {
+                good_len = strlen(sstr);
+                snprintf_append(sstr,sizeof(sstr)," [0x%06x]=<uninit>",w);
+              }
+            }
+            buf[0]=0;
+            if (peek_get_numbered_string_value(v,buf,sizeof(buf)))
+            {
+              if (good_len==-2)
+                snprintf_append(sstr,sizeof(sstr)," %.0f(str)=%s",v,buf);
+              else
+              {
+                if (good_len>=0) sstr[good_len]=0; // remove [addr]=<uninit> if a string and no ram
+                snprintf_append(sstr,sizeof(sstr)," (str)=%s",buf);
+              }
+            }
+
+          }
+          else snprintf(sstr,sizeof(sstr),"'%s' NOT FOUND",n.Get());
+        }
+      }
+    }
+  }
+  if (c==KEY_F1)
+  {
+    on_help(NULL,(int)curChar);
+    return;
+  }
+
+  draw_message(sstr);
+  setCursor();
 }
 
 
@@ -981,7 +1279,7 @@ void EEL_Editor::draw_bottom_line()
 {
 #define BOLD(x) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); }
   BOLD(" S"); addstr("ave");
-  if (m_has_peek)
+  if (peek_get_VM())
   {
     addstr(" pee"); BOLD("K");
   }
@@ -1020,22 +1318,9 @@ int EEL_Editor::onChar(int c)
     {
       WDL_FastString *txtstr=m_text.Get(m_curs_y);
       const char *txt=txtstr?txtstr->Get():NULL;
-      if (txt && !strncmp(txt,"import",6) && isspace(txt[6]))
+      char fnp[512];
+      if (txt && line_has_openable_file(txt,WDL_utf8_charpos_to_bytepos(txt,m_curs_x),fnp,sizeof(fnp)))
       {
-        char fnp[512];
-        {
-          const char *p=txt+6;
-          while (*p == ' ') p++;
-          lstrcpyn_safe(fnp,p,sizeof(fnp));
-        }
-        //remove trailing whitespace
-        {
-          char *ep = fnp;
-          while (*ep) ep++;
-          while (ep > fnp && (ep[-1] == '\n' || ep[-1] == '\t' || ep[-1] == ' ')) *--ep = 0;
-        }
-        if (!fnp[0]) return 0; // no filename
-
         MultiTab_Editor::OpenFileInTab(fnp);
       }
     }

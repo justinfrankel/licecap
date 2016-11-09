@@ -36,11 +36,21 @@ public:
   virtual bool sh_draw_parentokenstack_update(const char *tok, int toklen);
   virtual const char *sh_tokenize(const char **ptr, const char *endptr, int *lenOut, int *state);
 
-  bool m_has_peek;
+  virtual bool peek_want_VM_funcs() { return false; } // implement if syntax highlighting should (and can safely) call peek_get_VM()
+  virtual void *peek_get_VM() { return NULL; } // returns NSEEL_VMCTX (if supported)
+  virtual int peek_get_named_string_value(const char *name, char *sstr, size_t sstr_sz) { return -1; } // returns >=0 (index) if found
+  virtual bool peek_get_numbered_string_value(double idx, char *sstr, size_t sstr_sz) { return false; }
+  virtual void peek_lock() { }
+  virtual void peek_unlock() { }
+  virtual void on_help(const char *str, int curChar) { } // curChar is current character if str is NULL
+
+  virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
 
   // static helpers
   static WDL_TypedBuf<char> s_draw_parentokenstack;
   static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);
+
+  WDL_StringKeyedArray<char *> *m_added_funclist; // caller can use this
 };
 
 #endif
