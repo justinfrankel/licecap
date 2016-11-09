@@ -204,44 +204,13 @@ int MultiTab_Editor::onChar(int c)
 
 void MultiTab_Editor::OpenFileInTab(const char *fnp)
 {
-  // try to find file to open
-  WDL_FastString s;        
-  FILE *fp=NULL;
-  {
-    const char *ptr = fnp;
-    while (!fp && *ptr)
-    {          
-      // first try same path as loading effect
-      if (m_filename.Get()[0])
-      {
-        s.Set(m_filename.Get());
-        const char *sp=s.Get()+s.GetLength();
-        while (sp>=s.Get() && *sp != '\\' && *sp != '/') sp--;
-        s.SetLen(sp + 1 - s.Get());
-        if (s.GetLength())
-        {
-          s.Append(ptr);
-          fp=fopenUTF8(s.Get(),"rb");
-        }
-      }
+  if (!fnp[0]) return;
 
-      // scan past any / or \\, and try again
-      if (!fp)
-      {
-        while (*ptr && *ptr != '\\' && *ptr != '/') ptr++;
-        if (*ptr) ptr++;
-      }
-    }
-  }
-
-  if (!fp) 
+  FILE *fp = fopen(fnp,"rb");
+  if (!fp)
   {
-    fp = tryToFindOrCreateFile(fnp,&s);
-  }
-
-  if (!fp && s.Get()[0])
-  {
-    m_newfn.Set(s.Get());
+    WDL_FastString s(fnp);
+    m_newfn.Set(fnp);
 
     if (COLS > 25)
     {
@@ -265,20 +234,20 @@ void MultiTab_Editor::OpenFileInTab(const char *fnp)
     attrset(0);
     bkgdset(0);
   }
-  else if (fp)
+  else
   {
     fclose(fp);
     int x;
     for (x=0;x<GetTabCount();x++)
     {
       MultiTab_Editor *e = GetTab(x);
-      if (e && !stricmp(e->GetFileName(),s.Get()))
+      if (e && !stricmp(e->GetFileName(),fnp))
       {
         SwitchTab(x,false);
         return;
       }
     }
-    AddTab(s.Get());
+    AddTab(fnp);
   }
 }
 

@@ -44,9 +44,7 @@ public:
   virtual void SwitchTab(int idx, bool rel) { }
   virtual void CloseCurrentTab() { }
 
-  virtual FILE *tryToFindOrCreateFile(const char *fnp, WDL_FastString *s) { return NULL; } 
-
-  void OpenFileInTab(const char *fnp);
+  void OpenFileInTab(const char *fnp); // requires full pathname, will prompt to create if does not exist
 
   char newfilename_str[256];
   WDL_FastString m_newfn;

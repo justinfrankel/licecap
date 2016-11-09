@@ -1318,7 +1318,7 @@ int EEL_Editor::onChar(int c)
     {
       WDL_FastString *txtstr=m_text.Get(m_curs_y);
       const char *txt=txtstr?txtstr->Get():NULL;
-      char fnp[512];
+      char fnp[2048];
       if (txt && line_has_openable_file(txt,WDL_utf8_charpos_to_bytepos(txt,m_curs_x),fnp,sizeof(fnp)))
       {
         MultiTab_Editor::OpenFileInTab(fnp);
