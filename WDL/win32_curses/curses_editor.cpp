@@ -685,8 +685,20 @@ void WDL_CursesEditor::setCursor(int isVscroll, double ycenter)
 
   int redraw=0;
 
-  if (m_curs_x < m_offs_x) { redraw=1; m_offs_x=m_curs_x; }
-  else if (m_curs_x >= m_offs_x + COLS) { m_offs_x=m_curs_x-COLS+1; redraw=1; }
+  if (m_curs_x < m_offs_x) 
+  { 
+    redraw=1; 
+    m_offs_x=m_curs_x; 
+  }
+  else 
+  {
+    const int mw = COLS-3;
+    if (m_curs_x >= m_offs_x + mw)
+    { 
+      m_offs_x=m_curs_x-mw+1; 
+      redraw=1; 
+    }
+  }
 
   int paney[2], paneh[2];
   GetPaneDims(paney, paneh);
