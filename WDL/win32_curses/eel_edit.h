@@ -1,10 +1,31 @@
 #ifndef __WDL_EEL_EDITOR_H_
 #define __WDL_EEL_EDITOR_H_
 
-#include "multitab_edit.h"
+#define STATE_BEFORE_CODE -1
+
+
+#define SYNTAX_HIGHLIGHT1 COLOR_PAIR(3)
+#define SYNTAX_HIGHLIGHT2 COLOR_PAIR(4)
+#define SYNTAX_COMMENT  COLOR_PAIR(5)
+#define SYNTAX_ERROR COLOR_PAIR(6)
+#define SYNTAX_FUNC COLOR_PAIR(7)
+
+#ifdef WDL_IS_FAKE_CURSES
+#define SYNTAX_REGVAR COLOR_PAIR(8)
+#define SYNTAX_KEYWORD COLOR_PAIR(9)
+#define SYNTAX_STRING COLOR_PAIR(10)
+#define SYNTAX_STRINGVAR COLOR_PAIR(11)
+#else
+#define SYNTAX_REGVAR COLOR_PAIR(4)
+#define SYNTAX_KEYWORD COLOR_PAIR(4)
+#define SYNTAX_STRING COLOR_PAIR(3)
+#define SYNTAX_STRINGVAR COLOR_PAIR(4)
+#endif
+
+#include "curses_editor.h"
 
 // add EEL syntax highlighting and paren matching, hooks for watch/etc
-class EEL_Editor : public MultiTab_Editor
+class EEL_Editor : public WDL_CursesEditor
 {
 public:
   EEL_Editor(void *cursesCtx);
@@ -21,7 +42,9 @@ public:
   virtual void onRightClick(HWND hwnd);
   virtual void draw_bottom_line();
 
+#ifdef WDL_IS_FAKE_CURSES
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+#endif
 
   virtual int overrideSyntaxDrawingForLine(int *skipcnt, const char **p, int *c_comment_state, int *last_attr) { return 0; }
   virtual int namedTokenHighlight(const char *tokStart, int len, int state);

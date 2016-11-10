@@ -50,12 +50,14 @@ protected:
   void draw_message(const char *str);
   void draw_status_state();
 
+#ifdef WDL_IS_FAKE_CURSES
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   {
     if (user_data) return ((WDL_CursesEditor*)user_data)->onMouseMessage(hwnd,uMsg,wParam,lParam);
     return 0;
   }
+#endif
   
   void runSearch();
 
@@ -73,16 +75,26 @@ protected:
   virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
   virtual void draw_line_highlight(int y, const char *p, int *c_comment_state);
-  virtual void draw_top_line() { }// within m_top_margin
+  virtual void draw_top_line();
   virtual void draw_bottom_line();
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
   {
     return false;
   }
 
+  virtual int GetTabCount() { return 1; }
+  virtual WDL_CursesEditor *GetTab(int idx) { if (idx==0) return this; return NULL; }
+  virtual bool AddTab(const char *fn) { return false; }
+  virtual void SwitchTab(int idx, bool rel) { }
+  virtual void CloseCurrentTab() { }
+
+  void OpenFileInTab(const char *fnp); // requires full pathname, will prompt to create if does not exist
+
   int getVisibleLines() const;
   
   WDL_FastString m_filename;
+  WDL_FastString m_newfn;
+
   time_t m_filelastmod; // last written-to or read-from modification time, or 0 if unknown
   int m_newline_mode; // detected from input. 0 = \n, 1=\r\n
 

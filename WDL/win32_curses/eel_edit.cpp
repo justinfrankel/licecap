@@ -15,7 +15,7 @@
 #include "../eel2/ns-eel-int.h"
 
 
-EEL_Editor::EEL_Editor(void *cursesCtx) : MultiTab_Editor(cursesCtx)
+EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
   m_added_funclist=NULL;
   init_pair(3, RGB(0,255,255),COLOR_BLACK); // highlight for known words
@@ -1321,7 +1321,7 @@ int EEL_Editor::onChar(int c)
       char fnp[2048];
       if (txt && line_has_openable_file(txt,WDL_utf8_charpos_to_bytepos(txt,m_curs_x),fnp,sizeof(fnp)))
       {
-        MultiTab_Editor::OpenFileInTab(fnp);
+        WDL_CursesEditor::OpenFileInTab(fnp);
       }
     }
   return 0;
@@ -1331,7 +1331,7 @@ int EEL_Editor::onChar(int c)
   return 0;
   }
 
-  return MultiTab_Editor::onChar(c);
+  return WDL_CursesEditor::onChar(c);
 }
 
 
@@ -1341,6 +1341,7 @@ void EEL_Editor::onRightClick(HWND hwnd)
 }
 
 
+#ifdef WDL_IS_FAKE_CURSES
 
 LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1365,5 +1366,6 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
     break;
 
   }
-  return MultiTab_Editor::onMouseMessage(hwnd,uMsg,wParam,lParam);
+  return WDL_CursesEditor::onMouseMessage(hwnd,uMsg,wParam,lParam);
 }
+#endif
