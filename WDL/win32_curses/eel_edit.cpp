@@ -86,7 +86,7 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
     char buf[512];
     lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
     char **r=m_added_funclist->GetPtr(buf);
-    if (r) return SYNTAX_FUNC;
+    if (r) return *r ? SYNTAX_FUNC : SYNTAX_REGVAR;
   }
 
   NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
@@ -1196,7 +1196,7 @@ void EEL_Editor::doWatchInfo(int c)
         {
           const char *kp=NULL;
           char **r=m_added_funclist->GetPtr(n.Get(),&kp);
-          if (r) 
+          if (r && *r) 
           {
             f = (functionType*) (INT_PTR)0x100;
             lstrcpyn_safe(sstr,*r,sizeof(sstr));
