@@ -22,9 +22,6 @@
 #define UI_STATE_SAVE_AS_NEW 11
 #define UI_STATE_SAVE_ON_CLOSE 12
 
-#define COLOR_TOPLINE COLOR_PAIR(6)
-
-
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
 char WDL_CursesEditor::s_search_string[256];
@@ -49,11 +46,6 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   m_max_undo_states = 500;
   m_indent_size=2;
   m_cursesCtx = cursesCtx;
-
-  m_color_bottomline = COLOR_PAIR(1);
-  m_color_statustext = COLOR_PAIR(1);
-  m_color_selection = COLOR_PAIR(2);
-  m_color_message = COLOR_PAIR(2);
 
   m_top_margin=1;
   m_bottom_margin=1;
@@ -96,8 +88,23 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   nodelay(stdscr,TRUE);
   raw(); // disable ctrl+C etc. no way to kill if allow quit isn't defined, yay.
   start_color();
-  init_pair(1, COLOR_WHITE, COLOR_BLUE); // normal status lines
-  init_pair(2, COLOR_BLACK, COLOR_CYAN); // value
+  init_pair(1, COLOR_WHITE, COLOR_BLUE);     // COLOR_STATUSTEXT
+  init_pair(2, COLOR_BLACK, COLOR_CYAN);     // COLOR_SELECTION
+  init_pair(3, RGB(0,255,255),COLOR_BLACK);  // SYNTAX_HIGHLIGHT1
+  init_pair(4, RGB(0,255,0),COLOR_BLACK);    // SYNTAX_HIGHLIGHT2
+  init_pair(5, RGB(96,128,192),COLOR_BLACK); // SYNTAX_COMMENT
+  init_pair(6, COLOR_WHITE, COLOR_RED);      // SYNTAX_ERROR
+  init_pair(7, RGB(255,255,0), COLOR_BLACK); // SYNTAX_FUNC
+
+#ifdef WDL_IS_FAKE_CURSES
+  init_pair(8, RGB(255,128,128), COLOR_BLACK);  // SYNTAX_REGVAR
+  init_pair(9, RGB(0,192,255), COLOR_BLACK);    // SYNTAX_KEYWORD
+  init_pair(10, RGB(255,192,192), COLOR_BLACK); // SYNTAX_STRING
+  init_pair(11, RGB(192,255,128), COLOR_BLACK); // SYNTAX_STRINGVAR
+  init_pair(12, COLOR_WHITE, COLOR_BLUE);       // COLOR_BOTTOMLINE (maps to COLOR_STATUSTEXT)
+  init_pair(13, COLOR_BLACK, COLOR_CYAN);       // COLOR_MESSAGE (maps to COLOR_SELECTION)
+  init_pair(14, COLOR_WHITE, COLOR_RED);        // COLOR_TOPLINE (maps to SYNTAX_ERROR)
+#endif
 
   erase();
   refresh();
@@ -637,8 +644,8 @@ void WDL_CursesEditor::draw_status_state()
   int paney[2], paneh[2];
   const int pane_divy=GetPaneDims(paney, paneh);
 
-  attrset(m_color_statustext);
-  bkgdset(m_color_statustext);
+  attrset(COLOR_STATUSTEXT);
+  bkgdset(COLOR_STATUSTEXT);
 
   int line=LINES-1;
   const char* whichpane="";
@@ -747,8 +754,8 @@ void WDL_CursesEditor::draw_message(const char *str)
   if (l > COLS-2) l=COLS-2;
   if (str[0]) 
   {
-    attrset(m_color_message);
-    bkgdset(m_color_message);
+    attrset(COLOR_MESSAGE);
+    bkgdset(COLOR_MESSAGE);
   }
   mvaddnstr(LINES-(m_bottom_margin>1?2:1),0,str,l);
   clrtoeol();
@@ -819,14 +826,14 @@ void WDL_CursesEditor::doDrawString(int y, int line_n, const char *p, int *c_com
 
       if (maxx > minx)
       {
-        attrset(m_color_selection);
+        attrset(COLOR_SELECTION);
         p += WDL_utf8_charpos_to_bytepos(p,m_offs_x+minx);
         mvaddnstr(y,minx, p, WDL_utf8_charpos_to_bytepos(p,maxx-minx));
         attrset(A_NORMAL);
       }
       else if (maxx==minx && !*p)
       {
-        attrset(m_color_selection);
+        attrset(COLOR_SELECTION);
         mvaddstr(y,minx," ");
         attrset(A_NORMAL);
       }
@@ -916,13 +923,13 @@ void WDL_CursesEditor::draw(int lineidx)
     }
   }
 
-  attrset(m_color_bottomline);
-  bkgdset(m_color_bottomline);
+  attrset(COLOR_BOTTOMLINE);
+  bkgdset(COLOR_BOTTOMLINE);
 
   if (m_bottom_margin>0)
   {
     move(LINES-1, 0);
-#define BOLD(x) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); }
+#define BOLD(x) { attrset(COLOR_BOTTOMLINE|A_BOLD); addstr(x); attrset(COLOR_BOTTOMLINE&~A_BOLD); }
     if (m_selecting) 
     {
       mvaddstr(LINES-1,0,"SELECTING  ESC:cancel Ctrl+(");
@@ -1346,8 +1353,8 @@ int WDL_CursesEditor::onChar(int c)
     if (IsDirty())
     {
       m_state=UI_STATE_SAVE_ON_CLOSE;
-      attrset(m_color_message);
-      bkgdset(m_color_message);
+      attrset(COLOR_MESSAGE);
+      bkgdset(COLOR_MESSAGE);
       mvaddstr(LINES-1,0,"Save file before closing (y/N)? ");
       clrtoeol();
       attrset(0);
@@ -1495,8 +1502,8 @@ int WDL_CursesEditor::onChar(int c)
      }
      if (m_state)
      {
-       attrset(m_color_message);
-       bkgdset(m_color_message);
+       attrset(COLOR_MESSAGE);
+       bkgdset(COLOR_MESSAGE);
        mvaddstr(LINES-1,29,s_search_string);
        clrtoeol(); 
        attrset(0);
@@ -1916,8 +1923,8 @@ int WDL_CursesEditor::onChar(int c)
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
       draw_message("");
-      attrset(m_color_message);
-      bkgdset(m_color_message);
+      attrset(COLOR_MESSAGE);
+      bkgdset(COLOR_MESSAGE);
       mvaddstr(LINES-1,0,"Find string (ESC to cancel): ");
       if (m_selecting && m_select_y1==m_select_y2)
       {
@@ -2563,8 +2570,8 @@ void WDL_CursesEditor::OpenFileInTab(const char *fnp)
       s.Set("Create new file (Y/n)? ");
 
     m_state=UI_STATE_SAVE_AS_NEW;
-    attrset(m_color_message);
-    bkgdset(m_color_message);
+    attrset(COLOR_MESSAGE);
+    bkgdset(COLOR_MESSAGE);
     mvaddstr(LINES-1,0,s.Get());
     clrtoeol();
     attrset(0);

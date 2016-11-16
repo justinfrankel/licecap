@@ -18,19 +18,6 @@
 EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
   m_added_funclist=NULL;
-  init_pair(3, RGB(0,255,255),COLOR_BLACK); // highlight for known words
-  init_pair(4, RGB(0,255,0),COLOR_BLACK); // numbers
-  init_pair(5, RGB(96,128,192),COLOR_BLACK); // comments
-
-  init_pair(6, COLOR_WHITE, COLOR_RED);
-  init_pair(7, RGB(255,255,0), COLOR_BLACK);  
-
-#ifdef WDL_IS_FAKE_CURSES
-  init_pair(8, RGB(255,128,128), COLOR_BLACK); // regvar
-  init_pair(9, RGB(0,192,255), COLOR_BLACK); // keyword
-  init_pair(10, RGB(255,192,192), COLOR_BLACK); // string
-  init_pair(11, RGB(192,255,128), COLOR_BLACK); // stringvar
-#endif
 }
 
 EEL_Editor::~EEL_Editor()
@@ -1187,7 +1174,7 @@ void EEL_Editor::doWatchInfo(int c)
 
 void EEL_Editor::draw_bottom_line()
 {
-#define BOLD(x) { attrset(m_color_bottomline|A_BOLD); addstr(x); attrset(m_color_bottomline&~A_BOLD); }
+#define BOLD(x) { attrset(COLOR_BOTTOMLINE|A_BOLD); addstr(x); attrset(COLOR_BOTTOMLINE&~A_BOLD); }
   BOLD(" S"); addstr("ave");
   if (peek_get_VM())
   {

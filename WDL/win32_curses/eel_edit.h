@@ -3,25 +3,6 @@
 
 #define STATE_BEFORE_CODE -1
 
-
-#define SYNTAX_HIGHLIGHT1 COLOR_PAIR(3)
-#define SYNTAX_HIGHLIGHT2 COLOR_PAIR(4)
-#define SYNTAX_COMMENT  COLOR_PAIR(5)
-#define SYNTAX_ERROR COLOR_PAIR(6)
-#define SYNTAX_FUNC COLOR_PAIR(7)
-
-#ifdef WDL_IS_FAKE_CURSES
-#define SYNTAX_REGVAR COLOR_PAIR(8)
-#define SYNTAX_KEYWORD COLOR_PAIR(9)
-#define SYNTAX_STRING COLOR_PAIR(10)
-#define SYNTAX_STRINGVAR COLOR_PAIR(11)
-#else
-#define SYNTAX_REGVAR COLOR_PAIR(4)
-#define SYNTAX_KEYWORD COLOR_PAIR(4)
-#define SYNTAX_STRING COLOR_PAIR(3)
-#define SYNTAX_STRINGVAR COLOR_PAIR(4)
-#endif
-
 #include "curses_editor.h"
 
 // add EEL syntax highlighting and paren matching, hooks for watch/etc

@@ -22,7 +22,6 @@ public:
 
   void *m_cursesCtx; // win32CursesCtx *
 
-  int m_color_bottomline, m_color_statustext,  m_color_selection,  m_color_message; // COLOR_PAIR(x)
   int m_top_margin, m_bottom_margin;
 
   const char *GetFileName() { return m_filename.Get(); }
@@ -39,6 +38,37 @@ public:
   virtual void draw(int lineidx=-1);
 
   virtual void highlight_line(int line);
+
+
+  enum
+  {
+#ifdef WDL_IS_FAKE_CURSES
+    SYNTAX_REGVAR = COLOR_PAIR(8),
+    SYNTAX_KEYWORD = COLOR_PAIR(9),
+    SYNTAX_STRING = COLOR_PAIR(10),
+    SYNTAX_STRINGVAR = COLOR_PAIR(11),
+    COLOR_BOTTOMLINE = COLOR_PAIR(12),
+    COLOR_MESSAGE = COLOR_PAIR(13),
+    COLOR_TOPLINE = COLOR_PAIR(14),
+#else
+    SYNTAX_REGVAR = COLOR_PAIR(4),
+    SYNTAX_KEYWORD = COLOR_PAIR(4),
+    SYNTAX_STRING = COLOR_PAIR(3),
+    SYNTAX_STRINGVAR = COLOR_PAIR(4),
+    COLOR_TOPLINE = COLOR_PAIR(6),
+
+    COLOR_BOTTOMLINE = COLOR_PAIR(1),
+    COLOR_MESSAGE = COLOR_PAIR(2),
+#endif
+    COLOR_STATUSTEXT = COLOR_PAIR(1),
+    COLOR_SELECTION = COLOR_PAIR(2),
+    SYNTAX_HIGHLIGHT1 = COLOR_PAIR(3),
+    SYNTAX_HIGHLIGHT2 = COLOR_PAIR(4),
+    SYNTAX_COMMENT = COLOR_PAIR(5),
+    SYNTAX_ERROR = COLOR_PAIR(6),
+    SYNTAX_FUNC = COLOR_PAIR(7),
+  };
+
 
 protected:
   class refcntString;
