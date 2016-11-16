@@ -879,6 +879,62 @@ void EEL_Editor::doParenMatching()
   }
 }
 
+int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
+{
+  if (chkmask&4)
+  {
+    char buf2[512];
+    snprintf(buf2, sizeof(buf2), "function %s", name);
+    for (int i=0; i < m_text.GetSize(); ++i)
+    {
+      WDL_FastString* s=m_text.Get(i);
+      if (s && i != ignoreline)
+      {
+        const char* p=(chkmask&0x10000) ? strstr(s->Get(),buf2) : stristr(s->Get(), buf2);
+        if (p)
+        {
+          const char *q=p + strlen(buf2);
+          while (*q == ' ' || *q == '\t') q++;
+          if (*q == '(')
+          {
+            lstrcpyn_safe(sstr,p+9,sstr_sz);
+            return 4;
+          }
+        }
+      }
+    }
+  }
+
+  if ((chkmask&2) && m_added_funclist)
+  {
+    char **p=m_added_funclist->GetPtr(name);
+    if (p && *p)
+    {
+      lstrcpyn_safe(sstr,*p,sstr_sz);
+      return 2;
+    }
+  }
+
+  if (chkmask & 1)
+  {
+    peek_lock();
+    NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
+    for (int x=0;;x++)
+    {
+      functionType *f = nseel_getFunctionFromTableEx((compileContext*)vm,x);
+      if (!f) break;
+      if (f && !stricmp(name,f->name))
+      {
+        snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
+        peek_unlock();
+        return 1;
+      }
+    }
+    peek_unlock();
+  }
+
+  return 0;
+}
 
 void EEL_Editor::doWatchInfo(int c)
 {
@@ -1089,32 +1145,8 @@ void EEL_Editor::doWatchInfo(int c)
           return;
         }
 
-        functionType *f=0;
-        if (m_added_funclist) 
-        {
-          const char *kp=NULL;
-          char **r=m_added_funclist->GetPtr(n.Get(),&kp);
-          if (r && *r) 
-          {
-            f = (functionType*) (INT_PTR)0x100;
-            lstrcpyn_safe(sstr,*r,sizeof(sstr));
-          }
-        }
+        int f = peek_get_function_info(n.Get(),sstr,sizeof(sstr),~0,-1);
 
-        if (!f)
-        {
-          peek_lock();
-          NSEEL_VMCTX vm = peek_get_VM();
-          for (int i = 0; (f=nseel_getFunctionFromTableEx((compileContext*)vm,i)); i++)
-          {
-            if (!stricmp(f->name,n.Get()))
-            {
-              snprintf(sstr,sizeof(sstr),"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
-              break;
-            }
-          }
-          peek_unlock();
-        }
         if (!f) 
         {
           peek_lock();

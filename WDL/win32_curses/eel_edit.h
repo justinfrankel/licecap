@@ -49,6 +49,7 @@ public:
   virtual void on_help(const char *str, int curChar) { } // curChar is current character if str is NULL
 
   virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
+  virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline); // mask: 1=builtin, 2=m_added_funclist, 4=user functions. ignoreline= line to ignore function defs on. add 0x10000 to chkmask to be case sensitive
 
   virtual void draw_top_line();
 
