@@ -276,7 +276,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           
           while (NULL != (url = strstr(url,"http://")))
           {
-            if (url != fs->Get() && isalnum(url[-1]))
+            if (url != fs->Get() && url[-1] > 0 && isalnum(url[-1]))
             {
               url+=7;
             }
@@ -416,8 +416,8 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           int x1=WDL_utf8_charpos_to_bytepos(s->Get(),m_curs_x);
           int x2=x1+1;
           const char* p=s->Get();
-          while (x1 > 0 && (isalnum(p[x1-1]) || p[x1-1] == '_')) --x1;
-          while (x2 < s->GetLength() && (isalnum(p[x2]) || p[x2] == '_')) ++x2;
+          while (x1 > 0 && p[x1-1] > 0 && (isalnum(p[x1-1]) || p[x1-1] == '_')) --x1;
+          while (x2 < s->GetLength() && p[x2] > 0 && (isalnum(p[x2]) || p[x2] == '_')) ++x2;
           if (x2 > x1)
           {
             m_select_x1=x1;
@@ -1373,7 +1373,7 @@ int WDL_CursesEditor::onChar(int c)
 
   if (m_state == UI_STATE_SAVE_ON_CLOSE)
   {
-    if (isalnum(c) || isprint(c) || c==27)
+    if (c>=0 && (isalnum(c) || isprint(c) || c==27))
     {
       if (c == 27)
       {
@@ -1408,7 +1408,7 @@ int WDL_CursesEditor::onChar(int c)
   }
   else if (m_state == UI_STATE_SAVE_AS_NEW)
   {
-    if (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n')
+    if (c>=0 && (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n'))
     {
       if (toupper(c) == 'N' || c == 27) 
       {

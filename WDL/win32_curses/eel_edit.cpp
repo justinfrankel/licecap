@@ -77,7 +77,7 @@ int EEL_Editor::parse_format_specifier(const char *fmt_in, int *var_offs, int *v
   {
     const char c = *fmt++;
 
-    if (isalpha(c)) 
+    if (c>0 && isalpha(c)) 
     {
       return (int) (fmt - fmt_in);
     }
@@ -194,7 +194,7 @@ void EEL_Editor::draw_string_urlchk(int *skipcnt, const char *str, int amt, int 
         str_scan += l;
         l=0;
         while (*str_scan &&
-               (strncmp(str_scan,"http://",7) || (sstr != str_scan && isalnum(str_scan[-1]))) &&
+               (strncmp(str_scan,"http://",7) || (sstr != str_scan && str_scan[-1] > 0 && isalnum(str_scan[-1]))) &&
                str_scan < str+amt) str_scan++;
         if (!*str_scan || str_scan >= str+amt) break;
         while (str_scan[l] && str_scan[l] != ')' && str_scan[l] != '\"' && str_scan[l] != ')' && str_scan[l] != ' ' && str_scan[l] != '\t') l++;
@@ -379,7 +379,7 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
     {
       attr = SYNTAX_COMMENT;
     }
-    else if (isalpha(tok[0]) || tok[0] == '_' || tok[0] == '#')
+    else if (tok[0] > 0 && (isalpha(tok[0]) || tok[0] == '_' || tok[0] == '#'))
     {
       int def_attr = A_NORMAL;
       bool isf=true;
@@ -1060,14 +1060,14 @@ void EEL_Editor::doWatchInfo(int c)
       // compile+execute code within () as debug_watch_value = ( code )
       // show value (or err msg)
     }
-    else if (curChar && (isalnum(curChar) || curChar == '_' || curChar == '.' || curChar == '#')) 
+    else if (curChar>0 && (isalnum(curChar) || curChar == '_' || curChar == '.' || curChar == '#')) 
     {
       const int bytex = WDL_utf8_charpos_to_bytepos(p,m_curs_x);
       const char *lp=p+bytex;
       const char *rp=lp + WDL_utf8_charpos_to_bytepos(lp,1);
-      while (lp >= p && (isalnum(*lp) || *lp == '_' || *lp == '.')) lp--;
+      while (lp >= p && *lp > 0 && (isalnum(*lp) || *lp == '_' || *lp == '.')) lp--;
       if (lp < p || *lp != '#') lp++;
-      while (*rp && (isalnum(*rp) || *rp == '_' || *rp == '.')) rp++;
+      while (*rp && *rp > 0 && (isalnum(*rp) || *rp == '_' || *rp == '.')) rp++;
 
       if (*lp == '#' && rp > lp+1)
       {
@@ -1078,7 +1078,7 @@ void EEL_Editor::doWatchInfo(int c)
         if ((idx=peek_get_named_string_value(n.Get(),buf,sizeof(buf)))>=0) snprintf(sstr,sizeof(sstr),"#%s(%d)=%s",n.Get(),idx,buf);
         else snprintf(sstr,sizeof(sstr),"#%s not found",n.Get());
       }
-      else if ((isalpha(*lp) || *lp == '_') && rp > lp)
+      else if (*lp > 0 && (isalpha(*lp) || *lp == '_') && rp > lp)
       {
         WDL_FastString n;
         n.Set(lp,rp-lp);
