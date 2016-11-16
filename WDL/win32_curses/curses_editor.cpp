@@ -88,7 +88,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   nodelay(stdscr,TRUE);
   raw(); // disable ctrl+C etc. no way to kill if allow quit isn't defined, yay.
   start_color();
-  init_pair(1, COLOR_WHITE, COLOR_BLUE);     // COLOR_STATUSTEXT
+  init_pair(1, COLOR_WHITE, COLOR_BLUE);     // COLOR_BOTTOMLINE
   init_pair(2, COLOR_BLACK, COLOR_CYAN);     // COLOR_SELECTION
   init_pair(3, RGB(0,255,255),COLOR_BLACK);  // SYNTAX_HIGHLIGHT1
   init_pair(4, RGB(0,255,0),COLOR_BLACK);    // SYNTAX_HIGHLIGHT2
@@ -101,9 +101,8 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   init_pair(9, RGB(0,192,255), COLOR_BLACK);    // SYNTAX_KEYWORD
   init_pair(10, RGB(255,192,192), COLOR_BLACK); // SYNTAX_STRING
   init_pair(11, RGB(192,255,128), COLOR_BLACK); // SYNTAX_STRINGVAR
-  init_pair(12, COLOR_WHITE, COLOR_BLUE);       // COLOR_BOTTOMLINE (maps to COLOR_STATUSTEXT)
-  init_pair(13, COLOR_BLACK, COLOR_CYAN);       // COLOR_MESSAGE (maps to COLOR_SELECTION)
-  init_pair(14, COLOR_WHITE, COLOR_RED);        // COLOR_TOPLINE (maps to SYNTAX_ERROR)
+  init_pair(12, COLOR_BLACK, COLOR_CYAN);       // COLOR_MESSAGE (maps to COLOR_SELECTION)
+  init_pair(13, COLOR_WHITE, COLOR_RED);        // COLOR_TOPLINE (maps to SYNTAX_ERROR)
 #endif
 
   erase();
@@ -644,8 +643,8 @@ void WDL_CursesEditor::draw_status_state()
   int paney[2], paneh[2];
   const int pane_divy=GetPaneDims(paney, paneh);
 
-  attrset(COLOR_STATUSTEXT);
-  bkgdset(COLOR_STATUSTEXT);
+  attrset(COLOR_BOTTOMLINE);
+  bkgdset(COLOR_BOTTOMLINE);
 
   int line=LINES-1;
   const char* whichpane="";
