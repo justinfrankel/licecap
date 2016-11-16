@@ -37,32 +37,7 @@ EEL_Editor::~EEL_Editor()
 {
 }
 
-//#define START_ON_VARS_KEYWORD
-#ifdef START_ON_VARS_KEYWORD
-#include "../assocarray.h"
-static int s_lasttok_wasfunction;
-static WDL_StringKeyedArray<bool> s_declaredVars(false), s_declaredFuncs(false), s_funcDef_vars(false);
-
-static void sh_func_ontoken(const char *tok, int toklen)
-{
-  // todo: track whether we are in a function definition
-  if (s_lasttok_wasfunction && (tok[0] == '_' || isalpha(tok[0])))
-  {
-    char buf[1024];
-    if (toklen > sizeof(buf)-1) toklen=sizeof(buf)-1;
-    lstrcpyn_safe(buf,tok,toklen+1);
-    s_declaredFuncs.Insert(buf,1);
-    s_lasttok_wasfunction=false;
-  }
-  else
-  {
-    s_lasttok_wasfunction = toklen == 8 && !strnicmp(tok,"function",8);
-  }
-}
-
-#else
 #define sh_func_ontoken(x,y)
-#endif
 
 int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
 {
@@ -100,28 +75,6 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
       return SYNTAX_FUNC;
     }
   }
-#ifdef START_ON_VARS_KEYWORD
-  // todo: need to lookahead to see if the next token is (, if so, look at s_declaredFuncs, otherwise s_declaredVars/s_funcDef_vars
-  if (state != STATE_BEFORE_CODE && (s_declaredVars.GetSize()||s_declaredFuncs.GetSize()))
-  {
-    char buf[1024];
-    if (len < sizeof(buf))
-    {
-      lstrcpyn_safe(buf,tokStart,len+1);
-      int tl;
-      const char *ep = tokStart+len;
-      const char *nexttok=sh_tokenize(&ep, ep+strlen(ep), &tl, NULL);
-      if (nexttok && nexttok[0] == '(')
-      {
-        if (!s_declaredFuncs.Get(buf)) return SYNTAX_ERROR;
-      }
-      else
-      {
-        if (s_declaredVars.GetSize() && !s_declaredVars.Get(buf)) return SYNTAX_ERROR;
-      }
-    }
-  }
-#endif
   return A_NORMAL;
 }
 
@@ -385,17 +338,7 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
   }
 
   int skipcnt = m_offs_x;
-  int ignoreSyntaxState=0;
-#ifdef START_ON_VARS_KEYWORD
-  if (!strnicmp(p,"var",3) && isspace(p[3]))
-  {
-    ignoreSyntaxState=-2;
-    draw_string(&skipcnt,p,3,&last_attr,SYNTAX_HIGHLIGHT1);
-    p+=3;
-  }
-  else
-#endif
-    ignoreSyntaxState = overrideSyntaxDrawingForLine(&skipcnt, &p, c_comment_state, &last_attr);
+  int ignoreSyntaxState = overrideSyntaxDrawingForLine(&skipcnt, &p, c_comment_state, &last_attr);
 
   if (ignoreSyntaxState>0)
   {
@@ -571,11 +514,6 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
 
 int EEL_Editor::GetCommentStateForLineStart(int line)
 {
-  
-#ifdef START_ON_VARS_KEYWORD
-  s_declaredFuncs.DeleteAll();
-  s_declaredVars.DeleteAll();
-#endif
   if (m_write_leading_tabs<=0) m_indent_size=2;
   const bool uses_code_start_lines = !!is_code_start_line(NULL);
 
@@ -597,26 +535,6 @@ int EEL_Editor::GetCommentStateForLineStart(int line)
         int a = atoi(p+8);
         if (a>0 && a < 32) m_indent_size = a;
       }
-
-      #ifdef START_ON_VARS_KEYWORD
-      if (!strnicmp(p,"var",3) && isspace(p[3]))
-      {
-        const char *endp=p + t->GetLength();
-        const char *tok;
-        int toklen;
-        p+=4;
-        while (NULL != (tok = sh_tokenize(&p,endp,&toklen,NULL)))
-        {
-          if (isalpha(tok[0]) || tok[0] == '_' || tok[0] == '#')
-          {
-            char buf[512];
-            if (toklen > sizeof(buf)-1) toklen=sizeof(buf)-1;
-            lstrcpyn_safe(buf,tok,toklen+1);
-            s_declaredVars.AddUnsorted(buf,1);
-          }
-        }
-      }
-      #endif
     }
 
 
@@ -634,9 +552,6 @@ int EEL_Editor::GetCommentStateForLineStart(int line)
     x++;
   }
 
-  #ifdef START_ON_VARS_KEYWORD
-  s_declaredVars.Resort();
-  #endif
   s_draw_parentokenstack.Resize(0,false);
 
   for (;x<line;x++)
@@ -674,9 +589,6 @@ bool EEL_Editor::LineCanAffectOtherLines(const char *txt, int spos, int slen) //
 {
   const char *special_start = txt + spos;
   const char *special_end = txt + spos + slen;
-#ifdef START_ON_VARS_KEYWORD
-  if (!strnicmp(txt,"var",3) && isspace(txt[3])) return true;
-#endif
   while (*txt)
   {
     if (txt >= special_start-1 && txt < special_end)
@@ -692,9 +604,6 @@ bool EEL_Editor::LineCanAffectOtherLines(const char *txt, int spos, int slen) //
         if (c == '(' || c == '[' || c == ')' || c == ']' || c == ':' || c == ';' || c == '?') return true;
       }
     }
-#ifdef START_ON_VARS_KEYWORD
-    if (!strnicmp(txt,"function",8)) return true;
-#endif
     txt++;
   }
   return false;
