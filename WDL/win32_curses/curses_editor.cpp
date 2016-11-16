@@ -88,6 +88,11 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   nodelay(stdscr,TRUE);
   raw(); // disable ctrl+C etc. no way to kill if allow quit isn't defined, yay.
   start_color();
+
+#ifdef WDL_IS_FAKE_CURSES
+  if (!curses_win32_global_user_colortab && (!m_cursesCtx || !CURSES_INSTANCE->user_colortab))
+#endif
+  {
   init_pair(1, COLOR_WHITE, COLOR_BLUE);     // COLOR_BOTTOMLINE
   init_pair(2, COLOR_BLACK, COLOR_CYAN);     // COLOR_SELECTION
   init_pair(3, RGB(0,255,255),COLOR_BLACK);  // SYNTAX_HIGHLIGHT1
@@ -104,6 +109,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   init_pair(12, COLOR_BLACK, COLOR_CYAN);       // COLOR_MESSAGE (maps to COLOR_SELECTION)
   init_pair(13, COLOR_WHITE, COLOR_RED);        // COLOR_TOPLINE (maps to SYNTAX_ERROR)
 #endif
+  }
 
   erase();
   refresh();

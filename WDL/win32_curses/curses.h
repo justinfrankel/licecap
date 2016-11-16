@@ -115,9 +115,14 @@ typedef struct win32CursesCtx
 
   void *user_data;
   LRESULT (*onMouseMessage)(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+  int *user_colortab; // cycle the high byte of the first entry to force an update of colortab
+  int user_colortab_lastfirstval;
 } win32CursesCtx;
 
 extern win32CursesCtx g_curses_context; // declare this if you need it
+extern int *curses_win32_global_user_colortab;
+void init_user_colortab(win32CursesCtx *ctx); // if you're in a hurry, otherwise blinking cursor detects
 
 void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx);
 void curses_unregisterChildClass(HINSTANCE hInstance);
