@@ -1734,7 +1734,7 @@ int WDL_CursesEditor::onChar(int c)
           const int xbytesz=WDL_utf8_charpos_to_bytepos(s->Get()+xbyte,1);
           bool hadCom = LineCanAffectOtherLines(s->Get(),xbyte,xbytesz); 
           s->DeleteSub(xbyte,xbytesz);
-          if (!hadCom) hadCom = LineCanAffectOtherLines(s->Get(),xbyte,-1);
+          if (!hadCom) hadCom = LineCanAffectOtherLines(s->Get(),xbyte,0);
           draw(hadCom ? -1 : m_curs_y);
           saveUndoState();
           setCursor();
@@ -2158,7 +2158,7 @@ int WDL_CursesEditor::onChar(int c)
         tl->DeleteSub(xbyte,xbytesz);
         m_curs_x-=del_sz;
 
-        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get(),xbyte,-1);
+        if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get(),xbyte,0);
         draw(hadCom?-1:m_curs_y);
         saveUndoState();
         setCursor();
@@ -2306,7 +2306,7 @@ int WDL_CursesEditor::onChar(int c)
 
         const int xbyte = WDL_utf8_charpos_to_bytepos(ss->Get(),m_curs_x);
 
-        bool hadCom = LineCanAffectOtherLines(ss->Get(),xbyte,-1);
+        bool hadCom = LineCanAffectOtherLines(ss->Get(),xbyte,0);
         if (s_overwrite)
         {
           const int xbytesz_del=WDL_utf8_charpos_to_bytepos(ss->Get()+xbyte,slen);

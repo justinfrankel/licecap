@@ -673,7 +673,7 @@ const char *EEL_Editor::sh_tokenize(const char **ptr, const char *endptr, int *l
 bool EEL_Editor::LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
 {
   const char *special_start = txt + spos;
-  const char *special_end = txt + spos + (slen<0?0:slen);
+  const char *special_end = txt + spos + slen;
 #ifdef START_ON_VARS_KEYWORD
   if (!strnicmp(txt,"var",3) && isspace(txt[3])) return true;
 #endif
