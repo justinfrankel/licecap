@@ -50,11 +50,16 @@ public:
 
   virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
 
+  virtual void draw_top_line();
+
   // static helpers
   static WDL_TypedBuf<char> s_draw_parentokenstack;
   static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);
 
   WDL_StringKeyedArray<char *> *m_added_funclist; // caller can use this
+
+  WDL_FastString m_suggestion;
+  int m_suggestion_x,m_suggestion_y;
 };
 
 #endif

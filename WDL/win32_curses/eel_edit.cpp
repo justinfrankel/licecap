@@ -18,6 +18,7 @@
 EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
   m_added_funclist=NULL;
+  m_suggestion_x=m_suggestion_y=-1;
 }
 
 EEL_Editor::~EEL_Editor()
@@ -1229,6 +1230,37 @@ int EEL_Editor::onChar(int c)
   }
 
   return WDL_CursesEditor::onChar(c);
+}
+
+void EEL_Editor::draw_top_line()
+{
+  if (m_curs_x >= m_suggestion_x && m_curs_y == m_suggestion_y && m_suggestion.GetLength())
+  {
+    const char *p=m_suggestion.Get();
+    char str[512];
+    if (WDL_utf8_get_charlen(m_suggestion.Get()) > COLS)
+    {
+      int l = WDL_utf8_charpos_to_bytepos(m_suggestion.Get(),COLS-4);
+      if (l > sizeof(str)-6) l = sizeof(str)-6;
+      lstrcpyn(str, m_suggestion.Get(), l+1);
+      strcat(str, "...");
+      p=str;
+    }
+
+    attrset(COLOR_TOPLINE|A_BOLD);
+    bkgdset(COLOR_TOPLINE);
+    move(0, 0);
+    addstr(p);
+    clrtoeol();
+    attrset(0);
+    bkgdset(0);
+  }
+  else
+  {
+    m_suggestion_x=m_suggestion_y=-1;
+    if (m_suggestion.GetLength()) m_suggestion.Set("");
+    WDL_CursesEditor::draw_top_line();
+  }
 }
 
 
