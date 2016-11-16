@@ -672,29 +672,25 @@ const char *EEL_Editor::sh_tokenize(const char **ptr, const char *endptr, int *l
 
 bool EEL_Editor::LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
 {
-  if (txt)
+  const char *special_start = txt + spos;
+  const char *special_end = txt + spos + slen;
+#ifdef START_ON_VARS_KEYWORD
+  if (!strnicmp(txt,"var",3) && isspace(txt[3])) return true;
+#endif
+  while (*txt)
   {
-    const char *special_start = txt + spos;
-    const char *special_end = txt + spos + slen;
-#ifdef START_ON_VARS_KEYWORD
-    if (!strnicmp(txt,"var",3) && isspace(txt[3])) return true;
-#endif
-    if (*txt == '@') return true;
-    while (*txt)
+    const char c = txt[0];
+    if (c == '\"' || c == '\'') return true;
+    if (c == '*' && txt[1] == '/') return true;
+    if (c == '/' && txt[1] == '*') return true;
+    if (txt >= special_start && txt < special_end)
     {
-      const char c = txt[0];
-      if (c == '\"' || c == '\'') return true;
-      if (c == '*' && txt[1] == '/') return true;
-      if (c == '/' && txt[1] == '*') return true;
-      if (txt >= special_start && txt < special_end)
-      {
-        if (c == '(' || c == '[' || c == ')' || c == ']' || c == ':' || c == ';' || c == '?') return true;
-      }
-#ifdef START_ON_VARS_KEYWORD
-      if (!strnicmp(txt,"function",8)) return true;
-#endif
-      txt++;
+      if (c == '(' || c == '[' || c == ')' || c == ']' || c == ':' || c == ';' || c == '?') return true;
     }
+#ifdef START_ON_VARS_KEYWORD
+    if (!strnicmp(txt,"function",8)) return true;
+#endif
+    txt++;
   }
   return false;
 }
