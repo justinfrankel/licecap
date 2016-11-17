@@ -1299,7 +1299,61 @@ void EEL_Editor::draw_top_line()
 
 void EEL_Editor::onRightClick(HWND hwnd)
 {
-  doWatchInfo(0);
+  WDL_LogicalSortStringKeyedArray<int> flist(false);
+  int i;
+  if (!(GetAsyncKeyState(VK_CONTROL)&0x8000))
+  {
+    for (i=0; i < m_text.GetSize(); ++i)
+    {
+      WDL_FastString* s=m_text.Get(i);
+        const char* p=(s ? strstr(s->Get(), "function ") : NULL);
+      if (p)
+      {
+        p+=9;
+        while (*p == ' ') p++;
+        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
+        {
+          const char* q=strchr(p,')');
+          if (q)
+          {
+            char buf[128];
+            lstrcpyn(buf, p, min(q+1-p+1, sizeof(buf)));
+            if (strlen(buf) > sizeof(buf)-2) lstrcpyn(buf+sizeof(buf)-5, "...", 4);
+            flist.AddUnsorted(buf, i);
+          }
+        }
+      }
+    }
+  }
+  if (flist.GetSize())
+  {
+    flist.Resort();
+    HMENU hm=CreatePopupMenu();
+    int pos=0;
+    for (i=0; i < flist.GetSize(); ++i)
+    {
+      const char* fname=NULL;
+      int line=flist.Enumerate(i, &fname);
+      InsertMenu(hm, pos++, MF_STRING|MF_BYPOSITION, line+1, fname);
+    }
+    POINT p;
+    GetCursorPos(&p);
+    int ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, p.x, p.y, 0, hwnd, NULL);
+    DestroyMenu(hm);
+    if (ret-- > 0)
+    {
+      m_curs_y=ret;
+      m_select_x1=0;
+      m_select_x2=strlen(m_text.Get(ret)->Get());
+      m_select_y1=m_select_y2=ret;
+      m_selecting=1;
+      setCursor(0,0.25);
+    }
+  }
+  else
+  {
+    doWatchInfo(0);
+  }
 }
 
 
