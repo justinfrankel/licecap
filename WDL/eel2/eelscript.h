@@ -377,11 +377,11 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
         void *opaque = (void*)this;
         if (showerr==2)
         {
-          EEL_STRING_DEBUGOUT("Warning: %s:%s",showerrfn,err);
+          EEL_STRING_DEBUGOUT("Warning: %s:%s",WDL_get_filepart(showerrfn),err);
         }
         else
         {
-          EEL_STRING_DEBUGOUT("Error: %s:%s",showerrfn,err);
+          EEL_STRING_DEBUGOUT("%s:%s",WDL_get_filepart(showerrfn),err);
         }
 #endif
       }
