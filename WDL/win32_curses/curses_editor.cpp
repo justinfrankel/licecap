@@ -68,6 +68,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   m_scrollcap_yoffs=0;
   
   m_filelastmod=0;
+  m_status_lastlen=0;
 
 #ifdef WDL_IS_FAKE_CURSES
   if (m_cursesCtx)
@@ -666,8 +667,25 @@ void WDL_CursesEditor::draw_status_state()
   snprintf(str, sizeof(str), "%sLine %d/%d, Col %d [%s]%s",
     whichpane, m_curs_y+1, m_text.GetSize(), m_curs_x, 
     (s_overwrite ? "OVR" : "INS"), (m_clean_undopos == m_undoStack_pos ? "" : "*"));
+
   int len=strlen(str);
   int x=COLS-len-1;
+  if (!*whichpane)
+  {
+    if (len < m_status_lastlen)
+    {
+      int xpos = COLS-m_status_lastlen-1;
+      if (xpos<0) xpos=0;
+      move(line,xpos);
+      while (xpos++ < x) addstr(" ");
+    }
+    m_status_lastlen = len;
+  }
+  else 
+  {
+    m_status_lastlen=0;
+  }
+
   mvaddnstr(line, x, str, len);
   clrtoeol();
 
@@ -903,6 +921,8 @@ void WDL_CursesEditor::draw(int lineidx)
 
   move(m_top_margin,0);
   clrtoeol();
+
+  m_status_lastlen=0;
 
   int pane, i;
   for (pane=0; pane < 2; ++pane)

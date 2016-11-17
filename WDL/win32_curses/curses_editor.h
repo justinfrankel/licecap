@@ -150,6 +150,7 @@ protected:
   int m_curpane;
   double m_pane_div;
   int m_paneoffs_y[2]; 
+  int m_status_lastlen; // status line right hand text length, if any
 
   int GetPaneDims(int* paney, int* paneh);
 
