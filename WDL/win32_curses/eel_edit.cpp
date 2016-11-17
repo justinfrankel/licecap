@@ -19,6 +19,7 @@ EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
   m_added_funclist=NULL;
   m_suggestion_x=m_suggestion_y=-1;
+  m_case_sensitive=false;
 }
 
 EEL_Editor::~EEL_Editor()
@@ -883,23 +884,32 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
 {
   if (chkmask&4)
   {
-    char buf2[512];
-    snprintf(buf2, sizeof(buf2), "function %s", name);
+    const size_t nlen = strlen(name);
     for (int i=0; i < m_text.GetSize(); ++i)
     {
       WDL_FastString* s=m_text.Get(i);
       if (s && i != ignoreline)
       {
-        const char* p=(chkmask&0x10000) ? strstr(s->Get(),buf2) : stristr(s->Get(), buf2);
-        if (p)
+        const char* p= s->Get();
+        while (*p)
         {
-          const char *q=p + strlen(buf2);
-          while (*q == ' ' || *q == '\t') q++;
-          if (*q == '(')
+          if (m_case_sensitive ? !strncmp(p,"function ",9) : !strnicmp(p,"function ",9))
           {
-            lstrcpyn_safe(sstr,p+9,sstr_sz);
-            return 4;
+            p+=9;
+            while (*p == ' ') p++;
+            if (m_case_sensitive ? !strncmp(p,name,nlen) : !strnicmp(p,name,nlen))
+            {
+              const char *np = p+nlen;
+              while (*np == ' ') np++;
+
+              if (*np == '(')
+              {
+                lstrcpyn_safe(sstr,p,sstr_sz);
+                return 4;
+              }
+            }
           }
+          p++;
         }
       }
     }
@@ -1299,29 +1309,33 @@ void EEL_Editor::draw_top_line()
 
 void EEL_Editor::onRightClick(HWND hwnd)
 {
-  WDL_LogicalSortStringKeyedArray<int> flist(false);
+  WDL_LogicalSortStringKeyedArray<int> flist(m_case_sensitive);
   int i;
   if (!(GetAsyncKeyState(VK_CONTROL)&0x8000))
   {
     for (i=0; i < m_text.GetSize(); ++i)
     {
       WDL_FastString* s=m_text.Get(i);
-        const char* p=(s ? strstr(s->Get(), "function ") : NULL);
-      if (p)
+      const char* p=s ? s->Get() : NULL;
+      if (p) while (*p)
       {
-        p+=9;
-        while (*p == ' ') p++;
-        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
+        if (m_case_sensitive ? !strncmp(p,"function ",9) : !strnicmp(p,"function ",9))
         {
-          const char* q=strchr(p,')');
-          if (q)
+          p+=9;
+          while (*p == ' ') p++;
+          if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
           {
-            char buf[128];
-            lstrcpyn(buf, p, min(q+1-p+1, sizeof(buf)));
-            if (strlen(buf) > sizeof(buf)-2) lstrcpyn(buf+sizeof(buf)-5, "...", 4);
-            flist.AddUnsorted(buf, i);
+            const char* q=strchr(p,')');
+            if (q)
+            {
+              char buf[128];
+              lstrcpyn(buf, p, min(q+1-p+1, sizeof(buf)));
+              if (strlen(buf) > sizeof(buf)-2) lstrcpyn(buf+sizeof(buf)-5, "...", 4);
+              flist.AddUnsorted(buf, i);
+            }
           }
         }
+        p++;
       }
     }
   }
