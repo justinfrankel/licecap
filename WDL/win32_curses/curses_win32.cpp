@@ -143,6 +143,8 @@ void __init_pair(win32CursesCtx *ctx, int pair, int fcolor, int bcolor)
   if (!ctx || pair < 0 || pair >= COLOR_PAIRS) return;
 
   pair=COLOR_PAIR(pair);
+  fcolor &= RGB(255,255,255);
+  bcolor &= RGB(255,255,255);
 
   ctx->colortab[pair][0]=fcolor;
   ctx->colortab[pair][1]=bcolor;
