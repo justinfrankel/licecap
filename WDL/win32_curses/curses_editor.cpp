@@ -19,8 +19,6 @@
 #endif
 
 
-#define UI_STATE_SAVE_AS_NEW 11
-#define UI_STATE_SAVE_ON_CLOSE 12
 
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
@@ -52,7 +50,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
 
   m_selecting=0;
   m_select_x1=m_select_y1=m_select_x2=m_select_y2=0;
-  m_state=0;
+  m_ui_state=UI_STATE_NORMAL;
   m_offs_x=0;
   m_curs_x=m_curs_y=0;
   m_want_x=-1;
@@ -340,7 +338,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
       if (cy > LINES) cy=LINES;
       if (cy < 0) cy=0;
 
-      m_state=0; // any click clears the state
+      m_ui_state=UI_STATE_NORMAL; // any click clears the state
       s_mousedown[0]=cx;
       s_mousedown[1]=cy;
 
@@ -774,6 +772,7 @@ void WDL_CursesEditor::draw_message(const char *str)
   if (!CURSES_INSTANCE) return;
   
   int l=strlen(str);
+  if (l && m_ui_state == UI_STATE_NORMAL) m_ui_state=UI_STATE_MESSAGE;
   if (l > COLS-2) l=COLS-2;
   if (str[0]) 
   {
@@ -1370,14 +1369,20 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
 int WDL_CursesEditor::onChar(int c)
 {
   // multitab
+  if (m_ui_state == UI_STATE_MESSAGE)
+  {
+    m_ui_state=UI_STATE_NORMAL;
+    draw();
+    setCursor();
+  }
 
-  if (!m_state && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
+  if (m_ui_state == UI_STATE_NORMAL && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
   {
     if (GetTab(0) == this) return 0; // first in list = do nothing
 
     if (IsDirty())
     {
-      m_state=UI_STATE_SAVE_ON_CLOSE;
+      m_ui_state=UI_STATE_SAVE_ON_CLOSE;
       attrset(COLOR_MESSAGE);
       bkgdset(COLOR_MESSAGE);
       mvaddstr(LINES-1,0,"Save file before closing (y/N)? ");
@@ -1396,13 +1401,13 @@ int WDL_CursesEditor::onChar(int c)
     return 0;
   }
 
-  if (m_state == UI_STATE_SAVE_ON_CLOSE)
+  if (m_ui_state == UI_STATE_SAVE_ON_CLOSE)
   {
     if (c>=0 && (isalnum(c) || isprint(c) || c==27))
     {
       if (c == 27)
       {
-        m_state=0;
+        m_ui_state=UI_STATE_NORMAL;
         draw();
         draw_message("Cancelled close of file.");
         setCursor();
@@ -1414,7 +1419,7 @@ int WDL_CursesEditor::onChar(int c)
         {
           if(updateFile())
           {
-            m_state=0;
+            m_ui_state=UI_STATE_NORMAL;
             draw();
             draw_message("Error writing file, changes not saved!");
             setCursor();
@@ -1431,19 +1436,18 @@ int WDL_CursesEditor::onChar(int c)
     }
     return 0;
   }
-  else if (m_state == UI_STATE_SAVE_AS_NEW)
+  else if (m_ui_state == UI_STATE_SAVE_AS_NEW)
   {
     if (c>=0 && (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n'))
     {
+      m_ui_state=UI_STATE_NORMAL;
       if (toupper(c) == 'N' || c == 27) 
       {
-        m_state=0;
         draw();
         draw_message("Cancelled create new file.");
         setCursor();
         return 0;
       }
-      m_state=0;
 
       AddTab(m_newfn.Get());
     }
@@ -1463,16 +1467,16 @@ int WDL_CursesEditor::onChar(int c)
   }
   // end multitab
 
-  if (m_state == -3 || m_state == -4)
+  if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_SEARCH2)
   {
     switch (c)
     {
        case '\r': case '\n':
-         m_state=0;
+         m_ui_state=UI_STATE_NORMAL;
          runSearch();
        break;
        case 27: 
-         m_state=0; 
+         m_ui_state=UI_STATE_NORMAL; 
          draw();
          setCursor();
          draw_message("Find cancelled.");
@@ -1492,7 +1496,7 @@ int WDL_CursesEditor::onChar(int c)
              p+=sz;
            }
          }
-         m_state=-4; 
+         m_ui_state=UI_STATE_SEARCH2; 
        break;
        case KEY_IC:
          if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN) break;
@@ -1504,10 +1508,10 @@ int WDL_CursesEditor::onChar(int c)
            getLinesFromClipboard(buf,lines);
            if (lines.Get(0))
            {
-             if (m_state==-3) 
+             if (m_ui_state==UI_STATE_SEARCH) 
              {
                s_search_string[0]=0;
-               m_state=-4;
+               m_ui_state=UI_STATE_SEARCH2;
              }
              lstrcatn(s_search_string,lines.Get(0),sizeof(s_search_string));
            }
@@ -1516,8 +1520,8 @@ int WDL_CursesEditor::onChar(int c)
        default: 
          if (VALIDATE_TEXT_CHAR(c)) 
          { 
-           int l=m_state == -3 ? 0 : strlen(s_search_string); 
-           m_state = -4;
+           int l=m_ui_state == UI_STATE_SEARCH ? 0 : strlen(s_search_string); 
+           m_ui_state = UI_STATE_SEARCH2;
            if (l < (int)sizeof(s_search_string)-8) 
            { 
              WDL_MakeUTFChar(s_search_string+l,c,8);
@@ -1525,7 +1529,7 @@ int WDL_CursesEditor::onChar(int c)
          } 
         break;
      }
-     if (m_state)
+     if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_SEARCH2)
      {
        attrset(COLOR_MESSAGE);
        bkgdset(COLOR_MESSAGE);
@@ -1971,7 +1975,7 @@ int WDL_CursesEditor::onChar(int c)
       clrtoeol();
       attrset(0);
       bkgdset(0);
-      m_state=-3; // find, initial (m_state=4 when we've typed something)
+      m_ui_state=UI_STATE_SEARCH; // find, initial
     }
   break;
   case KEY_DOWN:
@@ -2594,7 +2598,7 @@ void WDL_CursesEditor::OpenFileInTab(const char *fnp)
     else
       s.Set("Create new file (Y/n)? ");
 
-    m_state=UI_STATE_SAVE_AS_NEW;
+    m_ui_state=UI_STATE_SAVE_AS_NEW;
     attrset(COLOR_MESSAGE);
     bkgdset(COLOR_MESSAGE);
     mvaddstr(LINES-1,0,s.Get());

@@ -135,7 +135,12 @@ protected:
   int m_undoStack_pos;
   int m_clean_undopos;
   
-  int m_state; // values >0 used by specific impls, negatives used by builtin funcs
+  enum uiState { UI_STATE_NORMAL=0,
+    UI_STATE_MESSAGE, 
+    UI_STATE_SEARCH, UI_STATE_SEARCH2, 
+    UI_STATE_SAVE_AS_NEW, UI_STATE_SAVE_ON_CLOSE 
+  };
+  uiState m_ui_state; 
 
   int m_selecting;
   int m_select_x1,m_select_y1,m_select_x2,m_select_y2;
