@@ -1200,8 +1200,8 @@ void EEL_Editor::doWatchInfo(int c)
     return;
   }
 
-  draw_message(sstr);
   setCursor();
+  draw_message(sstr);
 }
 
 
