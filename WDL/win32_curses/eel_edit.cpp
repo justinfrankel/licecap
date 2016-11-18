@@ -950,6 +950,50 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
 
   return 0;
 }
+bool EEL_Editor::peek_get_variable_info(const char *name, char *sstr, size_t sstr_sz)
+{
+  peek_lock();
+  NSEEL_VMCTX vm = peek_get_VM();
+  EEL_F *vptr=NSEEL_VM_getvar(vm,name);
+  double v=0.0;
+  if (vptr) v=*vptr;
+  peek_unlock();
+
+  if (!vptr)  return false;
+
+  int good_len=-1;
+  snprintf(sstr,sstr_sz,"%s=%.14f",name,v);
+
+  if (vm && v > -1.0 && v < NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS)
+  {
+    const unsigned int w = (unsigned int) (v+NSEEL_CLOSEFACTOR);
+    EEL_F *dv = NSEEL_VM_getramptr_noalloc(vm,w,NULL);
+    if (dv)
+    {
+      snprintf_append(sstr,sstr_sz," [0x%06x]=%.14f",w,*dv);
+      good_len=-2;
+    }
+    else
+    {
+      good_len = strlen(sstr);
+      snprintf_append(sstr,sstr_sz," [0x%06x]=<uninit>",w);
+    }
+  }
+
+  char buf[512];
+  buf[0]=0;
+  if (peek_get_numbered_string_value(v,buf,sizeof(buf)))
+  {
+    if (good_len==-2)
+      snprintf_append(sstr,sstr_sz," %.0f(str)=%s",v,buf);
+    else
+    {
+      if (good_len>=0) sstr[good_len]=0; // remove [addr]=<uninit> if a string and no ram
+      snprintf_append(sstr,sstr_sz," (str)=%s",buf);
+    }
+  }
+  return true;
+}
 
 void EEL_Editor::doWatchInfo(int c)
 {
@@ -1162,50 +1206,8 @@ void EEL_Editor::doWatchInfo(int c)
 
         int f = peek_get_function_info(n.Get(),sstr,sizeof(sstr),~0,-1);
 
-        if (!f) 
-        {
-          peek_lock();
-          NSEEL_VMCTX vm = peek_get_VM();
-          EEL_F *vptr=NSEEL_VM_getvar(vm,n.Get());
-          double v=0.0;
-          if (vptr) v=*vptr;
-          peek_unlock();
-
-          if (vptr) 
-          {
-            int good_len=-1;
-            snprintf(sstr,sizeof(sstr),"%s=%.14f",n.Get(),v);
-
-            if (vm && v > -1.0 && v < NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS)
-            {
-              const unsigned int w = (unsigned int) (v+NSEEL_CLOSEFACTOR);
-              EEL_F *dv = NSEEL_VM_getramptr_noalloc(vm,w,NULL);
-              if (dv)
-              {
-                snprintf_append(sstr,sizeof(sstr)," [0x%06x]=%.14f",w,*dv);
-                good_len=-2;
-              }
-              else
-              {
-                good_len = strlen(sstr);
-                snprintf_append(sstr,sizeof(sstr)," [0x%06x]=<uninit>",w);
-              }
-            }
-            buf[0]=0;
-            if (peek_get_numbered_string_value(v,buf,sizeof(buf)))
-            {
-              if (good_len==-2)
-                snprintf_append(sstr,sizeof(sstr)," %.0f(str)=%s",v,buf);
-              else
-              {
-                if (good_len>=0) sstr[good_len]=0; // remove [addr]=<uninit> if a string and no ram
-                snprintf_append(sstr,sizeof(sstr)," (str)=%s",buf);
-              }
-            }
-
-          }
-          else snprintf(sstr,sizeof(sstr),"'%s' NOT FOUND",n.Get());
-        }
+        if (!f) f = peek_get_variable_info(n.Get(),sstr,sizeof(sstr))?1:0;
+        if (!f) snprintf(sstr,sizeof(sstr),"'%s' NOT FOUND",n.Get());
       }
     }
   }
