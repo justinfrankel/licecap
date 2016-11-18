@@ -1221,6 +1221,7 @@ void EEL_Editor::doWatchInfo(int c)
 void EEL_Editor::draw_bottom_line()
 {
 #define BOLD(x) { attrset(COLOR_BOTTOMLINE|A_BOLD); addstr(x); attrset(COLOR_BOTTOMLINE&~A_BOLD); }
+  addstr("ma"); BOLD("T"); addstr("ch");
   BOLD(" S"); addstr("ave");
   if (peek_get_VM())
   {

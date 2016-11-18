@@ -975,7 +975,6 @@ void WDL_CursesEditor::draw(int lineidx)
         addstr("no"); BOLD("P"); addstr("anes ");
       }
       BOLD("F"); addstr("ind ");
-      addstr("ma"); BOLD("T"); addstr("ch");
       draw_bottom_line();
       addstr(")");
     }
