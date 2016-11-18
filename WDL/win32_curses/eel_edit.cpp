@@ -706,6 +706,8 @@ static void eel_sh_generate_token_list(const WDL_PtrList<WDL_FastString> *lines,
       {
         if (tok) switch (tok[0])
         {
+          case '{':
+          case '}':
           case '?':
           case ':':
           case ';':
