@@ -63,6 +63,7 @@ public:
   int m_suggestion_x,m_suggestion_y;
 
   bool m_case_sensitive; // for function detection, and maybe other places
+  const char *m_function_prefix; // defaults to "function "
 };
 
 #endif

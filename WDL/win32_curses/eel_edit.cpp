@@ -20,6 +20,7 @@ EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
   m_added_funclist=NULL;
   m_suggestion_x=m_suggestion_y=-1;
   m_case_sensitive=false;
+  m_function_prefix = "function ";
 }
 
 EEL_Editor::~EEL_Editor()
@@ -882,9 +883,11 @@ void EEL_Editor::doParenMatching()
 
 int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
 {
-  if (chkmask&4)
+  if ((chkmask&4) && m_function_prefix && *m_function_prefix)
   {
     const size_t nlen = strlen(name);
+    const char *prefix = m_function_prefix;
+    const int prefix_len = (int) strlen(m_function_prefix);
     for (int i=0; i < m_text.GetSize(); ++i)
     {
       WDL_FastString* s=m_text.Get(i);
@@ -893,9 +896,9 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
         const char* p= s->Get();
         while (*p)
         {
-          if (m_case_sensitive ? !strncmp(p,"function ",9) : !strnicmp(p,"function ",9))
+          if (m_case_sensitive ? !strncmp(p,prefix,prefix_len) : !strnicmp(p,prefix,prefix_len))
           {
-            p+=9;
+            p+=prefix_len;
             while (*p == ' ') p++;
             if (m_case_sensitive ? !strncmp(p,name,nlen) : !strnicmp(p,name,nlen))
             {
@@ -1311,17 +1314,19 @@ void EEL_Editor::onRightClick(HWND hwnd)
 {
   WDL_LogicalSortStringKeyedArray<int> flist(m_case_sensitive);
   int i;
-  if (!(GetAsyncKeyState(VK_CONTROL)&0x8000))
+  if (!(GetAsyncKeyState(VK_CONTROL)&0x8000) && m_function_prefix && *m_function_prefix)
   {
+    const char *prefix = m_function_prefix;
+    const int prefix_len = (int) strlen(m_function_prefix);
     for (i=0; i < m_text.GetSize(); ++i)
     {
       WDL_FastString* s=m_text.Get(i);
       const char* p=s ? s->Get() : NULL;
       if (p) while (*p)
       {
-        if (m_case_sensitive ? !strncmp(p,"function ",9) : !strnicmp(p,"function ",9))
+        if (m_case_sensitive ? !strncmp(p,prefix,prefix_len) : !strnicmp(p,prefix,prefix_len))
         {
-          p+=9;
+          p+=prefix_len;
           while (*p == ' ') p++;
           if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
           {
