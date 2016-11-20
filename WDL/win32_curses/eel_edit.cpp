@@ -399,7 +399,14 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
         while (this_len < toklen && tok[this_len] != '.') this_len++;
         if (this_len > 0)
         {
-          const int attr=isf?namedTokenHighlight(tok,this_len,*c_comment_state):def_attr;
+          int attr=isf?namedTokenHighlight(tok,this_len,*c_comment_state):def_attr;
+          if (isf && attr == A_NORMAL)
+          {
+            int ntok_len=0, cc = *c_comment_state;
+            const char *pp=lp,*ntok = sh_tokenize(&pp,endptr,&ntok_len,&cc);
+            if (ntok && ntok_len>0 && *ntok == '(') def_attr = attr = SYNTAX_FUNC2;
+          }
+
           draw_string(&skipcnt,tok,this_len,&last_attr,attr==A_NORMAL?def_attr:attr);
           tok += this_len;
           toklen -= this_len;

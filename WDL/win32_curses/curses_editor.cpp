@@ -107,6 +107,7 @@ WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
   init_pair(11, RGB(192,255,128), COLOR_BLACK); // SYNTAX_STRINGVAR
   init_pair(12, COLOR_BLACK, COLOR_CYAN);       // COLOR_MESSAGE (maps to COLOR_SELECTION)
   init_pair(13, COLOR_WHITE, COLOR_RED);        // COLOR_TOPLINE (maps to SYNTAX_ERROR)
+  init_pair(14, RGB(192,192,0), COLOR_BLACK);   // SYNTAX_FUNC2
 #endif
   }
 
