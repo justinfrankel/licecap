@@ -762,7 +762,7 @@ void reInitializeContext(win32CursesCtx *ctx)
                         ANSI_CHARSET,
                         OUT_DEFAULT_PRECIS,
                         CLIP_DEFAULT_PRECIS,
-                        NONANTIALIASED_QUALITY,//DEFAULT_QUALITY,
+                        ANTIALIASED_QUALITY, //NONANTIALIASED_QUALITY,//DEFAULT_QUALITY,
 #ifdef _WIN32
                         FF_MODERN,
 #else
