@@ -1181,18 +1181,25 @@ static WDL_FastString *newIndentedFastString(const char *tstr, int indent_to_pos
 
 void WDL_CursesEditor::highlight_line(int line)
 { 
-  if (line >= 0 && line < m_text.GetSize())
+  if (line >= 0 && line <= m_text.GetSize())
   {
+    bool nosel=false;
+    if (line == m_text.GetSize()) { line--; nosel=true; }
+
     m_curs_x=0;
     m_curs_y=line;
 
     WDL_FastString* s=m_text.Get(line);
     if (s && s->GetLength())
     {
-      m_select_x1=0;
-      m_select_x2=WDL_utf8_get_charlen(s->Get());
-      m_select_y1=m_select_y2=m_curs_y;
-      m_selecting=1;
+      if (nosel) m_curs_x = WDL_utf8_get_charlen(s->Get());
+      else
+      {
+        m_select_x1=0;
+        m_select_x2=WDL_utf8_get_charlen(s->Get());
+        m_select_y1=m_select_y2=m_curs_y;
+        m_selecting=1;
+      }
       draw();
     }
 
