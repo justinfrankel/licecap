@@ -20,6 +20,7 @@ EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
   m_added_funclist=NULL;
   m_suggestion_x=m_suggestion_y=-1;
   m_case_sensitive=false;
+  m_comment_str="//"; // todo IsWithinComment() or something?
   m_function_prefix = "function ";
 }
 
@@ -1330,12 +1331,15 @@ void EEL_Editor::onRightClick(HWND hwnd)
   {
     const char *prefix = m_function_prefix;
     const int prefix_len = (int) strlen(m_function_prefix);
+    const int comment_len=(int)strlen(m_comment_str);
     for (i=0; i < m_text.GetSize(); ++i)
     {
       WDL_FastString* s=m_text.Get(i);
       const char* p=s ? s->Get() : NULL;
       if (p) while (*p)
       {
+        if (!strncmp(p, m_comment_str, comment_len)) break;
+
         if (m_case_sensitive ? !strncmp(p,prefix,prefix_len) : !strnicmp(p,prefix,prefix_len))
         {
           p+=prefix_len;

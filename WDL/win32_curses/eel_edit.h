@@ -66,6 +66,7 @@ public:
 
   bool m_case_sensitive; // for function detection, and maybe other places
   const char *m_function_prefix; // defaults to "function "
+  const char *m_comment_str; // defaults to "//"
 };
 
 #endif
