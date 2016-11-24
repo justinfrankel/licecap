@@ -1342,11 +1342,20 @@ void EEL_Editor::onRightClick(HWND hwnd)
           while (*p == ' ') p++;
           if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
           {
-            const char* q=strchr(p,')');
-            if (q)
+            const char *q = p+1;
+            while ((*q >= '0' && *q <= '9') || 
+                   (*q >= 'a' && *q <= 'z') || 
+                   (*q >= 'A' && *q <= 'Z') || 
+                   *q == '_' || *q == '.') q++;
+
+            while (*q == ' ') q++;
+            if (*q == '(')
             {
+              while (*q && *q != ')') q++;
+              if (*q) q++;
+
               char buf[128];
-              lstrcpyn(buf, p, min(q+1-p+1, sizeof(buf)));
+              lstrcpyn(buf, p, min(q-p+1, sizeof(buf)));
               if (strlen(buf) > sizeof(buf)-2) lstrcpyn(buf+sizeof(buf)-5, "...", 4);
               flist.AddUnsorted(buf, i);
             }
