@@ -913,7 +913,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   else if (hwnd->m_hashaddestroy == 2) return 0;
   else if (msg==WM_CAPTURECHANGED && hwnd->m_hashaddestroy) return 0;
     
-  int ret = wp ? wp(hwnd,msg,wParam,lParam) : 0;
+  LRESULT ret = wp ? wp(hwnd,msg,wParam,lParam) : 0;
  
   if (msg == WM_DESTROY)
   {
