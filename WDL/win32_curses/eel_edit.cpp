@@ -77,6 +77,8 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
   if (len == 5 && !strnicmp(tokStart,"while",5)) return SYNTAX_KEYWORD;
   if (len == 4 && !strnicmp(tokStart,"loop",4)) return SYNTAX_KEYWORD;
 
+  if (len == 17 && !strnicmp(tokStart,"__denormal_likely",17)) return SYNTAX_FUNC;
+  if (len == 19 && !strnicmp(tokStart,"__denormal_unlikely",19)) return SYNTAX_FUNC;
 
   int x;
   for(x=0;;x++)

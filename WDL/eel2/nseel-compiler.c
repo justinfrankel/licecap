@@ -1168,6 +1168,15 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     }
     if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = 2;
   }
+  else if (!stricmp("__denormal_likely",sname) || !stricmp("__denormal_unlikely",sname))
+  {
+    if (parmcnt == 1)
+    {
+      rec->opcodeType = OPCODETYPE_FUNC1;
+      rec->fntype = !stricmp("__denormal_likely",sname) ? FN_DENORMAL_LIKELY : FN_DENORMAL_UNLIKELY;
+      return rec;
+    }
+  }
     
   for (i=0;nseel_getFunctionFromTableEx(ctx,i);i++)
   {
@@ -3532,27 +3541,46 @@ void dumpOpcodeTree(compileContext *ctx, FILE *fp, opcodeRec *op, int indent_amt
 #endif
 static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const namespaceInformation *namespacePathToThis, int *calledRvType, int preferredReturnValues, int *fpStackUse, int *canHaveDenormalOutput)
 {
-  int rv_offset=0;
+  int rv_offset=0, denormal_force=-1;
   if (!op) RET_MINUS1_FAIL("coi !op")
 
   *fpStackUse=0;
-  // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
-  // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
-  while (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
+  for (;;)
   {
-    int fUse;
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse,NULL);
-    if (parm_size < 0) RET_MINUS1_FAIL("coc join fail")
-    op = op->parms.parms[1];
-    if (!op) RET_MINUS1_FAIL("join got to null")
+    // special case: statement delimiting means we can process the left side into place, and iteratively do the second parameter without recursing
+    // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
+    if (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
+    {
+      int fUse;
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse,NULL);
+      if (parm_size < 0) RET_MINUS1_FAIL("coc join fail")
+      op = op->parms.parms[1];
+      if (!op) RET_MINUS1_FAIL("join got to null")
 
-    if (fUse>*fpStackUse) *fpStackUse=fUse;
-    if (bufOut) bufOut += parm_size;
-    bufOut_len -= parm_size;
-    rv_offset += parm_size;
+      if (fUse>*fpStackUse) *fpStackUse=fUse;
+      if (bufOut) bufOut += parm_size;
+      bufOut_len -= parm_size;
+      rv_offset += parm_size;
 #ifdef DUMP_OPS_DURING_COMPILE
-    if (op->opcodeType != OPCODETYPE_FUNC2 || op->fntype != FN_JOIN_STATEMENTS) dumpOp(ctx,op,0);
+      if (op->opcodeType != OPCODETYPE_FUNC2 || op->fntype != FN_JOIN_STATEMENTS) dumpOp(ctx,op,0);
 #endif
+      denormal_force=-1;
+    }
+    // special case: __denormal_likely(), __denormal_unlikely()
+    else if (op->opcodeType == OPCODETYPE_FUNC1 && (op->fntype == FN_DENORMAL_LIKELY || op->fntype == FN_DENORMAL_UNLIKELY))
+    {
+      denormal_force = op->fntype == FN_DENORMAL_LIKELY;
+      op = op->parms.parms[0];
+    }
+    else 
+    {
+      break;
+    }
+  }
+  if (denormal_force >= 0 && canHaveDenormalOutput)
+  {  
+    *canHaveDenormalOutput = denormal_force;
+    canHaveDenormalOutput = &denormal_force; // prevent it from being changed by functions below
   }
 
   // special case: BAND/BOR
