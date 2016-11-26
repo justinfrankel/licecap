@@ -1212,57 +1212,52 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   if (dstw > destbm_w-dstx) dstw=destbm_w-dstx;
   if (dsth > destbm_h-dsty) dsth=destbm_h-dsty;
 
-  int idx=(int)(xadvance*65536.0);
-  int idy=(int)(yadvance*65536.0);
-  int icurx=(int) (srcx*65536.0);
-  int icury=(int) (srcy*65536.0);
+  const double fidx=floor(xadvance*65536.0), fidy=floor(yadvance*65536.0);
 
+  double ficurx=floor(srcx*65536.0), ficury=floor(srcy*65536.0);
 
-#if 1
   // the clip area calculations need to be done fixed point so the results match runtime
 
-  if (idx>0)
+  if (fidx>0)
   {
-    if (icurx < 0) // increase dstx, decrease dstw
+    if (ficurx < 0) // increase dstx, decrease dstw
     {
-      int n = (idx-1-icurx)/idx;
+      int n = (int)((fidx-1-ficurx)/fidx);
       dstw-=n;
       dstx+=n;
-      icurx+=idx*n;
+      ficurx+=fidx*n;
     }
-    if ((icurx + idx*(dstw-1))/65536 >= src->getWidth())
+    if ((ficurx + fidx*(dstw-1)) >= src->getWidth()*65536.0)
     {
-      int neww = ((src->getWidth()-1)*65536 - icurx)/idx;
+      int neww = (int)(((src->getWidth()-1)*65536.0 - ficurx)/fidx);
       if (neww < dstw) dstw=neww;
     }
   }
-  else if (idx<0)
+  else if (fidx<0)
   {
     // todo: optimize source-clipping with reversed X axis
   }
 
-  if (idy > 0)
+  if (fidy > 0)
   {
-    if (icury < 0) // increase dsty, decrease dsth
+    if (ficury < 0) // increase dsty, decrease dsth
     {
-      int n = (idy-1-icury)/idy;
+      int n = (int) ((fidy-1-ficury)/fidy);
       dsth-=n;
       dsty+=n;
-      icury+=idy*n;
+      ficury+=fidy*n;
     }
-    if ((icury + idy*(dsth-1))/65536 >= src->getHeight())
+    if ((ficury + fidy*(dsth-1)) >= src->getHeight()*65536.0)
     {
-      int newh = ((src->getHeight()-1)*65536 - icury)/idy;
+      int newh = (int)(((src->getHeight()-1)*65536.0 - ficury)/fidy);
       if (newh < dsth) dsth=newh;
     }
   }
-  else if (idy<0)
+  else if (fidy<0)
   {
     // todo: optimize source-clipping with reversed Y axis (check icury against src->getHeight(), etc)
   }
   if (dstw<1 || dsth<1) return;
-#endif
-
 
   int dest_span=dest->getRowSpan()*sizeof(LICE_pixel);
   int src_span=src->getRowSpan()*sizeof(LICE_pixel);
@@ -1271,12 +1266,16 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!psrc || !pdest) return;
 
+  const int srcoffs_x = (int)((ficurx + (fidx<0 ? fidx*dstw : 0))*(1.0/65536.0));
+  const int srcoffs_y = (int)((ficury + (fidy<0 ? fidy*dsth : 0))*(1.0/65536.0));
 
   if (src->isFlipped())
   {
-    psrc += (src->getHeight()-1)*src_span;
+    psrc += (src->getHeight()-1-srcoffs_y)*src_span;
     src_span=-src_span;
   }
+  else psrc += srcoffs_y * src_span;
+  psrc += srcoffs_x * sizeof(LICE_pixel);
 
   if (dest->isFlipped())
   {
@@ -1290,6 +1289,13 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int clip_b=(int)(srcy+lice_max(srch,0)+0.999999);
   if (clip_r>src->getWidth()) clip_r=src->getWidth();
   if (clip_b>src->getHeight()) clip_b=src->getHeight();
+
+  clip_r -= srcoffs_x;
+  clip_b -= srcoffs_y;
+
+  const int icurx = (int) (ficurx - srcoffs_x*65536.0);
+  const int icury = (int) (ficury - srcoffs_y*65536.0);
+  const int idx = (int) fidx, idy = (int) fidy;
 
   if (clip_r<1||clip_b<1) return;
 
