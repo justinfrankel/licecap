@@ -687,11 +687,20 @@ void EELScript_GenerateFunctionList(WDL_PtrList<const char> *fs)
   while (*p) { fs->Add(p); p += strlen(p) + 1; }
 #ifndef EELSCRIPT_NO_EVAL
   fs->Add("atexit\t\"code\"\t"
-    "Adds code to be executed when the script finishes.");
+#ifndef EELSCRIPT_HELP_NO_DEFER_DESC
+    "Adds code to be executed when the script finishes."
+#endif
+    );
   fs->Add("defer\t\"code\"\t"
-    "Adds code which will be executed some small amount of time after the current code finishes. Identical to runloop()");
+#ifndef EELSCRIPT_HELP_NO_DEFER_DESC
+    "Adds code which will be executed some small amount of time after the current code finishes. Identical to runloop()"
+#endif
+    );
   fs->Add("runloop\t\"code\"\t"
-    "Adds code which will be executed some small amount of time after the current code finishes. Identical to defer()");
+#ifndef EELSCRIPT_HELP_NO_DEFER_DESC
+    "Adds code which will be executed some small amount of time after the current code finishes. Identical to defer()"
+#endif
+    );
 
   p = eel_eval_function_reference;
   while (*p) { fs->Add(p); p += strlen(p) + 1; }
