@@ -210,9 +210,10 @@ static void JNL_get_mime_type_for_file(const char *fn, char *strout, int strouts
   if (!stricmp(ext,".jpg")) type = "image/jpeg";
   else if (!stricmp(ext,".png")) type = "image/png";
   else if (!stricmp(ext,".gif")) type = "image/gif";
-  else if (!stricmp(ext,".html")) type = "text/html";
   else if (!stricmp(ext,".txt")) type = "text/plain";
-  else if (!stricmp(ext,".js")) type = "application/x-javascript";
+  else if (!strnicmp(ext,".htm",4)) type = "text/html";
+  else if (!stricmp(ext,".js")) type = "application/javascript";
+  else if (!stricmp(ext,".css")) type = "text/css";
 
   lstrcpyn_safe(strout,type,stroutsz);
 }
