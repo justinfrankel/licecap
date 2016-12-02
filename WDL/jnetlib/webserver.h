@@ -214,6 +214,8 @@ static void JNL_get_mime_type_for_file(const char *fn, char *strout, int strouts
   else if (!strnicmp(ext,".htm",4)) type = "text/html";
   else if (!stricmp(ext,".js")) type = "application/javascript";
   else if (!stricmp(ext,".css")) type = "text/css";
+  else if (!stricmp(ext,".xml")) type = "text/xml";
+  else if (!stricmp(ext,".svg")) type = "image/svg+xml";
 
   lstrcpyn_safe(strout,type,stroutsz);
 }
