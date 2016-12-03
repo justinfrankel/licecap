@@ -106,12 +106,12 @@ void WebServerBaseClass::run(void)
 
     if (rv<0)
     {
-      JNL_IConnection *c=ci->m_serv.steal_con();
-      if (c) 
+      if (ci->m_serv.want_keepalive_reset())
       {
-        if (c->get_state() == JNL_Connection::STATE_CONNECTED)
-          attachConnection(c,ci->m_port);
-        else delete c;
+        time(&ci->m_connect_time);
+        delete ci->m_pagegen;
+        ci->m_pagegen=0;
+        continue;
       }
     }
 

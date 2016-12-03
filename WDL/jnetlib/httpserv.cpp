@@ -51,6 +51,23 @@ void JNL_HTTPServ::write_bytes(const char *bytes, int length)
   if (m_usechunk) m_con->send_string("\r\n");
 }
 
+bool JNL_HTTPServ::want_keepalive_reset()
+{
+  if (m_state >= 2 && m_con && m_con->get_state() == JNL_Connection::STATE_CONNECTED)
+  {
+    m_usechunk = false;
+    m_state = 0;
+    m_reply_ready = 0;
+    m_errstr.Set("");
+    m_reply_headers.Set("");
+    m_reply_string.Set("");
+    m_recvheaders.Clear();
+    m_recv_request.Resize(0,false);
+    return true;
+  }
+  return false;
+}
+
 int JNL_HTTPServ::run()
 { // returns: < 0 on error, 0 on connection close, 1 if reading request, 2 if reply not sent, 3 if reply sent, sending data.
   int cnt=0;

@@ -50,6 +50,7 @@ class JNL_IHTTPServ
 
     virtual JNL_IConnection *get_con()=0;
     virtual JNL_IConnection *steal_con()=0;
+    virtual bool want_keepalive_reset()=0;
 
     virtual bool canKeepAlive()=0;
 };
@@ -93,6 +94,7 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
 
     JNL_IConnection *get_con() { return m_con; }
     JNL_IConnection *steal_con() { JNL_IConnection *ret= m_con; m_con=0; return ret; }
+    bool want_keepalive_reset();
 
     bool canKeepAlive() { return m_keepalive; }
 
