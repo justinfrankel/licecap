@@ -15,6 +15,9 @@
 
 #include "connection.h"
 
+#include "../wdlstring.h"
+#include "../queue.h"
+
 #ifndef JNL_NO_DEFINE_INTERFACES
 class JNL_IHTTPServ
 {
@@ -67,12 +70,12 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
 
     int run(); // returns: < 0 on error, 0 on request not read yet, 1 if reading headers, 2 if reply not sent, 3 if reply sent, sending data. 4 on connection closed.
 
-    const char *geterrorstr() { return m_errstr;}
+    const char *geterrorstr() { return m_errstr.Get()[0] ? m_errstr.Get() : NULL; }
 
     // use these when state returned by run() is 2 
     const char *get_request_file(); // file portion of http request
     const char *get_request_parm(const char *parmname); // parameter portion (after ?)
-    const char *getallheaders() { return m_recvheaders; } // double null terminated, null delimited list
+    const char *getallheaders() { return m_recvheaders.Get(); } // double null terminated, null delimited list
     const char *getheader(const char *headername);
 
     void set_reply_string(const char *reply_string); // should be HTTP/1.1 OK or the like
@@ -94,18 +97,17 @@ class JNL_HTTPServ JNL_HTTPServ_PARENTDEF
     bool canKeepAlive() { return m_keepalive; }
 
   protected:
-    void seterrstr(const char *str) { if (m_errstr) free(m_errstr); m_errstr=(char*)malloc(strlen(str)+1); strcpy(m_errstr,str); }
+    void seterrstr(const char *str) { m_errstr.Set(str); } 
 
     int m_reply_ready;
     int m_state;
     bool m_keepalive, m_usechunk;
 
-    char *m_errstr;
-    char *m_reply_headers;
-    char *m_reply_string;
-    char *m_recvheaders;
-    int   m_recvheaders_size;
-    char *m_recv_request; // either double-null terminated, or may contain parameters after first null.
+    WDL_FastString m_errstr;
+    WDL_FastString m_reply_headers;
+    WDL_FastString m_reply_string;
+    WDL_TypedQueue<char> m_recvheaders;
+    WDL_TypedBuf<char> m_recv_request; // either double-null terminated, or may contain parameters after first null.
     JNL_IConnection *m_con;
 };
 
