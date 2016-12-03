@@ -58,6 +58,7 @@
 
 #include "asyncdns.h"
 #include "netinc.h"
+#include "../heapbuf.h"
 
 #define JNL_CONNECTION_AUTODNS ((JNL_IAsyncDNS*)-1)
 
@@ -91,6 +92,7 @@ class JNL_IConnection
                                               // (i.e. if you specify maxlength=10, and the line is 12 bytes long
                                               // it will return 1. or if there is no \r or \n and that's all the data
                                               // the connection has.)
+    virtual int recv_get_linelen()=0; // length in bytes for current line (including \r and/or \n), or 0 if no newline in buffer
     virtual int peek_bytes(void *data, int maxlength)=0; // returns bytes peeked
 
     virtual unsigned int get_interface(void)=0;        // this returns the interface the connection is on
@@ -149,6 +151,7 @@ class JNL_Connection JNL_Connection_PARENTDEF
                                               // (i.e. if you specify maxlength=10, and the line is 12 bytes long
                                               // it will return 1. or if there is no \r or \n and that's all the data
                                               // the connection has.)
+    int recv_get_linelen();                   // length in bytes for current line (including \r and/or \n), or 0 if no newline in buffer
     int peek_bytes(void *data, int maxlength); // returns bytes peeked
 
     unsigned int get_interface(void);        // this returns the interface the connection is on
@@ -160,10 +163,8 @@ class JNL_Connection JNL_Connection_PARENTDEF
   protected:
     SOCKET m_socket;
     short m_remote_port;
-    char *m_recv_buffer;
-    char *m_send_buffer;
-    int m_recv_buffer_len;
-    int m_send_buffer_len;
+    WDL_TypedBuf<unsigned char> m_recv_buffer;
+    WDL_TypedBuf<unsigned char> m_send_buffer;
 
     int  m_recv_pos;
     int  m_recv_len;
