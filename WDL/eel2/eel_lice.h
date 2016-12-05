@@ -1376,7 +1376,7 @@ void eel_lice_state::gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b)
 }
 
 
-static int __drawTextWithFont(LICE_IBitmap *dest, RECT *rect, LICE_IFont *font, const char *buf, int buflen, 
+static int __drawTextWithFont(LICE_IBitmap *dest, const RECT *rect, LICE_IFont *font, const char *buf, int buflen, 
   int fg, int mode, float alpha, int flags, EEL_F *wantYoutput, EEL_F **measureOnly)
 {
   if (font && LICE_FUNCTION_VALID(LICE__DrawText))
@@ -1421,6 +1421,37 @@ static int __drawTextWithFont(LICE_IBitmap *dest, RECT *rect, LICE_IFont *font, 
     int x;
     const int sxpos = xpos;
     int maxx=0,maxy=0;
+
+    LICE_SubBitmap sbm(
+#ifdef DYNAMIC_LICE
+        (LICE_IBitmap_disabledAPI*)
+#endif
+        dest,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
+
+    if (!measureOnly)
+    {
+      if (!(flags & DT_NOCLIP))
+      {
+        if (rect->right <= rect->left || rect->bottom <= rect->top) return 0; // invalid clip rect hm
+
+        xpos = ypos = 0;
+        dest = &sbm;
+      }
+      if (flags & (DT_RIGHT|DT_BOTTOM|DT_CENTER|DT_VCENTER))
+      {
+        EEL_F w=0.0,h=0.0;
+        EEL_F *mo[2] = { &w,&h};
+        __drawTextWithFont(dest,rect,NULL,buf,buflen,0,0,0.0f,0,NULL,mo);
+
+        if (flags & DT_RIGHT) xpos += (rect->right-rect->left) - (int)floor(w);
+        else if (flags & DT_CENTER) xpos += (rect->right-rect->left)/2 - (int)floor(w*.5);
+
+        if (flags & DT_BOTTOM) ypos += (rect->bottom-rect->top) - (int)floor(h);
+        else if (flags & DT_CENTER) ypos += (rect->bottom-rect->top)/2 - (int)floor(h*.5);
+      }
+    }
+
+
     if (LICE_FUNCTION_VALID(LICE_DrawChar)) for(x=0;x<buflen;x++)
     {
       switch (buf[x])
