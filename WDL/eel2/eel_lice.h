@@ -589,6 +589,18 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_drawstr(void *opaque, EEL_F *n)
   if (ctx) ctx->gfx_drawstr(opaque,&n,1,0);
   return n;
 }
+
+static EEL_F * NSEEL_CGEN_CALL _gfx_drawstr2(void *opaque, EEL_F *n, EEL_F *flags, EEL_F *r, EEL_F *b)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) 
+  {
+    EEL_F *p[4]={n,flags,r,b};
+    ctx->gfx_drawstr(opaque,&n,4,0);
+  }
+  return n;
+}
+
 static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
@@ -1375,36 +1387,34 @@ void eel_lice_state::gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b)
 }
 
 
-static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont *font, const char *buf, int buflen, int fg, int mode, float alpha, EEL_F *wantYoutput, EEL_F **measureOnly)
+static int __drawTextWithFont(LICE_IBitmap *dest, RECT *rect, LICE_IFont *font, const char *buf, int buflen, 
+  int fg, int mode, float alpha, int flags, EEL_F *wantYoutput, EEL_F **measureOnly)
 {
   if (font && LICE_FUNCTION_VALID(LICE__DrawText))
   {
+    RECT tr=*rect;
     LICE__SetTextColor(font,fg);
     LICE__SetTextCombineMode(font,mode,alpha);
 
     int maxx=0;
-    RECT r={0,0,xpos,0};
+    RECT r={0,0,tr.left,0};
     while (buflen>0)
     {
       int thislen = 0;
       while (thislen < buflen && buf[thislen] != '\n') thislen++;
       memset(&r,0,sizeof(r));
-      int lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+      int lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT|flags);
       if (!measureOnly)
       {
-        r.left = xpos;
-        r.top = ypos;
-        r.right += xpos;
-        r.bottom += ypos;
-        lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_LEFT|DT_TOP);
-
-        if (wantYoutput) *wantYoutput = ypos;
+        r.right += tr.left;
+        lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&tr,DT_SINGLELINE|DT_NOPREFIX|flags);
+        if (wantYoutput) *wantYoutput = tr.top;
       }
       else
       {
         if (r.right > maxx) maxx=r.right;
       }
-      ypos += lineh;
+      tr.top += lineh;
 
       buflen -= thislen+1;
       buf += thislen+1;      
@@ -1412,12 +1422,13 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
     if (measureOnly) 
     {
       measureOnly[0][0] = maxx;
-      measureOnly[1][0] = ypos;
+      measureOnly[1][0] = tr.top;
     }
     return r.right;
   }
   else
   { 
+    int xpos=rect->left, ypos=rect->top;
     int x;
     const int sxpos = xpos;
     int maxx=0,maxy=0;
@@ -1595,11 +1606,25 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int fo
     if (formatmode>=2)
     {
       if (nfmtparms==2)
-        __drawTextWithFont(dest,0,0,GetActiveFont(),s,s_len,getCurColor(),getCurMode(),(float) *m_gfx_a,NULL, fmtparms);
+      {
+        RECT r={0,0,0,0};
+        __drawTextWithFont(dest,&r,GetActiveFont(),s,s_len,
+          getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,fmtparms);
+      }
     }
     else
-    {
-      *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),GetActiveFont(),s,s_len,getCurColor(),getCurMode(),(float) *m_gfx_a,m_gfx_y,NULL);
+    {    
+      RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
+      int flags=DT_NOCLIP;
+      if (nparms == 4)
+      {
+        flags=(int)*parms[1];
+        flags &= (DT_CENTER|DT_RIGHT|DT_VCENTER|DT_BOTTOM|DT_NOCLIP);
+        r.right=(int)*parms[2];
+        r.bottom=(int)*parms[3];
+      }
+      *m_gfx_x=__drawTextWithFont(dest,&r,GetActiveFont(),s,s_len,
+        getCurColor(),getCurMode(),(float)*m_gfx_a,flags,m_gfx_y,NULL);
     }
 
     SetImageDirty(dest);
@@ -1617,9 +1642,10 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
   char buf[32];
   const int buflen = WDL_MakeUTFChar(buf, a, sizeof(buf));
 
-  *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
+  RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
+  *m_gfx_x = __drawTextWithFont(dest,&r,
                          GetActiveFont(),buf,buflen,
-                         getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);
+                         getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 
   SetImageDirty(dest);
 }
@@ -1636,9 +1662,10 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
   else if (a > 16) a=16;
   snprintf(buf,sizeof(buf),"%.*f",a,n);
 
-  *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
+  RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
+  *m_gfx_x = __drawTextWithFont(dest,&r,
                            GetActiveFont(),buf,(int)strlen(buf),
-                           getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);
+                           getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 
   SetImageDirty(dest);
 }
@@ -1748,6 +1775,7 @@ void eel_lice_register()
   NSEEL_addfunc_retptr("gfx_drawnumber",2,NSEEL_PProc_THIS,&_gfx_drawnumber);
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
   NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
+  NSEEL_addfunc_retptr("gfx_drawstr",4,NSEEL_PProc_THIS,&_gfx_drawstr2);
   NSEEL_addfunc_retptr("gfx_measurestr",3,NSEEL_PProc_THIS,&_gfx_measurestr);
   NSEEL_addfunc_retptr("gfx_measurechar",3,NSEEL_PProc_THIS,&_gfx_measurechar);
   NSEEL_addfunc_varparm("gfx_printf",1,NSEEL_PProc_THIS,&_gfx_printf);
@@ -2674,7 +2702,13 @@ static const char *eel_lice_function_reference =
   "gfx_getpixel\tr,g,b\tGets the value of the pixel at gfx_x,gfx_y into r,g,b. \0"
   "gfx_drawnumber\tn,ndigits\tDraws the number n with ndigits of precision to gfx_x, gfx_y, and updates gfx_x to the right side of the drawing. The text height is gfx_texth.\0"
   "gfx_drawchar\tchar\tDraws the character (can be a numeric ASCII code as well), to gfx_x, gfx_y, and moves gfx_x over by the size of the character.\0"
-  "gfx_drawstr\t\"str\"\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\0"
+  "gfx_drawstr\t\"str[,flags,right,bottom]\"\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\n\n"
+    "If flags, right ,bottom passed in:\n"
+    "\4flags&1: center horizontally\n"
+    "\4flags&2: right justify\n"
+    "\4flags&4: center vertically\n"
+    "\4flags&8: bottom justify\n"
+    "\4flags&256: ignore right/bottom, otherwise text is clipped to (gfx_x, gfx_y, right, bottom)\0"
   "gfx_measurestr\t\"str\",&w,&h\tMeasures the drawing dimensions of a string with the current font (as set by gfx_setfont). \0"
   "gfx_measurechar\tcharacter,&w,&h\tMeasures the drawing dimensions of a character with the current font (as set by gfx_setfont). \0"
   "gfx_setfont\tidx[,\"fontface\", sz, flags]\tCan select a font and optionally configure it. idx=0 for default bitmapped font, no configuration is possible for this font. idx=1..16 for a configurable font, specify fontface such as \"Arial\", sz of 8-100, and optionally specify flags, which is a multibyte character, which can include 'i' for italics, 'u' for underline, or 'b' for bold. These flags may or may not be supported depending on the font and OS. After calling gfx_setfont(), gfx_texth may be updated to reflect the new average line height.\0"
