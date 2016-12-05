@@ -1212,19 +1212,19 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define SRCCOPY 0
 #define SRCCOPY_USEALPHACHAN 0xdeadbeef
 #define PS_SOLID 0
-#define DT_CALCRECT 1
-#define DT_VCENTER 2
-#define DT_CENTER 4
-#define DT_END_ELLIPSIS 8
-#define DT_BOTTOM 16
-#define DT_RIGHT 32
-#define DT_SINGLELINE 64
-#define DT_NOPREFIX 128
-#define DT_NOCLIP 256
-#define DT_WORDBREAK 512
 
 #define DT_TOP 0
 #define DT_LEFT 0
+#define DT_CENTER 1
+#define DT_RIGHT 2
+#define DT_VCENTER 4
+#define DT_BOTTOM 8
+#define DT_WORDBREAK 0x10
+#define DT_SINGLELINE 0x20
+#define DT_NOCLIP 0x100
+#define DT_CALCRECT 0x400
+#define DT_NOPREFIX 0x800
+#define DT_END_ELLIPSIS 0x8000
 
 #define FW_DONTCARE         0
 #define FW_THIN             100
