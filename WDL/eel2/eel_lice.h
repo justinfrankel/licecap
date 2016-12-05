@@ -583,22 +583,11 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_measurechar(void *opaque, EEL_F *str, EEL_F 
   return str;
 }
 
-static EEL_F * NSEEL_CGEN_CALL _gfx_drawstr(void *opaque, EEL_F *n)
+static EEL_F NSEEL_CGEN_CALL _gfx_drawstr(void *opaque, INT_PTR nparms, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_drawstr(opaque,&n,1,0);
-  return n;
-}
-
-static EEL_F * NSEEL_CGEN_CALL _gfx_drawstr2(void *opaque, EEL_F *n, EEL_F *flags, EEL_F *r, EEL_F *b)
-{
-  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) 
-  {
-    EEL_F *p[4]={n,flags,r,b};
-    ctx->gfx_drawstr(opaque,&n,4,0);
-  }
-  return n;
+  if (ctx) ctx->gfx_drawstr(opaque,parms,(int)nparms,0);
+  return parms[0][0];
 }
 
 static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **parms)
@@ -1403,7 +1392,7 @@ static int __drawTextWithFont(LICE_IBitmap *dest, RECT *rect, LICE_IFont *font, 
       int thislen = 0;
       while (thislen < buflen && buf[thislen] != '\n') thislen++;
       memset(&r,0,sizeof(r));
-      int lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT|flags);
+      int lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
       if (!measureOnly)
       {
         r.right += tr.left;
@@ -1609,14 +1598,14 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int fo
       {
         RECT r={0,0,0,0};
         __drawTextWithFont(dest,&r,GetActiveFont(),s,s_len,
-          getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,fmtparms);
+          getCurColor(),getCurMode(),(float)*m_gfx_a,0,NULL,fmtparms);
       }
     }
     else
     {    
       RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
       int flags=DT_NOCLIP;
-      if (nparms == 4)
+      if (formatmode == 0 && nparms >= 4)
       {
         flags=(int)*parms[1];
         flags &= (DT_CENTER|DT_RIGHT|DT_VCENTER|DT_BOTTOM|DT_NOCLIP);
@@ -1774,8 +1763,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_setcursor",1, NSEEL_PProc_THIS, &_gfx_setcursor);
   NSEEL_addfunc_retptr("gfx_drawnumber",2,NSEEL_PProc_THIS,&_gfx_drawnumber);
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
-  NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
-  NSEEL_addfunc_retptr("gfx_drawstr",4,NSEEL_PProc_THIS,&_gfx_drawstr2);
+  NSEEL_addfunc_varparm("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
   NSEEL_addfunc_retptr("gfx_measurestr",3,NSEEL_PProc_THIS,&_gfx_measurestr);
   NSEEL_addfunc_retptr("gfx_measurechar",3,NSEEL_PProc_THIS,&_gfx_measurechar);
   NSEEL_addfunc_varparm("gfx_printf",1,NSEEL_PProc_THIS,&_gfx_printf);
