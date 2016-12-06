@@ -2721,7 +2721,7 @@ static const char *eel_lice_function_reference =
   "gfx_getpixel\tr,g,b\tGets the value of the pixel at gfx_x,gfx_y into r,g,b. \0"
   "gfx_drawnumber\tn,ndigits\tDraws the number n with ndigits of precision to gfx_x, gfx_y, and updates gfx_x to the right side of the drawing. The text height is gfx_texth.\0"
   "gfx_drawchar\tchar\tDraws the character (can be a numeric ASCII code as well), to gfx_x, gfx_y, and moves gfx_x over by the size of the character.\0"
-  "gfx_drawstr\t\"str[,flags,right,bottom]\"\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\n\n"
+  "gfx_drawstr\t\"str\"[,flags,right,bottom]\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\n\n"
     "If flags, right ,bottom passed in:\n"
     "\4flags&1: center horizontally\n"
     "\4flags&2: right justify\n"
