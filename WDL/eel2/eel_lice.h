@@ -1447,7 +1447,7 @@ static int __drawTextWithFont(LICE_IBitmap *dest, const RECT *rect, LICE_IFont *
         else if (flags & DT_CENTER) xpos += (rect->right-rect->left)/2 - (int)floor(w*.5);
 
         if (flags & DT_BOTTOM) ypos += (rect->bottom-rect->top) - (int)floor(h);
-        else if (flags & DT_CENTER) ypos += (rect->bottom-rect->top)/2 - (int)floor(h*.5);
+        else if (flags & DT_VCENTER) ypos += (rect->bottom-rect->top)/2 - (int)floor(h*.5);
       }
     }
 
