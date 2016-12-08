@@ -183,7 +183,7 @@ inline void LICE_QNurbs(T* pDest, int pDest_sz, T* pX, T* pY, int n)
     ym1 = ym2;
     ym2 = 0.5 * (y1 + y2);
 
-    if (ym1 == ym2) 
+    if (ym1 == ym2 && y1 == ym1) 
     {
       for (/* */; xi < xm2; xi += 1.0)
       {
