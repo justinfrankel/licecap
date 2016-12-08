@@ -212,7 +212,7 @@ int Win7FileDialog::getResult(int i, char *fn, int maxlen)
   }
 
   IShellItemPtr item;
-  if (!sia->GetItemAt(i, &item))
+  if (SUCCEEDED(sia->GetItemAt(i, &item)))
   {
     WCHAR *res = NULL;
     item->GetDisplayName(SIGDN_FILESYSPATH, &res);
@@ -244,7 +244,7 @@ int Win7FileDialog::getResultCount()
   if (sia == NULL) return 0;
 
   DWORD cnt;
-  return !sia->GetCount(&cnt) ? cnt : 0;
+  return SUCCEEDED(sia->GetCount(&cnt)) ? cnt : 0;
 }
 
 int Win7FileDialog::getState(DWORD id)
