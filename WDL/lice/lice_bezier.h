@@ -156,36 +156,37 @@ void LICE_Bezier_FindCardinalCtlPts(double alpha, T x1, T x2, T x3, T y1, T y2, 
 // pDest must be passed in with size (int) (*(pX+n-1) - *pX).
 // pX must be monotonically increasing and no duplicates.
 template <class T>
-inline void LICE_QNurbs(T* pDest, int pDest_sz, T* pX, T* pY, int n)
+inline void LICE_QNurbs(T* pDest, int pDest_sz, int *pX, T* pY, int n)
 {
-  double x1 = (double) *pX++, x2 = (double) *pX++;
-  double y1 = (double) *pY++, y2 = (double) *pY++;
+  int x1 = *pX++, x2 = *pX++;
+  T y1 = *pY++, y2 = *pY++;
   double xm1, xm2 = 0.5 * (x1 + x2);
   double ym1, ym2 = 0.5 * (y1 + y2);
 
-  double m = (y2 - y1) / (x2 - x1);
-  double xi = x1, yi = y1;
-  for (/* */; xi < xm2; xi += 1.0, yi += m)
+  double yi = y1, m = (y2 - y1) / (double) (x2 - x1);
+  int xi = x1, iend = (int)floor(xm2+0.5); // this (and below) was previously ceil(), but can't see any reason why it should matter (this should be more correct, I'd imagine)
+  for (; xi < iend; xi++, yi += m)
   {
     if (--pDest_sz<0) return;
     *pDest++ = (T) yi;
   }
 
-  for (int i = 2; i < n; ++i, ++pX, ++pY) 
+  for (int i = 2; i < n; ++i)
   {
     x1 = x2;
-    x2 = (double) *pX;
+    x2 = *pX++;
     y1 = y2;
-    y2 = (double) *pY;
+    y2 = *pY++;
 
     xm1 = xm2;
     xm2 = 0.5 * (x1 + x2);
     ym1 = ym2;
     ym2 = 0.5 * (y1 + y2);
 
+    iend = (int)floor(xm2+0.5);
     if (ym1 == ym2 && y1 == ym1) 
     {
-      for (/* */; xi < xm2; xi += 1.0)
+      for (; xi < iend; xi++)
       {
         if (--pDest_sz<0) return;
         *pDest++ = (T) y1;
@@ -193,17 +194,17 @@ inline void LICE_QNurbs(T* pDest, int pDest_sz, T* pX, T* pY, int n)
     }
     else 
     {    
-      for (/* */; xi < xm2; xi += 1.0)
+      for (; xi < iend; xi++)
       {
         if (--pDest_sz<0) return;
-        *pDest++ = (T) LICE_Bezier_GetY(xm1, x1, xm2, ym1, y1, ym2, xi);
+        *pDest++ = (T) LICE_Bezier_GetY(xm1, (double)x1, xm2, ym1, (double)y1, ym2, (double)xi);
       }
     }
   }
 
-  m = (y2 - y1) / (x2 - x1);
+  m = (y2 - y1) / (double) (x2 - x1);
   yi = ym2;
-  for (/* */; xi < x2; xi += 1.0, yi += m)
+  for (; xi < x2; xi++, yi += m)
   {
     if (--pDest_sz<0) return;
     *pDest++ = (T) yi;
