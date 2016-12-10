@@ -74,6 +74,8 @@ WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, con
                                          const char *genre, const char *url,
                                          int nch, int srate, int kbps, const char *ircchan)
 {
+  m_rs.SetMode(true,1,true);
+
   m_post_postsleft=0;
   m_postmode_session=GetTickCount();
   m_is_postmode = !!strstr(host,"/");
@@ -96,8 +98,6 @@ WDL_ShoutcastSource::WDL_ShoutcastSource(const char *host, const char *pass, con
   m_nch=nch==2?2:1;
   m_bytesout=0;
   m_srate=srate;
-  m_last_samples[0]=m_last_samples[1]=0.0;
-  m_rspos=0.0;
   m_sendcon=0;
 
   m_needtitle=0;
@@ -181,24 +181,13 @@ void WDL_ShoutcastSource::SetCurTitle(const char *title)
   
 }
 
-void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int frames, double srate)
-{
-  m_samplemutex.Enter();
 
-  if (fabs(srate-m_srate)<1.0)
+template<class T> static void splcvt(T *ob, float **samples, int innch, int outnch, int chspread, int frames)
+{
+  int x=frames,a=0;
+  if (outnch > 1)
   {
-    float *ob=m_rsbuf.Resize(frames*m_nch,false);
-    int x=frames;
-    int a=0;
-    if (nch < 2 && m_nch < 2)
-    {
-      while (x--)
-      {
-        *ob++ = samples[0][a];
-        a+=chspread;
-      }
-    }
-    else if (nch < 2 && m_nch > 1)
+    if (innch < 2)
     {
       while (x--)
       {
@@ -207,7 +196,7 @@ void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int 
         a+=chspread;
       }
     }
-    else if (nch > 1 && m_nch > 1)
+    else
     {
       while (x--)
       {
@@ -216,7 +205,18 @@ void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int 
         a+=chspread;
       }
     }
-    else 
+  }
+  else
+  {
+    if (innch < 2)
+    {
+      while (x--)
+      {
+        *ob++ = samples[0][a];
+        a+=chspread;
+      }
+    }
+    else
     {
       while (x--)
       {
@@ -224,69 +224,57 @@ void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int 
         a+=chspread;
       }
     }
-    if (m_samplequeue.Available() < (int)sizeof(float)*m_nch*96000*4 &&
-        m_encoder && m_encoder->outqueue.Available() < 256*1024)
-      m_samplequeue.Add(m_rsbuf.Get(),frames*m_nch*sizeof(float));
   }
-  else
+}
+
+void WDL_ShoutcastSource::OnSamples(float **samples, int nch, int chspread, int frames, double srate)
+{
+  if (fabs(srate-m_srate)<1.0)
   {
-    double rateratio = srate/m_srate;
-
-    double fracpos=m_rspos;
-    int outlen=(int) ((frames+fracpos)/rateratio);
-    float *outptr=m_rsbuf.Resize(outlen*m_nch,false);
-
-    int x;
-    int loffs=-1000;
-    double ls[2]={m_last_samples[0],m_last_samples[1]};
-    for (x = 0; x < outlen; x ++)
-    {
-      int ioffs=(int)fracpos;
-      double fp=fracpos-ioffs;
-
-      ioffs *= chspread;
-
-      if (ioffs>0)
-      {
-        ls[0]=samples[0][ioffs-chspread];
-        ls[1]=samples[nch-1][ioffs-chspread];
-      }
-
-      if (m_nch>1)
-      {
-        *outptr++ = (float) (samples[0][ioffs] * fp + ls[0]*(1-fp));
-        if (nch>1)
-          *outptr++ = (float) (samples[1][ioffs] * fp + ls[1]*(1-fp));
-        else
-        {
-          *outptr = outptr[-1];
-          outptr++;
-        }
-      }
-      else
-      {
-        if (nch>1)
-        {
-          *outptr++ = (float) (((samples[0][ioffs]+samples[1][ioffs]) * fp + (ls[0]+ls[1])*(1-fp))*0.5);
-        }
-        else
-          *outptr++ = (float) (samples[0][ioffs] * fp + ls[0]*(1-fp));
-
-      }
-
-      fracpos += rateratio;
-    }
-    m_last_samples[0]=samples[0][frames-1];
-    m_last_samples[1]=samples[nch-1][frames-1];
-
+    m_samplemutex.Enter();
+    float *ob;
     if (m_samplequeue.Available() < (int)sizeof(float)*m_nch*96000*4 &&
-        m_encoder && m_encoder->outqueue.Available() < 256*1024)
-      m_samplequeue.Add(m_rsbuf.Get(),outlen*m_nch*sizeof(float));
+        m_encoder && m_encoder->outqueue.Available() < 256*1024 &&
+        NULL != (ob = (float *)m_samplequeue.Add(NULL,frames*m_nch*sizeof(float))))
+    {
+      splcvt(ob,samples,nch,m_nch,chspread,frames);
+    }
 
-    m_rspos=fracpos - floor(fracpos);
+    m_samplemutex.Leave();
+
+    return;
   }
 
-  m_samplemutex.Leave();
+  // resample!
+  m_rs.SetRates(srate,m_srate);
+  m_rs.SetFeedMode(true);
+
+  for (;;)
+  {
+    WDL_ResampleSample *ob=NULL;
+    int amt = m_rs.ResamplePrepare(frames, m_nch, &ob);
+    if (amt > frames) amt=frames;
+    if (ob) splcvt(ob,samples,nch,m_nch,chspread,amt);
+    frames-=amt;
+
+    WDL_ResampleSample tmp[2048];
+    amt = m_rs.ResampleOut(tmp,amt,2048/m_nch,m_nch);
+
+    if (frames < 1 && amt < 1) break;
+
+    m_samplemutex.Enter();
+    if (m_samplequeue.Available() < (int)sizeof(float)*m_nch*96000*4 && m_encoder && m_encoder->outqueue.Available() < 256*1024)
+    {
+      amt *= nch;
+      float *p = (float*)m_samplequeue.Add(NULL,amt*sizeof(float));
+      if (p)
+      {
+        WDL_ResampleSample *rd = tmp;
+        while (amt--) *p++ = *rd++;
+      }
+    }
+    m_samplemutex.Leave();
+  }
 }
 
 
