@@ -1517,15 +1517,20 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
       if (*q == '<') done=true;
       ++q;
     }
-    if (!hm) hm=CreatePopupMenu();
     if (subm) flags |= MF_POPUP;
     if (*q) InsertMenu(hm, pos++, flags, (subm ? (INT_PTR)subm : (INT_PTR)id++), q);
-    else InsertMenu(hm, pos++, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    else if (!done) InsertMenu(hm, pos++, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     if (done) break;
   }
 
   *str=p;
   *startid=id;
+
+  if (!pos) 
+  { 
+    DestroyMenu(hm);
+    return NULL;
+  }
   return hm;
 }
 
