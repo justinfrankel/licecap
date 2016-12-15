@@ -22,9 +22,7 @@
 
 /*
 
-  This file provides a simple class for a circular FIFO queue of bytes. It 
-  has a strong advantage over WDL_Queue with large buffers, as it does far 
-  fewer memcpy()'s.
+  This file provides a simple class for a circular FIFO queue of bytes. 
 
 */
 
@@ -38,92 +36,73 @@ class WDL_CircBuf
 public:
   WDL_CircBuf() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_CircBuf"))
   {
-    m_size = 0;
-    m_inbuf = 0;
-    m_head = m_tail = 0;
+    m_inbuf = m_wrptr = 0;
   }
   ~WDL_CircBuf()
   {
   }
-  void SetSize(int size, bool keepcontents=false)
+  void SetSize(int size)
   {
-    WDL_HeapBuf tmp(4096 WDL_HEAPBUF_TRACEPARM("WDL_CircBuf/TEMP"));
-    if (keepcontents) 
-    {
-      int ms=NbInBuf(); 
-      if (ms>size) ms=size;
-      if (ms>0) Get(tmp.Resize(ms),ms);
-    }
-    m_size = size;
-    m_hb.Resize(size);
-    Reset();
-    if (tmp.GetSize()) Add(tmp.Get(),tmp.GetSize()); // add old data back in
+    m_inbuf = m_wrptr = 0;
+    m_hb.Resize(size,true);
   }
-  void Reset()
-  {
-    m_head = (char *)m_hb.Get();
-    m_tail = (char *)m_hb.Get();
-    m_endbuf = (char *)m_hb.Get() + m_size;
-    m_inbuf = 0;
-  }
+  void Reset() { m_inbuf = m_wrptr = 0; }
   int Add(const void *buf, int l)
   {
-    char *p = (char *)buf;
-    if (l > m_size) l = m_size;
-    int put = l;
-    int l2;
-    if (!m_size) return 0;
-    l2 = (int) (m_endbuf - m_head);
-    if (l2 <= l) 
+    const int bf = m_hb.GetSize() - m_inbuf;
+    if (l > bf) l = bf;
+    if (l > 0)
     {
-      memcpy(m_head, p, l2);
-      m_head = (char *)m_hb.Get();
-      p += l2;
-      l -= l2;
+      const int wr1 = m_hb.GetSize()-m_wrptr;
+      if (wr1 < l)
+      {
+        memmove((char*)m_hb.Get() + m_wrptr, buf, wr1);
+        memmove(m_hb.Get(), (char*)buf + wr1, l-wr1);
+        m_wrptr = l-wr1;
+      }
+      else 
+      {
+        memmove((char*)m_hb.Get() + m_wrptr, buf, l);
+        m_wrptr = wr1 == l ? 0 : m_wrptr+l;
+      }
+      m_inbuf += l;
     }
-    if (l) 
+    return l;
+  }
+  int Peek(void *buf, int offs, int len) const 
+  {
+    if (offs<0) return 0;
+    const int ibo = m_inbuf-offs;
+    if (len > ibo) len = ibo;
+    if (len > 0)
     {
-      memcpy(m_head, p, l);
-      m_head += l;
-      p += l;
+      int rp = m_wrptr - ibo;
+      if (rp < 0) rp += m_hb.GetSize();
+      const int wr1 = m_hb.GetSize() - rp;
+      if (wr1 < len)
+      {
+        memmove(buf,(char*)m_hb.Get()+rp,wr1);
+        memmove((char*)buf+wr1,m_hb.Get(),len-wr1);
+      }
+      else
+      {
+        memmove(buf,(char*)m_hb.Get()+rp,len);
+      }
     }
-    m_inbuf += put;
-    if (m_inbuf > m_size) m_inbuf = m_size;
-    return put;
+    return len;
   }
   int Get(void *buf, int l)
   {
-    char *p = (char *)buf;
-    int got = 0;
-    if (!m_size) return 0;
-    if (m_inbuf <= 0) return 0;
-    if (l > m_inbuf) l = m_inbuf;
-    m_inbuf -= l;
-    got = l;
-    if (m_tail+l >= m_endbuf) 
-    {
-      int l1 = (int) (m_endbuf - m_tail);
-      l -= l1;
-      memcpy(p, m_tail, l1);
-      m_tail = (char *)m_hb.Get();
-      p += l1;
-      memcpy(p, m_tail, l);
-      m_tail += l;
-    } 
-    else 
-    {
-      memcpy(p, m_tail, l);
-      m_tail += l;
-    }
-    return got;
+    const int amt = Peek(buf,0,l);
+    m_inbuf -= amt;
+    return amt;
   }
-  int Available() { return m_size - m_inbuf; }
-  int NbInBuf() { return m_inbuf; }
+  int NbFree() const { return m_hb.GetSize() - m_inbuf; } // formerly Available()
+  int NbInBuf() const { return m_inbuf; }
 
 private:
   WDL_HeapBuf m_hb;
-  char *m_head, *m_tail, *m_endbuf;
-  int m_size, m_inbuf;
+  int m_inbuf, m_wrptr;
 } WDL_FIXALIGN;
 
 
@@ -135,9 +114,9 @@ public:
     WDL_TypedCircBuf() {}
     ~WDL_TypedCircBuf() {}
 
-    void SetSize(int size, bool keepcontents = false)
+    void SetSize(int size)
     {
-        mBuf.SetSize(size * sizeof(T), keepcontents);
+        mBuf.SetSize(size * sizeof(T));
     }
 
     void Reset()
@@ -155,9 +134,9 @@ public:
         return mBuf.Get(buf, l * sizeof(T)) / sizeof(T);
     }
 
-    int Available() 
+    int NbFree()  // formerly Available()
     {
-        return mBuf.Available() / sizeof(T);
+        return mBuf.NbFree() / sizeof(T);
     }
      int NbInBuf() 
      { 
