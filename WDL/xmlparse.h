@@ -338,12 +338,14 @@ class wdl_xml_parser {
           { 
             if (!want_add && char_type(m_lastchar)>=0) want_add=true;
 
+            bool adv=true;
             if (m_lastchar == '&')
             {
               m_last_line=m_line; m_last_col=m_col;
               char buf[8];
               if (!decode_entity(buf)) return "unknown entity in element body";
               elem->value.Append(buf);
+              adv=false;
             }
             else if (want_add)
             {
@@ -351,7 +353,7 @@ class wdl_xml_parser {
               elem->value.Append((const char *)&c,1);
             }
 
-            m_lastchar = nextchar();
+            if (adv) m_lastchar = nextchar();
           }
         }
 
@@ -464,7 +466,10 @@ class wdl_xml_parser {
           if (!elem) return "unexpected </ at root level";
 
           tok = get_tok(true);
-          if (strcmp(tok,elem->name)) return "mismatched </ tag name";
+          if (strcmp(tok,elem->name)) 
+          {
+            return "mismatched </ tag name";
+          }
 
           tok = get_tok();
           if (!tok || tok[0] != '>') return "expected > following </tag";
