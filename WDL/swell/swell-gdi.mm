@@ -1864,7 +1864,7 @@ int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
 
 int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
-  if (SWELL_GetOSXVersion() < 0x1060)  return 0;
+  if (SWELL_GDI_GetOSXVersion() < 0x1060)  return 0;
   static bool l;
   static bool (*_CTFontManagerRegisterFontsForURL)( CFURLRef fontURL, uint32_t scope, CFErrorRef *error );
   if (!l)
@@ -1880,7 +1880,7 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
   
   if (!_CTFontManagerRegisterFontsForURL) return 0;
   
-  CFStringRef s=(CFStringRef)SWELL_CStringToCFString(str); 
+  CFStringRef s=(CFStringRef)CStringToNSString(str); 
 
   CFURLRef r=CFURLCreateWithFileSystemPath(NULL,s,kCFURLPOSIXPathStyle,true);
   CFErrorRef err=NULL;
