@@ -895,6 +895,15 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
         m_last_y = ypos;
         m_last_x = xpos;
       }
+      else
+      {
+#ifdef _WIN32
+        POINT p2;
+        GetCursorPos(&p2);
+        m_last_x += p2.x - p.x; // win10 hidpi workaround
+        m_last_y += p2.y - p.y;
+#endif
+      }
     }
     do m_last_precmode++; while (ShowCursor(FALSE)>=0);
   }
