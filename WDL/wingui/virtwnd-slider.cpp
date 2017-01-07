@@ -23,6 +23,11 @@
 
 */
 
+
+#if defined(_WIN32) && !defined(WINVER) && _MSC_VER <= 1200
+  #define WINVER 0x500
+#endif
+
 #include <math.h>
 #include "virtwnd-controls.h"
 #include "../wdlcstring.h"
@@ -890,7 +895,16 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       }
     #endif
       
-      if (!SetCursorPos(p.x,p.y)) 
+#ifdef _WIN32
+      CURSORINFO ci={sizeof(ci)};
+      GetCursorInfo(&ci);
+#endif
+
+      if (
+#ifdef _WIN32
+        (ci.flags&2) ||
+#endif
+        !SetCursorPos(p.x,p.y)) 
       {
         m_last_y = ypos;
         m_last_x = xpos;
