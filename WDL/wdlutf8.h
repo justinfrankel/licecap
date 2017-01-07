@@ -38,7 +38,9 @@ misrepresented as being the original software.
 #endif
 
 
-// returns size, sets bytesUsed. If invalid UTF-8, returns first character (as unsigned)
+// returns size, sets cOut to code point. 
+// if invalid ITF-8, sets cOut to first character (as unsigned char).
+// cOut may be NULL if you only want the size of the character
 static int WDL_STATICFUNC_UNUSED wdl_utf8_parsechar(const char *rd, int *cOut) 
 {
   const unsigned char *p = (const unsigned char *)rd;
