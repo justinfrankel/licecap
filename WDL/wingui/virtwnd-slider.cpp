@@ -900,7 +900,9 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       GetCursorInfo(&ci);
 #endif
 
+
       if (
+        wdl_virtwnd_nosetcursorpos ||
 #ifdef _WIN32
         (ci.flags&2) ||
 #endif

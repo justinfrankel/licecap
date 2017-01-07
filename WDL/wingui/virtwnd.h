@@ -231,4 +231,6 @@ void WDL_VWnd_regHelperClass(const char *classname, void *icon=NULL, void *icons
 // in virtwnd-iaccessible.cpp
 LRESULT WDL_AccessibilityHandleForVWnd(bool isDialog, HWND hwnd, WDL_VWnd *vw, WPARAM wParam, LPARAM lParam);
 
+extern bool wdl_virtwnd_nosetcursorpos; // set to true to prevent SetCursorPos() from being called in sliders/etc (for pen/tablet mode)
+
 #endif

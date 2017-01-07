@@ -1688,3 +1688,4 @@ void WDL_VWnd_regHelperClass(const char *classname, void *icon1, void *icon2)
 #endif
 }
 
+bool wdl_virtwnd_nosetcursorpos;
