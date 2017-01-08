@@ -23,7 +23,7 @@
 
 // endOfInstruction is end of jump with relative offset, offset passed in is offset from end of dest instruction.
 // TODO: verify, but offset probably from next instruction (PC is ahead)
-#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (((int *)(endOfInstruction))[-1]&0xFF000000)|(((offset>>2)-1)))
+#define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (((int *)(endOfInstruction))[-1]&0xFF000000)|((((offset)>>2)-1)))
 
                                            // /=conditional=always = 0xE
                                            // |/= 101(L), so 8+2+0 = 10 = A
