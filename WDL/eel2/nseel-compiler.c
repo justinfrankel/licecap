@@ -117,7 +117,7 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 
 #include "glue_ppc.h"
 
-#elif defined(__arm__)
+#elif defined(__arm__) || (defined (_M_ARM) && _M_ARM  == 7)
 
 #include "glue_arm.h"
 
@@ -2661,7 +2661,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
-#if defined(__arm__) || defined(__ppc__)
+#if defined(__arm__) || defined(__ppc__) || (defined (_M_ARM) && _M_ARM  == 7)
     const int max_params=4096; // 32kb max offset addressing for stack, so 4096*4 = 16384, should be safe
 #else
     const int max_params=32768; // sanity check, the stack is free to grow on x86/x86-64

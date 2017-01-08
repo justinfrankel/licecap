@@ -119,6 +119,8 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
 #include "asm-nseel-ppc-gcc.c"
 #elif defined(__arm__)
 #include "asm-nseel-arm-gcc.c"
+#elif defined (_M_ARM) && _M_ARM  == 7
+  // vc on ARM, tbd
 #else
   #ifdef _MSC_VER
     #ifdef _WIN64

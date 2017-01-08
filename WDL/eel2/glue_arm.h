@@ -140,6 +140,7 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 }
 
 
+#ifndef _MSC_VER
 static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
  //fwrite((void *)cp,4,20,stdout);
@@ -165,6 +166,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "mov sp, r1\n"
             ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) : "r5", "r6", "r7", "r8");
 };
+#endif
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {
