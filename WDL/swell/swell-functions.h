@@ -997,6 +997,7 @@ SWELL_API_DEFINE(void, SetTextColor,(HDC ctx, int col))
 SWELL_API_DEFINE(int, GetTextColor,(HDC ctx))
 SWELL_API_DEFINE(void, SetBkColor,(HDC ctx, int col))
 SWELL_API_DEFINE(void, SetBkMode,(HDC ctx, int col))
+SWELL_API_DEFINE(int, GetGlyphIndicesW, (HDC ctx, wchar_t *buf, int len, unsigned short *indices, int flags))
 
 SWELL_API_DEFINE(void, RoundRect,(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd))
 SWELL_API_DEFINE(void, PolyPolyline,(HDC ctx, POINT *pts, DWORD *cnts, int nseg))

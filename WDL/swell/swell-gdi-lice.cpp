@@ -1516,6 +1516,14 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
   return 0;
 }
 
+int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, int flags)
+{
+  // todo: freetype query font etc
+  int i;
+  for (i=0; i < len; ++i) indices[i]=(flags == GGI_MARK_NONEXISTING_GLYPHS ? 0xFFFF : 0);
+  return 0;
+}
+
 #endif
 
 #endif // SWELL_LICE_GDI

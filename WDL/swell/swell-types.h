@@ -1259,6 +1259,8 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define NULL_PEN 1
 #define NULL_BRUSH 2
 
+#define GGI_MARK_NONEXISTING_GLYPHS 1
+
 #define GMEM_ZEROINIT 1
 #define GMEM_FIXED 0
 #define GMEM_MOVEABLE 0

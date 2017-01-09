@@ -1108,8 +1108,23 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   [str release];
   return 0;  
 }
-    
+
+
+int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, int flags)
+{
+  HDC__ *ct=(HDC__*)ctx;
+  if (HDC_VALID(ct) && HGDIOBJ_VALID(ct->curfont, TYPE_FONT))
+  {
+#ifndef SWELL_NO_CORETEXT
+    CTFontRef f=(CTFontRef)ct->curfont->ct_FontRef;
+    if (f && CTFontGetGlyphsForCharacters(f, (const UniChar*)buf, (CGGlyph*)indices, (CFIndex)len)) return len;
+#endif
+  }
   
+  int i;
+  for (i=0; i < len; ++i) indices[i]=(flags == GGI_MARK_NONEXISTING_GLYPHS ? 0xFFFF : 0);
+  return 0;
+}
 
 
 
