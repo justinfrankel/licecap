@@ -1718,6 +1718,22 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     }
 #else
     *m_gfx_ext_retina = 1.0;
+    #ifdef _WIN32
+       static UINT (WINAPI *__GetDpiForWindow)(HWND);
+       if (!__GetDpiForWindow)
+       {
+         HINSTANCE h = LoadLibrary("user32.dll");
+         if (h) *(void **)&__GetDpiForWindow = GetProcAddress(h,"GetDpiForWindow");
+         if (!__GetDpiForWindow)
+           *(void **)&__GetDpiForWindow = (void*)(INT_PTR)1;
+       }
+       if (hwnd && __GetDpiForWindow && __GetDpiForWindow != (void*)(INT_PTR)1)
+       {
+         int dpi = __GetDpiForWindow(hwnd);
+         if (dpi != 96)
+           *m_gfx_ext_retina = dpi / 96.0;
+       }
+    #endif
 #endif
   }
   int dr=0;
