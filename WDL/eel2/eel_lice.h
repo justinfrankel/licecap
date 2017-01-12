@@ -1727,7 +1727,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
          if (!__GetDpiForWindow)
            *(void **)&__GetDpiForWindow = (void*)(INT_PTR)1;
        }
-       if (hwnd && __GetDpiForWindow && __GetDpiForWindow != (void*)(INT_PTR)1)
+       if (hwnd && (UINT_PTR)__GetDpiForWindow > (UINT_PTR)1)
        {
          int dpi = __GetDpiForWindow(hwnd);
          if (dpi != 96)
