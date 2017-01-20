@@ -281,6 +281,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     WDL_FastString m_valueText;
     WDL_VirtualSlider_SkinConfig *m_skininfo;
     WDL_VirtualWnd_BGCfg *m_knobbg[2];
+    WDL_VirtualWnd_BGCfg *getKnobBackgroundForSize(int sz) const;
     WDL_VirtualWnd_BGCfg *m_knobstacks;
     char *m_accessDescCopy;
     int m_nknobstacks;

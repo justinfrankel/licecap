@@ -295,6 +295,39 @@ void WDL_VirtualSlider::GetButtonSize(int *w, int *h)
   }
 }
 
+WDL_VirtualWnd_BGCfg *WDL_VirtualSlider::getKnobBackgroundForSize(int sz) const
+{ 
+  int h1 = 100000, h2 = 100000;
+  if (m_knobbg[0] && m_knobbg[0]->bgimage)
+  { 
+    h1 = m_knobbg[0]->bgimage->getHeight();
+    if (m_knobbg[0]->bgimage_lt[1]>0 && m_knobbg[0]->bgimage_rb[1]>0)
+    {
+      if (m_knobbg[0]->bgimage_lt_out[0]>0 && m_knobbg[0]->bgimage_lt_out[1]>0 &&
+          m_knobbg[0]->bgimage_rb_out[0]>0 && m_knobbg[0]->bgimage_rb_out[1]>0)
+        h1 -= m_knobbg[0]->bgimage_lt_out[1] + m_knobbg[0]->bgimage_rb_out[1];
+      else 
+        h1 -= 2;
+    }
+  }
+  if (m_knobbg[1] && m_knobbg[1]->bgimage)
+  {
+    h2 = m_knobbg[1]->bgimage->getHeight();
+    if (m_knobbg[1]->bgimage_lt[1]>0 && m_knobbg[1]->bgimage_rb[1]>0)
+    {
+      if (m_knobbg[1]->bgimage_lt_out[0]>0 && m_knobbg[1]->bgimage_lt_out[1]>0 &&
+          m_knobbg[1]->bgimage_rb_out[0]>0 && m_knobbg[1]->bgimage_rb_out[1]>0)
+        h2 -= m_knobbg[1]->bgimage_lt_out[1] + m_knobbg[1]->bgimage_rb_out[1];
+      else 
+        h2 -= 2;
+    }
+  }
+
+  h1 -= sz; if (h1<0) h1=-h1;
+  h2 -= sz; if (h2<0) h2=-h2;
+  WDL_VirtualWnd_BGCfg *bg = m_knobbg[h1 > h2];
+  return bg && bg->bgimage ? bg : NULL;
+}
 
 void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
 {
@@ -347,9 +380,8 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       origin_x += (vieww-sz)/2;
       origin_y += (viewh-sz)/2;
       vieww = viewh = sz;       
-      back_image = m_knobbg[sz>28];
 
-      if (back_image && !back_image->bgimage) back_image=NULL;
+      back_image = getKnobBackgroundForSize(sz);
     }
 
 
@@ -1175,7 +1207,7 @@ void WDL_VirtualSlider::GetPositionPaintExtent(RECT *r)
       int ox = m_position.left + (vieww-sz)/2;
       int oy = m_position.top + (viewh-sz)/2;
 
-      WDL_VirtualWnd_BGCfg *back_image = m_knobbg[sz>28];
+      WDL_VirtualWnd_BGCfg *back_image = getKnobBackgroundForSize(sz);
       if (back_image && back_image->bgimage && 
           back_image->bgimage_lt_out[0]>0 &&
           back_image->bgimage_lt_out[1]>0 &&
