@@ -3,6 +3,7 @@
 
 #include "../wdlstring.h"
 #include "../ptrlist.h"
+#include "../destroycheck.h"
 #include <time.h>
 
 class WDL_CursesEditor
@@ -210,5 +211,7 @@ protected:
     double m_pane_div[2];
     int m_paneoffs_y[2][2];
   };
+  public:
+    WDL_DestroyState destroy_check;
 };
 #endif
