@@ -50,6 +50,8 @@
 class WDL_VWnd_Painter;
 class LICE_IBitmap;
 
+#define WDL_VWND_SCALEBASE 256 // .8 fixed point scale
+
 // deprecated
 #define WDL_VirtualWnd_ChildList WDL_VWnd
 #define WDL_VirtualWnd WDL_VWnd
@@ -83,8 +85,8 @@ public:
   virtual INT_PTR SetUserData(INT_PTR ud) { INT_PTR od=m_userdata; m_userdata=ud; return od; }
   virtual void SetPosition(const RECT *r) { m_position=*r; }
   virtual void GetPosition(RECT *r) { *r=m_position; }
-  virtual void GetPositionPaintExtent(RECT *r) { *r=m_position; }
-  virtual void GetPositionPaintOverExtent(RECT *r) { *r=m_position; }
+  virtual void GetPositionPaintExtent(RECT *r, int rscale) { *r=m_position; ScaleRect(r,rscale); }
+  virtual void GetPositionPaintOverExtent(RECT *r, int rscale) { *r=m_position; ScaleRect(r,rscale); }
   virtual void SetVisible(bool vis) { m_visible=vis; }
   virtual bool IsVisible() { return m_visible; }
   virtual bool WantsPaintOver() { return m_children && m_children->GetSize(); }
@@ -92,8 +94,8 @@ public:
   virtual void SetParent(WDL_VWnd *par) { m_parent=par; }
 
   virtual void RequestRedraw(RECT *r); 
-  virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-  virtual void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+  virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
+  virtual void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
 
   virtual int OnMouseDown(int xpos, int ypos); // return -1 to eat, >0 to capture
   virtual bool OnMouseDblClick(int xpos, int ypos);
@@ -139,6 +141,17 @@ public:
   virtual void OnCaptureLost();
 
   virtual bool GetAccessValueDesc(char *buf, int bufsz) { return false; } // allow control to format value string
+
+  static void ScaleRect(RECT *r, int sc)
+  {
+    if (sc != WDL_VWND_SCALEBASE)
+    {
+      r->left = r->left * sc / WDL_VWND_SCALEBASE;
+      r->top = r->top * sc / WDL_VWND_SCALEBASE;
+      r->right = r->right * sc / WDL_VWND_SCALEBASE;
+      r->bottom = r->bottom * sc / WDL_VWND_SCALEBASE;
+    }
+  }
 
 protected:
   WDL_VWnd *m_parent;
@@ -195,6 +208,13 @@ public:
   void PaintBorderForRect(const RECT *r, int borderflags);
 
   void GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw);
+  void SetRenderScale(int render_scale) { m_render_scale = render_scale; }
+  int GetRenderScale() const { return m_render_scale; }
+
+  void RenderScaleRect(RECT *r) const
+  {
+    WDL_VWnd::ScaleRect(r,m_render_scale);
+  }
 
   LICE_IBitmap *GetBuffer(int *xo, int *yo) 
   { 
@@ -218,6 +238,7 @@ private:
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
   bool m_bgbmtintUnderMode;
+  int m_render_scale;
 
   WDL_VirtualWnd_BGCfgCache *m_bgcache;
   HWND m_cur_hwnd;

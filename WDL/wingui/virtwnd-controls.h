@@ -67,7 +67,6 @@ int WDL_STYLE_GetSliderDynamicCenterPos() { return 500; }
 
 
 
-
 // virtwnd-iconbutton.cpp
 class WDL_VirtualIconButton : public WDL_VWnd
 {
@@ -81,11 +80,11 @@ class WDL_VirtualIconButton : public WDL_VWnd
     virtual void OnMouseUp(int xpos, int ypos);
     virtual bool OnMouseDblClick(int xpos, int ypos);
 
-    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
-    virtual void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
+    virtual void OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
 
     virtual bool WantsPaintOver();
-    virtual void GetPositionPaintOverExtent(RECT *r);
+    virtual void GetPositionPaintOverExtent(RECT *r, int rscale);
 
 
     void SetEnabled(bool en) {m_en=en; }
@@ -156,11 +155,11 @@ class WDL_VirtualStaticText : public WDL_VWnd
     
     virtual const char *GetType() { return "vwnd_statictext"; }
 
-    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
     virtual bool OnMouseDblClick(int xpos, int ypos);
     virtual int OnMouseDown(int xpos, int ypos);
 
-    virtual void GetPositionPaintExtent(RECT *r); // override in case m_bkbm has outer areas
+    virtual void GetPositionPaintExtent(RECT *r, int rscale);
 
     void SetWantSingleClick(bool ws) {m_wantsingle=ws; }
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_font=font; m_vfont=vfont; }
@@ -199,7 +198,7 @@ class WDL_VirtualComboBox : public WDL_VWnd
     WDL_VirtualComboBox();
     virtual ~WDL_VirtualComboBox();
     virtual const char *GetType() { return "vwnd_combobox"; }
-    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
     virtual int OnMouseDown(int xpos, int ypos);
 
     void SetFont(LICE_IFont *font) { m_font=font; }
@@ -235,13 +234,13 @@ class WDL_VirtualSlider : public WDL_VWnd
     virtual ~WDL_VirtualSlider();
     virtual const char *GetType() { return "vwnd_slider"; }
 
-    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
     virtual int OnMouseDown(int xpos, int ypos);
     virtual void OnMouseMove(int xpos, int ypos);
     virtual void OnMouseUp(int xpos, int ypos);
     virtual bool OnMouseDblClick(int xpos, int ypos);
     virtual bool OnMouseWheel(int xpos, int ypos, int amt);
-    virtual void GetPositionPaintExtent(RECT *r);
+    virtual void GetPositionPaintExtent(RECT *r, int rscale);
 
     virtual void OnCaptureLost();
 
@@ -259,7 +258,7 @@ class WDL_VirtualSlider : public WDL_VWnd
 
     void SetGrayed(bool grayed) { m_grayed = grayed; }
 
-    void GetButtonSize(int *w, int *h);
+    void GetButtonSize(int *w, int *h, int rscale);
 
     void SetSkinImageInfo(WDL_VirtualSlider_SkinConfig *cfg, WDL_VirtualWnd_BGCfg *knobbg=NULL, WDL_VirtualWnd_BGCfg *knobbgsm=NULL, WDL_VirtualWnd_BGCfg *knobstacks=NULL, int nknobstacks=0)
     { 
@@ -296,6 +295,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     int m_tl_extra, m_br_extra;
 
     int m_knob_color,m_zl_color;
+    int m_last_rscale;
 
     signed char m_knobbias;
     signed char m_knob_lineextrasize;
@@ -317,7 +317,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     virtual ~WDL_VirtualListBox();
     virtual const char *GetType() { return "vwnd_listbox"; }
 
-    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect);
+    virtual void OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale);
     virtual int OnMouseDown(int xpos, int ypos);
     virtual bool OnMouseDblClick(int xpos, int ypos);
     virtual bool OnMouseWheel(int xpos, int ypos, int amt);
@@ -351,7 +351,7 @@ class WDL_VirtualListBox : public WDL_VWnd
 
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
-    void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm);
+    void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm, int rscale);
     void *m_GetItemInfo_ctx;
   
   protected:

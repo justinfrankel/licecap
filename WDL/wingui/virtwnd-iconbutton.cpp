@@ -97,11 +97,11 @@ void WDL_VirtualIconButton::SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float
     if (m_iconCfg && m_iconCfg != cfg && m_iconCfg->olimage)
     {
       combineRects=true;
-      GetPositionPaintExtent(&r);
+      GetPositionPaintExtent(&r,WDL_VWND_SCALEBASE);
       if (WantsPaintOver())
       {
         RECT r3;
-        GetPositionPaintOverExtent(&r3);
+        GetPositionPaintOverExtent(&r3,WDL_VWND_SCALEBASE);
         if (r3.left<r.left) r.left=r3.left;
         if (r3.top<r.top) r.top=r3.top;
         if (r3.right>r.right) r.right=r3.right;
@@ -120,7 +120,7 @@ void WDL_VirtualIconButton::SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float
     if (combineRects)
     {
       RECT r3;
-      GetPositionPaintExtent(&r3);
+      GetPositionPaintExtent(&r3,WDL_VWND_SCALEBASE);
       if (r3.left<r.left) r.left=r3.left;
       if (r3.top<r.top) r.top=r3.top;
       if (r3.right>r.right) r.right=r3.right;
@@ -128,7 +128,7 @@ void WDL_VirtualIconButton::SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float
 
       if (WantsPaintOver())
       {
-        GetPositionPaintOverExtent(&r3);
+        GetPositionPaintOverExtent(&r3,WDL_VWND_SCALEBASE);
         if (r3.left<r.left) r.left=r3.left;
         if (r3.top<r.top) r.top=r3.top;
         if (r3.right>r.right) r.right=r3.right;
@@ -147,9 +147,9 @@ void WDL_VirtualIconButton::SetIcon(WDL_VirtualIconButton_SkinConfig *cfg, float
     }
   }
   m_ownsicon = buttonownsicon;
- }
+}
 
-void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
   if (m_iconCfg && m_iconCfg->olimage)
   {
@@ -184,7 +184,8 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
         cfg.bgimage_noalphaflags=0;
 
         RECT r=m_position,r2;
-        GetPositionPaintOverExtent(&r2);
+        ScaleRect(&r,rscale);
+        GetPositionPaintOverExtent(&r2,rscale);
         WDL_VirtualWnd_ScaledBlitBG(drawbm,&cfg,
           r.left+origin_x,r.top+origin_y,r.right-r.left,r.bottom-r.top,
           r2.left+origin_x,r2.top+origin_y,r2.right-r2.left,r2.bottom-r2.top,
@@ -193,7 +194,7 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
       else
       {
         RECT r;
-        GetPositionPaintOverExtent(&r);
+        GetPositionPaintOverExtent(&r,rscale);
         LICE_ScaledBlit(drawbm,m_iconCfg->olimage,r.left+origin_x,r.top+origin_y,
           r.right-r.left,
           r.bottom-r.top,
@@ -205,7 +206,7 @@ void WDL_VirtualIconButton::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int 
 }
 
 
-void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect) 
+void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale) 
 { 
   int col;
 
@@ -220,6 +221,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     bool isdownimg = (swapupdown != isdown);
     
     RECT r=m_position;
+    ScaleRect(&r,rscale);
 
     int sx=0;
     int sy=0;
@@ -267,6 +269,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
   else
   {
     RECT r=m_position;
+    ScaleRect(&r,rscale);
     r.left+=origin_x;
     r.right+=origin_x;
     r.top+=origin_y;
@@ -318,6 +321,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
   if (!m_iconCfg || m_forcetext)
   {
     RECT r2=m_position;
+    ScaleRect(&r2,rscale);
     r2.left+=origin_x;
     r2.right+=origin_x;
     r2.top+=origin_y;
@@ -327,11 +331,12 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     {
       RECT tr=r2;
       int sz=tr.bottom-tr.top;
-      r2.left+=sz+2;
+      int adj = 2*rscale/WDL_VWND_SCALEBASE;
+      r2.left+=sz+adj;
 
-      tr.top+=2;
-      tr.bottom-=2;
-      sz-=4;
+      tr.top+=adj;
+      tr.bottom-=adj;
+      sz-=adj*2;
       sz&=~1;
       LICE_FillRect(drawbm ,tr.left,tr.top,sz,sz,LICE_RGBA(255,255,255,255),alpha,LICE_BLIT_MODE_COPY);
       LICE_Line(drawbm,tr.left,tr.top,tr.left+sz,tr.top,LICE_RGBA(128,128,128,255),alpha,LICE_BLIT_MODE_COPY,false);
@@ -627,12 +632,13 @@ int WDL_VirtualComboBox::OnMouseDown(int xpos, int ypos)
   return -1;
 }
 
-void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
   {
     if (m_font) m_font->SetBkMode(TRANSPARENT);
 
-    RECT r=m_position;
+    RECT r;
+    WDL_VWnd::GetPositionPaintExtent(&r,rscale);
     r.left+=origin_x;
     r.right+=origin_x;
     r.top+=origin_y;
@@ -741,10 +747,10 @@ void WDL_VirtualStaticText::SetWantPreserveTrailingNumber(bool abbreviate)
   if (m_font) RequestRedraw(NULL); 
 }
 
-void WDL_VirtualStaticText::GetPositionPaintExtent(RECT *r)
+void WDL_VirtualStaticText::GetPositionPaintExtent(RECT *r, int rscale)
 {
   // overridden in case m_bkbm has outer areas
-  *r = m_position;
+  WDL_VWnd::GetPositionPaintExtent(r,rscale);
   if (m_bkbm && m_bkbm->bgimage)
   {
     if (m_bkbm->bgimage_lt[0]>0 &&
@@ -779,9 +785,10 @@ int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
   return 0;
 }
 
-void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
   RECT r=m_position;
+  ScaleRect(&r,rscale);
   r.left+=origin_x;
   r.right+=origin_x;
   r.top += origin_y;
@@ -976,7 +983,7 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
 
   }
-  WDL_VWnd::OnPaint(drawbm,origin_x,origin_y,cliprect);
+  WDL_VWnd::OnPaint(drawbm,origin_x,origin_y,cliprect,rscale);
 }
 
 
@@ -1080,9 +1087,9 @@ bool WDL_VirtualIconButton::WantsPaintOver()
   return /*m_is_button && */m_iconCfg && m_iconCfg->image && m_iconCfg->olimage;
 }
 
-void WDL_VirtualIconButton::GetPositionPaintOverExtent(RECT *r)
+void WDL_VirtualIconButton::GetPositionPaintOverExtent(RECT *r, int rscale)
 {
-  *r=m_position;
+  WDL_VWnd::GetPositionPaintOverExtent(r,rscale);
   if (m_iconCfg && m_iconCfg->image && m_iconCfg->olimage && (m_iconCfg->image_ltrb_used.flags&1))
   {
     if (m_iconCfg->image_ltrb_used.flags&2) // main image has pink lines, use 1:1 pixel for outer area size
