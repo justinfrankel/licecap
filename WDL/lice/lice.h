@@ -54,7 +54,7 @@
 typedef unsigned int LICE_pixel;
 typedef unsigned char LICE_pixel_chan;
 
-#ifdef _WIN32
+#if defined(_WIN32) || (defined(__APPLE__) && !defined(__ppc__))
 
 #define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
 #define LICE_GETB(v) ((v)&0xff)
