@@ -1534,8 +1534,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
     glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER,  GL_LINEAR);
     glTexImage2D(GL_TEXTURE_RECTANGLE_EXT,0,GL_RGBA8,w,h,0,GL_BGRA,GL_UNSIGNED_INT_8_8_8_8, p);
     
-    glClear(GL_COLOR_BUFFER_BIT);
-    glViewport(x,[[glCtx view] bounds].size.height-h-y,w,h);
+    glViewport(x,[[glCtx view] bounds].size.height-desth-y,destw,desth);
     glBegin(GL_QUADS);
     
     glTexCoord2f(0.0f, 0.0f);
@@ -1668,7 +1667,16 @@ HDC GetDC(HWND h)
       HDC ret= SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
       if (ret)
       {
-         if ((ret)->ctx) CGContextSaveGState((ret)->ctx);
+        if ((ret)->ctx) CGContextSaveGState((ret)->ctx);
+        if ([(id)h isKindOfClass:[SWELL_hwndChild class]])
+        {
+          SWELL_hwndChild *view = (SWELL_hwndChild*)h;
+          if (!ret->GLgfxctx) 
+          {
+            ret->GLgfxctx = view->m_glctx;
+            if (view->m_glctx) [view->m_glctx setView:view];
+          }
+        }
       }
       return ret;
     }
@@ -1722,6 +1730,11 @@ void ReleaseDC(HWND h, HDC hdc)
       if (ps.hdc && ps.hdc==hdc) return;
     }
   }    
+  if (hdc && hdc->GLgfxctx)
+  {
+    if ([NSOpenGLContext currentContext] == hdc->GLgfxctx) [NSOpenGLContext clearCurrentContext]; 
+    hdc->GLgfxctx = NULL;
+  }
     
   if (hdc) SWELL_DeleteGfxContext(hdc);
   if (isView && hdc)
