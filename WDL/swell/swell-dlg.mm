@@ -862,6 +862,13 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     ps->rcPaint.right = (int)ceil(m_paintctx_rect.origin.x+m_paintctx_rect.size.width);
     ps->rcPaint.top = (int)m_paintctx_rect.origin.y;
     ps->rcPaint.bottom  = (int)ceil(m_paintctx_rect.origin.y+m_paintctx_rect.size.height);
+
+    // should NC_CALCSIZE to convert, but this will be good enough to fix this small scrollbar overdraw bug
+    RECT r;
+    GetClientRect((HWND)self,&r);
+    if (ps->rcPaint.right > r.right) ps->rcPaint.right = r.right;
+    if (ps->rcPaint.bottom > r.bottom) ps->rcPaint.bottom = r.bottom;
+    
   }
 }
 
