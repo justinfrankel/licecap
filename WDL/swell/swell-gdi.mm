@@ -108,6 +108,12 @@ static NSString *CStringToNSString(const char *str)
   ret=(NSString *)CFStringCreateWithCString(NULL,str,kCFStringEncodingASCII);
   return ret;
 }
+CGColorSpaceRef __GetBitmapColorSpace()
+{
+  static CGColorSpaceRef cs;
+  if (!cs) cs = CGColorSpaceCreateDeviceRGB();
+  return cs;
+}
 
 CGColorSpaceRef __GetDisplayColorSpace()
 {
@@ -141,7 +147,7 @@ CGColorSpaceRef __GetDisplayColorSpace()
 static CGColorRef CreateColor(int col, float alpha=1.0f)
 {
   CGFloat cols[4]={GetRValue(col)/255.0f,GetGValue(col)/255.0f,GetBValue(col)/255.0f,alpha};
-  CGColorRef color=CGColorCreate(__GetDisplayColorSpace(),cols);
+  CGColorRef color=CGColorCreate(__GetBitmapColorSpace(),cols);
   return color;
 }
 
@@ -202,7 +208,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   void *buf=calloc(w*4*h+ALIGN_EXTRA,1);
   if (!buf) return 0;
-  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4,__GetDisplayColorSpace(), kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
+  CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4, __GetBitmapColorSpace(), kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
   if (!c)
   {
     free(buf);
