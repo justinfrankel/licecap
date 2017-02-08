@@ -68,6 +68,11 @@ static int SWELL_GDI_GetOSXVersion()
 #include <immintrin.h>
 #endif
 
+#ifndef MAC_OS_X_VERSION_10_6
+// 10.5 SDK doesn't include CGContextSetAllowsFontSmoothing() in header (but apparently does in libs)
+CG_EXTERN void CGContextSetAllowsFontSmoothing(CGContextRef c, bool) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
+#endif
+
 #ifndef SWELL_NO_CORETEXT
 static bool IsCoreTextSupported()
 {
