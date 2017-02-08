@@ -135,6 +135,21 @@ class WDL_Mutex {
   pthread_mutex_t m_mutex;
 #endif
 
+  // prevent callers from copying mutexes accidentally
+  WDL_Mutex(const WDL_Mutex &cp)
+  {
+#ifdef _DEBUG
+    assert(sizeof(WDL_Mutex) == 0);
+#endif
+  }
+  WDL_Mutex &operator=(const WDL_Mutex &cp)
+  {
+#ifdef _DEBUG
+    assert(sizeof(WDL_Mutex) == 0);
+#endif
+    return *this;
+  }
+
 } WDL_FIXALIGN;
 
 class WDL_MutexLock {
@@ -194,6 +209,23 @@ class WDL_SharedMutex
   private:
     WDL_Mutex m_mutex;
     int m_sharedcnt;
+
+    // prevent callers from copying accidentally
+    WDL_SharedMutex(const WDL_SharedMutex &cp)
+    {
+    #ifdef _DEBUG
+      assert(sizeof(WDL_SharedMutex) == 0);
+    #endif
+    }
+    WDL_SharedMutex &operator=(const WDL_SharedMutex &cp)
+    {
+    #ifdef _DEBUG
+      assert(sizeof(WDL_SharedMutex) == 0);
+    #endif
+      return *this;
+    }
+
+
 } WDL_FIXALIGN;
 
 
