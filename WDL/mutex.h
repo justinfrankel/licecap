@@ -52,6 +52,10 @@
 #include "wdltypes.h"
 #include "wdlatomic.h"
 
+#ifdef _DEBUG
+#include <assert.h>
+#endif
+
 class WDL_Mutex {
   public:
     WDL_Mutex() 
@@ -89,7 +93,8 @@ class WDL_Mutex {
     void Enter()
     {
 #ifdef _DEBUG
-      _debug_cnt++;
+      const int new_debug_cnt = wdl_atomic_incr(&_debug_cnt);
+      assert(new_debug_cnt > 0);
 #endif
 
 #ifdef _WIN32
@@ -104,7 +109,8 @@ class WDL_Mutex {
     void Leave()
     {
 #ifdef _DEBUG
-      _debug_cnt--;
+      const int new_debug_cnt = wdl_atomic_decr(&_debug_cnt);
+      assert(new_debug_cnt >= 0);
 #endif
 
 #ifdef _WIN32
