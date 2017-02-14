@@ -73,6 +73,7 @@ function swell_rc2cpp_dialog($fp) // returns array with ["data"] and optionally 
     $y=trim($x);
     if ($dlg_state>=2) 
     {
+      if (preg_match("/^LTEXT(.*), *WS_EX_RIGHT$/",$y,$match)) $y = "RTEXT" . $match[1];
       $dlg_contents .= $y . "\n";
       if ($y == "END")
       {
