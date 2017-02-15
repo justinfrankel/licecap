@@ -134,8 +134,8 @@ public:
           if (!*f) continue; // did not match
         }
         snprintf(tmp,sizeof(tmp),"%s/%s",path,ent->d_name);
-        struct stat st={0,};
-        stat(tmp,&st);
+        struct stat64 st={0,};
+        stat64(tmp,&st);
       
         rec r = { st.st_size, st.st_mtime } ;
         tmp[0] = is_dir?1:2;
@@ -439,7 +439,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                  if (!buf[0]) return 0;
                  else  
                  {
-                   struct stat st={0,};
+                   struct stat64 st={0,};
                    DIR *dir = opendir(buf);
                    if (dir)
                    {
@@ -449,7 +449,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                      SendMessage(hwnd,WM_USER+100,1,0); // refresh list
                      return 0;
                    }
-                   if (!stat(buf,&st))
+                   if (!stat64(buf,&st))
                    {
                      snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%s\r\n\r\nOverwrite?",buf);
                      if (MessageBox(hwnd,msg,"Overwrite file?",MB_OKCANCEL)==IDCANCEL) return 0;
@@ -460,7 +460,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                  if (!buf[0]) return 0;
                  else  
                  {
-                   struct stat st={0,};
+                   struct stat64 st={0,};
                    DIR *dir = opendir(buf);
                    if (dir)
                    {
@@ -470,7 +470,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                      SendMessage(hwnd,WM_USER+100,1,0); // refresh list
                      return 0;
                    }
-                   if (stat(buf,&st))
+                   if (stat64(buf,&st))
                    {
                      snprintf(msg,sizeof(msg),"File does not exist:\r\n\r\n%s",buf);
                      MessageBox(hwnd,msg,"File not found",MB_OK);

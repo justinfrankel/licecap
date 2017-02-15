@@ -229,8 +229,8 @@ class WDL_DirScan
   { 
     char tmp[2048];
     snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),GetCurrentFN());
-    struct stat st={0,};
-    stat(tmp,&st);
+    struct stat64 st={0,};
+    stat64(tmp,&st);
     unsigned long long a=(unsigned long long)st.st_mtime; // seconds since january 1st, 1970
     a+=11644473600ull; // 1601->1970
     a*=10000000; // seconds to 1/10th microseconds (100 nanoseconds)
@@ -241,8 +241,8 @@ class WDL_DirScan
   { 
     char tmp[2048];
     snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),GetCurrentFN());
-    struct stat st={0,};
-    stat(tmp,&st);
+    struct stat64 st={0,};
+    stat64(tmp,&st);
     
     if (HighWord) *HighWord = (DWORD)(st.st_size>>32); 
     return (DWORD)(st.st_size&0xffffffff); 
