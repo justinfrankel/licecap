@@ -1,6 +1,6 @@
-# use make -f Makefile.libSwell 
-# or make -f Makefile.libSwell NOGDK=1
-# or make -f Makefile.libSwell DEBUG=1 
+# use make 
+# or make NOGDK=1
+# or make DEBUG=1 
 # etc
 
 ARCH := $(shell uname -m)
