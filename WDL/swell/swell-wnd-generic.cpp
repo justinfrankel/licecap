@@ -6141,14 +6141,97 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
   }
 }
 
+#ifdef SWELL_TARGET_GDK
+struct bridgeState {
+  GdkWindow *w;
+  bool isChild;
+};
+static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+    case WM_DESTROY:
+      if (hwnd && hwnd->m_private_data)
+      {
+        bridgeState *bs = (bridgeState*)hwnd->m_private_data;
+        hwnd->m_private_data = 0;
+        if (bs->w) gdk_window_destroy(bs->w);
+        delete bs;
+      }
+    break;
+    case WM_MOVE:
+    case WM_SIZE:
+      if (hwnd && hwnd->m_private_data)
+      {
+        bridgeState *bs = (bridgeState*)hwnd->m_private_data;
+        if (bs->isChild && bs->w)
+        {
+          RECT r = { 0, 0, hwnd->m_position.right-hwnd->m_position.left, hwnd->m_position.bottom-hwnd->m_position.top };
+          HWND h = hwnd;
+          while (h)
+          {
+            if (h->m_oswindow) break;
+            r.left += h->m_position.left;
+            r.right += h->m_position.left;
+            r.top += h->m_position.top;
+            r.bottom += h->m_position.top;
+            h=h->m_parent;
+          }
+          gdk_window_move_resize(bs->w,r.left,r.top,r.right-r.left,r.bottom-r.top);
+        }
+      }
+    break;
+  }
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
+#endif
 
 HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
 {
+  HWND hwnd = NULL;
   *wref = NULL;
+
 #ifdef SWELL_TARGET_GDK
 
+  GdkWindow *ospar = NULL;
+  HWND hpar = viewpar;
+  while (hpar) // can disable embedding by disabling this loop
+  {
+    ospar = hpar->m_oswindow;
+    if (ospar) break;
+    hpar = hpar->m_parent;
+  }
+
+  GdkWindowAttr attr={0,};
+  hwnd = new HWND__(viewpar,0,r,NULL, true, xbridgeProc);
+  attr.title = (char*)"Plug-in Window";
+  attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
+  attr.x = r->left;
+  attr.y = r->top;
+  attr.width = r->right-r->left;
+  attr.height = r->bottom-r->top;
+  attr.wclass = GDK_INPUT_OUTPUT;
+  attr.window_type = ospar ? GDK_WINDOW_CHILD : GDK_WINDOW_TOPLEVEL;
+  bridgeState *bs = new bridgeState;
+  bs->w = gdk_window_new(ospar,&attr,GDK_WA_X|GDK_WA_Y);
+  bs->isChild=ospar != NULL;
+  hwnd->m_private_data = (INT_PTR) bs;
+  if (bs->w)
+  {
+    *wref = (void *) gdk_x11_window_get_xid(bs->w);
+    if (!ospar)
+    {
+      gdk_window_set_type_hint(bs->w,GDK_WINDOW_TYPE_HINT_NORMAL);
+      gdk_window_set_decorations(bs->w,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
+    }
+    else
+    {
+      SendMessage(hwnd,WM_SIZE,0,0);
+    }
+    gdk_window_show(bs->w);
+  }
 #endif
-  return NULL;
+  return hwnd;
 }
 
 #endif
