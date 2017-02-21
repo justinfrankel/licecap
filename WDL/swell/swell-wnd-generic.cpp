@@ -6172,24 +6172,27 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         bridgeState *bs = (bridgeState*)hwnd->m_private_data;
         if (bs->w)
         {
-          RECT r = { 0, 0, hwnd->m_position.right-hwnd->m_position.left, hwnd->m_position.bottom-hwnd->m_position.top };
           HWND h = hwnd;
           while (h)
           {
             if (h->m_oswindow) break;
-            r.left += h->m_position.left;
-            r.right += h->m_position.left;
-            r.top += h->m_position.top;
-            r.bottom += h->m_position.top;
             h=h->m_parent;
           }
           if (h) 
           {
+            POINT pt = { 0,0 };
+            ClientToScreen(hwnd,(LPPOINT)&pt);
+
+            gint px=0,py=0;
+            gdk_window_get_origin(h->m_oswindow,&px,&py);
+
             if (uMsg == WM_TIMER)
             {
               KillTimer(hwnd,2);
-              gdk_window_reparent(bs->w,h->m_oswindow,r.left,r.top);
-              gdk_window_resize(bs->w,r.right-r.left,r.bottom-r.top);
+              gdk_window_reparent(bs->w,h->m_oswindow,pt.x - px,pt.y - py);
+              gdk_window_resize(bs->w, 
+                  hwnd->m_position.right-hwnd->m_position.left, 
+                  hwnd->m_position.bottom-hwnd->m_position.top);
               gdk_window_show(bs->w);
               gdk_window_raise(bs->w);
               if (bs->delw)
@@ -6199,7 +6202,11 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
               }
             }
             else
-              gdk_window_move_resize(bs->w,r.left,r.top,r.right-r.left,r.bottom-r.top);
+            {
+              gdk_window_move_resize(bs->w,pt.x - px,pt.y - py,
+                  hwnd->m_position.right-hwnd->m_position.left, 
+                  hwnd->m_position.bottom-hwnd->m_position.top);
+            }
           }
         }
       }
