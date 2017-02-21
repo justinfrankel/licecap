@@ -62,10 +62,10 @@ default: libSwell.so
 .PHONY: clean 
 
 libSwell.so: $(OBJS)
-	$(CXX) -shared -o $@ $(CFLAGS) $(LFLAGS) $(LINKEXTRA) $^ 
+	$(CXX) -shared -o $@ $(CFLAGS) $(LFLAGS) $^ $(LINKEXTRA)
 
 test: $(OBJS) test.o
-	$(CXX) -o test $(CFLAGS) $(LFLAGS) $(LINKEXTRA) $^
+	$(CXX) -o test $(CFLAGS) $(LFLAGS) $^ $(LINKEXTRA)
 
 clean: 
 	-rm $(OBJS) libSwell.so
