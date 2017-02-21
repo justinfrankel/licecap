@@ -6259,7 +6259,11 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
   hwnd->m_private_data = (INT_PTR) bs;
   if (bs->w)
   {
+#if SWELL_TARGET_GDK == 2
+    *wref = (void *) GDK_WINDOW_XID(bs->w);
+#else
     *wref = (void *) gdk_x11_window_get_xid(bs->w);
+#endif
     if (ospar == bs->delw) 
     {
       SetTimer(hwnd,2,100,NULL);
