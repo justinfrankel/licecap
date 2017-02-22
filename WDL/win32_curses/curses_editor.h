@@ -4,6 +4,7 @@
 #include "../wdlstring.h"
 #include "../ptrlist.h"
 #include "../destroycheck.h"
+#include "curses.h"
 #include <time.h>
 
 class WDL_CursesEditor

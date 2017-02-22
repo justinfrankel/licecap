@@ -11,8 +11,8 @@
 
 #include "curses_editor.h"
 #include "../wdlutf8.h"
+#include "../win32_utf8.h"
 #include "../wdlcstring.h"
-#include "curses.h"
 
 #ifndef VALIDATE_TEXT_CHAR
 #define VALIDATE_TEXT_CHAR(thischar) ((thischar) >= 0 && (thischar >= 128 || isspace(thischar) || isgraph(thischar)) && !(thischar >= KEY_DOWN && thischar <= KEY_F12))
