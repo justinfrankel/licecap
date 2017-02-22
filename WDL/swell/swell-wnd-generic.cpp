@@ -1459,12 +1459,14 @@ HWND SetParent(HWND hwnd, HWND newPar)
     hwnd->m_next=newPar->m_children;
     if (hwnd->m_next) hwnd->m_next->m_prev = hwnd;
     newPar->m_children=hwnd;
+    hwnd->m_style |= WS_CHILD;
   }
   else // add to top level windows
   {
     hwnd->m_next=SWELL_topwindows;
     if (hwnd->m_next) hwnd->m_next->m_prev = hwnd;
     SWELL_topwindows = hwnd;
+    hwnd->m_style &= ~WS_CHILD;
   }
 
   swell_manageOSwindow(hwnd,false);
