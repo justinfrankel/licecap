@@ -61,6 +61,7 @@ void SWELL_initargs(int *argc, char ***argv)
   if (!SWELL_gdk_active) 
   {
    // maybe make the main app call this with real parms
+    XInitThreads();
     SWELL_gdk_active = gdk_init_check(argc,argv) ? 1 : -1;
     if (SWELL_gdk_active > 0)
       gdk_event_handler_set(swell_gdkEventHandler,NULL,NULL);
