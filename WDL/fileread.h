@@ -50,6 +50,7 @@
   #define WDL_POSIX_NATIVE_READ 
    #include <sys/fcntl.h>
    #include <sys/file.h>
+   #include <sys/stat.h>
    #include <sys/errno.h>
    #include <sys/mman.h>
    #ifdef __APPLE__

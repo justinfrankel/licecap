@@ -49,6 +49,7 @@
   #if !defined(WDL_NO_POSIX_FILEWRITE)
     #include <sys/fcntl.h>
     #include <sys/file.h>
+    #include <sys/stat.h>
     #include <sys/errno.h>
     #define WDL_POSIX_NATIVE_WRITE
   #endif
