@@ -4,6 +4,7 @@
 #define STATE_BEFORE_CODE -1
 
 #include "curses_editor.h"
+#include "../assocarray.h"
 
 // add EEL syntax highlighting and paren matching, hooks for watch/etc
 class EEL_Editor : public WDL_CursesEditor

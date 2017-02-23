@@ -10,6 +10,7 @@
 #endif
 #include "curses.h"
 #include "eel_edit.h"
+#include "../wdlutf8.h"
 #include "../win32_utf8.h"
 #include "../wdlcstring.h"
 #include "../eel2/ns-eel-int.h"
