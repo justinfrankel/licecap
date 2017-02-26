@@ -1151,7 +1151,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
             TEXTMETRIC tm;
             tm.tmHeight = sz;
 
-            if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer=__LICE_CreateBitmap(0,64,64);
+            if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer=__LICE_CreateBitmap(1,64,64);
 
             if (m_framebuffer && LICE_FUNCTION_VALID(LICE__GetDC))
             {
