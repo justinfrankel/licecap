@@ -1092,10 +1092,12 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
           wr+=4;
           p+=3;
           len-=3;
+          lpos+=3;
         }
 
         if (len>0)
         {
+          lpos += len;
           if (len == 2)
           {
             const int accum = (p[0] << 8) | p[1];
@@ -1113,13 +1115,13 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
           wr[3] = '=';
           wr+=4;
         }
-        *wr++=0;
+        if (lpos>0) *wr++=0;
 
         #ifdef _DEBUG
           #ifdef _WIN32
               if (wr != wr_end) OutputDebugString("cfg_encode_binary: block mode size mismatch!\n");
           #else
-              if (wr != wr_end) printf("cfg_encode_binary: block mode size mismatch!\n");
+              if (wr != wr_end) printf("cfg_encode_binary: block mode size mismatch %d!\n", (int)(wr-wr_end));
           #endif
         #endif
         return;
