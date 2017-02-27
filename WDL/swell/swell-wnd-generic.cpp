@@ -688,7 +688,9 @@ void swell_runOSevents()
   {
 //    static GMainLoop *loop;
 //    if (!loop) loop = g_main_loop_new(NULL,TRUE);
+#if SWELL_TARGET_GDK == 2
     gdk_window_process_all_updates();
+#endif
 
     GMainContext *ctx=g_main_context_default();
     while (g_main_context_iteration(ctx,FALSE))
@@ -5054,7 +5056,7 @@ void UpdateWindow(HWND hwnd)
 {
   if (hwnd)
   {
-#ifdef SWELL_TARGET_GDK
+#if SWELL_TARGET_GDK == 2
     while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
     if (hwnd && hwnd->m_oswindow) gdk_window_process_updates(hwnd->m_oswindow,true);
 #endif
