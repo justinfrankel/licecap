@@ -209,7 +209,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
  
         RECT r = hwnd->m_position;
         GdkWindowAttr attr={0,};
-        attr.title = "";
+        attr.title = (char *)"";
         attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
         attr.x = r.left;
         attr.y = r.top;
