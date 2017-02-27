@@ -6149,6 +6149,7 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
 #ifdef SWELL_TARGET_GDK
 struct bridgeState {
   GdkWindow *w, *delw;
+  bool lastvis;
 };
 static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -6165,11 +6166,31 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       }
     break;
     case WM_TIMER:
-      if (wParam == 2)
+      if (wParam == 1)
       {
-        // fall through
+        bool vis = IsWindowVisible(hwnd);
+        bridgeState *bs = (bridgeState*)hwnd->m_private_data;
+        if (bs && vis != bs->lastvis)
+        {
+          bs->lastvis = vis;
+          if (bs->w && !bs->delw)
+          {
+            if (vis)
+            {
+              gdk_window_show(bs->w);
+              gdk_window_raise(bs->w);
+            }
+            else
+            {
+              gdk_window_hide(bs->w);
+            }
+          }
+        }
       }
-      else break;
+
+      if (wParam != 2) break;
+      // fall through if wParam=2
+
     case WM_MOVE:
     case WM_SIZE:
       if (hwnd && hwnd->m_private_data)
@@ -6205,6 +6226,7 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 gdk_window_destroy(bs->delw);
                 bs->delw=NULL;
               }
+              SetTimer(hwnd,1,100,NULL);
             }
             else
             {
@@ -6239,6 +6261,7 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
 
   bridgeState *bs = new bridgeState;
   bs->delw = NULL;
+  bs->lastvis = true;
   GdkWindowAttr attr;
   if (!ospar)
   {
@@ -6282,6 +6305,7 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
     }
     else 
     {
+      SetTimer(hwnd,1,100,NULL);
       SendMessage(hwnd,WM_SIZE,0,0);
       gdk_window_show(bs->w);
     }
