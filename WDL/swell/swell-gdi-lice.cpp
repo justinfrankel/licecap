@@ -1338,6 +1338,7 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
     }
   }
 
+  bool okToClearChild=true;
   if (forceref || hwnd->m_child_invalidated)
   {
     HWND h = hwnd->m_children;
@@ -1349,6 +1350,11 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
         int width = h->m_position.right - h->m_position.left, height = h->m_position.bottom - h->m_position.top; // max width possible for this window
         int xp = h->m_position.left - bmout_xpos, yp = h->m_position.top - bmout_ypos;
 
+        if (okToClearChild && !forceref)
+        {
+          if (xp < 0 || xp+width > bmout->getWidth() ||
+              yp < 0 || yp+height > bmout->getHeight()) okToClearChild = false; // extends outside of our region
+        }
         // if xp/yp < 0, that means that the clip region starts inside the window, so we need to pass a positive render offset, and decrease the potential draw width
         // if xp/yp > 0, then the clip region starts before the window, so we use the subbitmap and pass 0 for the offset parm
         int subx = 0, suby=0;
@@ -1365,7 +1371,7 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
       h = h->m_prev;
     }
   }
-  hwnd->m_child_invalidated=false;
+  if (okToClearChild) hwnd->m_child_invalidated=false;
 }
 
 HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits)
