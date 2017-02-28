@@ -6150,6 +6150,7 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
 struct bridgeState {
   GdkWindow *w, *delw;
   bool lastvis;
+  RECT lastrect;
 };
 static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -6166,31 +6167,7 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       }
     break;
     case WM_TIMER:
-      if (wParam == 1)
-      {
-        bool vis = IsWindowVisible(hwnd);
-        bridgeState *bs = (bridgeState*)hwnd->m_private_data;
-        if (bs && vis != bs->lastvis)
-        {
-          bs->lastvis = vis;
-          if (bs->w && !bs->delw)
-          {
-            if (vis)
-            {
-              gdk_window_show(bs->w);
-              gdk_window_raise(bs->w);
-            }
-            else
-            {
-              gdk_window_hide(bs->w);
-            }
-          }
-        }
-      }
-
-      if (wParam != 2) break;
-      // fall through if wParam=2
-
+      if (wParam != 1) break;
     case WM_MOVE:
     case WM_SIZE:
       if (hwnd && hwnd->m_private_data)
@@ -6198,41 +6175,70 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         bridgeState *bs = (bridgeState*)hwnd->m_private_data;
         if (bs->w)
         {
-          HWND h = hwnd;
+          HWND h = hwnd->m_parent;
+          RECT tr = hwnd->m_position;
           while (h)
           {
+            RECT cr = h->m_position;
+            if (h->m_oswindow)
+            {
+              cr.right -= cr.left;
+              cr.bottom -= cr.top;
+              cr.left=cr.top=0;
+            }
+
+            if (h->m_wndproc)
+            {
+              NCCALCSIZE_PARAMS p = {{ cr }};
+              h->m_wndproc(h,WM_NCCALCSIZE,0,(LPARAM)&p);
+              cr = p.rgrc[0];
+            }
+            tr.left += cr.left;
+            tr.top += cr.top;
+            tr.right += cr.left;
+            tr.bottom += cr.top;
+
+            if (tr.left < cr.left) tr.left=cr.left;
+            if (tr.top < cr.top) tr.top = cr.top;
+            if (tr.right > cr.right) tr.right = cr.right;
+            if (tr.bottom > cr.bottom) tr.bottom = cr.bottom;
+
             if (h->m_oswindow) break;
             h=h->m_parent;
           }
-          if (h) 
+
+          // todo: need to periodically check to see if the plug-in has resized its window
+          bool vis = IsWindowVisible(hwnd);
+          if (h && (bs->delw || (vis != bs->lastvis) || memcmp(&tr,&bs->lastrect,sizeof(RECT)))) 
           {
-            POINT pt = { 0,0 };
-            ClientToScreen(hwnd,(LPPOINT)&pt);
-
-            gint px=0,py=0;
-            gdk_window_get_origin(h->m_oswindow,&px,&py);
-
-            if (uMsg == WM_TIMER)
+            if (bs->lastvis && !vis)
             {
-              KillTimer(hwnd,2);
-              gdk_window_reparent(bs->w,h->m_oswindow,pt.x - px,pt.y - py);
-              gdk_window_resize(bs->w, 
-                  hwnd->m_position.right-hwnd->m_position.left, 
-                  hwnd->m_position.bottom-hwnd->m_position.top);
-              gdk_window_show(bs->w);
-              gdk_window_raise(bs->w);
+              gdk_window_hide(bs->w);
+              bs->lastvis = false;
+            }
+
+            if (bs->delw)
+            {
+              gdk_window_reparent(bs->w,h->m_oswindow,tr.left,tr.top);
+              gdk_window_resize(bs->w, tr.right-tr.left,tr.bottom-tr.top);
+              bs->lastrect=tr;
+
               if (bs->delw)
               {
                 gdk_window_destroy(bs->delw);
                 bs->delw=NULL;
               }
-              SetTimer(hwnd,1,100,NULL);
             }
-            else
+            else if (memcmp(&tr,&bs->lastrect,sizeof(RECT)))
             {
-              gdk_window_move_resize(bs->w,pt.x - px,pt.y - py,
-                  hwnd->m_position.right-hwnd->m_position.left, 
-                  hwnd->m_position.bottom-hwnd->m_position.top);
+              bs->lastrect = tr;
+              gdk_window_move_resize(bs->w,tr.left,tr.top, tr.right-tr.left, tr.bottom-tr.top);
+            }
+            if (vis && !bs->lastvis)
+            {
+              gdk_window_show(bs->w);
+              gdk_window_raise(bs->w);
+              bs->lastvis = true;
             }
           }
         }
@@ -6261,7 +6267,9 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
 
   bridgeState *bs = new bridgeState;
   bs->delw = NULL;
-  bs->lastvis = true;
+  bs->lastvis = false;
+  memset(&bs->lastrect,0,sizeof(bs->lastrect));
+
   GdkWindowAttr attr;
   if (!ospar)
   {
@@ -6299,16 +6307,8 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
 #else
     *wref = (void *) gdk_x11_window_get_xid(bs->w);
 #endif
-    if (ospar == bs->delw) 
-    {
-      SetTimer(hwnd,2,100,NULL);
-    }
-    else 
-    {
-      SetTimer(hwnd,1,100,NULL);
-      SendMessage(hwnd,WM_SIZE,0,0);
-      gdk_window_show(bs->w);
-    }
+    SetTimer(hwnd,1,100,NULL);
+    if (!bs->delw) SendMessage(hwnd,WM_SIZE,0,0);
   }
 #endif
   return hwnd;
