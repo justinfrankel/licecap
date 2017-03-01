@@ -6209,7 +6209,23 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
           // todo: need to periodically check to see if the plug-in has resized its window
           bool vis = IsWindowVisible(hwnd);
-          if (h && (bs->delw || (vis != bs->lastvis) || memcmp(&tr,&bs->lastrect,sizeof(RECT)))) 
+          if (vis)
+          {
+            gint w=0,h=0;
+            gdk_window_get_geometry(bs->w,NULL,NULL,&w,&h);
+            if (w > bs->lastrect.right-bs->lastrect.left) 
+            {
+              bs->lastrect.right = bs->lastrect.left + w;
+              tr.right++; // workaround "bug" in GDK -- if bs->w was resized via Xlib, GDK won't resize it unless it thinks the size changed
+            }
+            if (h > bs->lastrect.bottom-bs->lastrect.top) 
+            {
+              bs->lastrect.bottom = bs->lastrect.top + h;
+              tr.bottom++; // workaround "bug" in GDK -- if bs->w was resized via Xlib, GDK won't resize it unless it thinks the size changed
+            }
+          }
+
+          if (h && (bs->delw || (vis != bs->lastvis) || (vis&&memcmp(&tr,&bs->lastrect,sizeof(RECT))))) 
           {
             if (bs->lastvis && !vis)
             {
