@@ -1222,6 +1222,9 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
       [img drawInRect:NSMakeRect(0,0,w,h) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1.0];
       [NSGraphicsContext restoreGraphicsState];
 
+      // on yosemite, calling [img TIFFRepresentation] seems to change img somehow for some images, ouch.
+      // in this case, we should always replace img with newImage (set rcnt=1), but in general
+      // maybe we shoulnt use alphaFromMask anyhow
       NSImage *newImage=[[NSImage alloc] initWithData:[img TIFFRepresentation]];
       [newImage setFlipped:YES];
 
