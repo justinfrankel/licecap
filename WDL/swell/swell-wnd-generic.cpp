@@ -1399,7 +1399,12 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 #ifdef SWELL_TARGET_GDK
     if (hwnd->m_oswindow) 
     {
-      //printf("repos %d,%d,%d,%d, %d\n",f.left,f.top,f.right,f.bottom,reposflag);
+      if (reposflag&2)
+      {
+        // make sure window is resizable (hints will be re-set on upcoming CONFIGURE event)
+        gdk_window_set_geometry_hints(hwnd->m_oswindow,NULL,(GdkWindowHints) 0); 
+      }
+
       if ((reposflag&3)==3) gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top);
       else if (reposflag&2) gdk_window_resize(hwnd->m_oswindow,f.right-f.left,f.bottom-f.top);
       else if (reposflag&1) gdk_window_move(hwnd->m_oswindow,f.left,f.top);
