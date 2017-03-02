@@ -477,7 +477,7 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
   bool wantPen = HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0;
   if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
-    int use_rad = wantPen ? rad-1 : rad;
+    int use_rad = rad;
     if (use_rad > 0) LICE_FillCircle(c->surface,l+use_rad,t+use_rad,use_rad,c->curbrush->color,c->curbrush->alpha,LICE_BLIT_MODE_COPY,!wantPen);
   }
   if (wantPen)
