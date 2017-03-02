@@ -2661,7 +2661,19 @@ static LRESULT WINAPI progressWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
           HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
           if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
-          if (hbrush) FillRect(ps.hdc,&r,hbrush);
+          else
+          {
+            if (hbrush) 
+            {
+              FillRect(ps.hdc,&r,hbrush);
+            }
+            else
+            {
+              hbrush = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+              FillRect(ps.hdc,&r,hbrush);
+              DeleteObject(hbrush);
+            }
+          }
 
           if (hwnd->m_private_data)
           {
@@ -4512,7 +4524,9 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), progressWindowProc);
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "msctls_progress32";
-    hwnd->m_private_data = (INT_PTR) calloc(2,sizeof(int)); // pos, range
+    int *state = (int *)calloc(2,sizeof(int)); // pos, range
+    if (state) state[1] = 100<<16;
+    hwnd->m_private_data = (INT_PTR) state;
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
   }
