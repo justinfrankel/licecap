@@ -1903,6 +1903,23 @@ static HWND swell_makeButton(HWND owner, int idx, RECT *tr, const char *label, b
 
 #endif
 
+static void paintDialogBackground(HWND hwnd, const RECT *r, HDC hdc)
+{
+  HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)hdc,(LPARAM)hwnd);
+  if (hbrush == (HBRUSH)(INT_PTR)1) return;
+
+  if (hbrush) 
+  {
+    FillRect(hdc,r,hbrush);
+  }
+  else
+  {
+    hbrush = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+    FillRect(hdc,r,hbrush);
+    DeleteObject(hbrush);
+  }
+}
+
 
 #ifndef SWELL_ENABLE_VIRTWND_CONTROLS
 struct buttonWindowState
@@ -2000,6 +2017,8 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
           RECT r; 
           GetClientRect(hwnd,&r); 
+          paintDialogBackground(hwnd,&r,ps.hdc);
+
           bool pressed = GetCapture()==hwnd;
 
           SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT): RGB(128,128,128));
@@ -2068,7 +2087,6 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           }
           else
           {
-
             HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
             FillRect(ps.hdc,&r,br);
             DeleteObject(br);
@@ -2659,21 +2677,7 @@ static LRESULT WINAPI progressWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
           RECT r; 
           GetClientRect(hwnd,&r); 
 
-          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
-          if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
-          else
-          {
-            if (hbrush) 
-            {
-              FillRect(ps.hdc,&r,hbrush);
-            }
-            else
-            {
-              hbrush = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-              FillRect(ps.hdc,&r,hbrush);
-              DeleteObject(hbrush);
-            }
-          }
+          paintDialogBackground(hwnd,&r,ps.hdc);
 
           if (hwnd->m_private_data)
           {
