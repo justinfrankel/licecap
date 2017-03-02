@@ -1955,7 +1955,38 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           }
           else if (sf == BS_AUTORADIOBUTTON)
           {
-            // todo: uncheck other nearby radios 
+            int x;
+            for (x=0;x<2;x++)
+            {
+              HWND nw = x ? hwnd->m_prev : hwnd->m_next;
+              while (nw)
+              {
+                if (nw->m_classname && !strcmp(nw->m_classname,"Button"))
+                {
+                  if (x && (nw->m_style & WS_GROUP)) break;
+
+                  if ((nw->m_style & 0xf) == BS_AUTORADIOBUTTON)
+                  {
+                    buttonWindowState *nws = (buttonWindowState*)nw->m_private_data;
+                    if (nws && (nws->state&3))
+                    {
+                      nws->state &= ~3;
+                      InvalidateRect(nw,NULL,FALSE);
+                    }
+                  }
+  
+                  if (nw->m_style & WS_GROUP) break;
+                }
+                else 
+                {
+                  break;
+                }
+
+                nw=x ? nw->m_prev : nw->m_next;
+              }
+            }
+
+            s->state = 1 | (s->state&~3);
           }
           SendMessage(hwnd->m_parent,WM_COMMAND,MAKEWPARAM(hwnd->m_id,BN_CLICKED),(LPARAM)hwnd);
         }
@@ -1984,9 +2015,9 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             HPEN pen=CreatePen(PS_SOLID,0,RGB(0,0,0));
             HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
+            int st = (int)(s->state&3);
             if (sf == BS_AUTOCHECKBOX || sf == BS_AUTO3STATE)
             {
-              int st = (int)(s->state&3);
               if (st==3||(st==2 && (hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)) st=1;
               
               HBRUSH br = CreateSolidBrush(st==2?RGB(192,192,192):RGB(255,255,255));
@@ -2016,7 +2047,20 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
             else if (sf == BS_AUTORADIOBUTTON)
             {
-              // todo radio circle
+              HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+              HGDIOBJ oldBrush = SelectObject(ps.hdc,br);
+              Ellipse(ps.hdc,tr.left,tr.top,tr.right,tr.bottom);
+              SelectObject(ps.hdc,oldBrush);
+              DeleteObject(br);
+              if (st)
+              {
+                const int amt =  (tr.right-tr.left)/6 + 1;
+                br = CreateSolidBrush(RGB(0,0,0));
+                oldBrush = SelectObject(ps.hdc,br);
+                Ellipse(ps.hdc,tr.left+amt,tr.top+amt,tr.right-amt,tr.bottom-amt);
+                SelectObject(ps.hdc,oldBrush);
+                DeleteObject(br);
+              }
             }
             SelectObject(ps.hdc,oldPen);
             DeleteObject(pen);
