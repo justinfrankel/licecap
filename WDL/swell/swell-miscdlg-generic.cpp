@@ -775,4 +775,14 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 #endif
 }
 
+bool SWELL_ChooseColor(HWND h, int *val, int ncustom, int *custom)
+{
+  return false;
+}
+
+bool SWELL_ChooseFont(HWND h, LOGFONT *lf)
+{
+  return false;
+}
+
 #endif
