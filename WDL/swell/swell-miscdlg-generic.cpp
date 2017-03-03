@@ -775,9 +775,340 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 #endif
 }
 
+#ifdef SWELL_LICE_GDI
+struct ChooseColor_State {
+  int ncustom;
+  int *custom;
+
+  int h,s,v;
+
+  LICE_IBitmap *bm;
+};
+
+// we need to make a more accurate LICE_HSV2RGB pair, this one is lossy, doh
+static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  static int s_reent,s_vmode;
+  enum { wndw=400,
+         custsz = 20,
+         buth = 24, border = 4, butw = 50, edh=20, edlw = 16, edew = 40, vsize=40,
+         psize = border+edlw + edew, yt = border + psize + border + (edh + border)*6 };
+  const int customperrow = (wndw-border)/(custsz+border);
+  switch (uMsg)
+  {
+    case WM_CREATE:
+      if (lParam)  // swell-specific
+      {
+        SetWindowLong(hwnd,GWL_WNDPROC,(LPARAM)SwellDialogDefaultWindowProc);
+        SetWindowLong(hwnd,DWL_DLGPROC,(LPARAM)swellColorSelectProc);
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
+
+        SetWindowText(hwnd,"Choose Color");
+
+        SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
+
+        SWELL_MakeButton(0, "OK", IDOK,0,0,0,0, 0);
+        SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
+
+        static const char * const lbl[] = { "R","G","B","H","S","V"};
+        for (int x=0;x<6;x++)
+        {
+          SWELL_MakeLabel(0,lbl[x], 0x100+x, 0,0,0,0, 0); 
+          SWELL_MakeEditField(0x200+x, 0,0,0,0,  0);
+        }
+
+        ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+        int nrows = ((cs?cs->ncustom : 0 ) + customperrow-1)/wdl_max(customperrow,1);
+        SetWindowPos(hwnd,NULL,0,0, wndw, 
+            yt + buth + border + nrows * (custsz+border), 
+            SWP_NOZORDER|SWP_NOMOVE);
+        SendMessage(hwnd,WM_USER+100,0,3);
+      }
+    break;
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+      {
+        ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (!cs) break;
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int xt = r.right - edew - edlw - border*3;
+
+        const int y = GET_Y_LPARAM(lParam);
+        const int x = GET_X_LPARAM(lParam);
+        if (x < xt && y < yt)
+        {
+          s_vmode = x >= xt-vsize;
+          SetCapture(hwnd);
+          // fall through
+        }
+        else 
+        {
+          if (cs->custom && cs->ncustom && y >= yt && y < r.bottom - buth - border)
+          {
+            int row = (y-yt) / (custsz+border), rowoffs = (y-yt) % (custsz+border);
+            if (rowoffs < custsz)
+            {
+              int col = (x-border) / (custsz+border), coloffs = (x-border) % (custsz+border);
+              if (coloffs < custsz)
+              {
+                col += customperrow*row;
+                if (col >= 0 && col < cs->ncustom)
+                {
+                  if (uMsg == WM_LBUTTONDOWN)
+                  {
+                    LICE_RGB2HSV(GetRValue(cs->custom[col]),GetGValue(cs->custom[col]),GetBValue(cs->custom[col]),&cs->h,&cs->s,&cs->v);
+                    SendMessage(hwnd,WM_USER+100,0,3);
+                  }
+                  else
+                  {
+                    int r,g,b;
+                    LICE_HSV2RGB(cs->h,cs->s,cs->v,&r,&g,&b);
+                    cs->custom[col] = RGB(r,g,b);
+                    InvalidateRect(hwnd,NULL,FALSE);
+                  }
+                }
+              }
+            }
+          }
+          break;
+        }
+        // fall through
+      }
+    case WM_MOUSEMOVE:
+      if (GetCapture()==hwnd)
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int xt = r.right - edew - edlw - border*3;
+        ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (!cs) break;
+        int var = 255 - (GET_Y_LPARAM(lParam) - border)*256 / (yt-border*2);
+        if (var<0)var=0;
+        else if (var>255)var=255;
+        if (s_vmode)
+        {
+          if (var != cs->v)
+          {
+            cs->v=var;
+            SendMessage(hwnd,WM_USER+100,0,3);
+          }
+        }
+        else
+        {
+          int hue = (GET_X_LPARAM(lParam) - border)*384 / (xt-border - vsize);
+          if (hue<0) hue=0;
+          else if (hue>383) hue=383;
+          if (cs->h != hue || cs->s != var)
+          {
+            cs->h=hue;
+            cs->s=var;
+            SendMessage(hwnd,WM_USER+100,0,3);
+          }
+        }
+      }
+    break;
+    case WM_LBUTTONUP:
+    case WM_RBUTTONUP:
+      ReleaseCapture();
+    break;
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (cs && BeginPaint(hwnd,&ps))
+        {
+          RECT r;
+          GetClientRect(hwnd,&r);
+          const int xt = r.right - edew - edlw - border*3;
+          if (cs->custom && cs->ncustom)
+          {
+            int ypos = yt;
+            int xpos = border;
+            for (int x = 0; x < cs->ncustom; x ++)
+            {
+              HBRUSH br = CreateSolidBrush(cs->custom[x]);
+              RECT tr={xpos,ypos,xpos+custsz, ypos+custsz };
+              FillRect(ps.hdc,&tr,br);
+              DeleteObject(br);
+
+              xpos += border+custsz;
+              if (xpos+custsz >= r.right)
+              {
+                xpos=border;
+                ypos += border + custsz;
+              }
+            }
+          }
+
+          {
+            int rr,g,b;
+            LICE_HSV2RGB(cs->h,cs->s,cs->v,&rr,&g,&b);
+            HBRUSH br = CreateSolidBrush(RGB(rr,g,b));
+            RECT tr={r.right - border - psize, border, r.right-border, border+psize};
+            FillRect(ps.hdc,&tr,br);
+            DeleteObject(br);
+          }
+
+          if (!cs->bm) cs->bm = new LICE_SysBitmap(xt-border,yt-border);
+          else cs->bm->resize(xt-border,yt-border);
+
+          int x1 = xt - border - vsize;
+          int var = cs->v;
+
+          const int ysz = yt-border*2;
+          const int vary = ysz - 1 - (ysz * cs->v)/256;
+
+          for (int y = 0; y < ysz; y ++)
+          {
+            LICE_pixel *wr = cs->bm->getBits() + cs->bm->getRowSpan() * y;
+            const int sat = 255 - y*256/ysz;
+            double xx=0.0, dx=384.0/x1;
+            int x;
+            for (x = 0; x < x1; x++)
+            {
+              *wr++ = LICE_HSV2Pix((int)(xx+0.5),sat,var,255);
+              xx+=dx;
+            }
+            LICE_pixel p = LICE_HSV2Pix(cs->h,cs->s,sat ^ (y==vary ? 128 : 0),255);
+            for (;x < xt-border;x++) *wr++ = p;
+          }
+          LICE_pixel p = LICE_HSV2Pix(cs->h,cs->s,(128+cs->v)&255,255);
+          const int saty = ysz - 1 - (ysz * cs->s)/256;
+          const int huex = (x1*cs->h)/384;
+          LICE_Line(cs->bm,huex,saty-4,huex,saty+4,p,.75f,LICE_BLIT_MODE_COPY,false);
+          LICE_Line(cs->bm,huex-4,saty,huex+4,saty,p,.75f,LICE_BLIT_MODE_COPY,false);
+
+          BitBlt(ps.hdc,border,border,xt-border,ysz,cs->bm->getDC(),0,0,SRCCOPY);
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+
+    break;
+    case WM_GETMINMAXINFO:
+      {
+        LPMINMAXINFO p=(LPMINMAXINFO)lParam;
+        p->ptMinTrackSize.x = 300;
+        p->ptMinTrackSize.y = 300;
+      }
+    break;
+    case WM_USER+100:
+      {
+        ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (cs)
+        {
+          int t[6];
+          t[3] = cs->h;
+          t[4] = cs->s;
+          t[5] = cs->v;
+          LICE_HSV2RGB(t[3],t[4],t[5],t,t+1,t+2);
+          s_reent++;
+          for (int x=0;x<6;x++) if (lParam & ((x<3)?1:2)) SetDlgItemInt(hwnd,0x200+x,x==3 ? t[x]*360/384 : t[x],FALSE);
+          s_reent--;
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+    break;
+    case WM_SIZE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        int tx = r.right - edew-edlw-border*2, ty = border*2 + psize;
+        for (int x=0;x<6;x++)
+        {
+          SetWindowPos(GetDlgItem(hwnd,0x100+x),NULL,tx, ty, edlw, edh, SWP_NOZORDER);
+          SetWindowPos(GetDlgItem(hwnd,0x200+x),NULL,tx+edlw+border, ty, edew, edh, SWP_NOZORDER);
+          ty += border+edh;
+        }
+
+        r.right -= border + butw;
+        r.bottom -= border + buth;
+        SetWindowPos(GetDlgItem(hwnd,IDCANCEL), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER);
+        r.right -= border*2 + butw;
+        SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER);
+
+      }
+    break;
+    case WM_COMMAND:
+      switch (LOWORD(wParam))
+      {
+        case IDCANCEL:
+          EndDialog(hwnd,0);
+        break;
+        case IDOK:
+          EndDialog(hwnd,1);
+        break;
+        case 0x200:
+        case 0x201:
+        case 0x202:
+        case 0x203:
+        case 0x204:
+        case 0x205:
+          if (!s_reent)
+          {
+            const bool ishsv = LOWORD(wParam) >= 0x203;
+            int offs = ishsv ? 0x203 : 0x200;
+            BOOL t = FALSE;
+            int h = GetDlgItemInt(hwnd,offs++,&t,FALSE);
+            if (!t) break;
+            int s = GetDlgItemInt(hwnd,offs++,&t,FALSE);
+            if (!t) break;
+            int v = GetDlgItemInt(hwnd,offs++,&t,FALSE);
+            if (!t) break;
+
+            ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            if (!ishsv) 
+            {
+              if (h<0) h=0; else if (h>255) h=255;
+              if (s<0) s=0; else if (s>255) s=255;
+              if (v<0) v=0; else if (v>255) v=255;
+              LICE_RGB2HSV(h,s,v,&h,&s,&v);
+            }
+            else
+            {
+              h = h * 384 / 360;
+              if (h<0) h=0; else if (h>384) h=384;
+              if (s<0) s=0; else if (s>255) s=255;
+              if (v<0) v=0; else if (v>255) v=255;
+            }
+
+            if (cs)
+            {
+              cs->h = h;
+              cs->s = s;
+              cs->v = v;
+            }
+            SendMessage(hwnd,WM_USER+100,0,ishsv?1:2);
+          }
+        break;
+      }
+    break;
+
+  }
+  return 0;
+}
+#endif //SWELL_LICE_GDI
+
 bool SWELL_ChooseColor(HWND h, int *val, int ncustom, int *custom)
 {
+#ifdef SWELL_LICE_GDI
+  ChooseColor_State state = { ncustom, custom };
+  int c = val ? *val : 0;
+  LICE_RGB2HSV(GetRValue(c),GetGValue(c),GetBValue(c),&state.h,&state.s,&state.v);
+  bool rv = DialogBoxParam(NULL,NULL,NULL,swellColorSelectProc,(LPARAM)&state)!=0;
+  delete state.bm;
+  if (rv && val) 
+  {
+    int r,g,b;
+    LICE_HSV2RGB(state.h,state.s,state.v,&r,&g,&b);
+    *val = RGB(r,g,b);
+  }
+  return rv;
+#else
   return false;
+#endif
 }
 
 bool SWELL_ChooseFont(HWND h, LOGFONT *lf)
