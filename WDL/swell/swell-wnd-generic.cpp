@@ -3472,7 +3472,8 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     case WM_LBUTTONDBLCLK:
     case WM_LBUTTONDOWN:
       SetFocus(hwnd);
-      SetCapture(hwnd);
+      if (msg == WM_LBUTTONDOWN) SetCapture(hwnd);
+      else ReleaseCapture();
 
       if (lvs && lvs->m_last_row_height>0)
       {
