@@ -6296,8 +6296,13 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
           bool vis = IsWindowVisible(hwnd);
           if (vis)
           {
+#if SWELL_TARGET_GDK == 2
+            gint w=0,h=0,d=0;
+            gdk_window_get_geometry(bs->w,NULL,NULL,&w,&h,&d);
+#else
             gint w=0,h=0;
             gdk_window_get_geometry(bs->w,NULL,NULL,&w,&h);
+#endif
             if (w > bs->lastrect.right-bs->lastrect.left) 
             {
               bs->lastrect.right = bs->lastrect.left + w;
