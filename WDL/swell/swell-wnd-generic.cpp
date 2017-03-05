@@ -3512,6 +3512,22 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           return 1;
         }
 
+        int subitem = 0;
+
+        {
+          const int n=lvs->m_cols.GetSize();
+          const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+          int xpos=0, xpt = GET_X_LPARAM(lParam);
+          if (has_image) xpos += lvs->m_last_row_height;
+          for (int x=0;x<n;x++)
+          {
+            const int xwid = lvs->m_cols.Get()[x].xwid;
+            if (xpt >= xpos && xpt < xpos+xwid) { subitem = x; break; }
+            xpos += xwid;
+          }
+        }
+
+
         if (!lvs->m_is_multisel)
         {
           const int oldsel = lvs->m_selitem;
@@ -3525,11 +3541,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           else
           {
             if (hit >= 0) lvs->m_capmode = (hit&0xffff)|(2<<16);
-            NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,0,0,};
+
+            NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,};
             SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             if (oldsel != lvs->m_selitem) 
             {
-              NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},lvs->m_selitem,0,LVIS_SELECTED,};
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},lvs->m_selitem,1,LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             }
           }
@@ -3561,7 +3578,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             else
             {
               lvs->m_capmode = (hit&0xffff)|(2<<16);
-              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,0,LVIS_SELECTED,};
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
               if (changed)
               {
