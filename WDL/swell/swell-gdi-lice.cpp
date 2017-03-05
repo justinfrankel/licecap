@@ -472,7 +472,7 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
   r += c->surface_offs.x;
   b += c->surface_offs.y;
 
-  int rad = min(r-l, b-t)/2; // todo: actual ellipse, for now just circles
+  int rad = wdl_min(r-l, b-t)/2; // todo: actual ellipse, for now just circles
 
   bool wantPen = HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0;
   if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)

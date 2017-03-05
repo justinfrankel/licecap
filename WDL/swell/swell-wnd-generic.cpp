@@ -2761,7 +2761,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
       {
         RECT r;
         GetClientRect(hwnd,&r);
-        const int rad = min((r.bottom-r.top)/2-1,track_h);
+        const int rad = wdl_min((r.bottom-r.top)/2-1,track_h);
         int *state = (int *)hwnd->m_private_data;
         const int range = state[1];
         const int low = LOWORD(range), high=HIWORD(range);
@@ -2781,7 +2781,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
       {
         RECT r;
         GetClientRect(hwnd,&r);
-        const int rad = min((r.bottom-r.top)/2-1,track_h);
+        const int rad = wdl_min((r.bottom-r.top)/2-1,track_h);
         int *state = (int *)hwnd->m_private_data;
         const int range = state[1];
         const int low = LOWORD(range), high=HIWORD(range);
@@ -2828,7 +2828,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
           }
 
           HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
-          const int rad = min((r.bottom-r.top)/2-1,track_h);
+          const int rad = wdl_min((r.bottom-r.top)/2-1,track_h);
 
           RECT sr = r;
           sr.left += rad;
