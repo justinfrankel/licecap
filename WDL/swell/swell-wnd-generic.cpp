@@ -42,6 +42,8 @@ int g_swell_want_nice_style = 1; //unused but here for compat
 
 HWND__ *SWELL_topwindows;
 
+HWND DialogBoxIsActive();
+
 static HWND s_captured_window;
 HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
 static DWORD s_lastMessagePos;
@@ -222,7 +224,6 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         if (hwnd->m_oswindow) 
         {
           gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
-          HWND DialogBoxIsActive();
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
             gdk_window_set_override_redirect(hwnd->m_oswindow,true);
@@ -472,11 +473,14 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         {
           // keep-above any owned windows while one of our windows has focus
           HWND h = SWELL_topwindows; 
+          HWND modalWindow = DialogBoxIsActive();
           while (h)
           {
             if (h->m_oswindow && h->m_owner)
             {
-              gdk_window_set_keep_above(h->m_oswindow,!!SWELL_g_focus_oswindow);
+              gdk_window_set_keep_above(h->m_oswindow,
+                SWELL_g_focus_oswindow && (!modalWindow || modalWindow == h)
+               );
             }
             h=h->m_next;
           }
