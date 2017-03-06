@@ -5187,12 +5187,48 @@ void UpdateWindow(HWND hwnd)
 BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
   if (!hwnd) return FALSE;
-  HWND hwndCall=hwnd;
+
 #ifdef SWELL_LICE_GDI
+  RECT rect = { 0,0,
+                hwnd->m_position.right - hwnd->m_position.left,
+                hwnd->m_position.bottom - hwnd->m_position.top };
+
+  if (r)
+  {
+    if (!IntersectRect(&rect,&rect,r)) return FALSE;
+  }
+
+  // rect is in client coordinates of h
+  HWND h = hwnd;
+  for (;;)
+  {
+    NCCALCSIZE_PARAMS tr;
+    memset(&tr,0,sizeof(tr));
+    tr.rgrc[0] = h->m_position;
+    if (h->m_oswindow)
+    {
+      tr.rgrc[0].right -= tr.rgrc[0].left;
+      tr.rgrc[0].bottom -= tr.rgrc[0].top;
+      tr.rgrc[0].left = tr.rgrc[0].top = 0;
+    }
+    if (h->m_wndproc) h->m_wndproc(h,WM_NCCALCSIZE,0,(LPARAM)&tr);
+
+    rect.left += tr.rgrc[0].left;
+    rect.top += tr.rgrc[0].top;
+    rect.right += tr.rgrc[0].left;
+    rect.bottom += tr.rgrc[0].top;
+    if (!IntersectRect(&rect,&rect,&tr.rgrc[0])) return FALSE;
+
+    if (h->m_oswindow) break;
+
+    h=h->m_parent;
+    if (!h) return FALSE;
+  }
+
   {
     hwnd->m_invalidated=true;
     HWND t=hwnd->m_parent;
-    while (t && !t->m_child_invalidated) 
+    while (t)
     { 
       if (eraseBk)
       {
@@ -5203,34 +5239,15 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
       t=t->m_parent; 
     }
   }
-#endif
 #ifdef SWELL_TARGET_GDK
-  GdkRectangle rect;
-  if (r) { rect.x = r->left; rect.y = r->top; rect.width = r->right-r->left; rect.height = r->bottom - r->top; }
-  else
-  {
-    rect.x=rect.y=0;
-    rect.width = hwnd->m_position.right - hwnd->m_position.left;
-    rect.height = hwnd->m_position.bottom - hwnd->m_position.top;
-  }
-  while (hwnd && !hwnd->m_oswindow) 
-  {
-    NCCALCSIZE_PARAMS tr={{ hwnd->m_position, },};
-    if (hwnd->m_wndproc) hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,0,(LPARAM)&tr);
-    rect.x += tr.rgrc[0].left;
-    rect.y += tr.rgrc[0].top;
-    hwnd=hwnd->m_parent;
-  }
-  if (hwnd && hwnd->m_oswindow) 
-  {
-    RECT tr={0,0,hwnd->m_position.right-hwnd->m_position.left,hwnd->m_position.bottom-hwnd->m_position.top};
-    NCCALCSIZE_PARAMS p={{tr,},};
-    if (hwnd->m_wndproc) hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,0,(LPARAM)&p);
-    rect.x += p.rgrc[0].left;
-    rect.y += p.rgrc[0].top;
+  GdkRectangle gdkr;
+  gdkr.x = rect.left;
+  gdkr.y = rect.top;
+  gdkr.width = rect.right-rect.left;
+  gdkr.height = rect.bottom-rect.top;
 
-    gdk_window_invalidate_rect(hwnd->m_oswindow,hwnd!=hwndCall || r ? &rect : NULL,true);
-  }
+  gdk_window_invalidate_rect(h->m_oswindow,hwnd!=h || r ? &gdkr : NULL,true);
+#endif
 #endif
   return TRUE;
 }
