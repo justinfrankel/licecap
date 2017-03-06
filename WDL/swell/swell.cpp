@@ -598,6 +598,7 @@ BOOL WinSetRect(LPRECT lprc, int xLeft, int yTop, int xRight, int yBottom)
 
 int WinIntersectRect(RECT *out, const RECT *in1, const RECT *in2)
 {
+  RECT tmp = *in1; in1 = &tmp;
   memset(out,0,sizeof(RECT));
   if (in1->right <= in1->left) return false;
   if (in2->right <= in2->left) return false;
