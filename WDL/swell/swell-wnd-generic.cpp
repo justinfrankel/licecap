@@ -5202,6 +5202,8 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
   HWND h = hwnd;
   for (;;)
   {
+    if (!h->m_visible) return FALSE;
+
     NCCALCSIZE_PARAMS tr;
     memset(&tr,0,sizeof(tr));
     tr.rgrc[0] = h->m_position;
