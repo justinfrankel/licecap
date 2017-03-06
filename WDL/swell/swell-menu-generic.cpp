@@ -361,7 +361,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           {
             RECT r={0,};
             const char *str = inf->dwTypeData;
-            if (!str) str="";
+            if (!str || !*str) str="XXXXX";
             const char *pt2 = strstr(str,"\t");
             DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
             if (r.right > wid) wid=r.right;
@@ -439,7 +439,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             if (inf->fType == MFT_STRING)
             {
               const char *str = inf->dwTypeData;
-              if (!str) str=" ";
+              if (!str || !*str) str="XXXXX";
               RECT mr={0,};
               DrawText(ps.hdc,str,-1,&mr,DT_CALCRECT|DT_SINGLELINE);
 
@@ -619,7 +619,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           {
             RECT r={0,};
             const char *str = inf->dwTypeData;
-            if (!str) str="";
+            if (!str || !*str) str="XXXXX";
             const char *pt2 = strstr(str,"\t");
             DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
             ht += r.bottom + text_ht_pad;
