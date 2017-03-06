@@ -5027,7 +5027,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   if (!lvs || !pinf) return -1;
 
   const int row = ListView_HitTest(h, pinf);
-  int x,xpos=0,idx=0;
+  int x,xpos=-lvs->m_scroll_x,idx=0;
   const int n=lvs->m_cols.GetSize();
   const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
   if (has_image) xpos += lvs->m_last_row_height;
@@ -5057,12 +5057,42 @@ void ListView_EnsureVisible(HWND h, int i, BOOL pok)
 }
 bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
 {
-  if (!h) return false;
-  return false;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !r) return false;
+
+  r->top = lvs->m_last_row_height * item - lvs->m_scroll_y;
+  if (lvs->HasColumnHeaders(h)) r->top += lvs->m_last_row_height+2;
+  RECT cr;
+  GetClientRect(h,&cr);
+  r->left=cr.left;
+  r->right=cr.right;
+
+  if (subitem>0)
+  {
+    int x,xpos=-lvs->m_scroll_x;
+    const int n=lvs->m_cols.GetSize();
+    for (x = 0; x < n; x ++)
+    {
+      const int xwid = lvs->m_cols.Get()[x].xwid;
+      if (x == subitem)
+      {
+        r->left=xpos;
+        r->right=xpos+xwid;
+        break;
+      }
+      xpos += xwid;
+    }
+  }
+
+
+  r->bottom = r->top + lvs->m_last_row_height;
+
+  return true;
 }
+
 bool ListView_GetItemRect(HWND h, int item, RECT *r, int code)
 {
-  return false;
+  return ListView_GetSubItemRect(h, item, -1, code, r);
 }
 
 bool ListView_Scroll(HWND h, int xscroll, int yscroll)
@@ -5079,7 +5109,13 @@ bool ListView_DeleteColumn(HWND h, int pos)
 }
 int ListView_GetCountPerPage(HWND h)
 {
-  return 1;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->m_last_row_height) return 0;
+
+  RECT cr;
+  GetClientRect(h,&cr);
+  if (lvs->HasColumnHeaders(h)) cr.bottom -= lvs->m_last_row_height+2;
+  return (cr.bottom-cr.top) / lvs->m_last_row_height;
 }
 
 HWND ChildWindowFromPoint(HWND h, POINT p)
