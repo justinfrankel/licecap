@@ -320,9 +320,11 @@ again:
         else
         {
           // timed wait
+#ifdef SWELL_TARGET_OSX
           struct timespec ts;
           ts.tv_sec = msTO/1000;
           ts.tv_nsec = (msTO%1000)*1000000;
+#endif
           while (!evt->isSignal) 
           {
 #ifdef SWELL_TARGET_OSX
@@ -332,17 +334,11 @@ again:
               break;
             }
 #else
-#if 1
             struct timeval tm={0,};
             gettimeofday(&tm,NULL);
-            ts.tv_sec += tm.tv_sec;
-            ts.tv_nsec += tm.tv_usec * 1000;
-#else
-            struct timespec ts2={0,0,};
-            clock_gettime(CLOCK_REALTIME,&ts2);
-            ts.tv_sec += ts2.tv_sec;
-            ts.tv_nsec += ts2.tv_nsec;
-#endif
+            struct timespec ts;
+            ts.tv_sec = msTO/1000 + tm.tv_sec;
+            ts.tv_nsec = (tm.tv_usec + (msTO%1000)*1000) * 1000;
             if (ts.tv_nsec>=1000000000) 
             {
               int n = ts.tv_nsec/1000000000;
