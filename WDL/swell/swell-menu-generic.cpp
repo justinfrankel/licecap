@@ -341,6 +341,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
   switch (uMsg)
   {
     case WM_CREATE:
+      hwnd->m_classname = "__SWELL_MENU";
       m_trackingMenus.Add(hwnd);
       SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
 

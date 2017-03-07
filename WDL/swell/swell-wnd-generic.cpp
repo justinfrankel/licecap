@@ -226,7 +226,16 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
-            gdk_window_set_override_redirect(hwnd->m_oswindow,true);
+            if (!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU"))
+            {
+              gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
+              gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
+              gdk_window_set_keep_above(hwnd->m_oswindow,true);
+            }
+            else
+            {
+              gdk_window_set_override_redirect(hwnd->m_oswindow,true);
+            }
           }
           else if (/*hwnd == DialogBoxIsActive() || */ !(hwnd->m_style&WS_THICKFRAME))
           {
