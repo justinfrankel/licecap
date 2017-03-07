@@ -3749,9 +3749,9 @@ forceMouseMove:
                 if (str) 
                 {
                   ar=tr;
+                  ar.left += xpos;
                   if (ncols > 0)
                   {
-                    ar.left += xpos;
                     ar.right = ar.left + cols[col].xwid - 3;
                     xpos += cols[col].xwid;
                   }
