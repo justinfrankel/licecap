@@ -43,6 +43,9 @@
 #include <sched.h>
 #endif
 
+#ifdef __linux__
+#include <linux/sched.h>
+#endif
 
 #include <pthread.h>
 
@@ -427,17 +430,57 @@ HANDLE CreateThread(void *TA, DWORD stackSize, DWORD (*ThreadProc)(LPVOID), LPVO
 BOOL SetThreadPriority(HANDLE hand, int prio)
 {
   SWELL_InternalObjectHeader_Thread *evt=(SWELL_InternalObjectHeader_Thread*)hand;
+
+#ifdef __linux__
+  static int s_rt_max;
+  if (!evt && prio >= 0x10000 && prio < 0x10000 + 100)
+  {
+    s_rt_max = prio - 0x10000;
+    return TRUE;
+  }
+#endif
+
   if (!evt || evt->hdr.type != INTERNAL_OBJECT_THREAD) return FALSE;
   
   if (evt->done) return FALSE;
     
   int pol;
   struct sched_param param;
+  memset(&param,0,sizeof(param));
+
+#ifdef __linux__
+  // linux only has meaningful priorities if using realtime threads,
+  // for this to be enabled the caller should use:
+  // #ifdef __linux__
+  // SetThreadPriority(NULL,0x10000 + max_thread_priority (0..99));
+  // #endif
+  if (s_rt_max < 1 || prio <= THREAD_PRIORITY_NORMAL)
+  {
+    pol = SCHED_NORMAL;
+    param.sched_priority=0;
+  }
+  else 
+  {
+    int lb = s_rt_max;
+    if (prio < THREAD_PRIORITY_TIME_CRITICAL) 
+    {
+      lb--;
+      if (prio < THREAD_PRIORITY_HIGHEST)  
+      {
+        lb--;
+        if (prio < THREAD_PRIORITY_ABOVE_NORMAL) lb--;
+      }
+    }
+    param.sched_priority = lb < 1 ? 1 : lb;
+    pol = SCHED_RR;
+  }
+  return !pthread_setschedparam(evt->pt,pol,&param);
+#else
   if (!pthread_getschedparam(evt->pt,&pol,&param))
   {
-
-//    printf("thread prio %d(%d,%d), %d(FIFO=%d, RR=%d)\n",param.sched_priority, sched_get_priority_min(pol),sched_get_priority_max(pol), pol,SCHED_FIFO,SCHED_RR);
+    // this is for darwin, but might work elsewhere
     param.sched_priority = 31 + prio;
+
     int mt=sched_get_priority_min(pol);
     if (param.sched_priority<mt||param.sched_priority > (mt=sched_get_priority_max(pol)))param.sched_priority=mt;
     
@@ -446,10 +489,8 @@ BOOL SetThreadPriority(HANDLE hand, int prio)
       return TRUE;
     }
   }
-  
-  
-  
   return FALSE;
+#endif
 }
 
 BOOL SetEvent(HANDLE hand)
