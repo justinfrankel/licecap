@@ -39,7 +39,6 @@
 
 #ifdef __APPLE__
 #include <Carbon/Carbon.h>
-#include <libkern/OSAtomic.h>
 #include <sched.h>
 #endif
 
@@ -50,6 +49,7 @@
 #include <pthread.h>
 
 
+#include "../wdlatomic.h"
 #include "../mutex.h"
 #include "../assocarray.h"
 
@@ -131,11 +131,7 @@ BOOL CloseHandle(HANDLE hand)
   if (!hdr) return FALSE;
   if (hdr->type <= INTERNAL_OBJECT_START || hdr->type >= INTERNAL_OBJECT_END) return FALSE;
   
-#ifdef SWELL_TARGET_OSX
-  if (!OSAtomicDecrement32(&hdr->count))
-#else
-  if (!--hdr->count) // todo: atomic decrement on posix/ glib?
-#endif
+  if (!wdl_atomic_decr(&hdr->count))
   {
     switch (hdr->type)
     {
