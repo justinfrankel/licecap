@@ -88,11 +88,46 @@ static bool swell_initwindowsys()
   return SWELL_gdk_active>0;
 }
 
+static bool g_want_activateapp_on_focus;
+static UINT_PTR g_focus_lost_timer;
+static void focusLostTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
+{
+  KillTimer(NULL,g_focus_lost_timer);
+  g_focus_lost_timer = 0;
+  if (!SWELL_g_focus_oswindow) return;
+
+  GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
+  if (window != SWELL_g_focus_oswindow) 
+  {
+    SWELL_g_focus_oswindow = NULL;
+
+    HWND h = SWELL_topwindows; 
+    while (h)
+    {
+      if (h->m_oswindow && h->m_owner) 
+      {
+        // the window manager doesn't always lower the window right away, ack
+        gdk_window_set_keep_above(h->m_oswindow, false);
+      }
+      PostMessage(h,WM_ACTIVATEAPP,0,0);
+      h=h->m_next;
+    }
+    g_want_activateapp_on_focus=true;
+  }
+}
+
+static void swell_set_focus_oswindow(GdkWindow *v)
+{
+  if (g_focus_lost_timer) KillTimer(NULL,g_focus_lost_timer);
+  g_focus_lost_timer=0;
+  SWELL_g_focus_oswindow=v;
+}
+
 static void swell_destroyOSwindow(HWND hwnd)
 {
   if (hwnd && hwnd->m_oswindow)
   {
-    if (SWELL_g_focus_oswindow == hwnd->m_oswindow) SWELL_g_focus_oswindow=NULL;
+    if (SWELL_g_focus_oswindow == hwnd->m_oswindow) swell_set_focus_oswindow(NULL);
     gdk_window_destroy(hwnd->m_oswindow);
     hwnd->m_oswindow=NULL;
 #ifdef SWELL_LICE_GDI
@@ -522,33 +557,35 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
       if (evt->type == GDK_FOCUS_CHANGE)
       {
         GdkEventFocus *fc = (GdkEventFocus *)evt;
-        const bool last_focus = !!SWELL_g_focus_oswindow;
-        if (fc->in) 
+        if (fc->in && hwnd) 
         {
-          SWELL_g_focus_oswindow = hwnd ? fc->window : NULL;
+          const bool last_focus = !!SWELL_g_focus_oswindow;
+          swell_set_focus_oswindow(fc->window);
+
+          if (!last_focus)
+          {
+            // keep-above any owned windows while one of our windows has focus
+            HWND h = SWELL_topwindows; 
+            HWND modalWindow = DialogBoxIsActive();
+            while (h)
+            {
+              if (g_want_activateapp_on_focus) PostMessage(h,WM_ACTIVATEAPP,1,0);
+              if (h->m_oswindow && h->m_owner)
+              {
+                gdk_window_set_keep_above(h->m_oswindow, (!modalWindow || modalWindow == h));
+              }
+              h=h->m_next;
+            }
+            g_want_activateapp_on_focus=false;
+          }
         }
         else
         {
-          if (SWELL_g_focus_oswindow == fc->window) SWELL_g_focus_oswindow = NULL;
-        }
-
-        if (last_focus != !!SWELL_g_focus_oswindow)
-        {
-          // keep-above any owned windows while one of our windows has focus
-          HWND h = SWELL_topwindows; 
-          HWND modalWindow = DialogBoxIsActive();
-          while (h)
+          if (SWELL_g_focus_oswindow == fc->window) 
           {
-            if (h->m_oswindow && h->m_owner)
-            {
-              gdk_window_set_keep_above(h->m_oswindow,
-                SWELL_g_focus_oswindow && (!modalWindow || modalWindow == h)
-               );
-            }
-            h=h->m_next;
+            if (!g_focus_lost_timer) g_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
           }
         }
-
       }
 
       if (hwnd) switch (evt->type)
@@ -728,9 +765,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (b->button==2) msg=WM_MBUTTONDOWN;
             else if (b->button==3) msg=WM_RBUTTONDOWN;
             
-            if (hwnd && hwnd->m_oswindow && 
-                SWELL_g_focus_oswindow != hwnd->m_oswindow)
-                     SWELL_g_focus_oswindow = hwnd->m_oswindow;
+            if (hwnd && hwnd->m_oswindow && SWELL_g_focus_oswindow != hwnd->m_oswindow)
+            {
+              swell_set_focus_oswindow(hwnd->m_oswindow);
+            }
 
             if(evt->type == GDK_BUTTON_RELEASE) msg++; // move from down to up
             else if(evt->type == GDK_2BUTTON_PRESS) msg+=2; // move from down to up
@@ -1009,18 +1047,9 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #ifdef SWELL_TARGET_GDK
     if (SWELL_g_focus_oswindow && SWELL_g_focus_oswindow == hwnd->m_oswindow)
     {
-      SWELL_g_focus_oswindow = NULL;
-
       HWND h = hwnd->m_owner;
-      while (h)
-      {
-        if (h->m_oswindow)
-        {
-          SWELL_g_focus_oswindow = h->m_oswindow;
-          break;
-        }
-        h = h->m_parent ? h->m_parent : h->m_owner;
-      }
+      while (h && !h->m_oswindow) h = h->m_parent ? h->m_parent : h->m_owner;
+      swell_set_focus_oswindow(h ? h->m_oswindow : NULL);
     }
 #endif
     hwnd->m_wndproc=NULL;
@@ -1148,7 +1177,8 @@ void SetFocus(HWND hwnd)
   if (hwnd) gdk_window_raise(hwnd->m_oswindow);
   if (hwnd && hwnd->m_oswindow != SWELL_g_focus_oswindow)
   {
-    gdk_window_focus(SWELL_g_focus_oswindow = hwnd->m_oswindow,GDK_CURRENT_TIME);
+    swell_set_focus_oswindow(hwnd->m_oswindow);
+    gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
   }
 #endif
 }
@@ -1771,7 +1801,8 @@ void ShowWindow(HWND hwnd, int cmd)
     while (h && !h->m_oswindow) h = h->m_parent;
     if (h) 
     {
-      gdk_window_focus(SWELL_g_focus_oswindow = h->m_oswindow,GDK_CURRENT_TIME);
+      swell_set_focus_oswindow(h->m_oswindow);
+      gdk_window_focus(h->m_oswindow,GDK_CURRENT_TIME);
     }
 #endif
   }
