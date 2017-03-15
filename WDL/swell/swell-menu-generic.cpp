@@ -606,7 +606,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
-        int ht = 0;
+        int ht = top_margin;
         int x;
         HDC hdc=GetDC(hwnd);
         if (wParam > 1) which = -1;
@@ -642,7 +642,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             if (wParam == 4 && inf->hSubMenu) 
             {
               HWND nextmenu = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)+1);
-              if (!nextmenu || GetWindowLongPtr(nextmenu,GWLP_USERDATA) != (LPARAM)inf->hSubMenu) wParam = 1; // activate if not already visible
+              if (!nextmenu || GetWindowLongPtr(nextmenu,GWLP_USERDATA) != (LPARAM)inf->hSubMenu)
+              {
+                wParam = 1; // activate if not already visible
+                menu->sel_vis = which;
+              }
             }
             break; 
           }
