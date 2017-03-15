@@ -1763,7 +1763,18 @@ void ShowWindow(HWND hwnd, int cmd)
   else if (cmd==SW_HIDE) hwnd->m_visible=false;
 
   swell_manageOSwindow(hwnd,cmd==SW_SHOW);
-  if (cmd == SW_SHOW) SWELL_g_focuswnd = hwnd;
+  if (cmd == SW_SHOW) 
+  {
+    SWELL_g_focuswnd = hwnd;
+#ifdef SWELL_TARGET_GDK
+    HWND h = hwnd;
+    while (h && !h->m_oswindow) h = h->m_parent;
+    if (h) 
+    {
+      gdk_window_focus(SWELL_g_focus_oswindow = h->m_oswindow,GDK_CURRENT_TIME);
+    }
+#endif
+  }
 
   InvalidateRect(hwnd,NULL,FALSE);
 
