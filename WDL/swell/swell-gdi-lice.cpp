@@ -124,49 +124,54 @@ static int sortByFilePart(const char **a, const char **b)
   return stricmp(WDL_get_filepart(*a),WDL_get_filepart(*b));
 }
 
+struct fontScoreMatched {
+  int score;
+  const char *fn;
+
+  static int sortfunc(const void *a, const void *b)
+  {
+    return ((const fontScoreMatched *)a)->score - ((const fontScoreMatched *)b)->score;
+  }
+
+};
+
 static FT_Face MatchFont(const char *lfFaceName)
 {
   const int fn_len = strlen(lfFaceName), ntab=2;
   WDL_PtrList<char> *tab[ntab]= { &s_freetype_regfonts, &s_freetype_fontlist };
   int pos[2], x;
   bool match;
-  for (x=0;x<ntab;x++) pos[x] = tab[x]->LowerBound(lfFaceName,&match,sortByFilePart);
+  static WDL_TypedBuf<fontScoreMatched> matchlist;
+  matchlist.Resize(0,false);
 
-  for (;;)
+  for (x=0;x<ntab;x++) 
   {
-    int best_slot = -1, best_len = 0;
-    const char *best_fn=NULL;
-    for (x=0;x<ntab;x++)
+    WDL_PtrList<char> *t = tab[x];
+    int px = t->LowerBound(lfFaceName,&match,sortByFilePart);
+    for (;;) 
     {
-      if (pos[x] >= 0)
-      {
-        const char *fn = tab[x]->Get(pos[x]);
-        if (!fn) pos[x]=-1;
-        else
-        {
-          const char *fnp = WDL_get_filepart(fn);
-          if (strnicmp(fnp,lfFaceName,fn_len)) pos[x]=-1;
-          else
-          {
-            const char *ext = WDL_get_fileext(fnp);
-            const int len = (ext-fnp);
-            if (best_slot < 0 || len < best_len)
-            {
-              best_len=len;
-              best_slot = x;
-              best_fn = fn;
-            }
-          }
-        }
-      }
+      const char *fn = t->Get(px++);
+      if (!fn) break;
+      const char *fnp = WDL_get_filepart(fn);
+      if (strnicmp(fnp,lfFaceName,fn_len)) break;
+
+      fontScoreMatched s = { x + ntab * (int)(WDL_get_fileext(fnp)-fnp), fn };
+      matchlist.Add(s);
     }
-    if (best_fn == NULL) return NULL;
-    pos[best_slot]++;
+  } 
+  if (matchlist.GetSize()>1)
+    qsort(matchlist.Get(),matchlist.GetSize(),sizeof(fontScoreMatched),fontScoreMatched::sortfunc);
+
+  for (x=0; x < matchlist.GetSize(); x ++)
+  {
+    const fontScoreMatched *s = matchlist.Get()+x;
+ 
     FT_Face face=NULL;
-    //printf("trying '%s' for '%s'\n",best_fn,lfFaceName);
-    FT_New_Face(s_freetype,best_fn,0,&face);
+    //printf("trying '%s' for '%s'\n",s->fn,lfFaceName);
+    FT_New_Face(s_freetype,s->fn,0,&face);
     if (face) return face;
   }
+  return NULL;
 }
 
 #endif
