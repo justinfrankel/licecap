@@ -668,18 +668,30 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           if (inf->fState&MF_GRAYED){ }
           else if (inf->hSubMenu)
           {
-            HWND next = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)+1);
-            if (next) DestroyWindow(next); 
+            const int nextidx = m_trackingMenus.Find(hwnd)+1;
+            HWND hh = m_trackingMenus.Get(nextidx);
+
+            inf->hSubMenu->sel_vis=-1;
+
+            if (hh)
+            {
+              m_trackingMenus.Delete(nextidx);
+              int a = m_trackingMenus.GetSize();
+              while (a > nextidx) DestroyWindow(m_trackingMenus.Get(--a));
+            }
+            else
+            {
+              hh = new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
+              SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
+            }
 
             RECT r;
             GetClientRect(hwnd,&r);
             m_trackingPt.x=r.right;
             m_trackingPt.y=item_ypos;
             ClientToScreen(hwnd,&m_trackingPt);
-            HWND hh;
-            inf->hSubMenu->sel_vis=-1;
-            submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd),WM_CREATE,0,(LPARAM)inf->hSubMenu);
-            SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
+
+            submenuWndProc(hh, WM_CREATE,0,(LPARAM)inf->hSubMenu);
             InvalidateRect(hwnd,NULL,FALSE);
           }
           else if (inf->wID) m_trackingRet = inf->wID;
