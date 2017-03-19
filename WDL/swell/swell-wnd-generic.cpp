@@ -543,6 +543,7 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 HWND GetFocusIncludeMenus();
 
+static bool is_likely_capslock; // only used when processing dit events for a-zA-Z
 static bool is_virtkey_char(int c)
 {
   return (c >= 'a' && c <= 'z') ||
@@ -713,7 +714,15 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               kv = k->keyval;
               if (is_virtkey_char(kv))
               {
-                if (kv >= 'a' && kv <= 'z') kv += 'A'-'a';
+                if (kv >= 'a' && kv <= 'z') 
+                {
+                  kv += 'A'-'a';
+                  is_likely_capslock = (modifiers&FSHIFT)!=0;
+                }
+                else if (kv >= 'A' && kv <= 'Z') 
+                {
+                  is_likely_capslock = (modifiers&FSHIFT)==0;
+                }
                 modifiers |= FVIRTKEY;
               }
               else 
@@ -2427,8 +2436,10 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
 
   if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam)))
   {
-    if ((lParam & (FVIRTKEY|FSHIFT)) == FVIRTKEY && wParam >= 'A' && wParam <= 'Z')
-      wParam += 'a' - 'A';
+    if (wParam >= 'A' && wParam <= 'Z' && (lParam & FVIRTKEY))
+    {
+      if ((lParam&FSHIFT) ^ (is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
+    }
 
     char b[8];
     WDL_MakeUTFChar(b,wParam,sizeof(b));
