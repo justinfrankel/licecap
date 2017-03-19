@@ -539,6 +539,14 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 HWND GetFocusIncludeMenus();
 
+static bool is_virtkey_char(int c)
+{
+  return (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9');
+}
+
+
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -690,21 +698,15 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (k->state&GDK_MOD1_MASK) modifiers|=FALT;
             if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
 
-            int kv = swell_gdkConvertKey(k->keyval), kv_post = kv;
-            int mod_post = modifiers;
+            int kv = swell_gdkConvertKey(k->keyval);
             if (kv) 
             {
               modifiers |= FVIRTKEY;
-              mod_post |= FVIRTKEY;
             }
             else 
             {
-              kv_post = kv = k->keyval;
-              if ((kv >= 'A' && kv <= 'Z') ||
-                  (kv >= 'a' && kv <= 'z') ||
-                  (kv >= '0' && kv <= '9') ||
-                  // there might be other keys which it would be good to send in their raw (FVIRTKEY) form
-                  0)
+              kv = k->keyval;
+              if (is_virtkey_char(kv))
               {
                 if (kv >= 'a' && kv <= 'z') kv += 'A'-'a';
                 modifiers |= FVIRTKEY;
@@ -714,7 +716,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                 if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsehwere 
                 // treat as ASCII, clear shift flag
                 modifiers &= ~FSHIFT;
-                mod_post &= ~FSHIFT;
               }
             }
 
@@ -725,7 +726,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             MSG msg = { hwnd, evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP, 
                               kv, modifiers, };
             if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)
-              SendMessage(hwnd, msg.message, kv_post, mod_post);
+              SendMessage(hwnd, msg.message, kv, modifiers);
           }
         break;
         case GDK_MOTION_NOTIFY:
@@ -2419,8 +2420,11 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
 {
   if (lParam & (FCONTROL|FALT)) return 0;
 
-  if (wParam >= 32 && !(lParam & FVIRTKEY))
+  if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam)))
   {
+    if ((lParam & (FVIRTKEY|FSHIFT)) == FVIRTKEY && wParam >= 'A' && wParam <= 'Z')
+      wParam += 'a' - 'A';
+
     char b[8];
     WDL_MakeUTFChar(b,wParam,sizeof(b));
     int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
