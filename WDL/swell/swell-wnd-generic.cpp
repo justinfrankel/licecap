@@ -50,6 +50,10 @@ static DWORD s_lastMessagePos;
 
 #ifdef SWELL_TARGET_GDK
 
+#ifndef SWELL_WINDOWSKEY_GDK_MASK
+#define  SWELL_WINDOWSKEY_GDK_MASK GDK_MOD4_MASK
+#endif
+
 static GdkEvent *s_cur_evt;
 static int SWELL_gdk_active;
 GdkWindow *SWELL_g_focus_oswindow;
@@ -696,6 +700,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             int modifiers = 0;
             if (k->state&GDK_CONTROL_MASK) modifiers|=FCONTROL;
             if (k->state&GDK_MOD1_MASK) modifiers|=FALT;
+            if (k->state&SWELL_WINDOWSKEY_GDK_MASK) modifiers|=FLWIN;
             if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
 
             int kv = swell_gdkConvertKey(k->keyval);
@@ -2418,7 +2423,7 @@ struct __SWELL_editControlState
 
 static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool isMultiLine, __SWELL_editControlState *es)
 {
-  if (lParam & (FCONTROL|FALT)) return 0;
+  if (lParam & (FCONTROL|FALT|FLWIN)) return 0;
 
   if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam)))
   {
@@ -6355,6 +6360,7 @@ WORD GetAsyncKeyState(int key)
     if (key == VK_CONTROL) return (mod&GDK_CONTROL_MASK)?0x8000:0;
     if (key == VK_MENU) return (mod&GDK_MOD1_MASK)?0x8000:0;
     if (key == VK_SHIFT) return (mod&GDK_SHIFT_MASK)?0x8000:0;
+    if (key == VK_LWIN) return (mod&SWELL_WINDOWSKEY_GDK_MASK)?0x8000:0;
   }
 #endif
   return 0;
