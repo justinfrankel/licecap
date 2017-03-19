@@ -690,15 +690,32 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (k->state&GDK_MOD1_MASK) modifiers|=FALT;
             if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
 
-            int kv = swell_gdkConvertKey(k->keyval);
+            int kv = swell_gdkConvertKey(k->keyval), kv_post = kv;
+            int mod_post = modifiers;
             if (kv) 
             {
               modifiers |= FVIRTKEY;
+              mod_post |= FVIRTKEY;
             }
             else 
             {
-              kv = k->keyval; // ASCII!
-              if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsehwere 
+              kv_post = kv = k->keyval;
+              if ((kv >= 'A' && kv <= 'Z') ||
+                  (kv >= 'a' && kv <= 'z') ||
+                  (kv >= '0' && kv <= '9') ||
+                  // there might be other keys which it would be good to send in their raw (FVIRTKEY) form
+                  0)
+              {
+                if (kv >= 'a' && kv <= 'z') kv += 'A'-'a';
+                modifiers |= FVIRTKEY;
+              }
+              else 
+              {
+                if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsehwere 
+                // treat as ASCII, clear shift flag
+                modifiers &= ~FSHIFT;
+                mod_post &= ~FSHIFT;
+              }
             }
 
             HWND foc = GetFocusIncludeMenus();
@@ -708,7 +725,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             MSG msg = { hwnd, evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP, 
                               kv, modifiers, };
             if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)
-              SendMessage(msg.hwnd, msg.message, msg.wParam, msg.lParam);
+              SendMessage(hwnd, msg.message, kv_post, mod_post);
           }
         break;
         case GDK_MOTION_NOTIFY:
