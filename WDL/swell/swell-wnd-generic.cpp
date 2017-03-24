@@ -48,6 +48,16 @@ static HWND s_captured_window;
 HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
 static DWORD s_lastMessagePos;
 
+static bool is_likely_capslock; // only used when processing dit events for a-zA-Z
+static bool is_virtkey_char(int c)
+{
+  return (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9');
+}
+
+
+
 #ifdef SWELL_TARGET_GDK
 
 #ifndef SWELL_WINDOWSKEY_GDK_MASK
@@ -542,15 +552,6 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 HWND GetFocusIncludeMenus();
-
-static bool is_likely_capslock; // only used when processing dit events for a-zA-Z
-static bool is_virtkey_char(int c)
-{
-  return (c >= 'a' && c <= 'z') ||
-         (c >= 'A' && c <= 'Z') ||
-         (c >= '0' && c <= '9');
-}
-
 
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
