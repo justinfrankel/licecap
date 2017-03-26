@@ -137,4 +137,15 @@ typedef bool WDL_bool;
   #define WDL_unlikely(x) (!!(x))
 #endif
 
+#if defined(_DEBUG) || defined(DEBUG)
+#include <assert.h>
+#define WDL_ASSERT(x) assert(x)
+#define WDL_NORMALLY(x) (assert(x),1)
+#define WDL_NOT_NORMALLY(x) (assert(!(x)),0)
+#else
+#define WDL_ASSERT(x)
+#define WDL_NORMALLY(x) WDL_likely(x)
+#define WDL_NOT_NORMALLY(x) WDL_unlikely(x)
+#endif
+
 #endif
