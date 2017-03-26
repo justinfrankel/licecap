@@ -144,8 +144,13 @@ typedef bool WDL_bool;
 #define WDL_NOT_NORMALLY(x) (assert(!(x)),0)
 #else
 #define WDL_ASSERT(x)
-#define WDL_NORMALLY(x) WDL_likely(x)
-#define WDL_NOT_NORMALLY(x) WDL_unlikely(x)
+#ifdef WDL_EXTRA_RISKY
+  #define WDL_NORMALLY(x) (1)
+  #define WDL_NOT_NORMALLY(x) (0)
+#else
+  #define WDL_NORMALLY(x) WDL_likely(x)
+  #define WDL_NOT_NORMALLY(x) WDL_unlikely(x)
+#endif
 #endif
 
 #endif
