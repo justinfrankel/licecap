@@ -338,6 +338,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 {
   const int lcol=24, rcol=12, mcol=10, top_margin=4;
   const int separator_ht = 8, text_ht_pad = 4, bitmap_ht_pad = 4;
+  const int scroll_margin = 2;
   switch (uMsg)
   {
     case WM_CREATE:
@@ -397,8 +398,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         if (tr.right > vp.right) { tr.left += vp.right-tr.right; tr.right=vp.right; }
         if (tr.left < vp.left) { tr.right += vp.left-tr.left; tr.left=vp.left; }
         if (tr.top < vp.top) { tr.bottom += vp.top-tr.top; tr.top=vp.top; }
+        if (tr.bottom > vp.bottom) tr.bottom=vp.bottom;
+        if (tr.right > vp.right) tr.right=vp.right;
+
         SetWindowPos(hwnd,NULL,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,SWP_NOZORDER);
+
+        hwnd->m_extra[0] = 0; // Y scroll offset
+        hwnd->m_extra[1] = 0; // allow scroll flag (set from paint)
       }
+
       SetWindowLong(hwnd,GWL_STYLE,GetWindowLong(hwnd,GWL_STYLE)&~WS_CAPTION);
       ShowWindow(hwnd,SW_SHOW);
       SetFocus(hwnd);
@@ -430,8 +438,14 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           MoveToEx(ps.hdc,cr.left+lcol-5,cr.top,NULL);
           LineTo(ps.hdc,cr.left+lcol-5,cr.bottom);
 
-          for (x=0; x < menu->items.GetSize(); x++)
+          hwnd->m_extra[1]=0;
+          for (x=hwnd->m_extra[0]; x < (menu->items.GetSize()); x++)
           {
+            if (ypos >= cr.bottom)
+            {
+              hwnd->m_extra[1] = 1; // allow scrolling down
+              break;
+            }
             MENUITEMINFO *inf = menu->items.Get(x);
             RECT r={lcol,ypos,cr.right, };
             bool dis = !!(inf->fState & MF_GRAYED);
@@ -522,6 +536,10 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                RECT r2=r; r2.left = 0; r2.right=lcol;
                DrawText(ps.hdc,"X",-1,&r2,DT_VCENTER|DT_CENTER|DT_SINGLELINE);
             }
+            if (ypos > cr.bottom+2)
+            {
+              hwnd->m_extra[1] = 1; // allow scrolling down if we were meaningfully partially offscreen
+            }
           }
           SelectObject(ps.hdc,oldbr);
           SelectObject(ps.hdc,oldpen);
@@ -606,12 +624,29 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
+        // menu scroll
+        RECT tr,vp;
+        GetWindowRect(hwnd,&tr);
+        SWELL_GetViewPort(&vp,&tr,true);
+
+        POINT curM;
+        GetCursorPos(&curM);
+        int xFirst = hwnd->m_extra[0];
+        if (hwnd->m_extra[1] && curM.y >= vp.bottom-scroll_margin && curM.y < vp.bottom+scroll_margin)
+        {
+          hwnd->m_extra[0]=++xFirst;
+        }
+        else if (xFirst > 0 && curM.y >= vp.top-scroll_margin && curM.y < vp.top+scroll_margin)
+        {
+          hwnd->m_extra[0]=--xFirst;
+        }
+
         int ht = top_margin;
         int x;
         HDC hdc=GetDC(hwnd);
         if (wParam > 1) which = -1;
         else item_ypos = 0;
-        for (x=0; x < menu->items.GetSize(); x++)
+        for (x=xFirst; x < (menu->items.GetSize()); x++)
         {
           if (wParam == 1 && which == x) { item_ypos = ht; break; }
           MENUITEMINFO *inf = menu->items.Get(x);
