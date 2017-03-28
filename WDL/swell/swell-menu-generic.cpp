@@ -338,7 +338,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 {
   const int lcol=24, rcol=12, mcol=10, top_margin=4;
   const int separator_ht = 8, text_ht_pad = 4, bitmap_ht_pad = 4;
-  const int scroll_margin = 2;
+  const int scroll_margin = 6;
   switch (uMsg)
   {
     case WM_CREATE:
@@ -410,7 +410,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       SetWindowLong(hwnd,GWL_STYLE,GetWindowLong(hwnd,GWL_STYLE)&~WS_CAPTION);
       ShowWindow(hwnd,SW_SHOW);
       SetFocus(hwnd);
-      SetTimer(hwnd,1,250,NULL);
+      SetTimer(hwnd,1,100,NULL);
     break;
     case WM_PAINT:
       {
@@ -568,6 +568,29 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             else DestroyWindow(hwnd); 
           }
         }
+        else
+        {
+          // menu scroll
+          RECT tr;
+          GetWindowRect(hwnd,&tr);
+
+          POINT curM;
+          GetCursorPos(&curM);
+          if (curM.x >= tr.left && curM.x < tr.right)
+          {
+            int xFirst = hwnd->m_extra[0];
+            if (hwnd->m_extra[1] && curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin)
+            {
+              hwnd->m_extra[0]=++xFirst;
+              InvalidateRect(hwnd,NULL,FALSE);
+            }
+            else if (xFirst > 0 && curM.y >= tr.top-scroll_margin && curM.y < tr.top+scroll_margin)
+            {
+              hwnd->m_extra[0]=--xFirst;
+              InvalidateRect(hwnd,NULL,FALSE);
+            }
+          }
+        }
       }
     break;
     case WM_KEYUP:
@@ -624,29 +647,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
-        // menu scroll
-        RECT tr,vp;
-        GetWindowRect(hwnd,&tr);
-        SWELL_GetViewPort(&vp,&tr,true);
-
-        POINT curM;
-        GetCursorPos(&curM);
-        int xFirst = hwnd->m_extra[0];
-        if (hwnd->m_extra[1] && curM.y >= vp.bottom-scroll_margin && curM.y < vp.bottom+scroll_margin)
-        {
-          hwnd->m_extra[0]=++xFirst;
-        }
-        else if (xFirst > 0 && curM.y >= vp.top-scroll_margin && curM.y < vp.top+scroll_margin)
-        {
-          hwnd->m_extra[0]=--xFirst;
-        }
-
         int ht = top_margin;
-        int x;
         HDC hdc=GetDC(hwnd);
         if (wParam > 1) which = -1;
         else item_ypos = 0;
-        for (x=xFirst; x < (menu->items.GetSize()); x++)
+        for (int x=hwnd->m_extra[0]; x < (menu->items.GetSize()); x++)
         {
           if (wParam == 1 && which == x) { item_ypos = ht; break; }
           MENUITEMINFO *inf = menu->items.Get(x);
