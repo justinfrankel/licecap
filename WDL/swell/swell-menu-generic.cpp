@@ -338,7 +338,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 {
   const int lcol=24, rcol=12, mcol=10, top_margin=4;
   const int separator_ht = 8, text_ht_pad = 4, bitmap_ht_pad = 4;
-  const int scroll_margin = 6;
+  const int scroll_margin = 10;
   switch (uMsg)
   {
     case WM_CREATE:
@@ -411,6 +411,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       ShowWindow(hwnd,SW_SHOW);
       SetFocus(hwnd);
       SetTimer(hwnd,1,100,NULL);
+      SetTimer(hwnd,2,15,NULL);
     break;
     case WM_PAINT:
       {
@@ -420,6 +421,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           RECT cr;
           GetClientRect(hwnd,&cr);
           HBRUSH br=CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+          HBRUSH br2 =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
           HPEN pen=CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
           HPEN pen2=CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DHILIGHT));
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
@@ -536,14 +538,39 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                RECT r2=r; r2.left = 0; r2.right=lcol;
                DrawText(ps.hdc,"X",-1,&r2,DT_VCENTER|DT_CENTER|DT_SINGLELINE);
             }
-            if (ypos > cr.bottom+2)
+            if ((r.top+ypos)/2 > cr.bottom)
             {
-              hwnd->m_extra[1] = 1; // allow scrolling down if we were meaningfully partially offscreen
+              hwnd->m_extra[1] = 1; // allow scrolling down if last item was halfway off
             }
           }
+
+          // lower scroll indicator
+          int mid=(cr.right-cr.left)/2;
+          SelectObject(ps.hdc,pen);
+          if (hwnd->m_extra[1])
+          {
+            RECT fr = {cr.left, cr.bottom-scroll_margin, cr.right,cr.bottom};
+            FillRect(ps.hdc,&fr,br2);
+            MoveToEx(ps.hdc,mid-scroll_margin/2,cr.bottom-scroll_margin,NULL);
+            LineTo(ps.hdc,mid,cr.bottom);
+            MoveToEx(ps.hdc,mid+scroll_margin/2,cr.bottom-scroll_margin,NULL);
+            LineTo(ps.hdc,mid,cr.bottom);
+          }
+          // upper scroll indicator
+          if (hwnd->m_extra[0] > 0)
+          {
+            RECT fr = {cr.left, cr.top, cr.right, cr.top+scroll_margin};
+            FillRect(ps.hdc,&fr,br2);
+            MoveToEx(ps.hdc,mid-scroll_margin/2,cr.top+scroll_margin-1,NULL);
+            LineTo(ps.hdc,mid,cr.top);
+            MoveToEx(ps.hdc,mid+scroll_margin/2,cr.top+scroll_margin-1,NULL);
+            LineTo(ps.hdc,mid,cr.top);
+          }
+
           SelectObject(ps.hdc,oldbr);
           SelectObject(ps.hdc,oldpen);
           DeleteObject(br);
+          DeleteObject(br2);
           DeleteObject(pen);
           DeleteObject(pen2);
           EndPaint(hwnd,&ps); 
@@ -568,27 +595,28 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             else DestroyWindow(hwnd); 
           }
         }
-        else
-        {
-          // menu scroll
-          RECT tr;
-          GetWindowRect(hwnd,&tr);
+      } 
+      else if (wParam == 2)
+      {
+        // menu scroll
+        RECT tr;
+        GetWindowRect(hwnd,&tr);
 
-          POINT curM;
-          GetCursorPos(&curM);
-          if (curM.x >= tr.left && curM.x < tr.right)
+        POINT curM;
+        GetCursorPos(&curM);
+        if (curM.x >= tr.left && curM.x < tr.right)
+        {
+          int xFirst = hwnd->m_extra[0];
+          if (hwnd->m_extra[1] && curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin)
           {
-            int xFirst = hwnd->m_extra[0];
-            if (hwnd->m_extra[1] && curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin)
-            {
-              hwnd->m_extra[0]=++xFirst;
-              InvalidateRect(hwnd,NULL,FALSE);
-            }
-            else if (xFirst > 0 && curM.y >= tr.top-scroll_margin && curM.y < tr.top+scroll_margin)
-            {
-              hwnd->m_extra[0]=--xFirst;
-              InvalidateRect(hwnd,NULL,FALSE);
-            }
+            hwnd->m_extra[0]=++xFirst;
+            hwnd->m_extra[1]=0;
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
+          else if (xFirst > 0 && curM.y >= tr.top-scroll_margin && curM.y < tr.top+scroll_margin)
+          {
+            hwnd->m_extra[0]=--xFirst;
+            InvalidateRect(hwnd,NULL,FALSE);
           }
         }
       }
