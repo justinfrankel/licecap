@@ -2442,6 +2442,18 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
       if ((lParam&FSHIFT) ^ (is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
     }
 
+    if (wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE)
+    {
+      char b[8];
+      if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
+      else wParam += '*' - VK_MULTIPLY;
+      WDL_MakeUTFChar(b,wParam,sizeof(b));
+      int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
+      hwnd->m_title.Insert(b,bytepos);
+      es->cursor_pos++;
+      return 7;
+    }
+
     char b[8];
     WDL_MakeUTFChar(b,wParam,sizeof(b));
     int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
@@ -2546,19 +2558,6 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
         int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
         hwnd->m_title.Insert("\r\n",bytepos);
         es->cursor_pos+=2; // skip \r and \n
-        return 7;
-      }
-    return 0;
-    default:
-      if (wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE)
-      {
-        char b[8];
-        if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
-        else wParam += '*' - VK_MULTIPLY;
-        WDL_MakeUTFChar(b,wParam,sizeof(b));
-        int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
-        hwnd->m_title.Insert(b,bytepos);
-        es->cursor_pos++;
         return 7;
       }
     return 0;
