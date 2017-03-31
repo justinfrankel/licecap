@@ -777,8 +777,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
             if (bext > r->bottom) r->bottom = bext;
             continue;
           }
-        }
 #endif
+        }
         xpos += c=='\t' ? charw*5 : charw;
         if (r->top + ypos + lineh > r->bottom) r->bottom = r->top+ypos+lineh;
         if (r->left+xpos>r->right) r->right=r->left+xpos;
