@@ -2437,21 +2437,17 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
 
   if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam)))
   {
-    if (wParam >= 'A' && wParam <= 'Z' && (lParam & FVIRTKEY))
+    if (lParam & FVIRTKEY)
     {
-      if ((lParam&FSHIFT) ^ (is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
-    }
-
-    if (wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE)
-    {
-      char b[8];
-      if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
-      else wParam += '*' - VK_MULTIPLY;
-      WDL_MakeUTFChar(b,wParam,sizeof(b));
-      int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
-      hwnd->m_title.Insert(b,bytepos);
-      es->cursor_pos++;
-      return 7;
+      if (wParam >= 'A' && wParam <= 'Z')
+      {
+        if ((lParam&FSHIFT) ^ (is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
+      }
+      else if (wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE)
+      {
+        if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
+        else wParam += '*' - VK_MULTIPLY;
+      }
     }
 
     char b[8];
