@@ -326,9 +326,9 @@ void swell_recalcMinMaxInfo(HWND hwnd)
   if (hwnd->m_style & WS_THICKFRAME)
   {
     mmi.ptMinTrackSize.x = 20;
-    mmi.ptMaxSize.x = mmi.ptMaxTrackSize.x = 2000;
+    mmi.ptMaxSize.x = mmi.ptMaxTrackSize.x = 16384;
     mmi.ptMinTrackSize.y = 20;
-    mmi.ptMaxSize.y = mmi.ptMaxTrackSize.y = 2000;
+    mmi.ptMaxSize.y = mmi.ptMaxTrackSize.y = 16384;
     SendMessage(hwnd,WM_GETMINMAXINFO,0,(LPARAM)&mmi);
   }
   else
