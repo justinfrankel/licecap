@@ -1001,7 +1001,7 @@ void LICE_Blit(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int dsty, const 
     {
       while (i-->0)
       {
-        memcpy(pdest,psrc,cpsize*sizeof(LICE_pixel));
+        memmove(pdest,psrc,cpsize*sizeof(LICE_pixel));
         pdest+=dest_span;
         psrc += src_span;
       }
