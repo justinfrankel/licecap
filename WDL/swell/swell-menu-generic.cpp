@@ -798,6 +798,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
+void DestroyPopupMenus()
+{
+  if (m_trackingMenus.GetSize()) DestroyWindow(m_trackingMenus.Get(0));
+}
+
 int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND hwnd, const RECT *r)
 {
   if (!hMenu || m_trackingMenus.GetSize()) return 0;
