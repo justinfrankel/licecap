@@ -5313,13 +5313,16 @@ HWND WindowFromPoint(POINT p)
   HWND h = SWELL_topwindows;
   while (h)
   {
-    RECT r;
-    GetWindowContentViewRect(h,&r);
-    if (PtInRect(&r,p))
+    if (h->m_visible)
     {
-      p.x -= r.left;
-      p.y -= r.top;
-      return ChildWindowFromPoint(h,p);
+      RECT r;
+      GetWindowContentViewRect(h,&r);
+      if (PtInRect(&r,p))
+      {
+        p.x -= r.left;
+        p.y -= r.top;
+        return ChildWindowFromPoint(h,p);
+      }
     }
     h = h->m_next;
   }
