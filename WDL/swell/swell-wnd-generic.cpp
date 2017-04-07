@@ -5665,7 +5665,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         SendMessage(hwnd,WM_CONTEXTMENU,(WPARAM)hwndDest,(p.x&0xffff)|(p.y<<16));
       }
     return 1;
-//    case WM_NCLBUTTONDOWN:
+    case WM_NCLBUTTONDOWN:
     case WM_NCLBUTTONUP:
       if (!hwnd->m_parent && hwnd->m_menu)
       {
@@ -5677,23 +5677,29 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           MENUITEMINFO *inf = menu->items.Get(x);
           if (inf) 
           {
-            if (inf->hSubMenu) 
-            {
-              g_menubar_lastidx = x;
-              g_menubar_active = hwnd;
-              if (!g_menubar_timer) g_menubar_timer = SetTimer(NULL,0,100,menuBarTimer);
-              while (!TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0,hwnd,NULL) && g_menubar_lastidx != x)
+            if (inf->hSubMenu)
+            { 
+              if (msg == WM_NCLBUTTONDOWN) 
               {
-                r = g_menubar_lastrect;
-                x = g_menubar_lastidx;
-                inf = menu->items.Get(x);
-                if (!inf || !inf->hSubMenu) break;
+                g_menubar_lastidx = x;
+                g_menubar_active = hwnd;
+                if (!g_menubar_timer) g_menubar_timer = SetTimer(NULL,0,100,menuBarTimer);
+                while (!TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0,hwnd,NULL) && g_menubar_lastidx != x)
+                {
+                  r = g_menubar_lastrect;
+                  x = g_menubar_lastidx;
+                  inf = menu->items.Get(x);
+                  if (!inf || !inf->hSubMenu) break;
+                }
+                g_menubar_active = NULL;
+                if (g_menubar_timer) KillTimer(NULL,g_menubar_timer);
+                g_menubar_timer = 0;
               }
-              g_menubar_active = NULL;
-              if (g_menubar_timer) KillTimer(NULL,g_menubar_timer);
-              g_menubar_timer = 0;
             }
-            else if (inf->wID) SendMessage(hwnd,WM_COMMAND,inf->wID,0);
+            else if (msg == WM_NCLBUTTONUP)
+            { 
+              if (inf->wID) SendMessage(hwnd,WM_COMMAND,inf->wID,0);
+            }
           }
         }
       }
