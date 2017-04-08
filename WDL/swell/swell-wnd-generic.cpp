@@ -5524,21 +5524,28 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
     int x,xpos=r.left;
     HMENU__ *menu = (HMENU__*)hwnd->m_menu;
     HGDIOBJ oldfont = dc ? SelectObject(dc,menubar_font) : NULL;
-    for(x=0;x<menu->items.GetSize();x++)
+    const int n=menu->items.GetSize();
+    for(x=0;x<n;x++)
     {
       MENUITEMINFO *inf = menu->items.Get(x);
       if (inf->fType == MFT_STRING && inf->dwTypeData)
       {
         bool dis = !!(inf->fState & MF_GRAYED);
-        RECT cr=r; cr.left=cr.right=xpos;
+        RECT cr={0,}; 
         DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
+        if (x == n-1 && 
+            inf->dwTypeData[0] == '[' /* hack for now! */)
+        {
+          xpos = wdl_max(xpos,r.right - menubar_xspacing - cr.right);
+          cr.right = r.right - xpos;
+        }
 
-        if (mousex >=cr.left && mousex<cr.right + menubar_xspacing)
+        if (mousex >=xpos && mousex< xpos + cr.right + menubar_xspacing)
         {
           if (!dis) 
           {
             rOut->left = xpos;
-            rOut->right = cr.right;
+            rOut->right = xpos + cr.right;
             rOut->top = r.top;
             rOut->bottom = r.top + SWELL_INTERNAL_MENUBAR_SIZE;
             rv=x;
@@ -5546,7 +5553,7 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
           break;
         }
 
-        xpos=cr.right+menubar_xspacing;
+        xpos+=cr.right+menubar_xspacing;
       }
     }
     
@@ -5636,7 +5643,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
           int x,xpos=0;
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
-          for(x=0;x<menu->items.GetSize();x++)
+          const int n = menu->items.GetSize();
+          for(x=0;x<n;x++)
           {
             MENUITEMINFO *inf = menu->items.Get(x);
             if (inf->fType == MFT_STRING && inf->dwTypeData)
@@ -5644,9 +5652,19 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               bool dis = !!(inf->fState & MF_GRAYED);
               RECT cr={0};
               DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
-              cr.left = xpos;
+
+              if (x == n-1 && 
+                  inf->dwTypeData[0] == '[' /* hack for now! */)
+              {
+                cr.left = wdl_max(xpos,r.right - menubar_xspacing - cr.right);
+                cr.right = r.right - menubar_xspacing;
+              }
+              else
+              {
+                cr.left = xpos;
+                cr.right += xpos;
+              }
               cr.top = r.top;
-              cr.right += xpos;
               cr.bottom = r.bottom;
               if (!dis && menu->sel_vis == x)
               {
