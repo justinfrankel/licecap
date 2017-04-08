@@ -2435,7 +2435,8 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
 {
   if (lParam & (FCONTROL|FALT|FLWIN)) return 0;
 
-  if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam)))
+  const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;
+  if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam) || is_numpad))
   {
     if (lParam & FVIRTKEY)
     {
@@ -2443,7 +2444,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
       {
         if ((lParam&FSHIFT) ^ (is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
       }
-      else if (wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE)
+      else if (is_numpad)
       {
         if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
         else wParam += '*' - VK_MULTIPLY;
