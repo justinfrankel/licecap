@@ -865,14 +865,22 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         if (!FT_Load_Char(face, c, FT_LOAD_RENDER) && face->glyph)
         {
           FT_GlyphSlot g = face->glyph;
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,g->metrics.horiAdvance/64,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          const int ha = g->metrics.horiAdvance/64;
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,ha,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
   
           LICE_DrawGlyphEx(surface,xpos+g->bitmap_left,ypos+ascent-g->bitmap_top,fgcol,(LICE_pixel_chan *)g->bitmap.buffer,g->bitmap.width,g->bitmap.pitch,g->bitmap.rows,1.0f,LICE_BLIT_MODE_COPY);
+          if (doUl) 
+          {
+            int xw = g->metrics.width/64;
+            if (xw > 1) xw--;
+            LICE_Line(surface,xpos + g->metrics.horiBearingX/64,ypos+ascent+1,
+                              xpos + xw,ypos+ascent+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+          }
   
           int rext = xpos + (g->metrics.width + g->metrics.horiBearingX)/64;
-          if (rext<=xpos) rext=xpos + g->metrics.horiAdvance/64;
+          if (rext<=xpos) rext=xpos + ha;
           if (rext > max_xpos) max_xpos=rext;
-          xpos += g->metrics.horiAdvance/64;
+          xpos += ha;
           int bext = ypos + lineh; // +  (g->metrics.height - g->metrics.horiBearingY)/64;
           if (ysize < bext) ysize=bext;
           needr=false;
