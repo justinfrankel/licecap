@@ -5560,7 +5560,6 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
 }
 
 static UINT_PTR g_menubar_timer;
-static int g_menubar_lastidx;
 static RECT g_menubar_lastrect;
 static HWND g_menubar_active;
 
@@ -5576,17 +5575,17 @@ static void menuBarTimer(HWND hwndUnused, UINT uMsg, UINT_PTR tm, DWORD dwt)
     POINT pt;
     GetCursorPos(&pt);
     HWND h = WindowFromPoint(pt);
-    if (h == g_menubar_active)
+    if (h == g_menubar_active && h->m_menu)
     {
+      HMENU__ *menu = (HMENU__*)h->m_menu;
       RECT r;
       const int x = menuBarHitTest(h,pt.x,pt.y,&r);
-      if (x>=0 && x != g_menubar_lastidx)
+      if (x>=0 && x != menu->sel_vis)
       {
-        HMENU__ *menu = (HMENU__*)h->m_menu;
-        MENUITEMINFO *inf = menu ? menu->items.Get(x) : NULL;
+        MENUITEMINFO *inf = menu->items.Get(x);
         if (inf && inf->hSubMenu)
         {
-          g_menubar_lastidx = x;
+          menu->sel_vis = x;
           g_menubar_lastrect = r;
 
           void DestroyPopupMenus();
@@ -5619,7 +5618,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (dc)
         {
           if (!menubar_font) 
-            menubar_font = CreateFont(SWELL_INTERNAL_MENUBAR_SIZE-3,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); 
+            menubar_font = CreateFont(SWELL_INTERNAL_MENUBAR_SIZE-4,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); 
 
           RECT r;
           GetWindowContentViewRect(hwnd,&r);
@@ -5643,10 +5642,21 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (inf->fType == MFT_STRING && inf->dwTypeData)
             {
               bool dis = !!(inf->fState & MF_GRAYED);
-              SetTextColor(dc,cols[dis]);
-              RECT cr=r; cr.left=cr.right=xpos;
+              RECT cr={0};
               DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
-              DrawText(dc,inf->dwTypeData,-1,&cr,DT_VCENTER|DT_LEFT);
+              cr.left = xpos;
+              cr.top = r.top;
+              cr.right += xpos;
+              cr.bottom = r.bottom;
+              if (!dis && menu->sel_vis == x)
+              {
+                HBRUSH br = CreateSolidBrush(cols[dis]);
+                FillRect(dc,&cr,br);
+                DeleteObject(br);
+                SetTextColor(dc,GetSysColor(COLOR_3DFACE));
+              }
+              else SetTextColor(dc,cols[dis]);
+              DrawText(dc,inf->dwTypeData,-1,&cr,DT_BOTTOM|DT_LEFT);
               xpos=cr.right+menubar_xspacing;
             }
           }
@@ -5686,16 +5696,28 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             { 
               if (msg == WM_NCLBUTTONDOWN) 
               {
-                g_menubar_lastidx = x;
+                RECT mbr;
+                GetWindowContentViewRect(hwnd,&mbr);
+                mbr.right -= mbr.left;
+                mbr.left=0;
+                mbr.bottom = 0;
+                mbr.top = -SWELL_INTERNAL_MENUBAR_SIZE;
+                menu->sel_vis = x;
                 g_menubar_active = hwnd;
                 if (!g_menubar_timer) g_menubar_timer = SetTimer(NULL,0,100,menuBarTimer);
-                while (!TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0,hwnd,NULL) && g_menubar_lastidx != x)
+                for (;;)
                 {
-                  r = g_menubar_lastrect;
-                  x = g_menubar_lastidx;
+                  InvalidateRect(hwnd,&mbr,FALSE);
+                  if (TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0,hwnd,NULL) || menu->sel_vis == x) break;
+
+                  x = menu->sel_vis;
                   inf = menu->items.Get(x);
                   if (!inf || !inf->hSubMenu) break;
+
+                  r = g_menubar_lastrect;
                 }
+                menu->sel_vis=-1;
+                InvalidateRect(hwnd,&mbr,FALSE);
                 g_menubar_active = NULL;
                 if (g_menubar_timer) KillTimer(NULL,g_menubar_timer);
                 g_menubar_timer = 0;
