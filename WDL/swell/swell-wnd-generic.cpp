@@ -2210,12 +2210,12 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             {
               HBRUSH br = CreateSolidBrush(RGB(255,255,255));
               HGDIOBJ oldBrush = SelectObject(ps.hdc,br);
-              Ellipse(ps.hdc,tr.left,tr.top,tr.right,tr.bottom);
+              Ellipse(ps.hdc,tr.left+1,tr.top+1,tr.right-1,tr.bottom-1);
               SelectObject(ps.hdc,oldBrush);
               DeleteObject(br);
               if (st)
               {
-                const int amt =  (tr.right-tr.left)/6 + 1;
+                const int amt =  (tr.right-tr.left)/6 + 2;
                 br = CreateSolidBrush(RGB(0,0,0));
                 oldBrush = SelectObject(ps.hdc,br);
                 Ellipse(ps.hdc,tr.left+amt,tr.top+amt,tr.right-amt,tr.bottom-amt);
