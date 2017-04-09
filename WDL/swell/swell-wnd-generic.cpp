@@ -5346,9 +5346,16 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
   if (!hwnd) return FALSE;
 
 #ifdef SWELL_LICE_GDI
-  RECT rect = { 0,0,
-                hwnd->m_position.right - hwnd->m_position.left,
-                hwnd->m_position.bottom - hwnd->m_position.top };
+  RECT rect;
+  if (r) 
+  {
+    rect = *r;
+  }
+  else
+  {
+    rect = hwnd->m_position;
+    WinOffsetRect(&rect, -rect.left, -rect.top);
+  }
 
   // rect is in client coordinates of h
   HWND h = hwnd;
@@ -5356,30 +5363,15 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
   {
     if (!h->m_visible) return FALSE;
 
+    RECT ncrect = h->m_position;
+    if (h->m_oswindow) WinOffsetRect(&ncrect, -ncrect.left, -ncrect.top);
+
     NCCALCSIZE_PARAMS tr;
     memset(&tr,0,sizeof(tr));
-    tr.rgrc[0] = h->m_position;
-    if (h->m_oswindow)
-    {
-      tr.rgrc[0].right -= tr.rgrc[0].left;
-      tr.rgrc[0].bottom -= tr.rgrc[0].top;
-      tr.rgrc[0].left = tr.rgrc[0].top = 0;
-    }
-
-    const RECT ncrect = tr.rgrc[0];
+    tr.rgrc[0] = ncrect;
     if (h->m_wndproc) h->m_wndproc(h,WM_NCCALCSIZE,0,(LPARAM)&tr);
 
-    if (r && h == hwnd)
-    {
-      const int xo = ncrect.left - tr.rgrc[0].left, yo = ncrect.top - tr.rgrc[0].top;
-      WinOffsetRect(&rect,xo,yo);
-      if (!IntersectRect(&rect,&rect,r)) return FALSE;
-      WinOffsetRect(&rect,-xo,-yo);
-    }
-    else
-    {
-      WinOffsetRect(&rect,tr.rgrc[0].left, tr.rgrc[0].top);
-    }
+    WinOffsetRect(&rect,tr.rgrc[0].left, tr.rgrc[0].top);
 
     if (!IntersectRect(&rect,&rect,&ncrect)) return FALSE;
 
