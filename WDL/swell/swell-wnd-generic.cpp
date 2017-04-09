@@ -1604,10 +1604,18 @@ HWND SetParent(HWND hwnd, HWND newPar)
 
   if (newPar)
   {
+    HWND fc = newPar->m_children;
+    if (!fc)
+    {
+      newPar->m_children = hwnd;
+    }
+    else
+    {
+      while (fc->m_next) fc = fc->m_next;
+      hwnd->m_prev = fc;
+      fc->m_next = hwnd;
+    }
     hwnd->m_parent = newPar;
-    hwnd->m_next=newPar->m_children;
-    if (hwnd->m_next) hwnd->m_next->m_prev = hwnd;
-    newPar->m_children=hwnd;
     hwnd->m_style |= WS_CHILD;
   }
   else // add to top level windows
