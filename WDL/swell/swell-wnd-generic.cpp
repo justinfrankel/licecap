@@ -5519,7 +5519,7 @@ const int menubar_xspacing=5;
 static bool wantRightAlignedMenuBarItem(const char *p)
 {
   char c = *p;
-  return c > 0 && !isalnum(c);
+  return c > 0 && c != '&' && !isalnum(c);
 }
 
 static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int forceItem)
