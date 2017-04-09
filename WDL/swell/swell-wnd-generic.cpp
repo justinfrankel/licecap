@@ -5522,12 +5522,12 @@ static bool wantRightAlignedMenuBarItem(const char *p)
   return c > 0 && !isalnum(c);
 }
 
-static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
+static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int forceItem)
 {
   int rv=-1;
   RECT r;
   GetWindowContentViewRect(hwnd,&r);
-  if (mousey>=r.top && mousey < r.top+SWELL_INTERNAL_MENUBAR_SIZE) 
+  if (forceItem >= 0 || (mousey>=r.top && mousey < r.top+SWELL_INTERNAL_MENUBAR_SIZE))
   {
     HDC dc = GetWindowDC(hwnd);
 
@@ -5549,7 +5549,7 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
           cr.right = r.right - xpos;
         }
 
-        if (mousex >=xpos && mousex< xpos + cr.right + menubar_xspacing)
+        if (forceItem>=0 ? forceItem == x : (mousex >=xpos && mousex< xpos + cr.right + menubar_xspacing))
         {
           if (!dis) 
           {
@@ -5595,7 +5595,7 @@ static void menuBarTimer(HWND hwndUnused, UINT uMsg, UINT_PTR tm, DWORD dwt)
     {
       HMENU__ *menu = (HMENU__*)h->m_menu;
       RECT r;
-      const int x = menuBarHitTest(h,pt.x,pt.y,&r);
+      const int x = menuBarHitTest(h,pt.x,pt.y,&r,-1);
       if (x>=0 && x != menu->sel_vis)
       {
         MENUITEMINFO *inf = menu->items.Get(x);
@@ -5610,6 +5610,37 @@ static void menuBarTimer(HWND hwndUnused, UINT uMsg, UINT_PTR tm, DWORD dwt)
       }
     }
   }
+}
+
+static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
+{
+  MENUITEMINFO *inf = menu->items.Get(x);
+  RECT r = *use_r;
+  RECT mbr;
+  GetWindowContentViewRect(hwnd,&mbr);
+  mbr.right -= mbr.left;
+  mbr.left=0;
+  mbr.bottom = 0;
+  mbr.top = -SWELL_INTERNAL_MENUBAR_SIZE;
+  menu->sel_vis = x;
+  g_menubar_active = hwnd;
+  if (!g_menubar_timer) g_menubar_timer = SetTimer(NULL,0,100,menuBarTimer);
+  for (;;)
+  {
+    InvalidateRect(hwnd,&mbr,FALSE);
+    if (TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0,hwnd,NULL) || menu->sel_vis == x) break;
+
+    x = menu->sel_vis;
+    inf = menu->items.Get(x);
+    if (!inf || !inf->hSubMenu) break;
+
+    r = g_menubar_lastrect;
+  }
+  menu->sel_vis=-1;
+  InvalidateRect(hwnd,&mbr,FALSE);
+  g_menubar_active = NULL;
+  if (g_menubar_timer) KillTimer(NULL,g_menubar_timer);
+  g_menubar_timer = 0;
 }
 
 LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -5711,7 +5742,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (!hwnd->m_parent && hwnd->m_menu)
       {
         RECT r;
-        int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r);
+        const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1);
         if (x>=0)
         {
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
@@ -5722,31 +5753,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             { 
               if (msg == WM_NCLBUTTONDOWN) 
               {
-                RECT mbr;
-                GetWindowContentViewRect(hwnd,&mbr);
-                mbr.right -= mbr.left;
-                mbr.left=0;
-                mbr.bottom = 0;
-                mbr.top = -SWELL_INTERNAL_MENUBAR_SIZE;
-                menu->sel_vis = x;
-                g_menubar_active = hwnd;
-                if (!g_menubar_timer) g_menubar_timer = SetTimer(NULL,0,100,menuBarTimer);
-                for (;;)
-                {
-                  InvalidateRect(hwnd,&mbr,FALSE);
-                  if (TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0,hwnd,NULL) || menu->sel_vis == x) break;
-
-                  x = menu->sel_vis;
-                  inf = menu->items.Get(x);
-                  if (!inf || !inf->hSubMenu) break;
-
-                  r = g_menubar_lastrect;
-                }
-                menu->sel_vis=-1;
-                InvalidateRect(hwnd,&mbr,FALSE);
-                g_menubar_active = NULL;
-                if (g_menubar_timer) KillTimer(NULL,g_menubar_timer);
-                g_menubar_timer = 0;
+                runMenuBar(hwnd,menu,x,&r);
               }
             }
             else if (msg == WM_NCLBUTTONUP)
@@ -5768,7 +5775,47 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return HTCLIENT;
     case WM_KEYDOWN:
     case WM_KEYUP: 
-        return hwnd->m_parent ? SendMessage(hwnd->m_parent,msg,wParam,lParam) : 69;
+        if (hwnd->m_parent) return SendMessage(hwnd->m_parent,msg,wParam,lParam);
+
+        if (msg == WM_KEYDOWN && hwnd->m_menu && lParam == (FVIRTKEY | FALT) && wParam >= 'A' && wParam <= 'Z')
+        {
+          HMENU__ *menu = (HMENU__*)hwnd->m_menu;
+          const int n=menu->items.GetSize();
+          for(int x=0;x<n;x++)
+          {
+            MENUITEMINFO *inf = menu->items.Get(x);
+            if (inf->fType == MFT_STRING && inf->dwTypeData)
+            {
+              const char *p = inf->dwTypeData;
+              while (*p)
+              {
+                if (*p++ == '&')
+                {
+                  if (*p != '&') break;
+                  p++;
+                }
+              }
+              if (*p > 0 && toupper(*p) == wParam)
+              {
+                if (inf->hSubMenu)
+                {
+                  RECT r;
+                  if (menuBarHitTest(hwnd,0,0,&r,x)>=0)
+                  {
+                    runMenuBar(hwnd,menu,x,&r);
+                  }
+                }
+                else
+                {
+                  if (inf->wID) SendMessage(hwnd,WM_COMMAND,inf->wID,0);
+                }
+
+                return 1;
+              }
+            }
+          }
+        }
+    return 69;
 
     case WM_CONTEXTMENU:
     case WM_MOUSEWHEEL:
