@@ -6526,6 +6526,40 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
 void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
 {
   if (!handle) return;
+
+  if (!rct)
+  {
+    if (*handle)
+    {
+      InvalidateRect(hwndPar,NULL,FALSE);
+      *handle = NULL;
+    }
+  }
+  else
+  {
+    if (*handle) 
+    {
+      InvalidateRect(hwndPar,NULL,FALSE);
+      UpdateWindow(hwndPar);
+    }
+    *handle = (void *)(INT_PTR)1;
+
+    HDC hdc = GetDC(hwndPar);
+    if (hdc)
+    {
+      HPEN pen=CreatePen(PS_SOLID,0,RGB(255,0,0));
+      HGDIOBJ oldpen = SelectObject(hdc,pen);
+
+      MoveToEx(hdc,rct->left,rct->top,NULL);
+      LineTo(hdc,rct->right,rct->top);
+      LineTo(hdc,rct->right,rct->bottom);
+      LineTo(hdc,rct->left,rct->bottom);
+      LineTo(hdc,rct->left,rct->top);
+
+      SelectObject(hdc,oldpen);
+      ReleaseDC(hwndPar,hdc);
+    }
+  }
 }
 
 void SWELL_BroadcastMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
