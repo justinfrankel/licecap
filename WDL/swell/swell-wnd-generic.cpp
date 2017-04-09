@@ -5579,6 +5579,28 @@ static UINT_PTR g_menubar_timer;
 static RECT g_menubar_lastrect;
 static HWND g_menubar_active;
 
+int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if navigated
+{
+  if (!g_menubar_active || !g_menubar_active->m_menu) return -1;
+  HMENU__ *menu = (HMENU__*)g_menubar_active->m_menu;
+  RECT r;
+  const int x = menuBarHitTest(g_menubar_active,0,0,&r,menu->sel_vis + dir);
+  if (x>=0)
+  {
+    MENUITEMINFO *inf = menu->items.Get(x);
+    if (inf && inf->hSubMenu)
+    {
+      menu->sel_vis = x;
+      g_menubar_lastrect = r;
+
+      void DestroyPopupMenus();
+      DestroyPopupMenus();
+      return 1;
+    }
+  }
+  return 0;
+}
+
 static void menuBarTimer(HWND hwndUnused, UINT uMsg, UINT_PTR tm, DWORD dwt)
 {
   if (!g_menubar_active) 

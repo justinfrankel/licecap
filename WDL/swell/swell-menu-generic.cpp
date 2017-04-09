@@ -334,6 +334,8 @@ static int m_trackingFlags,m_trackingRet;
 static HWND m_trackingPar;
 static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
+int menuBarNavigate(int dir); // -1 if no menu bar active, 0 if did nothing, 1 if navigated
+
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   const int lcol=24, rcol=12, mcol=10, top_margin=4;
@@ -624,11 +626,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     case WM_KEYUP:
     return 1;
     case WM_KEYDOWN:
-      if (wParam == VK_ESCAPE || (wParam == VK_LEFT && m_trackingMenus.GetSize()>1))
+      if (wParam == VK_ESCAPE || wParam == VK_LEFT)
       {
         HWND l = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)-1);
         if (l) SetFocus(l);
-        else DestroyWindow(hwnd);
+        else 
+        {
+          if (wParam != VK_LEFT || menuBarNavigate(-1) < 0)
+            DestroyWindow(hwnd);
+        }
       }
       else if (wParam == VK_RETURN || wParam == VK_RIGHT)
       {
@@ -636,7 +642,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         if (wParam == VK_RIGHT)
         {
           MENUITEMINFO *inf = menu->items.Get(menu->sel_vis);
-          if (!inf || !inf->hSubMenu) return 1;
+          if (!inf || !inf->hSubMenu) 
+          {
+            menuBarNavigate(1);
+            return 1;
+          }
         }
         SendMessage(hwnd,WM_USER+100,1,menu->sel_vis);
       }
