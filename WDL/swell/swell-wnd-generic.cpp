@@ -1394,7 +1394,13 @@ bool GetWindowRect(HWND hwnd, RECT *r)
   if (hwnd->m_oswindow)
   {
     GdkRectangle rc;
-    gdk_window_get_frame_extents(hwnd->m_oswindow,&rc);
+    rc.width = gdk_window_get_width(hwnd->m_oswindow);
+    rc.height = gdk_window_get_height(hwnd->m_oswindow);
+    gdk_window_get_position(hwnd->m_oswindow,&rc.x,&rc.y);
+    // this is difficult, because when creating/positioning windows, we must use the gdk-client area coordinates
+    // this isn't ideal, but at least it is consistent. we could possibly do a constant fake-titlebar size,
+    // or something.
+    // gdk_window_get_frame_extents(hwnd->m_oswindow,&rc);
     r->left=rc.x;
     r->top=rc.y;
     r->right=rc.x+rc.width;
