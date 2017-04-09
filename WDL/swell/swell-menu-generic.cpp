@@ -653,19 +653,34 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       else if (wParam == VK_UP)
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (menu->sel_vis > 0)
+        int l = menu->sel_vis;
+        while (l > 0)
         {
-          menu->sel_vis--;
-          InvalidateRect(hwnd,NULL,FALSE);
+          MENUITEMINFO *inf = menu->items.Get(--l);
+          if (!inf) break; 
+          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+          {
+            menu->sel_vis=l;
+            InvalidateRect(hwnd,NULL,FALSE);
+            break;
+          }
         }
       }
       else if (wParam == VK_DOWN)
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (menu->sel_vis < menu->items.GetSize()-1)
+        int l = menu->sel_vis;
+        const int n =menu->items.GetSize()-1;
+        while (l < n)
         {
-          menu->sel_vis++;
-          InvalidateRect(hwnd,NULL,FALSE);
+          MENUITEMINFO *inf = menu->items.Get(++l);
+          if (!inf) break; 
+          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+          {
+            menu->sel_vis=l;
+            InvalidateRect(hwnd,NULL,FALSE);
+            break;
+          }
         }
       }
     return 1;
