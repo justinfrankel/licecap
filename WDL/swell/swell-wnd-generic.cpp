@@ -293,7 +293,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           }
           else
           {
-            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
+            if (hwnd->m_owner)
+              gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
+            else
+              gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_NORMAL);
             gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
           }
 
