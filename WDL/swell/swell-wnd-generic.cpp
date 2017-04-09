@@ -5516,6 +5516,12 @@ BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
 static HFONT menubar_font;
 const int menubar_xspacing=5;
 
+static bool wantRightAlignedMenuBarItem(const char *p)
+{
+  char c = *p;
+  return c > 0 && !isalnum(c);
+}
+
 static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
 {
   int rv=-1;
@@ -5537,8 +5543,7 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut)
         bool dis = !!(inf->fState & MF_GRAYED);
         RECT cr={0,}; 
         DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
-        if (x == n-1 && 
-            inf->dwTypeData[0] == '[' /* hack for now! */)
+        if (x == n-1 && wantRightAlignedMenuBarItem(inf->dwTypeData))
         {
           xpos = wdl_max(xpos,r.right - menubar_xspacing - cr.right);
           cr.right = r.right - xpos;
@@ -5657,8 +5662,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               RECT cr={0};
               DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
 
-              if (x == n-1 && 
-                  inf->dwTypeData[0] == '[' /* hack for now! */)
+              if (x == n-1 && wantRightAlignedMenuBarItem(inf->dwTypeData))
               {
                 cr.left = wdl_max(xpos,r.right - menubar_xspacing - cr.right);
                 cr.right = r.right - menubar_xspacing;
