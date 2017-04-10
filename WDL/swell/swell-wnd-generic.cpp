@@ -1842,7 +1842,15 @@ void ShowWindow(HWND hwnd, int cmd)
   {
     hwnd->m_visible=true;
   }
-  else if (cmd==SW_HIDE) hwnd->m_visible=false;
+  else if (cmd==SW_HIDE) 
+  {
+    if (hwnd->m_visible)
+    {
+      hwnd->m_visible=false;
+      if (hwnd->m_parent)
+        InvalidateRect(hwnd->m_parent,&hwnd->m_position,FALSE);
+    }
+  }
 
   swell_manageOSwindow(hwnd,cmd==SW_SHOW);
   if (cmd == SW_SHOW) 
