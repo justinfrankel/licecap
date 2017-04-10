@@ -959,7 +959,14 @@ HMENU GetMenu(HWND hwnd)
 
 void DrawMenuBar(HWND hwnd)
 {
-  InvalidateRect(hwnd,NULL,FALSE);
+  if (hwnd && hwnd->m_menu)
+  {
+    RECT r;
+    GetClientRect(hwnd,&r);
+    r.top = - SWELL_INTERNAL_MENUBAR_SIZE;
+    r.bottom=0;
+    InvalidateRect(hwnd,&r,FALSE);
+  }
 }
 
 
