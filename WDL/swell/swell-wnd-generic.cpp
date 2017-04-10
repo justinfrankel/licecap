@@ -441,6 +441,7 @@ static int swell_gdkConvertKey(int key)
   case GDK_KP_Subtract: return VK_SUBTRACT;
   case GDK_KP_Decimal: return VK_DECIMAL;
   case GDK_KP_Divide: return VK_DIVIDE;
+  case GDK_Num_Lock: return VK_NUMLOCK;
 #else
   case GDK_KEY_KP_Home:
   case GDK_KEY_Home: return VK_HOME;
@@ -496,6 +497,7 @@ static int swell_gdkConvertKey(int key)
   case GDK_KEY_KP_Subtract: return VK_SUBTRACT;
   case GDK_KEY_KP_Decimal: return VK_DECIMAL;
   case GDK_KEY_KP_Divide: return VK_DIVIDE;
+  case GDK_KEY_Num_Lock: return VK_NUMLOCK;
 #endif
   }
   return 0;
