@@ -1498,7 +1498,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 
         // add back in
         tmp = par->m_children;
-        if (zorder == HWND_TOP || !tmp) // insert at front of list
+        if (zorder == HWND_BOTTOM || !tmp) // insert at front of list
         {
           if (tmp) tmp->m_prev=hwnd;
           hwnd->m_next = tmp;
@@ -1506,7 +1506,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
         }
         else
         {
-          // zorder could be HWND_BOTTOM here
+          // zorder could be HWND_TOP here
           while (tmp && tmp != zorder && tmp->m_next) tmp=tmp->m_next;
 
           // tmp is either zorder or the last item in the list
@@ -5307,6 +5307,7 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
     r.left += tr.rgrc[0].left - h->m_position.left;
     r.top += tr.rgrc[0].top - h->m_position.top;
 
+    HWND best=NULL;
     while (h2)
     {
       sr = h2->m_position;
@@ -5315,13 +5316,13 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
       sr.top += r.top;
       sr.bottom += r.top;
 
-      if (h2->m_visible && PtInRect(&sr,p)) break;
+      if (h2->m_visible && PtInRect(&sr,p)) best=h2;
 
       h2 = h2->m_next;
     }
-    if (!h2) break; // h is the window we care about
+    if (!best) break; // h is the window we care about
 
-    h=h2; // descend to h2
+    h=best; // descend to best
     r=sr;
   }
 
