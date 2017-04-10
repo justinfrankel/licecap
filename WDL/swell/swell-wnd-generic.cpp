@@ -5308,6 +5308,7 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
     r.top += tr.rgrc[0].top - h->m_position.top;
 
     HWND best=NULL;
+    RECT bestsr;
     while (h2)
     {
       sr = h2->m_position;
@@ -5316,14 +5317,18 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
       sr.top += r.top;
       sr.bottom += r.top;
 
-      if (h2->m_visible && PtInRect(&sr,p)) best=h2;
+      if (h2->m_visible && PtInRect(&sr,p)) 
+      {
+        bestsr = sr;
+        best=h2;
+      }
 
       h2 = h2->m_next;
     }
     if (!best) break; // h is the window we care about
 
     h=best; // descend to best
-    r=sr;
+    r=bestsr;
   }
 
   return h;
