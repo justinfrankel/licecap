@@ -349,7 +349,8 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
     {
       RECT br={0,
         (y-r.top - rh)*WDL_VWND_SCALEBASE/rscale,
-        (r.right-r.left,y-r.top - rh + m_scrollbuttonsize) * WDL_VWND_SCALEBASE/rscale
+        r.right-r.left,
+        (y-r.top - rh + m_scrollbuttonsize) * WDL_VWND_SCALEBASE/rscale
       };
       if (startpos>0)
       {
