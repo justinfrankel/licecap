@@ -1349,7 +1349,6 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 	int scrollwidth  = rect->right-rect->left;
 	int workingwidth = scrollwidth - butwidth*2;
 	int thumbwidth   = 0, thumbpos = 0;
-	int siMaxMin;
 
 	BOOL fMouseDownL = 0, fMouseOverL = 0, fBarHot = 0;
 	BOOL fMouseDownR = 0, fMouseOverR = 0;
@@ -1369,7 +1368,6 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 		return 0;
 
 	si = &sb->scrollInfo;
-	siMaxMin = si->nMax - si->nMin;
 
   int sbYoffs=-(int)sw->vscrollbarShrinkTop,sbXoffs=0;
 #ifdef _WIN32
@@ -2382,7 +2380,6 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 	RECT rect={0,};
 	//UINT thisportion;
 	HDC hdc;
-	POINT pt;
 	RECT winrect;
 
   if (sw->uZoomTimerId) KillTimer(hwnd,sw->uZoomTimerId);
@@ -2398,9 +2395,6 @@ static LRESULT LButtonUp(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
         SetCursor(LoadCursor(NULL,IDC_ARROW)); // OS X seems to like this
 #endif
 		GET_WINDOW_RECT(hwnd, &winrect);
-		pt.x = GET_X_LPARAM(lParam);
-		pt.y = GET_Y_LPARAM(lParam);
-    OSX_REMAP_SCREENY(hwnd,&pt.y);
     BOOL hasZoomButtons=0;
 
 
