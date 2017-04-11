@@ -762,7 +762,9 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
   }
 #endif
 
+#ifdef __APPLE__
   if (!bundleinst)
+#endif
   {
     inst=dlopen(fn,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
     if (!inst) return 0;
@@ -775,7 +777,9 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
   { 
     rec = (SWELL_HINSTANCE *)calloc(sizeof(SWELL_HINSTANCE),1);
     rec->instptr = inst;
+#ifdef __APPLE__
     rec->bundleinstptr =  bundleinst;
+#endif
     rec->refcnt = 1;
     s_loadedLibs.Insert(bundleinst ? bundleinst : inst,rec);
   
@@ -843,7 +847,11 @@ BOOL FreeLibrary(HINSTANCE hInst)
   if (--rec->refcnt<=0) 
   {
     dofree=true;
+#ifdef __APPLE__
     s_loadedLibs.Delete(rec->bundleinstptr ? rec->bundleinstptr : rec->instptr); 
+#else
+    s_loadedLibs.Delete(rec->instptr); 
+#endif
     
     if (rec->SWELL_dllMain) 
     {
@@ -866,8 +874,10 @@ BOOL FreeLibrary(HINSTANCE hInst)
 
 void* SWELL_GetBundle(HINSTANCE hInst)
 {
+#ifdef __APPLE__
   SWELL_HINSTANCE* rec=(SWELL_HINSTANCE*)hInst;
   if (rec) return rec->bundleinstptr;
+#endif
   return NULL;
 }
 
@@ -875,12 +885,17 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
 {
   *fn=0;
 
-  void *instptr = NULL, *bundleinstptr=NULL, *lastSymbolRequested=NULL;
+  void *instptr = NULL, *lastSymbolRequested=NULL;
+#ifdef __APPLE__
+  void *bundleinstptr=NULL;
+#endif
   if (hInst)
   {
     SWELL_HINSTANCE *p = (SWELL_HINSTANCE*)hInst;
     instptr = p->instptr;
+#ifdef __APPLE__
     bundleinstptr = p->bundleinstptr;
+#endif
     lastSymbolRequested=p->lastSymbolRequested;
   }
 #ifdef __APPLE__

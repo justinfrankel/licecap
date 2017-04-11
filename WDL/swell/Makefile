@@ -6,12 +6,18 @@
 ARCH := $(shell uname -m)
 ARCHSTR := $(ARCH)-$(shell lsb_release -i -s | tr '[:upper:]' '[:lower:]')-$(shell lsb_release -c -s | tr '[:upper:]' '[:lower:]')
 
-CFLAGS = -pipe -fvisibility=hidden -fno-strict-aliasing -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function
+CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function -Wno-multichar
 
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char 
 else
   CFLAGS += -malign-double 
+endif
+
+ifndef CHECK_WARNINGS
+  CFLAGS += -fno-strict-aliasing
+else
+  CFLAGS +=  -Werror -Wno-deprecated-declarations
 endif
 
 ifdef DEBUG

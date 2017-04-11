@@ -132,12 +132,15 @@ bool SWELL_IsCursorVisible()
   return m_curvis_cnt>=0;
 }
 
+#ifdef SWELL_TARGET_GDK
 static int g_swell_mouse_relmode_curpos_x;
 static int g_swell_mouse_relmode_curpos_y;
 static bool g_swell_mouse_relmode;
+static HCURSOR g_last_cursor;
+#endif
+
 int SWELL_ShowCursor(BOOL bShow)
 {
-  static HCURSOR last_cursor;
   m_curvis_cnt += (bShow?1:-1);
   if (m_curvis_cnt==-1 && !bShow) 
   {
@@ -151,7 +154,7 @@ int SWELL_ShowCursor(BOOL bShow)
     #endif
     g_swell_mouse_relmode_curpos_x = x1;
     g_swell_mouse_relmode_curpos_y = y1;
-    last_cursor = GetCursor();
+    g_last_cursor = GetCursor();
     SetCursor((HCURSOR)gdk_cursor_new_for_display(gdk_display_get_default(),GDK_BLANK_CURSOR));
     g_swell_mouse_relmode=true;
 #endif
@@ -160,7 +163,7 @@ int SWELL_ShowCursor(BOOL bShow)
   if (m_curvis_cnt==0 && bShow) 
   {
 #ifdef SWELL_TARGET_GDK
-    SetCursor(last_cursor);
+    SetCursor(g_last_cursor);
     g_swell_mouse_relmode=false;
     #if SWELL_TARGET_GDK == 3
     gdk_device_warp(gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default())),

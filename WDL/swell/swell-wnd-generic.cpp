@@ -689,7 +689,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         break;
         case GDK_GRAB_BROKEN:
           {
-            GdkEventGrabBroken *bk = (GdkEventGrabBroken*)evt;
+            //GdkEventGrabBroken *bk = (GdkEventGrabBroken*)evt;
             if (s_captured_window)
             {
               SendMessage(s_captured_window,WM_CAPTURECHANGED,0,0);

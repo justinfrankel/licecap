@@ -139,7 +139,7 @@ static FT_Face MatchFont(const char *lfFaceName)
 {
   const int fn_len = strlen(lfFaceName), ntab=2;
   WDL_PtrList<char> *tab[ntab]= { &s_freetype_regfonts, &s_freetype_fontlist };
-  int pos[2], x;
+  int x;
   bool match;
   static WDL_TypedBuf<fontScoreMatched> matchlist;
   matchlist.Resize(0,false);
@@ -394,7 +394,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   else return 0;
   
   HGDIOBJ__ *op=*mod;
-  if (!op) op=(HGDIOBJ__ *)p->type;
+  if (!op) op=(HGDIOBJ__ *)(INT_PTR)p->type;
   if (op != p)
   {
     *mod=p;
@@ -560,13 +560,8 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||np<3) return;
   
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-//  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
   int x; 
-  float xp,yp;
+  float xp=c->lastpos_x,yp=c->lastpos_y;
   for (x = 0; x < np-2; x += 3)
   {
 /*    CGContextAddCurveToPoint(c->ctx,
@@ -578,7 +573,6 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   }
   c->lastpos_x=(float)xp;
   c->lastpos_y=(float)yp;
-//  CGContextStrokePath(c->ctx);
 }
 
 
@@ -703,7 +697,6 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 
 int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
-  const char *obuf=buf;
   HDC__ *ct=(HDC__ *)ctx;
   if (!r) return 0;
 
@@ -1123,20 +1116,20 @@ HGDIOBJ SWELL_CloneGDIObject(HGDIOBJ a)
 
 void SWELL_PushClipRegion(HDC ctx)
 {
-  HDC__ *ct=(HDC__ *)ctx;
+//  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
 void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
-  HDC__ *ct=(HDC__ *)ctx;
+//  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
 
 }
 
 void SWELL_PopClipRegion(HDC ctx)
 {
-  HDC__ *ct=(HDC__ *)ctx;
+//  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextRestoreGState(ct->ctx);
 }
 

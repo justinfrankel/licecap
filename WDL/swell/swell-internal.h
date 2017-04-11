@@ -726,7 +726,9 @@ HDC SWELL_CreateGfxContext(void *);
 typedef struct
 {
   void *instptr; 
+#ifdef __APPLE__
   void *bundleinstptr;
+#endif
   int refcnt;
 
   int (*SWELL_dllMain)(HINSTANCE, DWORD,LPVOID); //last parm=SWELLAPI_GetFunc

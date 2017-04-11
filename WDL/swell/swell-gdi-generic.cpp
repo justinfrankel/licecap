@@ -176,7 +176,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   else return 0;
   
   HGDIOBJ__ *op=*mod;
-  if (!op) op=(HGDIOBJ__ *)p->type;
+  if (!op) op=(HGDIOBJ__ *)(INT_PTR)p->type;
   if (op != p)
   {
     *mod=p;
@@ -480,18 +480,11 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
 {
   memset(_bm,0,bmsz);
   if (bmsz != sizeof(BITMAP)) return false;
-  BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP)) return false;
+  //BITMAP *bm=(BITMAP *)_bm;
 
   return false;
-/*
-  NSImage *img = i->bitmapptr;
-  if (!img) return false;
-  bm->bmWidth = (int) ([img size].width+0.5);
-  bm->bmHeight = (int) ([img size].height+0.5);
-  return true;
-*/
 }
 
 
@@ -534,20 +527,20 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
 
 void SWELL_PushClipRegion(HDC ctx)
 {
-  HDC__ *ct=(HDC__ *)ctx;
+//  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
 void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
-  HDC__ *ct=(HDC__ *)ctx;
+//  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
 
 }
 
 void SWELL_PopClipRegion(HDC ctx)
 {
-  HDC__ *ct=(HDC__ *)ctx;
+//  HDC__ *ct=(HDC__ *)ctx;
 //  if (ct && ct->ctx) CGContextRestoreGState(ct->ctx);
 }
 
