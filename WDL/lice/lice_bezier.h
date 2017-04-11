@@ -251,7 +251,7 @@ T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
     &ax, &bx, &cx, &ay, &by, &cy);
 
   double tx, t, tLo = 0.0, tHi = 1.0;
-  double xLo, xHi, yLo, yHi;
+  double xLo=0.0, xHi=0.0, yLo, yHi;
   int i;
   for (i = 0; i < CBEZ_ITERS; ++i)
   {

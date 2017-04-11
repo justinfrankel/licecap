@@ -1496,7 +1496,7 @@ static int _ysort(const void* a, const void* b)
 static int FindNextEdgeVertex(int* xy, int a, int n, int dir)
 {
   bool init = false;
-  float dxdy_best;
+  float dxdy_best = 0.0f;
   int i, ilo = a;
 
   for (i = a+1; i < n; ++i)
