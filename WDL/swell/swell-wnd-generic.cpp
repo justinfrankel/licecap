@@ -3652,6 +3652,28 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
       }
     return 1;
+    case WM_SETCURSOR:
+      if (lvs)
+      {
+        POINT p;
+        GetCursorPos(&p);
+        ScreenToClient(hwnd,&p);
+        const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
+        if (p.y >= 0 && p.y < hdr_size)
+        {
+          const SWELL_ListView_Col *col = lvs->m_cols.Get();
+          for (int x=0; x < lvs->m_cols.GetSize(); x ++)
+          {
+            p.x -= col[x].xwid;
+            if (p.x >= 0 && p.x < 4)
+            {
+              SetCursor(SWELL_LoadCursor(IDC_SIZEWE));
+              return 1;
+            }
+          }
+        }
+      }
+    break;
     case WM_LBUTTONDBLCLK:
     case WM_LBUTTONDOWN:
       SetFocus(hwnd);
@@ -3667,6 +3689,21 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
         const int n=lvs->GetNumItems();
         const int row_height = lvs->m_last_row_height;
+
+        if (GET_Y_LPARAM(lParam) >= 0 && GET_Y_LPARAM(lParam) < hdr_size)
+        {
+          const SWELL_ListView_Col *col = lvs->m_cols.Get();
+          int px = GET_X_LPARAM(lParam);
+          for (int x=0; x < lvs->m_cols.GetSize(); x ++)
+          {
+            px -= col[x].xwid;
+            if (px >= 0 && px < 4)
+            {
+              lvs->m_capmode = (3<<16) | ((px&7)<<12) | x;
+              return 0;
+            }
+          }
+        }
 
         lvs->m_capmode=0;
         const int ypos = GET_Y_LPARAM(lParam) - hdr_size;
@@ -3782,6 +3819,20 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 forceMouseMove:
         switch (HIWORD(lvs->m_capmode))
         {
+          case 3:
+            {
+              int x = lvs->m_capmode & 0xfff;
+              int xp = GET_X_LPARAM(lParam) - ((lvs->m_capmode >> 12) & 7);
+              SWELL_ListView_Col *col = lvs->m_cols.Get();
+              if (x < lvs->m_cols.GetSize())
+              {
+                for (int i = 0; i < x; i ++) xp -= col[i].xwid;
+                if (xp<0) xp=0;
+                col[x].xwid = xp;
+                InvalidateRect(hwnd,NULL,FALSE);
+              }
+            }
+          break;
           case 2:
             if (!lvs->m_is_listbox)
             {
