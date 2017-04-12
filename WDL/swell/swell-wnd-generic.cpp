@@ -5404,7 +5404,26 @@ void ListView_SetItemCount(HWND h, int cnt)
 void ListView_EnsureVisible(HWND h, int i, BOOL pok)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
-  if (!lvs) return;
+  if (!lvs || !lvs->m_last_row_height) return;
+  const int n = lvs->GetNumItems();
+  if (i>=0 && i < n)
+  {
+    const int row_height = lvs->m_last_row_height;
+    RECT r;
+    GetClientRect(h,&r);
+    if (lvs->HasColumnHeaders(h)) r.bottom -= row_height;
+    if (lvs->getTotalWidth() > r.right) r.bottom -= row_height;
+
+    const int oldy = lvs->m_scroll_y;
+    if (i*row_height < lvs->m_scroll_y) lvs->m_scroll_y = i*row_height;
+    else if (i*row_height > lvs->m_scroll_y + r.bottom) lvs->m_scroll_y = i*row_height-r.bottom + row_height;
+    lvs->sanitizeScroll(h);
+    if (oldy != lvs->m_scroll_y)
+    {
+      InvalidateRect(h,NULL,FALSE);
+    }
+  }
+
 }
 bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
 {
@@ -5448,16 +5467,32 @@ bool ListView_GetItemRect(HWND h, int item, RECT *r, int code)
 
 bool ListView_Scroll(HWND h, int xscroll, int yscroll)
 {
-  return false;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->m_last_row_height) return false;
+  const int oldy = lvs->m_scroll_y, oldx = lvs->m_scroll_x;
+  lvs->m_scroll_x += xscroll;
+  lvs->m_scroll_y += yscroll;
+  lvs->sanitizeScroll(h);
+  if (oldy != lvs->m_scroll_y || oldx != lvs->m_scroll_x)
+      InvalidateRect(h,NULL,FALSE);
+  return true;
 }
+
 void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
 {
   if (!hwnd) return;
 }
 bool ListView_DeleteColumn(HWND h, int pos)
 {
-  return false;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || pos < 0 || pos >= lvs->m_cols.GetSize()) return false;
+
+  free(lvs->m_cols.Get()[pos].name);
+  lvs->m_cols.Delete(pos);
+  InvalidateRect(h,NULL,FALSE);
+  return true;
 }
+
 int ListView_GetCountPerPage(HWND h)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
