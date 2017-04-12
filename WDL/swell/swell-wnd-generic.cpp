@@ -3634,7 +3634,11 @@ struct listViewState
     m_owner_multisel_state.Resize(0,false);
     return rv;
   }
-  bool hasImage() const
+  bool hasStatusImage() const
+  {
+    return m_status_imagelist && m_status_imagelist_type == LVSIL_STATE;
+  }
+  bool hasAnyImage() const
   {
     return m_status_imagelist && 
            (m_status_imagelist_type == LVSIL_SMALL || m_status_imagelist_type == LVSIL_STATE);
@@ -3695,7 +3699,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         {
           const SWELL_ListView_Col *col = lvs->m_cols.Get();
           p.x += lvs->m_scroll_x;
-          if (lvs->hasImage()) p.x -= lvs->m_last_row_height;
+          if (lvs->hasStatusImage()) p.x -= lvs->m_last_row_height;
 
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
@@ -3731,7 +3735,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         {
           const SWELL_ListView_Col *col = lvs->m_cols.Get();
           int px = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
-          if (lvs->hasImage()) px -= lvs->m_last_row_height;
+          if (lvs->hasStatusImage()) px -= lvs->m_last_row_height;
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
             const int minw = wdl_max(col_resize_sz+1,col[x].xwid);
@@ -3809,7 +3813,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
         {
           const int n=lvs->m_cols.GetSize();
-          const bool has_image = lvs->hasImage();
+          const bool has_image = lvs->hasStatusImage();
           int xpos=0, xpt = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
           if (has_image) xpos += lvs->m_last_row_height;
           for (int x=0;x<n;x++)
@@ -3895,7 +3899,7 @@ forceMouseMove:
             {
               int x = lvs->m_capmode & 0xfff;
               int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x + ((lvs->m_capmode >> 12) & 15);
-              if (lvs->hasImage()) xp -= lvs->m_last_row_height;
+              if (lvs->hasStatusImage()) xp -= lvs->m_last_row_height;
 
               SWELL_ListView_Col *col = lvs->m_cols.Get();
               RECT r;
@@ -4024,7 +4028,8 @@ forceMouseMove:
 
             SetTextColor(ps.hdc,RGB(0,0,0));
             int x;
-            const bool has_image = lvs->hasImage();
+            const bool has_image = lvs->hasAnyImage();
+            const bool has_status_image = lvs->hasStatusImage();
             const int xo = lvs->m_scroll_x;
 
             const int totalw = lvs->getTotalWidth();
@@ -4082,17 +4087,20 @@ forceMouseMove:
                 RECT ar = { xpos,ypos, cr.right, ypos + row_height };
                 if (!col && has_image)
                 {
-                  if (has_image && image_idx>0) 
+                  if (image_idx>0) 
                   {
                     HICON icon = lvs->m_status_imagelist->Get(image_idx-1);      
                     if (icon)
                     {
-                      ar.right = ar.left + row_height;
+                      if (!has_status_image)
+                        ar.right = ar.left + wdl_min(row_height,cols[col].xwid);
+                      else 
+                        ar.right = ar.left + row_height;
                       DrawImageInRect(ps.hdc,icon,&ar);
                     }
                   }
 
-                  xpos += row_height;
+                  if (has_status_image) xpos += row_height;
                 }
   
                 if (str) 
@@ -4113,7 +4121,7 @@ forceMouseMove:
               HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
               HBRUSH br2 = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
               HBRUSH br3 = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
-              int x,xpos=(has_image ? row_height : 0) - xo, ypos=0;
+              int x,xpos=(has_status_image ? row_height : 0) - xo, ypos=0;
               SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
               if (xpos>0) 
               {
@@ -5406,7 +5414,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   const int row = ListView_HitTest(h, pinf);
   int x,xpos=-lvs->m_scroll_x,idx=0;
   const int n=lvs->m_cols.GetSize();
-  const bool has_image = lvs->hasImage();
+  const bool has_image = lvs->hasStatusImage();
   if (has_image) xpos += lvs->m_last_row_height;
   for (x=0;x<n;x++)
   {
