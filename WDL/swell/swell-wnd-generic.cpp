@@ -3517,13 +3517,28 @@ struct listViewState
 
   int m_scroll_x,m_scroll_y,m_capmode;
 
+  int getTotalWidth() const
+  {
+    int s = 0;
+    const SWELL_ListView_Col *col = m_cols.Get();
+    const int n = m_cols.GetSize();
+    for (int x=0; x < n; x ++) s += col[x].xwid;
+    return s;
+  }
+
   void sanitizeScroll(HWND h)
   {
     RECT r;
     GetClientRect(h,&r);
+    const int mx = getTotalWidth() - r.right;
+    if (m_scroll_x > mx) m_scroll_x = mx;
+    if (m_scroll_x < 0) m_scroll_x = 0;
+
     if (m_last_row_height > 0)
     {
       r.bottom -= GetColumnHeaderHeight(h);
+      if (mx>0) r.bottom -= m_last_row_height;
+
       const int vh = m_last_row_height * GetNumItems();
       if (m_scroll_y < 0 || vh <= r.bottom) m_scroll_y=0;
       else if (m_scroll_y > vh - r.bottom) m_scroll_y = vh - r.bottom;
@@ -3636,12 +3651,22 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         const int amt = ((short)HIWORD(wParam))/40;
         if (amt && lvs)
         {
-          const int oldscroll = lvs->m_scroll_y;
-          lvs->m_scroll_y -= amt*lvs->m_last_row_height;
-          lvs->sanitizeScroll(hwnd);
-          if (lvs->m_scroll_y != oldscroll)
-            InvalidateRect(hwnd,NULL,FALSE);
-
+          if (GetAsyncKeyState(VK_SHIFT)&0x8000)
+          {
+            const int oldscroll = lvs->m_scroll_x;
+            lvs->m_scroll_x -= amt*4;
+            lvs->sanitizeScroll(hwnd);
+            if (lvs->m_scroll_x != oldscroll)
+              InvalidateRect(hwnd,NULL,FALSE);
+          }  
+          else
+          {
+            const int oldscroll = lvs->m_scroll_y;
+            lvs->m_scroll_y -= amt*lvs->m_last_row_height;
+            lvs->sanitizeScroll(hwnd);
+            if (lvs->m_scroll_y != oldscroll)
+              InvalidateRect(hwnd,NULL,FALSE);
+          }
         }
       }
     return 1;
@@ -3658,6 +3683,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         POINT p;
         GetCursorPos(&p);
         ScreenToClient(hwnd,&p);
+        p.x += lvs->m_scroll_x;
         const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
         if (p.y >= 0 && p.y < hdr_size)
         {
@@ -3689,11 +3715,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
         const int n=lvs->GetNumItems();
         const int row_height = lvs->m_last_row_height;
+        const int totalw = lvs->getTotalWidth();
 
         if (GET_Y_LPARAM(lParam) >= 0 && GET_Y_LPARAM(lParam) < hdr_size)
         {
           const SWELL_ListView_Col *col = lvs->m_cols.Get();
-          int px = GET_X_LPARAM(lParam);
+          int px = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
             px -= col[x].xwid;
@@ -3704,9 +3731,30 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             }
           }
         }
+        else if (totalw > r.right && GET_Y_LPARAM(lParam) >= r.bottom - row_height)
+        {
+          const int xpos = GET_X_LPARAM(lParam);
+          int xp = xpos;
+
+          const int wh = r.right;
+          const double isz = wh / (double) totalw;
+          int thumbsz = (int) (wh * isz + 0.5);
+          int thumbpos = (int) (lvs->m_scroll_x * isz + 0.5);
+          if (thumbsz < 4) thumbsz=4;
+          if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+
+          if (xpos < thumbpos) xp = thumbpos; // jump on first mouse move
+          else if (xpos > thumbpos+thumbsz) xp = thumbpos + thumbsz;
+
+          lvs->m_capmode = (4<<16) | (xp&0xffff); 
+          if (xpos < thumbpos || xpos > thumbpos+thumbsz) goto forceMouseMove;
+          return 0;
+        }
 
         lvs->m_capmode=0;
         const int ypos = GET_Y_LPARAM(lParam) - hdr_size;
+
+        if (totalw > r.right) r.bottom -= row_height;
         if (n * row_height > r.bottom - hdr_size && GET_X_LPARAM(lParam) >= r.right - row_height)
         {
           int yp = GET_Y_LPARAM(lParam);
@@ -3738,7 +3786,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         {
           const int n=lvs->m_cols.GetSize();
           const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
-          int xpos=0, xpt = GET_X_LPARAM(lParam);
+          int xpos=0, xpt = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
           if (has_image) xpos += lvs->m_last_row_height;
           for (int x=0;x<n;x++)
           {
@@ -3822,14 +3870,25 @@ forceMouseMove:
           case 3:
             {
               int x = lvs->m_capmode & 0xfff;
-              int xp = GET_X_LPARAM(lParam) - ((lvs->m_capmode >> 12) & 7);
+              int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x - ((lvs->m_capmode >> 12) & 7);
               SWELL_ListView_Col *col = lvs->m_cols.Get();
+              RECT r;
+              GetClientRect(hwnd,&r);
               if (x < lvs->m_cols.GetSize())
               {
                 for (int i = 0; i < x; i ++) xp -= col[i].xwid;
                 if (xp<0) xp=0;
-                col[x].xwid = xp;
-                InvalidateRect(hwnd,NULL,FALSE);
+                if (col[x].xwid != xp)
+                {
+                  col[x].xwid = xp;
+                  if (lvs->m_scroll_x > 0 && GET_X_LPARAM(lParam) < 0)
+                    lvs->m_scroll_x--;
+                  else if (GET_X_LPARAM(lParam) > r.right)
+                    lvs->m_scroll_x+=16; // additional check might not be necessary?
+
+                  InvalidateRect(hwnd,NULL,FALSE);
+                  // todo: auto-scroll
+                }
               }
             }
           break;
@@ -3855,6 +3914,10 @@ forceMouseMove:
                 RECT r;
                 GetClientRect(hwnd,&r);
 
+                const int totalw = lvs->getTotalWidth();
+                if (totalw > r.right) r.bottom -= lvs->m_last_row_height;
+
+
                 const int viewsz = r.bottom-lvs->GetColumnHeaderHeight(hwnd);
                 const double totalsz=(double)lvs->GetNumItems() * (double)lvs->m_last_row_height;
                 amt = (int)floor(amt * totalsz / (double)viewsz + 0.5);
@@ -3865,6 +3928,31 @@ forceMouseMove:
                 if (lvs->m_scroll_y != oldscroll)
                 {
                   lvs->m_capmode = (GET_Y_LPARAM(lParam)&0xffff) | (1<<16);
+                  InvalidateRect(hwnd,NULL,FALSE);
+                }
+              }
+            }
+          break;
+          case 4:
+            {
+              int xv = (short)LOWORD(lvs->m_capmode);
+              int amt = GET_X_LPARAM(lParam) - xv;
+
+              if (amt)
+              {
+                RECT r;
+                GetClientRect(hwnd,&r);
+
+                const int viewsz = r.right;
+                const double totalsz=(double)lvs->getTotalWidth();
+                amt = (int)floor(amt * totalsz / (double)viewsz + 0.5);
+              
+                const int oldscroll = lvs->m_scroll_x;
+                lvs->m_scroll_x += amt;
+                lvs->sanitizeScroll(hwnd);
+                if (lvs->m_scroll_x != oldscroll)
+                {
+                  lvs->m_capmode = (GET_X_LPARAM(lParam)&0xffff) | (4<<16);
                   InvalidateRect(hwnd,NULL,FALSE);
                 }
               }
@@ -3911,26 +3999,33 @@ forceMouseMove:
             SetTextColor(ps.hdc,RGB(0,0,0));
             int x;
             const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+            const int xo = lvs->m_scroll_x;
+
+            const int totalw = lvs->getTotalWidth();
+            if (totalw > cr.right)
+              cr.bottom -= row_height;
 
             for (x = 0; x < n && ypos < cr.bottom; x ++)
             {
               const char *str = NULL;
               char buf[4096];
 
-              RECT tr={cr.left,ypos,cr.right,ypos + row_height};
-              if (tr.bottom < hdr_size) 
               {
-                ypos += row_height;
-                continue;
-              }
+                RECT tr={cr.left,ypos,cr.right,ypos + row_height};
+                if (tr.bottom < hdr_size) 
+                {
+                  ypos += row_height;
+                  continue;
+                }
 
-              if (lvs->get_sel(x))
-              {
-                FillRect(ps.hdc,&tr,br);
+                if (lvs->get_sel(x))
+                {
+                  FillRect(ps.hdc,&tr,br);
+                }
               }
 
               SWELL_ListView_Row *row = lvs->m_data.Get(x);
-              int col,xpos=0;
+              int col,xpos=-xo;
               for (col = 0; col < nc && xpos < cr.right; col ++)
               {
                 int image_idx = 0;
@@ -3958,7 +4053,7 @@ forceMouseMove:
                   if (row) str = row->m_vals.Get(col);
                 }
 
-                RECT ar;
+                RECT ar = { xpos,ypos, cr.right, ypos + row_height };
                 if (!col && has_image)
                 {
                   if (has_image && image_idx>0) 
@@ -3966,8 +4061,6 @@ forceMouseMove:
                     HICON icon = lvs->m_status_imagelist->Get(image_idx-1);      
                     if (icon)
                     {
-                      ar=tr;
-                      ar.left += xpos;
                       ar.right = ar.left + row_height;
                       DrawImageInRect(ps.hdc,icon,&ar);
                     }
@@ -3978,8 +4071,6 @@ forceMouseMove:
   
                 if (str) 
                 {
-                  ar=tr;
-                  ar.left += xpos;
                   if (ncols > 0)
                   {
                     ar.right = ar.left + cols[col].xwid - 3;
@@ -3996,7 +4087,7 @@ forceMouseMove:
               HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
               HBRUSH br2 = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
               HBRUSH br3 = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
-              int x,xpos=(has_image ? row_height : 0), ypos=0;
+              int x,xpos=(has_image ? row_height : 0) - xo, ypos=0;
               SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
               if (xpos>0) 
               {
@@ -4036,9 +4127,35 @@ forceMouseMove:
               DeleteObject(br2);
               DeleteObject(br3);
             }
+            if (totalw > cr.right)
+            {
+              const int wh = cr.right;
+              const double isz = cr.right / (double) totalw;
+              int thumbsz = (int) (cr.right * isz + 0.5);
+              int thumbpos = (int) (lvs->m_scroll_x * isz + 0.5);
+              if (thumbsz < 4) thumbsz=4;
+              if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+
+              HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
+              HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
+              RECT fr = { cr.left, cr.bottom, thumbpos, cr.bottom + row_height};
+              if (fr.right>fr.left) FillRect(ps.hdc,&fr,br2);
+
+              fr.left = fr.right;
+              fr.right = fr.left + thumbsz;
+              if (fr.right>fr.left) FillRect(ps.hdc,&fr,br);
+
+              fr.left = fr.right;
+              fr.right = cr.right;
+              if (fr.right>fr.left) FillRect(ps.hdc,&fr,br2);
+
+              DeleteObject(br);
+              DeleteObject(br2);
+            }
+
             if (n * row_height > cr.bottom - hdr_size)
             {
-              const int wh = (cr.bottom-hdr_size);
+              const int wh = cr.bottom - hdr_size;
               const double isz = wh / (double) (n * row_height);
               int thumbsz = (int) (wh * isz + 0.5);
               int thumbpos = (int) (lvs->m_scroll_y * isz + 0.5);
