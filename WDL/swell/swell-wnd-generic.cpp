@@ -1778,9 +1778,9 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
   if (strcmp(hwnd->m_title.Get(), text))
   {
     hwnd->m_title.Set(text);
-    SendMessage(hwnd,WM_SETTEXT,0,(LPARAM)text);
     swell_setOSwindowtext(hwnd);
   } 
+  SendMessage(hwnd,WM_SETTEXT,0,(LPARAM)text);
   return true;
 }
 
@@ -2817,6 +2817,8 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     case WM_SETTEXT:
       if (es) es->cursor_pos = WDL_utf8_get_charlen(hwnd->m_title.Get());
       InvalidateRect(hwnd,NULL,FALSE);
+      if (hwnd->m_id && hwnd->m_parent)
+        SendMessage(hwnd->m_parent,WM_COMMAND,(EN_CHANGE<<16)|hwnd->m_id,(LPARAM)hwnd);
     break;
     case EM_SETSEL:
       if (es) 
