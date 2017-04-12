@@ -5589,7 +5589,7 @@ BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
 
 
 static HFONT menubar_font;
-const int menubar_xspacing=5;
+const int menubar_xspacing=8, menubar_leftmargin=6;
 
 static bool wantRightAlignedMenuBarItem(const char *p)
 {
@@ -5606,7 +5606,7 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
   {
     HDC dc = GetWindowDC(hwnd);
 
-    int x,xpos=r.left;
+    int x,xpos=r.left + menubar_leftmargin;
     HMENU__ *menu = (HMENU__*)hwnd->m_menu;
     HGDIOBJ oldfont = dc ? SelectObject(dc,menubar_font) : NULL;
     const int n=menu->items.GetSize();
@@ -5620,8 +5620,8 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
         DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
         if (x == n-1 && wantRightAlignedMenuBarItem(inf->dwTypeData))
         {
-          xpos = wdl_max(xpos,r.right - menubar_xspacing - cr.right);
-          cr.right = r.right - xpos;
+          xpos = wdl_max(xpos,r.right - menubar_leftmargin - cr.right);
+          cr.right = r.right - menubar_leftmargin - xpos;
         }
 
         if (forceItem>=0 ? forceItem == x : (mousex >=xpos && mousex< xpos + cr.right + menubar_xspacing))
@@ -5778,7 +5778,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           SetBkMode(dc,TRANSPARENT);
           int cols[2]={ GetSysColor(COLOR_BTNTEXT),GetSysColor(COLOR_3DHILIGHT)};
 
-          int x,xpos=0;
+          int x,xpos=menubar_leftmargin;
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
           const int n = menu->items.GetSize();
           for(x=0;x<n;x++)
@@ -5792,8 +5792,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
               if (x == n-1 && wantRightAlignedMenuBarItem(inf->dwTypeData))
               {
-                cr.left = wdl_max(xpos,r.right - menubar_xspacing - cr.right);
-                cr.right = r.right - menubar_xspacing;
+                cr.left = wdl_max(xpos,r.right - menubar_leftmargin - cr.right);
+                cr.right = r.right - menubar_leftmargin;
               }
               else
               {
