@@ -3648,6 +3648,7 @@ struct listViewState
 
 static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+  enum { col_resize_sz = 3 }; // must be <= 15
   listViewState *lvs = (listViewState *)hwnd->m_private_data;
   static POINT s_clickpt;
   switch (msg)
@@ -3698,12 +3699,13 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
-            p.x -= col[x].xwid;
-            if (p.x >= 0 && p.x < 4)
+            const int minw = wdl_max(col_resize_sz+1,col[x].xwid);
+            if (p.x >= minw-col_resize_sz && p.x < minw)
             {
               SetCursor(SWELL_LoadCursor(IDC_SIZEWE));
               return 1;
             }
+            p.x -= col[x].xwid;
           }
         }
       }
@@ -3732,6 +3734,13 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (lvs->hasImage()) px -= lvs->m_last_row_height;
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
+            const int minw = wdl_max(col_resize_sz+1,col[x].xwid);
+            if (px >= minw-col_resize_sz && px < minw)
+            {
+              lvs->m_capmode = (3<<16) | (((minw-px)&15)<<12) | x;
+              return 0;
+            }
+
             if (px >= 0 && px <col[x].xwid)
             {
               HWND par = hwnd->m_parent;
@@ -3744,11 +3753,6 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               return 0;
             }
             px -= col[x].xwid;
-            if (px >= 0 && px < 4)
-            {
-              lvs->m_capmode = (3<<16) | ((px&7)<<12) | x;
-              return 0;
-            }
           }
         }
         else if (totalw > r.right && GET_Y_LPARAM(lParam) >= r.bottom - row_height)
@@ -3890,7 +3894,7 @@ forceMouseMove:
           case 3:
             {
               int x = lvs->m_capmode & 0xfff;
-              int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x - ((lvs->m_capmode >> 12) & 7);
+              int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x + ((lvs->m_capmode >> 12) & 15);
               if (lvs->hasImage()) xp -= lvs->m_last_row_height;
 
               SWELL_ListView_Col *col = lvs->m_cols.Get();
