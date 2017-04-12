@@ -3633,6 +3633,11 @@ struct listViewState
     m_owner_multisel_state.Resize(0,false);
     return rv;
   }
+  bool hasImage() const
+  {
+    return m_status_imagelist && 
+           (m_status_imagelist_type == LVSIL_SMALL || m_status_imagelist_type == LVSIL_STATE);
+  }
   
 
   bool m_is_multisel, m_is_listbox;
@@ -3683,11 +3688,13 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         POINT p;
         GetCursorPos(&p);
         ScreenToClient(hwnd,&p);
-        p.x += lvs->m_scroll_x;
         const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
         if (p.y >= 0 && p.y < hdr_size)
         {
           const SWELL_ListView_Col *col = lvs->m_cols.Get();
+          p.x += lvs->m_scroll_x;
+          if (lvs->hasImage()) p.x -= lvs->m_last_row_height;
+
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
             p.x -= col[x].xwid;
@@ -3721,6 +3728,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         {
           const SWELL_ListView_Col *col = lvs->m_cols.Get();
           int px = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
+          if (lvs->hasImage()) px -= lvs->m_last_row_height;
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
             px -= col[x].xwid;
@@ -3785,7 +3793,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
         {
           const int n=lvs->m_cols.GetSize();
-          const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+          const bool has_image = lvs->hasImage();
           int xpos=0, xpt = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
           if (has_image) xpos += lvs->m_last_row_height;
           for (int x=0;x<n;x++)
@@ -3871,6 +3879,8 @@ forceMouseMove:
             {
               int x = lvs->m_capmode & 0xfff;
               int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x - ((lvs->m_capmode >> 12) & 7);
+              if (lvs->hasImage()) xp -= lvs->m_last_row_height;
+
               SWELL_ListView_Col *col = lvs->m_cols.Get();
               RECT r;
               GetClientRect(hwnd,&r);
@@ -3998,7 +4008,7 @@ forceMouseMove:
 
             SetTextColor(ps.hdc,RGB(0,0,0));
             int x;
-            const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+            const bool has_image = lvs->hasImage();
             const int xo = lvs->m_scroll_x;
 
             const int totalw = lvs->getTotalWidth();
@@ -5349,7 +5359,7 @@ int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
 
   if (!pinf->flags && lvs->m_last_row_height)
   {
-    const int ypos = y - (lvs->HasColumnHeaders(h) ? lvs->m_last_row_height + 2 : 0);
+    const int ypos = y - lvs->GetColumnHeaderHeight(h);
     const int hit = ypos >= 0 ? ((ypos + lvs->m_scroll_y) / lvs->m_last_row_height) : -1;
     if (hit < 0) pinf->flags |= LVHT_ABOVE;
     pinf->iItem=hit;
@@ -5380,7 +5390,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   const int row = ListView_HitTest(h, pinf);
   int x,xpos=-lvs->m_scroll_x,idx=0;
   const int n=lvs->m_cols.GetSize();
-  const bool has_image = lvs->m_status_imagelist && (lvs->m_status_imagelist_type == LVSIL_SMALL || lvs->m_status_imagelist_type == LVSIL_STATE);
+  const bool has_image = lvs->hasImage();
   if (has_image) xpos += lvs->m_last_row_height;
   for (x=0;x<n;x++)
   {
@@ -5411,7 +5421,7 @@ void ListView_EnsureVisible(HWND h, int i, BOOL pok)
     const int row_height = lvs->m_last_row_height;
     RECT r;
     GetClientRect(h,&r);
-    if (lvs->HasColumnHeaders(h)) r.bottom -= row_height;
+    r.bottom -= lvs->GetColumnHeaderHeight(h);
     if (lvs->getTotalWidth() > r.right) r.bottom -= row_height;
 
     const int oldy = lvs->m_scroll_y;
@@ -5431,7 +5441,7 @@ bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
   if (!lvs || !r) return false;
 
   r->top = lvs->m_last_row_height * item - lvs->m_scroll_y;
-  if (lvs->HasColumnHeaders(h)) r->top += lvs->m_last_row_height+2;
+  r->top += lvs->GetColumnHeaderHeight(h);
   RECT cr;
   GetClientRect(h,&cr);
   r->left=cr.left;
@@ -5500,7 +5510,7 @@ int ListView_GetCountPerPage(HWND h)
 
   RECT cr;
   GetClientRect(h,&cr);
-  if (lvs->HasColumnHeaders(h)) cr.bottom -= lvs->m_last_row_height+2;
+  cr.bottom -= lvs->GetColumnHeaderHeight(h);
   return (cr.bottom-cr.top) / lvs->m_last_row_height;
 }
 
