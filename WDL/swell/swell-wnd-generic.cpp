@@ -25,6 +25,7 @@
 
 #include "swell.h"
 
+#define SWELL_INTERNAL_MERGESORT_IMPL
 #define SWELL_INTERNAL_HTREEITEM_IMPL
 #include "swell-internal.h"
 
@@ -3731,6 +3732,17 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (lvs->hasImage()) px -= lvs->m_last_row_height;
           for (int x=0; x < lvs->m_cols.GetSize(); x ++)
           {
+            if (px >= 0 && px <col[x].xwid)
+            {
+              HWND par = hwnd->m_parent;
+              if (par)
+              {
+                NMLISTVIEW hdr={{hwnd,(UINT_PTR)hwnd->m_id,LVN_COLUMNCLICK},-1,x};
+                if (par->m_wndproc&&!par->m_hashaddestroy) par->m_wndproc(par,WM_NOTIFY,hwnd->m_id, (LPARAM) &hdr);
+              }
+              ReleaseCapture();
+              return 0;
+            }
             px -= col[x].xwid;
             if (px >= 0 && px < 4)
             {
@@ -5490,8 +5502,19 @@ bool ListView_Scroll(HWND h, int xscroll, int yscroll)
 
 void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
 {
-  if (!hwnd) return;
+  listViewState *lvs = hwnd ? (listViewState *)hwnd->m_private_data : NULL;
+  if (!lvs || 
+      lvs->m_is_listbox ||
+      lvs->m_owner_data_size >= 0 || !compf) return;
+
+  WDL_HeapBuf tmp;
+  char *b = (char*)tmp.ResizeOK(lvs->m_data.GetSize()*sizeof(void *));
+  if (b) 
+    __listview_mergesort_internal(lvs->m_data.GetList(),lvs->m_data.GetSize(),
+       sizeof(void *),compf,parm,(char*)b);
+  InvalidateRect(hwnd,NULL,FALSE);
 }
+
 bool ListView_DeleteColumn(HWND h, int pos)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;

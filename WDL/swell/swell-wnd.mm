@@ -35,6 +35,7 @@
 
 #include "swell-dlggen.h"
 
+#define SWELL_INTERNAL_MERGESORT_IMPL
 #define SWELL_INTERNAL_HTREEITEM_IMPL
 #include "swell-internal.h"
 
@@ -4735,59 +4736,6 @@ bool ListView_GetScroll(HWND h, POINT* p)
   p->x=p->y=0;
   return false;
 }
-
-static int __listview_sortfunc(void *p1, void *p2, int (*compar)(LPARAM val1, LPARAM val2, LPARAM userval), LPARAM userval)
-{
-  SWELL_ListView_Row *a = *(SWELL_ListView_Row **)p1;
-  SWELL_ListView_Row *b = *(SWELL_ListView_Row **)p2;
-  return compar(a->m_param,b->m_param,userval);
-}
-
-static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size, 
-                                 int (*compar)(LPARAM val1, LPARAM val2, LPARAM userval), 
-                                 LPARAM parm,
-                                 char *tmpspace)
-{
-  char *b1,*b2;
-  size_t n1, n2;
-
-  if (nmemb < 2) return;
-
-  n1 = nmemb / 2;
-  b1 = (char *) base;
-  n2 = nmemb - n1;
-  b2 = b1 + (n1 * size);
-
-  if (nmemb>2)
-  {
-    __listview_mergesort_internal(b1, n1, size, compar, parm, tmpspace);
-    __listview_mergesort_internal(b2, n2, size, compar, parm, tmpspace);
-  }
-
-  char *p = tmpspace;
-
-  do
-  {
-	  if (__listview_sortfunc(b1, b2, compar,parm) > 0)
-	  {
-	    memcpy(p, b2, size);
-	    b2 += size;
-	    n2--;
-	  }
-	  else
-	  {
-	    memcpy(p, b1, size);
-	    b1 += size;
-	    n1--;
-	  }
-  	p += size;
-  }
-  while (n1 > 0 && n2 > 0);
-
-  if (n1 > 0) memcpy(p, b1, n1 * size);
-  memcpy(base, tmpspace, (nmemb - n2) * size);
-}
-
 
 void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
 {
