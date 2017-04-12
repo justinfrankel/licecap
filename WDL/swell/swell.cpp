@@ -874,9 +874,11 @@ BOOL FreeLibrary(HINSTANCE hInst)
 
 void* SWELL_GetBundle(HINSTANCE hInst)
 {
-#ifdef __APPLE__
   SWELL_HINSTANCE* rec=(SWELL_HINSTANCE*)hInst;
+#ifdef __APPLE__
   if (rec) return rec->bundleinstptr;
+#else
+  if (rec) return rec->instptr;
 #endif
   return NULL;
 }
