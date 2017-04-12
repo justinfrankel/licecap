@@ -3490,7 +3490,9 @@ struct listViewState
     m_owner_data_size = ownerData ? 0 : -1;
     m_last_row_height = 0;
     m_scroll_x=m_scroll_y=0;
-    m_capmode=0;
+    m_capmode_state=0;
+    m_capmode_data1=0;
+    m_capmode_data2=0;
     m_status_imagelist = NULL;
     m_status_imagelist_type = 0;
   } 
@@ -3516,7 +3518,7 @@ struct listViewState
   int m_last_row_height;
   int m_selitem; // for single sel, or used for focus for multisel
 
-  int m_scroll_x,m_scroll_y,m_capmode;
+  int m_scroll_x,m_scroll_y,m_capmode_state, m_capmode_data1,m_capmode_data2;
 
   int getTotalWidth() const
   {
@@ -3652,7 +3654,7 @@ struct listViewState
 
 static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  enum { col_resize_sz = 3 }; // must be <= 15
+  enum { col_resize_sz = 3 };
   listViewState *lvs = (listViewState *)hwnd->m_private_data;
   static POINT s_clickpt;
   switch (msg)
@@ -3741,7 +3743,9 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             const int minw = wdl_max(col_resize_sz+1,col[x].xwid);
             if (px >= minw-col_resize_sz && px < minw)
             {
-              lvs->m_capmode = (3<<16) | (((minw-px)&15)<<12) | x;
+              lvs->m_capmode_state = 3;
+              lvs->m_capmode_data1 = x;
+              lvs->m_capmode_data2 = minw-px;
               return 0;
             }
 
@@ -3774,12 +3778,13 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (xpos < thumbpos) xp = thumbpos; // jump on first mouse move
           else if (xpos > thumbpos+thumbsz) xp = thumbpos + thumbsz;
 
-          lvs->m_capmode = (4<<16) | (xp&0xffff); 
+          lvs->m_capmode_state = 4;
+          lvs->m_capmode_data1 = xp;
           if (xpos < thumbpos || xpos > thumbpos+thumbsz) goto forceMouseMove;
           return 0;
         }
 
-        lvs->m_capmode=0;
+        lvs->m_capmode_state=0;
         const int ypos = GET_Y_LPARAM(lParam) - hdr_size;
 
         if (totalw > r.right) r.bottom -= row_height;
@@ -3797,7 +3802,8 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (ypos < thumbpos) yp = thumbpos + hdr_size; // jump on first mouse move
           else if (ypos > thumbpos+thumbsz) yp = thumbpos + hdr_size + thumbsz;
 
-          lvs->m_capmode = (1<<16) | (yp&0xffff); 
+          lvs->m_capmode_state = 1;
+          lvs->m_capmode_data1 = yp;
           if (ypos < thumbpos || ypos > thumbpos+thumbsz) goto forceMouseMove;
           return 0;
         }
@@ -3837,7 +3843,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           }
           else
           {
-            if (hit >= 0) lvs->m_capmode = (hit&0xffff)|(2<<16);
+            if (hit >= 0) 
+            {
+              lvs->m_capmode_state = 2;
+              lvs->m_capmode_data1 = hit;
+              lvs->m_capmode_data2 = subitem;
+            }
 
             NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,};
             SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
@@ -3874,7 +3885,9 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             }
             else
             {
-              lvs->m_capmode = (hit&0xffff)|(2<<16);
+              lvs->m_capmode_state = 2;
+              lvs->m_capmode_data1 = hit;
+              lvs->m_capmode_data2 = subitem;
               NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
               if (changed)
@@ -3893,12 +3906,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       if (GetCapture()==hwnd && lvs)
       {
 forceMouseMove:
-        switch (HIWORD(lvs->m_capmode))
+        switch (lvs->m_capmode_state)
         {
           case 3:
             {
-              int x = lvs->m_capmode & 0xfff;
-              int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x + ((lvs->m_capmode >> 12) & 15);
+              int x = lvs->m_capmode_data1;
+              int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x + lvs->m_capmode_data2;
               if (lvs->hasStatusImage()) xp -= lvs->m_last_row_height;
 
               SWELL_ListView_Col *col = lvs->m_cols.Get();
@@ -3928,15 +3941,15 @@ forceMouseMove:
               const int dx = GET_X_LPARAM(lParam) - s_clickpt.x, dy = GET_Y_LPARAM(lParam) - s_clickpt.y;
               if (dx*dx+dy*dy > 32)
               {
-                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_BEGINDRAG},lvs->m_capmode&0xffff,};
-                lvs->m_capmode=0;
+                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_BEGINDRAG},lvs->m_capmode_data1,lvs->m_capmode_data2};
+                lvs->m_capmode_state=0;
                 SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
               }
             }
           break;
           case 1:
             {
-              int yv = (short)LOWORD(lvs->m_capmode);
+              int yv = lvs->m_capmode_data1;
               int amt = GET_Y_LPARAM(lParam) - yv;
 
               if (amt)
@@ -3957,7 +3970,7 @@ forceMouseMove:
                 lvs->sanitizeScroll(hwnd);
                 if (lvs->m_scroll_y != oldscroll)
                 {
-                  lvs->m_capmode = (GET_Y_LPARAM(lParam)&0xffff) | (1<<16);
+                  lvs->m_capmode_data1 = GET_Y_LPARAM(lParam);
                   InvalidateRect(hwnd,NULL,FALSE);
                 }
               }
@@ -3965,7 +3978,7 @@ forceMouseMove:
           break;
           case 4:
             {
-              int xv = (short)LOWORD(lvs->m_capmode);
+              int xv = lvs->m_capmode_data1;
               int amt = GET_X_LPARAM(lParam) - xv;
 
               if (amt)
@@ -3982,7 +3995,7 @@ forceMouseMove:
                 lvs->sanitizeScroll(hwnd);
                 if (lvs->m_scroll_x != oldscroll)
                 {
-                  lvs->m_capmode = (GET_X_LPARAM(lParam)&0xffff) | (4<<16);
+                  lvs->m_capmode_data1 = GET_X_LPARAM(lParam);
                   InvalidateRect(hwnd,NULL,FALSE);
                 }
               }
