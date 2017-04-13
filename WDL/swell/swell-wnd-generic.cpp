@@ -2459,6 +2459,75 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+enum { SCROLLBAR_WIDTH = 14, SCROLLBAR_MIN_THUMB=4 };
+
+static void calcScroll(int wh, int totalw, int scroll_x, int *thumbsz, int *thumbpos)
+{
+  const double isz = wh / (double) totalw;
+  int sz = (int) (wh * isz + 0.5);
+  if (sz < SCROLLBAR_MIN_THUMB) sz=SCROLLBAR_MIN_THUMB;
+
+  *thumbpos = (int) (scroll_x * isz + 0.5);
+  if (*thumbpos >= wh-sz) *thumbpos = wh-sz;
+
+  *thumbsz = sz;
+}
+
+static void drawHorizontalScrollbar(HDC hdc, RECT cr, int totalw, int scroll_x)
+{
+  if (totalw <= cr.right-cr.left) return;
+
+  int thumbsz, thumbpos;
+  calcScroll(cr.right-cr.left,totalw,scroll_x,&thumbsz, &thumbpos);
+
+  HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
+  HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
+  RECT fr = { cr.left, cr.bottom - SCROLLBAR_WIDTH, cr.left + thumbpos, cr.bottom };
+  if (fr.right>fr.left) FillRect(hdc,&fr,br2);
+
+  fr.left = fr.right;
+  fr.right = fr.left + thumbsz;
+  if (fr.right>fr.left) FillRect(hdc,&fr,br);
+
+  fr.left = fr.right;
+  fr.right = cr.right;
+  if (fr.right>fr.left) FillRect(hdc,&fr,br2);
+
+  DeleteObject(br);
+  DeleteObject(br2);
+}
+
+static void drawVerticalScrollbar(HDC hdc, RECT cr, int totalh, int scroll_y)
+{
+  if (totalh <= cr.bottom-cr.top) return;
+
+  int thumbsz, thumbpos;
+  calcScroll(cr.bottom-cr.top,totalh,scroll_y,&thumbsz, &thumbpos);
+
+  HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
+  HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
+  RECT fr = { cr.right - SCROLLBAR_WIDTH, cr.top, cr.right,cr.top+thumbpos};
+  if (fr.bottom>fr.top) FillRect(hdc,&fr,br2);
+
+  fr.top = fr.bottom;
+  fr.bottom = fr.top + thumbsz;
+  if (fr.bottom>fr.top) FillRect(hdc,&fr,br);
+
+  fr.top = fr.bottom;
+  fr.bottom = cr.bottom;
+  if (fr.bottom>fr.top) 
+  {
+    FillRect(hdc,&fr,br2);
+
+    fr.top=fr.bottom-1; //add a little bottom border in case there is a horizontal scrollbar too
+    FillRect(hdc,&fr,br2);
+  }
+
+  DeleteObject(br);
+  DeleteObject(br2);
+}
+
+
 struct __SWELL_editControlState
 {
   __SWELL_editControlState() { cursor_timer=0; cursor_state=0; sel1=sel2=-1; cursor_pos=0;}
@@ -3490,6 +3559,8 @@ struct SWELL_ListView_Col
   int xwid;
 };
 
+enum { LISTVIEW_HDR_YMARGIN = 2 };
+
 struct listViewState
 {
   listViewState(bool ownerData, bool isMultiSel, bool isListBox)
@@ -3522,7 +3593,7 @@ struct listViewState
      if (m_is_listbox || !m_cols.GetSize()) return false;
      return !(hwnd->m_style & LVS_NOCOLUMNHEADER) && (hwnd->m_style & LVS_REPORT);
   }
-  int GetColumnHeaderHeight(HWND hwnd) const { return HasColumnHeaders(hwnd) ? m_last_row_height+2 : 0; }
+  int GetColumnHeaderHeight(HWND hwnd) const { return HasColumnHeaders(hwnd) ? m_last_row_height+LISTVIEW_HDR_YMARGIN : 0; }
 
   int m_owner_data_size; // -1 if m_data valid, otherwise size
   int m_last_row_height;
@@ -3550,7 +3621,7 @@ struct listViewState
     if (m_last_row_height > 0)
     {
       r.bottom -= GetColumnHeaderHeight(h);
-      if (mx>0) r.bottom -= m_last_row_height;
+      if (mx>0) r.bottom -= SCROLLBAR_WIDTH;
 
       const int vh = m_last_row_height * GetNumItems();
       if (m_scroll_y < 0 || vh <= r.bottom) m_scroll_y=0;
@@ -3739,6 +3810,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         RECT r;
         GetClientRect(hwnd,&r);
         const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
+        const int hdr_size_nomargin = hdr_size>0 ? hdr_size-LISTVIEW_HDR_YMARGIN : 0;
         const int n=lvs->GetNumItems();
         const int row_height = lvs->m_last_row_height;
         const int totalw = lvs->getTotalWidth();
@@ -3773,17 +3845,14 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             px -= col[x].xwid;
           }
         }
-        else if (totalw > r.right && GET_Y_LPARAM(lParam) >= r.bottom - row_height)
+        else if (totalw > r.right && 
+                 GET_Y_LPARAM(lParam) >= r.bottom - SCROLLBAR_WIDTH)
         {
           const int xpos = GET_X_LPARAM(lParam);
           int xp = xpos;
 
-          const int wh = r.right;
-          const double isz = wh / (double) totalw;
-          int thumbsz = (int) (wh * isz + 0.5);
-          int thumbpos = (int) (lvs->m_scroll_x * isz + 0.5);
-          if (thumbsz < 4) thumbsz=4;
-          if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+          int thumbsz, thumbpos;
+          calcScroll(r.right,totalw,lvs->m_scroll_x,&thumbsz,&thumbpos);
 
           if (xpos < thumbpos) xp = thumbpos; // jump on first mouse move
           else if (xpos > thumbpos+thumbsz) xp = thumbpos + thumbsz;
@@ -3795,22 +3864,19 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         }
 
         lvs->m_capmode_state=0;
-        const int ypos = GET_Y_LPARAM(lParam) - hdr_size;
+        const int ypos = GET_Y_LPARAM(lParam) - hdr_size_nomargin;
 
-        if (totalw > r.right) r.bottom -= row_height;
-        if (n * row_height > r.bottom - hdr_size && GET_X_LPARAM(lParam) >= r.right - row_height)
+        if (totalw > r.right) r.bottom -= SCROLLBAR_WIDTH;
+        if (n * row_height > r.bottom - hdr_size_nomargin && 
+            GET_X_LPARAM(lParam) >= r.right - SCROLLBAR_WIDTH)
         {
           int yp = GET_Y_LPARAM(lParam);
 
-          const int wh = (r.bottom-hdr_size);
-          const double isz = wh / (double) (n * row_height);
-          int thumbsz = (int) (wh * isz + 0.5);
-          int thumbpos = (int) (lvs->m_scroll_y * isz + 0.5);
-          if (thumbsz < 4) thumbsz=4;
-          if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+          int thumbsz, thumbpos;
+          calcScroll(r.bottom - hdr_size_nomargin, n*row_height,lvs->m_scroll_y,&thumbsz,&thumbpos);
 
-          if (ypos < thumbpos) yp = thumbpos + hdr_size; // jump on first mouse move
-          else if (ypos > thumbpos+thumbsz) yp = thumbpos + hdr_size + thumbsz;
+          if (ypos < thumbpos) yp = thumbpos + hdr_size_nomargin; // jump on first mouse move
+          else if (ypos > thumbpos+thumbsz) yp = thumbpos + hdr_size_nomargin + thumbsz;
 
           lvs->m_capmode_state = 1;
           lvs->m_capmode_data1 = yp;
@@ -4042,6 +4108,7 @@ forceMouseMove:
             const bool owner_data = lvs->IsOwnerData();
             const int n = owner_data ? lvs->m_owner_data_size : lvs->m_data.GetSize();
             const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
+            const int hdr_size_nomargin = hdr_size>0 ? hdr_size-LISTVIEW_HDR_YMARGIN : 0;
             int ypos = hdr_size - lvs->m_scroll_y;
 
             SetBkMode(ps.hdc,TRANSPARENT);
@@ -4057,7 +4124,7 @@ forceMouseMove:
 
             const int totalw = lvs->getTotalWidth();
             if (totalw > cr.right)
-              cr.bottom -= row_height;
+              cr.bottom -= SCROLLBAR_WIDTH;
 
             for (x = 0; x < n && ypos < cr.bottom; x ++)
             {
@@ -4153,21 +4220,22 @@ forceMouseMove:
               }        
               ypos += row_height;
             }
-            if (hdr_size)
+            if (hdr_size_nomargin>0)
             {
               HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
               HBRUSH br2 = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
               HBRUSH br3 = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
               int x,xpos=(has_status_image ? row_height : 0) - xo, ypos=0;
               SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+
               if (xpos>0) 
               {
-                RECT tr={0,ypos,xpos,ypos+hdr_size-2 };
+                RECT tr={0,ypos,xpos,ypos+hdr_size_nomargin };
                 FillRect(ps.hdc,&tr,br);
               }
               for (x=0; x < ncols; x ++)
               {
-                RECT tr={xpos,ypos,0,ypos + hdr_size - 2 };
+                RECT tr={xpos,ypos,0,ypos + hdr_size_nomargin };
                 xpos += cols[x].xwid;
                 tr.right = xpos;
                
@@ -4191,63 +4259,21 @@ forceMouseMove:
               }
               if (xpos < cr.right)
               {
-                RECT tr={xpos,ypos,cr.right,ypos+hdr_size-2 };
+                RECT tr={xpos,ypos,cr.right,ypos+hdr_size_nomargin };
                 FillRect(ps.hdc,&tr,br);
               }
               DeleteObject(br);
               DeleteObject(br2);
               DeleteObject(br3);
             }
+
+            cr.top += hdr_size_nomargin;
+            drawVerticalScrollbar(ps.hdc,cr,n*row_height,lvs->m_scroll_y);
+
             if (totalw > cr.right)
             {
-              const int wh = cr.right;
-              const double isz = cr.right / (double) totalw;
-              int thumbsz = (int) (cr.right * isz + 0.5);
-              int thumbpos = (int) (lvs->m_scroll_x * isz + 0.5);
-              if (thumbsz < 4) thumbsz=4;
-              if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
-
-              HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
-              HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
-              RECT fr = { cr.left, cr.bottom, thumbpos, cr.bottom + row_height};
-              if (fr.right>fr.left) FillRect(ps.hdc,&fr,br2);
-
-              fr.left = fr.right;
-              fr.right = fr.left + thumbsz;
-              if (fr.right>fr.left) FillRect(ps.hdc,&fr,br);
-
-              fr.left = fr.right;
-              fr.right = cr.right;
-              if (fr.right>fr.left) FillRect(ps.hdc,&fr,br2);
-
-              DeleteObject(br);
-              DeleteObject(br2);
-            }
-
-            if (n * row_height > cr.bottom - hdr_size)
-            {
-              const int wh = cr.bottom - hdr_size;
-              const double isz = wh / (double) (n * row_height);
-              int thumbsz = (int) (wh * isz + 0.5);
-              int thumbpos = (int) (lvs->m_scroll_y * isz + 0.5);
-              if (thumbsz < 4) thumbsz=4;
-              if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
-
-              HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
-              HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
-              RECT fr = { cr.right-row_height, hdr_size, cr.right,hdr_size+thumbpos};
-              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
-
-              fr.top = fr.bottom;
-              fr.bottom = fr.top + thumbsz;
-              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br);
-
-              fr.top = fr.bottom;
-              fr.bottom = cr.bottom;
-              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
-
-              DeleteObject(br);
-              DeleteObject(br2);
+              cr.bottom += SCROLLBAR_WIDTH;
+              drawHorizontalScrollbar(ps.hdc,cr,totalw,lvs->m_scroll_x);
             }
           }
           DeleteObject(br);
@@ -4571,16 +4597,14 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         RECT cr;
         GetClientRect(hwnd,&cr);
         int total_h;
-        if (GET_X_LPARAM(lParam) >= cr.right-tvs->m_last_row_height && (total_h=tvs->sanitizeScroll(hwnd)) > cr.bottom)
+        if (GET_X_LPARAM(lParam) >= cr.right-SCROLLBAR_WIDTH && 
+             (total_h=tvs->sanitizeScroll(hwnd)) > cr.bottom)
         {
           int ypos = GET_Y_LPARAM(lParam);
           int yp = ypos;
-          const int wh = cr.bottom;
-          const double isz = wh / (double) total_h;
-          int thumbsz = (int) (wh * isz + 0.5);
-          int thumbpos = (int) (tvs->m_scroll_y * isz + 0.5);
-          if (thumbsz < 4) thumbsz=4;
-          if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
+
+          int thumbsz, thumbpos;
+          calcScroll(cr.bottom, total_h,tvs->m_scroll_y,&thumbsz,&thumbpos);
 
           if (ypos < thumbpos) yp = thumbpos; // jump on first mouse move
           else if (ypos > thumbpos+thumbsz) yp = thumbpos + thumbsz;
@@ -4682,31 +4706,7 @@ forceMouseMove:
               tvs->doDrawItem(tvs->m_items.Get(x),ps.hdc,&r);
             }
 
-            if (total_h > cr.bottom)
-            {
-              const int wh = (cr.bottom);
-              const double isz = wh / (double) total_h;
-              int thumbsz = (int) (wh * isz + 0.5);
-              int thumbpos = (int) (tvs->m_scroll_y * isz + 0.5);
-              if (thumbsz < 4) thumbsz=4;
-              if (thumbpos >= wh-thumbsz) thumbpos = wh-thumbsz;
-
-              HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
-              HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
-              RECT fr = { cr.right-row_height, 0, cr.right,thumbpos};
-              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
-
-              fr.top = fr.bottom;
-              fr.bottom = fr.top + thumbsz;
-              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br);
-
-              fr.top = fr.bottom;
-              fr.bottom = cr.bottom;
-              if (fr.bottom>fr.top) FillRect(ps.hdc,&fr,br2);
-
-              DeleteObject(br);
-              DeleteObject(br2);
-            }
+            drawVerticalScrollbar(ps.hdc,cr,total_h,tvs->m_scroll_y);
           }
 
           EndPaint(hwnd,&ps);
