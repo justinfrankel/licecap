@@ -4346,8 +4346,8 @@ forceMouseMove:
                   if (has_status_image) 
                   {
                     xpos += row_height;
-                    ar.left += row_height;
                   }
+                  ar.left += row_height;
                 }
   
                 if (lvs->m_is_listbox && (hwnd->m_style & LBS_OWNERDRAWFIXED))
