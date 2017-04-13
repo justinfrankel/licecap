@@ -4113,7 +4113,11 @@ forceMouseMove:
                     }
                   }
 
-                  if (has_status_image) xpos += row_height;
+                  if (has_status_image) 
+                  {
+                    xpos += row_height;
+                    ar.left += row_height;
+                  }
                 }
   
                 if (str) 
