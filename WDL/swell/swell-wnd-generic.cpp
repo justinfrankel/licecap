@@ -2570,6 +2570,8 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
       }
     }
 
+    if (hwnd->m_style & ES_READONLY) return 1;
+
     char b[8];
     WDL_MakeUTFChar(b,wParam,sizeof(b));
     int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
@@ -2645,6 +2647,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
       }
     return 1;
     case VK_DELETE:
+      if (hwnd->m_style & ES_READONLY) return 1;
       if (hwnd->m_title.GetLength())
       {
         const int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
@@ -2658,6 +2661,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
     return 1;
 
     case VK_BACK:
+      if (hwnd->m_style & ES_READONLY) return 1;
       if (hwnd->m_title.GetLength() && es->cursor_pos > 0)
       {
         es->cursor_pos--;
@@ -2671,6 +2675,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
     case VK_RETURN:
       if (isMultiLine)
       {
+        if (hwnd->m_style & ES_READONLY) return 1;
         int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
         hwnd->m_title.Insert("\r\n",bytepos);
         es->cursor_pos+=2; // skip \r and \n
