@@ -5864,7 +5864,6 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
   return rv;
 }
 
-static UINT_PTR g_menubar_timer;
 static RECT g_menubar_lastrect;
 static HWND g_menubar_active;
 
@@ -5890,39 +5889,6 @@ int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if
   return 0;
 }
 
-static void menuBarTimer(HWND hwndUnused, UINT uMsg, UINT_PTR tm, DWORD dwt)
-{
-  if (!g_menubar_active) 
-  {
-    KillTimer(NULL,g_menubar_timer);
-    g_menubar_timer = 0;
-  }
-  else
-  {
-    POINT pt;
-    GetCursorPos(&pt);
-    HWND h = WindowFromPoint(pt);
-    if (h == g_menubar_active && h->m_menu)
-    {
-      HMENU__ *menu = (HMENU__*)h->m_menu;
-      RECT r;
-      const int x = menuBarHitTest(h,pt.x,pt.y,&r,-1);
-      if (x>=0 && x != menu->sel_vis)
-      {
-        MENUITEMINFO *inf = menu->items.Get(x);
-        if (inf && inf->hSubMenu)
-        {
-          menu->sel_vis = x;
-          g_menubar_lastrect = r;
-
-          void DestroyPopupMenus();
-          DestroyPopupMenus(); // cause new menu to be popped up
-        }
-      }
-    }
-  }
-}
-
 static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
 {
   MENUITEMINFO *inf = menu->items.Get(x);
@@ -5935,7 +5901,6 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   mbr.top = -SWELL_INTERNAL_MENUBAR_SIZE;
   menu->sel_vis = x;
   g_menubar_active = hwnd;
-  if (!g_menubar_timer) g_menubar_timer = SetTimer(NULL,0,100,menuBarTimer);
   for (;;)
   {
     InvalidateRect(hwnd,&mbr,FALSE);
@@ -5950,8 +5915,6 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   menu->sel_vis=-1;
   InvalidateRect(hwnd,&mbr,FALSE);
   g_menubar_active = NULL;
-  if (g_menubar_timer) KillTimer(NULL,g_menubar_timer);
-  g_menubar_timer = 0;
 }
 
 LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -5960,6 +5923,26 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   {
     case WM_DESTROY:
       if (g_menubar_active == hwnd) g_menubar_active=NULL;
+    break;
+    case WM_NCMOUSEMOVE:
+      if (g_menubar_active == hwnd && hwnd->m_menu)
+      {
+        HMENU__ *menu = (HMENU__*)hwnd->m_menu;
+        RECT r;
+        const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1);
+        if (x>=0 && x != menu->sel_vis)
+        {
+          MENUITEMINFO *inf = menu->items.Get(x);
+          if (inf && inf->hSubMenu)
+          {
+            menu->sel_vis = x;
+            g_menubar_lastrect = r;
+
+            void DestroyPopupMenus();
+            DestroyPopupMenus(); // cause new menu to be popped up
+          }
+        }
+      }
     break;
 
     case WM_NCCALCSIZE:
