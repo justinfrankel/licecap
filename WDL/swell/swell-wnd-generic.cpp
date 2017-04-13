@@ -3708,6 +3708,7 @@ struct SWELL_ListView_Col
 {
   char *name;
   int xwid;
+  int sortindicator;
 };
 
 enum { LISTVIEW_HDR_YMARGIN = 2 };
@@ -4400,6 +4401,32 @@ forceMouseMove:
 
                   a.left++; a.top++; a.right--; a.bottom--;
                   FillRect(ps.hdc,&a,br);
+                  if (cols[x].sortindicator != 0)
+                  {
+                    const int tsz = (tr.bottom-tr.top)/4;
+                    if (tr.right > tr.left + 2*tsz)
+                    {
+                      const int x1 = tr.left + 2;
+                      int y2 = (tr.bottom+tr.top)/2 - tsz/2 - tsz/4;
+                      int y1 = y2 + tsz;
+                      if (cols[x].sortindicator < 0)
+                      {
+                        int tmp=y1; 
+                        y1=y2;
+                        y2=tmp;
+                      }
+                      HPEN pen = CreatePen(PS_SOLID,0,RGB(96,96,96));
+                      HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
+                      MoveToEx(ps.hdc,x1,y1,NULL);
+                      LineTo(ps.hdc,x1+tsz*2,y1);
+                      LineTo(ps.hdc,x1+tsz,y2);
+                      LineTo(ps.hdc,x1,y1);
+                      SelectObject(ps.hdc,oldPen); 
+                      DeleteObject(pen);
+                      tr.left = x1 + tsz*2;
+                    }
+                  }
+
                   if (cols[x].name) 
                   {
                     tr.left += wdl_min((tr.right-tr.left)/4,4);
@@ -6902,22 +6929,47 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
 }
 HWND ListView_GetHeader(HWND h)
 {
-  return 0;
+  return h;
 }
 
 int Header_GetItemCount(HWND h)
 {
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  return lvs ? lvs->m_cols.GetSize() : 0;
 }
 
 BOOL Header_GetItem(HWND h, int col, HDITEM* hi)
 {
-  return FALSE;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return FALSE;
+  if (col < 0 || col >= lvs->m_cols.GetSize()) return FALSE;
+
+  const SWELL_ListView_Col *c = lvs->m_cols.Get() + col;
+  if (hi->mask&HDI_FORMAT)
+  {
+    if (c->sortindicator<0) hi->fmt = HDF_SORTUP;
+    else if (c->sortindicator>0) hi->fmt = HDF_SORTDOWN;
+    else hi->fmt=0;
+  }
+
+  return TRUE;
 }
 
 BOOL Header_SetItem(HWND h, int col, HDITEM* hi)
 {
-  return FALSE;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return FALSE;
+  if (col < 0 || col >= lvs->m_cols.GetSize()) return FALSE;
+
+  SWELL_ListView_Col *c = lvs->m_cols.Get() + col;
+  if (hi->mask&HDI_FORMAT)
+  {
+    if (hi->fmt & HDF_SORTUP) c->sortindicator=-1;
+    else if (hi->fmt & HDF_SORTDOWN) c->sortindicator=1;
+    else c->sortindicator=0;
+  }
+
+  return TRUE;
 }
 
 
