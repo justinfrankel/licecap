@@ -823,8 +823,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   LICE_SubBitmap clipbm(surface,clip_x1,clip_y1,clip_w,clip_h);
   if (surface && !(align&DT_NOCLIP)) { surface = &clipbm; xpos-=clip_x1; ypos-=clip_y1; }
 
-  int left_xpos = xpos,ysize=0,max_xpos=0;
-  int start_ypos = ypos;
+  int left_xpos = xpos,start_ypos = ypos, max_ypos=ypos,max_xpos=0;
   bool in_prefix=false;
 
   while (buflen && *buf)
@@ -874,8 +873,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           if (rext<=xpos) rext=xpos + ha;
           if (rext > max_xpos) max_xpos=rext;
           xpos += ha;
-          int bext = ypos + lineh; // +  (g->metrics.height - g->metrics.horiBearingY)/64;
-          if (ysize < bext) ysize=bext;
+          const int bext = ypos + lineh;
+          if (max_ypos < bext) max_ypos=bext;
           needr=false;
         }
 #endif
@@ -887,7 +886,9 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         {
           if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
           xpos+=charw*5;
-          if (ysize < ypos+lineh) ysize=ypos+lineh;
+         
+          const int bext = ypos+lineh;
+          if (max_ypos < bext) max_ypos=bext;
         }
         else 
         {
@@ -895,7 +896,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           LICE_DrawChar(surface,xpos,ypos,c,fgcol,1.0f,LICE_BLIT_MODE_COPY);
           if (doUl) LICE_Line(surface,xpos,ypos+lineh+1,xpos+charw,ypos+lineh+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
   
-          if (ysize < ypos+lineh+(doUl ? 2:1)) ysize=ypos+lineh+(doUl ? 2:1);
+          const int bext=ypos+lineh+(doUl ? 2:1);
+          if (max_ypos < bext) max_ypos=bext;
           xpos+=charw;
         }
       }
@@ -903,10 +905,10 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     if(xpos>max_xpos)max_xpos=xpos;
   }
   if (surface==&clipbm)
-    swell_DirtyContext(ct,clip_x1+left_xpos,clip_y1+start_ypos,clip_x1+max_xpos,clip_y1+start_ypos+ysize);
+    swell_DirtyContext(ct,clip_x1+left_xpos,clip_y1+start_ypos,clip_x1+max_xpos,clip_y1+max_ypos);
   else
-    swell_DirtyContext(ct,left_xpos,start_ypos,max_xpos,start_ypos+ysize);
-  return ysize;
+    swell_DirtyContext(ct,left_xpos,start_ypos,max_xpos,max_ypos);
+  return max_ypos - start_ypos;
 }
 
 
