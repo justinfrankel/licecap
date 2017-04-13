@@ -2196,6 +2196,16 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
           int f=DT_VCENTER;
           int sf = (hwnd->m_style & 0xf);
+          if (sf == BS_OWNERDRAW)
+          {
+            if (hwnd->m_parent)
+            {
+              DRAWITEMSTRUCT dis = { ODT_BUTTON, hwnd->m_id, 0, 0, pressed?ODS_SELECTED:0,hwnd,ps.hdc,r,hwnd->m_userdata };
+              SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
+            }
+            EndPaint(hwnd,&ps);
+            return 0;
+          }
           if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
           {
             const int chksz = 12;
@@ -4054,6 +4064,7 @@ forceMouseMove:
               const char *str = NULL;
               char buf[4096];
 
+              bool sel;
               {
                 RECT tr={cr.left,ypos,cr.right,ypos + row_height};
                 if (tr.bottom < hdr_size) 
@@ -4062,7 +4073,8 @@ forceMouseMove:
                   continue;
                 }
 
-                if (lvs->get_sel(x))
+                sel = lvs->get_sel(x);
+                if (sel)
                 {
                   FillRect(ps.hdc,&tr,br);
                 }
@@ -4120,7 +4132,15 @@ forceMouseMove:
                   }
                 }
   
-                if (str) 
+                if (lvs->m_is_listbox && (hwnd->m_style & LBS_OWNERDRAWFIXED))
+                {
+                  if (hwnd->m_parent)
+                  {
+                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, x, 0, sel?ODS_SELECTED:0,hwnd,ps.hdc,ar,hwnd->m_userdata };
+                    SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
+                  }
+                }
+                else if (str) 
                 {
                   if (ncols > 0)
                   {
@@ -4825,7 +4845,7 @@ HWND SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles)
 {
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(styles&SWELL_NOT_WS_VISIBLE), listViewWindowProc);
-  hwnd->m_style = WS_CHILD;
+  hwnd->m_style = WS_CHILD | (styles & ~SWELL_NOT_WS_VISIBLE);
   hwnd->m_classname = "ListBox";
   hwnd->m_private_data = (INT_PTR) new listViewState(false, !!(styles & LBS_EXTENDEDSEL), true);
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
