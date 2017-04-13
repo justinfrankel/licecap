@@ -406,7 +406,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         SetWindowPos(hwnd,NULL,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,SWP_NOZORDER);
 
         hwnd->m_extra[0] = 0; // Y scroll offset
-        hwnd->m_extra[1] = 0; // allow scroll flag (set from paint)
+        hwnd->m_extra[1] = 0; // &1=allow scroll flag (set from paint), &2=force scroll down (if sel_vis is offscreen positive)
       }
 
       SetWindowLong(hwnd,GWL_STYLE,GetWindowLong(hwnd,GWL_STYLE)&~WS_CAPTION);
@@ -545,11 +545,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               hwnd->m_extra[1] = 1; // allow scrolling down if last item was halfway off
             }
           }
+          if (x <= menu->sel_vis) hwnd->m_extra[1]|=2;
+
 
           // lower scroll indicator
           int mid=(cr.right-cr.left)/2;
           SelectObject(ps.hdc,pen);
-          if (hwnd->m_extra[1])
+          if (hwnd->m_extra[1]&1)
           {
             RECT fr = {cr.left, cr.bottom-scroll_margin, cr.right,cr.bottom};
             FillRect(ps.hdc,&fr,br2);
@@ -606,10 +608,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
         POINT curM;
         GetCursorPos(&curM);
-        if (curM.x >= tr.left && curM.x < tr.right)
+        if ((curM.x >= tr.left && curM.x < tr.right) || (hwnd->m_extra[1]&3)==3)
         {
           int xFirst = hwnd->m_extra[0];
-          if (hwnd->m_extra[1] && curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin)
+          if ((hwnd->m_extra[1]&1) && 
+               ((hwnd->m_extra[1]&2) || 
+                (curM.y >= tr.bottom-scroll_margin && 
+                 curM.y < tr.bottom+scroll_margin)))
           {
             hwnd->m_extra[0]=++xFirst;
             hwnd->m_extra[1]=0;
@@ -650,10 +655,45 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         }
         SendMessage(hwnd,WM_USER+100,1,menu->sel_vis);
       }
-      else if (wParam == VK_UP)
+      else if (wParam == VK_UP || wParam == VK_PRIOR)
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
+        for (int i= wParam == VK_UP ? 1 : 10; i>=0 && l>0; i--) while (l > 0)
+        {
+          MENUITEMINFO *inf = menu->items.Get(--l);
+          if (!inf) break; 
+          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+          {
+            menu->sel_vis=l;
+            break;
+          }
+        }
+        if (menu->sel_vis < hwnd->m_extra[0])
+          hwnd->m_extra[0] = menu->sel_vis;
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+      else if (wParam == VK_DOWN || wParam == VK_NEXT)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        int l = menu->sel_vis;
+        const int n =menu->items.GetSize()-1;
+        for (int i = wParam == VK_DOWN ? 1 : 10; i>=0 && l<n; i--) while (l < n)
+        {
+          MENUITEMINFO *inf = menu->items.Get(++l);
+          if (!inf) break; 
+          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+          {
+            menu->sel_vis=l;
+            break;
+          }
+        }
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+      else if (wParam == VK_END)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        int l = menu->items.GetSize();
         while (l > 0)
         {
           MENUITEMINFO *inf = menu->items.Get(--l);
@@ -661,28 +701,85 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
           {
             menu->sel_vis=l;
-            InvalidateRect(hwnd,NULL,FALSE);
             break;
           }
         }
+        if (menu->sel_vis < hwnd->m_extra[0])
+          hwnd->m_extra[0] = menu->sel_vis;
+        InvalidateRect(hwnd,NULL,FALSE);
       }
-      else if (wParam == VK_DOWN)
+      else if (wParam == VK_HOME)
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        int l = menu->sel_vis;
-        const int n =menu->items.GetSize()-1;
-        while (l < n)
+        int l = 0;
+        while (l < menu->items.GetSize())
         {
-          MENUITEMINFO *inf = menu->items.Get(++l);
+          MENUITEMINFO *inf = menu->items.Get(l++);
           if (!inf) break; 
           if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
           {
-            menu->sel_vis=l;
-            InvalidateRect(hwnd,NULL,FALSE);
+            menu->sel_vis=l-1;
             break;
           }
         }
+        if (menu->sel_vis < hwnd->m_extra[0])
+          hwnd->m_extra[0] = menu->sel_vis;
+        InvalidateRect(hwnd,NULL,FALSE);
       }
+      else if ((lParam & FVIRTKEY) && (
+              (wParam >= 'A' && wParam <= 'Z') ||
+              (wParam >= '0' && wParam <= '9')))
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        const int n=menu->items.GetSize();
+        
+        int offs = menu->sel_vis+1;
+        if (offs<0||offs>=n) offs=0;
+        int matchcnt=0;
+        for(int x=0;x<n+n;x++)
+        {
+          MENUITEMINFO *inf = menu->items.Get(offs);
+          if (inf->fType == MFT_STRING && 
+              !(inf->fState & MF_GRAYED) &&
+              inf->dwTypeData)
+          {
+            const char *p = inf->dwTypeData;
+            bool is_prefix_mode = x<n;
+            if (!is_prefix_mode && matchcnt) 
+            {
+              if (matchcnt == 1) 
+              {
+                // implies prefix mode, only one matching item
+                SendMessage(hwnd,WM_USER+100,1,menu->sel_vis);
+              }
+              break;
+            }
+
+            if (is_prefix_mode) while (*p)
+            {
+              if (*p++ == '&')
+              {
+                if (*p != '&') break;
+                p++;
+              }
+            }
+
+            if (*p > 0 && toupper(*p) == wParam)
+            {
+              if (!matchcnt++)
+              {
+                menu->sel_vis = offs;
+                if (menu->sel_vis < hwnd->m_extra[0])
+                  hwnd->m_extra[0] = menu->sel_vis;
+                InvalidateRect(hwnd,NULL,FALSE);
+              }
+              if (!is_prefix_mode) break;
+            }
+          }
+          if (++offs >= n) offs=0;
+        }
+      }
+         
     return 1;
     case WM_DESTROY:
       {

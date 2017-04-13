@@ -6071,14 +6071,21 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_KEYUP: 
         if (hwnd->m_parent) return SendMessage(hwnd->m_parent,msg,wParam,lParam);
 
-        if (msg == WM_KEYDOWN && hwnd->m_menu && lParam == (FVIRTKEY | FALT) && wParam >= 'A' && wParam <= 'Z')
+        if (msg == WM_KEYDOWN && hwnd->m_menu && 
+            lParam == (FVIRTKEY | FALT) && (
+              (wParam >= 'A' && wParam <= 'Z') ||
+              (wParam >= '0' && wParam <= '9')
+            ) 
+           )
         {
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
           const int n=menu->items.GetSize();
           for(int x=0;x<n;x++)
           {
             MENUITEMINFO *inf = menu->items.Get(x);
-            if (inf->fType == MFT_STRING && inf->dwTypeData)
+            if (inf->fType == MFT_STRING && 
+                !(inf->fState & MF_GRAYED) &&
+                inf->dwTypeData)
             {
               const char *p = inf->dwTypeData;
               while (*p)
