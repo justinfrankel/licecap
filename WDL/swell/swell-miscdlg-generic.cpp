@@ -1097,7 +1097,7 @@ bool SWELL_ChooseColor(HWND h, int *val, int ncustom, int *custom)
   ChooseColor_State state = { ncustom, custom };
   int c = val ? *val : 0;
   LICE_RGB2HSV(GetRValue(c),GetGValue(c),GetBValue(c),&state.h,&state.s,&state.v);
-  bool rv = DialogBoxParam(NULL,NULL,NULL,swellColorSelectProc,(LPARAM)&state)!=0;
+  bool rv = DialogBoxParam(NULL,NULL,h,swellColorSelectProc,(LPARAM)&state)!=0;
   delete state.bm;
   if (rv && val) 
   {
