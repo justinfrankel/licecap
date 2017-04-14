@@ -605,6 +605,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           if (SWELL_g_focus_oswindow == fc->window ||
               swell_isOSwindowmenu(SWELL_g_focus_oswindow)) 
           {
+            DestroyPopupMenus();
             if (!g_focus_lost_timer) g_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
           }
         }
