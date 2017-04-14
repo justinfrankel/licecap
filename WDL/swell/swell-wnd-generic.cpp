@@ -44,6 +44,8 @@ int g_swell_want_nice_style = 1; //unused but here for compat
 HWND__ *SWELL_topwindows;
 
 HWND DialogBoxIsActive();
+void DestroyPopupMenus();
+bool swell_isOSwindowmenu(void *osw);
 
 static HWND s_captured_window;
 HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
@@ -128,6 +130,7 @@ static void focusLostTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
       h=h->m_next;
     }
     g_want_activateapp_on_focus=true;
+    DestroyPopupMenus();
   }
 }
 
@@ -599,7 +602,8 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         }
         else
         {
-          if (SWELL_g_focus_oswindow == fc->window) 
+          if (SWELL_g_focus_oswindow == fc->window ||
+              swell_isOSwindowmenu(SWELL_g_focus_oswindow)) 
           {
             if (!g_focus_lost_timer) g_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
           }
@@ -6086,7 +6090,6 @@ int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if
       menu->sel_vis = x;
       g_menubar_lastrect = r;
 
-      void DestroyPopupMenus();
       DestroyPopupMenus();
       return 1;
     }
@@ -6143,7 +6146,6 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             menu->sel_vis = x;
             g_menubar_lastrect = r;
 
-            void DestroyPopupMenus();
             DestroyPopupMenus(); // cause new menu to be popped up
           }
         }

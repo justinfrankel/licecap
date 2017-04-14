@@ -334,6 +334,17 @@ static int m_trackingFlags,m_trackingRet;
 static HWND m_trackingPar;
 static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
+bool swell_isOSwindowmenu(void *osw)
+{
+  int x = m_trackingMenus.GetSize();
+  if (osw) while (--x>=0)
+  {
+    HWND__ *p = m_trackingMenus.Get(x);
+    if (p->m_oswindow == osw) return true;
+  }
+  return false;
+}
+
 int menuBarNavigate(int dir); // -1 if no menu bar active, 0 if did nothing, 1 if navigated
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
