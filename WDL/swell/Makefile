@@ -67,6 +67,17 @@ default: libSwell.so
 
 .PHONY: clean 
 
+SWELL_HEADERS=swell-dlggen.h swell-gdi-internalpool.h swell-menugen.h swell-types.h swell-functions.h swell-internal.h
+
+swell.o: $(SWELL_HEADERS)
+swell-ini.o: $(SWELL_HEADERS)
+swell-wnd-generic.o: $(SWELL_HEADERS)
+swell-dlg-generic.o: $(SWELL_HEADERS)
+swell-menu-generic.o: $(SWELL_HEADERS)
+swell-misc-generic.o: $(SWELL_HEADERS)
+swell-gdi-generic.o: $(SWELL_HEADERS)
+swell-gdi-lice.o: $(SWELL_HEADERS)
+
 libSwell.so: $(OBJS)
 	$(CXX) -shared -o $@ $(CFLAGS) $(LFLAGS) $^ $(LINKEXTRA)
 
