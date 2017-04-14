@@ -422,15 +422,14 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         {
           RECT cr;
           GetClientRect(hwnd,&cr);
-          HBRUSH br=CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-          HBRUSH br2 =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
-          HPEN pen=CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
-          HPEN pen2=CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DHILIGHT));
+          HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg);
+          HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
+          HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
+          HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
           Rectangle(ps.hdc,cr.left,cr.top,cr.right-1,cr.bottom-1);
           SetBkMode(ps.hdc,TRANSPARENT);
-          int cols[2]={ GetSysColor(COLOR_BTNTEXT),GetSysColor(COLOR_3DHILIGHT)};
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int x;
           int ypos = top_margin;
@@ -482,13 +481,18 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
             if (x == menu->sel_vis && !dis)
             {
-              HBRUSH br=CreateSolidBrush(cols[dis]);
+              HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
               RECT r2=r;
               FillRect(ps.hdc,&r2,br);
               DeleteObject(br);
-              SetTextColor(ps.hdc,GetSysColor(COLOR_3DFACE));
+              SetTextColor(ps.hdc,g_swell_ctheme.menu_text_sel);
             }
-            else SetTextColor(ps.hdc,cols[dis]);
+            else 
+            {
+              SetTextColor(ps.hdc,
+                 dis ? g_swell_ctheme.menu_text_disabled : 
+                 g_swell_ctheme.menu_text);
+            }
 
             if (inf->fType == MFT_STRING)
             {
@@ -536,7 +540,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if (inf->fState&MF_CHECKED)
             {
-               SetTextColor(ps.hdc,cols[dis]);
+               SetTextColor(ps.hdc,
+                 dis ? g_swell_ctheme.menu_text_disabled : 
+                 g_swell_ctheme.menu_text);
                RECT r2=r; r2.left = 0; r2.right=lcol;
                DrawText(ps.hdc,"X",-1,&r2,DT_VCENTER|DT_CENTER|DT_SINGLELINE);
             }

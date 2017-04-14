@@ -904,4 +904,88 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
 
 #endif
 
+#ifndef SWELL_TARGET_OSX
+
+#define SWELL_GENERIC_THEMEDEFS(f,fd) \
+  f(_3dface,192,192,192) \
+  f(_3dshadow,96,96,96) \
+  f(_3dhilight,224,224,224) \
+  f(_3ddkshadow,48,48,48) \
+  fd(button_bg,192,192,192,_3dface) \
+  f(button_text,0,0,0) \
+  f(button_text_disabled, 128,128,128) \
+  fd(button_shadow, 96,96,96, _3dshadow) \
+  fd(button_hilight, 224,224,224, _3dhilight) \
+  f(checkbox_text,0,0,0) \
+  f(checkbox_text_disabled, 128,128,128) \
+  f(checkbox_fg, 0,0,0) \
+  f(checkbox_inter, 192,192,192) \
+  f(checkbox_bg, 255,255,255) \
+  f(scrollbar,32,32,32) \
+  f(scrollbar_fg, 64,64,64) \
+  f(scrollbar_bg, 192,192,192) \
+  f(edit_cursor,0,128,255) \
+  f(edit_bg,255,255,255) \
+  f(edit_bg_disabled,255,255,255) \
+  f(edit_text,0,0,0) \
+  f(edit_text_disabled, 192,192,192) \
+  f(info_bk,255,240,200) \
+  f(info_text,0,0,0) \
+  fd(menu_bg, 192,192,192, _3dface) \
+  fd(menu_shadow, 96,96,96, _3dshadow) \
+  fd(menu_hilight, 224,224,224, _3dhilight) \
+  fd(menu_text, 0,0,0, button_text) \
+  fd(menu_text_disabled, 224,224,224, _3dhilight) \
+  fd(menu_bg_sel, 0,0,0, menu_text) \
+  fd(menu_text_sel, 224,224,224, menu_bg) \
+  f(menu_scroll, 64,64,64) \
+  fd(menubar_bg, 192,192,192, menu_bg) \
+  fd(menubar_text, 0,0,0, menu_text) \
+  fd(menubar_text_disabled, 224,224,224, menu_text_disabled) \
+  fd(menubar_bg_sel, 0,0,0, menu_bg_sel) \
+  fd(menubar_text_sel, 224,224,224, menu_text_sel) \
+  f(trackbar_track, 224,224,224) \
+  f(trackbar_mark, 96,96,96) \
+  f(trackbar_knob, 48,48,48) \
+  f(progress,0,128,255) \
+  fd(label_text, 0,0,0, button_text) \
+  fd(label_text_disabled, 128,128,128, button_text_disabled) \
+  fd(combo_text, 0,0,0, button_text) \
+  fd(combo_text_disabled, 128,128,128, button_text_disabled) \
+  fd(combo_bg, 192,192,192, _3dface) \
+  f(combo_bg2, 255,255,255) \
+  fd(combo_shadow, 96,96,96, _3dshadow) \
+  fd(combo_hilight, 224,224,224, _3dhilight) \
+  f(listview_bg, 255,255,255) \
+  f(listview_bg_sel, 128,128, 255) \
+  f(listview_text, 0,0,0) \
+  f(listview_hdr_arrow,96,96,96) \
+  fd(listview_hdr_shadow, 96,96,96, _3dshadow) \
+  fd(listview_hdr_hilight, 224,224,224, _3dhilight) \
+  fd(listview_hdr_bg, 192,192,192, _3dface) \
+  fd(listview_hdr_text, 0,0,0, button_text) \
+  f(treeview_text, 0,0,0) \
+  f(treeview_bg, 255,255,255) \
+  f(treeview_bg_sel, 128,128,255) \
+  fd(tab_shadow, 96,96,96, _3dshadow) \
+  fd(tab_hilight, 224,224,224, _3dhilight) \
+  fd(tab_text, 0,0,0, button_text) \
+  f(focusrect,255,0,0) \
+  f(group_text,0,0,0) \
+  fd(group_shadow, 96,96,96, _3dshadow) \
+  fd(group_hilight, 224,224,224, _3dhilight) \
+  
+
+struct swell_colortheme {
+#define __def_theme_ent(x,r,g,b) int x;
+#define __def_theme_ent_fb(x,r,g,b,fb) int x;
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+};
+
+extern swell_colortheme g_swell_ctheme;
+
+#endif
+
 #endif

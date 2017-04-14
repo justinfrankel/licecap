@@ -23,18 +23,45 @@
 
 */
 
-#ifndef SWELL_LICE_GDI
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
 #include "swell-internal.h"
+#include "../wdlcstring.h"
 
-#include "../lice/lice.h"
+
+swell_colortheme g_swell_ctheme = {
+#define __def_theme_ent(x,r,g,b) RGB(r,g,b),
+#define __def_theme_ent_fb(x,r,g,b,fb) RGB(r,g,b),
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+};
+
+int GetSysColor(int idx)
+{
+  switch (idx)
+  {
+    case COLOR_WINDOW:
+    case COLOR_3DFACE:
+    case COLOR_BTNFACE: return g_swell_ctheme._3dface;
+    case COLOR_3DSHADOW: return g_swell_ctheme._3dshadow;
+    case COLOR_3DHILIGHT: return g_swell_ctheme._3dhilight;
+    case COLOR_3DDKSHADOW: return g_swell_ctheme._3ddkshadow;
+    case COLOR_BTNTEXT: return g_swell_ctheme.button_text;
+    case COLOR_INFOBK: return g_swell_ctheme.info_bk;
+    case COLOR_INFOTEXT: return g_swell_ctheme.info_text;
+    case COLOR_SCROLLBAR: return g_swell_ctheme.scrollbar;
+  }
+  return 0;
+}
+
+#ifndef SWELL_LICE_GDI
+
 #include "../mutex.h"
 #include "../ptrlist.h"
 
 #include "swell-gdi-internalpool.h"
-
 
 HDC SWELL_CreateGfxContext(void *c)
 {
@@ -487,28 +514,6 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
   return false;
 }
 
-
-#define ColorFromNSColor(a,b) (b)
-int GetSysColor(int idx)
-{
- // NSColors that seem to be valid: textBackgroundColor, selectedTextBackgroundColor, textColor, selectedTextColor
-  switch (idx)
-  {
-    case COLOR_WINDOW: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_3DFACE: 
-    case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
-    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96));
-    case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(224,224,224));
-    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(0,0,0));
-    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96))>>1)&0x7f7f7f;
-    case COLOR_INFOBK: return RGB(255,240,200);
-    case COLOR_INFOTEXT: return RGB(0,0,0);
-      
-  }
-  return 0;
-}
-
 void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
 {
 }
@@ -699,5 +704,80 @@ int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, in
   return 0;
 }
 
-#endif
 #endif // !SWELL_LICE_GDI
+
+#ifdef SWELL__MAKE_THEME
+int main()
+{
+#define __def_theme_ent(x,r,g,b) printf("%s %02x%02x%02x\n",#x,r,g,b);
+#define __def_theme_ent_fb(x,r,g,b,fb) printf("# %s %02x%02x%02x # defaults to %s\n",#x,r,g,b,#fb);
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+return 0;
+}
+#else
+
+// load color theme
+class swellColorThemeLoader
+{
+public:
+  swellColorThemeLoader() 
+  {
+    char buf[1024];
+    GetModuleFileName(NULL,buf,sizeof(buf));
+    WDL_remove_filepart(buf);
+    lstrcatn(buf,"/libSwell.colortheme",sizeof(buf));
+    FILE *fp = fopen(buf,"r");
+    if (!fp) return;
+
+    swell_colortheme load;
+    memset(&load,-1,sizeof(load));
+
+    for (;;)
+    {
+      if (!fgets(buf,sizeof(buf),fp)) break;
+      char *p = buf;
+      while (*p == ' ' || *p == '\t') p++;
+      char *np = p;
+      while (*np > 0 && (*np == '_' || isalnum(*np))) np++;
+      if (!*np || np == p) continue;
+      *np++ = 0;
+      while (*np == ' ' || *np == '\t') np++;
+      const char *txt = np;
+      while ((*np >= '0' && *np <= '9') ||
+             (*np >= 'a' && *np <= 'f') ||
+             (*np >= 'A' && *np <= 'F')) np++;
+      int col=0;
+      if (np-txt == 6)
+      {
+        sscanf(txt,"%x",&col);
+      }
+      else if (np-txt == 3)
+      {
+        sscanf(txt,"%x",&col);
+        col = ((col&0xf)<<4) | ((col&0xf0)<<8) | ((col&0xf00)<<12);
+      }
+      else continue;
+
+      if(0){}
+#define __def_theme_ent(x,r,g,b) else if (!stricmp(p,#x)) load.x = col;
+#define __def_theme_ent_fb(x,r,g,b,fb) else if (!stricmp(p,#x)) load.x = col;
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+    }
+#define __def_theme_ent(x,r,g,b) g_swell_ctheme.x = load.x == -1 ? RGB(r,g,b) : load.x;
+#define __def_theme_ent_fb(x,r,g,b,fb) g_swell_ctheme.x = load.x == -1 ? g_swell_ctheme.fb : load.x;
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+
+    fclose(fp);
+  }
+};
+swellColorThemeLoader g_swell_themeloader;
+
+
+
+#endif
+
+#endif

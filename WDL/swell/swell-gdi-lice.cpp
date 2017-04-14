@@ -1034,26 +1034,6 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
 
 ////////////////////////////////////
 
-#define ColorFromNSColor(a,b) (b)
-int GetSysColor(int idx)
-{
- // NSColors that seem to be valid: textBackgroundColor, selectedTextBackgroundColor, textColor, selectedTextColor
-  switch (idx)
-  {
-    case COLOR_WINDOW: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_3DFACE: 
-    case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
-    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96));
-    case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(224,224,224));
-    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(0,0,0));
-    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96))>>1)&0x7f7f7f;
-    case COLOR_INFOBK: return RGB(255,240,200);
-    case COLOR_INFOTEXT: return RGB(0,0,0);
-      
-  }
-  return 0;
-}
 
 void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
 {
@@ -1101,7 +1081,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
 
 void SWELL_FillDialogBackground(HDC hdc, const RECT *r, int level)
 {
-  HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+  HBRUSH br = CreateSolidBrush(g_swell_ctheme._3dface);
   FillRect(hdc,r,br);
   DeleteObject(br);
 }

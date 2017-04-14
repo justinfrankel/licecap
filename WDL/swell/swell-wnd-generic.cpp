@@ -2084,9 +2084,7 @@ static void paintDialogBackground(HWND hwnd, const RECT *r, HDC hdc)
   }
   else
   {
-    hbrush = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-    FillRect(hdc,r,hbrush);
-    DeleteObject(hbrush);
+    SWELL_FillDialogBackground(hdc,r,0);
   }
 }
 
@@ -2191,7 +2189,9 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
           bool pressed = GetCapture()==hwnd;
 
-          SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT): RGB(128,128,128));
+          SetTextColor(ps.hdc,
+            hwnd->m_enabled ? g_swell_ctheme.button_text :
+              g_swell_ctheme.button_text_disabled);
           SetBkMode(ps.hdc,TRANSPARENT);
 
           int f=DT_VCENTER;
@@ -2212,14 +2212,16 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             RECT tr={r.left,(r.top+r.bottom)/2-chksz/2,r.left+chksz};
             tr.bottom = tr.top+chksz;
 
-            HPEN pen=CreatePen(PS_SOLID,0,RGB(0,0,0));
+            HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.checkbox_fg);
             HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
             int st = (int)(s->state&3);
             if (sf == BS_AUTOCHECKBOX || sf == BS_AUTO3STATE)
             {
               if (st==3||(st==2 && (hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)) st=1;
               
-              HBRUSH br = CreateSolidBrush(st==2?RGB(192,192,192):RGB(255,255,255));
+              HBRUSH br = CreateSolidBrush(
+                 st==2?g_swell_ctheme.checkbox_inter:
+                       g_swell_ctheme.checkbox_bg);
               FillRect(ps.hdc,&tr,br);
               DeleteObject(br);
 
@@ -2246,7 +2248,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
             else if (sf == BS_AUTORADIOBUTTON)
             {
-              HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+              HBRUSH br = CreateSolidBrush(g_swell_ctheme.checkbox_bg);
               HGDIOBJ oldBrush = SelectObject(ps.hdc,br);
               Ellipse(ps.hdc,tr.left+1,tr.top+1,tr.right-1,tr.bottom-1);
               SelectObject(ps.hdc,oldBrush);
@@ -2254,7 +2256,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
               if (st)
               {
                 const int amt =  (tr.right-tr.left)/6 + 2;
-                br = CreateSolidBrush(RGB(0,0,0));
+                br = CreateSolidBrush(g_swell_ctheme.checkbox_fg);
                 oldBrush = SelectObject(ps.hdc,br);
                 Ellipse(ps.hdc,tr.left+amt,tr.top+amt,tr.right-amt,tr.bottom-amt);
                 SelectObject(ps.hdc,oldBrush);
@@ -2264,15 +2266,18 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             SelectObject(ps.hdc,oldPen);
             DeleteObject(pen);
             r.left += chksz + 4;
+            SetTextColor(ps.hdc,
+              hwnd->m_enabled ? g_swell_ctheme.checkbox_text :
+                g_swell_ctheme.checkbox_text_disabled);
           }
           else
           {
-            HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+            HBRUSH br = CreateSolidBrush(g_swell_ctheme.button_bg);
             FillRect(ps.hdc,&r,br);
             DeleteObject(br);
 
-            HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
-            HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+            HPEN pen2 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.button_hilight : g_swell_ctheme.button_shadow);
+            HPEN pen = CreatePen(PS_SOLID,0,(!pressed)?g_swell_ctheme.button_hilight : g_swell_ctheme.button_shadow);
             HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
             MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
             LineTo(ps.hdc,r.left,r.top);
@@ -2393,7 +2398,6 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         {
           RECT r; 
           GetClientRect(hwnd,&r); 
-          int col = GetSysColor(COLOR_BTNTEXT);
 
           const char *buf = hwnd->m_title.Get();
           int th=20;
@@ -2417,8 +2421,8 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           if (xp<8)xp=8;
           if (xp+tw > r.right-8) tw=r.right-8-xp;
 
-          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DHILIGHT));
-          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
+          HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.group_hilight);
+          HPEN pen2 = CreatePen(PS_SOLID,0,g_swell_ctheme.group_shadow);
           HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
 
           MoveToEx(ps.hdc,xp - (tw?4:0) + 1,th/2+1,NULL);
@@ -2442,7 +2446,7 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           DeleteObject(pen);
           DeleteObject(pen2);
 
-          SetTextColor(ps.hdc,col);
+          SetTextColor(ps.hdc,g_swell_ctheme.group_text);
           SetBkMode(ps.hdc,TRANSPARENT);
           r.left = xp;
           r.right = xp+tw;
@@ -2480,8 +2484,8 @@ static void drawHorizontalScrollbar(HDC hdc, RECT cr, int totalw, int scroll_x)
   int thumbsz, thumbpos;
   calcScroll(cr.right-cr.left,totalw,scroll_x,&thumbsz, &thumbpos);
 
-  HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
-  HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
+  HBRUSH br =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_fg,0.5f);
+  HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_bg,0.5f);
   RECT fr = { cr.left, cr.bottom - SCROLLBAR_WIDTH, cr.left + thumbpos, cr.bottom };
   if (fr.right>fr.left) FillRect(hdc,&fr,br2);
 
@@ -2504,8 +2508,8 @@ static void drawVerticalScrollbar(HDC hdc, RECT cr, int totalh, int scroll_y)
   int thumbsz, thumbpos;
   calcScroll(cr.bottom-cr.top,totalh,scroll_y,&thumbsz, &thumbpos);
 
-  HBRUSH br =  CreateSolidBrushAlpha(RGB(64,64,64),0.5f);
-  HBRUSH br2 =  CreateSolidBrushAlpha(RGB(192,192,192),0.5f);
+  HBRUSH br =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_fg,0.5f);
+  HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_bg,0.5f);
   RECT fr = { cr.right - SCROLLBAR_WIDTH, cr.top, cr.right,cr.top+thumbpos};
   if (fr.bottom>fr.top) FillRect(hdc,&fr,br2);
 
@@ -2722,7 +2726,7 @@ static int editControlPaintLine(HDC hdc, const char *str, int str_len, int curso
     if (cursor_pos>0) DrawText(hdc,str,cursor_pos,&mr,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
 
     int oc = GetTextColor(hdc);
-    SetTextColor(hdc,RGB(0,128,255));
+    SetTextColor(hdc,g_swell_ctheme.edit_cursor);
     mr.left = r->left + mr.right - 1;
     mr.right = mr.left+1;
     mr.top = r->top;
@@ -2968,10 +2972,16 @@ forceMouseMove:
           RECT r; 
           GetClientRect(hwnd,&r); 
           RECT orig_r = r;
-          HBRUSH br = CreateSolidBrush(RGB(255,255,255)); // todo edit colors
+          HBRUSH br = CreateSolidBrush(
+            hwnd->m_enabled ? g_swell_ctheme.edit_bg :
+                              g_swell_ctheme.edit_bg_disabled
+             );
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
-          SetTextColor(ps.hdc,hwnd->m_enabled?RGB(0,0,0):RGB(192,192,192)); // todo edit colors
+          SetTextColor(ps.hdc,
+            hwnd->m_enabled ? g_swell_ctheme.edit_text :
+                              g_swell_ctheme.edit_text_disabled
+          );
           SetBkMode(ps.hdc,TRANSPARENT);
           r.left+=2 - es->scroll_x; r.right-=2;
 
@@ -3098,7 +3108,7 @@ static LRESULT WINAPI progressWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
               if (pos > high) pos=high;
               int dx = ((pos-low)*r.right)/(high-low);
               r.right = dx;
-              HBRUSH br = CreateSolidBrush(RGB(0,128,255));
+              HBRUSH br = CreateSolidBrush(g_swell_ctheme.progress);
               FillRect(ps.hdc,&r,br);
               DeleteObject(br);
             }
@@ -3236,7 +3246,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             }
           }
 
-          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
+          HBRUSH br = CreateSolidBrush(g_swell_ctheme.trackbar_track);
           const int rad = wdl_min((r.bottom-r.top)/2-1,track_h);
 
           RECT sr = r;
@@ -3260,7 +3270,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
               if (state[2] >= low && state[2] <= high)
               {
                 const int dx = ((state[2]-low)*(r.right-2*rad))/(high-low) + rad;
-                HBRUSH markbr = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+                HBRUSH markbr = CreateSolidBrush(g_swell_ctheme.trackbar_mark);
                 RECT tr = sr;
                 tr.left = dx;
                 tr.right = dx+1;
@@ -3273,7 +3283,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
               const int dx = ((pos-low)*(r.right-2*rad))/(high-low) + rad;
 
-              HBRUSH cbr = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+              HBRUSH cbr = CreateSolidBrush(g_swell_ctheme.trackbar_knob);
               HGDIOBJ oldbr = SelectObject(ps.hdc,cbr);
               HGDIOBJ oldpen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
               Ellipse(ps.hdc, dx-rad, sr.top,  dx+rad, sr.bottom);
@@ -3304,10 +3314,12 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           RECT r; 
           GetClientRect(hwnd,&r); 
 
-          SetBkColor(ps.hdc,GetSysColor(COLOR_WINDOW));
+          SetBkColor(ps.hdc,g_swell_ctheme._3dface);
           HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
           if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
-          SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT) : RGB(128,128,128));
+          SetTextColor(ps.hdc,
+             hwnd->m_enabled ? g_swell_ctheme.label_text : 
+               g_swell_ctheme.label_text_disabled);
           SetBkMode(ps.hdc,hbrush ? TRANSPARENT : OPAQUE);
           if (hbrush) FillRect(ps.hdc,&r,hbrush);
           const char *buf = hwnd->m_title.Get();
@@ -3566,15 +3578,17 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           GetClientRect(hwnd,&r); 
           bool pressed = GetCapture()==hwnd;
 
-          SetTextColor(ps.hdc,hwnd->m_enabled ? GetSysColor(COLOR_BTNTEXT): RGB(128,128,128));
+          SetTextColor(ps.hdc,
+            hwnd->m_enabled ? g_swell_ctheme.combo_text : 
+              g_swell_ctheme.combo_text_disabled);
           SetBkMode(ps.hdc,TRANSPARENT);
 
-          HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+          HBRUSH br = CreateSolidBrush(g_swell_ctheme.combo_bg);
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
 
-          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(pressed?COLOR_3DHILIGHT : COLOR_3DSHADOW));
-          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor((!pressed)?COLOR_3DHILIGHT : COLOR_3DSHADOW));
+          HPEN pen2 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
+          HPEN pen = CreatePen(PS_SOLID,0,(!pressed)?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
           MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
           LineTo(ps.hdc,r.left,r.top);
@@ -3596,7 +3610,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               if (s->editstate.cursor_timer) { KillTimer(hwnd,100); s->editstate.cursor_timer=0; }
             }
 
-            HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+            HBRUSH br = CreateSolidBrush(g_swell_ctheme.combo_bg2);
             RECT tr=r; 
             tr.left+=2; tr.top+=2; tr.bottom-=2; tr.right -= buttonwid+2;
             FillRect(ps.hdc,&tr,br);
@@ -4245,10 +4259,10 @@ forceMouseMove:
         {
           RECT cr; 
           GetClientRect(hwnd,&cr); 
-          HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+          HBRUSH br = CreateSolidBrush(g_swell_ctheme.listview_bg);
           FillRect(ps.hdc,&cr,br);
           DeleteObject(br);
-          br=CreateSolidBrush(RGB(128,128,255));
+          br=CreateSolidBrush(g_swell_ctheme.listview_bg_sel);
           if (lvs) 
           {
             TEXTMETRIC tm; 
@@ -4268,7 +4282,7 @@ forceMouseMove:
             const int nc = wdl_max(ncols,1);
             SWELL_ListView_Col *cols = lvs->m_cols.Get();
 
-            SetTextColor(ps.hdc,RGB(0,0,0));
+            SetTextColor(ps.hdc,g_swell_ctheme.listview_text);
             int x;
             const bool has_image = lvs->hasAnyImage();
             const bool has_status_image = lvs->hasStatusImage();
@@ -4374,11 +4388,11 @@ forceMouseMove:
             }
             if (hdr_size_nomargin>0)
             {
-              HBRUSH br = CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-              HBRUSH br2 = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
-              HBRUSH br3 = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+              HBRUSH br = CreateSolidBrush(g_swell_ctheme.listview_hdr_bg);
+              HBRUSH br2 = CreateSolidBrush(g_swell_ctheme.listview_hdr_hilight);
+              HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.listview_hdr_shadow);
               int x,xpos=(has_status_image ? row_height : 0) - xo, ypos=0;
-              SetTextColor(ps.hdc,GetSysColor(COLOR_BTNTEXT));
+              SetTextColor(ps.hdc,g_swell_ctheme.listview_hdr_text);
 
               if (xpos>0) 
               {
@@ -4415,7 +4429,7 @@ forceMouseMove:
                         y1=y2;
                         y2=tmp;
                       }
-                      HPEN pen = CreatePen(PS_SOLID,0,RGB(96,96,96));
+                      HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.listview_hdr_arrow);
                       HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
                       MoveToEx(ps.hdc,x1,y1,NULL);
                       LineTo(ps.hdc,x1+tsz*2,y1);
@@ -4668,7 +4682,7 @@ struct treeViewState
     {
       if (item == m_sel) 
       {
-        HBRUSH br=CreateSolidBrush(RGB(128,128,255));
+        HBRUSH br=CreateSolidBrush(g_swell_ctheme.treeview_bg_sel);
         FillRect(hdc,rect,br);
         DeleteObject(br);
       }
@@ -4859,13 +4873,13 @@ forceMouseMove:
         {
           RECT r; 
           GetClientRect(hwnd,&r); 
-          HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+          HBRUSH br = CreateSolidBrush(g_swell_ctheme.treeview_bg);
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
           if (tvs)
           {
             RECT cr=r;
-            SetTextColor(ps.hdc,RGB(0,0,0));
+            SetTextColor(ps.hdc,g_swell_ctheme.treeview_text);
 
             TEXTMETRIC tm; 
             GetTextMetrics(ps.hdc,&tm);
@@ -4963,12 +4977,11 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
           int tab;
           int xp=0;
-          HPEN pen = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DHILIGHT));
-          HPEN pen2 = CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
-          int col = GetSysColor(COLOR_BTNTEXT);
+          HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.tab_hilight);
+          HPEN pen2 = CreatePen(PS_SOLID,0,g_swell_ctheme.tab_shadow);
 
           SetBkMode(ps.hdc,TRANSPARENT);
-          SetTextColor(ps.hdc,col);
+          SetTextColor(ps.hdc,g_swell_ctheme.tab_text);
           HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
           const int th = TABCONTROL_HEIGHT;
           int lx=0;
@@ -5958,13 +5971,7 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           }
           else if (1) 
           {
-            hbrush=CreateSolidBrush(GetSysColor(COLOR_WINDOW));
-            FillRect(ps.hdc,&ps.rcPaint,hbrush);
-            DeleteObject(hbrush);
-          }
-          else if (0) // todo only on top level windows?
-          {
-            SWELL_FillDialogBackground(ps.hdc,&ps.rcPaint,3);
+            SWELL_FillDialogBackground(ps.hdc,&ps.rcPaint,0);
           }
           
           EndPaint(hwnd,&ps);
@@ -6165,13 +6172,12 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           r.bottom -= r.top; r.top=0;
           if (r.bottom>SWELL_INTERNAL_MENUBAR_SIZE) r.bottom=SWELL_INTERNAL_MENUBAR_SIZE;
 
-          HBRUSH br=CreateSolidBrush(GetSysColor(COLOR_3DFACE));
+          HBRUSH br=CreateSolidBrush(g_swell_ctheme.menubar_bg);
           FillRect(dc,&r,br);
           DeleteObject(br);
 
           HGDIOBJ oldfont = SelectObject(dc,menubar_font);
           SetBkMode(dc,TRANSPARENT);
-          int cols[2]={ GetSysColor(COLOR_BTNTEXT),GetSysColor(COLOR_3DHILIGHT)};
 
           int x,xpos=menubar_leftmargin;
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
@@ -6199,12 +6205,15 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               cr.bottom = r.bottom;
               if (!dis && menu->sel_vis == x)
               {
-                HBRUSH br = CreateSolidBrush(cols[dis]);
+                HBRUSH br = CreateSolidBrush(g_swell_ctheme.menubar_bg_sel);
                 FillRect(dc,&cr,br);
                 DeleteObject(br);
-                SetTextColor(dc,GetSysColor(COLOR_3DFACE));
+                SetTextColor(dc,g_swell_ctheme.menubar_text_sel);
               }
-              else SetTextColor(dc,cols[dis]);
+              else SetTextColor(dc,
+                 dis ? g_swell_ctheme.menubar_text_disabled :
+                   g_swell_ctheme.menubar_text);
+
               DrawText(dc,inf->dwTypeData,-1,&cr,DT_BOTTOM|DT_LEFT);
               xpos=cr.right+menubar_xspacing;
             }
@@ -7086,7 +7095,7 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
     HDC hdc = GetDC(hwndPar);
     if (hdc)
     {
-      HPEN pen=CreatePen(PS_SOLID,0,RGB(255,0,0));
+      HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.focusrect);
       HGDIOBJ oldpen = SelectObject(hdc,pen);
 
       MoveToEx(hdc,rct->left,rct->top,NULL);

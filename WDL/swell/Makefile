@@ -84,6 +84,10 @@ libSwell.so: $(OBJS)
 test: $(OBJS) test.o
 	$(CXX) -o test $(CFLAGS) $(LFLAGS) $^ $(LINKEXTRA)
 
+libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
+	$(CXX) -o make-theme -DSWELL__MAKE_THEME swell-gdi-generic.cpp -lpthread
+	./make-theme > libSwell.colortheme
+
 clean: 
 	-rm $(OBJS) libSwell.so
 
