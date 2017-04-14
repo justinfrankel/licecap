@@ -49,14 +49,18 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
 class BrowseFile_State
 {
 public:
+  static char s_sortrev;
   enum modeEnum { SAVE=0,OPEN, OPENMULTI, OPENDIR };
 
   BrowseFile_State(const char *_cap, const char *_idir, const char *_ifile, const char *_el, modeEnum _mode, char *_fnout, int _fnout_sz) :
-    caption(_cap), initialdir(_idir), initialfile(_ifile), extlist(_el), mode(_mode), fnout(_fnout), fnout_sz(_fnout_sz), viewlist(true)
+    caption(_cap), initialdir(_idir), initialfile(_ifile), extlist(_el), mode(_mode), 
+    sortcol(0), sortrev(0),
+    fnout(_fnout), fnout_sz(_fnout_sz), viewlist(16384)
   {
   }
   ~BrowseFile_State()
   {
+    viewlist_clear();
   }
 
   const char *caption;
@@ -65,20 +69,61 @@ public:
   const char *extlist;
 
   modeEnum mode;
+  char sortcol, sortrev;
+
   char *fnout; // if NULL this will be malloced by the window
   int fnout_sz;
 
   struct rec {
     WDL_INT64 size;
     time_t date;
+    char *name;
+    int type; // 1 = directory, 2 = file
   };
 
-  WDL_StringKeyedArray2<rec> viewlist; // first byte of string will define type -- 1 = directory, 2= file
+  void viewlist_clear()
+  {
+    rec *l = viewlist.Get();
+    const int n = viewlist.GetSize();
+    for (int x = 0; x < n; x ++) free(l[x].name);
+    viewlist.Resize(0);
+  }
+  WDL_TypedBuf<rec> viewlist;
+  void viewlist_sort()
+  {
+    s_sortrev = sortrev;
+    qsort(viewlist.Get(), viewlist.GetSize(),sizeof(rec), 
+      sortcol == 1 ? sortFunc_sz :
+      sortcol == 2 ? sortFunc_date : 
+      sortFunc_fn);
+  }
+  static int sortFunc_fn(const void *_a, const void *_b)
+  {
+    const rec *a = (const rec *)_a, *b = (const rec *)_b;
+    int d = a->type - b->type;
+    if (d) return d;
+    d = stricmp(a->name,b->name);
+    return s_sortrev ? -d : d;
+  }
+  static int sortFunc_date(const void *_a, const void *_b)
+  {
+    const rec *a = (const rec *)_a, *b = (const rec *)_b;
+    if (a->date != b->date) return s_sortrev ? (a->date>b->date?-1:1) : (a->date>b->date?1:-1);
+    return stricmp(a->name,b->name);
+  }
+  static int sortFunc_sz(const void *_a, const void *_b)
+  {
+    const rec *a = (const rec *)_a, *b = (const rec *)_b;
+    int d = a->type - b->type;
+    if (d) return s_sortrev ? -d : d;
+    if (a->size != b->size) return s_sortrev ? (a->size>b->size?-1:1) : (a->size>b->size?1:-1);
+    return stricmp(a->name,b->name);
+  }
 
 
   void scan_path(const char *path, const char *filterlist, bool dir_only)
   {
-    viewlist.DeleteAll();
+    viewlist_clear();
     DIR *dir = opendir(path);
     if (!dir) return;
     char tmp[2048];
@@ -137,17 +182,17 @@ public:
         struct stat64 st={0,};
         stat64(tmp,&st);
       
-        rec r = { st.st_size, st.st_mtime } ;
-        tmp[0] = is_dir?1:2;
-        lstrcpyn_safe(tmp+1,ent->d_name,sizeof(tmp)-1);
-        viewlist.AddUnsorted(tmp,r);
+        rec r = { st.st_size, st.st_mtime, strdup(ent->d_name), is_dir?1:2 } ;
+        viewlist.Add(&r,1);
       }
     }
-    viewlist.Resort();
+    // sort viewlist
 
     closedir(dir);
   }
 };
+
+char BrowseFile_State::s_sortrev;
 
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -188,6 +233,12 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           c.cx = 140;
           c.pszText = (char*) "Date";
           ListView_InsertColumn(list,2,&c);
+          HWND hdr = ListView_GetHeader(list);
+          HDITEM hi;
+          memset(&hi,0,sizeof(hi));
+          hi.mask = HDI_FORMAT;
+          hi.fmt = parms->sortrev ? HDF_SORTDOWN : HDF_SORTUP;
+          Header_SetItem(hdr,parms->sortcol,&hi);
         }
         HWND extlist = (parms->extlist && *parms->extlist) ? SWELL_MakeCombo(0x105, 0,0,0,0, CBS_DROPDOWNLIST) : NULL;
         if (extlist)
@@ -276,10 +327,11 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
             if (a>=0) SendDlgItemMessage(hwnd,0x103,CB_GETLBTEXT,a,(LPARAM)buf);
 
             if (buf[0]) parms->scan_path(buf, filt, parms->mode == BrowseFile_State::OPENDIR);
-            else parms->viewlist.DeleteAll();
+            else parms->viewlist_clear();
             HWND list = GetDlgItem(hwnd,0x104);
             ListView_SetItemCount(list, 0); // clear selection
             ListView_SetItemCount(list, parms->viewlist.GetSize());
+            parms->viewlist_sort();
             ListView_RedrawItems(list,0, parms->viewlist.GetSize());
           }
         }
@@ -376,12 +428,11 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
               int a = ListView_GetNextItem(list,-1,LVNI_SELECTED);
               while (a != -1 && fs.GetSize() < 4096*4096 && cnt--)
               {
-                const char *fn = NULL;
-                struct BrowseFile_State::rec *rec = parms->viewlist.EnumeratePtr(a,&fn);
+                if (a < 0 || a >= parms->viewlist.GetSize()) break;
+                const struct BrowseFile_State::rec *rec = parms->viewlist.Get()+a;
                 if (!rec) break;
 
-                if (*fn) fn++; // skip type ident
-                fs.Add(fn,strlen(fn)+1);
+                fs.Add(rec->name,strlen(rec->name)+1);
                 a = ListView_GetNextItem(list,a,LVNI_SELECTED);
               }
               fs.Add("",1);
@@ -504,19 +555,18 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           const int idx=lpdi->item.iItem;
           if (l->idFrom == 0x104 && parms && idx >=0 && idx < parms->viewlist.GetSize())
           {
-            const char *fn = NULL;
-            struct BrowseFile_State::rec *rec = parms->viewlist.EnumeratePtr(idx,&fn);
-            if (rec && fn)
+            struct BrowseFile_State::rec *rec = parms->viewlist.Get()+idx;
+            if (rec && rec->name)
             {
               if (lpdi->item.mask&LVIF_TEXT) 
               {
                 switch (lpdi->item.iSubItem)
                 {
                   case 0:
-                    if (fn[0]) lstrcpyn_safe(lpdi->item.pszText,fn+1,lpdi->item.cchTextMax);
+                    lstrcpyn_safe(lpdi->item.pszText,rec->name,lpdi->item.cchTextMax);
                   break;
                   case 1:
-                    if (fn[0] == 1) 
+                    if (rec->type == 1)
                     {
                       lstrcpyn_safe(lpdi->item.pszText,"<DIR>",lpdi->item.cchTextMax);
                     }
@@ -568,11 +618,10 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
             }
             else
             {
-              const char *fn = NULL;
-              struct BrowseFile_State::rec *rec = parms ? parms->viewlist.EnumeratePtr(selidx,&fn) : NULL;
+              struct BrowseFile_State::rec *rec = parms && selidx < parms->viewlist.GetSize() ? parms->viewlist.Get()+selidx : NULL;
               if (rec)
               {
-                if (fn && fn[0]) SetDlgItemText(hwnd,0x100,fn+1);
+                SetDlgItemText(hwnd,0x100,rec->name);
               }
             }
           }
@@ -581,7 +630,29 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           SendMessage(hwnd,WM_COMMAND,IDOK,0);
         }
+        else if (l->code == LVN_COLUMNCLICK)
+        {
+          NMLISTVIEW* lv = (NMLISTVIEW*) l;
+          BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          parms->sortrev=!parms->sortrev;
+          char lcol = parms->sortcol;
+          if ((int)parms->sortcol != lv->iSubItem)
+          { 
+            parms->sortcol = (char)lv->iSubItem; 
+            parms->sortrev=0; 
+          }
 
+          HWND hdr = ListView_GetHeader(l->hwndFrom);
+          HDITEM hi;
+          memset(&hi,0,sizeof(hi));
+          hi.mask = HDI_FORMAT;
+          Header_SetItem(hdr,lcol,&hi);
+          hi.fmt = parms->sortrev ? HDF_SORTDOWN : HDF_SORTUP;
+          Header_SetItem(hdr,parms->sortcol,&hi);
+
+          parms->viewlist_sort();
+          ListView_RedrawItems(l->hwndFrom,0, parms->viewlist.GetSize());
+        }
       }
     break;
   }
