@@ -3748,6 +3748,13 @@ struct listViewState
     m_status_imagelist = NULL;
     m_status_imagelist_type = 0;
     m_extended_style=0;
+
+    m_color_bg = g_swell_ctheme.listview_bg;
+    m_color_bg_sel = g_swell_ctheme.listview_bg_sel;
+    m_color_text = g_swell_ctheme.listview_text;
+    m_color_text_sel = g_swell_ctheme.listview_text_sel;
+    m_color_grid = g_swell_ctheme.listview_grid;
+    memset(m_color_extras,0xff,sizeof(m_color_extras)); // if !=-1, overrides bg/fg for (focus?0:2)
   } 
   ~listViewState()
   { 
@@ -3773,6 +3780,9 @@ struct listViewState
 
   int m_scroll_x,m_scroll_y,m_capmode_state, m_capmode_data1,m_capmode_data2;
   int m_extended_style;
+
+  int m_color_bg, m_color_bg_sel, m_color_text, m_color_text_sel, m_color_grid;
+  int m_color_extras[4];
 
   int getTotalWidth() const
   {
@@ -4266,10 +4276,12 @@ forceMouseMove:
         {
           RECT cr; 
           GetClientRect(hwnd,&cr); 
-          HBRUSH br = CreateSolidBrush(g_swell_ctheme.listview_bg);
+          HBRUSH br = CreateSolidBrush(lvs->m_color_bg);
           FillRect(ps.hdc,&cr,br);
           DeleteObject(br);
-          br=CreateSolidBrush(g_swell_ctheme.listview_bg_sel);
+          const bool focused = GetFocus() == hwnd;
+          const int bgsel = lvs->m_color_extras[focused ? 0 : 2 ];
+          br=CreateSolidBrush(bgsel == -1 ? lvs->m_color_bg_sel : bgsel);
           if (lvs) 
           {
             TEXTMETRIC tm; 
@@ -4289,7 +4301,6 @@ forceMouseMove:
             const int nc = wdl_max(ncols,1);
             SWELL_ListView_Col *cols = lvs->m_cols.Get();
 
-            SetTextColor(ps.hdc,g_swell_ctheme.listview_text);
             int x;
             const bool has_image = lvs->hasAnyImage();
             const bool has_status_image = lvs->hasStatusImage();
@@ -4303,7 +4314,7 @@ forceMouseMove:
             HGDIOBJ oldpen = NULL;
             if (!lvs->m_is_listbox && (hwnd->m_style & LVS_REPORT) && (lvs->m_extended_style&LVS_EX_GRIDLINES))
             {
-              gridpen = CreatePen(PS_SOLID,0,g_swell_ctheme.listview_grid);
+              gridpen = CreatePen(PS_SOLID,0,lvs->m_color_grid);
               oldpen = SelectObject(ps.hdc,gridpen);
             }
 
@@ -4327,6 +4338,13 @@ forceMouseMove:
                   FillRect(ps.hdc,&tr,br);
                 }
               }
+
+              if (sel) 
+              {
+                int c = lvs->m_color_extras[focused ? 1 : 3 ];
+                SetTextColor(ps.hdc, c == -1 ? lvs->m_color_text_sel : c);
+              }
+              else SetTextColor(ps.hdc, lvs->m_color_text);
 
               SWELL_ListView_Row *row = lvs->m_data.Get(x);
               int col,xpos=-xo;
@@ -6946,20 +6964,42 @@ void TreeView_SetBkColor(HWND hwnd, int color)
 void TreeView_SetTextColor(HWND hwnd, int color)
 {
 }
-void ListView_SetBkColor(HWND hwnd, int color)
+
+void ListView_SetBkColor(HWND h, int color)
+{
+  if (h && h->m_private_data && h->m_classname && !strcmp(h->m_classname,"SysListView32"))
+  {
+    listViewState *lvs = (listViewState *)h->m_private_data;
+    if (lvs) lvs->m_color_bg = color;
+  }
+}
+void ListView_SetTextBkColor(HWND h, int color)
 {
 }
-void ListView_SetTextBkColor(HWND hwnd, int color)
+void ListView_SetTextColor(HWND h, int color)
 {
+  if (h && h->m_private_data && h->m_classname && !strcmp(h->m_classname,"SysListView32"))
+  {
+    listViewState *lvs = (listViewState *)h->m_private_data;
+    lvs->m_color_text = color;
+  }
 }
-void ListView_SetTextColor(HWND hwnd, int color)
+void ListView_SetGridColor(HWND h, int color)
 {
+  if (h && h->m_private_data && h->m_classname && !strcmp(h->m_classname,"SysListView32"))
+  {
+    listViewState *lvs = (listViewState *)h->m_private_data;
+    lvs->m_color_grid = color;
+  }
 }
-void ListView_SetGridColor(HWND hwnd, int color)
+void ListView_SetSelColors(HWND h, int *colors, int ncolors)
 {
-}
-void ListView_SetSelColors(HWND hwnd, int *colors, int ncolors)
-{
+  if (h && h->m_private_data && h->m_classname && !strcmp(h->m_classname,"SysListView32"))
+  {
+    listViewState *lvs = (listViewState *)h->m_private_data;
+    if (colors && ncolors > 0) 
+      memcpy(lvs->m_color_extras,colors,wdl_min(ncolors*sizeof(int),sizeof(lvs->m_color_extras)));
+  }
 }
 int ListView_GetTopIndex(HWND h)
 {
