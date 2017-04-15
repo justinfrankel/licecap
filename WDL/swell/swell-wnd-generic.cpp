@@ -3747,6 +3747,7 @@ struct listViewState
     m_capmode_data2=0;
     m_status_imagelist = NULL;
     m_status_imagelist_type = 0;
+    m_extended_style=0;
   } 
   ~listViewState()
   { 
@@ -3771,6 +3772,7 @@ struct listViewState
   int m_selitem; // for single sel, or used for focus for multisel
 
   int m_scroll_x,m_scroll_y,m_capmode_state, m_capmode_data1,m_capmode_data2;
+  int m_extended_style;
 
   int getTotalWidth() const
   {
@@ -4297,6 +4299,14 @@ forceMouseMove:
             if (totalw > cr.right)
               cr.bottom -= SCROLLBAR_WIDTH;
 
+            HPEN gridpen = NULL;
+            HGDIOBJ oldpen = NULL;
+            if (!lvs->m_is_listbox && (hwnd->m_style & LVS_REPORT) && (lvs->m_extended_style&LVS_EX_GRIDLINES))
+            {
+              gridpen = CreatePen(PS_SOLID,0,g_swell_ctheme.listview_grid);
+              oldpen = SelectObject(ps.hdc,gridpen);
+            }
+
             for (x = 0; x < n && ypos < cr.bottom; x ++)
             {
               const char *str = NULL;
@@ -4390,6 +4400,22 @@ forceMouseMove:
                 }
               }        
               ypos += row_height;
+              if (gridpen)  
+              {
+                MoveToEx(ps.hdc,0,ypos-1,NULL);
+                LineTo(ps.hdc,cr.right,ypos-1);
+              }
+            }
+            if (gridpen)
+            {
+              int x,xpos=(has_status_image ? row_height : 0) - xo;
+              for (x=0; x < ncols; x ++)
+              {
+                xpos += cols[x].xwid;
+                if (xpos > cr.right) break;
+                MoveToEx(ps.hdc,xpos-1,hdr_size_nomargin,NULL);
+                LineTo(ps.hdc,xpos-1,cr.bottom);
+              }
             }
             if (hdr_size_nomargin>0)
             {
@@ -4462,6 +4488,11 @@ forceMouseMove:
               DeleteObject(br);
               DeleteObject(br2);
               DeleteObject(br3);
+            }
+            if (gridpen) 
+            {
+              SelectObject(ps.hdc,oldpen);
+              DeleteObject(gridpen);
             }
 
             cr.top += hdr_size_nomargin;
@@ -5291,6 +5322,9 @@ int TabCtrl_GetCurSel(HWND hwnd)
 
 void ListView_SetExtendedListViewStyleEx(HWND h, int flag, int mask)
 {
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs) return;
+  lvs->m_extended_style = (lvs->m_extended_style & ~mask) | (flag&mask);
 }
 
 void SWELL_SetListViewFastClickMask(HWND hList, int mask)

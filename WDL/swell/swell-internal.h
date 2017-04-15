@@ -959,6 +959,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(listview_bg, 255,255,255) \
   f(listview_bg_sel, 128,128, 255) \
   f(listview_text, 0,0,0) \
+  fd(listview_grid, 224,224,224, _3dhilight) \
   f(listview_hdr_arrow,96,96,96) \
   fd(listview_hdr_shadow, 96,96,96, _3dshadow) \
   fd(listview_hdr_hilight, 224,224,224, _3dhilight) \
