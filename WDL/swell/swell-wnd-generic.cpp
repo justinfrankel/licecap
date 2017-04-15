@@ -6963,7 +6963,9 @@ void ListView_SetSelColors(HWND hwnd, int *colors, int ncolors)
 }
 int ListView_GetTopIndex(HWND h)
 {
-  return 0;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->m_last_row_height) return 0;
+  return lvs->m_scroll_y / lvs->m_last_row_height;
 }
 BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
 {
