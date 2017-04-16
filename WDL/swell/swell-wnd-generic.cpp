@@ -4424,6 +4424,13 @@ forceMouseMove:
             }
             if (gridpen)
             {
+              if (row_height>0) for (;;)
+              {
+                ypos += row_height;
+                if (ypos >= cr.bottom) break;
+                MoveToEx(ps.hdc,0,ypos-1,NULL);
+                LineTo(ps.hdc,cr.right,ypos-1);
+              }
               int x,xpos=(has_status_image ? row_height : 0) - xo;
               for (x=0; x < ncols; x ++)
               {
