@@ -600,8 +600,6 @@ struct HTREEITEM__
 #endif
 #include "../assocarray.h"
 
-#define SWELL_INTERNAL_MENUBAR_SIZE 17
-
 LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 struct HWND__
@@ -907,6 +905,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
 #ifndef SWELL_TARGET_OSX
 
 #define SWELL_GENERIC_THEMEDEFS(f,fd) \
+  f(default_font_size, 12) \
   f(_3dface,RGB(192,192,192)) \
   f(_3dshadow,RGB(96,96,96)) \
   f(_3dhilight,RGB(224,224,224)) \
@@ -924,6 +923,8 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(scrollbar,RGB(32,32,32)) \
   f(scrollbar_fg, RGB(64,64,64)) \
   f(scrollbar_bg, RGB(192,192,192)) \
+  f(scrollbar_width, 14) \
+  f(scrollbar_min_thumb_height, 4) \
   f(edit_cursor,RGB(0,128,255)) \
   f(edit_bg,RGB(255,255,255)) \
   f(edit_bg_disabled,RGB(255,255,255)) \
@@ -944,6 +945,10 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   fd(menubar_text_disabled, RGB(224,224,224), menu_text_disabled) \
   fd(menubar_bg_sel, RGB(0,0,0), menu_bg_sel) \
   fd(menubar_text_sel, RGB(224,224,224), menu_text_sel) \
+  f(menubar_height, 17) \
+  f(menubar_font_size, 13) \
+  f(menubar_spacing_width, 8) \
+  f(menubar_margin_width, 6) \
   f(trackbar_track, RGB(224,224,224)) \
   f(trackbar_mark, RGB(96,96,96)) \
   f(trackbar_knob, RGB(48,48,48)) \

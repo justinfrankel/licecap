@@ -2468,13 +2468,11 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-enum { SCROLLBAR_WIDTH = 14, SCROLLBAR_MIN_THUMB=4 };
-
 static void calcScroll(int wh, int totalw, int scroll_x, int *thumbsz, int *thumbpos)
 {
   const double isz = wh / (double) totalw;
   int sz = (int) (wh * isz + 0.5);
-  if (sz < SCROLLBAR_MIN_THUMB) sz=SCROLLBAR_MIN_THUMB;
+  if (sz < g_swell_ctheme.scrollbar_min_thumb_height) sz=g_swell_ctheme.scrollbar_min_thumb_height;
 
   *thumbpos = (int) (scroll_x * isz + 0.5);
   if (*thumbpos >= wh-sz) *thumbpos = wh-sz;
@@ -2491,7 +2489,7 @@ static void drawHorizontalScrollbar(HDC hdc, RECT cr, int totalw, int scroll_x)
 
   HBRUSH br =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_fg,0.5f);
   HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_bg,0.5f);
-  RECT fr = { cr.left, cr.bottom - SCROLLBAR_WIDTH, cr.left + thumbpos, cr.bottom };
+  RECT fr = { cr.left, cr.bottom - g_swell_ctheme.scrollbar_width, cr.left + thumbpos, cr.bottom };
   if (fr.right>fr.left) FillRect(hdc,&fr,br2);
 
   fr.left = fr.right;
@@ -2515,7 +2513,7 @@ static void drawVerticalScrollbar(HDC hdc, RECT cr, int totalh, int scroll_y)
 
   HBRUSH br =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_fg,0.5f);
   HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_bg,0.5f);
-  RECT fr = { cr.right - SCROLLBAR_WIDTH, cr.top, cr.right,cr.top+thumbpos};
+  RECT fr = { cr.right - g_swell_ctheme.scrollbar_width, cr.top, cr.right,cr.top+thumbpos};
   if (fr.bottom>fr.top) FillRect(hdc,&fr,br2);
 
   fr.top = fr.bottom;
@@ -2822,7 +2820,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
           RECT br = r;
           if (es->max_width > br.right)
           {
-            if (GET_Y_LPARAM(lParam) >= br.bottom - SCROLLBAR_WIDTH)
+            if (GET_Y_LPARAM(lParam) >= br.bottom - g_swell_ctheme.scrollbar_width)
             {
               int xp = GET_X_LPARAM(lParam), xpos = xp;
 
@@ -2838,9 +2836,9 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
               if (xpos < thumbpos || xpos > thumbpos+thumbsz) goto forceMouseMove;
               return 0;
             }
-            br.bottom -= SCROLLBAR_WIDTH;
+            br.bottom -= g_swell_ctheme.scrollbar_width;
           }
-          if (GET_X_LPARAM(lParam)>=br.right - SCROLLBAR_WIDTH &&
+          if (GET_X_LPARAM(lParam)>=br.right - g_swell_ctheme.scrollbar_width &&
               es->max_height > br.bottom)
           {
             int yp = GET_Y_LPARAM(lParam), ypos = yp;
@@ -3038,8 +3036,8 @@ forceMouseMove:
             if (es->max_width > r.right)
             {
               drawHorizontalScrollbar(ps.hdc,orig_r,es->max_width,es->scroll_x);
-              orig_r.bottom -= SCROLLBAR_WIDTH;
-              r.bottom -= SCROLLBAR_WIDTH;
+              orig_r.bottom -= g_swell_ctheme.scrollbar_width;
+              r.bottom -= g_swell_ctheme.scrollbar_width;
             }
             if (r.top > r.bottom)
             {  
@@ -3804,7 +3802,7 @@ struct listViewState
     if (m_last_row_height > 0)
     {
       r.bottom -= GetColumnHeaderHeight(h);
-      if (mx>0) r.bottom -= SCROLLBAR_WIDTH;
+      if (mx>0) r.bottom -= g_swell_ctheme.scrollbar_width;
 
       const int vh = m_last_row_height * GetNumItems();
       if (m_scroll_y < 0 || vh <= r.bottom) m_scroll_y=0;
@@ -4029,7 +4027,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           }
         }
         else if (totalw > r.right && 
-                 GET_Y_LPARAM(lParam) >= r.bottom - SCROLLBAR_WIDTH)
+                 GET_Y_LPARAM(lParam) >= r.bottom - g_swell_ctheme.scrollbar_width)
         {
           const int xpos = GET_X_LPARAM(lParam);
           int xp = xpos;
@@ -4049,9 +4047,9 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         lvs->m_capmode_state=0;
         const int ypos = GET_Y_LPARAM(lParam) - hdr_size_nomargin;
 
-        if (totalw > r.right) r.bottom -= SCROLLBAR_WIDTH;
+        if (totalw > r.right) r.bottom -= g_swell_ctheme.scrollbar_width;
         if (n * row_height > r.bottom - hdr_size_nomargin && 
-            GET_X_LPARAM(lParam) >= r.right - SCROLLBAR_WIDTH)
+            GET_X_LPARAM(lParam) >= r.right - g_swell_ctheme.scrollbar_width)
         {
           int yp = GET_Y_LPARAM(lParam);
 
@@ -4308,7 +4306,7 @@ forceMouseMove:
 
             const int totalw = lvs->getTotalWidth();
             if (totalw > cr.right)
-              cr.bottom -= SCROLLBAR_WIDTH;
+              cr.bottom -= g_swell_ctheme.scrollbar_width;
 
             HPEN gridpen = NULL;
             HGDIOBJ oldpen = NULL;
@@ -4518,7 +4516,7 @@ forceMouseMove:
 
             if (totalw > cr.right)
             {
-              cr.bottom += SCROLLBAR_WIDTH;
+              cr.bottom += g_swell_ctheme.scrollbar_width;
               drawHorizontalScrollbar(ps.hdc,cr,totalw,lvs->m_scroll_x);
             }
           }
@@ -4843,7 +4841,7 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         RECT cr;
         GetClientRect(hwnd,&cr);
         int total_h;
-        if (GET_X_LPARAM(lParam) >= cr.right-SCROLLBAR_WIDTH && 
+        if (GET_X_LPARAM(lParam) >= cr.right-g_swell_ctheme.scrollbar_width && 
              (total_h=tvs->sanitizeScroll(hwnd)) > cr.bottom)
         {
           int ypos = GET_Y_LPARAM(lParam);
@@ -6065,7 +6063,6 @@ BOOL EndPaint(HWND hwnd, PAINTSTRUCT *ps)
 
 
 static HFONT menubar_font;
-const int menubar_xspacing=8, menubar_leftmargin=6;
 
 static bool wantRightAlignedMenuBarItem(const char *p)
 {
@@ -6078,11 +6075,11 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
   int rv=-1;
   RECT r;
   GetWindowContentViewRect(hwnd,&r);
-  if (forceItem >= 0 || (mousey>=r.top && mousey < r.top+SWELL_INTERNAL_MENUBAR_SIZE))
+  if (forceItem >= 0 || (mousey>=r.top && mousey < r.top+g_swell_ctheme.menubar_height))
   {
     HDC dc = GetWindowDC(hwnd);
 
-    int x,xpos=r.left + menubar_leftmargin;
+    int x,xpos=r.left + g_swell_ctheme.menubar_margin_width;
     HMENU__ *menu = (HMENU__*)hwnd->m_menu;
     HGDIOBJ oldfont = dc ? SelectObject(dc,menubar_font) : NULL;
     const int n=menu->items.GetSize();
@@ -6096,24 +6093,24 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
         DrawText(dc,inf->dwTypeData,-1,&cr,DT_CALCRECT);
         if (x == n-1 && wantRightAlignedMenuBarItem(inf->dwTypeData))
         {
-          xpos = wdl_max(xpos,r.right - menubar_leftmargin - cr.right);
-          cr.right = r.right - menubar_leftmargin - xpos;
+          xpos = wdl_max(xpos,r.right - g_swell_ctheme.menubar_margin_width - cr.right);
+          cr.right = r.right - g_swell_ctheme.menubar_margin_width - xpos;
         }
 
-        if (forceItem>=0 ? forceItem == x : (mousex >=xpos && mousex< xpos + cr.right + menubar_xspacing))
+        if (forceItem>=0 ? forceItem == x : (mousex >=xpos && mousex< xpos + cr.right + g_swell_ctheme.menubar_spacing_width))
         {
           if (!dis) 
           {
             rOut->left = xpos;
             rOut->right = xpos + cr.right;
             rOut->top = r.top;
-            rOut->bottom = r.top + SWELL_INTERNAL_MENUBAR_SIZE;
+            rOut->bottom = r.top + g_swell_ctheme.menubar_height;
             rv=x;
           }
           break;
         }
 
-        xpos+=cr.right+menubar_xspacing;
+        xpos+=cr.right+g_swell_ctheme.menubar_spacing_width;
       }
     }
     
@@ -6159,7 +6156,7 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   mbr.right -= mbr.left;
   mbr.left=0;
   mbr.bottom = 0;
-  mbr.top = -SWELL_INTERNAL_MENUBAR_SIZE;
+  mbr.top = -g_swell_ctheme.menubar_height;
   menu->sel_vis = x;
   g_menubar_active = hwnd;
   for (;;)
@@ -6209,7 +6206,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (!hwnd->m_parent && hwnd->m_menu)
       {
         RECT *r = (RECT*)lParam;
-        r->top += SWELL_INTERNAL_MENUBAR_SIZE;
+        r->top += g_swell_ctheme.menubar_height;
       }
     break;
     case WM_NCPAINT:
@@ -6219,13 +6216,13 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (dc)
         {
           if (!menubar_font) 
-            menubar_font = CreateFont(SWELL_INTERNAL_MENUBAR_SIZE-4,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); 
+            menubar_font = CreateFont(g_swell_ctheme.menubar_font_size,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); 
 
           RECT r;
           GetWindowContentViewRect(hwnd,&r);
           r.right -= r.left; r.left=0;
           r.bottom -= r.top; r.top=0;
-          if (r.bottom>SWELL_INTERNAL_MENUBAR_SIZE) r.bottom=SWELL_INTERNAL_MENUBAR_SIZE;
+          if (r.bottom>g_swell_ctheme.menubar_height) r.bottom=g_swell_ctheme.menubar_height;
 
           HBRUSH br=CreateSolidBrush(g_swell_ctheme.menubar_bg);
           FillRect(dc,&r,br);
@@ -6234,7 +6231,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           HGDIOBJ oldfont = SelectObject(dc,menubar_font);
           SetBkMode(dc,TRANSPARENT);
 
-          int x,xpos=menubar_leftmargin;
+          int x,xpos=g_swell_ctheme.menubar_margin_width;
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
           const int n = menu->items.GetSize();
           for(x=0;x<n;x++)
@@ -6248,8 +6245,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
               if (x == n-1 && wantRightAlignedMenuBarItem(inf->dwTypeData))
               {
-                cr.left = wdl_max(xpos,r.right - menubar_leftmargin - cr.right);
-                cr.right = r.right - menubar_leftmargin;
+                cr.left = wdl_max(xpos,r.right - g_swell_ctheme.menubar_margin_width - cr.right);
+                cr.right = r.right - g_swell_ctheme.menubar_margin_width;
               }
               else
               {
@@ -6270,7 +6267,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                    g_swell_ctheme.menubar_text);
 
               DrawText(dc,inf->dwTypeData,-1,&cr,DT_BOTTOM|DT_LEFT);
-              xpos=cr.right+menubar_xspacing;
+              xpos=cr.right+g_swell_ctheme.menubar_spacing_width;
             }
           }
 
@@ -6325,7 +6322,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       {
         RECT r;
         GetWindowContentViewRect(hwnd,&r);
-        if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+SWELL_INTERNAL_MENUBAR_SIZE) return HTMENU;
+        if (GET_Y_LPARAM(lParam)>=r.top && GET_Y_LPARAM(lParam) < r.top+g_swell_ctheme.menubar_height) return HTMENU;
       }
       // todo: WM_NCCALCSIZE etc
     return HTCLIENT;

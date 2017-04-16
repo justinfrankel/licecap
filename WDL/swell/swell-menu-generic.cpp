@@ -1054,8 +1054,8 @@ BOOL  SetMenu(HWND hwnd, HMENU menu)
     RECT r;
     GetWindowRect(hwnd,&r);
 
-    if (oldmenu) r.bottom -= SWELL_INTERNAL_MENUBAR_SIZE; // hack: we should WM_NCCALCSIZE before and after, really
-    else r.bottom += SWELL_INTERNAL_MENUBAR_SIZE;
+    if (oldmenu) r.bottom -= g_swell_ctheme.menubar_height; // hack: we should WM_NCCALCSIZE before and after, really
+    else r.bottom += g_swell_ctheme.menubar_height;
 
     SetWindowPos(hwnd,NULL,0,0,r.right-r.left,r.bottom-r.top,SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE);
     hwnd->m_wndproc = oldwc;
@@ -1077,7 +1077,7 @@ void DrawMenuBar(HWND hwnd)
   {
     RECT r;
     GetClientRect(hwnd,&r);
-    r.top = - SWELL_INTERNAL_MENUBAR_SIZE;
+    r.top = - g_swell_ctheme.menubar_height;
     r.bottom=0;
     InvalidateRect(hwnd,&r,FALSE);
   }

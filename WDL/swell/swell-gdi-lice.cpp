@@ -659,7 +659,7 @@ HFONT SWELL_GetDefaultFont()
   static HFONT def;
   if (!def)
   {
-    def = CreateFont(12,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); // todo better defaults
+    def = CreateFont(g_swell_ctheme.default_font_size,0,0,0,0,0,0,0,0,0,0,0,0,"Arial"); // todo better defaults
   }
   return def;
 }

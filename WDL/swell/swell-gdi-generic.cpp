@@ -707,10 +707,25 @@ int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, in
 #endif // !SWELL_LICE_GDI
 
 #ifdef SWELL__MAKE_THEME
+void print_ent(const char *x, int c, const char *def)
+{
+  if (def) 
+    printf("; %s #%02x%02x%02x ; defaults to %s\n",x,GetRValue(c),GetGValue(c),GetBValue(c),def);
+  else
+  {
+    if (strstr(x,"_size") || 
+        strstr(x,"_height") || 
+        strstr(x,"_width"))
+      printf("%s %d\n",x,c);
+    else printf("%s #%02x%02x%02x\n",x,GetRValue(c),GetGValue(c),GetBValue(c));
+  }
+}
+
 int main()
 {
-#define __def_theme_ent(x,c) printf("%s #%02x%02x%02x\n",#x,GetRValue(c),GetGValue(c),GetBValue(c));
-#define __def_theme_ent_fb(x,c,fb) printf("; %s #%02x%02x%02x ; defaults to %s\n",#x,GetRValue(c),GetGValue(c),GetBValue(c),#fb);
+#define __def_theme_ent(x,c) print_ent(#x,c,NULL); 
+#define __def_theme_ent_fb(x,c,fb) print_ent(#x,c,#fb); 
+ 
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 return 0;
 }
