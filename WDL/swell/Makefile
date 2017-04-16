@@ -6,7 +6,14 @@
 ARCH := $(shell uname -m)
 ARCHSTR := $(ARCH)-$(shell lsb_release -i -s | tr '[:upper:]' '[:lower:]')-$(shell lsb_release -c -s | tr '[:upper:]' '[:lower:]')
 
-CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function -Wno-multichar -Werror
+CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function -Wno-multichar -Wno-unused-result
+
+ifndef ALLOW_WARNINGS
+CFLAGS += -Werror
+endif
+ifndef DEPRECATED_WARNINGS
+  CFLAGS +=  -Wno-deprecated-declarations
+endif
 
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char 
@@ -14,9 +21,6 @@ else
   CFLAGS += -malign-double 
 endif
 
-ifndef ERROR_ON_DEPRECATED
-  CFLAGS +=  -Wno-deprecated-declarations
-endif
 
 ifdef DEBUG
 CFLAGS += -O0 -g 
