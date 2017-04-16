@@ -31,8 +31,8 @@
 
 
 swell_colortheme g_swell_ctheme = {
-#define __def_theme_ent(x,r,g,b) RGB(r,g,b),
-#define __def_theme_ent_fb(x,r,g,b,fb) RGB(r,g,b),
+#define __def_theme_ent(x,c) (c),
+#define __def_theme_ent_fb(x,c,fb) (c),
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #undef __def_theme_ent
 #undef __def_theme_ent_fb
@@ -709,8 +709,8 @@ int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, in
 #ifdef SWELL__MAKE_THEME
 int main()
 {
-#define __def_theme_ent(x,r,g,b) printf("%s %02x%02x%02x\n",#x,r,g,b);
-#define __def_theme_ent_fb(x,r,g,b,fb) printf("# %s %02x%02x%02x # defaults to %s\n",#x,r,g,b,#fb);
+#define __def_theme_ent(x,c) printf("%s %02x%02x%02x\n",#x,GetRValue(c),GetGValue(c),GetBValue(c));
+#define __def_theme_ent_fb(x,c,fb) printf("; %s %02x%02x%02x ; defaults to %s\n",#x,GetRValue(c),GetGValue(c),GetBValue(c),#fb);
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 return 0;
 }
@@ -759,14 +759,14 @@ public:
       else continue;
 
       if(0){}
-#define __def_theme_ent(x,r,g,b) else if (!stricmp(p,#x)) load.x = col;
-#define __def_theme_ent_fb(x,r,g,b,fb) else if (!stricmp(p,#x)) load.x = col;
+#define __def_theme_ent(x,c) else if (!stricmp(p,#x)) load.x = col;
+#define __def_theme_ent_fb(x,c,fb) else if (!stricmp(p,#x)) load.x = col;
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #undef __def_theme_ent
 #undef __def_theme_ent_fb
     }
-#define __def_theme_ent(x,r,g,b) g_swell_ctheme.x = load.x == -1 ? RGB(r,g,b) : load.x;
-#define __def_theme_ent_fb(x,r,g,b,fb) g_swell_ctheme.x = load.x == -1 ? g_swell_ctheme.fb : load.x;
+#define __def_theme_ent(x,c) g_swell_ctheme.x = load.x == -1 ? c : load.x;
+#define __def_theme_ent_fb(x,c,fb) g_swell_ctheme.x = load.x == -1 ? g_swell_ctheme.fb : load.x;
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #undef __def_theme_ent
 #undef __def_theme_ent_fb
