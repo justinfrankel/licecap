@@ -106,7 +106,6 @@ template<class PTRTYPE> class WDL_PtrList
       if (!list) return item;
 
       if (index<0) index=0;
-      else if (index > s) index=s;
     
       int x;
       for (x = s; x > index; x --) list[x]=list[x-1];
