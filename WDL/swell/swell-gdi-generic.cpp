@@ -709,8 +709,8 @@ int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, in
 #ifdef SWELL__MAKE_THEME
 int main()
 {
-#define __def_theme_ent(x,c) printf("%s %02x%02x%02x\n",#x,GetRValue(c),GetGValue(c),GetBValue(c));
-#define __def_theme_ent_fb(x,c,fb) printf("; %s %02x%02x%02x ; defaults to %s\n",#x,GetRValue(c),GetGValue(c),GetBValue(c),#fb);
+#define __def_theme_ent(x,c) printf("%s #%02x%02x%02x\n",#x,GetRValue(c),GetGValue(c),GetBValue(c));
+#define __def_theme_ent_fb(x,c,fb) printf("; %s #%02x%02x%02x ; defaults to %s\n",#x,GetRValue(c),GetGValue(c),GetBValue(c),#fb);
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 return 0;
 }
@@ -742,19 +742,21 @@ public:
       if (!*np || np == p) continue;
       *np++ = 0;
       while (*np == ' ' || *np == '\t') np++;
-      const char *txt = np;
-      while ((*np >= '0' && *np <= '9') ||
-             (*np >= 'a' && *np <= 'f') ||
-             (*np >= 'A' && *np <= 'F')) np++;
-      int col=0;
-      if (np-txt == 6)
+      int col;
+      if (*np == '#')
       {
-        sscanf(txt,"%x",&col);
+        np++;
+        char *next;
+        col = strtol(np,&next,16);
+        if (next != np+6)
+        {
+          if (next != np+3) continue;
+          col = ((col&0xf)<<4) | ((col&0xf0)<<8) | ((col&0xf00)<<12);
+        }
       }
-      else if (np-txt == 3)
+      else if (*np >= '0' && *np <= '9')
       {
-        sscanf(txt,"%x",&col);
-        col = ((col&0xf)<<4) | ((col&0xf0)<<8) | ((col&0xf00)<<12);
+        col = atoi(np);
       }
       else continue;
 
