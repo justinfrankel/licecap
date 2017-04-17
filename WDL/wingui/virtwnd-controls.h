@@ -360,6 +360,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     bool HandleScrollClicks(int xpos, int ypos, int leftrightbuttonsize, int updownbuttonsize, int nrows, int num_cols, int num_items, int usedw);
   
     int m_cap_state;
+    POINT m_cap_startpos;
     int m_cap_startitem;
     int m_clickmsg,m_dropmsg,m_dragmsg;
     int m_viewoffs;

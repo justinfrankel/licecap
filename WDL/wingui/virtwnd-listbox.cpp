@@ -32,6 +32,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_scrollbuttonsize=14;
   m_cap_startitem=-1;
   m_cap_state=0;
+  m_cap_startpos.x = m_cap_startpos.y = 0;
   m_margin_l=m_margin_r=0;
   m_GetItemInfo=0;
   m_CustomDraw=0;
@@ -554,6 +555,8 @@ bool WDL_VirtualListBox::HandleScrollClicks(int xpos, int ypos, int leftrightbut
 int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
 {
   if (m_grayed) return 0;
+  m_cap_startpos.x = xpos;
+  m_cap_startpos.y = ypos;
 
   if (m__iaccess) m__iaccess->OnFocused();
   int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
@@ -630,6 +633,12 @@ void WDL_VirtualListBox::OnMouseMove(int xpos, int ypos)
   if (m_cap_state>=0x1000)
   {
     m_cap_state++;
+    if (m_cap_state < 0x1008)
+    {
+      int dx = (xpos - m_cap_startpos.x), dy=(ypos-m_cap_startpos.y);
+      if (dx*dx + dy*dy > 36) 
+        m_cap_state=0x1008;
+    }
     if (m_cap_state>=0x1008)
     {
       if (m_dragmsg)
