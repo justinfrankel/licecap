@@ -91,7 +91,7 @@ libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
 	./make-theme > libSwell.colortheme
 
 clean: 
-	-rm $(OBJS) libSwell.so
+	-rm $(OBJS) libSwell.so make-theme libSwell.colortheme
 
 dist-xz:
 	-make NOGDK=1 clean
