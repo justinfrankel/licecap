@@ -1294,14 +1294,7 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
         tmpsub.m_h = ctx.ctx.surface->getHeight()-dy;
         if (tmpsub.m_w<0) tmpsub.m_w=0;
         if (tmpsub.m_h<0) tmpsub.m_h=0;
-        ctx.ctx.surface_offs.x += dx;
-        ctx.ctx.surface_offs.y += dy;
         ctx.ctx.surface = &tmpsub;
-
-        ctx.clipr.left-=dx;
-        ctx.clipr.top-=dy;
-        ctx.clipr.right-=dx;
-        ctx.clipr.bottom-=dy;
       }
 
       // adjust clip rects for right/bottom extents
