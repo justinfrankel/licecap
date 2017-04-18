@@ -1066,6 +1066,20 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
+void StretchBltFromMem(HDC hdcOut, int x, int y, int w, int h, const void *bits, int srcw, int srch, int srcspan)
+{
+  HDC__ *out = (HDC__ *)hdcOut;
+  if (!HDC_VALID(out) || !bits) return;
+  if (!out->surface) return;
+
+  LICE_WrapperBitmap srcbm((LICE_pixel*)bits,srcw,srch,srcspan,false);
+  LICE_ScaledBlit(out->surface,&srcbm,
+            x+out->surface_offs.x,y+out->surface_offs.y,w,h,
+            0,0,srcw,srch,
+            1.0f,LICE_BLIT_MODE_COPY);
+  swell_DirtyContext(out,x,y,x+w,y+h);
+}
+
 void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode)
 {
   HDC__ *in = (HDC__ *)hdcIn;

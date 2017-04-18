@@ -530,6 +530,10 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
 {
 }
 
+void StretchBltFromMem(HDC hdcOut, int x, int y, int w, int h, const void *bits, int srcw, int srch, int srcspan)
+{
+}
+
 void SWELL_PushClipRegion(HDC ctx)
 {
 //  HDC__ *ct=(HDC__ *)ctx;
