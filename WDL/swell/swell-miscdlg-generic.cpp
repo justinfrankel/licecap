@@ -230,12 +230,12 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
               LVS_OWNERDATA|WS_BORDER|WS_TABSTOP,0,0,0,0,0);
         if (list)
         {
-          LVCOLUMN c={LVCF_TEXT|LVCF_WIDTH, 0, 280, (char*)"Filename" };
+          LVCOLUMN c={LVCF_TEXT|LVCF_WIDTH, 0, SWELL_UI_SCALE(280), (char*)"Filename" };
           ListView_InsertColumn(list,0,&c);
-          c.cx = 120;
+          c.cx = SWELL_UI_SCALE(120);
           c.pszText = (char*) "Size";
           ListView_InsertColumn(list,1,&c);
-          c.cx = 140;
+          c.cx = SWELL_UI_SCALE(140);
           c.pszText = (char*) "Date";
           ListView_InsertColumn(list,2,&c);
           HWND hdr = ListView_GetHeader(list);
@@ -293,7 +293,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
         }
 
-        SetWindowPos(hwnd,NULL,0,0,600, 400, SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        SetWindowPos(hwnd,NULL,0,0,SWELL_UI_SCALE(600), SWELL_UI_SCALE(400), SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
         SendMessage(hwnd,WM_USER+100,1,0); // refresh list
       }
     break;
@@ -356,11 +356,12 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         // reposition controls
         RECT r;
         GetClientRect(hwnd,&r);
-        const int buth = 24, cancelbutw = 50, okbutw = parms->mode == BrowseFile_State::OPENDIR ? 120 : 50;
-        const int xborder = 4, yborder=8;
-        const int fnh = 20, fnlblw = parms->mode == BrowseFile_State::OPENDIR ? 70 : 50;
+        const int buth = SWELL_UI_SCALE(24), cancelbutw = SWELL_UI_SCALE(50), okbutw = SWELL_UI_SCALE(parms->mode == BrowseFile_State::OPENDIR ? 120 : 50);
+        const int xborder = SWELL_UI_SCALE(4), yborder=SWELL_UI_SCALE(8);
+        const int fnh = SWELL_UI_SCALE(20), fnlblw = SWELL_UI_SCALE(parms->mode == BrowseFile_State::OPENDIR ? 70 : 50);
+        const int ypad = SWELL_UI_SCALE(4);
 
-        int ypos = r.bottom - 4 - buth;
+        int ypos = r.bottom - ypad - buth;
         int xpos = r.right;
         SetWindowPos(GetDlgItem(hwnd,IDCANCEL), NULL, xpos -= cancelbutw + xborder, ypos, cancelbutw,buth, SWP_NOZORDER|SWP_NOACTIVATE);
         SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, xpos -= okbutw + xborder, ypos, okbutw,buth, SWP_NOZORDER|SWP_NOACTIVATE);
@@ -370,7 +371,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           RECT sr;
           GetClientRect(emb,&sr);
-          if (ypos > r.bottom-4-sr.bottom) ypos = r.bottom-4-sr.bottom;
+          if (ypos > r.bottom-ypad-sr.bottom) ypos = r.bottom-ypad-sr.bottom;
           SetWindowPos(emb,NULL, xborder,ypos, xpos - xborder*2, sr.bottom, SWP_NOZORDER|SWP_NOACTIVATE);
           ShowWindow(emb,SW_SHOWNA);
         }
@@ -732,8 +733,11 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           DrawText(dc,(const char *)parms[0],-1,&labsize,DT_CALCRECT|DT_NOPREFIX);// if dc isnt valid yet, try anyway
         }
-        labsize.top += 10;
-        labsize.bottom += 18;
+
+        const int sc10 = SWELL_UI_SCALE(10);
+        const int sc8 = SWELL_UI_SCALE(8);
+        labsize.top += sc10;
+        labsize.bottom += sc10 + sc8;
 
         int x;
         int button_height=0, button_total_w=0;;
@@ -741,12 +745,12 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           RECT r={0,0,35,12};
           DrawText(dc,buttons[x],-1,&r,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
-          button_sizes[x] = r.right-r.left + 8;
+          button_sizes[x] = r.right-r.left + sc10;
           button_total_w += button_sizes[x] + (x ? button_spacing : 0);
-          if (r.bottom-r.top+10 > button_height) button_height = r.bottom-r.top+10;
+          if (r.bottom-r.top+sc10 > button_height) button_height = r.bottom-r.top+sc10;
         }
 
-        if (labsize.right < button_total_w+16) labsize.right = button_total_w+16;
+        if (labsize.right < button_total_w+sc8*2) labsize.right = button_total_w+sc8*2;
 
         int xpos = labsize.right/2 - button_total_w/2;
         for (x = 0; x < nbuttons; x ++)
@@ -757,8 +761,9 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         if (dc) ReleaseDC(lab,dc);
         SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
-        SetWindowPos(hwnd,NULL,0,0,labsize.right + 16,labsize.bottom + button_height + 8,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
-        if (lab) SetWindowPos(lab,NULL,8,0,labsize.right,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
+        SetWindowPos(hwnd,NULL,0,0,
+              labsize.right + sc8*2,labsize.bottom + button_height + sc8,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        if (lab) SetWindowPos(lab,NULL,sc8,0,labsize.right,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
       }
     break;
     case WM_SIZE:
@@ -783,11 +788,12 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           } else if (idx==0x100) lbl=h;
           h = GetWindow(h,GW_HWNDNEXT);
         }
-        if (lbl) SetWindowPos(h,NULL,8,0,r.right,r.bottom - 8 - button_height,  SWP_NOZORDER|SWP_NOACTIVATE);
+        const int sc8 = SWELL_UI_SCALE(8);
+        if (lbl) SetWindowPos(h,NULL,sc8,0,r.right,r.bottom - sc8 - button_height,  SWP_NOZORDER|SWP_NOACTIVATE);
         int xo = r.right/2 - (bxwid + (tabsz-1)*button_spacing)/2,x;
         for (x=tabsz-1; x >=0; x--)
         {
-          SetWindowPos(tab[x],NULL,xo,r.bottom - button_height - 8, 0,0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
+          SetWindowPos(tab[x],NULL,xo,r.bottom - button_height - sc8, 0,0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
           xo += w[x] + button_spacing;
         }
       }
@@ -807,7 +813,9 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
 int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 {
+#ifndef SWELL_LICE_GDI
   printf("MessageBox: %s %s\n",text,caption);
+#endif
   const void *parms[4]= {text,caption,(void*)(INT_PTR)type} ;
   return DialogBoxParam(NULL,NULL,hwndParent,swellMessageBoxProc,(LPARAM)parms);
 
@@ -865,10 +873,22 @@ struct ChooseColor_State {
 static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static int s_reent,s_vmode;
-  enum { wndw=400,
-         custsz = 20,
-         buth = 24, border = 4, butw = 50, edh=20, edlw = 16, edew = 40, vsize=40,
-         psize = border+edlw + edew, yt = border + psize + border + (edh + border)*6 };
+  static int wndw, custsz, buth, border, butw, edh, edlw, edew, vsize, psize, yt;
+  if (!wndw)
+  {
+    wndw = SWELL_UI_SCALE(400);
+    custsz = SWELL_UI_SCALE(20);
+    butw = SWELL_UI_SCALE(50);
+    buth = SWELL_UI_SCALE(24);
+    border = SWELL_UI_SCALE(4);
+    edh = SWELL_UI_SCALE(20);
+    edlw = SWELL_UI_SCALE(16);
+    edew = SWELL_UI_SCALE(40);
+    vsize = SWELL_UI_SCALE(40);
+    psize = border+edlw + edew;
+    yt = border + psize + border + (edh + border)*6;
+  }
+
   const int customperrow = (wndw-border)/(custsz+border);
   switch (uMsg)
   {

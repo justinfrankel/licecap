@@ -981,6 +981,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(group_text,RGB(0,0,0)) \
   fd(group_shadow, RGB(96,96,96), _3dshadow) \
   fd(group_hilight, RGB(224,224,224), _3dhilight) \
+  f(dlg_scale256, 256) \
   
 
 struct swell_colortheme {
@@ -991,6 +992,7 @@ SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #undef __def_theme_ent_fb
 };
 
+#define SWELL_UI_SCALE(x) (((x)*(g_swell_ctheme.dlg_scale256))/256)
 extern swell_colortheme g_swell_ctheme;
 
 #endif

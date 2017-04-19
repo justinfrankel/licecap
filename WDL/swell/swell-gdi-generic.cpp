@@ -719,7 +719,8 @@ void print_ent(const char *x, int c, const char *def)
   {
     if (strstr(x,"_size") || 
         strstr(x,"_height") || 
-        strstr(x,"_width"))
+        strstr(x,"_width") || 
+        strstr(x,"scale256"))
       printf("%s %d\n",x,c);
     else printf("%s #%02x%02x%02x\n",x,GetRValue(c),GetGValue(c),GetBValue(c));
   }

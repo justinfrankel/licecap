@@ -132,7 +132,7 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   SWELL_DialogResourceIndex *p=resById(reshead,resid);
   if (!p&&resid) return 0;
   
-  RECT r={0,0,p?p->width : 300, p?p->height : 200};
+  RECT r={0,0,SWELL_UI_SCALE(p ? p->width : 300), SWELL_UI_SCALE(p ? p->height : 200) };
   HWND owner=NULL;
 
   if (!forceNonChild && parent && (!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)))
