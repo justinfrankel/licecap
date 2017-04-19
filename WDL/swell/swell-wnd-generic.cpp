@@ -622,14 +622,29 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         if (s_clipboard_setstate && b->target == s_clipboard_setstate_fmt)
         {
           prop = gdk_atom_intern("GDK_SELECTION",FALSE);
-          int len;
-          if (s_clipboard_setstate_fmt == GDK_TARGET_STRING) 
-            len = strlen((char *)s_clipboard_setstate);
-          else 
-            len = GlobalSize(s_clipboard_setstate);
+          int len = GlobalSize(s_clipboard_setstate);
+          guchar *ptr = (guchar*)s_clipboard_setstate;
 
-          gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8,
-              GDK_PROP_MODE_REPLACE,(guchar*)s_clipboard_setstate,len);
+          WDL_FastString str;
+          if (s_clipboard_setstate_fmt == GDK_TARGET_STRING) 
+          {
+            const char *rd = (const char *)s_clipboard_setstate;
+            while (*rd)
+            {
+              if (!strncmp(rd,"\r\n",2))
+              {
+                str.Append("\n");
+                rd+=2;
+              }
+              else
+                str.Append(rd++,1);
+            }
+
+            ptr = (guchar *)str.Get();
+            len = str.GetLength();
+          }
+
+          gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8, GDK_PROP_MODE_REPLACE,ptr,len);
         }
         gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
       }
@@ -846,20 +861,46 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         {
           GdkEventSelection *b = (GdkEventSelection *)evt;
           if (s_clipboard_getstate) { GlobalFree(s_clipboard_getstate); s_clipboard_getstate=NULL; }
-          guchar *ptr=NULL;
+          guchar *gptr=NULL;
           GdkAtom fmt;
           gint unitsz=0;
-          gint sz=gdk_selection_property_get(b->window,&ptr,&fmt,&unitsz);
-          if (sz>0 && ptr && unitsz == 8) // todo: if other unitsz, convert (e.g. utf-32 to utf-8?)
+          gint sz=gdk_selection_property_get(b->window,&gptr,&fmt,&unitsz);
+          if (sz>0 && gptr && (unitsz == 8 || unitsz == 16 || unitsz == 32))
           {
-            s_clipboard_getstate = GlobalAlloc(0,sz+1);
+            WDL_FastString str;
+            guchar *ptr = gptr;
+            if (fmt == GDK_TARGET_STRING)
+            {
+              int lastc=0;
+              while (*ptr && sz>0)
+              {
+                int c;
+                if (unitsz==32) { c = *(unsigned int *)ptr; ptr+=4; }
+                else if (unitsz==16)  { c = *(unsigned short *)ptr; ptr+=2; }
+                else c = *ptr++;
+
+                if (c == '\n' && lastc != '\r') str.Append("\r",1);
+
+                char b[8];
+                WDL_MakeUTFChar(b,c,sizeof(b));
+                str.Append(b);
+
+                lastc=c;
+                sz--;
+              }
+              ptr = (guchar*)str.Get();
+              sz=str.GetLength()+1;
+            }
+            else if (unitsz>8) sz *= (unitsz/8);
+
+            s_clipboard_getstate = GlobalAlloc(0,sz);
             if (s_clipboard_getstate)
             {
-              memcpy(s_clipboard_getstate,ptr,sz+1);
+              memcpy(s_clipboard_getstate,ptr,sz);
               s_clipboard_getstate_fmt = fmt;
             }
           }
-          if (ptr) g_free(ptr);
+          if (gptr) g_free(gptr);
         }
         break;
 
