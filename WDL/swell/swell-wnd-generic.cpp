@@ -2154,7 +2154,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             int x;
             for (x=0;x<2;x++)
             {
-              HWND nw = x ? hwnd->m_prev : hwnd->m_next;
+              HWND nw = x ? hwnd->m_next : hwnd->m_prev;
               while (nw)
               {
                 if (nw->m_classname && !strcmp(nw->m_classname,"Button"))
@@ -2178,7 +2178,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                   break;
                 }
 
-                nw=x ? nw->m_prev : nw->m_next;
+                nw=x ? nw->m_next : nw->m_prev;
               }
             }
 
