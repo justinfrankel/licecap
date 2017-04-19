@@ -840,9 +840,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           if (s_clipboard_getstate) { GlobalFree(s_clipboard_getstate); s_clipboard_getstate=NULL; }
           guchar *ptr=NULL;
           GdkAtom fmt;
-          gint fmt2;
-          gint sz=gdk_selection_property_get(b->window,&ptr,&fmt,&fmt2);
-          if (sz>0 && ptr)
+          gint unitsz=0;
+          gint sz=gdk_selection_property_get(b->window,&ptr,&fmt,&unitsz);
+          if (sz>0 && ptr && unitsz == 8) // todo: if other unitsz, convert (e.g. utf-32 to utf-8?)
           {
             s_clipboard_getstate = GlobalAlloc(0,sz+1);
             if (s_clipboard_getstate)
