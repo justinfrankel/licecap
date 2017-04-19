@@ -620,8 +620,14 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         if (s_clipboard_setstate && b->target == s_clipboard_setstate_fmt)
         {
           prop = gdk_atom_intern("GDK_SELECTION",FALSE);
+          int len;
+          if (s_clipboard_setstate_fmt == GDK_TARGET_STRING) 
+            len = strlen((char *)s_clipboard_setstate);
+          else 
+            len = GlobalSize(s_clipboard_setstate);
+
           gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8,
-              GDK_PROP_MODE_REPLACE,(guchar*)s_clipboard_setstate,GlobalSize(s_clipboard_setstate));
+              GDK_PROP_MODE_REPLACE,(guchar*)s_clipboard_setstate,len);
         }
         gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
       }
