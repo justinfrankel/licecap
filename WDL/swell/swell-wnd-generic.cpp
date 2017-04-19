@@ -2567,7 +2567,51 @@ struct __SWELL_editControlState
 
 static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool isMultiLine, __SWELL_editControlState *es)
 {
-  if (lParam & (FCONTROL|FALT|FLWIN)) return 0;
+  if (lParam & (FCONTROL|FALT|FLWIN))
+  {
+    if (lParam == (FVIRTKEY | FCONTROL))
+    {
+      if (wParam == 'C' || wParam == 'X')
+      {
+        // todo: if selection, use selection
+        OpenClipboard(hwnd);
+        const char *s = hwnd->m_title.Get();
+        HANDLE h = GlobalAlloc(0,(int)strlen(s) + 1);
+        if (h)
+        {
+          strcpy((char*)h,s);
+          SetClipboardData(CF_TEXT,h);
+        }
+        CloseClipboard();
+
+        if (h && wParam == 'X')
+        {
+          hwnd->m_title.Set("");
+          return 7;
+        }
+      }
+      else if (wParam == 'V')
+      {
+        OpenClipboard(hwnd);
+        HANDLE h = GetClipboardData(CF_TEXT);
+        const char *s = NULL;
+        if (h)
+        {
+          s = (const char*)GlobalLock(h);
+          if (s)
+          {
+            int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
+            hwnd->m_title.Insert(s,bytepos);
+            es->cursor_pos += WDL_utf8_get_charlen(s);
+            GlobalUnlock(h);
+          }
+        }
+        CloseClipboard();
+        if (s) return 7;
+      }
+    }
+    return 0;
+  }
 
   const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;
   if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam) || is_numpad))
