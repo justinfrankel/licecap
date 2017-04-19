@@ -2219,7 +2219,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           }
           if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
           {
-            const int chksz = 12;
+            const int chksz = SWELL_UI_SCALE(12);
             RECT tr={r.left,(r.top+r.bottom)/2-chksz/2,r.left+chksz};
             tr.bottom = tr.top+chksz;
 
@@ -2239,10 +2239,10 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
               if (st == 1||pressed)
               {
                 RECT ar=tr;
-                ar.left+=2;
-                ar.right-=3;
-                ar.top+=2;
-                ar.bottom-=3;
+                ar.left+=SWELL_UI_SCALE(2);
+                ar.right-=SWELL_UI_SCALE(3);
+                ar.top+=SWELL_UI_SCALE(2);
+                ar.bottom-=SWELL_UI_SCALE(3);
                 if (pressed) 
                 { 
                   const int rsz=chksz/4;
@@ -2266,7 +2266,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
               DeleteObject(br);
               if (st)
               {
-                const int amt =  (tr.right-tr.left)/6 + 2;
+                const int amt =  (tr.right-tr.left)/6 + SWELL_UI_SCALE(2);
                 br = CreateSolidBrush(g_swell_ctheme.checkbox_fg);
                 oldBrush = SelectObject(ps.hdc,br);
                 Ellipse(ps.hdc,tr.left+amt,tr.top+amt,tr.right-amt,tr.bottom-amt);
@@ -2276,7 +2276,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
             SelectObject(ps.hdc,oldPen);
             DeleteObject(pen);
-            r.left += chksz + 4;
+            r.left += chksz + SWELL_UI_SCALE(4);
             SetTextColor(ps.hdc,
               hwnd->m_enabled ? g_swell_ctheme.checkbox_text :
                 g_swell_ctheme.checkbox_text_disabled);
@@ -2302,9 +2302,10 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             f|=DT_CENTER;
             if (pressed) 
             {
-              r.left+=2;
-              r.top+=2;
-              if (s->bitmap) { r.right+=2; r.bottom+=2; }
+              const int pad = SWELL_UI_SCALE(2);
+              r.left+=pad;
+              r.top+=pad;
+              if (s->bitmap) { r.right+=pad; r.bottom+=pad; }
             }
           }
 
@@ -2411,7 +2412,7 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           GetClientRect(hwnd,&r); 
 
           const char *buf = hwnd->m_title.Get();
-          int th=20;
+          int th=SWELL_UI_SCALE(20);
           int tw=0;
           int xp=0;
           if (buf && buf[0]) 
@@ -2429,23 +2430,24 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           {
             xp = r.right - tw;
           }
-          if (xp<8)xp=8;
-          if (xp+tw > r.right-8) tw=r.right-8-xp;
+          const int sc8 = SWELL_UI_SCALE(8);
+          if (xp<sc8)xp=sc8;
+          if (xp+tw > r.right-sc8) tw=r.right-sc8-xp;
 
           HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.group_hilight);
           HPEN pen2 = CreatePen(PS_SOLID,0,g_swell_ctheme.group_shadow);
           HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
 
-          MoveToEx(ps.hdc,xp - (tw?4:0) + 1,th/2+1,NULL);
+          MoveToEx(ps.hdc,xp - (tw?sc8/2:0) + 1,th/2+1,NULL);
           LineTo(ps.hdc,1,th/2+1);
           LineTo(ps.hdc,1,r.bottom-1);
           LineTo(ps.hdc,r.right-1,r.bottom-1);
           LineTo(ps.hdc,r.right-1,th/2+1);
-          LineTo(ps.hdc,xp+tw + (tw?4:0),th/2+1);
+          LineTo(ps.hdc,xp+tw + (tw?sc8/2:0),th/2+1);
 
           SelectObject(ps.hdc,pen2);
 
-          MoveToEx(ps.hdc,xp - (tw?4:0),th/2,NULL);
+          MoveToEx(ps.hdc,xp - (tw?sc8/2:0),th/2,NULL);
           LineTo(ps.hdc,0,th/2);
           LineTo(ps.hdc,0,r.bottom-2);
           LineTo(ps.hdc,r.right-2,r.bottom-2);
@@ -3512,7 +3514,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       {
         RECT r;
         GetClientRect(hwnd,&r);
-        if ((hwnd->m_style & CBS_DROPDOWNLIST) == CBS_DROPDOWNLIST || GET_X_LPARAM(lParam) >= r.right-buttonwid)
+        if ((hwnd->m_style & CBS_DROPDOWNLIST) == CBS_DROPDOWNLIST || GET_X_LPARAM(lParam) >= r.right-SWELL_UI_SCALE(buttonwid))
         {
           SetCapture(hwnd);
         }
@@ -3621,7 +3623,8 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
             HBRUSH br = CreateSolidBrush(g_swell_ctheme.combo_bg2);
             RECT tr=r; 
-            tr.left+=2; tr.top+=2; tr.bottom-=2; tr.right -= buttonwid+2;
+            const int pad = SWELL_UI_SCALE(2);
+            tr.left+=pad; tr.top+=pad; tr.bottom-=pad; tr.right -= SWELL_UI_SCALE(buttonwid+2);
             FillRect(ps.hdc,&tr,br);
             DeleteObject(br);
 
@@ -3633,9 +3636,9 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
           }
 
-          const int dw = 8;
-          const int dh = 4;
-          const int cx = r.right-dw/2-4;
+          const int dw = SWELL_UI_SCALE(8);
+          const int dh = SWELL_UI_SCALE(4);
+          const int cx = r.right-dw/2-SWELL_UI_SCALE(4);
           const int cy = (r.bottom+r.top)/2;
           MoveToEx(ps.hdc,cx-dw/2,cy-dh/2,NULL);
           LineTo(ps.hdc,cx,cy+dh/2);
@@ -3649,16 +3652,16 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
          
           if (pressed) 
           {
-            r.left+=2;
-            r.top+=2;
+            r.left+=SWELL_UI_SCALE(2);
+            r.top+=SWELL_UI_SCALE(2);
           }
 
-          r.left+=3;
-          r.right-=3;
+          r.left+=SWELL_UI_SCALE(3);
+          r.right-=SWELL_UI_SCALE(3);
 
           if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
           {
-            r.right -= buttonwid+2;
+            r.right -= SWELL_UI_SCALE(buttonwid+2);
             editControlPaintLine(ps.hdc, hwnd->m_title.Get(), hwnd->m_title.GetLength(), cursor_pos, s->editstate.sel1, s->editstate.sel2, &r, DT_VCENTER);
           }
           else
