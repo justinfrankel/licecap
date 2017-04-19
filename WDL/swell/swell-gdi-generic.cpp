@@ -56,6 +56,11 @@ int GetSysColor(int idx)
   return 0;
 }
 
+int SWELL_GetScaling256(void)
+{
+  return g_swell_ctheme.dlg_scale256;
+}
+
 #ifndef SWELL_LICE_GDI
 
 #include "../mutex.h"

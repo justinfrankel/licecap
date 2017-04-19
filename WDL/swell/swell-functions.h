@@ -1014,6 +1014,7 @@ SWELL_API_DEFINE(void, BitBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn
 SWELL_API_DEFINE(void, StretchBlt,(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin, int srcw, int srch, int mode))
 #ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void, StretchBltFromMem,(HDC hdcOut, int x, int y, int w, int h, const void *bits, int srcw, int srch, int srcspan))
+SWELL_API_DEFINE(int, SWELL_GetScaling256, (void))
 #endif
 SWELL_API_DEFINE(int, GetSysColor,(int idx))
 SWELL_API_DEFINE(HBITMAP, CreateBitmap,(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits))
