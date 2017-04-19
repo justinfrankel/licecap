@@ -688,8 +688,8 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     FT_Face face=(FT_Face) font->typedata;
     tm->tmAscent = face->size->metrics.ascender/64;
     tm->tmDescent = face->size->metrics.descender/64;
-    tm->tmHeight = face->size->metrics.height/64;
-    tm->tmAveCharWidth = face->size->metrics.height / 96;
+    tm->tmHeight = face->size->metrics.height/64 + 1;
+    tm->tmAveCharWidth = face->size->metrics.height / 112;
     tm->tmInternalLeading=0;
   }
 #endif
