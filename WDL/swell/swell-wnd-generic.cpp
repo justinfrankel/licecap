@@ -3684,6 +3684,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
 
+          HPEN pen3 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.combo_arrow_press : g_swell_ctheme.combo_arrow);
           HPEN pen2 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
           HPEN pen = CreatePen(PS_SOLID,0,(!pressed)?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
@@ -3722,6 +3723,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
           }
 
+          SelectObject(ps.hdc,pen3);
           const int dw = SWELL_UI_SCALE(8);
           const int dh = SWELL_UI_SCALE(4);
           const int cx = r.right-dw/2-SWELL_UI_SCALE(4);
@@ -3734,6 +3736,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           SelectObject(ps.hdc,oldpen);
           DeleteObject(pen);
           DeleteObject(pen2);
+          DeleteObject(pen3);
 
          
           if (pressed) 

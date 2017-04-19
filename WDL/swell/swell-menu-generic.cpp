@@ -439,6 +439,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
           HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
           HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
+          HPEN pen3=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_scroll_arrow);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
           Rectangle(ps.hdc,cr.left,cr.top,cr.right-1,cr.bottom-1);
@@ -569,7 +570,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
           // lower scroll indicator
           int mid=(cr.right-cr.left)/2;
-          SelectObject(ps.hdc,pen);
+          SelectObject(ps.hdc,pen3);
           if (hwnd->m_extra[1]&1)
           {
             RECT fr = {cr.left, cr.bottom-scroll_margin, cr.right,cr.bottom};
@@ -596,6 +597,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           DeleteObject(br2);
           DeleteObject(pen);
           DeleteObject(pen2);
+          DeleteObject(pen3);
           EndPaint(hwnd,&ps); 
         }       
       }

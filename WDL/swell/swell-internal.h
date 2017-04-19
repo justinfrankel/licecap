@@ -940,6 +940,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   fd(menu_bg_sel, RGB(0,0,0), menu_text) \
   fd(menu_text_sel, RGB(224,224,224), menu_bg) \
   f(menu_scroll, RGB(64,64,64)) \
+  fd(menu_scroll_arrow, RGB(96,96,96), _3dshadow) \
   fd(menubar_bg, RGB(192,192,192), menu_bg) \
   fd(menubar_text, RGB(0,0,0), menu_text) \
   fd(menubar_text_disabled, RGB(224,224,224), menu_text_disabled) \
@@ -961,6 +962,8 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(combo_bg2, RGB(255,255,255)) \
   fd(combo_shadow, RGB(96,96,96), _3dshadow) \
   fd(combo_hilight, RGB(224,224,224), _3dhilight) \
+  fd(combo_arrow, RGB(96,96,96), _3dshadow) \
+  fd(combo_arrow_press, RGB(224,224,224), _3dhilight) \
   f(listview_bg, RGB(255,255,255)) \
   f(listview_bg_sel, RGB(128,128, 255)) \
   f(listview_text, RGB(0,0,0)) \
