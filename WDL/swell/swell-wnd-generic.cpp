@@ -613,7 +613,19 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         }
       }
 
-      if (hwnd) switch (evt->type)
+      if (evt->type == GDK_SELECTION_REQUEST)
+      {
+        GdkEventSelection *b = (GdkEventSelection *)evt;
+        GdkAtom prop=GDK_NONE;
+        if (s_clipboard_setstate && b->target == s_clipboard_setstate_fmt)
+        {
+          prop = gdk_atom_intern("GDK_SELECTION",FALSE);
+          gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8,
+              GDK_PROP_MODE_REPLACE,(guchar*)s_clipboard_setstate,GlobalSize(s_clipboard_setstate));
+        }
+        gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
+      }
+      else if (hwnd) switch (evt->type)
       {
         case GDK_DELETE:
           if (IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
@@ -842,25 +854,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           if (ptr) g_free(ptr);
         }
         break;
-        case GDK_SELECTION_REQUEST:
-        {
-          GdkEventSelection *b = (GdkEventSelection *)evt;
-          GdkAtom prop=GDK_NONE;
-          if (s_clipboard_setstate && b->target == s_clipboard_setstate_fmt)
-          {
-            prop = gdk_atom_intern("GDK_SELECTION",FALSE);
-            gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8,
-                GDK_PROP_MODE_REPLACE,(guchar*)s_clipboard_setstate,GlobalSize(s_clipboard_setstate));
-          }
-          gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
-        }
-        break;
 
         default:
           //printf("msg: %d\n",evt->type);
         break;
       }
-
     }
   s_cur_evt = oldEvt;
 }
@@ -6666,16 +6664,23 @@ void SetClipboardData(UINT type, HANDLE h)
 #ifdef SWELL_TARGET_GDK
   if (type == CF_TEXT)
   {
-    HWND hwnd = s_clip_hwnd;
-    while (hwnd && !hwnd->m_oswindow) hwnd = hwnd->m_parent;
-
     if (s_clipboard_setstate) { GlobalFree(s_clipboard_setstate); s_clipboard_setstate=NULL; }
     s_clipboard_setstate_fmt=NULL;
-    if (hwnd)
+    static GdkWindow *w;
+    if (!w)
+    {
+      GdkWindowAttr attr={0,};
+      attr.title = (char *)"swell clipboard";
+      attr.event_mask = GDK_ALL_EVENTS_MASK;
+      attr.wclass = GDK_INPUT_ONLY;
+      attr.window_type = GDK_WINDOW_TOPLEVEL;
+      w = gdk_window_new(NULL,&attr,0);
+    }
+    if (w)
     {
       s_clipboard_setstate_fmt = GDK_TARGET_STRING;
       s_clipboard_setstate = h;
-      gdk_selection_owner_set(hwnd->m_oswindow,GDK_SELECTION_CLIPBOARD,GDK_CURRENT_TIME,TRUE);
+      gdk_selection_owner_set(w,GDK_SELECTION_CLIPBOARD,GDK_CURRENT_TIME,TRUE);
     }
     return;
   }
