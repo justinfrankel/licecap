@@ -293,6 +293,9 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     if (!lfFaceName || !*lfFaceName) lfFaceName = "Arial";
 
     if (!face) face = MatchFont(lfFaceName);
+    if (!face && strstr(lfFaceName,"Courier")) face = MatchFont("DejaVuSansMono");
+    if (!face && strstr(lfFaceName,"Courier")) face = MatchFont("FreeMono");
+
     if (!face) face = MatchFont("FreeSans");
     if (!face) face = MatchFont("DejaVuSans");
 
