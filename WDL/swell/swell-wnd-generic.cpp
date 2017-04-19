@@ -560,6 +560,8 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 HWND GetFocusIncludeMenus();
 
+static HANDLE s_clipboard_getstate, s_clipboard_setstate;
+static GdkAtom s_clipboard_getstate_fmt, s_clipboard_setstate_fmt;
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -820,6 +822,40 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (hwnd2) hwnd2->Release();
           }
         break;
+        case GDK_SELECTION_NOTIFY:
+        {
+          GdkEventSelection *b = (GdkEventSelection *)evt;
+          if (s_clipboard_getstate) { GlobalFree(s_clipboard_getstate); s_clipboard_getstate=NULL; }
+          guchar *ptr=NULL;
+          GdkAtom fmt;
+          gint fmt2;
+          gint sz=gdk_selection_property_get(b->window,&ptr,&fmt,&fmt2);
+          if (sz>0 && ptr)
+          {
+            s_clipboard_getstate = GlobalAlloc(0,sz+1);
+            if (s_clipboard_getstate)
+            {
+              memcpy(s_clipboard_getstate,ptr,sz+1);
+              s_clipboard_getstate_fmt = fmt;
+            }
+          }
+          if (ptr) g_free(ptr);
+        }
+        break;
+        case GDK_SELECTION_REQUEST:
+        {
+          GdkEventSelection *b = (GdkEventSelection *)evt;
+          GdkAtom prop=GDK_NONE;
+          if (s_clipboard_setstate && b->target == s_clipboard_setstate_fmt)
+          {
+            prop = gdk_atom_intern("GDK_SELECTION",FALSE);
+            gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8,
+                GDK_PROP_MODE_REPLACE,(guchar*)s_clipboard_setstate,GlobalSize(s_clipboard_setstate));
+          }
+          gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
+        }
+        break;
+
         default:
           //printf("msg: %d\n",evt->type);
         break;
@@ -6527,15 +6563,76 @@ UINT DragQueryFile(HDROP hDrop, UINT wf, char *buf, UINT bufsz)
 }
 
 
-
 static WDL_IntKeyedArray<HANDLE> m_clip_recs(GlobalFree);
-//static WDL_PtrList<NSString> m_clip_fmts;
 static WDL_PtrList<char> m_clip_curfmts;
-bool OpenClipboard(HWND hwndDlg) { return true; }
-void CloseClipboard() { }
+static HWND s_clip_hwnd;
+
+bool OpenClipboard(HWND hwndDlg) 
+{ 
+#ifdef SWELL_TARGET_GDK
+  s_clip_hwnd=hwndDlg; 
+#endif
+  if (s_clipboard_getstate)
+  {
+    GlobalFree(s_clipboard_getstate);
+    s_clipboard_getstate = NULL;
+  }
+  s_clipboard_getstate_fmt = NULL;
+
+  return true; 
+}
+
+#ifdef SWELL_TARGET_GDK
+static HANDLE req_clipboard(GdkAtom type)
+{
+  if (s_clipboard_getstate_fmt == type) return s_clipboard_getstate;
+
+  HWND h = s_clip_hwnd;
+  while (h && !h->m_oswindow) h = h->m_parent;
+
+  if (h)
+  {
+    if (s_clipboard_getstate)
+    {
+      GlobalFree(s_clipboard_getstate);
+      s_clipboard_getstate=NULL;
+    }
+    gdk_selection_convert(h->m_oswindow,GDK_SELECTION_CLIPBOARD,type,GDK_CURRENT_TIME);
+ 
+    DWORD startt = GetTickCount();
+    for (;;)
+    {
+      swell_runOSevents();
+
+      if (s_clipboard_getstate) 
+      {
+        if (s_clipboard_getstate_fmt == type) return s_clipboard_getstate;
+        return NULL;
+      }
+
+      DWORD now = GetTickCount();
+      if (now < startt-1000 || now > startt+500) break;
+    }
+  }
+  return NULL;
+}
+#endif
+
+void CloseClipboard() 
+{ 
+  s_clip_hwnd=NULL; 
+}
 
 UINT EnumClipboardFormats(UINT lastfmt)
 {
+#ifdef SWELL_TARGET_GDK
+  if (!lastfmt)
+  {
+    if (req_clipboard(GDK_TARGET_STRING)) return CF_TEXT;
+  }
+  if (lastfmt == CF_TEXT) lastfmt = 0;
+#endif
+
   int x=0;
   for (;;)
   {
@@ -6549,6 +6646,12 @@ UINT EnumClipboardFormats(UINT lastfmt)
 
 HANDLE GetClipboardData(UINT type)
 {
+#ifdef SWELL_TARGET_GDK
+  if (type == CF_TEXT)
+  {
+    return req_clipboard(GDK_TARGET_STRING);
+  }
+#endif
   return m_clip_recs.Get(type);
 }
 
@@ -6560,6 +6663,23 @@ void EmptyClipboard()
 
 void SetClipboardData(UINT type, HANDLE h)
 {
+#ifdef SWELL_TARGET_GDK
+  if (type == CF_TEXT)
+  {
+    HWND hwnd = s_clip_hwnd;
+    while (hwnd && !hwnd->m_oswindow) hwnd = hwnd->m_parent;
+
+    if (s_clipboard_setstate) { GlobalFree(s_clipboard_setstate); s_clipboard_setstate=NULL; }
+    s_clipboard_setstate_fmt=NULL;
+    if (hwnd)
+    {
+      s_clipboard_setstate_fmt = GDK_TARGET_STRING;
+      s_clipboard_setstate = h;
+      gdk_selection_owner_set(hwnd->m_oswindow,GDK_SELECTION_CLIPBOARD,GDK_CURRENT_TIME,TRUE);
+    }
+    return;
+  }
+#endif
   if (h) m_clip_recs.Insert(type,h);
   else m_clip_recs.Delete(type);
 }
