@@ -336,12 +336,14 @@ static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
 bool swell_isOSwindowmenu(void *osw)
 {
+#ifdef SWELL_TARGET_GDK
   int x = m_trackingMenus.GetSize();
   if (osw) while (--x>=0)
   {
     HWND__ *p = m_trackingMenus.Get(x);
     if (p->m_oswindow == osw) return true;
   }
+#endif
   return false;
 }
 
