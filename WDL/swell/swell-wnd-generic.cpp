@@ -6013,7 +6013,7 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
     r.top += tr.rgrc[0].top - h->m_position.top;
 
     HWND best=NULL;
-    RECT bestsr;
+    RECT bestsr = { 0, };
     while (h2)
     {
       sr = h2->m_position;
