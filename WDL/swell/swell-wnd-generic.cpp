@@ -315,6 +315,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             gdk_window_set_keep_above(hwnd->m_oswindow,true);
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
+          gdk_window_register_dnd(hwnd->m_oswindow);
           gdk_window_show(hwnd->m_oswindow);
         }
       }
@@ -564,6 +565,18 @@ HWND GetFocusIncludeMenus();
 
 static HANDLE s_clipboard_getstate, s_clipboard_setstate;
 static GdkAtom s_clipboard_getstate_fmt, s_clipboard_setstate_fmt;
+
+static HWND s_ddrop_hwnd;
+static POINT s_ddrop_pt;
+
+static int hex_parse(char c)
+{
+  if (c >= '0' && c <= '9') return c-'0';
+  if (c >= 'A' && c <= 'F') return 10+c-'A';
+  if (c >= 'a' && c <= 'f') return 10+c-'a';
+  return -1;
+}
+
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -618,7 +631,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
       if (evt->type == GDK_SELECTION_REQUEST)
       {
         GdkEventSelection *b = (GdkEventSelection *)evt;
-
         //printf("got sel req %s\n",gdk_atom_name(b->target));
         GdkAtom prop=GDK_NONE;
         static GdkAtom tgtatom, utf8atom;
@@ -882,6 +894,84 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         case GDK_SELECTION_NOTIFY:
         {
           GdkEventSelection *b = (GdkEventSelection *)evt;
+
+          if (s_ddrop_hwnd && hwnd == s_ddrop_hwnd && 
+              b->target == gdk_atom_intern_static_string("text/uri-list"))
+          {
+            POINT p = s_ddrop_pt;
+            HWND cw=hwnd;
+            RECT r;
+            GetWindowContentViewRect(hwnd,&r);
+            if (PtInRect(&r,p))
+            {
+              p.x -= r.left;
+              p.y -= r.top;
+              cw = ChildWindowFromPoint(hwnd,p);
+            }
+            if (!cw) cw=hwnd;
+
+            guchar *gptr=NULL;
+            GdkAtom fmt;
+            gint unitsz=0;
+            gint sz=gdk_selection_property_get(b->window,&gptr,&fmt,&unitsz);
+            s_ddrop_hwnd=NULL;
+
+            if (sz>0 && gptr)
+            {
+              HANDLE gobj=GlobalAlloc(0,sz+sizeof(DROPFILES));
+              if (gobj)
+              {
+                DROPFILES *df=(DROPFILES*)gobj;
+                df->pFiles = sizeof(DROPFILES);
+                df->pt = s_ddrop_pt;
+                ScreenToClient(cw,&df->pt);
+                df->fNC=FALSE;
+                df->fWide=FALSE;
+                guchar *pout = (guchar *)(df+1);
+                const guchar *rd = gptr;
+                const guchar *rd_end = rd + sz;
+                for (;;)
+                {
+                  while (rd < rd_end && *rd && isspace(*rd)) rd++;
+                  if (rd >= rd_end) break;
+
+                  if (rd+7 < rd_end && !strnicmp((const char *)rd,"file://",7))
+                  {
+                    rd += 7;
+                    int c=0;
+                    while (rd < rd_end && *rd && !isspace(*rd))
+                    {
+                      int v1,v2;
+                      if (*rd == '%' && rd+2 < rd_end && (v1=hex_parse(rd[1]))>=0 && (v2=hex_parse(rd[2]))>=0)
+                      {
+                        *pout++ = (v1<<4) | v2;
+                        rd+=3;
+                      }
+                      else
+                      {
+                        *pout++ = *rd++;
+                      }
+                      c++;
+                    }
+                    if (c) *pout++=0;
+                  }
+                  else
+                  {
+                    while (rd < rd_end && *rd && !isspace(*rd)) rd++;
+                  }
+                }
+                *pout++=0;
+                *pout++=0;
+
+                SendMessage(cw,WM_DROPFILES,(WPARAM)gobj,0);
+                GlobalFree(gobj);
+              }
+            }
+
+            if (gptr) g_free(gptr);
+          }
+
+
           if (s_clipboard_getstate) { GlobalFree(s_clipboard_getstate); s_clipboard_getstate=NULL; }
           guchar *gptr=NULL;
           GdkAtom fmt;
@@ -925,6 +1015,37 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
           if (gptr) g_free(gptr);
         }
+        break;
+        case GDK_DRAG_ENTER:
+        case GDK_DRAG_MOTION:
+          {
+            GdkEventDND *e = (GdkEventDND *)evt;
+            if (e->context)
+            {
+              gdk_drag_status(e->context,GDK_ACTION_COPY,e->time);
+              //? gdk_drop_reply(e->context,TRUE,e->time);
+            }
+          }
+        break;
+        case GDK_DRAG_LEAVE:
+        case GDK_DRAG_STATUS:
+        case GDK_DROP_FINISHED:
+        break;
+        case GDK_DROP_START:
+          {
+            GdkEventDND *e = (GdkEventDND *)evt;
+            GdkDragContext *ctx = e->context;
+            if (ctx)
+            {
+              POINT p = { e->x_root, e->y_root };
+              s_ddrop_hwnd = hwnd;
+              s_ddrop_pt = p;
+
+              GdkAtom srca = gdk_drag_get_selection(ctx);
+              gdk_selection_convert(e->window,srca,gdk_atom_intern_static_string("text/uri-list"),e->time);
+              gdk_drop_finish(ctx,TRUE,e->time);
+            }
+          }
         break;
 
         default:
@@ -6559,6 +6680,17 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #endif
 
         return 0;
+    case WM_DROPFILES:
+        if (hwnd->m_parent && wParam)
+        {
+          DROPFILES *df=(DROPFILES*)wParam;
+          ClientToScreen(hwnd,&df->pt);
+          ScreenToClient(hwnd->m_parent,&df->pt);
+
+          return SendMessage(hwnd->m_parent,msg,wParam,lParam);
+        }
+        return 0;
+
   }
   return 0;
 }
