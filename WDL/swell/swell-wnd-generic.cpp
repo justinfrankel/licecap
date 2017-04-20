@@ -895,8 +895,15 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         {
           GdkEventSelection *b = (GdkEventSelection *)evt;
 
-          if (s_ddrop_hwnd && hwnd == s_ddrop_hwnd && 
-              b->target == gdk_atom_intern_static_string("text/uri-list"))
+          // validate hwnd/s_ddrop_hwnd
+          if (s_ddrop_hwnd)
+          {
+            HWND a = SWELL_topwindows;
+            while (a && a != s_ddrop_hwnd) a=a->m_next;
+            if (!a) s_ddrop_hwnd=NULL;
+          }
+
+          if (hwnd == s_ddrop_hwnd && b->target == gdk_atom_intern_static_string("text/uri-list"))
           {
             POINT p = s_ddrop_pt;
             HWND cw=hwnd;
@@ -914,7 +921,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             GdkAtom fmt;
             gint unitsz=0;
             gint sz=gdk_selection_property_get(b->window,&gptr,&fmt,&unitsz);
-            s_ddrop_hwnd=NULL;
 
             if (sz>0 && gptr)
             {
@@ -970,6 +976,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
             if (gptr) g_free(gptr);
           }
+          s_ddrop_hwnd=NULL;
 
 
           if (s_clipboard_getstate) { GlobalFree(s_clipboard_getstate); s_clipboard_getstate=NULL; }
