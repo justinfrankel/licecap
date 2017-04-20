@@ -6696,7 +6696,9 @@ UINT EnumClipboardFormats(UINT lastfmt)
 #ifdef SWELL_TARGET_GDK
   if (!lastfmt)
   {
-    if (req_clipboard(GDK_TARGET_STRING)) return CF_TEXT;
+    // checking this causes issues (reentrancy, I suppose?)
+    //if (req_clipboard(GDK_TARGET_STRING))
+    return CF_TEXT;
   }
   if (lastfmt == CF_TEXT) lastfmt = 0;
 #endif
