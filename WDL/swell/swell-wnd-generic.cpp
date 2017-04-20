@@ -621,13 +621,17 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
         //printf("got sel req %s\n",gdk_atom_name(b->target));
         GdkAtom prop=GDK_NONE;
+        static GdkAtom tgtatom, utf8atom;
+        if (!tgtatom) tgtatom = gdk_atom_intern_static_string("TARGETS");
+        if (!utf8atom) utf8atom = gdk_atom_intern_static_string("UTF8_STRING");
+
         if (s_clipboard_setstate)
         {
-          if (b->target == gdk_atom_intern_static_string("TARGETS"))
+          if (b->target == tgtatom)
           {
             if (s_clipboard_setstate_fmt)
             {
-              prop = gdk_atom_intern_static_string("GDK_SELECTION");
+              prop = b->property;
               GdkAtom list[] = { s_clipboard_setstate_fmt };
               gdk_property_change(b->requestor,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
             }
@@ -635,10 +639,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           else 
           {
             if (b->target == s_clipboard_setstate_fmt || 
-                (s_clipboard_setstate_fmt == GDK_TARGET_STRING && b->target == gdk_atom_intern_static_string("UTF8_STRING"))
+                (s_clipboard_setstate_fmt == GDK_TARGET_STRING && 
+                 b->target == utf8atom)
                )
             {
-              prop = gdk_atom_intern_static_string("GDK_SELECTION");
+              prop = b->property;
               int len = GlobalSize(s_clipboard_setstate);
               guchar *ptr = (guchar*)s_clipboard_setstate;
 
