@@ -6658,7 +6658,7 @@ static HANDLE req_clipboard(GdkAtom type)
   HWND h = s_clip_hwnd;
   while (h && !h->m_oswindow) h = h->m_parent;
 
-  if (h)
+  if (h && SWELL_gdk_active > 0)
   {
     if (s_clipboard_getstate)
     {
@@ -6667,10 +6667,20 @@ static HANDLE req_clipboard(GdkAtom type)
     }
     gdk_selection_convert(h->m_oswindow,GDK_SELECTION_CLIPBOARD,type,GDK_CURRENT_TIME);
  
+    GMainContext *ctx=g_main_context_default();
     DWORD startt = GetTickCount();
     for (;;)
     {
-      swell_runOSevents();
+      while (!s_clipboard_getstate && g_main_context_iteration(ctx,FALSE))
+      {
+        GdkEvent *evt;
+        while (!s_clipboard_getstate && gdk_events_pending() && (evt = gdk_event_get()))
+        {
+          if (evt->type == GDK_SELECTION_NOTIFY || evt->type == GDK_SELECTION_REQUEST)
+            swell_gdkEventHandler(evt,(gpointer)1);
+          gdk_event_free(evt);
+        }
+      }
 
       if (s_clipboard_getstate) 
       {
@@ -6680,6 +6690,7 @@ static HANDLE req_clipboard(GdkAtom type)
 
       DWORD now = GetTickCount();
       if (now < startt-1000 || now > startt+500) break;
+      Sleep(10);
     }
   }
   return NULL;
