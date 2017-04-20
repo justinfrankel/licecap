@@ -618,33 +618,50 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
       if (evt->type == GDK_SELECTION_REQUEST)
       {
         GdkEventSelection *b = (GdkEventSelection *)evt;
+
+        //printf("got sel req %s\n",gdk_atom_name(b->target));
         GdkAtom prop=GDK_NONE;
-        if (s_clipboard_setstate && b->target == s_clipboard_setstate_fmt)
+        if (s_clipboard_setstate)
         {
-          prop = gdk_atom_intern("GDK_SELECTION",FALSE);
-          int len = GlobalSize(s_clipboard_setstate);
-          guchar *ptr = (guchar*)s_clipboard_setstate;
-
-          WDL_FastString str;
-          if (s_clipboard_setstate_fmt == GDK_TARGET_STRING) 
+          if (b->target == gdk_atom_intern_static_string("TARGETS"))
           {
-            const char *rd = (const char *)s_clipboard_setstate;
-            while (*rd)
+            if (s_clipboard_setstate_fmt)
             {
-              if (!strncmp(rd,"\r\n",2))
-              {
-                str.Append("\n");
-                rd+=2;
-              }
-              else
-                str.Append(rd++,1);
+              prop = gdk_atom_intern_static_string("GDK_SELECTION");
+              GdkAtom list[] = { s_clipboard_setstate_fmt };
+              gdk_property_change(b->requestor,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
             }
-
-            ptr = (guchar *)str.Get();
-            len = str.GetLength();
           }
+          else 
+          {
+            if (b->target == s_clipboard_setstate_fmt || 
+                (s_clipboard_setstate_fmt == GDK_TARGET_STRING && b->target == gdk_atom_intern_static_string("UTF8_STRING"))
+               )
+            {
+              prop = gdk_atom_intern_static_string("GDK_SELECTION");
+              int len = GlobalSize(s_clipboard_setstate);
+              guchar *ptr = (guchar*)s_clipboard_setstate;
 
-          gdk_property_change(b->requestor,prop,s_clipboard_setstate_fmt,8, GDK_PROP_MODE_REPLACE,ptr,len);
+              WDL_FastString str;
+              if (s_clipboard_setstate_fmt == GDK_TARGET_STRING) 
+              {
+                const char *rd = (const char *)s_clipboard_setstate;
+                while (*rd)
+                {
+                  if (!strncmp(rd,"\r\n",2))
+                  {
+                    str.Append("\n");
+                    rd+=2;
+                  }
+                  else
+                    str.Append(rd++,1);
+                }
+                ptr = (guchar *)str.Get();
+                len = str.GetLength();
+              }
+              gdk_property_change(b->requestor,prop,b->target,8, GDK_PROP_MODE_REPLACE,ptr,len);
+            }
+          }
         }
         gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
       }
