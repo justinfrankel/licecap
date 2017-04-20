@@ -872,12 +872,14 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (fmt == GDK_TARGET_STRING)
             {
               int lastc=0;
-              while (*ptr && sz>0)
+              while (sz-->0)
               {
                 int c;
                 if (unitsz==32) { c = *(unsigned int *)ptr; ptr+=4; }
                 else if (unitsz==16)  { c = *(unsigned short *)ptr; ptr+=2; }
                 else c = *ptr++;
+
+                if (!c) break;
 
                 if (c == '\n' && lastc != '\r') str.Append("\r",1);
 
@@ -886,7 +888,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                 str.Append(b);
 
                 lastc=c;
-                sz--;
               }
               ptr = (guchar*)str.Get();
               sz=str.GetLength()+1;
