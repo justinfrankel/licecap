@@ -175,12 +175,20 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
     h->m_dlgproc = dlgproc;
     h->m_wndproc = SwellDialogDefaultWindowProc;
 
-    //HWND hFoc=m_children;
-//    while (hFoc && !hFoc->m_wantfocus) hFoc=hFoc->m_next;
- //   if (!hFoc) hFoc=this;
-  //  if (dlgproc(this,WM_INITDIALOG,(WPARAM)hFoc,0)&&hFoc) SetFocus(hFoc);
+    HWND hFoc=h->m_children;
+    while (hFoc)
+    {
+      if (hFoc->m_wantfocus && hFoc->m_visible && hFoc->m_enabled) break;
+      hFoc=hFoc->m_next;
+    }
 
-    h->m_dlgproc(h,WM_INITDIALOG,0,param);
+    if (h->m_dlgproc(h,WM_INITDIALOG,(WPARAM)hFoc,param))
+    {
+      if (hFoc && hFoc->m_wantfocus && hFoc->m_visible && hFoc->m_enabled)
+      {
+        SetFocus(hFoc);
+      }
+    }
   } 
   else
   {

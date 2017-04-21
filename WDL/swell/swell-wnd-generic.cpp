@@ -1490,12 +1490,8 @@ void EnableWindow(HWND hwnd, int enable)
   InvalidateRect(hwnd,NULL,FALSE);
 }
 
-
-void SetFocus(HWND hwnd)
+static void focusOSwindow(HWND hwnd)
 {
-  if (!hwnd) return;
-
-  SWELL_g_focuswnd = hwnd;
 #ifdef SWELL_TARGET_GDK
   while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
   if (hwnd) gdk_window_raise(hwnd->m_oswindow);
@@ -1506,9 +1502,23 @@ void SetFocus(HWND hwnd)
   }
 #endif
 }
+
+void SetFocus(HWND hwnd)
+{
+  if (!hwnd) return;
+
+  SWELL_g_focuswnd = hwnd;
+  focusOSwindow(hwnd);
+}
+
 void SetForegroundWindow(HWND hwnd)
 {
-  SetFocus(hwnd); 
+  if (!hwnd) return;
+
+  if (!SWELL_g_focuswnd || !IsChild(hwnd,SWELL_g_focuswnd))
+    SWELL_g_focuswnd = hwnd;
+
+  focusOSwindow(hwnd);
 }
 
 
@@ -2143,7 +2153,8 @@ void ShowWindow(HWND hwnd, int cmd)
   swell_manageOSwindow(hwnd,cmd==SW_SHOW);
   if (cmd == SW_SHOW) 
   {
-    SWELL_g_focuswnd = hwnd;
+    if (!SWELL_g_focuswnd || !IsChild(hwnd,SWELL_g_focuswnd)) 
+      SWELL_g_focuswnd = hwnd;
 #ifdef SWELL_TARGET_GDK
     HWND h = hwnd;
     while (h && !h->m_oswindow) h = h->m_parent;
@@ -4237,6 +4248,7 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,label, !(flags&SWELL_NOT_WS_VISIBLE),labelWindowProc);
   hwnd->m_classname = "static";
   hwnd->m_style = (flags & ~SWELL_NOT_WS_VISIBLE)|WS_CHILD;
+  hwnd->m_wantfocus = false;
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   if (m_doautoright) UpdateAutoCoords(tr);
   return hwnd;
@@ -5721,6 +5733,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), tabControlWindowProc);
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
+    hwnd->m_wantfocus = false;
     hwnd->m_classname = "SysTabControl32";
     hwnd->m_private_data = (INT_PTR) new tabControlState;
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
@@ -5755,6 +5768,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), progressWindowProc);
+    hwnd->m_wantfocus = false;
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "msctls_progress32";
     int *state = (int *)calloc(2,sizeof(int)); // pos, range
@@ -5771,6 +5785,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE),labelWindowProc);
+    hwnd->m_wantfocus = false;
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
     hwnd->m_classname = "static";
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
@@ -5814,6 +5829,7 @@ HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, i
 {
   RECT tr=MakeCoords(x,y,w,h,false);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,name, !(style&SWELL_NOT_WS_VISIBLE),groupWindowProc);
+  hwnd->m_wantfocus = false;
   hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
   hwnd->m_classname = "groupbox";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
