@@ -661,7 +661,14 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             {
               prop = b->property;
               GdkAtom list[] = { s_clipboard_setstate_fmt };
-              gdk_property_change(b->requestor,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
+#if SWELL_TARGET_GDK == 2
+              GdkWindow *pw = gdk_window_lookup(b->requestor);
+              if (!pw) pw = gdk_window_foreign_new(b->requestor);
+#else
+              GdkWindow *pw = b->requestor;
+#endif
+              if (pw)
+                gdk_property_change(pw,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
             }
           }
           else 
@@ -692,7 +699,14 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                 ptr = (guchar *)str.Get();
                 len = str.GetLength();
               }
-              gdk_property_change(b->requestor,prop,b->target,8, GDK_PROP_MODE_REPLACE,ptr,len);
+#if SWELL_TARGET_GDK == 2
+              GdkWindow *pw = gdk_window_lookup(b->requestor);
+              if (!pw) pw = gdk_window_foreign_new(b->requestor);
+#else
+              GdkWindow *pw = b->requestor;
+#endif
+              if (pw)
+                gdk_property_change(pw,prop,b->target,8, GDK_PROP_MODE_REPLACE,ptr,len);
             }
           }
         }
