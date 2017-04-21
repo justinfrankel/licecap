@@ -641,6 +641,9 @@ struct HWND__
 
   int m_refcnt; 
 
+  bool m_israised;
+
+
   HMENU m_menu;
 
   WDL_StringKeyedArray<void *> m_props;
@@ -648,7 +651,6 @@ struct HWND__
 #ifdef SWELL_LICE_GDI
   void *m_paintctx; // temporarily set for calls to WM_PAINT
 
-// todo:
   bool m_child_invalidated; // if a child is invalidated
   bool m_invalidated; // set to true on direct invalidate. todo RECT instead?
 

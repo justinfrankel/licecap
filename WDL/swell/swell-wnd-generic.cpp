@@ -136,11 +136,9 @@ static void focusLostTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
     HWND h = SWELL_topwindows; 
     while (h)
     {
-      if (h->m_oswindow && h->m_owner) 
-      {
-        // the window manager doesn't always lower the window right away, ack
-        gdk_window_set_keep_above(h->m_oswindow, false);
-      }
+      if (h->m_oswindow && h->m_israised)
+        gdk_window_set_keep_above(h->m_oswindow,FALSE);
+
       PostMessage(h,WM_ACTIVATEAPP,0,0);
       h=h->m_next;
     }
@@ -299,25 +297,25 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             {
               gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
-              gdk_window_set_keep_above(hwnd->m_oswindow,true);
             }
             else
             {
               gdk_window_set_override_redirect(hwnd->m_oswindow,true);
             }
           }
-          else if (/*hwnd == DialogBoxIsActive() || */ !(hwnd->m_style&WS_THICKFRAME))
+          else 
           {
-            gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
-            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE));
-          }
-          else
-          {
-            if (hwnd->m_owner)
-              gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_DIALOG);
-            else
-              gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_NORMAL);
-            gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
+            GdkWindowTypeHint type_hint = GDK_WINDOW_TYPE_HINT_NORMAL;
+            GdkWMDecoration decor = (GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU));
+
+            if (!(hwnd->m_style&WS_THICKFRAME))
+              decor = (GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE);
+
+            if (hwnd->m_owner || hwnd == DialogBoxIsActive())
+              type_hint = GDK_WINDOW_TYPE_HINT_DIALOG;
+
+            gdk_window_set_type_hint(hwnd->m_oswindow,type_hint);
+            gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
           gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
@@ -328,9 +326,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 #endif
           if (hwnd->m_owner)
           {
-            gdk_window_set_keep_above(hwnd->m_oswindow,true);
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
+          if (hwnd->m_israised)
+            gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
           gdk_window_register_dnd(hwnd->m_oswindow);
           gdk_window_show(hwnd->m_oswindow);
         }
@@ -618,16 +617,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
           if (!last_focus)
           {
-            // keep-above any owned windows while one of our windows has focus
             HWND h = SWELL_topwindows; 
-            HWND modalWindow = DialogBoxIsActive();
             while (h)
             {
+              if (h->m_oswindow && h->m_israised)
+                gdk_window_set_keep_above(h->m_oswindow,TRUE);
               if (g_want_activateapp_on_focus) PostMessage(h,WM_ACTIVATEAPP,1,0);
-              if (h->m_oswindow && h->m_owner)
-              {
-                gdk_window_set_keep_above(h->m_oswindow, (!modalWindow || modalWindow == h));
-              }
               h=h->m_next;
             }
             g_want_activateapp_on_focus=false;
@@ -1138,6 +1133,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
 {
   m_refcnt=1;
   m_private_data=0;
+  m_israised=false;
 
      m_classname = "unknown";
      m_wndproc=wndproc?wndproc:dlgproc?(WNDPROC)SwellDialogDefaultWindowProc:(WNDPROC)DefWindowProc;
@@ -7860,7 +7856,19 @@ void SWELL_BroadcastMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
 {
-  return 0;
+  int rv=0;
+  if (hwnd)
+  {
+    rv = hwnd->m_israised ? 1 : 0;
+    hwnd->m_israised = newlevel>0;
+#ifdef SWELL_TARGET_GDK
+    if (hwnd->m_oswindow)
+    {
+      gdk_window_set_keep_above(hwnd->m_oswindow,newlevel>0);
+    }
+#endif
+  }
+  return rv;
 }
 void SetOpaque(HWND h, bool opaque)
 {

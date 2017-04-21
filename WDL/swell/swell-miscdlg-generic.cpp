@@ -206,9 +206,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         SetWindowLong(hwnd,GWL_WNDPROC,(LPARAM)SwellDialogDefaultWindowProc);
         SetWindowLong(hwnd,DWL_DLGPROC,(LPARAM)swellFileSelectProc);
 
-        // if we enable resizing, then the window ends up being created with a NORMAL gdk hint, which 
-        // causes all sorts of z-ordering issues, bleh gdk pain. 
-        // SetWindowLong(hwnd,GWL_STYLE, GetWindowLong(hwnd,GWL_STYLE)|WS_THICKFRAME);
+        SetWindowLong(hwnd,GWL_STYLE, GetWindowLong(hwnd,GWL_STYLE)|WS_THICKFRAME);
 
         SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
         BrowseFile_State *parms = (BrowseFile_State *)lParam;

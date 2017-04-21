@@ -87,14 +87,22 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
   {
     ReleaseCapture(); // force end of any captures
 
-    WDL_PtrList<HWND__> enwnds;
+    WDL_PtrKeyedArray<int> restwnds;
     extern HWND__ *SWELL_topwindows;
     HWND a = SWELL_topwindows;
     while (a)
     {
-      if (a->m_enabled && a != hwnd) { EnableWindow(a,FALSE); enwnds.Add(a); }
+      if (a!=hwnd) 
+      {
+        int f=0;
+        if (a->m_enabled) { EnableWindow(a,FALSE); f|=1; }
+        if (a->m_israised) { SWELL_SetWindowLevel(a,0); f|=2; }
+        if (f) restwnds.AddUnsorted((INT_PTR)a,f);
+      }
       a = a->m_next;
     }
+    restwnds.Resort();
+    SWELL_SetWindowLevel(hwnd,1);
 
     modalDlgRet r = { hwnd,false, -1 };
     s_modalDialogs.Add(&r);
@@ -111,7 +119,12 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
     a = SWELL_topwindows;
     while (a)
     {
-      if (!a->m_enabled && a != hwnd && enwnds.Find(a)>=0) EnableWindow(a,TRUE);
+      if (a != hwnd) 
+      {
+        int f = restwnds.Get((INT_PTR)a);
+        if (!a->m_enabled && (f&1)) EnableWindow(a,TRUE);
+        if (!a->m_israised && (f&2)) SWELL_SetWindowLevel(a,1);
+      }
       a = a->m_next;
     }
   }
