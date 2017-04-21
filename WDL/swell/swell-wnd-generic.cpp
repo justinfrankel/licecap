@@ -325,14 +325,11 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 #endif
           if (hwnd->m_style & WS_CAPTION)
           {
+            if (s_program_icon_list) 
+              gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
             if (hwnd->m_owner)
             {
               gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
-            }
-            else
-            {
-              if (s_program_icon_list) 
-                gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
             }
           }
           if (hwnd->m_israised)
