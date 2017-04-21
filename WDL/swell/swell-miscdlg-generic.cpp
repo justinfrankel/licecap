@@ -291,8 +291,31 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
         }
 
-        SetWindowPos(hwnd,NULL,0,0,SWELL_UI_SCALE(600), SWELL_UI_SCALE(400), SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
+        const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
+        char tmp[128];
+        GetPrivateProfileString(sec,"wnd","", tmp,sizeof(tmp),"");
+        int x=0,y=0,w=0,h=0;
+        int flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
+        if (tmp[0] && sscanf(tmp,"%d %d %d %d",&x,&y,&w,&h) == 4) flag &= ~SWP_NOMOVE;
+        if (w < 100) w=SWELL_UI_SCALE(600);
+        if (h < 100) h=SWELL_UI_SCALE(400);
+
+        SetWindowPos(hwnd,NULL,x,y, w,h, flag);
         SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+      }
+    break;
+    case WM_DESTROY:
+      {
+        BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (parms)
+        {
+          RECT r;
+          GetWindowRect(hwnd,&r);
+          const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
+          char tmp[128];
+          snprintf(tmp,sizeof(tmp),"%d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top);
+          WritePrivateProfileString(sec,"wnd", tmp, "");
+        }
       }
     break;
     case WM_USER+100:
