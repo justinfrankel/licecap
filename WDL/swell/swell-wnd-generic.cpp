@@ -4169,6 +4169,16 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     case WM_CAPTURECHANGED:
       InvalidateRect(hwnd,NULL,FALSE);
     break;
+    case EM_SETSEL:
+      if (s && (hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
+      {
+        s->editstate.sel1 = (int)wParam;
+        s->editstate.sel2 = (int)lParam;
+        if (!s->editstate.sel1 && s->editstate.sel2 == -1)
+          s->editstate.sel2 = WDL_utf8_get_charlen(hwnd->m_title.Get());
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
