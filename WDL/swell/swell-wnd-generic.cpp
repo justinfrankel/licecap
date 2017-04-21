@@ -289,7 +289,6 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
  
         if (hwnd->m_oswindow) 
         {
-          if (s_program_icon_list) gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
           gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
@@ -324,9 +323,17 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 #ifdef SWELL_LICE_GDI
           if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_CairoBitmap;
 #endif
-          if (hwnd->m_owner)
+          if (hwnd->m_style & WS_CAPTION)
           {
-            gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
+            if (hwnd->m_owner)
+            {
+              gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
+            }
+            else
+            {
+              if (s_program_icon_list) 
+                gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
+            }
           }
           if (hwnd->m_israised)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
