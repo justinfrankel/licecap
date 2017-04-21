@@ -68,6 +68,7 @@ static bool is_virtkey_char(int c)
 #endif
 
 static GdkEvent *s_cur_evt;
+static GList *s_program_icon_list;
 static int SWELL_gdk_active;
 GdkWindow *SWELL_g_focus_oswindow;
 
@@ -83,7 +84,21 @@ void SWELL_initargs(int *argc, char ***argv)
     XInitThreads();
     SWELL_gdk_active = gdk_init_check(argc,argv) ? 1 : -1;
     if (SWELL_gdk_active > 0)
+    {
+      char buf[1024];
+      GetModuleFileName(NULL,buf,sizeof(buf));
+      WDL_remove_filepart(buf);
+      lstrcatn(buf,"/Resources/main.png",sizeof(buf));
+      GdkPixbuf *pb = gdk_pixbuf_new_from_file(buf,NULL);
+      if (!pb)
+      {
+        strcpy(buf+strlen(buf)-3,"ico");
+        pb = gdk_pixbuf_new_from_file(buf,NULL);
+      }
+      if (pb) s_program_icon_list = g_list_append(s_program_icon_list,pb);
+
       gdk_event_handler_set(swell_gdkEventHandler,NULL,NULL);
+    }
   }
 }
 
@@ -276,6 +291,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
  
         if (hwnd->m_oswindow) 
         {
+          if (s_program_icon_list) gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
           gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
