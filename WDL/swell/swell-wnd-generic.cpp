@@ -5503,7 +5503,8 @@ struct tabControlState
   int m_curtab;
   WDL_PtrList<char> m_tabs;
 };
-static const int TABCONTROL_HEIGHT = 20;
+
+#define TABCONTROL_HEIGHT SWELL_UI_SCALE(20)
 
 static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -5532,7 +5533,7 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
           const char *buf = s->m_tabs.Get(tab);
           RECT tr={0,};
           DrawText(dc,buf,-1,&tr,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
-          xp -= tr.right - tr.left + 2*xpad + xdiv;
+          xp -= tr.right - tr.left + 2*SWELL_UI_SCALE(xpad) + SWELL_UI_SCALE(xdiv);
           if (xp < 0)
           {
             if (s->m_curtab != tab)
@@ -5573,25 +5574,25 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             const char *buf = s->m_tabs.Get(tab);
             RECT tr={0,};
             DrawText(ps.hdc,buf,-1,&tr,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
-            int tw=tr.right-tr.left + 2*xpad;
+            int tw=tr.right-tr.left + 2*SWELL_UI_SCALE(xpad);
 
             const int olx=lx;
-            lx=xp + tw+xdiv;
+            lx=xp + tw+SWELL_UI_SCALE(xdiv);
  
-            MoveToEx(ps.hdc,xp,th,NULL);
+            MoveToEx(ps.hdc,xp,th-1,NULL);
             LineTo(ps.hdc,xp,0);
             LineTo(ps.hdc,xp+tw,0);
             SelectObject(ps.hdc,pen2);
-            LineTo(ps.hdc,xp+tw,th);
+            LineTo(ps.hdc,xp+tw,th-1);
 
-            MoveToEx(ps.hdc, tab == s->m_curtab ? lx-xdiv : olx,th-1,NULL);
+            MoveToEx(ps.hdc, tab == s->m_curtab ? lx-SWELL_UI_SCALE(xdiv) : olx,th-1,NULL);
             LineTo(ps.hdc,lx,th-1);
 
             SelectObject(ps.hdc,pen);
 
-            tr.left = xp+xpad;
+            tr.left = xp+SWELL_UI_SCALE(xpad);
             tr.top=0;
-            tr.right = xp+tw-xpad;
+            tr.right = xp+tw-SWELL_UI_SCALE(xpad);
             tr.bottom = th;
 
             DrawText(ps.hdc,buf,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
