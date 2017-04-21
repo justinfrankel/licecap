@@ -7032,13 +7032,13 @@ bool OpenClipboard(HWND hwndDlg)
 { 
 #ifdef SWELL_TARGET_GDK
   s_clip_hwnd=hwndDlg; 
-#endif
   if (s_clipboard_getstate)
   {
     GlobalFree(s_clipboard_getstate);
     s_clipboard_getstate = NULL;
   }
   s_clipboard_getstate_fmt = NULL;
+#endif
 
   return true; 
 }
