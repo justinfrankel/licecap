@@ -930,6 +930,8 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(edit_bg_disabled,RGB(255,255,255)) \
   f(edit_text,RGB(0,0,0)) \
   f(edit_text_disabled, RGB(192,192,192)) \
+  f(edit_bg_sel,RGB(128,192,255)) \
+  f(edit_text_sel,RGB(255,255,255)) \
   f(info_bk,RGB(255,240,200)) \
   f(info_text,RGB(0,0,0)) \
   fd(menu_bg, RGB(192,192,192), _3dface) \
