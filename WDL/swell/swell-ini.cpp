@@ -100,6 +100,17 @@ static iniFileContext *GetFileContext(const char *name)
 {
   static WDL_UINT64 acc_cnt;
   int best_z = 0;
+  char fntemp[512];
+  if (!strstr(name,"/"))
+  {
+    const char *p = getenv("HOME");
+    snprintf(fntemp,sizeof(fntemp),"%s/.libSwell%s%s%s",
+        p && *p ? p : "/tmp",
+        *name ? "_" : "", name, 
+        stricmp(WDL_get_fileext(name),".ini")?".ini":"");
+    name = fntemp;
+  }
+
   {
     int w;
     WDL_UINT64 bestcnt = 0; 
