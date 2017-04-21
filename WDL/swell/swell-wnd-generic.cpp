@@ -1199,6 +1199,24 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
      // todo: special case for buttons
     LONG ret = hwnd->m_style;
     hwnd->m_style=val;
+
+#ifdef SWELL_TARGET_GDK
+    if (hwnd->m_oswindow && ((ret^val)& WS_CAPTION))
+    {
+      if (val & WS_CAPTION)
+      {
+        if (val & WS_THICKFRAME)
+          gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
+        else
+          gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE));
+      }
+      else
+      {
+        gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
+      }
+    }
+#endif
+
     return ret;
   }
   if (idx==GWL_EXSTYLE)
