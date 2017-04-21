@@ -3537,7 +3537,7 @@ forceMouseMove:
           }
           else
           {
-            es->max_width = editControlPaintLine(ps.hdc, hwnd->m_title.Get(), hwnd->m_title.GetLength(), cursor_pos, es->sel1, es->sel2, &r, DT_VCENTER);
+            es->max_width = editControlPaintLine(ps.hdc, hwnd->m_title.Get(), hwnd->m_title.GetLength(), cursor_pos, sel1, sel2, &r, DT_VCENTER);
           }
 
           EndPaint(hwnd,&ps);
