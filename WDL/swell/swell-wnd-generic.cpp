@@ -5435,7 +5435,7 @@ next_item_in_parent:
     } 
 #endif
   }
-  HTREEITEM hitTestItem(HTREEITEM item, int *y) 
+  HTREEITEM hitTestItem(HTREEITEM item, int *y, int *xo) 
   {
     *y -= m_last_row_height;
     if (*y < 0) return item;
@@ -5445,8 +5445,12 @@ next_item_in_parent:
       const int n = item->m_children.GetSize();
       for (x=0;x<n;x++)
       {
-        HTREEITEM t=hitTestItem(item->m_children.Get(x),y);
-        if (t) return t;
+        HTREEITEM t=hitTestItem(item->m_children.Get(x),y,xo);
+        if (t) 
+        {
+          if (xo) *xo += m_last_row_height;
+          return t;
+        }
       }
     } 
     return NULL;
@@ -5549,9 +5553,19 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         if (tvs->m_last_row_height)
         {
           int y = GET_Y_LPARAM(lParam) + tvs->m_scroll_y + tvs->m_last_row_height;
-          HTREEITEM hit = tvs->hitTestItem(&tvs->m_root,&y);
-          if (hit) 
+          int xo=0;
+          HTREEITEM hit = tvs->hitTestItem(&tvs->m_root,&y,&xo);
+          if (hit && GET_X_LPARAM(lParam) >= xo) 
           {
+            if (hit->m_haschildren)
+            {
+              if (GET_X_LPARAM(lParam) < xo + (tvs->m_last_row_height/4)*2+3)
+              {
+                hit->m_state ^= TVIS_EXPANDED;
+                InvalidateRect(hwnd,NULL,FALSE);
+                return 0;
+              }
+            }
             if (tvs->m_sel != hit)
             {
               tvs->m_sel = hit;
