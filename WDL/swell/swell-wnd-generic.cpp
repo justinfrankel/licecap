@@ -319,7 +319,6 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
-          if (modal) gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
           if (!wantfocus) gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
 #ifdef SWELL_LICE_GDI
@@ -339,7 +338,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           gdk_window_register_dnd(hwnd->m_oswindow);
           gdk_window_show(hwnd->m_oswindow);
 
-          if (!modal) gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
+          if (hwnd->m_has_had_position) 
+            gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
+          else 
+            gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
         }
       }
     }
@@ -782,7 +784,13 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             GdkEventConfigure *cfg = (GdkEventConfigure*)evt;
             int flag=0;
-            if (cfg->x != hwnd->m_position.left || cfg->y != hwnd->m_position.top)  flag|=1;
+            if (cfg->x != hwnd->m_position.left || 
+                cfg->y != hwnd->m_position.top || 
+                !hwnd->m_has_had_position)
+            {
+              flag|=1;
+              hwnd->m_has_had_position = true;
+            }
             if (cfg->width != hwnd->m_position.right-hwnd->m_position.left || cfg->height != hwnd->m_position.bottom - hwnd->m_position.top) flag|=2;
             hwnd->m_position.left = cfg->x;
             hwnd->m_position.top = cfg->y;
@@ -1141,6 +1149,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
   m_refcnt=1;
   m_private_data=0;
   m_israised=false;
+  m_has_had_position=false;
 
      m_classname = "unknown";
      m_wndproc=wndproc?wndproc:dlgproc?(WNDPROC)SwellDialogDefaultWindowProc:(WNDPROC)DefWindowProc;
@@ -1829,6 +1838,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
     f.top=y; 
     f.bottom=y+oldh;
     reposflag|=1;
+    hwnd->m_has_had_position=true;
   }
   if (!(flags&SWP_NOSIZE))
   {

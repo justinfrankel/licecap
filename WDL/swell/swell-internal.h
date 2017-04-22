@@ -642,7 +642,7 @@ struct HWND__
   int m_refcnt; 
 
   bool m_israised;
-
+  bool m_has_had_position;
 
   HMENU m_menu;
 
