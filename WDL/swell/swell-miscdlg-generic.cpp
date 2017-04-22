@@ -214,13 +214,13 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
 
+        HWND edit = SWELL_MakeEditField(0x100, 0,0,0,0,  0);
         SWELL_MakeButton(0,
               parms->mode == BrowseFile_State::OPENDIR ? "Choose directory" :
               parms->mode == BrowseFile_State::SAVE ? "Save" : "Open",
               IDOK,0,0,0,0, 0);
 
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
-        HWND edit = SWELL_MakeEditField(0x100, 0,0,0,0,  0);
         HWND dir = SWELL_MakeCombo(0x103, 0,0,0,0, CBS_DROPDOWNLIST);
 
         HWND list = SWELL_MakeControl("",0x104,"SysListView32",LVS_REPORT|LVS_SHOWSELALWAYS|
@@ -302,6 +302,8 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SetWindowPos(hwnd,NULL,x,y, w,h, flag);
         SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+        SendMessage(edit,EM_SETSEL,0,(LPARAM)-1);
+        SetFocus(edit);
       }
     break;
     case WM_DESTROY:
