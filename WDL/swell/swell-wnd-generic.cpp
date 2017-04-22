@@ -5378,14 +5378,46 @@ next_item_in_parent:
       rect->bottom = rect->top + m_last_row_height;
       if (rect->right > rect->left)
       {
+        int oc=0;
         if (item == m_sel) 
         {
-          HBRUSH br=CreateSolidBrush(g_swell_ctheme.treeview_bg_sel);
-          FillRect(hdc,rect,br);
-          DeleteObject(br);
+          SetBkMode(hdc,OPAQUE);
+          SetBkColor(hdc,g_swell_ctheme.treeview_bg_sel);
+          oc = GetTextColor(hdc);
+          SetTextColor(hdc,g_swell_ctheme.treeview_text_sel);
+        }
+       
+        RECT dr = *rect;
+        if (item->m_haschildren)
+        {
+          int sz = m_last_row_height/4;
+          bool exp = (item->m_state&TVIS_EXPANDED);
+          if (exp)
+          {
+            const int yo = dr.top + sz+sz/2;
+            MoveToEx(hdc,dr.left,yo,NULL); 
+            LineTo(hdc,dr.left+sz*2,yo);
+            LineTo(hdc,dr.left+sz,yo+sz);
+            LineTo(hdc,dr.left,yo);
+          }
+          else
+          {
+            const int yo = dr.top + sz, xo = dr.left+sz*3/4;
+            MoveToEx(hdc,xo,yo,NULL); 
+            LineTo(hdc,xo+sz,yo + sz);
+            LineTo(hdc,xo,yo+sz*2);
+            LineTo(hdc,xo,yo);
+          }
+
+          dr.left += sz*2+3;
         }
 
-        DrawText(hdc,item->m_value ? item->m_value : "",-1,rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+        DrawText(hdc,item->m_value ? item->m_value : "",-1,&dr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+        if (item == m_sel) 
+        {
+          SetBkMode(hdc,TRANSPARENT);
+          SetTextColor(hdc,oc);
+        }
       }
       rect->top = rect->bottom;
       rect->bottom = ob;
@@ -5596,7 +5628,13 @@ forceMouseMove:
 
             r.top -= tvs->m_scroll_y;
 
+            HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.treeview_arrow);
+            HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+
             tvs->doDrawItem(&tvs->m_root,ps.hdc,&r);
+
+            SelectObject(ps.hdc,oldpen);
+            DeleteObject(pen);
 
             drawVerticalScrollbar(ps.hdc,cr,total_h,tvs->m_scroll_y);
           }

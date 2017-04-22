@@ -981,6 +981,8 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(treeview_text,RGB( 0,0,0)) \
   f(treeview_bg, RGB(255,255,255)) \
   f(treeview_bg_sel, RGB(128,128,255)) \
+  f(treeview_text_sel, RGB(0,0,0)) \
+  f(treeview_arrow, RGB(96,96,96)) \
   fd(tab_shadow, RGB(96,96,96), _3dshadow) \
   fd(tab_hilight, RGB(224,224,224), _3dhilight) \
   fd(tab_text, RGB(0,0,0), button_text) \
