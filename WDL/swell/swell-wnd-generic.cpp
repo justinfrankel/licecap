@@ -2848,6 +2848,54 @@ static void drawVerticalScrollbar(HDC hdc, RECT cr, int totalh, int scroll_y)
   DeleteObject(br2);
 }
 
+static int getLineLength(const char *buf, int *post_skip, int wrap_maxwid=0, HDC hdc=NULL)
+{
+  // todo: if wrap_maxwid/hdc set, word wrap
+  int lb=0;
+  while (buf[lb] && buf[lb] != '\r' && buf[lb] != '\n') lb++;
+  int ps = 0;
+  if (buf[ps+lb] == '\r') ps++;
+  if (buf[ps+lb] == '\n') ps++;
+  *post_skip = ps;
+  return lb;
+}
+
+static int editMeasureLineLength(HDC hdc, const char *str, int str_len)
+{
+  RECT tmp = {0,};
+  DrawText(hdc,str,str_len,&tmp,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT);
+  return tmp.right;
+}
+
+static bool editGetCharPos(HDC hdc, const char *str, int singleline_len, int charpos, int line_h, POINT *pt)
+{
+  int bytepos = WDL_utf8_charpos_to_bytepos(str,charpos);
+  int ypos = 0;
+  if (singleline_len >= 0)
+  {
+    if (bytepos > singleline_len) return false;
+    pt->y=0;
+    pt->x=editMeasureLineLength(hdc,str,bytepos);
+    return true;
+  }
+  while (*str)
+  {
+    int pskip = 0, lb = getLineLength(str,&pskip);
+    if (bytepos < lb+pskip)
+    { 
+      pt->x=editMeasureLineLength(hdc,str,bytepos);
+      pt->y=ypos;
+      return true;
+    }
+    str += lb+pskip;
+    bytepos -= lb+pskip;
+    ypos += line_h;
+  }
+  pt->x=0;
+  pt->y=ypos;
+  return true;
+}
+
 
 struct __SWELL_editControlState
 {
@@ -2985,6 +3033,32 @@ struct __SWELL_editControlState
         capmode_state=3;
       }
     }
+  }
+
+  void autoScrollToOffset(HWND hwnd, int charpos, bool is_multiline)
+  {
+    if (!hwnd) return;
+    HDC hdc = GetDC(hwnd);
+    if (!hdc) return;
+    RECT tmp={0,};
+    const int line_h = DrawText(hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
+
+    GetClientRect(hwnd,&tmp);
+    POINT pt={0,};
+    if (editGetCharPos(hdc, hwnd->m_title.Get(), 
+         is_multiline? -1:hwnd->m_title.GetLength(), charpos, line_h, &pt))
+    {
+      if (pt.x > scroll_x+tmp.right*5/6) scroll_x = pt.x - tmp.right*5/6;
+      if (pt.x < scroll_x) scroll_x=pt.x;
+      if (is_multiline)
+      {
+        if (pt.y+line_h > scroll_y+tmp.bottom) scroll_y = pt.y - tmp.bottom + line_h;
+        if (pt.y < scroll_y) scroll_y=pt.y;
+      }
+      if (scroll_y < 0) scroll_y=0;
+      if (scroll_x < 0) scroll_x=0;
+    }
+    ReleaseDC(hwnd,hdc);
   }
 
 };
@@ -3263,30 +3337,25 @@ static int editHitTestLine(HDC hdc, const char *str, int str_len, int xpos, int 
   return lc;
 }
 
-static int editHitTest(__SWELL_editControlState *st, HDC hdc, const char *str, int singleline_len, int xpos, int ypos)
+static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, int ypos)
 {
-  xpos += st->scroll_x;
   if (singleline_len >= 0) return editHitTestLine(hdc,str,singleline_len,xpos,1);
 
   const char *buf = str;
   int bytepos = 0;
   RECT tmp={0};
   const int line_h = DrawText(hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-  ypos += st->scroll_y;
   for (;;)
   {
-    int lb = 0;
-    while (buf[lb] && buf[lb] != '\r' && buf[lb] != '\n') lb++;
+    int pskip=0, lb = getLineLength(buf,&pskip);
 
     if (ypos < line_h) return bytepos + editHitTestLine(hdc,buf,lb, xpos,ypos);
     ypos -= line_h;
 
     if (!buf[0] || !buf[lb]) return bytepos + lb;
 
-    if (buf[lb] == '\r') lb++;
-    if (buf[lb] == '\n') lb++;
-    bytepos += lb;
-    buf += lb;
+    bytepos += lb+pskip;
+    buf += lb+pskip;
   }
 }
 
@@ -3358,10 +3427,10 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         HDC hdc=GetDC(hwnd);
         const int last_cursor = es->cursor_pos;
         es->cursor_pos = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
-            editHitTest(es,hdc,hwnd->m_title.Get(),
+            editHitTest(hdc,hwnd->m_title.Get(),
                         multiline?-1:hwnd->m_title.GetLength(),
-                         GET_X_LPARAM(lParam)-xo,
-                         GET_Y_LPARAM(lParam)-yo)
+                         GET_X_LPARAM(lParam)-xo + es->scroll_x,
+                         GET_Y_LPARAM(lParam)-yo + es->scroll_y)
               );
 
         if (msg == WM_LBUTTONDOWN) 
@@ -3436,10 +3505,10 @@ forceMouseMove:
           int yo = multiline ? 2 : 0;
           HDC hdc=GetDC(hwnd);
           int p = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
-            editHitTest(es,hdc,hwnd->m_title.Get(),
+            editHitTest(hdc,hwnd->m_title.Get(),
                         multiline?-1:hwnd->m_title.GetLength(),
-                         GET_X_LPARAM(lParam)-xo,
-                         GET_Y_LPARAM(lParam)-yo)
+                         GET_X_LPARAM(lParam)-xo + es->scroll_x,
+                         GET_Y_LPARAM(lParam)-yo + es->scroll_y)
               );
           ReleaseDC(hwnd,hdc);
 
@@ -3466,7 +3535,11 @@ forceMouseMove:
         if (f)
         {
           if (f&4) SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
-          if (f&2) InvalidateRect(hwnd,NULL,FALSE);
+          if (f&2) 
+          {
+            es->autoScrollToOffset(hwnd,es->cursor_pos,(hwnd->m_style & ES_MULTILINE) != 0);
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
           return 0;
         }
       }
@@ -3522,8 +3595,7 @@ forceMouseMove:
             const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
             for (;;)
             {
-              int lb = 0;
-              while (buf[lb] && buf[lb] != '\r' && buf[lb] != '\n') lb++;
+              int pskip=0, lb = getLineLength(buf,&pskip);
 
               if (!*buf && cursor_pos != bytepos) break;
 
@@ -3541,10 +3613,8 @@ forceMouseMove:
 
               if (!*buf || !buf[lb]) break;
 
-              if (buf[lb] == '\r') lb++;
-              if (buf[lb] == '\n') lb++;
-              bytepos += lb;
-              buf += lb;
+              bytepos += lb+pskip;
+              buf += lb+pskip;
             }
             r.top += es->scroll_y;
             es->max_height = r.top;
@@ -4038,9 +4108,10 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           const int last_cursor = s->editstate.cursor_pos;
           s->editstate.cursor_pos = 
             WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
-              editHitTest(&s->editstate, hdc,hwnd->m_title.Get(),
+              editHitTest(hdc,hwnd->m_title.Get(),
                           hwnd->m_title.GetLength(),
-                          GET_X_LPARAM(lParam)-xo,GET_Y_LPARAM(lParam))
+                          GET_X_LPARAM(lParam)-xo + s->editstate.scroll_x,
+                          GET_Y_LPARAM(lParam))
             );
            
           s->editstate.onMouseDown(s_capmode_state,last_cursor);
@@ -4062,9 +4133,9 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           int xo=3;
           HDC hdc=GetDC(hwnd);
           int p = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
-            editHitTest(&s->editstate,hdc,hwnd->m_title.Get(),
+            editHitTest(hdc,hwnd->m_title.Get(),
                         multiline?-1:hwnd->m_title.GetLength(),
-                         GET_X_LPARAM(lParam)-xo,
+                         GET_X_LPARAM(lParam)-xo + s->editstate.scroll_x,
                          GET_Y_LPARAM(lParam))
               );
           ReleaseDC(hwnd,hdc);
@@ -4113,6 +4184,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       {
         if (s) s->selidx=-1; // lookup from text?
         SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+        s->editstate.autoScrollToOffset(hwnd,s->editstate.cursor_pos,false);
         InvalidateRect(hwnd,NULL,FALSE);
         return 0;
       }
