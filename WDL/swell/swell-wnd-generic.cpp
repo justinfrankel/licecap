@@ -4830,6 +4830,91 @@ forceMouseMove:
         ReleaseCapture(); // WM_CAPTURECHANGED will take care of the invalidate
       }
     return 1;
+    case WM_KEYDOWN:
+      if (lvs && (lParam & FVIRTKEY)) 
+      {
+        int flag=0;
+        int ni;
+        const int oldsel = lvs->m_selitem;
+        switch (wParam)
+        {
+          case VK_UP:
+          case VK_DOWN:
+            ni = lvs->m_selitem + (wParam == VK_UP ? -1 : 1);
+            if (ni < 0 && wParam == VK_DOWN) ni=0;
+            if (ni >= 0 && ni < lvs->GetNumItems())
+            {
+              if (lvs->m_is_multisel) 
+              {
+                if (!(GetAsyncKeyState(VK_SHIFT)&0x8000)) 
+                {
+                  lvs->clear_sel();
+                  lvs->set_sel(ni,true);
+                }
+                else
+                {
+                  if (lvs->get_sel(ni)) lvs->set_sel(lvs->m_selitem,false);
+                  else lvs->set_sel(ni,true);
+                }
+              }
+              lvs->m_selitem=ni;
+              flag|=3;
+            }
+          break;
+          case VK_HOME:
+          case VK_END:
+            ni = wParam == VK_HOME ? 0 : lvs->GetNumItems()-1;
+            if (ni != lvs->m_selitem)
+            {
+              if (lvs->m_is_multisel) 
+              {
+                if (!(GetAsyncKeyState(VK_SHIFT)&0x8000)) 
+                {
+                  lvs->clear_sel();
+                  lvs->set_sel(ni,true);
+                }
+                else
+                {
+                  if (wParam == VK_HOME)
+                  {
+                    for (ni = lvs->m_selitem; ni >= 0; ni--) 
+                      lvs->set_sel(ni,true);
+                  }
+                  else
+                  {
+                    for (int x=wdl_max(0,lvs->m_selitem); x <= ni; x++)
+                      lvs->set_sel(x,true);
+                  }
+                }
+              }
+              lvs->m_selitem=ni;
+              flag|=3;
+            }
+ 
+          break;
+        }
+        if (flag)
+        {
+          if (flag & 2)
+          {
+            if (lvs->m_is_listbox)
+            {
+              if (oldsel != lvs->m_selitem) 
+                SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+            } 
+            else
+            {
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},lvs->m_selitem,0,LVIS_SELECTED,};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            }
+            ListView_EnsureVisible(hwnd,lvs->m_selitem,FALSE);
+          }
+          if (flag&1) InvalidateRect(hwnd,NULL,FALSE);
+
+          return 0;
+        }
+      }
+    break;
     case WM_PAINT:
       { 
         PAINTSTRUCT ps;
@@ -6467,7 +6552,7 @@ void ListView_EnsureVisible(HWND h, int i, BOOL pok)
 
     const int oldy = lvs->m_scroll_y;
     if (i*row_height < lvs->m_scroll_y) lvs->m_scroll_y = i*row_height;
-    else if (i*row_height > lvs->m_scroll_y + r.bottom) lvs->m_scroll_y = i*row_height-r.bottom + row_height;
+    else if ((i+1)*row_height > lvs->m_scroll_y + r.bottom) lvs->m_scroll_y = (i+1)*row_height-r.bottom;
     lvs->sanitizeScroll(h);
     if (oldy != lvs->m_scroll_y)
     {
