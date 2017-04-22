@@ -223,17 +223,35 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
         HWND dir = SWELL_MakeCombo(0x103, 0,0,0,0, CBS_DROPDOWNLIST);
 
+        const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "swell_dir_browser" : "swell_file_browser";
+        char tmp[128];
+        GetPrivateProfileString(sec,"wnd","", tmp,sizeof(tmp),"");
+        int x=0,y=0,w=0,h=0, c1=0,c2=0,c3=0;
+        int flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
+        if (tmp[0] && 
+            sscanf(tmp,"%d %d %d %d %d %d %d",&x,&y,&w,&h,&c1,&c2,&c3) >= 4) 
+          flag &= ~SWP_NOMOVE;
+        if (w < 100) w=SWELL_UI_SCALE(600);
+        if (h < 100) h=SWELL_UI_SCALE(400);
+
+        if (c1 + c2 + c3 < w/2)
+        {
+          c1=SWELL_UI_SCALE(280);
+          c2=SWELL_UI_SCALE(120);
+          c3=SWELL_UI_SCALE(140);
+        }
+
         HWND list = SWELL_MakeControl("",0x104,"SysListView32",LVS_REPORT|LVS_SHOWSELALWAYS|
               (parms->mode == BrowseFile_State::OPENMULTI ? 0 : LVS_SINGLESEL)|
               LVS_OWNERDATA|WS_BORDER|WS_TABSTOP,0,0,0,0,0);
         if (list)
         {
-          LVCOLUMN c={LVCF_TEXT|LVCF_WIDTH, 0, SWELL_UI_SCALE(280), (char*)"Filename" };
+          LVCOLUMN c={LVCF_TEXT|LVCF_WIDTH, 0, c1, (char*)"Filename" };
           ListView_InsertColumn(list,0,&c);
-          c.cx = SWELL_UI_SCALE(120);
+          c.cx = c2;
           c.pszText = (char*) "Size";
           ListView_InsertColumn(list,1,&c);
-          c.cx = SWELL_UI_SCALE(140);
+          c.cx = c3;
           c.pszText = (char*) "Date";
           ListView_InsertColumn(list,2,&c);
           HWND hdr = ListView_GetHeader(list);
@@ -291,15 +309,6 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
         }
 
-        const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "swell_dir_browser" : "swell_file_browser";
-        char tmp[128];
-        GetPrivateProfileString(sec,"wnd","", tmp,sizeof(tmp),"");
-        int x=0,y=0,w=0,h=0;
-        int flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
-        if (tmp[0] && sscanf(tmp,"%d %d %d %d",&x,&y,&w,&h) == 4) flag &= ~SWP_NOMOVE;
-        if (w < 100) w=SWELL_UI_SCALE(600);
-        if (h < 100) h=SWELL_UI_SCALE(400);
-
         SetWindowPos(hwnd,NULL,x,y, w,h, flag);
         SendMessage(hwnd,WM_USER+100,1,0); // refresh list
         SendMessage(edit,EM_SETSEL,0,(LPARAM)-1);
@@ -314,8 +323,12 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           RECT r;
           GetWindowRect(hwnd,&r);
           const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "swell_dir_browser" : "swell_file_browser";
+          HWND list = GetDlgItem(hwnd,0x104);
+          const int c1 = ListView_GetColumnWidth(list,0);
+          const int c2 = ListView_GetColumnWidth(list,1);
+          const int c3 = ListView_GetColumnWidth(list,2);
           char tmp[128];
-          snprintf(tmp,sizeof(tmp),"%d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top);
+          snprintf(tmp,sizeof(tmp),"%d %d %d %d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top,c1,c2,c3);
           WritePrivateProfileString(sec,"wnd", tmp, "");
         }
       }
