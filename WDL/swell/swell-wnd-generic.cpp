@@ -5455,18 +5455,32 @@ next_item_in_parent:
     } 
     return NULL;
   }
-  int CalculateItemHeight(HTREEITEM__ *item)
+  int CalculateItemHeight(HTREEITEM__ *item, HTREEITEM stopAt, bool *done)
   {
-    int h = 0;
-    if ((item->m_state & TVIS_EXPANDED) && item->m_haschildren && item->m_children.GetSize())
+    int h = m_last_row_height;
+    if (item == stopAt) { *done=true; return 0; }
+
+    if ((item->m_state & TVIS_EXPANDED) && 
+        item->m_haschildren && 
+        item->m_children.GetSize())
     {
       const int n = item->m_children.GetSize();
-      for (int x=0;x<n;x++) h += CalculateItemHeight(item->m_children.Get(x));
+      for (int x=0;x<n;x++) 
+      {
+        h += CalculateItemHeight(item->m_children.Get(x),stopAt,done);
+        if (*done) break;
+      }
     }
-    return h + m_last_row_height;
+    return h;
   }
 
-  int calculateContentsHeight() { return CalculateItemHeight(&m_root) - m_last_row_height; }
+  int calculateContentsHeight(HTREEITEM item=NULL) 
+  { 
+    bool done=false;
+    const int rv = CalculateItemHeight(&m_root,item,&done);
+    if (item && !done) return 0;
+    return rv - m_last_row_height; 
+  }
 
   int sanitizeScroll(HWND h)
   {
@@ -5480,6 +5494,17 @@ next_item_in_parent:
       return vh;
     }
     return 0;
+  }
+
+  void ensureItemVisible(HWND hwnd, HTREEITEM item)
+  {
+    if (m_last_row_height<1) return;
+    const int x = item ? calculateContentsHeight(item) : 0;
+    RECT r;
+    GetClientRect(hwnd,&r);
+    if (x < m_scroll_y) m_scroll_y = x;
+    else if (x+m_last_row_height > m_scroll_y+r.bottom) 
+      m_scroll_y = x+m_last_row_height - r.bottom;
   }
 
   HTREEITEM__ m_root;
@@ -5515,6 +5540,7 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         int flag = tvs->navigateSel((int)wParam); 
         if (oldSel != tvs->m_sel)
         {
+          if (tvs->m_sel) tvs->ensureItemVisible(hwnd,tvs->m_sel);
           InvalidateRect(hwnd,NULL,FALSE);
           NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
           SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
@@ -5632,11 +5658,14 @@ forceMouseMove:
             RECT cr=r;
             SetTextColor(ps.hdc,g_swell_ctheme.treeview_text);
 
+            const int lrh = tvs->m_last_row_height;
             TEXTMETRIC tm; 
             GetTextMetrics(ps.hdc,&tm);
             const int row_height = tm.tmHeight;
             tvs->m_last_row_height = row_height;
             const int total_h = tvs->sanitizeScroll(hwnd);
+            if (!lrh && tvs->m_sel) 
+              tvs->ensureItemVisible(hwnd,tvs->m_sel);
 
             SetBkMode(ps.hdc,TRANSPARENT);
 
@@ -7676,6 +7705,7 @@ void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
     SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
     __rent--;
   }
+  tvs->ensureItemVisible(hwnd,tvs->m_sel);
   InvalidateRect(hwnd,NULL,FALSE);
 }
 
