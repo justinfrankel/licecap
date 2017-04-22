@@ -5388,29 +5388,28 @@ next_item_in_parent:
         }
        
         RECT dr = *rect;
+        const int sz = m_last_row_height/4;
         if (item->m_haschildren)
         {
-          int sz = m_last_row_height/4;
           bool exp = (item->m_state&TVIS_EXPANDED);
           if (exp)
           {
-            const int yo = dr.top + sz+sz/2;
-            MoveToEx(hdc,dr.left,yo,NULL); 
-            LineTo(hdc,dr.left+sz*2,yo);
-            LineTo(hdc,dr.left+sz,yo+sz);
-            LineTo(hdc,dr.left,yo);
+            const int yo = dr.top + sz+sz/2,xo=dr.left+1;
+            MoveToEx(hdc,xo,yo,NULL); 
+            LineTo(hdc,xo+sz*2,yo);
+            LineTo(hdc,xo+sz,yo+sz);
+            LineTo(hdc,xo,yo);
           }
           else
           {
-            const int yo = dr.top + sz, xo = dr.left+sz*3/4;
+            const int yo = dr.top + sz, xo = dr.left+sz*3/4+1;
             MoveToEx(hdc,xo,yo,NULL); 
             LineTo(hdc,xo+sz,yo + sz);
             LineTo(hdc,xo,yo+sz*2);
             LineTo(hdc,xo,yo);
           }
-
-          dr.left += sz*2+3;
         }
+        dr.left += sz*2+3;
 
         DrawText(hdc,item->m_value ? item->m_value : "",-1,&dr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
         if (item == m_sel) 
@@ -5579,7 +5578,7 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         if (tvs->m_last_row_height)
         {
           int y = GET_Y_LPARAM(lParam) + tvs->m_scroll_y + tvs->m_last_row_height;
-          int xo=0;
+          int xo=-tvs->m_last_row_height;
           HTREEITEM hit = tvs->hitTestItem(&tvs->m_root,&y,&xo);
           if (hit && GET_X_LPARAM(lParam) >= xo) 
           {
@@ -5674,6 +5673,7 @@ forceMouseMove:
             HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.treeview_arrow);
             HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
 
+            r.left -= tvs->m_last_row_height;
             tvs->doDrawItem(&tvs->m_root,ps.hdc,&r);
 
             SelectObject(ps.hdc,oldpen);
