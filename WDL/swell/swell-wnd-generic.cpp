@@ -5282,6 +5282,65 @@ struct treeViewState
     return true;
   }
 
+  HTREEITEM navigateSel(int moveamt) // -1/1 up down, -2/2 top bottom, -3/3 left right
+  {
+    HTREEITEM par=NULL;
+    int idx=0;
+    switch (moveamt)
+    {
+      case -3:
+        if (m_sel && findItem(m_sel,&par,NULL) && par) return par;
+      break;
+      case -2:
+      break;
+      case 2:
+        par = &m_root;
+        while (par && par->m_haschildren && par->m_children.GetSize() && (par->m_state& TVIS_EXPANDED))
+          par = par->m_children.Get(par->m_children.GetSize()-1);
+      return par && par != &m_root ? par : NULL;
+      case 3:
+        if (m_sel && findItem(m_sel,NULL,NULL))
+        {
+          if (!m_sel->m_haschildren) return NULL; 
+          m_sel->m_state |= TVIS_EXPANDED;
+          return m_sel->m_children.Get(0);
+        }
+      break;
+      case -1:
+        if (m_sel && findItem(m_sel,&par,&idx))
+        {
+          if (idx>0)
+          {
+            par = (par?par:&m_root)->m_children.Get(idx-1);
+            while (par && (par->m_state & TVIS_EXPANDED) && par->m_haschildren && par->m_children.GetSize())
+              par = par->m_children.Get(par->m_children.GetSize()-1);
+          }
+          return par;
+        }
+      break;
+      case 1:
+        if (m_sel && findItem(m_sel,&par,&idx))
+        {
+          if (m_sel->m_haschildren && 
+              m_sel->m_children.GetSize() &&
+              (m_sel->m_state & TVIS_EXPANDED))
+            return m_sel->m_children.Get(0);
+
+next_item_in_parent:
+          if (par)
+          {
+            if (idx+1 < par->m_children.GetSize()) return par->m_children.Get(idx+1);
+
+            if (findItem(par,&par,&idx)) goto next_item_in_parent;
+          }
+          else
+            return m_root.m_children.Get(idx+1);
+        }
+      break;
+    }
+    return m_root.m_children.Get(0);
+  }
+
   void doDrawItem(HTREEITEM item, HDC hdc, RECT *rect) // draws any subitems too, updates rect->top
   {
 #ifdef SWELL_LICE_GDI
@@ -5387,6 +5446,32 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         }
       }
     return 1;
+    case WM_KEYDOWN:
+      if (tvs && (lParam & FVIRTKEY)) 
+      {
+        HTREEITEM newsel=NULL;
+        switch (wParam)
+        {
+          case VK_UP: newsel = tvs->navigateSel(-1); break;
+          case VK_DOWN: newsel = tvs->navigateSel(1); break;
+          case VK_HOME: newsel = tvs->navigateSel(-2); break;
+          case VK_END: newsel = tvs->navigateSel(2); break;
+          case VK_LEFT: newsel = tvs->navigateSel(-3); break;
+          case VK_RIGHT: newsel = tvs->navigateSel(3); break;
+        }
+        if (newsel)
+        {
+          if (newsel != tvs->m_sel)
+          {
+            tvs->m_sel = newsel;
+            InvalidateRect(hwnd,NULL,FALSE);
+            NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
+            SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+          }
+          return 0;
+        }
+      }
+    break;
     case WM_LBUTTONDOWN:
       SetFocus(hwnd);
       SetCapture(hwnd);
