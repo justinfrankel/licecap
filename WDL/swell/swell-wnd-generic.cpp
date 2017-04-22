@@ -290,6 +290,8 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         if (hwnd->m_oswindow) 
         {
           gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
+          const bool modal = DialogBoxIsActive() == hwnd;
+
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
             if (!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU"))
@@ -310,14 +312,14 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             if (!(hwnd->m_style&WS_THICKFRAME))
               decor = (GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE);
 
-            if (hwnd->m_owner || hwnd == DialogBoxIsActive())
+            if (hwnd->m_owner || modal)
               type_hint = GDK_WINDOW_TYPE_HINT_DIALOG;
 
             gdk_window_set_type_hint(hwnd->m_oswindow,type_hint);
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
-          gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
+          if (modal) gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
           if (!wantfocus) gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
 #ifdef SWELL_LICE_GDI
@@ -336,6 +338,8 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
           gdk_window_register_dnd(hwnd->m_oswindow);
           gdk_window_show(hwnd->m_oswindow);
+
+          if (!modal) gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
         }
       }
     }
@@ -531,7 +535,6 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN ||
         msg == WM_LBUTTONDBLCLK || msg == WM_RBUTTONDBLCLK || msg == WM_MBUTTONDBLCLK)
     {
-      HWND DialogBoxIsActive();
       HWND h = DialogBoxIsActive();
       if (h) SetForegroundWindow(h);
     }
