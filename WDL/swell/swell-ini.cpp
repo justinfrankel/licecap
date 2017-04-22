@@ -94,6 +94,12 @@ static bool fgets_to_typedbuf(WDL_TypedBuf<char> *buf, FILE *fp)
   return buf->GetSize()>0 && buf->Get()[0];
 }
 
+static char *s_defini;
+void SWELL_SetDefaultIniFile(const char *p)
+{
+  free(s_defini);
+  s_defini = p ? strdup(p) : NULL;
+}
 
 // return true on success
 static iniFileContext *GetFileContext(const char *name)
@@ -101,13 +107,24 @@ static iniFileContext *GetFileContext(const char *name)
   static WDL_UINT64 acc_cnt;
   int best_z = 0;
   char fntemp[512];
-  if (!strstr(name,"/"))
+  if (!name || !strstr(name,"/"))
   {
-    const char *p = getenv("HOME");
-    snprintf(fntemp,sizeof(fntemp),"%s/.libSwell%s%s%s",
-        p && *p ? p : "/tmp",
-        *name ? "_" : "", name, 
+    if (s_defini)
+    {
+      lstrcpyn_safe(fntemp,s_defini,sizeof(fntemp));
+    }
+    else
+    {
+      const char *p = getenv("HOME");
+      snprintf(fntemp,sizeof(fntemp),"%s/.libSwell.ini",
+        p && *p ? p : "/tmp");
+    }
+    if (name && *name)
+    {
+      WDL_remove_fileext(fntemp);
+      snprintf_append(fntemp,sizeof(fntemp),"_%s%s",name,
         stricmp(WDL_get_fileext(name),".ini")?".ini":"");
+    }
     name = fntemp;
   }
 
@@ -282,7 +299,7 @@ static void WriteBackFile(iniFileContext *ctx)
 
 BOOL WritePrivateProfileSection(const char *appname, const char *strings, const char *fn)
 {
-  if (!appname || !fn) return FALSE;
+  if (!appname) return FALSE;
   WDL_MutexLock lock(&m_mutex);
   iniFileContext *ctx = GetFileContext(fn);
   if (!ctx) return FALSE;

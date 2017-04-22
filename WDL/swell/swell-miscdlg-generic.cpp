@@ -291,7 +291,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           SendMessage(hwnd, WM_USER+100, 0x103, (LPARAM)buf);
         }
 
-        const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
+        const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "swell_dir_browser" : "swell_file_browser";
         char tmp[128];
         GetPrivateProfileString(sec,"wnd","", tmp,sizeof(tmp),"");
         int x=0,y=0,w=0,h=0;
@@ -311,7 +311,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           RECT r;
           GetWindowRect(hwnd,&r);
-          const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
+          const char *sec = parms->mode == BrowseFile_State::OPENDIR ? "swell_dir_browser" : "swell_file_browser";
           char tmp[128];
           snprintf(tmp,sizeof(tmp),"%d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top);
           WritePrivateProfileString(sec,"wnd", tmp, "");
