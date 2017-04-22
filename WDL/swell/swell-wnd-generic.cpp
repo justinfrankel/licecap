@@ -5269,28 +5269,17 @@ struct treeViewState
     m_sel=NULL;
     m_last_row_height=0;
     m_scroll_x=m_scroll_y=m_capmode=0;
+    m_root.m_state = TVIS_EXPANDED;
+    m_root.m_haschildren=true;
   }
   ~treeViewState() 
   {
-    m_items.Empty(true);
   }
   bool findItem(HTREEITEM item, HTREEITEM *parOut, int *idxOut)
   {
-    int x;
-    const int n=m_items.GetSize();
-    for (x=0; x < n; x ++)
-    {
-      HTREEITEM a = m_items.Get(x);
-      if (a == item) 
-      {
-        if (parOut) *parOut = NULL;
-        if (idxOut) *idxOut = x;
-        return true;
-      }
-      if (a && a->FindItem(item,parOut,idxOut)) return true;
-    }
-
-    return false;
+    if (!m_root.FindItem(item,parOut,idxOut)) return false;
+    if (parOut && *parOut == &m_root) *parOut = NULL;
+    return true;
   }
 
   void doDrawItem(HTREEITEM item, HDC hdc, RECT *rect) // draws any subitems too, updates rect->top
@@ -5298,33 +5287,34 @@ struct treeViewState
 #ifdef SWELL_LICE_GDI
     if (!item) return;
 
-    const int ob = rect->bottom;
-    rect->bottom = rect->top + m_last_row_height;
-    if (rect->right > rect->left)
+    if (item != &m_root)
     {
-      if (item == m_sel) 
+      const int ob = rect->bottom;
+      rect->bottom = rect->top + m_last_row_height;
+      if (rect->right > rect->left)
       {
-        HBRUSH br=CreateSolidBrush(g_swell_ctheme.treeview_bg_sel);
-        FillRect(hdc,rect,br);
-        DeleteObject(br);
-      }
+        if (item == m_sel) 
+        {
+          HBRUSH br=CreateSolidBrush(g_swell_ctheme.treeview_bg_sel);
+          FillRect(hdc,rect,br);
+          DeleteObject(br);
+        }
 
-      DrawText(hdc,item->m_value ? item->m_value : "",-1,rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+        DrawText(hdc,item->m_value ? item->m_value : "",-1,rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+      }
+      rect->top = rect->bottom;
+      rect->bottom = ob;
     }
-    rect->top = rect->bottom;
-    rect->bottom = ob;
 
     if ((item->m_state & TVIS_EXPANDED) && item->m_haschildren && item->m_children.GetSize())
     {
-      int x;
       const int n = item->m_children.GetSize();
-      for (x=0;x<n && rect->top < rect->bottom;x++)
+      rect->left += m_last_row_height;
+      for (int x=0;x<n && rect->top < rect->bottom;x++)
       {
-        rect->left += m_last_row_height;
         doDrawItem(item->m_children.Get(x),hdc,rect);
-        rect->left -= m_last_row_height;
       }
- 
+      rect->left -= m_last_row_height;
     } 
 #endif
   }
@@ -5354,13 +5344,8 @@ struct treeViewState
     }
     return h + m_last_row_height;
   }
-  int calculateContentsHeight()
-  {
-    int y = 0;
-    const int n = m_items.GetSize();
-    for (int x=0;x<n;x++) y += CalculateItemHeight(m_items.Get(x));
-    return y;
-  }
+
+  int calculateContentsHeight() { return CalculateItemHeight(&m_root) - m_last_row_height; }
 
   int sanitizeScroll(HWND h)
   {
@@ -5376,7 +5361,7 @@ struct treeViewState
     return 0;
   }
 
-  WDL_PtrList<HTREEITEM__> m_items;
+  HTREEITEM__ m_root;
   HTREEITEM m_sel;
   int m_last_row_height;
   int m_scroll_x,m_scroll_y,m_capmode;
@@ -5428,12 +5413,10 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           return 0;
         }
 
-        int x;
-        const int n = tvs->m_items.GetSize();
-        int y = GET_Y_LPARAM(lParam) + tvs->m_scroll_y;
-        if (tvs->m_last_row_height) for (x = 0; x < n; x ++)
+        if (tvs->m_last_row_height)
         {
-          HTREEITEM hit = tvs->hitTestItem(tvs->m_items.Get(x),&y);
+          int y = GET_Y_LPARAM(lParam) + tvs->m_scroll_y + tvs->m_last_row_height;
+          HTREEITEM hit = tvs->hitTestItem(&tvs->m_root,&y);
           if (hit) 
           {
             if (tvs->m_sel != hit)
@@ -5443,7 +5426,6 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
               SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
             }
-            break;
           }
         }
       }
@@ -5511,14 +5493,9 @@ forceMouseMove:
 
             SetBkMode(ps.hdc,TRANSPARENT);
 
-            int x;
-            const int n = tvs->m_items.GetSize();
             r.top -= tvs->m_scroll_y;
 
-            for (x = 0; x < n && r.top < r.bottom; x ++)
-            {
-              tvs->doDrawItem(tvs->m_items.Get(x),ps.hdc,&r);
-            }
+            tvs->doDrawItem(&tvs->m_root,ps.hdc,&r);
 
             drawVerticalScrollbar(ps.hdc,cr,total_h,tvs->m_scroll_y);
           }
@@ -7470,18 +7447,16 @@ HTREEITEM TreeView_InsertItem(HWND hwnd, TV_INSERTSTRUCT *ins)
   }
   
   if (ins->hInsertAfter == TVI_FIRST) inspos=0;
-  else if (ins->hInsertAfter == TVI_LAST || ins->hInsertAfter == TVI_SORT || !ins->hInsertAfter) inspos=par ? par->m_children.GetSize() : tvs->m_items.GetSize();
-  else inspos = par ? par->m_children.Find(ins->hInsertAfter)+1 : tvs->m_items.Find(ins->hInsertAfter)+1;
+  else if (ins->hInsertAfter == TVI_LAST || ins->hInsertAfter == TVI_SORT || !ins->hInsertAfter) 
+    inspos=(par ? par : &tvs->m_root)->m_children.GetSize();
+  else inspos = (par ? par : &tvs->m_root)->m_children.Find(ins->hInsertAfter)+1;
   
   HTREEITEM__ *item=new HTREEITEM__;
   if (ins->item.mask & TVIF_CHILDREN) item->m_haschildren = !!ins->item.cChildren;
   if (ins->item.mask & TVIF_PARAM) item->m_param = ins->item.lParam;
   if (ins->item.mask & TVIF_TEXT) item->m_value = strdup(ins->item.pszText);
-  if (!par)
-  {
-    tvs->m_items.Insert(inspos,item);
-  }
-  else par->m_children.Insert(inspos,item);
+
+  (par ? par : &tvs->m_root)->m_children.Insert(inspos,item);
   
   InvalidateRect(hwnd,NULL,FALSE);
   return item;
@@ -7518,8 +7493,7 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
 
   if (tvs->m_sel && (item == tvs->m_sel || item->FindItem(tvs->m_sel,NULL,NULL))) tvs->m_sel=NULL;
 
-  if (par) par->m_children.Delete(idx,true);
-  else tvs->m_items.Delete(idx,true);
+  (par ? par : &tvs->m_root)->m_children.Delete(idx,true);
   InvalidateRect(hwnd,NULL,FALSE);
 }
 
@@ -7527,7 +7501,7 @@ void TreeView_DeleteAllItems(HWND hwnd)
 {
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
   if (!tvs) return;
-  tvs->m_items.Empty(true);
+  tvs->m_root.m_children.Empty(true);
   tvs->m_sel=NULL;
   InvalidateRect(hwnd,NULL,FALSE);
 }
@@ -7619,14 +7593,14 @@ HTREEITEM TreeView_GetRoot(HWND hwnd)
 {
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
   if (!tvs) return NULL;
-  return tvs->m_items.Get(0);
+  return tvs->m_root.m_children.Get(0);
 }
 
 HTREEITEM TreeView_GetChild(HWND hwnd, HTREEITEM item)
 {
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
   if (!tvs) return NULL;
-  return item && item != TVI_ROOT ? item->m_children.Get(0) : tvs->m_items.Get(0);
+  return (item && item != TVI_ROOT ? item : &tvs->m_root)->m_children.Get(0);
 }
 
 HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
@@ -7637,8 +7611,7 @@ HTREEITEM TreeView_GetNextSibling(HWND hwnd, HTREEITEM item)
   int idx=0;
   if (!tvs || !tvs->findItem(item,&par,&idx)) return NULL;
 
-  if (par) return par->m_children.Get(idx+1);
-  return tvs->m_items.Get(idx+1);
+  return (par ? par : &tvs->m_root)->m_children.Get(idx+1);
 }
 BOOL TreeView_SetIndent(HWND hwnd, int indent)
 {
