@@ -716,7 +716,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     face=(FT_Face)font->typedata;
     lineh = face->size->metrics.height/64;
     ascent = face->size->metrics.ascender/64;
-    charw = face->size->metrics.max_advance/64;
+    charw = face->size->metrics.height / 112;
   }
 #endif
 
@@ -760,7 +760,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         if (font)
         {
 #ifdef SWELL_FREETYPE
-          if (!FT_Load_Char(face, c, FT_LOAD_DEFAULT) && face->glyph)
+          if (c != '\t' && !FT_Load_Char(face, c, FT_LOAD_DEFAULT) && face->glyph)
           {
             // measure character
             FT_GlyphSlot g = face->glyph;
@@ -857,7 +857,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       if (font)
       {
 #ifdef SWELL_FREETYPE
-        if (!FT_Load_Char(face, c, FT_LOAD_RENDER) && face->glyph)
+        if (c != '\t' && !FT_Load_Char(face, c, FT_LOAD_RENDER) && face->glyph)
         {
           FT_GlyphSlot g = face->glyph;
           const int ha = g->metrics.horiAdvance/64;
