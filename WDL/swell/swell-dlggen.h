@@ -136,11 +136,11 @@ struct SWELL_DlgResourceEntry
 #define ES_CENTER 1
 #define ES_RIGHT 2
 #define ES_MULTILINE 4
+#define ES_AUTOHSCROLL 0x80
                                     
 // flags we ignore
 #define LVS_SHOWSELALWAYS 0
 #define LVS_SHAREIMAGELISTS 0
-#define ES_AUTOHSCROLL 0
 #define ES_AUTOVSCROLL 0
 #define GROUP 0
 #define PBS_SMOOTH 0
