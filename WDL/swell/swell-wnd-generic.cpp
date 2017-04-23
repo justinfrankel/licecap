@@ -3983,7 +3983,30 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           SetBkMode(ps.hdc,hbrush ? TRANSPARENT : OPAQUE);
           if (hbrush) FillRect(ps.hdc,&r,hbrush);
           const char *buf = hwnd->m_title.Get();
-          if (buf && buf[0]) DrawText(ps.hdc,buf,-1,&r,((hwnd->m_style & SS_CENTER) ? DT_CENTER:0)|DT_VCENTER);
+          if (buf && buf[0]) 
+          {
+            if ((hwnd->m_style & SS_TYPEMASK) == SS_LEFT)
+            {
+              RECT tmp={0,};
+              const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+              if (r.bottom > line_h*5/3)
+              {
+                int loffs=0;
+                while (buf[loffs] && r.top < r.bottom)
+                {
+                  int post=0, lb=getLineLength(buf+loffs, &post, r.right, ps.hdc);
+                  if (lb>0)
+                  {
+                    DrawText(ps.hdc,buf+loffs,lb,&r,DT_TOP|DT_SINGLELINE|DT_LEFT);
+                    r.top += line_h;
+                  }
+                  loffs+=lb+post;
+                } 
+                buf = NULL;
+              }
+            }
+            if (buf) DrawText(ps.hdc,buf,-1,&r,((hwnd->m_style & SS_CENTER) ? DT_CENTER:0)|DT_VCENTER);
+          }
           EndPaint(hwnd,&ps);
         }
       }
