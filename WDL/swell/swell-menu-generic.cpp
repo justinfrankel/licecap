@@ -328,7 +328,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
   // only needed for Cocoa
 }
 
-static POINT m_trackingPt;
+static POINT m_trackingPt, m_trackingPt2;
 static int m_trackingMouseFlag;
 static int m_trackingFlags,m_trackingRet;
 static HWND m_trackingPar;
@@ -368,8 +368,6 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         HDC hdc = GetDC(hwnd);
         HMENU__ *menu = (HMENU__*)lParam;
         int ht = 0, wid=100,wid2=0;
-        int xpos=m_trackingPt.x;
-        int ypos=m_trackingPt.y;
         int x;
         for (x=0; x < menu->items.GetSize(); x++)
         {
@@ -407,10 +405,24 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         }
         wid+=lcol+rcol + (wid2?wid2+mcol:0);
         ReleaseDC(hwnd,hdc);
-        RECT tr={xpos,ypos,xpos+wid+4,ypos+ht+top_margin * 2},vp;
+
+        RECT tr={m_trackingPt.x,m_trackingPt.y,
+                 m_trackingPt.x+wid+4,m_trackingPt.y+ht+top_margin * 2}, vp;
         SWELL_GetViewPort(&vp,&tr,true);
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
-        if (tr.right > vp.right) { tr.left += vp.right-tr.right; tr.right=vp.right; }
+        if (tr.right > vp.right) 
+        { 
+          if ((vp.right - m_trackingPt2.x) <  (m_trackingPt2.x - vp.left))
+          {
+            tr.left = m_trackingPt2.x - (tr.right-tr.left);
+            tr.right = m_trackingPt2.x;
+          }
+          else
+          {
+            tr.left += vp.right-tr.right; tr.right=vp.right; 
+          }
+        }
+
         if (tr.left < vp.left) { tr.right += vp.left-tr.left; tr.left=vp.left; }
         if (tr.top < vp.top) { tr.bottom += vp.top-tr.top; tr.top=vp.top; }
         if (tr.bottom > vp.bottom) tr.bottom=vp.bottom;
@@ -900,9 +912,12 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
             RECT r;
             GetClientRect(hwnd,&r);
-            m_trackingPt.x=r.right;
+            m_trackingPt.x=r.right - 3;
             m_trackingPt.y=item_ypos;
+            m_trackingPt2.x=r.left + lcol/4;
+            m_trackingPt2.y=item_ypos;
             ClientToScreen(hwnd,&m_trackingPt);
+            ClientToScreen(hwnd,&m_trackingPt2);
 
             submenuWndProc(hh, WM_CREATE,0,(LPARAM)inf->hSubMenu);
             InvalidateRect(hwnd,NULL,FALSE);
@@ -956,8 +971,8 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   m_trackingPar=hwnd;
   m_trackingFlags=flags;
   m_trackingRet=-1;
-  m_trackingPt.x=xpos;
-  m_trackingPt.y=ypos;
+  m_trackingPt2.x=m_trackingPt.x=xpos;
+  m_trackingPt2.y=m_trackingPt.y=ypos;
   m_trackingMouseFlag = 0;
   if (GetAsyncKeyState(VK_LBUTTON)) m_trackingMouseFlag |= 1;
   if (GetAsyncKeyState(VK_RBUTTON)) m_trackingMouseFlag |= 2;
