@@ -6328,7 +6328,7 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
     if (flags&LVNI_SELECTED) if (lvs->get_sel(x)) return x;
     if (flags&LVNI_FOCUSED) if (lvs->m_selitem==x) return x;
   }
-  for (x=0;x<=istart; x++) 
+  for (x=0;x<istart; x++) 
   {
     if (flags&LVNI_SELECTED) if (lvs->get_sel(x)) return x;
     if (flags&LVNI_FOCUSED) if (lvs->m_selitem==x) return x;
