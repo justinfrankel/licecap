@@ -351,9 +351,14 @@ int menuBarNavigate(int dir); // -1 if no menu bar active, 0 if did nothing, 1 i
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  const int lcol=24, rcol=12, mcol=10, top_margin=4;
-  const int separator_ht = 8, text_ht_pad = 4, bitmap_ht_pad = 4;
-  const int scroll_margin = 10;
+  static int lcol, rcol, mcol, top_margin, separator_ht, text_ht_pad, bitmap_ht_pad, scroll_margin;
+  if (!lcol)
+  {
+    lcol=SWELL_UI_SCALE(24); rcol=SWELL_UI_SCALE(12); mcol=SWELL_UI_SCALE(10);
+    top_margin=SWELL_UI_SCALE(4); separator_ht=SWELL_UI_SCALE(8); 
+    text_ht_pad=SWELL_UI_SCALE(4); bitmap_ht_pad=SWELL_UI_SCALE(4);
+    scroll_margin=SWELL_UI_SCALE(10);
+  }
   switch (uMsg)
   {
     case WM_CREATE:
@@ -367,7 +372,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HDC hdc = GetDC(hwnd);
         HMENU__ *menu = (HMENU__*)lParam;
-        int ht = 0, wid=100,wid2=0;
+        int ht = 0, wid=SWELL_UI_SCALE(100),wid2=0;
         int x;
         for (x=0; x < menu->items.GetSize(); x++)
         {
@@ -407,7 +412,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         ReleaseDC(hwnd,hdc);
 
         RECT tr={m_trackingPt.x,m_trackingPt.y,
-                 m_trackingPt.x+wid+4,m_trackingPt.y+ht+top_margin * 2}, vp;
+                 m_trackingPt.x+wid+SWELL_UI_SCALE(4),m_trackingPt.y+ht+top_margin * 2}, vp;
         SWELL_GetViewPort(&vp,&tr,true);
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
         if (tr.right > vp.right) 
@@ -461,11 +466,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           int ypos = top_margin;
           extern HWND GetFocusIncludeMenus();
 
-          MoveToEx(ps.hdc,cr.left+lcol-4,cr.top,NULL);
-          LineTo(ps.hdc,cr.left+lcol-4,cr.bottom);
+          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.top,NULL);
+          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.bottom);
           SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,cr.left+lcol-5,cr.top,NULL);
-          LineTo(ps.hdc,cr.left+lcol-5,cr.bottom);
+          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.top,NULL);
+          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.bottom);
 
           hwnd->m_extra[1]=0;
           for (x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
@@ -561,7 +566,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if (inf->hSubMenu) 
             {
-               RECT r2=r; r2.left = r2.right - rcol; r2.right -= 4;
+               RECT r2=r; r2.left = r2.right - rcol; r2.right -= SWELL_UI_SCALE(4);
                DrawText(ps.hdc,">",-1,&r2,DT_VCENTER|DT_RIGHT|DT_SINGLELINE);
             }
             if (inf->fState&MF_CHECKED)
@@ -912,7 +917,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
             RECT r;
             GetClientRect(hwnd,&r);
-            m_trackingPt.x=r.right - 3;
+            m_trackingPt.x=r.right - SWELL_UI_SCALE(3);
             m_trackingPt.y=item_ypos;
             m_trackingPt2.x=r.left + lcol/4;
             m_trackingPt2.y=item_ypos;
