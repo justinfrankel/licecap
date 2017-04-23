@@ -682,7 +682,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
-        for (int i= wParam == VK_UP ? 1 : 10; i>=0 && l>0; i--) while (l > 0)
+        for (int i= wParam == VK_UP ? 0 : 9; i>=0 && l>0; i--) while (l > 0)
         {
           MENUITEMINFO *inf = menu->items.Get(--l);
           if (!inf) break; 
@@ -701,7 +701,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
         const int n =menu->items.GetSize()-1;
-        for (int i = wParam == VK_DOWN ? 1 : 10; i>=0 && l<n; i--) while (l < n)
+        for (int i = wParam == VK_DOWN ? 0 : 9; i>=0 && l<n; i--) while (l < n)
         {
           MENUITEMINFO *inf = menu->items.Get(++l);
           if (!inf) break; 
