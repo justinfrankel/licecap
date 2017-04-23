@@ -456,7 +456,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           LineTo(ps.hdc,cr.left+lcol-5,cr.bottom);
 
           hwnd->m_extra[1]=0;
-          for (x=hwnd->m_extra[0]; x < (menu->items.GetSize()); x++)
+          for (x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
           {
             if (ypos >= cr.bottom)
             {
@@ -631,7 +631,8 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         GetCursorPos(&curM);
         if ((curM.x >= tr.left && curM.x < tr.right) || (hwnd->m_extra[1]&3)==3)
         {
-          int xFirst = hwnd->m_extra[0];
+          HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          int xFirst = wdl_max(hwnd->m_extra[0],0);
           if ((hwnd->m_extra[1]&1) && 
                ((hwnd->m_extra[1]&2) || 
                 (curM.y >= tr.bottom-scroll_margin && 
@@ -822,7 +823,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         HDC hdc=GetDC(hwnd);
         if (wParam > 1) which = -1;
         else item_ypos = 0;
-        for (int x=hwnd->m_extra[0]; x < (menu->items.GetSize()); x++)
+        for (int x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
         {
           if (wParam == 1 && which == x) { item_ypos = ht; break; }
           MENUITEMINFO *inf = menu->items.Get(x);
