@@ -312,8 +312,18 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             if (!(hwnd->m_style&WS_THICKFRAME))
               decor = (GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE);
 
-            if (hwnd->m_owner || modal)
+            if (modal)
+            {
               type_hint = GDK_WINDOW_TYPE_HINT_DIALOG;
+            }
+            else if (hwnd->m_owner)
+            {
+              // hwnd->m_israised=true; // some WMs don't respect HINT_DIALOG? uncomment this if so
+
+              // remove this if you want owned modeless windows to be able to go below
+              // unowned windows (assuming WM supports this too)
+              type_hint = GDK_WINDOW_TYPE_HINT_DIALOG; 
+            }
 
             gdk_window_set_type_hint(hwnd->m_oswindow,type_hint);
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
