@@ -2896,6 +2896,49 @@ static bool editGetCharPos(HDC hdc, const char *str, int singleline_len, int cha
   return true;
 }
 
+static int editHitTestLine(HDC hdc, const char *str, int str_len, int xpos, int ypos)
+{
+  RECT mr={0,};
+  DrawText(hdc,str_len == 0 ? " " : str,wdl_max(str_len,1),&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+
+  if (xpos >= mr.right) return str_len;
+  if (xpos < 1) return 0;
+
+  // could bsearch, but meh
+  int lc=0, x = wdl_utf8_parsechar(str,NULL);
+  while (x < str_len)
+  {
+    memset(&mr,0,sizeof(mr));
+    DrawText(hdc,str,x,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+    if (xpos < mr.right) break;
+    lc=x;
+    x += wdl_utf8_parsechar(str+x,NULL);
+  }
+  return lc;
+}
+
+static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, int ypos)
+{
+  if (singleline_len >= 0) return editHitTestLine(hdc,str,singleline_len,xpos,1);
+
+  const char *buf = str;
+  int bytepos = 0;
+  RECT tmp={0};
+  const int line_h = DrawText(hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+  for (;;)
+  {
+    int pskip=0, lb = getLineLength(buf,&pskip);
+
+    if (ypos < line_h) return bytepos + editHitTestLine(hdc,buf,lb, xpos,ypos);
+    ypos -= line_h;
+
+    if (!buf[0] || !buf[lb]) return bytepos + lb;
+
+    bytepos += lb+pskip;
+    buf += lb+pskip;
+  }
+}
+
 
 struct __SWELL_editControlState
 {
@@ -3152,39 +3195,53 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
   if (es && (lParam & FVIRTKEY)) switch (wParam)
   {
     case VK_UP:
-    case VK_HOME:
-      if (isMultiLine)
-      {
-        const char *buf=hwnd->m_title.Get();
-        int p = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
-        while (p >= 0 && buf[p] != '\n') p--;
-        if (wParam == VK_UP)
-        {
-          if (p>=0) p--;
-          while (p >= 0 && buf[p] != '\n') p--;
-        }
-        es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,p+1));
-        return 3;
-      }
-      else if (es->cursor_pos > 0) { es->moveCursor(0); return 3; }
-    return 1;
-    case VK_END:
     case VK_DOWN:
       if (isMultiLine)
       {
-        const char *buf=hwnd->m_title.Get();
-        int p = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
-        while (buf[p] && buf[p] != '\r' && buf[p] != '\n') p++;
-        if (wParam == VK_DOWN)
+        HDC hdc=GetDC(hwnd);
+        if (hdc)
         {
-          if (buf[p] == '\r') p++;
-          if (buf[p] == '\n') p++;
+          RECT tmp={0};
+          const int line_h = DrawText(hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+          POINT pt;
+          if (editGetCharPos(hdc, hwnd->m_title.Get(), -1, es->cursor_pos, line_h, &pt))
+          {
+            if (wParam == VK_UP) pt.y -= line_h/2;
+            else pt.y += line_h + line_h/2;
+            int nextpos = editHitTest(hdc, hwnd->m_title.Get(), -1,pt.x,pt.y);
+            es->moveCursor(WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),nextpos));
+          }
+          ReleaseDC(hwnd,hdc);
         }
-        es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,p));
         return 3;
       }
-      else
+      // fall through
+    case VK_HOME:
+    case VK_END:
+      if (isMultiLine)
       {
+        const char *buf = hwnd->m_title.Get();
+        int lpos = 0;
+        const int cbytepos = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
+        for (;;) 
+        {
+          int ps=0, lb = getLineLength(buf+lpos, &ps);
+          if (!buf[lpos] || (cbytepos >= lpos && cbytepos < lpos+lb+ps))
+          {
+            if (wParam == VK_HOME) es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,lpos));
+            else es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,lpos+lb));
+            return 3;
+          }
+          lpos += lb+ps;
+        }
+      }
+
+      if (wParam == VK_UP || wParam == VK_HOME)
+      {
+        if (es->cursor_pos > 0) { es->moveCursor(0); return 3; }
+      }
+      else
+      { 
         int l = WDL_utf8_get_charlen(hwnd->m_title.Get());
         if (es->cursor_pos != l) { es->moveCursor(l); return 3; }
       }
@@ -3314,49 +3371,6 @@ static int editControlPaintLine(HDC hdc, const char *str, int str_len, int curso
     SetTextColor(hdc,oc);
   }
   return rv;
-}
-
-static int editHitTestLine(HDC hdc, const char *str, int str_len, int xpos, int ypos)
-{
-  RECT mr={0,};
-  DrawText(hdc,str_len == 0 ? " " : str,wdl_max(str_len,1),&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-
-  if (xpos >= mr.right) return str_len;
-  if (xpos < 1) return 0;
-
-  // could bsearch, but meh
-  int lc=0, x = wdl_utf8_parsechar(str,NULL);
-  while (x < str_len)
-  {
-    memset(&mr,0,sizeof(mr));
-    DrawText(hdc,str,x,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-    if (xpos < mr.right) break;
-    lc=x;
-    x += wdl_utf8_parsechar(str+x,NULL);
-  }
-  return lc;
-}
-
-static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, int ypos)
-{
-  if (singleline_len >= 0) return editHitTestLine(hdc,str,singleline_len,xpos,1);
-
-  const char *buf = str;
-  int bytepos = 0;
-  RECT tmp={0};
-  const int line_h = DrawText(hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-  for (;;)
-  {
-    int pskip=0, lb = getLineLength(buf,&pskip);
-
-    if (ypos < line_h) return bytepos + editHitTestLine(hdc,buf,lb, xpos,ypos);
-    ypos -= line_h;
-
-    if (!buf[0] || !buf[lb]) return bytepos + lb;
-
-    bytepos += lb+pskip;
-    buf += lb+pskip;
-  }
 }
 
 static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
