@@ -7361,7 +7361,9 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_CONTEXTMENU:
     case WM_MOUSEWHEEL:
     case WM_MOUSEHWHEEL:
+    case WM_SETCURSOR:
         return hwnd->m_parent ? SendMessage(hwnd->m_parent,msg,wParam,lParam) : 0;
+
     case WM_GETFONT:
 #ifdef SWELL_FREETYPE
         {
