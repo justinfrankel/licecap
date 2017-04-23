@@ -3265,7 +3265,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
         for (;;) 
         {
           int ps=0, lb = getLineLength(buf+lpos, &ps,wwrap,hdc);
-          if (!buf[lpos] || (cbytepos >= lpos && cbytepos < lpos+lb+ps))
+          if (!buf[lpos] || (cbytepos >= lpos && cbytepos < lpos+lb+ps + (buf[lpos+lb+ps]?0:1)))
           {
             if (wParam == VK_HOME) es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,lpos));
             else es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,lpos+lb));
