@@ -629,22 +629,23 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
         POINT curM;
         GetCursorPos(&curM);
-        if ((curM.x >= tr.left && curM.x < tr.right) || (hwnd->m_extra[1]&3)==3)
+        const bool xmatch = (curM.x >= tr.left && curM.x < tr.right);
+        if (xmatch || (hwnd->m_extra[1]&3)==3)
         {
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int xFirst = wdl_max(hwnd->m_extra[0],0);
-          if ((hwnd->m_extra[1]&1) && 
-               ((hwnd->m_extra[1]&2) || 
-                (curM.y >= tr.bottom-scroll_margin && 
-                 curM.y < tr.bottom+scroll_margin)))
+          const bool ymatch = curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin;
+          if ((hwnd->m_extra[1]&1) && ((hwnd->m_extra[1]&2) || ymatch))
           {
             hwnd->m_extra[0]=++xFirst;
             hwnd->m_extra[1]=0;
+            if (ymatch) menu->sel_vis=-1;
             InvalidateRect(hwnd,NULL,FALSE);
           }
           else if (xFirst > 0 && curM.y >= tr.top-scroll_margin && curM.y < tr.top+scroll_margin)
           {
             hwnd->m_extra[0]=--xFirst;
+            menu->sel_vis=-1;
             InvalidateRect(hwnd,NULL,FALSE);
           }
         }
