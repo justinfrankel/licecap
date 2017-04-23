@@ -318,11 +318,11 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             }
             else if (hwnd->m_owner)
             {
-              // hwnd->m_israised=true; // some WMs don't respect HINT_DIALOG? uncomment this if so
+              if (g_swell_ctheme.owned_window_flags&2)
+                hwnd->m_israised=true;
 
-              // remove this if you want owned modeless windows to be able to go below
-              // unowned windows (assuming WM supports this too)
-              type_hint = GDK_WINDOW_TYPE_HINT_DIALOG; 
+              if (g_swell_ctheme.owned_window_flags&1)
+                type_hint = GDK_WINDOW_TYPE_HINT_DIALOG; 
             }
 
             gdk_window_set_type_hint(hwnd->m_oswindow,type_hint);
@@ -338,7 +338,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           {
             if (s_program_icon_list) 
               gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
-            if (hwnd->m_owner)
+            if (hwnd->m_owner && !(g_swell_ctheme.owned_window_flags&4))
             {
               gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
             }
