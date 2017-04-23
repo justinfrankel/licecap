@@ -1645,7 +1645,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   {
     GdkWindow *wnd = tmp->m_oswindow;
     gint px=0,py=0;
-    gdk_window_get_origin(wnd,&px,&py); // this is probably unreliable but ugh (use get_geometry?)
+    gdk_window_get_position(wnd,&px,&py); // use the last configured position
     x-=px;
     y-=py;
   }
@@ -1687,7 +1687,7 @@ void ClientToScreen(HWND hwnd, POINT *p)
   {
     GdkWindow *wnd = tmp->m_oswindow;
     gint px=0,py=0;
-    gdk_window_get_origin(wnd,&px,&py); // this is probably unreliable but ugh (use get_geometry?)
+    gdk_window_get_position(wnd,&px,&py); // use the last configured position
     x+=px;
     y+=py;
   }
