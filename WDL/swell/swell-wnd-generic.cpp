@@ -3621,6 +3621,10 @@ forceMouseMove:
 
           es->onMouseDrag(s_capmode_state,p);
 
+          es->autoScrollToOffset(hwnd,p,
+               (hwnd->m_style & ES_MULTILINE) != 0,
+               (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE);
+
 
           InvalidateRect(hwnd,NULL,FALSE);
         }
@@ -4275,6 +4279,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           ReleaseDC(hwnd,hdc);
 
           s->editstate.onMouseDrag(s_capmode_state,p);
+          s->editstate.autoScrollToOffset(hwnd,p,false,false);
 
           InvalidateRect(hwnd,NULL,FALSE);
         }
