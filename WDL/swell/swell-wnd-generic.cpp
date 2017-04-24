@@ -611,6 +611,26 @@ static int hex_parse(char c)
   return -1;
 }
 
+static GdkAtom utf8atom() 
+{
+  static GdkAtom tmp;
+  if (!tmp) tmp = gdk_atom_intern_static_string("UTF8_STRING");
+  return tmp;
+}
+static GdkAtom tgtatom() 
+{
+  static GdkAtom tmp;
+  if (!tmp) tmp = gdk_atom_intern_static_string("TARGETS");
+  return tmp;
+}
+static GdkAtom urilistatom() 
+{
+  static GdkAtom tmp;
+  if (!tmp) tmp = gdk_atom_intern_static_string("text/uri-list");
+  return tmp;
+}
+
+
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -663,13 +683,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         GdkEventSelection *b = (GdkEventSelection *)evt;
         //printf("got sel req %s\n",gdk_atom_name(b->target));
         GdkAtom prop=GDK_NONE;
-        static GdkAtom tgtatom, utf8atom;
-        if (!tgtatom) tgtatom = gdk_atom_intern_static_string("TARGETS");
-        if (!utf8atom) utf8atom = gdk_atom_intern_static_string("UTF8_STRING");
 
         if (s_clipboard_setstate)
         {
-          if (b->target == tgtatom)
+          if (b->target == tgtatom())
           {
             if (s_clipboard_setstate_fmt)
             {
@@ -688,8 +705,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           else 
           {
             if (b->target == s_clipboard_setstate_fmt || 
-                (s_clipboard_setstate_fmt == GDK_TARGET_STRING && 
-                 b->target == utf8atom)
+                (b->target == GDK_TARGET_STRING && s_clipboard_setstate_fmt == utf8atom())
                )
             {
               prop = b->property;
@@ -697,7 +713,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               guchar *ptr = (guchar*)s_clipboard_setstate;
 
               WDL_FastString str;
-              if (s_clipboard_setstate_fmt == GDK_TARGET_STRING) 
+              if (s_clipboard_setstate_fmt == utf8atom())
               {
                 const char *rd = (const char *)s_clipboard_setstate;
                 while (*rd)
@@ -953,7 +969,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (!a) s_ddrop_hwnd=NULL;
           }
 
-          if (hwnd == s_ddrop_hwnd && b->target == gdk_atom_intern_static_string("text/uri-list"))
+          if (hwnd == s_ddrop_hwnd && b->target == urilistatom())
           {
             POINT p = s_ddrop_pt;
             HWND cw=hwnd;
@@ -1038,7 +1054,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             WDL_FastString str;
             guchar *ptr = gptr;
-            if (fmt == GDK_TARGET_STRING)
+            if (fmt == GDK_TARGET_STRING || fmt == utf8atom())
             {
               int lastc=0;
               while (sz-->0)
@@ -1052,9 +1068,17 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
                 if (c == '\n' && lastc != '\r') str.Append("\r",1);
 
-                char b[8];
-                WDL_MakeUTFChar(b,c,sizeof(b));
-                str.Append(b);
+                if (fmt != GDK_TARGET_STRING)
+                {
+                  char b = (char) ((unsigned char)c);
+                  str.Append(&b,1);
+                } 
+                else
+                {
+                  char b[8];
+                  WDL_MakeUTFChar(b,c,sizeof(b));
+                  str.Append(b);
+                }
 
                 lastc=c;
               }
@@ -1099,7 +1123,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               s_ddrop_pt = p;
 
               GdkAtom srca = gdk_drag_get_selection(ctx);
-              gdk_selection_convert(e->window,srca,gdk_atom_intern_static_string("text/uri-list"),e->time);
+              gdk_selection_convert(e->window,srca,urilistatom(),e->time);
               gdk_drop_finish(ctx,TRUE,e->time);
             }
           }
@@ -7548,7 +7572,7 @@ UINT EnumClipboardFormats(UINT lastfmt)
   if (!lastfmt)
   {
     // checking this causes issues (reentrancy, I suppose?)
-    //if (req_clipboard(GDK_TARGET_STRING))
+    //if (req_clipboard(utf8atom()))
     return CF_TEXT;
   }
   if (lastfmt == CF_TEXT) lastfmt = 0;
@@ -7570,7 +7594,7 @@ HANDLE GetClipboardData(UINT type)
 #ifdef SWELL_TARGET_GDK
   if (type == CF_TEXT)
   {
-    return req_clipboard(GDK_TARGET_STRING);
+    return req_clipboard(utf8atom());
   }
 #endif
   return m_clip_recs.Get(type);
@@ -7601,7 +7625,7 @@ void SetClipboardData(UINT type, HANDLE h)
     }
     if (w)
     {
-      s_clipboard_setstate_fmt = GDK_TARGET_STRING;
+      s_clipboard_setstate_fmt = utf8atom();
       s_clipboard_setstate = h;
       gdk_selection_owner_set(w,GDK_SELECTION_CLIPBOARD,GDK_CURRENT_TIME,TRUE);
     }
