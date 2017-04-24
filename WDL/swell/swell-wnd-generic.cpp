@@ -814,6 +814,8 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (k->state&GDK_MOD1_MASK) modifiers|=FALT;
             if (k->state&SWELL_WINDOWSKEY_GDK_MASK) modifiers|=FLWIN;
             if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
+ 
+            int msgtype = evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP;
 
             int kv = swell_gdkConvertKey(k->keyval);
             if (kv) 
@@ -838,8 +840,17 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               }
               else 
               {
-                if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsewhere 
-                if (kv > 255) 
+                if (kv >= DEF_GKY(Shift_L))
+                {
+                  if (kv == DEF_GKY(Shift_L) || kv == DEF_GKY(Shift_R)) kv = VK_SHIFT;
+                  else if (kv == DEF_GKY(Control_L) || kv == DEF_GKY(Control_R)) kv = VK_CONTROL;
+                  else if (kv == DEF_GKY(Alt_L) || kv == DEF_GKY(Alt_R)) kv = VK_MENU;
+                  else if (kv == DEF_GKY(Meta_L) || kv == DEF_GKY(Meta_R)) kv = VK_LWIN;
+                  else break; // unknown modifier
+
+                  msgtype = evt->type == GDK_KEY_PRESS ? WM_SYSKEYDOWN : WM_SYSKEYUP;
+                }
+                else if (kv > 255) 
                 {
                   int v = gdk_keyval_to_unicode(kv);
                   if (v) kv=v;
@@ -856,8 +867,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (foc && IsChild(hwnd,foc)) hwnd=foc;
             else if (foc && foc->m_oswindow && !(foc->m_style&WS_CAPTION)) hwnd=foc; // for menus, event sent to other window due to gdk_window_set_override_redirect()
 
-            MSG msg = { hwnd, evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP, 
-                              kv, modifiers, };
+            MSG msg = { hwnd, msgtype, kv, modifiers, };
             if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)
               SendMessage(hwnd, msg.message, kv, modifiers);
           }
