@@ -443,8 +443,18 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         case IDOK: 
           {
             char buf[maxPathLen], msg[2048];
+            GetDlgItemText(hwnd,0x103,buf,sizeof(buf));
             if (GetFocus() == GetDlgItem(hwnd,0x103))
             {
+              DIR *dir = opendir(buf);
+              if (!dir)
+              {
+                snprintf(msg,sizeof(msg),"Path does not exist:\r\n\r\n%s",buf);
+                MessageBox(hwnd,msg,"Path not found",MB_OK);
+                return 0;
+              }
+              closedir(dir);
+
               SendMessage(hwnd,WM_USER+100,1,0); // refresh list
               HWND e = GetDlgItem(hwnd,0x100);
               SendMessage(e,EM_SETSEL,0,(LPARAM)-1);
@@ -452,7 +462,6 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
               return 0;
             }
 
-            GetDlgItemText(hwnd,0x103,buf,sizeof(buf));
             size_t buflen = strlen(buf);
             if (!buflen) strcpy(buf,"/");
             else
