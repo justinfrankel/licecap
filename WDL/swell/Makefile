@@ -4,12 +4,22 @@
 # etc
 
 ARCH := $(shell uname -m)
-ARCHSTR := $(ARCH)-$(shell lsb_release -i -s | tr '[:upper:]' '[:lower:]')-$(shell lsb_release -c -s | tr '[:upper:]' '[:lower:]')
+UNAME_S := $(shell uname -s)
+
 
 CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-narrowing -Wno-sign-compare -Wno-unused-function -Wno-multichar -Wno-unused-result
 
+ifeq ($(UNAME_S),Darwin)
+  CFLAGS += -Wno-unused-private-field -DSWELL_FORCE_GENERIC
+  ARCHSTR := $(ARCH)-darwin
+  DLL_EXT=.dylib
+else
+  ARCHSTR := $(ARCH)-$(shell lsb_release -i -s | tr '[:upper:]' '[:lower:]')-$(shell lsb_release -c -s | tr '[:upper:]' '[:lower:]')
+  DLL_EXT=.so
+endif
+
 ifndef ALLOW_WARNINGS
-CFLAGS += -Werror
+  CFLAGS += -Werror
 endif
 ifndef DEPRECATED_WARNINGS
   CFLAGS +=  -Wno-deprecated-declarations
@@ -18,14 +28,19 @@ endif
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char 
 else
-  CFLAGS += -malign-double 
+  ifneq ($(UNAME_S),Darwin)
+    CFLAGS += -malign-double
+  endif
 endif
 
 
 ifdef DEBUG
 CFLAGS += -O0 -g 
 else
-CFLAGS += -O2 -s
+CFLAGS += -O2 
+  ifneq ($(UNAME_S),Darwin)
+    CFLAGS += -s
+  endif
 endif
 
 LINKEXTRA =  -lpthread -ldl 
@@ -65,7 +80,7 @@ endif
 
 CXXFLAGS = $(CFLAGS)
 
-default: libSwell.so
+default: libSwell$(DLL_EXT)
 
 .PHONY: clean 
 
@@ -84,23 +99,23 @@ swell-miscdlg-generic.o: $(SWELL_HEADERS)
 swell-modstub-generic.o: $(SWELL_HEADERS)
 swell-appstub-generic.o: $(SWELL_HEADERS)
 
-libSwell.so: $(OBJS)
+libSwell$(DLL_EXT): $(OBJS)
 	$(CXX) -shared -o $@ $(CFLAGS) $(LFLAGS) $^ $(LINKEXTRA)
 
 test: $(OBJS) test.o
 	$(CXX) -o test $(CFLAGS) $(LFLAGS) $^ $(LINKEXTRA)
 
 libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
-	$(CXX) -o make-theme -DSWELL__MAKE_THEME swell-gdi-generic.cpp -lpthread
+	$(CXX) $(CFLAGS) -o make-theme -DSWELL__MAKE_THEME swell-gdi-generic.cpp -lpthread
 	./make-theme > libSwell.colortheme
 
 clean: 
-	-rm $(OBJS) libSwell.so make-theme libSwell.colortheme
+	-rm $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme
 
 dist-xz:
 	-make NOGDK=1 clean
 	make NOGDK=1
-	tar cvJf libSwell-$(ARCHSTR)-headless.tar.xz libSwell.so
+	tar cvJf libSwell-$(ARCHSTR)-headless.tar.xz libSwell$(DLL_EXT)
 	-make clean
 	make
-	tar cvJf libSwell-$(ARCHSTR)-gtk3.tar.xz libSwell.so
+	tar cvJf libSwell-$(ARCHSTR)-gtk3.tar.xz libSwell$(DLL_EXT)
