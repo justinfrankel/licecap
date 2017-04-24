@@ -2284,7 +2284,7 @@ void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytran
   }
   m_sizetofits=dosizetofit;
   m_lastdoauto.left = 0;
-  m_lastdoauto.top = -100<<16;
+  m_lastdoauto.top = -6553600;
   m_lastdoauto.right = 0;
   m_doautoright=doauto;
   m_transform.left=(int)(xtrans*65536.0);
@@ -2335,7 +2335,6 @@ static RECT MakeCoords(int x, int y, int w, int h, bool wantauto)
   return ret;
 }
 
-static const double minwidfontadjust=1.81;
 #define TRANSFORMFONTSIZE ((m_transform.right/65536.0+1.0)*3.7)
 
 

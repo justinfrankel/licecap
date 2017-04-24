@@ -348,6 +348,7 @@ bool swell_isOSwindowmenu(void *osw)
 }
 
 int menuBarNavigate(int dir); // -1 if no menu bar active, 0 if did nothing, 1 if navigated
+HWND GetFocusIncludeMenus(void);
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -464,7 +465,6 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int x;
           int ypos = top_margin;
-          extern HWND GetFocusIncludeMenus();
 
           MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.top,NULL);
           LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.bottom);
@@ -622,7 +622,6 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     case WM_TIMER:
       if (wParam==1)
       {
-        HWND GetFocusIncludeMenus();
         HWND h = GetFocusIncludeMenus();
         if (h!=hwnd)
         {
