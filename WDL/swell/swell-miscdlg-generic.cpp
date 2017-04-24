@@ -721,7 +721,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
                        char *fn, int fnsize)
 {
   BrowseFile_State state( text, initialdir, initialfile, extlist, BrowseFile_State::SAVE, fn, fnsize );
-  if (!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state)) return false;
+  if (!DialogBoxParam(NULL,NULL,GetForegroundWindow(),swellFileSelectProc,(LPARAM)&state)) return false;
   if (fn && fnsize > 0 && extlist && *extlist && WDL_get_fileext(fn)[0] != '.')
   {
     const char *erd = extlist+strlen(extlist)+1;
@@ -739,7 +739,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
 {
   BrowseFile_State state( text, initialdir, initialdir, NULL, BrowseFile_State::OPENDIR, fn, fnsize );
-  return !!DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state);
+  return !!DialogBoxParam(NULL,NULL,GetForegroundWindow(),swellFileSelectProc,(LPARAM)&state);
 }
 
 
@@ -748,7 +748,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 {
   BrowseFile_State state( text, initialdir, initialfile, extlist, 
            allowmul ? BrowseFile_State::OPENMULTI : BrowseFile_State::OPEN, NULL, 0 );
-  return DialogBoxParam(NULL,NULL,NULL,swellFileSelectProc,(LPARAM)&state) ? state.fnout : NULL;
+  return DialogBoxParam(NULL,NULL,GetForegroundWindow(),swellFileSelectProc,(LPARAM)&state) ? state.fnout : NULL;
 }
 
 
