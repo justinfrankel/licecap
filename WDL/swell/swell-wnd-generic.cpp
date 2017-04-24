@@ -874,9 +874,17 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               }
               else 
               {
-                if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsehwere 
-                // treat as ASCII, clear shift flag
-                modifiers &= ~FSHIFT;
+                if (kv > 65500) break; // ignore shift/ctrl/alt, this might belong elsewhere 
+                if (kv > 255) 
+                {
+                  int v = gdk_keyval_to_unicode(kv);
+                  if (v) kv=v;
+                }
+                else
+                {
+                  // treat as ASCII, clear shift flag (?)
+                  modifiers &= ~FSHIFT;
+                }
               }
             }
 
