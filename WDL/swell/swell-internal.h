@@ -991,7 +991,6 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   fd(group_shadow, RGB(96,96,96), _3dshadow) \
   fd(group_hilight, RGB(224,224,224), _3dhilight) \
   f(dlg_scale256, 256) \
-  f(owned_window_flags, 1) /* 1=mark as dlg, 2=raise, 4=show in tasklist*/ \
   
 
 struct swell_colortheme {

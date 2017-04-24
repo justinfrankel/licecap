@@ -39,8 +39,6 @@
 
 #include "swell-dlggen.h"
 
-int g_swell_want_nice_style = 1; //unused but here for compat
-
 HWND__ *SWELL_topwindows;
 
 HWND DialogBoxIsActive();
@@ -254,6 +252,24 @@ private:
 
 static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 {
+  static int gdk_owned_window_flag;
+  if (!gdk_owned_window_flag)
+  {
+    char buf[64];
+    GetPrivateProfileString(".swell","gdk_owned_window_flag","",buf,sizeof(buf),"");
+
+    if (!buf[0])
+    {
+      WritePrivateProfileString(".swell","gdk_owned_window_flag","1 // bit mask: 1=mark owned windows as dialog, 2=raise owned windows, 4=show owned windows in tasklist","");
+
+      gdk_owned_window_flag = 1; // default to just mark as dialog
+    }
+    else 
+    {
+      gdk_owned_window_flag = atoi(buf) | 0x10000000;
+    }
+  }
+  
   if (!hwnd) return;
 
   bool isVis = !!hwnd->m_oswindow;
@@ -318,10 +334,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             }
             else if (hwnd->m_owner)
             {
-              if (g_swell_ctheme.owned_window_flags&2)
+              if (gdk_owned_window_flag&2)
                 hwnd->m_israised=true;
 
-              if (g_swell_ctheme.owned_window_flags&1)
+              if (gdk_owned_window_flag&1)
                 type_hint = GDK_WINDOW_TYPE_HINT_DIALOG; 
             }
 
@@ -338,7 +354,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           {
             if (s_program_icon_list) 
               gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
-            if (hwnd->m_owner && !(g_swell_ctheme.owned_window_flags&4))
+            if (hwnd->m_owner && !(gdk_owned_window_flag&4))
             {
               gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
             }
