@@ -1037,7 +1037,7 @@ SWELL_API_DEFINE(HDC, GetDC,(HWND)) // use these sparingly! they kinda work but 
 SWELL_API_DEFINE(HDC, GetWindowDC,(HWND)) 
 SWELL_API_DEFINE(void, ReleaseDC,(HWND, HDC))
 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void, SWELL_FlushWindow,(HWND))
 #endif
             
@@ -1104,7 +1104,7 @@ SWELL_API_DEFINE(void,SWELL_SetListViewFastClickMask,(HWND hList, int mask))
 
 SWELL_API_DEFINE(void,GetTempPath,(int sz, char *buf))
 
-#ifndef __APPLE__
+#ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))
 SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
 SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, RECT*))
@@ -1122,14 +1122,14 @@ SWELL_API_DEFINE(void,SWELL_GetDesiredControlSize,(HWND hwnd, RECT *r))
 
 SWELL_API_DEFINE(int,AddFontResourceEx,(LPCTSTR str, DWORD fl, void *pdv))
 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_DisableAppNap,(int disable))
 SWELL_API_DEFINE(int,SWELL_GetOSXVersion,())
 #endif
 
 SWELL_API_DEFINE(void,SWELL_Register_Cursor_Resource,(const char *idx, const char *name, int hotspot_x, int hotspot_y))
 
-#ifndef __APPLE__
+#ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(bool, SWELL_ChooseColor, (HWND, int *, int ncustom, int *custom))
 SWELL_API_DEFINE(bool, SWELL_ChooseFont, (HWND, LOGFONT*))
 #endif

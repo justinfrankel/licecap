@@ -30,7 +30,7 @@
 #define _WDL_SWELL_H_
 
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(SWELL_FORCE_GENERIC)
 #define SWELL_TARGET_OSX
 #define SWELL_TARGET_OSX_COCOA
 #endif
@@ -141,31 +141,31 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd);
 
 #endif
 
-#if !defined(SWELL_AUTORELEASE_HELPER_DEFINED) && defined(__cplusplus) && (!defined(__APPLE__) || defined(SWELL_API_DEFINE))
+#if !defined(SWELL_AUTORELEASE_HELPER_DEFINED) && defined(__cplusplus) && (!defined(SWELL_TARGET_OSX) || defined(SWELL_API_DEFINE))
 #define SWELL_AUTORELEASE_HELPER_DEFINED
 
 class SWELL_AutoReleaseHelper  // no-op on non-apple
 {
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
     void *m_arp;
 #endif
   public:
     SWELL_AutoReleaseHelper() 
     {
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
       m_arp = SWELL_InitAutoRelease();
 #endif
     }
     ~SWELL_AutoReleaseHelper() 
     { 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
       release(); 
 #endif
     }
 
     void release()
     {
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
       if (m_arp) { SWELL_QuitAutoRelease(m_arp); m_arp=NULL; }
 #endif
     }

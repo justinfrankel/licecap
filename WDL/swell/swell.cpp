@@ -37,9 +37,13 @@
 #include "swell-internal.h"
 
 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
 #include <Carbon/Carbon.h>
+#endif
+
+#ifdef __APPLE__
 #include <sched.h>
+#include <sys/errno.h>
 #endif
 
 #ifdef __linux__
@@ -164,7 +168,7 @@ BOOL CloseHandle(HANDLE hand)
           pthread_detach(thr->pt);
         }
       break;
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
       case INTERNAL_OBJECT_NSTASK:
         {
           SWELL_InternalObjectHeader_NSTask *nst = (SWELL_InternalObjectHeader_NSTask*)hdr;
@@ -249,7 +253,7 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
   
   switch (hdr->type)
   {
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
     case INTERNAL_OBJECT_NSTASK:
       {
         SWELL_InternalObjectHeader_NSTask *nst = (SWELL_InternalObjectHeader_NSTask*)hdr;
@@ -319,14 +323,14 @@ again:
         else
         {
           // timed wait
-#ifdef SWELL_TARGET_OSX
+#ifdef __APPLE__
           struct timespec ts;
           ts.tv_sec = msTO/1000;
           ts.tv_nsec = (msTO%1000)*1000000;
 #endif
           while (!evt->isSignal) 
           {
-#ifdef SWELL_TARGET_OSX
+#ifdef __APPLE__
             if (pthread_cond_timedwait_relative_np(&evt->cond,&evt->mutex,&ts)==ETIMEDOUT)
             {
               rv = WAIT_TIMEOUT;
@@ -740,7 +744,7 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
   
   void *inst = NULL, *bundleinst=NULL;
 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   struct stat ss;
   if (stat(fn,&ss) || (ss.st_mode&S_IFDIR))
   {
@@ -762,7 +766,7 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
   }
 #endif
 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   if (!bundleinst)
 #endif
   {
@@ -821,7 +825,7 @@ void *GetProcAddress(HINSTANCE hInst, const char *procName)
   SWELL_HINSTANCE *rec=(SWELL_HINSTANCE*)hInst;
 
   void *ret = NULL;
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   if (rec->bundleinstptr)
   {
     CFStringRef str=(CFStringRef)SWELL_CStringToCFString(procName); 
@@ -847,7 +851,7 @@ BOOL FreeLibrary(HINSTANCE hInst)
   if (--rec->refcnt<=0) 
   {
     dofree=true;
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
     s_loadedLibs.Delete(rec->bundleinstptr ? rec->bundleinstptr : rec->instptr); 
 #else
     s_loadedLibs.Delete(rec->instptr); 
@@ -860,7 +864,7 @@ BOOL FreeLibrary(HINSTANCE hInst)
     }
   }
 
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   if (rec->bundleinstptr)
   {
     CFRelease((CFBundleRef)rec->bundleinstptr);
@@ -875,7 +879,7 @@ BOOL FreeLibrary(HINSTANCE hInst)
 void* SWELL_GetBundle(HINSTANCE hInst)
 {
   SWELL_HINSTANCE* rec=(SWELL_HINSTANCE*)hInst;
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   if (rec) return rec->bundleinstptr;
 #else
   if (rec) return rec->instptr;
@@ -888,19 +892,19 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
   *fn=0;
 
   void *instptr = NULL, *lastSymbolRequested=NULL;
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   void *bundleinstptr=NULL;
 #endif
   if (hInst)
   {
     SWELL_HINSTANCE *p = (SWELL_HINSTANCE*)hInst;
     instptr = p->instptr;
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
     bundleinstptr = p->bundleinstptr;
 #endif
     lastSymbolRequested=p->lastSymbolRequested;
   }
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   if (!instptr || bundleinstptr)
   {
     CFBundleRef bund=bundleinstptr ? (CFBundleRef)bundleinstptr : CFBundleGetMainBundle();
@@ -916,7 +920,7 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
     }
     return strlen(fn);
   }
-#else
+#elif defined(__linux__)
   if (!instptr) // get exe file name
   {
     char tmp[64];
@@ -945,7 +949,7 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
 
 bool SWELL_GenerateGUID(void *g)
 {
-#ifdef __APPLE__
+#ifdef SWELL_TARGET_OSX
   CFUUIDRef r = CFUUIDCreate(NULL);
   if (!r) return false;
   CFUUIDBytes a = CFUUIDGetUUIDBytes(r);
