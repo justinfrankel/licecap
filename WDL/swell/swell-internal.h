@@ -906,8 +906,18 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
 
 #ifndef SWELL_TARGET_OSX
 
-#define SWELL_GENERIC_THEMEDEFS(f,fd) \
+#define SWELL_GENERIC_THEMESIZEDEFS(f,fd) \
   f(default_font_size, 12) \
+  f(menubar_height, 17) \
+  f(menubar_font_size, 13) \
+  f(menubar_spacing_width, 8) \
+  f(menubar_margin_width, 6) \
+  f(scrollbar_width, 14) \
+  f(scrollbar_min_thumb_height, 4) \
+
+
+#define SWELL_GENERIC_THEMEDEFS(f,fd) \
+  SWELL_GENERIC_THEMESIZEDEFS(f,fd) \
   f(_3dface,RGB(192,192,192)) \
   f(_3dshadow,RGB(96,96,96)) \
   f(_3dhilight,RGB(224,224,224)) \
@@ -925,8 +935,6 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(scrollbar,RGB(32,32,32)) \
   f(scrollbar_fg, RGB(64,64,64)) \
   f(scrollbar_bg, RGB(192,192,192)) \
-  f(scrollbar_width, 14) \
-  f(scrollbar_min_thumb_height, 4) \
   f(edit_cursor,RGB(0,128,255)) \
   f(edit_bg,RGB(255,255,255)) \
   f(edit_bg_disabled,RGB(255,255,255)) \
@@ -950,10 +958,6 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   fd(menubar_text_disabled, RGB(224,224,224), menu_text_disabled) \
   fd(menubar_bg_sel, RGB(0,0,0), menu_bg_sel) \
   fd(menubar_text_sel, RGB(224,224,224), menu_text_sel) \
-  f(menubar_height, 17) \
-  f(menubar_font_size, 13) \
-  f(menubar_spacing_width, 8) \
-  f(menubar_margin_width, 6) \
   f(trackbar_track, RGB(224,224,224)) \
   f(trackbar_mark, RGB(96,96,96)) \
   f(trackbar_knob, RGB(48,48,48)) \
@@ -990,7 +994,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(group_text,RGB(0,0,0)) \
   fd(group_shadow, RGB(96,96,96), _3dshadow) \
   fd(group_hilight, RGB(224,224,224), _3dhilight) \
-  f(dlg_scale256, 256) \
+
   
 
 struct swell_colortheme {
@@ -1001,7 +1005,8 @@ SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #undef __def_theme_ent_fb
 };
 
-#define SWELL_UI_SCALE(x) (((x)*(g_swell_ctheme.dlg_scale256))/256)
+#define SWELL_UI_SCALE(x) (((x)*g_swell_ui_scale)/256)
+extern int g_swell_ui_scale;
 extern swell_colortheme g_swell_ctheme;
 
 #endif

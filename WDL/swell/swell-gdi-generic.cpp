@@ -56,9 +56,11 @@ int GetSysColor(int idx)
   return 0;
 }
 
+int g_swell_ui_scale = 256;
+
 int SWELL_GetScaling256(void)
 {
-  return g_swell_ctheme.dlg_scale256;
+  return g_swell_ui_scale;
 }
 
 #ifndef SWELL_LICE_GDI
@@ -724,8 +726,7 @@ void print_ent(const char *x, int c, const char *def)
   {
     if (strstr(x,"_size") || 
         strstr(x,"_height") || 
-        strstr(x,"_width") || 
-        strstr(x,"scale256"))
+        strstr(x,"_width"))
       printf("%s %d\n",x,c);
     else printf("%s #%02x%02x%02x\n",x,GetRValue(c),GetGValue(c),GetBValue(c));
   }

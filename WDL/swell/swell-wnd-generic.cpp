@@ -2276,9 +2276,9 @@ static bool m_sizetofits;
 
 void SWELL_MakeSetCurParms(float xscale, float yscale, float xtrans, float ytrans, HWND parent, bool doauto, bool dosizetofit)
 {
-  if (xscale != 1.0f && yscale != 1.0f && g_swell_ctheme.dlg_scale256 != 256)
+  if (g_swell_ui_scale != 256 && xscale != 1.0f && yscale != 1.0f)
   {
-    const float m = g_swell_ctheme.dlg_scale256/256.0f;
+    const float m = g_swell_ui_scale/256.0f;
     xscale *= m;
     yscale *= m;
   }
