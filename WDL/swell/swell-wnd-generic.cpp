@@ -433,124 +433,72 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 #endif
 }
 
+#if SWELL_TARGET_GDK == 2
+  #define DEF_GKY(x) GDK_##x
+#else
+  #define DEF_GKY(x) GDK_KEY_##x
+#endif
+
 static int swell_gdkConvertKey(int key)
 {
   //gdk key to VK_ conversion
   switch(key)
   {
-#if SWELL_TARGET_GDK == 2
-  case GDK_KP_Home:
-  case GDK_Home: return VK_HOME;
-  case GDK_KP_End:
-  case GDK_End: return VK_END;
-  case GDK_KP_Up:
-  case GDK_Up: return VK_UP;
-  case GDK_KP_Down:
-  case GDK_Down: return VK_DOWN;
-  case GDK_KP_Left:
-  case GDK_Left: return VK_LEFT;
-  case GDK_KP_Right:
-  case GDK_Right: return VK_RIGHT;
-  case GDK_KP_Page_Up:
-  case GDK_Page_Up: return VK_PRIOR;
-  case GDK_KP_Page_Down:
-  case GDK_Page_Down: return VK_NEXT;
-  case GDK_KP_Insert:
-  case GDK_Insert: return VK_INSERT;
-  case GDK_KP_Delete:
-  case GDK_Delete: return VK_DELETE;
-  case GDK_Escape: return VK_ESCAPE;
-  case GDK_BackSpace: return VK_BACK;
-  case GDK_KP_Enter:
-  case GDK_Return: return VK_RETURN;
-  case GDK_ISO_Left_Tab:
-  case GDK_Tab: return VK_TAB;
-  case GDK_F1: return VK_F1;
-  case GDK_F2: return VK_F2;
-  case GDK_F3: return VK_F3;
-  case GDK_F4: return VK_F4;
-  case GDK_F5: return VK_F5;
-  case GDK_F6: return VK_F6;
-  case GDK_F7: return VK_F7;
-  case GDK_F8: return VK_F8;
-  case GDK_F9: return VK_F9;
-  case GDK_F10: return VK_F10;
-  case GDK_F11: return VK_F11;
-  case GDK_F12: return VK_F12;
-  case GDK_KP_0: return VK_NUMPAD0;
-  case GDK_KP_1: return VK_NUMPAD1;
-  case GDK_KP_2: return VK_NUMPAD2;
-  case GDK_KP_3: return VK_NUMPAD3;
-  case GDK_KP_4: return VK_NUMPAD4;
-  case GDK_KP_5: return VK_NUMPAD5;
-  case GDK_KP_6: return VK_NUMPAD6;
-  case GDK_KP_7: return VK_NUMPAD7;
-  case GDK_KP_8: return VK_NUMPAD8;
-  case GDK_KP_9: return VK_NUMPAD9;
-  case GDK_KP_Multiply: return VK_MULTIPLY;
-  case GDK_KP_Add: return VK_ADD;
-  case GDK_KP_Separator: return VK_SEPARATOR;
-  case GDK_KP_Subtract: return VK_SUBTRACT;
-  case GDK_KP_Decimal: return VK_DECIMAL;
-  case GDK_KP_Divide: return VK_DIVIDE;
-  case GDK_Num_Lock: return VK_NUMLOCK;
-#else
-  case GDK_KEY_KP_Home:
-  case GDK_KEY_Home: return VK_HOME;
-  case GDK_KEY_KP_End:
-  case GDK_KEY_End: return VK_END;
-  case GDK_KEY_KP_Up:
-  case GDK_KEY_Up: return VK_UP;
-  case GDK_KEY_KP_Down:
-  case GDK_KEY_Down: return VK_DOWN;
-  case GDK_KEY_KP_Left:
-  case GDK_KEY_Left: return VK_LEFT;
-  case GDK_KEY_KP_Right:
-  case GDK_KEY_Right: return VK_RIGHT;
-  case GDK_KEY_KP_Page_Up:
-  case GDK_KEY_Page_Up: return VK_PRIOR;
-  case GDK_KEY_KP_Page_Down:
-  case GDK_KEY_Page_Down: return VK_NEXT;
-  case GDK_KEY_KP_Insert:
-  case GDK_KEY_Insert: return VK_INSERT;
-  case GDK_KEY_KP_Delete:
-  case GDK_KEY_Delete: return VK_DELETE;
-  case GDK_KEY_Escape: return VK_ESCAPE;
-  case GDK_KEY_BackSpace: return VK_BACK;
-  case GDK_KEY_KP_Enter:
-  case GDK_KEY_Return: return VK_RETURN;
-  case GDK_KEY_ISO_Left_Tab:
-  case GDK_KEY_Tab: return VK_TAB;
-  case GDK_KEY_F1: return VK_F1;
-  case GDK_KEY_F2: return VK_F2;
-  case GDK_KEY_F3: return VK_F3;
-  case GDK_KEY_F4: return VK_F4;
-  case GDK_KEY_F5: return VK_F5;
-  case GDK_KEY_F6: return VK_F6;
-  case GDK_KEY_F7: return VK_F7;
-  case GDK_KEY_F8: return VK_F8;
-  case GDK_KEY_F9: return VK_F9;
-  case GDK_KEY_F10: return VK_F10;
-  case GDK_KEY_F11: return VK_F11;
-  case GDK_KEY_F12: return VK_F12;
-  case GDK_KEY_KP_0: return VK_NUMPAD0;
-  case GDK_KEY_KP_1: return VK_NUMPAD1;
-  case GDK_KEY_KP_2: return VK_NUMPAD2;
-  case GDK_KEY_KP_3: return VK_NUMPAD3;
-  case GDK_KEY_KP_4: return VK_NUMPAD4;
-  case GDK_KEY_KP_5: return VK_NUMPAD5;
-  case GDK_KEY_KP_6: return VK_NUMPAD6;
-  case GDK_KEY_KP_7: return VK_NUMPAD7;
-  case GDK_KEY_KP_8: return VK_NUMPAD8;
-  case GDK_KEY_KP_9: return VK_NUMPAD9;
-  case GDK_KEY_KP_Multiply: return VK_MULTIPLY;
-  case GDK_KEY_KP_Add: return VK_ADD;
-  case GDK_KEY_KP_Separator: return VK_SEPARATOR;
-  case GDK_KEY_KP_Subtract: return VK_SUBTRACT;
-  case GDK_KEY_KP_Decimal: return VK_DECIMAL;
-  case GDK_KEY_KP_Divide: return VK_DIVIDE;
-  case GDK_KEY_Num_Lock: return VK_NUMLOCK;
-#endif
+  case DEF_GKY(KP_Home):
+  case DEF_GKY(Home): return VK_HOME;
+  case DEF_GKY(KP_End):
+  case DEF_GKY(End): return VK_END;
+  case DEF_GKY(KP_Up):
+  case DEF_GKY(Up): return VK_UP;
+  case DEF_GKY(KP_Down):
+  case DEF_GKY(Down): return VK_DOWN;
+  case DEF_GKY(KP_Left):
+  case DEF_GKY(Left): return VK_LEFT;
+  case DEF_GKY(KP_Right):
+  case DEF_GKY(Right): return VK_RIGHT;
+  case DEF_GKY(KP_Page_Up):
+  case DEF_GKY(Page_Up): return VK_PRIOR;
+  case DEF_GKY(KP_Page_Down):
+  case DEF_GKY(Page_Down): return VK_NEXT;
+  case DEF_GKY(KP_Insert):
+  case DEF_GKY(Insert): return VK_INSERT;
+  case DEF_GKY(KP_Delete):
+  case DEF_GKY(Delete): return VK_DELETE;
+  case DEF_GKY(Escape): return VK_ESCAPE;
+  case DEF_GKY(BackSpace): return VK_BACK;
+  case DEF_GKY(KP_Enter):
+  case DEF_GKY(Return): return VK_RETURN;
+  case DEF_GKY(ISO_Left_Tab):
+  case DEF_GKY(Tab): return VK_TAB;
+  case DEF_GKY(F1): return VK_F1;
+  case DEF_GKY(F2): return VK_F2;
+  case DEF_GKY(F3): return VK_F3;
+  case DEF_GKY(F4): return VK_F4;
+  case DEF_GKY(F5): return VK_F5;
+  case DEF_GKY(F6): return VK_F6;
+  case DEF_GKY(F7): return VK_F7;
+  case DEF_GKY(F8): return VK_F8;
+  case DEF_GKY(F9): return VK_F9;
+  case DEF_GKY(F10): return VK_F10;
+  case DEF_GKY(F11): return VK_F11;
+  case DEF_GKY(F12): return VK_F12;
+  case DEF_GKY(KP_0): return VK_NUMPAD0;
+  case DEF_GKY(KP_1): return VK_NUMPAD1;
+  case DEF_GKY(KP_2): return VK_NUMPAD2;
+  case DEF_GKY(KP_3): return VK_NUMPAD3;
+  case DEF_GKY(KP_4): return VK_NUMPAD4;
+  case DEF_GKY(KP_5): return VK_NUMPAD5;
+  case DEF_GKY(KP_6): return VK_NUMPAD6;
+  case DEF_GKY(KP_7): return VK_NUMPAD7;
+  case DEF_GKY(KP_8): return VK_NUMPAD8;
+  case DEF_GKY(KP_9): return VK_NUMPAD9;
+  case DEF_GKY(KP_Multiply): return VK_MULTIPLY;
+  case DEF_GKY(KP_Add): return VK_ADD;
+  case DEF_GKY(KP_Separator): return VK_SEPARATOR;
+  case DEF_GKY(KP_Subtract): return VK_SUBTRACT;
+  case DEF_GKY(KP_Decimal): return VK_DECIMAL;
+  case DEF_GKY(KP_Divide): return VK_DIVIDE;
+  case DEF_GKY(Num_Lock): return VK_NUMLOCK;
   }
   return 0;
 }
