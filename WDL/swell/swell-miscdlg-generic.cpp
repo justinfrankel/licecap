@@ -221,7 +221,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
               IDOK,0,0,0,0, 0);
 
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
-        HWND dir = SWELL_MakeCombo(0x103, 0,0,0,0, CBS_DROPDOWNLIST);
+        HWND dir = SWELL_MakeCombo(0x103, 0,0,0,0, 0);
 
         const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
         char tmp[128];
@@ -364,8 +364,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
             int a = (int) SendDlgItemMessage(hwnd,0x105,CB_GETCURSEL,0,0);
             if (a>=0) filt = (const char *)SendDlgItemMessage(hwnd,0x105,CB_GETITEMDATA,a,0);
 
-            a = (int) SendDlgItemMessage(hwnd,0x103,CB_GETCURSEL,0,0);
-            if (a>=0) SendDlgItemMessage(hwnd,0x103,CB_GETLBTEXT,a,(LPARAM)buf);
+            GetDlgItemText(hwnd,0x103,buf,sizeof(buf));
 
             if (buf[0]) parms->scan_path(buf, filt, parms->mode == BrowseFile_State::OPENDIR);
             else parms->viewlist_clear();
@@ -444,19 +443,22 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         case IDOK: 
           {
             char buf[maxPathLen], msg[2048];
-            buf[0]=0;
-
-            int a = (int) SendDlgItemMessage(hwnd,0x103,CB_GETCURSEL,0,0);
-            if (a>=0)
+            if (GetFocus() == GetDlgItem(hwnd,0x103))
             {
-              SendDlgItemMessage(hwnd,0x103,CB_GETLBTEXT,a,(LPARAM)buf);
-              size_t buflen = strlen(buf);
-              if (!buflen) strcpy(buf,"/");
-              else
-              {
-                if (buflen > sizeof(buf)-2) buflen = sizeof(buf)-2;
-                if (buf[buflen-1]!='/') { buf[buflen++] = '/'; buf[buflen]=0; }
-              }
+              SendMessage(hwnd,WM_USER+100,1,0); // refresh list
+              HWND e = GetDlgItem(hwnd,0x100);
+              SendMessage(e,EM_SETSEL,0,(LPARAM)-1);
+              SetFocus(e);
+              return 0;
+            }
+
+            GetDlgItemText(hwnd,0x103,buf,sizeof(buf));
+            size_t buflen = strlen(buf);
+            if (!buflen) strcpy(buf,"/");
+            else
+            {
+              if (buflen > sizeof(buf)-2) buflen = sizeof(buf)-2;
+              if (buf[buflen-1]!='/') { buf[buflen++] = '/'; buf[buflen]=0; }
             }
             GetDlgItemText(hwnd,0x100,msg,sizeof(msg));
 
@@ -489,7 +491,11 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
             {
               if (msg[0] == '.' && (msg[1] == '.' || msg[1] == 0))
               {
-                if (msg[1] == '.') SendDlgItemMessage(hwnd,0x103,CB_SETCURSEL,a+1,0);
+                if (msg[1] == '.') 
+                {
+                  int a = (int) SendDlgItemMessage(hwnd,0x103,CB_GETCURSEL,0,0);
+                  if (a>=0) SendDlgItemMessage(hwnd,0x103,CB_SETCURSEL,a+1,0);
+                }
                 SetDlgItemText(hwnd,0x100,"");
                 SendMessage(hwnd,WM_USER+100,1,0); // refresh list
                 return 0;
