@@ -942,20 +942,26 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
   return 0;
 }
 
-#ifdef __APPLE__
 
-void SWELL_GenerateGUID(void *g)
+bool SWELL_GenerateGUID(void *g)
 {
+#ifdef __APPLE__
   CFUUIDRef r = CFUUIDCreate(NULL);
-  if (r)
-  {
-    CFUUIDBytes a = CFUUIDGetUUIDBytes(r);
-    if (g) memcpy(g,&a,16);
-    CFRelease(r);
-  }
+  if (!r) return false;
+  CFUUIDBytes a = CFUUIDGetUUIDBytes(r);
+  if (g) memcpy(g,&a,16);
+  CFRelease(r);
+  return true;
+#else
+  int f = open("/dev/urandom",O_RDONLY);
+  if (f<0) return false;
+
+  int v = read(f,g,sizeof(GUID));
+  close(f);
+  return v == sizeof(GUID);
+#endif
 }
 
-#endif
 
 
 void GetTempPath(int bufsz, char *buf)

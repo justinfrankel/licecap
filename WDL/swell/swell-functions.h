@@ -1110,9 +1110,7 @@ SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
 SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, RECT*))
 #endif
 
-#ifdef __APPLE__
-SWELL_API_DEFINE(void,SWELL_GenerateGUID,(void *g))
-#endif
+SWELL_API_DEFINE(bool,SWELL_GenerateGUID,(void *g))
 
 SWELL_API_DEFINE(BOOL,EnumChildWindows,(HWND hwnd, BOOL (*cwEnumFunc)(HWND,LPARAM),LPARAM lParam))
 
