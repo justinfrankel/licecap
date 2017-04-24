@@ -845,7 +845,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                   if (kv == DEF_GKY(Shift_L) || kv == DEF_GKY(Shift_R)) kv = VK_SHIFT;
                   else if (kv == DEF_GKY(Control_L) || kv == DEF_GKY(Control_R)) kv = VK_CONTROL;
                   else if (kv == DEF_GKY(Alt_L) || kv == DEF_GKY(Alt_R)) kv = VK_MENU;
-                  else if (kv == DEF_GKY(Meta_L) || kv == DEF_GKY(Meta_R)) kv = VK_LWIN;
+                  else if (kv == DEF_GKY(Super_L) || kv == DEF_GKY(Super_R)) kv = VK_LWIN;
                   else break; // unknown modifier
 
                   msgtype = evt->type == GDK_KEY_PRESS ? WM_SYSKEYDOWN : WM_SYSKEYUP;
