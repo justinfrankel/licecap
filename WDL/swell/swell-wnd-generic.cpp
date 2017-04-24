@@ -849,6 +849,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                   else break; // unknown modifier
 
                   msgtype = evt->type == GDK_KEY_PRESS ? WM_SYSKEYDOWN : WM_SYSKEYUP;
+                  modifiers|=FVIRTKEY;
                 }
                 else if (kv > 255) 
                 {
