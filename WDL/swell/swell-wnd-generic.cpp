@@ -41,12 +41,15 @@
 
 HWND__ *SWELL_topwindows;
 
-HWND DialogBoxIsActive();
-void DestroyPopupMenus();
-bool swell_isOSwindowmenu(void *osw);
+HWND DialogBoxIsActive(void);
+void DestroyPopupMenus(void);
+HWND ChildWindowFromPoint(HWND h, POINT p);
+bool IsWindowEnabled(HWND hwnd);
+
+bool swell_isOSwindowmenu(SWELL_OSWINDOW osw);
 
 static HWND s_captured_window;
-HWND SWELL_g_focuswnd; // update from focus-in-event / focus-out-event signals, have to enable the GDK_FOCUS_CHANGE_MASK bits for the gdkwindow
+SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
 static DWORD s_lastMessagePos;
 
 static bool is_likely_capslock; // only used when processing dit events for a-zA-Z
@@ -55,6 +58,93 @@ static bool is_virtkey_char(int c)
   return (c >= 'a' && c <= 'z') ||
          (c >= 'A' && c <= 'Z') ||
          (c >= '0' && c <= '9');
+}
+
+#ifdef SWELL_TARGET_GDK
+static UINT_PTR g_focus_lost_timer;
+#endif
+
+static void swell_set_focus_oswindow(SWELL_OSWINDOW v)
+{
+#ifdef SWELL_TARGET_GDK
+  if (g_focus_lost_timer) KillTimer(NULL,g_focus_lost_timer);
+  g_focus_lost_timer=0;
+#endif
+  SWELL_focused_oswindow=v;
+}
+
+static void swell_destroyOSwindow(HWND hwnd)
+{
+  if (hwnd && hwnd->m_oswindow)
+  {
+    if (SWELL_focused_oswindow == hwnd->m_oswindow) swell_set_focus_oswindow(NULL);
+#ifdef SWELL_TARGET_GDK
+    gdk_window_destroy(hwnd->m_oswindow);
+#endif
+    hwnd->m_oswindow=NULL;
+#ifdef SWELL_LICE_GDI
+    delete hwnd->m_backingstore;
+    hwnd->m_backingstore=0;
+#endif
+  }
+}
+static void swell_setOSwindowtext(HWND hwnd)
+{
+  if (hwnd && hwnd->m_oswindow)
+  {
+#ifdef SWELL_TARGET_GDK
+    gdk_window_set_title(hwnd->m_oswindow, (char*)hwnd->m_title.Get());
+#endif
+  }
+#ifndef SWELL_TARGET_GDK
+  if (hwnd) printf("SWELL: swt '%s'\n",hwnd->m_title.Get());
+#endif
+
+}
+
+static void swell_focusOSwindow(HWND hwnd)
+{
+  while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
+#ifdef SWELL_TARGET_GDK
+  if (hwnd) gdk_window_raise(hwnd->m_oswindow);
+#endif
+  if (hwnd && hwnd->m_oswindow != SWELL_focused_oswindow)
+  {
+    swell_set_focus_oswindow(hwnd->m_oswindow);
+#ifdef SWELL_TARGET_GDK
+    gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
+#endif
+  }
+}
+
+void swell_recalcMinMaxInfo(HWND hwnd)
+{
+  if (!hwnd || !hwnd->m_oswindow || !(hwnd->m_style & WS_CAPTION)) return;
+
+  MINMAXINFO mmi={0,};
+  if (hwnd->m_style & WS_THICKFRAME)
+  {
+    mmi.ptMinTrackSize.x = 20;
+    mmi.ptMaxSize.x = mmi.ptMaxTrackSize.x = 16384;
+    mmi.ptMinTrackSize.y = 20;
+    mmi.ptMaxSize.y = mmi.ptMaxTrackSize.y = 16384;
+    SendMessage(hwnd,WM_GETMINMAXINFO,0,(LPARAM)&mmi);
+  }
+  else
+  {
+    RECT r=hwnd->m_position;
+    mmi.ptMinTrackSize.x = mmi.ptMaxSize.x = mmi.ptMaxTrackSize.x = r.right-r.left;
+    mmi.ptMinTrackSize.y = mmi.ptMaxSize.y = mmi.ptMaxTrackSize.y = r.bottom-r.top;
+  }
+#ifdef SWELL_TARGET_GDK
+  GdkGeometry h;
+  memset(&h,0,sizeof(h));
+  h.max_width= mmi.ptMaxSize.x;
+  h.max_height= mmi.ptMaxSize.y;
+  h.min_width= mmi.ptMinTrackSize.x;
+  h.min_height= mmi.ptMinTrackSize.y;
+  gdk_window_set_geometry_hints(hwnd->m_oswindow,&h,(GdkWindowHints) (GDK_HINT_POS | GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE));
+#endif
 }
 
 
@@ -68,10 +158,6 @@ static bool is_virtkey_char(int c)
 static GdkEvent *s_cur_evt;
 static GList *s_program_icon_list;
 static int SWELL_gdk_active;
-GdkWindow *SWELL_g_focus_oswindow;
-
-HWND ChildWindowFromPoint(HWND h, POINT p);
-bool IsWindowEnabled(HWND hwnd);
 
 static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 void SWELL_initargs(int *argc, char ***argv) 
@@ -119,17 +205,16 @@ static bool swell_initwindowsys()
 }
 
 static bool g_want_activateapp_on_focus;
-static UINT_PTR g_focus_lost_timer;
 static void focusLostTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
 {
   KillTimer(NULL,g_focus_lost_timer);
   g_focus_lost_timer = 0;
-  if (!SWELL_g_focus_oswindow) return;
+  if (!SWELL_focused_oswindow) return;
 
   GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
-  if (window != SWELL_g_focus_oswindow) 
+  if (window != SWELL_focused_oswindow) 
   {
-    SWELL_g_focus_oswindow = NULL;
+    SWELL_focused_oswindow = NULL;
 
     HWND h = SWELL_topwindows; 
     while (h)
@@ -142,34 +227,6 @@ static void focusLostTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
     }
     g_want_activateapp_on_focus=true;
     DestroyPopupMenus();
-  }
-}
-
-static void swell_set_focus_oswindow(GdkWindow *v)
-{
-  if (g_focus_lost_timer) KillTimer(NULL,g_focus_lost_timer);
-  g_focus_lost_timer=0;
-  SWELL_g_focus_oswindow=v;
-}
-
-static void swell_destroyOSwindow(HWND hwnd)
-{
-  if (hwnd && hwnd->m_oswindow)
-  {
-    if (SWELL_g_focus_oswindow == hwnd->m_oswindow) swell_set_focus_oswindow(NULL);
-    gdk_window_destroy(hwnd->m_oswindow);
-    hwnd->m_oswindow=NULL;
-#ifdef SWELL_LICE_GDI
-    delete hwnd->m_backingstore;
-    hwnd->m_backingstore=0;
-#endif
-  }
-}
-static void swell_setOSwindowtext(HWND hwnd)
-{
-  if (hwnd && hwnd->m_oswindow)
-  {
-    gdk_window_set_title(hwnd->m_oswindow, (char*)hwnd->m_title.Get());
   }
 }
 
@@ -375,34 +432,6 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
   if (wantVis) swell_setOSwindowtext(hwnd);
 
 //  if (wantVis && isVis && wantfocus && hwnd && hwnd->m_oswindow) gdk_window_raise(hwnd->m_oswindow);
-}
-
-void swell_recalcMinMaxInfo(HWND hwnd)
-{
-  if (!hwnd || !hwnd->m_oswindow || !(hwnd->m_style & WS_CAPTION)) return;
-
-  MINMAXINFO mmi={0,};
-  if (hwnd->m_style & WS_THICKFRAME)
-  {
-    mmi.ptMinTrackSize.x = 20;
-    mmi.ptMaxSize.x = mmi.ptMaxTrackSize.x = 16384;
-    mmi.ptMinTrackSize.y = 20;
-    mmi.ptMaxSize.y = mmi.ptMaxTrackSize.y = 16384;
-    SendMessage(hwnd,WM_GETMINMAXINFO,0,(LPARAM)&mmi);
-  }
-  else
-  {
-    RECT r=hwnd->m_position;
-    mmi.ptMinTrackSize.x = mmi.ptMaxSize.x = mmi.ptMaxTrackSize.x = r.right-r.left;
-    mmi.ptMinTrackSize.y = mmi.ptMaxSize.y = mmi.ptMaxTrackSize.y = r.bottom-r.top;
-  }
-  GdkGeometry h;
-  memset(&h,0,sizeof(h));
-  h.max_width= mmi.ptMaxSize.x;
-  h.max_height= mmi.ptMaxSize.y;
-  h.min_width= mmi.ptMinTrackSize.x;
-  h.min_height= mmi.ptMinTrackSize.y;
-  gdk_window_set_geometry_hints(hwnd->m_oswindow,&h,(GdkWindowHints) (GDK_HINT_POS | GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE));
 }
 
 void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
@@ -615,7 +644,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         GdkEventFocus *fc = (GdkEventFocus *)evt;
         if (fc->in && hwnd) 
         {
-          const bool last_focus = !!SWELL_g_focus_oswindow;
+          const bool last_focus = !!SWELL_focused_oswindow;
           swell_set_focus_oswindow(fc->window);
 
           if (!last_focus)
@@ -633,8 +662,8 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         }
         else
         {
-          if (SWELL_g_focus_oswindow == fc->window ||
-              swell_isOSwindowmenu(SWELL_g_focus_oswindow)) 
+          if (SWELL_focused_oswindow == fc->window ||
+              swell_isOSwindowmenu(SWELL_focused_oswindow)) 
           {
             DestroyPopupMenus();
             if (!g_focus_lost_timer) g_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
@@ -927,7 +956,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (b->button==2) msg=WM_MBUTTONDOWN;
             else if (b->button==3) msg=WM_RBUTTONDOWN;
             
-            if (hwnd && hwnd->m_oswindow && SWELL_g_focus_oswindow != hwnd->m_oswindow)
+            if (hwnd && hwnd->m_oswindow && SWELL_focused_oswindow != hwnd->m_oswindow)
             {
               swell_set_focus_oswindow(hwnd->m_oswindow);
             }
@@ -1154,11 +1183,29 @@ void SWELL_initargs(int *argc, char ***argv)
 void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 {
 }
+static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
+{
+  if (!hwnd) return;
+
+  bool isVis = !!hwnd->m_oswindow;
+  bool wantVis = !hwnd->m_parent && hwnd->m_visible;
+
+  if (isVis != wantVis)
+  {
+    if (!wantVis) swell_destroyOSwindow(hwnd);
+    else 
+    {
+       // generic implementation
+      hwnd->m_oswindow = hwnd;
+      if (wantfocus) swell_focusOSwindow(hwnd);
+    }
+  }
+  if (wantVis) swell_setOSwindowtext(hwnd);
+}
+
 #define swell_initwindowsys() (0)
-#define swell_destroyOSwindow(x)
-#define swell_manageOSwindow(x,y)
 #define swell_runOSevents()
-#define swell_setOSwindowtext(x) { if (x) printf("SWELL: swt '%s'\n",(x)->m_title.Get()); }
+
 #endif
 
 HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, WNDPROC wndproc, DLGPROC dlgproc, HWND ownerWindow)
@@ -1177,6 +1224,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      m_id=wID;
      m_owned_list=m_owner=m_owned_next=m_owned_prev=NULL;
      m_children=m_parent=m_next=m_prev=NULL;
+     m_focused_child=NULL;
      if (wndr) m_position = *wndr;
      else memset(&m_position,0,sizeof(m_position));
      memset(&m_extra,0,sizeof(m_extra));
@@ -1185,9 +1233,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      m_enabled=true;
      m_wantfocus=true;
      m_menu=NULL;
-#ifdef SWELL_TARGET_GDK
-     m_oswindow = 0;
-#endif
+     m_oswindow = NULL;
 
 #ifdef SWELL_LICE_GDI
      m_paintctx=0;
@@ -1396,15 +1442,19 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       tmp=tmp->m_owned_next;
       SendMessage(old,WM_DESTROY,0,0);
     }
-    if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=hwnd->m_parent ? hwnd->m_parent : hwnd->m_owner;
-#ifdef SWELL_TARGET_GDK
-    if (SWELL_g_focus_oswindow && SWELL_g_focus_oswindow == hwnd->m_oswindow)
+    if (SWELL_focused_oswindow && SWELL_focused_oswindow == hwnd->m_oswindow)
     {
       HWND h = hwnd->m_owner;
       while (h && !h->m_oswindow) h = h->m_parent ? h->m_parent : h->m_owner;
-      swell_set_focus_oswindow(h ? h->m_oswindow : NULL);
+      if (h && h->m_oswindow) 
+      {
+        swell_focusOSwindow(h);
+      }
+      else 
+      {
+        swell_set_focus_oswindow(NULL);
+      }
     }
-#endif
     hwnd->m_wndproc=NULL;
     hwnd->m_hashaddestroy=2;
     KillTimer(hwnd,-1);
@@ -1417,7 +1467,11 @@ static void swell_removeWindowFromParentOrTop(HWND__ *hwnd, bool removeFromOwner
   HWND par = hwnd->m_parent;
   if (hwnd->m_next) hwnd->m_next->m_prev = hwnd->m_prev;
   if (hwnd->m_prev) hwnd->m_prev->m_next = hwnd->m_next;
-  if (par && par->m_children == hwnd) par->m_children = hwnd->m_next;
+  if (par)
+  { 
+    if (par->m_focused_child == hwnd) par->m_focused_child=NULL;
+    if (par->m_children == hwnd) par->m_children = hwnd->m_next;
+  }
   if (hwnd == SWELL_topwindows) SWELL_topwindows = hwnd->m_next;
   hwnd->m_next = hwnd->m_prev = hwnd->m_parent = NULL;
 
@@ -1460,7 +1514,6 @@ static void RecurseDestroyWindow(HWND hwnd)
   }
 
   if (s_captured_window == hwnd) s_captured_window=NULL;
-  if (SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd=NULL;
 
   swell_destroyOSwindow(hwnd);
 
@@ -1515,40 +1568,35 @@ void EnableWindow(HWND hwnd, int enable)
   if (hwnd->m_oswindow) gdk_window_set_accept_focus(hwnd->m_oswindow,!!enable);
 #endif
 
-  if (!enable && SWELL_g_focuswnd == hwnd) SWELL_g_focuswnd = 0;
-  InvalidateRect(hwnd,NULL,FALSE);
-}
-
-static void focusOSwindow(HWND hwnd)
-{
-#ifdef SWELL_TARGET_GDK
-  while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
-  if (hwnd) gdk_window_raise(hwnd->m_oswindow);
-  if (hwnd && hwnd->m_oswindow != SWELL_g_focus_oswindow)
+  if (!enable)
   {
-    swell_set_focus_oswindow(hwnd->m_oswindow);
-    gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
+    if (hwnd->m_parent && hwnd->m_parent->m_focused_child == hwnd)
+      hwnd->m_parent->m_focused_child = NULL;
   }
-#endif
-}
-
-void SetFocus(HWND hwnd)
-{
-  if (!hwnd) return;
-
-  SWELL_g_focuswnd = hwnd;
-  focusOSwindow(hwnd);
+  InvalidateRect(hwnd,NULL,FALSE);
 }
 
 void SetForegroundWindow(HWND hwnd)
 {
   if (!hwnd) return;
 
-  if (!SWELL_g_focuswnd || !IsChild(hwnd,SWELL_g_focuswnd))
-    SWELL_g_focuswnd = hwnd;
-
-  focusOSwindow(hwnd);
+  // if a child window has focus, preserve that focus
+  while (hwnd->m_parent && !hwnd->m_oswindow)
+  {
+    hwnd->m_parent->m_focused_child = hwnd;
+    hwnd = hwnd->m_parent;
+  }
+  swell_focusOSwindow(hwnd);
 }
+
+void SetFocus(HWND hwnd)
+{
+  if (!hwnd) return;
+
+  hwnd->m_focused_child=NULL; // make sure this window has focus, not a child
+  SetForegroundWindow(hwnd);
+}
+
 
 
 int IsChild(HWND hwndParent, HWND hwndChild)
@@ -1563,28 +1611,28 @@ int IsChild(HWND hwndParent, HWND hwndChild)
 
 HWND GetForegroundWindowIncludeMenus()
 {
-#ifdef SWELL_TARGET_GDK
-  if (!SWELL_g_focus_oswindow) return 0;
+  if (!SWELL_focused_oswindow) return 0;
   HWND a = SWELL_topwindows;
-  while (a && a->m_oswindow != SWELL_g_focus_oswindow) a=a->m_next;
+  while (a && a->m_oswindow != SWELL_focused_oswindow) a=a->m_next;
   return a;
-#else
-  HWND h = SWELL_g_focuswnd;
-  while (h && h->m_parent) h=h->m_parent;
-  return h;
-#endif
 }
 
 HWND GetFocusIncludeMenus()
 {
-#ifdef SWELL_TARGET_GDK
-  if (!SWELL_g_focus_oswindow) return 0;
-  HWND a = SWELL_topwindows;
-  while (a && a->m_oswindow != SWELL_g_focus_oswindow) a=a->m_next;
-  return a && IsChild(a,SWELL_g_focuswnd) ? SWELL_g_focuswnd : a;
-#else
-  return SWELL_g_focuswnd;
-#endif
+  if (!SWELL_focused_oswindow) return 0;
+  HWND h = SWELL_topwindows;
+  while (h && h->m_oswindow != SWELL_focused_oswindow) h=h->m_next;
+
+  while (h) 
+  {
+    HWND fc = h->m_focused_child;
+    if (!fc) break;
+    HWND s = h->m_children;
+    while (s && s != fc) s = s->m_next;
+    if (!s) break;
+    h = s; // descend to focused child
+  }
+  return h;
 }
 
 HWND GetForegroundWindow()
@@ -1635,11 +1683,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   int x=p->x,y=p->y;
 
   HWND tmp=hwnd;
-  while (tmp 
-#ifdef SWELL_TARGET_GDK
-            && !tmp->m_oswindow
-#endif
-         ) // top level window's m_position left/top should always be 0 anyway
+  while (tmp && !tmp->m_oswindow) // top level window's m_position left/top should always be 0 anyway
   {
     NCCALCSIZE_PARAMS p = {{ tmp->m_position, }, };
     if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
@@ -1679,11 +1723,7 @@ void ClientToScreen(HWND hwnd, POINT *p)
   int x=p->x,y=p->y;
 
   HWND tmp=hwnd;
-  while (tmp 
-#ifdef SWELL_TARGET_GDK
-         && !tmp->m_oswindow
-#endif
-         ) // top level window's m_position left/top should always be 0 anyway
+  while (tmp && !tmp->m_oswindow) // top level window's m_position left/top should always be 0 anyway
   {
     NCCALCSIZE_PARAMS p={{tmp->m_position, }, };
     if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
@@ -1885,9 +1925,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
       {
         hwnd->m_position = f;
         SendMessage(hwnd,WM_SIZE,0,0);
-#ifdef SWELL_TARGET_GDK
         if (!hwnd->m_hashaddestroy && hwnd->m_oswindow) swell_recalcMinMaxInfo(hwnd);
-#endif
       }
       InvalidateRect(hwnd->m_parent ? hwnd->m_parent : hwnd,NULL,FALSE);
     }
@@ -2183,17 +2221,7 @@ void ShowWindow(HWND hwnd, int cmd)
   swell_manageOSwindow(hwnd,cmd==SW_SHOW);
   if (cmd == SW_SHOW) 
   {
-    if (!SWELL_g_focuswnd || !IsChild(hwnd,SWELL_g_focuswnd)) 
-      SWELL_g_focuswnd = hwnd;
-#ifdef SWELL_TARGET_GDK
-    HWND h = hwnd;
-    while (h && !h->m_oswindow) h = h->m_parent;
-    if (h) 
-    {
-      swell_set_focus_oswindow(h->m_oswindow);
-      gdk_window_focus(h->m_oswindow,GDK_CURRENT_TIME);
-    }
-#endif
+    SetForegroundWindow(hwnd);
   }
 
   InvalidateRect(hwnd,NULL,FALSE);

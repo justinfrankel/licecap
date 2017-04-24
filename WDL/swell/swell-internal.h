@@ -602,6 +602,13 @@ struct HTREEITEM__
 
 LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+
+#ifdef SWELL_TARGET_GDK
+typedef GdkWindow *SWELL_OSWINDOW;
+#else
+typedef void *SWELL_OSWINDOW; // maps to the HWND__ itself on visible, non-GDK, top level windows
+#endif
+
 struct HWND__
 {
   HWND__(HWND par, int wID=0, RECT *wndr=NULL, const char *label=NULL, bool visible=false, WNDPROC wndproc=NULL, DLGPROC dlgproc=NULL, HWND ownerWindow=NULL);
@@ -612,19 +619,15 @@ struct HWND__
   void Retain() { m_refcnt++; }
   void Release() { if (!--m_refcnt) delete this; }
  
-
-
- 
   const char *m_classname;
-  
 
-#ifdef SWELL_TARGET_GDK
-  GdkWindow *m_oswindow;
-#endif
+  SWELL_OSWINDOW m_oswindow;
+
   WDL_FastString m_title;
 
   HWND__ *m_children, *m_parent, *m_next, *m_prev;
   HWND__ *m_owner, *m_owned_list, *m_owned_next, *m_owned_prev;
+  HWND__ *m_focused_child; // only valid if hwnd itself is in focus chain, and must be validated before accessed
   RECT m_position;
   UINT m_id;
   int m_style, m_exstyle;

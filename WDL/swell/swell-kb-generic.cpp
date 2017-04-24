@@ -106,10 +106,10 @@ void SWELL_SetCursor(HCURSOR curs)
 
   m_last_setcursor=curs;
 #ifdef SWELL_TARGET_GDK
-  extern GdkWindow *SWELL_g_focus_oswindow;
-  if (SWELL_g_focus_oswindow) 
+  extern SWELL_OSWINDOW SWELL_focused_oswindow;
+  if (SWELL_focused_oswindow)
   {
-    gdk_window_set_cursor(SWELL_g_focus_oswindow,(GdkCursor *)curs);
+    gdk_window_set_cursor(SWELL_focused_oswindow,(GdkCursor *)curs);
   }
 #endif
 }
