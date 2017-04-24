@@ -6290,8 +6290,9 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
 
 HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 {
-  if (h>13)h=13;
   RECT tr=MakeCoords(x,y,w,h,true);
+  const int maxh = g_swell_ctheme.combo_height;
+  if (tr.bottom > tr.top + maxh) tr.bottom=tr.top+maxh;
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(flags&SWELL_NOT_WS_VISIBLE),comboWindowProc);
   hwnd->m_private_data = (INT_PTR) new __SWELL_ComboBoxInternalState;
   hwnd->m_style = (flags & ~SWELL_NOT_WS_VISIBLE)|WS_CHILD;

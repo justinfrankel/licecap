@@ -914,6 +914,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(menubar_margin_width, 6) \
   f(scrollbar_width, 14) \
   f(scrollbar_min_thumb_height, 4) \
+  f(combo_height, 20) \
 
 
 #define SWELL_GENERIC_THEMEDEFS(f,fd) \
