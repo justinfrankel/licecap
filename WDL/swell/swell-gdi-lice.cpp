@@ -522,27 +522,61 @@ void Polygon(HDC ctx, POINT *pts, int npts)
 {
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)) return;
-  if (((!HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH)||c->curbrush->wid<0) && 
-       (!HGDIOBJ_VALID(c->curpen,TYPE_PEN) ||c->curpen->wid<0)) || npts<2) return;
+  const bool fill=HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH)&&c->curbrush->wid>=0;
+  const bool outline = HGDIOBJ_VALID(c->curpen,TYPE_PEN)&&c->curpen->wid>=0;
+  if ((!fill && !outline) || npts<2 || !pts) return;
 
-//  CGContextBeginPath(c->ctx);
- // CGContextMoveToPoint(c->ctx,(float)pts[0].x,(float)pts[0].y);
-  int x;
-  for (x = 1; x < npts; x ++)
+  const int dx=c->surface_offs.x;
+  const int dy=c->surface_offs.y;
+
+  int minx=c->surface->getWidth()+1, maxx=0;
+  int miny=c->surface->getHeight()+1, maxy=0;
+
+  if (fill)
   {
-  //  CGContextAddLineToPoint(c->ctx,(float)pts[x].x,(float)pts[x].y);
+    int _tmp[256], *tmp=_tmp;
+    if (npts>128)
+    {
+      tmp = (int *)malloc(npts*2*sizeof(int));
+    }
+    if (tmp)
+    {
+      for (int x = 0; x < npts; x ++)
+      {
+        const int xp = pts[x].x, yp = pts[x].y;
+        if (xp < minx) minx=xp;
+        if (xp > maxx) maxx=xp;
+        if (yp < miny) miny=yp;
+        if (yp > maxy) maxy=yp;
+        tmp[x] = xp + dx;
+        tmp[x+npts] = yp + dy;
+      }
+      LICE_FillConvexPolygon(c->surface,tmp, tmp+npts,npts,
+        c->curbrush->color,c->curbrush->alpha,LICE_BLIT_MODE_COPY);
+    }
+    if (tmp != _tmp) free(tmp);
   }
-  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
+  if (outline)
   {
-   // CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
+    int lx=0,ly=0,sx=0,sy=0;
+    for (int x = 0; x < npts; x ++)
+    {
+      const int xp = pts[x].x, yp = pts[x].y;
+      if (xp < minx) minx=xp;
+      if (xp > maxx) maxx=xp;
+      if (yp < miny) miny=yp;
+      if (yp > maxy) maxy=yp;
+      if (x)
+        LICE_Line(c->surface,xp+dx,yp+dy,lx+dx,ly+dy,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,true);
+      else { sx=xp; sy=yp; }
+      lx=xp;
+      ly=yp;
+    }
+    LICE_Line(c->surface,sx+dx,sy+dy,lx+dx,ly+dy,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,true);
   }
-  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0)
-  {
-//    CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
- //   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
-  }
-//  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush && c->curbrush->wid>=0 ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
-  //swell_DirtyContext(ctx,l,t,r,b);
+
+  if (maxx>minx && maxy>miny)
+    swell_DirtyContext(ctx, minx,miny,maxx,maxy);
 }
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
@@ -567,10 +601,7 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   float xp=c->lastpos_x,yp=c->lastpos_y;
   for (x = 0; x < np-2; x += 3)
   {
-/*    CGContextAddCurveToPoint(c->ctx,
-      (float)pts[x].x,(float)pts[x].y,
-      (float)pts[x+1].x,(float)pts[x+1].y,
-*/
+      // todo
       xp=(float)pts[x+2].x;
       yp=(float)pts[x+2].y;    
   }
@@ -584,11 +615,6 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-//  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
   float fx=(float)x,fy=(float)y;
 
   int dx=c->surface_offs.x;
@@ -596,7 +622,6 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   int lx = (int)c->lastpos_x, ly = (int) c->lastpos_y;
   LICE_Line(c->surface,x+dx,y+dy,lx+dx,ly+dy,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,false);
   
-//  CGContextAddLineToPoint(c->ctx,fx,fy);
   c->lastpos_x=fx;
   c->lastpos_y=fy;
 
@@ -604,7 +629,6 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   if (ly<y) { int a=y; y=ly; ly=a; }
 
   swell_DirtyContext(ctx, x-1,y-1,lx+1,ly+1);
-//  CGContextStrokePath(c->ctx);
  
 }
 
@@ -613,11 +637,6 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||nseg<1) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-  
   while (nseg-->0)
   {
     DWORD cnt=*cnts++;
@@ -647,13 +666,8 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   HDC__ *ct=(HDC__ *)ctx;
   if (!HDC_VALID(ct)) return;
- /* CGContextBeginPath(ct->ctx);
-  CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
-  CGContextAddLineToPoint(ct->ctx,(float)x+0.5,(float)y+0.5);
-  CGContextSetLineWidth(ct->ctx,(float)1.5);
-  CGContextSetRGBStrokeColor(ct->ctx,GetRValue(c)/255.0,GetGValue(c)/255.0,GetBValue(c)/255.0,1.0);
-  CGContextStrokePath(ct->ctx);	
-*/
+  LICE_PutPixel(ct->surface,x+ct->surface_offs.x, y+ct->surface_offs.y, LICE_RGBA_FROMNATIVE(c,255),1.0f,LICE_BLIT_MODE_COPY);
+  swell_DirtyContext(ct,x,y,x+1,y+1);
 }
 
 #ifdef SWELL_FREETYPE

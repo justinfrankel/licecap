@@ -275,8 +275,6 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)) return;
   
-  //CGRect rect=CGRectMake(l,t,r-l,b-t);
-  
   if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
   }
@@ -314,23 +312,6 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   if (((!HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH)||c->curbrush->wid<0) && 
        (!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0)) || npts<2) return;
 
-//  CGContextBeginPath(c->ctx);
- // CGContextMoveToPoint(c->ctx,(float)pts[0].x,(float)pts[0].y);
-  int x;
-  for (x = 1; x < npts; x ++)
-  {
-  //  CGContextAddLineToPoint(c->ctx,(float)pts[x].x,(float)pts[x].y);
-  }
-  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
-  {
-   // CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
-  }
-  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0)
-  {
-//    CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
- //   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
-  }
-//  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush && c->curbrush->wid>=0 ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
 }
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
@@ -351,25 +332,15 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||np<3) return;
   
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-//  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
   int x; 
   float xp,yp;
   for (x = 0; x < np-2; x += 3)
   {
-/*    CGContextAddCurveToPoint(c->ctx,
-      (float)pts[x].x,(float)pts[x].y,
-      (float)pts[x+1].x,(float)pts[x+1].y,
-*/
       xp=(float)pts[x+2].x;
       yp=(float)pts[x+2].y;    
   }
   c->lastpos_x=(float)xp;
   c->lastpos_y=(float)yp;
-//  CGContextStrokePath(c->ctx);
 }
 
 
@@ -378,17 +349,10 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-//  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
   float fx=(float)x,fy=(float)y;
   
-//  CGContextAddLineToPoint(c->ctx,fx,fy);
   c->lastpos_x=fx;
   c->lastpos_y=fy;
-//  CGContextStrokePath(c->ctx);
 }
 
 void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
@@ -396,27 +360,19 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||nseg<1) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-  
   while (nseg-->0)
   {
     DWORD cnt=*cnts++;
     if (!cnt) continue;
     if (!--cnt) { pts++; continue; }
     
- //   CGContextMoveToPoint(c->ctx,(float)pts->x,(float)pts->y);
     pts++;
     
     while (cnt--)
     {
-//      CGContextAddLineToPoint(c->ctx,(float)pts->x,(float)pts->y);
       pts++;
     }
   }
-//  CGContextStrokePath(c->ctx);
 }
 void *SWELL_GetCtxGC(HDC ctx)
 {
@@ -430,13 +386,6 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   HDC__ *ct=(HDC__ *)ctx;
   if (!HDC_VALID(ct)) return;
- /* CGContextBeginPath(ct->ctx);
-  CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
-  CGContextAddLineToPoint(ct->ctx,(float)x+0.5,(float)y+0.5);
-  CGContextSetLineWidth(ct->ctx,(float)1.5);
-  CGContextSetRGBStrokeColor(ct->ctx,GetRValue(c)/255.0,GetGValue(c)/255.0,GetBValue(c)/255.0,1.0);
-  CGContextStrokePath(ct->ctx);	
-*/
 }
 
 
@@ -544,20 +493,17 @@ void StretchBltFromMem(HDC hdcOut, int x, int y, int w, int h, const void *bits,
 void SWELL_PushClipRegion(HDC ctx)
 {
 //  HDC__ *ct=(HDC__ *)ctx;
-//  if (ct && ct->ctx) CGContextSaveGState(ct->ctx);
 }
 
 void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
 //  HDC__ *ct=(HDC__ *)ctx;
-//  if (ct && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
 
 }
 
 void SWELL_PopClipRegion(HDC ctx)
 {
 //  HDC__ *ct=(HDC__ *)ctx;
-//  if (ct && ct->ctx) CGContextRestoreGState(ct->ctx);
 }
 
 void *SWELL_GetCtxFrameBuffer(HDC ctx)
