@@ -281,10 +281,17 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
     if (s_freetype)
     {
+      // debian paths
       ScanFontDirectory("/usr/share/fonts/truetype");
       ScanFontDirectory("/usr/share/fonts/opentype");
       ScanFontDirectory("/usr/share/fonts/TTF");
       ScanFontDirectory("/usr/share/fonts/OTF");
+
+      // fedora paths
+      ScanFontDirectory("/usr/share/fonts/dejavu");
+      ScanFontDirectory("/usr/share/fonts/gnu-free");
+
+
       qsort(s_freetype_fontlist.GetList(),s_freetype_fontlist.GetSize(),sizeof(const char *),(int (*)(const void *,const void*))sortByFilePart);
     }
   }
