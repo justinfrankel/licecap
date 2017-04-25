@@ -957,6 +957,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   fd(menu_text_sel, RGB(224,224,224), menu_bg) \
   f(menu_scroll, RGB(64,64,64)) \
   fd(menu_scroll_arrow, RGB(96,96,96), _3dshadow) \
+  fd(menu_submenu_arrow, RGB(96,96,96), _3dshadow) \
   fd(menubar_bg, RGB(192,192,192), menu_bg) \
   fd(menubar_text, RGB(0,0,0), menu_text) \
   fd(menubar_text_disabled, RGB(224,224,224), menu_text_disabled) \

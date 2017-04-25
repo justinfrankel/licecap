@@ -467,6 +467,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg);
           HBRUSH br2 = CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
           HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.menu_scroll_arrow);
+          HBRUSH br_submenu_arrow = CreateSolidBrush(g_swell_ctheme.menu_submenu_arrow);
           HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
           HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
@@ -577,8 +578,18 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if (inf->hSubMenu) 
             {
-               RECT r2=r; r2.left = r2.right - rcol; r2.right -= SWELL_UI_SCALE(4);
-               DrawText(ps.hdc,">",-1,&r2,DT_VCENTER|DT_RIGHT|DT_SINGLELINE);
+               const int sz = (r.bottom-r.top)/4, xp = r.right - sz*2, yp = (r.top + r.bottom)/2;
+
+               POINT pts[3] = {
+                 {xp, yp-sz},
+                 {xp, yp+sz},
+                 {xp + sz,yp}
+               };
+               HGDIOBJ oldPen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+               SelectObject(ps.hdc,br_submenu_arrow);
+               Polygon(ps.hdc,pts,3);
+
+               SelectObject(ps.hdc,oldPen);
             }
             if (inf->fState&MF_CHECKED)
             {
@@ -629,6 +640,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           DeleteObject(br);
           DeleteObject(br2);
           DeleteObject(br3);
+          DeleteObject(br_submenu_arrow);
           DeleteObject(pen);
           DeleteObject(pen2);
           EndPaint(hwnd,&ps); 
