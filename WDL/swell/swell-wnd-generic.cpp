@@ -1210,6 +1210,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
   m_private_data=0;
   m_israised=false;
   m_has_had_position=false;
+  m_oswindow_needshow=false;
 
      m_classname = "unknown";
      m_wndproc=wndproc?wndproc:dlgproc?(WNDPROC)SwellDialogDefaultWindowProc:(WNDPROC)DefWindowProc;
@@ -1288,7 +1289,6 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
 #ifdef SWELL_TARGET_GDK
     if (hwnd->m_oswindow && ((ret^val)& WS_CAPTION))
     {
-      const bool focus = hwnd->m_oswindow == SWELL_focused_oswindow;
       gdk_window_hide(hwnd->m_oswindow);
       if (val & WS_CAPTION)
       {
@@ -1301,8 +1301,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
       {
         gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
       }
-      gdk_window_show(hwnd->m_oswindow);
-      if (focus) gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
+      hwnd->m_oswindow_needshow=true;
     }
 #endif
 
@@ -1864,6 +1863,13 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
     {
       InvalidateRect(hwnd->m_parent ? hwnd->m_parent : hwnd,NULL,FALSE);
     }
+  }
+  if (hwnd->m_oswindow && hwnd->m_oswindow_needshow)
+  {
+#ifdef SWELL_TARGET_GDK
+    gdk_window_show(hwnd->m_oswindow);
+#endif
+    hwnd->m_oswindow_needshow=false;
   }
 }
 

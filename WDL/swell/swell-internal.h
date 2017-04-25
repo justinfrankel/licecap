@@ -646,6 +646,7 @@ struct HWND__
 
   bool m_israised;
   bool m_has_had_position;
+  bool m_oswindow_needshow;
 
   HMENU m_menu;
 
