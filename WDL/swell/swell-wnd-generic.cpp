@@ -7099,10 +7099,13 @@ int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if
   return 0;
 }
 
+RECT g_trackpopup_yroot;
 static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
 {
   MENUITEMINFO *inf = menu->items.Get(x);
   RECT r = *use_r;
+  g_trackpopup_yroot = r;
+
   RECT mbr;
   GetWindowContentViewRect(hwnd,&mbr);
   mbr.right -= mbr.left;
@@ -7125,6 +7128,7 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   menu->sel_vis=-1;
   InvalidateRect(hwnd,&mbr,FALSE);
   g_menubar_active = NULL;
+  g_trackpopup_yroot.top = g_trackpopup_yroot.bottom = 0;
 }
 
 LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

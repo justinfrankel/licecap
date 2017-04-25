@@ -328,6 +328,7 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
   // only needed for Cocoa
 }
 
+extern RECT g_trackpopup_yroot;
 static POINT m_trackingPt, m_trackingPt2;
 static int m_trackingMouseFlag;
 static int m_trackingFlags,m_trackingRet;
@@ -413,6 +414,18 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         RECT tr={m_trackingPt.x,m_trackingPt.y,
                  m_trackingPt.x+wid+SWELL_UI_SCALE(4),m_trackingPt.y+ht+top_margin * 2}, vp;
         SWELL_GetViewPort(&vp,&tr,true);
+        vp.bottom -= 8;
+ 
+        if (g_trackpopup_yroot.bottom > g_trackpopup_yroot.top &&
+            g_trackpopup_yroot.bottom > vp.top && 
+            g_trackpopup_yroot.top < vp.bottom)
+        {
+          if (vp.bottom - g_trackpopup_yroot.bottom < g_trackpopup_yroot.top - vp.top)
+            vp.bottom = g_trackpopup_yroot.top;
+          else
+            vp.top = g_trackpopup_yroot.bottom;
+        }
+
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
         if (tr.right > vp.right) 
         { 
