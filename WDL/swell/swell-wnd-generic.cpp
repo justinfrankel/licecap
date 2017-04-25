@@ -1288,6 +1288,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
 #ifdef SWELL_TARGET_GDK
     if (hwnd->m_oswindow && ((ret^val)& WS_CAPTION))
     {
+      const bool focus = hwnd->m_oswindow == SWELL_focused_oswindow;
       gdk_window_hide(hwnd->m_oswindow);
       if (val & WS_CAPTION)
       {
@@ -1301,6 +1302,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
         gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
       }
       gdk_window_show(hwnd->m_oswindow);
+      if (focus) gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
     }
 #endif
 
