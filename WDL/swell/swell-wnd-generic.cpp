@@ -1288,6 +1288,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
 #ifdef SWELL_TARGET_GDK
     if (hwnd->m_oswindow && ((ret^val)& WS_CAPTION))
     {
+      gdk_window_hide(hwnd->m_oswindow);
       if (val & WS_CAPTION)
       {
         if (val & WS_THICKFRAME)
@@ -1299,6 +1300,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
       {
         gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
       }
+      gdk_window_show(hwnd->m_oswindow);
     }
 #endif
 
