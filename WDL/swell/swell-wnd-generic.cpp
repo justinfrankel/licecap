@@ -750,17 +750,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 
             // don't use GetClientRect(),since we're getting it pre-NCCALCSIZE etc
 
-#if SWELL_TARGET_GDK==2
-            { 
-              gint w=0,h=0; 
-              gdk_drawable_get_size(hwnd->m_oswindow,&w,&h);
-              cr.right = w; cr.bottom = h;
-            }
-#else
-            cr.right = gdk_window_get_width(hwnd->m_oswindow);
-            cr.bottom = gdk_window_get_height(hwnd->m_oswindow);
-#endif
             cr.left=cr.top=0;
+            cr.right = hwnd->m_position.right - hwnd->m_position.left;
+            cr.bottom = hwnd->m_position.bottom - hwnd->m_position.top;
 
             r.left = exp->area.x; 
             r.top=exp->area.y; 
@@ -1683,7 +1675,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   int x=p->x,y=p->y;
 
   HWND tmp=hwnd;
-  while (tmp && !tmp->m_oswindow) // top level window's m_position left/top should always be 0 anyway
+  while (tmp)
   {
     NCCALCSIZE_PARAMS p = {{ tmp->m_position, }, };
     if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
@@ -1692,25 +1684,6 @@ void ScreenToClient(HWND hwnd, POINT *p)
     y -= p.rgrc[0].top;
     tmp = tmp->m_parent;
   }
-
-  if (tmp)
-  {
-    NCCALCSIZE_PARAMS p = {{ tmp->m_position, }, };
-    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
-    x -= p.rgrc[0].left - tmp->m_position.left;
-    y -= p.rgrc[0].top - tmp->m_position.top;
-  }
-
-#ifdef SWELL_TARGET_GDK
-  if (tmp && tmp->m_oswindow)
-  {
-    GdkWindow *wnd = tmp->m_oswindow;
-    gint px=0,py=0;
-    gdk_window_get_position(wnd,&px,&py); // use the last configured position
-    x-=px;
-    y-=py;
-  }
-#endif
 
   p->x=x;
   p->y=y;
@@ -1723,7 +1696,7 @@ void ClientToScreen(HWND hwnd, POINT *p)
   int x=p->x,y=p->y;
 
   HWND tmp=hwnd;
-  while (tmp && !tmp->m_oswindow) // top level window's m_position left/top should always be 0 anyway
+  while (tmp)
   {
     NCCALCSIZE_PARAMS p={{tmp->m_position, }, };
     if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
@@ -1731,24 +1704,6 @@ void ClientToScreen(HWND hwnd, POINT *p)
     y += p.rgrc[0].top;
     tmp = tmp->m_parent;
   }
-  if (tmp) 
-  {
-    NCCALCSIZE_PARAMS p={{tmp->m_position, }, };
-    if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
-    x += p.rgrc[0].left - tmp->m_position.left;
-    y += p.rgrc[0].top - tmp->m_position.top;
-  }
-
-#ifdef SWELL_TARGET_GDK
-  if (tmp && tmp->m_oswindow)
-  {
-    GdkWindow *wnd = tmp->m_oswindow;
-    gint px=0,py=0;
-    gdk_window_get_position(wnd,&px,&py); // use the last configured position
-    x+=px;
-    y+=py;
-  }
-#endif
 
   p->x=x;
   p->y=y;
@@ -1757,26 +1712,23 @@ void ClientToScreen(HWND hwnd, POINT *p)
 bool GetWindowRect(HWND hwnd, RECT *r)
 {
   if (!hwnd) return false;
-#ifdef SWELL_TARGET_GDK
   if (hwnd->m_oswindow)
   {
-    GdkRectangle rc;
+#ifdef SWELL_TARGET_GDK
+    gint x=hwnd->m_position.left,y=hwnd->m_position.top;
 
-    // if we find some way to convert window frame size to gdk-client size, we could do that in 
-    // the places that call gdk_window_move_resize()/gdk_window_resize() (e.g.  SetWindowPos()
-    // and swell_manageOSwindow()), and use gdk_window_get_frame_extents(hwnd->m_oswindow,&rc); instead
+    // need to get the origin of the frame for consistency with SetWindowPos()
+    gdk_window_get_root_origin(hwnd->m_oswindow,&x,&y);
 
-    gdk_window_get_root_origin(hwnd->m_oswindow,&rc.x,&rc.y);
-    rc.width = gdk_window_get_width(hwnd->m_oswindow);
-    rc.height = gdk_window_get_height(hwnd->m_oswindow);
-
-    r->left=rc.x;
-    r->top=rc.y;
-    r->right=rc.x+rc.width;
-    r->bottom = rc.y+rc.height;
+    r->left=x;
+    r->top=y;
+    r->right=x + hwnd->m_position.right - hwnd->m_position.left;
+    r->bottom = y + hwnd->m_position.bottom - hwnd->m_position.top;
+#else
+    *r = hwnd->m_position;
+#endif
     return true;
   }
-#endif
 
   r->left=r->top=0; 
   ClientToScreen(hwnd,(LPPOINT)r);
@@ -1787,24 +1739,11 @@ bool GetWindowRect(HWND hwnd, RECT *r)
 
 void GetWindowContentViewRect(HWND hwnd, RECT *r)
 {
-#ifdef SWELL_TARGET_GDK
   if (hwnd && hwnd->m_oswindow) 
   {
-    gint w=0,h=0,px=0,py=0;
-    gdk_window_get_position(hwnd->m_oswindow,&px,&py);
-#if SWELL_TARGET_GDK==2
-    gdk_drawable_get_size(hwnd->m_oswindow,&w,&h);
-#else
-    w = gdk_window_get_width(hwnd->m_oswindow);
-    h = gdk_window_get_height(hwnd->m_oswindow);
-#endif
-    r->left=px;
-    r->top=py;
-    r->right = px+w;
-    r->bottom = py+h;
+    *r = hwnd->m_position;
     return;
   }
-#endif
   GetWindowRect(hwnd,r);
 }
 
@@ -1813,26 +1752,8 @@ void GetClientRect(HWND hwnd, RECT *r)
   r->left=r->top=r->right=r->bottom=0;
   if (!hwnd) return;
   
-#ifdef SWELL_TARGET_GDK
-  if (hwnd->m_oswindow)
-  {
-#if SWELL_TARGET_GDK==2
-    gint w=0, h=0;
-    gdk_drawable_get_size(hwnd->m_oswindow,&w,&h);
-    r->right = w;
-    r->bottom = h;
-#else
-    r->right = gdk_window_get_width(hwnd->m_oswindow);
-    r->bottom = gdk_window_get_height(hwnd->m_oswindow);
-#endif
-    
-  }
-  else
-#endif
-  {
-    r->right = hwnd->m_position.right - hwnd->m_position.left;
-    r->bottom = hwnd->m_position.bottom - hwnd->m_position.top;
-  }
+  r->right = hwnd->m_position.right - hwnd->m_position.left;
+  r->bottom = hwnd->m_position.bottom - hwnd->m_position.top;
 
   NCCALCSIZE_PARAMS tr={{*r, },};
   SendMessage(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&tr);
