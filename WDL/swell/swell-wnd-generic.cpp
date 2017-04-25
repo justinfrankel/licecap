@@ -1826,32 +1826,37 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
   }
   if (reposflag)
   {
-#ifdef SWELL_TARGET_GDK
-    if (hwnd->m_oswindow) 
+    if (hwnd->m_oswindow && (reposflag&2))
     {
-      if (reposflag&2)
-      {
-        // make sure window is resizable (hints will be re-set on upcoming CONFIGURE event)
-        gdk_window_set_geometry_hints(hwnd->m_oswindow,NULL,(GdkWindowHints) 0); 
-      }
+#ifdef SWELL_TARGET_GDK
+      // make sure window is resizable (hints will be re-set on upcoming CONFIGURE event)
+      gdk_window_set_geometry_hints(hwnd->m_oswindow,NULL,(GdkWindowHints) 0); 
+#endif
+    }
 
+    if (reposflag&3) 
+    {
+      const bool sizeChanged = (reposflag&2) && (
+           cx != hwnd->m_position.right-hwnd->m_position.left ||
+           cy != hwnd->m_position.bottom-hwnd->m_position.top
+         );
+      hwnd->m_position = f;
+      if (sizeChanged) SendMessage(hwnd,WM_SIZE,0,0);
+    }
+
+    if (hwnd->m_oswindow)
+    {
+#ifdef SWELL_TARGET_GDK
       if ((reposflag&3)==3) gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top);
       else if (reposflag&2) gdk_window_resize(hwnd->m_oswindow,f.right-f.left,f.bottom-f.top);
       else if (reposflag&1) gdk_window_move(hwnd->m_oswindow,f.left,f.top);
-    }
-    else // top level windows above get their position from gdk and cache it in m_position
 #endif
+    }
+    else
     {
-      if (reposflag&3) 
-      {
-        hwnd->m_position = f;
-        SendMessage(hwnd,WM_SIZE,0,0);
-        if (!hwnd->m_hashaddestroy && hwnd->m_oswindow) swell_recalcMinMaxInfo(hwnd);
-      }
       InvalidateRect(hwnd->m_parent ? hwnd->m_parent : hwnd,NULL,FALSE);
     }
-  }  
-  
+  }
 }
 
 
