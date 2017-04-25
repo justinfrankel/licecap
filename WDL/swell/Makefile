@@ -27,10 +27,6 @@ endif
 
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char 
-else
-  ifneq ($(UNAME_S),Darwin)
-    CFLAGS += -malign-double
-  endif
 endif
 
 
