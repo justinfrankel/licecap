@@ -48,6 +48,7 @@ bool IsWindowEnabled(HWND hwnd);
 
 bool swell_isOSwindowmenu(SWELL_OSWINDOW osw);
 
+extern const char *g_swell_appname;
 static HWND s_captured_window;
 SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
 static DWORD s_lastMessagePos;
@@ -348,6 +349,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         }
 */
  
+        extern const char *g_swell_appname;
         RECT r = hwnd->m_position;
         GdkWindowAttr attr={0,};
         attr.title = (char *)"";
@@ -357,8 +359,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         attr.width = r.right-r.left;
         attr.height = r.bottom-r.top;
         attr.wclass = GDK_INPUT_OUTPUT;
+        attr.wmclass_name = (gchar*)g_swell_appname;
+        attr.wmclass_class = (gchar*)g_swell_appname;
         attr.window_type = GDK_WINDOW_TOPLEVEL;
-        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y);
+        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y|(g_swell_appname?GDK_WA_WMCLASS:0));
  
         if (hwnd->m_oswindow) 
         {

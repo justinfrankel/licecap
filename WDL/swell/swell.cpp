@@ -994,4 +994,39 @@ void GetTempPath(int bufsz, char *buf)
   }
 }
 
+const char *g_swell_appname;
+char *g_swell_defini;
+
+void *SWELL_ExtendedAPI(const char *key, void *v)
+{
+  if (!strcmp(key,"APPNAME")) g_swell_appname = (const char *)v;
+  if (!strcmp(key,"INIFILE"))
+  {
+    free(g_swell_defini);
+    g_swell_defini = v ? strdup((const char *)v) : NULL;
+
+    #ifdef SWELL_TARGET_GDK
+      char buf[128];
+      GetPrivateProfileString(".swell","ui_scale","",buf,sizeof(buf),"");
+      if (buf[0])
+      {
+        double sc = atof(buf);
+        if (sc > 0.01 && sc < 10.0 && sc != 1.0)
+        {
+          #define __scale(x,c) g_swell_ctheme.x = (int) (g_swell_ctheme.x * sc + 0.5);
+            SWELL_GENERIC_THEMESIZEDEFS(__scale,__scale)
+          #undef __scale
+          g_swell_ui_scale = (int) (256 * sc + 0.5);
+        }
+      }
+      else
+      {
+        WritePrivateProfileString(".swell","ui_scale","1.0 // scales the sizes in libSwell.colortheme","");
+      }
+    #endif
+  }
+  return NULL;
+}
+
+
 #endif

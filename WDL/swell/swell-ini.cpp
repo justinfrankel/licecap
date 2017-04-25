@@ -32,7 +32,6 @@
 
 
 #include "swell.h"
-#include "swell-internal.h"
 #include "../assocarray.h"
 #include "../wdlcstring.h"
 #include "../mutex.h"
@@ -95,31 +94,10 @@ static bool fgets_to_typedbuf(WDL_TypedBuf<char> *buf, FILE *fp)
   return buf->GetSize()>0 && buf->Get()[0];
 }
 
-static char *s_defini;
-void SWELL_SetDefaultIniFile(const char *p)
-{
-  free(s_defini);
-  s_defini = p ? strdup(p) : NULL;
 
-#ifdef SWELL_TARGET_GDK
-  char buf[128];
-  GetPrivateProfileString(".swell","ui_scale","",buf,sizeof(buf),"");
-  if (buf[0])
-  {
-    double sc = atof(buf);
-    if (sc > 0.01 && sc < 10.0 && sc != 1.0)
-    {
-      #define __scale(x,c) g_swell_ctheme.x = (int) (g_swell_ctheme.x * sc + 0.5);
-        SWELL_GENERIC_THEMESIZEDEFS(__scale,__scale)
-      #undef __scale
-      g_swell_ui_scale = (int) (256 * sc + 0.5);
-    }
-  }
-  else
-  {
-    WritePrivateProfileString(".swell","ui_scale","1.0 // scales the sizes in libSwell.colortheme","");
-  }
-#endif
+void SWELL_SetDefaultIniFile(const char *p) // deprecated will be removed very soon
+{
+  SWELL_ExtendedAPI("INIFILE",(void *)p);
 }
 
 // return true on success
@@ -130,9 +108,10 @@ static iniFileContext *GetFileContext(const char *name)
   char fntemp[512];
   if (!name || !strstr(name,"/"))
   {
-    if (s_defini)
+    extern char *g_swell_defini;
+    if (g_swell_defini)
     {
-      lstrcpyn_safe(fntemp,s_defini,sizeof(fntemp));
+      lstrcpyn_safe(fntemp,g_swell_defini,sizeof(fntemp));
     }
     else
     {
