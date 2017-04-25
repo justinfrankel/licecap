@@ -4269,7 +4269,6 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);
 
-          HPEN pen3 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.combo_arrow_press : g_swell_ctheme.combo_arrow);
           HPEN pen2 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
           HPEN pen = CreatePen(PS_SOLID,0,(!pressed)?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
@@ -4294,7 +4293,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               if (s->editstate.cursor_timer) { KillTimer(hwnd,100); s->editstate.cursor_timer=0; }
             }
 
-            HBRUSH br = CreateSolidBrush(g_swell_ctheme.combo_bg2);
+            br = CreateSolidBrush(g_swell_ctheme.combo_bg2);
             RECT tr=r; 
             const int pad = SWELL_UI_SCALE(2);
             tr.left+=pad; tr.top+=pad; tr.bottom-=pad; tr.right -= SWELL_UI_SCALE(buttonwid+2);
@@ -4307,20 +4306,26 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
           }
 
-          SelectObject(ps.hdc,pen3);
+          br = CreateSolidBrush(pressed?g_swell_ctheme.combo_arrow_press : g_swell_ctheme.combo_arrow);
+          HGDIOBJ oldbr=SelectObject(ps.hdc,br);
+          SelectObject(ps.hdc,GetStockObject(NULL_PEN));
           const int dw = SWELL_UI_SCALE(8);
           const int dh = SWELL_UI_SCALE(4);
           const int cx = r.right-dw/2-SWELL_UI_SCALE(4);
           const int cy = (r.bottom+r.top)/2;
-          MoveToEx(ps.hdc,cx-dw/2,cy-dh/2,NULL);
-          LineTo(ps.hdc,cx,cy+dh/2);
-          LineTo(ps.hdc,cx+dw/2,cy-dh/2);
 
+          POINT pts[3] = {
+            { cx-dw/2,cy-dh/2 },
+            { cx,cy+dh/2 },
+            { cx+dw/2,cy-dh/2 }
+          };
+          Polygon(ps.hdc,pts,3);
 
           SelectObject(ps.hdc,oldpen);
+          SelectObject(ps.hdc,oldbr);
           DeleteObject(pen);
           DeleteObject(pen2);
-          DeleteObject(pen3);
+          DeleteObject(br);
 
          
           if (pressed) 
@@ -5263,14 +5268,15 @@ forceMouseMove:
                         y1=y2;
                         y2=tmp;
                       }
-                      HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.listview_hdr_arrow);
-                      HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
-                      MoveToEx(ps.hdc,x1,y1,NULL);
-                      LineTo(ps.hdc,x1+tsz*2,y1);
-                      LineTo(ps.hdc,x1+tsz,y2);
-                      LineTo(ps.hdc,x1,y1);
-                      SelectObject(ps.hdc,oldPen); 
-                      DeleteObject(pen);
+                      HBRUSH hdrbr = CreateSolidBrush(g_swell_ctheme.listview_hdr_arrow);
+                      HGDIOBJ oldBrush = SelectObject(ps.hdc,hdrbr);
+                      HGDIOBJ oldPen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+
+                      POINT pts[3] = {{x1,y1}, {x1+tsz*2,y1}, {x1+tsz,y2}};
+                      Polygon(ps.hdc,pts,3);
+                      SelectObject(ps.hdc,oldBrush);
+                      SelectObject(ps.hdc,oldPen);
+                      DeleteObject(hdrbr);
                       tr.left = x1 + tsz*2;
                     }
                   }
@@ -5609,22 +5615,22 @@ next_item_in_parent:
         if (item->m_haschildren)
         {
           bool exp = (item->m_state&TVIS_EXPANDED);
+          POINT pts[3];
           if (exp)
           {
             const int yo = dr.top + sz+sz/2,xo=dr.left+1;
-            MoveToEx(hdc,xo,yo,NULL); 
-            LineTo(hdc,xo+sz*2,yo);
-            LineTo(hdc,xo+sz,yo+sz);
-            LineTo(hdc,xo,yo);
+            pts[0].x=xo; pts[0].y=yo;
+            pts[1].x=xo+sz*2; pts[1].y=yo;
+            pts[2].x=xo+sz; pts[2].y=yo+sz;
           }
           else
           {
             const int yo = dr.top + sz, xo = dr.left+sz*3/4+1;
-            MoveToEx(hdc,xo,yo,NULL); 
-            LineTo(hdc,xo+sz,yo + sz);
-            LineTo(hdc,xo,yo+sz*2);
-            LineTo(hdc,xo,yo);
+            pts[0].x=xo; pts[0].y=yo;
+            pts[1].x=xo+sz; pts[1].y=yo+sz;
+            pts[2].x=xo; pts[2].y=yo+sz*2;
           }
+          Polygon(hdc,pts,3);
         }
         dr.left += sz*2+3;
 
@@ -5887,14 +5893,16 @@ forceMouseMove:
 
             r.top -= tvs->m_scroll_y;
 
-            HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.treeview_arrow);
-            HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+            HBRUSH br = CreateSolidBrush(g_swell_ctheme.treeview_arrow);
+            HGDIOBJ oldpen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+            HGDIOBJ oldbr = SelectObject(ps.hdc,br);
 
             r.left -= tvs->m_last_row_height;
             tvs->doDrawItem(&tvs->m_root,ps.hdc,&r);
 
+            SelectObject(ps.hdc,oldbr);
             SelectObject(ps.hdc,oldpen);
-            DeleteObject(pen);
+            DeleteObject(br);
 
             drawVerticalScrollbar(ps.hdc,cr,total_h,tvs->m_scroll_y);
           }

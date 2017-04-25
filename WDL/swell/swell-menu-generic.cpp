@@ -465,10 +465,10 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           RECT cr;
           GetClientRect(hwnd,&cr);
           HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg);
-          HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
+          HBRUSH br2 = CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
+          HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.menu_scroll_arrow);
           HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
           HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
-          HPEN pen3=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_scroll_arrow);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
           Rectangle(ps.hdc,cr.left,cr.top,cr.right-1,cr.bottom-1);
@@ -598,34 +598,39 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
           // lower scroll indicator
           int mid=(cr.right-cr.left)/2;
-          SelectObject(ps.hdc,pen3);
+          SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+          SelectObject(ps.hdc,br3);
+          POINT pts[3];
+          const int smm = SWELL_UI_SCALE(2);
+          const int smh = scroll_margin-smm*2;
           if (hwnd->m_extra[1]&1)
           {
             RECT fr = {cr.left, cr.bottom-scroll_margin, cr.right,cr.bottom};
             FillRect(ps.hdc,&fr,br2);
-            MoveToEx(ps.hdc,mid-scroll_margin/2,cr.bottom-scroll_margin,NULL);
-            LineTo(ps.hdc,mid,cr.bottom);
-            MoveToEx(ps.hdc,mid+scroll_margin/2,cr.bottom-scroll_margin,NULL);
-            LineTo(ps.hdc,mid,cr.bottom);
+            pts[0].x = mid; pts[0].y = cr.bottom - smm;
+            pts[1].x = mid-smh; pts[1].y = pts[0].y - smh;
+            pts[2].x = mid+smh; pts[2].y = pts[1].y;
+            Polygon(ps.hdc,pts,3);
           }
           // upper scroll indicator
           if (hwnd->m_extra[0] > 0)
           {
             RECT fr = {cr.left, cr.top, cr.right, cr.top+scroll_margin};
             FillRect(ps.hdc,&fr,br2);
-            MoveToEx(ps.hdc,mid-scroll_margin/2,cr.top+scroll_margin-1,NULL);
-            LineTo(ps.hdc,mid,cr.top);
-            MoveToEx(ps.hdc,mid+scroll_margin/2,cr.top+scroll_margin-1,NULL);
-            LineTo(ps.hdc,mid,cr.top);
+
+            pts[0].x = mid; pts[0].y = cr.top + smm;
+            pts[1].x = mid-smh; pts[1].y = pts[0].y + smh;
+            pts[2].x = mid+smh; pts[2].y = pts[1].y;
+            Polygon(ps.hdc,pts,3);
           }
 
           SelectObject(ps.hdc,oldbr);
           SelectObject(ps.hdc,oldpen);
           DeleteObject(br);
           DeleteObject(br2);
+          DeleteObject(br3);
           DeleteObject(pen);
           DeleteObject(pen2);
-          DeleteObject(pen3);
           EndPaint(hwnd,&ps); 
         }       
       }
