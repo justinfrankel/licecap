@@ -384,7 +384,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           else 
           {
             GdkWindowTypeHint type_hint = GDK_WINDOW_TYPE_HINT_NORMAL;
-            GdkWMDecoration decor = (GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU));
+            GdkWMDecoration decor = (GdkWMDecoration) (GDK_DECOR_ALL | GDK_DECOR_MENU);
 
             if (!(hwnd->m_style&WS_THICKFRAME))
               decor = (GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE);
@@ -1291,7 +1291,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
       if (val & WS_CAPTION)
       {
         if (val & WS_THICKFRAME)
-          gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL & ~(GDK_DECOR_MENU)));
+          gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_ALL | GDK_DECOR_MENU));
         else
           gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE));
       }
