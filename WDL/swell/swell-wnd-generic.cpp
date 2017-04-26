@@ -335,7 +335,13 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 
   if (isVis != wantVis)
   {
-    if (!wantVis) swell_destroyOSwindow(hwnd);
+    if (!wantVis) 
+    {
+      RECT r;
+      GetWindowRect(hwnd,&r);
+      swell_destroyOSwindow(hwnd);
+      hwnd->m_position = r;
+    }
     else 
     {
       if (swell_initwindowsys())
