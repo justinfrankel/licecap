@@ -488,7 +488,7 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
   #define DEF_GKY(x) GDK_KEY_##x
 #endif
 
-static int swell_gdkConvertKey(int key)
+static guint swell_gdkConvertKey(guint key)
 {
   //gdk key to VK_ conversion
   switch(key)
@@ -856,9 +856,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (k->state&SWELL_WINDOWSKEY_GDK_MASK) modifiers|=FLWIN;
             if (k->state&GDK_SHIFT_MASK) modifiers|=FSHIFT;
  
-            int msgtype = evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP;
+            UINT msgtype = evt->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP;
 
-            int kv = swell_gdkConvertKey(k->keyval);
+            guint kv = swell_gdkConvertKey(k->keyval);
             if (kv) 
             {
               modifiers |= FVIRTKEY;
@@ -894,7 +894,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                 }
                 else if (kv > 255) 
                 {
-                  int v = gdk_keyval_to_unicode(kv);
+                  guint v = gdk_keyval_to_unicode(kv);
                   if (v) kv=v;
                 }
                 else
@@ -918,10 +918,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             GdkEventMotion *m = (GdkEventMotion *)evt;
             s_lastMessagePos = MAKELONG(((int)m->x_root&0xffff),((int)m->y_root&0xffff));
-            POINT p={m->x, m->y};
+            POINT p={(int)m->x, (int)m->y};
             HWND hwnd2 = GetCapture();
             if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-            POINT p2={m->x_root, m->y_root};
+            POINT p2={(int)m->x_root, (int)m->y_root};
             ScreenToClient(hwnd2, &p2);
             if (hwnd2) hwnd2->Retain();
             SendMouseMessage(hwnd2, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
@@ -933,10 +933,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             GdkEventScroll *b = (GdkEventScroll *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
-            POINT p={b->x, b->y};
+            POINT p={(int)b->x, (int)b->y};
             HWND hwnd2 = GetCapture();
             if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-            POINT p2={b->x_root, b->y_root};
+            POINT p2={(int)b->x_root, (int)b->y_root};
             // p2 is screen coordinates for WM_MOUSEWHEEL
 
             int msg=(b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_DOWN) ? WM_MOUSEWHEEL :
@@ -958,10 +958,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             GdkEventButton *b = (GdkEventButton *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
-            POINT p={b->x, b->y};
+            POINT p={(int)b->x, (int)b->y};
             HWND hwnd2 = GetCapture();
             if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-            POINT p2={b->x_root, b->y_root};
+            POINT p2={(int)b->x_root, (int)b->y_root};
             ScreenToClient(hwnd2, &p2);
 
             int msg=WM_LBUTTONDOWN;
@@ -1142,7 +1142,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             GdkDragContext *ctx = e->context;
             if (ctx)
             {
-              POINT p = { e->x_root, e->y_root };
+              POINT p = { (int)e->x_root, (int)e->y_root };
               s_ddrop_hwnd = hwnd;
               s_ddrop_pt = p;
 
@@ -2520,7 +2520,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           {
             if (hwnd->m_parent)
             {
-              DRAWITEMSTRUCT dis = { ODT_BUTTON, hwnd->m_id, 0, 0, pressed?ODS_SELECTED:0,hwnd,ps.hdc,r,hwnd->m_userdata };
+              DRAWITEMSTRUCT dis = { ODT_BUTTON, hwnd->m_id, 0, 0, (UINT)(pressed?ODS_SELECTED:0),hwnd,ps.hdc,r,(DWORD_PTR)hwnd->m_userdata };
               SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
             }
             EndPaint(hwnd,&ps);
@@ -4255,7 +4255,8 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           for (x=0;x<s->items.GetSize();x++)
           {
             MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-              x == s->selidx?MFS_CHECKED:0,100+x,NULL,NULL,NULL,0,s->items.Get(x)->desc};
+              (UINT) (x == s->selidx?MFS_CHECKED:0),
+              (UINT) (100+x), NULL,NULL,NULL,0,s->items.Get(x)->desc};
             InsertMenuItem(menu,x,TRUE,&mi);
           }
 
@@ -5223,7 +5224,7 @@ forceMouseMove:
                 {
                   if (hwnd->m_parent)
                   {
-                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, x, 0, sel?ODS_SELECTED:0,hwnd,ps.hdc,ar,hwnd->m_userdata };
+                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)x, 0, (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,(DWORD_PTR)hwnd->m_userdata };
                     SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
                   }
                 }
