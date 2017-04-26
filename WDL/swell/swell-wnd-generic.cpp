@@ -423,12 +423,18 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           if (hwnd->m_israised)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
           gdk_window_register_dnd(hwnd->m_oswindow);
+
+          if (hwnd->m_oswindow_fullscreen)
+            gdk_window_fullscreen(hwnd->m_oswindow);
           gdk_window_show(hwnd->m_oswindow);
 
-          if (hwnd->m_has_had_position) 
-            gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
-          else 
-            gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
+          if (!hwnd->m_oswindow_fullscreen)
+          {
+            if (hwnd->m_has_had_position) 
+              gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
+            else 
+              gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
+          }
         }
       }
     }
@@ -1211,6 +1217,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
   m_israised=false;
   m_has_had_position=false;
   m_oswindow_needshow=false;
+  m_oswindow_fullscreen=false;
 
      m_classname = "unknown";
      m_wndproc=wndproc?wndproc:dlgproc?(WNDPROC)SwellDialogDefaultWindowProc:(WNDPROC)DefWindowProc;
@@ -1851,7 +1858,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
       if (sizeChanged) SendMessage(hwnd,WM_SIZE,0,0);
     }
 
-    if (hwnd->m_oswindow)
+    if (hwnd->m_oswindow && !hwnd->m_oswindow_fullscreen)
     {
 #ifdef SWELL_TARGET_GDK
       if ((reposflag&3)==3) gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top);
@@ -1864,7 +1871,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
       InvalidateRect(hwnd->m_parent ? hwnd->m_parent : hwnd,NULL,FALSE);
     }
   }
-  if (hwnd->m_oswindow && hwnd->m_oswindow_needshow)
+  if (hwnd->m_oswindow && hwnd->m_oswindow_needshow && !hwnd->m_oswindow_fullscreen)
   {
 #ifdef SWELL_TARGET_GDK
     gdk_window_show(hwnd->m_oswindow);
@@ -8630,17 +8637,10 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
 
 int swell_fullscreenWindow(HWND hwnd, BOOL fs)
 {
-  if (hwnd && hwnd->m_oswindow)
+  if (hwnd)
   {
-#ifdef SWELL_TARGET_GDK
-    if (fs) 
-    {
-      gdk_window_fullscreen(hwnd->m_oswindow);
-      SetForegroundWindow(hwnd);
-    }
-    else gdk_window_unfullscreen(hwnd->m_oswindow);
+    hwnd->m_oswindow_fullscreen = fs;
     return 1;
-#endif
   }
   return 0;
 }
