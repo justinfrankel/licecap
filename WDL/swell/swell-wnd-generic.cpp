@@ -8626,4 +8626,21 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
   return hwnd;
 }
 
+int swell_fullscreenWindow(HWND hwnd, BOOL fs)
+{
+  if (hwnd && hwnd->m_oswindow)
+  {
+#ifdef SWELL_TARGET_GDK
+    if (fs) 
+    {
+      gdk_window_fullscreen(hwnd->m_oswindow);
+      SetForegroundWindow(hwnd);
+    }
+    else gdk_window_unfullscreen(hwnd->m_oswindow);
+    return 1;
+#endif
+  }
+  return 0;
+}
+
 #endif

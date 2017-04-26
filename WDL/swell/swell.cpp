@@ -1000,7 +1000,7 @@ char *g_swell_defini;
 void *SWELL_ExtendedAPI(const char *key, void *v)
 {
   if (!strcmp(key,"APPNAME")) g_swell_appname = (const char *)v;
-  if (!strcmp(key,"INIFILE"))
+  else if (!strcmp(key,"INIFILE"))
   {
     free(g_swell_defini);
     g_swell_defini = v ? strdup((const char *)v) : NULL;
@@ -1025,6 +1025,13 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
       }
     #endif
   }
+#ifndef SWELL_TARGET_OSX
+  else if (!strcmp(key,"FULLSCREEN") || !strcmp(key,"-FULLSCREEN"))
+  {
+    int swell_fullscreenWindow(HWND, BOOL);
+    return (void*)(INT_PTR)swell_fullscreenWindow((HWND)v, key[0] != '-');
+  }
+#endif
   return NULL;
 }
 
