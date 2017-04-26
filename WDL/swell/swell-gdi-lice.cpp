@@ -1543,10 +1543,28 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 
 int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, int flags)
 {
-  // todo: freetype query font etc
-  int i;
-  for (i=0; i < len; ++i) indices[i]=(flags == GGI_MARK_NONEXISTING_GLYPHS ? 0xFFFF : 0);
-  return 0;
+#ifdef SWELL_FREETYPE
+  if (ctx)
+  {
+    HGDIOBJ font  = HDC_VALID(ctx) && HGDIOBJ_VALID(ctx->curfont,TYPE_FONT) ? ctx->curfont : SWELL_GetDefaultFont();
+    if (font)
+    {
+      FT_Face face=(FT_Face)font->typedata;
+      if (face)
+      {
+        for (int i=0; i < len; ++i)
+        {
+          int c = FT_Get_Char_Index(face,buf[i]);
+          indices[i] = c ? c : 0xFFFF;
+        }
+        return len;
+      }
+    }
+  }
+#endif
+
+  for (int i=0; i < len; ++i) indices[i]=0xFFFF;
+  return len;
 }
 
 #endif
