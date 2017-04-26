@@ -1868,6 +1868,8 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
   {
 #ifdef SWELL_TARGET_GDK
     gdk_window_show(hwnd->m_oswindow);
+    if (hwnd->m_style & WS_CAPTION) gdk_window_unmaximize(hwnd->m_oswindow); // fixes Kwin
+    gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top); // fixes xfce
 #endif
     hwnd->m_oswindow_needshow=false;
   }
