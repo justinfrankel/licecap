@@ -318,7 +318,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 
     if (!buf[0])
     {
-      WritePrivateProfileString(".swell","gdk_owned_window_flag","1 // bit mask: 1=mark owned windows as dialog, 2=raise owned windows, 4=show owned windows in tasklist","");
+      WritePrivateProfileString(".swell","gdk_owned_window_flag","1 // bit mask: 1=mark owned windows as dialog, 2=raise owned windows, 4=show owned windows in tasklist. 8=borderless windows are override_redirect","");
 
       gdk_owned_window_flag = 1; // default to just mark as dialog
     }
@@ -377,9 +377,9 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
-            if (!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU"))
+            if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_owned_window_flag&8))
             {
-              gdk_window_set_type_hint(hwnd->m_oswindow,GDK_WINDOW_TYPE_HINT_SPLASHSCREEN);
+              gdk_window_set_type_hint(hwnd->m_oswindow, GDK_WINDOW_TYPE_HINT_DIALOG);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
             }
             else
