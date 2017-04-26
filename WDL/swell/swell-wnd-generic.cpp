@@ -374,6 +374,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         {
           gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
           const bool modal = DialogBoxIsActive() == hwnd;
+          bool override_redirect=false;
 
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
@@ -381,10 +382,13 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             {
               gdk_window_set_type_hint(hwnd->m_oswindow, GDK_WINDOW_TYPE_HINT_DIALOG);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
+              if (hwnd->m_owner && (gdk_owned_window_flag&2))
+                hwnd->m_israised=true;
             }
             else
             {
               gdk_window_set_override_redirect(hwnd->m_oswindow,true);
+              override_redirect=true;
             }
           }
           else 
@@ -421,10 +425,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           {
             if (s_program_icon_list) 
               gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
-            if (hwnd->m_owner && !(gdk_owned_window_flag&4))
-            {
-              gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
-            }
+          }
+          if (hwnd->m_owner && !(gdk_owned_window_flag&4) && !override_redirect)
+          {
+            gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
           if (hwnd->m_israised)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
