@@ -359,7 +359,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         extern const char *g_swell_appname;
         RECT r = hwnd->m_position;
         GdkWindowAttr attr={0,};
-        attr.title = (char *)"";
+        attr.title = (char *)hwnd->m_title.Get();
         attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
         attr.x = r.left;
         attr.y = r.top;
@@ -381,7 +381,14 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           {
             if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_owned_window_flag&8))
             {
-              gdk_window_set_type_hint(hwnd->m_oswindow, GDK_WINDOW_TYPE_HINT_DIALOG);
+              GdkWindowTypeHint type = GDK_WINDOW_TYPE_HINT_DIALOG;
+              if (!hwnd->m_title.GetLength())
+              {
+                if (!SWELL_topwindows) type = GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
+                else if (SWELL_topwindows==hwnd && !hwnd->m_next)
+                  type = GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
+              }
+              gdk_window_set_type_hint(hwnd->m_oswindow, type);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
               if (hwnd->m_owner && (gdk_owned_window_flag&2))
                 hwnd->m_israised=true;
