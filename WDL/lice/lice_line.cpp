@@ -1520,7 +1520,7 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
 
   int* xy = 0;
   int xyt[1024]; // use stack space if small
-  bool usestack = (npoints <= sizeof(xyt)/sizeof(int)/2);
+  bool usestack = npoints <= (int) (sizeof(xyt)/sizeof(int)/2);
   if (usestack) xy = xyt;
   else xy = (int*)malloc(npoints*sizeof(int)*2);
 

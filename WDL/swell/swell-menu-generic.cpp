@@ -64,7 +64,7 @@ static MENUITEMINFO *GetMenuItemByID(HMENU menu, int id, bool searchChildren=tru
   if (!menu) return 0;
   int x;
   for (x = 0; x < menu->items.GetSize(); x ++)
-    if (menu->items.Get(x)->wID == id) return menu->items.Get(x);
+    if (menu->items.Get(x)->wID == (UINT)id) return menu->items.Get(x);
 
   if (searchChildren) for (x = 0; x < menu->items.GetSize(); x ++)
   { 
@@ -189,7 +189,7 @@ bool DeleteMenu(HMENU hMenu, int idx, int flag)
     int cnt=0;
     for (x=0;x<hMenu->items.GetSize(); x ++)
     {
-      if (!hMenu->items.Get(x)->hSubMenu && hMenu->items.Get(x)->wID == idx)
+      if (!hMenu->items.Get(x)->hSubMenu && hMenu->items.Get(x)->wID == (UINT)idx)
       {
         hMenu->items.Delete(x--,true,HMENU__::freeMenuItem);
         cnt++;
@@ -296,7 +296,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (!byPos) 
   {
     int x;
-    for (x=0;x<ni && hMenu->items.Get(x)->wID != pos; x++);
+    for (x=0;x<ni && hMenu->items.Get(x)->wID != (UINT)pos; x++);
     pos = x;
   }
   if (pos < 0 || pos > ni) pos=ni; 
@@ -831,7 +831,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               }
             }
 
-            if (*p > 0 && toupper(*p) == wParam)
+            if (*p > 0 && (WPARAM)toupper(*p) == wParam)
             {
               if (!matchcnt++)
               {

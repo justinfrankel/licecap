@@ -2471,7 +2471,7 @@ int LICE_BitmapCmpEx(LICE_IBitmap* a, LICE_IBitmap* b, LICE_pixel mask, int *coo
   int y;
   if (!coordsOut)
   {
-    if (mask == LICE_RGBA(255,255,255,255))
+    if (mask == (LICE_pixel)LICE_RGBA(255,255,255,255))
       for (y=0; y < ah; y ++)
       {
         const int dv = memcmp(px1,px2,aw*sizeof(LICE_pixel));

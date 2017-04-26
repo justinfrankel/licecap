@@ -158,7 +158,7 @@ public:
               const char *nw = f;
               while (nw < nf && *nw != '*') nw++;
 
-              if ((nw!=nf || strlen(ent->d_name) == nw-f) && !strncasecmp(ent->d_name,f,nw-f)) 
+              if ((nw!=nf || f+strlen(ent->d_name) == nw) && !strncasecmp(ent->d_name,f,nw-f)) 
               {
                 // matched leading text
                 if (nw == nf) break;
@@ -171,7 +171,7 @@ public:
               f++;
               if (!*f || *f == ';' || (*f == '.' && f[1] == '*')) break;
               size_t l = strlen(ent->d_name);
-              if (l > nf-f && !strncasecmp(ent->d_name + l - (nf-f), f,nf-f)) break;
+              if (f+l > nf && !strncasecmp(ent->d_name + l - (nf-f), f,nf-f)) break;
             }
             f = nf;
             while (*f == ';') f++;

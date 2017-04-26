@@ -927,7 +927,7 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
     sprintf(tmp,"/proc/%d/exe",getpid());
     int sz=readlink(tmp,fn,nSize);
     if (sz<0)sz=0;
-    else if (sz>=nSize)sz=nSize-1;
+    else if ((DWORD)sz>=nSize)sz=nSize-1;
     fn[sz]=0;
     return sz;
   }
@@ -987,7 +987,7 @@ void GetTempPath(int bufsz, char *buf)
   size_t len = strlen(buf);
   if (!len || buf[len-1] != '/')
   {
-    if (len > bufsz-2) len = bufsz-2;
+    if (len > (size_t)bufsz-2) len = bufsz-2;
 
     buf[len] = '/';
     buf[len+1]=0;

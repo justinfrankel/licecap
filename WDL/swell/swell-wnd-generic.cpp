@@ -122,7 +122,8 @@ void swell_recalcMinMaxInfo(HWND hwnd)
 {
   if (!hwnd || !hwnd->m_oswindow || !(hwnd->m_style & WS_CAPTION)) return;
 
-  MINMAXINFO mmi={0,};
+  MINMAXINFO mmi;
+  memset(&mmi,0,sizeof(mmi));
   if (hwnd->m_style & WS_THICKFRAME)
   {
     mmi.ptMinTrackSize.x = 20;
@@ -1289,7 +1290,7 @@ HWND GetDlgItem(HWND hwnd, int idx)
 {
   if (!idx) return hwnd;
   if (hwnd) hwnd=hwnd->m_children;
-  while (hwnd && hwnd->m_id != idx) hwnd=hwnd->m_next;
+  while (hwnd && hwnd->m_id != (UINT)idx) hwnd=hwnd->m_next;
   return hwnd;
 }
 
@@ -4090,7 +4091,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
           s->items.Delete(wParam,true);
 
-          if (wParam == s->selidx || s->selidx >= s->items.GetSize()) { s->selidx=-1; InvalidateRect(hwnd,NULL,FALSE); }
+          if (wParam == (WPARAM)s->selidx || s->selidx >= s->items.GetSize()) { s->selidx=-1; InvalidateRect(hwnd,NULL,FALSE); }
           else if ((int)wParam < s->selidx) s->selidx--;
 
         return s->items.GetSize();
@@ -7358,7 +7359,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                   p++;
                 }
               }
-              if (*p > 0 && toupper(*p) == wParam)
+              if (*p > 0 && (WPARAM)toupper(*p) == wParam)
               {
                 if (inf->hSubMenu)
                 {
@@ -7573,7 +7574,7 @@ UINT EnumClipboardFormats(UINT lastfmt)
     if (!m_clip_recs.Enumerate(x++,&fmt)) return 0;
     if (lastfmt == 0) return fmt;
 
-    if (fmt == lastfmt) return m_clip_recs.Enumerate(x++,&fmt) ? fmt : 0;
+    if ((UINT)fmt == lastfmt) return m_clip_recs.Enumerate(x++,&fmt) ? fmt : 0;
   }
 }
 
