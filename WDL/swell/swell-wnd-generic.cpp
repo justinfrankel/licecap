@@ -3684,15 +3684,20 @@ forceMouseMove:
           RECT r; 
           GetClientRect(hwnd,&r); 
           RECT orig_r = r;
-          HBRUSH br = CreateSolidBrush(
-            hwnd->m_enabled ? g_swell_ctheme.edit_bg :
-                              g_swell_ctheme.edit_bg_disabled
-             );
-          FillRect(ps.hdc,&r,br);
-          DeleteObject(br);
+
+          Draw3DBox(ps.hdc,&r,
+            hwnd->m_enabled ? 
+              //(hwnd->m_style & ES_READONLY) ? g_swell_ctheme._3dface :
+                g_swell_ctheme.edit_bg :
+                g_swell_ctheme.edit_bg_disabled,
+            g_swell_ctheme.edit_shadow,
+            g_swell_ctheme.edit_hilight);
+
           SetTextColor(ps.hdc,
-            hwnd->m_enabled ? g_swell_ctheme.edit_text :
-                              g_swell_ctheme.edit_text_disabled
+            hwnd->m_enabled ? 
+              //(hwnd->m_style & ES_READONLY) ? g_swell_ctheme.label_text :
+                   g_swell_ctheme.edit_text :
+                      g_swell_ctheme.edit_text_disabled
           );
           SetBkMode(ps.hdc,TRANSPARENT);
           r.left+=2 - es->scroll_x; r.right-=2;
