@@ -29,6 +29,7 @@
 #include "swell-internal.h"
 #include "../wdlcstring.h"
 
+const char *g_swell_deffont_face = "Arial";
 
 swell_colortheme g_swell_ctheme = {
 #define __def_theme_ent(x,c) (c),
@@ -683,6 +684,7 @@ int main()
 #define __def_theme_ent(x,c) print_ent(#x,c,NULL); 
 #define __def_theme_ent_fb(x,c,fb) print_ent(#x,c,#fb); 
  
+printf("default_font_face %s\n",g_swell_deffont_face);
 SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 return 0;
 }
@@ -714,6 +716,19 @@ public:
       if (!*np || np == p) continue;
       *np++ = 0;
       while (*np == ' ' || *np == '\t') np++;
+
+      if(!stricmp(p,"default_font_face"))
+      {
+        if (*np > 0 && !isspace(*np))
+        {
+          char *b = strdup(np);
+          g_swell_deffont_face = b;
+          while (*b>0 && !isspace(*b)) b++;
+          *b=0;
+        }
+        continue;
+      }
+
       int col;
       if (*np == '#')
       {

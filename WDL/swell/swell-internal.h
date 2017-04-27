@@ -1015,6 +1015,7 @@ SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #define SWELL_UI_SCALE(x) (((x)*g_swell_ui_scale)/256)
 extern int g_swell_ui_scale;
 extern swell_colortheme g_swell_ctheme;
+extern const char *g_swell_deffont_face;
 
 #endif
 
