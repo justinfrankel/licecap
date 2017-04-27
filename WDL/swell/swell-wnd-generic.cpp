@@ -495,9 +495,6 @@ void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
 
     cairo_t * crc = gdk_cairo_create (hwnd->m_oswindow);
     cairo_surface_t *temp_surface = (cairo_surface_t*)bm->Extended(0xca140,NULL);
-    cairo_reset_clip(crc);
-    cairo_rectangle(crc, rect->left, rect->top, rect->right-rect->left, rect->bottom-rect->top);
-    cairo_clip(crc);
     if (temp_surface) cairo_set_source_surface(crc, temp_surface, 0,0);
     cairo_paint(crc);
     cairo_destroy(crc);
@@ -826,9 +823,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               cairo_t *crc = gdk_cairo_create (exp->window);
               LICE_IBitmap *bm = hwnd->m_backingstore;
               cairo_surface_t *temp_surface = (cairo_surface_t*)bm->Extended(0xca140,NULL);
-              cairo_reset_clip(crc);
-              cairo_rectangle(crc, r.left, r.top, r.right-r.left, r.bottom-r.top);
-              cairo_clip(crc);
               if (temp_surface) cairo_set_source_surface(crc, temp_surface, 0,0);
               cairo_paint(crc);
               cairo_destroy(crc);
