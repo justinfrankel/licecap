@@ -7161,6 +7161,7 @@ int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if
 RECT g_trackpopup_yroot;
 static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
 {
+  menu->Retain();
   MENUITEMINFO *inf = menu->items.Get(x);
   RECT r = *use_r;
   g_trackpopup_yroot = r;
@@ -7188,6 +7189,7 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   InvalidateRect(hwnd,&mbr,FALSE);
   g_menubar_active = NULL;
   g_trackpopup_yroot.top = g_trackpopup_yroot.bottom = 0;
+  menu->Release();
 }
 
 LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

@@ -665,15 +665,20 @@ struct HWND__
 
 struct HMENU__
 {
-  HMENU__() { sel_vis = -1; }
-  ~HMENU__() { items.Empty(true,freeMenuItem); }
+  HMENU__() { m_refcnt=1; sel_vis = -1; }
+
+  void Retain() { m_refcnt++; }
+  void Release() { if (!--m_refcnt) delete this; }
 
   WDL_PtrList<MENUITEMINFO> items;
   int sel_vis; // for mouse/keyboard nav
+  int m_refcnt;
 
   HMENU__ *Duplicate();
   static void freeMenuItem(void *p);
 
+private:
+  ~HMENU__() { items.Empty(true,freeMenuItem); }
 };
 
 

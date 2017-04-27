@@ -54,7 +54,7 @@ void HMENU__::freeMenuItem(void *p)
 {
   MENUITEMINFO *inf = (MENUITEMINFO *)p;
   if (!inf) return;
-  delete inf->hSubMenu;
+  if (inf->hSubMenu) inf->hSubMenu->Release();
   if (inf->fType == MFT_STRING) free(inf->dwTypeData);
   free(inf);
 }
@@ -157,7 +157,7 @@ HMENU CreatePopupMenuEx(const char *title)
 
 void DestroyMenu(HMENU hMenu)
 {
-  delete hMenu;
+  if (hMenu) hMenu->Release();
 }
 
 int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
@@ -215,7 +215,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
   if ((mi->fMask & MIIM_SUBMENU) && mi->hSubMenu != item->hSubMenu)
   {  
-    delete item->hSubMenu;
+    if (item->hSubMenu) item->hSubMenu->Release();
     item->hSubMenu = mi->hSubMenu;
   } 
   if (mi->fMask & MIIM_TYPE)
@@ -1000,6 +1000,8 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   if (!hMenu || m_trackingMenus.GetSize()) return 0;
 
   ReleaseCapture();
+
+  hMenu->Retain();
   m_trackingPar=hwnd;
   m_trackingFlags=flags;
   m_trackingRet=-1;
@@ -1044,6 +1046,8 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     SendMessage(hwnd,WM_COMMAND,m_trackingRet,0);
   
   if (hwnd) hwnd->Release();
+
+  hMenu->Release();
 
   return m_trackingRet>0?m_trackingRet:0;
 }
