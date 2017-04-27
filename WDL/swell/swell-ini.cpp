@@ -94,12 +94,6 @@ static bool fgets_to_typedbuf(WDL_TypedBuf<char> *buf, FILE *fp)
   return buf->GetSize()>0 && buf->Get()[0];
 }
 
-
-void SWELL_SetDefaultIniFile(const char *p) // deprecated will be removed very soon
-{
-  SWELL_ExtendedAPI("INIFILE",(void *)p);
-}
-
 // return true on success
 static iniFileContext *GetFileContext(const char *name)
 {
