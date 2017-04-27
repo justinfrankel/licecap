@@ -311,21 +311,24 @@ private:
 
 static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 {
-  static int gdk_owned_window_flag;
-  if (!gdk_owned_window_flag)
+  static int gdk_options;
+  if (!gdk_options)
   {
     char buf[64];
-    GetPrivateProfileString(".swell","gdk_owned_window_flag","",buf,sizeof(buf),"");
+    GetPrivateProfileString(".swell","gdk_options","",buf,sizeof(buf),"");
 
-    if (!buf[0])
+    if (buf[0] < '0' || buf[0] > '9')
     {
-      WritePrivateProfileString(".swell","gdk_owned_window_flag","1 // bit mask: 1=mark owned windows as dialog, 2=raise owned windows, 4=show owned windows in tasklist. 8=borderless windows are override_redirect","");
+      if (!buf[0])
+        WritePrivateProfileString(".swell","gdk_options","x // bitmask: 1=owned windows are dialog (default), 2=raise owned windows (Kwin default), 4=show owned windows in tasklist. 8=borderless windows are override_redirect, 16=do not set window class (Kwin default)","");
 
-      gdk_owned_window_flag = 1; // default to just mark as dialog
+      const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
+      if (wmname && !stricmp(wmname,"kwin")) gdk_options = 1|2|16; // kwin gets raised owned windows
+      else gdk_options = 1; // default to just mark as dialog
     }
     else 
     {
-      gdk_owned_window_flag = atoi(buf) | 0x10000000;
+      gdk_options = atoi(buf) | 0x10000000;
     }
   }
   
@@ -366,10 +369,11 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
         attr.width = r.right-r.left;
         attr.height = r.bottom-r.top;
         attr.wclass = GDK_INPUT_OUTPUT;
-        attr.wmclass_name = (gchar*)g_swell_appname;
-        attr.wmclass_class = (gchar*)g_swell_appname;
+        const char *appname = (gdk_options&16) ? NULL : g_swell_appname;
+        attr.wmclass_name = (gchar*)appname;
+        attr.wmclass_class = (gchar*)appname;
         attr.window_type = GDK_WINDOW_TOPLEVEL;
-        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y|(g_swell_appname?GDK_WA_WMCLASS:0));
+        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y|(appname?GDK_WA_WMCLASS:0));
  
         if (hwnd->m_oswindow) 
         {
@@ -379,7 +383,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
-            if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_owned_window_flag&8))
+            if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_options&8))
             {
               GdkWindowTypeHint type = GDK_WINDOW_TYPE_HINT_DIALOG;
               if (!hwnd->m_title.GetLength())
@@ -390,7 +394,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
               }
               gdk_window_set_type_hint(hwnd->m_oswindow, type);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
-              if (hwnd->m_owner && (gdk_owned_window_flag&2))
+              if (hwnd->m_owner && (gdk_options&2))
                 hwnd->m_israised=true;
             }
             else
@@ -413,10 +417,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             }
             else if (hwnd->m_owner)
             {
-              if (gdk_owned_window_flag&2)
+              if (gdk_options&2)
                 hwnd->m_israised=true;
 
-              if (gdk_owned_window_flag&1)
+              if (gdk_options&1)
                 type_hint = GDK_WINDOW_TYPE_HINT_DIALOG; 
             }
 
@@ -434,7 +438,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             if (s_program_icon_list) 
               gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
           }
-          if (hwnd->m_owner && !(gdk_owned_window_flag&4) && !override_redirect)
+          if (hwnd->m_owner && !(gdk_options&4) && !override_redirect)
           {
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
