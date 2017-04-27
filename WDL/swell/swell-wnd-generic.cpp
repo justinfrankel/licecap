@@ -309,27 +309,43 @@ private:
 };
 #endif
 
+static int swell_gdk_option(const char *name, const char *defstr, int defv)
+{
+  char buf[64];
+  GetPrivateProfileString(".swell",name,"",buf,sizeof(buf),"");
+  if (!buf[0]) WritePrivateProfileString(".swell",name,defstr,"");
+  if (buf[0] >= '0' && buf[0] <= '9') return atoi(buf);
+  return defv;
+}
+
 static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 {
   static int gdk_options;
   if (!gdk_options)
   {
-    char buf[64];
-    GetPrivateProfileString(".swell","gdk_options","",buf,sizeof(buf),"");
+    const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
+    const bool is_kwin = wmname && !stricmp(wmname,"kwin");
 
-    if (buf[0] < '0' || buf[0] > '9')
-    {
-      if (!buf[0])
-        WritePrivateProfileString(".swell","gdk_options","x // bitmask: 1=owned windows are dialog (default), 2=raise owned windows (Kwin default), 4=show owned windows in tasklist. 8=borderless windows are override_redirect, 16=do not set window class (Kwin default)","");
+    gdk_options = 0x40000000;
 
-      const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
-      if (wmname && !stricmp(wmname,"kwin")) gdk_options = 1|2|16; // kwin gets raised owned windows
-      else gdk_options = 1; // default to just mark as dialog
-    }
-    else 
-    {
-      gdk_options = atoi(buf) | 0x10000000;
-    }
+    if (swell_gdk_option("gdk_owned_window_dialog","auto (default is 1)",1))
+      gdk_options|=1;
+
+    if (swell_gdk_option("gdk_raise_owned_windows",
+                         "auto (1 on kwin, 0 otherwise)",
+                         is_kwin ? 1:0))
+      gdk_options|=2;
+
+    if (swell_gdk_option("gdk_owned_windows_in_tasklist", "auto (default is 0)",0))
+      gdk_options|=4;
+
+    if (swell_gdk_option("gdk_borderless_are_override_redirect", "auto (default is 0)",0))
+      gdk_options|=8;
+
+    if (swell_gdk_option("gdk_no_set_window_class",
+                         "auto (1 on kwin, 0 otherwise)",
+                         is_kwin ? 1 : 0))
+      gdk_options|=16;
   }
   
   if (!hwnd) return;
