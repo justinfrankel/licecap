@@ -100,7 +100,11 @@ static void ScanFontDirectory(const char *path, int maxrec=3)
     {
       if (ds.GetCurrentIsDirectory())
       {
-        if (maxrec>0) 
+        if (maxrec>0 && 
+            strcmp(ds.GetCurrentFN(),"type1") &&
+            strcmp(ds.GetCurrentFN(),"cmap") &&
+            strcmp(ds.GetCurrentFN(),"X11")
+           )
         {
           ds.GetCurrentFullFN(&fs);
           ScanFontDirectory(fs.Get(),maxrec-1);
@@ -281,31 +285,55 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
     if (s_freetype)
     {
-      // debian paths
-      ScanFontDirectory("/usr/share/fonts/truetype");
-      ScanFontDirectory("/usr/share/fonts/opentype");
-      ScanFontDirectory("/usr/share/fonts/TTF");
-      ScanFontDirectory("/usr/share/fonts/OTF");
-
-      // fedora paths
-      ScanFontDirectory("/usr/share/fonts/dejavu");
-      ScanFontDirectory("/usr/share/fonts/gnu-free");
-
+      ScanFontDirectory("/usr/share/fonts");
 
       qsort(s_freetype_fontlist.GetList(),s_freetype_fontlist.GetSize(),sizeof(const char *),(int (*)(const void *,const void*))sortByFilePart);
     }
   }
   if (s_freetype)
   {
-    if (!lfFaceName || !*lfFaceName) lfFaceName = "Arial";
+    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName);
 
-    if (!face) face = MatchFont(lfFaceName);
-    if (!face && strstr(lfFaceName,"Courier")) face = MatchFont("DejaVuSansMono");
-    if (!face && strstr(lfFaceName,"Courier")) face = MatchFont("FreeMono");
+    if (!face)
+    {
+      static const char *fallbacklist[2];
+      const int wl = (lfFaceName && (
+                        !strnicmp(lfFaceName,"Courier",7) ||
+                        !strnicmp(lfFaceName,"Fixed",5)
+                        )) ? 1 : 0;
+      if (!fallbacklist[wl])
+      {
+        static const char *ent[2] = { "ft_font_fallback", "ft_font_fallback_fixedwidth" };
+        static const char *def[2] = { "// FreeSans DejaVuSans", "// FreeMono DejaVuSansMono" };
+        char tmp[1024];
+        GetPrivateProfileString(".swell",ent[wl],"",tmp,sizeof(tmp),"");
+        if (!tmp[0])
+          WritePrivateProfileString(".swell",ent[wl],def[wl],"");
+        const char *rp = tmp;
+        while (*rp == ' ' || *rp == '\t') rp++;
+        if (!*rp || *rp == '/') rp = def[wl] + 3;
 
-    if (!face) face = MatchFont("FreeSans");
-    if (!face) face = MatchFont("DejaVuSans");
-
+        char *b = (char*) malloc(strlen(rp) + 2);
+        fallbacklist[wl] = b ? b : "FreeSans\0";
+        if (b)
+        {
+          for(;;)
+          {
+            while (*rp == ' ' || *rp == '\t') rp++;
+            while (*rp && *rp != ' ' && *rp != '\t') *b++ = *rp++;
+            *b++=0;
+            if (!*rp) break;
+          }
+          *b++=0;
+        }
+      }
+      const char *l = fallbacklist[wl];
+      while (*l && !face)
+      {
+        face = MatchFont(l);
+        l += strlen(l)+1;
+      }
+    }
   }
   
   if (face)
