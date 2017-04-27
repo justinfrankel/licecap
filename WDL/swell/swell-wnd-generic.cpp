@@ -2232,6 +2232,39 @@ void SWELL_CloseWindow(HWND hwnd)
 }
 
 
+static void Draw3DBox(HDC hdc, const RECT *r, int bgc, int topc, int botc, bool swap=false)
+{
+  RECT tr = *r;
+  tr.right--;
+  tr.bottom--;
+  if (bgc != -1)
+  {
+    tr.left++;
+    tr.top++;
+    HBRUSH br = CreateSolidBrush(bgc);
+    FillRect(hdc,&tr,br);
+    DeleteObject(br);
+    tr.left--;
+    tr.top--;
+  }
+
+  HPEN pen = CreatePen(PS_SOLID,0,swap?botc:topc);
+  HPEN pen2 = CreatePen(PS_SOLID,0,swap?topc:botc);
+  HGDIOBJ oldpen = SelectObject(hdc,pen);
+  MoveToEx(hdc,tr.left,tr.bottom,NULL);
+  LineTo(hdc,tr.left,tr.top);
+  LineTo(hdc,tr.right,tr.top);
+
+  SelectObject(hdc,pen2);
+  LineTo(hdc,tr.right,tr.bottom);
+  LineTo(hdc,tr.left,tr.bottom);
+
+  SelectObject(hdc,oldpen);
+  DeleteObject(pen);
+  DeleteObject(pen2);
+}
+
+
 #include "swell-dlggen.h"
 
 static HWND m_make_owner;
@@ -2561,11 +2594,11 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             {
               if (st==3||(st==2 && (hwnd->m_style & 0xf) == BS_AUTOCHECKBOX)) st=1;
               
-              HBRUSH br = CreateSolidBrush(
+              Draw3DBox(ps.hdc,&tr,
                  st==2?g_swell_ctheme.checkbox_inter:
-                       g_swell_ctheme.checkbox_bg);
-              FillRect(ps.hdc,&tr,br);
-              DeleteObject(br);
+                    g_swell_ctheme.checkbox_bg,
+                 g_swell_ctheme.button_shadow,
+                 g_swell_ctheme.button_hilight);
 
               if (st == 1||pressed)
               {
@@ -2614,22 +2647,10 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           }
           else
           {
-            HBRUSH br = CreateSolidBrush(g_swell_ctheme.button_bg);
-            FillRect(ps.hdc,&r,br);
-            DeleteObject(br);
+            Draw3DBox(ps.hdc,&r,g_swell_ctheme.button_bg,
+              g_swell_ctheme.button_hilight,
+              g_swell_ctheme.button_shadow,pressed);
 
-            HPEN pen2 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.button_hilight : g_swell_ctheme.button_shadow);
-            HPEN pen = CreatePen(PS_SOLID,0,(!pressed)?g_swell_ctheme.button_hilight : g_swell_ctheme.button_shadow);
-            HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-            MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
-            LineTo(ps.hdc,r.left,r.top);
-            LineTo(ps.hdc,r.right-1,r.top);
-            SelectObject(ps.hdc,pen2);
-            LineTo(ps.hdc,r.right-1,r.bottom-1);
-            LineTo(ps.hdc,r.left,r.bottom-1);
-            SelectObject(ps.hdc,oldpen);
-            DeleteObject(pen);
-            DeleteObject(pen2);
             f|=DT_CENTER;
             if (pressed) 
             {
@@ -4326,19 +4347,9 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               g_swell_ctheme.combo_text_disabled);
           SetBkMode(ps.hdc,TRANSPARENT);
 
-          HBRUSH br = CreateSolidBrush(g_swell_ctheme.combo_bg);
-          FillRect(ps.hdc,&r,br);
-          DeleteObject(br);
-
-          HPEN pen2 = CreatePen(PS_SOLID,0,pressed?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
-          HPEN pen = CreatePen(PS_SOLID,0,(!pressed)?g_swell_ctheme.combo_hilight : g_swell_ctheme.combo_shadow);
-          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,r.left,r.bottom-1,NULL);
-          LineTo(ps.hdc,r.left,r.top);
-          LineTo(ps.hdc,r.right-1,r.top);
-          SelectObject(ps.hdc,pen2);
-          LineTo(ps.hdc,r.right-1,r.bottom-1);
-          LineTo(ps.hdc,r.left,r.bottom-1);
+          Draw3DBox(ps.hdc,&r,g_swell_ctheme.combo_bg,
+              g_swell_ctheme.combo_hilight,
+              g_swell_ctheme.combo_shadow,pressed);
 
           int cursor_pos = -1;
           bool focused = false;
@@ -4354,7 +4365,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
               if (s->editstate.cursor_timer) { KillTimer(hwnd,100); s->editstate.cursor_timer=0; }
             }
 
-            br = CreateSolidBrush(g_swell_ctheme.combo_bg2);
+            HBRUSH br = CreateSolidBrush(g_swell_ctheme.combo_bg2);
             RECT tr=r; 
             const int pad = SWELL_UI_SCALE(2);
             tr.left+=pad; tr.top+=pad; tr.bottom-=pad; tr.right -= SWELL_UI_SCALE(buttonwid+2);
@@ -4367,9 +4378,9 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             }
           }
 
-          br = CreateSolidBrush(pressed?g_swell_ctheme.combo_arrow_press : g_swell_ctheme.combo_arrow);
+          HBRUSH br = CreateSolidBrush(pressed?g_swell_ctheme.combo_arrow_press : g_swell_ctheme.combo_arrow);
           HGDIOBJ oldbr=SelectObject(ps.hdc,br);
-          SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+          HGDIOBJ oldpen=SelectObject(ps.hdc,GetStockObject(NULL_PEN));
           const int dw = SWELL_UI_SCALE(8);
           const int dh = SWELL_UI_SCALE(4);
           const int cx = r.right-dw/2-SWELL_UI_SCALE(4);
@@ -4384,8 +4395,6 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
           SelectObject(ps.hdc,oldpen);
           SelectObject(ps.hdc,oldbr);
-          DeleteObject(pen);
-          DeleteObject(pen2);
           DeleteObject(br);
 
          
@@ -5289,8 +5298,6 @@ forceMouseMove:
             if (hdr_size_nomargin>0)
             {
               HBRUSH br = CreateSolidBrush(g_swell_ctheme.listview_hdr_bg);
-              HBRUSH br2 = CreateSolidBrush(g_swell_ctheme.listview_hdr_hilight);
-              HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.listview_hdr_shadow);
               int x,xpos=(has_status_image ? row_height : 0) - xo, ypos=0;
               SetTextColor(ps.hdc,g_swell_ctheme.listview_hdr_text);
 
@@ -5307,14 +5314,11 @@ forceMouseMove:
                
                 if (tr.right > tr.left) 
                 {
-                  RECT a=tr;
-                  a.right=a.left+1; FillRect(ps.hdc,&a,br2); a=tr;
-                  a.bottom=a.top+1; FillRect(ps.hdc,&a,br2); a=tr;
-                  a.left=a.right-1; FillRect(ps.hdc,&a,br3); a=tr;
-                  a.top=a.bottom-1; FillRect(ps.hdc,&a,br3); a=tr;
+                  Draw3DBox(ps.hdc,&tr, 
+                      g_swell_ctheme.listview_hdr_bg,
+                      g_swell_ctheme.listview_hdr_hilight,
+                      g_swell_ctheme.listview_hdr_shadow);
 
-                  a.left++; a.top++; a.right--; a.bottom--;
-                  FillRect(ps.hdc,&a,br);
                   if (cols[x].sortindicator != 0)
                   {
                     const int tsz = (tr.bottom-tr.top)/4;
@@ -5356,8 +5360,6 @@ forceMouseMove:
                 FillRect(ps.hdc,&tr,br);
               }
               DeleteObject(br);
-              DeleteObject(br2);
-              DeleteObject(br3);
             }
             if (gridpen) 
             {
