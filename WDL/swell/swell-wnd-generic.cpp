@@ -2463,6 +2463,32 @@ static void paintDialogBackground(HWND hwnd, const RECT *r, HDC hdc)
   }
 }
 
+static bool fast_has_focus(HWND hwnd)
+{
+  return hwnd && hwnd->m_parent && hwnd->m_parent->m_focused_child == hwnd && 
+         GetFocus()==hwnd;
+}
+
+static bool draw_focus_indicator(HWND hwnd, HDC hdc, const RECT *drawr)
+{
+  if (!fast_has_focus(hwnd)) return false;
+
+  RECT r,tr;
+  const int sz = SWELL_UI_SCALE(3);
+  if (drawr) r=*drawr;
+  else GetClientRect(hwnd,&r);
+
+  HBRUSH br = CreateSolidBrushAlpha(g_swell_ctheme.focus_hilight,0.75f);
+  tr=r; tr.right = tr.left+sz; FillRect(hdc,&tr,br);
+  tr=r; tr.left = tr.right-sz; FillRect(hdc,&tr,br);
+  tr=r; tr.left+=sz; tr.right-=sz; 
+  tr.bottom = tr.top+sz; FillRect(hdc,&tr,br);
+  tr.bottom = r.bottom; tr.top = tr.bottom-sz; FillRect(hdc,&tr,br);
+
+  DeleteObject(br);
+  return true;
+}
+
 
 #ifndef SWELL_ENABLE_VIRTWND_CONTROLS
 struct buttonWindowState
@@ -2490,15 +2516,19 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     return 0;
     case WM_MOUSEMOVE:
     return 0;
+    case WM_KEYDOWN:
+      if (wParam == VK_SPACE) goto fakeButtonClick;
+    break;
     case WM_LBUTTONUP:
       if (GetCapture()==hwnd)
       {
+fakeButtonClick:
         buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
         ReleaseCapture(); // WM_CAPTURECHANGED will take care of the invalidate
         RECT r;
         GetClientRect(hwnd,&r);
         POINT p={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
-        if (PtInRect(&r,p) && hwnd->m_id && hwnd->m_parent) 
+        if ((msg==WM_KEYDOWN||PtInRect(&r,p)) && hwnd->m_id && hwnd->m_parent) 
         {
           int sf = (hwnd->m_style & 0xf);
           if (sf == BS_AUTO3STATE)
@@ -2550,6 +2580,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
           }
           SendMessage(hwnd->m_parent,WM_COMMAND,MAKEWPARAM(hwnd->m_id,BN_CLICKED),(LPARAM)hwnd);
         }
+        if (msg == WM_KEYDOWN) InvalidateRect(hwnd,NULL,FALSE);
       }
     return 0;
     case WM_PAINT:
@@ -2680,11 +2711,26 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
           }
 
+          if (draw_focus_indicator(hwnd,ps.hdc,NULL))
+          {
+            KillTimer(hwnd,1);
+            SetTimer(hwnd,1,100,NULL);
+          }
 
           EndPaint(hwnd,&ps);
         }
       }
     return 0;
+    case WM_TIMER:
+      if (wParam==1)
+      {
+        if (!fast_has_focus(hwnd))
+        {
+          KillTimer(hwnd,1);
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+    break;
     case BM_GETCHECK:
       if (hwnd)
       {
@@ -3239,6 +3285,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
     }
     return 0;
   }
+  if ((lParam & FVIRTKEY) && wParam == VK_TAB) return 0; // pass through to window
 
   const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;
   if (wParam >= 32 && (!(lParam & FVIRTKEY) || is_virtkey_char((int)wParam) || is_numpad))
@@ -4236,6 +4283,14 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         if (++s->editstate.cursor_state >= 8) s->editstate.cursor_state=0;
         if (GetFocusIncludeMenus()!=hwnd || s->editstate.cursor_state<2) InvalidateRect(hwnd,NULL,FALSE);
       }
+      else if (wParam==1)
+      {
+        if (!fast_has_focus(hwnd))
+        {
+          KillTimer(hwnd,1);
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
     return 0;
 
     case WM_LBUTTONDOWN:
@@ -4296,6 +4351,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       if (GetCapture()==hwnd)
       {
         ReleaseCapture(); 
+popupMenu:
         if (s && s->items.GetSize() && s_capmode_state == 5)
         {
           int x;
@@ -4327,6 +4383,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       s_capmode_state=0;
     return 0;
     case WM_KEYDOWN:
+      if ((lParam&FVIRTKEY) && wParam == VK_DOWN) { s_capmode_state=5; goto popupMenu; }
       if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam,false,&s->editstate))
       {
         if (s) s->selidx=-1; // lookup from text?
@@ -4335,6 +4392,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         InvalidateRect(hwnd,NULL,FALSE);
         return 0;
       }
+      if (wParam == VK_SPACE) { s_capmode_state=5; goto popupMenu; }
     break;
     case WM_KEYUP:
     return 0;
@@ -4426,11 +4484,15 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             if (buf[0]) DrawText(ps.hdc,buf,-1,&r,DT_VCENTER);
           }
 
+          if (draw_focus_indicator(hwnd,ps.hdc,NULL))
+          {
+            KillTimer(hwnd,1);
+            SetTimer(hwnd,1,100,NULL);
+          }
           EndPaint(hwnd,&ps);
         }
       }
     return 0;
-
     case WM_SETTEXT:
       s->editstate.cursor_pos = WDL_utf8_get_charlen(hwnd->m_title.Get());
       s->editstate.sel1 = s->editstate.sel2 = -1;
@@ -6008,17 +6070,52 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
       hwnd->m_private_data = 0;
       delete s;
     return 0;  
+    case WM_TIMER:
+      if (wParam==1)
+      {
+        if (!fast_has_focus(hwnd))
+        {
+          KillTimer(hwnd,1);
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+    break;
     case WM_LBUTTONUP:
       if (GET_Y_LPARAM(lParam) < TABCONTROL_HEIGHT)
       {
         return 1;
       }
     break;
+    case WM_KEYDOWN:
+      if (lParam==FVIRTKEY && 
+           (wParam==VK_LEFT || 
+            wParam==VK_RIGHT || 
+            wParam==VK_HOME || 
+            wParam == VK_END))
+      {
+        int ct = s->m_curtab;
+        if (wParam==VK_LEFT)ct--;
+        else ct++;
+        if (ct>=s->m_tabs.GetSize()||wParam == VK_END) ct=s->m_tabs.GetSize()-1;
+        if (ct<0||wParam==VK_HOME) ct=0;
+        if (ct != s->m_curtab)
+        {
+          s->m_curtab = ct;
+          NMHDR nm={hwnd,(UINT_PTR)hwnd->m_id,TCN_SELCHANGE};
+          InvalidateRect(hwnd,NULL,FALSE);
+          SendMessage(GetParent(hwnd),WM_NOTIFY,nm.idFrom,(LPARAM)&nm);
+        }
+
+        return 0;
+      }
+    break;
     case WM_LBUTTONDOWN:
       if (GET_Y_LPARAM(lParam) < TABCONTROL_HEIGHT)
       {
+        SetFocus(hwnd);
         int xp=GET_X_LPARAM(lParam),tab;
         HDC dc = GetDC(hwnd);
+        int tabchg = -1;
         for (tab = 0; tab < s->m_tabs.GetSize(); tab ++)
         {
           const char *buf = s->m_tabs.Get(tab);
@@ -6029,14 +6126,20 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
           {
             if (s->m_curtab != tab)
             {
-              s->m_curtab = tab;
-              InvalidateRect(hwnd,NULL,FALSE);
-              NMHDR nm={hwnd,(UINT_PTR)hwnd->m_id,TCN_SELCHANGE};
-              SendMessage(GetParent(hwnd),WM_NOTIFY,nm.idFrom,(LPARAM)&nm);
+              tabchg = tab;
             }
             break;
           }
         }
+        if (tabchg >=0)
+        {
+          s->m_curtab = tabchg;
+          NMHDR nm={hwnd,(UINT_PTR)hwnd->m_id,TCN_SELCHANGE};
+          InvalidateRect(hwnd,NULL,FALSE);
+          SendMessage(GetParent(hwnd),WM_NOTIFY,nm.idFrom,(LPARAM)&nm);
+        }
+        else
+          InvalidateRect(hwnd,NULL,FALSE);
  
         ReleaseDC(hwnd,dc);
         return 1;
@@ -6059,7 +6162,17 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
           SetTextColor(ps.hdc,g_swell_ctheme.tab_text);
           HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
           const int th = TABCONTROL_HEIGHT;
+
+          {
+            RECT bgr={0,0,r.right,th};
+            IntersectRect(&bgr,&bgr,&ps.rcPaint);
+            HBRUSH hbrush = (HBRUSH) SendMessage(hwnd,WM_CTLCOLORDLG,(WPARAM)ps.hdc,(LPARAM)hwnd);
+            if (hbrush && hbrush != (HBRUSH)1) FillRect(ps.hdc,&bgr,hbrush);
+            else SWELL_FillDialogBackground(ps.hdc,&bgr,0);
+          }
+
           int lx=0;
+          RECT fr={0,};
           for (tab = 0; tab < s->m_tabs.GetSize() && xp < r.right; tab ++)
           {
             const char *buf = s->m_tabs.Get(tab);
@@ -6076,6 +6189,14 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             SelectObject(ps.hdc,pen2);
             LineTo(ps.hdc,xp+tw,th-1);
 
+            if (tab==s->m_curtab)
+            {
+              fr.left=xp;
+              fr.right=xp+tw;
+              fr.top=0;
+              fr.bottom=th;
+            }
+
             MoveToEx(ps.hdc, tab == s->m_curtab ? lx-SWELL_UI_SCALE(xdiv) : olx,th-1,NULL);
             LineTo(ps.hdc,lx,th-1);
 
@@ -6088,6 +6209,11 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
 
             DrawText(ps.hdc,buf,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
             xp = lx;
+          }
+          if (draw_focus_indicator(hwnd,ps.hdc,&fr))
+          {
+            KillTimer(hwnd,1);
+            SetTimer(hwnd,1,100,NULL);
           }
           SelectObject(ps.hdc,pen2);
           MoveToEx(ps.hdc,lx,th-1,NULL);
@@ -6198,7 +6324,6 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,NULL, !(style&SWELL_NOT_WS_VISIBLE), tabControlWindowProc);
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
-    hwnd->m_wantfocus = false;
     hwnd->m_classname = "SysTabControl32";
     hwnd->m_private_data = (INT_PTR) new tabControlState;
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
@@ -7037,6 +7162,50 @@ void ReleaseCapture()
   }
 }
 
+static HWND getNextFocusWindow(HWND hwnd, bool rev, HWND foc_child)
+{
+  HWND ch = NULL;
+  if (foc_child)
+  {
+    ch = hwnd->m_children;
+    while (ch && ch != foc_child) ch = ch->m_next;
+  }
+
+  int pass=0;
+  if (ch) 
+  {
+    ch = rev ? ch->m_prev : ch->m_next;
+  }
+  else
+  {
+    ch = hwnd->m_children;
+    if (ch && rev) while (ch->m_next) ch=ch->m_next;
+    pass++;
+  }
+
+  for (;;)
+  {
+    while (ch)
+    {
+      // scan to find next matching control
+      if (ch->m_wantfocus && ch->m_visible && ch->m_enabled) break;
+      ch = rev ? ch->m_prev : ch->m_next;
+    }
+    if (ch || ++pass>1 || hwnd->m_parent) break;
+
+    // continue searching
+    ch = hwnd->m_children;
+    if (ch && rev) while (ch->m_next) ch=ch->m_next;
+  }
+  if (ch && ch->m_children)
+  {
+    HWND sub = getNextFocusWindow(ch,rev,NULL);
+    if (sub) return sub;
+  }
+  return ch;
+}
+
+
 LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   DLGPROC d=(DLGPROC)GetWindowLong(hwnd,DWL_DLGPROC);
@@ -7077,6 +7246,21 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       else if (wParam == VK_RETURN)
       {
         SendMessage(hwnd,WM_COMMAND,IDOK/*todo: get default*/,0);
+        return 0;
+      }
+    }
+    if (uMsg == WM_KEYDOWN && wParam == VK_TAB && (lParam&~FSHIFT) == FVIRTKEY)
+    {
+      HWND ch = getNextFocusWindow(hwnd,(lParam & FSHIFT) != 0,hwnd->m_focused_child);
+      if (ch)
+      {
+        HWND oldfoc = GetFocus();
+        SetFocus(ch);
+        if (ch->m_classname && !strcmp(ch->m_classname,"Edit"))
+          SendMessage(ch,EM_SETSEL,0,-1);
+
+        if (oldfoc) InvalidateRect(oldfoc,NULL,FALSE);
+        InvalidateRect(ch,NULL,FALSE);
         return 0;
       }
     }
