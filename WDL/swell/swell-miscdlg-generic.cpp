@@ -196,7 +196,7 @@ char BrowseFile_State::s_sortrev;
 
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT };
+  enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON };
   enum { WM_UPD=WM_USER+100 };
   const int maxPathLen = 2048;
   const char *multiple_files = "(multiple files)";
@@ -224,6 +224,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
         HWND dir = SWELL_MakeCombo(IDC_DIR, 0,0,0,0, 0);
+        SWELL_MakeButton(0, "..", IDC_PARENTBUTTON, 0,0,0,0, 0);
 
         const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
         char tmp[128];
@@ -421,7 +422,12 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SetWindowPos(GetDlgItem(hwnd,IDC_EDIT), NULL, xborder*2 + fnlblw, ypos -= fnh + yborder, r.right-fnlblw-xborder*3, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
         SetWindowPos(GetDlgItem(hwnd,IDC_LABEL), NULL, xborder, ypos, fnlblw, fnh, SWP_NOZORDER|SWP_NOACTIVATE);
-        SetWindowPos(GetDlgItem(hwnd,IDC_DIR), NULL, xborder, yborder/2, r.right-xborder*2, g_swell_ctheme.combo_height, SWP_NOZORDER|SWP_NOACTIVATE);
+        const int comboh = g_swell_ctheme.combo_height;
+        SetWindowPos(GetDlgItem(hwnd,IDC_DIR), NULL, xborder, yborder/2, 
+            r.right-xborder*2 - xborder - comboh, comboh, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,IDC_PARENTBUTTON),NULL,
+            r.right-xborder-comboh,yborder/2,
+            comboh,comboh,SWP_NOZORDER|SWP_NOACTIVATE);
   
         SetWindowPos(GetDlgItem(hwnd,IDC_LIST), NULL, xborder, g_swell_ctheme.combo_height+yborder, r.right-xborder*2, ypos - (g_swell_ctheme.combo_height+yborder) - yborder, SWP_NOZORDER|SWP_NOACTIVATE);
       }
@@ -432,7 +438,24 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         case IDC_EXT:
           if (HIWORD(wParam) == CBN_SELCHANGE)
           {
-            SendMessage(hwnd,WM_UPD,1,0); // refresh list
+            SendMessage(hwnd,WM_UPD,1,0);
+          }
+        return 0;
+        case IDC_PARENTBUTTON:
+          {
+            int a = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCURSEL,0,0);
+            if (a>=0) 
+            {
+              SendDlgItemMessage(hwnd,IDC_DIR,CB_SETCURSEL,a+1,0);
+            }
+            else
+            {
+              char buf[maxPathLen];
+              GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
+              WDL_remove_filepart(buf);
+              SetDlgItemText(hwnd,IDC_DIR,buf);
+            }
+            SendMessage(hwnd,WM_UPD,1,0);
           }
         return 0;
         case IDC_DIR:
