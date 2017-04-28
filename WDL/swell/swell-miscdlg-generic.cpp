@@ -737,6 +737,13 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         }
       }
     break;
+    case WM_KEYDOWN:
+      if (lParam == FVIRTKEY && wParam == VK_F5)
+      {
+        SendMessage(hwnd,WM_UPD,1,0);
+        return 1;
+      }
+    return 0;
   }
   return 0;
 }
