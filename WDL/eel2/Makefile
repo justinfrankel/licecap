@@ -1,7 +1,13 @@
 CC=gcc
-CFLAGS=-O -g -DWDL_FFT_REALSIZE=8
+CFLAGS=-g -DWDL_FFT_REALSIZE=8
 LFLAGS=
 CXX=g++
+
+ifdef DEBUG
+CFLAGS += -D_DEBUG -O0
+else
+CFLAGS += -DNDEBUG -O
+endif
 
 
 OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o  ../fft.o

@@ -31,9 +31,9 @@ endif
 
 
 ifdef DEBUG
-CFLAGS += -O0 -g 
+CFLAGS += -O0 -g -D_DEBUG
 else
-CFLAGS += -O2 
+CFLAGS += -O2 -DNDEBUG
   ifneq ($(UNAME_S),Darwin)
     CFLAGS += -s
   endif
