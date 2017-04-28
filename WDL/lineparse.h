@@ -123,7 +123,7 @@ class LineParserInt // version which does not have any temporary space for buffe
         const char oldterm = *line;
         *line=0; // null terminate this token
 
-        if (m_nt >= (sizeof(m_toklist_small)/sizeof(m_toklist_small[0])))
+        if (m_nt >= (int) (sizeof(m_toklist_small)/sizeof(m_toklist_small[0])))
         {
           m_tokens = m_toklist_big.ResizeOK(m_nt+1,false);
           if (!m_tokens) 
@@ -131,7 +131,7 @@ class LineParserInt // version which does not have any temporary space for buffe
             m_nt=0;
             return -1;
           }
-          if (m_nt == (sizeof(m_toklist_small)/sizeof(m_toklist_small[0])))
+          if (m_nt == (int) (sizeof(m_toklist_small)/sizeof(m_toklist_small[0])))
             memcpy(m_tokens,m_toklist_small,m_nt*sizeof(const char *));         
         }
         m_tokens[m_nt++] = basep;
@@ -333,7 +333,7 @@ class LineParser : public LineParserInt
       int linelen = (int)strlen(line);
       
       char *usebuf=m_tmpbuf;
-      if (linelen >= sizeof(m_tmpbuf))
+      if (linelen >= (int)sizeof(m_tmpbuf))
       {
         usebuf = (char *)m_tmpbuf_big.ResizeOK(linelen+1,false);
         if (!usebuf) 

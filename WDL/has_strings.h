@@ -52,7 +52,7 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
         matched_local = -1; // new scope
       }
 
-      if (stacktop < sizeof(stack) - 1) stack[++stacktop] = 0;
+      if (stacktop < (int)sizeof(stack) - 1) stack[++stacktop] = 0;
     }
     else if (stacktop && n[0] == ')' && !n[1] && !lp->gettoken_quotingchar(x))
     {
