@@ -36,6 +36,10 @@
 #include <dirent.h>
 #include <time.h>
 
+#include "../lineparse.h"
+#define WDL_HASSTRINGS_EXPORT static
+#include "../has_strings.h"
+
 static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
 static struct SWELL_DialogResourceIndex *BFSF_Templ_reshead;
@@ -80,26 +84,6 @@ public:
     char *name;
     int type; // 1 = directory, 2 = file
 
-    bool has(const char *filter)
-    {
-      const size_t filter_len = strlen(filter);
-      const char *n = WDL_get_filepart(name);
-      while (*n && strnicmp(n,filter,filter_len)) n++;
-      if (*n) return true;
-
-      char tmp[256];
-      format_date(tmp,sizeof(tmp));
-      n=tmp;
-      while (*n && strnicmp(n,filter,filter_len)) n++;
-      if (*n) return true;
-      format_size(tmp,sizeof(tmp));
-      n=tmp;
-      while (*n && strnicmp(n,filter,filter_len)) n++;
-      if (*n) return true;
-
-      return false;
-    }
-
     void format_date(char *buf, int bufsz)
     {
       *buf=0;
@@ -133,6 +117,16 @@ public:
         }
       }
     }
+
+    char *format_all(char *buf, int bufsz)
+    {
+      char dstr[128],sstr[128];
+      format_date(dstr,sizeof(dstr));
+      format_size(sstr,sizeof(sstr));
+      snprintf(buf,bufsz,"%s\t%s\t%s",WDL_get_filepart(name),dstr,sstr);
+      return buf;
+    }
+
   };
 
   void viewlist_clear()
@@ -150,10 +144,13 @@ public:
     if (filter)
     {
       viewlist.Empty();
+      LineParser lp;
+      const bool no_filter = !*filter || !WDL_makeSearchFilter(filter,&lp);
       for (int x=0;x<viewlist_store.GetSize();x++) 
       {
         rec *r = viewlist_store.Get()+x;
-        if (!filter || !*filter || r->has(filter))
+        char tmp[512];
+        if (no_filter || WDL_hasStrings(r->format_all(tmp,sizeof(tmp)),&lp))
           viewlist.Add(r);
       }
     }
