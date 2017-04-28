@@ -7062,7 +7062,7 @@ void UpdateWindow(HWND hwnd)
 
 BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
-  if (!hwnd) return FALSE;
+  if (!hwnd || hwnd->m_hashaddestroy) return FALSE;
 
 #ifdef SWELL_LICE_GDI
   RECT rect;
@@ -7080,7 +7080,7 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
   HWND h = hwnd;
   for (;;)
   {
-    if (!h->m_visible) return FALSE;
+    if (!h->m_visible || h->m_hashaddestroy) return FALSE;
 
     RECT ncrect = h->m_position;
     if (h->m_oswindow) WinOffsetRect(&ncrect, -ncrect.left, -ncrect.top);
