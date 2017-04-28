@@ -2465,8 +2465,14 @@ static void paintDialogBackground(HWND hwnd, const RECT *r, HDC hdc)
 
 static bool fast_has_focus(HWND hwnd)
 {
-  return hwnd && hwnd->m_parent && hwnd->m_parent->m_focused_child == hwnd && 
-         GetFocus()==hwnd;
+  if (!hwnd || !SWELL_focused_oswindow) return false;
+  HWND par;
+  while ((par=hwnd->m_parent)!=NULL && par->m_focused_child==hwnd)
+  {
+    if (par->m_oswindow == SWELL_focused_oswindow) return true;
+    hwnd=par;
+  }
+  return false;
 }
 
 static bool draw_focus_indicator(HWND hwnd, HDC hdc, const RECT *drawr)
@@ -7254,12 +7260,10 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       HWND ch = getNextFocusWindow(hwnd,(lParam & FSHIFT) != 0,hwnd->m_focused_child);
       if (ch)
       {
-        HWND oldfoc = GetFocus();
         SetFocus(ch);
         if (ch->m_classname && !strcmp(ch->m_classname,"Edit"))
           SendMessage(ch,EM_SETSEL,0,-1);
 
-        if (oldfoc) InvalidateRect(oldfoc,NULL,FALSE);
         InvalidateRect(ch,NULL,FALSE);
         return 0;
       }
