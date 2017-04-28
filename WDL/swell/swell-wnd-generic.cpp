@@ -6200,7 +6200,7 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
               fr.left=xp;
               fr.right=xp+tw;
               fr.top=0;
-              fr.bottom=th;
+              fr.bottom=th-2;
             }
 
             MoveToEx(ps.hdc, tab == s->m_curtab ? lx-SWELL_UI_SCALE(xdiv) : olx,th-1,NULL);

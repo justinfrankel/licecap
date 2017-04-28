@@ -896,12 +896,13 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         int x;
         int button_height=0, button_total_w=0;;
+        const int bspace = SWELL_UI_SCALE(button_spacing);
         for (x = 0; x < nbuttons; x ++)
         {
           RECT r={0,0,35,12};
           DrawText(dc,buttons[x],-1,&r,DT_CALCRECT|DT_NOPREFIX|DT_SINGLELINE);
           button_sizes[x] = r.right-r.left + sc10;
-          button_total_w += button_sizes[x] + (x ? button_spacing : 0);
+          button_total_w += button_sizes[x] + (x ? bspace : 0);
           if (r.bottom-r.top+sc10 > button_height) button_height = r.bottom-r.top+sc10;
         }
 
@@ -911,7 +912,7 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         for (x = 0; x < nbuttons; x ++)
         {
           SWELL_MakeButton(0,buttons[x],button_ids[x],xpos,labsize.bottom,button_sizes[x],button_height,0);
-          xpos += button_sizes[x] + button_spacing;
+          xpos += button_sizes[x] + bspace;
         }
 
         if (dc) ReleaseDC(lab,dc);
@@ -919,6 +920,7 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         SetWindowPos(hwnd,NULL,0,0,
               labsize.right + sc8*2,labsize.bottom + button_height + sc8,SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOMOVE);
         if (lab) SetWindowPos(lab,NULL,sc8,0,labsize.right,labsize.bottom,SWP_NOACTIVATE|SWP_NOZORDER);
+        SetFocus(GetDlgItem(hwnd,button_ids[0]));
       }
     break;
     case WM_SIZE:
@@ -926,13 +928,13 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         RECT r;
         GetClientRect(hwnd,&r);
         HWND h = GetWindow(hwnd,GW_CHILD);
-        int n = 100;
-        int w[8];
+        int n = 10, w[8];
         HWND tab[8],lbl=NULL;
         int tabsz=0, bxwid=0, button_height=0;
-        while (h && n--) {
+        while (h && n-- && tabsz<8) 
+        {
           int idx = GetWindowLong(h,GWL_ID);
-          if (idx == IDCANCEL || idx == IDOK || idx == IDNO || idx == IDYES) 
+          if (idx == IDCANCEL || idx == IDOK || idx == IDNO || idx == IDYES || idx == IDRETRY) 
           { 
             RECT tr;
             GetClientRect(h,&tr);
@@ -943,13 +945,13 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           } else if (idx==IDC_LABEL) lbl=h;
           h = GetWindow(h,GW_HWNDNEXT);
         }
-        const int sc8 = SWELL_UI_SCALE(8);
+        const int bspace = SWELL_UI_SCALE(button_spacing), sc8 = SWELL_UI_SCALE(8);
         if (lbl) SetWindowPos(h,NULL,sc8,0,r.right,r.bottom - sc8 - button_height,  SWP_NOZORDER|SWP_NOACTIVATE);
-        int xo = r.right/2 - (bxwid + (tabsz-1)*button_spacing)/2,x;
-        for (x=tabsz-1; x >=0; x--)
+        int xo = r.right/2 - (bxwid + (tabsz-1)*bspace)/2;
+        for (int x=0; x<tabsz; x++)
         {
           SetWindowPos(tab[x],NULL,xo,r.bottom - button_height - sc8, 0,0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
-          xo += w[x] + button_spacing;
+          xo += w[x] + bspace;
         }
       }
     break;
