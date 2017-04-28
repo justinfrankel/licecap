@@ -643,6 +643,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                  else if (msg[0])
                  {
                    // navigate to directory if filepart set
+treatAsDir:
                    DIR *dir = opendir(buf);
                    if (!dir) 
                    {
@@ -680,6 +681,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
                      SendMessage(hwnd,WM_UPD,1,0);
                      return 0;
                    }
+                   if (buf[strlen(buf)-1] == '/') goto treatAsDir;
                    if (!stat64(buf,&st))
                    {
                      snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%s\r\n\r\nOverwrite?",buf);
