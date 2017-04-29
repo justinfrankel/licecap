@@ -4934,11 +4934,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         }
 
         const int hit = ypos >= 0 ? ((ypos+lvs->m_scroll_y) / row_height) : -1;
-        if (hit < 0)
-        {
-          // todo: column click handling
-          return 1;
-        }
+        if (hit < 0) return 1;
 
         int subitem = 0;
 
@@ -4989,7 +4985,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         else 
         {
           bool changed = false;
-          if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) changed |= lvs->clear_sel();
+          const bool ctrl = (GetAsyncKeyState(VK_CONTROL)&0x8000)!=0;
+          if (!ctrl) 
+          {
+            if (!lvs->get_sel(hit))
+              changed |= lvs->clear_sel();
+          }
           if ((GetAsyncKeyState(VK_SHIFT)&0x8000) && lvs->m_selitem >= 0)
           {
             int a=lvs->m_selitem;
@@ -5000,7 +5001,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           else
           {
             lvs->m_selitem = hit;
-            changed |= lvs->set_sel(hit,!lvs->get_sel(hit));
+            changed |= lvs->set_sel(hit,!ctrl || !lvs->get_sel(hit));
           }
 
           if (hit >=0 && hit < n) 
