@@ -5355,6 +5355,7 @@ forceMouseMove:
                   if (hwnd->m_parent)
                   {
                     DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)x, 0, (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,(DWORD_PTR)hwnd->m_userdata };
+                    dis.rcItem.left++;
                     SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
                   }
                 }
