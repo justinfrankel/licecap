@@ -218,39 +218,4 @@ void SWELL_SetDefaultModalWindowMenu(HMENU menu)
 
 SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head; // this eventually will go into a per-module stub file
 
-
-static char* s_dragdropsrcfn = 0;
-static void (*s_dragdropsrccallback)(const char*) = 0;
-
-void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*callback)(const char* dropfn))
-{
-  SWELL_FinishDragDrop();
-
-  if (1) return;
-
-  s_dragdropsrcfn = strdup(srcfn);
-  s_dragdropsrccallback = callback;
-  
-  char* p = s_dragdropsrcfn+strlen(s_dragdropsrcfn)-1;
-  while (p >= s_dragdropsrcfn && *p != '.') --p;
-  ++p;
-  
-} 
-
-// owner owns srclist, make copies here etc
-void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **srclist, int srccount, HICON icon)
-{
-  SWELL_FinishDragDrop();
-
-  if (1) return;
-  
-}
-
-void SWELL_FinishDragDrop()
-{
-  free(s_dragdropsrcfn);
-  s_dragdropsrcfn = 0;
-  s_dragdropsrccallback = 0;  
-}
-
 #endif

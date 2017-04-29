@@ -63,6 +63,8 @@ static bool is_virtkey_char(int c)
 
 #ifdef SWELL_TARGET_GDK
 static UINT_PTR g_focus_lost_timer;
+static SWELL_OSWINDOW swell_dragsrc_osw;
+static HWND swell_dragsrc_hwnd;
 #endif
 
 static void swell_set_focus_oswindow(SWELL_OSWINDOW v)
@@ -722,7 +724,27 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         //printf("got sel req %s\n",gdk_atom_name(b->target));
         GdkAtom prop=GDK_NONE;
 
-        if (s_clipboard_setstate)
+        if (swell_dragsrc_osw && b->window == swell_dragsrc_osw)
+        {
+          if (swell_dragsrc_hwnd)
+          {
+            if (b->target == tgtatom())
+            {
+              prop = b->property;
+              GdkAtom list[] = { urilistatom() };
+#if SWELL_TARGET_GDK == 2
+              GdkWindow *pw = gdk_window_lookup(b->requestor);
+              if (!pw) pw = gdk_window_foreign_new(b->requestor);
+#else
+              GdkWindow *pw = b->requestor;
+#endif
+              if (pw)
+                gdk_property_change(pw,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
+            }
+            SendMessage(swell_dragsrc_hwnd,WM_USER+100,(WPARAM)b,(LPARAM)&prop);
+          }
+        }
+        else if (s_clipboard_setstate)
         {
           if (b->target == tgtatom())
           {
@@ -8902,5 +8924,205 @@ int swell_fullscreenWindow(HWND hwnd, BOOL fs)
   }
   return 0;
 }
+
+
+#ifdef SWELL_TARGET_GDK
+
+struct dropSourceInfo {
+  dropSourceInfo() 
+  { 
+    srclist=NULL; srccount=0; srcfn=NULL; callback=NULL; 
+    state=0;
+    dragctx=NULL;
+  }
+  ~dropSourceInfo() 
+  { 
+    free(srcfn); 
+    if (dragctx)
+    {
+#if SWELL_TARGET_GDK!=2
+      gdk_drag_drop_done(dragctx,state!=0);
+#endif
+      g_object_unref(dragctx);
+    }
+  }
+
+  const char **srclist;
+  int srccount;
+  // or
+  void (*callback)(const char *);
+  char *srcfn;
+  
+  int state;
+
+  GdkDragContext *dragctx;
+};
+
+static void encode_uri(WDL_FastString *s, const char *rd)
+{
+  while (*rd)
+  {
+    // unsure if UTF-8 chars should be urlencoded or allowed?
+    if (*rd < 0 || (!isalnum(*rd) && *rd != '-' && *rd != '_' && *rd != '.' && *rd != '/'))
+    {
+      char buf[8];
+      snprintf(buf,sizeof(buf),"%%%02x",(int)(unsigned char)*rd);
+      s->Append(buf);
+    }
+    else s->Append(rd,1);
+
+    rd++;
+  }
+}
+
+
+static LRESULT WINAPI dropSourceWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  dropSourceInfo *inf = (dropSourceInfo*)hwnd->m_private_data;
+  switch (msg)
+  {
+    case WM_CREATE:
+      if (!swell_dragsrc_osw)
+      {
+        GdkWindowAttr attr={0,};
+        attr.title = (char *)"swell drag source";
+        attr.event_mask = GDK_ALL_EVENTS_MASK;
+        attr.wclass = GDK_INPUT_ONLY;
+        attr.window_type = GDK_WINDOW_TOPLEVEL;
+        swell_dragsrc_osw = gdk_window_new(NULL,&attr,0);
+      }
+      if (swell_dragsrc_osw)
+      {
+        inf->dragctx = gdk_drag_begin(swell_dragsrc_osw, g_list_append(NULL,urilistatom()));
+      }
+      SetCapture(hwnd);
+    break;
+    case WM_MOUSEMOVE:
+      if (inf->dragctx)
+      {
+        POINT p;
+        GetCursorPos(&p);
+        GdkWindow *w = NULL;
+        GdkDragProtocol proto;
+        gdk_drag_find_window_for_screen(inf->dragctx,NULL,gdk_screen_get_default(),p.x,p.y,&w,&proto);
+        // todo: need to update gdk_drag_context_get_drag_window()
+        // (or just SetCursor() a drag and drop cursor)
+        if (w) 
+        {
+          gdk_drag_motion(inf->dragctx,w,proto,p.x,p.y,GDK_ACTION_COPY,GDK_ACTION_COPY,GDK_CURRENT_TIME);
+        }
+      }
+    break;
+    case WM_LBUTTONUP:
+      if (inf->dragctx && !inf->state)
+      {
+        inf->state=1;
+        gdk_selection_owner_set(swell_dragsrc_osw,gdk_drag_get_selection(inf->dragctx),GDK_CURRENT_TIME,TRUE);
+        gdk_drag_drop(inf->dragctx,GDK_CURRENT_TIME);
+        SetTimer(hwnd,1,500,NULL); // a successful drop will also trigger a releasecapture() earlier
+        return 0;
+      }
+      ReleaseCapture();
+    break;
+    case WM_USER+100:
+    if (wParam && lParam) 
+    {
+      GdkAtom *aOut = (GdkAtom *)lParam;
+      GdkEventSelection *evt = (GdkEventSelection*)wParam;
+
+      if (evt->target == urilistatom())
+      {
+        WDL_FastString s;
+        if (inf->srclist && inf->srccount)
+        {
+          for (int x=0;x<inf->srccount;x++)
+          {
+            if (x) s.Append("\n");
+            s.Append("file://");
+            encode_uri(&s,inf->srclist[x]);
+          }
+        }
+        else if (inf->callback && inf->srcfn && inf->state)
+        {
+          inf->callback(inf->srcfn);
+          s.Append("file://");
+          encode_uri(&s,inf->srcfn);
+        }
+
+        if (s.GetLength())
+        {
+          *aOut = evt->property;
+#if SWELL_TARGET_GDK == 2
+          GdkWindow *pw = gdk_window_lookup(evt->requestor);
+          if (!pw) pw = gdk_window_foreign_new(evt->requestor);
+#else
+          GdkWindow *pw = evt->requestor;
+#endif
+          if (pw)
+            gdk_property_change(pw,*aOut,evt->target,8, GDK_PROP_MODE_REPLACE,(guchar*)s.Get(),s.GetLength());
+        }
+      }
+       
+      if (inf->state) ReleaseCapture();
+    }
+    break;
+    case WM_TIMER:
+      ReleaseCapture();
+    break;
+
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+#endif
+
+
+
+void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*callback)(const char* dropfn))
+{
+#ifdef SWELL_TARGET_GDK
+  dropSourceInfo info;
+  info.srcfn = strdup(srcfn);
+  info.callback = callback;
+  RECT r={0,};
+  HWND__ *h = new HWND__(NULL,0,&r,NULL,false,NULL,dropSourceWndProc, NULL);
+  swell_dragsrc_hwnd=h;
+  h->m_private_data = (INT_PTR) &info;
+  dropSourceWndProc(h,WM_CREATE,0,0);
+  while (GetCapture()==h)
+  {
+    swell_runOSevents();
+    Sleep(10);
+  }
+  
+  swell_dragsrc_hwnd=NULL;
+  DestroyWindow(h);
+#endif
+}
+
+// owner owns srclist, make copies here etc
+void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **srclist, int srccount, HICON icon)
+{
+#ifdef SWELL_TARGET_GDK
+  dropSourceInfo info;
+  info.srclist = srclist;
+  info.srccount = srccount;
+  RECT r={0,};
+  HWND__ *h = new HWND__(NULL,0,&r,NULL,false,NULL,dropSourceWndProc, NULL);
+  swell_dragsrc_hwnd=h;
+  h->m_private_data = (INT_PTR) &info;
+  dropSourceWndProc(h,WM_CREATE,0,0);
+  while (GetCapture()==h)
+  {
+    swell_runOSevents();
+    Sleep(10);
+  }
+  
+  swell_dragsrc_hwnd=NULL;
+  DestroyWindow(h);
+#endif
+}
+
+void SWELL_FinishDragDrop() { }
+
 
 #endif
