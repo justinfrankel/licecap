@@ -90,6 +90,13 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
 static WDL_PtrList<char> s_freetype_fontlist;
 static WDL_PtrList<char> s_freetype_regfonts;
 
+const char *swell_enumFontFiles(int x)
+{
+  const int n1 = s_freetype_regfonts.GetSize();
+  if (x < n1) return s_freetype_regfonts.Get(x);
+  return s_freetype_fontlist.Get(x-n1);
+}
+
 static const char *stristr(const char *a, const char *b)
 {
   const size_t blen = strlen(b);
@@ -147,6 +154,8 @@ struct fontScoreMatched {
   }
 
 };
+
+const char *swell_last_font_filename;
 
 static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
 {
@@ -210,6 +219,7 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
   for (x=0; x < matchlist.GetSize(); x ++)
   {
     const fontScoreMatched *s = matchlist.Get()+x;
+    swell_last_font_filename = s->fn;
  
     FT_Face face=NULL;
     //printf("trying '%s' for '%s' score %d,%d w %d i %d\n",s->fn,lfFaceName,s->score1,s->score2,weight,italic);

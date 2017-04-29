@@ -1273,16 +1273,16 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         int tx = r.right - edew-edlw-border*2, ty = border*2 + psize;
         for (int x=0;x<6;x++)
         {
-          SetWindowPos(GetDlgItem(hwnd,0x100+x),NULL,tx, ty, edlw, edh, SWP_NOZORDER);
-          SetWindowPos(GetDlgItem(hwnd,0x200+x),NULL,tx+edlw+border, ty, edew, edh, SWP_NOZORDER);
+          SetWindowPos(GetDlgItem(hwnd,0x100+x),NULL,tx, ty, edlw, edh, SWP_NOZORDER|SWP_NOACTIVATE);
+          SetWindowPos(GetDlgItem(hwnd,0x200+x),NULL,tx+edlw+border, ty, edew, edh, SWP_NOZORDER|SWP_NOACTIVATE);
           ty += border+edh;
         }
 
         r.right -= border + butw;
         r.bottom -= border + buth;
-        SetWindowPos(GetDlgItem(hwnd,IDCANCEL), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER);
+        SetWindowPos(GetDlgItem(hwnd,IDCANCEL), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER|SWP_NOACTIVATE);
         r.right -= border*2 + butw;
-        SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER);
+        SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER|SWP_NOACTIVATE);
 
       }
     break;
@@ -1366,9 +1366,312 @@ bool SWELL_ChooseColor(HWND h, int *val, int ncustom, int *custom)
 #endif
 }
 
+#if defined(SWELL_FREETYPE) && defined(SWELL_LICE_GDI)
+
+struct FontChooser_State
+{
+  FontChooser_State()
+  {
+    hFont = 0;
+  }
+  ~FontChooser_State()
+  {
+    DeleteObject(hFont);
+  }
+
+  LOGFONT font;
+  HFONT hFont;
+  WDL_FastString lastfn;
+};
+
+extern const char *swell_last_font_filename;
+const char *swell_enumFontFiles(int x);
+int swell_getLineLength(const char *buf, int *post_skip, int wrap_maxwid, HDC hdc);
+
+static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  enum { IDC_LIST=0x100, IDC_FACE, IDC_SIZE, IDC_WEIGHT, IDC_ITALIC };
+  enum { preview_h = 90, _border = 4, _buth = 24 };
+
+  switch (uMsg)
+  {
+    case WM_CREATE:
+      if (lParam)  // swell-specific
+      {
+        SetWindowLong(hwnd,GWL_WNDPROC,(LPARAM)SwellDialogDefaultWindowProc);
+        SetWindowLong(hwnd,DWL_DLGPROC,(LPARAM)swellFontChooserProc);
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
+
+        SetWindowText(hwnd,"Choose Font");
+
+        SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
+
+        SWELL_MakeButton(0, "OK", IDOK,0,0,0,0, 0);
+        SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
+        SWELL_MakeListBox(IDC_LIST,0,0,0,0, LBS_OWNERDRAWFIXED);
+        SWELL_MakeEditField(IDC_FACE, 0,0,0,0,  0);
+        SWELL_MakeEditField(IDC_SIZE, 0,0,0,0,  0);
+        SWELL_MakeCombo(IDC_WEIGHT, 0,0,0,0, CBS_DROPDOWNLIST);
+        SWELL_MakeCheckBox("Italic",IDC_ITALIC,0,0,0,0, 0);
+
+        SendDlgItemMessage(hwnd,IDC_WEIGHT,CB_ADDSTRING,0,(LPARAM)"Normal");
+        SendDlgItemMessage(hwnd,IDC_WEIGHT,CB_ADDSTRING,0,(LPARAM)"Bold");
+        SendDlgItemMessage(hwnd,IDC_WEIGHT,CB_ADDSTRING,0,(LPARAM)"Light");
+
+        SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+
+        SetWindowPos(hwnd,NULL,0,0, 550,380, SWP_NOZORDER|SWP_NOMOVE);
+
+        WDL_StringKeyedArray<char> list;
+        const char *p;
+        int x;
+        for (x=0; (p=swell_enumFontFiles(x)); x ++)
+        {
+          char buf[512];
+          lstrcpyn_safe(buf,WDL_get_filepart(p),sizeof(buf));
+          char *tmp = buf;
+          while (*tmp && *tmp != '-' && *tmp != '.') tmp++;
+          *tmp=0;
+          if (*buf) list.AddUnsorted(buf,true);
+        }
+        list.Resort();
+        FontChooser_State *cs = (FontChooser_State*)lParam;
+        bool italics = cs->font.lfItalic!=0;
+        int wt = cs->font.lfWeight;
+        const char *lp=NULL;
+        int cnt=0;
+        for (x=0;x<list.GetSize();x++)
+        {
+          const char *p=NULL;
+          if (list.Enumerate(x,&p) && p)
+          {
+            if (!stricmp(p,cs->font.lfFaceName))
+              SendDlgItemMessage(hwnd,IDC_LIST,LB_SETCURSEL,cnt,0);
+
+            size_t ll;
+            if (lp && !strncmp(p,lp,ll=strlen(lp)))
+            {
+              // if this is an extension of the last one, skip
+              const char *trail = p+ll;
+              while (*trail)
+              {
+                if (!strnicmp(trail,"Bold",4)) trail+=4;
+                else if (!strnicmp(trail,"Light",5)) trail+=5;
+                else if (!strnicmp(trail,"Italic",6)) trail+=6;
+                else break;
+              }
+              if (!*trail) continue;
+            }
+            cnt++;
+            SendDlgItemMessage(hwnd,IDC_LIST,LB_ADDSTRING,0,(LPARAM)p);
+            lp=p;
+          }
+        }
+        SetDlgItemText(hwnd,IDC_FACE,cs->font.lfFaceName);
+        SetDlgItemInt(hwnd,IDC_SIZE,cs->font.lfHeight < 0 ? -cs->font.lfHeight : cs->font.lfHeight,TRUE);
+        SendDlgItemMessage(hwnd,IDC_WEIGHT,CB_SETCURSEL,wt<=FW_LIGHT ? 2 : wt < FW_BOLD ? 0 : 1,0);
+        if (italics)
+          CheckDlgButton(hwnd,IDC_ITALIC,BST_CHECKED);
+      }
+    break;
+    case WM_DRAWITEM:
+    {
+      DRAWITEMSTRUCT *di=(DRAWITEMSTRUCT *)lParam;
+      FontChooser_State *cs = (FontChooser_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+      if (cs && di->CtlID == IDC_LIST)
+      {
+        char buf[512];
+        buf[0]=0;
+        SendDlgItemMessage(hwnd,IDC_LIST,LB_GETTEXT,di->itemID,(WPARAM)buf);
+        if (buf[0])
+        {
+          HFONT font = CreateFont(g_swell_ctheme.default_font_size, 0, 0, 0, cs->font.lfWeight, cs->font.lfItalic, 
+              FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, buf);
+
+          HGDIOBJ oldFont = SelectObject(di->hDC,font);
+          DrawText(di->hDC,buf,-1,&di->rcItem,DT_VCENTER|DT_LEFT|DT_NOPREFIX);
+          SelectObject(di->hDC,oldFont);
+          DeleteObject(font);
+
+        }
+      }
+    }
+    return 0;
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        FontChooser_State *cs = (FontChooser_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (cs && BeginPaint(hwnd,&ps))
+        {
+          RECT r;
+          GetClientRect(hwnd,&r);
+
+          const int border = SWELL_UI_SCALE(_border);
+          const int buth = SWELL_UI_SCALE(_buth);
+          const int ph = SWELL_UI_SCALE(preview_h);
+          r.left += border;
+          r.right -= border;
+          r.bottom -= border*2 + buth;
+          r.top = r.bottom - ph;
+
+          HFONT f = CreateFontIndirect(&cs->font);
+          HBRUSH br = CreateSolidBrush(RGB(255,255,255));
+          FillRect(ps.hdc,&r,br);
+          DeleteObject(br);
+          SetTextColor(ps.hdc,RGB(0,0,0));
+          SetBkMode(ps.hdc,TRANSPARENT);
+          if (swell_last_font_filename)
+          {
+            RECT r2=r;
+            r2.right-=4;
+            r.bottom -= DrawText(ps.hdc,swell_last_font_filename,-1,&r2,DT_BOTTOM|DT_NOPREFIX|DT_SINGLELINE|DT_RIGHT);
+          }
+
+          HGDIOBJ oldFont = SelectObject(ps.hdc,f);
+
+          // thanks, http://dailypangram.tumblr.com/ :)
+          const char *str = "Strangely, aerobic exercise doesn’t quite work with improvised free jazz.";
+
+          while (*str)
+          {
+            int sk=0, lb=swell_getLineLength(str, &sk, r.right-r.left, ps.hdc);
+            if (!lb&&!sk) break;
+            if (lb>0) r.top += DrawText(ps.hdc,str,lb,&r,DT_TOP|DT_LEFT|DT_NOPREFIX|DT_SINGLELINE);
+            str+=lb+sk;
+          }
+
+
+          SelectObject(ps.hdc,oldFont);
+          DeleteObject(f);
+
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+
+    break;
+    case WM_GETMINMAXINFO:
+      {
+        LPMINMAXINFO p=(LPMINMAXINFO)lParam;
+        p->ptMinTrackSize.x = 400;
+        p->ptMinTrackSize.y = 300;
+      }
+    break;
+    case WM_SIZE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int border = SWELL_UI_SCALE(_border);
+        const int buth = SWELL_UI_SCALE(_buth);
+        const int butw = SWELL_UI_SCALE(50);
+        const int edh = SWELL_UI_SCALE(20);
+        const int size_w = SWELL_UI_SCALE(50);
+        const int wt_w = SWELL_UI_SCALE(80);
+        const int italic_w = SWELL_UI_SCALE(60);
+
+        r.left += border;
+        r.right -= border;
+
+        r.bottom -= border + buth;
+        SetWindowPos(GetDlgItem(hwnd,IDCANCEL), NULL, r.right - butw, r.bottom, butw, buth, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, r.right - border - butw*2, r.bottom, butw, buth, SWP_NOZORDER|SWP_NOACTIVATE);
+        r.bottom -= SWELL_UI_SCALE(preview_h) + border;
+        int psz=wdl_max(g_swell_ctheme.combo_height,edh);
+        r.bottom -= psz + border;
+        SetWindowPos(GetDlgItem(hwnd,IDC_FACE),NULL,r.left,r.bottom + (psz-edh)/2, 
+            r.right-r.left - size_w-wt_w-italic_w - border*3, edh, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,IDC_SIZE),NULL,r.right-size_w-wt_w-italic_w-border*2,r.bottom + (psz-edh)/2, 
+            size_w, edh, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,IDC_WEIGHT),NULL,r.right-wt_w-italic_w-border,r.bottom + (psz-g_swell_ctheme.combo_height)/2, 
+            wt_w, g_swell_ctheme.combo_height, SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(GetDlgItem(hwnd,IDC_ITALIC),NULL,r.right-italic_w,r.bottom + (psz-edh)/2, 
+            italic_w, edh, SWP_NOZORDER|SWP_NOACTIVATE);
+
+        SetWindowPos(GetDlgItem(hwnd,IDC_LIST), NULL, border, border, r.right, r.bottom - border*2, SWP_NOZORDER|SWP_NOACTIVATE);
+
+
+      }
+    break;
+    case WM_COMMAND:
+      switch (LOWORD(wParam))
+      {
+        case IDC_LIST:
+          if (HIWORD(wParam) == LBN_SELCHANGE)
+          {
+            int idx = (int) SendDlgItemMessage(hwnd,IDC_LIST,LB_GETCURSEL,0,0);
+            if (idx>=0)
+            {
+              char buf[512];
+              buf[0]=0;
+              SendDlgItemMessage(hwnd,IDC_LIST,LB_GETTEXT,idx,(WPARAM)buf);
+              if (buf[0]) SetDlgItemText(hwnd,IDC_FACE,buf);
+            }
+          }
+        break;
+        case IDC_SIZE:
+        case IDC_FACE:
+        case IDC_ITALIC:
+        case IDC_WEIGHT:
+        {
+          FontChooser_State *cs = (FontChooser_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          if (cs) 
+          {
+            if (LOWORD(wParam) == IDC_FACE)
+              GetDlgItemText(hwnd,IDC_FACE,cs->font.lfFaceName,sizeof(cs->font.lfFaceName));
+            else if (LOWORD(wParam) == IDC_SIZE)
+            {
+              BOOL t;
+              int a = GetDlgItemInt(hwnd,IDC_SIZE,&t,FALSE);
+              if (t)
+              {
+                if (cs->font.lfHeight < 0) cs->font.lfHeight = -a;
+                else cs->font.lfHeight = a;
+              }
+            }
+            else if (LOWORD(wParam) == IDC_ITALIC) cs->font.lfItalic = IsDlgButtonChecked(hwnd,IDC_ITALIC) ? 1:0;
+            else if (LOWORD(wParam) == IDC_WEIGHT && HIWORD(wParam) == CBN_SELCHANGE)
+            {
+              int idx = (int) SendDlgItemMessage(hwnd,IDC_WEIGHT,CB_GETCURSEL,0,0);
+              if (idx==0) cs->font.lfWeight = FW_NORMAL;
+              else if (idx==1) cs->font.lfWeight = FW_BOLD;
+              else if (idx==2) cs->font.lfWeight = FW_LIGHT;
+            }
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
+        }
+        break;
+        case IDCANCEL:
+          EndDialog(hwnd,0);
+        break;
+        case IDOK:
+          EndDialog(hwnd,1);
+        break;
+      }
+    break;
+
+  }
+  return 0;
+}
+
+void *swell_MatchFont(const char *lfFaceName, int weight, int italic, const char **fnOut);
+
+#endif
+
 bool SWELL_ChooseFont(HWND h, LOGFONT *lf)
 {
+#if defined(SWELL_FREETYPE) && defined(SWELL_LICE_GDI)
+  FontChooser_State state;
+  state.font = *lf;
+
+  bool rv = DialogBoxParam(NULL,NULL,h,swellFontChooserProc,(LPARAM)&state)!=0;
+  if (rv)
+  {
+    *lf = state.font;
+  }
+  return rv;
+#else
   return false;
+#endif
 }
 
 #endif
