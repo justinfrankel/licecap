@@ -90,6 +90,13 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
 static WDL_PtrList<char> s_freetype_fontlist;
 static WDL_PtrList<char> s_freetype_regfonts;
 
+static const char *stristr(const char *a, const char *b)
+{
+  const size_t blen = strlen(b);
+  while (*a && strnicmp(a,b,blen)) a++;
+  return *a ? a : NULL;
+}
+
 static void ScanFontDirectory(const char *path, int maxrec=3)
 {
   WDL_DirScan ds;
@@ -101,8 +108,9 @@ static void ScanFontDirectory(const char *path, int maxrec=3)
       if (ds.GetCurrentIsDirectory())
       {
         if (maxrec>0 && 
-            strcmp(ds.GetCurrentFN(),"type1") &&
-            strcmp(ds.GetCurrentFN(),"cmap") &&
+            stricmp(ds.GetCurrentFN(),"type1") &&
+            stricmp(ds.GetCurrentFN(),"cmap") &&
+            stricmp(ds.GetCurrentFN(),"ghostscript") &&
             strcmp(ds.GetCurrentFN(),"X11")
            )
         {
@@ -129,17 +137,18 @@ static int sortByFilePart(const char **a, const char **b)
 }
 
 struct fontScoreMatched {
-  int score;
+  int score1,score2;
   const char *fn;
 
   static int sortfunc(const void *a, const void *b)
   {
-    return ((const fontScoreMatched *)a)->score - ((const fontScoreMatched *)b)->score;
+    const int v = ((const fontScoreMatched *)a)->score1 - ((const fontScoreMatched *)b)->score1;
+    return v?v:((const fontScoreMatched *)a)->score2 - ((const fontScoreMatched *)b)->score2;
   }
 
 };
 
-static FT_Face MatchFont(const char *lfFaceName)
+static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
 {
   const int fn_len = strlen(lfFaceName), ntab=2;
   WDL_PtrList<char> *tab[ntab]= { &s_freetype_regfonts, &s_freetype_fontlist };
@@ -159,7 +168,30 @@ static FT_Face MatchFont(const char *lfFaceName)
       const char *fnp = WDL_get_filepart(fn);
       if (strnicmp(fnp,lfFaceName,fn_len)) break;
 
-      fontScoreMatched s = { x + ntab * (int)(WDL_get_fileext(fnp)-fnp), fn };
+      fontScoreMatched s;
+      const char *residual = fnp + fn_len;
+      const char *dash = strstr(residual,"-");
+      const char *ext = WDL_get_fileext(residual);
+
+      s.fn = fn;
+      s.score1 = (int)((dash?dash:ext)-residual); // characters between font and either "-" or "."
+      s.score2 = 0;
+
+      if (dash) dash++;
+      else dash=residual;
+
+      while (*dash && *dash != '.')
+      {
+        if (*dash > 0 && isalnum(*dash)) s.score2++;
+        dash++;
+      }
+
+      if (stristr(residual,"Regular")) s.score2 -= 7; // ignore "Regular"
+      if (italic && stristr(residual,"Italic")) s.score2 -= 6+3;
+      if (weight >= FW_BOLD && stristr(residual,"Bold")) s.score2 -= 4+3;
+      else if (weight <= FW_LIGHT && stristr(residual,"Light")) s.score2 -= 5+3;
+      s.score2 = s.score2*ntab + x; 
+
       matchlist.Add(s);
     }
   } 
@@ -171,7 +203,7 @@ static FT_Face MatchFont(const char *lfFaceName)
     const fontScoreMatched *s = matchlist.Get()+x;
  
     FT_Face face=NULL;
-    //printf("trying '%s' for '%s'\n",s->fn,lfFaceName);
+    //printf("trying '%s' for '%s' score %d,%d w %d i %d\n",s->fn,lfFaceName,s->score1,s->score2,weight,italic);
     FT_New_Face(s_freetype,s->fn,0,&face);
     if (face) return face;
   }
@@ -292,7 +324,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   }
   if (s_freetype)
   {
-    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName);
+    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName,lfWeight,lfItalic);
 
     if (!face)
     {
@@ -330,7 +362,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
       const char *l = fallbacklist[wl];
       while (*l && !face)
       {
-        face = MatchFont(l);
+        face = MatchFont(l,lfWeight,lfItalic);
         l += strlen(l)+1;
       }
     }
@@ -711,7 +743,7 @@ HFONT SWELL_GetDefaultFont()
   static HFONT def;
   if (!def)
   {
-    def = CreateFont(g_swell_ctheme.default_font_size,0,0,0,0,0,0,0,0,0,0,0,0,g_swell_deffont_face);
+    def = CreateFont(g_swell_ctheme.default_font_size,0,0,0,FW_NORMAL,0,0,0,0,0,0,0,0,g_swell_deffont_face);
   }
   return def;
 }
