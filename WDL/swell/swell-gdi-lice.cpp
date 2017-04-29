@@ -173,11 +173,20 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
       const char *dash = strstr(residual,"-");
       const char *ext = WDL_get_fileext(residual);
 
+      if (!dash)
+      {
+        if (!strnicmp(residual,"Bold",4) ||
+            !strnicmp(residual,"Italic",6) ||
+            !strnicmp(residual,"Light",5) ||
+            !strnicmp(residual,"Oblique",7))
+          dash = residual;
+      }
+
       s.fn = fn;
       s.score1 = (int)((dash?dash:ext)-residual); // characters between font and either "-" or "."
       s.score2 = 0;
 
-      if (dash) dash++;
+      if (dash) { if (*dash == '-') dash++; }
       else dash=residual;
 
       while (*dash && *dash != '.')
@@ -187,9 +196,9 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
       }
 
       if (stristr(residual,"Regular")) s.score2 -= 7; // ignore "Regular"
-      if (italic && stristr(residual,"Italic")) s.score2 -= 6+3;
-      if (weight >= FW_BOLD && stristr(residual,"Bold")) s.score2 -= 4+3;
-      else if (weight <= FW_LIGHT && stristr(residual,"Light")) s.score2 -= 5+3;
+      if (italic && stristr(residual,"Italic")) s.score2 -= 6+7;
+      if (weight >= FW_BOLD && stristr(residual,"Bold")) s.score2 -= 4+7;
+      else if (weight <= FW_LIGHT && stristr(residual,"Light")) s.score2 -= 5+7;
       s.score2 = s.score2*ntab + x; 
 
       matchlist.Add(s);
