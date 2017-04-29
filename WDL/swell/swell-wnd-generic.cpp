@@ -2954,7 +2954,7 @@ static int editMeasureLineLength(HDC hdc, const char *str, int str_len)
 }
 
 
-static int getLineLength(const char *buf, int *post_skip, int wrap_maxwid, HDC hdc)
+int swell_getLineLength(const char *buf, int *post_skip, int wrap_maxwid, HDC hdc)
 {
   int lb=0;
   int ps = 0;
@@ -3003,7 +3003,7 @@ static bool editGetCharPos(HDC hdc, const char *str, int singleline_len, int cha
   }
   while (*str)
   {
-    int pskip = 0, lb = getLineLength(str,&pskip,word_wrap,hdc);
+    int pskip = 0, lb = swell_getLineLength(str,&pskip,word_wrap,hdc);
     if (bytepos < lb+pskip)
     { 
       pt->x=editMeasureLineLength(hdc,str,bytepos);
@@ -3050,7 +3050,7 @@ static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, i
   const int line_h = DrawText(hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
   for (;;)
   {
-    int pskip=0, lb = getLineLength(buf,&pskip,word_wrap,hdc);
+    int pskip=0, lb = swell_getLineLength(buf,&pskip,word_wrap,hdc);
 
     if (ypos < line_h) return bytepos + editHitTestLine(hdc,buf,lb, xpos,ypos);
     ypos -= line_h;
@@ -3363,7 +3363,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
         const int cbytepos = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
         for (;;) 
         {
-          int ps=0, lb = getLineLength(buf+lpos, &ps,wwrap,hdc);
+          int ps=0, lb = swell_getLineLength(buf+lpos, &ps,wwrap,hdc);
           if (!buf[lpos] || (cbytepos >= lpos && cbytepos < lpos+lb+ps + (buf[lpos+lb+ps]?0:1)))
           {
             if (wParam == VK_HOME) es->moveCursor(WDL_utf8_bytepos_to_charpos(buf,lpos));
@@ -3795,7 +3795,7 @@ forceMouseMove:
             const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : orig_r.right;
             for (;;)
             {
-              int pskip=0, lb = getLineLength(buf,&pskip,wwrap,ps.hdc);
+              int pskip=0, lb = swell_getLineLength(buf,&pskip,wwrap,ps.hdc);
 
               if (!*buf && cursor_pos != bytepos) break;
 
@@ -4127,7 +4127,7 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 int loffs=0;
                 while (buf[loffs] && r.top < r.bottom)
                 {
-                  int post=0, lb=getLineLength(buf+loffs, &post, r.right, ps.hdc);
+                  int post=0, lb=swell_getLineLength(buf+loffs, &post, r.right, ps.hdc);
                   if (lb>0)
                   {
                     DrawText(ps.hdc,buf+loffs,lb,&r,DT_TOP|DT_SINGLELINE|DT_LEFT);
