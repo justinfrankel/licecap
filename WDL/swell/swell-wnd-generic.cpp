@@ -4964,7 +4964,8 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
           if (lvs->m_is_listbox)
           {
-            if (oldsel != lvs->m_selitem) SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+            //if (oldsel != lvs->m_selitem) 
+            SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
           }
           else
           {
