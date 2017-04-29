@@ -3522,6 +3522,31 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
       delete es;
       hwnd->m_private_data=0;
     return 0;
+    case WM_CONTEXTMENU:
+      {
+        HMENU menu=CreatePopupMenu();
+        MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_TYPE,MFT_STRING, 0,
+              (UINT) 100, NULL,NULL,NULL,0,(char*)"Copy"};
+        InsertMenuItem(menu,0,TRUE,&mi);
+        mi.wID++;
+        mi.dwTypeData = (char*)"Paste";
+        InsertMenuItem(menu,0,TRUE,&mi);
+        mi.wID++;
+        mi.dwTypeData = (char*)"Select all";
+        InsertMenuItem(menu,0,TRUE,&mi);
+        POINT p;
+        GetCursorPos(&p);
+
+        const int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,p.x,p.y,0,hwnd,0);
+        DestroyMenu(menu);
+        if (a==100) OnEditKeyDown(hwnd,WM_KEYDOWN,'C',FVIRTKEY|FCONTROL,0,es);
+        else if (a==101) OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,0,es);
+        else if (a==102) SendMessage(hwnd,EM_SETSEL,0,-1);
+
+        if (a) InvalidateRect(hwnd,NULL,FALSE);
+
+      }
+    return 1;
     case WM_LBUTTONDOWN:
     case WM_RBUTTONDOWN:
       es->cursor_state=1; // next invalidate draws blinky
