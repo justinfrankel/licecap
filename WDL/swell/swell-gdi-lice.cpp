@@ -336,7 +336,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
       if (!fallbacklist[wl])
       {
         static const char *ent[2] = { "ft_font_fallback", "ft_font_fallback_fixedwidth" };
-        static const char *def[2] = { "// Cantarell-Regular FreeSans DejaVuSans", "// FreeMono DejaVuSansMono" };
+        static const char *def[2] = { "// Cantarell FreeSans DejaVuSans", "// FreeMono DejaVuSansMono" };
         char tmp[1024];
         GetPrivateProfileString(".swell",ent[wl],"",tmp,sizeof(tmp),"");
         if (!tmp[0])
