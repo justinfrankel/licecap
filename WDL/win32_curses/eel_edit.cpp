@@ -92,7 +92,7 @@ int EEL_Editor::parse_format_specifier(const char *fmt_in, int *var_offs, int *v
     else if (c == '{')
     {
       if (*var_offs!=0) return 0; // already specified
-      *var_offs = fmt-fmt_in;
+      *var_offs = (int)(fmt-fmt_in);
       if (*fmt == '.' || (*fmt >= '0' && *fmt <= '9')) return 0; // symbol name can't start with 0-9 or .
 
       while (*fmt != '}')
@@ -109,7 +109,7 @@ int EEL_Editor::parse_format_specifier(const char *fmt_in, int *var_offs, int *v
           return 0; // bad character in variable name
         }
       }
-      *var_len = (fmt-fmt_in) - *var_offs;
+      *var_len = (int)((fmt-fmt_in) - *var_offs);
       fmt++;
     }
     else
@@ -144,7 +144,7 @@ void EEL_Editor::draw_string(int *skipcnt, const char *str, int amt, int *attr, 
 
       if (str_scan > str) 
       {
-        const int sz=wdl_min(str_scan-str,amt);
+        const int sz=wdl_min((int)(str_scan-str),amt);
         draw_string_urlchk(skipcnt,str,sz,attr,newAttr);
         str += sz;
         amt -= sz;
@@ -209,7 +209,7 @@ void EEL_Editor::draw_string_urlchk(int *skipcnt, const char *str, int amt, int 
       
       if (str_scan > str)
       {
-        const int sz=wdl_min(str_scan-str,amt);
+        const int sz=wdl_min((int)(str_scan-str),amt);
         draw_string_internal(skipcnt,str,sz,attr,newAttr);
         str += sz;
         amt -= sz;
@@ -356,7 +356,7 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
     if (last_comment_state>0) // if in a multi-line string or comment
     {
       // draw empty space between lp and p as a string. in this case, tok/toklen includes our string, so we quickly finish after
-      draw_string(&skipcnt,lp,p-lp,&last_attr, last_comment_state==1 ? SYNTAX_COMMENT:SYNTAX_STRING, last_comment_state);
+      draw_string(&skipcnt,lp,(int)(p-lp),&last_attr, last_comment_state==1 ? SYNTAX_COMMENT:SYNTAX_STRING, last_comment_state);
       last_comment_state=0;
       lp = p;
       continue;
@@ -365,7 +365,7 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
 
     // draw empty space between lp and tok/endptr as normal
     const char *adv_to = tok ? tok : endptr;
-    if (adv_to > lp) draw_string(&skipcnt,lp,adv_to-lp,&last_attr, A_NORMAL);
+    if (adv_to > lp) draw_string(&skipcnt,lp,(int)(adv_to-lp),&last_attr, A_NORMAL);
 
     if (adv_to >= endptr) break;
 
@@ -709,7 +709,7 @@ static void eel_sh_generate_token_list(const WDL_PtrList<WDL_FastString> *lines,
       {
         const int sz=toklist->GetSize();
         // update last token to include this data
-        if (sz) toklist->Get()[sz-1].add_linecnt((tok ? p:endp) - start_p);
+        if (sz) toklist->Get()[sz-1].add_linecnt((int) ((tok ? p:endp) - start_p));
       }
       else
       {
@@ -728,7 +728,7 @@ static void eel_sh_generate_token_list(const WDL_PtrList<WDL_FastString> *lines,
           case '"':
           case '/': // comment
             {
-              eel_sh_token t(l,tok-start_p,toklen,tok[0]);
+              eel_sh_token t(l,(int)(tok-start_p),toklen,tok[0]);
               toklist->Add(t);
             }
           break;
@@ -1197,7 +1197,7 @@ void EEL_Editor::doWatchInfo(int c)
       {
         WDL_FastString n;
         lp++;
-        n.Set(lp,rp-lp);
+        n.Set(lp,(int)(rp-lp));
         int idx;
         if ((idx=peek_get_named_string_value(n.Get(),buf,sizeof(buf)))>=0) snprintf(sstr,sizeof(sstr),"#%s(%d)=%s",n.Get(),idx,buf);
         else snprintf(sstr,sizeof(sstr),"#%s not found",n.Get());
@@ -1205,7 +1205,7 @@ void EEL_Editor::doWatchInfo(int c)
       else if (*lp > 0 && (isalpha(*lp) || *lp == '_') && rp > lp)
       {
         WDL_FastString n;
-        n.Set(lp,rp-lp);
+        n.Set(lp,(int)(rp-lp));
 
         if (c==KEY_F1)
         {

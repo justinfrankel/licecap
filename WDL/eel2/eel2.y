@@ -6,7 +6,7 @@
 
 /* this will prevent y.tab.c from ever calling yydestruct(), since we do not use it and it is a waste */
 %destructor {
- #define yydestruct(a,b,c,d,e) 0
+ #define yydestruct(a,b,c,d,e) 
 } VALUE
 
 
@@ -367,7 +367,7 @@ expression:
 program:
 	expression
 	{ 
-                int a = @1.first_line;
+                if (@1.first_line) { }
                 context->result = $1;
 	}
 	;

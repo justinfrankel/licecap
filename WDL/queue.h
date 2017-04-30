@@ -204,6 +204,7 @@ public:
 private:
   WDL_HeapBuf m_hb;
   int m_pos;
+public:
   int __pad; // keep 8 byte aligned
 };
 
@@ -278,6 +279,7 @@ public:
 private:
   WDL_HeapBuf m_hb;
   int m_pos;
+public:
   int __pad; // keep 8 byte aligned
 };
 

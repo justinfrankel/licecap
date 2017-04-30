@@ -866,7 +866,10 @@ void curses_setWindowContext(HWND hwnd, win32CursesCtx *ctx)
   }
 }
 
+#ifdef _WIN32
 static int m_regcnt;
+#endif
+
 void curses_unregisterChildClass(HINSTANCE hInstance)
 {
 #ifdef _WIN32

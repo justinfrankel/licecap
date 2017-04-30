@@ -321,7 +321,7 @@ static const unsigned char GLUE_LOOP_CLAMPCNT[]={
 #else
 
 #define GLUE_LOOP_CLAMPCNT_SIZE 0
-#define GLUE_LOOP_CLAMPCNT NULL
+#define GLUE_LOOP_CLAMPCNT ""
 
 #endif
 
@@ -364,7 +364,7 @@ static const unsigned char GLUE_WHILE_END[]={
 #else
 
 #define GLUE_WHILE_SETUP_SIZE  0
-#define GLUE_WHILE_SETUP NULL
+#define GLUE_WHILE_SETUP ""
 #define GLUE_WHILE_END_NOJUMP
 static const unsigned char GLUE_WHILE_BEGIN[]={ 
   0x56, //push esi

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -DWDL_FFT_REALSIZE=8
+CFLAGS=-g -DWDL_FFT_REALSIZE=8  -Wall -Wno-unused-function -Wno-multichar
 LFLAGS=
 CXX=g++
 
@@ -8,7 +8,6 @@ CFLAGS += -D_DEBUG -O0
 else
 CFLAGS += -DNDEBUG -O
 endif
-
 
 OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o  ../fft.o
 
@@ -30,6 +29,16 @@ endif
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char -mfpu=vfp -march=armv6t2
 endif
+
+ifndef ALLOW_WARNINGS
+  ifneq ($(UNAME_S),Darwin)
+    CFLAGS += -Werror
+  endif
+endif
+ifndef DEPRECATED_WARNINGS
+  CFLAGS +=  -Wno-deprecated-declarations
+endif
+
 
 default: loose_eel
 
@@ -75,10 +84,6 @@ ifndef NO_GFX
 endif
 
 
-
-%.o : %.mm
-	$(CXX) $(CXXFLAGS) -c -o $@ $^
-
 asm-nseel-x64.o: a2x64.php asm-nseel-x86-gcc.c
 	php a2x64.php elf64
 
@@ -97,6 +102,10 @@ else
   endif
 endif
 CXXFLAGS=$(CFLAGS)
+
+
+%.o : %.mm
+	$(CXX) $(CXXFLAGS) -c -o $@ $^
 
 loose_eel: loose_eel.o $(OBJS) $(OBJS2)
 	g++ -o $@ $^ $(CXXFLAGS) $(LFLAGS)

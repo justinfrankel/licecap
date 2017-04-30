@@ -833,7 +833,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   int rel_prefix_idx=-2;
   int i;    
   char match_parmcnt[4]={-1,-1,-1,-1}; // [3] is guess
-  char match_parmcnt_pos=0;
+  unsigned char match_parmcnt_pos=0;
   char *sname = (char *)rec->relname;
   int is_string_prefix = parmcnt < 0 && sname[0] == '#';
 
@@ -2068,7 +2068,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               else if (dv0)
               {
                 // pow(constant, x) = exp((x) * ln(constant)), if constant>0
-                opcodeRec *parm0 = op->parms.parms[0];
+                // opcodeRec *parm0 = op->parms.parms[0];
                 if (dvalue > 0.0)
                 {
                   static functionType expcpy={ "exp",    nseel_asm_1pdd,nseel_asm_1pdd_end,   1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&exp}, };
@@ -3586,7 +3586,10 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
   if (op->opcodeType == OPCODETYPE_FUNC2 && (op->fntype == FN_LOGICAL_AND || op->fntype == FN_LOGICAL_OR))
   {
     int fUse=0;
-    int parm_size,parm_size_pre;
+    int parm_size;
+#ifdef GLUE_MAX_JMPSIZE
+    int parm_size_pre;
+#endif
     int retType=RETURNVALUE_IGNORE;
     if (preferredReturnValues != RETURNVALUE_IGNORE) retType = RETURNVALUE_BOOL;
 
@@ -3598,7 +3601,9 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     if (fUse > *fpStackUse) *fpStackUse=fUse;
 
 
+#ifdef GLUE_MAX_JMPSIZE
     parm_size_pre=parm_size;
+#endif
 
     {
       int sz2, fUse=0;
@@ -3664,7 +3669,9 @@ doNonInlinedAndOr_:
   if (op->opcodeType == OPCODETYPE_FUNC3 && op->fntype == FN_IF_ELSE) // special case: IF
   {
     int fUse=0;
+#ifdef GLUE_MAX_JMPSIZE
     int parm_size_pre;
+#endif
     int use_rv = RETURNVALUE_IGNORE;
     int rvMode=0;
     int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL|RETURNVALUE_BOOL_REVERSED, &rvMode,&fUse, NULL);
@@ -3676,7 +3683,9 @@ doNonInlinedAndOr_:
     else if (preferredReturnValues & RETURNVALUE_BOOL) use_rv=RETURNVALUE_BOOL;
     
     *calledRvType = use_rv;
+#ifdef GLUE_MAX_JMPSIZE
     parm_size_pre = parm_size;
+#endif
 
     {
       int csz,hasSecondHalf;
@@ -4919,7 +4928,9 @@ had_error:
 //------------------------------------------------------------------------------
 void NSEEL_code_execute(NSEEL_CODEHANDLE code)
 {
+#ifndef GLUE_TABPTR_IGNORED
   INT_PTR tabptr;
+#endif
   INT_PTR codeptr;
   codeHandleType *h = (codeHandleType *)code;
   if (!h || !h->code) return;
@@ -4936,7 +4947,9 @@ void NSEEL_code_execute(NSEEL_CODEHANDLE code)
   }
 #endif
 
+#ifndef GLUE_TABPTR_IGNORED
   tabptr=(INT_PTR)h->workTable;
+#endif
   //printf("calling code!\n");
   GLUE_CALL_CODE(tabptr,codeptr,(INT_PTR)h->ramPtr);
 

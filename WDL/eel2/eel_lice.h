@@ -948,11 +948,9 @@ void eel_lice_state::gfx_setpixel(EEL_F r, EEL_F g, EEL_F b)
 void eel_lice_state::gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h)
 {
   *w=*h=0;
-  if (!this
 #ifdef DYNAMIC_LICE
-    ||!LICE__GetWidth || !LICE__GetHeight
+  if (!LICE__GetWidth || !LICE__GetHeight) return;
 #endif
-    ) return;
 
   LICE_IBitmap *bm=GetImageForIndex(img,"gfx_getimgdim"); 
   if (bm)
@@ -965,11 +963,9 @@ void eel_lice_state::gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h)
 
 EEL_F eel_lice_state::gfx_loadimg(void *opaque, int img, EEL_F loadFrom)
 {
-  if (!this
 #ifdef DYNAMIC_LICE
-    ||!__LICE_LoadImage || !LICE__Destroy
+  if (!__LICE_LoadImage || !LICE__Destroy) return 0.0;
 #endif
-    ) return 0.0;
 
   if (img >= 0 && img < m_gfx_images.GetSize()) 
   {
@@ -994,11 +990,9 @@ EEL_F eel_lice_state::gfx_loadimg(void *opaque, int img, EEL_F loadFrom)
 EEL_F eel_lice_state::gfx_setimgdim(int img, EEL_F *w, EEL_F *h)
 {
   int rv=0;
-  if (!this
 #ifdef DYNAMIC_LICE
-    ||!LICE__resize ||!LICE__GetWidth || !LICE__GetHeight||!__LICE_CreateBitmap
+  if (!LICE__resize ||!LICE__GetWidth || !LICE__GetHeight||!__LICE_CreateBitmap) return 0.0;
 #endif
-    ) return 0.0;
 
   int use_w = (int)*w;
   int use_h = (int)*h;
@@ -1502,7 +1496,7 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
   while (sep || *p)
   {
     int len = (int)(sep ? sep-p : strlen(p));
-    int destlen=wdl_min(len, sizeof(buf)-1);
+    int destlen=wdl_min(len, (int)sizeof(buf)-1);
     lstrcpyn(buf, p, destlen+1);
     p += len;
     if (sep) sep=strchr(++p, '|');
@@ -1547,6 +1541,7 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
   WDL_FastString* fs=NULL;
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
   if (!p || !p[0]) return 0.0;
+  if (fs) {}
 
   int id=1;
   HMENU hm=PopulateMenuFromStr(&p, &id);
@@ -1575,6 +1570,7 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
     WDL_FastString* fs=NULL;
     const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], &fs);
     if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
+    if (fs) {}
   }
 #endif
   return 1.0;

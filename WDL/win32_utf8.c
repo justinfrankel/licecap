@@ -374,7 +374,11 @@ BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn)
   return GetOpenSaveFileNameUTF8(lpofn,TRUE);
 }
 
+#if _MSC_VER > 1700 && defined(_WIN64)
+BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST __unaligned *pidl, LPSTR pszPath, int pszPathLen)
+#else
 BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST *pidl, LPSTR pszPath, int pszPathLen)
+#endif
 {
   if (pszPath AND_IS_NOT_WIN9X)
   {
@@ -835,7 +839,7 @@ BOOL GetUserNameUTF8(LPTSTR lpString, LPDWORD nMaxCount)
       if (r && (!*nMaxCount || (!WideCharToMultiByte(CP_UTF8,0,wtmp,-1,lpString,*nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)))
       {
         if (*nMaxCount>0) lpString[*nMaxCount-1]=0;
-        *nMaxCount=wcslen(wtmp)+1;
+        *nMaxCount=(int)wcslen(wtmp)+1;
         r=FALSE;
       }
       else
@@ -861,7 +865,7 @@ BOOL GetComputerNameUTF8(LPTSTR lpString, LPDWORD nMaxCount)
       if (r && (!*nMaxCount || (!WideCharToMultiByte(CP_UTF8,0,wtmp,-1,lpString,*nMaxCount,NULL,NULL) && GetLastError()==ERROR_INSUFFICIENT_BUFFER)))
       {
         if (*nMaxCount>0) lpString[*nMaxCount-1]=0;
-        *nMaxCount=wcslen(wtmp)+1;
+        *nMaxCount=(int)wcslen(wtmp)+1;
         r=FALSE;
       }
       else

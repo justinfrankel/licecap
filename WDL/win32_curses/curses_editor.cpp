@@ -1328,7 +1328,7 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
     if (h)
     {
       wchar_t *t=(wchar_t *)GlobalLock(h);
-      int s=GlobalSize(h)/2;
+      int s=(int)(GlobalSize(h)/2);
       while (s-- > 0)
       {
         char b[32];
@@ -1347,7 +1347,7 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
       if (h)
       {
         char *t=(char *)GlobalLock(h);
-        int s=GlobalSize(h);
+        int s=(int)(GlobalSize(h));
         buf.Set(t,s);
         GlobalUnlock(t);
       }

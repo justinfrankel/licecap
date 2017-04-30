@@ -1892,7 +1892,8 @@ static HWND last_key_window;
 - (id)swellGetOwner { return m_owner; }  \
 - (NSSize)minSize \
 { \
-  MINMAXINFO mmi={0}; \
+  MINMAXINFO mmi; \
+  memset(&mmi,0,sizeof(mmi)); \
   NSSize minsz=(NSSize)[super minSize]; \
   mmi.ptMinTrackSize.x=(int)minsz.width; mmi.ptMinTrackSize.y=(int)minsz.height; \
   sendSwellMessage([self contentView],WM_GETMINMAXINFO,0,(LPARAM)&mmi); \
@@ -1901,7 +1902,8 @@ static HWND last_key_window;
 } \
 - (NSSize)maxSize \
 { \
-  MINMAXINFO mmi={0}; \
+  MINMAXINFO mmi; \
+  memset(&mmi,0,sizeof(mmi)); \
   NSSize maxsz=(NSSize)[super maxSize]; NSSize tmp=maxsz;\
   if (tmp.width<1)tmp.width=1; else if (tmp.width > 1000000.0) tmp.width=1000000.0; \
   if (tmp.height<1)tmp.height=1; else if (tmp.height > 1000000.0) tmp.height=1000000.0; \

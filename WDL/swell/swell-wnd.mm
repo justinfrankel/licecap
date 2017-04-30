@@ -3187,7 +3187,8 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       if (flags&SWELL_NOT_WS_VISIBLE) [obj2 setHidden:YES];
       [obj2 release];
       
-      NSRect tr={0,};
+      NSRect tr;
+      memset(&tr,0,sizeof(tr));
       tr.size = [obj2 contentSize];
       [obj setFrame:tr];
       [obj release];

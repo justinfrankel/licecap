@@ -230,7 +230,7 @@ class eel_string_context_state
     WDL_StringKeyedArray<int> m_named_strings_names; // #xyz->index
 
     EEL_STRING_STORAGECLASS *m_user_strings[EEL_STRING_MAX_USER_STRINGS]; // indices 0-1023 (etc)
-    WDL_AssocArray<const char *, EEL_F *> m_varname_cache; // cached pointers when using %{xyz}s, %{#xyz}s bypasses
+    WDL_AssocArray<const char *, EEL_F_PTR> m_varname_cache; // cached pointers when using %{xyz}s, %{#xyz}s bypasses
 
     NSEEL_VMCTX m_vm;
 #ifdef EEL_STRING_WANT_MUTEX
@@ -606,7 +606,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
 #ifdef EEL_STRING_GETNAMEDVAR 
               char tmp[128];
               int idx=0;
-              while (dest_varname < fmt_endptr && *dest_varname && *dest_varname != '}' && idx<sizeof(tmp)-1) tmp[idx++] = *dest_varname++;
+              while (dest_varname < fmt_endptr && *dest_varname && *dest_varname != '}' && idx<(int)sizeof(tmp)-1) tmp[idx++] = *dest_varname++;
               tmp[idx]=0;
               if (idx>0) varOut = EEL_STRING_GETNAMEDVAR(tmp,1,&vv);
 #endif
@@ -696,7 +696,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
 #ifdef EEL_STRING_GETNAMEDVAR 
               char tmp[128];
               int idx=0;
-              while (dest_varname < fmt_endptr && *dest_varname  && *dest_varname != '}' && idx<sizeof(tmp)-1) tmp[idx++] = *dest_varname++;
+              while (dest_varname < fmt_endptr && *dest_varname  && *dest_varname != '}' && idx<(int)sizeof(tmp)-1) tmp[idx++] = *dest_varname++;
               tmp[idx]=0;
               if (idx>0) varOut = EEL_STRING_GETNAMEDVAR(tmp,1,&vv);
 #endif
@@ -736,7 +736,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
               else
               {
                 char tmp[128];
-                lstrcpyn_safe(tmp,msg,wdl_min(len+1,sizeof(tmp)));
+                lstrcpyn_safe(tmp,msg,wdl_min(len+1,(int)sizeof(tmp)));
                 if (varOut == &vv) 
                 {
                   EEL_STRING_STORAGECLASS *wr=NULL;

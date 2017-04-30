@@ -144,7 +144,7 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
   {
     unsigned int whichblock = w/NSEEL_RAM_ITEMSPERBLOCK;
     EEL_F *p=pblocks[whichblock];
-    if (!p && whichblock < ((int *)pblocks)[-3]) // pblocks -1/-2 are closefact, -3 is maxblocks
+    if (!p && whichblock < ((unsigned int *)pblocks)[-3]) // pblocks -1/-2 are closefact, -3 is maxblocks
     {
       NSEEL_HOSTSTUB_EnterMutex();
 
@@ -449,8 +449,8 @@ EEL_F *NSEEL_VM_getramptr_noalloc(NSEEL_VMCTX ctx, unsigned int offs, int *valid
   EEL_F *d;
   compileContext *cc = (compileContext *)ctx;
 
-  if (!cc || !cc->ram_state.blocks || 
-      offs < 0 || offs >= NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS ||
+  if (!cc ||
+      offs >= NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS ||
       NULL == (d = cc->ram_state.blocks[offs/NSEEL_RAM_ITEMSPERBLOCK])
       ) 
   {

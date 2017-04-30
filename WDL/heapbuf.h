@@ -244,6 +244,7 @@ class WDL_HeapBuf
     int m_granul;
 
   #if defined(_WIN64) || defined(__LP64__)
+  public:
     int ___pad; // keep size 8 byte aligned
   #endif
 

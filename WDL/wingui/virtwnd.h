@@ -66,6 +66,8 @@ public:
   virtual void ClearCaches(){}
   virtual void OnFocused() {} 
   virtual void OnStateChange() {}
+protected:
+  virtual ~WDL_VWnd_IAccessibleBridge(){}
 };
 
 

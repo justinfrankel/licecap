@@ -58,7 +58,7 @@ public:
      [(par=p) retain]; 
      (vwnd=vw)->SetAccessibilityBridge(this);
   }
-  ~VWndBridgeNS() 
+  virtual ~VWndBridgeNS()
   { 
 //    if (vwnd) printf("Destroying self before Released, wtf!\n");
   }
