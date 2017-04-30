@@ -1490,7 +1490,17 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
           HGDIOBJ oldFont = SelectObject(di->hDC,font);
           DrawText(di->hDC,buf,-1,&di->rcItem,DT_VCENTER|DT_LEFT|DT_NOPREFIX);
+          wchar_t tmp[] = {'a','A','z','Z'};
+          unsigned short ind[4];
+          GetGlyphIndicesW(di->hDC,tmp,4,ind,0);
           SelectObject(di->hDC,oldFont);
+
+          int x;
+          for (x=0;x<4 && ind[x]==0xffff;x++);
+          if (x==4)
+          {
+            DrawText(di->hDC,buf,-1,&di->rcItem,DT_VCENTER|DT_RIGHT|DT_NOPREFIX);
+          }
           DeleteObject(font);
 
         }
@@ -1520,11 +1530,11 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
           DeleteObject(br);
           SetTextColor(ps.hdc,RGB(0,0,0));
           SetBkMode(ps.hdc,TRANSPARENT);
+          r.right-=4;
+          r.left+=4;
           if (swell_last_font_filename)
           {
-            RECT r2=r;
-            r2.right-=4;
-            r.bottom -= DrawText(ps.hdc,swell_last_font_filename,-1,&r2,DT_BOTTOM|DT_NOPREFIX|DT_SINGLELINE|DT_RIGHT);
+            r.bottom -= DrawText(ps.hdc,swell_last_font_filename,-1,&r,DT_BOTTOM|DT_NOPREFIX|DT_SINGLELINE|DT_RIGHT);
           }
 
           HGDIOBJ oldFont = SelectObject(ps.hdc,f);
