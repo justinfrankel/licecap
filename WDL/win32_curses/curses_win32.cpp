@@ -751,7 +751,7 @@ void reInitializeContext(win32CursesCtx *ctx)
                         0, // width
                         0, // escapement
                         0, // orientation
-#ifdef _WIN32
+#ifndef __APPLE__
                         FW_NORMAL, // normal
 #else
                         FW_BOLD,
