@@ -8997,7 +8997,7 @@ struct dropSourceInfo {
     free(srcfn); 
     if (dragctx)
     {
-#if SWELL_TARGET_GDK!=2
+#ifdef GDK_AVAILABLE_IN_3_20
       gdk_drag_drop_done(dragctx,state!=0);
 #endif
       g_object_unref(dragctx);
