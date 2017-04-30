@@ -2987,12 +2987,14 @@ int swell_getLineLength(const char *buf, int *post_skip, int wrap_maxwid, HDC hd
     wrap_maxwid -= g_swell_ctheme.scrollbar_width;
     
     // step through a word at a time and find the most that can fit
-    int x=0,best_len=0;
+    int x=0,best_len=0,sumw=0;
     for (;;)
     {
       while (x < lb && buf[x] > 0 && isspace(buf[x])) x++;
       while (x < lb && (buf[x]<0 || !isspace(buf[x]))) x++;
-      if (editMeasureLineLength(hdc,buf,x) > wrap_maxwid) break;
+      const int thisw = editMeasureLineLength(hdc,buf+best_len,x-best_len);
+      if (thisw+sumw > wrap_maxwid) break;
+      sumw+=thisw;
       best_len=x;
       if (x >= lb) break;
     }
