@@ -996,6 +996,7 @@ void GetTempPath(int bufsz, char *buf)
 
 const char *g_swell_appname;
 char *g_swell_defini;
+const char *g_swell_fontpangram;
 
 void *SWELL_ExtendedAPI(const char *key, void *v)
 {
@@ -1024,6 +1025,10 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
         WritePrivateProfileString(".swell","ui_scale","1.0 // scales the sizes in libSwell.colortheme","");
       }
     #endif
+  }
+  else if (!strcmp(key,"FONTPANGRAM"))
+  {
+    g_swell_fontpangram = (const char *)v;
   }
 #ifndef SWELL_TARGET_OSX
   else if (!strcmp(key,"FULLSCREEN") || !strcmp(key,"-FULLSCREEN"))

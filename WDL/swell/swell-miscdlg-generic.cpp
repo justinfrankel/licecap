@@ -1529,8 +1529,11 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
           HGDIOBJ oldFont = SelectObject(ps.hdc,f);
 
+          extern const char *g_swell_fontpangram;
+          const char *str = g_swell_fontpangram;
+          //
           // thanks, http://dailypangram.tumblr.com/ :)
-          const char *str = "Strangely, aerobic exercise doesn’t quite work with improvised free jazz.";
+          if (!str) str = "Strangely, aerobic exercise doesn’t quite work with improvised free jazz.";
 
           while (*str)
           {
