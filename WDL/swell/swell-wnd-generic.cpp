@@ -3087,7 +3087,7 @@ static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, i
 
 struct __SWELL_editControlState
 {
-  __SWELL_editControlState() 
+  __SWELL_editControlState()  : cache_linelen_bytes(8192)
   { 
     cursor_timer=0;  
     cursor_state=0; 
@@ -3096,6 +3096,7 @@ struct __SWELL_editControlState
     scroll_x=scroll_y=0;
     max_height=0;
     max_width=0;
+    cache_linelen_strlen = cache_linelen_w = 0;
   }
   ~__SWELL_editControlState()  {}
 
@@ -3105,6 +3106,10 @@ struct __SWELL_editControlState
   int scroll_x, scroll_y;
   int max_height; // only used in multiline
   int max_width; 
+
+  // used for caching line lengths for multiline word-wrapping edit controls
+  int cache_linelen_w, cache_linelen_strlen;
+  WDL_TypedBuf<int> cache_linelen_bytes;
 
   bool deleteSelection(WDL_FastString *fs)
   {
@@ -3747,7 +3752,11 @@ forceMouseMove:
         int f = OnEditKeyDown(hwnd,msg,wParam,lParam, !!(hwnd->m_style&ES_WANTRETURN),es);
         if (f)
         {
-          if (f&4) SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+          if (f&4) 
+          {
+            es->cache_linelen_w=0;
+            SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+          }
           if (f&2) 
           {
             es->autoScrollToOffset(hwnd,es->cursor_pos,
@@ -3815,13 +3824,49 @@ forceMouseMove:
             RECT tmp={0,};
             const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
             const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : orig_r.right;
+
+            int *use_cache = NULL, use_cache_len = 0;
+            if (wwrap>0 && es->cache_linelen_w == wwrap && es->cache_linelen_strlen == hwnd->m_title.GetLength())
+            {
+              use_cache = es->cache_linelen_bytes.Get();
+              use_cache_len = es->cache_linelen_bytes.GetSize();
+            }
+            else
+            {
+              es->cache_linelen_w=wwrap;
+              es->cache_linelen_strlen=hwnd->m_title.GetLength();
+              es->cache_linelen_bytes.Resize(0);
+            }
+
             for (;;)
             {
-              int pskip=0, lb = swell_getLineLength(buf,&pskip,wwrap,ps.hdc);
+              int pskip=0, lb;
+
+              const bool vis = r.top >= -line_h && r.top < orig_r.bottom;
+              
+              if (vis || !use_cache || use_cache_len < 1)
+              {
+                lb = swell_getLineLength(buf,&pskip,wwrap,ps.hdc);
+                if (!use_cache && wwrap>0)
+                {
+                  int s = lb+pskip;
+                  es->cache_linelen_bytes.Add(&s,1);
+                }
+              }
+              else
+              {
+                lb = *use_cache;
+              }
+
+              if (use_cache)
+              {
+                use_cache++;
+                use_cache_len--;
+              }
 
               if (!*buf && cursor_pos != bytepos) break;
 
-              if (r.top >= -line_h && r.top < orig_r.bottom)
+              if (vis)
               {
                 int wid = editControlPaintLine(ps.hdc,buf,lb,
                    (cursor_pos >= bytepos && cursor_pos <= bytepos + lb) ? cursor_pos - bytepos : -1, 
@@ -3865,6 +3910,7 @@ forceMouseMove:
       {
         es->cursor_pos = WDL_utf8_get_charlen(hwnd->m_title.Get());
         es->sel1=es->sel2=-1;
+        es->cache_linelen_w=es->cache_linelen_strlen=0;
       }
       InvalidateRect(hwnd,NULL,FALSE);
       if (hwnd->m_id && hwnd->m_parent)
