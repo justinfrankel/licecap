@@ -1910,12 +1910,8 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 
     if (reposflag&3) 
     {
-      const bool sizeChanged = (reposflag&2) && (
-           cx != hwnd->m_position.right-hwnd->m_position.left ||
-           cy != hwnd->m_position.bottom-hwnd->m_position.top
-         );
       hwnd->m_position = f;
-      if (sizeChanged) SendMessage(hwnd,WM_SIZE,0,0);
+      if (reposflag&2) SendMessage(hwnd,WM_SIZE,0,0);
     }
 
     if (hwnd->m_oswindow && !hwnd->m_oswindow_fullscreen)
