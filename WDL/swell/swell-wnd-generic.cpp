@@ -3827,7 +3827,7 @@ forceMouseMove:
           if (multiline)
           {
             r.top+=2 - es->scroll_y;
-            const char *buf = hwnd->m_title.Get();
+            const char *buf = hwnd->m_title.Get(), *buf_end = buf + hwnd->m_title.GetLength();
             int bytepos = 0;
             RECT tmp={0,};
             const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
@@ -3864,6 +3864,7 @@ forceMouseMove:
               else
               {
                 lb = *use_cache;
+                if (WDL_NOT_NORMALLY(lb < 1)) break; 
               }
 
               if (use_cache)
@@ -3873,6 +3874,8 @@ forceMouseMove:
               }
 
               if (!*buf && cursor_pos != bytepos) break;
+
+              if (WDL_NOT_NORMALLY(buf+lb+pskip > buf_end)) break;
 
               if (vis)
               {
