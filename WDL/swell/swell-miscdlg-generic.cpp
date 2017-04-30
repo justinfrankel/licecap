@@ -1458,6 +1458,7 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
                 if (!strnicmp(trail,"Bold",4)) trail+=4;
                 else if (!strnicmp(trail,"Light",5)) trail+=5;
                 else if (!strnicmp(trail,"Italic",6)) trail+=6;
+                else if (!strnicmp(trail,"Oblique",7)) trail+=7;
                 else break;
               }
               if (!*trail) continue;

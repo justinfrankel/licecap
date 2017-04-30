@@ -206,6 +206,7 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
 
       if (stristr(residual,"Regular")) s.score2 -= 7; // ignore "Regular"
       if (italic && stristr(residual,"Italic")) s.score2 -= 6+7;
+      else if (italic && stristr(residual,"Oblique")) s.score2 -= 7+3; // if Italic isnt available, use Oblique
       if (weight >= FW_BOLD && stristr(residual,"Bold")) s.score2 -= 4+7;
       else if (weight <= FW_LIGHT && stristr(residual,"Light")) s.score2 -= 5+7;
       s.score2 = s.score2*ntab + x; 
