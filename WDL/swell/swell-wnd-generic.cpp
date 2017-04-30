@@ -320,9 +320,9 @@ static int swell_gdk_option(const char *name, const char *defstr, int defv)
   return defv;
 }
 
-static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
+static int gdk_options;
+static void init_options()
 {
-  static int gdk_options;
   if (!gdk_options)
   {
     const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
@@ -350,6 +350,10 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
       gdk_options|=16;
   }
   
+}
+
+static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
+{
   if (!hwnd) return;
 
   bool isVis = !!hwnd->m_oswindow;
@@ -368,6 +372,8 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
     {
       if (swell_initwindowsys())
       {
+        init_options();
+
         HWND owner = NULL; // hwnd->m_owner;
 // parent windows dont seem to work the way we'd want, yet, in gdk...
 /*        while (owner && !owner->m_oswindow)
