@@ -693,6 +693,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
         if (!a) hwnd=NULL;
       }
 
+      if (evt->type == GDK_MOTION_NOTIFY)
+      {
+        GdkEventMotion *m = (GdkEventMotion *)evt;
+        gdk_event_request_motions(m);
+      }
+
       if (evt->type == GDK_FOCUS_CHANGE)
       {
         GdkEventFocus *fc = (GdkEventFocus *)evt;
@@ -977,7 +983,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (hwnd2) hwnd2->Retain();
             SendMouseMessage(hwnd2, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
             if (hwnd2) hwnd2->Release();
-            gdk_event_request_motions(m);
           }
         break;
         case GDK_SCROLL:
