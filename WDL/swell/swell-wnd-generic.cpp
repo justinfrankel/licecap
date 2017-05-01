@@ -3843,16 +3843,19 @@ forceMouseMove:
             const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : orig_r.right - g_swell_ctheme.scrollbar_width;
 
             int *use_cache = NULL, use_cache_len = 0;
-            if (wwrap>0 && es->cache_linelen_w == wwrap && es->cache_linelen_strlen == hwnd->m_title.GetLength())
+            const bool allow_cache = wwrap>0 && (hwnd->m_style & ES_READONLY) && hwnd->m_title.GetLength()>10000;
+            if (allow_cache && 
+                es->cache_linelen_w == wwrap && 
+                es->cache_linelen_strlen == hwnd->m_title.GetLength())
             {
               use_cache = es->cache_linelen_bytes.Get();
               use_cache_len = es->cache_linelen_bytes.GetSize();
             }
             else
             {
-              es->cache_linelen_w=wwrap;
-              es->cache_linelen_strlen=hwnd->m_title.GetLength();
-              es->cache_linelen_bytes.Resize(0);
+              es->cache_linelen_w=allow_cache?wwrap:0;
+              es->cache_linelen_strlen=allow_cache?hwnd->m_title.GetLength():0;
+              es->cache_linelen_bytes.Resize(0,false);
             }
 
             for (;;)
@@ -3864,7 +3867,7 @@ forceMouseMove:
               if (vis || !use_cache || use_cache_len < 1)
               {
                 lb = swell_getLineLength(buf,&pskip,wwrap,ps.hdc);
-                if (!use_cache && wwrap>0)
+                if (!use_cache && allow_cache)
                 {
                   int s = lb+pskip;
                   es->cache_linelen_bytes.Add(&s,1);
