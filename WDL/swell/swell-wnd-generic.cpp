@@ -39,8 +39,6 @@
 
 #include "swell-dlggen.h"
 
-HWND__ *SWELL_topwindows;
-
 HWND DialogBoxIsActive(void);
 void DestroyPopupMenus(void);
 HWND ChildWindowFromPoint(HWND h, POINT p);
@@ -67,6 +65,15 @@ static SWELL_OSWINDOW swell_dragsrc_osw;
 static DWORD swell_dragsrc_timeout;
 static HWND swell_dragsrc_hwnd;
 #endif
+
+HWND__ *SWELL_topwindows;
+static HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w)
+{
+  if (!w) return NULL;
+  HWND a = SWELL_topwindows;
+  while (a && a->m_oswindow != w) a=a->m_next;
+  return a;
+}
 
 static void swell_set_focus_oswindow(SWELL_OSWINDOW v)
 {
@@ -402,7 +409,6 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
  
         if (hwnd->m_oswindow) 
         {
-          gdk_window_set_user_data(hwnd->m_oswindow,hwnd);
           const bool modal = DialogBoxIsActive() == hwnd;
           bool override_redirect=false;
 
@@ -677,31 +683,19 @@ static GdkAtom urilistatom()
   return tmp;
 }
 
-
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
   s_cur_evt = evt;
 
   HWND hwnd = NULL;
-  if (((GdkEventAny*)evt)->window) 
-  {
-    gdk_window_get_user_data(((GdkEventAny*)evt)->window,(gpointer*)&hwnd);
-
-    if (hwnd)
-    {
-      HWND a = SWELL_topwindows;
-      while (a && a != hwnd) a=a->m_next;
-      if (!a) hwnd=NULL;
-    }
-  }
 
   switch (evt->type)
   {
     case GDK_FOCUS_CHANGE:
         {
           GdkEventFocus *fc = (GdkEventFocus *)evt;
-          if (fc->in && hwnd) 
+          if (fc->in && (hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             const bool last_focus = !!SWELL_focused_oswindow;
             swell_set_focus_oswindow(fc->window);
@@ -817,11 +811,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     break;
 
     case GDK_DELETE:
-      if (hwnd && IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
+      if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)) &&
+          IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
         SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
     break;
     case GDK_EXPOSE: // paint! GdkEventExpose...
-          if (hwnd) 
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             GdkEventExpose *exp = (GdkEventExpose*)evt;
 #ifdef SWELL_LICE_GDI
@@ -869,7 +864,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
     break;
     case GDK_CONFIGURE: // size/move, GdkEventConfigure
-          if (hwnd)
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             GdkEventConfigure *cfg = (GdkEventConfigure*)evt;
             int flag=0;
@@ -894,7 +889,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           //printf("minmax\n");
     break;
     case GDK_GRAB_BROKEN:
-          if (hwnd)
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             //GdkEventGrabBroken *bk = (GdkEventGrabBroken*)evt;
             if (s_captured_window)
@@ -906,7 +901,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     break;
     case GDK_KEY_PRESS:
     case GDK_KEY_RELEASE:
-          if (hwnd)
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             GdkEventKey *k = (GdkEventKey *)evt;
             //printf("key%s: %d %s\n", evt->type == GDK_KEY_PRESS ? "down" : "up", k->keyval, k->string);
@@ -979,18 +974,19 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             GdkEventMotion *m = (GdkEventMotion *)evt;
             s_lastMessagePos = MAKELONG(((int)m->x_root&0xffff),((int)m->y_root&0xffff));
             POINT p={(int)m->x, (int)m->y};
-            HWND hwnd2 = GetCapture();
-            if (!hwnd2 && hwnd) hwnd2=ChildWindowFromPoint(hwnd, p);
+            hwnd = GetCapture();
+            if (!hwnd && (hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
+                hwnd=ChildWindowFromPoint(hwnd, p);
 
             gdk_event_request_motions(m); // request before sending WM_MOUSEMOVE
 
-            if (hwnd2)
+            if (hwnd)
             {
               POINT p2={(int)m->x_root, (int)m->y_root};
-              ScreenToClient(hwnd2, &p2);
-              if (hwnd2) hwnd2->Retain();
-              SendMouseMessage(hwnd2, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
-              if (hwnd2) hwnd2->Release();
+              ScreenToClient(hwnd, &p2);
+              if (hwnd) hwnd->Retain();
+              SendMouseMessage(hwnd, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
+              if (hwnd) hwnd->Release();
             }
           }
     break;
@@ -999,9 +995,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             GdkEventScroll *b = (GdkEventScroll *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
             POINT p={(int)b->x, (int)b->y};
-            HWND hwnd2 = GetCapture();
-            if (!hwnd2 && hwnd) hwnd2=ChildWindowFromPoint(hwnd, p);
-            if (hwnd2)
+            hwnd = GetCapture();
+            if (!hwnd && (hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
+                hwnd=ChildWindowFromPoint(hwnd, p);
+            if (hwnd)
             {
               POINT p2={(int)b->x_root, (int)b->y_root};
               // p2 is screen coordinates for WM_MOUSEWHEEL
@@ -1013,9 +1010,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               {
                 int v = (b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_LEFT) ? 120 : -120;
  
-                if (hwnd2) hwnd2->Retain();
-                SendMouseMessage(hwnd2, msg, (v<<16), MAKELPARAM(p2.x, p2.y));
-                if (hwnd2) hwnd2->Release();
+                if (hwnd) hwnd->Retain();
+                SendMouseMessage(hwnd, msg, (v<<16), MAKELPARAM(p2.x, p2.y));
+                if (hwnd) hwnd->Release();
               }
             }
           }
@@ -1023,7 +1020,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     case GDK_BUTTON_PRESS:
     case GDK_2BUTTON_PRESS:
     case GDK_BUTTON_RELEASE:
-          if (hwnd)
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             GdkEventButton *b = (GdkEventButton *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
@@ -1051,17 +1048,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
     break;
     case GDK_SELECTION_NOTIFY:
-        if (hwnd)
+        if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
         {
           GdkEventSelection *b = (GdkEventSelection *)evt;
-
-          // validate hwnd/s_ddrop_hwnd
-          if (s_ddrop_hwnd)
-          {
-            HWND a = SWELL_topwindows;
-            while (a && a != s_ddrop_hwnd) a=a->m_next;
-            if (!a) s_ddrop_hwnd=NULL;
-          }
 
           if (hwnd == s_ddrop_hwnd && b->target == urilistatom())
           {
@@ -1193,7 +1182,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     break;
     case GDK_DRAG_ENTER:
     case GDK_DRAG_MOTION:
-          if (hwnd)
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             GdkEventDND *e = (GdkEventDND *)evt;
             if (e->context)
@@ -1208,7 +1197,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     case GDK_DROP_FINISHED:
     break;
     case GDK_DROP_START:
-          if (hwnd)
+          if ((hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window)))
           {
             GdkEventDND *e = (GdkEventDND *)evt;
             GdkDragContext *ctx = e->context;
@@ -1698,18 +1687,12 @@ int IsChild(HWND hwndParent, HWND hwndChild)
 
 HWND GetForegroundWindowIncludeMenus()
 {
-  if (!SWELL_focused_oswindow) return 0;
-  HWND a = SWELL_topwindows;
-  while (a && a->m_oswindow != SWELL_focused_oswindow) a=a->m_next;
-  return a;
+  return swell_oswindow_to_hwnd(SWELL_focused_oswindow);
 }
 
 HWND GetFocusIncludeMenus()
 {
-  if (!SWELL_focused_oswindow) return 0;
-  HWND h = SWELL_topwindows;
-  while (h && h->m_oswindow != SWELL_focused_oswindow) h=h->m_next;
-
+  HWND h = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
   while (h) 
   {
     HWND fc = h->m_focused_child;
