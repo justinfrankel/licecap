@@ -2973,7 +2973,7 @@ static void drawVerticalScrollbar(HDC hdc, RECT cr, int totalh, int scroll_y)
 static int editMeasureLineLength(HDC hdc, const char *str, int str_len)
 {
   RECT tmp = {0,};
-  DrawText(hdc,str,str_len,&tmp,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT);
+  DrawText(hdc,str,str_len,&tmp,DT_NOPREFIX|DT_SINGLELINE|DT_CALCRECT|DT_RIGHT);
   return tmp.right;
 }
 
@@ -3058,10 +3058,12 @@ static int editHitTestLine(HDC hdc, const char *str, int str_len, int xpos, int 
   while (x < str_len)
   {
     memset(&mr,0,sizeof(mr));
-    DrawText(hdc,str,x,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-    if (xpos < mr.right) break;
-    lc=x;
-    x += wdl_utf8_parsechar(str+x,NULL);
+    const int clen = wdl_utf8_parsechar(str+x,NULL); 
+    DrawText(hdc,str+x,clen,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT|DT_RIGHT/*swell-only flag*/);
+    xpos -= mr.right;
+    if (xpos <= 0) break;
+    lc = x;
+    x += clen;
   }
   return lc;
 }
