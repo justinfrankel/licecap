@@ -3273,7 +3273,8 @@ struct __SWELL_editControlState
 
 };
 
-static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool isMultiLine, __SWELL_editControlState *es)
+static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
+    bool wantReturn, bool isMultiLine, __SWELL_editControlState *es)
 {
   if (lParam & (FCONTROL|FALT|FLWIN))
   {
@@ -3362,6 +3363,9 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
 
   if (es && (lParam & FVIRTKEY)) switch (wParam)
   {
+    case VK_NEXT:
+    case VK_PRIOR:
+      if (!isMultiLine) break;
     case VK_UP:
     case VK_DOWN:
       if (isMultiLine)
@@ -3377,6 +3381,17 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
           if (editGetCharPos(hdc, hwnd->m_title.Get(), -1, es->cursor_pos, line_h, &pt, wwrap))
           {
             if (wParam == VK_UP) pt.y -= line_h/2;
+            else if (wParam == VK_NEXT) 
+            {
+              int ey = es->scroll_y + tmp.bottom - (wwrap?0:g_swell_ctheme.scrollbar_width) - line_h;
+              if (pt.y < ey-line_h) pt.y = ey;
+              else pt.y = ey + tmp.bottom - line_h - (wwrap?0:g_swell_ctheme.scrollbar_width);
+            }
+            else if (wParam == VK_PRIOR) 
+            {
+              if (pt.y > es->scroll_y) pt.y = es->scroll_y;
+              else pt.y = es->scroll_y - (tmp.bottom-line_h/2 - g_swell_ctheme.scrollbar_width);
+            }
             else pt.y += line_h + line_h/2;
             int nextpos = editHitTest(hdc, hwnd->m_title.Get(), -1,pt.x,pt.y,wwrap);
             es->moveCursor(WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),nextpos));
@@ -3487,7 +3502,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
       }
     return 1;
     case VK_RETURN:
-      if (isMultiLine)
+      if (wantReturn)
       {
         if (hwnd->m_style & ES_READONLY) return 1;
         if (es->deleteSelection(&hwnd->m_title)) return 7;
@@ -3579,8 +3594,8 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
         const int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,p.x,p.y,0,hwnd,0);
         DestroyMenu(menu);
-        if (a==100) OnEditKeyDown(hwnd,WM_KEYDOWN,'C',FVIRTKEY|FCONTROL,0,es);
-        else if (a==101) OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,0,es);
+        if (a==100) OnEditKeyDown(hwnd,WM_KEYDOWN,'C',FVIRTKEY|FCONTROL,false,false,es);
+        else if (a==101) OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,false,false,es);
         else if (a==102) SendMessage(hwnd,EM_SETSEL,0,-1);
 
         if (a) InvalidateRect(hwnd,NULL,FALSE);
@@ -3766,7 +3781,10 @@ forceMouseMove:
     return 0;
     case WM_KEYDOWN:
       {
-        int f = OnEditKeyDown(hwnd,msg,wParam,lParam, !!(hwnd->m_style&ES_WANTRETURN),es);
+        int f = OnEditKeyDown(hwnd,msg,wParam,lParam, 
+            !!(hwnd->m_style&ES_WANTRETURN),
+            !!(hwnd->m_style&ES_MULTILINE),
+            es);
         if (f)
         {
           if (f&4) 
@@ -4508,7 +4526,8 @@ popupMenu:
     return 0;
     case WM_KEYDOWN:
       if ((lParam&FVIRTKEY) && wParam == VK_DOWN) { s_capmode_state=5; goto popupMenu; }
-      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && OnEditKeyDown(hwnd,msg,wParam,lParam,false,&s->editstate))
+      if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && 
+          OnEditKeyDown(hwnd,msg,wParam,lParam,false,false,&s->editstate))
       {
         if (s) s->selidx=-1; // lookup from text?
         SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
