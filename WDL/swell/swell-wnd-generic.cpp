@@ -9137,8 +9137,14 @@ static LRESULT WINAPI dropSourceWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
       if (inf->dragctx && !inf->state)
       {
         inf->state=1;
-        gdk_selection_owner_set(swell_dragsrc_osw,gdk_drag_get_selection(inf->dragctx),GDK_CURRENT_TIME,TRUE);
+        GdkAtom sel = gdk_drag_get_selection(inf->dragctx);
+        if (sel) gdk_selection_owner_set(swell_dragsrc_osw,sel,GDK_CURRENT_TIME,TRUE);
         gdk_drag_drop(inf->dragctx,GDK_CURRENT_TIME);
+        if (!sel)
+        {
+          sel = gdk_drag_get_selection(inf->dragctx);
+          if (sel) gdk_selection_owner_set(swell_dragsrc_osw,sel,GDK_CURRENT_TIME,TRUE);
+        }
         SetTimer(hwnd,1,500,NULL); // a successful drop will also trigger a releasecapture() earlier
         return 0;
       }
