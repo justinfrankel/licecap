@@ -64,6 +64,7 @@ static bool is_virtkey_char(int c)
 #ifdef SWELL_TARGET_GDK
 static UINT_PTR g_focus_lost_timer;
 static SWELL_OSWINDOW swell_dragsrc_osw;
+static DWORD swell_dragsrc_timeout;
 static HWND swell_dragsrc_hwnd;
 #endif
 
@@ -9145,7 +9146,7 @@ static LRESULT WINAPI dropSourceWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
           sel = gdk_drag_get_selection(inf->dragctx);
           if (sel) gdk_selection_owner_set(swell_dragsrc_osw,sel,GDK_CURRENT_TIME,TRUE);
         }
-        SetTimer(hwnd,1,500,NULL); // a successful drop will also trigger a releasecapture() earlier
+        swell_dragsrc_timeout = GetTickCount() + 500;
         return 0;
       }
       ReleaseCapture();
@@ -9192,9 +9193,6 @@ static LRESULT WINAPI dropSourceWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
       if (inf->state) ReleaseCapture();
     }
     break;
-    case WM_TIMER:
-      ReleaseCapture();
-    break;
 
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -9211,6 +9209,7 @@ void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*
   info.callback = callback;
   RECT r={0,};
   HWND__ *h = new HWND__(NULL,0,&r,NULL,false,NULL,dropSourceWndProc, NULL);
+  swell_dragsrc_timeout = 0;
   swell_dragsrc_hwnd=h;
   h->m_private_data = (INT_PTR) &info;
   dropSourceWndProc(h,WM_CREATE,0,0);
@@ -9218,6 +9217,7 @@ void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*
   {
     swell_runOSevents();
     Sleep(10);
+    if (swell_dragsrc_timeout && GetTickCount()>swell_dragsrc_timeout) ReleaseCapture();
   }
   
   swell_dragsrc_hwnd=NULL;
@@ -9234,6 +9234,7 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
   info.srccount = srccount;
   RECT r={0,};
   HWND__ *h = new HWND__(NULL,0,&r,NULL,false,NULL,dropSourceWndProc, NULL);
+  swell_dragsrc_timeout = 0;
   swell_dragsrc_hwnd=h;
   h->m_private_data = (INT_PTR) &info;
   dropSourceWndProc(h,WM_CREATE,0,0);
@@ -9241,6 +9242,7 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
   {
     swell_runOSevents();
     Sleep(10);
+    if (swell_dragsrc_timeout && GetTickCount()>swell_dragsrc_timeout) ReleaseCapture();
   }
   
   swell_dragsrc_hwnd=NULL;
