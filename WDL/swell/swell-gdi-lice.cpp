@@ -868,10 +868,13 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           {
             // measure character
             FT_GlyphSlot g = face->glyph;
-            int rext = xpos + (g->metrics.width + g->metrics.horiBearingX)/64;
-            if (rext<=xpos) rext=xpos + g->metrics.horiAdvance/64;
-            if (r->left+rext > r->right) r->right = r->left+rext;
+            int rext = xpos;
+            if ((align&(DT_BOTTOM|DT_VCENTER|DT_CENTER|DT_RIGHT))!=DT_RIGHT)
+              rext += (g->metrics.width + g->metrics.horiBearingX)/64;
+
             xpos += g->metrics.horiAdvance/64;
+            if (rext<xpos) rext=xpos;
+            if (r->left+rext > r->right) r->right = r->left+rext;
 
             int bext = r->top + ypos + lineh; // ascent + (g->metrics.height - g->metrics.horiBearingY)/64;
             if (bext > r->bottom) r->bottom = bext;
