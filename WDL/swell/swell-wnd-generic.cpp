@@ -2916,15 +2916,15 @@ static void calcScroll(int wh, int totalw, int scroll_x, int *thumbsz, int *thum
   *thumbsz = sz;
 }
 
-static void drawHorizontalScrollbar(HDC hdc, RECT cr, int totalw, int scroll_x)
+static void drawHorizontalScrollbar(HDC hdc, RECT cr, int vieww, int totalw, int scroll_x)
 {
-  if (totalw <= cr.right-cr.left) return;
+  if (totalw <= vieww) return;
 
   int thumbsz, thumbpos;
-  calcScroll(cr.right-cr.left,totalw,scroll_x,&thumbsz, &thumbpos);
+  calcScroll(vieww,totalw,scroll_x,&thumbsz, &thumbpos);
 
-  HBRUSH br =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_fg,0.5f);
-  HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_bg,0.5f);
+  HBRUSH br =  CreateSolidBrush(g_swell_ctheme.scrollbar_fg);
+  HBRUSH br2 =  CreateSolidBrush(g_swell_ctheme.scrollbar_bg);
   RECT fr = { cr.left, cr.bottom - g_swell_ctheme.scrollbar_width, cr.left + thumbpos, cr.bottom };
   if (fr.right>fr.left) FillRect(hdc,&fr,br2);
 
@@ -2947,8 +2947,8 @@ static void drawVerticalScrollbar(HDC hdc, RECT cr, int totalh, int scroll_y)
   int thumbsz, thumbpos;
   calcScroll(cr.bottom-cr.top,totalh,scroll_y,&thumbsz, &thumbpos);
 
-  HBRUSH br =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_fg,0.5f);
-  HBRUSH br2 =  CreateSolidBrushAlpha(g_swell_ctheme.scrollbar_bg,0.5f);
+  HBRUSH br =  CreateSolidBrush(g_swell_ctheme.scrollbar_fg);
+  HBRUSH br2 =  CreateSolidBrush(g_swell_ctheme.scrollbar_bg);
   RECT fr = { cr.right - g_swell_ctheme.scrollbar_width, cr.top, cr.right,cr.top+thumbpos};
   if (fr.bottom>fr.top) FillRect(hdc,&fr,br2);
 
@@ -3243,10 +3243,17 @@ struct __SWELL_editControlState
     const int line_h = DrawText(hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
 
     GetClientRect(hwnd,&tmp);
+    if (is_multiline) 
+    {
+      tmp.right -= g_swell_ctheme.scrollbar_width;
+      if (!word_wrap) tmp.bottom -= g_swell_ctheme.scrollbar_width;
+    }
+
+    int wwrap = word_wrap?tmp.right:0;
     POINT pt={0,};
     if (editGetCharPos(hdc, hwnd->m_title.Get(), 
          is_multiline? -1:hwnd->m_title.GetLength(), charpos, line_h, &pt,
-         word_wrap?tmp.right:0))
+         wwrap))
     {
       if (!word_wrap)
       {
@@ -3366,7 +3373,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
           const int line_h = DrawText(hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
           POINT pt;
           GetClientRect(hwnd,&tmp);
-          const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : tmp.right;
+          const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : tmp.right - g_swell_ctheme.scrollbar_width;
           if (editGetCharPos(hdc, hwnd->m_title.Get(), -1, es->cursor_pos, line_h, &pt, wwrap))
           {
             if (wParam == VK_UP) pt.y -= line_h/2;
@@ -3391,7 +3398,7 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
           hdc = GetDC(hwnd);
           RECT r;
           GetClientRect(hwnd,&r);
-          if (hdc) wwrap = r.right;
+          if (hdc) wwrap = r.right - g_swell_ctheme.scrollbar_width;
         }
         const int cbytepos = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
         for (;;) 
@@ -3593,6 +3600,8 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         if (multiline)
         {
           RECT br = r;
+          br.right -= g_swell_ctheme.scrollbar_width;
+
           if (es->max_width > br.right && (hwnd->m_style & ES_AUTOHSCROLL))
           {
             if (GET_Y_LPARAM(lParam) >= br.bottom - g_swell_ctheme.scrollbar_width)
@@ -3613,13 +3622,12 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
             br.bottom -= g_swell_ctheme.scrollbar_width;
           }
-          if (GET_X_LPARAM(lParam)>=br.right - g_swell_ctheme.scrollbar_width &&
-              es->max_height > br.bottom)
+          if (GET_X_LPARAM(lParam)>=br.right && es->max_height > br.bottom)
           {
             int yp = GET_Y_LPARAM(lParam), ypos = yp;
 
             int thumbsz, thumbpos;
-            calcScroll(br.bottom, es->max_height,es->scroll_y,&thumbsz,&thumbpos);
+            calcScroll(br.bottom, es->max_height, es->scroll_y,&thumbsz,&thumbpos);
 
             if (ypos < thumbpos) yp = thumbpos;
             else if (ypos > thumbpos+thumbsz) yp = thumbpos + thumbsz;
@@ -3637,7 +3645,8 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         int yo = multiline ? 2 : 0;
         HDC hdc=GetDC(hwnd);
         const int last_cursor = es->cursor_pos;
-        const int wwrap = (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE ? r.right : 0;
+        const int wwrap = (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE ? 
+          r.right - g_swell_ctheme.scrollbar_width : 0;
         es->cursor_pos = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
             editHitTest(hdc,hwnd->m_title.Get(),
                         multiline?-1:hwnd->m_title.GetLength(),
@@ -3661,6 +3670,17 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 forceMouseMove:
       if (es && GetCapture()==hwnd)
       {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const bool multiline = (hwnd->m_style & ES_MULTILINE) != 0;
+        if (multiline)
+        {
+          r.right -= g_swell_ctheme.scrollbar_width;
+          if (es->max_width > r.right && (hwnd->m_style & ES_AUTOHSCROLL))
+          {
+            r.bottom -= g_swell_ctheme.scrollbar_width;
+          }
+        }
         if (s_capmode_state == 1)
         {
           int yv = s_capmode_data1;
@@ -3668,11 +3688,8 @@ forceMouseMove:
 
           if (amt)
           {
-            RECT r;
-            GetClientRect(hwnd,&r);
-
             const int viewsz = r.bottom;
-            const int totalsz=es->max_height;
+            const int totalsz=es->max_height + g_swell_ctheme.scrollbar_width;
             amt = (int)floor(amt * (double)totalsz / (double)viewsz + 0.5);
               
             const int oldscroll = es->scroll_y;
@@ -3693,11 +3710,8 @@ forceMouseMove:
 
           if (amt)
           {
-            RECT r;
-            GetClientRect(hwnd,&r);
-
             const int viewsz = r.right;
-            const int totalsz=es->max_width;
+            const int totalsz=es->max_width + g_swell_ctheme.scrollbar_width;
             amt = (int)floor(amt * (double)totalsz / (double)viewsz + 0.5);
               
             const int oldscroll = es->scroll_x;
@@ -3713,13 +3727,10 @@ forceMouseMove:
         }
         else if (s_capmode_state == 3 || s_capmode_state == 4)
         {
-          const bool multiline = (hwnd->m_style & ES_MULTILINE) != 0;
           int wwrap=0;
           if ((hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE)
           {
-            RECT r;
-            GetClientRect(hwnd,&r);
-            wwrap = r.right;
+            wwrap = r.right; // already has scrollbar size removed
           }
           int xo=2;
           int yo = multiline ? 2 : 0;
@@ -3829,7 +3840,7 @@ forceMouseMove:
             int bytepos = 0;
             RECT tmp={0,};
             const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
-            const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : orig_r.right;
+            const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : orig_r.right - g_swell_ctheme.scrollbar_width;
 
             int *use_cache = NULL, use_cache_len = 0;
             if (wwrap>0 && es->cache_linelen_w == wwrap && es->cache_linelen_strlen == hwnd->m_title.GetLength())
@@ -3896,7 +3907,9 @@ forceMouseMove:
             es->max_height = r.top;
             if (es->max_width > r.right && (hwnd->m_style & ES_AUTOHSCROLL))
             {
-              drawHorizontalScrollbar(ps.hdc,orig_r,es->max_width,es->scroll_x);
+              drawHorizontalScrollbar(ps.hdc,orig_r,
+                  orig_r.right-orig_r.left - g_swell_ctheme.scrollbar_width,
+                  es->max_width,es->scroll_x);
               orig_r.bottom -= g_swell_ctheme.scrollbar_width;
               r.bottom -= g_swell_ctheme.scrollbar_width;
             }
@@ -4740,6 +4753,8 @@ struct listViewState
   {
     RECT r;
     GetClientRect(h,&r);
+    r.right -= g_swell_ctheme.scrollbar_width;
+
     const int mx = getTotalWidth() - r.right;
     if (m_scroll_x > mx) m_scroll_x = mx;
     if (m_scroll_x < 0) m_scroll_x = 0;
@@ -4941,6 +4956,9 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         const int row_height = lvs->m_last_row_height;
         const int totalw = lvs->getTotalWidth();
 
+        if (hdr_size + n * row_height > r.bottom - g_swell_ctheme.scrollbar_width)
+          r.right -= g_swell_ctheme.scrollbar_width;
+
         if (GET_Y_LPARAM(lParam) >= 0 && GET_Y_LPARAM(lParam) < hdr_size)
         {
           const SWELL_ListView_Col *col = lvs->m_cols.Get();
@@ -5110,6 +5128,9 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       if (GetCapture()==hwnd && lvs)
       {
 forceMouseMove:
+        RECT r;
+        GetClientRect(hwnd,&r);
+        r.right -= g_swell_ctheme.scrollbar_width;
         switch (lvs->m_capmode_state)
         {
           case 3:
@@ -5119,8 +5140,6 @@ forceMouseMove:
               if (lvs->hasStatusImage()) xp -= lvs->m_last_row_height;
 
               SWELL_ListView_Col *col = lvs->m_cols.Get();
-              RECT r;
-              GetClientRect(hwnd,&r);
               if (x < lvs->m_cols.GetSize())
               {
                 for (int i = 0; i < x; i ++) xp -= col[i].xwid;
@@ -5130,11 +5149,10 @@ forceMouseMove:
                   col[x].xwid = xp;
                   if (lvs->m_scroll_x > 0 && GET_X_LPARAM(lParam) < 0)
                     lvs->m_scroll_x--;
-                  else if (GET_X_LPARAM(lParam) > r.right)
+                  else if (GET_X_LPARAM(lParam) > r.right+12)
                     lvs->m_scroll_x+=16; // additional check might not be necessary?
 
                   InvalidateRect(hwnd,NULL,FALSE);
-                  // todo: auto-scroll
                 }
               }
             }
@@ -5158,9 +5176,6 @@ forceMouseMove:
 
               if (amt)
               {
-                RECT r;
-                GetClientRect(hwnd,&r);
-
                 const int totalw = lvs->getTotalWidth();
                 if (totalw > r.right) r.bottom -= lvs->m_last_row_height;
 
@@ -5187,9 +5202,6 @@ forceMouseMove:
 
               if (amt)
               {
-                RECT r;
-                GetClientRect(hwnd,&r);
-
                 const int viewsz = r.right;
                 const double totalsz=(double)lvs->getTotalWidth();
                 amt = (int)floor(amt * totalsz / (double)viewsz + 0.5);
@@ -5337,7 +5349,10 @@ forceMouseMove:
             const int xo = lvs->m_scroll_x;
 
             const int totalw = lvs->getTotalWidth();
-            if (totalw > cr.right)
+
+            const bool vscroll_area = hdr_size + n * row_height > cr.bottom - g_swell_ctheme.scrollbar_width;
+            const bool hscroll = totalw > cr.right - (vscroll_area ? g_swell_ctheme.scrollbar_width : 0);
+            if (hscroll)
               cr.bottom -= g_swell_ctheme.scrollbar_width;
 
             HPEN gridpen = NULL;
@@ -5548,10 +5563,12 @@ forceMouseMove:
             cr.top += hdr_size_nomargin;
             drawVerticalScrollbar(ps.hdc,cr,n*row_height,lvs->m_scroll_y);
 
-            if (totalw > cr.right)
+            if (hscroll)
             {
               cr.bottom += g_swell_ctheme.scrollbar_width;
-              drawHorizontalScrollbar(ps.hdc,cr,totalw,lvs->m_scroll_x);
+              drawHorizontalScrollbar(ps.hdc,cr,
+                  cr.right-cr.left - (vscroll_area ? g_swell_ctheme.scrollbar_width : 0),
+                  totalw,lvs->m_scroll_x);
             }
           }
           DeleteObject(br);

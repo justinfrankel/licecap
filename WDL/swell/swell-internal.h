@@ -944,8 +944,8 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(checkbox_inter, RGB(192,192,192)) \
   f(checkbox_bg, RGB(255,255,255)) \
   f(scrollbar,RGB(32,32,32)) \
-  f(scrollbar_fg, RGB(64,64,64)) \
-  f(scrollbar_bg, RGB(192,192,192)) \
+  f(scrollbar_fg, RGB(160,160,160)) \
+  f(scrollbar_bg, RGB(224,224,224)) \
   f(edit_cursor,RGB(0,128,255)) \
   f(edit_bg,RGB(255,255,255)) \
   f(edit_bg_disabled,RGB(224,224,224)) \
