@@ -682,146 +682,146 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
   s_cur_evt = evt;
+
+  HWND hwnd = NULL;
+  if (((GdkEventAny*)evt)->window) 
+  {
+    gdk_window_get_user_data(((GdkEventAny*)evt)->window,(gpointer*)&hwnd);
+
+    if (hwnd)
     {
-      HWND hwnd = NULL;
-      if (((GdkEventAny*)evt)->window) gdk_window_get_user_data(((GdkEventAny*)evt)->window,(gpointer*)&hwnd);
+      HWND a = SWELL_topwindows;
+      while (a && a != hwnd) a=a->m_next;
+      if (!a) hwnd=NULL;
+    }
+  }
 
-      if (hwnd) // validate window (todo later have a window class that we check)
-      {
-        HWND a = SWELL_topwindows;
-        while (a && a != hwnd) a=a->m_next;
-        if (!a) hwnd=NULL;
-      }
-
-      if (evt->type == GDK_MOTION_NOTIFY)
-      {
-        GdkEventMotion *m = (GdkEventMotion *)evt;
-        gdk_event_request_motions(m);
-      }
-
-      if (evt->type == GDK_FOCUS_CHANGE)
-      {
-        GdkEventFocus *fc = (GdkEventFocus *)evt;
-        if (fc->in && hwnd) 
+  switch (evt->type)
+  {
+    case GDK_FOCUS_CHANGE:
         {
-          const bool last_focus = !!SWELL_focused_oswindow;
-          swell_set_focus_oswindow(fc->window);
-
-          if (!last_focus)
+          GdkEventFocus *fc = (GdkEventFocus *)evt;
+          if (fc->in && hwnd) 
           {
-            HWND h = SWELL_topwindows; 
-            while (h)
+            const bool last_focus = !!SWELL_focused_oswindow;
+            swell_set_focus_oswindow(fc->window);
+
+            if (!last_focus)
             {
-              if (h->m_oswindow && h->m_israised)
-                gdk_window_set_keep_above(h->m_oswindow,TRUE);
-              if (g_want_activateapp_on_focus) PostMessage(h,WM_ACTIVATEAPP,1,0);
-              h=h->m_next;
+              HWND h = SWELL_topwindows; 
+              while (h)
+              {
+                if (h->m_oswindow && h->m_israised)
+                  gdk_window_set_keep_above(h->m_oswindow,TRUE);
+                if (g_want_activateapp_on_focus) PostMessage(h,WM_ACTIVATEAPP,1,0);
+                h=h->m_next;
+              }
+              g_want_activateapp_on_focus=false;
             }
-            g_want_activateapp_on_focus=false;
           }
-        }
-        else
-        {
-          if (SWELL_focused_oswindow == fc->window ||
-              swell_isOSwindowmenu(SWELL_focused_oswindow)) 
+          else
           {
-            DestroyPopupMenus();
-            if (!g_focus_lost_timer) g_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
+            if (SWELL_focused_oswindow == fc->window ||
+                swell_isOSwindowmenu(SWELL_focused_oswindow)) 
+            {
+              DestroyPopupMenus();
+              if (!g_focus_lost_timer) g_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
+            }
           }
         }
-      }
-
-      if (evt->type == GDK_SELECTION_REQUEST)
-      {
-        GdkEventSelection *b = (GdkEventSelection *)evt;
-        //printf("got sel req %s\n",gdk_atom_name(b->target));
-        GdkAtom prop=GDK_NONE;
-
-        if (swell_dragsrc_osw && b->window == swell_dragsrc_osw)
+    break;
+    case GDK_SELECTION_REQUEST:
         {
-          if (swell_dragsrc_hwnd)
+          GdkEventSelection *b = (GdkEventSelection *)evt;
+          //printf("got sel req %s\n",gdk_atom_name(b->target));
+          GdkAtom prop=GDK_NONE;
+
+          if (swell_dragsrc_osw && b->window == swell_dragsrc_osw)
+          {
+            if (swell_dragsrc_hwnd)
+            {
+              if (b->target == tgtatom())
+              {
+                prop = b->property;
+                GdkAtom list[] = { urilistatom() };
+#if SWELL_TARGET_GDK == 2
+                GdkWindow *pw = gdk_window_lookup(b->requestor);
+                if (!pw) pw = gdk_window_foreign_new(b->requestor);
+#else
+                GdkWindow *pw = b->requestor;
+#endif
+                if (pw)
+                  gdk_property_change(pw,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
+              }
+              SendMessage(swell_dragsrc_hwnd,WM_USER+100,(WPARAM)b,(LPARAM)&prop);
+            }
+          }
+          else if (s_clipboard_setstate)
           {
             if (b->target == tgtatom())
             {
-              prop = b->property;
-              GdkAtom list[] = { urilistatom() };
-#if SWELL_TARGET_GDK == 2
-              GdkWindow *pw = gdk_window_lookup(b->requestor);
-              if (!pw) pw = gdk_window_foreign_new(b->requestor);
-#else
-              GdkWindow *pw = b->requestor;
-#endif
-              if (pw)
-                gdk_property_change(pw,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
-            }
-            SendMessage(swell_dragsrc_hwnd,WM_USER+100,(WPARAM)b,(LPARAM)&prop);
-          }
-        }
-        else if (s_clipboard_setstate)
-        {
-          if (b->target == tgtatom())
-          {
             if (s_clipboard_setstate_fmt)
-            {
-              prop = b->property;
-              GdkAtom list[] = { s_clipboard_setstate_fmt };
-#if SWELL_TARGET_GDK == 2
-              GdkWindow *pw = gdk_window_lookup(b->requestor);
-              if (!pw) pw = gdk_window_foreign_new(b->requestor);
-#else
-              GdkWindow *pw = b->requestor;
-#endif
-              if (pw)
-                gdk_property_change(pw,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
-            }
-          }
-          else 
-          {
-            if (b->target == s_clipboard_setstate_fmt || 
-                (b->target == GDK_TARGET_STRING && s_clipboard_setstate_fmt == utf8atom())
-               )
-            {
-              prop = b->property;
-              int len = GlobalSize(s_clipboard_setstate);
-              guchar *ptr = (guchar*)s_clipboard_setstate;
-
-              WDL_FastString str;
-              if (s_clipboard_setstate_fmt == utf8atom())
               {
-                const char *rd = (const char *)s_clipboard_setstate;
-                while (*rd)
-                {
-                  if (!strncmp(rd,"\r\n",2))
-                  {
-                    str.Append("\n");
-                    rd+=2;
-                  }
-                  else
-                    str.Append(rd++,1);
-                }
-                ptr = (guchar *)str.Get();
-                len = str.GetLength();
-              }
+                prop = b->property;
+                GdkAtom list[] = { s_clipboard_setstate_fmt };
 #if SWELL_TARGET_GDK == 2
-              GdkWindow *pw = gdk_window_lookup(b->requestor);
-              if (!pw) pw = gdk_window_foreign_new(b->requestor);
+                GdkWindow *pw = gdk_window_lookup(b->requestor);
+                if (!pw) pw = gdk_window_foreign_new(b->requestor);
 #else
-              GdkWindow *pw = b->requestor;
+                GdkWindow *pw = b->requestor;
 #endif
-              if (pw)
-                gdk_property_change(pw,prop,b->target,8, GDK_PROP_MODE_REPLACE,ptr,len);
+                if (pw)
+                  gdk_property_change(pw,prop,GDK_SELECTION_TYPE_ATOM,32, GDK_PROP_MODE_REPLACE,(guchar*)list,(int) (sizeof(list)/sizeof(list[0])));
+              }
+            }
+            else 
+            {
+              if (b->target == s_clipboard_setstate_fmt || 
+                  (b->target == GDK_TARGET_STRING && s_clipboard_setstate_fmt == utf8atom())
+                 )
+              {
+                prop = b->property;
+                int len = GlobalSize(s_clipboard_setstate);
+                guchar *ptr = (guchar*)s_clipboard_setstate;
+
+                WDL_FastString str;
+                if (s_clipboard_setstate_fmt == utf8atom())
+                {
+                  const char *rd = (const char *)s_clipboard_setstate;
+                  while (*rd)
+                  {
+                    if (!strncmp(rd,"\r\n",2))
+                    {
+                      str.Append("\n");
+                      rd+=2;
+                    }
+                    else
+                      str.Append(rd++,1);
+                  }
+                  ptr = (guchar *)str.Get();
+                  len = str.GetLength();
+                }
+#if SWELL_TARGET_GDK == 2
+                GdkWindow *pw = gdk_window_lookup(b->requestor);
+                if (!pw) pw = gdk_window_foreign_new(b->requestor);
+#else
+                GdkWindow *pw = b->requestor;
+#endif
+                if (pw)
+                  gdk_property_change(pw,prop,b->target,8, GDK_PROP_MODE_REPLACE,ptr,len);
+              }
             }
           }
+          gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
         }
-        gdk_selection_send_notify(b->requestor,b->selection,b->target,prop,GDK_CURRENT_TIME);
-      }
-      else if (hwnd) switch (evt->type)
-      {
-        case GDK_DELETE:
-          if (IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
-            SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
-        break;
-        case GDK_EXPOSE: // paint! GdkEventExpose...
+    break;
+
+    case GDK_DELETE:
+      if (hwnd && IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
+        SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
+    break;
+    case GDK_EXPOSE: // paint! GdkEventExpose...
+          if (hwnd) 
           {
             GdkEventExpose *exp = (GdkEventExpose*)evt;
 #ifdef SWELL_LICE_GDI
@@ -867,8 +867,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             }
 #endif
           }
-        break;
-        case GDK_CONFIGURE: // size/move, GdkEventConfigure
+    break;
+    case GDK_CONFIGURE: // size/move, GdkEventConfigure
+          if (hwnd)
           {
             GdkEventConfigure *cfg = (GdkEventConfigure*)evt;
             int flag=0;
@@ -888,11 +889,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (flag&2) SendMessage(hwnd,WM_SIZE,0,0);
             if (!hwnd->m_hashaddestroy && hwnd->m_oswindow) swell_recalcMinMaxInfo(hwnd);
           }
-        break;
-        case GDK_WINDOW_STATE: /// GdkEventWindowState for min/max
+    break;
+    case GDK_WINDOW_STATE: /// GdkEventWindowState for min/max
           //printf("minmax\n");
-        break;
-        case GDK_GRAB_BROKEN:
+    break;
+    case GDK_GRAB_BROKEN:
+          if (hwnd)
           {
             //GdkEventGrabBroken *bk = (GdkEventGrabBroken*)evt;
             if (s_captured_window)
@@ -901,10 +903,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               s_captured_window=0;
             }
           }
-        break;
-        case GDK_KEY_PRESS:
-        case GDK_KEY_RELEASE:
-          { // todo: pass through app-specific default processing before sending to child window
+    break;
+    case GDK_KEY_PRESS:
+    case GDK_KEY_RELEASE:
+          if (hwnd)
+          {
             GdkEventKey *k = (GdkEventKey *)evt;
             //printf("key%s: %d %s\n", evt->type == GDK_KEY_PRESS ? "down" : "up", k->keyval, k->string);
             int modifiers = 0;
@@ -970,47 +973,57 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)
               SendMessage(hwnd, msg.message, kv, modifiers);
           }
-        break;
-        case GDK_MOTION_NOTIFY:
+    break;
+    case GDK_MOTION_NOTIFY:
           {
             GdkEventMotion *m = (GdkEventMotion *)evt;
             s_lastMessagePos = MAKELONG(((int)m->x_root&0xffff),((int)m->y_root&0xffff));
             POINT p={(int)m->x, (int)m->y};
             HWND hwnd2 = GetCapture();
-            if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-            POINT p2={(int)m->x_root, (int)m->y_root};
-            ScreenToClient(hwnd2, &p2);
-            if (hwnd2) hwnd2->Retain();
-            SendMouseMessage(hwnd2, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
-            if (hwnd2) hwnd2->Release();
+            if (!hwnd2 && hwnd) hwnd2=ChildWindowFromPoint(hwnd, p);
+
+            gdk_event_request_motions(m); // request before sending WM_MOUSEMOVE
+
+            if (hwnd2)
+            {
+              POINT p2={(int)m->x_root, (int)m->y_root};
+              ScreenToClient(hwnd2, &p2);
+              if (hwnd2) hwnd2->Retain();
+              SendMouseMessage(hwnd2, WM_MOUSEMOVE, 0, MAKELPARAM(p2.x, p2.y));
+              if (hwnd2) hwnd2->Release();
+            }
           }
-        break;
-        case GDK_SCROLL:
+    break;
+    case GDK_SCROLL:
           {
             GdkEventScroll *b = (GdkEventScroll *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
             POINT p={(int)b->x, (int)b->y};
             HWND hwnd2 = GetCapture();
-            if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
-            POINT p2={(int)b->x_root, (int)b->y_root};
-            // p2 is screen coordinates for WM_MOUSEWHEEL
-
-            int msg=(b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_DOWN) ? WM_MOUSEWHEEL :
-                    (b->direction == GDK_SCROLL_LEFT || b->direction == GDK_SCROLL_RIGHT) ? WM_MOUSEHWHEEL : 0;
-            
-            if (msg) 
+            if (!hwnd2 && hwnd) hwnd2=ChildWindowFromPoint(hwnd, p);
+            if (hwnd2)
             {
-              int v = (b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_LEFT) ? 120 : -120;
+              POINT p2={(int)b->x_root, (int)b->y_root};
+              // p2 is screen coordinates for WM_MOUSEWHEEL
+
+              int msg=(b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_DOWN) ? WM_MOUSEWHEEL :
+                      (b->direction == GDK_SCROLL_LEFT || b->direction == GDK_SCROLL_RIGHT) ? WM_MOUSEHWHEEL : 0;
+            
+              if (msg) 
+              {
+                int v = (b->direction == GDK_SCROLL_UP || b->direction == GDK_SCROLL_LEFT) ? 120 : -120;
  
-              if (hwnd2) hwnd2->Retain();
-              SendMouseMessage(hwnd2, msg, (v<<16), MAKELPARAM(p2.x, p2.y));
-              if (hwnd2) hwnd2->Release();
+                if (hwnd2) hwnd2->Retain();
+                SendMouseMessage(hwnd2, msg, (v<<16), MAKELPARAM(p2.x, p2.y));
+                if (hwnd2) hwnd2->Release();
+              }
             }
           }
-        break;
-        case GDK_BUTTON_PRESS:
-        case GDK_2BUTTON_PRESS:
-        case GDK_BUTTON_RELEASE:
+    break;
+    case GDK_BUTTON_PRESS:
+    case GDK_2BUTTON_PRESS:
+    case GDK_BUTTON_RELEASE:
+          if (hwnd)
           {
             GdkEventButton *b = (GdkEventButton *)evt;
             s_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
@@ -1036,8 +1049,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             SendMouseMessage(hwnd2, msg, 0, MAKELPARAM(p2.x, p2.y));
             if (hwnd2) hwnd2->Release();
           }
-        break;
-        case GDK_SELECTION_NOTIFY:
+    break;
+    case GDK_SELECTION_NOTIFY:
+        if (hwnd)
         {
           GdkEventSelection *b = (GdkEventSelection *)evt;
 
@@ -1176,9 +1190,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
           if (gptr) g_free(gptr);
         }
-        break;
-        case GDK_DRAG_ENTER:
-        case GDK_DRAG_MOTION:
+    break;
+    case GDK_DRAG_ENTER:
+    case GDK_DRAG_MOTION:
+          if (hwnd)
           {
             GdkEventDND *e = (GdkEventDND *)evt;
             if (e->context)
@@ -1187,12 +1202,13 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               //? gdk_drop_reply(e->context,TRUE,e->time);
             }
           }
-        break;
-        case GDK_DRAG_LEAVE:
-        case GDK_DRAG_STATUS:
-        case GDK_DROP_FINISHED:
-        break;
-        case GDK_DROP_START:
+    break;
+    case GDK_DRAG_LEAVE:
+    case GDK_DRAG_STATUS:
+    case GDK_DROP_FINISHED:
+    break;
+    case GDK_DROP_START:
+          if (hwnd)
           {
             GdkEventDND *e = (GdkEventDND *)evt;
             GdkDragContext *ctx = e->context;
@@ -1207,13 +1223,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               gdk_drop_finish(ctx,TRUE,e->time);
             }
           }
-        break;
+    break;
 
-        default:
+    default:
           //printf("msg: %d\n",evt->type);
-        break;
-      }
-    }
+    break;
+  }
   s_cur_evt = oldEvt;
 }
 
