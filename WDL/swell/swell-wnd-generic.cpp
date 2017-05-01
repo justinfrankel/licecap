@@ -3320,6 +3320,12 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
             es->deleteSelection(&hwnd->m_title);
             int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
             hwnd->m_title.Insert(s,bytepos);
+            if (!(hwnd->m_style&ES_MULTILINE))
+            {
+              char *p = (char *)hwnd->m_title.Get() + bytepos;
+              char *ep = p + strlen(s);
+              while (*p && p < ep) { if (*p == '\r' || *p == '\n') *p=' '; p++; }
+            }
             es->cursor_pos += WDL_utf8_get_charlen(s);
             GlobalUnlock(h);
           }
@@ -3599,7 +3605,11 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         const int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,p.x,p.y,0,hwnd,0);
         DestroyMenu(menu);
         if (a==100) OnEditKeyDown(hwnd,WM_KEYDOWN,'C',FVIRTKEY|FCONTROL,false,false,es);
-        else if (a==101) OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,false,false,es);
+        else if (a==101) 
+        {
+          OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,false,false,es);
+          SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+        }
         else if (a==102) SendMessage(hwnd,EM_SETSEL,0,-1);
 
         if (a) InvalidateRect(hwnd,NULL,FALSE);
