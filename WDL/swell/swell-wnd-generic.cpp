@@ -5254,12 +5254,25 @@ forceMouseMove:
         int flag=0;
         int ni;
         const int oldsel = lvs->m_selitem;
+
         switch (wParam)
         {
+          case VK_NEXT:
+          case VK_PRIOR:
           case VK_UP:
           case VK_DOWN:
-            ni = lvs->m_selitem + (wParam == VK_UP ? -1 : 1);
-            if (ni < 0 && wParam == VK_DOWN) ni=0;
+            {
+              RECT r;
+              GetClientRect(hwnd,&r);
+              const int page = lvs->m_last_row_height ? 
+                (r.bottom - g_swell_ctheme.scrollbar_width)/lvs->m_last_row_height : 4;
+
+              ni = lvs->m_selitem + (wParam == VK_UP ? -1 :
+                                     wParam == VK_PRIOR ? 2-wdl_max(page,3) :
+                                     wParam == VK_NEXT ? wdl_max(page,3)-2 : 
+                                     1);
+            }
+            if (ni < 0 && (wParam != VK_UP)) ni=0;
             if (ni >= 0 && ni < lvs->GetNumItems())
             {
               if (lvs->m_is_multisel) 
@@ -5785,10 +5798,11 @@ struct treeViewState
     return true;
   }
 
-  int navigateSel(int key) // returns 2 force invalidate, 1 if ate key 
+  int navigateSel(int key, int pagesize) // returns 2 force invalidate, 1 if ate key 
   {
     HTREEITEM par=NULL;
-    int idx=0;
+    int idx=0,tmp=1;
+
     switch (key)
     {
       case VK_LEFT:
@@ -5824,45 +5838,55 @@ struct treeViewState
           if (par) m_sel=par;
         }
       return 1;
+      case VK_PRIOR:
+        tmp = wdl_max(pagesize,2) - 1;
       case VK_UP:
-        if (m_sel && findItem(m_sel,&par,&idx))
+        while (tmp-- > 0)
         {
-          if (idx>0)
+          if (m_sel && findItem(m_sel,&par,&idx))
           {
-            par = (par?par:&m_root)->m_children.Get(idx-1);
-            while (par && (par->m_state & TVIS_EXPANDED) && 
-                   par->m_haschildren && par->m_children.GetSize())
-              par = par->m_children.Get(par->m_children.GetSize()-1);
+            if (idx>0)
+            {
+              par = (par?par:&m_root)->m_children.Get(idx-1);
+              while (par && (par->m_state & TVIS_EXPANDED) && 
+                     par->m_haschildren && par->m_children.GetSize())
+                par = par->m_children.Get(par->m_children.GetSize()-1);
+            }
+            if (par) m_sel=par;
           }
-          if (par) m_sel=par;
         }
       return 1;
+      case VK_NEXT:
+        tmp = wdl_max(pagesize,2) - 1;
       case VK_DOWN:
-        if (m_sel && findItem(m_sel,&par,&idx))
+        while (tmp-- > 0)
         {
-          if (m_sel->m_haschildren && 
-              m_sel->m_children.GetSize() &&
-              (m_sel->m_state & TVIS_EXPANDED))
+          if (m_sel && findItem(m_sel,&par,&idx))
           {
-            par = m_sel->m_children.Get(0);
-            if (par) m_sel=par;
-            return 1;
-          }
+            if (m_sel->m_haschildren && 
+                m_sel->m_children.GetSize() &&
+                (m_sel->m_state & TVIS_EXPANDED))
+            {
+              par = m_sel->m_children.Get(0);
+              if (par) m_sel=par;
+              continue;
+            }
 
 next_item_in_parent:
-          if (par)
-          {
-            if (idx+1 < par->m_children.GetSize()) 
+            if (par)
             {
-              par = par->m_children.Get(idx+1);
+              if (idx+1 < par->m_children.GetSize()) 
+              {
+                par = par->m_children.Get(idx+1);
+                if (par) m_sel=par;
+              }
+              else if (findItem(par,&par,&idx)) goto next_item_in_parent;
+            }
+            else
+            {
+              par = m_root.m_children.Get(idx+1);
               if (par) m_sel=par;
             }
-            else if (findItem(par,&par,&idx)) goto next_item_in_parent;
-          }
-          else
-          {
-            par = m_root.m_children.Get(idx+1);
-            if (par) m_sel=par;
           }
         }
       return 1;
@@ -6039,7 +6063,9 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       if (tvs && (lParam & FVIRTKEY)) 
       {
         HTREEITEM oldSel = tvs->m_sel;
-        int flag = tvs->navigateSel((int)wParam); 
+        RECT r;
+        GetClientRect(hwnd,&r);
+        int flag = tvs->navigateSel((int)wParam,tvs->m_last_row_height ? r.bottom / tvs->m_last_row_height : 4); 
         if (oldSel != tvs->m_sel)
         {
           if (tvs->m_sel) tvs->ensureItemVisible(hwnd,tvs->m_sel);
