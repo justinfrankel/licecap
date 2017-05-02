@@ -913,7 +913,7 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         int xpos = labsize.right/2 - button_total_w/2;
         for (x = 0; x < nbuttons; x ++)
         {
-          SWELL_MakeButton(0,buttons[x],button_ids[x],xpos,labsize.bottom,button_sizes[x],button_height,0);
+          SWELL_MakeButton(!x,buttons[x],button_ids[x],xpos,labsize.bottom,button_sizes[x],button_height,0);
           xpos += button_sizes[x] + bspace;
         }
 
@@ -960,13 +960,7 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
     case WM_COMMAND:
       if (LOWORD(wParam) && HIWORD(wParam) == BN_CLICKED) 
       {
-        int id = LOWORD(wParam);
-        if (id == IDOK && !GetDlgItem(hwnd,IDOK))
-        {
-          if (GetDlgItem(hwnd,IDYES)) id=IDYES;
-          else if (GetDlgItem(hwnd,IDRETRY)) id=IDRETRY;
-        }
-        EndDialog(hwnd,id);
+        EndDialog(hwnd,LOWORD(wParam));
       }
     break;
     case WM_CLOSE:

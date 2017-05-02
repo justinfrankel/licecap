@@ -4706,7 +4706,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   if (a < 65536) label = "ICONTEMP";
   
   RECT tr=MakeCoords(x,y,w,h,true);
-  HWND hwnd = swell_makeButton(m_make_owner,idx,&tr,label,!(flags&SWELL_NOT_WS_VISIBLE),0);
+  HWND hwnd = swell_makeButton(m_make_owner,idx,&tr,label,!(flags&SWELL_NOT_WS_VISIBLE),def ? BS_DEFPUSHBUTTON : 0);
 
   if (m_doautoright) UpdateAutoCoords(tr);
   if (def) { }
@@ -7463,7 +7463,17 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       }
       else if (wParam == VK_RETURN)
       {
-        SendMessage(hwnd,WM_COMMAND,IDOK/*todo: get default*/,0);
+        HWND c = GetWindow(hwnd,GW_CHILD);
+        while (c)
+        {
+          if (c->m_id && (c->m_style&BS_DEFPUSHBUTTON) && 
+              c->m_classname && !strcmp(c->m_classname,"Button"))
+          {
+            SendMessage(hwnd,WM_COMMAND,c->m_id,0);
+            return 0;
+          }
+          c = GetWindow(c,GW_HWNDNEXT);
+        }
         return 0;
       }
     }
