@@ -7453,41 +7453,53 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
    
     if (r) return r; 
 
-    if (uMsg == WM_KEYDOWN && !hwnd->m_parent)
+    if (uMsg == WM_KEYDOWN)
     {
-      if (wParam == VK_ESCAPE)
+      if (!hwnd->m_parent)
       {
-        if (IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
-          SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
-        return 0;
-      }
-      else if (wParam == VK_RETURN)
-      {
-        HWND c = GetWindow(hwnd,GW_CHILD);
-        while (c)
+        if (wParam == VK_ESCAPE)
         {
-          if (c->m_id && (c->m_style&BS_DEFPUSHBUTTON) && 
-              c->m_classname && !strcmp(c->m_classname,"Button"))
-          {
-            SendMessage(hwnd,WM_COMMAND,c->m_id,0);
-            return 0;
-          }
-          c = GetWindow(c,GW_HWNDNEXT);
+          if (IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
+            SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
+          return 0;
         }
-        return 0;
+        else if (wParam == VK_RETURN)
+        {
+          HWND c = GetWindow(hwnd,GW_CHILD);
+          while (c)
+          {
+            if (c->m_id && (c->m_style&BS_DEFPUSHBUTTON) && 
+                c->m_classname && !strcmp(c->m_classname,"Button"))
+            {
+              SendMessage(hwnd,WM_COMMAND,c->m_id,0);
+              return 0;
+            }
+            c = GetWindow(c,GW_HWNDNEXT);
+          }
+          return 0;
+        }
       }
-    }
-    if (uMsg == WM_KEYDOWN && wParam == VK_TAB && (lParam&~FSHIFT) == FVIRTKEY)
-    {
-      HWND ch = getNextFocusWindow(hwnd,(lParam & FSHIFT) != 0,hwnd->m_focused_child);
-      if (ch)
-      {
-        SetFocus(ch);
-        if (ch->m_classname && !strcmp(ch->m_classname,"Edit"))
-          SendMessage(ch,EM_SETSEL,0,-1);
+      int navdir = 0;
 
-        InvalidateRect(ch,NULL,FALSE);
-        return 0;
+      if (wParam == VK_TAB && (lParam&~FSHIFT) == FVIRTKEY) navdir = (lParam & FSHIFT) ? -1 : 1;
+      else if (lParam == FVIRTKEY)
+      {
+        if (wParam == VK_LEFT || wParam == VK_UP) navdir = -1;
+        else if (wParam == VK_RIGHT || wParam == VK_DOWN) navdir = 1;
+      }
+
+      if (navdir)
+      {
+        HWND ch = getNextFocusWindow(hwnd,navdir<0,hwnd->m_focused_child);
+        if (ch)
+        {
+          SetFocus(ch);
+          if (ch->m_classname && !strcmp(ch->m_classname,"Edit"))
+            SendMessage(ch,EM_SETSEL,0,-1);
+
+          InvalidateRect(ch,NULL,FALSE);
+          return 0;
+        }
       }
     }
   }
