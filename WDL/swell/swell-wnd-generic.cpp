@@ -6204,6 +6204,13 @@ forceMouseMove:
         ReleaseCapture();
       }
     return 1;
+    case WM_RBUTTONDOWN:
+      if (tvs && tvs->m_last_row_height>0)
+      {
+        NMLISTVIEW nm={{hwnd,hwnd->m_id,NM_RCLICK},0,0,0,};
+        SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+      }
+    return 1;
     case WM_PAINT:
       { 
         PAINTSTRUCT ps;
@@ -8482,9 +8489,11 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
 
 HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
 {
-  if (!hwnd || !hti) return NULL;
-  
-  return NULL; // todo implement
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (!tvs || !hti || !tvs->m_last_row_height) return NULL;
+
+  int y = hti->pt.y + tvs->m_scroll_y + tvs->m_last_row_height;
+  return tvs->hitTestItem(&tvs->m_root,&y,NULL);
 }
 
 HTREEITEM TreeView_GetRoot(HWND hwnd)
