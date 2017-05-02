@@ -178,7 +178,11 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
     HWND hFoc=h->m_children;
     while (hFoc)
     {
-      if (hFoc->m_wantfocus && hFoc->m_visible && hFoc->m_enabled) break;
+      if (hFoc->m_wantfocus && hFoc->m_visible && hFoc->m_enabled) 
+      {
+        h->m_focused_child = hFoc; // default focus to hFoc, but set focus more aggressively after WM_INITDIALOG if the dlgproc returns 1
+        break;
+      }
       hFoc=hFoc->m_next;
     }
 
