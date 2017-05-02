@@ -958,12 +958,20 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
       }
     break;
     case WM_COMMAND:
-      if (LOWORD(wParam) && HIWORD(wParam) == BN_CLICKED ) EndDialog(hwnd,LOWORD(wParam));
+      if (LOWORD(wParam) && HIWORD(wParam) == BN_CLICKED) 
+      {
+        int id = LOWORD(wParam);
+        if (id == IDOK && !GetDlgItem(hwnd,IDOK))
+        {
+          if (GetDlgItem(hwnd,IDYES)) id=IDYES;
+          else if (GetDlgItem(hwnd,IDRETRY)) id=IDRETRY;
+        }
+        EndDialog(hwnd,id);
+      }
     break;
     case WM_CLOSE:
       if (GetDlgItem(hwnd,IDCANCEL)) EndDialog(hwnd,IDCANCEL);
       else if (GetDlgItem(hwnd,IDNO)) EndDialog(hwnd,IDNO);
-      else if (GetDlgItem(hwnd,IDYES)) EndDialog(hwnd,IDYES);
       else EndDialog(hwnd,IDOK);
     break;
   }
