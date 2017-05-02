@@ -30,6 +30,13 @@
 
 #include "../wdlcstring.h"
 
+
+#if defined(SWELL_TARGET_GDK) && !defined(SWELL_TARGET_GDK_NO_CURSOR_HACK)
+  #define SWELL_TARGET_GDK_CURSORHACK
+  #include <X11/extensions/XInput2.h>
+#endif
+
+
 int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 {
   return 0;
@@ -102,6 +109,7 @@ static HCURSOR m_last_setcursor;
 
 void SWELL_SetCursor(HCURSOR curs)
 {
+
   if (m_last_setcursor == curs) return;
 
   m_last_setcursor=curs;
@@ -110,6 +118,39 @@ void SWELL_SetCursor(HCURSOR curs)
   if (SWELL_focused_oswindow)
   {
     gdk_window_set_cursor(SWELL_focused_oswindow,(GdkCursor *)curs);
+#ifdef SWELL_TARGET_GDK_CURSORHACK
+    if (GetCapture())
+    {
+      // workaround for a GDK behavior:
+      // gdkwindow.c, gdk_window_set_cursor_internal() has a line:
+      // >>> if (_gdk_window_event_parent_of (window, pointer_info->window_under_pointer))
+      // this should also allow setting the cursor if window is in a "grabbing" state
+      GdkDisplay *gdkdisp = gdk_display_get_default();
+#if SWELL_TARGET_GDK == 2
+      if (gdkdisp && gdk_display_get_window_at_pointer(gdkdisp,NULL,NULL) != SWELL_focused_oswindow)
+#else
+      GdkDevice *dev = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdkdisp));
+      if (dev && gdk_device_get_window_at_position(dev,NULL,NULL) != SWELL_focused_oswindow)
+#endif
+      {
+        Display *disp = gdk_x11_display_get_xdisplay(gdkdisp);
+#if SWELL_TARGET_GDK == 2
+        Window wn =  GDK_WINDOW_XID(SWELL_focused_oswindow);
+        gint devid=2; // hardcoded default pointing device
+#else
+        Window wn =  gdk_x11_window_get_xid(SWELL_focused_oswindow);
+        gint devid = gdk_x11_device_get_id(dev);
+#endif
+        if (disp && wn)
+        {
+          if (curs)
+            XIDefineCursor(disp,devid,wn, gdk_x11_cursor_get_xcursor((GdkCursor*)curs));
+          else
+            XIUndefineCursor(disp,devid,wn);
+        }
+      }
+    }
+#endif // SWELL_TARGET_GDK_CURSORHACK
   }
 #endif
 }
