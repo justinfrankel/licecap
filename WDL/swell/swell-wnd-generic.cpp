@@ -3468,45 +3468,36 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
         if (hdc) ReleaseDC(hwnd,hdc);
       }
 
-      if (wParam == VK_UP || wParam == VK_HOME)
-      {
-        if (es->cursor_pos > 0) { es->moveCursor(0); return 3; }
-      }
-      else
-      { 
-        int l = WDL_utf8_get_charlen(hwnd->m_title.Get());
-        if (es->cursor_pos != l) { es->moveCursor(l); return 3; }
-      }
-    return 1;
+      if (wParam == VK_UP || wParam == VK_HOME) es->moveCursor(0); 
+      else es->moveCursor(WDL_utf8_get_charlen(hwnd->m_title.Get()));
+    return 3;
     case VK_LEFT:
-      if (es->cursor_pos > 0) 
-      { 
-        int cp = es->cursor_pos-1;
-
-        const char *buf=hwnd->m_title.Get();
-        const int p = WDL_utf8_charpos_to_bytepos(buf,cp);
-        if (cp > 0 && p > 0 && buf[p] == '\n' && buf[p-1] == '\r') cp--;
-
-        es->moveCursor(cp);
-
-        return 3; 
-      }
-    return 1;
-    case VK_RIGHT:
-      if (es->cursor_pos < WDL_utf8_get_charlen(hwnd->m_title.Get())) 
       { 
         int cp = es->cursor_pos;
-        const char *buf=hwnd->m_title.Get();
-        const int p = WDL_utf8_charpos_to_bytepos(buf,cp);
-
-        if (buf[p] == '\r' && buf[p+1] == '\n') cp+=2;
-        else cp++;
-
+        if (cp > 0) 
+        {
+          cp--;
+          const char *buf=hwnd->m_title.Get();
+          const int p = WDL_utf8_charpos_to_bytepos(buf,cp);
+          if (cp > 0 && p > 0 && buf[p] == '\n' && buf[p-1] == '\r') cp--;
+        }
         es->moveCursor(cp);
-
-        return 3; 
       }
-    return 1;
+    return 3; 
+    case VK_RIGHT:
+      { 
+        int cp = es->cursor_pos;
+        if (cp < WDL_utf8_get_charlen(hwnd->m_title.Get())) 
+        {
+          const char *buf=hwnd->m_title.Get();
+          const int p = WDL_utf8_charpos_to_bytepos(buf,cp);
+
+          if (buf[p] == '\r' && buf[p+1] == '\n') cp+=2;
+          else cp++;
+        }
+        es->moveCursor(cp);
+      }
+    return 3;
     case VK_DELETE:
       if (hwnd->m_style & ES_READONLY) return 1;
       if (hwnd->m_title.GetLength())
