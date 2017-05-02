@@ -8492,6 +8492,10 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
   if (!tvs || !hti || !tvs->m_last_row_height) return NULL;
 
+  RECT r;
+  GetClientRect(hwnd,&r);
+  if (!PtInRect(&r,hti->pt)) return NULL;
+
   int y = hti->pt.y + tvs->m_scroll_y + tvs->m_last_row_height;
   return tvs->hitTestItem(&tvs->m_root,&y,NULL);
 }
