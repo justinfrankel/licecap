@@ -310,12 +310,13 @@ static NSCursor* MakeSWELLSystemCursor(const char *id)
   const unsigned char W = 0xFF;
   const unsigned char G = 0xF8;
   
-  static NSCursor* carr[3] = { 0, 0, 0 };
+  static NSCursor* carr[4] = { 0, 0, 0, 0 };
   
   NSCursor** pc=0;
   if (id == IDC_SIZEALL) pc = &carr[0];
   else if (id == IDC_SIZENWSE) pc = &carr[1];
   else if (id == IDC_SIZENESW) pc = &carr[2];
+  else if (id == IDC_NO) pc = &carr[3];
   else return 0;
   
   if (!(*pc))
