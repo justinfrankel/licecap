@@ -310,7 +310,7 @@ typedef struct WindowPropRec
 -(int)swellEnumProps:(PROPENUMPROCEX)proc lp:(LPARAM)lParam;
 -(void *)swellGetProp:(const char *)name wantRemove:(BOOL)rem;
 -(int)swellSetProp:(const char *)name value:(void *)val ;
-
+-(NSOpenGLContext *)swellGetGLContext;
 
 // NSAccessibility
 

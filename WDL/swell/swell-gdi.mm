@@ -1526,15 +1526,12 @@ HDC GetDC(HWND h)
       HDC ret= SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
       if (ret)
       {
-        if ((ret)->ctx) CGContextSaveGState((ret)->ctx);
-        if ([(id)h isKindOfClass:[SWELL_hwndChild class]])
+        if (ret->ctx) CGContextSaveGState(ret->ctx);
+        if (!ret->GLgfxctx && [(id)h respondsToSelector:@selector(swellGetGLContext)])
         {
-          SWELL_hwndChild *view = (SWELL_hwndChild*)h;
-          if (!ret->GLgfxctx) 
-          {
-            ret->GLgfxctx = view->m_glctx;
-            if (view->m_glctx) [view->m_glctx setView:view];
-          }
+          NSOpenGLContext *glctx = (NSOpenGLContext*)[(id)h swellGetGLContext];
+          ret->GLgfxctx = glctx;
+          if (glctx) [glctx setView:(NSView *)h];
         }
       }
       return ret;

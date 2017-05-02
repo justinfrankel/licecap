@@ -932,6 +932,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   return TRUE;
 }
 
+-(NSOpenGLContext *)swellGetGLContext
+{
+  return m_glctx;
+}
+
 - (BOOL)acceptsFirstMouse:(NSEvent *)theEvent
 {
   if (m_enabled)
