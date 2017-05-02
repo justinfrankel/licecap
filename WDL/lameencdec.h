@@ -70,7 +70,6 @@ class LameEncoder
     WDL_String m_vbrfile;
     int errorstat;
     int in_size_samples;
-    int m_encmode; // 1 for LAME, 2 for blade
     int m_nch,m_encoder_nch;
 
 };

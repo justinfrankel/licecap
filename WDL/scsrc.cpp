@@ -162,12 +162,7 @@ void WDL_ShoutcastSource::GetStatusText(char *buf, int bufsz) // gets status tex
   else if (m_state == ERR_CONNECT) lstrcpyn_safe(buf,"Error connecting to server",bufsz);
   else if (m_state == ERR_TIMEOUT) lstrcpyn_safe(buf,"Timed out connecting to server",bufsz);
   else if (m_state == ERR_CREATINGENCODER) lstrcpyn_safe(buf,"Error creating encoder",bufsz);
-  else if (m_state == ERR_NOLAME) 
-  #ifdef _WIN32
-    lstrcpyn_safe(buf,"Error loading lame_enc.dll",bufsz);
-  #else
-    lstrcpyn_safe(buf,"Error loading libmp3lame.dylib",bufsz);
-  #endif
+  else if (m_state == ERR_NOLAME) lstrcpyn_safe(buf,"Error loading libmp3lame",bufsz);
   else lstrcpyn_safe(buf,"Error creating encoder",bufsz);
 
 }
