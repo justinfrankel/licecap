@@ -3748,7 +3748,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
         if (totalw > r.right) r.bottom -= g_swell_ctheme.scrollbar_width;
         if (n * row_height > r.bottom - hdr_size_nomargin && 
-            GET_X_LPARAM(lParam) >= r.right - g_swell_ctheme.scrollbar_width)
+            GET_X_LPARAM(lParam) >= r.right)
         {
           int yp = GET_Y_LPARAM(lParam);
 
@@ -4211,8 +4211,11 @@ forceMouseMove:
                 {
                   if (hwnd->m_parent)
                   {
-                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)x, 0, (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,(DWORD_PTR)hwnd->m_userdata };
+                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)x, 0, 
+                      (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,(DWORD_PTR)hwnd->m_userdata };
                     dis.rcItem.left++;
+                    if (cr.bottom-cr.top < n*row_height)
+                      dis.rcItem.right -= g_swell_ctheme.scrollbar_width;
                     SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
                   }
                 }

@@ -1524,7 +1524,9 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
           for (x=0;x<4 && ind[x]==0xffff;x++);
           if (x==4)
           {
-            DrawText(di->hDC,buf,-1,&di->rcItem,DT_VCENTER|DT_RIGHT|DT_NOPREFIX);
+            RECT r = di->rcItem;
+            r.right-=4;
+            DrawText(di->hDC,buf,-1,&r,DT_VCENTER|DT_RIGHT|DT_NOPREFIX);
           }
           DeleteObject(font);
 
