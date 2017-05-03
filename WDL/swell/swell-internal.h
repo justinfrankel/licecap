@@ -743,6 +743,38 @@ struct HDC__ {
   bool _infreelist;
 };
 
+HWND DialogBoxIsActive(void);
+void DestroyPopupMenus(void);
+HWND ChildWindowFromPoint(HWND h, POINT p);
+bool IsWindowEnabled(HWND hwnd);
+HWND GetFocusIncludeMenus();
+
+void SWELL_RunEvents();
+
+bool swell_isOSwindowmenu(SWELL_OSWINDOW osw);
+
+bool swell_is_virtkey_char(int c);
+
+HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w);
+void swell_oswindow_focus(HWND hwnd);
+void swell_oswindow_update_style(HWND hwnd, LONG oldstyle);
+void swell_oswindow_update_enable(HWND hwnd);
+void swell_oswindow_update_text(HWND hwnd);
+void swell_oswindow_begin_resize(HWND hwnd);
+void swell_oswindow_resize(HWND hwnd, int reposflag, RECT f);
+void swell_oswindow_show(HWND hwnd, RECT f);
+void swell_oswindow_invalidate(HWND hwnd, const RECT *r);
+void swell_oswindow_destroy(HWND hwnd);
+void swell_oswindow_manage(HWND hwnd, bool wantfocus);
+void swell_oswindow_updatetoscreen(HWND hwnd, RECT *rect);
+
+extern bool swell_is_likely_capslock; // only used when processing dit events for a-zA-Z
+extern const char *g_swell_appname;
+extern SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
+extern HWND swell_captured_window;
+extern HWND SWELL_topwindows;
+
+
 #endif // !OSX
 
 HDC SWELL_CreateGfxContext(void *);

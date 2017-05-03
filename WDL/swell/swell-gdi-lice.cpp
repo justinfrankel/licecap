@@ -1100,8 +1100,6 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
       }
       else delete wr;
     }
-else
-printf("failed: %d %d %d %d %d\n",w,h,bpc,chan,alpha);
     g_object_unref(pb);
     return ret;
   }
@@ -1325,7 +1323,6 @@ void ReleaseDC(HWND h, HDC hdc)
     // handle blitting?
     HWND par = h;
     while (par && !par->m_backingstore) par=par->m_parent;
-    void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect);
     if (par) 
     {
       if (p->ctx.dirty_rect_valid)
@@ -1342,7 +1339,7 @@ void ReleaseDC(HWND h, HDC hdc)
         if (dr.bottom < r.bottom) r.bottom=dr.bottom;
 #endif
 
-        if (r.top<r.bottom && r.left<r.right) swell_OSupdateWindowToScreen(par,&r);
+        if (r.top<r.bottom && r.left<r.right) swell_oswindow_updatetoscreen(par,&r);
       }
     }
   }

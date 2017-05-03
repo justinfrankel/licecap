@@ -76,7 +76,11 @@ ifndef NO_GFX
       LFLAGS += $(shell freetype-config --libs)
     endif
 
-    OBJS += ../swell/swell-wnd-generic.o ../swell/swell-gdi-lice.o ../swell/swell.o ../swell/swell-misc-generic.o ../swell/swell-dlg-generic.o ../swell/swell-menu-generic.o ../swell/swell-kb-generic.o ../swell/swell-gdi-generic.o ../swell/swell-ini.o
+    OBJS += ../swell/swell-wnd-generic.o ../swell/swell-gdi-lice.o \
+            ../swell/swell.o ../swell/swell-misc-generic.o \
+            ../swell/swell-dlg-generic.o ../swell/swell-menu-generic.o \
+            ../swell/swell-kb-generic.o ../swell/swell-gdi-generic.o \
+            ../swell/swell-ini.o ../swell/swell-generic-gdk.o
 
     LFLAGS += -ldl
   endif
