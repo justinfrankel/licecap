@@ -4426,12 +4426,15 @@ forceMouseMove:
               SWELL_ListView_Row *row=lvs->m_data.Get(x);
               if (row) row->m_tmp = (row->m_tmp&~1) | (wParam?1:0);
             }
+            InvalidateRect(hwnd,NULL,FALSE);
           }
           else
           {
             SWELL_ListView_Row *row=lvs->m_data.Get((int)lParam);
             if (!row) return LB_ERR;
+            const int otmp = row->m_tmp;
             row->m_tmp = (row->m_tmp&~1) | (wParam?1:0);
+            if (row->m_tmp != otmp) InvalidateRect(hwnd,NULL,FALSE);
             return 0;
           }
         }
