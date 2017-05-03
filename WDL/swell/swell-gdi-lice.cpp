@@ -188,6 +188,15 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
             !strnicmp(residual,"Light",5) ||
             !strnicmp(residual,"Oblique",7))
           dash = residual;
+        else if (ext > residual && ext <= residual+2)
+        {
+          char c1 = residual[0],c2=residual[1];
+          if (c1>0) c1=toupper(c1);
+          if (c2>0) c2=toupper(c2);
+          if ((c1 == 'B' || c1 == 'I' || c1 == 'L') &&
+              (c2 == 'B' || c2 == 'I' || c2 == 'L' || c2 == '.'))
+            dash=residual;
+        }
       }
 
       s.fn = fn;
@@ -208,6 +217,18 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
       else if (italic && stristr(residual,"Oblique")) s.score2 -= 7+3; // if Italic isnt available, use Oblique
       if (weight >= FW_BOLD && stristr(residual,"Bold")) s.score2 -= 4+7;
       else if (weight <= FW_LIGHT && stristr(residual,"Light")) s.score2 -= 5+7;
+
+      if (ext > residual && ext <= residual+2)
+      {
+        char c1 = residual[0],c2=residual[1];
+        if (c1>0) c1=toupper(c1);
+        if (c2>0) c2=toupper(c2);
+
+        if (weight >= FW_BOLD && (c1 == 'B' || c2 == 'B')) s.score2 -= 2;
+        else if (weight <= FW_LIGHT && (c1 == 'L' || c2 == 'L')) s.score2 -= 2;
+        if (italic && (c1 == 'I' || c2 == 'I')) s.score2 -= 2;
+      }
+
       s.score2 = s.score2*ntab + x; 
 
       matchlist.Add(s);
