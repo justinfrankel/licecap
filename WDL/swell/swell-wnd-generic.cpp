@@ -3751,11 +3751,11 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         int subitem = 0;
 
         {
-          const int n=lvs->m_cols.GetSize();
+          const int ncol=lvs->m_cols.GetSize();
           const bool has_image = lvs->hasStatusImage();
           int xpos=0, xpt = GET_X_LPARAM(lParam) + lvs->m_scroll_x;
           if (has_image) xpos += lvs->m_last_row_height;
-          for (int x=0;x<n;x++)
+          for (int x=0;x<ncol;x++)
           {
             const int xwid = lvs->m_cols.Get()[x].xwid;
             if (xpt >= xpos && xpt < xpos+xwid) { subitem = x; break; }
@@ -3797,43 +3797,52 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         else 
         {
           bool changed = false;
-          const bool ctrl = (GetAsyncKeyState(VK_CONTROL)&0x8000)!=0;
-          if (!ctrl) 
+          if (hit >= n)
           {
-            if (!lvs->get_sel(hit))
-              changed |= lvs->clear_sel();
-          }
-          if ((GetAsyncKeyState(VK_SHIFT)&0x8000) && lvs->m_selitem >= 0)
-          {
-            int a=lvs->m_selitem;
-            int b = hit;
-            if (a>b) { b=a; a=hit; }
-            while (a<=b) changed |= lvs->set_sel(a++,true);
+            changed |= lvs->clear_sel();
+            lvs->m_selitem = -1;
           }
           else
           {
-            lvs->m_selitem = hit;
-            changed |= lvs->set_sel(hit,!ctrl || !lvs->get_sel(hit));
-          }
-
-          if (hit >=0 && hit < n) 
-          {
-            if (lvs->m_is_listbox)
+            const bool ctrl = (GetAsyncKeyState(VK_CONTROL)&0x8000)!=0;
+            if (!ctrl) 
             {
-              if (changed) SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+              if (!lvs->get_sel(hit))
+                changed |= lvs->clear_sel();
+            }
+            if ((GetAsyncKeyState(VK_SHIFT)&0x8000) && lvs->m_selitem >= 0)
+            {
+              int a=lvs->m_selitem;
+              int b = hit;
+              if (a>b) { b=a; a=hit; }
+              while (a<=b) changed |= lvs->set_sel(a++,true);
             }
             else
+            {
+              lvs->m_selitem = hit;
+              changed |= lvs->set_sel(hit,!ctrl || !lvs->get_sel(hit));
+            }
+          }
+
+          if (lvs->m_is_listbox)
+          {
+            if (changed) SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+          }
+          else 
+          {
+            if (hit >=0 && hit < n)
             {
               lvs->m_capmode_state = 2;
               lvs->m_capmode_data1 = hit;
               lvs->m_capmode_data2 = subitem;
               NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
-              if (changed)
-              {
-                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
-                SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
-              }
+            }
+            if (changed)
+            {
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},hit,0,LVIS_SELECTED,};
+              if (nm.iItem < 0 || nm.iItem >= n) nm.iItem=0;
+              SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             }
           }
 
@@ -3961,31 +3970,37 @@ forceMouseMove:
               GetClientRect(hwnd,&r);
               const int page = lvs->m_last_row_height ? 
                 (r.bottom - g_swell_ctheme.scrollbar_width)/lvs->m_last_row_height : 4;
+              const int cnt = lvs->GetNumItems();
 
               ni = lvs->m_selitem + (wParam == VK_UP ? -1 :
                                      wParam == VK_PRIOR ? 2-wdl_max(page,3) :
                                      wParam == VK_NEXT ? wdl_max(page,3)-2 : 
                                      1);
-            }
-            if (ni < 0 && (wParam != VK_UP)) ni=0;
-            if (ni >= 0 && ni < lvs->GetNumItems())
-            {
-              if (lvs->m_is_multisel) 
+
+              if (ni<0) ni=0;
+              if (ni>cnt-1) ni=cnt-1;
+              const bool shift = (GetAsyncKeyState(VK_SHIFT)&0x8000)!=0;
+              
+              if (ni>=0 && (ni!=lvs->m_selitem || !shift))
               {
-                if (!(GetAsyncKeyState(VK_SHIFT)&0x8000)) 
+                if (lvs->m_is_multisel) 
                 {
-                  lvs->clear_sel();
-                  lvs->set_sel(ni,true);
+                  if (!shift)
+                  {
+                    lvs->clear_sel();
+                    lvs->set_sel(ni,true);
+                  }
+                  else
+                  {
+                    if (lvs->get_sel(ni)) lvs->set_sel(lvs->m_selitem,false);
+                    else lvs->set_sel(ni,true);
+                  }
                 }
-                else
-                {
-                  if (lvs->get_sel(ni)) lvs->set_sel(lvs->m_selitem,false);
-                  else lvs->set_sel(ni,true);
-                }
+                lvs->m_selitem=ni;
+                flag|=3;
               }
-              lvs->m_selitem=ni;
-              flag|=3;
             }
+            flag|=4;
           break;
           case VK_HOME:
           case VK_END:
@@ -4016,7 +4031,7 @@ forceMouseMove:
               lvs->m_selitem=ni;
               flag|=3;
             }
- 
+            flag|=4;
           break;
         }
         if (flag)
