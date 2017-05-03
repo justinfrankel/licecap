@@ -49,12 +49,11 @@ static int SWELL_gdk_active;
 static GdkEvent *s_cur_evt;
 static GList *s_program_icon_list;
 
-static UINT_PTR s_focus_lost_timer;
 static SWELL_OSWINDOW swell_dragsrc_osw;
 static DWORD swell_dragsrc_timeout;
 static HWND swell_dragsrc_hwnd;
 static DWORD swell_lastMessagePos;
-static bool s_want_activateapp_on_focus;
+static bool s_app_inactive;
 static int gdk_options;
 
 static HWND s_ddrop_hwnd;
@@ -81,26 +80,11 @@ static HWND s_clip_hwnd;
 
 static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 
-bool swell_can_take_focus(HWND hwnd)
-{
-  // only allow taking focus if we're a) already active as an app, or b) the only window in the process (e.g. on startup, hopefully!)
-  return SWELL_focused_oswindow || 
-         !SWELL_topwindows || 
-         (hwnd==SWELL_topwindows && !hwnd->m_next);
-}
-
-static void swell_set_focus_oswindow(SWELL_OSWINDOW v)
-{
-  if (s_focus_lost_timer) KillTimer(NULL,s_focus_lost_timer);
-  s_focus_lost_timer=0;
-  SWELL_focused_oswindow=v;
-}
-
 void swell_oswindow_destroy(HWND hwnd)
 {
   if (hwnd && hwnd->m_oswindow)
   {
-    if (SWELL_focused_oswindow == hwnd->m_oswindow) swell_set_focus_oswindow(NULL);
+    if (SWELL_focused_oswindow == hwnd->m_oswindow) SWELL_focused_oswindow = NULL;
     gdk_window_destroy(hwnd->m_oswindow);
     hwnd->m_oswindow=NULL;
 #ifdef SWELL_LICE_GDI
@@ -121,17 +105,17 @@ void swell_oswindow_focus(HWND hwnd)
 {
   if (!hwnd)
   {
-    swell_set_focus_oswindow(NULL);
+    SWELL_focused_oswindow = NULL;
     return;
   }
 
   while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
-  if (hwnd && swell_can_take_focus(hwnd))
+  if (hwnd && !s_app_inactive)
   {
     gdk_window_raise(hwnd->m_oswindow);
     if (hwnd->m_oswindow != SWELL_focused_oswindow)
     {
-      swell_set_focus_oswindow(hwnd->m_oswindow);
+      SWELL_focused_oswindow = hwnd->m_oswindow;
       gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
     }
   }
@@ -209,31 +193,6 @@ static bool swell_initwindowsys()
   }
   
   return SWELL_gdk_active>0;
-}
-
-static void focusLostTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
-{
-  KillTimer(NULL,s_focus_lost_timer);
-  s_focus_lost_timer = 0;
-  if (!SWELL_focused_oswindow) return;
-
-  GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
-  if (window != SWELL_focused_oswindow) 
-  {
-    SWELL_focused_oswindow = NULL;
-
-    HWND h = SWELL_topwindows; 
-    while (h)
-    {
-      if (h->m_oswindow && h->m_israised)
-        gdk_window_set_keep_above(h->m_oswindow,FALSE);
-
-      PostMessage(h,WM_ACTIVATEAPP,0,0);
-      h=h->m_next;
-    }
-    s_want_activateapp_on_focus=true;
-    DestroyPopupMenus();
-  }
 }
 
 #ifdef SWELL_LICE_GDI
@@ -451,7 +410,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
-          if (!wantfocus || !swell_can_take_focus(hwnd))
+          if (!wantfocus || s_app_inactive)
             gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
 #ifdef SWELL_LICE_GDI
@@ -466,14 +425,15 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
           {
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
-          if (hwnd->m_israised)
+
+          if (hwnd->m_israised && !s_app_inactive)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
           gdk_window_register_dnd(hwnd->m_oswindow);
 
           if (hwnd->m_oswindow_fullscreen)
             gdk_window_fullscreen(hwnd->m_oswindow);
 
-          if (swell_can_take_focus(hwnd))
+          if (!s_app_inactive)
             gdk_window_show(hwnd->m_oswindow);
           else
             gdk_window_show_unraised(hwnd->m_oswindow);
@@ -957,7 +917,7 @@ static void OnButtonEvent(GdkEventButton *b)
   
   if (hwnd && hwnd->m_oswindow && SWELL_focused_oswindow != hwnd->m_oswindow)
   {
-    swell_set_focus_oswindow(hwnd->m_oswindow);
+    SWELL_focused_oswindow = hwnd->m_oswindow;
   }
 
   if(b->type == GDK_BUTTON_RELEASE) msg++; // move from down to up
@@ -1122,6 +1082,18 @@ static void OnDropStartEvent(GdkEventDND *e)
   }
 }
 
+static bool is_our_oswindow(GdkWindow *w)
+{
+  while (w)
+  {
+    HWND hwnd = swell_oswindow_to_hwnd(w);
+    if (hwnd) return true;
+    w = gdk_window_get_effective_parent(w);
+  }
+  return false;
+
+}
+
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -1132,31 +1104,49 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     case GDK_FOCUS_CHANGE:
         {
           GdkEventFocus *fc = (GdkEventFocus *)evt;
-          if (fc->in && swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window))
+          if (fc->in && is_our_oswindow(fc->window))
           {
-            const bool last_focus = !!SWELL_focused_oswindow;
-            swell_set_focus_oswindow(fc->window);
-
-            if (!last_focus)
+            SWELL_focused_oswindow = fc->window;
+            if (s_app_inactive)
             {
+              s_app_inactive=false;
               HWND h = SWELL_topwindows; 
               while (h)
               {
-                if (h->m_oswindow && h->m_israised)
-                  gdk_window_set_keep_above(h->m_oswindow,TRUE);
-                if (s_want_activateapp_on_focus) PostMessage(h,WM_ACTIVATEAPP,1,0);
+                if (h->m_oswindow)
+                {
+                  if (h->m_israised)
+                    gdk_window_set_keep_above(h->m_oswindow,TRUE);
+
+                  if (!h->m_enabled) 
+                    gdk_window_set_accept_focus(h->m_oswindow,FALSE);
+                }
+
+                PostMessage(h,WM_ACTIVATEAPP,1,0);
                 h=h->m_next;
               }
-              s_want_activateapp_on_focus=false;
             }
           }
-          else
+          else if (!s_app_inactive)
           {
-            if (SWELL_focused_oswindow == fc->window ||
-                swell_isOSwindowmenu(SWELL_focused_oswindow)) 
+            GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
+            if (!is_our_oswindow(window))
             {
+              s_app_inactive=true;
+              HWND h = SWELL_topwindows; 
+              while (h)
+              {
+                if (h->m_oswindow)
+                {
+                  if (h->m_israised)
+                    gdk_window_set_keep_above(h->m_oswindow,FALSE);
+                  if (!h->m_enabled) 
+                    gdk_window_set_accept_focus(h->m_oswindow,TRUE); // allow the user to activate app by clicking
+                }
+                PostMessage(h,WM_ACTIVATEAPP,0,0);
+                h=h->m_next;
+              }
               DestroyPopupMenus();
-              if (!s_focus_lost_timer) s_focus_lost_timer = SetTimer(NULL,0,200,focusLostTimer);
             }
           }
         }
@@ -1282,7 +1272,8 @@ void swell_oswindow_update_style(HWND hwnd, LONG oldstyle)
 
 void swell_oswindow_update_enable(HWND hwnd)
 {
-  if (hwnd->m_oswindow) gdk_window_set_accept_focus(hwnd->m_oswindow,hwnd->m_enabled);
+  if (hwnd->m_oswindow && !s_app_inactive) 
+    gdk_window_set_accept_focus(hwnd->m_oswindow,hwnd->m_enabled);
 }
 
 int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
@@ -1292,7 +1283,7 @@ int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
   {
     rv = hwnd->m_israised ? 1 : 0;
     hwnd->m_israised = newlevel>0;
-    if (hwnd->m_oswindow) gdk_window_set_keep_above(hwnd->m_oswindow,newlevel>0);
+    if (hwnd->m_oswindow) gdk_window_set_keep_above(hwnd->m_oswindow,newlevel>0 && !s_app_inactive);
   }
   return rv;
 }

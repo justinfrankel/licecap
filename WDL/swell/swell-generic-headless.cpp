@@ -31,16 +31,11 @@
 #include "swell-dlggen.h"
 #include "../wdlcstring.h"
 
-void swell_set_focus_oswindow(SWELL_OSWINDOW v)
-{
-  SWELL_focused_oswindow=v;
-}
-
 void swell_oswindow_destroy(HWND hwnd)
 {
   if (hwnd && hwnd->m_oswindow)
   {
-    if (SWELL_focused_oswindow == hwnd->m_oswindow) swell_set_focus_oswindow(NULL);
+    if (SWELL_focused_oswindow == hwnd->m_oswindow) SWELL_focused_oswindow = NULL;
     hwnd->m_oswindow=NULL;
 #ifdef SWELL_LICE_GDI
     delete hwnd->m_backingstore;
@@ -58,12 +53,12 @@ void swell_oswindow_focus(HWND hwnd)
 {
   if (!hwnd)
   {
-    swell_set_focus_oswindow(NULL);
+    SWELL_focused_oswindow = NULL;
   }
   while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
   if (hwnd && hwnd->m_oswindow != SWELL_focused_oswindow)
   {
-    swell_set_focus_oswindow(hwnd->m_oswindow);
+    SWELL_focused_oswindow = hwnd->m_oswindow;
   }
 }
 
