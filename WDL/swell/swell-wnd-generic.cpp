@@ -75,6 +75,14 @@ static HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w)
   return a;
 }
 
+static bool can_take_focus(HWND hwnd)
+{
+  // only allow taking focus if we're a) already active as an app, or b) the only window in the process (e.g. on startup, hopefully!)
+  return SWELL_focused_oswindow || 
+         !SWELL_topwindows || 
+         (hwnd==SWELL_topwindows && !hwnd->m_next);
+}
+
 static void swell_set_focus_oswindow(SWELL_OSWINDOW v)
 {
 #ifdef SWELL_TARGET_GDK
@@ -116,7 +124,7 @@ static void swell_setOSwindowtext(HWND hwnd)
 static void swell_focusOSwindow(HWND hwnd)
 {
   while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
-  if (SWELL_focused_oswindow) // if inactive, prevent taking focus
+  if (can_take_focus(hwnd))
   {
     #ifdef SWELL_TARGET_GDK
       if (hwnd) gdk_window_raise(hwnd->m_oswindow);
@@ -462,7 +470,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
-          if (!wantfocus || !SWELL_focused_oswindow) 
+          if (!wantfocus || !can_take_focus(hwnd))
             gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
 #ifdef SWELL_LICE_GDI
@@ -484,7 +492,7 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
           if (hwnd->m_oswindow_fullscreen)
             gdk_window_fullscreen(hwnd->m_oswindow);
 
-          if (SWELL_focused_oswindow)
+          if (can_take_focus(hwnd))
             gdk_window_show(hwnd->m_oswindow);
           else
             gdk_window_show_unraised(hwnd->m_oswindow);
