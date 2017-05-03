@@ -6144,6 +6144,8 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             c = GetWindow(c,GW_HWNDNEXT);
           }
+          c = GetDlgItem(hwnd,IDOK);
+          if (c) SendMessage(hwnd,WM_COMMAND,IDOK,0);
           return 0;
         }
       }
