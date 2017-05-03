@@ -116,15 +116,18 @@ static void swell_setOSwindowtext(HWND hwnd)
 static void swell_focusOSwindow(HWND hwnd)
 {
   while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
-#ifdef SWELL_TARGET_GDK
-  if (hwnd) gdk_window_raise(hwnd->m_oswindow);
-#endif
-  if (hwnd && hwnd->m_oswindow != SWELL_focused_oswindow)
+  if (SWELL_focused_oswindow) // if inactive, prevent taking focus
   {
-    swell_set_focus_oswindow(hwnd->m_oswindow);
-#ifdef SWELL_TARGET_GDK
-    gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
-#endif
+    #ifdef SWELL_TARGET_GDK
+      if (hwnd) gdk_window_raise(hwnd->m_oswindow);
+    #endif
+    if (hwnd && hwnd->m_oswindow != SWELL_focused_oswindow)
+    {
+      swell_set_focus_oswindow(hwnd->m_oswindow);
+      #ifdef SWELL_TARGET_GDK
+        gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
+      #endif
+    }
   }
 }
 
@@ -459,7 +462,8 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
-          if (!wantfocus) gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
+          if (!wantfocus || !SWELL_focused_oswindow) 
+            gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
 #ifdef SWELL_LICE_GDI
           if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_CairoBitmap;
@@ -479,7 +483,11 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
 
           if (hwnd->m_oswindow_fullscreen)
             gdk_window_fullscreen(hwnd->m_oswindow);
-          gdk_window_show(hwnd->m_oswindow);
+
+          if (SWELL_focused_oswindow)
+            gdk_window_show(hwnd->m_oswindow);
+          else
+            gdk_window_show_unraised(hwnd->m_oswindow);
 
           if (!hwnd->m_oswindow_fullscreen)
           {
@@ -493,8 +501,6 @@ static void swell_manageOSwindow(HWND hwnd, bool wantfocus)
     }
   }
   if (wantVis) swell_setOSwindowtext(hwnd);
-
-//  if (wantVis && isVis && wantfocus && hwnd && hwnd->m_oswindow) gdk_window_raise(hwnd->m_oswindow);
 }
 
 void swell_OSupdateWindowToScreen(HWND hwnd, RECT *rect)
