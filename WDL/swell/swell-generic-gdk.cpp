@@ -66,6 +66,7 @@ static int s_cursor_vis_cnt;
 
 static HCURSOR s_last_cursor;
 static HCURSOR s_last_setcursor;
+static SWELL_OSWINDOW s_last_setcursor_oswnd;
 
 static bool g_swell_mouse_relmode;
 static int g_swell_mouse_relmode_curpos_x;
@@ -383,7 +384,6 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
         }
 */
  
-        extern const char *g_swell_appname;
         RECT r = hwnd->m_position;
         GdkWindowAttr attr={0,};
         attr.title = (char *)hwnd->m_title.Get();
@@ -1970,10 +1970,10 @@ bool SWELL_IsCursorVisible()
 
 void SWELL_SetCursor(HCURSOR curs)
 {
-  if (s_last_setcursor == curs) return;
+  if (s_last_setcursor == curs && SWELL_focused_oswindow == s_last_setcursor_oswnd) return;
 
   s_last_setcursor=curs;
-  extern SWELL_OSWINDOW SWELL_focused_oswindow;
+  s_last_setcursor_oswnd = SWELL_focused_oswindow;
   if (SWELL_focused_oswindow)
   {
     gdk_window_set_cursor(SWELL_focused_oswindow,(GdkCursor *)curs);
