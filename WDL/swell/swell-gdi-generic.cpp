@@ -1,6 +1,5 @@
-
-/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux)
-   Copyright (C) 2006-2007, Cockos, Inc.
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
 
     This software is provided 'as-is', without any express or implied
     warranty.  In no event will the authors be held liable for any damages
@@ -19,7 +18,7 @@
     3. This notice may not be removed or altered from any source distribution.
   
 
-    This file provides basic win32 GDI-->lice? translation. 
+    This file provides basic win32 GDI--> null translation. 
 
 */
 
