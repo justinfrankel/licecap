@@ -990,7 +990,14 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           const int ha = g->metrics.horiAdvance/64;
           if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,ha,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
   
-          LICE_DrawGlyphEx(surface,xpos+g->bitmap_left,ypos+ascent-g->bitmap_top,fgcol,(LICE_pixel_chan *)g->bitmap.buffer,g->bitmap.width,g->bitmap.pitch,g->bitmap.rows,1.0f,LICE_BLIT_MODE_COPY);
+          if (g->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+          {
+            LICE_DrawMonoGlyph(surface,xpos+g->bitmap_left,ypos+ascent-g->bitmap_top,fgcol,(const unsigned char*)g->bitmap.buffer,g->bitmap.width,g->bitmap.pitch,g->bitmap.rows,1.0f,LICE_BLIT_MODE_COPY);
+          }
+          else  // FT_PIXEL_MODE_GRAY (hopefully!)
+          {
+            LICE_DrawGlyphEx(surface,xpos+g->bitmap_left,ypos+ascent-g->bitmap_top,fgcol,(LICE_pixel_chan *)g->bitmap.buffer,g->bitmap.width,g->bitmap.pitch,g->bitmap.rows,1.0f,LICE_BLIT_MODE_COPY);
+          }
           if (doUl) 
           {
             int xw = g->metrics.width/64;
