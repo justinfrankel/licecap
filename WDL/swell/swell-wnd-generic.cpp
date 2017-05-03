@@ -2474,6 +2474,15 @@ forceMouseMove:
         if (GetFocusIncludeMenus()!=hwnd || es->cursor_state<2) InvalidateRect(hwnd,NULL,FALSE);
       }
     return 0;
+    case WM_LBUTTONDBLCLK:
+      if (es)
+      {
+        // technically this should select the word rather than all
+        es->sel1 = 0;
+        es->cursor_pos = es->sel2 = WDL_utf8_get_charlen(hwnd->m_title.Get());
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
     case WM_KEYDOWN:
       {
         int f = OnEditKeyDown(hwnd,msg,wParam,lParam, 
@@ -3218,6 +3227,15 @@ popupMenu:
         }
       }
       s_capmode_state=0;
+    return 0;
+    case WM_LBUTTONDBLCLK:
+      if (s)
+      {
+        // technically this should select the word rather than all
+        s->editstate.sel1 = 0;
+        s->editstate.cursor_pos = s->editstate.sel2 = WDL_utf8_get_charlen(hwnd->m_title.Get());
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
     return 0;
     case WM_KEYDOWN:
       if ((lParam&FVIRTKEY) && wParam == VK_DOWN) { s_capmode_state=5; goto popupMenu; }
