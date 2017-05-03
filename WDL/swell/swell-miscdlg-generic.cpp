@@ -816,6 +816,18 @@ treatAsDir:
         SendMessage(hwnd,WM_UPD,1,0);
         return 1;
       }
+      else if (lParam == FVIRTKEY && wParam == VK_BACK && 
+               GetFocus() == GetDlgItem(hwnd,IDC_LIST))
+      {
+        SendMessage(hwnd,WM_COMMAND,IDC_PARENTBUTTON,0);
+        return 1;
+      }
+      else if (lParam == FVIRTKEY && wParam == VK_RETURN && 
+               GetFocus() == GetDlgItem(hwnd,IDC_LIST))
+      {
+        SendMessage(hwnd,WM_COMMAND,IDOK,0);
+        return 1;
+      }
     return 0;
   }
   return 0;
