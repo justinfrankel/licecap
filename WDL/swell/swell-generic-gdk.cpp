@@ -53,7 +53,6 @@ static SWELL_OSWINDOW swell_dragsrc_osw;
 static DWORD swell_dragsrc_timeout;
 static HWND swell_dragsrc_hwnd;
 static DWORD swell_lastMessagePos;
-static bool s_app_inactive;
 static int gdk_options;
 
 static HWND s_ddrop_hwnd;
@@ -110,7 +109,7 @@ void swell_oswindow_focus(HWND hwnd)
   }
 
   while (hwnd && !hwnd->m_oswindow) hwnd=hwnd->m_parent;
-  if (hwnd && !s_app_inactive)
+  if (hwnd && !swell_app_is_inactive)
   {
     gdk_window_raise(hwnd->m_oswindow);
     if (hwnd->m_oswindow != SWELL_focused_oswindow)
@@ -410,7 +409,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
-          if (!wantfocus || s_app_inactive)
+          if (!wantfocus || swell_app_is_inactive)
             gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
 #ifdef SWELL_LICE_GDI
@@ -426,14 +425,14 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
 
-          if (hwnd->m_israised && !s_app_inactive)
+          if (hwnd->m_israised && !swell_app_is_inactive)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
           gdk_window_register_dnd(hwnd->m_oswindow);
 
           if (hwnd->m_oswindow_fullscreen)
             gdk_window_fullscreen(hwnd->m_oswindow);
 
-          if (!s_app_inactive)
+          if (!swell_app_is_inactive)
             gdk_window_show(hwnd->m_oswindow);
           else
             gdk_window_show_unraised(hwnd->m_oswindow);
@@ -1107,9 +1106,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           if (fc->in && is_our_oswindow(fc->window))
           {
             SWELL_focused_oswindow = fc->window;
-            if (s_app_inactive)
+            if (swell_app_is_inactive)
             {
-              s_app_inactive=false;
+              swell_app_is_inactive=false;
               HWND h = SWELL_topwindows; 
               while (h)
               {
@@ -1127,12 +1126,12 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               }
             }
           }
-          else if (!s_app_inactive)
+          else if (!swell_app_is_inactive)
           {
             GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
             if (!is_our_oswindow(window))
             {
-              s_app_inactive=true;
+              swell_app_is_inactive=true;
               HWND h = SWELL_topwindows; 
               while (h)
               {
@@ -1272,7 +1271,7 @@ void swell_oswindow_update_style(HWND hwnd, LONG oldstyle)
 
 void swell_oswindow_update_enable(HWND hwnd)
 {
-  if (hwnd->m_oswindow && !s_app_inactive) 
+  if (hwnd->m_oswindow && !swell_app_is_inactive) 
     gdk_window_set_accept_focus(hwnd->m_oswindow,hwnd->m_enabled);
 }
 
@@ -1283,7 +1282,7 @@ int SWELL_SetWindowLevel(HWND hwnd, int newlevel)
   {
     rv = hwnd->m_israised ? 1 : 0;
     hwnd->m_israised = newlevel>0;
-    if (hwnd->m_oswindow) gdk_window_set_keep_above(hwnd->m_oswindow,newlevel>0 && !s_app_inactive);
+    if (hwnd->m_oswindow) gdk_window_set_keep_above(hwnd->m_oswindow,newlevel>0 && !swell_app_is_inactive);
   }
   return rv;
 }

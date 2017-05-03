@@ -773,6 +773,7 @@ extern const char *g_swell_appname;
 extern SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
 extern HWND swell_captured_window;
 extern HWND SWELL_topwindows;
+extern bool swell_app_is_inactive;
 
 
 #endif // !OSX
