@@ -2320,6 +2320,25 @@ public:
       }
     }
   }
+  static void DrawGlyphMono(const unsigned char * srcalpha, LICE_pixel* destpx, int src_w, int src_h, LICE_pixel color,  int span, int src_span, int aa)
+  {
+    const int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+
+    int xi, yi;
+    for (yi = 0; yi < src_h; ++yi, srcalpha += src_span, destpx += span) {
+      const unsigned char *tsrc = srcalpha;
+      LICE_pixel* tdest = destpx;
+      unsigned char cv=0;
+      for (xi = 0; xi < src_w; ++xi, ++tdest) {
+        if (!(xi&7)) cv = *tsrc++;
+        const LICE_pixel_chan v = (cv&128)?255:0;
+        cv<<=1;
+        if (v) {  // glyphs should be expected to have a lot of "holes"
+          COMBFUNC::doPix((LICE_pixel_chan*) tdest, r, g, b, a, v*aa/256);
+        }
+      }
+    }
+  }
 };
 
 void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_span, int glyph_h, float alpha, int mode)
@@ -2333,6 +2352,8 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
     if (dest->Extended(LICE_EXT_DRAWGLYPH_ACCEL, &data)) return;
   }
 #endif
+
+  if (glyph_span < 0) alphas += -glyph_span * (glyph_h-1);
 
   const int ia= (int)(alpha*256.0f);
 
@@ -2379,6 +2400,55 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
 void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha, int mode)
 {
   LICE_DrawGlyphEx(dest,x,y,color,alphas,glyph_w,glyph_w,glyph_h,alpha,mode);
+}
+
+
+void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const unsigned char *alphabits, int glyph_w, int glyph_span, int glyph_h, float alpha, int mode)
+{
+  if (!dest) return;
+
+  if (glyph_span < 0) alphabits += -glyph_span * (glyph_h-1);
+
+  const int ia= (int)(alpha*256.0f);
+
+  int src_x = 0, src_y = 0, src_w = glyph_w, src_h = glyph_h;
+  if (x <= -src_w || y <= -src_h) return;
+  
+  if (x < 0) {
+    src_x -= x;
+    src_w += x;
+    x = 0;
+  }
+  if (y < 0) {
+    src_y -= y;
+    src_h += y;
+    y = 0;
+  }
+
+  const int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  if (src_w < 0 || src_h < 0 || x >= destbm_w || y >= destbm_h) return;
+
+  if (src_h > destbm_h-y) src_h = destbm_h-y;
+  if (src_w > destbm_w-x) src_w = destbm_w-x;
+  
+  if (src_w < 1 || src_h < 1) return;
+
+
+  LICE_pixel* destpx = dest->getBits();
+  int span = dest->getRowSpan();
+  if (dest->isFlipped()) {
+    destpx += (destbm_h-y-1)*span+x;
+    span = -span;
+  }
+  else {
+    destpx += y*dest->getRowSpan()+x;
+  }
+
+  const unsigned char * srcalpha = alphabits+src_y*glyph_span+src_x;
+
+#define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyphMono(srcalpha,destpx, src_w, src_h, color,span,glyph_span,ia)
+	__LICE_ACTION_NOSRCALPHA(mode, ia, false);
+#undef __LICE__ACTION
 }
 
 void LICE_HalveBlitAA(LICE_IBitmap *dest, LICE_IBitmap *src)
