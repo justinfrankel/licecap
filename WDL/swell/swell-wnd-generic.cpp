@@ -440,11 +440,6 @@ int IsChild(HWND hwndParent, HWND hwndChild)
 }
 
 
-HWND GetForegroundWindowIncludeMenus()
-{
-  return swell_app_is_inactive ? NULL : swell_oswindow_to_hwnd(SWELL_focused_oswindow);
-}
-
 HWND GetFocusIncludeMenus()
 {
   HWND h = swell_app_is_inactive ? NULL : swell_oswindow_to_hwnd(SWELL_focused_oswindow);
@@ -462,10 +457,7 @@ HWND GetFocusIncludeMenus()
 
 HWND GetForegroundWindow()
 {
-  HWND h =GetForegroundWindowIncludeMenus();
-  HWND ho;
-  while (h && (ho=(HWND)GetProp(h,"SWELL_MenuOwner"))) h=ho; 
-  return h;
+  return GetFocus();
 }
 
 HWND GetFocus()
