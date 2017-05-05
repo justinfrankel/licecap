@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/fcntl.h>
+#include <sys/resource.h>
 
 
 #include "swell-internal.h"
@@ -1005,8 +1006,26 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
     free(g_swell_defini);
     g_swell_defini = v ? strdup((const char *)v) : NULL;
 
+    char buf[128];
+    GetPrivateProfileString(".swell","max_open_files","",buf,sizeof(buf),"");
+    if (!buf[0])
+      WritePrivateProfileString(".swell","max_open_files","auto // (default is max of default or 16384)","");
+
+    struct rlimit rl = {0,};
+    getrlimit(RLIMIT_NOFILE,&rl); 
+
+    const int orig_n = atoi(buf);
+    rlim_t n = orig_n > 0 ? (rlim_t) orig_n : 16384;
+    if (n > rl.rlim_max) n = rl.rlim_max;
+    if (orig_n > 0 ? (n != rl.rlim_cur) : (n > rl.rlim_cur))
+    {
+      rl.rlim_cur = n;
+      setrlimit(RLIMIT_NOFILE,&rl); 
+      //getrlimit(RLIMIT_NOFILE,&rl); 
+      //printf("applied rlimit %d/%d\n",(int)rl.rlim_cur,(int)rl.rlim_max);
+    }
+
     #ifdef SWELL_TARGET_GDK
-      char buf[128];
       GetPrivateProfileString(".swell","ui_scale","",buf,sizeof(buf),"");
       if (buf[0])
       {
