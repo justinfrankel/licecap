@@ -302,11 +302,6 @@ static void init_options()
 
     if (swell_gdk_option("gdk_borderless_are_override_redirect", "auto (default is 0)",0))
       gdk_options|=8;
-
-    if (swell_gdk_option("gdk_no_set_window_class",
-                         "auto (1 on kwin, 0 otherwise)",
-                         is_kwin ? 1 : 0))
-      gdk_options|=16;
   }
   
 }
@@ -351,7 +346,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
         attr.width = r.right-r.left;
         attr.height = r.bottom-r.top;
         attr.wclass = GDK_INPUT_OUTPUT;
-        const char *appname = (gdk_options&16) ? NULL : g_swell_appname;
+        const char *appname = g_swell_appname;
         attr.wmclass_name = (gchar*)appname;
         attr.wmclass_class = (gchar*)appname;
         attr.window_type = GDK_WINDOW_TOPLEVEL;
