@@ -1234,7 +1234,12 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     case WM_MOUSEMOVE:
     return 0;
     case WM_KEYDOWN:
-      if (wParam == VK_SPACE || wParam == VK_RETURN) goto fakeButtonClick;
+      if (wParam == VK_SPACE) goto fakeButtonClick;
+      if (wParam == VK_RETURN)
+      {
+        if (!(hwnd->m_style & 0xf))
+          goto fakeButtonClick;
+      }
     break;
     case WM_LBUTTONUP:
       if (GetCapture()==hwnd)
