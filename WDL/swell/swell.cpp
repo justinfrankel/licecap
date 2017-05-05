@@ -1021,8 +1021,10 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
     {
       rl.rlim_cur = n;
       setrlimit(RLIMIT_NOFILE,&rl); 
-      //getrlimit(RLIMIT_NOFILE,&rl); 
-      //printf("applied rlimit %d/%d\n",(int)rl.rlim_cur,(int)rl.rlim_max);
+      #ifdef _DEBUG
+        getrlimit(RLIMIT_NOFILE,&rl); 
+        printf("applied rlimit %d/%d\n",(int)rl.rlim_cur,(int)rl.rlim_max);
+      #endif
     }
 
     #ifdef SWELL_TARGET_GDK
