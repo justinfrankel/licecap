@@ -71,6 +71,7 @@ HWND DialogBoxIsActive()
 static SWELL_OSWINDOW s_spare;
 static RECT s_spare_rect;
 static UINT_PTR s_spare_timer;
+static int s_spare_style;
 
 void swell_dlg_destroyspare()
 {
@@ -108,13 +109,16 @@ void EndDialog(HWND wnd, int ret)
     }
   }
 #ifndef SWELL_NO_SPARE_MODALDLG
-  if (!s_spare && wnd->m_oswindow)
+  if (wnd->m_oswindow && wnd->m_visible)
   {
+    swell_dlg_destroyspare();
     GetWindowRect(wnd,&s_spare_rect);
+    s_spare_style = wnd->m_style;
     s_spare = wnd->m_oswindow;
     wnd->m_oswindow = NULL;
-    if (s_spare_timer) KillTimer(NULL,s_spare_timer);
-    s_spare_timer = SetTimer(NULL,0,100,spareTimer);
+    s_spare_timer = SetTimer(NULL,0,
+                             swell_app_is_inactive ? 500 : 100,
+                             spareTimer);
   }
 #endif
   DestroyWindow(wnd);
@@ -160,7 +164,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
     modalDlgRet r = { hwnd,false, -1 };
     s_modalDialogs.Add(&r);
 
-    if (s_spare)
+    if (s_spare && s_spare_style == hwnd->m_style)
     {
       if (s_spare_timer) 
       {
@@ -199,7 +203,12 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
       hwnd->m_oswindow = w;
       ShowWindow(hwnd,SW_SHOWNA);
     }
-    else ShowWindow(hwnd,SW_SHOW);
+    else  
+    {
+      swell_dlg_destroyspare();
+      ShowWindow(hwnd,SW_SHOW);
+    }
+ 
     while (s_modalDialogs.Find(&r)>=0 && !r.has_ret)
     {
       void SWELL_RunMessageLoop();
