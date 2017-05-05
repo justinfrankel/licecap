@@ -1006,6 +1006,7 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
     free(g_swell_defini);
     g_swell_defini = v ? strdup((const char *)v) : NULL;
 
+    #ifndef SWELL_TARGET_OSX
     char buf[128];
     GetPrivateProfileString(".swell","max_open_files","",buf,sizeof(buf),"");
     if (!buf[0])
@@ -1026,6 +1027,7 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
         printf("applied rlimit %d/%d\n",(int)rl.rlim_cur,(int)rl.rlim_max);
       #endif
     }
+    #endif
 
     #ifdef SWELL_TARGET_GDK
       GetPrivateProfileString(".swell","ui_scale","",buf,sizeof(buf),"");
