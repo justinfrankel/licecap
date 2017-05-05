@@ -1182,6 +1182,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     break;
     case GDK_KEY_PRESS:
     case GDK_KEY_RELEASE:
+      swell_dlg_destroyspare();
       OnKeyEvent((GdkEventKey *)evt);
     break;
     case GDK_MOTION_NOTIFY:
@@ -1193,6 +1194,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     case GDK_BUTTON_PRESS:
     case GDK_2BUTTON_PRESS:
     case GDK_BUTTON_RELEASE:
+      swell_dlg_destroyspare();
       OnButtonEvent((GdkEventButton*)evt);
     break;
     case GDK_SELECTION_NOTIFY:

@@ -68,6 +68,29 @@ HWND DialogBoxIsActive()
   return NULL;
 }
 
+static SWELL_OSWINDOW s_spare;
+static RECT s_spare_rect;
+static UINT_PTR s_spare_timer;
+
+void swell_dlg_destroyspare()
+{
+  if (s_spare_timer)
+  {
+    KillTimer(NULL,s_spare_timer);
+    s_spare_timer=0;
+  }
+  if (s_spare) 
+  { 
+    gdk_window_destroy(s_spare);
+    s_spare=NULL; 
+  }
+}
+
+static void spareTimer(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwtime)
+{
+  swell_dlg_destroyspare();
+}
+
 void EndDialog(HWND wnd, int ret)
 {   
   if (!wnd) return;
@@ -84,6 +107,16 @@ void EndDialog(HWND wnd, int ret)
       r->has_ret=true;
     }
   }
+#ifndef SWELL_NO_SPARE_MODALDLG
+  if (!s_spare && wnd->m_oswindow)
+  {
+    GetWindowRect(wnd,&s_spare_rect);
+    s_spare = wnd->m_oswindow;
+    wnd->m_oswindow = NULL;
+    if (s_spare_timer) KillTimer(NULL,s_spare_timer);
+    s_spare_timer = SetTimer(NULL,0,100,spareTimer);
+  }
+#endif
   DestroyWindow(wnd);
 }
 
@@ -126,7 +159,47 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
 
     modalDlgRet r = { hwnd,false, -1 };
     s_modalDialogs.Add(&r);
-    ShowWindow(hwnd,SW_SHOW);
+
+    if (s_spare)
+    {
+      if (s_spare_timer) 
+      {
+        KillTimer(NULL,s_spare_timer);
+        s_spare_timer = 0;
+      }
+      SWELL_OSWINDOW w = s_spare;
+      s_spare = NULL;
+
+      int flags = 0;
+      const int dw = (hwnd->m_position.right-hwnd->m_position.left) -
+                      (s_spare_rect.right - s_spare_rect.left);
+      const int dh = (hwnd->m_position.bottom-hwnd->m_position.top) -
+                      (s_spare_rect.bottom - s_spare_rect.top);
+
+      if (hwnd->m_has_had_position) flags |= 1;
+      if (dw || dh) flags |= 2;
+
+      if (flags == 2)
+      {
+        // center on the old window
+        hwnd->m_position.right -= hwnd->m_position.left;
+        hwnd->m_position.bottom -= hwnd->m_position.top;
+        hwnd->m_position.left = s_spare_rect.left - dw/2;
+        hwnd->m_position.top = s_spare_rect.top - dh/2;
+        hwnd->m_position.right += hwnd->m_position.left;
+        hwnd->m_position.bottom += hwnd->m_position.top;
+        flags = 3;
+      }
+          
+      if (flags)
+      {
+        if (flags&2) swell_oswindow_begin_resize(w);
+        swell_oswindow_resize(w, flags, hwnd->m_position);
+      }
+      hwnd->m_oswindow = w;
+      ShowWindow(hwnd,SW_SHOWNA);
+    }
+    else ShowWindow(hwnd,SW_SHOW);
     while (s_modalDialogs.Find(&r)>=0 && !r.has_ret)
     {
       void SWELL_RunMessageLoop();

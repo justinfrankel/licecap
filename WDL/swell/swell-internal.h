@@ -767,6 +767,7 @@ void swell_oswindow_invalidate(HWND hwnd, const RECT *r);
 void swell_oswindow_destroy(HWND hwnd);
 void swell_oswindow_manage(HWND hwnd, bool wantfocus);
 void swell_oswindow_updatetoscreen(HWND hwnd, RECT *rect);
+void swell_dlg_destroyspare();
 
 extern bool swell_is_likely_capslock; // only used when processing dit events for a-zA-Z
 extern const char *g_swell_appname;
