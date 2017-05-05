@@ -726,8 +726,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
-        for (int i= wParam == VK_UP ? 0 : 9; i>=0 && l>0; i--) while (l > 0)
+        for (int i= wParam == VK_UP ? 0 : 9; i>=0; i--) for (;;)
         {
+          if (l<1)
+          {
+            if (wParam != VK_UP) break;
+            l = menu->items.GetSize();
+          }
           MENUITEMINFO *inf = menu->items.Get(--l);
           if (!inf) break; 
           if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
@@ -745,8 +750,14 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
         const int n =menu->items.GetSize()-1;
-        for (int i = wParam == VK_DOWN ? 0 : 9; i>=0 && l<n; i--) while (l < n)
+        for (int i = wParam == VK_DOWN ? 0 : 9; i>=0; i--) for (;;)
         {
+          if (l>=n)
+          {
+            if (wParam != VK_DOWN) break;
+            l=-1;
+            hwnd->m_extra[0]=0;
+          }
           MENUITEMINFO *inf = menu->items.Get(++l);
           if (!inf) break; 
           if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
