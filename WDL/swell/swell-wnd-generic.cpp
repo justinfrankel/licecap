@@ -600,7 +600,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
   {
     if (hwnd->m_oswindow && (reposflag&2))
     {
-      swell_oswindow_begin_resize(hwnd);
+      swell_oswindow_begin_resize(hwnd->m_oswindow);
     }
 
     if (reposflag&3) 
@@ -611,7 +611,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 
     if (hwnd->m_oswindow && !hwnd->m_oswindow_fullscreen)
     {
-      swell_oswindow_resize(hwnd,reposflag,f);
+      swell_oswindow_resize(hwnd->m_oswindow,reposflag,f);
     }
     else
     {

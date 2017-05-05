@@ -143,8 +143,8 @@ bool GetWindowRect(HWND hwnd, RECT *r)
   return true;
 }
 
-void swell_oswindow_begin_resize(HWND hwnd) { }
-void swell_oswindow_resize(HWND hwnd, int reposflag, RECT f) { }
+void swell_oswindow_begin_resize(SWELL_OSWINDOW wnd) { }
+void swell_oswindow_resize(SWELL_OSWINDOW wnd, int reposflag, RECT f) { }
 void swell_oswindow_show(HWND hwnd, RECT f) { }
 void swell_oswindow_invalidate(HWND hwnd, const RECT *r) { }
 

@@ -1333,17 +1333,17 @@ bool GetWindowRect(HWND hwnd, RECT *r)
   return true;
 }
 
-void swell_oswindow_begin_resize(HWND hwnd)
+void swell_oswindow_begin_resize(SWELL_OSWINDOW wnd)
 {
   // make sure window is resizable (hints will be re-set on upcoming CONFIGURE event)
-  gdk_window_set_geometry_hints(hwnd->m_oswindow,NULL,(GdkWindowHints) 0); 
+  gdk_window_set_geometry_hints(wnd,NULL,(GdkWindowHints) 0); 
 }
 
-void swell_oswindow_resize(HWND hwnd, int reposflag, RECT f)
+void swell_oswindow_resize(SWELL_OSWINDOW wnd, int reposflag, RECT f)
 {
-  if ((reposflag&3)==3) gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top);
-  else if (reposflag&2) gdk_window_resize(hwnd->m_oswindow,f.right-f.left,f.bottom-f.top);
-  else if (reposflag&1) gdk_window_move(hwnd->m_oswindow,f.left,f.top);
+  if ((reposflag&3)==3) gdk_window_move_resize(wnd,f.left,f.top,f.right-f.left,f.bottom-f.top);
+  else if (reposflag&2) gdk_window_resize(wnd,f.right-f.left,f.bottom-f.top);
+  else if (reposflag&1) gdk_window_move(wnd,f.left,f.top);
 }
 
 void swell_oswindow_show(HWND hwnd, RECT f) 
