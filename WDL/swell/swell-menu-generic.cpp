@@ -726,19 +726,23 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
-        for (int i= wParam == VK_UP ? 0 : 9; i>=0; i--) for (;;)
+        for (int i= wParam == VK_UP ? 0 : 9; i>=0; i--) 
         {
-          if (l<1)
+          int mc = menu->items.GetSize();
+          while (mc--)
           {
-            if (wParam != VK_UP) break;
-            l = menu->items.GetSize();
-          }
-          MENUITEMINFO *inf = menu->items.Get(--l);
-          if (!inf) break; 
-          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
-          {
-            menu->sel_vis=l;
-            break;
+            if (l<1)
+            {
+              if (wParam != VK_UP) break;
+              l = menu->items.GetSize();
+            }
+            MENUITEMINFO *inf = menu->items.Get(--l);
+            if (!inf) break; 
+            if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+            {
+              menu->sel_vis=l;
+              break;
+            }
           }
         }
         if (menu->sel_vis < hwnd->m_extra[0])
@@ -750,20 +754,24 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         int l = menu->sel_vis;
         const int n =menu->items.GetSize()-1;
-        for (int i = wParam == VK_DOWN ? 0 : 9; i>=0; i--) for (;;)
+        for (int i = wParam == VK_DOWN ? 0 : 9; i>=0; i--) 
         {
-          if (l>=n)
+          int mc = n+1;
+          while (mc--)
           {
-            if (wParam != VK_DOWN) break;
-            l=-1;
-            hwnd->m_extra[0]=0;
-          }
-          MENUITEMINFO *inf = menu->items.Get(++l);
-          if (!inf) break; 
-          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
-          {
-            menu->sel_vis=l;
-            break;
+            if (l>=n)
+            {
+              if (wParam != VK_DOWN) break;
+              l=-1;
+              hwnd->m_extra[0]=0;
+            }
+            MENUITEMINFO *inf = menu->items.Get(++l);
+            if (!inf) break; 
+            if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+            {
+              menu->sel_vis=l;
+              break;
+            }
           }
         }
         InvalidateRect(hwnd,NULL,FALSE);
