@@ -39,6 +39,8 @@
 #endif
 
 
+// for m_oswindow_private
+#define PRIVATE_NEEDSHOW 1 
 
 
 #ifndef SWELL_WINDOWSKEY_GDK_MASK
@@ -1262,7 +1264,7 @@ void swell_oswindow_update_style(HWND hwnd, LONG oldstyle)
     {
       gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
     }
-    hwnd->m_oswindow_needshow=true;
+    hwnd->m_oswindow_private |= PRIVATE_NEEDSHOW;
   }
 }
 
@@ -1343,11 +1345,15 @@ void swell_oswindow_resize(SWELL_OSWINDOW wnd, int reposflag, RECT f)
   else if (reposflag&1) gdk_window_move(wnd,f.left,f.top);
 }
 
-void swell_oswindow_show(HWND hwnd, RECT f) 
+void swell_oswindow_postresize(HWND hwnd, RECT f) 
 { 
-  gdk_window_show(hwnd->m_oswindow);
-  if (hwnd->m_style & WS_CAPTION) gdk_window_unmaximize(hwnd->m_oswindow); // fixes Kwin
-  gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top); // fixes xfce
+  if (hwnd->m_oswindow && (hwnd->m_oswindow_private&PRIVATE_NEEDSHOW) && !hwnd->m_oswindow_fullscreen)
+  {
+    gdk_window_show(hwnd->m_oswindow);
+    if (hwnd->m_style & WS_CAPTION) gdk_window_unmaximize(hwnd->m_oswindow); // fixes Kwin
+    gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top); // fixes xfce
+    hwnd->m_oswindow_private &= ~PRIVATE_NEEDSHOW;
+  }
 }
 
 void UpdateWindow(HWND hwnd)

@@ -67,7 +67,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
   m_private_data=0;
   m_israised=false;
   m_has_had_position=false;
-  m_oswindow_needshow=false;
+  m_oswindow_private=0;
   m_oswindow_fullscreen=false;
 
      m_classname = "unknown";
@@ -618,11 +618,7 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
       InvalidateRect(hwnd->m_parent ? hwnd->m_parent : hwnd,NULL,FALSE);
     }
   }
-  if (hwnd->m_oswindow && hwnd->m_oswindow_needshow && !hwnd->m_oswindow_fullscreen)
-  {
-    swell_oswindow_show(hwnd,f);
-    hwnd->m_oswindow_needshow=false;
-  }
+  swell_oswindow_postresize(hwnd,f);
 }
 
 
