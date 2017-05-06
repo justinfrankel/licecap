@@ -41,6 +41,7 @@
 
 // for m_oswindow_private
 #define PRIVATE_NEEDSHOW 1 
+#define PRIVATE_NEEDWINDOW 2
 
 
 #ifndef SWELL_WINDOWSKEY_GDK_MASK
@@ -312,11 +313,13 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 {
   if (!hwnd) return;
 
-  bool isVis = !!hwnd->m_oswindow;
+  bool isVis = hwnd->m_oswindow || (hwnd->m_oswindow_private & PRIVATE_NEEDWINDOW);
   bool wantVis = !hwnd->m_parent && hwnd->m_visible;
 
   if (isVis != wantVis)
   {
+    hwnd->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
+
     if (!wantVis) 
     {
       RECT r;
@@ -326,7 +329,11 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
     }
     else 
     {
-      if (swell_initwindowsys())
+      if (swell_app_is_inactive) 
+      {
+        hwnd->m_oswindow_private |= PRIVATE_NEEDWINDOW;
+      }
+      else if (swell_initwindowsys())
       {
         init_options();
 
@@ -1109,6 +1116,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
               HWND h = SWELL_topwindows; 
               while (h)
               {
+                if (!h->m_oswindow && (h->m_oswindow_private&PRIVATE_NEEDWINDOW))
+                {
+                  h->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
+                  swell_oswindow_manage(h,false);
+                }
                 if (h->m_oswindow)
                 {
                   if (h->m_israised)
