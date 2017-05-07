@@ -776,6 +776,12 @@ extern HWND swell_captured_window;
 extern HWND SWELL_topwindows;
 extern bool swell_app_is_inactive;
 
+#ifdef _DEBUG
+void VALIDATE_HWND_LIST(HWND list, HWND par);
+#else
+#define VALIDATE_HWND_LIST(list, par) do { } while (0)
+#endif
+
 
 #endif // !OSX
 

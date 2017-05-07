@@ -305,8 +305,13 @@ static void swell_removeWindowFromParentOrTop(HWND__ *hwnd, bool removeFromOwner
     if (par->m_focused_child == hwnd) par->m_focused_child=NULL;
     if (par->m_children == hwnd) par->m_children = hwnd->m_next;
   }
-  if (hwnd == SWELL_topwindows) SWELL_topwindows = hwnd->m_next;
+  if (hwnd == SWELL_topwindows) 
+  { 
+    SWELL_topwindows = hwnd->m_next;
+    VALIDATE_HWND_LIST(SWELL_topwindows,NULL);
+  }
   hwnd->m_next = hwnd->m_prev = hwnd->m_parent = NULL;
+  if (par) VALIDATE_HWND_LIST(par->m_children,par);
 
   if (removeFromOwner)
   {
@@ -671,12 +676,15 @@ HWND SetParent(HWND hwnd, HWND newPar)
     }
     hwnd->m_parent = newPar;
     hwnd->m_style |= WS_CHILD;
+
+    if (newPar) VALIDATE_HWND_LIST(newPar->m_children,newPar);
   }
   else // add to top level windows
   {
     hwnd->m_next=SWELL_topwindows;
     if (hwnd->m_next) hwnd->m_next->m_prev = hwnd;
     SWELL_topwindows = hwnd;
+    VALIDATE_HWND_LIST(SWELL_topwindows,NULL);
     hwnd->m_style &= ~WS_CHILD;
   }
 
@@ -7369,6 +7377,24 @@ int swell_fullscreenWindow(HWND hwnd, BOOL fs)
 }
 
 
+#ifdef _DEBUG
+void VALIDATE_HWND_LIST(HWND listHead, HWND par)
+{
+  if (!listHead) return;
+  WDL_ASSERT(!listHead->m_prev);
+  WDL_ASSERT(listHead->m_parent == par);
+  WDL_ASSERT(listHead->m_next != listHead);
+  HWND last = listHead;
+  HWND list = listHead->m_next;
+  while (list)
+  {
+    WDL_ASSERT(list->m_prev == last);
+    WDL_ASSERT(list->m_parent == par);
+    last = list;
+    list = list->m_next;
+  }
+}
+#endif
 
 
 
