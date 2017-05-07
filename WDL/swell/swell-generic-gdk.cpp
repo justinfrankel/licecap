@@ -57,6 +57,9 @@ static DWORD swell_dragsrc_timeout;
 static HWND swell_dragsrc_hwnd;
 static DWORD swell_lastMessagePos;
 static int gdk_options;
+#define OPTION_KEEP_OWNED_ABOVE 1
+#define OPTION_OWNED_TASKLIST 2
+#define OPTION_BORDERLESS_OVERRIDEREDIRECT 4
 
 static HWND s_ddrop_hwnd;
 static POINT s_ddrop_pt;
@@ -287,24 +290,16 @@ static void init_options()
 {
   if (!gdk_options)
   {
-    const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
-    const bool is_kwin = wmname && !stricmp(wmname,"kwin");
-
     gdk_options = 0x40000000;
 
-    if (swell_gdk_option("gdk_owned_window_dialog","auto (default is 1)",1))
-      gdk_options|=1;
-
-    if (swell_gdk_option("gdk_raise_owned_windows",
-                         "auto (1 on kwin, 0 otherwise)",
-                         is_kwin ? 1:0))
-      gdk_options|=2;
+    if (swell_gdk_option("gdk_owned_windows_keep_above", "auto (default is 1)",1))
+      gdk_options|=OPTION_KEEP_OWNED_ABOVE;
 
     if (swell_gdk_option("gdk_owned_windows_in_tasklist", "auto (default is 0)",0))
-      gdk_options|=4;
+      gdk_options|=OPTION_OWNED_TASKLIST;
 
     if (swell_gdk_option("gdk_borderless_are_override_redirect", "auto (default is 0)",0))
-      gdk_options|=8;
+      gdk_options|=OPTION_BORDERLESS_OVERRIDEREDIRECT;
   }
   
 }
@@ -336,16 +331,16 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
       else if (swell_initwindowsys())
       {
         init_options();
-
-        HWND owner = NULL; // hwnd->m_owner;
-// parent windows dont seem to work the way we'd want, yet, in gdk...
-/*        while (owner && !owner->m_oswindow)
+        SWELL_OSWINDOW transient_for=NULL;
+        if (hwnd->m_owner && (gdk_options&OPTION_KEEP_OWNED_ABOVE))
         {
-          if (owner->m_parent)  owner = owner->m_parent;
-          else if (owner->m_owner) owner = owner->m_owner;
+          HWND own = hwnd->m_owner;
+          while (own->m_parent && !own->m_oswindow) own=own->m_parent;
+          transient_for = own->m_oswindow;
+
+          if (!transient_for) return; // defer
         }
-*/
- 
+
         RECT r = hwnd->m_position;
         GdkWindowAttr attr={0,};
         attr.title = (char *)hwnd->m_title.Get();
@@ -359,7 +354,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
         attr.wmclass_name = (gchar*)appname;
         attr.wmclass_class = (gchar*)appname;
         attr.window_type = GDK_WINDOW_TOPLEVEL;
-        hwnd->m_oswindow = gdk_window_new(owner ? owner->m_oswindow : NULL,&attr,GDK_WA_X|GDK_WA_Y|(appname?GDK_WA_WMCLASS:0));
+        hwnd->m_oswindow = gdk_window_new(NULL,&attr,GDK_WA_X|GDK_WA_Y|(appname?GDK_WA_WMCLASS:0));
  
         if (hwnd->m_oswindow) 
         {
@@ -368,7 +363,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
-            if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_options&8))
+            if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_options&OPTION_BORDERLESS_OVERRIDEREDIRECT))
             {
               GdkWindowTypeHint type = GDK_WINDOW_TYPE_HINT_DIALOG;
               if (!hwnd->m_title.GetLength())
@@ -377,10 +372,10 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
                 else if (SWELL_topwindows==hwnd && !hwnd->m_next)
                   type = GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
               }
+              if (transient_for)
+                gdk_window_set_transient_for(hwnd->m_oswindow,transient_for);
               gdk_window_set_type_hint(hwnd->m_oswindow, type);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
-              if (hwnd->m_owner && (gdk_options&2))
-                hwnd->m_israised=true;
             }
             else
             {
@@ -396,18 +391,14 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             if (!(hwnd->m_style&WS_THICKFRAME))
               decor = (GdkWMDecoration) (GDK_DECOR_BORDER|GDK_DECOR_TITLE|GDK_DECOR_MINIMIZE);
 
-            if (modal)
+            if (transient_for)
             {
-              type_hint = GDK_WINDOW_TYPE_HINT_DIALOG;
+              gdk_window_set_transient_for(hwnd->m_oswindow,transient_for);
+              if (modal)
+                gdk_window_set_modal_hint(hwnd->m_oswindow,true);
             }
-            else if (hwnd->m_owner)
-            {
-              if (gdk_options&2)
-                hwnd->m_israised=true;
 
-              if (gdk_options&1)
-                type_hint = GDK_WINDOW_TYPE_HINT_DIALOG; 
-            }
+            if (modal) type_hint = GDK_WINDOW_TYPE_HINT_DIALOG;
 
             gdk_window_set_type_hint(hwnd->m_oswindow,type_hint);
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
@@ -424,7 +415,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             if (s_program_icon_list) 
               gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
           }
-          if (hwnd->m_owner && !(gdk_options&4) && !override_redirect)
+          if (hwnd->m_owner && !(gdk_options&OPTION_OWNED_TASKLIST) && !override_redirect)
           {
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
@@ -447,6 +438,17 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
               gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
             else 
               gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
+          }
+
+          if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
+          {
+            HWND l = SWELL_topwindows;
+            while (l)  
+            {
+              if (!l->m_oswindow && l->m_owner == hwnd && l->m_visible)
+                swell_oswindow_manage(l,false);
+              l = l->m_next;
+            }
           }
         }
       }
