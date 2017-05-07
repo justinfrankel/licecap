@@ -61,6 +61,28 @@ HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w)
   return a;
 }
 
+void swell_on_toplevel_raise(SWELL_OSWINDOW wnd) // called by swell-generic-gdk when a window is focused
+{
+  HWND hwnd = swell_oswindow_to_hwnd(wnd);
+  if (hwnd && hwnd != SWELL_topwindows)
+  {
+    // implies hwnd->m_prev
+
+    VALIDATE_HWND_LIST(SWELL_topwindows,NULL);
+
+    // remove from list
+    hwnd->m_prev->m_next = hwnd->m_next;
+    if (hwnd->m_next) hwnd->m_next->m_prev = hwnd->m_prev;
+
+    // insert at front of list
+    hwnd->m_prev = NULL;
+    hwnd->m_next = SWELL_topwindows;
+    if (SWELL_topwindows) SWELL_topwindows->m_prev = hwnd;
+    SWELL_topwindows = hwnd;
+    VALIDATE_HWND_LIST(SWELL_topwindows,NULL);
+  }
+}
+
 HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, WNDPROC wndproc, DLGPROC dlgproc, HWND ownerWindow)
 {
   m_refcnt=1;

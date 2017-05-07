@@ -1109,6 +1109,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           GdkEventFocus *fc = (GdkEventFocus *)evt;
           if (fc->in && is_our_oswindow(fc->window))
           {
+            swell_on_toplevel_raise(fc->window);
             SWELL_focused_oswindow = fc->window;
             if (swell_app_is_inactive)
             {

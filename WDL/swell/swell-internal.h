@@ -755,6 +755,8 @@ bool swell_isOSwindowmenu(SWELL_OSWINDOW osw);
 
 bool swell_is_virtkey_char(int c);
 
+void swell_on_toplevel_raise(SWELL_OSWINDOW wnd); // called by swell-generic-gdk when a window is focused
+
 HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w);
 void swell_oswindow_focus(HWND hwnd);
 void swell_oswindow_update_style(HWND hwnd, LONG oldstyle);
@@ -773,7 +775,7 @@ extern bool swell_is_likely_capslock; // only used when processing dit events fo
 extern const char *g_swell_appname;
 extern SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
 extern HWND swell_captured_window;
-extern HWND SWELL_topwindows;
+extern HWND SWELL_topwindows; // front of list = most recently active
 extern bool swell_app_is_inactive;
 
 #ifdef _DEBUG
