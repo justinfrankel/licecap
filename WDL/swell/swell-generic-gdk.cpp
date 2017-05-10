@@ -431,16 +431,9 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
           {
             if ((!hwnd->m_classname || strcmp(hwnd->m_classname,"__SWELL_MENU")) && !(gdk_options&OPTION_BORDERLESS_OVERRIDEREDIRECT))
             {
-              GdkWindowTypeHint type = GDK_WINDOW_TYPE_HINT_DIALOG;
-              if (!hwnd->m_title.GetLength())
-              {
-                if (!SWELL_topwindows || 
-                    (SWELL_topwindows==hwnd && !hwnd->m_next))
-                  type = GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
-              }
               if (transient_for)
                 gdk_window_set_transient_for(hwnd->m_oswindow,transient_for);
-              gdk_window_set_type_hint(hwnd->m_oswindow, type);
+              gdk_window_set_type_hint(hwnd->m_oswindow, GDK_WINDOW_TYPE_HINT_NORMAL);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
             }
             else
