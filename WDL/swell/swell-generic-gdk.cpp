@@ -85,6 +85,8 @@ static HWND s_clip_hwnd;
 
 static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 
+static UINT_PTR s_deactivate_timer;
+
 static void on_activate()
 {
   swell_app_is_inactive=false;
@@ -108,6 +110,25 @@ static void on_activate()
     PostMessage(h,WM_ACTIVATEAPP,1,0);
     h=h->m_next;
   }
+}
+
+static void on_deactivate()
+{
+  swell_app_is_inactive=true;
+  HWND h = SWELL_topwindows; 
+  while (h)
+  {
+    if (h->m_oswindow)
+    {
+      if (h->m_israised)
+        gdk_window_set_keep_above(h->m_oswindow,FALSE);
+      if (!h->m_enabled) 
+        gdk_window_set_accept_focus(h->m_oswindow,TRUE); // allow the user to activate app by clicking
+    }
+    PostMessage(h,WM_ACTIVATEAPP,0,0);
+    h=h->m_next;
+  }
+  DestroyPopupMenus();
 }
 
 void swell_oswindow_destroy(HWND hwnd)
@@ -1138,6 +1159,17 @@ static bool is_our_oswindow(GdkWindow *w)
 
 }
 
+static void deactivateTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
+{
+  KillTimer(NULL,s_deactivate_timer);
+  s_deactivate_timer=0;
+  if (swell_app_is_inactive) return;
+  GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
+  if (!is_our_oswindow(window))
+    on_deactivate();
+}
+
+
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
   GdkEvent *oldEvt = s_cur_evt;
@@ -1148,6 +1180,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     case GDK_FOCUS_CHANGE:
         {
           GdkEventFocus *fc = (GdkEventFocus *)evt;
+          if (s_deactivate_timer) 
+          {
+            KillTimer(NULL,s_deactivate_timer);
+            s_deactivate_timer=0;
+          }
           if (fc->in && is_our_oswindow(fc->window))
           {
             swell_on_toplevel_raise(fc->window);
@@ -1162,21 +1199,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
             if (!is_our_oswindow(window))
             {
-              swell_app_is_inactive=true;
-              HWND h = SWELL_topwindows; 
-              while (h)
-              {
-                if (h->m_oswindow)
-                {
-                  if (h->m_israised)
-                    gdk_window_set_keep_above(h->m_oswindow,FALSE);
-                  if (!h->m_enabled) 
-                    gdk_window_set_accept_focus(h->m_oswindow,TRUE); // allow the user to activate app by clicking
-                }
-                PostMessage(h,WM_ACTIVATEAPP,0,0);
-                h=h->m_next;
-              }
-              DestroyPopupMenus();
+              on_deactivate();
+            }
+            else
+            {
+              s_deactivate_timer = SetTimer(NULL,0,200,deactivateTimer);
             }
           }
         }
