@@ -87,9 +87,11 @@ static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 
 static int s_last_desktop;
 static UINT_PTR s_deactivate_timer;
+static guint32 s_force_window_time;
 
-static void on_activate()
+static void on_activate(guint32 ftime)
 {
+  s_force_window_time = ftime;
   swell_app_is_inactive=false;
   HWND h = SWELL_topwindows; 
   while (h)
@@ -112,6 +114,7 @@ static void on_activate()
     h=h->m_next;
   }
   s_last_desktop=0;
+  s_force_window_time = 0;
 }
 
 static void on_deactivate()
@@ -157,7 +160,7 @@ void swell_oswindow_destroy(HWND hwnd)
         if (h->m_oswindow) break;
         h = h->m_next;
       }
-      if (!h) on_activate();
+      if (!h) on_activate(10); // arbitrary old timestamp that is nonzero
     }
   }
 }
@@ -469,6 +472,9 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             gdk_window_set_decorations(hwnd->m_oswindow,decor);
           }
 
+          if (s_force_window_time)
+            gdk_x11_window_set_user_time(hwnd->m_oswindow,s_force_window_time);
+
           if (!wantfocus || swell_app_is_inactive)
             gdk_window_set_focus_on_map(hwnd->m_oswindow,false);
 
@@ -487,12 +493,13 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 
           if (hwnd->m_israised && !swell_app_is_inactive)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
+
           gdk_window_register_dnd(hwnd->m_oswindow);
 
           if (hwnd->m_oswindow_fullscreen)
             gdk_window_fullscreen(hwnd->m_oswindow);
 
-          if (!swell_app_is_inactive)
+          if (!swell_app_is_inactive && !s_force_window_time)
             gdk_window_show(hwnd->m_oswindow);
           else
             gdk_window_show_unraised(hwnd->m_oswindow);
@@ -1199,7 +1206,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             SWELL_focused_oswindow = fc->window;
             if (swell_app_is_inactive)
             {
-              on_activate();
+              on_activate(0);
             }
           }
           else if (!swell_app_is_inactive)
