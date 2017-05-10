@@ -85,6 +85,7 @@ static HWND s_clip_hwnd;
 
 static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 
+static int s_last_desktop;
 static UINT_PTR s_deactivate_timer;
 
 static void on_activate()
@@ -110,11 +111,15 @@ static void on_activate()
     PostMessage(h,WM_ACTIVATEAPP,1,0);
     h=h->m_next;
   }
+  s_last_desktop=0;
 }
 
 static void on_deactivate()
 {
   swell_app_is_inactive=true;
+  HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
+  s_last_desktop = lf && lf->m_oswindow ? gdk_x11_window_get_desktop(lf->m_oswindow)+1 : 0;
+
   HWND h = SWELL_topwindows; 
   while (h)
   {
@@ -491,6 +496,9 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             gdk_window_show(hwnd->m_oswindow);
           else
             gdk_window_show_unraised(hwnd->m_oswindow);
+
+          if (s_last_desktop>0)
+            gdk_x11_window_move_to_desktop(hwnd->m_oswindow,s_last_desktop-1);
 
           if (!hwnd->m_oswindow_fullscreen)
           {
