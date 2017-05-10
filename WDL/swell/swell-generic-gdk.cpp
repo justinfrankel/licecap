@@ -85,6 +85,31 @@ static HWND s_clip_hwnd;
 
 static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 
+static void on_activate()
+{
+  swell_app_is_inactive=false;
+  HWND h = SWELL_topwindows; 
+  while (h)
+  {
+    if (!h->m_oswindow && (h->m_oswindow_private&PRIVATE_NEEDWINDOW))
+    {
+      h->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
+      swell_oswindow_manage(h,false);
+    }
+    if (h->m_oswindow)
+    {
+      if (h->m_israised)
+        gdk_window_set_keep_above(h->m_oswindow,TRUE);
+
+      if (!h->m_enabled) 
+        gdk_window_set_accept_focus(h->m_oswindow,FALSE);
+    }
+
+    PostMessage(h,WM_ACTIVATEAPP,1,0);
+    h=h->m_next;
+  }
+}
+
 void swell_oswindow_destroy(HWND hwnd)
 {
   if (hwnd && hwnd->m_oswindow)
@@ -96,6 +121,18 @@ void swell_oswindow_destroy(HWND hwnd)
     delete hwnd->m_backingstore;
     hwnd->m_backingstore=0;
 #endif
+    hwnd->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
+
+    if (swell_app_is_inactive)
+    {
+      HWND h = SWELL_topwindows;
+      while (h)
+      {
+        if (h->m_oswindow) break;
+        h = h->m_next;
+      }
+      if (!h) on_activate();
+    }
   }
 }
 void swell_oswindow_update_text(HWND hwnd)
@@ -1117,27 +1154,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             SWELL_focused_oswindow = fc->window;
             if (swell_app_is_inactive)
             {
-              swell_app_is_inactive=false;
-              HWND h = SWELL_topwindows; 
-              while (h)
-              {
-                if (!h->m_oswindow && (h->m_oswindow_private&PRIVATE_NEEDWINDOW))
-                {
-                  h->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
-                  swell_oswindow_manage(h,false);
-                }
-                if (h->m_oswindow)
-                {
-                  if (h->m_israised)
-                    gdk_window_set_keep_above(h->m_oswindow,TRUE);
-
-                  if (!h->m_enabled) 
-                    gdk_window_set_accept_focus(h->m_oswindow,FALSE);
-                }
-
-                PostMessage(h,WM_ACTIVATEAPP,1,0);
-                h=h->m_next;
-              }
+              on_activate();
             }
           }
           else if (!swell_app_is_inactive)
