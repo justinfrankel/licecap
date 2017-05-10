@@ -368,8 +368,8 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
               GdkWindowTypeHint type = GDK_WINDOW_TYPE_HINT_DIALOG;
               if (!hwnd->m_title.GetLength())
               {
-                if (!SWELL_topwindows) type = GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
-                else if (SWELL_topwindows==hwnd && !hwnd->m_next)
+                if (!SWELL_topwindows || 
+                    (SWELL_topwindows==hwnd && !hwnd->m_next))
                   type = GDK_WINDOW_TYPE_HINT_SPLASHSCREEN;
               }
               if (transient_for)
@@ -382,6 +382,8 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
               gdk_window_set_override_redirect(hwnd->m_oswindow,true);
               override_redirect=true;
             }
+            if (!SWELL_topwindows || 
+                (SWELL_topwindows==hwnd && !hwnd->m_next)) wantfocus=true;
           }
           else 
           {
