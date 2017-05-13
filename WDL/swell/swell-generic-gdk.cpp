@@ -390,7 +390,8 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
     }
     else 
     {
-      if (swell_app_is_inactive) 
+      const bool modal = DialogBoxIsActive() == hwnd;
+      if (swell_app_is_inactive && !modal) 
       {
         hwnd->m_oswindow_private |= PRIVATE_NEEDWINDOW;
       }
@@ -424,7 +425,6 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
  
         if (hwnd->m_oswindow) 
         {
-          const bool modal = DialogBoxIsActive() == hwnd;
           bool override_redirect=false;
 
           if (!(hwnd->m_style & WS_CAPTION)) 
