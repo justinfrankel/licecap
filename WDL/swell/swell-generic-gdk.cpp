@@ -41,8 +41,6 @@
 
 // for m_oswindow_private
 #define PRIVATE_NEEDSHOW 1 
-#define PRIVATE_NEEDWINDOW 2
-
 
 #ifndef SWELL_WINDOWSKEY_GDK_MASK
 #define  SWELL_WINDOWSKEY_GDK_MASK GDK_MOD4_MASK
@@ -96,11 +94,6 @@ static void on_activate(guint32 ftime)
   HWND h = SWELL_topwindows; 
   while (h)
   {
-    if (!h->m_oswindow && (h->m_oswindow_private&PRIVATE_NEEDWINDOW))
-    {
-      h->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
-      swell_oswindow_manage(h,false);
-    }
     if (h->m_oswindow)
     {
       if (h->m_israised)
@@ -150,7 +143,6 @@ void swell_oswindow_destroy(HWND hwnd)
     delete hwnd->m_backingstore;
     hwnd->m_backingstore=0;
 #endif
-    hwnd->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
 
     if (swell_app_is_inactive)
     {
@@ -374,13 +366,11 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 {
   if (!hwnd) return;
 
-  bool isVis = hwnd->m_oswindow || (hwnd->m_oswindow_private & PRIVATE_NEEDWINDOW);
+  bool isVis = hwnd->m_oswindow != NULL;
   bool wantVis = !hwnd->m_parent && hwnd->m_visible;
 
   if (isVis != wantVis)
   {
-    hwnd->m_oswindow_private &= ~PRIVATE_NEEDWINDOW;
-
     if (!wantVis) 
     {
       RECT r;
@@ -390,12 +380,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
     }
     else 
     {
-      const bool modal = DialogBoxIsActive() == hwnd;
-      if (swell_app_is_inactive && !modal) 
-      {
-        hwnd->m_oswindow_private |= PRIVATE_NEEDWINDOW;
-      }
-      else if (swell_initwindowsys())
+      if (swell_initwindowsys())
       {
         init_options();
         SWELL_OSWINDOW transient_for=NULL;
@@ -426,6 +411,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
         if (hwnd->m_oswindow) 
         {
           bool override_redirect=false;
+          const bool modal = DialogBoxIsActive() == hwnd;
 
           if (!(hwnd->m_style & WS_CAPTION)) 
           {
