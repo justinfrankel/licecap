@@ -474,7 +474,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 #ifdef SWELL_LICE_GDI
           if (!hwnd->m_backingstore) hwnd->m_backingstore = new LICE_CairoBitmap;
 #endif
-          if (hwnd->m_style & WS_CAPTION)
+          if (!override_redirect)
           {
             if (s_program_icon_list) 
               gdk_window_set_icon_list(hwnd->m_oswindow,s_program_icon_list);
