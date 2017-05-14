@@ -1991,6 +1991,36 @@ struct __SWELL_editControlState
 
 };
 
+static bool is_word_char(char c)
+{
+  return c<0/*all utf-8 chars are word chars*/ || isalnum(c) || c == '_';
+}
+
+static int scanWord(const char *buf, int bytepos, int dir)
+{
+  if (dir < 0 && !bytepos) return 0;
+  if (dir > 0 && !buf[bytepos]) return bytepos;
+
+  if (!buf[bytepos] && bytepos > 0) bytepos--;
+
+  const unsigned char *bytebuf = (const unsigned char*) buf;
+  if (dir < 0)
+  {
+    const bool cc = is_word_char(buf[--bytepos]);
+    while (bytepos > 0 && is_word_char(buf[bytepos-1]) == cc) bytepos--;
+    while (bytepos > 0 && bytebuf[bytepos] >= 0x80 && bytebuf[bytepos] < 0xC0) bytepos--; // skip any UTF-8 continuation bytes
+  }
+  else
+  {
+    const bool cc = is_word_char(buf[bytepos]);
+    while (buf[bytepos+1] && is_word_char(buf[bytepos+1]) == cc) bytepos++;
+    bytepos++;
+    while (bytebuf[bytepos] >= 0x80 && bytebuf[bytepos] < 0xC0) bytepos++; // skip any UTF-8 continuation bytes
+  }
+
+  return bytepos;
+}
+
 static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
     bool wantReturn, bool isMultiLine, __SWELL_editControlState *es)
 {
@@ -2054,35 +2084,38 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
         return 2;
       }
     }
-    return 0;
+    if (lParam & (FALT | FLWIN)) return 0;
   }
-  if ((lParam & FVIRTKEY) && wParam == VK_TAB) return 0; // pass through to window
-
-  const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;
-  if (wParam >= 32 && (!(lParam & FVIRTKEY) || swell_is_virtkey_char((int)wParam) || is_numpad))
+  else
   {
-    if (lParam & FVIRTKEY)
+    if ((lParam & FVIRTKEY) && wParam == VK_TAB) return 0; // pass through to window
+
+    const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;
+    if (wParam >= 32 && (!(lParam & FVIRTKEY) || swell_is_virtkey_char((int)wParam) || is_numpad))
     {
-      if (wParam >= 'A' && wParam <= 'Z')
+      if (lParam & FVIRTKEY)
       {
-        if ((lParam&FSHIFT) ^ (swell_is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
+        if (wParam >= 'A' && wParam <= 'Z')
+        {
+          if ((lParam&FSHIFT) ^ (swell_is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
+        }
+        else if (is_numpad)
+        {
+          if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
+          else wParam += '*' - VK_MULTIPLY;
+        }
       }
-      else if (is_numpad)
-      {
-        if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
-        else wParam += '*' - VK_MULTIPLY;
-      }
+
+      if (hwnd->m_style & ES_READONLY) return 1;
+
+      char b[8];
+      WDL_MakeUTFChar(b,wParam,sizeof(b));
+      es->deleteSelection(&hwnd->m_title);
+      int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
+      hwnd->m_title.Insert(b,bytepos);
+      es->cursor_pos++;
+      return 7;
     }
-
-    if (hwnd->m_style & ES_READONLY) return 1;
-
-    char b[8];
-    WDL_MakeUTFChar(b,wParam,sizeof(b));
-    es->deleteSelection(&hwnd->m_title);
-    int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos);
-    hwnd->m_title.Insert(b,bytepos);
-    es->cursor_pos++;
-    return 7;
   }
 
   if (es && (lParam & FVIRTKEY)) switch (wParam)
@@ -2162,10 +2195,17 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
         int cp = es->cursor_pos;
         if (cp > 0) 
         {
-          cp--;
           const char *buf=hwnd->m_title.Get();
-          const int p = WDL_utf8_charpos_to_bytepos(buf,cp);
-          if (cp > 0 && p > 0 && buf[p] == '\n' && buf[p-1] == '\r') cp--;
+          if (lParam & FCONTROL)
+          {
+            cp = WDL_utf8_bytepos_to_charpos(buf,
+                scanWord(buf,WDL_utf8_charpos_to_bytepos(buf,cp),-1));
+          }
+          else
+          {
+            const int p = WDL_utf8_charpos_to_bytepos(buf,--cp);
+            if (cp > 0 && p > 0 && buf[p] == '\n' && buf[p-1] == '\r') cp--;
+          }
         }
         es->moveCursor(cp);
       }
@@ -2178,8 +2218,12 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
           const char *buf=hwnd->m_title.Get();
           const int p = WDL_utf8_charpos_to_bytepos(buf,cp);
 
-          if (buf[p] == '\r' && buf[p+1] == '\n') cp+=2;
-          else cp++;
+          if (lParam & FCONTROL)
+            cp = WDL_utf8_bytepos_to_charpos(buf,scanWord(buf,p,1));
+          else if (buf[p] == '\r' && buf[p+1] == '\n') 
+            cp+=2;
+          else
+            cp++;
         }
         es->moveCursor(cp);
       }
