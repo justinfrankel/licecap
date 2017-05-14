@@ -38,6 +38,52 @@
   #include <X11/extensions/XInput2.h>
 #endif
 
+#ifndef GDK_AVAILABLE_IN_3_10
+
+#include <X11/Xatom.h>
+
+static guint32 gdk_x11_window_get_desktop(GdkWindow *window)
+{
+  Atom type;
+  gint format;
+  gulong nitems=0, bytes_after; 
+  guchar *data;
+
+  if (!window || !gdk_x11_screen_supports_net_wm_hint(gdk_window_get_screen(window), 
+                                           gdk_atom_intern_static_string("_NET_WM_DESKTOP"))) 
+    return 0;
+
+  XGetWindowProperty(GDK_WINDOW_XDISPLAY(window), GDK_WINDOW_XID(window), 
+      gdk_x11_get_xatom_by_name_for_display(gdk_window_get_display(window), "_NET_WM_DESKTOP"),
+                        0, G_MAXLONG, false, XA_CARDINAL, &type, &format, &nitems, &bytes_after, &data);
+  if (type != XA_CARDINAL || nitems<1) return 0;
+  nitems = *(gulong *)data;
+  XFree(data);
+  return (guint32) nitems;
+}
+
+static void gdk_x11_window_move_to_desktop(GdkWindow *window, guint32 desktop)
+{
+  XClientMessageEvent xclient;
+
+  if (!window || !gdk_x11_screen_supports_net_wm_hint(gdk_window_get_screen(window), 
+                                           gdk_atom_intern_static_string("_NET_WM_DESKTOP"))) 
+    return;
+
+  memset (&xclient, 0, sizeof (xclient));
+  xclient.type = ClientMessage;
+  xclient.send_event = true;
+  xclient.window = GDK_WINDOW_XID(window);
+  xclient.message_type = gdk_x11_get_xatom_by_name_for_display(gdk_window_get_display(window), "_NET_WM_DESKTOP");
+  xclient.format = 32;
+  xclient.data.l[0] = desktop;
+  xclient.data.l[1] = 1;
+
+  XSendEvent(GDK_WINDOW_XDISPLAY(window), gdk_x11_get_default_root_xwindow(), false,
+            SubstructureRedirectMask | SubstructureNotifyMask, (XEvent *)&xclient);
+}
+
+#endif
 
 // for m_oswindow_private
 #define PRIVATE_NEEDSHOW 1 
