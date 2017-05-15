@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -DWDL_FFT_REALSIZE=8  -Wall -Wno-unused-function -Wno-multichar
+CFLAGS=-g -DWDL_FFT_REALSIZE=8  -Wall -Wno-unused-function -Wno-multichar -Wno-unused-result
 LFLAGS=
 CXX=g++
 
@@ -9,7 +9,7 @@ else
 CFLAGS += -DNDEBUG -O
 endif
 
-OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o  ../fft.o
+OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o fft.o
 
 OBJS2=
 
@@ -47,6 +47,10 @@ nseel-cfunc.o:  asm*.c ns-eel*.h
 loose_eel.o: eel*.h ns-eel*.h
 nseel-*.o: ns-eel*.h
 
+vpath %.cpp ../lice ../swell
+vpath %.mm ../swell
+vpath %.c ../
+
 ifdef MAXLOOP
   CFLAGS += -DNSEEL_LOOPFUNC_SUPPORT_MAXLEN=$(MAXLOOP)
 else
@@ -54,12 +58,12 @@ else
 endif
 
 ifndef NO_GFX
-    OBJS += ../lice/lice.o ../lice/lice_image.o ../lice/lice_line.o ../lice/lice_ico.o ../lice/lice_bmp.o ../lice/lice_textnew.o ../lice/lice_text.o ../lice/lice_arc.o
+    OBJS += lice.o lice_image.o lice_line.o lice_ico.o lice_bmp.o lice_textnew.o lice_text.o lice_arc.o
     CFLAGS += -DEEL_LICE_WANT_STANDALONE 
 
   ifeq ($(UNAME_S),Darwin)
     CFLAGS += -mmacosx-version-min=10.5
-    OBJS += ../swell/swell-wnd.o ../swell/swell-gdi.o ../swell/swell.o ../swell/swell-misc.o ../swell/swell-dlg.o ../swell/swell-menu.o ../swell/swell-kb.o
+    OBJS += swell-wnd.o swell-gdi.o swell.o swell-misc.o swell-dlg.o swell-menu.o swell-kb.o
     LFLAGS += -lobjc -framework Cocoa -framework Carbon
   else
 
@@ -76,11 +80,9 @@ ifndef NO_GFX
       LFLAGS += $(shell freetype-config --libs)
     endif
 
-    OBJS += ../swell/swell-wnd-generic.o ../swell/swell-gdi-lice.o \
-            ../swell/swell.o ../swell/swell-misc-generic.o \
-            ../swell/swell-dlg-generic.o ../swell/swell-menu-generic.o \
-            ../swell/swell-kb-generic.o ../swell/swell-gdi-generic.o \
-            ../swell/swell-ini.o ../swell/swell-generic-gdk.o
+    OBJS += swell-wnd-generic.o swell-gdi-lice.o swell.o swell-misc-generic.o \
+            swell-dlg-generic.o swell-menu-generic.o swell-kb-generic.o \
+            swell-gdi-generic.o swell-ini.o swell-generic-gdk.o
 
     LFLAGS += -ldl
   endif
@@ -115,4 +117,4 @@ loose_eel: loose_eel.o $(OBJS) $(OBJS2)
 	g++ -o $@ $^ $(CXXFLAGS) $(LFLAGS)
 
 clean:
-	-rm loose_eel.o $(OBJS)
+	-rm loose_eel loose_eel.o $(OBJS)
