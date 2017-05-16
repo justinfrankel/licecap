@@ -515,8 +515,10 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
           {
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
-          else if (hwnd->m_classname && !strcmp(hwnd->m_classname,"__SWELL_FOCUSRECT"))
+          else if (hwnd->m_style == WS_CHILD) 
           {
+            // hack: parentless visible window with WS_CHILD set will 
+            // not appear in taskbar
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
 

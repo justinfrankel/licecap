@@ -7356,8 +7356,7 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
     if (!h)
     {
       h = new HWND__(hwndPar,0,rct,"",false,focusRectWndProc);
-      h->m_classname = "__SWELL_FOCUSRECT";
-      h->m_style = hwndPar ? WS_CHILD : 0;
+      h->m_style = WS_CHILD; // using this for top-level will also keep it out of the window list
       h->Retain();
       *handle = h;
       ShowWindow(h,SW_SHOW);
