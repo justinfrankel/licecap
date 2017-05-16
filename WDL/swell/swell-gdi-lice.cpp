@@ -1471,12 +1471,12 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
   if (forceref || hwnd->m_child_invalidated)
   {
     HWND h = hwnd->m_children;
-    while (h && h->m_next) h=h->m_next;
-    while (h)  // go through list backwards (first in list = top of Z order)
+    while (h) 
     {
       if (h->m_visible && (forceref || h->m_invalidated||h->m_child_invalidated))
       {
-        int width = h->m_position.right - h->m_position.left, height = h->m_position.bottom - h->m_position.top; // max width possible for this window
+        int width = h->m_position.right - h->m_position.left, 
+            height = h->m_position.bottom - h->m_position.top; // max width possible for this window
         int xp = h->m_position.left - bmout_xpos, yp = h->m_position.top - bmout_ypos;
 
         if (okToClearChild && !forceref)
@@ -1497,7 +1497,7 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
         if (subbm.getWidth()>0 && subbm.getHeight()>0)
           SWELL_internalLICEpaint(h,&subbm,-xp,-yp,forceref);
       }
-      h = h->m_prev;
+      h = h->m_next;
     }
   }
   if (okToClearChild) hwnd->m_child_invalidated=false;
