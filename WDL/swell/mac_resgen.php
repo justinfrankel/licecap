@@ -82,7 +82,11 @@ function swell_rc2cpp_dialog($fp) // returns array with ["data"] and optionally 
   $retstr = "";
 
   $retstr .= '#ifndef SWELL_DLG_SCALE_AUTOGEN' . "\n";
-  $retstr .= '#define SWELL_DLG_SCALE_AUTOGEN 1.7' . "\n";
+  $retstr .= '#ifdef __APPLE__' . "\n";
+  $retstr .= '  #define SWELL_DLG_SCALE_AUTOGEN 1.7' . "\n";
+  $retstr .= '#else' . "\n";
+  $retstr .= '  #define SWELL_DLG_SCALE_AUTOGEN 1.8' . "\n";
+  $retstr .= '#endif' . "\n";
   $retstr .= '#endif' . "\n";
   $retstr .= '#ifndef SWELL_DLG_FLAGS_AUTOGEN' . "\n";
   $retstr .= '#define SWELL_DLG_FLAGS_AUTOGEN SWELL_DLG_WS_FLIPPED|SWELL_DLG_WS_NOAUTOSIZE' . "\n";
