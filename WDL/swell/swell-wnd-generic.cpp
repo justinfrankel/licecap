@@ -7307,6 +7307,34 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
 
 
 
+static LRESULT WINAPI focusRectWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r;
+          GetClientRect(hwnd,&r);
+          HBRUSH br = CreateSolidBrushAlpha(g_swell_ctheme.focusrect,0.5f);
+          HPEN pen = CreatePen(0,PS_SOLID,g_swell_ctheme.focusrect);
+          HGDIOBJ oldbr = SelectObject(ps.hdc,br);
+          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
+          Rectangle(ps.hdc,0,0,r.right,r.bottom);
+          SelectObject(ps.hdc,oldbr);
+          SelectObject(ps.hdc,oldpen);
+          DeleteObject(br);
+          DeleteObject(pen);
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+
+  }
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
 
 // r=NULL to "free" handle
 // otherwise r is in hwndPar coordinates
@@ -7314,44 +7342,39 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
 {
   if (!handle) return;
 
-  if (!rct)
+  HWND h = (HWND) *handle;
+  if (h && (!rct || h->m_parent != hwndPar))
   {
-    if (*handle)
-    {
-      InvalidateRect(hwndPar,NULL,FALSE);
-      *handle = NULL;
-    }
+    DestroyWindow(h);
+    h->Release();
+    *handle = NULL;
+    h = NULL;
   }
-  else
+
+  if (rct)
   {
-    if (*handle) 
+    if (!h)
     {
-      InvalidateRect(hwndPar,NULL,FALSE);
-      UpdateWindow(hwndPar);
+      h = new HWND__(hwndPar,0,rct,"",true,focusRectWndProc);
+      h->m_classname = "__SWELL_FOCUSRECT";
+      h->m_style = WS_CHILD;
+      h->Retain();
+      *handle = h;
+      ShowWindow(h,SW_SHOW);
     }
-    *handle = (void *)(INT_PTR)1;
-
-    HDC hdc = GetDC(hwndPar);
-    if (hdc)
-    {
-      HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.focusrect);
-      HGDIOBJ oldpen = SelectObject(hdc,pen);
-
-      MoveToEx(hdc,rct->left,rct->top,NULL);
-      LineTo(hdc,rct->right,rct->top);
-      LineTo(hdc,rct->right,rct->bottom);
-      LineTo(hdc,rct->left,rct->bottom);
-      LineTo(hdc,rct->left,rct->top);
-
-      SelectObject(hdc,oldpen);
-      ReleaseDC(hwndPar,hdc);
-    }
+    SetWindowPos(h,HWND_TOP,rct->left,rct->top,rct->right-rct->left,rct->bottom-rct->top,SWP_NOACTIVATE);
+    InvalidateRect(h,NULL,FALSE);
   }
+
+  if (hwndPar)
+  {
+    InvalidateRect(hwndPar,NULL,FALSE);
+    UpdateWindow(hwndPar);
+  } 
 }
 
 void SWELL_BroadcastMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-
   HWND h = SWELL_topwindows;
   while (h) 
   { 
