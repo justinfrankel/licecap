@@ -472,7 +472,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
-          Rectangle(ps.hdc,cr.left,cr.top,cr.right-1,cr.bottom-1);
+          Rectangle(ps.hdc,cr.left,cr.top,cr.right,cr.bottom);
           SetBkMode(ps.hdc,TRANSPARENT);
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int x;

@@ -624,7 +624,8 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   }
   if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid >= 0)
   {
-    LICE_DrawRect(c->surface,l,t,r-l,b-t,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY);
+    if (r>l+1 && b>t+1)
+      LICE_DrawRect(c->surface,l,t,r-l-1,b-t-1,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY);
   }
 }
 
