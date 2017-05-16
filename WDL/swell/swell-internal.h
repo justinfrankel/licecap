@@ -670,6 +670,7 @@ struct HWND__
   int m_oswindow_private; // private state for generic-gtk or whatever
 
   HMENU m_menu;
+  HFONT m_font;
 
   WDL_StringKeyedArray<void *> m_props;
 

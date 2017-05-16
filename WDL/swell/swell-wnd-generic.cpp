@@ -110,6 +110,7 @@ HWND__::HWND__(HWND par, int wID, RECT *wndr, const char *label, bool visible, W
      m_enabled=true;
      m_wantfocus=true;
      m_menu=NULL;
+     m_font=NULL;
      m_oswindow = NULL;
 
 #ifdef SWELL_LICE_GDI
@@ -6580,7 +6581,12 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_SETCURSOR:
         return hwnd->m_parent ? SendMessage(hwnd->m_parent,msg,wParam,lParam) : 0;
 
+    case WM_SETFONT:
+      hwnd->m_font = (HFONT)wParam;
+    return 0;
+
     case WM_GETFONT:
+        if (hwnd->m_font) return (LRESULT) hwnd->m_font;
 #ifdef SWELL_FREETYPE
         {
           HFONT SWELL_GetDefaultFont();

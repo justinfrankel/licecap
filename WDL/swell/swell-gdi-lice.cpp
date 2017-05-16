@@ -1328,6 +1328,7 @@ HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
   p->clipr.top=yoffs;
   p->clipr.right=xoffs + p->ctx.surface->getWidth();
   p->clipr.bottom=yoffs + p->ctx.surface->getHeight();
+  p->ctx.curfont = starth->m_font;
 
   return (HDC)p;
 }
@@ -1458,6 +1459,7 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
     {
       if (hwnd->m_wndproc && ctx.clipr.right > ctx.clipr.left && ctx.clipr.bottom > ctx.clipr.top) 
       {
+        ctx.ctx.curfont = hwnd->m_font;
         hwnd->m_wndproc(hwnd,WM_PAINT,(WPARAM)&ctx,0);
       }
 
