@@ -515,6 +515,10 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
           {
             gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
           }
+          else if (hwnd->m_classname && !strcmp(hwnd->m_classname,"__SWELL_FOCUSRECT"))
+          {
+            gdk_window_set_skip_taskbar_hint(hwnd->m_oswindow,true);
+          }
 
           if (hwnd->m_israised && !swell_app_is_inactive)
             gdk_window_set_keep_above(hwnd->m_oswindow,TRUE);
