@@ -1522,14 +1522,7 @@ fakeButtonClick:
     case WM_USER+100:
     case WM_CAPTURECHANGED:
     case WM_SETTEXT:
-      {
-        int sf = (hwnd->m_style & 0xf);
-        if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
-        {
-          InvalidateRect(hwnd,NULL,TRUE);
-        }
-        else InvalidateRect(hwnd,NULL,FALSE);
-      }
+      InvalidateRect(hwnd,NULL,FALSE);
     break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -3029,7 +3022,7 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
       }
     return 0;
     case WM_SETTEXT:
-       InvalidateRect(hwnd,NULL,TRUE);
+       InvalidateRect(hwnd,NULL,FALSE);
     break;
     case WM_LBUTTONDOWN:
     case WM_LBUTTONDBLCLK:
