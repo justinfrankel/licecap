@@ -1031,10 +1031,30 @@ static void OnButtonEvent(GdkEventButton *b)
     SWELL_focused_oswindow = hwnd->m_oswindow;
   }
 
-  if(b->type == GDK_BUTTON_RELEASE) msg++; // move from down to up
-  else if(b->type == GDK_2BUTTON_PRESS) msg+=2; // move from down to up
-
   if (hwnd2) hwnd2->Retain();
+
+  // for doubleclicks, GDK actually seems to send:
+  //   GDK_BUTTON_PRESS, GDK_BUTTON_RELEASE, 
+  //   GDK_BUTTON_PRESS, GDK_2BUTTON_PRESS, GDK_BUTTON_RELEASE
+  // win32 expects:
+  //   WM_LBUTTONDOWN, WM_LBUTTONUP, WM_LBUTTONDBLCLK, WM_LBUTTONUP
+  // what we send:
+  //   WM_LBUTTONDOWN, WM_LBUTTONUP, WM_LBUTTONDOWN, WM_LBUTTONUP, 
+  //   WM_LBUTTONDBLCLK, WM_LBUTTONUP
+  // there is an extra down/up pair, but it should behave fine with most code
+  // (one hopes)
+
+  if(b->type == GDK_BUTTON_RELEASE)
+  {
+   msg++; // convert WM_xBUTTONDOWN to WM_xBUTTONUP
+  }
+  else if(b->type == GDK_2BUTTON_PRESS) 
+  {
+    msg++; // convert WM_xBUTTONDOWN to WM_xBUTTONUP
+    SendMouseMessage(hwnd2, msg, 0, MAKELPARAM(p2.x, p2.y));
+    msg++; // convert WM_xBUTTONUP to WM_xBUTTONDBLCLK
+  }
+
   SendMouseMessage(hwnd2, msg, 0, MAKELPARAM(p2.x, p2.y));
   if (hwnd2) hwnd2->Release();
 }
