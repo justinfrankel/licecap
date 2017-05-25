@@ -4253,10 +4253,10 @@ forceMouseMove:
                     HICON icon = lvs->m_status_imagelist->Get(image_idx-1);      
                     if (icon)
                     {
-                      if (!has_status_image)
-                        ar.right = ar.left + wdl_min(row_height,cols[col].xwid);
-                      else 
+                      if (has_status_image || col >= ncols)
                         ar.right = ar.left + row_height;
+                      else
+                        ar.right = ar.left + wdl_min(row_height,cols[col].xwid);
                       DrawImageInRect(ps.hdc,icon,&ar);
                     }
                   }
@@ -4287,6 +4287,8 @@ forceMouseMove:
                     ar.right = ar.left + cols[col].xwid - 3;
                     xpos += cols[col].xwid;
                   }
+                  else ar.right = cr.right;
+
                   if (ar.right > ar.left)
                     DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
                 }
@@ -5548,7 +5550,10 @@ int ListView_InsertItem(HWND h, const LVITEM *item)
 void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
-  if (!lvs || lvs->IsOwnerData() || cpos < 0 || cpos >= 32) return;
+  if (!lvs || lvs->IsOwnerData() || cpos < 0) return;
+  const int ncol = wdl_max(lvs->m_cols.GetSize(),1);
+  if (cpos >= ncol) return;
+
   SWELL_ListView_Row *row=lvs->m_data.Get(ipos);
   if (!row) return;
   while (row->m_vals.GetSize()<=cpos) row->m_vals.Add(NULL);
@@ -5587,11 +5592,16 @@ bool ListView_SetItem(HWND h, LVITEM *item)
   {
     SWELL_ListView_Row *row=lvs->m_data.Get(item->iItem);
     if (!row) return false;
-    while (row->m_vals.GetSize()<=item->iSubItem) row->m_vals.Add(NULL);
-    if (item->mask&LVIF_TEXT) 
+
+    const int ncol = wdl_max(lvs->m_cols.GetSize(),1);
+    if (item->iSubItem >= 0 && item->iSubItem < ncol)
     {
-      free(row->m_vals.Get(item->iSubItem));
-      row->m_vals.Set(item->iSubItem,item->pszText?strdup(item->pszText):NULL);
+      while (row->m_vals.GetSize()<=item->iSubItem) row->m_vals.Add(NULL);
+      if (item->mask&LVIF_TEXT) 
+      {
+        free(row->m_vals.Get(item->iSubItem));
+        row->m_vals.Set(item->iSubItem,item->pszText?strdup(item->pszText):NULL);
+      }
     }
     if (item->mask & LVIF_PARAM) 
     {
