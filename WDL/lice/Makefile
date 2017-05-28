@@ -8,7 +8,7 @@ CXXFLAGS=$(CFLAGS)
 vpath %.c $(WDL_PATH)/zlib $(WDL_PATH)/libpng $(WDL_PATH)/jpeglib  $(WDL_PATH)/giflib
 vpath %.cpp test/
 
-ZLIB_OBJS = compress.o adler32.o crc32.o deflate.o gzio.o infback.o inffast.o inflate.o inftrees.o trees.o uncompr.o zutil.o unzip.o ioapi.o zip.o unzip.o
+ZLIB_OBJS = compress.o adler32.o crc32.o deflate.o infback.o inffast.o inflate.o inftrees.o trees.o uncompr.o zutil.o unzip.o ioapi.o zip.o unzip.o
 
 PNGLIB_OBJS = png.o pngerror.o pngget.o pngmem.o pngpread.o pngread.o pngrio.o pngrtran.o pngrutil.o pngset.o pngtrans.o 
 
