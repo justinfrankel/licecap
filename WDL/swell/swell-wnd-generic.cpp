@@ -2984,14 +2984,13 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           RECT r; 
           GetClientRect(hwnd,&r); 
 
-          SetBkColor(ps.hdc,g_swell_ctheme._3dface);
-          HBRUSH hbrush = (HBRUSH) SendMessage(GetParent(hwnd),WM_CTLCOLORSTATIC,(WPARAM)ps.hdc,(LPARAM)hwnd);
-          if (hbrush == (HBRUSH)(INT_PTR)1) hbrush = NULL;
+          paintDialogBackground(hwnd,&r,ps.hdc);
+
           SetTextColor(ps.hdc,
              hwnd->m_enabled ? g_swell_ctheme.label_text : 
                g_swell_ctheme.label_text_disabled);
-          SetBkMode(ps.hdc,hbrush ? TRANSPARENT : OPAQUE);
-          if (hbrush) FillRect(ps.hdc,&r,hbrush);
+          SetBkMode(ps.hdc,TRANSPARENT);
+
           const char *buf = hwnd->m_title.Get();
           if (buf && buf[0]) 
           {
