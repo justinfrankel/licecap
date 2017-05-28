@@ -7,7 +7,7 @@
 
 
 #ifndef _WIN32
-#include "../SWELL/swell.h"
+#include "../swell/swell.h"
 #endif
 #include "lice.h"
 #include "lice_text.h"
