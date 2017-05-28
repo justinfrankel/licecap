@@ -1,12 +1,12 @@
 CFLAGS=-O2 -s -D_LICE_NO_SYSBITMAPS_
 CC=gcc
 CXX=g++
-WDL_PATH=..
+WDL_PATH=../..
 
 CXXFLAGS=$(CFLAGS)
 
 vpath %.c $(WDL_PATH)/zlib $(WDL_PATH)/libpng $(WDL_PATH)/jpeglib  $(WDL_PATH)/giflib
-vpath %.cpp test/
+vpath %.cpp $(WDL_PATH)/lice
 
 ZLIB_OBJS = compress.o adler32.o crc32.o deflate.o infback.o inffast.o inflate.o inftrees.o trees.o uncompr.o zutil.o unzip.o ioapi.o zip.o unzip.o
 
