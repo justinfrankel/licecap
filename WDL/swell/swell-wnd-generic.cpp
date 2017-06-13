@@ -5566,14 +5566,7 @@ int ListView_GetNextItem(HWND h, int istart, int flags)
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return -1;
   const int n = lvs->GetNumItems();
-  int x;
-  if (istart < 0) istart=-1;
-  for (x=istart+1; x < n; x ++) 
-  {
-    if (flags&LVNI_SELECTED) if (lvs->get_sel(x)) return x;
-    if (flags&LVNI_FOCUSED) if (lvs->m_selitem==x) return x;
-  }
-  for (x=0;x<istart; x++) 
+  for (int x = wdl_max(0,istart+1); x < n; x ++)
   {
     if (flags&LVNI_SELECTED) if (lvs->get_sel(x)) return x;
     if (flags&LVNI_FOCUSED) if (lvs->m_selitem==x) return x;
