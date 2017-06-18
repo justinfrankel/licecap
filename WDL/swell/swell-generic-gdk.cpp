@@ -266,6 +266,9 @@ void SWELL_initargs(int *argc, char ***argv)
   {
    // maybe make the main app call this with real parms
     XInitThreads();
+#if SWELL_TARGET_GDK == 3
+    gdk_set_allowed_backends("x11");
+#endif
     SWELL_gdk_active = gdk_init_check(argc,argv) ? 1 : -1;
     if (SWELL_gdk_active > 0)
     {
