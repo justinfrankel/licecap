@@ -63,17 +63,29 @@ OBJS = $(SWELL_OBJS)
 ifndef NOGDK
   ifdef GDK2
     CFLAGS += -DSWELL_TARGET_GDK=2 $(shell pkg-config --cflags gdk-2.0)
-    LINKEXTRA += $(shell pkg-config --libs gdk-2.0)
+    ifndef PRELOAD_GDK
+      LINKEXTRA += $(shell pkg-config --libs gdk-2.0)
+    else
+      LINKEXTRA += -lX11 -lXi
+      CFLAGS += -DSWELL_PRELOAD="libgdk-x11-2.0.so"
+    endif
   else
     CFLAGS += -DSWELL_TARGET_GDK=3 $(shell pkg-config --cflags gdk-3.0)
-    LINKEXTRA += $(shell pkg-config --libs gdk-3.0)
+    ifndef PRELOAD_GDK
+      LINKEXTRA += $(shell pkg-config --libs gdk-3.0)
+    else
+      LINKEXTRA += -lX11 -lXi
+      CFLAGS += -DSWELL_PRELOAD="libgdk-3.so"
+    endif
   endif
   CFLAGS += -DSWELL_LICE_GDI
   OBJS += $(LICE_OBJS)
 
   ifndef NOFREETYPE
     CFLAGS += -DSWELL_FREETYPE $(shell freetype-config --cflags)
-    LINKEXTRA += $(shell freetype-config --libs)
+    ifndef PRELOAD_GDK
+      LINKEXTRA += $(shell freetype-config --libs)
+    endif
   endif
 endif
 

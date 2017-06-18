@@ -79,6 +79,10 @@ public:
       printf("Error loading '%s': %s\n",fn,dlerror());
       exit(2);
     }
+    const char *preload_fn = (const char *)dlsym(tmp,"SWELL_WANT_LOAD_LIBRARY");
+    if (preload_fn && *preload_fn)
+      dlopen(preload_fn,RTLD_LAZY|RTLD_GLOBAL);
+
 #else
     void *tmp = dlopen(NULL,RTLD_LAZY);
 #endif

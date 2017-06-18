@@ -25,6 +25,16 @@
 
 #include "swell.h"
 
+#ifdef SWELL_PRELOAD
+#define STR(x) #x
+#define STR2(x) STR(x)
+extern "C" {
+  char __attribute__ ((visibility ("default"))) SWELL_WANT_LOAD_LIBRARY[] = STR2(SWELL_PRELOAD);
+};
+#undef STR
+#undef STR2
+#endif
+
 #ifdef SWELL_TARGET_GDK
 
 #include "swell-internal.h"
