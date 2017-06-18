@@ -38,11 +38,11 @@
   #include <X11/extensions/XInput2.h>
 #endif
 
-#ifndef GDK_AVAILABLE_IN_3_10
-
 #include <X11/Xatom.h>
 
-static guint32 gdk_x11_window_get_desktop(GdkWindow *window)
+static void (*_gdk_drag_drop_done)(GdkDragContext *, gboolean); // may not always be available
+
+static guint32 _gdk_x11_window_get_desktop(GdkWindow *window)
 {
   Atom type;
   gint format;
@@ -62,7 +62,7 @@ static guint32 gdk_x11_window_get_desktop(GdkWindow *window)
   return (guint32) nitems;
 }
 
-static void gdk_x11_window_move_to_desktop(GdkWindow *window, guint32 desktop)
+static void _gdk_x11_window_move_to_desktop(GdkWindow *window, guint32 desktop)
 {
   XClientMessageEvent xclient;
 
@@ -82,8 +82,6 @@ static void gdk_x11_window_move_to_desktop(GdkWindow *window, guint32 desktop)
   XSendEvent(GDK_WINDOW_XDISPLAY(window), gdk_x11_get_default_root_xwindow(), false,
             SubstructureRedirectMask | SubstructureNotifyMask, (XEvent *)&xclient);
 }
-
-#endif
 
 // for m_oswindow_private
 #define PRIVATE_NEEDSHOW 1 
@@ -160,7 +158,7 @@ static void on_deactivate()
 {
   swell_app_is_inactive=true;
   HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
-  s_last_desktop = lf && lf->m_oswindow ? gdk_x11_window_get_desktop(lf->m_oswindow)+1 : 0;
+  s_last_desktop = lf && lf->m_oswindow ? _gdk_x11_window_get_desktop(lf->m_oswindow)+1 : 0;
 
   HWND h = SWELL_topwindows; 
   while (h)
@@ -264,11 +262,12 @@ void SWELL_initargs(int *argc, char ***argv)
 {
   if (!SWELL_gdk_active) 
   {
-   // maybe make the main app call this with real parms
     XInitThreads();
 #if SWELL_TARGET_GDK == 3
     gdk_set_allowed_backends("x11");
+    *(void **)&_gdk_drag_drop_done = dlsym(RTLD_DEFAULT,"gdk_drag_drop_done");
 #endif
+
     SWELL_gdk_active = gdk_init_check(argc,argv) ? 1 : -1;
     if (SWELL_gdk_active > 0)
     {
@@ -539,7 +538,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             gdk_window_show_unraised(hwnd->m_oswindow);
 
           if (s_last_desktop>0)
-            gdk_x11_window_move_to_desktop(hwnd->m_oswindow,s_last_desktop-1);
+            _gdk_x11_window_move_to_desktop(hwnd->m_oswindow,s_last_desktop-1);
 
           if (!hwnd->m_oswindow_fullscreen)
           {
@@ -1899,9 +1898,7 @@ struct dropSourceInfo {
     free(srcfn); 
     if (dragctx)
     {
-#ifdef GDK_AVAILABLE_IN_3_20
-      gdk_drag_drop_done(dragctx,state!=0);
-#endif
+      if (_gdk_drag_drop_done) _gdk_drag_drop_done(dragctx,state!=0);
       g_object_unref(dragctx);
     }
   }
