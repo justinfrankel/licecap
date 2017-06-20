@@ -47,6 +47,11 @@ class wdl_xml_element {
 
     char *name;
     int line, col;
+
+    const char *get_attribute(const char *v, const char *def=NULL) const
+    {
+      return attributes.Get((char*)v,(char*)def);
+    }
 };
 
 class wdl_xml_parser {
