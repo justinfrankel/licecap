@@ -274,8 +274,13 @@ void SWELL_initargs(int *argc, char ***argv)
   {
     XInitThreads();
 #if SWELL_TARGET_GDK == 3
-    gdk_set_allowed_backends("x11");
+    void (*_gdk_set_allowed_backends)(const char *);
+
     *(void **)&_gdk_drag_drop_done = dlsym(RTLD_DEFAULT,"gdk_drag_drop_done");
+    *(void **)&_gdk_set_allowed_backends = dlsym(RTLD_DEFAULT,"gdk_set_allowed_backends");
+
+    if (_gdk_set_allowed_backends)
+      _gdk_set_allowed_backends("x11");
 #endif
 
     SWELL_gdk_active = gdk_init_check(argc,argv) ? 1 : -1;
