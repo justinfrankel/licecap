@@ -337,7 +337,7 @@ void LICE_TexGen_CircNoise(LICE_IBitmap *dest, const RECT *rect, float rv, float
         float xValue = ((float)j - w / 2) / w;
         float yValue = ((float)i - h / 2) / h;
 
-        float distValue = sqrt(xValue * xValue + yValue * yValue) + turbPower * turbulence(j, i, turbSize, iturbSize) / 256.0f;
+        float distValue = (float) (sqrt(xValue * xValue + yValue * yValue) + turbPower * turbulence(j, i, turbSize, iturbSize) / 256.0);
         float col = (float)fabs(256.0 * sin(2 * xyPeriod * distValue * 3.14159));
 
         p[j] = LICE_RGBA((int)(col*rv),(int)(col*bv),(int)(col*gv),255);
