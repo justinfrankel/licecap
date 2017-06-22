@@ -480,7 +480,7 @@ typedef struct
   int cch;
 } MENUITEMINFO;
 
-#define SetMenuDefaultItem(a,b,c) (0)
+#define SetMenuDefaultItem(a,b,c) do { if ((a)||(b)||(c)) { } } while(0)
 
 typedef struct {
   POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
