@@ -67,7 +67,7 @@ ifndef NOGDK
       LINKEXTRA += $(shell pkg-config --libs gdk-2.0)
     else
       LINKEXTRA += -lX11 -lXi
-      CFLAGS += -DSWELL_PRELOAD="libgdk-x11-2.0.so"
+      CFLAGS += -DSWELL_PRELOAD="libgdk-x11-2.0.so.0"
     endif
   else
     CFLAGS += -DSWELL_TARGET_GDK=3 $(shell pkg-config --cflags gdk-3.0)
@@ -75,7 +75,7 @@ ifndef NOGDK
       LINKEXTRA += $(shell pkg-config --libs gdk-3.0)
     else
       LINKEXTRA += -lX11 -lXi
-      CFLAGS += -DSWELL_PRELOAD="libgdk-3.so"
+      CFLAGS += -DSWELL_PRELOAD="libgdk-3.so.0"
     endif
   endif
   CFLAGS += -DSWELL_LICE_GDI
