@@ -43,6 +43,7 @@ bool swell_is_likely_capslock; // only used when processing dit events for a-zA-
 SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
 HWND swell_captured_window;
 
+#define STATEIMAGEMASKTOINDEX(x) (((x)>>16)&0xff)
 
 bool swell_is_virtkey_char(int c)
 {
@@ -4234,7 +4235,7 @@ forceMouseMove:
                   str=buf;
                   if (!col && has_image)
                   {
-                    if (lvs->m_status_imagelist_type == LVSIL_STATE) image_idx=(nm.item.state>>16)&0xff;
+                    if (lvs->m_status_imagelist_type == LVSIL_STATE) image_idx=STATEIMAGEMASKTOINDEX(nm.item.state);
                     else if (lvs->m_status_imagelist_type == LVSIL_SMALL) image_idx = nm.item.iImage + 1;
                   }
                 }
@@ -5540,7 +5541,7 @@ int ListView_InsertItem(HWND h, const LVITEM *item)
   row->m_vals.Add((item->mask&LVIF_TEXT) && item->pszText ? strdup(item->pszText) : NULL);
   row->m_param = (item->mask&LVIF_PARAM) ? item->lParam : 0;
   row->m_tmp = ((item->mask & LVIF_STATE) && (item->state & LVIS_SELECTED)) ? 1:0;
-  if ((item->mask&LVIF_STATE) && (item->stateMask & (0xff<<16))) row->m_imageidx=(item->state>>16)&0xff;
+  if ((item->mask&LVIF_STATE) && (item->stateMask & LVIS_STATEIMAGEMASK)) row->m_imageidx=STATEIMAGEMASKTOINDEX(item->state);
   lvs->m_data.Insert(idx,row); 
   InvalidateRect(h,NULL,FALSE);
   return idx;
@@ -5642,6 +5643,9 @@ bool ListView_GetItem(HWND h, LVITEM *item)
   {
     item->state = lvs->get_sel(item->iItem) ? LVIS_SELECTED : 0;
     if (lvs->m_selitem == item->iItem) item->state |= LVIS_FOCUSED;
+    SWELL_ListView_Row *row = lvs->m_data.Get(item->iItem);
+    if (row)
+      item->state |= INDEXTOSTATEIMAGEMASK(row->m_imageidx);
   }
 
   return true;
@@ -5700,7 +5704,7 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
     if (row)
     {
       const int idx= row->m_imageidx;
-      row->m_imageidx=(state>>16)&0xff;
+      row->m_imageidx=STATEIMAGEMASKTOINDEX(state);
       if (!changed && idx != row->m_imageidx) ListView_RedrawItems(h,ipos,ipos);
     }
   }
