@@ -5653,6 +5653,12 @@ int ListView_GetItemState(HWND h, int ipos, UINT mask)
   int ret  = 0;
   if (mask & LVIS_SELECTED) ret |= (lvs->get_sel(ipos) ? LVIS_SELECTED : 0 );
   if ((mask & LVIS_FOCUSED) && lvs->m_selitem == ipos) ret |= LVIS_FOCUSED;
+  if ((mask & LVIS_STATEIMAGEMASK) && lvs->m_status_imagelist_type == LVSIL_STATE) 
+  {
+    SWELL_ListView_Row *row = lvs->m_data.Get(ipos);
+    if (row)
+      ret |= INDEXTOSTATEIMAGEMASK(row->m_imageidx);
+  }
   return ret;
 }
 
@@ -5688,7 +5694,7 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
       }
     }
   }
-  if ((statemask & (0xff<<16)) && lvs->m_status_imagelist_type == LVSIL_STATE) 
+  if ((statemask & LVIS_STATEIMAGEMASK) && lvs->m_status_imagelist_type == LVSIL_STATE) 
   {
     SWELL_ListView_Row *row = lvs->m_data.Get(ipos);
     if (row)
