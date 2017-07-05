@@ -94,6 +94,8 @@ static void spareTimer(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwtime)
   swell_dlg_destroyspare();
 }
 
+static int s_last_dlgret;
+
 void EndDialog(HWND wnd, int ret)
 {   
   if (!wnd) return;
@@ -124,6 +126,7 @@ void EndDialog(HWND wnd, int ret)
   }
 #endif
   DestroyWindow(wnd);
+  s_last_dlgret = ret;
 }
 
 int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND parent,  DLGPROC dlgproc, LPARAM param)
@@ -140,6 +143,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
 
 
   int ret=-1;
+  s_last_dlgret = -1;
   HWND hwnd = SWELL_CreateDialog(reshead,resid,parent,dlgproc,param);
   // create dialog
   if (hwnd)
@@ -231,6 +235,10 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
       }
       a = a->m_next;
     }
+  }
+  else 
+  {
+    ret = s_last_dlgret; // SWELL_CreateDialog() failed, implies WM_INITDIALOG could have called EndDialog()
   }
   // while in list, do something
   return ret;
