@@ -145,8 +145,7 @@ int SWELL_MacKeyToWindowsKeyEx(void *nsevent, int *flags, int mode)
   NSEvent *theEvent = (NSEvent *)nsevent;
   if (!theEvent) theEvent = [NSApp currentEvent];
 
-  int mod=[theEvent modifierFlags];// & ( NSShiftKeyMask|NSControlKeyMask|NSAlternateKeyMask|NSCommandKeyMask);
-                                   //	if ([theEvent isARepeat]) return;
+  const NSInteger mod=[theEvent modifierFlags];
     
   int flag=0;
   if (mod & NSShiftKeyMask) flag|=FSHIFT;
@@ -234,7 +233,7 @@ int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
 
 WORD GetAsyncKeyState(int key)
 {
-  int state=0;
+  CGEventFlags state=0;
   if (key == VK_LBUTTON || key == VK_RBUTTON || key == VK_MBUTTON)
   {
     state=GetCurrentEventButtonState();
@@ -430,7 +429,7 @@ static NSImage *swell_imageFromCursorString(const char *name, POINT *hotSpot)
   if (!strstr(name,"/") && strlen(name)<1024)
   {
     char tmpn[4096];
-    GetModuleFileName(NULL,tmpn,sizeof(tmpn)-128-strlen(name));
+    GetModuleFileName(NULL,tmpn,(DWORD)(sizeof(tmpn)-128-strlen(name)));
     strcat(tmpn,"/Contents/Resources/");
     strcat(tmpn,name);
     strcat(tmpn,".cur");
@@ -473,7 +472,7 @@ static NSImage *swell_imageFromCursorString(const char *name, POINT *hotSpot)
           fwrite(buf,1,16,outfp);
           for (;;)
           {
-            int a = fread(buf,1,sizeof(buf),fp);
+            size_t a = fread(buf,1,sizeof(buf),fp);
             if (a<1) break;
             fwrite(buf,1,a,outfp);
           }           
@@ -670,8 +669,7 @@ BOOL SWELL_SetCursorPos(int X, int Y)
     return TRUE;
   }
 
-
-  int h=CGDisplayPixelsHigh(CGMainDisplayID());
+  const int h = (int)CGDisplayPixelsHigh(CGMainDisplayID());
   CGPoint pos=CGPointMake(X,h-Y);
   return CGWarpMouseCursorPosition(pos)==kCGErrorSuccess;
 }

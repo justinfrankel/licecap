@@ -48,7 +48,7 @@ static NSMutableArray *extensionsFromList(const char *extlist, const char *def_e
 			if (tmp[0] && tmp[0]!='*')
 			{
 				NSString *s=(NSString *)SWELL_CStringToCFString(tmp);
-                                const int tmp_len = strlen(tmp);
+                                const size_t tmp_len = strlen(tmp);
                                 if (def_ext && *def_ext &&
                                     !strnicmp(def_ext,tmp,tmp_len) &&
                                     (!def_ext[tmp_len] || def_ext[tmp_len] == ';'))
@@ -94,7 +94,7 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
         const char *initial_file = ((const char **)lParam)[1];
 
         if (initial_file) initial_file=WDL_get_fileext(initial_file);
-        const int initial_file_len = initial_file  && *initial_file ? strlen(++initial_file) : 0;
+        const size_t initial_file_len = initial_file  && *initial_file ? strlen(++initial_file) : 0;
 
         int def_sel = -1;
 
@@ -106,7 +106,7 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
           if (strcmp(next,"*.*"))
           {
-            int a = SendMessage(combo,CB_ADDSTRING,0,(LPARAM)extlist);
+            int a = (int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)extlist);
 
             // userdata for each item is pointer to un-terminated extension.
             const char *p = next;
@@ -251,7 +251,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
 
-  int result = [panel runModalForDirectory:idir file:ifn];
+  NSInteger result = [panel runModalForDirectory:idir file:ifn];
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
   
@@ -304,7 +304,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
   HMENU hm=SWELL_GetDefaultModalWindowMenu();
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
-  int result = [panel runModalForDirectory:idir file:nil types:nil];
+  NSInteger result = [panel runModalForDirectory:idir file:nil types:nil];
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
 	
@@ -317,7 +317,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
   if (result != NSOKButton) return 0;
 	
   NSArray *filesToOpen = [panel filenames];
-  int count = [filesToOpen count];
+  NSInteger count = [filesToOpen count];
 		
   if (!count) return 0;
 		
@@ -376,7 +376,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
   
-  int result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
+  NSInteger result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
 
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
@@ -393,7 +393,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
   if (result != NSOKButton) return 0;
 	
   NSArray *filesToOpen = [panel filenames];
-  int i, count = [filesToOpen count];
+  const NSInteger count = [filesToOpen count];
 		
   if (!count) return 0;
 		
@@ -411,16 +411,16 @@ char *BrowseForFiles(const char *text, const char *initialdir,
     return ret;
   }
 		
-  int rsize=1;
+  size_t rsize=1;
   char *ret=0;
-  for (i=0; i<count; i++) 
+  for (NSInteger i=0; i<count; i++) 
   {
     NSString *aFile = [filesToOpen objectAtIndex:i];
     if (!aFile) continue;
     SWELL_CFStringToCString(aFile,fn,sizeof(fn));
     fn[sizeof(fn)-1]=0;
 		
-    int tlen=strlen(fn)+1;
+    size_t tlen=strlen(fn)+1;
     ret=(char *)realloc(ret,rsize+tlen+1);
     if (!ret) return 0;
     
@@ -437,8 +437,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 
 int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 {
-  
-  int ret=0;
+  NSInteger ret=0;
 
   NSString *tit=(NSString *)SWELL_CStringToCFString(caption?caption:""); 
   NSString *text2=(NSString *)SWELL_CStringToCFString(text?text:"");
@@ -479,7 +478,7 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
   [text2 release];
   [tit release];
   
-  return ret; 
+  return (int)ret; 
 }
 
 #endif

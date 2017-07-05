@@ -66,7 +66,7 @@ DWORD GetTickCount()
 {
   struct timeval tm={0,};
   gettimeofday(&tm,NULL);
-  return tm.tv_sec*1000 + tm.tv_usec/1000;
+  return (DWORD) (tm.tv_sec*1000 + tm.tv_usec/1000);
 }
 
 
@@ -857,7 +857,7 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
         CFRelease(url);
       }
     }
-    return strlen(fn);
+    return (DWORD)strlen(fn);
   }
 #elif defined(__linux__)
   if (!instptr) // get exe file name
@@ -879,7 +879,7 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
     if (inf.dli_fname)
     {
       lstrcpyn(fn,inf.dli_fname,nSize);
-      return strlen(fn);
+      return (DWORD)strlen(fn);
     }
   }
   return 0;

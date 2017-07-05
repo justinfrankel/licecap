@@ -76,7 +76,7 @@ void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
     [s getCString:buf maxLength:buflen encoding:NSASCIIStringEncoding];
     return;
   }
-  int len = [data length];
+  int len = (int)[data length];
   if (len > buflen-1) len=buflen-1;
   [data getBytes:buf length:len];
   buf[len]=0;
@@ -251,8 +251,8 @@ int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *bu
     }
     @catch (id ex) { }
 
-    if (!d || bufsz < 1) return d ? [d length] : 0;
-    int l = [d length];
+    if (!d || bufsz < 1) return d ? (int)[d length] : 0;
+    int l = (int)[d length];
     if (l > bufsz) l = bufsz;
     [d getBytes:buf length:l];
     return l;

@@ -121,7 +121,7 @@ void updateWindowCollection(NSWindow *w)
 }
 
 static void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc);
-static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview);
+static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, NSInteger rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview);
 
 static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event);
 static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent *theEvent)
@@ -135,9 +135,9 @@ static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent
   
   NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event);
   
-  NSPoint p = swellProcessMouseEvent(msg,slf,theEvent);
-  unsigned short xpos=(int)floor(p.x); 
-  unsigned short ypos=(int)floor(p.y);
+  NSPoint pt = swellProcessMouseEvent(msg,slf,theEvent);
+  unsigned short xpos=(int)floor(pt.x);
+  unsigned short ypos=(int)floor(pt.y);
   
   LRESULT htc=HTCLIENT;
   if (msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL && !capv) 
@@ -422,12 +422,12 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     // if not captured, find the window that should receive this event
 
     NSArray *windows=[NSApp orderedWindows];
-    int x,cnt=windows ? [windows count] : 0;
+    const NSInteger cnt=windows ? [windows count] : 0;
     NSWindow *kw = [NSApp keyWindow];
     if (kw && windows && [windows containsObject:kw]) kw=NULL;
     // make sure the keywindow, if any, is checked, but not twice
 
-    for (x = kw ? -1 : 0; x < cnt; x ++)
+    for (NSInteger x = kw ? -1 : 0; x < cnt; x ++)
     {
       NSWindow *wnd = x < 0 ? kw : [windows objectAtIndex:x];
       if (wnd && [wnd isVisible])
@@ -582,8 +582,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     SWELL_ListView *f = (SWELL_ListView *)aTableView;
     if (f->m_selColors&&[aTableView isRowSelected:rowIndex]) 
     {
-      int cnt = [f->m_selColors count];
-      int offs = GetFocus() == (HWND)aTableView ? 0 : 2;
+      const NSInteger cnt = [f->m_selColors count];
+      const NSInteger offs = GetFocus() == (HWND)aTableView ? 0 : 2;
       if (cnt>=offs+2)
       {
         if ([aCell respondsToSelector:@selector(setTextColor:)]) [aCell setTextColor:[f->m_selColors objectAtIndex:(offs+1)]];
@@ -604,8 +604,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       HTREEITEM sel = TreeView_GetSelection((HWND)outlineView);
       if (sel && sel->m_dh == item)
       {
-        int cnt = [f->m_selColors count];
-        int offs = GetFocus() == (HWND)outlineView ? 0 : 2;
+        const NSInteger cnt = [f->m_selColors count];
+        const NSInteger offs = GetFocus() == (HWND)outlineView ? 0 : 2;
         if (cnt>=offs+2)
         {
           if ([cell respondsToSelector:@selector(setTextColor:)]) [cell setTextColor:[f->m_selColors objectAtIndex:(offs+1)]];
@@ -801,8 +801,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
             NSInteger x=[ar indexOfObject:sender];
             if (x != NSNotFound)
             {
-              int n=[ar count];
-              int a=x;
+              const NSInteger n = [ar count];
+              NSInteger a=x;
               if (!(rf&2)) while (--a >= 0)
               {
                 NSView *item=[ar objectAtIndex:a];
@@ -828,7 +828,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     else if ([sender isKindOfClass:[NSControl class]])
     {
       NSEvent *evt=[NSApp currentEvent];
-      int ty=evt?[evt type]:0;
+      NSUInteger ty=evt?[evt type]:0;
       if (evt && (ty==NSLeftMouseDown || ty==NSLeftMouseUp) && [evt clickCount] > 1) cw=STN_DBLCLK;
     }
     else if ([sender isKindOfClass:[NSMenuItem class]])
@@ -1174,7 +1174,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
 }
 
--(void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)vr rectIsVisibleRectForView:(NSView*)v topView:(NSView *)v2
+-(void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)vr rectIsVisibleRectForView:(NSView*)view topView:(NSView *)v2
 {
 
   
@@ -1185,7 +1185,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 //  NSLog(@"r:%@ vr:%d v=%p tv=%p self=%p %p\n",NSStringFromRect(rect),vr,v,v2,self, [[self window] contentView]);
   if (!useNoMiddleManCocoa() || ![self isOpaque] || [[self window] contentView] != self || [self isHiddenOrHasHiddenAncestor] || !m_allow_nomiddleman)
   {
-    [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:v topView:v2];
+    [super _recursiveDisplayRectIfNeededIgnoringOpacity:rect isVisibleRect:vr rectIsVisibleRectForView:view topView:v2];
     return;
   }
   
@@ -1901,7 +1901,7 @@ static HWND last_key_window;
 - (void)swellResetOwnedWindowLevels { \
   if (SWELL_owned_windows_levelincrease) { OwnedWindowListRec *p=m_ownedwnds; \
   bool active =  [NSApp isActive]; \
-  int l=[self level]+!!active; \
+  int l=(int)[self level]+!!active; \
     while (p) { \
       if (p->hwnd) { \
         int extra = active && [(id)p->hwnd isKindOfClass:[SWELL_ModelessWindow class]] ? ((SWELL_ModelessWindow *)p->hwnd)->m_wantraiseamt : 0; \
@@ -2052,10 +2052,10 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   }
   else if (parent && [(id)parent isKindOfClass:[NSView class]])
   {
-    NSWindow *w=[(id)parent window];
-    if (w && [w respondsToSelector:@selector(swellAddOwnedWindow:)])
+    NSWindow *ww=[(id)parent window];
+    if (ww && [ww respondsToSelector:@selector(swellAddOwnedWindow:)])
     {
-      [(SWELL_ModelessWindow*)w swellAddOwnedWindow:self]; 
+      [(SWELL_ModelessWindow*)ww swellAddOwnedWindow:self]; 
     }
   }
   
@@ -2888,8 +2888,8 @@ void SWELL_SetWindowFlip(HWND hwnd, bool flip)
 - (NSColor *)textColor
 {
   NSAttributedString *attrTitle = [self attributedTitle];
-  int len = [attrTitle length];
-  NSRange range = NSMakeRange(0, MIN(len, 1)); // take color from first char
+  NSUInteger len = [attrTitle length];
+  NSRange range = NSMakeRange(0, wdl_min(len, 1)); // take color from first char
   NSDictionary *attrs = [attrTitle fontAttributesInRange:range];
   NSColor *textColor = [NSColor controlTextColor];
   if (attrs) {
@@ -2902,7 +2902,7 @@ void SWELL_SetWindowFlip(HWND hwnd, bool flip)
 {
   NSMutableAttributedString *attrTitle = [[NSMutableAttributedString alloc] 
                                           initWithAttributedString:[self attributedTitle]];
-  int len = [attrTitle length];
+  NSUInteger len = [attrTitle length];
   NSRange range = NSMakeRange(0, len);
   [attrTitle addAttribute:NSForegroundColorAttributeName 
                     value:textColor 
@@ -3009,7 +3009,7 @@ NSArray* SWELL_DoDragDrop(NSURL* droplocation)
     bool ok=!_file_exists(destpath.Get());
     if (!ok)
     {
-      int ret=NSRunAlertPanel(@"Copy",
+      NSInteger ret=NSRunAlertPanel(@"Copy",
             @"An item named \"%s\" already exists in this location. Do you want to replace it with the one you're moving?",
             @"Keep Both Files", @"Stop", @"Replace", fn);
       
@@ -3021,7 +3021,7 @@ NSArray* SWELL_DoDragDrop(NSURL* droplocation)
       {
         WDL_String base(destpath.Get());
         char* p=base.Get();
-        int len=strlen(p);
+        size_t len=strlen(p);
         const char* ext="";
         int incr=0;   
         
@@ -3235,7 +3235,7 @@ void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc)
   
 }
 
-void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, int rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview)
+void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, NSInteger rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview)
 {
   if (view->m_isdirty&1) doforce=true;
   NSArray *sv = [view subviews];
@@ -3264,10 +3264,10 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
   if (sv)
   {
     [sv retain];
-    int x,n=[sv count];
+    const NSInteger n=[sv count];
     HBRUSH bgbr=0;
     bool bgbr_valid=false;
-    for(x=0;x<n;x++)
+    for (NSInteger x=0;x<n;x++)
     {
       NSView *v = (NSView *)[sv objectAtIndex:x];
       if (v && ![v isHidden])
@@ -3291,13 +3291,13 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
           {
             if ([v isKindOfClass:[NSScrollView class]])
             {
-              NSView *sv = [(NSScrollView *)v contentView];
-              if (sv)
+              NSView *ccv = [(NSScrollView *)v contentView];
+              if (ccv)
               {
                 [v retain];
                 needdraws->Add((void*)(INT_PTR)(doforce?1:0));
                 needdraws->Add(v);
-                v=sv;
+                v=ccv;
               }
             }
             [v retain];

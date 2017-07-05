@@ -89,7 +89,7 @@ static bool fgets_to_typedbuf(WDL_TypedBuf<char> *buf, FILE *fp)
     while (*p) p++;
     if (p[-1] == '\r' || p[-1] == '\n') break;
 
-    rdpos = p - buf->Get();
+    rdpos = (int) (p - buf->Get());
   }
   return buf->GetSize()>0 && buf->Get()[0];
 }
@@ -429,7 +429,7 @@ DWORD GetPrivateProfileSection(const char *appname, char *strout, DWORD strout_l
         int l;
        
 #define WRSTR(v) \
-        l= strlen(v); \
+        l = (int)strlen(v); \
         if (l > (int)strout_len - szOut - 2) l = (int)strout_len - 2 - szOut; \
         if (l>0) { memcpy(strout+szOut,v,l); szOut+=l; }
         
@@ -475,7 +475,7 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
         {
           const char *secname=NULL;
           if (!ctx->m_sections.Enumerate(x,&secname) || !secname) break;
-          if (*secname) tmpbuf.Add(secname,strlen(secname)+1);
+          if (*secname) tmpbuf.Add(secname,(int)strlen(secname)+1);
         }
       }
       else
@@ -488,7 +488,7 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
           {            
             const char *k=NULL;
             if (!cursec->Enumerate(y,&k)||!k) break;
-            if (*k) tmpbuf.Add(k,strlen(k)+1);
+            if (*k) tmpbuf.Add(k,(int)strlen(k)+1);
           }
         }
       }
@@ -503,7 +503,7 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
       memcpy(ret,tmpbuf.Get(),sz);
       ret[sz]=ret[sz+1]=0;
         
-      return sz;
+      return (DWORD)sz;
     }
     
     WDL_StringKeyedArray<char *> *cursec = ctx->m_sections.Get(appname);
@@ -513,13 +513,13 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
       if (val)
       {
         lstrcpyn_trimmed(ret,val,retsize);
-        return strlen(ret);
+        return (DWORD)strlen(ret);
       }
     }
   }
 //  printf("def %s %s %s %s\n",appname,keyname,def,fn);
   lstrcpyn_safe(ret,def?def:"",retsize);
-  return strlen(ret);
+  return (DWORD)strlen(ret);
 }
 
 int GetPrivateProfileInt(const char *appname, const char *keyname, int def, const char *fn)
