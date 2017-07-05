@@ -271,6 +271,8 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   else if (!p && !parent) h->m_style |= WS_CAPTION;
   else if (parent && (!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD))) h->m_style |= WS_CHILD;
 
+  h->Retain();
+
   if (p)
   {
     p->createFunc(h,p->windowTypeFlags);
@@ -290,21 +292,28 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
       hFoc=hFoc->m_next;
     }
 
+    if (hFoc) hFoc->Retain();
+
     if (h->m_dlgproc(h,WM_INITDIALOG,(WPARAM)hFoc,param))
     {
       if (hFoc && hFoc->m_wantfocus && hFoc->m_visible && hFoc->m_enabled)
       {
-        SetFocus(hFoc);
+        if (!h->m_hashaddestroy && !hFoc->m_hashaddestroy)
+          SetFocus(hFoc);
       }
     }
-  } 
+
+    if (hFoc) hFoc->Release();
+  }
   else
   {
     h->m_wndproc = (WNDPROC)dlgproc;
     h->m_wndproc(h,WM_CREATE,0,param);
   }
-    
-  return h;
+
+  HWND rv = h->m_hashaddestroy ? NULL : h;
+  h->Release();
+  return rv;
 }
 
 
