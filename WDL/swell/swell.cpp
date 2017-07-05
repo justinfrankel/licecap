@@ -551,67 +551,6 @@ BOOL ResetEvent(HANDLE hand)
   return FALSE;
 }
 
-HANDLE CreateFile( const char * lpFileName,
-                  DWORD dwDesiredAccess,
-                  DWORD dwShareMode,
-                  void *lpSecurityAttributes,
-                  DWORD dwCreationDisposition,
-                  DWORD dwFlagsAndAttributes,
-                  HANDLE hTemplateFile)
-{
-  return 0;// INVALID_HANDLE_VALUE;
-}
-
-DWORD SetFilePointer(HANDLE hFile, DWORD low, DWORD *high)
-{ 
-  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
-  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || (high && *high) || fseek(file->fp,low,SEEK_SET)==-1) { if (high) *high=0xffffffff; return 0xffffffff; }
-  return ftell(file->fp);
-}
-
-DWORD GetFilePointer(HANDLE hFile, DWORD *high)
-{
-  int pos;
-  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
-  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || (pos=ftell(file->fp))==-1) { if (high) *high=0xffffffff; return 0xffffffff; }
-  if (high) *high=0;
-  return (DWORD)pos;
-}
-
-DWORD GetFileSize(HANDLE hFile, DWORD *high)
-{
-  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
-  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp) { if (high) *high=0xffffffff; return 0xffffffff; }
-  
-  int a=ftell(file->fp);
-  fseek(file->fp,0,SEEK_END);
-  int ret=ftell(file->fp);
-  fseek(file->fp,a,SEEK_SET);
-  
-  if (high) *high=ret==-1 ? 0xffffffff: 0;
-  return (DWORD)ret;
-}
-
-
-
-BOOL WriteFile(HANDLE hFile,void *buf, DWORD len, DWORD *lenOut, void *ovl)
-{
-  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
-  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || !buf || !len) return FALSE;
-  int lo=fwrite(buf,1,len,file->fp);
-  if (lenOut) *lenOut = lo;
-  return !!lo;
-}
-
-BOOL ReadFile(HANDLE hFile,void *buf, DWORD len, DWORD *lenOut, void *ovl)
-{
-  SWELL_InternalObjectHeader_File *file=(SWELL_InternalObjectHeader_File*)hFile;
-  if (!file || file->hdr.type != INTERNAL_OBJECT_FILE || !file->fp || !buf || !len) return FALSE;
-  int lo=fread(buf,1,len,file->fp);
-  if (lenOut) *lenOut = lo;
-  return !!lo;
-}
-
 BOOL WinOffsetRect(LPRECT lprc, int dx, int dy)
 {
   if(!lprc) return 0;

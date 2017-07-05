@@ -47,8 +47,6 @@ class IMalloc
 #define SHGetPathFromIDList(src,dest) { if (src) {lstrcpyn(dest,(char *)src,MAX_PATH); } else *dest=0; }
 #endif
 
-SWELL_API_DEFINE(ITEMIDLIST *, SHBrowseForFolder, (LPBROWSEINFO))
-
 #define BFFM_SETSELECTION      (WM_USER + 102)
 
 #define Shell_NotifyIcon(a,b) (0)
@@ -85,9 +83,6 @@ typedef struct tagOFNA {
    LPCSTR       lpTemplateName;
 } OPENFILENAME, *LPOPENFILENAME;
 
-
-SWELL_API_DEFINE(BOOL,GetOpenFileName,(LPOPENFILENAME));
-SWELL_API_DEFINE(BOOL,GetSaveFileName,(LPOPENFILENAME));
 
 #define OFN_READONLY                 0x00000001
 #define OFN_OVERWRITEPROMPT          0x00000002
@@ -133,14 +128,6 @@ typedef struct _SHELLEXECUTEINFOA
         HINSTANCE hInstApp;
 } SHELLEXECUTEINFO,  *LPSHELLEXECUTEINFO;
 
-
-SWELL_API_DEFINE(BOOL, ShellExecuteEx,(LPSHELLEXECUTEINFO lpExecInfo));
-SWELL_API_DEFINE(BOOL,WriteFile,(HANDLE,void *, DWORD, DWORD *lenOut, void *ovl))
-SWELL_API_DEFINE(BOOL,ReadFile,(HANDLE,void *, DWORD, DWORD *lenOut, void *ovl))
-SWELL_API_DEFINE(HANDLE,CreateFile,( const char * lpFileName,DWORD dwDesiredAccess,DWORD dwShareMode,void *lpSecurityAttributes,DWORD dwCreationDisposition,DWORD dwFlagsAndAttributes,HANDLE hTemplateFile))
-SWELL_API_DEFINE(DWORD,SetFilePointer,(HANDLE, DWORD low, DWORD *high))
-SWELL_API_DEFINE(DWORD,GetFilePointer,(HANDLE, DWORD *high))
-SWELL_API_DEFINE(DWORD,GetFileSize,(HANDLE, DWORD *high))
 
 #define InitCommonControls() { }
 #define CoInitialize(x) { }
