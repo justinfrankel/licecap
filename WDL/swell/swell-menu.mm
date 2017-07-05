@@ -805,7 +805,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
       NSPoint pt = NSMakePoint(xpos, ypos);
       pt=[w convertScreenToBase:pt];
       pt.y -= 4;
-      int wn = [w windowNumber]; // event ? [event windowNumber] : [w windowNumber];
+      NSInteger wn = [w windowNumber]; // event ? [event windowNumber] : [w windowNumber];
       NSTimeInterval ts = event ? [event timestamp] : 0;
       NSGraphicsContext *gctx = event ? [event context] : 0;
       event = [NSEvent otherEventWithType:NSApplicationDefined location:pt modifierFlags:0 timestamp:ts windowNumber:wn context:gctx subtype:0 data1:0 data2:0];
