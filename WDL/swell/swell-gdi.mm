@@ -1011,7 +1011,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           CTLineRef l = (CTLineRef)CFArrayGetValueAtIndex(lines,x);
           if (l)
           {
-            CGFloat asc=0,desc=0,lead=0;
+            CGFloat desc=0,lead=0;
             int w = (int) floor(CTLineGetTypographicBounds(l,&asc,&desc,&lead)+0.5);
             int h =(int) floor(asc+desc+lead+1.5);
             line_h+=h;
