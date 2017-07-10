@@ -1287,6 +1287,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             else
             {
               s_deactivate_timer = SetTimer(NULL,0,200,deactivateTimer);
+              DestroyPopupMenus();
             }
           }
         }
