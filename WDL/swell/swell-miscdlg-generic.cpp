@@ -361,17 +361,30 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         {
           char buf[maxPathLen];
           const char *filepart = "";
-          if (parms->initialfile && *parms->initialfile && *parms->initialfile != '.') 
+          if (parms->initialfile && *parms->initialfile && strcmp(parms->initialfile,"."))
           { 
             lstrcpyn_safe(buf,parms->initialfile,sizeof(buf));
             char *p = (char *)WDL_get_filepart(buf);
-            if (p > buf) { p[-1]=0; filepart = p; }
+            if (p > buf) 
+            { 
+              p[-1]=0; 
+              filepart = p; 
+            }
+            else
+            {
+              filepart = parms->initialfile;
+              goto get_dir;
+            }
           }
-          else if (parms->initialdir && *parms->initialdir) 
+          else 
           {
-            lstrcpyn_safe(buf,parms->initialdir,sizeof(buf));
+get_dir:
+            if (parms->initialdir && *parms->initialdir && strcmp(parms->initialdir,".")) 
+            {
+              lstrcpyn_safe(buf,parms->initialdir,sizeof(buf));
+            }
+            else getcwd(buf,sizeof(buf));
           }
-          else getcwd(buf,sizeof(buf));
 
           SetWindowText(edit,filepart);
           SendMessage(hwnd, WM_UPD, IDC_DIR, (LPARAM)buf);
