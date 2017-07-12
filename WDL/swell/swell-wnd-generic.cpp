@@ -455,6 +455,13 @@ void SetFocus(HWND hwnd)
 
   hwnd->m_focused_child=NULL; // make sure this window has focus, not a child
   SetForegroundWindow(hwnd);
+
+  if (hwnd->m_classname)
+  {
+    if (!strcmp(hwnd->m_classname,"Edit") ||
+        !strcmp(hwnd->m_classname,"combobox"))
+      SendMessage(hwnd,EM_SETSEL,0,-1);
+  }
 }
 
 
@@ -6241,8 +6248,6 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         if (ch)
         {
           SetFocus(ch);
-          if (ch->m_classname && !strcmp(ch->m_classname,"Edit"))
-            SendMessage(ch,EM_SETSEL,0,-1);
 
           InvalidateRect(ch,NULL,FALSE);
           return 0;
