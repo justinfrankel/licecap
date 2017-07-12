@@ -449,21 +449,25 @@ void SetForegroundWindow(HWND hwnd)
   if (hwnd) swell_oswindow_focus(hwnd);
 }
 
+void SetFocusInternal(HWND hwnd)
+{
+  hwnd->m_focused_child=NULL; // make sure this window has focus, not a child
+  SetForegroundWindow(hwnd);
+}
+
 void SetFocus(HWND hwnd)
 {
   if (!hwnd) return;
+  HWND oldfoc = GetFocus();
+  SetFocusInternal(hwnd);
 
-  hwnd->m_focused_child=NULL; // make sure this window has focus, not a child
-  SetForegroundWindow(hwnd);
-
-  if (hwnd->m_classname)
+  if (hwnd->m_classname && oldfoc != hwnd)
   {
     if (!strcmp(hwnd->m_classname,"Edit") ||
         !strcmp(hwnd->m_classname,"combobox"))
       SendMessage(hwnd,EM_SETSEL,0,-1);
   }
 }
-
 
 
 int IsChild(HWND hwndParent, HWND hwndChild)
@@ -1262,7 +1266,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
       hwnd->m_private_data=0;
     break;
     case WM_LBUTTONDOWN:
-      SetFocus(hwnd);
+      SetFocusInternal(hwnd);
       SetCapture(hwnd);
       SendMessage(hwnd,WM_USER+100,0,0); // invalidate
     return 0;
@@ -2441,7 +2445,7 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         ReleaseDC(hwnd,hdc);
 
       }
-      SetFocus(hwnd);
+      SetFocusInternal(hwnd);
       if (msg == WM_LBUTTONDOWN) SetCapture(hwnd);
 
       InvalidateRect(hwnd,NULL,FALSE);
@@ -2851,7 +2855,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
       }
     return 1;
     case WM_LBUTTONDOWN:
-      SetFocus(hwnd);
+      SetFocusInternal(hwnd);
       SetCapture(hwnd);
 
       if (hwnd->m_private_data)
@@ -3233,7 +3237,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
           ReleaseDC(hwnd,hdc);
 
-          SetFocus(hwnd);
+          SetFocusInternal(hwnd);
         }
         SetCapture(hwnd);
       }
@@ -3744,7 +3748,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     break;
     case WM_LBUTTONDBLCLK:
     case WM_LBUTTONDOWN:
-      SetFocus(hwnd);
+      SetFocusInternal(hwnd);
       if (msg == WM_LBUTTONDOWN) SetCapture(hwnd);
       else ReleaseCapture();
 
@@ -4884,7 +4888,7 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       }
     break;
     case WM_LBUTTONDOWN:
-      SetFocus(hwnd);
+      SetFocusInternal(hwnd);
       SetCapture(hwnd);
       if (tvs)
       {
@@ -5100,7 +5104,7 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     case WM_LBUTTONDOWN:
       if (GET_Y_LPARAM(lParam) < TABCONTROL_HEIGHT)
       {
-        SetFocus(hwnd);
+        SetFocusInternal(hwnd);
         int xp=GET_X_LPARAM(lParam),tab;
         HDC dc = GetDC(hwnd);
         int tabchg = -1;
