@@ -173,9 +173,9 @@ BC_DECL_JMP(LOOP_LOADCNT)
 BC_DECL_JMP(LOOP_END)
 
 #define GLUE_LOOP_BEGIN_SIZE 0
-#define GLUE_LOOP_BEGIN NULL
+#define GLUE_LOOP_BEGIN ((void*)"")
 #define GLUE_LOOP_CLAMPCNT_SIZE 0
-#define GLUE_LOOP_CLAMPCNT NULL
+#define GLUE_LOOP_CLAMPCNT ((void*)"")
 
 #if NSEEL_LOOPFUNC_SUPPORT_MAXLEN > 0
   BC_DECL(WHILE_SETUP)
@@ -183,7 +183,7 @@ BC_DECL_JMP(LOOP_END)
   BC_DECL_JMP(WHILE_END)
 #else
   #define GLUE_WHILE_SETUP_SIZE 0
-  #define GLUE_WHILE_SETUP NULL
+  #define GLUE_WHILE_SETUP ((void *)"")
   #define GLUE_WHILE_END_NOJUMP
   BC_DECL(WHILE_END)
 #endif
@@ -544,7 +544,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
   char __stack[EEL_BC_STACKSIZE];
   char *iptr = (char*)cp;
   char *stackptr=__stack + EEL_BC_STACKSIZE;
-  EEL_F *p1, *p2, *p3, *wtp = (EEL_F*)bp;
+  EEL_F *p1 = NULL, *p2 = NULL, *p3 = NULL, *wtp = (EEL_F*)bp;
 #define fp_top (_fpstacktop[0])
 #define fp_top2 (_fpstacktop[-1])
 #define fp_push(x) *++_fpstacktop=(x)
