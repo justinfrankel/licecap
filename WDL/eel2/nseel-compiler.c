@@ -2785,7 +2785,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   else // not varparm
   {
     int pn;
+  #ifdef GLUE_HAS_FXCH
     int need_fxch=0;
+  #endif
     int last_nt_parm=-1, last_nt_parm_type;
     
     if (op->opcodeType == OPCODETYPE_FUNCX)
@@ -2984,7 +2986,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
             if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
             if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
             parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
-            need_fxch = 1;
+            #ifdef GLUE_HAS_FXCH
+              need_fxch = 1;
+            #endif
           }
           else
           {
@@ -3011,7 +3015,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
                                   RETURNVALUE_FPSTACK,NULL,NULL,canHaveDenormalOutput);
           if (a<0) RET_MINUS1_FAIL("coc call here 2")
           parm_size+=a;
-          need_fxch = 1;
+          #ifdef GLUE_HAS_FXCH
+            need_fxch = 1;
+          #endif
         }
         else if (pn == n_params-1)  // last parameter, but we should call compileOpcodes to get it in the right format (compileOpcodes can optimize that process if it needs to)
         {
@@ -3049,7 +3055,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           }
 
           parm_size+=a;
-          need_fxch = 0;
+          #ifdef GLUE_HAS_FXCH
+            need_fxch = 0;
+          #endif
 
           if (func == nseel_asm_assign)
           {
