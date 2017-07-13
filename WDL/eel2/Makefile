@@ -27,7 +27,7 @@ else
 endif
 
 ifneq ($(filter arm%,$(ARCH)),)
-  CFLAGS += -fsigned-char -mfpu=vfp -march=armv6t2
+  CFLAGS += -fsigned-char -mfpu=vfp -march=armv6t2 -marm
 endif
 
 ifndef ALLOW_WARNINGS

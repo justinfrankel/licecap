@@ -26,7 +26,7 @@ ifndef DEPRECATED_WARNINGS
 endif
 
 ifneq ($(filter arm%,$(ARCH)),)
-  CFLAGS += -fsigned-char 
+  CFLAGS += -fsigned-char -marm
 endif
 
 
