@@ -164,7 +164,8 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "blx r0\n"
           "pop {r1, lr}\n"
           "mov sp, r1\n"
-            ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) : "r5", "r6", "r7", "r8");
+            ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) : 
+             "r5", "r6", "r7", "r8", "r10");
 };
 #endif
 
