@@ -2624,6 +2624,9 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
     p+=GLUE_FUNC_LEAVE_SIZE;
   #endif
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
+#ifdef __arm__
+  __clear_cache(newblock2,p);
+#endif
   
   ctx->l_stats[2]+=funcsz+2;
   return newblock2;
@@ -4883,6 +4886,9 @@ had_error:
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
       ctx->l_stats[1]=size;
       handle->code_size = (int) (writeptr - (unsigned char *)handle->code);
+#ifdef __arm__
+      __clear_cache(handle->code,writeptr);
+#endif
     }
     
     handle->blocks = ctx->blocks_head;
