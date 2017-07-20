@@ -486,9 +486,9 @@ DWORD GetPrivateProfileString(const char *appname, const char *keyname, const ch
           int y;
           for (y = 0; ; y ++)
           {            
-            const char *keyname=NULL;
-            if (!cursec->Enumerate(y,&keyname)||!keyname) break;
-            if (*keyname) tmpbuf.Add(keyname,strlen(keyname)+1);
+            const char *k=NULL;
+            if (!cursec->Enumerate(y,&k)||!k) break;
+            if (*k) tmpbuf.Add(k,strlen(k)+1);
           }
         }
       }
