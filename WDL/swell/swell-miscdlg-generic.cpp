@@ -1145,9 +1145,9 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
                   }
                   else
                   {
-                    int r,g,b;
-                    LICE_HSV2RGB(cs->h,cs->s,cs->v,&r,&g,&b);
-                    cs->custom[col] = RGB(r,g,b);
+                    int rv,gv,bv;
+                    LICE_HSV2RGB(cs->h,cs->s,cs->v,&rv,&gv,&bv);
+                    cs->custom[col] = RGB(rv,gv,bv);
                     InvalidateRect(hwnd,NULL,FALSE);
                   }
                 }
@@ -1450,12 +1450,12 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         SetWindowPos(hwnd,NULL,0,0, 550,380, SWP_NOZORDER|SWP_NOMOVE);
 
         WDL_StringKeyedArray<char> list;
-        const char *p;
+        const char *fontfile;
         int x;
-        for (x=0; (p=swell_enumFontFiles(x)); x ++)
+        for (x=0; (fontfile=swell_enumFontFiles(x)); x ++)
         {
           char buf[512];
-          lstrcpyn_safe(buf,WDL_get_filepart(p),sizeof(buf));
+          lstrcpyn_safe(buf,WDL_get_filepart(fontfile),sizeof(buf));
           char *tmp = buf;
           while (*tmp && *tmp != '-' && *tmp != '.') tmp++;
           *tmp=0;
@@ -1482,8 +1482,7 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
               const char *trail = p+ll;
               if (strlen(trail)<=2)
               {
-                int x;
-                for(x=0;x<2;x++)
+                for (int y=0;y<2;y++)
                 {
                   char c = *trail;
                   if (c>0) c=toupper(c);

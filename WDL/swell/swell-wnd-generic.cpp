@@ -508,45 +508,35 @@ HWND GetFocus()
   return h;
 }
 
-void ScreenToClient(HWND hwnd, POINT *p)
+void ScreenToClient(HWND hwnd, POINT *pt)
 {
   if (!hwnd) return;
   
-  int x=p->x,y=p->y;
-
   HWND tmp=hwnd;
   while (tmp)
   {
     NCCALCSIZE_PARAMS p = {{ tmp->m_position, }, };
     if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
 
-    x -= p.rgrc[0].left;
-    y -= p.rgrc[0].top;
+    pt->x -= p.rgrc[0].left;
+    pt->y -= p.rgrc[0].top;
     tmp = tmp->m_parent;
   }
-
-  p->x=x;
-  p->y=y;
 }
 
-void ClientToScreen(HWND hwnd, POINT *p)
+void ClientToScreen(HWND hwnd, POINT *pt)
 {
   if (!hwnd) return;
   
-  int x=p->x,y=p->y;
-
   HWND tmp=hwnd;
   while (tmp)
   {
     NCCALCSIZE_PARAMS p={{tmp->m_position, }, };
     if (tmp->m_wndproc) tmp->m_wndproc(tmp,WM_NCCALCSIZE,0,(LPARAM)&p);
-    x += p.rgrc[0].left;
-    y += p.rgrc[0].top;
+    pt->x += p.rgrc[0].left;
+    pt->y += p.rgrc[0].top;
     tmp = tmp->m_parent;
   }
-
-  p->x=x;
-  p->y=y;
 }
 
 void GetWindowContentViewRect(HWND hwnd, RECT *r)
@@ -3875,8 +3865,10 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               lvs->m_capmode_data2 = subitem;
             }
 
-            NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,};
-            SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            {
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+            }
             if (oldsel != lvs->m_selitem) 
             {
               NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},lvs->m_selitem,1,LVIS_SELECTED,};
@@ -4154,12 +4146,12 @@ forceMouseMove:
         {
           RECT cr; 
           GetClientRect(hwnd,&cr); 
-          HBRUSH br = CreateSolidBrush(lvs->m_color_bg);
-          FillRect(ps.hdc,&cr,br);
-          DeleteObject(br);
+          HBRUSH bgbr = CreateSolidBrush(lvs->m_color_bg);
+          FillRect(ps.hdc,&cr,bgbr);
+          DeleteObject(bgbr);
           const bool focused = GetFocus() == hwnd;
           const int bgsel = lvs->m_color_extras[focused ? 0 : 2 ];
-          br=CreateSolidBrush(bgsel == -1 ? lvs->m_color_bg_sel : bgsel);
+          bgbr=CreateSolidBrush(bgsel == -1 ? lvs->m_color_bg_sel : bgsel);
           if (lvs) 
           {
             TEXTMETRIC tm; 
@@ -4169,7 +4161,7 @@ forceMouseMove:
             lvs->sanitizeScroll(hwnd);
 
             const bool owner_data = lvs->IsOwnerData();
-            const int n = owner_data ? lvs->m_owner_data_size : lvs->m_data.GetSize();
+            const int nrows = owner_data ? lvs->m_owner_data_size : lvs->m_data.GetSize();
             const int hdr_size = lvs->GetColumnHeaderHeight(hwnd);
             const int hdr_size_nomargin = hdr_size>0 ? hdr_size-LISTVIEW_HDR_YMARGIN : 0;
             int ypos = hdr_size - lvs->m_scroll_y;
@@ -4179,14 +4171,13 @@ forceMouseMove:
             const int nc = wdl_max(ncols,1);
             SWELL_ListView_Col *cols = lvs->m_cols.Get();
 
-            int x;
             const bool has_image = lvs->hasAnyImage();
             const bool has_status_image = lvs->hasStatusImage();
             const int xo = lvs->m_scroll_x;
 
             const int totalw = lvs->getTotalWidth();
 
-            const bool vscroll_area = hdr_size + n * row_height > cr.bottom - g_swell_ctheme.scrollbar_width;
+            const bool vscroll_area = hdr_size + nrows * row_height > cr.bottom - g_swell_ctheme.scrollbar_width;
             const bool hscroll = totalw > cr.right - (vscroll_area ? g_swell_ctheme.scrollbar_width : 0);
             if (hscroll)
               cr.bottom -= g_swell_ctheme.scrollbar_width;
@@ -4199,7 +4190,7 @@ forceMouseMove:
               oldpen = SelectObject(ps.hdc,gridpen);
             }
 
-            for (x = 0; x < n && ypos < cr.bottom; x ++)
+            for (int rowidx = 0; rowidx < nrows && ypos < cr.bottom; rowidx ++)
             {
               const char *str = NULL;
               char buf[4096];
@@ -4213,10 +4204,10 @@ forceMouseMove:
                   continue;
                 }
 
-                sel = lvs->get_sel(x);
+                sel = lvs->get_sel(rowidx);
                 if (sel)
                 {
-                  FillRect(ps.hdc,&tr,br);
+                  FillRect(ps.hdc,&tr,bgbr);
                 }
               }
 
@@ -4227,14 +4218,14 @@ forceMouseMove:
               }
               else SetTextColor(ps.hdc, lvs->m_color_text);
 
-              SWELL_ListView_Row *row = lvs->m_data.Get(x);
-              int col,xpos=-xo;
-              for (col = 0; col < nc && xpos < cr.right; col ++)
+              SWELL_ListView_Row *row = lvs->m_data.Get(rowidx);
+              int xpos=-xo;
+              for (int col = 0; col < nc && xpos < cr.right; col ++)
               {
                 int image_idx = 0;
                 if (owner_data)
                 {
-                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, x,col, 0,0, buf, sizeof(buf), -1 }};
+                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, rowidx,col, 0,0, buf, sizeof(buf), -1 }};
                   if (!col && has_image)
                   {
                     if (lvs->m_status_imagelist_type == LVSIL_STATE) nm.item.mask |= LVIF_STATE;
@@ -4283,10 +4274,10 @@ forceMouseMove:
                 {
                   if (hwnd->m_parent)
                   {
-                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)x, 0, 
+                    DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)rowidx, 0, 
                       (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,(DWORD_PTR)hwnd->m_userdata };
                     dis.rcItem.left++;
-                    if (cr.bottom-cr.top < n*row_height)
+                    if (cr.bottom-cr.top < nrows*row_height)
                       dis.rcItem.right -= g_swell_ctheme.scrollbar_width;
                     SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
                   }
@@ -4303,7 +4294,7 @@ forceMouseMove:
                   if (ar.right > ar.left)
                     DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
                 }
-              }        
+              }
               ypos += row_height;
               if (gridpen)  
               {
@@ -4320,10 +4311,10 @@ forceMouseMove:
                 MoveToEx(ps.hdc,0,ypos-1,NULL);
                 LineTo(ps.hdc,cr.right,ypos-1);
               }
-              int x,xpos=(has_status_image ? row_height : 0) - xo;
-              for (x=0; x < ncols; x ++)
+              int xpos=(has_status_image ? row_height : 0) - xo;
+              for (int col=0; col < ncols; col ++)
               {
-                xpos += cols[x].xwid;
+                xpos += cols[col].xwid;
                 if (xpos > cr.right) break;
                 MoveToEx(ps.hdc,xpos-1,hdr_size_nomargin,NULL);
                 LineTo(ps.hdc,xpos-1,cr.bottom);
@@ -4332,7 +4323,8 @@ forceMouseMove:
             if (hdr_size_nomargin>0)
             {
               HBRUSH br = CreateSolidBrush(g_swell_ctheme.listview_hdr_bg);
-              int x,xpos=(has_status_image ? row_height : 0) - xo, ypos=0;
+              int xpos=(has_status_image ? row_height : 0) - xo;
+              ypos=0;
               SetTextColor(ps.hdc,g_swell_ctheme.listview_hdr_text);
 
               if (xpos>0) 
@@ -4340,10 +4332,10 @@ forceMouseMove:
                 RECT tr={0,ypos,xpos,ypos+hdr_size_nomargin };
                 FillRect(ps.hdc,&tr,br);
               }
-              for (x=0; x < ncols; x ++)
+              for (int col=0; col < ncols; col ++)
               {
                 RECT tr={xpos,ypos,0,ypos + hdr_size_nomargin };
-                xpos += cols[x].xwid;
+                xpos += cols[col].xwid;
                 tr.right = xpos;
                
                 if (tr.right > tr.left) 
@@ -4353,7 +4345,7 @@ forceMouseMove:
                       g_swell_ctheme.listview_hdr_hilight,
                       g_swell_ctheme.listview_hdr_shadow);
 
-                  if (cols[x].sortindicator != 0)
+                  if (cols[col].sortindicator != 0)
                   {
                     const int tsz = (tr.bottom-tr.top)/4;
                     if (tr.right > tr.left + 2*tsz)
@@ -4361,7 +4353,7 @@ forceMouseMove:
                       const int x1 = tr.left + 2;
                       int y2 = (tr.bottom+tr.top)/2 - tsz/2 - tsz/4;
                       int y1 = y2 + tsz;
-                      if (cols[x].sortindicator < 0)
+                      if (cols[col].sortindicator < 0)
                       {
                         int tmp=y1; 
                         y1=y2;
@@ -4380,10 +4372,10 @@ forceMouseMove:
                     }
                   }
 
-                  if (cols[x].name) 
+                  if (cols[col].name) 
                   {
                     tr.left += wdl_min((tr.right-tr.left)/4,4);
-                    DrawText(ps.hdc,cols[x].name,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+                    DrawText(ps.hdc,cols[col].name,-1,&tr,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
                   }
                 }
                 if (xpos >= cr.right) break;
@@ -4402,7 +4394,7 @@ forceMouseMove:
             }
 
             cr.top += hdr_size_nomargin;
-            drawVerticalScrollbar(ps.hdc,cr,n*row_height,lvs->m_scroll_y);
+            drawVerticalScrollbar(ps.hdc,cr,nrows*row_height,lvs->m_scroll_y);
 
             if (hscroll)
             {
@@ -4412,7 +4404,7 @@ forceMouseMove:
                   totalw,lvs->m_scroll_x);
             }
           }
-          DeleteObject(br);
+          DeleteObject(bgbr);
 
           EndPaint(hwnd,&ps);
         }
@@ -4994,9 +4986,11 @@ forceMouseMove:
         {
           RECT r; 
           GetClientRect(hwnd,&r); 
-          HBRUSH br = CreateSolidBrush(g_swell_ctheme.treeview_bg);
-          FillRect(ps.hdc,&r,br);
-          DeleteObject(br);
+          {
+            HBRUSH br = CreateSolidBrush(g_swell_ctheme.treeview_bg);
+            FillRect(ps.hdc,&r,br);
+            DeleteObject(br);
+          }
           if (tvs)
           {
             RECT cr=r;
@@ -6436,9 +6430,11 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           r.bottom -= r.top; r.top=0;
           if (r.bottom>g_swell_ctheme.menubar_height) r.bottom=g_swell_ctheme.menubar_height;
 
-          HBRUSH br=CreateSolidBrush(g_swell_ctheme.menubar_bg);
-          FillRect(dc,&r,br);
-          DeleteObject(br);
+          {
+            HBRUSH br=CreateSolidBrush(g_swell_ctheme.menubar_bg);
+            FillRect(dc,&r,br);
+            DeleteObject(br);
+          }
 
           HGDIOBJ oldfont = SelectObject(dc,menubar_font);
           SetBkMode(dc,TRANSPARENT);

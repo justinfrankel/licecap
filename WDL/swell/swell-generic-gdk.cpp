@@ -1183,16 +1183,16 @@ static void OnSelectionNotifyEvent(GdkEventSelection *b)
 
         if (c == '\n' && lastc != '\r') str.Append("\r",1);
 
+        char bv[8];
         if (fmt != GDK_TARGET_STRING)
         {
-          char b = (char) ((unsigned char)c);
-          str.Append(&b,1);
+          bv[0] = (char) ((unsigned char)c);
+          str.Append(bv,1);
         } 
         else
         {
-          char b[8];
-          WDL_MakeUTFChar(b,c,sizeof(b));
-          str.Append(b);
+          WDL_MakeUTFChar(bv,c,sizeof(bv));
+          str.Append(bv);
         }
 
         lastc=c;
@@ -1783,20 +1783,20 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
           if (vis)
           {
 #if SWELL_TARGET_GDK == 2
-            gint w=0,h=0,d=0;
-            gdk_window_get_geometry(bs->w,NULL,NULL,&w,&h,&d);
+            gint w=0,hh=0,d=0;
+            gdk_window_get_geometry(bs->w,NULL,NULL,&w,&hh,&d);
 #else
-            gint w=0,h=0;
-            gdk_window_get_geometry(bs->w,NULL,NULL,&w,&h);
+            gint w=0,hh=0;
+            gdk_window_get_geometry(bs->w,NULL,NULL,&w,&hh);
 #endif
             if (w > bs->lastrect.right-bs->lastrect.left) 
             {
               bs->lastrect.right = bs->lastrect.left + w;
               tr.right++; // workaround "bug" in GDK -- if bs->w was resized via Xlib, GDK won't resize it unless it thinks the size changed
             }
-            if (h > bs->lastrect.bottom-bs->lastrect.top) 
+            if (hh > bs->lastrect.bottom-bs->lastrect.top) 
             {
-              bs->lastrect.bottom = bs->lastrect.top + h;
+              bs->lastrect.bottom = bs->lastrect.top + hh;
               tr.bottom++; // workaround "bug" in GDK -- if bs->w was resized via Xlib, GDK won't resize it unless it thinks the size changed
             }
           }

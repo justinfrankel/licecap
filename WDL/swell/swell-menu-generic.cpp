@@ -524,10 +524,10 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
             if (x == menu->sel_vis && !dis)
             {
-              HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
+              HBRUSH brs=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
               RECT r2=r;
-              FillRect(ps.hdc,&r2,br);
-              DeleteObject(br);
+              FillRect(ps.hdc,&r2,brs);
+              DeleteObject(brs);
               SetTextColor(ps.hdc,g_swell_ctheme.menu_text_sel);
             }
             else 
