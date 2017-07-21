@@ -3566,13 +3566,13 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
     // also we don't need to save/restore anything to the stack (which the normal 2 parameter function processing does)
     if (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_JOIN_STATEMENTS)
     {
-      int fUse;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse,NULL);
+      int fUse1;
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL,&fUse1,NULL);
       if (parm_size < 0) RET_MINUS1_FAIL("coc join fail")
       op = op->parms.parms[1];
       if (!op) RET_MINUS1_FAIL("join got to null")
 
-      if (fUse>*fpStackUse) *fpStackUse=fUse;
+      if (fUse1>*fpStackUse) *fpStackUse=fUse1;
       if (bufOut) bufOut += parm_size;
       bufOut_len -= parm_size;
       rv_offset += parm_size;
@@ -3601,7 +3601,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
   // special case: BAND/BOR
   if (op->opcodeType == OPCODETYPE_FUNC2 && (op->fntype == FN_LOGICAL_AND || op->fntype == FN_LOGICAL_OR))
   {
-    int fUse=0;
+    int fUse1=0;
     int parm_size;
 #ifdef GLUE_MAX_JMPSIZE
     int parm_size_pre;
@@ -3611,10 +3611,10 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 
     *calledRvType = retType;
     
-    parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse, NULL);
+    parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse1, NULL);
     if (parm_size < 0) RET_MINUS1_FAIL("loop band/bor coc fail")
     
-    if (fUse > *fpStackUse) *fpStackUse=fUse;
+    if (fUse1 > *fpStackUse) *fpStackUse=fUse1;
 
 
 #ifdef GLUE_MAX_JMPSIZE
@@ -3622,7 +3622,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
 #endif
 
     {
-      int sz2, fUse=0;
+      int sz2, fUse2=0;
       unsigned char *destbuf;
       const int testsz=op->fntype == FN_LOGICAL_OR ? sizeof(GLUE_JMP_IF_P1_NZ) : sizeof(GLUE_JMP_IF_P1_Z);
       if (bufOut_len < parm_size+testsz) RET_MINUS1_FAIL_FALLBACK("band/bor size fail",doNonInlinedAndOr_)
@@ -3631,7 +3631,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       parm_size += testsz;
       destbuf = bufOut + parm_size;
 
-      sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse, NULL);
+      sz2= compileOpcodes(ctx,op->parms.parms[1],bufOut?bufOut+parm_size:NULL,bufOut_len-parm_size, computTableSize, namespacePathToThis, retType, NULL,&fUse2, NULL);
 
       CHECK_SIZE_FORJMP(sz2,doNonInlinedAndOr_)
       if (sz2<0) RET_MINUS1_FAIL("band/bor coc fail")
@@ -3639,7 +3639,7 @@ static int compileOpcodesInternal(compileContext *ctx, opcodeRec *op, unsigned c
       parm_size+=sz2;
       if (bufOut) GLUE_JMP_SET_OFFSET(destbuf, (bufOut + parm_size) - destbuf);
 
-      if (fUse > *fpStackUse) *fpStackUse=fUse;
+      if (fUse2 > *fpStackUse) *fpStackUse=fUse2;
       return rv_offset + parm_size;
     }
 #ifdef GLUE_MAX_JMPSIZE
@@ -3666,11 +3666,11 @@ doNonInlinedAndOr_:
     
       if (bufOut)
       {
-        fUse=0;
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, retType, NULL, &fUse, NULL);
+        int fUse2=0;
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, retType, NULL, &fUse2, NULL);
         if (!newblock2) RET_MINUS1_FAIL("band/bor ccbwr fail")
 
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        if (fUse2 > *fpStackUse) *fpStackUse=fUse2;
     
         p = bufOut + parm_size;
         memcpy(p, stub, stubsize);
@@ -3684,15 +3684,15 @@ doNonInlinedAndOr_:
 
   if (op->opcodeType == OPCODETYPE_FUNC3 && op->fntype == FN_IF_ELSE) // special case: IF
   {
-    int fUse=0;
+    int fUse1=0;
 #ifdef GLUE_MAX_JMPSIZE
     int parm_size_pre;
 #endif
     int use_rv = RETURNVALUE_IGNORE;
     int rvMode=0;
-    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL|RETURNVALUE_BOOL_REVERSED, &rvMode,&fUse, NULL);
+    int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_BOOL|RETURNVALUE_BOOL_REVERSED, &rvMode,&fUse1, NULL);
     if (parm_size < 0) RET_MINUS1_FAIL("if coc fail")
-    if (fUse > *fpStackUse) *fpStackUse=fUse;
+    if (fUse1 > *fpStackUse) *fpStackUse=fUse1;
 
     if (preferredReturnValues & RETURNVALUE_NORMAL) use_rv=RETURNVALUE_NORMAL;
     else if (preferredReturnValues & RETURNVALUE_FPSTACK) use_rv=RETURNVALUE_FPSTACK;
@@ -3717,8 +3717,8 @@ doNonInlinedAndOr_:
         if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_IF_P1_Z,sizeof(GLUE_JMP_IF_P1_Z));
         parm_size += sizeof(GLUE_JMP_IF_P1_Z);
       }
-      csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
-      if (fUse > *fpStackUse) *fpStackUse=fUse;
+      csz=compileOpcodes(ctx,op->parms.parms[1],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL,&fUse1, canHaveDenormalOutput);
+      if (fUse1 > *fpStackUse) *fpStackUse=fUse1;
       hasSecondHalf = preferredReturnValues || !OPCODE_IS_TRIVIAL(op->parms.parms[2]);
 
       CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
@@ -3733,7 +3733,7 @@ doNonInlinedAndOr_:
         if (bufOut) memcpy(bufOut+parm_size,GLUE_JMP_NC,sizeof(GLUE_JMP_NC));
         parm_size+=sizeof(GLUE_JMP_NC);
 
-        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse, canHaveDenormalOutput);
+        csz=compileOpcodes(ctx,op->parms.parms[2],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, use_rv, NULL, &fUse1, canHaveDenormalOutput);
 
         CHECK_SIZE_FORJMP(csz,doNonInlineIf_)
         if (csz<0) RET_MINUS1_FAIL("if coc 2 fail")
@@ -3741,7 +3741,7 @@ doNonInlinedAndOr_:
         // update jump address
         if (bufOut) GLUE_JMP_SET_OFFSET(bufOut + parm_size,csz); 
         parm_size+=csz;       
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        if (fUse1 > *fpStackUse) *fpStackUse=fUse1;
       }
       return rv_offset + parm_size;
     }
@@ -3759,11 +3759,11 @@ doNonInlineIf_:
     
       if (bufOut)
       {
-        fUse=0;
-        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput); 
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
-        newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL,&fUse, canHaveDenormalOutput);
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        int fUse2=0;
+        newblock2 = compileCodeBlockWithRet(ctx,op->parms.parms[1],computTableSize,namespacePathToThis, use_rv, NULL,&fUse2, canHaveDenormalOutput); 
+        if (fUse2 > *fpStackUse) *fpStackUse=fUse2;
+        newblock3 = compileCodeBlockWithRet(ctx,op->parms.parms[2],computTableSize,namespacePathToThis, use_rv, NULL,&fUse2, canHaveDenormalOutput);
+        if (fUse2 > *fpStackUse) *fpStackUse=fUse2;
         if (!newblock2 || !newblock3) RET_MINUS1_FAIL("if subblock gen fail")
     
         ptr = bufOut + parm_size;
@@ -3849,12 +3849,12 @@ doNonInlineIf_:
     // special case: loop
     if (op->opcodeType == OPCODETYPE_FUNC2 && op->fntype == FN_LOOP)
     {
-      int fUse;
-      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse, NULL);
+      int fUse1;
+      int parm_size = compileOpcodes(ctx,op->parms.parms[0],bufOut,bufOut_len, computTableSize, namespacePathToThis, RETURNVALUE_FPSTACK, NULL,&fUse1, NULL);
       if (parm_size < 0) RET_MINUS1_FAIL("loop coc fail")
       
       *calledRvType = RETURNVALUE_BOOL;
-      if (fUse > *fpStackUse) *fpStackUse=fUse;
+      if (fUse1 > *fpStackUse) *fpStackUse=fUse1;
            
 #ifndef GLUE_INLINE_LOOPS
       // todo: PPC looping support when loop length is small enough
@@ -3878,7 +3878,7 @@ doNonInlineIf_:
 #else
       {
         int subsz;
-        int fUse=0;
+        int fUse2=0;
         unsigned char *skipptr1,*loopdest;
 
         if (bufOut_len < parm_size + (int)(sizeof(GLUE_LOOP_LOADCNT) + GLUE_LOOP_CLAMPCNT_SIZE + GLUE_LOOP_BEGIN_SIZE)) RET_MINUS1_FAIL("loop size fail")
@@ -3898,9 +3898,9 @@ doNonInlineIf_:
         if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_BEGIN,GLUE_LOOP_BEGIN_SIZE);
         parm_size += GLUE_LOOP_BEGIN_SIZE;
 
-        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse, NULL);
+        subsz = compileOpcodes(ctx,op->parms.parms[1],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_IGNORE, NULL, &fUse2, NULL);
         if (subsz<0) RET_MINUS1_FAIL("loop coc fail")
-        if (fUse > *fpStackUse) *fpStackUse=fUse;
+        if (fUse2 > *fpStackUse) *fpStackUse=fUse2;
 
         parm_size += subsz;
 

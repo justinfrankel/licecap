@@ -2422,7 +2422,8 @@ OSStatus CarbonEvtHandler(EventHandlerCallRef nextHandlerRef, EventRef event, vo
       NSEventType type;
       if (evtkind == kEventRawKeyDown) type = NSKeyDown;
       else if (evtkind == kEventRawKeyUp) type = NSKeyUp;
-      else if (evtkind == kEventRawKeyModifiersChanged) type = NSFlagsChanged;      
+      else /*if (evtkind == kEventRawKeyModifiersChanged) */
+        type = NSFlagsChanged;
 
       NSString* str = (NSString*)SWELL_CStringToCFString(c);
       NSTimeInterval ts = 0; // [[NSApp currentevent] timestamp];

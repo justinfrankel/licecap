@@ -2591,7 +2591,6 @@ int LICE_BitmapCmpEx(LICE_IBitmap* a, LICE_IBitmap* b, LICE_pixel mask, int *coo
     px2+=span2 * (ah-1-y);
     for (y = ah-1; y > miny; y --)
     {
-      int x;
       // check left side
       for (x=0;x<aw && !((px1[x]^px2[x])&mask);x++);
       if (x < aw) 
@@ -2617,7 +2616,6 @@ int LICE_BitmapCmpEx(LICE_IBitmap* a, LICE_IBitmap* b, LICE_pixel mask, int *coo
     px2+=span2 * (miny+1-y);
     for (y=miny+1;y<maxy && (minx>0 || maxx<aw-1);y++) 
     {
-      int x;
       for (x=0;x<minx && !((px1[x]^px2[x])&mask);x++);
       minx=x;
       for (x=aw-1;x>maxx && !((px1[x]^px2[x])&mask);x--);

@@ -45,27 +45,27 @@ void LICE_AlterBitmapHSV(LICE_IBitmap* src, float dH, float dS, float dV) // H i
   if (src) LICE_AlterRectHSV(src,0,0,src->getWidth(),src->getHeight(),dH,dS,dV);
 }
 
-void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float dH, float dS, float dV) // H is rolled over, S and V are clamped
+void LICE_AlterRectHSV(LICE_IBitmap* src, int xpos, int ypos, int w, int h, float dH, float dS, float dV) // H is rolled over, S and V are clamped
 {
   if (!src) return;
 
-  if (x < 0) {
-    w += x;
-    x = 0;
+  if (xpos < 0) {
+    w += xpos;
+    xpos = 0;
   }
-  if (y < 0) {
-    h += y;
-    y = 0;
+  if (ypos < 0) {
+    h += ypos;
+    ypos = 0;
   }
 
   const int span = src->getRowSpan();
   const int destbm_w = src->getWidth(), destbm_h = src->getHeight();
-  if (span < 1 || w < 1 || h < 1 || x >= destbm_w || y >= destbm_h) return;
+  if (span < 1 || w < 1 || h < 1 || xpos >= destbm_w || ypos >= destbm_h) return;
 
-  if (w > destbm_w - x) w = destbm_w - x;
-  if (h > destbm_h - y) h = destbm_h - y;
+  if (w > destbm_w - xpos) w = destbm_w - xpos;
+  if (h > destbm_h - ypos) h = destbm_h - ypos;
   
-  LICE_pixel* px = src->getBits()+y*span+x;  
+  LICE_pixel* px = src->getBits()+ypos*span+xpos;
 
   int dHi = (int)(dH*384.0f);
   int dSi = (int)(dS*255.0f);
@@ -111,9 +111,9 @@ void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float dH, 
       while (xi-->0)
       {
         LICE_pixel color = *tpx;
-        int h,s,v;
-        LICE_RGB2HSV(LICE_GETR(color), LICE_GETG(color), LICE_GETB(color), &h, &s, &v);
-        *tpx++ = LICE_HSV2Pix(htab[h],stab[s],vtab[v],LICE_GETA(color));
+        int hh,s,v;
+        LICE_RGB2HSV(LICE_GETR(color), LICE_GETG(color), LICE_GETB(color), &hh, &s, &v);
+        *tpx++ = LICE_HSV2Pix(htab[hh],stab[s],vtab[v],LICE_GETA(color));
       }
     }
   }

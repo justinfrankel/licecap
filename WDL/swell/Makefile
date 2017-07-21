@@ -8,7 +8,7 @@ UNAME_S := $(shell uname -s)
 
 PKG_CONFIG = pkg-config
 
-CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-unused-function -Wno-multichar -Wno-unused-result
+CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar -Wno-unused-result
 
 ifeq ($(UNAME_S),Darwin)
   CFLAGS += -Wno-unused-private-field -DSWELL_FORCE_GENERIC

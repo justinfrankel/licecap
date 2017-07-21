@@ -642,8 +642,8 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
         int x;
         for(x=0;x<width;x++) 
         {
-          unsigned char c=gsrc[x];
-          if (c) pout[x]=c==255? col : bkcol;
+          unsigned char cv=gsrc[x];
+          if (cv) pout[x]=cv==255? col : bkcol;
         }
         gsrc += src_span;
         pout += dest_span;

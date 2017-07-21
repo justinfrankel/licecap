@@ -182,17 +182,17 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
     WSAStartup(MAKEWORD(1, 1), &wsaData);
   }
 #endif
-  SOCKET *s = m_listens.GetPtr(port);
+  SOCKET *sockptr = m_listens.GetPtr(port);
   if (mode<0)
   {
-    if (!s) return -1.0;
+    if (!sockptr) return -1.0;
 
-    SOCKET ss=*s;
+    SOCKET ss=*sockptr;
     m_listens.Delete(port);
     if (ss != INVALID_SOCKET) closesocket(ss);
     return 0.0;
   }
-  if (!s)
+  if (!sockptr)
   {
     struct sockaddr_in sin;
     memset((char *) &sin, 0,sizeof(sin));
@@ -224,13 +224,13 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
     // we report -1 to the caller, no need to error message
 #endif
     m_listens.Insert(port,sock);
-    s = m_listens.GetPtr(port);
+    sockptr = m_listens.GetPtr(port);
   }
-  if (!s || *s == INVALID_SOCKET) return -1;
+  if (!sockptr || *sockptr == INVALID_SOCKET) return -1;
 
   struct sockaddr_in saddr;
   socklen_t length = sizeof(struct sockaddr_in);
-  SOCKET newsock = accept(*s, (struct sockaddr *) &saddr, &length);
+  SOCKET newsock = accept(*sockptr, (struct sockaddr *) &saddr, &length);
   if (newsock == INVALID_SOCKET) 
   {
     return 0; // nothing to report here
@@ -239,15 +239,15 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
   int x;
   for(x=0;x<m_cons.GetSize();x++)
   {
-    connection_state *s=m_cons.Get()+x;
-    if (s->state == STATE_FREE)
+    connection_state *cs=m_cons.Get()+x;
+    if (cs->state == STATE_FREE)
     {
-      s->state=STATE_CONNECTED;
-      free(s->hostname);
-      s->hostname=NULL;
-      s->sock = newsock;
-      s->blockmode=0;
-      s->port=0;
+      cs->state=STATE_CONNECTED;
+      free(cs->hostname);
+      cs->hostname=NULL;
+      cs->sock = newsock;
+      cs->blockmode=0;
+      cs->port=0;
       if (ipOut)
       {
         EEL_STRING_MUTEXLOCK_SCOPE

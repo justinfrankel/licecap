@@ -2374,29 +2374,29 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
 BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
 {
   *text=0;
-  NSView *poo=(NSView *)(idx?GetDlgItem(hwnd,idx) : hwnd);
-  if (!poo) return false;
+  NSView *pvw=(NSView *)(idx?GetDlgItem(hwnd,idx) : hwnd);
+  if (!pvw) return false;
 
   SWELL_BEGIN_TRY
   
-  if ([(id)poo isKindOfClass:[NSView class]] && [[(id)poo window] contentView] == poo)
+  if ([(id)pvw isKindOfClass:[NSView class]] && [[(id)pvw window] contentView] == pvw)
   {
-    poo=(NSView *)[(id)poo window];
+    pvw=(NSView *)[(id)pvw window];
   }
   
-  if ([(id)poo respondsToSelector:@selector(onSwellGetText)])
+  if ([(id)pvw respondsToSelector:@selector(onSwellGetText)])
   {  
-    const char *p=(const char *)[(SWELL_hwndChild*)poo onSwellGetText];
+    const char *p=(const char *)[(SWELL_hwndChild*)pvw onSwellGetText];
     lstrcpyn_safe(text,p?p:"",textlen);
     return TRUE;
   }
   
   NSString *s;
   
-  if ([poo isKindOfClass:[NSButton class]]||[poo isKindOfClass:[NSWindow class]]) s=[((NSButton *)poo) title];
-  else if ([poo isKindOfClass:[NSControl class]]) s=[((NSControl *)poo) stringValue];
-  else if ([poo isKindOfClass:[NSText class]])  s=[(NSText*)poo string];
-  else if ([poo isKindOfClass:[NSBox class]]) s=[(NSBox *)poo title];
+  if ([pvw isKindOfClass:[NSButton class]]||[pvw isKindOfClass:[NSWindow class]]) s=[((NSButton *)pvw) title];
+  else if ([pvw isKindOfClass:[NSControl class]]) s=[((NSControl *)pvw) stringValue];
+  else if ([pvw isKindOfClass:[NSText class]])  s=[(NSText*)pvw string];
+  else if ([pvw isKindOfClass:[NSBox class]]) s=[(NSBox *)pvw title];
   else return FALSE;
   
   if (s) SWELL_CFStringToCString(s,text,textlen);
@@ -2409,18 +2409,19 @@ BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
 
 void CheckDlgButton(HWND hwnd, int idx, int check)
 {
-  NSView *poo=(NSView *)GetDlgItem(hwnd,idx);
-  if (!poo) return;
-  if ([poo isKindOfClass:[NSButton class]]) [(NSButton*)poo setState:(check&BST_INDETERMINATE)?NSMixedState:((check&BST_CHECKED)?NSOnState:NSOffState)];
+  NSView *pvw=(NSView *)GetDlgItem(hwnd,idx);
+  if (!pvw) return;
+  if ([pvw isKindOfClass:[NSButton class]]) 
+    [(NSButton*)pvw setState:(check&BST_INDETERMINATE)?NSMixedState:((check&BST_CHECKED)?NSOnState:NSOffState)];
 }
 
 
 int IsDlgButtonChecked(HWND hwnd, int idx)
 {
-  NSView *poo=(NSView *)GetDlgItem(hwnd,idx);
-  if (poo && [poo isKindOfClass:[NSButton class]])
+  NSView *pvw=(NSView *)GetDlgItem(hwnd,idx);
+  if (pvw && [pvw isKindOfClass:[NSButton class]])
   {
-    NSInteger a=[(NSButton*)poo state];
+    NSInteger a=[(NSButton*)pvw state];
     if (a==NSMixedState) return BST_INDETERMINATE;
     return a!=NSOffState;
   }
@@ -3348,11 +3349,12 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
 {
   if (m_ccprocs)
   {
-    NSRect poo=MakeCoords(x,y,w,h,false);
+    NSRect wcr=MakeCoords(x,y,w,h,false);
     ccprocrec *p=m_ccprocs;
     while (p)
     {
-      HWND hwnd=p->proc((HWND)m_make_owner,cname,idx,classname,style,(int)(poo.origin.x+0.5),(int)(poo.origin.y+0.5),(int)(poo.size.width+0.5),(int)(poo.size.height+0.5));
+      HWND hwnd=p->proc((HWND)m_make_owner,cname,idx,classname,style,
+          (int)(wcr.origin.x+0.5),(int)(wcr.origin.y+0.5),(int)(wcr.size.width+0.5),(int)(wcr.size.height+0.5));
       if (hwnd) 
       {
         if (exstyle) SetWindowLong(hwnd,GWL_EXSTYLE,exstyle);

@@ -272,7 +272,7 @@ public:
     {
       y=(int)yf;
       w=yf-floor(yf);
-      int wa=(int)((double)ai*w);
+      wa=(int)((double)ai*w);
 
       DrawClippedPt(dest, cx0-x, cy0-y-1, clip, r, g, b, a, wa, doclip);
       DrawClippedPt(dest, cx0-x, cy0+y+1, clip, r, g, b, a, wa, doclip);
