@@ -156,7 +156,7 @@ struct fontScoreMatched {
 
 const char *swell_last_font_filename;
 
-static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
+static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exact)
 {
   const int fn_len = strlen(lfFaceName), ntab=2;
   WDL_PtrList<char> *tab[ntab]= { &s_freetype_regfonts, &s_freetype_fontlist };
@@ -201,6 +201,16 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic)
 
       s.fn = fn;
       s.score1 = (int)((dash?dash:ext)-residual); // characters between font and either "-" or "."
+
+      if (exact > 0)
+      {
+        if (s.score1) continue;
+      }
+      else if (exact < 0 && !s.score1) 
+      {
+        continue;
+      }
+
       s.score2 = 0;
 
       if (dash) { if (*dash == '-') dash++; }
@@ -364,7 +374,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   }
   if (s_freetype)
   {
-    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName,lfWeight,lfItalic);
+    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName,lfWeight,lfItalic,0);
 
     if (!face)
     {
@@ -377,8 +387,8 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
       {
         static const char *ent[2] = { "ft_font_fallback", "ft_font_fallback_fixedwidth" };
         static const char *def[2] = { 
-          "// Cantarell FreeSans DejaVuSans NotoSans LiberationSans Oxygen", 
-          "// FreeMono DejaVuSansMono NotoMono OxygenMono LiberationMono" 
+          "// Cantarell FreeSans DejaVuSans NotoSans LiberationSans Oxygen Arial Verdana", 
+          "// FreeMono DejaVuSansMono NotoMono OxygenMono LiberationMono Courier" 
         };
         char tmp[1024];
         GetPrivateProfileString(".swell",ent[wl],"",tmp,sizeof(tmp),"");
@@ -402,11 +412,14 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
           *b++=0;
         }
       }
-      const char *l = fallbacklist[wl];
-      while (*l && !face)
+      for (int exact=0;exact<2 && !face;exact++)
       {
-        face = MatchFont(l,lfWeight,lfItalic);
-        l += strlen(l)+1;
+        const char *l = fallbacklist[wl];
+        while (*l && !face)
+        {
+          face = MatchFont(l,lfWeight,lfItalic,exact?-1:1);
+          l += strlen(l)+1;
+        }
       }
     }
   }
