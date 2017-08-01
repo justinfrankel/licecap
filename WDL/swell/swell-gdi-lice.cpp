@@ -1417,7 +1417,8 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
 
   if (forceref || hwnd->m_child_invalidated)
   {
-    swell_gdpLocalContext ctx={0,}; // todo set up gdi context defaults?
+    swell_gdpLocalContext ctx;
+    memset(&ctx,0,sizeof(ctx));
     ctx.ctx.surface = bmout;
     ctx.ctx.surface_offs.x = -bmout_xpos;
     ctx.ctx.surface_offs.y = -bmout_ypos;
