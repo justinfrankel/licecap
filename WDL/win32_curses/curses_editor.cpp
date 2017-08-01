@@ -570,7 +570,7 @@ static void ReplaceTabs(WDL_FastString *str, int tabsz)
   if (insert_sz<0) insert_sz=0;
   else if (insert_sz>128) insert_sz=128;
 
-  memset(s,' ',insert_sz);
+  if (insert_sz>0) memset(s,' ',insert_sz);
   for(x=0;x<str->GetLength();x++)
   {
     char *p = (char *)str->Get();
