@@ -607,8 +607,8 @@ get_dir:
               DIR *dir = opendir(buf);
               if (!dir)
               {
-                snprintf(msg,sizeof(msg),"Path does not exist:\r\n\r\n%s",buf);
-                MessageBox(hwnd,msg,"Path not found",MB_OK);
+                //snprintf(msg,sizeof(msg),"Path does not exist:\r\n\r\n%s",buf);
+                //MessageBox(hwnd,msg,"Path not found",MB_OK);
                 return 0;
               }
               closedir(dir);
@@ -742,8 +742,8 @@ treatAsDir:
                    }
                    if (stat64(buf,&st))
                    {
-                     snprintf(msg,sizeof(msg),"File does not exist:\r\n\r\n%s",buf);
-                     MessageBox(hwnd,msg,"File not found",MB_OK);
+                     //snprintf(msg,sizeof(msg),"File does not exist:\r\n\r\n%s",buf);
+                     //MessageBox(hwnd,msg,"File not found",MB_OK);
                      return 0;
                    }
                  }
