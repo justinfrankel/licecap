@@ -614,6 +614,7 @@ get_dir:
               closedir(dir);
 
               SendMessage(hwnd,WM_UPD,1,0);
+              SendMessage(hwnd, WM_UPD, IDC_DIR, (LPARAM)buf);
               HWND e = GetDlgItem(hwnd,IDC_EDIT);
               SendMessage(e,EM_SETSEL,0,(LPARAM)-1);
               SetFocus(e);
