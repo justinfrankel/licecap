@@ -258,6 +258,24 @@ public:
 
 char BrowseFile_State::s_sortrev;
 
+static void preprocess_user_path(char *buf, int bufsz)
+{
+  if (buf[0] == '~')
+  {
+    char *tmp = strdup(buf+1);
+    if (buf[1] == '/' || !buf[1])
+    {
+      char *p = getenv("HOME");
+      if (p && *p) snprintf(buf,bufsz,"%s%s",p,tmp);
+    }
+    else
+    {
+      snprintf(buf,bufsz,"/home/%s",tmp); // if someone wants to write code to lookup homedirs, please, go right ahead!
+    }
+    free(tmp);
+  }
+}
+
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON, IDC_FILTER };
@@ -449,6 +467,7 @@ get_dir:
             if (a>=0) filt = (const char *)SendDlgItemMessage(hwnd,IDC_EXT,CB_GETITEMDATA,a,0);
 
             GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
+            preprocess_user_path(buf,sizeof(buf));
 
             if (buf[0]) parms->scan_path(buf, filt, parms->mode == BrowseFile_State::OPENDIR);
             else parms->viewlist_clear();
@@ -563,6 +582,7 @@ get_dir:
             {
               char buf[maxPathLen];
               GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
+              preprocess_user_path(buf,sizeof(buf));
               WDL_remove_filepart(buf);
               SetDlgItemText(hwnd,IDC_DIR,buf);
             }
@@ -580,6 +600,8 @@ get_dir:
           {
             char buf[maxPathLen], msg[2048];
             GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
+            preprocess_user_path(buf,sizeof(buf));
+
             if (GetFocus() == GetDlgItem(hwnd,IDC_DIR))
             {
               DIR *dir = opendir(buf);
@@ -606,6 +628,7 @@ get_dir:
               if (buf[buflen-1]!='/') { buf[buflen++] = '/'; buf[buflen]=0; }
             }
             GetDlgItemText(hwnd,IDC_EDIT,msg,sizeof(msg));
+            preprocess_user_path(msg,sizeof(msg));
 
             BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
             int cnt;
