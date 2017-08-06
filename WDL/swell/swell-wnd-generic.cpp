@@ -3721,6 +3721,8 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   switch (msg)
   {
     case WM_MOUSEWHEEL:
+      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || (GetAsyncKeyState(VK_MENU)&0x8000)) break; // pass modified mousewheel to parent
+
       {
         const int amt = ((short)HIWORD(wParam))/40;
         if (amt && lvs)
@@ -4974,6 +4976,8 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
   switch (msg)
   {
     case WM_MOUSEWHEEL:
+      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || (GetAsyncKeyState(VK_MENU)&0x8000)) break; // pass modified mousewheel to parent
+
       {
         const int amt = ((short)HIWORD(wParam))/40;
         if (amt && tvs)
