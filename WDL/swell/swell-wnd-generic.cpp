@@ -3672,6 +3672,47 @@ struct listViewState
   int m_status_imagelist_type;
 };
 
+// returns non-NULL if a searching string occurred
+static const char *stateStringOnKey(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  if (lParam & (FCONTROL|FALT|FLWIN)) return NULL;
+  if (uMsg != WM_KEYDOWN) return NULL;
+  static WDL_FastString str;
+  static DWORD last_t;
+  DWORD now = GetTickCount();
+  if (now > last_t + 500 || now < last_t - 500) str.Set("");
+  last_t = now;
+
+  const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;
+  if ((lParam & FVIRTKEY) && wParam == VK_BACK)
+  {
+    str.SetLen(WDL_utf8_charpos_to_bytepos(str.Get(),WDL_utf8_get_charlen(str.Get())-1));
+  }
+  else if (wParam >= 32 && (!(lParam & FVIRTKEY) || swell_is_virtkey_char((int)wParam) || is_numpad))
+  {
+    if (lParam & FVIRTKEY)
+    {
+      if (wParam >= 'A' && wParam <= 'Z')
+      {
+        if ((lParam&FSHIFT) ^ (swell_is_likely_capslock?0:FSHIFT)) wParam += 'a' - 'A';
+      }
+      else if (is_numpad)
+      {
+        if (wParam <= VK_NUMPAD9) wParam += '0' - VK_NUMPAD0;
+        else wParam += '*' - VK_MULTIPLY;
+      }
+    }
+
+    char b[8];
+    WDL_MakeUTFChar(b,wParam,sizeof(b));
+    str.Append(b);
+    return str.Get();
+  }
+
+  return NULL;
+}
+
+
 static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   enum { col_resize_sz = 3 };
@@ -4036,6 +4077,92 @@ forceMouseMove:
       }
     return 1;
     case WM_KEYDOWN:
+      if (lvs)
+      {
+        const char *s = stateStringOnKey(msg,wParam,lParam);
+        if (s)
+        {
+          int col = 0;
+          if (!lvs->m_is_listbox)
+          {
+            for (int x=0;x<lvs->m_cols.GetSize();x++)
+            {
+              if (lvs->m_cols.Get()[x].sortindicator)
+              {
+                col = x;
+                break;
+              }
+            }
+          }
+
+          const int n = lvs->GetNumItems();
+          for (int x=0;x<n;x++)
+          {
+            int offs = (lvs->m_selitem + x) % n;
+            if (offs < 0) offs+=n;
+
+            const char *v=NULL;
+            char buf[1024];
+            if (!lvs->IsOwnerData())
+            {
+              SWELL_ListView_Row *row = lvs->m_data.Get(offs);
+              if (row) v = row->m_vals.Get(col);
+            }
+            else
+            {
+              buf[0]=0;
+              NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, offs,col, 0,0, buf, sizeof(buf), -1 }};
+              SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+              v = buf;
+            }
+
+            if (v && !strnicmp(v,s,strlen(s))) 
+            {
+              if (!lvs->m_is_multisel)
+              {
+                const int oldsel = lvs->m_selitem;
+                lvs->m_selitem = offs;
+
+                if (lvs->m_is_listbox)
+                {
+                  SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+                }
+                else
+                {
+                  if (oldsel != lvs->m_selitem) 
+                  {
+                    NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},lvs->m_selitem,1,LVIS_SELECTED,};
+                    SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+                  }
+                }
+              }
+              else 
+              {
+                bool changed = lvs->clear_sel() | lvs->set_sel(offs,true);
+                lvs->m_selitem = offs;
+
+                if (lvs->m_is_listbox)
+                {
+                  if (changed) SendMessage(GetParent(hwnd),WM_COMMAND,(LBN_SELCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
+                }
+                else 
+                {
+                  if (changed)
+                  {
+                    NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_ITEMCHANGED},offs,0,LVIS_SELECTED,};
+                    if (nm.iItem < 0 || nm.iItem >= n) nm.iItem=0;
+                    SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+                  }
+                }
+              }
+
+              ListView_EnsureVisible(hwnd,offs,FALSE);
+              InvalidateRect(hwnd,NULL,FALSE);
+              break;
+            }
+          }
+        }
+      }
       if (lvs && (lParam & FVIRTKEY)) 
       {
         int flag=0;
