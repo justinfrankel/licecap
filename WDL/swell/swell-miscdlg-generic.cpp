@@ -408,6 +408,7 @@ get_dir:
           SendMessage(hwnd, WM_UPD, IDC_DIR, (LPARAM)buf);
         }
 
+        if (list) SetWindowPos(list,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
         SetWindowPos(hwnd,NULL,x,y, w,h, flag);
         SendMessage(hwnd,WM_UPD,1,0);
         SendMessage(edit,EM_SETSEL,0,(LPARAM)-1);
