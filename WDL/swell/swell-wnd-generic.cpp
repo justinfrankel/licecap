@@ -4098,9 +4098,11 @@ forceMouseMove:
           }
 
           const int n = lvs->GetNumItems();
+          int selitem = lvs->m_selitem;
+          if (selitem < 0 || selitem >= n) selitem=0;
           for (int x=0;x<n;x++)
           {
-            int offs = (lvs->m_selitem + x) % n;
+            int offs = (selitem + x) % n;
             if (offs < 0) offs+=n;
 
             const char *v=NULL;
