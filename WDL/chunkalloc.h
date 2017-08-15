@@ -88,6 +88,16 @@ class WDL_ChunkAlloc
       return ret;
     }
 
+    char *StrDup(const char *s)
+    {
+      if (!s) return NULL;
+      const int l = (int) strlen(s)+1;
+      char *ret = (char*)Alloc(l);
+      if (!ret) return NULL;
+      memcpy(ret,s,l);
+      return ret;
+    }
+
 };
 
 #endif
