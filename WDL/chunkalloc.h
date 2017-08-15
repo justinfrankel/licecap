@@ -16,7 +16,7 @@ class WDL_ChunkAlloc
 
   public:
 
-    WDL_ChunkAlloc(int chunksize=65500) { m_chunks=NULL; m_chunkused=0; m_chunksize=chunksize>16?16:chunksize; }
+    WDL_ChunkAlloc(int chunksize=65500) { m_chunks=NULL; m_chunkused=0; m_chunksize=chunksize>16?chunksize:16; }
     ~WDL_ChunkAlloc() { Free(); }
 
     void Free()
