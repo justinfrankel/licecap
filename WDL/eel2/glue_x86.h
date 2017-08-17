@@ -284,7 +284,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
           ::
           "d" (cp), "c" (ramptr)
 #ifndef NSEEL_EEL1_COMPAT_MODE
-          , "g" (&oldsw), "g" (&newsw)
+          , "m" (oldsw), "m" (newsw)
 #endif
           : "%eax","%esi","%edi");
   #endif //gcc x86
