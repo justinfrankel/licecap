@@ -35,6 +35,8 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#ifndef EEL_TARGET_PORTABLE
+
 #ifdef __APPLE__
   #include <AvailabilityMacros.h>
 
@@ -43,8 +45,11 @@
   #endif
 #endif
 
-#if defined(__arm__) && !defined(EEL_USE_MPROTECT) && !defined(EEL_TARGET_PORTABLE)
-#define EEL_USE_MPROTECT
+#if defined(__linux__) && !defined(EEL_USE_MPROTECT)
+  // always use mprotect on linux
+  #define EEL_USE_MPROTECT
+#endif
+
 #endif
 
 #ifdef EEL_USE_MPROTECT
