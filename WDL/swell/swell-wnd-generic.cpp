@@ -2736,6 +2736,23 @@ forceMouseMove:
         InvalidateRect(hwnd,NULL,FALSE);
       }
     return 0;
+    case EM_SCROLL:
+      if (es)
+      {
+        if (wParam == SB_TOP)
+        {
+          es->scroll_x=es->scroll_y=0;
+          InvalidateRect(hwnd,NULL,FALSE);
+        } 
+        else if (wParam == SB_BOTTOM)
+        {
+          es->autoScrollToOffset(hwnd,hwnd->m_title.GetLength(),
+               (hwnd->m_style & ES_MULTILINE) != 0,
+               (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE);
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+      }
+    return 0;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
