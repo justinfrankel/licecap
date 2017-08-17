@@ -177,7 +177,7 @@ public:
   }
   static int sortFunc_sz(const void *_a, const void *_b)
   {
-    const rec *a = (const rec *)_a, *b = (const rec *)_b;
+    const rec *a = *(const rec * const *)_a, *b = *(const rec * const *)_b;
     int d = a->type - b->type;
     if (d) return s_sortrev ? -d : d;
     if (a->size != b->size) return s_sortrev ? (a->size>b->size?-1:1) : (a->size>b->size?1:-1);
