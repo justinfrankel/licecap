@@ -191,7 +191,7 @@ class VorbisDecoder : public VorbisDecoderInterface
       float *sptr=(float *)m_samples.Get();
       m_samples_used-=amt;
       if (m_samples_used>0)
-        memcpy(sptr,sptr+amt,m_samples_used*sizeof(float));
+        memmove(sptr,sptr+amt,m_samples_used*sizeof(float));
       else m_samples_used=0;
     }
 
