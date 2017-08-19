@@ -148,6 +148,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
   // create dialog
   if (hwnd)
   {
+    hwnd->Retain();
     ReleaseCapture(); // force end of any captures
 
     WDL_PtrKeyedArray<int> restwnds;
@@ -215,7 +216,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
       ShowWindow(hwnd,SW_SHOW);
     }
  
-    while (s_modalDialogs.Find(&r)>=0 && !r.has_ret)
+    while (!r.has_ret && !hwnd->m_hashaddestroy)
     {
       void SWELL_RunMessageLoop();
       SWELL_RunMessageLoop();
@@ -235,6 +236,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
       }
       a = a->m_next;
     }
+    hwnd->Release();
   }
   else 
   {
