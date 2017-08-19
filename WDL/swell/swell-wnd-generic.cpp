@@ -299,13 +299,20 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       tmp=tmp->m_next;
       SendMessage(old,WM_DESTROY,0,0);
     }
-    tmp=hwnd->m_owned_list;
-    while (tmp)
+#if 0 
+      // todo: option to destroy owned windows?
+      // might only make sense for modal windows? unsure
+      // if we do this, we should make BrowseForFiles() etc take HWND owners
     {
-      HWND old = tmp;
-      tmp=tmp->m_owned_next;
-      SendMessage(old,WM_DESTROY,0,0);
+      tmp=hwnd->m_owned_list;
+      while (tmp)
+      {
+        HWND old = tmp;
+        tmp=tmp->m_owned_next;
+        SendMessage(old,WM_DESTROY,0,0);
+      }
     }
+#endif
     if (SWELL_focused_oswindow && SWELL_focused_oswindow == hwnd->m_oswindow)
     {
       HWND h = hwnd->m_owner;
@@ -372,7 +379,11 @@ static void RecurseDestroyWindow(HWND hwnd)
     if (tmp) tmp->m_owned_prev = NULL;
 
     old->m_owned_prev = old->m_owned_next = NULL;
-    RecurseDestroyWindow(old);
+    old->m_owner = NULL;
+#if 0
+      // todo: option to destroy owned windows?
+    if (old->m_hashaddestroy) RecurseDestroyWindow(old);
+#endif
   }
 
   if (swell_captured_window == hwnd) swell_captured_window=NULL;
