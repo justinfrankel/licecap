@@ -926,6 +926,12 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   if (!HDC_VALID(ct)) return 0;
 
   RECT use_r = *r;
+  if ((align & DT_VCENTER) && use_r.top > use_r.bottom)
+  {
+    use_r.top = r->bottom;
+    use_r.bottom = r->top;
+  }
+
   use_r.left += ct->surface_offs.x;
   use_r.right += ct->surface_offs.x;
   use_r.top += ct->surface_offs.y;
