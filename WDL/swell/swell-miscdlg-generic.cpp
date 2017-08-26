@@ -196,8 +196,13 @@ public:
     {
       if (ent->d_name[0] == '.') continue;
       bool is_dir = (ent->d_type == DT_DIR);
-
-      if (ent->d_type == DT_LNK)
+      if (ent->d_type == DT_UNKNOWN)
+      {
+        snprintf(tmp,sizeof(tmp),"%s/%s",path,ent->d_name);
+        DIR *d = opendir(tmp);
+        if (d) { is_dir = true; closedir(d); }
+      }
+      else if (ent->d_type == DT_LNK)
       {
         snprintf(tmp,sizeof(tmp),"%s/%s",path,ent->d_name);
         char *rp = realpath(tmp,NULL);
