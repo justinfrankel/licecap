@@ -192,9 +192,9 @@ class WDL_DirScan
 #else
 #ifndef __APPLE__
        // we could enable this on OSX, need to check to make sure realpath(x,NULL) is supported on 10.5+
+       char tmp[2048];
        if (m_ent && m_ent->d_type == DT_LNK)
        {
-         char tmp[2048];
          snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
          char *rp = realpath(tmp,NULL);
          if (rp)
@@ -202,12 +202,14 @@ class WDL_DirScan
            DIR *d = opendir(rp);
            free(rp);
 
-           if (d)
-           {
-             closedir(d);
-             return 1;
-           }
+           if (d) { closedir(d); return 1; }
          }
+       }
+       else if (m_ent && m_ent->d_type == DT_UNKNOWN)
+       {
+         snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
+         DIR *d = opendir(tmp);
+         if (d) { closedir(d); return 1; }
        }
 #endif
        return m_ent && (m_ent->d_type == DT_DIR);
