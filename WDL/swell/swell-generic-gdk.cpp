@@ -1597,7 +1597,7 @@ void swell_oswindow_invalidate(HWND hwnd, const RECT *r)
 
 bool OpenClipboard(HWND hwndDlg) 
 {
-  s_clip_hwnd=hwndDlg; 
+  s_clip_hwnd=hwndDlg ? hwndDlg : SWELL_topwindows; 
   if (s_clipboard_getstate)
   {
     GlobalFree(s_clipboard_getstate);
