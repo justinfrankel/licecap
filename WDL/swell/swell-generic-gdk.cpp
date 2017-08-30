@@ -124,6 +124,8 @@ static HCURSOR s_last_cursor;
 static HCURSOR s_last_setcursor;
 static SWELL_OSWINDOW s_last_setcursor_oswnd;
 
+static void *g_swell_touchptr; // last GDK touch sequence
+
 static bool g_swell_mouse_relmode;
 static int g_swell_mouse_relmode_curpos_x;
 static int g_swell_mouse_relmode_curpos_y;
@@ -990,8 +992,6 @@ static void OnMotionEvent(GdkEventMotion *m)
   if (!hwnd && (hwnd = swell_oswindow_to_hwnd(m->window)))
     hwnd=ChildWindowFromPoint(hwnd, p);
 
-  gdk_event_request_motions(m); // request before sending WM_MOUSEMOVE
-
   if (hwnd)
   {
     POINT p2={(int)m->x_root, (int)m->y_root};
@@ -1327,7 +1327,74 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
       swell_dlg_destroyspare();
       OnKeyEvent((GdkEventKey *)evt);
     break;
+#ifdef GDK_AVAILABLE_IN_3_4
+    case GDK_TOUCH_BEGIN:
+    case GDK_TOUCH_UPDATE:
+    case GDK_TOUCH_END:
+    case GDK_TOUCH_CANCEL:
+      {
+        GdkEventTouch *e = (GdkEventTouch *)evt;
+        static guint32 touchptr_lasttime; 
+        bool doubletap = false;
+        if (evt->type == GDK_TOUCH_BEGIN && !g_swell_touchptr)
+        {
+          DWORD now = e->time;
+          doubletap = touchptr_lasttime && 
+                      now >= touchptr_lasttime && 
+                      now < touchptr_lasttime+350;
+          touchptr_lasttime = now;
+          g_swell_touchptr = e->sequence;
+        }
+
+        if (!e->sequence || e->sequence != g_swell_touchptr) 
+        {
+          touchptr_lasttime=0;
+          break;
+        }
+
+        if (e->type == GDK_TOUCH_UPDATE)
+        {
+          GdkEventMotion m;
+          memset(&m,0,sizeof(m));
+          m.type = GDK_MOTION_NOTIFY;
+          m.window = e->window;
+          m.time = e->time;
+          m.x = e->x;
+          m.y = e->y;
+          m.axes = e->axes;
+          m.state = e->state;
+          m.device = e->device;
+          m.x_root = e->x_root;
+          m.y_root = e->y_root;
+          OnMotionEvent(&m);
+        }
+        else
+        {
+          GdkEventButton but;
+          memset(&but,0,sizeof(but));
+          if (e->type == GDK_TOUCH_BEGIN) 
+            but.type = doubletap ? GDK_2BUTTON_PRESS:GDK_BUTTON_PRESS;
+          else but.type = GDK_BUTTON_RELEASE;
+          but.window = e->window;
+          but.time = e->time;
+          but.x = e->x;
+          but.y = e->y;
+          but.axes = e->axes;
+          but.state = e->state;
+          but.device = e->device;
+          but.button = 1;
+          but.x_root = e->x_root;
+          but.y_root = e->y_root;
+          swell_dlg_destroyspare();
+          OnButtonEvent(&but);
+
+          if (evt->type != GDK_TOUCH_BEGIN) g_swell_touchptr = NULL;
+        } 
+      }
+    break;
+#endif
     case GDK_MOTION_NOTIFY:
+      gdk_event_request_motions((GdkEventMotion *)evt);
       OnMotionEvent((GdkEventMotion *)evt);
     break;
     case GDK_SCROLL:
@@ -2180,20 +2247,23 @@ int SWELL_ShowCursor(BOOL bShow)
   {
     SetCursor(s_last_cursor);
     g_swell_mouse_relmode=false;
-    #if SWELL_TARGET_GDK == 3
-    gdk_device_warp(gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default())),
+    if (!g_swell_touchptr)
+    {
+      #if SWELL_TARGET_GDK == 3
+      gdk_device_warp(gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default())),
                      gdk_screen_get_default(),
                      g_swell_mouse_relmode_curpos_x, g_swell_mouse_relmode_curpos_y);
-    #else
-    gdk_display_warp_pointer(gdk_display_get_default(),gdk_screen_get_default(), g_swell_mouse_relmode_curpos_x, g_swell_mouse_relmode_curpos_y);
-    #endif
+      #else
+      gdk_display_warp_pointer(gdk_display_get_default(),gdk_screen_get_default(), g_swell_mouse_relmode_curpos_x, g_swell_mouse_relmode_curpos_y);
+      #endif
+    }
   }
   return s_cursor_vis_cnt;
 }
 
 BOOL SWELL_SetCursorPos(int X, int Y)
 {  
-  if (g_swell_mouse_relmode) return false;
+  if (g_swell_mouse_relmode || g_swell_touchptr) return false;
  
   #if SWELL_TARGET_GDK == 3
   gdk_device_warp(gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(gdk_display_get_default())),
