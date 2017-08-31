@@ -2452,6 +2452,35 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
       InvalidateRect(hwnd,NULL,FALSE);
     return 0;
+    case WM_MOUSEWHEEL:
+      if (es && (hwnd->m_style & ES_MULTILINE))
+      {
+        if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || (GetAsyncKeyState(VK_MENU)&0x8000)) break; // pass modified mousewheel to parent
+
+        RECT r;
+        GetClientRect(hwnd,&r);
+        r.right -= g_swell_ctheme.scrollbar_width;
+        if (es->max_width > r.right && (hwnd->m_style & ES_AUTOHSCROLL))
+        {
+          r.bottom -= g_swell_ctheme.scrollbar_width;
+        }
+        const int viewsz = r.bottom;
+        const int totalsz=es->max_height + g_swell_ctheme.scrollbar_width;
+
+        const int amt = ((short)HIWORD(wParam))/-2;
+
+        const int oldscroll = es->scroll_y;
+        es->scroll_y += amt;
+        if (es->scroll_y + viewsz > totalsz) es->scroll_y = totalsz-viewsz;
+        if (es->scroll_y < 0) es->scroll_y=0;
+        if (es->scroll_y != oldscroll)
+        {
+          InvalidateRect(hwnd,NULL,FALSE);
+        }
+
+        return 1;
+      }
+    break;
     case WM_MOUSEMOVE:
 forceMouseMove:
       if (es && GetCapture()==hwnd)
