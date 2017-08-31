@@ -11,10 +11,8 @@ CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-unused
 
 ifeq ($(UNAME_S),Darwin)
   CFLAGS += -Wno-unused-private-field -DSWELL_FORCE_GENERIC
-  ARCHSTR := $(ARCH)-darwin
   DLL_EXT=.dylib
 else
-  ARCHSTR := $(ARCH)-$(shell lsb_release -i -s | tr '[:upper:]' '[:lower:]')-$(shell lsb_release -c -s | tr '[:upper:]' '[:lower:]')
   DLL_EXT=.so
 endif
 
@@ -122,11 +120,3 @@ libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
 
 clean: 
 	-rm $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme
-
-dist-xz:
-	-make NOGDK=1 clean
-	make NOGDK=1
-	tar cvJf libSwell-$(ARCHSTR)-headless.tar.xz libSwell$(DLL_EXT)
-	-make clean
-	make
-	tar cvJf libSwell-$(ARCHSTR)-gtk3.tar.xz libSwell$(DLL_EXT)
