@@ -879,6 +879,104 @@ BOOL GetComputerNameUTF8(LPTSTR lpString, LPDWORD nMaxCount)
   return GetComputerNameA(lpString, nMaxCount);
 }
 
+#define MBTOWIDE_NULLOK(symbase, src) \
+                int symbase##_size; \
+                WCHAR symbase##_buf[256]; \
+                WCHAR *symbase = (src)==NULL ? NULL : ((symbase##_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,NULL,0)) >= 248 ? (WCHAR *)malloc(symbase##_size * sizeof(WCHAR) + 10) : symbase##_buf); \
+                int symbase##_ok = symbase ? (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,symbase,symbase##_size < 1 ? 256 : symbase##_size)) : (src)==NULL
+
+
+// these only bother using Wide versions if the filename has wide chars
+// (for now)
+#define PROFILESTR_COMMON \
+  if (IS_NOT_WIN9X_AND fnStr && WDL_HasUTF8(fnStr)) \
+  { \
+    MBTOWIDE(wfn,fnStr); \
+    MBTOWIDE_NULLOK(wapp,appStr); \
+    MBTOWIDE_NULLOK(wkey,keyStr); \
+    if (wfn_ok && wapp_ok && wkey_ok) {
+
+#define PROFILESTR_COMMON_END \
+    MBTOWIDE_FREE(wfn); \
+    MBTOWIDE_FREE(wapp); \
+    MBTOWIDE_FREE(wkey); \
+    return rv; \
+    } }
+
+UINT GetPrivateProfileIntUTF8(LPCTSTR appStr, LPCTSTR keyStr, INT def, LPCTSTR fnStr)
+{
+  PROFILESTR_COMMON
+
+  const UINT rv = GetPrivateProfileIntW(wapp,wkey,def,wfn);
+
+  PROFILESTR_COMMON_END
+  return GetPrivateProfileIntA(appStr,keyStr,def,fnStr);
+}
+
+DWORD GetPrivateProfileStringUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPCTSTR defStr, LPTSTR retStr, DWORD nSize, LPCTSTR fnStr)
+{
+  PROFILESTR_COMMON
+  MBTOWIDE_NULLOK(wdef, defStr);
+
+  WIDETOMB_ALLOC(buf, nSize);
+
+  DWORD rv = GetPrivateProfileStringW(wapp,wkey,wdef,buf,(DWORD) (buf_size / sizeof(WCHAR)),wfn);
+
+  const DWORD nullsz = (!wapp || !wkey) ? 2 : 1;
+  if (nSize<=nullsz)
+  {
+    memset(retStr,0,nSize);
+    rv=0;
+  }
+  else 
+  {
+    // rv does not include null character(s)
+    if (rv>0) rv = WideCharToMultiByte(CP_UTF8,0,buf,rv,retStr,nSize-nullsz,NULL,NULL);
+    if (rv > nSize-nullsz) rv=nSize-nullsz;
+    memset(retStr + rv,0,nullsz);
+  }
+  
+  WIDETOMB_FREE(buf);
+  PROFILESTR_COMMON_END
+  return GetPrivateProfileStringA(appStr,keyStr,defStr,retStr,nSize,fnStr);
+}
+
+BOOL WritePrivateProfileStringUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPCTSTR str, LPCTSTR fnStr)
+{
+  PROFILESTR_COMMON
+  MBTOWIDE_NULLOK(wval, str);
+
+  const BOOL rv = WritePrivateProfileStringW(wapp,wkey,wval,wfn);
+
+  MBTOWIDE_FREE(wval);
+
+  PROFILESTR_COMMON_END
+  return WritePrivateProfileStringA(appStr,keyStr,str,fnStr);
+}
+
+BOOL GetPrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruct, UINT uSize, LPCTSTR fnStr)
+{
+  PROFILESTR_COMMON
+
+  const BOOL rv = GetPrivateProfileStructW(wapp,wkey,pStruct,uSize,wfn);
+
+  PROFILESTR_COMMON_END
+  return GetPrivateProfileStructA(appStr,keyStr,pStruct,uSize,fnStr);
+}
+
+BOOL WritePrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruct, UINT uSize, LPCTSTR fnStr)
+{
+  PROFILESTR_COMMON
+
+  const BOOL rv = WritePrivateProfileStructW(wapp,wkey,pStruct,uSize,wfn);
+
+  PROFILESTR_COMMON_END
+  return WritePrivateProfileStructA(appStr,keyStr,pStruct,uSize,fnStr);
+}
+
+
+#undef PROFILESTR_COMMON
+#undef PROFILESTR_COMMON_END
 
 #if (defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)) && !defined(WDL_WIN32_UTF8_NO_UI_IMPL)
 

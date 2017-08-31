@@ -78,6 +78,12 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_HookTabCtrl(HWND h);
 WDL_WIN32_UTF8_IMPL LPSTR GetCommandParametersUTF8();
 WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDISPINFO 
 
+WDL_WIN32_UTF8_IMPL UINT GetPrivateProfileIntUTF8(LPCTSTR appStr, LPCTSTR keyStr, INT def, LPCTSTR fnStr);
+WDL_WIN32_UTF8_IMPL DWORD GetPrivateProfileStringUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPCTSTR defStr, LPTSTR retStr, DWORD nSize, LPCTSTR fnStr);
+WDL_WIN32_UTF8_IMPL BOOL WritePrivateProfileStringUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPCTSTR str, LPCTSTR fnStr);
+WDL_WIN32_UTF8_IMPL BOOL GetPrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruct, UINT uSize, LPCTSTR fnStr);
+WDL_WIN32_UTF8_IMPL BOOL WritePrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruct, UINT uSize, LPCTSTR fnStr);
+
 #ifdef SetWindowText
 #undef SetWindowText
 #endif
@@ -201,6 +207,31 @@ WDL_WIN32_UTF8_IMPL void WDL_UTF8_ListViewConvertDispInfoToW(void *di); //NMLVDI
 #undef LoadLibrary
 #endif
 #define LoadLibrary LoadLibraryUTF8
+
+#ifdef GetPrivateProfileInt
+#undef GetPrivateProfileInt
+#endif
+#define GetPrivateProfileInt GetPrivateProfileIntUTF8
+
+#ifdef GetPrivateProfileString
+#undef GetPrivateProfileString
+#endif
+#define GetPrivateProfileString GetPrivateProfileStringUTF8
+
+#ifdef WritePrivateProfileString
+#undef WritePrivateProfileString
+#endif
+#define WritePrivateProfileString WritePrivateProfileStringUTF8
+
+#ifdef WritePrivateProfileStruct
+#undef WritePrivateProfileStruct
+#endif
+#define WritePrivateProfileStruct WritePrivateProfileStructUTF8
+
+#ifdef GetPrivateProfileStruct
+#undef GetPrivateProfileStruct
+#endif
+#define GetPrivateProfileStruct GetPrivateProfileStructUTF8
 
 #else
 
