@@ -1982,7 +1982,8 @@ struct __SWELL_editControlState
     {
       if (!word_wrap)
       {
-        if (pt.x > scroll_x+tmp.right*5/6) scroll_x = pt.x - tmp.right*5/6;
+        const int padsz = wdl_max(tmp.right - line_h,line_h);
+        if (pt.x > scroll_x+padsz) scroll_x = pt.x - padsz;
         if (pt.x < scroll_x) scroll_x=pt.x;
       }
       if (is_multiline)
