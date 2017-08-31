@@ -566,6 +566,24 @@ BOOL CopyFileUTF8(LPCTSTR existfn, LPCTSTR newfn, BOOL fie)
   return CopyFileA(existfn,newfn,fie);
 }
 
+
+DWORD GetModuleFileNameUTF8(HMODULE hModule, LPTSTR lpBuffer, DWORD nBufferLength)
+{
+  if (lpBuffer && nBufferLength > 1 AND_IS_NOT_WIN9X)
+  {
+
+    WCHAR wbuf[WDL_UTF8_MAXFNLEN];
+    wbuf[0]=0;
+    if (GetModuleFileNameW(hModule,wbuf,WDL_UTF8_MAXFNLEN) && wbuf[0])
+    {
+      int rv=WideCharToMultiByte(CP_UTF8,0,wbuf,-1,lpBuffer,nBufferLength,NULL,NULL);
+      if (rv) return rv;
+    }
+  }
+  return GetModuleFileNameA(hModule,lpBuffer,nBufferLength);
+}
+
+
 DWORD GetCurrentDirectoryUTF8(DWORD nBufferLength, LPTSTR lpBuffer)
 {
   if (lpBuffer && nBufferLength > 1 AND_IS_NOT_WIN9X)

@@ -84,6 +84,8 @@ WDL_WIN32_UTF8_IMPL BOOL WritePrivateProfileStringUTF8(LPCTSTR appStr, LPCTSTR k
 WDL_WIN32_UTF8_IMPL BOOL GetPrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruct, UINT uSize, LPCTSTR fnStr);
 WDL_WIN32_UTF8_IMPL BOOL WritePrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruct, UINT uSize, LPCTSTR fnStr);
 
+WDL_WIN32_UTF8_IMPL DWORD GetModuleFileNameUTF8(HMODULE hModule, LPTSTR fnStr, DWORD nSize);
+
 #ifdef SetWindowText
 #undef SetWindowText
 #endif
@@ -232,6 +234,12 @@ WDL_WIN32_UTF8_IMPL BOOL WritePrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR k
 #undef GetPrivateProfileStruct
 #endif
 #define GetPrivateProfileStruct GetPrivateProfileStructUTF8
+
+
+#ifdef GetModuleFileName
+#undef GetModuleFileName
+#endif
+#define GetModuleFileName GetModuleFileNameUTF8
 
 #else
 
