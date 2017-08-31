@@ -2745,6 +2745,11 @@ forceMouseMove:
         es->sel2 = (int)lParam;
         if (!es->sel1 && es->sel2 == -1) es->sel2 = WDL_utf8_get_charlen(hwnd->m_title.Get());
         InvalidateRect(hwnd,NULL,FALSE);
+        if (es->sel2>=0)
+          es->autoScrollToOffset(hwnd,es->sel2,
+               (hwnd->m_style & ES_MULTILINE) != 0,
+               (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE);
+
       }
     return 0;
     case EM_SCROLL:
@@ -3453,6 +3458,8 @@ popupMenu:
         s->editstate.sel2 = (int)lParam;
         if (!s->editstate.sel1 && s->editstate.sel2 == -1)
           s->editstate.sel2 = WDL_utf8_get_charlen(hwnd->m_title.Get());
+        if (s->editstate.sel2>=0)
+          s->editstate.autoScrollToOffset(hwnd,s->editstate.sel2, false, false);
         InvalidateRect(hwnd,NULL,FALSE);
       }
     return 0;
