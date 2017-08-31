@@ -594,7 +594,7 @@ void RoundRect(HDC ctx, int x, int y, int x2, int y2, int xrnd, int yrnd)
 void Ellipse(HDC ctx, int l, int t, int r, int b)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!HDC_VALID(c)) return;
+  if (!HDC_VALID(c) || !c->surface) return;
   
   swell_DirtyContext(ctx,l,t,r,b);
   
@@ -620,7 +620,7 @@ void Ellipse(HDC ctx, int l, int t, int r, int b)
 void Rectangle(HDC ctx, int l, int t, int r, int b)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!HDC_VALID(c)) return;
+  if (!HDC_VALID(c) || !c->surface) return;
   
   //CGRect rect=CGRectMake(l,t,r-l,b-t);
 
@@ -645,7 +645,7 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
 void Polygon(HDC ctx, POINT *pts, int npts)
 {
   HDC__ *c=(HDC__ *)ctx;
-  if (!HDC_VALID(c)) return;
+  if (!HDC_VALID(c) || !c->surface) return;
   const bool fill=HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH)&&c->curbrush->wid>=0;
   const bool outline = HGDIOBJ_VALID(c->curpen,TYPE_PEN)&&c->curpen->wid>=0;
   if ((!fill && !outline) || npts<2 || !pts) return;
@@ -744,7 +744,8 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   int dx=c->surface_offs.x;
   int dy=c->surface_offs.y;
   int lx = (int)c->lastpos_x, ly = (int) c->lastpos_y;
-  LICE_Line(c->surface,x+dx,y+dy,lx+dx,ly+dy,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,false);
+  if (c->surface) 
+    LICE_Line(c->surface,x+dx,y+dy,lx+dx,ly+dy,c->curpen->color,c->curpen->alpha,LICE_BLIT_MODE_COPY,false);
   
   c->lastpos_x=fx;
   c->lastpos_y=fy;
@@ -789,7 +790,7 @@ void *SWELL_GetCtxGC(HDC ctx)
 void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!HDC_VALID(ct)) return;
+  if (!HDC_VALID(ct) || !ct->surface) return;
   LICE_PutPixel(ct->surface,x+ct->surface_offs.x, y+ct->surface_offs.y, LICE_RGBA_FROMNATIVE(c,255),1.0f,LICE_BLIT_MODE_COPY);
   swell_DirtyContext(ct,x,y,x+1,y+1);
 }
@@ -1303,14 +1304,15 @@ struct swell_gdpLocalContext
 
 HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
 {
-  if (!h || !IsWindowVisible(h)) return NULL;
+  if (!h) return NULL;
 
   int xoffs=0,yoffs=0;
   int wndw = h->m_position.right-h->m_position.left;
   int wndh = h->m_position.bottom-h->m_position.top;
 
+  bool vis=true;
   HWND starth = h;
-  while (h)
+  for (;;)
   {
     if ((calcsize_on_first || h!=starth)  && h->m_wndproc)
     {
@@ -1330,24 +1332,31 @@ HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
       yoffs += r.top-r2.top;
       xoffs += r.left-r2.left;
     } 
-    if (h->m_backingstore) break; // found our target window
+    if (!h->m_visible) vis = false;
+
+    if (h->m_backingstore || !h->m_parent) break; // found our target window
 
     xoffs += h->m_position.left;
     yoffs += h->m_position.top;
     h = h->m_parent;
   }
-  if (!h) return NULL;
 
   swell_gdpLocalContext *p = (swell_gdpLocalContext*)SWELL_GDP_CTX_NEW();
-  // todo: GDI defaults?
-  p->ctx.surface=new LICE_SubBitmap(h->m_backingstore,xoffs,yoffs,wndw,wndh);
+
+  p->clipr.left=p->clipr.right=xoffs;
+  p->clipr.top=p->clipr.bottom=yoffs;
+
+  if (h->m_backingstore && vis)
+  {
+    p->ctx.surface=new LICE_SubBitmap(h->m_backingstore,xoffs,yoffs,wndw,wndh);
+    p->clipr.right += p->ctx.surface->getWidth();
+    p->clipr.bottom += p->ctx.surface->getHeight();
+  }
   if (xoffs<0) p->ctx.surface_offs.x = xoffs;
   if (yoffs<0) p->ctx.surface_offs.y = yoffs;
-  p->clipr.left=xoffs;
-  p->clipr.top=yoffs;
-  p->clipr.right=xoffs + p->ctx.surface->getWidth();
-  p->clipr.bottom=yoffs + p->ctx.surface->getHeight();
+
   p->ctx.curfont = starth->m_font;
+  // todo: other GDI defaults?
 
   return (HDC)p;
 }
