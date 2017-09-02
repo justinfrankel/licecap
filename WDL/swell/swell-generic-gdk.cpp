@@ -1383,8 +1383,14 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           GdkEventButton but;
           memset(&but,0,sizeof(but));
           if (e->type == GDK_TOUCH_BEGIN) 
+          {
             but.type = doubletap ? GDK_2BUTTON_PRESS:GDK_BUTTON_PRESS;
-          else but.type = GDK_BUTTON_RELEASE;
+          }
+          else 
+          {
+            but.type = GDK_BUTTON_RELEASE;
+            g_swell_touchptr = NULL;
+          }
           but.window = e->window;
           but.time = e->time;
           but.x = e->x;
@@ -1397,8 +1403,6 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           but.y_root = e->y_root;
           swell_dlg_destroyspare();
           OnButtonEvent(&but);
-
-          if (evt->type != GDK_TOUCH_BEGIN) g_swell_touchptr = NULL;
         } 
       }
     break;
