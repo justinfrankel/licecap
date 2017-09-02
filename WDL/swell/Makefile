@@ -6,6 +6,7 @@
 ARCH := $(shell uname -m)
 UNAME_S := $(shell uname -s)
 
+PKG_CONFIG = pkg-config
 
 CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wno-unused-function -Wno-multichar -Wno-unused-result
 
@@ -60,17 +61,17 @@ OBJS = $(SWELL_OBJS)
 
 ifndef NOGDK
   ifdef GDK2
-    CFLAGS += -DSWELL_TARGET_GDK=2 $(shell pkg-config --cflags gdk-2.0)
+    CFLAGS += -DSWELL_TARGET_GDK=2 $(shell $(PKG_CONFIG) --cflags gdk-2.0)
     ifndef PRELOAD_GDK
-      LINKEXTRA += $(shell pkg-config --libs gdk-2.0)
+      LINKEXTRA += $(shell $(PKG_CONFIG) --libs gdk-2.0)
     else
       LINKEXTRA += -lX11 -lXi
       CFLAGS += -DSWELL_PRELOAD="libgdk-x11-2.0.so.0"
     endif
   else
-    CFLAGS += -DSWELL_TARGET_GDK=3 $(shell pkg-config --cflags gdk-3.0)
+    CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gdk-3.0)
     ifndef PRELOAD_GDK
-      LINKEXTRA += $(shell pkg-config --libs gdk-3.0)
+      LINKEXTRA += $(shell $(PKG_CONFIG) --libs gdk-3.0)
     else
       LINKEXTRA += -lX11 -lXi
       CFLAGS += -DSWELL_PRELOAD="libgdk-3.so.0"
