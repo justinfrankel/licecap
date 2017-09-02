@@ -335,6 +335,39 @@ static int m_trackingFlags,m_trackingRet;
 static HWND m_trackingPar;
 static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
+int swell_delegate_menu_message(HWND src, LPARAM lParam, int msg, bool screencoords)
+{
+  static bool _reent;
+  if (_reent) return 0;
+
+  _reent = true;
+
+  POINT sp = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+  if (!screencoords) ClientToScreen(src,&sp);
+
+  for (int x = m_trackingMenus.GetSize()-1; x>=0; x--)
+  {
+    HWND sw = m_trackingMenus.Get(x);
+    if (!sw) continue;
+
+    if (sw == src) break; // stop searching (don't delegate to parent)
+
+    RECT r;
+    GetWindowRect(sw,&r);
+    if (PtInRect(&r,sp))
+    {
+      POINT p = sp;
+      ScreenToClient(sw,&p);
+      SendMessage(sw,msg,0,MAKELPARAM(p.x,p.y));
+      _reent = false;
+      return 1;
+    }
+  }
+
+  _reent = false;
+  return 0;
+}
+
 bool swell_isOSwindowmenu(SWELL_OSWINDOW osw)
 {
   int x = m_trackingMenus.GetSize();
@@ -979,6 +1012,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     return 0;
     case WM_MOUSEMOVE:
       {
+        if (swell_delegate_menu_message(hwnd, lParam,uMsg, false))
+          return 0;
+
         RECT r;
         GetClientRect(hwnd,&r);
         HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
@@ -995,6 +1031,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
       {
+        if (swell_delegate_menu_message(hwnd, lParam, uMsg, false))
+          return 0;
+
         RECT r;
         GetClientRect(hwnd,&r);
         if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)

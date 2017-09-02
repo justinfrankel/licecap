@@ -6523,6 +6523,12 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
 
 static RECT g_menubar_lastrect;
 static HWND g_menubar_active;
+static bool g_menubar_active_drag;
+
+HWND swell_window_wants_all_input()
+{
+  return g_menubar_active_drag ? g_menubar_active : NULL;
+}
 
 int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if navigated
 {
@@ -6561,6 +6567,7 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   mbr.top = -g_swell_ctheme.menubar_height;
   menu->sel_vis = x;
   g_menubar_active = hwnd;
+  g_menubar_active_drag=true;
   for (;;)
   {
     InvalidateRect(hwnd,&mbr,FALSE);
@@ -6589,6 +6596,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_NCMOUSEMOVE:
       if (g_menubar_active == hwnd && hwnd->m_menu)
       {
+        swell_delegate_menu_message(hwnd,lParam,WM_MOUSEMOVE,true);
+
         HMENU__ *menu = (HMENU__*)hwnd->m_menu;
         RECT r;
         const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1);
@@ -6700,6 +6709,11 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_NCLBUTTONUP:
       if (!hwnd->m_parent && hwnd->m_menu)
       {
+        if (msg == WM_NCLBUTTONUP && g_menubar_active_drag) 
+        {
+          g_menubar_active_drag=false;
+          if (swell_delegate_menu_message(hwnd,lParam,WM_LBUTTONUP,true)) return 0;
+        }
         RECT r;
         const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1);
         if (x>=0)

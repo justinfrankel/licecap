@@ -705,7 +705,7 @@ static LRESULT SendMouseMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
       return -1; // if somehow WM_NCHITTEST destroyed us, bail
     }
      
-    if (htc!=HTCLIENT) 
+    if (htc!=HTCLIENT || swell_window_wants_all_input() == hwnd)
     { 
       if (msg==WM_MOUSEMOVE) return hwnd->m_wndproc(hwnd,WM_NCMOUSEMOVE,htc,p); 
 //      if (msg==WM_MOUSEWHEEL) return hwnd->m_wndproc(hwnd,WM_NCMOUSEWHEEL,htc,p); 
@@ -987,13 +987,20 @@ static void OnKeyEvent(GdkEventKey *k)
     SendMessage(hwnd, msg.message, kv, modifiers);
 }
 
+static HWND getMouseTarget(SWELL_OSWINDOW osw, POINT p, const HWND *hwnd_has_osw)
+{
+  HWND hwnd = GetCapture();
+  if (hwnd) return hwnd;
+  hwnd = hwnd_has_osw ? *hwnd_has_osw : swell_oswindow_to_hwnd(osw);
+  if (!hwnd || swell_window_wants_all_input() == hwnd) return hwnd;
+  return ChildWindowFromPoint(hwnd,p);
+}
+
 static void OnMotionEvent(GdkEventMotion *m)
 {
   swell_lastMessagePos = MAKELONG(((int)m->x_root&0xffff),((int)m->y_root&0xffff));
   POINT p={(int)m->x, (int)m->y};
-  HWND hwnd = GetCapture();
-  if (!hwnd && (hwnd = swell_oswindow_to_hwnd(m->window)))
-    hwnd=ChildWindowFromPoint(hwnd, p);
+  HWND hwnd = getMouseTarget(m->window,p,NULL);
 
   if (hwnd)
   {
@@ -1009,9 +1016,8 @@ static void OnScrollEvent(GdkEventScroll *b)
 {
   swell_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
   POINT p={(int)b->x, (int)b->y};
-  HWND hwnd = GetCapture();
-  if (!hwnd && (hwnd = swell_oswindow_to_hwnd(b->window)))
-      hwnd=ChildWindowFromPoint(hwnd, p);
+
+  HWND hwnd = getMouseTarget(b->window,p,NULL);
   if (hwnd)
   {
     POINT p2={(int)b->x_root, (int)b->y_root};
@@ -1037,8 +1043,8 @@ static void OnButtonEvent(GdkEventButton *b)
   if (!hwnd) return;
   swell_lastMessagePos = MAKELONG(((int)b->x_root&0xffff),((int)b->y_root&0xffff));
   POINT p={(int)b->x, (int)b->y};
-  HWND hwnd2 = GetCapture();
-  if (!hwnd2) hwnd2=ChildWindowFromPoint(hwnd, p);
+  HWND hwnd2 = getMouseTarget(b->window,p,&hwnd);
+
   POINT p2={(int)b->x_root, (int)b->y_root};
   ScreenToClient(hwnd2, &p2);
 
