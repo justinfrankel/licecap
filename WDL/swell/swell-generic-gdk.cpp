@@ -1778,7 +1778,7 @@ WORD GetAsyncKeyState(int key)
     gdk_window_get_pointer(h?  h->m_oswindow : gdk_get_default_root_window(),NULL,NULL,&mod);
 //#endif
  
-    if (key == VK_LBUTTON) return (mod&GDK_BUTTON1_MASK)?0x8000:0;
+    if (key == VK_LBUTTON) return ((mod&GDK_BUTTON1_MASK)||g_swell_touchptr)?0x8000:0;
     if (key == VK_MBUTTON) return (mod&GDK_BUTTON2_MASK)?0x8000:0;
     if (key == VK_RBUTTON) return (mod&GDK_BUTTON3_MASK)?0x8000:0;
 
