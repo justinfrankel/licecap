@@ -1418,7 +1418,7 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         {
           if (!strncmp(fs->Get(),"import",6) && isspace(fs->Get()[6]))
           {
-            onChar('I'-'A'+1); // open imported file
+            onChar('R'-'A'+1); // open imported file
             return 1;
           }
         }
