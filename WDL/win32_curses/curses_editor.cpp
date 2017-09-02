@@ -1145,7 +1145,7 @@ void WDL_CursesEditor::removeSelect()
             const int sx=x == miny ? WDL_utf8_charpos_to_bytepos(s->Get(),minx) : 0;
             const int ex=x == maxy ? WDL_utf8_charpos_to_bytepos(s->Get(),maxx) : s->GetLength();
 
-            if (sx == 0 && ex == s->GetLength()) // remove entire line
+            if (x != maxy && sx == 0 && ex == s->GetLength()) // remove entire line
             {
               m_text.Delete(x,true);
               if (x==miny) miny--;
