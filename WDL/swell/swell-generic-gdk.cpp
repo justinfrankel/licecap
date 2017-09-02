@@ -125,6 +125,7 @@ static HCURSOR s_last_setcursor;
 static SWELL_OSWINDOW s_last_setcursor_oswnd;
 
 static void *g_swell_touchptr; // last GDK touch sequence
+static void *g_swell_touchptr_wnd; // last window of touch sequence, for forcing end of sequence on destroy
 
 static bool g_swell_mouse_relmode;
 static int g_swell_mouse_relmode_curpos_x;
@@ -193,6 +194,8 @@ void swell_oswindow_destroy(HWND hwnd)
   if (hwnd && hwnd->m_oswindow)
   {
     if (SWELL_focused_oswindow == hwnd->m_oswindow) SWELL_focused_oswindow = NULL;
+    if (g_swell_touchptr && g_swell_touchptr_wnd == hwnd->m_oswindow)
+      g_swell_touchptr = NULL;
     gdk_window_destroy(hwnd->m_oswindow);
     hwnd->m_oswindow=NULL;
 #ifdef SWELL_LICE_GDI
@@ -1344,6 +1347,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
                       now < touchptr_lasttime+350;
           touchptr_lasttime = now;
           g_swell_touchptr = e->sequence;
+          g_swell_touchptr_wnd = e->window;
         }
 
         if (!e->sequence || e->sequence != g_swell_touchptr) 
