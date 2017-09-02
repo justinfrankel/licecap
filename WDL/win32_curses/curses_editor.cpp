@@ -20,6 +20,12 @@
 
 
 
+#ifdef __APPLE__
+#define CONTROL_KEY_NAME "Cmd"
+#else
+#define CONTROL_KEY_NAME "Ctrl"
+#endif
+
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
 char WDL_CursesEditor::s_search_string[256];
@@ -969,14 +975,14 @@ void WDL_CursesEditor::draw(int lineidx)
 #define BOLD(x) { attrset(COLOR_BOTTOMLINE|A_BOLD); addstr(x); attrset(COLOR_BOTTOMLINE&~A_BOLD); }
     if (m_selecting) 
     {
-      mvaddstr(LINES-1,0,"SELECTING  ESC:cancel Ctrl+(");
+      mvaddstr(LINES-1,0,"SELECTING  ESC:cancel " CONTROL_KEY_NAME "+(");
       BOLD("C"); addstr("opy ");
       BOLD("X"); addstr(":cut ");
       BOLD("V"); addstr(":paste)");
     }
     else 
     {
-      mvaddstr(LINES-1, 0, "Ctrl+(");
+      mvaddstr(LINES-1, 0, CONTROL_KEY_NAME "+(");
 
       if (m_pane_div <= 0.0 || m_pane_div >= 1.0) 
       {
@@ -1286,7 +1292,7 @@ void WDL_CursesEditor::runSearch()
        draw();
        setCursor();
        char buf[512];
-       snprintf(buf,sizeof(buf),"Found %s'%s'  Ctrl+G:next",wrapflag?"(wrapped) ":"",s_search_string);
+       snprintf(buf,sizeof(buf),"Found %s'%s'  " CONTROL_KEY_NAME "+G:next",wrapflag?"(wrapped) ":"",s_search_string);
        draw_message(buf);
        return;
      }
@@ -2547,11 +2553,8 @@ void WDL_CursesEditor::draw_top_line()
         { 
           if (tsz>16)
           {
-#ifdef __APPLE__
-            memcpy(buf,"<Cmd+",skip=5);
-#else
-            memcpy(buf,"<Ctrl+",skip=6);
-#endif
+            const char *s = "<" CONTROL_KEY_NAME "+";
+            memcpy(buf,s,skip = (int)strlen(s));
           }
           buf[skip++]='F'; 
           buf[skip++] = '1'+x; 
