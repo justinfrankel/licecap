@@ -87,10 +87,10 @@ void nseel_asm_2pdds(void)
       "movl %rsi, %r15\n"
       "movl %rdi, %r14\n"
       "call *%eax\n"
-      "movl %r15, %rsi\n"
-      "movq xmm0, (%r14)\n"
-      "movl %r14, %rax\n" /* set return value */
       "movl %r14, %rdi\n" /* restore thrashed rdi */
+      "movl %r15, %rsi\n"
+      "movl %r14, %rax\n" /* set return value */
+      "movq xmm0, (%r14)\n"
     #else
       "subl X64_EXTRA_STACK_SPACE, %rsp\n"
       "call *%eax\n"
