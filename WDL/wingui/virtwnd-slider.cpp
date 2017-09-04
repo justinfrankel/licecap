@@ -509,12 +509,12 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       {
         LICE_pixel col  = m_knob_color ? m_knob_color : LICE_RGBA_FROMNATIVE(GSC(COLOR_3DHILIGHT),255);
 
-        float alpha = LICE_GETA(col)/255.0f;
+        float lalpha = LICE_GETA(col)/255.0f;
         int cx=origin_x+vieww/2;
         int cy=origin_y+viewh/2;
         float rd = (float) (vieww/2-4 + m_knob_lineextrasize);
         float r2=rd*0.125f;
-        if (!back_image) LICE_Circle(drawbm, (float)cx, (float)cy, rd, col, alpha, LICE_BLIT_MODE_COPY, true);
+        if (!back_image) LICE_Circle(drawbm, (float)cx, (float)cy, rd, col, lalpha, LICE_BLIT_MODE_COPY, true);
       
         #define KNOBANGLE_MAX (3.14159*7.0/8.0);
         float a = val*(float)KNOBANGLE_MAX;
@@ -524,7 +524,7 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
         float y1=cy-r2*cosa;
         float x2=cx+rd*sina;
         float y2=cy-rd*cosa;
-        LICE_FLine(drawbm, x1, y1, x2, y2, col, alpha, LICE_BLIT_MODE_COPY, true);
+        LICE_FLine(drawbm, x1, y1, x2, y2, col, lalpha, LICE_BLIT_MODE_COPY, true);
       }
     }
   }

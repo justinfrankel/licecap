@@ -460,25 +460,25 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
           int cx = (r.bottom + r.top)/2;
           if (itempos < num_items)
           {
-            int y = r.right - leftrightbuttonsize/2 - bsh/2;
-            LICE_LINEROT(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
+            int z = r.right - leftrightbuttonsize/2 - bsh/2;
+            LICE_LINEROT(drawbm,cx-bs+1,z+2,cx,z+bsh-2,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,z+bsh-2,cx+bs-1,z+2,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs-1,z+2,cx-bs+1,z+2,pencol2,1.0f,0,butaa);
 
-            LICE_LINEROT(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx-bs-1,z+1,cx,z+bsh-1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,z+bsh-1,cx+bs+1,z+1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs+1,z+1,cx-bs-1,z+1,pencol,1.0f,0,butaa);
           }
           if (startpos>0)
           {
-            int y = r.left + leftrightbuttonsize/2-bsh/2 - 2;
-            LICE_LINEROT(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
+            int z = r.left + leftrightbuttonsize/2-bsh/2 - 2;
+            LICE_LINEROT(drawbm,cx-bs+1,z+bsh,cx,z+3+1,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,z+3+1,cx+bs-1,z+bsh,pencol2,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs-1,z+bsh,cx-bs+1,z+bsh,pencol2,1.0f,0,butaa);
 
-            LICE_LINEROT(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx-bs-1,z+bsh+1,cx,z+3,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx,z+3,cx+bs+1,z+bsh+1,pencol,1.0f,0,butaa);
+            LICE_LINEROT(drawbm,cx+bs+1,z+bsh+1, cx-bs-1,z+bsh+1, pencol,1.0f,0,butaa);
           }
           #undef LICE_LINEROT
         }

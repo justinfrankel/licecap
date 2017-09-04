@@ -49,9 +49,9 @@ WDL_VWnd_Painter::~WDL_VWnd_Painter()
   delete m_bm;
 }
 
-void WDL_VWnd_Painter::SetGSC(int (*GSC)(int))
+void WDL_VWnd_Painter::SetGSC(int (*_GSC)(int))
 {
-  m_GSC=GSC;
+  m_GSC=_GSC;
 }
 int WDL_VWnd_Painter::GSC(int a)
 {
