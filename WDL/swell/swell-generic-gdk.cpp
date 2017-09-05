@@ -416,6 +416,8 @@ static void init_options()
 {
   if (!gdk_options)
   {
+    const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
+
     gdk_options = 0x40000000;
 
     if (swell_gdk_option("gdk_owned_windows_keep_above", "auto (default is 1)",1))
@@ -424,7 +426,7 @@ static void init_options()
     if (swell_gdk_option("gdk_owned_windows_in_tasklist", "auto (default is 0)",0))
       gdk_options|=OPTION_OWNED_TASKLIST;
 
-    if (swell_gdk_option("gdk_borderless_are_override_redirect", "auto (default is 0)",0))
+    if (swell_gdk_option("gdk_borderless_are_override_redirect", "auto (default is 0)", wmname && !stricmp(wmname,"i3")))
       gdk_options|=OPTION_BORDERLESS_OVERRIDEREDIRECT;
   }
   
