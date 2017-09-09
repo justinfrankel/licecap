@@ -1073,12 +1073,12 @@ void EEL_Editor::doWatchInfo(int c)
           {
             const char *str=s->Get();
             int sx,ex;
-            if (x == miny) sx=max(minx,0);
+            if (x == miny) sx=wdl_max(minx,0);
             else sx=0;
             int tmp=s->GetLength();
             if (sx > tmp) sx=tmp;
       
-            if (x == maxy) ex=min(maxx,tmp);
+            if (x == maxy) ex=wdl_min(maxx,tmp);
             else ex=tmp;
       
             if (code.GetLength()) code.Append("\r\n");
@@ -1360,7 +1360,7 @@ void EEL_Editor::onRightClick(HWND hwnd)
               if (*q) q++;
 
               char buf[128];
-              lstrcpyn(buf, p, min(q-p+1, sizeof(buf)));
+              lstrcpyn(buf, p, wdl_min(q-p+1, sizeof(buf)));
               if (strlen(buf) > sizeof(buf)-2) lstrcpyn(buf+sizeof(buf)-5, "...", 4);
               flist.AddUnsorted(buf, i);
             }
