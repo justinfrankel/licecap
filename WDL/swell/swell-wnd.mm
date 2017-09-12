@@ -3016,6 +3016,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   [button setTitle:labelstr];
   [button setTarget:ACTIONTARGET];
   [button setAction:@selector(onSwellCommand:)];
+  if (flags & BS_LEFT) [button setAlignment:NSLeftTextAlignment];
   if (flags&SWELL_NOT_WS_VISIBLE) [button setHidden:YES];
   [m_make_owner addSubview:button];
   if (m_doautoright) UpdateAutoCoords([button frame]);
@@ -3630,6 +3631,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
         [button setCell:cell];
         [cell release];
       }
+      if (style & BS_LEFT) [button setAlignment:NSLeftTextAlignment];
 //      fr.size.width+=8;
     }
     
