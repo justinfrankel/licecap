@@ -63,7 +63,7 @@ public:
   void FlushSamples() {}
 
   static const char *enumQual(int q);
- static bool GetSizes(int qv, int *ws, int *os);
+  static bool GetSizes(int qv, int *ws, int *os); // if ws or os is NULL, enumerate available ws/os
 
   int GetSamples(int requested_output, WDL_SIMPLEPITCHSHIFT_SAMPLETYPE *buffer);
 
@@ -199,14 +199,29 @@ const char *WDL_SimplePitchShifter::enumQual(int q)
 
 bool WDL_SimplePitchShifter::GetSizes(int qv, int *ws, int *os)
 {
-  int windows[]={50,75,100,150,225,300,40,30,20,10,5,3};
-  int divs[]={2,3,5,7};
+  static const short windows[]={50,75,100,150,225,300,40,30,20,10,5,3};
+  static const char divs[]={2,3,5,7};
+  const int nwindows = (int) (sizeof(windows) / sizeof(windows[0]));
+  const int ndivs = (int) (sizeof(divs) / sizeof(divs[0]));
 
-  int wd=qv/(sizeof(divs)/sizeof(divs[0]));
-  if (wd >= sizeof(windows)/sizeof(windows[0])) wd=-1;
+  if (!os)
+  {
+    if (qv < 0 || qv >= nwindows) return false;
+    *ws = windows[qv];
+    return true;
+  }
+  if (!ws)
+  {
+    if (qv < 0 || qv >= ndivs) return false;
+    *os = divs[qv];
+    return true;
+  }
+
+  int wd=qv/ndivs;
+  if (wd >= nwindows) wd=-1;
 
   *ws=windows[wd>=0?wd:0];
-  *os = *ws / divs[qv%(sizeof(divs)/sizeof(divs[0]))];
+  *os = *ws / divs[qv >= 0 ? qv%ndivs : 0];
   if (*os<1) *os=1;
 
   return wd>=0;
