@@ -3205,6 +3205,13 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
   case WM_SYSCOMMAND: // fix for MIDI editor when fully zoomed out on XPsp2
 
   return CallWindowProcStyleMod(swnd,hwnd,message,wParam,lParam);
+
+  case /*WM_MOUSEHWHEEL:*/ 0x20E:
+   {
+     const LRESULT rv = CallWindowProc(swnd->oldproc,hwnd,message,wParam,lParam);
+     return rv  ? rv : 1; // always return nonzero from WM_MOUSEHWHEEL for Logitech drivers (which will otherwise convert it to a scroll)
+   }
+
 #endif
 	default:
 #if 0
