@@ -33,6 +33,15 @@ void SWELL_EnableRightClickEmulate(BOOL enable)
 }
 HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
 {
+  if (fork() == 0)
+  {
+    char **pp = (char **)calloc(nparams+2,sizeof(char*));
+    pp[0] = strdup(exe);
+    for (int x=0;x<nparams;x++) pp[x+1] = strdup(params[x]?params[x]:"");
+    execv(exe,pp);
+    exit(0);
+  }
+
   return 0; // todo
 }
 
