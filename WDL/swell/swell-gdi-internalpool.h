@@ -243,19 +243,6 @@ class _swellGdiUnloader
        }
      }
 
-     if (m_tmpbuf_pool)
-     {
-       WDL_HeapBuf *ret = m_tmpbuf_pool;
-       m_tmpbuf_pool=0;
-
-       while (ret)
-       {
-         WDL_HeapBuf *need_del = ret;
-         ret = ret->GetSize()==sizeof(WDL_HeapBuf) ? *(WDL_HeapBuf**)ret->Get() : NULL;
-         delete need_del;
-       }
-     }
-
      delete m_ctxpool_mutex;
      m_ctxpool_mutex=NULL;
   }
