@@ -57,6 +57,18 @@ struct modalDlgRet {
 
 static WDL_PtrList<modalDlgRet> s_modalDialogs;
 
+bool IsModalDialogBox(HWND hwnd)
+{
+  if (!hwnd) return false;
+  int a = s_modalDialogs.GetSize();
+  while (a-- > 0)
+  {
+    modalDlgRet *r = s_modalDialogs.Get(a);
+    if (r && r->hwnd == hwnd) return true;
+  }
+  return false;
+}
+
 HWND DialogBoxIsActive()
 {
   int a = s_modalDialogs.GetSize();
