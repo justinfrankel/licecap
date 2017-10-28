@@ -124,20 +124,26 @@ void EndDialog(HWND wnd, int ret)
       r->has_ret=true;
     }
   }
-#ifndef SWELL_NO_SPARE_MODALDLG
-  if (wnd->m_oswindow && wnd->m_visible)
+
+  if (!wnd->m_hashaddestroy)
   {
-    swell_dlg_destroyspare();
-    GetWindowRect(wnd,&s_spare_rect);
-    s_spare_style = wnd->m_style;
-    s_spare = wnd->m_oswindow;
-    wnd->m_oswindow = NULL;
-    s_spare_timer = SetTimer(NULL,0,
+    void RecurseDestroyWindow(HWND);
+    SendMessage(wnd,WM_DESTROY,0,0);
+    #ifndef SWELL_NO_SPARE_MODALDLG
+      if (wnd->m_oswindow && wnd->m_visible)
+      {
+        swell_dlg_destroyspare();
+        GetWindowRect(wnd,&s_spare_rect);
+        s_spare_style = wnd->m_style;
+        s_spare = wnd->m_oswindow;
+        wnd->m_oswindow = NULL;
+        s_spare_timer = SetTimer(NULL,0,
                              swell_app_is_inactive ? 500 : 100,
                              spareTimer);
+      }
+    #endif
+    RecurseDestroyWindow(wnd);
   }
-#endif
-  DestroyWindow(wnd);
   s_last_dlgret = ret;
 }
 

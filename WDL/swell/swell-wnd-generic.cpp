@@ -352,7 +352,7 @@ static void swell_removeWindowFromParentOrTop(HWND__ *hwnd, bool removeFromOwner
   if (par && !par->m_hashaddestroy) InvalidateRect(par,NULL,FALSE);
 }
 
-static void RecurseDestroyWindow(HWND hwnd)
+void RecurseDestroyWindow(HWND hwnd)
 {
   HWND tmp=hwnd->m_children;
   hwnd->m_children=NULL;
