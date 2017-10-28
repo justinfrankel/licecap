@@ -3438,7 +3438,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     {
       LVCOLUMN lvc={0,};
       lvc.mask=LVCF_TEXT|LVCF_WIDTH;
-      lvc.cx=(int)ceil(wdl_max(tr.size.width,300.0));
+      lvc.cx=(int)ceil(wdl_max(tr.size.width - 4.0,isLB ? 1200.0 : 300.0));
       lvc.pszText=(char*)"";
       ListView_InsertColumn((HWND)obj,0,&lvc);
       if (isLB && (style & LBS_OWNERDRAWFIXED))
