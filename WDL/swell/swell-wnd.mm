@@ -3173,7 +3173,14 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       NSScrollView *obj2=[[NSScrollView alloc] init];
       [obj2 setFrame:fr];
       if (flags&WS_VSCROLL) [obj2 setHasVerticalScroller:YES];
-      if (flags&WS_HSCROLL) [obj2 setHasHorizontalScroller:YES];
+      if (flags&WS_HSCROLL) 
+      {
+        [obj2 setHasHorizontalScroller:YES];
+        [obj setMaxSize:NSMakeSize(FLT_MAX, FLT_MAX)];
+        [obj setHorizontallyResizable:YES];
+        [[obj textContainer] setWidthTracksTextView:NO];
+        [[obj textContainer] setContainerSize:NSMakeSize(FLT_MAX, FLT_MAX)];
+      }
       [obj2 setAutohidesScrollers:YES];
       [obj2 setDrawsBackground:NO];
       [obj2 setDocumentView:obj];
