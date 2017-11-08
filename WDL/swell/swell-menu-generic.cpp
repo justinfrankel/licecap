@@ -231,6 +231,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_STATE) item->fState = mi->fState;
   if (mi->fMask & MIIM_ID) item->wID = mi->wID;
   if (mi->fMask & MIIM_DATA) item->dwItemData = mi->dwItemData;
+  if ((mi->fMask & MIIM_BITMAP) && mi->cbSize >= sizeof(*mi)) item->hbmpItem = mi->hbmpItem;
   
   return true;
 }
@@ -255,6 +256,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_STATE) mi->fState = item->fState;
   if (mi->fMask & MIIM_ID) mi->wID = item->wID;
   if (mi->fMask & MIIM_SUBMENU) mi->hSubMenu = item->hSubMenu;
+  if ((mi->fMask & MIIM_BITMAP) && mi->cbSize >= sizeof(*mi)) mi->hbmpItem = item->hbmpItem;
   
   return 1;
   
@@ -318,6 +320,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_STATE) inf->fState = mi->fState;
   if (mi->fMask & MIIM_DATA) inf->dwItemData = mi->dwItemData;
   if (mi->fMask & MIIM_ID) inf->wID = mi->wID;
+  if ((mi->fMask & MIIM_BITMAP) && mi->cbSize >= sizeof(*mi)) inf->hbmpItem = mi->hbmpItem;
 
   hMenu->items.Insert(pos,inf);
 }
@@ -384,13 +387,14 @@ HWND GetFocusIncludeMenus(void);
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  static int lcol, rcol, mcol, top_margin, separator_ht, text_ht_pad, bitmap_ht_pad, scroll_margin;
+  static int lcol, rcol, mcol, top_margin, separator_ht, text_ht_pad, bitmap_ht_pad, scroll_margin, item_bm_pad;
   if (!lcol)
   {
     lcol=SWELL_UI_SCALE(24); rcol=SWELL_UI_SCALE(12); mcol=SWELL_UI_SCALE(10);
     top_margin=SWELL_UI_SCALE(4); separator_ht=SWELL_UI_SCALE(8); 
     text_ht_pad=SWELL_UI_SCALE(4); bitmap_ht_pad=SWELL_UI_SCALE(4);
     scroll_margin=SWELL_UI_SCALE(10);
+    item_bm_pad = SWELL_UI_SCALE(4);
   }
   switch (uMsg)
   {
@@ -410,6 +414,10 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         for (x=0; x < menu->items.GetSize(); x++)
         {
           MENUITEMINFO *inf = menu->items.Get(x);
+          BITMAP bm2={0,};
+          if (inf->hbmpItem)
+            GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
+
           if (inf->fType == MFT_STRING)
           {
             RECT r={0,};
@@ -417,6 +425,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             if (!str || !*str) str="XXXXX";
             const char *pt2 = strstr(str,"\t");
             DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
+            if (r.bottom < bm2.bmHeight) r.bottom = bm2.bmHeight;
+            if (bm2.bmWidth) r.right += bm2.bmWidth + item_bm_pad;
+
             if (r.right > wid) wid=r.right;
             ht += r.bottom + text_ht_pad;
 
@@ -431,13 +442,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           {
             BITMAP bm={16,16};
             if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+            if (bm.bmHeight < bm2.bmHeight) bm.bmHeight = bm2.bmHeight;
+            if (bm2.bmWidth) bm.bmWidth += bm2.bmWidth + item_bm_pad;
             if (bm.bmWidth > wid) wid = bm.bmWidth;
 
             ht += bm.bmHeight + bitmap_ht_pad;
           }
           else
           {
-            // treat as separator
+            // treat as separator, ignore bm2
             ht += separator_ht;
           }
         }
@@ -528,7 +541,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             MENUITEMINFO *inf = menu->items.Get(x);
             RECT r={lcol,ypos,cr.right, };
             bool dis = !!(inf->fState & MF_GRAYED);
-            BITMAP bm={16,16};
+            BITMAP bm={16,16}, bm2={0,};
+            if (inf->hbmpItem)
+              GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
 
             if (inf->fType == MFT_STRING)
             {
@@ -537,14 +552,14 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               RECT mr={0,};
               DrawText(ps.hdc,str,-1,&mr,DT_CALCRECT|DT_SINGLELINE);
 
-              ypos += mr.bottom + text_ht_pad;
+              ypos += wdl_max(mr.bottom,bm2.bmHeight) + text_ht_pad;
               r.bottom = ypos;
             }
             else if (inf->fType == MFT_BITMAP)
             {
               if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
 
-              ypos += bm.bmHeight + bitmap_ht_pad;
+              ypos += wdl_max(bm.bmHeight,bm2.bmHeight) + bitmap_ht_pad;
               r.bottom = ypos;
 
             }
@@ -568,6 +583,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               SetTextColor(ps.hdc,
                  dis ? g_swell_ctheme.menu_text_disabled : 
                  g_swell_ctheme.menu_text);
+            }
+
+            if (bm2.bmWidth)
+            {
+              RECT tr = r;
+              tr.right = tr.left + bm2.bmWidth;
+              DrawImageInRect(ps.hdc,inf->hbmpItem,&tr);
+
+              r.left += bm2.bmWidth + item_bm_pad;
             }
 
             if (inf->fType == MFT_STRING)

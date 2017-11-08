@@ -482,6 +482,7 @@ typedef struct
   DWORD_PTR dwItemData;
   char *dwTypeData;
   int cch;
+  HBITMAP hbmpItem;
 } MENUITEMINFO;
 
 #define SetMenuDefaultItem(a,b,c) do { if ((a)||(b)||(c)) { } } while(0)
@@ -870,6 +871,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define MIIM_TYPE 4
 #define MIIM_SUBMENU 8
 #define MIIM_DATA 16
+#define MIIM_BITMAP 0x80
 
 #define MF_ENABLED 0
 #define MF_GRAYED 1
