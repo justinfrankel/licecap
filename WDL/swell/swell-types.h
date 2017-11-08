@@ -362,6 +362,10 @@ typedef struct tagDRAWITEMSTRUCT {
 typedef struct tagBITMAP {
   LONG bmWidth;
   LONG bmHeight;
+  LONG bmWidthBytes;
+  WORD bmPlanes;
+  WORD bmBitsPixel;
+  LPVOID bmBits;
 } BITMAP, *PBITMAP, *LPBITMAP;
 #define ODT_MENU        1
 #define ODT_LISTBOX     2
