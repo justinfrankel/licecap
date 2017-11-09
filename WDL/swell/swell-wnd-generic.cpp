@@ -1259,7 +1259,7 @@ static LRESULT WINAPI buttonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 {
   switch (msg)
   {
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       delete (buttonWindowState *)hwnd->m_private_data;
       hwnd->m_private_data=0;
     break;
@@ -2342,10 +2342,10 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
   static int s_capmode_state /* 1=vscroll, 2=hscroll, 3=move sel1, 4=move sel2*/, s_capmode_data1;
   switch (msg)
   {
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       delete es;
       hwnd->m_private_data=0;
-    return 0;
+    break;
     case WM_CONTEXTMENU:
       {
         HMENU menu=CreatePopupMenu();
@@ -2821,7 +2821,7 @@ static LRESULT WINAPI progressWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
       if (hwnd->m_private_data) ((int *)hwnd->m_private_data)[1] = (int) lParam;
       InvalidateRect(hwnd,NULL,FALSE);
     break;
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       free((int *)hwnd->m_private_data);
       hwnd->m_private_data=0;
     break;
@@ -2890,7 +2890,7 @@ static LRESULT WINAPI trackbarWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     case TBM_SETTIC:
       if (hwnd->m_private_data) ((int *)hwnd->m_private_data)[2] = (int) lParam;
     break;
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       free((int *)hwnd->m_private_data);
       hwnd->m_private_data=0;
     break;
@@ -3245,11 +3245,9 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
   switch (msg)
   {
-    case WM_DESTROY:
-      {
-       hwnd->m_private_data=0;
-       delete s;
-      }
+    case WM_NCDESTROY:
+      hwnd->m_private_data=0;
+      delete s;
     break;
     case WM_TIMER:
       if (wParam == 100)
@@ -4608,10 +4606,10 @@ forceMouseMove:
         }
       }
     return 0;
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       hwnd->m_private_data = 0;
       delete lvs;
-    return 0;
+    break;
     case LB_ADDSTRING:
       if (lvs && !lvs->IsOwnerData())
       {
@@ -5227,10 +5225,10 @@ forceMouseMove:
         }
       }
     return 0;
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       hwnd->m_private_data = 0;
       delete tvs;
-    return 0;
+    break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -5252,10 +5250,10 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
   tabControlState *s = (tabControlState *)hwnd->m_private_data;
   switch (msg)
   {
-    case WM_DESTROY:
+    case WM_NCDESTROY:
       hwnd->m_private_data = 0;
       delete s;
-    return 0;  
+    break;
     case WM_TIMER:
       if (wParam==1)
       {
