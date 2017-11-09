@@ -7411,6 +7411,7 @@ int ListView_GetTopIndex(HWND h)
 }
 BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
 {
+  if (arr) for (int x=0;x<cnt;x++) arr[x]=x; // todo
   return FALSE;
 }
 BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
