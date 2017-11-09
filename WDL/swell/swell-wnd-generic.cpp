@@ -286,6 +286,8 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
   else if (hwnd->m_hashaddestroy == 2) return 0;
   else if (msg==WM_CAPTURECHANGED && hwnd->m_hashaddestroy) return 0;
     
+  hwnd->Retain();
+
   LRESULT ret = wp ? wp(hwnd,msg,wParam,lParam) : 0;
  
   if (msg == WM_DESTROY)
@@ -320,6 +322,7 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     hwnd->m_hashaddestroy=2;
     KillTimer(hwnd,-1);
   }
+  hwnd->Release();
   return ret;
 }
 
@@ -1284,6 +1287,7 @@ fakeButtonClick:
         RECT r;
         GetClientRect(hwnd,&r);
         POINT p={GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+        hwnd->Retain();
         if ((msg==WM_KEYDOWN||PtInRect(&r,p)) && hwnd->m_id && hwnd->m_parent) 
         {
           int sf = (hwnd->m_style & 0xf);
@@ -1337,6 +1341,7 @@ fakeButtonClick:
           SendMessage(hwnd->m_parent,WM_COMMAND,MAKEWPARAM(hwnd->m_id,BN_CLICKED),(LPARAM)hwnd);
         }
         if (msg == WM_KEYDOWN) InvalidateRect(hwnd,NULL,FALSE);
+        hwnd->Release();
       }
     return 0;
     case WM_PAINT:
