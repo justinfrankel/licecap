@@ -1285,7 +1285,7 @@ void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
 BOOL GetObject(HICON icon, int bmsz, void *_bm)
 {
   memset(_bm,0,bmsz);
-  if (bmsz != sizeof(BITMAP)) return false;
+  if (bmsz < 2*(int)sizeof(LONG)) return false;
   BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP)) return false;
@@ -1293,6 +1293,14 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
   if (!img) return false;
   bm->bmWidth = (int) ([img size].width+0.5);
   bm->bmHeight = (int) ([img size].height+0.5);
+  if (bmsz >= (int)sizeof(BITMAP))
+  {
+    bm->bmWidthBytes = bm->bmWidth * 4;
+    bm->bmPlanes = 1;
+    bm->bmBitsPixel = 32;
+    bm->bmBits = NULL;
+  }
+
   return true;
 }
 
