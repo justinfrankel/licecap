@@ -949,6 +949,10 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           if (wParam == 1 && which == x) { item_ypos = ht; break; }
           MENUITEMINFO *inf = menu->items.Get(x);
           int lastht = ht;
+          BITMAP bm2={0,};
+          if (inf->hbmpItem)
+            GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
+
           if (inf->fType == MFT_STRING)
           {
             RECT r={0,};
@@ -956,13 +960,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             if (!str || !*str) str="XXXXX";
             const char *pt2 = strstr(str,"\t");
             DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
-            ht += r.bottom + text_ht_pad;
+            ht += wdl_max(r.bottom,bm2.bmHeight) + text_ht_pad;
           }
           else if (inf->fType == MFT_BITMAP)
           {
             BITMAP bm={16,16};
             if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
-            ht += bm.bmHeight + bitmap_ht_pad;
+            ht += wdl_max(bm.bmHeight,bm2.bmHeight) + bitmap_ht_pad;
           }
           else
           {
