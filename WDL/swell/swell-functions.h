@@ -1136,4 +1136,6 @@ SWELL_API_DEFINE(bool, SWELL_ChooseColor, (HWND, int *, int ncustom, int *custom
 SWELL_API_DEFINE(bool, SWELL_ChooseFont, (HWND, LOGFONT*))
 #endif
 
+SWELL_API_DEFINE(bool, IsWindowEnabled, (HWND))
+
 #endif // _WDL_SWELL_H_API_DEFINED_

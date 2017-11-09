@@ -1431,6 +1431,28 @@ bool IsWindowVisible(HWND hwnd)
   return true;
 }
 
+
+bool IsWindowEnabled(HWND hwnd)
+{
+  if (!hwnd) return false;
+
+  bool rv = true;
+
+  SWELL_BEGIN_TRY
+
+  id view = (id)hwnd;
+  if ([view isKindOfClass:[NSWindow class]]) view = [view contentView];
+
+  rv = view && [view respondsToSelector:@selector(isEnabled)] && [view isEnabled];
+
+  SWELL_END_TRY(;)
+
+  return rv;
+}
+
+
+
+
 static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link dependent on swell-gdi.mm
 {
   HGDIOBJ__ *i = (HGDIOBJ__ *)ico;
