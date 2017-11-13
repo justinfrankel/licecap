@@ -5587,6 +5587,10 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     return hwnd;
   }
+  else if (!stricmp(classname,"COMBOBOX"))
+  {
+    return SWELL_MakeCombo(idx, x, y, w, h, style);
+  }
   return 0;
 }
 
