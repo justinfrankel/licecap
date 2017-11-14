@@ -86,6 +86,15 @@ WDL_WIN32_UTF8_IMPL BOOL WritePrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR k
 
 WDL_WIN32_UTF8_IMPL DWORD GetModuleFileNameUTF8(HMODULE hModule, LPTSTR fnStr, DWORD nSize);
 
+WDL_WIN32_UTF8_IMPL BOOL CreateProcessUTF8( LPCTSTR lpApplicationName, LPTSTR lpCommandLine,
+  LPSECURITY_ATTRIBUTES lpProcessAttributes,
+  LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
+  DWORD dwCreationFlags,
+  LPVOID lpEnvironment,
+  LPCTSTR lpCurrentDirectory,
+  LPSTARTUPINFO lpStartupInfo,
+  LPPROCESS_INFORMATION lpProcessInformation);
+
 #ifdef SetWindowText
 #undef SetWindowText
 #endif
@@ -240,6 +249,11 @@ WDL_WIN32_UTF8_IMPL DWORD GetModuleFileNameUTF8(HMODULE hModule, LPTSTR fnStr, D
 #undef GetModuleFileName
 #endif
 #define GetModuleFileName GetModuleFileNameUTF8
+
+#ifdef CreateProcess
+#undef CreateProcess
+#endif
+#define CreateProcess CreateProcessUTF8
 
 #else
 

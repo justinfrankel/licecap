@@ -996,6 +996,67 @@ BOOL WritePrivateProfileStructUTF8(LPCTSTR appStr, LPCTSTR keyStr, LPVOID pStruc
 #undef PROFILESTR_COMMON
 #undef PROFILESTR_COMMON_END
 
+
+BOOL CreateProcessUTF8(LPCTSTR lpApplicationName,
+  LPTSTR lpCommandLine, 
+  LPSECURITY_ATTRIBUTES lpProcessAttributes, LPSECURITY_ATTRIBUTES lpThreadAttributes,
+  BOOL bInheritHandles,
+  DWORD dwCreationFlags, LPVOID lpEnvironment,  // pointer to new environment block
+  LPCTSTR lpCurrentDirectory,
+  LPSTARTUPINFO lpStartupInfo,
+  LPPROCESS_INFORMATION lpProcessInformation )
+{
+  // special case ver
+  if (IS_NOT_WIN9X_AND (
+        WDL_HasUTF8(lpApplicationName) ||
+        WDL_HasUTF8(lpCommandLine) ||
+        WDL_HasUTF8(lpCurrentDirectory)
+        )
+      )
+  {
+    MBTOWIDE_NULLOK(appn, lpApplicationName);
+    MBTOWIDE_NULLOK(cmdl, lpCommandLine);
+    MBTOWIDE_NULLOK(curd, lpCurrentDirectory);
+
+    if (appn_ok && cmdl_ok && curd_ok)
+    {
+      BOOL rv;
+      WCHAR *free1=NULL, *free2=NULL;
+      char *save1=NULL, *save2=NULL;
+
+      if (lpStartupInfo && lpStartupInfo->cb >= sizeof(STARTUPINFO))
+      {
+        if (lpStartupInfo->lpDesktop)
+          lpStartupInfo->lpDesktop = (char *) (free1 = WDL_UTF8ToWC(save1 = lpStartupInfo->lpDesktop,FALSE,0,NULL));
+        if (lpStartupInfo->lpTitle)
+          lpStartupInfo->lpTitle = (char*) (free2 = WDL_UTF8ToWC(save2 = lpStartupInfo->lpTitle,FALSE,0,NULL));
+      }
+
+      rv=CreateProcessW(appn,cmdl,lpProcessAttributes,lpThreadAttributes,bInheritHandles,dwCreationFlags,
+        lpEnvironment,curd,(STARTUPINFOW*)lpStartupInfo,lpProcessInformation);
+
+      if (lpStartupInfo && lpStartupInfo->cb >= sizeof(STARTUPINFO))
+      {
+        lpStartupInfo->lpDesktop = save1;
+        lpStartupInfo->lpTitle = save2;
+        free(free1);
+        free(free2);
+      }
+
+      MBTOWIDE_FREE(appn);
+      MBTOWIDE_FREE(cmdl);
+      MBTOWIDE_FREE(curd);
+      return rv;
+    }
+    MBTOWIDE_FREE(appn);
+    MBTOWIDE_FREE(cmdl);
+    MBTOWIDE_FREE(curd);
+  }
+
+  return CreateProcessA(lpApplicationName,lpCommandLine,lpProcessAttributes,lpThreadAttributes,bInheritHandles,dwCreationFlags,lpEnvironment,lpCurrentDirectory,lpStartupInfo,lpProcessInformation);
+}
+
+
 #if (defined(WDL_WIN32_UTF8_IMPL_NOTSTATIC) || defined(WDL_WIN32_UTF8_IMPL_STATICHOOKS)) && !defined(WDL_WIN32_UTF8_NO_UI_IMPL)
 
 static LRESULT WINAPI cb_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
