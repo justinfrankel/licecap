@@ -668,7 +668,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getfont(void *opaque, INT_PTR np, EEL_F **parm
       NOT_EEL_STRING_UPDATE_STRING(parms[0][0],f->actual_fontname);
 #else
       WDL_FastString *fs=NULL;
-      EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
+      EEL_STRING_GET_FOR_WRITE(parms[0][0],&fs);
       if (fs) fs->Set(f->actual_fontname);
 #endif
     }
@@ -1538,10 +1538,8 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0.0;
 
-  WDL_FastString* fs=NULL;
-  const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
+  const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], NULL);
   if (!p || !p[0]) return 0.0;
-  if (fs) {}
 
   int id=1;
   HMENU hm=PopulateMenuFromStr(&p, &id);
@@ -1567,10 +1565,8 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
   m_cursor_name[0]=0;
   if (nparms > 1)
   {
-    WDL_FastString* fs=NULL;
-    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], &fs);
+    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL);
     if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
-    if (fs) {}
   }
 #endif
   return 1.0;

@@ -252,7 +252,7 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
       {
         EEL_STRING_MUTEXLOCK_SCOPE
         WDL_FastString *ws=NULL;
-        EEL_STRING_GET_FOR_INDEX(*ipOut,&ws);
+        EEL_STRING_GET_FOR_WRITE(*ipOut,&ws);
         if (ws)
         {
           const unsigned int a = ntohl(saddr.sin_addr.s_addr);
@@ -483,7 +483,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_recv(void *opaque, INT_PTR np, EEL_F **par
     {
       EEL_STRING_MUTEXLOCK_SCOPE
       WDL_FastString *ws=NULL;
-      EEL_STRING_GET_FOR_INDEX(parms[1][0],&ws);
+      EEL_STRING_GET_FOR_WRITE(parms[1][0],&ws);
       if (ws)
       {
         if (ml<=0) ws->Set("");
