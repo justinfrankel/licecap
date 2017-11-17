@@ -42,6 +42,15 @@ function read_session_file($fn)
   return $ret;
 }
 
+function update_log($rdfilename, $str)
+{
+  $fp = @fopen($rdfilename . ".log","a");
+  if ($fp) {
+    fwrite($fp,$str . " " . time() . "\n");
+    fclose($fp);
+  }
+}
+
 
 // validate stream
 $stream_name = trim($_REQUEST['stream']);
@@ -90,7 +99,11 @@ if ($is_bc)
       $last_file == "" ||
       abs(@filemtime($leadpath . "/" . $last_file) - time()) > $timeout)
   {
-    if (!$keep_files && $last_file != "") @unlink($leadpath . "/" . $last_file);
+    if (!$keep_files && $last_file != "") 
+    {
+      @unlink($leadpath . "/" . $last_file);
+      @unlink($leadpath . "/" . $last_file . ".log");
+    }
 
     $sessinfo["curfn"] =  $stream_name . "_" . date("ymd_His") . ".mp3";
   }
@@ -100,6 +113,7 @@ if ($is_bc)
       rtrim($_REQUEST['title']) != $sessinfo["title"])
   {
     write_session_file($sessfn,$sessinfo["curfn"], $this_sess,$_REQUEST['name'],$_REQUEST['title']);
+    update_log($leadpath . "/" . $sessinfo["curfn"],"BEGIN");
   }
 
   if (is_uploaded_file($file["tmp_name"]))
@@ -127,6 +141,7 @@ if ($this_stream["listen_password"] != "" &&
 $sessinfo = read_session_file($sessfn);
 $sesslasttime = filemtime($sessfn);
 $rdfilename = $leadpath . "/" . $sessinfo["curfn"];
+
 if ($sessinfo["curfn"] == "" || abs(@filemtime($rdfilename) - time()) > $timeout)
 {
   header($_SERVER["SERVER_PROTOCOL"] . " 403 Stream Inactive");
@@ -145,7 +160,7 @@ if (!$fp)
 @fseek($fp,-$presend,SEEK_END);
 
 set_time_limit(3600*3);
-header("Content-type: audio/x-mpeg");
+header("Content-type: audio/mpeg");
 header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
 header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 $streamname = trim($sessinfo["name"]);
@@ -167,8 +182,17 @@ if ((int)$_SERVER['HTTP_ICY_METADATA'] > 0)
   }
 }
 
+$logfile = $rdfilename . ".log";
+$log_ident = $_SERVER["REMOTE_ADDR"] . "_" . time();
+update_log($rdfilename, "CONNECT $log_ident");
+$next_log_update = time() + 30;
 while (!connection_aborted())
 {
+  if (time() > $next_log_update) 
+  {
+    $next_log_update = time() + 30;
+    update_log($rdfilename,"UPDATE $log_ident");
+  }
   $rdamt = 4096;
   if ($meta_int > 0 && $rdamt > ($meta_int-$meta_pos)) $rdamt = ($meta_int - $meta_pos);
   $buf = fread($fp,$rdamt);
@@ -215,5 +239,6 @@ while (!connection_aborted())
     }
   }
 }
+update_log($rdfilename, "DISCONNECT $log_ident");
 if ($fp) fclose($fp);
 ?>
