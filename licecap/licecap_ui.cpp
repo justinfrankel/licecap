@@ -1669,6 +1669,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".lcf"))
               {
                 g_cap_lcf = new LICECaptureCompressor(g_last_fn,w,h);
+                if (!g_cap_lcf->IsOpen())
+                {
+                  delete g_cap_lcf;
+                  g_cap_lcf = NULL;
+                }
               }
 #endif
 
