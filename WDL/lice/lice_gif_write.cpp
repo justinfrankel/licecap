@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "../wdltypes.h"
+#include "../filewrite.h"
 
 extern "C" {
 
@@ -21,7 +22,7 @@ extern "C" {
 struct liceGifWriteRec
 {
   GifFileType *f;
-  FILE *fp;
+  WDL_FileWrite *fh;
   ColorMapObject *cmap;
   GifPixelType *linebuf;
   LICE_IBitmap *prevframe; // used when multiframe, transalpha<0
@@ -114,7 +115,7 @@ unsigned int LICE_WriteGIFGetSize(void *handle)
   if (handle)
   {
     liceGifWriteRec *wr = (liceGifWriteRec*)handle;
-    if (wr->fp) return ftell(wr->fp);
+    if (wr->fh) return (unsigned int) ((WDL_FileWrite *)wr->fh)->GetPosition();
   }
   return 0;
 }
@@ -375,24 +376,19 @@ bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, b
   return true;
 }
 
-static int writefunc_fh(GifFileType *fh, const GifByteType *buf, int sz) {  return (int)fwrite(buf, 1, sz, (FILE *)fh->UserData); }
+static int writefunc_fh(GifFileType *fh, const GifByteType *buf, int sz) 
+{  
+  return ((WDL_FileWrite *)fh->UserData)->Write(buf,sz);
+}
 
 void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha, bool dither, bool is_append)
 {
-  FILE *fp=NULL;
-#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
-  #ifdef WDL_SUPPORT_WIN9X
-  if (GetVersion()<0x80000000)
-  #endif
+  WDL_FileWrite *fp = new WDL_FileWrite(filename,1,65536,16,16,is_append);
+  if (!fp->IsOpen()) 
   {
-    WCHAR wf[2048];
-    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
-      fp = _wfopen(wf,is_append ? L"r+b" : L"wb");
+    delete fp;
+    return NULL;
   }
-#endif
-  if (!fp) fp = fopen(filename,is_append ? "r+b" : "wb");
-
-  if (fp == NULL) return NULL;
 
 
   EGifSetGifVersion("89a");
@@ -401,18 +397,13 @@ void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transpar
   GifFileType *f = EGifOpen(fp,writefunc_fh);
   if (!f) 
   {
-    fclose(fp);
+    delete fp;
     return NULL;
-  }
-
-  if (is_append)
-  {
-    fseek(fp, -1, SEEK_END);
   }
 
   liceGifWriteRec *wr = (liceGifWriteRec*)calloc(sizeof(liceGifWriteRec),1);
   wr->f = f;
-  wr->fp = fp;
+  wr->fh = fp;
   wr->append = is_append;
   wr->dither = dither;
   wr->w=w;
@@ -455,7 +446,7 @@ bool LICE_WriteGIFEnd(void *handle)
   if (wr->last_octree) LICE_DestroyOctree(wr->last_octree);
 
   delete wr->prevframe;
-  fclose(wr->fp);
+  delete wr->fh;
 
   free(wr);
 

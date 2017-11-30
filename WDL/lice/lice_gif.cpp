@@ -7,6 +7,7 @@
 
 #include "lice.h"
 #include "../heapbuf.h"
+#include "../fileread.h"
 #include <stdio.h>
 
 extern "C" {
@@ -118,34 +119,22 @@ static void applyGifFrameToBitmap(LICE_IBitmap *bmp, GifFileType *fp, int transp
   if (linebuf != _linebuf) free(linebuf);
 }
 
-static int readfunc_fh(GifFileType *fh, GifByteType *buf, int sz) { return (int)fread(buf, 1, sz, (FILE *)fh->UserData); }
+static int readfunc_fh(GifFileType *fh, GifByteType *buf, int sz) 
+{ 
+  return ((WDL_FileRead*)fh->UserData)->Read(buf,sz);
+}
 
 
 LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes)
 {
-  FILE *fpp = NULL;
+  WDL_FileRead fpp(filename,0,65536);
 
-#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
-  #ifdef WDL_SUPPORT_WIN9X
-  if (GetVersion()<0x80000000)
-  #endif
-  {
-    WCHAR wf[2048];
-    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
-      fpp = _wfopen(wf,L"rb");
-  }
-#endif
   if (nframes) *nframes=0;
 
-  if (!fpp) fpp = fopen(filename,"rb");
-  if (!fpp) return 0;
+  if (!fpp.IsOpen()) return 0;
 
-  GifFileType *fp=DGifOpen(fpp, readfunc_fh);
-  if (!fp)
-  {
-    fclose(fpp);
-    return 0;
-  }
+  GifFileType *fp=DGifOpen(&fpp, readfunc_fh);
+  if (!fp) return 0;
   
   int transparent_pix = -1;
   
@@ -280,7 +269,6 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp, int *nframes
   while (RecordType != TERMINATE_RECORD_TYPE);
 
   DGifCloseFile(fp);
-  fclose(fpp);
   
   if (had_image)
   {
@@ -332,35 +320,28 @@ LICE_GIFLoader LICE_gifldr;
 
 struct lice_gif_read_ctx
 {
-  FILE *fp;
+  WDL_FileRead *fh;
   GifFileType *gif;
   int msecpos;
   int state;
-  int ipos;
+  WDL_FILEREAD_POSTYPE ipos;
 };
 
 
 void *LICE_GIF_LoadEx(const char *filename)
 {
-  FILE *fpp = NULL;
-#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
-  #ifdef WDL_SUPPORT_WIN9X
-  if (GetVersion()<0x80000000)
-  #endif
-  {
-    WCHAR wf[2048];
-    if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wf,2048))
-      fpp = _wfopen(wf,L"rb");
-  }
-#endif
+  WDL_FileRead *fpp = new WDL_FileRead(filename,0,32768);
 
-  if (!fpp) fpp = fopen(filename,"rb");
-  if (!fpp) return 0;
+  if (!fpp->IsOpen()) 
+  {
+    delete fpp;
+    return 0;
+  }
 
   GifFileType *gif=DGifOpen(fpp, readfunc_fh);
   if (!gif)
   {
-    fclose(fpp);
+    delete fpp;
     return 0;
   }
 
@@ -368,14 +349,14 @@ void *LICE_GIF_LoadEx(const char *filename)
   if (!ret)
   {
     DGifCloseFile(gif);
-    fclose(fpp);
+    delete fpp;
     return NULL;
   }
-  ret->fp = fpp;
+  ret->fh = fpp;
   ret->gif = gif;
   ret->msecpos = 0;
   ret->state = 0;
-  ret->ipos = ftell(fpp);
+  ret->ipos = fpp->GetPosition();
 
   return ret;
 }
@@ -387,7 +368,7 @@ void LICE_GIF_Close(void *handle)
   if (h)
   {
     DGifCloseFile(h->gif);
-    fclose(h->fp);
+    delete h->fh;
     free(h);
   }
 }
@@ -398,16 +379,17 @@ void LICE_GIF_Rewind(void *handle)
   {
     h->state = 0;
     h->msecpos = 0;
-    fseek(h->fp, h->ipos, SEEK_SET);
+    h->fh->SetPosition(h->ipos);
     // todo: flush giflib too
   }
 }
 unsigned int LICE_GIF_GetFilePos(void *handle)
 {
+  // only used for accounting at the moment, so meh
   lice_gif_read_ctx *h = (lice_gif_read_ctx*)handle;
-  if (h && h->fp)
+  if (h && h->fh)
   {
-    return ftell(h->fp);
+    return (unsigned int) h->fh->GetPosition();
   }
 
   return 0;
