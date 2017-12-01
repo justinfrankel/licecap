@@ -650,7 +650,11 @@ if(@resourceFiles) {
   # removing $targetImage anyway.
 
   # Type definitions come from Carbon.r.
-  if(command($gConfig{'cmd_Rez'}, 'Carbon.r', @resourceFiles, '-a', '-o',
+  if(command($gConfig{'cmd_Rez'}, 'Carbon.r', @resourceFiles, '-a', 
+        '-F', '/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/',
+        '-F', '/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/',
+        '-F', '/Developer/Headers/FlatCarbon/', 
+        '-o',
    $targetImage) != 0) {
     cleanupDie('Rez failed');
   }
