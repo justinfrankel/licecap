@@ -1,3 +1,23 @@
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
+
+    This software is provided 'as-is', without any express or implied
+    warranty.  In no event will the authors be held liable for any damages
+    arising from the use of this software.
+
+    Permission is granted to anyone to use this software for any purpose,
+    including commercial applications, and to alter it and redistribute it
+    freely, subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+       claim that you wrote the original software. If you use this software
+       in a product, an acknowledgment in the product documentation would be
+       appreciated but is not required.
+    2. Altered source versions must be plainly marked as such, and must not be
+       misrepresented as being the original software.
+    3. This notice may not be removed or altered from any source distribution.
+*/
+  
 #ifndef SWELL_PROVIDED_BY_APP
 
 //#import <Carbon/Carbon.h>
@@ -56,7 +76,7 @@ void SWELL_CFStringToCString(const void *str, char *buf, int buflen)
     [s getCString:buf maxLength:buflen encoding:NSASCIIStringEncoding];
     return;
   }
-  int len = [data length];
+  int len = (int)[data length];
   if (len > buflen-1) len=buflen-1;
   [data getBytes:buf length:len];
   buf[len]=0;
@@ -110,7 +130,7 @@ DWORD SWELL_WaitForNSTask(void *p, DWORD msTO)
   return [a isRunning] ? WAIT_TIMEOUT : WAIT_OBJECT_0;
 }
 
-HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
+HANDLE SWELL_CreateProcessIO(const char *exe, int nparams, const char **params, bool redirectIO)
 {
   NSString *ex = (NSString *)SWELL_CStringToCFString(exe);
   NSMutableArray *ar = [[NSMutableArray alloc] initWithCapacity:nparams];
@@ -123,23 +143,28 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
     [s release];
   }
 
-  NSTask *tsk = [[NSTask alloc] init];
-
-  if (tsk)
-  {
-    @try {
-      [tsk setArguments:ar];
-      [tsk setLaunchPath:ex];
-      [tsk launch];
+  NSTask *tsk = NULL;
+  
+  @try {
+    tsk = [[NSTask alloc] init];
+    [tsk setLaunchPath:ex];
+    [tsk setArguments:ar];
+    if (redirectIO)
+    {
+      [tsk setStandardInput:[NSPipe pipe]];
+      [tsk setStandardOutput:[NSPipe pipe]];
+      [tsk setStandardError:[NSPipe pipe]];
     }
-    @catch (NSException *exception) { 
-      [tsk release];
-      tsk=0;
-    }
-    @catch (id ex) {
-    }
+    [tsk launch];
+  }
+  @catch (NSException *exception) { 
+    [tsk release];
+    tsk=0;
+  }
+  @catch (id ex) {
   }
 
+  if (tsk) [tsk retain];
   [ex release];
   [ar release];
   if (!tsk) return NULL;
@@ -149,6 +174,91 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
   buf->hdr.count=1;
   buf->task = tsk;
   return buf;
+}
+
+HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
+{
+  return SWELL_CreateProcessIO(exe,nparams,params,false);
+}
+
+
+int SWELL_GetProcessExitCode(HANDLE hand)
+{
+  int rv=0;
+  SWELL_InternalObjectHeader_NSTask *hdr=(SWELL_InternalObjectHeader_NSTask*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return -1;
+  @try {
+    if ([(NSTask *)hdr->task isRunning]) rv=-3;
+    else rv = [(NSTask *)hdr->task terminationStatus];
+  }
+  @catch (id ex) { 
+    rv=-2;
+  }
+  return rv;
+}
+
+int SWELL_TerminateProcess(HANDLE hand)
+{
+  int rv=0;
+  SWELL_InternalObjectHeader_NSTask *hdr=(SWELL_InternalObjectHeader_NSTask*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return -1;
+  @try
+  {
+    [(NSTask *)hdr->task terminate];
+  }
+  @catch (id ex) {
+    rv=-2;
+  }
+  return rv;
+}
+int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *buf, int bufsz)
+{
+  SWELL_InternalObjectHeader_NSTask *hdr=(SWELL_InternalObjectHeader_NSTask*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return 0;
+  NSTask *tsk = (NSTask*)hdr->task;
+  NSPipe *pipe = NULL;
+  switch (w)
+  {
+    case 0: pipe = [tsk standardInput]; break;
+    case 1: pipe = [tsk standardOutput]; break;
+    case 2: pipe = [tsk standardError]; break;
+  }
+  if (!pipe || ![pipe isKindOfClass:[NSPipe class]]) return 0;
+
+  NSFileHandle *fh = w!=0 ? [pipe fileHandleForReading] : [pipe fileHandleForWriting];
+  if (!fh) return 0;
+  if (w==0)
+  {
+    if (bufsz>0)
+    {
+      NSData *d = [NSData dataWithBytes:buf length:bufsz];
+      @try
+      {
+        if (d) [fh writeData:d];
+        else bufsz=0;
+      }
+      @catch (id ex) { bufsz=0; }
+
+      return bufsz;
+    }
+  }
+  else 
+  {
+    NSData *d = NULL;
+    @try
+    {
+      d = [fh readDataOfLength:(bufsz < 1 ? 32768 : bufsz)];
+    }
+    @catch (id ex) { }
+
+    if (!d || bufsz < 1) return d ? (int)[d length] : 0;
+    int l = (int)[d length];
+    if (l > bufsz) l = bufsz;
+    [d getBytes:buf length:l];
+    return l;
+  }
+
+  return 0;
 }
 
 
@@ -426,11 +536,16 @@ void SWELL_MessageQueue_Flush()
   if (!m_pmq_mutex) return;
   
   m_pmq_mutex->Enter();
-  PMQ_rec *p=m_pmq, *startofchain=m_pmq;
-  m_pmq=m_pmq_tail=0;
+  int max_amt = m_pmq_size;
+  PMQ_rec *p=m_pmq;
+  if (p)
+  {
+    m_pmq = p->next;
+    if (m_pmq_tail == p) m_pmq_tail=NULL;
+    m_pmq_size--;
+  }
   m_pmq_mutex->Leave();
   
-  int cnt=0;
   // process out queue
   while (p)
   {
@@ -440,19 +555,24 @@ void SWELL_MessageQueue_Flush()
       else SetTimer(p->hwnd,p->wParam,p->msg,(TIMERPROC)p->lParam);
     }
     else
-      SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
-    
-    cnt ++;
-    if (!p->next) // add the chain back to empties
     {
-      m_pmq_mutex->Enter();
-      m_pmq_size-=cnt;
-      p->next=m_pmq_empty;
-      m_pmq_empty=startofchain;
-      m_pmq_mutex->Leave();
-      break;
+      SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
     }
-    p=p->next;
+    
+    m_pmq_mutex->Enter();
+    // move this message to empty list
+    p->next=m_pmq_empty;
+    m_pmq_empty = p;
+
+    // get next queued message (if within limits)
+    p = (--max_amt > 0) ? m_pmq : NULL;
+    if (p)
+    {
+      m_pmq = p->next;
+      if (m_pmq_tail == p) m_pmq_tail=NULL;
+      m_pmq_size--;
+    }
+    m_pmq_mutex->Leave();
   }
 }
 
@@ -656,7 +776,10 @@ int SWELL_GetOSXVersion()
   {
     if (NSAppKitVersionNumber >= 1266.0) 
     {
-      v=0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
+      if (NSAppKitVersionNumber >= 1404.0)
+        v = 0x10b0;
+      else
+        v = 0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
     }
     else 
     {

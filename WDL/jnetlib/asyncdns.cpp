@@ -134,8 +134,6 @@ int JNL_AsyncDNS::resolve(const char *hostname, unsigned int *addr)
         {
           return -1;
         }
-        struct in_addr in;
-        in.s_addr=m_cache[x].addr;
         *addr=m_cache[x].addr;
         return 0;
       }

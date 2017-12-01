@@ -1,4 +1,24 @@
-// used for HDC/HGDIOBJ pooling (to avoid excess heap use), used by swell-gdi.mm and swell-gdi-generic.cpp
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
+
+    This software is provided 'as-is', without any express or implied
+    warranty.  In no event will the authors be held liable for any damages
+    arising from the use of this software.
+
+    Permission is granted to anyone to use this software for any purpose,
+    including commercial applications, and to alter it and redistribute it
+    freely, subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+       claim that you wrote the original software. If you use this software
+       in a product, an acknowledgment in the product documentation would be
+       appreciated but is not required.
+    2. Altered source versions must be plainly marked as such, and must not be
+       misrepresented as being the original software.
+    3. This notice may not be removed or altered from any source distribution.
+  
+  // used for HDC/HGDIOBJ pooling (to avoid excess heap use), used by swell-gdi.mm and swell-gdi-generic.cpp
+*/
 
 #if defined(_DEBUG)
   #define SWELL_GDI_DEBUG
@@ -194,40 +214,6 @@ static bool HDC_VALID(HDC__ *ct)
 }
 
 
-static WDL_HeapBuf *m_tmpbuf_pool;
-
-static WDL_HeapBuf *SWELL_GDP_GetTmpBuf()
-{
-  if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
-  WDL_HeapBuf *ret=NULL;
-  m_ctxpool_mutex->Enter();
-  if (m_tmpbuf_pool)
-  {
-    ret = m_tmpbuf_pool;
-    m_tmpbuf_pool = ret && ret->GetSize() == sizeof(WDL_HeapBuf *) ? *(WDL_HeapBuf **)ret->Get() : NULL;
-  }
-  m_ctxpool_mutex->Leave();
-  if (!ret) ret = new WDL_HeapBuf;
-  return ret;
-}
-static void SWELL_GDP_DisposeTmpBuf(WDL_HeapBuf *hb)
-{
-  if (!hb) return;
-
-  if (!m_ctxpool_mutex) m_ctxpool_mutex=new WDL_Mutex;
-
-  if (hb->ResizeOK(sizeof(void*),false))
-  {
-    m_ctxpool_mutex->Enter();
-    *(WDL_HeapBuf **)hb->Get() = m_tmpbuf_pool;
-    m_tmpbuf_pool = hb;
-    m_ctxpool_mutex->Leave();
-  }
-  else delete hb;
-}
-
-
-
 #if !defined(SWELL_GDI_DEBUG) && defined(SWELL_CLEANUP_ON_UNLOAD)
 
 class _swellGdiUnloader
@@ -254,19 +240,6 @@ class _swellGdiUnloader
          HGDIOBJ__ *t = p;
          p = p->_next;
          free(t);
-       }
-     }
-
-     if (m_tmpbuf_pool)
-     {
-       WDL_HeapBuf *ret = m_tmpbuf_pool;
-       m_tmpbuf_pool=0;
-
-       while (ret)
-       {
-         WDL_HeapBuf *need_del = ret;
-         ret = ret->GetSize()==sizeof(WDL_HeapBuf) ? *(WDL_HeapBuf**)ret->Get() : NULL;
-         delete need_del;
        }
      }
 

@@ -63,31 +63,20 @@ T LICE_Bezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_y1, T ctrl_y2, T ctrl
     return ctrl_y3;
   }
 
-  double a = (double) ctrl_x1 - (double) (2 * ctrl_x2) + (double) ctrl_x3;
-  if (a == 0.0)   // linear
+  double t, a = (double) ctrl_x1 - (double) (2 * ctrl_x2) + (double) ctrl_x3;
+  if (a == 0.0)
   { 
-    T y = ctrl_y1;
-    double t = 0.0;
-    if (ctrl_x1 != ctrl_x3) 
-    {
-      t = (x-ctrl_x1)/(ctrl_x3-ctrl_x1);
-      y += t*(ctrl_y3-ctrl_y1);      
-    }
-    if (pt) *pt = t;
-    return y;
+    t=(ctrl_x1 == ctrl_x3) ? 0.0 : (x-ctrl_x1)/(ctrl_x3-ctrl_x1);
   }
-
-  double b = (double) (2 * (ctrl_x2 - ctrl_x1));
-  double c = (double) (ctrl_x1 - x);
-  double t = (-b + sqrt(b * b - 4.0 * a * c)) / (2.0 * a);
-  double it = 1.0 - t;
-
-  a = it * it;
-  b = 2.0 * it * t;
-  c = t * t;
+  else
+  {
+    t = (double) (ctrl_x2 - ctrl_x1);
+    t = (-t + sqrt(t * t - a * (ctrl_x1 - x))) / a;
+  }
+  const double it = 1.0 - t;
 
   if (pt) *pt = t;
-  return (T) (a * (double) ctrl_y1 + b * (double) ctrl_y2 + c * (double) ctrl_y3);
+  return (T) (it * it * (double) ctrl_y1 + t * (2.0*it*(double)ctrl_y2 + t * (double) ctrl_y3));
 }
 
 // Special case for x = y = [0,1]
@@ -114,6 +103,9 @@ T LICE_Bezier_GetY_Norm(T ctrl_x2, T ctrl_y2, T x)
     return x;
   }
 
+
+/*
+  // this causes ICC 11.0 to produce bad results on OSX/386
   double b = (double) (2 * ctrl_x2);
   double a = 1.0 - b;
   double c = (double) -x;
@@ -122,6 +114,14 @@ T LICE_Bezier_GetY_Norm(T ctrl_x2, T ctrl_y2, T x)
   b = 2.0 * (1.0 - t) * t;
   c = t * t;
   return (T) (b * (double) ctrl_y2 + c);
+
+  // the simplified math below works properly
+*/
+
+
+  const double t = (-ctrl_x2 + sqrt(ctrl_x2 * (ctrl_x2 - 2.0*x) + x)) / (1.0-2.0*ctrl_x2);
+
+  return (T) (((2.0 * (1.0-t)) * ctrl_y2 + t)*t);
 }
 
 // Finds the cardinal bezier control points surrounding x2.  
@@ -156,53 +156,58 @@ void LICE_Bezier_FindCardinalCtlPts(double alpha, T x1, T x2, T x3, T y1, T y2, 
 // pDest must be passed in with size (int) (*(pX+n-1) - *pX).
 // pX must be monotonically increasing and no duplicates.
 template <class T>
-inline void LICE_QNurbs(T* pDest, T* pX, T* pY, int n)
+inline void LICE_QNurbs(T* pDest, int pDest_sz, int *pX, T* pY, int n)
 {
-  double x1 = (double) *pX++, x2 = (double) *pX++;
-  double y1 = (double) *pY++, y2 = (double) *pY++;
+  int x1 = *pX++, x2 = *pX++;
+  T y1 = *pY++, y2 = *pY++;
   double xm1, xm2 = 0.5 * (x1 + x2);
   double ym1, ym2 = 0.5 * (y1 + y2);
 
-  double m = (y2 - y1) / (x2 - x1);
-  double xi = x1, yi = y1;
-  for (/* */; xi < xm2; xi += 1.0, yi += m, ++pDest) 
+  double yi = y1, m = (y2 - y1) / (double) (x2 - x1);
+  int xi = x1, iend = (int)floor(xm2+0.5); // this (and below) was previously ceil(), but can't see any reason why it should matter (this should be more correct, I'd imagine)
+  for (; xi < iend; xi++, yi += m)
   {
-    *pDest = (T) yi;
+    if (--pDest_sz<0) return;
+    *pDest++ = (T) yi;
   }
 
-  for (int i = 2; i < n; ++i, ++pX, ++pY) 
+  for (int i = 2; i < n; ++i)
   {
     x1 = x2;
-    x2 = (double) *pX;
+    x2 = *pX++;
     y1 = y2;
-    y2 = (double) *pY;
+    y2 = *pY++;
 
     xm1 = xm2;
     xm2 = 0.5 * (x1 + x2);
     ym1 = ym2;
     ym2 = 0.5 * (y1 + y2);
 
-    if (ym1 == ym2) 
+    iend = (int)floor(xm2+0.5);
+    if (ym1 == ym2 && y1 == ym1) 
     {
-      for (/* */; xi < xm2; xi += 1.0, ++pDest) 
+      for (; xi < iend; xi++)
       {
-        *pDest = (T) y1;
+        if (--pDest_sz<0) return;
+        *pDest++ = (T) y1;
       }
     }
     else 
     {    
-      for (/* */; xi < xm2; xi += 1.0, ++pDest) 
+      for (; xi < iend; xi++)
       {
-        *pDest = (T) LICE_Bezier_GetY(xm1, x1, xm2, ym1, y1, ym2, xi);
+        if (--pDest_sz<0) return;
+        *pDest++ = (T) LICE_Bezier_GetY(xm1, (double)x1, xm2, ym1, (double)y1, ym2, (double)xi);
       }
     }
   }
 
-  m = (y2 - y1) / (x2 - x1);
+  m = (y2 - y1) / (double) (x2 - x1);
   yi = ym2;
-  for (/* */; xi < x2; xi += 1.0, yi += m, ++pDest) 
+  for (; xi < x2; xi++, yi += m)
   {
-    *pDest = (T) yi;
+    if (--pDest_sz<0) return;
+    *pDest++ = (T) yi;
   }
 }
 
@@ -246,7 +251,7 @@ T LICE_CBezier_GetY(T ctrl_x1, T ctrl_x2, T ctrl_x3, T ctrl_x4,
     &ax, &bx, &cx, &ay, &by, &cy);
 
   double tx, t, tLo = 0.0, tHi = 1.0;
-  double xLo, xHi, yLo, yHi;
+  double xLo=0.0, xHi=0.0, yLo, yHi;
   int i;
   for (i = 0; i < CBEZ_ITERS; ++i)
   {

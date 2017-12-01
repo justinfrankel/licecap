@@ -30,15 +30,17 @@ void NSEEL_HOSTSTUB_LeaveMutex() { }
 
 int main(int argc, char **argv)
 {
+  bool want_args = true;
   int argpos = 1;
   const char *scriptfn = argv[0];
   while (argpos < argc && argv[argpos][0] == '-' && argv[argpos][1])
   {
     if (!strcmp(argv[argpos],"-v")) g_verbose++;
     else if (!strcmp(argv[argpos],"-i")) g_interactive++;
+    else if (!strcmp(argv[argpos],"--no-args")) want_args=false;
     else
     {
-      fprintf(stderr,"Usage: %s [-v] [-i | scriptfile | -]\n",argv[0]);
+      fprintf(stderr,"Usage: %s [-v] [--no-args] [-i | scriptfile | -]\n",argv[0]);
       return -1;
     }
     argpos++;
@@ -73,6 +75,7 @@ int main(int argc, char **argv)
   WDL_FastString code,t;
 
   eelScriptInst inst;
+  if (want_args)
   {
     const int argv_offs = 1<<22;
     code.SetFormatted(64,"argc=0; argv=%d;\n",argv_offs);

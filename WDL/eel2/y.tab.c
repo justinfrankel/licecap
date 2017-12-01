@@ -1216,7 +1216,7 @@ yydestruct (yymsg, yytype, yyvaluep, yylocationp, context)
       case 3: /* "VALUE" */
 #line 8 "eel2.y"
 	{
- #define yydestruct(a,b,c,d,e) 0
+ #define yydestruct(a,b,c,d,e)
 };
 #line 1222 "y.tab.c"
 	break;
@@ -1954,7 +1954,7 @@ yyreduce:
   case 73:
 #line 369 "eel2.y"
     { 
-                int a = (yylsp[(1) - (1)]).first_line;
+                if ((yylsp[(1) - (1)]).first_line) { }
                 context->result = (yyvsp[(1) - (1)]);
 	}
     break;

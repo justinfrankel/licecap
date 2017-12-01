@@ -1493,3 +1493,19 @@ void nseel_asm_fptobool(void)
 }
 void nseel_asm_fptobool_end(void){ }
 
+void nseel_asm_fptobool_rev(void)
+{
+  __asm__(
+    FUNCTION_MARKER
+    "fabs f1, f1\n"
+    "fcmpu cr7, f1, f31\n"
+    "addis r3, 0, 0\n"
+    "bge cr7, 0f\n"
+    "  addis r3, 0, 1\n"
+    "0:\n"
+    FUNCTION_MARKER
+    :: 
+          );
+}
+void nseel_asm_fptobool_rev_end(void){ }
+

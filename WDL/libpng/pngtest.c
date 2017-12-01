@@ -1,7 +1,7 @@
 
 /* pngtest.c - a simple test program to test libpng
  *
- * Last changed in libpng 1.6.17 [March 26, 2015]
+ * Last changed in libpng 1.6.19 [November 12, 2015]
  * Copyright (c) 1998-2015 Glenn Randers-Pehrson
  * (Version 0.96 Copyright (c) 1996, 1997 Andreas Dilger)
  * (Version 0.88 Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.)
@@ -60,6 +60,7 @@
    defined PNG_READ_pHYs_SUPPORTED &&\
    defined PNG_READ_sBIT_SUPPORTED &&\
    defined PNG_READ_sCAL_SUPPORTED &&\
+   defined PNG_READ_sPLT_SUPPORTED &&\
    defined PNG_READ_sRGB_SUPPORTED &&\
    defined PNG_READ_tEXt_SUPPORTED &&\
    defined PNG_READ_tIME_SUPPORTED &&\
@@ -565,6 +566,7 @@ png_debug_free(png_structp png_ptr, png_voidp ptr)
    }
 
    /* Unlink the element from the list. */
+   if (pinformation != NULL)
    {
       memory_infop *ppinfo = &pinformation;
 
@@ -581,8 +583,7 @@ png_debug_free(png_structp png_ptr, png_voidp ptr)
             /* We must free the list element too, but first kill
                the memory that is to be freed. */
             memset(ptr, 0x55, pinfo->size);
-            if (pinfo != NULL)
-               free(pinfo);
+            free(pinfo);
             pinfo = NULL;
             break;
          }
@@ -1057,7 +1058,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
 #ifndef PNG_READ_INTERLACING_SUPPORTED
          /* num_pass will not be set below, set it here if the image is
           * interlaced: what happens is that write interlacing is *not* turned
-          * on an the partial interlaced rows are written directly.
+          * on and the partial interlaced rows are written directly.
           */
          switch (interlace_type)
          {
@@ -1076,6 +1077,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
 #endif
       }
    }
+
 #ifdef PNG_FIXED_POINT_SUPPORTED
 #ifdef PNG_cHRM_SUPPORTED
    {
@@ -1090,6 +1092,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
       }
    }
 #endif
+
 #ifdef PNG_gAMA_SUPPORTED
    {
       png_fixed_point gamma;
@@ -1123,6 +1126,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
 #endif
 #endif /* Floating point */
 #endif /* Fixed point */
+
 #ifdef PNG_iCCP_SUPPORTED
    {
       png_charp name;
@@ -1138,6 +1142,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
       }
    }
 #endif
+
 #ifdef PNG_sRGB_SUPPORTED
    {
       int intent;
@@ -1146,6 +1151,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
          png_set_sRGB(write_ptr, write_info_ptr, intent);
    }
 #endif
+
    {
       png_colorp palette;
       int num_palette;
@@ -1153,6 +1159,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
       if (png_get_PLTE(read_ptr, read_info_ptr, &palette, &num_palette) != 0)
          png_set_PLTE(write_ptr, write_info_ptr, palette, num_palette);
    }
+
 #ifdef PNG_bKGD_SUPPORTED
    {
       png_color_16p background;
@@ -1163,6 +1170,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
       }
    }
 #endif
+
 #ifdef PNG_hIST_SUPPORTED
    {
       png_uint_16p hist;
@@ -1171,6 +1179,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
          png_set_hIST(write_ptr, write_info_ptr, hist);
    }
 #endif
+
 #ifdef PNG_oFFs_SUPPORTED
    {
       png_int_32 offset_x, offset_y;
@@ -1183,6 +1192,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
       }
    }
 #endif
+
 #ifdef PNG_pCAL_SUPPORTED
    {
       png_charp purpose, units;
@@ -1198,6 +1208,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
       }
    }
 #endif
+
 #ifdef PNG_pHYs_SUPPORTED
    {
       png_uint_32 res_x, res_y;
@@ -1208,6 +1219,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
          png_set_pHYs(write_ptr, write_info_ptr, res_x, res_y, unit_type);
    }
 #endif
+
 #ifdef PNG_sBIT_SUPPORTED
    {
       png_color_8p sig_bit;
@@ -1216,6 +1228,7 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
          png_set_sBIT(write_ptr, write_info_ptr, sig_bit);
    }
 #endif
+
 #ifdef PNG_sCAL_SUPPORTED
 #if defined(PNG_FLOATING_POINT_SUPPORTED) && \
    defined(PNG_FLOATING_ARITHMETIC_SUPPORTED)
@@ -1242,9 +1255,22 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
              scal_height);
       }
    }
-#endif
-#endif
-#endif
+#endif /* FIXED_POINT */
+#endif /* FLOATING_POINT */
+#endif /* sCAL */
+
+#ifdef PNG_sPLT_SUPPORTED
+   {
+       png_sPLT_tp entries;
+
+       int num_entries = (int) png_get_sPLT(read_ptr, read_info_ptr, &entries);
+       if (num_entries)
+       {
+           png_set_sPLT(write_ptr, write_info_ptr, entries, num_entries);
+       }
+   }
+#endif /* sPLT */
+
 #ifdef PNG_TEXT_SUPPORTED
    {
       png_textp text_ptr;
@@ -1271,7 +1297,8 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
          png_set_text(write_ptr, write_info_ptr, text_ptr, num_text);
       }
    }
-#endif
+#endif /* TEXT */
+
 #ifdef PNG_tIME_SUPPORTED
    {
       png_timep mod_time;
@@ -1293,7 +1320,8 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
 #endif /* TIME_RFC1123 */
       }
    }
-#endif
+#endif /* tIME */
+
 #ifdef PNG_tRNS_SUPPORTED
    {
       png_bytep trans_alpha;
@@ -1315,7 +1343,8 @@ test_one_file(PNG_CONST char *inname, PNG_CONST char *outname)
                trans_color);
       }
    }
-#endif
+#endif /* tRNS */
+
 #ifdef PNG_WRITE_UNKNOWN_CHUNKS_SUPPORTED
    {
       png_unknown_chunkp unknowns;
@@ -1833,10 +1862,10 @@ main(int argc, char *argv[])
                      k, (unsigned long)filters_used[k]);
 #endif
 #ifdef PNG_TIME_RFC1123_SUPPORTED
-         if (tIME_chunk_present != 0)
-            fprintf(STDERR, " tIME = %s\n", tIME_string);
+            if (tIME_chunk_present != 0)
+               fprintf(STDERR, " tIME = %s\n", tIME_string);
 
-         tIME_chunk_present = 0;
+            tIME_chunk_present = 0;
 #endif /* TIME_RFC1123 */
          }
 
@@ -2028,4 +2057,4 @@ main(void)
 #endif
 
 /* Generate a compiler error if there is an old png.h in the search path. */
-typedef png_libpng_version_1_6_17 Your_png_h_is_not_version_1_6_17;
+typedef png_libpng_version_1_6_19 Your_png_h_is_not_version_1_6_19;

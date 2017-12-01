@@ -31,22 +31,11 @@ JNL_HTTPServ::JNL_HTTPServ(JNL_IConnection *con)
   m_keepalive = true;
   m_con=con;
   m_state=0;
-  m_reply_headers=0;
-  m_reply_string=0;
-  m_recvheaders=0;
-  m_recv_request=0;
-  m_recvheaders_size=0;
-  m_errstr=0;
   m_reply_ready=0;
 }
 
 JNL_HTTPServ::~JNL_HTTPServ()
 {
-  free(m_recv_request);
-  free(m_recvheaders);
-  free(m_reply_string);
-  free(m_reply_headers);
-  free(m_errstr);
   delete m_con;
 }
 
@@ -60,6 +49,23 @@ void JNL_HTTPServ::write_bytes(const char *bytes, int length)
   }
   m_con->send(bytes,length); 
   if (m_usechunk) m_con->send_string("\r\n");
+}
+
+bool JNL_HTTPServ::want_keepalive_reset()
+{
+  if (m_state >= 2 && m_con && m_con->get_state() == JNL_Connection::STATE_CONNECTED)
+  {
+    m_usechunk = false;
+    m_state = 0;
+    m_reply_ready = 0;
+    m_errstr.Set("");
+    m_reply_headers.Set("");
+    m_reply_string.Set("");
+    m_recvheaders.Clear();
+    m_recv_request.Resize(0,false);
+    return true;
+  }
+  return false;
 }
 
 int JNL_HTTPServ::run()
@@ -76,31 +82,37 @@ run_again:
 
   if (m_state == 0)
   {
-    if (m_con->recv_lines_available()>0)
+    int reqlen = m_con->recv_get_linelen();
+    if (reqlen>0)
     {
-      char *buf=(char*)malloc(m_con->recv_bytes_available()-1);
-      m_con->recv_line(buf,m_con->recv_bytes_available()-1);
-      free(m_recv_request);
-      m_recv_request=(char*)malloc(strlen(buf)+2);
-      strcpy(m_recv_request,buf);
-      m_recv_request[strlen(m_recv_request)+1]=0;
-      free(buf);
-      buf=m_recv_request;
-      while (*buf) buf++;
-      while (buf >= m_recv_request && *buf != ' ') buf--;
-      if (strncmp(buf+1,"HTTP",4) || strncmp(m_recv_request,"GET ",3))
+      if (!m_recv_request.ResizeOK(reqlen+2,false))
+      {
+        seterrstr("malloc fail");
+        return -1;
+      }
+
+      reqlen = m_con->recv_bytes(m_recv_request.Get(),reqlen);
+      char *buf = m_recv_request.Get() + reqlen;
+      *buf=0;
+      while (buf > m_recv_request.Get() && (buf[-1] == '\r' || buf[-1]=='\n')) *--buf=0;
+      const char *endptr = buf;
+      while (buf >= m_recv_request.Get() && *buf != ' ') buf--;
+
+      if (buf < m_recv_request.Get() || strncmp(buf+1,"HTTP",4) || strncmp(m_recv_request.Get(),"GET ",4))
       {
         seterrstr("malformed HTTP request");
         m_state=-1;
+        buf=m_recv_request.Get();
+        buf[0]=buf[1]=0;
       }
       else
       {
-        if (buf[strlen(buf)-1]=='0') m_keepalive = false; // old http 1.0
+        if (endptr[-1]=='0') m_keepalive = false; // old http 1.0
         m_state=1;
         cnt=0;
-        if (buf >= m_recv_request) buf[0]=buf[1]=0;
+        buf[0]=buf[1]=0;
 
-        buf=strstr(m_recv_request,"?");
+        buf=strstr(m_recv_request.Get(),"?");
         if (buf)
         {
           *buf++=0; // change &'s into 0s now.
@@ -120,7 +132,7 @@ run_again:
   if (m_state == 1)
   {
     if (!cnt++ && m_con->recv_lines_available()<1) goto run_again;
-    while (m_con->recv_lines_available()>0)
+    while (m_con->recv_get_linelen()>0)
     {
       char buf[4096];
       buf[0]=0;
@@ -134,30 +146,9 @@ run_again:
         if (*p) m_keepalive = false;
       }
       
-      if (!m_recvheaders)
-      {
-        m_recvheaders_size=strlen(buf)+1;
-        m_recvheaders=(char*)malloc(m_recvheaders_size+1);
-        if (m_recvheaders)
-        {
-          strcpy(m_recvheaders,buf);
-          m_recvheaders[m_recvheaders_size]=0;
-        }
-      }
-      else
-      {
-        int oldsize=m_recvheaders_size;
-        m_recvheaders_size+=strlen(buf)+1;
-        char *n=(char*)malloc(m_recvheaders_size+1);
-        if (n)
-        {
-          memcpy(n,m_recvheaders,oldsize);
-          strcpy(n+oldsize,buf);
-          n[m_recvheaders_size]=0;
-          free(m_recvheaders);
-          m_recvheaders=n;
-        }
-      }
+      if (m_recvheaders.GetSize()) m_recvheaders.Add(NULL,-1); // remove doublenull
+      m_recvheaders.Add(buf,strlen(buf)+1);
+      m_recvheaders.Add("",1);
     }
   }
   if (m_state == 2)
@@ -165,19 +156,20 @@ run_again:
     if (m_reply_ready)
     {
       // send reply
-      m_con->send_string((char*)(m_reply_string?m_reply_string:"HTTP/1.1 200 OK"));
+      m_con->send_string((char*)(m_reply_string.GetLength()?m_reply_string.Get():"HTTP/1.1 200 OK"));
       m_con->send_string("\r\n");
-      if (m_reply_headers) m_con->send_string(m_reply_headers);
+      if (m_reply_headers.GetLength()) m_con->send_string(m_reply_headers.Get());
       if (m_keepalive) 
       {
-        const char *p = m_reply_headers;
+        const char *p = m_reply_headers.Get();
         bool had_cl=false,had_con=false;
-        while (p && (!had_cl || !had_con))
+        while (*p && (!had_cl || !had_con))
         {
           if (!strnicmp(p,"Content-Length:",15)) had_cl=true;
           else if (!strnicmp(p,"Connection:",11)) had_con=true;
-          p = strstr(p,"\r\n");
-          if (p) p+=2;
+
+          while (*p && *p != '\r' && *p != '\n') p++;
+          while (*p == '\r' || *p == '\n') p++;
         }
         if (!had_con) m_con->send_string("Connection: keep-alive\r\n");
         if (!had_cl) 
@@ -201,8 +193,9 @@ run_again:
 const char *JNL_HTTPServ::get_request_file()
 {
   // file portion of http request
-  if (!m_recv_request) return NULL;
-  char *t=m_recv_request;
+  char *t=m_recv_request.Get();
+  if (!t) return NULL;
+
   while (*t != ' ' && *t) t++;
   if (!*t) return NULL;
   while (*t == ' ') t++;
@@ -211,7 +204,9 @@ const char *JNL_HTTPServ::get_request_file()
 
 const char *JNL_HTTPServ::get_request_parm(const char *parmname) // parameter portion (after ?)
 {
-  const char *t=m_recv_request;
+  const char *t=m_recv_request.Get();
+  if (!t) return NULL;
+
   while (*t) t++;
   t++;
   while (*t)
@@ -229,30 +224,26 @@ const char *JNL_HTTPServ::get_request_parm(const char *parmname) // parameter po
 const char *JNL_HTTPServ::getheader(const char *headername)
 {
   const char *ret=NULL;
-  if (strlen(headername)<1||!m_recvheaders) return NULL;
-  char *buf=(char*)malloc(strlen(headername)+2);
-  strcpy(buf,headername);
-  if (buf[strlen(buf)-1]!=':') strcat(buf,":");
-  const char *p=m_recvheaders;
+  if (strlen(headername)<1||!m_recvheaders.Available()) return NULL;
+  const char *p=m_recvheaders.Get();
+  const int hdrlen = (int) strlen(headername);
   while (*p)
   {
-    if (!strnicmp(buf,p,strlen(buf)))
+    if (!strnicmp(headername,p,hdrlen) && p[hdrlen] == ':')
     {
-      ret=p+strlen(buf);
+      ret=p+hdrlen+1;
       while (*ret == ' ') ret++;
       break;
     }
-    p+=strlen(p)+1;
+    while (*p) p++;
+    p++;
   }
-  free(buf);
   return ret;
 }
 
 void JNL_HTTPServ::set_reply_string(const char *reply_string) // should be HTTP/1.1 OK or the like
 {
-  free(m_reply_string);
-  m_reply_string=(char*)malloc(strlen(reply_string)+1);
-  strcpy(m_reply_string,reply_string);
+  m_reply_string.Set(reply_string);
 }
 
 void JNL_HTTPServ::set_reply_size(int sz) // if set, size will also add keep-alive etc
@@ -266,19 +257,6 @@ void JNL_HTTPServ::set_reply_size(int sz) // if set, size will also add keep-ali
 }
 void JNL_HTTPServ::set_reply_header(const char *header) // "Connection: close" for example
 {
-  if (m_reply_headers)
-  {
-    char *tmp=(char*)malloc(strlen(m_reply_headers)+strlen(header)+3);
-    strcpy(tmp,m_reply_headers);
-    strcat(tmp,header);
-    strcat(tmp,"\r\n");
-    free(m_reply_headers);
-    m_reply_headers=tmp;
-  }
-  else
-  {
-    m_reply_headers=(char*)malloc(strlen(header)+3);
-    strcpy(m_reply_headers,header);
-    strcat(m_reply_headers,"\r\n");
-  }
+  m_reply_headers.Append(header);
+  m_reply_headers.Append("\r\n");
 }

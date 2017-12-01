@@ -130,59 +130,7 @@ class WDL_HeapBuf
           return m_buf=newbuf;
         #endif
 
-        //#define WDL_HEAPBUF_DYNAMIC
-        #ifdef WDL_HEAPBUF_DYNAMIC
-          // ignoring m_granul
-
-          if (newsize!=m_size)
-          {
-            if ((newsize > m_size && newsize <= m_alloc) || (newsize < m_size && !resizedown))
-            {
-              m_size = newsize;
-              return m_buf;
-            }
-
-            // next highest power of 2
-            int n = newsize;
-            if (n)
-            {
-              if (n < 64)
-              {
-                n = 64;
-              }
-              else
-              {
-                --n;
-                n = (n>>1)|n;
-                n = (n>>2)|n;
-                n = (n>>4)|n;
-                n = (n>>8)|n;
-                n = (n>>16)|n;
-                ++n;
-              }
-            }
-    
-            if (n == m_alloc)
-            {
-              m_size = newsize;
-              return m_buf;
-            }
-    
-            void* newbuf = realloc(m_buf, n);  // realloc==free when size==0
-            #ifdef WDL_HEAPBUF_ONMALLOCFAIL
-              if (!newbuf && n) { WDL_HEAPBUF_ONMALLOCFAIL(n) } ;
-            #endif
-            if (newbuf || !newsize)
-            {
-              m_alloc = n;
-              m_buf = newbuf;
-              m_size = newsize;
-            }      
-          }
-      
-          return (m_size ? m_buf : 0);
-        #else // WDL_HEAPBUF_DYNAMIC
-          if (newsize!=m_size)
+          if (newsize!=m_size || (resizedown && newsize < m_alloc/2))
           {
             int resizedown_under = 0;
             if (resizedown && newsize < m_size)
@@ -251,7 +199,6 @@ class WDL_HeapBuf
             m_size=newsize;
           } // size change
           return m_size?m_buf:0;
-        #endif // WDL_HEAPBUF_DYNAMIC
       }
 
     #ifdef WDL_HEAPBUF_IMPL_ONLY
@@ -297,6 +244,7 @@ class WDL_HeapBuf
     int m_granul;
 
   #if defined(_WIN64) || defined(__LP64__)
+  public:
     int ___pad; // keep size 8 byte aligned
   #endif
 
@@ -319,29 +267,65 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     PTRTYPE *Add(PTRTYPE val) 
     {
-      return Insert(val, GetSize());
+      const int sz=GetSize();
+      PTRTYPE* p=ResizeOK(sz+1,false);
+      if (p)
+      {
+        p[sz]=val;
+        return p+sz;
+      }
+      return NULL;
     }
-
+    PTRTYPE *Add(const PTRTYPE *buf, int bufsz) 
+    {
+      if (bufsz>0)
+      {
+        const int sz=GetSize();
+        PTRTYPE* p=ResizeOK(sz+bufsz,false);
+        if (p)
+        {
+          p+=sz;
+          if (buf) memcpy(p,buf,bufsz*sizeof(PTRTYPE));
+          else memset(p,0,bufsz*sizeof(PTRTYPE));
+          return p;
+        }
+      }
+      return NULL;
+    }
+    PTRTYPE *Set(const PTRTYPE *buf, int bufsz) 
+    {
+      if (bufsz>=0)
+      {
+        PTRTYPE* p=ResizeOK(bufsz,false);
+        if (p)
+        {
+          if (buf) memcpy(p,buf,bufsz*sizeof(PTRTYPE));
+          else memset(p,0,bufsz*sizeof(PTRTYPE));
+          return p;
+        }
+      }
+      return NULL;
+    }
     PTRTYPE* Insert(PTRTYPE val, int idx)
     {
-      int sz=GetSize();
+      const int sz=GetSize();
       if (idx >= 0 && idx <= sz)
       {
-        PTRTYPE* p=Resize(sz+1);
-        if (p && GetSize() == sz+1)
+        PTRTYPE* p=ResizeOK(sz+1,false);
+        if (p)
         {
-          memmove(p+idx+1, p+idx, (sz-idx)*(unsigned int)sizeof(PTRTYPE));
+          memmove(p+idx+1, p+idx, (sz-idx)*sizeof(PTRTYPE));
           p[idx]=val;
           return p+idx;
         }
       }
-      return 0;
+      return NULL;
     }
 
     void Delete(int idx)
     {
       PTRTYPE* p=Get();
-      int sz=GetSize();
+      const int sz=GetSize();
       if (idx >= 0 && idx < sz)
       {
         memmove(p+idx, p+idx+1, (sz-idx-1)*sizeof(PTRTYPE));
@@ -353,9 +337,10 @@ template<class PTRTYPE> class WDL_TypedBuf
 
     int Find(PTRTYPE val) const
     {
-      PTRTYPE* p=Get();
+      const PTRTYPE* p=Get();
+      const int sz=GetSize();
       int i;
-      for (i=0; i < GetSize(); ++i) if (p[i] == val) return i;
+      for (i=0; i < sz; ++i) if (p[i] == val) return i;
       return -1;
     }
 
@@ -367,6 +352,9 @@ template<class PTRTYPE> class WDL_TypedBuf
     ~WDL_TypedBuf()
     {
     }
+
+    WDL_HeapBuf *GetHeapBuf() { return &m_hb; }
+    const WDL_HeapBuf *GetHeapBuf() const { return &m_hb; }
 
   private:
     WDL_HeapBuf m_hb;

@@ -60,6 +60,7 @@ void makeEscapedConfigString(const char *in, WDL_FastString *out);
 
 class ProjectStateContext_GenericRead : public ProjectStateContext
 {
+  protected:
    const char *m_ptr;
    const char *m_endptr;
    int m_tmpflag;

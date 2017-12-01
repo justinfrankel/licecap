@@ -1,4 +1,4 @@
-<?
+<?php
 
 /*
 This seems to do the trick:

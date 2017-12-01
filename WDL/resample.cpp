@@ -627,11 +627,12 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
   }
 
   int isrcpos=(int)srcpos;
+  if (isrcpos > m_samples_in_rsinbuf) isrcpos=m_samples_in_rsinbuf;
   m_fracpos = srcpos - isrcpos;
   m_samples_in_rsinbuf -= isrcpos;
   if (m_samples_in_rsinbuf <= 0) m_samples_in_rsinbuf=0;
   else
-    memcpy(localin, localin + isrcpos*nch,m_samples_in_rsinbuf*sizeof(WDL_ResampleSample)*nch);
+    memmove(localin, localin + isrcpos*nch,m_samples_in_rsinbuf*sizeof(WDL_ResampleSample)*nch);
 
 
   return ret;

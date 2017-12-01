@@ -6,7 +6,7 @@
 static int wdl_atomic_incr(int *v) { return (int) InterlockedIncrement((LONG *)v); }
 static int wdl_atomic_decr(int *v) { return (int) InterlockedDecrement((LONG *)v); }
 
-#elif !defined(__ppc__) && (defined(__clang__) || (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2))))
+#elif (!defined(__APPLE__) || !defined(__ppc__)) && (defined(__clang__) || (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2))))
 
 static int wdl_atomic_incr(int *v) { return __sync_add_and_fetch(v,1); }
 static int wdl_atomic_decr(int *v) { return __sync_add_and_fetch(v,~0); }

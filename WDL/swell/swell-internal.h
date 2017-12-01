@@ -1,3 +1,23 @@
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
+
+    This software is provided 'as-is', without any express or implied
+    warranty.  In no event will the authors be held liable for any damages
+    arising from the use of this software.
+
+    Permission is granted to anyone to use this software for any purpose,
+    including commercial applications, and to alter it and redistribute it
+    freely, subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+       claim that you wrote the original software. If you use this software
+       in a product, an acknowledgment in the product documentation would be
+       appreciated but is not required.
+    2. Altered source versions must be plainly marked as such, and must not be
+       misrepresented as being the original software.
+    3. This notice may not be removed or altered from any source distribution.
+*/
+  
 #ifndef _SWELL_INTERNAL_H_
 #define _SWELL_INTERNAL_H_
 
@@ -15,6 +35,7 @@ public:
   int m_tmp; // Cocoa uses this temporarily, generic uses it as a mask (1= selected)
 };
 
+struct HTREEITEM__;
 
 #ifdef SWELL_TARGET_OSX
 
@@ -53,6 +74,7 @@ public:
 #define SWELL_ListViewCell __SWELL_PREFIX_CLASSNAME(_listviewcell)
 #define SWELL_ODListViewCell __SWELL_PREFIX_CLASSNAME(_ODlistviewcell)
 #define SWELL_ODButtonCell __SWELL_PREFIX_CLASSNAME(_ODbuttoncell)
+#define SWELL_ImageButtonCell __SWELL_PREFIX_CLASSNAME(_imgbuttoncell)
 
 #define SWELL_FocusRectWnd __SWELL_PREFIX_CLASSNAME(_drawfocusrectwnd)
 
@@ -110,22 +132,6 @@ typedef struct WindowPropRec
   void *data;
   struct WindowPropRec *_next;
 } WindowPropRec;
-
-
-
-struct HTREEITEM__
-{
-  HTREEITEM__();
-  ~HTREEITEM__();
-  bool FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut);
-  
-  SWELL_DataHold *m_dh;
-  
-  bool m_haschildren;
-  char *m_value;
-  WDL_PtrList<HTREEITEM__> m_children; // only used in tree mode
-  LPARAM m_param;
-};
 
 
 
@@ -197,9 +203,15 @@ struct HTREEITEM__
 -(void)setSwellStyle:(LONG)st;
 -(int)getSwellNotificationMode;
 -(void)setSwellNotificationMode:(int)lbMode;
--(int)columnAtPoint:(NSPoint)pt;
+-(NSInteger)columnAtPoint:(NSPoint)pt;
 -(int)getColumnPos:(int)idx; // get current position of column that was originally at idx
 -(int)getColumnIdx:(int)pos; // get original index of column that is currently at position
+@end
+
+@interface SWELL_ImageButtonCell : NSButtonCell
+{
+}
+- (NSRect)drawTitle:(NSAttributedString *)title withFrame:(NSRect)frame inView:(NSView *)controlView;
 @end
 
 @interface SWELL_ODButtonCell : NSButtonCell
@@ -264,7 +276,7 @@ struct HTREEITEM__
 @interface SWELL_hwndChild : NSView // <NSDraggingSource>
 {
 @public
-  BOOL m_enabled;
+  int m_enabled; // -1 if preventing focus
   DLGPROC m_dlgproc;
   WNDPROC m_wndproc;
   LONG_PTR m_userdata;
@@ -284,6 +296,7 @@ struct HTREEITEM__
   unsigned int m_create_windowflags;
   NSOpenGLContext *m_glctx;
   char m_isdirty; // &1=self needs redraw, &2=children may need redraw
+  char m_allow_nomiddleman;
   id m_lastTopLevelOwner; // save a copy of the owner, if any
   id m_access_cacheptrs[6];
 }
@@ -317,7 +330,7 @@ struct HTREEITEM__
 -(int)swellEnumProps:(PROPENUMPROCEX)proc lp:(LPARAM)lParam;
 -(void *)swellGetProp:(const char *)name wantRemove:(BOOL)rem;
 -(int)swellSetProp:(const char *)name value:(void *)val ;
-
+-(NSOpenGLContext *)swellGetGLContext;
 
 // NSAccessibility
 
@@ -550,8 +563,10 @@ struct HDC__ {
 
 
 
-
-#endif // __OBJC__
+#else
+  // compat when compiling targetting OSX but not in objectiveC mode
+  struct SWELL_DataHold;
+#endif // !__OBJC__
 
 // 10.4 sdk just uses "float"
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
@@ -568,13 +583,36 @@ struct HDC__ {
 
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
+#include <gdk/gdkx.h>
+
 
 #else
 // generic 
 
 #endif // end generic
 
+struct HTREEITEM__
+{
+  HTREEITEM__();
+  ~HTREEITEM__();
+  bool FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut);
+  
+#ifdef SWELL_TARGET_OSX
+  SWELL_DataHold *m_dh;
+#else
+  int m_state; // TVIS_EXPANDED, for ex
+#endif
+  
+  bool m_haschildren;
+  char *m_value;
+  WDL_PtrList<HTREEITEM__> m_children; // only used in tree mode
+  LPARAM m_param;
+};
+
+
 #ifndef SWELL_TARGET_OSX 
+
+#include "../wdlstring.h"
 
 #ifdef SWELL_LICE_GDI
 #include "../lice/lice.h"
@@ -583,9 +621,16 @@ struct HDC__ {
 
 LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+
+#ifdef SWELL_TARGET_GDK
+typedef GdkWindow *SWELL_OSWINDOW;
+#else
+typedef void *SWELL_OSWINDOW; // maps to the HWND__ itself on visible, non-GDK, top level windows
+#endif
+
 struct HWND__
 {
-  HWND__(HWND par, int wID=0, RECT *wndr=NULL, const char *label=NULL, bool visible=false, WNDPROC wndproc=NULL, DLGPROC dlgproc=NULL);
+  HWND__(HWND par, int wID=0, RECT *wndr=NULL, const char *label=NULL, bool visible=false, WNDPROC wndproc=NULL, DLGPROC dlgproc=NULL, HWND ownerWindow=NULL);
   ~HWND__(); // DO NOT USE!!! We would make this private but it breaks PtrList using it on gcc. 
 
   // using this API prevents the HWND from being valid -- it'll still get its resources destroyed via DestroyWindow() though.
@@ -593,21 +638,17 @@ struct HWND__
   void Retain() { m_refcnt++; }
   void Release() { if (!--m_refcnt) delete this; }
  
-
-
- 
   const char *m_classname;
-  
 
-#ifdef SWELL_TARGET_GDK
-  GdkWindow *m_oswindow;
-#endif
-  char *m_title;
+  SWELL_OSWINDOW m_oswindow;
+
+  WDL_FastString m_title;
 
   HWND__ *m_children, *m_parent, *m_next, *m_prev;
-  HWND__ *m_owner, *m_owned;
+  HWND__ *m_owner, *m_owned_list, *m_owned_next, *m_owned_prev;
+  HWND__ *m_focused_child; // only valid if hwnd itself is in focus chain, and must be validated before accessed
   RECT m_position;
-  int m_id;
+  UINT m_id;
   int m_style, m_exstyle;
   INT_PTR m_userdata;
   WNDPROC m_wndproc;
@@ -616,20 +657,25 @@ struct HWND__
   INT_PTR m_private_data; // used by internal controls
 
   bool m_visible;
-  bool m_hashaddestroy;
+  char m_hashaddestroy; // 1 in destroy, 2 full destroy
   bool m_enabled;
   bool m_wantfocus;
 
+  bool m_israised;
+  bool m_has_had_position;
+  bool m_oswindow_fullscreen;
+
   int m_refcnt; 
+  int m_oswindow_private; // private state for generic-gtk or whatever
 
   HMENU m_menu;
+  HFONT m_font;
 
   WDL_StringKeyedArray<void *> m_props;
 
 #ifdef SWELL_LICE_GDI
   void *m_paintctx; // temporarily set for calls to WM_PAINT
 
-// todo:
   bool m_child_invalidated; // if a child is invalidated
   bool m_invalidated; // set to true on direct invalidate. todo RECT instead?
 
@@ -639,14 +685,20 @@ struct HWND__
 
 struct HMENU__
 {
-  HMENU__() { }
-  ~HMENU__() { items.Empty(true,freeMenuItem); }
+  HMENU__() { m_refcnt=1; sel_vis = -1; }
+
+  void Retain() { m_refcnt++; }
+  void Release() { if (!--m_refcnt) delete this; }
 
   WDL_PtrList<MENUITEMINFO> items;
+  int sel_vis; // for mouse/keyboard nav
+  int m_refcnt;
 
   HMENU__ *Duplicate();
   static void freeMenuItem(void *p);
 
+private:
+  ~HMENU__() { items.Empty(true,freeMenuItem); }
 };
 
 
@@ -658,12 +710,11 @@ struct HGDIOBJ__
   int color;
   int wid;
 
+  float alpha;
+
   struct HGDIOBJ__ *_next;
   bool _infreelist;
-#ifdef SWELL_FREETYPE
-  void *fontface; // FT_Face
-#endif
-
+  void *typedata; // font: FT_Face, bitmap: LICE_IBitmap
 };
 
 
@@ -692,6 +743,50 @@ struct HDC__ {
   bool _infreelist;
 };
 
+HWND DialogBoxIsActive(void);
+void DestroyPopupMenus(void);
+HWND ChildWindowFromPoint(HWND h, POINT p);
+HWND GetFocusIncludeMenus();
+
+void SWELL_RunEvents();
+
+bool swell_isOSwindowmenu(SWELL_OSWINDOW osw);
+
+bool swell_is_virtkey_char(int c);
+
+void swell_on_toplevel_raise(SWELL_OSWINDOW wnd); // called by swell-generic-gdk when a window is focused
+
+HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w);
+void swell_oswindow_focus(HWND hwnd);
+void swell_oswindow_update_style(HWND hwnd, LONG oldstyle);
+void swell_oswindow_update_enable(HWND hwnd);
+void swell_oswindow_update_text(HWND hwnd);
+void swell_oswindow_begin_resize(SWELL_OSWINDOW wnd);
+void swell_oswindow_resize(SWELL_OSWINDOW wnd, int reposflag, RECT f);
+void swell_oswindow_postresize(HWND hwnd, RECT f);
+void swell_oswindow_invalidate(HWND hwnd, const RECT *r);
+void swell_oswindow_destroy(HWND hwnd);
+void swell_oswindow_manage(HWND hwnd, bool wantfocus);
+void swell_oswindow_updatetoscreen(HWND hwnd, RECT *rect);
+HWND swell_window_wants_all_input(); // window with an active drag of menubar will have this set, to route all mouse events to nonclient area of window
+int swell_delegate_menu_message(HWND src, LPARAM lParam, int msg, bool screencoords); // menubar/menus delegate to submenus during drag.
+
+void swell_dlg_destroyspare();
+
+extern bool swell_is_likely_capslock; // only used when processing dit events for a-zA-Z
+extern const char *g_swell_appname;
+extern SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
+extern HWND swell_captured_window;
+extern HWND SWELL_topwindows; // front of list = most recently active
+extern bool swell_app_is_inactive;
+
+#ifdef _DEBUG
+void VALIDATE_HWND_LIST(HWND list, HWND par);
+#else
+#define VALIDATE_HWND_LIST(list, par) do { } while (0)
+#endif
+
+
 #endif // !OSX
 
 HDC SWELL_CreateGfxContext(void *);
@@ -705,7 +800,9 @@ HDC SWELL_CreateGfxContext(void *);
 typedef struct
 {
   void *instptr; 
+#ifdef __APPLE__
   void *bundleinstptr;
+#endif
   int refcnt;
 
   int (*SWELL_dllMain)(HINSTANCE, DWORD,LPVOID); //last parm=SWELLAPI_GetFunc
@@ -779,5 +876,219 @@ typedef struct
 
 
 bool IsRightClickEmulateEnabled();
+
+#ifdef SWELL_INTERNAL_HTREEITEM_IMPL
+
+HTREEITEM__::HTREEITEM__()
+{
+  m_param=0;
+  m_value=0;
+  m_haschildren=false;
+#ifdef SWELL_TARGET_OSX
+  m_dh = [[SWELL_DataHold alloc] initWithVal:this];
+#else
+  m_state=0;
+#endif
+}
+HTREEITEM__::~HTREEITEM__()
+{
+  free(m_value);
+  m_children.Empty(true);
+#ifdef SWELL_TARGET_OSX
+  [m_dh release];
+#endif
+}
+
+
+bool HTREEITEM__::FindItem(HTREEITEM it, HTREEITEM__ **parOut, int *idxOut)
+{
+  int a=m_children.Find((HTREEITEM__*)it);
+  if (a>=0)
+  {
+    if (parOut) *parOut=this;
+    if (idxOut) *idxOut=a;
+    return true;
+  }
+  int x;
+  const int n=m_children.GetSize();
+  for (x = 0; x < n; x ++)
+  {
+    if (m_children.Get(x)->FindItem(it,parOut,idxOut)) return true;
+  }
+  return false;
+}
+
+#endif
+
+#ifdef SWELL_INTERNAL_MERGESORT_IMPL
+
+static int __listview_sortfunc(void *p1, void *p2, int (*compar)(LPARAM val1, LPARAM val2, LPARAM userval), LPARAM userval)
+{
+  SWELL_ListView_Row *a = *(SWELL_ListView_Row **)p1;
+  SWELL_ListView_Row *b = *(SWELL_ListView_Row **)p2;
+  return compar(a->m_param,b->m_param,userval);
+}
+
+
+static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size, 
+                                 int (*compar)(LPARAM val1, LPARAM val2, LPARAM userval), 
+                                 LPARAM parm,
+                                 char *tmpspace)
+{
+  char *b1,*b2;
+  size_t n1, n2;
+
+  if (nmemb < 2) return;
+
+  n1 = nmemb / 2;
+  b1 = (char *) base;
+  n2 = nmemb - n1;
+  b2 = b1 + (n1 * size);
+
+  if (nmemb>2)
+  {
+    __listview_mergesort_internal(b1, n1, size, compar, parm, tmpspace);
+    __listview_mergesort_internal(b2, n2, size, compar, parm, tmpspace);
+  }
+
+  char *p = tmpspace;
+
+  do
+  {
+	  if (__listview_sortfunc(b1, b2, compar,parm) > 0)
+	  {
+	    memcpy(p, b2, size);
+	    b2 += size;
+	    n2--;
+	  }
+	  else
+	  {
+	    memcpy(p, b1, size);
+	    b1 += size;
+	    n1--;
+	  }
+  	p += size;
+  }
+  while (n1 > 0 && n2 > 0);
+
+  if (n1 > 0) memcpy(p, b1, n1 * size);
+  memcpy(base, tmpspace, (nmemb - n2) * size);
+}
+
+
+#endif
+
+#ifndef SWELL_TARGET_OSX
+
+#define SWELL_GENERIC_THEMESIZEDEFS(f,fd) \
+  f(default_font_size, 12) \
+  f(menubar_height, 17) \
+  f(menubar_font_size, 13) \
+  f(menubar_spacing_width, 8) \
+  f(menubar_margin_width, 6) \
+  f(scrollbar_width, 14) \
+  f(scrollbar_min_thumb_height, 4) \
+  f(combo_height, 20) \
+
+
+#define SWELL_GENERIC_THEMEDEFS(f,fd) \
+  SWELL_GENERIC_THEMESIZEDEFS(f,fd) \
+  f(_3dface,RGB(192,192,192)) \
+  f(_3dshadow,RGB(96,96,96)) \
+  f(_3dhilight,RGB(224,224,224)) \
+  f(_3ddkshadow,RGB(48,48,48)) \
+  fd(button_bg,RGB(192,192,192),_3dface) \
+  f(button_text,RGB(0,0,0)) \
+  f(button_text_disabled, RGB(128,128,128)) \
+  fd(button_shadow, RGB(96,96,96), _3dshadow) \
+  fd(button_hilight, RGB(224,224,224), _3dhilight) \
+  f(checkbox_text,RGB(0,0,0)) \
+  f(checkbox_text_disabled, RGB(128,128,128)) \
+  f(checkbox_fg, RGB(0,0,0)) \
+  f(checkbox_inter, RGB(192,192,192)) \
+  f(checkbox_bg, RGB(255,255,255)) \
+  f(scrollbar,RGB(32,32,32)) \
+  f(scrollbar_fg, RGB(160,160,160)) \
+  f(scrollbar_bg, RGB(224,224,224)) \
+  f(edit_cursor,RGB(0,128,255)) \
+  f(edit_bg,RGB(255,255,255)) \
+  f(edit_bg_disabled,RGB(224,224,224)) \
+  f(edit_text,RGB(0,0,0)) \
+  f(edit_text_disabled, RGB(128,128,128)) \
+  f(edit_bg_sel,RGB(128,192,255)) \
+  f(edit_text_sel,RGB(255,255,255)) \
+  fd(edit_hilight, RGB(224,224,224), _3dhilight) \
+  fd(edit_shadow, RGB(96,96,96), _3dshadow) \
+  f(info_bk,RGB(255,240,200)) \
+  f(info_text,RGB(0,0,0)) \
+  fd(menu_bg, RGB(192,192,192), _3dface) \
+  fd(menu_shadow, RGB(96,96,96), _3dshadow) \
+  fd(menu_hilight, RGB(224,224,224), _3dhilight) \
+  fd(menu_text, RGB(0,0,0), button_text) \
+  fd(menu_text_disabled, RGB(224,224,224), _3dhilight) \
+  fd(menu_bg_sel, RGB(0,0,0), menu_text) \
+  fd(menu_text_sel, RGB(224,224,224), menu_bg) \
+  f(menu_scroll, RGB(64,64,64)) \
+  fd(menu_scroll_arrow, RGB(96,96,96), _3dshadow) \
+  fd(menu_submenu_arrow, RGB(96,96,96), _3dshadow) \
+  fd(menubar_bg, RGB(192,192,192), menu_bg) \
+  fd(menubar_text, RGB(0,0,0), menu_text) \
+  fd(menubar_text_disabled, RGB(224,224,224), menu_text_disabled) \
+  fd(menubar_bg_sel, RGB(0,0,0), menu_bg_sel) \
+  fd(menubar_text_sel, RGB(224,224,224), menu_text_sel) \
+  f(trackbar_track, RGB(224,224,224)) \
+  f(trackbar_mark, RGB(96,96,96)) \
+  f(trackbar_knob, RGB(48,48,48)) \
+  f(progress,RGB(0,128,255)) \
+  fd(label_text, RGB(0,0,0), button_text) \
+  fd(label_text_disabled, RGB(128,128,128), button_text_disabled) \
+  fd(combo_text, RGB(0,0,0), button_text) \
+  fd(combo_text_disabled, RGB(128,128,128), button_text_disabled) \
+  fd(combo_bg, RGB(192,192,192), _3dface) \
+  f(combo_bg2, RGB(255,255,255)) \
+  fd(combo_shadow, RGB(96,96,96), _3dshadow) \
+  fd(combo_hilight, RGB(224,224,224), _3dhilight) \
+  fd(combo_arrow, RGB(96,96,96), _3dshadow) \
+  fd(combo_arrow_press, RGB(224,224,224), _3dhilight) \
+  f(listview_bg, RGB(255,255,255)) \
+  f(listview_bg_sel, RGB(128,128, 255)) \
+  f(listview_text, RGB(0,0,0)) \
+  fd(listview_text_sel, RGB(0,0,0), listview_text) \
+  fd(listview_grid, RGB(224,224,224), _3dhilight) \
+  f(listview_hdr_arrow,RGB(96,96,96)) \
+  fd(listview_hdr_shadow, RGB(96,96,96), _3dshadow) \
+  fd(listview_hdr_hilight, RGB(224,224,224), _3dhilight) \
+  fd(listview_hdr_bg, RGB(192,192,192), _3dface) \
+  fd(listview_hdr_text, RGB(0,0,0), button_text) \
+  f(treeview_text,RGB( 0,0,0)) \
+  f(treeview_bg, RGB(255,255,255)) \
+  f(treeview_bg_sel, RGB(128,128,255)) \
+  f(treeview_text_sel, RGB(0,0,0)) \
+  f(treeview_arrow, RGB(96,96,96)) \
+  fd(tab_shadow, RGB(96,96,96), _3dshadow) \
+  fd(tab_hilight, RGB(224,224,224), _3dhilight) \
+  fd(tab_text, RGB(0,0,0), button_text) \
+  f(focusrect,RGB(255,0,0)) \
+  f(group_text,RGB(0,0,0)) \
+  fd(group_shadow, RGB(96,96,96), _3dshadow) \
+  fd(group_hilight, RGB(224,224,224), _3dhilight) \
+  f(focus_hilight, RGB(192,192,255)) \
+
+  
+
+struct swell_colortheme {
+#define __def_theme_ent(x,c) int x;
+#define __def_theme_ent_fb(x,c,fb) int x;
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+};
+
+#define SWELL_UI_SCALE(x) (((x)*g_swell_ui_scale)/256)
+extern int g_swell_ui_scale;
+extern swell_colortheme g_swell_ctheme;
+extern const char *g_swell_deffont_face;
+
+#endif
 
 #endif

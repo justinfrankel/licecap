@@ -1,6 +1,5 @@
-
-/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux)
-   Copyright (C) 2006-2007, Cockos, Inc.
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
 
     This software is provided 'as-is', without any express or implied
     warranty.  In no event will the authors be held liable for any damages
@@ -19,22 +18,57 @@
     3. This notice may not be removed or altered from any source distribution.
   
 
-    This file provides basic win32 GDI-->lice? translation. 
+    This file provides basic win32 GDI--> null translation. 
 
 */
 
-#ifndef SWELL_LICE_GDI
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
 #include "swell-internal.h"
+#include "../wdlcstring.h"
 
-#include "../lice/lice.h"
+const char *g_swell_deffont_face = "Arial";
+
+swell_colortheme g_swell_ctheme = {
+#define __def_theme_ent(x,c) (c),
+#define __def_theme_ent_fb(x,c,fb) (c),
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+};
+
+int GetSysColor(int idx)
+{
+  switch (idx)
+  {
+    case COLOR_WINDOW:
+    case COLOR_3DFACE:
+    case COLOR_BTNFACE: return g_swell_ctheme._3dface;
+    case COLOR_3DSHADOW: return g_swell_ctheme._3dshadow;
+    case COLOR_3DHILIGHT: return g_swell_ctheme._3dhilight;
+    case COLOR_3DDKSHADOW: return g_swell_ctheme._3ddkshadow;
+    case COLOR_BTNTEXT: return g_swell_ctheme.button_text;
+    case COLOR_INFOBK: return g_swell_ctheme.info_bk;
+    case COLOR_INFOTEXT: return g_swell_ctheme.info_text;
+    case COLOR_SCROLLBAR: return g_swell_ctheme.scrollbar;
+  }
+  return 0;
+}
+
+int g_swell_ui_scale = 256;
+
+int SWELL_GetScaling256(void)
+{
+  return g_swell_ui_scale;
+}
+
+#ifndef SWELL_LICE_GDI
+
 #include "../mutex.h"
 #include "../ptrlist.h"
 
 #include "swell-gdi-internalpool.h"
-
 
 HDC SWELL_CreateGfxContext(void *c)
 {
@@ -176,14 +210,13 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   else return 0;
   
   HGDIOBJ__ *op=*mod;
-  if (!op) op=(HGDIOBJ__ *)p->type;
+  if (!op) op=(HGDIOBJ__ *)(INT_PTR)p->type;
   if (op != p)
   {
     *mod=p;
   
     if (p->type == TYPE_FONT)
     {
-//      CGContextSelectFont(c->ctx,p->fontface,(float)p->wid,kCGEncodingMacRoman);
     }
   }
   return op;
@@ -242,8 +275,6 @@ void Rectangle(HDC ctx, int l, int t, int r, int b)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)) return;
   
-  //CGRect rect=CGRectMake(l,t,r-l,b-t);
-  
   if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
   {
   }
@@ -281,23 +312,6 @@ void Polygon(HDC ctx, POINT *pts, int npts)
   if (((!HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH)||c->curbrush->wid<0) && 
        (!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0)) || npts<2) return;
 
-//  CGContextBeginPath(c->ctx);
- // CGContextMoveToPoint(c->ctx,(float)pts[0].x,(float)pts[0].y);
-  int x;
-  for (x = 1; x < npts; x ++)
-  {
-  //  CGContextAddLineToPoint(c->ctx,(float)pts[x].x,(float)pts[x].y);
-  }
-  if (HGDIOBJ_VALID(c->curbrush,TYPE_BRUSH) && c->curbrush->wid >= 0)
-  {
-   // CGContextSetFillColorWithColor(c->ctx,c->curbrush->color);
-  }
-  if (HGDIOBJ_VALID(c->curpen,TYPE_PEN) && c->curpen->wid>=0)
-  {
-//    CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
- //   CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);	
-  }
-//  CGContextDrawPath(c->ctx,c->curpen && c->curpen->wid>=0 && c->curbrush && c->curbrush->wid>=0 ?  kCGPathFillStroke : c->curpen && c->curpen->wid>=0 ? kCGPathStroke : kCGPathFill);
 }
 
 void MoveToEx(HDC ctx, int x, int y, POINT *op)
@@ -318,25 +332,15 @@ void PolyBezierTo(HDC ctx, POINT *pts, int np)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||np<3) return;
   
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-//  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
   int x; 
   float xp,yp;
   for (x = 0; x < np-2; x += 3)
   {
-/*    CGContextAddCurveToPoint(c->ctx,
-      (float)pts[x].x,(float)pts[x].y,
-      (float)pts[x+1].x,(float)pts[x+1].y,
-*/
       xp=(float)pts[x+2].x;
       yp=(float)pts[x+2].y;    
   }
   c->lastpos_x=(float)xp;
   c->lastpos_y=(float)yp;
-//  CGContextStrokePath(c->ctx);
 }
 
 
@@ -345,17 +349,10 @@ void SWELL_LineTo(HDC ctx, int x, int y)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-//  CGContextMoveToPoint(c->ctx,c->lastpos_x,c->lastpos_y);
   float fx=(float)x,fy=(float)y;
   
-//  CGContextAddLineToPoint(c->ctx,fx,fy);
   c->lastpos_x=fx;
   c->lastpos_y=fy;
-//  CGContextStrokePath(c->ctx);
 }
 
 void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
@@ -363,27 +360,19 @@ void PolyPolyline(HDC ctx, POINT *pts, DWORD *cnts, int nseg)
   HDC__ *c=(HDC__ *)ctx;
   if (!HDC_VALID(c)||!HGDIOBJ_VALID(c->curpen,TYPE_PEN)||c->curpen->wid<0||nseg<1) return;
 
-//  CGContextSetLineWidth(c->ctx,(float)wdl_max(c->curpen->wid,1));
-//  CGContextSetStrokeColorWithColor(c->ctx,c->curpen->color);
-	
-//  CGContextBeginPath(c->ctx);
-  
   while (nseg-->0)
   {
     DWORD cnt=*cnts++;
     if (!cnt) continue;
     if (!--cnt) { pts++; continue; }
     
- //   CGContextMoveToPoint(c->ctx,(float)pts->x,(float)pts->y);
     pts++;
     
     while (cnt--)
     {
-//      CGContextAddLineToPoint(c->ctx,(float)pts->x,(float)pts->y);
       pts++;
     }
   }
-//  CGContextStrokePath(c->ctx);
 }
 void *SWELL_GetCtxGC(HDC ctx)
 {
@@ -397,13 +386,6 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
 {
   HDC__ *ct=(HDC__ *)ctx;
   if (!HDC_VALID(ct)) return;
- /* CGContextBeginPath(ct->ctx);
-  CGContextMoveToPoint(ct->ctx,(float)x,(float)y);
-  CGContextAddLineToPoint(ct->ctx,(float)x+0.5,(float)y+0.5);
-  CGContextSetLineWidth(ct->ctx,(float)1.5);
-  CGContextSetRGBStrokeColor(ct->ctx,GetRValue(c)/255.0,GetGValue(c)/255.0,GetBValue(c)/255.0,1.0);
-  CGContextStrokePath(ct->ctx);	
-*/
 }
 
 
@@ -481,40 +463,11 @@ BOOL GetObject(HICON icon, int bmsz, void *_bm)
 {
   memset(_bm,0,bmsz);
   if (bmsz != sizeof(BITMAP)) return false;
-  BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP)) return false;
+  //BITMAP *bm=(BITMAP *)_bm;
 
   return false;
-/*
-  NSImage *img = i->bitmapptr;
-  if (!img) return false;
-  bm->bmWidth = (int) ([img size].width+0.5);
-  bm->bmHeight = (int) ([img size].height+0.5);
-  return true;
-*/
-}
-
-
-#define ColorFromNSColor(a,b) (b)
-int GetSysColor(int idx)
-{
- // NSColors that seem to be valid: textBackgroundColor, selectedTextBackgroundColor, textColor, selectedTextColor
-  switch (idx)
-  {
-    case COLOR_WINDOW: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_3DFACE: 
-    case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
-    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96));
-    case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(224,224,224));
-    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(0,0,0));
-    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96))>>1)&0x7f7f7f;
-    case COLOR_INFOBK: return RGB(255,240,200);
-    case COLOR_INFOTEXT: return RGB(0,0,0);
-      
-  }
-  return 0;
 }
 
 void BitBltAlphaFromMem(HDC hdcOut, int x, int y, int w, int h, void *inbufptr, int inbuf_span, int inbuf_h, int xin, int yin, int mode, bool useAlphaChannel, float opacity)
@@ -533,23 +486,24 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
 {
 }
 
+void StretchBltFromMem(HDC hdcOut, int x, int y, int w, int h, const void *bits, int srcw, int srch, int srcspan)
+{
+}
+
 void SWELL_PushClipRegion(HDC ctx)
 {
-  HDC__ *ct=(HDC__ *)ctx;
-//  if (ct && ct->ctx) CGContextSaveGState(ct->ctx);
+//  HDC__ *ct=(HDC__ *)ctx;
 }
 
 void SWELL_SetClipRegion(HDC ctx, const RECT *r)
 {
-  HDC__ *ct=(HDC__ *)ctx;
-//  if (ct && ct->ctx) CGContextClipToRect(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top));
+//  HDC__ *ct=(HDC__ *)ctx;
 
 }
 
 void SWELL_PopClipRegion(HDC ctx)
 {
-  HDC__ *ct=(HDC__ *)ctx;
-//  if (ct && ct->ctx) CGContextRestoreGState(ct->ctx);
+//  HDC__ *ct=(HDC__ *)ctx;
 }
 
 void *SWELL_GetCtxFrameBuffer(HDC ctx)
@@ -675,8 +629,143 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
   return offset;
 }
 
+int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
+{
+  if (!image || !list) return -1;
+  WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
+  
+  HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;
+  if (!HGDIOBJ_VALID(imgsrc,TYPE_BITMAP)) return -1;
+  
+  HGDIOBJ__* icon=GDP_OBJECT_NEW();
+  icon->type=TYPE_BITMAP;
+  icon->wid=1;
+  // todo: copy underlying image
+
+  image = (HICON) icon;
+  
+  l->Add(image);
+  return l->GetSize();
+}
+
+
+int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
+{
+  return 0;
+}
+
+int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, int flags)
+{
+  int i;
+  for (i=0; i < len; ++i) indices[i]=(flags == GGI_MARK_NONEXISTING_GLYPHS ? 0xFFFF : 0);
+  return 0;
+}
+
+#endif // !SWELL_LICE_GDI
+
+#ifdef SWELL__MAKE_THEME
+void print_ent(const char *x, int c, const char *def)
+{
+  if (def) 
+    printf("; %s #%02x%02x%02x ; defaults to %s\n",x,GetRValue(c),GetGValue(c),GetBValue(c),def);
+  else
+  {
+    if (strstr(x,"_size") || 
+        strstr(x,"_height") || 
+        strstr(x,"_width"))
+      printf("%s %d\n",x,c);
+    else printf("%s #%02x%02x%02x\n",x,GetRValue(c),GetGValue(c),GetBValue(c));
+  }
+}
+
+int main()
+{
+#define __def_theme_ent(x,c) print_ent(#x,c,NULL); 
+#define __def_theme_ent_fb(x,c,fb) print_ent(#x,c,#fb); 
+ 
+printf("default_font_face %s\n",g_swell_deffont_face);
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+return 0;
+}
+#else
+
+// load color theme
+class swellColorThemeLoader
+{
+public:
+  swellColorThemeLoader() 
+  {
+    char buf[1024];
+    GetModuleFileName(NULL,buf,sizeof(buf));
+    WDL_remove_filepart(buf);
+    lstrcatn(buf,"/libSwell.colortheme",sizeof(buf));
+    FILE *fp = fopen(buf,"r");
+    if (!fp) return;
+
+    swell_colortheme load;
+    memset(&load,-1,sizeof(load));
+
+    for (;;)
+    {
+      if (!fgets(buf,sizeof(buf),fp)) break;
+      char *p = buf;
+      while (*p == ' ' || *p == '\t') p++;
+      char *np = p;
+      while (*np > 0 && (*np == '_' || isalnum(*np))) np++;
+      if (!*np || np == p) continue;
+      *np++ = 0;
+      while (*np == ' ' || *np == '\t') np++;
+
+      if(!stricmp(p,"default_font_face"))
+      {
+        if (*np > 0 && !isspace(*np))
+        {
+          char *b = strdup(np);
+          g_swell_deffont_face = b;
+          while (*b>0 && !isspace(*b)) b++;
+          *b=0;
+        }
+        continue;
+      }
+
+      int col;
+      if (*np == '#')
+      {
+        np++;
+        char *next;
+        col = strtol(np,&next,16);
+        if (next != np+6)
+        {
+          if (next != np+3) continue;
+          col = ((col&0xf)<<4) | ((col&0xf0)<<8) | ((col&0xf00)<<12);
+        }
+      }
+      else if (*np >= '0' && *np <= '9')
+      {
+        col = atoi(np);
+      }
+      else continue;
+
+      if(0){}
+#define __def_theme_ent(x,c) else if (!stricmp(p,#x)) load.x = col;
+#define __def_theme_ent_fb(x,c,fb) else if (!stricmp(p,#x)) load.x = col;
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+    }
+#define __def_theme_ent(x,c) g_swell_ctheme.x = load.x == -1 ? c : load.x;
+#define __def_theme_ent_fb(x,c,fb) g_swell_ctheme.x = load.x == -1 ? g_swell_ctheme.fb : load.x;
+SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
+#undef __def_theme_ent
+#undef __def_theme_ent_fb
+
+    fclose(fp);
+  }
+};
+swellColorThemeLoader g_swell_themeloader;
 
 
 
 #endif
-#endif // !SWELL_LICE_GDI
+
+#endif

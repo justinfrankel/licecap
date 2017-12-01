@@ -54,61 +54,22 @@
 typedef unsigned int LICE_pixel;
 typedef unsigned char LICE_pixel_chan;
 
-#ifdef _WIN32
-
 #define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
 #define LICE_GETB(v) ((v)&0xff)
 #define LICE_GETG(v) (((v)>>8)&0xff)
 #define LICE_GETR(v) (((v)>>16)&0xff)
 #define LICE_GETA(v) (((v)>>24)&0xff)
 
-
-#define LICE_PIXEL_B 0
-#define LICE_PIXEL_G 1
-#define LICE_PIXEL_R 2
-#define LICE_PIXEL_A 3
-
-#elif defined(__APPLE__)
-// start apple
+#if defined(__APPLE__) && defined(__ppc__)
 #define LICE_PIXEL_A 0
 #define LICE_PIXEL_R 1
 #define LICE_PIXEL_G 2
 #define LICE_PIXEL_B 3
-
-#ifdef __ppc__ // same memory format, different endian
-
-#define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
-#define LICE_GETB(v) ((v)&0xff)
-#define LICE_GETG(v) (((v)>>8)&0xff)
-#define LICE_GETR(v) (((v)>>16)&0xff)
-#define LICE_GETA(v) (((v)>>24)&0xff)
-
 #else
-
-#define LICE_RGBA(r,g,b,a) (((a)&0xff)|(((r)&0xff)<<8)|(((g)&0xff)<<16)|(((b)&0xff)<<24))
-#define LICE_GETA(v) ((v)&0xff)
-#define LICE_GETR(v) (((v)>>8)&0xff)
-#define LICE_GETG(v) (((v)>>16)&0xff)
-#define LICE_GETB(v) (((v)>>24)&0xff)
-
-#endif
-
-// end apple
-#else
-
-//GDK etc (tested on linux 386/x86_64)
-#define LICE_RGBA(r,g,b,a) (((b)&0xff)|(((g)&0xff)<<8)|(((r)&0xff)<<16)|(((a)&0xff)<<24))
-#define LICE_GETB(v) ((v)&0xff)
-#define LICE_GETG(v) (((v)>>8)&0xff)
-#define LICE_GETR(v) (((v)>>16)&0xff)
-#define LICE_GETA(v) (((v)>>24)&0xff)
-
-
 #define LICE_PIXEL_B 0
 #define LICE_PIXEL_G 1
 #define LICE_PIXEL_R 2
 #define LICE_PIXEL_A 3
-
 #endif
 
 
@@ -156,9 +117,10 @@ public:
   virtual int getWidth() { return m_width; }
   virtual int getHeight() { return m_height; }
   virtual int getRowSpan() { return (m_width+m_linealign)&~m_linealign; }
-  virtual bool resize(int w, int h); // returns TRUE if a resize occurred
+  virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
 
 private:
+  bool __resize(int w, int h);
   LICE_pixel *m_fb;
   int m_width, m_height;
   int m_allocsize;
@@ -176,13 +138,14 @@ public:
   virtual int getWidth() { return m_width; }
   virtual int getHeight() { return m_height; }
   virtual int getRowSpan() { return m_allocw; }; 
-  virtual bool resize(int w, int h); // returns TRUE if a resize occurred
+  virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
 
   // sysbitmap specific calls
   virtual HDC getDC() { return m_dc; }
 
 
 private:
+  bool __resize(int w, int h);
   int m_width, m_height;
 
   HDC m_dc;
@@ -232,11 +195,13 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       if(x<0)x=0; 
       if(y<0)y=0;
       m_x=x;m_y=y;
-      resize(w,h);
+      __resize(w,h);
     }
     virtual ~LICE_SubBitmap() { }
 
-    virtual bool resize(int w, int h)
+    virtual bool resize(int w, int h) { return __resize(w,h); }
+
+    bool __resize(int w, int h)
     {
       m_w=0;m_h=0;
       if (m_parent && m_x >= 0 && m_y >= 0 && m_x < m_parent->getWidth() && m_y < m_parent->getHeight())
@@ -264,8 +229,15 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
       return parentptr; 
     }
 
+    enum { 
+        LICE_GET_SUBBITMAP_VERSION = 0x51b7000, 
+        LICE_SUBBITMAP_VERSION = 0x1000  // if we change any of this struct, then we *must* increment this version.
+    }; 
+
     virtual INT_PTR Extended(int id, void* data)
     {
+      if (id == LICE_GET_SUBBITMAP_VERSION) return LICE_SUBBITMAP_VERSION;
+
       if (!m_parent) return 0;
       return m_parent->Extended(id, data);
     }
@@ -278,7 +250,6 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 
     int m_w,m_h,m_x,m_y;
     LICE_IBitmap *m_parent;
-    //LICE_pixel *m_parentptr;
 };
 
 
@@ -352,6 +323,7 @@ bool LICE_WriteGIF(const char *filename, LICE_IBitmap *bmp, int transparent_alph
 void *LICE_WriteGIFBegin(const char *filename, LICE_IBitmap *firstframe, int transparent_alpha=0, int frame_delay=0, bool dither=true, int nreps=0); // nreps=0 for infinite
 void *LICE_WriteGIFBeginNoFrame(const char *filename, int w, int h, int transparent_alpha=0, bool dither=true, bool is_append=false);
 bool LICE_WriteGIFFrame(void *handle, LICE_IBitmap *frame, int xpos, int ypos, bool perImageColorMap=false, int frame_delay=0, int nreps=0); // nreps only used on the first frame, 0=infinite
+unsigned int LICE_WriteGIFGetSize(void *handle); // gets current output size
 bool LICE_WriteGIFEnd(void *handle);
 int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can use after LICE_WriteGIFBeginNoFrame and before LICE_WriteGIFFrame
 
@@ -359,6 +331,7 @@ int LICE_SetGIFColorMapFromOctree(void *wr, void *octree, int numcolors); // can
 void *LICE_GIF_LoadEx(const char *filename);
 void LICE_GIF_Close(void *handle);
 void LICE_GIF_Rewind(void *handle);
+unsigned int LICE_GIF_GetFilePos(void *handle); // gets current read position
 int LICE_GIF_UpdateFrame(void *handle, LICE_IBitmap *bm); // returns duration in msec (0 or more), or <0 if no more frames. bm will be modified/resized with new frame data
 
 
@@ -504,6 +477,8 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
 // useful for drawing shapes from a cache
 void LICE_DrawGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_h, float alpha=1.0f, int mode = 0);
 void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const LICE_pixel_chan* alphas, int glyph_w, int glyph_span, int glyph_h, float alpha=1.0f, int mode = 0);
+
+void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const unsigned char* alphas, int glyph_w, int glyph_span, int glyph_h, float alpha=1.0f, int mode = 0);
 
 // quadratic bezier
 // tol means try to draw segments no longer than tol px

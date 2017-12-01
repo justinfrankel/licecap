@@ -121,27 +121,27 @@ int SHM_MsgReplyConnection::Send(int type, const void *msg, int msglen,
         break;
       }
 
-      WaitingMessage *msg=NULL;
-      bool r = RunInternal(msgid,&msg);
+      WaitingMessage *wmsg=NULL;
+      bool r = RunInternal(msgid,&wmsg);
 
-      if (msg)
+      if (wmsg)
       {
-        int rv = msg->m_msgdata.GetSize();
+        int rv = wmsg->m_msgdata.GetSize();
 
         if (hbreplyout)
         {
-          memcpy(hbreplyout->Resize(rv,false),msg->m_msgdata.Get(),rv);
+          memcpy(hbreplyout->Resize(rv,false),wmsg->m_msgdata.Get(),rv);
         }
 
         if (replybuf)
         {
           if (rv > maxretbuflen) rv=maxretbuflen;
-          if (rv>0) memcpy(replybuf,msg->m_msgdata.Get(),rv);
+          if (rv>0) memcpy(replybuf,wmsg->m_msgdata.Get(),rv);
         }
 
         m_shmmutex.Enter();
-        msg->_next = m_spares;
-        m_spares=msg;
+        wmsg->_next = m_spares;
+        m_spares=wmsg;
         m_shmmutex.Leave();
         return rv;
       }

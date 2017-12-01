@@ -267,96 +267,6 @@ static WDL_FFT_COMPLEX d32768[4095];
   a1.im = t4; \
   }
 
-#define R(a0,a1,b0,b1,wre,wim) { \
-  t1 = a0 - a1; \
-  t2 = b0 - b1; \
-  t5 = t1 * wim; \
-  t6 = t2 * wim; \
-  t3 = VOL a0; \
-  t1 *= wre; \
-  t3 += a1; \
-  t2 *= wre; \
-  t1 -= t6; \
-  t4 = VOL b0; \
-  t2 += t5; \
-  t4 += b1; \
-  a0 = t3; \
-  b1 = t2; \
-  a1 = t4; \
-  b0 = t1; \
-  }
-
-#define RHALF(a0,a1,b0,b1) { \
-  t1 = a0 - a1; \
-  t2 = b0 - b1; \
-  t3 = a0 + a1; \
-  t5 = t1 - t2; \
-  t1 += t2; \
-  t4 = VOL b0; \
-  t5 *= sqrthalf; \
-  t4 += b1; \
-  t1 *= sqrthalf; \
-  a0 = t3; \
-  b1 = t1; \
-  a1 = t4; \
-  b0 = t5; \
-  }
-
-#define RZERO(a0,a1,b0,b1) { \
-  t1 = a0 - a1; \
-  t2 = b0 - b1; \
-  t3 = a0 + a1; \
-  t4 = b0 + b1; \
-  b0 = t1; \
-  a0 = t3; \
-  b1 = t2; \
-  a1 = t4; \
-  }
-
-#define V(a0,a1,b0,b1,wre,wim) { \
-  t5 = b0 * wre; \
-  t1 = b1 * wim; \
-  t6 = b1 * wre; \
-  t5 += t1; \
-  t3 = b0 * wim; \
-  t2 = a0 - t5; \
-  t6 -= t3; \
-  t5 += a0; \
-  t4 = a1 - t6; \
-  t6 += a1; \
-  a1 = t2; \
-  a0 = t5; \
-  b1 = t4; \
-  b0 = t6; \
-  }
-
-#define VHALF(a0,a1,b0,b1) { \
-  t5 = b0 + b1; \
-  t6 = b1 - b0; \
-  t5 *= sqrthalf; \
-  t2 = VOL a0; \
-  t6 *= sqrthalf; \
-  t2 -= t5; \
-  t5 += a0; \
-  t4 = a1 - t6; \
-  t6 += a1; \
-  a1 = t2; \
-  a0 = t5; \
-  b0 = t6; \
-  b1 = t4; \
-  }
-
-#define VZERO(a0,a1,b0,b1) { \
-  t1 = a0 + b0; \
-  t2 = a0 - b0; \
-  t3 = a1 + b1; \
-  t4 = a1 - b1; \
-  a0 = t1; \
-  b0 = t3; \
-  a1 = t2; \
-  b1 = t4; \
-  }
-
 static void c2(register WDL_FFT_COMPLEX *a)
 {
   register WDL_FFT_REAL t1;
@@ -665,26 +575,7 @@ static void c32768(register WDL_FFT_COMPLEX *a)
   c16384(a);
 }
 
-#if 0
-static void mulr4(WDL_FFT_REAL *a,WDL_FFT_REAL *b)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
 
-  t1 = a[2] * b[2];
-  t2 = a[3] * b[3];
-  t3 = a[3] * b[2];
-  t4 = a[2] * b[3];
-  t5 = a[0] * b[0];
-  t6 = a[1] * b[1];
-  t1 -= t2;
-  t3 += t4;
-  a[0] = t5;
-  a[1] = t6;
-  a[2] = t1;
-  a[3] = t3;
-}
-
-#endif
 /* n even, n > 0 */
 void WDL_fft_complexmul(WDL_FFT_COMPLEX *a,WDL_FFT_COMPLEX *b,int n)
 {
@@ -1072,17 +963,25 @@ static void u32768(register WDL_FFT_COMPLEX *a)
 }
 
 
-static void __fft_gen(WDL_FFT_COMPLEX *buf, int sz, int isfull)
+static void __fft_gen(WDL_FFT_COMPLEX *buf, const WDL_FFT_COMPLEX *buf2, int sz, int isfull)
 {
   int x;
-  double div=PI*0.25/(sz+1.0);
+  double div=PI*0.25/(sz+1);
 
   if (isfull) div*=2.0;
 
   for (x = 0; x < sz; x ++)
   {
-    buf[x].re = (WDL_FFT_REAL) cos((x+1)*div);
-    buf[x].im = (WDL_FFT_REAL) sin((x+1)*div);
+    if (!(x & 1) || !buf2)
+    {
+      buf[x].re = (WDL_FFT_REAL) cos((x+1)*div);
+      buf[x].im = (WDL_FFT_REAL) sin((x+1)*div);
+    }
+    else
+    {
+      buf[x].re = buf2[x >> 1].re;
+      buf[x].im = buf2[x >> 1].im;
+    }
   }
 }
 
@@ -1136,19 +1035,19 @@ void WDL_fft_init()
     int i, offs;
   	ffttabinit=1;
 
-#define fft_gen(x,y) __fft_gen(x,sizeof(x)/sizeof(x[0]),y)
-    fft_gen(d16,1);
-    fft_gen(d32,1);
-    fft_gen(d64,1);
-    fft_gen(d128,1);
-    fft_gen(d256,1);
-    fft_gen(d512,1);
-    fft_gen(d1024,0);
-    fft_gen(d2048,0);
-    fft_gen(d4096,0);
-    fft_gen(d8192,0);
-    fft_gen(d16384,0);
-    fft_gen(d32768,0);
+#define fft_gen(x,y,z) __fft_gen(x,y,sizeof(x)/sizeof(x[0]),z)
+    fft_gen(d16,0,1);
+    fft_gen(d32,d16,1);
+    fft_gen(d64,d32,1);
+    fft_gen(d128,d64,1);
+    fft_gen(d256,d128,1);
+    fft_gen(d512,d256,1);
+    fft_gen(d1024,d512,0);
+    fft_gen(d2048,d1024,0);
+    fft_gen(d4096,d2048,0);
+    fft_gen(d8192,d4096,0);
+    fft_gen(d16384,d8192,0);
+    fft_gen(d32768,d16384,0);
 #undef fft_gen
 
 #ifndef WDL_FFT_NO_PERMUTE
@@ -1187,21 +1086,17 @@ void WDL_fft(WDL_FFT_COMPLEX *buf, int len, int isInverse)
   }
 }
 
-
-#if 0
-/* n multiple of 4, n >= 8 */
-void WDL_fft_realmul(WDL_FFT_REAL *a,WDL_FFT_REAL *b,int n)
+static inline void r2(register WDL_FFT_REAL *a)
 {
-  if (n<8 || (n&3)) return;
-  mulr4(a,b);
-  WDL_fft_complexmul((WDL_FFT_COMPLEX *)(a + 4),(WDL_FFT_COMPLEX *)(b + 4),(n - 4) / 2);
+  register WDL_FFT_REAL t1, t2;
+
+  t1 = a[0] + a[1];
+  t2 = a[0] - a[1];
+  a[0] = t1 * 2;
+  a[1] = t2 * 2;
 }
 
-
-
-
-//////////// begin WDL_FFT_REAL modes
-static void r2(register WDL_FFT_REAL *a)
+static inline void v2(register WDL_FFT_REAL *a)
 {
   register WDL_FFT_REAL t1, t2;
 
@@ -1211,428 +1106,82 @@ static void r2(register WDL_FFT_REAL *a)
   a[1] = t2;
 }
 
-static void r4(register WDL_FFT_REAL *a)
+static void two_for_one(WDL_FFT_REAL* buf, const WDL_FFT_COMPLEX *d, int len, int isInverse)
 {
-  register WDL_FFT_REAL t1, t2, t3, t4, t6;
+  const unsigned int half = (unsigned)len >> 1, quart = half >> 1, eighth = quart >> 1;
+  const int *permute = WDL_fft_permute_tab(half);
+  unsigned int i, j;
 
-  t3 = a[0] + a[1];
-  t4 = a[2] + a[3];
-  t1 = a[0] - a[1];
-  t2 = a[2] - a[3];
-  t6 = t3 - t4;
-  t3 += t4;
-  a[2] = t1;
-  a[3] = t2;
-  a[0] = t3;
-  a[1] = t6;
-}
+  WDL_FFT_COMPLEX *p, *q, tw, sum, diff;
+  WDL_FFT_REAL tw1, tw2;
 
-static void r8(register WDL_FFT_REAL *a)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6, t7, t8;
-
-  t2 = a[0] + a[1];
-  t8 = a[4] + a[5];
-  t3 = a[2] - a[3];
-  t6 = t2 - t8;
-  t2 += t8;
-  t1 = a[2] + a[3];
-  t7 = a[6] + a[7];
-  a[2] = t6;
-  t5 = t1 - t7;
-  t1 += t7;
-  t4 = a[0] - a[1];
-  a[3] = t5;
-  t8 = t2 - t1;
-  t2 += t1;
-  t7 = a[6] - a[7];
-  a[1] = t8;
-  t6 = t3 - t7;
-  t3 += t7;
-  a[0] = t2;
-  t6 *= sqrthalf;
-  t8 = a[4] - a[5];
-  t3 *= sqrthalf;
-  t1 = t4 - t6;
-  t4 += t6;
-  t2 = t8 - t3;
-  t8 += t3;
-  a[6] = t1;
-  a[4] = t4;
-  a[7] = t2;
-  a[5] = t8;
-}
-
-/* a[0...8n-1], w[0...2n-1]; n even, n >= 4 */
-static void rpass(register WDL_FFT_REAL *a,register const WDL_FFT_COMPLEX *w,register unsigned int n)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
-  register WDL_FFT_REAL *b;
-  register unsigned int k;
-
-  b = a + 4 * n;
-  k = n - 2;
-
-  RZERO(a[0],a[1],b[0],b[1]);
-  R(a[2],a[3],b[2],b[3],w[0].re,w[0].im);
-  R(a[4],a[5],b[4],b[5],w[1].re,w[1].im);
-  R(a[6],a[7],b[6],b[7],w[2].re,w[2].im);
-
-  for (;;) {
-    R(a[8],a[9],b[8],b[9],w[3].re,w[3].im);
-    R(a[10],a[11],b[10],b[11],w[4].re,w[4].im);
-    R(a[12],a[13],b[12],b[13],w[5].re,w[5].im);
-    R(a[14],a[15],b[14],b[15],w[6].re,w[6].im);
-    if (!(k -= 2)) break;
-    a += 8;
-    b += 8;
-    w += 4;
+  if (!isInverse)
+  {
+  	WDL_fft((WDL_FFT_COMPLEX*)buf, half, isInverse);
+  	r2(buf);
   }
-}
-
-static void r16(register WDL_FFT_REAL *a)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
-
-  RZERO(a[0],a[1],a[8],a[9]);
-  R(a[2],a[3],a[10],a[11],d16[0].re,d16[0].im);
-  R(a[4],a[5],a[12],a[13],d16[1].re,d16[1].im);
-  R(a[6],a[7],a[14],a[15],d16[2].re,d16[2].im);
-  r8(a);
-  c4((WDL_FFT_COMPLEX *)(a + 8));
-}
-
-static void r32(register WDL_FFT_REAL *a)
-{
-  rpass(a,d32,4);
-  r16(a);
-  c8((WDL_FFT_COMPLEX *)(a + 16));
-}
-
-static void r64(register WDL_FFT_REAL *a)
-{
-  rpass(a,d64,8);
-  r32(a);
-  c16((WDL_FFT_COMPLEX *)(a + 32));
-}
-
-static void r128(register WDL_FFT_REAL *a)
-{
-  rpass(a,d128,16);
-  r64(a);
-  c32((WDL_FFT_COMPLEX *)(a + 64));
-}
-
-static void r256(register WDL_FFT_REAL *a)
-{
-  rpass(a,d256,32);
-  r128(a);
-  c64((WDL_FFT_COMPLEX *)(a + 128));
-}
-
-static void r512(register WDL_FFT_REAL *a)
-{
-  rpass(a,d512,64);
-  r256(a);
-  c128((WDL_FFT_COMPLEX *)(a + 256));
-}
-
-
-/* a[0...8n-1], w[0...n-1]; n even, n >= 8 */
-static void rpassbig(register WDL_FFT_REAL *a,register const WDL_FFT_COMPLEX *w,register unsigned int n)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
-  register WDL_FFT_REAL *b;
-  register unsigned int k;
-
-  b = a + 4 * n;
-
-  RZERO(a[0],a[1],b[0],b[1]);
-  R(a[2],a[3],b[2],b[3],w[0].re,w[0].im);
-
-  k = n - 2;
-  do {
-    R(a[4],a[5],b[4],b[5],w[1].re,w[1].im);
-    R(a[6],a[7],b[6],b[7],w[2].re,w[2].im);
-    a += 4;
-    b += 4;
-    w += 2;
-  } while (k -= 2);
-
-  RHALF(a[4],a[5],b[4],b[5]);
-  R(a[6],a[7],b[6],b[7],w[0].im,w[0].re);
-
-  k = n - 2;
-  do {
-    R(a[8],a[9],b[8],b[9],w[-1].im,w[-1].re);
-    R(a[10],a[11],b[10],b[11],w[-2].im,w[-2].re);
-    a += 4;
-    b += 4;
-    w -= 2;
-  } while (k -= 2);
-}
-
-
-static void r1024(register WDL_FFT_REAL *a)
-{
-  rpassbig(a,d1024,128);
-  r512(a);
-  c256((WDL_FFT_COMPLEX *)(a + 512));
-}
-
-static void r2048(register WDL_FFT_REAL *a)
-{
-  rpassbig(a,d2048,256);
-  r1024(a);
-  c512((WDL_FFT_COMPLEX *)(a + 1024));
-}
- 
-
-static void r4096(register WDL_FFT_REAL *a)
-{
-  rpassbig(a,d4096,512);
-  r2048(a);
-  c1024((WDL_FFT_COMPLEX *)(a + 2048));
-}
-
-static void r8192(register WDL_FFT_REAL *a)
-{
-  rpassbig(a,d8192,1024);
-  r4096(a);
-  c2048((WDL_FFT_COMPLEX *)(a + 4096));
-}
-
-static void r16384(register WDL_FFT_REAL *a)
-{
-  rpassbig(a,d16384,2048);
-  r8192(a);
-  c4096((WDL_FFT_COMPLEX *)(a + 8192));
-}
-
-static void r32768(register WDL_FFT_REAL *a)
-{
-  rpassbig(a,d32768,4096);
-  r16384(a);
-  c8192((WDL_FFT_COMPLEX *)(a + 16384));
-}
-
-
-
-static void v4(register WDL_FFT_REAL *a)
-{
-  register WDL_FFT_REAL t1, t3, t5, t6;
-
-  t5 = a[0] + a[1];
-  t6 = a[0] - a[1];
-  t1 = t5 + a[2];
-  t5 -= a[2];
-  t3 = t6 + a[3];
-  t6 -= a[3];
-  a[0] = t1;
-  a[1] = t5;
-  a[2] = t3;
-  a[3] = t6;
-}
-
-static void v8(register WDL_FFT_REAL *a)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6, t7, t8;
-
-  t5 = a[0] + a[1];
-  t2 = a[4] + a[6];
-  t8 = t5 + a[2];
-  t5 -= a[2];
-  t1 = a[0] - a[1];
-  t7 = t8 + t2;
-  t8 -= t2;
-  t3 = a[4] - a[6];
-  a[0] = t7;
-  t6 = a[5] + a[7];
-  a[1] = t8;
-  t7 = t5 + t6;
-  t5 -= t6;
-  t4 = a[5] - a[7];
-  a[4] = t7;
-  t6 = t4 - t3;
-  t3 += t4;
-  a[5] = t5;
-  t3 *= sqrthalf;
-  t2 = t1 + a[3];
-  t1 -= a[3];
-  t6 *= sqrthalf;
-  t7 = t2 - t3;
-  t3 += t2;
-  t8 = t1 - t6;
-  t6 += t1;
-  a[3] = t7;
-  a[7] = t8;
-  a[2] = t3;
-  a[6] = t6;
-}
-
-/* a[0...8n-1], w[0...2n-1]; n even, n >= 4 */
-static void vpass(register WDL_FFT_REAL *a,register const WDL_FFT_COMPLEX *w,register unsigned int n)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
-  register WDL_FFT_REAL *b;
-  register unsigned int k;
-
-  b = a + 4 * n;
-  k = n - 2;
-
-  VZERO(a[0],a[1],b[0],b[1]);
-  V(a[2],a[3],b[2],b[3],w[0].re,w[0].im);
-  V(a[4],a[5],b[4],b[5],w[1].re,w[1].im);
-  V(a[6],a[7],b[6],b[7],w[2].re,w[2].im);
-
-  for (;;) {
-    V(a[8],a[9],b[8],b[9],w[3].re,w[3].im);
-    V(a[10],a[11],b[10],b[11],w[4].re,w[4].im);
-    V(a[12],a[13],b[12],b[13],w[5].re,w[5].im);
-    V(a[14],a[15],b[14],b[15],w[6].re,w[6].im);
-    if (!(k -= 2)) break;
-    a += 8;
-    b += 8;
-    w += 4;
+  else
+  {
+  	v2(buf);
   }
+
+  /* Source: http://www.katjaas.nl/realFFT/realFFT2.html */
+
+  for (i = 1; i < quart; ++i)
+  {
+    p = (WDL_FFT_COMPLEX*)buf + permute[i];
+    q = (WDL_FFT_COMPLEX*)buf + permute[half - i];
+
+/*  tw.re = cos(2*PI * i / len);
+    tw.im = sin(2*PI * i / len); */
+
+    if (i < eighth)
+    {
+      j = i - 1;
+      tw.re = d[j].re;
+      tw.im = d[j].im;
+    }
+    else if (i > eighth)
+    {
+      j = quart - i - 1;
+      tw.re = d[j].im;
+      tw.im = d[j].re;
+    }
+    else
+    {
+      tw.re = tw.im = sqrthalf;
+    }
+
+    if (!isInverse) tw.re = -tw.re;
+
+    sum.re = p->re + q->re;
+    sum.im = p->im + q->im;
+    diff.re = p->re - q->re;
+    diff.im = p->im - q->im;
+
+    tw1 = tw.re * sum.im + tw.im * diff.re;
+    tw2 = tw.im * sum.im - tw.re * diff.re;
+
+    p->re = sum.re - tw1;
+    p->im = diff.im - tw2;
+    q->re = sum.re + tw1;
+    q->im = -(diff.im + tw2);
+  }
+
+  p = (WDL_FFT_COMPLEX*)buf + permute[i];
+  p->re *=  2;
+  p->im *= -2;
+
+  if (isInverse) WDL_fft((WDL_FFT_COMPLEX*)buf, half, isInverse);
 }
 
-static void v16(register WDL_FFT_REAL *a)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
-
-  u4((WDL_FFT_COMPLEX *)(a + 8));
-  v8(a);
-  VZERO(a[0],a[1],a[8],a[9]);
-  V(a[2],a[3],a[10],a[11],d16[0].re,d16[0].im);
-  V(a[4],a[5],a[12],a[13],d16[1].re,d16[1].im);
-  V(a[6],a[7],a[14],a[15],d16[2].re,d16[2].im);
-}
-
-static void v32(register WDL_FFT_REAL *a)
-{
-  u8((WDL_FFT_COMPLEX *)(a + 16));
-  v16(a);
-  vpass(a,d32,4);
-}
-
-static void v64(register WDL_FFT_REAL *a)
-{
-  u16((WDL_FFT_COMPLEX *)(a + 32));
-  v32(a);
-  vpass(a,d64,8);
-}
-
-static void v128(register WDL_FFT_REAL *a)
-{
-  u32((WDL_FFT_COMPLEX *)(a + 64));
-  v64(a);
-  vpass(a,d128,16);
-}
-
-static void v256(register WDL_FFT_REAL *a)
-{
-  u64((WDL_FFT_COMPLEX *)(a + 128));
-  v128(a);
-  vpass(a,d256,32);
-}
-
-static void v512(register WDL_FFT_REAL *a)
-{
-  u128((WDL_FFT_COMPLEX *)(a + 256));
-  v256(a);
-  vpass(a,d512,64);
-}
-
-
-
-/* a[0...8n-1], w[0...n-1]; n even, n >= 8 */
-static void vpassbig(register WDL_FFT_REAL *a,register const WDL_FFT_COMPLEX *w,register unsigned int n)
-{
-  register WDL_FFT_REAL t1, t2, t3, t4, t5, t6;
-  register WDL_FFT_REAL *b;
-  register unsigned int k;
-
-  b = a + 4 * n;
-
-  VZERO(a[0],a[1],b[0],b[1]);
-  V(a[2],a[3],b[2],b[3],w[0].re,w[0].im);
-
-  k = n - 2;
-  do {
-    V(a[4],a[5],b[4],b[5],w[1].re,w[1].im);
-    V(a[6],a[7],b[6],b[7],w[2].re,w[2].im);
-    a += 4;
-    b += 4;
-    w += 2;
-  } while (k -= 2);
-
-  VHALF(a[4],a[5],b[4],b[5]);
-  V(a[6],a[7],b[6],b[7],w[0].im,w[0].re);
-
-  k = n - 2;
-  do {
-    V(a[8],a[9],b[8],b[9],w[-1].im,w[-1].re);
-    V(a[10],a[11],b[10],b[11],w[-2].im,w[-2].re);
-    a += 4;
-    b += 4;
-    w -= 2;
-  } while (k -= 2);
-}
-
-
-static void v1024(register WDL_FFT_REAL *a)
-{
-  u256((WDL_FFT_COMPLEX *)(a + 512));
-  v512(a);
-  vpassbig(a,d1024,128);
-}
-
-static void v2048(register WDL_FFT_REAL *a)
-{
-  u512((WDL_FFT_COMPLEX *)(a + 1024));
-  v1024(a);
-  vpassbig(a,d2048,256);
-}
-
-
-static void v4096(register WDL_FFT_REAL *a)
-{
-  u1024((WDL_FFT_COMPLEX *)(a + 2048));
-  v2048(a);
-  vpassbig(a,d4096,512);
-}
-
-static void v8192(register WDL_FFT_REAL *a)
-{
-  u2048((WDL_FFT_COMPLEX *)(a + 4096));
-  v4096(a);
-  vpassbig(a,d8192,1024);
-}
-
-static void v16384(register WDL_FFT_REAL *a)
-{
-  u4096((WDL_FFT_COMPLEX *)(a + 8192));
-  v8192(a);
-  vpassbig(a,d16384,2048);
-}
-
-static void v32768(register WDL_FFT_REAL *a)
-{
-  u8192((WDL_FFT_COMPLEX *)(a + 16384));
-  v16384(a);
-  vpassbig(a,d32768,4096);
-}
-
-
-void WDL_real_fft(WDL_FFT_REAL *buf, int len, int isInverse)
+void WDL_real_fft(WDL_FFT_REAL* buf, int len, int isInverse)
 {
   switch (len)
   {
-    case 2: r2(buf); break;
-#define TMP(x) case x: if (!isInverse) r##x(buf); else v##x(buf); break;
-    TMP(4)
-    TMP(8)
+    case 2: if (!isInverse) r2(buf); else v2(buf); break;
+    case 4: case 8: two_for_one(buf, 0, len, isInverse); break;
+#define TMP(x) case x: two_for_one(buf, d##x, len, isInverse); break;
     TMP(16)
     TMP(32)
     TMP(64)
@@ -1648,5 +1197,3 @@ void WDL_real_fft(WDL_FFT_REAL *buf, int len, int isInverse)
 #undef TMP
   }
 }
-
-#endif

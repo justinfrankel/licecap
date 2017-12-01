@@ -2,10 +2,8 @@
 #define _SWELL_MENUGEN_H_
 
 
-/**
-  SWELL - (Simple Windows Emulation Layer Library)
-  Copyright (C) 2006 and later, Cockos Incorporated.
-  Dynamic menu generation
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,6 +21,7 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 
+  Dynamic menu generation
 
   Usage:
 

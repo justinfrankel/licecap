@@ -37,3 +37,9 @@ $(EEL_SOURCE): ns-eel*.h
 
 loose_eel.exe: loose_eel.cpp $(EEL_SOURCE) $(FFT_SOURCE) $(LICE_SOURCE)
 	cl $(CFLAGS) $**  /link wsock32.lib user32.lib gdi32.lib advapi32.lib $(LFLAGS) /out:$@ 
+
+eel_disasm.exe: eel_disasm.cpp $(EEL_SOURCE)
+	cl $(CFLAGS) $**  /link wsock32.lib user32.lib gdi32.lib advapi32.lib $(LFLAGS) /out:$@ 
+
+test: eel_disasm.exe
+	eel_disasm "buf[a] = x*y"

@@ -14,15 +14,19 @@
 #define EEL_FFT_MAXBITLEN 15
 #endif
 
+#ifndef EEL_FFT_MINBITLEN_REORDER
+#define EEL_FFT_MINBITLEN_REORDER (EEL_FFT_MINBITLEN-1)
+#endif
+
 //#define EEL_SUPER_FAST_FFT_REORDERING // quite a bit faster (50-100%) than "normal", but uses a 256kb lookup
 //#define EEL_SLOW_FFT_REORDERING // 20%-80% slower than normal, alloca() use, no reason to ever use this
 
 #ifdef EEL_SUPER_FAST_FFT_REORDERING
 static int *fft_reorder_table_for_bitsize(int bitsz)
 {
-  static int s_tab[ (2 << EEL_FFT_MAXBITLEN) + 24*(EEL_FFT_MAXBITLEN-EEL_FFT_MINBITLEN+1) ]; // big 256kb table, ugh
-  if (bitsz<=EEL_FFT_MINBITLEN) return s_tab;
-  return s_tab + (1<<bitsz) + (bitsz-EEL_FFT_MINBITLEN) * 24;
+  static int s_tab[ (2 << EEL_FFT_MAXBITLEN) + 24*(EEL_FFT_MAXBITLEN-EEL_FFT_MINBITLEN_REORDER+1) ]; // big 256kb table, ugh
+  if (bitsz<=EEL_FFT_MINBITLEN_REORDER) return s_tab;
+  return s_tab + (1<<bitsz) + (bitsz-EEL_FFT_MINBITLEN_REORDER) * 24;
 }
 static void fft_make_reorder_table(int bitsz, int *tab)
 {
@@ -230,31 +234,34 @@ static void FFT(int sizebits, EEL_F *data, int dir)
 
       if (dir == 4)
       {
- 	      for (x = 0; x < flen2; x += 2)
-   	    {
-   	      int y=WDL_fft_permute(flen,x/2)*2;
+        for (x = 0; x < flen2; x += 2)
+        {
+          int y=WDL_fft_permute(flen,x/2)*2;
           data[x]=tmp[y];
-   	      data[x+1]=tmp[y+1];
+          data[x+1]=tmp[y+1];
         }
-
       }
       else
       {
- 	      for (x = 0; x < flen2; x += 2)
-   	    {
-   	      int y=WDL_fft_permute(flen,x/2)*2;
+        for (x = 0; x < flen2; x += 2)
+        {
+          int y=WDL_fft_permute(flen,x/2)*2;
           data[y]=tmp[x];
-   	      data[y+1]=tmp[x+1];
-        }
-      }
+          data[y+1]=tmp[x+1];
+         }
+       }
 #endif
       //timingLeave(0);
     }
   }
-	else if (dir >= 0 && dir < 2)
-	{
+  else if (dir >= 0 && dir < 2)
+  {
     WDL_fft((WDL_FFT_COMPLEX*)data,1<<sizebits,dir&1);
-	}
+  }
+  else if (dir >= 2 && dir < 4)
+  {
+    WDL_real_fft((WDL_FFT_REAL*)data,1<<sizebits,dir&1);
+  }
 }
 
 
@@ -272,7 +279,7 @@ static EEL_F * fft_func(int dir, EEL_F **blocks, EEL_F *start, EEL_F *length)
 		bitl++;
 		l>>=1;
 	}
-	if (bitl < EEL_FFT_MINBITLEN)  // smallest FFT is 16 item
+	if (bitl < ((dir&4) ? EEL_FFT_MINBITLEN_REORDER : EEL_FFT_MINBITLEN))  // smallest FFT is 16 item, smallest reorder is 8 item
 	{ 
 		return start; 
 	}
@@ -304,6 +311,16 @@ static EEL_F * NSEEL_CGEN_CALL  eel_fft(EEL_F **blocks, EEL_F *start, EEL_F *len
 static EEL_F * NSEEL_CGEN_CALL  eel_ifft(EEL_F **blocks, EEL_F *start, EEL_F *length)
 {
   return fft_func(1,blocks,start,length);
+}
+
+static EEL_F * NSEEL_CGEN_CALL  eel_fft_real(EEL_F **blocks, EEL_F *start, EEL_F *length)
+{
+  return fft_func(2,blocks,start,length);
+}
+
+static EEL_F * NSEEL_CGEN_CALL  eel_ifft_real(EEL_F **blocks, EEL_F *start, EEL_F *length)
+{
+  return fft_func(3,blocks,start,length);
 }
 
 static EEL_F * NSEEL_CGEN_CALL  eel_fft_permute(EEL_F **blocks, EEL_F *start, EEL_F *length)
@@ -343,29 +360,33 @@ void EEL_fft_register()
 {
   WDL_fft_init();
 #if defined(EEL_SUPER_FAST_FFT_REORDERING)
-  if (!fft_reorder_table_for_bitsize(EEL_FFT_MINBITLEN)[0])
+  if (!fft_reorder_table_for_bitsize(EEL_FFT_MINBITLEN_REORDER)[0])
   {
     int x;
-    for (x=EEL_FFT_MINBITLEN;x<=EEL_FFT_MAXBITLEN;x++) fft_make_reorder_table(x,fft_reorder_table_for_bitsize(x));
+    for (x=EEL_FFT_MINBITLEN_REORDER;x<=EEL_FFT_MAXBITLEN;x++) fft_make_reorder_table(x,fft_reorder_table_for_bitsize(x));
   }
 #endif
   NSEEL_addfunc_retptr("convolve_c",3,NSEEL_PProc_RAM,&eel_convolve_c);
   NSEEL_addfunc_retptr("fft",2,NSEEL_PProc_RAM,&eel_fft);
   NSEEL_addfunc_retptr("ifft",2,NSEEL_PProc_RAM,&eel_ifft);
+  NSEEL_addfunc_retptr("fft_real",2,NSEEL_PProc_RAM,&eel_fft_real);
+  NSEEL_addfunc_retptr("ifft_real",2,NSEEL_PProc_RAM,&eel_ifft_real);
   NSEEL_addfunc_retptr("fft_permute",2,NSEEL_PProc_RAM,&eel_fft_permute);
   NSEEL_addfunc_retptr("fft_ipermute",2,NSEEL_PProc_RAM,&eel_ifft_permute);
 }
 
 #ifdef EEL_WANT_DOCUMENTATION
 static const char *eel_fft_function_reference =
-"convolve_c\t\0"
+"convolve_c\tdest,src,size\tMultiplies each of size complex pairs in dest by the complex pairs in src. Often used for convolution.\0"
 "fft\tbuffer,size\tPerforms a FFT on the data in the local memory buffer at the offset specified by the first parameter. The size of the FFT is specified "
-                  "by the second parameter, which must be 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if "
-                  "you plan to use them in-order, call fft_permute(idx, size) before and fft_ipermute(idx,size) after your in-order use. Your inputs or "
+                  "by the second parameter, which must be 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, or 32768. The outputs are permuted, so if "
+                  "you plan to use them in-order, call fft_permute(buffer, size) before and fft_ipermute(buffer,size) after your in-order use. Your inputs or "
                   "outputs will need to be scaled down by 1/size, if used.\n"
                   "Note that fft()/ifft() require real / imaginary input pairs, so a 256 point FFT actually works with 512 items.\n"
-                  "Note that fft()/ifft() must NOT cross a 65, 536 item boundary, so be sure to specify the offset accordingly.\0"
+                  "Note that fft()/ifft() must NOT cross a 65,536 item boundary, so be sure to specify the offset accordingly.\0"
 "ifft\tbuffer,size\tPerform an inverse FFT. For more information see fft().\0"
+"fft_real\tbuffer,size\tPerforms an FFT, but takes size input samples and produces size/2 complex output pairs. Usually used along with fft_permute(size/2). Inputs/outputs will need to be scaled by 0.5/size.\0"
+"ifft_real\tbuffer,size\tPerforms an inverse FFT, but takes size/2 complex input pairs and produces size real output values. Usually used along with fft_ipermute(size/2).\0"
 "fft_permute\tbuffer,size\tPermute the output of fft() to have bands in-order. See fft() for more information.\0"
 "fft_ipermute\tbuffer,size\tPermute the input for ifft(), taking bands from in-order to the order ifft() requires. See fft() for more information.\0"
 ;

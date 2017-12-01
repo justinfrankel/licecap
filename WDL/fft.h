@@ -57,15 +57,18 @@ extern void WDL_fft_complexmul(WDL_FFT_COMPLEX *dest, WDL_FFT_COMPLEX *src, int 
 extern void WDL_fft_complexmul2(WDL_FFT_COMPLEX *dest, WDL_FFT_COMPLEX *src, WDL_FFT_COMPLEX *src2, int len);
 extern void WDL_fft_complexmul3(WDL_FFT_COMPLEX *destAdd, WDL_FFT_COMPLEX *src, WDL_FFT_COMPLEX *src2, int len);
 
+/* Expects WDL_FFT_COMPLEX input[0..len-1] scaled by 1.0/len, returns
+WDL_FFT_COMPLEX output[0..len-1] order by WDL_fft_permute(len). */
 extern void WDL_fft(WDL_FFT_COMPLEX *, int len, int isInverse);
 
-#if 0 // these dont work right!
-extern void WDL_fft_realmul(WDL_FFT_REAL *dest, WDL_FFT_REAL *src, int len);
+/* Expects WDL_FFT_REAL input[0..len-1] scaled by 0.5/len, returns
+WDL_FFT_COMPLEX output[0..len/2-1], for len >= 4 order by
+WDL_fft_permute(len/2). Note that output[len/2].re is stored in
+output[0].im. */
 extern void WDL_real_fft(WDL_FFT_REAL *, int len, int isInverse);
-#endif
 
-int WDL_fft_permute(int fftsize, int idx);
-int *WDL_fft_permute_tab(int fftsize);
+extern int WDL_fft_permute(int fftsize, int idx);
+extern int *WDL_fft_permute_tab(int fftsize);
 
 #ifdef __cplusplus
 };

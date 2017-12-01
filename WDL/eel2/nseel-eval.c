@@ -397,7 +397,7 @@ in_string:
 
   void nseelerror(YYLTYPE *pos,compileContext *ctx, const char *str)
   {
-    ctx->errVar=pos->first_column>0?pos->first_column:1;
+    ctx->errVar=pos->first_column>0?pos->first_column:(int)(ctx->rdbuf_end - ctx->rdbuf_start);
   }
 
 
@@ -443,6 +443,6 @@ in_string:
 
   void nseelerror(YYLTYPE *pos,compileContext *ctx, const char *str)
   {
-    ctx->errVar=pos->first_column>0?pos->first_column:1;
+    ctx->errVar=pos->first_column>0?pos->first_column:(int)(ctx->rdbuf_end - ctx->rdbuf_start);
   }
 #endif // !NSEEL_SUPER_MINIMAL_LEXER

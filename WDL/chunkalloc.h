@@ -16,7 +16,7 @@ class WDL_ChunkAlloc
 
   public:
 
-    WDL_ChunkAlloc(int chunksize=65500) { m_chunks=NULL; m_chunkused=0; m_chunksize=chunksize>16?16:chunksize; }
+    WDL_ChunkAlloc(int chunksize=65500) { m_chunks=NULL; m_chunkused=0; m_chunksize=chunksize>16?chunksize:16; }
     ~WDL_ChunkAlloc() { Free(); }
 
     void Free()
@@ -85,6 +85,16 @@ class WDL_ChunkAlloc
         m_chunkused = alloc_sz >= m_chunksize ? use_sz : m_chunksize;
       }
 
+      return ret;
+    }
+
+    char *StrDup(const char *s)
+    {
+      if (!s) return NULL;
+      const int l = (int) strlen(s)+1;
+      char *ret = (char*)Alloc(l);
+      if (!ret) return NULL;
+      memcpy(ret,s,l);
       return ret;
     }
 

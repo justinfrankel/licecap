@@ -34,7 +34,7 @@ class LameEncoder
 {
   public:
 
-    LameEncoder(int srate, int nch, int bitrate, int stereomode = 1, int quality = 0, int vbrmethod = -1, int vbrquality = 2, int vbrmax = 320, int abr = 128);
+    LameEncoder(int srate, int nch, int bitrate, int stereomode = 1, int quality = 2, int vbrmethod = -1, int vbrquality = 2, int vbrmax = 320, int abr = 128);
     ~LameEncoder();
 
     int Status() { return errorstat; } // 1=no dll, 2=error
@@ -70,7 +70,6 @@ class LameEncoder
     WDL_String m_vbrfile;
     int errorstat;
     int in_size_samples;
-    int m_encmode; // 1 for LAME, 2 for blade
     int m_nch,m_encoder_nch;
 
 };

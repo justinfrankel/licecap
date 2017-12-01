@@ -78,7 +78,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fgets(void *opaque, EEL_F *fpp, EEL_F *strOut)
 {
   EEL_STRING_MUTEXLOCK_SCOPE
   EEL_STRING_STORAGECLASS *wr=NULL;
-  EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
+  EEL_STRING_GET_FOR_WRITE(*strOut, &wr);
 
   FILE *fp = EEL_FILE_GETFP((int)*fpp);
   if (!fp)
@@ -112,7 +112,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_fread(void *opaque, EEL_F *fpp, EEL_F *strOut,
 
   EEL_STRING_MUTEXLOCK_SCOPE
   EEL_STRING_STORAGECLASS *wr=NULL;
-  EEL_STRING_GET_FOR_INDEX(*strOut, &wr);
+  EEL_STRING_GET_FOR_WRITE(*strOut, &wr);
   if (!wr)
   {
 #ifdef EEL_STRING_DEBUGOUT

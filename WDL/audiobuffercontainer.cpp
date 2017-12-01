@@ -25,7 +25,7 @@ void ChannelPinMapper::SetNChannels(int nCh)
   m_nCh = nCh;
 }
 
-void ChannelPinMapper::Init(WDL_UINT64* pMapping, int nPins)
+void ChannelPinMapper::Init(const WDL_UINT64* pMapping, int nPins)
 {
   if (nPins<0) nPins=0;
   else if (nPins>CHANNELPINMAPPER_MAXPINS) nPins=CHANNELPINMAPPER_MAXPINS;

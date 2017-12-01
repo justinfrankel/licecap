@@ -13,13 +13,14 @@
 
 #ifndef _WIN32
 #include <sys/time.h>
+#include "../../swell/swell.h"
 #endif
 
 static double gettm()
 {
 #ifndef _WIN32
   struct timeval tm={0,};
-    gettimeofday(&tm,NULL);
+   gettimeofday(&tm,NULL);
    return (double)tm.tv_sec + (double)tm.tv_usec/1000000;
 #else
   LARGE_INTEGER freq;
@@ -1065,7 +1066,7 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         m_frame_cnt=0;
       break;
       case IDCANCEL:
-#ifdef _WIN32
+#ifndef __APPLE__
         EndDialog(hwndDlg, 0);
 #else
         DestroyWindow(hwndDlg); // on mac we run modeless
@@ -1089,4 +1090,51 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
 
   return 0;
 }
+#else
+
+static HWND ccontrolCreator(HWND parent, const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h)
+{
+  if (!stricmp(classname,"TestRenderingClass"))
+  {
+    HWND hw=CreateDialog(NULL,0,parent,(DLGPROC)testRenderDialogProc);
+    SetWindowLong(hw,GWL_ID,idx);
+    SetWindowPos(hw,HWND_TOP,x,y,w,h,SWP_NOZORDER|SWP_NOACTIVATE);
+    ShowWindow(hw,SW_SHOWNA);
+    return hw;
+  }
+  return 0;
+}
+
+#include "../../swell/swell-dlggen.h"
+
+// define our dialog box resource!
+
+SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(IDD_DIALOG1,SWELL_DLG_WS_RESIZABLE|SWELL_DLG_WS_FLIPPED,"LICE Test",400,300,1.8)
+BEGIN
+CONTROL         "",IDC_RECT,"TestRenderingClass",0,7,23,384,239 // we arae creating a custom control here because it will be opaque and therefor a LOT faster drawing
+COMBOBOX        IDC_COMBO1,7,7,181,170,CBS_DROPDOWNLIST | WS_VSCROLL | 
+WS_TABSTOP
+
+END
+SWELL_DEFINE_DIALOG_RESOURCE_END(IDD_DIALOG1)
+
+#if !defined(__APPLE__)
+int main(int argc, char **argv)
+{
+  SWELL_initargs(&argc,&argv);
+  SWELL_Internal_PostMessage_Init();
+  SWELL_ExtendedAPI("APPNAME",(void*)"LICE test");
+  SWELL_RegisterCustomControlCreator(ccontrolCreator);
+  //SWELL_ExtendedAPI("INIFILE",(void*)"path/to/ini/file.ini");
+  //SWELL_ExtendedAPI("FONTPANGRAM",(void*)"LICE test thingy lbah akbzfshauoh01384u1023");
+  DialogBox(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, dlgProc);
+
+  return 0;
+}
+
+INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
+{
+  return 0;
+}
+#endif
 #endif

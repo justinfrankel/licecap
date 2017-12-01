@@ -42,6 +42,9 @@
 #include "queue.h"
 #include "mutex.h"
 
+#include "resample.h"
+
+
 class WDL_ShoutcastSource
 {
 public:
@@ -87,15 +90,13 @@ private:
   int m_state;
   int m_nch,m_srate;
 
-  double m_last_samples[2] WDL_FIXALIGN;
-  double m_rspos; // last resample fractional position
-
+  WDL_Resampler m_rs;
   WDL_FastQueue m_samplequeue; // interleaved samples (float)
 
   JNL_HTTPGet *m_titlecon;
   JNL_Connection *m_sendcon;
 
-  WDL_TypedBuf<float> m_workbuf,m_rsbuf;
+  WDL_TypedBuf<float> m_workbuf;
   WDL_Mutex m_samplemutex;
   WDL_Mutex m_titlemutex;
   char m_title[512];

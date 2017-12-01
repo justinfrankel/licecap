@@ -557,9 +557,9 @@ void *LICE_LoadLVGFromContext(ProjectStateContext *ctx, const char *nameInfo, in
           }
           else
           {
-            lvgImageCtx *p = new lvgImageCtx(curimg);
-            curimg->m_images.Insert(lp.gettoken_str(1),p);
-            curimg = p;
+            lvgImageCtx *img = new lvgImageCtx(curimg);
+            curimg->m_images.Insert(lp.gettoken_str(1),img);
+            curimg = img;
           }
           curimg->m_base_w = lp.gettoken_int(2);
           curimg->m_base_h = lp.gettoken_int(3);

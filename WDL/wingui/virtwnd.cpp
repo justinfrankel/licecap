@@ -41,6 +41,7 @@ WDL_VWnd_Painter::WDL_VWnd_Painter()
   m_gradstart=0.5;
   m_gradslope=0.2;
   m_bgcache=0;
+  m_render_scale = WDL_VWND_SCALEBASE;
 }
 
 WDL_VWnd_Painter::~WDL_VWnd_Painter()
@@ -48,9 +49,9 @@ WDL_VWnd_Painter::~WDL_VWnd_Painter()
   delete m_bm;
 }
 
-void WDL_VWnd_Painter::SetGSC(int (*GSC)(int))
+void WDL_VWnd_Painter::SetGSC(int (*_GSC)(int))
 {
-  m_GSC=GSC;
+  m_GSC=_GSC;
 }
 int WDL_VWnd_Painter::GSC(int a)
 {
@@ -252,10 +253,11 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
     }
     if (m_cur_hwnd)
     {
-      RECT r;
-      if (windowRect) r=*windowRect;
-      else GetClientRect(m_cur_hwnd,&r);
-      int fwnd_w=r.right-r.left,fwnd_h=r.bottom-r.top;
+      RECT rrr;
+      if (windowRect) rrr=*windowRect;
+      else GetClientRect(m_cur_hwnd,&rrr);
+      RenderScaleRect(&rrr);
+      int fwnd_w=rrr.right-rrr.left,fwnd_h=rrr.bottom-rrr.top;
       if (fwnd_h<0)fwnd_h=-fwnd_h;
 
       int wnd_w,wnd_h;
@@ -271,10 +273,12 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
         m_bgcache=0; // force no caching in large canvas mode
 
         // note: there can be some slight background artifacts in this mode that need to be resolved (REAPER TCP bg bottom line on partial redraw etc)
-        m_paint_xorig=m_ps.rcPaint.left;
-        m_paint_yorig=m_ps.rcPaint.top;
-        wnd_w = m_ps.rcPaint.right-m_ps.rcPaint.left;
-        wnd_h = m_ps.rcPaint.bottom - m_ps.rcPaint.top;
+        RECT pr = m_ps.rcPaint;
+        RenderScaleRect(&pr);
+        m_paint_xorig=pr.left;
+        m_paint_yorig=pr.top;
+        wnd_w = pr.right-pr.left;
+        wnd_h = pr.bottom - pr.top;
       }
       
       if (wnd_h<0)wnd_h=-wnd_h;
@@ -285,31 +289,39 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
       {
         m_bm->resize(wdl_max(m_bm->getWidth(),wnd_w),wdl_max(m_bm->getHeight(),wnd_h));
       }
-
-      if (!limitBGrect || (limitBGrect->left <1 && limitBGrect->top < 1 && limitBGrect->right >= fwnd_w && limitBGrect->bottom >= fwnd_h))
+      RECT tr = m_ps.rcPaint;
+      RenderScaleRect(&tr);
+      RECT lbg;
+      if (limitBGrect) 
       {
-        DoPaintBackground(m_bm,bgcolor,&m_ps.rcPaint, fwnd_w, fwnd_h, -m_paint_xorig, -m_paint_yorig);
+        lbg = *limitBGrect;
+        RenderScaleRect(&lbg);
+      }
+
+      if (!limitBGrect || (lbg.left <1 && lbg.top < 1 && lbg.right >= fwnd_w && lbg.bottom >= fwnd_h))
+      {
+        DoPaintBackground(m_bm,bgcolor,&tr, fwnd_w, fwnd_h, -m_paint_xorig, -m_paint_yorig);
       }
       else
       {
-        RECT tr = m_ps.rcPaint;
-        if (tr.left < limitBGrect->left) tr.left = limitBGrect->left;
-        if (tr.top < limitBGrect->top) tr.top = limitBGrect->top;
-        if (tr.right > limitBGrect->right) tr.right = limitBGrect->right;
-        if (tr.bottom > limitBGrect->bottom) tr.bottom = limitBGrect->bottom;
+        if (tr.left < lbg.left) tr.left = lbg.left;
+        if (tr.top < lbg.top) tr.top = lbg.top;
+        if (tr.right > lbg.right) tr.right = lbg.right;
+        if (tr.bottom > lbg.bottom) tr.bottom = lbg.bottom;
 
         if (tr.left < tr.right && tr.top < tr.bottom)
         {
-          int w=limitBGrect->right-limitBGrect->left;
-          int h=limitBGrect->bottom-limitBGrect->top;
+          int w=lbg.right-lbg.left;
+          int h=lbg.bottom-lbg.top;
 
-          int x=limitBGrect->left - m_paint_xorig;
-          int y=limitBGrect->top - m_paint_yorig;
+          int x=lbg.left - m_paint_xorig;
+          int y=lbg.top - m_paint_yorig;
           LICE_SubBitmap bm(m_bm,x,y,w,h);
           tr.left -= wdl_max(x,0);
           tr.right -= wdl_max(x,0);
           tr.bottom -= wdl_max(y,0);
           tr.top -= wdl_max(y,0);
+
           DoPaintBackground(&bm,bgcolor,&tr, w,h,-m_paint_xorig + wdl_min(x,0), -m_paint_yorig + wdl_min(y,0));
         }
       }
@@ -380,10 +392,29 @@ void WDL_VWnd_Painter::PaintEnd()
     }
 #else
     SWELL_SyncCtxFrameBuffer(m_bm->getDC());
-    BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
-           m_ps.rcPaint.right-m_ps.rcPaint.left,
-           m_ps.rcPaint.bottom-m_ps.rcPaint.top,
-           m_bm->getDC(),m_ps.rcPaint.left-m_paint_xorig,m_ps.rcPaint.top-m_paint_yorig,SRCCOPY);
+    const int rscale = GetRenderScale();
+
+    if (rscale != 256)
+    {
+      RECT p2 = m_ps.rcPaint;
+      RenderScaleRect(&p2);
+      StretchBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+             m_ps.rcPaint.right-m_ps.rcPaint.left,
+             m_ps.rcPaint.bottom-m_ps.rcPaint.top,
+             m_bm->getDC(),
+             p2.left-m_paint_xorig,
+             p2.top-m_paint_yorig,
+             p2.right-p2.left,
+             p2.bottom-p2.top,
+             SRCCOPY);
+    }
+    else
+    {
+      BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+             m_ps.rcPaint.right-m_ps.rcPaint.left,
+             m_ps.rcPaint.bottom-m_ps.rcPaint.top,
+             m_bm->getDC(),m_ps.rcPaint.left-m_paint_xorig,m_ps.rcPaint.top-m_paint_yorig,SRCCOPY);
+    }
 #endif
   }
   EndPaint(m_cur_hwnd,&m_ps);
@@ -392,7 +423,11 @@ void WDL_VWnd_Painter::PaintEnd()
 
 void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
 {
-  if (rclip) *rclip = m_ps.rcPaint;
+  if (rclip) 
+  {
+    *rclip = m_ps.rcPaint;
+    RenderScaleRect(rclip);
+  }
   if (xoffsdraw) *xoffsdraw = -m_paint_xorig;
   if (yoffsdraw) *yoffsdraw = -m_paint_yorig;
 }
@@ -433,12 +468,13 @@ void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coor
 {
   if (!bitmap || !coords || !bitmap->bgimage || !m_bm) return;
 
-  const RECT rr = {
-    wdl_max(coords->left, m_ps.rcPaint.left),
-    wdl_max(coords->top, m_ps.rcPaint.top),
-    wdl_min(coords->right, m_ps.rcPaint.right),
-    wdl_min(coords->bottom, m_ps.rcPaint.bottom)
-  };
+  RECT rr, paintScaled = m_ps.rcPaint, coordsScaled = *coords;
+  RenderScaleRect(&coordsScaled);
+  RenderScaleRect(&paintScaled);
+  rr.left = wdl_max(coordsScaled.left, paintScaled.left);
+  rr.top = wdl_max(coordsScaled.top, paintScaled.top);
+  rr.right = wdl_min(coordsScaled.right, paintScaled.right);
+  rr.bottom = wdl_min(coordsScaled.bottom, paintScaled.bottom);
 
   if (allowTint && m_bgbmtintUnderMode)
   {
@@ -446,30 +482,32 @@ void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coor
       tintRect(m_bm, &rr, -m_paint_xorig, -m_paint_yorig,true);
   }
 
-  WDL_VirtualWnd_ScaledBlitBG(m_bm,bitmap,coords->left - m_paint_xorig,
-                                          coords->top - m_paint_yorig,
-                                          coords->right-coords->left,
-                                          coords->bottom-coords->top,
-                                          m_ps.rcPaint.left - m_paint_xorig,
-                                          m_ps.rcPaint.top - m_paint_yorig,
-                                          m_ps.rcPaint.right - m_ps.rcPaint.left,
-                                          m_ps.rcPaint.bottom - m_ps.rcPaint.top,alpha,mode);
+  WDL_VirtualWnd_ScaledBlitBG(m_bm,bitmap,coordsScaled.left - m_paint_xorig,
+                                          coordsScaled.top - m_paint_yorig,
+                                          coordsScaled.right-coordsScaled.left,
+                                          coordsScaled.bottom-coordsScaled.top,
+                                          paintScaled.left - m_paint_xorig,
+                                          paintScaled.top - m_paint_yorig,
+                                          paintScaled.right - paintScaled.left,
+                                          paintScaled.bottom - paintScaled.top,alpha,mode);
 
   if (allowTint && !m_bgbmtintUnderMode)
   {
     if (rr.right>rr.left && rr.bottom>rr.top)
       tintRect(m_bm,&rr,-m_paint_xorig,-m_paint_yorig,false);
   }
-
 }
 
 void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 {
   RECT tr=m_ps.rcPaint;
+  RenderScaleRect(&tr);
   if (!m_bm||!m_cur_hwnd|| !vwnd->IsVisible()) return;
 
   RECT r;
   vwnd->GetPosition(&r); // maybe should use GetPositionPaintExtent or GetPositionPaintOverExtent ?
+  RenderScaleRect(&r);
+  const int rscale = GetRenderScale();
 
   if (tr.left<r.left) tr.left=r.left;
   if (tr.right>r.right) tr.right=r.right;
@@ -483,12 +521,12 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
     tr.top -= m_paint_yorig;
     tr.bottom -= m_paint_yorig;
     vwnd->SetCurPainter(this);
-    vwnd->OnPaint(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
+    vwnd->OnPaint(m_bm,-m_paint_xorig,-m_paint_yorig,&tr,rscale);
     if (borderflags)
     {
       PaintBorderForRect(&r,borderflags);
     }
-    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,-m_paint_xorig,-m_paint_yorig,&tr);
+    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,-m_paint_xorig,-m_paint_yorig,&tr,rscale);
     vwnd->SetCurPainter(NULL);
 
   }
@@ -503,6 +541,7 @@ void WDL_VWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
     GetWindowRect(hwnd,&r);
     ScreenToClient(m_cur_hwnd,(LPPOINT)&r);
     ScreenToClient(m_cur_hwnd,((LPPOINT)&r)+1);
+    RenderScaleRect(&r);
     PaintBorderForRect(&r,borderflags);
   }
 #endif
@@ -512,6 +551,7 @@ void WDL_VWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
 {
   if (!m_bm|| !m_cur_hwnd||!borderflags) return;
   RECT rrr = *r;
+  RenderScaleRect(&rrr);
   rrr.left-=m_paint_xorig;
   rrr.right-=m_paint_xorig;
   rrr.top-=m_paint_yorig;
@@ -603,11 +643,11 @@ void WDL_VWnd::RequestRedraw(RECT *r)
   }
   else 
   {
-    GetPositionPaintExtent(&r2);
+    GetPositionPaintExtent(&r2, WDL_VWND_SCALEBASE); 
     RECT r3;
     if (WantsPaintOver())
     {
-      GetPositionPaintOverExtent(&r3);
+      GetPositionPaintOverExtent(&r3, WDL_VWND_SCALEBASE); 
       if (r3.left<r2.left)r2.left=r3.left;
       if (r3.top<r2.top)r2.top=r3.top;
       if (r3.right>r2.right)r2.right=r3.right;
@@ -724,8 +764,7 @@ void WDL_VWnd::RemoveChild(WDL_VWnd *wnd, bool dodel)
   if (m__iaccess) m__iaccess->ClearCaches();
 }
 
-
-void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
   int x;
   if (m_children) for (x = m_children->GetSize()-1; x >=0; x --)
@@ -737,11 +776,13 @@ void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *c
       ch->GetPosition(&re);
       if (re.right>re.left&&re.bottom>re.top)
       {
-        ch->GetPositionPaintExtent(&re);
-        re.left += origin_x + m_position.left;
-        re.right += origin_x + m_position.left;
-        re.top += origin_y + m_position.top;
-        re.bottom += origin_y + m_position.top;
+        ch->GetPositionPaintExtent(&re, rscale);
+        RECT p = m_position;
+        ScaleRect(&p,rscale);
+        re.left += origin_x + p.left;
+        re.right += origin_x + p.left;
+        re.top += origin_y + p.top;
+        re.bottom += origin_y + p.top;
 
         RECT cr=*cliprect;
         if (cr.left < re.left) cr.left=re.left;
@@ -752,7 +793,7 @@ void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *c
         if (cr.left < cr.right && cr.top < cr.bottom)
         {
           ch->SetCurPainter(m_curPainter);
-          ch->OnPaint(drawbm,m_position.left+origin_x,m_position.top+origin_y,&cr);
+          ch->OnPaint(drawbm,p.left+origin_x,p.top+origin_y,&cr, rscale);
           ch->SetCurPainter(NULL);
         }
       }
@@ -760,7 +801,7 @@ void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *c
   }
 }
 
-void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect)
+void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
   int x;
   if (m_children) for (x = m_children->GetSize()-1; x >=0; x --)
@@ -772,11 +813,13 @@ void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, REC
       ch->GetPosition(&re);
       if (re.right>re.left && re.bottom > re.top)
       {
-        ch->GetPositionPaintOverExtent(&re);
-        re.left += origin_x + m_position.left;
-        re.right += origin_x + m_position.left;
-        re.top += origin_y + m_position.top;
-        re.bottom += origin_y + m_position.top;
+        ch->GetPositionPaintOverExtent(&re,rscale);
+        RECT p = m_position;
+        ScaleRect(&p,rscale);
+        re.left += origin_x + p.left;
+        re.right += origin_x + p.left;
+        re.top += origin_y + p.top;
+        re.bottom += origin_y + p.top;
 
         RECT cr=*cliprect;
 
@@ -788,7 +831,7 @@ void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, REC
         if (cr.left < cr.right && cr.top < cr.bottom)
         {
           ch->SetCurPainter(m_curPainter);
-          ch->OnPaintOver(drawbm,m_position.left+origin_x,m_position.top+origin_y,&cr);
+          ch->OnPaintOver(drawbm,p.left+origin_x,p.top+origin_y,&cr,rscale);
           ch->SetCurPainter(NULL);
         }
       }
@@ -1688,3 +1731,4 @@ void WDL_VWnd_regHelperClass(const char *classname, void *icon1, void *icon2)
 #endif
 }
 
+bool wdl_virtwnd_nosetcursorpos;

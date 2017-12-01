@@ -230,11 +230,15 @@ bool WDL_ChooseFileForSave(HWND parent,
 #else
   BrowseFile_SetTemplate(dlgid,(DLGPROC)dlgProc,reshead);
   char if_temp[4096];
-  if (initialfile) 
+  if (initialfile && *initialfile) 
   {
     lstrcpyn_safe(if_temp,initialfile,sizeof(if_temp));
     WDL_fixfnforopenfn(if_temp);
     initialfile = if_temp;
+  }
+  else
+  {
+    if (defext && *defext == '.') initialfile = defext; // SWELL supports default extension in filename field
   }
 
   bool r = BrowseForSaveFile(text,initialdir,initialfile,extlist,fn,fnsize);

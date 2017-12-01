@@ -52,6 +52,10 @@
 #include "wdltypes.h"
 #include "wdlatomic.h"
 
+#ifdef _DEBUG
+#include <assert.h>
+#endif
+
 class WDL_Mutex {
   public:
     WDL_Mutex() 
@@ -89,7 +93,8 @@ class WDL_Mutex {
     void Enter()
     {
 #ifdef _DEBUG
-      _debug_cnt++;
+      const int new_debug_cnt = wdl_atomic_incr(&_debug_cnt);
+      assert(new_debug_cnt > 0);
 #endif
 
 #ifdef _WIN32
@@ -104,7 +109,8 @@ class WDL_Mutex {
     void Leave()
     {
 #ifdef _DEBUG
-      _debug_cnt--;
+      const int new_debug_cnt = wdl_atomic_decr(&_debug_cnt);
+      assert(new_debug_cnt >= 0);
 #endif
 
 #ifdef _WIN32
@@ -128,6 +134,21 @@ class WDL_Mutex {
 #else
   pthread_mutex_t m_mutex;
 #endif
+
+  // prevent callers from copying mutexes accidentally
+  WDL_Mutex(const WDL_Mutex &cp)
+  {
+#ifdef _DEBUG
+    assert(sizeof(WDL_Mutex) == 0);
+#endif
+  }
+  WDL_Mutex &operator=(const WDL_Mutex &cp)
+  {
+#ifdef _DEBUG
+    assert(sizeof(WDL_Mutex) == 0);
+#endif
+    return *this;
+  }
 
 } WDL_FIXALIGN;
 
@@ -188,6 +209,23 @@ class WDL_SharedMutex
   private:
     WDL_Mutex m_mutex;
     int m_sharedcnt;
+
+    // prevent callers from copying accidentally
+    WDL_SharedMutex(const WDL_SharedMutex &cp)
+    {
+    #ifdef _DEBUG
+      assert(sizeof(WDL_SharedMutex) == 0);
+    #endif
+    }
+    WDL_SharedMutex &operator=(const WDL_SharedMutex &cp)
+    {
+    #ifdef _DEBUG
+      assert(sizeof(WDL_SharedMutex) == 0);
+    #endif
+      return *this;
+    }
+
+
 } WDL_FIXALIGN;
 
 

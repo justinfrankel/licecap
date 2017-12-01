@@ -35,6 +35,8 @@
 
 #include "ptrlist.h"
 
+#define WDL_FASTQUEUE_ADD_NOZEROBUF ((void *)(INT_PTR)0xf0)
+
 class WDL_FastQueue
 {
   struct fqBuf
@@ -57,9 +59,9 @@ public:
     m_empties.Empty(true,free);
   }
   
-  void Add(const void *buf, int len) // buf can be NULL to add zeroes
+  void *Add(const void *buf, int len) // buf can be NULL to add zeroes
   {
-    if (len < 1) return;
+    if (len < 1) return NULL;
 
     fqBuf *qb=m_queue.Get(m_queue.GetSize()-1);
     if (!qb || (qb->used + len) > qb->alloc_size)
@@ -76,17 +78,29 @@ public:
       {
         const int sz=len < m_bsize ? m_bsize : len;
         qb=(fqBuf *)malloc(sz + sizeof(fqBuf) - sizeof(qb->data));
-        if (!qb) return;
+        if (!qb) return NULL;
         qb->alloc_size = sz;
       }
       qb->used=0;
       m_queue.Add(qb);
     }
-    if (buf) memcpy(qb->data + qb->used, buf, len);
-    else memset(qb->data + qb->used, 0, len);
+
+    void *ret = qb->data + qb->used;
+    if (buf)
+    {
+      if (buf != WDL_FASTQUEUE_ADD_NOZEROBUF) 
+      {
+        memcpy(ret, buf, len);
+      }
+    }
+    else 
+    {
+      memset(ret, 0, len);
+    }
 
     qb->used += len;
     m_avail+=len;
+    return ret;
   }
 
   void Clear(int limitmaxempties=-1)

@@ -107,37 +107,36 @@ LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp)
   }
 
   unsigned char **row_pointers=(unsigned char **)malloc(height*sizeof(unsigned char *));;
-  LICE_pixel *bmpptr = bmp->getBits();
-  int dbmpptr=bmp->getRowSpan();
+  LICE_pixel *srcptr = bmp->getBits();
+  int dsrcptr=bmp->getRowSpan();
   if (bmp->isFlipped())
   {
-    bmpptr += dbmpptr*(bmp->getHeight()-1);
-    dbmpptr=-dbmpptr;
+    srcptr += dsrcptr*(bmp->getHeight()-1);
+    dsrcptr=-dsrcptr;
   }
   unsigned int i;
   for(i=0;i<height;i++)
   {
-    row_pointers[i]=(unsigned char *)bmpptr;
-    bmpptr+=dbmpptr;
+    row_pointers[i]=(unsigned char *)srcptr;
+    srcptr+=dsrcptr;
   }
   png_read_image(png_ptr, row_pointers);
   png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
   fclose(fp);
 
-  //put shit in correct order
   #if !(LICE_PIXEL_A == 0 && LICE_PIXEL_R == 1 && LICE_PIXEL_G == 2 && LICE_PIXEL_B == 3)
   for(i=0;i<height;i++)
   {
-    unsigned char *bmpptr = row_pointers[i];
+    unsigned char *bp = row_pointers[i];
     int j=width;
     while (j-->0)
     {
-      unsigned char a = bmpptr[0];
-      unsigned char r = bmpptr[1];
-      unsigned char g = bmpptr[2];
-      unsigned char b = bmpptr[3];
-      ((LICE_pixel*)bmpptr)[0] = LICE_RGBA(r,g,b,a);
-      bmpptr+=4;
+      unsigned char a = bp[0];
+      unsigned char r = bp[1];
+      unsigned char g = bp[2];
+      unsigned char b = bp[3];
+      ((LICE_pixel*)bp)[0] = LICE_RGBA(r,g,b,a);
+      bp+=4;
     }
   }
   #endif
@@ -279,13 +278,13 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
   }
 
   unsigned char **row_pointers=(unsigned char **)malloc(height*sizeof(unsigned char *));;
-  LICE_pixel *bmpptr = bmp->getBits();
-  int dbmpptr=bmp->getRowSpan();
+  LICE_pixel *srcptr = bmp->getBits();
+  int dsrcptr=bmp->getRowSpan();
   unsigned int i;
   for(i=0;i<height;i++)
   {
-    row_pointers[i]=(unsigned char *)bmpptr;
-    bmpptr+=dbmpptr;
+    row_pointers[i]=(unsigned char *)srcptr;
+    srcptr+=dsrcptr;
   }
   png_read_image(png_ptr, row_pointers);
   png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
@@ -294,16 +293,16 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
   #if !(LICE_PIXEL_A == 0 && LICE_PIXEL_R == 1 && LICE_PIXEL_G == 2 && LICE_PIXEL_B == 3)
   for(i=0;i<height;i++)
   {
-    unsigned char *bmpptr = row_pointers[i];
+    unsigned char *bp = row_pointers[i];
     int j=width;
     while (j-->0)
     {
-      unsigned char a = bmpptr[0];
-      unsigned char r = bmpptr[1];
-      unsigned char g = bmpptr[2];
-      unsigned char b = bmpptr[3];
-      ((LICE_pixel*)bmpptr)[0] = LICE_RGBA(r,g,b,a);
-      bmpptr+=4;
+      unsigned char a = bp[0];
+      unsigned char r = bp[1];
+      unsigned char g = bp[2];
+      unsigned char b = bp[3];
+      ((LICE_pixel*)bp)[0] = LICE_RGBA(r,g,b,a);
+      bp+=4;
     }
   }
   #endif

@@ -182,17 +182,17 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
     WSAStartup(MAKEWORD(1, 1), &wsaData);
   }
 #endif
-  SOCKET *s = m_listens.GetPtr(port);
+  SOCKET *sockptr = m_listens.GetPtr(port);
   if (mode<0)
   {
-    if (!s) return -1.0;
+    if (!sockptr) return -1.0;
 
-    SOCKET ss=*s;
+    SOCKET ss=*sockptr;
     m_listens.Delete(port);
     if (ss != INVALID_SOCKET) closesocket(ss);
     return 0.0;
   }
-  if (!s)
+  if (!sockptr)
   {
     struct sockaddr_in sin;
     memset((char *) &sin, 0,sizeof(sin));
@@ -224,13 +224,13 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
     // we report -1 to the caller, no need to error message
 #endif
     m_listens.Insert(port,sock);
-    s = m_listens.GetPtr(port);
+    sockptr = m_listens.GetPtr(port);
   }
-  if (!s || *s == INVALID_SOCKET) return -1;
+  if (!sockptr || *sockptr == INVALID_SOCKET) return -1;
 
   struct sockaddr_in saddr;
   socklen_t length = sizeof(struct sockaddr_in);
-  SOCKET newsock = accept(*s, (struct sockaddr *) &saddr, &length);
+  SOCKET newsock = accept(*sockptr, (struct sockaddr *) &saddr, &length);
   if (newsock == INVALID_SOCKET) 
   {
     return 0; // nothing to report here
@@ -239,20 +239,20 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
   int x;
   for(x=0;x<m_cons.GetSize();x++)
   {
-    connection_state *s=m_cons.Get()+x;
-    if (s->state == STATE_FREE)
+    connection_state *cs=m_cons.Get()+x;
+    if (cs->state == STATE_FREE)
     {
-      s->state=STATE_CONNECTED;
-      free(s->hostname);
-      s->hostname=NULL;
-      s->sock = newsock;
-      s->blockmode=0;
-      s->port=0;
+      cs->state=STATE_CONNECTED;
+      free(cs->hostname);
+      cs->hostname=NULL;
+      cs->sock = newsock;
+      cs->blockmode=0;
+      cs->port=0;
       if (ipOut)
       {
         EEL_STRING_MUTEXLOCK_SCOPE
         WDL_FastString *ws=NULL;
-        EEL_STRING_GET_FOR_INDEX(*ipOut,&ws);
+        EEL_STRING_GET_FOR_WRITE(*ipOut,&ws);
         if (ws)
         {
           const unsigned int a = ntohl(saddr.sin_addr.s_addr);
@@ -331,7 +331,7 @@ int eel_net_state::do_recv(void *opaque, EEL_F h, char *buf, int maxlen)
 
     if (maxlen == 0) return 0;
 
-    const int rv=recv(s->sock,buf,maxlen,0);
+    const int rv=(int)recv(s->sock,buf,maxlen,0);
     if (rv < 0 && !s->blockmode && (ERRNO == EWOULDBLOCK||ERRNO==ENOTCONN)) return 0;
 
     if (!rv) return -1; // TCP, 0=connection terminated
@@ -355,7 +355,7 @@ int eel_net_state::do_send(void *opaque, EEL_F h, const char *src, int len)
       EEL_STRING_DEBUGOUT("tcp_send: connection identifier %f is not open",h);
 #endif
     if (__run(s) || s->sock == INVALID_SOCKET) return s->state == STATE_ERR ? -1 : 0;
-    const int rv=send(s->sock,src,len,0);
+    const int rv=(int)send(s->sock,src,len,0);
     if (rv < 0 && !s->blockmode && (ERRNO == EWOULDBLOCK || ERRNO==ENOTCONN)) return 0;
     return rv;
   }
@@ -483,7 +483,7 @@ static EEL_F NSEEL_CGEN_CALL _eel_tcp_recv(void *opaque, INT_PTR np, EEL_F **par
     {
       EEL_STRING_MUTEXLOCK_SCOPE
       WDL_FastString *ws=NULL;
-      EEL_STRING_GET_FOR_INDEX(parms[1][0],&ws);
+      EEL_STRING_GET_FOR_WRITE(parms[1][0],&ws);
       if (ws)
       {
         if (ml<=0) ws->Set("");

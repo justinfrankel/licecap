@@ -95,7 +95,7 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
   while (tabsize--)
   {
     RECT r;
-    int a=*tab++;
+    int a=(int)*tab++;
     if (a & DCW_HWND_FOLLOW)
     {
       a&=~DCW_HWND_FOLLOW;

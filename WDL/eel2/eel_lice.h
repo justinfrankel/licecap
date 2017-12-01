@@ -209,7 +209,7 @@ public:
   }
 
   LICE_IBitmap *m_framebuffer, *m_framebuffer_extra;
-  int m_framebuffer_refstate;
+  int m_framebuffer_dirty;
   WDL_TypedBuf<LICE_IBitmap *> m_gfx_images;
   struct gfxFontStruct {
     LICE_IFont *font;
@@ -238,7 +238,15 @@ public:
 
   void SetImageDirty(LICE_IBitmap *bm)
   {
-    if (bm == m_framebuffer) m_framebuffer_refstate=1;
+    if (bm == m_framebuffer && !m_framebuffer_dirty)
+    {
+      if (m_gfx_clear && *m_gfx_clear > -1.0)
+      {
+        const int a=(int)*m_gfx_clear;
+        if (LICE_FUNCTION_VALID(LICE_Clear)) LICE_Clear(m_framebuffer,LICE_RGBA((a&0xff),((a>>8)&0xff),((a>>16)&0xff),0));
+      }
+      m_framebuffer_dirty=1;
+    }
   }
 
   // R, G, B, A, w, h, x, y, mode(1=add,0=copy)
@@ -298,8 +306,12 @@ public:
   char m_cursor_name[128];
 #endif
 
+#ifndef EEL_LICE_STANDALONE_NOINITQUIT
+  RECT m_last_undocked_r;
 #endif
-  bool m_has_cap; // to avoid reporting capture on nonclient mousedown
+
+#endif
+  int m_has_cap; // high 16 bits are current capture state, low 16 bits are temporary flags from mousedown
   bool m_has_had_getch; // set on first gfx_getchar(), makes mouse_cap updated with modifiers even when no mouse click is down
 };
 
@@ -313,6 +325,10 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   memset(hwnd_standalone_kb_state,0,sizeof(hwnd_standalone_kb_state));
   m_kb_queue_valid=0;
   m_cursor_resid=0;
+#ifndef EEL_LICE_STANDALONE_NOINITQUIT
+  memset(&m_last_undocked_r,0,sizeof(m_last_undocked_r));
+#endif
+
 #ifdef EEL_LICE_LOADTHEMECURSOR
   m_cursor_name[0]=0;
 #endif
@@ -326,7 +342,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   m_gfx_images.Resize(image_slots);
   memset(m_gfx_images.Get(),0,m_gfx_images.GetSize()*sizeof(m_gfx_images.Get()[0]));
   m_framebuffer=m_framebuffer_extra=0;
-  m_framebuffer_refstate=0;
+  m_framebuffer_dirty=0;
 
   m_gfx_r = NSEEL_VM_regvar(vm,"gfx_r");
   m_gfx_g = NSEEL_VM_regvar(vm,"gfx_g");
@@ -351,7 +367,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
 
   if (m_gfx_texth) *m_gfx_texth=8;
 
-  m_has_cap=false;
+  m_has_cap=0;
   m_has_had_getch=false;
 }
 eel_lice_state::~eel_lice_state()
@@ -536,7 +552,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_circle(void *opaque, INT_PTR np, EEL_F **parms
 static EEL_F NSEEL_CGEN_CALL _gfx_triangle(void* opaque, INT_PTR np, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_triangle(parms, np);
+  if (ctx) ctx->gfx_triangle(parms, (int)np);
   return 0.0;
 }
 
@@ -575,19 +591,20 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_measurechar(void *opaque, EEL_F *str, EEL_F 
   return str;
 }
 
-static EEL_F * NSEEL_CGEN_CALL _gfx_drawstr(void *opaque, EEL_F *n)
+static EEL_F NSEEL_CGEN_CALL _gfx_drawstr(void *opaque, INT_PTR nparms, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_drawstr(opaque,&n,1,0);
-  return n;
+  if (ctx) ctx->gfx_drawstr(opaque,parms,(int)nparms,0);
+  return parms[0][0];
 }
+
 static EEL_F NSEEL_CGEN_CALL _gfx_printf(void *opaque, INT_PTR nparms, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx && nparms>0) 
   {
     EEL_F v= **parms;
-    ctx->gfx_drawstr(opaque,parms,nparms,1);
+    ctx->gfx_drawstr(opaque,parms,(int)nparms,1);
     return v;
   }
   return 0.0;
@@ -651,7 +668,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getfont(void *opaque, INT_PTR np, EEL_F **parm
       NOT_EEL_STRING_UPDATE_STRING(parms[0][0],f->actual_fontname);
 #else
       WDL_FastString *fs=NULL;
-      EEL_STRING_GET_FOR_INDEX(parms[0][0],&fs);
+      EEL_STRING_GET_FOR_WRITE(parms[0][0],&fs);
       if (fs) fs->Set(f->actual_fontname);
 #endif
     }
@@ -746,8 +763,8 @@ void eel_lice_state::gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag)
       LICE_FUNCTION_VALID(LICE_ClipLine) && 
       LICE_ClipLine(&x1,&y1,&x2,&y2,0,0,LICE__GetWidth(dest),LICE__GetHeight(dest))) 
   {
-    LICE_Line(dest,x1,y1,x2,y2,getCurColor(),(float) *m_gfx_a,getCurMode(),aaflag > 0.5);
     SetImageDirty(dest);
+    LICE_Line(dest,x1,y1,x2,y2,getCurColor(),(float) *m_gfx_a,getCurMode(),aaflag > 0.5);
   }
   *m_gfx_x = xpos;
   *m_gfx_y = ypos;
@@ -761,11 +778,11 @@ void eel_lice_state::gfx_circle(float x, float y, float r, bool fill, bool aafla
 
   if (LICE_FUNCTION_VALID(LICE_Circle) && LICE_FUNCTION_VALID(LICE_FillCircle))
   {
+    SetImageDirty(dest);
     if(fill)
       LICE_FillCircle(dest, x, y, r, getCurColor(), (float) *m_gfx_a, getCurMode(), aaflag);
     else
       LICE_Circle(dest, x, y, r, getCurColor(), (float) *m_gfx_a, getCurMode(), aaflag);
-    SetImageDirty(dest);
   }
 }
 
@@ -775,6 +792,7 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
   if (np >= 6)
   {
     np &= ~1;
+    SetImageDirty(dest);
     if (np == 6)
     {        
       if (!LICE_FUNCTION_VALID(LICE_FillTriangle)) return;
@@ -798,7 +816,6 @@ void eel_lice_state::gfx_triangle(EEL_F** parms, int np)
 
       LICE_FillConvexPolygon(dest, x, y, n, getCurColor(), (float)*m_gfx_a, getCurMode());
     }
-    SetImageDirty(dest);
   }
 }
 
@@ -813,9 +830,8 @@ void eel_lice_state::gfx_rectto(EEL_F xpos, EEL_F ypos)
 
   if (LICE_FUNCTION_VALID(LICE_FillRect) && x2-x1 > 0.5 && y2-y1 > 0.5)
   {
-    LICE_FillRect(dest,(int)x1,(int)y1,(int)(x2-x1),(int)(y2-y1),getCurColor(),(float)*m_gfx_a,getCurMode());
-
     SetImageDirty(dest);
+    LICE_FillRect(dest,(int)x1,(int)y1,(int)(x2-x1),(int)(y2-y1),getCurColor(),(float)*m_gfx_a,getCurMode());
   }
   *m_gfx_x = xpos;
   *m_gfx_y = ypos;
@@ -833,8 +849,8 @@ void eel_lice_state::gfx_line(int np, EEL_F **parms)
       LICE_FUNCTION_VALID(LICE_Line) && 
       LICE_FUNCTION_VALID(LICE_ClipLine) && LICE_ClipLine(&x1,&y1,&x2,&y2,0,0,LICE__GetWidth(dest),LICE__GetHeight(dest))) 
   {
-    LICE_Line(dest,x1,y1,x2,y2,getCurColor(),(float)*m_gfx_a,getCurMode(),np< 5 || parms[4][0] > 0.5);
     SetImageDirty(dest);
+    LICE_Line(dest,x1,y1,x2,y2,getCurColor(),(float)*m_gfx_a,getCurMode(),np< 5 || parms[4][0] > 0.5);
   } 
 }
 
@@ -848,9 +864,9 @@ void eel_lice_state::gfx_rect(int np, EEL_F **parms)
 
   if (LICE_FUNCTION_VALID(LICE_FillRect) && LICE_FUNCTION_VALID(LICE_DrawRect) && w>0 && h>0)
   {
+    SetImageDirty(dest);
     if (filled) LICE_FillRect(dest,x1,y1,w,h,getCurColor(),(float)*m_gfx_a,getCurMode());
     else LICE_DrawRect(dest, x1, y1, w-1, h-1, getCurColor(), (float)*m_gfx_a, getCurMode());
-    SetImageDirty(dest);
   }
 }
 
@@ -863,8 +879,8 @@ void eel_lice_state::gfx_roundrect(int np, EEL_F **parms)
 
   if (LICE_FUNCTION_VALID(LICE_RoundRect) && parms[2][0]>0 && parms[3][0]>0)
   {
-    LICE_RoundRect(dest, (float)parms[0][0], (float)parms[1][0], (float)parms[2][0], (float)parms[3][0], (int)parms[4][0], getCurColor(), (float)*m_gfx_a, getCurMode(), aa);
     SetImageDirty(dest);
+    LICE_RoundRect(dest, (float)parms[0][0], (float)parms[1][0], (float)parms[2][0], (float)parms[3][0], (int)parms[4][0], getCurColor(), (float)*m_gfx_a, getCurMode(), aa);
   }
 }
 
@@ -877,8 +893,8 @@ void eel_lice_state::gfx_arc(int np, EEL_F **parms)
 
   if (LICE_FUNCTION_VALID(LICE_Arc))
   {
-    LICE_Arc(dest, (float)parms[0][0], (float)parms[1][0], (float)parms[2][0], (float)parms[3][0], (float)parms[4][0], getCurColor(), (float)*m_gfx_a, getCurMode(), aa);
     SetImageDirty(dest);
+    LICE_Arc(dest, (float)parms[0][0], (float)parms[1][0], (float)parms[2][0], (float)parms[3][0], (float)parms[4][0], getCurColor(), (float)*m_gfx_a, getCurMode(), aa);
   }
 }
 
@@ -891,21 +907,19 @@ void eel_lice_state::gfx_grad_or_muladd_rect(int whichmode, int np, EEL_F **parm
 
   if (w>0 && h>0)
   {
+    SetImageDirty(dest);
     if (whichmode==0 && LICE_FUNCTION_VALID(LICE_GradRect) && np > 7)
     {
       LICE_GradRect(dest,x1,y1,w,h,(float)parms[4][0],(float)parms[5][0],(float)parms[6][0],(float)parms[7][0],
                                    np > 8 ? (float)parms[8][0]:0.0f, np > 9 ? (float)parms[9][0]:0.0f,  np > 10 ? (float)parms[10][0]:0.0f, np > 11 ? (float)parms[11][0]:0.0f,  
                                    np > 12 ? (float)parms[12][0]:0.0f, np > 13 ? (float)parms[13][0]:0.0f,  np > 14 ? (float)parms[14][0]:0.0f, np > 15 ? (float)parms[15][0]:0.0f,  
                                    getCurMode());
-
-      SetImageDirty(dest);
     }
     else if (whichmode==1 && LICE_FUNCTION_VALID(LICE_MultiplyAddRect) && np > 6)
     {
       const double sc = 255.0;
       LICE_MultiplyAddRect(dest,x1,y1,w,h,(float)parms[4][0],(float)parms[5][0],(float)parms[6][0],np>7 ? (float)parms[7][0]:1.0f,
         (float)(np > 8 ? sc*parms[8][0]:0.0), (float)(np > 9 ? sc*parms[9][0]:0.0),  (float)(np > 10 ? sc*parms[10][0]:0.0), (float)(np > 11 ? sc*parms[11][0]:0.0));
-      SetImageDirty(dest);
     }
   }
 }
@@ -926,19 +940,17 @@ void eel_lice_state::gfx_setpixel(EEL_F r, EEL_F g, EEL_F b)
 
   if (LICE_FUNCTION_VALID(LICE_PutPixel)) 
   {
-    LICE_PutPixel(dest,(int)*m_gfx_x, (int)*m_gfx_y,LICE_RGBA(red,green,blue,255), (float)*m_gfx_a,getCurMode());
     SetImageDirty(dest);
+    LICE_PutPixel(dest,(int)*m_gfx_x, (int)*m_gfx_y,LICE_RGBA(red,green,blue,255), (float)*m_gfx_a,getCurMode());
   }
 }
 
 void eel_lice_state::gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h)
 {
   *w=*h=0;
-  if (!this
 #ifdef DYNAMIC_LICE
-    ||!LICE__GetWidth || !LICE__GetHeight
+  if (!LICE__GetWidth || !LICE__GetHeight) return;
 #endif
-    ) return;
 
   LICE_IBitmap *bm=GetImageForIndex(img,"gfx_getimgdim"); 
   if (bm)
@@ -951,11 +963,9 @@ void eel_lice_state::gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h)
 
 EEL_F eel_lice_state::gfx_loadimg(void *opaque, int img, EEL_F loadFrom)
 {
-  if (!this
 #ifdef DYNAMIC_LICE
-    ||!__LICE_LoadImage || !LICE__Destroy
+  if (!__LICE_LoadImage || !LICE__Destroy) return 0.0;
 #endif
-    ) return 0.0;
 
   if (img >= 0 && img < m_gfx_images.GetSize()) 
   {
@@ -980,11 +990,9 @@ EEL_F eel_lice_state::gfx_loadimg(void *opaque, int img, EEL_F loadFrom)
 EEL_F eel_lice_state::gfx_setimgdim(int img, EEL_F *w, EEL_F *h)
 {
   int rv=0;
-  if (!this
 #ifdef DYNAMIC_LICE
-    ||!LICE__resize ||!LICE__GetWidth || !LICE__GetHeight||!__LICE_CreateBitmap
+  if (!LICE__resize ||!LICE__GetWidth || !LICE__GetHeight||!__LICE_CreateBitmap) return 0.0;
 #endif
-    ) return 0.0;
 
   int use_w = (int)*w;
   int use_h = (int)*h;
@@ -1018,6 +1026,8 @@ void eel_lice_state::gfx_blurto(EEL_F x, EEL_F y)
     ||!LICE_Blur
 #endif
     ) return;
+
+  SetImageDirty(dest);
   
   int srcx = (int)x;
   int srcy = (int)y;
@@ -1028,7 +1038,6 @@ void eel_lice_state::gfx_blurto(EEL_F x, EEL_F y)
   LICE_Blur(dest,dest,srcx,srcy,srcx,srcy,srcw,srch);
   *m_gfx_x = x;
   *m_gfx_y = y;
-  SetImageDirty(dest);
 }
 
 static bool CoordsSrcDestOverlap(EEL_F *coords)
@@ -1058,6 +1067,8 @@ void eel_lice_state::gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_
  
   const bool isFromFB = bm==m_framebuffer;
 
+  SetImageDirty(dest);
+
   if (bm == dest)
   {
     if (!m_framebuffer_extra && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer_extra=__LICE_CreateBitmap(0,bmw,bmh);
@@ -1072,8 +1083,6 @@ void eel_lice_state::gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_
     }
   }
   LICE_TransformBlit2(dest,bm,(int)floor(parms[1][0]),(int)floor(parms[2][0]),(int)floor(parms[3][0]),(int)floor(parms[4][0]),tab,div_w,div_h, (float)*m_gfx_a,getCurModeForBlit(isFromFB));
-
-  SetImageDirty(dest);
 }
 
 EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
@@ -1142,7 +1151,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
             TEXTMETRIC tm;
             tm.tmHeight = sz;
 
-            if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer=__LICE_CreateBitmap(0,64,64);
+            if (!m_framebuffer && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer=__LICE_CreateBitmap(1,64,64);
 
             if (m_framebuffer && LICE_FUNCTION_VALID(LICE__GetDC))
             {
@@ -1222,6 +1231,7 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
   coords[7]=np > 8 ? parms[8][0] : coords[3]*sc;
  
   const bool isFromFB = bm == m_framebuffer;
+  SetImageDirty(dest);
  
   if (bm == dest && CoordsSrcDestOverlap(coords))
   {
@@ -1263,7 +1273,6 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
     LICE_ScaledBlit(dest,bm,(int)coords[4],(int)coords[5],(int)coords[6],(int)coords[7],
       (float)coords[0],(float)coords[1],(float)coords[2],(float)coords[3], (float)*m_gfx_a,getCurModeForBlit(isFromFB));
   }
-  SetImageDirty(dest);
 }
 
 void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
@@ -1279,6 +1288,7 @@ void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
   LICE_IBitmap *bm=GetImageForIndex(img,"gfx_blitext:src");
   if (!bm) return;
   
+  SetImageDirty(dest);
   const bool isFromFB = bm == m_framebuffer;
  
   int bmw=LICE__GetWidth(bm);
@@ -1310,7 +1320,6 @@ void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
     LICE_ScaledBlit(dest,bm,(int)coords[4],(int)coords[5],(int)coords[6],(int)coords[7],
       (float)coords[0],(float)coords[1],(float)coords[2],(float)coords[3], (float)*m_gfx_a,getCurModeForBlit(isFromFB));
   }
-  SetImageDirty(dest);
 }
 
 void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
@@ -1326,6 +1335,7 @@ void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
   
   if (!bm) return;
   
+  SetImageDirty(dest);
   const bool isFromFB = bm == m_framebuffer;
   
   int bmw=LICE__GetWidth(bm);
@@ -1339,7 +1349,6 @@ void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
   {
     LICE_ScaledBlit(dest,bm,(int)*m_gfx_x,(int)*m_gfx_y,(int) (bmw*scale),(int) (bmh*scale),0.0f,0.0f,(float)bmw,(float)bmh, (float)*m_gfx_a,getCurModeForBlit(isFromFB));
   }
-  SetImageDirty(dest);
 }
 
 void eel_lice_state::gfx_set(int np, EEL_F **parms)
@@ -1367,15 +1376,17 @@ void eel_lice_state::gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b)
 }
 
 
-static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont *font, const char *buf, int buflen, int fg, int mode, float alpha, EEL_F *wantYoutput, EEL_F **measureOnly)
+static int __drawTextWithFont(LICE_IBitmap *dest, const RECT *rect, LICE_IFont *font, const char *buf, int buflen, 
+  int fg, int mode, float alpha, int flags, EEL_F *wantYoutput, EEL_F **measureOnly)
 {
   if (font && LICE_FUNCTION_VALID(LICE__DrawText))
   {
+    RECT tr=*rect;
     LICE__SetTextColor(font,fg);
     LICE__SetTextCombineMode(font,mode,alpha);
 
     int maxx=0;
-    RECT r={0,0,xpos,0};
+    RECT r={0,0,tr.left,0};
     while (buflen>0)
     {
       int thislen = 0;
@@ -1384,19 +1395,15 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
       int lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
       if (!measureOnly)
       {
-        r.left = xpos;
-        r.top = ypos;
-        r.right += xpos;
-        r.bottom += ypos;
-        lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&r,DT_SINGLELINE|DT_NOPREFIX|DT_LEFT|DT_TOP);
-
-        if (wantYoutput) *wantYoutput = ypos;
+        r.right += tr.left;
+        lineh = LICE__DrawText(font,dest,buf,thislen?thislen:1,&tr,DT_SINGLELINE|DT_NOPREFIX|flags);
+        if (wantYoutput) *wantYoutput = tr.top;
       }
       else
       {
         if (r.right > maxx) maxx=r.right;
       }
-      ypos += lineh;
+      tr.top += lineh;
 
       buflen -= thislen+1;
       buf += thislen+1;      
@@ -1404,15 +1411,47 @@ static int __drawTextWithFont(LICE_IBitmap *dest, int xpos, int ypos, LICE_IFont
     if (measureOnly) 
     {
       measureOnly[0][0] = maxx;
-      measureOnly[1][0] = ypos;
+      measureOnly[1][0] = tr.top;
     }
     return r.right;
   }
   else
   { 
+    int xpos=rect->left, ypos=rect->top;
     int x;
     const int sxpos = xpos;
     int maxx=0,maxy=0;
+
+    LICE_SubBitmap sbm(
+#ifdef DYNAMIC_LICE
+        (LICE_IBitmap_disabledAPI*)
+#endif
+        dest,rect->left,rect->top,rect->right-rect->left,rect->bottom-rect->top);
+
+    if (!measureOnly)
+    {
+      if (!(flags & DT_NOCLIP))
+      {
+        if (rect->right <= rect->left || rect->bottom <= rect->top) return 0; // invalid clip rect hm
+
+        xpos = ypos = 0;
+        dest = &sbm;
+      }
+      if (flags & (DT_RIGHT|DT_BOTTOM|DT_CENTER|DT_VCENTER))
+      {
+        EEL_F w=0.0,h=0.0;
+        EEL_F *mo[2] = { &w,&h};
+        __drawTextWithFont(dest,rect,NULL,buf,buflen,0,0,0.0f,0,NULL,mo);
+
+        if (flags & DT_RIGHT) xpos += (rect->right-rect->left) - (int)floor(w);
+        else if (flags & DT_CENTER) xpos += (rect->right-rect->left)/2 - (int)floor(w*.5);
+
+        if (flags & DT_BOTTOM) ypos += (rect->bottom-rect->top) - (int)floor(h);
+        else if (flags & DT_VCENTER) ypos += (rect->bottom-rect->top)/2 - (int)floor(h*.5);
+      }
+    }
+
+
     if (LICE_FUNCTION_VALID(LICE_DrawChar)) for(x=0;x<buflen;x++)
     {
       switch (buf[x])
@@ -1456,8 +1495,8 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
   const char* sep=strchr(p, '|');
   while (sep || *p)
   {
-    int len = (sep ? sep-p : strlen(p));
-    int destlen=wdl_min(len, sizeof(buf)-1);
+    int len = (int)(sep ? sep-p : strlen(p));
+    int destlen=wdl_min(len, (int)sizeof(buf)-1);
     lstrcpyn(buf, p, destlen+1);
     p += len;
     if (sep) sep=strchr(++p, '|');
@@ -1478,15 +1517,20 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
       if (*q == '<') done=true;
       ++q;
     }
-    if (!hm) hm=CreatePopupMenu();
     if (subm) flags |= MF_POPUP;
     if (*q) InsertMenu(hm, pos++, flags, (subm ? (INT_PTR)subm : (INT_PTR)id++), q);
-    else InsertMenu(hm, pos++, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    else if (!done) InsertMenu(hm, pos++, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     if (done) break;
   }
 
   *str=p;
   *startid=id;
+
+  if (!pos) 
+  { 
+    DestroyMenu(hm);
+    return NULL;
+  }
   return hm;
 }
 
@@ -1494,8 +1538,7 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0.0;
 
-  WDL_FastString* fs=NULL;
-  const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], &fs);
+  const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], NULL);
   if (!p || !p[0]) return 0.0;
 
   int id=1;
@@ -1522,8 +1565,7 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
   m_cursor_name[0]=0;
   if (nparms > 1)
   {
-    WDL_FastString* fs=NULL;
-    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], &fs);
+    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL);
     if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
   }
 #endif
@@ -1584,17 +1626,30 @@ void eel_lice_state::gfx_drawstr(void *opaque, EEL_F **parms, int nparms, int fo
 
   if (s_len)
   {
+    SetImageDirty(dest);
     if (formatmode>=2)
     {
       if (nfmtparms==2)
-        __drawTextWithFont(dest,0,0,GetActiveFont(),s,s_len,getCurColor(),getCurMode(),(float) *m_gfx_a,NULL, fmtparms);
+      {
+        RECT r={0,0,0,0};
+        __drawTextWithFont(dest,&r,GetActiveFont(),s,s_len,
+          getCurColor(),getCurMode(),(float)*m_gfx_a,0,NULL,fmtparms);
+      }
     }
     else
-    {
-      *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),GetActiveFont(),s,s_len,getCurColor(),getCurMode(),(float) *m_gfx_a,m_gfx_y,NULL);
+    {    
+      RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
+      int flags=DT_NOCLIP;
+      if (formatmode == 0 && nparms >= 4)
+      {
+        flags=(int)*parms[1];
+        flags &= (DT_CENTER|DT_RIGHT|DT_VCENTER|DT_BOTTOM|DT_NOCLIP);
+        r.right=(int)*parms[2];
+        r.bottom=(int)*parms[3];
+      }
+      *m_gfx_x=__drawTextWithFont(dest,&r,GetActiveFont(),s,s_len,
+        getCurColor(),getCurMode(),(float)*m_gfx_a,flags,m_gfx_y,NULL);
     }
-
-    SetImageDirty(dest);
   }
 }
 
@@ -1603,17 +1658,19 @@ void eel_lice_state::gfx_drawchar(EEL_F ch)
   LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_drawchar");
   if (!dest) return;
 
+  SetImageDirty(dest);
+
   int a=(int)(ch+0.5);
   if (a == '\r' || a=='\n') a=' ';
 
   char buf[32];
   const int buflen = WDL_MakeUTFChar(buf, a, sizeof(buf));
 
-  *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
+  RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
+  *m_gfx_x = __drawTextWithFont(dest,&r,
                          GetActiveFont(),buf,buflen,
-                         getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);
+                         getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 
-  SetImageDirty(dest);
 }
 
 
@@ -1622,17 +1679,18 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
   LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_drawnumber");
   if (!dest) return;
 
+  SetImageDirty(dest);
+
   char buf[512];
   int a=(int)(ndigits+0.5);
   if (a <0)a=0;
   else if (a > 16) a=16;
   snprintf(buf,sizeof(buf),"%.*f",a,n);
 
-  *m_gfx_x = __drawTextWithFont(dest,(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),
+  RECT r={(int)floor(*m_gfx_x),(int)floor(*m_gfx_y),0,0};
+  *m_gfx_x = __drawTextWithFont(dest,&r,
                            GetActiveFont(),buf,(int)strlen(buf),
-                           getCurColor(),getCurMode(),(float)*m_gfx_a, NULL,NULL);
-
-  SetImageDirty(dest);
+                           getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 }
 
 int eel_lice_state::setup_frame(HWND hwnd, RECT r)
@@ -1658,6 +1716,22 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     }
 #else
     *m_gfx_ext_retina = 1.0;
+    #ifdef _WIN32
+       static UINT (WINAPI *__GetDpiForWindow)(HWND);
+       if (!__GetDpiForWindow)
+       {
+         HINSTANCE h = LoadLibrary("user32.dll");
+         if (h) *(void **)&__GetDpiForWindow = GetProcAddress(h,"GetDpiForWindow");
+         if (!__GetDpiForWindow)
+           *(void **)&__GetDpiForWindow = (void*)(INT_PTR)1;
+       }
+       if (hwnd && (UINT_PTR)__GetDpiForWindow > (UINT_PTR)1)
+       {
+         int dpi = __GetDpiForWindow(hwnd);
+         if (dpi != 96)
+           *m_gfx_ext_retina = dpi / 96.0;
+       }
+    #endif
 #endif
   }
   int dr=0;
@@ -1677,21 +1751,24 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
   *m_gfx_w = use_w;
   *m_gfx_h = use_h;
   
-  if (*m_gfx_clear > -1.0)
+  if (*m_gfx_clear > -1.0 && dr)
   {
-    int a=(int)*m_gfx_clear;
-    int r=a&0xff;
-    int g=(a>>8)&0xff;
-    int b=(a>>16)&0xff;
-    if (LICE_FUNCTION_VALID(LICE_Clear)) LICE_Clear(m_framebuffer,LICE_RGBA(r,g,b,0));
+    const int a=(int)*m_gfx_clear;
+    if (LICE_FUNCTION_VALID(LICE_Clear)) LICE_Clear(m_framebuffer,LICE_RGBA((a&0xff),((a>>8)&0xff),((a>>16)&0xff),0));
   }
+  m_framebuffer_dirty = dr;
 
   int vflags=0;
 
   if (m_has_cap)
   {
-    if (GetAsyncKeyState(VK_LBUTTON)&0x8000) vflags|=1;
-    if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=2;
+    bool swap = false;
+#ifdef _WIN32
+    swap = !!GetSystemMetrics(SM_SWAPBUTTON);
+#endif
+    vflags|=m_has_cap&0xffff;
+    if (GetAsyncKeyState(VK_LBUTTON)&0x8000) vflags|=swap?2:1;
+    if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=swap?1:2;
     if (GetAsyncKeyState(VK_MBUTTON)&0x8000) vflags|=64;
   }
   if (m_has_cap || (m_has_had_getch && GetFocus()==hwnd))
@@ -1701,6 +1778,8 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     if (GetAsyncKeyState(VK_MENU)&0x8000) vflags|=16;
     if (GetAsyncKeyState(VK_LWIN)&0x8000) vflags|=32;
   }
+  m_has_cap &= 0xf0000;
+
   *m_mouse_cap=(EEL_F)vflags;
 
   *m_gfx_dest = -1.0; // m_framebuffer
@@ -1735,7 +1814,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_setcursor",1, NSEEL_PProc_THIS, &_gfx_setcursor);
   NSEEL_addfunc_retptr("gfx_drawnumber",2,NSEEL_PProc_THIS,&_gfx_drawnumber);
   NSEEL_addfunc_retptr("gfx_drawchar",1,NSEEL_PProc_THIS,&_gfx_drawchar);
-  NSEEL_addfunc_retptr("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
+  NSEEL_addfunc_varparm("gfx_drawstr",1,NSEEL_PProc_THIS,&_gfx_drawstr);
   NSEEL_addfunc_retptr("gfx_measurestr",3,NSEEL_PProc_THIS,&_gfx_measurestr);
   NSEEL_addfunc_retptr("gfx_measurechar",3,NSEEL_PProc_THIS,&_gfx_measurechar);
   NSEEL_addfunc_varparm("gfx_printf",1,NSEEL_PProc_THIS,&_gfx_printf);
@@ -1770,7 +1849,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
   {
     if (ctx->hwnd_standalone) 
     {
-      if (ctx->m_framebuffer_refstate) 
+      if (ctx->m_framebuffer_dirty) 
       {
 #ifdef __APPLE__
         void *p = SWELL_InitAutoRelease();
@@ -1985,12 +2064,17 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
 #define ID_DOCKWINDOW 40269
 #endif
 
-static EEL_F NSEEL_CGEN_CALL _gfx_dock(void *opaque, EEL_F *n)
+static EEL_F NSEEL_CGEN_CALL _gfx_dock(void *opaque, INT_PTR np, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx)
   {
-    if (*n >= 0.0 && ctx->hwnd_standalone) EEL_LICE_WANTDOCK(ctx,(int)*n);
+    if (np > 0 && parms[0][0] >= 0.0 && ctx->hwnd_standalone) EEL_LICE_WANTDOCK(ctx,(int)parms[0][0]);
+
+    if (np > 1 && parms[1]) parms[1][0] = ctx->m_last_undocked_r.left;
+    if (np > 2 && parms[2]) parms[2][0] = ctx->m_last_undocked_r.top;
+    if (np > 3 && parms[3]) parms[3][0] = ctx->m_last_undocked_r.right;
+    if (np > 4 && parms[4]) parms[4][0] = ctx->m_last_undocked_r.bottom;
 
 #ifdef EEL_LICE_ISDOCKED
     return EEL_LICE_ISDOCKED(ctx); 
@@ -2058,13 +2142,35 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
         if (sug_h < 16) sug_h=16;
         else if (sug_h > 1600) sug_w=1600;
 
+        #ifdef EEL_LICE_WANTDOCK
+          const int pos_offs = 4;
+        #else
+          const int pos_offs = 3;
+        #endif
+
+        int px=0,py=0;
+        if (np >= pos_offs+2)
+        {
+          px = (int) floor(parms[pos_offs][0] + 0.5);
+          py = (int) floor(parms[pos_offs+1][0] + 0.5);
+#ifdef EEL_LICE_VALIDATE_RECT_ON_SCREEN
+          RECT r = {px,py,px+sug_w,py+sug_h};
+          EEL_LICE_VALIDATE_RECT_ON_SCREEN(r);
+          px=r.left; py=r.top; sug_w = r.right-r.left; sug_h = r.bottom-r.top;
+#endif
+          ctx->m_last_undocked_r.left = px;
+          ctx->m_last_undocked_r.top = py;
+          ctx->m_last_undocked_r.right = sug_w;
+          ctx->m_last_undocked_r.bottom = sug_h;
+        }
+
         RECT r1,r2;
         GetWindowRect(ctx->hwnd_standalone,&r1);
         GetClientRect(ctx->hwnd_standalone,&r2);
         sug_w += (r1.right-r1.left) - r2.right;
         sug_h += abs(r1.bottom-r1.top) - r2.bottom;
 
-        SetWindowPos(ctx->hwnd_standalone,NULL,0,0,sug_w,sug_h,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+        SetWindowPos(ctx->hwnd_standalone,NULL,px,py,sug_w,sug_h,(np >= pos_offs+2 ? 0:SWP_NOMOVE)|SWP_NOZORDER|SWP_NOACTIVATE);
 
         wantShow=true;
         #ifdef EEL_LICE_WANTDOCK
@@ -2095,6 +2201,35 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
   }
   return 0;  
 }
+
+static EEL_F NSEEL_CGEN_CALL _gfx_screentoclient(void *opaque, EEL_F *x, EEL_F *y)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx && ctx->hwnd_standalone)
+  {
+    POINT pt={(int) *x, (int) *y};
+    ScreenToClient(ctx->hwnd_standalone,&pt);
+    *x = pt.x; 
+    *y = pt.y;
+    return 1.0;
+  }
+  return 0.0;
+}
+
+static EEL_F NSEEL_CGEN_CALL _gfx_clienttoscreen(void *opaque, EEL_F *x, EEL_F *y)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx && ctx->hwnd_standalone)
+  {
+    POINT pt={(int) *x, (int) *y};
+    ClientToScreen(ctx->hwnd_standalone,&pt);
+    *x = pt.x; 
+    *y = pt.y;
+    return 1.0;
+  }
+  return 0.0;
+}
+
 #endif // !EEL_LICE_STANDALONE_NOINITQUIT
 
 
@@ -2258,7 +2393,7 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         if (a & mask)
         {
           int a_no_alt = (a&mask);
-          const int lowera = a_no_alt >= 1 && a_no_alt < 27 ? (a_no_alt+'a'-1) : tolower(a_no_alt);
+          const int lowera = a_no_alt >= 1 && a_no_alt < 27 ? (a_no_alt+'a'-1) : a_no_alt >= 'A' && a_no_alt <= 'Z' ? a_no_alt+'a'-'A' : a_no_alt;
 
           int *st = ctx->hwnd_standalone_kb_state;
 
@@ -2307,10 +2442,23 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
       GetClientRect(hwnd, &r);
       if (p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom)
       {
-        SetFocus(hwnd);
-        SetCapture(hwnd);
+        if (GetCapture()!=hwnd) SetFocus(hwnd);
         eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-        if (ctx) ctx->m_has_cap=true;
+        if (ctx) 
+        {
+          if (GetCapture()!=hwnd) SetCapture(hwnd);
+          int f = 0;
+          if (uMsg == WM_LBUTTONDBLCLK || uMsg == WM_LBUTTONDOWN) f=0x10001;
+          else if (uMsg == WM_RBUTTONDBLCLK || uMsg == WM_RBUTTONDOWN) f=0x20002;
+          else if (uMsg == WM_MBUTTONDBLCLK || uMsg == WM_MBUTTONDOWN) f=0x40040;
+
+          if (GetAsyncKeyState(VK_CONTROL)&0x8000) f|=4;
+          if (GetAsyncKeyState(VK_SHIFT)&0x8000) f|=8;
+          if (GetAsyncKeyState(VK_MENU)&0x8000) f|=16;
+          if (GetAsyncKeyState(VK_LWIN)&0x8000) f|=32;
+
+          ctx->m_has_cap|=f;
+        }
       }
     }
     return 1;
@@ -2319,9 +2467,25 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_MBUTTONUP:
     case WM_CAPTURECHANGED:
     {
-      if (uMsg != WM_CAPTURECHANGED) ReleaseCapture();
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (ctx) ctx->m_has_cap=false;
+      if (ctx) 
+      {
+        if (uMsg == WM_CAPTURECHANGED) 
+        {
+          ctx->m_has_cap &= 0xffff;
+        }
+        else 
+        {
+          if (uMsg == WM_LBUTTONUP) ctx->m_has_cap &= ~0x10000;
+          else if (uMsg == WM_RBUTTONUP) ctx->m_has_cap &= ~0x20000;
+          else if (uMsg == WM_MBUTTONUP) ctx->m_has_cap &= ~0x40000;
+
+          if (!(ctx->m_has_cap & 0xf0000)) 
+          {
+            ReleaseCapture();
+          }
+        }
+      }
     }
     return 1;
 #ifdef _WIN32
@@ -2330,10 +2494,29 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     break;
 #endif
     case WM_SIZE:
+      // fall through
+#ifndef EEL_LICE_STANDALONE_NOINITQUIT
+    case WM_MOVE:
+      if (uMsg != WM_SIZE || wParam != SIZE_MINIMIZED)
       {
         eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (ctx) ctx->m_framebuffer_refstate=0;
+        if (ctx 
+#ifdef EEL_LICE_ISDOCKED
+          && !(GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD)
+#endif
+          )  
+        {
+          RECT r;
+          GetWindowRect(hwnd,&ctx->m_last_undocked_r);
+          GetClientRect(hwnd,&r);
+          if (ctx->m_last_undocked_r.bottom < ctx->m_last_undocked_r.top) ctx->m_last_undocked_r.top = ctx->m_last_undocked_r.bottom;
+          ctx->m_last_undocked_r.right = r.right;
+          ctx->m_last_undocked_r.bottom = r.bottom;
+        }
+
       }
+#endif
+
     break;
 
     case WM_PAINT:
@@ -2356,7 +2539,6 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 #endif
               BitBlt(ps.hdc,0,0,w,h,LICE__GetDC(ctx->m_framebuffer),0,0,SRCCOPY);
           }
-          if (ctx) ctx->m_framebuffer_refstate=0;
           EndPaint(hwnd,&ps);
         }
       }
@@ -2387,9 +2569,13 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
   NSEEL_addfunc_varparm("gfx_init",1,NSEEL_PProc_THIS,&_gfx_init); 
   NSEEL_addfunc_retptr("gfx_quit",1,NSEEL_PProc_THIS,&_gfx_quit);
+
+  NSEEL_addfunc_retval("gfx_screentoclient",2,NSEEL_PProc_THIS,&_gfx_screentoclient);
+  NSEEL_addfunc_retval("gfx_clienttoscreen",2,NSEEL_PProc_THIS,&_gfx_clienttoscreen);
+
 #endif
 #ifdef EEL_LICE_WANTDOCK
-  NSEEL_addfunc_retval("gfx_dock",1,NSEEL_PProc_THIS,&_gfx_dock);
+  NSEEL_addfunc_varparm("gfx_dock",1,NSEEL_PProc_THIS,&_gfx_dock);
 #endif
 
 #ifdef EEL_LICE_WANT_STANDALONE_UPDATE
@@ -2471,9 +2657,9 @@ static const char *eel_lice_function_reference =
 #ifdef EEL_LICE_WANT_STANDALONE
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
 #ifdef EEL_LICE_WANTDOCK
-  "gfx_init\t\"name\"[,width,height,dockstate]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+  "gfx_init\t\"name\"[,width,height,dockstate,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
 #else
-  "gfx_init\t\"name\"[,width,height]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+  "gfx_init\t\"name\"[,width,height,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
 #endif
   "Once the graphics window is open, gfx_update() should be called periodically. \0"
   "gfx_quit\t\tCloses the graphics window.\0"
@@ -2483,7 +2669,7 @@ static const char *eel_lice_function_reference =
 #endif
 #endif
 #ifdef EEL_LICE_WANTDOCK
-  "gfx_dock\tv\tCall with v=-1 to query docked state, otherwise v>=0 to set docked state. State is &1 if docked, second byte is docker index (or last docker index if undocked).\0"
+  "gfx_dock\tv[,wx,wy,ww,wh]\tCall with v=-1 to query docked state, otherwise v>=0 to set docked state. State is &1 if docked, second byte is docker index (or last docker index if undocked). If wx-wh are specified, they will be filled with the undocked window position/size\0"
 #endif
   "gfx_aaaaa\t\t"
   "The following global variables are special and will be used by the graphics system:\n\n\3"
@@ -2550,7 +2736,13 @@ static const char *eel_lice_function_reference =
   "gfx_getpixel\tr,g,b\tGets the value of the pixel at gfx_x,gfx_y into r,g,b. \0"
   "gfx_drawnumber\tn,ndigits\tDraws the number n with ndigits of precision to gfx_x, gfx_y, and updates gfx_x to the right side of the drawing. The text height is gfx_texth.\0"
   "gfx_drawchar\tchar\tDraws the character (can be a numeric ASCII code as well), to gfx_x, gfx_y, and moves gfx_x over by the size of the character.\0"
-  "gfx_drawstr\t\"str\"\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\0"
+  "gfx_drawstr\t\"str\"[,flags,right,bottom]\tDraws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y so that subsequent draws will occur in a similar place.\n\n"
+    "If flags, right ,bottom passed in:\n"
+    "\4flags&1: center horizontally\n"
+    "\4flags&2: right justify\n"
+    "\4flags&4: center vertically\n"
+    "\4flags&8: bottom justify\n"
+    "\4flags&256: ignore right/bottom, otherwise text is clipped to (gfx_x, gfx_y, right, bottom)\0"
   "gfx_measurestr\t\"str\",&w,&h\tMeasures the drawing dimensions of a string with the current font (as set by gfx_setfont). \0"
   "gfx_measurechar\tcharacter,&w,&h\tMeasures the drawing dimensions of a character with the current font (as set by gfx_setfont). \0"
   "gfx_setfont\tidx[,\"fontface\", sz, flags]\tCan select a font and optionally configure it. idx=0 for default bitmapped font, no configuration is possible for this font. idx=1..16 for a configurable font, specify fontface such as \"Arial\", sz of 8-100, and optionally specify flags, which is a multibyte character, which can include 'i' for italics, 'u' for underline, or 'b' for bold. These flags may or may not be supported depending on the font and OS. After calling gfx_setfont(), gfx_texth may be updated to reflect the new average line height.\0"
@@ -2579,6 +2771,12 @@ static const char *eel_lice_function_reference =
   "gfx_arc\tx,y,r,ang1,ang2[,antialias]\tDraws an arc of the circle centered at x,y, with ang1/ang2 being specified in radians.\0"
   "gfx_set\tr[,g,b,a,mode,dest]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode, sets gfx_dest if final parameter specified\0"
 
+#ifdef EEL_LICE_WANT_STANDALONE
+#ifndef EEL_LICE_STANDALONE_NOINITQUIT
+  "gfx_clienttoscreen\tx,y\tConverts client coordinates x,y to screen coordinates.\0"
+  "gfx_screentoclient\tx,y\tConverts screen coordinates x,y to client coordinates.\0"
+#endif
+#endif
 ;
 #ifdef EELSCRIPT_LICE_MAX_IMAGES
 #undef MKSTR2

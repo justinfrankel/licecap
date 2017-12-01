@@ -37,8 +37,10 @@
 
 #if EEL_F_SIZE == 4
 typedef float EEL_F;
+typedef float *EEL_F_PTR;
 #else
 typedef double EEL_F WDL_FIXALIGN;
+typedef double *EEL_F_PTR;
 #endif
 
 #ifdef _MSC_VER
@@ -129,6 +131,7 @@ void NSEEL_VM_remove_all_nonreg_vars(NSEEL_VMCTX _ctx);
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx); // return false from func to stop
 
 EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variable (before compilation)
+EEL_F *NSEEL_VM_getvar(NSEEL_VMCTX ctx, const char *name); // get a variable (if registered or created by code)
 int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name); // returns -1 if not registered, or >=0
 
 void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx); // clears and frees all (VM) RAM used
@@ -146,6 +149,12 @@ void NSEEL_VM_FreeGRAM(void **ufd); // frees a gmem context.
 void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr);
 
 EEL_F *NSEEL_VM_getramptr(NSEEL_VMCTX ctx, unsigned int offs, int *validCount);
+EEL_F *NSEEL_VM_getramptr_noalloc(NSEEL_VMCTX ctx, unsigned int offs, int *validCount);
+
+
+// set 0 to query. returns actual value used (limits, granularity apply -- see NSEEL_RAM_BLOCKS)
+int NSEEL_VM_setramsize(NSEEL_VMCTX ctx, int maxent);
+
 
 struct eelStringSegmentRec {
   struct eelStringSegmentRec *_next;
@@ -215,10 +224,16 @@ extern int NSEEL_RAM_memused_errors;
 //  php a2x64.php macho64x
 // this will regenerate the .asm files and object files
 
-// 128*65536 = ~8million entries. (64MB RAM used)
+// 512 * 65536 = 32 million entries maximum (256MB RAM)
+// default is limited to 128 * 65536 = 8 million entries (64MB RAM)
 
+// default to 8 million entries, use NSEEL_VM_setramsize() to change at runtime
+#define NSEEL_RAM_BLOCKS_DEFAULTMAX 128
 
-#define NSEEL_RAM_BLOCKS_LOG2 7
+// 512 entry block table maximum (2k/4k per VM)
+#define NSEEL_RAM_BLOCKS_LOG2 9
+
+ // 65536 items per block (512KB)
 #define NSEEL_RAM_ITEMSPERBLOCK_LOG2 16
 
 #define NSEEL_RAM_BLOCKS (1 << NSEEL_RAM_BLOCKS_LOG2)

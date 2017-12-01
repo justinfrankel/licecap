@@ -1,5 +1,5 @@
-/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Losers (who use OS X))
-   Copyright (C) 2006-2007, Cockos, Inc.
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
 
     This software is provided 'as-is', without any express or implied
     warranty.  In no event will the authors be held liable for any damages
@@ -30,7 +30,7 @@
 #include "swell.h"
 #include "../wdlcstring.h"
 #import <Cocoa/Cocoa.h>
-static NSMutableArray *extensionsFromList(const char *extlist)
+static NSMutableArray *extensionsFromList(const char *extlist, const char *def_ext=NULL)
 {
 	NSMutableArray *fileTypes = [[NSMutableArray alloc] initWithCapacity:30];
 	while (*extlist)
@@ -48,7 +48,13 @@ static NSMutableArray *extensionsFromList(const char *extlist)
 			if (tmp[0] && tmp[0]!='*')
 			{
 				NSString *s=(NSString *)SWELL_CStringToCFString(tmp);
-				[fileTypes addObject:s];
+                                const size_t tmp_len = strlen(tmp);
+                                if (def_ext && *def_ext &&
+                                    !strnicmp(def_ext,tmp,tmp_len) &&
+                                    (!def_ext[tmp_len] || def_ext[tmp_len] == ';'))
+                                  [fileTypes insertObject:s atIndex:0];
+                                else
+  				  [fileTypes addObject:s];
 				[s release];
 			}
 			while (*extlist && *extlist != ';') extlist++;
@@ -70,35 +76,163 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
   BFSF_Templ_dlgproc=dlgProc;
 }
 
+static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  const int wndh = 22, lblw = 80, combow = 250, def_wid = lblw + 4 + combow + 4;
+  switch (uMsg)
+  {
+    case WM_CREATE:
+      SetOpaque(hwnd,FALSE);
+      SetWindowPos(hwnd,NULL,0,0,def_wid,wndh,SWP_NOMOVE|SWP_NOZORDER);
+      SWELL_MakeSetCurParms(1,1,0,0,hwnd,true,false);
+      SWELL_MakeLabel(1,"File type:",1001,0,2,lblw,wndh,0);
+      SWELL_MakeCombo(1000, lblw + 4,0, combow, wndh,3/*CBS_DROPDOWNLIST*/);
+      SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+      {
+        const char *extlist = ((const char **)lParam)[0];
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)extlist);
+        const char *initial_file = ((const char **)lParam)[1];
+
+        if (initial_file) initial_file=WDL_get_fileext(initial_file);
+        const size_t initial_file_len = initial_file  && *initial_file ? strlen(++initial_file) : 0;
+
+        int def_sel = -1;
+
+        HWND combo = GetDlgItem(hwnd,1000);
+        while (*extlist)
+        {
+          const char *next = extlist + strlen(extlist)+1;
+          if (!*next) break;
+
+          if (strcmp(next,"*.*"))
+          {
+            int a = (int)SendMessage(combo,CB_ADDSTRING,0,(LPARAM)extlist);
+
+            // userdata for each item is pointer to un-terminated extension.
+            const char *p = next;
+            while (*p && *p != '.') p++;
+            if (*p) p++;
+            const char *bestp = p;
+
+            // scan extension list for matching initial file, use that (and set default)
+            if (def_sel < 0 && initial_file) while (*p)
+            {
+              if (!strnicmp(p,initial_file,initial_file_len) && (p[initial_file_len] == ';' || !p[initial_file_len])) 
+              {
+                bestp = p;
+                def_sel = a;
+                break;
+              }
+              else
+              {
+                while (*p && *p != '.') p++;
+                if (*p) p++;
+              }
+            }
+            SendMessage(combo,CB_SETITEMDATA,a,(LPARAM)bestp);
+          }
+
+          extlist = next + strlen(next)+1;
+          if (!*extlist) break;
+        }
+        SendMessage(combo,CB_SETCURSEL,def_sel>=0?def_sel:0,0);
+      }
+    return 0;
+    case WM_SIZE:
+      {
+        RECT r;
+        GetClientRect(hwnd,&r);
+        const int xpos = r.right / 2 - def_wid/2;
+        SetWindowPos(GetDlgItem(hwnd,1001),NULL, xpos,2,0,0,SWP_NOZORDER|SWP_NOSIZE);
+        SetWindowPos(GetDlgItem(hwnd,1000),NULL, xpos + lblw + 4,0,0,0,SWP_NOZORDER|SWP_NOSIZE);
+
+      }
+    return 0;
+    case WM_COMMAND:
+      if (LOWORD(wParam) == 1000 && HIWORD(wParam) == CBN_SELCHANGE)
+      {
+        int a = (int)SendDlgItemMessage(hwnd,1000,CB_GETCURSEL,0,0);
+        if (a>=0)
+        {
+          const char *extlist = (const char *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          if (extlist)
+          {
+            NSArray *fileTypes = extensionsFromList(extlist,
+                (const char *)SendDlgItemMessage(hwnd,1000,CB_GETITEMDATA,a,0));
+            if ([fileTypes count]>0) 
+            {
+              NSSavePanel *par = (NSSavePanel*)[(NSView *)hwnd window];
+              if ([par isKindOfClass:[NSSavePanel class]]) [(NSSavePanel *)par setAllowedFileTypes:fileTypes];
+            }
+            [fileTypes release];
+          }
+        }
+      }
+    return 0;
+  }
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
+
 // return true
 bool BrowseForSaveFile(const char *text, const char *initialdir, const char *initialfile, const char *extlist,
                        char *fn, int fnsize)
 {
-	NSSavePanel *panel = [NSSavePanel savePanel];
+  NSSavePanel *panel = [NSSavePanel savePanel];
+  NSMutableArray *fileTypes = extensionsFromList(extlist);	
   NSString *title=(NSString *)SWELL_CStringToCFString(text); 
-	[panel setTitle:title];
+  NSString *ifn=NULL, *idir = NULL;
+
+  [panel setTitle:title];
   [panel setAccessoryView:nil];
+  HWND av_parent = (HWND)panel;
+
+  if ([fileTypes count]>1)
+  {
+    const char *ar[2]={extlist,initialfile};
+    av_parent = SWELL_CreateDialog(NULL,0,NULL,fileTypeChooseProc,(LPARAM)ar);
+    if (!av_parent) av_parent = (HWND)panel;
+  }
+
   HWND oh=NULL;
   if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
   {
-    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, (HWND)panel, BFSF_Templ_dlgproc, 0);
+    oh=SWELL_CreateDialog(BFSF_Templ_reshead, BFSF_Templ_dlgid, av_parent, BFSF_Templ_dlgproc, 0);
     BFSF_Templ_dlgproc=0;
     BFSF_Templ_dlgid=0;
   }
-	
-	NSMutableArray *fileTypes = extensionsFromList(extlist);	
-	
-	[panel setAllowedFileTypes:fileTypes];
-	NSString *ifn=0;
-	NSString *idir=0;
-	
-	if (initialfile && *initialfile)
-	{
-		char s[2048];
-		lstrcpyn_safe(s,initialfile,sizeof(s));
-		char *p=s;
-		while (*p) p++;
-		while (p >= s && *p != '/') p--;
+  if (av_parent != (HWND)panel) 
+  {
+    if (oh) 
+    { 
+      RECT r1,r2;
+      GetClientRect(oh,&r1);
+      GetClientRect(av_parent,&r2);
+
+      SetWindowPos(oh,NULL,0,r2.bottom,0,0,SWP_NOZORDER|SWP_NOSIZE);
+      if (r2.right < r1.right) r2.right=r1.right;
+      SetWindowPos(av_parent,NULL,0,0,r2.right,r2.bottom+r1.bottom,SWP_NOZORDER|SWP_NOMOVE);
+      ShowWindow(oh,SW_SHOWNA);
+    }
+    oh = av_parent;
+
+    NSWindow *oldw = [(NSView *)av_parent window];
+    [panel setAccessoryView:(NSView *)av_parent]; // we resized our accessory view
+    SendMessage(av_parent,WM_COMMAND,(CBN_SELCHANGE<<16) | 1000,0);
+    [(NSView *)av_parent setHidden:NO];
+    [oldw release];
+  }
+  else
+  {
+    [panel setAllowedFileTypes:fileTypes];
+  }
+
+  if (initialfile && *initialfile && *initialfile != '.')
+  {
+    char s[2048];
+    lstrcpyn_safe(s,initialfile,sizeof(s));
+    char *p=s;
+    while (*p) p++;
+    while (p >= s && *p != '/') p--;
     if (p>=s)
     {
       *p=0;
@@ -107,51 +241,52 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
     }
     else 
       ifn=(NSString *)SWELL_CStringToCFString(s);
-	}
-	if (!idir && initialdir && *initialdir)
-	{
-		idir=(NSString *)SWELL_CStringToCFString(initialdir);
-	}
+  }
+  if (!idir && initialdir && *initialdir)
+  {
+    idir=(NSString *)SWELL_CStringToCFString(initialdir);
+  }
 	
   HMENU hm=SWELL_GetDefaultModalWindowMenu();
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
-	int result = [panel runModalForDirectory:idir file:ifn];
+
+  NSInteger result = [panel runModalForDirectory:idir file:ifn];
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
   
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
-	[title release];
-	[fileTypes release];
+
+  [title release];
+  [fileTypes release];
+  [idir release];
+  [ifn release];
 	
-	if (result == NSOKButton)
-	{
-		char buf[2048];
-		buf[0]=0;
-		buf[sizeof(buf)-1]=0;
-		SWELL_CFStringToCString([panel filename],buf,(sizeof(buf)-1));
-		if (buf[0])
-		{
-			lstrcpyn_safe(fn,buf,fnsize);
-			return true;
-		}
-	}
-	
-	return false;
-	
+  if (result == NSOKButton)
+  {
+    NSString *str = [panel filename];
+    if (str && fn && fnsize>0) 
+    {
+      SWELL_CFStringToCString(str,fn,fnsize);
+      return fn[0] != 0;
+    }
+  }
+  return false;
 }
 
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
 {
-	NSOpenPanel *panel = [NSOpenPanel openPanel];
+  NSOpenPanel *panel = [NSOpenPanel openPanel];
   NSString *title=(NSString *)SWELL_CStringToCFString(text); 
-	[panel setTitle:title];
-	[panel setAllowsMultipleSelection:NO];
-	[panel setCanChooseFiles:NO];
-	[panel setCanCreateDirectories:YES];
-	[panel setCanChooseDirectories:YES];
-	[panel setResolvesAliases:YES];
+  NSString *idir=NULL;
+
+  [panel setTitle:title];
+  [panel setAllowsMultipleSelection:NO];
+  [panel setCanChooseFiles:NO];
+  [panel setCanCreateDirectories:YES];
+  [panel setCanChooseDirectories:YES];
+  [panel setResolvesAliases:YES];
 
   HWND oh=NULL;
   if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
@@ -161,37 +296,34 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
     BFSF_Templ_dlgid=0;
   }
 	
-	NSString *idir=0;
-	
-	if (initialdir && *initialdir)
-	{
-		idir=(NSString *)SWELL_CStringToCFString(initialdir);
-	}
+  if (initialdir && *initialdir)
+  {
+    idir=(NSString *)SWELL_CStringToCFString(initialdir);
+  }
 	
   HMENU hm=SWELL_GetDefaultModalWindowMenu();
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
-	int result = [panel runModalForDirectory:idir file:nil types:nil];
+  NSInteger result = [panel runModalForDirectory:idir file:nil types:nil];
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
   
-	if (idir) [idir release];
+  [idir release];
+  [title release];
 	
-	[title release];
+  if (result != NSOKButton) return 0;
 	
-	if (result != NSOKButton) return 0;
-	
-	NSArray *filesToOpen = [panel filenames];
-	int count = [filesToOpen count];
+  NSArray *filesToOpen = [panel filenames];
+  NSInteger count = [filesToOpen count];
 		
-	if (!count) return 0;
+  if (!count) return 0;
 		
   NSString *aFile = [filesToOpen objectAtIndex:0];
   if (!aFile) return 0;
-  SWELL_CFStringToCString(aFile,fn,(fnsize-1));
+  SWELL_CFStringToCString(aFile,fn,fnsize);
   fn[fnsize-1]=0;
   return 1;
 }
@@ -200,8 +332,11 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 char *BrowseForFiles(const char *text, const char *initialdir, 
                      const char *initialfile, bool allowmul, const char *extlist)
 {
-	NSOpenPanel *panel = [NSOpenPanel openPanel];
+  NSOpenPanel *panel = [NSOpenPanel openPanel];
   NSString *title=(NSString *)SWELL_CStringToCFString(text); 
+  NSString *ifn=NULL, *idir=NULL;
+  NSMutableArray *fileTypes = extensionsFromList(extlist);	
+
   HWND oh=NULL;
   if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
   {
@@ -210,44 +345,38 @@ char *BrowseForFiles(const char *text, const char *initialdir,
     BFSF_Templ_dlgid=0;
   }
 
-	[panel setTitle:title];
-	[panel setAllowsMultipleSelection:(allowmul?YES:NO)];
-	[panel setCanChooseFiles:YES];
-	[panel setCanChooseDirectories:NO];
-	[panel setResolvesAliases:YES];
+  [panel setTitle:title];
+  [panel setAllowsMultipleSelection:(allowmul?YES:NO)];
+  [panel setCanChooseFiles:YES];
+  [panel setCanChooseDirectories:NO];
+  [panel setResolvesAliases:YES];
 	
-	NSMutableArray *fileTypes = extensionsFromList(extlist);	
-	
-	NSString *ifn=0;
-	NSString *idir=0;
-	
-	if (initialfile && *initialfile)
-	{
-		char s[2048];
-		lstrcpyn_safe(s,initialfile,sizeof(s));
-		char *p=s;
-		while (*p) p++;
-		while (p >= s && *p != '/') p--;
+  if (initialfile && *initialfile)
+  {
+    char s[2048];
+    lstrcpyn_safe(s,initialfile,sizeof(s));
+    char *p=s;
+    while (*p) p++;
+    while (p >= s && *p != '/') p--;
     if (p>=s)
     {
-  		*p=0;
-	  	ifn=(NSString *)SWELL_CStringToCFString(p+1);
+      *p=0;
+      ifn=(NSString *)SWELL_CStringToCFString(p+1);
       idir=(NSString *)SWELL_CStringToCFString(s[0]?s:"/");
     }
     else 
-	  	ifn=(NSString *)SWELL_CStringToCFString(s);
-    
-	}
-	if (!idir && initialdir && *initialdir)
-	{
-		idir=(NSString *)SWELL_CStringToCFString(initialdir);
-	}
+      ifn=(NSString *)SWELL_CStringToCFString(s);
+  }
+  if (!idir && initialdir && *initialdir)
+  {
+    idir=(NSString *)SWELL_CStringToCFString(initialdir);
+  }
 	
   HMENU hm=SWELL_GetDefaultModalWindowMenu();
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
   
-	int result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
+  NSInteger result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
 
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
@@ -255,53 +384,52 @@ char *BrowseForFiles(const char *text, const char *initialdir,
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
   
-	if (ifn) [ifn release];
-	if (idir) [idir release];
+  [ifn release];
+  [idir release];
 	
-	[fileTypes release];
-	[title release];
+  [fileTypes release];
+  [title release];
 	
-	if (result != NSOKButton) return 0;
+  if (result != NSOKButton) return 0;
 	
-	NSArray *filesToOpen = [panel filenames];
-	int i, count = [filesToOpen count];
+  NSArray *filesToOpen = [panel filenames];
+  const NSInteger count = [filesToOpen count];
 		
-	if (!count) return 0;
+  if (!count) return 0;
 		
-	if (count==1||!allowmul)
-	{
-		NSString *aFile = [filesToOpen objectAtIndex:0];
-		if (!aFile) return 0;
-		char fn[2048];
-		SWELL_CFStringToCString(aFile,fn,(sizeof(fn)-1));
-		fn[sizeof(fn)-1]=0;
-		char *ret=(char *)malloc(strlen(fn)+2);
-		memcpy(ret,fn,strlen(fn));
-		ret[strlen(fn)]=0;
-		ret[strlen(fn)+1]=0;
-		return ret;
-	}
+  char fn[2048];
+  if (count==1||!allowmul)
+  {
+    NSString *aFile = [filesToOpen objectAtIndex:0];
+    if (!aFile) return 0;
+    SWELL_CFStringToCString(aFile,fn,sizeof(fn));
+    fn[sizeof(fn)-1]=0;
+    char *ret=(char *)malloc(strlen(fn)+2);
+    memcpy(ret,fn,strlen(fn));
+    ret[strlen(fn)]=0;
+    ret[strlen(fn)+1]=0;
+    return ret;
+  }
 		
-	int rsize=1;
-	char *ret=0;
-	for (i=0; i<count; i++) 
-	{
-		NSString *aFile = [filesToOpen objectAtIndex:i];
-		if (!aFile) continue;
-		char fn[2048];
-		SWELL_CFStringToCString(aFile,fn,(sizeof(fn)-1));
-		fn[sizeof(fn)-1]=0;
+  size_t rsize=1;
+  char *ret=0;
+  for (NSInteger i=0; i<count; i++) 
+  {
+    NSString *aFile = [filesToOpen objectAtIndex:i];
+    if (!aFile) continue;
+    SWELL_CFStringToCString(aFile,fn,sizeof(fn));
+    fn[sizeof(fn)-1]=0;
 		
-		int tlen=strlen(fn)+1;
-		ret=(char *)realloc(ret,rsize+tlen+1);
-		if (!ret) return 0;
+    size_t tlen=strlen(fn)+1;
+    ret=(char *)realloc(ret,rsize+tlen+1);
+    if (!ret) return 0;
     
-		if (rsize==1) ret[0]=0;
-		strcpy(ret+rsize,fn);
-		rsize+=tlen;
-		ret[rsize]=0;
-	}	
-	return ret;
+    if (rsize==1) ret[0]=0;
+    strcpy(ret+rsize,fn);
+    rsize+=tlen;
+    ret[rsize]=0;
+  }	
+  return ret;
 }
 
 
@@ -309,8 +437,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
 
 int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
 {
-  
-  int ret=0;
+  NSInteger ret=0;
 
   NSString *tit=(NSString *)SWELL_CStringToCFString(caption?caption:""); 
   NSString *text2=(NSString *)SWELL_CStringToCFString(text?text:"");
@@ -351,7 +478,7 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
   [text2 release];
   [tit release];
   
-  return ret; 
+  return (int)ret; 
 }
 
 #endif

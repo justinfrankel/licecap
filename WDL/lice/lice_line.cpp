@@ -25,7 +25,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
   int x1 = *pX1, y1 = *pY1, x2 = *pX2, y2 = *pY2;
   int e1 = OffscreenTest(x1, y1, nX, nY); 
   int e2 = OffscreenTest(x2, y2, nX, nY);
-  
+  int timeout = 32;
   bool accept = false, done = false;
   do
   {
@@ -70,7 +70,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
       }
     }
   }
-  while (!done);
+  while (!done && timeout--);
 
   *pX1 = x1;
   *pY1 = y1;
@@ -97,6 +97,7 @@ static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
   int e1 = OffscreenFTest(tx1, ty1, tw, th); 
   int e2 = OffscreenFTest(tx2, ty2, tw, th);
   
+  int timeout = 32;
   bool accept = false, done = false;
   do
   {
@@ -148,7 +149,7 @@ static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
       }
     }
   }
-  while (!done);
+  while (!done && timeout--);
 
   *x1 = tx1;
   *y1 = ty1;
@@ -1495,7 +1496,7 @@ static int _ysort(const void* a, const void* b)
 static int FindNextEdgeVertex(int* xy, int a, int n, int dir)
 {
   bool init = false;
-  float dxdy_best;
+  float dxdy_best = 0.0f;
   int i, ilo = a;
 
   for (i = a+1; i < n; ++i)
@@ -1519,7 +1520,7 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
 
   int* xy = 0;
   int xyt[1024]; // use stack space if small
-  bool usestack = (npoints <= sizeof(xyt)/sizeof(int)/2);
+  bool usestack = npoints <= (int) (sizeof(xyt)/sizeof(int)/2);
   if (usestack) xy = xyt;
   else xy = (int*)malloc(npoints*sizeof(int)*2);
 

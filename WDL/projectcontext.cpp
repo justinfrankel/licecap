@@ -15,6 +15,7 @@
 #include "filewrite.h"
 #include "heapbuf.h"
 #include "wdlstring.h"
+#include "wdlcstring.h"
 #include "fastqueue.h"
 #include "lineparse.h"
 
@@ -201,7 +202,7 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
     char c = *fmt++;
     if (c != '%') 
     {
-      outbuf[wroffs++] = c;
+      outbuf[wroffs++] = c != '\n' ? c : ' ';
       outbuf_size--;
       continue;
     }
@@ -261,7 +262,7 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
         {
           char v = *str++;
           if (!qc && v == '`') v = '\'';
-          outbuf[wroffs++] = v;
+          outbuf[wroffs++] = v != '\n' ? v : ' ';
           outbuf_size--;
         }
 
@@ -274,8 +275,8 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       break;
       case 'c':
       {
-        int v = va_arg(va,int);
-        outbuf[wroffs++] = v&0xff;
+        int v = (va_arg(va,int)) & 0xff;
+        outbuf[wroffs++] = v != '\n' ? v : ' ';
         outbuf_size--;
       }
       break;
@@ -399,17 +400,22 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
     return wroffs;
 
 #if defined(_WIN32) && defined(_MSC_VER)
-  const int l = _vsnprintf(outbuf,outbuf_size,fmt,va); // _vsnprintf() does not always null terminate
-  if (l < 0 || l >= (int)outbuf_size)
-  {
-    outbuf[outbuf_size-1] = 0;
-    return wroffs + (int)strlen(outbuf);
-  }
+   // _vsnprintf() does not always null terminate (see below)
+  _vsnprintf(outbuf,outbuf_size,fmt,va);
 #else
   // vsnprintf() on non-win32, always null terminates
-  const int l = vsnprintf(outbuf,outbuf_size,fmt,va);
-  if (l >= (int)outbuf_size-1) return wroffs + (int)outbuf_size-1;
+  vsnprintf(outbuf,outbuf_size,fmt,va);
 #endif
+
+  int l;
+  outbuf_size--;
+  for (l = 0; l < outbuf_size && outbuf[l]; l ++) if (outbuf[l] == '\n') outbuf[l] = ' ';  
+
+#if defined(_WIN32) && defined(_MSC_VER)
+   // nul terminate for _vsnprintf()
+  outbuf[l]=0;
+#endif
+
   return wroffs+l;
 }
 
@@ -516,6 +522,27 @@ public:
 
 };
 
+// returns length, modifies ptr to point to tmp if newline needed to be filtered
+static int filter_newline_buf(const char **ptr, char *tmp, int tmpsz)
+{
+  const char *use_buf = *ptr;
+  if (!use_buf) return -1;
+
+  int l;
+  for (l=0; use_buf[l] && use_buf[l] != '\n'; l++);
+
+  if (!use_buf[l]) return l;
+
+  lstrcpyn_safe(tmp,use_buf,tmpsz);
+  *ptr=tmp;
+
+  if (l >= tmpsz) return tmpsz-1;
+
+  for (;tmp[l]; l++) if (tmp[l] == '\n') tmp[l] = ' '; // replace any newlines with spaces
+  return l;
+}
+
+
 void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
 {
   if (!m_heapbuf || !(m_rwflags&2)) return;
@@ -531,7 +558,7 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
     use_buf = va_arg(va,const char *);
-    l=use_buf ? ((int)strlen(use_buf)+1) : 0;
+    l = filter_newline_buf(&use_buf,tmp,(int)sizeof(tmp)) + 1;
   }
   else
   {
@@ -565,9 +592,8 @@ void ProjectStateContext_Mem::AddLine(const char *fmt, ...)
     m_heapbuf->SetGranul(256*1024);
   }
 
-  const int newsz = sz + l;
-  char *p = (char *)m_heapbuf->Resize(newsz);
-  if (m_heapbuf->GetSize() != newsz)
+  char *p = (char *)m_heapbuf->ResizeOK(sz+l);
+  if (!p) 
   {
     // ERROR, resize to 0 and return
     m_heapbuf->Resize(0);
@@ -639,7 +665,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
   if (avail <= 0) return -1;
   
   int x;
-  for (x = 0; x < avail && p[x] && p[x] != '\r' && p[x] != '\n'; x ++);
+  for (x = 0; x < avail && p[x] && p[x] != '\n'; x ++);
   m_pos += x+1;
 
   if (buflen > 0&&buf)
@@ -647,6 +673,7 @@ int ProjectStateContext_Mem::GetLine(char *buf, int buflen) // returns -1 on eof
     int l = buflen-1;
     if (l>x) l=x;
     memcpy(buf,p,l);
+    if (l>0 && buf[l-1]=='\r') l--;
     buf[l]=0;
   }
   return 0;
@@ -664,7 +691,7 @@ public:
     m_bytesOut=0;
     m_errcnt=false; 
     m_tmpflag=0;
-    rdbuf_pos = rdbuf_valid = 0;
+    _rdbuf_pos = _rdbuf_valid = 0;
   }
   virtual ~ProjectStateContext_File(){ delete m_rd; delete m_wr; };
 
@@ -684,7 +711,7 @@ public:
   WDL_FileWrite *m_wr;
 
   char rdbuf[4096];
-  int rdbuf_pos, rdbuf_valid;
+  int _rdbuf_pos, _rdbuf_valid;
 
   int m_indent;
   int m_tmpflag;
@@ -694,32 +721,63 @@ public:
 
 int ProjectStateContext_File::GetLine(char *buf, int buflen)
 {
-  if (!m_rd||buflen<2) return -1;
+  if (!m_rd||buflen<3) return -1;
 
-  int i=0;
-  while (i<buflen-1)
+  char * const buf_orig=buf;
+  int rdpos = _rdbuf_pos;
+  int rdvalid = _rdbuf_valid;
+  buflen -= 2;
+
+  for (;;)
   {
-    if (rdbuf_pos>=rdbuf_valid)
+    while (rdpos < rdvalid)
     {
-      rdbuf_pos = 0;
-      rdbuf_valid = m_rd->Read(rdbuf, sizeof(rdbuf));
-      if (rdbuf_valid<1) break;
-    }
-    const char c = rdbuf[rdbuf_pos++];
+      char c=rdbuf[rdpos++];
+      switch (c)
+      {
+        case ' ': case '\r': case '\n': case '\t': break;
+        default:
+          *buf++=c;
 
-    if (!i)
-    {
-      if (c != '\r' && c != '\n' && c != ' ' && c != '\t')
-        buf[i++] = c;
+          do
+          {
+            int mxl = rdvalid - rdpos;
+            if (mxl > buflen) mxl=buflen;
+            while (mxl-->0)
+            {
+              char c2 = rdbuf[rdpos++];
+              if (c2=='\n') goto finished;
+
+              *buf++ = c2;
+              buflen--;
+            }
+            if (rdpos>=rdvalid)
+            {
+              rdpos = 0;
+              rdvalid = m_rd->Read(rdbuf, sizeof(rdbuf));
+              if (rdvalid<1) break;
+            }
+          }
+          while (buflen > 0);
+
+        finished:
+          _rdbuf_pos=rdpos;
+          _rdbuf_valid=rdvalid;
+
+          if (buf > buf_orig && buf[-1] == '\r') buf--;
+          *buf=0;
+        return 0;
+      }
     }
-    else
+
+    rdpos = 0;
+    rdvalid = m_rd->Read(rdbuf, sizeof(rdbuf));
+    if (rdvalid<1)
     {
-      if (c == '\r' || c == '\n') break;
-      buf[i++] = c;
+      buf[0]=0;
+      return -1;
     }
   }
-  buf[i]=0;
-  return buf[0] ? 0 : -1;
 }
 
 void ProjectStateContext_File::AddLine(const char *fmt, ...)
@@ -738,7 +796,7 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
     {
       // special case "%s" passed, directly use it
       use_buf = va_arg(va,const char *);
-      l=use_buf ? (int)strlen(use_buf) : -1;
+      l = filter_newline_buf(&use_buf,tmp,(int)sizeof(tmp));
     }
     else
     {
@@ -779,7 +837,7 @@ void ProjectStateContext_File::AddLine(const char *fmt, ...)
 
 ProjectStateContext *ProjectCreateFileRead(const char *fn)
 {
-  WDL_FileRead *rd = new WDL_FileRead(fn);
+  WDL_FileRead *rd = new WDL_FileRead(fn,0,65536,1);
   if (!rd || !rd->IsOpen())
   {
     delete rd;
@@ -851,14 +909,15 @@ void ProjectStateContext_FastQueue::AddLine(const char *fmt, ...)
   va_list va;
   va_start(va,fmt);
 
+  char tmp[8192];
   if (fmt && fmt[0] == '%' && (fmt[1] == 's' || fmt[1] == 'S') && !fmt[2])
   {
-    const char *p = va_arg(va,const char *);
-    if (p) m_fq->Add(p, (int) strlen(p) + 1);
+    const char *use_buf = va_arg(va,const char *);
+    const int l = filter_newline_buf(&use_buf,tmp,(int)sizeof(tmp));
+    if (use_buf) m_fq->Add(use_buf, l + 1);
   }
   else
   {
-    char tmp[8192];
     const int l = ProjectContextFormatString(tmp,sizeof(tmp),fmt, va);
     if (l>0) m_fq->Add(tmp, l+1);
   }
@@ -918,87 +977,32 @@ bool ProjectContext_EatCurrentBlock(ProjectStateContext *ctx, ProjectStateContex
 }
 
 
-static void pc_base64encode(const unsigned char *in, char *out, int len)
-{
-  char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  int shift = 0;
-  int accum = 0;
-
-  while (len>0)
-  {
-    len--;
-    accum <<= 8;
-    shift += 8;
-    accum |= *in++;
-    while ( shift >= 6 )
-    {
-      shift -= 6;
-      *out++ = alphabet[(accum >> shift) & 0x3F];
-    }
-  }
-  if (shift == 4)
-  {
-    *out++ = alphabet[(accum & 0xF)<<2];
-    *out++='=';  
-  }
-  else if (shift == 2)
-  {
-    *out++ = alphabet[(accum & 0x3)<<4];
-    *out++='=';  
-    *out++='=';  
-  }
-
-  *out++=0;
-}
-
-static int pc_base64decode(const char *src, unsigned char *dest, int destsize)
-{
-  int accum=0, nbits=0, wpos=0;
-  while (*src && wpos < destsize)
-  {
-    int x=0;
-    char c=*src++;
-    if (c >= 'A' && c <= 'Z') x=c-'A';
-    else if (c >= 'a' && c <= 'z') x=c-'a' + 26;
-    else if (c >= '0' && c <= '9') x=c-'0' + 52;
-    else if (c == '+') x=62;
-    else if (c == '/') x=63;
-    else break;
-
-    accum = (accum << 6) | x;
-    nbits += 6;   
-
-    while (nbits >= 8 && wpos < destsize)
-    {
-      nbits-=8;
-      dest[wpos++] = (char)((accum>>nbits)&0xff);
-    }
-  }
-  return wpos;
-}
-
+#include "wdl_base64.h"
 
 int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success, doesnt clear hb
 {
   int child_count=1;
-  bool comment_state=false;
   for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
 
-    LineParser lp(comment_state);
-    if (lp.parse(linebuf)||lp.getnumtokens()<=0) continue;
+    const char *p = linebuf;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
 
-    if (lp.gettoken_str(0)[0] == '<') child_count++;
-    else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; }
-    else if (child_count == 1)
+    if (p[0] == '<') child_count++;
+    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
+    else if (child_count == 1 && p[0])
     {     
-      unsigned char buf[8192];
-      int buf_l=pc_base64decode(lp.gettoken_str(0),buf,sizeof(buf));
-      int os=hb->GetSize();
-      hb->Resize(os+buf_l);
-      memcpy((char *)hb->Get()+os,buf,buf_l);
+      unsigned char buf[3200];
+      const int buf_l=wdl_base64decode(p,buf,sizeof(buf));
+      if (buf_l)
+      {
+        const int os=hb->GetSize();
+        char *dest = (char*)hb->ResizeOK(os+buf_l);
+        if (dest) memcpy(dest+os,buf,buf_l);
+      }
     }
   }
   return -1;  
@@ -1006,47 +1010,162 @@ int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb) // 0 on success
 
 void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 {
+  if (!ctx || len < 1) return;
+
   const unsigned char *p=(const unsigned char *)ptr;
-  while (len>0)
+  if (len > 128 && len < (1<<30))
+  {
+    // we could (probably should) use dynamic_cast<> here, but as we span modules this
+    // raises all kinds of questions (especially with VC having the option to disable RTTI).
+    // for now, we assume that the first void * in an object is the vtable pointer. with 
+    // testing, of course.
+    WDL_FastQueue *fq = NULL;
+    WDL_HeapBuf *hb = NULL;
+#ifndef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+    static const ProjectStateContext_Mem hb_def(NULL,0);
+#endif
+    static const ProjectStateContext_FastQueue fq_def(NULL);
+    if (*(void **)ctx == *(void **)&fq_def)
+    {
+      fq=((ProjectStateContext_FastQueue*)ctx)->m_fq;
+    }
+#ifndef WDL_MEMPROJECTCONTEXT_USE_ZLIB
+    else if (*(void **)ctx == *(void **)&hb_def)
+    {
+      hb=((ProjectStateContext_Mem*)ctx)->m_heapbuf;
+    }
+#endif
+
+    if (fq||hb)
+    {
+      const int linelen8 = 280/8;
+
+      const int enc_len = ((len+2)/3)*4; // every 3 characters end up as 4
+      const int lines = (enc_len + linelen8*8 - 1) / (linelen8*8);
+
+      char *wr = NULL;
+      if (fq) 
+      {
+        wr = (char*)fq->Add(WDL_FASTQUEUE_ADD_NOZEROBUF,enc_len + lines);
+      }
+      else if (hb)
+      {
+        const int oldsz=hb->GetSize();
+        wr=(char*)hb->ResizeOK(oldsz + enc_len + lines,false);
+        if (wr) wr+=oldsz;
+      }
+
+      if (wr)
+      {
+        #ifdef _DEBUG
+        char * const wr_end=wr + enc_len + lines;
+        #endif
+
+        int lpos = 0;
+
+        while (len >= 6)
+        {
+          const int accum = (p[0] << 16) + (p[1] << 8) + p[2];
+          const int accum2 = (p[3] << 16) + (p[4] << 8) + p[5];
+          wr[0] = wdl_base64_alphabet[(accum >> 18) & 0x3F];
+          wr[1] = wdl_base64_alphabet[(accum >> 12) & 0x3F];
+          wr[2] = wdl_base64_alphabet[(accum >> 6) & 0x3F];
+          wr[3] = wdl_base64_alphabet[accum & 0x3F];
+          wr[4] = wdl_base64_alphabet[(accum2 >> 18) & 0x3F];
+          wr[5] = wdl_base64_alphabet[(accum2 >> 12) & 0x3F];
+          wr[6] = wdl_base64_alphabet[(accum2 >> 6) & 0x3F];
+          wr[7] = wdl_base64_alphabet[accum2 & 0x3F];
+          wr+=8;
+          p+=6;
+          len-=6;
+
+          if (++lpos >= linelen8) { *wr++= 0; lpos=0; }
+        }
+
+        if (len >= 3)
+        {
+          const int accum = (p[0] << 16) + (p[1] << 8) + p[2];
+          wr[0] = wdl_base64_alphabet[(accum >> 18) & 0x3F];
+          wr[1] = wdl_base64_alphabet[(accum >> 12) & 0x3F];
+          wr[2] = wdl_base64_alphabet[(accum >> 6) & 0x3F];
+          wr[3] = wdl_base64_alphabet[accum & 0x3F];
+          wr+=4;
+          p+=3;
+          len-=3;
+          lpos+=3;
+        }
+
+        if (len>0)
+        {
+          lpos += len;
+          if (len == 2)
+          {
+            const int accum = (p[0] << 8) | p[1];
+            wr[0] = wdl_base64_alphabet[(accum >> 10) & 0x3F];
+            wr[1] = wdl_base64_alphabet[(accum >> 4) & 0x3F];
+            wr[2] = wdl_base64_alphabet[(accum & 0xF)<<2];
+          }
+          else
+          {
+            const int accum = p[0];
+            wr[0] = wdl_base64_alphabet[(accum >> 2) & 0x3F];
+            wr[1] = wdl_base64_alphabet[(accum & 0x3)<<4];
+            wr[2] = '=';
+          }
+          wr[3] = '=';
+          wr+=4;
+        }
+        if (lpos>0) *wr++=0;
+
+        #ifdef _DEBUG
+          #ifdef _WIN32
+              if (wr != wr_end) OutputDebugString("cfg_encode_binary: block mode size mismatch!\n");
+          #else
+              if (wr != wr_end) printf("cfg_encode_binary: block mode size mismatch %d!\n", (int)(wr-wr_end));
+          #endif
+        #endif
+        return;
+      }
+    }
+  }
+  
+  do
   {
     char buf[256];
     int thiss=len;
     if (thiss > 96) thiss=96;
-    pc_base64encode(p,buf,thiss);
+    wdl_base64encode(p,buf,thiss);
 
     ctx->AddLine("%s",buf);
     p+=thiss;
     len-=thiss;
   }
+  while (len>0);
+  
 }
 
 
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false, did_firstline=!!str->Get()[0];
+  bool did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
 
-    if (!linebuf[0]) continue;
-    LineParser lp(comment_state);
-    if (!lp.parse(linebuf)&&lp.getnumtokens()>0) 
-    {
-      if (lp.gettoken_str(0)[0] == '<') { child_count++; continue; }
-      else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; continue; }
-    }
-    if (child_count == 1)
+    const char *p = linebuf;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
+
+    if (!p[0]) continue;
+    else if (p[0] == '<') child_count++; 
+    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
+    else if (child_count == 1 && p[0] == '|')
     {     
-      char *p=linebuf;
-      while (*p == ' ' || *p == '\t') p++;
-      if (*p == '|')
-      {
-        if (!did_firstline) did_firstline=true;
-        else str->Append("\r\n");
-        str->Append(++p);
-      }
+      if (!did_firstline) did_firstline=true;
+      else str->Append("\r\n");
+      str->Append(++p);
     }
   }
   return -1;  
@@ -1055,32 +1174,28 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on succ
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
-  bool comment_state=false, did_firstline=!!str->Get()[0];
+  bool did_firstline=!!str->Get()[0];
   for (;;)
   {
     char linebuf[4096];
     if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
 
-    if (!linebuf[0]) continue;
-    LineParser lp(comment_state);
-    if (!lp.parse(linebuf)&&lp.getnumtokens()>0) 
-    {
-      if (lp.gettoken_str(0)[0] == '<') { child_count++; continue; }
-      else if (lp.gettoken_str(0)[0] == '>') { if (child_count-- == 1) return 0; continue; }
-    }
-    if (child_count == 1)
+    const char *p = linebuf;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
+
+    if (!p[0]) continue;
+    else if (p[0] == '<') child_count++; 
+    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
+    else if (child_count == 1 && p[0] == '|')
     {     
-      char *p=linebuf;
-      while (*p == ' ' || *p == '\t') p++;
-      if (*p == '|')
-      {
-        if (!did_firstline) did_firstline=true;
-        else str->Append("\r\n");
-        str->Append(++p);
-      }
+      if (!did_firstline) did_firstline=true;
+      else str->Append("\r\n");
+      str->Append(++p);
     }
   }
   return -1;  
+
 }
 
 

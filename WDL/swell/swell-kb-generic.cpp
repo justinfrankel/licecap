@@ -1,5 +1,5 @@
-/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux?
-   Copyright (C) 2006-2007, Cockos, Inc.
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
 
     This software is provided 'as-is', without any express or implied
     warranty.  In no event will the authors be held liable for any damages
@@ -22,89 +22,5 @@
 
   */
 
-#ifndef SWELL_PROVIDED_BY_APP
 
-#include "swell.h"
-#include "swell-dlggen.h"
-
-int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
-{
-  if (wParam >= '0' && wParam <= '9' && lParam == (FSHIFT|FVIRTKEY))
-  {
-  // todo: some OS X API for this?
-    *newflags = lParam&~(FSHIFT|FVIRTKEY);
-    switch (wParam) 
-    {
-      case '1': return '!';
-      case '2': return '@';
-      case '3': return '#';
-      case '4': return '$';
-      case '5': return '%';
-      case '6': return '^';
-      case '7': return '&';
-      case '8': return '*';
-      case '9': return '(';
-      case '0': return ')';      
-    }
-  }
-  return 0;
-}
-
-
-SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
-
-HCURSOR SWELL_LoadCursor(const char *_idx)
-{
-  return NULL;
-}
-
-static HCURSOR m_last_setcursor;
-
-void SWELL_SetCursor(HCURSOR curs)
-{
-  m_last_setcursor=curs;
-  // todo
-}
-
-HCURSOR SWELL_GetCursor()
-{
-  return m_last_setcursor;
-}
-HCURSOR SWELL_GetLastSetCursor()
-{
-  return m_last_setcursor;
-}
-
-
-
-
-static int m_curvis_cnt;
-bool SWELL_IsCursorVisible()
-{
-  return m_curvis_cnt>=0;
-}
-int SWELL_ShowCursor(BOOL bShow)
-{
-  m_curvis_cnt += (bShow?1:-1);
-  if (m_curvis_cnt==-1 && !bShow) 
-  {
-  }
-  if (m_curvis_cnt==0 && bShow) 
-  {
-  }
-  return m_curvis_cnt;
-}
-
-
-BOOL SWELL_SetCursorPos(int X, int Y)
-{  
-
-  return false;
-}
-
-HCURSOR SWELL_LoadCursorFromFile(const char *fn)
-{
-  return NULL;
-}
-
-#endif
+// everything  has moved to swell-generic-*.cpp

@@ -39,6 +39,8 @@ const char *nseel_builtin_function_reference=
     "freembuf\taddress\tHints the runtime that memory above the address specified may no longer be used. The runtime may, at its leisure, choose to lose the contents of memory above the address specified.\0"
     "memcpy\tdest,src,length\tCopies length items of memory from src to dest. Regions are permitted to overlap.\0"
     "memset\toffset,value,length\tSets length items of memory at offset to value.\0"
+    "mem_get_values\toffset, ...\tReads values from memory starting at offset into variables specified. Slower than regular memory reads for less than a few variables, faster for more than a few. Undefined behavior if used with more than 32767 variables.\0"
+    "mem_set_values\toffset, ...\tWrites values to memory starting at offset from variables specified. Slower than regular memory writes for less than a few variables, faster for more than a few. Undefined behavior if used with more than 32767 variables.\0"
     "stack_push\t&value\tPushes value onto the user stack, returns a reference to the parameter.\0"
     "stack_pop\t&value\tPops a value from the user stack into value, or into a temporary buffer if value is not specified, and returns a reference to where the stack was popped. Note that no checking is done to determine if the stack is empty, and as such stack_pop() will never fail.\0"
     "stack_peek\tindex\tReturns a reference to the item on the top of the stack (if index is 0), or to the Nth item on the stack if index is greater than 0. \0"

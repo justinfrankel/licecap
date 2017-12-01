@@ -1,5 +1,5 @@
-/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux)
-   Copyright (C) 2006-2007, Cockos, Inc.
+/* Cockos SWELL (Simple/Small Win32 Emulation Layer for Linux/OSX)
+   Copyright (C) 2006 and later, Cockos, Inc.
 
     This software is provided 'as-is', without any express or implied
     warranty.  In no event will the authors be held liable for any damages
@@ -42,11 +42,7 @@ HMENU__ *HMENU__::Duplicate()
     MENUITEMINFO *inf = (MENUITEMINFO*)calloc(sizeof(MENUITEMINFO),1);
 
     *inf = *s;
-    if (inf->dwTypeData) 
-    {
-      // todo handle bitmap types
-      inf->dwTypeData=strdup(inf->dwTypeData);
-    }
+    if (inf->dwTypeData && inf->fType == MFT_STRING) inf->dwTypeData=strdup(inf->dwTypeData);
     if (inf->hSubMenu) inf->hSubMenu = inf->hSubMenu->Duplicate();
 
     p->items.Add(inf);
@@ -58,8 +54,8 @@ void HMENU__::freeMenuItem(void *p)
 {
   MENUITEMINFO *inf = (MENUITEMINFO *)p;
   if (!inf) return;
-  delete inf->hSubMenu;
-  free(inf->dwTypeData); // todo handle bitmap types
+  if (inf->hSubMenu) inf->hSubMenu->Release();
+  if (inf->fType == MFT_STRING) free(inf->dwTypeData);
   free(inf);
 }
 
@@ -68,7 +64,7 @@ static MENUITEMINFO *GetMenuItemByID(HMENU menu, int id, bool searchChildren=tru
   if (!menu) return 0;
   int x;
   for (x = 0; x < menu->items.GetSize(); x ++)
-    if (menu->items.Get(x)->wID == id) return menu->items.Get(x);
+    if (menu->items.Get(x)->wID == (UINT)id) return menu->items.Get(x);
 
   if (searchChildren) for (x = 0; x < menu->items.GetSize(); x ++)
   { 
@@ -87,8 +83,8 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
   MENUITEMINFO *item = hMenu ? ((flag & MF_BYPOSITION) ? hMenu->items.Get(idx) : GetMenuItemByID(hMenu,idx)) : NULL;
   if (!item) return false;
 
+  if (item->fType == MFT_STRING) free(item->dwTypeData);
   item->fType = MFT_STRING;
-  free(item->dwTypeData); // todo handle bitmap types
   item->dwTypeData=strdup(text?text:"");
   
   return true;
@@ -161,7 +157,7 @@ HMENU CreatePopupMenuEx(const char *title)
 
 void DestroyMenu(HMENU hMenu)
 {
-  delete hMenu;
+  if (hMenu) hMenu->Release();
 }
 
 int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
@@ -169,6 +165,7 @@ int AddMenuItem(HMENU hMenu, int pos, const char *name, int tagid)
   if (!hMenu) return -1;
   MENUITEMINFO *inf = (MENUITEMINFO*)calloc(1,sizeof(MENUITEMINFO));
   inf->wID = tagid;
+  inf->fType = MFT_STRING;
   inf->dwTypeData = strdup(name?name:"");
   hMenu->items.Insert(pos,inf);
   return 0;
@@ -192,7 +189,7 @@ bool DeleteMenu(HMENU hMenu, int idx, int flag)
     int cnt=0;
     for (x=0;x<hMenu->items.GetSize(); x ++)
     {
-      if (!hMenu->items.Get(x)->hSubMenu && hMenu->items.Get(x)->wID == idx)
+      if (!hMenu->items.Get(x)->hSubMenu && hMenu->items.Get(x)->wID == (UINT)idx)
       {
         hMenu->items.Delete(x--,true,HMENU__::freeMenuItem);
         cnt++;
@@ -218,23 +215,23 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
   if ((mi->fMask & MIIM_SUBMENU) && mi->hSubMenu != item->hSubMenu)
   {  
-    delete item->hSubMenu;
+    if (item->hSubMenu) item->hSubMenu->Release();
     item->hSubMenu = mi->hSubMenu;
   } 
   if (mi->fMask & MIIM_TYPE)
   {
-    free(item->dwTypeData); // todo handle bitmap types
+    if (item->fType == MFT_STRING) free(item->dwTypeData);
     item->dwTypeData=0;
-    if (mi->fType == MFT_STRING && mi->dwTypeData)
-    {
-      item->dwTypeData = strdup( mi->dwTypeData );
-    }
+
+    if (mi->fType == MFT_STRING && mi->dwTypeData) item->dwTypeData = strdup( mi->dwTypeData );
+    else if (mi->fType == MFT_BITMAP) item->dwTypeData = mi->dwTypeData;
     item->fType = mi->fType;
   }
 
   if (mi->fMask & MIIM_STATE) item->fState = mi->fState;
   if (mi->fMask & MIIM_ID) item->wID = mi->wID;
   if (mi->fMask & MIIM_DATA) item->dwItemData = mi->dwItemData;
+  if ((mi->fMask & MIIM_BITMAP) && mi->cbSize >= sizeof(*mi)) item->hbmpItem = mi->hbmpItem;
   
   return true;
 }
@@ -252,12 +249,14 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     {
       lstrcpyn_safe(mi->dwTypeData,item->dwTypeData?item->dwTypeData:"",mi->cch);
     }
+    else if (item->fType == MFT_BITMAP) mi->dwTypeData = item->dwTypeData;
   }
   
   if (mi->fMask & MIIM_DATA) mi->dwItemData = item->dwItemData;
   if (mi->fMask & MIIM_STATE) mi->fState = item->fState;
   if (mi->fMask & MIIM_ID) mi->wID = item->wID;
   if (mi->fMask & MIIM_SUBMENU) mi->hSubMenu = item->hSubMenu;
+  if ((mi->fMask & MIIM_BITMAP) && mi->cbSize >= sizeof(*mi)) mi->hbmpItem = item->hbmpItem;
   
   return 1;
   
@@ -266,7 +265,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 void SWELL_InsertMenu(HMENU menu, int pos, unsigned int flag, UINT_PTR idx, const char *str)
 {
   MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    (flag & ~MF_BYPOSITION),(flag&MF_POPUP) ? 0 : (int)idx,NULL,NULL,NULL,0,(char *)str};
+    (flag & ~MF_BYPOSITION),(flag&MF_POPUP) ? 0 : (UINT)idx,NULL,NULL,NULL,0,(char *)str};
   
   if (flag&MF_POPUP) 
   {
@@ -281,6 +280,12 @@ void SWELL_InsertMenu(HMENU menu, int pos, unsigned int flag, UINT_PTR idx, cons
     mi.fType=MFT_SEPARATOR;
     mi.fState &= ~MF_SEPARATOR;
   }
+
+  if (flag&MF_BITMAP)
+  {
+    mi.fType=MFT_BITMAP;
+    mi.fState &= ~MF_BITMAP;
+  }
     
   InsertMenuItem(menu,pos,(flag&MF_BYPOSITION) ?  TRUE : FALSE, &mi);
 }
@@ -293,7 +298,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (!byPos) 
   {
     int x;
-    for (x=0;x<ni && hMenu->items.Get(x)->wID != pos; x++);
+    for (x=0;x<ni && hMenu->items.Get(x)->wID != (UINT)pos; x++);
     pos = x;
   }
   if (pos < 0 || pos > ni) pos=ni; 
@@ -305,7 +310,8 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
     inf->dwTypeData = strdup(mi->dwTypeData?mi->dwTypeData:"");
   }
   else if (mi->fType == MFT_BITMAP)
-  { // todo handle bitmap types
+  {
+    inf->dwTypeData = mi->dwTypeData;
   }
   else if (mi->fType == MFT_SEPARATOR)
   {
@@ -314,6 +320,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_STATE) inf->fState = mi->fState;
   if (mi->fMask & MIIM_DATA) inf->dwItemData = mi->dwItemData;
   if (mi->fMask & MIIM_ID) inf->wID = mi->wID;
+  if ((mi->fMask & MIIM_BITMAP) && mi->cbSize >= sizeof(*mi)) inf->hbmpItem = mi->hbmpItem;
 
   hMenu->items.Insert(pos,inf);
 }
@@ -324,17 +331,75 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
   // only needed for Cocoa
 }
 
-static POINT m_trackingPt;
+extern RECT g_trackpopup_yroot;
+static POINT m_trackingPt, m_trackingPt2;
+static int m_trackingMouseFlag;
 static int m_trackingFlags,m_trackingRet;
 static HWND m_trackingPar;
 static WDL_PtrList<HWND__> m_trackingMenus; // each HWND as userdata = HMENU
 
+int swell_delegate_menu_message(HWND src, LPARAM lParam, int msg, bool screencoords)
+{
+  static bool _reent;
+  if (_reent) return 0;
+
+  _reent = true;
+
+  POINT sp = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+  if (!screencoords) ClientToScreen(src,&sp);
+
+  for (int x = m_trackingMenus.GetSize()-1; x>=0; x--)
+  {
+    HWND sw = m_trackingMenus.Get(x);
+    if (!sw) continue;
+
+    if (sw == src) break; // stop searching (don't delegate to parent)
+
+    RECT r;
+    GetWindowRect(sw,&r);
+    if (PtInRect(&r,sp))
+    {
+      POINT p = sp;
+      ScreenToClient(sw,&p);
+      SendMessage(sw,msg,0,MAKELPARAM(p.x,p.y));
+      _reent = false;
+      return 1;
+    }
+  }
+
+  _reent = false;
+  return 0;
+}
+
+bool swell_isOSwindowmenu(SWELL_OSWINDOW osw)
+{
+  int x = m_trackingMenus.GetSize();
+  if (osw) while (--x>=0)
+  {
+    HWND__ *p = m_trackingMenus.Get(x);
+    if (p->m_oswindow == osw) return true;
+  }
+  return false;
+}
+
+int menuBarNavigate(int dir); // -1 if no menu bar active, 0 if did nothing, 1 if navigated
+HWND GetFocusIncludeMenus(void);
+
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  const int itemheight = 12, lcol=12, rcol=12, mcol=10;
+  static int lcol, rcol, mcol, top_margin, separator_ht, text_ht_pad, bitmap_ht_pad, scroll_margin, item_bm_pad;
+  if (!lcol)
+  {
+    lcol=SWELL_UI_SCALE(24); rcol=SWELL_UI_SCALE(12); mcol=SWELL_UI_SCALE(10);
+    top_margin=SWELL_UI_SCALE(4); separator_ht=SWELL_UI_SCALE(8); 
+    text_ht_pad=SWELL_UI_SCALE(4); bitmap_ht_pad=SWELL_UI_SCALE(4);
+    scroll_margin=SWELL_UI_SCALE(10);
+    item_bm_pad = SWELL_UI_SCALE(4);
+  }
   switch (uMsg)
   {
     case WM_CREATE:
+      hwnd->m_classname = "__SWELL_MENU";
       m_trackingMenus.Add(hwnd);
       SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
 
@@ -344,19 +409,28 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       {
         HDC hdc = GetDC(hwnd);
         HMENU__ *menu = (HMENU__*)lParam;
-        int ht = menu->items.GetSize()*itemheight, wid=100,wid2=0;
-        int xpos=m_trackingPt.x;
-        int ypos=m_trackingPt.y;
+        int ht = 0, wid=SWELL_UI_SCALE(100),wid2=0;
         int x;
         for (x=0; x < menu->items.GetSize(); x++)
         {
           MENUITEMINFO *inf = menu->items.Get(x);
-          if (inf->fType == MFT_STRING && inf->dwTypeData)
+          BITMAP bm2={0,};
+          if (inf->hbmpItem)
+            GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
+
+          if (inf->fType == MFT_STRING)
           {
             RECT r={0,};
-            const char *pt2 = strstr(inf->dwTypeData,"\t");
-            DrawText(hdc,inf->dwTypeData,pt2 ? pt2-inf->dwTypeData : -1,&r,DT_CALCRECT|DT_SINGLELINE);
+            const char *str = inf->dwTypeData;
+            if (!str || !*str) str="XXXXX";
+            const char *pt2 = strstr(str,"\t");
+            DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
+            if (r.bottom < bm2.bmHeight) r.bottom = bm2.bmHeight;
+            if (bm2.bmWidth) r.right += bm2.bmWidth + item_bm_pad;
+
             if (r.right > wid) wid=r.right;
+            ht += r.bottom + text_ht_pad;
+
             if (pt2)
             { 
               r.right=r.left;
@@ -364,21 +438,70 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               if (r.right > wid2) wid2=r.right;
             }
           }
+          else if (inf->fType == MFT_BITMAP)
+          {
+            BITMAP bm={16,16};
+            if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+            if (bm.bmHeight < bm2.bmHeight) bm.bmHeight = bm2.bmHeight;
+            if (bm2.bmWidth) bm.bmWidth += bm2.bmWidth + item_bm_pad;
+            if (bm.bmWidth > wid) wid = bm.bmWidth;
+
+            ht += bm.bmHeight + bitmap_ht_pad;
+          }
+          else
+          {
+            // treat as separator, ignore bm2
+            ht += separator_ht;
+          }
         }
         wid+=lcol+rcol + (wid2?wid2+mcol:0);
         ReleaseDC(hwnd,hdc);
-        RECT tr={xpos,ypos,xpos+wid,ypos+ht},vp;
+
+        RECT tr={m_trackingPt.x,m_trackingPt.y,
+                 m_trackingPt.x+wid+SWELL_UI_SCALE(4),m_trackingPt.y+ht+top_margin * 2}, vp;
         SWELL_GetViewPort(&vp,&tr,true);
+        vp.bottom -= 8;
+ 
+        if (g_trackpopup_yroot.bottom > g_trackpopup_yroot.top &&
+            g_trackpopup_yroot.bottom > vp.top && 
+            g_trackpopup_yroot.top < vp.bottom)
+        {
+          if (vp.bottom - g_trackpopup_yroot.bottom < g_trackpopup_yroot.top - vp.top)
+            vp.bottom = g_trackpopup_yroot.top;
+          else
+            vp.top = g_trackpopup_yroot.bottom;
+        }
+
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
-        if (tr.right > vp.right) { tr.left += vp.right-tr.right; tr.right=vp.right; }
+        if (tr.right > vp.right) 
+        { 
+          if ((vp.right - m_trackingPt2.x) <  (m_trackingPt2.x - vp.left))
+          {
+            tr.left = m_trackingPt2.x - (tr.right-tr.left);
+            tr.right = m_trackingPt2.x;
+          }
+          else
+          {
+            tr.left += vp.right-tr.right; tr.right=vp.right; 
+          }
+        }
+
         if (tr.left < vp.left) { tr.right += vp.left-tr.left; tr.left=vp.left; }
         if (tr.top < vp.top) { tr.bottom += vp.top-tr.top; tr.top=vp.top; }
+        if (tr.bottom > vp.bottom) tr.bottom=vp.bottom;
+        if (tr.right > vp.right) tr.right=vp.right;
+
         SetWindowPos(hwnd,NULL,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,SWP_NOZORDER);
+
+        hwnd->m_extra[0] = 0; // Y scroll offset
+        hwnd->m_extra[1] = 0; // &1=allow scroll flag (set from paint), &2=force scroll down (if sel_vis is offscreen positive)
       }
+
       SetWindowLong(hwnd,GWL_STYLE,GetWindowLong(hwnd,GWL_STYLE)&~WS_CAPTION);
       ShowWindow(hwnd,SW_SHOW);
       SetFocus(hwnd);
-      SetTimer(hwnd,1,250,NULL);
+      SetTimer(hwnd,1,100,NULL);
+      SetTimer(hwnd,2,15,NULL);
     break;
     case WM_PAINT:
       {
@@ -387,51 +510,196 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         {
           RECT cr;
           GetClientRect(hwnd,&cr);
-          HBRUSH br=CreateSolidBrush(GetSysColor(COLOR_3DFACE));
-          HPEN pen=CreatePen(PS_SOLID,0,GetSysColor(COLOR_3DSHADOW));
+          HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg);
+          HBRUSH br2 = CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
+          HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.menu_scroll_arrow);
+          HBRUSH br_submenu_arrow = CreateSolidBrush(g_swell_ctheme.menu_submenu_arrow);
+          HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
+          HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
-          HGDIOBJ oldpen = SelectObject(ps.hdc,pen);
-          Rectangle(ps.hdc,cr.left,cr.top,cr.right-1,cr.bottom-1);
+          HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
+          Rectangle(ps.hdc,cr.left,cr.top,cr.right,cr.bottom);
           SetBkMode(ps.hdc,TRANSPARENT);
-          int cols[2]={ GetSysColor(COLOR_BTNTEXT),GetSysColor(COLOR_3DHILIGHT)};
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int x;
-          for (x=0; x < menu->items.GetSize(); x++)
+          int ypos = top_margin;
+
+          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.top,NULL);
+          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.bottom);
+          SelectObject(ps.hdc,pen);
+          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.top,NULL);
+          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.bottom);
+
+          hwnd->m_extra[1]=0;
+          for (x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
           {
-            MENUITEMINFO *inf = menu->items.Get(x);
-            RECT r={lcol,x*itemheight,cr.right,(x+1)*itemheight};
-            bool dis = !!(inf->fState & MF_GRAYED);
-            SetTextColor(ps.hdc,cols[dis]);
-            if (inf->fType == MFT_STRING && inf->dwTypeData)
+            if (ypos >= cr.bottom)
             {
-              const char *pt2 = strstr(inf->dwTypeData,"\t");
-              DrawText(ps.hdc,inf->dwTypeData,pt2 ? pt2-inf->dwTypeData : -1,&r,DT_VCENTER|DT_SINGLELINE);
-              if (pt2)
+              hwnd->m_extra[1] = 1; // allow scrolling down
+              break;
+            }
+            MENUITEMINFO *inf = menu->items.Get(x);
+            RECT r={lcol,ypos,cr.right, };
+            bool dis = !!(inf->fState & MF_GRAYED);
+            BITMAP bm={16,16}, bm2={0,};
+            if (inf->hbmpItem)
+              GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
+
+            if (inf->fType == MFT_STRING)
+            {
+              const char *str = inf->dwTypeData;
+              if (!str || !*str) str="XXXXX";
+              RECT mr={0,};
+              DrawText(ps.hdc,str,-1,&mr,DT_CALCRECT|DT_SINGLELINE);
+
+              ypos += wdl_max(mr.bottom,bm2.bmHeight) + text_ht_pad;
+              r.bottom = ypos;
+            }
+            else if (inf->fType == MFT_BITMAP)
+            {
+              if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+
+              ypos += wdl_max(bm.bmHeight,bm2.bmHeight) + bitmap_ht_pad;
+              r.bottom = ypos;
+
+            }
+            else
+            {
+              dis=true;
+              ypos += separator_ht;
+              r.bottom = ypos;
+            }
+
+            if (x == menu->sel_vis && !dis)
+            {
+              HBRUSH brs=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
+              RECT r2=r;
+              FillRect(ps.hdc,&r2,brs);
+              DeleteObject(brs);
+              SetTextColor(ps.hdc,g_swell_ctheme.menu_text_sel);
+            }
+            else 
+            {
+              SetTextColor(ps.hdc,
+                 dis ? g_swell_ctheme.menu_text_disabled : 
+                 g_swell_ctheme.menu_text);
+            }
+
+            if (bm2.bmWidth)
+            {
+              RECT tr = r;
+              tr.right = tr.left + bm2.bmWidth;
+              DrawImageInRect(ps.hdc,inf->hbmpItem,&tr);
+
+              r.left += bm2.bmWidth + item_bm_pad;
+            }
+
+            if (inf->fType == MFT_STRING)
+            {
+              const char *str = inf->dwTypeData;
+              if (!str) str="";
+              const char *pt2 = strstr(str,"\t");
+
+              if (*str) 
               {
-                RECT tr=r; tr.right-=rcol;
-                DrawText(ps.hdc,pt2+1,-1,&tr,DT_VCENTER|DT_SINGLELINE|DT_RIGHT);
+                DrawText(ps.hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_VCENTER|DT_SINGLELINE);
+                if (pt2)
+                {
+                  RECT tr=r; tr.right-=rcol;
+                  DrawText(ps.hdc,pt2+1,-1,&tr,DT_VCENTER|DT_SINGLELINE|DT_RIGHT);
+                }
+              }
+            }
+            else if (inf->fType == MFT_BITMAP)
+            {
+              if (inf->dwTypeData)
+              {
+                RECT tr = r;
+                tr.top += bitmap_ht_pad/2;
+                tr.right = tr.left + bm.bmWidth;
+                tr.bottom = tr.top + bm.bmHeight;
+                DrawImageInRect(ps.hdc,(HBITMAP)inf->dwTypeData,&tr);
               }
             }
             else 
             {
-              MoveToEx(ps.hdc,r.left - lcol/2,(r.top+r.bottom)/2,NULL);
-              LineTo(ps.hdc,r.right - rcol*3/2,(r.top+r.bottom)/2);
+              SelectObject(ps.hdc,pen2);
+              int y = r.top/2+r.bottom/2, right = r.right-rcol*3/2;
+              MoveToEx(ps.hdc,r.left,y,NULL);
+              LineTo(ps.hdc,right,y);
+              SelectObject(ps.hdc,pen);
+
+              y++;
+              MoveToEx(ps.hdc,r.left,y,NULL);
+              LineTo(ps.hdc,right,y);
             }
             if (inf->hSubMenu) 
             {
-               RECT r2=r; r2.left = r2.right - rcol;
-               DrawText(ps.hdc,">",-1,&r2,DT_VCENTER|DT_RIGHT|DT_SINGLELINE);
+               const int sz = (r.bottom-r.top)/4, xp = r.right - sz*2, yp = (r.top + r.bottom)/2;
+
+               POINT pts[3] = {
+                 {xp, yp-sz},
+                 {xp, yp+sz},
+                 {xp + sz,yp}
+               };
+               HGDIOBJ oldPen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+               SelectObject(ps.hdc,br_submenu_arrow);
+               Polygon(ps.hdc,pts,3);
+
+               SelectObject(ps.hdc,oldPen);
             }
             if (inf->fState&MF_CHECKED)
             {
+               SetTextColor(ps.hdc,
+                 dis ? g_swell_ctheme.menu_text_disabled : 
+                 g_swell_ctheme.menu_text);
                RECT r2=r; r2.left = 0; r2.right=lcol;
                DrawText(ps.hdc,"X",-1,&r2,DT_VCENTER|DT_CENTER|DT_SINGLELINE);
             }
+            if ((r.top+ypos)/2 > cr.bottom)
+            {
+              hwnd->m_extra[1] = 1; // allow scrolling down if last item was halfway off
+            }
           }
+          if (x <= menu->sel_vis) hwnd->m_extra[1]|=2;
+
+
+          // lower scroll indicator
+          int mid=(cr.right-cr.left)/2;
+          SelectObject(ps.hdc,GetStockObject(NULL_PEN));
+          SelectObject(ps.hdc,br3);
+          POINT pts[3];
+          const int smm = SWELL_UI_SCALE(2);
+          const int smh = scroll_margin-smm*2;
+          if (hwnd->m_extra[1]&1)
+          {
+            RECT fr = {cr.left, cr.bottom-scroll_margin, cr.right,cr.bottom};
+            FillRect(ps.hdc,&fr,br2);
+            pts[0].x = mid; pts[0].y = cr.bottom - smm;
+            pts[1].x = mid-smh; pts[1].y = pts[0].y - smh;
+            pts[2].x = mid+smh; pts[2].y = pts[1].y;
+            Polygon(ps.hdc,pts,3);
+          }
+          // upper scroll indicator
+          if (hwnd->m_extra[0] > 0)
+          {
+            RECT fr = {cr.left, cr.top, cr.right, cr.top+scroll_margin};
+            FillRect(ps.hdc,&fr,br2);
+
+            pts[0].x = mid; pts[0].y = cr.top + smm;
+            pts[1].x = mid-smh; pts[1].y = pts[0].y + smh;
+            pts[2].x = mid+smh; pts[2].y = pts[1].y;
+            Polygon(ps.hdc,pts,3);
+          }
+
           SelectObject(ps.hdc,oldbr);
           SelectObject(ps.hdc,oldpen);
           DeleteObject(br);
+          DeleteObject(br2);
+          DeleteObject(br3);
+          DeleteObject(br_submenu_arrow);
           DeleteObject(pen);
+          DeleteObject(pen2);
           EndPaint(hwnd,&ps); 
         }       
       }
@@ -439,15 +707,223 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     case WM_TIMER:
       if (wParam==1)
       {
-        HWND GetFocusIncludeMenus();
         HWND h = GetFocusIncludeMenus();
         if (h!=hwnd)
         {
           int a = h ? m_trackingMenus.Find(h) : -1;
-          if (a<0 || a < m_trackingMenus.Find(hwnd)) DestroyWindow(hwnd); 
+          if (a<0 || a < m_trackingMenus.Find(hwnd)) 
+          {
+            if (m_trackingMouseFlag && m_trackingMenus.Get(0))
+            {
+              SetFocus(m_trackingMenus.Get(0));
+              m_trackingMouseFlag=0;
+            }
+            else DestroyWindow(hwnd); 
+          }
+        }
+      } 
+      else if (wParam == 2)
+      {
+        // menu scroll
+        RECT tr;
+        GetWindowRect(hwnd,&tr);
+
+        POINT curM;
+        GetCursorPos(&curM);
+        const bool xmatch = (curM.x >= tr.left && curM.x < tr.right);
+        if (xmatch || (hwnd->m_extra[1]&3)==3)
+        {
+          HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          int xFirst = wdl_max(hwnd->m_extra[0],0);
+          const bool ymatch = curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin;
+          if ((hwnd->m_extra[1]&1) && ((hwnd->m_extra[1]&2) || ymatch))
+          {
+            hwnd->m_extra[0]=++xFirst;
+            hwnd->m_extra[1]=0;
+            if (ymatch) menu->sel_vis=-1;
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
+          else if (xFirst > 0 && curM.y >= tr.top-scroll_margin && curM.y < tr.top+scroll_margin)
+          {
+            hwnd->m_extra[0]=--xFirst;
+            menu->sel_vis=-1;
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
         }
       }
     break;
+    case WM_KEYUP:
+    return 1;
+    case WM_KEYDOWN:
+      if (wParam == VK_ESCAPE || wParam == VK_LEFT)
+      {
+        HWND l = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)-1);
+        if (l) SetFocus(l);
+        else 
+        {
+          if (wParam != VK_LEFT || menuBarNavigate(-1) < 0)
+            DestroyWindow(hwnd);
+        }
+      }
+      else if (wParam == VK_RETURN || wParam == VK_RIGHT)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (wParam == VK_RIGHT)
+        {
+          MENUITEMINFO *inf = menu->items.Get(menu->sel_vis);
+          if (!inf || !inf->hSubMenu) 
+          {
+            menuBarNavigate(1);
+            return 1;
+          }
+        }
+        SendMessage(hwnd,WM_USER+100,1,menu->sel_vis);
+      }
+      else if (wParam == VK_UP || wParam == VK_PRIOR)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        int l = menu->sel_vis;
+        for (int i= wParam == VK_UP ? 0 : 9; i>=0; i--) 
+        {
+          int mc = menu->items.GetSize();
+          while (mc--)
+          {
+            if (l<1)
+            {
+              if (wParam != VK_UP) break;
+              l = menu->items.GetSize();
+            }
+            MENUITEMINFO *inf = menu->items.Get(--l);
+            if (!inf) break; 
+            if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+            {
+              menu->sel_vis=l;
+              break;
+            }
+          }
+        }
+        if (menu->sel_vis < hwnd->m_extra[0])
+          hwnd->m_extra[0] = menu->sel_vis;
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+      else if (wParam == VK_DOWN || wParam == VK_NEXT)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        int l = menu->sel_vis;
+        const int n =menu->items.GetSize()-1;
+        for (int i = wParam == VK_DOWN ? 0 : 9; i>=0; i--) 
+        {
+          int mc = n+1;
+          while (mc--)
+          {
+            if (l>=n)
+            {
+              if (wParam != VK_DOWN) break;
+              l=-1;
+              hwnd->m_extra[0]=0;
+            }
+            MENUITEMINFO *inf = menu->items.Get(++l);
+            if (!inf) break; 
+            if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+            {
+              menu->sel_vis=l;
+              break;
+            }
+          }
+        }
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+      else if (wParam == VK_END)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        int l = menu->items.GetSize();
+        while (l > 0)
+        {
+          MENUITEMINFO *inf = menu->items.Get(--l);
+          if (!inf) break; 
+          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+          {
+            menu->sel_vis=l;
+            break;
+          }
+        }
+        if (menu->sel_vis < hwnd->m_extra[0])
+          hwnd->m_extra[0] = menu->sel_vis;
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+      else if (wParam == VK_HOME)
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        int l = 0;
+        while (l < menu->items.GetSize())
+        {
+          MENUITEMINFO *inf = menu->items.Get(l++);
+          if (!inf) break; 
+          if (!(inf->fState & MF_GRAYED) && inf->fType != MFT_SEPARATOR) 
+          {
+            menu->sel_vis=l-1;
+            break;
+          }
+        }
+        if (menu->sel_vis < hwnd->m_extra[0])
+          hwnd->m_extra[0] = menu->sel_vis;
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+      else if ((lParam & FVIRTKEY) && (
+              (wParam >= 'A' && wParam <= 'Z') ||
+              (wParam >= '0' && wParam <= '9')))
+      {
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        const int n=menu->items.GetSize();
+        
+        int offs = menu->sel_vis+1;
+        if (offs<0||offs>=n) offs=0;
+        int matchcnt=0;
+        for(int x=0;x<n+n;x++)
+        {
+          MENUITEMINFO *inf = menu->items.Get(offs);
+          if (inf->fType == MFT_STRING && 
+              !(inf->fState & MF_GRAYED) &&
+              inf->dwTypeData)
+          {
+            const char *p = inf->dwTypeData;
+            bool is_prefix_mode = x<n;
+            if (!is_prefix_mode && matchcnt) 
+            {
+              if (matchcnt == 1) 
+              {
+                // implies prefix mode, only one matching item
+                SendMessage(hwnd,WM_USER+100,1,menu->sel_vis);
+              }
+              break;
+            }
+
+            if (is_prefix_mode) while (*p)
+            {
+              if (*p++ == '&')
+              {
+                if (*p != '&') break;
+                p++;
+              }
+            }
+
+            if (*p > 0 && (WPARAM)toupper(*p) == wParam)
+            {
+              if (!matchcnt++)
+              {
+                menu->sel_vis = offs;
+                if (menu->sel_vis < hwnd->m_extra[0])
+                  hwnd->m_extra[0] = menu->sel_vis;
+                InvalidateRect(hwnd,NULL,FALSE);
+              }
+              if (!is_prefix_mode) break;
+            }
+          }
+          if (++offs >= n) offs=0;
+        }
+      }
+         
+    return 1;
     case WM_DESTROY:
       {
         int a = m_trackingMenus.Find(hwnd);
@@ -456,41 +932,153 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         RemoveProp(hwnd,"SWELL_MenuOwner");
       }
     break;
+    case WM_USER+100:
+      if (wParam == 1 || wParam == 2 || wParam == 3 || wParam == 4)
+      {
+        int which = (int) lParam;
+        int item_ypos = which;
+
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+
+        int ht = top_margin;
+        HDC hdc=GetDC(hwnd);
+        if (wParam > 1) which = -1;
+        else item_ypos = 0;
+        for (int x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
+        {
+          if (wParam == 1 && which == x) { item_ypos = ht; break; }
+          MENUITEMINFO *inf = menu->items.Get(x);
+          int lastht = ht;
+          BITMAP bm2={0,};
+          if (inf->hbmpItem)
+            GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
+
+          if (inf->fType == MFT_STRING)
+          {
+            RECT r={0,};
+            const char *str = inf->dwTypeData;
+            if (!str || !*str) str="XXXXX";
+            const char *pt2 = strstr(str,"\t");
+            DrawText(hdc,str,pt2 ? (int)(pt2-str) : -1,&r,DT_CALCRECT|DT_SINGLELINE);
+            ht += wdl_max(r.bottom,bm2.bmHeight) + text_ht_pad;
+          }
+          else if (inf->fType == MFT_BITMAP)
+          {
+            BITMAP bm={16,16};
+            if (inf->dwTypeData) GetObject((HBITMAP)inf->dwTypeData,sizeof(bm),&bm);
+            ht += wdl_max(bm.bmHeight,bm2.bmHeight) + bitmap_ht_pad;
+          }
+          else
+          {
+            ht += separator_ht;
+          }
+          if (wParam > 1 && item_ypos < ht) 
+          { 
+            item_ypos = lastht; 
+            which = x; 
+            if (wParam == 4 && inf->hSubMenu) 
+            {
+              HWND nextmenu = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)+1);
+              if (!nextmenu || GetWindowLongPtr(nextmenu,GWLP_USERDATA) != (LPARAM)inf->hSubMenu)
+              {
+                wParam = 1; // activate if not already visible
+                menu->sel_vis = which;
+              }
+            }
+            break; 
+          }
+        }
+        ReleaseDC(hwnd,hdc);
+        if (wParam == 3 || wParam == 4)
+        {
+          MENUITEMINFO *inf = menu->items.Get(which);
+          HWND next = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)+1);
+          if (next && inf && (!inf->hSubMenu || (LPARAM)inf->hSubMenu != GetWindowLongPtr(next,GWLP_USERDATA))) DestroyWindow(next); 
+          menu->sel_vis = which;
+          return 0;
+        }
+
+        MENUITEMINFO *inf = menu->items.Get(which);
+
+        if (inf) 
+        {
+          if (inf->fState&MF_GRAYED){ }
+          else if (inf->hSubMenu)
+          {
+            const int nextidx = m_trackingMenus.Find(hwnd)+1;
+            HWND hh = m_trackingMenus.Get(nextidx);
+
+            inf->hSubMenu->sel_vis=-1;
+
+            if (hh)
+            {
+              m_trackingMenus.Delete(nextidx);
+              int a = m_trackingMenus.GetSize();
+              while (a > nextidx) DestroyWindow(m_trackingMenus.Get(--a));
+            }
+            else
+            {
+              hh = new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
+              SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
+            }
+
+            RECT r;
+            GetClientRect(hwnd,&r);
+            m_trackingPt.x=r.right - SWELL_UI_SCALE(3);
+            m_trackingPt.y=item_ypos;
+            m_trackingPt2.x=r.left + lcol/4;
+            m_trackingPt2.y=item_ypos;
+            ClientToScreen(hwnd,&m_trackingPt);
+            ClientToScreen(hwnd,&m_trackingPt2);
+
+            submenuWndProc(hh, WM_CREATE,0,(LPARAM)inf->hSubMenu);
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
+          else if (inf->wID) m_trackingRet = inf->wID;
+        }
+      }
+    return 0;
+    case WM_MOUSEMOVE:
+      {
+        if (swell_delegate_menu_message(hwnd, lParam,uMsg, false))
+          return 0;
+
+        RECT r;
+        GetClientRect(hwnd,&r);
+        HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        const int oldsel = menu->sel_vis;
+        if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
+        {
+          int mode = 4;//GET_X_LPARAM(lParam) >= r.right - rcol*2 ? 4 : 3;
+          SendMessage(hwnd,WM_USER+100,mode,GET_Y_LPARAM(lParam));
+        }
+        else menu->sel_vis = -1;
+        if (oldsel != menu->sel_vis) InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
       {
+        if (swell_delegate_menu_message(hwnd, lParam, uMsg, false))
+          return 0;
+
         RECT r;
         GetClientRect(hwnd,&r);
         if (GET_X_LPARAM(lParam)>=r.left && GET_X_LPARAM(lParam)<r.right)
         {
-          int which = GET_Y_LPARAM(lParam)/itemheight;
-          HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-          MENUITEMINFO *inf = menu->items.Get(which);
-          if (inf) 
-          {
-            if (inf->fState&MF_GRAYED){ }
-            else if (inf->hSubMenu)
-            {
-              int a = m_trackingMenus.Find(hwnd);
-              HWND next = m_trackingMenus.Get(a+1);
-              if (next) DestroyWindow(next); 
-
-              m_trackingPt.x=r.right;
-              m_trackingPt.y=r.top + which*itemheight;
-              ClientToScreen(hwnd,&m_trackingPt);
-              HWND hh;
-              submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL),WM_CREATE,0,(LPARAM)inf->hSubMenu);
-              SetProp(hh,"SWELL_MenuOwner",GetProp(hh,"SWELL_MenuOwner"));
-            }
-            else if (inf->wID) m_trackingRet = inf->wID;
-          }
-          else DestroyWindow(hwnd);
+          SendMessage(hwnd,WM_USER+100,2,GET_Y_LPARAM(lParam));
+          return 0;
         }
         else DestroyWindow(hwnd);
       }
-    break;
+    return 0;
   }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
+
+void DestroyPopupMenus()
+{
+  if (m_trackingMenus.GetSize()) DestroyWindow(m_trackingMenus.Get(0));
 }
 
 int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND hwnd, const RECT *r)
@@ -498,17 +1086,28 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   if (!hMenu || m_trackingMenus.GetSize()) return 0;
 
   ReleaseCapture();
+
+  hMenu->Retain();
   m_trackingPar=hwnd;
   m_trackingFlags=flags;
   m_trackingRet=-1;
-  m_trackingPt.x=xpos;
-  m_trackingPt.y=ypos;
+  m_trackingPt2.x=m_trackingPt.x=xpos;
+  m_trackingPt2.y=m_trackingPt.y=ypos;
+  m_trackingMouseFlag = 0;
+  if (GetAsyncKeyState(VK_LBUTTON)) m_trackingMouseFlag |= 1;
+  if (GetAsyncKeyState(VK_RBUTTON)) m_trackingMouseFlag |= 2;
+  if (GetAsyncKeyState(VK_MBUTTON)) m_trackingMouseFlag |= 4;
 
 //  HWND oldFoc = GetFocus();
  // bool oldFoc_child = oldFoc && (IsChild(hwnd,oldFoc) || oldFoc == hwnd || oldFoc==GetParent(hwnd));
 
-  HWND hh;
-  submenuWndProc(hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL),WM_CREATE,0,(LPARAM)hMenu);
+  if (hwnd) hwnd->Retain();
+
+  hMenu->sel_vis=-1;
+  HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
+
+  submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);
+
   SetProp(hh,"SWELL_MenuOwner",(HANDLE)hwnd);
 
   while (m_trackingRet<0 && m_trackingMenus.GetSize())
@@ -532,6 +1131,10 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   if (!(flags&TPM_NONOTIFY) && m_trackingRet>0) 
     SendMessage(hwnd,WM_COMMAND,m_trackingRet,0);
   
+  if (hwnd) hwnd->Release();
+
+  hMenu->Release();
+
   return m_trackingRet>0?m_trackingRet:0;
 }
 
@@ -541,7 +1144,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 void SWELL_Menu_AddMenuItem(HMENU hMenu, const char *name, int idx, unsigned int flags)
 {
   MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_STATE|MIIM_TYPE,MFT_STRING,
-    (flags)?MFS_GRAYED:0,idx,NULL,NULL,NULL,0,(char *)name};
+    (UINT)((flags)?MFS_GRAYED:0),(UINT)idx,NULL,NULL,NULL,0,(char *)name};
   if (!name)
   {
     mi.fType = MFT_SEPARATOR;
@@ -583,7 +1186,24 @@ HMENU SWELL_DuplicateMenu(HMENU menu)
 BOOL  SetMenu(HWND hwnd, HMENU menu)
 {
   if (!hwnd) return 0;
+  HMENU oldmenu = hwnd->m_menu;
+
   hwnd->m_menu = menu;
+  
+  if (!hwnd->m_parent && !!hwnd->m_menu != !!oldmenu)
+  {
+    WNDPROC oldwc = hwnd->m_wndproc;
+    hwnd->m_wndproc = DefWindowProc;
+    RECT r;
+    GetWindowRect(hwnd,&r);
+
+    if (oldmenu) r.bottom -= g_swell_ctheme.menubar_height; // hack: we should WM_NCCALCSIZE before and after, really
+    else r.bottom += g_swell_ctheme.menubar_height;
+
+    SetWindowPos(hwnd,NULL,0,0,r.right-r.left,r.bottom-r.top,SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE);
+    hwnd->m_wndproc = oldwc;
+    // resize
+  }
 
   return TRUE;
 }
@@ -596,7 +1216,14 @@ HMENU GetMenu(HWND hwnd)
 
 void DrawMenuBar(HWND hwnd)
 {
-  InvalidateRect(hwnd,NULL,FALSE);
+  if (hwnd && hwnd->m_menu)
+  {
+    RECT r;
+    GetClientRect(hwnd,&r);
+    r.top = - g_swell_ctheme.menubar_height;
+    r.bottom=0;
+    InvalidateRect(hwnd,&r,FALSE);
+  }
 }
 
 
