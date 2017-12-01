@@ -71,6 +71,33 @@ int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
     {
       HWND h2=FindWindowEx(hWnd,NULL,"Edit",NULL);
       if (h2) hWnd=h2;
+      else
+      {
+        // get via selection
+        int sel = (int) SendMessage(hWnd,CB_GETCURSEL,0,0);
+        if (sel>=0)
+        {
+          int len = (int) SendMessage(hWnd,CB_GETLBTEXTLEN,sel,0);
+          char *p = lpString;
+          if (len > nMaxCount-1) 
+          {
+            p = (char*)calloc(len+1,1);
+            len = nMaxCount-1;
+          }
+          lpString[0]=0;
+          if (p)
+          {
+            SendMessage(hWnd,CB_GETLBTEXT,sel,(LPARAM)p);
+            if (p!=lpString) 
+            {
+              memcpy(lpString,p,len);
+              lpString[len]=0;
+              free(p);
+            }
+            return len;
+          }
+        }
+      }
     }
 
     // prevent large values of nMaxCount from allocating memory unless the underlying text is big too
