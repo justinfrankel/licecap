@@ -1,3 +1,7 @@
+v1.27 - November 30 2017
+  + LCF: fix crash when error opening output file [t=156366]
+  + gif: use WDL_FileWrite to write to disk rather than fopen()/_wfopen()
+
 v1.26 - August 26 2015
   + Windows 8.1+ high-DPI fix, thanks to Betsegaw Tadele / https://github.com/betsegaw
 
