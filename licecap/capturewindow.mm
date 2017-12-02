@@ -305,7 +305,7 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
   }
   static CGColorSpaceRef cs;
   if (!cs) cs=CGColorSpaceCreateDeviceRGB();
-  CGContextRef ctx=CGBitmapContextCreate(bmOut->getBits(),use_w,use_h,8,4*bmOut->getRowSpan(),cs,kCGImageAlphaNoneSkipFirst);
+  CGContextRef ctx=CGBitmapContextCreate(bmOut->getBits(),use_w,use_h,8,4*bmOut->getRowSpan(),cs,kCGImageAlphaNoneSkipFirst|kCGBitmapByteOrder32Host);
   if (!ctx)
   {
     hasNewFailed=true;
