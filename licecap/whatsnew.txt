@@ -1,3 +1,7 @@
+v1.28 - December 2 2017
+  + macOS: fix byte-ordering display issue
+  + new icon (thanks White_Tie!)
+
 v1.27 - November 30 2017
   + LCF: fix crash when error opening output file [t=156366]
   + gif: use WDL_FileWrite to write to disk rather than fopen()/_wfopen()
