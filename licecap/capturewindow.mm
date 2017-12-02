@@ -18,6 +18,9 @@
 
 bool GetScreenDataOld(int xpos, int ypos, LICE_IBitmap *bmOut)
 {
+#ifdef MAC_OS_X_VERSION_10_12 // newer SDKs drop support for these APIs
+  return false;
+#else
 #if 0
   NSRect rect=NSMakeRect(xpos,ypos,bmOut->getWidth(),bmOut->getHeight());
   NSRect rect0=NSMakeRect(0,0,rect.size.width,rect.size.height);
@@ -96,7 +99,7 @@ bool GetScreenDataOld(int xpos, int ypos, LICE_IBitmap *bmOut)
   
   [img release];
   return true;
-  
+  #endif
   
 }
 
