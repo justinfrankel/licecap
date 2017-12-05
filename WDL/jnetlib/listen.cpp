@@ -22,10 +22,8 @@ JNL_Listen::JNL_Listen(short port, unsigned int which_interface)
   {
     struct sockaddr_in sin;
     SET_SOCK_BLOCK(m_socket,0);
-#ifndef _WIN32
     int bflag = 1;
-    setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &bflag, sizeof(bflag));
-#endif
+    setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&bflag, sizeof(bflag));
     memset((char *) &sin, 0,sizeof(sin));
     sin.sin_family = AF_INET;
     sin.sin_port = htons( (short) port );
