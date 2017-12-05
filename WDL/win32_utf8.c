@@ -374,6 +374,20 @@ BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn)
   return GetOpenSaveFileNameUTF8(lpofn,TRUE);
 }
 
+BOOL SHGetSpecialFolderPathUTF8(HWND hwndOwner, LPTSTR lpszPath, int pszPathLen, int csidl, BOOL create)
+{
+  if (lpszPath AND_IS_NOT_WIN9X)
+  {
+    WCHAR tmp[4096];
+    if (SHGetSpecialFolderPathW(hwndOwner,tmp,csidl,create))
+    {
+      return WideCharToMultiByte(CP_UTF8,0,tmp,-1,lpszPath,pszPathLen,NULL,NULL) > 0;
+    }
+  }
+  return SHGetSpecialFolderPathA(hwndOwner,lpszPath,csidl,create);
+}
+
+
 #if _MSC_VER > 1700 && defined(_WIN64)
 BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST __unaligned *pidl, LPSTR pszPath, int pszPathLen)
 #else

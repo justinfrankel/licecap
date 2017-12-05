@@ -46,6 +46,8 @@ WDL_WIN32_UTF8_IMPL BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST __unal
 WDL_WIN32_UTF8_IMPL BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST *pidl, LPSTR pszPath, int pszPathLen);
 #endif
 
+WDL_WIN32_UTF8_IMPL BOOL SHGetSpecialFolderPathUTF8(HWND hwndOwner, LPTSTR lpszPath, int pszPathLen, int csidl, BOOL create);
+
 WDL_WIN32_UTF8_IMPL struct _ITEMIDLIST *SHBrowseForFolderUTF8(struct _browseinfoA *browseInfoA);
 WDL_WIN32_UTF8_IMPL int WDL_UTF8_SendBFFM_SETSEL(HWND hwnd, const char *str); // sends BFFM_SETSELECTIONA or BFFM_SETSELECTIONW
 
