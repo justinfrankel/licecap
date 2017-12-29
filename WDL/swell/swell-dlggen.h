@@ -150,6 +150,7 @@ struct SWELL_DlgResourceEntry
 #define TBS_BOTH 0
 #define LBS_NOINTEGRALHEIGHT 0
 #define TVS_HASLINES 0
+#define TVS_LINESATROOT 0
 #define TVS_SHOWSELALWAYS 0
 #define TVS_HASBUTTONS 0
 #define BS_FLAT 0
