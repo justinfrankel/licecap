@@ -471,14 +471,12 @@ typedef struct WindowPropRec
   // 10.4 SDK
   #define SWELL_NO_CORETEXT
   #define SWELL_ATSUI_TEXT_SUPPORT
-#else
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
-#ifndef __LP64__
-#define SWELL_ATSUI_TEXT_SUPPORT
-#endif
-#endif
-
+#elif !defined(__LP64__)
+  #if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
+    #ifndef MAC_OS_X_VERSION_10_9 // not sure when ATSUI was dropped completely, definitely gone in 10.13!
+      #define SWELL_ATSUI_TEXT_SUPPORT
+    #endif
+  #endif
 #endif
 
 struct HGDIOBJ__
