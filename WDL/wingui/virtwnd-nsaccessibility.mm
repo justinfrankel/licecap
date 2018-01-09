@@ -2,6 +2,7 @@
 
 #include "virtwnd-controls.h"
 
+#include <AppKit/AppKit.h>
 
 @class VWndNSAccessibility;
 static VWndNSAccessibility *GetVWndNSAccessible(WDL_VWnd *vwnd);
