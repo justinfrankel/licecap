@@ -54,10 +54,10 @@ static void LICEJPEG_skip_input_data(j_decompress_ptr cinfo, long num_bytes)
 static void LICEJPEG_term_source(j_decompress_ptr cinfo) {}
 
 
-LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
+LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp)
 {
 #ifdef _WIN32
-  HRSRC hResource = FindResource(hInst, MAKEINTRESOURCE(resid), "JPG");
+  HRSRC hResource = FindResource(hInst, resid, "JPG");
   if(!hResource) return NULL;
 
   DWORD imageSize = SizeofResource(hInst, hResource);

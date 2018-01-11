@@ -72,9 +72,9 @@ LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp) // returns a
 }
 
 #ifdef _WIN32
-LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
-  HBITMAP bm=(HBITMAP) LoadImage(hInst,MAKEINTRESOURCE(resid),IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
+  HBITMAP bm=(HBITMAP) LoadImage(hInst,resid,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
   if (!bm) return 0;
 
   LICE_IBitmap *ret=hbmToBit(bm,bmp);

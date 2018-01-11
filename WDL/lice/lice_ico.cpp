@@ -140,11 +140,11 @@ LICE_IBitmap *LICE_LoadIcon(const char *filename, int reqiconsz, LICE_IBitmap *b
   return ret;
 }
 
-LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int reqiconsz, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, const char *resid, int reqiconsz, LICE_IBitmap *bmp) // returns a bitmap (bmp if nonzero) on success
 {
 #ifdef _WIN32
   if (reqiconsz<1) reqiconsz=16;
-  HICON icon = (HICON)LoadImage(hInst,MAKEINTRESOURCE(resid),IMAGE_ICON,reqiconsz,reqiconsz,0);
+  HICON icon = (HICON)LoadImage(hInst,resid,IMAGE_ICON,reqiconsz,reqiconsz,0);
   if (!icon) return 0;
 
   LICE_IBitmap *ret=icoToBitmap(icon,bmp);

@@ -985,8 +985,8 @@ WDL_DLGRET WINAPI dlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
     //jpg=LICE_LoadJPG("C:/turds.jpg");
 
 #ifdef _WIN32
-    bmp = LICE_LoadPNGFromResource(g_hInstance, IDC_PNG1);
-    icon = LICE_LoadIconFromResource(g_hInstance, IDI_MAIN, 0);
+    bmp = LICE_LoadPNGFromResource(g_hInstance, MAKEINTRESOURCE(IDC_PNG1));
+    icon = LICE_LoadIconFromResource(g_hInstance, MAKEINTRESOURCE(IDI_MAIN), 0);
 #else
     bmp = LICE_LoadPNGFromNamedResource("image.png");
 

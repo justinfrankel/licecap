@@ -309,10 +309,10 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
   free(row_pointers);
   return bmp;  
 }
-LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
+LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp)
 {
 #ifdef _WIN32
-  HRSRC hResource = FindResource(hInst, MAKEINTRESOURCE(resid), "PNG");
+  HRSRC hResource = FindResource(hInst, resid, "PNG");
   if(!hResource) return NULL;
 
   DWORD imageSize = SizeofResource(hInst, hResource);
