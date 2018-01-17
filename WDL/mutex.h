@@ -123,7 +123,7 @@ class WDL_Mutex {
     }
 
 #ifdef _DEBUG
-  int _debug_cnt;
+  volatile int _debug_cnt;
 #endif
 
   private:
@@ -208,7 +208,7 @@ class WDL_SharedMutex
 
   private:
     WDL_Mutex m_mutex;
-    int m_sharedcnt;
+    volatile int m_sharedcnt;
 
     // prevent callers from copying accidentally
     WDL_SharedMutex(const WDL_SharedMutex &cp)
