@@ -27,7 +27,7 @@ function regsearch_file($fn, $pattern)
   $fp=fopen($fn,"r");
   if (!$fp) { echo "regsearch_file($fn) could not open file.\n";  return false; }
 
-  while (($x = fgets($fp))) if (ereg($pattern,$x,$regs)) return $regs; 
+  while (($x = fgets($fp))) if (preg_match($pattern,$x,$regs)) return $regs; 
 
   fclose($fp);
   return false;
@@ -37,7 +37,7 @@ function regsearch_file($fn, $pattern)
 $verstr1 = "";
 $verstr1_full = "";
 
-$regs = regsearch_file("licecap_version.h",'#define LICECAP_VERSION "v(.*)".*$');
+$regs = regsearch_file("licecap_version.h",'/^#define LICECAP_VERSION "v(.*)".*$/');
 if ($regs) $verstr1 = str_replace(".","",$verstr1_full=$regs[1]);
 
 echo "APP version $verstr1\n";
