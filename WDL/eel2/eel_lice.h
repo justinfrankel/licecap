@@ -2543,6 +2543,13 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         }
       }
     return 0;
+    case WM_GETMINMAXINFO:
+    {
+      LPMINMAXINFO p=(LPMINMAXINFO)lParam;
+      if (p->ptMinTrackSize.x > 10) p->ptMinTrackSize.x = 10;
+      if (p->ptMinTrackSize.y > 10) p->ptMinTrackSize.y = 10;
+    }
+    return 0;
   }
 
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
