@@ -181,7 +181,7 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
 
 WDL_HASSTRINGS_EXPORT bool WDL_makeSearchFilter(const char *flt, LineParser *lp)
 {
-  if (!lp || !flt || !*flt) return false;
+  if (!lp || !flt) return false;
 
 #ifdef WDL_LINEPARSER_HAS_LINEPARSERINT
   if (lp->parse_ex(flt,true,false,true)) // allow unterminated quotes
@@ -189,7 +189,7 @@ WDL_HASSTRINGS_EXPORT bool WDL_makeSearchFilter(const char *flt, LineParser *lp)
   if (lp->parse_ex(flt,true,false))
 #endif
   {
-    lp->set_one_token(flt); // failed parsing search string, search as a single token
+    if (*flt) lp->set_one_token(flt); // failed parsing search string, search as a single token
   }
 
   return lp->getnumtokens()>0;
