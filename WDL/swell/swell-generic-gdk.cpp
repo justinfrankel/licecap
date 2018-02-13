@@ -288,7 +288,11 @@ void SWELL_initargs(int *argc, char ***argv)
       _gdk_set_allowed_backends("x11");
 #endif
 
+#ifdef SWELL_SUPPORT_GTK
+    SWELL_gdk_active = gtk_init_check(argc,argv) ? 1 : -1;
+#else
     SWELL_gdk_active = gdk_init_check(argc,argv) ? 1 : -1;
+#endif
     if (SWELL_gdk_active > 0)
     {
       char buf[1024];
@@ -1449,6 +1453,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           //printf("msg: %d\n",evt->type);
     break;
   }
+#ifdef SWELL_SUPPORT_GTK
+  gtk_main_do_event(evt);
+#endif
   s_cur_evt = oldEvt;
 }
 
@@ -1456,8 +1463,12 @@ void SWELL_RunEvents()
 {
   if (SWELL_gdk_active>0) 
   {
-//    static GMainLoop *loop;
-//    if (!loop) loop = g_main_loop_new(NULL,TRUE);
+#if 0 && defined(SWELL_SUPPORT_GTK)
+    // does not seem to be necessary
+    while (gtk_events_pending())
+      gtk_main_iteration();
+#else
+
 #if SWELL_TARGET_GDK == 2
     gdk_window_process_all_updates();
 #endif
@@ -1472,6 +1483,7 @@ void SWELL_RunEvents()
         gdk_event_free(evt);
       }
     }
+#endif
   }
 }
 

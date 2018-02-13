@@ -69,12 +69,24 @@ ifndef NOGDK
       CFLAGS += -DSWELL_PRELOAD="libgdk-x11-2.0.so.0"
     endif
   else
-    CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gdk-3.0)
+    ifdef SWELL_SUPPORT_GTK
+      CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gtk+-3.0) -DSWELL_SUPPORT_GTK
+    else
+      CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gdk-3.0)
+    endif
     ifndef PRELOAD_GDK
-      LINKEXTRA += $(shell $(PKG_CONFIG) --libs gdk-3.0)
+      ifdef SWELL_SUPPORT_GTK
+        LINKEXTRA += $(shell $(PKG_CONFIG) --libs gtk+-3.0)
+      else
+        LINKEXTRA += $(shell $(PKG_CONFIG) --libs gdk-3.0)
+      endif
     else
       LINKEXTRA += -lX11 -lXi
-      CFLAGS += -DSWELL_PRELOAD="libgdk-3.so.0"
+      ifdef SWELL_SUPPORT_GTK
+        CFLAGS += -DSWELL_PRELOAD="libgtk+-3.so.0"
+      else
+        CFLAGS += -DSWELL_PRELOAD="libgdk-3.so.0"
+      endif
     endif
   endif
   CFLAGS += -DSWELL_LICE_GDI

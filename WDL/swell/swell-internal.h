@@ -579,6 +579,11 @@ struct HDC__ {
 
 #elif defined(SWELL_TARGET_GDK)
 
+
+#ifdef SWELL_SUPPORT_GTK
+#include <gtk/gtk.h>
+#endif
+
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
 #include <gdk/gdkx.h>
