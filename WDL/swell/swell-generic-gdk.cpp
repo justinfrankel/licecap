@@ -1802,8 +1802,9 @@ DWORD GetMessagePos()
 }
 
 struct bridgeState {
-  GdkWindow *w, *delw;
+  GdkWindow *w;
   bool lastvis;
+  bool need_reparent;
   RECT lastrect;
 };
 static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -1816,7 +1817,6 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         bridgeState *bs = (bridgeState*)hwnd->m_private_data;
         hwnd->m_private_data = 0;
         if (bs->w) gdk_window_destroy(bs->w);
-        if (bs->delw) gdk_window_destroy(bs->delw);
         delete bs;
       }
     break;
@@ -1884,7 +1884,7 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
           }
 
-          if (h && (bs->delw || (vis != bs->lastvis) || (vis&&memcmp(&tr,&bs->lastrect,sizeof(RECT))))) 
+          if (h && (bs->need_reparent || (vis != bs->lastvis) || (vis&&memcmp(&tr,&bs->lastrect,sizeof(RECT))))) 
           {
             if (bs->lastvis && !vis)
             {
@@ -1892,17 +1892,13 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
               bs->lastvis = false;
             }
 
-            if (bs->delw)
+            if (bs->need_reparent)
             {
               gdk_window_reparent(bs->w,h->m_oswindow,tr.left,tr.top);
               gdk_window_resize(bs->w, tr.right-tr.left,tr.bottom-tr.top);
               bs->lastrect=tr;
 
-              if (bs->delw)
-              {
-                gdk_window_destroy(bs->delw);
-                bs->delw=NULL;
-              }
+              bs->need_reparent=false;
             }
             else if (memcmp(&tr,&bs->lastrect,sizeof(RECT)))
             {
@@ -1938,37 +1934,19 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
   }
 
   bridgeState *bs = new bridgeState;
-  bs->delw = NULL;
+  bs->need_reparent=false;
   bs->lastvis = false;
   memset(&bs->lastrect,0,sizeof(bs->lastrect));
 
-  GdkWindowAttr attr;
   if (!ospar)
   {
-    memset(&attr,0,sizeof(attr));
-    attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
-    attr.x = r->left;
-    attr.y = r->top;
-    attr.width = r->right-r->left;
-    attr.height = r->bottom-r->top;
-    attr.wclass = GDK_INPUT_OUTPUT;
-    attr.title = (char*)"Temporary window";
-    attr.window_type = GDK_WINDOW_TOPLEVEL;
-    ospar = bs->delw = gdk_window_new(ospar,&attr,GDK_WA_X|GDK_WA_Y);
+    bs->need_reparent = true;
+    ospar = gdk_screen_get_root_window(gdk_screen_get_default());
   }
 
-  memset(&attr,0,sizeof(attr));
-  attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
-  attr.x = r->left;
-  attr.y = r->top;
-  attr.width = r->right-r->left;
-  attr.height = r->bottom-r->top;
-  attr.wclass = GDK_INPUT_OUTPUT;
-  attr.title = (char*)"Plug-in Window";
-  attr.event_mask = GDK_ALL_EVENTS_MASK|GDK_EXPOSURE_MASK;
-  attr.window_type = GDK_WINDOW_CHILD;
-
-  bs->w = gdk_window_new(ospar,&attr,GDK_WA_X|GDK_WA_Y);
+  Display *disp = gdk_x11_display_get_xdisplay(gdk_window_get_display(ospar));
+  Window w = XCreateWindow(disp,gdk_x11_window_get_xid(ospar),0,0,r->right-r->left,r->bottom-r->top,0,CopyFromParent, InputOutput, CopyFromParent, 0, NULL);
+  bs->w = gdk_x11_window_foreign_new_for_display(gdk_display_get_default(),w);
 
   hwnd = new HWND__(viewpar,0,r,NULL, true, xbridgeProc);
   hwnd->m_private_data = (INT_PTR) bs;
@@ -1980,7 +1958,7 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
     *wref = (void *) gdk_x11_window_get_xid(bs->w);
 #endif
     SetTimer(hwnd,1,100,NULL);
-    if (!bs->delw) SendMessage(hwnd,WM_SIZE,0,0);
+    if (!bs->need_reparent) SendMessage(hwnd,WM_SIZE,0,0);
   }
   return hwnd;
 }
