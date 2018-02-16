@@ -1802,11 +1802,36 @@ DWORD GetMessagePos()
 }
 
 struct bridgeState {
+  bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp);
+  ~bridgeState();
+
+
   GdkWindow *w;
+  Window native_w;
+  Display *native_disp;
+
   bool lastvis;
   bool need_reparent;
   RECT lastrect;
 };
+
+static WDL_PtrList<bridgeState> filter_windows;
+bridgeState::~bridgeState() 
+{ 
+  filter_windows.DeletePtr(this); 
+  if (w) gdk_window_destroy(w);
+}
+bridgeState::bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp)
+{
+  w=_w;
+  native_w=_nw;
+  native_disp=_disp;
+  lastvis=false;
+  need_reparent=needrep;
+  memset(&lastrect,0,sizeof(lastrect));
+  filter_windows.Add(this);
+}
+
 static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   switch (uMsg)
@@ -1816,7 +1841,6 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
         bridgeState *bs = (bridgeState*)hwnd->m_private_data;
         hwnd->m_private_data = 0;
-        if (bs->w) gdk_window_destroy(bs->w);
         delete bs;
       }
     break;
@@ -1919,6 +1943,27 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
+static GdkFilterReturn filterCreateShowProc(GdkXEvent *xev, GdkEvent *event, gpointer data)
+{
+  const XEvent *xevent = (XEvent *)xev;
+  if (xevent && xevent->type == CreateNotify)
+  {
+    for (int x=0;x<filter_windows.GetSize(); x++)
+    {
+      bridgeState *bs = filter_windows.Get(x);
+      if (bs && bs->native_w == xevent->xany.window && bs->native_disp == xevent->xany.display)
+      {
+        //gint w=0,hh=0;
+        //gdk_window_get_geometry(bs->w,NULL,NULL,&w,&hh);
+        XMapWindow(bs->native_disp, xevent->xcreatewindow.window);
+        //XResizeWindow(bs->native_disp, xevent->xcreatewindow.window,w,hh);
+        return GDK_FILTER_REMOVE;
+      }
+    }
+  }
+  return GDK_FILTER_CONTINUE;
+}
+
 HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
 {
   HWND hwnd = NULL;
@@ -1933,32 +1978,35 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
     hpar = hpar->m_parent;
   }
 
-  bridgeState *bs = new bridgeState;
-  bs->need_reparent=false;
-  bs->lastvis = false;
-  memset(&bs->lastrect,0,sizeof(bs->lastrect));
+  bool need_reparent=false;
 
   if (!ospar)
   {
-    bs->need_reparent = true;
+    need_reparent = true;
     ospar = gdk_screen_get_root_window(gdk_screen_get_default());
   }
 
   Display *disp = gdk_x11_display_get_xdisplay(gdk_window_get_display(ospar));
   Window w = XCreateWindow(disp,gdk_x11_window_get_xid(ospar),0,0,r->right-r->left,r->bottom-r->top,0,CopyFromParent, InputOutput, CopyFromParent, 0, NULL);
-  bs->w = gdk_x11_window_foreign_new_for_display(gdk_display_get_default(),w);
+  GdkWindow *gdkw = w ? gdk_x11_window_foreign_new_for_display(gdk_display_get_default(),w) : NULL;
 
   hwnd = new HWND__(viewpar,0,r,NULL, true, xbridgeProc);
+  bridgeState *bs = gdkw ? new bridgeState(need_reparent,gdkw,w,disp) : NULL;
   hwnd->m_private_data = (INT_PTR) bs;
-  if (bs->w)
+  if (gdkw)
   {
-#if SWELL_TARGET_GDK == 2
-    *wref = (void *) GDK_WINDOW_XID(bs->w);
-#else
-    *wref = (void *) gdk_x11_window_get_xid(bs->w);
-#endif
+    *wref = (void *) w;
+
+    XSelectInput(disp, w, StructureNotifyMask | SubstructureNotifyMask);
+
+    static bool filt_add;
+    if (!filt_add)
+    {
+      filt_add=true;
+      gdk_window_add_filter(NULL, filterCreateShowProc, NULL);
+    }
     SetTimer(hwnd,1,100,NULL);
-    if (!bs->need_reparent) SendMessage(hwnd,WM_SIZE,0,0);
+    if (!need_reparent) SendMessage(hwnd,WM_SIZE,0,0);
   }
   return hwnd;
 }
