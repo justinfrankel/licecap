@@ -930,6 +930,19 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
       case LB_DELETESTRING:
         ListView_DeleteItem((HWND)self, (int)wParam);
         return 0;
+      case WM_SETREDRAW:
+        if (wParam)
+        {
+          if (SWELL_GetOSXVersion() >= 0x1070 && [self respondsToSelector:@selector(endUpdates)])
+            [self endUpdates];
+        }
+        else
+        {
+          if (SWELL_GetOSXVersion() >= 0x1070 && [self respondsToSelector:@selector(beginUpdates)])
+            [self beginUpdates];
+        }
+
+        return 0;
     }
   return 0;
 }
