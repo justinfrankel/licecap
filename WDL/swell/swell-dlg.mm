@@ -2200,7 +2200,7 @@ void EndDialog(HWND wnd, int ret)
       [NSApp stopModal];
     }
     
-    [NSApp abortModal]; // always call this, otherwise if running in runModalForWindow: it can often require another even tto come through before things continue
+    [NSApp abortModal]; // always call this, otherwise if running in runModalForWindow: it can often require another even tto come through before things continue
     
     [nswnd close];
   }
