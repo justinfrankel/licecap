@@ -1999,7 +1999,7 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
   }
 
   Display *disp = gdk_x11_display_get_xdisplay(gdk_window_get_display(ospar));
-  Window w = XCreateWindow(disp,gdk_x11_window_get_xid(ospar),0,0,r->right-r->left,r->bottom-r->top,0,CopyFromParent, InputOutput, CopyFromParent, 0, NULL);
+  Window w = XCreateWindow(disp,GDK_WINDOW_XID(ospar),0,0,r->right-r->left,r->bottom-r->top,0,CopyFromParent, InputOutput, CopyFromParent, 0, NULL);
   GdkWindow *gdkw = w ? gdk_x11_window_foreign_new_for_display(gdk_display_get_default(),w) : NULL;
 
   hwnd = new HWND__(viewpar,0,r,NULL, true, xbridgeProc);
@@ -2250,11 +2250,10 @@ void SWELL_SetCursor(HCURSOR curs)
 #endif
       {
         Display *disp = gdk_x11_display_get_xdisplay(gdkdisp);
-#if SWELL_TARGET_GDK == 2
         Window wn =  GDK_WINDOW_XID(SWELL_focused_oswindow);
+#if SWELL_TARGET_GDK == 2
         gint devid=2; // hardcoded default pointing device
 #else
-        Window wn =  gdk_x11_window_get_xid(SWELL_focused_oswindow);
         gint devid = gdk_x11_device_get_id(dev);
 #endif
         if (disp && wn)
