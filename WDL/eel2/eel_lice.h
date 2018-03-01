@@ -257,7 +257,7 @@ public:
   NSEEL_VMCTX m_vmref;
   void *m_user_ctx;
 
-  int setup_frame(HWND hwnd, RECT r);
+  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0); // mouse_x/y used only if hwnd is NULL
 
   void gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag);
   void gfx_rectto(EEL_F xpos, EEL_F ypos);
@@ -1693,20 +1693,23 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
                            getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 }
 
-int eel_lice_state::setup_frame(HWND hwnd, RECT r)
+int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
 {
   int use_w = r.right - r.left;
   int use_h = r.bottom - r.top;
 
-  POINT pt;
-  GetCursorPos(&pt);
-  ScreenToClient(hwnd,&pt);
+  POINT pt = { _mouse_x, _mouse_y };
+  if (hwnd)
+  {
+    GetCursorPos(&pt);
+    ScreenToClient(hwnd,&pt);
+  }
   *m_mouse_x=pt.x-r.left;
   *m_mouse_y=pt.y-r.top;
   if (*m_gfx_ext_retina > 0.0)
   {
 #ifdef __APPLE__
-    *m_gfx_ext_retina = SWELL_IsRetinaHWND(hwnd) ? 2.0 : 1.0;
+    *m_gfx_ext_retina = (hwnd && SWELL_IsRetinaHWND(hwnd)) ? 2.0 : 1.0;
     if (*m_gfx_ext_retina > 1.0)
     {
       *m_mouse_x *= 2.0;
@@ -1771,7 +1774,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r)
     if (GetAsyncKeyState(VK_RBUTTON)&0x8000) vflags|=swap?1:2;
     if (GetAsyncKeyState(VK_MBUTTON)&0x8000) vflags|=64;
   }
-  if (m_has_cap || (m_has_had_getch && GetFocus()==hwnd))
+  if (m_has_cap || (m_has_had_getch && hwnd && GetFocus()==hwnd))
   {
     if (GetAsyncKeyState(VK_CONTROL)&0x8000) vflags|=4;
     if (GetAsyncKeyState(VK_SHIFT)&0x8000) vflags|=8;
