@@ -841,6 +841,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   unsigned char match_parmcnt_pos=0;
   char *sname = (char *)rec->relname;
   int is_string_prefix = parmcnt < 0 && sname[0] == '#';
+  const char *prevent_function_calls = NULL;
 
   if (errOut) *errOut = 0;
 
@@ -961,17 +962,20 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   
     return rec;
   }
+
+  if (ctx->func_check)
+    prevent_function_calls = ctx->func_check(sname,ctx->func_check_user);
  
   ////////// function mode
   // first off, while() and loop() are special and can't be overridden
   //
-  if (parmcnt == 1 && !stricmp("while",sname))
+  if (parmcnt == 1 && !stricmp("while",sname) && !prevent_function_calls)
   {
     rec->opcodeType = OPCODETYPE_FUNC1;
     rec->fntype = FN_WHILE;
     return rec;
   }
-  if (parmcnt == 2 && !stricmp("loop",sname))
+  if (parmcnt == 2 && !stricmp("loop",sname) && !prevent_function_calls)
   {
     rec->opcodeType = OPCODETYPE_FUNC2;
     rec->fntype = FN_LOOP;
@@ -1079,6 +1083,14 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
       rec->fn = best;
       return rec;
     }    
+  }
+
+  if (prevent_function_calls)
+  {
+    if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
+    snprintf_append(ctx->last_error_string,sizeof(ctx->last_error_string),"'%.30s': %s",sname, prevent_function_calls);
+    if (errOut) *errOut = 0;
+    return NULL;
   }
 
 #ifdef NSEEL_EEL1_COMPAT_MODE
@@ -5102,6 +5114,16 @@ int NSEEL_VM_setramsize(NSEEL_VMCTX _ctx, int maxent)
   }
   
   return ctx->ram_state.maxblocks * NSEEL_RAM_ITEMSPERBLOCK;
+}
+
+void NSEEL_VM_SetFunctionValidator(NSEEL_VMCTX _ctx, const char * (*validateFunc)(const char *fn_name, void *user), void *user)
+{
+  if (_ctx)
+  {
+    compileContext *ctx = (compileContext *)_ctx;
+    ctx->func_check = validateFunc;
+    ctx->func_check_user = user;
+  }
 }
 
 void NSEEL_VM_SetFunctionTable(NSEEL_VMCTX _ctx, eel_function_table *tab)

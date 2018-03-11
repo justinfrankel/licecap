@@ -125,6 +125,9 @@ void NSEEL_VM_free(NSEEL_VMCTX ctx); // free when done with a VM and ALL of its 
 
 void NSEEL_VM_SetFunctionTable(NSEEL_VMCTX, eel_function_table *tab); // use NULL to use default (global) table
 
+// validateFunc can return error message if not permitted
+void NSEEL_VM_SetFunctionValidator(NSEEL_VMCTX, const char * (*validateFunc)(const char *fn_name, void *user), void *user);
+
 void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx);
 void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx);
 void NSEEL_VM_remove_all_nonreg_vars(NSEEL_VMCTX _ctx);
