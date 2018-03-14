@@ -4632,6 +4632,7 @@ void ListView_SetItemCount(HWND h, int cnt)
   if (!tv->m_lbMode && (tv->style & LVS_OWNERDATA))
   {
     tv->ownermode_cnt=cnt;
+    [tv noteNumberOfRowsChanged];
   }
 }
 
