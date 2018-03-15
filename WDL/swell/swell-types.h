@@ -920,8 +920,8 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_SETFONT                      0x0030
 #define WM_GETFONT                      0x0031
 #define WM_GETOBJECT 			0x003D // implemented differently than win32 -- see virtwnd/virtwnd-nsaccessibility.mm
+#define WM_COPYDATA                     0x004A
 #define WM_NOTIFY                       0x004E
-
 #define WM_CONTEXTMENU                  0x007B
 #define WM_STYLECHANGED                 0x007D
 #define WM_DISPLAYCHANGE                0x007E
@@ -975,7 +975,6 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_CAPTURECHANGED               0x0215
 #define WM_DROPFILES                    0x0233
 #define WM_USER                         0x0400
-
 
 #define HTCAPTION 2
 #define HTBOTTOMRIGHT 17
@@ -1369,6 +1368,13 @@ typedef struct _ICONINFO
   HBITMAP hbmMask;
   HBITMAP hbmColor;
 } ICONINFO, *PICONINFO;
+
+typedef struct _COPYDATASTRUCT
+{
+  ULONG_PTR dwData;
+  DWORD     cbData;
+  PVOID     lpData;
+} COPYDATASTRUCT, *PCOPYDATASTRUCT;
 
 
 #endif //_WDL_SWELL_H_TYPES_DEFINED_
