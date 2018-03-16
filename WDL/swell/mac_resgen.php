@@ -293,16 +293,21 @@ $lp = dirname(__FILE__);
 $proc=0;
 $skipped=0;
 $err=0;
+$quiet=0;
 for (; $x < count($argv); $x ++)
 {
    $srcfn = $argv[$x];
+   if ($srcfn == "--quiet")
+   {
+     $quiet = 1;
+     continue;
+   }
    if (!stristr($srcfn,".rc") || !($fp = @fopen($srcfn,"r")))
    {
       $err++;
       echo "$srcfn: not valid or not found!\n";
       continue;
    }
-   echo "$srcfn: ";
    $ofnmenu = $srcfn . "_mac_menu";
    $ofndlg = $srcfn . "_mac_dlg";
 
@@ -312,7 +317,7 @@ for (; $x < count($argv); $x ++)
    if ($res["error"] != "" || $res2["error"] != "")
    {
      $err++;
-     echo "error";
+     echo "$srcfn: error";
      if ($res["error"] != "") echo " dialog: " . $res["error"];
      if ($res2["error"] != "") echo " menu: " . $res2["error"];
      echo "\n";
@@ -331,12 +336,18 @@ for (; $x < count($argv); $x ++)
      if (!file_put_contents($ofnmenu,$res2["data"],LOCK_EX)) { echo "error writing $ofnmenu\n"; $err++; }
    }
 
+   if ($f != "") 
+   {
+     $proc++; 
+   }
+   else 
+   {
+     $skipped++;
+     $f = "skipped";
+   }
 
-   if ($f) echo "$f\n";
-   else echo "skipped\n";
-   if ($f != "") $proc++; 
-   else $skipped++;
+   if (!$quiet) echo "$srcfn: $f\n";
 }
-echo "processed $proc, skipped $skipped, error $err\n";
+if (!$quiet || $proc || $err) echo "processed $proc, skipped $skipped, error $err\n";
 
 ?>
