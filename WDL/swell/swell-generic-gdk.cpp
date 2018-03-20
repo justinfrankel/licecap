@@ -960,7 +960,10 @@ static void OnKeyEvent(GdkEventKey *k)
     }
     else 
     {
-      if (kv >= DEF_GKY(Shift_L))
+      if (kv >= DEF_GKY(Shift_L) ||
+          (kv >= DEF_GKY(ISO_Lock) &&
+           kv <= DEF_GKY(ISO_Last_Group_Lock))
+         )
       {
         if (kv == DEF_GKY(Shift_L) || kv == DEF_GKY(Shift_R)) kv = VK_SHIFT;
         else if (kv == DEF_GKY(Control_L) || kv == DEF_GKY(Control_R)) kv = VK_CONTROL;
