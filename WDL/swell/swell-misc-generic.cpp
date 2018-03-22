@@ -38,7 +38,7 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
     char **pp = (char **)calloc(nparams+2,sizeof(char*));
     pp[0] = strdup(exe);
     for (int x=0;x<nparams;x++) pp[x+1] = strdup(params[x]?params[x]:"");
-    execv(exe,pp);
+    execvp(exe,pp);
     exit(0);
   }
 
