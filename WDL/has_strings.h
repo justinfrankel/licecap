@@ -33,10 +33,9 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
   int stacktop = 0;
   stack[0]=0;
 
-  int x,ln;
   const int strlen_name = (int)strlen(name);
   char matched_local=-1; // -1 = first eval for scope, 0=did not pass scope, 1=OK, 2=ignore rest of scope
-  for (x = 0; x < ntok; x ++)
+  for (int x = 0; x < ntok; x ++)
   {
     const char *n=lp->gettoken_str(x);
     
@@ -74,9 +73,14 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
     }
     else if (matched_local&1) // matches 1, -1
     {
+      int ln;
       if (!strcmp(n,"NOT")) 
       {
         stack[stacktop]^=1; 
+      }
+      else if (!strcmp(n,"AND") && !lp->gettoken_quotingchar(x))
+      {
+        // ignore unquoted uppercase AND
       }
       else if ((ln=(int)strlen(n))>0)
       {
