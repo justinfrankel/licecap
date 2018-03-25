@@ -204,6 +204,7 @@ public:
       DWORD h=0;
       DWORD l=GetFileSize(m_fh,&h);
       m_fsize=(((WDL_FILEREAD_POSTYPE)h)<<32)|l;
+      if (m_fsize<0 || (l == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)) m_fsize=0;
 
       if (!h && l < mmap_maxsize && m_async<=0)
       {
@@ -271,6 +272,7 @@ public:
 #endif
       m_fsize=lseek(m_filedes,0,SEEK_END);
       lseek(m_filedes,0,SEEK_SET);
+      if (m_fsize<0) m_fsize=0;
 
       if (m_fsize < mmap_maxsize)
       {
