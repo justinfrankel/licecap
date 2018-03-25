@@ -68,13 +68,17 @@ class WDL_Mutex {
       InitializeCriticalSection(&m_cs);
 #elif defined( WDL_MAC_USE_CARBON_CRITSEC)
       MPCreateCriticalRegion(&m_cr);
-#elif defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER)
+#elif defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER) && !defined(__linux__)
       const pthread_mutex_t tmp = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;
       m_mutex = tmp;
 #else
       pthread_mutexattr_t attr;
       pthread_mutexattr_init(&attr);
       pthread_mutexattr_settype(&attr,PTHREAD_MUTEX_RECURSIVE);
+#ifdef __linux__
+      // todo: macos too?
+      pthread_mutexattr_setprotocol(&attr,PTHREAD_PRIO_INHERIT);
+#endif
       pthread_mutex_init(&m_mutex,&attr);
       pthread_mutexattr_destroy(&attr);
 #endif
