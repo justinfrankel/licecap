@@ -64,9 +64,16 @@ void Sleep(int ms)
 
 DWORD GetTickCount()
 {
+#ifdef __APPLE__
+  // could switch to mach_getabsolutetime() maybe
   struct timeval tm={0,};
   gettimeofday(&tm,NULL);
   return (DWORD) (tm.tv_sec*1000 + tm.tv_usec/1000);
+#else
+  struct timespec ts={0,};
+  clock_gettime(CLOCK_MONOTONIC,&ts);
+  return (DWORD) (ts.tv_sec*1000 + ts.tv_nsec/1000000);
+#endif
 }
 
 
@@ -338,11 +345,10 @@ again:
               break;
             }
 #else
-            struct timeval tm={0,};
-            gettimeofday(&tm,NULL);
             struct timespec ts;
-            ts.tv_sec = msTO/1000 + tm.tv_sec;
-            ts.tv_nsec = (tm.tv_usec + (msTO%1000)*1000) * 1000;
+            clock_gettime(CLOCK_MONOTONIC,&ts);
+            ts.tv_sec += msTO/1000;
+            ts.tv_nsec += (msTO%1000)*1000000;
             if (ts.tv_nsec>=1000000000) 
             {
               int n = ts.tv_nsec/1000000000;
@@ -401,8 +407,23 @@ HANDLE CreateEvent(void *SA, BOOL manualReset, BOOL initialSig, const char *igno
   buf->isSignal = !!initialSig;
   buf->isManualReset = !!manualReset;
   
-  pthread_mutex_init(&buf->mutex,NULL);
+  pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
+#ifdef __linux__
+  pthread_mutexattr_setprotocol(&attr,PTHREAD_PRIO_INHERIT);
+#endif
+  pthread_mutex_init(&buf->mutex,&attr);
+  pthread_mutexattr_destroy(&attr);
+
+#ifndef __APPLE__
+  pthread_condattr_t cattr;
+  pthread_condattr_init(&cattr);
+  pthread_condattr_setclock(&cattr,CLOCK_MONOTONIC);
+  pthread_cond_init(&buf->cond,&cattr);
+  pthread_condattr_destroy(&cattr);
+#else
   pthread_cond_init(&buf->cond,NULL);
+#endif
   
   return (HANDLE)buf;
 }
