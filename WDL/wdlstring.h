@@ -368,7 +368,8 @@ class WDL_String
       {
         const int oldsz = m_hb.GetSize();
         const int newsz=offs+len+trailkeep+1;
-        if (newsz-oldsz > 0)
+        const int growamt = newsz-oldsz;
+        if (growamt > 0)
         {
           const char *oldb = (const char *)m_hb.Get();
           const char *newb = (const char *)m_hb.Resize(newsz,false); // resize up if necessary
@@ -385,7 +386,7 @@ class WDL_String
           newbuf[newsz-1]=0;
 
           // resize down if necessary
-          if (newsz < oldsz) m_hb.Resize(newsz,false);
+          if (growamt < 0) m_hb.Resize(newsz,false);
         }
       }
     }
