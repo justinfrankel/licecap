@@ -10,6 +10,8 @@ PKG_CONFIG = pkg-config
 
 CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar -Wno-unused-result
 
+CFLAGS += -DSWELL_MAKING_DYLIB
+
 ifeq ($(UNAME_S),Darwin)
   CFLAGS += -Wno-unused-private-field -DSWELL_FORCE_GENERIC
   DLL_EXT=.dylib

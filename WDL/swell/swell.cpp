@@ -710,6 +710,14 @@ HINSTANCE LoadLibrary(const char *fn)
 {
   return LoadLibraryGlobals(fn,false);
 }
+
+#ifndef SWELL_TARGET_OSX
+extern "C" {
+  void *SWELLAPI_GetFunc(const char *name);
+};
+#endif
+      
+
 HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
 {
   if (!fn || !*fn) return NULL;
@@ -764,9 +772,13 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     *(void **)&SWELL_dllMain = GetProcAddress(rec,"SWELL_dllMain");
     if (SWELL_dllMain)
     {
-      void *SWELLAPI_GetFunc(const char *name);
-      
-      if (!SWELL_dllMain(rec,DLL_PROCESS_ATTACH,(void*)NULL)) // todo: eventually pass SWELLAPI_GetFunc, maybe?
+      if (!SWELL_dllMain(rec,DLL_PROCESS_ATTACH,
+#ifdef SWELL_TARGET_OSX
+            NULL
+#else
+            (void*)SWELLAPI_GetFunc
+#endif
+            ))
       {
         FreeLibrary(rec);
         return 0;
