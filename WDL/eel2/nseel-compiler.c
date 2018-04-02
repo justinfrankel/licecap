@@ -41,7 +41,9 @@
   #include <AvailabilityMacros.h>
 
   #if defined(__LP64__) || defined(MAC_OS_X_VERSION_10_6) // using 10.6+ SDK, force mprotect use
-    #define EEL_USE_MPROTECT
+    #ifndef EEL_USE_MPROTECT
+      #define EEL_USE_MPROTECT
+    #endif
   #endif
 #endif
 
