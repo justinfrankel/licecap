@@ -475,13 +475,12 @@ public:
 // parameterized attribute methods
 - (NSArray *)accessibilityParameterizedAttributeNames
 {
-  {
-    const char *type = m_br->vwnd ?  m_br->vwnd->GetType() : NULL;
-    if (!type) type="";
-    //NSLog(@"accessibilityParameterizedAttributeNames: %@ %s %p\n",@"",type,m_br->vwnd);
-  }  
-  return [NSArray arrayWithObjects:nil count:0];
-  return nil;
+ // {
+//    const char *type = m_br->vwnd ?  m_br->vwnd->GetType() : NULL;
+//    if (!type) type="";
+//    NSLog(@"accessibilityParameterizedAttributeNames: %@ %s %p\n",@"",type,m_br->vwnd);
+//  }  
+  return [NSArray array];
 }
 - (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter
 {
