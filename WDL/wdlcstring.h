@@ -72,10 +72,10 @@ extern "C" {
 
 #ifdef _WDL_CSTRING_IF_ONLY_
 
-  void lstrcpyn_safe(char *o, const char *in, int count);
-  void lstrcatn(char *o, const char *in, int count);
-  void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, int count, const char *format, ...);
-  void vsnprintf_append(char *o, int count, const char *format, va_list va);
+  void lstrcpyn_safe(char *o, const char *in, INT_PTR count);
+  void lstrcatn(char *o, const char *in, INT_PTR count);
+  void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, INT_PTR count, const char *format, ...);
+  void vsnprintf_append(char *o, INT_PTR count, const char *format, va_list va);
 
   const char *WDL_get_filepart(const char *str); // returns whole string if no dir chars
   const char *WDL_get_fileext(const char *str); // returns ".ext" or end of string "" if no extension
@@ -122,7 +122,7 @@ extern "C" {
     }
   #endif
 
-  _WDL_CSTRING_PREFIX void lstrcpyn_safe(char *o, const char *in, int count)
+  _WDL_CSTRING_PREFIX void lstrcpyn_safe(char *o, const char *in, INT_PTR count)
   {
     if (count>0)
     {
@@ -131,7 +131,7 @@ extern "C" {
     }
   }
 
-  _WDL_CSTRING_PREFIX void lstrcatn(char *o, const char *in, int count)
+  _WDL_CSTRING_PREFIX void lstrcatn(char *o, const char *in, INT_PTR count)
   {
     if (count>0)
     {
@@ -218,7 +218,7 @@ extern "C" {
     return p-str;
   }
 
-  _WDL_CSTRING_PREFIX void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, int count, const char *format, ...)
+  _WDL_CSTRING_PREFIX void WDL_VARARG_WARN(printf,3,4) snprintf_append(char *o, INT_PTR count, const char *format, ...)
   {
     if (count>0)
     {
@@ -230,7 +230,7 @@ extern "C" {
     }
   } 
 
-  _WDL_CSTRING_PREFIX void vsnprintf_append(char *o, int count, const char *format, va_list va)
+  _WDL_CSTRING_PREFIX void vsnprintf_append(char *o, INT_PTR count, const char *format, va_list va)
   {
     if (count>0)
     {
