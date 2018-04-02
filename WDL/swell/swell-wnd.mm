@@ -1688,7 +1688,7 @@ void EnableWindow(HWND hwnd, int enable)
   if (bla && [bla respondsToSelector:@selector(setEnabled:)])
   {
     if (enable == -1000 && [bla respondsToSelector:@selector(setEnabledSwellNoFocus)])
-      [bla setEnabledSwellNoFocus];
+      [(SWELL_hwndChild *)bla setEnabledSwellNoFocus];
     else
       [bla setEnabled:(enable?YES:NO)];
     if ([bla isKindOfClass:[SWELL_TextField class]])

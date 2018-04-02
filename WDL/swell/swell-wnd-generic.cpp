@@ -6831,7 +6831,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         if (hwnd->m_font) return (LRESULT) hwnd->m_font;
 #ifdef SWELL_FREETYPE
         {
-          HFONT SWELL_GetDefaultFont();
+          HFONT SWELL_GetDefaultFont(void);
           return (LRESULT)SWELL_GetDefaultFont();
         }
 #endif

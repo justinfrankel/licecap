@@ -331,6 +331,7 @@ typedef struct WindowPropRec
 -(void *)swellGetProp:(const char *)name wantRemove:(BOOL)rem;
 -(int)swellSetProp:(const char *)name value:(void *)val ;
 -(NSOpenGLContext *)swellGetGLContext;
+- (void) setEnabledSwellNoFocus;
 
 // NSAccessibility
 
