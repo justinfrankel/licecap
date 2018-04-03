@@ -1232,7 +1232,7 @@ static bool draw_focus_indicator(HWND hwnd, HDC hdc, const RECT *drawr)
   if (drawr) r=*drawr;
   else GetClientRect(hwnd,&r);
 
-  HBRUSH br = CreateSolidBrushAlpha(g_swell_ctheme.focus_hilight,0.75f);
+  HBRUSH br = CreateSolidBrushAlpha(g_swell_ctheme.focus_hilight,.75f);
   tr=r; tr.right = tr.left+sz; FillRect(hdc,&tr,br);
   tr=r; tr.left = tr.right-sz; FillRect(hdc,&tr,br);
   tr=r; tr.left+=sz; tr.right-=sz; 
@@ -1373,10 +1373,37 @@ fakeButtonClick:
             EndPaint(hwnd,&ps);
             return 0;
           }
-          if (sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON)
+
+          const bool ischk = sf == BS_AUTO3STATE || sf == BS_AUTOCHECKBOX || sf == BS_AUTORADIOBUTTON;
+          if (!ischk)
           {
-            const int chksz = SWELL_UI_SCALE(12);
-            RECT tr={r.left,(r.top+r.bottom)/2-chksz/2,r.left+chksz};
+            Draw3DBox(ps.hdc,&r,g_swell_ctheme.button_bg,
+              g_swell_ctheme.button_hilight,
+              g_swell_ctheme.button_shadow,pressed);
+
+            if (hwnd->m_style & BS_LEFT)
+              r.left+=2;
+            else
+              f|=DT_CENTER;
+            if (pressed) 
+            {
+              const int pad = SWELL_UI_SCALE(2);
+              r.left+=pad;
+              r.top+=pad;
+              if (s->bitmap) { r.right+=pad; r.bottom+=pad; }
+            }
+          }
+
+          if (draw_focus_indicator(hwnd,ps.hdc,NULL))
+          {
+            KillTimer(hwnd,1);
+            SetTimer(hwnd,1,100,NULL);
+          }
+
+          if (ischk)
+          {
+            const int chksz = SWELL_UI_SCALE(12), chki = SWELL_UI_SCALE(2);
+            RECT tr={r.left+chki,(r.top+r.bottom)/2-chksz/2,r.left+chki+chksz};
             tr.bottom = tr.top+chksz;
 
             HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.checkbox_fg);
@@ -1432,28 +1459,10 @@ fakeButtonClick:
             }
             SelectObject(ps.hdc,oldPen);
             DeleteObject(pen);
-            r.left += chksz + SWELL_UI_SCALE(4);
+            r.left += chksz + SWELL_UI_SCALE(5);
             SetTextColor(ps.hdc,
               hwnd->m_enabled ? g_swell_ctheme.checkbox_text :
                 g_swell_ctheme.checkbox_text_disabled);
-          }
-          else
-          {
-            Draw3DBox(ps.hdc,&r,g_swell_ctheme.button_bg,
-              g_swell_ctheme.button_hilight,
-              g_swell_ctheme.button_shadow,pressed);
-
-            if (hwnd->m_style & BS_LEFT)
-              r.left+=2;
-            else
-              f|=DT_CENTER;
-            if (pressed) 
-            {
-              const int pad = SWELL_UI_SCALE(2);
-              r.left+=pad;
-              r.top+=pad;
-              if (s->bitmap) { r.right+=pad; r.bottom+=pad; }
-            }
           }
 
           if (s->bitmap)
@@ -1473,12 +1482,6 @@ fakeButtonClick:
             buf[0]=0;
             GetWindowText(hwnd,buf,sizeof(buf));
             if (buf[0]) DrawText(ps.hdc,buf,-1,&r,f);
-          }
-
-          if (draw_focus_indicator(hwnd,ps.hdc,NULL))
-          {
-            KillTimer(hwnd,1);
-            SetTimer(hwnd,1,100,NULL);
           }
 
           EndPaint(hwnd,&ps);
