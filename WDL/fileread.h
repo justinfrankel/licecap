@@ -278,14 +278,14 @@ public:
       {
         if (m_fsize >= mmap_minsize)
         {
-          m_mmap_view = mmap(NULL,m_fsize,PROT_READ,MAP_SHARED,m_filedes,0);
+          m_mmap_view = mmap(NULL,(size_t)m_fsize,PROT_READ,MAP_SHARED,m_filedes,0);
           if (m_mmap_view == MAP_FAILED) m_mmap_view = 0;
           else m_fsize_maychange=false;
         }
         else
         {
-          m_mmap_totalbufmode = malloc(m_fsize);
-          m_fsize = pread(m_filedes,m_mmap_totalbufmode,m_fsize,0);
+          m_mmap_totalbufmode = malloc((size_t)m_fsize);
+          m_fsize = pread(m_filedes,m_mmap_totalbufmode,(size_t)m_fsize,0);
           m_fsize_maychange=false;
         }
       }
@@ -334,7 +334,7 @@ public:
     if (m_fh != INVALID_HANDLE_VALUE) CloseHandle(m_fh);
     m_fh=INVALID_HANDLE_VALUE;
 #elif defined(WDL_POSIX_NATIVE_READ)
-    if (m_mmap_view) munmap(m_mmap_view,m_fsize);
+    if (m_mmap_view) munmap(m_mmap_view,(size_t)m_fsize);
     m_mmap_view=0;
     if (m_filedes>=0) 
     {
