@@ -491,6 +491,8 @@ BOOL SetThreadPriority(HANDLE hand, int prio)
       {
         lb--;
         if (prio < THREAD_PRIORITY_ABOVE_NORMAL) lb--;
+
+        if (lb > 40) lb = 40; // if not HIGHEST or higher, do not permit RT priority of more than 40
       }
     }
     param.sched_priority = lb < 1 ? 1 : lb;
