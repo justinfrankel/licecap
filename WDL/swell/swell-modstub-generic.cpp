@@ -26,7 +26,7 @@ extern "C" {
 #include "swell.h"
 };
 
-// only include this file in projects that are linked to swell.dylib
+// only include this file in projects that are linked to libSwell.so
 
 struct SWELL_CursorResourceIndex *SWELL_curmodule_cursorresource_head;
 struct SWELL_DialogResourceIndex *SWELL_curmodule_dialogresource_head;

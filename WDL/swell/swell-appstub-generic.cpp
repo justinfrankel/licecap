@@ -24,7 +24,7 @@
 #ifndef SWELL_PROVIDED_BY_APP
 
 // only add this file to your project if you are an application that wishes to publish the SWELL API to its modules/plugins
-// the modules should be compiled using SWELL_PROVIDED_BY_APP and include swell-modstub.mm
+// the modules should be compiled using SWELL_PROVIDED_BY_APP and include swell-modstub-generic.cpp
 
 #undef _WDL_SWELL_H_API_DEFINED_
 #undef SWELL_API_DEFINE
@@ -73,7 +73,7 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
   {
     chk=1;
     *(void **)&s_AppMain = dlsym(NULL,"SWELLAppMain");
-    printf("swell-dylib: used legacy SWELLAppMain get to get %p\n",s_AppMain);
+    printf("libSwell: used legacy SWELLAppMain get to get %p\n",s_AppMain);
   }
   // end temp code
 
