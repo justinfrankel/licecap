@@ -336,8 +336,10 @@ typedef struct TimerInfoRec
 } TimerInfoRec;
 static TimerInfoRec *m_timer_list;
 static WDL_Mutex m_timermutex;
+#ifndef SWELL_NO_POSTMESSAGE
 static pthread_t m_pmq_mainthread;
 static void SWELL_pmq_settimer(HWND h, UINT_PTR timerid, UINT rate, TIMERPROC tProc);
+#endif
 
 UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
 {
@@ -345,11 +347,13 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   
   if (hwnd && !timerid) return 0;
   
+#ifndef SWELL_NO_POSTMESSAGE
   if (timerid != ~(UINT_PTR)0 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
   {   
     SWELL_pmq_settimer(hwnd,timerid,(rate==(UINT)-1)?((UINT)-2):rate,tProc);
     return timerid;
   }
+#endif
   
   
   if (hwnd && ![(id)hwnd respondsToSelector:@selector(SWELL_Timer:)])
@@ -433,11 +437,13 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
   if (!hwnd && !timerid) return FALSE;
   
   WDL_MutexLock lock(&m_timermutex);
+#ifndef SWELL_NO_POSTMESSAGE
   if (timerid != ~(UINT_PTR)0 && m_pmq_mainthread && pthread_self()!=m_pmq_mainthread)
   {
     SWELL_pmq_settimer(hwnd,timerid,~(UINT)0,NULL);
     return TRUE;
   }
+#endif
   BOOL rv=FALSE;
   
   // don't allow removing all global timers
@@ -474,6 +480,7 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
 }
 
 
+#ifndef SWELL_NO_POSTMESSAGE
 
 ///////// PostMessage emulation
 
@@ -681,7 +688,7 @@ BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   
   return ret;
 }
-
+#endif
 
 static bool s_rightclickemulate=true;
 
