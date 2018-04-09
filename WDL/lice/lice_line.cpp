@@ -948,8 +948,8 @@ static void DoBezierFillSegmentX(LICE_IBitmap* dest, int x1, int y1, int x2, int
 
 // quadratic bezier ... NOT TESTED YET
 // attempt to draw segments no longer than tol px
-void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
-  LICE_pixel color, float alpha, int mode, bool aa, float tol)
+void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl, double yctl, double xend, double yend, 
+  LICE_pixel color, float alpha, int mode, bool aa, double tol)
 {
   if (!dest) return;
 
@@ -964,10 +964,10 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   double len = sqrt((xctl-xstart)*(xctl-xstart)+(yctl-ystart)*(yctl-ystart));
   len += sqrt((xend-xctl)*(xend-xctl)+(yend-yctl)*(yend-yctl));
       
-  float xlo = xstart;
-  float xhi = xend;
-  float ylo = ystart;
-  float yhi = yend;
+  double xlo = xstart;
+  double xhi = xend;
+  double ylo = ystart;
+  double yhi = yend;
   double tlo = 0.0;
   double thi = 1.0;
 
@@ -991,9 +991,9 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   double dt = (thi-tlo)/(double)nsteps;
   double t = tlo+dt;
 
-  float lastx = xlo;
-  float lasty = ylo;
-  float x, y;
+  double lastx = xlo;
+  double lasty = ylo;
+  double x, y;
   int i;
   for (i = 1; i < nsteps; ++i)
   {
@@ -1007,10 +1007,10 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 
 }
 
-static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, float tol, bool xbasis,
+static int CBezPrep(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, double tol, bool xbasis,
   double* ax, double* bx, double* cx, double* dx, double* ay, double* by, double* cy, double* dy,
-  float* xlo, float* xhi, float* ylo, float* yhi, double* tlo, double* thi)
+  double* xlo, double* xhi, double* ylo, double* yhi, double* tlo, double* thi)
 {
  if (!dest) return 0;
 
@@ -1042,12 +1042,12 @@ static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1,
   if (*xlo < 0.0f) 
   {
     *xlo = 0.0f;
-    *ylo = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xlo, (float*)0, (float*)0, (double*)0, tlo);
+    *ylo = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xlo, (double*)NULL, (double*)NULL, (double*)NULL, tlo);
   }
-  if (*xhi > (float)w)
+  if (*xhi > w)
   {
-    *xhi = (float)(w);
-    *yhi = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xhi, (float*)0, (float*)0, thi, (double*)0);
+    *xhi = w;
+    *yhi = LICE_CBezier_GetY(xstart, xctl1, xctl2, xend, ystart, yctl1, yctl2, yend, *xhi, (double*)NULL, (double*)(double*)NULL, thi, (double*)NULL);
   }
   if ((xbasis && *xlo > *xhi) || (!xbasis && *ylo > *yhi))
   {
@@ -1061,8 +1061,8 @@ static int CBezPrep(LICE_IBitmap* dest, float xstart, float ystart, float xctl1,
   return nsteps;
 }
 
-void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha, int mode, bool aa, float tol)
+void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha, int mode, bool aa, double tol)
 { 
   if (!dest) return;
 
@@ -1075,7 +1075,7 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 #endif
 
   double ax, bx, cx, dx, ay, by, cy, dy;
-  float xlo, xhi, ylo, yhi;
+  double xlo, xhi, ylo, yhi;
   double tlo, thi;
   int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
@@ -1084,9 +1084,9 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   double dt = (thi-tlo)/(double)nsteps;
   double t = tlo+dt;
 
-  float lastx = xlo;
-  float lasty = ylo;
-  float x, y;
+  double lastx = xlo;
+  double lasty = ylo;
+  double x, y;
   int i;
   for (i = 1; i < nsteps-1; ++i)
   {
@@ -1099,13 +1099,13 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   LICE_FLine(dest, lastx, lasty, xhi, yhi, color, alpha, mode, aa);
 }
 
-void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, int yfill, LICE_pixel color, float alpha, int mode, float tol)
+void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, int yfill, LICE_pixel color, float alpha, int mode, double tol)
 {
   if (!dest) return;
 
   double ax, bx, cx, dx, ay, by, cy, dy;
-  float xlo, xhi, ylo, yhi;
+  double xlo, xhi, ylo, yhi;
   double tlo, thi;
   int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
@@ -1116,7 +1116,7 @@ void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
 
   int lastfillx = (int)xlo;  
   int lastfilly = (int)(ylo+0.5f);
-  float x, y;
+  double x, y;
   int i;
   for (i = 1; i < nsteps-1; ++i)
   {
@@ -1137,13 +1137,13 @@ void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl
   }
 }
 
-void LICE_FillCBezierX(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, int xfill, LICE_pixel color, float alpha, int mode, float tol)
+void LICE_FillCBezierX(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, int xfill, LICE_pixel color, float alpha, int mode, double tol)
 {
   if (!dest) return;
 
   double ax, bx, cx, dx, ay, by, cy, dy;
-  float xlo, xhi, ylo, yhi;
+  double xlo, xhi, ylo, yhi;
   double tlo, thi;
   int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, false,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
@@ -1154,7 +1154,7 @@ void LICE_FillCBezierX(LICE_IBitmap* dest, float xstart, float ystart, float xct
 
   int lastfillx = (int)(xlo+0.5f);
   int lastfilly = (int)ylo;
-  float x, y;
+  double x, y;
   int i;
   for (i = 1; i < nsteps-1; ++i)
   {
@@ -1329,8 +1329,8 @@ static int FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
   }
   if (ty <= y1) return x1;
   if (ty >= y2) return x2;
-  float dxdy = (float)(x2-x1)/(float)(y2-y1);
-  return x1+(int)((float)(ty-y1)*dxdy);
+  const double dxdy = (x2-x1)/(double)(y2-y1);
+  return x1+(int)((ty-y1)*dxdy);
 }
 
 static int FindYOnSegment(int x1, int y1, int x2, int y2, int tx)
@@ -1342,8 +1342,8 @@ static int FindYOnSegment(int x1, int y1, int x2, int y2, int tx)
   }
   if (tx <= x1) return y1;
   if (tx >= x2) return y2;
-  float dydx = (float)(y2-y1)/(float)(x2-x1);
-  return y1+(int)((float)(tx-x1)*dydx);
+  const double dydx = (y2-y1)/(double)(x2-x1);
+  return y1+(int)((tx-x1)*dydx);
 }
 
 void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode)
@@ -1496,13 +1496,13 @@ static int _ysort(const void* a, const void* b)
 static int FindNextEdgeVertex(int* xy, int a, int n, int dir)
 {
   bool init = false;
-  float dxdy_best = 0.0f;
+  double dxdy_best = 0.0f;
   int i, ilo = a;
 
   for (i = a+1; i < n; ++i)
   {
     if (_Y(i) == _Y(a)) continue;
-    float dxdy = (float)(_X(i)-_X(a))/(float)(_Y(i)-_Y(a));
+    const double dxdy = (_X(i)-_X(a))/(double)(_Y(i)-_Y(a));
     if (!init || dxdy == dxdy_best || (dir < 0 && dxdy < dxdy_best) || (dir > 0 && dxdy > dxdy_best))
     {
       init = true;
