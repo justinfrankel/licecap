@@ -216,7 +216,7 @@ public:
 
     *ppdispParent = NULL;
 
-    if (__CreateStdAccessibleObject)
+    if (__CreateStdAccessibleObject && m_br.vwnd)
     {
       HWND realparent = m_br.vwnd->GetRealParent();
       if (realparent)
