@@ -7515,7 +7515,7 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
 
   if (!content1 || !*content1) return FALSE;
 
-  if (!strnicmp(content1,"http://",7))
+  if (!strnicmp(content1,"http://",7) || !strnicmp(content1,"https://",8))
   {
     argv[0] = xdg;
     argv[1] = content1;

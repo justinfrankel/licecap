@@ -5847,7 +5847,7 @@ void ListView_SetTextColor(HWND hwnd, int color)
 
 BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const char *content2, const char *content3, int blah)
 {
-  if (content1 && !strnicmp(content1,"http://",7))
+  if (content1 && (!strnicmp(content1,"http://",7) || !strnicmp(content1,"https://",8)))
   {
      NSWorkspace *wk = [NSWorkspace sharedWorkspace];
      if (!wk) return FALSE;
