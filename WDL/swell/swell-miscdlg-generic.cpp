@@ -690,7 +690,7 @@ treatAsDir:
                    DIR *dir = opendir(buf);
                    if (!dir) 
                    {
-                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%s\r\n\r\nCreate?",buf);
+                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%.1000s\r\n\r\nCreate?",buf);
                      if (MessageBox(hwnd,msg,"Create directory?",MB_OKCANCEL)==IDCANCEL) return 0;
                      CreateDirectory(buf,NULL);
                      dir=opendir(buf);
@@ -727,7 +727,7 @@ treatAsDir:
                    if (buf[strlen(buf)-1] == '/') goto treatAsDir;
                    if (!stat64(buf,&st))
                    {
-                     snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%s\r\n\r\nOverwrite?",buf);
+                     snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%.1000s\r\n\r\nOverwrite?",buf);
                      if (MessageBox(hwnd,msg,"Overwrite file?",MB_OKCANCEL)==IDCANCEL) return 0;
                    }
                  }
