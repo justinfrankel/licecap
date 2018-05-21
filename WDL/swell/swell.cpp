@@ -753,7 +753,14 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
 #endif
   {
     inst=dlopen(fn,RTLD_NOW|(symbolsAsGlobals?RTLD_GLOBAL:RTLD_LOCAL));
-    if (!inst) return 0;
+    if (!inst) 
+    {
+#ifndef SWELL_TARGET_OSX
+      const char *err = dlerror();
+      printf("swell: error calling dlopen(%s): %s\n",fn,err ? err : "(unknown)");
+#endif
+      return 0;
+    }
   }
 
   WDL_MutexLock lock(&s_libraryMutex);
