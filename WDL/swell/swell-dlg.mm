@@ -1470,8 +1470,22 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 -(void)swellSetExtendedStyle:(LONG)st
 {
-  if (st&WS_EX_ACCEPTFILES) m_supports_ddrop=true;
-  else m_supports_ddrop=false;
+  if (st&WS_EX_ACCEPTFILES) 
+  {
+    if (!m_supports_ddrop)
+    {
+      [self registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, NSFilesPromisePboardType, nil]];
+      m_supports_ddrop=true;
+    }
+  }
+  else 
+  {
+    if (m_supports_ddrop)
+    {
+      [self unregisterDraggedTypes];
+      m_supports_ddrop=false;
+    }
+  }
 }
 -(LONG)swellGetExtendedStyle
 {
