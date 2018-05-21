@@ -284,6 +284,7 @@ public:
   EEL_F gfx_loadimg(void *opaque, int img, EEL_F loadFrom);
   EEL_F gfx_setfont(void *opaque, int np, EEL_F **parms);
   EEL_F gfx_getfont(void *opaque, int np, EEL_F **parms);
+  EEL_F gfx_getdropfile(void *opaque, int np, EEL_F **parms);
 
   LICE_pixel getCurColor();
   int getCurMode();
@@ -313,6 +314,8 @@ public:
 #endif
   int m_has_cap; // high 16 bits are current capture state, low 16 bits are temporary flags from mousedown
   bool m_has_had_getch; // set on first gfx_getchar(), makes mouse_cap updated with modifiers even when no mouse click is down
+
+  WDL_PtrList<char> m_ddrop_files;
 };
 
 
@@ -393,6 +396,7 @@ eel_lice_state::~eel_lice_state()
       if (m_gfx_fonts.Get()[x].font) LICE__DestroyFont(m_gfx_fonts.Get()[x].font);
     }
   }
+  m_ddrop_files.Empty(true,free);
 }
 
 int eel_lice_state::getCurMode()
@@ -743,6 +747,12 @@ static EEL_F NSEEL_CGEN_CALL _gfx_loadimg(void *opaque, EEL_F *img, EEL_F *fr)
   return 0.0;
 }
 
+static EEL_F NSEEL_CGEN_CALL _gfx_getdropfile(void *opaque, INT_PTR np, EEL_F **parms)
+{
+  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
+  if (ctx) return ctx->gfx_getdropfile(opaque,(int) np, parms);
+  return 0.0;
+}
 static EEL_F NSEEL_CGEN_CALL _gfx_setimgdim(void *opaque, EEL_F *img, EEL_F *w, EEL_F *h)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
@@ -960,6 +970,25 @@ void eel_lice_state::gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h)
   }
 }
 
+EEL_F eel_lice_state::gfx_getdropfile(void *opaque, int np, EEL_F **parms)
+{
+  const int idx = (int) parms[0][0];
+  if (idx<0) m_ddrop_files.Empty(true,free);
+  if (idx < 0 || idx >= m_ddrop_files.GetSize()) return 0.0;
+
+#ifdef NOT_EEL_STRING_UPDATE_STRING
+  NOT_EEL_STRING_UPDATE_STRING(parms[1][0],m_ddrop_files.Get(idx));
+#else
+  if (np > 1) 
+  {
+    EEL_STRING_MUTEXLOCK_SCOPE
+    WDL_FastString *fs=NULL;
+    EEL_STRING_GET_FOR_WRITE(parms[1][0], &fs);
+    if (fs) fs->Set(m_ddrop_files.Get(idx));
+  }
+#endif
+  return 1.0;
+}
 
 EEL_F eel_lice_state::gfx_loadimg(void *opaque, int img, EEL_F loadFrom)
 {
@@ -1832,6 +1861,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,&_gfx_setfont);
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
   NSEEL_addfunc_varparm("gfx_set",1,NSEEL_PProc_THIS,&_gfx_set);
+  NSEEL_addfunc_varparm("gfx_getdropfile",1,NSEEL_PProc_THIS,&_gfx_getdropfile);
 }
 #endif
 
@@ -1850,6 +1880,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx)
   {
+    ctx->m_ddrop_files.Empty(true,free);
     if (ctx->hwnd_standalone) 
     {
       if (ctx->m_framebuffer_dirty) 
@@ -2055,7 +2086,7 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
 {
   if (hwnd_standalone) return hwnd_standalone;
 #ifdef _WIN32
-  return CreateWindowEx(0,eel_lice_standalone_classname,"",
+  return CreateWindowEx(WS_EX_ACCEPTFILES,eel_lice_standalone_classname,"",
                         isChild ? (WS_CHILD|WS_TABSTOP) : (WS_POPUP|WS_CAPTION|WS_THICKFRAME|WS_SYSMENU),CW_USEDEFAULT,CW_USEDEFAULT,100,100,par,NULL,eel_lice_hinstance,this);
 #else
   return SWELL_CreateDialog(NULL,isChild ? NULL : ((const char *)(INT_PTR)0x400001),par,(DLGPROC)eel_lice_wndproc,(LPARAM)this);
@@ -2271,6 +2302,7 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 #else
         eel_lice_state *ctx=(eel_lice_state*)lParam;
         SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
+        SetWindowLong(hwnd,GWL_EXSTYLE, GetWindowLong(hwnd,GWL_EXSTYLE) | WS_EX_ACCEPTFILES);
 #endif
         ctx->m_kb_queue_valid=0;
         ctx->hwnd_standalone=hwnd;
@@ -2365,6 +2397,26 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         return 0;
       }
     break;
+    case WM_DROPFILES:
+      {
+        eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        if (ctx && wParam)
+        {
+          ctx->m_ddrop_files.Empty(true,free);
+
+          HDROP hDrop = (HDROP) wParam;
+          const int n=DragQueryFile(hDrop,-1,NULL,0);
+          for (int x=0;x<n;x++)
+          {
+            char buf[4096];
+            buf[0]=0;
+            DragQueryFile(hDrop,x,buf,sizeof(buf));
+            if (buf[0]) ctx->m_ddrop_files.Add(strdup(buf));
+          }
+          DragFinish(hDrop);
+        }
+      }
+    return 0;
     case WM_MOUSEHWHEEL:   
     case WM_MOUSEWHEEL:
       {
@@ -2780,6 +2832,7 @@ static const char *eel_lice_function_reference =
   "gfx_roundrect\tx,y,w,h,radius[,antialias]\tDraws a rectangle with rounded corners. \0"
   "gfx_arc\tx,y,r,ang1,ang2[,antialias]\tDraws an arc of the circle centered at x,y, with ang1/ang2 being specified in radians.\0"
   "gfx_set\tr[,g,b,a,mode,dest]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode, sets gfx_dest if final parameter specified\0"
+  "gfx_getdropfile\tidx[,#str]\tEnumerates any drag/dropped files. call gfx_dropfile(-1) to clear the list when finished. Returns 1 if idx is valid, 0 if idx is out of range.\0"
 
 #ifdef EEL_LICE_WANT_STANDALONE
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
