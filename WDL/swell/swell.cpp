@@ -757,7 +757,7 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     {
 #ifndef SWELL_TARGET_OSX
       const char *err = dlerror();
-      printf("swell: error calling dlopen(%s): %s\n",fn,err ? err : "(unknown)");
+      printf("swell: dlopen() failed: %s\n",err ? err : fn);
 #endif
       return 0;
     }
