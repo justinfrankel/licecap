@@ -52,7 +52,8 @@ class WDL_HeapBuf
     void *Resize(int newsize, bool resizedown=true);
     void CopyFrom(const WDL_HeapBuf *hb, bool exactCopyOfConfig=false);
 #endif
-    void *Get() const { return m_size?m_buf:NULL; }
+    void *Get() const { return m_size?m_buf:NULL; } // returns NULL if size is 0
+    void *GetFast() const { return m_buf; } // returns last buffer if size is 0
     int GetSize() const { return m_size; }
     void *GetAligned(int align) const {  return (void *)(((UINT_PTR)Get() + (align-1)) & ~(UINT_PTR)(align-1)); }
 
@@ -258,6 +259,7 @@ template<class PTRTYPE> class WDL_TypedBuf
 {
   public:
     PTRTYPE *Get() const { return (PTRTYPE *) m_hb.Get(); }
+    PTRTYPE *GetFast() const { return (PTRTYPE *) m_hb.GetFast(); }
     int GetSize() const { return m_hb.GetSize()/(unsigned int)sizeof(PTRTYPE); }
 
     PTRTYPE *Resize(int newsize, bool resizedown = true) { return (PTRTYPE *)m_hb.Resize(newsize*sizeof(PTRTYPE),resizedown); }
