@@ -756,7 +756,8 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     if (!inst) 
     {
 #ifndef SWELL_TARGET_OSX
-      if (fn[0] == '/')
+      struct stat ss;
+      if (fn[0] == '/' && !stat(fn,&ss) && !(ss.st_mode&S_IFDIR))
       {
         const char *err = dlerror();
         printf("swell: dlopen() failed: %s\n",err ? err : fn);
