@@ -935,6 +935,7 @@ void ShowWindow(HWND hwnd, int cmd)
  
   if (cmd==SW_SHOW||cmd==SW_SHOWNA) 
   {
+    if (hwnd->m_visible) cmd = SW_SHOWNA; // do not take focus if already visible
     hwnd->m_visible=true;
   }
   else if (cmd==SW_HIDE) 
