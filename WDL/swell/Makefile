@@ -101,9 +101,9 @@ ifndef NOGDK
   OBJS += $(LICE_OBJS)
 
   ifndef NOFREETYPE
-    CFLAGS += -DSWELL_FREETYPE $(shell freetype-config --cflags)
+    CFLAGS += -DSWELL_FREETYPE $(shell $(PKG_CONFIG) --cflags freetype2)
     ifndef PRELOAD_GDK
-      LINKEXTRA += $(shell freetype-config --libs)
+      LINKEXTRA += $(shell $(PKG_CONFIG) --libs freetype2)
     endif
   endif
 endif
