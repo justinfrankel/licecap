@@ -1503,7 +1503,7 @@ fakeButtonClick:
       if (hwnd)
       {
         buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
-        return (s->state&3)==2 ? 1 : (s->state&3); 
+        return (s->state&3); 
       }
     return 0;
     case BM_GETIMAGE:
