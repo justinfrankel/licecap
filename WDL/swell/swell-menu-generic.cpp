@@ -1128,14 +1128,16 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 
 //  if (oldFoc_child) SetFocus(oldFoc);
 
-  if (!(flags&TPM_NONOTIFY) && m_trackingRet>0) 
+  if (!(flags&TPM_RETURNCMD) && m_trackingRet>0) 
     SendMessage(hwnd,WM_COMMAND,m_trackingRet,0);
   
   if (hwnd) hwnd->Release();
 
   hMenu->Release();
 
-  return m_trackingRet>0?m_trackingRet:0;
+  if (flags & TPM_RETURNCMD) return m_trackingRet>0?m_trackingRet:0;
+
+  return 1;
 }
 
 
