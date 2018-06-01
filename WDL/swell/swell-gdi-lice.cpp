@@ -266,6 +266,7 @@ HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   LICE_MemBitmap * bm = new LICE_MemBitmap(w,h);
   if (!bm) return 0;
+  LICE_Clear(bm,LICE_RGBA(0,0,0,0));
 
   HDC__ *ctx=SWELL_GDP_CTX_NEW();
   ctx->surface = bm;
