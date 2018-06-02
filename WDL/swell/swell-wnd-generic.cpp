@@ -7612,7 +7612,7 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
       h->m_style = WS_CHILD; // using this for top-level will also keep it out of the window list
       h->Retain();
       *handle = h;
-      ShowWindow(h,SW_SHOW);
+      ShowWindow(h,SW_SHOWNA);
     }
     SetWindowPos(h,HWND_TOP,rct->left,rct->top,rct->right-rct->left,rct->bottom-rct->top,SWP_NOACTIVATE);
     InvalidateRect(h,NULL,FALSE);
