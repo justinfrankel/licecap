@@ -629,6 +629,9 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
 
 static double m_move_offset;
 static int m_click_pos,m_last_y,m_last_x, m_last_precmode;
+#if !defined(_WIN32) && !defined(__APPLE__)
+static POINT s_lastmousepos;
+#endif
 
 
 int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
@@ -673,6 +676,9 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
 
   m_is_knob = wantKnob;
 
+#if !defined(_WIN32) && !defined(__APPLE__)
+  GetCursorPos(&s_lastmousepos);
+#endif
   m_last_y=ypos;    
   m_last_x=xpos;
   m_last_precmode=0;
@@ -896,12 +902,17 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     if (xpos != m_last_x || ypos != m_last_y)
     {
       POINT p;
+#if !defined(_WIN32) && !defined(__APPLE__)
+      p = s_lastmousepos;
+#else
       GetCursorPos(&p);
       p.x-=(xpos-m_last_x);
 #ifdef _WIN32
       p.y-=(ypos-m_last_y);
 #else
       p.y+=(ypos-m_last_y);
+#endif
+
 #endif
       
       
@@ -948,6 +959,9 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
       {
         m_last_y = ypos;
         m_last_x = xpos;
+#if !defined(_WIN32) && !defined(__APPLE__)
+        GetCursorPos(&s_lastmousepos);
+#endif
       }
       else
       {
