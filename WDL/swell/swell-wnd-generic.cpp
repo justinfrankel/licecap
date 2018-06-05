@@ -1631,6 +1631,28 @@ static LRESULT WINAPI groupWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     case WM_SETTEXT:
       InvalidateRect(hwnd,NULL,TRUE);
     break;
+    case WM_LBUTTONDBLCLK:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_MBUTTONDBLCLK:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_RBUTTONDBLCLK:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_MOUSEMOVE:
+      if (GET_Y_LPARAM(lParam) >= SWELL_UI_SCALE(20))
+      {
+        HWND par = GetParent(hwnd);
+        if (par)
+        {
+          POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+          ClientToScreen(hwnd,&pt);
+          ScreenToClient(par,&pt);
+          return SendMessage(par,msg,wParam,MAKELPARAM(pt.x,pt.y));
+        }
+      }
+    break;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
