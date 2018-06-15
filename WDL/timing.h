@@ -18,26 +18,23 @@
 
 
 
-#if defined(TIMING) && !defined(__alpha)
+#if defined(TIMING)
 #ifdef __cplusplus
 extern "C" {
 #endif
-void _timingInit(void);
-void _timingPrint(void);
 void _timingEnter(int);
 void _timingLeave(int);
 #ifdef __cplusplus
 }
 #endif
-#define timingPrint() _timingPrint()
-#define timingInit() _timingInit()
 #define timingLeave(x) _timingLeave(x)
 #define timingEnter(x) _timingEnter(x)
 #else
-#define timingPrint()
-#define timingInit()
 #define timingLeave(x)
 #define timingEnter(x)
 #endif
+
+#define timingPrint()
+#define timingInit()
 
 #endif
