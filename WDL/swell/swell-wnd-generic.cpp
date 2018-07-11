@@ -662,7 +662,14 @@ void SetWindowPos(HWND hwnd, HWND zorder, int x, int y, int cx, int cy, int flag
 
 BOOL EnumWindows(BOOL (*proc)(HWND, LPARAM), LPARAM lp)
 {
-    return FALSE;
+  HWND h = SWELL_topwindows;
+  if (!proc) return FALSE;
+  while (h)
+  {
+    if (!proc(h,lp)) return FALSE;
+    h = h->m_next;
+  }
+  return TRUE;
 }
 
 HWND GetWindow(HWND hwnd, int what)
