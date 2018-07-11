@@ -7179,27 +7179,20 @@ BOOL ScrollWindow(HWND hwnd, int xamt, int yamt, const RECT *lpRect, const RECT 
 
 HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title)
 {
-  if (!par&&!lastw) return NULL; // need to implement this modes
-  HWND h=lastw?GetWindow(lastw,GW_HWNDNEXT):GetWindow(par,GW_CHILD);
+  HWND h=lastw?GetWindow(lastw,GW_HWNDNEXT):par?GetWindow(par,GW_CHILD):SWELL_topwindows;
   while (h)
   {
     bool isOk=true;
-    if (title)
+    if (title && strcmp(title,h->m_title.Get())) isOk=false;
+    else if (classname)
     {
-      char buf[512];
-      buf[0]=0;
-      GetWindowText(h,buf,sizeof(buf));
-      if (strcmp(title,buf)) isOk=false;
-    }
-    if (classname)
-    {
-      // todo: other classname translations
+      if (!h->m_classname || strcmp(classname,h->m_classname)) isOk=false;
     }
     
     if (isOk) return h;
     h=GetWindow(h,GW_HWNDNEXT);
   }
-  return h;
+  return NULL;
 }
 
 
