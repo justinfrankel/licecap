@@ -5885,11 +5885,15 @@ bool ListView_GetItem(HWND h, LVITEM *item)
 
   if (item->mask & LVIF_STATE) 
   {
-    item->state = lvs->get_sel(item->iItem) ? LVIS_SELECTED : 0;
-    if (lvs->m_selitem == item->iItem) item->state |= LVIS_FOCUSED;
-    SWELL_ListView_Row *row = lvs->m_data.Get(item->iItem);
-    if (row)
-      item->state |= INDEXTOSTATEIMAGEMASK(row->m_imageidx);
+    item->state = 0;
+    if ((item->stateMask & LVIS_SELECTED) && lvs->get_sel(item->iItem)) item->state |= LVIS_SELECTED;
+    if ((item->stateMask & LVIS_FOCUSED) && lvs->m_selitem == item->iItem) item->state |= LVIS_FOCUSED;
+    if (item->stateMask & 0xff0000)
+    {
+      SWELL_ListView_Row *row = lvs->m_data.Get(item->iItem);
+      if (row)
+        item->state |= INDEXTOSTATEIMAGEMASK(row->m_imageidx);
+    }
   }
 
   return true;
