@@ -10,7 +10,10 @@
 #endif
 
 #include "wdlcstring.h"
-#include "wdltypes.h"
+
+#if defined(__APPLE__) && defined(__OBJC__)
+#import <Foundation/Foundation.h>
+#endif
 
 static struct {
 	WDL_INT64 st_time;
@@ -61,16 +64,22 @@ void _timingPrint(void)
       );
 #ifdef _WIN32
       OutputDebugStringA(buf);
+#elif defined(__APPLE__) && defined(__OBJC__)
+      NSLog(@"%s",buf);
 #else
       printf("%s",buf);
 #endif
     }
   }
+  if (!p)
 #ifdef _WIN32
-  if (!p) OutputDebugStringA("wdl_timing: no calls to timing lib\n");
+  OutputDebugString(
+#elif defined(__APPLE__) && defined(__OBJC__)
+  NSLog(@
 #else
-  if (!p) printf("wdl_timing: no calls to timing lib\n");
+  printf(
 #endif
+  "wdl_timing: no calls to timing lib\n");
 }
 	
 void _timingEnter(int which)
@@ -99,6 +108,16 @@ void _timingLeave(int which)
   }
 }
 
+WDL_INT64 _timingQuery(int which, WDL_INT64* cycles)
+{
+  if (__wdl_timingInfo[which].calls && cycles)
+  {
+    cycles[0] = __wdl_timingInfo[which].cycles;
+    cycles[1] = __wdl_timingInfo[which].mint;
+    cycles[2] = __wdl_timingInfo[which].maxt;
+  }
+  return __wdl_timingInfo[which].calls;
+}
 
 #undef TIMING_UNITS
 
