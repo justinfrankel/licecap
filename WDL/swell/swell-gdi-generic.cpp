@@ -689,21 +689,14 @@ return 0;
 }
 #else
 
-// load color theme
-class swellColorThemeLoader
+void swell_load_color_theme(const char *fn)
 {
-public:
-  swellColorThemeLoader() 
+  FILE *fp = fopen(fn,"r");
+  if (fp)
   {
-    char buf[1024];
-    GetModuleFileName(NULL,buf,sizeof(buf));
-    WDL_remove_filepart(buf);
-    lstrcatn(buf,"/libSwell.colortheme",sizeof(buf));
-    FILE *fp = fopen(buf,"r");
-    if (!fp) return;
-
     swell_colortheme load;
     memset(&load,-1,sizeof(load));
+    char buf[1024];
 
     for (;;)
     {
@@ -760,6 +753,20 @@ SWELL_GENERIC_THEMEDEFS(__def_theme_ent,__def_theme_ent_fb)
 #undef __def_theme_ent_fb
 
     fclose(fp);
+  }
+}
+
+// load color theme
+class swellColorThemeLoader
+{
+public:
+  swellColorThemeLoader() 
+  {
+    char buf[1024];
+    GetModuleFileName(NULL,buf,sizeof(buf));
+    WDL_remove_filepart(buf);
+    lstrcatn(buf,"/libSwell.colortheme",sizeof(buf));
+    swell_load_color_theme(buf);
   }
 };
 swellColorThemeLoader g_swell_themeloader;

@@ -36,7 +36,6 @@
 
 #include "swell-internal.h"
 
-
 #ifdef SWELL_TARGET_OSX
 #include <Carbon/Carbon.h>
 #endif
@@ -56,6 +55,7 @@
 #include "../wdlatomic.h"
 #include "../mutex.h"
 #include "../assocarray.h"
+#include "../wdlcstring.h"
 
 void Sleep(int ms)
 {
@@ -1004,7 +1004,7 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
     g_swell_defini = v ? strdup((const char *)v) : NULL;
 
     #ifndef SWELL_TARGET_OSX
-    char buf[128];
+    char buf[1024];
     GetPrivateProfileString(".swell","max_open_files","",buf,sizeof(buf),"");
     if (!buf[0])
       WritePrivateProfileString(".swell","max_open_files","auto // (default is max of default or 16384)","");
@@ -1042,6 +1042,17 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
       else
       {
         WritePrivateProfileString(".swell","ui_scale","1.0 // scales the sizes in libSwell.colortheme","");
+      }
+      if (g_swell_defini)
+      {
+        void swell_load_color_theme(const char *fn);
+        lstrcpyn_safe(buf,g_swell_defini,sizeof(buf));
+        WDL_remove_filepart(buf);
+        if (buf[0])
+        {
+          lstrcatn(buf,"/libSwell.colortheme",sizeof(buf));
+          swell_load_color_theme(buf);
+        }
       }
     #endif
   }
