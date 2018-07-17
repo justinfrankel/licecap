@@ -1137,7 +1137,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 
   if (flags & TPM_RETURNCMD) return m_trackingRet>0?m_trackingRet:0;
 
-  return 1;
+  return resvd!=0xbeef || m_trackingRet>0;
 }
 
 
