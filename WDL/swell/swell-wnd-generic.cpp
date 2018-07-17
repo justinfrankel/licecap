@@ -3177,6 +3177,7 @@ static LRESULT WINAPI comboWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             // find position of insert for wParam
             bool m;
             int idx = s->items.LowerBound(r,&m,__SWELL_ComboBoxInternalState_rec::cmp);
+            if (s->selidx >= idx) s->selidx++;
             s->items.Insert(idx,r);
             return idx;
           }
