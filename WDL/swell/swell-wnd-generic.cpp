@@ -3848,6 +3848,17 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     case WM_RBUTTONDOWN:
       if (lvs && lvs->m_last_row_height>0 && !lvs->m_is_listbox)
       {
+        LVHITTESTINFO inf = { { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }, };
+        const int row = ListView_HitTest(hwnd, &inf);
+        const int n = ListView_GetItemCount(hwnd);
+        if (row>=0 && row<n)
+        {
+          for (int x=0;x<n;x++)
+          {
+            ListView_SetItemState(hwnd,x,(x==row)?(LVIS_SELECTED|LVIS_FOCUSED):0,LVIS_SELECTED|LVIS_FOCUSED);
+          }
+        }
+
         NMLISTVIEW nm={{hwnd,hwnd->m_id,NM_RCLICK},0,0,0,};
         SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
       }
