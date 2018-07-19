@@ -3851,7 +3851,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         LVHITTESTINFO inf = { { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }, };
         const int row = ListView_HitTest(hwnd, &inf);
         const int n = ListView_GetItemCount(hwnd);
-        if (row>=0 && row<n)
+        if (row>=0 && row<n && !ListView_GetItemState(hwnd,row,LVIS_SELECTED))
         {
           for (int x=0;x<n;x++)
           {
