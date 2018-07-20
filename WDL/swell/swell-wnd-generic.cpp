@@ -7582,8 +7582,16 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
   }
   else
   {
-    argv[0] = xdg;
-    argv[1] = content1; // default to xdg-open for whatever else
+    if (content2 && *content2)
+    {
+      argv[0] = content1;
+      argv[1] = content2;
+    }
+    else
+    {
+      argv[0] = xdg;
+      argv[1] = content1; // default to xdg-open for whatever else
+    }
   }
 
   if (fork() == 0) 
@@ -7593,7 +7601,7 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
     exit(0); // if execv fails for some reason
   }
   free(tmp);
-  return FALSE;
+  return TRUE;
 }
 
 
