@@ -1798,7 +1798,7 @@ static bool editGetCharPos(HDC hdc, const char *str, int singleline_len, int cha
     }
     str += lb+pskip;
     bytepos -= lb+pskip;
-    ypos += line_h;
+    if (*str || (pskip>0 && str[-1] == '\n')) ypos += line_h;
   }
   pt->x=0;
   pt->y=ypos;
