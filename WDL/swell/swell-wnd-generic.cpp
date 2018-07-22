@@ -3105,10 +3105,8 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 {
                   int post=0, lb=swell_getLineLength(buf+loffs, &post, r.right, ps.hdc);
                   if (lb>0)
-                  {
                     DrawText(ps.hdc,buf+loffs,lb,&r,DT_TOP|DT_SINGLELINE|DT_LEFT);
-                    r.top += line_h;
-                  }
+                  r.top += line_h;
                   loffs+=lb+post;
                 } 
                 buf = NULL;
