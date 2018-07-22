@@ -2690,7 +2690,8 @@ forceMouseMove:
           SetBkMode(ps.hdc,TRANSPARENT);
           r.left+=2 - es->scroll_x; r.right-=2;
 
-          const int cursor_pos = (focused && es->cursor_state) ?  WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos) : -1;
+          const bool do_cursor = es->cursor_state!=0;
+          const int cursor_pos = focused ?  WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos) : -1;
           const int sel1 = es->sel1>=0 && focused ? WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->sel1) : -1;
           const int sel2 = es->sel2>=0 && focused ? WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->sel2) : -1;
 
@@ -2754,7 +2755,7 @@ forceMouseMove:
               if (vis)
               {
                 int wid = editControlPaintLine(ps.hdc,buf,lb,
-                   (cursor_pos >= bytepos && cursor_pos <= bytepos + lb) ? cursor_pos - bytepos : -1, 
+                   (do_cursor && cursor_pos >= bytepos && cursor_pos <= bytepos + lb) ? cursor_pos - bytepos : -1, 
                    sel1 >= 0 ? (sel1 - bytepos) : -1,
                    sel2 >= 0 ? (sel2 - bytepos) : -1, 
                    &r, DT_TOP);
