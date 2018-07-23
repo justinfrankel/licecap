@@ -6180,6 +6180,8 @@ bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
     }
   }
 
+  if (r->top < -64-lvs->m_last_row_height) r->top = -64 - lvs->m_last_row_height;
+  if (r->top > cr.bottom+64) r->top = cr.bottom+64;
 
   r->bottom = r->top + lvs->m_last_row_height;
 
