@@ -1360,7 +1360,6 @@ fakeButtonClick:
           buttonWindowState *s = (buttonWindowState*)hwnd->m_private_data;
           RECT r; 
           GetClientRect(hwnd,&r); 
-          paintDialogBackground(hwnd,&r,ps.hdc);
 
           bool pressed = GetCapture()==hwnd;
 
@@ -1368,6 +1367,8 @@ fakeButtonClick:
             hwnd->m_enabled ? g_swell_ctheme.button_text :
               g_swell_ctheme.button_text_disabled);
           SetBkMode(ps.hdc,TRANSPARENT);
+
+          paintDialogBackground(hwnd,&r,ps.hdc);
 
           int f=DT_VCENTER;
           int sf = (hwnd->m_style & 0xf);
@@ -3085,12 +3086,12 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
           RECT r; 
           GetClientRect(hwnd,&r); 
 
-          paintDialogBackground(hwnd,&r,ps.hdc);
-
           SetTextColor(ps.hdc,
              hwnd->m_enabled ? g_swell_ctheme.label_text : 
                g_swell_ctheme.label_text_disabled);
           SetBkMode(ps.hdc,TRANSPARENT);
+
+          paintDialogBackground(hwnd,&r,ps.hdc);
 
           const char *buf = hwnd->m_title.Get();
           if (buf && buf[0]) 
