@@ -388,8 +388,8 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
       {
         static const char *ent[2] = { "ft_font_fallback", "ft_font_fallback_fixedwidth" };
         static const char *def[2] = { 
-          "// Cantarell FreeSans DejaVuSans NotoSans LiberationSans Oxygen Arial Verdana", 
-          "// FreeMono DejaVuSansMono NotoMono OxygenMono LiberationMono Courier" 
+          "// LiberationSans Cantarell FreeSans DejaVuSans NotoSans Oxygen Arial Verdana", 
+          "// LiberationMono FreeMono DejaVuSansMono NotoMono OxygenMono Courier" 
         };
         char tmp[1024];
         GetPrivateProfileString(".swell",ent[wl],"",tmp,sizeof(tmp),"");
