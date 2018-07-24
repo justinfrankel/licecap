@@ -1019,6 +1019,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             else
             {
               hh = new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
+              hh->m_style = WS_CHILD;
               SetProp(hh,"SWELL_MenuOwner",GetProp(hwnd,"SWELL_MenuOwner"));
             }
 
@@ -1105,6 +1106,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 
   hMenu->sel_vis=-1;
   HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
+  hh->m_style = WS_CHILD;
 
   submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);
 
