@@ -112,6 +112,7 @@ static int gdk_options;
 #define OPTION_KEEP_OWNED_ABOVE 1
 #define OPTION_OWNED_TASKLIST 2
 #define OPTION_BORDERLESS_OVERRIDEREDIRECT 4
+#define OPTION_BORDERLESS_DIALOG 8
 
 static HWND s_ddrop_hwnd;
 static POINT s_ddrop_pt;
@@ -420,7 +421,7 @@ static void init_options()
 {
   if (!gdk_options)
   {
-    const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
+    //const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default ());
 
     gdk_options = 0x40000000;
 
@@ -430,8 +431,12 @@ static void init_options()
     if (swell_gdk_option("gdk_owned_windows_in_tasklist", "auto (default is 0)",0))
       gdk_options|=OPTION_OWNED_TASKLIST;
 
-    if (swell_gdk_option("gdk_borderless_are_override_redirect", "auto (default is 0)", wmname && !stricmp(wmname,"i3")))
-      gdk_options|=OPTION_BORDERLESS_OVERRIDEREDIRECT;
+    switch (swell_gdk_option("gdk_borderless_window_mode", "auto (default is 1=dialog hint. 2=override redirect. 0=normal hint)", 1))
+    {
+      case 1: gdk_options|=OPTION_BORDERLESS_DIALOG; break;
+      case 2: gdk_options|=OPTION_BORDERLESS_OVERRIDEREDIRECT; break;
+      default: break;
+    }
   }
   
 }
@@ -493,7 +498,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             {
               if (transient_for)
                 gdk_window_set_transient_for(hwnd->m_oswindow,transient_for);
-              gdk_window_set_type_hint(hwnd->m_oswindow, GDK_WINDOW_TYPE_HINT_NORMAL);
+              gdk_window_set_type_hint(hwnd->m_oswindow, (gdk_options&OPTION_BORDERLESS_DIALOG) ? GDK_WINDOW_TYPE_HINT_DIALOG : GDK_WINDOW_TYPE_HINT_NORMAL);
               gdk_window_set_decorations(hwnd->m_oswindow,(GdkWMDecoration) 0);
             }
             else
