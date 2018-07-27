@@ -462,6 +462,27 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
       if (swell_initwindowsys())
       {
         init_options();
+
+      #if SWELL_TARGET_GDK == 3
+        // would be nice to be able to query the dpi scaling, and override
+        // g_swell_ui_scale in that case...
+        static bool scale_check;
+        if (!scale_check)
+        {
+          scale_check=true;
+          if (g_swell_ui_scale != 256)
+          {
+            GdkDisplay *gdkdisp = gdk_display_get_default();
+            if (gdkdisp)
+            {
+              void (*p)(GdkDisplay*, gint);
+              *(void **)&p = dlsym(RTLD_DEFAULT,"gdk_x11_display_set_window_scale");
+              if (p) p(gdkdisp,1);
+            }
+          }
+        }
+      #endif
+
         SWELL_OSWINDOW transient_for=NULL;
         if (hwnd->m_owner && (gdk_options&OPTION_KEEP_OWNED_ABOVE))
         {
