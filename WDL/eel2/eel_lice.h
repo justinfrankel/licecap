@@ -1763,6 +1763,9 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
          if (dpi != 96)
            *m_gfx_ext_retina = dpi / 96.0;
        }
+    #else
+       int r = SWELL_GetScaling256();
+       if (r > 256) *m_gfx_ext_retina = r/256.0;
     #endif
 #endif
   }
