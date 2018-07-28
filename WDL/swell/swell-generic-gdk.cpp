@@ -168,6 +168,15 @@ static void on_activate(guint32 ftime)
   s_force_window_time = 0;
 }
 
+void swell_gdk_reactivate_app(void)
+{
+  if (swell_app_is_inactive)
+  {
+    SWELL_focused_oswindow=NULL;
+    on_activate(GDK_CURRENT_TIME);
+  }
+}
+
 static void on_deactivate()
 {
   swell_app_is_inactive=true;

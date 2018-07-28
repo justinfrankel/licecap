@@ -1089,6 +1089,13 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
     return (void*)(INT_PTR)swell_fullscreenWindow((HWND)v, key[0] != '-');
   }
 #endif
+#ifdef SWELL_TARGET_GDK
+  else if (!strcmp(key,"activate_app"))
+  {
+    void swell_gdk_reactivate_app(void);
+    swell_gdk_reactivate_app();
+  }
+#endif
   return NULL;
 }
 
