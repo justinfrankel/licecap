@@ -255,8 +255,10 @@ public:
     m_filedes_locked=false;
     m_filedes_rdpos=0;
     m_filedes=open(filename,O_RDONLY 
-#ifndef __APPLE__
-        // todo: we could enable this on macOS, need to test more
+        // todo: use fcntl() for platforms when O_CLOEXEC is not available (if we ever need to support them)
+        // (currently the only platform that meets this criteria is macOS w/ old SDK, but we don't use execve()
+        // there
+#ifdef O_CLOEXEC
         | O_CLOEXEC
 #endif
         );
