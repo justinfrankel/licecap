@@ -1036,6 +1036,9 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
         {
           lstrcatn(buf,"/libSwell.colortheme",sizeof(buf));
           swell_load_color_theme(buf);
+          WDL_remove_fileext(buf);
+          lstrcatn(buf,"-user.colortheme",sizeof(buf));
+          swell_load_color_theme(buf);
         }
       }
 
