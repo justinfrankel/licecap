@@ -1933,6 +1933,16 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getchar(void *opaque, EEL_F *p)
     ctx->m_has_had_getch=true;
     if (*p >= 2.0)
     {
+      if (*p == 65536.0)
+      {
+        int rv = 1;
+        if (ctx->hwnd_standalone)
+        {
+          if (ctx->hwnd_standalone==GetFocus()) rv|=2;
+          if (IsWindowVisible(ctx->hwnd_standalone)) rv|=4;
+        }
+        return rv;
+      }
       int x;
       const int n = sizeof(ctx->hwnd_standalone_kb_state) / sizeof(ctx->hwnd_standalone_kb_state[0]);
       int *st = ctx->hwnd_standalone_kb_state;
@@ -2776,6 +2786,7 @@ static const char *eel_lice_function_reference =
      "\4" "27 for ESC\n"
      "\4" "13 for Enter\n"
      "\4' ' for space\n"
+     "\4" "65536 for query of special flags, returns: &1 (supported), &2=window has focus, &4=window is visible\n"
      "\2\0"
     
   "gfx_showmenu\t\"str\"\tShows a popup menu at gfx_x,gfx_y. str is a list of fields separated by | characters. "
