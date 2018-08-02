@@ -5355,6 +5355,12 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
   int wb;
   int ti=0;
 
+  if (isReg == 0 && ctx->getVariable)
+  {
+    EEL_F *ret = ctx->getVariable(ctx->getVariable_userctx, name);
+    if (ret) return ret;
+  }
+
   if (!strnicmp(name,"_global.",8) && name[8])
   {
     EEL_F *a=get_global_var(ctx,name+8,isReg >= 0);
@@ -5652,3 +5658,12 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
   return nseel_createCompiledValue(ctx,(EEL_F)atof(tmp));
 }
 
+void NSEEL_VM_set_var_resolver(NSEEL_VMCTX _ctx, EEL_F *(*res)(void *userctx, const char *name), void *userctx)
+{
+  compileContext *ctx = (compileContext *)_ctx;
+  if (ctx)
+  {
+    ctx->getVariable = res;
+    ctx->getVariable_userctx = userctx;
+  }
+}

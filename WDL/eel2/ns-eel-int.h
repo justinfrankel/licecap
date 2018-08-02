@@ -209,6 +209,9 @@ typedef struct _compileContext
   EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list);
   EEL_F (*onNamedString)(void *caller_this, const char *name);
 
+  EEL_F *(*getVariable)(void *userctx, const char *name);
+  void *getVariable_userctx;
+
   codeHandleType *tmpCodeHandle;
   
   struct
