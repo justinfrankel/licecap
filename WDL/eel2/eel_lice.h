@@ -1898,6 +1898,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
 #ifdef __APPLE__
         SWELL_QuitAutoRelease(p);
 #endif
+        ctx->m_framebuffer_dirty = 0;
       }
       // run message pump
 #ifndef EEL_LICE_WANT_STANDALONE_UPDATE_NO_MSGPUMP
@@ -1914,9 +1915,11 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
       SWELL_RunEvents();
 #endif
 #endif
+#ifndef EEL_LICE_WANT_STANDALONE_UPDATE_NO_SETUPFRAME
       RECT r;
       GetClientRect(ctx->hwnd_standalone,&r);
       ctx->setup_frame(ctx->hwnd_standalone,r);
+#endif
     }
   }
   return n;
