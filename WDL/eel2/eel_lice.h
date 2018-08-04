@@ -1287,7 +1287,7 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
                 np > 12 ? (float)parms[12][0]:1.0f, // dtdy
                 np > 13 ? (float)parms[13][0]:0.0f, // dsdxdy
                 np > 14 ? (float)parms[14][0]:0.0f, // dtdxdy
-                true, (float)*m_gfx_a,getCurModeForBlit(isFromFB));
+                np <= 15 || parms[15][0] > 0.5, (float)*m_gfx_a,getCurModeForBlit(isFromFB));
   }
   else if (fabs(angle)>0.000000001)
   {
@@ -2834,9 +2834,9 @@ static const char *eel_lice_function_reference =
   "gfx_loadimg\timage,\"filename\"\tLoad image from filename into slot 0.." EEL_LICE_DOC_MAXHANDLE " specified by image. Returns the image index if success, otherwise -1 if failure. The image will be resized to the dimensions of the image file. \0"
   "gfx_gradrect\tx,y,w,h, r,g,b,a[, drdx, dgdx, dbdx, dadx, drdy, dgdy, dbdy, dady]\tFills a gradient rectangle with the color and alpha specified. drdx-dadx reflect the adjustment (per-pixel) applied for each pixel moved to the right, drdy-dady are the adjustment applied for each pixel moved toward the bottom. Normally drdx=adjustamount/w, drdy=adjustamount/h, etc.\0"
   "gfx_muladdrect\tx,y,w,h,mul_r,mul_g,mul_b[,mul_a,add_r,add_g,add_b,add_a]\tMultiplies each pixel by mul_* and adds add_*, and updates in-place. Useful for changing brightness/contrast, or other effects.\0"
-  "gfx_deltablit\tsrcimg,srcx,srcy,srcw,srch,destx,desty,destw,desth,dsdx,dtdx,dsdy,dtdy,dsdxdy,dtdxdy\tBlits from srcimg(srcx,srcy,srcw,srch) "
+  "gfx_deltablit\tsrcimg,srcs,srct,srcw,srch,destx,desty,destw,desth,dsdx,dtdx,dsdy,dtdy,dsdxdy,dtdxdy[,usecliprect=1]\tBlits from srcimg(srcx,srcy,srcw,srch) "
       "to destination (destx,desty,destw,desth). Source texture coordinates are s/t, dsdx represents the change in s coordinate for each x pixel"
-      ", dtdy represents the change in t coordinate for each y pixel, etc. dsdxdy represents the change in dsdx for each line. \0"
+      ", dtdy represents the change in t coordinate for each y pixel, etc. dsdxdy represents the change in dsdx for each line. If usecliprect is specified and 0, then srcw/srch are ignored.\0"
   "gfx_transformblit\tsrcimg,destx,desty,destw,desth,div_w,div_h,table\tBlits to destination at (destx,desty), size (destw,desth). "
       "div_w and div_h should be 2..64, and table should point to a table of 2*div_w*div_h values (this table must not cross a "
       "65536 item boundary). Each pair in the table represents a S,T coordinate in the source image, and the table is treated as "
