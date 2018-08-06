@@ -1186,10 +1186,10 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define VK_NUMLOCK        0x90
 #define VK_SCROLL         0x91
 
-#define MK_LBUTTON        0x01
+// these should probably not be used (wParam is not set in WM_LBUTTONDOWN/WM_MOUSEMOVE etc)
+#define MK_LBUTTON        0x01 
 #define MK_RBUTTON        0x02
 #define MK_MBUTTON        0x10
-
 
 #define IDC_SIZENESW MAKEINTRESOURCE(32643)
 #define IDC_SIZENWSE MAKEINTRESOURCE(32642)
