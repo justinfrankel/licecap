@@ -4531,7 +4531,7 @@ forceMouseMove:
                 {
                   if (ncols > 0)
                   {
-                    ar.right = ar.left + cols[col].xwid - SWELL_UI_SCALE(3);
+                    ar.right = xpos + cols[col].xwid - SWELL_UI_SCALE(3);
                     xpos += cols[col].xwid;
                   }
                   else ar.right = cr.right;
