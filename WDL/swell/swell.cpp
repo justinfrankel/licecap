@@ -921,8 +921,18 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
   if (!instptr) // get exe file name
   {
     int sz=readlink("/proc/self/exe",fn,nSize);
-    if (sz<0)sz=0;
-    else if ((DWORD)sz>=nSize)sz=nSize-1;
+    if (sz<1)
+    {
+       static char tmp;
+       // this will likely not work if the program was launched with a relative path 
+       // and the cwd has changed, but give it a try anyway
+       Dl_info inf={0,};
+       if (dladdr(&tmp,&inf) && inf.dli_fname)
+         sz = (int) strlen(inf.dli_fname);
+       else
+         sz=0;
+    }
+    if ((DWORD)sz>=nSize)sz=nSize-1;
     fn[sz]=0;
     return sz;
   }

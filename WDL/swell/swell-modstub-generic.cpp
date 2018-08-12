@@ -79,13 +79,21 @@ public:
     char fn[4096];
     const int nSize=sizeof(fn)-64;
     int sz=readlink("/proc/self/exe",fn,nSize);
-    if (sz<0)sz=0;
-    else if (sz>=nSize)sz=nSize-1;
+    if (sz<1)
+    {
+      Dl_info inf={0,};
+      if (dladdr(&api_tab,&inf) && inf.dli_fname) 
+        sz = (int) strlen(inf.dli_fname);
+      else
+        sz = 0;
+    }
+    if (sz>=nSize)sz=nSize-1;
     fn[sz]=0;
     char *p=fn;
     while (*p) p++;
     while (p >= fn && *p != '/') p--;
-    strcpy(++p,"libSwell.so");
+    p++;
+    strcpy(p,p==fn ? "./libSwell.so" : "libSwell.so");
 
     void *tmp = dlopen(fn,RTLD_LAZY);
     if (!tmp)
