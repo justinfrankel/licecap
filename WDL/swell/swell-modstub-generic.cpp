@@ -78,9 +78,7 @@ public:
     void *(*SWELLAPI_GetFunc)(const char *name)=NULL;
     char fn[4096];
     const int nSize=sizeof(fn)-64;
-    char lnk[64];
-    sprintf(lnk,"/proc/%d/exe",getpid());
-    int sz=readlink(lnk,fn,nSize);
+    int sz=readlink("/proc/self/exe",fn,nSize);
     if (sz<0)sz=0;
     else if (sz>=nSize)sz=nSize-1;
     fn[sz]=0;

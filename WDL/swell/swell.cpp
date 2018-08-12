@@ -920,9 +920,7 @@ DWORD GetModuleFileName(HINSTANCE hInst, char *fn, DWORD nSize)
 #elif defined(__linux__)
   if (!instptr) // get exe file name
   {
-    char tmp[64];
-    sprintf(tmp,"/proc/%d/exe",getpid());
-    int sz=readlink(tmp,fn,nSize);
+    int sz=readlink("/proc/self/exe",fn,nSize);
     if (sz<0)sz=0;
     else if ((DWORD)sz>=nSize)sz=nSize-1;
     fn[sz]=0;
