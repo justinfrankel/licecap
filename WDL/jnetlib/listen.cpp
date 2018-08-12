@@ -30,6 +30,7 @@ JNL_Listen::JNL_Listen(short port, unsigned int which_interface)
     sin.sin_addr.s_addr = which_interface?which_interface:INADDR_ANY;
     if (::bind(m_socket,(struct sockaddr *)&sin,sizeof(sin))) 
     {
+      shutdown(m_socket, SHUT_RDWR);
       closesocket(m_socket);
       m_socket=INVALID_SOCKET;
     }
@@ -37,6 +38,7 @@ JNL_Listen::JNL_Listen(short port, unsigned int which_interface)
     {  
       if (::listen(m_socket,8)==-1) 
       {
+        shutdown(m_socket, SHUT_RDWR);
         closesocket(m_socket);
         m_socket=INVALID_SOCKET;
       }
@@ -48,6 +50,7 @@ JNL_Listen::~JNL_Listen()
 {
   if (m_socket!=INVALID_SOCKET)
   {
+    shutdown(m_socket, SHUT_RDWR);
     closesocket(m_socket);
   }
 }
