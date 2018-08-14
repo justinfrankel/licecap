@@ -59,7 +59,7 @@ public:
   BrowseFile_State(const char *_cap, const char *_idir, const char *_ifile, const char *_el, modeEnum _mode, char *_fnout, int _fnout_sz) :
     caption(_cap), initialdir(_idir), initialfile(_ifile), extlist(_el), mode(_mode), 
     sortcol(0), sortrev(0),
-    fnout(_fnout), fnout_sz(_fnout_sz), viewlist_store(16384), viewlist(4096)
+    fnout(_fnout), fnout_sz(_fnout_sz), viewlist_store(16384), viewlist(4096), show_hidden(false)
   {
   }
   ~BrowseFile_State()
@@ -139,6 +139,9 @@ public:
   }
   WDL_TypedBuf<rec> viewlist_store;
   WDL_PtrList<rec> viewlist;
+
+  bool show_hidden;
+
   void viewlist_sort(const char *filter)
   {
     if (filter)
@@ -194,7 +197,10 @@ public:
     struct dirent *ent;
     while (NULL != (ent = readdir(dir)))
     {
-      if (ent->d_name[0] == '.') continue;
+      if (ent->d_name[0] == '.') 
+      {
+        if (ent->d_name[1] == 0 || ent->d_name[1] == '.' || !show_hidden) continue;
+      }
       bool is_dir = (ent->d_type == DT_DIR);
       if (ent->d_type == DT_UNKNOWN)
       {
@@ -283,7 +289,7 @@ static void preprocess_user_path(char *buf, int bufsz)
 
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON, IDC_FILTER };
+  enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON, IDC_FILTER, ID_SHOW_HIDDEN };
   enum { WM_UPD=WM_USER+100 };
   const int maxPathLen = 2048;
   const char *multiple_files = "(multiple files)";
@@ -317,13 +323,15 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
         char tmp[128];
         GetPrivateProfileString(".swell",ent,"", tmp,sizeof(tmp),"");
-        int x=0,y=0,w=0,h=0, c1=0,c2=0,c3=0;
+        int x=0,y=0,w=0,h=0, c1=0,c2=0,c3=0,extraflag=0;
         int flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
         if (tmp[0] && 
-            sscanf(tmp,"%d %d %d %d %d %d %d",&x,&y,&w,&h,&c1,&c2,&c3) >= 4) 
+            sscanf(tmp,"%d %d %d %d %d %d %d %d",&x,&y,&w,&h,&c1,&c2,&c3,&extraflag) >= 4) 
           flag &= ~SWP_NOMOVE;
         if (w < 100) w=SWELL_UI_SCALE(600);
         if (h < 100) h=SWELL_UI_SCALE(400);
+        if (extraflag&1)
+          parms->show_hidden=true;
 
         if (c1 + c2 + c3 < w/2)
         {
@@ -432,7 +440,9 @@ get_dir:
           const int c2 = ListView_GetColumnWidth(list,1);
           const int c3 = ListView_GetColumnWidth(list,2);
           char tmp[128];
-          snprintf(tmp,sizeof(tmp),"%d %d %d %d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top,c1,c2,c3);
+          int extraflag=0;
+          if (parms->show_hidden) extraflag|=1;
+          snprintf(tmp,sizeof(tmp),"%d %d %d %d %d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top,c1,c2,c3,extraflag);
           const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
           WritePrivateProfileString(".swell",ent, tmp, "");
         }
@@ -768,6 +778,13 @@ treatAsDir:
           }
           EndDialog(hwnd,1);
         return 0;
+        case ID_SHOW_HIDDEN:
+          {
+            BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            parms->show_hidden = !parms->show_hidden;
+            SendMessage(hwnd,WM_UPD,1,0);
+          }
+        return 0;
       }
     break;
     case WM_NOTIFY:
@@ -859,6 +876,11 @@ treatAsDir:
         SendMessage(hwnd,WM_UPD,1,0);
         return 1;
       }
+      else if (lParam == (FVIRTKEY|FCONTROL) && wParam == 'H')
+      {
+        SendMessage(hwnd,WM_COMMAND,ID_SHOW_HIDDEN,0);
+        return 1;
+      }
       else if (lParam == FVIRTKEY && wParam == VK_BACK && 
                GetFocus() == GetDlgItem(hwnd,IDC_LIST))
       {
@@ -872,6 +894,17 @@ treatAsDir:
         return 1;
       }
     return 0;
+    case WM_CONTEXTMENU:
+      {
+        BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        HMENU menu = CreatePopupMenu();
+        SWELL_InsertMenu(menu,0,MF_BYPOSITION|(parms->show_hidden ? MF_CHECKED:MF_UNCHECKED), ID_SHOW_HIDDEN, "Show files/directories beginning with .");
+        POINT p;
+        GetCursorPos(&p);
+        TrackPopupMenu(menu,0,p.x,p.y,0,hwnd,NULL);
+        DestroyMenu(menu);
+      }
+    return 1;
   }
   return 0;
 }
