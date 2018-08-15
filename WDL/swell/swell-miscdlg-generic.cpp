@@ -33,12 +33,65 @@
 
 #include "../wdlcstring.h"
 #include "../assocarray.h"
+#include "../ptrlist.h"
 #include <dirent.h>
 #include <time.h>
 
 #include "../lineparse.h"
 #define WDL_HASSTRINGS_EXPORT static
 #include "../has_strings.h"
+
+
+#ifndef SWELL_BROWSE_RECENT_SIZE
+#define SWELL_BROWSE_RECENT_SIZE 12
+#endif
+static WDL_PtrList<char> s_browse_rcu;
+static void recent_addtocb(HWND hwnd)
+{
+  for (int x=0;x<s_browse_rcu.GetSize();x++) 
+    SendMessage(hwnd,CB_ADDSTRING,0,(LPARAM)s_browse_rcu.Get(x));
+}
+static void recent_write(const char *path, bool allowwrite=true)
+{
+  if (!path || !path[0]) return;
+  int x;
+  for (x=0;x<s_browse_rcu.GetSize() && strcmp(s_browse_rcu.Get(x),path); x++);
+  if (x<s_browse_rcu.GetSize())
+  {
+    if (!x) return; // already at top of flist
+
+    char *ps = s_browse_rcu.Get(x);
+    s_browse_rcu.Delete(x,false);
+    s_browse_rcu.Insert(0,ps);
+  }
+  else
+  {
+    if (s_browse_rcu.GetSize()>=SWELL_BROWSE_RECENT_SIZE)
+      s_browse_rcu.Delete(SWELL_BROWSE_RECENT_SIZE,true,free);
+    s_browse_rcu.Insert(0,strdup(path));
+  }
+  if (!allowwrite) return;
+
+  for (x=0;x<=s_browse_rcu.GetSize();x++)
+  {
+    char tmp[64];
+    snprintf(tmp,sizeof(tmp),"path%d",x);
+    WritePrivateProfileString(".swell_recent_path",tmp, s_browse_rcu.Get(x),"");
+  }
+}
+static void recent_read()
+{
+  if (s_browse_rcu.GetSize()) return;
+  int x;
+  for (x=0;x<SWELL_BROWSE_RECENT_SIZE;x++)
+  {
+    char tmp[64], path[2048];
+    snprintf(tmp,sizeof(tmp),"path%d",x);
+    GetPrivateProfileString(".swell_recent_path",tmp, "", path,sizeof(path),"");
+    if (!path[0]) break;
+    s_browse_rcu.Add(strdup(path));
+  }
+}
 
 static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
@@ -305,6 +358,17 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
         BrowseFile_State *parms = (BrowseFile_State *)lParam;
+
+        char tmp[1024];
+        recent_read();
+        if (parms->initialdir) recent_write(parms->initialdir,false);
+        if (parms->initialfile)
+        {
+          lstrcpyn_safe(tmp,parms->initialfile,sizeof(tmp));
+          WDL_remove_filepart(tmp);
+          if (tmp[0]) recent_write(tmp,false);
+        }
+
         if (parms->caption) SetWindowText(hwnd,parms->caption);
 
         SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
@@ -321,7 +385,6 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         SWELL_MakeEditField(IDC_FILTER, 0,0,0,0,  0);
 
         const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
-        char tmp[128];
         GetPrivateProfileString(".swell",ent,"", tmp,sizeof(tmp),"");
         int x=0,y=0,w=0,h=0, c1=0,c2=0,c3=0,extraflag=0;
         int flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
@@ -465,6 +528,7 @@ get_dir:
               WDL_remove_trailing_dirchars(path);
             }
             SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"/");
+            recent_addtocb(combo);
             SendMessage(combo,CB_SETCURSEL,0,0);
           } 
         break;
@@ -590,7 +654,8 @@ get_dir:
         case IDC_PARENTBUTTON:
           {
             int a = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCURSEL,0,0);
-            if (a>=0) 
+            int cbcnt = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCOUNT,0,0);
+            if (a>=0 && a < cbcnt - s_browse_rcu.GetSize()) 
             {
               SendDlgItemMessage(hwnd,IDC_DIR,CB_SETCURSEL,a+1,0);
             }
@@ -600,7 +665,11 @@ get_dir:
               GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
               preprocess_user_path(buf,sizeof(buf));
               WDL_remove_filepart(buf);
-              SetDlgItemText(hwnd,IDC_DIR,buf);
+              if (a>=0)
+              {
+                SendMessage(hwnd,WM_UPD,IDC_DIR,(LPARAM)buf);
+                return 0;
+              }
             }
             SendMessage(hwnd,WM_UPD,1,0);
           }
@@ -608,7 +677,17 @@ get_dir:
         case IDC_DIR:
           if (HIWORD(wParam) == CBN_SELCHANGE)
           {
-            SendMessage(hwnd,WM_UPD,1,0);
+            int a = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCURSEL,0,0);
+            int cbcnt = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCOUNT,0,0);
+            if (a>=cbcnt - s_browse_rcu.GetSize()) 
+            {
+              char buf[maxPathLen];
+              GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
+              preprocess_user_path(buf,sizeof(buf));
+              SendMessage(hwnd,WM_UPD,IDC_DIR,(LPARAM)buf);
+            }
+            else
+              SendMessage(hwnd,WM_UPD,1,0);
           }
         return 0;
         case IDCANCEL: EndDialog(hwnd,0); return 0;
@@ -651,6 +730,7 @@ get_dir:
             int cnt;
             if (parms->mode == BrowseFile_State::OPENMULTI && (cnt=ListView_GetSelectedCount(GetDlgItem(hwnd,IDC_LIST)))>1 && (!*msg || !strcmp(msg,multiple_files)))
             {
+              recent_write(buf);
               HWND list = GetDlgItem(hwnd,IDC_LIST);
               WDL_TypedBuf<char> fs;
               fs.Set(buf,strlen(buf)+1);
@@ -775,6 +855,9 @@ treatAsDir:
               parms->fnout = (char*)calloc(l+2,1);
               memcpy(parms->fnout,buf,l);
             }
+            if (parms->mode != BrowseFile_State::OPENDIR)
+              WDL_remove_filepart(buf);
+            recent_write(buf);
           }
           EndDialog(hwnd,1);
         return 0;
