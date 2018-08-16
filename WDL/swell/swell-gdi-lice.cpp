@@ -40,10 +40,14 @@
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
+#ifdef SWELL_FONTCONFIG
+#include <fontconfig/fontconfig.h>
+#else
+#include "../dirscan.h"
+#endif
+
 static bool s_freetype_failed;
 static FT_Library s_freetype; // todo: TLS for multithread support?
-
-#include "../dirscan.h"
 
 static int utf8char(const char *ptr, unsigned short *charOut) // returns char length
 {
@@ -86,8 +90,47 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
   return 1;  
 }
 
-static WDL_PtrList<char> s_freetype_fontlist;
-static WDL_PtrList<char> s_freetype_regfonts;
+extern char *swell_last_font_filename;
+extern int swell_last_font_filename_want;
+
+#ifdef SWELL_FONTCONFIG
+
+static FcConfig *s_fontconfig;
+const char *swell_enumFontFiles(int x)
+{
+  if (!s_fontconfig) return NULL;
+
+  static FcPattern *pat;
+  static FcObjectSet *prop;
+  static FcFontSet *fonts;
+  if (x<0)
+  {
+    if (fonts) FcFontSetDestroy(fonts);
+    if (prop) FcObjectSetDestroy(prop);
+    if (pat) FcPatternDestroy(pat);
+    pat=NULL;
+    prop=NULL;
+    fonts=NULL;
+    return NULL;
+  }
+  if (!pat)
+  {
+    pat = FcPatternCreate();
+    prop = FcObjectSetBuild(FC_FAMILY, NULL);
+    fonts = FcFontList(s_fontconfig,pat,prop);
+  }
+  if (fonts && x < fonts->nfont)
+  {
+    FcPattern *f = fonts->fonts[x];
+    FcChar8 *fn = NULL;
+    if (FcPatternGetString(f,FC_FAMILY,0,&fn) == FcResultMatch && fn && *fn) 
+    return (const char *)fn;
+  }
+  
+  return NULL;
+}
+
+#else
 
 const char *swell_enumFontFiles(int x)
 {
@@ -96,6 +139,9 @@ const char *swell_enumFontFiles(int x)
   return s_freetype_fontlist.Get(x-n1);
 }
 
+
+static WDL_PtrList<char> s_freetype_fontlist;
+static WDL_PtrList<char> s_freetype_regfonts;
 static const char *stristr(const char *a, const char *b)
 {
   const size_t blen = strlen(b);
@@ -153,8 +199,6 @@ struct fontScoreMatched {
   }
 
 };
-
-const char *swell_last_font_filename;
 
 static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exact)
 {
@@ -259,8 +303,9 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exa
   }
   return NULL;
 }
+#endif // !SWELL_FONTCONFIG
 
-#endif
+#endif // SWELL_FREETYPE
 
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
@@ -355,7 +400,6 @@ HGDIOBJ GetStockObject(int wh)
   return 0;
 }
 
-#define FONTSCALE 0.9
 HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation, int lfWeight, char lfItalic, 
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
@@ -368,13 +412,76 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
     if (s_freetype)
     {
+#ifdef SWELL_FONTCONFIG
+      if (!s_fontconfig) s_fontconfig = FcInitLoadConfigAndFonts();
+#else
       ScanFontDirectory("/usr/share/fonts");
 
       qsort(s_freetype_fontlist.GetList(),s_freetype_fontlist.GetSize(),sizeof(const char *),(int (*)(const void *,const void*))sortByFilePart);
+#endif
     }
   }
   if (s_freetype)
   {
+#ifdef SWELL_FONTCONFIG
+    if (!face && s_fontconfig)
+    {
+      FcPattern *pat = FcPatternCreate();
+      if (pat)
+      {
+        if (lfFaceName && *lfFaceName) FcPatternAddString(pat,FC_FAMILY,(FcChar8*)lfFaceName);
+        if (lfWeight > 0)
+        {
+          int wt;
+          if (lfWeight >= FW_HEAVY) wt=FC_WEIGHT_HEAVY;
+          else if (lfWeight >= FW_EXTRABOLD) wt=FC_WEIGHT_EXTRABOLD;
+          else if (lfWeight >= FW_BOLD) wt=FC_WEIGHT_BOLD;
+          else if (lfWeight >= FW_SEMIBOLD) wt=FC_WEIGHT_SEMIBOLD;
+          else if (lfWeight >= FW_MEDIUM) wt=FC_WEIGHT_MEDIUM;
+          else if (lfWeight >= FW_NORMAL) wt=FC_WEIGHT_NORMAL;
+          else if (lfWeight >= FW_LIGHT) wt=FC_WEIGHT_LIGHT;
+          else if (lfWeight >= FW_EXTRALIGHT) wt=FC_WEIGHT_EXTRALIGHT;
+          else wt=FC_WEIGHT_THIN;
+          FcPatternAddInteger(pat,FC_WEIGHT,wt);
+        }
+        if (lfItalic)
+          FcPatternAddInteger(pat,FC_SLANT,FC_SLANT_ITALIC);
+        FcConfigSubstitute(s_fontconfig,pat,FcMatchPattern);
+        FcDefaultSubstitute(pat);
+        FcResult result;
+        FcPattern *hit = FcFontMatch(s_fontconfig,pat,&result);
+        if (hit)
+        {
+          FcChar8 *fn = NULL;
+          if (FcPatternGetString(hit,FC_FILE,0,&fn) == FcResultMatch && fn && *fn) 
+          {
+            int idx=0;
+            if (FcPatternGetInteger(hit,FC_INDEX,0,&idx) != FcResultMatch) idx=0;
+            FT_New_Face(s_freetype,(const char *)fn,idx,&face);
+            if (face)
+            {
+              free(swell_last_font_filename);
+              swell_last_font_filename=NULL;
+              if (swell_last_font_filename_want)
+              {
+                if (!idx)
+                  swell_last_font_filename = strdup((const char*)fn);
+                else
+                {
+                  char tmp[1024];
+                  snprintf(tmp,sizeof(tmp),"%s <%d>",fn,idx);
+                  swell_last_font_filename = strdup(tmp);
+                }
+              }
+            }
+          }
+          FcPatternDestroy(hit);
+        }
+        FcPatternDestroy(pat);
+      }
+    }
+#else
+
     if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName,lfWeight,lfItalic,0);
 
     if (!face)
@@ -423,6 +530,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
         }
       }
     }
+#endif
   }
   
   if (face)
@@ -1707,8 +1815,13 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
   if (str && *str)
   {
+#ifdef SWELL_FONTCONFIG
+    if (!s_fontconfig) s_fontconfig = FcInitLoadConfigAndFonts();
+    return s_fontconfig && FcConfigAppFontAddFile(s_fontconfig,(const FcChar8 *)str) != FcFalse;
+#else
     if (s_freetype_regfonts.FindSorted(str,sortByFilePart)>=0) return 0;
     s_freetype_regfonts.InsertSorted(strdup(str), sortByFilePart);
+#endif
     return 1;
   } 
   return 0;

@@ -115,6 +115,10 @@ ifndef NOGDK
     ifndef PRELOAD_GDK
       LINKEXTRA += $(shell $(PKG_CONFIG) --libs freetype2)
     endif
+    ifndef NOFONTCONFIG
+      CFLAGS += -DSWELL_FONTCONFIG
+      LINKEXTRA += -lfontconfig
+    endif
   endif
 endif
 

@@ -29,6 +29,8 @@
 #include "../wdlcstring.h"
 
 const char *g_swell_deffont_face = "Arial";
+int swell_last_font_filename_want;
+char *swell_last_font_filename;
 
 swell_colortheme g_swell_ctheme = {
 #define __def_theme_ent(x,c) (c),
@@ -715,7 +717,8 @@ void swell_load_color_theme(const char *fn)
         {
           char *b = strdup(np);
           g_swell_deffont_face = b;
-          while (*b>0 && !isspace(*b)) b++;
+          while (*b && *b != ';' && *b != '#') b++;
+          while (b>g_swell_deffont_face && b[-1] > 0 && isspace(b[-1])) b--;
           *b=0;
         }
         continue;
