@@ -454,7 +454,18 @@ HFONT CreateFontIndirect(LOGFONT *lf)
 
 int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
 {
-  if (lpFaceName) lpFaceName[0]=0;
+  if (lpFaceName && nCount>0) lpFaceName[0]=0;
+#ifdef SWELL_FREETYPE
+  HDC__ *ct=(HDC__*)ctx;
+  if (!HDC_VALID(ct) || nCount<1 || !lpFaceName || !ct->curfont) return 0;
+
+  const FT_FaceRec *p = (const FT_FaceRec *)ct->curfont->typedata;
+  if (p)
+  {
+    lstrcpyn_safe(lpFaceName, p->family_name, nCount);
+    return 1;
+  }
+#endif
   return 0;
 }
 
