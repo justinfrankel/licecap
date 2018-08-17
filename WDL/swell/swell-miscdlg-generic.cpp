@@ -1574,8 +1574,7 @@ struct FontChooser_State
   WDL_FastString lastfn;
 };
 
-extern char *swell_last_font_filename;
-extern int swell_last_font_filename_want;
+extern const char *swell_last_font_filename;
 
 const char *swell_enumFontFiles(int x);
 int swell_getLineLength(const char *buf, int *post_skip, int wrap_maxwid, HDC hdc);
@@ -1729,9 +1728,7 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
           r.bottom -= border*2 + buth;
           r.top = r.bottom - ph;
 
-          swell_last_font_filename_want++;
           HFONT f = CreateFontIndirect(&cs->font);
-          swell_last_font_filename_want--;
 
           HBRUSH br = CreateSolidBrush(RGB(255,255,255));
           FillRect(ps.hdc,&r,br);
