@@ -51,8 +51,12 @@ ifdef DEBUG
 CFLAGS += -O0 -g -D_DEBUG
 else
 CFLAGS += -O2 -DNDEBUG
-  ifneq ($(COMPILER),CLANG)
-    CFLAGS += -s
+  ifdef DEBUG_INFO
+    CFLAGS += -g
+  else
+    ifneq ($(COMPILER),CLANG)
+      CFLAGS += -s
+    endif
   endif
 endif
 
