@@ -1095,6 +1095,8 @@ static void OnButtonEvent(GdkEventButton *b)
 
   if (hwnd && hwnd->m_oswindow && SWELL_focused_oswindow != hwnd->m_oswindow)
   {
+    // this should not be necessary, focus is sent via separate events
+    printf("swell-generic: button event sent to non-focused window, report this message to support@cockos.com with the subject swell-gdk, thank you!\n");
     SWELL_focused_oswindow = hwnd->m_oswindow;
   }
 
