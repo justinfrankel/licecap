@@ -1061,6 +1061,8 @@ static void OnScrollEvent(GdkEventScroll *b)
   }
 }
 
+static DWORD s_last_focus_change_time;
+
 static void OnButtonEvent(GdkEventButton *b)
 {
   HWND hwnd = swell_oswindow_to_hwnd(b->window);
@@ -1075,13 +1077,27 @@ static void OnButtonEvent(GdkEventButton *b)
   int msg=WM_LBUTTONDOWN;
   if (b->button==2) msg=WM_MBUTTONDOWN;
   else if (b->button==3) msg=WM_RBUTTONDOWN;
-  
+
+  if (hwnd2) hwnd2->Retain();
+
+  if (b->type == GDK_BUTTON_PRESS)
+  {
+    DWORD now = GetTickCount();;
+    HWND oldFocus=GetFocus();
+    if (!oldFocus || 
+        oldFocus != hwnd2 ||
+       (now >= s_last_focus_change_time && now < (s_last_focus_change_time+500)))
+    {
+      if (IsWindowEnabled(hwnd2))
+        SendMessage(hwnd2,WM_MOUSEACTIVATE,0,0);
+    }
+  }
+
   if (hwnd && hwnd->m_oswindow && SWELL_focused_oswindow != hwnd->m_oswindow)
   {
     SWELL_focused_oswindow = hwnd->m_oswindow;
   }
 
-  if (hwnd2) hwnd2->Retain();
 
   // for doubleclicks, GDK actually seems to send:
   //   GDK_BUTTON_PRESS, GDK_BUTTON_RELEASE, 
@@ -1303,6 +1319,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
           if (fc->in && is_our_oswindow(fc->window))
           {
+            s_last_focus_change_time = GetTickCount();
             swell_on_toplevel_raise(fc->window);
             SWELL_focused_oswindow = fc->window;
             if (swell_app_is_inactive)
