@@ -1096,7 +1096,8 @@ static void OnButtonEvent(GdkEventButton *b)
   if (hwnd && hwnd->m_oswindow && SWELL_focused_oswindow != hwnd->m_oswindow)
   {
     // this should not be necessary, focus is sent via separate events
-    printf("swell-generic: button event sent to non-focused window, report this message to support@cockos.com with the subject swell-gdk, thank you!\n");
+    // (the only time I've ever seen this is when launching a popup menu via the mousedown handler, on the mouseup
+    // the menu has not yet been focused but the mouse event goes to the popup menu)
     SWELL_focused_oswindow = hwnd->m_oswindow;
   }
 
