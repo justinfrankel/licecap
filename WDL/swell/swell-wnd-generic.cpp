@@ -4603,7 +4603,7 @@ forceMouseMove:
                       const int x1 = tr.left + 2;
                       int y2 = (tr.bottom+tr.top)/2 - tsz/2 - tsz/4;
                       int y1 = y2 + tsz;
-                      if (cols[col].sortindicator < 0)
+                      if (cols[col].sortindicator >= 0)
                       {
                         int tmp=y1; 
                         y1=y2;
