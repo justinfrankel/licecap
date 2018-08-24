@@ -258,6 +258,7 @@ public:
   void *m_user_ctx;
 
   int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0); // mouse_x/y used only if hwnd is NULL
+  void finish_draw();
 
   void gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag);
   void gfx_rectto(EEL_F xpos, EEL_F ypos);
@@ -1828,6 +1829,24 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
   return dr;
 }
 
+void eel_lice_state::finish_draw()
+{
+  if (hwnd_standalone && m_framebuffer_dirty) 
+  {
+#ifdef __APPLE__
+    void *p = SWELL_InitAutoRelease();
+#endif
+
+    InvalidateRect(hwnd_standalone,NULL,FALSE);
+    UpdateWindow(hwnd_standalone);
+
+#ifdef __APPLE__
+    SWELL_QuitAutoRelease(p);
+#endif
+    m_framebuffer_dirty = 0;
+  }
+}
+
 #ifndef EEL_LICE_NO_REGISTER
 void eel_lice_register()
 {
@@ -1886,20 +1905,10 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
     ctx->m_ddrop_files.Empty(true,free);
     if (ctx->hwnd_standalone) 
     {
-      if (ctx->m_framebuffer_dirty) 
-      {
-#ifdef __APPLE__
-        void *p = SWELL_InitAutoRelease();
+#ifndef EEL_LICE_WANT_STANDALONE_UPDATE_NO_SETUPFRAME
+      ctx->finish_draw();
 #endif
 
-        InvalidateRect(ctx->hwnd_standalone,NULL,FALSE);
-        UpdateWindow(ctx->hwnd_standalone);
-
-#ifdef __APPLE__
-        SWELL_QuitAutoRelease(p);
-#endif
-        ctx->m_framebuffer_dirty = 0;
-      }
       // run message pump
 #ifndef EEL_LICE_WANT_STANDALONE_UPDATE_NO_MSGPUMP
 
