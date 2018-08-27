@@ -3114,7 +3114,10 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 buf = NULL;
               }
             }
-            if (buf) DrawText(ps.hdc,buf,-1,&r,((hwnd->m_style & SS_CENTER) ? DT_CENTER:0)|DT_VCENTER);
+            if (buf) DrawText(ps.hdc,buf,-1,&r,
+                ((hwnd->m_style & SS_CENTER) ? DT_CENTER : 
+                 (hwnd->m_style & SS_RIGHT) ? DT_RIGHT : 0)|
+                DT_VCENTER);
           }
           EndPaint(hwnd,&ps);
         }
@@ -3552,6 +3555,8 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,label, !(flags&SWELL_NOT_WS_VISIBLE),labelWindowProc);
   hwnd->m_classname = "static";
+  if (align > 0) flags |= SS_RIGHT;
+  else if (align == 0) flags |= SS_CENTER;
   hwnd->m_style = (flags & ~SWELL_NOT_WS_VISIBLE)|WS_CHILD;
   hwnd->m_wantfocus = false;
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
