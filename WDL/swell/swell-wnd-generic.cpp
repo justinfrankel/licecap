@@ -2626,6 +2626,8 @@ forceMouseMove:
     return 0;
     case WM_KEYDOWN:
       {
+        const int osel1 = es && es->sel1 >= 0 && es->sel2 > es->sel1 ? es->sel1 : -1;
+
         int f = OnEditKeyDown(hwnd,msg,wParam,lParam, 
             !!(hwnd->m_style&ES_WANTRETURN),
             !!(hwnd->m_style&ES_MULTILINE),
@@ -2639,6 +2641,10 @@ forceMouseMove:
           }
           if (f&2) 
           {
+            if ((hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_AUTOHSCROLL &&
+                osel1 >= 0 && es->cursor_pos > osel1 && es->sel1 < 0)
+              es->autoScrollToOffset(hwnd,osel1,false,false);
+
             es->autoScrollToOffset(hwnd,es->cursor_pos,
                (hwnd->m_style & ES_MULTILINE) != 0,
                (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE
