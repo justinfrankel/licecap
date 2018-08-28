@@ -2800,6 +2800,9 @@ forceMouseMove:
         es->cursor_pos = WDL_utf8_get_charlen(hwnd->m_title.Get());
         es->sel1=es->sel2=-1;
         es->cache_linelen_w=es->cache_linelen_strlen=0;
+        if ((hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL))==ES_AUTOHSCROLL &&
+            GetFocus() != hwnd)
+          es->autoScrollToOffset(hwnd,0,false,false);
       }
       InvalidateRect(hwnd,NULL,FALSE);
       if (hwnd->m_id && hwnd->m_parent)
