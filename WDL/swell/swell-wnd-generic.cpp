@@ -6300,6 +6300,31 @@ HWND ChildWindowFromPoint(HWND h, POINT p)
   return h;
 }
 
+static HWND recurseOwnedWindowHitTest(HWND h, POINT p, int maxdepth)
+{
+  RECT r;
+  GetWindowContentViewRect(h,&r);
+  if (!PtInRect(&r,p)) return NULL;
+
+  // check any owned windows first, as they are always above our window
+  if (h->m_owned_list && maxdepth > 0)
+  {
+    HWND owned = h->m_owned_list;
+    while (owned)
+    {
+      if (owned->m_visible)
+      {
+        HWND hit = recurseOwnedWindowHitTest(owned,p,maxdepth-1);
+        if (hit) return hit;
+      }
+      owned = h->m_owned_next;
+    }
+  }
+  p.x -= r.left;
+  p.y -= r.top;
+  return ChildWindowFromPoint(h,p);
+}
+
 HWND WindowFromPoint(POINT p)
 {
   HWND h = SWELL_topwindows;
@@ -6307,14 +6332,8 @@ HWND WindowFromPoint(POINT p)
   {
     if (h->m_visible)
     {
-      RECT r;
-      GetWindowContentViewRect(h,&r);
-      if (PtInRect(&r,p))
-      {
-        p.x -= r.left;
-        p.y -= r.top;
-        return ChildWindowFromPoint(h,p);
-      }
+      HWND hit = recurseOwnedWindowHitTest(h,p,20);
+      if (hit) return hit;
     }
     h = h->m_next;
   }
