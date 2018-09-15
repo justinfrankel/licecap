@@ -980,6 +980,9 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
     m_last_y=ypos;
     m_last_x=xpos;
     while (m_last_precmode>0) {m_last_precmode--; ShowCursor(TRUE); }
+#if !defined(_WIN32) && !defined(__APPLE__)
+    GetCursorPos(&s_lastmousepos);
+#endif
   }
   m_needflush=0;
 }
