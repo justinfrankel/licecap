@@ -6092,7 +6092,7 @@ int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
     const int ypos = y - lvs->GetColumnHeaderHeight(h);
     const int hit = ypos >= 0 ? ((ypos + lvs->m_scroll_y) / lvs->m_last_row_height) : -1;
     if (hit < 0) pinf->flags |= LVHT_ABOVE;
-    pinf->iItem=hit;
+    pinf->iItem=hit < 0 || hit >= lvs->GetNumItems() ? -1 : hit;
     if (pinf->iItem >= 0)
     {
       if (lvs->m_status_imagelist && x < lvs->m_last_row_height)
