@@ -6317,7 +6317,7 @@ static HWND recurseOwnedWindowHitTest(HWND h, POINT p, int maxdepth)
         HWND hit = recurseOwnedWindowHitTest(owned,p,maxdepth-1);
         if (hit) return hit;
       }
-      owned = h->m_owned_next;
+      owned = owned->m_owned_next;
     }
   }
   p.x -= r.left;
