@@ -7803,6 +7803,12 @@ int swell_fullscreenWindow(HWND hwnd, BOOL fs)
   return 0;
 }
 
+int GetClassName(HWND hwnd, char *buf, int bufsz)
+{
+  if (!hwnd || !hwnd->m_classname || !buf || bufsz<1) return 0;
+  lstrcpyn_safe(buf,hwnd->m_classname,bufsz);
+  return (int)strlen(buf);
+}
 
 #ifdef _DEBUG
 void VALIDATE_HWND_LIST(HWND listHead, HWND par)
