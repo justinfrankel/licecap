@@ -910,6 +910,7 @@ HWND curses_ControlCreator(HWND parent, const char *cname, int idx, const char *
   
   if (hw)
   {
+    SWELL_SetClassName(hw,WIN32CURSES_CLASS_NAME);
     SetWindowLong(hw,GWL_ID,idx);
     SetWindowPos(hw,HWND_TOP,x,y,w,h,SWP_NOZORDER|SWP_NOACTIVATE);
     ShowWindow(hw,SW_SHOWNA);
