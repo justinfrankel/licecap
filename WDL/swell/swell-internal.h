@@ -299,6 +299,7 @@ typedef struct WindowPropRec
   char m_allow_nomiddleman;
   id m_lastTopLevelOwner; // save a copy of the owner, if any
   id m_access_cacheptrs[6];
+  const char *m_classname;
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam;
@@ -332,6 +333,7 @@ typedef struct WindowPropRec
 -(int)swellSetProp:(const char *)name value:(void *)val ;
 -(NSOpenGLContext *)swellGetGLContext;
 - (void) setEnabledSwellNoFocus;
+-(const char *)getSwellClass;
 
 // NSAccessibility
 

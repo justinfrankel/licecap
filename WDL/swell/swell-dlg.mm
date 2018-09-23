@@ -983,6 +983,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
   if (!(self = [super initWithFrame:contentRect])) return self;
 
+  m_classname=NULL;
   memset(m_access_cacheptrs,0,sizeof(m_access_cacheptrs));
   m_allow_nomiddleman=1;
   m_isdirty=3;
@@ -1782,10 +1783,10 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
   return [super accessibilityIsIgnored];
 }
 
-
-
-
-
+- (const char *)getSwellClass
+{
+  return m_classname;
+}
 
 @end
 

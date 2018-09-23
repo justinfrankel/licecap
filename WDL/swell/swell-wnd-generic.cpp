@@ -7803,6 +7803,12 @@ int swell_fullscreenWindow(HWND hwnd, BOOL fs)
   return 0;
 }
 
+void SWELL_SetClassName(HWND hwnd, const char *p)
+{
+  if (hwnd)
+    hwnd->m_classname=p;
+}
+
 int GetClassName(HWND hwnd, char *buf, int bufsz)
 {
   if (!hwnd || !hwnd->m_classname || !buf || bufsz<1) return 0;

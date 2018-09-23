@@ -1064,9 +1064,11 @@ SWELL_API_DEFINE(void,SWELL_Register_Cursor_Resource,(const char *idx, const cha
 #ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(bool, SWELL_ChooseColor, (HWND, int *, int ncustom, int *custom))
 SWELL_API_DEFINE(bool, SWELL_ChooseFont, (HWND, LOGFONT*))
-SWELL_API_DEFINE(int, GetClassName, (HWND, char *, int))
 #endif
 
 SWELL_API_DEFINE(bool, IsWindowEnabled, (HWND))
+
+SWELL_API_DEFINE(int, GetClassName, (HWND, char *, int)) // only partially implemented, if using custom control creators they should call SWELL_SetClassName() to set the class name (reading class name is desired)
+SWELL_API_DEFINE(void, SWELL_SetClassName, (HWND, const char*)) // must pass a static string!
 
 #endif // _WDL_SWELL_H_API_DEFINED_

@@ -56,7 +56,8 @@ static LRESULT sendSwellMessage(id obj, UINT uMsg, WPARAM wParam, LPARAM lParam)
   return 0;
 }
 static void InvalidateSuperViews(NSView *view);
-#define STANDARD_CONTROL_NEEDSDISPLAY_IMPL \
+#define STANDARD_CONTROL_NEEDSDISPLAY_IMPL(classname) \
+  - (const char *)swellGetClass { return ( classname ); } \
   - (void)setNeedsDisplay:(BOOL)flag \
   { \
   [super setNeedsDisplay:flag]; \
@@ -160,7 +161,7 @@ template<class T> static int ptrlist_bsearch_mod(void *key, WDL_PtrList<T> *arr,
 
 
 @implementation SWELL_TabView
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("SysTabControl32")
 
 -(void)setNotificationWindow:(id)dest
 {
@@ -190,7 +191,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 
 @implementation SWELL_ProgressView
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("msctls_progress32")
 
 -(NSInteger) tag
 {
@@ -266,7 +267,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 @end
 
 @implementation SWELL_TreeView
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("SysTreeView32")
 
 -(id) init
 {
@@ -429,7 +430,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 
 @implementation SWELL_ListView
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView32" )
 
 -(LONG)getSwellStyle { return style; }
 
@@ -1476,7 +1477,7 @@ static void *__GetNSImageFromHICON(HICON ico) // local copy to not be link depen
 
 @implementation SWELL_Button : NSButton
 
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Button")
 
 -(id) init {
   self = [super init];
@@ -3064,7 +3065,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 @implementation SWELL_TextView
 
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Edit")
 
 -(NSInteger) tag
 {
@@ -3175,7 +3176,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL
 
 
 @implementation SWELL_TextField
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
 
 - (BOOL)becomeFirstResponder;
 {
@@ -3766,7 +3767,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 
 @implementation SWELL_BoxView
 
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("groupbox")
 
 -(NSInteger) tag
 {
@@ -6020,14 +6021,14 @@ void SWELL_DrawFocusRect(HWND hwndPar, RECT *rct, void **handle)
 
 
 @implementation SWELL_PopUpButton
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("combobox")
 
 -(void)setSwellStyle:(LONG)style { m_style=style; }
 -(LONG)getSwellStyle { return m_style; }
 @end
 
 @implementation SWELL_ComboBox
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL("combobox")
 
 -(void)setSwellStyle:(LONG)style { m_style=style; }
 -(LONG)getSwellStyle { return m_style; }
@@ -6348,6 +6349,30 @@ BOOL SWELL_IsStaticText(HWND hwnd)
   //todo
   return FALSE;
 }
+
+void SWELL_SetClassName(HWND hwnd, const char *p)
+{
+  if (hwnd && [(id)hwnd isKindOfClass:[SWELL_hwndChild class]])
+    ((SWELL_hwndChild *)hwnd)->m_classname=p;
+}
+
+int GetClassName(HWND hwnd, char *buf, int bufsz)
+{
+  if (!hwnd || !buf || bufsz<1) return 0;
+  buf[0]=0;
+  if ([(id)hwnd respondsToSelector:@selector(getSwellClass)])
+  {
+    const char *cn = [(SWELL_hwndChild*)hwnd getSwellClass];
+    if (cn) lstrcpyn_safe(buf,cn,bufsz);
+  }
+  else
+  {
+    // default handling of other controls?
+  }
+
+  return (int)strlen(buf);
+}
+
 
 
 bool SWELL_SetAppAutoHideMenuAndDock(int ah) 
