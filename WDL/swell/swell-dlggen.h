@@ -163,8 +163,10 @@ struct SWELL_DlgResourceEntry
 #define WS_EX_RIGHT 0
 #define SS_CENTERIMAGE 0                                       
 #define SS_NOPREFIX 0
-                     
-                                       
+
+// more ignore flags for vc11+
+#define LVS_ALIGNLEFT 0 /* 0x0800 */
+
 #ifndef IDC_STATIC
 #define IDC_STATIC 0
 #endif
