@@ -2298,7 +2298,11 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
           es->cursor_pos--;
           const char *buf = hwnd->m_title.Get();
           int bytepos = WDL_utf8_charpos_to_bytepos(buf,es->cursor_pos);
-          if (bytepos > 0 && buf[bytepos] == '\n' && buf[bytepos-1] == '\r') hwnd->m_title.DeleteSub(bytepos-1, 2);
+          if (bytepos > 0 && buf[bytepos] == '\n' && buf[bytepos-1] == '\r') 
+          {
+            hwnd->m_title.DeleteSub(bytepos-1, 2);
+            es->cursor_pos--;
+          }
           else hwnd->m_title.DeleteSub(bytepos, wdl_utf8_parsechar(hwnd->m_title.Get()+bytepos,NULL));
           return 7; 
         }
