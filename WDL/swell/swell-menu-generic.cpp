@@ -458,9 +458,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         wid+=lcol+rcol + (wid2?wid2+mcol:0);
         ReleaseDC(hwnd,hdc);
 
-        RECT tr={m_trackingPt.x,m_trackingPt.y,
-                 m_trackingPt.x+wid+SWELL_UI_SCALE(4),m_trackingPt.y+ht+top_margin * 2}, vp;
-        SWELL_GetViewPort(&vp,&tr,true);
+        const RECT ref={m_trackingPt.x, m_trackingPt.y, m_trackingPt.x, m_trackingPt.y };
+        RECT vp, tr={m_trackingPt.x,m_trackingPt.y, m_trackingPt.x+wid+SWELL_UI_SCALE(4),m_trackingPt.y+ht+top_margin * 2};
+        SWELL_GetViewPort(&vp,&ref,true);
         vp.bottom -= 8;
  
         if (g_trackpopup_yroot.bottom > g_trackpopup_yroot.top &&
