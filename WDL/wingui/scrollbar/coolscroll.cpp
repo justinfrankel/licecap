@@ -338,17 +338,18 @@ static BOOL IsScrollbarActive(SCROLLBAR *sb)
 		return TRUE;
 }
 
-#ifdef __APPLE__
+#ifndef _WIN32
 static void GET_WINDOW_RECT(HWND hwnd, RECT *r)
 {
   GetWindowContentViewRect(hwnd,r);
+#ifdef __APPLE__
   if (r->top>r->bottom) 
   { 
     int tmp = r->top;
     r->top = r->bottom;
     r->bottom = tmp;
   }
-
+#endif
 }
 #else
 #define GET_WINDOW_RECT(hwnd, r) GetWindowRect(hwnd,r)
