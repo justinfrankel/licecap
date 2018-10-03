@@ -3004,6 +3004,8 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 		//if the mouse moves outside the current scrollbar,
 		//then kill the timer..
 		GetCursorPos(&pt);
+    POINT pt_orig = pt;
+    OSX_REMAP_SCREENY(hwnd,&pt.y);
 
     RECT mor = swnd->MouseOverRect;
     BOOL hasZoomButtons = swnd->MouseOverRect_hasZoomButtons;
@@ -3019,7 +3021,7 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
         mor.right += extrasz;
     }
 
-		if(!PtInRect(&mor, pt)||WindowFromPoint(pt)!=hwnd)
+		if(!PtInRect(&mor, pt)||WindowFromPoint(pt_orig)!=hwnd)
 		{
 			KillTimer(hwnd, swnd->uMouseOverId);
 			swnd->uMouseOverId = 0;
