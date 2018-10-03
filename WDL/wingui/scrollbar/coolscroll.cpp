@@ -338,6 +338,15 @@ static BOOL IsScrollbarActive(SCROLLBAR *sb)
 		return TRUE;
 }
 
+#ifdef __APPLE__
+static void ReleaseDCFlush(HWND hwnd, HDC hdc)
+{
+  ReleaseDC(hwnd,hdc);
+  SWELL_FlushWindow(hwnd);
+}
+#define ReleaseDC(hwnd,hdc) ReleaseDCFlush(hwnd,hdc)
+#endif
+
 #ifndef _WIN32
 static void GET_WINDOW_RECT(HWND hwnd, RECT *r)
 {
