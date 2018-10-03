@@ -2368,6 +2368,9 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 	}
 		
 	SetCapture(hwnd);
+#ifndef _WIN32
+        sw->uLastHitTestPortion = sw->uHitTestPortion     = HTSCROLL_NONE;
+#endif
 	return 0;
 }
 
