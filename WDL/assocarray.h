@@ -320,6 +320,17 @@ private:
   static int cmpint(int *i1, int *i2) { return *i1-*i2; }
 };
 
+template <class VAL> class WDL_IntKeyedArray2 : public WDL_AssocArrayImpl<int, VAL>
+{
+public:
+
+  explicit WDL_IntKeyedArray2(void (*valdispose)(VAL)=0) : WDL_AssocArrayImpl<int, VAL>(cmpint, NULL, NULL, valdispose) {}
+  ~WDL_IntKeyedArray2() {}
+
+private:
+
+  static int cmpint(int *i1, int *i2) { return *i1-*i2; }
+};
 
 template <class VAL> class WDL_StringKeyedArray : public WDL_AssocArray<const char *, VAL>
 {
