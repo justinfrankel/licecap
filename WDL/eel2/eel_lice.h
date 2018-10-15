@@ -2496,7 +2496,11 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
           }
         }
 
-        if (a && uMsg != WM_KEYUP)
+        if (a && uMsg != WM_KEYUP
+#ifdef _WIN32
+            && uMsg != WM_SYSKEYUP
+#endif
+            )
         {
           // add to queue
           const int qsize = sizeof(ctx->m_kb_queue)/sizeof(ctx->m_kb_queue[0]);
