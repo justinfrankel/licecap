@@ -667,15 +667,16 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 
 #define SWELL_NOT_WS_VISIBLE ((int)0x80000000)
 #define WS_CHILDWINDOW (WS_CHILD)
-#define WS_CHILD      0x40000000L
-#define WS_DISABLED   0x08000000L
-#define WS_CAPTION    0x00C00000L
-#define WS_VSCROLL    0x00200000L
-#define WS_HSCROLL    0x00100000L
-#define WS_SYSMENU    0x00080000L
-#define WS_THICKFRAME 0x00040000L
-#define WS_GROUP      0x00020000L
-#define WS_TABSTOP    0x00010000L
+#define WS_CHILD        0x40000000L
+#define WS_DISABLED     0x08000000L
+#define WS_CLIPSIBLINGS 0x04000000L
+#define WS_CAPTION      0x00C00000L
+#define WS_VSCROLL      0x00200000L
+#define WS_HSCROLL      0x00100000L
+#define WS_SYSMENU      0x00080000L
+#define WS_THICKFRAME   0x00040000L
+#define WS_GROUP        0x00020000L
+#define WS_TABSTOP      0x00010000L
 
 #define WS_BORDER 0 // ignored for now
 #define WS_VISIBLE 0

@@ -6387,6 +6387,19 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
   {
     hwnd->m_invalidated=true;
     HWND t=hwnd->m_parent;
+    if (t && (t->m_style & WS_CLIPSIBLINGS))
+    {
+      // child window, invalidate any later children that intersect us (redraw them on top of us)
+      HWND nw = hwnd->m_next;
+      while (nw)
+      {
+        RECT tmp;
+        if (nw->m_visible && !nw->m_invalidated && WinIntersectRect(&tmp,&hwnd->m_position,&nw->m_position))
+          nw->m_invalidated=true;
+        nw=nw->m_next;
+      }
+    }
+
     while (t)
     { 
       if (eraseBk)

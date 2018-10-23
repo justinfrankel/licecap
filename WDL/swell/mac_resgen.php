@@ -207,6 +207,10 @@ function swell_rc2cpp_dialog($fp) // returns array with ["data"] and optionally 
                 {
                   if (!$opmode) $dlg_styles .= "|SWELL_DLG_WS_DROPTARGET";
                 }
+                else if ($parms[$rdidx] == 'WS_CLIPSIBLINGS') 
+                {
+                  if (!$opmode) $dlg_styles .= "|WS_CLIPSIBLINGS";
+                }
                 else $opmode=0;
                 $rdidx++;
               }
