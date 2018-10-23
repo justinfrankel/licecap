@@ -1713,7 +1713,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
             if (!rn) 
             {
               // todo: figure out how to give correct line number/offset (ugh)
-              snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"parameter %d to %s() must be namespace",x+1,fn->fname);
+              snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"parameter %d to %.120s() must be namespace",x+1,fn->fname);
               return NULL;
             }
 
@@ -2810,7 +2810,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   #ifdef GLUE_HAS_FXCH
     int need_fxch=0;
   #endif
-    int last_nt_parm=-1, last_nt_parm_type;
+    int last_nt_parm=-1, last_nt_parm_type=-1;
     
     if (op->opcodeType == OPCODETYPE_FUNCX)
     {

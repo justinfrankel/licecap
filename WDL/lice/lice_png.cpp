@@ -197,7 +197,7 @@ LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp)
       sz = 0;
   }
 
-  if (sz >= sizeof(buf)-512) sz = sizeof(buf)-512-1;
+  if ((unsigned int)sz >= sizeof(buf)-512) sz = sizeof(buf)-512-1;
   buf[sz]=0;
   char *p = buf;
   while (*p) p++;

@@ -282,11 +282,11 @@ class eel_string_context_state
    }
    int AddString(EEL_STRING_STORAGECLASS *ns)
    {
-     const int l = ns->GetLength();
 #ifdef EEL_STRINGS_MUTABLE_LITERALS
      m_literal_strings.Add(ns);
      return m_literal_strings.GetSize()-1+EEL_STRING_LITERAL_BASE;
 #else
+     const int l = ns->GetLength();
      const int sz=m_literal_strings.GetSize();
      int x;
      for (x=0;x<sz;x++)
