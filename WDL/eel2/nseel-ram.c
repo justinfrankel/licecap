@@ -93,6 +93,8 @@ EEL_F nseel_ramalloc_onfail;
 EEL_F * volatile  nseel_gmembuf_default;
 
 
+void *(*nseel_gmem_calloc)(size_t a, size_t b);
+
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
 {
   if (blocks) 
@@ -106,17 +108,14 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
       if (!pblocks || !(p=pblocks[whichblock]))
       {
         NSEEL_HOSTSTUB_EnterMutex();
-        if (!(pblocks=*blocks)) pblocks = *blocks = (EEL_F **)calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS);
+        if (!nseel_gmem_calloc) nseel_gmem_calloc=calloc;
+
+        if (!(pblocks=*blocks)) pblocks = *blocks = (EEL_F **)nseel_gmem_calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS);
         else p = pblocks[whichblock];
 
         if (!p && pblocks)
         {
-          const int msize=sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
-          if (!NSEEL_RAM_limitmem || NSEEL_RAM_memused+msize < NSEEL_RAM_limitmem) 
-          {
-            p=pblocks[whichblock]=(EEL_F *)calloc(sizeof(EEL_F),NSEEL_RAM_ITEMSPERBLOCK);
-            if (p) NSEEL_RAM_memused+=msize;
-          }
+          p=pblocks[whichblock]=(EEL_F *)nseel_gmem_calloc(sizeof(EEL_F),NSEEL_RAM_ITEMSPERBLOCK);
         }
         NSEEL_HOSTSTUB_LeaveMutex();
       }
