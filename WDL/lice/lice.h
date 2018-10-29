@@ -277,6 +277,12 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 #define lice_min(x,y) ((x)<(y)?(x):(y))
 #endif
 
+#ifdef _MSC_VER
+  #include <float.h>
+  #define lice_isfinite(x) _finite(x)
+#else
+  #define lice_isfinite(x) isfinite(x)
+#endif
 
 // Reaper exports most LICE functions, so the function declarations below
 // will collide with reaper_plugin.h

@@ -93,6 +93,8 @@ static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
 {
   float tx1 = *x1, ty1 = *y1, tx2 = *x2, ty2 = *y2;
   float tw = (float)(w-1), th = (float)(h-1);
+  if (!lice_isfinite(tx1) || !lice_isfinite(tx2) || 
+      !lice_isfinite(ty1) || !lice_isfinite(ty2)) return false;
   
   int e1 = OffscreenFTest(tx1, ty1, tw, th); 
   int e2 = OffscreenFTest(tx2, ty2, tw, th);
