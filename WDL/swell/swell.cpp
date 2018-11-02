@@ -780,6 +780,7 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     rec->refcnt = 1;
     s_loadedLibs.Insert(bundleinst ? bundleinst : inst,rec);
   
+#ifndef SWELL_EXTRA_MINIMAL
     int (*SWELL_dllMain)(HINSTANCE, DWORD, LPVOID) = 0;
     BOOL (*dllMain)(HINSTANCE, DWORD, LPVOID) = 0;
     *(void **)&SWELL_dllMain = GetProcAddress(rec,"SWELL_dllMain");
@@ -809,6 +810,7 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
     }
     rec->SWELL_dllMain = SWELL_dllMain;
     rec->dllMain = dllMain;
+#endif
   }
   else rec->refcnt++;
 
@@ -854,11 +856,13 @@ BOOL FreeLibrary(HINSTANCE hInst)
     s_loadedLibs.Delete(rec->instptr); 
 #endif
     
+#ifndef SWELL_EXTRA_MINIMAL
     if (rec->SWELL_dllMain) 
     {
       rec->SWELL_dllMain(rec,DLL_PROCESS_DETACH,NULL);
       if (rec->dllMain) rec->dllMain(rec,DLL_PROCESS_DETACH,NULL);
     }
+#endif
   }
 
 #ifdef SWELL_TARGET_OSX
@@ -1094,11 +1098,13 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
     g_swell_fontpangram = (const char *)v;
   }
 #ifndef SWELL_TARGET_OSX
+#ifndef SWELL_EXTRA_MINIMAL
   else if (!strcmp(key,"FULLSCREEN") || !strcmp(key,"-FULLSCREEN"))
   {
     int swell_fullscreenWindow(HWND, BOOL);
     return (void*)(INT_PTR)swell_fullscreenWindow((HWND)v, key[0] != '-');
   }
+#endif
 #endif
 #ifdef SWELL_TARGET_GDK
   else if (!strcmp(key,"activate_app"))

@@ -811,8 +811,10 @@ typedef struct
 #endif
   int refcnt;
 
+#ifndef SWELL_EXTRA_MINIMAL
   int (*SWELL_dllMain)(HINSTANCE, DWORD,LPVOID); //last parm=SWELLAPI_GetFunc
   BOOL (*dllMain)(HINSTANCE, DWORD, LPVOID);
+#endif
   void *lastSymbolRequested;
 } SWELL_HINSTANCE;
 
