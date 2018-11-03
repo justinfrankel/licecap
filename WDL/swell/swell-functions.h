@@ -823,6 +823,8 @@ SWELL_API_DEFINE(void, SWELL_QuitAutoRelease,(void *p))
 SWELL_API_DEFINE(int,SWELL_TerminateProcess,(HANDLE hand))
 SWELL_API_DEFINE(HANDLE,SWELL_CreateProcessIO,(const char *exe, int nparams, const char **params, bool redirectIO))
 SWELL_API_DEFINE(int,SWELL_ReadWriteProcessIO,(HANDLE, int w/*stdin,stdout,stderr*/, char *buf, int bufsz))
+#else
+SWELL_API_DEFINE(HANDLE,SWELL_CreateProcessFromPID,(int pid))
 #endif
 
 SWELL_API_DEFINE(HANDLE,SWELL_CreateProcess,(const char *exe, int nparams, const char **params))

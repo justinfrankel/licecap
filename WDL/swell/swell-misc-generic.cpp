@@ -36,6 +36,18 @@ bool IsRightClickEmulateEnabled()
 void SWELL_EnableRightClickEmulate(BOOL enable)
 {
 }
+
+
+HANDLE SWELL_CreateProcessFromPID(int pid)
+{
+  SWELL_InternalObjectHeader_PID *buf = (SWELL_InternalObjectHeader_PID*)malloc(sizeof(SWELL_InternalObjectHeader_PID));
+  buf->hdr.type = INTERNAL_OBJECT_PID;
+  buf->hdr.count = 1;
+  buf->pid = (int) pid;
+  buf->done = buf->result = 0;
+  return (HANDLE) buf;
+}
+
 HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
 {
   void swell_cleanupZombies();
@@ -52,12 +64,7 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
   }
   if (pid < 0) return NULL;
 
-  SWELL_InternalObjectHeader_PID *buf = (SWELL_InternalObjectHeader_PID*)malloc(sizeof(SWELL_InternalObjectHeader_PID));
-  buf->hdr.type = INTERNAL_OBJECT_PID;
-  buf->hdr.count = 1;
-  buf->pid = (int) pid;
-  buf->done = buf->result = 0;
-  return (HANDLE) buf;
+  return SWELL_CreateProcessFromPID(pid);
 }
 
 int SWELL_GetProcessExitCode(HANDLE hand)
