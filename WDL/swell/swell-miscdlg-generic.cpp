@@ -1084,6 +1084,13 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         labsize.top += sc10;
         labsize.bottom += sc10 + sc8;
 
+        RECT vp;
+        SWELL_GetViewPort(&vp,NULL,true);
+        vp.bottom -= vp.top;
+        if (labsize.bottom > vp.bottom*7/8)
+          labsize.bottom = vp.bottom*7/8;
+
+
         int x;
         int button_height=0, button_total_w=0;;
         const int bspace = SWELL_UI_SCALE(button_spacing);
