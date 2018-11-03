@@ -23,6 +23,11 @@
 #include "swell.h"
 #include "swell-internal.h"
 
+#ifndef __APPLE__
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
 bool IsRightClickEmulateEnabled()
 {
   return false;
@@ -33,7 +38,8 @@ void SWELL_EnableRightClickEmulate(BOOL enable)
 }
 HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
 {
-  if (fork() == 0)
+  const pid_t pid = fork();
+  if (pid == 0)
   {
     char **pp = (char **)calloc(nparams+2,sizeof(char*));
     pp[0] = strdup(exe);
@@ -41,9 +47,25 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
     execvp(exe,pp);
     exit(0);
   }
+  if (pid < 0) return NULL;
 
-  return 0; // todo
+  SWELL_InternalObjectHeader_PID *buf = (SWELL_InternalObjectHeader_PID*)malloc(sizeof(SWELL_InternalObjectHeader_PID));
+  buf->hdr.type = INTERNAL_OBJECT_PID;
+  buf->hdr.count = 1;
+  buf->pid = (int) pid;
+  return (HANDLE) buf;
 }
+
+int SWELL_GetProcessExitCode(HANDLE hand)
+{
+  SWELL_InternalObjectHeader_PID *hdr=(SWELL_InternalObjectHeader_PID*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_PID|| !hdr->pid) return -1;
+
+  int wstatus=0;
+  pid_t v = waitpid((pid_t)hdr->pid,&wstatus,WNOHANG);
+  return v>0 ? WEXITSTATUS(wstatus) : -2;
+}
+
 
 
 #endif

@@ -828,6 +828,7 @@ enum
   INTERNAL_OBJECT_EXTERNALSOCKET, // socket not owned by us
   INTERNAL_OBJECT_SOCKETEVENT,
   INTERNAL_OBJECT_NSTASK, 
+  INTERNAL_OBJECT_PID,
   INTERNAL_OBJECT_END
 };
 
@@ -882,6 +883,11 @@ typedef struct
   void *task; 
 } SWELL_InternalObjectHeader_NSTask;
 
+typedef struct
+{
+  SWELL_InternalObjectHeader hdr;
+  int pid;
+} SWELL_InternalObjectHeader_PID;
 
 bool IsRightClickEmulateEnabled();
 

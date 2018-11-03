@@ -43,6 +43,8 @@
 #ifdef __APPLE__
 #include <sched.h>
 #include <sys/errno.h>
+#else
+#include <sys/wait.h>
 #endif
 
 #ifdef __linux__
@@ -267,6 +269,36 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
         SWELL_InternalObjectHeader_NSTask *nst = (SWELL_InternalObjectHeader_NSTask*)hdr;
         extern DWORD SWELL_WaitForNSTask(void *,DWORD);
         if (nst->task) return SWELL_WaitForNSTask(nst->task,msTO);
+      }
+    break;
+#else
+    case INTERNAL_OBJECT_PID:
+      {
+        SWELL_InternalObjectHeader_PID *pb = (SWELL_InternalObjectHeader_PID*)hdr;
+        if (pb->pid) 
+        {
+          int wstatus=0;
+          if (msTO == INFINITE || msTO == 0)
+          {
+            pid_t v = waitpid(pb->pid,&wstatus,msTO == INFINITE ? 0 : WNOHANG);
+            if (v == 0) return WAIT_TIMEOUT;
+            if (v < 0) return WAIT_FAILED;
+          }
+          else
+          {
+            DWORD until = GetTickCount() + msTO;
+            for (;;)
+            {
+              pid_t v = waitpid(pb->pid,&wstatus,WNOHANG);
+              if (v > 0) break;
+
+              if (v < 0) return WAIT_FAILED;
+              if (GetTickCount() > until) return WAIT_TIMEOUT;
+              Sleep(1);
+            }
+          }
+          return WAIT_OBJECT_0;
+        }
       }
     break;
 #endif
