@@ -53,6 +53,7 @@ HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
   buf->hdr.type = INTERNAL_OBJECT_PID;
   buf->hdr.count = 1;
   buf->pid = (int) pid;
+  buf->done = buf->result = 0;
   return (HANDLE) buf;
 }
 
@@ -60,10 +61,13 @@ int SWELL_GetProcessExitCode(HANDLE hand)
 {
   SWELL_InternalObjectHeader_PID *hdr=(SWELL_InternalObjectHeader_PID*)hand;
   if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_PID|| !hdr->pid) return -1;
+  if (hdr->done) return hdr->result;
 
   int wstatus=0;
   pid_t v = waitpid((pid_t)hdr->pid,&wstatus,WNOHANG);
-  return v>0 ? WEXITSTATUS(wstatus) : -2;
+  if (v <= 0) return -2;
+  hdr->done = 1;
+  return hdr->result = WEXITSTATUS(wstatus);
 }
 
 

@@ -887,6 +887,7 @@ typedef struct
 {
   SWELL_InternalObjectHeader hdr;
   int pid;
+  int done, result;
 } SWELL_InternalObjectHeader_PID;
 
 bool IsRightClickEmulateEnabled();

@@ -277,6 +277,8 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
         SWELL_InternalObjectHeader_PID *pb = (SWELL_InternalObjectHeader_PID*)hdr;
         if (pb->pid) 
         {
+          if (pb->done) return WAIT_OBJECT_0;
+
           int wstatus=0;
           if (msTO == INFINITE || msTO == 0)
           {
@@ -296,6 +298,11 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
               if (GetTickCount() > until) return WAIT_TIMEOUT;
               Sleep(1);
             }
+          }
+          if (!pb->done)
+          {
+            pb->done=1;
+            pb->result = WEXITSTATUS(wstatus);
           }
           return WAIT_OBJECT_0;
         }
