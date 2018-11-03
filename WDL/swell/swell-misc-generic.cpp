@@ -38,6 +38,9 @@ void SWELL_EnableRightClickEmulate(BOOL enable)
 }
 HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
 {
+  void swell_cleanupZombies();
+  swell_cleanupZombies();
+
   const pid_t pid = fork();
   if (pid == 0)
   {

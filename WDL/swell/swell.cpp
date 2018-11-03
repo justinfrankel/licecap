@@ -138,6 +138,20 @@ unsigned int  _controlfp(unsigned int flag, unsigned int mask)
 #endif
 }
 
+#ifndef SWELL_TARGET_OSX
+static WDL_PtrList<void> s_zombie_handles;
+void swell_cleanupZombies()
+{
+  int x = s_zombie_handles.GetSize();
+  while (--x>=0)
+  {
+    HANDLE h = s_zombie_handles.Get(x);
+    if (WaitForSingleObject(h,0) != WAIT_TIMEOUT)
+      s_zombie_handles.Delete(x,free);
+  }
+}
+
+#endif
 
 BOOL CloseHandle(HANDLE hand)
 {
@@ -184,6 +198,15 @@ BOOL CloseHandle(HANDLE hand)
           SWELL_InternalObjectHeader_NSTask *nst = (SWELL_InternalObjectHeader_NSTask*)hdr;
           extern void SWELL_ReleaseNSTask(void *);
           if (nst->task) SWELL_ReleaseNSTask(nst->task);
+        }
+      break;
+#else
+      case INTERNAL_OBJECT_PID:
+        swell_cleanupZombies();
+        if (WaitForSingleObject(hand,0)==WAIT_TIMEOUT)
+        {
+          s_zombie_handles.Add(hand);
+          return TRUE;
         }
       break;
 #endif
