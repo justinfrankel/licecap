@@ -1304,6 +1304,8 @@ static void deactivateTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
     on_deactivate();
 }
 
+extern SWELL_OSWINDOW swell_ignore_focus_oswindow;
+extern DWORD swell_ignore_focus_oswindow_until;
 
 static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
 {
@@ -1324,7 +1326,11 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           {
             s_last_focus_change_time = GetTickCount();
             swell_on_toplevel_raise(fc->window);
-            SWELL_focused_oswindow = fc->window;
+            if (swell_ignore_focus_oswindow != fc->window || 
+                GetTickCount() > swell_ignore_focus_oswindow_until)
+            {
+              SWELL_focused_oswindow = fc->window;
+            }
             if (swell_app_is_inactive)
             {
               on_activate(0);

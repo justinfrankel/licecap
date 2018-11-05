@@ -1081,6 +1081,9 @@ void DestroyPopupMenus()
   if (m_trackingMenus.GetSize()) DestroyWindow(m_trackingMenus.Get(0));
 }
 
+SWELL_OSWINDOW swell_ignore_focus_oswindow;
+DWORD swell_ignore_focus_oswindow_until;
+
 int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND hwnd, const RECT *r)
 {
   if (!hMenu || m_trackingMenus.GetSize()) return 0;
@@ -1101,7 +1104,13 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 //  HWND oldFoc = GetFocus();
  // bool oldFoc_child = oldFoc && (IsChild(hwnd,oldFoc) || oldFoc == hwnd || oldFoc==GetParent(hwnd));
 
-  if (hwnd) hwnd->Retain();
+  if (hwnd) 
+  {
+    hwnd->Retain();
+    swell_ignore_focus_oswindow = hwnd->m_oswindow;
+    swell_ignore_focus_oswindow_until = GetTickCount()+500;
+  }
+
 
   hMenu->sel_vis=-1;
   HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
@@ -1133,6 +1142,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   
   if (hwnd) hwnd->Release();
 
+  swell_ignore_focus_oswindow = NULL;
   hMenu->Release();
 
   if (flags & TPM_RETURNCMD) return m_trackingRet>0?m_trackingRet:0;
