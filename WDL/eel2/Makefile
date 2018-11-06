@@ -14,16 +14,10 @@ OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nse
 OBJS2=
 
 UNAME_S := $(shell uname -s)
+ARCH := $(shell uname -m)
 
 ifeq ($(UNAME_S),Darwin)
-  ifdef ARCH
-    CFLAGS += -arch $(ARCH)
-  else
-    ARCH = i686
-    CFLAGS += -arch i386
-  endif
-else
-  ARCH := $(shell uname -m)
+  CFLAGS += -arch $(ARCH)
 endif
 
 ifneq ($(filter arm%,$(ARCH)),)
@@ -55,6 +49,10 @@ ifdef MAXLOOP
   CFLAGS += -DNSEEL_LOOPFUNC_SUPPORT_MAXLEN=$(MAXLOOP)
 else
   CFLAGS += -DNSEEL_LOOPFUNC_SUPPORT_MAXLEN=0
+endif
+
+ifdef DISASSEMBLE
+  CFLAGS += -DEELSCRIPT_DO_DISASSEMBLE
 endif
 
 ifndef NO_GFX
@@ -117,4 +115,4 @@ loose_eel: loose_eel.o $(OBJS) $(OBJS2)
 	g++ -o $@ $^ $(CXXFLAGS) $(LFLAGS)
 
 clean:
-	-rm loose_eel loose_eel.o $(OBJS)
+	-rm loose_eel loose_eel.o $(OBJS) 

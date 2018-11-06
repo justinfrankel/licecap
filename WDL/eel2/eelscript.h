@@ -390,6 +390,38 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
     {
       if (code)
       {
+#ifdef EELSCRIPT_DO_DISASSEMBLE
+        codeHandleType *p = (codeHandleType*)code;
+
+        char buf[512];
+        buf[0]=0;
+#ifdef _WIN32
+        GetTempPath(sizeof(buf)-64,buf);
+        lstrcatn(buf,"jsfx-out",sizeof(buf));
+#else
+        lstrcpyn_safe(buf,"/tmp/jsfx-out",sizeof(buf));
+#endif
+        FILE *fp = fopen(buf,"wb");
+        if (fp)
+        {
+          fwrite(p->code,1,p->code_size,fp);
+          fclose(fp);
+          char buf2[2048];
+#ifdef _WIN32
+          snprintf(buf2,sizeof(buf2),"disasm \"%s\"",buf);
+#else
+  #ifdef __aarch64__
+          snprintf(buf2,sizeof(buf2), "objdump -D -b binary -maarch64 \"%s\"",buf);
+  #elif defined(__LP64__)
+          snprintf(buf2,sizeof(buf2),"distorm3 --b64 \"%s\"",buf);
+  #else
+          snprintf(buf2,sizeof(buf2),"distorm3 --b32 \"%s\"",buf);
+  #endif
+#endif
+          system(buf2);
+        }
+#endif
+
         if (doExec) NSEEL_code_execute(code);
         if (canfree) NSEEL_code_free(code);
         else m_code_freelist.Add((void*)code);
