@@ -1389,6 +1389,7 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 #define RETURNVALUE_FPSTACK 2
 #define RETURNVALUE_BOOL 4 // P1 is nonzero if true
 #define RETURNVALUE_BOOL_REVERSED 8 // P1 is zero if true
+#define RETURNVALUE_CACHEABLE 16 // only to be used when (at least) RETURNVALUE_NORMAL is set
 
 
 
@@ -3050,13 +3051,14 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
               (op->parms.parms[pn]->opcodeType != OPCODETYPE_DIRECTVALUE ||
               (op->parms.parms[pn]->parms.dv.directValue != 1.0 && op->parms.parms[pn]->parms.dv.directValue != 0.0)))
           {
-            wantFpStack=0;
+            wantFpStack=-1; // cacheable but non-FP stack
           }
   #endif
           a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
             func == nseel_asm_bnot ? (RETURNVALUE_BOOL_REVERSED|RETURNVALUE_BOOL) :
               (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
               (cfunc_abiinfo & BIF_LASTPARM_ASBOOL) ? RETURNVALUE_BOOL : 
+              wantFpStack < 0 ? (RETURNVALUE_CACHEABLE|RETURNVALUE_NORMAL) : 
               wantFpStack ? (RETURNVALUE_FPSTACK|RETURNVALUE_NORMAL) : 
               RETURNVALUE_NORMAL,       
             &rvt, NULL,canHaveDenormalOutput);
@@ -4002,7 +4004,11 @@ doNonInlineIf_:
       }
       if (bufOut) 
       {
-        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis, !!(preferredReturnValues&RETURNVALUE_FPSTACK)/*cache if going to the fp stack*/)<0) RET_MINUS1_FAIL("direct value gvr fail3")
+        if (generateValueToReg(ctx,op,bufOut,0,namespacePathToThis, 
+              (preferredReturnValues&(RETURNVALUE_FPSTACK|RETURNVALUE_CACHEABLE))!=0)<0) 
+        {
+          RET_MINUS1_FAIL("direct value gvr fail3")
+        }
       }
     return rv_offset + GLUE_MOV_PX_DIRECTVALUE_SIZE;
 
