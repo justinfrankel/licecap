@@ -1,13 +1,10 @@
-#ifndef _NSEEL_GLUE_X86_64_H_
-#define _NSEEL_GLUE_X86_64_H_
+#ifndef _NSEEL_GLUE_X86_64_SSE_H_
+#define _NSEEL_GLUE_X86_64_SSE_H_
 
+// SSE version (needs the appropriate .o linked!)
 
-// non-SSE version
-//
-#define GLUE_MAX_FPSTACK_SIZE 8
+#define GLUE_MAX_FPSTACK_SIZE 0 
 #define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (int) (offset))
-
-#define GLUE_PREFER_NONFP_DV_ASSIGNS
 
 static const unsigned char GLUE_JMP_NC[] = { 0xE9, 0,0,0,0, }; // jmp<offset>
 static const unsigned char GLUE_JMP_IF_P1_Z[] = {0x85, 0xC0, 0x0F, 0x84, 0,0,0,0 }; // test eax, eax, jz
@@ -125,9 +122,13 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
       *buf++ = 0x48;
       *buf++ = 0xB8; 
       *(void **) buf = destptr; buf+=8; // mov rax, directvalue
-      *buf++ = 0xDD; *buf++ = 0x18;  // fstp qword [rax]
+
+      *buf++ = 0xf2; // movsd %xmm0, (%rax)
+      *buf++ = 0x0f;
+      *buf++ = 0x11;
+      *buf++ = 0x00;
     }
-    return 2+8+2;
+    return 2+8+4;
   }
 
 
@@ -143,16 +144,16 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
   }
 
 
-  #define GLUE_POP_FPSTACK_SIZE 2
-  static const unsigned char GLUE_POP_FPSTACK[2] = { 0xDD, 0xD8 }; // fstp st0
+  #define GLUE_POP_FPSTACK_SIZE 0
+  static const unsigned char GLUE_POP_FPSTACK[1] = { 0 };
 
   static const unsigned char GLUE_POP_FPSTACK_TOSTACK[] = {
     0x48, 0x81, 0xEC, 16, 0,0,0, // sub rsp, 16 
-    0xDD, 0x1C, 0x24 // fstp qword (%rsp)  
+    0xf2, 0x0f, 0x11, 0x04, 0x24, // movsd xmm0, (%rsp)
   };
 
   static const unsigned char GLUE_POP_FPSTACK_TO_WTP[] = { 
-      0xDD, 0x1E, /* fstp qword [rsi] */
+      0xf2, 0x0f, 0x11, 0x06, // movsd xmm0, (%rsi)
       0x48, 0x81, 0xC6, 8, 0,0,0,/* add rsi, 8 */ 
   };
 
@@ -167,18 +168,18 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     memcpy(b,tab[wv],GLUE_SET_PX_FROM_WTP_SIZE);
   }
 
-  #define GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE 2
+  #define GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE 4
   static void GLUE_PUSH_VAL_AT_PX_TO_FPSTACK(void *b, int wv)
   {
     static const unsigned char tab[3][GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE]={
-      {0xDD,0x00}, // fld qword [rax]
-      {0xDD,0x07}, // fld qword [rdi]
-      {0xDD,0x01}, // fld qword [rcx]
+      {0xf2, 0x0f, 0x10, 0x00}, // movsd (%rax), %xmm0
+      {0xf2, 0x0f, 0x10, 0x07}, // movsd (%rdi), %xmm0
+      {0xf2, 0x0f, 0x10, 0x01}, // movsd (%rcx), %xmm0
     };
     memcpy(b,tab[wv],GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE);
   }
   static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
-    0xDD, 0x04, 0x24, // fld qword (%rsp)
+    0xf2, 0x0f, 0x10, 0x04, 0x24,  // movsd (%rsp), %xmm0
     0x48, 0x81, 0xC4, 16, 0,0,0, //  add rsp, 16
   };
 
@@ -227,8 +228,7 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 #define GLUE_INLINE_LOOPS
 
 static const unsigned char GLUE_LOOP_LOADCNT[]={
-        0xDD, 0x0E,           //fistTp qword [rsi]
-  0x48, 0x8B, 0x0E,           // mov rcx, [rsi]
+  0xf2, 0x48, 0x0f, 0x2c, 0xc8, // cvttsd2si %xmm0, %rcx
   0x48, 0x81, 0xf9, 1,0,0,0,  // cmp rcx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
 };
@@ -304,20 +304,15 @@ static const unsigned char GLUE_SET_P1_Z[] = { 0x48, 0x29, 0xC0 }; // sub rax, r
 static const unsigned char GLUE_SET_P1_NZ[] = { 0xb0, 0x01 }; // mov al, 1
 
 
-#define GLUE_HAS_FXCH
-static const unsigned char GLUE_FXCH[] = {0xd9, 0xc9};
-
 #define GLUE_HAS_FLDZ
-static const unsigned char GLUE_FLDZ[] = {0xd9, 0xee};
-#define GLUE_HAS_FLD1
-static const unsigned char GLUE_FLD1[] = {0xd9, 0xe8};
+static const unsigned char GLUE_FLDZ[] = {
+  0x0f, 0x57, 0xc0  //xorps %xmm0, %xmm0
+};
 
 
 static EEL_F negativezeropointfive=-0.5f;
 static EEL_F onepointfive=1.5f;
 #define GLUE_INVSQRT_NEEDREPL &negativezeropointfive, &onepointfive,
-
-#define GLUE_HAS_NATIVE_TRIGSQRTLOG
 
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
@@ -334,6 +329,6 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   return fn;
 }
 
-// end of x86-64
+// end of x86-64 SSE
 
 #endif
