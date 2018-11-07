@@ -65,7 +65,7 @@ ifndef NO_GFX
     LFLAGS += -lobjc -framework Cocoa -framework Carbon
   else
 
-    CFLAGS += -DSWELL_LICE_GDI
+    CFLAGS += -DSWELL_LICE_GDI -DSWELL_EXTRA_MINIMAL
     ifdef GDK2
       CFLAGS += -DSWELL_TARGET_GDK=2 $(shell pkg-config --cflags gdk-2.0)
       LFLAGS += $(shell pkg-config --libs gdk-2.0) -lX11 -lXi
