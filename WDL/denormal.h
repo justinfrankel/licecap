@@ -39,6 +39,55 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 #define WDL_DENORMAL_FLOAT_AGGRESSIVE_CUTOFF 0x25000000
 
 
+// define WDL_DENORMAL_WANTS_SCOPED_FTZ, and then use a WDL_denormal_ftz_scope in addition to denormal_*(), then 
+// if FTZ is available it will be used instead...
+//
+#ifdef WDL_DENORMAL_WANTS_SCOPED_FTZ
+
+#if defined(__x86_64__) || _M_IX86_FP >= 2 || defined(__SSE2__) || defined(_WIN64)
+  #define WDL_DENORMAL_SSEMODE
+  #ifdef _MSC_VER
+    #include <intrin.h>
+    #define wdl_denorm_mm_getcsr() _mm_getcsr() 
+    #define wdl_denorm_mm_setcsr(x) _mm_setcsr(x) 
+  #else
+    #define wdl_denorm_mm_getcsr() __builtin_ia32_stmxcsr()
+    #define wdl_denorm_mm_setcsr(x) __builtin_ia32_ldmxcsr(x)
+  #endif
+#endif
+
+class WDL_denormal_ftz_scope 
+{
+  public:
+    WDL_denormal_ftz_scope()
+    {
+#ifdef WDL_DENORMAL_SSEMODE
+      const unsigned int b = (1<<15)|(1<<11);
+      old_state = wdl_denorm_mm_getcsr();
+      if ((need_restore = (old_state & b) != b))
+          wdl_denorm_mm_setcsr(old_state|b);
+#endif
+    }
+    ~WDL_denormal_ftz_scope()
+    {
+#ifdef WDL_DENORMAL_SSEMODE
+      if (need_restore) wdl_denorm_mm_setcsr(old_state);
+#endif
+    }
+
+#ifdef WDL_DENORMAL_SSEMODE
+    unsigned int old_state;
+    bool need_restore;
+#endif
+
+};
+
+
+#endif
+
+
+#if !defined(WDL_DENORMAL_SSEMODE) && !defined(WDL_DENORMAL_DO_NOT_FILTER)
+
 static double WDL_DENORMAL_INLINE denormal_filter_double(double a)
 {
   return (WDL_DENORMAL_DOUBLE_HW(&a)&0x7ff00000) ? a : 0.0;
@@ -132,8 +181,24 @@ static void WDL_DENORMAL_INLINE denormal_fix_aggressive(float *a)
 
 
 #endif // cplusplus versions
- 
 
+#else // end of !WDL_DENORMAL_DO_NOT_FILTER (and other platform-specific checks)
+
+#define denormal_filter_double(x) (x)
+#define denormal_filter_double2(x) (x)
+#define denormal_filter_double_aggressive(x) (x)
+#define denormal_filter_float(x) (x)
+#define denormal_filter_float2(x) (x)
+#define denormal_filter_float_aggressive(x) (x)
+#define denormal_filter_aggressive(x) (x)
+#define denormal_fix(x) do { } while(0)
+#define denormal_fix_aggressive(x) do { } while(0)
+#define denormal_fix_double(x) do { } while(0)
+#define denormal_fix_double_aggressive(x) do { } while(0)
+#define denormal_fix_float(x) do { } while(0)
+#define denormal_fix_float_aggressive(x) do { } while(0)
+
+#endif 
 
 
 ////////////////////
