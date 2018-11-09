@@ -22,9 +22,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-
-// for VirtualProtect
-
 #include "ns-eel-int.h"
 
 #include "../denormal.h"
@@ -5673,3 +5670,10 @@ void NSEEL_VM_set_var_resolver(NSEEL_VMCTX _ctx, EEL_F *(*res)(void *userctx, co
     ctx->getVariable_userctx = userctx;
   }
 }
+
+
+#if defined(__ppc__) || defined(__arm__) || defined(EEL_TARGET_PORTABLE)
+  // blank stubs for non-x86/x86_64
+  void eel_setfp_round() { }
+  void eel_setfp_trunc() { }
+#endif
