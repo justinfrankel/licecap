@@ -121,6 +121,10 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 
 #include "glue_ppc.h"
 
+#elif defined(__aarch64__)
+
+#include "glue_aarch64.h"
+
 #elif defined(__arm__) || (defined (_M_ARM) && _M_ARM  == 7)
 
 #include "glue_arm.h"
@@ -2641,7 +2645,7 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
     p+=GLUE_FUNC_LEAVE_SIZE;
   #endif
   memcpy(p,&GLUE_RET,sizeof(GLUE_RET)); p+=sizeof(GLUE_RET);
-#ifdef __arm__
+#if defined(__arm__) || defined(__aarch64__)
   __clear_cache(newblock2,p);
 #endif
   
@@ -2683,6 +2687,8 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   {
 #if defined(__arm__) || defined(__ppc__) || (defined (_M_ARM) && _M_ARM  == 7)
     const int max_params=4096; // 32kb max offset addressing for stack, so 4096*4 = 16384, should be safe
+#elif defined(__aarch64__)
+    const int max_params=3072; // 32kb max offset addressing for stack, 3072*8 = 24576
 #else
     const int max_params=32768; // sanity check, the stack is free to grow on x86/x86-64
 #endif
@@ -4908,7 +4914,7 @@ had_error:
       memcpy(writeptr,&GLUE_RET,sizeof(GLUE_RET)); writeptr += sizeof(GLUE_RET);
       ctx->l_stats[1]=size;
       handle->code_size = (int) (writeptr - (unsigned char *)handle->code);
-#ifdef __arm__
+#if defined(__arm__) || defined(__aarch64__)
       __clear_cache(handle->code,writeptr);
 #endif
     }
@@ -5672,7 +5678,7 @@ void NSEEL_VM_set_var_resolver(NSEEL_VMCTX _ctx, EEL_F *(*res)(void *userctx, co
 }
 
 
-#if defined(__ppc__) || defined(__arm__) || defined(EEL_TARGET_PORTABLE)
+#if defined(__ppc__) || defined(__aarch64__) || defined(__arm__) || defined(EEL_TARGET_PORTABLE)
   // blank stubs for non-x86/x86_64
   void eel_setfp_round() { }
   void eel_setfp_trunc() { }

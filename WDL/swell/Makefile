@@ -45,6 +45,9 @@ endif
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char -marm
 endif
+ifeq ($(ARCH),aarch64)
+  CFLAGS += -fsigned-char
+endif
 
 
 ifdef DEBUG

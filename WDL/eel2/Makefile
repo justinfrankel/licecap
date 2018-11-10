@@ -23,6 +23,9 @@ endif
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char -mfpu=vfp -march=armv6t2 -marm
 endif
+ifeq ($(ARCH),aarch64)
+  CFLAGS += -fsigned-char
+endif
 
 ifndef ALLOW_WARNINGS
   ifneq ($(UNAME_S),Darwin)
