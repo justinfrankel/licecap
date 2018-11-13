@@ -48,12 +48,11 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
   #define WDL_DENORMAL_SSEMODE
   #ifdef _MSC_VER
     #include <intrin.h>
-    #define wdl_denorm_mm_getcsr() _mm_getcsr() 
-    #define wdl_denorm_mm_setcsr(x) _mm_setcsr(x) 
   #else
-    #define wdl_denorm_mm_getcsr() __builtin_ia32_stmxcsr()
-    #define wdl_denorm_mm_setcsr(x) __builtin_ia32_ldmxcsr(x)
+    #include <xmmintrin.h>
   #endif
+  #define wdl_denorm_mm_getcsr() _mm_getcsr() 
+  #define wdl_denorm_mm_setcsr(x) _mm_setcsr(x) 
 #endif
 
 class WDL_denormal_ftz_scope 
