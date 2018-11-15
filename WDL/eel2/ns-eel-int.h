@@ -157,6 +157,7 @@ typedef struct {
   void *ramPtr;
 
   int workTable_size; // size (minus padding/extra space) of workTable -- only used if EEL_VALIDATE_WORKTABLE_USE set, but might be handy to have around too
+  int compile_flags;
 } codeHandleType;
 
 

@@ -4943,6 +4943,7 @@ had_error:
 
   if (handle)
   {
+    handle->compile_flags = compile_flags;
     handle->ramPtr = ctx->ram_state.blocks;
     memcpy(handle->code_stats,ctx->l_stats,sizeof(ctx->l_stats));
     nseel_evallib_stats[0]+=ctx->l_stats[0];

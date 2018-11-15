@@ -176,6 +176,7 @@ int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegm
 NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX ctx, const char *code, int lineoffs);
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS 1 // allows that code's functions to be used in other code (note you shouldn't destroy that codehandle without destroying others first if used)
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET 2 // resets common code functions
+#define NSEEL_CODE_COMPILE_FLAG_NOFPSTATE 4 // hint that the FPU/SSE state should be good-to-go
 
 NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX ctx, const char *code, int lineoffs, int flags);
 
