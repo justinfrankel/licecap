@@ -203,7 +203,11 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 }
 
 extern void eel_callcode64(INT_PTR code, INT_PTR ram_tab);
-#define GLUE_CALL_CODE(bp, cp, rt) eel_callcode64(cp, rt)
+extern void eel_callcode64_fast(INT_PTR code, INT_PTR ram_tab);
+#define GLUE_CALL_CODE(bp, cp, rt) do { \
+  if (h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) eel_callcode64_fast(cp, rt); \
+  else eel_callcode64(cp, rt);\
+  } while(0)
 #define GLUE_TABPTR_IGNORED
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)

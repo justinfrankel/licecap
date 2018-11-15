@@ -2054,6 +2054,39 @@ void eel_callcode64()
 	);
 }
 
+void eel_callcode64_fast() 
+{
+	__asm__(
+		"push %rbx\n"
+		"push %rbp\n"
+		"push %r12\n"
+		"push %r13\n"
+		"push %r14\n"
+		"push %r15\n"
+
+#ifdef AMD64ABI
+    		"movll %rsi, %r12\n" // second parameter is ram-blocks pointer
+		"call %rdi\n"
+#else
+		"push %rdi\n"
+		"push %rsi\n"
+    		"movll %rdx, %r12\n" // second parameter is ram-blocks pointer
+		"call %rcx\n"
+		"pop %rsi\n"
+		"pop %rdi\n"
+#endif
+
+		"pop %r15\n"
+		"pop %r14\n"
+		"pop %r13\n"
+		"pop %r12\n"
+		"pop %rbp\n"
+		"pop %rbx\n"
+
+		"ret\n"
+	);
+}
+
 void eel_setfp_round()
 {
 	__asm__(
