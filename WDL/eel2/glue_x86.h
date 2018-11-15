@@ -217,8 +217,12 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 1+sizeof(void *);
 }
 
+#define GLUE_CALL_CODE(bp, cp, rt) do { \
+  if (h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) eel_callcode32_fast(cp, rt); \
+  else eel_callcode32(cp, rt);\
+  } while(0)
 
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr) 
+static void eel_callcode32(INT_PTR cp, INT_PTR ramptr) 
 {
   #ifndef NSEEL_EEL1_COMPAT_MODE
     short oldsw, newsw;
@@ -286,6 +290,51 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR ramptr)
 #ifndef NSEEL_EEL1_COMPAT_MODE
           , "m" (oldsw), "m" (newsw)
 #endif
+          : "%eax","%esi","%edi");
+  #endif //gcc x86
+}
+
+static void eel_callcode32_fast(INT_PTR cp, INT_PTR ramptr) 
+{
+  #ifdef _MSC_VER
+
+    __asm
+    {
+      mov eax, cp
+      mov ebx, ramptr
+
+      pushad 
+      mov ebp, esp
+      and esp, -16
+
+       // on win32, which _MSC_VER implies, we keep things aligned to 16 bytes, and if we call a win32 function,
+       // the stack is 16 byte aligned before the call, meaning that if calling a function with no frame pointer,
+       // the stack would be aligned to a 16 byte boundary +4, which isn't good for performance. Having said that,
+       // normally we compile with frame pointers (which brings that to 16 byte + 8, which is fine), or ICC, which
+       // for nontrivial functions will align the stack itself (for very short functions, it appears to weigh the 
+       // cost of aligning the stack vs that of the slower misaligned double accesses).
+
+       // it may be worthwhile (at some point) to put some logic in the code that calls out to functions
+       // (generic1parm etc) to detect which alignment would be most optimal.
+      sub esp, 12
+      call eax
+      mov esp, ebp
+      popad
+    };
+
+  #else // gcc x86
+    __asm__(
+          "pushl %%ebx\n"
+          "movl %%ecx, %%ebx\n"
+          "pushl %%ebp\n"
+          "movl %%esp, %%ebp\n"
+          "andl $-16, %%esp\n" // align stack to 16 bytes
+          "subl $12, %%esp\n" // call will push 4 bytes on stack, align for that
+          "call *%%edx\n"
+          "leave\n"
+          "popl %%ebx\n"
+          ::
+          "d" (cp), "c" (ramptr)
           : "%eax","%esi","%edi");
   #endif //gcc x86
 }
