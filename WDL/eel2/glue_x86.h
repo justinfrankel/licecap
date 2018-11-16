@@ -217,6 +217,7 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 1+sizeof(void *);
 }
 
+#define GLUE_TABPTR_IGNORED
 #define GLUE_CALL_CODE(bp, cp, rt) do { \
   if (h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) eel_callcode32_fast(cp, rt); \
   else eel_callcode32(cp, rt);\
