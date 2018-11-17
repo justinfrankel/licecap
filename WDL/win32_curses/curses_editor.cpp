@@ -1871,6 +1871,70 @@ int WDL_CursesEditor::onChar(int c)
       draw_message(status);
     }
   break;
+  case 'D'-'A'+1:
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
+    {
+      if (m_selecting)
+      {
+        int miny,maxy,minx,maxx;
+        getselectregion(minx,miny,maxx,maxy);
+
+        if (minx != maxx|| miny != maxy) 
+        {
+          WDL_FastString dup;
+
+          int x;
+          for (x = miny; x <= maxy; x ++)
+          {
+            WDL_FastString *s=m_text.Get(x);
+            if (s) 
+            {
+              const char *str=s->Get();
+              const int sx=x == miny ? WDL_utf8_charpos_to_bytepos(str,minx) : 0;
+              const int ex=x == maxy ? WDL_utf8_charpos_to_bytepos(str,maxx) : s->GetLength();
+              if (dup.GetLength()) dup.Append("\n");
+              dup.Append(ex-sx?str+sx:"",ex-sx);
+            }
+          }
+
+          if (dup.GetLength())
+          {
+            preSaveUndoState();
+            WDL_PtrList<const char> lines;
+            char *p = (char *)dup.Get();
+            for (;;)
+            {
+              const char *basep = p;
+              while (*p && *p != '\n') p++;
+              lines.Add(basep);
+              if (!*p) break;
+              *p++=0;
+            }
+            m_curs_x=maxx;
+            m_curs_y=maxy;
+            do_paste_lines(lines);
+            m_curs_x=maxx;
+            m_curs_y=maxy;
+
+            draw();
+            setCursor();
+            draw_message("Duplicated selection");
+            saveUndoState();
+          }
+        }
+      }
+      else if (m_text.Get(m_curs_y))
+      {
+        preSaveUndoState();
+        m_text.Insert(m_curs_y, new WDL_FastString(m_text.Get(m_curs_y)));
+        draw();
+        setCursor();
+        draw_message("Duplicated line");
+        saveUndoState();
+      }
+    }
+  break;
+
   case 'A'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
