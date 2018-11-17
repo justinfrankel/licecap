@@ -612,23 +612,59 @@ static functionType fnTable1[] = {
 
 static eel_function_table default_user_funcs;
 
-functionType *nseel_getFunctionFromTableEx(compileContext *ctx, int idx)
+static int functable_lowerbound(functionType *list, int list_sz, const char *name, int *ismatch)
+{
+  int a = 0, c = list_sz;
+  while (a != c)
+  {
+    const int b = (a+c)/2;
+    const int cmp = stricmp(name,list[b].name);
+    if (cmp > 0) a = b+1;
+    else if (cmp < 0) c = b;
+    else
+    {
+      *ismatch = 1;
+      return b;
+    }
+  }
+  *ismatch = 0;
+  return a;
+}
+
+static int funcTypeCmp(const void *a, const void *b) { return stricmp(((functionType*)a)->name,((functionType*)b)->name); }
+functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int *mchk)
 {
   eel_function_table *tab = ctx && ctx->registered_func_tab ? ctx->registered_func_tab : &default_user_funcs;
-
-  if (idx<0) return 0;
-  if (idx>=sizeof(fnTable1)/sizeof(fnTable1[0]))
+  static char sorted;
+  const int fn1size = (int) (sizeof(fnTable1)/sizeof(fnTable1[0]));
+  int idx,match;
+  if (!sorted)
   {
-    idx -= sizeof(fnTable1)/sizeof(fnTable1[0]);
-    if (!tab->list || idx >= tab->list_size) return 0;
-    return tab->list+idx;
+    NSEEL_HOSTSTUB_EnterMutex();
+    if (!sorted) qsort(fnTable1,fn1size,sizeof(fnTable1[0]),funcTypeCmp);
+    sorted=1;
+    NSEEL_HOSTSTUB_LeaveMutex();
   }
-  return fnTable1+idx;
+  idx=functable_lowerbound(fnTable1,fn1size,name,&match);
+  if (match) return fnTable1+idx;
+
+  if (tab->list)
+  {
+    idx=functable_lowerbound(tab->list,tab->list_size,name,&match);
+    if (match) 
+    {
+      if (mchk)
+      {
+        while (idx>0 && !stricmp(tab->list[idx-1].name,name)) idx--;
+        *mchk = tab->list_size - 1 - idx;
+      }
+      return tab->list + idx;
+    }
+  }
+
+  return NULL;
 }
-functionType *nseel_getFunctionFromTable(int idx)
-{
-  return nseel_getFunctionFromTableEx(NULL, idx);
-}
+
 int NSEEL_init() // returns 0 on success
 {
 
@@ -694,17 +730,21 @@ void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPRO
 
 void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, int code_len, NSEEL_PPPROC pproc, void *fptr, void *fptr2, eel_function_table *destination)
 {
+  const int list_size_chunk = 128;
   functionType *r;
   if (!destination) destination = &default_user_funcs;
 
-  if (!destination->list || !(destination->list_size & 15))
+  if (!destination->list || !(destination->list_size & (list_size_chunk-1)))
   {
-    void *nv = realloc(destination->list, (destination->list_size + 16)*sizeof(functionType));
+    void *nv = realloc(destination->list, (destination->list_size + list_size_chunk)*sizeof(functionType));
     if (!nv) return;
     destination->list = (functionType *)nv;
   }
   if (destination->list)
   {
+    int match,idx;
+
+    idx=functable_lowerbound(destination->list,destination->list_size,name,&match);
 
 #ifdef EEL_VALIDATE_FSTUBS
     {
@@ -731,7 +771,11 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
     }
 #endif
 
-    r = &destination->list[destination->list_size++];
+    r = destination->list + idx;
+    if (idx < destination->list_size)
+      memmove(r + 1, r, (destination->list_size - idx) * sizeof(functionType));
+    destination->list_size++;
+
     memset(r, 0, sizeof(functionType));
 
     if (!(nparms & BIF_RETURNSBOOL)) 
@@ -1235,10 +1279,10 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
     }
   }
     
-  for (i=0;nseel_getFunctionFromTableEx(ctx,i);i++)
   {
-    functionType *f=nseel_getFunctionFromTableEx(ctx,i);
-    if (!stricmp(f->name, sname))
+    int chkamt=0;
+    functionType *f=nseel_getFunctionByName(ctx,sname,&chkamt);
+    if (f) while (chkamt-->=0)
     {
       const int pc_needed=(f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK);
       if ((f->nParams&BIF_TAKES_VARPARM_EX)==BIF_TAKES_VARPARM ? (parmcnt >= pc_needed) : (parmcnt == pc_needed))
@@ -1256,6 +1300,8 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
         return rec;
       }
       if (match_parmcnt_pos < 3) match_parmcnt[match_parmcnt_pos++] = (f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK);
+      f++;
+      if (stricmp(f->name,sname)) break;
     }
   }
   if (ctx->last_error_string[0]) lstrcatn(ctx->last_error_string, ", ", sizeof(ctx->last_error_string));
@@ -5504,11 +5550,11 @@ int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 
 opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int np, opcodeRec *code1, opcodeRec *code2, opcodeRec *code3)
 {
-  int i;
-  for (i=0;nseel_getFunctionFromTableEx(ctx,i);i++)
+  int chkamt=0;
+  functionType *f=nseel_getFunctionByName(ctx,name,&chkamt);
+  if (f) while (chkamt-->=0)
   {
-    functionType *f=nseel_getFunctionFromTableEx(ctx,i);
-    if ((f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) == np && !stricmp(f->name, name))
+    if ((f->nParams&FUNCTIONTYPE_PARAMETERCOUNTMASK) == np)
     {
       opcodeRec *o=newOpCode(ctx,NULL, np==3?OPCODETYPE_FUNC3:np==2?OPCODETYPE_FUNC2:OPCODETYPE_FUNC1);
       if (o) 
@@ -5521,6 +5567,8 @@ opcodeRec *nseel_createFunctionByName(compileContext *ctx, const char *name, int
       }
       return o;
     }
+    f++;
+    if (stricmp(f->name,name)) break;
   }
   return NULL;
 }

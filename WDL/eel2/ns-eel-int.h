@@ -259,8 +259,7 @@ typedef struct functionType {
       NSEEL_PPPROC pProc;
 } functionType;
 
-functionType *nseel_getFunctionFromTable(int idx);
-functionType *nseel_getFunctionFromTableEx(compileContext *ctx, int idx);
+functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int *mchk); // sets mchk (if non-NULL) to how far allowed to scan forward for duplicate names
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr);

@@ -48,25 +48,17 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
   if (len == 17 && !strnicmp(tokStart,"__denormal_likely",17)) return SYNTAX_FUNC;
   if (len == 19 && !strnicmp(tokStart,"__denormal_unlikely",19)) return SYNTAX_FUNC;
 
+  char buf[512];
+  lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
   if (m_added_funclist)
   {
-    char buf[512];
-    lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
     char **r=m_added_funclist->GetPtr(buf);
     if (r) return *r ? SYNTAX_FUNC : SYNTAX_REGVAR;
   }
 
   NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-  int x; 
-  for(x=0;;x++)
-  {
-    functionType *f = nseel_getFunctionFromTableEx((compileContext*)vm,x);
-    if (!f) break;
-    if (f && !strnicmp(tokStart,f->name,len) && (int)strlen(f->name) == len)
-    {
-      return SYNTAX_FUNC;
-    }
-  }
+  if (nseel_getFunctionByName((compileContext*)vm,buf,NULL)) return SYNTAX_FUNC;
+
   return A_NORMAL;
 }
 
@@ -943,16 +935,12 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
   {
     peek_lock();
     NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-    for (int x=0;;x++)
+    functionType *f = nseel_getFunctionByName((compileContext*)vm,name,NULL);
+    if (f)
     {
-      functionType *f = nseel_getFunctionFromTableEx((compileContext*)vm,x);
-      if (!f) break;
-      if (f && !stricmp(name,f->name))
-      {
-        snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
-        peek_unlock();
-        return 1;
-      }
+      snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
+      peek_unlock();
+      return 1;
     }
     peek_unlock();
   }
