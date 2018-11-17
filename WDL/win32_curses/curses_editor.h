@@ -212,6 +212,7 @@ protected:
     double m_pane_div[2];
     int m_paneoffs_y[2][2];
   };
+  void do_paste_lines(WDL_PtrList<const char> &lines);
   public:
     WDL_DestroyState destroy_check;
 };

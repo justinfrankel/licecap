@@ -1687,90 +1687,19 @@ int WDL_CursesEditor::onChar(int c)
           if (m_curs_y < 0) m_curs_y=0;
 
           preSaveUndoState();
-          WDL_FastString poststr;
-          int x;
-          int indent_to_pos = -1;
-          int skip_source_indent=0; // number of characters of whitespace to (potentially) ignore when pasting
 
-          for (x = 0; x < lines.GetSize(); x ++)
-          {
-            WDL_FastString *str=m_text.Get(m_curs_y);
-            const char *tstr=lines.Get(x);
-            if (!tstr) tstr="";
-            if (!x)
-            {
-              if (str)
-              {
-                int bytepos = WDL_utf8_charpos_to_bytepos(str->Get(),m_curs_x);
-
-                if (bytepos < 0) bytepos=0;
-                int tmp=str->GetLength();
-                if (bytepos > tmp) bytepos=tmp;
-  
-                poststr.Set(str->Get()+bytepos);
-                str->SetLen(bytepos);
-
-                const char *p = str->Get();
-                while (*p == ' ' || *p == '\t') p++;
-                if (!*p && p > str->Get()) // if all whitespace leading up to this
-                {
-                  if (bytepos > 0)
-                  {
-                    int i;
-                    skip_source_indent=1024;
-                    for (i = 0; skip_source_indent > 0 && i < lines.GetSize(); i ++)
-                    {
-                      int a=0;
-                      const char *p = lines.Get(i);
-                      while (a < skip_source_indent && p[a] == ' ') a++;
-                      if (a < skip_source_indent && p[a]) skip_source_indent=a;
-                    }
-                  }
-
-                  indent_to_pos = bytepos;
-                }
-
-                str->Append(skip_indent(tstr,skip_source_indent));
-              }
-              else
-              {
-                m_text.Insert(m_curs_y,(str=new WDL_FastString(skip_indent(tstr,skip_source_indent))));
-              }
-
-              if (lines.GetSize() > 1)
-              {
-                m_curs_y++;
-              }
-              else
-              {
-                m_curs_x = WDL_utf8_get_charlen(str->Get());
-                str->Append(poststr.Get());
-              }
-           }
-           else if (x == lines.GetSize()-1)
-           {
-             WDL_FastString *s=newIndentedFastString(skip_indent(tstr,skip_source_indent),indent_to_pos);
-             m_curs_x = WDL_utf8_get_charlen(s->Get());
-             s->Append(poststr.Get());
-             m_text.Insert(m_curs_y,s);
-           }
-           else
-           {
-             m_text.Insert(m_curs_y,newIndentedFastString(skip_indent(tstr,skip_source_indent),indent_to_pos));
-             m_curs_y++;
-           }
-         }
-         draw();
-         setCursor();
-         draw_message("Pasted");
-         saveUndoState();
-       }
-       else 
-       {
-         setCursor();
-         draw_message("Clipboard empty");
-       }
-     }
+          do_paste_lines(lines);
+          draw();
+          setCursor();
+          draw_message("Pasted");
+          saveUndoState();
+        }
+        else 
+        {
+          setCursor();
+          draw_message("Clipboard empty");
+        }
+      }
   break;
 
   case KEY_DC:
@@ -2645,3 +2574,79 @@ void WDL_CursesEditor::OpenFileInTab(const char *fnp)
   }
 }
 
+void WDL_CursesEditor::do_paste_lines(WDL_PtrList<const char> &lines)
+{
+  WDL_FastString poststr;
+  int x;
+  int indent_to_pos = -1;
+  int skip_source_indent=0; // number of characters of whitespace to (potentially) ignore when pasting
+
+  for (x = 0; x < lines.GetSize(); x ++)
+  {
+    WDL_FastString *str=m_text.Get(m_curs_y);
+    const char *tstr=lines.Get(x);
+    if (!tstr) tstr="";
+    if (!x)
+    {
+      if (str)
+      {
+        int bytepos = WDL_utf8_charpos_to_bytepos(str->Get(),m_curs_x);
+
+        if (bytepos < 0) bytepos=0;
+        int tmp=str->GetLength();
+        if (bytepos > tmp) bytepos=tmp;
+
+        poststr.Set(str->Get()+bytepos);
+        str->SetLen(bytepos);
+
+        const char *p = str->Get();
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p && p > str->Get()) // if all whitespace leading up to this
+        {
+          if (bytepos > 0)
+          {
+            int i;
+            skip_source_indent=1024;
+            for (i = 0; skip_source_indent > 0 && i < lines.GetSize(); i ++)
+            {
+              int a=0;
+              const char *p = lines.Get(i);
+              while (a < skip_source_indent && p[a] == ' ') a++;
+              if (a < skip_source_indent && p[a]) skip_source_indent=a;
+            }
+          }
+
+          indent_to_pos = bytepos;
+        }
+
+        str->Append(skip_indent(tstr,skip_source_indent));
+      }
+      else
+      {
+        m_text.Insert(m_curs_y,(str=new WDL_FastString(skip_indent(tstr,skip_source_indent))));
+      }
+
+      if (lines.GetSize() > 1)
+      {
+        m_curs_y++;
+      }
+      else
+      {
+        m_curs_x = WDL_utf8_get_charlen(str->Get());
+        str->Append(poststr.Get());
+      }
+    }
+    else if (x == lines.GetSize()-1)
+    {
+      WDL_FastString *s=newIndentedFastString(skip_indent(tstr,skip_source_indent),indent_to_pos);
+      m_curs_x = WDL_utf8_get_charlen(s->Get());
+      s->Append(poststr.Get());
+      m_text.Insert(m_curs_y,s);
+    }
+    else
+    {
+      m_text.Insert(m_curs_y,newIndentedFastString(skip_indent(tstr,skip_source_indent),indent_to_pos));
+      m_curs_y++;
+    }
+  }
+}
