@@ -160,7 +160,23 @@ typedef struct {
   int compile_flags;
 } codeHandleType;
 
+typedef struct
+{
+  EEL_F *value;
+  int refcnt;
+  char isreg;
+  char str[1];
+} varNameRec;
 
+typedef struct 
+{
+  void *ptr;
+  int size, alloc;
+} eel_growbuf;
+#define EEL_GROWBUF(type) union { eel_growbuf _growbuf; type *_tval; }
+#define EEL_GROWBUF_RESIZE(gb, newsz) __growbuf_resize(&(gb)->_growbuf, (newsz)*(int)sizeof((gb)->_tval[0])) // <0 to free, does not realloc down otherwise
+#define EEL_GROWBUF_GET(gb) ((gb)->_tval)
+#define EEL_GROWBUF_GET_SIZE(gb) ((gb)->_growbuf.size/(int)sizeof((gb)->_tval[0]))
 
 typedef struct _compileContext
 {
@@ -168,9 +184,9 @@ typedef struct _compileContext
   const char *(*func_check)(const char *fn_name, void *user); // return error message if not permitted
   void *func_check_user;
 
-  EEL_F **varTable_Values;
-  char   ***varTable_Names;
-  int varTable_numBlocks;
+  EEL_GROWBUF(varNameRec *) varNameList;
+  EEL_F *varValueStore;
+  int varValueStore_left;
 
   int errVar,gotEndOfInput;
   opcodeRec *result;
@@ -233,8 +249,6 @@ typedef struct _compileContext
 }
 compileContext;
 
-#define NSEEL_VARS_PER_BLOCK 64
-
 #define NSEEL_NPARAMS_FLAG_CONST 0x80000
 typedef struct functionType {
       const char *name;
@@ -244,13 +258,6 @@ typedef struct functionType {
       void *replptrs[4];
       NSEEL_PPPROC pProc;
 } functionType;
-
-
-typedef struct
-{
-  int refcnt;
-  char isreg;
-} varNameHdr;
 
 functionType *nseel_getFunctionFromTable(int idx);
 functionType *nseel_getFunctionFromTableEx(compileContext *ctx, int idx);

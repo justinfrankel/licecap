@@ -282,6 +282,38 @@ static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 
 static void freeBlocks(llBlock **start);
 
+static int __growbuf_resize(eel_growbuf *buf, int newsize)
+{
+  if (newsize<0)
+  {
+    free(buf->ptr);
+    buf->ptr=NULL;
+    buf->alloc=buf->size=0;
+    return 0;
+  }
+
+  if (newsize > buf->alloc)
+  {
+    const int newalloc = newsize + 4096 + newsize/2;
+    void *newptr = realloc(buf->ptr,newalloc);
+    if (!newptr)
+    {
+      newptr = malloc(newalloc);
+      if (!newptr) return 1;
+      if (buf->ptr && buf->size) memcpy(newptr,buf->ptr,buf->size);
+      free(buf->ptr);
+      buf->ptr=newptr;
+    }
+    else
+      buf->ptr = newptr;
+
+    buf->alloc=newalloc;
+  }
+  buf->size = newsize;
+  return 0;
+}
+
+
 #ifndef DECL_ASMFUNC
 #define DECL_ASMFUNC(x)         \
   void nseel_asm_##x(void);        \
@@ -5064,29 +5096,11 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
 #endif
     
     freeBlocks(&h->blocks_data);
-
-
   }
 
 }
-
 
 //------------------------------------------------------------------------------
-static void NSEEL_VM_freevars(NSEEL_VMCTX _ctx)
-{
-  if (_ctx)
-  {
-    compileContext *ctx=(compileContext *)_ctx;
-
-    free(ctx->varTable_Values);
-    free(ctx->varTable_Names);
-    ctx->varTable_Values=0;
-    ctx->varTable_Names=0;
-
-    ctx->varTable_numBlocks=0;
-  }
-}
-
 
 NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 {
@@ -5154,7 +5168,7 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
   if (_ctx)
   {
     compileContext *ctx=(compileContext *)_ctx;
-    NSEEL_VM_freevars(_ctx);
+    EEL_GROWBUF_RESIZE(&ctx->varNameList,-1);
     NSEEL_VM_freeRAM(_ctx);
 
     freeBlocks(&ctx->pblocks);
@@ -5244,71 +5258,71 @@ void *NSEEL_PProc_THIS(void *data, int data_size, compileContext *ctx)
   return data;
 }
 
+static int vartable_lowerbound(compileContext *ctx, const char *name, int *ismatch)
+{
+  int a = 0, c = EEL_GROWBUF_GET_SIZE(&ctx->varNameList);
+  varNameRec **list = EEL_GROWBUF_GET(&ctx->varNameList);
+  while (a != c)
+  {
+    const int b = (a+c)/2;
+    const int cmp = strnicmp(name,list[b]->str,NSEEL_MAX_VARIABLE_NAMELEN);
+    if (cmp > 0) a = b+1;
+    else if (cmp < 0) c = b;
+    else
+    {
+      *ismatch = 1;
+      return b;
+    }
+  }
+  *ismatch = 0;
+  return a;
+}
+
+static void vartable_cull_list(compileContext *ctx, int refcnt_chk)
+{
+  const int ni = EEL_GROWBUF_GET_SIZE(&ctx->varNameList);
+  int i = ni, ndel = 0;
+  varNameRec **rd = EEL_GROWBUF_GET(&ctx->varNameList), **wr=rd;
+  while (i--)
+  {
+    varNameRec *v = rd[0];
+    if ((!refcnt_chk || !v->refcnt) && !v->isreg) 
+    {
+      ndel++;
+    }
+    else
+    {
+      if (wr != rd) *wr = *rd;
+      wr++;
+    }
+    rd++;
+  }
+  if (ndel) EEL_GROWBUF_RESIZE(&ctx->varNameList,ni - ndel);
+}
+
 void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx)
 {
   compileContext *ctx = (compileContext *)_ctx;
-  int wb;
-  if (ctx) for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
-  {
-    int ti;
-    char **plist=ctx->varTable_Names[wb];
-    if (!plist) break;
-
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      if (plist[ti])
-      {
-        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
-        if (!v->refcnt && !v->isreg) 
-        {
-          plist[ti]=NULL;
-        }
-      }
-    }
-  }
+  if (ctx) vartable_cull_list(ctx,1);
 }
 
 void NSEEL_VM_remove_all_nonreg_vars(NSEEL_VMCTX _ctx)
 {
   compileContext *ctx = (compileContext *)_ctx;
-  int wb;
-  if (ctx) for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
-  {
-    int ti;
-    char **plist=ctx->varTable_Names[wb];
-    if (!plist) break;
-
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      if (plist[ti])
-      {
-        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
-        if (!v->isreg) 
-        {
-          plist[ti]=NULL;
-        }
-      }
-    }
-  }
+  if (ctx) vartable_cull_list(ctx,0);
 }
 
 void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx)
 {
   compileContext *ctx = (compileContext *)_ctx;
-  int wb;
-  if (ctx) for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+  if (ctx)
   {
-    int ti;
-    char **plist=ctx->varTable_Names[wb];
-    if (!plist) break;
-
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      if (plist[ti])
-      {
-        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
-        v->refcnt=0;
-      }
+    int i = EEL_GROWBUF_GET_SIZE(&ctx->varNameList);
+    varNameRec **rd = EEL_GROWBUF_GET(&ctx->varNameList);
+    while (i--)
+    {
+      rd[0]->refcnt=0;
+      rd++;
     }
   }
 }
@@ -5363,9 +5377,7 @@ EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent)
 
 EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, const char **namePtrOut)
 {
-  int match_wb = -1, match_ti=-1;
-  int wb;
-  int ti=0;
+  int slot, match;
 
   if (isReg == 0 && ctx->getVariable)
   {
@@ -5378,98 +5390,55 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
     EEL_F *a=get_global_var(ctx,name+8,isReg >= 0);
     if (a) return a;
   }
-  for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
+
+  slot = vartable_lowerbound(ctx,name, &match);
+  if (match)
   {
-    char **plist=ctx->varTable_Names[wb];
-    if (!plist) return NULL; // error!
-
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    { 
-      if (!plist[ti])
-      {
-        if (match_wb < 0)
-        {
-          match_wb=wb;
-          match_ti=ti;
-        }
-      }
-      else if (!strnicmp(plist[ti],name,NSEEL_MAX_VARIABLE_NAMELEN))
-      {
-        varNameHdr *v = ((varNameHdr*)plist[ti])-1;
-        if (isReg < 0)
-        {
-          EEL_F *p; 
-          return (ctx->varTable_Values && NULL != (p = ctx->varTable_Values[wb])) ? p + ti : NULL;
-        }
-
-        v->refcnt++;
-        if (isReg) v->isreg=isReg;
-        if (namePtrOut) *namePtrOut = plist[ti];
-        break;
-      }
+    varNameRec *v = EEL_GROWBUF_GET(&ctx->varNameList)[slot];
+    if (isReg >= 0)
+    {
+      v->refcnt++;
+      if (isReg) v->isreg=isReg;
+      if (namePtrOut) *namePtrOut = v->str;
     }
-    if (ti < NSEEL_VARS_PER_BLOCK) break;
+    return v->value;
   }
   if (isReg < 0) return NULL;
 
-  if (wb == ctx->varTable_numBlocks && match_wb >=0 && match_ti >= 0)
+  if (ctx->varValueStore_left<1)
   {
-    wb = match_wb;
-    ti = match_ti;
+    const int sz=500;
+    ctx->varValueStore_left = sz;
+    ctx->varValueStore = (EEL_F *)newCtxDataBlock((int)sizeof(EEL_F)*sz,8);
   }
-
-  if (wb == ctx->varTable_numBlocks)
+  if (ctx->varValueStore)
   {
-    ti=0;
-    // add new block
-    if (!(ctx->varTable_numBlocks&(NSEEL_VARS_MALLOC_CHUNKSIZE-1)) || !ctx->varTable_Values || !ctx->varTable_Names )
-    {
-      void *nv = realloc(ctx->varTable_Values,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(EEL_F *));
-      if (!nv) return NULL;
-      ctx->varTable_Values = (EEL_F **)nv;
-
-      nv = realloc(ctx->varTable_Names,(ctx->varTable_numBlocks+NSEEL_VARS_MALLOC_CHUNKSIZE) * sizeof(char **));
-      if (!nv) return NULL;
-      ctx->varTable_Names = (char ***)nv;
-    }
-    ctx->varTable_numBlocks++;
-
-    ctx->varTable_Values[wb] = (EEL_F *)newCtxDataBlock(sizeof(EEL_F)*NSEEL_VARS_PER_BLOCK,8);
-    ctx->varTable_Names[wb] = (char **)newCtxDataBlock(sizeof(char *)*NSEEL_VARS_PER_BLOCK,1);
-    if (ctx->varTable_Values[wb])
-    {
-      memset(ctx->varTable_Values[wb],0,sizeof(EEL_F)*NSEEL_VARS_PER_BLOCK);
-    }
-    if (ctx->varTable_Names[wb])
-    {
-      memset(ctx->varTable_Names[wb],0,sizeof(char *)*NSEEL_VARS_PER_BLOCK);
-    }
-  }
-
-  if (!ctx->varTable_Names[wb] || !ctx->varTable_Values[wb]) return NULL;
-
-  if (!ctx->varTable_Names[wb][ti])
-  {
+    int listsz = EEL_GROWBUF_GET_SIZE(&ctx->varNameList);
     size_t l = strlen(name);
-    char *b;
-    varNameHdr *vh;
+    varNameRec *vh;
     if (l > NSEEL_MAX_VARIABLE_NAMELEN) l = NSEEL_MAX_VARIABLE_NAMELEN;
-    b=newCtxDataBlock( (int) (sizeof(varNameHdr) + l+1),1);
-    if (!b) return NULL; // malloc fail
-    vh=(varNameHdr *)b;
+    vh = (varNameRec*) newCtxDataBlock( (int) (sizeof(varNameRec) + l),8);
+    if (!vh || EEL_GROWBUF_RESIZE(&ctx->varNameList, (listsz+1))) return NULL; // alloc fail
+
+    (vh->value = ctx->varValueStore++)[0]=0.0;
+    ctx->varValueStore_left--;
+
     vh->refcnt=1;
     vh->isreg=isReg;
+    memcpy(vh->str,name,l);
+    vh->str[l] = 0;
+    if (namePtrOut) *namePtrOut = vh->str;
 
-    b+=sizeof(varNameHdr);
+    if (slot < listsz)
+    {
+      memmove(EEL_GROWBUF_GET(&ctx->varNameList) + slot+1, 
+              EEL_GROWBUF_GET(&ctx->varNameList) + slot, (listsz - slot) * sizeof(EEL_GROWBUF_GET(&ctx->varNameList)[0]));
+    }
+    EEL_GROWBUF_GET(&ctx->varNameList)[slot] = vh;
 
-    memcpy(b,name,l);
-    b[l] = 0;
-
-    ctx->varTable_Names[wb][ti] = b;
-    ctx->varTable_Values[wb][ti]=0.0;
-    if (namePtrOut) *namePtrOut = b;
+    return vh->value;
   }
-  return ctx->varTable_Values[wb] + ti;
+  return NULL;
 }
 
 
@@ -5478,21 +5447,16 @@ EEL_F *nseel_int_register_var(compileContext *ctx, const char *name, int isReg, 
 void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *val, void *ctx), void *userctx)
 {
   compileContext *tctx = (compileContext *) ctx;
-  int wb;
+  int ni;
+  varNameRec **rd;
   if (!tctx) return;
   
-  for (wb = 0; wb < tctx->varTable_numBlocks; wb ++)
+  ni = EEL_GROWBUF_GET_SIZE(&tctx->varNameList);
+  rd = EEL_GROWBUF_GET(&tctx->varNameList);
+  while (ni--)
   {
-    int ti;
-    char **plist=tctx->varTable_Names[wb];
-    if (!plist) break;
-    
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {              
-      if (plist[ti] && !func(plist[ti],tctx->varTable_Values[wb] + ti,userctx)) break;
-    }
-    if (ti < NSEEL_VARS_PER_BLOCK)
-      break;
+    if (!func(rd[0]->str,rd[0]->value,userctx)) break;
+    rd++;
   }
 }
 
@@ -5529,25 +5493,10 @@ EEL_F *NSEEL_VM_getvar(NSEEL_VMCTX _ctx, const char *var)
 int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name)
 {
   compileContext *ctx = (compileContext *)_ctx;
-  int wb;
+  int slot,match;
   if (!ctx) return -1;
-
-  for (wb = 0; wb < ctx->varTable_numBlocks; wb ++)
-  {
-    int ti;
-    if (!ctx->varTable_Values[wb] || !ctx->varTable_Names[wb]) break;
-
-    for (ti = 0; ti < NSEEL_VARS_PER_BLOCK; ti ++)
-    {        
-      if (ctx->varTable_Names[wb][ti] && !stricmp(ctx->varTable_Names[wb][ti],name)) 
-      {
-        varNameHdr *h = ((varNameHdr *)ctx->varTable_Names[wb][ti])-1;
-        return h->refcnt;
-      }
-    }
-  }
-
-  return -1;
+  slot = vartable_lowerbound(ctx,name, &match);
+  return match ? EEL_GROWBUF_GET(&ctx->varNameList)[slot]->refcnt : -1;
 }
 
 
