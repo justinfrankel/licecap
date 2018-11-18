@@ -1502,6 +1502,7 @@ _codeHandleFunctionRec *eel_createFunctionNamespacedInstance(compileContext *ctx
 
   subfr->next = NULL;
   subfr->startptr=0; // make sure this code gets recompiled (with correct member ptrs) for this instance!
+  subfr->startptr_size=-1;
 
   // subfr->derivedCopies already points to the right place
   fr->derivedCopies = subfr; 
@@ -1827,15 +1828,23 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
   }
   if (!fn) return NULL;
 
-  if (!fn->startptr && fn->opcodes && fn->startptr_size > 0)
+  if (!fn->startptr && fn->opcodes && fn->startptr_size != 0)
   {
-    int sz;
+    int sz = fn->startptr_size;
 
-    fn->tmpspace_req=0;
-    fn->rvMode = RETURNVALUE_IGNORE;
-    fn->canHaveDenormalOutput=0;
+    if (sz < 0) 
+    {
+      fn->tmpspace_req=0;
+      fn->rvMode = RETURNVALUE_IGNORE;
+      fn->canHaveDenormalOutput=0;
 
-    sz=compileOpcodes(ctx,fn->opcodes,NULL,128*1024*1024,&fn->tmpspace_req,wantCodeGenerated ? &local_namespace : NULL,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,&fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
+      sz = compileOpcodes(ctx,fn->opcodes,NULL,128*1024*1024,&fn->tmpspace_req,
+          wantCodeGenerated ? &local_namespace : NULL,RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK,
+          &fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
+      if (sz<0) return NULL;
+
+      fn->startptr_size = sz;
+    }
 
     if (!wantCodeGenerated)
     {
@@ -4426,10 +4435,12 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       }
 
       a->startptr = NULL; // force this copy to be recompiled
+      a->startptr_size = -1;
 
       while (b)
       {
         b->startptr = NULL; // force derived copies to get recompiled
+        b->startptr_size = -1;
         // no need to reset b->localstorage, since it points to a->localstorage
         b=b->derivedCopies;
       }
@@ -4750,20 +4761,6 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       }
 #endif
 
-#ifdef DUMP_OPS_DURING_COMPILE
-      g_debugfp_indent=0;
-      g_debugfp_histsz=0;
-      g_debugfp = fopen("C:/temp/foo.txt","w");
-#endif
-      startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL, 
-        is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode, &fUse, NULL); // if not a function, force return value as address (avoid having to pop it ourselves
-                                          // if a function, allow the code to decide how return values are generated
-
-#ifdef DUMP_OPS_DURING_COMPILE
-      if (g_debugfp) fclose(g_debugfp);
-      g_debugfp=0;
-#endif
-
       if (is_fname[0])
       {
         _codeHandleFunctionRec *fr = ctx->isSharedFunctions ? newDataBlock(sizeof(_codeHandleFunctionRec),8) : 
@@ -4771,12 +4768,8 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         if (fr)
         {
           memset(fr,0,sizeof(_codeHandleFunctionRec));
-          fr->startptr_size = startptr_size;
+          fr->startptr_size = -1;
           fr->opcodes = start_opcode;
-          fr->rvMode = rvMode;
-     
-          fr->fpStackUsage=fUse;
-          fr->tmpspace_req = computTableTop;
 
           if (ctx->function_localTable_Size[0] > 0 && ctx->function_localTable_ValuePtrs)
           {
@@ -4815,6 +4808,21 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
         }
         continue;
       }
+
+#ifdef DUMP_OPS_DURING_COMPILE
+      g_debugfp_indent=0;
+      g_debugfp_histsz=0;
+      g_debugfp = fopen("C:/temp/foo.txt","w");
+#endif
+      startptr_size = compileOpcodes(ctx,start_opcode,NULL,1024*1024*256,NULL, NULL, 
+        is_fname[0] ? (RETURNVALUE_NORMAL|RETURNVALUE_FPSTACK) : RETURNVALUE_IGNORE, &rvMode, &fUse, NULL); // if not a function, force return value as address (avoid having to pop it ourselves
+                                          // if a function, allow the code to decide how return values are generated
+
+#ifdef DUMP_OPS_DURING_COMPILE
+      if (g_debugfp) fclose(g_debugfp);
+      g_debugfp=0;
+#endif
+
 
       if (!startptr_size) continue; // optimized away
       if (startptr_size>0)

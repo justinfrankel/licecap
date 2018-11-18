@@ -108,10 +108,10 @@ typedef struct _codeHandleFunctionRec
   struct _codeHandleFunctionRec *next; // main linked list (only used for high level functions)
   struct _codeHandleFunctionRec *derivedCopies; // separate linked list, head being the main function, other copies being derived versions
 
-  void *startptr; // compiled code (may be cleared + recompiled when shraed)
+  void *startptr; // compiled code (may be cleared + recompiled when shared)
   opcodeRec *opcodes;
 
-  int startptr_size; 
+  int startptr_size;  // 0=no code. -1 = needs calculation. >0 = size.
   int tmpspace_req;
     
   int num_params;
