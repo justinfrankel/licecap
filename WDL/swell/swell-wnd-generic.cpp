@@ -2066,7 +2066,7 @@ static int scanWord(const char *buf, int bytepos, int dir)
 }
 
 static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, 
-    bool wantReturn, bool isMultiLine, __SWELL_editControlState *es)
+    bool wantReturn, bool isMultiLine, __SWELL_editControlState *es, bool isEditCtl)
 {
   if (lParam & (FCONTROL|FALT|FLWIN))
   {
@@ -2078,20 +2078,22 @@ static LRESULT OnEditKeyDown(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
         int slen = es->getSelection(&hwnd->m_title,&s);
         if (slen > 0 && s)
         {
-          OpenClipboard(hwnd);
-          HANDLE h = GlobalAlloc(0,slen+1);
-          if (h)
+          if (!isEditCtl || !(hwnd->m_style & ES_PASSWORD))
           {
-            memcpy((char*)h,s,slen);
-            ((char*)h)[slen] = 0;
-            SetClipboardData(CF_TEXT,h);
-          }
-          CloseClipboard();
-
-          if (h && wParam == 'X' && !(hwnd->m_style & ES_READONLY))
-          {
-            es->deleteSelection(&hwnd->m_title);
-            return 7;
+            OpenClipboard(hwnd);
+            HANDLE h = GlobalAlloc(0,slen+1);
+            if (h)
+            {
+              memcpy((char*)h,s,slen);
+              ((char*)h)[slen] = 0;
+              SetClipboardData(CF_TEXT,h);
+            }
+            CloseClipboard();
+            if (h && wParam == 'X' && (!isEditCtl || !(hwnd->m_style & ES_READONLY)))
+            {
+              es->deleteSelection(&hwnd->m_title);
+              return 7;
+            }
           }
         }
       }
@@ -2374,6 +2376,21 @@ static int editControlPaintLine(HDC hdc, const char *str, int str_len, int curso
   return rv;
 }
 
+static void passwordify(WDL_FastString **s)
+{
+  const int l = WDL_utf8_get_charlen((*s)->Get());
+  if (l>0)
+  {
+    static WDL_FastString tmp;
+    if (tmp.GetLength() != l)
+    {
+      tmp.SetLen(l);
+      memset((char*)tmp.Get(),'*',tmp.GetLength());
+    }
+    *s = &tmp;
+  }
+}
+
 static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   __SWELL_editControlState *es = (__SWELL_editControlState*)hwnd->m_private_data;
@@ -2389,7 +2406,9 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         HMENU menu=CreatePopupMenu();
         MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_TYPE,MFT_STRING, 0,
               (UINT) 100, NULL,NULL,NULL,0,(char*)"Copy"};
-        InsertMenuItem(menu,0,TRUE,&mi);
+
+        if (!(hwnd->m_style & ES_PASSWORD))
+          InsertMenuItem(menu,0,TRUE,&mi);
         mi.wID++;
         mi.dwTypeData = (char*)"Paste";
         InsertMenuItem(menu,0,TRUE,&mi);
@@ -2401,10 +2420,10 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
         const int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,p.x,p.y,0,hwnd,0);
         DestroyMenu(menu);
-        if (a==100) OnEditKeyDown(hwnd,WM_KEYDOWN,'C',FVIRTKEY|FCONTROL,false,false,es);
+        if (a==100) OnEditKeyDown(hwnd,WM_KEYDOWN,'C',FVIRTKEY|FCONTROL,false,false,es,true);
         else if (a==101) 
         {
-          OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,false,false,es);
+          OnEditKeyDown(hwnd,WM_KEYDOWN,'V',FVIRTKEY|FCONTROL,false,false,es,true);
           SendMessage(GetParent(hwnd),WM_COMMAND,(EN_CHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
         }
         else if (a==102) SendMessage(hwnd,EM_SETSEL,0,-1);
@@ -2420,6 +2439,8 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
       // todo: if selection active and not focused, do not mouse hit test
       if (msg == WM_LBUTTONDOWN) 
       {
+        WDL_FastString *title = &hwnd->m_title;
+        if (hwnd->m_style & ES_PASSWORD) passwordify(&title);
         const bool multiline = (hwnd->m_style & ES_MULTILINE) != 0;
         RECT r;
         GetClientRect(hwnd,&r);
@@ -2473,9 +2494,9 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         const int last_cursor = es->cursor_pos;
         const int wwrap = (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE ? 
           r.right - g_swell_ctheme.scrollbar_width : 0;
-        es->cursor_pos = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
-            editHitTest(hdc,hwnd->m_title.Get(),
-                        multiline?-1:hwnd->m_title.GetLength(),
+        es->cursor_pos = WDL_utf8_bytepos_to_charpos(title->Get(),
+            editHitTest(hdc,title->Get(),
+                        multiline?-1:title->GetLength(),
                          GET_X_LPARAM(lParam)-xo + es->scroll_x,
                          GET_Y_LPARAM(lParam)-yo + es->scroll_y, 
                          wwrap)
@@ -2590,9 +2611,11 @@ forceMouseMove:
           int xo=2;
           int yo = multiline ? 2 : 0;
           HDC hdc=GetDC(hwnd);
-          int p = WDL_utf8_bytepos_to_charpos(hwnd->m_title.Get(),
-            editHitTest(hdc,hwnd->m_title.Get(),
-                        multiline?-1:hwnd->m_title.GetLength(),
+          WDL_FastString *title = &hwnd->m_title;
+          if (hwnd->m_style & ES_PASSWORD) passwordify(&title);
+          int p = WDL_utf8_bytepos_to_charpos(title->Get(),
+            editHitTest(hdc,title->Get(),
+                        multiline?-1:title->GetLength(),
                          GET_X_LPARAM(lParam)-xo + es->scroll_x,
                          GET_Y_LPARAM(lParam)-yo + es->scroll_y, wwrap)
               );
@@ -2635,7 +2658,7 @@ forceMouseMove:
         int f = OnEditKeyDown(hwnd,msg,wParam,lParam, 
             !!(hwnd->m_style&ES_WANTRETURN),
             !!(hwnd->m_style&ES_MULTILINE),
-            es);
+            es,true);
         if (f)
         {
           if (f&4) 
@@ -2683,6 +2706,8 @@ forceMouseMove:
           RECT r; 
           GetClientRect(hwnd,&r); 
           RECT orig_r = r;
+          WDL_FastString *title = &hwnd->m_title;
+          if (hwnd->m_style & ES_PASSWORD) passwordify(&title);
 
           Draw3DBox(ps.hdc,&r,
             hwnd->m_enabled ? 
@@ -2702,25 +2727,26 @@ forceMouseMove:
           r.left+=2 - es->scroll_x; r.right-=2;
 
           const bool do_cursor = es->cursor_state!=0;
-          const int cursor_pos = focused ?  WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->cursor_pos) : -1;
-          const int sel1 = es->sel1>=0 && focused ? WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->sel1) : -1;
-          const int sel2 = es->sel2>=0 && focused ? WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),es->sel2) : -1;
+          const int cursor_pos = focused ?  WDL_utf8_charpos_to_bytepos(title->Get(),es->cursor_pos) : -1;
+          const int sel1 = es->sel1>=0 && focused ? WDL_utf8_charpos_to_bytepos(title->Get(),es->sel1) : -1;
+          const int sel2 = es->sel2>=0 && focused ? WDL_utf8_charpos_to_bytepos(title->Get(),es->sel2) : -1;
 
           const bool multiline = (hwnd->m_style & ES_MULTILINE) != 0;
+
           if (multiline)
           {
             r.top+=2 - es->scroll_y;
-            const char *buf = hwnd->m_title.Get(), *buf_end = buf + hwnd->m_title.GetLength();
+            const char *buf = title->Get(), *buf_end = buf + title->GetLength();
             int bytepos = 0;
             RECT tmp={0,};
             const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_CALCRECT|DT_SINGLELINE|DT_NOPREFIX);
             const int wwrap = (hwnd->m_style & ES_AUTOHSCROLL) ? 0 : orig_r.right - g_swell_ctheme.scrollbar_width;
 
             int *use_cache = NULL, use_cache_len = 0;
-            const bool allow_cache = wwrap>0 && (hwnd->m_style & ES_READONLY) && hwnd->m_title.GetLength()>10000;
+            const bool allow_cache = wwrap>0 && (hwnd->m_style & ES_READONLY) && title->GetLength()>10000;
             if (allow_cache && 
                 es->cache_linelen_w == wwrap && 
-                es->cache_linelen_strlen == hwnd->m_title.GetLength())
+                es->cache_linelen_strlen == title->GetLength())
             {
               use_cache = es->cache_linelen_bytes.Get();
               use_cache_len = es->cache_linelen_bytes.GetSize();
@@ -2728,7 +2754,7 @@ forceMouseMove:
             else
             {
               es->cache_linelen_w=allow_cache?wwrap:0;
-              es->cache_linelen_strlen=allow_cache?hwnd->m_title.GetLength():0;
+              es->cache_linelen_strlen=allow_cache?title->GetLength():0;
               es->cache_linelen_bytes.Resize(0,false);
             }
 
@@ -2797,7 +2823,7 @@ forceMouseMove:
           }
           else
           {
-            es->max_width = editControlPaintLine(ps.hdc, hwnd->m_title.Get(), hwnd->m_title.GetLength(), cursor_pos, sel1, sel2, &r, DT_VCENTER);
+            es->max_width = editControlPaintLine(ps.hdc, title->Get(), title->GetLength(), cursor_pos, sel1, sel2, &r, DT_VCENTER);
           }
 
           EndPaint(hwnd,&ps);
@@ -3416,7 +3442,7 @@ popupMenu:
     case WM_KEYDOWN:
       if ((lParam&FVIRTKEY) && wParam == VK_DOWN) { s_capmode_state=5; goto popupMenu; }
       if ((hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST && 
-          OnEditKeyDown(hwnd,msg,wParam,lParam,false,false,&s->editstate))
+          OnEditKeyDown(hwnd,msg,wParam,lParam,false,false,&s->editstate,false))
       {
         if (s) s->selidx=-1; // lookup from text?
         SendMessage(GetParent(hwnd),WM_COMMAND,(CBN_EDITCHANGE<<16) | (hwnd->m_id&0xffff),(LPARAM)hwnd);
