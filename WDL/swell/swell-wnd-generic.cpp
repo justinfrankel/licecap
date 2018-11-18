@@ -7734,6 +7734,8 @@ void SWELL_BroadcastMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
   while (h) 
   { 
     SendMessage(h,uMsg,wParam,lParam);
+    if (uMsg == WM_DISPLAYCHANGE)
+      InvalidateRect(h,NULL,FALSE);
     h = h->m_next;
   }
 }
