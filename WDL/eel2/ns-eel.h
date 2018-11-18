@@ -259,7 +259,8 @@ double *NSEEL_getglobalregs();
 
 void eel_setfp_round(); // use to set fp to rounding mode (normal) -- only really use this when being called from EEL
 void eel_setfp_trunc(); // use to restore fp to trunc mode -- only really use this when being called from EEL
-
+void eel_enterfp(int s[2]);
+void eel_leavefp(int s[2]);
 
 
 #ifdef __cplusplus

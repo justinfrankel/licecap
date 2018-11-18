@@ -5690,4 +5690,6 @@ void NSEEL_VM_set_var_resolver(NSEEL_VMCTX _ctx, EEL_F *(*res)(void *userctx, co
   // blank stubs for non-x86/x86_64
   void eel_setfp_round() { }
   void eel_setfp_trunc() { }
+  void eel_enterfp(int s[2]) {}
+  void eel_leavefp(int s[2]) {}
 #endif

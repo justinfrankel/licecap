@@ -295,6 +295,43 @@ static void eel_callcode32(INT_PTR cp, INT_PTR ramptr)
   #endif //gcc x86
 }
 
+void eel_enterfp(int s[2])
+{
+  #ifdef _MSC_VER
+    __asm
+    {
+      mov ecx, s
+      fnstcw [ecx]
+      mov ax, [ecx]
+      or ax, 0xE3F  // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
+      mov [ecx+4], ax
+      fldcw [ecx+4]
+    };
+  #else
+    __asm__(
+      "fnstcw (%%ecx)\n"
+      "movw (%%ecx), %%ax\n"
+      "orw $0xE3F, %%ax\n" // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
+      "movw %%ax, 4(%%ecx)\n"
+      "fldcw 4(%%ecx)\n"
+          :: "c" (s) : "%eax");
+  #endif
+}
+void eel_leavefp(int s[2])
+{
+  #ifdef _MSC_VER
+    __asm
+    {
+      mov ecx, s
+      fldcw [ecx]
+    };
+  #else
+    __asm__(
+      "fldcw (%%ecx)\n"
+          :: "c" (s) : "%eax");
+  #endif
+}
+
 static void eel_callcode32_fast(INT_PTR cp, INT_PTR ramptr) 
 {
   #ifdef _MSC_VER

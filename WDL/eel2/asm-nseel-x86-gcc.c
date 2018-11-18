@@ -2119,4 +2119,35 @@ void eel_setfp_trunc()
 	);
 }
 
+void eel_enterfp(int s[2]) 
+{
+	__asm__(
+#ifdef AMD64ABI
+		"fnstcw (%rdi)\n"
+		"mov (%rdi), %ax\n"
+		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"mov %ax, 4(%rdi)\n"
+		"fldcw 4(%rdi)\n"
+#else
+		"fnstcw (%rcx)\n"
+		"mov (%rcx), %ax\n"
+		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"mov %ax, 4(%rcx)\n"
+		"fldcw 4(%rcx)\n"
+#endif
+            "ret\n"
+        );
+}
+void eel_leavefp(int s[2]) 
+{
+	__asm__(
+#ifdef AMD64ABI
+		"fldcw (%rdi)\n"
+#else
+		"fldcw (%rcx)\n"
+#endif
+                "ret\n";
+        );
+}
+
 #endif

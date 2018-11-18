@@ -150,9 +150,10 @@ _emit 0x90;
       mov r15, rsi;
       mov r14, rdi;
       call eax;
+      mov rdi, r14; /* restore thrashed rdi */
       mov rsi, r15;
-      movq [r14], xmm0;
       mov rax, r14; /* set return value */
+      movq [r14], xmm0;
     #else
       sub rsp, X64_EXTRA_STACK_SPACE;
       call eax;
@@ -4001,6 +4002,39 @@ __declspec(naked) void eel_callcode64()
 	}
 }
 
+__declspec(naked) void eel_callcode64_fast()
+{
+	__asm {
+		push rbx;
+		push rbp;
+		push r12;
+		push r13;
+		push r14;
+		push r15;
+
+#ifdef AMD64ABI
+    		mov r12, rsi; // second parameter is ram-blocks pointer
+		call rdi;
+#else
+		push rdi;
+		push rsi;
+    		mov r12, rdx; // second parameter is ram-blocks pointer
+		call rcx;
+		pop rsi;
+		pop rdi;
+#endif
+
+		pop r15;
+		pop r14;
+		pop r13;
+		pop r12;
+		pop rbp;
+		pop rbx;
+
+		ret;
+	}
+}
+
 __declspec(naked) void eel_setfp_round()
 {
 	__asm {
@@ -4031,6 +4065,37 @@ __declspec(naked) void eel_setfp_trunc()
 #endif
 		ret;
 	}
+}
+
+__declspec(naked) void eel_enterfp(int s[2])
+{
+	__asm {
+#ifdef AMD64ABI
+		fnstcw [rdi];
+		mov ax, [rdi];
+		or ax, 0xE3F; // 53 or 64 bit precision, trunc, and masking all exceptions
+		mov [rdi+4], ax;
+		fldcw [rdi+4];
+#else
+		fnstcw [rcx];
+		mov ax, [rcx];
+		or ax, 0xE3F; // 53 or 64 bit precision, trunc, and masking all exceptions
+		mov [rcx+4], ax;
+		fldcw [rcx+4];
+#endif
+            ret;
+        }
+}
+__declspec(naked) void eel_leavefp(int s[2])
+{
+	__asm {
+#ifdef AMD64ABI
+		fldcw [rdi];
+#else
+		fldcw [rcx];
+#endif
+                ret;;
+        }
 }
 
 #endif
