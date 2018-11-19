@@ -113,7 +113,7 @@ void nseel_asm_2pdds(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -307,7 +307,7 @@ void nseel_asm_assign(void)
     "shrl $32, %rdx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "movll %rdi, %rax\n"
     "jg 0f\n"
       "subl %ecx, %ecx\n"
@@ -326,7 +326,7 @@ void nseel_asm_assign(void)
     "movl %edx, %eax\n"
     "addl $0x00100000, %eax\n" // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
     "andl $0x7ff00000, %eax\n" 
-    "cmpl $0x00100000, %eax\n"
+    "cmpl $0x00200000, %eax\n"
     "jg 0f\n"
       "subl %ecx, %ecx\n"
       "subl %edx, %edx\n"
@@ -351,7 +351,7 @@ void nseel_asm_assign_fromfp(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "movl %edi, %eax\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
@@ -439,7 +439,7 @@ void nseel_asm_add_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -501,7 +501,7 @@ void nseel_asm_sub_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -554,7 +554,7 @@ void nseel_asm_mul_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -628,7 +628,7 @@ void nseel_asm_div_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
