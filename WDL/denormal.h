@@ -53,7 +53,11 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
   #endif
   #define wdl_denorm_mm_getcsr() _mm_getcsr() 
   #define wdl_denorm_mm_setcsr(x) _mm_setcsr(x) 
-  #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11))
+  #if defined(__SSE3__)
+    #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11) | (1<<8) | (1<<6)) // FTZ, underflow, denormal mask, DAZ  
+  #else
+    #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11)) // FTZ and underflow only (target SSE2)
+  #endif
 #elif defined(__arm__)
   #define WDL_DENORMAL_FTZMODE
   static unsigned int __attribute__((unused)) wdl_denorm_mm_getcsr()
