@@ -152,6 +152,9 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 #define OPTFLAG_NO_DENORMAL_CHECKS 16 // if set and FULL not set, denormals/NaN are never filtered on assign
 
 
+#define DENORMAL_CLEARING_THRESHOLD 1.0e-50 // when adding/subtracting a constant, assume if it's greater than this, it will clear denormal (the actual value is probably 10^-290...)
+
+
 #define MAX_SUB_NAMESPACES 32
 typedef struct
 {
@@ -1505,14 +1508,14 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       *replList = pow_replptrs;
     RF(2pdd);
     case FN_ADD: 
-       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL;
+       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2);
         // for x +- non-denormal-constant,  we can set BIF_CLEARDENORMAL
-       if (firstConstParm && fabs(*firstConstParm) > 1.0e-10) *abiInfo |= BIF_CLEARDENORMAL;
+       if (firstConstParm && fabs(*firstConstParm) > DENORMAL_CLEARING_THRESHOLD) *abiInfo |= BIF_CLEARDENORMAL;
     RF(add);
     case FN_SUB: 
-       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL; 
+       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2);
         // for x +- non-denormal-constant,  we can set BIF_CLEARDENORMAL
-       if (firstConstParm && fabs(*firstConstParm) > 1.0e-10) *abiInfo |= BIF_CLEARDENORMAL;
+       if (firstConstParm && fabs(*firstConstParm) > DENORMAL_CLEARING_THRESHOLD) *abiInfo |= BIF_CLEARDENORMAL;
     RF(sub);
     case FN_MULTIPLY: 
         *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2); 
@@ -2653,7 +2656,6 @@ unsigned char *compileCodeBlockWithRet(compileContext *ctx, opcodeRec *rec, int 
   return newblock2;
 }      
 
-
 static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, int bufOut_len, int *computTableSize, const namespaceInformation *namespacePathToThis, 
                                      int *rvMode, int *fpStackUsage, int preferredReturnValues, int *canHaveDenormalOutput)
 {
@@ -3138,13 +3140,13 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   
     if (!*canHaveDenormalOutput)
     {
-      // if add_op or sub_op, and non-denormal input, safe to omit denormal checks
-      if (func == (void*)nseel_asm_add_op)
+      // if add_op or sub_op, and constant non-denormal input, safe to omit denormal checks
+      if (func == (void*)nseel_asm_add_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) >= DENORMAL_CLEARING_THRESHOLD)
       {
         func = nseel_asm_add_op_fast;
         func_e = nseel_asm_add_op_fast_end;
       }
-      else if (func == (void*)nseel_asm_sub_op)
+      else if (func == (void*)nseel_asm_sub_op && parm1_dv && fabs(op->parms.parms[1]->parms.dv.directValue) >= DENORMAL_CLEARING_THRESHOLD)
       {
         func = nseel_asm_sub_op_fast;
         func_e = nseel_asm_sub_op_fast_end;
