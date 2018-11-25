@@ -1338,15 +1338,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           }
           else if (!swell_app_is_inactive)
           {
-            GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
-            if (!is_our_oswindow(window))
-            {
-              on_deactivate();
-            }
-            else
-            {
-              s_deactivate_timer = SetTimer(NULL,0,200,deactivateTimer);
-            }
+            s_deactivate_timer = SetTimer(NULL,0,200,deactivateTimer);
           }
         }
     break;
