@@ -549,8 +549,8 @@ void nseel_asm_sign(void)
     "fmov d1, #-1.0\n"
     "fmov d2, #1.0\n"
     "fcmpe d0, #0.0\n"
-    "fcsel d0, d0, d1, lt\n"
-    "fcsel d0, d0, d2, gt\n"
+    "fcsel d0, d0, d1, gt\n"
+    "fcsel d0, d0, d2, lt\n"
     FUNCTION_MARKER
     :: 
   );
