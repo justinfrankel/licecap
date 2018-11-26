@@ -370,8 +370,8 @@ void nseel_asm_shl(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
+    "fcvtzs w0, d1\n"
+    "fcvtzs w1, d0\n"
     "lsl w0, w0, w1\n"
     "scvtf d0, w0\n"
     FUNCTION_MARKER
@@ -384,8 +384,8 @@ void nseel_asm_shr(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
+    "fcvtzs w0, d1\n"
+    "fcvtzs w1, d0\n"
     "asr w0, w0, w1\n"
     "scvtf d0, w0\n"
     FUNCTION_MARKER
