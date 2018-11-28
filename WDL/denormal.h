@@ -44,7 +44,7 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 //
 #ifdef WDL_DENORMAL_WANTS_SCOPED_FTZ
 
-#if defined(__x86_64__) || _M_IX86_FP >= 2 || defined(__SSE2__) || defined(_WIN64)
+#if defined(__SSE2__) || _M_IX86_FP >= 2
   #define WDL_DENORMAL_FTZMODE
   #ifdef _MSC_VER
     #include <intrin.h>
