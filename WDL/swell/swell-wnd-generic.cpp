@@ -4564,7 +4564,7 @@ forceMouseMove:
                   if (hwnd->m_parent)
                   {
                     DRAWITEMSTRUCT dis = { ODT_LISTBOX, hwnd->m_id, (UINT)rowidx, 0, 
-                      (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,(DWORD_PTR)hwnd->m_userdata };
+                      (UINT)(sel?ODS_SELECTED:0),hwnd,ps.hdc,ar,row?(DWORD_PTR)row->m_param:0 };
                     dis.rcItem.left++;
                     if (cr.bottom-cr.top < nrows*row_height)
                       dis.rcItem.right -= g_swell_ctheme.scrollbar_width;
