@@ -741,6 +741,49 @@ static bool eel_sh_get_matching_pos_for_pos(WDL_PtrList<WDL_FastString> *text, i
 
   if (!is_after && hit_tok && (hit_tok->get_c() == '"' || hit_tok->get_c() == '\'' || hit_tok->is_comment()))
   {
+    eel_sh_token tok = *hit_tok; // save a copy, toklist might get destroyed recursively here
+    hit_tok = &tok;
+
+    //if (tok.get_c() == '"')
+    {
+      // the user could be editing code in code, tokenize it and see if we can make sense of it
+      WDL_FastString start, end;
+      WDL_PtrList<WDL_FastString> tmplist;
+      WDL_FastString *s = text->Get(tok.line);
+      if (s && s->GetLength() > tok.col+1)
+      {
+        int maxl = tok.get_linecnt()>0 ? 0 : tok.end_col - tok.col - 2;
+        start.Set(s->Get() + tok.col+1, maxl);
+      }
+      tmplist.Add(&start);
+      const int linecnt = tok.get_linecnt();
+      if (linecnt>0)
+      {
+        for (int a=1; a < linecnt; a ++)
+        {
+          s = text->Get(tok.line + a);
+          if (s) tmplist.Add(s);
+        }
+        s = text->Get(tok.line + linecnt);
+        if (s)
+        {
+          if (tok.end_col>1) end.Set(s->Get(), tok.end_col-1);
+          tmplist.Add(&end);
+        }
+      }
+
+      int lx = curx, ly = cury - tok.line;
+      if (cury == tok.line) lx -= (tok.col+1);
+
+      // this will destroy the token 
+      if (eel_sh_get_matching_pos_for_pos(&tmplist, lx, ly, newx, newy, errmsg, editor))
+      {
+        *newy += tok.line;
+        if (cury == tok.line) *newx += tok.col + 1;
+        return true;
+      }
+    }
+
     // if within a string or comment, move to start, unless already at start, move to end
     if (cury == hit_tok->line && curx == hit_tok->col)
     {
