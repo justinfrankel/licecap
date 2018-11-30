@@ -1124,7 +1124,7 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
     if ([pid respondsToSelector:@selector(setSwellStyle:)])
     {
       LONG ov=[pid getSwellStyle];
-      [pid setSwellStyle:(LONG)val];
+      [pid setSwellStyle:(LONG)(val & ~WS_VISIBLE)];
       return ov;
     }
     else if ([pid isKindOfClass:[NSButton class]]) 
@@ -1309,9 +1309,10 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
   if (idx==GWL_STYLE)
   {
     int ret=0;
+    if (![pid isHidden]) ret |= WS_VISIBLE;
     if ([pid respondsToSelector:@selector(getSwellStyle)])
     {
-      return (LONG_PTR)[pid getSwellStyle];
+      return (LONG_PTR)(([pid getSwellStyle]&~WS_VISIBLE) | ret);
     }    
     
     if ([pid isKindOfClass:[NSButton class]]) 

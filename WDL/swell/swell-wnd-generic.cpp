@@ -164,13 +164,10 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
   if (!hwnd) return 0;
   if (idx==GWL_STYLE)
   {
-     // todo: special case for buttons
     LONG ret = hwnd->m_style;
-    hwnd->m_style=val;
-
+    hwnd->m_style=val & ~WS_VISIBLE;
     swell_oswindow_update_style(hwnd,ret);
-
-    return ret;
+    return ret & ~WS_VISIBLE;
   }
   if (idx==GWL_EXSTYLE)
   {
@@ -218,8 +215,10 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
   if (!hwnd) return 0;
   if (idx==GWL_STYLE)
   {
-     // todo: special case for buttons
-    return hwnd->m_style;
+    LONG_PTR ret = hwnd->m_style;
+    if (hwnd->m_visible) ret|=WS_VISIBLE;
+    else ret &= ~WS_VISIBLE;
+    return ret;
   }
   if (idx==GWL_EXSTYLE)
   {
