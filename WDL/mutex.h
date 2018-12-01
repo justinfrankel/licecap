@@ -60,10 +60,6 @@ class WDL_Mutex {
   public:
     WDL_Mutex() 
     {
-#ifdef _DEBUG
-      _debug_cnt=0;
-#endif
-
 #ifdef _WIN32
       InitializeCriticalSection(&m_cs);
 #elif defined( WDL_MAC_USE_CARBON_CRITSEC)
@@ -96,11 +92,6 @@ class WDL_Mutex {
 
     void Enter()
     {
-#ifdef _DEBUG
-      const int new_debug_cnt = wdl_atomic_incr(&_debug_cnt);
-      assert(new_debug_cnt > 0);
-#endif
-
 #ifdef _WIN32
       EnterCriticalSection(&m_cs);
 #elif defined(WDL_MAC_USE_CARBON_CRITSEC)
@@ -112,11 +103,6 @@ class WDL_Mutex {
 
     void Leave()
     {
-#ifdef _DEBUG
-      const int new_debug_cnt = wdl_atomic_decr(&_debug_cnt);
-      assert(new_debug_cnt >= 0);
-#endif
-
 #ifdef _WIN32
       LeaveCriticalSection(&m_cs);
 #elif defined(WDL_MAC_USE_CARBON_CRITSEC)
@@ -125,10 +111,6 @@ class WDL_Mutex {
       pthread_mutex_unlock(&m_mutex);
 #endif
     }
-
-#ifdef _DEBUG
-  volatile int _debug_cnt;
-#endif
 
   private:
 #ifdef _WIN32
