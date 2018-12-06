@@ -1738,7 +1738,9 @@ int WDL_CursesEditor::onChar(int c)
             WDL_FastString *nl=m_text.Get(m_curs_y+1);
             if (nl)
             {
-              s->Append(nl->Get());
+              const char *p = nl->Get();
+              while ((*p == ' ' || *p == '\t') && (p[1] == ' ' || p[1] == '\t')) p++;
+              s->Append(p);
             }
             m_text.Delete(m_curs_y+1,true);
 
