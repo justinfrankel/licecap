@@ -9,6 +9,11 @@
 #define EEL_EVAL_SET_CACHED(sv, ch) { NSEEL_code_free(ch); free(sv); }
 #endif
 
+#ifndef EEL_EVAL_SCOPE_ENTER
+#define EEL_EVAL_SCOPE_ENTER 1
+#define EEL_EVAL_SCOPE_LEAVE
+#endif
+
 static EEL_F NSEEL_CGEN_CALL _eel_eval(void *opaque, EEL_F *s)
 {
   NSEEL_VMCTX r = EEL_EVAL_GET_VMCTX(opaque);
@@ -35,7 +40,18 @@ static EEL_F NSEEL_CGEN_CALL _eel_eval(void *opaque, EEL_F *s)
     if (!ch) ch = NSEEL_code_compile(r,sv,0);
     if (ch)
     {
-      NSEEL_code_execute(ch);
+      if (EEL_EVAL_SCOPE_ENTER)
+      {
+        NSEEL_code_execute(ch);
+        EEL_EVAL_SCOPE_LEAVE
+      }
+      else
+      {
+#ifdef EEL_STRING_DEBUGOUT
+        EEL_STRING_DEBUGOUT("eval() reentrancy limit reached");
+#endif
+      }
+
       EEL_EVAL_SET_CACHED(sv,ch);
       return 1.0;
     }

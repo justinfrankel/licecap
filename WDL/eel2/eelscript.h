@@ -141,6 +141,7 @@ class eelScriptInst {
       char *str;
       NSEEL_CODEHANDLE ch;
     };
+    int m_eval_depth;
     WDL_TypedBuf<evalCacheEnt> m_eval_cache;
     virtual char *evalCacheGet(const char *str, NSEEL_CODEHANDLE *ch);
     virtual void evalCacheDispose(char *key, NSEEL_CODEHANDLE ch);
@@ -212,6 +213,9 @@ class eelScriptInst {
   #define EEL_EVAL_GET_CACHED(str, ch) ((eelScriptInst *)opaque)->evalCacheGet(str,&(ch))
   #define EEL_EVAL_SET_CACHED(str, ch) ((eelScriptInst *)opaque)->evalCacheDispose(str,ch)
   #define EEL_EVAL_GET_VMCTX(opaque) (((eelScriptInst *)opaque)->m_vm)
+  #define EEL_EVAL_SCOPE_ENTER (((eelScriptInst *)opaque)->m_eval_depth < 3 ? \
+                                 ++((eelScriptInst *)opaque)->m_eval_depth : 0)
+  #define EEL_EVAL_SCOPE_LEAVE ((eelScriptInst *)opaque)->m_eval_depth--;
   #include "eel_eval.h"
 
 static EEL_F NSEEL_CGEN_CALL _eel_defer(void *opaque, EEL_F *s)
@@ -298,6 +302,9 @@ eelScriptInst::eelScriptInst() : m_loaded_fnlist(false)
   m_gfx_state = new eel_lice_state(m_vm,this,EELSCRIPT_LICE_MAX_IMAGES,EELSCRIPT_LICE_MAX_FONTS);
 
   m_gfx_state->resetVarsToStock();
+#endif
+#ifndef EELSCRIPT_NO_EVAL
+  m_eval_depth=0;
 #endif
 }
 
