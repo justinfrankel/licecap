@@ -648,7 +648,7 @@ functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int
   idx=functable_lowerbound(fnTable1,fn1size,name,&match);
   if (match) return fnTable1+idx;
 
-  if (tab->list)
+  if ((!ctx || !(ctx->current_compile_flags&NSEEL_CODE_COMPILE_FLAG_ONLY_BUILTIN_FUNCTIONS)) && tab->list)
   {
     idx=functable_lowerbound(tab->list,tab->list_size,name,&match);
     if (match) 
@@ -1066,6 +1066,7 @@ opcodeRec *nseel_resolve_named_symbol(compileContext *ctx, opcodeRec *rec, int p
   
   //
   // resolve user function names before builtin functions -- this allows the user to override default functions
+  if (!(ctx->current_compile_flags & NSEEL_CODE_COMPILE_FLAG_ONLY_BUILTIN_FUNCTIONS))
   {
     _codeHandleFunctionRec *best=NULL;
     size_t bestlen=0;
@@ -4415,6 +4416,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
   ctx->directValueCache=0;
   ctx->optimizeDisableFlags=0;
   ctx->gotEndOfInput=0;
+  ctx->current_compile_flags = compile_flags;
 
   if (compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET)
   {
