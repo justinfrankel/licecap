@@ -1449,7 +1449,6 @@ static int __drawTextWithFont(LICE_IBitmap *dest, const RECT *rect, LICE_IFont *
   { 
     int xpos=rect->left, ypos=rect->top;
     int x;
-    const int sxpos = xpos;
     int maxx=0,maxy=0;
 
     LICE_SubBitmap sbm(
@@ -1471,7 +1470,8 @@ static int __drawTextWithFont(LICE_IBitmap *dest, const RECT *rect, LICE_IFont *
       {
         EEL_F w=0.0,h=0.0;
         EEL_F *mo[2] = { &w,&h};
-        __drawTextWithFont(dest,rect,NULL,buf,buflen,0,0,0.0f,0,NULL,mo);
+        RECT tr={0,};
+        __drawTextWithFont(dest,&tr,NULL,buf,buflen,0,0,0.0f,0,NULL,mo);
 
         if (flags & DT_RIGHT) xpos += (rect->right-rect->left) - (int)floor(w);
         else if (flags & DT_CENTER) xpos += (rect->right-rect->left)/2 - (int)floor(w*.5);
@@ -1480,7 +1480,7 @@ static int __drawTextWithFont(LICE_IBitmap *dest, const RECT *rect, LICE_IFont *
         else if (flags & DT_VCENTER) ypos += (rect->bottom-rect->top)/2 - (int)floor(h*.5);
       }
     }
-
+    const int sxpos = xpos;
 
     if (LICE_FUNCTION_VALID(LICE_DrawChar)) for(x=0;x<buflen;x++)
     {
