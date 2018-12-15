@@ -2381,11 +2381,7 @@ static void passwordify(WDL_FastString **s)
   if (l>0)
   {
     static WDL_FastString tmp;
-    if (tmp.GetLength() != l)
-    {
-      tmp.SetLen(l);
-      memset((char*)tmp.Get(),'*',tmp.GetLength());
-    }
+    tmp.SetLen(l,false,'*');
     *s = &tmp;
   }
 }
