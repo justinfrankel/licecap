@@ -268,7 +268,8 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
 
   lame.set_out_samplerate(m_lamestate,outrate);
   lame.set_quality(m_lamestate,(quality>9 ||quality<0) ? 0 : quality);
-  lame.set_mode(m_lamestate,(MPEG_mode) (m_encoder_nch==1?3 :stereomode ));
+  if (m_encoder_nch == 1 || stereomode >= 0)
+    lame.set_mode(m_lamestate,(MPEG_mode) (m_encoder_nch==1?3 :stereomode ));
   lame.set_brate(m_lamestate,bitrate);
   
   //int vbrmethod (-1 no vbr), int vbrquality (nVBRQuality), int vbrmax, int abr
