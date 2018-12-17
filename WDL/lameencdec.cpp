@@ -315,7 +315,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       for (x = 0; x < in_spls; x ++)
       {
         float f=in[pos]+in[pos+1];
-        f*=16383.5f;
+        f*=16384.0f;
         spltmp[0].Add(&f,sizeof(float));
         pos+=adv;
       }
@@ -328,11 +328,11 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       for (x = 0; x < in_spls; x ++)
       {
         float f=in[pos];
-        f*=32767.0f;
+        f*=32768.0f;
         spltmp[0].Add(&f,sizeof(float));
 
         f=in[pos+1];
-        f*=32767.0f;
+        f*=32768.0f;
         spltmp[1].Add(&f,sizeof(float));
 
         pos+=adv;
@@ -345,7 +345,7 @@ void LameEncoder::Encode(float *in, int in_spls, int spacing)
       for (x = 0; x < in_spls; x ++)
       {
         float f=in[pos];
-        f*=32767.0f;
+        f*=32768.0f;
         spltmp[0].Add(&f,sizeof(float));
 
         pos+=spacing;
