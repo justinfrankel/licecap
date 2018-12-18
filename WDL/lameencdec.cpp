@@ -85,6 +85,7 @@ static struct {
   int (*set_VBR_max_bitrate_kbps)(lame_t, int);
   size_t (*get_lametag_frame)(lame_t, unsigned char *, size_t);
   const char *(*get_lame_version)();
+  int (*set_findReplayGain)(lame_t, int);
 } lame;
 
 #if 1
@@ -135,6 +136,7 @@ static bool tryLoadDLL2(const char *name)
   GETITEM(set_VBR_min_bitrate_kbps)
   GETITEM(set_VBR_max_bitrate_kbps)
   GETITEM(get_lametag_frame)
+  GETITEM(set_findReplayGain)
   GETITEM_NP(get_lame_version)
   #undef GETITEM   
   #undef GETITEM_NP
@@ -238,7 +240,7 @@ int LameEncoder::CheckDLL() // returns 1 for lame API, 2 for Blade, 0 for none
 
 }
 
-LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int quality, int vbrmethod, int vbrquality, int vbrmax, int abr)
+LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int quality, int vbrmethod, int vbrquality, int vbrmax, int abr, int rpgain)
 {
   m_lamestate=0;
   if (!CheckDLL())
@@ -294,6 +296,8 @@ LameEncoder::LameEncoder(int srate, int nch, int bitrate, int stereomode, int qu
       lame.set_VBR_min_bitrate_kbps(m_lamestate,bitrate);
     }
   }
+  if (rpgain>0 && lame.set_findReplayGain) lame.set_findReplayGain(m_lamestate,1);
+
   lame.init_params(m_lamestate);
   in_size_samples=lame.get_framesize(m_lamestate);
 
