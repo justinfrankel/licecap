@@ -202,6 +202,7 @@ public:
   void resetVarsToStock()
   {
     if (m_gfx_a&&m_gfx_r&&m_gfx_g&&m_gfx_b) *m_gfx_r=*m_gfx_g=*m_gfx_b=*m_gfx_a=1.0;
+    if (m_gfx_a2) *m_gfx_a2=1.0;
     if (m_gfx_dest) *m_gfx_dest=-1.0;
     if (m_mouse_wheel) *m_mouse_wheel=0.0;
     if (m_mouse_hwheel) *m_mouse_hwheel=0.0;
@@ -250,7 +251,7 @@ public:
   }
 
   // R, G, B, A, w, h, x, y, mode(1=add,0=copy)
-  EEL_F *m_gfx_r, *m_gfx_g, *m_gfx_b, *m_gfx_w, *m_gfx_h, *m_gfx_a, *m_gfx_x, *m_gfx_y, *m_gfx_mode, *m_gfx_clear, *m_gfx_texth,*m_gfx_dest;
+  EEL_F *m_gfx_r, *m_gfx_g, *m_gfx_b, *m_gfx_w, *m_gfx_h, *m_gfx_a, *m_gfx_x, *m_gfx_y, *m_gfx_mode, *m_gfx_clear, *m_gfx_texth,*m_gfx_dest, *m_gfx_a2;
   EEL_F *m_mouse_x, *m_mouse_y, *m_mouse_cap, *m_mouse_wheel, *m_mouse_hwheel;
   EEL_F *m_gfx_ext_retina;
 
@@ -352,6 +353,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   m_gfx_g = NSEEL_VM_regvar(vm,"gfx_g");
   m_gfx_b = NSEEL_VM_regvar(vm,"gfx_b");
   m_gfx_a = NSEEL_VM_regvar(vm,"gfx_a");
+  m_gfx_a2 = NSEEL_VM_regvar(vm,"gfx_a2");
 
   m_gfx_w = NSEEL_VM_regvar(vm,"gfx_w");
   m_gfx_h = NSEEL_VM_regvar(vm,"gfx_h");
@@ -429,10 +431,12 @@ LICE_pixel eel_lice_state::getCurColor()
   int red=(int) (*m_gfx_r*255.0);
   int green=(int) (*m_gfx_g*255.0);
   int blue=(int) (*m_gfx_b*255.0);
+  int a2=(int) (*m_gfx_a2*255.0);
   if (red<0) red=0;else if (red>255)red=255;
   if (green<0) green=0;else if (green>255)green=255;
   if (blue<0) blue=0; else if (blue>255) blue=255;
-  return LICE_RGBA(red,green,blue,255);
+  if (a2<0) a2=0; else if (a2>255) a2=255;
+  return LICE_RGBA(red,green,blue,a2);
 }
 
 
@@ -1390,6 +1394,7 @@ void eel_lice_state::gfx_set(int np, EEL_F **parms)
   if (m_gfx_a) *m_gfx_a = np > 3 ? parms[3][0] : 1.0;
   if (m_gfx_mode) *m_gfx_mode = np > 4 ? parms[4][0] : 0;
   if (np > 5 && m_gfx_dest) *m_gfx_dest = parms[5][0];
+  if (m_gfx_a2) *m_gfx_a2 = np > 6 ? parms[6][0] : 1.0;
 }
 
 void eel_lice_state::gfx_getpixel(EEL_F *r, EEL_F *g, EEL_F *b)
@@ -2764,10 +2769,10 @@ static const char *eel_lice_function_reference =
 #endif
   "gfx_aaaaa\t\t"
   "The following global variables are special and will be used by the graphics system:\n\n\3"
-  "\4gfx_r, gfx_g, gfx_b, gfx_a - These represent the current red, green, blue, and alpha components used by drawing operations (0.0..1.0). \n"
+  "\4gfx_r, gfx_g, gfx_b, gfx_a2 - These represent the current red, green, blue, and alpha components used by drawing operations (0.0..1.0). gfx_a2 is the value written to the alpha channel when writing solid colors (normally ignored but useful when creating transparent images)\n"
+  "\4gfx_a, gfx_mode - Alpha and blend mode for drawing. Set mode to 0 for default options. Add 1.0 for additive blend mode (if you wish to do subtractive, set gfx_a to negative and use gfx_mode as additive). Add 2.0 to disable source alpha for gfx_blit(). Add 4.0 to disable filtering for gfx_blit(). \n"
   "\4gfx_w, gfx_h - These are set to the current width and height of the UI framebuffer. \n"
   "\4gfx_x, gfx_y - These set the \"current\" graphics position in x,y. You can set these yourselves, and many of the drawing functions update them as well. \n"
-  "\4gfx_mode - Set to 0 for default options. Add 1.0 for additive blend mode (if you wish to do subtractive, set gfx_a to negative and use gfx_mode as additive). Add 2.0 to disable source alpha for gfx_blit(). Add 4.0 to disable filtering for gfx_blit(). \n"
   "\4gfx_clear - If set to a value greater than -1.0, this will result in the framebuffer being cleared to that color. the color for this one is packed RGB (0..255), i.e. red+green*256+blue*65536. The default is 0 (black). \n"
   "\4gfx_dest - Defaults to -1, set to 0.." EEL_LICE_DOC_MAXHANDLE " to have drawing operations go to an offscreen buffer (or loaded image).\n"
   "\4gfx_texth - Set to the height of a line of text in the current font. Do not modify this variable.\n"
@@ -2861,7 +2866,7 @@ static const char *eel_lice_function_reference =
   "gfx_triangle\tx1,y1,x2,y2,x3,y3[x4,y4...]\tDraws a filled triangle, or any convex polygon. \0"
   "gfx_roundrect\tx,y,w,h,radius[,antialias]\tDraws a rectangle with rounded corners. \0"
   "gfx_arc\tx,y,r,ang1,ang2[,antialias]\tDraws an arc of the circle centered at x,y, with ang1/ang2 being specified in radians.\0"
-  "gfx_set\tr[,g,b,a,mode,dest]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode, sets gfx_dest if final parameter specified\0"
+  "gfx_set\tr[,g,b,a,mode,dest,a2]\tSets gfx_r/gfx_g/gfx_b/gfx_a/gfx_mode/gfx_a2, sets gfx_dest if final parameter specified\0"
   "gfx_getdropfile\tidx[,#str]\tEnumerates any drag/dropped files. call gfx_dropfile(-1) to clear the list when finished. Returns 1 if idx is valid, 0 if idx is out of range.\0"
 
 #ifdef EEL_LICE_WANT_STANDALONE
