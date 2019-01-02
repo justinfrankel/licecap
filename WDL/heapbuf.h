@@ -288,7 +288,7 @@ template<class PTRTYPE> class WDL_TypedBuf
         {
           p+=sz;
           if (buf) memcpy(p,buf,bufsz*sizeof(PTRTYPE));
-          else memset(p,0,bufsz*sizeof(PTRTYPE));
+          else memset((char*)p,0,bufsz*sizeof(PTRTYPE));
           return p;
         }
       }
@@ -302,7 +302,7 @@ template<class PTRTYPE> class WDL_TypedBuf
         if (p)
         {
           if (buf) memcpy(p,buf,bufsz*sizeof(PTRTYPE));
-          else memset(p,0,bufsz*sizeof(PTRTYPE));
+          else memset((char*)p,0,bufsz*sizeof(PTRTYPE));
           return p;
         }
       }
