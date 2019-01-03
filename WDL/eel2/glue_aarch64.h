@@ -164,7 +164,17 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 
 #ifndef _MSC_VER
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
+#define GLUE_CALL_CODE(bp, cp, rt) do { \
+  unsigned int f; \
+  if (!(h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) && \
+      !((f=glue_getscr())&(1<<24))) {  \
+    glue_setscr(f|(1<<24)); \
+    eel_callcode64(bp, cp, rt); \
+    glue_setscr(f); \
+  } else eel_callcode64(bp, cp, rt);\
+  } while(0)
+
+static void eel_callcode64(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
 {
  //fwrite((void *)cp,4,20,stdout);
  //return;
@@ -291,6 +301,35 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   *size = p - (unsigned char *)fn;
   return fn;
 }
+
+
+static unsigned int __attribute__((unused)) glue_getscr()
+{
+  unsigned int rv;
+  asm volatile ( "mrs %0, fpcr" : "=r" (rv));
+  return rv;
+}
+static void  __attribute__((unused)) glue_setscr(unsigned int v)
+{
+  asm volatile ( "msr fpcr, %0" :: "r"(v));
+}
+
+void eel_setfp_round() 
+{ 
+}
+void eel_setfp_trunc() 
+{ 
+}
+void eel_enterfp(int s[2]) 
+{
+  s[0] = glue_getscr();
+  glue_setscr(s[0] | (1<<24));
+}
+void eel_leavefp(int s[2]) 
+{
+  glue_setscr(s[0]);
+}
+
 
 
 #endif

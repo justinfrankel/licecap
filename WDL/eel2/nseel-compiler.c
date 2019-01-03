@@ -5688,7 +5688,7 @@ void NSEEL_VM_set_var_resolver(NSEEL_VMCTX _ctx, EEL_F *(*res)(void *userctx, co
 }
 
 
-#if defined(__ppc__) || defined(__aarch64__) || defined(EEL_TARGET_PORTABLE)
+#if defined(__ppc__) || defined(EEL_TARGET_PORTABLE)
   // blank stubs 
   void eel_setfp_round() { }
   void eel_setfp_trunc() { }
