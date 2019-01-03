@@ -58,17 +58,25 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
   #else
     #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11)) // FTZ and underflow only (target SSE2)
   #endif
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__aarch64__)
   #define WDL_DENORMAL_FTZMODE
   static unsigned int __attribute__((unused)) wdl_denorm_mm_getcsr()
   {
     unsigned int rv;
+#ifdef __aarch64__
+    asm volatile ( "mrs %0, fpcr" : "=r" (rv));
+#else
     asm volatile ( "fmrx %0, fpscr" : "=r" (rv));
+#endif
     return rv;
   }
   static void  __attribute__((unused)) wdl_denorm_mm_setcsr(unsigned int v)
   {
+#ifdef __aarch64__
+    asm volatile ( "msr fpcr, %0" :: "r"(v));
+#else
     asm volatile ( "fmxr fpscr, %0" :: "r"(v));
+#endif
   }
   #define wdl_denorm_mm_csr_mask (1<<24)
 #endif
