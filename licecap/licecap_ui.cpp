@@ -1787,6 +1787,32 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       }
     break;
+#ifndef _WIN32
+    // win32 uses WM_NCHITTEST
+    case WM_LBUTTONDOWN:
+      SetCapture(hwndDlg);
+      GetCursorPos(&s_last_mouse);
+    break;
+    case WM_MOUSEMOVE:
+      if (GetCapture()==hwndDlg)
+      {
+        POINT p;
+        GetCursorPos(&p);
+        int dx= p.x - s_last_mouse.x;
+        int dy= p.y - s_last_mouse.y;
+        if (dx||dy)
+        {
+          s_last_mouse=p;
+          RECT r;
+          GetWindowRect(hwndDlg,&r);
+          SetWindowPos(hwndDlg,NULL,r.left+dx,r.top+dy,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
+        }
+      }
+    break;
+    case WM_LBUTTONUP:
+      ReleaseCapture();
+    break;
+#endif
     case WM_MOVE:
       //g_skip_capture_until = timeGetTime()+30;
     break;
