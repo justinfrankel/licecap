@@ -48,25 +48,17 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
   if (len == 17 && !strnicmp(tokStart,"__denormal_likely",17)) return SYNTAX_FUNC;
   if (len == 19 && !strnicmp(tokStart,"__denormal_unlikely",19)) return SYNTAX_FUNC;
 
+  char buf[512];
+  lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
   if (m_added_funclist)
   {
-    char buf[512];
-    lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
     char **r=m_added_funclist->GetPtr(buf);
     if (r) return *r ? SYNTAX_FUNC : SYNTAX_REGVAR;
   }
 
   NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-  int x; 
-  for(x=0;;x++)
-  {
-    functionType *f = nseel_getFunctionFromTableEx((compileContext*)vm,x);
-    if (!f) break;
-    if (f && !strnicmp(tokStart,f->name,len) && (int)strlen(f->name) == len)
-    {
-      return SYNTAX_FUNC;
-    }
-  }
+  if (nseel_getFunctionByName((compileContext*)vm,buf,NULL)) return SYNTAX_FUNC;
+
   return A_NORMAL;
 }
 
@@ -749,6 +741,49 @@ static bool eel_sh_get_matching_pos_for_pos(WDL_PtrList<WDL_FastString> *text, i
 
   if (!is_after && hit_tok && (hit_tok->get_c() == '"' || hit_tok->get_c() == '\'' || hit_tok->is_comment()))
   {
+    eel_sh_token tok = *hit_tok; // save a copy, toklist might get destroyed recursively here
+    hit_tok = &tok;
+
+    //if (tok.get_c() == '"')
+    {
+      // the user could be editing code in code, tokenize it and see if we can make sense of it
+      WDL_FastString start, end;
+      WDL_PtrList<WDL_FastString> tmplist;
+      WDL_FastString *s = text->Get(tok.line);
+      if (s && s->GetLength() > tok.col+1)
+      {
+        int maxl = tok.get_linecnt()>0 ? 0 : tok.end_col - tok.col - 2;
+        start.Set(s->Get() + tok.col+1, maxl);
+      }
+      tmplist.Add(&start);
+      const int linecnt = tok.get_linecnt();
+      if (linecnt>0)
+      {
+        for (int a=1; a < linecnt; a ++)
+        {
+          s = text->Get(tok.line + a);
+          if (s) tmplist.Add(s);
+        }
+        s = text->Get(tok.line + linecnt);
+        if (s)
+        {
+          if (tok.end_col>1) end.Set(s->Get(), tok.end_col-1);
+          tmplist.Add(&end);
+        }
+      }
+
+      int lx = curx, ly = cury - tok.line;
+      if (cury == tok.line) lx -= (tok.col+1);
+
+      // this will destroy the token 
+      if (eel_sh_get_matching_pos_for_pos(&tmplist, lx, ly, newx, newy, errmsg, editor))
+      {
+        *newy += tok.line;
+        if (cury == tok.line) *newx += tok.col + 1;
+        return true;
+      }
+    }
+
     // if within a string or comment, move to start, unless already at start, move to end
     if (cury == hit_tok->line && curx == hit_tok->col)
     {
@@ -943,16 +978,12 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
   {
     peek_lock();
     NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-    for (int x=0;;x++)
+    functionType *f = nseel_getFunctionByName((compileContext*)vm,name,NULL);
+    if (f)
     {
-      functionType *f = nseel_getFunctionFromTableEx((compileContext*)vm,x);
-      if (!f) break;
-      if (f && !stricmp(name,f->name))
-      {
-        snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
-        peek_unlock();
-        return 1;
-      }
+      snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
+      peek_unlock();
+      return 1;
     }
     peek_unlock();
   }

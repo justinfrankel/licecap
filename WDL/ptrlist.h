@@ -51,7 +51,7 @@ template<class PTRTYPE> class WDL_PtrList
     PTRTYPE *Get(INT_PTR index) const 
     { 
       PTRTYPE **list = (PTRTYPE**)m_hb.Get(); 
-      if (list && index >= 0 && index < (INT_PTR)(m_hb.GetSize()/sizeof(PTRTYPE *))) return list[index]; 
+      if (list && (UINT_PTR)index < (UINT_PTR)(m_hb.GetSize()/sizeof(PTRTYPE *))) return list[index]; 
       return NULL; 
     }
 

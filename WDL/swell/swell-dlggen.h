@@ -150,6 +150,7 @@ struct SWELL_DlgResourceEntry
 #define TBS_BOTH 0
 #define LBS_NOINTEGRALHEIGHT 0
 #define TVS_HASLINES 0
+#define TVS_LINESATROOT 0
 #define TVS_SHOWSELALWAYS 0
 #define TVS_HASBUTTONS 0
 #define BS_FLAT 0
@@ -162,8 +163,10 @@ struct SWELL_DlgResourceEntry
 #define WS_EX_RIGHT 0
 #define SS_CENTERIMAGE 0                                       
 #define SS_NOPREFIX 0
-                     
-                                       
+
+// more ignore flags for vc11+
+#define LVS_ALIGNLEFT 0 /* 0x0800 */
+
 #ifndef IDC_STATIC
 #define IDC_STATIC 0
 #endif

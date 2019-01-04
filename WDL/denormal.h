@@ -39,6 +39,80 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 #define WDL_DENORMAL_FLOAT_AGGRESSIVE_CUTOFF 0x25000000
 
 
+// define WDL_DENORMAL_WANTS_SCOPED_FTZ, and then use a WDL_denormal_ftz_scope in addition to denormal_*(), then 
+// if FTZ is available it will be used instead...
+//
+#ifdef WDL_DENORMAL_WANTS_SCOPED_FTZ
+
+#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+  #define WDL_DENORMAL_FTZMODE
+  #ifdef _MSC_VER
+    #include <intrin.h>
+  #else
+    #include <xmmintrin.h>
+  #endif
+  #define wdl_denorm_mm_getcsr() _mm_getcsr() 
+  #define wdl_denorm_mm_setcsr(x) _mm_setcsr(x) 
+  #if defined(__SSE3__)
+    #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11) | (1<<8) | (1<<6)) // FTZ, underflow, denormal mask, DAZ  
+  #else
+    #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11)) // FTZ and underflow only (target SSE2)
+  #endif
+#elif defined(__arm__) || defined(__aarch64__)
+  #define WDL_DENORMAL_FTZMODE
+  static unsigned int __attribute__((unused)) wdl_denorm_mm_getcsr()
+  {
+    unsigned int rv;
+#ifdef __aarch64__
+    asm volatile ( "mrs %0, fpcr" : "=r" (rv));
+#else
+    asm volatile ( "fmrx %0, fpscr" : "=r" (rv));
+#endif
+    return rv;
+  }
+  static void  __attribute__((unused)) wdl_denorm_mm_setcsr(unsigned int v)
+  {
+#ifdef __aarch64__
+    asm volatile ( "msr fpcr, %0" :: "r"(v));
+#else
+    asm volatile ( "fmxr fpscr, %0" :: "r"(v));
+#endif
+  }
+  #define wdl_denorm_mm_csr_mask (1<<24)
+#endif
+
+class WDL_denormal_ftz_scope 
+{
+  public:
+    WDL_denormal_ftz_scope()
+    {
+#ifdef WDL_DENORMAL_FTZMODE
+      const unsigned int b = wdl_denorm_mm_csr_mask;
+      old_state = wdl_denorm_mm_getcsr();
+      if ((need_restore = (old_state & b) != b))
+          wdl_denorm_mm_setcsr(old_state|b);
+#endif
+    }
+    ~WDL_denormal_ftz_scope()
+    {
+#ifdef WDL_DENORMAL_FTZMODE
+      if (need_restore) wdl_denorm_mm_setcsr(old_state);
+#endif
+    }
+
+#ifdef WDL_DENORMAL_FTZMODE
+    unsigned int old_state;
+    bool need_restore;
+#endif
+
+};
+
+
+#endif
+
+
+#if !defined(WDL_DENORMAL_FTZMODE) && !defined(WDL_DENORMAL_DO_NOT_FILTER)
+
 static double WDL_DENORMAL_INLINE denormal_filter_double(double a)
 {
   return (WDL_DENORMAL_DOUBLE_HW(&a)&0x7ff00000) ? a : 0.0;
@@ -132,8 +206,24 @@ static void WDL_DENORMAL_INLINE denormal_fix_aggressive(float *a)
 
 
 #endif // cplusplus versions
- 
 
+#else // end of !WDL_DENORMAL_DO_NOT_FILTER (and other platform-specific checks)
+
+#define denormal_filter_double(x) (x)
+#define denormal_filter_double2(x) (x)
+#define denormal_filter_double_aggressive(x) (x)
+#define denormal_filter_float(x) (x)
+#define denormal_filter_float2(x) (x)
+#define denormal_filter_float_aggressive(x) (x)
+#define denormal_filter_aggressive(x) (x)
+#define denormal_fix(x) do { } while(0)
+#define denormal_fix_aggressive(x) do { } while(0)
+#define denormal_fix_double(x) do { } while(0)
+#define denormal_fix_double_aggressive(x) do { } while(0)
+#define denormal_fix_float(x) do { } while(0)
+#define denormal_fix_float_aggressive(x) do { } while(0)
+
+#endif 
 
 
 ////////////////////

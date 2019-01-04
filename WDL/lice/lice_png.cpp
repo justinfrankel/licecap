@@ -184,11 +184,20 @@ LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp)
   if (!buf[0]) return 0;
   strcat(buf,"/Contents/Resources/");
 #else  
-  char tmp[64];
-  sprintf(tmp,"/proc/%d/exe",getpid());
-  int sz = readlink(tmp, buf, sizeof(buf)-512);  
-  if (sz<0) sz=0;
-  else if (sz >= sizeof(buf)-512) sz = sizeof(buf)-512-1;
+  int sz = readlink("/proc/self/exe", buf, sizeof(buf)-512);  
+  if (sz < 1)
+  {
+    static char tmp;
+    // this will likely not work if the program was launched with a relative path 
+    // and the cwd has changed, but give it a try anyway
+    Dl_info inf={0,};
+    if (dladdr(&tmp,&inf) && inf.dli_fname) 
+      sz = (int) strlen(inf.dli_fname);
+    else
+      sz = 0;
+  }
+
+  if ((unsigned int)sz >= sizeof(buf)-512) sz = sizeof(buf)-512-1;
   buf[sz]=0;
   char *p = buf;
   while (*p) p++;
@@ -309,10 +318,10 @@ LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitm
   free(row_pointers);
   return bmp;  
 }
-LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp)
+LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp)
 {
 #ifdef _WIN32
-  HRSRC hResource = FindResource(hInst, MAKEINTRESOURCE(resid), "PNG");
+  HRSRC hResource = FindResource(hInst, resid, "PNG");
   if(!hResource) return NULL;
 
   DWORD imageSize = SizeofResource(hInst, hResource);

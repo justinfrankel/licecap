@@ -108,10 +108,10 @@ typedef struct _codeHandleFunctionRec
   struct _codeHandleFunctionRec *next; // main linked list (only used for high level functions)
   struct _codeHandleFunctionRec *derivedCopies; // separate linked list, head being the main function, other copies being derived versions
 
-  void *startptr; // compiled code (may be cleared + recompiled when shraed)
+  void *startptr; // compiled code (may be cleared + recompiled when shared)
   opcodeRec *opcodes;
 
-  int startptr_size; 
+  int startptr_size;  // 0=no code. -1 = needs calculation. >0 = size.
   int tmpspace_req;
     
   int num_params;
@@ -157,17 +157,36 @@ typedef struct {
   void *ramPtr;
 
   int workTable_size; // size (minus padding/extra space) of workTable -- only used if EEL_VALIDATE_WORKTABLE_USE set, but might be handy to have around too
+  int compile_flags;
 } codeHandleType;
 
+typedef struct
+{
+  EEL_F *value;
+  int refcnt;
+  char isreg;
+  char str[1];
+} varNameRec;
 
+typedef struct 
+{
+  void *ptr;
+  int size, alloc;
+} eel_growbuf;
+#define EEL_GROWBUF(type) union { eel_growbuf _growbuf; type *_tval; }
+#define EEL_GROWBUF_RESIZE(gb, newsz) __growbuf_resize(&(gb)->_growbuf, (newsz)*(int)sizeof((gb)->_tval[0])) // <0 to free, does not realloc down otherwise
+#define EEL_GROWBUF_GET(gb) ((gb)->_tval)
+#define EEL_GROWBUF_GET_SIZE(gb) ((gb)->_growbuf.size/(int)sizeof((gb)->_tval[0]))
 
 typedef struct _compileContext
 {
   eel_function_table *registered_func_tab;
+  const char *(*func_check)(const char *fn_name, void *user); // return error message if not permitted
+  void *func_check_user;
 
-  EEL_F **varTable_Values;
-  char   ***varTable_Names;
-  int varTable_numBlocks;
+  EEL_GROWBUF(varNameRec *) varNameList;
+  EEL_F *varValueStore;
+  int varValueStore_left;
 
   int errVar,gotEndOfInput;
   opcodeRec *result;
@@ -190,6 +209,7 @@ typedef struct _compileContext
 
   // state used while generating functions
   int optimizeDisableFlags;
+  int current_compile_flags;
   struct opcodeRec *directValueCache; // linked list using fn as next
 
   int isSharedFunctions;
@@ -206,6 +226,9 @@ typedef struct _compileContext
 
   EEL_F (*onString)(void *caller_this, struct eelStringSegmentRec *list);
   EEL_F (*onNamedString)(void *caller_this, const char *name);
+
+  EEL_F *(*getVariable)(void *userctx, const char *name);
+  void *getVariable_userctx;
 
   codeHandleType *tmpCodeHandle;
   
@@ -227,8 +250,6 @@ typedef struct _compileContext
 }
 compileContext;
 
-#define NSEEL_VARS_PER_BLOCK 64
-
 #define NSEEL_NPARAMS_FLAG_CONST 0x80000
 typedef struct functionType {
       const char *name;
@@ -239,15 +260,7 @@ typedef struct functionType {
       NSEEL_PPPROC pProc;
 } functionType;
 
-
-typedef struct
-{
-  int refcnt;
-  char isreg;
-} varNameHdr;
-
-functionType *nseel_getFunctionFromTable(int idx);
-functionType *nseel_getFunctionFromTableEx(compileContext *ctx, int idx);
+functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int *mchk); // sets mchk (if non-NULL) to how far allowed to scan forward for duplicate names
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr);

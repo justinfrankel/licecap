@@ -14,20 +14,17 @@ OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nse
 OBJS2=
 
 UNAME_S := $(shell uname -s)
+ARCH := $(shell uname -m)
 
 ifeq ($(UNAME_S),Darwin)
-  ifdef ARCH
-    CFLAGS += -arch $(ARCH)
-  else
-    ARCH = i686
-    CFLAGS += -arch i386
-  endif
-else
-  ARCH := $(shell uname -m)
+  CFLAGS += -arch $(ARCH)
 endif
 
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char -mfpu=vfp -march=armv6t2 -marm
+endif
+ifeq ($(ARCH),aarch64)
+  CFLAGS += -fsigned-char
 endif
 
 ifndef ALLOW_WARNINGS
@@ -57,6 +54,10 @@ else
   CFLAGS += -DNSEEL_LOOPFUNC_SUPPORT_MAXLEN=0
 endif
 
+ifdef DISASSEMBLE
+  CFLAGS += -DEELSCRIPT_DO_DISASSEMBLE
+endif
+
 ifndef NO_GFX
     OBJS += lice.o lice_image.o lice_line.o lice_ico.o lice_bmp.o lice_textnew.o lice_text.o lice_arc.o
     CFLAGS += -DEEL_LICE_WANT_STANDALONE 
@@ -67,7 +68,7 @@ ifndef NO_GFX
     LFLAGS += -lobjc -framework Cocoa -framework Carbon
   else
 
-    CFLAGS += -DSWELL_LICE_GDI
+    CFLAGS += -DSWELL_LICE_GDI -DSWELL_EXTRA_MINIMAL
     ifdef GDK2
       CFLAGS += -DSWELL_TARGET_GDK=2 $(shell pkg-config --cflags gdk-2.0)
       LFLAGS += $(shell pkg-config --libs gdk-2.0) -lX11 -lXi
@@ -117,4 +118,4 @@ loose_eel: loose_eel.o $(OBJS) $(OBJS2)
 	g++ -o $@ $^ $(CXXFLAGS) $(LFLAGS)
 
 clean:
-	-rm loose_eel loose_eel.o $(OBJS)
+	-rm loose_eel loose_eel.o $(OBJS) 

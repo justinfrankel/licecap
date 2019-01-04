@@ -18,13 +18,13 @@ public:
   { 
     const unsigned char mask = 1<<(idx&7);
     idx>>=3;
-    return idx < m_hb.GetSize() && (((unsigned char *)m_hb.Get())[idx]&mask);
+    return idx < (unsigned int)m_hb.GetSize() && (((unsigned char *)m_hb.Get())[idx]&mask);
   }
   void Set(unsigned int idx)
   {
     const unsigned char mask = 1<<(idx&7);
     idx>>=3;
-    if (idx < m_hb.GetSize()) ((unsigned char *)m_hb.Get())[idx] |= mask;
+    if (idx < (unsigned int)m_hb.GetSize()) ((unsigned char *)m_hb.Get())[idx] |= mask;
   }
 
 private:

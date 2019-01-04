@@ -141,6 +141,7 @@ class eelScriptInst {
       char *str;
       NSEEL_CODEHANDLE ch;
     };
+    int m_eval_depth;
     WDL_TypedBuf<evalCacheEnt> m_eval_cache;
     virtual char *evalCacheGet(const char *str, NSEEL_CODEHANDLE *ch);
     virtual void evalCacheDispose(char *key, NSEEL_CODEHANDLE ch);
@@ -212,6 +213,9 @@ class eelScriptInst {
   #define EEL_EVAL_GET_CACHED(str, ch) ((eelScriptInst *)opaque)->evalCacheGet(str,&(ch))
   #define EEL_EVAL_SET_CACHED(str, ch) ((eelScriptInst *)opaque)->evalCacheDispose(str,ch)
   #define EEL_EVAL_GET_VMCTX(opaque) (((eelScriptInst *)opaque)->m_vm)
+  #define EEL_EVAL_SCOPE_ENTER (((eelScriptInst *)opaque)->m_eval_depth < 3 ? \
+                                 ++((eelScriptInst *)opaque)->m_eval_depth : 0)
+  #define EEL_EVAL_SCOPE_LEAVE ((eelScriptInst *)opaque)->m_eval_depth--;
   #include "eel_eval.h"
 
 static EEL_F NSEEL_CGEN_CALL _eel_defer(void *opaque, EEL_F *s)
@@ -298,6 +302,9 @@ eelScriptInst::eelScriptInst() : m_loaded_fnlist(false)
   m_gfx_state = new eel_lice_state(m_vm,this,EELSCRIPT_LICE_MAX_IMAGES,EELSCRIPT_LICE_MAX_FONTS);
 
   m_gfx_state->resetVarsToStock();
+#endif
+#ifndef EELSCRIPT_NO_EVAL
+  m_eval_depth=0;
 #endif
 }
 
@@ -390,6 +397,38 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
     {
       if (code)
       {
+#ifdef EELSCRIPT_DO_DISASSEMBLE
+        codeHandleType *p = (codeHandleType*)code;
+
+        char buf[512];
+        buf[0]=0;
+#ifdef _WIN32
+        GetTempPath(sizeof(buf)-64,buf);
+        lstrcatn(buf,"jsfx-out",sizeof(buf));
+#else
+        lstrcpyn_safe(buf,"/tmp/jsfx-out",sizeof(buf));
+#endif
+        FILE *fp = fopen(buf,"wb");
+        if (fp)
+        {
+          fwrite(p->code,1,p->code_size,fp);
+          fclose(fp);
+          char buf2[2048];
+#ifdef _WIN32
+          snprintf(buf2,sizeof(buf2),"disasm \"%s\"",buf);
+#else
+  #ifdef __aarch64__
+          snprintf(buf2,sizeof(buf2), "objdump -D -b binary -maarch64 \"%s\"",buf);
+  #elif defined(__LP64__)
+          snprintf(buf2,sizeof(buf2),"distorm3 --b64 \"%s\"",buf);
+  #else
+          snprintf(buf2,sizeof(buf2),"distorm3 --b32 \"%s\"",buf);
+  #endif
+#endif
+          system(buf2);
+        }
+#endif
+
         if (doExec) NSEEL_code_execute(code);
         if (canfree) NSEEL_code_free(code);
         else m_code_freelist.Add((void*)code);

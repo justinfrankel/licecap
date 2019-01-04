@@ -277,6 +277,12 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 #define lice_min(x,y) ((x)<(y)?(x):(y))
 #endif
 
+#ifdef _MSC_VER
+  #include <float.h>
+  #define lice_isfinite(x) _finite(x)
+#else
+  #define lice_isfinite(x) isfinite(x)
+#endif
 
 // Reaper exports most LICE functions, so the function declarations below
 // will collide with reaper_plugin.h
@@ -294,19 +300,19 @@ bool LICE_ImageIsSupported(const char *filename);  // must be a filename that en
 // pass a bmp if you wish to load it into that bitmap. note that if it fails bmp will not be deleted.
 LICE_IBitmap *LICE_LoadPNG(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 LICE_IBitmap *LICE_LoadPNGFromMemory(const void *data_in, int buflen, LICE_IBitmap *bmp=NULL);
-LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadPNGFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 #ifndef _WIN32
 LICE_IBitmap *LICE_LoadPNGFromNamedResource(const char *name, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 #endif
 
 LICE_IBitmap *LICE_LoadBMP(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
-LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, int resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadBMPFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
 LICE_IBitmap *LICE_LoadIcon(const char *filename, int reqiconsz=16, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
-LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, int resid, int reqiconsz=16, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
+LICE_IBitmap *LICE_LoadIconFromResource(HINSTANCE hInst, const char *resid, int reqiconsz=16, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
 LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp=NULL);
-LICE_IBitmap* LICE_LoadJPGFromResource(HINSTANCE hInst, int resid, LICE_IBitmap* bmp = 0);
+LICE_IBitmap* LICE_LoadJPGFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap* bmp = 0);
 
 LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nframes=NULL); // if nframes set, will be set to number of images (stacked vertically), otherwise first frame used
 
@@ -482,20 +488,20 @@ void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, cons
 
 // quadratic bezier
 // tol means try to draw segments no longer than tol px
-void LICE_DrawQBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl, float yctl, float xend, float yend, 
-  LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, float tol=0.0); 
+void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl, double yctl, double xend, double yend, 
+  LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, double tol=0.0); 
 
 // cubic bezier
 // tol means try to draw segments no longer than tol px
-void LICE_DrawCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, float tol=0.0f); 
+void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, double tol=0.0); 
 
 // vertical fill from y=yfill
-void LICE_FillCBezier(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, int yfill, LICE_pixel color, float alpha=1.0f, int mode=0, float tol=0.0f); 
+void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, int yfill, LICE_pixel color, float alpha=1.0f, int mode=0, double tol=0.0);
 // horizontal fill from x=xfill
-void LICE_FillCBezierX(LICE_IBitmap* dest, float xstart, float ystart, float xctl1, float yctl1,
-  float xctl2, float yctl2, float xend, float yend, int xfill, LICE_pixel color, float alpha=1.0f, int mode=0, float tol=0.0f); 
+void LICE_FillCBezierX(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, int xfill, LICE_pixel color, float alpha=1.0f, int mode=0, double tol=0.0); 
 
 // convenience functions
 void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha=1.0f, int mode=0);

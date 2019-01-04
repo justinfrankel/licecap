@@ -299,6 +299,8 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   else if (!p && !parent) h->m_style |= WS_CAPTION;
   else if (parent && (!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD))) h->m_style |= WS_CHILD;
 
+  if (p) h->m_style |= p->windowTypeFlags & (WS_CLIPSIBLINGS);
+
   h->Retain();
 
   if (p)

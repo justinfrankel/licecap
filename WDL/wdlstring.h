@@ -52,7 +52,11 @@ class WDL_String
     void DeleteSub(int position, int len);
     void Insert(const char *str, int position, int maxlen=0);
     void Insert(const WDL_String *str, int position, int maxlen=0);
+    #ifdef WDL_STRING_FASTSUB_DEFINED
+    bool SetLen(int length, bool resizeDown=false, char fillchar=' '); // returns true on success
+    #else
     bool SetLen(int length, bool resizeDown=false); // returns true on success
+    #endif
     void Ellipsize(int minlen, int maxlen);
     const char *get_filepart() const; // returns whole string if no dir chars
     const char *get_fileext() const; // returns ".ext" or end of string "" if no extension
@@ -199,7 +203,11 @@ class WDL_String
       #endif
     }
 
-    bool WDL_STRING_FUNCPREFIX SetLen(int length, bool resizeDown WDL_STRING_DEFPARM(false))
+    bool WDL_STRING_FUNCPREFIX SetLen(int length, bool resizeDown WDL_STRING_DEFPARM(false)
+      #ifdef WDL_STRING_FASTSUB_DEFINED
+        , char fillchar WDL_STRING_DEFPARM(' ')
+      #endif
+        )
     {                       
       #ifdef WDL_STRING_FASTSUB_DEFINED
       int osz = m_hb.GetSize()-1;
@@ -211,7 +219,7 @@ class WDL_String
       {
         #ifdef WDL_STRING_FASTSUB_DEFINED
           const int fill = length-osz;
-          if (fill > 0) memset(b+osz,' ',fill);
+          if (fill > 0) memset(b+osz,fillchar,fill);
         #endif
         b[length]=0;
         return true;
@@ -368,7 +376,8 @@ class WDL_String
       {
         const int oldsz = m_hb.GetSize();
         const int newsz=offs+len+trailkeep+1;
-        if (newsz-oldsz > 0)
+        const int growamt = newsz-oldsz;
+        if (growamt > 0)
         {
           const char *oldb = (const char *)m_hb.Get();
           const char *newb = (const char *)m_hb.Resize(newsz,false); // resize up if necessary
@@ -385,7 +394,7 @@ class WDL_String
           newbuf[newsz-1]=0;
 
           // resize down if necessary
-          if (newsz < oldsz) m_hb.Resize(newsz,false);
+          if (growamt < 0) m_hb.Resize(newsz,false);
         }
       }
     }

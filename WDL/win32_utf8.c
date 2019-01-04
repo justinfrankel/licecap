@@ -71,6 +71,33 @@ int GetWindowTextUTF8(HWND hWnd, LPTSTR lpString, int nMaxCount)
     {
       HWND h2=FindWindowEx(hWnd,NULL,"Edit",NULL);
       if (h2) hWnd=h2;
+      else
+      {
+        // get via selection
+        int sel = (int) SendMessage(hWnd,CB_GETCURSEL,0,0);
+        if (sel>=0)
+        {
+          int len = (int) SendMessage(hWnd,CB_GETLBTEXTLEN,sel,0);
+          char *p = lpString;
+          if (len > nMaxCount-1) 
+          {
+            p = (char*)calloc(len+1,1);
+            len = nMaxCount-1;
+          }
+          lpString[0]=0;
+          if (p)
+          {
+            SendMessage(hWnd,CB_GETLBTEXT,sel,(LPARAM)p);
+            if (p!=lpString) 
+            {
+              memcpy(lpString,p,len);
+              lpString[len]=0;
+              free(p);
+            }
+            return len;
+          }
+        }
+      }
     }
 
     // prevent large values of nMaxCount from allocating memory unless the underlying text is big too
@@ -373,6 +400,20 @@ BOOL GetSaveFileNameUTF8(LPOPENFILENAME lpofn)
 #endif
   return GetOpenSaveFileNameUTF8(lpofn,TRUE);
 }
+
+BOOL SHGetSpecialFolderPathUTF8(HWND hwndOwner, LPTSTR lpszPath, int pszPathLen, int csidl, BOOL create)
+{
+  if (lpszPath AND_IS_NOT_WIN9X)
+  {
+    WCHAR tmp[4096];
+    if (SHGetSpecialFolderPathW(hwndOwner,tmp,csidl,create))
+    {
+      return WideCharToMultiByte(CP_UTF8,0,tmp,-1,lpszPath,pszPathLen,NULL,NULL) > 0;
+    }
+  }
+  return SHGetSpecialFolderPathA(hwndOwner,lpszPath,csidl,create);
+}
+
 
 #if _MSC_VER > 1700 && defined(_WIN64)
 BOOL SHGetPathFromIDListUTF8(const struct _ITEMIDLIST __unaligned *pidl, LPSTR pszPath, int pszPathLen)

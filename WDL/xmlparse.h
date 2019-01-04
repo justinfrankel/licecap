@@ -37,8 +37,9 @@ class wdl_xml_element {
     static int attr_cmp(char **a, char **b) { return strcmp(*a,*b); }
     static void attr_free(char *a) { free(a); }
   public:
-    wdl_xml_element(const char *_name, int _line, int _col) : 
-      attributes(attr_cmp,NULL,attr_free,attr_free), name(strdup(_name)), line(_line), col(_col) { }
+    wdl_xml_element(const char *_name, int _line, int _col, bool _sort_attr=true) : 
+      attributes(attr_cmp,NULL,attr_free,attr_free), name(strdup(_name)), line(_line), col(_col), 
+      m_sort_attributes(_sort_attr), m_has_discrete_close(false) { }
     ~wdl_xml_element() { free(name); elements.Empty(true); }
 
     WDL_PtrList<wdl_xml_element> elements;
@@ -47,20 +48,33 @@ class wdl_xml_element {
 
     char *name;
     int line, col;
+    bool m_sort_attributes;
+    bool m_has_discrete_close;
 
     const char *get_attribute(const char *v, const char *def=NULL) const
     {
+      if (!m_sort_attributes)
+      {
+        const int n = attributes.GetSize();
+        for (int x = 0; x < n; x ++) 
+        {
+          char *key = NULL;
+          const char *val = attributes.Enumerate(x,&key);
+          if (key && !strcmp(key,v)) return val;
+        }
+      }
       return attributes.Get((char*)v,(char*)def);
     }
 };
 
 class wdl_xml_parser {
   public:
-    wdl_xml_parser(const char *rdptr, int rdptr_len) : 
+    wdl_xml_parser(const char *rdptr, int rdptr_len, bool sort_attributes=true) : 
       element_xml(NULL), element_root(NULL), 
       m_rdptr((const unsigned char *)rdptr), m_err(NULL),
       m_rdptr_len(rdptr_len), m_line(1), m_col(0), m_lastchar(0), 
-      m_last_line(1),m_last_col(0)
+      m_last_line(1),m_last_col(0),
+      m_sort_attributes(sort_attributes)
     { 
     }
     virtual ~wdl_xml_parser() 
@@ -92,12 +106,14 @@ class wdl_xml_parser {
     int getLine() const { return m_last_line; }
     int getCol() const { return m_last_col; }
 
+
   private:
 
     WDL_HeapBuf m_tok;
     const unsigned char *m_rdptr;
     const char *m_err;
     int m_rdptr_len, m_line, m_col, m_lastchar, m_last_line,m_last_col;
+    bool m_sort_attributes;
 
     virtual int moredata(const char **dataOut) { return 0; }
 
@@ -305,7 +321,12 @@ class wdl_xml_parser {
         char *attr_name = strdup(tok);
         if (!attr_name) { m_err="malloc fail"; break; }
 
-        if (elem->attributes.Get(attr_name)) { m_err="attribute specified more than once"; break; }
+        if (m_sort_attributes && 
+            elem->attributes.Get(attr_name)) 
+        { 
+          m_err="attribute specified more than once"; 
+          break; 
+        }
 
         tok = get_tok();
         if (!tok) break;
@@ -324,7 +345,11 @@ class wdl_xml_parser {
         memcpy(value,tok+1,tok_len-2);
         value[tok_len-2]=0;
 
-        elem->attributes.Insert(attr_name,value);
+        if (m_sort_attributes)
+          elem->attributes.Insert(attr_name,value);
+        else
+          elem->attributes.AddUnsorted(attr_name,value);
+
         attr_name = NULL;
       }
       free(attr_name);
@@ -451,7 +476,7 @@ class wdl_xml_parser {
           {
             if (elem || cnt || element_xml) return "<?xml must begin document";
 
-            element_xml = new wdl_xml_element("xml",start_line,start_col);
+            element_xml = new wdl_xml_element("xml",start_line,start_col,m_sort_attributes);
             tok = parse_element_attributes(element_xml);
             if (!tok || tok[0] != '?' || !(tok=get_tok(true)) || tok[0] != '>')
               return "<?xml not terminated";
@@ -479,6 +504,7 @@ class wdl_xml_parser {
           tok = get_tok();
           if (!tok || tok[0] != '>') return "expected > following </tag";
           // done!
+          elem->m_has_discrete_close = true;
           return NULL;
         }
         else
@@ -486,7 +512,7 @@ class wdl_xml_parser {
           if (*tok == '-' || *tok == '.' || (*tok >= '0' && *tok <= '9'))
             return "element name must not begin with .- or number";
 
-          wdl_xml_element *sub = new wdl_xml_element(tok,start_line,start_col);
+          wdl_xml_element *sub = new wdl_xml_element(tok,start_line,start_col,m_sort_attributes);
           if (elem) elem->elements.Add(sub);
           else element_root = sub;
 

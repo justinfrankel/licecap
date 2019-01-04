@@ -1106,7 +1106,7 @@ __attribute__((naked)) void _asm_megabuf(void)
     "ftouizd s0, d0\n"
     "fmrs r3, s0\n" //  r3 is slot index
     "mov r2, r3, asr %0\n" 
-    "bic r2, r2, #7\n"  // r2 is page index*8
+    "bic r2, r2, #3\n"  // r2 is page index*4
     "cmp r2, %1\n"
     "bge 0f\n"
 
@@ -1134,8 +1134,8 @@ __attribute__((naked)) void _asm_megabuf(void)
 
     FUNCTION_MARKER
   :: 
-    "i" (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(EEL_F))*/),
-    "i" (NSEEL_RAM_BLOCKS*8),
+    "i" (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void*))*/),
+    "i" (NSEEL_RAM_BLOCKS*4 /*(sizeof(void*))*/),
     "i" (NSEEL_RAM_ITEMSPERBLOCK-1)
  ); 
 }

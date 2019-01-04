@@ -385,6 +385,9 @@ again:
 int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsamples_out, int nch)
 {
   if (nch > WDL_RESAMPLE_MAX_NCH || nch < 1) return 0;
+#ifdef WDL_DENORMAL_WANTS_SCOPED_FTZ
+  WDL_denormal_ftz_scope ftz_force;
+#endif
 
   if (m_filtercnt>0)
   {

@@ -983,6 +983,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   NSRect contentRect=NSMakeRect(0,0,resstate ? resstate->width : 300,resstate ? resstate->height : 200);
   if (!(self = [super initWithFrame:contentRect])) return self;
 
+  m_classname=NULL;
   memset(m_access_cacheptrs,0,sizeof(m_access_cacheptrs));
   m_allow_nomiddleman=1;
   m_isdirty=3;
@@ -1470,8 +1471,22 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 -(void)swellSetExtendedStyle:(LONG)st
 {
-  if (st&WS_EX_ACCEPTFILES) m_supports_ddrop=true;
-  else m_supports_ddrop=false;
+  if (st&WS_EX_ACCEPTFILES) 
+  {
+    if (!m_supports_ddrop)
+    {
+      [self registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, NSFilesPromisePboardType, nil]];
+      m_supports_ddrop=true;
+    }
+  }
+  else 
+  {
+    if (m_supports_ddrop)
+    {
+      [self unregisterDraggedTypes];
+      m_supports_ddrop=false;
+    }
+  }
 }
 -(LONG)swellGetExtendedStyle
 {
@@ -1768,10 +1783,10 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
   return [super accessibilityIsIgnored];
 }
 
-
-
-
-
+- (const char *)getSwellClass
+{
+  return m_classname;
+}
 
 @end
 
@@ -2200,7 +2215,7 @@ void EndDialog(HWND wnd, int ret)
       [NSApp stopModal];
     }
     
-    [NSApp abortModal]; // always call this, otherwise if running in runModalForWindow: it can often require another even tto come through before things continue
+    [NSApp abortModal]; // always call this, otherwise if running in runModalForWindow: it can often require another even tto come through before things continue
     
     [nswnd close];
   }

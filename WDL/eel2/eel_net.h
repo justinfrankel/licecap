@@ -106,6 +106,7 @@ eel_net_state::~eel_net_state()
   for (x=0;x<m_listens.GetSize();x++)
   {
     SOCKET s=m_listens.Enumerate(x);
+    shutdown(s, SHUT_RDWR);
     closesocket(s);
   }
 }
@@ -189,7 +190,11 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
 
     SOCKET ss=*sockptr;
     m_listens.Delete(port);
-    if (ss != INVALID_SOCKET) closesocket(ss);
+    if (ss != INVALID_SOCKET) 
+    {
+      shutdown(ss, SHUT_RDWR);
+      closesocket(ss);
+    }
     return 0.0;
   }
   if (!sockptr)
@@ -215,6 +220,7 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
       SET_SOCK_BLOCK(sock,0);
       if (bind(sock,(struct sockaddr *)&sin,sizeof(sin)) || listen(sock,8)==-1) 
       {
+        shutdown(sock, SHUT_RDWR);
         closesocket(sock);
         sock=INVALID_SOCKET;
       }
@@ -268,6 +274,7 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
       return x + CONNECTION_ID_BASE;
     }
   }
+  shutdown(newsock, SHUT_RDWR);
   closesocket(newsock);
   return -1;
 
@@ -291,6 +298,7 @@ int eel_net_state::__run_connect(connection_state *cs, unsigned int ip)
     cs->sock = s;
     return 1;
   }
+  shutdown(s, SHUT_RDWR);
   closesocket(s);
   return 0;
 }

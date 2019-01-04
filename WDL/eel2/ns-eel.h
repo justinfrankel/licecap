@@ -125,6 +125,9 @@ void NSEEL_VM_free(NSEEL_VMCTX ctx); // free when done with a VM and ALL of its 
 
 void NSEEL_VM_SetFunctionTable(NSEEL_VMCTX, eel_function_table *tab); // use NULL to use default (global) table
 
+// validateFunc can return error message if not permitted
+void NSEEL_VM_SetFunctionValidator(NSEEL_VMCTX, const char * (*validateFunc)(const char *fn_name, void *user), void *user);
+
 void NSEEL_VM_remove_unused_vars(NSEEL_VMCTX _ctx);
 void NSEEL_VM_clear_var_refcnts(NSEEL_VMCTX _ctx);
 void NSEEL_VM_remove_all_nonreg_vars(NSEEL_VMCTX _ctx);
@@ -133,6 +136,7 @@ void NSEEL_VM_enumallvars(NSEEL_VMCTX ctx, int (*func)(const char *name, EEL_F *
 EEL_F *NSEEL_VM_regvar(NSEEL_VMCTX ctx, const char *name); // register a variable (before compilation)
 EEL_F *NSEEL_VM_getvar(NSEEL_VMCTX ctx, const char *name); // get a variable (if registered or created by code)
 int  NSEEL_VM_get_var_refcnt(NSEEL_VMCTX _ctx, const char *name); // returns -1 if not registered, or >=0
+void NSEEL_VM_set_var_resolver(NSEEL_VMCTX ctx, EEL_F *(*res)(void *userctx, const char *name), void *userctx); 
 
 void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx); // clears and frees all (VM) RAM used
 void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX); // call after code to free the script-requested memory
@@ -172,6 +176,8 @@ int nseel_stringsegments_tobuf(char *bufOut, int bufout_sz, struct eelStringSegm
 NSEEL_CODEHANDLE NSEEL_code_compile(NSEEL_VMCTX ctx, const char *code, int lineoffs);
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS 1 // allows that code's functions to be used in other code (note you shouldn't destroy that codehandle without destroying others first if used)
 #define NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS_RESET 2 // resets common code functions
+#define NSEEL_CODE_COMPILE_FLAG_NOFPSTATE 4 // hint that the FPU/SSE state should be good-to-go
+#define NSEEL_CODE_COMPILE_FLAG_ONLY_BUILTIN_FUNCTIONS 8 // very restrictive mode (only math functions really)
 
 NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX ctx, const char *code, int lineoffs, int flags);
 
@@ -254,7 +260,8 @@ double *NSEEL_getglobalregs();
 
 void eel_setfp_round(); // use to set fp to rounding mode (normal) -- only really use this when being called from EEL
 void eel_setfp_trunc(); // use to restore fp to trunc mode -- only really use this when being called from EEL
-
+void eel_enterfp(int s[2]);
+void eel_leavefp(int s[2]);
 
 
 #ifdef __cplusplus

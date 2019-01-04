@@ -305,7 +305,11 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan, // first created must be 
     {
       m_lockfn.Set(m_tempfn.Get());
       m_lockfn.Append(".lock");
-      m_lockhandle = open(m_lockfn.Get(),O_RDWR|O_CREAT,0666);
+      m_lockhandle = open(m_lockfn.Get(),O_RDWR|O_CREAT
+#ifdef O_CLOEXEC
+          |O_CLOEXEC
+#endif
+          ,0666);
       if (m_lockhandle < 0) return; // error getting lockfile, fail
       if (flock(m_lockhandle,LOCK_NB|LOCK_EX) < 0)
       {

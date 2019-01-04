@@ -8,13 +8,31 @@ UNAME_S := $(shell uname -s)
 
 PKG_CONFIG = pkg-config
 
-CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar -Wno-unused-result
+COMPILER=GCC
+
+CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar
+
+CFLAGS += -DSWELL_MAKING_DYLIB
 
 ifeq ($(UNAME_S),Darwin)
   CFLAGS += -Wno-unused-private-field -DSWELL_FORCE_GENERIC
   DLL_EXT=.dylib
+  COMPILER=CLANG
 else
   DLL_EXT=.so
+endif
+
+ifeq ($(COMPILER),CLANG)
+  CC = clang
+  CXX = clang++
+endif
+
+ifeq ($(COMPILER),ICC)
+  CC = icc
+  CXX = icpc
+  CFLAGS += -D__PURE_SYS_C99_HEADERS__
+else
+  CFLAGS +=  -Wno-unused-result
 endif
 
 ifndef ALLOW_WARNINGS
@@ -27,14 +45,21 @@ endif
 ifneq ($(filter arm%,$(ARCH)),)
   CFLAGS += -fsigned-char -marm
 endif
+ifeq ($(ARCH),aarch64)
+  CFLAGS += -fsigned-char
+endif
 
 
 ifdef DEBUG
 CFLAGS += -O0 -g -D_DEBUG
 else
 CFLAGS += -O2 -DNDEBUG
-  ifneq ($(UNAME_S),Darwin)
-    CFLAGS += -s
+  ifdef DEBUG_INFO
+    CFLAGS += -g
+  else
+    ifneq ($(COMPILER),CLANG)
+      CFLAGS += -s
+    endif
   endif
 endif
 
@@ -69,21 +94,37 @@ ifndef NOGDK
       CFLAGS += -DSWELL_PRELOAD="libgdk-x11-2.0.so.0"
     endif
   else
-    CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gdk-3.0)
+    ifdef SWELL_SUPPORT_GTK
+      CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gtk+-3.0) -DSWELL_SUPPORT_GTK
+    else
+      CFLAGS += -DSWELL_TARGET_GDK=3 $(shell $(PKG_CONFIG) --cflags gdk-3.0)
+    endif
     ifndef PRELOAD_GDK
-      LINKEXTRA += $(shell $(PKG_CONFIG) --libs gdk-3.0)
+      ifdef SWELL_SUPPORT_GTK
+        LINKEXTRA += $(shell $(PKG_CONFIG) --libs gtk+-3.0)
+      else
+        LINKEXTRA += $(shell $(PKG_CONFIG) --libs gdk-3.0)
+      endif
     else
       LINKEXTRA += -lX11 -lXi
-      CFLAGS += -DSWELL_PRELOAD="libgdk-3.so.0"
+      ifdef SWELL_SUPPORT_GTK
+        CFLAGS += -DSWELL_PRELOAD="libgtk+-3.so.0"
+      else
+        CFLAGS += -DSWELL_PRELOAD="libgdk-3.so.0"
+      endif
     endif
   endif
   CFLAGS += -DSWELL_LICE_GDI
   OBJS += $(LICE_OBJS)
 
   ifndef NOFREETYPE
-    CFLAGS += -DSWELL_FREETYPE $(shell freetype-config --cflags)
+    CFLAGS += -DSWELL_FREETYPE $(shell $(PKG_CONFIG) --cflags freetype2)
     ifndef PRELOAD_GDK
-      LINKEXTRA += $(shell freetype-config --libs)
+      LINKEXTRA += $(shell $(PKG_CONFIG) --libs freetype2)
+    endif
+    ifndef NOFONTCONFIG
+      CFLAGS += -DSWELL_FONTCONFIG
+      LINKEXTRA += -lfontconfig
     endif
   endif
 endif

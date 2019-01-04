@@ -1,5 +1,5 @@
 #ifndef _WDL_HASSTRINGS_H_
-#define _WDL_HASSTRINGS_H
+#define _WDL_HASSTRINGS_H_
 
 #ifndef WDL_HASSTRINGS_EXPORT
 #define WDL_HASSTRINGS_EXPORT
@@ -33,10 +33,9 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
   int stacktop = 0;
   stack[0]=0;
 
-  int x,ln;
   const int strlen_name = (int)strlen(name);
   char matched_local=-1; // -1 = first eval for scope, 0=did not pass scope, 1=OK, 2=ignore rest of scope
-  for (x = 0; x < ntok; x ++)
+  for (int x = 0; x < ntok; x ++)
   {
     const char *n=lp->gettoken_str(x);
     
@@ -74,9 +73,14 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
     }
     else if (matched_local&1) // matches 1, -1
     {
+      int ln;
       if (!strcmp(n,"NOT")) 
       {
         stack[stacktop]^=1; 
+      }
+      else if (!strcmp(n,"AND") && !lp->gettoken_quotingchar(x))
+      {
+        // ignore unquoted uppercase AND
       }
       else if ((ln=(int)strlen(n))>0)
       {
@@ -181,7 +185,9 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
 
 WDL_HASSTRINGS_EXPORT bool WDL_makeSearchFilter(const char *flt, LineParser *lp)
 {
-  if (!lp || !flt || !*flt) return false;
+  if (WDL_NOT_NORMALLY(!lp)) return false;
+
+  if (WDL_NOT_NORMALLY(!flt)) flt="";
 
 #ifdef WDL_LINEPARSER_HAS_LINEPARSERINT
   if (lp->parse_ex(flt,true,false,true)) // allow unterminated quotes
@@ -189,7 +195,7 @@ WDL_HASSTRINGS_EXPORT bool WDL_makeSearchFilter(const char *flt, LineParser *lp)
   if (lp->parse_ex(flt,true,false))
 #endif
   {
-    lp->set_one_token(flt); // failed parsing search string, search as a single token
+    if (*flt) lp->set_one_token(flt); // failed parsing search string, search as a single token
   }
 
   return lp->getnumtokens()>0;

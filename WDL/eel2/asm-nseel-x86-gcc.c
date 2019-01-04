@@ -113,7 +113,7 @@ void nseel_asm_2pdds(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -307,7 +307,7 @@ void nseel_asm_assign(void)
     "shrl $32, %rdx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "movll %rdi, %rax\n"
     "jg 0f\n"
       "subl %ecx, %ecx\n"
@@ -326,7 +326,7 @@ void nseel_asm_assign(void)
     "movl %edx, %eax\n"
     "addl $0x00100000, %eax\n" // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
     "andl $0x7ff00000, %eax\n" 
-    "cmpl $0x00100000, %eax\n"
+    "cmpl $0x00200000, %eax\n"
     "jg 0f\n"
       "subl %ecx, %ecx\n"
       "subl %edx, %edx\n"
@@ -351,7 +351,7 @@ void nseel_asm_assign_fromfp(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "movl %edi, %eax\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
@@ -439,7 +439,7 @@ void nseel_asm_add_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -501,7 +501,7 @@ void nseel_asm_sub_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -554,7 +554,7 @@ void nseel_asm_mul_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -628,7 +628,7 @@ void nseel_asm_div_op(void)
     "movl 4(%edi), %edx\n"
     "addl $0x00100000, %edx\n"
     "andl $0x7FF00000, %edx\n"
-    "cmpl $0x00100000, %edx\n"
+    "cmpl $0x00200000, %edx\n"
     "jg 0f\n"
       "subl %edx, %edx\n"
 #ifdef TARGET_X64
@@ -2054,6 +2054,39 @@ void eel_callcode64()
 	);
 }
 
+void eel_callcode64_fast() 
+{
+	__asm__(
+		"push %rbx\n"
+		"push %rbp\n"
+		"push %r12\n"
+		"push %r13\n"
+		"push %r14\n"
+		"push %r15\n"
+
+#ifdef AMD64ABI
+    		"movll %rsi, %r12\n" // second parameter is ram-blocks pointer
+		"call %rdi\n"
+#else
+		"push %rdi\n"
+		"push %rsi\n"
+    		"movll %rdx, %r12\n" // second parameter is ram-blocks pointer
+		"call %rcx\n"
+		"pop %rsi\n"
+		"pop %rdi\n"
+#endif
+
+		"pop %r15\n"
+		"pop %r14\n"
+		"pop %r13\n"
+		"pop %r12\n"
+		"pop %rbp\n"
+		"pop %rbx\n"
+
+		"ret\n"
+	);
+}
+
 void eel_setfp_round()
 {
 	__asm__(
@@ -2084,6 +2117,37 @@ void eel_setfp_trunc()
 #endif
 		"ret\n"
 	);
+}
+
+void eel_enterfp(int s[2]) 
+{
+	__asm__(
+#ifdef AMD64ABI
+		"fnstcw (%rdi)\n"
+		"mov (%rdi), %ax\n"
+		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"mov %ax, 4(%rdi)\n"
+		"fldcw 4(%rdi)\n"
+#else
+		"fnstcw (%rcx)\n"
+		"mov (%rcx), %ax\n"
+		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"mov %ax, 4(%rcx)\n"
+		"fldcw 4(%rcx)\n"
+#endif
+            "ret\n"
+        );
+}
+void eel_leavefp(int s[2]) 
+{
+	__asm__(
+#ifdef AMD64ABI
+		"fldcw (%rdi)\n"
+#else
+		"fldcw (%rcx)\n"
+#endif
+                "ret\n";
+        );
 }
 
 #endif

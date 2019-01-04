@@ -339,16 +339,26 @@ static BOOL IsScrollbarActive(SCROLLBAR *sb)
 }
 
 #ifdef __APPLE__
+static void ReleaseDCFlush(HWND hwnd, HDC hdc)
+{
+  ReleaseDC(hwnd,hdc);
+  SWELL_FlushWindow(hwnd);
+}
+#define ReleaseDC(hwnd,hdc) ReleaseDCFlush(hwnd,hdc)
+#endif
+
+#ifndef _WIN32
 static void GET_WINDOW_RECT(HWND hwnd, RECT *r)
 {
   GetWindowContentViewRect(hwnd,r);
+#ifdef __APPLE__
   if (r->top>r->bottom) 
   { 
     int tmp = r->top;
     r->top = r->bottom;
     r->bottom = tmp;
   }
-
+#endif
 }
 #else
 #define GET_WINDOW_RECT(hwnd, r) GetWindowRect(hwnd,r)
@@ -2367,6 +2377,9 @@ static LRESULT NCLButtonDown(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lPa
 	}
 		
 	SetCapture(hwnd);
+#ifndef _WIN32
+        sw->uLastHitTestPortion = sw->uHitTestPortion     = HTSCROLL_NONE;
+#endif
 	return 0;
 }
 
@@ -3003,6 +3016,8 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
 		//if the mouse moves outside the current scrollbar,
 		//then kill the timer..
 		GetCursorPos(&pt);
+    POINT pt_orig = pt;
+    OSX_REMAP_SCREENY(hwnd,&pt.y);
 
     RECT mor = swnd->MouseOverRect;
     BOOL hasZoomButtons = swnd->MouseOverRect_hasZoomButtons;
@@ -3018,7 +3033,7 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
         mor.right += extrasz;
     }
 
-		if(!PtInRect(&mor, pt)||WindowFromPoint(pt)!=hwnd)
+		if(!PtInRect(&mor, pt)||WindowFromPoint(pt_orig)!=hwnd)
 		{
 			KillTimer(hwnd, swnd->uMouseOverId);
 			swnd->uMouseOverId = 0;

@@ -75,12 +75,12 @@ CG_EXTERN void CGContextSetAllowsFontSmoothing(CGContextRef c, bool) AVAILABLE_M
 #ifndef SWELL_NO_CORETEXT
 static bool IsCoreTextSupported()
 {
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5
+#ifdef SWELL_ATSUI_TEXT_SUPPORT
   return SWELL_GDI_GetOSXVersion() >= 0x1050 && CTFontCreateWithName && CTLineDraw && CTFramesetterCreateWithAttributedString && CTFramesetterCreateFrame && 
          CTFrameGetLines && CTLineGetTypographicBounds && CTLineCreateWithAttributedString && CTFontCopyPostScriptName
          ;
 #else
-  // targetting 10.5+, CT is always valid
+  // no ATSUI, targetting 10.5+, CT is always valid
   return true;
 #endif
 }

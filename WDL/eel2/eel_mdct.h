@@ -22,7 +22,6 @@ typedef struct {
   int log2n;
   EEL_F *trig;
   int  *bitrev;
-  EEL_F *oldw;
   EEL_F scale;
   EEL_F *window;
 } mdct_lookup;
@@ -393,7 +392,7 @@ static void *megabuf_mdct_init(int n) {
   int i;
   EEL_F c = (PI / (EEL_F) n);
   int   *bitrev;
-  EEL_F *T, *oldw;
+  EEL_F *T;
   int n2, log2n;
   if (!lookup) return 0;
 
@@ -414,10 +413,6 @@ static void *megabuf_mdct_init(int n) {
   T = (EEL_F*)calloc(sizeof(EEL_F), (n + n / 4));
   lookup->trig = T;
   if (!T) return lookup;
-
-  oldw = (EEL_F*)calloc(n, sizeof(EEL_F));
-  lookup->oldw = oldw;
-  if (!oldw) return lookup;
 
   n2 = n >> 1;
   log2n = lookup->log2n = (int)(log((double)n) / log(2.0) + 0.5);
@@ -459,7 +454,7 @@ static void megabuf_mdct_backward(void *init, EEL_F *in, EEL_F *out) {
   EEL_F *iX, *oX, *T;
   if (!lookup) return;
   n = lookup->n;
-  if (n <= 32 || !lookup->bitrev || !lookup->trig || !lookup->oldw)
+  if (n <= 32 || !lookup->bitrev || !lookup->trig)
   {
     imdct(in, out, n);
     return;
@@ -562,11 +557,11 @@ static void megabuf_mdct_backward(void *init, EEL_F *in, EEL_F *out) {
 static void megabuf_mdct_forward(void *init, EEL_F *in, EEL_F *out) {
   mdct_lookup *lookup = (mdct_lookup *)init;
   int n, n2, n4, n8;
-  EEL_F *oldw, *w, *w2;
+  EEL_F *w, *w2;
   if (!lookup) return;
 
   n = lookup->n;
-  if (n <= 32 || !lookup->bitrev || !lookup->trig || !lookup->oldw)
+  if (n <= 32 || !lookup->bitrev || !lookup->trig)
   {
     mdct(in, out, n);
     return;
@@ -574,7 +569,7 @@ static void megabuf_mdct_forward(void *init, EEL_F *in, EEL_F *out) {
   n2 = n >> 1;
   n4 = n >> 2;
   n8 = n >> 3;
-  oldw = lookup->oldw;
+  EEL_F oldw[1<<EEL_DCT_MAXBITLEN];
   w = oldw;
   w2 = w + n2;
 

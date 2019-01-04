@@ -33,12 +33,82 @@
 
 #include "../wdlcstring.h"
 #include "../assocarray.h"
+#include "../ptrlist.h"
 #include <dirent.h>
 #include <time.h>
 
 #include "../lineparse.h"
 #define WDL_HASSTRINGS_EXPORT static
 #include "../has_strings.h"
+
+
+#ifndef SWELL_BROWSE_RECENT_SIZE
+#define SWELL_BROWSE_RECENT_SIZE 12
+#endif
+static WDL_PtrList<char> s_browse_rcu, s_browse_rcu_tmp;
+static int recent_size() { return s_browse_rcu.GetSize() + s_browse_rcu_tmp.GetSize(); }
+
+static void recent_addtocb(HWND hwnd)
+{
+  int x;
+  for (x=0;x<s_browse_rcu_tmp.GetSize();x++) 
+    SendMessage(hwnd,CB_ADDSTRING,0,(LPARAM)s_browse_rcu_tmp.Get(x));
+  for (x=0;x<s_browse_rcu.GetSize();x++) 
+    SendMessage(hwnd,CB_ADDSTRING,0,(LPARAM)s_browse_rcu.Get(x));
+}
+static void recent_write(const char *path)
+{
+  if (!path || !path[0]) return;
+  int x;
+  for (x=0;x<s_browse_rcu.GetSize() && strcmp(s_browse_rcu.Get(x),path); x++);
+  if (x<s_browse_rcu.GetSize())
+  {
+    if (!x) return; // already at top of flist
+
+    char *ps = s_browse_rcu.Get(x);
+    s_browse_rcu.Delete(x,false);
+    s_browse_rcu.Insert(0,ps);
+  }
+  else
+  {
+    if (s_browse_rcu.GetSize()>=SWELL_BROWSE_RECENT_SIZE)
+      s_browse_rcu.Delete(SWELL_BROWSE_RECENT_SIZE,true,free);
+    s_browse_rcu.Insert(0,strdup(path));
+  }
+
+  for (x=0;x<=s_browse_rcu.GetSize();x++)
+  {
+    char tmp[64];
+    snprintf(tmp,sizeof(tmp),"path%d",x);
+    WritePrivateProfileString(".swell_recent_path",tmp, s_browse_rcu.Get(x),"");
+  }
+}
+static void recent_read()
+{
+  s_browse_rcu_tmp.Empty(true,free);
+  if (s_browse_rcu.GetSize()) return;
+  int x;
+  for (x=0;x<SWELL_BROWSE_RECENT_SIZE;x++)
+  {
+    char tmp[64], path[2048];
+    snprintf(tmp,sizeof(tmp),"path%d",x);
+    GetPrivateProfileString(".swell_recent_path",tmp, "", path,sizeof(path),"");
+    if (!path[0]) break;
+    s_browse_rcu.Add(strdup(path));
+  }
+}
+static void recent_add_tmp(const char *path)
+{
+  if (!path || !*path) return;
+
+  int x;
+  for (x=0;x<s_browse_rcu_tmp.GetSize();x++) 
+    if (!strcmp(s_browse_rcu_tmp.Get(x),path)) return;
+  for (x=0;x<s_browse_rcu.GetSize();x++) 
+    if (!strcmp(s_browse_rcu.Get(x),path)) return;
+
+  s_browse_rcu_tmp.Add(strdup(path));
+}
 
 static const char *BFSF_Templ_dlgid;
 static DLGPROC BFSF_Templ_dlgproc;
@@ -59,7 +129,7 @@ public:
   BrowseFile_State(const char *_cap, const char *_idir, const char *_ifile, const char *_el, modeEnum _mode, char *_fnout, int _fnout_sz) :
     caption(_cap), initialdir(_idir), initialfile(_ifile), extlist(_el), mode(_mode), 
     sortcol(0), sortrev(0),
-    fnout(_fnout), fnout_sz(_fnout_sz), viewlist_store(16384), viewlist(4096)
+    fnout(_fnout), fnout_sz(_fnout_sz), viewlist_store(16384), viewlist(4096), show_hidden(false)
   {
   }
   ~BrowseFile_State()
@@ -139,6 +209,9 @@ public:
   }
   WDL_TypedBuf<rec> viewlist_store;
   WDL_PtrList<rec> viewlist;
+
+  bool show_hidden;
+
   void viewlist_sort(const char *filter)
   {
     if (filter)
@@ -194,7 +267,10 @@ public:
     struct dirent *ent;
     while (NULL != (ent = readdir(dir)))
     {
-      if (ent->d_name[0] == '.') continue;
+      if (ent->d_name[0] == '.') 
+      {
+        if (ent->d_name[1] == 0 || ent->d_name[1] == '.' || !show_hidden) continue;
+      }
       bool is_dir = (ent->d_type == DT_DIR);
       if (ent->d_type == DT_UNKNOWN)
       {
@@ -283,7 +359,7 @@ static void preprocess_user_path(char *buf, int bufsz)
 
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON, IDC_FILTER };
+  enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON, IDC_FILTER, ID_SHOW_HIDDEN };
   enum { WM_UPD=WM_USER+100 };
   const int maxPathLen = 2048;
   const char *multiple_files = "(multiple files)";
@@ -299,6 +375,19 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
 
         SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
         BrowseFile_State *parms = (BrowseFile_State *)lParam;
+
+        char tmp[1024];
+        recent_read();
+
+        recent_add_tmp(parms->initialdir);
+
+        if (parms->initialfile)
+        {
+          lstrcpyn_safe(tmp,parms->initialfile,sizeof(tmp));
+          WDL_remove_filepart(tmp);
+          recent_add_tmp(tmp);
+        }
+
         if (parms->caption) SetWindowText(hwnd,parms->caption);
 
         SWELL_MakeSetCurParms(1,1,0,0,hwnd,false,false);
@@ -315,15 +404,16 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         SWELL_MakeEditField(IDC_FILTER, 0,0,0,0,  0);
 
         const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
-        char tmp[128];
         GetPrivateProfileString(".swell",ent,"", tmp,sizeof(tmp),"");
-        int x=0,y=0,w=0,h=0, c1=0,c2=0,c3=0;
+        int x=0,y=0,w=0,h=0, c1=0,c2=0,c3=0,extraflag=0;
         int flag = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER;
         if (tmp[0] && 
-            sscanf(tmp,"%d %d %d %d %d %d %d",&x,&y,&w,&h,&c1,&c2,&c3) >= 4) 
+            sscanf(tmp,"%d %d %d %d %d %d %d %d",&x,&y,&w,&h,&c1,&c2,&c3,&extraflag) >= 4) 
           flag &= ~SWP_NOMOVE;
         if (w < 100) w=SWELL_UI_SCALE(600);
         if (h < 100) h=SWELL_UI_SCALE(400);
+        if (extraflag&1)
+          parms->show_hidden=true;
 
         if (c1 + c2 + c3 < w/2)
         {
@@ -432,7 +522,9 @@ get_dir:
           const int c2 = ListView_GetColumnWidth(list,1);
           const int c3 = ListView_GetColumnWidth(list,2);
           char tmp[128];
-          snprintf(tmp,sizeof(tmp),"%d %d %d %d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top,c1,c2,c3);
+          int extraflag=0;
+          if (parms->show_hidden) extraflag|=1;
+          snprintf(tmp,sizeof(tmp),"%d %d %d %d %d %d %d %d",r.left,r.top,r.right-r.left,r.bottom-r.top,c1,c2,c3,extraflag);
           const char *ent = parms->mode == BrowseFile_State::OPENDIR ? "dir_browser" : "file_browser";
           WritePrivateProfileString(".swell",ent, tmp, "");
         }
@@ -455,6 +547,7 @@ get_dir:
               WDL_remove_trailing_dirchars(path);
             }
             SendMessage(combo,CB_ADDSTRING,0,(LPARAM)"/");
+            recent_addtocb(combo);
             SendMessage(combo,CB_SETCURSEL,0,0);
           } 
         break;
@@ -580,7 +673,8 @@ get_dir:
         case IDC_PARENTBUTTON:
           {
             int a = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCURSEL,0,0);
-            if (a>=0) 
+            int cbcnt = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCOUNT,0,0);
+            if (a>=0 && a < cbcnt - recent_size())
             {
               SendDlgItemMessage(hwnd,IDC_DIR,CB_SETCURSEL,a+1,0);
             }
@@ -590,7 +684,10 @@ get_dir:
               GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
               preprocess_user_path(buf,sizeof(buf));
               WDL_remove_filepart(buf);
-              SetDlgItemText(hwnd,IDC_DIR,buf);
+              if (a>=0)
+                SendMessage(hwnd,WM_UPD,IDC_DIR,(LPARAM)buf);
+              else
+                SetDlgItemText(hwnd,IDC_DIR,buf);
             }
             SendMessage(hwnd,WM_UPD,1,0);
           }
@@ -598,6 +695,15 @@ get_dir:
         case IDC_DIR:
           if (HIWORD(wParam) == CBN_SELCHANGE)
           {
+            int a = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCURSEL,0,0);
+            int cbcnt = (int) SendDlgItemMessage(hwnd,IDC_DIR,CB_GETCOUNT,0,0);
+            if (a>=cbcnt - recent_size())
+            {
+              char buf[maxPathLen];
+              GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
+              preprocess_user_path(buf,sizeof(buf));
+              SendMessage(hwnd,WM_UPD,IDC_DIR,(LPARAM)buf);
+            }
             SendMessage(hwnd,WM_UPD,1,0);
           }
         return 0;
@@ -641,6 +747,7 @@ get_dir:
             int cnt;
             if (parms->mode == BrowseFile_State::OPENMULTI && (cnt=ListView_GetSelectedCount(GetDlgItem(hwnd,IDC_LIST)))>1 && (!*msg || !strcmp(msg,multiple_files)))
             {
+              recent_write(buf);
               HWND list = GetDlgItem(hwnd,IDC_LIST);
               WDL_TypedBuf<char> fs;
               fs.Set(buf,strlen(buf)+1);
@@ -690,7 +797,7 @@ treatAsDir:
                    DIR *dir = opendir(buf);
                    if (!dir) 
                    {
-                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%s\r\n\r\nCreate?",buf);
+                     snprintf(msg,sizeof(msg),"Error opening directory:\r\n\r\n%.1000s\r\n\r\nCreate?",buf);
                      if (MessageBox(hwnd,msg,"Create directory?",MB_OKCANCEL)==IDCANCEL) return 0;
                      CreateDirectory(buf,NULL);
                      dir=opendir(buf);
@@ -727,7 +834,7 @@ treatAsDir:
                    if (buf[strlen(buf)-1] == '/') goto treatAsDir;
                    if (!stat64(buf,&st))
                    {
-                     snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%s\r\n\r\nOverwrite?",buf);
+                     snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%.1000s\r\n\r\nOverwrite?",buf);
                      if (MessageBox(hwnd,msg,"Overwrite file?",MB_OKCANCEL)==IDCANCEL) return 0;
                    }
                  }
@@ -765,8 +872,18 @@ treatAsDir:
               parms->fnout = (char*)calloc(l+2,1);
               memcpy(parms->fnout,buf,l);
             }
+            if (parms->mode != BrowseFile_State::OPENDIR)
+              WDL_remove_filepart(buf);
+            recent_write(buf);
           }
           EndDialog(hwnd,1);
+        return 0;
+        case ID_SHOW_HIDDEN:
+          {
+            BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            parms->show_hidden = !parms->show_hidden;
+            SendMessage(hwnd,WM_UPD,1,0);
+          }
         return 0;
       }
     break;
@@ -859,6 +976,11 @@ treatAsDir:
         SendMessage(hwnd,WM_UPD,1,0);
         return 1;
       }
+      else if (lParam == (FVIRTKEY|FCONTROL) && wParam == 'H')
+      {
+        SendMessage(hwnd,WM_COMMAND,ID_SHOW_HIDDEN,0);
+        return 1;
+      }
       else if (lParam == FVIRTKEY && wParam == VK_BACK && 
                GetFocus() == GetDlgItem(hwnd,IDC_LIST))
       {
@@ -872,6 +994,17 @@ treatAsDir:
         return 1;
       }
     return 0;
+    case WM_CONTEXTMENU:
+      {
+        BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        HMENU menu = CreatePopupMenu();
+        SWELL_InsertMenu(menu,0,MF_BYPOSITION|(parms->show_hidden ? MF_CHECKED:MF_UNCHECKED), ID_SHOW_HIDDEN, "Show files/directories beginning with .");
+        POINT p;
+        GetCursorPos(&p);
+        TrackPopupMenu(menu,0,p.x,p.y,0,hwnd,NULL);
+        DestroyMenu(menu);
+      }
+    return 1;
   }
   return 0;
 }
@@ -950,6 +1083,13 @@ static LRESULT WINAPI swellMessageBoxProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
         const int sc8 = SWELL_UI_SCALE(8);
         labsize.top += sc10;
         labsize.bottom += sc10 + sc8;
+
+        RECT vp;
+        SWELL_GetViewPort(&vp,NULL,true);
+        vp.bottom -= vp.top;
+        if (labsize.bottom > vp.bottom*7/8)
+          labsize.bottom = vp.bottom*7/8;
+
 
         int x;
         int button_height=0, button_total_w=0;;
@@ -1442,6 +1582,7 @@ struct FontChooser_State
 };
 
 extern const char *swell_last_font_filename;
+
 const char *swell_enumFontFiles(int x);
 int swell_getLineLength(const char *buf, int *post_skip, int wrap_maxwid, HDC hdc);
 
@@ -1491,6 +1632,7 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
           *tmp=0;
           if (*buf) list.AddUnsorted(buf,true);
         }
+        swell_enumFontFiles(-1); // clear cache
         list.Resort();
         FontChooser_State *cs = (FontChooser_State*)lParam;
         bool italics = cs->font.lfItalic!=0;
@@ -1594,6 +1736,7 @@ static LRESULT WINAPI swellFontChooserProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
           r.top = r.bottom - ph;
 
           HFONT f = CreateFontIndirect(&cs->font);
+
           HBRUSH br = CreateSolidBrush(RGB(255,255,255));
           FillRect(ps.hdc,&r,br);
           DeleteObject(br);

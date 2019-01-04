@@ -23,6 +23,11 @@
 #include "swell.h"
 #include "swell-internal.h"
 
+#ifndef __APPLE__
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
 bool IsRightClickEmulateEnabled()
 {
   return false;
@@ -31,19 +36,50 @@ bool IsRightClickEmulateEnabled()
 void SWELL_EnableRightClickEmulate(BOOL enable)
 {
 }
+
+
+HANDLE SWELL_CreateProcessFromPID(int pid)
+{
+  SWELL_InternalObjectHeader_PID *buf = (SWELL_InternalObjectHeader_PID*)malloc(sizeof(SWELL_InternalObjectHeader_PID));
+  buf->hdr.type = INTERNAL_OBJECT_PID;
+  buf->hdr.count = 1;
+  buf->pid = (int) pid;
+  buf->done = buf->result = 0;
+  return (HANDLE) buf;
+}
+
 HANDLE SWELL_CreateProcess(const char *exe, int nparams, const char **params)
 {
-  if (fork() == 0)
+  void swell_cleanupZombies();
+  swell_cleanupZombies();
+
+  const pid_t pid = fork();
+  if (pid == 0)
   {
     char **pp = (char **)calloc(nparams+2,sizeof(char*));
     pp[0] = strdup(exe);
     for (int x=0;x<nparams;x++) pp[x+1] = strdup(params[x]?params[x]:"");
-    execv(exe,pp);
+    execvp(exe,pp);
     exit(0);
   }
+  if (pid < 0) return NULL;
 
-  return 0; // todo
+  return SWELL_CreateProcessFromPID(pid);
 }
+
+int SWELL_GetProcessExitCode(HANDLE hand)
+{
+  SWELL_InternalObjectHeader_PID *hdr=(SWELL_InternalObjectHeader_PID*)hand;
+  if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_PID|| !hdr->pid) return -1;
+  if (hdr->done) return hdr->result;
+
+  int wstatus=0;
+  pid_t v = waitpid((pid_t)hdr->pid,&wstatus,WNOHANG);
+  if (v <= 0) return -2;
+  hdr->done = 1;
+  return hdr->result = WEXITSTATUS(wstatus);
+}
+
 
 
 #endif

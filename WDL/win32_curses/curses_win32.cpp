@@ -604,12 +604,17 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
                     {
                       FillRect(hdc,&tr,br);
                     }
-                    char tmp[16]={c,0};
+                    char tmp[16];
                     if (c >= 128)
                     {
                       WDL_MakeUTFChar(tmp,c,sizeof(tmp));
                     }
-                    DrawText(hdc,isNotBlank ? tmp : " ",-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
+                    else
+                    {
+                      tmp[0]=isNotBlank ? (char)c : ' ';
+                      tmp[1]=0;
+                    }
+                    DrawText(hdc,tmp,-1,&tr,DT_LEFT|DT_TOP|DT_NOPREFIX|DT_NOCLIP);
                   #endif
 
                   if (isCursor && ctx->cursor_type != WIN32_CURSES_CURSOR_TYPE_BLOCK)
@@ -905,6 +910,7 @@ HWND curses_ControlCreator(HWND parent, const char *cname, int idx, const char *
   
   if (hw)
   {
+    SWELL_SetClassName(hw,WIN32CURSES_CLASS_NAME);
     SetWindowLong(hw,GWL_ID,idx);
     SetWindowPos(hw,HWND_TOP,x,y,w,h,SWP_NOZORDER|SWP_NOACTIVATE);
     ShowWindow(hw,SW_SHOWNA);

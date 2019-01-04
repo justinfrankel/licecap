@@ -40,10 +40,14 @@
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 
-static bool s_freetype_failed;
-static FT_Library s_freetype; // todo: TLS for multithread support?
-
+#ifdef SWELL_FONTCONFIG
+#include <fontconfig/fontconfig.h>
+#else
 #include "../dirscan.h"
+#endif
+
+static bool s_freetype_failed;
+static FT_Library s_freetype; // todo: TLS for multithread support? -- none of the text drawing is thread safe!
 
 static int utf8char(const char *ptr, unsigned short *charOut) // returns char length
 {
@@ -86,6 +90,78 @@ static int utf8char(const char *ptr, unsigned short *charOut) // returns char le
   return 1;  
 }
 
+extern const char *swell_last_font_filename;
+
+#ifndef SWELL_FREETYPE_CACHE_SIZE
+#define SWELL_FREETYPE_CACHE_SIZE 80
+#endif
+
+class fontConfigCacheEnt
+{
+  public:
+    fontConfigCacheEnt(const char *name, int flags, int w, int h, FT_Face face, const char *fndesc)
+    {
+      m_name = strdup(name);
+      m_flags = flags;
+      m_face = face;
+      m_w=w;
+      m_h=h;
+      m_fndesc = strdup(fndesc);
+      FT_Reference_Face(m_face);
+    }
+    ~fontConfigCacheEnt() 
+    { 
+      free(m_name); 
+      free(m_fndesc);
+      FT_Done_Face(m_face); 
+    }
+
+    char *m_name;
+    char *m_fndesc;
+    int m_flags, m_w, m_h;
+    FT_Face m_face;
+};
+
+
+#ifdef SWELL_FONTCONFIG
+
+static FcConfig *s_fontconfig;
+const char *swell_enumFontFiles(int x)
+{
+  if (!s_fontconfig) return NULL;
+
+  static FcPattern *pat;
+  static FcObjectSet *prop;
+  static FcFontSet *fonts;
+  if (x<0)
+  {
+    if (fonts) FcFontSetDestroy(fonts);
+    if (prop) FcObjectSetDestroy(prop);
+    if (pat) FcPatternDestroy(pat);
+    pat=NULL;
+    prop=NULL;
+    fonts=NULL;
+    return NULL;
+  }
+  if (!pat)
+  {
+    pat = FcPatternCreate();
+    prop = FcObjectSetBuild(FC_FAMILY, NULL);
+    fonts = FcFontList(s_fontconfig,pat,prop);
+  }
+  if (fonts && x < fonts->nfont)
+  {
+    FcPattern *f = fonts->fonts[x];
+    FcChar8 *fn = NULL;
+    if (FcPatternGetString(f,FC_FAMILY,0,&fn) == FcResultMatch && fn && *fn) 
+    return (const char *)fn;
+  }
+  
+  return NULL;
+}
+
+#else
+
 static WDL_PtrList<char> s_freetype_fontlist;
 static WDL_PtrList<char> s_freetype_regfonts;
 
@@ -95,6 +171,7 @@ const char *swell_enumFontFiles(int x)
   if (x < n1) return s_freetype_regfonts.Get(x);
   return s_freetype_fontlist.Get(x-n1);
 }
+
 
 static const char *stristr(const char *a, const char *b)
 {
@@ -154,9 +231,7 @@ struct fontScoreMatched {
 
 };
 
-const char *swell_last_font_filename;
-
-static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exact)
+static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exact, char *matchFnOut, size_t matchFnOutSize)
 {
   const int fn_len = strlen(lfFaceName), ntab=2;
   WDL_PtrList<char> *tab[ntab]= { &s_freetype_regfonts, &s_freetype_fontlist };
@@ -250,22 +325,27 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exa
   for (x=0; x < matchlist.GetSize(); x ++)
   {
     const fontScoreMatched *s = matchlist.Get()+x;
-    swell_last_font_filename = s->fn;
  
     FT_Face face=NULL;
     //printf("trying '%s' for '%s' score %d,%d w %d i %d\n",s->fn,lfFaceName,s->score1,s->score2,weight,italic);
     FT_New_Face(s_freetype,s->fn,0,&face);
-    if (face) return face;
+    if (face) 
+    {
+      lstrcpyn_safe(matchFnOut,s->fn,matchFnOutSize);
+      return face;
+    }
   }
   return NULL;
 }
+#endif // !SWELL_FONTCONFIG
 
-#endif
+#endif // SWELL_FREETYPE
 
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   LICE_MemBitmap * bm = new LICE_MemBitmap(w,h);
   if (!bm) return 0;
+  LICE_Clear(bm,LICE_RGBA(0,0,0,0));
 
   HDC__ *ctx=SWELL_GDP_CTX_NEW();
   ctx->surface = bm;
@@ -354,27 +434,101 @@ HGDIOBJ GetStockObject(int wh)
   return 0;
 }
 
-#define FONTSCALE 0.9
 HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation, int lfWeight, char lfItalic, 
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
 {
   HGDIOBJ__ *font=NULL;
 #ifdef SWELL_FREETYPE
-  FT_Face face=NULL;
   if (!s_freetype_failed && !s_freetype) 
   {
     s_freetype_failed = !!FT_Init_FreeType(&s_freetype);
     if (s_freetype)
     {
+#ifdef SWELL_FONTCONFIG
+      if (!s_fontconfig) s_fontconfig = FcInitLoadConfigAndFonts();
+#else
       ScanFontDirectory("/usr/share/fonts");
 
       qsort(s_freetype_fontlist.GetList(),s_freetype_fontlist.GetSize(),sizeof(const char *),(int (*)(const void *,const void*))sortByFilePart);
+#endif
     }
   }
-  if (s_freetype)
+  if (lfWidth<0) lfWidth=-lfWidth;
+  if (lfHeight<0) lfHeight=-lfHeight;
+
+  static WDL_PtrList<fontConfigCacheEnt> cache;
+  const int cache_flag = wdl_max(lfWeight,0) | (lfItalic ? (1<<30) : 0);
+  FT_Face face=NULL;
+  for (int x=0;x<cache.GetSize();x++)
   {
-    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName,lfWeight,lfItalic,0);
+    fontConfigCacheEnt *ent = cache.Get(x);
+    if (ent->m_flags==cache_flag && 
+        ent->m_w == lfWidth && 
+        ent->m_h == lfHeight && 
+        !strcmp(ent->m_name,lfFaceName?lfFaceName:""))
+    {
+      face = ent->m_face;
+      swell_last_font_filename = ent->m_fndesc;
+      FT_Reference_Face(face);
+      if (x < cache.GetSize()-1) 
+      {
+        cache.Delete(x);
+        cache.Add(ent); // make this cache entry most recent
+      }
+      break;
+    }
+  }
+
+  if (!face && s_freetype)
+  {
+    int face_idx=0;
+    char face_fn[1024];
+    face_fn[0]=0;
+#ifdef SWELL_FONTCONFIG
+    if (!face && s_fontconfig)
+    {
+      FcPattern *pat = FcPatternCreate();
+      if (pat)
+      {
+        if (lfFaceName && *lfFaceName) FcPatternAddString(pat,FC_FAMILY,(FcChar8*)lfFaceName);
+        if (lfWeight > 0)
+        {
+          int wt;
+          if (lfWeight >= FW_HEAVY) wt=FC_WEIGHT_HEAVY;
+          else if (lfWeight >= FW_EXTRABOLD) wt=FC_WEIGHT_EXTRABOLD;
+          else if (lfWeight >= FW_BOLD) wt=FC_WEIGHT_BOLD;
+          else if (lfWeight >= FW_SEMIBOLD) wt=FC_WEIGHT_SEMIBOLD;
+          else if (lfWeight >= FW_MEDIUM) wt=FC_WEIGHT_MEDIUM;
+          else if (lfWeight >= FW_NORMAL) wt=FC_WEIGHT_NORMAL;
+          else if (lfWeight >= FW_LIGHT) wt=FC_WEIGHT_LIGHT;
+          else if (lfWeight >= FW_EXTRALIGHT) wt=FC_WEIGHT_EXTRALIGHT;
+          else wt=FC_WEIGHT_THIN;
+          FcPatternAddInteger(pat,FC_WEIGHT,wt);
+        }
+        if (lfItalic)
+          FcPatternAddInteger(pat,FC_SLANT,FC_SLANT_ITALIC);
+        FcConfigSubstitute(s_fontconfig,pat,FcMatchPattern);
+        FcDefaultSubstitute(pat);
+        FcResult result;
+        FcPattern *hit = FcFontMatch(s_fontconfig,pat,&result);
+        if (hit)
+        {
+          FcChar8 *fn = NULL;
+          if (FcPatternGetString(hit,FC_FILE,0,&fn) == FcResultMatch && fn && *fn) 
+          {
+            if (FcPatternGetInteger(hit,FC_INDEX,0,&face_idx) != FcResultMatch) face_idx=0;
+            FT_New_Face(s_freetype,(const char *)fn,face_idx,&face);
+            if (face) lstrcpyn_safe(face_fn,(const char *)fn,sizeof(face_fn));
+          }
+          FcPatternDestroy(hit);
+        }
+        FcPatternDestroy(pat);
+      }
+    }
+#else
+
+    if (!face && lfFaceName && *lfFaceName) face = MatchFont(lfFaceName,lfWeight,lfItalic,0, face_fn, sizeof(face_fn));
 
     if (!face)
     {
@@ -387,8 +541,8 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
       {
         static const char *ent[2] = { "ft_font_fallback", "ft_font_fallback_fixedwidth" };
         static const char *def[2] = { 
-          "// Cantarell FreeSans DejaVuSans NotoSans LiberationSans Oxygen Arial Verdana", 
-          "// FreeMono DejaVuSansMono NotoMono OxygenMono LiberationMono Courier" 
+          "// LiberationSans Cantarell FreeSans DejaVuSans NotoSans Oxygen Arial Verdana", 
+          "// LiberationMono FreeMono DejaVuSansMono NotoMono OxygenMono Courier" 
         };
         char tmp[1024];
         GetPrivateProfileString(".swell",ent[wl],"",tmp,sizeof(tmp),"");
@@ -417,10 +571,22 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
         const char *l = fallbacklist[wl];
         while (*l && !face)
         {
-          face = MatchFont(l,lfWeight,lfItalic,exact?-1:1);
+          face = MatchFont(l,lfWeight,lfItalic,exact?-1:1, face_fn, sizeof(face_fn));
           l += strlen(l)+1;
         }
       }
+    }
+#endif
+
+    if (face)
+    {
+      if (face_idx) snprintf_append(face_fn,sizeof(face_fn)," <%d>",face_idx);
+      fontConfigCacheEnt *ce = new fontConfigCacheEnt(lfFaceName?lfFaceName:"",cache_flag,lfWidth,lfHeight,face, face_fn);
+      cache.Add(ce);
+      if (cache.GetSize()>SWELL_FREETYPE_CACHE_SIZE) cache.Delete(0,true);
+      swell_last_font_filename = ce->m_fndesc;
+
+      FT_Set_Char_Size(face,lfWidth*64, lfHeight*64,0,0); // 72dpi
     }
   }
   
@@ -430,11 +596,6 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
     font->type=TYPE_FONT;
     font->typedata = face;
     font->alpha = 1.0f;
-    ////unsure here
-    if (lfWidth<0) lfWidth=-lfWidth;
-    if (lfHeight<0) lfHeight=-lfHeight;
-    FT_Set_Char_Size(face,lfWidth*64, lfHeight*64,0,0); // 72dpi
-//    FT_Set_Pixel_Sizes(face,0,lfHeight);
   }
 #else
   font->type=TYPE_FONT;
@@ -453,7 +614,18 @@ HFONT CreateFontIndirect(LOGFONT *lf)
 
 int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
 {
-  if (lpFaceName) lpFaceName[0]=0;
+  if (lpFaceName && nCount>0) lpFaceName[0]=0;
+#ifdef SWELL_FREETYPE
+  HDC__ *ct=(HDC__*)ctx;
+  if (!HDC_VALID(ct) || nCount<1 || !lpFaceName || !ct->curfont) return 0;
+
+  const FT_FaceRec *p = (const FT_FaceRec *)ct->curfont->typedata;
+  if (p)
+  {
+    lstrcpyn_safe(lpFaceName, p->family_name, nCount);
+    return 1;
+  }
+#endif
   return 0;
 }
 
@@ -829,7 +1001,9 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmDescent = face->size->metrics.descender/64;
     tm->tmHeight = face->size->metrics.height/64 + 1;
     tm->tmAveCharWidth = face->size->metrics.height / 112;
-    tm->tmInternalLeading=0;
+    // hmm? some font freetype/win32 expert can weigh in here :/
+    tm->tmInternalLeading = (face->size->metrics.height - face->size->metrics.ascender)/64;
+    if (tm->tmInternalLeading<0) tm->tmInternalLeading=0;
   }
 #endif
   
@@ -1320,6 +1494,7 @@ HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
 
   bool vis=true;
   HWND starth = h;
+  int ltrim=0, ttrim=0, rtrim=0, btrim=0;
   for (;;)
   {
     if ((calcsize_on_first || h!=starth)  && h->m_wndproc)
@@ -1346,22 +1521,32 @@ HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
 
     xoffs += h->m_position.left;
     yoffs += h->m_position.top;
+
+    ltrim = wdl_max(ltrim, -xoffs);
+    ttrim = wdl_max(ttrim, -yoffs);
+    rtrim = wdl_max(rtrim, xoffs+wndw - h->m_position.right);
+    btrim = wdl_max(btrim, yoffs+wndh - h->m_position.bottom);
+
     h = h->m_parent;
   }
 
   swell_gdpLocalContext *p = (swell_gdpLocalContext*)SWELL_GDP_CTX_NEW();
 
-  p->clipr.left=p->clipr.right=xoffs;
-  p->clipr.top=p->clipr.bottom=yoffs;
+  p->clipr.left=p->clipr.right=xoffs + ltrim;
+  p->clipr.top=p->clipr.bottom=yoffs + ttrim;
 
   if (h->m_backingstore && vis)
   {
-    p->ctx.surface=new LICE_SubBitmap(h->m_backingstore,xoffs,yoffs,wndw,wndh);
+    p->ctx.surface=new LICE_SubBitmap(h->m_backingstore,
+        xoffs+ltrim,yoffs+ttrim,
+        wndw-ltrim-rtrim,wndh-ttrim-btrim);
     p->clipr.right += p->ctx.surface->getWidth();
     p->clipr.bottom += p->ctx.surface->getHeight();
   }
   if (xoffs<0) p->ctx.surface_offs.x = xoffs;
   if (yoffs<0) p->ctx.surface_offs.y = yoffs;
+  p->ctx.surface_offs.x -= ltrim;
+  p->ctx.surface_offs.y -= ttrim;
 
   p->ctx.curfont = starth->m_font;
   // todo: other GDI defaults?
@@ -1684,8 +1869,13 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
   if (str && *str)
   {
+#ifdef SWELL_FONTCONFIG
+    if (!s_fontconfig) s_fontconfig = FcInitLoadConfigAndFonts();
+    return s_fontconfig && FcConfigAppFontAddFile(s_fontconfig,(const FcChar8 *)str) != FcFalse;
+#else
     if (s_freetype_regfonts.FindSorted(str,sortByFilePart)>=0) return 0;
     s_freetype_regfonts.InsertSorted(strdup(str), sortByFilePart);
+#endif
     return 1;
   } 
   return 0;

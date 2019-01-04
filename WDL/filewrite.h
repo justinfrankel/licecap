@@ -212,7 +212,14 @@ public:
 #elif defined(WDL_POSIX_NATIVE_WRITE)
     m_bufspace_used=0;
     m_filedes_locked=false;
-    m_filedes=open(filename,O_WRONLY|O_CREAT,0644);
+    m_filedes=open(filename,O_WRONLY|O_CREAT
+        // todo: use fcntl() for platforms when O_CLOEXEC is not available (if we ever need to support them)
+        // (currently the only platform that meets this criteria is macOS w/ old SDK, but we don't use execve()
+        // there
+#ifdef O_CLOEXEC
+        | O_CLOEXEC
+#endif
+        ,0644);
     if (m_filedes>=0)
     {
 

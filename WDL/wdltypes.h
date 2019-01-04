@@ -139,8 +139,8 @@ typedef bool WDL_bool;
 #endif
 
 #if defined(__GNUC__) || defined(__INTEL_COMPILER)
-  #define WDL_likely(x) __builtin_expect(!!(x),1)
-  #define WDL_unlikely(x) __builtin_expect(!!(x),0)
+  #define WDL_likely(x) (__builtin_expect(!!(x),1))
+  #define WDL_unlikely(x) (__builtin_expect(!!(x),0))
 #else
   #define WDL_likely(x) (!!(x))
   #define WDL_unlikely(x) (!!(x))

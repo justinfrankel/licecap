@@ -141,11 +141,17 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 
 #ifndef _MSC_VER
-static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
-{
- //fwrite((void *)cp,4,20,stdout);
- //return;
-  static const double consttab[] = { 
+#define GLUE_CALL_CODE(bp, cp, rt) do { \
+  unsigned int f; \
+  if (!(h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) && \
+      !((f=glue_getscr())&(1<<24))) {  \
+    glue_setscr(f|(1<<24)); \
+    eel_callcode32(bp, cp, rt); \
+    glue_setscr(f); \
+  } else eel_callcode32(bp, cp, rt);\
+  } while(0)
+
+static const double __consttab[] = { 
     NSEEL_CLOSEFACTOR, 
     0.0,
     1.0,
@@ -153,7 +159,10 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
     -0.5, // for invsqrt
     1.5,
   };
-  __asm__(
+
+static void eel_callcode32(INT_PTR bp, INT_PTR cp, INT_PTR rt) 
+{
+  __asm__ volatile(
           "mov r7, %2\n"
           "mov r6, %3\n"
           "mov r8, %1\n"
@@ -164,7 +173,7 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "blx r0\n"
           "pop {r1, lr}\n"
           "mov sp, r1\n"
-            ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) : 
+            ::"r" (cp), "r" (bp), "r" (rt), "r" (__consttab) : 
              "r5", "r6", "r7", "r8", "r10");
 };
 #endif
@@ -248,6 +257,35 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   while (memcmp(p,sig,sizeof(sig))) p+=4;
   *size = p - (unsigned char *)fn;
   return fn;
+}
+
+static unsigned int __attribute__((unused)) glue_getscr()
+{
+  unsigned int rv;
+  asm volatile ( "fmrx %0, fpscr" : "=r" (rv));
+  return rv;
+}
+static void  __attribute__((unused)) glue_setscr(unsigned int v)
+{
+  asm volatile ( "fmxr fpscr, %0" :: "r"(v));
+}
+
+void eel_setfp_round() 
+{ 
+  // glue_setscr(glue_getscr()|(3<<22));
+}
+void eel_setfp_trunc() 
+{ 
+  // glue_setscr(glue_getscr()&~(3<<22));
+}
+void eel_enterfp(int s[2]) 
+{
+  s[0] = glue_getscr();
+  glue_setscr(s[0] | (1<<24)); // could also do 3<<22 for RTZ
+}
+void eel_leavefp(int s[2]) 
+{
+  glue_setscr(s[0]);
 }
 
 
