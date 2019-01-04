@@ -209,6 +209,8 @@ static void WDL_DENORMAL_INLINE denormal_fix_aggressive(float *a)
 
 #else // end of !WDL_DENORMAL_DO_NOT_FILTER (and other platform-specific checks)
 
+#define denormal_filter(x) (x)
+#define denormal_filter2(x) (x)
 #define denormal_filter_double(x) (x)
 #define denormal_filter_double2(x) (x)
 #define denormal_filter_double_aggressive(x) (x)
