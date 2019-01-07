@@ -1867,7 +1867,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
             ScreenToClient(hwndDlg, &pt);
             if (PtInRect(&rc, pt))
             {
-                SetWindowLong(hwndDlg, DWL_MSGRESULT, HTCAPTION);
+                SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, HTCAPTION);
                 return 1;
             }
         }
