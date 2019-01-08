@@ -2775,7 +2775,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
-#if defined(__arm__) || defined(__ppc__) || (defined (_M_ARM) && _M_ARM  == 7)
+#if defined(__arm__) || (defined (_M_ARM) && _M_ARM  == 7)
+    const int max_params=16384; // arm uses up to two instructions, should be good for at leaast 64k (16384*4)
+#elif defined(__ppc__)
     const int max_params=4096; // 32kb max offset addressing for stack, so 4096*4 = 16384, should be safe
 #elif defined(__aarch64__)
     const int max_params=3072; // 32kb max offset addressing for stack, 3072*8 = 24576
@@ -3282,9 +3284,17 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (restore_stack_amt)
   {
-    if (bufOut_len < parm_size + func_size + GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
-    if (bufOut) GLUE_MOVE_STACK(bufOut + parm_size + func_size, restore_stack_amt); 
-    parm_size += GLUE_MOVE_STACK_SIZE;
+    int rem = restore_stack_amt;
+    while (rem > 0)
+    {
+      int amt = rem;
+      if (amt > 4096) amt=4096;
+      rem -= amt;
+
+      if (bufOut_len < parm_size + func_size + GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
+      if (bufOut) GLUE_MOVE_STACK(bufOut + parm_size + func_size, amt);
+      parm_size += GLUE_MOVE_STACK_SIZE;
+    }
   }
 
   if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
