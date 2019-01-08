@@ -252,7 +252,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   return fn;
 }
 
-  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 4
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(x) 4
   static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
   {
     // limited to 32k offset

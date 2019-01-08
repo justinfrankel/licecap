@@ -95,7 +95,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
   }
   const static unsigned char  GLUE_PUSH_P1[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
 
-  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 7
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(x) 7
   static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
   {
     ((unsigned char *)b)[0] = 0x89; // mov [esp+offs], eax

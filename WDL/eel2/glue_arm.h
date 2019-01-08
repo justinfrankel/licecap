@@ -71,7 +71,7 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 
 const static unsigned int GLUE_PUSH_P1[1]={ 0xe52d0008 }; // push {r0}, aligned to 8
 
-#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 4
+#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(x) 4
 static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
 {
   // str r0, [sp, #offs]

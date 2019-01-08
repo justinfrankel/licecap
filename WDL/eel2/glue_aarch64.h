@@ -92,7 +92,7 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 
 const static unsigned int GLUE_PUSH_P1[1]={ 0xf81f0fe0  }; // str x0, [sp, #-16]!
 
-#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 4
+#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(offs) 4
 static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
 {
   //if (offs & 7) // todo: stur x0, [sp, #offs]

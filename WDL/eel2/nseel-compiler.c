@@ -2818,10 +2818,10 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
         if (offs>0) // make sure this page is in memory
         {
-          if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) 
+          if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(0)) 
             RET_MINUS1_FAIL("insufficient size for varparm stackchk")
           if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut+parm_size,0);
-          parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+          parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(0);
         }
       }
     }
@@ -2840,7 +2840,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           {
             int canHaveDenorm=0;
             int rvt=RETURNVALUE_NORMAL;
-            int subfpstackuse=0;
+            int subfpstackuse=0, use_offs;
                 
             int lsz = compileOpcodes(ctx,r,bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
             if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
@@ -2849,10 +2849,12 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
             if (rvt != RETURNVALUE_NORMAL) RET_MINUS1_FAIL("call coc for varparmX gave bad type back");
 
             parm_size += lsz;            
+            use_offs = n_params*(int) sizeof(void *);
 
-            if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("call coc for varparmX size");
-            if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, n_params*sizeof(void *));
-            parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+            if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs)) 
+              RET_MINUS1_FAIL("call coc for varparmX size");
+            if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, use_offs);
+            parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs);
 
             if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
           }
@@ -2873,6 +2875,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         int canHaveDenorm=0;
         int subfpstackuse=0;
         int rvt=RETURNVALUE_NORMAL;
+        int use_offs;
                
         int lsz = compileOpcodes(ctx,r,bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
         if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
@@ -2882,9 +2885,11 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
         parm_size += lsz;
 
-        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("call coc for varparm123 size");
-        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, x*sizeof(void *));
-        parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+        use_offs = x*(int)sizeof(void *);
+        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs)) 
+          RET_MINUS1_FAIL("call coc for varparm123 size");
+        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, use_offs);
+        parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs);
 
         if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
       }
