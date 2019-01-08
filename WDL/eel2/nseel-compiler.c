@@ -2780,7 +2780,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 #elif defined(__ppc__)
     const int max_params=4096; // 32kb max offset addressing for stack, so 4096*4 = 16384, should be safe
 #elif defined(__aarch64__)
-    const int max_params=3072; // 32kb max offset addressing for stack, 3072*8 = 24576
+    const int max_params=32768; 
 #else
     const int max_params=32768; // sanity check, the stack is free to grow on x86/x86-64
 #endif
