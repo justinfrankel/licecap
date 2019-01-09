@@ -301,8 +301,8 @@ static unsigned int GLUE_POP_STACK_TO_FPSTACK[1] =
 };
 
 
-static const unsigned int GLUE_SET_P1_Z[] =  { 0xd2800000 }; // mov x0, #0
-static const unsigned int GLUE_SET_P1_NZ[] = { 0xd2800001 }; // mov x0, #1
+static const unsigned int GLUE_SET_P1_Z[] =  { 0x52800000 }; // mov w0, #0
+static const unsigned int GLUE_SET_P1_NZ[] = { 0x52800020 }; // mov w0, #1
 
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
