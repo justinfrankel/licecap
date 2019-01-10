@@ -230,7 +230,15 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
             SWELL_DeleteGfxContext((HDC)c);
           }
         }
-        if (buttonFg) [(NSTextField*)ch setTextColor:buttonFg]; // NSButton had this added below
+        if (buttonFg)
+        {
+          NSMutableAttributedString *attrTitle = [[NSMutableAttributedString alloc] initWithAttributedString:[(NSButton *)ch attributedTitle]];
+          NSRange range = NSMakeRange(0, [attrTitle length]);
+          [attrTitle addAttribute:NSForegroundColorAttributeName value:buttonFg range:range];
+          [attrTitle fixAttributesInRange:range];
+          [(NSButton *)ch setAttributedTitle:attrTitle];
+          [attrTitle release];
+        }
       }
       else if ([ch isKindOfClass:[NSTextField class]] || [ch isKindOfClass:[NSBox class]])
       {
@@ -2890,45 +2898,6 @@ void SWELL_SetWindowFlip(HWND hwnd, bool flip)
     hc->m_flip = flip;
   }
 }
-
-
-@interface NSButton (TextColor)
-
-- (NSColor *)textColor;
-- (void)setTextColor:(NSColor *)textColor;
-
-@end
-
-@implementation NSButton (TextColor)
-
-- (NSColor *)textColor
-{
-  NSAttributedString *attrTitle = [self attributedTitle];
-  NSUInteger len = [attrTitle length];
-  NSRange range = NSMakeRange(0, wdl_min(len, 1)); // take color from first char
-  NSDictionary *attrs = [attrTitle fontAttributesInRange:range];
-  NSColor *textColor = [NSColor controlTextColor];
-  if (attrs) {
-    textColor = [attrs objectForKey:NSForegroundColorAttributeName];
-  }
-  return textColor;
-}
-
-- (void)setTextColor:(NSColor *)textColor
-{
-  NSMutableAttributedString *attrTitle = [[NSMutableAttributedString alloc] 
-                                          initWithAttributedString:[self attributedTitle]];
-  NSUInteger len = [attrTitle length];
-  NSRange range = NSMakeRange(0, len);
-  [attrTitle addAttribute:NSForegroundColorAttributeName 
-                    value:textColor 
-                    range:range];
-  [attrTitle fixAttributesInRange:range];
-  [self setAttributedTitle:attrTitle];
-  [attrTitle release];
-}
-
-@end
 
 
 static char* s_dragdropsrcfn = 0;
