@@ -173,7 +173,6 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
     void SetBkImage(WDL_VirtualWnd_BGCfg *bm) { m_bkbm=bm; }
     WDL_VirtualWnd_BGCfg* GetBkImage() { return m_bkbm; }
-    int GetCharFromCoord(int xpos, int ypos);  // for "AB", -1=out of bounds left, 0="A", 1="B", 2=out of bounds right
     void SetWantPreserveTrailingNumber(bool preserve); // if the text ends in a number, make sure the number is always displayed
 
   protected:

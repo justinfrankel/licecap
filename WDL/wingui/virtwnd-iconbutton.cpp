@@ -369,17 +369,17 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
       font->SetBkMode(TRANSPARENT);
       font->SetTextColor(fgc);
 
-      r2.left += m_margin_l;
-      r2.right -= m_margin_r;
-      r2.top += m_margin_t;
-      r2.bottom -= m_margin_b;
+      r2.left += m_margin_l * rscale / WDL_VWND_SCALEBASE;
+      r2.right -= m_margin_r * rscale / WDL_VWND_SCALEBASE;
+      r2.top += m_margin_t * rscale / WDL_VWND_SCALEBASE;
+      r2.bottom -= m_margin_b * rscale / WDL_VWND_SCALEBASE;
 
       if (isdown)
       {
-        if (m_textalign<0) r2.left+=1;
-        else if (m_textalign>0) r2.right+=1;
-        else r2.left+=2;
-        r2.top+=2;
+        if (m_textalign<0) r2.left+= rscale / WDL_VWND_SCALEBASE;
+        else if (m_textalign>0) r2.right+= rscale / WDL_VWND_SCALEBASE;
+        else r2.left+=2 * rscale / WDL_VWND_SCALEBASE;
+        r2.top+=2 * rscale/WDL_VWND_SCALEBASE;
       }
       int f = DT_SINGLELINE|DT_NOPREFIX;
       if (isVert)
@@ -867,10 +867,10 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
   if (m_text.Get()[0])
   {
-    r.left += m_margin_l;
-    r.right -= m_margin_r;
-    r.top += m_margin_t;
-    r.bottom -= m_margin_b;
+    r.left += m_margin_l * rscale / WDL_VWND_SCALEBASE;
+    r.right -= m_margin_r * rscale / WDL_VWND_SCALEBASE;
+    r.top += m_margin_t * rscale / WDL_VWND_SCALEBASE;
+    r.bottom -= m_margin_b * rscale / WDL_VWND_SCALEBASE;
 
     m_didvert=m_vfont && (r.right-r.left)<(r.bottom-r.top)/2;
     LICE_IFont *font = m_didvert ? m_vfont : m_font;
@@ -984,90 +984,6 @@ void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
 
   }
   WDL_VWnd::OnPaint(drawbm,origin_x,origin_y,cliprect,rscale);
-}
-
-
-int WDL_VirtualStaticText::GetCharFromCoord(int xpos, int ypos)
-{
-  LICE_IFont *font = (m_didvert ? m_vfont : m_font);
-  if (!font) return -1;
-  
-  const char* str = m_text.Get();
-  const int len = m_text.GetLength();
-  if (!len) return -1;
-
-  // for align left/right, we could DT_CALCRECT with 1 char, then 2, etc, but that won't work for align center
-  // so we'll just estimate
-  RECT tr = { 0, 0, m_position.right-m_position.left, m_position.bottom-m_position.top };
-  font->DrawText(0, str, len, &tr, DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-  int tw = tr.right;
-  int th = tr.bottom;
-
-  RECT r = m_position;
-  if (m_wantborder)
-  {
-    r.left++;
-    r.top++;
-    r.right--;
-    r.bottom--;
-  }
-  r.left += m_margin_l;
-  r.top += m_margin_t;
-  r.right -= m_margin_r;
-  r.bottom -= m_margin_b;
-  int w = r.right-r.left;
-  int h = r.bottom-r.top;
-
-  if (m_didvert)
-  {
-    r.left += (w-tw)/2;
-    r.right -= (w-tw)/2;
-  }
-  else
-  {
-    r.top += (h-th)/2;
-    r.bottom -= (h-th)/2;
-  }
-
-  if (m_didalign < 0)
-  {
-    if (m_didvert) r.bottom = r.top+th;    
-    else r.right = r.left+tw;    
-  }
-  else if (m_didalign > 0)
-  {
-    if (m_didvert) r.top = r.bottom-th;
-    else r.left = r.right-tw;
-  }
-  else
-  {
-    if (m_didvert) 
-    {
-      r.top += (h-th)/2;
-      r.bottom -= (h-th)/2;
-    }
-    else
-    {
-      r.left += (w-tw)/2;
-      r.right -= (w-tw)/2;
-    }
-  }
-
-  int c=-1;
-  if (m_didvert)
-  {
-    if (ypos < r.top) c=-1;
-    else if (ypos > r.bottom) c=len;
-    else c = (int)((double)len*(double)(ypos-r.top)/(double)(r.bottom-r.top));
-  }
-  else
-  {
-    if (xpos < r.left) c=-1;
-    else if (xpos > r.right) c=len;
-    else c = (int)((double)len*(double)(xpos-r.left)/(double)(r.right-r.left));
-  }
-
-  return c;
 }
 
 
