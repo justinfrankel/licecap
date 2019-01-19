@@ -3888,7 +3888,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       if (lvs && lvs->m_last_row_height>0 && !lvs->m_is_listbox)
       {
         LVHITTESTINFO inf = { { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }, };
-        const int row = ListView_HitTest(hwnd, &inf);
+        const int row = ListView_SubItemHitTest(hwnd, &inf);
         const int n = ListView_GetItemCount(hwnd);
         if (row>=0 && row<n && !ListView_GetItemState(hwnd,row,LVIS_SELECTED))
         {
@@ -3898,7 +3898,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           }
         }
 
-        NMLISTVIEW nm={{hwnd,hwnd->m_id,NM_RCLICK},0,0,0,};
+        NMLISTVIEW nm={{hwnd,hwnd->m_id,NM_RCLICK},row,inf.iSubItem,0,0,0, {inf.pt.x,inf.pt.y}};
         SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
       }
     return 1;
@@ -4060,7 +4060,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             }
 
             {
-              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,};
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,0,0, {s_clickpt.x, s_clickpt.y }};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             }
             if (oldsel != lvs->m_selitem) 
@@ -6208,7 +6208,8 @@ bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
     const int n=lvs->m_cols.GetSize();
     for (x = 0; x < n; x ++)
     {
-      const int xwid = lvs->m_cols.Get()[x].xwid;
+      int xwid = lvs->m_cols.Get()[x].xwid;
+      if (!x && lvs->hasStatusImage()) xwid += lvs->m_last_row_height;
       if (x == subitem)
       {
         r->left=xpos;
