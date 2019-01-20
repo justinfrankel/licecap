@@ -1327,6 +1327,7 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
         SWELL_MakeButton(0, "OK", IDOK,0,0,0,0, 0);
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
+        SWELL_MakeLabel(0, "(right click a custom color to save)", 0x500, 0,0,0,0, 0); 
 
         static const char * const lbl[] = { "R","G","B","H","S","V"};
         for (int x=0;x<6;x++)
@@ -1543,6 +1544,7 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         r.right -= border*2 + butw;
         SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER|SWP_NOACTIVATE);
 
+        SetWindowPos(GetDlgItem(hwnd,0x500), NULL, border, r.bottom, r.right-border*2, buth, SWP_NOZORDER|SWP_NOACTIVATE);
       }
     break;
     case WM_COMMAND:
