@@ -328,13 +328,13 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 }
 
 
-static unsigned int __attribute__((unused)) glue_getscr()
+static unsigned long __attribute__((unused)) glue_getscr()
 {
-  unsigned int rv;
+  unsigned long rv;
   asm volatile ( "mrs %0, fpcr" : "=r" (rv));
   return rv;
 }
-static void  __attribute__((unused)) glue_setscr(unsigned int v)
+static void  __attribute__((unused)) glue_setscr(unsigned long v)
 {
   asm volatile ( "msr fpcr, %0" :: "r"(v));
 }
@@ -345,13 +345,15 @@ void eel_setfp_round()
 void eel_setfp_trunc() 
 { 
 }
-void eel_enterfp(int s[2]) 
+void eel_enterfp(int _s[2]) 
 {
+  unsigned long *s = (unsigned long*)_s;
   s[0] = glue_getscr();
   glue_setscr(s[0] | (1<<24));
 }
-void eel_leavefp(int s[2]) 
+void eel_leavefp(int _s[2]) 
 {
+  unsigned long *s = (unsigned long*)_s;
   glue_setscr(s[0]);
 }
 

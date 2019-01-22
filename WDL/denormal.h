@@ -46,6 +46,7 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 
 #if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
   #define WDL_DENORMAL_FTZMODE
+  #define WDL_DENORMAL_FTZSTATE_TYPE unsigned int
   #ifdef _MSC_VER
     #include <intrin.h>
   #else
@@ -60,9 +61,10 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
   #endif
 #elif defined(__arm__) || defined(__aarch64__)
   #define WDL_DENORMAL_FTZMODE
-  static unsigned int __attribute__((unused)) wdl_denorm_mm_getcsr()
+  #define WDL_DENORMAL_FTZSTATE_TYPE unsigned long 
+  static unsigned long __attribute__((unused)) wdl_denorm_mm_getcsr()
   {
-    unsigned int rv;
+    unsigned long rv;
 #ifdef __aarch64__
     asm volatile ( "mrs %0, fpcr" : "=r" (rv));
 #else
@@ -70,7 +72,7 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 #endif
     return rv;
   }
-  static void  __attribute__((unused)) wdl_denorm_mm_setcsr(unsigned int v)
+  static void  __attribute__((unused)) wdl_denorm_mm_setcsr(unsigned long v)
   {
 #ifdef __aarch64__
     asm volatile ( "msr fpcr, %0" :: "r"(v));
@@ -87,7 +89,7 @@ class WDL_denormal_ftz_scope
     WDL_denormal_ftz_scope()
     {
 #ifdef WDL_DENORMAL_FTZMODE
-      const unsigned int b = wdl_denorm_mm_csr_mask;
+      const WDL_DENORMAL_FTZSTATE_TYPE b = wdl_denorm_mm_csr_mask;
       old_state = wdl_denorm_mm_getcsr();
       if ((need_restore = (old_state & b) != b))
           wdl_denorm_mm_setcsr(old_state|b);
@@ -101,7 +103,7 @@ class WDL_denormal_ftz_scope
     }
 
 #ifdef WDL_DENORMAL_FTZMODE
-    unsigned int old_state;
+    WDL_DENORMAL_FTZSTATE_TYPE old_state;
     bool need_restore;
 #endif
 
