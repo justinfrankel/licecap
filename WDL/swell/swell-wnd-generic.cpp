@@ -1362,12 +1362,15 @@ fakeButtonClick:
 
           bool pressed = GetCapture()==hwnd;
 
-          SetTextColor(ps.hdc,
-            hwnd->m_enabled ? g_swell_ctheme.button_text :
-              g_swell_ctheme.button_text_disabled);
           SetBkMode(ps.hdc,TRANSPARENT);
 
+          if (hwnd->m_enabled) 
+            SetTextColor(ps.hdc, g_swell_ctheme.button_text);
+
           paintDialogBackground(hwnd,&r,ps.hdc);
+
+          if (!hwnd->m_enabled) 
+            SetTextColor(ps.hdc, g_swell_ctheme.button_text_disabled);
 
           int f=DT_VCENTER;
           int sf = (hwnd->m_style & 0xf);
