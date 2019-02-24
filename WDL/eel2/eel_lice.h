@@ -1824,7 +1824,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
   *m_mouse_cap=(EEL_F)vflags;
 
   *m_gfx_dest = -1.0; // m_framebuffer
-  *m_gfx_a= 1.0; // default to full alpha every call
+  *m_gfx_a2 = *m_gfx_a = 1.0; // default to full alpha every call
   int fh;
   if (m_gfx_font_active>=0&&m_gfx_font_active<m_gfx_fonts.GetSize() && (fh=m_gfx_fonts.Get()[m_gfx_font_active].use_fonth)>0)
     *m_gfx_texth=fh;
