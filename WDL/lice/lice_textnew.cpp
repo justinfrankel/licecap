@@ -19,7 +19,9 @@ static char __1ifNT2if98=0; // 2 for iswin98
 
 
 // if other methods fail, at this point just flat out refuse to render glyphs (since they would use a ridiculous amount of memory)
+#ifndef ABSOLUTELY_NO_GLYPHS_HIGHER_THAN 
 #define ABSOLUTELY_NO_GLYPHS_HIGHER_THAN 1024 
+#endif
 
 
 static int utf8makechar(char *ptrout, unsigned short charIn)
