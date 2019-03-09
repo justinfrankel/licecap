@@ -252,7 +252,7 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
       free(cs->hostname);
       cs->hostname=NULL;
       cs->sock = newsock;
-      cs->blockmode=0;
+      cs->blockmode=true;
       cs->port=0;
       if (ipOut)
       {
