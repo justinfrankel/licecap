@@ -424,6 +424,7 @@ LRESULT CALLBACK cursesWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
     {
       const char la = ctx->cursor_state;
       ctx->cursor_state = (ctx->cursor_state+1)%CURSOR_BLINK_TIMER_ZEROEVERY;
+      if (!ctx->cursor_state && GetFocus() != hwnd) ctx->cursor_state=1;
 
       const int *tab = ctx->user_colortab ? ctx->user_colortab : curses_win32_global_user_colortab;
       if (tab && tab[0] != ctx->user_colortab_lastfirstval)
