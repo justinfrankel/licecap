@@ -1883,18 +1883,16 @@ static int editHitTestLine(HDC hdc, const char *str, int str_len, int xpos, int 
   if (xpos < 1) return 0;
 
   // could bsearch, but meh
-  int lc=0, x = wdl_utf8_parsechar(str,NULL);
+  int x = 0;
   while (x < str_len)
   {
     memset(&mr,0,sizeof(mr));
     const int clen = wdl_utf8_parsechar(str+x,NULL); 
-    DrawText(hdc,str+x,clen,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT|DT_RIGHT/*swell-only flag*/);
-    xpos -= mr.right;
-    if (xpos <= 0) break;
-    lc = x;
+    DrawText(hdc,str,x+clen,&mr,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT|DT_RIGHT/*swell-only flag*/);
+    if (xpos < mr.right) break;
     x += clen;
   }
-  return lc;
+  return x;
 }
 
 static int editHitTest(HDC hdc, const char *str, int singleline_len, int xpos, int ypos, int word_wrap, 
