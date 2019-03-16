@@ -14,7 +14,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <time.h>
-#define ERRNO (WSAGetLastError())
+#define JNL_ERRNO (WSAGetLastError())
 #define SET_SOCK_BLOCK(s,block) { unsigned long __i=block?0:1; ioctlsocket(s,FIONBIO,&__i); }
 #define JNL_EWOULDBLOCK WSAEWOULDBLOCK
 #define JNL_EINPROGRESS WSAEWOULDBLOCK
@@ -48,7 +48,7 @@ typedef int socklen_t;
 #include <string.h>
 
 
-#define ERRNO errno
+#define JNL_ERRNO ((errno)|0)
 #define closesocket(s) close(s)
 #define SET_SOCK_BLOCK(s,block) { int __flags; if ((__flags = fcntl(s, F_GETFL, 0)) != -1) { if (!block) __flags |= O_NONBLOCK; else __flags &= ~O_NONBLOCK; fcntl(s, F_SETFL, __flags);  } }
 typedef int SOCKET;

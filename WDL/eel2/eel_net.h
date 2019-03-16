@@ -280,7 +280,7 @@ int eel_net_state::__run_connect(connection_state *cs, unsigned int ip)
   sa.sin_family=AF_INET;
   sa.sin_addr.s_addr = ip;
   sa.sin_port = htons(cs->port);
-  if (!connect(s,(struct sockaddr *)&sa,16) || (!cs->blockmode && ERRNO == JNL_EINPROGRESS))
+  if (!connect(s,(struct sockaddr *)&sa,16) || (!cs->blockmode && JNL_ERRNO == JNL_EINPROGRESS))
   {
     cs->state = STATE_CONNECTED;
     cs->sock = s;
@@ -328,7 +328,7 @@ int eel_net_state::do_recv(void *opaque, EEL_F h, char *buf, int maxlen)
     if (maxlen == 0) return 0;
 
     const int rv=(int)recv(s->sock,buf,maxlen,0);
-    if (rv < 0 && !s->blockmode && (ERRNO == JNL_EWOULDBLOCK || ERRNO == JNL_ENOTCONN)) return 0;
+    if (rv < 0 && !s->blockmode && (JNL_ERRNO == JNL_EWOULDBLOCK || JNL_ERRNO == JNL_ENOTCONN)) return 0;
 
     if (!rv) return -1; // TCP, 0=connection terminated
 
@@ -352,7 +352,7 @@ int eel_net_state::do_send(void *opaque, EEL_F h, const char *src, int len)
 #endif
     if (__run(s) || s->sock == INVALID_SOCKET) return s->state == STATE_ERR ? -1 : 0;
     const int rv=(int)send(s->sock,src,len,0);
-    if (rv < 0 && !s->blockmode && (ERRNO == JNL_EWOULDBLOCK || ERRNO == JNL_ENOTCONN)) return 0;
+    if (rv < 0 && !s->blockmode && (JNL_ERRNO == JNL_EWOULDBLOCK || JNL_ERRNO == JNL_ENOTCONN)) return 0;
     return rv;
   }
   else
