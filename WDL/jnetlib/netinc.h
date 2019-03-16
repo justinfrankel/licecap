@@ -16,12 +16,10 @@
 #include <time.h>
 #define ERRNO (WSAGetLastError())
 #define SET_SOCK_BLOCK(s,block) { unsigned long __i=block?0:1; ioctlsocket(s,FIONBIO,&__i); }
-#ifndef EWOULDBLOCK
-  #define EWOULDBLOCK WSAEWOULDBLOCK
-#endif
-#ifndef EINPROGRESS
-  #define EINPROGRESS WSAEWOULDBLOCK
-#endif
+#define JNL_EWOULDBLOCK WSAEWOULDBLOCK
+#define JNL_EINPROGRESS WSAEWOULDBLOCK
+#define JNL_ENOTCONN WSAENOTCONN
+
 typedef int socklen_t;
 
 #else
@@ -55,6 +53,10 @@ typedef int socklen_t;
 #define SET_SOCK_BLOCK(s,block) { int __flags; if ((__flags = fcntl(s, F_GETFL, 0)) != -1) { if (!block) __flags |= O_NONBLOCK; else __flags &= ~O_NONBLOCK; fcntl(s, F_SETFL, __flags);  } }
 typedef int SOCKET;
 #define INVALID_SOCKET (-1)
+
+#define JNL_EWOULDBLOCK EWOULDBLOCK
+#define JNL_EINPROGRESS EINPROGRESS
+#define JNL_ENOTCONN ENOTCONN
 
 #ifndef stricmp
 #define stricmp(x,y) strcasecmp(x,y)
