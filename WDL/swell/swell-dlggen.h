@@ -201,38 +201,6 @@ typedef struct SWELL_CursorResourceIndex
 } SWELL_CursorResourceIndex;
 
 
-
-static inline HWND __SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, int h, int flags=0, int exstyle=0)
-{
-  return SWELL_MakeButton(def,label,idx,x,y,w,h,flags);
-}
-static inline HWND __SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags=0)
-{
-  return SWELL_MakeEditField(idx,x,y,w,h,flags);
-}
-static inline HWND __SWELL_MakeLabel(int align, const char *label, int idx, int x, int y, int w, int h, int flags=0, int exflags=0)
-{
-  return SWELL_MakeLabel(align,label,idx,x,y,w,h,flags);
-}
-static inline HWND __SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags=0)
-{
-  return SWELL_MakeCombo(idx,x,y,w,h,flags);
-}
-static inline HWND __SWELL_MakeListBox(int idx, int x, int y, int w, int h, int styles=0)
-{
-  return SWELL_MakeListBox(idx,x,y,w,h,styles);
-}
-
-static inline HWND __SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle=0)
-{
-  return SWELL_MakeControl(cname,idx,classname,style,x,y,w,h,exstyle);
-}
-
-static inline HWND __SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, int style=0)
-{
-  return SWELL_MakeGroupBox(name,idx,x,y,w,h,style);
-}
-
 class SWELL_DialogRegHelper { 
   public:
      SWELL_DialogResourceIndex m_rec;
