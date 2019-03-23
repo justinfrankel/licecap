@@ -254,13 +254,16 @@ class SWELL_DialogRegHelper {
 
 #define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(recid, flags, titlestr, wid, hei, scale) \
                                        static void SWELL__dlg_cf__##recid(HWND view, int wflags); \
-                                          static SWELL_DialogRegHelper __swell_dlg_helper_##recid(&SWELL_curmodule_dialogresource_head, SWELL__dlg_cf__##recid, recid,flags,titlestr,wid,hei,scale); \
-                                           void SWELL__dlg_cf__##recid(HWND view, int wflags) { \
-                                              SWELL_MakeSetCurParms(scale,scale,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE));  \
-                                              static const SWELL_DlgResourceEntry list[]={
+                                       const float __swell_dlg_scale__##recid = (float) (scale); \
+                                       static SWELL_DialogRegHelper __swell_dlg_helper_##recid(&SWELL_curmodule_dialogresource_head, SWELL__dlg_cf__##recid, recid,flags,titlestr,wid,hei,scale); \
+                                       static const SWELL_DlgResourceEntry __swell_dlg_list__##recid[]={
 
                                             
-#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) }; SWELL_GenerateDialogFromList(list+1,sizeof(list)/sizeof(list[0])-1); }
+#define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) }; \
+                              static void SWELL__dlg_cf__##recid(HWND view, int wflags) { \
+                                SWELL_MakeSetCurParms(__swell_dlg_scale__##recid,__swell_dlg_scale__##recid,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE));  \
+                                SWELL_GenerateDialogFromList(__swell_dlg_list__##recid+1,sizeof(__swell_dlg_list__##recid)/sizeof(__swell_dlg_list__##recid[0])-1); \
+                              }
 
                                        
                                 
