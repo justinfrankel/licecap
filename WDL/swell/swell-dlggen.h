@@ -252,6 +252,36 @@ class SWELL_DialogRegHelper {
      }
 };
 
+#ifdef _DEBUG
+  #include "../assocarray.h"
+  class SWELL_DialogRegValidator 
+  {
+    public:
+      SWELL_DialogRegValidator(const SWELL_DlgResourceEntry *recs, size_t recs_sz)
+      {
+        if (recs_sz>1)
+        {
+          // check for duplicate IDs
+          WDL_IntKeyedArray<bool> tmp;
+          for (size_t x = 0; x < recs_sz; x ++)
+          {
+            const SWELL_DlgResourceEntry *list = recs + x;
+            const int idx = strncmp(list->str1,"__SWELL_",8) ? list->flag1 : list->p1;
+            if (idx != 0 && idx != -1)
+            {
+              WDL_ASSERT(!tmp.Get(idx));
+              tmp.Insert(idx,true);
+            }
+          }
+        }
+      }
+  };
+  #define SWELL_VALIDATE_DIALOG_RESOURCE(v,r) static SWELL_DialogRegValidator v(r+1, sizeof(r)/sizeof(r[0])-1); 
+#else
+  #define SWELL_VALIDATE_DIALOG_RESOURCE(v,r)
+#endif
+
+
 #define SWELL_DEFINE_DIALOG_RESOURCE_BEGIN(recid, flags, titlestr, wid, hei, scale) \
                                        static void SWELL__dlg_cf__##recid(HWND view, int wflags); \
                                        const float __swell_dlg_scale__##recid = (float) (scale); \
@@ -260,11 +290,10 @@ class SWELL_DialogRegHelper {
 
                                             
 #define SWELL_DEFINE_DIALOG_RESOURCE_END(recid ) }; \
+                              SWELL_VALIDATE_DIALOG_RESOURCE( __swell_dlg_validator__##recid, __swell_dlg_list__##recid) \
                               static void SWELL__dlg_cf__##recid(HWND view, int wflags) { \
                                 SWELL_MakeSetCurParms(__swell_dlg_scale__##recid,__swell_dlg_scale__##recid,0,0,view,false,!(wflags&SWELL_DLG_WS_NOAUTOSIZE));  \
                                 SWELL_GenerateDialogFromList(__swell_dlg_list__##recid+1,sizeof(__swell_dlg_list__##recid)/sizeof(__swell_dlg_list__##recid[0])-1); \
                               }
 
-                                       
-                                
 #endif
