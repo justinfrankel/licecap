@@ -221,31 +221,23 @@ void EEL_Editor::draw_string_urlchk(int *skipcnt, const char *str, int amt, int 
   
 void EEL_Editor::draw_string_internal(int *skipcnt, const char *str, int amt, int *attr, int newAttr)
 {
+  // *skipcnt is in characters, amt is in bytes
+  while (*skipcnt > 0 && amt > 0)
+  {
+    const int clen = wdl_utf8_parsechar(str,NULL);
+    str += clen;
+    amt -= clen;
+    *skipcnt -= 1;
+  }
+
   if (amt>0)
   {
-    const int sk = *skipcnt;
-    if (amt < sk) 
-    { 
-      *skipcnt=sk - amt; 
-    } 
-    else
+    if (*attr != newAttr) 
     {
-      if (sk>0) 
-      {
-        str += sk; 
-        amt -= sk; 
-        *skipcnt=0; 
-      }
-      if (amt>0)
-      {
-        if (*attr != newAttr) 
-        {
-          attrset(newAttr);
-          *attr = newAttr;
-        }
-        addnstr(str,amt);
-      }
+      attrset(newAttr);
+      *attr = newAttr;
     }
+    addnstr(str,amt);
   }
 }
 

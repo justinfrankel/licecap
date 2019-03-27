@@ -443,8 +443,8 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           while (x2 < s->GetLength() && p[x2] > 0 && (isalnum(p[x2]) || p[x2] == '_')) ++x2;
           if (x2 > x1)
           {
-            m_select_x1=x1;
-            m_curs_x=m_select_x2=x2;
+            m_select_x1=WDL_utf8_bytepos_to_charpos(s->Get(),x1);
+            m_curs_x=m_select_x2=WDL_utf8_bytepos_to_charpos(s->Get(),x2);
             m_select_y1=m_select_y2=m_curs_y;
             m_selecting=1;
           }
