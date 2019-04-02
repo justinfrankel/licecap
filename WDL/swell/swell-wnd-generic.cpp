@@ -250,10 +250,27 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
 }
 
 
+static bool __isWindow(HWND hc, HWND hFind)
+{
+  while (hc)
+  {
+    if (hc == hFind || (hc->m_children && __isWindow(hc->m_children,hFind))) return true;
+    hc = hc->m_next;
+  }
+  return false;
+}
+
 bool IsWindow(HWND hwnd)
 {
-  // todo: verify window is valid (somehow)
-  return !!hwnd;
+  if (!hwnd) return false;
+  HWND h = SWELL_topwindows;
+  while (h)
+  {
+    if (hwnd == h || (h->m_children && __isWindow(h->m_children,hwnd))) return true;
+    h=h->m_next;
+  }
+
+  return false;
 }
 
 bool IsWindowVisible(HWND hwnd)
