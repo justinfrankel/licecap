@@ -1400,7 +1400,7 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   LICE_Blit(out->surface,in->surface,
             x+out->surface_offs.x,y+out->surface_offs.y,
             xin+in->surface_offs.x,yin+in->surface_offs.y,w,h,
-            1.0f,LICE_BLIT_MODE_COPY);
+            1.0f,LICE_BLIT_MODE_COPY | (mode == (int)SRCCOPY_USEALPHACHAN ? LICE_BLIT_USE_ALPHA : 0));
   swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
@@ -1427,7 +1427,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
   LICE_ScaledBlit(out->surface,in->surface,
             x+out->surface_offs.x,y+out->surface_offs.y,w,h,
             xin+in->surface_offs.x,yin+in->surface_offs.y,srcw,srch,
-            1.0f,LICE_BLIT_MODE_COPY);
+            1.0f,LICE_BLIT_MODE_COPY | (mode == (int)SRCCOPY_USEALPHACHAN ? LICE_BLIT_USE_ALPHA : 0));
   swell_DirtyContext(out,x,y,x+w,y+h);
 }
 

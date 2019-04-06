@@ -1395,7 +1395,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   if (desth == preclip_h) desth=h;
   else if (h != preclip_h) desth = (h*desth)/preclip_h;
   
-  const bool use_alphachannel = mode == SRCCOPY_USEALPHACHAN;
+  const bool use_alphachannel = mode == (int)SRCCOPY_USEALPHACHAN;
   
   CGContextRef output = (CGContextRef)dest->ctx;
   CGRect outputr = CGRectMake(x,-desth-y,destw,desth);
