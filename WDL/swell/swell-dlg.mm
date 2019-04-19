@@ -2234,15 +2234,23 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
 {
   SWELL_DialogResourceIndex *p=resById(reshead,resid);
   if (!p||(p->windowTypeFlags&SWELL_DLG_WS_CHILD)) return -1;
+
+  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
   SWELL_ModalDialog *box = [[SWELL_ModalDialog alloc] initDialogBox:p Parent:parent dlgProc:dlgproc Param:param];      
      
-  if (!box) return -1;
+  if (!box)
+  {
+    [pool release];
+    return -1;
+  }
   
   if ([box swellHasModalRetVal]) // detect EndDialog() in WM_INITDIALOG
   {
     int ret=[box swellGetModalRetVal];
     sendSwellMessage([box contentView],WM_DESTROY,0,0);
     [box release];
+    [pool release];
     return ret;
   }
     
@@ -2263,6 +2271,7 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
   }
   int ret=[box swellGetModalRetVal];
   [box release];
+  [pool release];
   return ret;
 }
 
