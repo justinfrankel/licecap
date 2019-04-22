@@ -1007,7 +1007,9 @@ static void OnKeyEvent(GdkEventKey *k)
   else if (foc && foc->m_oswindow && !(foc->m_style&WS_CAPTION)) hwnd=foc; // for menus, event sent to other window due to gdk_window_set_override_redirect()
 
   MSG msg = { hwnd, msgtype, kv, modifiers, };
-  if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,0)<=0)
+  INT_PTR extra_flags = 0;
+  if (DialogBoxIsActive()) extra_flags |= 1;
+  if (SWELLAppMain(SWELLAPP_PROCESSMESSAGE,(INT_PTR)&msg,extra_flags)<=0)
     SendMessage(hwnd, msg.message, kv, modifiers);
 }
 
