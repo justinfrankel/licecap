@@ -332,6 +332,9 @@ WDL_SHM_Connection::WDL_SHM_Connection(bool whichChan, // first created must be 
     int s = socket(AF_UNIX,SOCK_STREAM,0);
     if (s<0) return;
 
+#ifdef __APPLE__
+    { int __flags=1; setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &__flags, sizeof(__flags)); }
+#endif
     int bsz=m_sockbufsize;
     setsockopt(s,SOL_SOCKET,SO_SNDBUF,(char *)&bsz,sizeof(bsz));
     bsz=m_sockbufsize;
@@ -406,6 +409,9 @@ int WDL_SHM_Connection::Run()
       m_listen_socket=-1;
 
       fcntl(s, F_SETFL, fcntl(s,F_GETFL) | O_NONBLOCK); // nonblocking
+#ifdef __APPLE__
+      { int __flags=1; setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &__flags, sizeof(__flags)); }
+#endif
 
       int bsz=m_sockbufsize;
       setsockopt(s,SOL_SOCKET,SO_SNDBUF,(char *)&bsz,sizeof(bsz));
@@ -512,6 +518,9 @@ void WDL_SHM_Connection::acquireListener()
 
   int s = socket(AF_UNIX,SOCK_STREAM,0);
   if (s<0) return;
+#ifdef __APPLE__
+  { int __flags=1; setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &__flags, sizeof(__flags)); }
+#endif
   struct sockaddr_un *addr = (struct sockaddr_un *)m_sockaddr;
   if (bind(s,(struct sockaddr*)addr,SUN_LEN(addr)) < 0 || listen(s,1) < 0)
   {

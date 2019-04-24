@@ -48,6 +48,7 @@ void JNL_Connection::connect(SOCKET s, struct sockaddr_in *loc)
   else memset(m_saddr,0,sizeof(struct sockaddr_in));
   if (m_socket != INVALID_SOCKET)
   {
+    SET_SOCK_DEFAULTS(m_socket);
     SET_SOCK_BLOCK(m_socket,0);
     m_state=STATE_CONNECTED;
   }
@@ -77,6 +78,7 @@ void JNL_Connection::connect(const char *hostname, int port)
       sa.sin_addr.s_addr=m_localinterfacereq;
       bind(m_socket,(struct sockaddr *)&sa,16);
     }
+    SET_SOCK_DEFAULTS(m_socket);
     SET_SOCK_BLOCK(m_socket,0);
     strncpy(m_host,hostname,sizeof(m_host)-1);
     m_host[sizeof(m_host)-1]=0;

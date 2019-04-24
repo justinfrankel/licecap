@@ -16,6 +16,7 @@
 #include <time.h>
 #define JNL_ERRNO (WSAGetLastError())
 #define SET_SOCK_BLOCK(s,block) { unsigned long __i=block?0:1; ioctlsocket(s,FIONBIO,&__i); }
+#define SET_SOCK_DEFAULTS(s) do { } while (0)
 #define JNL_EWOULDBLOCK WSAEWOULDBLOCK
 #define JNL_EINPROGRESS WSAEWOULDBLOCK
 #define JNL_ENOTCONN WSAENOTCONN
@@ -51,6 +52,12 @@ typedef int socklen_t;
 #define JNL_ERRNO ((errno)|0)
 #define closesocket(s) close(s)
 #define SET_SOCK_BLOCK(s,block) { int __flags; if ((__flags = fcntl(s, F_GETFL, 0)) != -1) { if (!block) __flags |= O_NONBLOCK; else __flags &= ~O_NONBLOCK; fcntl(s, F_SETFL, __flags);  } }
+#ifdef __APPLE__
+#define SET_SOCK_DEFAULTS(s) do { int __flags = 1; setsockopt((s), SOL_SOCKET, SO_NOSIGPIPE, &__flags, sizeof(__flags)); } while (0)
+#else
+#define SET_SOCK_DEFAULTS(s) do { } while (0)
+#endif
+
 typedef int SOCKET;
 #define INVALID_SOCKET (-1)
 

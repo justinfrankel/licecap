@@ -205,6 +205,7 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
     SOCKET sock = socket(AF_INET,SOCK_STREAM,0);
     if (sock != INVALID_SOCKET)
     {
+      SET_SOCK_DEFAULTS(sock);
       SET_SOCK_BLOCK(sock,0);
       if (bind(sock,(struct sockaddr *)&sin,sizeof(sin)) || listen(sock,8)==-1) 
       {
@@ -229,6 +230,7 @@ EEL_F eel_net_state::onListen(void *opaque, EEL_F handle, int mode, EEL_F *ifStr
   {
     return 0; // nothing to report here
   }
+  SET_SOCK_DEFAULTS(newsock);
 
   int x;
   for(x=0;x<m_cons.GetSize();x++)
@@ -273,6 +275,7 @@ int eel_net_state::__run_connect(connection_state *cs, unsigned int ip)
 {
   SOCKET s=socket(AF_INET,SOCK_STREAM,0);
   if (s == INVALID_SOCKET) return 0;
+  SET_SOCK_DEFAULTS(s);
 
   if (!cs->blockmode) SET_SOCK_BLOCK(s,0);
 
