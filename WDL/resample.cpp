@@ -347,11 +347,24 @@ void WDL_Resampler::BuildLowPass(double filtpos, bool *isIdeal) // only called i
 
     if (!ideal_interp)
     {
-      // we could calculate the gcd here...
-      const double in300 = m_sratein / 300.0;
-      const double out300 = m_srateout / 300.0;
-      if (in300 == (int)in300 && out300 == (int)out300)
-        ideal_interp = (int) out300;
+      // if whole integer rates, calculate GCD
+      const int in1 = (int)m_sratein, out1 = (int)m_srateout;
+      if (out1 > 0 && in1 > 0 && m_sratein == (double)in1 && m_srateout == (double)out1)
+      {
+        // don't bother finding the GCD if it's lower than is useful
+        int min_cd =  out1 / (2*wantinterp);
+        if (min_cd < 1) min_cd = 1;
+
+        int n1 = out1, n2=in1;
+        while (n2 >= min_cd)
+        {
+          const int tmp = n1;
+          n1 = n2;
+          n2 = tmp % n2;
+        }
+        if (!n2)
+          ideal_interp = out1 / n1;
+      }
     }
 
     if (ideal_interp > 0 && ideal_interp <= wantinterp*2) // use ideal filter for reduced cpu use even if it means more memory
