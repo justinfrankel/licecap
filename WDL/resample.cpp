@@ -123,6 +123,31 @@ void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_Resa
 
 }
 
+void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz)
+{
+  const int oversize=m_lp_oversize;
+  const int ifpos=(int)(fracpos*oversize+0.5);
+  filter += (oversize-ifpos) * filtsz;
+
+  int x;
+  for (x = 0; x < nch; x ++)
+  {
+    double sum2=0.0;
+    const WDL_SincFilterSample *fptr2=filter;
+    const WDL_ResampleSample *iptr=inptr+x;
+    int i=filtsz/2;
+    while (i--)
+    {
+      sum2 += fptr2[0]*iptr[0]; 
+      sum2 += fptr2[1]*iptr[nch]; 
+      iptr+=nch*2;
+      fptr2+=2;
+    }
+    outptr[x]=sum2;
+  }
+
+}
+
 void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
 {
   const int oversize=m_lp_oversize;
@@ -146,6 +171,25 @@ void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_Res
     fptr2+=2;
   }
   outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
+}
+
+void inline WDL_Resampler::SincSample1N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
+{
+  const int oversize=m_lp_oversize;
+  const int ifpos=(int)(fracpos*oversize+0.5);
+
+  double sum2=0.0;
+  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+  const WDL_ResampleSample *iptr=inptr;
+  int i=filtsz/2;
+  while (i--)
+  {
+    sum2 += fptr2[0]*iptr[0];
+    sum2 += fptr2[1]*iptr[1];
+    iptr+=2;
+    fptr2+=2;
+  }
+  outptr[0]=sum2;
 }
 
 void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
@@ -181,6 +225,30 @@ void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_Res
   outptr[0]=sum*fracpos + sumb*(1.0-fracpos);
   outptr[1]=sum2*fracpos + sum2b*(1.0-fracpos);
 
+}
+
+void inline WDL_Resampler::SincSample2N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
+{
+  const int oversize=m_lp_oversize;
+  const int ifpos=(int)(fracpos*oversize+0.5);
+
+  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+
+  double sumb=0.0;
+  double sum2b=0.0;
+  const WDL_ResampleSample *iptr=inptr;
+  int i=filtsz/2;
+  while (i--)
+  {
+    sumb += fptr2[0]*iptr[0];
+    sum2b += fptr2[0]*iptr[1];
+    sumb += fptr2[1]*iptr[2];
+    sum2b += fptr2[1]*iptr[3];
+    iptr+=4;
+    fptr2+=2;
+  }
+  outptr[0]=sumb;
+  outptr[1]=sum2b;
 }
 
 
@@ -257,11 +325,42 @@ void WDL_Resampler::SetRates(double rate_in, double rate_out)
 }
 
 
-void WDL_Resampler::BuildLowPass(double filtpos) // only called in sinc modes
+void WDL_Resampler::BuildLowPass(double filtpos, bool *isIdeal) // only called in sinc modes
 {
   const int wantsize=m_sincsize;
-  const int wantinterp=m_sincoversize;
+  int wantinterp=m_sincoversize;
 
+  int ideal_interp = 0;
+  if (wantinterp)
+  {
+    if (m_ratio < 1.0)
+    {
+      const double drat = m_srateout/m_sratein;
+      const int irat = (int) (drat + 0.5);
+      if (irat > 1 && irat==drat) ideal_interp=irat;
+    }
+    else 
+    {
+      const int irat = (int) (m_ratio + 0.5);
+      if (m_ratio == irat) ideal_interp=1; // eg 96k to 48k, only need one table
+    }
+
+    if (!ideal_interp)
+    {
+      // we could calculate the gcd here...
+      const double in300 = m_sratein / 300.0;
+      const double out300 = m_srateout / 300.0;
+      if (in300 == (int)in300 && out300 == (int)out300)
+        ideal_interp = (int) out300;
+    }
+
+    if (ideal_interp > 0 && ideal_interp <= wantinterp*2) // use ideal filter for reduced cpu use even if it means more memory
+    {
+      wantinterp = ideal_interp;
+    }
+  }
+
+  *isIdeal = ideal_interp == wantinterp;
   if (m_filter_ratio!=filtpos || 
       m_filter_coeffs_size != wantsize ||
       m_lp_oversize != wantinterp)
@@ -436,10 +535,11 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
   int outlatadj=0;
 
+  bool isideal = false;
   if (m_sincsize) // sinc interpolating
   {
-    if (m_ratio > 1.0) BuildLowPass(1.0 / (m_ratio*1.03));
-    else BuildLowPass(1.0);
+    if (m_ratio > 1.0) BuildLowPass(1.0 / (m_ratio*1.03), &isideal);
+    else BuildLowPass(1.0, &isideal);
 
     int filtsz=m_filter_coeffs_size;
     int filtlen = rsinbuf_availtemp - filtsz;
@@ -448,45 +548,84 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
     if (nch == 1)
     {
-      while (ns--)
-      {
-        int ipos = (int)srcpos;
+      if (isideal)
+        while (ns--)
+        {
+          int ipos = (int)srcpos;
 
-        if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
+          if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
 
-        SincSample1(outptr,localin + ipos,srcpos-ipos,filter,filtsz);
-        outptr ++;
-        srcpos+=drspos;
-        ret++;
-      }
+          SincSample1N(outptr,localin + ipos,srcpos-ipos,filter,filtsz);
+          outptr ++;
+          srcpos+=drspos;
+          ret++;
+        }
+      else
+        while (ns--)
+        {
+          int ipos = (int)srcpos;
+
+          if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
+
+          SincSample1(outptr,localin + ipos,srcpos-ipos,filter,filtsz);
+          outptr ++;
+          srcpos+=drspos;
+          ret++;
+        }
     }
     else if (nch==2)
     {
-      while (ns--)
-      {
-        int ipos = (int)srcpos;
+      if (isideal)
+        while (ns--)
+        {
+          int ipos = (int)srcpos;
 
-        if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
+          if (ipos >= filtlen-1) break; // quit decoding, not enough input samples
 
-        SincSample2(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz);
-        outptr+=2;
-        srcpos+=drspos;
-        ret++;
-      }
+          SincSample2N(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz);
+          outptr+=2;
+          srcpos+=drspos;
+          ret++;
+        }
+      else 
+        while (ns--)
+        {
+          int ipos = (int)srcpos;
+
+          if (ipos >= filtlen-1) break; // quit decoding, not enough input samples
+
+          SincSample2(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz);
+          outptr+=2;
+          srcpos+=drspos;
+          ret++;
+        }
     }
     else
     {
-      while (ns--)
-      {
-        int ipos = (int)srcpos;
+      if (isideal)
+        while (ns--)
+        {
+          int ipos = (int)srcpos;
 
-        if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
+          if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
 
-        SincSample(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz);
-        outptr += nch;
-        srcpos+=drspos;
-        ret++;
-      }
+          SincSampleN(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz);
+          outptr += nch;
+          srcpos+=drspos;
+          ret++;
+        }
+      else
+        while (ns--)
+        {
+          int ipos = (int)srcpos;
+
+          if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
+
+          SincSample(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz);
+          outptr += nch;
+          srcpos+=drspos;
+          ret++;
+        }
     }
   }
   else if (!m_interp) // point sampling
@@ -632,6 +771,10 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
   int isrcpos=(int)srcpos;
   if (isrcpos > m_samples_in_rsinbuf) isrcpos=m_samples_in_rsinbuf;
   m_fracpos = srcpos - isrcpos;
+
+  if (m_sincsize && isideal)
+    m_fracpos = floor(m_lp_oversize*m_fracpos + 0.5)/m_lp_oversize;
+
   m_samples_in_rsinbuf -= isrcpos;
   if (m_samples_in_rsinbuf <= 0) m_samples_in_rsinbuf=0;
   else
