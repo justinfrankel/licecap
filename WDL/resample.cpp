@@ -318,7 +318,7 @@ void WDL_Resampler::SetRates(double rate_in, double rate_out)
 }
 
 
-void WDL_Resampler::BuildLowPass(double filtpos, bool *isIdeal) // only called in sinc modes
+const WDL_SincFilterSample *WDL_Resampler::BuildLowPass(double filtpos, bool *isIdeal) // only called in sinc modes
 {
   const int wantsize=m_sincsize;
   int wantinterp=m_sincoversize;
@@ -426,6 +426,7 @@ void WDL_Resampler::BuildLowPass(double filtpos, bool *isIdeal) // only called i
     else m_filter_coeffs_size=0;
 
   }
+  return m_filter_coeffs_size > 0 ? m_filter_coeffs.Get() : NULL;
 }
 
 double WDL_Resampler::GetCurrentLatency() 
@@ -544,16 +545,17 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
   bool isideal = false;
   if (m_sincsize) // sinc interpolating
   {
-    if (m_ratio > 1.0) BuildLowPass(1.0 / (m_ratio*1.03), &isideal);
-    else BuildLowPass(1.0, &isideal);
+    const WDL_SincFilterSample *filter;
+    if (m_ratio > 1.0) filter=BuildLowPass(1.0 / (m_ratio*1.03), &isideal);
+    else filter=BuildLowPass(1.0, &isideal);
 
     const int oversize = m_lp_oversize;
     int filtsz=m_filter_coeffs_size;
     int filtlen = rsinbuf_availtemp - filtsz;
     outlatadj=filtsz/2-1;
-    WDL_SincFilterSample *filter=m_filter_coeffs.Get();   
 
-    if (nch == 1)
+    if (WDL_NOT_NORMALLY(!filter)) {} 
+    else if (nch == 1)
     {
       if (isideal)
         while (ns--)

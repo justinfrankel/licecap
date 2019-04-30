@@ -84,7 +84,7 @@ public:
 
 
 private:
-  void BuildLowPass(double filtpos, bool *isIdeal);
+  const WDL_SincFilterSample *BuildLowPass(double filtpos, bool *isIdeal);
   static void inline SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz, int oversize);
   static void inline SincSampleN(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz, int oversize);
   static void inline SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize);
