@@ -91,10 +91,8 @@ private:
 };
 
 
-void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz, int oversize)
 {
-  const int oversize=m_lp_oversize;
-
   fracpos *= oversize;
   const int ifpos=(int)fracpos;
   filter += (oversize-ifpos) * filtsz;
@@ -123,9 +121,8 @@ void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_Resa
 
 }
 
-void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz, int oversize)
 {
-  const int oversize=m_lp_oversize;
   const int ifpos=(int)(fracpos*oversize+0.5);
   filter += (oversize-ifpos) * filtsz;
 
@@ -148,9 +145,8 @@ void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_Res
 
 }
 
-void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
 {
-  const int oversize=m_lp_oversize;
   fracpos *= oversize;
   const int ifpos=(int)fracpos;
   fracpos -= ifpos;
@@ -173,9 +169,8 @@ void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_Res
   outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
 }
 
-void inline WDL_Resampler::SincSample1N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample1N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
 {
-  const int oversize=m_lp_oversize;
   const int ifpos=(int)(fracpos*oversize+0.5);
 
   double sum2=0.0;
@@ -192,9 +187,8 @@ void inline WDL_Resampler::SincSample1N(WDL_ResampleSample *outptr, const WDL_Re
   outptr[0]=sum2;
 }
 
-void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
 {
-  const int oversize=m_lp_oversize;
   fracpos *= oversize;
   const int ifpos=(int)fracpos;
   fracpos -= ifpos;
@@ -227,9 +221,8 @@ void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_Res
 
 }
 
-void inline WDL_Resampler::SincSample2N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz)
+void inline WDL_Resampler::SincSample2N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
 {
-  const int oversize=m_lp_oversize;
   const int ifpos=(int)(fracpos*oversize+0.5);
 
   const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
@@ -554,6 +547,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
     if (m_ratio > 1.0) BuildLowPass(1.0 / (m_ratio*1.03), &isideal);
     else BuildLowPass(1.0, &isideal);
 
+    const int oversize = m_lp_oversize;
     int filtsz=m_filter_coeffs_size;
     int filtlen = rsinbuf_availtemp - filtsz;
     outlatadj=filtsz/2-1;
@@ -568,7 +562,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
           if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
 
-          SincSample1N(outptr,localin + ipos,srcpos-ipos,filter,filtsz);
+          SincSample1N(outptr,localin + ipos,srcpos-ipos,filter,filtsz,oversize);
           outptr ++;
           srcpos+=drspos;
           ret++;
@@ -580,7 +574,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
           if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
 
-          SincSample1(outptr,localin + ipos,srcpos-ipos,filter,filtsz);
+          SincSample1(outptr,localin + ipos,srcpos-ipos,filter,filtsz,oversize);
           outptr ++;
           srcpos+=drspos;
           ret++;
@@ -595,7 +589,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
           if (ipos >= filtlen-1) break; // quit decoding, not enough input samples
 
-          SincSample2N(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz);
+          SincSample2N(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz,oversize);
           outptr+=2;
           srcpos+=drspos;
           ret++;
@@ -607,7 +601,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
           if (ipos >= filtlen-1) break; // quit decoding, not enough input samples
 
-          SincSample2(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz);
+          SincSample2(outptr,localin + ipos*2,srcpos-ipos,filter,filtsz,oversize);
           outptr+=2;
           srcpos+=drspos;
           ret++;
@@ -622,7 +616,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
           if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
 
-          SincSampleN(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz);
+          SincSampleN(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz,oversize);
           outptr += nch;
           srcpos+=drspos;
           ret++;
@@ -634,7 +628,7 @@ int WDL_Resampler::ResampleOut(WDL_ResampleSample *out, int nsamples_in, int nsa
 
           if (ipos >= filtlen-1)  break; // quit decoding, not enough input samples
 
-          SincSample(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz);
+          SincSample(outptr,localin + ipos*nch,srcpos-ipos,nch,filter,filtsz,oversize);
           outptr += nch;
           srcpos+=drspos;
           ret++;
