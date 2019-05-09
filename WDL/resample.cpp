@@ -27,8 +27,14 @@
 
 #include "denormal.h"
 
-#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
-#include <emmintrin.h>
+#if !defined(WDL_RESAMPLE_NO_SSE) && !defined(WDL_RESAMPLE_USE_SSE)
+  #if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+    #define WDL_RESAMPLE_USE_SSE
+  #endif
+#endif
+
+#ifdef WDL_RESAMPLE_USE_SSE
+  #include <emmintrin.h>
 #endif
 
 #ifndef PI
@@ -249,7 +255,7 @@ template <class T1, class T2> static void inline SincSample2N(T1 *outptr, const 
 }
 
 
-#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+#ifdef WDL_RESAMPLE_USE_SSE
 
 static void inline SincSample(double *outptr, const double *inptr, double fracpos, int nch, const float *filter, int filtsz, int oversize)
 {
@@ -1007,7 +1013,7 @@ static void inline SincSample2N(double *outptr, const double *inptr, double frac
   outptr[1]=sum2b;
 }
 
-#endif // __SSE2__
+#endif // WDL_RESAMPLE_USE_SSE
 
 
 WDL_Resampler::WDL_Resampler()
