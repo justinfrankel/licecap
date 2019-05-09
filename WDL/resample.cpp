@@ -27,6 +27,10 @@
 
 #include "denormal.h"
 
+#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+#include <emmintrin.h>
+#endif
+
 #ifndef PI
 #define PI 3.1415926535897932384626433832795
 #endif
@@ -91,7 +95,7 @@ private:
 };
 
 
-void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz, int oversize)
+template <class T1, class T2> static void inline SincSample(T1 *outptr, const T1 *inptr, double fracpos, int nch, const T2 *filter, int filtsz, int oversize)
 {
   fracpos *= oversize;
   const int ifpos=(int)fracpos;
@@ -102,9 +106,9 @@ void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_Resa
   for (x = 0; x < nch; x ++)
   {
     double sum=0.0,sum2=0.0;
-    const WDL_SincFilterSample *fptr2=filter;
-    const WDL_SincFilterSample *fptr=fptr2 - filtsz;
-    const WDL_ResampleSample *iptr=inptr+x;
+    const T2 *fptr2=filter;
+    const T2 *fptr=fptr2 - filtsz;
+    const T1 *iptr=inptr+x;
     int i=filtsz/2;
     while (i--)
     {
@@ -121,7 +125,7 @@ void inline WDL_Resampler::SincSample(WDL_ResampleSample *outptr, const WDL_Resa
 
 }
 
-void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, int nch, const WDL_SincFilterSample *filter, int filtsz, int oversize)
+template <class T1, class T2> static void inline SincSampleN(T1 *outptr, const T1 *inptr, double fracpos, int nch, const T2 *filter, int filtsz, int oversize)
 {
   const int ifpos=(int)(fracpos*oversize+0.5);
   filter += (oversize-ifpos) * filtsz;
@@ -130,8 +134,8 @@ void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_Res
   for (x = 0; x < nch; x ++)
   {
     double sum2=0.0;
-    const WDL_SincFilterSample *fptr2=filter;
-    const WDL_ResampleSample *iptr=inptr+x;
+    const T2 *fptr2=filter;
+    const T1 *iptr=inptr+x;
     int i=filtsz/2;
     while (i--)
     {
@@ -145,16 +149,16 @@ void inline WDL_Resampler::SincSampleN(WDL_ResampleSample *outptr, const WDL_Res
 
 }
 
-void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
+template <class T1, class T2> static void inline SincSample1(T1 *outptr, const T1 *inptr, double fracpos, const T2 *filter, int filtsz, int oversize)
 {
   fracpos *= oversize;
   const int ifpos=(int)fracpos;
   fracpos -= ifpos;
 
   double sum=0.0,sum2=0.0;
-  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
-  const WDL_SincFilterSample *fptr=fptr2 - filtsz;
-  const WDL_ResampleSample *iptr=inptr;
+  const T2 *fptr2=filter + (oversize-ifpos) * filtsz;
+  const T2 *fptr=fptr2 - filtsz;
+  const T1 *iptr=inptr;
   int i=filtsz/2;
   while (i--)
   {
@@ -169,13 +173,13 @@ void inline WDL_Resampler::SincSample1(WDL_ResampleSample *outptr, const WDL_Res
   outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
 }
 
-void inline WDL_Resampler::SincSample1N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
+template <class T1, class T2> static void inline SincSample1N(T1 *outptr, const T1 *inptr, double fracpos, const T2 *filter, int filtsz, int oversize)
 {
   const int ifpos=(int)(fracpos*oversize+0.5);
 
   double sum2=0.0;
-  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
-  const WDL_ResampleSample *iptr=inptr;
+  const T2 *fptr2=filter + (oversize-ifpos) * filtsz;
+  const T1 *iptr=inptr;
   int i=filtsz/2;
   while (i--)
   {
@@ -187,20 +191,20 @@ void inline WDL_Resampler::SincSample1N(WDL_ResampleSample *outptr, const WDL_Re
   outptr[0]=sum2;
 }
 
-void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
+template <class T1, class T2> static void inline SincSample2(T1 *outptr, const T1 *inptr, double fracpos, const T2 *filter, int filtsz, int oversize)
 {
   fracpos *= oversize;
   const int ifpos=(int)fracpos;
   fracpos -= ifpos;
 
-  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
-  const WDL_SincFilterSample *fptr=fptr2 - filtsz;
+  const T2 *fptr2=filter + (oversize-ifpos) * filtsz;
+  const T2 *fptr=fptr2 - filtsz;
 
   double sum=0.0;
   double sum2=0.0;
   double sumb=0.0;
   double sum2b=0.0;
-  const WDL_ResampleSample *iptr=inptr;
+  const T1 *iptr=inptr;
   int i=filtsz/2;
   while (i--)
   {
@@ -221,15 +225,15 @@ void inline WDL_Resampler::SincSample2(WDL_ResampleSample *outptr, const WDL_Res
 
 }
 
-void inline WDL_Resampler::SincSample2N(WDL_ResampleSample *outptr, const WDL_ResampleSample *inptr, double fracpos, const WDL_SincFilterSample *filter, int filtsz, int oversize)
+template <class T1, class T2> static void inline SincSample2N(T1 *outptr, const T1 *inptr, double fracpos, const T2 *filter, int filtsz, int oversize)
 {
   const int ifpos=(int)(fracpos*oversize+0.5);
 
-  const WDL_SincFilterSample *fptr2=filter + (oversize-ifpos) * filtsz;
+  const T2 *fptr2=filter + (oversize-ifpos) * filtsz;
 
   double sumb=0.0;
   double sum2b=0.0;
-  const WDL_ResampleSample *iptr=inptr;
+  const T1 *iptr=inptr;
   int i=filtsz/2;
   while (i--)
   {
@@ -244,6 +248,766 @@ void inline WDL_Resampler::SincSample2N(WDL_ResampleSample *outptr, const WDL_Re
   outptr[1]=sum2b;
 }
 
+
+#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+
+static void inline SincSample(double *outptr, const double *inptr, double fracpos, int nch, const float *filter, int filtsz, int oversize)
+{
+  fracpos *= oversize;
+  const int ifpos=(int)fracpos;
+  filter += (oversize-ifpos) * filtsz;
+  fracpos -= ifpos;
+
+  int x;
+  for (x = 0; x < nch; x ++)
+  {
+    double sum, sum2;
+    const float *fptr2=filter;
+    const float *fptr=fptr2 - filtsz;
+    const double *iptr=inptr+x;
+    int i=filtsz/2;
+
+    __m128d xmm0 = _mm_setzero_pd();
+    __m128d xmm1 = _mm_setzero_pd();
+    __m128d xmm2, xmm3;
+
+    while (i--)
+    {
+      xmm2 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm3 = _mm_load_sd((double *)fptr);
+      xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm0 = _mm_add_pd(xmm0, xmm3);
+
+      xmm3 = _mm_load_sd((double *)fptr2);
+      xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm1 = _mm_add_pd(xmm1, xmm3);
+
+      iptr+=nch*2;
+      fptr+=2;
+      fptr2+=2;
+    }
+
+    xmm2 = xmm0;
+    xmm0 = _mm_unpackhi_pd(xmm0, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm2);
+    _mm_store_sd(&sum, xmm0);
+
+    xmm3 = xmm1;
+    xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+    _mm_store_sd(&sum2, xmm1);
+
+    outptr[x]=sum*fracpos + sum2*(1.0-fracpos);
+  }
+
+}
+
+static void inline SincSampleN(double *outptr, const double *inptr, double fracpos, int nch, const float *filter, int filtsz, int oversize)
+{
+  const int ifpos=(int)(fracpos*oversize+0.5);
+  filter += (oversize-ifpos) * filtsz;
+
+  int x;
+  for (x = 0; x < nch; x ++)
+  {
+    double sum2;
+    const float *fptr2=filter;
+    const double *iptr=inptr+x;
+    int i=filtsz/2;
+
+    __m128d xmm0 = _mm_setzero_pd();
+    __m128d xmm1 = _mm_setzero_pd();
+    __m128d xmm2, xmm3;
+
+    while (i >= 2)
+    {
+      xmm2 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm3 = _mm_load_sd((double *)fptr2);
+      xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm0 = _mm_add_pd(xmm0, xmm3);
+
+      xmm2 = _mm_set_pd(iptr[nch*3], iptr[nch*2]);
+
+      xmm3 = _mm_load_sd((double *)fptr2 + 1);
+      xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm1 = _mm_add_pd(xmm1, xmm3);
+
+      iptr+=nch*4;
+      fptr2+=4;
+      i-=2;
+    }
+
+    if (i)
+    {
+      xmm2 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm3 = _mm_load_sd((double *)fptr2);
+      xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm0 = _mm_add_pd(xmm0, xmm3);
+    }
+
+    xmm1 = _mm_add_pd(xmm1, xmm0);
+
+    xmm3 = xmm1;
+    xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+    _mm_store_sd(&sum2, xmm1);
+
+    outptr[x]=sum2;
+  }
+
+}
+
+static void inline SincSample1(double *outptr, const double *inptr, double fracpos, const float *filter, int filtsz, int oversize)
+{
+  fracpos *= oversize;
+  const int ifpos=(int)fracpos;
+  fracpos -= ifpos;
+
+  double sum, sum2;
+  const float *fptr2=filter + (oversize-ifpos) * filtsz;
+  const float *fptr=fptr2 - filtsz;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2, xmm3;
+
+  while (i >= 2)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+
+    xmm3 = _mm_cvtps_pd(_mm_load_ps(fptr));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm3 = _mm_cvtps_pd(_mm_load_ps(fptr2));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    xmm2 = _mm_loadu_pd(iptr+2);
+
+    xmm3 = _mm_load_sd((double *)fptr + 1);
+    xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm3 = _mm_load_sd((double *)fptr2 + 1);
+    xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    iptr+=4;
+    fptr+=4;
+    fptr2+=4;
+    i-=2;
+  }
+
+  if (i)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+
+    xmm3 = _mm_load_sd((double *)fptr);
+    xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm3 = _mm_load_sd((double *)fptr2);
+    xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+  }
+
+  xmm2 = xmm0;
+  xmm0 = _mm_unpackhi_pd(xmm0, xmm2);
+  xmm0 = _mm_add_pd(xmm0, xmm2);
+  _mm_store_sd(&sum, xmm0);
+
+  xmm3 = xmm1;
+  xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+  xmm1 = _mm_add_pd(xmm1, xmm3);
+  _mm_store_sd(&sum2, xmm1);
+
+  outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
+}
+
+static void inline SincSample1N(double *outptr, const double *inptr, double fracpos, const float *filter, int filtsz, int oversize)
+{
+  const int ifpos=(int)(fracpos*oversize+0.5);
+
+  double sum2;
+  const float *fptr2=filter + (oversize-ifpos) * filtsz;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2, xmm3;
+
+  while (i >= 2)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+
+    xmm3 = _mm_cvtps_pd(_mm_load_ps(fptr2));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm2 = _mm_loadu_pd(iptr+2);
+
+    xmm3 = _mm_load_sd((double *)fptr2 + 1);
+    xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    iptr+=4;
+    fptr2+=4;
+    i-=2;
+  }
+
+  if (i)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+
+    xmm3 = _mm_load_sd((double *)fptr2);
+    xmm3 = _mm_cvtps_pd(_mm_castpd_ps(xmm3));
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+  }
+
+  xmm1 = _mm_add_pd(xmm1, xmm0);
+
+  xmm3 = xmm1;
+  xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+  xmm1 = _mm_add_pd(xmm1, xmm3);
+  _mm_store_sd(&sum2, xmm1);
+
+  outptr[0]=sum2;
+}
+
+static void inline SincSample2(double *outptr, const double *inptr, double fracpos, const float *filter, int filtsz, int oversize)
+{
+  fracpos *= oversize;
+  const int ifpos=(int)fracpos;
+  fracpos -= ifpos;
+
+  const float *fptr2=filter + (oversize-ifpos) * filtsz;
+  const float *fptr=fptr2 - filtsz;
+
+  double sum, sum2, sumb, sum2b;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2, xmm3;
+  __m128 xmm4;
+
+  while (i--)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+
+    xmm4 = _mm_set1_ps(fptr[0]);
+    xmm3 = _mm_cvtps_pd(xmm4);
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm4 = _mm_set1_ps(fptr2[0]);
+    xmm3 = _mm_cvtps_pd(xmm4);
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    xmm2 = _mm_loadu_pd(iptr+2);
+
+    xmm4 = _mm_set1_ps(fptr[1]);
+    xmm3 = _mm_cvtps_pd(xmm4);
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm4 = _mm_set1_ps(fptr2[1]);
+    xmm3 = _mm_cvtps_pd(xmm4);
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    iptr+=4;
+    fptr+=2;
+    fptr2+=2;
+  }
+
+  xmm2 = xmm0;
+  _mm_store_sd(&sum, xmm0);
+  xmm2 = _mm_unpackhi_pd(xmm2, xmm0);
+  _mm_store_sd(&sum2, xmm2);
+
+  xmm3 = xmm1;
+  _mm_store_sd(&sumb, xmm1);
+  xmm3 = _mm_unpackhi_pd(xmm3, xmm1);
+  _mm_store_sd(&sum2b, xmm3);
+
+  outptr[0]=sum*fracpos + sumb*(1.0-fracpos);
+  outptr[1]=sum2*fracpos + sum2b*(1.0-fracpos);
+}
+
+static void inline SincSample2N(double *outptr, const double *inptr, double fracpos, const float *filter, int filtsz, int oversize)
+{
+  const int ifpos=(int)(fracpos*oversize+0.5);
+
+  const float *fptr2=filter + (oversize-ifpos) * filtsz;
+
+  double sumb, sum2b;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2, xmm3;
+  __m128 xmm4;
+
+  while (i--)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+
+    xmm4 = _mm_set1_ps(fptr2[0]);
+    xmm3 = _mm_cvtps_pd(xmm4);
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm3);
+
+    xmm2 = _mm_loadu_pd(iptr+2);
+
+    xmm4 = _mm_set1_ps(fptr2[1]);
+    xmm3 = _mm_cvtps_pd(xmm4);
+    xmm3 = _mm_mul_pd(xmm3, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    iptr+=4;
+    fptr2+=2;
+  }
+
+  xmm1 = _mm_add_pd(xmm1, xmm0);
+
+  xmm3 = xmm1;
+  _mm_store_sd(&sumb, xmm1);
+  xmm3 = _mm_unpackhi_pd(xmm3, xmm1);
+  _mm_store_sd(&sum2b, xmm3);
+
+  outptr[0]=sumb;
+  outptr[1]=sum2b;
+}
+
+
+static void inline SincSample(double *outptr, const double *inptr, double fracpos, int nch, const double *filter, int filtsz, int oversize)
+{
+  fracpos *= oversize;
+  const int ifpos=(int)fracpos;
+  filter += (oversize-ifpos) * filtsz;
+  fracpos -= ifpos;
+
+  int x;
+  for (x = 0; x < nch; x ++)
+  {
+    double sum, sum2;
+    const double *fptr2=filter;
+    const double *fptr=fptr2 - filtsz;
+    const double *iptr=inptr+x;
+    int i=filtsz/2;
+
+    __m128d xmm0 = _mm_setzero_pd();
+    __m128d xmm1 = _mm_setzero_pd();
+    __m128d xmm2 = _mm_setzero_pd();
+    __m128d xmm3 = _mm_setzero_pd();
+    __m128d xmm4, xmm5;
+
+    while (i >= 2)
+    {
+      xmm4 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm5 = _mm_load_pd(fptr);
+      xmm5 = _mm_mul_pd(xmm5, xmm4);
+      xmm0 = _mm_add_pd(xmm0, xmm5);
+
+      xmm5 = _mm_load_pd(fptr2);
+      xmm5 = _mm_mul_pd(xmm5, xmm4);
+      xmm1 = _mm_add_pd(xmm1, xmm5);
+
+      xmm4 = _mm_set_pd(iptr[nch*3], iptr[nch*2]);
+
+      xmm5 = _mm_load_pd(fptr+2);
+      xmm5 = _mm_mul_pd(xmm5, xmm4);
+      xmm2 = _mm_add_pd(xmm2, xmm5);
+
+      xmm5 = _mm_load_pd(fptr2+2);
+      xmm5 = _mm_mul_pd(xmm5, xmm4);
+      xmm3 = _mm_add_pd(xmm3, xmm5);
+
+      iptr+=nch*4;
+      fptr+=4;
+      fptr2+=4;
+      i-=2;
+    }
+
+    if (i)
+    {
+      xmm4 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm5 = _mm_load_pd(fptr);
+      xmm5 = _mm_mul_pd(xmm5, xmm4);
+      xmm0 = _mm_add_pd(xmm0, xmm5);
+
+      xmm5 = _mm_load_pd(fptr2);
+      xmm5 = _mm_mul_pd(xmm5, xmm4);
+      xmm1 = _mm_add_pd(xmm1, xmm5);
+    }
+
+    xmm0 = _mm_add_pd(xmm0, xmm2);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+
+    xmm2 = xmm0;
+    xmm0 = _mm_unpackhi_pd(xmm0, xmm2);
+    xmm0 = _mm_add_pd(xmm0, xmm2);
+    _mm_store_sd(&sum, xmm0);
+
+    xmm3 = xmm1;
+    xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+    _mm_store_sd(&sum2, xmm1);
+
+    outptr[x]=sum*fracpos + sum2*(1.0-fracpos);
+  }
+
+}
+
+static void inline SincSampleN(double *outptr, const double *inptr, double fracpos, int nch, const double *filter, int filtsz, int oversize)
+{
+  const int ifpos=(int)(fracpos*oversize+0.5);
+  filter += (oversize-ifpos) * filtsz;
+
+  int x;
+  for (x = 0; x < nch; x ++)
+  {
+    double sum2;
+    const double *fptr2=filter;
+    const double *iptr=inptr+x;
+    int i=filtsz/2;
+
+    __m128d xmm0 = _mm_setzero_pd();
+    __m128d xmm1 = _mm_setzero_pd();
+    __m128d xmm2, xmm3;
+
+    while (i >= 2)
+    {
+      xmm2 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm3 = _mm_load_pd(fptr2);
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm0 = _mm_add_pd(xmm0, xmm3);
+
+      xmm2 = _mm_set_pd(iptr[nch*3], iptr[nch*2]);
+
+      xmm3 = _mm_load_pd(fptr2+2);
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm1 = _mm_add_pd(xmm1, xmm3);
+
+      iptr+=nch*4;
+      fptr2+=4;
+      i-=2;
+    }
+
+    if (i)
+    {
+      xmm2 = _mm_set_pd(iptr[nch], iptr[0]);
+
+      xmm3 = _mm_load_pd(fptr2);
+      xmm3 = _mm_mul_pd(xmm3, xmm2);
+      xmm0 = _mm_add_pd(xmm0, xmm3);
+    }
+
+    xmm1 = _mm_add_pd(xmm1, xmm0);
+
+    xmm3 = xmm1;
+    xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+    xmm1 = _mm_add_pd(xmm1, xmm3);
+    _mm_store_sd(&sum2, xmm1);
+
+    outptr[x]=sum2;
+  }
+
+}
+
+static void inline SincSample1(double *outptr, const double *inptr, double fracpos, const double *filter, int filtsz, int oversize)
+{
+  fracpos *= oversize;
+  const int ifpos=(int)fracpos;
+  fracpos -= ifpos;
+
+  double sum, sum2;
+  const double *fptr2=filter + (oversize-ifpos) * filtsz;
+  const double *fptr=fptr2 - filtsz;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2 = _mm_setzero_pd();
+  __m128d xmm3 = _mm_setzero_pd();
+  __m128d xmm4, xmm5;
+
+  while (i >= 2)
+  {
+    xmm4 = _mm_loadu_pd(iptr);
+
+    xmm5 = _mm_load_pd(fptr);
+    xmm5 = _mm_mul_pd(xmm5, xmm4);
+    xmm0 = _mm_add_pd(xmm0, xmm5);
+
+    xmm5 = _mm_load_pd(fptr2);
+    xmm5 = _mm_mul_pd(xmm5, xmm4);
+    xmm1 = _mm_add_pd(xmm1, xmm5);
+
+    xmm4 = _mm_loadu_pd(iptr+2);
+
+    xmm5 = _mm_load_pd(fptr+2);
+    xmm5 = _mm_mul_pd(xmm5, xmm4);
+    xmm2 = _mm_add_pd(xmm2, xmm5);
+
+    xmm5 = _mm_load_pd(fptr2+2);
+    xmm5 = _mm_mul_pd(xmm5, xmm4);
+    xmm3 = _mm_add_pd(xmm3, xmm5);
+
+    iptr+=4;
+    fptr+=4;
+    fptr2+=4;
+    i-=2;
+  }
+
+  if (i)
+  {
+    xmm4 = _mm_loadu_pd(iptr);
+
+    xmm5 = _mm_load_pd(fptr);
+    xmm5 = _mm_mul_pd(xmm5, xmm4);
+    xmm0 = _mm_add_pd(xmm0, xmm5);
+
+    xmm5 = _mm_load_pd(fptr2);
+    xmm5 = _mm_mul_pd(xmm5, xmm4);
+    xmm1 = _mm_add_pd(xmm1, xmm5);
+  }
+
+  xmm0 = _mm_add_pd(xmm0, xmm2);
+  xmm1 = _mm_add_pd(xmm1, xmm3);
+
+  xmm2 = xmm0;
+  xmm0 = _mm_unpackhi_pd(xmm0, xmm2);
+  xmm0 = _mm_add_pd(xmm0, xmm2);
+  _mm_store_sd(&sum, xmm0);
+
+  xmm3 = xmm1;
+  xmm1 = _mm_unpackhi_pd(xmm1, xmm3);
+  xmm1 = _mm_add_pd(xmm1, xmm3);
+  _mm_store_sd(&sum2, xmm1);
+
+  outptr[0]=sum*fracpos+sum2*(1.0-fracpos);
+}
+
+static void inline SincSample1N(double *outptr, const double *inptr, double fracpos, const double *filter, int filtsz, int oversize)
+{
+  const int ifpos=(int)(fracpos*oversize+0.5);
+
+  double sum2;
+  const double *fptr2=filter + (oversize-ifpos) * filtsz;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2;
+
+  while (i >= 2)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+    xmm2 = _mm_mul_pd(xmm2, _mm_load_pd(fptr2));
+    xmm0 = _mm_add_pd(xmm0, xmm2);
+
+    xmm2 = _mm_loadu_pd(iptr+2);
+    xmm2 = _mm_mul_pd(xmm2, _mm_load_pd(fptr2+2));
+    xmm1 = _mm_add_pd(xmm1, xmm2);
+
+    iptr+=4;
+    fptr2+=4;
+    i-=2;
+  }
+
+  if (i)
+  {
+    xmm2 = _mm_loadu_pd(iptr);
+    xmm2 = _mm_mul_pd(xmm2, _mm_load_pd(fptr2));
+    xmm0 = _mm_add_pd(xmm0, xmm2);
+  }
+
+  xmm1 = _mm_add_pd(xmm1, xmm0);
+
+  xmm2 = xmm1;
+  xmm1 = _mm_unpackhi_pd(xmm1, xmm2);
+  xmm1 = _mm_add_pd(xmm1, xmm2);
+  _mm_store_sd(&sum2, xmm1);
+
+  outptr[0]=sum2;
+}
+
+static void inline SincSample2(double *outptr, const double *inptr, double fracpos, const double *filter, int filtsz, int oversize)
+{
+  fracpos *= oversize;
+  const int ifpos=(int)fracpos;
+  fracpos -= ifpos;
+
+  const double *fptr2=filter + (oversize-ifpos) * filtsz;
+  const double *fptr=fptr2 - filtsz;
+
+  double sum, sum2, sumb, sum2b;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2 = _mm_setzero_pd();
+  __m128d xmm3 = _mm_setzero_pd();
+  __m128d xmm4, xmm5, xmm6, xmm7;
+
+  while (i--)
+  {
+    xmm4 = _mm_load_pd(fptr);
+    xmm5 = _mm_load_pd(fptr2);
+
+    xmm6 = _mm_loadu_pd(iptr);
+
+    xmm7 = xmm4;
+    xmm7 = _mm_unpacklo_pd(xmm7, xmm4);
+    xmm7 = _mm_mul_pd(xmm7, xmm6);
+    xmm0 = _mm_add_pd(xmm0, xmm7);
+
+    xmm7 = xmm5;
+    xmm7 = _mm_unpacklo_pd(xmm7, xmm5);
+    xmm7 = _mm_mul_pd(xmm7, xmm6);
+    xmm1 = _mm_add_pd(xmm1, xmm7);
+
+    xmm6 = _mm_loadu_pd(iptr+2);
+
+    xmm4 = _mm_unpackhi_pd(xmm4, xmm4);
+    xmm4 = _mm_mul_pd(xmm4, xmm6);
+    xmm2 = _mm_add_pd(xmm2, xmm4);
+
+    xmm5 = _mm_unpackhi_pd(xmm5, xmm5);
+    xmm5 = _mm_mul_pd(xmm5, xmm6);
+    xmm3 = _mm_add_pd(xmm3, xmm5);
+
+    iptr+=4;
+    fptr+=2;
+    fptr2+=2;
+  }
+
+  xmm0 = _mm_add_pd(xmm0, xmm2);
+  xmm1 = _mm_add_pd(xmm1, xmm3);
+
+  xmm2 = xmm0;
+  _mm_store_sd(&sum, xmm0);
+  xmm2 = _mm_unpackhi_pd(xmm2, xmm0);
+  _mm_store_sd(&sum2, xmm2);
+
+  xmm3 = xmm1;
+  _mm_store_sd(&sumb, xmm1);
+  xmm3 = _mm_unpackhi_pd(xmm3, xmm1);
+  _mm_store_sd(&sum2b, xmm3);
+
+  outptr[0]=sum*fracpos + sumb*(1.0-fracpos);
+  outptr[1]=sum2*fracpos + sum2b*(1.0-fracpos);
+}
+
+static void inline SincSample2N(double *outptr, const double *inptr, double fracpos, const double *filter, int filtsz, int oversize)
+{
+  const int ifpos=(int)(fracpos*oversize+0.5);
+
+  const double *fptr2=filter + (oversize-ifpos) * filtsz;
+
+  double sumb, sum2b;
+  const double *iptr=inptr;
+  int i=filtsz/2;
+
+  __m128d xmm0 = _mm_setzero_pd();
+  __m128d xmm1 = _mm_setzero_pd();
+  __m128d xmm2 = _mm_setzero_pd();
+  __m128d xmm3 = _mm_setzero_pd();
+  __m128d xmm4, xmm5, xmm6;
+
+  while (i >= 2)
+  {
+    xmm4 = _mm_load_pd(fptr2);
+    xmm5 = xmm4;
+
+    xmm6 = _mm_loadu_pd(iptr);
+    xmm4 = _mm_unpacklo_pd(xmm4, xmm5);
+    xmm6 = _mm_mul_pd(xmm6, xmm4);
+    xmm0 = _mm_add_pd(xmm0, xmm6);
+
+    xmm6 = _mm_loadu_pd(iptr+2);
+    xmm5 = _mm_unpackhi_pd(xmm5, xmm5);
+    xmm6 = _mm_mul_pd(xmm6, xmm5);
+    xmm1 = _mm_add_pd(xmm1, xmm6);
+
+    xmm4 = _mm_load_pd(fptr2+2);
+    xmm5 = xmm4;
+
+    xmm6 = _mm_loadu_pd(iptr+4);
+    xmm4 = _mm_unpacklo_pd(xmm4, xmm5);
+    xmm6 = _mm_mul_pd(xmm6, xmm4);
+    xmm2 = _mm_add_pd(xmm2, xmm6);
+
+    xmm6 = _mm_loadu_pd(iptr+6);
+    xmm5 = _mm_unpackhi_pd(xmm5, xmm5);
+    xmm6 = _mm_mul_pd(xmm6, xmm5);
+    xmm3 = _mm_add_pd(xmm3, xmm6);
+
+    iptr+=8;
+    fptr2+=4;
+    i-=2;
+  }
+
+  if (i)
+  {
+    xmm4 = _mm_load_pd(fptr2);
+    xmm5 = xmm4;
+
+    xmm6 = _mm_loadu_pd(iptr);
+    xmm4 = _mm_unpacklo_pd(xmm4, xmm5);
+    xmm6 = _mm_mul_pd(xmm6, xmm4);
+    xmm0 = _mm_add_pd(xmm0, xmm6);
+
+    xmm6 = _mm_loadu_pd(iptr+2);
+    xmm5 = _mm_unpackhi_pd(xmm5, xmm5);
+    xmm6 = _mm_mul_pd(xmm6, xmm5);
+    xmm1 = _mm_add_pd(xmm1, xmm6);
+  }
+
+  xmm0 = _mm_add_pd(xmm0, xmm2);
+  xmm1 = _mm_add_pd(xmm1, xmm3);
+
+  xmm1 = _mm_add_pd(xmm1, xmm0);
+
+  xmm3 = xmm1;
+  _mm_store_sd(&sumb, xmm1);
+  xmm3 = _mm_unpackhi_pd(xmm3, xmm1);
+  _mm_store_sd(&sum2b, xmm3);
+
+  outptr[0]=sumb;
+  outptr[1]=sum2b;
+}
+
+#endif // __SSE2__
 
 
 WDL_Resampler::WDL_Resampler()
@@ -376,9 +1140,10 @@ const WDL_SincFilterSample *WDL_Resampler::BuildLowPass(double filtpos, bool *is
 
     // build lowpass filter
     const int allocsize = wantsize*(m_lp_oversize+1);
-    WDL_SincFilterSample *cfout=m_filter_coeffs.Resize(allocsize);
-    if (m_filter_coeffs.GetSize()==allocsize)
+    const int alignedsize = allocsize + 16/sizeof(WDL_SincFilterSample) - 1;
+    if (m_filter_coeffs.ResizeOK(alignedsize))
     {
+      WDL_SincFilterSample *cfout=m_filter_coeffs.GetAligned(16);
       m_filter_coeffs_size=wantsize;
 
       const double dwindowpos = 2.0 * PI/(double)wantsize;
@@ -431,7 +1196,7 @@ const WDL_SincFilterSample *WDL_Resampler::BuildLowPass(double filtpos, bool *is
     else m_filter_coeffs_size=0;
 
   }
-  return m_filter_coeffs_size > 0 ? m_filter_coeffs.Get() : NULL;
+  return m_filter_coeffs_size > 0 ? m_filter_coeffs.GetAligned(16) : NULL;
 }
 
 double WDL_Resampler::GetCurrentLatency() 
