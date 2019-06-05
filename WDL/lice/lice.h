@@ -98,6 +98,8 @@ public:
   virtual INT_PTR Extended(int id, void* data) { return 0; }  
 };
 
+#define LICE_EXT_SET_SCALING 0x2000 // data = int *, scaling is .8 fixed point. returns true if supported
+#define LICE_EXT_GET_SCALING 0x2001 // data ignored, returns .8 fixed point, returns 0 if unscaled
 
 #define LICE_MEMBITMAP_ALIGNAMT 63
 
@@ -561,5 +563,13 @@ extern _LICE_ImageLoader_rec *LICE_ImageLoader_list;
 
 
 #endif // LICE_PROVIDED_BY_APP
+
+#define LICE_Scale_BitBlt(hdc, x,y,w,h, src, sx,sy, mode) do { \
+   const int _x=(x), _y=(y), _w=(w), _h=(h), _sx = (sx), _sy = (sy), _mode=(mode); \
+   const int rsc = (src)->Extended(LICE_EXT_GET_SCALING,NULL); \
+   if (rsc>0) \
+     StretchBlt(hdc,_x,_y,_w,_h,(src)->getDC(),(_sx*rsc)/256,(_sy*rsc)/256,(_w*rsc)>>8,(_h*rsc)>>8,_mode); \
+   else BitBlt(hdc,_x,_y,_w,_h,(src)->getDC(),_sx,_sy,_mode); \
+} while (0)
 
 #endif

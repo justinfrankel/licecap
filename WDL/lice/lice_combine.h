@@ -811,4 +811,7 @@ public:
      
 typedef void (*LICE_COMBINEFUNC)(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha);
    
+#define __LICE_SC(x) do { (x) = ((x)*(__sc))/256; } while (0)
+#define __LICE_SCU(x) do { (x) = ((x)*(__sc))>>8; } while (0)
+
 #endif // _LICE_COMBINE_H_
