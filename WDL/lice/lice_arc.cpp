@@ -410,6 +410,15 @@ static void __DrawCircleClipped(LICE_IBitmap* dest, float cx, float cy, float ra
 static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, float rad, double anglo, double anghi,
   LICE_pixel color, int ialpha, bool aa, int mode)
 {
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    __LICE_SC(cx);
+    __LICE_SC(cy);
+    __LICE_SC(rad);
+  }
   // -2PI <= anglo <= anghi <= 2PI
   anglo += 2.0*_PI;
   anghi += 2.0*_PI;
@@ -496,7 +505,17 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 {
   if (!dest) return;
 
-  const int w = dest->getWidth(), h = dest->getHeight();
+  int w = dest->getWidth(), h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    __LICE_SC(cx);
+    __LICE_SC(cy);
+    __LICE_SC(r);
+  }
+
   const int clip[4] = { 0, 0, w, h };
   if (w < 1 || h <1 || r<0 || 
       (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
@@ -522,7 +541,17 @@ void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel
 
   const int ia = (int) (alpha*256.0f);
   if (!ia) return;
-  const int w = dest->getWidth(), h = dest->getHeight();
+  int w = dest->getWidth(), h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    __LICE_SC(cx);
+    __LICE_SC(cy);
+    __LICE_SC(r);
+  }
+
   if (w < 1 || h < 1 || r < 0.0 || 
       (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
       (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
@@ -544,18 +573,33 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
     if (cr > w*0.5) cr=w*0.5;
     if (cr > h*0.5) cr=h*0.5;
     cr=floor(cr);
+
     if (cr>=2)
     {
-      LICE_Line(drawbm,xpos+cr,ypos,xpos+w-cr,ypos,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos+cr-1,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos+w,ypos+cr,xpos+w,ypos+h-cr,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos,ypos+cr-1,xpos,ypos+h-cr,col,alpha,mode,aa);
+      double adj = 0.0;
+      const int __sc = drawbm ? (int)drawbm->Extended(LICE_EXT_GET_SCALING,NULL) : 0;
+      if (__sc>0)
+      {
+        adj = 1.0 - 256.0/__sc;
 
+        LICE_FLine(drawbm,xpos+cr+adj,ypos+adj,xpos+w-cr,ypos+adj,col,alpha,mode,true);
+        LICE_FLine(drawbm,xpos+cr-1+adj,ypos+h-adj,xpos+w-cr-adj,ypos+h-adj,col,alpha,mode,true);
+        LICE_FLine(drawbm,xpos+w-adj,ypos+cr+adj,xpos+w-adj,ypos+h-cr-adj,col,alpha,mode,true);
+        LICE_FLine(drawbm,xpos+adj,ypos+cr-1+adj,xpos+adj,ypos+h-cr-adj,col,alpha,mode,true);
+//        aa=true;
+      }
+      else
+      {
+        LICE_Line(drawbm,xpos+cr,ypos,xpos+w-cr,ypos,col,alpha,mode,aa);
+        LICE_Line(drawbm,xpos+cr-1,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
+        LICE_Line(drawbm,xpos+w,ypos+cr,xpos+w,ypos+h-cr,col,alpha,mode,aa);
+        LICE_Line(drawbm,xpos,ypos+cr-1,xpos,ypos+h-cr,col,alpha,mode,aa);
+      }
 
-      LICE_Arc(drawbm,xpos+cr,ypos+cr,cr,-_PI*0.5f,0,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+w-cr,ypos+cr,cr,0,_PI*0.5f,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+w-cr,ypos+h-cr,cr,_PI*0.5f,_PI,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+cr,ypos+h-cr,cr,_PI,_PI*1.5f,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr+adj,ypos+cr+adj,cr,-_PI*0.5f,0,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr-adj,ypos+cr+adj,cr,0,_PI*0.5f,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr-adj,ypos+h-cr-adj,cr,_PI*0.5f,_PI,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr+adj,ypos+h-cr-adj,cr,_PI,_PI*1.5f,col,alpha,mode,aa);
 
       return;
     }

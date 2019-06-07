@@ -49,6 +49,18 @@ void LICE_AlterRectHSV(LICE_IBitmap* src, int xpos, int ypos, int w, int h, floa
 {
   if (!src) return;
 
+  int destbm_w = src->getWidth(), destbm_h = src->getHeight();
+  const int __sc = (int)src->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(destbm_w);
+    __LICE_SCU(destbm_h);
+    __LICE_SC(w);
+    __LICE_SC(h);
+    __LICE_SC(xpos);
+    __LICE_SC(ypos);
+  }
+
   if (xpos < 0) {
     w += xpos;
     xpos = 0;
@@ -59,7 +71,6 @@ void LICE_AlterRectHSV(LICE_IBitmap* src, int xpos, int ypos, int w, int h, floa
   }
 
   const int span = src->getRowSpan();
-  const int destbm_w = src->getWidth(), destbm_h = src->getHeight();
   if (span < 1 || w < 1 || h < 1 || xpos >= destbm_w || ypos >= destbm_h) return;
 
   if (w > destbm_w - xpos) w = destbm_w - xpos;

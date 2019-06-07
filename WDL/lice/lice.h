@@ -98,8 +98,11 @@ public:
   virtual INT_PTR Extended(int id, void* data) { return 0; }  
 };
 
-#define LICE_EXT_SET_SCALING 0x2000 // data = int *, scaling is .8 fixed point. returns true if supported
+#define LICE_EXT_SET_SCALING 0x2000 // data = int *, scaling is .8 fixed point. returns true if supported. affects LICE_*() draw operations
 #define LICE_EXT_GET_SCALING 0x2001 // data ignored, returns .8 fixed point, returns 0 if unscaled
+#define LICE_EXT_SET_ADVISORY_SCALING 0x2002 // data = int *, scaling is .8 fixed point. returns true if supported. does not affect draw operations
+#define LICE_EXT_GET_ADVISORY_SCALING 0x2003 // data ignored, returns .8 fixed point. returns 0 if unscaled
+#define LICE_EXT_GET_ANY_SCALING 0x2004 // data ignored, returns .8 fixed point, 0 if unscaled
 
 #define LICE_MEMBITMAP_ALIGNAMT 63
 
@@ -120,6 +123,8 @@ public:
   virtual int getHeight() { return m_height; }
   virtual int getRowSpan() { return (m_width+m_linealign)&~m_linealign; }
   virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
+
+  // todo: LICE_EXT_SET_SCALING ?
 
 private:
   bool __resize(int w, int h);
@@ -142,6 +147,36 @@ public:
   virtual int getRowSpan() { return m_allocw; }; 
   virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
 
+  virtual INT_PTR Extended(int id, void* data)
+  {
+    switch (id)
+    {
+      case LICE_EXT_SET_ADVISORY_SCALING: 
+      case LICE_EXT_SET_SCALING: 
+        {
+          int sc = data && *(int*)data != 256 ? *(int *)data : 0; 
+          if (sc < 0) sc = 0;
+          if (id == LICE_EXT_SET_ADVISORY_SCALING) sc = -sc;
+          if (m_scaling != sc)
+          {
+            const int tmp=m_width;
+            m_scaling = sc;
+            m_width=0;
+            resize(tmp,m_height);
+          }
+        }
+      return 1;
+      case LICE_EXT_GET_SCALING: 
+      return m_scaling > 0 ? m_scaling : 0;
+      case LICE_EXT_GET_ADVISORY_SCALING: 
+      return m_scaling < 0 ? -m_scaling : 0;
+      case LICE_EXT_GET_ANY_SCALING:
+      return m_scaling < 0 ? -m_scaling : m_scaling;
+
+    }
+    return 0;
+  }
+
   // sysbitmap specific calls
   virtual HDC getDC() { return m_dc; }
 
@@ -157,6 +192,7 @@ private:
   HBITMAP m_bitmap;
   HGDIOBJ m_oldbitmap;
 #endif
+  int m_scaling;
 };
 
 class LICE_WrapperBitmap : public LICE_IBitmap 
@@ -224,9 +260,18 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
     {
       if (!m_parent) return 0;
 
+      int xc = m_x, yc = m_y, h = m_h;
+      const int scale = (int)m_parent->Extended(LICE_EXT_GET_SCALING,NULL);
+      if (scale > 0)
+      {
+        xc = (xc*scale)>>8;
+        yc = (yc*scale)>>8;
+        h = (h*scale)>>8;
+      }
+
       LICE_pixel* parentptr=m_parent->getBits();
-      if (m_parent->isFlipped()) parentptr += (m_parent->getHeight() - (m_y+m_h))*m_parent->getRowSpan()+m_x;
-      else parentptr += m_y*m_parent->getRowSpan()+m_x;
+      if (m_parent->isFlipped()) parentptr += (m_parent->getHeight() - (yc+h))*m_parent->getRowSpan()+xc;
+      else parentptr += yc*m_parent->getRowSpan()+xc;
 
       return parentptr; 
     }
@@ -564,12 +609,16 @@ extern _LICE_ImageLoader_rec *LICE_ImageLoader_list;
 
 #endif // LICE_PROVIDED_BY_APP
 
+#ifdef __APPLE__
 #define LICE_Scale_BitBlt(hdc, x,y,w,h, src, sx,sy, mode) do { \
    const int _x=(x), _y=(y), _w=(w), _h=(h), _sx = (sx), _sy = (sy), _mode=(mode); \
-   const int rsc = (src)->Extended(LICE_EXT_GET_SCALING,NULL); \
+   const int rsc = (int) (src)->Extended(LICE_EXT_GET_SCALING,NULL); \
    if (rsc>0) \
      StretchBlt(hdc,_x,_y,_w,_h,(src)->getDC(),(_sx*rsc)/256,(_sy*rsc)/256,(_w*rsc)>>8,(_h*rsc)>>8,_mode); \
    else BitBlt(hdc,_x,_y,_w,_h,(src)->getDC(),_sx,_sy,_mode); \
 } while (0)
+#else
+#define LICE_Scale_BitBlt(hdc, x,y,w,h, src, sx,sy, mode) BitBlt(hdc,x,y,w,h,(src)->getDC(),sx,sy,mode)
+#endif
 
 #endif
