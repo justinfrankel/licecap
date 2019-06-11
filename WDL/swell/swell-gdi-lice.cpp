@@ -1001,8 +1001,8 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmDescent = face->size->metrics.descender/64;
     tm->tmHeight = face->size->metrics.height/64 + 1;
     tm->tmAveCharWidth = face->size->metrics.height / 112;
-    // hmm? some font freetype/win32 expert can weigh in here :/
-    tm->tmInternalLeading = (face->size->metrics.height - face->size->metrics.ascender)/64;
+
+    tm->tmInternalLeading = (face->size->metrics.ascender + face->size->metrics.descender - face->size->metrics.height)/64;
     if (tm->tmInternalLeading<0) tm->tmInternalLeading=0;
   }
 #endif
