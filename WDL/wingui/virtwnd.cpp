@@ -42,6 +42,7 @@ WDL_VWnd_Painter::WDL_VWnd_Painter()
   m_gradslope=0.2;
   m_bgcache=0;
   m_render_scale = WDL_VWND_SCALEBASE;
+  m_advisory_scale = WDL_VWND_SCALEBASE;
 }
 
 WDL_VWnd_Painter::~WDL_VWnd_Painter()
@@ -87,12 +88,13 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
 
       if (m_bgcache && !xoffs && !yoffs)
       {
+        const int sinfo2 = bmOut ? (int)bmOut->Extended(LICE_EXT_GET_ADVISORY_SCALING,NULL) : 0;
         if (m_bgbmtintUnderMode)
         {
-          LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w, wnd_h, this, m_bgbm->bgimage);
+          LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w, wnd_h, sinfo2, this, m_bgbm->bgimage);
           if (!tmp)
           {
-            tmp = m_bgcache->SetCachedBG(wnd_w, wnd_h, NULL, this, m_bgbm->bgimage);
+            tmp = m_bgcache->SetCachedBG(wnd_w, wnd_h, sinfo2, NULL, this, m_bgbm->bgimage);
             
             // if added to cache, scale and copy alpha information
             if (tmp) WDL_VirtualWnd_ScaledBlitBG(tmp, m_bgbm, 0, 0, wnd_w, wnd_h,
@@ -119,7 +121,7 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
         else
         {
           // tint-over mode, we can render then cache
-          LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w, wnd_h, this, m_bgbm->bgimage);
+          LICE_IBitmap *tmp = m_bgcache->GetCachedBG(wnd_w, wnd_h, sinfo2, this, m_bgbm->bgimage);
           if (tmp)
           {
             LICE_Blit(bmOut, tmp, clipr->left, clipr->top, clipr->left, clipr->top, clipr->right - clipr->left, clipr->bottom - clipr->top, 1.0f, LICE_BLIT_MODE_COPY);
@@ -131,7 +133,7 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
               wnd_w,
               wnd_h,
               1.0, LICE_BLIT_MODE_COPY | fflags);
-            m_bgcache->SetCachedBG(wnd_w, wnd_h, bmOut, this, m_bgbm->bgimage);
+            m_bgcache->SetCachedBG(wnd_w, wnd_h, sinfo2, bmOut, this, m_bgbm->bgimage);
           }
         }
       }
@@ -284,6 +286,8 @@ void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrec
       if (wnd_h<0)wnd_h=-wnd_h;
 
       if (!m_bm) m_bm=new LICE_SysBitmap;
+
+      m_bm->Extended(LICE_EXT_SET_ADVISORY_SCALING,&m_advisory_scale);
       
       if (m_bm->getWidth()<wnd_w || m_bm->getHeight() < wnd_h)
       {
@@ -1059,11 +1063,12 @@ void WDL_VWnd::GetPositionInTopVWnd(RECT *r)
 class WDL_VirtualWnd_BGCfgCache_img
 {
 public:
-  WDL_VirtualWnd_BGCfgCache_img(int szinfo, LICE_IBitmap *image, unsigned int now)
+  WDL_VirtualWnd_BGCfgCache_img(unsigned int szinfo, int szinfo2, LICE_IBitmap *image, unsigned int now)
   {
     lastowner=0;
     bgimage=image;
     sizeinfo=szinfo;
+    scalinginfo=szinfo2;
     lastused=now;
   }
   ~WDL_VirtualWnd_BGCfgCache_img()
@@ -1073,12 +1078,16 @@ public:
 
   LICE_IBitmap *bgimage;
   unsigned int sizeinfo; // (h<<16)+w
+  int scalinginfo; // advisory scaling
   unsigned int lastused; // last used time
   void *lastowner;
 
   static int compar(const WDL_VirtualWnd_BGCfgCache_img **a, const WDL_VirtualWnd_BGCfgCache_img ** b)
   {
+    const int v = (*a)->scalinginfo - (*b)->scalinginfo;
+    if (v) return v;
     return (*a)->sizeinfo - (*b)->sizeinfo;
+    
   }
 };
 
@@ -1122,14 +1131,14 @@ void WDL_VirtualWnd_BGCfgCache::Invalidate()
   m_ar->m_cachelist.DeleteAll();
 }
 
-LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, void *owner_hint, const LICE_IBitmap *bgbmp)
+LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, int sinfo2, void *owner_hint, const LICE_IBitmap *bgbmp)
 {
   if (w<1 || h<1 || w>65535 || h>65535) return NULL;
 
   WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> *cache = m_ar->m_cachelist.Get(bgbmp);
   if (!cache) return NULL;
 
-  WDL_VirtualWnd_BGCfgCache_img tmp((h<<16)+w,NULL,0);
+  WDL_VirtualWnd_BGCfgCache_img tmp((h<<16)+w,sinfo2,NULL,0);
   WDL_VirtualWnd_BGCfgCache_img *r  = cache->Get(cache->FindSorted(&tmp,WDL_VirtualWnd_BGCfgCache_img::compar));
   if (r)
   {
@@ -1140,10 +1149,25 @@ LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, void *owner_h
   return NULL;
 }
 
-LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap *bmCopy, void *owner_hint, const LICE_IBitmap *bgbmp)
+class MemBitmapScaleRef : public LICE_MemBitmap {
+  public:
+    MemBitmapScaleRef(int w, int h, int sc) : LICE_MemBitmap(w,h), m_scaling(sc) { }
+    int m_scaling;
+    virtual INT_PTR Extended(int id, void* data)
+    {
+      switch (id)
+      {
+        case LICE_EXT_GET_ADVISORY_SCALING: return m_scaling;
+        case LICE_EXT_SET_ADVISORY_SCALING: m_scaling = *(const int *)data; return 1;
+      }
+      return 0;
+    }
+};
+LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, int sinfo2, LICE_IBitmap *bmCopy, void *owner_hint, const LICE_IBitmap *bgbmp)
 {
   if (w<1 || h<1 || w>65535 || h>65535) return NULL;
 
+  const unsigned int sinfo=(h<<16)+w;;
   WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> *cache = m_ar->m_cachelist.Get(bgbmp);
   if (!cache) 
   {
@@ -1184,7 +1208,8 @@ LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap 
       cache->Delete(bestpos,false);
       if (img)
       {
-        img->sizeinfo = (h<<16)+w;
+        img->sizeinfo = sinfo;
+        img->scalinginfo = sinfo2;
         img->lastused = now;
       }
     }
@@ -1194,13 +1219,17 @@ LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, LICE_IBitmap 
 
   if (!img)
   {
-    LICE_IBitmap *bmcp = new LICE_MemBitmap(w,h);
-    if (bmcp->getWidth()==w && bmcp->getHeight()==h) img = new WDL_VirtualWnd_BGCfgCache_img((h<<16)+w,bmcp,now);
+    LICE_IBitmap *bmcp = new MemBitmapScaleRef(w,h,sinfo2);
+    if (bmcp->getWidth()==w && bmcp->getHeight()==h) img = new WDL_VirtualWnd_BGCfgCache_img(sinfo,sinfo2,bmcp,now);
     else delete bmcp;
   }
   else
   {
-    if (img->bgimage) img->bgimage->resize(w,h);
+    if (img->bgimage) 
+    {
+      img->bgimage->Extended(LICE_EXT_SET_ADVISORY_SCALING,&sinfo2);
+      img->bgimage->resize(w,h);
+    }
   }
 
   if (img)
@@ -1527,6 +1556,12 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
 
   bool no_lr=!!(mode & WDL_VWND_SCALEDBLITBG_IGNORE_LR);
 
+  int __sc = (int) dest->Extended(LICE_EXT_GET_ADVISORY_SCALING,NULL);
+  if (__sc < 1) __sc=256;
+  const int lm = (left_margin*__sc)>>8, 
+            rm = (right_margin*__sc)>>8, 
+            lmod = (left_margin_out*__sc)>>8, 
+            rmod = (right_margin_out*__sc)>>8;
 
   for (pass=(top_margin_out> 0 ? -1 : 0); pass<nbpass; pass++)
   {
@@ -1536,36 +1571,36 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
     switch (pass)
     {
       case -1: // top margin
-        outy = desty - top_margin_out;
-        outh = top_margin_out;
+        outh = (top_margin_out*__sc) >> 8;
+        outy = desty - outh;
+        this_clipy-=outh;
         iny=1;
         inh=top_margin_out;
-        this_clipy-=top_margin_out;
       break;
       case 0:
         outy=desty;
-        outh=top_margin;
+        outh=(top_margin*__sc) >> 8;
         iny=1+top_margin_out;
         inh=src->bgimage_lt[1]-1;
       break;
       case 1:
-        outy=desty+top_margin;
-        outh=desth-top_margin-bottom_margin;
+        outy=desty+((top_margin*__sc)>>8);
+        outh=desty+desth-outy-((bottom_margin*__sc)>>8);
         iny=src->bgimage_lt[1]+top_margin_out;
         inh=sh-src->bgimage_rb[1]-bottom_margin_out - iny;
       break;
       case 2:
-        outy=desty+desth-bottom_margin;
-        outh=bottom_margin;
+        outh=(bottom_margin*__sc)>>8;
+        outy=desty+desth-outh;
         iny=sh - src->bgimage_rb[1] - bottom_margin_out;
         inh=src->bgimage_rb[1]-1;
       break;
       case 3:
+        outh=(bottom_margin_out*__sc)>>8;
+        clipbottom += outh;
         outy=desty+desth;
-        outh=bottom_margin_out;
         iny=sh-1-bottom_margin_out;
         inh=bottom_margin_out;
-        clipbottom += bottom_margin_out;
       break;
     }
     bool is_outer = pass<0 || pass>=3;
@@ -1589,7 +1624,7 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         // left 
         if (left_margin_out>0 && !no_outside)
         {
-          __VirtClipBlit(clipx-left_margin_out,this_clipy,clipright,clipbottom,dest,src->bgimage,destx-left_margin_out,outy,left_margin_out,outh,
+          __VirtClipBlit(clipx-lmod,this_clipy,clipright,clipbottom,dest,src->bgimage,destx-lmod,outy,lmod,outh,
                                1,iny,left_margin_out,inh,alpha,
                                (no_alpha_flags&1) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
         }
@@ -1597,29 +1632,31 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
         if (!no_inside||is_outer)
         {
           if (left_margin > 0)
-            __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx,outy,left_margin,outh,
+            __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx,outy,lm,outh,
                                  1+left_margin_out,iny,src->bgimage_lt[0]-1,inh,alpha,
                                  (no_alpha_flags&1) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
 
 
           // center
-          __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+left_margin,outy,
-                                  destw-right_margin-left_margin,outh,
+          __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+lm,outy,
+                                  destw-rm-lm,outh,
                                src->bgimage_lt[0]+left_margin_out,iny,
                                sw-src->bgimage_lt[0]-src->bgimage_rb[0]-right_margin_out-left_margin_out,
                                inh,alpha,(no_alpha_flags&2) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode);
           // right
           if (right_margin > 0)
-            __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+destw-right_margin,outy, right_margin,outh,
+            __VirtClipBlit(clipx,this_clipy,clipright,clipbottom,dest,src->bgimage,destx+destw-rm,outy, rm,outh,
                                  sw-src->bgimage_rb[0]-right_margin_out,iny,
                                  src->bgimage_rb[0]-1,inh,alpha,(no_alpha_flags&4) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode); 
         }
 
         // right outside area
         if (right_margin_out>0 && !no_outside)
-          __VirtClipBlit(clipx,this_clipy,clipright+right_margin_out,clipbottom,dest,src->bgimage,destx+destw,outy,right_margin_out,outh,
+        {
+          __VirtClipBlit(clipx,this_clipy,clipright+rmod,clipbottom,dest,src->bgimage,destx+destw,outy,rmod,outh,
             sw-right_margin_out-1,iny,
             right_margin_out,inh,alpha,(no_alpha_flags&8) ? (mode&~LICE_BLIT_USE_ALPHA) :  mode); 
+        }
 
       }
     }

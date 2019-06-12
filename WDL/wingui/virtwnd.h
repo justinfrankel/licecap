@@ -210,7 +210,7 @@ public:
   void PaintBorderForRect(const RECT *r, int borderflags);
 
   void GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw);
-  void SetRenderScale(int render_scale) { m_render_scale = render_scale; }
+  void SetRenderScale(int render_scale, int advisory_scale=WDL_VWND_SCALEBASE) { m_render_scale = render_scale; m_advisory_scale = advisory_scale; }
   int GetRenderScale() const { return m_render_scale; }
 
   void RenderScaleRect(RECT *r) const
@@ -240,7 +240,7 @@ private:
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
   bool m_bgbmtintUnderMode;
-  int m_render_scale;
+  int m_render_scale, m_advisory_scale;
 
   WDL_VirtualWnd_BGCfgCache *m_bgcache;
   HWND m_cur_hwnd;

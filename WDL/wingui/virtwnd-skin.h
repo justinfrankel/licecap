@@ -25,8 +25,8 @@ public:
 
   void Invalidate();
 
-  LICE_IBitmap *GetCachedBG(int w, int h, void *owner_hint, const LICE_IBitmap *bgbmp);
-  LICE_IBitmap *SetCachedBG(int w, int h, LICE_IBitmap *bm, void *owner_hint, const LICE_IBitmap *bgbmp);
+  LICE_IBitmap *GetCachedBG(int w, int h, int sinfo2, void *owner_hint, const LICE_IBitmap *bgbmp);
+  LICE_IBitmap *SetCachedBG(int w, int h, int sinfo2, LICE_IBitmap *bm, void *owner_hint, const LICE_IBitmap *bgbmp);
 
 private:
   WDL_VirtualWnd_BGCfgCache_ar *m_ar;
