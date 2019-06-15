@@ -1,12 +1,6 @@
 #include "lice_text.h"
 #include <math.h>
 
-
-#ifndef _WIN32
-#include "../swell/swell.h"
-#endif
-
-
 #include "lice_combine.h"
 #include "lice_extended.h"
 
