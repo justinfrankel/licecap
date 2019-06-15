@@ -294,7 +294,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     int m_tl_extra, m_br_extra;
 
     int m_knob_color,m_zl_color;
-    int m_last_rscale;
+    int m_last_rscale, m_last_advscale;
 
     signed char m_knobbias;
     signed char m_knob_lineextrasize;
