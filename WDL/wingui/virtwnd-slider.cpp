@@ -465,24 +465,16 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
         int ypos=origin_y+pos-imgoffset;
         int xpos=origin_x;
 
-        RECT r={0,0,bm_w2,bm_h};
-  /*      if (vieww<bm_w)
-        {
-          r.left=(bm_w-vieww)/2;
-          r.right=r.left+vieww;
-        }
-        else 
-        */
         xpos+=(vieww-bm_w2)/2;
 
         m_tl_extra=origin_y-ypos;
         if (m_tl_extra<0)m_tl_extra=0;
 
-        m_br_extra=ypos+(r.bottom-r.top) - (origin_y+mp.bottom-mp.top);
+        m_br_extra=ypos+bm_h - (origin_y+mp.bottom-mp.top);
         if (m_br_extra<0)m_br_extra=0;
 
 
-        LICE_Blit(drawbm,bm_image,xpos,ypos,&r,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
+        LICE_ScaledBlit(drawbm,bm_image,xpos,ypos,bm_w2,bm_h, 0,0, bm_w2,bm_h,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
       }
     }
     else 
@@ -605,24 +597,15 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
       int xpos=origin_x+pos-imgoffset;
       int ypos=origin_y;
 
-      RECT r={0,0,bm_w,bm_h2};
-      /*if (viewh<bm_h)
-      {
-        r.top=(bm_h-viewh)/2;
-        r.bottom=r.top+viewh;
-      }
-      else 
-      */
       ypos+=(viewh-bm_h2)/2;
-
 
       m_tl_extra=origin_x-xpos;
       if (m_tl_extra<0)m_tl_extra=0;
 
-      m_br_extra=xpos+(r.right-r.left) - (origin_x+mp.right-mp.left);
+      m_br_extra=xpos+bm_w - (origin_x+mp.right-mp.left);
       if (m_br_extra<0)m_br_extra=0;
 
-      LICE_Blit(drawbm,bm_image,xpos,ypos,&r,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA);    
+      LICE_ScaledBlit(drawbm,bm_image,xpos,ypos,bm_w,bm_h2,0,0,bm_w,bm_h2,alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_USE_ALPHA|LICE_BLIT_FILTER_BILINEAR);
     }
   }
 }
