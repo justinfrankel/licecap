@@ -604,7 +604,7 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
   float alpha=m_alpha;
   
   if (m_bgmode==OPAQUE)
-    LICE_FillRect(bm,xpos,ypos,width,height,m_bg,alpha,mode);
+    LICE_FillRect(bm,xpos,ypos,width,height,m_bg,alpha,mode|LICE_BLIT_IGNORE_SCALING);
 
   int red=LICE_GETR(m_fg);
   int green=LICE_GETG(m_fg);
