@@ -20,13 +20,17 @@
 #include "../swell/swell.h"
 #endif
 
-#define DO_RECT_SC \
+#define IGNORE_SCALING(mode) ((mode)&LICE_BLIT_IGNORE_SCALING)
+
+#define DO_RECT_SC(mode) \
   const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL); \
   if (__sc>0) { \
-    __LICE_SC(x); \
-    __LICE_SC(y); \
-    __LICE_SCU(w); \
-    __LICE_SCU(h); \
+    if (!IGNORE_SCALING(mode)) { \
+      __LICE_SC(x); \
+      __LICE_SC(y); \
+      __LICE_SCU(w); \
+      __LICE_SCU(h); \
+    } \
     __LICE_SCU(destbm_w); \
     __LICE_SCU(destbm_h); \
   }
@@ -913,20 +917,28 @@ static void LICE_BlitInt(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int ds
 {
   if (!dest || !src || !alpha) return;
 
-  RECT sr={0,0,src->getWidth(),src->getHeight()};
+  int srcbm_w = src->getWidth(), srcbm_h = src->getHeight();
+  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  int __sc2 = (int)src->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc2 > 0)
+  {
+    const int __sc = __sc2;
+    __LICE_SCU(srcbm_w);
+    __LICE_SCU(srcbm_h);
+  }
+
+  RECT sr={0,0,srcbm_w, srcbm_h};
   if (srcrect) 
   {
     sr=*srcrect;    
     if (sr.left < 0) { dstx-=sr.left; sr.left=0; }
     if (sr.top < 0) { dsty-=sr.top; sr.top=0; }
-    if (sr.right > src->getWidth()) sr.right=src->getWidth();
-    if (sr.bottom > src->getHeight()) sr.bottom = src->getHeight();
+    if (sr.right > srcbm_w) sr.right=srcbm_w;
+    if (sr.bottom > srcbm_h) sr.bottom=srcbm_h;
   }
 
-  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
   int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
-  int __sc2 = (int)src->Extended(LICE_EXT_GET_SCALING,NULL);
-  if (allowSc && __sc != __sc2)
+  if (allowSc && __sc != __sc2 && !IGNORE_SCALING(mode))
   {
     const int w = sr.right-sr.left, h=sr.bottom-sr.top;
     LICE_ScaledBlit(dest,src,dstx,dsty,w,h, sr.left,sr.top,w,h,alpha,mode);
@@ -936,10 +948,13 @@ static void LICE_BlitInt(LICE_IBitmap *dest, LICE_IBitmap *src, int dstx, int ds
   {
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
-    __LICE_SC(dstx);
-    __LICE_SC(dsty);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(dstx);
+      __LICE_SC(dsty);
+    }
   }
-  if (__sc2>0)
+  if (__sc2>0 && !IGNORE_SCALING(mode))
   {
     __sc=__sc2;
     __LICE_SC(sr.left);
@@ -1217,20 +1232,26 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   const int dstx_orig = dstx, dsty_orig = dsty;
   if (__sc>0)
   {
-    __LICE_SC(dstx);
-    __LICE_SC(dsty);
-    __LICE_SC(dstw);
-    __LICE_SC(dsth);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(dstx);
+      __LICE_SC(dsty);
+      __LICE_SC(dstw);
+      __LICE_SC(dsth);
+    }
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
   }
   __sc = (int)src->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
   {
-    __LICE_SC(srcx);
-    __LICE_SC(srcy);
-    __LICE_SC(srcw);
-    __LICE_SC(srch);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(srcx);
+      __LICE_SC(srcy);
+      __LICE_SC(srcw);
+      __LICE_SC(srch);
+    }
     __LICE_SCU(srcbm_w);
     __LICE_SCU(srcbm_h);
   }
@@ -1468,10 +1489,13 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
   {
-    __LICE_SC(dstx);
-    __LICE_SC(dsty);
-    __LICE_SC(dstw);
-    __LICE_SC(dsth);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(dstx);
+      __LICE_SC(dsty);
+      __LICE_SC(dstw);
+      __LICE_SC(dsth);
+    }
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
 
@@ -1481,15 +1505,18 @@ void LICE_DeltaBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (__sc>0)
   {
-    __LICE_SC(srcx);
-    __LICE_SC(srcy);
-    __LICE_SC(srcw);
-    __LICE_SC(srch);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(srcx);
+      __LICE_SC(srcy);
+      __LICE_SC(srcw);
+      __LICE_SC(srch);
+    }
     __LICE_SCU(srcbm_w);
     __LICE_SCU(srcbm_h);
   }
 
-  if (__scdest != __sc)
+  if (__scdest != __sc && !IGNORE_SCALING(mode))
   {
     const double adj = (__sc>0 ? __sc : 256.0) / (double) (__scdest>0 ? __scdest : 256.0);
     dsdx *= adj;
@@ -1616,10 +1643,13 @@ void LICE_DeltaBlitAlpha(LICE_IBitmap *dest, LICE_IBitmap *src,
   int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
   {
-    __LICE_SC(dstx);
-    __LICE_SC(dsty);
-    __LICE_SC(dstw);
-    __LICE_SC(dsth);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(dstx);
+      __LICE_SC(dsty);
+      __LICE_SC(dstw);
+      __LICE_SC(dsth);
+    }
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
 
@@ -1629,10 +1659,13 @@ void LICE_DeltaBlitAlpha(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (__sc>0)
   {
-    __LICE_SC(srcx);
-    __LICE_SC(srcy);
-    __LICE_SC(srcw);
-    __LICE_SC(srch);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(srcx);
+      __LICE_SC(srcy);
+      __LICE_SC(srcw);
+      __LICE_SC(srch);
+    }
     __LICE_SCU(srcbm_w);
     __LICE_SCU(srcbm_h);
   }
@@ -1782,10 +1815,13 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
   {
-    __LICE_SC(dstx);
-    __LICE_SC(dsty);
-    __LICE_SC(dstw);
-    __LICE_SC(dsth);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(dstx);
+      __LICE_SC(dsty);
+      __LICE_SC(dstw);
+      __LICE_SC(dsth);
+    }
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
 
@@ -1794,10 +1830,13 @@ void LICE_RotatedBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
 
   if (__sc>0)
   {
-    __LICE_SC(srcx);
-    __LICE_SC(srcy);
-    __LICE_SC(srcw);
-    __LICE_SC(srch);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(srcx);
+      __LICE_SC(srcy);
+      __LICE_SC(srcw);
+      __LICE_SC(srch);
+    }
     __LICE_SCU(srcbm_w);
     __LICE_SCU(srcbm_h);
   }
@@ -1963,7 +2002,7 @@ void LICE_MultiplyAddRect(LICE_IBitmap *dest, int x, int y, int w, int h,
   if (!dest) return;
 
   int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
-  DO_RECT_SC
+  DO_RECT_SC(0)
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
@@ -2015,7 +2054,7 @@ void LICE_ProcessRect(LICE_IBitmap *dest, int x, int y, int w, int h, void (*pro
   if (!dest||!procFunc) return;
 
   int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
-  DO_RECT_SC
+  DO_RECT_SC(0)
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
@@ -2055,7 +2094,7 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
   if (!dest) return;
 
   int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
-  DO_RECT_SC
+  DO_RECT_SC(mode)
 
 #ifndef DISABLE_LICE_EXTENSIONS
   if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_FILLRECT_ACCEL))
@@ -2139,7 +2178,7 @@ void LICE_ClearRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel m
   LICE_pixel *p=dest->getBits();
 
   int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
-  DO_RECT_SC
+  DO_RECT_SC(0)
 
   if (x<0) { w+=x; x=0; }
   if (y<0) { h+=y; y=0; }
@@ -2202,7 +2241,7 @@ void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha
 {
   if (!bm) return;
 
-  const int __sc = (int)bm->Extended(LICE_EXT_GET_SCALING,NULL);
+  const int __sc = IGNORE_SCALING(mode) ? 0 : (int)bm->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
   {
     LICE_FillRect(bm,x,y,1,1,color,alpha,mode);
@@ -2664,8 +2703,11 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
   {
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
-    __LICE_SC(x);
-    __LICE_SC(y);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x);
+      __LICE_SC(y);
+    }
   }
 
   LICE_pixel* destpx = dest->getBits();
@@ -2735,8 +2777,11 @@ void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, cons
   {
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
-    __LICE_SC(x);
-    __LICE_SC(y);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x);
+      __LICE_SC(y);
+    }
   }
 
   LICE_pixel* destpx = dest->getBits();

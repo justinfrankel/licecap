@@ -45,7 +45,7 @@ void LICE_AlterBitmapHSV(LICE_IBitmap* src, float dH, float dS, float dV) // H i
   if (src) LICE_AlterRectHSV(src,0,0,src->getWidth(),src->getHeight(),dH,dS,dV);
 }
 
-void LICE_AlterRectHSV(LICE_IBitmap* src, int xpos, int ypos, int w, int h, float dH, float dS, float dV) // H is rolled over, S and V are clamped
+void LICE_AlterRectHSV(LICE_IBitmap* src, int xpos, int ypos, int w, int h, float dH, float dS, float dV, int mode) // H is rolled over, S and V are clamped
 {
   if (!src) return;
 
@@ -55,10 +55,13 @@ void LICE_AlterRectHSV(LICE_IBitmap* src, int xpos, int ypos, int w, int h, floa
   {
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
-    __LICE_SC(w);
-    __LICE_SC(h);
-    __LICE_SC(xpos);
-    __LICE_SC(ypos);
+    if (!(mode & LICE_BLIT_IGNORE_SCALING))
+    {
+      __LICE_SC(w);
+      __LICE_SC(h);
+      __LICE_SC(xpos);
+      __LICE_SC(ypos);
+    }
   }
 
   if (xpos < 0) {

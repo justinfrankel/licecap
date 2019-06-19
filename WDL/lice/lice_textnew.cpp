@@ -4,6 +4,8 @@
 #include "lice_combine.h"
 #include "lice_extended.h"
 
+#define IGNORE_SCALING(mode) ((mode)&LICE_BLIT_IGNORE_SCALING)
+
 #if defined(_WIN32) && defined(WDL_SUPPORT_WIN9X)
 static char __1ifNT2if98=0; // 2 for iswin98
 #endif
@@ -734,10 +736,13 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
   if (__sc>0 && rect)
   {
-    __LICE_SC(rect->left);
-    __LICE_SC(rect->top);
-    __LICE_SC(rect->right);
-    __LICE_SC(rect->bottom);
+    if (!IGNORE_SCALING(m_comb))
+    {
+      __LICE_SC(rect->left);
+      __LICE_SC(rect->top);
+      __LICE_SC(rect->right);
+      __LICE_SC(rect->bottom);
+    }
     __LICE_SC(bm_w);
     __LICE_SC(bm_h);
   }

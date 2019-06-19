@@ -4,6 +4,7 @@
 
 #define _PI 3.141592653589793238f
 
+#define IGNORE_SCALING(mode) ((mode)&LICE_BLIT_IGNORE_SCALING)
 template <class T> inline void _SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
 #define A(x) ((LICE_pixel_chan)((x)*255.0+0.5))
@@ -415,9 +416,12 @@ static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, floa
   {
     __LICE_SCU(w);
     __LICE_SCU(h);
-    __LICE_SC(cx);
-    __LICE_SC(cy);
-    __LICE_SC(rad);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(cx);
+      __LICE_SC(cy);
+      __LICE_SC(rad);
+    }
   }
   // -2PI <= anglo <= anghi <= 2PI
   anglo += 2.0*_PI;
@@ -511,9 +515,12 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
   {
     __LICE_SCU(w);
     __LICE_SCU(h);
-    __LICE_SC(cx);
-    __LICE_SC(cy);
-    __LICE_SC(r);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(cx);
+      __LICE_SC(cy);
+      __LICE_SC(r);
+    }
   }
 
   const int clip[4] = { 0, 0, w, h };
@@ -547,9 +554,12 @@ void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel
   {
     __LICE_SCU(w);
     __LICE_SCU(h);
-    __LICE_SC(cx);
-    __LICE_SC(cy);
-    __LICE_SC(r);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(cx);
+      __LICE_SC(cy);
+      __LICE_SC(r);
+    }
   }
 
   if (w < 1 || h < 1 || r < 0.0 || 
@@ -577,7 +587,7 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
     if (cr>=2)
     {
       double adj = 0.0;
-      const int __sc = drawbm ? (int)drawbm->Extended(LICE_EXT_GET_SCALING,NULL) : 0;
+      const int __sc = IGNORE_SCALING(mode) ? 0 : drawbm ? (int)drawbm->Extended(LICE_EXT_GET_SCALING,NULL) : 0;
       if (__sc>0)
       {
         adj = 1.0 - 256.0/__sc;

@@ -315,6 +315,7 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 #define LICE_BLIT_FILTER_MASK 0xff00
 #define LICE_BLIT_FILTER_NONE 0
 #define LICE_BLIT_FILTER_BILINEAR 0x100 // currently pretty slow! ack
+#define LICE_BLIT_IGNORE_SCALING 0x20000
 
 
 #define LICE_BLIT_USE_ALPHA 0x10000 // use source's alpha channel
@@ -565,7 +566,7 @@ LICE_pixel LICE_HSV2Pix(int h, int s, int v, int alpha); // sv: [0,256), h: [0,3
 
 LICE_pixel LICE_AlterColorHSV(LICE_pixel color, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
 void LICE_AlterBitmapHSV(LICE_IBitmap* src, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
-void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
+void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float d_hue, float d_saturation, float d_value, int mode=0);  // hue is rolled over, saturation and value are clamped, all 0..1. mode only used for scaling disable
 
 LICE_pixel LICE_CombinePixels(LICE_pixel dest, LICE_pixel src, float alpha, int mode);
 
