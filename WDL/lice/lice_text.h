@@ -150,7 +150,6 @@ public:
   {
     LICE_IFont *f = get(bm);
     if (!f) return 0;
-    if (dtFlags & DT_VCENTER) dtFlags|=DT_SINGLELINE;
     if (!(dtFlags & DT_CALCRECT))
     {
       f->SetTextColor(m_fg);
