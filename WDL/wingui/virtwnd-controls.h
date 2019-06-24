@@ -323,7 +323,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     virtual void OnMouseMove(int xpos, int ypos);
     virtual void OnMouseUp(int xpos, int ypos);
 
-    void SetFont(LICE_IFont *font) { m_font=font; }
+    void SetFont(LICE_IFont *font, int lsadj=-1000) { m_font=font; m_lsadj=lsadj; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetRowHeight(int rh) { m_rh=rh; }
@@ -367,6 +367,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_margin_r, m_margin_l;
     int m_rh,m_maxcolwidth,m_mincolwidth ;
     int m_scrollbuttonsize;
+    int m_lsadj;
     LICE_IFont *m_font;
     bool m_grayed;
 

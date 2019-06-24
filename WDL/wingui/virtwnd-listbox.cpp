@@ -41,6 +41,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_align=-1;
   m_rh=14;
   m_maxcolwidth=m_mincolwidth=0;
+  m_lsadj=-1000;
   m_font=0;
   m_clickmsg=0;
   m_dropmsg=0;
@@ -235,7 +236,12 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
   pencol2=LICE_RGBA_FROMNATIVE(pencol2,255);
 
   LICE_pixel tcol=GSC(COLOR_BTNTEXT);
-  if (m_font) m_font->SetBkMode(TRANSPARENT);
+  if (m_font) 
+  {
+    m_font->SetBkMode(TRANSPARENT);
+    if (m_lsadj != -1000)
+      m_font->SetLineSpacingAdjust(m_lsadj);
+  }
 
   float alpha = (m_grayed ? 0.25f : 1.0f);
 
