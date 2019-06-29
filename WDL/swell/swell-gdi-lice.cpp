@@ -1021,7 +1021,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 
   HGDIOBJ__  *font  = NULL;
 #ifdef SWELL_FREETYPE
-  int ascent=0;
+  int ascent=0, descent=0;
   font  = HDC_VALID(ct) && HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
   FT_Face face = NULL;
   if (font && font->typedata) 
@@ -1029,6 +1029,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     face=(FT_Face)font->typedata;
     lineh = face->size->metrics.height/64;
     ascent = face->size->metrics.ascender/64;
+    descent = face->size->metrics.descender/64;
     charw = face->size->metrics.height / 112;
   }
 #endif
@@ -1085,14 +1086,14 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
             if (rext<xpos) rext=xpos;
             if (r->left+rext > r->right) r->right = r->left+rext;
 
-            int bext = r->top + ypos + lineh; // ascent + (g->metrics.height - g->metrics.horiBearingY)/64;
+            int bext = r->top + ypos + lineh + descent;
             if (bext > r->bottom) r->bottom = bext;
             continue;
           }
 #endif
         }
         xpos += c=='\t' ? charw*5 : charw;
-        if (r->top + ypos + lineh > r->bottom) r->bottom = r->top+ypos+lineh;
+        if (r->top + ypos + lineh + descent > r->bottom) r->bottom = r->top+ypos+lineh+descent;
         if (r->left+xpos>r->right) r->right=r->left+xpos;
       }
     }
