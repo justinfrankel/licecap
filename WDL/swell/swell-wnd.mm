@@ -4861,10 +4861,19 @@ HWND WindowFromPoint(POINT p)
 
 void UpdateWindow(HWND hwnd)
 {
-  if (hwnd && [(id)hwnd isKindOfClass:[NSView class]] && [(NSView *)hwnd needsDisplay])
+  if (hwnd && [(id)hwnd isKindOfClass:[NSView class]])
   {
-    NSWindow *wnd = [(NSView *)hwnd window];
-    [wnd displayIfNeeded];
+    if ([(id)hwnd isKindOfClass:[SWELL_hwndChild class]] && 
+        ((SWELL_hwndChild *)hwnd)->m_use_metal)
+    {
+      if (((SWELL_hwndChild *)hwnd)->m_metal_in_invalidate_queue)
+        [(SWELL_hwndChild *)hwnd swellDrawMetal:YES];
+    }
+    else if ([(NSView *)hwnd needsDisplay])
+    {
+      NSWindow *wnd = [(NSView *)hwnd window];
+      [wnd displayIfNeeded];
+    }
   }
 }
 
@@ -4875,6 +4884,9 @@ void SWELL_FlushWindow(HWND h)
     NSWindow *w=NULL;
     if ([(id)h isKindOfClass:[NSView class]]) 
     {
+      if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild *)h)->m_use_metal)
+        return;
+
       if ([(NSView *)h needsDisplay]) return;
       
       w = [(NSView *)h window];
@@ -4916,6 +4928,17 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
     bool skip_parent_invalidate=false;
     if ([view isKindOfClass:[SWELL_hwndChild class]])
     {
+#ifndef SWELL_NO_METAL
+      if (((SWELL_hwndChild*)view)->m_use_metal)
+      {
+        if (!((SWELL_hwndChild*)view)->m_metal_in_invalidate_queue)
+        {
+          ((SWELL_hwndChild*)view)->m_metal_in_invalidate_queue=true;
+          PostMessage((HWND)view,WM_PAINT,0,(1<<24));
+        }
+        return TRUE;
+      }
+#endif
       if (!(((SWELL_hwndChild *)view)->m_isdirty&1))
       {
         ((SWELL_hwndChild *)view)->m_isdirty|=1;

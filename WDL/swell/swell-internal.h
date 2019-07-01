@@ -300,6 +300,20 @@ typedef struct WindowPropRec
   id m_lastTopLevelOwner; // save a copy of the owner, if any
   id m_access_cacheptrs[6];
   const char *m_classname;
+
+#ifndef SWELL_NO_METAL
+  char m_use_metal; // 1=normal mode, 2=full pipeline (GetDC() etc support)
+
+  // metal state (if used)
+  char m_metal_dirty;  // used to track state during paint or getdc/releasedc -- set to 1 if dirty, (getdc/releasedc sets it to 2 to prevent change of retina/texture size)
+  bool m_metal_retina; // last-retina-state, triggered to true by StretchBlt() with a 2:1 ratio
+  bool m_metal_in_invalidate_queue;
+  id m_metal_texture; // id<MTLTexture> -- owned if in full pipeline mode, otherwise reference to m_metal_drawable
+  id m_metal_pipelineState; // id<MTLRenderPipelineState> -- only used in full pipeline mode
+  id m_metal_commandQueue; // id<MTLCommandQueue> -- only used in full pipeline mode
+  id m_metal_drawable; // id<CAMetalDrawable> -- only used in normal mode
+#endif
+
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam;
@@ -362,8 +376,10 @@ typedef struct WindowPropRec
 - (id)accessibilityFocusedUIElement;
 
 
-
-
+#ifndef SWELL_NO_METAL
+-(BOOL) swellWantsMetal;
+-(void) swellDrawMetal:(BOOL)doPaint;
+#endif
 @end
 
 @interface SWELL_ModelessWindow : NSWindow
@@ -511,6 +527,9 @@ struct HGDIOBJ__
 struct HDC__ {
   CGContextRef ctx; 
   void *ownedData; // always use via SWELL_GetContextFrameBuffer() (which performs necessary alignment)
+#ifndef SWELL_NO_METAL
+  void *metal_ctx; // SWELL_hwndChild
+#endif
   HGDIOBJ__ *curpen;
   HGDIOBJ__ *curbrush;
   HGDIOBJ__ *curfont;
