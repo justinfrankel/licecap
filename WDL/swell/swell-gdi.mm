@@ -269,6 +269,7 @@ HPEN CreatePenAlpha(int attr, int wid, int col, float alpha)
   pen->type=TYPE_PEN;
   pen->wid=wid<0?0:wid;
   pen->color=CreateColor(col,alpha);
+  pen->color_int = col;
   return pen;
 }
 HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
@@ -276,6 +277,7 @@ HBRUSH  CreateSolidBrushAlpha(int col, float alpha)
   HGDIOBJ__ *brush=GDP_OBJECT_NEW();
   brush->type=TYPE_BRUSH;
   brush->color=CreateColor(col,alpha);
+  brush->color_int = col;
   brush->wid=0; 
   return brush;
 }

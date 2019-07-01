@@ -491,6 +491,7 @@ struct HGDIOBJ__
   // used by pen/brush
   CGColorRef color;
   int wid;
+  int color_int;
   NSImage *bitmapptr;  
   
   NSMutableDictionary *__old_fontdict; // unused, for ABI compat
