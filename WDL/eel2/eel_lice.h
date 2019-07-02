@@ -2123,7 +2123,10 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
 #else
   HWND h = SWELL_CreateDialog(NULL,isChild ? NULL : ((const char *)(INT_PTR)0x400001),par,(DLGPROC)eel_lice_wndproc,(LPARAM)this);
   if (h)
+  {
     SWELL_SetClassName(h,eel_lice_standalone_classname);
+    SWELL_EnableMetal(h,1);
+  }
   return h;
 #endif
 }
