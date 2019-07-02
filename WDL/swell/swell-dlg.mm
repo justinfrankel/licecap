@@ -3869,6 +3869,8 @@ int SWELL_EnableMetal(HWND hwnd, int mode)
     [ch setWantsLayer:YES];
 
     CAMetalLayer *layer = (CAMetalLayer *)[ch layer];
+    if (ch->m_use_metal==1)
+      layer.framebufferOnly = NO;
     [layer setDevice:s_mtl_device];
     [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
     InvalidateRect(hwnd,NULL,FALSE);
