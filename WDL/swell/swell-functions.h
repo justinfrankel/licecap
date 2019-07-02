@@ -967,7 +967,7 @@ SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to
 SWELL_API_DEFINE(int, SWELL_EnableMetal,(HWND h, int mode)) // can only call once per window. calling with 0 does nothing. 1=metal enabled, 2=metal enabled and support GetDC()/ReleaseDC() for drawing (more overhead). returns metal setting.
 #else
   #ifndef SWELL_EnableMetal
-  #define SWELL_EnableMetal(hwnd,x) (0)
+  #define SWELL_EnableMetal(hwnd,x) (void)(x)
   #endif
 #endif
 
