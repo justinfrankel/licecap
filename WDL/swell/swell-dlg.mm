@@ -1479,10 +1479,14 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     bounds.size.width *= 2;
     bounds.size.height *= 2;
   }
-  NSSize oldsc = layer.drawableSize;
+  CGSize oldsc = layer.drawableSize;
   if (oldsc.width != bounds.size.width || oldsc.height != bounds.size.height)
-    layer.drawableSize = bounds.size;
-
+  {
+    CGSize ns;
+    ns.width = bounds.size.width;
+    ns.height = bounds.size.height;
+    layer.drawableSize = ns;
+  }
   id<CAMetalDrawable> drawable = [layer nextDrawable];
   if (WDL_NOT_NORMALLY(!drawable))
   {
@@ -3783,9 +3787,14 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
       CAMetalLayer *layer = (CAMetalLayer *)[wnd layer];
       if (layer)
       {
-        NSSize oldsc = layer.drawableSize;
+        CGSize oldsc = layer.drawableSize;
         if (oldsc.width != bounds.size.width || oldsc.height != bounds.size.height)
-          layer.drawableSize = bounds.size;
+        {
+          CGSize ns;
+          ns.width = bounds.size.width;
+          ns.height = bounds.size.height;
+          layer.drawableSize = ns;
+        }
         tex = [(wnd->m_metal_drawable = [layer nextDrawable]) texture];
         wnd->m_metal_texture = tex;
       }
