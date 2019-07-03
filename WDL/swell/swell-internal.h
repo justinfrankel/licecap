@@ -308,8 +308,7 @@ typedef struct WindowPropRec
   char m_metal_dirty;  // used to track state during paint or getdc/releasedc -- set to 1 if dirty, (getdc/releasedc sets it to 2 to prevent change of retina/texture size)
   bool m_metal_retina; // last-retina-state, triggered to true by StretchBlt() with a 2:1 ratio
 
-  int m_metal_coalesce_cnt;
-  RECT m_metal_coalesce_rect;
+  RECT m_metal_rect_needpaint; // if non-empty, we're in the global needs-refresh list
 
   id m_metal_texture; // id<MTLTexture> -- owned if in full pipeline mode, otherwise reference to m_metal_drawable
   id m_metal_pipelineState; // id<MTLRenderPipelineState> -- only used in full pipeline mode
@@ -383,7 +382,7 @@ typedef struct WindowPropRec
 
 #ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal;
--(void) swellDrawMetal:(BOOL)doPaint rect:(const RECT*)paintrect;
+-(void) swellDrawMetal:(int)doPaint; // doPaint=2 to force full draw
 #endif
 @end
 
@@ -430,6 +429,12 @@ typedef struct WindowPropRec
 -(int)swellGetModalRetVal;
 -(bool)swellHasModalRetVal;
 @end
+
+#ifndef SWELL_NO_METAL
+void swell_removeMetalDirty(SWELL_hwndChild *slf);
+void swell_updateAllMetalDirty(void);
+void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r);
+#endif
 
 
 @interface SWELL_hwndCarbonHost : SWELL_hwndChild

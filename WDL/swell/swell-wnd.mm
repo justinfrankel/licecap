@@ -4863,24 +4863,31 @@ void UpdateWindow(HWND hwnd)
 {
   if (hwnd && [(id)hwnd isKindOfClass:[NSView class]])
   {
+#ifndef SWELL_NO_METAL
     if ([(id)hwnd isKindOfClass:[SWELL_hwndChild class]] && 
         ((SWELL_hwndChild *)hwnd)->m_use_metal)
     {
       SWELL_hwndChild *slf = (SWELL_hwndChild *)hwnd;
-      if (slf->m_metal_coalesce_cnt>0)
+      if (slf->m_metal_rect_needpaint.right > slf->m_metal_rect_needpaint.left &&
+          slf->m_metal_rect_needpaint.bottom > slf->m_metal_rect_needpaint.top)
       {
-        if (slf->m_metal_coalesce_rect.right > slf->m_metal_coalesce_rect.left &&
-            slf->m_metal_coalesce_rect.bottom > slf->m_metal_coalesce_rect.top)
-        {
-          [slf swellDrawMetal:YES rect:&slf->m_metal_coalesce_rect];
-          memset(&slf->m_metal_coalesce_rect,0,sizeof(slf->m_metal_coalesce_rect));
-        }
+        [slf swellDrawMetal:1];
+        swell_removeMetalDirty(slf);
       }
     }
-    else if ([(NSView *)hwnd needsDisplay])
+    else 
+#endif
     {
-      NSWindow *wnd = [(NSView *)hwnd window];
-      [wnd displayIfNeeded];
+      if ([(NSView *)hwnd needsDisplay])
+      {
+        NSWindow *wnd = [(NSView *)hwnd window];
+        [wnd displayIfNeeded];
+      }
+
+#ifndef SWELL_NO_METAL
+      // also update all dirty metal windows (technically we only must if they are a child of hwnd, but meh)
+      swell_updateAllMetalDirty();
+#endif
     }
   }
 }
@@ -4892,8 +4899,10 @@ void SWELL_FlushWindow(HWND h)
     NSWindow *w=NULL;
     if ([(id)h isKindOfClass:[NSView class]]) 
     {
+#ifndef SWELL_NO_METAL
       if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild *)h)->m_use_metal)
         return;
+#endif
 
       if ([(NSView *)h needsDisplay]) return;
       
@@ -4942,27 +4951,7 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
       {
         if (![hc isHiddenOrHasHiddenAncestor]) 
         {
-          if (hc->m_metal_coalesce_cnt>0)
-          {
-            if (!r) 
-            {
-              hc->m_metal_coalesce_rect.left = hc->m_metal_coalesce_rect.top = 0;
-              hc->m_metal_coalesce_rect.right = hc->m_metal_coalesce_rect.bottom = (1<<28);
-            }
-            else 
-            {
-              WinUnionRect(&hc->m_metal_coalesce_rect,&hc->m_metal_coalesce_rect,r);
-            }
-          }
-          else 
-          {
-            // this might cause problems if code depends on InvalidateRect() deferring update
-            // but in general updating things as quickly as possible is probably a good idea
-            // (probably better to fix calling code!)
-            // alternatively can wrap whatever other code in m_metal_coalesce_cnt/m_metal_coalesce_rect like 
-            // SWELL_SendMouseMessage()...
-            [hc swellDrawMetal:YES rect:r];
-          }
+          swell_addMetalDirty(hc,r);
         }
         return TRUE;
       }

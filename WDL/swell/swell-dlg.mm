@@ -39,6 +39,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/Metal.h>
 #include "../assocarray.h"
+#include "../ptrlist.h"
 
 #ifdef __SSE__
 // for SWELL_fastDoubleUpImage
@@ -105,6 +106,13 @@ static void get_dev_shaders(id<MTLDevice> dev, id<MTLFunction> *vertex, id<MTLFu
   s_mtl_device_recs.Insert((INT_PTR)dev, rec);
 }
 
+
+static void metalUpdateProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+{
+  void swell_updateAllMetalDirty(void);
+  swell_updateAllMetalDirty();
+}
+
 static bool mtl_init()
 {
   static int state;
@@ -130,6 +138,7 @@ static bool mtl_init()
         )
     {
       state=1;
+      SetTimer(NULL,1,1,metalUpdateProc);
     }
   }
 
@@ -298,28 +307,7 @@ static LRESULT SWELL_SendMouseMessage(SWELL_hwndChild *slf, int msg, NSEvent *ev
 {
   if (!slf) return 0;
   [slf retain];
-#ifndef SWELL_NO_METAL
-  const bool metal = slf->m_use_metal;
-  if (metal)
-  {
-    if (!slf->m_metal_coalesce_cnt++)
-      memset(&slf->m_metal_coalesce_rect,0,sizeof(slf->m_metal_coalesce_rect));
-  }
-#endif
   LRESULT res=SWELL_SendMouseMessageImpl(slf,msg,event);
-#ifndef SWELL_NO_METAL
-  if (metal)
-  {
-    if (!--slf->m_metal_coalesce_cnt)
-    {
-      if (slf->m_metal_coalesce_rect.right > slf->m_metal_coalesce_rect.left &&
-          slf->m_metal_coalesce_rect.bottom > slf->m_metal_coalesce_rect.top)
-      {
-        [slf swellDrawMetal:YES rect:&slf->m_metal_coalesce_rect];
-      }
-    }
-  }
-#endif
   [slf release];
   return res;
 }
@@ -633,11 +621,20 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(void)viewDidHide
 {
   SendMessage((HWND)self, WM_SHOWWINDOW, FALSE, 0);
+#ifndef SWELL_NO_METAL
+  if (m_use_metal) swell_removeMetalDirty(self);
+#endif
 }
 -(void) viewDidUnhide
 {
   SendMessage((HWND)self, WM_SHOWWINDOW, TRUE, 0);
-  if (m_use_metal) [self swellDrawMetal:YES rect:NULL];
+#ifndef SWELL_NO_METAL
+  if (m_use_metal) 
+  {
+    [self swellDrawMetal:2];
+    swell_removeMetalDirty(self);
+  }
+#endif
 }
 
 - (void)SWELL_Timer:(id)sender
@@ -991,6 +988,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_texture=NULL;
   m_metal_pipelineState=NULL;
   m_metal_commandQueue=NULL;
+  if (m_use_metal) swell_removeMetalDirty(self);
 #endif
 
   int x;
@@ -1185,8 +1183,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_drawable=NULL;
   m_metal_pipelineState=NULL;
   m_metal_commandQueue=NULL;
-  m_metal_coalesce_cnt=0;
-  memset(&m_metal_coalesce_rect,0,sizeof(m_metal_coalesce_rect));
+  memset(&m_metal_rect_needpaint,0,sizeof(m_metal_rect_needpaint));
 #endif
   
   m_wndproc=SwellDialogDefaultWindowProc;
@@ -1437,7 +1434,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 #ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal { return m_use_metal != 0; }
--(void) swellDrawMetal:(BOOL)doPaint rect:(const RECT *)paintrect
+-(void) swellDrawMetal:(int)doPaint // doPaint = 2 to force
 {
   if (m_use_metal != 1 && m_use_metal != 2) return;
   const bool direct_mode = m_use_metal == 1;
@@ -1529,9 +1526,9 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
     RECT cr;
     GetClientRect((HWND)self,&cr);
-    if (m_use_metal == 2 && paintrect) 
+    if (m_use_metal == 2 && doPaint != 2)
     {
-      WinIntersectRect(&cr,&cr,paintrect);
+      WinIntersectRect(&cr,&cr,&m_metal_rect_needpaint);
     }
 
     NSRect rect;
@@ -3964,6 +3961,67 @@ int SWELL_EnableMetal(HWND hwnd, int mode)
   }
   return ch->m_use_metal;
 }
+
+WDL_PtrList<SWELL_hwndChild> s_mtl_dirty_list;
+
+void swell_updateAllMetalDirty() // run from a timer, or called by UpdateWindow()
+{
+  static bool r;
+  if (r) return;
+  r=true;
+
+  int x = s_mtl_dirty_list.GetSize();
+  while (--x>=0)
+  {
+    SWELL_hwndChild *slf = s_mtl_dirty_list.Get(x);
+    if (!slf) break; // deleted out from under us?!
+    s_mtl_dirty_list.Delete(x);
+
+    if (WDL_NORMALLY(slf->m_metal_rect_needpaint.right > slf->m_metal_rect_needpaint.left) && 
+        WDL_NORMALLY(slf->m_metal_rect_needpaint.bottom > slf->m_metal_rect_needpaint.top))
+    {
+      [slf swellDrawMetal:1];
+      memset(&slf->m_metal_rect_needpaint,0,sizeof(slf->m_metal_rect_needpaint));
+    }
+  }
+
+  r=false;
+}
+
+
+
+void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r)
+{
+  if (!slf) return;
+  const bool wasinlist = (slf->m_metal_rect_needpaint.right > slf->m_metal_rect_needpaint.left &&
+                          slf->m_metal_rect_needpaint.bottom > slf->m_metal_rect_needpaint.top);
+  if (!r) 
+  {
+    slf->m_metal_rect_needpaint.left = slf->m_metal_rect_needpaint.top = 0;
+    slf->m_metal_rect_needpaint.right = slf->m_metal_rect_needpaint.bottom = (1<<28);
+  }
+  else 
+  {
+    if (r->right <= r->left || r->bottom <= r->top) return; // no rect
+
+    WinUnionRect(&slf->m_metal_rect_needpaint,&slf->m_metal_rect_needpaint,r);
+  }
+  if (!wasinlist) 
+  {
+    WDL_ASSERT(s_mtl_dirty_list.Find(slf)<0);
+    s_mtl_dirty_list.Add(slf);
+  }
+}
+
+void swell_removeMetalDirty(SWELL_hwndChild *slf)
+{
+  if (slf)
+  {
+    memset(&slf->m_metal_rect_needpaint,0,sizeof(slf->m_metal_rect_needpaint));
+    s_mtl_dirty_list.DeletePtr(slf);
+  }
+}
+
 
 
 #endif
