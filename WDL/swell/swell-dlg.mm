@@ -38,6 +38,7 @@
 #include <simd/simd.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/Metal.h>
+#include "../assocarray.h"
 
 #ifdef __SSE__
 // for SWELL_fastDoubleUpImage
@@ -45,36 +46,29 @@
 #endif
 
 static id __class_CAMetalLayer, __class_MTLRenderPassDescriptor, __class_MTLTextureDescriptor, __class_MTLRenderPipelineDescriptor, __class_MTLCompileOptions;
-static id<MTLDevice> s_mtl_device;
-static id<MTLFunction> s_mtl_vertexFunction,s_mtl_fragmentFunction;
-static bool mtl_init()
+static id<MTLDevice> (*__MTLCreateSystemDefaultDevice)(void);
+static id<MTLDevice> (*__CGDirectDisplayCopyCurrentMetalDevice)(CGDirectDisplayID);
+
+struct mtl_dev_rec {
+  id<MTLFunction> vertexFunction,fragmentFunction;
+};
+
+static void get_dev_shaders(id<MTLDevice> dev, id<MTLFunction> *vertex, id<MTLFunction> *frag)
 {
-  static int state;
-  if (!state)
+  static WDL_PtrKeyedArray<mtl_dev_rec> s_mtl_device_recs;
+  mtl_dev_rec *p = s_mtl_device_recs.GetPtr((INT_PTR)dev);
+  if (p)
   {
-    state=-1;
+    *vertex = p->vertexFunction;
+    *frag = p->fragmentFunction;
+    return;
+  }
 
-    if (SWELL_GetOSXVersion() < 0x10b0) return false;
-
-    dlopen("/System/Library/Frameworks/QuartzCore.framework/Versions/Current/QuartzCore",RTLD_LAZY);
-    void *lib = dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal",RTLD_LAZY);
-    if (!lib) return false;
-    void *(*__MTLCreateSystemDefaultDevice)(void);
-    *(void **)&__MTLCreateSystemDefaultDevice = dlsym(lib,"MTLCreateSystemDefaultDevice");
-
-    if (__MTLCreateSystemDefaultDevice &&
-        (__class_CAMetalLayer = objc_getClass("CAMetalLayer")) &&
-        (__class_MTLRenderPassDescriptor = objc_getClass("MTLRenderPassDescriptor")) &&
-        (__class_MTLRenderPipelineDescriptor = objc_getClass("MTLRenderPipelineDescriptor")) &&
-        (__class_MTLTextureDescriptor = objc_getClass("MTLTextureDescriptor")) &&
-        (__class_MTLCompileOptions = objc_getClass("MTLCompileOptions")) &&
-        (s_mtl_device = (id<MTLDevice>)__MTLCreateSystemDefaultDevice())
-        )
-    {
-      // open device, compiler shaders
-      id opt = (id)[[__class_MTLCompileOptions alloc] init];
-      NSError *err=NULL;
-      NSString *code = 
+  mtl_dev_rec rec={NULL, };
+  // open device, compiler shaders
+  id opt = (id)[[__class_MTLCompileOptions alloc] init];
+  NSError *err=NULL;
+  NSString *code = 
 @"#include <metal_stdlib>\n"
 @"#include <simd/simd.h>\n"
 @"using namespace metal;\n"
@@ -94,18 +88,48 @@ static bool mtl_init()
 @"   return float4(colorSample);\n"
 @"}\n";
 
-      id<MTLLibrary> mtl_lib = [s_mtl_device newLibraryWithSource:code options:opt error:&err];
-      if (err) NSLog(@"swell-cocoa: error compiling metal shaders: %@\n",err);
-      [opt release];
+  id<MTLLibrary> mtl_lib = [dev newLibraryWithSource:code options:opt error:&err];
+  if (err) NSLog(@"swell-cocoa: error compiling metal shaders for device %p %@: %@\n",dev,dev.name,err);
+  [opt release];
 
-      if (mtl_lib &&
-          (s_mtl_vertexFunction = [mtl_lib newFunctionWithName:@"vertexShader"]) &&
-          (s_mtl_fragmentFunction = [mtl_lib newFunctionWithName:@"samplingShader"]))
-      {
-        printf("mtl ok!\n");
+  if (mtl_lib &&
+      (*vertex = rec.vertexFunction = [mtl_lib newFunctionWithName:@"vertexShader"]) &&
+      (*frag = rec.fragmentFunction = [mtl_lib newFunctionWithName:@"samplingShader"]))
+  {
+    NSLog(@"swell-cocoa: mtl ok for device %p %@!\n", dev, dev.name);
+  }
+  else
+  {
+    NSLog(@"swell-cocoa: mtl failed functions for device %p %@!\n", dev, dev.name);
+  }
+  s_mtl_device_recs.Insert((INT_PTR)dev, rec);
+}
 
-        state=1;
-      }
+static bool mtl_init()
+{
+  static int state;
+  if (!state)
+  {
+    state=-1;
+
+    if (SWELL_GetOSXVersion() < 0x10b0) return false;
+
+    dlopen("/System/Library/Frameworks/QuartzCore.framework/Versions/Current/QuartzCore",RTLD_LAZY);
+    void *lib = dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal",RTLD_LAZY);
+    void *cgf = dlopen("/System/Library/Frameworks/CoreGraphics.framework/Versions/Current/CoreGraphics",RTLD_LAZY);
+    if (!lib || !cgf) return false;
+    *(void **)&__MTLCreateSystemDefaultDevice = dlsym(lib,"MTLCreateSystemDefaultDevice");
+    *(void **)&__CGDirectDisplayCopyCurrentMetalDevice = dlsym(cgf,"CGDirectDisplayCopyCurrentMetalDevice");
+
+    if (__MTLCreateSystemDefaultDevice &&
+        (__class_CAMetalLayer = objc_getClass("CAMetalLayer")) &&
+        (__class_MTLRenderPassDescriptor = objc_getClass("MTLRenderPassDescriptor")) &&
+        (__class_MTLRenderPipelineDescriptor = objc_getClass("MTLRenderPipelineDescriptor")) &&
+        (__class_MTLTextureDescriptor = objc_getClass("MTLTextureDescriptor")) &&
+        (__class_MTLCompileOptions = objc_getClass("MTLCompileOptions"))
+        )
+    {
+      state=1;
     }
   }
 
@@ -1155,6 +1179,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_use_metal=0;
   m_metal_dirty=0;
   m_metal_retina=false;
+  m_metal_device=NULL;
+  m_metal_device_lastchkt=0;
   m_metal_texture=NULL;
   m_metal_drawable=NULL;
   m_metal_pipelineState=NULL;
@@ -1418,23 +1444,73 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
   CAMetalLayer *layer = (CAMetalLayer *)[self layer];
 
-  if (!direct_mode)
+  if (doPaint)
   {
-    if (WDL_NOT_NORMALLY([layer device] != s_mtl_device))
+    id<MTLDevice> dev = m_metal_device;
+
+#if 1
+    // support multiple devices. only check every second for device changes (it will use the old device and be slower in that duration)
+    // (checking the device takes about 20uS, which isn't a lot but also isn't nothing)
+
+    // this seems to work correclty, *except* - if you're using the high-performance card, the system will never go back to integrated,
+    // presumably because our metal devices are open. Maybe we can flag them as "non-essential" ?
+    const DWORD now = GetTickCount();
+    if (__CGDirectDisplayCopyCurrentMetalDevice && (!dev || now > m_metal_device_lastchkt+1000 || now < m_metal_device_lastchkt-1000))
     {
-      printf("device mismatch\n");
-      return;
+      m_metal_device_lastchkt = now;
+      CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [self.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
+      dev = __CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
+    }
+#endif
+    if (!dev)
+    {
+      static id<MTLDevice> def;
+      if (!def) def = __MTLCreateSystemDefaultDevice();
+      dev = def;
     }
 
+
+    if (dev != m_metal_device)
+    {
+      id<MTLDevice> olddev = (id<MTLDevice>)m_metal_device;
+      if (olddev) NSLog(@"swell-metal: switching devices from %p %@ to %p %@\n",olddev,olddev.name,dev,dev.name);
+      m_metal_device = dev;
+      [layer setDevice:dev];
+      layer.contentsGravity = [self isFlipped] ? @"bottomLeft" : @"topLeft"; // kCAGravityBottomLeft etc
+      if (m_use_metal==1)
+        layer.framebufferOnly = NO;
+      [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
+
+      [m_metal_pipelineState release];
+      [m_metal_commandQueue release];
+      if (!direct_mode) [m_metal_texture release];
+
+      m_metal_commandQueue = NULL;
+      m_metal_pipelineState = NULL;
+      m_metal_texture = NULL;
+      m_metal_drawable = NULL;
+    }
+  }
+
+  id<MTLDevice> device = m_metal_device;
+  if (!device) return;
+
+  if (!direct_mode)
+  {
     if (!m_metal_pipelineState)
     {
+      id<MTLFunction> vertex = NULL, frag = NULL;
+      get_dev_shaders(device, &vertex, &frag);
+      if (!vertex || !frag) return; // fail
+
       MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[__class_MTLRenderPipelineDescriptor alloc] init];
-      pipelineStateDescriptor.vertexFunction = s_mtl_vertexFunction;
-      pipelineStateDescriptor.fragmentFunction = s_mtl_fragmentFunction;
+
+      pipelineStateDescriptor.vertexFunction = vertex;
+      pipelineStateDescriptor.fragmentFunction = frag;
       pipelineStateDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
 
       NSError *error = NULL;
-      m_metal_pipelineState = [s_mtl_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&error];
+      m_metal_pipelineState = [device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor error:&error];
       [pipelineStateDescriptor release];
     }
   }
@@ -1528,7 +1604,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   };
 
   if (!m_metal_commandQueue)
-    m_metal_commandQueue = [s_mtl_device newCommandQueue];
+    m_metal_commandQueue = [device newCommandQueue];
 
   id<MTLCommandBuffer> commandBuffer = [m_metal_commandQueue commandBuffer];
 
@@ -3827,7 +3903,7 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
         textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm;
         textureDescriptor.width = want_w;
         textureDescriptor.height = want_h;
-        tex = [s_mtl_device newTextureWithDescriptor:textureDescriptor];
+        tex = [wnd->m_metal_device newTextureWithDescriptor:textureDescriptor];
         wnd->m_metal_texture = tex;
 
         [textureDescriptor release];
@@ -3884,13 +3960,6 @@ int SWELL_EnableMetal(HWND hwnd, int mode)
   {
     ch->m_use_metal=mode>1 ? 2 : mode;
     [ch setWantsLayer:YES];
-
-    CAMetalLayer *layer = (CAMetalLayer *)[ch layer];
-    layer.contentsGravity = [ch isFlipped] ? @"bottomLeft" : @"topLeft"; // kCAGravityBottomLeft etc
-    if (ch->m_use_metal==1)
-      layer.framebufferOnly = NO;
-    [layer setDevice:s_mtl_device];
-    [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
     InvalidateRect(hwnd,NULL,FALSE);
   }
   return ch->m_use_metal;

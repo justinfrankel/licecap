@@ -315,6 +315,8 @@ typedef struct WindowPropRec
   id m_metal_pipelineState; // id<MTLRenderPipelineState> -- only used in full pipeline mode
   id m_metal_commandQueue; // id<MTLCommandQueue> -- only used in full pipeline mode
   id m_metal_drawable; // id<CAMetalDrawable> -- only used in normal mode
+  id m_metal_device; // id<MTLDevice> -- set to last-used-device
+  DWORD m_metal_device_lastchkt;
 #endif
 
 }
