@@ -1486,6 +1486,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     ns.width = bounds.size.width;
     ns.height = bounds.size.height;
     layer.drawableSize = ns;
+    layer.contentsScale = m_metal_retina ? 2.0 : 1.0;
   }
   id<CAMetalDrawable> drawable = [layer nextDrawable];
   if (WDL_NOT_NORMALLY(!drawable))
@@ -3794,6 +3795,7 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
           ns.width = bounds.size.width;
           ns.height = bounds.size.height;
           layer.drawableSize = ns;
+          layer.contentsScale = retina_hint ? 2.0 : 1.0;
         }
         tex = [(wnd->m_metal_drawable = [layer nextDrawable]) texture];
         wnd->m_metal_texture = tex;
@@ -3869,6 +3871,7 @@ int SWELL_EnableMetal(HWND hwnd, int mode)
     [ch setWantsLayer:YES];
 
     CAMetalLayer *layer = (CAMetalLayer *)[ch layer];
+    layer.contentsGravity = [ch isFlipped] ? @"bottomLeft" : @"topLeft"; // kCAGravityBottomLeft etc
     if (ch->m_use_metal==1)
       layer.framebufferOnly = NO;
     [layer setDevice:s_mtl_device];
