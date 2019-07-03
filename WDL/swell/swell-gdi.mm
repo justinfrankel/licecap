@@ -1721,7 +1721,7 @@ void ReleaseDC(HWND h, HDC hdc)
 #ifndef SWELL_NO_METAL
     if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && [(SWELL_hwndChild *)h swellWantsMetal])
     {
-      [(SWELL_hwndChild*)h swellDrawMetal:NO];
+      [(SWELL_hwndChild*)h swellDrawMetal:NO rect:NULL];
     }
     else
 #endif

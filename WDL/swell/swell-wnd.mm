@@ -4866,8 +4866,16 @@ void UpdateWindow(HWND hwnd)
     if ([(id)hwnd isKindOfClass:[SWELL_hwndChild class]] && 
         ((SWELL_hwndChild *)hwnd)->m_use_metal)
     {
-      if (((SWELL_hwndChild *)hwnd)->m_metal_in_invalidate_queue)
-        [(SWELL_hwndChild *)hwnd swellDrawMetal:YES];
+      SWELL_hwndChild *slf = (SWELL_hwndChild *)hwnd;
+      if (slf->m_metal_coalesce_cnt>0)
+      {
+        if (slf->m_metal_coalesce_rect.right > slf->m_metal_coalesce_rect.left &&
+            slf->m_metal_coalesce_rect.bottom > slf->m_metal_coalesce_rect.top)
+        {
+          [slf swellDrawMetal:YES rect:&slf->m_metal_coalesce_rect];
+          memset(&slf->m_metal_coalesce_rect,0,sizeof(slf->m_metal_coalesce_rect));
+        }
+      }
     }
     else if ([(NSView *)hwnd needsDisplay])
     {
@@ -4929,12 +4937,32 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
     if ([view isKindOfClass:[SWELL_hwndChild class]])
     {
 #ifndef SWELL_NO_METAL
-      if (((SWELL_hwndChild*)view)->m_use_metal)
+      SWELL_hwndChild *hc = (SWELL_hwndChild*)view;
+      if (hc->m_use_metal)
       {
-        if (!((SWELL_hwndChild*)view)->m_metal_in_invalidate_queue)
+        if (![hc isHiddenOrHasHiddenAncestor]) 
         {
-          ((SWELL_hwndChild*)view)->m_metal_in_invalidate_queue=true;
-          PostMessage((HWND)view,WM_PAINT,0,(1<<24));
+          if (hc->m_metal_coalesce_cnt>0)
+          {
+            if (!r) 
+            {
+              hc->m_metal_coalesce_rect.left = hc->m_metal_coalesce_rect.top = 0;
+              hc->m_metal_coalesce_rect.right = hc->m_metal_coalesce_rect.bottom = (1<<28);
+            }
+            else 
+            {
+              WinUnionRect(&hc->m_metal_coalesce_rect,&hc->m_metal_coalesce_rect,r);
+            }
+          }
+          else 
+          {
+            // this might cause problems if code depends on InvalidateRect() deferring update
+            // but in general updating things as quickly as possible is probably a good idea
+            // (probably better to fix calling code!)
+            // alternatively can wrap whatever other code in m_metal_coalesce_cnt/m_metal_coalesce_rect like 
+            // SWELL_SendMouseMessage()...
+            [hc swellDrawMetal:YES rect:r];
+          }
         }
         return TRUE;
       }

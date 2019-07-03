@@ -207,7 +207,7 @@ void updateWindowCollection(NSWindow *w)
 static void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc, bool isMetal=false);
 static void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL doforce, WDL_PtrList<void> *needdraws, const NSRect *rlist, NSInteger rlistcnt, int draw_xlate_x, int draw_xlate_y, bool iscv, NSView *rlist_coordview);
 
-static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event);
+static LRESULT SWELL_SendMouseMessage(SWELL_hwndChild *slf, int msg, NSEvent *event);
 static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent *theEvent)
 {
  
@@ -270,11 +270,32 @@ static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent
   }
   return ret;  
 }
-static LRESULT SWELL_SendMouseMessage(NSView *slf, int msg, NSEvent *event)
+static LRESULT SWELL_SendMouseMessage(SWELL_hwndChild *slf, int msg, NSEvent *event)
 {
   if (!slf) return 0;
   [slf retain];
-  LRESULT res=SWELL_SendMouseMessageImpl((SWELL_hwndChild*)slf,msg,event);
+#ifndef SWELL_NO_METAL
+  const bool metal = slf->m_use_metal;
+  if (metal)
+  {
+    if (!slf->m_metal_coalesce_cnt++)
+      memset(&slf->m_metal_coalesce_rect,0,sizeof(slf->m_metal_coalesce_rect));
+  }
+#endif
+  LRESULT res=SWELL_SendMouseMessageImpl(slf,msg,event);
+#ifndef SWELL_NO_METAL
+  if (metal)
+  {
+    if (!--slf->m_metal_coalesce_cnt)
+    {
+      if (slf->m_metal_coalesce_rect.right > slf->m_metal_coalesce_rect.left &&
+          slf->m_metal_coalesce_rect.bottom > slf->m_metal_coalesce_rect.top)
+      {
+        [slf swellDrawMetal:YES rect:&slf->m_metal_coalesce_rect];
+      }
+    }
+  }
+#endif
   [slf release];
   return res;
 }
@@ -592,6 +613,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(void) viewDidUnhide
 {
   SendMessage((HWND)self, WM_SHOWWINDOW, TRUE, 0);
+  if (m_use_metal) [self swellDrawMetal:YES rect:NULL];
 }
 
 - (void)SWELL_Timer:(id)sender
@@ -615,15 +637,6 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   {
     if (m_hashaddestroy==2 || msg == WM_DESTROY || msg == WM_CAPTURECHANGED) return 0;
   }
-  
-#ifndef SWELL_NO_METAL
-  if (msg == WM_PAINT && wParam == 0 && lParam == (1<<24))
-  {
-    if (m_use_metal && m_metal_in_invalidate_queue)
-      [self swellDrawMetal:YES];
-    return 0;
-  }
-#endif
   
   if (msg==WM_DESTROY) // only ever called once per window
   { 
@@ -1146,6 +1159,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_drawable=NULL;
   m_metal_pipelineState=NULL;
   m_metal_commandQueue=NULL;
+  m_metal_coalesce_cnt=0;
+  memset(&m_metal_coalesce_rect,0,sizeof(m_metal_coalesce_rect));
 #endif
   
   m_wndproc=SwellDialogDefaultWindowProc;
@@ -1396,14 +1411,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 #ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal { return m_use_metal != 0; }
--(void) swellDrawMetal:(BOOL)doPaint
+-(void) swellDrawMetal:(BOOL)doPaint rect:(const RECT *)paintrect
 {
   if (m_use_metal != 1 && m_use_metal != 2) return;
   const bool direct_mode = m_use_metal == 1;
-
-  if (doPaint) m_metal_in_invalidate_queue=false;
-
-  if ([self isHiddenOrHasHiddenAncestor]) return;
 
   CAMetalLayer *layer = (CAMetalLayer *)[self layer];
 
@@ -1442,6 +1453,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
     RECT cr;
     GetClientRect((HWND)self,&cr);
+    if (m_use_metal == 2 && paintrect) 
+    {
+      WinIntersectRect(&cr,&cr,paintrect);
+    }
 
     NSRect rect;
     rect.origin.x = cr.left;
