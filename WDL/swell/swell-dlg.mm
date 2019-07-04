@@ -977,20 +977,6 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 }
 -(void) dealloc
 {
-#ifndef SWELL_NO_METAL
-  if (m_use_metal == 2)
-  {
-    [m_metal_texture release];
-    [m_metal_pipelineState release];
-    [m_metal_commandQueue release];
-  }
-  m_metal_drawable=NULL;
-  m_metal_texture=NULL;
-  m_metal_pipelineState=NULL;
-  m_metal_commandQueue=NULL;
-  if (m_use_metal) swell_removeMetalDirty(self);
-#endif
-
   int x;
   for (x=0;x<sizeof(m_access_cacheptrs)/sizeof(m_access_cacheptrs[0]);x ++)
   {
@@ -1005,6 +991,20 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     [m_glctx release];
     m_glctx=0;
   }
+#ifndef SWELL_NO_METAL
+  if (m_use_metal == 2)
+  {
+    [m_metal_texture release];
+    [m_metal_pipelineState release];
+    [m_metal_commandQueue release];
+  }
+  m_metal_drawable=NULL;
+  m_metal_texture=NULL;
+  m_metal_pipelineState=NULL;
+  m_metal_commandQueue=NULL;
+  if (m_use_metal) swell_removeMetalDirty(self);
+#endif
+
   [super dealloc];
 }
 
