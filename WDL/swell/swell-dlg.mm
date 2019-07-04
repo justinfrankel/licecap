@@ -39,7 +39,6 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/Metal.h>
 #include "../assocarray.h"
-#include "../ptrlist.h"
 
 #ifdef __SSE__
 // for SWELL_fastDoubleUpImage
@@ -104,45 +103,6 @@ static void get_dev_shaders(id<MTLDevice> dev, id<MTLFunction> *vertex, id<MTLFu
     NSLog(@"swell-cocoa: mtl failed functions for device %p %@!\n", dev, dev.name);
   }
   s_mtl_device_recs.Insert((INT_PTR)dev, rec);
-}
-
-
-static void metalUpdateProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
-{
-  void swell_updateAllMetalDirty(void);
-  swell_updateAllMetalDirty();
-}
-
-static bool mtl_init()
-{
-  static int state;
-  if (!state)
-  {
-    state=-1;
-
-    if (SWELL_GetOSXVersion() < 0x10b0) return false;
-
-    dlopen("/System/Library/Frameworks/QuartzCore.framework/Versions/Current/QuartzCore",RTLD_LAZY);
-    void *lib = dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal",RTLD_LAZY);
-    void *cgf = dlopen("/System/Library/Frameworks/CoreGraphics.framework/Versions/Current/CoreGraphics",RTLD_LAZY);
-    if (!lib || !cgf) return false;
-    *(void **)&__MTLCreateSystemDefaultDevice = dlsym(lib,"MTLCreateSystemDefaultDevice");
-    *(void **)&__CGDirectDisplayCopyCurrentMetalDevice = dlsym(cgf,"CGDirectDisplayCopyCurrentMetalDevice");
-
-    if (__MTLCreateSystemDefaultDevice &&
-        (__class_CAMetalLayer = objc_getClass("CAMetalLayer")) &&
-        (__class_MTLRenderPassDescriptor = objc_getClass("MTLRenderPassDescriptor")) &&
-        (__class_MTLRenderPipelineDescriptor = objc_getClass("MTLRenderPipelineDescriptor")) &&
-        (__class_MTLTextureDescriptor = objc_getClass("MTLTextureDescriptor")) &&
-        (__class_MTLCompileOptions = objc_getClass("MTLCompileOptions"))
-        )
-    {
-      state=1;
-      SetTimer(NULL,1,1,metalUpdateProc);
-    }
-  }
-
-  return state>0;
 }
 
 #endif
@@ -3704,6 +3664,44 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
 }
 
 #ifndef SWELL_NO_METAL
+
+
+static void metalUpdateProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+{
+  swell_updateAllMetalDirty();
+}
+
+static bool mtl_init()
+{
+  static int state;
+  if (!state)
+  {
+    state=-1;
+
+    if (SWELL_GetOSXVersion() < 0x10b0) return false;
+
+    dlopen("/System/Library/Frameworks/QuartzCore.framework/Versions/Current/QuartzCore",RTLD_LAZY);
+    void *lib = dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal",RTLD_LAZY);
+    void *cgf = dlopen("/System/Library/Frameworks/CoreGraphics.framework/Versions/Current/CoreGraphics",RTLD_LAZY);
+    if (!lib || !cgf) return false;
+    *(void **)&__MTLCreateSystemDefaultDevice = dlsym(lib,"MTLCreateSystemDefaultDevice");
+    *(void **)&__CGDirectDisplayCopyCurrentMetalDevice = dlsym(cgf,"CGDirectDisplayCopyCurrentMetalDevice");
+
+    if (__MTLCreateSystemDefaultDevice &&
+        (__class_CAMetalLayer = objc_getClass("CAMetalLayer")) &&
+        (__class_MTLRenderPassDescriptor = objc_getClass("MTLRenderPassDescriptor")) &&
+        (__class_MTLRenderPipelineDescriptor = objc_getClass("MTLRenderPipelineDescriptor")) &&
+        (__class_MTLTextureDescriptor = objc_getClass("MTLTextureDescriptor")) &&
+        (__class_MTLCompileOptions = objc_getClass("MTLCompileOptions"))
+        )
+    {
+      state=1;
+      SetTimer(NULL,1,1,metalUpdateProc);
+    }
+  }
+
+  return state>0;
+}
 
 
 #ifndef __ppc__
