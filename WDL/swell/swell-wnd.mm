@@ -4867,13 +4867,7 @@ void UpdateWindow(HWND hwnd)
     if ([(id)hwnd isKindOfClass:[SWELL_hwndChild class]] && 
         ((SWELL_hwndChild *)hwnd)->m_use_metal)
     {
-      SWELL_hwndChild *slf = (SWELL_hwndChild *)hwnd;
-      if (slf->m_metal_rect_needpaint.right > slf->m_metal_rect_needpaint.left &&
-          slf->m_metal_rect_needpaint.bottom > slf->m_metal_rect_needpaint.top)
-      {
-        [slf swellDrawMetal:1];
-        swell_removeMetalDirty(slf);
-      }
+      // do nothing for metal windows, let the timer catch it
     }
     else 
 #endif
@@ -4883,11 +4877,6 @@ void UpdateWindow(HWND hwnd)
         NSWindow *wnd = [(NSView *)hwnd window];
         [wnd displayIfNeeded];
       }
-
-#ifndef SWELL_NO_METAL
-      // also update all dirty metal windows (technically we only must if they are a child of hwnd, but meh)
-      swell_updateAllMetalDirty();
-#endif
     }
   }
 }

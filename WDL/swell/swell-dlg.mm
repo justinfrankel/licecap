@@ -591,7 +591,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 #ifndef SWELL_NO_METAL
   if (m_use_metal) 
   {
-    [self swellDrawMetal:2];
+    [self swellDrawMetal:NULL];
     swell_removeMetalDirty(self);
   }
 #endif
@@ -1135,7 +1135,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 #ifndef SWELL_NO_METAL
   m_use_metal=0;
-  m_metal_dirty=0;
+  m_metal_dc_dirty=0;
   m_metal_retina=false;
   m_metal_device=NULL;
   m_metal_device_lastchkt=0;
@@ -1143,7 +1143,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_drawable=NULL;
   m_metal_pipelineState=NULL;
   m_metal_commandQueue=NULL;
-  memset(&m_metal_rect_needpaint,0,sizeof(m_metal_rect_needpaint));
+  m_metal_in_needref_list=false;
+  memset(&m_metal_in_needref_rect,0,sizeof(m_metal_in_needref_rect));
 #endif
   
   m_wndproc=SwellDialogDefaultWindowProc;
@@ -1394,62 +1395,57 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 #ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal { return m_use_metal != 0; }
--(void) swellDrawMetal:(int)doPaint // doPaint = 2 to force
+-(void) swellDrawMetal:(const RECT *)forRect
 {
   if (m_use_metal != 1 && m_use_metal != 2) return;
   const bool direct_mode = m_use_metal == 1;
 
   CAMetalLayer *layer = (CAMetalLayer *)[self layer];
 
-  if (doPaint)
-  {
-    id<MTLDevice> dev = m_metal_device;
+  id<MTLDevice> device = m_metal_device;
 
 #if 1
-    // support multiple devices. only check every second for device changes (it will use the old device and be slower in that duration)
-    // (checking the device takes about 20uS, which isn't a lot but also isn't nothing)
+  // support multiple devices. only check every second for device changes (it will use the old device and be slower in that duration)
+  // (checking the device takes about 20uS, which isn't a lot but also isn't nothing)
 
-    // this seems to work correclty, *except* - if you're using the high-performance card, the system will never go back to integrated,
-    // presumably because our metal devices are open. Maybe we can flag them as "non-essential" ?
-    const DWORD now = GetTickCount();
-    if (__CGDirectDisplayCopyCurrentMetalDevice && (!dev || now > m_metal_device_lastchkt+1000 || now < m_metal_device_lastchkt-1000))
-    {
-      m_metal_device_lastchkt = now;
-      CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [self.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
-      dev = __CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
-    }
+  // this seems to work correclty, *except* - if you're using the high-performance card, the system will never go back to integrated,
+  // presumably because our metal devices are open. Maybe we can flag them as "non-essential" ?
+  const DWORD now = GetTickCount();
+  if (__CGDirectDisplayCopyCurrentMetalDevice && (!device || now > m_metal_device_lastchkt+1000 || now < m_metal_device_lastchkt-1000))
+  {
+    m_metal_device_lastchkt = now;
+    CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [self.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
+    device = __CGDirectDisplayCopyCurrentMetalDevice(viewDisplayID);
+  }
 #endif
-    if (!dev)
-    {
-      static id<MTLDevice> def;
-      if (!def) def = __MTLCreateSystemDefaultDevice();
-      dev = def;
-    }
-
-
-    if (dev != m_metal_device)
-    {
-      id<MTLDevice> olddev = (id<MTLDevice>)m_metal_device;
-      if (olddev) NSLog(@"swell-metal: switching devices from %p %@ to %p %@\n",olddev,olddev.name,dev,dev.name);
-      m_metal_device = dev;
-      [layer setDevice:dev];
-      layer.contentsGravity = [self isFlipped] ? @"bottomLeft" : @"topLeft"; // kCAGravityBottomLeft etc
-      if (m_use_metal==1)
-        layer.framebufferOnly = NO;
-      [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
-
-      [m_metal_pipelineState release];
-      [m_metal_commandQueue release];
-      if (!direct_mode) [m_metal_texture release];
-
-      m_metal_commandQueue = NULL;
-      m_metal_pipelineState = NULL;
-      m_metal_texture = NULL;
-      m_metal_drawable = NULL;
-    }
+  if (!device)
+  {
+    static id<MTLDevice> def;
+    if (!def) def = __MTLCreateSystemDefaultDevice();
+    device = def;
   }
 
-  id<MTLDevice> device = m_metal_device;
+  if (device != m_metal_device)
+  {
+    id<MTLDevice> olddev = (id<MTLDevice>)m_metal_device;
+    if (olddev) NSLog(@"swell-cocoa: switching metal devices from %p %@ to %p %@\n",olddev,olddev.name,device,device.name);
+    m_metal_device = device;
+    [layer setDevice:device];
+    layer.contentsGravity = [self isFlipped] ? @"bottomLeft" : @"topLeft"; // kCAGravityBottomLeft etc
+    if (m_use_metal==1)
+      layer.framebufferOnly = NO;
+    [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
+
+    [m_metal_pipelineState release];
+    [m_metal_commandQueue release];
+    if (!direct_mode) [m_metal_texture release];
+
+    m_metal_commandQueue = NULL;
+    m_metal_pipelineState = NULL;
+    m_metal_texture = NULL;
+    m_metal_drawable = NULL;
+  }
+
   if (!device) return;
 
   if (!direct_mode)
@@ -1472,54 +1468,47 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     }
   }
 
-  if (doPaint)
+  RECT cr;
+  GetClientRect((HWND)self,&cr);
+  if (m_use_metal == 2 && forRect)
   {
-    if (direct_mode)
-    {
-      m_metal_drawable = NULL;
-      m_metal_texture = NULL;
-    }
-    m_metal_dirty=0;
+    WinIntersectRect(&cr,&cr,forRect);
+  }
 
-    HDC SWELL_CreateMetalDC(void *);
+  if (direct_mode)
+  {
+    m_metal_drawable = NULL;
+    m_metal_texture = NULL;
+  }
+  if (cr.right > cr.left && cr.bottom > cr.top)
+  {
     HDC hdc = SWELL_CreateMetalDC(self);
-
-    RECT cr;
-    GetClientRect((HWND)self,&cr);
-    if (m_use_metal == 2 && doPaint != 2)
-    {
-      WinIntersectRect(&cr,&cr,&m_metal_rect_needpaint);
-    }
 
     NSRect rect;
     rect.origin.x = cr.left;
     rect.origin.y = cr.top;
     rect.size.width = cr.right-cr.left;
     rect.size.height = cr.bottom-cr.top;
+
+    m_metal_dc_dirty=0;
     DrawSwellViewRectImpl(self,rect,hdc,true);
 
     SWELL_DeleteGfxContext(hdc);
   }
-  else 
-  {
-    if (m_metal_dirty == 2) m_metal_dirty=0;
-  }
+  m_metal_dc_dirty=0;
 
   if (direct_mode)
   {
-    if (m_metal_drawable && m_metal_dirty)
+    if (m_metal_drawable)
       [m_metal_drawable present];
     m_metal_drawable = NULL;
     m_metal_texture = NULL;
-    m_metal_dirty=0;
     return;
   }
 
-  if (!m_metal_dirty) return;
-  m_metal_dirty = 0;
 
   id<MTLTexture> tex = (id<MTLTexture>) m_metal_texture;
-  if (!tex) return; // this can happen if GetDC()/ReleaseDC() are called before the first WM_PAINT  (m_metal_dirty=2 prevents resizing of the context)
+  if (!tex) return; // this can happen if GetDC()/ReleaseDC() are called before the first WM_PAINT
 
   NSRect bounds = [self bounds];
   if (m_metal_retina)
@@ -1539,7 +1528,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   id<CAMetalDrawable> drawable = [layer nextDrawable];
   if (WDL_NOT_NORMALLY(!drawable))
   {
-    printf("no drawable\n");
+    NSLog(@"swell-cocoa: metal surface got nul drawable\n");
     return;
   }
 
@@ -3834,7 +3823,7 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
   if (!_tex) return;
   SWELL_hwndChild *wnd = (SWELL_hwndChild *)_tex;
 
-  if (!retina_hint && wnd->m_metal_dirty && wnd->m_metal_retina)
+  if (!retina_hint && wnd->m_metal_dc_dirty && wnd->m_metal_retina)
   {
     static WDL_TypedBuf<unsigned int> tmp;
     const int newspan = (w*2+3)&~3;
@@ -3859,7 +3848,7 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
     texw = (int)tex.width;
     texh = (int)tex.height;
   }
-  if (!wnd->m_metal_dirty)
+  if (!wnd->m_metal_dc_dirty)
   {
     NSRect bounds = [wnd bounds];
     wnd->m_metal_retina = retina_hint;
@@ -3910,7 +3899,7 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
       texh = (int)tex.height;
     }
   }
-  wnd->m_metal_dirty=1;
+  wnd->m_metal_dc_dirty=1;
 
   if (!tex) return;
 
@@ -3930,7 +3919,7 @@ void SWELL_Metal_FillRect(void *_tex, int x, int y, int w, int h, int color)
   if (!_tex || w<1 || h<1) return;
 
   SWELL_hwndChild *wnd = (SWELL_hwndChild *)_tex;
-  const bool retina_hint = wnd->m_metal_dirty && wnd->m_metal_retina;
+  const bool retina_hint = wnd->m_metal_dc_dirty && wnd->m_metal_retina;
   if (retina_hint)
   {
     x*=2; y*=2; w*=2; h*=2;
@@ -3973,14 +3962,13 @@ void swell_updateAllMetalDirty() // run from a timer, or called by UpdateWindow(
   {
     SWELL_hwndChild *slf = s_mtl_dirty_list.Get(x);
     if (!slf) break; // deleted out from under us?!
-    s_mtl_dirty_list.Delete(x);
 
-    if (WDL_NORMALLY(slf->m_metal_rect_needpaint.right > slf->m_metal_rect_needpaint.left) && 
-        WDL_NORMALLY(slf->m_metal_rect_needpaint.bottom > slf->m_metal_rect_needpaint.top))
-    {
-      [slf swellDrawMetal:1];
-      memset(&slf->m_metal_rect_needpaint,0,sizeof(slf->m_metal_rect_needpaint));
-    }
+    const RECT tr = slf->m_metal_in_needref_rect;
+    s_mtl_dirty_list.Delete(x);
+    slf->m_metal_in_needref_list=false;
+    memset(&slf->m_metal_in_needref_rect,0,sizeof(slf->m_metal_in_needref_rect));
+
+    [slf swellDrawMetal:&tr];
   }
 
   r=false;
@@ -3988,24 +3976,28 @@ void swell_updateAllMetalDirty() // run from a timer, or called by UpdateWindow(
 
 
 
-void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r)
+void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r, bool isReleaseDC)
 {
   if (!slf) return;
-  const bool wasinlist = (slf->m_metal_rect_needpaint.right > slf->m_metal_rect_needpaint.left &&
-                          slf->m_metal_rect_needpaint.bottom > slf->m_metal_rect_needpaint.top);
-  if (!r) 
+  if (isReleaseDC)
   {
-    slf->m_metal_rect_needpaint.left = slf->m_metal_rect_needpaint.top = 0;
-    slf->m_metal_rect_needpaint.right = slf->m_metal_rect_needpaint.bottom = (1<<28);
+    // just tag it dirty
+  }
+  else if (!r) 
+  {
+    slf->m_metal_in_needref_rect.left = slf->m_metal_in_needref_rect.top = 0;
+    slf->m_metal_in_needref_rect.right = slf->m_metal_in_needref_rect.bottom = (1<<28);
   }
   else 
   {
     if (r->right <= r->left || r->bottom <= r->top) return; // no rect
 
-    WinUnionRect(&slf->m_metal_rect_needpaint,&slf->m_metal_rect_needpaint,r);
+    WinUnionRect(&slf->m_metal_in_needref_rect,&slf->m_metal_in_needref_rect,r);
   }
-  if (!wasinlist) 
+  if (!slf->m_metal_in_needref_list)
   {
+    slf->m_metal_in_needref_list=true;
+
     WDL_ASSERT(s_mtl_dirty_list.Find(slf)<0);
     s_mtl_dirty_list.Add(slf);
   }
@@ -4013,9 +4005,11 @@ void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r)
 
 void swell_removeMetalDirty(SWELL_hwndChild *slf)
 {
-  if (slf)
+  WDL_ASSERT(!slf || (slf->m_metal_in_needref_list == (s_mtl_dirty_list.Find(slf)>=0)));
+  if (slf && slf->m_metal_in_needref_list)
   {
-    memset(&slf->m_metal_rect_needpaint,0,sizeof(slf->m_metal_rect_needpaint));
+    slf->m_metal_in_needref_list=false;
+    memset(&slf->m_metal_in_needref_rect,0,sizeof(slf->m_metal_in_needref_rect));
     s_mtl_dirty_list.DeletePtr(slf);
   }
 }

@@ -305,10 +305,11 @@ typedef struct WindowPropRec
   char m_use_metal; // 1=normal mode, 2=full pipeline (GetDC() etc support)
 
   // metal state (if used)
-  char m_metal_dirty;  // used to track state during paint or getdc/releasedc -- set to 1 if dirty, (getdc/releasedc sets it to 2 to prevent change of retina/texture size)
+  char m_metal_dc_dirty;  // used to track state during paint or getdc/releasedc. set to 1 if dirty, 2 if GetDC() but no write yet
   bool m_metal_retina; // last-retina-state, triggered to true by StretchBlt() with a 2:1 ratio
 
-  RECT m_metal_rect_needpaint; // if non-empty, we're in the global needs-refresh list
+  bool m_metal_in_needref_list;
+  RECT m_metal_in_needref_rect; 
 
   id m_metal_texture; // id<MTLTexture> -- owned if in full pipeline mode, otherwise reference to m_metal_drawable
   id m_metal_pipelineState; // id<MTLRenderPipelineState> -- only used in full pipeline mode
@@ -382,7 +383,7 @@ typedef struct WindowPropRec
 
 #ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal;
--(void) swellDrawMetal:(int)doPaint; // doPaint=2 to force full draw
+-(void) swellDrawMetal:(const RECT *)forRect;
 #endif
 @end
 
@@ -433,7 +434,8 @@ typedef struct WindowPropRec
 #ifndef SWELL_NO_METAL
 void swell_removeMetalDirty(SWELL_hwndChild *slf);
 void swell_updateAllMetalDirty(void);
-void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r);
+void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r, bool isReleaseDC=false);
+HDC SWELL_CreateMetalDC(SWELL_hwndChild *);
 #endif
 
 

@@ -219,7 +219,7 @@ HDC SWELL_CreateGfxContext(void *c)
 }
 
 #ifndef SWELL_NO_METAL
-HDC SWELL_CreateMetalDC(void *tex)
+HDC SWELL_CreateMetalDC(SWELL_hwndChild *tex)
 {
   HDC__ *ctx=SWELL_GDP_CTX_NEW();
   ctx->metal_ctx = tex;
@@ -1638,9 +1638,10 @@ HDC GetDC(HWND h)
 #ifndef SWELL_NO_METAL
     if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && [(SWELL_hwndChild *)h swellWantsMetal])
     {
-      HDC SWELL_CreateMetalDC(void *);
-      ((SWELL_hwndChild *)h)->m_metal_dirty=2;
-      return SWELL_CreateMetalDC(h);
+      SWELL_hwndChild *wnd = (SWELL_hwndChild*)h;
+
+      wnd->m_metal_dc_dirty = 2;
+      return SWELL_CreateMetalDC(wnd);
     }
 #endif
     
@@ -1721,7 +1722,15 @@ void ReleaseDC(HWND h, HDC hdc)
 #ifndef SWELL_NO_METAL
     if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && [(SWELL_hwndChild *)h swellWantsMetal])
     {
-      [(SWELL_hwndChild*)h swellDrawMetal:0];
+      SWELL_hwndChild *wnd = (SWELL_hwndChild*)h;
+      if (wnd->m_metal_dc_dirty == 1)
+      {
+        if (WDL_NOT_NORMALLY(wnd->m_use_metal == 1))
+        {
+          NSLog(@"swell-cocoa: metal(1) surface %p had write in GetDC()/ReleaseDC(), this is unsupported, use a metal(2) surface\n",wnd);
+        }
+        swell_addMetalDirty(wnd,NULL,true);
+      }
     }
     else
 #endif
