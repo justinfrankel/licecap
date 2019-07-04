@@ -652,7 +652,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
     m_start_item_clickmode=0;
     if (m_start_item >=0 && (m_fastClickMask&(1<<m_start_subitem)))
     {
-      NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK}, m_start_item, m_start_subitem, 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
+      NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK}, m_start_item, m_start_subitem, 0, 0, 0, {NSPOINT_TO_INTS(pt)}, };
       SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
       if (row)
         nmlv.lParam = row->m_param;
@@ -797,7 +797,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
     NSPoint pt=[theEvent locationInWindow];
     pt=[self convertPoint:pt fromView:nil];    
     int col = (int)[self columnAtPoint:pt];
-    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK}, (int)[self rowAtPoint:pt], col, 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
+    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_CLICK}, (int)[self rowAtPoint:pt], col, 0, 0, 0, {NSPOINT_TO_INTS(pt)}, };
     SWELL_ListView_Row *row=m_items->Get(nmlv.iItem);
     if (row) nmlv.lParam = row->m_param;
     SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv);
@@ -822,7 +822,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
       [self selectRowIndexes:rows byExtendingSelection:NO];
     }       
     
-    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_RCLICK}, (int)row, (int)[self columnAtPoint:pt], 0, 0, 0, {(int)floor(pt.x), (int)floor(pt.y)}, };
+    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_RCLICK}, (int)row, (int)[self columnAtPoint:pt], 0, 0, 0, {NSPOINT_TO_INTS(pt)}, };
     if (SendMessage((HWND)[self target],WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv)) wantContext=false;
   }
   if (wantContext)
@@ -990,11 +990,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
   if (hdc)
   {
     HWND notWnd = GetParent((HWND)ctl);
-    RECT r={(int)(cellFrame.origin.x+0.5),(int)(cellFrame.origin.y+0.5)};
-    r.right=r.left+(int)(cellFrame.size.width+0.5);
-    r.bottom=r.top+(int)(cellFrame.size.height+0.5);
     DRAWITEMSTRUCT dis={ODT_BUTTON,(UINT)[ctl tag],0,0,0,(HWND)ctl,hdc,{0,},0};
-    dis.rcItem = r;
+    NSRECT_TO_RECT(&dis.rcItem,cellFrame);
     SendMessage(notWnd,WM_DRAWITEM,dis.CtlID,(LPARAM)&dis);
   
     ReleaseDC((HWND)controlView,hdc);
@@ -1022,11 +1019,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
   if (hdc)
   {
     HWND notWnd = GetParent((HWND)m_ownctl);
-    RECT r={(int)(cellFrame.origin.x+0.5),(int)(cellFrame.origin.y+0.5)};
-    r.right=r.left+(int)(cellFrame.size.width+0.5);
-    r.bottom=r.top+(int)(cellFrame.size.height+0.5);
     DRAWITEMSTRUCT dis={ODT_LISTBOX,(UINT)[m_ownctl tag],(UINT)itemidx,0,0,(HWND)m_ownctl,hdc,{0,},(DWORD_PTR)itemData};
-    dis.rcItem = r;
+    NSRECT_TO_RECT(&dis.rcItem,cellFrame);
     SendMessage(notWnd,WM_DRAWITEM,dis.CtlID,(LPARAM)&dis);
   
     ReleaseDC((HWND)controlView,hdc);
@@ -1761,10 +1755,7 @@ void SWELL_GetViewPort(RECT *r, const RECT *sourcerect, bool wantWork)
       if (!x || (cx >= tr.origin.x && cx < tr.origin.x+tr.size.width  &&
                 cy >= tr.origin.y && cy < tr.origin.y+tr.size.height))
       {
-        r->left=(int)tr.origin.x;
-        r->right=(int)(tr.origin.x+tr.size.width+0.5);
-        r->top=(int)tr.origin.y;
-        r->bottom=(int)(tr.origin.y+tr.size.height+0.5);
+        NSRECT_TO_RECT(r,tr);
       }
     }
   }
@@ -1791,10 +1782,7 @@ void ScreenToClient(HWND hwnd, POINT *p)
   NSPoint wndpt = [window convertScreenToBase:NSMakePoint(p->x,p->y)];
   
   // todo : WM_NCCALCSIZE 
-  NSPoint po = [ch convertPoint:wndpt fromView:nil];
-  
-  p->x=(int)(po.x+0.5);
-  p->y=(int)(po.y+0.5);
+  NSPOINT_TO_POINT(p, [ch convertPoint:wndpt fromView:nil]);
 }
 
 void ClientToScreen(HWND hwnd, POINT *p)
@@ -1809,11 +1797,9 @@ void ClientToScreen(HWND hwnd, POINT *p)
   
   NSPoint wndpt = [ch convertPoint:NSMakePoint(p->x,p->y) toView:nil];
   
-  NSPoint po = [window convertBaseToScreen:wndpt];
   // todo : WM_NCCALCSIZE 
   
-  p->x=(int)(po.x+0.5);
-  p->y=(int)(po.y+0.5);
+  NSPOINT_TO_POINT(p,[window convertBaseToScreen:wndpt]);
 }
 
 static NSView *NavigateUpScrollClipViews(NSView *ch)
@@ -1854,20 +1840,12 @@ bool GetWindowRect(HWND hwnd, RECT *r)
     
   if ([ch isKindOfClass:[NSWindow class]]) 
   {
-    NSRect b=[ch frame];
-    r->left=(int)(b.origin.x);
-    r->top=(int)(b.origin.y);
-    r->right = (int)(b.origin.x+b.size.width+0.5);
-    r->bottom= (int)(b.origin.y+b.size.height+0.5);
+    NSRECT_TO_RECT(r,[ch frame]);
     return true;
   }
   if (![ch isKindOfClass:[NSView class]]) return false;
   ch=NavigateUpScrollClipViews(ch);
-  NSRect b=[ch bounds];
-  r->left=(int)(b.origin.x);
-  r->top=(int)(b.origin.y);
-  r->right = (int)(b.origin.x+b.size.width+0.5);
-  r->bottom= (int)(b.origin.y+b.size.height+0.5);
+  NSRECT_TO_RECT(r,[ch bounds]);
   ClientToScreen((HWND)ch,(POINT *)r);
   ClientToScreen((HWND)ch,((POINT *)r)+1);
   SWELL_END_TRY(return false;)
@@ -1885,11 +1863,7 @@ void GetWindowContentViewRect(HWND hwnd, RECT *r)
   if (hwnd && [(id)hwnd isKindOfClass:[NSWindow class]])
   {
     NSView *ch=[(id)hwnd contentView];
-    NSRect b=[ch bounds];
-    r->left=(int)(b.origin.x);
-    r->top=(int)(b.origin.y);
-    r->right = (int)(b.origin.x+b.size.width+0.5);
-    r->bottom= (int)(b.origin.y+b.size.height+0.5);
+    NSRECT_TO_RECT(r,[ch bounds]);
     ClientToScreen(hwnd,(POINT *)r);
     ClientToScreen(hwnd,((POINT *)r)+1);
   }
@@ -1909,11 +1883,7 @@ void GetClientRect(HWND hwnd, RECT *r)
   if (!ch || ![ch isKindOfClass:[NSView class]]) return;
   ch=NavigateUpScrollClipViews(ch);
   
-  NSRect b=[ch bounds];
-  r->left=(int)(b.origin.x);
-  r->top=(int)(b.origin.y);
-  r->right = (int)(b.origin.x+b.size.width+0.5);
-  r->bottom= (int)(b.origin.y+b.size.height+0.5);
+  NSRECT_TO_RECT(r,[ch bounds]);
 
   // todo this may need more attention
   NCCALCSIZE_PARAMS tr={{*r,},};
@@ -4675,10 +4645,9 @@ static bool ListViewGetRectImpl(HWND h, int item, int subitem, RECT* r) // subit
   else ar=[tv frameOfCellAtColumn:subitem row:item];
   NSSize sp=[tv intercellSpacing];
   
-  r->left=(int)ar.origin.x;
-  r->top=(int)ar.origin.y;
-  r->right=(int)(ar.origin.x+ar.size.width+sp.width);
-  r->bottom=(int)(ar.origin.y+ar.size.height+sp.height);
+  ar.size.width += sp.width;
+  ar.size.height += sp.height;
+  NSRECT_TO_RECT(r,ar);
   
   return true;
 }
@@ -6113,8 +6082,8 @@ bool SWELL_HandleMouseEvent(NSEvent *evt)
       NSView *hitv=[cview hitTest:lpt];
       lpt = [w convertBaseToScreen:lpt];
       
-      int xpos=(int)floor(lpt.x);
-      int ypos=(int)floor(lpt.y);
+      int xpos=(int)floor(lpt.x + 0.5);
+      int ypos=(int)floor(lpt.y + 0.5);
       
       while (hitv)
       {
@@ -6376,8 +6345,8 @@ void SWELL_GetDesiredControlSize(HWND hwnd, RECT *r)
     NSRect frnew=[c frame];
     [c setFrame:fr];
     r->left=r->top=0;
-    r->right = (int)frnew.size.width;
-    r->bottom = (int)frnew.size.height;
+    r->right = (int)(frnew.size.width+0.5);
+    r->bottom = (int)(frnew.size.height+0.5);
   }
 }
 

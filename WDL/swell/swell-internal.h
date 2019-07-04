@@ -614,6 +614,23 @@ struct HDC__ {
 #endif
 
 
+#define NSPOINT_TO_INTS(pt) (int)floor((pt).x+0.5), (int)floor((pt).y+0.5)
+
+#ifdef __OBJC__
+static void NSPOINT_TO_POINT(POINT *p, const NSPoint &pt)
+{
+  p->x = (int)floor(pt.x+0.5);
+  p->y = (int)floor((pt).y+0.5);
+}
+static void NSRECT_TO_RECT(RECT *r, const NSRect &tr)
+{
+  r->left=(int)floor(tr.origin.x+0.5);
+  r->right=(int)floor(tr.origin.x+tr.size.width+0.5);
+  r->top=(int)floor(tr.origin.y+0.5);
+  r->bottom=(int)floor(tr.origin.y+tr.size.height+0.5);
+}
+#endif
+
 #elif defined(SWELL_TARGET_GDK)
 
 

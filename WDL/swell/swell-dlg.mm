@@ -216,8 +216,8 @@ static LRESULT SWELL_SendMouseMessageImpl(SWELL_hwndChild *slf, int msg, NSEvent
   NSPoint swellProcessMouseEvent(int msg, NSView *view, NSEvent *event);
   
   NSPoint pt = swellProcessMouseEvent(msg,slf,theEvent);
-  unsigned short xpos=(int)floor(pt.x);
-  unsigned short ypos=(int)floor(pt.y);
+  unsigned short xpos=(int)floor(pt.x + 0.5);
+  unsigned short ypos=(int)floor(pt.y + 0.5);
   
   LRESULT htc=HTCLIENT;
   if (msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL && !capv) 
@@ -989,10 +989,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     m_paintctx_used=1;
     ps->hdc = m_paintctx_hdc;
     ps->fErase=false;
-    ps->rcPaint.left = (int)m_paintctx_rect.origin.x;
-    ps->rcPaint.right = (int)ceil(m_paintctx_rect.origin.x+m_paintctx_rect.size.width);
-    ps->rcPaint.top = (int)m_paintctx_rect.origin.y;
-    ps->rcPaint.bottom  = (int)ceil(m_paintctx_rect.origin.y+m_paintctx_rect.size.height);
+    NSRECT_TO_RECT(&ps->rcPaint,m_paintctx_rect);
 
     // should NC_CALCSIZE to convert, but this will be good enough to fix this small scrollbar overdraw bug
     RECT r;
@@ -1856,8 +1853,8 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
     HANDLE h = (HANDLE)[self swellExtendedDragOp:sender retGlob:YES];
     if (h)
     {
-      NSPoint p=[[self window] convertBaseToScreen:[sender draggingLocation]];
-      POINT pt={(int)(p.x+0.5),(int)(p.y+0.5)};
+      POINT pt;
+      NSPOINT_TO_POINT(&pt,[[self window] convertBaseToScreen:[sender draggingLocation]]);
       SWELL_DDrop_onDragEnter(h,pt);
       GlobalFree(h);
     }
@@ -1875,8 +1872,8 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
   if (SWELL_DDrop_onDragOver)
   {
-    NSPoint p=[[self window] convertBaseToScreen:[sender draggingLocation]];
-    POINT pt={(int)(p.x+0.5),(int)(p.y+0.5)};
+    POINT pt;
+    NSPOINT_TO_POINT(&pt,[[self window] convertBaseToScreen:[sender draggingLocation]]);
     SWELL_DDrop_onDragOver(pt);
   }
   
@@ -1971,8 +1968,7 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
   HANDLE gobj=GlobalAlloc(0,sz+1);
   DROPFILES *df=(DROPFILES*)gobj;
   df->pFiles=sizeof(DROPFILES);
-  df->pt.x = (int)(tpt.x+0.5);
-  df->pt.y = (int)(tpt.y+0.5);
+  NSPOINT_TO_POINT(&df->pt, tpt);
   df->fNC = FALSE;
   df->fWide = FALSE;
   char *pout = (char *)(df+1);
@@ -2189,7 +2185,7 @@ static HMENU swell_getEffectiveMenuForWindow(NSView *cv, NSWindow *window) // cv
 } \
 - (void)windowDidMove:(NSNotification *)aNotification { \
     NSRect f=[self frame]; \
-    sendSwellMessage([self contentView], WM_MOVE,0, MAKELPARAM((int)f.origin.x,(int)f.origin.y)); \
+    sendSwellMessage([self contentView], WM_MOVE,0, MAKELPARAM((int)floor(f.origin.x+0.5),(int)floor(f.origin.y+0.5))); \
 } \
 - (BOOL)accessibilityIsIgnored \
 { \
@@ -3686,7 +3682,8 @@ void swellRenderOptimizely(int passflags, SWELL_hwndChild *view, HDC hdc, BOOL d
                 NSRect ff = NSIntersectionRect(fr,rlist[ri]);
                 if (ff.size.width>0 && ff.size.height>0)
                 {
-                  RECT r={(int)ff.origin.x,(int)ff.origin.y,(int)(ff.origin.x+ff.size.width),(int)(ff.origin.y+ff.size.height)};                    
+                  RECT r;
+                  NSRECT_TO_RECT(&r,ff);
                   r.left+=draw_xlate_x;
                   r.right+=draw_xlate_x;
                   r.top+=draw_xlate_y;
