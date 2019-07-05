@@ -3673,10 +3673,13 @@ static bool mtl_init()
     void *lib = dlopen("/System/Library/Frameworks/Metal.framework/Versions/Current/Metal",RTLD_LAZY);
     void *cgf = dlopen("/System/Library/Frameworks/CoreGraphics.framework/Versions/Current/CoreGraphics",RTLD_LAZY);
     if (!lib || !cgf) return false;
+    NSArray *(*__MTLCopyAllDevices)(void);
+    *(void **)&__MTLCopyAllDevices = dlsym(lib,"MTLCopyAllDevices");
     *(void **)&__MTLCreateSystemDefaultDevice = dlsym(lib,"MTLCreateSystemDefaultDevice");
     *(void **)&__CGDirectDisplayCopyCurrentMetalDevice = dlsym(cgf,"CGDirectDisplayCopyCurrentMetalDevice");
 
     if (__MTLCreateSystemDefaultDevice &&
+        __MTLCopyAllDevices &&
         (__class_CAMetalLayer = objc_getClass("CAMetalLayer")) &&
         (__class_MTLRenderPassDescriptor = objc_getClass("MTLRenderPassDescriptor")) &&
         (__class_MTLRenderPipelineDescriptor = objc_getClass("MTLRenderPipelineDescriptor")) &&
@@ -3684,8 +3687,14 @@ static bool mtl_init()
         (__class_MTLCompileOptions = objc_getClass("MTLCompileOptions"))
         )
     {
-      state=1;
-      SetTimer(NULL,1,1,metalUpdateProc);
+      NSArray *ar = __MTLCopyAllDevices();
+      int cnt = [ar count];
+      [ar release];
+      if (cnt>0)
+      {
+        state=1;
+        SetTimer(NULL,1,1,metalUpdateProc);
+      }
     }
   }
 
