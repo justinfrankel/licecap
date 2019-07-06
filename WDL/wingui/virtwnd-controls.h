@@ -34,7 +34,6 @@
 extern int WDL_STYLE_WantGlobalButtonBorders();
 extern bool WDL_STYLE_WantGlobalButtonBackground(int *col);
 extern int WDL_STYLE_GetSysColor(int);
-extern void WDL_STYLE_ScaleImageCoords(int *x, int *y);
 extern bool WDL_Style_WantTextShadows(int *col);
 
 // this is the default, you can override per painter if you want
@@ -56,7 +55,6 @@ extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_Virt
 int WDL_STYLE_WantGlobalButtonBorders() { return 0; }
 bool WDL_STYLE_WantGlobalButtonBackground(int *col) { return false; }
 int WDL_STYLE_GetSysColor(int p) { return GetSysColor(p); }
-void WDL_STYLE_ScaleImageCoords(int *x, int *y) { }
 bool WDL_Style_WantTextShadows(int *col) { return false; }
 bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope) { return false; }
 LICE_IBitmap *WDL_STYLE_GetSliderBitmap2(bool vert) { return NULL; }
