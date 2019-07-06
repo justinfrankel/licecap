@@ -194,7 +194,12 @@ int SWELL_IsRetinaDC(HDC hdc)
   {
 #ifndef SWELL_NO_METAL
     if (src->metal_ctx)
+    {
+      SWELL_hwndChild *ctx = (SWELL_hwndChild*)src->metal_ctx;
+      if (ctx->m_metal_dc_dirty) return ctx->m_metal_retina ? 1 : 0;
+
       return SWELL_IsRetinaHWND((HWND)src->metal_ctx);
+    }
 #endif
     return 0;
   }
