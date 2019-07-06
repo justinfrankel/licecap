@@ -158,8 +158,11 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 
 #include "swell-gdi-internalpool.h"
 
+char g_swell_disable_retina;
+
 int SWELL_IsRetinaHWND(HWND hwnd)
 {
+  if (g_swell_disable_retina) return 0;
   if (!hwnd || SWELL_GDI_GetOSXVersion() < 0x1070) return 0;
 
   NSWindow *w=NULL;
@@ -179,6 +182,7 @@ int SWELL_IsRetinaHWND(HWND hwnd)
 
 int SWELL_IsRetinaDC(HDC hdc)
 {
+  if (g_swell_disable_retina) return 0;
   HDC__ *src=(HDC__*)hdc;
   if (!src || !HDC_VALID(src) || !src->ctx) return 0;
   return CGContextConvertSizeToDeviceSpace((CGContextRef)src->ctx, CGSizeMake(1,1)).width > 1.9 ? 1 : 0;
