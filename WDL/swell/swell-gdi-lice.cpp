@@ -998,8 +998,8 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   {
     FT_Face face=(FT_Face) font->typedata;
     tm->tmAscent = face->size->metrics.ascender/64;
-    tm->tmDescent = face->size->metrics.descender/64;
-    tm->tmHeight = face->size->metrics.height/64 + 1;
+    tm->tmDescent = -face->size->metrics.descender/64;
+    tm->tmHeight = (face->size->metrics.ascender - face->size->metrics.descender)/64;
     tm->tmAveCharWidth = face->size->metrics.height / 112;
 
     tm->tmInternalLeading = (face->size->metrics.ascender + face->size->metrics.descender - face->size->metrics.height)/64;
@@ -1039,7 +1039,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     if (!font && (align&DT_SINGLELINE))
     {
       r->right = r->left + ( buflen < 0 ? strlen(buf) : buflen ) * charw;
-      int h = r->right ? lineh:0;
+      int h = r->right ? (ascent-descent) :0;
       r->bottom = r->top+h;
       return h;
     }
@@ -1086,14 +1086,15 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
             if (rext<xpos) rext=xpos;
             if (r->left+rext > r->right) r->right = r->left+rext;
 
-            int bext = r->top + ypos + lineh + descent;
+            int bext = r->top + ypos + ascent - descent;
             if (bext > r->bottom) r->bottom = bext;
             continue;
           }
 #endif
         }
         xpos += c=='\t' ? charw*5 : charw;
-        if (r->top + ypos + lineh + descent > r->bottom) r->bottom = r->top+ypos+lineh+descent;
+        int bext = r->top + ypos + ascent - descent;
+        if (bext > r->bottom) r->bottom = bext;
         if (r->left+xpos>r->right) r->right=r->left+xpos;
       }
     }
@@ -1184,7 +1185,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         {
           FT_GlyphSlot g = face->glyph;
           const int ha = g->metrics.horiAdvance/64;
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,ha,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,ha,(align & DT_SINGLELINE) ? (ascent-descent) : lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
   
           if (g->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
           {
@@ -1206,7 +1207,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           if (rext<=xpos) rext=xpos + ha;
           if (rext > max_xpos) max_xpos=rext;
           xpos += ha;
-          const int bext = ypos + lineh;
+          const int bext = ypos + ascent-descent;
           if (max_ypos < bext) max_ypos=bext;
           needr=false;
         }
@@ -1217,19 +1218,19 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       {
         if (c=='\t') 
         {
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,(align & DT_SINGLELINE) ? (ascent-descent) : lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
           xpos+=charw*5;
          
-          const int bext = ypos+lineh;
+          const int bext = ypos+ascent-descent;
           if (max_ypos < bext) max_ypos=bext;
         }
         else 
         {
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw,(align & DT_SINGLELINE) ? (ascent-descent) : lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
           LICE_DrawChar(surface,xpos,ypos,c,fgcol,1.0f,LICE_BLIT_MODE_COPY);
-          if (doUl) LICE_Line(surface,xpos,ypos+lineh+1,xpos+charw,ypos+lineh+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+          if (doUl) LICE_Line(surface,xpos,ypos+(ascent-descent)+1,xpos+charw,ypos+(ascent-descent)+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
   
-          const int bext=ypos+lineh+(doUl ? 2:1);
+          const int bext=ypos+ascent-descent+(doUl ? 2:1);
           if (max_ypos < bext) max_ypos=bext;
           xpos+=charw;
         }
