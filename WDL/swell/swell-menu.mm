@@ -762,10 +762,16 @@ static void SWELL_SetMenuDestinationInt(NSMenu *m, HWND hwnd, bool is_top_level,
     {
       if ([item hasSubmenu])
       {
-        if (do_skip_sub) continue;
-
         NSMenu *mm=[item submenu];
-        if (mm) SWELL_SetMenuDestinationInt(mm,hwnd,false, is_top_level && !x);
+        if (mm)
+        {
+          if (do_skip_sub) 
+          {
+            id del = [mm delegate];
+            if (del && [[del className] containsString:@"NSServices"]) continue;
+          }
+          SWELL_SetMenuDestinationInt(mm,hwnd,false, is_top_level && !x);
+        }
       }
       else
       {
