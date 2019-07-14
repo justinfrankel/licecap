@@ -230,6 +230,21 @@ void WDL_WndSizer::transformRect(RECT *r, const float *scales, const RECT *wndSi
   if (r->right < r->left) r->right=r->left;
 }
 
+void WDL_WndSizer::onResizeVirtual(int width, int height)
+{
+  RECT new_rect = {0,0,width,height};
+  for (int x = 0; x < m_list.GetSize(); x ++)
+  {
+    WDL_WndSizer__rec *rec=m_list.Get() + x;
+    if (rec->vwnd)
+    {
+      RECT r=rec->orig;
+      transformRect(&r,rec->scales,&new_rect);
+      rec->last = r;
+      rec->vwnd->SetPosition(&r);
+    }
+  }
+}
 
 void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytranslate)
 {
