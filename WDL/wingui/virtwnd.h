@@ -194,7 +194,7 @@ public:
 
 
   void SetGSC(int (*GSC)(int));
-  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL, const RECT *windowRect=NULL);  
+  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL, const RECT *windowRect=NULL, HDC hdcOut=NULL, const RECT *clip_r=NULL); // if hwnd is NULL, windowRect/hdcOut/clip_r must be set
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1, WDL_VirtualWnd_BGCfgCache *cacheObj=NULL, bool tintUnderMode=false) // call before every paintbegin (resets if you dont)
   { 
     m_bgbm=bitmap; 
@@ -225,7 +225,7 @@ public:
     return m_bm; 
   }
 
-  void PaintEnd();
+  void PaintEnd(int xoffs=0, int yoffs=0);
 
   int GSC(int a);
 private:

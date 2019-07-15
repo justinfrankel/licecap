@@ -37,6 +37,7 @@ WDL_VWnd_Painter::WDL_VWnd_Painter()
 
   m_paint_xorig=m_paint_yorig=0;
   m_cur_hwnd=0;
+  memset(&m_ps,0,sizeof(m_ps));
   m_wantg=-1;
   m_gradstart=0.5;
   m_gradslope=0.2;
@@ -244,16 +245,24 @@ void WDL_VWnd_Painter::DoPaintBackground(LICE_IBitmap *bmOut, int bgcolor, const
 
 }
 
-void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrect, const RECT *windowRect)
+void WDL_VWnd_Painter::PaintBegin(HWND hwnd, int bgcolor, const RECT *limitBGrect, const RECT *windowRect, HDC hdcOut, const RECT *clip_r)
 {
-  if (!hwnd) return;
+  if (!hwnd && (!windowRect||!hdcOut||!clip_r)) return;
   if (!m_cur_hwnd)
   {
-    if (BeginPaint(hwnd,&m_ps)) 
+    if (hwnd)
     {
-      m_cur_hwnd=hwnd;
+      if (BeginPaint(hwnd,&m_ps)) 
+      {
+        m_cur_hwnd=hwnd;
+      }
     }
-    if (m_cur_hwnd)
+    else
+    {
+      m_ps.hdc = hdcOut;
+      m_ps.rcPaint = *clip_r;
+    }
+    if (m_cur_hwnd || !hwnd)
     {
       RECT rrr;
       if (windowRect) rrr=*windowRect;
@@ -361,17 +370,17 @@ static BOOL CALLBACK enumProc(HWND hwnd,LPARAM lParam)
 }
 #endif
 
-void WDL_VWnd_Painter::PaintEnd()
+void WDL_VWnd_Painter::PaintEnd(int xoffs, int yoffs)
 {
   m_bgbm=0;
   m_bgbmtintUnderMode = false;
   m_bgbmtintcolor = -1;
-  if (!m_cur_hwnd) return;
+  if (!m_cur_hwnd && !m_ps.hdc) return;
   if (m_bm)
   {
 #ifdef _WIN32
     HRGN rgnsave=0;
-    if (1)
+    if (m_cur_hwnd)
     {
       enumInfo a={0,m_cur_hwnd,&m_ps.rcPaint};
       EnumChildWindows(m_cur_hwnd,enumProc,(LPARAM)&a);
@@ -384,7 +393,7 @@ void WDL_VWnd_Painter::PaintEnd()
         DeleteObject(a.rgn);
       }
     }
-    BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+    BitBlt(m_ps.hdc,xoffs+m_ps.rcPaint.left,yoffs+m_ps.rcPaint.top,
                     m_ps.rcPaint.right-m_ps.rcPaint.left,
                     m_ps.rcPaint.bottom-m_ps.rcPaint.top,
                     m_bm->getDC(),m_ps.rcPaint.left-m_paint_xorig,m_ps.rcPaint.top-m_paint_yorig,SRCCOPY);
@@ -402,7 +411,7 @@ void WDL_VWnd_Painter::PaintEnd()
     {
       RECT p2 = m_ps.rcPaint;
       RenderScaleRect(&p2);
-      StretchBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+      StretchBlt(m_ps.hdc,xoffs+m_ps.rcPaint.left,yoffs+m_ps.rcPaint.top,
              m_ps.rcPaint.right-m_ps.rcPaint.left,
              m_ps.rcPaint.bottom-m_ps.rcPaint.top,
              m_bm->getDC(),
@@ -414,15 +423,19 @@ void WDL_VWnd_Painter::PaintEnd()
     }
     else
     {
-      BitBlt(m_ps.hdc,m_ps.rcPaint.left,m_ps.rcPaint.top,
+      BitBlt(m_ps.hdc,xoffs+m_ps.rcPaint.left,yoffs+m_ps.rcPaint.top,
              m_ps.rcPaint.right-m_ps.rcPaint.left,
              m_ps.rcPaint.bottom-m_ps.rcPaint.top,
              m_bm->getDC(),m_ps.rcPaint.left-m_paint_xorig,m_ps.rcPaint.top-m_paint_yorig,SRCCOPY);
     }
 #endif
   }
-  EndPaint(m_cur_hwnd,&m_ps);
-  m_cur_hwnd=0;
+  if (m_cur_hwnd) 
+  {
+    EndPaint(m_cur_hwnd,&m_ps);
+    m_cur_hwnd=0;
+  }
+  m_ps.hdc=NULL;
 }
 
 void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
@@ -506,7 +519,7 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 {
   RECT tr=m_ps.rcPaint;
   RenderScaleRect(&tr);
-  if (!m_bm||!m_cur_hwnd|| !vwnd->IsVisible()) return;
+  if (!m_bm||(!m_cur_hwnd&&!m_ps.hdc)|| !vwnd->IsVisible()) return;
 
   RECT r;
   vwnd->GetPosition(&r); // maybe should use GetPositionPaintExtent or GetPositionPaintOverExtent ?
@@ -553,7 +566,7 @@ void WDL_VWnd_Painter::PaintBorderForHWND(HWND hwnd, int borderflags)
 
 void WDL_VWnd_Painter::PaintBorderForRect(const RECT *r, int borderflags)
 {
-  if (!m_bm|| !m_cur_hwnd||!borderflags) return;
+  if (!m_bm|| (!m_cur_hwnd && !m_ps.hdc) ||!borderflags) return;
   RECT rrr = *r;
   RenderScaleRect(&rrr);
   rrr.left-=m_paint_xorig;
