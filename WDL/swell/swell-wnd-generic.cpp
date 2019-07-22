@@ -7325,10 +7325,10 @@ int GetSystemMetrics(int p)
          SWELL_GetViewPort(&r, NULL, false);
          return p==SM_CXSCREEN ? r.right-r.left : r.bottom-r.top; 
       }
-    case SM_CXHSCROLL: return 16 * SWELL_GetScaling256() / 256;
-    case SM_CYHSCROLL: return 16 * SWELL_GetScaling256() / 256;
-    case SM_CXVSCROLL: return 16 * SWELL_GetScaling256() / 256;
-    case SM_CYVSCROLL: return 16 * SWELL_GetScaling256() / 256;
+    case SM_CXHSCROLL:
+    case SM_CYHSCROLL:
+    case SM_CXVSCROLL:
+    case SM_CYVSCROLL: return g_swell_ctheme.smscrollbar_width;
   }
   return 0;
 }
