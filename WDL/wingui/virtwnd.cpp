@@ -515,7 +515,7 @@ void WDL_VWnd_Painter::PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coor
   }
 }
 
-void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
+void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags, int x_xlate, int y_xlate)
 {
   RECT tr=m_ps.rcPaint;
   RenderScaleRect(&tr);
@@ -523,6 +523,7 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 
   RECT r;
   vwnd->GetPosition(&r); // maybe should use GetPositionPaintExtent or GetPositionPaintOverExtent ?
+  OffsetRect(&r,x_xlate,y_xlate);
   RenderScaleRect(&r);
   const int rscale = GetRenderScale();
 
@@ -533,17 +534,19 @@ void WDL_VWnd_Painter::PaintVirtWnd(WDL_VWnd *vwnd, int borderflags)
 
   if (tr.bottom > tr.top && tr.right > tr.left)
   {
+    const int xorig = m_paint_xorig - x_xlate * rscale / WDL_VWND_SCALEBASE;
+    const int yorig = m_paint_yorig - y_xlate * rscale / WDL_VWND_SCALEBASE;
     tr.left -= m_paint_xorig;
     tr.right -= m_paint_xorig;
     tr.top -= m_paint_yorig;
     tr.bottom -= m_paint_yorig;
     vwnd->SetCurPainter(this);
-    vwnd->OnPaint(m_bm,-m_paint_xorig,-m_paint_yorig,&tr,rscale);
+    vwnd->OnPaint(m_bm,-xorig,-yorig,&tr,rscale);
     if (borderflags)
     {
       PaintBorderForRect(&r,borderflags);
     }
-    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,-m_paint_xorig,-m_paint_yorig,&tr,rscale);
+    if (vwnd->WantsPaintOver()) vwnd->OnPaintOver(m_bm,-xorig,-yorig,&tr,rscale);
     vwnd->SetCurPainter(NULL);
 
   }

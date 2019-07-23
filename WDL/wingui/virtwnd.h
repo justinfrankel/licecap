@@ -205,7 +205,7 @@ public:
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
   void PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coords, bool allowTint=true, float alpha=1.0, int mode=0);
-  void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
+  void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0, int x_xlate=0, int y_xlate=0);
   void PaintBorderForHWND(HWND hwnd, int borderflags);
   void PaintBorderForRect(const RECT *r, int borderflags);
 
