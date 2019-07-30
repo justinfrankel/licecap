@@ -1480,7 +1480,13 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
       if(theme->bmp && *theme->bmp)
       {
-        drawSkinThumb(hdc, thumb, sw->uHitTestPortion == HTSCROLL_THUMB, 0, sb->nBarType == SB_VERT, rect, sb,sw,theme);
+        int is_tracking = sw->fThumbTracking &&
+                          sw->uCurrentScrollbar == sb->nBarType &&
+                          GetCapture()==hwnd;
+
+        drawSkinThumb(hdc, thumb, 
+            !is_tracking && sw->uHitTestPortion == HTSCROLL_THUMB, is_tracking, 
+            sb->nBarType == SB_VERT, rect, sb,sw,theme);
       }
       else
       {
