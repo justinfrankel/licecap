@@ -583,10 +583,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 
           if (!hwnd->m_oswindow_fullscreen)
           {
-            if (hwnd->m_has_had_position) 
-              gdk_window_move_resize(hwnd->m_oswindow,r.left,r.top,r.right-r.left,r.bottom-r.top);
-            else 
-              gdk_window_resize(hwnd->m_oswindow,r.right-r.left,r.bottom-r.top);
+            swell_oswindow_resize(hwnd->m_oswindow,hwnd->m_has_had_position?3:2,r);
           }
 
           if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
@@ -1628,7 +1625,7 @@ void swell_oswindow_postresize(HWND hwnd, RECT f)
   {
     gdk_window_show(hwnd->m_oswindow);
     if (hwnd->m_style & WS_CAPTION) gdk_window_unmaximize(hwnd->m_oswindow); // fixes Kwin
-    gdk_window_move_resize(hwnd->m_oswindow,f.left,f.top,f.right-f.left,f.bottom-f.top); // fixes xfce
+    swell_oswindow_resize(hwnd->m_oswindow,3,f); // fixes xfce
     hwnd->m_oswindow_private &= ~PRIVATE_NEEDSHOW;
   }
 }
