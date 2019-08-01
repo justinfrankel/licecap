@@ -25,6 +25,8 @@
 
 #include "swell.h"
 
+//#define SWELL_GDK_IMPROVE_WINDOWRECT // does not work yet (gdk_window_get_frame_extents() does not seem to be sufficiently reliable)
+
 #ifdef SWELL_PRELOAD
 #define STR(x) #x
 #define STR2(x) STR(x)
@@ -1587,15 +1589,24 @@ bool GetWindowRect(HWND hwnd, RECT *r)
   if (!hwnd) return false;
   if (hwnd->m_oswindow)
   {
+#ifdef SWELL_GDK_IMPROVE_WINDOWRECT
+    GdkRectangle gr;
+    gdk_window_get_frame_extents(hwnd->m_oswindow,&gr);
+
+    r->left=gr.x;
+    r->top=gr.y;
+    r->right=gr.x + gr.width;
+    r->bottom = gr.y + gr.height;
+#else
+    // this is wrong (returns client rect in screen coordinates), but gdk_window_get_frame_extents() doesn't seem to work 
     gint x=hwnd->m_position.left,y=hwnd->m_position.top;
-
-    // need to get the origin of the frame for consistency with SetWindowPos()
     gdk_window_get_root_origin(hwnd->m_oswindow,&x,&y);
-
     r->left=x;
     r->top=y;
     r->right=x + hwnd->m_position.right - hwnd->m_position.left;
     r->bottom = y + hwnd->m_position.bottom - hwnd->m_position.top;
+#endif
+
     return true;
   }
 
@@ -1614,6 +1625,19 @@ void swell_oswindow_begin_resize(SWELL_OSWINDOW wnd)
 
 void swell_oswindow_resize(SWELL_OSWINDOW wnd, int reposflag, RECT f)
 {
+#ifdef SWELL_GDK_IMPROVE_WINDOWRECT
+  if (reposflag & 2)
+  {
+    // increase size to include titlebars etc
+    GdkRectangle gr;
+    gdk_window_get_frame_extents(wnd,&gr);
+    gint cw=gr.width, ch=gr.height;
+    gdk_window_get_geometry(wnd,NULL,NULL,&cw,&ch);
+    // when it matters, this seems to always make gr.height=ch, which is pointless
+    f.right -= gr.width - cw;
+    f.bottom -= gr.height - ch;
+  }
+#endif
   if ((reposflag&3)==3) gdk_window_move_resize(wnd,f.left,f.top,f.right-f.left,f.bottom-f.top);
   else if (reposflag&2) gdk_window_resize(wnd,f.right-f.left,f.bottom-f.top);
   else if (reposflag&1) gdk_window_move(wnd,f.left,f.top);
