@@ -1144,6 +1144,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_pipelineState=NULL;
   m_metal_commandQueue=NULL;
   m_metal_in_needref_list=false;
+  m_metal_gravity=0;
+  memset(&m_metal_lastframe,0,sizeof(m_metal_lastframe));
   memset(&m_metal_in_needref_rect,0,sizeof(m_metal_in_needref_rect));
 #endif
   
@@ -1397,6 +1399,12 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(BOOL) swellWantsMetal { return m_use_metal != 0; }
 -(void) swellDrawMetal:(const RECT *)forRect
 {
+
+#define swell_metal_set_layer_gravity(layer, g) do { \
+  const int grav = (g); \
+  (layer).contentsGravity = (grav&1) ?  (grav&2) ? @"bottomRight" : @"topRight" : \
+    (grav&2) ? @"bottomLeft" : @"topLeft"; } while(0)
+
   if (m_use_metal != 1 && m_use_metal != 2) return;
   const bool direct_mode = m_use_metal == 1;
 
@@ -1431,7 +1439,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     if (olddev) NSLog(@"swell-cocoa: switching metal devices from %p %@ to %p %@\n",olddev,olddev.name,device,device.name);
     m_metal_device = device;
     [layer setDevice:device];
-    layer.contentsGravity = [self isFlipped] ? @"bottomLeft" : @"topLeft"; // kCAGravityBottomLeft etc
+    swell_metal_set_layer_gravity(layer,m_metal_gravity ^ ([self isFlipped] ? 2 : 0));
     if (m_use_metal==1)
       layer.framebufferOnly = NO;
     [layer setPixelFormat:MTLPixelFormatBGRA8Unorm];
@@ -1482,6 +1490,29 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   }
   if (cr.right > cr.left && cr.bottom > cr.top)
   {
+    // this might be good to enable for all metal windows? shrug
+    if (m_use_metal == 2)
+    {
+      NSRect frame = [self frame];
+      NSView *cv = [[self window] contentView];
+      if (cv != self) frame = [self convertRect:frame toView:cv];
+
+      const int last_grav = m_metal_gravity;
+      if (frame.size.width != m_metal_lastframe.size.width)
+      {
+        if (frame.origin.x != m_metal_lastframe.origin.x) m_metal_gravity|=1;
+        else m_metal_gravity&=~1;
+      }
+      if (frame.size.height != m_metal_lastframe.size.height)
+      {
+        if (frame.origin.y != m_metal_lastframe.origin.y) m_metal_gravity|=2;
+        else m_metal_gravity&=~2;
+      }
+      m_metal_lastframe = frame;
+      if (last_grav != m_metal_gravity)
+        swell_metal_set_layer_gravity(layer,m_metal_gravity ^ ([self isFlipped] ? 2 : 0));
+    }
+
     HDC hdc = SWELL_CreateMetalDC(self);
 
     NSRect rect;
@@ -4022,8 +4053,6 @@ void swell_removeMetalDirty(SWELL_hwndChild *slf)
     s_mtl_dirty_list.DeletePtr(slf);
   }
 }
-
-
 
 #endif
 

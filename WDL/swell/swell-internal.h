@@ -306,10 +306,12 @@ typedef struct WindowPropRec
 
   // metal state (if used)
   char m_metal_dc_dirty;  // used to track state during paint or getdc/releasedc. set to 1 if dirty, 2 if GetDC() but no write yet
+  char m_metal_gravity; // &1=resizing left, &2=resizing top
   bool m_metal_retina; // last-retina-state, triggered to true by StretchBlt() with a 2:1 ratio
 
   bool m_metal_in_needref_list;
   RECT m_metal_in_needref_rect; 
+  NSRect m_metal_lastframe;
 
   id m_metal_texture; // id<MTLTexture> -- owned if in full pipeline mode, otherwise reference to m_metal_drawable
   id m_metal_pipelineState; // id<MTLRenderPipelineState> -- only used in full pipeline mode
