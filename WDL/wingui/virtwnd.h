@@ -244,6 +244,7 @@ private:
 
   WDL_VirtualWnd_BGCfgCache *m_bgcache;
   HWND m_cur_hwnd;
+public:
   PAINTSTRUCT m_ps;
   int m_paint_xorig, m_paint_yorig;
 
