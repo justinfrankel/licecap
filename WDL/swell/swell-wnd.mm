@@ -5466,7 +5466,16 @@ HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title
     for(;x<n && !rv; x ++)
     {
       NSWindow *w = [ch objectAtIndex:x]; 
-      if ([[w title] isEqualToString:srch]) rv=(HWND)[w contentView];
+      if ([[w title] isEqualToString:srch]) 
+      {
+        rv=(HWND)[w contentView];
+        if (classname)
+        {
+          char tmp[1024];
+          if (!GetClassName(rv,tmp,sizeof(tmp)) || strcmp(tmp,classname))
+            rv = NULL;
+        }
+      }
     }
     [srch release]; 
 
@@ -5483,10 +5492,18 @@ HWND FindWindowEx(HWND par, HWND lastw, const char *classname, const char *title
       GetWindowText(h,buf,sizeof(buf));
       if (strcmp(title,buf)) isOk=false;
     }
-    if (classname)
+    if (isOk && classname)
     {
-      if (!stricmp(classname,"Static") && ![(id)h isKindOfClass:[NSTextField class]]) isOk=false;
-      // todo: other classname translations
+      char tmp[1024];
+      if (!GetClassName(h,tmp,sizeof(tmp)) || strcmp(tmp,classname)) 
+      {
+        if (!stricmp(classname,"Static") && [(id)h isKindOfClass:[NSTextField class]])
+        {
+          // allow finding "Static" to match a textfield
+        }
+        else
+          isOk = false;
+      }
     }
     
     if (isOk) return h;
