@@ -330,6 +330,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
     void SetScrollButtonSize(int sz) { m_scrollbuttonsize=sz; } // def 14
     int GetRowHeight() { return m_rh; }
+    int GetItemHeight(int idx); // usually row height but not always
     int GetMaxColWidth() { return m_maxcolwidth; }
     int GetMinColWidth() { return m_mincolwidth; }
 
@@ -338,6 +339,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetDragMessage(int msg) { m_dragmsg=msg; }
     int IndexFromPt(int x, int y);
     bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
+    int GetVisibleItemRects(WDL_TypedBuf<RECT> *list);
 
     void SetGrayed(bool grayed) { m_grayed=grayed; }    
 
@@ -349,12 +351,23 @@ class WDL_VirtualListBox : public WDL_VWnd
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm, int rscale);
+    int (*m_GetItemHeight)(WDL_VirtualListBox *sender, int idx); // returns -1 for default height
     void *m_GetItemInfo_ctx;
-  
+
   protected:
+
+    struct layout_info {
+      int startpos; // first visible item index
+      int columns; // 1 or more
+      int item_area_w, item_area_h; // area for items (starting at leftrightbutton_width,0)
+      int leftrightbutton_w;
+      int updownbutton_h;
+      WDL_TypedBuf<int> *heights; // visible heights of items starting at startpos
+    };
   
-    void CalcLayout(int num_items, int *nrows, int *ncols, int *leftrightbuttonsize, int *updownbuttonsize, int *startpos, int *usedw);
-    bool HandleScrollClicks(int xpos, int ypos, int leftrightbuttonsize, int updownbuttonsize, int nrows, int num_cols, int num_items, int usedw);
+    void CalcLayout(int num_items, layout_info *layout);
+    bool HandleScrollClicks(int xpos, int ypos, const layout_info *layout);
+    void DoScroll(int dir, const layout_info *layout);
   
     int m_cap_state;
     POINT m_cap_startpos;
