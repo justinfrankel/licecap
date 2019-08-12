@@ -3893,6 +3893,8 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
   if (!wnd->m_metal_dc_dirty)
   {
     NSRect bounds = [wnd bounds];
+    if (bounds.size.width < 1 || bounds.size.height < 1) return;
+
     wnd->m_metal_retina = retina_hint;
     if (retina_hint)
     {
