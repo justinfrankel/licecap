@@ -11,7 +11,7 @@ template<class T> class WDL_IndexedPtrList {
 
     int GetSize() const {
       const int listsz = m_list.GetSize();
-#ifdef _DEBUG_
+#ifdef _DEBUG
       const int idxsz = m_index.GetSize();
       WDL_ASSERT(listsz==idxsz);
 #endif
