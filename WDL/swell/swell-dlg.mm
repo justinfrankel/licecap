@@ -1542,6 +1542,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if (!tex) return; // this can happen if GetDC()/ReleaseDC() are called before the first WM_PAINT
 
   NSRect bounds = [self bounds];
+  if (bounds.size.width < 1 || bounds.size.height < 1) return;
+
   if (m_metal_retina)
   {
     bounds.size.width *= 2;
