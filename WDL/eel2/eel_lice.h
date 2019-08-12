@@ -1571,8 +1571,6 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
 
 EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
-  if (!hwnd_standalone) return 0.0;
-
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], NULL);
   if (!p || !p[0]) return 0.0;
 
@@ -1583,7 +1581,10 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
   if (hm)
   {
     POINT pt = { (short)*m_gfx_x, (short)*m_gfx_y };
-    ClientToScreen(hwnd_standalone, &pt);
+    if (hwnd_standalone)
+      ClientToScreen(hwnd_standalone, &pt);
+    else
+      GetCursorPos(&pt);
     ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, pt.x, pt.y, 0, hwnd_standalone, NULL);
     DestroyMenu(hm);
   }
