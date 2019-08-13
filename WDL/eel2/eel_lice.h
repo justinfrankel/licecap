@@ -1580,9 +1580,23 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
   int ret=0;
   if (hm)
   {
-    POINT pt = { (short)*m_gfx_x, (short)*m_gfx_y };
+    POINT pt;
     if (hwnd_standalone)
+    {
+#ifdef __APPLE__
+      if (*m_gfx_ext_retina > 1.0) 
+      { 
+        pt.x = (short)(*m_gfx_x * .5);
+        pt.y = (short)(*m_gfx_y * .5);
+      }
+      else
+#endif
+      {
+        pt.x = (short)*m_gfx_x;
+        pt.y = (short)*m_gfx_y;
+      }
       ClientToScreen(hwnd_standalone, &pt);
+    }
     else
       GetCursorPos(&pt);
     ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, pt.x, pt.y, 0, hwnd_standalone, NULL);
