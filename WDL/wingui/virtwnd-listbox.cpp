@@ -645,15 +645,20 @@ bool WDL_VirtualListBox::OnMouseDblClick(int xpos, int ypos)
 {
   if (m_grayed) return false;
 
-  const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  int idx = IndexFromPt(xpos,ypos);
 
-  layout_info layout;
-  CalcLayout(num_items,&layout);
-
-  if (xpos >= layout.item_area_w + layout.leftrightbutton_w*2) return false;
+  if (idx<0)
+  {
+    if (idx == -2) return false;
+    const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+    layout_info layout;
+    CalcLayout(num_items,&layout);
+    if (HandleScrollClicks(xpos,ypos,&layout)) return true;
+    idx = num_items;
+  }
   
-  if (HandleScrollClicks(xpos,ypos,&layout)) return true;
-  
+  RequestRedraw(NULL);
+  if (m_clickmsg) SendCommand(m_clickmsg,(INT_PTR)this,idx,this);
   return false;
 }
 
