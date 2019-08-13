@@ -669,7 +669,7 @@ bool WDL_VirtualListBox::OnMouseWheel(int xpos, int ypos, int amt)
 
   if (xpos >= layout.item_area_w + layout.leftrightbutton_w*2) return false;
 
-  DoScroll(amt,&layout);
+  DoScroll(-amt,&layout);
   return true;
 }
 
