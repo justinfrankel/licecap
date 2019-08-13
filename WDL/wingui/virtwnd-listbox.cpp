@@ -620,17 +620,14 @@ int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
 
   if (m__iaccess) m__iaccess->OnFocused();
   const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  layout_info layout;
+  CalcLayout(num_items,&layout);
 
-  int idx = IndexFromPt(xpos,ypos);
-  if (idx == -2) return 0;
-
+  int idx = IndexFromPtInt(xpos,ypos,layout);
   if (idx < 0)
   {
-    layout_info layout;
-    CalcLayout(num_items,&layout);
-
+    if (idx == -2) return 0;
     if (HandleScrollClicks(xpos,ypos,&layout)) return 1;
-
     idx=num_items; // todo?
   }
 
@@ -645,14 +642,14 @@ bool WDL_VirtualListBox::OnMouseDblClick(int xpos, int ypos)
 {
   if (m_grayed) return false;
 
-  int idx = IndexFromPt(xpos,ypos);
+  const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  layout_info layout;
+  CalcLayout(num_items,&layout);
 
+  int idx = IndexFromPtInt(xpos,ypos,layout);
   if (idx<0)
   {
     if (idx == -2) return false;
-    const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
-    layout_info layout;
-    CalcLayout(num_items,&layout);
     if (HandleScrollClicks(xpos,ypos,&layout)) return true;
     idx = num_items;
   }
@@ -827,7 +824,11 @@ int WDL_VirtualListBox::IndexFromPt(int x, int y)
   const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
   layout_info layout;
   CalcLayout(num_items,&layout);
+  return IndexFromPtInt(x,y,layout);
+}
 
+int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
+{
   if (x >= layout.item_area_w + layout.leftrightbutton_w*2) return -2;
 
   if (y < 0 || y >= layout.item_area_h || x< layout.leftrightbutton_w || x >= layout.leftrightbutton_w + layout.item_area_w) 

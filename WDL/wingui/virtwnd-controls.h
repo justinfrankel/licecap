@@ -365,6 +365,7 @@ class WDL_VirtualListBox : public WDL_VWnd
       WDL_TypedBuf<int> *heights; // visible heights of items starting at startpos
     };
   
+    int IndexFromPtInt(int x, int y, const layout_info &layout);
     void CalcLayout(int num_items, layout_info *layout);
     bool HandleScrollClicks(int xpos, int ypos, const layout_info *layout);
     void DoScroll(int dir, const layout_info *layout);
