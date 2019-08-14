@@ -759,6 +759,7 @@ int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
   layout_info layout;
   CalcLayout(num_items,&layout);
 
+  const int rh_base = GetRowHeight();
   const int n = layout.heights->GetSize();
   RECT *r = list->ResizeOK(n,false);
   if (!r) { list->Resize(0,false); return 0; }
@@ -770,7 +771,7 @@ int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
   for (int x=0;x<n;x++)
   {
     const int rh = layout.heights->Get()[x];
-    if (y > wndr.top && y + rh > layout.item_area_h && (col < layout.columns-1 || y >= layout.item_area_h)) 
+    if (y > wndr.top && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) 
     { 
       if (++col >= layout.columns) break;
       y = wndr.top; 
@@ -803,11 +804,11 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
     for (int x=0;x<item;x++)
     {
       const int rh = x < layout.heights->GetSize() ? layout.heights->Get()[x] : rh_base;
-      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 ||  y>= layout.item_area_h)) { col++; y = 0; }
+      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 ||  y+rh_base > layout.item_area_h)) { col++; y = 0; }
       y += rh;
     }
     const int rh = item < layout.heights->GetSize() ? layout.heights->Get()[item] : rh_base;
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y >= layout.item_area_h)) { col++; y = 0; }
+    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) { col++; y = 0; }
     if (col >= layout.columns)  { if (r) memset(r,0,sizeof(RECT)); return false; }
 
     r->top = y;
@@ -851,7 +852,7 @@ int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
     for (;;)
     {
       const int rh = idx < layout.heights->GetSize() ? layout.heights->Get()[idx] : rh_base;
-      if (ypos > 0 && ypos + rh > layout.item_area_h && (col < layout.columns-1 || ypos >= layout.item_area_h)) break;
+      if (ypos > 0 && ypos + rh > layout.item_area_h && (col < layout.columns-1 || ypos+rh_base > layout.item_area_h)) break;
       if (x < nx && y >= ypos && y < ypos+rh) return layout.startpos + idx;
       ypos += rh;
       idx++;
