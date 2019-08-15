@@ -764,19 +764,18 @@ int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
   RECT *r = list->ResizeOK(n,false);
   if (!r) { list->Resize(0,false); return 0; }
   
-  const RECT wndr = m_position;
-  int col = 0, y=wndr.top;
-  int xpos = wndr.left + layout.leftrightbutton_w;
-  int nx = wndr.left + layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
+  int col = 0, y=0;
+  int xpos = layout.leftrightbutton_w;
+  int nx = layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
   for (int x=0;x<n;x++)
   {
     const int rh = layout.heights->Get()[x];
-    if (y > wndr.top && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) 
+    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) 
     { 
       if (++col >= layout.columns) break;
-      y = wndr.top; 
+      y = 0;
       xpos=nx;
-      nx = wndr.left + layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
+      nx = layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
     }
     r->left = xpos;
     r->right = nx;
