@@ -452,6 +452,8 @@ static void init_options()
   
 }
 
+bool IsModalDialogBox(HWND);
+
 void swell_oswindow_manage(HWND hwnd, bool wantfocus)
 {
   if (!hwnd) return;
@@ -479,9 +481,19 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
         {
           HWND own = hwnd->m_owner;
           while (own->m_parent && !own->m_oswindow) own=own->m_parent;
-          transient_for = own->m_oswindow;
 
-          if (!transient_for) return; // defer
+          if (!own->m_oswindow)
+          { 
+            if (!IsModalDialogBox(hwnd)) return; // defer
+
+            // if a modal window, parent to any owner up the chain
+            while (own->m_owner && !own->m_oswindow)
+            {
+              own = own->m_owner;
+              while (own->m_parent && !own->m_oswindow) own=own->m_parent;
+            }
+          }
+          transient_for = own->m_oswindow;
         }
 
         RECT r = hwnd->m_position;
