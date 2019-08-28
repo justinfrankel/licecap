@@ -650,11 +650,29 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if (inf->fState&MF_CHECKED)
             {
-               SetTextColor(ps.hdc,
-                 dis ? g_swell_ctheme.menu_text_disabled : 
-                 g_swell_ctheme.menu_text);
-               RECT r2=r; r2.left = 0; r2.right=lcol;
-               DrawText(ps.hdc,"X",-1,&r2,DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+              const int col = dis ? g_swell_ctheme.menu_text_disabled : g_swell_ctheme.menu_text;
+              HPEN tpen = CreatePen(PS_SOLID,0, col);
+              HBRUSH tbr = CreateSolidBrush(col);
+              HGDIOBJ oldBrush = SelectObject(ps.hdc,tbr);
+              HGDIOBJ oldPen = SelectObject(ps.hdc,tpen);
+              const int sz = (wdl_min(lcol, r.bottom-r.top) - SWELL_UI_SCALE(6));
+              const int xo = SWELL_UI_SCALE(4), yo = (r.bottom+r.top)/2 - sz/2;
+              static const unsigned char coords[12] = { 128, 30, 108, 11, 48, 72, 48, 112, 0, 65, 20, 46, };
+              for (int pass=0;pass<2;pass++)
+              {
+                POINT pts[4];
+                for (int i=0;i<4; i ++)
+                {
+                  pts[i].x = xo + ((int)coords[i*2+pass*4] * sz + 63) / 128;
+                  pts[i].y = yo + ((int)coords[i*2+pass*4+1] * sz + 63) / 128;
+                }
+                Polygon(ps.hdc,pts,4);
+              }
+
+              SelectObject(ps.hdc,oldPen);
+              SelectObject(ps.hdc,oldBrush);
+              DeleteObject(tpen);
+              DeleteObject(tbr);
             }
             if ((r.top+ypos)/2 > cr.bottom)
             {
