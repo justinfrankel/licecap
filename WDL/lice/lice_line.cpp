@@ -1447,7 +1447,7 @@ public:
   }
 };
 
-static int FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
+static double FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
 {
   if (y1 > y2)
   {
@@ -1457,33 +1457,20 @@ static int FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
   if (ty <= y1) return x1;
   if (ty >= y2) return x2;
   const double dxdy = (x2-x1)/(double)(y2-y1);
-  return x1+(int)((ty-y1)*dxdy);
+  return x1+(ty-y1)*dxdy;
 }
 
-static int FindYOnSegment(int x1, int y1, int x2, int y2, int tx)
-{
-  if (x1 > x2)
-  {
-    SWAP(x1, x2);
-    SWAP(y1, y2);
-  }
-  if (tx <= x1) return y1;
-  if (tx >= x2) return y2;
-  const double dydx = (y2-y1)/(double)(x2-x1);
-  return y1+(int)((tx-x1)*dydx);
-}
-
-void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode)
+void LICE_FillTrapezoidF(LICE_IBitmap* dest, double fx1a, double fx1b, int y1, double fx2a, double fx2b, int y2, LICE_pixel color, float alpha, int mode)
 {
   if (!dest) return; 
   if (y1 > y2)
   {
     SWAP(y1, y2);
-    SWAP(x1a, x2a);
-    SWAP(x1b, x2b);
+    SWAP(fx1a, fx2a);
+    SWAP(fx1b, fx2b);
   }
-  if (x1a > x1b) SWAP(x1a, x1b);
-  if (x2a > x2b) SWAP(x2a, x2b); 
+  if (fx1a > fx1b) SWAP(fx1a, fx1b);
+  if (fx2a > fx2b) SWAP(fx2a, fx2b); 
   
   int w = dest->getWidth();
   int h = dest->getHeight();
@@ -1495,20 +1482,20 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     __LICE_SCU(h);
     if (!IGNORE_SCALING(mode))
     {
-      __LICE_SC(x1a);
-      __LICE_SC(x1b);
-      __LICE_SC(x2a);
-      __LICE_SC(x2b);
+      __LICE_SC(fx1a);
+      __LICE_SC(fx1b);
+      __LICE_SC(fx2a);
+      __LICE_SC(fx2b);
       __LICE_SC(y1);
       __LICE_SC(y2);
     }
   }
 
-  if (x1b < 0 && x2b < 0) return;
-  if (x1a >= w && x2a >= w) return;
+  if (fx1b < 0 && fx2b < 0) return;
+  if (fx1a >= w && fx2a >= w) return;
 
-  if (x1a <= 0 && x2a <= 0) x1a = x2a = 0;
-  if (x1b >= w-1 && x2b >= w-1) x1b = x2b = w-1;
+  if (fx1a <= 0 && fx2a <= 0) fx1a = fx2a = 0;
+  if (fx1b >= w-1 && fx2b >= w-1) fx1b = fx2b = w-1;
 
   if (y2 < 0 || y1 >= h) return;
 
@@ -1517,18 +1504,16 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   double idy = y2==y1 ? 0.0 : (65536.0/(y2-y1));
   
   const double maxv=(double)(1<<29);
-  double tmp = (x2a-x1a)*idy;
+  double tmp = (fx2a-fx1a)*idy;
   if (tmp > maxv) tmp=maxv;
   else if (tmp < -maxv) tmp=-maxv;
-  int dxady = (int)tmp;
+  int dxady = (int)floor(tmp+0.5);
 
-  tmp = ((x2b-x1b)*idy);
+  tmp = ((fx2b-fx1b)*idy);
   if (tmp > maxv) tmp=maxv;
   else if (tmp < -maxv) tmp=-maxv;
-  int dxbdy = (int)tmp;
+  int dxbdy = (int)floor(tmp+0.5);
 
-  int a = 0;
-  int b = 0;
   int astep = 1;
   int bstep = 1;
   if (dxady < 0)
@@ -1542,25 +1527,30 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     bstep = -1;
   }
   
+  int x1a = (int)floor(fx1a);
+  int x1b = (int)floor(fx1b);
+  int a = (int) floor((fx1a-x1a)*65536.0*astep+0.5);
+  int b = (int) floor((fx1b-x1b)*65536.0*bstep+0.5);
+
   if (y1<0)
   {
     a -= dxady*y1;
     b -= dxbdy*y1;
     y1=0;
-    if (a >= 65536)
-    {
-      int na = a>>16;
-      a &= 65535;
-      if (astep<0)na=-na;
-      x1a += na;
-    }
-    if (b >= 65536)
-    {
-      int nb = b>>16;
-      b &= 65535;
-      if (bstep<0)nb=-nb;
-      x1b += nb;
-    }
+  }
+  if (a< 0 || a >= 65536)
+  {
+    int na = a>>16;
+    a &= 65535;
+    if (astep<0)na=-na;
+    x1a += na;
+  }
+  if (b < 0 || b >= 65536)
+  {
+    int nb = b>>16;
+    b &= 65535;
+    if (bstep<0)nb=-nb;
+    x1b += nb;
   }
   const int extra = __sc> 0 && !IGNORE_SCALING(mode) ? (__sc/256 - 1) : 0;
   if (y2 > h-1-extra) y2 = h-1-extra;
@@ -1620,6 +1610,10 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   }
 }
 
+void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode)
+{
+  LICE_FillTrapezoidF(dest,x1a,x1b,y1,x2a,x2b,y2,color,alpha,mode);
+}
 
 static int _ysort(const void* a, const void* b)
 {
@@ -1729,12 +1723,12 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
     int y_b2 = _Y(b2);
 
     int y2 = lice_min(y_a2, y_b2);   
-    int x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y1);
-    int x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y1);
-    int x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y2);
-    int x2b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y2);
+    double x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y1);
+    double x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y1);
+    double x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y2);
+    double x2b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y2);
   
-    LICE_FillTrapezoid(dest, x1a, x1b, y1, x2a, x2b, y2, color, alpha, mode);
+    LICE_FillTrapezoidF(dest, x1a, x1b, y1, x2a, x2b, y2, color, alpha, mode);
 
     bool dir = y1<=y2; // should always be true
 

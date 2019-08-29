@@ -511,6 +511,7 @@ void LICE_FLine(LICE_IBitmap* dest, float x1, float y1, float x2, float y2, LICE
 
 void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxon, int pxoff, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=false); // straight lines only for now
 
+void LICE_FillTrapezoidF(LICE_IBitmap* dest, double fx1a, double fx1b, int y1, double fx2a, double fx2b, int y2, LICE_pixel color, float alpha, int mode);
 void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode);
 void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int npoints, LICE_pixel color, float alpha, int mode);
 
