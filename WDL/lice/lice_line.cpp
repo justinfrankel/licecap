@@ -936,9 +936,9 @@ static void DoBezierFillSegment(LICE_IBitmap* dest, int x1, int y1, int x2, int 
   if (x2 < x1) return;
   if (x2 == x1)
   {
+    if (y1 > y2) SWAP(y1,y2);
     int ylo = lice_min(y1,yfill);
-    int yhi = lice_max(y2,yfill);
-    if (yhi != yfill) --yhi;
+    int yhi = lice_max(y2,yfill+1);
     LICE_FillRect(dest, x1, ylo, 1, yhi-ylo+1, color, alpha, mode);
     return;
   }
@@ -967,9 +967,9 @@ static void DoBezierFillSegmentX(LICE_IBitmap* dest, int x1, int y1, int x2, int
   if (y2 < y1) return;
   if (y2 == y1)
   {
+    if (x1 > x2) SWAP(x1,x2);
     int xlo = lice_min(x1,xfill);
-    int xhi = lice_max(x2,xfill);
-    if (xhi != xfill) --xhi;
+    int xhi = lice_max(x2,xfill+1);
     LICE_FillRect(dest, xlo, y1, xhi-xlo+1, 1, color, alpha, mode);
     return;
   }
