@@ -517,6 +517,80 @@ public:
       }     
     }
   }
+
+  static void LICE_FLineImplFill(LICE_pixel *px, int n , int err, int derr, int astep, int bstep, LICE_pixel color, int aw,
+      int fill_sz, int b_pos, unsigned int b_max
+#ifdef LICE_FAVOR_SIZE
+                          , LICE_COMBINEFUNC combFunc
+#endif
+    )
+  {
+    // fill_sz always >= 2
+    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+
+    int wt, iwt;
+    int i;
+
+    const int dbpos = bstep < 0 ? -1 : 1;
+
+    const int b_adj = -(fill_sz/2);
+    b_pos += b_adj*dbpos;
+    px += b_adj*bstep;
+
+    fill_sz--; // fill size of 2 has one extra pixel in the middle, 2 AA pixels
+
+    if (aw == 256)
+    {
+      for (i = 0; i <= n; ++i)
+      {
+        GetAAPxWeightFAST(err, &wt, &iwt);
+        LICE_pixel *wr = px;
+        unsigned int bp = b_pos;
+        if (bp<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, wt)  }
+        for (int j=0;j<fill_sz;j++)
+        {
+          wr += bstep;
+          if ((bp+=dbpos)<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, 256) }
+        }
+        if ((bp+dbpos)<b_max) { DOPIX((LICE_pixel_chan*)(wr+bstep), r, g, b, a, iwt) }
+
+        err += derr;
+        if (err >= 65536)
+        {
+          px += bstep;
+          b_pos += dbpos;
+          err -= 65536;
+        }
+        px += astep;
+      }
+    }
+    else // alpha != 256
+    {
+      for (i = 0; i <= n; ++i)
+      {
+        GetAAPxWeight(err, aw, &wt, &iwt);
+        LICE_pixel *wr = px;
+        unsigned int bp = b_pos;
+        if (bp<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, wt) }
+        for (int j=0;j<fill_sz;j++)
+        {
+          wr += bstep;
+          if ((bp+=dbpos)<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, aw) }
+        }
+        if ((bp+dbpos)<b_max) { DOPIX((LICE_pixel_chan*)(wr+bstep), r, g, b, a, iwt) }
+
+        err += derr;
+        if (err >= 65536)
+        {
+          px += bstep;
+          b_pos += dbpos;
+          err -= 65536;
+        }
+        px += astep;
+      }
+    }
+  }
+
 #undef DOPIX
 };
 
@@ -1762,4 +1836,124 @@ void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x
   int x[3] = { x1, x2, x3 };
   int y[3] = { y1, y2, y3 };
   LICE_FillConvexPolygon(dest, x, y, 3, color, alpha, mode);
+}
+
+void LICE_ThickFLine(LICE_IBitmap* dest, double x1, double y1, double x2, double y2, LICE_pixel color, float alpha, int mode, int wid) // always AA. wid is not affected by scaling (1 is always normal line, 2 is always 2 physical pixels, etc)
+{
+  if (!dest || wid<1) return;
+  if (wid==1)
+  {
+    LICE_Line(dest,(float)x1,(float)y1,(float)x2,float(y2),color,alpha,mode,true);
+    return;
+  }
+
+  int w = dest->getWidth();
+  int h = dest->getHeight();
+  if (dest->isFlipped())
+  {
+    y1 = (h-1)-y1;
+    y2 = (h-1)-y2;
+  }
+
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x1);
+      __LICE_SC(x2);
+      __LICE_SC(y1);
+      __LICE_SC(y2);
+    }
+  }
+
+  if (ClipFLine(&x1, &y1, &x2, &y2, w, h))
+  {
+    if (x1 != x2 || y1 != y2)
+    {
+      int span = dest->getRowSpan();
+      int aw = (int)(256.0f*alpha);
+
+      double a1, a2, b1, b2, da, db;
+      int astep, bstep;
+      double dx = x2-x1;
+      double dy = y2-y1;
+
+      int b_max;
+      if (fabs(dx) > fabs(dy))
+      {
+        a1 = x1;
+        a2 = x2;
+        b1 = y1;
+        b2 = y2;
+        da = dx;
+        db = dy;
+        astep = 1;
+        bstep = span;
+        b_max = h;
+      }
+      else
+      {
+        a1 = y1;
+        a2 = y2;
+        b1 = x1;
+        b2 = x2;
+        da = dy;
+        db = dx;
+        astep = span;
+        bstep = 1;
+        b_max = w;
+      }
+
+      if (da < 0.0)
+      {
+        da = -da;
+        db = -db;
+        SWAP(a1, a2);
+        SWAP(b1, b2);
+      }
+      if (db < 0.0)
+      {
+        bstep = -bstep;
+      }
+
+      int n = (int)(floor(a2)-ceil(a1));
+      double dbda = db/da;
+
+      double ta = ceil(a1);
+      double tb = b1+(ta-a1)*dbda;
+      double bf = tb-floor(tb);
+      int err = (int)(bf*65536.0);
+      if (bstep < 0) err = 65535-err;
+      int derr = (int)(fabs(dbda)*65536.0);
+
+      int b_pos = (int) tb;
+      LICE_pixel *px = dest->getBits() + (int)ta*astep+b_pos*abs(bstep);
+
+      if (bstep < 0) { px -= bstep; b_pos++; }
+
+#ifdef LICE_FAVOR_SIZE
+
+      LICE_COMBINEFUNC blitfunc=NULL;
+      #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+
+#else
+      #define __LICE__ACTION(COMBFUNC) \
+        __LICE_LineClass<COMBFUNC>::LICE_FLineImplFill(px,n,err,derr,astep,bstep, color, aw, wid, b_pos, b_max)
+#endif
+
+      __LICE_ACTION_NOSRCALPHA(mode, aw, false);
+
+#ifdef LICE_FAVOR_SIZE
+      if (blitfunc)
+      {
+        __LICE_LineClass::LICE_FLineImplFill(px,n,err,derr,astep,bstep, color, aw, wid, b_pos, b_max, blitfunc);
+      }
+#endif
+
+  #undef __LICE__ACTION
+    }
+  }
 }
