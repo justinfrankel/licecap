@@ -546,6 +546,9 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
 void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, double tol=0.0); 
 
+void LICE_DrawThickCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha=1.0f, int mode=0, int wid=2, double tol=0.0);
+
 // vertical fill from y=yfill
 void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, int yfill, LICE_pixel color, float alpha=1.0f, int mode=0, double tol=0.0);

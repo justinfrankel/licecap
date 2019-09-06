@@ -1259,6 +1259,73 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
   LICE_FLine(dest, lastx, lasty, xhi, yhi, color, alpha, mode, aa);
 }
 
+void LICE_DrawThickCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha, int mode, int wid, double tol)
+{
+  if (!dest) return;
+  int destbm_w = dest->getWidth();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc)
+  {
+    __LICE_SC_BEZ
+    mode|=LICE_BLIT_IGNORE_SCALING;
+  }
+  
+  double ax, bx, cx, dx, ay, by, cy, dy;
+  double xlo, xhi, ylo, yhi;
+  double tlo, thi;
+  int nsteps = CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+                        &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
+  if (!nsteps) return;
+  
+  double dt = (thi-tlo)/(double)nsteps;
+  double t = tlo+dt;
+  
+  double lastx = xlo;
+  double lasty = ylo;
+  double x, y;
+  bool last_xmaj=false;
+  int i;
+  for (i = 1; i < nsteps; ++i)
+  {
+    if (i == nsteps-1)
+    {
+      x = xhi;
+      y = yhi;
+    }
+    else
+    {
+      EVAL_CBEZXY(x, y, ax, bx, cx, dx, ay, by, cy, dy, t);
+    }
+    LICE_ThickFLine(dest, lastx, lasty, x, y, color, alpha, mode, wid);
+
+    bool xmaj = fabs(x-lastx) > fabs(y-lasty);
+    if (i>1 && xmaj != last_xmaj)
+    {
+      //int color = LICE_RGBA(255,0,0,0);
+      if (wid>2)
+      {
+        // tested this with w=3, w=4, w=8 and all looked pretty decent
+        double r = wid*.5 - 1;
+        if (r<0) r=0;
+        LICE_FillCircle(dest,floor(lastx+0.5),floor(lasty+0.5),.5+r*.707,color,alpha,mode,true);
+      }
+      else
+      {
+        const int ix = (int)floor(lastx+0.5), iy = (int)floor(lasty);
+        const double da = lasty - iy;
+        LICE_PutPixel(dest,ix,iy,color,alpha * (1.0-da),mode);
+        LICE_PutPixel(dest,ix,iy+1,color,alpha*da,mode);
+      }
+    }
+
+    last_xmaj = xmaj;
+    lastx = x;
+    lasty = y;
+    t += dt;
+  }
+}
+
 void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, int yfill, LICE_pixel color, float alpha, int mode, double tol)
 {
