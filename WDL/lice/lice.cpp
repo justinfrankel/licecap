@@ -2241,14 +2241,23 @@ void LICE_PutPixel(LICE_IBitmap *bm, int x, int y, LICE_pixel color, float alpha
 {
   if (!bm) return;
 
-  const int __sc = IGNORE_SCALING(mode) ? 0 : (int)bm->Extended(LICE_EXT_GET_SCALING,NULL);
+  const int __sc = (int)bm->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
   {
-    LICE_FillRect(bm,x,y,1,1,color,alpha,mode);
-    return;
+    if (!IGNORE_SCALING(mode))
+    {
+      LICE_FillRect(bm,x,y,1,1,color,alpha,mode);
+      return;
+    }
+
   }
 
-  const int w = bm->getWidth(), h = bm->getHeight();
+  int w = bm->getWidth(), h = bm->getHeight();
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+  }
 #ifndef DISABLE_LICE_EXTENSIONS
   if (bm->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_PUTPIXEL_ACCEL))
   {
