@@ -81,7 +81,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
   return accept;
 }
 
-static int OffscreenFTest(float x, float y, float w, float h)
+template<class T> static int OffscreenFTest(T x, T y, T w, T h)
 {
   int e = eOK;
   if (x < 0.0f) e |= eXLo; 
@@ -91,10 +91,10 @@ static int OffscreenFTest(float x, float y, float w, float h)
   return e;
 }
 
-static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
+template<class T> static bool ClipFLine(T * x1, T * y1, T * x2, T *y2, int w, int h)
 {
-  float tx1 = *x1, ty1 = *y1, tx2 = *x2, ty2 = *y2;
-  float tw = (float)(w-1), th = (float)(h-1);
+  T tx1 = *x1, ty1 = *y1, tx2 = *x2, ty2 = *y2;
+  T tw = (T)(w-1), th = (T)(h-1);
   if (!lice_isfinite(tx1) || !lice_isfinite(tx2) || 
       !lice_isfinite(ty1) || !lice_isfinite(ty2)) return false;
   
@@ -116,7 +116,7 @@ static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
     }
     else 
     { 
-      float x, y;
+      T x, y;
       int eOut = (e1 ? e1 : e2);
       if (eOut&eYHi) 
       {
