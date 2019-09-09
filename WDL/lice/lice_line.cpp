@@ -1148,7 +1148,7 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
 
 }
 
-static int CBezPrep(int dest_w, double xstart, double ystart, double xctl1, double yctl1,
+int LICE_CBezPrep(int dest_w, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, double tol, bool xbasis,
   double* ax, double* bx, double* cx, double* dx, double* ay, double* by, double* cy, double* dy,
   double* xlo, double* xhi, double* ylo, double* yhi, double* tlo, double* thi)
@@ -1237,7 +1237,7 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1274,7 +1274,7 @@ void LICE_DrawThickCBezier(LICE_IBitmap* dest, double xstart, double ystart, dou
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
                         &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
   
@@ -1346,7 +1346,7 @@ void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1396,7 +1396,7 @@ void LICE_FillCBezierX(LICE_IBitmap* dest, double xstart, double ystart, double 
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, false,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, false,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
