@@ -2732,7 +2732,7 @@ forceMouseMove:
         const int osel1 = es && es->sel1 >= 0 && es->sel2 > es->sel1 ? es->sel1 : -1;
 
         int f = OnEditKeyDown(hwnd,msg,wParam,lParam, 
-            !!(hwnd->m_style&ES_WANTRETURN),
+            (hwnd->m_style&ES_WANTRETURN) && (hwnd->m_style&ES_MULTILINE),
             !!(hwnd->m_style&ES_MULTILINE),
             es,true);
         if (f)
