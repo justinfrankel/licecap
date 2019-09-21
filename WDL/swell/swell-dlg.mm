@@ -582,14 +582,14 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 {
   SendMessage((HWND)self, WM_SHOWWINDOW, FALSE, 0);
 #ifndef SWELL_NO_METAL
-  if (m_use_metal) swell_removeMetalDirty(self);
+  if (m_use_metal>0) swell_removeMetalDirty(self);
 #endif
 }
 -(void) viewDidUnhide
 {
   SendMessage((HWND)self, WM_SHOWWINDOW, TRUE, 0);
 #ifndef SWELL_NO_METAL
-  if (m_use_metal) 
+  if (m_use_metal>0) 
   {
     [self swellDrawMetal:NULL];
     swell_removeMetalDirty(self);
@@ -962,7 +962,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_texture=NULL;
   m_metal_pipelineState=NULL;
   m_metal_commandQueue=NULL;
-  if (m_use_metal) swell_removeMetalDirty(self);
+  if (m_use_metal>0) swell_removeMetalDirty(self);
 #endif
 
   [super dealloc];
@@ -1086,21 +1086,10 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 }
 
 #ifndef SWELL_NO_METAL
-/*
--(BOOL) wantsUpdateLayer
-{
-  return m_use_metal!=0;
-}
-
--(void) updateLayer
-{
-  if (m_use_metal) { }
-}
-*/
 
 -(CALayer *)makeBackingLayer
 {
-  if (m_use_metal && __class_CAMetalLayer) return [__class_CAMetalLayer layer];
+  if (m_use_metal>0 && __class_CAMetalLayer) return [__class_CAMetalLayer layer];
   return [super makeBackingLayer];
 }
 #endif
@@ -1396,7 +1385,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 #endif
 
 #ifndef SWELL_NO_METAL
--(BOOL) swellWantsMetal { return m_use_metal != 0; }
+-(BOOL) swellWantsMetal { return m_use_metal > 0; }
 -(void) swellDrawMetal:(const RECT *)forRect
 {
 
@@ -3983,12 +3972,21 @@ int SWELL_EnableMetal(HWND hwnd, int mode)
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_hwndChild class]]) return 0;
 
   SWELL_hwndChild *ch = (SWELL_hwndChild *)hwnd;
-
-  if (mode>0 && g_swell_nomiddleman_cocoa_override==0 && !ch->m_use_metal && mtl_init())
+  if (g_swell_nomiddleman_cocoa_override==0 && !ch->m_use_metal)
   {
-    ch->m_use_metal=mode>1 ? 2 : mode;
-    [ch setWantsLayer:YES];
-    InvalidateRect(hwnd,NULL,FALSE);
+    if (mode < 0)
+    {
+      ch->m_use_metal = mode;
+      [ch setWantsLayer:YES];
+      if (mode == -1 && SWELL_GetOSXVersion() >= 0x1080)
+        [[ch layer] setDrawsAsynchronously:YES];
+    }
+    else if (mode>0 && mtl_init())
+    {
+      ch->m_use_metal = mode>1 ? 2 : mode;
+      [ch setWantsLayer:YES];
+      InvalidateRect(hwnd,NULL,FALSE);
+    }
   }
   return ch->m_use_metal;
 }

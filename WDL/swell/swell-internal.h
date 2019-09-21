@@ -302,7 +302,7 @@ typedef struct WindowPropRec
   const char *m_classname;
 
 #ifndef SWELL_NO_METAL
-  char m_use_metal; // 1=normal mode, 2=full pipeline (GetDC() etc support)
+  char m_use_metal; // 1=normal mode, 2=full pipeline (GetDC() etc support). -1 is for non-metal async layered mode. -2 for non-metal non-async layered
 
   // metal state (if used)
   char m_metal_dc_dirty;  // used to track state during paint or getdc/releasedc. set to 1 if dirty, 2 if GetDC() but no write yet

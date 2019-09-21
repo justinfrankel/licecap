@@ -4865,7 +4865,7 @@ void UpdateWindow(HWND hwnd)
   {
 #ifndef SWELL_NO_METAL
     if ([(id)hwnd isKindOfClass:[SWELL_hwndChild class]] && 
-        ((SWELL_hwndChild *)hwnd)->m_use_metal)
+        ((SWELL_hwndChild *)hwnd)->m_use_metal > 0)
     {
       // do nothing for metal windows, let the timer catch it
     }
@@ -4889,7 +4889,7 @@ void SWELL_FlushWindow(HWND h)
     if ([(id)h isKindOfClass:[NSView class]]) 
     {
 #ifndef SWELL_NO_METAL
-      if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild *)h)->m_use_metal)
+      if ([(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild *)h)->m_use_metal > 0)
         return;
 #endif
 
@@ -4936,7 +4936,7 @@ BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
     {
 #ifndef SWELL_NO_METAL
       SWELL_hwndChild *hc = (SWELL_hwndChild*)view;
-      if (hc->m_use_metal)
+      if (hc->m_use_metal > 0)
       {
         if (![hc isHiddenOrHasHiddenAncestor]) 
         {
