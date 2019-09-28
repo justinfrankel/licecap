@@ -509,6 +509,8 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 {
   if (!dest) return;
 
+  if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa)) return;
+
   int w = dest->getWidth(), h = dest->getHeight();
   const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
@@ -528,8 +530,6 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
       (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
       (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
     ) return;
-
-  if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa)) return;  
 
   if (dest->isFlipped()) cy=h-1-cy;
 
