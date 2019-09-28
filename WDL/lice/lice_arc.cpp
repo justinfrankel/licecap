@@ -16,8 +16,7 @@ static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_p
   {
     if (aa) 
     {
-      LICE_pixel_chan alphas[25] = 
-      {
+      LICE_pixel_chan alphas[16] = {
         A(0.31), A(1.00), A(1.00), A(0.31),
         A(1.00), A(0.06), A(0.06), A(1.00),
         A(1.00), A(0.06), A(0.06), A(1.00),
@@ -27,8 +26,7 @@ static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_p
     }
     else 
     {
-      LICE_pixel_chan alphas[25] = 
-      {
+      LICE_pixel_chan alphas[16] = {
         A(0.00), A(1.00), A(1.00), A(0.00),
         A(1.00), A(0.00), A(0.00), A(1.00),
         A(1.00), A(0.00), A(0.00), A(1.00),
