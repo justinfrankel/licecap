@@ -530,10 +530,10 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
       (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
     ) return;
 
-  if (dest->isFlipped()) cy=h-1-cy;
-
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
+
+  if (dest->isFlipped()) cy=h-1-cy;
 
   const bool doclip = !(cx-r-2 >= 0 && cy-r-2 >= 0 && cx+r+2 < w && cy+r+2 < h);
 
@@ -543,12 +543,9 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
   if (!dest) return;
-  if (dest->isFlipped()) cy=dest->getHeight()-1-cy;
 
   if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa, true)) return;
 
-  const int ia = (int) (alpha*256.0f);
-  if (!ia) return;
   int w = dest->getWidth(), h = dest->getHeight();
   const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
   if (__sc>0)
@@ -567,6 +564,11 @@ void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel
       (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
       (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
       ) return;
+
+  const int ia = (int) (alpha*256.0f);
+  if (!ia) return;
+
+  if (dest->isFlipped()) cy=h-1-cy;
 
   const int clip[4] = { 0, 0, w, h };
 
