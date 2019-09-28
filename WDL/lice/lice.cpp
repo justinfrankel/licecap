@@ -2681,6 +2681,14 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
   }
 #endif
 
+  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0 && IGNORE_SCALING(mode))
+  {
+    __LICE_SCU(destbm_w);
+    __LICE_SCU(destbm_h);
+  }
+
   if (glyph_span < 0) alphas += -glyph_span * (glyph_h-1);
 
   const int ia= (int)(alpha*256.0f);
@@ -2699,7 +2707,6 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
     y = 0;
   }
 
-  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
   if (src_w < 0 || src_h < 0 || x >= destbm_w || y >= destbm_h) return;
 
   if (src_h > destbm_h-y) src_h = destbm_h-y;
@@ -2707,16 +2714,12 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
   
   if (src_w < 1 || src_h < 1) return;
 
-  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
-  if (__sc>0)
+  if (__sc>0 && !IGNORE_SCALING(mode))
   {
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
-    if (!IGNORE_SCALING(mode))
-    {
-      __LICE_SC(x);
-      __LICE_SC(y);
-    }
+    __LICE_SC(x);
+    __LICE_SC(y);
   }
 
   LICE_pixel* destpx = dest->getBits();
@@ -2731,7 +2734,7 @@ void LICE_DrawGlyphEx(LICE_IBitmap* dest, int x, int y, LICE_pixel color, const 
 
   const LICE_pixel_chan* srcalpha = alphas+src_y*glyph_span+src_x;
 
-  if (__sc>0)
+  if (__sc>0 && !IGNORE_SCALING(mode))
   {
 #define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyphScale(srcalpha,destpx, src_w, src_h, color,span,glyph_span,ia,__sc)
 	__LICE_ACTION_NOSRCALPHA(mode, ia, false);
@@ -2755,6 +2758,14 @@ void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, cons
 {
   if (!dest) return;
 
+  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0 && IGNORE_SCALING(mode))
+  {
+    __LICE_SCU(destbm_w);
+    __LICE_SCU(destbm_h);
+  }
+
   if (glyph_span < 0) alphabits += -glyph_span * (glyph_h-1);
 
   const int ia= (int)(alpha*256.0f);
@@ -2773,7 +2784,6 @@ void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, cons
     y = 0;
   }
 
-  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
   if (src_w < 0 || src_h < 0 || x >= destbm_w || y >= destbm_h) return;
 
   if (src_h > destbm_h-y) src_h = destbm_h-y;
@@ -2781,16 +2791,12 @@ void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, cons
   
   if (src_w < 1 || src_h < 1) return;
 
-  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
-  if (__sc>0)
+  if (__sc>0 && !IGNORE_SCALING(mode))
   {
     __LICE_SCU(destbm_w);
     __LICE_SCU(destbm_h);
-    if (!IGNORE_SCALING(mode))
-    {
-      __LICE_SC(x);
-      __LICE_SC(y);
-    }
+    __LICE_SC(x);
+    __LICE_SC(y);
   }
 
   LICE_pixel* destpx = dest->getBits();
@@ -2804,7 +2810,7 @@ void LICE_DrawMonoGlyph(LICE_IBitmap* dest, int x, int y, LICE_pixel color, cons
   }
 
   const unsigned char * srcalpha = alphabits+src_y*glyph_span+src_x;
-  if (__sc>0)
+  if (__sc>0 && !IGNORE_SCALING(mode))
   {
 #define __LICE__ACTION(COMBFUNC)  GlyphDrawImpl<COMBFUNC>::DrawGlyphMonoScale(srcalpha,destpx, src_w, src_h, color,span,glyph_span,ia,__sc)
 	__LICE_ACTION_NOSRCALPHA(mode, ia, false);
