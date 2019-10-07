@@ -41,6 +41,14 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
     value=-value;
     *bufOut++ = '-';
   }
+
+  if (value < 1e-20)
+  {
+    *bufOut++ = '0';
+    *bufOut = 0;
+    return bufOut;
+  }
+
   if (value > 2147483647.0)
   {
     if (value >= 1.0e40) sprintf(bufOut, "%e", value);
