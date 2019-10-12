@@ -2120,7 +2120,7 @@ extern "C"
 {
   void *objc_getClass(const char *p);
   void *sel_getUid(const char *p);
-  void *objc_msgSend(void *, void *, ...);
+  void objc_msgSend(void);
 };
 #endif
 
@@ -2195,9 +2195,12 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
     if (!ctx->hwnd_standalone)
     {
       #ifdef __APPLE__
-        void *nsapp=objc_msgSend( objc_getClass("NSApplication"), sel_getUid("sharedApplication"));
-        objc_msgSend(nsapp,sel_getUid("setActivationPolicy:"), 0);
-        objc_msgSend(nsapp,sel_getUid("activateIgnoringOtherApps:"), 1);
+        void *(*send_msg)(void *, void *) = (void *(*)(void *, void *))objc_msgSend;
+        void (*send_msg_longparm)(void *, void *, long) = (void (*)(void *, void *, long))objc_msgSend; // long = NSInteger
+
+        void *nsapp=send_msg( objc_getClass("NSApplication"), sel_getUid("sharedApplication"));
+        send_msg_longparm(nsapp,sel_getUid("setActivationPolicy:"), 0);
+        send_msg_longparm(nsapp,sel_getUid("activateIgnoringOtherApps:"), 1);
 
       #endif
 
