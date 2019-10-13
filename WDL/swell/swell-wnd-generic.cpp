@@ -4648,7 +4648,7 @@ forceMouseMove:
                     SendMessage(hwnd->m_parent,WM_DRAWITEM,(WPARAM)hwnd->m_id,(LPARAM)&dis);
                   }
                 }
-                else if (str) 
+                else
                 {
                   if (ncols > 0)
                   {
@@ -4662,7 +4662,9 @@ forceMouseMove:
                     const int adj = (ar.right-ar.left)/16;
                     const int maxadj = SWELL_UI_SCALE(4);
                     ar.left += wdl_min(adj,maxadj);
-                    DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+
+                    if(str)
+                      DrawText(ps.hdc,str,-1,&ar,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
                   }
                 }
               }
