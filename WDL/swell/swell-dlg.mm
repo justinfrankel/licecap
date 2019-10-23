@@ -1092,7 +1092,11 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 -(CALayer *)makeBackingLayer
 {
-  if (m_use_metal>0 && __class_CAMetalLayer) return [__class_CAMetalLayer layer];
+  if (m_use_metal>0 && __class_CAMetalLayer)
+  {
+    CALayer *layer = [__class_CAMetalLayer layer];
+    if (layer) return layer;
+  }
   return [super makeBackingLayer];
 }
 #endif
