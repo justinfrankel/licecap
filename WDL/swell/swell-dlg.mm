@@ -2999,7 +2999,9 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
     }
     // default image?
   }
-  [(NSView *)hwnd dragImage:img at:NSMakePoint(srcrect->left,srcrect->top) offset:NSMakeSize(0,0) event:[NSApp currentEvent] pasteboard:pb source:(id)hwnd slideBack:YES];
+  NSEvent *evt = [NSApp currentEvent];
+  if (evt)
+    [(NSView *)hwnd dragImage:img at:NSMakePoint(srcrect->left,srcrect->top) offset:NSMakeSize(0,0) event:evt pasteboard:pb source:(id)hwnd slideBack:YES];
   
   [ar release];
 }

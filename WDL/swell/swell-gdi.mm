@@ -1222,7 +1222,14 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
       // on yosemite, calling [img TIFFRepresentation] seems to change img somehow for some images, ouch.
       // in this case, we should always replace img with newImage (set rcnt=1), but in general
       // maybe we shoulnt use alphaFromMask anyhow
-      NSImage *newImage=[[NSImage alloc] initWithData:[img TIFFRepresentation]];
+      NSData *data = [img TIFFRepresentation];
+      if (!data)
+      {
+        SWELL_DeleteGfxContext(hdc);
+        goto return_img;
+      }
+
+      NSImage *newImage=[[NSImage alloc] initWithData:data];
       [newImage setFlipped:YES];
 
       const int *fb = (const int *)SWELL_GetCtxFrameBuffer(hdc);
@@ -1255,6 +1262,7 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
     }
   }
   
+return_img:
   HGDIOBJ__ *i=GDP_OBJECT_NEW();
   i->type=TYPE_BITMAP;
   i->wid=1;
