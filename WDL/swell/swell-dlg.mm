@@ -70,6 +70,9 @@
 - (void) setRectSetBeingDrawn:(NSRectSet *)rs forView:(NSView *)v;
 @end
 
+@interface NSView (swell_internals)
+-(void)_recursiveDisplayRectIfNeededIgnoringOpacity:(NSRect)rect isVisibleRect:(BOOL)vr rectIsVisibleRectForView:(NSView*)view topView:(NSView *)v2;
+@end
 
 #undef NSRECTSET_RECT 
 
