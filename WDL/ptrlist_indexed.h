@@ -10,24 +10,22 @@ template<class T> class WDL_IndexedPtrList {
     ~WDL_IndexedPtrList() { }
 
     int GetSize() const {
-      const int listsz = m_list.GetSize();
-#ifdef _DEBUG
-      const int idxsz = m_index.GetSize();
-      WDL_ASSERT(listsz==idxsz);
-#endif
-      return listsz;
+      // do not _checkState(), GetSize() may be called while unlocked for estimation purposes
+      return m_list.GetSize();
     }
-    T * const *GetList() const { return m_list.GetList(); }
-    T *Get(int idx) const { return m_list.Get(idx); }
+    T * const *GetList() const { _checkState(); return m_list.GetList(); }
+    T *Get(int idx) const { _checkState(); return m_list.Get(idx); }
     int Find(const T *p) const
     {
+      _checkState();
       if (!p) return -1;
       const int *ret = m_index.GetPtr((INT_PTR)p);
       return ret ? *ret : -1;
     }
-    void Empty() { m_list.Empty(); m_index.DeleteAll(); }
+    void Empty() { _checkState(); m_list.Empty(); m_index.DeleteAll(); }
     void Delete(int idx)
     {
+      _checkState();
       T *item = m_list.Get(idx);
       m_list.Delete(idx);
       if (item)
@@ -51,6 +49,7 @@ template<class T> class WDL_IndexedPtrList {
     }
     void Add(T *p)
     {
+      _checkState();
       WDL_ASSERT(Find(p) < 0);
       if (WDL_NORMALLY(p))
       {
@@ -61,6 +60,7 @@ template<class T> class WDL_IndexedPtrList {
     }
     void Swap(int index1, int index2)
     {
+      _checkState();
       if (index1 != index2 &&
           WDL_NORMALLY(index1>=0) &&
           WDL_NORMALLY(index1<m_list.GetSize()) &&
@@ -78,6 +78,7 @@ template<class T> class WDL_IndexedPtrList {
     }
     void Insert(int index, T *p)
     {
+      _checkState();
       if (!WDL_NORMALLY(p)) return;
       const int listsz = m_list.GetSize();
       if (index < 0) index=0;
@@ -102,6 +103,13 @@ template<class T> class WDL_IndexedPtrList {
     WDL_PtrList<T> m_list;
     WDL_PtrKeyedArray<int> m_index;
 
+    void _checkState() const
+    {
+#ifdef _DEBUG
+      const int idxsz = m_index.GetSize(), listsz = m_list.GetSize();
+      WDL_ASSERT(idxsz == listsz);
+#endif
+    }
 };
 
 #endif
