@@ -2223,7 +2223,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
         if (sug_w < 16) sug_w=16;
         else if (sug_w > 2048) sug_w=2048;
         if (sug_h < 16) sug_h=16;
-        else if (sug_h > 1600) sug_w=1600;
+        else if (sug_h > 1600) sug_h=1600;
 
         #ifdef EEL_LICE_WANTDOCK
           const int pos_offs = 4;
