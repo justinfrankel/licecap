@@ -2293,7 +2293,8 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
       sug_w += (r1.right-r1.left) - r2.right;
       sug_h += abs(r1.bottom-r1.top) - r2.bottom;
 
-      SetWindowPos(ctx->hwnd_standalone,NULL,0,0,sug_w,sug_h,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+      if (sug_w != r2.right || sug_h != r2.bottom)
+        SetWindowPos(ctx->hwnd_standalone,NULL,0,0,sug_w,sug_h,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
     }
     return 1;
   }
