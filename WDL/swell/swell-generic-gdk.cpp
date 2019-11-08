@@ -1901,7 +1901,11 @@ static WDL_PtrList<bridgeState> filter_windows;
 bridgeState::~bridgeState() 
 { 
   filter_windows.DeletePtr(this); 
-  if (w) gdk_window_destroy(w);
+  if (w) 
+  {
+    g_object_unref(G_OBJECT(w));
+    XDestroyWindow(native_disp,native_w);
+  }
 }
 bridgeState::bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp)
 {
