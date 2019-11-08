@@ -5900,7 +5900,8 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
      NSWorkspace *wk = [NSWorkspace sharedWorkspace];
      if (!wk) return FALSE;
      NSString *fnstr=(NSString *)SWELL_CStringToCFString(content1);
-     BOOL ret=[wk openURL:[NSURL URLWithString:fnstr]];
+     NSURL *url = [NSURL URLWithString:fnstr];
+     BOOL ret=url && [wk openURL:url];
      [fnstr release];
      return ret;
   }

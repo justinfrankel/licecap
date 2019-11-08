@@ -1149,9 +1149,11 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
       if (g_swell_ui_scale != 256)
       {
         const double sc = g_swell_ui_scale * (1.0 / 256.0);
+        if (sc>0) g_swell_ctheme.default_font_size--;
         #define __scale(x,c) g_swell_ctheme.x = (int) (g_swell_ctheme.x * sc + 0.5);
           SWELL_GENERIC_THEMESIZEDEFS(__scale,__scale)
         #undef __scale
+        if (sc>0) g_swell_ctheme.default_font_size++;
       }
     #endif
   }

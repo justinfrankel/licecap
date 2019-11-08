@@ -217,6 +217,12 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   return 1+sizeof(void *);
 }
 
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4731)
+#endif
+
 #define GLUE_TABPTR_IGNORED
 #define GLUE_CALL_CODE(bp, cp, rt) do { \
   if (h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) eel_callcode32_fast(cp, rt); \
@@ -376,6 +382,11 @@ static void eel_callcode32_fast(INT_PTR cp, INT_PTR ramptr)
           : "%eax","%esi","%edi");
   #endif //gcc x86
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {

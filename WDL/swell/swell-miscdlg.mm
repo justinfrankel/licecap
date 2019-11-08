@@ -230,7 +230,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
     [(NSView *)av_parent setHidden:NO];
     [oldw release];
   }
-  else
+  else if ([fileTypes count]>0)
   {
     [panel setAllowedFileTypes:fileTypes];
   }
@@ -389,7 +389,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
   
-  NSInteger result = [panel runModalForDirectory:idir file:ifn types:fileTypes];
+  NSInteger result = [panel runModalForDirectory:idir file:ifn types:([fileTypes count]>0 ? fileTypes : nil)];
 
   SWELL_SetCurrentMenu(GetMenu(GetFocus()));
   if (hm) DestroyMenu(hm);
