@@ -449,8 +449,9 @@ int JNL_Connection::recv_get_linelen()
 
 int JNL_Connection::recv_line(char *line, int maxlength)
 {
+  maxlength--; // room for trailing NUL
   if (maxlength > m_recv_len) maxlength=m_recv_len;
-  while (maxlength--)
+  while (maxlength-- > 0)
   {
     int t=getbfromrecv(0,1);
     if (t == -1) 
@@ -467,6 +468,7 @@ int JNL_Connection::recv_line(char *line, int maxlength)
     }
     *line++=(char)t;
   }
+  *line=0;
   return 1;
 }
 
