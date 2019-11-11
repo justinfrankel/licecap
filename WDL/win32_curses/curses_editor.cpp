@@ -399,8 +399,8 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
           int y=m_curs_y+paney[m_curpane]-m_paneoffs_y[m_curpane];
           if (y >= paney[m_curpane] && y < paney[m_curpane]+paneh[m_curpane]) setCursor();
-          return 0;
         }
+        return 0;
       }
 
       if (uMsg == WM_LBUTTONDOWN) m_selecting=0;
