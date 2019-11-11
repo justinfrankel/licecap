@@ -1287,11 +1287,16 @@ int EEL_Editor::onChar(int c)
     doWatchInfo(c);
   return 0;
   case 'S'-'A'+1:
+   {
+     WDL_DestroyCheck chk(&destroy_check);
      if(updateFile())
      {
-       draw_message("Error writing file, changes not saved!");
+       if (chk.isOK())
+         draw_message("Error writing file, changes not saved!");
      }
-     setCursor();
+     if (chk.isOK())
+       setCursor();
+   }
   return 0;
 
   case 'R'-'A'+1:

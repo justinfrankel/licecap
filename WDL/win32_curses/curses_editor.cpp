@@ -2517,10 +2517,12 @@ void WDL_CursesEditor::loadUndoState(editUndoRec *rec, int idx)
 
 void WDL_CursesEditor::RunEditor()
 {
+  WDL_DestroyCheck chk(&destroy_check);
+
   int x;
   for(x=0;x<16;x++)
   {
-    if (!CURSES_INSTANCE) break;
+    if (!chk.isOK() || !CURSES_INSTANCE) break;
 
     int thischar = getch();
     if (thischar==ERR) break;
