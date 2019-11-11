@@ -40,7 +40,7 @@ static void __curses_onresize(win32CursesCtx *ctx)
   if (p)
   {
     p->draw();
-    p->setCursor();
+    p->setCursorIfVisible();
   }
 }
 WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
@@ -784,6 +784,16 @@ void WDL_CursesEditor::setCursor(int isVscroll, double ycenter)
 
   y += paney[m_curpane];
   move(y, m_curs_x-m_offs_x);
+}
+
+void WDL_CursesEditor::setCursorIfVisible()
+{
+  if (WDL_NOT_NORMALLY(m_curpane != 0 && m_curpane != 1)) return;
+  int paney[2], paneh[2];
+  GetPaneDims(paney, paneh);
+  int y=m_curs_y-m_paneoffs_y[m_curpane];
+  if (y >= 0 && y < paneh[m_curpane])
+    setCursor();
 }
 
 void WDL_CursesEditor::draw_message(const char *str)
