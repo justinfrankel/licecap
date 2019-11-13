@@ -2194,6 +2194,19 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
     bool wantShow=false, wantResize=true;
     int sug_w = np > 1 ? (int)parms[1][0] : 640;
     int sug_h = np > 2 ? (int)parms[2][0] : 480;
+    if (sug_w <1 && sug_h < 1 && ctx->hwnd_standalone) 
+    {
+      RECT r;
+      GetClientRect(ctx->hwnd_standalone,&r);
+      sug_w = r.right;
+      sug_h = r.bottom;
+    }
+    #ifdef EEL_LICE_WANTDOCK
+    const int pos_offs = 4;
+    #else
+    const int pos_offs = 3;
+    #endif
+
     if (sug_w < 16) sug_w=16;
     else if (sug_w > 2048) sug_w=2048;
     if (sug_h < 16) sug_h=16;
@@ -2224,12 +2237,6 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
 
       if (ctx->hwnd_standalone)
       {
-        #ifdef EEL_LICE_WANTDOCK
-          const int pos_offs = 4;
-        #else
-          const int pos_offs = 3;
-        #endif
-
         int px=0,py=0;
         if (np >= pos_offs+2)
         {
@@ -2293,8 +2300,22 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
       sug_w += (r1.right-r1.left) - r2.right;
       sug_h += abs(r1.bottom-r1.top) - r2.bottom;
 
-      if (sug_w != r2.right || sug_h != r2.bottom)
-        SetWindowPos(ctx->hwnd_standalone,NULL,0,0,sug_w,sug_h,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
+      int px=0,py=0;
+      const bool do_move=(np >= pos_offs+2);
+      if (do_move)
+      {
+        px = (int) floor(parms[pos_offs][0] + 0.5);
+        py = (int) floor(parms[pos_offs+1][0] + 0.5);
+#ifdef EEL_LICE_VALIDATE_RECT_ON_SCREEN
+        RECT r = {px,py,px+sug_w,py+sug_h};
+        EEL_LICE_VALIDATE_RECT_ON_SCREEN(r);
+        px=r.left; py=r.top; sug_w = r.right-r.left; sug_h = r.bottom-r.top;
+#endif
+      }
+      const bool do_size = sug_w != r2.right || sug_h != r2.bottom;
+      if (do_size || do_move)
+        SetWindowPos(ctx->hwnd_standalone,NULL,px,py,sug_w,sug_h,
+            (do_size ? 0 : SWP_NOSIZE)|(do_move? 0:SWP_NOMOVE)|SWP_NOZORDER|SWP_NOACTIVATE);
     }
     return 1;
   }
