@@ -1643,13 +1643,15 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
     LICE_SubBitmap tmpsub(NULL,0,0,0,0);
     if (hwnd->m_wndproc) // this happens after m_paintctx is set -- that way GetWindowDC()/GetDC()/ReleaseDC() know to not actually update the screen
     {
-      RECT r;
-      GetWindowContentViewRect(hwnd,&r);
-      r.right-=r.left; r.bottom-=r.top; r.left=r.top=0;
-      NCCALCSIZE_PARAMS p={{r,},};
+      RECT r2;
+      GetWindowContentViewRect(hwnd,&r2);
+      WinOffsetRect(&r2,-r2.left,-r2.top);
+
+      NCCALCSIZE_PARAMS p;
+      memset(&p,0,sizeof(p));
+      p.rgrc[0]=r2;
       hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
-      RECT r2=r;
-      r = p.rgrc[0];
+      RECT r = p.rgrc[0];
       if (forceref) hwnd->m_wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
 
       // dx,dy is offset from the window's nonclient root
