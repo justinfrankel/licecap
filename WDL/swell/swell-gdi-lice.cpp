@@ -1652,26 +1652,34 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
       r = p.rgrc[0];
       if (forceref) hwnd->m_wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
 
-      if (r.left!=r2.left) {} // todo: adjust drawing offsets, clip rects, accordingly
-      if (r.top!=r2.top) {} // todo: adjust drawing offsets, clip rects, accordingly
-      int dx = r.left-r2.left,dy=r.top-r2.top;
-      // dx,dy is offset from the window's root of 
+      // dx,dy is offset from the window's nonclient root
+      const int dx = r.left-r2.left,dy=r.top-r2.top;
+
+      WinOffsetRect(&ctx.clipr,-dx,-dy);
+      ctx.ctx.surface_offs.x += dx;
+      ctx.ctx.surface_offs.y += dy;
       bmout_xpos -= dx;
       bmout_ypos -= dy;
 
-      if (dx||dy)
+      // make sure we can't overwrite the nonclient area
+      const int xo = wdl_max(-bmout_xpos,0), yo = wdl_max(-bmout_ypos,0);
+      if (xo || yo)
       {
         tmpsub.m_parent = ctx.ctx.surface;
-        tmpsub.m_x = dx;
-        tmpsub.m_y = dy;
-        tmpsub.m_w = ctx.ctx.surface->getWidth()-dx;
-        tmpsub.m_h = ctx.ctx.surface->getHeight()-dy;
+        tmpsub.m_x = xo;
+        tmpsub.m_y = yo;
+        tmpsub.m_w = ctx.ctx.surface->getWidth()-xo;
+        tmpsub.m_h = ctx.ctx.surface->getHeight()-yo;
         if (tmpsub.m_w<0) tmpsub.m_w=0;
         if (tmpsub.m_h<0) tmpsub.m_h=0;
         ctx.ctx.surface = &tmpsub;
+        ctx.ctx.surface_offs.x -= xo;
+        ctx.ctx.surface_offs.y -= yo;
       }
 
-      // adjust clip rects for right/bottom extents
+      // constrain clip rect to right/bottom extents
+      if (ctx.clipr.left < 0) ctx.clipr.left=0;
+      if (ctx.clipr.top < 0) ctx.clipr.top=0;
       int newr = r.right-r.left;
       if (ctx.clipr.right > newr) ctx.clipr.right=newr;
       int newb = r.bottom-r.top;
