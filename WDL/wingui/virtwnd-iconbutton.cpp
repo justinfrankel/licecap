@@ -299,19 +299,17 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     }
     if (m_iconCfg && m_iconCfg->image)
     {
-      int sz=16,sz2=16;
-      WDL_STYLE_ScaleImageCoords(&sz,&sz2);
-
-      //if (m_position.right-m_position.left > 24) sz=m_position.right-m_position.left-8;
+      const int rscale2 = drawbm ? drawbm->Extended(LICE_EXT_GET_ADVISORY_SCALING,NULL) : 0;
+      const int sz=rscale2 ? 16*rscale2/256 : 16;
     
       int x=r.left+((r.right-r.left)-sz)/2;
-      int y=r.top+((r.bottom-r.top)-sz2)/2;
+      int y=r.top+((r.bottom-r.top)-sz)/2;
       if (m_is_button)
       {
         if (isdown && ishover) { x++; y++; }
       }
 
-      LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz2,0.0f,0.0f,
+      LICE_ScaledBlit(drawbm,m_iconCfg->image,x,y,sz,sz,0.0f,0.0f,
         (float)m_iconCfg->image->getWidth(),
         (float)m_iconCfg->image->getHeight(),alpha,LICE_BLIT_MODE_COPY|LICE_BLIT_FILTER_BILINEAR|LICE_BLIT_USE_ALPHA);
 

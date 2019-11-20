@@ -3,6 +3,9 @@
 
 #include "lice.h"
 
+#ifndef _WIN32
+#include "../swell/swell.h"
+#endif
 #include "../heapbuf.h"
 
 #define LICE_FONT_FLAG_VERTICAL 1 // rotate text to vertical (do not set the windows font to vertical though)
@@ -48,6 +51,7 @@ class LICE_IFont
     virtual LICE_pixel GetTextColor()=0;
     virtual HFONT GetHFont()=0;
     virtual int GetLineHeight()=0;
+    virtual void SetLineSpacingAdjust(int amt)=0;
 };
 
 
@@ -76,8 +80,7 @@ class LICE_CachedFont : public LICE_IFont
     virtual HFONT GetHFont() { return m_font; }
     virtual int GetLineHeight() { return m_line_height; }
 
-
-    void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
+    virtual void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
 
   protected:
 
@@ -114,5 +117,141 @@ class LICE_CachedFont : public LICE_IFont
 };
 
 #endif // !LICE_TEXT_NO_DECLARE_CACHEDFONT
+
+#ifndef LICE_TEXT_NO_MULTIDPI
+class __LICE_dpiAwareFont : public LICE_IFont
+{
+  struct rec {
+    LICE_IFont *cache;
+    int sz;
+  };
+  WDL_TypedBuf<rec> m_list; // used entries are at end of list, most recently used last. sz=0 for unused
+
+  int m_flags;
+  LICE_pixel m_fg, m_bg, m_effectcol;
+  int m_bgmode, m_comb;
+  float m_alpha;
+  int m_lsadj;
+
+public:
+  LOGFONT m_lf;
+
+
+  // LICE_IFont interface
+  virtual void SetFromHFont(HFONT font, int flags=0) { }
+
+  virtual LICE_pixel SetTextColor(LICE_pixel color) { LICE_pixel ret=m_fg; m_fg=color; return ret; }
+  virtual LICE_pixel SetBkColor(LICE_pixel color) { LICE_pixel ret=m_bg; m_bg=color; return ret; }
+  virtual LICE_pixel SetEffectColor(LICE_pixel color) { LICE_pixel ret=m_effectcol; m_effectcol=color; return ret; }
+  virtual int SetBkMode(int bkmode) { int bk = m_bgmode; m_bgmode=bkmode; return bk; }
+  virtual void SetCombineMode(int combine, float alpha=1.0f) { m_comb=combine; m_alpha=alpha; }
+
+  virtual int DrawText(LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags)
+  {
+    LICE_IFont *f = get(bm);
+    if (!f) return 0;
+    if (!(dtFlags & DT_CALCRECT))
+    {
+      f->SetTextColor(m_fg);
+      f->SetBkColor(m_bg);
+      f->SetEffectColor(m_effectcol);
+      f->SetBkMode(m_bgmode);
+      f->SetCombineMode(m_comb,m_alpha);
+      f->SetLineSpacingAdjust(m_lsadj);
+    }
+    return f->DrawText(bm,str,strcnt,rect,dtFlags);
+  }
+
+  virtual LICE_pixel GetTextColor() { return m_fg; }
+  virtual HFONT GetHFont() { return NULL; }
+  virtual int GetLineHeight() { return GetLineHeightDPI(NULL); }
+
+  virtual void SetLineSpacingAdjust(int amt) { m_lsadj=amt; }
+
+  __LICE_dpiAwareFont(int maxsz)
+  {
+    memset(&m_lf,0,sizeof(m_lf));
+    m_flags=0;
+    m_fg=m_bg=m_effectcol=0;
+    m_bgmode=TRANSPARENT;
+    m_comb=0;
+    m_alpha=1.0;
+    m_lsadj=0;
+
+    rec *l = m_list.ResizeOK(maxsz);
+    if (l) memset(l,0,sizeof(*l)*maxsz);
+  }
+  ~__LICE_dpiAwareFont()
+  {
+    for (int x = 0; x < m_list.GetSize(); x ++) delete m_list.Get()[x].cache;
+  }
+  void SetFromLogFont(LOGFONT *lf, int flags) { m_lf = *lf; m_flags = flags; clear(); }
+  void clear()
+  {
+    int x = m_list.GetSize()-1;
+    rec *t = m_list.Get();
+    while (x>=0 && t[x].sz) t[x--].sz=0;
+  }
+
+  LICE_IFont *get(LICE_IBitmap *bm)
+  {
+    int use_flag = m_flags & ~LICE_FONT_FLAG_PRECALCALL;
+    int ht = m_lf.lfHeight, ht2 = m_lf.lfWidth;
+    if (bm)
+    {
+      int sz = (int)bm->Extended(LICE_EXT_GET_ANY_SCALING,NULL);
+      if (sz) 
+      {
+        ht = (ht * sz) / 256;
+        ht2 = (ht2 * sz) / 256;
+        if (sz != 256)
+          use_flag |= LICE_FONT_FLAG_FORCE_NATIVE;
+      }
+    }
+
+    int x = m_list.GetSize()-1;
+    rec *t = m_list.Get();
+    while (x>=0 && t[x].sz != ht && t[x].sz) x--;
+    if (x<0) t[x=0].sz = 0; // if list full, use oldest item
+
+    // move to end of list
+    if (x != m_list.GetSize()-1)
+    {
+      rec tmp = t[x];
+      m_list.Delete(x);
+      m_list.Add(tmp);
+    }
+
+    t = m_list.Get() + m_list.GetSize() - 1;
+    if (!t->cache) t->cache = __CreateFont();
+    if (!t->sz && t->cache)
+    {
+      t->sz = ht;
+      LOGFONT lf = m_lf;
+      lf.lfHeight = ht;
+      lf.lfWidth = ht2;
+      #ifdef _WIN32
+      if (!(use_flag & LICE_FONT_FLAG_FORCE_NATIVE) && abs(lf.lfHeight) <= 14) lf.lfQuality = NONANTIALIASED_QUALITY;
+      #endif
+      t->cache->SetFromHFont(CreateFontIndirect(&lf), LICE_FONT_FLAG_OWNS_HFONT | use_flag);
+    }
+
+    return t->cache;
+  }
+
+  int GetLineHeightDPI(LICE_IBitmap *bm)
+  {
+    LICE_IFont *f = get(bm);
+    return f ? f->GetLineHeight() : 10;
+  }
+  virtual LICE_IFont *__CreateFont()=0;
+};
+
+template<class BASEFONT> class LICE_dpiAwareFont : public __LICE_dpiAwareFont {
+  public:
+    LICE_dpiAwareFont(int max) : __LICE_dpiAwareFont(max) { }
+    virtual LICE_IFont *__CreateFont() { return new BASEFONT; }
+};
+#endif//LICE_TEXT_NO_MULTIDPI
 
 #endif//_LICE_TEXT_H_

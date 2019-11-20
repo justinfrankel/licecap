@@ -98,8 +98,11 @@ public:
   virtual INT_PTR Extended(int id, void* data) { return 0; }  
 };
 
-#define LICE_EXT_SET_SCALING 0x2000 // data = int *, scaling is .8 fixed point. returns true if supported
+#define LICE_EXT_SET_SCALING 0x2000 // data = int *, scaling is .8 fixed point. returns true if supported. affects LICE_*() draw operations
 #define LICE_EXT_GET_SCALING 0x2001 // data ignored, returns .8 fixed point, returns 0 if unscaled
+#define LICE_EXT_SET_ADVISORY_SCALING 0x2002 // data = int *, scaling is .8 fixed point. returns true if supported. does not affect draw operations
+#define LICE_EXT_GET_ADVISORY_SCALING 0x2003 // data ignored, returns .8 fixed point. returns 0 if unscaled
+#define LICE_EXT_GET_ANY_SCALING 0x2004 // data ignored, returns .8 fixed point, 0 if unscaled
 
 #define LICE_MEMBITMAP_ALIGNAMT 63
 
@@ -120,6 +123,8 @@ public:
   virtual int getHeight() { return m_height; }
   virtual int getRowSpan() { return (m_width+m_linealign)&~m_linealign; }
   virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
+
+  // todo: LICE_EXT_SET_SCALING ?
 
 private:
   bool __resize(int w, int h);
@@ -142,6 +147,36 @@ public:
   virtual int getRowSpan() { return m_allocw; }; 
   virtual bool resize(int w, int h) { return __resize(w,h); } // returns TRUE if a resize occurred
 
+  virtual INT_PTR Extended(int id, void* data)
+  {
+    switch (id)
+    {
+      case LICE_EXT_SET_ADVISORY_SCALING: 
+      case LICE_EXT_SET_SCALING: 
+        {
+          int sc = data && *(int*)data != 256 ? *(int *)data : 0; 
+          if (sc < 0) sc = 0;
+          if (id == LICE_EXT_SET_ADVISORY_SCALING) sc = -sc;
+          if (m_scaling != sc)
+          {
+            const int tmp=m_width;
+            m_scaling = sc;
+            m_width=0;
+            resize(tmp,m_height);
+          }
+        }
+      return 1;
+      case LICE_EXT_GET_SCALING: 
+      return m_scaling > 0 ? m_scaling : 0;
+      case LICE_EXT_GET_ADVISORY_SCALING: 
+      return m_scaling < 0 ? -m_scaling : 0;
+      case LICE_EXT_GET_ANY_SCALING:
+      return m_scaling < 0 ? -m_scaling : m_scaling;
+
+    }
+    return 0;
+  }
+
   // sysbitmap specific calls
   virtual HDC getDC() { return m_dc; }
 
@@ -157,6 +192,7 @@ private:
   HBITMAP m_bitmap;
   HGDIOBJ m_oldbitmap;
 #endif
+  int m_scaling;
 };
 
 class LICE_WrapperBitmap : public LICE_IBitmap 
@@ -224,9 +260,18 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
     {
       if (!m_parent) return 0;
 
+      int xc = m_x, yc = m_y, h = m_h;
+      const int scale = (int)m_parent->Extended(LICE_EXT_GET_SCALING,NULL);
+      if (scale > 0)
+      {
+        xc = (xc*scale)>>8;
+        yc = (yc*scale)>>8;
+        h = (h*scale)>>8;
+      }
+
       LICE_pixel* parentptr=m_parent->getBits();
-      if (m_parent->isFlipped()) parentptr += (m_parent->getHeight() - (m_y+m_h))*m_parent->getRowSpan()+m_x;
-      else parentptr += m_y*m_parent->getRowSpan()+m_x;
+      if (m_parent->isFlipped()) parentptr += (m_parent->getHeight() - (yc+h))*m_parent->getRowSpan()+xc;
+      else parentptr += yc*m_parent->getRowSpan()+xc;
 
       return parentptr; 
     }
@@ -270,6 +315,7 @@ class LICE_SubBitmap : public LICE_IBitmap // note: you should only keep these a
 #define LICE_BLIT_FILTER_MASK 0xff00
 #define LICE_BLIT_FILTER_NONE 0
 #define LICE_BLIT_FILTER_BILINEAR 0x100 // currently pretty slow! ack
+#define LICE_BLIT_IGNORE_SCALING 0x20000
 
 
 #define LICE_BLIT_USE_ALPHA 0x10000 // use source's alpha channel
@@ -462,9 +508,11 @@ void LICE_MeasureText(const char *string, int *w, int *h);
 
 void LICE_Line(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
 void LICE_FLine(LICE_IBitmap* dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true);
+void LICE_ThickFLine(LICE_IBitmap* dest, double x1, double y1, double x2, double y2, LICE_pixel color, float alpha, int mode, int wid); // always AA. wid is not affected by scaling (1 is always normal line, 2 is always 2 physical pixels, etc)
 
 void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxon, int pxoff, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=false); // straight lines only for now
 
+void LICE_FillTrapezoidF(LICE_IBitmap* dest, double fx1a, double fx1b, int y1, double fx2a, double fx2b, int y2, LICE_pixel color, float alpha, int mode);
 void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode);
 void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int npoints, LICE_pixel color, float alpha, int mode);
 
@@ -498,6 +546,9 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
 void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha=1.0f, int mode=0, bool aa=true, double tol=0.0); 
 
+void LICE_DrawThickCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha=1.0f, int mode=0, int wid=2, double tol=0.0);
+
 // vertical fill from y=yfill
 void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, int yfill, LICE_pixel color, float alpha=1.0f, int mode=0, double tol=0.0);
@@ -520,7 +571,7 @@ LICE_pixel LICE_HSV2Pix(int h, int s, int v, int alpha); // sv: [0,256), h: [0,3
 
 LICE_pixel LICE_AlterColorHSV(LICE_pixel color, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
 void LICE_AlterBitmapHSV(LICE_IBitmap* src, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
-void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float d_hue, float d_saturation, float d_value);  // hue is rolled over, saturation and value are clamped, all 0..1
+void LICE_AlterRectHSV(LICE_IBitmap* src, int x, int y, int w, int h, float d_hue, float d_saturation, float d_value, int mode=0);  // hue is rolled over, saturation and value are clamped, all 0..1. mode only used for scaling disable
 
 LICE_pixel LICE_CombinePixels(LICE_pixel dest, LICE_pixel src, float alpha, int mode);
 
@@ -564,12 +615,16 @@ extern _LICE_ImageLoader_rec *LICE_ImageLoader_list;
 
 #endif // LICE_PROVIDED_BY_APP
 
+#ifdef __APPLE__
 #define LICE_Scale_BitBlt(hdc, x,y,w,h, src, sx,sy, mode) do { \
    const int _x=(x), _y=(y), _w=(w), _h=(h), _sx = (sx), _sy = (sy), _mode=(mode); \
-   const int rsc = (src)->Extended(LICE_EXT_GET_SCALING,NULL); \
+   const int rsc = (int) (src)->Extended(LICE_EXT_GET_SCALING,NULL); \
    if (rsc>0) \
      StretchBlt(hdc,_x,_y,_w,_h,(src)->getDC(),(_sx*rsc)/256,(_sy*rsc)/256,(_w*rsc)>>8,(_h*rsc)>>8,_mode); \
    else BitBlt(hdc,_x,_y,_w,_h,(src)->getDC(),_sx,_sy,_mode); \
 } while (0)
+#else
+#define LICE_Scale_BitBlt(hdc, x,y,w,h, src, sx,sy, mode) BitBlt(hdc,x,y,w,h,(src)->getDC(),sx,sy,mode)
+#endif
 
 #endif

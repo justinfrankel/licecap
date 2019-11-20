@@ -34,34 +34,28 @@
 #define DCW_DIVIDER_HORZ 0x00040000
 #define DCW_HWND_FOLLOW  0x40000000
 
+#ifndef WDL_DLGITEMBORDER_MAXCLIPCHILDREN 
+#define WDL_DLGITEMBORDER_MAXCLIPCHILDREN 200
+#endif
+
 #ifndef WDL_DLGITEMBORDER_NOIMPL
-
-static int RectInRect(RECT *rect1, RECT *rect2)
-{ 
-  // this has a bias towards true
-
-  // this could probably be optimized a lot
-  return ((rect1->top >= rect2->top && rect1->top <= rect2->bottom) ||
-      (rect1->bottom >= rect2->top && rect1->bottom <= rect2->bottom) ||
-      (rect2->top >= rect1->top && rect2->top <= rect1->bottom) ||
-      (rect2->bottom >= rect1->top && rect2->bottom <= rect1->bottom)) // vertical intersect
-      &&
-      ((rect1->left >= rect2->left && rect1->left <= rect2->right) ||
-      (rect1->right >= rect2->left && rect1->right <= rect2->right) ||
-      (rect2->left >= rect1->left && rect2->left <= rect1->right) ||
-      (rect2->right >= rect1->left && rect2->right <= rect1->right)) // horiz intersect
-      ;
-}
 
 #ifdef _WIN32
 static void Dlg_removeFromRgn(HRGN hrgn, int left, int top, int right, int bottom)
 {
-  HRGN rgn2=CreateRectRgn(left,top,right,bottom);
-  CombineRgn(hrgn,hrgn,rgn2,RGN_DIFF);
-  DeleteObject(rgn2);
+  if (hrgn)
+  {
+    RECT r = { left, top, right, bottom };
+    if (RectInRegion(hrgn,&r))
+    {
+      HRGN rgn2=CreateRectRgnIndirect(&r);
+      CombineRgn(hrgn,hrgn,rgn2,RGN_DIFF);
+      DeleteObject(rgn2);
+    }
+  }
 }
-#else 
-#define Dlg_removeFromRgn(a,b,c,d,e)
+#else
+#define Dlg_removeFromRgn(a,b,c,d,e) do{ } while(0)
 #endif
 
 static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0, PAINTSTRUCT *__use_ps=NULL
@@ -78,121 +72,133 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
     __use_ps=&ps;
   }
 
+  RECT r;
 #ifdef _WIN32
-  HRGN hrgn=NULL;
-  if(__use_ps->fErase)
+  HRGN hrgn=CreateRectRgnIndirect(&__use_ps->rcPaint);
+  int n = WDL_DLGITEMBORDER_MAXCLIPCHILDREN;
+  HWND h = GetWindow(hwndDlg,GW_CHILD);
+  while (h && --n >= 0)
   {
-    RECT r=__use_ps->rcPaint;
-    hrgn=CreateRectRgn(r.left,r.top,r.right,r.bottom);
+    if (IsWindowVisible(h))
+    {
+      GetWindowRect(h,&r);
+      ScreenToClient(hwndDlg,(LPPOINT)&r);
+      ScreenToClient(hwndDlg,((LPPOINT)&r) + 1);
+      if (RectInRegion(hrgn,&r))
+#ifdef DLG_ITEM_BORDER_WANT_EXCLUDE
+        if (!DLG_ITEM_BORDER_WANT_EXCLUDE(h))
+#endif
+      {
+        HRGN rgn2=CreateRectRgnIndirect(&r);
+        const int ret = CombineRgn(hrgn,hrgn,rgn2,RGN_DIFF);
+        DeleteObject(rgn2);
+        if (ret == NULLREGION || ret == ERROR) break;
+      }
+    }
+    h = GetWindow(h,GW_HWNDNEXT);
   }
-#else
-  int hrgn=0;
 #endif
 
-  HPEN pen=CreatePen(PS_SOLID,0,GSC?GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT));
-  HPEN pen2=CreatePen(PS_SOLID,0,GSC?GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW));
-
-  while (tabsize--)
+  if (tabsize > 0)
   {
-    RECT r;
-    int a=(int)*tab++;
-    if (a & DCW_HWND_FOLLOW)
-    {
-      a&=~DCW_HWND_FOLLOW;
-      if (!tabsize) break;
-      GetWindowRect((HWND)*tab++,&r);
-      tabsize--;
+    HPEN pen=CreatePen(PS_SOLID,0,GSC?GSC(COLOR_3DHILIGHT):GetSysColor(COLOR_3DHILIGHT));
+    HPEN pen2=CreatePen(PS_SOLID,0,GSC?GSC(COLOR_3DSHADOW):GetSysColor(COLOR_3DSHADOW));
 
-      ScreenToClient(hwndDlg,(LPPOINT)&r);
-      ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
-    }
-    else
+    while (tabsize--)
     {
-      int sa=a&0xffff;
-      if (sa == 0)
+      int a=(int)*tab++;
+      if (a & DCW_HWND_FOLLOW)
       {
-        GetClientRect(hwndDlg,&r);
-      }
-      else
-      {
-        GetWindowRect(GetDlgItem(hwndDlg,sa),&r);
+        a&=~DCW_HWND_FOLLOW;
+        if (!tabsize) break;
+        GetWindowRect((HWND)*tab++,&r);
+        tabsize--;
 
-  #ifdef CUSTOM_CHILDWNDBORDERCODE
-        CUSTOM_CHILDWNDBORDERCODE
-  #endif
         ScreenToClient(hwndDlg,(LPPOINT)&r);
         ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
       }
-    }
-
-    if (RectInRect(&__use_ps->rcPaint,&r)) 
-    {
-      if ((a & 0xffff0000) == DCW_SUNKENBORDER || (a&0xffff0000) == DCW_SUNKENBORDER_NOTOP)
+      else
       {
-        MoveToEx(__use_ps->hdc,r.left-1,r.bottom,NULL);
-        HGDIOBJ o=SelectObject(__use_ps->hdc,pen);
-        LineTo(__use_ps->hdc,r.right,r.bottom);
-        LineTo(__use_ps->hdc,r.right,r.top-1);
-        SelectObject(__use_ps->hdc,pen2);
-        if ((a&0xffff0000) == DCW_SUNKENBORDER_NOTOP)
-          MoveToEx(__use_ps->hdc,r.left-1,r.top-1,NULL);
-        else
-          LineTo(__use_ps->hdc,r.left-1,r.top-1);
-        LineTo(__use_ps->hdc,r.left-1,r.bottom);
-        SelectObject(__use_ps->hdc,o);
-        if(hrgn)
+        int sa=a&0xffff;
+        if (sa == 0)
         {
+          GetClientRect(hwndDlg,&r);
+        }
+        else
+        {
+          GetWindowRect(GetDlgItem(hwndDlg,sa),&r);
+
+    #ifdef CUSTOM_CHILDWNDBORDERCODE
+          CUSTOM_CHILDWNDBORDERCODE
+    #endif
+          ScreenToClient(hwndDlg,(LPPOINT)&r);
+          ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
+        }
+      }
+
+      RECT tmp, er = r;
+      er.right++; er.bottom++;
+      if (IntersectRect(&tmp,&__use_ps->rcPaint,&er)) 
+      {
+        if ((a & 0xffff0000) == DCW_SUNKENBORDER || (a&0xffff0000) == DCW_SUNKENBORDER_NOTOP)
+        {
+          MoveToEx(__use_ps->hdc,r.left-1,r.bottom,NULL);
+          HGDIOBJ o=SelectObject(__use_ps->hdc,pen);
+          LineTo(__use_ps->hdc,r.right,r.bottom);
+          LineTo(__use_ps->hdc,r.right,r.top-1);
+          SelectObject(__use_ps->hdc,pen2);
+          if ((a&0xffff0000) == DCW_SUNKENBORDER_NOTOP)
+            MoveToEx(__use_ps->hdc,r.left-1,r.top-1,NULL);
+          else
+            LineTo(__use_ps->hdc,r.left-1,r.top-1);
+          LineTo(__use_ps->hdc,r.left-1,r.bottom);
+          SelectObject(__use_ps->hdc,o);
           Dlg_removeFromRgn(hrgn,r.left,r.bottom,r.right,r.bottom+1);
           Dlg_removeFromRgn(hrgn,r.right,r.top,r.right+1,r.bottom);
           if ((a&0xffff0000) != DCW_SUNKENBORDER_NOTOP)
             Dlg_removeFromRgn(hrgn,r.left,r.top-1,r.right,r.top);
           Dlg_removeFromRgn(hrgn,r.left-1,r.top,r.left,r.bottom);
         }
-      }
-      else if ((a & 0xffff0000) == DCW_DIVIDER_VERT || (a & 0xffff0000) == DCW_DIVIDER_HORZ)
-      {
-        if ((a & 0xffff0000) == DCW_DIVIDER_VERT) // vertical
+        else if ((a & 0xffff0000) == DCW_DIVIDER_VERT || (a & 0xffff0000) == DCW_DIVIDER_HORZ)
         {
-          int left=r.left;
-          HGDIOBJ o=SelectObject(__use_ps->hdc,pen2);
-          MoveToEx(__use_ps->hdc,left,r.top,NULL);
-          LineTo(__use_ps->hdc,left,r.bottom+1);
-          SelectObject(__use_ps->hdc,pen);
-          MoveToEx(__use_ps->hdc,left+1,r.top,NULL);
-          LineTo(__use_ps->hdc,left+1,r.bottom+1);
-          SelectObject(__use_ps->hdc,o);
-          if(hrgn) Dlg_removeFromRgn(hrgn,left,r.top,left+2,r.bottom);
-        }
-        else // horiz
-        {
-          int top=r.top+1;
-          HGDIOBJ o=SelectObject(__use_ps->hdc,pen2);
-          MoveToEx(__use_ps->hdc,r.left,top,NULL);
-          LineTo(__use_ps->hdc,r.right+1,top);
-          SelectObject(__use_ps->hdc,pen);
-          MoveToEx(__use_ps->hdc,r.left,top+1,NULL);
-          LineTo(__use_ps->hdc,r.right+1,top+1);
-          SelectObject(__use_ps->hdc,o);
-          if(hrgn) Dlg_removeFromRgn(hrgn,r.left,top,r.right,top+2);
+          if ((a & 0xffff0000) == DCW_DIVIDER_VERT) // vertical
+          {
+            int left=r.left;
+            HGDIOBJ o=SelectObject(__use_ps->hdc,pen2);
+            MoveToEx(__use_ps->hdc,left,r.top,NULL);
+            LineTo(__use_ps->hdc,left,r.bottom+1);
+            SelectObject(__use_ps->hdc,pen);
+            MoveToEx(__use_ps->hdc,left+1,r.top,NULL);
+            LineTo(__use_ps->hdc,left+1,r.bottom+1);
+            SelectObject(__use_ps->hdc,o);
+            Dlg_removeFromRgn(hrgn,left,r.top,left+2,r.bottom);
+          }
+          else // horiz
+          {
+            int top=r.top+1;
+            HGDIOBJ o=SelectObject(__use_ps->hdc,pen2);
+            MoveToEx(__use_ps->hdc,r.left,top,NULL);
+            LineTo(__use_ps->hdc,r.right+1,top);
+            SelectObject(__use_ps->hdc,pen);
+            MoveToEx(__use_ps->hdc,r.left,top+1,NULL);
+            LineTo(__use_ps->hdc,r.right+1,top+1);
+            SelectObject(__use_ps->hdc,o);
+            Dlg_removeFromRgn(hrgn,r.left,top,r.right,top+2);
+          }
         }
       }
     }
+
+    DeleteObject(pen);
+    DeleteObject(pen2);
   }
 
-  DeleteObject(pen);
-  DeleteObject(pen2);
-
 #ifdef _WIN32
-  if(hrgn) {
-    //erase bkgnd while clipping out our own drawn stuff (for flickerless display)
-#ifdef WDL_DLGITEMBORDER_CUSTOMBGCODE
-    WDL_DLGITEMBORDER_CUSTOMBGCODE
-#else
+  if(hrgn) 
+  {
     HBRUSH b=CreateSolidBrush(GSC?GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE));
     FillRgn(__use_ps->hdc,hrgn,b);
     DeleteObject(b);
-#endif
-
     DeleteObject(hrgn);
   }
 #endif

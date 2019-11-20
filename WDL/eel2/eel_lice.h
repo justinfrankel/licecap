@@ -258,7 +258,7 @@ public:
   NSEEL_VMCTX m_vmref;
   void *m_user_ctx;
 
-  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0); // mouse_x/y used only if hwnd is NULL
+  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0, int has_dpi=0); // mouse_x/y used only if hwnd is NULL
   void finish_draw();
 
   void gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag);
@@ -1743,7 +1743,7 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
                            getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 }
 
-int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
+int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, int has_dpi)
 {
   int use_w = r.right - r.left;
   int use_h = r.bottom - r.top;
@@ -1756,7 +1756,11 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
   }
   *m_mouse_x=pt.x-r.left;
   *m_mouse_y=pt.y-r.top;
-  if (*m_gfx_ext_retina > 0.0)
+  if (has_dpi>0 && *m_gfx_ext_retina > 0.0)
+  {
+    *m_gfx_ext_retina = has_dpi/256.0;
+  }
+  else if (*m_gfx_ext_retina > 0.0)
   {
 #ifdef __APPLE__
     *m_gfx_ext_retina = (hwnd && SWELL_IsRetinaHWND(hwnd)) ? 2.0 : 1.0;
@@ -2134,7 +2138,10 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
 #else
   HWND h = SWELL_CreateDialog(NULL,isChild ? NULL : ((const char *)(INT_PTR)0x400001),par,(DLGPROC)eel_lice_wndproc,(LPARAM)this);
   if (h)
+  {
     SWELL_SetClassName(h,eel_lice_standalone_classname);
+    SWELL_EnableMetal(h,1);
+  }
   return h;
 #endif
 }

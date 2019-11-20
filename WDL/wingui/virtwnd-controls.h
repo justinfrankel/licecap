@@ -34,7 +34,6 @@
 extern int WDL_STYLE_WantGlobalButtonBorders();
 extern bool WDL_STYLE_WantGlobalButtonBackground(int *col);
 extern int WDL_STYLE_GetSysColor(int);
-extern void WDL_STYLE_ScaleImageCoords(int *x, int *y);
 extern bool WDL_Style_WantTextShadows(int *col);
 
 // this is the default, you can override per painter if you want
@@ -56,7 +55,6 @@ extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_Virt
 int WDL_STYLE_WantGlobalButtonBorders() { return 0; }
 bool WDL_STYLE_WantGlobalButtonBackground(int *col) { return false; }
 int WDL_STYLE_GetSysColor(int p) { return GetSysColor(p); }
-void WDL_STYLE_ScaleImageCoords(int *x, int *y) { }
 bool WDL_Style_WantTextShadows(int *col) { return false; }
 bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope) { return false; }
 LICE_IBitmap *WDL_STYLE_GetSliderBitmap2(bool vert) { return NULL; }
@@ -294,7 +292,7 @@ class WDL_VirtualSlider : public WDL_VWnd
     int m_tl_extra, m_br_extra;
 
     int m_knob_color,m_zl_color;
-    int m_last_rscale;
+    int m_last_rscale, m_last_advscale;
 
     signed char m_knobbias;
     signed char m_knob_lineextrasize;
@@ -323,7 +321,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     virtual void OnMouseMove(int xpos, int ypos);
     virtual void OnMouseUp(int xpos, int ypos);
 
-    void SetFont(LICE_IFont *font) { m_font=font; }
+    void SetFont(LICE_IFont *font, int lsadj=-1000) { m_font=font; m_lsadj=lsadj; }
     LICE_IFont *GetFont() { return m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
     void SetRowHeight(int rh) { m_rh=rh; }
@@ -332,6 +330,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
     void SetScrollButtonSize(int sz) { m_scrollbuttonsize=sz; } // def 14
     int GetRowHeight() { return m_rh; }
+    int GetItemHeight(int idx); // usually row height but not always
     int GetMaxColWidth() { return m_maxcolwidth; }
     int GetMinColWidth() { return m_mincolwidth; }
 
@@ -340,6 +339,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetDragMessage(int msg) { m_dragmsg=msg; }
     int IndexFromPt(int x, int y);
     bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
+    int GetVisibleItemRects(WDL_TypedBuf<RECT> *list);
 
     void SetGrayed(bool grayed) { m_grayed=grayed; }    
 
@@ -351,12 +351,24 @@ class WDL_VirtualListBox : public WDL_VWnd
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm, int rscale);
+    int (*m_GetItemHeight)(WDL_VirtualListBox *sender, int idx); // returns -1 for default height
     void *m_GetItemInfo_ctx;
-  
+
   protected:
+
+    struct layout_info {
+      int startpos; // first visible item index
+      int columns; // 1 or more
+      int item_area_w, item_area_h; // area for items (starting at leftrightbutton_width,0)
+      int leftrightbutton_w;
+      int updownbutton_h;
+      WDL_TypedBuf<int> *heights; // visible heights of items starting at startpos
+    };
   
-    void CalcLayout(int num_items, int *nrows, int *ncols, int *leftrightbuttonsize, int *updownbuttonsize, int *startpos, int *usedw);
-    bool HandleScrollClicks(int xpos, int ypos, int leftrightbuttonsize, int updownbuttonsize, int nrows, int num_cols, int num_items, int usedw);
+    int IndexFromPtInt(int x, int y, const layout_info &layout);
+    void CalcLayout(int num_items, layout_info *layout);
+    bool HandleScrollClicks(int xpos, int ypos, const layout_info *layout);
+    void DoScroll(int dir, const layout_info *layout);
   
     int m_cap_state;
     POINT m_cap_startpos;
@@ -367,6 +379,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_margin_r, m_margin_l;
     int m_rh,m_maxcolwidth,m_mincolwidth ;
     int m_scrollbuttonsize;
+    int m_lsadj;
     LICE_IFont *m_font;
     bool m_grayed;
 

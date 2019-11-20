@@ -4,35 +4,46 @@
 
 #define _PI 3.141592653589793238f
 
+#define IGNORE_SCALING(mode) ((mode)&LICE_BLIT_IGNORE_SCALING)
 template <class T> inline void _SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
 #define A(x) ((LICE_pixel_chan)((x)*255.0+0.5))
+#define AF(x) (255)
 
-static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
+#define DEF_ALPHAS(dim) \
+      static const LICE_pixel_chan alphas_unfill[] = { __ALPHAS__(A) }; \
+      static const LICE_pixel_chan alphas_fill[] = { __ALPHAS__(AF) }; \
+      const LICE_pixel_chan * const alphas = fill ? alphas_fill : alphas_unfill; \
+      ((void)sizeof(char[1 - 2*(sizeof(alphas_unfill) != dim*dim)])); \
+      ((void)sizeof(char[1 - 2*(sizeof(alphas_fill) != dim*dim)]));
+
+static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa, bool fill)
 {
   // fast draw for some small circles 
   if (r == 1.5f)
   {
     if (aa) 
     {
-      LICE_pixel_chan alphas[25] = 
-      {
+#define __ALPHAS__(B) \
+        A(0.31), A(1.00), A(1.00), A(0.31), \
+        A(1.00), B(0.06), B(0.06), A(1.00), \
+        A(1.00), B(0.06), B(0.06), A(1.00), \
         A(0.31), A(1.00), A(1.00), A(0.31),
-        A(1.00), A(0.06), A(0.06), A(1.00),
-        A(1.00), A(0.06), A(0.06), A(1.00),
-        A(0.31), A(1.00), A(1.00), A(0.31),
-      };
+
+      DEF_ALPHAS(4)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 4, 4, alpha, mode);
     }
     else 
     {
-      LICE_pixel_chan alphas[25] = 
-      {
+#define __ALPHAS__(B) \
+        A(0.00), A(1.00), A(1.00), A(0.00), \
+        A(1.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), A(1.00), \
         A(0.00), A(1.00), A(1.00), A(0.00),
-        A(1.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(1.00),
-        A(0.00), A(1.00), A(1.00), A(0.00),
-      };
+
+      DEF_ALPHAS(4)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 4, 4, alpha, mode);    
     }
     return true;
@@ -41,141 +52,231 @@ static bool CachedCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_p
   {
     if (aa) 
     {
-      LICE_pixel_chan alphas[25] = 
-      {
-        A(0.06), A(0.75), A(1.00), A(0.75), A(0.06),
-        A(0.75), A(0.82), A(0.31), A(0.82), A(0.75),
-        A(1.00), A(0.31), A(0.00), A(0.31), A(1.00),
-        A(0.75), A(0.82), A(0.31), A(0.82), A(0.75),
+#define __ALPHAS__(B) \
+        A(0.06), A(0.75), A(1.00), A(0.75), A(0.06), \
+        A(0.75), A(0.82), B(0.31), A(0.82), A(0.75), \
+        A(1.00), B(0.31), B(0.00), B(0.31), A(1.00), \
+        A(0.75), A(0.82), B(0.31), A(0.82), A(0.75), \
         A(0.06), A(0.75), A(1.00), A(0.75), A(0.06)
-      };
+
+      DEF_ALPHAS(5)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 5, 5, alpha, mode);
     }
     else 
     {
-      LICE_pixel_chan alphas[25] = 
-      {
-        A(0.00), A(0.00), A(1.00), A(0.00), A(0.00),
-        A(0.00), A(1.00), A(0.00), A(1.00), A(0.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(0.00), A(1.00), A(0.00), A(1.00), A(0.00),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(1.00), B(0.00), A(1.00), A(0.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(0.00), A(1.00), B(0.00), A(1.00), A(0.00), \
         A(0.00), A(0.00), A(1.00), A(0.00), A(0.00)
-      };
+
+      DEF_ALPHAS(5)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 5, 5, alpha, mode);    
     }
     return true;
   }
   else if (r == 2.5f) {
     if (aa) {
-      LICE_pixel_chan alphas[36] = {
-        A(0.06), A(0.75), A(1.00), A(1.00), A(0.75), A(0.06),
-        A(0.75), A(0.82), A(0.31), A(0.31), A(0.82), A(0.75),
-        A(1.00), A(0.31), A(0.00), A(0.00), A(0.31), A(1.00),
-        A(1.00), A(0.31), A(0.00), A(0.00), A(0.31), A(1.00),
-        A(0.75), A(0.82), A(0.31), A(0.31), A(0.82), A(0.75),
+#define __ALPHAS__(B) \
+        A(0.06), A(0.75), A(1.00), A(1.00), A(0.75), A(0.06), \
+        A(0.75), A(0.82), B(0.31), B(0.31), A(0.82), A(0.75), \
+        A(1.00), B(0.31), B(0.00), B(0.00), B(0.31), A(1.00), \
+        A(1.00), B(0.31), B(0.00), B(0.00), B(0.31), A(1.00), \
+        A(0.75), A(0.82), B(0.31), B(0.31), A(0.82), A(0.75), \
         A(0.06), A(0.75), A(1.00), A(1.00), A(0.75), A(0.06)
-      };
+
+      DEF_ALPHAS(6)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 6, 6, alpha, mode);
     }
     else {
-      LICE_pixel_chan alphas[36] = {
-        A(0.00), A(0.00), A(1.00), A(1.00), A(0.00), A(0.00),
-        A(0.00), A(1.00), A(0.00), A(0.00), A(1.00), A(0.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(0.00), A(1.00), A(0.00), A(0.00), A(1.00), A(0.00),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(1.00), B(0.00), B(0.00), A(1.00), A(0.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(0.00), A(1.00), B(0.00), B(0.00), A(1.00), A(0.00), \
         A(0.00), A(0.00), A(1.00), A(1.00), A(0.00), A(0.00)
-      };
+
+      DEF_ALPHAS(6)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 6, 6, alpha, mode);    
     }
     return true;
   }
   else if (r == 3.0f) {
     if (aa) {
-      LICE_pixel_chan alphas[49] = {
-        A(0.00), A(0.56), A(1.00), A(1.00), A(1.00), A(0.56), A(0.00),
-        A(0.56), A(1.00), A(0.38), A(0.25), A(0.38), A(1.00), A(0.56),
-        A(1.00), A(0.44), A(0.00), A(0.00), A(0.00), A(0.44), A(1.00),
-        A(1.00), A(0.19), A(0.00), A(0.00), A(0.00), A(0.19), A(1.00),
-        A(1.00), A(0.44), A(0.00), A(0.00), A(0.00), A(0.44), A(1.00),
-        A(0.56), A(1.00), A(0.38), A(0.25), A(0.38), A(1.00), A(0.56),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.56), A(1.00), A(1.00), A(1.00), A(0.56), A(0.00), \
+        A(0.56), A(1.00), B(0.38), B(0.25), B(0.38), A(1.00), A(0.56), \
+        A(1.00), B(0.44), B(0.00), B(0.00), B(0.00), B(0.44), A(1.00), \
+        A(1.00), B(0.19), B(0.00), B(0.00), B(0.00), B(0.19), A(1.00), \
+        A(1.00), B(0.44), B(0.00), B(0.00), B(0.00), B(0.44), A(1.00), \
+        A(0.56), A(1.00), B(0.38), B(0.25), B(0.38), A(1.00), A(0.56), \
         A(0.00), A(0.56), A(1.00), A(1.00), A(1.00), A(0.56), A(0.00)
-      };
+
+      DEF_ALPHAS(7)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 7, 7, alpha, mode);
     }
     else {
-      LICE_pixel_chan alphas[49] = {
-        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00),
-        A(0.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(0.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(0.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(0.00),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(1.00), B(0.00), B(0.00), B(0.00), A(1.00), A(0.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(0.00), A(1.00), B(0.00), B(0.00), B(0.00), A(1.00), A(0.00), \
         A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00)
-      };
+
+      DEF_ALPHAS(7)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 7, 7, alpha, mode);    
     }
     return true;
   }
   else if (r == 3.5f) {
     if (aa) {
-      LICE_pixel_chan alphas[64] = {
-        A(0.00), A(0.31), A(0.87), A(1.00), A(1.00), A(0.87), A(0.31), A(0.00),
-        A(0.31), A(1.00), A(0.69), A(0.25), A(0.25), A(0.69), A(1.00), A(0.31),
-        A(0.87), A(0.69), A(0.00), A(0.00), A(0.00), A(0.00), A(0.69), A(0.87),
-        A(1.00), A(0.25), A(0.00), A(0.00), A(0.00), A(0.00), A(0.25), A(1.00),
-        A(1.00), A(0.25), A(0.00), A(0.00), A(0.00), A(0.00), A(0.25), A(1.00),
-        A(0.87), A(0.69), A(0.00), A(0.00), A(0.00), A(0.00), A(0.69), A(0.87),
-        A(0.31), A(1.00), A(0.69), A(0.25), A(0.25), A(0.69), A(1.00), A(0.31),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.31), A(0.87), A(1.00), A(1.00), A(0.87), A(0.31), A(0.00), \
+        A(0.31), A(1.00), A(0.69), B(0.25), B(0.25), A(0.69), A(1.00), A(0.31), \
+        A(0.87), A(0.69), B(0.00), B(0.00), B(0.00), B(0.00), A(0.69), A(0.87), \
+        A(1.00), B(0.25), B(0.00), B(0.00), B(0.00), B(0.00), B(0.25), A(1.00), \
+        A(1.00), B(0.25), B(0.00), B(0.00), B(0.00), B(0.00), B(0.25), A(1.00), \
+        A(0.87), A(0.69), B(0.00), B(0.00), B(0.00), B(0.00), A(0.69), A(0.87), \
+        A(0.31), A(1.00), A(0.69), B(0.25), B(0.25), A(0.69), A(1.00), A(0.31), \
         A(0.00), A(0.31), A(0.87), A(1.00), A(1.00), A(0.87), A(0.31), A(0.00)
-      };
+
+      DEF_ALPHAS(8)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 8, 8, alpha, mode);
     }
     else {
-      LICE_pixel_chan alphas[64] = {
-        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00),
-        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
-        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
-        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(1.00), A(1.00), B(0.00), B(0.00), A(1.00), A(1.00), A(0.00), \
+        A(1.00), A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), A(1.00), \
+        A(0.00), A(1.00), A(1.00), B(0.00), B(0.00), A(1.00), A(1.00), A(0.00), \
         A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00)
-      };
+
+      DEF_ALPHAS(8)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 8, 8, alpha, mode);
     }
     return true;
   }
   else if (r == 4.0f) {
     if (aa) {
-      LICE_pixel_chan alphas[81] = {
-        A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00),
-        A(0.12), A(0.94), A(0.82), A(0.31), A(0.25), A(0.31), A(0.82), A(0.94), A(0.12),
-        A(0.69), A(0.82), A(0.06), A(0.00), A(0.00), A(0.00), A(0.06), A(0.82), A(0.69),
-        A(1.00), A(0.31), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.31), A(1.00),
-        A(1.00), A(0.19), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.19), A(1.00),
-        A(1.00), A(0.31), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.31), A(1.00),
-        A(0.69), A(0.82), A(0.06), A(0.00), A(0.00), A(0.00), A(0.06), A(0.82), A(0.69),
-        A(0.12), A(0.94), A(0.82), A(0.31), A(0.25), A(0.31), A(0.82), A(0.94), A(0.12),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00), \
+        A(0.12), A(0.94), A(0.82), B(0.31), B(0.25), B(0.31), A(0.82), A(0.94), A(0.12), \
+        A(0.69), A(0.82), B(0.06), B(0.00), B(0.00), B(0.00), B(0.06), A(0.82), A(0.69), \
+        A(1.00), B(0.31), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.31), A(1.00), \
+        A(1.00), B(0.19), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.19), A(1.00), \
+        A(1.00), B(0.31), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.31), A(1.00), \
+        A(0.69), A(0.82), B(0.06), B(0.00), B(0.00), B(0.00), B(0.06), A(0.82), A(0.69), \
+        A(0.12), A(0.94), A(0.82), B(0.31), B(0.25), B(0.31), A(0.82), A(0.94), A(0.12), \
         A(0.00), A(0.12), A(0.69), A(1.00), A(1.00), A(1.00), A(0.69), A(0.12), A(0.00)
-      };
+
+      DEF_ALPHAS(9)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 9, 9, alpha, mode);
     }
     else {
-      LICE_pixel_chan alphas[81] = {
-        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00),
-        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
-        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00),
-        A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00),
-        A(0.00), A(1.00), A(1.00), A(0.00), A(0.00), A(0.00), A(1.00), A(1.00), A(0.00),
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(1.00), A(1.00), B(0.00), B(0.00), B(0.00), A(1.00), A(1.00), A(0.00), \
+        A(1.00), A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(1.00), A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), A(1.00), \
+        A(0.00), A(1.00), A(1.00), B(0.00), B(0.00), B(0.00), A(1.00), A(1.00), A(0.00), \
         A(0.00), A(0.00), A(1.00), A(1.00), A(1.00), A(1.00), A(1.00), A(0.00), A(0.00)
-      };
+
+      DEF_ALPHAS(9)
+#undef __ALPHAS__
       LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 9, 9, alpha, mode);
     }
     return true;
+  }
+  else if (r == 5.0f)
+  {
+    if (aa) {
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(0.00), A(0.58), A(0.90), A(1.00), A(0.90), A(0.58), A(0.00), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(1.00), B(0.42), B(0.10), B(0.00), B(0.10), B(0.42), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), A(0.00), \
+        A(0.58), B(0.42), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.42), A(0.58), \
+        A(0.90), B(0.10), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.10), A(0.90), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(0.90), B(0.10), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.10), A(0.90), \
+        A(0.58), B(0.42), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.42), A(0.58), \
+        A(0.00), A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), A(0.00), \
+        A(0.00), A(0.00), A(1.00), B(0.42), B(0.10), B(0.00), B(0.10), B(0.42), A(1.00), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.00), A(0.58), A(0.90), A(1.00), A(0.90), A(0.58), A(0.00), A(0.00), A(0.00)
+
+      DEF_ALPHAS(11)
+#undef __ALPHAS__
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 11, 11, alpha, mode);
+      return true;
+    }
+  }
+  else if (r == 6.0f)
+  {
+    if (aa) {
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(0.00), A(0.20), A(0.66), A(0.92), A(1.00), A(0.92), A(0.66), A(0.20), A(0.00), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.47), A(0.81), B(0.35), B(0.09), B(0.00), B(0.09), B(0.35), A(0.81), A(0.47), A(0.00), A(0.00), \
+        A(0.00), A(0.47), B(0.53), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.53), A(0.47), A(0.00), \
+        A(0.20), A(0.81), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(0.81), A(0.20), \
+        A(0.66), B(0.35), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.35), A(0.66), \
+        A(0.92), B(0.09), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.09), A(0.92), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(0.92), B(0.09), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.09), A(0.92), \
+        A(0.66), B(0.35), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.35), A(0.66), \
+        A(0.20), A(0.81), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(0.81), A(0.20), \
+        A(0.00), A(0.47), B(0.53), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.53), A(0.47), A(0.00), \
+        A(0.00), A(0.00), A(0.47), A(0.81), B(0.35), B(0.09), B(0.00), B(0.09), B(0.35), A(0.81), A(0.47), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.00), A(0.20), A(0.66), A(0.92), A(1.00), A(0.92), A(0.66), A(0.20), A(0.00), A(0.00), A(0.00),
+
+      DEF_ALPHAS(13)
+#undef __ALPHAS__
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 13, 13, alpha, mode);
+      return true;
+    }
+  }
+  else if (r == 7.0f)
+  {
+    if (aa) {
+#define __ALPHAS__(B) \
+        A(0.00), A(0.00), A(0.00), A(0.00), A(0.33), A(0.71), A(0.93), A(1.00), A(0.93), A(0.71), A(0.33), A(0.00), A(0.00), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.00), A(0.75), A(0.68), B(0.29), B(0.07), B(0.00), B(0.07), B(0.29), A(0.68), A(0.75), A(0.00), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.90), B(0.26), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.34), A(0.90), A(0.00), A(0.00), \
+        A(0.00), A(0.75), B(0.34), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.26), A(0.75), A(0.00), \
+        A(0.33), A(0.68), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(0.68), A(0.33), \
+        A(0.71), B(0.29), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.29), A(0.71), \
+        A(0.93), B(0.07), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.07), A(0.93), \
+        A(1.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(1.00), \
+        A(0.93), B(0.07), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.07), A(0.93), \
+        A(0.71), B(0.29), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.29), A(0.71), \
+        A(0.33), A(0.68), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), A(0.68), A(0.33), \
+        A(0.00), A(0.75), B(0.34), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.26), A(0.75), A(0.00), \
+        A(0.00), A(0.00), A(0.90), B(0.26), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.00), B(0.34), A(0.90), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.00), A(0.75), A(0.68), B(0.29), B(0.07), B(0.00), B(0.07), B(0.29), A(0.68), A(0.75), A(0.00), A(0.00), A(0.00), \
+        A(0.00), A(0.00), A(0.00), A(0.00), A(0.33), A(0.71), A(0.93), A(1.00), A(0.93), A(0.71), A(0.33), A(0.00), A(0.00), A(0.00), A(0.00),
+
+      DEF_ALPHAS(15)
+#undef __ALPHAS__
+      LICE_DrawGlyph(dest, cx-r, cy-r, color, alphas, 15, 15, alpha, mode);
+      return true;
+    }
   }
 
   return false;
@@ -410,6 +511,18 @@ static void __DrawCircleClipped(LICE_IBitmap* dest, float cx, float cy, float ra
 static void __DrawArc(int w, int h, LICE_IBitmap* dest, float cx, float cy, float rad, double anglo, double anghi,
   LICE_pixel color, int ialpha, bool aa, int mode)
 {
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(cx);
+      __LICE_SC(cy);
+      __LICE_SC(rad);
+    }
+  }
   // -2PI <= anglo <= anghi <= 2PI
   anglo += 2.0*_PI;
   anghi += 2.0*_PI;
@@ -496,19 +609,32 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 {
   if (!dest) return;
 
-  const int w = dest->getWidth(), h = dest->getHeight();
+  int w = dest->getWidth(), h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(cx);
+      __LICE_SC(cy);
+      __LICE_SC(r);
+    }
+  }
+
   const int clip[4] = { 0, 0, w, h };
   if (w < 1 || h <1 || r<0 || 
       (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
       (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
     ) return;
 
-  if (CachedCircle(dest, cx, cy, r, color, alpha, mode, aa)) return;  
-
-  if (dest->isFlipped()) cy=h-1-cy;
-
   int ia = (int) (alpha*256.0f);
   if (!ia) return;
+
+  if (CachedCircle(dest, cx, cy, r, color, alpha, mode|LICE_BLIT_IGNORE_SCALING, aa, false)) return;
+
+  if (dest->isFlipped()) cy=h-1-cy;
 
   const bool doclip = !(cx-r-2 >= 0 && cy-r-2 >= 0 && cx+r+2 < w && cy+r+2 < h);
 
@@ -518,15 +644,32 @@ void LICE_Circle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel col
 void LICE_FillCircle(LICE_IBitmap* dest, float cx, float cy, float r, LICE_pixel color, float alpha, int mode, bool aa)
 {
   if (!dest) return;
-  if (dest->isFlipped()) cy=dest->getHeight()-1-cy;
 
-  const int ia = (int) (alpha*256.0f);
-  if (!ia) return;
-  const int w = dest->getWidth(), h = dest->getHeight();
+  int w = dest->getWidth(), h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(cx);
+      __LICE_SC(cy);
+      __LICE_SC(r);
+    }
+  }
+
   if (w < 1 || h < 1 || r < 0.0 || 
       (int)cx+(int)r < -2 || (int)cy + (int)r < - 2 ||
       (int)cx-(int)r > w + 2 || (int)cy - (int)r > h + 2
       ) return;
+
+  const int ia = (int) (alpha*256.0f);
+  if (!ia) return;
+
+  if (CachedCircle(dest, cx, cy, r, color, alpha, mode|LICE_BLIT_IGNORE_SCALING, aa, true)) return;
+
+  if (dest->isFlipped()) cy=h-1-cy;
 
   const int clip[4] = { 0, 0, w, h };
 
@@ -544,18 +687,33 @@ void LICE_RoundRect(LICE_IBitmap *drawbm, float xpos, float ypos, float w, float
     if (cr > w*0.5) cr=w*0.5;
     if (cr > h*0.5) cr=h*0.5;
     cr=floor(cr);
+
     if (cr>=2)
     {
-      LICE_Line(drawbm,xpos+cr,ypos,xpos+w-cr,ypos,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos+cr-1,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos+w,ypos+cr,xpos+w,ypos+h-cr,col,alpha,mode,aa);
-      LICE_Line(drawbm,xpos,ypos+cr-1,xpos,ypos+h-cr,col,alpha,mode,aa);
+      double adj = 0.0;
+      const int __sc = IGNORE_SCALING(mode) ? 0 : drawbm ? (int)drawbm->Extended(LICE_EXT_GET_SCALING,NULL) : 0;
+      if (__sc>0)
+      {
+        adj = 1.0 - 256.0/__sc;
 
+        LICE_FLine(drawbm,xpos+cr+adj,ypos+adj,xpos+w-cr,ypos+adj,col,alpha,mode,true);
+        LICE_FLine(drawbm,xpos+cr-1+adj,ypos+h-adj,xpos+w-cr-adj,ypos+h-adj,col,alpha,mode,true);
+        LICE_FLine(drawbm,xpos+w-adj,ypos+cr+adj,xpos+w-adj,ypos+h-cr-adj,col,alpha,mode,true);
+        LICE_FLine(drawbm,xpos+adj,ypos+cr-1+adj,xpos+adj,ypos+h-cr-adj,col,alpha,mode,true);
+//        aa=true;
+      }
+      else
+      {
+        LICE_Line(drawbm,xpos+cr,ypos,xpos+w-cr,ypos,col,alpha,mode,aa);
+        LICE_Line(drawbm,xpos+cr-1,ypos+h,xpos+w-cr,ypos+h,col,alpha,mode,aa);
+        LICE_Line(drawbm,xpos+w,ypos+cr,xpos+w,ypos+h-cr,col,alpha,mode,aa);
+        LICE_Line(drawbm,xpos,ypos+cr-1,xpos,ypos+h-cr,col,alpha,mode,aa);
+      }
 
-      LICE_Arc(drawbm,xpos+cr,ypos+cr,cr,-_PI*0.5f,0,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+w-cr,ypos+cr,cr,0,_PI*0.5f,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+w-cr,ypos+h-cr,cr,_PI*0.5f,_PI,col,alpha,mode,aa);
-      LICE_Arc(drawbm,xpos+cr,ypos+h-cr,cr,_PI,_PI*1.5f,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr+adj,ypos+cr+adj,cr,-_PI*0.5f,0,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr-adj,ypos+cr+adj,cr,0,_PI*0.5f,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+w-cr-adj,ypos+h-cr-adj,cr,_PI*0.5f,_PI,col,alpha,mode,aa);
+      LICE_Arc(drawbm,xpos+cr+adj,ypos+h-cr-adj,cr,_PI,_PI*1.5f,col,alpha,mode,aa);
 
       return;
     }

@@ -112,6 +112,7 @@ public:
   POINT get_min_size(bool applyMargins=false) const;
 
   void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
+  void onResizeVirtual(int width, int height);
 
 
   void set_margins(int left, int top, int right, int bottom) { m_margins.left=left; m_margins.top=top; m_margins.right=right; m_margins.bottom=bottom; }
