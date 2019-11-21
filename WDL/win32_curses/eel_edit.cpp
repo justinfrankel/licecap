@@ -1379,6 +1379,7 @@ void EEL_Editor::onRightClick(HWND hwnd)
             while ((*q >= '0' && *q <= '9') || 
                    (*q >= 'a' && *q <= 'z') || 
                    (*q >= 'A' && *q <= 'Z') || 
+                   *q == ':' || // lua
                    *q == '_' || *q == '.') q++;
 
             while (*q == ' ') q++;
