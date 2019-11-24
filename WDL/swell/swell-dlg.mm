@@ -2144,7 +2144,7 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 static HWND last_key_window;
 
-static HMENU swell_getEffectiveMenuForWindow(NSView *cv, NSWindow *window) // cv and window must be non-NULL
+static HMENU swell_getEffectiveMenuForWindow(NSView *cv, NSWindow *window, bool isModal) // cv and window must be non-NULL
 {
   for (;;)
   {
@@ -2153,6 +2153,8 @@ static HMENU swell_getEffectiveMenuForWindow(NSView *cv, NSWindow *window) // cv
       HMENU menu = [(SWELL_hwndChild*)cv swellGetMenu];
       if (menu) return menu;
     }
+
+    if (isModal) return NULL;
 
     if (![window respondsToSelector:@selector(swellGetOwner)]) return NULL;
 
@@ -2239,7 +2241,7 @@ static HMENU swell_getEffectiveMenuForWindow(NSView *cv, NSWindow *window) // cv
   if (foc && [foc respondsToSelector:@selector(swellHasBeenDestroyed)] && [(SWELL_hwndChild*)foc swellHasBeenDestroyed]) foc=NULL; \
   NSView *cv = [self contentView];  \
   if (!cv || ![cv respondsToSelector:@selector(swellHasBeenDestroyed)] || ![(SWELL_hwndChild*)cv swellHasBeenDestroyed])  { \
-    menu = swell_getEffectiveMenuForWindow(cv,self); \
+    menu = swell_getEffectiveMenuForWindow(cv,self,ISMODAL); \
     if (!menu) menu=ISMODAL && g_swell_defaultmenumodal ? g_swell_defaultmenumodal : g_swell_defaultmenu; \
     if (menu && menu != (HMENU)[NSApp mainMenu] && !g_swell_terminating) [NSApp setMainMenu:(NSMenu *)menu]; \
     sendSwellMessage(cv,WM_ACTIVATE,WA_ACTIVE,(LPARAM)foc); \
