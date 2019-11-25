@@ -7466,6 +7466,7 @@ void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
   {
     __rent++;
     NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_SELCHANGED},};
+    nm.itemNew.hItem = item;
     SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
     __rent--;
   }
