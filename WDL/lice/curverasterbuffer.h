@@ -96,7 +96,11 @@ class CurveRasterBuffer
 
     void Draw(LICE_IBitmap *bm, LICE_pixel color, float alpha)
     {
-      const int bmh = bm->getHeight();
+      int bmh = bm->getHeight();
+#ifdef __APPLE__
+      const int sc = (int) (INT_PTR)bm->Extended(LICE_EXT_GET_SCALING,NULL);
+      if (sc > 256) bmh = bmh * sc / 256;
+#endif
       const int xmax = xext[1];
       int x = xext[0];
       const float *sbuf = sb+x*2;
