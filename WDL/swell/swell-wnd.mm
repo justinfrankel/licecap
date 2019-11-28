@@ -1643,13 +1643,12 @@ void DestroyWindow(HWND hwnd)
     }
     else 
     {
-      if (pw && [NSApp keyWindow] == pw)
+      if (pw)
       {
         id foc=[pw firstResponder];
         if (foc && (foc == pid || IsChild((HWND)pid,(HWND)foc)))
         {
-          HWND h=GetParent((HWND)pid);
-          if (h) SetFocus(h);
+          [pw makeFirstResponder:nil];
         }
       }
       [(NSView *)pid removeFromSuperview];
@@ -2834,13 +2833,12 @@ void ShowWindow(HWND hwnd, int cmd)
     case SW_HIDE:
       {
         NSWindow *pw=[pid window];
-        if (pw && [NSApp keyWindow] == pw)
+        if (pw)
         {
           id foc=[pw firstResponder];
           if (foc && (foc == pid || IsChild((HWND)pid,(HWND)foc)))
           {
-            HWND h=GetParent((HWND)pid);
-            if (h) SetFocus(h);
+            [pw makeFirstResponder:nil];
           }
         }
         if (![((NSView *)pid) isHidden])
