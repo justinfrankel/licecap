@@ -2645,6 +2645,19 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_GETDLGCODE:
       if (GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD) return DLGC_WANTALLKEYS;
     break;
+    case 0x02E0: //WM_DPICHANGED
+      if (!(GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD))
+      {
+        RECT *prcNewWindow = (RECT*)lParam;
+        SetWindowPos(hwnd,
+          NULL,
+          prcNewWindow ->left,
+          prcNewWindow ->top,
+          prcNewWindow->right - prcNewWindow->left,
+          prcNewWindow->bottom - prcNewWindow->top,
+          SWP_NOZORDER | SWP_NOACTIVATE);
+      }
+    break;
 #endif
     case WM_SIZE:
       // fall through
