@@ -1798,7 +1798,12 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 - (BOOL)becomeFirstResponder 
 {
-  if (m_enabled <= 0 || ![super becomeFirstResponder]) return NO;
+  int en = m_enabled;
+  if (en < 0)
+  {
+    if ([[self window] contentView]==self) en = 1; // accept focus if we're enabled-without-focus and the contentview
+  }
+  if (en <= 0 || ![super becomeFirstResponder]) return NO;
   SendMessage((HWND)self, WM_MOUSEACTIVATE, 0, 0);
   return YES;
 }
@@ -1815,6 +1820,11 @@ static void MakeGestureInfo(NSEvent* evt, GESTUREINFO* gi, HWND hwnd, int type)
 
 - (BOOL)acceptsFirstResponder 
 {
+  if (m_enabled < 0)
+  {
+    // accept focus if we're enabled-without-focus and the contentview
+    if ([[self window] contentView]==self) return YES;
+  }
   return m_enabled > 0?YES:NO;
 }
 
