@@ -136,8 +136,13 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   layout->startpos = startitem;
   layout->columns = cols;
   layout->heights = &s_heights;
-  layout->updownbutton_h = has_scroll && cols == 1 ? m_scrollbuttonsize : 0;
-  layout->leftrightbutton_w = has_scroll && cols > 1 ? m_scrollbuttonsize : 0;
+  int scroll_mode = has_scroll && cols > 0 ? cols == 1 ? 1 : 2 : 0;
+
+  if (scroll_mode == 1 && h - m_scrollbuttonsize < rh_base && w - m_scrollbuttonsize*2 >= m_mincolwidth/2)
+    scroll_mode = 2;
+
+  layout->updownbutton_h = scroll_mode == 1 ? m_scrollbuttonsize : 0;
+  layout->leftrightbutton_w = scroll_mode == 2 ? m_scrollbuttonsize : 0;
   layout->item_area_w = w - 2*layout->leftrightbutton_w;
   layout->item_area_h = h - layout->updownbutton_h;
 }
