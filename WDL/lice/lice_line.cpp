@@ -1701,7 +1701,7 @@ void LICE_FillTrapezoidF(LICE_IBitmap* dest, double fx1a, double fx1b, int y1, d
   LICE_pixel* px = dest->getBits()+y1*span;
   int y = y2-y1 + 1 + extra;
 
-  x1b+=1+extra; // from now on draw [x1a,x1b)
+  x1b++; // from now on draw [x1a,x1b)
 
   if (!dxady && !dxbdy)
   {
