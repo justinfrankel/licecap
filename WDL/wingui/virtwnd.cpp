@@ -1516,8 +1516,8 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
 
   if (clipx<destx) clipx=destx;
   if (clipy<desty) clipy=desty;
-  if (clipright>destx+destw) clipright=clipx+destw;
-  if (clipbottom>desty+desth) clipbottom=clipy+desth;
+  if (clipright>destx+destw) clipright=destx+destw;
+  if (clipbottom>desty+desth) clipbottom=desty+desth;
   
   if (left_margin<1||top_margin<1||right_margin<1||bottom_margin<1) 
   {
