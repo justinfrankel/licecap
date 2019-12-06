@@ -1298,6 +1298,12 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   double xadvance = srcw / dstw;
   double yadvance = srch / dsth;
 
+  int clip_r=(int)(srcx+lice_max(srcw,0)+0.999999); // this rounding logic is shit, but we're stuck with it
+  int clip_b=(int)(srcy+lice_max(srch,0)+0.999999);
+  if (clip_r>srcbm_w) clip_r=srcbm_w;
+  if (clip_b>srcbm_h) clip_b=srcbm_h;
+
+
   if (dstx < 0) { srcx -= (float) (dstx*xadvance); dstw+=dstx; dstx=0; }
   if (dsty < 0) { srcy -= (float) (dsty*yadvance); dsth+=dsty; dsty=0; }  
   
@@ -1378,11 +1384,6 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   }
   else pdest += dsty*dest_span;
   pdest+=dstx*sizeof(LICE_pixel);
-
-  int clip_r=(int)(srcx+lice_max(srcw,0)+0.999999);
-  int clip_b=(int)(srcy+lice_max(srch,0)+0.999999);
-  if (clip_r>srcbm_w) clip_r=srcbm_w;
-  if (clip_b>srcbm_h) clip_b=srcbm_h;
 
   clip_r -= srcoffs_x;
   clip_b -= srcoffs_y;
