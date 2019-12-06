@@ -633,7 +633,7 @@ int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
   {
     if (idx == -2) return 0;
     if (HandleScrollClicks(xpos,ypos,&layout)) return 1;
-    idx=num_items; // todo?
+    return 0;
   }
 
   m_cap_state=0x1000;
