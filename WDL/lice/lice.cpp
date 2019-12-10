@@ -132,7 +132,8 @@ LICE_SysBitmap::LICE_SysBitmap(int w, int h)
 #endif
   m_bits=0;
   m_width=m_height=0;
-  m_scaling=0;
+  m_adv_scaling=0;
+  m_draw_scaling=0;
 
   __resize(w,h);
 }
@@ -161,10 +162,10 @@ bool LICE_SysBitmap::__resize(int w, int h)
   m_width=w;
   m_height=h;
 
-  if (m_scaling > 0)
+  if (m_draw_scaling > 0)
   {
-    w = (w * m_scaling) >> 8;
-    h = (h * m_scaling) >> 8;
+    w = (w * m_draw_scaling) >> 8;
+    h = (h * m_draw_scaling) >> 8;
   }
   w = (w+3)&~3; // always keep backing store a multiple of 4px wide
 

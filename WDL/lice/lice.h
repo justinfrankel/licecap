@@ -152,27 +152,37 @@ public:
     switch (id)
     {
       case LICE_EXT_SET_ADVISORY_SCALING: 
+        {
+          int sc = data && *(int*)data != 256 ? *(int *)data : 0; 
+          if (sc < 0) sc = 0;
+          m_adv_scaling = sc;
+        }
+      return 1;
       case LICE_EXT_SET_SCALING: 
         {
           int sc = data && *(int*)data != 256 ? *(int *)data : 0; 
           if (sc < 0) sc = 0;
-          if (id == LICE_EXT_SET_ADVISORY_SCALING) sc = -sc;
-          if (m_scaling != sc)
+          if (m_draw_scaling != sc)
           {
             const int tmp=m_width;
-            m_scaling = sc;
+            m_draw_scaling = sc;
             m_width=0;
             resize(tmp,m_height);
           }
         }
       return 1;
       case LICE_EXT_GET_SCALING: 
-      return m_scaling > 0 ? m_scaling : 0;
+      return m_draw_scaling;
       case LICE_EXT_GET_ADVISORY_SCALING: 
-      return m_scaling < 0 ? -m_scaling : 0;
+      return m_adv_scaling;
       case LICE_EXT_GET_ANY_SCALING:
-      return m_scaling < 0 ? -m_scaling : m_scaling;
-
+        if (m_draw_scaling > 0) 
+        {
+          if (m_adv_scaling > 0)
+            return (m_adv_scaling * m_draw_scaling) >> 8;
+          return m_draw_scaling;
+        }
+        return m_adv_scaling;
     }
     return 0;
   }
@@ -192,7 +202,7 @@ private:
   HBITMAP m_bitmap;
   HGDIOBJ m_oldbitmap;
 #endif
-  int m_scaling;
+  int m_draw_scaling, m_adv_scaling;
 };
 
 class LICE_WrapperBitmap : public LICE_IBitmap 
