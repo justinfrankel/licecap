@@ -1561,8 +1561,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
   RECT r = {0,0, (int)bounds.size.width, (int)bounds.size.height };
 
-  double x_sc = r.right / (double)tex.width;
-  double y_sc = r.bottom / (double)tex.height;
+  const float x_sc = (float) (r.right / (double)tex.width);
+  const float y_sc = (float) (r.bottom / (double)tex.height);
 
   vector_float2 quads[] =
   {
@@ -1586,7 +1586,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
 
   // Set the region of the drawable to draw into.
-  [renderEncoder setViewport:(MTLViewport){0.0, 0.0, r.right,r.bottom, -1.0, 1.0 }];
+  [renderEncoder setViewport:(MTLViewport){0.0, 0.0, (double)r.right,(double)r.bottom, -1.0, 1.0 }];
 
   [renderEncoder setRenderPipelineState:m_metal_pipelineState];
   [renderEncoder setVertexBytes:quads length:sizeof(quads) atIndex:0];
@@ -3986,7 +3986,7 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
 
   if (w<1 || h<1) return;
 
-  MTLRegion region = { { x, y, 0 }, {w,h, 1} };
+  MTLRegion region = { { (NSUInteger)x, (NSUInteger)y, 0 }, {(NSUInteger)w,(NSUInteger)h, 1} };
   [tex replaceRegion:region mipmapLevel:0 withBytes:buf bytesPerRow:span*4];
 }
 
