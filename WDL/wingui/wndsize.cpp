@@ -42,6 +42,7 @@ void WDL_WndSizer::init(HWND hwndDlg, RECT *initr)
   else if (m_hwnd) 
     GetClientRect(m_hwnd,&r);
   set_orig_rect(&r);
+  if (m_base_dpi>0) m_base_dpi = calc_dpi(hwndDlg);
 
   m_list.Resize(0);
 
@@ -255,8 +256,20 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
   if (!m_hwnd) return;
 
   RECT new_rect;
+
+  const int dpi = m_base_dpi > 0 ? calc_dpi(m_hwnd) : 0;
   
   GetClientRect(m_hwnd,&new_rect);
+
+  RECT new_rect_sc = new_rect;
+  if (dpi > 0 && dpi != m_base_dpi)
+  {
+    new_rect_sc.left = new_rect_sc.left * m_base_dpi / dpi;
+    new_rect_sc.top = new_rect_sc.top * m_base_dpi / dpi;
+    new_rect_sc.right = new_rect_sc.right * m_base_dpi / dpi;
+    new_rect_sc.bottom = new_rect_sc.bottom * m_base_dpi / dpi;
+  }
+
 #ifdef _WIN32
 
   m_enum_rgn=CreateRectRgnIndirect(&new_rect);
@@ -272,9 +285,16 @@ void WDL_WndSizer::onResize(HWND only, int notouch, int xtranslate, int ytransla
     if ((rec->vwnd && !only) || (rec->hwnd && (!only || only == rec->hwnd)))
     {
       RECT r=rec->orig;
-      transformRect(&r,rec->scales,&new_rect);
-    
+      transformRect(&r,rec->scales,&new_rect_sc);
       rec->last = r;
+
+      if (rec->hwnd && m_base_dpi > 0 && dpi != m_base_dpi)
+      {
+        r.left = r.left * dpi / m_base_dpi;
+        r.top = r.top* dpi / m_base_dpi;
+        r.right = r.right * dpi / m_base_dpi;
+        r.bottom = r.bottom * dpi / m_base_dpi;
+      }
 
       if (!notouch)
       {
@@ -364,4 +384,53 @@ WDL_WndSizer__rec *WDL_WndSizer::get_item(int dlg_id) const
     rec++;
   }
   return NULL;
+}
+
+bool WDL_WndSizer::sizer_to_dpi_rect(RECT *r, int dpi) const // returns true if modified
+{
+  if (r && m_base_dpi>0)
+  {
+    if (dpi<=0) dpi = calc_dpi(m_hwnd);
+    if (dpi > 0 && dpi != m_base_dpi)
+    {
+      r->left = r->left * dpi / m_base_dpi;
+      r->top = r->top * dpi / m_base_dpi;
+      r->right = r->right * dpi / m_base_dpi;
+      r->bottom = r->bottom * dpi / m_base_dpi;
+      return true;
+    }
+  }
+  return false;
+}
+
+
+int WDL_WndSizer::calc_dpi(HWND hwnd)
+{
+#ifdef _WIN32
+  static UINT (WINAPI *__GetDpiForWindow)(HWND);
+  if (!__GetDpiForWindow)
+  {
+    HINSTANCE h = GetModuleHandle("user32.dll");
+    if (h)
+    {
+      BOOL (WINAPI *__AreDpiAwarenessContextsEqual)(void *, void *);
+      void * (WINAPI *__GetThreadDpiAwarenessContext )();
+      *(void **)&__GetThreadDpiAwarenessContext = GetProcAddress(h,"GetThreadDpiAwarenessContext");
+      *(void **)&__AreDpiAwarenessContextsEqual = GetProcAddress(h,"AreDpiAwarenessContextsEqual");
+      if (__GetThreadDpiAwarenessContext && __AreDpiAwarenessContextsEqual)
+      {
+        if (__AreDpiAwarenessContextsEqual(__GetThreadDpiAwarenessContext(),(void*)(INT_PTR)-4))
+          *(void **)&__GetDpiForWindow = GetProcAddress(h,"GetDpiForWindow");
+      }
+    }
+    if (!__GetDpiForWindow)
+      *(INT_PTR*)&__GetDpiForWindow = 1;
+  }
+  if (*(INT_PTR*)&__GetDpiForWindow != 1)
+  {
+    if (!hwnd) return 256;
+    return __GetDpiForWindow(hwnd)*256 / 96;
+  }
+#endif
+  return 0;
 }
