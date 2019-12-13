@@ -136,10 +136,13 @@ typedef struct WindowPropRec
 
 
 @interface SWELL_TextField : NSTextField
-- (id) init;
-- (id) initWithFrame:(NSRect)r;
+{
+  bool m_last_dark_mode;
+}
 - (void)setNeedsDisplay:(BOOL)flag;
 - (void)setNeedsDisplayInRect:(NSRect)rect;
+- (void)drawRect:(NSRect)rect;
+- (void)initColors:(bool)darkmode;
 @end
 
 @interface SWELL_TabView : NSTabView

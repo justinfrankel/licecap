@@ -1009,6 +1009,7 @@ SWELL_API_DEFINE(void,SWELL_DrawFocusRect,(HWND hwndPar, RECT *rct, void **handl
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_SetWindowRepre,(HWND hwnd, const char *fn, bool isDirty)) // sets the represented file and edited state
 SWELL_API_DEFINE(void,SWELL_PostQuitMessage,(void *sender))
+SWELL_API_DEFINE(bool,SWELL_osx_is_dark_mode,(int mode)) // mode=0 for dark mode enabled enabled, 1=dark mode allowed (Breaks various things)
 #endif
 
 /*

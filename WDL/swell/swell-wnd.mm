@@ -1687,15 +1687,7 @@ void EnableWindow(HWND hwnd, int enable)
     else
       [bla setEnabled:(enable?YES:NO)];
     if ([bla isKindOfClass:[SWELL_TextField class]])
-    {
-      NSTextField* txt = (NSTextField*)bla;
-      if (![txt isEditable] && ![txt isBordered] && ![txt drawsBackground]) // looks like a static text control
-      {
-        NSColor* col = [txt textColor];
-        float alpha = (enable ? 1.0f : 0.5f);
-        [txt setTextColor:[col colorWithAlphaComponent:alpha]];
-      }
-    }    
+      [(SWELL_TextField*)bla initColors:SWELL_osx_is_dark_mode(0)];
   }
   SWELL_END_TRY(;)
 }
@@ -3143,7 +3135,6 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Edit")
 }
 @end
 
-
 @implementation SWELL_TextField
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
 
@@ -3153,21 +3144,40 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
   if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
   return didBecomeFirstResponder;
 }
-
-- (id) init
+- (void)initColors:(bool)darkmode
 {
-  id ret = [super init];
-  if (ret && [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] isEqualToString:@"Dark"])
-    [self setBackgroundColor:[NSColor windowBackgroundColor]]; //textBackgroundColor is transparent, apparently
-  return ret;
+  m_last_dark_mode = darkmode;
+  if ([self isEditable])
+  {
+    if (SWELL_osx_is_dark_mode(1))
+    {
+      if (darkmode)
+        [self setBackgroundColor:[NSColor windowBackgroundColor]];
+      else
+        [self setBackgroundColor:[NSColor textBackgroundColor]];
+    }
+  }
+  else if (![self isBordered] && ![self drawsBackground]) // looks like a static text control
+  {
+    NSColor *col;
+    if (SWELL_osx_is_dark_mode(1))
+      col = [NSColor textColor];
+    else
+      col = [self textColor];
+
+    float alpha = ([self isEnabled] ? 1.0f : 0.5f);
+    [self setTextColor:[col colorWithAlphaComponent:alpha]];
+  }
 }
 
-- (id) initWithFrame:(NSRect)r
+- (void) drawRect:(NSRect)r
 {
-  id ret = [super initWithFrame:r];
-  if (ret && [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] isEqualToString:@"Dark"])
-    [self setBackgroundColor:[NSColor windowBackgroundColor]]; //textBackgroundColor is transparent, apparently
-  return ret;
+  if (SWELL_osx_is_dark_mode(1))
+  {
+    const bool m = SWELL_osx_is_dark_mode(0);
+    if (m != m_last_dark_mode) [self initColors:m];
+  }
+  [super drawRect:r];
 }
 @end
 
@@ -3183,7 +3193,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
     [obj setTag:idx];
     [obj setDelegate:ACTIONTARGET];
-  
+
     [obj setHorizontallyResizable:NO];
     
     if (flags & WS_VSCROLL)
@@ -3239,6 +3249,9 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
   if (m_transform.size.width < minwidfontadjust)
     [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
   
+  if ([obj isKindOfClass:[SWELL_TextField class]])
+    [(SWELL_TextField *)obj initColors:SWELL_osx_is_dark_mode(0)];
+
   NSCell* cell = [obj cell];  
   if (flags&ES_CENTER) [cell setAlignment:NSCenterTextAlignment];
   else if (flags&ES_RIGHT) [cell setAlignment:NSRightTextAlignment];
@@ -5072,6 +5085,21 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           if (d) SWELL_DoDialogColorUpdates(hwnd,d,true);
         }
       }
+    }
+  }
+  else if (msg == WM_CTLCOLORSTATIC && wParam)
+  {
+    if (SWELL_osx_is_dark_mode(0))
+    {
+      static HBRUSH br;
+      if (!br)
+      {
+        br = CreateSolidBrush(RGB(0,0,0)); // todo hm
+        br->color = [[NSColor windowBackgroundColor] CGColor];
+        CFRetain(br->color);
+      }
+      SetTextColor((HDC)wParam,RGB(255,255,255));
+      return (LRESULT)br;
     }
   }
   return 0;
