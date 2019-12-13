@@ -136,6 +136,8 @@ typedef struct WindowPropRec
 
 
 @interface SWELL_TextField : NSTextField
+- (id) init;
+- (id) initWithFrame:(NSRect)r;
 - (void)setNeedsDisplay:(BOOL)flag;
 - (void)setNeedsDisplayInRect:(NSRect)rect;
 @end

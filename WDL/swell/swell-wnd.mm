@@ -3153,6 +3153,22 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
   if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
   return didBecomeFirstResponder;
 }
+
+- (id) init
+{
+  id ret = [super init];
+  if (ret && [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] isEqualToString:@"Dark"])
+    [self setBackgroundColor:[NSColor windowBackgroundColor]]; //textBackgroundColor is transparent, apparently
+  return ret;
+}
+
+- (id) initWithFrame:(NSRect)r
+{
+  id ret = [super initWithFrame:r];
+  if (ret && [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] isEqualToString:@"Dark"])
+    [self setBackgroundColor:[NSColor windowBackgroundColor]]; //textBackgroundColor is transparent, apparently
+  return ret;
+}
 @end
 
 
