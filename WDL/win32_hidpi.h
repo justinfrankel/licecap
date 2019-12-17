@@ -1,6 +1,10 @@
 #include "wdltypes.h"
 
 #ifdef _WIN32
+  #ifndef SWP__NOMOVETHENSIZE
+  #define SWP__NOMOVETHENSIZE (1<<30)
+  #endif
+
 #ifdef WDL_WIN32_HIDPI_IMPL
 #ifndef _WDL_WIN32_HIDPI_H_IMPL
 #define _WDL_WIN32_HIDPI_H_IMPL
@@ -16,10 +20,58 @@ WDL_WIN32_HIDPI_IMPL void *_WDL_dpi_func(void *p)
   }
   return (UINT_PTR)__SetThreadDpiAwarenessContext > 1 ? __SetThreadDpiAwarenessContext(p) : NULL;
 }
+
+WDL_WIN32_HIDPI_IMPL void WDL_mmSetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int w, int h, UINT f)
+{
+#ifdef SetWindowPos
+#undef SetWindowPos
 #endif
-#else
+  static char init;
+
+  if (!init)
+  {
+    init = 1;
+    HINSTANCE h = GetModuleHandle("user32.dll");
+    if (h)
+    {
+      BOOL (WINAPI *__AreDpiAwarenessContextsEqual)(void *, void *);
+      void * (WINAPI *__GetThreadDpiAwarenessContext )();
+      *(void **)&__GetThreadDpiAwarenessContext = GetProcAddress(h,"GetThreadDpiAwarenessContext");
+      *(void **)&__AreDpiAwarenessContextsEqual = GetProcAddress(h,"AreDpiAwarenessContextsEqual");
+      if (__GetThreadDpiAwarenessContext && __AreDpiAwarenessContextsEqual)
+      {
+        if (__AreDpiAwarenessContextsEqual(__GetThreadDpiAwarenessContext(),(void*)(INT_PTR)-4))
+          init = 2;
+      }
+    }
+  }
+
+  if (init == 2 && hwnd &&
+    !(f&(SWP_NOMOVE|SWP_NOSIZE|SWP__NOMOVETHENSIZE|SWP_ASYNCWINDOWPOS)) &&
+    !(GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD))
+  {
+    SetWindowPos(hwnd,NULL,x,y,0,0,SWP_NOREDRAW|SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_DEFERERASE);
+    f |= SWP_NOMOVE;
+  }
+  SetWindowPos(hwnd,hwndAfter,x,y,w,h,f&~SWP__NOMOVETHENSIZE);
+#define SetWindowPos WDL_mmSetWindowPos
+}
+
+
+#endif // end of _WDL_WIN32_HIDPI_H_IMPL
+#else // if !WDL_WIN32_HIDPI_IMPL
+void WDL_mmSetWindowPos(HWND hwnd, HWND hwndAfter, int x, int y, int w, int h, UINT f);
 void *_WDL_dpi_func(void *p);
+#ifdef SetWindowPos
+#undef SetWindowPos
 #endif
+#define SetWindowPos WDL_mmSetWindowPos
+#endif
+
+#else // !_WIN32
+  #ifndef SWP__NOMOVETHENSIZE
+  #define SWP__NOMOVETHENSIZE 0
+  #endif
 #endif
 
 #ifndef _WDL_WIN32_HIDPI_H_
