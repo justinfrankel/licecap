@@ -379,6 +379,8 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
             }
             else
             {
+              if ([ch isKindOfClass:[SWELL_TextField class]])
+                ((SWELL_TextField *)ch)->m_ctlcolor_set = true;
               [(NSTextField*)ch setTextColor:staticFg]; 
             }
           }

@@ -1687,7 +1687,7 @@ void EnableWindow(HWND hwnd, int enable)
     else
       [bla setEnabled:(enable?YES:NO)];
     if ([bla isKindOfClass:[SWELL_TextField class]])
-      [(SWELL_TextField*)bla initColors:SWELL_osx_is_dark_mode(0)];
+      [(SWELL_TextField*)bla initColors:-1];
   }
   SWELL_END_TRY(;)
 }
@@ -3144,14 +3144,19 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
   if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
   return didBecomeFirstResponder;
 }
-- (void)initColors:(bool)darkmode
+- (void)initColors:(int)darkmode
 {
-  m_last_dark_mode = darkmode;
+  if (darkmode >= 0)
+  {
+    m_ctlcolor_set = false;
+    m_last_dark_mode = darkmode ? 1 : 0;
+  }
+
   if ([self isEditable])
   {
     if (SWELL_osx_is_dark_mode(1))
     {
-      if (darkmode)
+      if (m_last_dark_mode)
         [self setBackgroundColor:[NSColor windowBackgroundColor]];
       else
         [self setBackgroundColor:[NSColor textBackgroundColor]];
@@ -3160,7 +3165,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
   else if (![self isBordered] && ![self drawsBackground]) // looks like a static text control
   {
     NSColor *col;
-    if (SWELL_osx_is_dark_mode(1))
+    if (!m_ctlcolor_set && SWELL_osx_is_dark_mode(1))
       col = [NSColor textColor];
     else
       col = [self textColor];
@@ -3172,7 +3177,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
 
 - (void) drawRect:(NSRect)r
 {
-  if (SWELL_osx_is_dark_mode(1))
+  if (!m_ctlcolor_set && SWELL_osx_is_dark_mode(1))
   {
     const bool m = SWELL_osx_is_dark_mode(0);
     if (m != m_last_dark_mode) [self initColors:m];

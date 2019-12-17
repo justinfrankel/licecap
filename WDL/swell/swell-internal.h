@@ -137,12 +137,14 @@ typedef struct WindowPropRec
 
 @interface SWELL_TextField : NSTextField
 {
+  @public
   bool m_last_dark_mode;
+  bool m_ctlcolor_set;
 }
 - (void)setNeedsDisplay:(BOOL)flag;
 - (void)setNeedsDisplayInRect:(NSRect)rect;
 - (void)drawRect:(NSRect)rect;
-- (void)initColors:(bool)darkmode;
+- (void)initColors:(int)darkmode; // -1 to not update darkmode but trigger update of colors
 @end
 
 @interface SWELL_TabView : NSTabView
