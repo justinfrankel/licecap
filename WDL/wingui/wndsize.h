@@ -148,13 +148,13 @@ public:
 
   int dpi_to_sizer(int x, int dpi=0) const // convert dpi-specific coordinate to sizer coordinate (orig.left etc) if in DPI mode
   {
-    if (m_base_dpi<=0) return x;
+    if (m_base_dpi<=0 || !x) return x;
     if (dpi<=0) dpi=calc_dpi(m_hwnd);
     return dpi>0 && dpi != m_base_dpi ? x * m_base_dpi / dpi : x;
   }
   int sizer_to_dpi(int x, int dpi=0) const // convert sizer coordinate (orig.left etc) to dpi-specific coordinate, if in DPI mode
   {
-    if (m_base_dpi<=0) return x;
+    if (m_base_dpi<=0 || !x) return x;
     if (dpi<=0) dpi=calc_dpi(m_hwnd);
     return dpi>0 && dpi != m_base_dpi ? x * dpi / m_base_dpi : x;
   }
