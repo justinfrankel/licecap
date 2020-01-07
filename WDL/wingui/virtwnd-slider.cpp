@@ -347,8 +347,8 @@ WDL_VirtualWnd_BGCfg *WDL_VirtualSlider::getKnobBackgroundForSize(int sz) const
 
   // don't scale down
   h1 -= sz; if (h1<0) h1=-h1;
-  h2 -= sz; 
-  WDL_VirtualWnd_BGCfg *bg = m_knobbg[h2 >= 0 && h1 > h2];
+  h2 -= sz; if (h2<0) h2=-h2;
+  WDL_VirtualWnd_BGCfg *bg = m_knobbg[h1 > h2];
   return bg && bg->bgimage ? bg : NULL;
 }
 
