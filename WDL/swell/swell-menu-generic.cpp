@@ -32,6 +32,11 @@
 #include "../ptrlist.h"
 #include "../wdlcstring.h"
 
+static bool MenuIsStringType(const MENUITEMINFO *inf)
+{
+  return inf->fType == MFT_STRING || inf->fType == MFT_RADIOCHECK;
+}
+
 HMENU__ *HMENU__::Duplicate()
 {
   HMENU__ *p = new HMENU__;
@@ -42,7 +47,7 @@ HMENU__ *HMENU__::Duplicate()
     MENUITEMINFO *inf = (MENUITEMINFO*)calloc(sizeof(MENUITEMINFO),1);
 
     *inf = *s;
-    if (inf->dwTypeData && inf->fType == MFT_STRING) inf->dwTypeData=strdup(inf->dwTypeData);
+    if (inf->dwTypeData && MenuIsStringType(inf)) inf->dwTypeData=strdup(inf->dwTypeData);
     if (inf->hSubMenu) inf->hSubMenu = inf->hSubMenu->Duplicate();
 
     p->items.Add(inf);
@@ -55,7 +60,7 @@ void HMENU__::freeMenuItem(void *p)
   MENUITEMINFO *inf = (MENUITEMINFO *)p;
   if (!inf) return;
   if (inf->hSubMenu) inf->hSubMenu->Release();
-  if (inf->fType == MFT_STRING) free(inf->dwTypeData);
+  if (MenuIsStringType(inf)) free(inf->dwTypeData);
   free(inf);
 }
 
@@ -83,8 +88,8 @@ bool SetMenuItemText(HMENU hMenu, int idx, int flag, const char *text)
   MENUITEMINFO *item = hMenu ? ((flag & MF_BYPOSITION) ? hMenu->items.Get(idx) : GetMenuItemByID(hMenu,idx)) : NULL;
   if (!item) return false;
 
-  if (item->fType == MFT_STRING) free(item->dwTypeData);
-  item->fType = MFT_STRING;
+  if (MenuIsStringType(item)) free(item->dwTypeData);
+  else item->fType = MFT_STRING;
   item->dwTypeData=strdup(text?text:"");
   
   return true;
@@ -220,11 +225,7 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   } 
   if (mi->fMask & MIIM_TYPE)
   {
-    if (item->fType == MFT_STRING) free(item->dwTypeData);
-    item->dwTypeData=0;
-
-    if (mi->fType == MFT_STRING && mi->dwTypeData) item->dwTypeData = strdup( mi->dwTypeData );
-    else if (mi->fType == MFT_BITMAP) item->dwTypeData = mi->dwTypeData;
+    if (mi->fType == MFT_BITMAP) item->dwTypeData = mi->dwTypeData;
     item->fType = mi->fType;
   }
 
@@ -245,7 +246,7 @@ BOOL GetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   if (mi->fMask & MIIM_TYPE)
   {
     mi->fType = item->fType;
-    if (item->fType == MFT_STRING && mi->dwTypeData && mi->cch)
+    if (MenuIsStringType(mi) && mi->dwTypeData && mi->cch)
     {
       lstrcpyn_safe(mi->dwTypeData,item->dwTypeData?item->dwTypeData:"",mi->cch);
     }
@@ -305,7 +306,7 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   
   MENUITEMINFO *inf = (MENUITEMINFO*)calloc(sizeof(MENUITEMINFO),1);
   inf->fType = mi->fType;
-  if (mi->fType == MFT_STRING)
+  if (MenuIsStringType(inf))
   {
     inf->dwTypeData = strdup(mi->dwTypeData?mi->dwTypeData:"");
   }
@@ -419,7 +420,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           if (inf->hbmpItem)
             GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
 
-          if (inf->fType == MFT_STRING)
+          if (MenuIsStringType(inf))
           {
             RECT r={0,};
             const char *str = inf->dwTypeData;
@@ -545,7 +546,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             if (inf->hbmpItem)
               GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
 
-            if (inf->fType == MFT_STRING)
+            if (MenuIsStringType(inf))
             {
               const char *str = inf->dwTypeData;
               if (!str || !*str) str="XXXXX";
@@ -594,7 +595,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               r.left += bm2.bmWidth + item_bm_pad;
             }
 
-            if (inf->fType == MFT_STRING)
+            if (MenuIsStringType(inf))
             {
               const char *str = inf->dwTypeData;
               if (!str) str="";
@@ -657,16 +658,23 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               HGDIOBJ oldPen = SelectObject(ps.hdc,tpen);
               const int sz = (wdl_min(lcol, r.bottom-r.top) - SWELL_UI_SCALE(6));
               const int xo = SWELL_UI_SCALE(4), yo = (r.bottom+r.top)/2 - sz/2;
-              static const unsigned char coords[12] = { 128, 30, 108, 11, 48, 72, 48, 112, 0, 65, 20, 46, };
-              for (int pass=0;pass<2;pass++)
+              if (inf->fType&MFT_RADIOCHECK)
               {
-                POINT pts[4];
-                for (int i=0;i<4; i ++)
+                Ellipse(ps.hdc, xo, yo, xo+sz, yo+sz);
+              }
+              else
+              {
+                static const unsigned char coords[12] = { 128, 30, 108, 11, 48, 72, 48, 112, 0, 65, 20, 46, };
+                for (int pass=0;pass<2;pass++)
                 {
-                  pts[i].x = xo + ((int)coords[i*2+pass*4] * sz + 63) / 128;
-                  pts[i].y = yo + ((int)coords[i*2+pass*4+1] * sz + 63) / 128;
+                  POINT pts[4];
+                  for (int i=0;i<4; i ++)
+                  {
+                    pts[i].x = xo + ((int)coords[i*2+pass*4] * sz + 63) / 128;
+                    pts[i].y = yo + ((int)coords[i*2+pass*4+1] * sz + 63) / 128;
+                  }
+                  Polygon(ps.hdc,pts,4);
                 }
-                Polygon(ps.hdc,pts,4);
               }
 
               SelectObject(ps.hdc,oldPen);
@@ -900,7 +908,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         for(int x=0;x<n+n;x++)
         {
           MENUITEMINFO *inf = menu->items.Get(offs);
-          if (inf->fType == MFT_STRING && 
+          if (MenuIsStringType(inf) && 
               !(inf->fState & MF_GRAYED) &&
               inf->dwTypeData)
           {
@@ -971,7 +979,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           if (inf->hbmpItem)
             GetObject(inf->hbmpItem,sizeof(bm2),&bm2);
 
-          if (inf->fType == MFT_STRING)
+          if (MenuIsStringType(inf))
           {
             RECT r={0,};
             const char *str = inf->dwTypeData;
