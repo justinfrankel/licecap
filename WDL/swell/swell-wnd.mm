@@ -3198,6 +3198,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       [obj setFont:[NSFont systemFontOfSize:TRANSFORMFONTSIZE]];
     [obj setTag:idx];
     [obj setDelegate:ACTIONTARGET];
+    [obj setRichText:NO];
 
     [obj setHorizontallyResizable:NO];
     
