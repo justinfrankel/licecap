@@ -225,7 +225,19 @@ BOOL SetMenuItemInfo(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
   } 
   if (mi->fMask & MIIM_TYPE)
   {
+    const bool wasString = MenuIsStringType(item), isString = MenuIsStringType(mi);
+    if (wasString != isString)
+    {
+      if (wasString) free(item->dwTypeData);
+      item->dwTypeData=NULL;
+    }
+
     if (mi->fType == MFT_BITMAP) item->dwTypeData = mi->dwTypeData;
+    else if (isString && mi->dwTypeData)
+    {
+      free(item->dwTypeData);
+      item->dwTypeData = strdup(mi->dwTypeData);
+    }
     item->fType = mi->fType;
   }
 
