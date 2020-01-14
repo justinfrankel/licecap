@@ -6066,6 +6066,8 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
     int x;
     int n=ListView_GetItemCount(h);
     _is_doing_all++;
+    if ((statemask & LVIS_SELECTED) && (state & LVIS_SELECTED) && !lvs->m_is_multisel)
+      statemask &= ~LVIS_SELECTED;
     for (x = 0; x < n; x ++)
       ListView_SetItemState(h,x,state,statemask);
     _is_doing_all--;
