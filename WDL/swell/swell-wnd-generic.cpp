@@ -6099,7 +6099,7 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
     }
   }
 
-  if (!_is_doing_all && changed)
+  if (changed)
   {
     static int __rent;
     if (!__rent)
@@ -6109,7 +6109,7 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
       SendMessage(GetParent(h),WM_NOTIFY,h->m_id,(LPARAM)&nm);      
       __rent--;
     }
-    if (changed) ListView_RedrawItems(h,ipos,ipos);
+    if (!_is_doing_all) ListView_RedrawItems(h,ipos,ipos);
   }
   return true;
 }
