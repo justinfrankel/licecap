@@ -4283,6 +4283,8 @@ int ListView_GetItemState(HWND h, int ipos, UINT mask)
   return flag;  
 }
 
+int swell_ignore_listview_changes;
+
 bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
 {
   int doref=0;
@@ -4308,18 +4310,16 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
         }
         else
         {
-          id delegate = [tv delegate];
-          [tv setDelegate:nil];
+          swell_ignore_listview_changes++;
           [tv selectAll:nil];
-          [tv setDelegate:delegate];
+          swell_ignore_listview_changes--;
         }
       }
       else
       {
-        id delegate = [tv delegate];
-        [tv setDelegate:nil];
+        swell_ignore_listview_changes++;
         [tv deselectAll:nil];
-        [tv setDelegate:delegate];
+        swell_ignore_listview_changes--;
       }
     }
     _is_doing_all++;
@@ -4375,10 +4375,9 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
       if (![tv isRowSelected:ipos])
       {
         didsel = true;
-        id delegate = [tv delegate];
-        [tv setDelegate:nil];
+        swell_ignore_listview_changes++;
         [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:ipos] byExtendingSelection:isSingle?NO:YES];
-        [tv setDelegate:delegate];
+        swell_ignore_listview_changes--;
       }
     }
     else
@@ -4386,10 +4385,9 @@ bool ListView_SetItemState(HWND h, int ipos, UINT state, UINT statemask)
       if ([tv isRowSelected:ipos])
       {
         didsel = true;
-        id delegate = [tv delegate];
-        [tv setDelegate:nil];
+        swell_ignore_listview_changes++;
         [tv deselectRow:ipos];
-        [tv setDelegate:delegate];
+        swell_ignore_listview_changes--;
       }
     }
   }
