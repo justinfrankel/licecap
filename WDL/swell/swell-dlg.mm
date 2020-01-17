@@ -1158,7 +1158,14 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   [self setHidden:YES];
   
   
-  if ([parent isKindOfClass:[NSSavePanel class]]||[parent isKindOfClass:[NSOpenPanel class]])
+  if ([parent isKindOfClass:[NSOpenPanel class]])
+  {
+    [(NSOpenPanel *)parent setAccessoryView:self];
+    if ([parent respondsToSelector:@selector(setAccessoryViewDisclosed:)])
+      [(NSOpenPanel *)parent setAccessoryViewDisclosed:YES];
+    [self setHidden:NO];
+  }
+  else if ([parent isKindOfClass:[NSSavePanel class]])
   {
     [(NSSavePanel *)parent setAccessoryView:self];
     [self setHidden:NO];
