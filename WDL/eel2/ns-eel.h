@@ -251,7 +251,11 @@ extern int NSEEL_RAM_memused_errors;
 //#define EEL_TARGET_PORTABLE
 
 #ifdef EEL_TARGET_PORTABLE
+#ifdef EEL_PORTABLE_TAILCALL
+typedef void (*EEL_BC_TYPE)(void *next_inst, void *state);
+#else
 #define EEL_BC_TYPE int
+#endif
 #endif
 
 #ifdef NSEEL_EEL1_COMPAT_MODE

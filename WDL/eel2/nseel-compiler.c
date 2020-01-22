@@ -96,7 +96,12 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 #ifdef EEL_TARGET_PORTABLE
 
 #define EEL_DOESNT_NEED_EXEC_PERMS
+
+#ifdef EEL_PORTABLE_TAILCALL
+#include "glue_port_new.h"
+#else
 #include "glue_port.h"
+#endif
 
 #elif defined(__ppc__)
 
