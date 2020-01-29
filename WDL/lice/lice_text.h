@@ -127,6 +127,7 @@ class __LICE_dpiAwareFont : public LICE_IFont
   };
   WDL_TypedBuf<rec> m_list; // used entries are at end of list, most recently used last. sz=0 for unused
 
+  int (*m_getflags)(int);
   int m_flags;
   LICE_pixel m_fg, m_bg, m_effectcol;
   int m_bgmode, m_comb;
@@ -171,6 +172,7 @@ public:
   __LICE_dpiAwareFont(int maxsz)
   {
     memset(&m_lf,0,sizeof(m_lf));
+    m_getflags = NULL;
     m_flags=0;
     m_fg=m_bg=m_effectcol=0;
     m_bgmode=TRANSPARENT;
@@ -185,7 +187,14 @@ public:
   {
     for (int x = 0; x < m_list.GetSize(); x ++) delete m_list.Get()[x].cache;
   }
-  void SetFromLogFont(LOGFONT *lf, int flags) { m_lf = *lf; m_flags = flags; clear(); }
+  void SetFromLogFont(LOGFONT *lf, int (*get_flags)(int))
+  {
+    m_lf = *lf;
+    m_getflags = get_flags;
+    m_flags = get_flags ? get_flags(0) : 0;
+    clear();
+  }
+
   void clear()
   {
     int x = m_list.GetSize()-1;
@@ -195,7 +204,13 @@ public:
 
   LICE_IFont *get(LICE_IBitmap *bm)
   {
-    int use_flag = m_flags & ~LICE_FONT_FLAG_PRECALCALL;
+    int use_flag = m_getflags ? m_getflags(0) & ~LICE_FONT_FLAG_PRECALCALL : 0;
+    if (m_flags != use_flag)
+    {
+      m_flags = use_flag;
+      clear();
+    }
+
     int ht = m_lf.lfHeight, ht2 = m_lf.lfWidth;
     if (bm)
     {
@@ -231,7 +246,7 @@ public:
       lf.lfHeight = ht;
       lf.lfWidth = ht2;
       #ifdef _WIN32
-      if (!(use_flag & LICE_FONT_FLAG_FORCE_NATIVE) && abs(lf.lfHeight) <= 14) lf.lfQuality = NONANTIALIASED_QUALITY;
+      if (!(m_flags & LICE_FONT_FLAG_FORCE_NATIVE) && abs(lf.lfHeight) <= 14) lf.lfQuality = NONANTIALIASED_QUALITY;
       #endif
       t->cache->SetFromHFont(CreateFontIndirect(&lf), LICE_FONT_FLAG_OWNS_HFONT | use_flag);
     }
