@@ -24,7 +24,11 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 #elif defined(_MSC_VER)
 #define WDL_DENORMAL_INLINE __inline
 #else
-#define WDL_DENORMAL_INLINE
+  #ifdef WDL_STATICFUNC_UNUSED
+    #define WDL_DENORMAL_INLINE WDL_STATICFUNC_UNUSED
+  #else
+    #define WDL_DENORMAL_INLINE
+  #endif
 #endif
 
 #define WDL_DENORMAL_DOUBLE_HW(a) (((const WDL_DenormalDoubleAccess*)(a))->w.hw)
