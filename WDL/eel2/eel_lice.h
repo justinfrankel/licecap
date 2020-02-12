@@ -115,7 +115,6 @@ EEL_LICE_FUNCDEF void (*LICE__DestroyFont)(LICE_IFont* font);
 EEL_LICE_FUNCDEF LICE_IFont *(*LICE_CreateFont)();
 EEL_LICE_FUNCDEF void (*LICE__SetFromHFont)(LICE_IFont* ifont, HFONT font, int flags);
 EEL_LICE_FUNCDEF LICE_pixel (*LICE__SetTextColor)(LICE_IFont* ifont, LICE_pixel color);
-EEL_LICE_FUNCDEF LICE_pixel (*LICE__SetBkColor)(LICE_IFont* ifont, LICE_pixel color);
 EEL_LICE_FUNCDEF void (*LICE__SetTextCombineMode)(LICE_IFont* ifont, int mode, float alpha);
 EEL_LICE_FUNCDEF int (*LICE__DrawText)(LICE_IFont* ifont, LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags);
 
@@ -149,11 +148,6 @@ static void LICE__SetFromHFont(LICE_IFont * ifont, HFONT font, int flags)
 static LICE_pixel LICE__SetTextColor(LICE_IFont* ifont, LICE_pixel color)
 {
   if (ifont) return ifont->SetTextColor(color);
-  return 0;
-}
-static LICE_pixel LICE__SetBkColor(LICE_IFont* ifont, LICE_pixel color)
-{
-  if (ifont) return ifont->SetBkColor(color);
   return 0;
 }
 static void LICE__SetTextCombineMode(LICE_IFont* ifont, int mode, float alpha)
@@ -2809,7 +2803,6 @@ static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
   *(void **)&LICE__SetFromHFont = getFunc("LICE__SetFromHFont2");
 
   *(void **)&LICE__SetTextColor = getFunc("LICE__SetTextColor");    
-  *(void **)&LICE__SetBkColor = getFunc("LICE__SetBkColor");    
   *(void **)&LICE__SetTextCombineMode = getFunc("LICE__SetTextCombineMode");    
   *(void **)&LICE__DrawText = getFunc("LICE__DrawText");    
 }
