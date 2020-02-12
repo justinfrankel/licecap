@@ -193,7 +193,7 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
         if (len > bytes_allowed_to_send) len=bytes_allowed_to_send;
         if (len > 0)
         {
-          int res=::send(m_socket,(char*)m_send_buffer.Get()+m_send_pos,len,0);
+          int res=(int)::send(m_socket,(char*)m_send_buffer.Get()+m_send_pos,len,0);
           if (res==-1 && JNL_ERRNO != JNL_EWOULDBLOCK)
           {            
 //            m_state=STATE_CLOSED;
@@ -215,7 +215,7 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
             len=m_send_buffer.GetSize()-m_send_pos;
             if (len > m_send_len) len=m_send_len;
             if (len > bytes_allowed_to_send) len=bytes_allowed_to_send;
-            int res=::send(m_socket,(char*)m_send_buffer.Get()+m_send_pos,len,0);
+            int res=(int)::send(m_socket,(char*)m_send_buffer.Get()+m_send_pos,len,0);
             if (res==-1 && JNL_ERRNO != JNL_EWOULDBLOCK)
             {
 //              m_state=STATE_CLOSED;
@@ -237,7 +237,7 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
         if (len > bytes_allowed_to_recv) len=bytes_allowed_to_recv;
         if (len>0)
         {
-          int res=::recv(m_socket,(char*)m_recv_buffer.Get()+m_recv_pos,len,0);
+          int res=(int)::recv(m_socket,(char*)m_recv_buffer.Get()+m_recv_pos,len,0);
           if (res == 0 || (res < 0 && JNL_ERRNO != JNL_EWOULDBLOCK))
           {        
             m_state=STATE_CLOSED;
@@ -260,7 +260,7 @@ void JNL_Connection::run(int max_send_bytes, int max_recv_bytes, int *bytes_sent
             if (len > bytes_allowed_to_recv) len=bytes_allowed_to_recv;
             if (len > 0)
             {
-              int res=::recv(m_socket,(char*)m_recv_buffer.Get()+m_recv_pos,len,0);
+              int res=(int)::recv(m_socket,(char*)m_recv_buffer.Get()+m_recv_pos,len,0);
               if (res == 0 || (res < 0 && JNL_ERRNO != JNL_EWOULDBLOCK))
               {        
                 m_state=STATE_CLOSED;
