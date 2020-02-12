@@ -389,6 +389,18 @@ typedef struct WindowPropRec
 // Returns the UI Element that has the focus. You can assume that the search for the focus has already been narrowed down to the reciever. Override this method to do a deeper search with a UIElement - e.g. a NSMatrix would determine if one of its cells has the focus.
 - (id)accessibilityFocusedUIElement;
 
+-(void) swellOnControlDoubleClick:(id)sender;
+
+#ifdef MAC_OS_X_VERSION_10_8
+// for radio button with the OSX 10.8+ SDK, see comment in SWELL_MakeControl
+-(void) onSwellCommand0:(id)sender;
+-(void) onSwellCommand2:(id)sender;
+-(void) onSwellCommand3:(id)sender;
+-(void) onSwellCommand4:(id)sender;
+-(void) onSwellCommand5:(id)sender;
+-(void) onSwellCommand6:(id)sender;
+-(void) onSwellCommand7:(id)sender;
+#endif
 
 #ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal;

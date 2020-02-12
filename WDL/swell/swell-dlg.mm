@@ -3767,7 +3767,7 @@ static bool mtl_init()
         )
     {
       NSArray *ar = __MTLCopyAllDevices();
-      int cnt = [ar count];
+      NSUInteger cnt = [ar count];
       [ar release];
       if (cnt>0)
       {
