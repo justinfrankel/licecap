@@ -70,6 +70,7 @@ static void InvalidateSuperViews(NSView *view);
   }
 
 
+int g_swell_osx_readonlytext_wndbg = 0;
 int g_swell_want_nice_style = 1;
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
 {
@@ -3161,6 +3162,11 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
       else
         [self setBackgroundColor:[NSColor textBackgroundColor]];
     }
+    else
+    {
+      if (g_swell_osx_readonlytext_wndbg)
+        [self setBackgroundColor:[NSColor textBackgroundColor]];
+    }
   }
   else if (![self isBordered] && ![self drawsBackground]) // looks like a static text control
   {
@@ -3172,6 +3178,12 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "static")
 
     float alpha = ([self isEnabled] ? 1.0f : 0.5f);
     [self setTextColor:[col colorWithAlphaComponent:alpha]];
+  }
+  else
+  {
+    // not editable
+    if (g_swell_osx_readonlytext_wndbg)
+      [self setBackgroundColor:[NSColor windowBackgroundColor]];
   }
 }
 
