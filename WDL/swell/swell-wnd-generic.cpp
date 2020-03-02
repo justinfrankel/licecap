@@ -7760,14 +7760,15 @@ BOOL ShellExecute(HWND hwndDlg, const char *action,  const char *content1, const
     }
   }
 
-  if (fork() == 0) 
+  const pid_t pid = fork();
+  if (pid == 0) 
   {
     for (int x=0;argv[x];x++) argv[x] = strdup(argv[x]);
     execv(argv[0],(char *const*)argv);
     exit(0); // if execv fails for some reason
   }
   free(tmp);
-  return TRUE;
+  return pid>0;
 }
 
 
