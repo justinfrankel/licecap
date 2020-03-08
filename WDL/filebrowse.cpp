@@ -124,6 +124,46 @@ static const char *stristr(const char* a, const char* b)
   return NULL;
 }
 
+#ifdef _WIN32
+struct WDL_FileBrowse_Dis {
+  enum { DLSZ = 10 };
+  WDL_FileBrowse_Dis(HWND par)
+  {
+    m_par = par;
+    memset(m_dislist,0,sizeof(m_dislist));
+    if (par) EnableOwnerWnds(par,0);
+  }
+  ~WDL_FileBrowse_Dis()
+  {
+    if (m_dislist[0]) EnableOwnerWnds(m_par, 1);
+  }
+  void EnableOwnerWnds(HWND p, int en)
+  {
+    int limit = 0, dlsz = 0;
+    HWND t;
+    while (NULL != (t = GetParent(p)) && limit++ < 20)
+    {
+      p = t;
+      if (!(GetWindowLong(p,GWL_STYLE)&WS_CHILD) && !en != !IsWindowEnabled(p))
+      {
+        if (!en)
+        {
+          EnableWindow(p,0);
+          m_dislist[dlsz] = p;
+          if (++dlsz == DLSZ) break;
+        }
+        else
+        {
+          for (dlsz = 0; dlsz < DLSZ && m_dislist[dlsz] != p && m_dislist[dlsz]; dlsz++);
+          if (dlsz < DLSZ && m_dislist[dlsz] == p) EnableWindow(p,1);
+        }
+      }
+    }
+  }
+  HWND m_par, m_dislist[DLSZ];
+};
+#endif
+
 bool WDL_ChooseFileForSave(HWND parent, 
                                       const char *text, 
                                       const char *initialdir, 
@@ -146,6 +186,7 @@ bool WDL_ChooseFileForSave(HWND parent,
   GetCurrentDirectory(sizeof(cwd),cwd);
 
 #ifdef _WIN32
+  WDL_FileBrowse_Dis win32disfix(parent);
   char temp[4096];
   memset(temp,0,sizeof(temp));
   if (initialfile) lstrcpyn_safe(temp,initialfile,sizeof(temp));
@@ -273,6 +314,7 @@ char *WDL_ChooseFileForOpen2(HWND parent,
   GetCurrentDirectory(sizeof(olddir),olddir);
 
 #ifdef _WIN32
+  WDL_FileBrowse_Dis win32disfix(parent);
 
 #ifdef WDL_FILEBROWSE_WIN7VISTAMODE
   if (allowmul!=1)
