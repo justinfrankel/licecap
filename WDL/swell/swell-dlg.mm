@@ -1157,38 +1157,19 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   
   [self setHidden:YES];
   
-  
   if ([parent isKindOfClass:[NSWindow class]])
   {
-    if ([parent isKindOfClass:[NSPanel class]])
+    if ([parent isKindOfClass:[NSPanel class]] &&
+        [parent respondsToSelector:@selector(setAccessoryView:)])
     {
+      [(NSOpenPanel *)parent setAccessoryView:self];
       if ([parent isKindOfClass:[NSOpenPanel class]] ||
           [[parent className] isEqualToString:@"NSLocalOpenPanel"])
       {
-        [(NSOpenPanel *)parent setAccessoryView:self];
         if ([parent respondsToSelector:@selector(setAccessoryViewDisclosed:)])
           [(NSOpenPanel *)parent setAccessoryViewDisclosed:YES];
-        [self setHidden:NO];
       }
-      else if ([parent isKindOfClass:[NSSavePanel class]])
-      {
-        [(NSSavePanel *)parent setAccessoryView:self];
-        [self setHidden:NO];
-      }
-      else if ([parent isKindOfClass:[NSColorPanel class]])
-      {
-        [(NSColorPanel *)parent setAccessoryView:self];
-        [self setHidden:NO];
-      }
-      else if ([parent isKindOfClass:[NSFontPanel class]])
-      {
-        [(NSFontPanel *)parent setAccessoryView:self];
-        [self setHidden:NO];
-      }
-      else
-      {
-        [(NSPanel *)parent setContentView:self];
-      }
+      [self setHidden:NO];
     }
     else
     {
@@ -2710,20 +2691,10 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
     }
     else if ([(id)parent isKindOfClass:[NSWindow class]])
     {
-      if ([(NSWindow *)parent isKindOfClass:[NSPanel class]])
+      if ([(id)parent isKindOfClass:[NSPanel class]] &&
+          [(id)parent respondsToSelector:@selector(setAccessoryView:)])
       {
-        if ([(NSPanel *)parent isKindOfClass:[NSSavePanel class]] ||
-            [(NSPanel *)parent isKindOfClass:[NSOpenPanel class]] ||
-            [[(NSPanel *)parent className] isEqualToString:@"NSLocalOpenPanel"] ||
-            [(NSPanel *)parent isKindOfClass:[NSColorPanel class]] ||
-            [(NSPanel *)parent isKindOfClass:[NSFontPanel class]])
-        {
-          parview=(NSView *)parent;
-        }
-        else
-        {
-          parview=(NSView *)[(NSPanel *)parent contentView];
-        }
+        parview=(NSView *)parent;
       }
       else
       {
