@@ -1158,7 +1158,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   [self setHidden:YES];
   
   
-  if ([parent isKindOfClass:[NSOpenPanel class]])
+  if ([parent isKindOfClass:[NSOpenPanel class]] || [[parent className] isEqualToString:@"NSLocalOpenPanel"])
   {
     [(NSOpenPanel *)parent setAccessoryView:self];
     if ([parent respondsToSelector:@selector(setAccessoryViewDisclosed:)])
@@ -2694,6 +2694,7 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   if (parent && ([(id)parent isKindOfClass:[NSView class]] || 
                  [(id)parent isKindOfClass:[NSSavePanel class]] || 
                  [(id)parent isKindOfClass:[NSOpenPanel class]] ||
+                 [[parent className] isEqualToString:@"NSLocalOpenPanel"] ||
                  [(id)parent isKindOfClass:[NSColorPanel class]] || 
                  [(id)parent isKindOfClass:[NSFontPanel class]]
                  )) parview=(NSView *)parent;
