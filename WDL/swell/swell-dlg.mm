@@ -1158,31 +1158,42 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   [self setHidden:YES];
   
   
-  if ([parent isKindOfClass:[NSOpenPanel class]] || [[parent className] isEqualToString:@"NSLocalOpenPanel"])
+  if ([parent isKindOfClass:[NSWindow class]])
   {
-    [(NSOpenPanel *)parent setAccessoryView:self];
-    if ([parent respondsToSelector:@selector(setAccessoryViewDisclosed:)])
-      [(NSOpenPanel *)parent setAccessoryViewDisclosed:YES];
-    [self setHidden:NO];
-  }
-  else if ([parent isKindOfClass:[NSSavePanel class]])
-  {
-    [(NSSavePanel *)parent setAccessoryView:self];
-    [self setHidden:NO];
-  }
-  else if ([parent isKindOfClass:[NSColorPanel class]])
-  {
-    [(NSColorPanel *)parent setAccessoryView:self];
-    [self setHidden:NO];
-  }  
-  else if ([parent isKindOfClass:[NSFontPanel class]])
-  {
-    [(NSFontPanel *)parent setAccessoryView:self];
-    [self setHidden:NO];
-  }    
-  else if ([parent isKindOfClass:[NSWindow class]])
-  {
-    [(NSWindow *)parent setContentView:self];
+    if ([parent isKindOfClass:[NSPanel class]])
+    {
+      if ([parent isKindOfClass:[NSOpenPanel class]] ||
+          [[parent className] isEqualToString:@"NSLocalOpenPanel"])
+      {
+        [(NSOpenPanel *)parent setAccessoryView:self];
+        if ([parent respondsToSelector:@selector(setAccessoryViewDisclosed:)])
+          [(NSOpenPanel *)parent setAccessoryViewDisclosed:YES];
+        [self setHidden:NO];
+      }
+      else if ([parent isKindOfClass:[NSSavePanel class]])
+      {
+        [(NSSavePanel *)parent setAccessoryView:self];
+        [self setHidden:NO];
+      }
+      else if ([parent isKindOfClass:[NSColorPanel class]])
+      {
+        [(NSColorPanel *)parent setAccessoryView:self];
+        [self setHidden:NO];
+      }
+      else if ([parent isKindOfClass:[NSFontPanel class]])
+      {
+        [(NSFontPanel *)parent setAccessoryView:self];
+        [self setHidden:NO];
+      }
+      else
+      {
+        [(NSPanel *)parent setContentView:self];
+      }
+    }
+    else
+    {
+      [(NSWindow *)parent setContentView:self];
+    }
   }
   else
   {
@@ -2691,14 +2702,35 @@ HWND SWELL_CreateDialog(SWELL_DialogResourceIndex *reshead, const char *resid, H
   if (!p&&resid) return 0;
   
   NSView *parview=NULL;
-  if (parent && ([(id)parent isKindOfClass:[NSView class]] || 
-                 [(id)parent isKindOfClass:[NSSavePanel class]] || 
-                 [(id)parent isKindOfClass:[NSOpenPanel class]] ||
-                 [[parent className] isEqualToString:@"NSLocalOpenPanel"] ||
-                 [(id)parent isKindOfClass:[NSColorPanel class]] || 
-                 [(id)parent isKindOfClass:[NSFontPanel class]]
-                 )) parview=(NSView *)parent;
-  else if (parent && [(id)parent isKindOfClass:[NSWindow class]])  parview=(NSView *)[(id)parent contentView];
+  if (parent)
+  {
+    if ([(id)parent isKindOfClass:[NSView class]])
+    {
+      parview = (NSView *)parent;
+    }
+    else if ([(id)parent isKindOfClass:[NSWindow class]])
+    {
+      if ([(NSWindow *)parent isKindOfClass:[NSPanel class]])
+      {
+        if ([(NSPanel *)parent isKindOfClass:[NSSavePanel class]] ||
+            [(NSPanel *)parent isKindOfClass:[NSOpenPanel class]] ||
+            [[(NSPanel *)parent className] isEqualToString:@"NSLocalOpenPanel"] ||
+            [(NSPanel *)parent isKindOfClass:[NSColorPanel class]] ||
+            [(NSPanel *)parent isKindOfClass:[NSFontPanel class]])
+        {
+          parview=(NSView *)parent;
+        }
+        else
+        {
+          parview=(NSView *)[(NSPanel *)parent contentView];
+        }
+      }
+      else
+      {
+        parview=(NSView *)[(NSWindow *)parent contentView];
+      }
+    }
+  }
   
   if ((!p || (p->windowTypeFlags&SWELL_DLG_WS_CHILD)) && parview && (p || !forceNonChild))
   {
