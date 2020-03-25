@@ -183,6 +183,12 @@ class VorbisDecoder : public VorbisDecoderInterface
     }
     int GenerateLappingSamples()
     {
+      if (vd.pcm_returned<0 ||
+          !vd.vi ||
+          !vd.vi->codec_setup)
+      {
+        return 0;
+      }
       float ** pcm;
       int samples = vorbis_synthesis_lapout(&vd,&pcm);
       if (samples <= 0) return 0;
