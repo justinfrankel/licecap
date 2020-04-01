@@ -3208,29 +3208,81 @@ static LRESULT WINAPI labelWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 
           paintDialogBackground(hwnd,&r,ps.hdc);
 
-          const char *buf = hwnd->m_title.Get();
-          if (buf && buf[0]) 
+          const char *text = hwnd->m_title.Get();
+          switch (hwnd->m_style & SS_TYPEMASK)
           {
-            if ((hwnd->m_style & SS_TYPEMASK) == SS_LEFT)
+            case SS_ETCHEDHORZ:
+            case SS_ETCHEDVERT:
+            case SS_ETCHEDFRAME:
             {
-              RECT tmp={0,};
-              const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
-              if (r.bottom > line_h*5/3)
+              HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.group_hilight);
+              HPEN pen2 = CreatePen(PS_SOLID,0,g_swell_ctheme.group_shadow);
+              HGDIOBJ oldPen=SelectObject(ps.hdc,pen);
+
+              switch (hwnd->m_style & SS_TYPEMASK)
               {
-                int loffs=0;
-                while (buf[loffs] && r.top < r.bottom)
-                {
-                  int post=0, lb=swell_getLineLength(buf+loffs, &post, r.right, ps.hdc);
-                  if (lb>0)
-                    DrawText(ps.hdc,buf+loffs,lb,&r,DT_TOP|DT_SINGLELINE|DT_LEFT);
-                  r.top += line_h;
-                  loffs+=lb+post;
-                } 
-                buf = NULL;
+                case SS_ETCHEDHORZ:
+                  MoveToEx(ps.hdc,0,1,NULL);
+                  LineTo(ps.hdc,r.right-1,1);
+                  SelectObject(ps.hdc,pen2);
+                  MoveToEx(ps.hdc,0,0,NULL);
+                  LineTo(ps.hdc,r.right-1,0);
+                break;
+                case SS_ETCHEDVERT:
+                  MoveToEx(ps.hdc,1,0,NULL);
+                  LineTo(ps.hdc,1,r.bottom-1);
+                  SelectObject(ps.hdc,pen2);
+                  MoveToEx(ps.hdc,0,0,NULL);
+                  LineTo(ps.hdc,0,r.bottom-1);
+                break;
+                case SS_ETCHEDFRAME:
+                  MoveToEx(ps.hdc,1,1,NULL);
+                  LineTo(ps.hdc,1,r.bottom-1);
+                  LineTo(ps.hdc,r.right-1,r.bottom-1);
+                  LineTo(ps.hdc,r.right-1,1);
+                  LineTo(ps.hdc,1,1);
+                  SelectObject(ps.hdc,pen2);
+                  MoveToEx(ps.hdc,0,0,NULL);
+                  LineTo(ps.hdc,0,r.bottom-2);
+                  LineTo(ps.hdc,r.right-2,r.bottom-2);
+                  LineTo(ps.hdc,r.right-2,0);
+                  LineTo(ps.hdc,0,0);
+                break;
               }
+
+              SelectObject(ps.hdc,oldPen);
+              DeleteObject(pen);
+              DeleteObject(pen2);
+
+              text = "";
             }
-            if (buf) DrawText(ps.hdc,buf,-1,&r,
-                ((hwnd->m_style & SS_CENTER) ? DT_CENTER : 
+            break;
+            case SS_LEFT:
+              if (text[0])
+              {
+                RECT tmp={0,};
+                const int line_h = DrawText(ps.hdc," ",1,&tmp,DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+                if (r.bottom > line_h*5/3)
+                {
+                  int loffs=0;
+                  while (text[loffs] && r.top < r.bottom)
+                  {
+                    int post=0, lb=swell_getLineLength(text+loffs, &post, r.right, ps.hdc);
+                    if (lb>0)
+                      DrawText(ps.hdc,text+loffs,lb,&r,DT_TOP|DT_SINGLELINE|DT_LEFT);
+                    r.top += line_h;
+                    loffs+=lb+post;
+                  }
+                  text = "";
+                }
+              }
+            break;
+          }
+
+          if (text[0])
+          {
+            DrawText(ps.hdc,text,-1,&r,
+                ((hwnd->m_style & SS_CENTER) ? DT_CENTER :
                  (hwnd->m_style & SS_RIGHT) ? DT_RIGHT : 0)|
                 DT_VCENTER);
           }
