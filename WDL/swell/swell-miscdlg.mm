@@ -306,7 +306,9 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
         }
         else if (nft > 0)
         {
-          NSString *s = [fileTypes objectAtIndex:0];
+          NSArray *ft = [panel allowedFileTypes]; // might have been modified by the chooseproc
+          if (!ft || ![ft count]) ft = fileTypes;
+          NSString *s = [ft objectAtIndex:0];
           if (s)
           {
             tmp[0] = '.';
