@@ -1,6 +1,7 @@
-v1.29b - April 3, 2020
+v1.30 - April 4, 2020
   + macOS: fix Catalina file browser default extension issues
   + macOS: notarized for Catalina
+  + macOS: drop 32-bit support
 
 v1.29 - February 18, 2019
   + macOS: 32/64-bit UB, compiled with newer Xcode/ICC

@@ -1,1 +1,1 @@
-#define LICECAP_VERSION "v1.29b"
+#define LICECAP_VERSION "v1.30"
