@@ -267,21 +267,65 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
   [panel setAccessoryView:nil];
 
+  bool rv = false;
+
+  NSString *str;
+  if (result == NSOKButton && fn && fnsize > 0 && (str = [panel filename]))
+  {
+    SWELL_CFStringToCString(str,fn,fnsize);
+    if (fn[0])
+    {
+      // this nonsense only seems to be necessary on 10.15 (and possibly future macOS versions?)
+      char tmp[256];
+
+      const int nft = [fileTypes count];
+      int x = nft;
+
+      const char *ext = WDL_get_fileext(fn);
+      if (*ext)
+      {
+        // see if extension is in list
+        ext++;
+        for (x = 0; x < nft; x ++)
+        {
+          NSString *s = [fileTypes objectAtIndex:x];
+          if (s)
+          {
+            SWELL_CFStringToCString(s,tmp,sizeof(tmp));
+            if (!stricmp(tmp,ext)) break;
+          }
+        }
+      }
+
+      if (x == nft)
+      {
+        // not in list, apply default extension if specified, or first extension from list
+        if (initialfile && *initialfile == '.')
+        {
+          lstrcatn(fn,initialfile,fnsize);
+        }
+        else if (nft > 0)
+        {
+          NSString *s = [fileTypes objectAtIndex:0];
+          if (s)
+          {
+            tmp[0] = '.';
+            SWELL_CFStringToCString(s,tmp+1,sizeof(tmp)-1);
+            lstrcatn(fn,tmp,fnsize);
+          }
+        }
+      }
+
+      rv = true;
+    }
+  }
+
   [title release];
   [fileTypes release];
   [idir release];
   [ifn release];
 	
-  if (result == NSOKButton)
-  {
-    NSString *str = [panel filename];
-    if (str && fn && fnsize>0) 
-    {
-      SWELL_CFStringToCString(str,fn,fnsize);
-      return fn[0] != 0;
-    }
-  }
-  return false;
+  return rv;
 }
 
 bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int fnsize)
