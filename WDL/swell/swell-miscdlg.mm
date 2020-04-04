@@ -82,6 +82,7 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
   BFSF_Templ_dlgid=dlgid;
   BFSF_Templ_dlgproc=dlgProc;
 }
+static const char *s_browse_extsel;
 
 static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -126,6 +127,7 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             {
               if (!strnicmp(p,initial_file,initial_file_len) && (p[initial_file_len] == ';' || !p[initial_file_len])) 
               {
+                s_browse_extsel = p;
                 bestp = p;
                 def_sel = a;
                 break;
@@ -165,7 +167,8 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
           if (extlist)
           {
             NSArray *fileTypes = extensionsFromList(extlist,
-                (const char *)SendDlgItemMessage(hwnd,1000,CB_GETITEMDATA,a,0));
+                s_browse_extsel = (const char *)SendDlgItemMessage(hwnd,1000,CB_GETITEMDATA,a,0)
+                );
             if ([fileTypes count]>0) 
             {
               NSSavePanel *par = (NSSavePanel*)[(NSView *)hwnd window];
@@ -201,6 +204,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
     av_parent = SWELL_CreateDialog(NULL,0,NULL,fileTypeChooseProc,(LPARAM)ar);
     if (!av_parent) av_parent = (HWND)panel;
   }
+  s_browse_extsel = NULL;
 
   HWND oh=NULL;
   if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
@@ -304,11 +308,14 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
         {
           lstrcatn(fn,initialfile,fnsize);
         }
+        else if (s_browse_extsel && *s_browse_extsel)
+        {
+          lstrcatn(fn,".",fnsize);
+          lstrcatn(fn,s_browse_extsel,fnsize);
+        }
         else if (nft > 0)
         {
-          NSArray *ft = [panel allowedFileTypes]; // might have been modified by the chooseproc
-          if (!ft || ![ft count]) ft = fileTypes;
-          NSString *s = [ft objectAtIndex:0];
+          NSString *s = [fileTypes objectAtIndex:0];
           if (s)
           {
             tmp[0] = '.';
