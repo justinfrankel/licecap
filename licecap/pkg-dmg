@@ -654,6 +654,7 @@ if(@resourceFiles) {
         '-F', '/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/',
         '-F', '/Developer/SDKs/MacOSX10.6.sdk/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/',
         '-F', '/Developer/Headers/FlatCarbon/', 
+        '-F', '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/', 
         '-o',
    $targetImage) != 0) {
     cleanupDie('Rez failed');
