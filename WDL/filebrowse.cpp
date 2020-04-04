@@ -185,6 +185,8 @@ bool WDL_ChooseFileForSave(HWND parent,
   char cwd[2048];
   GetCurrentDirectory(sizeof(cwd),cwd);
 
+  while (defext && *defext == '.') defext++; // this function can be passed defext of either .wav or wav, we always want it to be the latter
+
 #ifdef _WIN32
   WDL_FileBrowse_Dis win32disfix(parent);
   char temp[4096];
@@ -213,7 +215,9 @@ bool WDL_ChooseFileForSave(HWND parent,
         {
           if(*p) p+=strlen(p)+1;
           if(!*p) break;
-          if(stristr(p, defext)) 
+          const char *ext = WDL_get_fileext(p);
+          if (*ext == '.') ext++;
+          if(!stricmp(ext,defext))
           {
             fd.setFileTypeIndex(i+1);
             break;
@@ -279,7 +283,11 @@ bool WDL_ChooseFileForSave(HWND parent,
   }
   else
   {
-    if (defext && *defext == '.') initialfile = defext; // SWELL supports default extension in filename field
+    if (defext && *defext)
+    {
+      snprintf(if_temp,sizeof(if_temp),".%s",defext); // SWELL treats initialfile of ".ext" as default extension
+      initialfile = if_temp;
+    }
   }
 
   bool r = BrowseForSaveFile(text,initialdir,initialfile,extlist,fn,fnsize);
