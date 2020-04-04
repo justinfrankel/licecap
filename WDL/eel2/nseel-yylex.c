@@ -33,6 +33,9 @@
 int nseellex(void * yylval_param,void * yylloc_param ,void *yyscanner);
 void nseelerror(void *pos,compileContext *ctx, const char *str);
 
+// inhibit a warning:
+static void WDL_STATICFUNC_UNUSED yydestruct(const char *yymsg, int yytype, YYSTYPE *yyvaluep, YYLTYPE *yylocationp, compileContext* context);
+
 #include <stdlib.h>
 #include <string.h>
 

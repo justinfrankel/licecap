@@ -115,7 +115,6 @@ EEL_LICE_FUNCDEF void (*LICE__DestroyFont)(LICE_IFont* font);
 EEL_LICE_FUNCDEF LICE_IFont *(*LICE_CreateFont)();
 EEL_LICE_FUNCDEF void (*LICE__SetFromHFont)(LICE_IFont* ifont, HFONT font, int flags);
 EEL_LICE_FUNCDEF LICE_pixel (*LICE__SetTextColor)(LICE_IFont* ifont, LICE_pixel color);
-EEL_LICE_FUNCDEF LICE_pixel (*LICE__SetBkColor)(LICE_IFont* ifont, LICE_pixel color);
 EEL_LICE_FUNCDEF void (*LICE__SetTextCombineMode)(LICE_IFont* ifont, int mode, float alpha);
 EEL_LICE_FUNCDEF int (*LICE__DrawText)(LICE_IFont* ifont, LICE_IBitmap *bm, const char *str, int strcnt, RECT *rect, UINT dtFlags);
 
@@ -149,11 +148,6 @@ static void LICE__SetFromHFont(LICE_IFont * ifont, HFONT font, int flags)
 static LICE_pixel LICE__SetTextColor(LICE_IFont* ifont, LICE_pixel color)
 {
   if (ifont) return ifont->SetTextColor(color);
-  return 0;
-}
-static LICE_pixel LICE__SetBkColor(LICE_IFont* ifont, LICE_pixel color)
-{
-  if (ifont) return ifont->SetBkColor(color);
   return 0;
 }
 static void LICE__SetTextCombineMode(LICE_IFont* ifont, int mode, float alpha)
@@ -258,7 +252,7 @@ public:
   NSEEL_VMCTX m_vmref;
   void *m_user_ctx;
 
-  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0); // mouse_x/y used only if hwnd is NULL
+  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0, int has_dpi=0); // mouse_x/y used only if hwnd is NULL
   void finish_draw();
 
   void gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag);
@@ -1571,8 +1565,6 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
 
 EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
-  if (!hwnd_standalone) return 0.0;
-
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], NULL);
   if (!p || !p[0]) return 0.0;
 
@@ -1582,8 +1574,25 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
   int ret=0;
   if (hm)
   {
-    POINT pt = { (short)*m_gfx_x, (short)*m_gfx_y };
-    ClientToScreen(hwnd_standalone, &pt);
+    POINT pt;
+    if (hwnd_standalone)
+    {
+#ifdef __APPLE__
+      if (*m_gfx_ext_retina > 1.0) 
+      { 
+        pt.x = (short)(*m_gfx_x * .5);
+        pt.y = (short)(*m_gfx_y * .5);
+      }
+      else
+#endif
+      {
+        pt.x = (short)*m_gfx_x;
+        pt.y = (short)*m_gfx_y;
+      }
+      ClientToScreen(hwnd_standalone, &pt);
+    }
+    else
+      GetCursorPos(&pt);
     ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, pt.x, pt.y, 0, hwnd_standalone, NULL);
     DestroyMenu(hm);
   }
@@ -1728,7 +1737,7 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
                            getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 }
 
-int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
+int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, int has_dpi)
 {
   int use_w = r.right - r.left;
   int use_h = r.bottom - r.top;
@@ -1741,7 +1750,11 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
   }
   *m_mouse_x=pt.x-r.left;
   *m_mouse_y=pt.y-r.top;
-  if (*m_gfx_ext_retina > 0.0)
+  if (has_dpi>0 && *m_gfx_ext_retina > 0.0)
+  {
+    *m_gfx_ext_retina = has_dpi/256.0;
+  }
+  else if (*m_gfx_ext_retina > 0.0)
   {
 #ifdef __APPLE__
     *m_gfx_ext_retina = (hwnd && SWELL_IsRetinaHWND(hwnd)) ? 2.0 : 1.0;
@@ -1824,7 +1837,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y)
   *m_mouse_cap=(EEL_F)vflags;
 
   *m_gfx_dest = -1.0; // m_framebuffer
-  *m_gfx_a= 1.0; // default to full alpha every call
+  *m_gfx_a2 = *m_gfx_a = 1.0; // default to full alpha every call
   int fh;
   if (m_gfx_font_active>=0&&m_gfx_font_active<m_gfx_fonts.GetSize() && (fh=m_gfx_fonts.Get()[m_gfx_font_active].use_fonth)>0)
     *m_gfx_texth=fh;
@@ -1896,10 +1909,8 @@ void eel_lice_register()
 
 #ifdef _WIN32
 static HINSTANCE eel_lice_hinstance;
-static const char *eel_lice_standalone_classname;
 #endif
-
-HWND eel_lice_standalone_owner;
+static const char *eel_lice_standalone_classname;
 
 #ifdef EEL_LICE_WANT_STANDALONE_UPDATE
 static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
@@ -2107,7 +2118,7 @@ extern "C"
 {
   void *objc_getClass(const char *p);
   void *sel_getUid(const char *p);
-  void *objc_msgSend(void *, void *, ...);
+  void objc_msgSend(void);
 };
 #endif
 
@@ -2119,7 +2130,13 @@ HWND eel_lice_state::create_wnd(HWND par, int isChild)
   return CreateWindowEx(WS_EX_ACCEPTFILES,eel_lice_standalone_classname,"",
                         isChild ? (WS_CHILD|WS_TABSTOP) : (WS_POPUP|WS_CAPTION|WS_THICKFRAME|WS_SYSMENU),CW_USEDEFAULT,CW_USEDEFAULT,100,100,par,NULL,eel_lice_hinstance,this);
 #else
-  return SWELL_CreateDialog(NULL,isChild ? NULL : ((const char *)(INT_PTR)0x400001),par,(DLGPROC)eel_lice_wndproc,(LPARAM)this);
+  HWND h = SWELL_CreateDialog(NULL,isChild ? NULL : ((const char *)(INT_PTR)0x400001),par,(DLGPROC)eel_lice_wndproc,(LPARAM)this);
+  if (h)
+  {
+    SWELL_SetClassName(h,eel_lice_standalone_classname);
+    SWELL_EnableMetal(h,1);
+  }
+  return h;
 #endif
 }
 
@@ -2175,13 +2192,36 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
 #endif
   if (ctx)
   {
-    bool wantShow=false;
+    bool wantShow=false, wantResize=true;
+    int sug_w = np > 1 ? (int)parms[1][0] : 640;
+    int sug_h = np > 2 ? (int)parms[2][0] : 480;
+    if (sug_w <1 && sug_h < 1 && ctx->hwnd_standalone) 
+    {
+      RECT r;
+      GetClientRect(ctx->hwnd_standalone,&r);
+      sug_w = r.right;
+      sug_h = r.bottom;
+    }
+    #ifdef EEL_LICE_WANTDOCK
+    const int pos_offs = 4;
+    #else
+    const int pos_offs = 3;
+    #endif
+
+    if (sug_w < 16) sug_w=16;
+    else if (sug_w > 2048) sug_w=2048;
+    if (sug_h < 16) sug_h=16;
+    else if (sug_h > 1600) sug_h=1600;
+
     if (!ctx->hwnd_standalone)
     {
       #ifdef __APPLE__
-        void *nsapp=objc_msgSend( objc_getClass("NSApplication"), sel_getUid("sharedApplication"));
-        objc_msgSend(nsapp,sel_getUid("setActivationPolicy:"), 0);
-        objc_msgSend(nsapp,sel_getUid("activateIgnoringOtherApps:"), 1);
+        void *(*send_msg)(void *, void *) = (void *(*)(void *, void *))objc_msgSend;
+        void (*send_msg_longparm)(void *, void *, long) = (void (*)(void *, void *, long))objc_msgSend; // long = NSInteger
+
+        void *nsapp=send_msg( objc_getClass("NSApplication"), sel_getUid("sharedApplication"));
+        send_msg_longparm(nsapp,sel_getUid("setActivationPolicy:"), 0);
+        send_msg_longparm(nsapp,sel_getUid("activateIgnoringOtherApps:"), 1);
 
       #endif
 
@@ -2198,20 +2238,6 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
 
       if (ctx->hwnd_standalone)
       {
-        int sug_w = np > 1 ? (int)parms[1][0] : 640;
-        int sug_h = np > 2 ? (int)parms[2][0] : 480;
-        
-        if (sug_w < 16) sug_w=16;
-        else if (sug_w > 2048) sug_w=2048;
-        if (sug_h < 16) sug_h=16;
-        else if (sug_h > 1600) sug_w=1600;
-
-        #ifdef EEL_LICE_WANTDOCK
-          const int pos_offs = 4;
-        #else
-          const int pos_offs = 3;
-        #endif
-
         int px=0,py=0;
         if (np >= pos_offs+2)
         {
@@ -2248,7 +2274,10 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
           }
         #endif
       }
+      wantResize=false;
     }
+    if (!ctx->hwnd_standalone) return 0;
+
     if (np>0)
     {
       EEL_STRING_MUTEXLOCK_SCOPE
@@ -2256,12 +2285,41 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
       #ifdef EEL_STRING_DEBUGOUT
         if (!title) EEL_STRING_DEBUGOUT("gfx_init: invalid string identifier %f",parms[0][0]);
       #endif
-      if (title&&*title) SetWindowText(ctx->hwnd_standalone,title);
+      if (title&&*title)
+      {
+        SetWindowText(ctx->hwnd_standalone,title);
+        wantResize=false; // ignore resize if we're setting title
+      }
     }
-
     if (wantShow)
       ShowWindow(ctx->hwnd_standalone,SW_SHOW);
-    return !!ctx->hwnd_standalone;
+    if (wantResize && np>2 && !(GetWindowLong(ctx->hwnd_standalone,GWL_STYLE)&WS_CHILD))
+    {
+      RECT r1,r2;
+      GetWindowRect(ctx->hwnd_standalone,&r1);
+      GetClientRect(ctx->hwnd_standalone,&r2);
+      const bool do_size = sug_w != r2.right || sug_h != r2.bottom;
+
+      sug_w += (r1.right-r1.left) - r2.right;
+      sug_h += abs(r1.bottom-r1.top) - r2.bottom;
+
+      int px=0,py=0;
+      const bool do_move=(np >= pos_offs+2);
+      if (do_move)
+      {
+        px = (int) floor(parms[pos_offs][0] + 0.5);
+        py = (int) floor(parms[pos_offs+1][0] + 0.5);
+#ifdef EEL_LICE_VALIDATE_RECT_ON_SCREEN
+        RECT r = {px,py,px+sug_w,py+sug_h};
+        EEL_LICE_VALIDATE_RECT_ON_SCREEN(r);
+        px=r.left; py=r.top; sug_w = r.right-r.left; sug_h = r.bottom-r.top;
+#endif
+      }
+      if (do_size || do_move)
+        SetWindowPos(ctx->hwnd_standalone,NULL,px,py,sug_w,sug_h,
+            (do_size ? 0 : SWP_NOSIZE)|(do_move? 0:SWP_NOMOVE)|SWP_NOZORDER|SWP_NOACTIVATE);
+    }
+    return 1;
   }
   return 0;  
 }
@@ -2581,6 +2639,19 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_GETDLGCODE:
       if (GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD) return DLGC_WANTALLKEYS;
     break;
+    case 0x02E0: //WM_DPICHANGED
+      if (!(GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD))
+      {
+        RECT *prcNewWindow = (RECT*)lParam;
+        SetWindowPos(hwnd,
+          NULL,
+          prcNewWindow ->left,
+          prcNewWindow ->top,
+          prcNewWindow->right - prcNewWindow->left,
+          prcNewWindow->bottom - prcNewWindow->top,
+          SWP_NOZORDER | SWP_NOACTIVATE);
+      }
+    break;
 #endif
     case WM_SIZE:
       // fall through
@@ -2648,12 +2719,12 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 
 void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HWND hwndPar, HICON icon)
 {
+  eel_lice_standalone_classname=classname && *classname ? classname : "EEL_LICE_gfx_standalone";
 #ifdef _WIN32
   static bool reg;
   if (!reg)
   {
     eel_lice_hinstance=hInstance;
-    eel_lice_standalone_classname=classname && *classname ? classname : "EEL_LICE_gfx_standalone";
     WNDCLASS wc={CS_DBLCLKS,eel_lice_wndproc,0,0,hInstance,icon,LoadCursor(NULL,IDC_ARROW), NULL, NULL,eel_lice_standalone_classname};
     RegisterClass(&wc);
     reg = true;
@@ -2732,7 +2803,6 @@ static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
   *(void **)&LICE__SetFromHFont = getFunc("LICE__SetFromHFont2");
 
   *(void **)&LICE__SetTextColor = getFunc("LICE__SetTextColor");    
-  *(void **)&LICE__SetBkColor = getFunc("LICE__SetBkColor");    
   *(void **)&LICE__SetTextCombineMode = getFunc("LICE__SetTextCombineMode");    
   *(void **)&LICE__DrawText = getFunc("LICE__DrawText");    
 }

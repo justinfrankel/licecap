@@ -13,7 +13,7 @@
 #include "../libpng/png.h"
 
 #ifdef __APPLE__
-#include <Carbon/Carbon.h> // for loading images from embedded resource 
+#include <CoreFoundation/CoreFoundation.h> // for loading images from embedded resource 
 #endif
 
 

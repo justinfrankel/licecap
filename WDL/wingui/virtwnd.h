@@ -194,7 +194,7 @@ public:
 
 
   void SetGSC(int (*GSC)(int));
-  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL, const RECT *windowRect=NULL);  
+  void PaintBegin(HWND hwnd, int bgcolor=-1, const RECT *limitBGrect=NULL, const RECT *windowRect=NULL, HDC hdcOut=NULL, const RECT *clip_r=NULL); // if hwnd is NULL, windowRect/hdcOut/clip_r must be set
   void SetBGImage(WDL_VirtualWnd_BGCfg *bitmap, int tint=-1, WDL_VirtualWnd_BGCfgCache *cacheObj=NULL, bool tintUnderMode=false) // call before every paintbegin (resets if you dont)
   { 
     m_bgbm=bitmap; 
@@ -205,12 +205,12 @@ public:
   void SetBGGradient(int wantGradient, double start, double slope); // wantg < 0 to use system defaults
 
   void PaintBGCfg(WDL_VirtualWnd_BGCfg *bitmap, const RECT *coords, bool allowTint=true, float alpha=1.0, int mode=0);
-  void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0);
+  void PaintVirtWnd(WDL_VWnd *vwnd, int borderflags=0, int x_xlate=0, int y_xlate=0);
   void PaintBorderForHWND(HWND hwnd, int borderflags);
   void PaintBorderForRect(const RECT *r, int borderflags);
 
   void GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw);
-  void SetRenderScale(int render_scale) { m_render_scale = render_scale; }
+  void SetRenderScale(int render_scale, int advisory_scale=WDL_VWND_SCALEBASE) { m_render_scale = render_scale; m_advisory_scale = advisory_scale; }
   int GetRenderScale() const { return m_render_scale; }
 
   void RenderScaleRect(RECT *r) const
@@ -225,7 +225,7 @@ public:
     return m_bm; 
   }
 
-  void PaintEnd();
+  void PaintEnd(int xoffs=0, int yoffs=0);
 
   int GSC(int a);
 private:
@@ -240,10 +240,11 @@ private:
   WDL_VirtualWnd_BGCfg *m_bgbm;
   int m_bgbmtintcolor;
   bool m_bgbmtintUnderMode;
-  int m_render_scale;
+  int m_render_scale, m_advisory_scale;
 
   WDL_VirtualWnd_BGCfgCache *m_bgcache;
   HWND m_cur_hwnd;
+public:
   PAINTSTRUCT m_ps;
   int m_paint_xorig, m_paint_yorig;
 

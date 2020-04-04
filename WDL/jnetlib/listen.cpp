@@ -21,6 +21,7 @@ JNL_Listen::JNL_Listen(short port, unsigned int which_interface)
   else
   {
     struct sockaddr_in sin;
+    SET_SOCK_DEFAULTS(m_socket);
     SET_SOCK_BLOCK(m_socket,0);
     int bflag = 1;
     setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&bflag, sizeof(bflag));

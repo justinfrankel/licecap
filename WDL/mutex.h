@@ -142,7 +142,8 @@ class WDL_MutexLock {
 public:
   WDL_MutexLock(WDL_Mutex *m) : m_m(m) { if (m) m->Enter(); }
   ~WDL_MutexLock() { if (m_m) m_m->Leave(); }
-private:
+
+  // the caller modifies this, make sure it unlocks the mutex first and locks the new mutex!
   WDL_Mutex *m_m;
 } WDL_FIXALIGN;
 

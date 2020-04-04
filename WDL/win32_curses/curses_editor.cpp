@@ -40,7 +40,7 @@ static void __curses_onresize(win32CursesCtx *ctx)
   if (p)
   {
     p->draw();
-    p->setCursor();
+    p->setCursorIfVisible();
   }
 }
 WDL_CursesEditor::WDL_CursesEditor(void *cursesCtx)
@@ -399,8 +399,8 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
           int y=m_curs_y+paney[m_curpane]-m_paneoffs_y[m_curpane];
           if (y >= paney[m_curpane] && y < paney[m_curpane]+paneh[m_curpane]) setCursor();
-          return 0;
         }
+        return 0;
       }
 
       if (uMsg == WM_LBUTTONDOWN) m_selecting=0;
@@ -443,8 +443,8 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
           while (x2 < s->GetLength() && p[x2] > 0 && (isalnum(p[x2]) || p[x2] == '_')) ++x2;
           if (x2 > x1)
           {
-            m_select_x1=x1;
-            m_curs_x=m_select_x2=x2;
+            m_select_x1=WDL_utf8_bytepos_to_charpos(s->Get(),x1);
+            m_curs_x=m_select_x2=WDL_utf8_bytepos_to_charpos(s->Get(),x2);
             m_select_y1=m_select_y2=m_curs_y;
             m_selecting=1;
           }
@@ -784,6 +784,16 @@ void WDL_CursesEditor::setCursor(int isVscroll, double ycenter)
 
   y += paney[m_curpane];
   move(y, m_curs_x-m_offs_x);
+}
+
+void WDL_CursesEditor::setCursorIfVisible()
+{
+  if (WDL_NOT_NORMALLY(m_curpane != 0 && m_curpane != 1)) return;
+  int paney[2], paneh[2];
+  GetPaneDims(paney, paneh);
+  int y=m_curs_y-m_paneoffs_y[m_curpane];
+  if (y >= 0 && y < paneh[m_curpane])
+    setCursor();
 }
 
 void WDL_CursesEditor::draw_message(const char *str)
@@ -2507,10 +2517,12 @@ void WDL_CursesEditor::loadUndoState(editUndoRec *rec, int idx)
 
 void WDL_CursesEditor::RunEditor()
 {
+  WDL_DestroyCheck chk(&destroy_check);
+
   int x;
   for(x=0;x<16;x++)
   {
-    if (!CURSES_INSTANCE) break;
+    if (!chk.isOK() || !CURSES_INSTANCE) break;
 
     int thischar = getch();
     if (thischar==ERR) break;

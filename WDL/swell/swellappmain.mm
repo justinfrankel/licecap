@@ -47,7 +47,7 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
 @implementation SWELLApplication
 - (void)sendEvent:(NSEvent *)anEvent
 {
-  int etype = [anEvent type];
+  NSEventType etype = [anEvent type];
   if (etype == NSKeyUp)
   {
     // toss keyup if next keydown is the same key
@@ -180,7 +180,7 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
 - (void)awakeFromNib
 {      
   SWELL_EnsureMultithreadedCocoa();
-  [NSApp setDelegate:self];
+  [NSApp setDelegate:(id) self];
 
   SWELL_POSTMESSAGE_INIT
   
@@ -196,7 +196,7 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
 
 -(IBAction)onSysMenuCommand:(id)sender
 {
-  int a = [sender tag];
+  INT_PTR a = (INT_PTR) [(NSMenuItem *)sender tag];
   if (a) SWELLAppMain(SWELLAPP_ONCOMMAND,a,(INT_PTR)sender);
 }
 

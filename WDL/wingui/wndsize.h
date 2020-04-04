@@ -55,6 +55,16 @@
    
 */
 
+/*
+ * Additional note from late-2019
+ * If on Windows and Multimonitor v2 DPI awareness mode is enabled
+ * The coordinates for WDL_WndSizer__rec will be based on the DPI-scaling at init() time, which is m_base_dpi.
+ *
+ * One can use dpi_to_sizer() and sizer_to_dpi() to convert to/from (if DPI-scaling is disabled, then these functions no-op)
+ *
+ * If m_base_dpi is set to <=0 this functionality is disabled (disable if you want to manage this all at the caller level)
+ */
+
 #ifndef _WNDSIZE_H_
 #define _WNDSIZE_H_
 
@@ -79,6 +89,7 @@ public:
   WDL_WndSizer() 
   { 
     m_hwnd=NULL; 
+    m_base_dpi=256;
     memset(&m_min_size,0,sizeof(m_min_size));
     memset(&m_orig_size,0,sizeof(m_orig_size));
     memset(&m_margins,0,sizeof(m_margins));
@@ -103,6 +114,11 @@ public:
   WDL_WndSizer__rec *get_itembyvirt(WDL_VWnd *vwnd) const;
   
   RECT get_orig_rect() const { RECT r={0,0,m_orig_size.x,m_orig_size.y}; return r; }
+  RECT get_orig_rect_dpi(int dpi=0) const {
+    RECT r = get_orig_rect();
+    sizer_to_dpi_rect(&r,dpi);
+    return r;
+  }
   void set_orig_rect(const RECT *r, const POINT *minSize=NULL) 
   {
     if (r) { m_orig_size.x = r->right; m_orig_size.y = r->bottom; } 
@@ -112,6 +128,7 @@ public:
   POINT get_min_size(bool applyMargins=false) const;
 
   void onResize(HWND only=0, int notouch=0, int xtranslate=0, int ytranslate=0);
+  void onResizeVirtual(int width, int height);
 
 
   void set_margins(int left, int top, int right, int bottom) { m_margins.left=left; m_margins.top=top; m_margins.right=right; m_margins.bottom=bottom; }
@@ -124,6 +141,23 @@ public:
   }
 
   void transformRect(RECT *r, const float *scales, const RECT *wndSize) const;
+
+  int m_base_dpi; // if set <=0, all DPI functionality will be skipped. 256=normal
+  static int calc_dpi(HWND hwnd); // returns 0 if not windows or not in multimonitorv2 awareness mode
+  bool sizer_to_dpi_rect(RECT *r, int dpi=0) const; // returns true if modified, converts to current DPI from sizer base DPI
+
+  int dpi_to_sizer(int x, int dpi=0) const // convert dpi-specific coordinate to sizer coordinate (orig.left etc) if in DPI mode
+  {
+    if (m_base_dpi<=0 || !x) return x;
+    if (dpi<=0) dpi=calc_dpi(m_hwnd);
+    return dpi>0 && dpi != m_base_dpi ? x * m_base_dpi / dpi : x;
+  }
+  int sizer_to_dpi(int x, int dpi=0) const // convert sizer coordinate (orig.left etc) to dpi-specific coordinate, if in DPI mode
+  {
+    if (m_base_dpi<=0 || !x) return x;
+    if (dpi<=0) dpi=calc_dpi(m_hwnd);
+    return dpi>0 && dpi != m_base_dpi ? x * dpi / m_base_dpi : x;
+  }
 
 private:
 #ifdef _WIN32

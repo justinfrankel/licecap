@@ -1,8 +1,9 @@
 #ifndef _WDL_MERGESORT_H_
 #define _WDL_MERGESORT_H_
 
+#include "wdltypes.h"
 
-static void WDL_mergesort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *), char *tmpspace)
+static void WDL_STATICFUNC_UNUSED WDL_mergesort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *), char *tmpspace)
 {
   char *b1,*b2;
   size_t n1, n2;

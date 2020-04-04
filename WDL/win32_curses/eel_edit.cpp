@@ -221,31 +221,23 @@ void EEL_Editor::draw_string_urlchk(int *skipcnt, const char *str, int amt, int 
   
 void EEL_Editor::draw_string_internal(int *skipcnt, const char *str, int amt, int *attr, int newAttr)
 {
+  // *skipcnt is in characters, amt is in bytes
+  while (*skipcnt > 0 && amt > 0)
+  {
+    const int clen = wdl_utf8_parsechar(str,NULL);
+    str += clen;
+    amt -= clen;
+    *skipcnt -= 1;
+  }
+
   if (amt>0)
   {
-    const int sk = *skipcnt;
-    if (amt < sk) 
-    { 
-      *skipcnt=sk - amt; 
-    } 
-    else
+    if (*attr != newAttr) 
     {
-      if (sk>0) 
-      {
-        str += sk; 
-        amt -= sk; 
-        *skipcnt=0; 
-      }
-      if (amt>0)
-      {
-        if (*attr != newAttr) 
-        {
-          attrset(newAttr);
-          *attr = newAttr;
-        }
-        addnstr(str,amt);
-      }
+      attrset(newAttr);
+      *attr = newAttr;
     }
+    addnstr(str,amt);
   }
 }
 
@@ -1295,11 +1287,16 @@ int EEL_Editor::onChar(int c)
     doWatchInfo(c);
   return 0;
   case 'S'-'A'+1:
+   {
+     WDL_DestroyCheck chk(&destroy_check);
      if(updateFile())
      {
-       draw_message("Error writing file, changes not saved!");
+       if (chk.isOK())
+         draw_message("Error writing file, changes not saved!");
      }
-     setCursor();
+     if (chk.isOK())
+       setCursor();
+   }
   return 0;
 
   case 'R'-'A'+1:
@@ -1382,6 +1379,7 @@ void EEL_Editor::onRightClick(HWND hwnd)
             while ((*q >= '0' && *q <= '9') || 
                    (*q >= 'a' && *q <= 'z') || 
                    (*q >= 'A' && *q <= 'Z') || 
+                   *q == ':' || // lua
                    *q == '_' || *q == '.') q++;
 
             while (*q == ' ') q++;

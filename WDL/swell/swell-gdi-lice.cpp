@@ -998,11 +998,11 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
   {
     FT_Face face=(FT_Face) font->typedata;
     tm->tmAscent = face->size->metrics.ascender/64;
-    tm->tmDescent = face->size->metrics.descender/64;
-    tm->tmHeight = face->size->metrics.height/64 + 1;
+    tm->tmDescent = -face->size->metrics.descender/64;
+    tm->tmHeight = (face->size->metrics.ascender - face->size->metrics.descender)/64;
     tm->tmAveCharWidth = face->size->metrics.height / 112;
-    // hmm? some font freetype/win32 expert can weigh in here :/
-    tm->tmInternalLeading = (face->size->metrics.height - face->size->metrics.ascender)/64;
+
+    tm->tmInternalLeading = (face->size->metrics.ascender + face->size->metrics.descender - face->size->metrics.height)/64;
     if (tm->tmInternalLeading<0) tm->tmInternalLeading=0;
   }
 #endif
@@ -1021,7 +1021,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 
   HGDIOBJ__  *font  = NULL;
 #ifdef SWELL_FREETYPE
-  int ascent=0;
+  int ascent=0, descent=0;
   font  = HDC_VALID(ct) && HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
   FT_Face face = NULL;
   if (font && font->typedata) 
@@ -1029,6 +1029,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     face=(FT_Face)font->typedata;
     lineh = face->size->metrics.height/64;
     ascent = face->size->metrics.ascender/64;
+    descent = face->size->metrics.descender/64;
     charw = face->size->metrics.height / 112;
   }
 #endif
@@ -1038,7 +1039,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     if (!font && (align&DT_SINGLELINE))
     {
       r->right = r->left + ( buflen < 0 ? strlen(buf) : buflen ) * charw;
-      int h = r->right ? lineh:0;
+      int h = r->right ? (ascent-descent) :0;
       r->bottom = r->top+h;
       return h;
     }
@@ -1085,14 +1086,15 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
             if (rext<xpos) rext=xpos;
             if (r->left+rext > r->right) r->right = r->left+rext;
 
-            int bext = r->top + ypos + lineh; // ascent + (g->metrics.height - g->metrics.horiBearingY)/64;
+            int bext = r->top + ypos + ascent - descent;
             if (bext > r->bottom) r->bottom = bext;
             continue;
           }
 #endif
         }
         xpos += c=='\t' ? charw*5 : charw;
-        if (r->top + ypos + lineh > r->bottom) r->bottom = r->top+ypos+lineh;
+        int bext = r->top + ypos + ascent - descent;
+        if (bext > r->bottom) r->bottom = bext;
         if (r->left+xpos>r->right) r->right=r->left+xpos;
       }
     }
@@ -1183,7 +1185,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         {
           FT_GlyphSlot g = face->glyph;
           const int ha = g->metrics.horiAdvance/64;
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,ha,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,ha,(align & DT_SINGLELINE) ? (ascent-descent) : lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
   
           if (g->bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
           {
@@ -1205,7 +1207,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
           if (rext<=xpos) rext=xpos + ha;
           if (rext > max_xpos) max_xpos=rext;
           xpos += ha;
-          const int bext = ypos + lineh;
+          const int bext = ypos + ascent-descent;
           if (max_ypos < bext) max_ypos=bext;
           needr=false;
         }
@@ -1216,19 +1218,19 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       {
         if (c=='\t') 
         {
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw*5,(align & DT_SINGLELINE) ? (ascent-descent) : lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
           xpos+=charw*5;
          
-          const int bext = ypos+lineh;
+          const int bext = ypos+ascent-descent;
           if (max_ypos < bext) max_ypos=bext;
         }
         else 
         {
-          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw,lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
+          if (bgmode==OPAQUE) LICE_FillRect(surface,xpos,ypos,charw,(align & DT_SINGLELINE) ? (ascent-descent) : lineh,bgcol,1.0f,LICE_BLIT_MODE_COPY);
           LICE_DrawChar(surface,xpos,ypos,c,fgcol,1.0f,LICE_BLIT_MODE_COPY);
-          if (doUl) LICE_Line(surface,xpos,ypos+lineh+1,xpos+charw,ypos+lineh+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
+          if (doUl) LICE_Line(surface,xpos,ypos+(ascent-descent)+1,xpos+charw,ypos+(ascent-descent)+1,fgcol,1.0f,LICE_BLIT_MODE_COPY,false);
   
-          const int bext=ypos+lineh+(doUl ? 2:1);
+          const int bext=ypos+ascent-descent+(doUl ? 2:1);
           if (max_ypos < bext) max_ypos=bext;
           xpos+=charw;
         }
@@ -1400,7 +1402,7 @@ void BitBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int yin,
   LICE_Blit(out->surface,in->surface,
             x+out->surface_offs.x,y+out->surface_offs.y,
             xin+in->surface_offs.x,yin+in->surface_offs.y,w,h,
-            1.0f,LICE_BLIT_MODE_COPY);
+            1.0f,LICE_BLIT_MODE_COPY | (mode == (int)SRCCOPY_USEALPHACHAN ? LICE_BLIT_USE_ALPHA : 0));
   swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
@@ -1427,7 +1429,7 @@ void StretchBlt(HDC hdcOut, int x, int y, int w, int h, HDC hdcIn, int xin, int 
   LICE_ScaledBlit(out->surface,in->surface,
             x+out->surface_offs.x,y+out->surface_offs.y,w,h,
             xin+in->surface_offs.x,yin+in->surface_offs.y,srcw,srch,
-            1.0f,LICE_BLIT_MODE_COPY);
+            1.0f,LICE_BLIT_MODE_COPY | (mode == (int)SRCCOPY_USEALPHACHAN ? LICE_BLIT_USE_ALPHA : 0));
   swell_DirtyContext(out,x,y,x+w,y+h);
 }
 
@@ -1641,35 +1643,45 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
     LICE_SubBitmap tmpsub(NULL,0,0,0,0);
     if (hwnd->m_wndproc) // this happens after m_paintctx is set -- that way GetWindowDC()/GetDC()/ReleaseDC() know to not actually update the screen
     {
-      RECT r;
-      GetWindowContentViewRect(hwnd,&r);
-      r.right-=r.left; r.bottom-=r.top; r.left=r.top=0;
-      NCCALCSIZE_PARAMS p={{r,},};
+      RECT r2;
+      GetWindowContentViewRect(hwnd,&r2);
+      WinOffsetRect(&r2,-r2.left,-r2.top);
+
+      NCCALCSIZE_PARAMS p;
+      memset(&p,0,sizeof(p));
+      p.rgrc[0]=r2;
       hwnd->m_wndproc(hwnd,WM_NCCALCSIZE,FALSE,(LPARAM)&p);
-      RECT r2=r;
-      r = p.rgrc[0];
+      RECT r = p.rgrc[0];
       if (forceref) hwnd->m_wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
 
-      if (r.left!=r2.left) {} // todo: adjust drawing offsets, clip rects, accordingly
-      if (r.top!=r2.top) {} // todo: adjust drawing offsets, clip rects, accordingly
-      int dx = r.left-r2.left,dy=r.top-r2.top;
-      // dx,dy is offset from the window's root of 
+      // dx,dy is offset from the window's nonclient root
+      const int dx = r.left-r2.left,dy=r.top-r2.top;
+
+      WinOffsetRect(&ctx.clipr,-dx,-dy);
+      ctx.ctx.surface_offs.x += dx;
+      ctx.ctx.surface_offs.y += dy;
       bmout_xpos -= dx;
       bmout_ypos -= dy;
 
-      if (dx||dy)
+      // make sure we can't overwrite the nonclient area
+      const int xo = wdl_max(-bmout_xpos,0), yo = wdl_max(-bmout_ypos,0);
+      if (xo || yo)
       {
         tmpsub.m_parent = ctx.ctx.surface;
-        tmpsub.m_x = dx;
-        tmpsub.m_y = dy;
-        tmpsub.m_w = ctx.ctx.surface->getWidth()-dx;
-        tmpsub.m_h = ctx.ctx.surface->getHeight()-dy;
+        tmpsub.m_x = xo;
+        tmpsub.m_y = yo;
+        tmpsub.m_w = ctx.ctx.surface->getWidth()-xo;
+        tmpsub.m_h = ctx.ctx.surface->getHeight()-yo;
         if (tmpsub.m_w<0) tmpsub.m_w=0;
         if (tmpsub.m_h<0) tmpsub.m_h=0;
         ctx.ctx.surface = &tmpsub;
+        ctx.ctx.surface_offs.x -= xo;
+        ctx.ctx.surface_offs.y -= yo;
       }
 
-      // adjust clip rects for right/bottom extents
+      // constrain clip rect to right/bottom extents
+      if (ctx.clipr.left < 0) ctx.clipr.left=0;
+      if (ctx.clipr.top < 0) ctx.clipr.top=0;
       int newr = r.right-r.left;
       if (ctx.clipr.right > newr) ctx.clipr.right=newr;
       int newb = r.bottom-r.top;

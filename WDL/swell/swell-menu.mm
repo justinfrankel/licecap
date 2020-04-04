@@ -751,11 +751,8 @@ void InsertMenuItem(HMENU hMenu, int pos, BOOL byPos, MENUITEMINFO *mi)
 
 @end
 
-void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
+static void SWELL_SetMenuDestinationInt(NSMenu *m, HWND hwnd, bool is_top_level, bool do_skip_sub)
 {
-  if (!menu || (hwnd && ![(id)hwnd respondsToSelector:@selector(onSwellCommand:)])) return;
-  
-  NSMenu *m=(NSMenu *)menu;
   [m setDelegate:(id)hwnd];
   const int n = (int)[m numberOfItems];
   for (int x = 0; x < n; x++)
@@ -766,7 +763,21 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
       if ([item hasSubmenu])
       {
         NSMenu *mm=[item submenu];
-        if (mm) SWELL_SetMenuDestination((HMENU)mm,hwnd);
+        if (mm)
+        {
+          if (do_skip_sub) 
+          {
+            id del = [mm delegate];
+            NSString *cn = del ? [del className] : NULL;
+            if (cn)
+            {
+              char buf[1024];
+              SWELL_CFStringToCString(cn, buf, sizeof(buf));
+              if (strstr(buf,"NSServices")) continue;
+            }
+          }
+          SWELL_SetMenuDestinationInt(mm,hwnd,false, is_top_level && !x);
+        }
       }
       else
       {
@@ -778,6 +789,21 @@ void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
       }
     }
   }
+}
+
+void SWELL_SetMenuDestination(HMENU menu, HWND hwnd)
+{
+  if (!menu || (hwnd && ![(id)hwnd respondsToSelector:@selector(onSwellCommand:)])) return;
+
+  NSMenu *m = (NSMenu *)menu, *par = [m supermenu];
+
+  bool do_skip_sub = false;
+  if (par && ![par supermenu] && [par numberOfItems]>0)
+  {
+    NSMenuItem *item = [par itemAtIndex:0];
+    do_skip_sub = item && [item hasSubmenu] && [item submenu] == m;
+  }
+  SWELL_SetMenuDestinationInt(m,hwnd,!par,do_skip_sub);
 }
 
 int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND hwnd, const RECT *r)

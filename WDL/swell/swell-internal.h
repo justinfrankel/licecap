@@ -136,8 +136,15 @@ typedef struct WindowPropRec
 
 
 @interface SWELL_TextField : NSTextField
+{
+  @public
+  bool m_last_dark_mode;
+  bool m_ctlcolor_set;
+}
 - (void)setNeedsDisplay:(BOOL)flag;
 - (void)setNeedsDisplayInRect:(NSRect)rect;
+- (void)drawRect:(NSRect)rect;
+- (void)initColors:(int)darkmode; // -1 to not update darkmode but trigger update of colors
 @end
 
 @interface SWELL_TabView : NSTabView
@@ -253,9 +260,13 @@ typedef struct WindowPropRec
 @interface SWELL_BoxView : NSBox
 {
   NSInteger m_tag;
+@public
+  int m_etch_mode; // if nonzero, SS_ETCHEDHORZ etc
 }
 -(NSInteger) tag;
 -(void) setTag:(NSInteger)tag;
+-(void) drawRect:(NSRect)r;
+-(int) swellIsEtchBox;
 @end
 
 @interface SWELL_FocusRectWnd : NSView
@@ -300,6 +311,27 @@ typedef struct WindowPropRec
   id m_lastTopLevelOwner; // save a copy of the owner, if any
   id m_access_cacheptrs[6];
   const char *m_classname;
+
+#ifndef SWELL_NO_METAL
+  char m_use_metal; // 1=normal mode, 2=full pipeline (GetDC() etc support). -1 is for non-metal async layered mode. -2 for non-metal non-async layered
+
+  // metal state (if used)
+  char m_metal_dc_dirty;  // used to track state during paint or getdc/releasedc. set to 1 if dirty, 2 if GetDC() but no write yet
+  char m_metal_gravity; // &1=resizing left, &2=resizing top
+  bool m_metal_retina; // last-retina-state, triggered to true by StretchBlt() with a 2:1 ratio
+
+  bool m_metal_in_needref_list;
+  RECT m_metal_in_needref_rect; 
+  NSRect m_metal_lastframe;
+
+  id m_metal_texture; // id<MTLTexture> -- owned if in full pipeline mode, otherwise reference to m_metal_drawable
+  id m_metal_pipelineState; // id<MTLRenderPipelineState> -- only used in full pipeline mode
+  id m_metal_commandQueue; // id<MTLCommandQueue> -- only used in full pipeline mode
+  id m_metal_drawable; // id<CAMetalDrawable> -- only used in normal mode
+  id m_metal_device; // id<MTLDevice> -- set to last-used-device
+  DWORD m_metal_device_lastchkt;
+#endif
+
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (LRESULT)onSwellMessage:(UINT)msg p1:(WPARAM)wParam p2:(LPARAM)lParam;
@@ -361,9 +393,23 @@ typedef struct WindowPropRec
 // Returns the UI Element that has the focus. You can assume that the search for the focus has already been narrowed down to the reciever. Override this method to do a deeper search with a UIElement - e.g. a NSMatrix would determine if one of its cells has the focus.
 - (id)accessibilityFocusedUIElement;
 
+-(void) swellOnControlDoubleClick:(id)sender;
 
+#ifdef MAC_OS_X_VERSION_10_8
+// for radio button with the OSX 10.8+ SDK, see comment in SWELL_MakeControl
+-(void) onSwellCommand0:(id)sender;
+-(void) onSwellCommand2:(id)sender;
+-(void) onSwellCommand3:(id)sender;
+-(void) onSwellCommand4:(id)sender;
+-(void) onSwellCommand5:(id)sender;
+-(void) onSwellCommand6:(id)sender;
+-(void) onSwellCommand7:(id)sender;
+#endif
 
-
+#ifndef SWELL_NO_METAL
+-(BOOL) swellWantsMetal;
+-(void) swellDrawMetal:(const RECT *)forRect;
+#endif
 @end
 
 @interface SWELL_ModelessWindow : NSWindow
@@ -409,6 +455,13 @@ typedef struct WindowPropRec
 -(int)swellGetModalRetVal;
 -(bool)swellHasModalRetVal;
 @end
+
+#ifndef SWELL_NO_METAL
+void swell_removeMetalDirty(SWELL_hwndChild *slf);
+void swell_updateAllMetalDirty(void);
+void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r, bool isReleaseDC=false);
+HDC SWELL_CreateMetalDC(SWELL_hwndChild *);
+#endif
 
 
 @interface SWELL_hwndCarbonHost : SWELL_hwndChild
@@ -491,6 +544,7 @@ struct HGDIOBJ__
   // used by pen/brush
   CGColorRef color;
   int wid;
+  int color_int;
   NSImage *bitmapptr;  
   
   NSMutableDictionary *__old_fontdict; // unused, for ABI compat
@@ -510,6 +564,9 @@ struct HGDIOBJ__
 struct HDC__ {
   CGContextRef ctx; 
   void *ownedData; // always use via SWELL_GetContextFrameBuffer() (which performs necessary alignment)
+#ifndef SWELL_NO_METAL
+  void *metal_ctx; // SWELL_hwndChild
+#endif
   HGDIOBJ__ *curpen;
   HGDIOBJ__ *curbrush;
   HGDIOBJ__ *curfont;
@@ -579,6 +636,23 @@ struct HDC__ {
 
 #endif
 
+
+#define NSPOINT_TO_INTS(pt) (int)floor((pt).x+0.5), (int)floor((pt).y+0.5)
+
+#ifdef __OBJC__
+static WDL_STATICFUNC_UNUSED void NSPOINT_TO_POINT(POINT *p, const NSPoint &pt)
+{
+  p->x = (int)floor(pt.x+0.5);
+  p->y = (int)floor((pt).y+0.5);
+}
+static WDL_STATICFUNC_UNUSED void NSRECT_TO_RECT(RECT *r, const NSRect &tr)
+{
+  r->left=(int)floor(tr.origin.x+0.5);
+  r->right=(int)floor(tr.origin.x+tr.size.width+0.5);
+  r->top=(int)floor(tr.origin.y+0.5);
+  r->bottom=(int)floor(tr.origin.y+tr.size.height+0.5);
+}
+#endif
 
 #elif defined(SWELL_TARGET_GDK)
 
@@ -1002,6 +1076,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   f(menubar_spacing_width, 8) \
   f(menubar_margin_width, 6) \
   f(scrollbar_width, 14) \
+  f(smscrollbar_width, 16) \
   f(scrollbar_min_thumb_height, 4) \
   f(combo_height, 20) \
 

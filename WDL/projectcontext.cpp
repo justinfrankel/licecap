@@ -41,6 +41,14 @@ char *projectcontext_fastDoubleToString(double value, char *bufOut, int prec_dig
     value=-value;
     *bufOut++ = '-';
   }
+
+  if (value < 1e-20)
+  {
+    *bufOut++ = '0';
+    *bufOut = 0;
+    return bufOut;
+  }
+
   if (value > 2147483647.0)
   {
     if (value >= 1.0e40) sprintf(bufOut, "%e", value);
@@ -1248,6 +1256,23 @@ char getConfigStringQuoteChar(const char *p)
   if (!(flags & 2)) return '\'';
   if (!(flags & 4)) return '`';
   return 0;
+}
+
+bool configStringWantsBlockEncoding(const char *in) // returns true if over 1k long, has newlines, or contains all quote chars
+{
+  int maxl = 1024, flags = 0;
+  while (--maxl)
+  {
+    switch (*in++)
+    {
+      case 0: return false;
+      case '\n': return true;
+      case '"': if ((flags|=1)==7) return true; break;
+      case '`': if ((flags|=2)==7) return true; break;
+      case '\'': if ((flags|=4)==7) return true; break;
+    }
+  }
+  return true;
 }
 
 void makeEscapedConfigString(const char *in, WDL_String *out)

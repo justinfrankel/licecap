@@ -330,11 +330,20 @@ public:
   }
 };
 
+class _LICE_CombinePixelsThreeEighthMix2FAST
+{
+public:
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is pre-three-eighthed and masked
+  {
+    LICE_pixel tmp = *dest;
+    *dest = ((tmp>>1) &0x7f7f7f7f) + ((tmp>>3) &0x1f1f1f1f) + src;
+  }
+};
 
 class _LICE_CombinePixelsThreeQuarterMix2FAST
 {
 public:
-  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is pre-quartered and masked
+  static inline void doPixFAST(LICE_pixel *dest, LICE_pixel src)    // src is pre-three-quartered and masked
   {
     *dest = ((*dest>>2) &0x3f3f3f3f) + src;
   }
@@ -811,4 +820,7 @@ public:
      
 typedef void (*LICE_COMBINEFUNC)(LICE_pixel_chan *dest, int r, int g, int b, int a, int alpha);
    
+#define __LICE_SC(x) do { (x) = ((x)*(__sc))/256; } while (0)
+#define __LICE_SCU(x) do { (x) = ((x)*(__sc))>>8; } while (0)
+
 #endif // _LICE_COMBINE_H_

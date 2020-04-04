@@ -246,7 +246,7 @@ static void GLUE_MOVE_STACK(void *b, int amt)
   *(EEL_BC_TYPE *)b = EEL_BC_MOVE_STACK;
   *(int *)(((EEL_BC_TYPE *)b)+1) = amt;
 }
-#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE (sizeof(EEL_BC_TYPE) + sizeof(int))
+#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(x) (sizeof(EEL_BC_TYPE) + sizeof(int))
 static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
 {
   *(EEL_BC_TYPE *)b = EEL_BC_STORE_P1_TO_STACK_AT_OFFS;

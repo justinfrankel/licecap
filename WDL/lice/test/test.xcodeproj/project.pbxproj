@@ -125,7 +125,6 @@
 		33BD26CB0ECF7830000A367A /* lice_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C30ECF7830000A367A /* lice_image.cpp */; };
 		33BD26CC0ECF7830000A367A /* lice_jpg_write.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C40ECF7830000A367A /* lice_jpg_write.cpp */; };
 		33BD26CD0ECF7830000A367A /* lice_pcx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C50ECF7830000A367A /* lice_pcx.cpp */; };
-		33BD26CE0ECF7830000A367A /* lice_png_write.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C60ECF7830000A367A /* lice_png_write.cpp */; };
 		33BD26CF0ECF7830000A367A /* lice_textnew.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26C80ECF7830000A367A /* lice_textnew.cpp */; };
 		33BD26DF0ECF78C3000A367A /* fly.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26DE0ECF78C3000A367A /* fly.cpp */; };
 		33DF417F1969C743006C7E88 /* image.png in Resources */ = {isa = PBXBuildFile; fileRef = 33DF417E1969C743006C7E88 /* image.png */; };
@@ -301,7 +300,6 @@
 		33BD26C30ECF7830000A367A /* lice_image.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_image.cpp; path = ../lice_image.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26C40ECF7830000A367A /* lice_jpg_write.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_jpg_write.cpp; path = ../lice_jpg_write.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26C50ECF7830000A367A /* lice_pcx.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_pcx.cpp; path = ../lice_pcx.cpp; sourceTree = SOURCE_ROOT; };
-		33BD26C60ECF7830000A367A /* lice_png_write.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_png_write.cpp; path = ../lice_png_write.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26C70ECF7830000A367A /* lice_text.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = lice_text.h; path = ../lice_text.h; sourceTree = SOURCE_ROOT; };
 		33BD26C80ECF7830000A367A /* lice_textnew.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_textnew.cpp; path = ../lice_textnew.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26DE0ECF78C3000A367A /* fly.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = fly.cpp; sourceTree = "<group>"; };
@@ -439,7 +437,6 @@
 				33BD26C30ECF7830000A367A /* lice_image.cpp */,
 				33BD26C40ECF7830000A367A /* lice_jpg_write.cpp */,
 				33BD26C50ECF7830000A367A /* lice_pcx.cpp */,
-				33BD26C60ECF7830000A367A /* lice_png_write.cpp */,
 				33BD26C70ECF7830000A367A /* lice_text.h */,
 				33BD26C80ECF7830000A367A /* lice_textnew.cpp */,
 				33343C230CE4DBBB00FF8CE6 /* lice_combine.h */,
@@ -796,7 +793,6 @@
 				33BD26CB0ECF7830000A367A /* lice_image.cpp in Sources */,
 				33BD26CC0ECF7830000A367A /* lice_jpg_write.cpp in Sources */,
 				33BD26CD0ECF7830000A367A /* lice_pcx.cpp in Sources */,
-				33BD26CE0ECF7830000A367A /* lice_png_write.cpp in Sources */,
 				33BD26CF0ECF7830000A367A /* lice_textnew.cpp in Sources */,
 				33BD26DF0ECF78C3000A367A /* fly.cpp in Sources */,
 				33651CDE10B766A6005FF751 /* swell-misc.mm in Sources */,

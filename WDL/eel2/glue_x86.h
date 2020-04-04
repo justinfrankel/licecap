@@ -95,7 +95,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
   }
   const static unsigned char  GLUE_PUSH_P1[4]={0x83, 0xEC, 12,   0x50}; // sub esp, 12, push eax
 
-  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 7
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(x) 7
   static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
   {
     ((unsigned char *)b)[0] = 0x89; // mov [esp+offs], eax
@@ -216,6 +216,12 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
   }
   return 1+sizeof(void *);
 }
+
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4731)
+#endif
 
 #define GLUE_TABPTR_IGNORED
 #define GLUE_CALL_CODE(bp, cp, rt) do { \
@@ -376,6 +382,11 @@ static void eel_callcode32_fast(INT_PTR cp, INT_PTR ramptr)
           : "%eax","%esi","%edi");
   #endif //gcc x86
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 
 static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 {

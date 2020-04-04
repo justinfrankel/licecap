@@ -55,12 +55,18 @@ public:
   SwellAPPInitializer()
   {
     void *(*SWELLAPI_GetFunc)(const char *name)=NULL;
+    void *(*send_msg)(id, SEL) = (void *(*)(id, SEL))objc_msgSend;
     
     id del = [NSApp delegate];
     if (del && [del respondsToSelector:@selector(swellGetAPPAPIFunc)])
-      *(void **)&SWELLAPI_GetFunc = (void *)objc_msgSend(del,@selector(swellGetAPPAPIFunc));
-      
-    if (SWELLAPI_GetFunc && SWELLAPI_GetFunc(NULL)!=(void*)0x100) SWELLAPI_GetFunc=0;
+      *(void **)&SWELLAPI_GetFunc = send_msg(del,@selector(swellGetAPPAPIFunc));
+
+    if (!SWELLAPI_GetFunc) NSLog(@"SWELL API provider not found\n");
+    else if (SWELLAPI_GetFunc(NULL)!=(void*)0x100)
+    {
+      NSLog(@"SWELL API provider returned incorrect version\n");
+      SWELLAPI_GetFunc=0;
+    }
       
     int x;
     for (x = 0; x < sizeof(api_tab)/sizeof(api_tab[0]); x ++)
@@ -68,7 +74,7 @@ public:
       *api_tab[x].func=SWELLAPI_GetFunc?SWELLAPI_GetFunc(api_tab[x].name):0;
       if (!*api_tab[x].func)
       {
-        printf("SWELL API not found: %s\n",api_tab[x].name);
+        if (SWELLAPI_GetFunc) NSLog(@"SWELL API not found: %s\n",api_tab[x].name);
         *api_tab[x].func = (void*)&dummyFunc;
       }
     }

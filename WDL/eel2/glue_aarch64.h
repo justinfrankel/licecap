@@ -92,15 +92,27 @@ static int GLUE_RESET_WTP(unsigned char *out, void *ptr)
 
 const static unsigned int GLUE_PUSH_P1[1]={ 0xf81f0fe0  }; // str x0, [sp, #-16]!
 
-#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 4
+#define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(offs) ((offs)>=32768 ? 8 : 4)
 static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
 {
-  //if (offs & 7) // todo: stur x0, [sp, #offs]
- 
-  // str x0, [sp, #offs]
-  offs <<= 10-3;
-  offs &= 0x7FFC00;
-  *(unsigned int *)b = 0xf90003e0 + offs;
+  if (offs >= 32768)
+  {
+    // add x1, sp, (offs/4096) lsl 12
+    *(unsigned int *)b = 0x914003e1 + ((offs>>12)<<10);
+
+    // str x0, [x1, #offs & 4095]
+    offs &= 4095;
+    offs <<= 10-3;
+    offs &= 0x7FFC00;
+    ((unsigned int *)b)[1] = 0xf9000020 + offs;
+  }
+  else
+  {
+    // str x0, [sp, #offs]
+    offs <<= 10-3;
+    offs &= 0x7FFC00;
+    *(unsigned int *)b = 0xf90003e0 + offs;
+  }
 }
 
 #define GLUE_MOVE_PX_STACKPTR_SIZE 4
@@ -113,8 +125,21 @@ static void GLUE_MOVE_PX_STACKPTR_GEN(void *b, int wv)
 #define GLUE_MOVE_STACK_SIZE 4
 static void GLUE_MOVE_STACK(void *b, int amt)
 {
-  if (amt>=0) *(unsigned int*)b = 0x910003ff | ((amt>>2)<<12);
-  else *(unsigned int*)b = 0xd10003ff | (((- amt)>>2)<<12);
+  if (amt>=0) 
+  {
+    if (amt >= 4096)
+      *(unsigned int*)b = 0x914003ff | (((amt+4095)>>12)<<10);
+    else
+      *(unsigned int*)b = 0x910003ff | (amt << 10);
+  }
+  else 
+  {
+    amt = -amt;
+    if (amt >= 4096)
+      *(unsigned int*)b = 0xd14003ff | (((amt+4095)>>12)<<10);
+    else
+      *(unsigned int*)b = 0xd10003ff | (amt << 10);
+  }
 }
 
 #define GLUE_POP_PX_SIZE 4
@@ -276,8 +301,8 @@ static unsigned int GLUE_POP_STACK_TO_FPSTACK[1] =
 };
 
 
-static const unsigned int GLUE_SET_P1_Z[] =  { 0xd2800000 }; // mov x0, #0
-static const unsigned int GLUE_SET_P1_NZ[] = { 0xd2800001 }; // mov x0, #1
+static const unsigned int GLUE_SET_P1_Z[] =  { 0x52800000 }; // mov w0, #0
+static const unsigned int GLUE_SET_P1_NZ[] = { 0x52800020 }; // mov w0, #1
 
 
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
@@ -303,13 +328,13 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 }
 
 
-static unsigned int __attribute__((unused)) glue_getscr()
+static unsigned long __attribute__((unused)) glue_getscr()
 {
-  unsigned int rv;
+  unsigned long rv;
   asm volatile ( "mrs %0, fpcr" : "=r" (rv));
   return rv;
 }
-static void  __attribute__((unused)) glue_setscr(unsigned int v)
+static void  __attribute__((unused)) glue_setscr(unsigned long v)
 {
   asm volatile ( "msr fpcr, %0" :: "r"(v));
 }
@@ -320,13 +345,15 @@ void eel_setfp_round()
 void eel_setfp_trunc() 
 { 
 }
-void eel_enterfp(int s[2]) 
+void eel_enterfp(int _s[2]) 
 {
+  unsigned long *s = (unsigned long*)_s;
   s[0] = glue_getscr();
   glue_setscr(s[0] | (1<<24));
 }
-void eel_leavefp(int s[2]) 
+void eel_leavefp(int _s[2]) 
 {
+  unsigned long *s = (unsigned long*)_s;
   glue_setscr(s[0]);
 }
 

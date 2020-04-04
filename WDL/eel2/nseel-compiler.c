@@ -32,26 +32,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#ifndef EEL_TARGET_PORTABLE
-
-#ifdef __APPLE__
-  #include <AvailabilityMacros.h>
-
-  #if defined(__LP64__) || defined(MAC_OS_X_VERSION_10_6) // using 10.6+ SDK, force mprotect use
-    #ifndef EEL_USE_MPROTECT
-      #define EEL_USE_MPROTECT
-    #endif
-  #endif
-#endif
-
-#if defined(__linux__) && !defined(EEL_USE_MPROTECT)
-  // always use mprotect on linux
-  #define EEL_USE_MPROTECT
-#endif
-
-#endif
-
-#ifdef EEL_USE_MPROTECT
+#if !defined(EEL_TARGET_PORTABLE) && !defined(_WIN32)
 #include <sys/mman.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -115,7 +96,12 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 #ifdef EEL_TARGET_PORTABLE
 
 #define EEL_DOESNT_NEED_EXEC_PERMS
+
+#ifdef EEL_PORTABLE_TAILCALL
+#include "glue_port_new.h"
+#else
 #include "glue_port.h"
+#endif
 
 #elif defined(__ppc__)
 
@@ -840,12 +826,12 @@ static void *__newBlock(llBlock **start, int size, int wantMprotect)
     eoffs=((UINT_PTR)llb + alloc_size + 4095)&~4095;
     VirtualProtect((LPVOID)offs,eoffs-offs,PAGE_EXECUTE_READWRITE,&ov);
   //  MessageBox(NULL,"vprotecting, yay\n","a",0);
-  #elif defined(EEL_USE_MPROTECT)
+  #else
     {
       static int pagesize = 0;
       if (!pagesize)
       {
-        pagesize=sysconf(_SC_PAGESIZE);
+        pagesize=(int)sysconf(_SC_PAGESIZE);
         if (!pagesize) pagesize=4096;
       }
       uintptr_t offs,eoffs;
@@ -2775,10 +2761,12 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (cfunc_abiinfo & BIF_TAKES_VARPARM)
   {
-#if defined(__arm__) || defined(__ppc__) || (defined (_M_ARM) && _M_ARM  == 7)
+#if defined(__arm__) || (defined (_M_ARM) && _M_ARM  == 7)
+    const int max_params=16384; // arm uses up to two instructions, should be good for at leaast 64k (16384*4)
+#elif defined(__ppc__)
     const int max_params=4096; // 32kb max offset addressing for stack, so 4096*4 = 16384, should be safe
 #elif defined(__aarch64__)
-    const int max_params=3072; // 32kb max offset addressing for stack, 3072*8 = 24576
+    const int max_params=32768; 
 #else
     const int max_params=32768; // sanity check, the stack is free to grow on x86/x86-64
 #endif
@@ -2818,10 +2806,10 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
         if (offs>0) // make sure this page is in memory
         {
-          if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) 
+          if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(0)) 
             RET_MINUS1_FAIL("insufficient size for varparm stackchk")
           if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut+parm_size,0);
-          parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+          parm_size += GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(0);
         }
       }
     }
@@ -2840,7 +2828,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           {
             int canHaveDenorm=0;
             int rvt=RETURNVALUE_NORMAL;
-            int subfpstackuse=0;
+            int subfpstackuse=0, use_offs;
                 
             int lsz = compileOpcodes(ctx,r,bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
             if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
@@ -2849,10 +2837,12 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
             if (rvt != RETURNVALUE_NORMAL) RET_MINUS1_FAIL("call coc for varparmX gave bad type back");
 
             parm_size += lsz;            
+            use_offs = n_params*(int) sizeof(void *);
 
-            if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("call coc for varparmX size");
-            if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, n_params*sizeof(void *));
-            parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+            if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs)) 
+              RET_MINUS1_FAIL("call coc for varparmX size");
+            if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, use_offs);
+            parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs);
 
             if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
           }
@@ -2873,6 +2863,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         int canHaveDenorm=0;
         int subfpstackuse=0;
         int rvt=RETURNVALUE_NORMAL;
+        int use_offs;
                
         int lsz = compileOpcodes(ctx,r,bufOut ? bufOut + parm_size : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, rvt,&rvt, &subfpstackuse, &canHaveDenorm);
         if (canHaveDenorm && canHaveDenormalOutput) *canHaveDenormalOutput = 1;
@@ -2882,9 +2873,11 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
         parm_size += lsz;
 
-        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE) RET_MINUS1_FAIL("call coc for varparm123 size");
-        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, x*sizeof(void *));
-        parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE;
+        use_offs = x*(int)sizeof(void *);
+        if (bufOut_len < parm_size+GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs)) 
+          RET_MINUS1_FAIL("call coc for varparm123 size");
+        if (bufOut) GLUE_STORE_P1_TO_STACK_AT_OFFS(bufOut + parm_size, use_offs);
+        parm_size+=GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(use_offs);
 
         if (subfpstackuse+local_fpstack_use > *fpStackUsage) *fpStackUsage = subfpstackuse+local_fpstack_use;
       }
@@ -3277,9 +3270,17 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
   if (restore_stack_amt)
   {
-    if (bufOut_len < parm_size + func_size + GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
-    if (bufOut) GLUE_MOVE_STACK(bufOut + parm_size + func_size, restore_stack_amt); 
-    parm_size += GLUE_MOVE_STACK_SIZE;
+    int rem = restore_stack_amt;
+    while (rem > 0)
+    {
+      int amt = rem;
+      if (amt > 4096) amt=4096;
+      rem -= amt;
+
+      if (bufOut_len < parm_size + func_size + GLUE_MOVE_STACK_SIZE) RET_MINUS1_FAIL("insufficient size for varparm")
+      if (bufOut) GLUE_MOVE_STACK(bufOut + parm_size + func_size, amt);
+      parm_size += GLUE_MOVE_STACK_SIZE;
+    }
   }
 
   if (cfunc_abiinfo&BIF_RETURNSONSTACK) *rvMode = RETURNVALUE_FPSTACK;
@@ -5600,7 +5601,7 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
     if (tmp[1] == '~')
     {
       char *p=(char*)tmp+2;
-      unsigned int v=strtoul(tmp+2,&p,10);
+      unsigned int v=(unsigned int) strtoul(tmp+2,&p,10);
       if (v>53) v=53;
       return nseel_createCompiledValue(ctx,(EEL_F)((((WDL_INT64)1) << v) - 1));
     }

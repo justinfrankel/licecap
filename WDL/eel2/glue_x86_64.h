@@ -35,7 +35,7 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
 
   const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax (pointer); push rax (alignment)
 
-  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE 8
+  #define GLUE_STORE_P1_TO_STACK_AT_OFFS_SIZE(x) 8
   static void GLUE_STORE_P1_TO_STACK_AT_OFFS(void *b, int offs)
   {
     ((unsigned char *)b)[0] = 0x48; // mov [rsp+offs], rax

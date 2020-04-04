@@ -5,6 +5,8 @@
 #include <stdio.h>
 //#include <assert.h>
 
+#define IGNORE_SCALING(mode) ((mode)&LICE_BLIT_IGNORE_SCALING)
+
 template <class T> inline void SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
 enum { eOK = 0, eXLo = 1, eXHi = 2, eYLo = 4, eYHi = 8 };
@@ -79,7 +81,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
   return accept;
 }
 
-static int OffscreenFTest(float x, float y, float w, float h)
+template<class T> static int OffscreenFTest(T x, T y, T w, T h)
 {
   int e = eOK;
   if (x < 0.0f) e |= eXLo; 
@@ -89,10 +91,10 @@ static int OffscreenFTest(float x, float y, float w, float h)
   return e;
 }
 
-static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
+template<class T> static bool ClipFLine(T * x1, T * y1, T * x2, T *y2, int w, int h)
 {
-  float tx1 = *x1, ty1 = *y1, tx2 = *x2, ty2 = *y2;
-  float tw = (float)(w-1), th = (float)(h-1);
+  T tx1 = *x1, ty1 = *y1, tx2 = *x2, ty2 = *y2;
+  T tw = (T)(w-1), th = (T)(h-1);
   if (!lice_isfinite(tx1) || !lice_isfinite(tx2) || 
       !lice_isfinite(ty1) || !lice_isfinite(ty2)) return false;
   
@@ -114,7 +116,7 @@ static bool ClipFLine(float* x1, float* y1, float* x2, float*y2, int w, int h)
     }
     else 
     { 
-      float x, y;
+      T x, y;
       int eOut = (e1 ? e1 : e2);
       if (eOut&eYHi) 
       {
@@ -515,6 +517,80 @@ public:
       }     
     }
   }
+
+  static void LICE_FLineImplFill(LICE_pixel *px, int n , int err, int derr, int astep, int bstep, LICE_pixel color, int aw,
+      int fill_sz, int b_pos, unsigned int b_max
+#ifdef LICE_FAVOR_SIZE
+                          , LICE_COMBINEFUNC combFunc
+#endif
+    )
+  {
+    // fill_sz always >= 2
+    int r = LICE_GETR(color), g = LICE_GETG(color), b = LICE_GETB(color), a = LICE_GETA(color);
+
+    int wt, iwt;
+    int i;
+
+    const int dbpos = bstep < 0 ? -1 : 1;
+
+    const int b_adj = -(fill_sz/2);
+    b_pos += b_adj*dbpos;
+    px += b_adj*bstep;
+
+    fill_sz--; // fill size of 2 has one extra pixel in the middle, 2 AA pixels
+
+    if (aw == 256)
+    {
+      for (i = 0; i <= n; ++i)
+      {
+        GetAAPxWeightFAST(err, &wt, &iwt);
+        LICE_pixel *wr = px;
+        unsigned int bp = b_pos;
+        if (bp<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, wt)  }
+        for (int j=0;j<fill_sz;j++)
+        {
+          wr += bstep;
+          if ((bp+=dbpos)<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, 256) }
+        }
+        if ((bp+dbpos)<b_max) { DOPIX((LICE_pixel_chan*)(wr+bstep), r, g, b, a, iwt) }
+
+        err += derr;
+        if (err >= 65536)
+        {
+          px += bstep;
+          b_pos += dbpos;
+          err -= 65536;
+        }
+        px += astep;
+      }
+    }
+    else // alpha != 256
+    {
+      for (i = 0; i <= n; ++i)
+      {
+        GetAAPxWeight(err, aw, &wt, &iwt);
+        LICE_pixel *wr = px;
+        unsigned int bp = b_pos;
+        if (bp<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, wt) }
+        for (int j=0;j<fill_sz;j++)
+        {
+          wr += bstep;
+          if ((bp+=dbpos)<b_max) { DOPIX((LICE_pixel_chan*)wr, r, g, b, a, aw) }
+        }
+        if ((bp+dbpos)<b_max) { DOPIX((LICE_pixel_chan*)(wr+bstep), r, g, b, a, iwt) }
+
+        err += derr;
+        if (err >= 65536)
+        {
+          px += bstep;
+          b_pos += dbpos;
+          err -= 65536;
+        }
+        px += astep;
+      }
+    }
+  }
+
 #undef DOPIX
 };
 
@@ -522,6 +598,22 @@ public:
 void LICE_Line(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, LICE_pixel color, float alpha, int mode, bool aa)
 {
   if (!dest) return;
+
+  int w = dest->getWidth();
+  int h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x1);
+      __LICE_SC(y1);
+      __LICE_SC(x2);
+      __LICE_SC(y2);
+    }
+  }
 
 #ifndef DISABLE_LICE_EXTENSIONS
   if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_LINE_ACCEL))
@@ -531,8 +623,6 @@ void LICE_Line(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, LICE_pixel co
   }
 #endif
 
-	int w = dest->getWidth();
-  int h = dest->getHeight();
   if (dest->isFlipped()) 
   {
     y1 = h-1-y1;
@@ -725,6 +815,20 @@ void LICE_FLine(LICE_IBitmap* dest, float x1, float y1, float x2, float y2, LICE
     y2 = (float)(h-1)-y2;
   }
 
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x1);
+      __LICE_SC(x2);
+      __LICE_SC(y1);
+      __LICE_SC(y2);
+    }
+  }
+
   if (ClipFLine(&x1, &y1, &x2, &y2, w, h))
   {
     if (x1 != x2 || y1 != y2) 
@@ -811,6 +915,24 @@ void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxo
 {  
   if (!dest) return;
 
+  int w = dest->getWidth();
+  int h = dest->getHeight();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x1);
+      __LICE_SC(y1);
+      __LICE_SC(x2);
+      __LICE_SC(y2);
+      __LICE_SCU(pxon);
+      __LICE_SCU(pxoff);
+    }
+  }
+
 #ifndef DISABLE_LICE_EXTENSIONS
   if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_DASHEDLINE_ACCEL))
   {
@@ -819,9 +941,7 @@ void LICE_DashedLine(LICE_IBitmap* dest, int x1, int y1, int x2, int y2, int pxo
   }
 #endif
 
-	int w = dest->getWidth();
-  int h = dest->getHeight();
-	if (ClipLine(&x1, &y1, &x2, &y2, w, h)) 
+  if (ClipLine(&x1, &y1, &x2, &y2, w, h)) 
   {
     if (y1 > y2) SWAP(y1, y2);
     if (pxon == 1 && pxoff == 1 && x1 == x2 && (mode&LICE_BLIT_MODE_MASK) == LICE_BLIT_MODE_COPY && alpha == 1.0f)
@@ -890,10 +1010,10 @@ static void DoBezierFillSegment(LICE_IBitmap* dest, int x1, int y1, int x2, int 
   if (x2 < x1) return;
   if (x2 == x1)
   {
+    if (y1 > y2) SWAP(y1,y2);
     int ylo = lice_min(y1,yfill);
-    int yhi = lice_max(y2,yfill);
-    if (yhi != yfill) --yhi;
-    LICE_Line(dest, x1, ylo, x1, yhi, color, alpha, mode, false);
+    int yhi = lice_max(y2,yfill+1);
+    LICE_FillRect(dest, x1, ylo, 1, yhi-ylo+1, color, alpha, mode);
     return;
   }
 
@@ -921,10 +1041,10 @@ static void DoBezierFillSegmentX(LICE_IBitmap* dest, int x1, int y1, int x2, int
   if (y2 < y1) return;
   if (y2 == y1)
   {
+    if (x1 > x2) SWAP(x1,x2);
     int xlo = lice_min(x1,xfill);
-    int xhi = lice_max(x2,xfill);
-    if (xhi != xfill) --xhi;
-    LICE_Line(dest, xlo, y1, xhi, y1, color, alpha, mode, false);
+    int xhi = lice_max(x2,xfill+1);
+    LICE_FillRect(dest, xlo, y1, xhi-xlo+1, 1, color, alpha, mode);
     return;
   }
 
@@ -956,6 +1076,25 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
   if (!dest) return;
 
   int w = dest->getWidth();
+
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc)
+  {
+    __LICE_SCU(w);
+    if (!IGNORE_SCALING(mode)) 
+    {
+      __LICE_SC(xstart);
+      __LICE_SC(ystart);
+      __LICE_SC(xctl);
+      __LICE_SC(yctl);
+      __LICE_SC(xend);
+      __LICE_SC(yend);
+    }
+    mode|=LICE_BLIT_IGNORE_SCALING;
+  }
+
+
+
     
   if (xstart > xend) 
   {
@@ -1009,14 +1148,12 @@ void LICE_DrawQBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
 
 }
 
-static int CBezPrep(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+int LICE_CBezPrep(int dest_w, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, double tol, bool xbasis,
   double* ax, double* bx, double* cx, double* dx, double* ay, double* by, double* cy, double* dy,
   double* xlo, double* xhi, double* ylo, double* yhi, double* tlo, double* thi)
 {
- if (!dest) return 0;
-
-  int w = dest->getWidth();
+  const int w = dest_w;
     
   if ((xbasis && xstart > xend) || (!xbasis && ystart > yend))
   {
@@ -1063,10 +1200,31 @@ static int CBezPrep(LICE_IBitmap* dest, double xstart, double ystart, double xct
   return nsteps;
 }
 
+#define __LICE_SC_BEZ \
+    __LICE_SC(destbm_w); \
+    if (!IGNORE_SCALING(mode)) { \
+      __LICE_SC(xstart); \
+      __LICE_SC(ystart); \
+      __LICE_SC(xctl1); \
+      __LICE_SC(yctl1); \
+      __LICE_SC(xctl2); \
+      __LICE_SC(yctl2); \
+      __LICE_SC(xend); \
+      __LICE_SC(yend); \
+    }
+
+
 void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha, int mode, bool aa, double tol)
 { 
   if (!dest) return;
+  int destbm_w = dest->getWidth();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc)
+  {
+    __LICE_SC_BEZ
+    mode|=LICE_BLIT_IGNORE_SCALING;
+  }
 
 #ifndef DISABLE_LICE_EXTENSIONS
   if (dest->Extended(LICE_EXT_SUPPORTS_ID, (void*) LICE_EXT_DRAWCBEZIER_ACCEL))
@@ -1079,7 +1237,7 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1101,15 +1259,94 @@ void LICE_DrawCBezier(LICE_IBitmap* dest, double xstart, double ystart, double x
   LICE_FLine(dest, lastx, lasty, xhi, yhi, color, alpha, mode, aa);
 }
 
+void LICE_DrawThickCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
+  double xctl2, double yctl2, double xend, double yend, LICE_pixel color, float alpha, int mode, int wid, double tol)
+{
+  if (!dest) return;
+  int destbm_w = dest->getWidth();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc)
+  {
+    __LICE_SC_BEZ
+    mode|=LICE_BLIT_IGNORE_SCALING;
+  }
+  
+  double ax, bx, cx, dx, ay, by, cy, dy;
+  double xlo, xhi, ylo, yhi;
+  double tlo, thi;
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+                        &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
+  if (!nsteps) return;
+  
+  double dt = (thi-tlo)/(double)nsteps;
+  double t = tlo+dt;
+  
+  double lastx = xlo;
+  double lasty = ylo;
+  double x, y;
+  bool last_xmaj=false;
+  int i;
+  for (i = 1; i < nsteps; ++i)
+  {
+    if (i == nsteps-1)
+    {
+      x = xhi;
+      y = yhi;
+    }
+    else
+    {
+      EVAL_CBEZXY(x, y, ax, bx, cx, dx, ay, by, cy, dy, t);
+    }
+    LICE_ThickFLine(dest, lastx, lasty, x, y, color, alpha, mode, wid);
+
+    bool xmaj = fabs(x-lastx) > fabs(y-lasty);
+    if (i>1 && xmaj != last_xmaj)
+    {
+      //int color = LICE_RGBA(255,0,0,0);
+      if (wid>2)
+      {
+        // tested this with w=3, w=4, w=8 and all looked pretty decent
+        double r = wid*.5 - 1;
+        if (r<0) r=0;
+        LICE_FillCircle(dest,floor(lastx+0.5),floor(lasty+0.5),.5+r*.707,color,alpha,mode,true);
+      }
+      else
+      {
+        const int ix = (int)floor(lastx+0.5), iy = (int)floor(lasty);
+        const double da = lasty - iy;
+        LICE_PutPixel(dest,ix,iy,color,alpha * (1.0-da),mode);
+        LICE_PutPixel(dest,ix,iy+1,color,alpha*da,mode);
+      }
+    }
+
+    last_xmaj = xmaj;
+    lastx = x;
+    lasty = y;
+    t += dt;
+  }
+}
+
 void LICE_FillCBezier(LICE_IBitmap* dest, double xstart, double ystart, double xctl1, double yctl1,
   double xctl2, double yctl2, double xend, double yend, int yfill, LICE_pixel color, float alpha, int mode, double tol)
 {
   if (!dest) return;
+  int destbm_w = dest->getWidth();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc)
+  {
+    __LICE_SC_BEZ
+    if (!IGNORE_SCALING(mode)) 
+    {
+      __LICE_SC(yfill);
+      mode|=LICE_BLIT_IGNORE_SCALING;
+    }
+  }
+
 
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, true,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1144,10 +1381,22 @@ void LICE_FillCBezierX(LICE_IBitmap* dest, double xstart, double ystart, double 
 {
   if (!dest) return;
 
+  int destbm_w = dest->getWidth();
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc)
+  {
+    __LICE_SC_BEZ
+    if (!IGNORE_SCALING(mode)) 
+    {
+      __LICE_SC(xfill);
+      mode|=LICE_BLIT_IGNORE_SCALING;
+    }
+  }
+
   double ax, bx, cx, dx, ay, by, cy, dy;
   double xlo, xhi, ylo, yhi;
   double tlo, thi;
-  int nsteps = CBezPrep(dest, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, false,
+  int nsteps = LICE_CBezPrep(destbm_w, xstart, ystart, xctl1, yctl1, xctl2, yctl2, xend, yend, tol, false,
     &ax, &bx, &cx, &dx, &ay, &by, &cy, &dy, &xlo, &xhi, &ylo, &yhi, &tlo, &thi);
   if (!nsteps) return;
    
@@ -1180,10 +1429,27 @@ void LICE_FillCBezierX(LICE_IBitmap* dest, double xstart, double ystart, double 
 
 void LICE_DrawRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha, int mode)
 {
-  LICE_Line(dest, x, y, x+w, y, color, alpha, mode, false);
-  LICE_Line(dest, x+w, y, x+w, y+h, color, alpha, mode, false);
-  LICE_Line(dest, x+w, y+h, x, y+h, color, alpha, mode, false);
-  LICE_Line(dest, x, y+h, x, y, color, alpha, mode, false);
+  const int __sc = IGNORE_SCALING(mode) ? 0 : (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    double x1 = x, y1 = y, x2 = x+w, y2 = y+h;
+    const double amt = 1.0 - 256.0/__sc;
+    x1 += amt;
+    y1 += amt;
+    x2 -= amt;
+    y2 -= amt;
+    LICE_FLine(dest, x1, y1, x2, y1, color, alpha, mode, true);
+    LICE_FLine(dest, x2, y1, x2, y2, color, alpha, mode, true);
+    LICE_FLine(dest, x2, y2, x1, y2, color, alpha, mode, true);
+    LICE_FLine(dest, x1, y2, x1, y1, color, alpha, mode, true);
+  }
+  else
+  {
+    LICE_Line(dest, x, y, x+w, y, color, alpha, mode, false);
+    LICE_Line(dest, x+w, y, x+w, y+h, color, alpha, mode, false);
+    LICE_Line(dest, x+w, y+h, x, y+h, color, alpha, mode, false);
+    LICE_Line(dest, x, y+h, x, y, color, alpha, mode, false);
+  }
 }
 
 void LICE_BorderedRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel bgcolor, LICE_pixel fgcolor, float alpha, int mode)
@@ -1322,7 +1588,7 @@ public:
   }
 };
 
-static int FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
+static double FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
 {
   if (y1 > y2)
   {
@@ -1332,64 +1598,63 @@ static int FindXOnSegment(int x1, int y1, int x2, int y2, int ty)
   if (ty <= y1) return x1;
   if (ty >= y2) return x2;
   const double dxdy = (x2-x1)/(double)(y2-y1);
-  return x1+(int)((ty-y1)*dxdy);
+  return x1+(ty-y1)*dxdy;
 }
 
-static int FindYOnSegment(int x1, int y1, int x2, int y2, int tx)
-{
-  if (x1 > x2)
-  {
-    SWAP(x1, x2);
-    SWAP(y1, y2);
-  }
-  if (tx <= x1) return y1;
-  if (tx >= x2) return y2;
-  const double dydx = (y2-y1)/(double)(x2-x1);
-  return y1+(int)((tx-x1)*dydx);
-}
-
-void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode)
+void LICE_FillTrapezoidF(LICE_IBitmap* dest, double fx1a, double fx1b, int y1, double fx2a, double fx2b, int y2, LICE_pixel color, float alpha, int mode)
 {
   if (!dest) return; 
   if (y1 > y2)
   {
     SWAP(y1, y2);
-    SWAP(x1a, x2a);
-    SWAP(x1b, x2b);
+    SWAP(fx1a, fx2a);
+    SWAP(fx1b, fx2b);
   }
-  if (x1a > x1b) SWAP(x1a, x1b);
-  if (x2a > x2b) SWAP(x2a, x2b); 
+  if (fx1a > fx1b) SWAP(fx1a, fx1b);
+  if (fx2a > fx2b) SWAP(fx2a, fx2b); 
   
   int w = dest->getWidth();
   int h = dest->getHeight();
 
-  if (x1b < 0 && x2b < 0) return;
-  if (x1a >= w && x2a >= w) return;
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(fx1a);
+      __LICE_SC(fx1b);
+      __LICE_SC(fx2a);
+      __LICE_SC(fx2b);
+      __LICE_SC(y1);
+      __LICE_SC(y2);
+    }
+  }
 
-  if (x1a <= 0 && x2a <= 0) x1a = x2a = 0;
-  if (x1b >= w-1 && x2b >= w-1) x1b = x2b = w-1;
+  if (fx1b < 0 && fx2b < 0) return;
+  if (fx1a >= w && fx2a >= w) return;
+
+  if (fx1a <= 0 && fx2a <= 0) fx1a = fx2a = 0;
+  if (fx1b >= w-1 && fx2b >= w-1) fx1b = fx2b = w-1;
 
   if (y2 < 0 || y1 >= h) return;
-
 
   int aw = (int)(alpha*256.0f);
 
   double idy = y2==y1 ? 0.0 : (65536.0/(y2-y1));
-
   
   const double maxv=(double)(1<<29);
-  double tmp = (x2a-x1a)*idy;
+  double tmp = (fx2a-fx1a)*idy;
   if (tmp > maxv) tmp=maxv;
   else if (tmp < -maxv) tmp=-maxv;
-  int dxady = (int)tmp;
+  int dxady = (int)floor(tmp+0.5);
 
-  tmp = ((x2b-x1b)*idy);
+  tmp = ((fx2b-fx1b)*idy);
   if (tmp > maxv) tmp=maxv;
   else if (tmp < -maxv) tmp=-maxv;
-  int dxbdy = (int)tmp;
+  int dxbdy = (int)floor(tmp+0.5);
 
-  int a = 0;
-  int b = 0;
   int astep = 1;
   int bstep = 1;
   if (dxady < 0)
@@ -1403,32 +1668,38 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
     bstep = -1;
   }
   
+  int x1a = (int)floor(fx1a);
+  int x1b = (int)floor(fx1b);
+  int a = (int) floor((fx1a-x1a)*65536.0*astep+0.5);
+  int b = (int) floor((fx1b-x1b)*65536.0*bstep+0.5);
+
   if (y1<0)
   {
     a -= dxady*y1;
     b -= dxbdy*y1;
     y1=0;
-    if (a >= 65536)
-    {
-      int na = a>>16;
-      a &= 65535;
-      if (astep<0)na=-na;
-      x1a += na;
-    }
-    if (b >= 65536)
-    {
-      int nb = b>>16;
-      b &= 65535;
-      if (bstep<0)nb=-nb;
-      x1b += nb;
-    }
   }
-  if (y2 > h-1) y2 = h-1;
+  if (a< 0 || a >= 65536)
+  {
+    int na = a>>16;
+    a &= 65535;
+    if (astep<0)na=-na;
+    x1a += na;
+  }
+  if (b < 0 || b >= 65536)
+  {
+    int nb = b>>16;
+    b &= 65535;
+    if (bstep<0)nb=-nb;
+    x1b += nb;
+  }
+  const int extra = __sc> 0 && !IGNORE_SCALING(mode) ? (__sc/256 - 1) : 0;
+  if (y2 > h-1-extra) y2 = h-1-extra;
 
-  int wid = dest->getWidth();
+  int wid = w;
   int span = dest->getRowSpan();
   LICE_pixel* px = dest->getBits()+y1*span;
-  int y = y2-y1 + 1;
+  int y = y2-y1 + 1 + extra;
 
   x1b++; // from now on draw [x1a,x1b)
 
@@ -1480,6 +1751,10 @@ void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, i
   }
 }
 
+void LICE_FillTrapezoid(LICE_IBitmap* dest, int x1a, int x1b, int y1, int x2a, int x2b, int y2, LICE_pixel color, float alpha, int mode)
+{
+  LICE_FillTrapezoidF(dest,x1a,x1b,y1,x2a,x2b,y2,color,alpha,mode);
+}
 
 static int _ysort(const void* a, const void* b)
 {
@@ -1520,6 +1795,18 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
   if (!dest) return;
   if (npoints < 3) return;
 
+  int destbm_w = dest->getWidth(), destbm_h = dest->getHeight();
+
+  if (IGNORE_SCALING(mode))
+  {
+    const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+    if (__sc)
+    {
+      __LICE_SCU(destbm_w);
+      __LICE_SCU(destbm_h);
+    }
+  }
+
   int* xy = 0;
   int xyt[1024]; // use stack space if small
   bool usestack = npoints <= (int) (sizeof(xyt)/sizeof(int)/2);
@@ -1528,15 +1815,15 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
 
   int i;
   {
-    int min_x=dest->getWidth(),max_x=0;
+    int min_x=destbm_w,max_x=0;
     for (i = 0; i < npoints; ++i)
     {
-      int tx = x[i];
+      int tx = x[i], ty=y[i];
       if (tx < min_x) min_x=tx;
       if (tx > max_x) max_x=tx;
       _X(i) = tx;
-      _Y(i) = y[i];    
-      if (dest->isFlipped()) _Y(i) = dest->getHeight()-_Y(i)-1;
+      if (dest->isFlipped()) ty = destbm_h-ty-1;
+      _Y(i) = ty;
     }
     qsort(xy, npoints, 2*sizeof(int), _ysort);  // sorts by y, at same y sorts by x
 
@@ -1577,12 +1864,12 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
     int y_b2 = _Y(b2);
 
     int y2 = lice_min(y_a2, y_b2);   
-    int x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y1);
-    int x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y1);
-    int x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y2);
-    int x2b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y2);
+    double x1a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y1);
+    double x1b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y1);
+    double x2a = FindXOnSegment(_X(a1), _Y(a1), _X(a2), y_a2, y2);
+    double x2b = FindXOnSegment(_X(b1), _Y(b1), _X(b2), y_b2, y2);
   
-    LICE_FillTrapezoid(dest, x1a, x1b, y1, x2a, x2b, y2, color, alpha, mode);
+    LICE_FillTrapezoidF(dest, x1a, x1b, y1, x2a, x2b, y2, color, alpha, mode);
 
     bool dir = y1<=y2; // should always be true
 
@@ -1611,7 +1898,129 @@ void LICE_FillConvexPolygon(LICE_IBitmap* dest, const int* x, const int* y, int 
 
 void LICE_FillTriangle(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int x3, int y3, LICE_pixel color, float alpha, int mode)
 {
+  if (!dest) return;
+
   int x[3] = { x1, x2, x3 };
   int y[3] = { y1, y2, y3 };
   LICE_FillConvexPolygon(dest, x, y, 3, color, alpha, mode);
+}
+
+void LICE_ThickFLine(LICE_IBitmap* dest, double x1, double y1, double x2, double y2, LICE_pixel color, float alpha, int mode, int wid) // always AA. wid is not affected by scaling (1 is always normal line, 2 is always 2 physical pixels, etc)
+{
+  if (!dest || wid<1) return;
+  if (wid==1)
+  {
+    LICE_Line(dest,(float)x1,(float)y1,(float)x2,float(y2),color,alpha,mode,true);
+    return;
+  }
+
+  int w = dest->getWidth();
+  int h = dest->getHeight();
+  if (dest->isFlipped())
+  {
+    y1 = (h-1)-y1;
+    y2 = (h-1)-y2;
+  }
+
+  const int __sc = (int)dest->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (__sc>0)
+  {
+    __LICE_SCU(w);
+    __LICE_SCU(h);
+    if (!IGNORE_SCALING(mode))
+    {
+      __LICE_SC(x1);
+      __LICE_SC(x2);
+      __LICE_SC(y1);
+      __LICE_SC(y2);
+    }
+  }
+
+  if (ClipFLine(&x1, &y1, &x2, &y2, w, h))
+  {
+    if (x1 != x2 || y1 != y2)
+    {
+      int span = dest->getRowSpan();
+      int aw = (int)(256.0f*alpha);
+
+      double a1, a2, b1, b2, da, db;
+      int astep, bstep;
+      double dx = x2-x1;
+      double dy = y2-y1;
+
+      int b_max;
+      if (fabs(dx) > fabs(dy))
+      {
+        a1 = x1;
+        a2 = x2;
+        b1 = y1;
+        b2 = y2;
+        da = dx;
+        db = dy;
+        astep = 1;
+        bstep = span;
+        b_max = h;
+      }
+      else
+      {
+        a1 = y1;
+        a2 = y2;
+        b1 = x1;
+        b2 = x2;
+        da = dy;
+        db = dx;
+        astep = span;
+        bstep = 1;
+        b_max = w;
+      }
+
+      if (da < 0.0)
+      {
+        da = -da;
+        db = -db;
+        SWAP(a1, a2);
+        SWAP(b1, b2);
+      }
+      if (db < 0.0)
+      {
+        bstep = -bstep;
+      }
+
+      int n = (int)(floor(a2)-ceil(a1));
+      double dbda = db/da;
+
+      double ta = ceil(a1);
+      double tb = b1+(ta-a1)*dbda;
+      double bf = tb-floor(tb);
+      int err = (int)(bf*65536.0);
+      if (bstep < 0) err = 65535-err;
+      int derr = (int)(fabs(dbda)*65536.0);
+
+      int b_pos = (int) tb;
+      LICE_pixel *px = dest->getBits() + (int)ta*astep+b_pos*abs(bstep);
+
+      if (bstep < 0) { px -= bstep; b_pos++; }
+
+#ifdef LICE_FAVOR_SIZE
+
+      LICE_COMBINEFUNC blitfunc=NULL;
+      #define __LICE__ACTION(comb) blitfunc=comb::doPix;
+
+#else
+      #define __LICE__ACTION(COMBFUNC) \
+        __LICE_LineClass<COMBFUNC>::LICE_FLineImplFill(px,n,err,derr,astep,bstep, color, aw, wid, b_pos, b_max)
+#endif
+
+      __LICE_ACTION_NOSRCALPHA(mode, aw, false);
+
+#ifdef LICE_FAVOR_SIZE
+      if (blitfunc)
+      {
+        __LICE_LineClass::LICE_FLineImplFill(px,n,err,derr,astep,bstep, color, aw, wid, b_pos, b_max, blitfunc);
+      }
+#endif
+
+  #undef __LICE__ACTION
+    }
+  }
 }

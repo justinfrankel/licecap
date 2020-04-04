@@ -1220,12 +1220,78 @@ struct ChooseColor_State {
   int ncustom;
   int *custom;
 
-  int h,s,v;
+  double h,s,v;
 
   LICE_IBitmap *bm;
 };
 
-// we need to make a more accurate LICE_HSV2RGB pair, this one is lossy, doh
+static double h6s2i(double h)
+{
+  h -= ((int)(h*1.0/6.0))*6.0;
+  if (h < 3)
+  {
+    if (h < 1.0) return 1.0 - h;
+    return 0.0;
+  }
+  if (h < 4.0) return h - 3.0;
+  return 1.0;
+};
+
+static void _HSV2RGB(double h, double s, double v, double *r, double *g, double *b)
+{
+  h *= 1.0 / 60.0; 
+  s *= v * 1.0 / 255.0;
+  *r = v-h6s2i(h+2)*s;
+  *g = v-h6s2i(h)*s;
+  *b = v-h6s2i(h+4)*s;
+}
+static int _HSV2RGBV(double h, double s, double v)
+{
+  double r,g,b;
+  _HSV2RGB(h,s,v,&r,&g,&b);
+  int ir = (int) (r+0.5);
+  int ig = (int) (g+0.5);
+  int ib = (int) (b+0.5);
+  if (ir<0) ir=0; else if (ir>255) ir=255;
+  if (ig<0) ig=0; else if (ig>255) ig=255;
+  if (ib<0) ib=0; else if (ib>255) ib=255;
+  return RGB(ir,ig,ib);
+}
+
+
+static void _RGB2HSV(double r, double g, double b, double *h, double *s, double *v)
+{
+  const double maxrgb=wdl_max(wdl_max(r,g),b);
+  const double df = maxrgb - wdl_min(wdl_min(r,g),b);
+  double d=r-g, degoffs = 240.0;
+
+  if (g > r)
+  {
+    if (g > b)
+    {
+      degoffs=120;
+      d=b-r;
+    }
+  }
+  else if (r > b)
+  {
+    degoffs=0.0;
+    d=g-b;
+  }
+  
+  *v = maxrgb;
+  if (df)
+  {
+    degoffs += (d*60)/df;
+    if (degoffs<0.0) degoffs+=360.0;
+    else if (degoffs >= 360.0) degoffs-=360.0;
+    *h = degoffs;
+    *s = (df*256)/(maxrgb+1);
+  }
+  else
+    *h = *s = 0;
+}
+
 static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static int s_reent,s_vmode;
@@ -1261,6 +1327,7 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
         SWELL_MakeButton(0, "OK", IDOK,0,0,0,0, 0);
         SWELL_MakeButton(0, "Cancel", IDCANCEL,0,0,0,0, 0);
+        SWELL_MakeLabel(0, "(right click a custom color to save)", 0x500, 0,0,0,0, 0); 
 
         static const char * const lbl[] = { "R","G","B","H","S","V"};
         for (int x=0;x<6;x++)
@@ -1310,14 +1377,12 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
                 {
                   if (uMsg == WM_LBUTTONDOWN)
                   {
-                    LICE_RGB2HSV(GetRValue(cs->custom[col]),GetGValue(cs->custom[col]),GetBValue(cs->custom[col]),&cs->h,&cs->s,&cs->v);
+                    _RGB2HSV(GetRValue(cs->custom[col]),GetGValue(cs->custom[col]),GetBValue(cs->custom[col]),&cs->h,&cs->s,&cs->v);
                     SendMessage(hwnd,WM_USER+100,0,3);
                   }
                   else
                   {
-                    int rv,gv,bv;
-                    LICE_HSV2RGB(cs->h,cs->s,cs->v,&rv,&gv,&bv);
-                    cs->custom[col] = RGB(rv,gv,bv);
+                    cs->custom[col] = _HSV2RGBV(cs->h,cs->s,cs->v);
                     InvalidateRect(hwnd,NULL,FALSE);
                   }
                 }
@@ -1349,9 +1414,9 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         }
         else
         {
-          int hue = (GET_X_LPARAM(lParam) - border)*384 / (xt-border - vsize);
+          int hue = (GET_X_LPARAM(lParam) - border)*360 / (xt-border - vsize);
           if (hue<0) hue=0;
-          else if (hue>383) hue=383;
+          else if (hue>359) hue=359;
           if (cs->h != hue || cs->s != var)
           {
             cs->h=hue;
@@ -1395,9 +1460,7 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
           }
 
           {
-            int rr,g,b;
-            LICE_HSV2RGB(cs->h,cs->s,cs->v,&rr,&g,&b);
-            HBRUSH br = CreateSolidBrush(RGB(rr,g,b));
+            HBRUSH br = CreateSolidBrush(_HSV2RGBV(cs->h,cs->s,cs->v));
             RECT tr={r.right - border - psize, border, r.right-border, border+psize};
             FillRect(ps.hdc,&tr,br);
             DeleteObject(br);
@@ -1423,12 +1486,12 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
               *wr++ = LICE_HSV2Pix((int)(xx+0.5),sat,var,255);
               xx+=dx;
             }
-            LICE_pixel p = LICE_HSV2Pix(cs->h,cs->s,sat ^ (y==vary ? 128 : 0),255);
+            LICE_pixel p = LICE_HSV2Pix(cs->h * 384.0/360.0,cs->s,sat ^ (y==vary ? 128 : 0),255);
             for (;x < xt-border;x++) *wr++ = p;
           }
-          LICE_pixel p = LICE_HSV2Pix(cs->h,cs->s,(128+cs->v)&255,255);
-          const int saty = ysz - 1 - (ysz * cs->s)/256;
-          const int huex = (x1*cs->h)/384;
+          LICE_pixel p = LICE_HSV2Pix((int)(cs->h+0.5),(int)(cs->s+0.5),((int)(128.5+cs->v))&255,255);
+          const int saty = ysz - 1 - (int) (ysz * cs->s + 0.5)/256;
+          const int huex = (x1*cs->h)/360;
           LICE_Line(cs->bm,huex,saty-4,huex,saty+4,p,.75f,LICE_BLIT_MODE_COPY,false);
           LICE_Line(cs->bm,huex-4,saty,huex+4,saty,p,.75f,LICE_BLIT_MODE_COPY,false);
 
@@ -1451,13 +1514,13 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
         if (cs)
         {
-          int t[6];
+          double t[6];
           t[3] = cs->h;
           t[4] = cs->s;
           t[5] = cs->v;
-          LICE_HSV2RGB(t[3],t[4],t[5],t,t+1,t+2);
+          _HSV2RGB(t[3],t[4],t[5],t,t+1,t+2);
           s_reent++;
-          for (int x=0;x<6;x++) if (lParam & ((x<3)?1:2)) SetDlgItemInt(hwnd,0x200+x,x==3 ? t[x]*360/384 : t[x],FALSE);
+          for (int x=0;x<6;x++) if (lParam & ((x<3)?1:2)) SetDlgItemInt(hwnd,0x200+x,(int) (t[x]+0.5),FALSE);
           s_reent--;
           InvalidateRect(hwnd,NULL,FALSE);
         }
@@ -1481,6 +1544,7 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         r.right -= border*2 + butw;
         SetWindowPos(GetDlgItem(hwnd,IDOK), NULL, r.right, r.bottom, butw, buth, SWP_NOZORDER|SWP_NOACTIVATE);
 
+        SetWindowPos(GetDlgItem(hwnd,0x500), NULL, border, r.bottom, r.right-border*2, buth, SWP_NOZORDER|SWP_NOACTIVATE);
       }
     break;
     case WM_COMMAND:
@@ -1503,29 +1567,27 @@ static LRESULT WINAPI swellColorSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
             const bool ishsv = LOWORD(wParam) >= 0x203;
             int offs = ishsv ? 0x203 : 0x200;
             BOOL t = FALSE;
-            int h = GetDlgItemInt(hwnd,offs++,&t,FALSE);
+            double h = GetDlgItemInt(hwnd,offs++,&t,FALSE);
             if (!t) break;
-            int s = GetDlgItemInt(hwnd,offs++,&t,FALSE);
+            double s = GetDlgItemInt(hwnd,offs++,&t,FALSE);
             if (!t) break;
-            int v = GetDlgItemInt(hwnd,offs++,&t,FALSE);
+            double v = GetDlgItemInt(hwnd,offs++,&t,FALSE);
             if (!t) break;
+            if (s<0) s=0; else if (s>255) s=255;
+            if (v<0) v=0; else if (v>255) v=255;
+            if (h<0) h=0;
 
-            ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
             if (!ishsv) 
             {
-              if (h<0) h=0; else if (h>255) h=255;
-              if (s<0) s=0; else if (s>255) s=255;
-              if (v<0) v=0; else if (v>255) v=255;
-              LICE_RGB2HSV(h,s,v,&h,&s,&v);
+              if (h>255) h=255;
+              _RGB2HSV(h,s,v,&h,&s,&v);
             }
             else
             {
-              h = h * 384 / 360;
-              if (h<0) h=0; else if (h>384) h=384;
-              if (s<0) s=0; else if (s>255) s=255;
-              if (v<0) v=0; else if (v>255) v=255;
+              if (h>360) h=360;
             }
 
+            ChooseColor_State *cs = (ChooseColor_State*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
             if (cs)
             {
               cs->h = h;
@@ -1548,14 +1610,12 @@ bool SWELL_ChooseColor(HWND h, int *val, int ncustom, int *custom)
 #ifdef SWELL_LICE_GDI
   ChooseColor_State state = { ncustom, custom };
   int c = val ? *val : 0;
-  LICE_RGB2HSV(GetRValue(c),GetGValue(c),GetBValue(c),&state.h,&state.s,&state.v);
+  _RGB2HSV(GetRValue(c),GetGValue(c),GetBValue(c),&state.h,&state.s,&state.v);
   bool rv = DialogBoxParam(NULL,NULL,h,swellColorSelectProc,(LPARAM)&state)!=0;
   delete state.bm;
   if (rv && val) 
   {
-    int r,g,b;
-    LICE_HSV2RGB(state.h,state.s,state.v,&r,&g,&b);
-    *val = RGB(r,g,b);
+    *val = _HSV2RGBV(state.h,state.s,state.v);
   }
   return rv;
 #else

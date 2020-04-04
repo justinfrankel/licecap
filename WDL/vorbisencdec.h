@@ -54,6 +54,7 @@ public:
   virtual int Available()=0;
   virtual float *Get()=0;
   virtual void Skip(int amt)=0;
+  virtual int GenerateLappingSamples()=0;
 };
 
 class VorbisEncoderInterface
@@ -179,6 +180,24 @@ class VorbisDecoder : public VorbisDecoderInterface
     {
       m_buf.Advance(amt);
       m_buf.Compact();
+    }
+    int GenerateLappingSamples()
+    {
+      if (vd.pcm_returned<0 ||
+          !vd.vi ||
+          !vd.vi->codec_setup)
+      {
+        return 0;
+      }
+      float ** pcm;
+      int samples = vorbis_synthesis_lapout(&vd,&pcm);
+      if (samples <= 0) return 0;
+      float *bufmem = m_buf.Add(NULL,samples*vi.channels);
+      if (bufmem) for(int n=0;n<samples;n++)
+      {
+        for (int c=0;c<vi.channels;c++) *bufmem++=pcm[c][n];
+      }
+      return samples;
     }
 
     void Reset()

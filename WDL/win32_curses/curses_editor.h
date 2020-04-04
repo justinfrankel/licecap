@@ -31,6 +31,7 @@ public:
   void SetLastModTime(time_t v) { m_filelastmod=v; } // in case caller wants to manually set this value
 
   virtual void setCursor(int isVscroll=0, double ycenter=-1.0);
+  void setCursorIfVisible();
 
   int m_indent_size;
   int m_max_undo_states;

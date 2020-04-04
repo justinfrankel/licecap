@@ -54,6 +54,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str); // 0 on
 void cfg_encode_textblock(ProjectStateContext *ctx, const char *text);
 
 char getConfigStringQuoteChar(const char *in); // returns 0 if no quote char available!
+bool configStringWantsBlockEncoding(const char *in); // returns true if over 1k long, has newlines, or contains all quote chars
 void makeEscapedConfigString(const char *in, WDL_String *out);
 void makeEscapedConfigString(const char *in, WDL_FastString *out);
 

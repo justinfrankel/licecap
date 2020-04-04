@@ -88,7 +88,7 @@ void nseel_asm_invsqrt(void)
     "ldr d3, [x21, #32]\n"
     "fmov w1, s2\n"
     "fmul d0, d0, d3\n"
-    "mov w1, w1, asr #1\n" 
+    "asr w1, w1, #1\n" 
 
     "sub w0, w0, w1\n"
 
@@ -1046,7 +1046,7 @@ void _asm_megabuf(void)
     "ldr d1, [x20, #-8]\n"
     "fadd d0, d0, d1\n"
     "fcvtzu w3, d0\n"
-    "mov w2, w3, asr %0\n" 
+    "asr w2, w3, %0\n" 
     "bic w2, w2, #7\n"  // r2 is page index*8
     "cmp w2, %1\n"
     "bge 0f\n"
