@@ -198,13 +198,14 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   [panel setAccessoryView:nil];
   HWND av_parent = (HWND)panel;
 
+  s_browse_extsel = NULL;
+
   if ([fileTypes count]>1)
   {
     const char *ar[2]={extlist,initialfile};
     av_parent = SWELL_CreateDialog(NULL,0,NULL,fileTypeChooseProc,(LPARAM)ar);
     if (!av_parent) av_parent = (HWND)panel;
   }
-  s_browse_extsel = NULL;
 
   HWND oh=NULL;
   if (BFSF_Templ_dlgproc && BFSF_Templ_dlgid) // create a child dialog and set it to the panel
