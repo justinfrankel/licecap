@@ -2925,6 +2925,16 @@ forceMouseMove:
       if (hwnd->m_id && hwnd->m_parent)
         SendMessage(hwnd->m_parent,WM_COMMAND,(EN_CHANGE<<16)|hwnd->m_id,(LPARAM)hwnd);
     break;
+    case EM_GETSEL:
+      if (es)
+      {
+        if (wParam) * (int *)wParam = es->sel1;
+        if (lParam) * (int *)lParam = es->sel2;
+        if (es->sel1 < 0 || es->sel1 > 65535 ||
+            es->sel2 < 0 || es->sel2 > 65535) return -1;
+        return MAKELPARAM(es->sel1,es->sel2);
+      }
+    return 0;
     case EM_SETSEL:
       if (es) 
       {
@@ -3690,6 +3700,16 @@ popupMenu:
     case WM_CAPTURECHANGED:
       InvalidateRect(hwnd,NULL,FALSE);
     break;
+    case EM_GETSEL:
+      if (s && (hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
+      {
+        if (wParam) * (int *)wParam = s->editstate.sel1;
+        if (lParam) * (int *)lParam = s->editstate.sel2;
+        if (s->editstate.sel1 < 0 || s->editstate.sel1 > 65535 ||
+            s->editstate.sel2 < 0 || s->editstate.sel2 > 65535) return -1;
+        return MAKELPARAM(s->editstate.sel1,s->editstate.sel2);
+      }
+    return 0;
     case EM_SETSEL:
       if (s && (hwnd->m_style & CBS_DROPDOWNLIST) != CBS_DROPDOWNLIST)
       {
