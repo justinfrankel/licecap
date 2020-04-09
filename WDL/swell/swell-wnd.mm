@@ -3107,6 +3107,25 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Edit")
       if (lParam) *(int*)lParam = (int)(r.location+r.length);
     }
     return 0;
+    case EM_REPLACESEL:
+      if (lParam)
+      {
+        NSTextStorage *ts = [self textStorage];
+        if (ts)
+        {
+          NSRange r = [self selectedRange];
+          const char *s = (const char *)lParam;
+          NSString *str = *s ? (NSString*)SWELL_CStringToCFString(s) : NULL;
+
+          if (r.length > 0 && !str)
+            [ts deleteCharactersInRange:r];
+          else if (str)
+            [ts replaceCharactersInRange:r withString:str];
+
+          if (str) [str release];
+        }
+      }
+    return 0;
       
     case WM_SETFONT:
     {

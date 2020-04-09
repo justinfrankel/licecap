@@ -2925,6 +2925,18 @@ forceMouseMove:
       if (hwnd->m_id && hwnd->m_parent)
         SendMessage(hwnd->m_parent,WM_COMMAND,(EN_CHANGE<<16)|hwnd->m_id,(LPARAM)hwnd);
     break;
+    case EM_REPLACESEL:
+      if (lParam && es)
+      {
+        const char *p = (const char *)lParam;
+        es->deleteSelection(&hwnd->m_title);
+        int pos = wdl_min(es->sel1,es->sel2);
+        if (pos < 0) pos = es->cursor_pos;
+        int bytepos = WDL_utf8_charpos_to_bytepos(hwnd->m_title.Get(),pos);
+        hwnd->m_title.Insert(p,bytepos);
+        InvalidateRect(hwnd,NULL,FALSE);
+      }
+    return 0;
     case EM_GETSEL:
       if (es)
       {
