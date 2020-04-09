@@ -132,10 +132,6 @@ SOURCE=..\WDL\libpng\pngerror.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\WDL\libpng\pnggccrd.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\WDL\libpng\pngget.c
 # End Source File
 # Begin Source File
@@ -169,10 +165,6 @@ SOURCE=..\WDL\libpng\pngset.c
 # Begin Source File
 
 SOURCE=..\WDL\libpng\pngtrans.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\WDL\libpng\pngvcrd.c
 # End Source File
 # Begin Source File
 
