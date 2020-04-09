@@ -2111,6 +2111,8 @@ void __SWELL_editControlState::autoScrollToOffset(HWND hwnd, int charpos, bool i
       }
       if (is_multiline)
       {
+        if (charpos > hwnd->m_title.GetLength())
+          tmp.bottom -= line_h;
         if (pt.y+line_h > scroll_y+tmp.bottom) scroll_y = pt.y - tmp.bottom + line_h;
         if (pt.y < scroll_y) scroll_y=pt.y;
       }
@@ -2971,7 +2973,8 @@ forceMouseMove:
         } 
         else if (wParam == SB_BOTTOM)
         {
-          es->autoScrollToOffset(hwnd,hwnd->m_title.GetLength(),
+          es->autoScrollToOffset(hwnd,
+               hwnd->m_title.GetLength() + 1, // this should be charpos rather than bytepos, but anything longer than m_title.GetLength() ensures we go to the absolute bottom
                (hwnd->m_style & ES_MULTILINE) != 0,
                (hwnd->m_style & (ES_MULTILINE|ES_AUTOHSCROLL)) == ES_MULTILINE);
           InvalidateRect(hwnd,NULL,FALSE);
