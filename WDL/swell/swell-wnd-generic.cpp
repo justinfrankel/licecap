@@ -903,6 +903,11 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
   return true;
 }
 
+int GetWindowTextLength(HWND hwnd)
+{
+  return hwnd ? hwnd->m_title.GetLength() : 0;
+}
+
 BOOL GetDlgItemText(HWND hwnd, int idx, char *text, int textlen)
 {
   *text=0;

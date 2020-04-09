@@ -203,6 +203,7 @@ SWELL_API_DEFINE(BOOL, SetDlgItemText,(HWND, int idx, const char *text))
 SWELL_API_DEFINE(BOOL, SetDlgItemInt,(HWND, int idx, int val, int issigned))
 SWELL_API_DEFINE(int, GetDlgItemInt,(HWND, int idx, BOOL *translated, int issigned))
 SWELL_API_DEFINE(BOOL, GetDlgItemText,(HWND, int idx, char *text, int textlen))
+SWELL_API_DEFINE(int, GetWindowTextLength,(HWND))
 
 #ifndef GetWindowText
 #define GetWindowText(hwnd,text,textlen) GetDlgItemText(hwnd,0,text,textlen)
