@@ -2431,6 +2431,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
     }
   }
     
+  [self setAutorecalculatesKeyViewLoop:YES];
   [self display];
   return self;
 }
@@ -2489,6 +2490,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
  
   [ch release];
 
+  [self setAutorecalculatesKeyViewLoop:YES];
   [self display];
   [self release]; // matching retain above
   
@@ -2568,6 +2570,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 //  DOWINDOWMINMAXSIZES(ch)
   [ch release];
 
+  [self setAutorecalculatesKeyViewLoop:YES];
   [self setHidesOnDeactivate:NO];
   [self display];
   
