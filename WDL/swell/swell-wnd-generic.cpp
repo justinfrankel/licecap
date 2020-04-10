@@ -2935,11 +2935,14 @@ forceMouseMove:
       if (lParam && es)
       {
         const char *p = (const char *)lParam;
-        es->deleteSelection(&hwnd->m_title);
         int pos = wdl_min(es->sel1,es->sel2);
-        if (pos < 0) pos = es->cursor_pos;
-        int bytepos = utf8fs_charpos_to_bytepos(&hwnd->m_title,pos);
-        hwnd->m_title.Insert(p,bytepos);
+        es->deleteSelection(&hwnd->m_title);
+        if (*p)
+        {
+          if (pos < 0) pos = es->cursor_pos;
+          int bytepos = utf8fs_charpos_to_bytepos(&hwnd->m_title,pos);
+          hwnd->m_title.Insert(p,bytepos);
+        }
         InvalidateRect(hwnd,NULL,FALSE);
       }
     return 0;
