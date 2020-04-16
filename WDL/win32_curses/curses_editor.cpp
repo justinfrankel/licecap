@@ -2312,7 +2312,9 @@ int WDL_CursesEditor::onChar(int c)
 
         if (plen>0) nl->Set(pb,plen);
 
-        nl->Append(pb+bytepos);
+        const char *insert = pb+bytepos;
+        while (*insert == ' ' || *insert == '\t') insert++;
+        nl->Append(insert);
         m_text.Insert(++m_curs_y,nl);
         s->SetLen(bytepos);
         m_curs_x=WDL_utf8_bytepos_to_charpos(nl->Get(),plen);
