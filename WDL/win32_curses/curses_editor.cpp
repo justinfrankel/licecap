@@ -2251,7 +2251,11 @@ int WDL_CursesEditor::onChar(int c)
       {
         preSaveUndoState();
         m_curs_x=WDL_utf8_get_charlen(fl->Get());
-        fl->Append(tl->Get());
+
+        // if tl is all whitespace, don't bother appending to the previous line
+        const char *p = tl->Get();
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p) fl->Append(tl->Get());
 
         m_text.Delete(m_curs_y--,true);
         draw();
