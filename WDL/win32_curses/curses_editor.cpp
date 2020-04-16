@@ -1300,6 +1300,7 @@ void WDL_CursesEditor::runSearch()
      if (found)
      {
        // make sure the end is on screen
+       m_offs_x = 0;
        m_curs_x=wdl_max(m_select_x1,m_select_x2) + COLS/4;
        setCursor();
 
