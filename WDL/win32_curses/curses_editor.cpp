@@ -2308,7 +2308,7 @@ int WDL_CursesEditor::onChar(int c)
         WDL_FastString *nl = new WDL_FastString();
         int plen=0;
         const char *pb = s->Get();
-        while (plen < bytepos && (pb[plen]== ' ' || pb[plen] == '\t')) plen++;
+        while (pb[plen]== ' ' || pb[plen] == '\t') plen++;
 
         if (plen>0) nl->Set(pb,plen);
 
