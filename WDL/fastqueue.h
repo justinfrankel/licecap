@@ -58,7 +58,30 @@ public:
     m_queue.Empty(true,free);
     m_empties.Empty(true,free);
   }
-  
+
+  void AddInBlocks(const void *buf, int len, int reqbsize)
+  {
+    int pass=0;
+    if (reqbsize<128) reqbsize=128;
+    while (len > 0)
+    {
+      int amt = reqbsize;
+      fqBuf *qb;
+      if (!pass++ && (qb=m_queue.Get(m_queue.GetSize()-1)) && qb->used < qb->alloc_size)
+        amt = qb->alloc_size - qb->used;
+      else 
+      {
+        qb=m_empties.Get(m_empties.GetSize()-1);
+        if (qb) amt = qb->alloc_size;
+      }
+
+      if (amt > len) amt=len;
+      Add(buf,amt);
+      if (buf) buf = (char*)buf + amt;
+      len -= amt;
+    }
+  }
+
   void *Add(const void *buf, int len) // buf can be NULL to add zeroes
   {
     if (len < 1) return NULL;
