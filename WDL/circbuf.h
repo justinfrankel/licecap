@@ -55,6 +55,65 @@ public:
       m_buf = size ? (char*)malloc(size) : NULL;
     }
   }
+
+  void SetSizePreserveContents(int newsz)
+  {
+    if (newsz < NbInBuf()) newsz = NbInBuf(); // do not allow destructive resize down
+    const int oldsz = m_alloc, dsize = newsz - oldsz;
+    if (!dsize) return;
+    if (!m_inbuf||!m_buf) { SetSize(newsz); return; }
+
+    const int div1 = m_inbuf - m_wrptr; // div1>0 is size of end block, div1<0 is offset of start block
+    char *buf=NULL;
+    if (dsize > 0)
+    {
+      buf = (char *)realloc(m_buf, newsz);
+      if (WDL_NORMALLY(buf) && div1 > 0) // block crossing loop, need to shuffle some data
+      {
+        if (div1 > m_wrptr) // m_wrptr is size of start block, div1 is size of end block
+        {
+          // end block is larger than start, move some of start block to end of end block and shuffle forward start
+          if (dsize >= m_wrptr)
+          {
+            if (m_wrptr>0) memmove(buf+oldsz,buf,m_wrptr);
+            m_wrptr += oldsz;
+          }
+          else
+          {
+            memmove(buf + oldsz, buf, dsize);
+            m_wrptr -= dsize;
+            memmove(buf, buf+dsize, m_wrptr);
+          }
+        }
+        else // end block is smaller, move it to the new end of buffer
+        {
+          memmove(buf + newsz - div1, buf + oldsz - div1, div1);
+        }
+      }
+    }
+    else if (div1 < 0) // shrinking, and not a wrapped buffer
+    {
+      if (m_wrptr > newsz)
+      {
+        memmove(m_buf,m_buf-div1, m_inbuf);
+        m_wrptr = m_inbuf;
+      }
+      buf = (char *)realloc(m_buf, newsz);
+    }
+
+    if (!buf) // failed realloc(), or sizing down with block crossing loop boundary
+    {
+      buf = (char *)malloc(newsz);
+      if (WDL_NOT_NORMALLY(!buf)) return;
+      const int peeked = Peek(buf,0,m_inbuf);
+      if (peeked != m_inbuf) { WDL_ASSERT(peeked == m_inbuf); }
+      free(m_buf);
+      m_wrptr = m_inbuf = peeked;
+    }
+    if (m_wrptr > newsz) { WDL_ASSERT(m_wrptr <= newsz); }
+    if (m_wrptr >= newsz) m_wrptr=0;
+    m_alloc = newsz;
+    m_buf = buf;
   }
   void Reset() { m_inbuf = m_wrptr = 0; }
   int Add(const void *buf, int l)
@@ -69,6 +128,24 @@ public:
     }
     return l;
   }
+  void UnAdd(int amt)
+  {
+    if (amt > 0)
+    {
+      if (amt > m_inbuf) amt=m_inbuf;
+      m_wrptr -= amt;
+      if (m_wrptr < 0) m_wrptr += m_alloc;
+      m_inbuf -= amt;
+    }
+  }
+
+  void Skip(int l) // can be used to rewind read pointer
+  {
+    m_inbuf -= l;
+    if (m_inbuf<0) m_inbuf=0;
+    else if (m_inbuf>m_alloc) m_inbuf=m_alloc;
+  }
+
   int Peek(void *buf, int offs, int len) const
   {
     if (offs<0||!m_buf) return 0;
@@ -91,6 +168,17 @@ public:
       }
     }
     return len;
+  }
+
+  void WriteAtReadPointer(const void *buf, int len, int offs=0)
+  {
+    if (WDL_NOT_NORMALLY(offs<0) || WDL_NOT_NORMALLY(offs>=m_inbuf)) return;
+    if (!m_buf || len<1) return;
+    if (offs+len > m_inbuf) len = m_inbuf-offs;
+
+    int write_offs = m_wrptr - m_inbuf + offs;
+    if (write_offs < 0) write_offs += m_alloc;
+    __write_bytes(write_offs, len, buf);
   }
 
   int Get(void *buf, int l)
@@ -145,11 +233,17 @@ public:
     {
       mBuf.SetSize(size * sizeof(T));
     }
+    void SetSizePreserveContents(int size)
+    {
+      mBuf.SetSizePreserveContents(size*sizeof(T));
+    }
 
     void Reset()
     {
       mBuf.Reset();
     }
+
+    void UnAdd(int l) { mBuf.UnAdd(l*sizeof(T)); }
 
     int Add(const T* buf, int l)
     {
@@ -165,6 +259,10 @@ public:
     {
       return mBuf.Peek(buf, offs*sizeof(T), l * sizeof(T)) / sizeof(T);
     }
+    void Skip(int l) { mBuf.Skip(l*sizeof(T)); }
+
+    void WriteAtReadPointer(const void *buf, int len, int offs=0) { mBuf.WriteAtReadPointer(buf,len*sizeof(T),offs*sizeof(T)); }
+
     int NbFree() const { return mBuf.NbFree() / sizeof(T); } // formerly Available()
     int ItemsInQueue() const { return mBuf.NbInBuf() / sizeof(T); }
     int NbInBuf() const { return mBuf.NbInBuf() / sizeof(T); }
