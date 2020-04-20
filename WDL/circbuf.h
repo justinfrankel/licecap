@@ -34,75 +34,102 @@
 class WDL_CircBuf
 {
 public:
-  WDL_CircBuf() : m_hb(4096 WDL_HEAPBUF_TRACEPARM("WDL_CircBuf"))
+  WDL_CircBuf()
   {
     m_inbuf = m_wrptr = 0;
+    m_buf = NULL;
+    m_alloc = 0;
   }
   ~WDL_CircBuf()
   {
+    free(m_buf);
   }
   void SetSize(int size)
   {
+    if (size<0) size=0;
     m_inbuf = m_wrptr = 0;
-    m_hb.Resize(size,true);
+    if (size != m_alloc || !m_buf)
+    {
+      m_alloc = size;
+      free(m_buf);
+      m_buf = size ? (char*)malloc(size) : NULL;
+    }
+  }
   }
   void Reset() { m_inbuf = m_wrptr = 0; }
   int Add(const void *buf, int l)
   {
-    const int bf = m_hb.GetSize() - m_inbuf;
-    if (l > bf) l = bf;
+    if (!m_buf) return 0;
+    const int bf = m_alloc - m_inbuf;
+    if (l>bf) l = bf;
     if (l > 0)
     {
-      const int wr1 = m_hb.GetSize()-m_wrptr;
-      if (wr1 < l)
-      {
-        memmove((char*)m_hb.Get() + m_wrptr, buf, wr1);
-        memmove(m_hb.Get(), (char*)buf + wr1, l-wr1);
-        m_wrptr = l-wr1;
-      }
-      else 
-      {
-        memmove((char*)m_hb.Get() + m_wrptr, buf, l);
-        m_wrptr = wr1 == l ? 0 : m_wrptr+l;
-      }
+      m_wrptr = __write_bytes(m_wrptr,l,buf);
       m_inbuf += l;
     }
     return l;
   }
-  int Peek(void *buf, int offs, int len) const 
+  int Peek(void *buf, int offs, int len) const
   {
-    if (offs<0) return 0;
+    if (offs<0||!m_buf) return 0;
     const int ibo = m_inbuf-offs;
     if (len > ibo) len = ibo;
     if (len > 0)
     {
       int rp = m_wrptr - ibo;
-      if (rp < 0) rp += m_hb.GetSize();
-      const int wr1 = m_hb.GetSize() - rp;
+      if (rp < 0) rp += m_alloc;
+      const int wr1 = m_alloc - rp;
+      char * const rd = m_buf;
       if (wr1 < len)
       {
-        memmove(buf,(char*)m_hb.Get()+rp,wr1);
-        memmove((char*)buf+wr1,m_hb.Get(),len-wr1);
+        memcpy(buf,rd+rp,wr1);
+        memcpy((char*)buf+wr1,rd,len-wr1);
       }
       else
       {
-        memmove(buf,(char*)m_hb.Get()+rp,len);
+        memcpy(buf,rd+rp,len);
       }
     }
     return len;
   }
+
   int Get(void *buf, int l)
   {
     const int amt = Peek(buf,0,l);
     m_inbuf -= amt;
     return amt;
   }
-  int NbFree() const { return m_hb.GetSize() - m_inbuf; } // formerly Available()
+  int NbFree() const { return m_alloc - m_inbuf; } // formerly Available()
   int NbInBuf() const { return m_inbuf; }
+  int GetTotalSize() const { return m_alloc; }
 
 private:
-  WDL_HeapBuf m_hb;
-  int m_inbuf, m_wrptr;
+  int __write_bytes(int wrptr, int l, const void *buf) // no bounds checking, return end offset
+  {
+    const int wr1 = m_alloc-wrptr;
+    char * const p = m_buf, * const pw = p + wrptr;
+    if (wr1 < l)
+    {
+      if (buf)
+      {
+        memcpy(pw, buf, wr1);
+        memcpy(p, (char*)buf + wr1, l-wr1);
+      }
+      else
+      {
+        memset(pw, 0, wr1);
+        memset(p, 0, l-wr1);
+      }
+      return l-wr1;
+    }
+
+    if (buf) memcpy(pw, buf, l);
+    else memset(pw, 0, l);
+    return wr1 == l ? 0 : wrptr+l;
+  }
+
+  char *m_buf;
+  int m_inbuf, m_wrptr,m_alloc;
 } WDL_FIXALIGN;
 
 
@@ -116,32 +143,32 @@ public:
 
     void SetSize(int size)
     {
-        mBuf.SetSize(size * sizeof(T));
+      mBuf.SetSize(size * sizeof(T));
     }
 
     void Reset()
     {
-        mBuf.Reset();
+      mBuf.Reset();
     }
 
     int Add(const T* buf, int l)
     {
-        return mBuf.Add(buf, l * sizeof(T)) / sizeof(T);
+      return mBuf.Add(buf, l * sizeof(T)) / sizeof(T);
     }
 
     int Get(T* buf, int l)
     {
-        return mBuf.Get(buf, l * sizeof(T)) / sizeof(T);
+      return mBuf.Get(buf, l * sizeof(T)) / sizeof(T);
     }
 
-    int NbFree()  // formerly Available()
+    int Peek(T* buf, int offs, int l)
     {
-        return mBuf.NbFree() / sizeof(T);
+      return mBuf.Peek(buf, offs*sizeof(T), l * sizeof(T)) / sizeof(T);
     }
-     int NbInBuf() 
-     { 
-         return mBuf.NbInBuf() / sizeof(T);
-     }
+    int NbFree() const { return mBuf.NbFree() / sizeof(T); } // formerly Available()
+    int ItemsInQueue() const { return mBuf.NbInBuf() / sizeof(T); }
+    int NbInBuf() const { return mBuf.NbInBuf() / sizeof(T); }
+    int GetTotalSize() const { return mBuf.GetTotalSize() / sizeof(T); }
 
 private:
     WDL_CircBuf mBuf;
