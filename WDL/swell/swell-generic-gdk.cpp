@@ -107,7 +107,7 @@ static GdkEvent *s_cur_evt;
 static GList *s_program_icon_list;
 
 static SWELL_OSWINDOW swell_dragsrc_osw;
-static DWORD swell_dragsrc_timeout;
+static DWORD swell_dragsrc_timeout_start;
 static HWND swell_dragsrc_hwnd;
 static DWORD swell_lastMessagePos;
 static int gdk_options;
@@ -1095,11 +1095,10 @@ static void OnButtonEvent(GdkEventButton *b)
 
   if (b->type == GDK_BUTTON_PRESS)
   {
-    DWORD now = GetTickCount();;
     HWND oldFocus=GetFocus();
     if (!oldFocus || 
         oldFocus != hwnd2 ||
-       (now >= s_last_focus_change_time && now < (s_last_focus_change_time+500)))
+        (GetTickCount()-s_last_focus_change_time) < 500)
     {
       if (IsWindowEnabled(hwnd2))
         SendMessage(hwnd2,WM_MOUSEACTIVATE,0,0);
@@ -1340,7 +1339,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             s_last_focus_change_time = GetTickCount();
             swell_on_toplevel_raise(fc->window);
             if (swell_ignore_focus_oswindow != fc->window || 
-                GetTickCount() > swell_ignore_focus_oswindow_until)
+                (GetTickCount()-swell_ignore_focus_oswindow_until) < 0x10000000)
             {
               SWELL_focused_oswindow = fc->window;
             }
@@ -1743,8 +1742,7 @@ static HANDLE req_clipboard(GdkAtom type)
         return NULL;
       }
 
-      DWORD now = GetTickCount();
-      if (now < startt-1000 || now > startt+500) break;
+      if ((GetTickCount()-startt) > 500) break;
       Sleep(10);
     }
   }
@@ -2192,7 +2190,7 @@ static LRESULT WINAPI dropSourceWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
           sel = gdk_drag_get_selection(inf->dragctx);
           if (sel) gdk_selection_owner_set(swell_dragsrc_osw,sel,GDK_CURRENT_TIME,TRUE);
         }
-        swell_dragsrc_timeout = GetTickCount() + 500;
+        swell_dragsrc_timeout_start = GetTickCount();
         return 0;
       }
       ReleaseCapture();
@@ -2252,7 +2250,7 @@ void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*
   info.callback = callback;
   RECT r={0,};
   HWND__ *h = new HWND__(NULL,0,&r,NULL,false,NULL,dropSourceWndProc, NULL);
-  swell_dragsrc_timeout = 0;
+  swell_dragsrc_timeout_start = 0;
   swell_dragsrc_hwnd=h;
   h->m_private_data = (INT_PTR) &info;
   dropSourceWndProc(h,WM_CREATE,0,0);
@@ -2260,7 +2258,7 @@ void SWELL_InitiateDragDrop(HWND hwnd, RECT* srcrect, const char* srcfn, void (*
   {
     SWELL_RunEvents();
     Sleep(10);
-    if (swell_dragsrc_timeout && GetTickCount()>swell_dragsrc_timeout) ReleaseCapture();
+    if (swell_dragsrc_timeout_start && (GetTickCount()-swell_dragsrc_timeout_start) > 500) ReleaseCapture();
   }
   
   swell_dragsrc_hwnd=NULL;
@@ -2275,7 +2273,7 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
   info.srccount = srccount;
   RECT r={0,};
   HWND__ *h = new HWND__(NULL,0,&r,NULL,false,NULL,dropSourceWndProc, NULL);
-  swell_dragsrc_timeout = 0;
+  swell_dragsrc_timeout_start = 0;
   swell_dragsrc_hwnd=h;
   h->m_private_data = (INT_PTR) &info;
   dropSourceWndProc(h,WM_CREATE,0,0);
@@ -2283,7 +2281,7 @@ void SWELL_InitiateDragDropOfFileList(HWND hwnd, RECT *srcrect, const char **src
   {
     SWELL_RunEvents();
     Sleep(10);
-    if (swell_dragsrc_timeout && GetTickCount()>swell_dragsrc_timeout) ReleaseCapture();
+    if (swell_dragsrc_timeout_start && (GetTickCount()-swell_dragsrc_timeout_start) > 500) ReleaseCapture();
   }
   
   swell_dragsrc_hwnd=NULL;

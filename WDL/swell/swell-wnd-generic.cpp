@@ -758,7 +758,7 @@ typedef struct TimerInfoRec
   UINT_PTR timerid;
   HWND hwnd;
   UINT interval;
-  DWORD nextFire;
+  DWORD lastFire;
   TIMERPROC tProc;
   struct TimerInfoRec *_next;
 } TimerInfoRec;
@@ -772,14 +772,14 @@ void SWELL_RunMessageLoop()
   SWELL_MessageQueue_Flush();
   SWELL_RunEvents();
 
-  DWORD now = GetTickCount();
+  const DWORD now = GetTickCount();
   WDL_MutexLock lock(&m_timermutex);
   TimerInfoRec *rec = m_timer_list;
   while (rec)
   {
-    if (now > rec->nextFire || now < rec->nextFire - rec->interval*4)
+    if ((now-rec->lastFire) >= rec->interval)
     {
-      rec->nextFire = now + rec->interval;
+      rec->lastFire = now;
 
       HWND h = rec->hwnd;
       TIMERPROC tProc = rec->tProc;
@@ -835,7 +835,7 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   rec->timerid=timerid;
   rec->hwnd=hwnd;
   rec->interval = rate<1?1: rate;
-  rec->nextFire = GetTickCount() + rate;
+  rec->lastFire = GetTickCount();
   
   if (!hwnd) timerid = rec->timerid = (UINT_PTR)rec;
 
@@ -3918,7 +3918,7 @@ static const char *stateStringOnKey(UINT uMsg, WPARAM wParam, LPARAM lParam)
   static WDL_FastString str;
   static DWORD last_t;
   DWORD now = GetTickCount();
-  if (now > last_t + 500 || now < last_t - 500) str.Set("");
+  if ((now-last_t) > 500) str.Set("");
   last_t = now;
 
   const bool is_numpad = wParam >= VK_NUMPAD0 && wParam <= VK_DIVIDE;

@@ -120,13 +120,13 @@ void SWELL_ReleaseNSTask(void *p)
 DWORD SWELL_WaitForNSTask(void *p, DWORD msTO)
 {
   NSTask *a =(NSTask*)p;
-  DWORD t = msTO ? GetTickCount()+msTO : 0;
+  const DWORD t = GetTickCount();
   do 
   {
     if (![a isRunning]) return WAIT_OBJECT_0;
-    if (t) Sleep(1);
+    if (msTO) Sleep(1);
   }
-  while (GetTickCount()<t);
+  while (msTO && (GetTickCount()-t) < msTO);
 
   return [a isRunning] ? WAIT_TIMEOUT : WAIT_OBJECT_0;
 }

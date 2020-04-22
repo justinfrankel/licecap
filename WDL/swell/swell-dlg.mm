@@ -1434,7 +1434,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   // this seems to work correclty, *except* - if you're using the high-performance card, the system will never go back to integrated,
   // presumably because our metal devices are open. Maybe we can flag them as "non-essential" ?
   const DWORD now = GetTickCount();
-  if (__CGDirectDisplayCopyCurrentMetalDevice && (!device || now > m_metal_device_lastchkt+1000 || now < m_metal_device_lastchkt-1000))
+  if (__CGDirectDisplayCopyCurrentMetalDevice && (!device || (now-m_metal_device_lastchkt)>1000))
   {
     m_metal_device_lastchkt = now;
     CGDirectDisplayID viewDisplayID = (CGDirectDisplayID) [self.window.screen.deviceDescription[@"NSScreenNumber"] unsignedIntegerValue];
