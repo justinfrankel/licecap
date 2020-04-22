@@ -410,7 +410,6 @@ int g_cap_state; // 1=rec, 2=pause
 
 #define PREROLL_AMT 3000
 DWORD g_cap_prerolluntil;
-DWORD g_skip_capture_until;
 DWORD g_last_frame_capture_time;
 
 #ifndef NO_LCF_SUPPORT
@@ -571,6 +570,8 @@ int g_insert_ms=g_titlems;
 double g_insert_alpha=0.5f;
 LICE_IBitmap *g_cap_bm_txt;  // is a LICE_SysBitmap
 
+#define MAX_PREROLL_OR_DELAY (1000 * 60 * 60 * 24)
+
 void UpdateStatusText(HWND hwndDlg)
 {
   if (!g_cap_state) return;
@@ -594,10 +595,10 @@ void UpdateStatusText(HWND hwndDlg)
 
   char pbuf[64];
   pbuf[0]=0;
-  DWORD now=timeGetTime();
+  const DWORD now=timeGetTime();
   if (g_cap_state==1 && g_cap_prerolluntil)
   {
-    if (now < g_cap_prerolluntil) snprintf(pbuf,sizeof(pbuf),"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
+    if (WDL_TICKS_IN_RANGE_ENDING_AT(now,g_cap_prerolluntil,MAX_PREROLL_OR_DELAY)) snprintf(pbuf,sizeof(pbuf),"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
   }
   else if (g_cap_state == 2) 
   {
@@ -652,8 +653,8 @@ void UpdateCaption(HWND hwndDlg)
     pbuf[0]=0;
     if (g_cap_state==1 && g_cap_prerolluntil)
     {
-      DWORD now=timeGetTime();
-      if (now < g_cap_prerolluntil)
+      const DWORD now=timeGetTime();
+      if (WDL_TICKS_IN_RANGE_ENDING_AT(now,g_cap_prerolluntil,MAX_PREROLL_OR_DELAY))
       {
         snprintf(pbuf,sizeof(pbuf),"PREROLL: %d - ",(g_cap_prerolluntil-now+999)/1000);
       }
@@ -1206,12 +1207,12 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     case WM_TIMER:
       if (wParam==1)
       {     
-        DWORD now=timeGetTime();
+        const DWORD now=timeGetTime();
         bool need_stop=false;
 
-        if (g_cap_state==1 && g_cap_bm && now >= g_cap_prerolluntil && now >= g_skip_capture_until)
+        if (g_cap_state==1 && g_cap_bm && (!g_cap_prerolluntil || !WDL_TICKS_IN_RANGE_ENDING_AT(now,g_cap_prerolluntil,MAX_PREROLL_OR_DELAY)))
         {
-          if (now >= g_last_frame_capture_time + (1000/(wdl_max(g_max_fps,1))))
+          if (now-g_last_frame_capture_time >= (1000/(wdl_max(g_max_fps,1))))
           {
             g_ms_written += now-g_last_frame_capture_time;
 
@@ -1273,7 +1274,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               {
                 if (dotime) draw_timedisp(g_cap_bm,frame_time_in_seconds,NULL,bw,bh);
 
-                int del = now-g_last_frame_capture_time;
+                int del = (int) (now-g_last_frame_capture_time);
                 if (g_dotitle)
                 {
                   del += g_titlems;
@@ -1382,16 +1383,16 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         {
           static DWORD lproll;
           static int lcnt;
-          if (lproll != g_cap_prerolluntil || (g_cap_prerolluntil-now+999)/1000 != lcnt)
+          if (lproll != g_cap_prerolluntil || ((g_cap_prerolluntil-now)+999)/1000 != lcnt)
           {
-            lcnt=(g_cap_prerolluntil-now+999)/1000;
+            lcnt=((g_cap_prerolluntil-now)+999)/1000;
             lproll=g_cap_prerolluntil;
             UpdateCaption(hwndDlg);
             force_status=true;
           }
         }
         static DWORD last_status_t;
-        if (force_status || now > last_status_t+500)
+        if (force_status || now-last_status_t > 500)
         {
           last_status_t=now;
           UpdateStatusText(hwndDlg);
@@ -1727,7 +1728,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 g_frate_avg=0.0;
                 g_ms_written = 0;
 
-                g_last_frame_capture_time = g_cap_prerolluntil=timeGetTime()+PREROLL_AMT;
+                g_last_frame_capture_time = g_cap_prerolluntil = timeGetTime()+PREROLL_AMT;
                 g_cap_state=1;
                 UpdateCaption(hwndDlg);
                 UpdateStatusText(hwndDlg);
@@ -1814,10 +1815,8 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
     break;
 #endif
     case WM_MOVE:
-      //g_skip_capture_until = timeGetTime()+30;
     break;
     case WM_SIZE:
-     // g_skip_capture_until = timeGetTime()+30;
 
       if (wParam != SIZE_MINIMIZED)
       {
