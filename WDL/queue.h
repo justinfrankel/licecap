@@ -257,7 +257,7 @@ public:
   void Compact(bool allocdown=false, bool force=false)
   {
     int olen=m_hb.GetSize();
-    if (m_pos > (force ? 0 : olen/2))
+    if (m_pos >= (force ? 0 : olen/2))
     {
       olen -= m_pos;
       if (olen > 0)
