@@ -267,7 +267,7 @@ public:
     else
       m_err=vorbis_encode_init_vbr(&vi,nch,srate,qv);
 
-#else
+#else // VORBISENC_WANT_FULLCONFIG
 
   #ifndef VORBISENC_WANT_QVAL
       float qv=0.0;
@@ -296,10 +296,10 @@ public:
 
       if (qv<-0.10f)qv=-0.10f;
       if (qv>1.0f)qv=1.0f;
-  #endif
+  #endif // !VORBISENC_WANT_QVAL
 
       m_err=vorbis_encode_init_vbr(&vi,nch,srate>>m_ds,qv);
-#endif
+#endif // !VORBISENC_WANT_FULLCONFIG
 
     vorbis_comment_init(&vc);
     if (encname) vorbis_comment_add_tag(&vc,"ENCODER",(char *)encname);
