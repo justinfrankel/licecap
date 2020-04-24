@@ -1398,6 +1398,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 -(BOOL) swellWantsMetal { return m_use_metal > 0; }
 -(void) swellDrawMetal:(const RECT *)forRect
 {
+  SWELL_AutoReleaseHelper arparp;
 
 #define swell_metal_set_layer_gravity(layer, g) do { \
   const int grav = (g); \
