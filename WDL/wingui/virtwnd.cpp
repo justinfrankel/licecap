@@ -776,7 +776,16 @@ void WDL_VWnd::RemoveChild(WDL_VWnd *wnd, bool dodel)
   int idx=m_children ? m_children->Find(wnd) : -1;
   if (idx>=0) 
   {
-    if (idx == m_captureidx) wnd->OnCaptureLost();
+    if (idx == m_captureidx)
+    {
+      wnd->OnCaptureLost();
+      m_captureidx = -1;
+    }
+    else if (idx < m_captureidx)
+    {
+      m_captureidx--;
+    }
+
     if (!dodel) wnd->SetParent(NULL);
     m_children->Delete(idx,dodel);
   }
@@ -873,6 +882,7 @@ void WDL_VWnd::RemoveAllChildren(bool dodel)
   {
     WDL_VWnd *cap = m_children->Get(m_captureidx);
     if (cap) cap->OnCaptureLost();
+    m_captureidx = -1;
     if (!dodel) // update parent pointers
     {
       int x;
