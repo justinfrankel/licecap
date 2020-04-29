@@ -5245,7 +5245,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       if (!br)
       {
         br = CreateSolidBrush(RGB(0,0,0)); // todo hm
-        br->color = [[NSColor windowBackgroundColor] CGColor];
+        br->color = (CGColorRef) [[NSColor windowBackgroundColor] CGColor];
         CFRetain(br->color);
       }
       SetTextColor((HDC)wParam,RGB(255,255,255));
