@@ -737,8 +737,10 @@ void WDL_VWnd::SetChildPosition(WDL_VWnd *ch, int pos)
       if (pos>x) pos--;
       if (pos != x)
       {
+        WDL_VWnd * const cap = m_children->Get(m_captureidx);
         m_children->Delete(x);
         m_children->Insert(pos,ch);
+        if (cap) m_captureidx = m_children->Find(cap);
       }
       return;
     }
@@ -752,8 +754,15 @@ void WDL_VWnd::AddChild(WDL_VWnd *wnd, int pos)
 
   wnd->SetParent(this);
   if (!m_children) m_children=new WDL_PtrList<WDL_VWnd>;
-  if (pos<0||pos>=m_children->GetSize()) m_children->Add(wnd);
-  else m_children->Insert(pos,wnd);
+  if (pos<0||pos>=m_children->GetSize())
+  {
+    m_children->Add(wnd);
+  }
+  else
+  {
+    m_children->Insert(pos,wnd);
+    if (pos <= m_captureidx) m_captureidx++;
+  }
   if (m__iaccess) m__iaccess->ClearCaches();
 }
 
