@@ -23,6 +23,7 @@
 //#import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #include "swell.h"
+#define SWELL_IMPLEMENT_GETOSXVERSION
 #include "swell-internal.h"
 
 #include "../mutex.h"
@@ -776,28 +777,5 @@ void SWELL_DisableAppNap(int disable)
 }
 
 
-int SWELL_GetOSXVersion()
-{
-  static SInt32 v;
-  if (!v)
-  {
-    if (NSAppKitVersionNumber >= 1266.0) 
-    {
-      if (NSAppKitVersionNumber >= 1670.0)  // unsure if this is correct (10.14.1 is 1671.1)
-        v = 0x10d0;
-      else if (NSAppKitVersionNumber >= 1404.0)
-        v = 0x10b0;
-      else
-        v = 0x10a0; // 10.10+ Gestalt(gsv) return 0x109x, so we bump this to 0x10a0
-    }
-    else 
-    {
-      SInt32 a = 0x1040;
-      Gestalt(gestaltSystemVersion,&a);
-      v=a;
-    }
-  }
-  return v;
-}
 
 #endif
