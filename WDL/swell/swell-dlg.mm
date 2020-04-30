@@ -787,6 +787,21 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     {
       SWELL_ListView* v = (SWELL_ListView*)sender;
       NMLISTVIEW nmlv={{(HWND)sender,(UINT_PTR)[(NSControl*)sender tag], NM_DBLCLK}, (int) [v clickedRow], (int) [sender clickedColumn], };
+
+      if (nmlv.iItem == -1)
+      {
+        // ignore doubleclicks in column headers
+        NSTableHeaderView *v = [sender headerView];
+        if (v)
+        {
+          NSPoint pt=[NSEvent mouseLocation];
+          NSWindow *w = [self window];
+          pt = [w convertScreenToBase:pt];
+          pt = [v convertPoint:pt fromView:nil];
+          if (NSPointInRect(pt,[v bounds])) return;
+        }
+      }
+
       SWELL_ListView_Row *row=v->m_items->Get(nmlv.iItem);
       if (row)
        nmlv.lParam = row->m_param;
