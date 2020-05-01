@@ -5253,6 +5253,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           if (d) SWELL_DoDialogColorUpdates(hwnd,d,true);
         }
       }
+      if ([(id)hwnd respondsToSelector:@selector(swellWantsMetal)] && [(SWELL_hwndChild *)hwnd swellWantsMetal])
+        InvalidateRect((HWND)hwnd,NULL,FALSE);
     }
   }
   else if (msg == WM_CTLCOLORSTATIC && wParam)
