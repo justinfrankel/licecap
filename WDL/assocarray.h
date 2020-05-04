@@ -395,10 +395,10 @@ public:
   
   ~WDL_LogicalSortStringKeyedArray() { }
 
-private:
-
   static int cmpstr(const char **a, const char **b) { return _cmpstr(*a, *b, true); }
   static int cmpistr(const char **a, const char **b) { return _cmpstr(*a, *b, false); }
+
+private:
 
   static int _cmpstr(const char *s1, const char *s2, bool case_sensitive)
   {
