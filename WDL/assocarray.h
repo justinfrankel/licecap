@@ -174,13 +174,15 @@ public:
     kv->val = val;
   }
 
-  void Resort()
+  void Resort(int (*new_keycmp)(KEY *k1, KEY *k2)=NULL)
   {
+    if (new_keycmp) m_keycmp = new_keycmp;
     if (m_data.GetSize() > 1 && m_keycmp)
     {
       qsort(m_data.Get(), m_data.GetSize(), sizeof(KeyVal),
         (int(*)(const void*, const void*))m_keycmp);
-      RemoveDuplicateKeys();
+      if (!new_keycmp)
+        RemoveDuplicateKeys();
     }
   }
 
