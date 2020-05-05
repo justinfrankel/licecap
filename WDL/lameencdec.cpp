@@ -480,6 +480,13 @@ unsigned char *PackID3Chunk(WDL_StringKeyedArray<char*> *metadata, int *buflen)
     if (strlen(id) == 4 && id[0] == 'T')
     {
       id3len += 10+1+strlen(val);
+      if (!strcmp(id, "TXXX"))
+      {
+        // tag form is "desc=val", default to "USER" if desc is not supplied
+        const char *sep=strchr(val, '=');
+        if (!sep) id3len += 5;
+        else if (sep == val) id3len += 4;
+      }
     }
     else if (!strcmp(id, "COMM"))
     {
@@ -573,7 +580,35 @@ unsigned char *PackID3Chunk(WDL_StringKeyedArray<char*> *metadata, int *buflen)
       const char *val=metadata->Enumerate(i, &id);
       if (strlen(id) < 8 || strncmp(id, "ID3:", 4) || !val) continue;
       id += 4;
-      if (strlen(id) == 4 && id[0] == 'T')
+      if (strlen(id) == 4 && !strcmp(id, "TXXX"))
+      {
+        memcpy(p, id, 4);
+        p += 4;
+        const char *sep=strchr(val, '=');
+        if (sep == val)
+        {
+          ++val;
+          sep=NULL;
+        }
+        int len=strlen(val);
+        int tlen=len+(!sep ? 5 : 0);
+        _AddSyncSafeInt32(1+tlen);
+        memcpy(p, "\x00\x00\x03", 3); // UTF-8
+        p += 3;
+        if (sep)
+        {
+          memcpy(p, val, len);
+          p[sep-val]=0;
+        }
+        else
+        {
+          memcpy(p, "USER\x00", 5);
+          p += 5;
+          memcpy(p, val, len);
+        }
+        p += len;
+      }
+      else if (strlen(id) == 4 && id[0] == 'T')
       {
         memcpy(p, id, 4);
         p += 4;
