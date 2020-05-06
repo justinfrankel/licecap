@@ -3692,6 +3692,15 @@ struct SWELL_ListView_Col
 
 enum { LISTVIEW_HDR_YMARGIN = 2 };
 
+enum ListViewCapMode
+{
+  LISTVIEW_CAP_NONE=0,
+  LISTVIEW_CAP_XSCROLL,    // data1=xp
+  LISTVIEW_CAP_YSCROLL,    // data1=yp
+  LISTVIEW_CAP_DRAG,       // data1=row, data2=displaycolumnindex
+  LISTVIEW_CAP_COLRESIZE,  // data1 = displaycolumnindex, data2=xoffset
+};
+
 struct listViewState
 {
   listViewState(bool ownerData, bool isMultiSel, bool isListBox)
@@ -3702,7 +3711,7 @@ struct listViewState
     m_owner_data_size = ownerData ? 0 : -1;
     m_last_row_height = 0;
     m_scroll_x=m_scroll_y=0;
-    m_capmode_state=0;
+    m_capmode_state=LISTVIEW_CAP_NONE;
     m_capmode_data1=0;
     m_capmode_data2=0;
     m_status_imagelist = NULL;
@@ -3738,7 +3747,8 @@ struct listViewState
   int m_last_row_height;
   int m_selitem; // for single sel, or used for focus for multisel
 
-  int m_scroll_x,m_scroll_y,m_capmode_state, m_capmode_data1,m_capmode_data2;
+  ListViewCapMode m_capmode_state;
+  int m_scroll_x,m_scroll_y, m_capmode_data1,m_capmode_data2;
   int m_extended_style;
 
   int m_color_bg, m_color_bg_sel, m_color_text, m_color_text_sel, m_color_grid;
@@ -4031,7 +4041,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             const int minw = wdl_max(col_resize_sz+1,col[x].xwid);
             if (px >= minw-col_resize_sz && px < minw)
             {
-              lvs->m_capmode_state = 3;
+              lvs->m_capmode_state = LISTVIEW_CAP_COLRESIZE;
               lvs->m_capmode_data1 = x;
               lvs->m_capmode_data2 = minw-px;
               return 0;
@@ -4063,13 +4073,13 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (xpos < thumbpos) xp = thumbpos; // jump on first mouse move
           else if (xpos > thumbpos+thumbsz) xp = thumbpos + thumbsz;
 
-          lvs->m_capmode_state = 4;
+          lvs->m_capmode_state = LISTVIEW_CAP_XSCROLL;
           lvs->m_capmode_data1 = xp;
           if (xpos < thumbpos || xpos > thumbpos+thumbsz) goto forceMouseMove;
           return 0;
         }
 
-        lvs->m_capmode_state=0;
+        lvs->m_capmode_state=LISTVIEW_CAP_NONE;
         const int ypos = GET_Y_LPARAM(lParam) - hdr_size_nomargin;
 
         if (totalw > r.right) r.bottom -= g_swell_ctheme.scrollbar_width;
@@ -4084,7 +4094,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           if (ypos < thumbpos) yp = thumbpos + hdr_size_nomargin; // jump on first mouse move
           else if (ypos > thumbpos+thumbsz) yp = thumbpos + hdr_size_nomargin + thumbsz;
 
-          lvs->m_capmode_state = 1;
+          lvs->m_capmode_state = LISTVIEW_CAP_YSCROLL;
           lvs->m_capmode_data1 = yp;
           if (ypos < thumbpos || ypos > thumbpos+thumbsz) goto forceMouseMove;
           return 0;
@@ -4126,7 +4136,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           {
             if (hit >= 0) 
             {
-              lvs->m_capmode_state = 2;
+              lvs->m_capmode_state = LISTVIEW_CAP_DRAG;
               lvs->m_capmode_data1 = hit;
               lvs->m_capmode_data2 = subitem;
             }
@@ -4184,7 +4194,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
           {
             if (hit >=0 && hit < n)
             {
-              lvs->m_capmode_state = 2;
+              lvs->m_capmode_state = LISTVIEW_CAP_DRAG;
               lvs->m_capmode_data1 = hit;
               lvs->m_capmode_data2 = subitem;
               NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,LVIS_SELECTED,};
@@ -4211,7 +4221,9 @@ forceMouseMove:
         r.right -= g_swell_ctheme.scrollbar_width;
         switch (lvs->m_capmode_state)
         {
-          case 3:
+          case LISTVIEW_CAP_NONE:
+          break;
+          case LISTVIEW_CAP_COLRESIZE:
             {
               int x = lvs->m_capmode_data1;
               int xp = GET_X_LPARAM(lParam) + lvs->m_scroll_x + lvs->m_capmode_data2;
@@ -4235,19 +4247,19 @@ forceMouseMove:
               }
             }
           break;
-          case 2:
+          case LISTVIEW_CAP_DRAG:
             if (!lvs->m_is_listbox)
             {
               const int dx = GET_X_LPARAM(lParam) - s_clickpt.x, dy = GET_Y_LPARAM(lParam) - s_clickpt.y;
               if (dx*dx+dy*dy > 32)
               {
                 NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_BEGINDRAG},lvs->m_capmode_data1,lvs->m_capmode_data2};
-                lvs->m_capmode_state=0;
+                lvs->m_capmode_state=LISTVIEW_CAP_NONE;
                 SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
               }
             }
           break;
-          case 1:
+          case LISTVIEW_CAP_YSCROLL:
             {
               int yv = lvs->m_capmode_data1;
               int amt = GET_Y_LPARAM(lParam) - yv;
@@ -4273,7 +4285,7 @@ forceMouseMove:
               }
             }
           break;
-          case 4:
+          case LISTVIEW_CAP_XSCROLL:
             {
               int xv = lvs->m_capmode_data1;
               int amt = GET_X_LPARAM(lParam) - xv;
