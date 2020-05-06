@@ -3688,6 +3688,7 @@ struct SWELL_ListView_Col
   char *name;
   int xwid;
   int sortindicator;
+  int col_index;
 };
 
 enum { LISTVIEW_HDR_YMARGIN = 2 };
@@ -3699,6 +3700,8 @@ enum ListViewCapMode
   LISTVIEW_CAP_YSCROLL,    // data1=yp
   LISTVIEW_CAP_DRAG,       // data1=row, data2=displaycolumnindex
   LISTVIEW_CAP_COLRESIZE,  // data1 = displaycolumnindex, data2=xoffset
+  LISTVIEW_CAP_COLCLICK,   // data1 = displaycolumnindex, data2=original lparam, advances to COLREORDER with same parameters
+  LISTVIEW_CAP_COLREORDER,
 };
 
 struct listViewState
@@ -3733,6 +3736,25 @@ struct listViewState
   }
   WDL_PtrList<SWELL_ListView_Row> m_data;
   WDL_TypedBuf<SWELL_ListView_Col> m_cols;
+
+
+  int GetColumnIndex(int dispindex) const
+  {
+    if (WDL_NORMALLY(dispindex>=0 && dispindex < m_cols.GetSize()))
+    {
+      WDL_ASSERT(m_cols.Get()[dispindex].col_index >= 0);
+      WDL_ASSERT(m_cols.Get()[dispindex].col_index < m_cols.GetSize());
+      return m_cols.Get()[dispindex].col_index;
+    }
+    return 0;
+  }
+  SWELL_ListView_Col *GetColumnByIndex(int idx) const
+  {
+    SWELL_ListView_Col *c = m_cols.Get();
+    const int n = m_cols.GetSize();
+    for (int x = 0; x < n; x ++) if (c[x].col_index == idx) return c+x;
+    return NULL;
+  }
   
   int GetNumItems() const { return m_owner_data_size>=0 ? m_owner_data_size : m_data.GetSize(); }
   bool IsOwnerData() const { return m_owner_data_size>=0; }
@@ -4049,13 +4071,12 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
             if (px >= 0 && px <col[x].xwid)
             {
-              HWND par = hwnd->m_parent;
-              if (par)
+              if (msg != WM_LBUTTONDBLCLK)
               {
-                NMLISTVIEW hdr={{hwnd,(UINT_PTR)hwnd->m_id,LVN_COLUMNCLICK},-1,x};
-                if (par->m_wndproc&&!par->m_hashaddestroy) par->m_wndproc(par,WM_NOTIFY,hwnd->m_id, (LPARAM) &hdr);
+                lvs->m_capmode_state = LISTVIEW_CAP_COLCLICK;
+                lvs->m_capmode_data1 = x;
+                lvs->m_capmode_data2 = (int)lParam;
               }
-              ReleaseCapture();
               return 0;
             }
             px -= col[x].xwid;
@@ -4103,7 +4124,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         const int hit = ypos >= 0 ? ((ypos+lvs->m_scroll_y) / row_height) : -1;
         if (hit < 0) return 1;
 
-        int subitem = 0;
+        int subitem = 0; // display index
 
         {
           const int ncol=lvs->m_cols.GetSize();
@@ -4143,7 +4164,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
             if(hit < n)
             {
-              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,0,0,0, {s_clickpt.x, s_clickpt.y }};
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,lvs->GetColumnIndex(subitem),0,0,0, {s_clickpt.x, s_clickpt.y }};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             }
             if (oldsel != lvs->m_selitem) 
@@ -4197,7 +4218,7 @@ static LRESULT listViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
               lvs->m_capmode_state = LISTVIEW_CAP_DRAG;
               lvs->m_capmode_data1 = hit;
               lvs->m_capmode_data2 = subitem;
-              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,subitem,LVIS_SELECTED,};
+              NMLISTVIEW nm={{hwnd,hwnd->m_id,msg == WM_LBUTTONDBLCLK ? NM_DBLCLK : NM_CLICK},hit,lvs->GetColumnIndex(subitem),LVIS_SELECTED,};
               SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
             }
             if (changed)
@@ -4253,7 +4274,7 @@ forceMouseMove:
               const int dx = GET_X_LPARAM(lParam) - s_clickpt.x, dy = GET_Y_LPARAM(lParam) - s_clickpt.y;
               if (dx*dx+dy*dy > 32)
               {
-                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_BEGINDRAG},lvs->m_capmode_data1,lvs->m_capmode_data2};
+                NMLISTVIEW nm={{hwnd,hwnd->m_id,LVN_BEGINDRAG},lvs->m_capmode_data1,lvs->GetColumnIndex(lvs->m_capmode_data2)};
                 lvs->m_capmode_state=LISTVIEW_CAP_NONE;
                 SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
               }
@@ -4307,13 +4328,65 @@ forceMouseMove:
               }
             }
           break;
+          case LISTVIEW_CAP_COLCLICK:
+            if (lvs->m_extended_style & LVS_EX_HEADERDRAGDROP)
+            {
+              const int xd = GET_X_LPARAM(lParam) - GET_X_LPARAM((LPARAM)lvs->m_capmode_data2),
+                        yd = GET_Y_LPARAM(lParam) - GET_Y_LPARAM((LPARAM)lvs->m_capmode_data2);
+              if (xd*xd + yd*yd < 4*4) break;
+              lvs->m_capmode_state = LISTVIEW_CAP_COLREORDER;
+            }
+          case LISTVIEW_CAP_COLREORDER:
+            InvalidateRect(hwnd,NULL,FALSE);
+          break;
         }
       }
     return 1;
     case WM_LBUTTONUP:
       if (GetCapture()==hwnd)
       {
-        ReleaseCapture(); // WM_CAPTURECHANGED will take care of the invalidate
+        if (lvs->m_capmode_state == LISTVIEW_CAP_COLCLICK)
+        {
+          HWND par = hwnd->m_parent;
+          if (par)
+          {
+            NMLISTVIEW hdr={{hwnd,(UINT_PTR)hwnd->m_id,LVN_COLUMNCLICK},-1, lvs->GetColumnIndex(lvs->m_capmode_data1) };
+            if (par->m_wndproc&&!par->m_hashaddestroy) par->m_wndproc(par,WM_NOTIFY,hwnd->m_id, (LPARAM) &hdr);
+          }
+        }
+        else if (lvs->m_capmode_state == LISTVIEW_CAP_COLREORDER)
+        {
+          const int oldidx = lvs->m_capmode_data1;
+          const int ncols=lvs->m_cols.GetSize();
+          if (oldidx >= 0 && oldidx < ncols)
+          {
+            POINT p;
+            GetCursorPos(&p);
+            ScreenToClient(hwnd,&p);
+            int xpos=-lvs->m_scroll_x;
+            SWELL_ListView_Col *cols = lvs->m_cols.Get();
+            int x;
+            for (x = 0; x < ncols; x ++)
+            {
+              int xwid = cols[x].xwid;
+              if (!x && lvs->hasStatusImage()) xwid += lvs->m_last_row_height;
+              if (p.x < xpos + xwid/2) break;
+              xpos += xwid;
+            }
+
+            if (x != oldidx && x != oldidx+1)
+            {
+              SWELL_ListView_Col c = cols[oldidx];
+              lvs->m_cols.Delete(oldidx);
+
+              if (x > oldidx) x--;
+              lvs->m_cols.Insert(c,x);
+
+            }
+          }
+        }
+        ReleaseCapture();
+        InvalidateRect(hwnd,NULL,FALSE);
       }
     return 1;
     case WM_KEYDOWN:
@@ -4322,14 +4395,14 @@ forceMouseMove:
         const char *s = stateStringOnKey(msg,wParam,lParam);
         if (s)
         {
-          int col = 0;
+          int col = 0; // column index (not display)
           if (!lvs->m_is_listbox)
           {
             for (int x=0;x<lvs->m_cols.GetSize();x++)
             {
               if (lvs->m_cols.Get()[x].sortindicator)
               {
-                col = x;
+                col = lvs->m_cols.Get()[x].col_index;
                 break;
               }
             }
@@ -4538,7 +4611,7 @@ forceMouseMove:
             SetBkMode(ps.hdc,TRANSPARENT);
             const int ncols = lvs->m_cols.GetSize();
             const int nc = wdl_max(ncols,1);
-            SWELL_ListView_Col *cols = lvs->m_cols.Get();
+            const SWELL_ListView_Col *cols = lvs->m_cols.Get();
 
             const bool has_image = lvs->hasAnyImage();
             const bool has_status_image = lvs->hasStatusImage();
@@ -4592,9 +4665,10 @@ forceMouseMove:
               for (int col = 0; col < nc && xpos < cr.right; col ++)
               {
                 int image_idx = 0;
+                const int col_idx = lvs->GetColumnIndex(col);
                 if (owner_data)
                 {
-                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, rowidx,col, 0,0, buf, sizeof(buf), -1 }};
+                  NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, rowidx,col_idx, 0,0, buf, sizeof(buf), -1 }};
                   if (!col && has_image)
                   {
                     if (lvs->m_status_imagelist_type == LVSIL_STATE) nm.item.mask |= LVIF_STATE;
@@ -4613,7 +4687,7 @@ forceMouseMove:
                 else
                 {
                   if (!col && has_image) image_idx = row->m_imageidx;
-                  if (row) str = row->m_vals.Get(col);
+                  if (row) str = row->m_vals.Get(col_idx);
                 }
 
                 RECT ar = { xpos,ypos, cr.right, ypos + row_height };
@@ -4762,6 +4836,37 @@ forceMouseMove:
                 FillRect(ps.hdc,&tr,br);
               }
               DeleteObject(br);
+              if (lvs->m_capmode_state == LISTVIEW_CAP_COLREORDER && GetCapture()==hwnd)
+              {
+                const int oldidx = lvs->m_capmode_data1;
+                if (oldidx >= 0 && oldidx < ncols)
+                {
+                  POINT p;
+                  GetCursorPos(&p);
+                  ScreenToClient(hwnd,&p);
+                  xpos=-lvs->m_scroll_x;
+                  int x;
+                  for (x = 0; x < ncols; x ++)
+                  {
+                    int xwid = cols[x].xwid;
+                    if (!x && lvs->hasStatusImage()) xwid += lvs->m_last_row_height;
+                    if (p.x < xpos + xwid/2) break;
+                    xpos += xwid;
+                  }
+
+                  if (x != oldidx && x != oldidx+1)
+                  {
+                    const char *s = cols[lvs->m_capmode_data1].name;
+                    int sz = cols[lvs->m_capmode_data1].xwid;
+                    if (sz < hdr_size_nomargin) sz = hdr_size_nomargin;
+                    br = CreateSolidBrushAlpha(g_swell_ctheme.focusrect,0.75f);
+                    RECT r = {xpos, ypos, xpos + sz, ypos + hdr_size_nomargin };
+                    FillRect(ps.hdc, &r, br);
+                    if (s) DrawText(ps.hdc,s,-1,&r,DT_SINGLELINE|DT_LEFT|DT_VCENTER|DT_NOPREFIX);
+                    DeleteObject(br);
+                  }
+                }
+              }
             }
             if (gridpen) 
             {
@@ -5880,9 +5985,8 @@ int ListView_GetColumnWidth(HWND h, int pos)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return 0;
-  if (pos < 0 || pos >= lvs->m_cols.GetSize()) return 0;
-
-  return lvs->m_cols.Get()[pos].xwid;
+  SWELL_ListView_Col *c = lvs->GetColumnByIndex(pos);
+  return c ? c->xwid : 0;
 }
 
 void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
@@ -5892,8 +5996,15 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   SWELL_ListView_Col col = { 0, 100 };
   if (lvc->mask & LVCF_WIDTH) col.xwid = lvc->cx;
   if (lvc->mask & LVCF_TEXT) col.name = lvc->pszText ? strdup(lvc->pszText) : NULL;
+
+  for (int x = 0; x < lvs->m_cols.GetSize(); x++)
+    if (lvs->m_cols.Get()[x].col_index>=pos)
+      lvs->m_cols.Get()[x].col_index++;
+
   if (pos<0)pos=0;
   else if (pos>lvs->m_cols.GetSize()) pos=lvs->m_cols.GetSize();
+  col.col_index = pos;
+
   lvs->m_cols.Insert(col,pos);
 }
 
@@ -5901,7 +6012,7 @@ void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs || !lvc) return;
-  SWELL_ListView_Col *col = pos>=0&&pos < lvs->m_cols.GetSize() ? lvs->m_cols.Get()+pos : NULL;
+  SWELL_ListView_Col *col = lvs->GetColumnByIndex(pos);
   if (!col) return;
   if (lvc->mask & LVCF_WIDTH) col->xwid = lvc->cx;
   if (lvc->mask & LVCF_TEXT) 
@@ -6174,7 +6285,7 @@ void ListView_SetColumnWidth(HWND h, int pos, int wid)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return;
-  SWELL_ListView_Col *col = pos>=0&&pos < lvs->m_cols.GetSize() ? lvs->m_cols.Get()+pos : NULL;
+  SWELL_ListView_Col *col = lvs->GetColumnByIndex(pos);
   if (col) 
   {
     col->xwid = wid;
@@ -6239,7 +6350,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   for (x=0;x<n;x++)
   {
     const int xwid = lvs->m_cols.Get()[x].xwid;
-    if (pinf->pt.x >= xpos && pinf->pt.x < xpos+xwid) { idx = x; break; }
+    if (pinf->pt.x >= xpos && pinf->pt.x < xpos+xwid) { idx = lvs->m_cols.Get()[x].col_index; break; }
     xpos += xwid;
   }
   pinf->iSubItem = idx;
@@ -6299,7 +6410,7 @@ bool ListView_GetSubItemRect(HWND h, int item, int subitem, int code, RECT *r)
     {
       int xwid = lvs->m_cols.Get()[x].xwid;
       if (!x && lvs->hasStatusImage()) xwid += lvs->m_last_row_height;
-      if (x == subitem)
+      if (lvs->m_cols.Get()[x].col_index == subitem)
       {
         r->left=xpos;
         r->right=xpos+xwid;
@@ -6353,10 +6464,20 @@ void ListView_SortItems(HWND hwnd, PFNLVCOMPARE compf, LPARAM parm)
 bool ListView_DeleteColumn(HWND h, int pos)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
-  if (!lvs || pos < 0 || pos >= lvs->m_cols.GetSize()) return false;
+  if (!lvs) return false;
+  SWELL_ListView_Col *c = lvs->GetColumnByIndex(pos);
+  if (!c) return false;
 
-  free(lvs->m_cols.Get()[pos].name);
-  lvs->m_cols.Delete(pos);
+  const int cidx = c->col_index;
+  free(c->name);
+  lvs->m_cols.Delete((int) (c - lvs->m_cols.Get()));
+
+  for (int x = 0; x < lvs->m_cols.GetSize(); x ++)
+  {
+    c = lvs->m_cols.Get()+x;
+    WDL_ASSERT(c->col_index != cidx);
+    if (c->col_index > cidx) c->col_index--;
+  }
   InvalidateRect(h,NULL,FALSE);
   return true;
 }
@@ -7628,12 +7749,40 @@ int ListView_GetTopIndex(HWND h)
 }
 BOOL ListView_GetColumnOrderArray(HWND h, int cnt, int* arr)
 {
-  if (arr) for (int x=0;x<cnt;x++) arr[x]=x; // todo
-  return FALSE;
+  if (!arr) return FALSE;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->HasColumnHeaders(h)) return FALSE;
+
+  for (int x=0;x<cnt;x++)
+    arr[x]=x < lvs->m_cols.GetSize() ? lvs->m_cols.Get()[x].col_index : x;
+  return TRUE;
 }
 BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
 {
-  return FALSE;
+  if (!arr) return FALSE;
+  listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
+  if (!lvs || !lvs->HasColumnHeaders(h)) return FALSE;
+
+  WDL_TypedBuf<SWELL_ListView_Col> tmp;
+
+  int x;
+  // O(N^2) but even with 1000 columns who cares?
+  for (x = 0; x < cnt; x ++)
+  {
+    SWELL_ListView_Col *c = lvs->GetColumnByIndex(arr[x]);
+    if (WDL_NORMALLY(c != NULL))
+    {
+      tmp.Add(*c);
+      lvs->m_cols.Delete((int) (c - lvs->m_cols.Get()));
+    }
+  }
+  WDL_ASSERT(m_cols.GetSize()==0);
+  for (x = 0; x < tmp.GetSize(); x ++)
+  {
+    lvs->m_cols.Add(tmp.Get()+x,1);
+  }
+
+  return TRUE;
 }
 HWND ListView_GetHeader(HWND h)
 {
@@ -7650,9 +7799,9 @@ BOOL Header_GetItem(HWND h, int col, HDITEM* hi)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return FALSE;
-  if (col < 0 || col >= lvs->m_cols.GetSize()) return FALSE;
+  const SWELL_ListView_Col *c = lvs->GetColumnByIndex(col);
+  if (!c) return FALSE;
 
-  const SWELL_ListView_Col *c = lvs->m_cols.Get() + col;
   if (hi->mask&HDI_FORMAT)
   {
     if (c->sortindicator<0) hi->fmt = HDF_SORTUP;
@@ -7667,9 +7816,9 @@ BOOL Header_SetItem(HWND h, int col, HDITEM* hi)
 {
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (!lvs) return FALSE;
-  if (col < 0 || col >= lvs->m_cols.GetSize()) return FALSE;
+  SWELL_ListView_Col *c = lvs->GetColumnByIndex(col);
+  if (!c) return FALSE;
 
-  SWELL_ListView_Col *c = lvs->m_cols.Get() + col;
   if (hi->mask&HDI_FORMAT)
   {
     if (hi->fmt & HDF_SORTUP) c->sortindicator=-1;
