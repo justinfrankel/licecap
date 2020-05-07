@@ -1074,10 +1074,8 @@ SWELL_API_DEFINE(int,SWELL_GetOSXVersion,())
 
 SWELL_API_DEFINE(void,SWELL_Register_Cursor_Resource,(const char *idx, const char *name, int hotspot_x, int hotspot_y))
 
-#ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(bool, SWELL_ChooseColor, (HWND, COLORREF *, int ncustom, COLORREF *custom))
 SWELL_API_DEFINE(bool, SWELL_ChooseFont, (HWND, LOGFONT*))
-#endif
 
 SWELL_API_DEFINE(bool, IsWindowEnabled, (HWND))
 

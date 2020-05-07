@@ -28,6 +28,7 @@
 #ifndef SWELL_PROVIDED_BY_APP
 
 #include "swell.h"
+#include "swell-dlggen.h"
 #include "../wdlcstring.h"
 #import <Cocoa/Cocoa.h>
 
@@ -548,6 +549,160 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
   [tit release];
   
   return (int)ret; 
+}
+
+static WDL_DLGRET color_okCancelProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+    case WM_INITDIALOG:
+      SetWindowLongPtr(hwndDlg,0,0);
+    return 0;
+    case WM_COMMAND:
+      switch (LOWORD(wParam))
+      {
+        case IDOK:
+          SetWindowLongPtr(hwndDlg,0,1);
+          break;
+        case IDCANCEL:
+          SetWindowLongPtr(hwndDlg,0,2);
+          break;
+      }
+    break;
+  }
+  return 0;
+}
+static void okcancel_create(HWND hwnd, int f)
+{
+  SWELL_MakeSetCurParms(1.7,1.7,0,0,hwnd,false,false);
+  SWELL_MakeButton(1,"OK",IDOK,48,2,44,14,0);
+  SWELL_MakeButton(1,"Cancel",IDCANCEL,2,2,44,14,0);
+  SWELL_MakeSetCurParms(1.7,1.7,0,0,NULL,false,false);
+}
+static HWND makeOKcancel(HWND par)
+{
+  const char *dlgid = "";
+  SWELL_DialogResourceIndex tmph = {
+    dlgid, "",
+    SWELL_DLG_WS_FLIPPED|SWELL_DLG_WS_NOAUTOSIZE|SWELL_DLG_WS_CHILD,
+    okcancel_create,
+    (int)(98*1.7),(int)(18*1.7),
+    NULL
+  };
+  return SWELL_CreateDialog(&tmph,dlgid,par,color_okCancelProc,0);
+}
+
+static bool ColorFromNSColor(NSColor *color, COLORREF *colout)
+{
+  if (!color) return false;
+
+  CGFloat r,g,b;
+  NSColor *color2=[color colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+  if (!color2) return false;
+
+  [color2 getRed:&r green:&g blue:&b alpha:NULL];
+  int rv=(int)(r*255.0 + 0.5);
+  int gv=(int)(g*255.0 + 0.5);
+  int bv=(int)(b*255.0 + 0.5);
+  if (rv<0)rv=0; else if (rv>255)rv=255;
+  if (gv<0)gv=0; else if (gv>255)gv=255;
+  if (bv<0)bv=0; else if (bv>255)bv=255;
+
+  *colout = RGB(rv,gv,bv);
+  return true;
+}
+
+bool SWELL_ChooseColor(HWND unused, COLORREF *a, int ncustom, COLORREF *custom)
+{
+  NSColorPanel *pan=[NSColorPanel sharedColorPanel];
+  if (!pan||!a) return false;
+
+  NSColor *bkcol=[NSColor colorWithCalibratedRed:GetRValue(*a)/255.0f green:GetGValue(*a)/255.0f blue:GetBValue(*a)/255.0f alpha:1.0f];
+  [pan setColor:bkcol];
+  [pan setShowsAlpha:NO];
+  [pan setAccessoryView:nil];
+
+  HWND h = makeOKcancel((HWND)pan);
+  bool hadOK=!h;
+
+  NSModalSession ctx=[NSApp beginModalSessionForWindow:pan];
+  while ([NSApp runModalSession:ctx]==NSRunContinuesResponse && [pan isVisible])
+  {
+    int a = h ? GetWindowLongPtr(h,0) : 0;
+    if (a) { hadOK=a==1; break; }
+    Sleep(3);
+  }
+
+  [NSApp endModalSession:ctx];
+
+  if (h)
+  {
+    SendMessage(h,WM_DESTROY,0,0);
+    [pan setAccessoryView:nil]; // will destroy h anyway
+    [pan close];
+  }
+
+  return hadOK && ColorFromNSColor([pan color],a);
+}
+
+bool SWELL_ChooseFont(HWND unused, LOGFONT *lf)
+{
+  if (!lf) return false;
+
+  NSFontPanel *pan = [NSFontPanel sharedFontPanel];
+  int sz=lf->lfHeight > 0 ? lf->lfHeight : lf->lfHeight < 0 ? -lf->lfHeight : lf->lfWidth;
+
+  char buf[1024];
+  lstrcpyn_safe(buf,lf->lfFaceName,sizeof(buf));
+  if (lf->lfWeight >= FW_BOLD) lstrcatn(buf," Bold",sizeof(buf));
+  if (lf->lfItalic) lstrcatn(buf," Italic",sizeof(buf));
+
+  NSString *lbl=(NSString *)SWELL_CStringToCFString(buf);
+  NSFont *tmpfont = [NSFont fontWithName:lbl size:sz];
+  if (!tmpfont) tmpfont = [NSFont systemFontOfSize:sz];
+  [lbl release];
+
+  [pan setPanelFont:tmpfont isMultiple:NO];
+
+  [pan setAccessoryView:nil];
+  HWND h = makeOKcancel((HWND)pan);
+
+  bool hadOK=!h;
+  NSModalSession ctx=[NSApp beginModalSessionForWindow:pan];
+  while ([NSApp runModalSession:ctx]==NSRunContinuesResponse && [pan isVisible])
+  {
+    int a = h ? GetWindowLongPtr(h,0) : 0;
+    if (a) { hadOK=a==1; break; }
+    Sleep(3);
+  }
+
+  [NSApp endModalSession:ctx];
+
+  if (h)
+  {
+    SendMessage(h,WM_DESTROY,0,0);
+    [pan setAccessoryView:nil]; // will destroy h
+    [pan close];
+  }
+
+  if (!hadOK) return false;
+
+  NSFont *newfont = [pan panelConvertFont:tmpfont];
+  int newsz =  (int) ([newfont pointSize]+0.5);
+  LOGFONT oldf=*lf;
+  if (newsz != sz)
+  {
+    lf->lfWidth=0;
+    lf->lfHeight = newsz;
+  }
+
+  SWELL_CFStringToCString([newfont familyName],lf->lfFaceName, sizeof(lf->lfFaceName));
+  SWELL_CFStringToCString([newfont displayName],buf,sizeof(buf));
+
+  lf->lfItalic  = !! strstr(buf,"Italic");
+  lf->lfWeight = strstr(buf,"Bold") ? FW_BOLD : FW_NORMAL;
+
+  return memcmp(lf,&oldf,sizeof(LOGFONT)) != 0;
 }
 
 #endif
