@@ -7776,7 +7776,7 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
       lvs->m_cols.Delete((int) (c - lvs->m_cols.Get()));
     }
   }
-  WDL_ASSERT(m_cols.GetSize()==0);
+  WDL_ASSERT(lvs->m_cols.GetSize()==0);
   for (x = 0; x < tmp.GetSize(); x ++)
   {
     lvs->m_cols.Add(tmp.Get()+x,1);
