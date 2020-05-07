@@ -892,6 +892,24 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
           }
         }
       return LB_ERR;
+      case LB_FINDSTRINGEXACT:
+        if (lParam)
+        {
+          int x = (int) wParam + 1;
+          if (x < 0) x=0;
+          const int n = self->m_items ? self->m_items->GetSize() : 0;
+          for (int i = 0; i < n; i ++)
+          {
+            SWELL_ListView_Row *row=self->m_items->Get(x);
+            if (row)
+            {
+              const char *p = row->m_vals.Get(0);
+              if (p && !stricmp(p,(const char *)lParam)) return x;
+            }
+            if (++x >= n) x=0;
+          }
+        }
+      return LB_ERR;
       case LB_GETSEL:
         return !!(ListView_GetItemState(hwnd,(int)wParam,LVIS_SELECTED)&LVIS_SELECTED);
       case LB_GETCURSEL:

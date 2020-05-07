@@ -4953,6 +4953,24 @@ forceMouseMove:
           }
         }
     return LB_ERR;
+    case LB_FINDSTRINGEXACT:
+      if (lParam)
+      {
+        int x = (int) wParam + 1;
+        if (x < 0) x=0;
+        const int n = lvs->m_data.GetSize();
+        for (int i = 0; i < n; i ++)
+        {
+          SWELL_ListView_Row *row=lvs->m_data.Get(x);
+          if (row)
+          {
+            const char *p = row->m_vals.Get(0);
+            if (p && !stricmp(p,(const char *)lParam)) return x;
+          }
+          if (++x >= n) x=0;
+        }
+      }
+    return LB_ERR;
     case LB_RESETCONTENT:
       if (lvs && !lvs->IsOwnerData())
       {
