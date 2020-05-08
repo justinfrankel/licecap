@@ -8088,6 +8088,10 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
     {
       SWELL_MakeLabel(list->flag1, list->str2, SIXFROMLIST);
     }
+    else if (!strcmp(list->str1,"__SWELL_ICON"))
+    {
+      // todo (str2 is likely a (const char *)(INT_PTR)resid
+    }
     else if (*list->str2)
     {
       SWELL_MakeControl(list->str1, list->flag1, list->str2, SIXFROMLIST);
