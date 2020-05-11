@@ -117,7 +117,7 @@ bool WDL_ChooseDirectory(HWND parent, const char *text, const char *initialdir, 
 #endif
 }
 
-static const char *stristr(const char* a, const char* b)
+static WDL_STATICFUNC_UNUSED const char *stristr(const char* a, const char* b)
 {
   const size_t n = strlen(a), len = strlen(b);
   for (size_t i = 0; i+len <= n; ++i) if (!strnicmp(a+i, b, len)) return a+i;

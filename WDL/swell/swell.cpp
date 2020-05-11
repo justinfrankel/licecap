@@ -311,14 +311,14 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
           }
           else
           {
-            DWORD until = GetTickCount() + msTO;
+            const DWORD start_t = GetTickCount();
             for (;;)
             {
               pid_t v = waitpid(pb->pid,&wstatus,WNOHANG);
               if (v > 0) break;
 
               if (v < 0) return WAIT_FAILED;
-              if (GetTickCount() > until) return WAIT_TIMEOUT;
+              if ((GetTickCount()-start_t) > msTO) return WAIT_TIMEOUT;
               Sleep(1);
             }
           }
@@ -341,8 +341,8 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
           if (!msTO) return WAIT_TIMEOUT;
           if (msTO != INFINITE)
           {
-            DWORD d=GetTickCount()+msTO;
-            while (GetTickCount()<d && !thr->done) Sleep(1);
+            const DWORD d=GetTickCount();
+            while ((GetTickCount()-d)<msTO && !thr->done) Sleep(1);
             if (!thr->done) return WAIT_TIMEOUT;
           }
         }
