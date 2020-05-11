@@ -279,18 +279,26 @@ private:
 
   void RemoveDuplicateKeys() // after resorting
   {
-    // will be expensive if there are a lot of duplicates,
-    // in which case use m_data.DeleteBatch()
-    int i;
-    for (i=0; i < m_data.GetSize()-1; ++i)
+    const int sz = m_data.GetSize();
+
+    int cnt = 1;
+    KeyVal *rd = m_data.Get() + 1, *wr = rd;
+    for (int x = 1; x < sz; x ++)
     {
-      KeyVal* kv=m_data.Get()+i;
-      KeyVal* nv=kv+1;
-      if (!m_keycmp(&kv->key, &nv->key))
+      if (m_keycmp(&rd->key, &wr[-1].key))
       {
-        DeleteByIndex(i--);
+        if (rd != wr) *wr=*rd;
+        wr++;
+        cnt++;
       }
+      else
+      {
+        if (m_keydispose) m_keydispose(rd->key);
+        if (m_valdispose) m_valdispose(rd->val);
+      }
+      rd++;
     }
+    if (cnt < sz) m_data.Resize(cnt,false);
   }
 };
 
