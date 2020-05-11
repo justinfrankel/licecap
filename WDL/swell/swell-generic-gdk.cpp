@@ -2407,9 +2407,11 @@ static void getHotSpotForFile(const char *fn, POINT *pt)
   unsigned char buf[32];
   if (fread(buf,1,6,fp)==6 && !buf[0] && !buf[1] && buf[2] == 2 && buf[3] == 0 && buf[4] == 1 && buf[5] == 0)
   {
-    fread(buf,1,16,fp);
-    pt->x = buf[4]|(buf[5]<<8);
-    pt->y = buf[6]|(buf[7]<<8);
+    if (fread(buf,1,16,fp)==16)
+    {
+      pt->x = buf[4]|(buf[5]<<8);
+      pt->y = buf[6]|(buf[7]<<8);
+    }
   }
   fclose(fp);
 }

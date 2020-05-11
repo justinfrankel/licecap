@@ -84,8 +84,7 @@ static bool fgets_to_typedbuf(WDL_TypedBuf<char> *buf, FILE *fp)
     if (buf->GetSize()<rdpos+4) break; // malloc fail, erg
     char *p = buf->Get()+rdpos;
     *p=0;
-    fgets(p,buf->GetSize()-rdpos,fp); 
-    if (!*p) break;
+    if (!fgets(p,buf->GetSize()-rdpos,fp) || !*p) break;
     while (*p) p++;
     if (p[-1] == '\r' || p[-1] == '\n') break;
 

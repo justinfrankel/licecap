@@ -496,7 +496,8 @@ get_dir:
             {
               lstrcpyn_safe(buf,parms->initialdir,sizeof(buf));
             }
-            else getcwd(buf,sizeof(buf));
+            else if (!getcwd(buf,sizeof(buf)))
+              buf[0]=0;
           }
 
           SetWindowText(edit,filepart);
