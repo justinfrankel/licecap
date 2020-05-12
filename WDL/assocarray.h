@@ -191,9 +191,18 @@ public:
     if (m_data.GetSize() > 1 && m_keycmp)
     {
       char *tmp=(char*)malloc(m_data.GetSize()*sizeof(KeyVal));
-      WDL_mergesort(m_data.Get(), m_data.GetSize(), sizeof(KeyVal),
-        (int(*)(const void*, const void*))m_keycmp, tmp);
-      free(tmp);
+      if (WDL_NORMALLY(tmp))
+      {
+        WDL_mergesort(m_data.Get(), m_data.GetSize(), sizeof(KeyVal),
+          (int(*)(const void*, const void*))m_keycmp, tmp);
+        free(tmp);
+      }
+      else
+      {
+        qsort(m_data.Get(), m_data.GetSize(), sizeof(KeyVal),
+          (int(*)(const void*, const void*))m_keycmp);
+      }
+
       RemoveDuplicateKeys();
     }
   }
@@ -254,6 +263,7 @@ public:
   void CopyContentsAsReference(const WDL_AssocArrayImpl &cp)
   {
     DeleteAll(true);
+    m_keycmp = cp.m_keycmp;
     m_keydup = NULL;  // this no longer can own any data
     m_keydispose = NULL;
     m_valdispose = NULL; 
