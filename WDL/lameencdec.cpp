@@ -37,7 +37,7 @@
 
 #include "wdlcstring.h"
 #include "lameencdec.h"
-
+#include "win32_utf8.h"
 
 #ifdef __APPLE__
   #include <Carbon/Carbon.h>
@@ -412,6 +412,7 @@ static BOOL HasUTF8(const char *_str)
 }
 #endif
 
+
 LameEncoder::~LameEncoder()
 {
   if (m_lamestate)
@@ -422,18 +423,7 @@ LameEncoder::~LameEncoder()
       size_t a=lame.get_lametag_frame(m_lamestate,buf,sizeof(buf));
       if (a>0 && a<=sizeof(buf))
       {
-        FILE *fp=NULL;
-#ifdef _WIN32
-        if (HasUTF8(m_vbrfile.Get()) && GetVersion()<0x80000000)
-        {
-          WCHAR wf[2048];
-          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,m_vbrfile.Get(),-1,wf,2048))
-          {
-            fp = _wfopen(wf,L"r+b");
-          }
-        }
-#endif
-        if (!fp) fp = fopen(m_vbrfile.Get(),"r+b");
+        FILE *fp = fopenUTF8(m_vbrfile.Get(),"r+b");
         if (fp)
         {
           fseek(fp, m_id3_len, SEEK_SET);
@@ -505,7 +495,7 @@ unsigned char *PackID3Chunk(WDL_StringKeyedArray<char*> *metadata, int *buflen)
     else if (ext && !stricmp(ext, ".png")) mime="image/png";
     if (mime)
     {
-      FILE *fp=fopen(apic_fn, "rb"); // could stat but let's make sure we can open the file
+      FILE *fp=fopenUTF8(apic_fn, "rb"); // could stat but let's make sure we can open the file
       if (fp)
       {
         fseek(fp, 0, SEEK_END);
@@ -723,7 +713,7 @@ unsigned char *PackID3Chunk(WDL_StringKeyedArray<char*> *metadata, int *buflen)
       p += 2;
       memcpy(p, apic_hdr.Get(), apic_hdr.GetSize());
       p += apic_hdr.GetSize();
-      FILE *fp=fopen(apic_fn, "rb");
+      FILE *fp=fopenUTF8(apic_fn, "rb");
       if (WDL_NORMALLY(fp))
       {
         fread(p, 1, apic_datalen, fp);
