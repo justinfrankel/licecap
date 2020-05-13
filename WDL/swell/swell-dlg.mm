@@ -785,8 +785,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
       m_wndproc((HWND)self,WM_COMMAND,(LBN_DBLCLK<<16)|[(NSControl*)sender tag],(LPARAM)sender);
     else
     {
-      SWELL_ListView* v = (SWELL_ListView*)sender;
-      NMLISTVIEW nmlv={{(HWND)sender,(UINT_PTR)[(NSControl*)sender tag], NM_DBLCLK}, (int) [v clickedRow], (int) [sender clickedColumn], };
+      SWELL_ListView *lv = (SWELL_ListView*)sender;
+      NMLISTVIEW nmlv={{(HWND)sender,(UINT_PTR)[(NSControl*)sender tag], NM_DBLCLK}, (int) [lv clickedRow], (int) [sender clickedColumn], };
 
       if (nmlv.iItem == -1)
       {
@@ -802,7 +802,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
         }
       }
 
-      SWELL_ListView_Row *row=v->m_items->Get(nmlv.iItem);
+      SWELL_ListView_Row *row=lv->m_items->Get(nmlv.iItem);
       if (row)
        nmlv.lParam = row->m_param;
       m_wndproc((HWND)self,WM_NOTIFY,[(NSControl*)sender tag],(LPARAM)&nmlv);
@@ -4042,7 +4042,7 @@ void SWELL_Metal_FillRect(void *_tex, int x, int y, int w, int h, int color)
   const size_t len = npix*4;
   int tmp[4096], *buf=tmp;
   if (len > sizeof(tmp) && !(buf = (int *)malloc(len))) return;
-  for (int x = 0; x < npix; x++) buf[x] = color;
+  for (int i = 0; i < npix; i++) buf[i] = color;
   SWELL_Metal_Blit(_tex,(unsigned char *)buf,x,y,w,h,w, retina_hint);
   if (buf != tmp) free(buf);
 }

@@ -284,8 +284,8 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
       // this nonsense only seems to be necessary on 10.15 (and possibly future macOS versions?)
       char tmp[256];
 
-      const int nft = [fileTypes count];
-      int x = nft;
+      const NSUInteger nft = [fileTypes count];
+      NSUInteger x = nft;
 
       const char *ext = WDL_get_fileext(fn);
       if (*ext)
@@ -628,7 +628,7 @@ bool SWELL_ChooseColor(HWND unused, COLORREF *a, int ncustom, COLORREF *custom)
   NSModalSession ctx=[NSApp beginModalSessionForWindow:pan];
   while ([NSApp runModalSession:ctx]==NSRunContinuesResponse && [pan isVisible])
   {
-    int a = h ? GetWindowLongPtr(h,0) : 0;
+    const LONG_PTR a = h ? GetWindowLongPtr(h,0) : 0;
     if (a) { hadOK=a==1; break; }
     Sleep(3);
   }
@@ -671,7 +671,7 @@ bool SWELL_ChooseFont(HWND unused, LOGFONT *lf)
   NSModalSession ctx=[NSApp beginModalSessionForWindow:pan];
   while ([NSApp runModalSession:ctx]==NSRunContinuesResponse && [pan isVisible])
   {
-    int a = h ? GetWindowLongPtr(h,0) : 0;
+    const LONG_PTR a = h ? GetWindowLongPtr(h,0) : 0;
     if (a) { hadOK=a==1; break; }
     Sleep(3);
   }

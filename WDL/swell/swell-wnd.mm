@@ -2403,7 +2403,7 @@ int GetWindowTextLength(HWND hwnd)
   if ([(id)pvw respondsToSelector:@selector(onSwellGetText)])
   {
     const char *p=(const char *)[(SWELL_hwndChild*)pvw onSwellGetText];
-    return p ? strlen(p) : 0;
+    return p ? (int)strlen(p) : 0;
   }
 
   NSString *s;
@@ -2415,7 +2415,7 @@ int GetWindowTextLength(HWND hwnd)
   else return 0;
 
   const char *p = s ? [s UTF8String] : NULL;
-  return p ? strlen(p) : 0;
+  return p ? (int)strlen(p) : 0;
 
   SWELL_END_TRY(;)
   return 0;
