@@ -257,6 +257,11 @@ WDL_WIN32_UTF8_IMPL BOOL CreateProcessUTF8( LPCTSTR lpApplicationName, LPTSTR lp
 #endif
 #define CreateProcess CreateProcessUTF8
 
+#ifdef fopen
+#undef fopen
+#endif
+#define fopen fopenUTF8
+
 #else
 
 // compat defines for when UTF disabled
