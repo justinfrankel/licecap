@@ -2402,7 +2402,7 @@ BOOL SWELL_SetCursorPos(int X, int Y)
 
 static void getHotSpotForFile(const char *fn, POINT *pt)
 {
-  FILE *fp = fopen(fn,"rb");
+  FILE *fp = WDL_fopenA(fn,"rb");
   if (!fp) return;
   unsigned char buf[32];
   if (fread(buf,1,6,fp)==6 && !buf[0] && !buf[1] && buf[2] == 2 && buf[3] == 0 && buf[4] == 1 && buf[5] == 0)

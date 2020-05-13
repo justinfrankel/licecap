@@ -191,7 +191,7 @@ LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp)
       fp = _wfopen(wf,L"rb");
   }
 #endif
-  if (!fp) fp = fopen(filename,"rb");
+  if (!fp) fp = WDL_fopenA(filename,"rb");
 
   if (!fp) return 0;
 

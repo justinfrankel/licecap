@@ -152,7 +152,7 @@ static iniFileContext *GetFileContext(const char *name)
       free(ctx->m_curfn);
       ctx->m_curfn=strdup(name);
     }
-    FILE *fp = fopen(name,"r");
+    FILE *fp = WDL_fopenA(name,"r");
     
     if (!fp)
     {
@@ -252,7 +252,7 @@ static void WriteBackFile(iniFileContext *ctx)
     strcpy(p,".new");
   }
 
-  FILE *fp = fopen(newfn,"w");
+  FILE *fp = WDL_fopenA(newfn,"w");
   if (!fp) return;
   
   flock(fileno(fp),LOCK_EX);

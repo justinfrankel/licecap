@@ -264,6 +264,10 @@ WDL_WIN32_UTF8_IMPL BOOL CreateProcessUTF8( LPCTSTR lpApplicationName, LPTSTR lp
 
 #else
 
+#if defined(WDL_CHECK_FOR_NON_UTF8_FOPEN) && defined(fopen)
+  #undef fopen
+#endif
+
 // compat defines for when UTF disabled
 #define DrawTextUTF8 DrawText
 #define statUTF8 stat

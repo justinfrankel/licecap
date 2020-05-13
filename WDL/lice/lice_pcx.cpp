@@ -14,7 +14,7 @@
 
 LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *_bmp)
 {
-  FILE *fp = fopen(filename,"rb");
+  FILE *fp = WDL_fopenA(filename,"rb");
   if(!fp) return 0;
 
   fgetc(fp);
