@@ -3939,6 +3939,24 @@ static void SWELL_fastDoubleUpImage(unsigned int *op, const unsigned int *ip, in
 }
 #endif
 
+static bool SWELL_Metal_ReadTex(SWELL_hwndChild *wnd, unsigned int *destbuf, int x, int y, int w, int h, int span)
+{
+  id<MTLTexture> tex = (id<MTLTexture>) wnd->m_metal_texture;
+  const int texw = (int)tex.width, texh = (int)tex.height;
+  if (WDL_NOT_NORMALLY(x<0) ||
+      WDL_NOT_NORMALLY(y<0) ||
+      WDL_NOT_NORMALLY(x+w > texw) ||
+      WDL_NOT_NORMALLY(y+h > texh) ||
+      WDL_NOT_NORMALLY(span<w) ||
+      WDL_NOT_NORMALLY(w<1) ||
+      WDL_NOT_NORMALLY(h<1)
+    ) return false;
+
+  MTLRegion region = { { (NSUInteger)x, (NSUInteger)y, 0 }, {(NSUInteger)w,(NSUInteger)h, 1} };
+  [tex getBytes:destbuf bytesPerRow:span*4 fromRegion:region mipmapLevel:0];
+  return true;
+}
+
 static void SWELL_Metal_WriteTex(SWELL_hwndChild *wnd, const unsigned int *srcbuf, int x, int y, int w, int h, int span, bool retina_hint)
 {
   id<MTLTexture> tex = (id<MTLTexture>) wnd->m_metal_texture;
@@ -4021,21 +4039,83 @@ void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int 
 {
   if (!_tex) return;
   SWELL_hwndChild *wnd = (SWELL_hwndChild *)_tex;
-  if (!retina_hint && wnd->m_metal_dc_dirty && wnd->m_metal_retina)
+  if (wnd->m_metal_dc_dirty)
   {
-    const int newspan = (w*2+3)&~3;
-    unsigned int *p = s_metal_tmp.ResizeOK(newspan*h*2 + 32/4,false);
-    if (WDL_NOT_NORMALLY(!p)) return;
-    const UINT_PTR align = (UINT_PTR)p & 31;
-    if (align) p += 32-align;
-    SWELL_fastDoubleUpImage(p,srcbuf,w,h,span,newspan);
-    srcbuf = p;
-    w*=2;
-    h*=2;
-    x*=2;
-    y*=2;
-    span = newspan;
-    retina_hint = true;
+    if (retina_hint)
+    {
+      // source is retina
+      if (!wnd->m_metal_retina)
+      {
+        if (wnd->m_use_metal > 1)
+        {
+          NSLog(@"swell-cocoa: PERFORMANCE WARNING: metal non-retina drawing followed by retina drawing, calling code should be fixed.\n");
+          if (WDL_NORMALLY(wnd->m_metal_texture))
+          {
+            id<MTLTexture> tex = (id<MTLTexture>) wnd->m_metal_texture;
+            const int texw = (int)tex.width, texh = (int)tex.height;
+            const int oldspan = (texw+3)&~3, newspan = (texw*2+3)&~3;
+            unsigned int *dblframe = s_metal_tmp.ResizeOK(oldspan*texh + newspan*texh*2,false);
+            if (WDL_NOT_NORMALLY(!dblframe)) return;
+            unsigned int *frame = dblframe + newspan*texh*2;
+            if (SWELL_Metal_ReadTex(wnd,frame,0,0,texw,texh,oldspan))
+              SWELL_fastDoubleUpImage(dblframe,frame,texw,texh,oldspan,newspan);
+            else
+              memset(dblframe,0,newspan*sizeof(int)*texh*2);
+
+            if (x<0) { w += x; srcbuf -= x; x=0; }
+            if (y<0) { h += y; srcbuf -= y*span; y=0; }
+            if (x+w > texw*2) w=texw*2-x;
+            if (y+h > texh*2) h=texh*2-y;
+
+            // blit our image into the full image
+            if (w>0 && h>0)
+            {
+              unsigned int *wr = dblframe + x + y*newspan;
+              const unsigned int *rd = srcbuf;
+              for (int i = 0; i < h; i ++)
+              {
+                memcpy(wr, rd, w*sizeof(int));
+                wr += newspan;
+                rd += span;
+              }
+            }
+
+            // draw full image back
+            x=y=0;
+            w = texw*2;
+            h = texh*2;
+            span = newspan;
+            srcbuf = dblframe;
+            wnd->m_metal_dc_dirty = false;
+          }
+        }
+        else
+        {
+          NSLog(@"swell-cocoa: DRAWING UNSUPPORTED: metal direct-mode non-retina drawing followed by retina drawing, will cause incorrect display.\n");
+        }
+      }
+    }
+    else
+    {
+      // source is not retina
+      if (wnd->m_metal_retina)
+      {
+        // upsample to retina
+        const int newspan = (w*2+3)&~3;
+        unsigned int *p = s_metal_tmp.ResizeOK(newspan*h*2 + 32/4,false);
+        if (WDL_NOT_NORMALLY(!p)) return;
+        const UINT_PTR align = (UINT_PTR)p & 31;
+        if (align) p += 32-align;
+        SWELL_fastDoubleUpImage(p,srcbuf,w,h,span,newspan);
+        srcbuf = p;
+        w*=2;
+        h*=2;
+        x*=2;
+        y*=2;
+        span = newspan;
+        retina_hint = true;
+      }
+    }
   }
   SWELL_Metal_WriteTex(wnd, srcbuf, x, y, w, h, span, retina_hint);
 }
