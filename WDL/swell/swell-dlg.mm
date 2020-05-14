@@ -3939,29 +3939,8 @@ static void SWELL_fastDoubleUpImage(unsigned int *op, const unsigned int *ip, in
 }
 #endif
 
-void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h, int span, bool retina_hint)
+static void SWELL_Metal_WriteTex(SWELL_hwndChild *wnd, const unsigned int *srcbuf, int x, int y, int w, int h, int span, bool retina_hint)
 {
-  if (!_tex) return;
-  SWELL_hwndChild *wnd = (SWELL_hwndChild *)_tex;
-
-  if (!retina_hint && wnd->m_metal_dc_dirty && wnd->m_metal_retina)
-  {
-    static WDL_TypedBuf<unsigned int> tmp;
-    const int newspan = (w*2+3)&~3;
-    unsigned int *p = tmp.ResizeOK(newspan*h*2 + 32/4,false);
-    if (!p) return;
-    const UINT_PTR align = (UINT_PTR)p & 31;
-    if (align) p += 32-align;
-    SWELL_fastDoubleUpImage(p,(unsigned int *)buf,w,h,span,newspan);
-    buf = (unsigned char *)p;
-    w*=2;
-    h*=2;
-    x*=2;
-    y*=2;
-    span = newspan;
-  }
-
-
   id<MTLTexture> tex = (id<MTLTexture>) wnd->m_metal_texture;
   int texw = 0, texh = 0;
   if (tex)
@@ -4026,18 +4005,42 @@ void SWELL_Metal_Blit(void *_tex, unsigned char *buf, int x, int y, int w, int h
 
   if (!tex) return;
 
-  if (x<0) { w += x; buf -= x*4; x=0; }
-  if (y<0) { h += y; buf -= y*span*4; y=0; }
+  if (x<0) { w += x; srcbuf -= x; x=0; }
+  if (y<0) { h += y; srcbuf -= y*span; y=0; }
   if (x+w > texw) w = texw-x;
   if (y+h > texh) h = texh-y;
 
   if (w<1 || h<1) return;
 
   MTLRegion region = { { (NSUInteger)x, (NSUInteger)y, 0 }, {(NSUInteger)w,(NSUInteger)h, 1} };
-  [tex replaceRegion:region mipmapLevel:0 withBytes:buf bytesPerRow:span*4];
+  [tex replaceRegion:region mipmapLevel:0 withBytes:srcbuf bytesPerRow:span*4];
 }
 
-void SWELL_Metal_FillRect(void *_tex, int x, int y, int w, int h, int color)
+static WDL_TypedBuf<unsigned int> s_metal_tmp;
+void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int w, int h, int span, bool retina_hint)
+{
+  if (!_tex) return;
+  SWELL_hwndChild *wnd = (SWELL_hwndChild *)_tex;
+  if (!retina_hint && wnd->m_metal_dc_dirty && wnd->m_metal_retina)
+  {
+    const int newspan = (w*2+3)&~3;
+    unsigned int *p = s_metal_tmp.ResizeOK(newspan*h*2 + 32/4,false);
+    if (WDL_NOT_NORMALLY(!p)) return;
+    const UINT_PTR align = (UINT_PTR)p & 31;
+    if (align) p += 32-align;
+    SWELL_fastDoubleUpImage(p,srcbuf,w,h,span,newspan);
+    srcbuf = p;
+    w*=2;
+    h*=2;
+    x*=2;
+    y*=2;
+    span = newspan;
+    retina_hint = true;
+  }
+  SWELL_Metal_WriteTex(wnd, srcbuf, x, y, w, h, span, retina_hint);
+}
+
+void SWELL_Metal_FillRect(void *_tex, int x, int y, int w, int h, int colori)
 {
   if (!_tex || w<1 || h<1) return;
 
@@ -4049,12 +4052,17 @@ void SWELL_Metal_FillRect(void *_tex, int x, int y, int w, int h, int color)
   }
 
   const int npix = w*h;
-  const size_t len = npix*4;
-  int tmp[4096], *buf=tmp;
-  if (len > sizeof(tmp) && !(buf = (int *)malloc(len))) return;
+  if (WDL_NOT_NORMALLY(npix < 0)) return; // overflow
+
+  const unsigned int color = (unsigned int)colori;
+  unsigned int tmp[4096], *buf=tmp;
+  if (((unsigned int)npix*sizeof(int)) > sizeof(tmp))
+  {
+    buf = s_metal_tmp.ResizeOK(npix);
+    if (WDL_NOT_NORMALLY(!buf)) return;
+  }
   for (int i = 0; i < npix; i++) buf[i] = color;
-  SWELL_Metal_Blit(_tex,(unsigned char *)buf,x,y,w,h,w, retina_hint);
-  if (buf != tmp) free(buf);
+  SWELL_Metal_WriteTex(wnd,buf,x,y,w,h,w, retina_hint);
 }
 
 int SWELL_EnableMetal(HWND hwnd, int mode)
