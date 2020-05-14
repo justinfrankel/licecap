@@ -628,8 +628,8 @@ bool SWELL_ChooseColor(HWND unused, COLORREF *a, int ncustom, COLORREF *custom)
   NSModalSession ctx=[NSApp beginModalSessionForWindow:pan];
   while ([NSApp runModalSession:ctx]==NSRunContinuesResponse && [pan isVisible])
   {
-    const LONG_PTR a = h ? GetWindowLongPtr(h,0) : 0;
-    if (a) { hadOK=a==1; break; }
+    const LONG_PTR res = h ? GetWindowLongPtr(h,0) : 0;
+    if (res) { hadOK=res==1; break; }
     Sleep(3);
   }
 
