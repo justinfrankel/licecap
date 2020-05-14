@@ -1478,6 +1478,8 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   
   if (desth == preclip_h) desth=h;
   else if (h != preclip_h) desth = (h*desth)/preclip_h;
+
+  if (destw < 1 || desth < 1) return;
   
   const bool use_alphachannel = mode == (int)SRCCOPY_USEALPHACHAN;
 
@@ -1490,12 +1492,48 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
   {
     void SWELL_Metal_Blit(void *tex, const unsigned int *buf, int x, int y, int w, int h, int span, bool retina_hint, bool use_alpha);
 
-    unsigned int *ptr = (unsigned int *)p;
+    const unsigned int *ptr = (const unsigned int *)p;
     if (w == destw && h == desth)
       SWELL_Metal_Blit(hdcOut->metal_ctx,ptr,x,y,w,h,sw,false, use_alphachannel);
-    else if (WDL_NORMALLY(w == destw*2) && WDL_NORMALLY(h == desth*2))
-    {
+    else if (w == destw*2 && h == desth*2)
       SWELL_Metal_Blit(hdcOut->metal_ctx,ptr,x*2,y*2,w,h,sw,true, use_alphachannel);
+    else
+    {
+      // Using StretchBlt() to size contents isn't ideal (in Metal mode or in win32), but if the caller insists
+      const bool retina = w >= destw*2 && h >= desth*2 && SWELL_IsRetinaDC(hdcOut);
+      if (retina)
+      {
+        destw *= 2;
+        desth *= 2;
+        x*=2;
+        y*=2;
+      }
+
+      // resize a copy of image to destw/desth/destsw/destptr
+      static WDL_TypedBuf<unsigned int> tmp;
+      const int destspan = (destw+3)&~3;
+      const unsigned int dx = (w * 65536) / destw, dy = (h * 65536) / desth;
+      unsigned int *destptr = tmp.ResizeOK(destspan*desth, false);
+      if (WDL_NOT_NORMALLY(!destptr)) return;
+
+      unsigned int *wr = destptr;
+      for (int i=0;i<desth; i ++)
+      {
+        unsigned int yp = ((unsigned int)i * dy)>>16;
+        if (WDL_NOT_NORMALLY(yp >= (unsigned int)h)) break;
+        const unsigned int *rd = ptr + yp*sw;
+        int xpos = 0;
+        for (int j=0;j<destw; j ++)
+        {
+          const unsigned int xp = (xpos>>16);
+          if (WDL_NOT_NORMALLY(xp >= (unsigned int)w)) break;
+          wr[j] = rd[xp];
+          xpos += dx;
+        }
+        wr += destspan;
+      }
+
+      SWELL_Metal_Blit(hdcOut->metal_ctx,destptr,x,y, destw, desth, destspan, retina, use_alphachannel);
     }
 
     return;
