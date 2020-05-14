@@ -3956,6 +3956,29 @@ static bool SWELL_Metal_ReadTex(SWELL_hwndChild *wnd, unsigned int *destbuf, int
   [tex getBytes:destbuf bytesPerRow:span*4 fromRegion:region mipmapLevel:0];
   return true;
 }
+static void srcalphablend_line(unsigned int *dest, const unsigned int *src, int l)
+{
+  while (l--)
+  {
+    unsigned int v = *src++;
+    unsigned int alpha = (v>>24);
+    if (alpha)
+    {
+      if (alpha<255)
+      {
+        const unsigned int dp = *dest;
+        const unsigned int ra=256-alpha;
+        *dest++ = (((dp&0xff) * ra + (v&0xff)*alpha) >> 8) +
+                  ((((dp&0xff00) * ra + (v&0xff00)*alpha) >> 8) & 0xff00) +
+                  ((((dp&0xff0000) * ra + (v&0xff0000)*alpha) >> 8) & 0xff0000);
+      }
+      else
+        *dest++ = v;
+    }
+    else
+      dest++;
+  }
+}
 
 static void SWELL_Metal_WriteTex(SWELL_hwndChild *wnd, const unsigned int *srcbuf, int x, int y, int w, int h, int span, bool retina_hint)
 {
@@ -4035,7 +4058,7 @@ static void SWELL_Metal_WriteTex(SWELL_hwndChild *wnd, const unsigned int *srcbu
 }
 
 static WDL_TypedBuf<unsigned int> s_metal_tmp;
-void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int w, int h, int span, bool retina_hint)
+void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int w, int h, int span, bool retina_hint, bool use_alpha)
 {
   if (!_tex) return;
   SWELL_hwndChild *wnd = (SWELL_hwndChild *)_tex;
@@ -4074,7 +4097,10 @@ void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int 
               const unsigned int *rd = srcbuf;
               for (int i = 0; i < h; i ++)
               {
-                memcpy(wr, rd, w*sizeof(int));
+                if (use_alpha)
+                  srcalphablend_line(wr, rd, w);
+                else
+                  memcpy(wr, rd, w*sizeof(int));
                 wr += newspan;
                 rd += span;
               }
@@ -4087,6 +4113,7 @@ void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int 
             span = newspan;
             srcbuf = dblframe;
             wnd->m_metal_dc_dirty = false;
+            use_alpha = false;
           }
         }
         else
@@ -4114,6 +4141,37 @@ void SWELL_Metal_Blit(void *_tex, const unsigned int *srcbuf, int x, int y, int 
         y*=2;
         span = newspan;
         retina_hint = true;
+      }
+    }
+
+    if (use_alpha && WDL_NORMALLY(wnd->m_metal_texture))
+    {
+      id<MTLTexture> tex = (id<MTLTexture>) wnd->m_metal_texture;
+      const int texw = (int)tex.width, texh = (int)tex.height;
+      if (x<0) { w += x; srcbuf -= x; x=0; }
+      if (y<0) { h += y; srcbuf -= y*span; y=0; }
+      if (x+w > texw) w=texw-x;
+      if (y+h > texh) h=texh-y;
+      if (w<0 || h<0) return;
+
+      const int lspan = (w+3)&~3;
+      static WDL_TypedBuf<unsigned int> s_metal_tmp2; // if we are in one of the corner case modes (e.g. upsampled to retina), use this
+      unsigned int *p;
+      if (srcbuf >= s_metal_tmp.Get() && srcbuf < s_metal_tmp.Get()+s_metal_tmp.GetSize()) p=s_metal_tmp2.ResizeOK(lspan*h,false);
+      else p=s_metal_tmp.ResizeOK(lspan*h,false);
+
+      if (WDL_NORMALLY(p) && SWELL_Metal_ReadTex(wnd,p,x,y,w,h,lspan))
+      {
+        unsigned int *wr = p;
+        const unsigned int *rd = srcbuf;
+        for (int i = 0; i < h; i ++)
+        {
+          srcalphablend_line(wr, rd, w);
+          wr += lspan;
+          rd += span;
+        }
+        srcbuf = p;
+        span = lspan;
       }
     }
   }

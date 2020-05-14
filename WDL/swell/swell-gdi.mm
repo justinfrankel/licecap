@@ -1488,14 +1488,14 @@ void StretchBlt(HDC hdcOut, int x, int y, int destw, int desth, HDC hdcIn, int x
 
   if (dest->metal_ctx)
   {
-    void SWELL_Metal_Blit(void *tex, const unsigned int *buf, int x, int y, int w, int h, int span, bool retina_hint);
+    void SWELL_Metal_Blit(void *tex, const unsigned int *buf, int x, int y, int w, int h, int span, bool retina_hint, bool use_alpha);
 
     unsigned int *ptr = (unsigned int *)p;
     if (w == destw && h == desth)
-      SWELL_Metal_Blit(hdcOut->metal_ctx,ptr,x,y,w,h,sw,false);
+      SWELL_Metal_Blit(hdcOut->metal_ctx,ptr,x,y,w,h,sw,false, use_alphachannel);
     else if (WDL_NORMALLY(w == destw*2) && WDL_NORMALLY(h == desth*2))
     {
-      SWELL_Metal_Blit(hdcOut->metal_ctx,ptr,x*2,y*2,w,h,sw,true);
+      SWELL_Metal_Blit(hdcOut->metal_ctx,ptr,x*2,y*2,w,h,sw,true, use_alphachannel);
     }
 
     return;
