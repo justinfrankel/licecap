@@ -971,20 +971,22 @@ static void OnKeyEvent(GdkEventKey *k)
   else 
   {
     kv = k->keyval;
-    if (swell_is_virtkey_char(kv))
+    if (kv >= 'a' && kv <= 'z')
     {
-      if (kv >= 'a' && kv <= 'z') 
-      {
-        kv += 'A'-'a';
-        swell_is_likely_capslock = (modifiers&FSHIFT)!=0;
-      }
-      else if (kv >= 'A' && kv <= 'Z') 
-      {
-        swell_is_likely_capslock = (modifiers&FSHIFT)==0;
-      }
+      kv += 'A'-'a';
+      swell_is_likely_capslock = (modifiers&FSHIFT)!=0;
       modifiers |= FVIRTKEY;
     }
-    else 
+    else if (kv >= 'A' && kv <= 'Z')
+    {
+      swell_is_likely_capslock = (modifiers&FSHIFT)==0;
+      modifiers |= FVIRTKEY;
+    }
+    else if (kv >= '0' && kv <= '9')
+    {
+      modifiers |= FVIRTKEY;
+    }
+    else
     {
       if (kv >= DEF_GKY(Shift_L) ||
           (kv >= DEF_GKY(ISO_Lock) &&

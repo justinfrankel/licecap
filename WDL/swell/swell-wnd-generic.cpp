@@ -45,11 +45,9 @@ HWND swell_captured_window;
 
 #define STATEIMAGEMASKTOINDEX(x) (((x)>>16)&0xff)
 
-bool swell_is_virtkey_char(int c)
+static bool swell_is_virtkey_char(int c)
 {
-  return (c >= 'a' && c <= 'z') ||
-         (c >= 'A' && c <= 'Z') ||
-         (c >= '0' && c <= '9');
+  return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
 
 bool swell_app_is_inactive;

@@ -862,8 +862,6 @@ void SWELL_RunEvents();
 
 bool swell_isOSwindowmenu(SWELL_OSWINDOW osw);
 
-bool swell_is_virtkey_char(int c);
-
 void swell_on_toplevel_raise(SWELL_OSWINDOW wnd); // called by swell-generic-gdk when a window is focused
 
 HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w);
