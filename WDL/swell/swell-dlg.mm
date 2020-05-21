@@ -1574,7 +1574,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     layer.contentsScale = m_metal_retina ? 2.0 : 1.0;
   }
   id<CAMetalDrawable> drawable = [layer nextDrawable];
-  if (WDL_NOT_NORMALLY(!drawable))
+  if (!drawable)
   {
     NSLog(@"swell-cocoa: metal surface got nul drawable\n");
     return;
