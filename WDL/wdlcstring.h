@@ -83,7 +83,10 @@ extern "C" {
   char WDL_remove_filepart(char *str); // returns dir character that was zeroed, or 0 if new string is empty
   int WDL_remove_trailing_dirchars(char *str); // returns trailing dirchar count removed, will not convert "/" into ""
   size_t WDL_remove_trailing_crlf(char *str); // returns new length
+  size_t WDL_remove_trailing_whitespace(char *str); // returns new length, removes crlf space tab
   const char *WDL_sanitize_ini_key_start(const char *p); // used for sanitizing the start of the "key" parameter to Write/GetPrivateProfile*. note does not fully santiize
+
+  char *WDL_remove_trailing_decimal_zeros(char *str, unsigned int keep); // returns pointer to decimal point or end of string. removes final zeros after final decimal point only, keep=0 makes min length X, keep=1 X., keep=2 X.0, keep=3 X.00 etc, and also treats commas as decimal points
 
   #if defined(_WIN32) && defined(_MSC_VER)
     void WDL_vsnprintf(char *o, size_t count, const char *format, va_list args);
@@ -216,6 +219,38 @@ extern "C" {
     while (p > str && (p[-1] == '\r' || p[-1] == '\n')) p--;
     *p = 0;
     return p-str;
+  }
+
+  _WDL_CSTRING_PREFIX size_t WDL_remove_trailing_whitespace(char *str) // returns new length
+  {
+    char *p=str;
+    while (*p) p++;
+    while (p > str && (p[-1] == '\r' || p[-1] == '\n' || p[-1] == ' '|| p[-1] == '\t')) p--;
+    *p = 0;
+    return p-str;
+  }
+
+  _WDL_CSTRING_PREFIX char *WDL_remove_trailing_decimal_zeros(char *str, unsigned int keep)
+     // returns pointer to decimal point or end of string. removes final zeros after final decimal point only, keep=0 makes min length X, keep=1 X., keep=2 X.0, keep=3 X.00 etc
+     // treats commas as decimal points
+  {
+    char *end = str, *decimal, *last_z=NULL;
+    while (*end) end++;
+    decimal = end;
+    while (--decimal >= str && *decimal != '.' && *decimal != ',') if (!last_z && *decimal != '0') last_z = decimal+1;
+    if (decimal < str) return end;
+    if (!last_z || last_z < decimal+keep) last_z = decimal+keep;
+    if (last_z < end)
+    {
+      *last_z=0;
+      if (!str[0] || ((str[0] == '.' || str[0] == ',') && !str[1]))
+      {
+        str[0]='0';
+        str[1]=0;
+        return str+1;
+      }
+    }
+    return decimal;
   }
 
   _WDL_CSTRING_PREFIX const char *WDL_sanitize_ini_key_start(const char *p) // used for sanitizing the beginning of "key" parameter to Write/GetPrivateProfile*. does not fully sanitize
