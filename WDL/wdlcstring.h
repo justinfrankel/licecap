@@ -237,8 +237,8 @@ extern "C" {
     char *end = str, *decimal, *last_z=NULL;
     while (*end) end++;
     decimal = end;
-    while (--decimal >= str && *decimal != '.' && *decimal != ',') if (!last_z && *decimal != '0') last_z = decimal+1;
-    if (decimal < str) return end;
+    while (--decimal >= str && *decimal >= '0' && *decimal <= '9') if (!last_z && *decimal != '0') last_z = decimal+1;
+    if (decimal < str || (*decimal != '.' && *decimal != ',')) return end;
     if (!last_z || last_z < decimal+keep) last_z = decimal+keep;
     if (last_z < end)
     {
