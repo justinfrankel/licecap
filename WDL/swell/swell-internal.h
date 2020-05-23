@@ -507,6 +507,7 @@ HDC SWELL_CreateMetalDC(SWELL_hwndChild *);
 @public
   LONG m_style;
   WDL_PtrList<char> *m_ids;
+  int m_ignore_selchg; // used to track the last set selection state, to avoid getting feedback notifications
 }
 -(id)init;
 -(void)dealloc;

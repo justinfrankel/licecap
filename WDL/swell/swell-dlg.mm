@@ -731,7 +731,17 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 {
   id sender=[notification object];
   int code=CBN_SELCHANGE;
-  if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+  if (m_wndproc&&!m_hashaddestroy)
+  {
+    if ([sender isKindOfClass:[SWELL_ComboBox class]])
+    {
+      SWELL_ComboBox *p = (SWELL_ComboBox *)sender;
+      const int sel = [p indexOfSelectedItem];
+      if (sel == p->m_ignore_selchg) return;
+      p->m_ignore_selchg = sel;
+    }
+    m_wndproc((HWND)self,WM_COMMAND,([(NSControl*)sender tag])|(code<<16),(LPARAM)sender);
+  }
 }
 
 - (void)comboBoxWillDismiss:(NSNotification *)notification

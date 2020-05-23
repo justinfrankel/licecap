@@ -2535,8 +2535,11 @@ void SWELL_CB_DeleteString(HWND hwnd, int idx, int wh)
   {
     if (wh>=0 && wh<[p numberOfItems])
     {
+      SWELL_ComboBox *s = (SWELL_ComboBox *)p;
+      if (s->m_ignore_selchg == wh) s->m_ignore_selchg=-1;
+      else if (s->m_ignore_selchg >= wh) s->m_ignore_selchg--;
       [p removeItemAtIndex:wh];
-      if (((SWELL_ComboBox*)p)->m_ids) ((SWELL_ComboBox*)p)->m_ids->Delete(wh);
+      if (s->m_ids) ((SWELL_ComboBox*)p)->m_ids->Delete(wh);
     }
   }
   else if ( [p isKindOfClass:[NSPopUpButton class]])
@@ -2656,17 +2659,19 @@ int SWELL_CB_InsertString(HWND hwnd, int idx, int pos, const char *str)
    
   if ([p isKindOfClass:[SWELL_ComboBox class]])
   {
-    if (isAppend && (((int)[(SWELL_ComboBox*)p getSwellStyle]) & CBS_SORT))
+    SWELL_ComboBox *s = (SWELL_ComboBox *)p;
+    if (isAppend && (((int)[s getSwellStyle]) & CBS_SORT))
     {
       pos=(int)arr_bsearch_mod(label,[p objectValues],_nsStringSearchProc);
     }
     
+    if (s->m_ignore_selchg >= pos) s->m_ignore_selchg++;
     if (pos==ni)
       [p addItemWithObjectValue:label];
     else
       [p insertItemWithObjectValue:label atIndex:pos];
   
-    if (((SWELL_ComboBox*)p)->m_ids) ((SWELL_ComboBox*)p)->m_ids->Insert(pos,(char*)0);
+    if (s->m_ids) s->m_ids->Insert(pos,(char*)0);
     [p setNumberOfVisibleItems:(ni+1)];
   }
   else
@@ -2705,6 +2710,7 @@ void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
 {
   NSComboBox *cb = (NSComboBox *)GetDlgItem(hwnd,idx);
   if (!cb) return;
+  const bool is_swell_cb = [cb isKindOfClass:[SWELL_ComboBox class]];
 
   if (item < 0 || item >= [cb numberOfItems])
   {
@@ -2714,12 +2720,16 @@ void SWELL_CB_SetCurSel(HWND hwnd, int idx, int item)
     {
       const NSInteger sel = [cb indexOfSelectedItem];
       if (sel>=0) [cb deselectItemAtIndex:sel];
+      if (is_swell_cb) ((SWELL_ComboBox *)cb)->m_ignore_selchg = -1;
     }
     else if ([cb isKindOfClass:[NSPopUpButton class]])
       [(NSPopUpButton*)cb selectItemAtIndex:-1];
   }
   else
+  {
+    if (is_swell_cb) ((SWELL_ComboBox *)cb)->m_ignore_selchg = item;
     [cb selectItemAtIndex:item];
+  }
 }
 
 int SWELL_CB_GetNumItems(HWND hwnd, int idx)
@@ -2783,7 +2793,9 @@ void SWELL_CB_Empty(HWND hwnd, int idx)
   
   if ([cb isKindOfClass:[SWELL_ComboBox class]])
   {
-    if (((SWELL_ComboBox*)cb)->m_ids) ((SWELL_ComboBox*)cb)->m_ids->Empty(); 
+    SWELL_ComboBox *p = (SWELL_ComboBox *)cb;
+    p->m_ignore_selchg = -1;
+    if (p->m_ids) p->m_ids->Empty();
   }
 }
 
@@ -6263,7 +6275,15 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("combobox")
 
 -(void)setSwellStyle:(LONG)style { m_style=style; }
 -(LONG)getSwellStyle { return m_style; }
--(id)init { self = [super init]; if (self) { m_ids=new WDL_PtrList<char>; }  return self; }
+-(id)init {
+  self = [super init];
+  if (self)
+  {
+    m_ids=new WDL_PtrList<char>;
+    m_ignore_selchg = -1;
+  }
+  return self;
+}
 -(void)dealloc { delete m_ids; [super dealloc];  }
 - (BOOL)becomeFirstResponder;
 {
