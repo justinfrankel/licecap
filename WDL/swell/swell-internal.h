@@ -180,6 +180,25 @@ typedef struct WindowPropRec
   NSColor *m_fgColor;
   NSMutableArray *m_selColors;
 }
+-(id) init;
+-(void) dealloc;
+-(bool) findItem:(HTREEITEM)item parOut:(HTREEITEM__ **)par idxOut:(int *)idx;
+-(void)mouseDown:(NSEvent *)theEvent;
+-(void)mouseDragged:(NSEvent *)theEvent;
+-(void)mouseUp:(NSEvent *)theEvent;
+- (void)rightMouseUp:(NSEvent *)theEvent;
+- (void)highlightSelectionInClipRect:(NSRect)theClipRect;
+
+// data source
+-(NSInteger) outlineView:(NSOutlineView *)outlineView numberOfChildrenOfItem:(id)item;
+- (BOOL)outlineView:(NSOutlineView *)outlineView isItemExpandable:(id)item;
+- (id)outlineView:(NSOutlineView *)outlineView
+            child:(NSInteger)index
+           ofItem:(id)item;
+- (id)outlineView:(NSOutlineView *)outlineView
+    objectValueForTableColumn:(NSTableColumn *)tableColumn
+           byItem:(id)item;
+
 @end
 
 @interface SWELL_ListView : NSTableView
