@@ -2363,7 +2363,8 @@ BOOL SetDlgItemText(HWND hwnd, int idx, const char *text)
     [(NSControl*)obj setStringValue:lbl];
     if ([obj isKindOfClass:[NSTextField class]] && [(NSTextField *)obj isEditable])
     {
-      SendMessage(GetParent((HWND)obj),WM_COMMAND,[(NSControl *)obj tag]|(EN_CHANGE<<16),(LPARAM)obj);
+      if (![obj isKindOfClass:[NSComboBox class]])
+        SendMessage(GetParent((HWND)obj),WM_COMMAND,[(NSControl *)obj tag]|(EN_CHANGE<<16),(LPARAM)obj);
     }
   }
   else if ([obj isKindOfClass:[NSText class]])  
