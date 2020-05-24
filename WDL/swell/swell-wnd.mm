@@ -346,7 +346,120 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("SysTreeView32")
   return [str autorelease];
 }
 
+- (BOOL)outlineView:(NSOutlineView *)outlineView
+         writeItems:(NSArray *)items
+       toPasteboard:(NSPasteboard *)pasteboard
+{
+  if (self->style & TVS_DISABLEDRAGDROP) return NO;
+  [pasteboard declareTypes:[NSArray arrayWithObject:@"swell_treeview"] owner:nil];
+  [pasteboard setString:@"" forType:@"swell_treeview"];
+  return YES;
+}
 
+- (BOOL)outlineView:(NSOutlineView *)outlineView
+         acceptDrop:(id<NSDraggingInfo>)info
+               item:(id)item
+         childIndex:(NSInteger)index
+{
+  HWND par = GetParent((HWND)self);
+  if (par && GetCapture() == par)
+  {
+    POINT p;
+    GetCursorPos(&p);
+    ScreenToClient(par,&p);
+    SendMessage(par,WM_LBUTTONUP,0,MAKELPARAM(p.x,p.y));
+  }
+  return YES;
+}
+
+- (void)outlineView:(NSOutlineView *)outlineView
+    draggingSession:(NSDraggingSession *)session
+       endedAtPoint:(NSPoint)screenPoint
+          operation:(NSDragOperation)operation
+{
+  [self unregisterDraggedTypes];
+  HWND par = GetParent((HWND)self);
+  if (par && GetCapture() == par)
+  {
+    // usually acceptDrop above will be the one that is called, but if the user ended up elsewhere
+    // this might, let the caller clean up capture
+    POINT p;
+    GetCursorPos(&p);
+    ScreenToClient(par,&p);
+    SendMessage(par,WM_LBUTTONUP,0,MAKELPARAM(p.x,p.y));
+  }
+}
+
+- (void)outlineView:(NSOutlineView *)outlineView
+    draggingSession:(NSDraggingSession *)session
+   willBeginAtPoint:(NSPoint)screenPoint
+           forItems:(NSArray *)draggedItems
+{
+  if (self->style & TVS_DISABLEDRAGDROP) return;
+  HWND hwnd = (HWND)self, par = GetParent(hwnd);
+  if (par)
+  {
+    TVHITTESTINFO tht;
+    memset(&tht,0,sizeof(tht));
+    GetCursorPos(&tht.pt);
+    ScreenToClient(hwnd, &tht.pt);
+    HTREEITEM sel = TreeView_GetSelection(hwnd), hit = TreeView_HitTest(hwnd, &tht);
+    if (hit && hit != sel) 
+    {
+      TreeView_SelectItem(hwnd,hit);
+      sel = hit;
+    }
+
+    NMTREEVIEW nm={{hwnd,(UINT_PTR)[self tag],TVN_BEGINDRAG},};
+    nm.itemNew.hItem = sel;
+    nm.itemNew.lParam = sel ? sel->m_param : 0;
+    SendMessage(par,WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+    if (GetCapture() == par)
+      [self registerForDraggedTypes:[NSArray arrayWithObject: @"swell_treeview"]];
+  }
+}
+
+- (NSDragOperation)outlineView:(NSOutlineView *)outlineView
+                  validateDrop:(id<NSDraggingInfo>)info
+                  proposedItem:(id)item
+            proposedChildIndex:(NSInteger)index
+{
+  HWND hwnd=(HWND)self, par = GetParent(hwnd);
+  if (par && GetCapture()==par)
+  {
+    POINT p;
+    GetCursorPos(&p);
+    TVHITTESTINFO tht;
+    memset(&tht,0,sizeof(tht));
+    tht.pt = p;
+
+    ScreenToClient(par,&p);
+    LRESULT move_res = SendMessage(par,WM_MOUSEMOVE,0,MAKELPARAM(p.x,p.y));
+    if (move_res == (LRESULT)-1) return NSDragOperationNone;
+    if (move_res == (LRESULT)-2) // move to end
+    {
+      HTREEITEM par = NULL;
+      HTREEITEM li = self->m_items ? self->m_items->Get(self->m_items->GetSize()-1) : NULL;
+      while (li && li->m_children.GetSize())
+      {
+        par = li;
+        li = li->m_children.Get(li->m_children.GetSize()-1);
+      }
+      if (par && par->m_children.GetSize()) [self setDropItem:par->m_dh dropChildIndex:par->m_children.GetSize()];
+    }
+    else if (move_res >= 65536)
+    {
+      HTREEITEM paritem = NULL;
+      int idx=0;
+      // it is safe (but time consuming!) to call findItem: on a possibly-junk pointer
+      if ([self findItem:(HTREEITEM)(INT_PTR)move_res parOut:&paritem idxOut:&idx] && paritem)
+        [self setDropItem:paritem->m_dh dropChildIndex:idx];
+    }
+    return NSDragOperationPrivate;
+  }
+  return NSDragOperationNone;
+
+}
 
 -(void)mouseDown:(NSEvent *)theEvent
 {
@@ -5983,15 +6096,21 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
   int y = hti->pt.y;
   
   int i; 
+  double maxy = 0.0;
   for (i = 0; i < [tv numberOfRows]; ++i)
   {
     NSRect r = [tv rectOfRow:i];
+    maxy = wdl_max(maxy, r.origin.y + r.size.height);
     if (x >= r.origin.x && x < r.origin.x+r.size.width && y >= r.origin.y && y < r.origin.y+r.size.height)
     {
       SWELL_DataHold* t = [tv itemAtRow:i];
       if (t) return (HTREEITEM)[t getValue];
       return 0;
     }
+  }
+  if (y >= maxy)
+  {
+    hti->flags |= TVHT_BELOW;
   }
   
   return NULL; // not hit

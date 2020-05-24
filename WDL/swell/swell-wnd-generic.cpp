@@ -5364,12 +5364,15 @@ next_item_in_parent:
   HTREEITEM__ m_root;
   HTREEITEM m_sel;
   int m_last_row_height;
-  int m_scroll_x,m_scroll_y,m_capmode;
 
+  int m_scroll_x,m_scroll_y;
+
+  int m_capmode; // HIWORD is 0 for normal (then LOWORD gets 1 set if drag began), 1 for scroll (LOWORD has ypos)
 };
 
 static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+  static POINT s_clickpt;
   treeViewState *tvs = (treeViewState *)hwnd->m_private_data;
   switch (msg)
   {
@@ -5416,6 +5419,8 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
       if (tvs)
       {
         tvs->m_capmode=0;
+        s_clickpt.x = GET_X_LPARAM(lParam);
+        s_clickpt.y = GET_Y_LPARAM(lParam);
         RECT cr;
         GetClientRect(hwnd,&cr);
         int total_h;
@@ -5471,6 +5476,21 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 forceMouseMove:
         switch (HIWORD(tvs->m_capmode))
         {
+          case 0:
+            if (!(tvs->m_capmode & 1))
+            {
+              const int dx = GET_X_LPARAM(lParam) - s_clickpt.x, dy = GET_Y_LPARAM(lParam) - s_clickpt.y;
+              if (dx*dx+dy*dy > 32)
+              {
+                tvs->m_capmode|=1;
+                HTREEITEM item = TreeView_GetSelection(hwnd);
+                NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)hwnd->m_id,TVN_BEGINDRAG},};
+                nm.itemNew.hItem = item;
+                nm.itemNew.lParam = item ? item->m_param : 0;
+                SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+              }
+            }
+          break;
           case 1:
             {
               int yv = (short)LOWORD(tvs->m_capmode);
