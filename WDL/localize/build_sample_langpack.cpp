@@ -45,13 +45,13 @@ void gotString(const char *str, int len, const char *secname)
     sec2 = new WDL_StringKeyedArray<bool>(true);
     translations_indexed.Insert(secname,sec2);
   }
-  if (len > strlen(str)) 
+  if (len > (int)strlen(str)) 
   {
     fprintf(stderr,"gotString got len>strlen(str)\n");
     exit(1);
   }
   char buf[8192];
-  if (len > sizeof(buf)-8)
+  if (len > (int) (sizeof(buf)-8))
   {
     fprintf(stderr,"argh, got string longer than 8k, adjust code accordingly or check input.\n");
     exit(1);
@@ -607,7 +607,7 @@ int main(int argc, char **argv)
       for (y=0;y<p->GetSize();y++)
       {
         char *strv=p->Get(y);
-        if (!!common_found.Get(strv) != a) continue;
+        if ((common_found.Get(strv)?1:0) != a) continue;
 
         if (a) printf(";^");
         else if (casemode==3) printf(";");
