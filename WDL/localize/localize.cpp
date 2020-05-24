@@ -790,9 +790,9 @@ static int uint64cmpfunc(WDL_UINT64 *a, WDL_UINT64 *b)
 
 // call at start of file with format_flag=-1
 // expect possible blank (\r or \n) lines, too, ignore them
-void fgets_as_utf8(char *linebuf, int linebuf_size, FILE *fp, int *format_flag)
+// format flag will get set to: 0=utf8, 1=utf16le, 2=utf16be, 3=ansi
+void WDL_fgets_as_utf8(char *linebuf, int linebuf_size, FILE *fp, int *format_flag)
 {
-  // format flag: 0=utf8, 1=utf16le, 2=utf16be, 3=ansi
   linebuf[0]=0;
   if (*format_flag>0)
   {
@@ -872,7 +872,7 @@ void fgets_as_utf8(char *linebuf, int linebuf_size, FILE *fp, int *format_flag)
     {
       fseek(fp,2,SEEK_SET);
       *format_flag=p[0] == 0xFE ? 2 : 1;
-      fgets_as_utf8(linebuf,linebuf_size,fp,format_flag);
+      WDL_fgets_as_utf8(linebuf,linebuf_size,fp,format_flag);
       return;
     }
     else
@@ -903,7 +903,7 @@ void fgets_as_utf8(char *linebuf, int linebuf_size, FILE *fp, int *format_flag)
       }
       *format_flag = linebuf[0] ? 3 : 0; // if scanned the whole file without an invalid UTF8 pair, then UTF-8 (0), otherwise ansi (3)
       fseek(fp,0,SEEK_SET);
-      fgets_as_utf8(linebuf,linebuf_size,fp,format_flag);
+      WDL_fgets_as_utf8(linebuf,linebuf_size,fp,format_flag);
       return;
     }
   }
@@ -923,7 +923,7 @@ WDL_AssocArray<WDL_UINT64, char *> *LoadLanguagePack(const char *fn, const char 
   char linebuf[16384];
   for (;;)
   {
-    fgets_as_utf8(linebuf,sizeof(linebuf),fp,&format_flag);
+    WDL_fgets_as_utf8(linebuf,sizeof(linebuf),fp,&format_flag);
     if (!linebuf[0]) break;
 
     char *p=linebuf;
