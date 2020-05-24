@@ -5889,6 +5889,7 @@ void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
     __rent=1;
     NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)[(SWELL_TreeView*)hwnd tag],TVN_SELCHANGED},};
     nm.itemNew.hItem = item;
+    nm.itemNew.lParam = item ? item->m_param : 0;
     SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
     __rent=0;
   }
@@ -5952,6 +5953,8 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
         {
           __rent=1;
           NMTREEVIEW nm={{(HWND)hwnd,(UINT_PTR)[(SWELL_TreeView*)hwnd tag],TVN_SELCHANGED},};
+          nm.itemNew.hItem = ti;
+          nm.itemNew.lParam = ti ? ti->m_param : 0;
           SendMessage(GetParent(hwnd),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
           __rent=0;
         }

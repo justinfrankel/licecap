@@ -830,6 +830,9 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 {
   NSOutlineView *sender=[notification object];
   NMTREEVIEW nmhdr={{(HWND)sender,(UINT_PTR)[sender tag],TVN_SELCHANGED},0,};  // todo: better treeview notifications
+  HTREEITEM item = TreeView_GetSelection((HWND)sender);
+  nmhdr.itemNew.hItem = item;
+  nmhdr.itemNew.lParam = item ? item->m_param : 0;
   if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_NOTIFY,(int)[sender tag],(LPARAM)&nmhdr);
 }
 - (void)tableViewSelectionDidChange:(NSNotification *)aNotification
