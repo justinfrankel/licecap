@@ -1,3 +1,28 @@
+// this file may be easier to customize if included directly from other code. Some things that can be defined to hook:
+//
+// #define WDL_LOCALIZE_HOOK_ALLOW_CACHE (ismainthread())
+// #define WDL_LOCALIZE_HOOK_DLGPROC if (is_modal) return __localDlgProcModalPos; // can return a temporary dlgproc override
+// #define WDL_LOCALIZE_HOOK_XLATE(str,subctx,flags,newptr) // can be used to override/tweak translations (newptr str is the original string, newptr is the translated string (or NULL) )
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include "../swell/swell.h"
+#endif
+
+#ifndef LOCALIZE_NO_DIALOG_MENU_REDEF
+#define LOCALIZE_NO_DIALOG_MENU_REDEF
+#endif
+#include "localize.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../assocarray.h"
+#include "../ptrlist.h"
+#include "../chunkalloc.h"
+#include "../fnv64.h"
+#include "../win32_utf8.h"
+
+
 #define LANGPACK_SCALE_CONSTANT WDL_UINT64_CONST(0x5CA1E00000000000)
 static WDL_StringKeyedArray< WDL_AssocArray<WDL_UINT64, char *> * > g_translations;
 static WDL_AssocArray<WDL_UINT64, char *> *g_translations_commonsec;
@@ -423,7 +448,7 @@ static BOOL CALLBACK xlateGetRects(HWND hwnd, LPARAM lParam)
 
   if (s->has_sc) // scaling happens before all of the ripple-code
   {
-    if (r.top > r.bottom) SWAP(r.top,r.bottom,int);
+    if (r.top > r.bottom) { const int t = r.top; r.top = r.bottom; r.bottom = t; }
 
     r.left = (int) (r.left * s->scx + 0.5);
     r.top = (int) (r.top * s->scy + 0.5);
@@ -481,7 +506,10 @@ static int rippleControlsRight(HWND hwnd, const RECT *srcR, windowReorgEnt *ent,
   while (ent_cnt>0 && dSize>0)
   {
     // if the two items overlap by more than 1px initially, dont make them ripple (it is assumed they are allowed, maybe one is hidden)
-    if (ent->r.left >= srcR->right-1 && INTERSECT_PAIRS(srcR->top,srcR->bottom,ent->r.top,ent->r.bottom))
+#define LOCALIZE_ISECT_PAIRS(x1,x2,y1,y2)  \
+      ((x1 >= y1 && x1 < y2) || (x2 >= y1 && x2 < y2) ||  \
+       (y1 >= x1 && y1 < x2) || (y2 >= x1 && y2 < x2))
+    if (ent->r.left >= srcR->right-1 && LOCALIZE_ISECT_PAIRS(srcR->top,srcR->bottom,ent->r.top,ent->r.bottom))
     {
       space = ent->r.left - srcR->right;
 
@@ -524,14 +552,22 @@ static void localize_dialog(HWND hwnd, WDL_AssocArray<WDL_UINT64, char *> *sec)
   {
     while (*sc_str && (*sc_str == ' ' || *sc_str == '\t')) sc_str++;
 
-    float v = (float) flexi_atof(sc_str);
+#ifdef WDL_HOOK_LOCALIZE_ATOF
+    float v = (float) WDL_HOOK_LOCALIZE_ATOF(sc_str);
+#else
+    float v = (float) atof(sc_str);
+#endif
     if (v > 0.1 && v < 8.0)
     {
       scx=v;
       while (*sc_str && *sc_str != ' ' && *sc_str != '\t') sc_str++;
       if (*sc_str)
       {
-        v = (float)flexi_atof(sc_str);
+#ifdef WDL_HOOK_LOCALIZE_ATOF
+        v = (float)WDL_HOOK_LOCALIZE_ATOF(sc_str);
+#else
+        v = (float)atof(sc_str);
+#endif
         if (v > 0.1 && v < 8.0)
           scy = v;
       }
