@@ -7723,7 +7723,12 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
   if (!PtInRect(&r,hti->pt)) return NULL;
 
   int y = hti->pt.y + tvs->m_scroll_y + tvs->m_last_row_height;
-  return tvs->hitTestItem(&tvs->m_root,&y,NULL);
+  HTREEITEM item = tvs->hitTestItem(&tvs->m_root,&y,NULL);
+  if (!item)
+  {
+    hti->flags |= TVHT_BELOW;
+  }
+  return item;
 }
 
 HTREEITEM TreeView_GetRoot(HWND hwnd)
