@@ -970,7 +970,7 @@ SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
 SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
 #endif
 
-#if defined(SWELL_TARGET_OSX) && !defined(SWELL_NO_METAL)
+#if defined(SWELL_TARGET_OSX)
 SWELL_API_DEFINE(int, SWELL_EnableMetal,(HWND h, int mode)) // can only call once per window. calling with 0 does nothing. 1=metal enabled, 2=metal enabled and support GetDC()/ReleaseDC() for drawing (more overhead). returns metal setting. mode=-1 for non-metal async layered mode. mode=-2 for non-metal non-async layered mode
   // NOTE: if using SWELL_EnableMetal(-1), any BitBlt()/StretchBlt() __MUST__ have the source bitmap persist. If it is resized after Blit it could cause crashes, too. So really this method is unsafe for practical use.
 #else

@@ -312,7 +312,7 @@ typedef struct WindowPropRec
   id m_access_cacheptrs[6];
   const char *m_classname;
 
-#ifndef SWELL_NO_METAL
+// only used if not SWELL_NO_METAL
   char m_use_metal; // 1=normal mode, 2=full pipeline (GetDC() etc support). -1 is for non-metal async layered mode. -2 for non-metal non-async layered
 
   // metal state (if used)
@@ -330,7 +330,6 @@ typedef struct WindowPropRec
   id m_metal_drawable; // id<CAMetalDrawable> -- only used in normal mode
   id m_metal_device; // id<MTLDevice> -- set to last-used-device
   DWORD m_metal_device_lastchkt;
-#endif
 
 }
 - (id)initChild:(SWELL_DialogResourceIndex *)resstate Parent:(NSView *)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
@@ -406,10 +405,8 @@ typedef struct WindowPropRec
 -(void) onSwellCommand7:(id)sender;
 #endif
 
-#ifndef SWELL_NO_METAL
 -(BOOL) swellWantsMetal;
 -(void) swellDrawMetal:(const RECT *)forRect;
-#endif
 @end
 
 @interface SWELL_ModelessWindow : NSWindow
@@ -538,6 +535,11 @@ HDC SWELL_CreateMetalDC(SWELL_hwndChild *);
   #endif
 #endif
 
+#ifndef MAC_OS_X_VERSION_10_11
+  // metal requires a recent SDK
+  #define SWELL_NO_METAL
+#endif
+
 struct HGDIOBJ__
 {
   int type;
@@ -567,9 +569,7 @@ struct HGDIOBJ__
 struct HDC__ {
   CGContextRef ctx; 
   void *ownedData; // always use via SWELL_GetContextFrameBuffer() (which performs necessary alignment)
-#ifndef SWELL_NO_METAL
-  void *metal_ctx; // SWELL_hwndChild
-#endif
+  void *metal_ctx; // SWELL_hwndChild, only used if not SWELL_NO_METAL
   HGDIOBJ__ *curpen;
   HGDIOBJ__ *curbrush;
   HGDIOBJ__ *curfont;

@@ -32,6 +32,8 @@
 
 #import <objc/objc-runtime.h>
 
+#include "swell-internal.h"
+
 #ifndef SWELL_NO_METAL
 #undef min
 #undef max
@@ -167,7 +169,6 @@ const char* (*SWELL_DDrop_getDroppedFileTargetPath)(const char* extension);
 
 bool SWELL_owned_windows_levelincrease=false;
 
-#include "swell-internal.h"
 #include "../wdlstring.h"
 #include "../wdlcstring.h"
 
@@ -1419,10 +1420,17 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 }
 #endif
 
+-(BOOL) swellWantsMetal
+{
 #ifndef SWELL_NO_METAL
--(BOOL) swellWantsMetal { return m_use_metal > 0; }
+  return m_use_metal > 0;
+#else
+  return NO;
+#endif
+}
 -(void) swellDrawMetal:(const RECT *)forRect
 {
+#ifndef SWELL_NO_METAL
   SWELL_AutoReleaseHelper arparp;
 
 #define swell_metal_set_layer_gravity(layer, g) do { \
@@ -1630,8 +1638,8 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
   [commandBuffer presentDrawable:drawable];
   [commandBuffer commit];
-}
 #endif
+}
 
 -(void) drawRect:(NSRect)rect
 {
@@ -4203,8 +4211,13 @@ void SWELL_Metal_FillRect(void *_tex, int x, int y, int w, int h, int colori)
   SWELL_Metal_WriteTex(wnd,buf,x,y,w,h,w, retina_hint);
 }
 
+WDL_PtrList<SWELL_hwndChild> s_mtl_dirty_list;
+
+#endif
+
 int SWELL_EnableMetal(HWND hwnd, int mode)
 {
+#ifndef SWELL_NO_METAL
   if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_hwndChild class]]) return 0;
 
   SWELL_hwndChild *ch = (SWELL_hwndChild *)hwnd;
@@ -4225,12 +4238,15 @@ int SWELL_EnableMetal(HWND hwnd, int mode)
     }
   }
   return ch->m_use_metal;
+#else
+  return 0;
+#endif
 }
 
-WDL_PtrList<SWELL_hwndChild> s_mtl_dirty_list;
 
 void swell_updateAllMetalDirty() // run from a timer, or called by UpdateWindow()
 {
+#ifndef SWELL_NO_METAL
   static bool r;
   if (r) return;
   r=true;
@@ -4250,9 +4266,11 @@ void swell_updateAllMetalDirty() // run from a timer, or called by UpdateWindow(
   }
 
   r=false;
+#endif
 }
 
 
+#ifndef SWELL_NO_METAL
 
 void swell_addMetalDirty(SWELL_hwndChild *slf, const RECT *r, bool isReleaseDC)
 {
