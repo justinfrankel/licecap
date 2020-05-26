@@ -6060,8 +6060,12 @@ int ListView_InsertItem(HWND h, const LVITEM *item)
   row->m_vals.Add((item->mask&LVIF_TEXT) && item->pszText ? strdup(item->pszText) : NULL);
   row->m_param = (item->mask&LVIF_PARAM) ? item->lParam : 0;
   row->m_tmp = ((item->mask & LVIF_STATE) && (item->state & LVIS_SELECTED)) ? 1:0;
-  if ((item->mask&LVIF_STATE) && (item->stateMask & LVIS_STATEIMAGEMASK)) row->m_imageidx=STATEIMAGEMASKTOINDEX(item->state);
   lvs->m_data.Insert(idx,row); 
+  if (item->mask&LVIF_STATE)
+  {
+    if (item->stateMask & LVIS_STATEIMAGEMASK) row->m_imageidx=STATEIMAGEMASKTOINDEX(item->state);
+    if (item->stateMask & LVIS_SELECTED) lvs->set_sel(idx,!!(item->state&LVIS_SELECTED));
+  }
   InvalidateRect(h,NULL,FALSE);
   return idx;
 }
