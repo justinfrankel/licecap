@@ -1,6 +1,6 @@
 /*
  * to generate a template language pack, use:
- * build_sample_language_pack --template *.rc *.cpp etc > file.langpack
+ * build_sample_langpack --template *.rc *.cpp etc > file.langpack
  *
  */
 #include <stdio.h>

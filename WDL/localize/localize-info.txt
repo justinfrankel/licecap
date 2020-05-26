@@ -1,0 +1,83 @@
+WDL Localization System
+===============================================================================
+
+This is a tool for localizing C++ applications. It supports Windows and SWELL-based
+GUI applications, or command line only.
+
+
+1. In your code
+==========================
+The main thing to do is include localize.h from most of your code, and add
+localize.cpp to the project (you may want to include it from a wrapper file
+in order to hook certain functions).
+
+At startup your application should call:
+
+WDL_LoadLanguagePack("/path/to/filename.langpack",NULL);
+
+When your code has a string that is to be localizable, you do it via this
+macro:
+
+   __LOCALIZE("my string","section");
+
+Note that both parameters to the macro MUST be literal strings, and be one block
+of string (i.e. not using concatenation, i.e. "part1" "part2" etc).
+
+If you are calling from code that could possibly be in a thread other than the
+main thread, or from a module that could be unloaded, use:
+
+   __LOCALIZE_NOCACHE("my string","section");
+
+If you would like to have a format specifier in the string, you can use:
+
+  snprintf(buf,sizeof(buf),__LOCALIZE_VERFMT("This has %d items","section"),6);
+
+The value returned by __LOCALIZE/etc is effectively a const char *, and will
+persist, so it is safe to pass whereever and use again. If you are really
+performance sensitive, you might want to do:
+
+  static const char *msg;
+  if (!msg) msg = __LOCALIZE_NOCACHE("whatever","section");
+
+This will do the lookup once, and cache the result.
+
+If you have strings which are present in a table such as:
+  struct foo bar[]={
+    {x,y,z,"string 1"},
+    {x,y,z,"string 2"},
+    {x,y,z,"string 3"},
+   };
+
+The best way to handle this is to put comments around the string table, such as:
+  // !WANT_LOCALIZE_STRINGS_BEGIN:section_name
+  struct foo bar[]={
+    {x,y,z,"string 1"},
+    {x,y,z,"string 2"},
+    {x,y,z,"string 3"},
+   };
+  // !WANT_LOCALIZE_STRINGS_END
+
+Or if other strings exist in that table that are not localized, you can use __LOCALIZE_REG_ONLY().
+
+Then, supposing you reference these strings via bar[x].stringptr, you would use:
+      __localizeFunc(bar[x].stringptr,flags)
+  (where flags can be 0, or LOCALIZE_FLAG_VERIFY_FMTS or
+   LOCALIZE_FLAG_NOCACHE or some combination of those, see localize.h)
+
+There currently a limit of around 8k for localized strings -- if you are
+localizing a huge block of text, it might be good to divide it up into
+separate strings.
+
+Finally, for resources, the menus and dialogs are localized automatically via a
+wrapper function and some #defines, which are in localize.h
+
+Dynamic libraries loaded can access the system by using localize-import.h (see comments in that file)
+
+2. Generating the language pack template
+==========================
+
+To generate a template language pack, compile build_sample_langpack.cpp:
+    g++ -O -o build_sample_langpack build_sample_langpack.cpp
+
+Then use:
+  build_sample_langpack --template *.rc *.cpp > template.langpack
