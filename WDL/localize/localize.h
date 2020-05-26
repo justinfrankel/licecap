@@ -25,9 +25,6 @@ WDL_AssocArray<WDL_UINT64, char *> *WDL_LoadLanguagePack(const char *buf, const 
 #define __LOCALIZE_VERFMT(str, ctx) __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_VERIFY_FMTS)
 #define __LOCALIZE_NOCACHE(str, ctx) __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_NOCACHE)
 #define __LOCALIZE_VERFMT_NOCACHE(str, ctx) __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_VERIFY_FMTS|LOCALIZE_FLAG_NOCACHE)
-
-#define __LOCALIZE_ENGLISH_AND_LOCALIZED(str,ctx) "" str, __localizeFunc("" str "" , "" ctx "",0)
-
 #endif
 
 #define __LOCALIZE_REG_ONLY(str, ctx) str
