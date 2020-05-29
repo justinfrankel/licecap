@@ -661,6 +661,7 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define GW_OWNER            4
 #define GW_CHILD            5
 
+#define GWL_HWNDPARENT      (-25)
 #define GWL_USERDATA        (-21)
 #define GWL_ID              (-12)
 #define GWL_STYLE           (-16) // only supported for BS_ for now I think

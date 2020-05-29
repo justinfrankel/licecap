@@ -426,6 +426,7 @@ typedef struct WindowPropRec
 - (id)initModelessForChild:(HWND)child owner:(HWND)owner styleMask:(unsigned int)smask;
 - (void)swellDestroyAllOwnedWindows;
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd;
+- (void)swellAddOwnedWindow:(NSWindow*)wnd;
 - (void)swellSetOwner:(id)owner;
 - (id)swellGetOwner;
 - (void **)swellGetOwnerWindowHead;
@@ -446,6 +447,7 @@ typedef struct WindowPropRec
 - (id)initDialogBox:(SWELL_DialogResourceIndex *)resstate Parent:(HWND)parent dlgProc:(DLGPROC)dlgproc Param:(LPARAM)par;
 - (void)swellDestroyAllOwnedWindows;
 - (void)swellRemoveOwnedWindow:(NSWindow *)wnd;
+- (void)swellAddOwnedWindow:(NSWindow*)wnd;
 - (void)swellSetOwner:(id)owner;
 - (id)swellGetOwner;
 - (void **)swellGetOwnerWindowHead;

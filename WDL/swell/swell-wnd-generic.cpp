@@ -198,6 +198,27 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
     hwnd->m_dlgproc=(DLGPROC)val;
     return ret;
   }
+  if (idx == GWL_HWNDPARENT)
+  {
+    const LONG_PTR ret = (LONG_PTR)hwnd->m_owner;
+    if (val != ret)
+    {
+      if (hwnd->m_owned_next) hwnd->m_owned_next->m_owned_prev = hwnd->m_owned_prev;
+      if (hwnd->m_owned_prev) hwnd->m_owned_prev->m_owned_next = hwnd->m_owned_next;
+      if (hwnd->m_owner && hwnd->m_owner->m_owned_list == hwnd) hwnd->m_owner->m_owned_list = hwnd->m_owned_next;
+      hwnd->m_owned_next = hwnd->m_owned_prev = hwnd->m_owner = NULL;
+      HWND ownerWindow = (HWND) val;
+      if (ownerWindow)
+      {
+        hwnd->m_owned_next = ownerWindow->m_owned_list;
+        ownerWindow->m_owned_list = hwnd;
+        if (hwnd->m_owned_next) hwnd->m_owned_next->m_owned_prev = hwnd;
+        hwnd->m_owner = ownerWindow;
+        hwnd->m_israised=true;
+      }
+    }
+    return ret;
+  }
   
   if (idx>=0 && idx < 64*(int)sizeof(INT_PTR))
   {
@@ -238,6 +259,10 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
   if (idx==DWL_DLGPROC)
   {
     return (LONG_PTR)hwnd->m_dlgproc;
+  }
+  if (idx == GWL_HWNDPARENT)
+  {
+    return (LONG_PTR)hwnd->m_owner;
   }
   
   if (idx>=0 && idx < 64*(int)sizeof(INT_PTR))

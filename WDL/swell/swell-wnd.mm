@@ -1271,6 +1271,23 @@ LONG_PTR SetWindowLong(HWND hwnd, int idx, LONG_PTR val)
     return 0;
   }
 
+  if (idx == GWL_HWNDPARENT)
+  {
+    NSWindow *window = [pid window];
+    if (![window respondsToSelector:@selector(swellGetOwner)]) return 0;
+
+    NSWindow *new_owner = val && [(id)(INT_PTR)val isKindOfClass:[NSView class]] ? [(NSView *)(INT_PTR)val window] : NULL;
+    if (new_owner && ![new_owner respondsToSelector:@selector(swellAddOwnedWindow:)]) new_owner=NULL;
+
+    NSWindow *old_owner = [(SWELL_ModelessWindow *)window swellGetOwner];
+    if (old_owner != new_owner)
+    {
+      if (old_owner) [(SWELL_ModelessWindow*)old_owner swellRemoveOwnedWindow:window];
+      [(SWELL_ModelessWindow *)window swellSetOwner:nil];
+      if (new_owner) [(SWELL_ModelessWindow *)new_owner swellAddOwnedWindow:window];
+    }
+    return (old_owner ? (LONG_PTR)[old_owner contentView] : 0);
+  }
   
   if ([pid respondsToSelector:@selector(setSwellExtraData:value:)])
   {
@@ -1356,6 +1373,14 @@ LONG_PTR GetWindowLong(HWND hwnd, int idx)
     
     return ret;
   }
+  if (idx == GWL_HWNDPARENT)
+  {
+    NSWindow *window = [pid window];
+    if (![window respondsToSelector:@selector(swellGetOwner)]) return 0;
+    NSWindow *old_owner = [(SWELL_ModelessWindow *)window swellGetOwner];
+    return (old_owner ? (LONG_PTR)[old_owner contentView] : 0);
+  }
+
   if ([pid respondsToSelector:@selector(getSwellExtraData:)])
   {
     return (LONG_PTR)[pid getSwellExtraData:idx];
