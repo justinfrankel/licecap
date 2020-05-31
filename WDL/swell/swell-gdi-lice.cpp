@@ -1277,8 +1277,14 @@ HICON LoadNamedImage(const char *name, bool alphaFromMask)
   {
     GetModuleFileName(NULL,buf,sizeof(buf));
     WDL_remove_filepart(buf);
-    snprintf_append(buf,sizeof(buf),"/Resources/%s.ico",name);
+    snprintf_append(buf,sizeof(buf),"/Resources/%s.png",name);
     pb = gdk_pixbuf_new_from_file(buf,NULL);
+    if (!pb)
+    {
+      WDL_remove_fileext(buf);
+      lstrcatn(buf,".ico",sizeof(buf));
+      pb = gdk_pixbuf_new_from_file(buf,NULL);
+    }
     if (!pb)
     {
       WDL_remove_fileext(buf);
