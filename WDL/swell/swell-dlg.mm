@@ -2618,7 +2618,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(1)
 
 void EndDialog(HWND wnd, int ret)
 {   
-  if (!wnd) return;
+  if (WDL_NOT_NORMALLY(!wnd)) return;
   
   NSWindow *nswnd=NULL;
   NSView *nsview = NULL;
@@ -3307,7 +3307,7 @@ HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, RECT* r, bool wantc
 void* SWELL_GetWindowFromCarbonWindowView(HWND cwv)
 {
   SWELL_hwndCarbonHost* w = (SWELL_hwndCarbonHost*)cwv;
-  if (w) return [w->m_cwnd windowRef];
+  if (WDL_NORMALLY(w)) return [w->m_cwnd windowRef];
   return 0;
 }
 
@@ -3315,7 +3315,7 @@ void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
 {
 #ifndef __LP64__
   SWELL_hwndCarbonHost* w = (SWELL_hwndCarbonHost*)cwv;
-  if (w)
+  if (WDL_NORMALLY(w))
   {
     WindowRef wndref = (WindowRef)[w->m_cwnd windowRef];
     if (wndref)
@@ -3338,7 +3338,7 @@ void SWELL_AddCarbonPaneToView(HWND cwv, void* pane)  // not currently used
 void SWELL_SetWindowFlip(HWND hwnd, bool flip)
 {
   SWELL_hwndChild * hc = (SWELL_hwndChild*)hwnd;
-  if (hc && [hc isKindOfClass:[SWELL_hwndChild class]])
+  if (WDL_NORMALLY(hc && [hc isKindOfClass:[SWELL_hwndChild class]]))
   {
     hc->m_flip = flip;
   }
@@ -3523,7 +3523,7 @@ void SWELL_FinishDragDrop()
 bool SWELL_SetGLContextToView(HWND h)
 {
   if (!h) [NSOpenGLContext clearCurrentContext];
-  else if ([(id)h isKindOfClass:[SWELL_hwndChild class]])
+  else if (WDL_NORMALLY([(id)h isKindOfClass:[SWELL_hwndChild class]]))
   {
     SWELL_hwndChild *hc = (SWELL_hwndChild*)h;
     if (hc->m_glctx)
@@ -3537,7 +3537,7 @@ bool SWELL_SetGLContextToView(HWND h)
 
 void SWELL_SetViewGL(HWND h, bool wantGL)
 {
-  if (h && [(id)h isKindOfClass:[SWELL_hwndChild class]])
+  if (WDL_NORMALLY(h && [(id)h isKindOfClass:[SWELL_hwndChild class]]))
   {
     SWELL_hwndChild *hc = (SWELL_hwndChild*)h;
     if (wantGL != !!hc->m_glctx)
@@ -3568,7 +3568,7 @@ void SWELL_SetViewGL(HWND h, bool wantGL)
 
 bool SWELL_GetViewGL(HWND h)
 {
-  return h && [(id)h isKindOfClass:[SWELL_hwndChild class]] && ((SWELL_hwndChild*)h)->m_glctx;
+  return WDL_NORMALLY(h && [(id)h isKindOfClass:[SWELL_hwndChild class]]) && ((SWELL_hwndChild*)h)->m_glctx;
 }
 void DrawSwellViewRectImpl(SWELL_hwndChild *view, NSRect rect, HDC hdc, bool isMetal)
 {
@@ -4222,7 +4222,7 @@ WDL_PtrList<SWELL_hwndChild> s_mtl_dirty_list;
 int SWELL_EnableMetal(HWND hwnd, int mode)
 {
 #ifndef SWELL_NO_METAL
-  if (!hwnd || ![(id)hwnd isKindOfClass:[SWELL_hwndChild class]]) return 0;
+  if (WDL_NOT_NORMALLY(!hwnd || ![(id)hwnd isKindOfClass:[SWELL_hwndChild class]])) return 0;
 
   SWELL_hwndChild *ch = (SWELL_hwndChild *)hwnd;
   if (g_swell_nomiddleman_cocoa_override==0 && !ch->m_use_metal)

@@ -59,7 +59,7 @@ static WDL_PtrList<modalDlgRet> s_modalDialogs;
 
 bool IsModalDialogBox(HWND hwnd)
 {
-  if (!hwnd) return false;
+  if (WDL_NOT_NORMALLY(!hwnd)) return false;
   int a = s_modalDialogs.GetSize();
   while (a-- > 0)
   {
@@ -110,7 +110,7 @@ static int s_last_dlgret;
 
 void EndDialog(HWND wnd, int ret)
 {   
-  if (!wnd) return;
+  if (WDL_NOT_NORMALLY(!wnd)) return;
   
   int a = s_modalDialogs.GetSize();
   while (a-->0)

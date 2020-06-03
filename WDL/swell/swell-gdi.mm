@@ -224,9 +224,9 @@ static void *ALIGN_FBUF(void *inbuf)
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   void *buf=calloc(w*4*h+ALIGN_EXTRA,1);
-  if (!buf) return 0;
+  if (WDL_NOT_NORMALLY(!buf)) return 0;
   CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4, __GetBitmapColorSpace(), kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
-  if (!c)
+  if (WDL_NOT_NORMALLY(!c))
   {
     free(buf);
     return 0;
@@ -488,6 +488,7 @@ HGDIOBJ GetStockObject(int wh)
       return p;
     }
   }
+  WDL_ASSERT(false);
   return 0;
 }
 
@@ -778,7 +779,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
 int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
 {
   HDC__ *ct=(HDC__*)ctx;
-  if (!HDC_VALID(ct) || !nCount || !lpFaceName) return 0;
+  if (!HDC_VALID(ct) || WDL_NOT_NORMALLY(!nCount || !lpFaceName)) return 0;
   
 #ifndef SWELL_NO_CORETEXT
   CTFontRef fr=NULL;
@@ -811,7 +812,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmHeight=16;
     tm->tmAveCharWidth = 10;
   }
-  if (!HDC_VALID(ct)||!tm) return 0;
+  if (!HDC_VALID(ct)||WDL_NOT_NORMALLY(!tm)) return 0;
 
   bool curfont_valid=HGDIOBJ_VALID(ct->curfont,TYPE_FONT);
 
@@ -1250,7 +1251,7 @@ void SetTextColor(HDC ctx, int col)
 
 HICON CreateIconIndirect(ICONINFO* iconinfo)
 {
-  if (!iconinfo || !iconinfo->fIcon) return 0;  
+  if (WDL_NOT_NORMALLY(!iconinfo || !iconinfo->fIcon)) return 0;  
   HGDIOBJ__* i=iconinfo->hbmColor;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP) || !i->bitmapptr) return 0;
   NSImage* img=i->bitmapptr;
@@ -1353,7 +1354,7 @@ void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
   HGDIOBJ__ *i = (HGDIOBJ__ *)img;
   HDC__ *ct=(HDC__*)ctx;
   if (!HDC_VALID(ct) || !HGDIOBJ_VALID(i,TYPE_BITMAP) || !i->bitmapptr) return;
-  if (!ct->ctx) return;
+  if (WDL_NOT_NORMALLY(!ct->ctx)) return;
   //CGContextDrawImage(ct->ctx,CGRectMake(r->left,r->top,r->right-r->left,r->bottom-r->top),(CGImage*)i->bitmapptr);
   // probably a better way since this ignores the ctx
   [NSGraphicsContext saveGraphicsState];
@@ -1372,12 +1373,12 @@ void DrawImageInRect(HDC ctx, HICON img, const RECT *r)
 BOOL GetObject(HICON icon, int bmsz, void *_bm)
 {
   memset(_bm,0,bmsz);
-  if (bmsz < 2*(int)sizeof(LONG)) return false;
+  if (WDL_NOT_NORMALLY(bmsz < 2*(int)sizeof(LONG))) return false;
   BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP)) return false;
   NSImage *img = i->bitmapptr;
-  if (!img) return false;
+  if (WDL_NOT_NORMALLY(!img)) return false;
   bm->bmWidth = (int) ([img size].width+0.5);
   bm->bmHeight = (int) ([img size].height+0.5);
   if (bmsz >= (int)sizeof(BITMAP))
@@ -1641,6 +1642,7 @@ void *SWELL_GetCtxFrameBuffer(HDC ctx)
 
 HDC GetDC(HWND h)
 {
+  WDL_ASSERT(h);
   if (h && [(id)h isKindOfClass:[NSWindow class]])
   {
     if ([(id)h respondsToSelector:@selector(getSwellPaintInfo:)]) 
@@ -1700,6 +1702,7 @@ HDC GetDC(HWND h)
 
 HDC GetWindowDC(HWND h)
 {
+  WDL_ASSERT(h);
   HDC ret=GetDC(h);
   if (ret)
   {
@@ -1720,6 +1723,7 @@ HDC GetWindowDC(HWND h)
 
 void ReleaseDC(HWND h, HDC hdc)
 {
+  WDL_ASSERT(h);
   if (hdc)
   {
     if ((hdc)->ctx) CGContextRestoreGState((hdc)->ctx);
@@ -1775,7 +1779,7 @@ void ReleaseDC(HWND h, HDC hdc)
 void SWELL_FillDialogBackground(HDC hdc, const RECT *r, int level)
 {
   CGContextRef ctx=(CGContextRef)SWELL_GetCtxGC(hdc);
-  if (ctx)
+  if (WDL_NORMALLY(ctx))
   {
     bool ok = false;
     if (SWELL_GDI_GetOSXVersion()>=0x10d0)
@@ -1818,7 +1822,7 @@ HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, uns
                                                                colorSpaceName:NSDeviceRGBColorSpace
                                                                 bitmapFormat:NSAlphaFirstBitmapFormat 
                                                                  bytesPerRow:0 bitsPerPixel:0];    
-  if (!rep) return 0;
+  if (WDL_NOT_NORMALLY(!rep)) return 0;
   unsigned char* p = [rep bitmapData];
   const int pspan = (int)[rep bytesPerRow]; // might not be the same as width
   
@@ -1865,7 +1869,7 @@ HIMAGELIST ImageList_CreateEx()
 BOOL ImageList_Remove(HIMAGELIST list, int idx)
 {
   WDL_PtrList<HGDIOBJ__>* imglist=(WDL_PtrList<HGDIOBJ__>*)list;
-  if (imglist && idx < imglist->GetSize())
+  if (WDL_NORMALLY(imglist) && idx < imglist->GetSize())
   {
     if (idx < 0) 
     {
@@ -1891,14 +1895,14 @@ BOOL ImageList_Remove(HIMAGELIST list, int idx)
 
 void ImageList_Destroy(HIMAGELIST list)
 {
-  if (!list) return;
+  if (WDL_NOT_NORMALLY(!list)) return;
   ImageList_Remove(list, -1);
   delete (WDL_PtrList<HGDIOBJ__>*)list;
 }
 
 int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 {
-  if (!image || !list) return -1;
+  if (WDL_NOT_NORMALLY(!image || !list)) return -1;
   WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
 
   HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;
@@ -1927,7 +1931,7 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 
 int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
 {
-  if (!image || !list) return -1;
+  if (WDL_NOT_NORMALLY(!image || !list)) return -1;
   WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
   
   HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;

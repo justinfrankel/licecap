@@ -344,7 +344,7 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exa
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
   LICE_MemBitmap * bm = new LICE_MemBitmap(w,h);
-  if (!bm) return 0;
+  if (WDL_NOT_NORMALLY(!bm)) return 0;
   LICE_Clear(bm,LICE_RGBA(0,0,0,0));
 
   HDC__ *ctx=SWELL_GDP_CTX_NEW();
@@ -431,6 +431,7 @@ HGDIOBJ GetStockObject(int wh)
       return &pen;
     }
   }
+  WDL_ASSERT(false);
   return 0;
 }
 
@@ -617,7 +618,7 @@ int GetTextFace(HDC ctx, int nCount, LPTSTR lpFaceName)
   if (lpFaceName && nCount>0) lpFaceName[0]=0;
 #ifdef SWELL_FREETYPE
   HDC__ *ct=(HDC__*)ctx;
-  if (!HDC_VALID(ct) || nCount<1 || !lpFaceName || !ct->curfont) return 0;
+  if (!HDC_VALID(ct) || WDL_NOT_NORMALLY(nCount<1 || !lpFaceName) || !ct->curfont) return 0;
 
   const FT_FaceRec *p = (const FT_FaceRec *)ct->curfont->typedata;
   if (p)
@@ -636,7 +637,7 @@ void DeleteObject(HGDIOBJ pen)
     HGDIOBJ__ *p=(HGDIOBJ__ *)pen;
     if (--p->additional_refcnt < 0)
     {
-      if (p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP)
+      if (WDL_NORMALLY(p->type == TYPE_PEN || p->type == TYPE_BRUSH || p->type == TYPE_FONT || p->type == TYPE_BITMAP))
       {
         if (p->type == TYPE_FONT)
         {
@@ -660,7 +661,6 @@ void DeleteObject(HGDIOBJ pen)
   
         GDP_OBJECT_DELETE(p);
       }
-      // JF> don't free unknown objects, this should never happen anyway: else free(p);
     }
   }
 }
@@ -671,7 +671,7 @@ HGDIOBJ SelectObject(HDC ctx, HGDIOBJ pen)
   HDC__ *c=(HDC__ *)ctx;
   HGDIOBJ__ *p= pen;
   HGDIOBJ__ **mod=0;
-  if (!HDC_VALID(c)||!p) return 0;
+  if (!HDC_VALID(c)||WDL_NOT_NORMALLY(!p)) return 0;
   
   if (p == (HGDIOBJ__ *)TYPE_PEN) mod=&c->curpen;
   else if (p == (HGDIOBJ__ *)TYPE_BRUSH) mod=&c->curbrush;
@@ -990,7 +990,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
     tm->tmHeight=8;
     tm->tmAveCharWidth = 8;
   }
-  if (!HDC_VALID(ct)||!tm) return 0;
+  if (!HDC_VALID(ct)||WDL_NOT_NORMALLY(!tm)) return 0;
 
 #ifdef SWELL_FREETYPE
   HGDIOBJ__  *font  = HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
@@ -1014,7 +1014,7 @@ BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 {
   HDC__ *ct=(HDC__ *)ctx;
-  if (!r) return 0;
+  if (WDL_NOT_NORMALLY(!r)) return 0;
 
   int lineh = 8;
   int charw = 8;
@@ -1358,7 +1358,7 @@ void DrawImageInRect(HDC hdcOut, HICON in, const RECT *r)
 BOOL GetObject(HICON icon, int bmsz, void *_bm)
 {
   memset(_bm,0,bmsz);
-  if (bmsz < 2*(int)sizeof(LONG)) return false;
+  if (WDL_NOT_NORMALLY(bmsz < 2*(int)sizeof(LONG))) return false;
   BITMAP *bm=(BITMAP *)_bm;
   HGDIOBJ__ *i = (HGDIOBJ__ *)icon;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP) || !i->typedata) return false;
@@ -1494,7 +1494,7 @@ struct swell_gdpLocalContext
 
 HDC SWELL_internalGetWindowDC(HWND h, bool calcsize_on_first)
 {
-  if (!h) return NULL;
+  if (WDL_NOT_NORMALLY(!h)) return NULL;
 
   int xoffs=0,yoffs=0;
   int wndw = h->m_position.right-h->m_position.left;
@@ -1573,7 +1573,7 @@ HDC GetDC(HWND h)
 
 void ReleaseDC(HWND h, HDC hdc)
 {
-  if (!h || !HDC_VALID(hdc)) return;
+  if (WDL_NOT_NORMALLY(!h) || !HDC_VALID(hdc)) return;
   swell_gdpLocalContext *p = (swell_gdpLocalContext*)hdc;
 
 
@@ -1610,10 +1610,10 @@ void ReleaseDC(HWND h, HDC hdc)
 
 HDC BeginPaint(HWND hwnd, PAINTSTRUCT *ps)
 {
-  if (!ps) return 0;
+  if (WDL_NOT_NORMALLY(!ps)) return 0;
   memset(ps,0,sizeof(PAINTSTRUCT));
-  if (!hwnd) return 0;
-  if (!hwnd->m_paintctx) return NULL;
+  if (WDL_NOT_NORMALLY(!hwnd)) return 0;
+  if (WDL_NOT_NORMALLY(!hwnd->m_paintctx)) return NULL;
 
   swell_gdpLocalContext *ctx = (swell_gdpLocalContext *)hwnd->m_paintctx;
   ps->rcPaint = ctx->clipr;
@@ -1748,9 +1748,9 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
 
 HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits)
 {
-  if (width < 1 || height < 1 || numplanes != 1 || bitsperpixel != 32 || !bits) return NULL;
+  if (WDL_NOT_NORMALLY(width < 1 || height < 1 || numplanes != 1 || bitsperpixel != 32 || !bits)) return NULL;
   LICE_MemBitmap *bm = new LICE_MemBitmap(width,height);
-  if (!bm->getBits()) { delete bm; return NULL; }
+  if (WDL_NOT_NORMALLY(!bm->getBits())) { delete bm; return NULL; }
   int y;
   LICE_pixel *wr = bm->getBits();
   for (y=0;y<height; y++)
@@ -1771,7 +1771,7 @@ HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, uns
 
 HICON CreateIconIndirect(ICONINFO* iconinfo)
 {
-  if (!iconinfo || !iconinfo->fIcon) return 0;  
+  if (WDL_NOT_NORMALLY(!iconinfo || !iconinfo->fIcon)) return 0;  
   HGDIOBJ__* i=iconinfo->hbmColor;
   if (!HGDIOBJ_VALID(i,TYPE_BITMAP) ) return 0;
 
@@ -1796,7 +1796,7 @@ HIMAGELIST ImageList_CreateEx()
 BOOL ImageList_Remove(HIMAGELIST list, int idx)
 {
   WDL_PtrList<HGDIOBJ__>* imglist=(WDL_PtrList<HGDIOBJ__>*)list;
-  if (imglist && idx < imglist->GetSize())
+  if (WDL_NORMALLY(imglist) && idx < imglist->GetSize())
   {
     if (idx < 0) 
     {
@@ -1822,7 +1822,7 @@ BOOL ImageList_Remove(HIMAGELIST list, int idx)
 
 void ImageList_Destroy(HIMAGELIST list)
 {
-  if (!list) return;
+  if (WDL_NOT_NORMALLY(!list)) return;
   WDL_PtrList<HGDIOBJ__> *p=(WDL_PtrList<HGDIOBJ__>*)list;
   ImageList_Remove(list,-1);
   delete p;
@@ -1830,7 +1830,7 @@ void ImageList_Destroy(HIMAGELIST list)
 
 int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 {
-  if (!image || !list) return -1;
+  if (WDL_NOT_NORMALLY(!image || !list)) return -1;
   WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
 
   HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;
@@ -1863,7 +1863,7 @@ int ImageList_ReplaceIcon(HIMAGELIST list, int offset, HICON image)
 
 int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
 {
-  if (!image || !list) return -1;
+  if (WDL_NOT_NORMALLY(!image || !list)) return -1;
   WDL_PtrList<HGDIOBJ__> *l=(WDL_PtrList<HGDIOBJ__> *)list;
   
   HGDIOBJ__ *imgsrc = (HGDIOBJ__*)image;
