@@ -92,11 +92,11 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   {
     case WM_CREATE:
       SetOpaque(hwnd,FALSE);
-      SetWindowPos(hwnd,NULL,0,0,def_wid,wndh,SWP_NOMOVE|SWP_NOZORDER);
       SWELL_MakeSetCurParms(1,1,0,0,hwnd,true,false);
       SWELL_MakeLabel(1,"File type:",1001,0,2,lblw,wndh,0);
       SWELL_MakeCombo(1000, lblw + 4,0, combow, wndh,3/*CBS_DROPDOWNLIST*/);
       SWELL_MakeSetCurParms(1,1,0,0,NULL,false,false);
+      SetWindowPos(hwnd,NULL,0,0,def_wid,wndh,SWP_NOMOVE|SWP_NOZORDER);
       {
         const char *extlist = ((const char **)lParam)[0];
         SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)extlist);
