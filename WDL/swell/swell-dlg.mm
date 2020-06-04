@@ -1291,8 +1291,9 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 - (void)setFrame:(NSRect)frameRect 
 {
   [super setFrame:frameRect];
-  if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_SIZE,0,0); 
-  InvalidateRect(GetParent((HWND)self),NULL,FALSE);
+  if (m_wndproc&&!m_hashaddestroy) m_wndproc((HWND)self,WM_SIZE,0,0);
+  HWND par = GetParent((HWND)self);
+  if (par) InvalidateRect(par,NULL,FALSE);
 } 
 
 - (void)keyDown:(NSEvent *)theEvent
