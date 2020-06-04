@@ -6741,7 +6741,7 @@ BOOL SWELL_IsGroupBox(HWND hwnd)
 {
   if (hwnd && [(id)hwnd isKindOfClass:[SWELL_BoxView class]])
   {
-    if (![(id)hwnd respondsToSelector:@selector(swellIsEtchBox)] || [(SWELL_BoxView *)hwnd swellIsEtchBox])
+    if (![(id)hwnd respondsToSelector:@selector(swellIsEtchBox)] || ![(SWELL_BoxView *)hwnd swellIsEtchBox])
       return TRUE;
   }
   return FALSE;
