@@ -4014,7 +4014,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
 
 @implementation SWELL_BoxView
 
-STANDARD_CONTROL_NEEDSDISPLAY_IMPL("groupbox")
+STANDARD_CONTROL_NEEDSDISPLAY_IMPL(m_etch_mode ? "Static" : "Button")
 
 -(NSInteger) tag
 {

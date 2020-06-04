@@ -5965,7 +5965,7 @@ HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, i
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,name, !(style&SWELL_NOT_WS_VISIBLE),groupWindowProc);
   hwnd->m_wantfocus = false;
   hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
-  hwnd->m_classname = "groupbox";
+  hwnd->m_classname = "Button";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); 
   return hwnd;
