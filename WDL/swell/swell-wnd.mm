@@ -4384,12 +4384,14 @@ int ListView_InsertItem(HWND h, const LVITEM *item)
 
 void ListView_SetItemText(HWND h, int ipos, int cpos, const char *txt)
 {
-  if (!h || cpos < 0 || cpos >= 32) return;
+  if (!h || cpos < 0) return;
   if (![(id)h isKindOfClass:[SWELL_ListView class]]) return;
   
   SWELL_ListView *tv=(SWELL_ListView*)h;
   if (!tv->m_lbMode && (tv->style & LVS_OWNERDATA)) return;
-  if (!tv->m_items) return;
+  if (!tv->m_items || !tv->m_cols) return;
+
+  if (cpos && cpos >= tv->m_cols->GetSize()) return; // always allow setting the first
   
   SWELL_ListView_Row *p=tv->m_items->Get(ipos);
   if (!p) return;
