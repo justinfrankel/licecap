@@ -3679,7 +3679,7 @@ HWND SWELL_MakeLabel( int align, const char *label, int idx, int x, int y, int w
 {
   RECT tr=MakeCoords(x,y,w,h,true);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,label, !(flags&SWELL_NOT_WS_VISIBLE),labelWindowProc);
-  hwnd->m_classname = "static";
+  hwnd->m_classname = "Static";
   if (align > 0) flags |= SS_RIGHT;
   else if (align == 0) flags |= SS_CENTER;
   hwnd->m_style = (flags & ~SWELL_NOT_WS_VISIBLE)|WS_CHILD;
@@ -5910,13 +5910,13 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     return SWELL_MakeEditField(idx,x,y,w,h,style);
   }
-  else if (!stricmp(classname, "static"))
+  else if (!stricmp(classname, "Static"))
   {
     RECT tr=MakeCoords(x,y,w,h,false);
     HWND hwnd = new HWND__(m_make_owner,idx,&tr,cname, !(style&SWELL_NOT_WS_VISIBLE),labelWindowProc);
     hwnd->m_wantfocus = false;
     hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
-    hwnd->m_classname = "static";
+    hwnd->m_classname = "Static";
     hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
     if (m_doautoright) UpdateAutoCoords(tr);
     return hwnd;
