@@ -1327,7 +1327,7 @@ fakeButtonClick:
               g_swell_ctheme.button_hilight,
               g_swell_ctheme.button_shadow,pressed);
 
-            if (hwnd->m_style & BS_LEFT)
+            if ((hwnd->m_style & BS_XPOSITION_MASK) == BS_LEFT)
               r.left+=2;
             else
               f|=DT_CENTER;
@@ -3667,7 +3667,7 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   if (a < 65536) label = "ICONTEMP";
   
   RECT tr=MakeCoords(x,y,w,h,true);
-  HWND hwnd = swell_makeButton(m_make_owner,idx,&tr,label,!(flags&SWELL_NOT_WS_VISIBLE),(def ? BS_DEFPUSHBUTTON : 0) | (flags&BS_LEFT));
+  HWND hwnd = swell_makeButton(m_make_owner,idx,&tr,label,!(flags&SWELL_NOT_WS_VISIBLE),(def ? BS_DEFPUSHBUTTON : 0) | (flags&BS_XPOSITION_MASK));
 
   if (m_doautoright) UpdateAutoCoords(tr);
   if (def) { }
