@@ -5964,7 +5964,7 @@ HWND SWELL_MakeGroupBox(const char *name, int idx, int x, int y, int w, int h, i
   RECT tr=MakeCoords(x,y,w,h,false);
   HWND hwnd = new HWND__(m_make_owner,idx,&tr,name, !(style&SWELL_NOT_WS_VISIBLE),groupWindowProc);
   hwnd->m_wantfocus = false;
-  hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE);
+  hwnd->m_style = WS_CHILD | (style & ~SWELL_NOT_WS_VISIBLE) | BS_GROUPBOX;
   hwnd->m_classname = "Button";
   hwnd->m_wndproc(hwnd,WM_CREATE,0,0);
   SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); 
@@ -7931,18 +7931,15 @@ void SWELL_GetDesiredControlSize(HWND hwnd, RECT *r)
 
 BOOL SWELL_IsGroupBox(HWND hwnd)
 {
-  //todo
-  return FALSE;
+  return hwnd && hwnd->m_classname && !stricmp(hwnd->m_classname,"Button") && (hwnd->m_style & BS_GROUPBOX);
 }
 BOOL SWELL_IsButton(HWND hwnd)
 {
-  //todo
-  return FALSE;
+  return hwnd && hwnd->m_classname && !stricmp(hwnd->m_classname,"Button") && !(hwnd->m_style & BS_GROUPBOX);
 }
 BOOL SWELL_IsStaticText(HWND hwnd)
 {
-  //todo
-  return FALSE;
+  return hwnd && hwnd->m_classname && !stricmp(hwnd->m_classname,"Static");
 }
 
 
