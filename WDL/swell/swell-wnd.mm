@@ -6777,6 +6777,18 @@ int GetClassName(HWND hwnd, char *buf, int bufsz)
     const char *cn = [(SWELL_hwndChild*)hwnd getSwellClass];
     if (cn) lstrcpyn_safe(buf,cn,bufsz);
   }
+  else if ([(id)hwnd isKindOfClass:[NSButton class]])
+  {
+    lstrcpyn_safe(buf,"Button",bufsz);
+  }
+  else if ([(id)hwnd isKindOfClass:[NSTextField class]])
+  {
+    NSTextField *obj = (NSTextField *)hwnd;
+    if (![obj isEditable] && ![obj isSelectable])
+      lstrcpyn_safe(buf,"Static",bufsz);
+    else
+      lstrcpyn_safe(buf,"Edit",bufsz);
+  }
   else
   {
     // default handling of other controls?
