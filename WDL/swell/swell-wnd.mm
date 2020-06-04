@@ -6753,8 +6753,12 @@ BOOL SWELL_IsButton(HWND hwnd)
 }
 BOOL SWELL_IsStaticText(HWND hwnd)
 {
-  if (hwnd && [(id)hwnd isKindOfClass:[NSTextField class]]) return TRUE;
-  //todo
+  if (hwnd && [(id)hwnd isKindOfClass:[NSTextField class]])
+  {
+    NSTextField *obj = (NSTextField *)hwnd;
+    if (![obj isEditable] && ![obj isSelectable])
+      return TRUE;
+  }
   return FALSE;
 }
 
