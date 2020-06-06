@@ -6096,7 +6096,15 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
   SWELL_TreeView* tv = (SWELL_TreeView*)hwnd;
   int x = hti->pt.x;
   int y = hti->pt.y;
-  
+
+  // treeview might be clipped
+  POINT wp={x, y};
+  ClientToScreen(hwnd, &wp);
+  RECT wr;
+  GetWindowRect(hwnd, &wr);
+  if (wp.x < wr.left || wp.x >= wr.right) return NULL;
+  if (wp.y < wdl_min(wr.top, wr.bottom) || wp.y >= wdl_max(wr.top, wr.bottom)) return NULL;
+
   int i; 
   double maxy = 0.0;
   for (i = 0; i < [tv numberOfRows]; ++i)
