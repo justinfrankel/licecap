@@ -520,8 +520,7 @@ void SetFocus(HWND hwnd)
 
 int IsChild(HWND hwndParent, HWND hwndChild)
 {
-  if (WDL_NOT_NORMALLY(!hwndParent || !hwndChild) ||
-      hwndParent == hwndChild) return 0;
+  if (!hwndParent || !hwndChild || hwndParent == hwndChild) return 0;
 
   while (hwndChild && hwndChild != hwndParent) hwndChild = hwndChild->m_parent;
 

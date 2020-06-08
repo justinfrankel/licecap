@@ -2399,8 +2399,7 @@ HWND SetParent(HWND hwnd, HWND newPar)
 
 int IsChild(HWND hwndParent, HWND hwndChild)
 {
-  if (WDL_NOT_NORMALLY(!hwndParent) || 
-      WDL_NOT_NORMALLY(!hwndChild) || hwndParent == hwndChild) return 0;
+  if (!hwndParent || !hwndChild || hwndParent == hwndChild) return 0;
   SWELL_BEGIN_TRY
   id par=(id)hwndParent;
   id ch=(id)hwndChild;
