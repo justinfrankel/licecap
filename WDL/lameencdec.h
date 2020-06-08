@@ -70,6 +70,7 @@ class LameEncoder
 
     void SetMetadata(WDL_StringKeyedArray<char*> *metadata);
     int m_id3_len;
+    WDL_HeapBuf m_apetag;
 
     void *m_lamestate;
     WDL_Queue spltmp[2];
