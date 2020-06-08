@@ -184,6 +184,16 @@ static LRESULT fileTypeChooseProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
+static void restoreMenuForFocus()
+{
+  HWND h = GetFocus();
+  HMENU menu = h ? GetMenu(h) : NULL;
+  if (!menu)
+    menu = SWELL_GetDefaultWindowMenu();
+  if (menu)
+    SWELL_SetCurrentMenu(menu);
+}
+
 // return true
 bool BrowseForSaveFile(const char *text, const char *initialdir, const char *initialfile, const char *extlist,
                        char *fn, int fnsize)
@@ -267,7 +277,7 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   SWELL_SetCurrentMenu(hm);
 
   NSInteger result = [panel runModalForDirectory:idir file:ifn];
-  SWELL_SetCurrentMenu(GetMenu(GetFocus()));
+  restoreMenuForFocus();
   if (hm) DestroyMenu(hm);
   
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
@@ -371,7 +381,7 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
   if (hm) hm=SWELL_DuplicateMenu(hm);
   SWELL_SetCurrentMenu(hm);
   NSInteger result = [panel runModalForDirectory:idir file:nil types:nil];
-  SWELL_SetCurrentMenu(GetMenu(GetFocus()));
+  restoreMenuForFocus();
   if (hm) DestroyMenu(hm);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
@@ -446,7 +456,7 @@ char *BrowseForFiles(const char *text, const char *initialdir,
   
   NSInteger result = [panel runModalForDirectory:idir file:ifn types:([fileTypes count]>0 ? fileTypes : nil)];
 
-  SWELL_SetCurrentMenu(GetMenu(GetFocus()));
+  restoreMenuForFocus();
   if (hm) DestroyMenu(hm);
 	
   if (oh) SendMessage(oh,WM_DESTROY,0,0);
