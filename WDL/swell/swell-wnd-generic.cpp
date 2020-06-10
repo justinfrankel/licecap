@@ -3763,7 +3763,7 @@ struct listViewState
 
   int GetColumnIndex(int dispindex) const
   {
-    if (m_is_listbox)
+    if (m_is_listbox || !m_cols.GetSize())
     {
       WDL_ASSERT(dispindex==0);
       return 0;
