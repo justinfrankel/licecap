@@ -4661,6 +4661,8 @@ forceMouseMove:
               oldpen = SelectObject(ps.hdc,gridpen);
             }
 
+            HWND par = GetParent(hwnd);
+            NMLVCUSTOMDRAW nmlvcd={ { {hwnd,(UINT_PTR)hwnd->m_id, NM_CUSTOMDRAW}, CDDS_ITEMPREPAINT,ps.hdc, } };
             for (int rowidx = 0; rowidx < nrows && ypos < cr.bottom; rowidx ++)
             {
               const char *str = NULL;
@@ -4682,19 +4684,28 @@ forceMouseMove:
                 }
               }
 
-              if (sel) 
+              COLORREF text_c;
+              if (sel)
               {
                 int c = lvs->m_color_extras[focused ? 1 : 3 ];
-                SetTextColor(ps.hdc, c == -1 ? lvs->m_color_text_sel : c);
+                text_c = c == -1 ? lvs->m_color_text_sel : c;
               }
-              else SetTextColor(ps.hdc, lvs->m_color_text);
+              else
+                text_c = lvs->m_color_text;
 
+              nmlvcd.nmcd.dwItemSpec = (DWORD)rowidx;
               SWELL_ListView_Row *row = lvs->m_data.Get(rowidx);
               int xpos=-xo;
               for (int col = 0; col < nc && xpos < cr.right; col ++)
               {
-                int image_idx = 0;
                 const int col_idx = lvs->GetColumnIndex(col);
+
+                nmlvcd.iSubItem = col_idx;
+                nmlvcd.clrText = text_c;
+                SendMessage(par,WM_NOTIFY,hwnd->m_id&0xffff,(LPARAM)&nmlvcd);
+                SetTextColor(ps.hdc, nmlvcd.clrText);
+
+                int image_idx = 0;
                 if (owner_data)
                 {
                   NMLVDISPINFO nm={{hwnd,hwnd->m_id,LVN_GETDISPINFO},{LVIF_TEXT, rowidx,col_idx, 0,0, buf, sizeof(buf), -1 }};
@@ -4705,7 +4716,7 @@ forceMouseMove:
 
                   }
                   buf[0]=0;
-                  SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
+                  SendMessage(par,WM_NOTIFY,hwnd->m_id,(LPARAM)&nm);
                   str=buf;
                   if (!col && has_image)
                   {

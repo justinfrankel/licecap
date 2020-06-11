@@ -681,6 +681,28 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   if ([aTableView isKindOfClass:[SWELL_ListView class]])
   {
     SWELL_ListView *f = (SWELL_ListView *)aTableView;
+
+    const unsigned short tag = (unsigned short)[aTableView tag];
+    NMLVCUSTOMDRAW nmlv={
+      {
+        {(HWND)aTableView,(UINT_PTR)tag, NM_CUSTOMDRAW},
+        CDDS_ITEMPREPAINT,NULL, {0,0,0,0}, rowIndex, 0,0
+      },
+      (COLORREF)-1,
+      (COLORREF)-1,
+      f->m_cols ? f->m_cols->Find(aTableColumn) : 0
+    };
+    if (m_wndproc) m_wndproc((HWND)self,WM_NOTIFY,tag,(LPARAM)&nmlv);
+    // todo clrTextBk too
+    if (nmlv.clrText != (COLORREF)-1)
+    {
+      if ([aCell respondsToSelector:@selector(setTextColor:)])
+      {
+        [aCell setTextColor:NSColorFromCol(nmlv.clrText)];
+      }
+      return;
+    }
+
     if (f->m_selColors&&[aTableView isRowSelected:rowIndex]) 
     {
       const NSInteger cnt = [f->m_selColors count];
