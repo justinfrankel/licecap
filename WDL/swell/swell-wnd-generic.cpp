@@ -7795,9 +7795,11 @@ BOOL TreeView_SetIndent(HWND hwnd, int indent)
 
 void TreeView_SetBkColor(HWND hwnd, int color)
 {
+  // todo implement treeview colors
 }
 void TreeView_SetTextColor(HWND hwnd, int color)
 {
+  // todo implement treeview colors
 }
 
 void ListView_SetBkColor(HWND h, int color)
@@ -7829,11 +7831,22 @@ void ListView_SetGridColor(HWND h, int color)
 }
 void ListView_SetSelColors(HWND h, int *colors, int ncolors)
 {
-  if (WDL_NORMALLY(h && h->m_private_data && h->m_classname && !strcmp(h->m_classname,"SysListView32")))
+  if (WDL_NORMALLY(h && h->m_private_data && h->m_classname))
   {
-    listViewState *lvs = (listViewState *)h->m_private_data;
-    if (colors && ncolors > 0) 
-      memcpy(lvs->m_color_extras,colors,wdl_min(ncolors*sizeof(int),sizeof(lvs->m_color_extras)));
+    if (!strcmp(h->m_classname,"SysListView32"))
+    {
+      listViewState *lvs = (listViewState *)h->m_private_data;
+      if (colors && ncolors > 0) 
+        memcpy(lvs->m_color_extras,colors,wdl_min(ncolors*sizeof(int),sizeof(lvs->m_color_extras)));
+    }
+    else if (!strcmp(h->m_classname,"SysTreeView32"))
+    {
+      // todo implement treeview colors
+    }
+    else
+    {
+      WDL_ASSERT(false);
+    }
   }
 }
 int ListView_GetTopIndex(HWND h)
