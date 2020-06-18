@@ -353,7 +353,7 @@ public:
                 ent->m_bufused=0;
               }
             }
-            else if (err != ERROR_IO_PENDING)
+            else if (err != ERROR_IO_PENDING && err != ERROR_IO_INCOMPLETE)
             {
               WDL_FILEWRITE_ON_ERROR(err == ERROR_DISK_FULL)
             }
