@@ -1251,6 +1251,7 @@ void swell_scaling_init(bool no_auto_hidpi);
 extern int g_swell_ui_scale;
 extern swell_colortheme g_swell_ctheme;
 extern const char *g_swell_deffont_face;
+HFONT SWELL_GetDefaultFont(void);
 
 #endif
 

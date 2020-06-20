@@ -31,6 +31,7 @@
 #include "../mutex.h"
 #include "../ptrlist.h"
 #include "../wdlcstring.h"
+#include "../wdlutf8.h"
 
 #include "swell-gdi-internalpool.h"
 
@@ -48,47 +49,6 @@
 
 static bool s_freetype_failed;
 static FT_Library s_freetype; // todo: TLS for multithread support? -- none of the text drawing is thread safe!
-
-static int utf8char(const char *ptr, unsigned short *charOut) // returns char length
-{
-  const unsigned char *p = (const unsigned char *)ptr;
-  unsigned char tc = *p;
-
-  if (tc < 128) 
-  {
-    if (charOut) *charOut = (unsigned short) tc;
-    return 1;
-  }
-  else if (tc < 0xC2) // invalid chars (subsequent in sequence, or overlong which we disable for)
-  {
-  }
-  else if (tc < 0xE0) // 2 char seq
-  {
-    if (p[1] >= 0x80 && p[1] <= 0xC0)
-    {
-      if (charOut) *charOut = ((tc&0x1f)<<6) | (p[1]&0x3f);
-      return 2;
-    }
-  }
-  else if (tc < 0xF0) // 3 char seq
-  {
-    if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0)
-    {
-      if (charOut) *charOut = ((tc&0xf)<<12) | ((p[1]&0x3f)<<6) | ((p[2]&0x3f));
-      return 3;
-    }
-  }
-  else if (tc < 0xF5) // 4 char seq
-  {
-    if (p[1] >= 0x80 && p[1] <= 0xC0 && p[2] >= 0x80 && p[2] <= 0xC0 && p[3] >= 0x80 && p[3] <= 0xC0)
-    {
-      if (charOut) *charOut = (unsigned short)' '; // dont support 4 byte sequences yet(ever?)
-      return 4;
-    }
-  }  
-  if (charOut) *charOut = (unsigned short) tc;
-  return 1;  
-}
 
 extern const char *swell_last_font_filename;
 
@@ -439,7 +399,10 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
   char lfUnderline, char lfStrikeOut, char lfCharSet, char lfOutPrecision, char lfClipPrecision, 
          char lfQuality, char lfPitchAndFamily, const char *lfFaceName)
 {
-  HGDIOBJ__ *font=NULL;
+  HGDIOBJ__ *font = GDP_OBJECT_NEW();
+  font->typedata = NULL;
+  font->type=TYPE_FONT;
+  font->alpha = 1.0f;
 #ifdef SWELL_FREETYPE
   if (!s_freetype_failed && !s_freetype) 
   {
@@ -590,16 +553,7 @@ HFONT CreateFont(int lfHeight, int lfWidth, int lfEscapement, int lfOrientation,
       FT_Set_Char_Size(face,lfWidth*64, lfHeight*64,0,0); // 72dpi
     }
   }
-  
-  if (face)
-  {
-    font = GDP_OBJECT_NEW();
-    font->type=TYPE_FONT;
-    font->typedata = face;
-    font->alpha = 1.0f;
-  }
-#else
-  font->type=TYPE_FONT;
+  font->typedata = face;
 #endif
  
   return font;
@@ -967,7 +921,6 @@ void SWELL_SetPixel(HDC ctx, int x, int y, int c)
   swell_DirtyContext(ct,x,y,x+1,y+1);
 }
 
-#ifdef SWELL_FREETYPE
 HFONT SWELL_GetDefaultFont()
 {
   static HFONT def;
@@ -977,7 +930,6 @@ HFONT SWELL_GetDefaultFont()
   }
   return def;
 }
-#endif
 
 BOOL GetTextMetrics(HDC ctx, TEXTMETRIC *tm)
 {
@@ -1020,8 +972,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
   int charw = 8;
 
   HGDIOBJ__  *font  = NULL;
+  int ascent=8, descent=0;
 #ifdef SWELL_FREETYPE
-  int ascent=0, descent=0;
   font  = HDC_VALID(ct) && HGDIOBJ_VALID(ct->curfont,TYPE_FONT) ? ct->curfont : SWELL_GetDefaultFont();
   FT_Face face = NULL;
   if (font && font->typedata) 
@@ -1036,14 +988,6 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 
   if (align&DT_CALCRECT)
   {
-    if (!font && (align&DT_SINGLELINE))
-    {
-      r->right = r->left + ( buflen < 0 ? strlen(buf) : buflen ) * charw;
-      int h = r->right ? (ascent-descent) :0;
-      r->bottom = r->top+h;
-      return h;
-    }
-
     int xpos=0;
     int ypos=0;
 
@@ -1051,8 +995,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
     bool in_prefix=false;
     while (buflen && *buf) // if buflen<0, go forever
     {
-      unsigned short c=0;
-      int charlen = utf8char(buf,&c);
+      int c=0, charlen = wdl_utf8_parsechar(buf,&c);
       buf+=charlen;
       if (buflen > 0) 
       {
@@ -1155,8 +1098,7 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
 
   while (buflen && *buf)
   {
-    unsigned short c=0;
-    int  charlen = utf8char(buf,&c);
+    int c=0, charlen = wdl_utf8_parsechar(buf,&c);
     if (buflen>0)
     {
       buflen -= charlen;
@@ -1885,6 +1827,7 @@ int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask)
 
 int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 {
+#ifdef SWELL_FREETYPE
   if (str && *str)
   {
 #ifdef SWELL_FONTCONFIG
@@ -1896,6 +1839,7 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 #endif
     return 1;
   } 
+#endif
   return 0;
 }
 

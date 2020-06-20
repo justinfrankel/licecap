@@ -7245,15 +7245,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 
     case WM_GETFONT:
-        if (hwnd->m_font) return (LRESULT) hwnd->m_font;
-#ifdef SWELL_FREETYPE
-        {
-          HFONT SWELL_GetDefaultFont(void);
-          return (LRESULT)SWELL_GetDefaultFont();
-        }
-#endif
+      return (LRESULT)(hwnd->m_font ? hwnd->m_font : SWELL_GetDefaultFont());
 
-        return 0;
     case WM_DROPFILES:
         if (hwnd->m_parent && wParam)
         {
