@@ -1010,6 +1010,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
         continue;
       }
       in_prefix=false;
+
+      if (c == '\n' && (align & DT_SINGLELINE)) c=' ';
  
       if (c == '\n') { ypos += lineh; xpos=0; }
       else if (c != '\r')
@@ -1114,6 +1116,8 @@ int DrawText(HDC ctx, const char *buf, int buflen, RECT *r, int align)
       continue;
     }
     in_prefix=false;
+
+    if (c == '\n' && (align & DT_SINGLELINE)) c=' ';
 
     if (c=='\n' && !(align&DT_SINGLELINE)) { xpos=left_xpos; ypos+=lineh; }
     else if (c=='\r')  {} 
