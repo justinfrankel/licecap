@@ -30,6 +30,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/poll.h>
 #include <sys/fcntl.h>
 #include <sys/resource.h>
 
@@ -244,32 +245,35 @@ HANDLE CreateEventAsSocket(void *SA, BOOL manualReset, BOOL initialSig, const ch
 
 DWORD WaitForAnySocketObject(int numObjs, HANDLE *objs, DWORD msTO) // only supports special (socket) handles at the moment 
 {
-  int max_s=0;
-  fd_set s;
-  FD_ZERO(&s);
-  int x;
+  struct pollfd list1[128];
+  WDL_TypedBuf<struct pollfd> list2;
+  struct pollfd *fds = numObjs > 128 ? list2.ResizeOK(numObjs) : list1;
+  if (WDL_NOT_NORMALLY(!fds)) { numObjs = 128; fds = list1; }
+  int x, nfds = 0;
   for (x = 0; x < numObjs; x ++)
   {
     SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
     if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]>=0)
     {
-      FD_SET(se->socket[0],&s);
-      if (se->socket[0] > max_s) max_s = se->socket[0];
+      fds[nfds].fd = se->socket[0];
+      fds[nfds].events = POLLIN;
+      fds[nfds].revents = 0;
+      nfds++;
     }
   }
 
-  if (max_s>0)
+  if (nfds>0)
   {
 again:
-    struct timeval tv;
-    tv.tv_sec = msTO/1000;
-    tv.tv_usec = (msTO%1000)*1000;
-    if (select(max_s+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0) for (x = 0; x < numObjs; x ++)
+    const int res = poll(fds,nfds,msTO == INFINITE ? -1 : msTO);
+    int pos = 0;
+    if (res>0) for (x = 0; x < numObjs; x ++)
     {
       SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
-      if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]>=0) 
+      if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && 
+          se->socket[0]>=0) 
       {
-        if (FD_ISSET(se->socket[0],&s)) 
+        if (fds[pos].revents & POLLIN)
         {
           if (se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT && se->autoReset)
           {
@@ -278,8 +282,10 @@ again:
           }
           return WAIT_OBJECT_0 + x;
         }
+        pos++;
       }
     }
+    if (res < 0) return WAIT_FAILED;
   }
   
   return WAIT_TIMEOUT;
@@ -363,14 +369,11 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
         if (se->socket[0]<0) Sleep(msTO!=INFINITE?msTO:1);
         else
         {
-          fd_set s;
-          FD_ZERO(&s);
 again:
-          FD_SET(se->socket[0],&s);
-          struct timeval tv;
-          tv.tv_sec = msTO/1000;
-          tv.tv_usec = (msTO%1000)*1000;
-          if (select(se->socket[0]+1,&s,NULL,NULL,msTO==INFINITE?NULL:&tv)>0 && FD_ISSET(se->socket[0],&s)) 
+          struct pollfd fd = { se->socket[0], POLLIN, 0 };
+          const int res = poll(&fd,1,msTO==INFINITE?-1 : msTO);
+          if (res < 0) return WAIT_FAILED;
+          if (res>0 && (fd.revents&POLLIN))
           {
             if (se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT && se->autoReset)
             {
@@ -608,11 +611,9 @@ BOOL SetEvent(HANDLE hand)
     {
       if (se->socket[0]>=0) 
       {
-        fd_set s;
-        FD_ZERO(&s);
-        FD_SET(se->socket[0],&s);
-        struct timeval tv={0,};
-        if (select(se->socket[0]+1,&s,NULL,NULL,&tv)>0 && FD_ISSET(se->socket[0],&s)) return TRUE; // already set
+        struct pollfd fd = { se->socket[0], POLLIN, 0 };
+        int res = poll(&fd,1,0);
+        if (res > 0 && (fd.revents&POLLIN)) return TRUE; // already set
       }
       char c=0; 
       if (write(se->socket[1],&c,1) != 1)
