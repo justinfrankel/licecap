@@ -1869,13 +1869,12 @@ void SetFocus(HWND hwnd) // these take NSWindow/NSView, and return NSView *
   else if (WDL_NORMALLY([r isKindOfClass:[NSView class]]))
   {
     NSWindow *wnd=[(NSView *)r window];
-    if (wnd && [r acceptsFirstResponder])
+    if (wnd)
     {
-      [wnd makeFirstResponder:r];
       if ([wnd isVisible])
-      {
         [wnd makeKeyAndOrderFront:nil];
-      }
+      if ([r acceptsFirstResponder])
+        [wnd makeFirstResponder:r];
     }
   }
   SWELL_END_TRY(;)
