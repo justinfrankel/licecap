@@ -92,7 +92,7 @@ static void intToFileTime(time_t t, FILETIME *out)
 
 BOOL GetFileTime(int filedes, FILETIME *lpCreationTime, FILETIME *lpLastAccessTime, FILETIME *lpLastWriteTime)
 {
-  if (filedes<0) return 0;
+  if (WDL_NOT_NORMALLY(filedes<0)) return 0;
   struct stat st;
   if (fstat(filedes,&st)) return 0;
   
@@ -157,7 +157,7 @@ void swell_cleanupZombies()
 BOOL CloseHandle(HANDLE hand)
 {
   SWELL_InternalObjectHeader *hdr=(SWELL_InternalObjectHeader*)hand;
-  if (!hdr) return FALSE;
+  if (WDL_NOT_NORMALLY(!hdr)) return FALSE;
   if (hdr->type <= INTERNAL_OBJECT_START || hdr->type >= INTERNAL_OBJECT_END) return FALSE;
   
   if (!wdl_atomic_decr(&hdr->count))
@@ -253,7 +253,9 @@ DWORD WaitForAnySocketObject(int numObjs, HANDLE *objs, DWORD msTO) // only supp
   for (x = 0; x < numObjs; x ++)
   {
     SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
-    if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && se->socket[0]>=0)
+    if (WDL_NORMALLY(se) &&
+        WDL_NORMALLY(se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && 
+        WDL_NORMALLY(se->socket[0]>=0))
     {
       fds[nfds].fd = se->socket[0];
       fds[nfds].events = POLLIN;
@@ -270,8 +272,9 @@ again:
     if (res>0) for (x = 0; x < numObjs; x ++)
     {
       SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)objs[x];
-      if ((se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && 
-          se->socket[0]>=0) 
+      if (WDL_NORMALLY(se) &&
+          WDL_NORMALLY(se->hdr.type == INTERNAL_OBJECT_EXTERNALSOCKET || se->hdr.type == INTERNAL_OBJECT_SOCKETEVENT) && 
+          WDL_NORMALLY(se->socket[0]>=0))
       {
         if (fds[pos].revents & POLLIN)
         {
@@ -294,7 +297,7 @@ again:
 DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
 {
   SWELL_InternalObjectHeader *hdr=(SWELL_InternalObjectHeader*)hand;
-  if (!hdr) return WAIT_FAILED;
+  if (WDL_NOT_NORMALLY(!hdr)) return WAIT_FAILED;
   
   switch (hdr->type)
   {
@@ -366,7 +369,7 @@ DWORD WaitForSingleObject(HANDLE hand, DWORD msTO)
     case INTERNAL_OBJECT_SOCKETEVENT:
       {
         SWELL_InternalObjectHeader_SocketEvent *se = (SWELL_InternalObjectHeader_SocketEvent *)hdr;
-        if (se->socket[0]<0) Sleep(msTO!=INFINITE?msTO:1);
+        if (WDL_NOT_NORMALLY(se->socket[0]<0)) Sleep(msTO!=INFINITE?msTO:1);
         else
         {
 again:
@@ -533,7 +536,7 @@ BOOL SetThreadPriority(HANDLE hand, int prio)
   }
 #endif
 
-  if (!evt || evt->hdr.type != INTERNAL_OBJECT_THREAD) return FALSE;
+  if (WDL_NOT_NORMALLY(!evt || evt->hdr.type != INTERNAL_OBJECT_THREAD)) return FALSE;
   
   if (evt->done) return FALSE;
     
@@ -591,7 +594,7 @@ BOOL SetThreadPriority(HANDLE hand, int prio)
 BOOL SetEvent(HANDLE hand)
 {
   SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hand;
-  if (!evt) return FALSE;
+  if (WDL_NOT_NORMALLY(!evt)) return FALSE;
   if (evt->hdr.type == INTERNAL_OBJECT_EVENT) 
   {
     pthread_mutex_lock(&evt->mutex);
@@ -623,12 +626,13 @@ BOOL SetEvent(HANDLE hand)
     }
     return TRUE;
   }
+  WDL_ASSERT(false);
   return FALSE;
 }
 BOOL ResetEvent(HANDLE hand)
 {
   SWELL_InternalObjectHeader_Event *evt=(SWELL_InternalObjectHeader_Event*)hand;
-  if (!evt) return FALSE;
+  if (WDL_NOT_NORMALLY(!evt)) return FALSE;
   if (evt->hdr.type == INTERNAL_OBJECT_EVENT) 
   {
     evt->isSignal=false;
@@ -647,6 +651,7 @@ BOOL ResetEvent(HANDLE hand)
     }
     return TRUE;
   }
+  WDL_ASSERT(false);
   return FALSE;
 }
 
@@ -894,7 +899,7 @@ HINSTANCE LoadLibraryGlobals(const char *fn, bool symbolsAsGlobals)
 
 void *GetProcAddress(HINSTANCE hInst, const char *procName)
 {
-  if (!hInst) return 0;
+  if (WDL_NOT_NORMALLY(!hInst)) return 0;
 
   SWELL_HINSTANCE *rec=(SWELL_HINSTANCE*)hInst;
 
@@ -916,7 +921,7 @@ void *GetProcAddress(HINSTANCE hInst, const char *procName)
 
 BOOL FreeLibrary(HINSTANCE hInst)
 {
-  if (!hInst) return FALSE;
+  if (WDL_NOT_NORMALLY(!hInst)) return FALSE;
 
   WDL_MutexLock lock(&s_libraryMutex);
 
@@ -955,6 +960,7 @@ BOOL FreeLibrary(HINSTANCE hInst)
 void* SWELL_GetBundle(HINSTANCE hInst)
 {
   SWELL_HINSTANCE* rec=(SWELL_HINSTANCE*)hInst;
+  WDL_ASSERT(rec!=NULL);
 #ifdef SWELL_TARGET_OSX
   if (rec) return rec->bundleinstptr;
 #else
