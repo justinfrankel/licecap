@@ -438,14 +438,14 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("SysTreeView32")
     if (move_res == (LRESULT)-1) return NSDragOperationNone;
     if (move_res == (LRESULT)-2) // move to end
     {
-      HTREEITEM par = NULL;
+      HTREEITEM par_item = NULL;
       HTREEITEM li = self->m_items ? self->m_items->Get(self->m_items->GetSize()-1) : NULL;
       while (li && li->m_children.GetSize())
       {
-        par = li;
+        par_item = li;
         li = li->m_children.Get(li->m_children.GetSize()-1);
       }
-      if (par && par->m_children.GetSize()) [self setDropItem:par->m_dh dropChildIndex:par->m_children.GetSize()];
+      if (par_item && par_item->m_children.GetSize()) [self setDropItem:par_item->m_dh dropChildIndex:par_item->m_children.GetSize()];
     }
     else if (move_res >= 65536)
     {
