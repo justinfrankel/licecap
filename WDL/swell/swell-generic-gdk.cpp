@@ -1696,6 +1696,7 @@ void swell_oswindow_invalidate(HWND hwnd, const RECT *r)
 
 bool OpenClipboard(HWND hwndDlg) 
 {
+  RegisterClipboardFormat(NULL);
   s_clip_hwnd=hwndDlg ? hwndDlg : SWELL_topwindows; 
   if (s_clipboard_getstate)
   {
@@ -1779,6 +1780,7 @@ UINT EnumClipboardFormats(UINT lastfmt)
 
 HANDLE GetClipboardData(UINT type)
 {
+  RegisterClipboardFormat(NULL);
   if (type == CF_TEXT)
   {
     return req_clipboard(utf8atom());
@@ -1794,6 +1796,7 @@ void EmptyClipboard()
 
 void SetClipboardData(UINT type, HANDLE h)
 {
+  RegisterClipboardFormat(NULL);
   if (type == CF_TEXT)
   {
     if (s_clipboard_setstate) { GlobalFree(s_clipboard_setstate); s_clipboard_setstate=NULL; }
@@ -1822,6 +1825,12 @@ void SetClipboardData(UINT type, HANDLE h)
 
 UINT RegisterClipboardFormat(const char *desc)
 {
+  if (!m_clip_curfmts.GetSize())
+  {
+    m_clip_curfmts.Add(strdup("SWELL__CF_TEXT"));
+    m_clip_curfmts.Add(strdup("SWELL__CF_HDROP"));
+  }
+
   if (!desc || !*desc) return 0;
   int x;
   const int n = m_clip_curfmts.GetSize();

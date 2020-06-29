@@ -793,12 +793,6 @@ SWELL_API_DEFINE(void, SetClipboardData,(UINT type, HANDLE h))
 SWELL_API_DEFINE(UINT, RegisterClipboardFormat,(const char *desc))
 SWELL_API_DEFINE(UINT, EnumClipboardFormats,(UINT lastfmt))
 
-#ifndef CF_TEXT
-  // do not use 'static int globalvalue = CF_TEXT' as this will cause problems (RegisterClipboardFormat() being called too soon!).
-#define CF_TEXT (RegisterClipboardFormat("SWELL__CF_TEXT"))
-#define CF_HDROP (RegisterClipboardFormat("SWELL__CF_HDROP"))
-#endif
-
 SWELL_API_DEFINE(HANDLE, GlobalAlloc,(int flags, int sz))
 SWELL_API_DEFINE(void *, GlobalLock,(HANDLE h))
 SWELL_API_DEFINE(int, GlobalSize,(HANDLE h))

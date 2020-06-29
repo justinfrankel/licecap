@@ -5530,9 +5530,7 @@ static WDL_PtrList<swell_pendingClipboardStates> m_clipsPending;
 bool OpenClipboard(HWND hwndDlg)
 {
   m_clipsPending.Empty(true);
-
-  CF_TEXT; // ensure these types are registered
-  CF_HDROP;
+  RegisterClipboardFormat(NULL);
 
   NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
   m_clip_curfmts.Empty();
@@ -5556,7 +5554,8 @@ bool OpenClipboard(HWND hwndDlg)
       int y;
       for (y = 0; y < m_clip_fmts.GetSize(); y ++)
       {
-        if ([s compare:(NSString *)m_clip_fmts.Get(y)]==NSOrderedSame)
+        NSString *cs = m_clip_fmts.Get(y);
+        if (cs && [s compare:cs]==NSOrderedSame)
         {
           char *tok = (char*)(INT_PTR)(y+1);
           if (m_clip_curfmts.Find(tok)<0) m_clip_curfmts.Add(tok);
@@ -5580,20 +5579,28 @@ void CloseClipboard() // frees any remaining items in clipboard
     
     NSMutableArray *ar = [[NSMutableArray alloc] initWithCapacity:m_clipsPending.GetSize()];
     
+    int hdrop_cnt=0;
     for (x=0;x<m_clipsPending.GetSize();x++)
     {
       swell_pendingClipboardStates *cs=m_clipsPending.Get(x);
-      NSString *fmt=m_clip_fmts.Get(cs->type-1);
-      if (fmt) [ar addObject:fmt];
+      if (cs->type == CF_HDROP)
+      {
+        hdrop_cnt++;
+      }
+      else
+      {
+        NSString *fmt=m_clip_fmts.Get(cs->type-1);
+        if (fmt) [ar addObject:fmt];
+      }
     }
-    if ([ar count])
+
+    if (hdrop_cnt || [ar count])
     {
-      [pasteboard declareTypes:ar owner:nil];
+      if ([ar count])
+        [pasteboard declareTypes:ar owner:nil];
       for (x=0;x<m_clipsPending.GetSize();x++)
       {
         swell_pendingClipboardStates *cs=m_clipsPending.Get(x);
-        NSString *fmt=m_clip_fmts.Get(cs->type-1);
-        if (!fmt) continue;
         
         void *buf=GlobalLock(cs->h);
         if (buf)
@@ -5607,7 +5614,7 @@ void CloseClipboard() // frees any remaining items in clipboard
               memcpy(t,buf,bufsz);
               t[bufsz]=0;
               NSString *s = (NSString*)SWELL_CStringToCFString(t);
-              [pasteboard setString:s forType:fmt];
+              [pasteboard setString:s forType:NSStringPboardType];
               [s release];
               free(t);
             }
@@ -5643,8 +5650,12 @@ void CloseClipboard() // frees any remaining items in clipboard
           }
           else
           {
-            NSData *data=[NSData dataWithBytes:buf length:bufsz];
-            [pasteboard setData:data forType:fmt];
+            NSString *fmt=m_clip_fmts.Get(cs->type-1);
+            if (fmt)
+            {
+              NSData *data=[NSData dataWithBytes:buf length:bufsz];
+              [pasteboard setData:data forType:fmt];
+            }
           }
           GlobalUnlock(cs->h);
         }
@@ -5664,15 +5675,14 @@ UINT EnumClipboardFormats(UINT lastfmt)
 
 HANDLE GetClipboardData(UINT type)
 {
-  NSString *fmt=m_clip_fmts.Get(type-1);
-  if (!fmt) return 0;
+  RegisterClipboardFormat(NULL);
   NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
-  
+
   HANDLE h=0;
   if (type == CF_TEXT)
   {
     [pasteboard types];
-    NSString *str = [pasteboard stringForType:fmt];
+    NSString *str = [pasteboard stringForType:NSStringPboardType];
     if (str)
     {
       int l = (int) ([str length]*4 + 32);
@@ -5681,7 +5691,7 @@ HANDLE GetClipboardData(UINT type)
       SWELL_CFStringToCString(str,buf,l);
       buf[l-1]=0;
       l = (int) (strlen(buf)+1);
-      h=GlobalAlloc(0,l);  
+      h=GlobalAlloc(0,l);
       memcpy(GlobalLock(h),buf,l);
       GlobalUnlock(h);
       free(buf);
@@ -5725,17 +5735,20 @@ HANDLE GetClipboardData(UINT type)
   }
   else
   {
-    
-    NSData *data=[pasteboard dataForType:fmt];
-    if (!data) return 0; 
-    int l = (int)[data length];
-    h=GlobalAlloc(0,l);  
-    if (h) memcpy(GlobalLock(h),[data bytes],l);
-    GlobalUnlock(h);
+    NSString *fmt=m_clip_fmts.Get(type-1);
+    if (fmt)
+    {
+      NSData *data=[pasteboard dataForType:fmt];
+      if (!data) return 0;
+      int l = (int)[data length];
+      h=GlobalAlloc(0,l);
+      if (h) memcpy(GlobalLock(h),[data bytes],l);
+      GlobalUnlock(h);
+    }
   }
-  
+
   if (h) m_clip_recs.Add(h);
-	return h;
+  return h;
 }
 
 void EmptyClipboard()
@@ -5746,23 +5759,26 @@ void EmptyClipboard()
 
 void SetClipboardData(UINT type, HANDLE h)
 {
-  m_clipsPending.Add(new swell_pendingClipboardStates(type,h));    
+  m_clipsPending.Add(new swell_pendingClipboardStates(type,h));
 }
 
 UINT RegisterClipboardFormat(const char *desc)
 {
-  NSString *s=NULL;
-  if (!strcmp(desc,"SWELL__CF_TEXT")) 
+  if (!m_clip_fmts.GetSize())
   {
-    s=NSStringPboardType;
-    [s retain];
+    m_clip_fmts.Add([NSStringPboardType retain]); // CF_TEXT
+    m_clip_fmts.Add(NULL); // CF_HDROP
   }
-  if (!s) s=(NSString*)SWELL_CStringToCFString(desc);
+  if (!desc || !*desc) return 0;
+
+  if (!strcmp(desc,"SWELL__CF_TEXT")) return CF_TEXT; // for legacy SWELL users
+
+  NSString *s=(NSString*)SWELL_CStringToCFString(desc);
   int x;
   for (x = 0; x < m_clip_fmts.GetSize(); x ++)
   {
     NSString *ts=m_clip_fmts.Get(x);
-    if ([ts compare:s]==NSOrderedSame)
+    if (ts && [ts compare:s]==NSOrderedSame)
     {
       [s release];
       return x+1;

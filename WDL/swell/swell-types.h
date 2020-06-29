@@ -1292,6 +1292,8 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define GHND (GMEM_MOVEABLE|GM_ZEROINIT)
 #define GPTR (GMEM_FIXED|GMEM_ZEROINIT)
 
+#define CF_TEXT (1)
+#define CF_HDROP (2)
 
 #define _MCW_RC         0x00000300              /* Rounding Control */
 #define _RC_NEAR        0x00000000              /*   near */
