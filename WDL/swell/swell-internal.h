@@ -89,6 +89,9 @@ struct HTREEITEM__;
 
 #ifdef __OBJC__
 
+#ifndef MAC_OS_X_VERSION_10_7
+typedef struct _NSDraggingSession NSDraggingSession;
+#endif
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 typedef int NSInteger;
