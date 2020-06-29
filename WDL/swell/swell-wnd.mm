@@ -5533,10 +5533,9 @@ bool OpenClipboard(HWND hwndDlg)
 
   CF_TEXT; // ensure this type is registered
   
-  NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+  NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
   m_clip_curfmts.Empty();
   NSArray *ar=[pasteboard types];
-
   
   if (ar && [ar count])
   {
@@ -5569,8 +5568,7 @@ void CloseClipboard() // frees any remaining items in clipboard
   if (m_clipsPending.GetSize())
   {
     int x;
-    for (x=0;x<m_clipsPending.GetSize() && m_clipsPending.Get(x)->type != CF_TEXT;x++);
-    NSPasteboard *pasteboard = x<m_clipsPending.GetSize() ? [NSPasteboard generalPasteboard] : [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
     
     NSMutableArray *ar = [[NSMutableArray alloc] initWithCapacity:m_clipsPending.GetSize()];
     
@@ -5620,7 +5618,7 @@ void CloseClipboard() // frees any remaining items in clipboard
   }  
 }
 
-UINT EnumClipboardFormats(UINT lastfmt) // won't enumerate CF_TEXT (since thats a separate pasteboard)
+UINT EnumClipboardFormats(UINT lastfmt)
 {
   if (!m_clip_curfmts.GetSize()) return 0;
   if (lastfmt == 0) return (UINT)(INT_PTR)m_clip_curfmts.Get(0);
@@ -5637,7 +5635,7 @@ HANDLE GetClipboardData(UINT type)
 {
   NSString *fmt=m_clip_fmts.Get(type-1);
   if (!fmt) return 0;
-  NSPasteboard *pasteboard = type == CF_TEXT ? [NSPasteboard generalPasteboard] : [NSPasteboard pasteboardWithName:@"SWELL_APP"];
+  NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
   
   HANDLE h=0;
   if (type == CF_TEXT)
