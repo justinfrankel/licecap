@@ -5558,8 +5558,8 @@ bool OpenClipboard(HWND hwndDlg)
       {
         if ([s compare:(NSString *)m_clip_fmts.Get(y)]==NSOrderedSame)
         {
-          if (m_clip_curfmts.Find((char*)(INT_PTR)(y+1))<0)
-            m_clip_curfmts.Add((char*)(INT_PTR)(y+1));
+          char *tok = (char*)(INT_PTR)(y+1);
+          if (m_clip_curfmts.Find(tok)<0) m_clip_curfmts.Add(tok);
           break;
         }
       }
@@ -5657,15 +5657,9 @@ void CloseClipboard() // frees any remaining items in clipboard
 
 UINT EnumClipboardFormats(UINT lastfmt)
 {
-  if (!m_clip_curfmts.GetSize()) return 0;
   if (lastfmt == 0) return (UINT)(INT_PTR)m_clip_curfmts.Get(0);
-  int x;
-  for (x = m_clip_curfmts.GetSize()-2; x >= 0; x--) // scan backwards to avoid dupes causing infinite loops
-  {
-    if ((UINT)(INT_PTR)m_clip_curfmts.Get(x) == lastfmt)
-      return (UINT)(INT_PTR)m_clip_curfmts.Get(x+1);
-  }
-  return 0;
+  const int idx = m_clip_curfmts.Find((char *)(INT_PTR)lastfmt);
+  return idx >= 0 ? (UINT)(INT_PTR)m_clip_curfmts.Get(idx+1) : 0;
 }
 
 HANDLE GetClipboardData(UINT type)
