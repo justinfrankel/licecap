@@ -5598,6 +5598,8 @@ void CloseClipboard() // frees any remaining items in clipboard
     {
       if ([ar count])
         [pasteboard declareTypes:ar owner:nil];
+      else if (SWELL_GetOSXVersion() >= 0x1060)
+        [pasteboard clearContents];
       for (x=0;x<m_clipsPending.GetSize();x++)
       {
         swell_pendingClipboardStates *cs=m_clipsPending.Get(x);
