@@ -5531,10 +5531,18 @@ bool OpenClipboard(HWND hwndDlg)
 {
   m_clipsPending.Empty(true);
 
-  CF_TEXT; // ensure this type is registered
-  
+  CF_TEXT; // ensure these types are registered
+  CF_HDROP;
+
   NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
   m_clip_curfmts.Empty();
+  if (SWELL_GetOSXVersion()>=0x1060)
+  {
+    NSArray *list = [pasteboard
+      readObjectsForClasses:[NSArray arrayWithObject:[NSURL class]]
+      options:[NSMutableDictionary dictionaryWithCapacity:1]];
+    if ([list count]) m_clip_curfmts.Add((char*)(INT_PTR)CF_HDROP);
+  }
   NSArray *ar=[pasteboard types];
   
   if (ar && [ar count])
@@ -5604,6 +5612,35 @@ void CloseClipboard() // frees any remaining items in clipboard
               free(t);
             }
           }
+          else if (cs->type == CF_HDROP)
+          {
+            if (WDL_NORMALLY(bufsz > sizeof(DROPFILES)))
+            {
+              const DROPFILES *hdr = (const DROPFILES *)buf;
+              if (
+                  WDL_NORMALLY(hdr->pFiles < bufsz) &&
+                  WDL_NORMALLY(!hdr->fWide) // todo deal with UTF-16
+              )
+              {
+                NSMutableArray *list = [NSMutableArray arrayWithCapacity:20];
+                const char *rd = (const char *)buf;
+                DWORD rdo = hdr->pFiles;
+                while (rdo < bufsz && rd[rdo])
+                {
+                  NSString *fnstr=(NSString *)SWELL_CStringToCFString(rd+rdo);
+                  NSURL *url = [NSURL fileURLWithPath:fnstr];
+                  [fnstr release];
+                  if (url) [list addObject:url];
+                  rdo += strlen(rd+rdo)+1;
+                }
+
+                if ([list count] && SWELL_GetOSXVersion() >= 0x1060)
+                {
+                  [pasteboard writeObjects:list];
+                }
+              }
+            }
+          }
           else
           {
             NSData *data=[NSData dataWithBytes:buf length:bufsz];
@@ -5654,6 +5691,42 @@ HANDLE GetClipboardData(UINT type)
       memcpy(GlobalLock(h),buf,l);
       GlobalUnlock(h);
       free(buf);
+    }
+  }
+  else if (type == CF_HDROP)
+  {
+    if (SWELL_GetOSXVersion()>=0x1060)
+    {
+      [pasteboard types];
+      NSArray *list = [pasteboard
+        readObjectsForClasses:[NSArray arrayWithObject:[NSURL class]]
+        options:[NSMutableDictionary dictionaryWithCapacity:1]
+      ];
+      int nf = (int) [list count];
+      if (nf > 0)
+      {
+        WDL_TypedQueue<char> flist;
+        flist.Add(NULL,sizeof(DROPFILES));
+        for (int x=0;x<nf;x++)
+        {
+          NSURL *url = (NSURL *)[list objectAtIndex:x];
+          if ([url isFileURL])
+          {
+            const char *ptr = [[url path] UTF8String];
+            if (ptr && *ptr) flist.Add(ptr, strlen(ptr)+1);
+          }
+        }
+        if (flist.GetSize()>sizeof(DROPFILES))
+        {
+          flist.Add("",1);
+          DROPFILES *hdr = (DROPFILES*)flist.Get();
+          memset(hdr,0,sizeof(*hdr));
+          hdr->pFiles = sizeof(DROPFILES);
+          h=GlobalAlloc(0,flist.GetSize());
+          if (h) memcpy(GlobalLock(h),flist.Get(),flist.GetSize());
+          GlobalUnlock(h);
+        }
+      }
     }
   }
   else
