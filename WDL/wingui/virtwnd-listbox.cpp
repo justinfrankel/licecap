@@ -42,6 +42,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_align=-1;
   m_rh=14;
   m_maxcolwidth=m_mincolwidth=0;
+  m_colgap=0;
   m_lsadj=-1000;
   m_font=0;
   m_clickmsg=0;
@@ -277,8 +278,8 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
   const int num_cols = layout.columns;
   for (int colpos = 0; colpos < num_cols; colpos ++)
   {
-    int col_x = r.left + leftrightbuttonsize + (usedw*colpos) / num_cols;
-    int col_w = r.left + leftrightbuttonsize + (usedw*(colpos+1)) / num_cols - col_x;
+    int col_x = r.left + leftrightbuttonsize + ((usedw+m_colgap)*colpos) / num_cols;
+    int col_w = r.left + leftrightbuttonsize + ((usedw+m_colgap)*(colpos+1)) / num_cols - col_x - m_colgap;
     int y=r.top;
     for (;;)
     {

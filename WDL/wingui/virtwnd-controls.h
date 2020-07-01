@@ -333,6 +333,8 @@ class WDL_VirtualListBox : public WDL_VWnd
     int GetItemHeight(int idx); // usually row height but not always
     int GetMaxColWidth() { return m_maxcolwidth; }
     int GetMinColWidth() { return m_mincolwidth; }
+    void SetColGap(int gap) { m_colgap = gap; }
+    int GetColGap() const { return m_colgap; }
 
     void SetDroppedMessage(int msg) { m_dropmsg=msg; }
     void SetClickedMessage(int msg) { m_clickmsg=msg; }
@@ -377,7 +379,9 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_viewoffs;
     int m_align;
     int m_margin_r, m_margin_l;
-    int m_rh,m_maxcolwidth,m_mincolwidth ;
+    int m_rh;
+    int m_maxcolwidth, m_mincolwidth;
+    int m_colgap;
     int m_scrollbuttonsize;
     int m_lsadj;
     LICE_IFont *m_font;
