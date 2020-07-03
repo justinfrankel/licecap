@@ -60,10 +60,11 @@ static bool items_fit(int test_h, const int *heights, int heights_sz, int h, int
   int y=test_h, cols=1;
   for (int item = 0; item < heights_sz; item ++)
   {
-    int rh = heights[item];
+    int rh = heights[item] & WDL_VirtualListBox::ITEMH_MASK;
     if (y > 0 && y + rh > h) 
     {
-      if (max_cols == 1 && y + rh_base <= h) return item == heights_sz-1; // allow partial of larger item in single column mode
+      if (max_cols == 1 && !(heights[item]&WDL_VirtualListBox::ITEMH_FLAG_NOSQUISH) && 
+            y + rh_base <= h) return item == heights_sz-1; // allow partial of larger item in single column mode
       if (++cols > max_cols) return false;
       y=0;
     }
@@ -102,15 +103,16 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   int item;
   for (item = startitem; item < num_items; item ++)
   {
-    int rh = GetItemHeight(item);
+    int flag=0;
+    int rh = GetItemHeight(item, &flag);
     if (y > 0 && y + rh > h) 
     {
-      if (max_cols == 1 && y + rh_base <= h) s_heights.Add(rh); // allow partial of larger item in single column mode
+      if (max_cols == 1 && !(flag&ITEMH_FLAG_NOSQUISH) && y + rh_base <= h) s_heights.Add(rh | flag); // allow partial of larger item in single column mode
       if (cols >= max_cols) break;
       cols++;
       y=0;
     }
-    s_heights.Add(rh);
+    s_heights.Add(rh | flag);
     y += rh;
   }
   if (item >= num_items)
@@ -119,9 +121,10 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
     {
       const int use_h = h - ((max_cols == 1 && startitem>1) ? m_scrollbuttonsize : 0);
 
-      int rh = GetItemHeight(startitem-1);
+      int flag=0;
+      int rh = GetItemHeight(startitem-1, &flag);
       if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols2,rh_base)) break;
-      s_heights.Insert(rh,0);
+      s_heights.Insert(rh | flag,0);
       startitem--;
     }
   }
@@ -285,13 +288,17 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
     {
       int ly=y;
       const int idx = itempos-startpos;
-      const int rh = ((idx >= 0 && idx < layout.heights->GetSize()) ? 
-           layout.heights->Get()[idx] : 
-         GetItemHeight(itempos)) * rscale / WDL_VWND_SCALEBASE;
+      int rh,flag;
+      if (idx >= 0 && idx < layout.heights->GetSize())
+        rh = layout.GetHeight(idx,&flag);
+      else
+        rh = GetItemHeight(itempos,&flag);
+      rh = rh * rscale / WDL_VWND_SCALEBASE;
+
       y += rh;
       if (y > r.top+endpos) 
       {
-        if (y-rh + rh_base > r.top+endpos) break;
+        if (y+ ((flag&ITEMH_FLAG_NOSQUISH) ? 0 : -rh + rh_base) > r.top+endpos) break;
         if (colpos < num_cols-1) break;
         y = r.top+endpos; // size expanded-sized item to fit
       }
@@ -561,7 +568,7 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
     int y=0,i;
     for (i = 0;  i < layout->heights->GetSize(); i ++)
     {
-      y += layout->heights->Get()[i];
+      y += layout->GetHeight(i);
       if (y >= layout->item_area_h) break;
       m_viewoffs++;
     }
@@ -775,8 +782,9 @@ int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
   int nx = layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
   for (int x=0;x<n;x++)
   {
-    const int rh = layout.heights->Get()[x];
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) 
+    int flag=0;
+    const int rh = layout.GetHeight(x,&flag);
+    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) 
     { 
       if (++col >= layout.columns) break;
       y = 0;
@@ -808,12 +816,14 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
     int col = 0,y=0;
     for (int x=0;x<item;x++)
     {
-      const int rh = x < layout.heights->GetSize() ? layout.heights->Get()[x] : rh_base;
-      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 ||  y+rh_base > layout.item_area_h)) { col++; y = 0; }
+      int flag = 0;
+      const int rh = x < layout.heights->GetSize() ? layout.GetHeight(x,&flag) : rh_base;
+      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
       y += rh;
     }
-    const int rh = item < layout.heights->GetSize() ? layout.heights->Get()[item] : rh_base;
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+    int flag = 0;
+    const int rh = item < layout.heights->GetSize() ? layout.GetHeight(item,&flag) : rh_base;
+    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
     if (col >= layout.columns)  { if (r) memset(r,0,sizeof(RECT)); return false; }
 
     r->top = y;
@@ -856,8 +866,9 @@ int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
     const int nx = layout.leftrightbutton_w + (col++ * usewid) / layout.columns;
     for (;;)
     {
-      const int rh = idx < layout.heights->GetSize() ? layout.heights->Get()[idx] : rh_base;
-      if (ypos > 0 && ypos + rh > layout.item_area_h && (col < layout.columns-1 || ypos+rh_base > layout.item_area_h)) break;
+      int flag = 0;
+      const int rh = idx < layout.heights->GetSize() ? layout.GetHeight(idx,&flag) : rh_base;
+      if (ypos > 0 && ypos + rh > layout.item_area_h && (col < layout.columns-1 || (flag & ITEMH_FLAG_NOSQUISH) || ypos+rh_base > layout.item_area_h)) break;
       if (x < nx && y >= ypos && y < ypos+rh) return layout.startpos + idx;
       ypos += rh;
       idx++;
@@ -887,8 +898,9 @@ int WDL_VirtualListBox::GetViewOffset()
   return m_viewoffs;
 }
 
-int WDL_VirtualListBox::GetItemHeight(int idx)
+int WDL_VirtualListBox::GetItemHeight(int idx, int *flag)
 {
   const int a = m_GetItemHeight ? m_GetItemHeight(this,idx) : -1;
-  return a>=0 ? a : GetRowHeight();
+  if (flag) *flag = a<0 ? 0 : (a&~ITEMH_MASK);
+  return a>=0 ? (a&ITEMH_MASK) : GetRowHeight();
 }

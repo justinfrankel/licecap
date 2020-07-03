@@ -330,7 +330,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
     void SetScrollButtonSize(int sz) { m_scrollbuttonsize=sz; } // def 14
     int GetRowHeight() { return m_rh; }
-    int GetItemHeight(int idx); // usually row height but not always
+    int GetItemHeight(int idx, int *flag=NULL); // flag gets set to 0 or ITEMH_FLAG_NOSQUISH etc
     int GetMaxColWidth() { return m_maxcolwidth; }
     int GetMinColWidth() { return m_mincolwidth; }
     void SetColGap(int gap) { m_colgap = gap; }
@@ -353,6 +353,8 @@ class WDL_VirtualListBox : public WDL_VWnd
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm, int rscale);
+
+    enum { ITEMH_FLAG_NOSQUISH=0x1000000, ITEMH_MASK=0xffffff };
     int (*m_GetItemHeight)(WDL_VirtualListBox *sender, int idx); // returns -1 for default height
     void *m_GetItemInfo_ctx;
 
@@ -365,6 +367,11 @@ class WDL_VirtualListBox : public WDL_VWnd
       int leftrightbutton_w;
       int updownbutton_h;
       WDL_TypedBuf<int> *heights; // visible heights of items starting at startpos
+      int GetHeight(int idx, int *flag=NULL) const {
+        int v = heights->Get()[idx];
+        if (flag) *flag = v & ~ITEMH_MASK;
+        return v & ITEMH_MASK;
+      };
     };
   
     int IndexFromPtInt(int x, int y, const layout_info &layout);
