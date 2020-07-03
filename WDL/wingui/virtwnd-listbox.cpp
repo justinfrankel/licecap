@@ -80,7 +80,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   if (m_mincolwidth>0) 
   {
     max_cols = w / m_mincolwidth;
-    max_cols2 = (w - m_scrollbuttonsize*2) / m_mincolwidth;
+    max_cols2 = (w - m_scrollbuttonsize*2 - m_colgap*2) / m_mincolwidth;
     if (max_cols < 1) max_cols = 1;
     if (max_cols2 < 1) max_cols2 = 1;
   }
@@ -139,11 +139,11 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   layout->heights = &s_heights;
   int scroll_mode = has_scroll && cols > 0 ? cols == 1 ? 1 : 2 : 0;
 
-  if (scroll_mode == 1 && h - m_scrollbuttonsize < rh_base && w - m_scrollbuttonsize*2 >= m_mincolwidth/2)
+  if (scroll_mode == 1 && h - m_scrollbuttonsize < rh_base && w - m_scrollbuttonsize*2 - m_colgap*2 >= m_mincolwidth/2)
     scroll_mode = 2;
 
   layout->updownbutton_h = scroll_mode == 1 ? m_scrollbuttonsize : 0;
-  layout->leftrightbutton_w = scroll_mode == 2 ? m_scrollbuttonsize : 0;
+  layout->leftrightbutton_w = scroll_mode == 2 ? m_scrollbuttonsize+m_colgap : 0;
   layout->item_area_w = w - 2*layout->leftrightbutton_w;
   layout->item_area_h = h - layout->updownbutton_h;
 }
