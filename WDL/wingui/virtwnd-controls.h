@@ -304,9 +304,6 @@ class WDL_VirtualSlider : public WDL_VWnd
 };
 
 
-#define WDL_VWND_LISTBOX_ARROWINDEX 0x10000000
-#define WDL_VWND_LISTBOX_ARROWINDEX_LR 0x10000001
-
 class WDL_VirtualListBox : public WDL_VWnd
 {
   public:
@@ -328,7 +325,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetMaxColWidth(int cw) { m_maxcolwidth=cw; } // 0 = default = allow any sized columns
     void SetMinColWidth(int cw) { m_mincolwidth = cw; } // 0 = default = full width columns
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
-    void SetScrollButtonSize(int sz) { m_scrollbuttonsize=sz; } // def 14
+    void SetScrollbarSize(int sz) { m_scrollbar_size = sz; }
     int GetRowHeight() { return m_rh; }
     int GetItemHeight(int idx, int *flag=NULL); // flag gets set to 0 or ITEMH_FLAG_NOSQUISH etc
     int GetMaxColWidth() { return m_maxcolwidth; }
@@ -348,7 +345,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetViewOffset(int offs);
     int GetViewOffset();
 
-    RECT *GetScrollButtonRect(bool isDown) { return m_lastscrollbuttons[isDown?1:0].left<m_lastscrollbuttons[isDown?1:0].right ? &m_lastscrollbuttons[isDown?1:0]:NULL; }
+    bool AreColumnsLeftToRight() const { return m_GetItemHeight == NULL; }
 
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
@@ -363,9 +360,9 @@ class WDL_VirtualListBox : public WDL_VWnd
     struct layout_info {
       int startpos; // first visible item index
       int columns; // 1 or more
-      int item_area_w, item_area_h; // area for items (starting at leftrightbutton_width,0)
-      int leftrightbutton_w;
-      int updownbutton_h;
+      int item_area_w, item_area_h; // area for items
+      int vscrollbar_w;
+      int hscrollbar_h;
       WDL_TypedBuf<int> *heights; // visible heights of items starting at startpos
       int GetHeight(int idx, int *flag=NULL) const {
         int v = heights->Get()[idx];
@@ -374,9 +371,10 @@ class WDL_VirtualListBox : public WDL_VWnd
       };
     };
   
+    bool ScrollbarHit(int xpos, int ypos, const layout_info &layout);
+    int ScrollbarGetInfo(int *start, int *size, int num_items, const layout_info &layout); // returns 1 for vscroll, 2 for hscroll, 0 if no scrolling
     int IndexFromPtInt(int x, int y, const layout_info &layout);
     void CalcLayout(int num_items, layout_info *layout);
-    bool HandleScrollClicks(int xpos, int ypos, const layout_info *layout);
     void DoScroll(int dir, const layout_info *layout);
   
     int m_cap_state;
@@ -389,12 +387,11 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_rh;
     int m_maxcolwidth, m_mincolwidth;
     int m_colgap;
-    int m_scrollbuttonsize;
+    int m_scrollbar_size;
     int m_lsadj;
     LICE_IFont *m_font;
     bool m_grayed;
-
-    RECT m_lastscrollbuttons[2];
+    bool m_scrollbar_expanded; // mouseover
 };
 
 
