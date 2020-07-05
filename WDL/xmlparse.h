@@ -523,6 +523,9 @@ class wdl_xml_parser {
         }
         else
         {
+          if (!elem && element_root)
+            return "multiple top level elements";
+
           if (*tok == '-' || *tok == '.' || (*tok >= '0' && *tok <= '9'))
             return "element name must not begin with .- or number";
 
@@ -547,7 +550,6 @@ class wdl_xml_parser {
           {
             return "unknown token in element"; 
           }
-          if (!elem) return NULL; // finish after parsing a top level block
         }
         cnt++;
       }
