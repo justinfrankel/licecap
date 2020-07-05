@@ -392,7 +392,7 @@ class wdl_xml_parser {
 
         const char *tok = get_tok(elem != NULL);
         const int start_line = m_last_line, start_col = m_last_col;
-        if (!tok) return elem ? "unterminated block" : NULL;
+        if (!tok) return m_err = (elem ? "unterminated block" : NULL);
         if (*tok != '<') return "expected < tag";
     
         tok = get_tok(true);
