@@ -20,7 +20,7 @@
       
 very very very lightweight XML parser
 
-reads: <?xml, <!DOCTYPE, <![CDATA[, &lt;&gt;&amp;&quot;&apos;&#xABC;&#123; ignores unknown <?tag blocks?>
+reads: <?xml, <!DOCTYPE, <![CDATA[, &lt;&gt;&amp;&quot;&apos;&#xABC;&#123; top level <? blocks, ignores unknown <?tag blocks?> inside elements
 always uses 8-bit characters, uses UTF-8 encoding for &#xyz
 relatively strict. for overflow safety, enforces a token length limit of 512MB
 
@@ -82,6 +82,7 @@ class wdl_xml_parser {
       delete element_xml; 
       delete element_root; 
       element_doctype_tokens.Empty(true,free); 
+      element_root_meta.Empty(true);
     }
 
     const char *parse() // call only once, returns NULL on success, error message on failure
@@ -101,6 +102,8 @@ class wdl_xml_parser {
     // output
     WDL_PtrList<char> element_doctype_tokens; // tokens after <!DOCTYPE
     wdl_xml_element *element_xml, *element_root;
+
+    WDL_PtrList<wdl_xml_element> element_root_meta; // any topen level <? elements?> other than <?xml which goes into element_xml
 
     // get location  after parse() returns error
     int getLine() const { return m_last_line; }
@@ -474,7 +477,7 @@ class wdl_xml_parser {
 
           if (!strcmp(tok,"xml"))
           {
-            if (elem || cnt || element_xml) return "<?xml must begin document";
+            if (elem || cnt || element_xml || element_root_meta.GetSize()) return "<?xml must begin document";
 
             element_xml = new wdl_xml_element("xml",start_line,start_col,m_sort_attributes);
             tok = parse_element_attributes(element_xml);
@@ -483,7 +486,18 @@ class wdl_xml_parser {
           }
           else
           {
-            if (!skip_until(tok, "?",">")) 
+            if (!elem)
+            {
+              wdl_xml_element *ne = new wdl_xml_element(tok,start_line,start_col,m_sort_attributes);
+              tok = parse_element_attributes(ne);
+              if (!tok || tok[0] != '?' || !(tok=get_tok(true)) || tok[0] != '>')
+              {
+                delete ne;
+                return "<? element not terminated";
+              }
+              element_root_meta.Add(ne);
+            }
+            else if (!skip_until(tok, "?",">")) // ignore <? inside elements
             {
               m_last_line=start_line;
               m_last_col=start_col;
