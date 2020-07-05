@@ -32,6 +32,7 @@ relatively strict. for overflow safety, enforces a token length limit of 512MB
 #include "assocarray.h"
 #include "wdlstring.h"
 #include "wdlutf8.h"
+#include "wdlcstring.h"
 
 class wdl_xml_element {
     static int attr_cmp(char **a, char **b) { return strcmp(*a,*b); }
@@ -92,9 +93,11 @@ class wdl_xml_parser {
       if (!m_tok.ResizeOK(256)) return "token buffer malloc fail";
 
       const char *p = parse_element_body(NULL);
-      if (m_err)
-        return *m_err ? m_err : p ? p : "unexpected end of file";
-      return p;
+      if (!m_err) return p;
+      if (!*m_err) m_err="unexpected end of file";
+      if (!p) return m_err;
+      snprintf(m_errbuf,sizeof(m_errbuf),"%s: %s",p,m_err);
+      return m_errbuf;
     }
 
     // output
@@ -113,6 +116,7 @@ class wdl_xml_parser {
     WDL_HeapBuf m_tok;
     const unsigned char *m_rdptr;
     const char *m_err; // NULL if no error, "" if EOF
+    char m_errbuf[128];
     int m_rdptr_len, m_line, m_col, m_lastchar, m_last_line,m_last_col;
     bool m_sort_attributes;
 
