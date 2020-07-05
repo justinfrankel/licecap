@@ -117,15 +117,28 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   }
   if (item >= num_items)
   {
-    while (startitem > 0)
+    layout->columns=wdl_max(min_cols,cols);
+    if (AreItemsLeftToRightFirst(*layout))
     {
-      const int use_h = h; // todo reduce height by m_scrollbar_size if 1 row and multiple columns?
+      int viscnt = layout->columns * (h/rh_base);
+      if (startitem + viscnt > num_items + layout->columns)
+      {
+        startitem = num_items+layout->columns-viscnt;
+        if (startitem < 0) startitem=0;
+      }
+    }
+    else
+    {
+      while (startitem > 0)
+      {
+        const int use_h = h; // todo reduce height by m_scrollbar_size if 1 row and multiple columns?
 
-      int flag=0;
-      int rh = GetItemHeight(startitem-1, &flag);
-      if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols2,rh_base)) break;
-      s_heights.Insert(rh | flag,0);
-      startitem--;
+        int flag=0;
+        int rh = GetItemHeight(startitem-1, &flag);
+        if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols2,rh_base)) break;
+        s_heights.Insert(rh | flag,0);
+        startitem--;
+      }
     }
   }
   const bool has_scroll = item < num_items || startitem > 0;
@@ -150,6 +163,13 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   layout->hscrollbar_h = scroll_mode == 2 ? m_scrollbar_size : 0;
   layout->item_area_w = w - layout->vscrollbar_w;
   layout->item_area_h = h - layout->hscrollbar_h;
+  if (AreItemsLeftToRightFirst(*layout))
+  {
+    int adj = layout->startpos%layout->columns;
+    for (int x = 0; x <adj; x++)
+      s_heights.Insert(rh_base,0);
+    layout->startpos -= adj;
+  }
 }
 
 static void maxSizePreservingAspect(int sw, int sh, int dw, int dh, int *outw, int *outh)
@@ -221,19 +241,19 @@ int WDL_VirtualListBox::ScrollbarGetInfo(int *start, int *size, int num_items, c
 {
   if (!layout.vscrollbar_w) return 0;
 
-  int num_cols = layout.columns;
-  if (num_cols<1) num_cols = 1;
-  // todo hscroll
-  int total = num_items / num_cols;
-  if (total<1) total=1;
-  int vis = (layout.heights->GetSize() + num_cols-1) / num_cols;
-  if (vis<1) vis=1;
-  if (vis > total) vis=total;
+  const int num_cols = wdl_max(layout.columns,1);
+  const int total_rows = wdl_max(num_items / num_cols,0) + 1;
+  const int rh_base = wdl_max(GetRowHeight(),1);
+  const int vis_rows = wdl_clamp(layout.item_area_h / rh_base,1,total_rows);
 
-  const int th = layout.item_area_h;
-  *start = (layout.startpos/num_cols * th) / total;
-  *size = (vis * th) / total;
+  *size = (vis_rows * layout.item_area_h) / total_rows;
+  if (total_rows > vis_rows)
+    *start = (layout.startpos/num_cols * (layout.item_area_h - *size)) / (total_rows-vis_rows);
+  else
+    *start = 0;
   if (*size<2) { if (*start>0) (*start)--; *size=2; }
+  if (*start + *size > layout.item_area_h) *start = layout.item_area_h - *size;
+  if (*start < 0) *start=0;
 
   return 1;
 }
@@ -255,12 +275,14 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
   layout_info layout;
   CalcLayout(num_items,&layout);
   m_viewoffs = layout.startpos; // latch to new startpos
+  const int num_cols = layout.columns;
+  const bool do_ltr = AreItemsLeftToRightFirst(layout);
 
   const int usedw = layout.item_area_w * rscale / WDL_VWND_SCALEBASE;
   const int vscrollsize = layout.vscrollbar_w * rscale / WDL_VWND_SCALEBASE;
   //const int hscrollsize = layout.hscrollbar_h * rscale / WDL_VWND_SCALEBASE;
   const int endpos=layout.item_area_h * rscale / WDL_VWND_SCALEBASE;
-  const int startpos = layout.startpos;
+  const int startpos = m_viewoffs;
   const int rh_base = GetRowHeight();
 
   if (r.right > r.left + usedw+vscrollsize) r.right=r.left+usedw+vscrollsize;
@@ -297,15 +319,14 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
 
   int itempos=startpos;
   
-  const int num_cols = layout.columns;
-  for (int colpos = 0; colpos < num_cols; colpos ++)
+  for (int colpos = 0; colpos < (do_ltr ? 1 : num_cols); colpos ++)
   {
     int col_x = r.left + ((usedw+m_colgap)*colpos) / num_cols;
     int col_w = r.left + ((usedw+m_colgap)*(colpos+1)) / num_cols - col_x - m_colgap;
-    int y=r.top;
+    int y=r.top, ly = y;
+    int cstate=0;
     for (;;)
     {
-      int ly=y;
       const int idx = itempos-startpos;
       int rh,flag;
       if (idx >= 0 && idx < layout.heights->GetSize())
@@ -314,12 +335,28 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         rh = GetItemHeight(itempos,&flag);
       rh = rh * rscale / WDL_VWND_SCALEBASE;
 
-      y += rh;
-      if (y > r.top+endpos) 
+      if (!do_ltr)
       {
-        if (y+ ((flag&ITEMH_FLAG_NOSQUISH) ? 0 : -rh + rh_base) > r.top+endpos) break;
-        if (colpos < num_cols-1) break;
-        y = r.top+endpos; // size expanded-sized item to fit
+        ly=y;
+        y += rh;
+        if (y > r.top+endpos) 
+        {
+          if (y+ ((flag&ITEMH_FLAG_NOSQUISH) ? 0 : -rh + rh_base) > r.top+endpos) break;
+          if (colpos < num_cols-1) break;
+          y = r.top+endpos; // size expanded-sized item to fit
+        }
+      }
+      else
+      {
+        col_x = r.left + ((usedw+m_colgap)*cstate) / num_cols;
+        col_w = r.left + ((usedw+m_colgap)*(cstate+1)) / num_cols - col_x - m_colgap;
+        if (!cstate)
+        {
+          ly = y;
+          y += rh;
+          if (y > r.top+endpos)  break;
+        }
+        if (++cstate == num_cols) cstate=0;
       }
 
       WDL_VirtualWnd_BGCfg *bkbm=0;
@@ -435,7 +472,12 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   if (dir < 0 && layout->columns>1)
   {
     int y=0;
-    while (m_viewoffs>0)
+    if (AreItemsLeftToRightFirst(*layout))
+    {
+      int np = wdl_max(0,m_viewoffs-layout->columns);
+      if (m_viewoffs != np) { m_viewoffs = np; y=1; }
+    }
+    else while (m_viewoffs>0)
     {
       y += GetItemHeight(--m_viewoffs);
       if (y >= layout->item_area_h) break;
@@ -444,8 +486,12 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   }
   else if (dir > 0 && layout->columns>1)
   {
-    int y=0,i;
-    for (i = 0;  i < layout->heights->GetSize(); i ++)
+    int y=0,i=1;
+    if (AreItemsLeftToRightFirst(*layout))
+    {
+      m_viewoffs+=layout->columns;
+    }
+    else for (i = 0;  i < layout->heights->GetSize(); i ++)
     {
       y += layout->GetHeight(i);
       if (y >= layout->item_area_h) break;
@@ -680,8 +726,30 @@ int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
   RECT *r = list->ResizeOK(n,false);
   if (!r) { list->Resize(0,false); return 0; }
   
+  const bool do_ltr = AreItemsLeftToRightFirst(layout);
   int col = 0, y=0;
   int xpos = 0;
+  if (do_ltr)
+  {
+    for (int x=0;x<n;x++)
+    {
+      if (++col == layout.columns)
+      {
+        col=0;
+        xpos = 0;
+        y += rh_base;
+      }
+      int nx = col*layout.item_area_w / layout.columns;
+      r->left = xpos;
+      r->right = nx;
+      r->top = y;
+      r->bottom = wdl_min(y + rh_base,layout.item_area_h);
+      r++;
+      xpos = nx;
+    }
+    return layout.startpos;
+  }
+
   int nx = (col+1)*layout.item_area_w / layout.columns;
   for (int x=0;x<n;x++)
   {
@@ -715,18 +783,35 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
   
   if (r)
   {
+    const bool do_ltr = AreItemsLeftToRightFirst(layout);
     const int rh_base = GetRowHeight();
     int col = 0,y=0;
     for (int x=0;x<item;x++)
     {
-      int flag = 0;
-      const int rh = x < layout.heights->GetSize() ? layout.GetHeight(x,&flag) : rh_base;
-      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
-      y += rh;
+      if (do_ltr)
+      {
+        if (++col == layout.columns)
+        {
+          y += rh_base;
+          col = 0;
+        }
+      }
+      else
+      {
+        int flag = 0;
+        const int rh = x < layout.heights->GetSize() ? layout.GetHeight(x,&flag) : rh_base;
+        if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+        y += rh;
+      }
     }
+
     int flag = 0;
     const int rh = item < layout.heights->GetSize() ? layout.GetHeight(item,&flag) : rh_base;
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+
+    if (!do_ltr)
+    {
+      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+    }
     if (col >= layout.columns)  { if (r) memset(r,0,sizeof(RECT)); return false; }
 
     r->top = y;
@@ -734,6 +819,10 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
     if (r->bottom > layout.item_area_h) r->bottom = layout.item_area_h;
     r->left = (col * layout.item_area_w) / layout.columns;
     r->right = ((col+1) * layout.item_area_w) / layout.columns;
+    if (col == layout.columns-1 && layout.vscrollbar_w && m_scrollbar_expanded)
+    {
+      r->right -= layout.vscrollbar_w; // exclude the expanded-scrollbar area from the rect
+    }
   }
   return true;
 }
@@ -748,9 +837,9 @@ int WDL_VirtualListBox::IndexFromPt(int x, int y)
 
 int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
 {
-  if (x >= layout.item_area_w + layout.vscrollbar_w) return -2;
+  if (x >= layout.item_area_w - (m_scrollbar_expanded ? layout.vscrollbar_w : 0)) return -2;
 
-  if (y < 0 || y >= layout.item_area_h || x< 0 || x >= layout.item_area_w) 
+  if (y < 0 || y >= layout.item_area_h || x < 0)
   {
     return -1;
   }
@@ -758,15 +847,34 @@ int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
   // step through visible items
   const int usewid=layout.item_area_w;
   int xpos = 0;
-  int col = 1;
+  int col = 0;
 
+  const int do_ltr = AreItemsLeftToRightFirst(layout);
   const int rh_base = GetRowHeight();
   int idx = 0;
-  for (;;)
+
+  if (do_ltr)
+  {
+    int ypos = 0;
+    for (;;)
+    {
+      const int nx = (++col * usewid) / layout.columns;
+      int flag = 0;
+      const int rh = idx < layout.heights->GetSize() ? layout.GetHeight(idx,&flag) : rh_base;
+      if (x < nx && y >= ypos && y < ypos+rh) return layout.startpos + idx;
+      if (col == layout.columns)
+      {
+        col = 0;
+        ypos += rh;
+      }
+      idx++;
+    }
+  }
+  else for (;;)
   {
     if (x < xpos) return -1;
     int ypos = 0;
-    const int nx = (col++ * usewid) / layout.columns;
+    const int nx = (++col * usewid) / layout.columns;
     for (;;)
     {
       int flag = 0;

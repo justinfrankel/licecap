@@ -345,8 +345,6 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetViewOffset(int offs);
     int GetViewOffset();
 
-    bool AreColumnsLeftToRight() const { return m_GetItemHeight == NULL; }
-
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm, int rscale);
@@ -370,7 +368,8 @@ class WDL_VirtualListBox : public WDL_VWnd
         return v & ITEMH_MASK;
       };
     };
-  
+
+    bool AreItemsLeftToRightFirst(const layout_info &layout) const { return m_GetItemHeight == NULL && layout.columns > 1; }
     bool ScrollbarHit(int xpos, int ypos, const layout_info &layout);
     int ScrollbarGetInfo(int *start, int *size, int num_items, const layout_info &layout); // returns 1 for vscroll, 2 for hscroll, 0 if no scrolling
     int IndexFromPtInt(int x, int y, const layout_info &layout);
