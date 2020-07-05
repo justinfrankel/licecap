@@ -1143,6 +1143,57 @@ static void OnButtonEvent(GdkEventButton *b)
 }
 
 
+static HANDLE urilistToDropFiles(const POINT *pt, const guchar *gptr, gint sz)
+{
+  HANDLE gobj=GlobalAlloc(0,sz+sizeof(DROPFILES));
+  if (!gobj) return NULL;
+
+  DROPFILES *df=(DROPFILES*)gobj;
+  df->pFiles = sizeof(DROPFILES);
+  if (pt) df->pt = *pt;
+  else df->pt.x = df->pt.y = 0;
+
+  df->fNC=FALSE;
+  df->fWide=FALSE;
+  guchar *pout = (guchar *)(df+1);
+  const guchar *rd = gptr;
+  const guchar *rd_end = rd + sz;
+  for (;;)
+  {
+    while (rd < rd_end && *rd && isspace(*rd)) rd++;
+    if (rd >= rd_end) break;
+
+    if (rd+7 < rd_end && !strnicmp((const char *)rd,"file://",7))
+    {
+      rd += 7;
+      int c=0;
+      while (rd < rd_end && *rd && !isspace(*rd))
+      {
+        int v1,v2;
+        if (*rd == '%' && rd+2 < rd_end && (v1=hex_parse(rd[1]))>=0 && (v2=hex_parse(rd[2]))>=0)
+        {
+          *pout++ = (v1<<4) | v2;
+          rd+=3;
+        }
+        else
+        {
+          *pout++ = *rd++;
+        }
+        c++;
+      }
+      if (c) *pout++=0;
+    }
+    else
+    {
+      while (rd < rd_end && *rd && !isspace(*rd)) rd++;
+    }
+  }
+  *pout++=0;
+  *pout++=0;
+
+  return gobj;
+}
+
 static void OnSelectionNotifyEvent(GdkEventSelection *b)
 {
   HWND hwnd = swell_oswindow_to_hwnd(b->window);
@@ -1169,51 +1220,11 @@ static void OnSelectionNotifyEvent(GdkEventSelection *b)
 
     if (sz>0 && gptr)
     {
-      HANDLE gobj=GlobalAlloc(0,sz+sizeof(DROPFILES));
+      POINT pt2 = s_ddrop_pt;
+      ScreenToClient(cw,&pt2);
+      HANDLE gobj = urilistToDropFiles(&pt2,gptr,sz);
       if (gobj)
       {
-        DROPFILES *df=(DROPFILES*)gobj;
-        df->pFiles = sizeof(DROPFILES);
-        df->pt = s_ddrop_pt;
-        ScreenToClient(cw,&df->pt);
-        df->fNC=FALSE;
-        df->fWide=FALSE;
-        guchar *pout = (guchar *)(df+1);
-        const guchar *rd = gptr;
-        const guchar *rd_end = rd + sz;
-        for (;;)
-        {
-          while (rd < rd_end && *rd && isspace(*rd)) rd++;
-          if (rd >= rd_end) break;
-
-          if (rd+7 < rd_end && !strnicmp((const char *)rd,"file://",7))
-          {
-            rd += 7;
-            int c=0;
-            while (rd < rd_end && *rd && !isspace(*rd))
-            {
-              int v1,v2;
-              if (*rd == '%' && rd+2 < rd_end && (v1=hex_parse(rd[1]))>=0 && (v2=hex_parse(rd[2]))>=0)
-              {
-                *pout++ = (v1<<4) | v2;
-                rd+=3;
-              }
-              else
-              {
-                *pout++ = *rd++;
-              }
-              c++;
-            }
-            if (c) *pout++=0;
-          }
-          else
-          {
-            while (rd < rd_end && *rd && !isspace(*rd)) rd++;
-          }
-        }
-        *pout++=0;
-        *pout++=0;
-
         SendMessage(cw,WM_DROPFILES,(WPARAM)gobj,0);
         GlobalFree(gobj);
       }
