@@ -326,6 +326,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetMinColWidth(int cw) { m_mincolwidth = cw; } // 0 = default = full width columns
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
     void SetScrollbarSize(int sz) { m_scrollbar_size = sz; }
+    int GetScrollbarSize() const { return m_scrollbar_size; }
     void SetScrollbarColor(COLORREF color) { m_scrollbar_color = color; }
     int GetRowHeight() { return m_rh; }
     int GetItemHeight(int idx, int *flag=NULL); // flag gets set to 0 or ITEMH_FLAG_NOSQUISH etc
