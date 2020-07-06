@@ -171,7 +171,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   layout->vscrollbar_w = scroll_mode == 1 ? m_scrollbar_size : 0;
   layout->hscrollbar_h = scroll_mode == 2 ? m_scrollbar_size : 0;
   layout->item_area_w = w - layout->vscrollbar_w;
-  layout->item_area_h = h - layout->hscrollbar_h;
+  layout->item_area_h = wdl_max(h - layout->hscrollbar_h,rh_base);
   if (AreItemsLeftToRightFirst(*layout))
   {
     int adj = layout->startpos%layout->columns;
@@ -491,6 +491,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
       }
       else
       {
+        if (drawposx+w > r.bottom) w = r.bottom - drawposx;
         LICE_FillRect(drawbm,r.left,drawposx,usedw,w, col,.25,LICE_BLIT_MODE_COPY);
         LICE_FillRect(drawbm,r.left+offs,drawposx,height,w, col,alpha,LICE_BLIT_MODE_COPY);
       }
