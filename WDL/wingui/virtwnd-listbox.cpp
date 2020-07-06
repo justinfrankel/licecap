@@ -785,63 +785,6 @@ void WDL_VirtualListBox::OnMouseUp(int xpos, int ypos)
   if (cmd) SendCommand(cmd,p1,p2,this);
 }
 
-int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
-{
-  const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
-  layout_info layout;
-  CalcLayout(num_items,&layout);
-
-  const int rh_base = GetRowHeight();
-  const int n = layout.heights->GetSize();
-  RECT *r = list->ResizeOK(n,false);
-  if (!r) { list->Resize(0,false); return 0; }
-  
-  const bool do_ltr = AreItemsLeftToRightFirst(layout);
-  int col = 0, y=0;
-  int xpos = 0;
-  if (do_ltr)
-  {
-    for (int x=0;x<n;x++)
-    {
-      if (++col == layout.columns)
-      {
-        col=0;
-        xpos = 0;
-        y += rh_base;
-      }
-      int nx = col*layout.item_area_w / layout.columns;
-      r->left = xpos;
-      r->right = nx;
-      r->top = y;
-      r->bottom = wdl_min(y + rh_base,layout.item_area_h);
-      r++;
-      xpos = nx;
-    }
-    return layout.startpos;
-  }
-
-  int nx = (col+1)*layout.item_area_w / layout.columns;
-  for (int x=0;x<n;x++)
-  {
-    int flag=0;
-    const int rh = layout.GetHeight(x,&flag);
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) 
-    { 
-      if (++col >= layout.columns) break;
-      y = 0;
-      xpos=nx;
-      nx = (col+1)*layout.item_area_w / layout.columns;
-    }
-    r->left = xpos;
-    r->right = nx;
-    r->top = y;
-    r->bottom = wdl_min(y + rh,layout.item_area_h);
-    r++;
-    y += rh;
-  }
-  return layout.startpos;
-}
-
 bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
 {
   const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;

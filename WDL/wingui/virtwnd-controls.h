@@ -338,7 +338,6 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetDragMessage(int msg) { m_dragmsg=msg; }
     int IndexFromPt(int x, int y);
     bool GetItemRect(int item, RECT *r); // returns FALSE if not onscreen
-    int GetVisibleItemRects(WDL_TypedBuf<RECT> *list);
 
     void SetGrayed(bool grayed) { m_grayed=grayed; }    
 
