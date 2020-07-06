@@ -28,6 +28,7 @@
 
 WDL_VirtualListBox::WDL_VirtualListBox()
 {
+  m_scrollbar_color = RGB(0,128,255);
   m_scrollbar_size=3;
   m_scrollbar_expanded = false;
   m_disable_ltr_cols = false;
@@ -482,15 +483,16 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         w*=2;
         alpha=0.5f;
       }
+      const LICE_pixel col = LICE_RGBA_FROMNATIVE(m_scrollbar_color,255);
       if (stype == 1)
       {
-        LICE_FillRect(drawbm,drawposx,r.top,w,endpos, LICE_RGBA(0,128,255,255),.125,LICE_BLIT_MODE_COPY);
-        LICE_FillRect(drawbm,drawposx,r.top + offs,w,height, LICE_RGBA(0,128,255,255),alpha,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,drawposx,r.top,w,endpos, col,.25,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,drawposx,r.top + offs,w,height, col,alpha,LICE_BLIT_MODE_COPY);
       }
       else
       {
-        LICE_FillRect(drawbm,r.left,drawposx,usedw,w, LICE_RGBA(0,128,255,255),.125,LICE_BLIT_MODE_COPY);
-        LICE_FillRect(drawbm,r.left+offs,drawposx,height,w, LICE_RGBA(0,128,255,255),alpha,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,r.left,drawposx,usedw,w, col,.25,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,r.left+offs,drawposx,height,w, col,alpha,LICE_BLIT_MODE_COPY);
       }
     }
   }
