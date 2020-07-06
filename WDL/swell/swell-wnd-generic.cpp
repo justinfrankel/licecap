@@ -7248,7 +7248,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       return (LRESULT)(hwnd->m_font ? hwnd->m_font : SWELL_GetDefaultFont());
 
     case WM_DROPFILES:
-        if (hwnd->m_parent && wParam)
+        if (hwnd->m_parent && wParam && !(GetWindowLong(hwnd,GWL_EXSTYLE)&WS_EX_ACCEPTFILES))
         {
           DROPFILES *df=(DROPFILES*)wParam;
           ClientToScreen(hwnd,&df->pt);
