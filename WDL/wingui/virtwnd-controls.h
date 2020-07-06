@@ -346,6 +346,8 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetViewOffset(int offs);
     int GetViewOffset();
 
+    RECT *GetScrollButtonRect(bool isDown);
+
     // idx<0 means return count of items
     int (*m_GetItemInfo)(WDL_VirtualListBox *sender, int idx, char *nameout, int namelen, int *color, WDL_VirtualWnd_BGCfg **bkbg);
     void (*m_CustomDraw)(WDL_VirtualListBox *sender, int idx, RECT *r, LICE_IBitmap *drawbm, int rscale);

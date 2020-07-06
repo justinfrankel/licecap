@@ -931,3 +931,40 @@ int WDL_VirtualListBox::GetItemHeight(int idx, int *flag)
   if (flag) *flag = a<0 ? 0 : (a&~ITEMH_MASK);
   return a>=0 ? (a&ITEMH_MASK) : GetRowHeight();
 }
+
+RECT *WDL_VirtualListBox::GetScrollButtonRect(bool isDown)
+{
+  // used for accessibility!
+  static RECT ret;
+
+  int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  layout_info layout;
+  CalcLayout(num_items,&layout);
+
+  int start,sz;
+  int sb = ScrollbarGetInfo(&start,&sz,num_items,layout);
+
+  if (sb == 1 && layout.vscrollbar_w>0)
+  {
+    if (isDown && start+sz >= layout.item_area_h) return NULL;
+    if (!isDown && start <= 0) return NULL;
+
+    ret.left = layout.item_area_w;
+    ret.right = ret.left + layout.vscrollbar_w;
+    ret.top = isDown ? start+sz : start - layout.vscrollbar_w;
+    ret.bottom = ret.top + layout.vscrollbar_w;
+    return &ret;
+  }
+  if (sb ==2 && layout.hscrollbar_h>0)
+  {
+    if (isDown && start+sz >= layout.item_area_w) return NULL;
+    if (!isDown && start <= 0) return NULL;
+    ret.top = layout.item_area_h;
+    ret.bottom = ret.top + layout.hscrollbar_h;
+    ret.left = isDown ? start+sz : start - layout.hscrollbar_h;
+    ret.right = ret.left + layout.hscrollbar_h;
+    return &ret;
+  }
+
+  return NULL;
+}
