@@ -527,18 +527,20 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   }
   else if (dir > 0 && layout->columns>1)
   {
-    int y=0,i=1;
+    int y=0;
     if (AreItemsLeftToRightFirst(*layout))
     {
       m_viewoffs+=layout->columns;
+      y++;
     }
-    else for (i = 0;  i < layout->heights->GetSize(); i ++)
+    else for (int i = 0;  i < layout->heights->GetSize(); i ++)
     {
+      m_viewoffs++;
       y += layout->GetHeight(i);
       if (y >= layout->item_area_h) break;
-      m_viewoffs++;
     }
-    if (i) RequestRedraw(NULL);
+    if (y)
+      RequestRedraw(NULL);
   }
   else if (dir > 0)
   {
