@@ -26,6 +26,8 @@
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
+#define EXPAND_SCROLLBAR_SIZE(sz) ((sz)*2)
+
 WDL_VirtualListBox::WDL_VirtualListBox()
 {
   m_scrollbar_color = RGB(0,128,255);
@@ -479,8 +481,8 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
       int drawposx = stype == 1 ? (r.left + usedw) : (r.top + endpos);
       if (m_scrollbar_expanded)
       {
-        drawposx -= w;
-        w*=2;
+        drawposx -= EXPAND_SCROLLBAR_SIZE(w);
+        w += EXPAND_SCROLLBAR_SIZE(w);
         alpha=1.0f;
       }
       const LICE_pixel col = LICE_RGBA_FROMNATIVE(m_scrollbar_color,255);
@@ -737,13 +739,13 @@ bool WDL_VirtualListBox::ScrollbarHit(int xpos, int ypos, const layout_info &lay
 {
   if (layout.vscrollbar_w>0)
   {
-    int extra = m_scrollbar_expanded ? layout.vscrollbar_w : 0;
+    int extra = m_scrollbar_expanded ? EXPAND_SCROLLBAR_SIZE(layout.vscrollbar_w) : 0;
     return ypos>=0 && ypos < layout.item_area_h &&
            xpos >= layout.item_area_w - extra && xpos < layout.item_area_w + layout.vscrollbar_w;
   }
   else if (layout.hscrollbar_h>0)
   {
-    int extra = m_scrollbar_expanded ? layout.hscrollbar_h : 0;
+    int extra = m_scrollbar_expanded ? EXPAND_SCROLLBAR_SIZE(layout.hscrollbar_h) : 0;
     return xpos>=0 && xpos < layout.item_area_w &&
            ypos >= layout.item_area_h - extra && ypos < layout.item_area_h + layout.hscrollbar_h;
   }
@@ -839,7 +841,7 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
     r->right = ((col+1) * layout.item_area_w) / layout.columns;
     if (col == layout.columns-1 && layout.vscrollbar_w && m_scrollbar_expanded)
     {
-      r->right -= layout.vscrollbar_w; // exclude the expanded-scrollbar area from the rect
+      r->right -= EXPAND_SCROLLBAR_SIZE(layout.vscrollbar_w); // exclude the expanded-scrollbar area from the rect
     }
   }
   return true;
@@ -855,7 +857,7 @@ int WDL_VirtualListBox::IndexFromPt(int x, int y)
 
 int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
 {
-  if (x >= layout.item_area_w - (m_scrollbar_expanded ? layout.vscrollbar_w : 0)) return -2;
+  if (x >= layout.item_area_w - (m_scrollbar_expanded ? EXPAND_SCROLLBAR_SIZE(layout.vscrollbar_w) : 0)) return -2;
 
   if (y < 0 || y >= layout.item_area_h || x < 0)
   {
