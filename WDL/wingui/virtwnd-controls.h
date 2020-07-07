@@ -325,9 +325,10 @@ class WDL_VirtualListBox : public WDL_VWnd
     void SetMaxColWidth(int cw) { m_maxcolwidth=cw; } // 0 = default = allow any sized columns
     void SetMinColWidth(int cw) { m_mincolwidth = cw; } // 0 = default = full width columns
     void SetMargins(int l, int r) { m_margin_l=l; m_margin_r=r; }
-    void SetScrollbarSize(int sz) { m_scrollbar_size = sz; }
+    void SetScrollbarSize(int sz, int borderl=1) { m_scrollbar_size = sz; m_scrollbar_border=borderl; }
     int GetScrollbarSize() const { return m_scrollbar_size; }
-    void SetScrollbarColor(COLORREF color) { m_scrollbar_color = color; }
+    void SetScrollbarColor(LICE_pixel color, float alpha=1.0f, int blendmode=0) { m_scrollbar_color = color; m_scrollbar_alpha=alpha; m_scrollbar_blendmode=blendmode; }
+    bool IsScrollbarHovered() const { return m_scrollbar_expanded; }
     int GetRowHeight() { return m_rh; }
     int GetItemHeight(int idx, int *flag=NULL); // flag gets set to 0 or ITEMH_FLAG_NOSQUISH etc
     int GetMaxColWidth() { return m_maxcolwidth; }
@@ -391,8 +392,10 @@ class WDL_VirtualListBox : public WDL_VWnd
     int m_rh;
     int m_maxcolwidth, m_mincolwidth;
     int m_colgap;
-    int m_scrollbar_size;
-    COLORREF m_scrollbar_color;
+    int m_scrollbar_size,m_scrollbar_border;
+    LICE_pixel m_scrollbar_color;
+    int m_scrollbar_blendmode;
+    float m_scrollbar_alpha;
     int m_lsadj;
     LICE_IFont *m_font;
     bool m_grayed;

@@ -30,8 +30,11 @@
 
 WDL_VirtualListBox::WDL_VirtualListBox()
 {
-  m_scrollbar_color = RGB(0,128,255);
-  m_scrollbar_size=3;
+  m_scrollbar_color = LICE_RGBA(0,128,255,255);
+  m_scrollbar_blendmode=LICE_BLIT_MODE_COPY;
+  m_scrollbar_alpha = 1.0f;
+  m_scrollbar_size=4;
+  m_scrollbar_border=1;
   m_scrollbar_expanded = false;
   m_disable_ltr_cols = false;
   m_cap_startitem=-1;
@@ -477,25 +480,35 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
       }
 
       int w = stype == 1 ? vscrollsize : (layout.hscrollbar_h * rscale / WDL_VWND_SCALEBASE);
-      float alpha = .4f;
       int drawposx = stype == 1 ? (r.left + usedw) : (r.top + endpos);
       if (m_scrollbar_expanded)
       {
         drawposx -= EXPAND_SCROLLBAR_SIZE(w);
         w += EXPAND_SCROLLBAR_SIZE(w);
-        alpha=0.8f;
       }
-      const LICE_pixel col = LICE_RGBA_FROMNATIVE(m_scrollbar_color,255);
+      else
+      {
+        int border = m_scrollbar_border * rscale / WDL_VWND_SCALEBASE;
+        if (border>0 && border < w)
+        {
+          w-=border;
+          drawposx+=border;
+        }
+      }
+
+      const LICE_pixel col = m_scrollbar_color;
+      const int mode = m_scrollbar_blendmode;
+      const float alpha = m_scrollbar_alpha;
       if (stype == 1)
       {
-        LICE_FillRect(drawbm,drawposx,r.top,w,endpos, col,alpha*.3f,LICE_BLIT_MODE_COPY);
-        LICE_FillRect(drawbm,drawposx,r.top + offs,w,height, col,alpha,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,drawposx,r.top,w,endpos, col,alpha*.5f,mode);
+        LICE_FillRect(drawbm,drawposx,r.top + offs,w,height, col,alpha,mode);
       }
       else
       {
         if (drawposx+w > r.bottom) w = r.bottom - drawposx;
-        LICE_FillRect(drawbm,r.left,drawposx,usedw,w, col,alpha*.3f,LICE_BLIT_MODE_COPY);
-        LICE_FillRect(drawbm,r.left+offs,drawposx,height,w, col,alpha,LICE_BLIT_MODE_COPY);
+        LICE_FillRect(drawbm,r.left,drawposx,usedw,w, col,alpha*.5f,mode);
+        LICE_FillRect(drawbm,r.left+offs,drawposx,height,w, col,alpha,mode);
       }
     }
   }
