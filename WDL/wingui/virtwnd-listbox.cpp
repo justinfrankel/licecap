@@ -128,9 +128,9 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
     if (m_GetItemHeight == NULL && !m_disable_ltr_cols && use_col>1 && h >= rh_base*2)
     {
       int viscnt = use_col * (h/rh_base);
-      if (startitem + viscnt > num_items + use_col)
+      if (startitem + viscnt > num_items + use_col-1)
       {
-        startitem = num_items+use_col-viscnt;
+        startitem = num_items-viscnt + use_col-1;
         if (startitem < 0) startitem=0;
       }
     }
@@ -142,10 +142,9 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
 
       while (startitem > 0)
       {
-
         int flag=0;
         int rh = GetItemHeight(startitem-1, &flag);
-        if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols2 - (use_col>1 ? 1 : 0),rh_base)) break;
+        if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols,rh_base)) break;
         s_heights.Insert(rh | flag,0);
         startitem--;
       }
@@ -257,17 +256,16 @@ int WDL_VirtualListBox::ScrollbarGetInfo(int *start, int *size, int num_items, c
   {
     if (layout.hscrollbar_h)
     {
-      const int total = wdl_max(num_items,0) + 1;
+      const int total = wdl_max(num_items,1);
       const int cols = wdl_max(layout.columns,1);
       int vis = (layout.heights->GetSize() + cols - 1);
       vis -= (vis % cols);
       if (vis < cols) vis=cols;
 
-      *size = (vis * layout.item_area_w) / total;
-      if (total > vis)
-        *start = (layout.startpos * (layout.item_area_w - *size)) / (total-vis);
-      else
-        *start = 0;
+      int startp = (layout.startpos * layout.item_area_w) / total;
+      int endp = ((layout.startpos + vis)  * layout.item_area_w) / total;
+      *start = startp;
+      *size = endp-startp;
 
       if (*size<2) { if (*start>0) (*start)--; *size=2; }
       if (*start + *size > layout.item_area_w) *start = layout.item_area_w - *size;
@@ -279,15 +277,17 @@ int WDL_VirtualListBox::ScrollbarGetInfo(int *start, int *size, int num_items, c
   }
 
   const int num_cols = wdl_max(layout.columns,1);
-  const int total_rows = wdl_max(num_items / num_cols,0) + 1;
+  const int total_rows = wdl_max((num_items+num_cols-1) / num_cols,1);
   const int rh_base = wdl_max(GetRowHeight(),1);
-  const int vis_rows = wdl_clamp(layout.item_area_h / rh_base,1,total_rows);
+  const int vis_rows =
+    layout.columns > 1 ?  wdl_clamp(layout.item_area_h / rh_base,1,total_rows) :
+      wdl_clamp(layout.heights->GetSize(),1,total_rows);
 
-  *size = (vis_rows * layout.item_area_h) / total_rows;
-  if (total_rows > vis_rows)
-    *start = (layout.startpos/num_cols * (layout.item_area_h - *size)) / (total_rows-vis_rows);
-  else
-    *start = 0;
+  const int srow = layout.startpos/num_cols;
+  int startp = (srow * layout.item_area_h) / total_rows;
+  int endp = ((srow + vis_rows)  * layout.item_area_h) / total_rows;
+  *start = startp;
+  *size = endp-startp;
   if (*size<2) { if (*start>0) (*start)--; *size=2; }
   if (*start + *size > layout.item_area_h) *start = layout.item_area_h - *size;
   if (*start < 0) *start=0;
