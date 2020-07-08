@@ -158,8 +158,12 @@ int SWELL_IsRetinaHWND(HWND hwnd)
   if (w)
   {
     NSRect r=NSMakeRect(0,0,1,1);
+#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_6
+    NSRect str = [w convertRectToBacking:r];
+#else
     NSRect (*tmp)(id receiver, SEL operation, NSRect) = (NSRect (*)(id, SEL, NSRect))objc_msgSend_stret;
     NSRect str = tmp(w,sel_getUid("convertRectToBacking:"),r);
+#endif
 
     if (str.size.width > 1.9) return 1;
   }
