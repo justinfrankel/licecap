@@ -27,6 +27,7 @@ ifeq ($(UNAME_S),Darwin)
   COMPILER=CLANG
 else
   DLL_EXT=.so
+  CFLAGS += -D_FILE_OFFSET_BITS=64
 endif
 
 ifeq ($(COMPILER),CLANG)

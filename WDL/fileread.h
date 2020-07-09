@@ -57,6 +57,10 @@
       #include <sys/param.h>
       #include <sys/mount.h>
    #endif
+   extern struct stat wdl_stat_chk;
+   // if this fails on linux, use CFLAGS += -D_FILE_OFFSET_BITS=64
+   typedef char wdl_fileread_assert_failed_stat_not_64[sizeof(wdl_stat_chk.st_size)!=8 ? -1 : 1];
+   typedef char wdl_fileread_assert_failed_off_t_64[sizeof(off_t)!=8 ? -1 : 1];
   #endif
   
 #endif
@@ -688,9 +692,8 @@ public:
       DWORD l=GetFileSize(m_fh,&h);
       m_fsize=(((WDL_FILEREAD_POSTYPE)h)<<32)|l;
 #elif defined(WDL_POSIX_NATIVE_READ)
-      struct stat64 st;
-      if (!fstat64(m_filedes,&st))  m_fsize = st.st_size;
-
+      struct stat st;
+      if (!fstat(m_filedes,&st))  m_fsize = st.st_size;
 #endif
     }
 

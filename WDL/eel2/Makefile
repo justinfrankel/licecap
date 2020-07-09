@@ -9,6 +9,8 @@ else
 CFLAGS += -DNDEBUG -O
 endif
 
+CFLAGS += -D_FILE_OFFSET_BITS=64
+
 OBJS=nseel-caltab.o nseel-compiler.o nseel-eval.o nseel-lextab.o nseel-ram.o nseel-yylex.o nseel-cfunc.o fft.o
 
 OBJS2=

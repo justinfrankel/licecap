@@ -120,6 +120,9 @@ void BrowseFile_SetTemplate(const char *dlgid, DLGPROC dlgProc, struct SWELL_Dia
   BFSF_Templ_dlgproc=dlgProc;
 }
 
+extern struct stat stat_chk;
+typedef char assert_failed_stat_not_64[sizeof(stat_chk.st_size)!=8 ? -1 : 1];
+
 class BrowseFile_State
 {
 public:
@@ -324,9 +327,10 @@ public:
           if (!*f) continue; // did not match
         }
         snprintf(tmp,sizeof(tmp),"%s/%s",path,ent->d_name);
-        struct stat64 st={0,};
-        stat64(tmp,&st);
-      
+
+        struct stat st={0,};
+        stat(tmp,&st);
+
         rec r = { st.st_size, st.st_mtime, strdup(ent->d_name), is_dir?1:2 } ;
         viewlist_store.Add(&r,1);
       }
@@ -825,7 +829,7 @@ treatAsDir:
                  if (!buf[0]) return 0;
                  else  
                  {
-                   struct stat64 st={0,};
+                   struct stat st={0,};
                    DIR *dir = opendir(buf);
                    if (dir)
                    {
@@ -836,7 +840,7 @@ treatAsDir:
                      return 0;
                    }
                    if (buf[strlen(buf)-1] == '/') goto treatAsDir;
-                   if (!stat64(buf,&st))
+                   if (!stat(buf,&st))
                    {
                      snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%.1000s\r\n\r\nOverwrite?",buf);
                      if (MessageBox(hwnd,msg,"Overwrite file?",MB_OKCANCEL)==IDCANCEL) return 0;
@@ -847,7 +851,7 @@ treatAsDir:
                  if (!buf[0]) return 0;
                  else  
                  {
-                   struct stat64 st={0,};
+                   struct stat st={0,};
                    DIR *dir = opendir(buf);
                    if (dir)
                    {
@@ -857,7 +861,7 @@ treatAsDir:
                      SendMessage(hwnd,WM_UPD,1,0);
                      return 0;
                    }
-                   if (stat64(buf,&st))
+                   if (stat(buf,&st))
                    {
                      //snprintf(msg,sizeof(msg),"File does not exist:\r\n\r\n%s",buf);
                      //MessageBox(hwnd,msg,"File not found",MB_OK);

@@ -53,6 +53,10 @@
     #include <sys/stat.h>
     #include <sys/errno.h>
     #define WDL_POSIX_NATIVE_WRITE
+    extern struct stat wdl_stat_chk;
+    // if this fails on linux, use CFLAGS += -D_FILE_OFFSET_BITS=64
+    typedef char wdl_filewrite_assert_failed_stat_not_64[sizeof(wdl_stat_chk.st_size)!=8 ? -1 : 1];
+    typedef char wdl_filewrite_assert_failed_off_t_64[sizeof(off_t)!=8 ? -1 : 1];
   #endif
 #endif
 
@@ -254,8 +258,8 @@ public:
         }
         else
         {
-          struct stat64 st;
-          if (!fstat64(m_filedes,&st))  SetPosition(st.st_size);
+          struct stat st;
+          if (!fstat(m_filedes,&st))  SetPosition(st.st_size);
         }
       }
 
