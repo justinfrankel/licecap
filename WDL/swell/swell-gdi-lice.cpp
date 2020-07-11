@@ -133,13 +133,6 @@ const char *swell_enumFontFiles(int x)
 }
 
 
-static const char *stristr(const char *a, const char *b)
-{
-  const size_t blen = strlen(b);
-  while (*a && strnicmp(a,b,blen)) a++;
-  return *a ? a : NULL;
-}
-
 static void ScanFontDirectory(const char *path, int maxrec=3)
 {
   WDL_DirScan ds;
@@ -257,11 +250,11 @@ static FT_Face MatchFont(const char *lfFaceName, int weight, int italic, int exa
         dash++;
       }
 
-      if (stristr(residual,"Regular")) s.score2 -= 7; // ignore "Regular"
-      if (italic && stristr(residual,"Italic")) s.score2 -= 6+7;
-      else if (italic && stristr(residual,"Oblique")) s.score2 -= 7+3; // if Italic isnt available, use Oblique
-      if (weight >= FW_BOLD && stristr(residual,"Bold")) s.score2 -= 4+7;
-      else if (weight <= FW_LIGHT && stristr(residual,"Light")) s.score2 -= 5+7;
+      if (WDL_stristr(residual,"Regular")) s.score2 -= 7; // ignore "Regular"
+      if (italic && WDL_stristr(residual,"Italic")) s.score2 -= 6+7;
+      else if (italic && WDL_stristr(residual,"Oblique")) s.score2 -= 7+3; // if Italic isnt available, use Oblique
+      if (weight >= FW_BOLD && WDL_stristr(residual,"Bold")) s.score2 -= 4+7;
+      else if (weight <= FW_LIGHT && WDL_stristr(residual,"Light")) s.score2 -= 5+7;
 
       if (ext > residual && ext <= residual+2)
       {

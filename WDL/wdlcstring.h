@@ -94,6 +94,7 @@ extern "C" {
   #endif
 
   int WDL_strcmp_logical(const char *s1, const char *s2, int case_sensitive);
+  const char *WDL_stristr(const char* a, const char* b);
 #else
 
 
@@ -344,6 +345,17 @@ extern "C" {
       else if (c1 != '0') lastNonZeroChar=c1;
     }
   }
+  _WDL_CSTRING_PREFIX const char *WDL_stristr(const char* a, const char* b)
+  {
+    const size_t blen = strlen(b);
+    while (*a)
+    {
+      if (!strnicmp(a, b, blen)) return a;
+      a++;
+    }
+    return NULL;
+  }
+
 
 #endif
 
