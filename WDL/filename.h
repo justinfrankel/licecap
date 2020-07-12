@@ -49,12 +49,12 @@ static WDL_STATICFUNC_UNUSED char WDL_filename_filterchar(char p, char repl='_',
 // used for filename portion, typically (not whole filenames)
 static WDL_STATICFUNC_UNUSED void WDL_filename_filterstr(char *str, char repl='_', bool filterSlashes=true)
 {
-  const char *rd = str;
-  char *wr = str;
+  char *rd = str, *wr = str, lc = WDL_DIRCHAR;
   while (*rd)
   {
     char r=WDL_filename_filterchar(*rd++,repl,filterSlashes);
-    if (r) *wr++ = r;
+    if (!r || (WDL_IS_DIRCHAR(r) && WDL_IS_DIRCHAR(lc))) continue; // filter multiple slashes in a row, or leading slash
+    *wr++ = lc = r;
   }
   *wr=0;
 }
