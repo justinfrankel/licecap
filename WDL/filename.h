@@ -23,11 +23,9 @@
 #ifndef _WDL_FILENAME_H_
 #define _WDL_FILENAME_H_
 
-#include <stdio.h>
-#include <stdarg.h>
+#include "wdltypes.h"
 
-
-static char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
+static WDL_STATICFUNC_UNUSED char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=true)
 {
   if (p == '?'  || 
       p == '*'  ||
@@ -48,16 +46,17 @@ static char WDL_filename_filterchar(char p, char repl='_', bool filterSlashes=tr
   return p;
 }
 
-
-static void WDL_filename_filterstr(char *buf, char repl='_', bool filterSlashes=true)
+// used for filename portion, typically (not whole filenames)
+static WDL_STATICFUNC_UNUSED void WDL_filename_filterstr(char *str, char repl='_', bool filterSlashes=true)
 {
-  char *rd = buf;
+  const char *rd = str;
+  char *wr = str;
   while (*rd)
   {
     char r=WDL_filename_filterchar(*rd++,repl,filterSlashes);
-    if (r) *buf++ = r;
+    if (r) *wr++ = r;
   }
-  *buf=0;
+  *wr=0;
 }
 
 
