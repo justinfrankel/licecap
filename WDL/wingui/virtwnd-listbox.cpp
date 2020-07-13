@@ -36,7 +36,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_scrollbar_size=4;
   m_scrollbar_border=1;
   m_scrollbar_expanded = false;
-  m_disable_wordwise_cols = false;
+  m_want_wordwise_cols = false;
   m_cap_startitem=-1;
   m_cap_state=0;
   m_cap_startpos.x = m_cap_startpos.y = 0;
@@ -125,7 +125,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   if (item >= num_items)
   {
     int use_col = wdl_max(min_cols,cols);
-    if (m_GetItemHeight == NULL && !m_disable_wordwise_cols && use_col>1 && h >= rh_base*2)
+    if (m_GetItemHeight == NULL && m_want_wordwise_cols && use_col>1 && h >= rh_base*2)
     {
       int viscnt = use_col * (h/rh_base);
       if (startitem + viscnt > num_items + use_col-1)
@@ -166,7 +166,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   int scroll_mode = 0;
   if (has_scroll)
   {
-    if (cols > 1 && (m_GetItemHeight!=NULL || m_disable_wordwise_cols || h < rh_base*2))
+    if (cols > 1 && (m_GetItemHeight!=NULL || !m_want_wordwise_cols || h < rh_base*2))
       scroll_mode=2;
     else
       scroll_mode=1;
@@ -182,6 +182,20 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
     for (int x = 0; x <adj; x++)
       s_heights.Insert(rh_base,0);
     layout->startpos -= adj;
+  }
+  else if (scroll_mode == 2 && m_GetItemHeight == NULL && rh_base > 0)
+  {
+    const int rowcnt = layout->item_area_h / rh_base;
+    if (rowcnt > 1)
+    {
+      int adj = rowcnt - (layout->startpos%rowcnt);
+      if (adj < rowcnt)
+      {
+        if (adj > s_heights.GetSize()) adj = s_heights.GetSize();
+        layout->startpos += adj;
+        for (int x = 0; x < adj; x++) s_heights.Delete(0);
+      }
+    }
   }
 }
 
